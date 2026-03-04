@@ -4,7 +4,6 @@ import {
   Tooltip, ResponsiveContainer, Cell,
 } from 'recharts'
 import { supabase } from '../../lib/supabase'
-import { isDemoMode, MOTOS } from '../../lib/demoData'
 import Card from '../../components/ui/Card'
 
 const COLORS = ['#74FB71', '#3dba3a', '#1a8a18', '#fbbf24', '#f87171']
@@ -16,11 +15,6 @@ export function FleetUtilization() {
   useEffect(() => { load() }, [])
 
   async function load() {
-    if (isDemoMode()) {
-      setData(MOTOS.map(m => ({ name: m.model, využití: Math.round(Math.random() * 60 + 30) })))
-      setLoading(false)
-      return
-    }
     const { data: perf } = await supabase
       .from('moto_performance')
       .select('moto_id, utilization_rate, motorcycles(model)')
@@ -58,11 +52,6 @@ export function TopMotoRevenue() {
   useEffect(() => { load() }, [])
 
   async function load() {
-    if (isDemoMode()) {
-      setData(MOTOS.slice(0, 5).map(m => ({ name: m.model, tržby: m.price_per_day * 30 })))
-      setLoading(false)
-      return
-    }
     const { data: perf } = await supabase
       .from('moto_performance')
       .select('moto_id, total_revenue, motorcycles(model)')
@@ -102,14 +91,6 @@ export function BranchComparison() {
   useEffect(() => { load() }, [])
 
   async function load() {
-    if (isDemoMode()) {
-      setData([
-        { name: 'Mezná', tržby: 245000, rezervace: 18 },
-        { name: 'Brno', tržby: 189000, rezervace: 14 },
-      ])
-      setLoading(false)
-      return
-    }
     const { data: bp } = await supabase
       .from('branch_performance')
       .select('*, branches(name)')

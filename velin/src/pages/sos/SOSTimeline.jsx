@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { isDemoMode } from '../../lib/demoData'
 
 export default function SOSTimeline({ incidentId }) {
   const [events, setEvents] = useState([])
@@ -11,11 +10,6 @@ export default function SOSTimeline({ incidentId }) {
   }, [incidentId])
 
   async function load() {
-    if (isDemoMode()) {
-      setEvents([])
-      setLoading(false)
-      return
-    }
     setLoading(true)
     const { data } = await supabase
       .from('sos_timeline')

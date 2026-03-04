@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { isDemoMode } from '../../lib/demoData'
+
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import SearchInput from '../../components/ui/SearchInput'
@@ -19,12 +19,6 @@ export default function GeneratedTab() {
   useEffect(() => { load() }, [page, search])
 
   async function load() {
-    if (isDemoMode()) {
-      setDocs([])
-      setTotal(0)
-      setLoading(false)
-      return
-    }
     setLoading(true)
     setError(null)
     try {

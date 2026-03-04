@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { isDemoMode } from '../../lib/demoData'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
@@ -22,12 +21,6 @@ export default function SuppliersTab() {
   useEffect(() => { load() }, [page, search])
 
   async function load() {
-    if (isDemoMode()) {
-      setSuppliers([])
-      setTotal(0)
-      setLoading(false)
-      return
-    }
     setLoading(true)
     let query = supabase.from('suppliers').select('*', { count: 'exact' })
     if (search) query = query.or(`name.ilike.%${search}%,ico.ilike.%${search}%,email.ilike.%${search}%`)

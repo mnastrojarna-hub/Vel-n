@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { isDemoMode, SERVICE_LOG, MOTOS } from '../../lib/demoData'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import StatusBadge from '../../components/ui/StatusBadge'
 
@@ -11,14 +10,6 @@ export default function ServiceSchedule() {
   useEffect(() => { load() }, [])
 
   async function load() {
-    if (isDemoMode()) {
-      setSchedules(SERVICE_LOG.filter(s => s.status === 'planned').map(s => {
-        const moto = MOTOS.find(m => m.id === s.motorcycle_id)
-        return { ...s, next_date: s.date, motorcycles: { model: moto?.model || s.motorcycle_name, spz: moto?.spz || '' } }
-      }))
-      setLoading(false)
-      return
-    }
     setLoading(true)
     const { data } = await supabase
       .from('maintenance_schedules')

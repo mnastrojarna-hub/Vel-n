@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { isDemoMode, SERVICE_LOG, MOTOS } from '../lib/demoData'
+
 import Card from '../components/ui/Card'
 import ServiceSchedule from './service/ServiceSchedule'
 import ServiceLog from './service/ServiceLog'
@@ -14,16 +14,6 @@ export default function Service() {
   useEffect(() => { loadStats() }, [])
 
   async function loadStats() {
-    if (isDemoMode()) {
-      const costArr = SERVICE_LOG.map(s => s.cost).filter(Boolean)
-      const avg = costArr.length > 0 ? costArr.reduce((s, c) => s + c, 0) / costArr.length : 0
-      setStats({
-        planned: SERVICE_LOG.filter(s => s.status === 'planned').length,
-        inService: MOTOS.filter(m => m.status === 'maintenance').length,
-        avgCost: Math.round(avg),
-      })
-      return
-    }
     try {
       const now = new Date()
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
@@ -46,13 +36,7 @@ export default function Service() {
         avgCost: Math.round(avg),
       })
     } catch {
-      const costArr = SERVICE_LOG.map(s => s.cost).filter(Boolean)
-      const avg = costArr.length > 0 ? costArr.reduce((s, c) => s + c, 0) / costArr.length : 0
-      setStats({
-        planned: SERVICE_LOG.filter(s => s.status === 'planned').length,
-        inService: MOTOS.filter(m => m.status === 'maintenance').length,
-        avgCost: Math.round(avg),
-      })
+      setStats({ planned: 0, inService: 0, avgCost: 0 })
     }
   }
 

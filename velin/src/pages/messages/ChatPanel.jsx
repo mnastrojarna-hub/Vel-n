@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
-import { isDemoMode, MESSAGES } from '../../lib/demoData'
 import Button from '../../components/ui/Button'
 
 export default function ChatPanel({ thread }) {
@@ -27,14 +26,6 @@ export default function ChatPanel({ thread }) {
   }, [messages])
 
   async function loadMessages() {
-    if (isDemoMode()) {
-      const demo = MESSAGES.filter(m => m.id === thread.id).map(m => ({
-        id: m.id, content: m.body, channel: m.channel, created_at: m.created_at, read: m.read,
-      }))
-      setMessages(demo.length ? demo : [{ id: 1, content: 'Demo zpráva', channel: 'web', created_at: new Date().toISOString(), read: true }])
-      setLoading(false)
-      return
-    }
     setLoading(true)
     const { data } = await supabase
       .from('messages')
@@ -48,10 +39,6 @@ export default function ChatPanel({ thread }) {
   }
 
   async function loadTemplates() {
-    if (isDemoMode()) {
-      setTemplates([])
-      return
-    }
     const { data } = await supabase.from('message_templates').select('*').order('name')
     setTemplates(data || [])
   }

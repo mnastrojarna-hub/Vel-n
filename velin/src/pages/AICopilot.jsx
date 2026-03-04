@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
-import { isDemoMode } from '../lib/demoData'
+
 import Button from '../components/ui/Button'
 
 export default function AICopilot() {
@@ -16,10 +16,6 @@ export default function AICopilot() {
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
 
   async function loadConversations() {
-    if (isDemoMode()) {
-      setConversations([])
-      return
-    }
     try {
       const { data } = await supabase
         .from('ai_conversations')
@@ -41,13 +37,6 @@ export default function AICopilot() {
   }
 
   async function startNew() {
-    if (isDemoMode()) {
-      const demoConv = { id: `demo-${Date.now()}`, title: 'Nová konverzace', messages: [], updated_at: new Date().toISOString() }
-      setActiveConv(demoConv)
-      setMessages([])
-      setConversations(c => [demoConv, ...c])
-      return
-    }
     try {
       const { data, error } = await supabase
         .from('ai_conversations')

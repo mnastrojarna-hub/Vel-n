@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { isDemoMode } from '../../lib/demoData'
+
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import StatusBadge from '../../components/ui/StatusBadge'
@@ -22,12 +22,6 @@ export default function InvoicesTab() {
   useEffect(() => { load() }, [page, search])
 
   async function load() {
-    if (isDemoMode()) {
-      setInvoices([])
-      setTotal(0)
-      setLoading(false)
-      return
-    }
     setLoading(true)
     setError(null)
     try {

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { isDemoMode, SOS_INCIDENTS } from '../lib/demoData'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import SOSTimeline from './sos/SOSTimeline'
@@ -20,7 +19,6 @@ export default function SOSPanel() {
 
   useEffect(() => {
     load()
-    if (isDemoMode()) return
     // Real-time subscription
     const channel = supabase.channel('sos-realtime')
       .on('postgres_changes', {
@@ -43,11 +41,6 @@ export default function SOSPanel() {
   }, [])
 
   async function load() {
-    if (isDemoMode()) {
-      setIncidents(SOS_INCIDENTS)
-      setLoading(false)
-      return
-    }
     setLoading(true)
     try {
       const { data } = await supabase
@@ -66,7 +59,7 @@ export default function SOSPanel() {
 
       setIncidents([...(data || []), ...(resolved || [])])
     } catch {
-      setIncidents(SOS_INCIDENTS)
+      setIncidents([])
     }
     setLoading(false)
   }

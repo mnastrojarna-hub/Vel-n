@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { isDemoMode } from '../../lib/demoData'
+
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import Card from '../../components/ui/Card'
@@ -14,11 +14,6 @@ export default function TaxTab() {
   useEffect(() => { load() }, [])
 
   async function load() {
-    if (isDemoMode()) {
-      setRecords([])
-      setLoading(false)
-      return
-    }
     setLoading(true)
     const { data, error: err } = await supabase
       .from('tax_records')

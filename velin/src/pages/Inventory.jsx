@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { isDemoMode, INVENTORY } from '../lib/demoData'
+
 import { Table, TRow, TH, TD } from '../components/ui/Table'
 import Button from '../components/ui/Button'
 import SearchInput from '../components/ui/SearchInput'
@@ -26,21 +26,6 @@ export default function Inventory() {
     setLoading(true)
     setError(null)
     try {
-      if (isDemoMode()) {
-        let filtered = [...INVENTORY]
-        if (filters.search) {
-          const s = filters.search.toLowerCase()
-          filtered = filtered.filter(i => i.name.toLowerCase().includes(s) || i.sku.toLowerCase().includes(s))
-        }
-        if (filters.category) filtered = filtered.filter(i => i.category === filters.category)
-        if (filters.stock === 'low') filtered = filtered.filter(i => i.stock <= i.min_stock)
-        if (filters.stock === 'ok') filtered = filtered.filter(i => i.stock > i.min_stock)
-        setTotal(filtered.length)
-        setItems(filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE))
-        setLoading(false)
-        return
-      }
-
       let query = supabase
         .from('inventory')
         .select('*, suppliers(name)', { count: 'exact' })
@@ -60,9 +45,6 @@ export default function Inventory() {
       setTotal(count || 0)
     } catch (e) {
       setError(e.message)
-      // Fallback to demo data
-      setItems(INVENTORY.slice((page - 1) * PER_PAGE, page * PER_PAGE))
-      setTotal(INVENTORY.length)
     } finally {
       setLoading(false)
     }
