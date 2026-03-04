@@ -48,7 +48,21 @@ export function useAdmin(user) {
       setLoading(true)
       setError(null)
       try {
-        const { data, error: fetchError } = await supabase
+        // Nejdřív zjistíme strukturu tabulky
+        const { data: schemaCheck, error: schemaErr } = await supabaseAdmin
+          .from('admin_users')
+          .select('*')
+          .limit(0)
+
+        if (schemaErr) {
+          console.error('admin_users table check failed:', JSON.stringify(schemaErr))
+          setError(`Tabulka admin_users není dostupná: ${schemaErr.message}`)
+          setAdmin(null)
+          setLoading(false)
+          return
+        }
+
+        const { data, error: fetchError } = await supabaseAdmin
           .from('admin_users')
           .select('*')
           .eq('id', user.id)
@@ -57,13 +71,10 @@ export function useAdmin(user) {
         if (fetchError) {
           if (fetchError.code === 'PGRST116') {
             // Auto-provision: první přihlášení — vytvořit admin záznam
-            const newAdmin = {
-              id: user.id,
-              role: 'superadmin',
-            }
+            // Vkládáme jen id, ostatní sloupce by měly mít default
             const { data: created, error: insertErr } = await supabaseAdmin
               .from('admin_users')
-              .insert(newAdmin)
+              .insert({ id: user.id })
               .select()
               .single()
 
@@ -73,11 +84,12 @@ export function useAdmin(user) {
               setBranchAccess(created.branch_access)
               setPermissions(created.permissions)
             } else {
-              console.error('Auto-provision failed:', insertErr)
-              setError(`Nepodařilo se vytvořit admin účet: ${insertErr?.message || 'Neznámá chyba'}`)
+              console.error('Auto-provision failed:', JSON.stringify(insertErr))
+              setError(`Nepodařilo se vytvořit admin účet: ${insertErr?.message || JSON.stringify(insertErr)}`)
               setAdmin(null)
             }
           } else {
+            console.error('Fetch admin failed:', JSON.stringify(fetchError))
             throw fetchError
           }
         } else {
