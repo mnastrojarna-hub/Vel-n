@@ -59,11 +59,7 @@ export function useAdmin(user) {
             // Auto-provision: první přihlášení — vytvořit admin záznam
             const newAdmin = {
               id: user.id,
-              name: user.user_metadata?.name || user.email.split('@')[0],
-              email: user.email,
               role: 'superadmin',
-              branch_access: [],
-              permissions: { all: true },
             }
             const { data: created, error: insertErr } = await supabaseAdmin
               .from('admin_users')
