@@ -21,6 +21,10 @@ import Service from './pages/Service'
 import Messages from './pages/Messages'
 import CMS from './pages/CMS'
 import Statistics from './pages/Statistics'
+import Purchases from './pages/Purchases'
+import Government from './pages/Government'
+import AICopilot from './pages/AICopilot'
+import SOSPanel from './pages/SOSPanel'
 
 export default function App() {
   const { user, loading, signIn, signOut } = useAuth()
@@ -57,9 +61,10 @@ export default function App() {
         <Route path="/zpravy" element={<Messages />} />
         <Route path="/cms" element={<CMS />} />
         <Route path="/statistiky" element={<Statistics />} />
-        <Route path="/nakupy" element={<Placeholder />} />
-        <Route path="/statni-sprava" element={<Placeholder />} />
-        <Route path="/ai-copilot" element={<Placeholder />} />
+        <Route path="/nakupy" element={<Purchases />} />
+        <Route path="/statni-sprava" element={<Government />} />
+        <Route path="/ai-copilot" element={<AICopilot />} />
+        <Route path="/sos" element={<SOSPanel />} />
       </Route>
     </Routes>
   )

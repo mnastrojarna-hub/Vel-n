@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
 
 const NAV = [
   { id: 'dashboard', path: '/', label: 'Velín', icon: '⚡' },
@@ -11,12 +12,13 @@ const NAV = [
   { id: 'documents', path: '/dokumenty', label: 'Dokumenty', icon: '📄' },
   { id: 'inventory', path: '/sklady', label: 'Sklady', icon: '📦' },
   { id: 'service', path: '/servis', label: 'Servis', icon: '🔧' },
-  { id: 'messages', path: '/zpravy', label: 'Zprávy', icon: '💬' },
+  { id: 'messages', path: '/zpravy', label: 'Zprávy', icon: '💬', badgeKey: 'messages' },
   { id: 'cms', path: '/cms', label: 'Web CMS', icon: '🌐' },
   { id: 'stats', path: '/statistiky', label: 'Statistiky', icon: '📊' },
   { id: 'purchases', path: '/nakupy', label: 'Nákupy', icon: '🛒' },
   { id: 'government', path: '/statni-sprava', label: 'Státní správa', icon: '🏛️' },
   { id: 'ai', path: '/ai-copilot', label: 'AI Copilot', icon: '🤖' },
+  { id: 'sos', path: '/sos', label: 'SOS Panel', icon: '🚨', badgeKey: 'sos' },
 ]
 
 const Logo = ({ size = 44 }) => (
@@ -44,8 +46,25 @@ const Logo = ({ size = 44 }) => (
 export default function Sidebar({ admin, onSignOut }) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [badges, setBadges] = useState({ messages: 0, sos: 0 })
   const location = useLocation()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    loadBadges()
+    const interval = setInterval(loadBadges, 15000)
+    return () => clearInterval(interval)
+  }, [])
+
+  async function loadBadges() {
+    try {
+      const [msgRes, sosRes] = await Promise.all([
+        supabase.from('messages').select('id', { count: 'exact', head: true }).eq('read', false),
+        supabase.from('sos_incidents').select('id', { count: 'exact', head: true }).in('status', ['reported', 'acknowledged']),
+      ])
+      setBadges({ messages: msgRes.count || 0, sos: sosRes.count || 0 })
+    } catch {}
+  }
 
   const isActive = (path) => {
     if (path === '/') return location.pathname === '/'
@@ -109,6 +128,17 @@ export default function Sidebar({ admin, onSignOut }) {
             >
               <span className="text-base shrink-0">{item.icon}</span>
               {!collapsed && <span className="flex-1 text-left">{item.label}</span>}
+              {!collapsed && item.badgeKey && badges[item.badgeKey] > 0 && (
+                <span className="flex items-center justify-center shrink-0"
+                  style={{
+                    minWidth: 18, height: 18, borderRadius: 9,
+                    background: item.badgeKey === 'sos' ? '#dc2626' : '#74FB71',
+                    color: item.badgeKey === 'sos' ? '#fff' : '#1a2e22',
+                    fontSize: 9, fontWeight: 800, padding: '0 5px',
+                  }}>
+                  {badges[item.badgeKey]}
+                </span>
+              )}
             </button>
           )
         })}
