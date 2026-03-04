@@ -49,8 +49,30 @@ export function useAdmin(user) {
 
         if (fetchError) {
           if (fetchError.code === 'PGRST116') {
-            setError('Nemáte oprávnění pro přístup do Velínu.')
-            setAdmin(null)
+            // Auto-provision: první přihlášení — vytvořit admin záznam
+            const newAdmin = {
+              id: user.id,
+              name: user.user_metadata?.name || user.email.split('@')[0],
+              email: user.email,
+              role: 'superadmin',
+              branch_access: ['all'],
+              permissions: { all: true },
+            }
+            const { data: created, error: insertErr } = await supabase
+              .from('admin_users')
+              .insert(newAdmin)
+              .select()
+              .single()
+
+            if (!insertErr && created) {
+              setAdmin(created)
+              setRole(created.role)
+              setBranchAccess(created.branch_access)
+              setPermissions(created.permissions)
+            } else {
+              setError('Nepodařilo se vytvořit admin účet. Kontaktujte správce.')
+              setAdmin(null)
+            }
           } else {
             throw fetchError
           }
