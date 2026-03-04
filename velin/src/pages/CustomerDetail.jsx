@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { isDemoMode, CUSTOMERS } from '../lib/demoData'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import StatusBadge from '../components/ui/StatusBadge'
@@ -20,13 +21,24 @@ export default function CustomerDetail() {
 
   async function loadCustomer() {
     setLoading(true)
-    const { data, error: err } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', id)
-      .single()
-    if (err) setError(err.message)
-    else setCustomer(data)
+    if (isDemoMode()) {
+      const found = CUSTOMERS.find(c => String(c.id) === String(id)) || CUSTOMERS[0]
+      setCustomer({ ...found, full_name: found.name })
+      setLoading(false)
+      return
+    }
+    try {
+      const { data, error: err } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', id)
+        .single()
+      if (err) setError(err.message)
+      else setCustomer(data)
+    } catch (e) {
+      const found = CUSTOMERS.find(c => String(c.id) === String(id)) || CUSTOMERS[0]
+      setCustomer({ ...found, full_name: found.name })
+    }
     setLoading(false)
   }
 

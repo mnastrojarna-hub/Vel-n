@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
+const DEMO_ADMIN = {
+  id: 'demo-user',
+  name: 'Demo Admin',
+  email: 'demo@motogo24.cz',
+  role: 'superadmin',
+  branch_access: ['all'],
+  permissions: { all: true },
+}
+
 export function useAdmin(user) {
   const [admin, setAdmin] = useState(null)
   const [role, setRole] = useState(null)
@@ -15,6 +24,15 @@ export function useAdmin(user) {
       setRole(null)
       setBranchAccess(null)
       setPermissions(null)
+      setLoading(false)
+      return
+    }
+
+    if (user._demo) {
+      setAdmin(DEMO_ADMIN)
+      setRole(DEMO_ADMIN.role)
+      setBranchAccess(DEMO_ADMIN.branch_access)
+      setPermissions(DEMO_ADMIN.permissions)
       setLoading(false)
       return
     }

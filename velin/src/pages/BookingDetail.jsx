@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { isDemoMode, BOOKINGS } from '../lib/demoData'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import StatusBadge from '../components/ui/StatusBadge'
@@ -36,13 +37,32 @@ export default function BookingDetail() {
 
   async function loadBooking() {
     setLoading(true)
-    const { data, error: err } = await supabase
-      .from('bookings')
-      .select('*, motorcycles(model, spz, price_per_day), profiles(full_name, email, phone)')
-      .eq('id', id)
-      .single()
-    if (err) setError(err.message)
-    else setBooking(data)
+    if (isDemoMode()) {
+      const found = BOOKINGS.find(b => b.id === id) || BOOKINGS[0]
+      setBooking({
+        ...found,
+        profiles: { full_name: found.customer_name, email: found.customer_email, phone: found.customer_phone },
+        motorcycles: { model: found.motorcycle_name, spz: '', price_per_day: 0 },
+      })
+      setLoading(false)
+      return
+    }
+    try {
+      const { data, error: err } = await supabase
+        .from('bookings')
+        .select('*, motorcycles(model, spz, price_per_day), profiles(full_name, email, phone)')
+        .eq('id', id)
+        .single()
+      if (err) setError(err.message)
+      else setBooking(data)
+    } catch (e) {
+      const found = BOOKINGS.find(b => b.id === id) || BOOKINGS[0]
+      setBooking({
+        ...found,
+        profiles: { full_name: found.customer_name, email: found.customer_email, phone: found.customer_phone },
+        motorcycles: { model: found.motorcycle_name, spz: '', price_per_day: 0 },
+      })
+    }
     setLoading(false)
   }
 

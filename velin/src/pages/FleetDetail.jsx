@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { isDemoMode, MOTOS, BOOKINGS, SERVICE_LOG } from '../lib/demoData'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import StatusBadge from '../components/ui/StatusBadge'
@@ -22,13 +23,24 @@ export default function FleetDetail() {
 
   async function loadMoto() {
     setLoading(true)
-    const { data, error: err } = await supabase
-      .from('motorcycles')
-      .select('*, branches(name)')
-      .eq('id', id)
-      .single()
-    if (err) setError(err.message)
-    else setMoto(data)
+    if (isDemoMode()) {
+      const found = MOTOS.find(m => m.id === id) || MOTOS[0]
+      setMoto({ ...found, branches: { name: found.branch }, km: found.mileage, price_per_day: found.price_per_day })
+      setLoading(false)
+      return
+    }
+    try {
+      const { data, error: err } = await supabase
+        .from('motorcycles')
+        .select('*, branches(name)')
+        .eq('id', id)
+        .single()
+      if (err) setError(err.message)
+      else setMoto(data)
+    } catch (e) {
+      const found = MOTOS.find(m => m.id === id) || MOTOS[0]
+      setMoto({ ...found, branches: { name: found.branch }, km: found.mileage })
+    }
     setLoading(false)
   }
 
