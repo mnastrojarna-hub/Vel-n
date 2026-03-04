@@ -6,6 +6,12 @@ import ProtectedRoute from './components/ProtectedRoute'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Placeholder from './pages/Placeholder'
+import Fleet from './pages/Fleet'
+import FleetDetail from './pages/FleetDetail'
+import Bookings from './pages/Bookings'
+import BookingDetail from './pages/BookingDetail'
+import Customers from './pages/Customers'
+import CustomerDetail from './pages/CustomerDetail'
 
 export default function App() {
   const { user, loading, signIn, signOut } = useAuth()
@@ -27,9 +33,12 @@ export default function App() {
         }
       >
         <Route path="/" element={<Dashboard />} />
-        <Route path="/flotila" element={<Placeholder />} />
-        <Route path="/rezervace" element={<Placeholder />} />
-        <Route path="/zakaznici" element={<Placeholder />} />
+        <Route path="/flotila" element={<Fleet />} />
+        <Route path="/flotila/:id" element={<FleetDetail />} />
+        <Route path="/rezervace" element={<Bookings />} />
+        <Route path="/rezervace/:id" element={<BookingDetail />} />
+        <Route path="/zakaznici" element={<Customers />} />
+        <Route path="/zakaznici/:id" element={<CustomerDetail />} />
         <Route path="/finance" element={<Placeholder />} />
         <Route path="/ucetnictvi" element={<Placeholder />} />
         <Route path="/dokumenty" element={<Placeholder />} />
