@@ -39,7 +39,7 @@ export default function ServiceLog() {
         .select('*, motorcycles(model, spz)', { count: 'exact' })
       if (filters.type) query = query.eq('type', filters.type)
       if (filters.search) query = query.or(`motorcycles.model.ilike.%${filters.search}%,motorcycles.spz.ilike.%${filters.search}%`)
-      query = query.order('scheduled_date', { ascending: false }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
+      query = query.order('created_at', { ascending: false }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       const { data, count, error: err } = await query
       if (err) throw err
       setLogs(data || [])
@@ -85,7 +85,7 @@ export default function ServiceLog() {
                   <TD bold>{l.motorcycles?.model || '—'}</TD>
                   <TD mono>{l.motorcycles?.spz || '—'}</TD>
                   <TD>{TYPE_LABELS[l.type] || l.type || '—'}</TD>
-                  <TD>{l.scheduled_date ? new Date(l.scheduled_date).toLocaleDateString('cs-CZ') : '—'}</TD>
+                  <TD>{l.created_at ? new Date(l.created_at).toLocaleDateString('cs-CZ') : '—'}</TD>
                   <TD>{l.completed_date ? new Date(l.completed_date).toLocaleDateString('cs-CZ') : '—'}</TD>
                   <TD bold>{fmt(l.cost)}</TD>
                   <TD><StatusBadge status={l.status || 'pending'} /></TD>
@@ -129,7 +129,8 @@ function ServiceModal({ entry, onClose, onSaved }) {
   async function handleSave() {
     setSaving(true); setErr(null)
     try {
-      const payload = { ...form, cost: Number(form.cost) || null }
+      const { scheduled_date: _sd, ...rest } = form
+      const payload = { ...rest, cost: Number(rest.cost) || null }
       if (entry) {
         const { error } = await supabase.from('maintenance_log').update(payload).eq('id', entry.id)
         if (error) throw error

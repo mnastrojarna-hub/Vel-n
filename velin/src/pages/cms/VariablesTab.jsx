@@ -24,8 +24,7 @@ export default function VariablesTab() {
       return
     }
     setLoading(true)
-    let query = supabase.from('cms_variables').select('*').order('group').order('key')
-    if (filterGroup) query = query.eq('group', filterGroup)
+    let query = supabase.from('cms_variables').select('*').order('key')
     const { data, error: err } = await query
     if (err) setError(err.message)
     else setVars(data || [])
@@ -124,11 +123,12 @@ function VarModal({ entry, onClose, onSaved }) {
   async function handleSave() {
     setSaving(true); setErr(null)
     try {
+      const { group: _g, ...payload } = form
       if (entry) {
-        const { error } = await supabase.from('cms_variables').update(form).eq('id', entry.id)
+        const { error } = await supabase.from('cms_variables').update(payload).eq('id', entry.id)
         if (error) throw error
       } else {
-        const { error } = await supabase.from('cms_variables').insert(form)
+        const { error } = await supabase.from('cms_variables').insert(payload)
         if (error) throw error
       }
       const { data: { user } } = await supabase.auth.getUser()

@@ -82,7 +82,7 @@ export default function Finance() {
   async function loadTransactions() {
     let query = supabase
       .from('accounting_entries')
-      .select('*, bookings(id, motorcycles(model))')
+      .select('*')
       .order('date', { ascending: false })
       .limit(50)
     if (filters.type) query = query.eq('type', filters.type)
@@ -198,7 +198,7 @@ export default function Finance() {
                   <TD>{t.description || '—'}</TD>
                   <TD bold color={t.type === 'revenue' ? '#1a8a18' : '#dc2626'}>{fmt(t.amount)}</TD>
                   <TD>{t.category || '—'}</TD>
-                  <TD mono>{t.bookings?.id ? t.bookings.id.slice(0, 8) : '—'}</TD>
+                  <TD mono>{t.booking_id ? t.booking_id.slice(0, 8) : '—'}</TD>
                 </TRow>
               ))}
               {transactions.length === 0 && <TRow><TD>Žádné transakce</TD></TRow>}

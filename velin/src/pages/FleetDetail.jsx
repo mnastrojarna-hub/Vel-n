@@ -277,7 +277,7 @@ function ServiceTab({ motoId }) {
       setLoading(false)
       return
     }
-    supabase.from('maintenance_log').select('*').eq('moto_id', motoId).order('scheduled_date', { ascending: false })
+    supabase.from('maintenance_log').select('*').eq('moto_id', motoId).order('created_at', { ascending: false })
       .then(({ data }) => { setLogs(data || []); setLoading(false) })
       .catch(() => { setLogs([]); setLoading(false) })
   }, [motoId])
@@ -292,7 +292,7 @@ function ServiceTab({ motoId }) {
             <div key={l.id} className="flex items-center gap-4 p-3 rounded-lg" style={{ background: '#f1faf7' }}>
               <div className="flex-1">
                 <span className="font-bold text-sm">{l.type || 'Servis'}</span>
-                <span className="text-xs ml-3" style={{ color: '#8aab99' }}>{l.scheduled_date}</span>
+                <span className="text-xs ml-3" style={{ color: '#8aab99' }}>{l.created_at?.slice(0, 10)}</span>
               </div>
               <span className="text-sm" style={{ color: '#4a6357' }}>{l.description || '—'}</span>
               <span className="text-sm font-bold">{l.cost ? `${l.cost.toLocaleString('cs-CZ')} Kč` : '—'}</span>
