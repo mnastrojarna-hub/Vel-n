@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { isDemoMode } from '../../lib/demoData'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
@@ -13,6 +14,11 @@ export default function TemplatesTab() {
   useEffect(() => { load() }, [])
 
   async function load() {
+    if (isDemoMode()) {
+      setTemplates([])
+      setLoading(false)
+      return
+    }
     setLoading(true)
     const { data, error: err } = await supabase
       .from('document_templates')

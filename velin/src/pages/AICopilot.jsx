@@ -41,16 +41,25 @@ export default function AICopilot() {
   }
 
   async function startNew() {
-    const { data, error } = await supabase
-      .from('ai_conversations')
-      .insert({ title: 'Nová konverzace', messages: [] })
-      .select()
-      .single()
-    if (!error && data) {
-      setActiveConv(data)
+    if (isDemoMode()) {
+      const demoConv = { id: `demo-${Date.now()}`, title: 'Nová konverzace', messages: [], updated_at: new Date().toISOString() }
+      setActiveConv(demoConv)
       setMessages([])
-      setConversations(c => [data, ...c])
+      setConversations(c => [demoConv, ...c])
+      return
     }
+    try {
+      const { data, error } = await supabase
+        .from('ai_conversations')
+        .insert({ title: 'Nová konverzace', messages: [] })
+        .select()
+        .single()
+      if (!error && data) {
+        setActiveConv(data)
+        setMessages([])
+        setConversations(c => [data, ...c])
+      }
+    } catch {}
   }
 
   async function handleSend() {

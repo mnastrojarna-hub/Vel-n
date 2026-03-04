@@ -199,10 +199,13 @@ function AddBookingModal({ onClose, onSaved }) {
   const [err, setErr] = useState(null)
 
   useEffect(() => {
+    if (isDemoMode()) { return }
     supabase.from('motorcycles').select('id, model, spz').eq('status', 'active').order('model')
       .then(({ data }) => setMotos(data || []))
+      .catch(() => {})
     supabase.from('profiles').select('id, full_name, email').order('full_name')
       .then(({ data }) => setCustomers(data || []))
+      .catch(() => {})
   }, [])
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))

@@ -20,6 +20,7 @@ export default function SOSPanel() {
 
   useEffect(() => {
     load()
+    if (isDemoMode()) return
     // Real-time subscription
     const channel = supabase.channel('sos-realtime')
       .on('postgres_changes', {

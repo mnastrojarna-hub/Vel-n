@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { isDemoMode } from '../../lib/demoData'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 
@@ -18,6 +19,10 @@ export default function CompanyTab() {
   useEffect(() => { load() }, [])
 
   async function load() {
+    if (isDemoMode()) {
+      setLoaded(true)
+      return
+    }
     const { data } = await supabase
       .from('cms_variables')
       .select('key, value')
