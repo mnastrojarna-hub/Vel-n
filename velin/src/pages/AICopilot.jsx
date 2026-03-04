@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { isDemoMode } from '../lib/demoData'
 import Button from '../components/ui/Button'
 
 export default function AICopilot() {
@@ -15,14 +16,22 @@ export default function AICopilot() {
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
 
   async function loadConversations() {
-    const { data } = await supabase
-      .from('ai_conversations')
-      .select('*')
-      .order('updated_at', { ascending: false })
-      .limit(20)
-    setConversations(data || [])
-    if (data && data.length > 0 && !activeConv) {
-      selectConversation(data[0])
+    if (isDemoMode()) {
+      setConversations([])
+      return
+    }
+    try {
+      const { data } = await supabase
+        .from('ai_conversations')
+        .select('*')
+        .order('updated_at', { ascending: false })
+        .limit(20)
+      setConversations(data || [])
+      if (data && data.length > 0 && !activeConv) {
+        selectConversation(data[0])
+      }
+    } catch {
+      setConversations([])
     }
   }
 

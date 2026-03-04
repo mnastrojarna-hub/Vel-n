@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { isDemoMode, SOS_INCIDENTS } from '../lib/demoData'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import SOSTimeline from './sos/SOSTimeline'
@@ -41,22 +42,31 @@ export default function SOSPanel() {
   }, [])
 
   async function load() {
+    if (isDemoMode()) {
+      setIncidents(SOS_INCIDENTS)
+      setLoading(false)
+      return
+    }
     setLoading(true)
-    const { data } = await supabase
-      .from('sos_incidents')
-      .select('*, profiles(full_name, phone), bookings(id, moto_id, motorcycles(model, spz))')
-      .in('status', ['reported', 'acknowledged'])
-      .order('created_at', { ascending: false })
+    try {
+      const { data } = await supabase
+        .from('sos_incidents')
+        .select('*, profiles(full_name, phone), bookings(id, moto_id, motorcycles(model, spz))')
+        .in('status', ['reported', 'acknowledged'])
+        .order('created_at', { ascending: false })
 
-    // Also load resolved recent ones
-    const { data: resolved } = await supabase
-      .from('sos_incidents')
-      .select('*, profiles(full_name, phone), bookings(id, moto_id, motorcycles(model, spz))')
-      .eq('status', 'resolved')
-      .order('created_at', { ascending: false })
-      .limit(5)
+      // Also load resolved recent ones
+      const { data: resolved } = await supabase
+        .from('sos_incidents')
+        .select('*, profiles(full_name, phone), bookings(id, moto_id, motorcycles(model, spz))')
+        .eq('status', 'resolved')
+        .order('created_at', { ascending: false })
+        .limit(5)
 
-    setIncidents([...(data || []), ...(resolved || [])])
+      setIncidents([...(data || []), ...(resolved || [])])
+    } catch {
+      setIncidents(SOS_INCIDENTS)
+    }
     setLoading(false)
   }
 

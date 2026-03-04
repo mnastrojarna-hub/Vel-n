@@ -139,8 +139,10 @@ function CustomerBookings({ userId }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (isDemoMode()) { setBookings([]); setLoading(false); return }
     supabase.from('bookings').select('*, motorcycles(model, spz)').eq('user_id', userId).order('start_date', { ascending: false })
       .then(({ data }) => { setBookings(data || []); setLoading(false) })
+      .catch(() => { setBookings([]); setLoading(false) })
   }, [userId])
 
   if (loading) return <LoadingSpinner />
@@ -171,8 +173,10 @@ function CustomerDocuments({ userId }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (isDemoMode()) { setDocs([]); setLoading(false); return }
     supabase.from('documents').select('*').eq('user_id', userId).order('created_at', { ascending: false })
       .then(({ data }) => { setDocs(data || []); setLoading(false) })
+      .catch(() => { setDocs([]); setLoading(false) })
   }, [userId])
 
   if (loading) return <LoadingSpinner />
@@ -198,8 +202,10 @@ function CustomerReviews({ userId }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (isDemoMode()) { setReviews([]); setLoading(false); return }
     supabase.from('reviews').select('*').eq('user_id', userId).order('created_at', { ascending: false })
       .then(({ data }) => { setReviews(data || []); setLoading(false) })
+      .catch(() => { setReviews([]); setLoading(false) })
   }, [userId])
 
   if (loading) return <LoadingSpinner />
@@ -228,8 +234,10 @@ function CustomerSOS({ userId }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (isDemoMode()) { setIncidents([]); setLoading(false); return }
     supabase.from('sos_incidents').select('*, bookings!inner(user_id)').eq('bookings.user_id', userId).order('created_at', { ascending: false })
       .then(({ data }) => { setIncidents(data || []); setLoading(false) })
+      .catch(() => { setIncidents([]); setLoading(false) })
   }, [userId])
 
   if (loading) return <LoadingSpinner />

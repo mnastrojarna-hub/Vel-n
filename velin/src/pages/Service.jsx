@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { isDemoMode, SERVICE_LOG, MOTOS } from '../lib/demoData'
 import Card from '../components/ui/Card'
 import ServiceSchedule from './service/ServiceSchedule'
 import ServiceLog from './service/ServiceLog'
@@ -13,26 +14,46 @@ export default function Service() {
   useEffect(() => { loadStats() }, [])
 
   async function loadStats() {
-    const now = new Date()
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10)
+    if (isDemoMode()) {
+      const costArr = SERVICE_LOG.map(s => s.cost).filter(Boolean)
+      const avg = costArr.length > 0 ? costArr.reduce((s, c) => s + c, 0) / costArr.length : 0
+      setStats({
+        planned: SERVICE_LOG.filter(s => s.status === 'planned').length,
+        inService: MOTOS.filter(m => m.status === 'maintenance').length,
+        avgCost: Math.round(avg),
+      })
+      return
+    }
+    try {
+      const now = new Date()
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10)
 
-    const [planned, inService, costs] = await Promise.all([
-      supabase.from('maintenance_schedules').select('id', { count: 'exact', head: true })
-        .gte('next_date', monthStart).lte('next_date', monthEnd),
-      supabase.from('motorcycles').select('id', { count: 'exact', head: true })
-        .eq('status', 'maintenance'),
-      supabase.from('maintenance_log').select('cost').not('cost', 'is', null),
-    ])
+      const [planned, inService, costs] = await Promise.all([
+        supabase.from('maintenance_schedules').select('id', { count: 'exact', head: true })
+          .gte('next_date', monthStart).lte('next_date', monthEnd),
+        supabase.from('motorcycles').select('id', { count: 'exact', head: true })
+          .eq('status', 'maintenance'),
+        supabase.from('maintenance_log').select('cost').not('cost', 'is', null),
+      ])
 
-    const costArr = (costs.data || []).map(c => c.cost).filter(Boolean)
-    const avg = costArr.length > 0 ? costArr.reduce((s, c) => s + c, 0) / costArr.length : 0
+      const costArr = (costs.data || []).map(c => c.cost).filter(Boolean)
+      const avg = costArr.length > 0 ? costArr.reduce((s, c) => s + c, 0) / costArr.length : 0
 
-    setStats({
-      planned: planned.count || 0,
-      inService: inService.count || 0,
-      avgCost: Math.round(avg),
-    })
+      setStats({
+        planned: planned.count || 0,
+        inService: inService.count || 0,
+        avgCost: Math.round(avg),
+      })
+    } catch {
+      const costArr = SERVICE_LOG.map(s => s.cost).filter(Boolean)
+      const avg = costArr.length > 0 ? costArr.reduce((s, c) => s + c, 0) / costArr.length : 0
+      setStats({
+        planned: SERVICE_LOG.filter(s => s.status === 'planned').length,
+        inService: MOTOS.filter(m => m.status === 'maintenance').length,
+        avgCost: Math.round(avg),
+      })
+    }
   }
 
   const fmt = (n) => (n || 0).toLocaleString('cs-CZ')

@@ -246,8 +246,10 @@ function DocumentsTab({ bookingId }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (isDemoMode()) { setDocs([]); setLoading(false); return }
     supabase.from('documents').select('*').eq('booking_id', bookingId).order('created_at', { ascending: false })
       .then(({ data }) => { setDocs(data || []); setLoading(false) })
+      .catch(() => { setDocs([]); setLoading(false) })
   }, [bookingId])
 
   if (loading) return <div className="py-8 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
@@ -273,8 +275,10 @@ function PaymentsTab({ bookingId }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (isDemoMode()) { setEntries([]); setLoading(false); return }
     supabase.from('accounting_entries').select('*').eq('booking_id', bookingId).order('created_at', { ascending: false })
       .then(({ data }) => { setEntries(data || []); setLoading(false) })
+      .catch(() => { setEntries([]); setLoading(false) })
   }, [bookingId])
 
   if (loading) return <div className="py-8 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
