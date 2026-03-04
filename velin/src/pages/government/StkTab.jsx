@@ -1,0 +1,72 @@
+import { useState, useEffect } from 'react'
+import { supabase } from '../../lib/supabase'
+import { Table, TRow, TH, TD } from '../../components/ui/Table'
+
+export default function StkTab() {
+  const [motos, setMotos] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => { load() }, [])
+
+  async function load() {
+    setLoading(true)
+    const { data } = await supabase
+      .from('motorcycles')
+      .select('id, model, spz, stk_valid_until, emission_valid_until')
+      .order('stk_valid_until')
+    setMotos(data || [])
+    setLoading(false)
+  }
+
+  function daysUntil(dateStr) {
+    if (!dateStr) return null
+    const diff = Math.ceil((new Date(dateStr) - new Date()) / (1000 * 60 * 60 * 24))
+    return diff
+  }
+
+  function daysColor(days) {
+    if (days === null) return '#8aab99'
+    if (days < 0) return '#dc2626'
+    if (days < 30) return '#dc2626'
+    if (days < 90) return '#b45309'
+    return '#1a8a18'
+  }
+
+  if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
+
+  return (
+    <Table>
+      <thead>
+        <TRow header>
+          <TH>Motorka</TH><TH>SPZ</TH><TH>STK do</TH><TH>Dní do STK</TH>
+          <TH>Emise do</TH><TH>Dní do emisí</TH>
+        </TRow>
+      </thead>
+      <tbody>
+        {motos.map(m => {
+          const stkDays = daysUntil(m.stk_valid_until)
+          const emisDays = daysUntil(m.emission_valid_until)
+          return (
+            <TRow key={m.id}>
+              <TD bold>{m.model}</TD>
+              <TD mono>{m.spz}</TD>
+              <TD>{m.stk_valid_until ? new Date(m.stk_valid_until).toLocaleDateString('cs-CZ') : '—'}</TD>
+              <TD>
+                <span style={{ color: daysColor(stkDays), fontWeight: 700 }}>
+                  {stkDays !== null ? (stkDays < 0 ? `${Math.abs(stkDays)} po` : stkDays) : '—'}
+                </span>
+              </TD>
+              <TD>{m.emission_valid_until ? new Date(m.emission_valid_until).toLocaleDateString('cs-CZ') : '—'}</TD>
+              <TD>
+                <span style={{ color: daysColor(emisDays), fontWeight: 700 }}>
+                  {emisDays !== null ? (emisDays < 0 ? `${Math.abs(emisDays)} po` : emisDays) : '—'}
+                </span>
+              </TD>
+            </TRow>
+          )
+        })}
+        {motos.length === 0 && <TRow><TD>Žádné motorky</TD></TRow>}
+      </tbody>
+    </Table>
+  )
+}

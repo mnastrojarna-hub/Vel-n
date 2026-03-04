@@ -52,6 +52,8 @@ export default function Dashboard() {
         inventoryRes,
         chartRes,
         eventsRes,
+        sosRes,
+        stkRes,
       ] = await Promise.all([
         // Active motorcycles count
         supabase
@@ -91,6 +93,15 @@ export default function Dashboard() {
           .gte('start_date', new Date().toISOString().split('T')[0])
           .order('start_date', { ascending: true })
           .limit(5),
+        // Active SOS incidents
+        supabase
+          .from('sos_incidents')
+          .select('id', { count: 'exact', head: true })
+          .in('status', ['reported', 'acknowledged']),
+        // STK expiring soon
+        supabase
+          .from('motorcycles')
+          .select('id, model, spz, stk_valid_until'),
       ])
 
       // Process motorcycles
@@ -123,6 +134,13 @@ export default function Dashboard() {
       const utilization =
         activeMotos > 0 ? Math.round((activeBookings / activeMotos) * 100) : 0
 
+      // Process SOS
+      const activeSos = sosRes.count || 0
+
+      // Process STK
+      const in30days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+      const stkExpiring = (stkRes.data || []).filter(m => m.stk_valid_until && m.stk_valid_until <= in30days)
+
       setStats({
         activeMotos,
         totalMotos,
@@ -132,6 +150,8 @@ export default function Dashboard() {
         unreadMessages,
         lowStock,
         utilization: Math.min(utilization, 100),
+        activeSos,
+        stkExpiring,
       })
 
       // Process chart data — aggregate by month
@@ -291,6 +311,80 @@ export default function Dashboard() {
                 </div>
               </div>
             ))
+          )}
+        </Card>
+      </div>
+
+      {/* SOS + STK widgets */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+        {/* SOS widget */}
+        <Card>
+          <div className="text-[13px] font-extrabold mb-2.5" style={{ color: '#0f1a14' }}>
+            🚨 SOS Incidenty
+          </div>
+          {stats.activeSos > 0 ? (
+            <div className="flex items-center gap-3">
+              <div
+                className="text-2xl font-black"
+                style={{ color: '#dc2626' }}
+              >
+                {stats.activeSos}
+              </div>
+              <div className="text-xs font-bold" style={{ color: '#dc2626' }}>
+                aktivních incidentů — vyžadují pozornost
+              </div>
+            </div>
+          ) : (
+            <div className="text-xs font-medium" style={{ color: '#1a8a18' }}>
+              ✅ Žádné aktivní incidenty
+            </div>
+          )}
+        </Card>
+
+        {/* STK widget */}
+        <Card>
+          <div className="text-[13px] font-extrabold mb-2.5" style={{ color: '#0f1a14' }}>
+            🏛️ Blížící se STK / Emise
+          </div>
+          {stats.stkExpiring && stats.stkExpiring.length > 0 ? (
+            <div className="space-y-1">
+              {stats.stkExpiring.slice(0, 4).map((m) => {
+                const days = Math.ceil(
+                  (new Date(m.stk_valid_until) - new Date()) / (1000 * 60 * 60 * 24)
+                )
+                return (
+                  <div
+                    key={m.id}
+                    className="flex items-center text-xs"
+                    style={{
+                      padding: '6px 10px',
+                      background: days < 0 ? '#fee2e2' : '#fef3c7',
+                      borderRadius: 8,
+                    }}
+                  >
+                    <span className="font-bold" style={{ color: '#0f1a14' }}>
+                      {m.model}
+                    </span>
+                    <span
+                      className="ml-2 font-mono text-[10px]"
+                      style={{ color: '#8aab99' }}
+                    >
+                      {m.spz}
+                    </span>
+                    <span
+                      className="ml-auto font-bold"
+                      style={{ color: days < 0 ? '#dc2626' : '#b45309' }}
+                    >
+                      {days < 0 ? `${Math.abs(days)} dní po` : `za ${days} dní`}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="text-xs font-medium" style={{ color: '#1a8a18' }}>
+              ✅ Žádné STK nevyprší v nejbližších 30 dnech
+            </div>
           )}
         </Card>
       </div>
