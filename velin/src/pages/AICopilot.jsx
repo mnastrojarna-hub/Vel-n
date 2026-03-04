@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { isDemoMode } from '../lib/demoData'
 import Button from '../components/ui/Button'
 
 export default function AICopilot() {
@@ -15,14 +16,22 @@ export default function AICopilot() {
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
 
   async function loadConversations() {
-    const { data } = await supabase
-      .from('ai_conversations')
-      .select('*')
-      .order('updated_at', { ascending: false })
-      .limit(20)
-    setConversations(data || [])
-    if (data && data.length > 0 && !activeConv) {
-      selectConversation(data[0])
+    if (isDemoMode()) {
+      setConversations([])
+      return
+    }
+    try {
+      const { data } = await supabase
+        .from('ai_conversations')
+        .select('*')
+        .order('updated_at', { ascending: false })
+        .limit(20)
+      setConversations(data || [])
+      if (data && data.length > 0 && !activeConv) {
+        selectConversation(data[0])
+      }
+    } catch {
+      setConversations([])
     }
   }
 
@@ -32,16 +41,25 @@ export default function AICopilot() {
   }
 
   async function startNew() {
-    const { data, error } = await supabase
-      .from('ai_conversations')
-      .insert({ title: 'Nová konverzace', messages: [] })
-      .select()
-      .single()
-    if (!error && data) {
-      setActiveConv(data)
+    if (isDemoMode()) {
+      const demoConv = { id: `demo-${Date.now()}`, title: 'Nová konverzace', messages: [], updated_at: new Date().toISOString() }
+      setActiveConv(demoConv)
       setMessages([])
-      setConversations(c => [data, ...c])
+      setConversations(c => [demoConv, ...c])
+      return
     }
+    try {
+      const { data, error } = await supabase
+        .from('ai_conversations')
+        .insert({ title: 'Nová konverzace', messages: [] })
+        .select()
+        .single()
+      if (!error && data) {
+        setActiveConv(data)
+        setMessages([])
+        setConversations(c => [data, ...c])
+      }
+    } catch {}
   }
 
   async function handleSend() {

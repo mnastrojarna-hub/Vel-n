@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { isDemoMode, INVENTORY } from '../lib/demoData'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
@@ -22,23 +23,39 @@ export default function InventoryDetail() {
 
   async function loadItem() {
     setLoading(true)
-    const { data, error: err } = await supabase
-      .from('inventory')
-      .select('*, suppliers(name)')
-      .eq('id', id)
-      .single()
-    if (err) setError(err.message)
-    else setItem(data)
+    if (isDemoMode()) {
+      const found = INVENTORY.find(i => String(i.id) === String(id)) || INVENTORY[0]
+      setItem({ ...found, suppliers: { name: '—' } })
+      setLoading(false)
+      return
+    }
+    try {
+      const { data, error: err } = await supabase
+        .from('inventory')
+        .select('*, suppliers(name)')
+        .eq('id', id)
+        .single()
+      if (err) setError(err.message)
+      else setItem(data)
+    } catch (e) {
+      const found = INVENTORY.find(i => String(i.id) === String(id)) || INVENTORY[0]
+      setItem({ ...found, suppliers: { name: '—' } })
+    }
     setLoading(false)
   }
 
   async function loadMovements() {
-    const { data } = await supabase
-      .from('inventory_movements')
-      .select('*')
-      .eq('item_id', id)
-      .order('created_at', { ascending: false })
-    if (data) setMovements(data)
+    if (isDemoMode()) { setMovements([]); return }
+    try {
+      const { data } = await supabase
+        .from('inventory_movements')
+        .select('*')
+        .eq('item_id', id)
+        .order('created_at', { ascending: false })
+      if (data) setMovements(data)
+    } catch {
+      setMovements([])
+    }
   }
 
   async function handleSave() {

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { isDemoMode } from '../../lib/demoData'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import SearchInput from '../../components/ui/SearchInput'
 import Pagination from '../../components/ui/Pagination'
@@ -19,6 +20,12 @@ export default function UploadedTab() {
   useEffect(() => { load() }, [page, search])
 
   async function load() {
+    if (isDemoMode()) {
+      setDocs([])
+      setTotal(0)
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setError(null)
     try {

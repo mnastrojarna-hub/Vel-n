@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { isDemoMode, MOTOS, BOOKINGS, SERVICE_LOG } from '../lib/demoData'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import StatusBadge from '../components/ui/StatusBadge'
@@ -22,13 +23,24 @@ export default function FleetDetail() {
 
   async function loadMoto() {
     setLoading(true)
-    const { data, error: err } = await supabase
-      .from('motorcycles')
-      .select('*, branches(name)')
-      .eq('id', id)
-      .single()
-    if (err) setError(err.message)
-    else setMoto(data)
+    if (isDemoMode()) {
+      const found = MOTOS.find(m => m.id === id) || MOTOS[0]
+      setMoto({ ...found, branches: { name: found.branch }, km: found.mileage, price_per_day: found.price_per_day })
+      setLoading(false)
+      return
+    }
+    try {
+      const { data, error: err } = await supabase
+        .from('motorcycles')
+        .select('*, branches(name)')
+        .eq('id', id)
+        .single()
+      if (err) setError(err.message)
+      else setMoto(data)
+    } catch (e) {
+      const found = MOTOS.find(m => m.id === id) || MOTOS[0]
+      setMoto({ ...found, branches: { name: found.branch }, km: found.mileage })
+    }
     setLoading(false)
   }
 
@@ -170,8 +182,11 @@ function PhotoGallery({ motoId }) {
   useEffect(() => { loadPhotos() }, [motoId])
 
   async function loadPhotos() {
-    const { data } = await supabase.storage.from('media').list(`motos/${motoId}`)
-    if (data) setPhotos(data.filter(f => f.name !== '.emptyFolderPlaceholder'))
+    if (isDemoMode()) { setPhotos([]); return }
+    try {
+      const { data } = await supabase.storage.from('media').list(`motos/${motoId}`)
+      if (data) setPhotos(data.filter(f => f.name !== '.emptyFolderPlaceholder'))
+    } catch { setPhotos([]) }
   }
 
   async function handleUpload(e) {
@@ -216,8 +231,16 @@ function BookingsTab({ motoId }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (isDemoMode()) {
+      setBookings(BOOKINGS.filter(b => b.motorcycle_name?.toLowerCase().includes(motoId)).map(b => ({
+        ...b, profiles: { full_name: b.customer_name },
+      })))
+      setLoading(false)
+      return
+    }
     supabase.from('bookings').select('*, profiles(full_name)').eq('moto_id', motoId).order('start_date', { ascending: false })
       .then(({ data }) => { setBookings(data || []); setLoading(false) })
+      .catch(() => { setBookings([]); setLoading(false) })
   }, [motoId])
 
   if (loading) return <div className="py-8 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
@@ -247,8 +270,16 @@ function ServiceTab({ motoId }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (isDemoMode()) {
+      setLogs(SERVICE_LOG.filter(s => s.motorcycle_id === motoId).map(s => ({
+        ...s, scheduled_date: s.date, description: s.notes,
+      })))
+      setLoading(false)
+      return
+    }
     supabase.from('maintenance_log').select('*').eq('moto_id', motoId).order('scheduled_date', { ascending: false })
       .then(({ data }) => { setLogs(data || []); setLoading(false) })
+      .catch(() => { setLogs([]); setLoading(false) })
   }, [motoId])
 
   if (loading) return <div className="py-8 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
@@ -278,8 +309,10 @@ function PerformanceTab({ motoId }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (isDemoMode()) { setPerf(null); setLoading(false); return }
     supabase.from('moto_performance').select('*').eq('moto_id', motoId).single()
       .then(({ data }) => { setPerf(data); setLoading(false) })
+      .catch(() => { setPerf(null); setLoading(false) })
   }, [motoId])
 
   if (loading) return <div className="py-8 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { isDemoMode, BOOKINGS } from '../lib/demoData'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
 import Button from '../components/ui/Button'
 import StatusBadge from '../components/ui/StatusBadge'
@@ -26,6 +27,25 @@ export default function Bookings() {
     setLoading(true)
     setError(null)
     try {
+      if (isDemoMode()) {
+        let filtered = BOOKINGS.map(b => ({
+          ...b,
+          profiles: { full_name: b.customer_name, email: b.customer_email, phone: b.customer_phone },
+          motorcycles: { model: b.motorcycle_name, spz: '' },
+        }))
+        if (filters.status) filtered = filtered.filter(b => b.status === filters.status)
+        if (filters.dateFrom) filtered = filtered.filter(b => b.start_date >= filters.dateFrom)
+        if (filters.dateTo) filtered = filtered.filter(b => b.end_date <= filters.dateTo)
+        if (filters.search) {
+          const s = filters.search.toLowerCase()
+          filtered = filtered.filter(b => b.customer_name.toLowerCase().includes(s) || b.motorcycle_name.toLowerCase().includes(s))
+        }
+        setTotal(filtered.length)
+        setBookings(filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE))
+        setLoading(false)
+        return
+      }
+
       let query = supabase
         .from('bookings')
         .select('*, motorcycles(model, spz), profiles(full_name, email, phone)', { count: 'exact' })
@@ -44,6 +64,13 @@ export default function Bookings() {
       setTotal(count || 0)
     } catch (e) {
       setError(e.message)
+      const demo = BOOKINGS.map(b => ({
+        ...b,
+        profiles: { full_name: b.customer_name, email: b.customer_email, phone: b.customer_phone },
+        motorcycles: { model: b.motorcycle_name, spz: '' },
+      }))
+      setBookings(demo.slice((page - 1) * PER_PAGE, page * PER_PAGE))
+      setTotal(demo.length)
     } finally {
       setLoading(false)
     }
@@ -172,10 +199,13 @@ function AddBookingModal({ onClose, onSaved }) {
   const [err, setErr] = useState(null)
 
   useEffect(() => {
+    if (isDemoMode()) { return }
     supabase.from('motorcycles').select('id, model, spz').eq('status', 'active').order('model')
       .then(({ data }) => setMotos(data || []))
+      .catch(() => {})
     supabase.from('profiles').select('id, full_name, email').order('full_name')
       .then(({ data }) => setCustomers(data || []))
+      .catch(() => {})
   }, [])
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))

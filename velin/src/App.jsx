@@ -27,12 +27,12 @@ import AICopilot from './pages/AICopilot'
 import SOSPanel from './pages/SOSPanel'
 
 export default function App() {
-  const { user, loading, signIn, signOut } = useAuth()
+  const { user, loading, demoMode, signIn, signInDemo, signOut } = useAuth()
   const { admin, role, loading: adminLoading, error: adminError } = useAdmin(user)
 
   return (
     <Routes>
-      <Route path="/login" element={<Login user={user} onSignIn={signIn} />} />
+      <Route path="/login" element={<Login user={user} onSignIn={signIn} onSignInDemo={signInDemo} />} />
       <Route
         element={
           <ProtectedRoute

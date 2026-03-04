@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { isDemoMode, MESSAGES } from '../../lib/demoData'
 import SearchInput from '../../components/ui/SearchInput'
 
 export default function ThreadList({ selectedId, onSelect }) {
@@ -10,6 +11,17 @@ export default function ThreadList({ selectedId, onSelect }) {
   useEffect(() => { load() }, [search])
 
   async function load() {
+    if (isDemoMode()) {
+      setThreads(MESSAGES.map(m => ({
+        id: m.id,
+        subject: m.subject,
+        updated_at: m.created_at,
+        unread_count: m.read ? 0 : 1,
+        profiles: { full_name: m.sender_name, email: '' },
+      })))
+      setLoading(false)
+      return
+    }
     setLoading(true)
     let query = supabase
       .from('message_threads')

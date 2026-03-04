@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts'
 import { supabase } from '../../lib/supabase'
+import { isDemoMode, BOOKINGS } from '../../lib/demoData'
 import Card from '../../components/ui/Card'
 
 const STATUS_COLORS = {
@@ -26,6 +27,17 @@ export function BookingsByStatus() {
   useEffect(() => { load() }, [])
 
   async function load() {
+    if (isDemoMode()) {
+      const counts = {}
+      BOOKINGS.forEach(b => { counts[b.status] = (counts[b.status] || 0) + 1 })
+      setData(Object.entries(counts).map(([status, count]) => ({
+        name: STATUS_LABELS[status] || status,
+        value: count,
+        color: STATUS_COLORS[status] || '#94a3b8',
+      })))
+      setLoading(false)
+      return
+    }
     const { data: bookings } = await supabase.from('bookings').select('status')
     if (bookings) {
       const counts = {}
@@ -74,6 +86,20 @@ export function CustomerRetention() {
   useEffect(() => { load() }, [])
 
   async function load() {
+    if (isDemoMode()) {
+      const now = new Date()
+      const chart = Array.from({ length: 12 }, (_, i) => {
+        const d = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1)
+        return {
+          name: d.toLocaleDateString('cs-CZ', { month: 'short' }),
+          celkem: Math.round(Math.random() * 8 + 3),
+          vracející: Math.round(Math.random() * 4 + 1),
+        }
+      })
+      setData(chart)
+      setLoading(false)
+      return
+    }
     const months = []
     const now = new Date()
     for (let i = 11; i >= 0; i--) {

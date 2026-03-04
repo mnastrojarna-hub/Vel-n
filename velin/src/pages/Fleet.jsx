@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { isDemoMode, MOTOS } from '../lib/demoData'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
 import Button from '../components/ui/Button'
 import StatusBadge from '../components/ui/StatusBadge'
@@ -32,14 +33,34 @@ export default function Fleet() {
   }, [page, filters])
 
   async function loadBranches() {
-    const { data } = await supabase.from('branches').select('id, name').order('name')
-    if (data) setBranches(data)
+    if (isDemoMode()) { setBranches([{ id: 'mezna', name: 'Mezná' }, { id: 'brno', name: 'Brno' }]); return }
+    try {
+      const { data } = await supabase.from('branches').select('id, name').order('name')
+      if (data) setBranches(data)
+    } catch {
+      setBranches([{ id: 'mezna', name: 'Mezná' }, { id: 'brno', name: 'Brno' }])
+    }
   }
 
   async function loadMotos() {
     setLoading(true)
     setError(null)
     try {
+      if (isDemoMode()) {
+        let filtered = [...MOTOS]
+        if (filters.status) filtered = filtered.filter(m => m.status === filters.status)
+        if (filters.branch) filtered = filtered.filter(m => m.branch === filters.branch)
+        if (filters.category) filtered = filtered.filter(m => m.category === filters.category)
+        if (filters.search) {
+          const s = filters.search.toLowerCase()
+          filtered = filtered.filter(m => m.model.toLowerCase().includes(s) || m.spz.toLowerCase().includes(s))
+        }
+        setTotal(filtered.length)
+        setMotos(filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE))
+        setLoading(false)
+        return
+      }
+
       let query = supabase
         .from('motorcycles')
         .select('*, branches(name)', { count: 'exact' })
@@ -56,6 +77,8 @@ export default function Fleet() {
       setTotal(count || 0)
     } catch (e) {
       setError(e.message)
+      setMotos(MOTOS.slice((page - 1) * PER_PAGE, page * PER_PAGE))
+      setTotal(MOTOS.length)
     } finally {
       setLoading(false)
     }

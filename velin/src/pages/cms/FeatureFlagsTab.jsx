@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { isDemoMode } from '../../lib/demoData'
 import Card from '../../components/ui/Card'
 
 export default function FeatureFlagsTab() {
@@ -10,6 +11,11 @@ export default function FeatureFlagsTab() {
   useEffect(() => { load() }, [])
 
   async function load() {
+    if (isDemoMode()) {
+      setFlags([])
+      setLoading(false)
+      return
+    }
     setLoading(true)
     const { data, error: err } = await supabase
       .from('feature_flags')

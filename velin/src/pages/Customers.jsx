@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { isDemoMode, CUSTOMERS } from '../lib/demoData'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
 import SearchInput from '../components/ui/SearchInput'
 import Pagination from '../components/ui/Pagination'
@@ -22,6 +23,20 @@ export default function Customers() {
     setLoading(true)
     setError(null)
     try {
+      if (isDemoMode()) {
+        let filtered = CUSTOMERS.map(c => ({
+          ...c, full_name: c.name, bookings: [{ count: c.bookings_count }],
+        }))
+        if (search) {
+          const s = search.toLowerCase()
+          filtered = filtered.filter(c => c.name.toLowerCase().includes(s) || c.email.toLowerCase().includes(s) || (c.phone && c.phone.includes(s)))
+        }
+        setTotal(filtered.length)
+        setCustomers(filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE))
+        setLoading(false)
+        return
+      }
+
       let query = supabase
         .from('profiles')
         .select('*, bookings(count)', { count: 'exact' })
@@ -37,6 +52,9 @@ export default function Customers() {
       setTotal(count || 0)
     } catch (e) {
       setError(e.message)
+      const demo = CUSTOMERS.map(c => ({ ...c, full_name: c.name, bookings: [{ count: c.bookings_count }] }))
+      setCustomers(demo.slice((page - 1) * PER_PAGE, page * PER_PAGE))
+      setTotal(demo.length)
     } finally {
       setLoading(false)
     }

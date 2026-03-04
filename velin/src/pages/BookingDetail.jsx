@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { isDemoMode, BOOKINGS } from '../lib/demoData'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import StatusBadge from '../components/ui/StatusBadge'
@@ -36,13 +37,32 @@ export default function BookingDetail() {
 
   async function loadBooking() {
     setLoading(true)
-    const { data, error: err } = await supabase
-      .from('bookings')
-      .select('*, motorcycles(model, spz, price_per_day), profiles(full_name, email, phone)')
-      .eq('id', id)
-      .single()
-    if (err) setError(err.message)
-    else setBooking(data)
+    if (isDemoMode()) {
+      const found = BOOKINGS.find(b => b.id === id) || BOOKINGS[0]
+      setBooking({
+        ...found,
+        profiles: { full_name: found.customer_name, email: found.customer_email, phone: found.customer_phone },
+        motorcycles: { model: found.motorcycle_name, spz: '', price_per_day: 0 },
+      })
+      setLoading(false)
+      return
+    }
+    try {
+      const { data, error: err } = await supabase
+        .from('bookings')
+        .select('*, motorcycles(model, spz, price_per_day), profiles(full_name, email, phone)')
+        .eq('id', id)
+        .single()
+      if (err) setError(err.message)
+      else setBooking(data)
+    } catch (e) {
+      const found = BOOKINGS.find(b => b.id === id) || BOOKINGS[0]
+      setBooking({
+        ...found,
+        profiles: { full_name: found.customer_name, email: found.customer_email, phone: found.customer_phone },
+        motorcycles: { model: found.motorcycle_name, spz: '', price_per_day: 0 },
+      })
+    }
     setLoading(false)
   }
 
@@ -226,8 +246,10 @@ function DocumentsTab({ bookingId }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (isDemoMode()) { setDocs([]); setLoading(false); return }
     supabase.from('documents').select('*').eq('booking_id', bookingId).order('created_at', { ascending: false })
       .then(({ data }) => { setDocs(data || []); setLoading(false) })
+      .catch(() => { setDocs([]); setLoading(false) })
   }, [bookingId])
 
   if (loading) return <div className="py-8 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
@@ -253,8 +275,10 @@ function PaymentsTab({ bookingId }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (isDemoMode()) { setEntries([]); setLoading(false); return }
     supabase.from('accounting_entries').select('*').eq('booking_id', bookingId).order('created_at', { ascending: false })
       .then(({ data }) => { setEntries(data || []); setLoading(false) })
+      .catch(() => { setEntries([]); setLoading(false) })
   }, [bookingId])
 
   if (loading) return <div className="py-8 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>

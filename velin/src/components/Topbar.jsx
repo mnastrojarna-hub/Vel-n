@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { isDemoMode, INVENTORY, MOTOS } from '../lib/demoData'
 
 const ROUTE_LABELS = {
   '/': 'Velín',
@@ -49,6 +50,13 @@ export default function Topbar() {
   }, [])
 
   async function loadNotifications() {
+    if (isDemoMode()) {
+      const lowStock = INVENTORY.filter(i => i.stock <= (i.min_stock || 0)).length
+      const in30days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+      const stkSoon = MOTOS.filter(m => m.stk_valid_until && m.stk_valid_until <= in30days).length
+      setNotifs({ messages: 3, sos: 0, lowStock, stkSoon })
+      return
+    }
     try {
       const [msgRes, sosRes, invRes, stkRes] = await Promise.all([
         supabase.from('messages').select('id', { count: 'exact', head: true }).eq('read', false),
@@ -60,7 +68,9 @@ export default function Topbar() {
       const in30days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
       const stkSoon = (stkRes.data || []).filter(m => m.stk_valid_until && m.stk_valid_until <= in30days).length
       setNotifs({ messages: msgRes.count || 0, sos: sosRes.count || 0, lowStock, stkSoon })
-    } catch {}
+    } catch {
+      setNotifs({ messages: 0, sos: 0, lowStock: 0, stkSoon: 0 })
+    }
   }
 
   const totalNotifs = notifs.messages + notifs.sos + notifs.lowStock + notifs.stkSoon
