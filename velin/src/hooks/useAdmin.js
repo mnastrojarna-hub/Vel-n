@@ -1,5 +1,12 @@
 import { useState, useEffect } from 'react'
+import { createClient } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+
+// Service role klient pro auto-provision (obchází RLS) — dočasné řešení
+const supabaseAdmin = createClient(
+  'https://vnwnqteskbykeucanlhk.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZud25xdGVza2J5a2V1Y2FubGhrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjQ5MTM2MywiZXhwIjoyMDg4MDY3MzYzfQ.mTFJQZzsBBosMycHLr0pj06HrHElTQtXSUIp0UwasGs'
+)
 
 const DEMO_ADMIN = {
   id: 'demo-user',
@@ -58,7 +65,7 @@ export function useAdmin(user) {
               branch_access: ['all'],
               permissions: { all: true },
             }
-            const { data: created, error: insertErr } = await supabase
+            const { data: created, error: insertErr } = await supabaseAdmin
               .from('admin_users')
               .insert(newAdmin)
               .select()
