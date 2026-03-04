@@ -1,4 +1,5 @@
 import { Navigate } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
 
 export default function ProtectedRoute({ user, loading, adminLoading, adminError, children }) {
   if (loading || adminLoading) {
@@ -41,9 +42,16 @@ export default function ProtectedRoute({ user, loading, adminLoading, adminError
           <h2 className="text-lg font-black mb-2" style={{ color: '#0f1a14' }}>
             Přístup odepřen
           </h2>
-          <p className="text-sm font-medium" style={{ color: '#8aab99' }}>
+          <p className="text-sm font-medium mb-4" style={{ color: '#8aab99' }}>
             {adminError}
           </p>
+          <button
+            onClick={() => supabase.auth.signOut()}
+            className="text-sm font-semibold px-4 py-2 rounded-lg"
+            style={{ background: '#74FB71', color: '#0f1a14' }}
+          >
+            Odhlásit se
+          </button>
         </div>
       </div>
     )
