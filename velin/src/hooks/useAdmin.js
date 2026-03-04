@@ -62,7 +62,7 @@ export function useAdmin(user) {
               name: user.user_metadata?.name || user.email.split('@')[0],
               email: user.email,
               role: 'superadmin',
-              branch_access: ['all'],
+              branch_access: [],
               permissions: { all: true },
             }
             const { data: created, error: insertErr } = await supabaseAdmin
@@ -77,7 +77,8 @@ export function useAdmin(user) {
               setBranchAccess(created.branch_access)
               setPermissions(created.permissions)
             } else {
-              setError('Nepodařilo se vytvořit admin účet. Kontaktujte správce.')
+              console.error('Auto-provision failed:', insertErr)
+              setError(`Nepodařilo se vytvořit admin účet: ${insertErr?.message || 'Neznámá chyba'}`)
               setAdmin(null)
             }
           } else {
