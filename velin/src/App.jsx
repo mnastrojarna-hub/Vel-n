@@ -17,6 +17,10 @@ import Accounting from './pages/Accounting'
 import Documents from './pages/Documents'
 import Inventory from './pages/Inventory'
 import InventoryDetail from './pages/InventoryDetail'
+import Service from './pages/Service'
+import Messages from './pages/Messages'
+import CMS from './pages/CMS'
+import Statistics from './pages/Statistics'
 
 export default function App() {
   const { user, loading, signIn, signOut } = useAuth()
@@ -49,10 +53,10 @@ export default function App() {
         <Route path="/dokumenty" element={<Documents />} />
         <Route path="/sklady" element={<Inventory />} />
         <Route path="/sklady/:id" element={<InventoryDetail />} />
-        <Route path="/servis" element={<Placeholder />} />
-        <Route path="/zpravy" element={<Placeholder />} />
-        <Route path="/cms" element={<Placeholder />} />
-        <Route path="/statistiky" element={<Placeholder />} />
+        <Route path="/servis" element={<Service />} />
+        <Route path="/zpravy" element={<Messages />} />
+        <Route path="/cms" element={<CMS />} />
+        <Route path="/statistiky" element={<Statistics />} />
         <Route path="/nakupy" element={<Placeholder />} />
         <Route path="/statni-sprava" element={<Placeholder />} />
         <Route path="/ai-copilot" element={<Placeholder />} />
