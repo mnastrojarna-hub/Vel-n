@@ -12,6 +12,11 @@ import Bookings from './pages/Bookings'
 import BookingDetail from './pages/BookingDetail'
 import Customers from './pages/Customers'
 import CustomerDetail from './pages/CustomerDetail'
+import Finance from './pages/Finance'
+import Accounting from './pages/Accounting'
+import Documents from './pages/Documents'
+import Inventory from './pages/Inventory'
+import InventoryDetail from './pages/InventoryDetail'
 
 export default function App() {
   const { user, loading, signIn, signOut } = useAuth()
@@ -39,10 +44,11 @@ export default function App() {
         <Route path="/rezervace/:id" element={<BookingDetail />} />
         <Route path="/zakaznici" element={<Customers />} />
         <Route path="/zakaznici/:id" element={<CustomerDetail />} />
-        <Route path="/finance" element={<Placeholder />} />
-        <Route path="/ucetnictvi" element={<Placeholder />} />
-        <Route path="/dokumenty" element={<Placeholder />} />
-        <Route path="/sklady" element={<Placeholder />} />
+        <Route path="/finance" element={<Finance />} />
+        <Route path="/ucetnictvi" element={<Accounting />} />
+        <Route path="/dokumenty" element={<Documents />} />
+        <Route path="/sklady" element={<Inventory />} />
+        <Route path="/sklady/:id" element={<InventoryDetail />} />
         <Route path="/servis" element={<Placeholder />} />
         <Route path="/zpravy" element={<Placeholder />} />
         <Route path="/cms" element={<Placeholder />} />
