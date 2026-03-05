@@ -50,6 +50,44 @@ export default function FleetDetail() {
   }
 
   async function handleDeactivate() {
+    // Zkontroluj existující rezervace
+    const { data: activeBookings } = await supabase
+      .from('bookings')
+      .select('id, user_id, start_date, end_date, status, profiles(full_name, email)')
+      .eq('moto_id', id)
+      .in('status', ['pending', 'active', 'confirmed'])
+
+    if (activeBookings && activeBookings.length > 0) {
+      // Zobraz varování s počtem rezervací
+      setConfirm({
+        type: 'deactivate_with_bookings',
+        title: `Motorka má ${activeBookings.length} aktivních rezervací`,
+        message: 'Při deaktivaci budou zákazníci upozorněni. Pokračovat?',
+        action: async () => {
+          const newStatus = moto.status === 'out_of_service' ? 'active' : 'out_of_service'
+          await supabase.from('motorcycles').update({ status: newStatus }).eq('id', id)
+
+          // Stornovat čekající rezervace
+          if (newStatus !== 'active') {
+            for (const b of activeBookings) {
+              await supabase.from('bookings')
+                .update({ status: 'cancelled', notes: 'Motorka vyřazena z provozu' })
+                .eq('id', b.id)
+            }
+          }
+
+          await logAudit('motorcycle_status_changed', {
+            moto_id: id, status: newStatus,
+            affected_bookings: activeBookings.length,
+          })
+          setMoto(m => ({ ...m, status: newStatus }))
+          setConfirm(null)
+        },
+      })
+      return
+    }
+
+    // Bez aktivních rezervací — rovnou změň status
     const newStatus = moto.status === 'out_of_service' ? 'active' : 'out_of_service'
     await supabase.from('motorcycles').update({ status: newStatus }).eq('id', id)
     await logAudit('motorcycle_status_changed', { moto_id: id, status: newStatus })
@@ -106,20 +144,22 @@ export default function FleetDetail() {
         ))}
       </div>
 
-      {tab === 'Info' && <InfoTab moto={moto} set={set} error={error} saving={saving} onSave={handleSave} onDeactivate={() => setConfirm('deactivate')} onDelete={() => setConfirm('delete')} />}
+      {tab === 'Info' && <InfoTab moto={moto} set={set} error={error} saving={saving} onSave={handleSave} onDeactivate={handleDeactivate} onDelete={() => setConfirm({ type: 'delete' })} />}
       {tab === 'Rezervace' && <BookingsTab motoId={id} />}
       {tab === 'Servis' && <ServiceTab motoId={id} />}
       {tab === 'Výkon' && <PerformanceTab motoId={id} />}
 
+      {/* Potvrzení deaktivace s aktivními rezervacemi */}
       <ConfirmDialog
-        open={confirm === 'deactivate'}
-        title={moto.status === 'out_of_service' ? 'Aktivovat motorku?' : 'Deaktivovat motorku?'}
-        message={moto.status === 'out_of_service' ? 'Motorka bude opět dostupná.' : 'Motorka nebude dostupná pro rezervace.'}
-        onConfirm={handleDeactivate}
+        open={confirm?.type === 'deactivate_with_bookings'}
+        title={confirm?.title || ''}
+        message={confirm?.message || ''}
+        onConfirm={() => confirm?.action?.()}
         onCancel={() => setConfirm(null)}
+        danger
       />
       <ConfirmDialog
-        open={confirm === 'delete'}
+        open={confirm?.type === 'delete'}
         title="Smazat motorku?"
         message="Tato akce je nevratná. Motorka bude trvale odstraněna."
         danger
@@ -217,30 +257,105 @@ function PhotoGallery({ motoId }) {
   )
 }
 
+const DAYS = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne']
+const MONTHS = ['Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen', 'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec']
+const navBtnStyle = { background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 8, padding: '4px 12px', cursor: 'pointer', fontWeight: 800 }
+
 function BookingsTab({ motoId }) {
   const [bookings, setBookings] = useState([])
+  const [month, setMonth] = useState(new Date())
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    supabase.from('bookings').select('*, profiles(full_name)').eq('moto_id', motoId).order('start_date', { ascending: false })
-      .then(({ data }) => { setBookings(data || []); setLoading(false) })
-      .catch(() => { setBookings([]); setLoading(false) })
-  }, [motoId])
+  useEffect(() => { loadBookings() }, [motoId, month])
+
+  async function loadBookings() {
+    setLoading(true)
+    const start = new Date(month.getFullYear(), month.getMonth(), 1)
+    const end = new Date(month.getFullYear(), month.getMonth() + 1, 0)
+
+    const { data } = await supabase
+      .from('bookings')
+      .select('id, start_date, end_date, status, user_id, profiles(full_name), total_price')
+      .eq('moto_id', motoId)
+      .in('status', ['pending', 'active', 'confirmed', 'completed'])
+      .gte('end_date', start.toISOString().split('T')[0])
+      .lte('start_date', end.toISOString().split('T')[0])
+
+    setBookings(data || [])
+    setLoading(false)
+  }
+
+  const year = month.getFullYear()
+  const mon = month.getMonth()
+  const daysInMonth = new Date(year, mon + 1, 0).getDate()
+  const firstDayOfWeek = (new Date(year, mon, 1).getDay() + 6) % 7 // Po=0
+
+  function getBookingForDay(day) {
+    const dateStr = `${year}-${String(mon + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    return bookings.find(b => dateStr >= b.start_date.split('T')[0] && dateStr <= b.end_date.split('T')[0])
+  }
+
+  const prevMonth = () => setMonth(new Date(year, mon - 1, 1))
+  const nextMonth = () => setMonth(new Date(year, mon + 1, 1))
 
   if (loading) return <div className="py-8 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
 
   return (
     <Card>
-      {bookings.length === 0 ? <p style={{ color: '#8aab99', fontSize: 13 }}>Žádné rezervace</p> : (
-        <div className="space-y-3">
+      {/* Navigace měsíce */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <button onClick={prevMonth} style={navBtnStyle}>←</button>
+        <span style={{ fontWeight: 800, fontSize: 15 }}>{MONTHS[mon]} {year}</span>
+        <button onClick={nextMonth} style={navBtnStyle}>→</button>
+      </div>
+
+      {/* Kalendářní mřížka */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
+        {DAYS.map(d => (
+          <div key={d} style={{ textAlign: 'center', fontSize: 10, fontWeight: 800, color: '#8aab99', padding: 4 }}>{d}</div>
+        ))}
+        {Array.from({ length: firstDayOfWeek }).map((_, i) => <div key={`e${i}`} />)}
+        {Array.from({ length: daysInMonth }).map((_, i) => {
+          const day = i + 1
+          const booking = getBookingForDay(day)
+          const todayStr = new Date().toISOString().split('T')[0]
+          const dayStr = `${year}-${String(mon + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+          const isToday = todayStr === dayStr
+          const bg = booking
+            ? booking.status === 'active' ? '#dcfce7' : booking.status === 'pending' ? '#fef3c7' : '#dbeafe'
+            : isToday ? '#f1faf7' : 'transparent'
+          const color = booking ? '#0f1a14' : isToday ? '#1a8a18' : '#4a6357'
+
+          return (
+            <div key={day} title={booking ? `${booking.profiles?.full_name || 'Zákazník'} · ${booking.status}` : ''}
+              style={{ textAlign: 'center', padding: '6px 2px', borderRadius: 8, background: bg,
+                       color, fontSize: 12, fontWeight: booking ? 800 : 500, cursor: booking ? 'pointer' : 'default' }}>
+              {day}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Legenda */}
+      <div style={{ display: 'flex', gap: 12, marginTop: 12, fontSize: 10, fontWeight: 700 }}>
+        <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, background: '#dcfce7', marginRight: 4 }} />Aktivní</span>
+        <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, background: '#fef3c7', marginRight: 4 }} />Čekající</span>
+        <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 3, background: '#dbeafe', marginRight: 4 }} />Potvrzená</span>
+      </div>
+
+      {/* Seznam rezervací pod kalendářem */}
+      {bookings.length > 0 && (
+        <div style={{ marginTop: 16 }}>
           {bookings.map(b => (
-            <div key={b.id} className="flex items-center gap-4 p-3 rounded-lg" style={{ background: '#f1faf7' }}>
-              <div className="flex-1">
-                <span className="font-bold text-sm">{b.profiles?.full_name || 'Zákazník'}</span>
-                <span className="text-xs ml-3" style={{ color: '#8aab99' }}>{b.start_date} → {b.end_date}</span>
+            <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 10px',
+                                      background: '#f1faf7', borderRadius: 10, marginBottom: 4, fontSize: 12 }}>
+              <div>
+                <span style={{ fontWeight: 700 }}>{b.profiles?.full_name || 'Zákazník'}</span>
+                <span style={{ color: '#8aab99', marginLeft: 8 }}>
+                  {b.start_date.split('T')[0]} → {b.end_date.split('T')[0]}
+                </span>
               </div>
-              <StatusBadge status={b.status} />
-              <span className="text-sm font-bold">{b.total_price?.toLocaleString('cs-CZ')} Kč</span>
+              <span style={{ fontWeight: 800, color: '#3dba3a' }}>{Number(b.total_price).toLocaleString('cs-CZ')} Kč</span>
             </div>
           ))}
         </div>

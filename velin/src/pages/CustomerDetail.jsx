@@ -3,7 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
+import Badge from '../components/ui/Badge'
 import StatusBadge from '../components/ui/StatusBadge'
+import ConfirmDialog from '../components/ui/ConfirmDialog'
 
 const TABS = ['Profil', 'Rezervace', 'Dokumenty', 'Hodnocení', 'SOS']
 
@@ -15,6 +17,7 @@ export default function CustomerDetail() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const [tab, setTab] = useState('Profil')
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   useEffect(() => { loadCustomer() }, [id])
 
@@ -37,19 +40,58 @@ export default function CustomerDetail() {
   async function handleSave() {
     setSaving(true)
     setError(null)
-    const { full_name, email, phone, address, driver_license } = customer
+    const {
+      full_name, phone, street, city, zip, country,
+      date_of_birth, license_group, emergency_contact,
+      emergency_phone, riding_experience, marketing_consent,
+      reliability_score,
+    } = customer
     const { error: err } = await supabase
       .from('profiles')
-      .update({ full_name, email, phone, address, driver_license })
+      .update({
+        full_name, phone, street, city, zip, country,
+        date_of_birth, license_group, emergency_contact,
+        emergency_phone, riding_experience, marketing_consent,
+        reliability_score,
+      })
       .eq('id', id)
     if (err) setError(err.message)
-    else {
+    else await logAudit('customer_updated', { customer_id: id })
+    setSaving(false)
+  }
+
+  async function handleDelete() {
+    // Zkontroluj aktivní rezervace
+    const { data: bookings } = await supabase
+      .from('bookings')
+      .select('id')
+      .eq('user_id', id)
+      .in('status', ['pending', 'active', 'confirmed'])
+
+    if (bookings && bookings.length > 0) {
+      setError('Zákazník má aktivní rezervace. Nejdřív je stornujte.')
+      setConfirmDelete(false)
+      return
+    }
+
+    const { error: err } = await supabase.from('profiles').delete().eq('id', id)
+    if (err) {
+      setError(err.message)
+      setConfirmDelete(false)
+      return
+    }
+
+    await logAudit('customer_deleted', { customer_id: id })
+    navigate('/zakaznici')
+  }
+
+  async function logAudit(action, details) {
+    try {
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({
-        admin_id: user?.id, action: 'customer_updated', details: { customer_id: id },
+        admin_id: user?.id, action, details,
       })
-    }
-    setSaving(false)
+    } catch {}
   }
 
   const set = (k, v) => setCustomer(c => ({ ...c, [k]: v }))
@@ -80,11 +122,29 @@ export default function CustomerDetail() {
         ))}
       </div>
 
-      {tab === 'Profil' && <ProfileTab customer={customer} set={set} error={error} saving={saving} onSave={handleSave} />}
+      {tab === 'Profil' && (
+        <ProfileTab
+          customer={customer}
+          set={set}
+          error={error}
+          saving={saving}
+          onSave={handleSave}
+          onDelete={() => setConfirmDelete(true)}
+        />
+      )}
       {tab === 'Rezervace' && <CustomerBookings userId={id} />}
       {tab === 'Dokumenty' && <CustomerDocuments userId={id} />}
       {tab === 'Hodnocení' && <CustomerReviews userId={id} />}
       {tab === 'SOS' && <CustomerSOS userId={id} />}
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Smazat zákazníka?"
+        message="Tato akce je nevratná. Profil zákazníka bude trvale odstraněn."
+        danger
+        onConfirm={handleDelete}
+        onCancel={() => setConfirmDelete(false)}
+      />
     </div>
   )
 }
@@ -96,25 +156,132 @@ function getScoreColor(score) {
   return { color: '#dc2626', bg: '#fee2e2' }
 }
 
-function ProfileTab({ customer, set, error, saving, onSave }) {
+function ProfileTab({ customer, set, error, saving, onSave, onDelete }) {
   return (
-    <Card>
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="Jméno" value={customer.full_name} onChange={v => set('full_name', v)} />
-        <Field label="Email" value={customer.email} onChange={v => set('email', v)} />
-        <Field label="Telefon" value={customer.phone} onChange={v => set('phone', v)} />
-        <Field label="Řidičský průkaz" value={customer.driver_license} onChange={v => set('driver_license', v)} />
-        <div className="col-span-2">
-          <Field label="Adresa" value={customer.address} onChange={v => set('address', v)} />
+    <div className="space-y-5">
+      {/* Osobní údaje */}
+      <Card>
+        <SectionTitle>Osobní údaje</SectionTitle>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Jméno" value={customer.full_name} onChange={v => set('full_name', v)} />
+          <Field label="Email" value={customer.email} disabled />
+          <Field label="Telefon" value={customer.phone} onChange={v => set('phone', v)} />
+          <Field label="Datum narození" value={customer.date_of_birth} onChange={v => set('date_of_birth', v)} type="date" />
+          <Field label="Jazyk" value={customer.language} disabled />
+          <Field label="Registrace" value={customer.created_at?.slice(0, 10)} disabled />
         </div>
-        <Field label="Registrace" value={customer.created_at?.slice(0, 10)} disabled />
-      </div>
-      {error && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{error}</p>}
-      <div className="flex gap-3 mt-6">
+      </Card>
+
+      {/* Adresa */}
+      <Card>
+        <SectionTitle>Adresa</SectionTitle>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="col-span-2">
+            <Field label="Ulice" value={customer.street} onChange={v => set('street', v)} />
+          </div>
+          <Field label="Město" value={customer.city} onChange={v => set('city', v)} />
+          <Field label="PSČ" value={customer.zip} onChange={v => set('zip', v)} />
+          <Field label="Země" value={customer.country || 'CZ'} onChange={v => set('country', v)} />
+        </div>
+      </Card>
+
+      {/* Řidičák a zkušenosti */}
+      <Card>
+        <SectionTitle>Řidičák a zkušenosti</SectionTitle>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Řidičské skupiny</label>
+            <div className="flex flex-wrap gap-1">
+              {(customer.license_group && customer.license_group.length > 0)
+                ? customer.license_group.map(g => (
+                  <Badge key={g} label={g} color="#1a8a18" bg="#dcfce7" />
+                ))
+                : <span style={{ color: '#8aab99', fontSize: 13 }}>—</span>
+              }
+            </div>
+          </div>
+          <Field label="Jezdecké zkušenosti" value={customer.riding_experience} onChange={v => set('riding_experience', v)} />
+        </div>
+      </Card>
+
+      {/* Kontakt pro případ nouze */}
+      <Card>
+        <SectionTitle>Kontakt pro případ nouze</SectionTitle>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Jméno" value={customer.emergency_contact} onChange={v => set('emergency_contact', v)} />
+          <Field label="Telefon" value={customer.emergency_phone} onChange={v => set('emergency_phone', v)} />
+        </div>
+      </Card>
+
+      {/* Vybavení */}
+      <Card>
+        <SectionTitle>Vybavení</SectionTitle>
+        <GearSizes gearSizes={customer.gear_sizes} />
+      </Card>
+
+      {/* Spolehlivost — READONLY admin info */}
+      <Card>
+        <SectionTitle>Spolehlivost</SectionTitle>
+        <div className="grid grid-cols-3 gap-4">
+          <Field label="Pozdní vrácení" value={customer.reliability_score?.late_returns} disabled />
+          <Field label="Nehody" value={customer.reliability_score?.accidents} disabled />
+          <div className="col-span-3">
+            <Field
+              label="Poznámky (admin)"
+              value={customer.reliability_score?.notes}
+              onChange={v => set('reliability_score', { ...customer.reliability_score, notes: v })}
+            />
+          </div>
+        </div>
+      </Card>
+
+      {/* Marketingový souhlas */}
+      <Card>
+        <div className="flex items-center gap-3">
+          <input
+            type="checkbox"
+            checked={!!customer.marketing_consent}
+            onChange={e => set('marketing_consent', e.target.checked)}
+            className="w-4 h-4 cursor-pointer"
+          />
+          <label className="text-sm font-bold" style={{ color: '#0f1a14' }}>Marketingový souhlas</label>
+        </div>
+      </Card>
+
+      {error && <p className="text-sm" style={{ color: '#dc2626' }}>{error}</p>}
+      <div className="flex gap-3">
         <Button green onClick={onSave} disabled={saving}>{saving ? 'Ukládám…' : 'Uložit'}</Button>
+        <Button onClick={onDelete} style={{ color: '#dc2626' }}>Smazat zákazníka</Button>
       </div>
-    </Card>
+    </div>
   )
+}
+
+function SectionTitle({ children }) {
+  return (
+    <h3 className="text-[10px] font-extrabold uppercase tracking-widest mb-4" style={{ color: '#8aab99' }}>
+      {children}
+    </h3>
+  )
+}
+
+function GearSizes({ gearSizes }) {
+  if (!gearSizes || (typeof gearSizes === 'object' && Object.keys(gearSizes).length === 0)) {
+    return <span style={{ color: '#8aab99', fontSize: 13 }}>—</span>
+  }
+  if (typeof gearSizes === 'object' && !Array.isArray(gearSizes)) {
+    return (
+      <div className="grid grid-cols-2 gap-2">
+        {Object.entries(gearSizes).map(([k, v]) => (
+          <div key={k} className="flex items-center gap-2 p-2 rounded-lg" style={{ background: '#f1faf7' }}>
+            <span className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>{k}</span>
+            <span className="text-sm font-bold" style={{ color: '#0f1a14' }}>{String(v)}</span>
+          </div>
+        ))}
+      </div>
+    )
+  }
+  return <span className="text-sm" style={{ color: '#4a6357' }}>{JSON.stringify(gearSizes)}</span>
 }
 
 function Field({ label, value, onChange, type = 'text', disabled = false }) {
