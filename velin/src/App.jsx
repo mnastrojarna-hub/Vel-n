@@ -25,7 +25,8 @@ import Purchases from './pages/Purchases'
 import Government from './pages/Government'
 import AICopilot from './pages/AICopilot'
 import SOSPanel from './pages/SOSPanel'
-import Vouchers from './pages/Vouchers'
+import PromoCodes from './pages/PromoCodes'
+import GiftVouchers from './pages/GiftVouchers'
 
 export default function App() {
   const { user, loading, signIn, signOut } = useAuth()
@@ -65,7 +66,8 @@ export default function App() {
         <Route path="/nakupy" element={<Purchases />} />
         <Route path="/statni-sprava" element={<Government />} />
         <Route path="/ai-copilot" element={<AICopilot />} />
-        <Route path="/poukazy" element={<Vouchers />} />
+        <Route path="/promo-kody" element={<PromoCodes />} />
+        <Route path="/poukazy" element={<GiftVouchers />} />
         <Route path="/sos" element={<SOSPanel />} />
       </Route>
     </Routes>
