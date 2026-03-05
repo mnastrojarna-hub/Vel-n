@@ -52,10 +52,10 @@ export default function Finance() {
     }
     const { data: inv } = await supabase
       .from('invoices')
-      .select('total_amount')
+      .select('total')
       .eq('status', 'unpaid')
     if (inv) {
-      setSummary(s => ({ ...s, unpaid: inv.reduce((sum, i) => sum + (i.total_amount || 0), 0) }))
+      setSummary(s => ({ ...s, unpaid: inv.reduce((sum, i) => sum + (i.total || 0), 0) }))
     }
   }
 
