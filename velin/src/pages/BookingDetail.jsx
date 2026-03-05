@@ -6,6 +6,8 @@ import Button from '../components/ui/Button'
 import StatusBadge from '../components/ui/StatusBadge'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import Modal from '../components/ui/Modal'
+import BookingDocumentsTab from './booking/BookingDocumentsTab'
+import BookingPaymentsTab from './booking/BookingPaymentsTab'
 
 const TABS = ['Detail', 'Dokumenty', 'Platby']
 
@@ -176,8 +178,8 @@ export default function BookingDetail() {
         ))}
       </div>
       {tab === 'Detail' && <DetailTab booking={booking} set={set} error={error} saving={saving} onSave={handleSave} actions={actions} onAction={handleAction} navigate={navigate} />}
-      {tab === 'Dokumenty' && <DocumentsTab bookingId={id} />}
-      {tab === 'Platby' && <PaymentsTab bookingId={id} />}
+      {tab === 'Dokumenty' && <BookingDocumentsTab bookingId={id} />}
+      {tab === 'Platby' && <BookingPaymentsTab bookingId={id} />}
 
       {confirm && (
         <ConfirmDialog open title={`${confirm.label}?`} message={`Změnit stav na "${confirm.label}"?`}
@@ -373,47 +375,3 @@ function Timeline({ status, createdAt, cancelledAt, cancelSource }) {
   )
 }
 
-function DocumentsTab({ bookingId }) {
-  const [docs, setDocs] = useState([])
-  const [loading, setLoading] = useState(true)
-  useEffect(() => {
-    supabase.from('documents').select('*').eq('booking_id', bookingId).order('created_at', { ascending: false })
-      .then(({ data }) => { setDocs(data || []); setLoading(false) }).catch(() => { setDocs([]); setLoading(false) })
-  }, [bookingId])
-  if (loading) return <div className="py-8 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
-  return (
-    <Card>
-      {docs.length === 0 ? <p style={{ color: '#8aab99', fontSize: 13 }}>Žádné dokumenty</p> :
-        docs.map(d => (
-          <div key={d.id} className="flex items-center gap-4 p-3 rounded-lg mb-2" style={{ background: '#f1faf7' }}>
-            <span className="text-sm font-bold">{d.name || d.type || 'Dokument'}</span>
-            <span className="text-xs" style={{ color: '#8aab99' }}>{d.created_at?.slice(0, 10)}</span>
-          </div>
-        ))}
-    </Card>
-  )
-}
-
-function PaymentsTab({ bookingId }) {
-  const [entries, setEntries] = useState([])
-  const [loading, setLoading] = useState(true)
-  useEffect(() => {
-    supabase.from('accounting_entries').select('*').eq('booking_id', bookingId).order('created_at', { ascending: false })
-      .then(({ data }) => { setEntries(data || []); setLoading(false) }).catch(() => { setEntries([]); setLoading(false) })
-  }, [bookingId])
-  if (loading) return <div className="py-8 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
-  return (
-    <Card>
-      {entries.length === 0 ? <p style={{ color: '#8aab99', fontSize: 13 }}>Žádné platby</p> :
-        entries.map(e => (
-          <div key={e.id} className="flex items-center gap-4 p-3 rounded-lg mb-2" style={{ background: '#f1faf7' }}>
-            <div className="flex-1">
-              <span className="text-sm font-bold">{e.description || 'Platba'}</span>
-              <span className="text-xs ml-3" style={{ color: '#8aab99' }}>{e.created_at?.slice(0, 10)}</span>
-            </div>
-            <span className="text-sm font-bold" style={{ color: e.amount >= 0 ? '#1a8a18' : '#dc2626' }}>{e.amount?.toLocaleString('cs-CZ')} Kč</span>
-          </div>
-        ))}
-    </Card>
-  )
-}

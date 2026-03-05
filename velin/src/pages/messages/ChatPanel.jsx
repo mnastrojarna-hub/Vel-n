@@ -3,6 +3,14 @@ import { supabase } from '../../lib/supabase'
 
 import Button from '../../components/ui/Button'
 
+const TEMPLATE_LABELS = {
+  booking_confirmed: 'Potvrzení rezervace',
+  booking_abandoned: 'Nedokončená rezervace',
+  booking_cancelled: 'Storno rezervace',
+  booking_completed: 'Po skončení rezervace',
+  voucher_purchased: 'Nákup poukazu',
+}
+
 export default function ChatPanel({ thread }) {
   const [messages, setMessages] = useState([])
   const [templates, setTemplates] = useState([])
@@ -92,7 +100,7 @@ export default function ChatPanel({ thread }) {
           <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
         ) : (
           messages.map(m => (
-            <MessageBubble key={m.id} message={m} isAdmin={m.channel === 'admin'} />
+            <MessageBubble key={m.id} message={m} />
           ))
         )}
         <div ref={bottomRef} />
@@ -135,7 +143,32 @@ export default function ChatPanel({ thread }) {
   )
 }
 
-function MessageBubble({ message, isAdmin }) {
+function MessageBubble({ message }) {
+  const isAdmin = message.channel === 'admin'
+  const isSystem = message.channel === 'system'
+
+  if (isSystem) {
+    return (
+      <div className="flex justify-start">
+        <div className="rounded-card max-w-[70%]"
+          style={{ padding: '10px 14px', background: '#f3f4f6', color: '#4a6357', boxShadow: '0 2px 8px rgba(15,26,20,.06)' }}>
+          <div className="flex items-start gap-2">
+            <span style={{ fontSize: 14 }}>🤖</span>
+            <p className="text-sm" style={{ lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{message.content}</p>
+          </div>
+          <div className="text-[10px] mt-1" style={{ color: '#8aab99' }}>
+            {message.created_at ? new Date(message.created_at).toLocaleString('cs-CZ') : ''}
+          </div>
+          {message.metadata?.template_slug && (
+            <div className="text-[10px] mt-0.5" style={{ color: '#8aab99' }}>
+              🤖 Automatická zpráva – {TEMPLATE_LABELS[message.metadata.template_slug] || message.metadata.template_slug}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={`flex ${isAdmin ? 'justify-end' : 'justify-start'}`}>
       <div
