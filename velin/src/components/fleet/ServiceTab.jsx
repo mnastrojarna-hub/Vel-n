@@ -7,7 +7,7 @@ import ConfirmDialog from '../ui/ConfirmDialog'
 import Modal from '../ui/Modal'
 
 /* ═══ SERVIS TAB — editovatelné intervaly + objednávky pro technika ═══ */
-export default function ServiceTab({ motoId, motoKm, logAudit }) {
+export default function ServiceTab({ motoId, motoMileage, logAudit }) {
   const [logs, setLogs] = useState([])
   const [schedules, setSchedules] = useState([])
   const [loading, setLoading] = useState(true)
@@ -65,13 +65,13 @@ export default function ServiceTab({ motoId, motoKm, logAudit }) {
 
   async function handleConfirmService(schedule) {
     const { data: newLog } = await supabase.from('maintenance_log').insert({
-      moto_id: motoId, type: schedule.description,
+      moto_id: motoId, service_type: schedule.description,
       description: `Plánovaný servis: ${schedule.description}`,
-      km_at_service: Number(motoKm) || 0,
+      mileage_at_service: Number(motoMileage) || 0,
     }).select().single()
 
     await supabase.from('maintenance_schedules')
-      .update({ last_service_km: Number(motoKm) || 0, last_service_date: new Date().toISOString().split('T')[0] })
+      .update({ last_service_km: Number(motoMileage) || 0, last_performed: new Date().toISOString().split('T')[0] })
       .eq('id', schedule.id)
 
     await logAudit('service_confirmed', { moto_id: motoId, schedule_id: schedule.id })
@@ -79,7 +79,7 @@ export default function ServiceTab({ motoId, motoKm, logAudit }) {
     const order = {
       moto_id: motoId, type: schedule.description,
       items: getServiceItems(schedule.description),
-      km: Number(motoKm) || 0, created_at: new Date().toISOString(),
+      km: Number(motoMileage) || 0, created_at: new Date().toISOString(),
       status: 'pending', maintenance_log_id: newLog?.id,
     }
     await supabase.from('service_orders').insert(order)
@@ -101,7 +101,7 @@ export default function ServiceTab({ motoId, motoKm, logAudit }) {
         {schedules.length === 0 ? <p style={{ color: '#8aab99', fontSize: 13 }}>Žádné servisní plány</p> : (
           <div className="space-y-3">
             {schedules.map(s => {
-              const currentKm = Number(motoKm) || 0
+              const currentKm = Number(motoMileage) || 0
               const nextAt = (s.last_service_km || 0) + (s.interval_km || 0)
               const remaining = nextAt - currentKm
               const overdue = remaining <= 0
@@ -142,11 +142,11 @@ export default function ServiceTab({ motoId, motoKm, logAudit }) {
             {logs.map(l => (
               <div key={l.id} className="flex items-center gap-4 p-3 rounded-lg" style={{ background: '#f1faf7' }}>
                 <div className="flex-1">
-                  <span className="font-bold text-sm">{l.type || 'Servis'}</span>
+                  <span className="font-bold text-sm">{l.service_type || 'Servis'}</span>
                   <span className="text-xs ml-3" style={{ color: '#8aab99' }}>{l.created_at?.slice(0, 10)}</span>
-                  {l.km_at_service && <span className="text-xs ml-2 font-mono" style={{ color: '#8aab99' }}>{l.km_at_service.toLocaleString('cs-CZ')} km</span>}
+                  {l.mileage_at_service && <span className="text-xs ml-2 font-mono" style={{ color: '#8aab99' }}>{l.mileage_at_service.toLocaleString('cs-CZ')} km</span>}
                 </div>
-                <span className="text-sm font-bold">{l.cost ? `${l.cost.toLocaleString('cs-CZ')} Kč` : ''}</span>
+                <span className="text-sm font-bold">{l.total_cost ? `${l.total_cost.toLocaleString('cs-CZ')} Kč` : ''}</span>
               </div>
             ))}
           </div>
@@ -156,7 +156,7 @@ export default function ServiceTab({ motoId, motoKm, logAudit }) {
       <ConfirmDialog
         open={!!confirmService}
         title={`Potvrdit servis: ${confirmService?.description || ''}`}
-        message={`Bude vytvořena objednávka pro technika. Tachometr: ${Number(motoKm || 0).toLocaleString('cs-CZ')} km.`}
+        message={`Bude vytvořena objednávka pro technika. Tachometr: ${Number(motoMileage || 0).toLocaleString('cs-CZ')} km.`}
         onConfirm={() => confirmService && handleConfirmService(confirmService)}
         onCancel={() => setConfirmService(null)}
       />

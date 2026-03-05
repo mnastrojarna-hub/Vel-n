@@ -138,8 +138,8 @@ export default function Fleet() {
                   <TD>{m.category || '—'}</TD>
                   <TD>{m.branches?.name || '—'}</TD>
                   <TD><StatusBadge status={m.status} /></TD>
-                  <TD mono>{m.km?.toLocaleString('cs-CZ') || '—'}</TD>
-                  <TD bold>{m.price_per_day ? `${m.price_per_day.toLocaleString('cs-CZ')} Kč` : '—'}</TD>
+                  <TD mono>{m.mileage?.toLocaleString('cs-CZ') || '—'}</TD>
+                  <TD bold>{m.price_weekday ? `${m.price_weekday.toLocaleString('cs-CZ')} Kč` : '—'}</TD>
                   <TD>{m.next_service_date || '—'}</TD>
                 </tr>
               ))}
@@ -173,7 +173,7 @@ function FilterSelect({ value, onChange, options }) {
 function AddMotoModal({ branches, onClose, onSaved }) {
   const [form, setForm] = useState({
     model: '', spz: '', vin: '', category: '', branch_id: '',
-    price_per_day: '', km: 0, status: 'active',
+    price_weekday: '', price_weekend: '', mileage: 0, status: 'active',
     oil_interval_km: '', oil_interval_days: '',
     tire_interval_km: '', full_service_interval_km: '',
     full_service_interval_days: '', stk_valid_until: '',
@@ -191,8 +191,9 @@ function AddMotoModal({ branches, onClose, onSaved }) {
       const { data: newMoto, error } = await supabase.from('motorcycles').insert({
         model: form.model, spz: form.spz, vin: form.vin,
         category: form.category, status: form.status,
-        price_per_day: Number(form.price_per_day) || 0,
-        km: Number(form.km) || 0,
+        price_weekday: Number(form.price_weekday) || 0,
+        price_weekend: Number(form.price_weekend) || 0,
+        mileage: Number(form.mileage) || 0,
         branch_id: form.branch_id || null,
         stk_valid_until: form.stk_valid_until || null,
       }).select().single()
@@ -267,8 +268,9 @@ function AddMotoModal({ branches, onClose, onSaved }) {
             {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
         </div>
-        <FormField label="Cena/den (Kč)" value={form.price_per_day} onChange={v => set('price_per_day', v)} type="number" />
-        <FormField label="Km" value={form.km} onChange={v => set('km', v)} type="number" />
+        <FormField label="Cena pracovní den (Kč)" value={form.price_weekday} onChange={v => set('price_weekday', v)} type="number" />
+        <FormField label="Cena víkend (Kč)" value={form.price_weekend} onChange={v => set('price_weekend', v)} type="number" />
+        <FormField label="Nájezd (km)" value={form.mileage} onChange={v => set('mileage', v)} type="number" />
       </div>
 
       {/* Servisní intervaly */}
