@@ -41,22 +41,16 @@ CREATE TRIGGER trg_email_templates_updated
 -- ═══════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS document_templates (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  slug text NOT NULL UNIQUE,
+  type text NOT NULL,
   name text NOT NULL,
-  type text NOT NULL DEFAULT 'contract'
-    CHECK (type IN ('contract', 'protocol', 'terms', 'invoice', 'damage_protocol')),
-  content text,
-  pdf_template_path text,
-  variables text[] DEFAULT '{}',
-  description text,
-  active boolean NOT NULL DEFAULT true,
-  version integer NOT NULL DEFAULT 1,
+  html_content text NOT NULL,
+  variables jsonb DEFAULT '[]'::jsonb,
+  version integer DEFAULT 1,
+  status text NOT NULL DEFAULT 'draft',
   updated_by uuid REFERENCES admin_users(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-
-CREATE INDEX IF NOT EXISTS idx_document_templates_slug ON document_templates(slug);
 
 ALTER TABLE document_templates ENABLE ROW LEVEL SECURITY;
 
@@ -69,47 +63,20 @@ CREATE TRIGGER trg_document_templates_updated
   BEFORE UPDATE ON document_templates
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
--- Doplnění sloupců pokud tabulka už existovala
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'document_templates' AND column_name = 'pdf_template_path'
-  ) THEN
-    ALTER TABLE document_templates ADD COLUMN pdf_template_path text;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'document_templates' AND column_name = 'version'
-  ) THEN
-    ALTER TABLE document_templates ADD COLUMN version integer NOT NULL DEFAULT 1;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'document_templates' AND column_name = 'updated_by'
-  ) THEN
-    ALTER TABLE document_templates ADD COLUMN updated_by uuid REFERENCES admin_users(id) ON DELETE SET NULL;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'document_templates' AND column_name = 'variables'
-  ) THEN
-    ALTER TABLE document_templates ADD COLUMN variables text[] DEFAULT '{}';
-  END IF;
-END $$;
+-- Tabulka document_templates již existuje s těmito sloupci:
+-- id, type, name, html_content, variables (jsonb), version, status, updated_by, created_at, updated_at
 
 -- ═══════════════════════════════════════════════════════
 -- 3. GENERATED_DOCUMENTS
 -- ═══════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS generated_documents (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  template_id uuid REFERENCES document_templates(id) ON DELETE SET NULL,
   booking_id uuid REFERENCES bookings(id) ON DELETE SET NULL,
   customer_id uuid REFERENCES profiles(id) ON DELETE SET NULL,
-  template_id uuid REFERENCES document_templates(id) ON DELETE SET NULL,
-  name text NOT NULL,
-  type text NOT NULL,
-  file_path text,
-  content_html text,
-  metadata jsonb NOT NULL DEFAULT '{}',
-  signed boolean NOT NULL DEFAULT false,
-  signature_data text,
-  signed_at timestamptz,
+  filled_data jsonb,
+  pdf_path text,
+  generated_by uuid REFERENCES admin_users(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -129,39 +96,30 @@ CREATE POLICY generated_documents_customer_select ON generated_documents
 -- ═══════════════════════════════════════════════════════
 -- 4. INVOICES
 -- ═══════════════════════════════════════════════════════
-CREATE SEQUENCE IF NOT EXISTS invoice_number_seq START WITH 20260001;
-
 CREATE TABLE IF NOT EXISTS invoices (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  invoice_number text NOT NULL UNIQUE
-    DEFAULT ('MG-' || nextval('invoice_number_seq')::text),
-  type text NOT NULL DEFAULT 'proforma'
-    CHECK (type IN ('proforma', 'final', 'shop_proforma', 'shop_final')),
-  booking_id uuid REFERENCES bookings(id) ON DELETE SET NULL,
-  order_id uuid,
+  number text NOT NULL,
+  type text NOT NULL,
   customer_id uuid REFERENCES profiles(id) ON DELETE SET NULL,
-  subtotal numeric(10,2) NOT NULL DEFAULT 0,
-  discount numeric(10,2) NOT NULL DEFAULT 0,
-  total numeric(10,2) NOT NULL DEFAULT 0,
-  currency text NOT NULL DEFAULT 'CZK',
-  status text NOT NULL DEFAULT 'issued'
-    CHECK (status IN ('draft', 'issued', 'paid', 'cancelled', 'refunded')),
-  paid_at timestamptz,
-  seller_info jsonb NOT NULL DEFAULT '{}',
-  buyer_info jsonb NOT NULL DEFAULT '{}',
-  items jsonb NOT NULL DEFAULT '[]',
-  file_path text,
-  content_html text,
+  supplier_id uuid,
+  booking_id uuid REFERENCES bookings(id) ON DELETE SET NULL,
+  issue_date date NOT NULL,
+  due_date date NOT NULL,
+  paid_date date,
+  subtotal numeric NOT NULL,
+  tax_amount numeric NOT NULL,
+  total numeric NOT NULL,
+  status text NOT NULL DEFAULT 'draft',
+  pdf_path text,
+  items jsonb DEFAULT '[]'::jsonb,
   notes text,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_invoices_booking ON invoices(booking_id);
 CREATE INDEX IF NOT EXISTS idx_invoices_customer ON invoices(customer_id);
 CREATE INDEX IF NOT EXISTS idx_invoices_type ON invoices(type);
 CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
-CREATE INDEX IF NOT EXISTS idx_invoices_number ON invoices(invoice_number);
 
 ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
 
@@ -172,11 +130,6 @@ CREATE POLICY invoices_admin ON invoices
 DROP POLICY IF EXISTS invoices_customer_select ON invoices;
 CREATE POLICY invoices_customer_select ON invoices
   FOR SELECT USING (customer_id = auth.uid());
-
-DROP TRIGGER IF EXISTS trg_invoices_updated ON invoices;
-CREATE TRIGGER trg_invoices_updated
-  BEFORE UPDATE ON invoices
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- ═══════════════════════════════════════════════════════
 -- 5. SENT_EMAILS
@@ -213,11 +166,13 @@ CREATE POLICY sent_emails_admin ON sent_emails
 -- ═══════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS message_threads (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  customer_id uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  customer_id uuid REFERENCES profiles(id) ON DELETE CASCADE,
+  channel text NOT NULL,
+  status text NOT NULL DEFAULT 'open',
+  assigned_admin uuid,
   subject text,
-  unread_count integer NOT NULL DEFAULT 0,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  last_message_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_message_threads_customer ON message_threads(customer_id);
@@ -232,28 +187,22 @@ DROP POLICY IF EXISTS message_threads_customer_select ON message_threads;
 CREATE POLICY message_threads_customer_select ON message_threads
   FOR SELECT USING (customer_id = auth.uid());
 
-DROP TRIGGER IF EXISTS trg_message_threads_updated ON message_threads;
-CREATE TRIGGER trg_message_threads_updated
-  BEFORE UPDATE ON message_threads
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-
 -- ═══════════════════════════════════════════════════════
 -- 7. MESSAGES
 -- ═══════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS messages (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  thread_id uuid NOT NULL REFERENCES message_threads(id) ON DELETE CASCADE,
-  sender_id uuid,
+  thread_id uuid REFERENCES message_threads(id) ON DELETE CASCADE,
+  direction text NOT NULL,
+  sender_name text,
   content text NOT NULL,
-  channel text NOT NULL DEFAULT 'system'
-    CHECK (channel IN ('system', 'admin', 'customer')),
-  read boolean NOT NULL DEFAULT false,
-  metadata jsonb NOT NULL DEFAULT '{}',
+  attachments text[] DEFAULT '{}',
+  read_at timestamptz,
+  ai_suggested_reply text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_messages_thread ON messages(thread_id);
-CREATE INDEX IF NOT EXISTS idx_messages_read ON messages(read) WHERE read = false;
 
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 
@@ -270,28 +219,9 @@ CREATE POLICY messages_customer_select ON messages
 DROP POLICY IF EXISTS messages_customer_insert ON messages;
 CREATE POLICY messages_customer_insert ON messages
   FOR INSERT WITH CHECK (
-    channel = 'customer'
+    direction = 'customer'
     AND thread_id IN (SELECT id FROM message_threads WHERE customer_id = auth.uid())
   );
-
--- Trigger: inkrementace unread_count při nové nepřečtené zprávě
-CREATE OR REPLACE FUNCTION increment_unread_count()
-RETURNS trigger AS $$
-BEGIN
-  IF NEW.read = false AND NEW.channel IN ('system', 'admin') THEN
-    UPDATE message_threads
-    SET unread_count = unread_count + 1,
-        updated_at = now()
-    WHERE id = NEW.thread_id;
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-DROP TRIGGER IF EXISTS trg_messages_unread ON messages;
-CREATE TRIGGER trg_messages_unread
-  AFTER INSERT ON messages
-  FOR EACH ROW EXECUTE FUNCTION increment_unread_count();
 
 -- ═══════════════════════════════════════════════════════
 -- 8. MESSAGE_TEMPLATES
@@ -300,7 +230,9 @@ CREATE TABLE IF NOT EXISTS message_templates (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
   content text NOT NULL,
-  category text NOT NULL DEFAULT 'general',
+  category text,
+  variables text[] DEFAULT '{}',
+  language text DEFAULT 'cs',
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -405,48 +337,8 @@ ON CONFLICT (slug) DO NOTHING;
 -- ═══════════════════════════════════════════════════════
 -- 12. SEED: document_templates
 -- ═══════════════════════════════════════════════════════
-INSERT INTO document_templates (slug, name, type, description, variables, content) VALUES
-  (
-    'rental_contract',
-    'Smlouva o pronájmu motocyklu',
-    'contract',
-    'Generována automaticky při potvrzení rezervace. PDF se nahraje přes admin.',
-    ARRAY['customer_name','customer_email','customer_phone','customer_address','moto_model','moto_spz','start_date','end_date','total_price','deposit','pickup_location','booking_number','contract_date','company_name','company_ico'],
-    NULL
-  ),
-  (
-    'handover_protocol',
-    'Předávací protokol',
-    'protocol',
-    'Generován při předání motorky zákazníkovi. Obsahuje stav motorky, foto, km.',
-    ARRAY['customer_name','moto_model','moto_spz','start_date','km_start','fuel_level','damage_notes','booking_number','handover_date'],
-    NULL
-  ),
-  (
-    'vop',
-    'Obchodní podmínky',
-    'terms',
-    'Všeobecné obchodní podmínky pronájmu motorek MotoGo24.',
-    ARRAY['company_name','company_ico','company_address'],
-    NULL
-  ),
-  (
-    'damage_protocol',
-    'Protokol o zjištěném poškození při vrácení',
-    'damage_protocol',
-    'Generován při vrácení motorky pokud je zjištěno poškození.',
-    ARRAY['customer_name','moto_model','moto_spz','booking_number','return_date','km_end','damage_description','estimated_cost'],
-    NULL
-  ),
-  (
-    'invoice_template',
-    'Šablona faktury',
-    'invoice',
-    'HTML šablona pro generování faktur (zálohových i konečných).',
-    ARRAY['invoice_number','invoice_date','due_date','seller_name','seller_ico','seller_address','seller_bank','buyer_name','buyer_address','buyer_ico','items','subtotal','discount','total','currency','notes'],
-    NULL
-  )
-ON CONFLICT (slug) DO NOTHING;
+-- document_templates seed — tabulka již existuje, seed přeskočen
+-- Šablony se spravují přes admin rozhraní
 
 -- ═══════════════════════════════════════════════════════
 -- 13. SEED: message_templates

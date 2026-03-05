@@ -51,7 +51,7 @@ export default function InvoicesTab() {
       if (filters.type) query = query.eq('type', filters.type)
       if (filters.status) query = query.eq('status', filters.status)
       if (filters.search) {
-        query = query.or(`invoice_number.ilike.%${filters.search}%`)
+        query = query.or(`number.ilike.%${filters.search}%`)
       }
 
       query = query.range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
@@ -83,7 +83,7 @@ export default function InvoicesTab() {
       if (err) throw err
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({
-        admin_id: user?.id, action: 'invoice_cancelled', details: { invoice_id: invoice.id, invoice_number: invoice.invoice_number },
+        admin_id: user?.id, action: 'invoice_cancelled', details: { invoice_id: invoice.id, number: invoice.number },
       })
       setCancelConfirm(null)
       loadInvoices()
@@ -92,14 +92,14 @@ export default function InvoicesTab() {
   }
 
   async function handleDownload(invoice) {
-    if (!invoice.file_path) return
+    if (!invoice.pdf_path) return
     try {
-      const { data, error: err } = await supabase.storage.from('documents').download(invoice.file_path)
+      const { data, error: err } = await supabase.storage.from('documents').download(invoice.pdf_path)
       if (err) throw err
       const url = URL.createObjectURL(data)
       const a = document.createElement('a')
       a.href = url
-      a.download = `faktura_${invoice.invoice_number}.pdf`
+      a.download = `faktura_${invoice.number}.pdf`
       a.click()
       URL.revokeObjectURL(url)
     } catch (e) { setError(`Stažení selhalo: ${e.message}`) }
@@ -173,7 +173,7 @@ export default function InvoicesTab() {
                 const st = STATUS_MAP[inv.status] || STATUS_MAP.draft
                 return (
                   <TRow key={inv.id}>
-                    <TD mono bold>{inv.invoice_number || '—'}</TD>
+                    <TD mono bold>{inv.number || '—'}</TD>
                     <TD><Badge label={tp.label} color={tp.color} bg={tp.bg} /></TD>
                     <TD>{inv.profiles?.full_name || '—'}</TD>
                     <TD>{inv.bookings?.motorcycles?.model || '—'}</TD>
@@ -187,7 +187,7 @@ export default function InvoicesTab() {
                     <TD>
                       <div className="flex gap-1">
                         <ActionBtn color="#2563eb" onClick={() => setDetail(inv)}>Zobrazit</ActionBtn>
-                        {inv.file_path && <ActionBtn color="#4a6357" onClick={() => handleDownload(inv)}>Stáhnout</ActionBtn>}
+                        {inv.pdf_path && <ActionBtn color="#4a6357" onClick={() => handleDownload(inv)}>Stáhnout</ActionBtn>}
                       </div>
                     </TD>
                   </TRow>
@@ -212,7 +212,7 @@ export default function InvoicesTab() {
 
       {cancelConfirm && (
         <ConfirmDialog open title="Stornovat fakturu?"
-          message={`Opravdu chcete stornovat fakturu ${cancelConfirm.invoice_number}?`}
+          message={`Opravdu chcete stornovat fakturu ${cancelConfirm.number}?`}
           danger onConfirm={() => handleCancel(cancelConfirm)} onCancel={() => setCancelConfirm(null)} />
       )}
     </div>
@@ -223,7 +223,7 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, onSend, onCancel }) 
   const tp = TYPE_MAP[invoice.type] || TYPE_MAP.proforma
   const st = STATUS_MAP[invoice.status] || STATUS_MAP.draft
   return (
-    <Modal open title={`Faktura ${invoice.invoice_number}`} onClose={onClose} wide>
+    <Modal open title={`Faktura ${invoice.number}`} onClose={onClose} wide>
       <div className="flex items-center gap-3 mb-4">
         <Badge label={tp.label} color={tp.color} bg={tp.bg} />
         <Badge label={st.label} color={st.color} bg={st.bg} />
@@ -231,17 +231,12 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, onSend, onCancel }) 
           {(invoice.total || 0).toLocaleString('cs-CZ')} Kč
         </span>
       </div>
-      {invoice.content_html ? (
-        <div className="rounded-card" style={{ padding: 16, background: '#fff', border: '1px solid #d4e8e0', maxHeight: 500, overflow: 'auto' }}
-          dangerouslySetInnerHTML={{ __html: invoice.content_html }} />
-      ) : (
-        <div className="py-8 text-center" style={{ color: '#8aab99', fontSize: 13 }}>
-          Obsah faktury není k dispozici. Stáhněte PDF verzi.
-        </div>
-      )}
+      <div className="py-8 text-center" style={{ color: '#8aab99', fontSize: 13 }}>
+        {invoice.pdf_path ? 'Stáhněte PDF verzi faktury.' : 'PDF není k dispozici.'}
+      </div>
       <div className="flex justify-between gap-3 mt-5">
         <div className="flex gap-2">
-          {invoice.file_path && <Button onClick={onDownload}>Stáhnout PDF</Button>}
+          {invoice.pdf_path && <Button onClick={onDownload}>Stáhnout PDF</Button>}
           <Button onClick={onSend}>Odeslat zákazníkovi</Button>
         </div>
         <div className="flex gap-2">

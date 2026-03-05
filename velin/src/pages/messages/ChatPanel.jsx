@@ -44,7 +44,7 @@ export default function ChatPanel({ thread }) {
     setMessages(data || [])
     setLoading(false)
     // Mark as read
-    await supabase.from('messages').update({ read: true }).eq('thread_id', thread.id).eq('read', false)
+    await supabase.from('messages').update({ read_at: new Date().toISOString() }).eq('thread_id', thread.id).is('read_at', null)
   }
 
   async function loadTemplates() {
@@ -59,12 +59,12 @@ export default function ChatPanel({ thread }) {
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('messages').insert({
         thread_id: thread.id,
-        sender_id: user?.id,
+        direction: 'admin',
+        sender_name: 'Admin',
         content: reply.trim(),
-        channel: 'admin',
-        read: true,
+        read_at: new Date().toISOString(),
       })
-      await supabase.from('message_threads').update({ updated_at: new Date().toISOString() }).eq('id', thread.id)
+      await supabase.from('message_threads').update({ last_message_at: new Date().toISOString() }).eq('id', thread.id)
       setReply('')
       await loadMessages()
     } catch {}
@@ -144,8 +144,8 @@ export default function ChatPanel({ thread }) {
 }
 
 function MessageBubble({ message }) {
-  const isAdmin = message.channel === 'admin'
-  const isSystem = message.channel === 'system'
+  const isAdmin = message.direction === 'admin'
+  const isSystem = message.direction === 'system'
 
   if (isSystem) {
     return (
@@ -159,11 +159,6 @@ function MessageBubble({ message }) {
           <div className="text-[10px] mt-1" style={{ color: '#8aab99' }}>
             {message.created_at ? new Date(message.created_at).toLocaleString('cs-CZ') : ''}
           </div>
-          {message.metadata?.template_slug && (
-            <div className="text-[10px] mt-0.5" style={{ color: '#8aab99' }}>
-              🤖 Automatická zpráva – {TEMPLATE_LABELS[message.metadata.template_slug] || message.metadata.template_slug}
-            </div>
-          )}
         </div>
       </div>
     )

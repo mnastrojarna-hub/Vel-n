@@ -44,7 +44,7 @@ export default function Dashboard() {
         supabase.from('bookings').select('id, status').in('status', ['active', 'pending', 'confirmed']),
         supabase.from('accounting_entries').select('amount').eq('type', 'revenue')
           .gte('date', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]),
-        supabase.from('messages').select('id', { count: 'exact' }).eq('read', false),
+        supabase.from('messages').select('id', { count: 'exact' }).is('read_at', null),
         supabase.from('inventory').select('id, stock, min_stock'),
         supabase.from('accounting_entries').select('amount, date').eq('type', 'revenue')
           .gte('date', new Date(new Date().getFullYear() - 1, new Date().getMonth(), 1).toISOString().split('T')[0])

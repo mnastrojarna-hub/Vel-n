@@ -60,17 +60,9 @@ export default function TemplatesTab() {
                 </div>
                 <span className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>{t.type}</span>
               </div>
-              <p className="text-xs mb-3" style={{ color: '#4a6357', lineHeight: 1.5 }}>
-                {t.description || 'Bez popisu'}
-              </p>
-              {t.pdf_template_path && (
-                <div className="text-[10px] mb-2" style={{ color: '#2563eb' }}>
-                  PDF šablona nahrána
-                </div>
-              )}
               <div className="flex items-center gap-2">
                 <span className="text-[10px]" style={{ color: '#8aab99' }}>
-                  Proměnné: {extractVars(t.content).join(', ') || '—'}
+                  Proměnné: {extractVars(t.html_content).join(', ') || '—'}
                 </span>
               </div>
               <div className="flex items-center gap-2 mt-3">
@@ -112,7 +104,7 @@ function extractVars(content) {
 
 function EditTemplateModal({ template, onClose, onSaved }) {
   const [name, setName] = useState(template.name || '')
-  const [content, setContent] = useState(template.content || '')
+  const [content, setContent] = useState(template.html_content || '')
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [err, setErr] = useState(null)
@@ -133,7 +125,7 @@ function EditTemplateModal({ template, onClose, onSaved }) {
       const { data: { user } } = await supabase.auth.getUser()
       const { error } = await supabase
         .from('document_templates')
-        .update({ name, content, version: newVersion, updated_by: user?.id })
+        .update({ name, html_content: content, version: newVersion, updated_by: user?.id })
         .eq('id', template.id)
       if (error) throw error
       await supabase.from('admin_audit_log').insert({
@@ -149,32 +141,15 @@ function EditTemplateModal({ template, onClose, onSaved }) {
     setUploading(true); setErr(null)
     try {
       const version = (template.version || 1) + 1
-      const path = `templates/${template.slug}_v${version}.pdf`
+      const path = `templates/${template.id}_v${version}.pdf`
       const { error: upErr } = await supabase.storage.from('documents').upload(path, file, { upsert: true })
       if (upErr) throw upErr
-      const { error: dbErr } = await supabase.from('document_templates')
-        .update({ pdf_template_path: path }).eq('id', template.id)
-      if (dbErr) throw dbErr
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({
         admin_id: user?.id, action: 'template_pdf_uploaded', details: { template_id: template.id, path },
       })
     } catch (e) { setErr(e.message) }
     setUploading(false)
-  }
-
-  async function handleDownloadPdf() {
-    if (!template.pdf_template_path) return
-    try {
-      const { data, error: err } = await supabase.storage.from('documents').download(template.pdf_template_path)
-      if (err) throw err
-      const url = URL.createObjectURL(data)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = template.pdf_template_path.split('/').pop()
-      a.click()
-      URL.revokeObjectURL(url)
-    } catch (e) { setErr(`Stažení selhalo: ${e.message}`) }
   }
 
   return (
@@ -199,15 +174,6 @@ function EditTemplateModal({ template, onClose, onSaved }) {
         {/* PDF upload */}
         <div className="p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
           <Label>PDF šablona</Label>
-          {template.pdf_template_path && (
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs" style={{ color: '#4a6357' }}>Aktuální: {template.pdf_template_path}</span>
-              <button onClick={handleDownloadPdf} className="text-[10px] font-bold cursor-pointer"
-                style={{ color: '#2563eb', background: 'none', border: 'none' }}>
-                Stáhnout
-              </button>
-            </div>
-          )}
           <input type="file" accept=".pdf" onChange={handlePdfUpload}
             className="text-xs" style={{ color: '#4a6357' }} />
           {uploading && <span className="text-[10px] ml-2" style={{ color: '#8aab99' }}>Nahrávám…</span>}
@@ -258,7 +224,7 @@ function RegenerateModal({ template, onClose }) {
     setGenerating(true); setErr(null); setSuccess(false)
     try {
       const { error } = await supabase.functions.invoke('generate-document', {
-        body: { template_slug: template.slug, booking_id: selectedBooking },
+        body: { template_id: template.id, booking_id: selectedBooking },
       })
       if (error) throw error
       setSuccess(true)
