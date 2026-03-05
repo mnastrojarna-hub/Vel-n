@@ -264,14 +264,13 @@ export default function GiftVouchers() {
         </Modal>
       )}
 
-      {/* Create/Edit */}
-      {showModal && (
-        <VoucherModal
-          existing={editVoucher}
-          onClose={() => { setShowModal(false); setEditVoucher(null) }}
-          onSaved={() => { setShowModal(false); setEditVoucher(null); loadVouchers(); loadSummary() }}
-        />
-      )}
+      {/* Create/Edit — rendered always to prevent unmount on outside click */}
+      <VoucherModal
+        open={showModal}
+        existing={editVoucher}
+        onClose={() => { setShowModal(false); setEditVoucher(null) }}
+        onSaved={() => { setShowModal(false); setEditVoucher(null); loadVouchers(); loadSummary() }}
+      />
 
       {/* Redeem */}
       {redeemModal && (
@@ -304,7 +303,7 @@ function generateCode() {
   return code
 }
 
-function VoucherModal({ existing, onClose, onSaved }) {
+function VoucherModal({ open, existing, onClose, onSaved }) {
   const isEdit = !!existing
   const [form, setForm] = useState(
     existing
@@ -371,8 +370,10 @@ function VoucherModal({ existing, onClose, onSaved }) {
     } catch {}
   }
 
+  if (!open) return null
+
   return (
-    <Modal open title={isEdit ? `Upravit: ${existing.code}` : 'Nový dárkový poukaz'} onClose={onClose}>
+    <Modal open noBackdropClose title={isEdit ? `Upravit: ${existing?.code}` : 'Nový dárkový poukaz'} onClose={onClose}>
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2">
           <Label>Kód poukazu</Label>

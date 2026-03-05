@@ -1,0 +1,131 @@
+import { useState, useEffect } from 'react'
+import { supabase } from '../../lib/supabase'
+import Card from '../ui/Card'
+import Button from '../ui/Button'
+
+const DAY_LABELS = ['Pondělí', 'Úterý', 'Středa', 'Čtvrtek', 'Pátek', 'Sobota', 'Neděle']
+const DAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+
+export default function PricingTab({ motoId }) {
+  const [prices, setPrices] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
+  const [success, setSuccess] = useState(false)
+
+  useEffect(() => { loadPrices() }, [motoId])
+
+  async function loadPrices() {
+    setLoading(true)
+    const { data } = await supabase
+      .from('moto_day_prices')
+      .select('*')
+      .eq('moto_id', motoId)
+      .single()
+
+    if (data) {
+      setPrices(data)
+    } else {
+      // Initialize with defaults
+      const defaults = { moto_id: motoId }
+      DAY_KEYS.forEach(k => { defaults[`price_${k}`] = 0 })
+      setPrices(defaults)
+    }
+    setLoading(false)
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    setError(null)
+    setSuccess(false)
+    try {
+      const payload = { moto_id: motoId }
+      DAY_KEYS.forEach(k => {
+        payload[`price_${k}`] = Number(prices[`price_${k}`]) || 0
+      })
+
+      if (prices.id) {
+        const { error: err } = await supabase
+          .from('moto_day_prices')
+          .update(payload)
+          .eq('id', prices.id)
+        if (err) throw err
+      } else {
+        const { data, error: err } = await supabase
+          .from('moto_day_prices')
+          .insert(payload)
+          .select()
+          .single()
+        if (err) throw err
+        setPrices(data)
+      }
+
+      const { data: { user } } = await supabase.auth.getUser()
+      await supabase.from('admin_audit_log').insert({
+        admin_id: user?.id,
+        action: 'moto_pricing_updated',
+        details: { moto_id: motoId },
+      })
+      setSuccess(true)
+      setTimeout(() => setSuccess(false), 3000)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function setPrice(key, value) {
+    setPrices(p => ({ ...p, [`price_${key}`]: value }))
+  }
+
+  if (loading) return <div className="py-8 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
+
+  return (
+    <Card>
+      <h3 className="text-[10px] font-extrabold uppercase tracking-widest mb-4" style={{ color: '#8aab99' }}>
+        Ceník podle dne v týdnu
+      </h3>
+      <p className="text-xs mb-4" style={{ color: '#4a6357' }}>
+        Ceny za den pronájmu. Změny se projeví na všech frontech (web, aplikace).
+      </p>
+      <div className="space-y-2">
+        {DAY_KEYS.map((key, i) => {
+          const isWeekend = i >= 5
+          return (
+            <div key={key} className="flex items-center gap-3 p-3 rounded-lg" style={{
+              background: isWeekend ? '#fef3c7' : '#f1faf7',
+              border: `1px solid ${isWeekend ? '#fde68a' : '#d4e8e0'}`,
+            }}>
+              <span className="text-xs font-extrabold w-20" style={{ color: '#0f1a14' }}>
+                {DAY_LABELS[i]}
+              </span>
+              {isWeekend && (
+                <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded"
+                  style={{ background: '#fde68a', color: '#92400e' }}>Víkend</span>
+              )}
+              <div className="ml-auto flex items-center gap-2">
+                <input
+                  type="number"
+                  value={prices[`price_${key}`] || ''}
+                  onChange={e => setPrice(key, e.target.value)}
+                  className="rounded-btn text-sm font-bold text-right outline-none"
+                  style={{ width: 100, padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0', color: '#0f1a14' }}
+                  placeholder="0"
+                />
+                <span className="text-xs font-bold" style={{ color: '#8aab99' }}>Kč</span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      {error && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{error}</p>}
+      {success && <p className="mt-3 text-sm font-bold" style={{ color: '#1a8a18' }}>Ceník uložen a aktualizován na všech frontech.</p>}
+      <div className="flex justify-end mt-5">
+        <Button green onClick={handleSave} disabled={saving}>
+          {saving ? 'Ukládám...' : 'Uložit ceník'}
+        </Button>
+      </div>
+    </Card>
+  )
+}

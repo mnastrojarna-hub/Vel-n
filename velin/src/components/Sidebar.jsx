@@ -21,6 +21,7 @@ const NAV = [
   { id: 'purchases', path: '/nakupy', label: 'Nákupy', icon: '🛒' },
   { id: 'government', path: '/statni-sprava', label: 'Státní správa', icon: '🏛️' },
   { id: 'ai', path: '/ai-copilot', label: 'AI Copilot', icon: '🤖' },
+  { id: 'branches', path: '/pobocky', label: 'Pobočky', icon: '🏢' },
   { id: 'sos', path: '/sos', label: 'SOS Panel', icon: '🚨', badgeKey: 'sos' },
 ]
 

@@ -27,6 +27,7 @@ import AICopilot from './pages/AICopilot'
 import SOSPanel from './pages/SOSPanel'
 import PromoCodes from './pages/PromoCodes'
 import GiftVouchers from './pages/GiftVouchers'
+import Branches from './pages/Branches'
 
 export default function App() {
   const { user, loading, signIn, signOut } = useAuth()
@@ -68,6 +69,7 @@ export default function App() {
         <Route path="/ai-copilot" element={<AICopilot />} />
         <Route path="/promo-kody" element={<PromoCodes />} />
         <Route path="/poukazy" element={<GiftVouchers />} />
+        <Route path="/pobocky" element={<Branches />} />
         <Route path="/sos" element={<SOSPanel />} />
       </Route>
     </Routes>
