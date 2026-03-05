@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import VariablesTab from './cms/VariablesTab'
 import PagesTab from './cms/PagesTab'
-import PromoCodesTab from './cms/PromoCodesTab'
 import FeatureFlagsTab from './cms/FeatureFlagsTab'
 
-const TABS = ['Proměnné', 'Stránky', 'Promo kódy', 'Feature flags']
+const TABS = ['Proměnné', 'Stránky', 'Feature flags']
 
 export default function CMS() {
   const [tab, setTab] = useState('Proměnné')
@@ -32,7 +31,6 @@ export default function CMS() {
 
       {tab === 'Proměnné' && <VariablesTab />}
       {tab === 'Stránky' && <PagesTab />}
-      {tab === 'Promo kódy' && <PromoCodesTab />}
       {tab === 'Feature flags' && <FeatureFlagsTab />}
     </div>
   )

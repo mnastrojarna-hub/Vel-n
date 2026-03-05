@@ -11,7 +11,7 @@ import ConfirmDialog from '../components/ui/ConfirmDialog'
 
 const PER_PAGE = 25
 
-export default function Vouchers() {
+export default function PromoCodes() {
   const [codes, setCodes] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
