@@ -23,13 +23,21 @@ export default function GeneratedTab() {
     try {
       let query = supabase
         .from('generated_documents')
-        .select('*, profiles(full_name), bookings(id)', { count: 'exact' })
-      if (search) query = query.or(`name.ilike.%${search}%,type.ilike.%${search}%`)
+        .select('*, document_templates(name, type), profiles(full_name), bookings(id)', { count: 'exact' })
+      // Search is done client-side since we filter on joined document_templates columns
       query = query.order('created_at', { ascending: false }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       const { data, count, error: err } = await query
       if (err) throw err
-      setDocs(data || [])
-      setTotal(count || 0)
+      let filtered = data || []
+      if (search) {
+        const s = search.toLowerCase()
+        filtered = filtered.filter(d =>
+          (d.document_templates?.name || '').toLowerCase().includes(s) ||
+          (d.document_templates?.type || '').toLowerCase().includes(s)
+        )
+      }
+      setDocs(filtered)
+      setTotal(search ? filtered.length : (count || 0))
     } catch (e) {
       setError(e.message)
     } finally {
@@ -39,13 +47,13 @@ export default function GeneratedTab() {
 
   async function download(doc) {
     try {
-      if (!doc.file_path) return
-      const { data, error } = await supabase.storage.from('documents').download(doc.file_path)
+      if (!doc.pdf_path) return
+      const { data, error } = await supabase.storage.from('documents').download(doc.pdf_path)
       if (error) throw error
       const url = URL.createObjectURL(data)
       const a = document.createElement('a')
       a.href = url
-      a.download = doc.name || 'document'
+      a.download = doc.document_templates?.name || 'document'
       a.click()
       URL.revokeObjectURL(url)
     } catch (e) {
@@ -77,11 +85,11 @@ export default function GeneratedTab() {
             <tbody>
               {docs.map(d => (
                 <TRow key={d.id}>
-                  <TD bold>{d.name || '—'}</TD>
+                  <TD bold>{d.document_templates?.name || '—'}</TD>
                   <TD>
                     <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase"
                       style={{ padding: '4px 10px', background: '#f1faf7', color: '#4a6357' }}>
-                      {d.type || '—'}
+                      {d.document_templates?.type || '—'}
                     </span>
                   </TD>
                   <TD>{d.profiles?.full_name || '—'}</TD>
