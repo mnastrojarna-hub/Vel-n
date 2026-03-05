@@ -118,24 +118,21 @@ CREATE POLICY audit_log_delete ON admin_audit_log
 CREATE TABLE IF NOT EXISTS promo_codes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   code text NOT NULL UNIQUE,
-  discount_type text NOT NULL DEFAULT 'percent'
-    CHECK (discount_type IN ('percent', 'fixed')),
-  discount_value numeric(10,2) NOT NULL DEFAULT 0,
-  status text NOT NULL DEFAULT 'active'
-    CHECK (status IN ('active', 'inactive')),
-  usage_limit integer,              -- NULL = neomezeno
-  used_count integer NOT NULL DEFAULT 0,
+  type text NOT NULL DEFAULT 'percent'
+    CHECK (type IN ('percent', 'fixed')),
+  value numeric(10,2) NOT NULL DEFAULT 0,
   valid_from date,
   valid_to date,
-  min_order_value numeric(10,2),    -- minimální hodnota objednávky
-  applies_to text,                  -- NULL = vše, 'rental', 'gear'
-  created_by uuid REFERENCES admin_users(id) ON DELETE SET NULL,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  max_uses integer,                 -- NULL = neomezeno
+  used_count integer NOT NULL DEFAULT 0,
+  min_order_amount numeric(10,2),   -- minimální hodnota objednávky
+  applicable_motos text,            -- NULL = vše
+  active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_promo_codes_code ON promo_codes(code);
-CREATE INDEX IF NOT EXISTS idx_promo_codes_status ON promo_codes(status);
+CREATE INDEX IF NOT EXISTS idx_promo_codes_active ON promo_codes(active);
 CREATE INDEX IF NOT EXISTS idx_promo_codes_valid ON promo_codes(valid_from, valid_to);
 
 ALTER TABLE promo_codes ENABLE ROW LEVEL SECURITY;
@@ -150,13 +147,7 @@ CREATE POLICY promo_codes_admin ON promo_codes
 -- Zákazníci: čtení aktivních kódů (pro validaci na frontendu)
 DROP POLICY IF EXISTS promo_codes_public_read ON promo_codes;
 CREATE POLICY promo_codes_public_read ON promo_codes
-  FOR SELECT USING (status = 'active');
-
--- Trigger updated_at
-DROP TRIGGER IF EXISTS trg_promo_codes_updated ON promo_codes;
-CREATE TRIGGER trg_promo_codes_updated
-  BEFORE UPDATE ON promo_codes
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+  FOR SELECT USING (active = true);
 
 -- ═══════════════════════════════════════════════════════
 -- 4. PROMO_CODE_USAGE (historie použití kódů)
