@@ -171,7 +171,13 @@ function FilterSelect({ value, onChange, options }) {
 }
 
 function AddMotoModal({ branches, onClose, onSaved }) {
-  const [form, setForm] = useState({ model: '', spz: '', vin: '', category: '', branch_id: '', price_per_day: '', km: 0, status: 'active' })
+  const [form, setForm] = useState({
+    model: '', spz: '', vin: '', category: '', branch_id: '',
+    price_per_day: '', km: 0, status: 'active',
+    oil_interval_km: '', oil_interval_days: '',
+    tire_interval_km: '', full_service_interval_km: '',
+    full_service_interval_days: '', stk_valid_until: '',
+  })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
 
@@ -181,13 +187,58 @@ function AddMotoModal({ branches, onClose, onSaved }) {
     setSaving(true)
     setErr(null)
     try {
-      const { error } = await supabase.from('motorcycles').insert({
-        ...form,
+      // 1. Vytvoř motorku
+      const { data: newMoto, error } = await supabase.from('motorcycles').insert({
+        model: form.model, spz: form.spz, vin: form.vin,
+        category: form.category, status: form.status,
         price_per_day: Number(form.price_per_day) || 0,
         km: Number(form.km) || 0,
         branch_id: form.branch_id || null,
-      })
+        stk_valid_until: form.stk_valid_until || null,
+      }).select().single()
+
       if (error) throw error
+
+      // 2. Automaticky vytvoř servisní plány
+      if (newMoto && form.oil_interval_km) {
+        const schedules = [
+          {
+            moto_id: newMoto.id,
+            schedule_type: form.oil_interval_days ? 'both' : 'mileage',
+            interval_km: Number(form.oil_interval_km) || 10000,
+            interval_days: Number(form.oil_interval_days) || 365,
+            description: 'Výměna oleje',
+            active: true,
+          },
+        ]
+        if (form.tire_interval_km) {
+          schedules.push({
+            moto_id: newMoto.id,
+            schedule_type: 'mileage',
+            interval_km: Number(form.tire_interval_km) || 15000,
+            description: 'Výměna pneumatik',
+            active: true,
+          })
+        }
+        if (form.full_service_interval_km) {
+          schedules.push({
+            moto_id: newMoto.id,
+            schedule_type: form.full_service_interval_days ? 'both' : 'mileage',
+            interval_km: Number(form.full_service_interval_km) || 20000,
+            interval_days: Number(form.full_service_interval_days) || 730,
+            description: 'Kompletní servis',
+            active: true,
+          })
+        }
+        await supabase.from('maintenance_schedules').insert(schedules)
+      }
+
+      // 3. Audit log
+      const { data: { user } } = await supabase.auth.getUser()
+      await supabase.from('admin_audit_log').insert({
+        admin_id: user?.id, action: 'motorcycle_created', details: { moto_id: newMoto.id },
+      })
+
       onSaved()
     } catch (e) {
       setErr(e.message)
@@ -197,7 +248,7 @@ function AddMotoModal({ branches, onClose, onSaved }) {
   }
 
   return (
-    <Modal open title="Nová motorka" onClose={onClose}>
+    <Modal open wide title="Nová motorka" onClose={onClose}>
       <div className="grid grid-cols-2 gap-3">
         <FormField label="Model" value={form.model} onChange={v => set('model', v)} />
         <FormField label="SPZ" value={form.spz} onChange={v => set('spz', v)} />
@@ -219,6 +270,18 @@ function AddMotoModal({ branches, onClose, onSaved }) {
         <FormField label="Cena/den (Kč)" value={form.price_per_day} onChange={v => set('price_per_day', v)} type="number" />
         <FormField label="Km" value={form.km} onChange={v => set('km', v)} type="number" />
       </div>
+
+      {/* Servisní intervaly */}
+      <h4 className="text-[10px] font-extrabold uppercase tracking-widest mt-5 mb-3" style={{ color: '#8aab99' }}>Servisní intervaly</h4>
+      <div className="grid grid-cols-2 gap-3">
+        <FormField label="Olej — interval (km)" value={form.oil_interval_km} onChange={v => set('oil_interval_km', v)} type="number" />
+        <FormField label="Olej — interval (dní)" value={form.oil_interval_days} onChange={v => set('oil_interval_days', v)} type="number" />
+        <FormField label="Pneumatiky — interval (km)" value={form.tire_interval_km} onChange={v => set('tire_interval_km', v)} type="number" />
+        <FormField label="Kompletní servis (km)" value={form.full_service_interval_km} onChange={v => set('full_service_interval_km', v)} type="number" />
+        <FormField label="Kompletní servis (dní)" value={form.full_service_interval_days} onChange={v => set('full_service_interval_days', v)} type="number" />
+        <FormField label="STK platné do" value={form.stk_valid_until} onChange={v => set('stk_valid_until', v)} type="date" />
+      </div>
+
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}
       <div className="flex justify-end gap-3 mt-5">
         <Button onClick={onClose}>Zrušit</Button>
