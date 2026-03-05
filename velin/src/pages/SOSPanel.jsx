@@ -2,15 +2,53 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
-import SOSTimeline from './sos/SOSTimeline'
 import SOSDetailPanel from './sos/SOSDetailPanel'
 
-const TYPE_LABELS = { accident: 'Nehoda', theft: 'Krádež', breakdown: 'Porucha' }
-const TYPE_ICONS = { accident: '🚨', theft: '🔒', breakdown: '🔧' }
-const STATUS_COLORS = {
+export const TYPE_LABELS = {
+  theft: 'Krádež motorky',
+  accident_minor: 'Lehká nehoda (pojízdná)',
+  accident_major: 'Závažná nehoda (nepojízdná)',
+  breakdown_minor: 'Lehká porucha (pojízdná)',
+  breakdown_major: 'Těžká porucha (nepojízdná)',
+  defect_question: 'Dotaz na závadu',
+  other: 'Jiný problém',
+  // Zpětná kompatibilita
+  accident: 'Nehoda',
+  breakdown: 'Porucha',
+}
+
+export const TYPE_ICONS = {
+  theft: '🔒',
+  accident_minor: '⚠️',
+  accident_major: '🚨',
+  breakdown_minor: '🔧',
+  breakdown_major: '🛑',
+  defect_question: '❓',
+  other: '📞',
+  accident: '🚨',
+  breakdown: '🔧',
+}
+
+export const SEVERITY_MAP = {
+  critical: { label: 'Kritické', bg: '#7f1d1d', color: '#fff', border: '#dc2626' },
+  high: { label: 'Vysoká', bg: '#fee2e2', color: '#dc2626', border: '#dc2626' },
+  medium: { label: 'Střední', bg: '#fef3c7', color: '#b45309', border: '#f59e0b' },
+  low: { label: 'Nízká', bg: '#f1faf7', color: '#4a6357', border: '#d4e8e0' },
+}
+
+export const STATUS_COLORS = {
   reported: { bg: '#fee2e2', color: '#dc2626', label: 'Nový' },
   acknowledged: { bg: '#fef3c7', color: '#b45309', label: 'Potvrzeno' },
+  in_progress: { bg: '#dbeafe', color: '#2563eb', label: 'Řeší se' },
   resolved: { bg: '#dcfce7', color: '#1a8a18', label: 'Vyřešeno' },
+  closed: { bg: '#f3f4f6', color: '#6b7280', label: 'Uzavřeno' },
+}
+
+const DECISION_LABELS = {
+  replacement_moto: 'Chce náhradní motorku',
+  end_ride: 'Ukončuje jízdu',
+  continue: 'Pokračuje',
+  waiting: 'Čeká na rozhodnutí',
 }
 
 export default function SOSPanel() {
@@ -18,6 +56,7 @@ export default function SOSPanel() {
   const [loading, setLoading] = useState(true)
   const [selectedIncident, setSelectedIncident] = useState(null)
   const [notifyEnabled, setNotifyEnabled] = useState(false)
+  const [filter, setFilter] = useState('active')
 
   useEffect(() => {
     load()
@@ -25,16 +64,25 @@ export default function SOSPanel() {
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sos_incidents' }, (payload) => {
         load()
         if (notifyEnabled && 'Notification' in window && Notification.permission === 'granted') {
-          new Notification('SOS Incident!', {
-            body: `Nový ${TYPE_LABELS[payload.new?.type] || 'incident'} nahlášen`,
-            icon: '🚨', tag: 'sos-' + payload.new?.id,
+          const n = payload.new
+          const title = n?.title || TYPE_LABELS[n?.type] || 'Nový incident'
+          const sev = SEVERITY_MAP[n?.severity]
+          new Notification(`SOS: ${title}`, {
+            body: `${sev?.label || ''} — ${n?.description?.slice(0, 80) || 'Bez popisu'}`,
+            tag: 'sos-' + n?.id,
           })
         }
       })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'sos_incidents' }, () => load())
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'sos_incidents' }, (payload) => {
+        load()
+        // Aktualizuj selected incident pokud se změnil
+        if (selectedIncident && payload.new?.id === selectedIncident.id) {
+          setSelectedIncident(prev => ({ ...prev, ...payload.new }))
+        }
+      })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [notifyEnabled])
+  }, [notifyEnabled, selectedIncident?.id])
 
   async function enableNotifications() {
     if (!('Notification' in window)) return
@@ -51,26 +99,33 @@ export default function SOSPanel() {
       const { data } = await supabase
         .from('sos_incidents')
         .select('*, profiles(full_name, phone, email), bookings(id, moto_id, start_date, end_date, status, motorcycles(model, spz, branch_id, branches(name)))')
-        .in('status', ['reported', 'acknowledged'])
+        .in('status', ['reported', 'acknowledged', 'in_progress'])
         .order('created_at', { ascending: false })
       const { data: resolved } = await supabase
         .from('sos_incidents')
         .select('*, profiles(full_name, phone, email), bookings(id, moto_id, start_date, end_date, status, motorcycles(model, spz, branch_id, branches(name)))')
-        .eq('status', 'resolved')
+        .in('status', ['resolved', 'closed'])
         .order('created_at', { ascending: false })
-        .limit(5)
+        .limit(10)
       setIncidents([...(data || []), ...(resolved || [])])
     } catch {}
     setLoading(false)
   }
 
   async function updateStatus(id, newStatus) {
-    await supabase.from('sos_incidents').update({ status: newStatus }).eq('id', id)
+    const updates = { status: newStatus }
+    if (newStatus === 'resolved') {
+      const { data: { user } } = await supabase.auth.getUser()
+      updates.resolved_at = new Date().toISOString()
+      updates.resolved_by = user?.id
+    }
+    await supabase.from('sos_incidents').update(updates).eq('id', id)
     const { data: { user } } = await supabase.auth.getUser()
     await supabase.from('sos_timeline').insert({
       incident_id: id,
       action: `Stav změněn na: ${STATUS_COLORS[newStatus]?.label || newStatus}`,
       performed_by: user?.email || 'Admin',
+      admin_id: user?.id,
     })
     await supabase.from('admin_audit_log').insert({
       admin_id: user?.id, action: 'sos_status_changed',
@@ -82,7 +137,7 @@ export default function SOSPanel() {
   async function addTimelineEntry(id, action) {
     const { data: { user } } = await supabase.auth.getUser()
     await supabase.from('sos_timeline').insert({
-      incident_id: id, action, performed_by: user?.email || 'Admin',
+      incident_id: id, action, performed_by: user?.email || 'Admin', admin_id: user?.id,
     })
   }
 
@@ -90,36 +145,64 @@ export default function SOSPanel() {
     return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
   }
 
-  const active = incidents.filter(i => i.status !== 'resolved')
-  const resolved = incidents.filter(i => i.status === 'resolved')
+  const active = incidents.filter(i => !['resolved', 'closed'].includes(i.status))
+  const resolved = incidents.filter(i => ['resolved', 'closed'].includes(i.status))
+  const critical = active.filter(i => i.severity === 'critical' || i.severity === 'high')
+  const displayed = filter === 'active' ? active : filter === 'resolved' ? resolved : incidents
 
   return (
     <div className="flex gap-5" style={{ minHeight: 'calc(100vh - 100px)' }}>
       {/* Left: incident list */}
       <div className={selectedIncident ? 'w-1/2' : 'w-full'} style={{ transition: 'width .2s' }}>
-        <div className="flex items-center gap-3 mb-5">
+        <div className="flex items-center gap-3 mb-4 flex-wrap">
           <div className="flex items-center gap-2">
             <span className="text-2xl">🚨</span>
             <span className="text-xl font-black" style={{ color: active.length > 0 ? '#dc2626' : '#1a8a18' }}>
               {active.length}
             </span>
-            <span className="text-sm font-bold" style={{ color: '#4a6357' }}>aktivních incidentů</span>
+            <span className="text-sm font-bold" style={{ color: '#4a6357' }}>aktivních</span>
           </div>
-          <div className="ml-auto">
+
+          {critical.length > 0 && (
+            <span className="text-[10px] font-extrabold uppercase tracking-wide px-3 py-1 rounded-btn animate-pulse"
+              style={{ background: '#7f1d1d', color: '#fff' }}>
+              {critical.length} kritických!
+            </span>
+          )}
+
+          <div className="flex items-center gap-1 ml-auto">
+            {[
+              { key: 'active', label: 'Aktivní' },
+              { key: 'resolved', label: 'Vyřešené' },
+              { key: 'all', label: 'Vše' },
+            ].map(f => (
+              <button key={f.key} onClick={() => setFilter(f.key)}
+                className="rounded-btn text-[10px] font-extrabold uppercase tracking-wide cursor-pointer border-none"
+                style={{
+                  padding: '5px 12px',
+                  background: filter === f.key ? '#1a2e22' : '#f1faf7',
+                  color: filter === f.key ? '#74FB71' : '#4a6357',
+                }}>
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          <div>
             {!notifyEnabled ? (
               <Button onClick={enableNotifications} style={{ background: '#fef3c7', color: '#92400e', fontSize: 11 }}>
-                🔔 Zapnout notifikace
+                Zapnout notifikace
               </Button>
             ) : (
               <span className="text-[10px] font-bold px-3 py-1 rounded-btn" style={{ background: '#dcfce7', color: '#1a8a18' }}>
-                🔔 Notifikace aktivní
+                Notifikace aktivní
               </span>
             )}
           </div>
         </div>
 
         <div className="grid grid-cols-1 gap-4 mb-6">
-          {active.map(inc => (
+          {displayed.map(inc => (
             <IncidentCard key={inc.id} incident={inc}
               selected={selectedIncident?.id === inc.id}
               onSelect={() => setSelectedIncident(inc)}
@@ -129,35 +212,18 @@ export default function SOSPanel() {
           ))}
         </div>
 
-        {active.length === 0 && (
+        {displayed.length === 0 && (
           <Card>
             <div className="text-center py-8">
-              <div className="text-3xl mb-2">✅</div>
-              <div className="text-sm font-bold" style={{ color: '#1a8a18' }}>Žádné aktivní incidenty</div>
+              <div className="text-3xl mb-2">{filter === 'active' ? '✅' : '📋'}</div>
+              <div className="text-sm font-bold" style={{ color: '#1a8a18' }}>
+                {filter === 'active' ? 'Žádné aktivní incidenty' : 'Žádné incidenty'}
+              </div>
             </div>
           </Card>
         )}
-
-        {resolved.length > 0 && (
-          <>
-            <div className="text-[10px] font-extrabold uppercase tracking-wide mb-3 mt-4" style={{ color: '#8aab99' }}>
-              Nedávno vyřešené
-            </div>
-            <div className="grid grid-cols-1 gap-4">
-              {resolved.map(inc => (
-                <IncidentCard key={inc.id} incident={inc}
-                  selected={selectedIncident?.id === inc.id}
-                  onSelect={() => setSelectedIncident(inc)}
-                  onUpdateStatus={updateStatus}
-                  onAddTimeline={addTimelineEntry}
-                />
-              ))}
-            </div>
-          </>
-        )}
       </div>
 
-      {/* Right: detail panel */}
       {selectedIncident && (
         <div className="w-1/2 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 100px)' }}>
           <SOSDetailPanel
@@ -173,65 +239,147 @@ export default function SOSPanel() {
 
 function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAddTimeline }) {
   const sc = STATUS_COLORS[inc.status] || STATUS_COLORS.reported
+  const sev = SEVERITY_MAP[inc.severity] || SEVERITY_MAP.medium
   const moto = inc.bookings?.motorcycles
+  const typeLabel = TYPE_LABELS[inc.type] || inc.type || 'Incident'
+  const typeIcon = TYPE_ICONS[inc.type] || '⚠️'
+  const displayTitle = inc.title || typeLabel
+  const isActive = !['resolved', 'closed'].includes(inc.status)
 
   return (
     <div onClick={onSelect} className="cursor-pointer" style={{
-      border: selected ? '2px solid #74FB71' : '2px solid transparent',
+      border: selected ? '2px solid #74FB71' : `2px solid ${isActive ? (sev.border || '#d4e8e0') : 'transparent'}`,
       borderRadius: 16, transition: 'border-color .15s',
     }}>
       <Card>
         <div className="flex items-start gap-3">
-          <div className="text-2xl">{TYPE_ICONS[inc.type] || '⚠️'}</div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
+          <div className="text-2xl">{typeIcon}</div>
+          <div className="flex-1 min-w-0">
+            {/* Nadpis */}
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>
-                {TYPE_LABELS[inc.type] || inc.type || 'Incident'}
+                {displayTitle}
               </span>
-              <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase"
-                style={{ padding: '3px 8px', background: sc.bg, color: sc.color }}>
+              <span className="inline-block rounded-btn text-[9px] font-extrabold tracking-wide uppercase"
+                style={{ padding: '2px 7px', background: sev.bg, color: sev.color }}>
+                {sev.label}
+              </span>
+              <span className="inline-block rounded-btn text-[9px] font-extrabold tracking-wide uppercase"
+                style={{ padding: '2px 7px', background: sc.bg, color: sc.color }}>
                 {sc.label}
               </span>
             </div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mt-2">
+
+            {inc.title && (
+              <div className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>
+                {typeLabel}
+              </div>
+            )}
+
+            {/* Popis */}
+            {inc.description && (
+              <div className="text-xs mb-2 rounded-lg" style={{
+                padding: '6px 10px', background: '#f8fcfa', color: '#4a6357',
+                borderLeft: '3px solid #d4e8e0', lineHeight: 1.5,
+              }}>
+                {inc.description.length > 150 ? inc.description.slice(0, 150) + '…' : inc.description}
+              </div>
+            )}
+
+            {/* Rozhodnutí zákazníka */}
+            {inc.customer_decision && (
+              <div className="text-xs font-bold mb-2 rounded-lg" style={{
+                padding: '4px 10px', display: 'inline-block',
+                background: inc.customer_decision === 'replacement_moto' ? '#dbeafe' :
+                  inc.customer_decision === 'end_ride' ? '#fee2e2' : '#fef3c7',
+                color: inc.customer_decision === 'replacement_moto' ? '#2563eb' :
+                  inc.customer_decision === 'end_ride' ? '#dc2626' : '#b45309',
+              }}>
+                {DECISION_LABELS[inc.customer_decision] || inc.customer_decision}
+                {inc.customer_fault === true && ' (zavinil zákazník — platí)'}
+                {inc.customer_fault === false && ' (cizí zavinění)'}
+              </div>
+            )}
+
+            {/* Pojízdnost */}
+            {inc.moto_rideable !== null && inc.moto_rideable !== undefined && (
+              <div className="text-[10px] font-bold mb-1" style={{
+                color: inc.moto_rideable ? '#1a8a18' : '#dc2626',
+              }}>
+                Motorka: {inc.moto_rideable ? 'pojízdná' : 'NEPOJÍZDNÁ'}
+              </div>
+            )}
+
+            {/* Info grid */}
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mt-1">
               <div>
                 <span style={{ color: '#8aab99' }}>Zákazník: </span>
                 <b style={{ color: '#0f1a14' }}>{inc.profiles?.full_name || '—'}</b>
               </div>
               <div>
                 <span style={{ color: '#8aab99' }}>Telefon: </span>
-                <b style={{ color: '#0f1a14' }}>{inc.profiles?.phone || '—'}</b>
+                <b style={{ color: '#0f1a14' }}>{inc.contact_phone || inc.profiles?.phone || '—'}</b>
               </div>
               <div>
                 <span style={{ color: '#8aab99' }}>Motorka: </span>
-                <b style={{ color: '#0f1a14' }}>{moto?.model || '—'}</b>
+                <b style={{ color: '#0f1a14' }}>{moto?.model || '—'} {moto?.spz ? `(${moto.spz})` : ''}</b>
               </div>
               <div>
-                <span style={{ color: '#8aab99' }}>SPZ: </span>
-                <b className="font-mono" style={{ color: '#0f1a14' }}>{moto?.spz || '—'}</b>
+                <span style={{ color: '#8aab99' }}>Nahlášeno: </span>
+                <b style={{ color: '#0f1a14' }}>{formatTimeAgo(inc.created_at)}</b>
               </div>
-              {inc.latitude && inc.longitude && (
+              {(inc.address || (inc.latitude && inc.longitude)) && (
                 <div className="col-span-2">
                   <span style={{ color: '#8aab99' }}>Poloha: </span>
-                  <span className="font-bold" style={{ color: '#1a8a18' }}>
-                    {inc.latitude.toFixed(4)}, {inc.longitude.toFixed(4)}
-                  </span>
+                  <b style={{ color: '#1a8a18' }}>{inc.address || `${Number(inc.latitude).toFixed(4)}, ${Number(inc.longitude).toFixed(4)}`}</b>
                 </div>
               )}
-              <div className="col-span-2">
-                <span style={{ color: '#8aab99' }}>Nahlášeno: </span>
-                <b style={{ color: '#0f1a14' }}>{inc.created_at ? new Date(inc.created_at).toLocaleString('cs-CZ') : '—'}</b>
-              </div>
             </div>
 
-            {inc.status !== 'resolved' && (
+            {/* Fotky */}
+            {inc.photos && inc.photos.length > 0 && (
+              <div className="flex gap-1 mt-2">
+                {inc.photos.slice(0, 3).map((photo, i) => (
+                  <img key={i} src={photo} alt="" className="rounded object-cover" style={{ width: 36, height: 36 }} />
+                ))}
+                {inc.photos.length > 3 && (
+                  <span className="flex items-center justify-center rounded text-[10px] font-bold"
+                    style={{ width: 36, height: 36, background: '#f1faf7', color: '#8aab99' }}>
+                    +{inc.photos.length - 3}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Akce podle typu incidentu */}
+            {isActive && (
               <div className="flex flex-wrap gap-2 mt-3" onClick={e => e.stopPropagation()}>
                 {inc.status === 'reported' && (
-                  <ActionBtn label="Potvrdit" color="#b45309" bg="#fef3c7" onClick={() => onUpdateStatus(inc.id, 'acknowledged')} />
+                  <ActionBtn label="Potvrdit příjem" color="#b45309" bg="#fef3c7" onClick={() => onUpdateStatus(inc.id, 'acknowledged')} />
                 )}
-                <ActionBtn label="Odeslat odtah" color="#4a6357" bg="#f1faf7" onClick={() => onAddTimeline(inc.id, 'Odtahová služba odeslána')} />
-                <ActionBtn label="Odeslat náhradu" color="#4a6357" bg="#f1faf7" onClick={() => onAddTimeline(inc.id, 'Náhradní motorka odeslána')} />
-                <ActionBtn label="Uzavřít" color="#1a8a18" bg="#dcfce7" onClick={() => onUpdateStatus(inc.id, 'resolved')} />
+                {(inc.status === 'reported' || inc.status === 'acknowledged') && (
+                  <ActionBtn label="Začít řešit" color="#2563eb" bg="#dbeafe" onClick={() => onUpdateStatus(inc.id, 'in_progress')} />
+                )}
+
+                {/* Akce specifické dle typu */}
+                {(inc.type === 'accident_major' || inc.type === 'breakdown_major') && (
+                  <>
+                    <ActionBtn label="Odeslat odtah" color="#4a6357" bg="#f1faf7" onClick={() => onAddTimeline(inc.id, 'Odtahová služba kontaktována a odeslána na místo')} />
+                    <ActionBtn label="Přistavit náhr. moto" color="#2563eb" bg="#dbeafe" onClick={() => onAddTimeline(inc.id, 'Náhradní motorka připravena k přistavení')} />
+                  </>
+                )}
+                {(inc.type === 'breakdown_minor' || inc.type === 'defect_question') && (
+                  <ActionBtn label="Navigovat na servis" color="#4a6357" bg="#f1faf7" onClick={() => onAddTimeline(inc.id, 'Zákazník navigován na nejbližší servis')} />
+                )}
+                {inc.type === 'theft' && (
+                  <ActionBtn label="Policie kontaktována" color="#dc2626" bg="#fee2e2" onClick={() => onAddTimeline(inc.id, 'Policie ČR kontaktována, číslo případu zaznamenáno')} />
+                )}
+                {(inc.type === 'accident_major' || inc.type === 'accident_minor') && (
+                  <ActionBtn label="Kontaktovat pojišťovnu" color="#4a6357" bg="#f1faf7" onClick={() => onAddTimeline(inc.id, 'Pojišťovna kontaktována, hlášena škodná událost')} />
+                )}
+
+                <ActionBtn label="Zákazník kontaktován" color="#4a6357" bg="#f1faf7" onClick={() => onAddTimeline(inc.id, 'Zákazník telefonicky kontaktován')} />
+                <ActionBtn label="Vyřešeno" color="#1a8a18" bg="#dcfce7" onClick={() => onUpdateStatus(inc.id, 'resolved')} />
               </div>
             )}
           </div>
@@ -248,4 +396,16 @@ function ActionBtn({ label, color, bg, onClick }) {
       {label}
     </button>
   )
+}
+
+function formatTimeAgo(dateStr) {
+  if (!dateStr) return '—'
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'právě teď'
+  if (mins < 60) return `před ${mins} min`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `před ${hours} h`
+  const days = Math.floor(hours / 24)
+  return `před ${days} d`
 }
