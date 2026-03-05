@@ -1,10 +1,11 @@
 -- =====================================================
--- Velín v2.1 — SQL migrace: vouchers + chybějící tabulky
--- Spustit v Supabase SQL Editoru
+-- Velín v2.1 — Vouchers + doplnění tabulek
+-- ZÁVISÍ NA: 20260305_000_base_tables.sql (admin_users, update_updated_at)
+-- Idempotentní — bezpečné spustit opakovaně
 -- =====================================================
 
 -- ═══════════════════════════════════════════════════════
--- 1. VOUCHERS (poukazy)
+-- 1. VOUCHERS (dárkové poukazy)
 -- ═══════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS vouchers (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -16,7 +17,7 @@ CREATE TABLE IF NOT EXISTS vouchers (
 
   -- Kdo koupil
   buyer_id uuid REFERENCES profiles(id) ON DELETE SET NULL,
-  buyer_name text,             -- pro neregistrované kupce
+  buyer_name text,
   buyer_email text,
 
   -- Platnost
@@ -26,51 +27,66 @@ CREATE TABLE IF NOT EXISTS vouchers (
   -- Uplatnění
   redeemed_at timestamptz,
   redeemed_by uuid REFERENCES profiles(id) ON DELETE SET NULL,
-  redeemed_for text,           -- popis na co uplatněn
+  redeemed_for text,
   booking_id uuid REFERENCES bookings(id) ON DELETE SET NULL,
 
   -- Metadata
   description text,
-  category text,               -- 'rental', 'gear', 'experience', 'gift'
+  category text CHECK (category IS NULL OR category IN ('rental', 'gear', 'experience', 'gift')),
   created_by uuid REFERENCES admin_users(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
--- Indexy pro rychlé filtrování
 CREATE INDEX IF NOT EXISTS idx_vouchers_status ON vouchers(status);
 CREATE INDEX IF NOT EXISTS idx_vouchers_code ON vouchers(code);
 CREATE INDEX IF NOT EXISTS idx_vouchers_buyer_id ON vouchers(buyer_id);
-CREATE INDEX IF NOT EXISTS idx_vouchers_created_at ON vouchers(created_at);
+CREATE INDEX IF NOT EXISTS idx_vouchers_created_at ON vouchers(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_vouchers_valid_until ON vouchers(valid_until);
 
 -- RLS
 ALTER TABLE vouchers ENABLE ROW LEVEL SECURITY;
 
--- Admini vidí vše
 DROP POLICY IF EXISTS vouchers_admin_all ON vouchers;
 CREATE POLICY vouchers_admin_all ON vouchers
   FOR ALL USING (
     auth.uid() IN (SELECT id FROM admin_users)
   );
 
--- Zákazník vidí své poukazy
 DROP POLICY IF EXISTS vouchers_user_select ON vouchers;
 CREATE POLICY vouchers_user_select ON vouchers
   FOR SELECT USING (
     buyer_id = auth.uid() OR redeemed_by = auth.uid()
   );
 
--- Automatická expirace — funkce volaná cronem
+-- Trigger updated_at (funkce definována v base migraci)
+DROP TRIGGER IF EXISTS trg_vouchers_updated ON vouchers;
+CREATE TRIGGER trg_vouchers_updated
+  BEFORE UPDATE ON vouchers
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- Automatická expirace
 CREATE OR REPLACE FUNCTION expire_vouchers()
 RETURNS void AS $$
 BEGIN
   UPDATE vouchers
-  SET status = 'expired', updated_at = now()
+  SET status = 'expired'
   WHERE status = 'active'
     AND valid_until < CURRENT_DATE;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- pg_cron schedule (spouštět denně v 01:00)
+-- Vyžaduje pg_cron extension — v Supabase zapnout v Dashboard > Database > Extensions
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+    PERFORM cron.unschedule('expire-vouchers');
+    PERFORM cron.schedule('expire-vouchers', '0 1 * * *', 'SELECT expire_vouchers()');
+  END IF;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'pg_cron not available — schedule expire_vouchers() manually or enable pg_cron extension';
+END $$;
 
 -- ═══════════════════════════════════════════════════════
 -- 2. MOTO_LOCATIONS (polohy motorek)
@@ -84,10 +100,10 @@ CREATE TABLE IF NOT EXISTS moto_locations (
   speed numeric(5,1),
   heading numeric(5,1),
   accuracy numeric(6,1),
-  source text DEFAULT 'gps',   -- 'gps', 'manual', 'tracker'
+  source text DEFAULT 'gps'
+    CHECK (source IN ('gps', 'manual', 'tracker')),
   updated_at timestamptz NOT NULL DEFAULT now(),
-
-  UNIQUE(moto_id)              -- jedna aktivní poloha na motorku
+  UNIQUE(moto_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_moto_locations_moto ON moto_locations(moto_id);
@@ -105,7 +121,7 @@ CREATE POLICY moto_locations_read ON moto_locations
   FOR SELECT USING (true);
 
 -- ═══════════════════════════════════════════════════════
--- 3. SERVICE_ORDERS (servisní objednávky pro technika)
+-- 3. SERVICE_ORDERS (servisní objednávky)
 -- ═══════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS service_orders (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -134,214 +150,95 @@ CREATE POLICY service_orders_admin ON service_orders
     auth.uid() IN (SELECT id FROM admin_users)
   );
 
--- ═══════════════════════════════════════════════════════
--- 4. MAINTENANCE_SCHEDULES — doplnění chybějících sloupců
--- ═══════════════════════════════════════════════════════
-DO $$
-BEGIN
-  -- schedule_type
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'maintenance_schedules' AND column_name = 'schedule_type'
-  ) THEN
-    ALTER TABLE maintenance_schedules ADD COLUMN schedule_type text DEFAULT 'mileage';
-  END IF;
-
-  -- interval_km
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'maintenance_schedules' AND column_name = 'interval_km'
-  ) THEN
-    ALTER TABLE maintenance_schedules ADD COLUMN interval_km integer DEFAULT 10000;
-  END IF;
-
-  -- interval_days
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'maintenance_schedules' AND column_name = 'interval_days'
-  ) THEN
-    ALTER TABLE maintenance_schedules ADD COLUMN interval_days integer;
-  END IF;
-
-  -- last_service_km
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'maintenance_schedules' AND column_name = 'last_service_km'
-  ) THEN
-    ALTER TABLE maintenance_schedules ADD COLUMN last_service_km integer DEFAULT 0;
-  END IF;
-
-  -- last_service_date
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'maintenance_schedules' AND column_name = 'last_service_date'
-  ) THEN
-    ALTER TABLE maintenance_schedules ADD COLUMN last_service_date date;
-  END IF;
-
-  -- description
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'maintenance_schedules' AND column_name = 'description'
-  ) THEN
-    ALTER TABLE maintenance_schedules ADD COLUMN description text;
-  END IF;
-
-  -- active
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'maintenance_schedules' AND column_name = 'active'
-  ) THEN
-    ALTER TABLE maintenance_schedules ADD COLUMN active boolean DEFAULT true;
-  END IF;
-END $$;
-
--- ═══════════════════════════════════════════════════════
--- 5. MAINTENANCE_LOG — doplnění km_at_service
--- ═══════════════════════════════════════════════════════
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'maintenance_log' AND column_name = 'km_at_service'
-  ) THEN
-    ALTER TABLE maintenance_log ADD COLUMN km_at_service integer;
-  END IF;
-END $$;
-
--- ═══════════════════════════════════════════════════════
--- 6. MOTORCYCLES — doplnění stk_valid_until
--- ═══════════════════════════════════════════════════════
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'motorcycles' AND column_name = 'stk_valid_until'
-  ) THEN
-    ALTER TABLE motorcycles ADD COLUMN stk_valid_until date;
-  END IF;
-END $$;
-
--- ═══════════════════════════════════════════════════════
--- 7. BOOKINGS — doplnění notes
--- ═══════════════════════════════════════════════════════
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'bookings' AND column_name = 'notes'
-  ) THEN
-    ALTER TABLE bookings ADD COLUMN notes text;
-  END IF;
-END $$;
-
--- ═══════════════════════════════════════════════════════
--- 8. UPDATED_AT TRIGGER (automatická aktualizace)
--- ═══════════════════════════════════════════════════════
-CREATE OR REPLACE FUNCTION update_updated_at()
-RETURNS trigger AS $$
-BEGIN
-  NEW.updated_at = now();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- Trigger pro vouchers
-DROP TRIGGER IF EXISTS trg_vouchers_updated ON vouchers;
-CREATE TRIGGER trg_vouchers_updated
-  BEFORE UPDATE ON vouchers
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-
--- Trigger pro service_orders
+-- Trigger updated_at
 DROP TRIGGER IF EXISTS trg_service_orders_updated ON service_orders;
 CREATE TRIGGER trg_service_orders_updated
   BEFORE UPDATE ON service_orders
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- ═══════════════════════════════════════════════════════
--- 9. FK RELACE pro Velín frontend (.select s joinami)
+-- 4. ALTER existujících tabulek — doplnění chybějících sloupců
 -- ═══════════════════════════════════════════════════════
--- vouchers → profiles (buyer_id)
--- vouchers → bookings (booking_id)
--- Tyto FK už jsou definovány výše v CREATE TABLE.
 
--- Ověření: profiles musí mít sloupce které Velín čte
+-- MAINTENANCE_SCHEDULES
 DO $$
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'profiles' AND column_name = 'license_group'
-  ) THEN
-    ALTER TABLE profiles ADD COLUMN license_group text[] DEFAULT '{}';
-  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'maintenance_schedules' AND column_name = 'schedule_type')
+  THEN ALTER TABLE maintenance_schedules ADD COLUMN schedule_type text DEFAULT 'mileage'; END IF;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'profiles' AND column_name = 'riding_experience'
-  ) THEN
-    ALTER TABLE profiles ADD COLUMN riding_experience text;
-  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'maintenance_schedules' AND column_name = 'interval_km')
+  THEN ALTER TABLE maintenance_schedules ADD COLUMN interval_km integer DEFAULT 10000; END IF;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'profiles' AND column_name = 'emergency_contact'
-  ) THEN
-    ALTER TABLE profiles ADD COLUMN emergency_contact text;
-  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'maintenance_schedules' AND column_name = 'interval_days')
+  THEN ALTER TABLE maintenance_schedules ADD COLUMN interval_days integer; END IF;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'profiles' AND column_name = 'emergency_phone'
-  ) THEN
-    ALTER TABLE profiles ADD COLUMN emergency_phone text;
-  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'maintenance_schedules' AND column_name = 'last_service_km')
+  THEN ALTER TABLE maintenance_schedules ADD COLUMN last_service_km integer DEFAULT 0; END IF;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'profiles' AND column_name = 'gear_sizes'
-  ) THEN
-    ALTER TABLE profiles ADD COLUMN gear_sizes jsonb;
-  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'maintenance_schedules' AND column_name = 'last_service_date')
+  THEN ALTER TABLE maintenance_schedules ADD COLUMN last_service_date date; END IF;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'profiles' AND column_name = 'reliability_score'
-  ) THEN
-    ALTER TABLE profiles ADD COLUMN reliability_score jsonb;
-  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'maintenance_schedules' AND column_name = 'description')
+  THEN ALTER TABLE maintenance_schedules ADD COLUMN description text; END IF;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'profiles' AND column_name = 'marketing_consent'
-  ) THEN
-    ALTER TABLE profiles ADD COLUMN marketing_consent boolean DEFAULT false;
-  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'maintenance_schedules' AND column_name = 'active')
+  THEN ALTER TABLE maintenance_schedules ADD COLUMN active boolean DEFAULT true; END IF;
+END $$;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'profiles' AND column_name = 'street'
-  ) THEN
-    ALTER TABLE profiles ADD COLUMN street text;
-  END IF;
+-- MAINTENANCE_LOG
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'maintenance_log' AND column_name = 'km_at_service')
+  THEN ALTER TABLE maintenance_log ADD COLUMN km_at_service integer; END IF;
+END $$;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'profiles' AND column_name = 'city'
-  ) THEN
-    ALTER TABLE profiles ADD COLUMN city text;
-  END IF;
+-- MOTORCYCLES
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'motorcycles' AND column_name = 'stk_valid_until')
+  THEN ALTER TABLE motorcycles ADD COLUMN stk_valid_until date; END IF;
+END $$;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'profiles' AND column_name = 'zip'
-  ) THEN
-    ALTER TABLE profiles ADD COLUMN zip text;
-  END IF;
+-- BOOKINGS
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'bookings' AND column_name = 'notes')
+  THEN ALTER TABLE bookings ADD COLUMN notes text; END IF;
+END $$;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'profiles' AND column_name = 'country'
-  ) THEN
-    ALTER TABLE profiles ADD COLUMN country text DEFAULT 'CZ';
-  END IF;
+-- PROFILES — doplnění sloupců pro Velín frontend
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'license_group')
+  THEN ALTER TABLE profiles ADD COLUMN license_group text[] DEFAULT '{}'; END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'riding_experience')
+  THEN ALTER TABLE profiles ADD COLUMN riding_experience text; END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'emergency_contact')
+  THEN ALTER TABLE profiles ADD COLUMN emergency_contact text; END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'emergency_phone')
+  THEN ALTER TABLE profiles ADD COLUMN emergency_phone text; END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'gear_sizes')
+  THEN ALTER TABLE profiles ADD COLUMN gear_sizes jsonb; END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'reliability_score')
+  THEN ALTER TABLE profiles ADD COLUMN reliability_score jsonb; END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'marketing_consent')
+  THEN ALTER TABLE profiles ADD COLUMN marketing_consent boolean DEFAULT false; END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'street')
+  THEN ALTER TABLE profiles ADD COLUMN street text; END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'city')
+  THEN ALTER TABLE profiles ADD COLUMN city text; END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'zip')
+  THEN ALTER TABLE profiles ADD COLUMN zip text; END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'country')
+  THEN ALTER TABLE profiles ADD COLUMN country text DEFAULT 'CZ'; END IF;
 END $$;
