@@ -1,6 +1,7 @@
 -- =====================================================
 -- MotoGo24 Velín — Kompletní SQL migrace
 -- Dokumenty, E-maily, Faktury, Zprávy, Nastavení
+-- ZÁVISÍ NA: 20260305_000_base_tables.sql (admin_users, update_updated_at)
 -- Spustit v Supabase SQL Editoru — idempotentní
 -- =====================================================
 
