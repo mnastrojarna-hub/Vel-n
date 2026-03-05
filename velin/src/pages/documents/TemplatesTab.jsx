@@ -223,13 +223,57 @@ function RegenerateModal({ template, onClose }) {
     if (!selectedBooking) return
     setGenerating(true); setErr(null); setSuccess(false)
     try {
-      const { error } = await supabase.functions.invoke('generate-document', {
-        body: { template_id: template.id, booking_id: selectedBooking },
+      // Load booking data for template filling
+      const { data: booking, error: bErr } = await supabase
+        .from('bookings')
+        .select('*, profiles(full_name, email, phone, address), motorcycles(model, spz)')
+        .eq('id', selectedBooking)
+        .single()
+      if (bErr) throw bErr
+
+      // Fill template variables
+      const vars = {
+        customer_name: booking.profiles?.full_name || '',
+        customer_email: booking.profiles?.email || '',
+        customer_phone: booking.profiles?.phone || '',
+        customer_address: booking.profiles?.address || '',
+        moto_model: booking.motorcycles?.model || '',
+        moto_spz: booking.motorcycles?.spz || '',
+        start_date: booking.start_date ? new Date(booking.start_date).toLocaleDateString('cs-CZ') : '',
+        end_date: booking.end_date ? new Date(booking.end_date).toLocaleDateString('cs-CZ') : '',
+        total_price: (booking.total_price || 0).toLocaleString('cs-CZ') + ' Kč',
+        booking_number: booking.id?.slice(0, 8) || '',
+        contract_date: new Date().toLocaleDateString('cs-CZ'),
+        company_name: 'MotoGo24 s.r.o.',
+        company_ico: '12345678',
+      }
+
+      let filledHtml = template.html_content || ''
+      for (const [k, v] of Object.entries(vars)) {
+        filledHtml = filledHtml.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v)
+      }
+
+      // Store generated document
+      const blob = new Blob([filledHtml], { type: 'text/html' })
+      const path = `generated/${template.id}_${selectedBooking}.html`
+      const { error: upErr } = await supabase.storage.from('documents').upload(path, blob, { upsert: true })
+      if (upErr) throw upErr
+
+      // Create record
+      const { data: { user } } = await supabase.auth.getUser()
+      const { error: insErr } = await supabase.from('generated_documents').insert({
+        template_id: template.id,
+        booking_id: selectedBooking,
+        customer_id: booking.customer_id || null,
+        filled_data: vars,
+        pdf_path: path,
+        generated_by: user?.id,
       })
-      if (error) throw error
+      if (insErr) throw insErr
+
       setSuccess(true)
     } catch (e) {
-      setErr(`Generování selhalo: ${e.message || 'Edge Function nemusí být nasazena.'}`)
+      setErr(`Generování selhalo: ${e.message}`)
     }
     setGenerating(false)
   }

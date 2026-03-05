@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
-import Modal from '../../components/ui/Modal'
 import Badge from '../../components/ui/Badge'
 import SearchInput from '../../components/ui/SearchInput'
 import Pagination from '../../components/ui/Pagination'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
+import InvoiceCreateModal from './InvoiceCreateModal'
+import InvoicePreviewModal from './InvoicePreviewModal'
 
 const PER_PAGE = 25
 
@@ -35,6 +36,7 @@ export default function InvoicesTab() {
   const [filters, setFilters] = useState({ search: '', type: '', status: '' })
   const [summary, setSummary] = useState({ total: 0, paid: 0, unpaid: 0, cancelled: 0 })
   const [detail, setDetail] = useState(null)
+  const [showCreate, setShowCreate] = useState(false)
   const [cancelConfirm, setCancelConfirm] = useState(null)
 
   useEffect(() => { loadInvoices() }, [page, filters])
@@ -50,11 +52,9 @@ export default function InvoicesTab() {
 
       if (filters.type) query = query.eq('type', filters.type)
       if (filters.status) query = query.eq('status', filters.status)
-      if (filters.search) {
-        query = query.or(`number.ilike.%${filters.search}%`)
-      }
-
+      if (filters.search) query = query.or(`number.ilike.%${filters.search}%`)
       query = query.range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
+
       const { data, count, error: err } = await query
       if (err) throw err
       setInvoices(data || [])
@@ -99,21 +99,16 @@ export default function InvoicesTab() {
       const url = URL.createObjectURL(data)
       const a = document.createElement('a')
       a.href = url
-      a.download = `faktura_${invoice.number}.pdf`
+      a.download = `faktura_${invoice.number || 'doc'}.html`
       a.click()
       URL.revokeObjectURL(url)
     } catch (e) { setError(`Stažení selhalo: ${e.message}`) }
   }
 
-  async function handleSendToCustomer(invoice) {
-    try {
-      const { error: err } = await supabase.functions.invoke('send-invoice-email', {
-        body: { invoice_id: invoice.id },
-      })
-      if (err) throw err
-    } catch (e) {
-      setError(`Odeslání faktury selhalo: ${e.message || 'Edge Function nemusí být nasazena.'}`)
-    }
+  function handleCreated() {
+    setShowCreate(false)
+    loadInvoices()
+    loadSummary()
   }
 
   const totalPages = Math.ceil(total / PER_PAGE)
@@ -129,7 +124,7 @@ export default function InvoicesTab() {
         <SummaryCard label="Stornováno" value={summary.cancelled} color="#dc2626" />
       </div>
 
-      {/* Filters */}
+      {/* Filters + Create */}
       <div className="flex flex-wrap items-center gap-3 mb-5">
         <SearchInput
           value={filters.search}
@@ -152,6 +147,9 @@ export default function InvoicesTab() {
             { value: 'cancelled', label: 'Stornované' },
             { value: 'refunded', label: 'Refundované' },
           ]} />
+        <div className="ml-auto">
+          <Button green onClick={() => setShowCreate(true)}>+ Nová faktura</Button>
+        </div>
       </div>
 
       {error && <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
@@ -186,8 +184,11 @@ export default function InvoicesTab() {
                     <TD>{inv.created_at ? new Date(inv.created_at).toLocaleDateString('cs-CZ') : '—'}</TD>
                     <TD>
                       <div className="flex gap-1">
-                        <ActionBtn color="#2563eb" onClick={() => setDetail(inv)}>Zobrazit</ActionBtn>
+                        <ActionBtn color="#2563eb" onClick={() => setDetail(inv)}>Náhled</ActionBtn>
                         {inv.pdf_path && <ActionBtn color="#4a6357" onClick={() => handleDownload(inv)}>Stáhnout</ActionBtn>}
+                        {inv.status !== 'cancelled' && inv.status !== 'refunded' && (
+                          <ActionBtn color="#dc2626" onClick={() => setCancelConfirm(inv)}>Storno</ActionBtn>
+                        )}
                       </div>
                     </TD>
                   </TRow>
@@ -200,13 +201,15 @@ export default function InvoicesTab() {
         </>
       )}
 
+      {showCreate && (
+        <InvoiceCreateModal onClose={() => setShowCreate(false)} onSaved={handleCreated} />
+      )}
+
       {detail && (
-        <InvoiceDetailModal
+        <InvoicePreviewModal
           invoice={detail}
           onClose={() => setDetail(null)}
-          onDownload={() => handleDownload(detail)}
-          onSend={() => handleSendToCustomer(detail)}
-          onCancel={() => { setDetail(null); setCancelConfirm(detail) }}
+          onUpdated={() => { loadInvoices(); loadSummary() }}
         />
       )}
 
@@ -216,37 +219,6 @@ export default function InvoicesTab() {
           danger onConfirm={() => handleCancel(cancelConfirm)} onCancel={() => setCancelConfirm(null)} />
       )}
     </div>
-  )
-}
-
-function InvoiceDetailModal({ invoice, onClose, onDownload, onSend, onCancel }) {
-  const tp = TYPE_MAP[invoice.type] || TYPE_MAP.proforma
-  const st = STATUS_MAP[invoice.status] || STATUS_MAP.draft
-  return (
-    <Modal open title={`Faktura ${invoice.number}`} onClose={onClose} wide>
-      <div className="flex items-center gap-3 mb-4">
-        <Badge label={tp.label} color={tp.color} bg={tp.bg} />
-        <Badge label={st.label} color={st.color} bg={st.bg} />
-        <span className="text-sm font-bold ml-auto" style={{ color: '#0f1a14' }}>
-          {(invoice.total || 0).toLocaleString('cs-CZ')} Kč
-        </span>
-      </div>
-      <div className="py-8 text-center" style={{ color: '#8aab99', fontSize: 13 }}>
-        {invoice.pdf_path ? 'Stáhněte PDF verzi faktury.' : 'PDF není k dispozici.'}
-      </div>
-      <div className="flex justify-between gap-3 mt-5">
-        <div className="flex gap-2">
-          {invoice.pdf_path && <Button onClick={onDownload}>Stáhnout PDF</Button>}
-          <Button onClick={onSend}>Odeslat zákazníkovi</Button>
-        </div>
-        <div className="flex gap-2">
-          {invoice.status !== 'cancelled' && invoice.status !== 'refunded' && (
-            <Button onClick={onCancel} style={{ background: '#dc2626', color: '#fff' }}>Stornovat</Button>
-          )}
-          <Button onClick={onClose}>Zavřít</Button>
-        </div>
-      </div>
-    </Modal>
   )
 }
 
