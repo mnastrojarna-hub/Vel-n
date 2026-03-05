@@ -48,14 +48,15 @@ export default function BookingDocumentsTab({ bookingId }) {
   }
 
   async function handleDownload(doc) {
-    if (!doc.file_path) return
+    const path = doc.pdf_path || doc.file_path
+    if (!path) return
     try {
-      const { data, error: err } = await supabase.storage.from('documents').download(doc.file_path)
+      const { data, error: err } = await supabase.storage.from('documents').download(path)
       if (err) throw err
       const url = URL.createObjectURL(data)
       const a = document.createElement('a')
       a.href = url
-      a.download = doc.name || 'dokument.pdf'
+      a.download = doc.document_templates?.name || doc.file_name || 'dokument.pdf'
       a.click()
       URL.revokeObjectURL(url)
     } catch (e) { setError(`Stažení selhalo: ${e.message}`) }
@@ -84,21 +85,16 @@ export default function BookingDocumentsTab({ bookingId }) {
           <p style={{ color: '#8aab99', fontSize: 13 }}>Žádné vygenerované dokumenty</p>
         ) : (
           generatedDocs.map(d => {
-            const docType = d.document_templates?.type || d.type || 'contract'
+            const docType = d.document_templates?.type || 'contract'
             return (
               <div key={d.id} className="flex items-center gap-4 p-3 rounded-lg mb-2" style={{ background: '#f1faf7' }}>
                 <span style={{ fontSize: 16 }}>{DOC_ICONS[docType] || '📄'}</span>
                 <div className="flex-1">
-                  <span className="text-sm font-bold">{d.name || d.document_templates?.name || 'Dokument'}</span>
+                  <span className="text-sm font-bold">{d.document_templates?.name || 'Dokument'}</span>
                   <span className="text-xs ml-3" style={{ color: '#8aab99' }}>{d.created_at?.slice(0, 10)}</span>
-                  {d.signed && <span className="text-[10px] ml-2 font-bold" style={{ color: '#1a8a18' }}>Podepsáno</span>}
                 </div>
                 <div className="flex gap-2">
-                  {d.content_html && (
-                    <button onClick={() => setViewDoc(d)} className="text-[10px] font-bold cursor-pointer"
-                      style={{ color: '#2563eb', background: 'none', border: 'none' }}>Zobrazit</button>
-                  )}
-                  {d.file_path && (
+                  {d.pdf_path && (
                     <button onClick={() => handleDownload(d)} className="text-[10px] font-bold cursor-pointer"
                       style={{ color: '#4a6357', background: 'none', border: 'none' }}>Stáhnout</button>
                   )}
@@ -117,7 +113,7 @@ export default function BookingDocumentsTab({ bookingId }) {
         ) : (
           docs.map(d => (
             <div key={d.id} className="flex items-center gap-4 p-3 rounded-lg mb-2" style={{ background: '#f1faf7' }}>
-              <span className="text-sm font-bold">{d.name || d.type || 'Dokument'}</span>
+              <span className="text-sm font-bold">{d.file_name || d.type || 'Dokument'}</span>
               <span className="text-xs" style={{ color: '#8aab99' }}>{d.created_at?.slice(0, 10)}</span>
             </div>
           ))
@@ -125,11 +121,12 @@ export default function BookingDocumentsTab({ bookingId }) {
       </Card>
 
       {viewDoc && (
-        <Modal open title={viewDoc.name || 'Dokument'} onClose={() => setViewDoc(null)} wide>
-          <div className="rounded-card" style={{ padding: 16, background: '#fff', border: '1px solid #d4e8e0', maxHeight: 500, overflow: 'auto' }}
-            dangerouslySetInnerHTML={{ __html: viewDoc.content_html }} />
+        <Modal open title={viewDoc.document_templates?.name || 'Dokument'} onClose={() => setViewDoc(null)} wide>
+          <div className="py-8 text-center" style={{ color: '#8aab99', fontSize: 13 }}>
+            {viewDoc.pdf_path ? 'Stáhněte PDF verzi dokumentu.' : 'Dokument nemá PDF.'}
+          </div>
           <div className="flex justify-end gap-3 mt-4">
-            {viewDoc.file_path && <Button onClick={() => handleDownload(viewDoc)}>Stáhnout PDF</Button>}
+            {viewDoc.pdf_path && <Button onClick={() => handleDownload(viewDoc)}>Stáhnout PDF</Button>}
             <Button onClick={() => setViewDoc(null)}>Zavřít</Button>
           </div>
         </Modal>

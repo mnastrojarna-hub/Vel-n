@@ -50,10 +50,10 @@ export default function PagesTab() {
                   <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase"
                     style={{
                       padding: '4px 10px',
-                      background: p.status === 'published' ? '#dcfce7' : '#fef3c7',
-                      color: p.status === 'published' ? '#1a8a18' : '#b45309',
+                      background: p.published ? '#dcfce7' : '#fef3c7',
+                      color: p.published ? '#1a8a18' : '#b45309',
                     }}>
-                    {p.status === 'published' ? 'Publikováno' : 'Koncept'}
+                    {p.published ? 'Publikováno' : 'Koncept'}
                   </span>
                 </TD>
                 <TD>{p.updated_at ? new Date(p.updated_at).toLocaleDateString('cs-CZ') : '—'}</TD>
@@ -79,8 +79,8 @@ export default function PagesTab() {
 
 function PageModal({ entry, onClose, onSaved }) {
   const [form, setForm] = useState(entry ? {
-    title: entry.title || '', slug: entry.slug || '', content: entry.content || '', status: entry.status || 'draft',
-  } : { title: '', slug: '', content: '', status: 'draft' })
+    title: entry.title || '', slug: entry.slug || '', content: entry.content || '', published: entry.published ?? false,
+  } : { title: '', slug: '', content: '', published: false })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
@@ -111,9 +111,9 @@ function PageModal({ entry, onClose, onSaved }) {
         </div>
         <div>
           <Label>Stav</Label>
-          <select value={form.status} onChange={e => set('status', e.target.value)} className="rounded-btn text-sm outline-none" style={inputStyle}>
-            <option value="draft">Koncept</option>
-            <option value="published">Publikováno</option>
+          <select value={form.published ? 'true' : 'false'} onChange={e => set('published', e.target.value === 'true')} className="rounded-btn text-sm outline-none" style={inputStyle}>
+            <option value="false">Koncept</option>
+            <option value="true">Publikováno</option>
           </select>
         </div>
         <div>

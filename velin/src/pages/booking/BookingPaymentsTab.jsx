@@ -35,7 +35,7 @@ export default function BookingPaymentsTab({ bookingId }) {
     try {
       const [invRes, entRes] = await Promise.all([
         supabase.from('invoices').select('*').eq('booking_id', bookingId).order('created_at', { ascending: false }),
-        supabase.from('accounting_entries').select('*').eq('booking_id', bookingId).order('created_at', { ascending: false }),
+        supabase.from('accounting_entries').select('*').eq('reference_type', 'booking').eq('reference_id', bookingId).order('created_at', { ascending: false }),
       ])
       setInvoices(invRes.data || [])
       setEntries(entRes.data || [])
@@ -84,17 +84,15 @@ export default function BookingPaymentsTab({ bookingId }) {
             const st = STATUS_MAP[inv.status] || STATUS_MAP.draft
             return (
               <div key={inv.id} className="flex items-center gap-4 p-3 rounded-lg mb-2" style={{ background: '#f1faf7' }}>
-                <span className="text-sm font-bold font-mono">{inv.invoice_number || '—'}</span>
+                <span className="text-sm font-bold font-mono">{inv.number || '—'}</span>
                 <Badge label={tp.label} color={tp.color} bg={tp.bg} />
                 <span className="text-sm font-bold" style={{ color: inv.status === 'paid' ? '#1a8a18' : '#0f1a14' }}>
                   {(inv.total || 0).toLocaleString('cs-CZ')} Kč
                 </span>
                 <Badge label={st.label} color={st.color} bg={st.bg} />
                 <span className="text-xs" style={{ color: '#8aab99' }}>{inv.created_at?.slice(0, 10)}</span>
-                {inv.content_html && (
-                  <button onClick={() => setViewInvoice(inv)} className="text-[10px] font-bold cursor-pointer ml-auto"
-                    style={{ color: '#2563eb', background: 'none', border: 'none' }}>Zobrazit</button>
-                )}
+                <button onClick={() => setViewInvoice(inv)} className="text-[10px] font-bold cursor-pointer ml-auto"
+                  style={{ color: '#2563eb', background: 'none', border: 'none' }}>Zobrazit</button>
               </div>
             )
           })
@@ -122,9 +120,10 @@ export default function BookingPaymentsTab({ bookingId }) {
       </Card>
 
       {viewInvoice && (
-        <Modal open title={`Faktura ${viewInvoice.invoice_number}`} onClose={() => setViewInvoice(null)} wide>
-          <div className="rounded-card" style={{ padding: 16, background: '#fff', border: '1px solid #d4e8e0', maxHeight: 500, overflow: 'auto' }}
-            dangerouslySetInnerHTML={{ __html: viewInvoice.content_html }} />
+        <Modal open title={`Faktura ${viewInvoice.number}`} onClose={() => setViewInvoice(null)} wide>
+          <div className="py-8 text-center" style={{ color: '#8aab99', fontSize: 13 }}>
+            Detail faktury {viewInvoice.number}. Částka: {(viewInvoice.total || 0).toLocaleString('cs-CZ')} Kč
+          </div>
           <div className="flex justify-end mt-4">
             <Button onClick={() => setViewInvoice(null)}>Zavřít</Button>
           </div>

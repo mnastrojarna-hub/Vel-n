@@ -62,7 +62,7 @@ export default function Sidebar({ admin, onSignOut }) {
   async function loadBadges() {
     try {
       const [msgRes, sosRes] = await Promise.all([
-        supabase.from('messages').select('id', { count: 'exact', head: true }).eq('read', false),
+        supabase.from('messages').select('id', { count: 'exact', head: true }).is('read_at', null),
         supabase.from('sos_incidents').select('id', { count: 'exact', head: true }).in('status', ['reported', 'acknowledged']),
       ])
       setBadges({ messages: msgRes.count || 0, sos: sosRes.count || 0 })

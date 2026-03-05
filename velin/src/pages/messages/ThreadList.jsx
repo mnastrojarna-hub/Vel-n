@@ -15,7 +15,7 @@ export default function ThreadList({ selectedId, onSelect }) {
     let query = supabase
       .from('message_threads')
       .select('*, profiles(full_name, email)')
-      .order('updated_at', { ascending: false })
+      .order('last_message_at', { ascending: false })
     if (search) query = query.or(`profiles.full_name.ilike.%${search}%,profiles.email.ilike.%${search}%`)
     const { data } = await query
     setThreads(data || [])
@@ -56,7 +56,7 @@ export default function ThreadList({ selectedId, onSelect }) {
 }
 
 function ThreadItem({ thread, selected, onClick }) {
-  const unread = thread.unread_count > 0
+  const unread = thread.status === 'open'
   return (
     <div
       onClick={onClick}
@@ -74,7 +74,7 @@ function ThreadItem({ thread, selected, onClick }) {
           {thread.profiles?.full_name || 'Zákazník'}
         </span>
         <span className="ml-auto text-[10px]" style={{ color: '#8aab99' }}>
-          {thread.updated_at ? new Date(thread.updated_at).toLocaleDateString('cs-CZ') : ''}
+          {thread.last_message_at ? new Date(thread.last_message_at).toLocaleDateString('cs-CZ') : ''}
         </span>
       </div>
       <div className="text-xs mt-1 truncate" style={{ color: '#8aab99' }}>

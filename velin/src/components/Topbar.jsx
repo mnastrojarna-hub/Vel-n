@@ -52,7 +52,7 @@ export default function Topbar() {
   async function loadNotifications() {
     try {
       const [msgRes, sosRes, invRes, stkRes] = await Promise.all([
-        supabase.from('messages').select('id', { count: 'exact', head: true }).eq('read', false),
+        supabase.from('messages').select('id', { count: 'exact', head: true }).is('read_at', null),
         supabase.from('sos_incidents').select('id', { count: 'exact', head: true }).in('status', ['reported', 'acknowledged']),
         supabase.from('inventory').select('id, stock, min_stock'),
         supabase.from('motorcycles').select('id, stk_valid_until'),

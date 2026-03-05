@@ -27,7 +27,7 @@ export default function InvoicesTab() {
       let query = supabase
         .from('invoices')
         .select('*, profiles(full_name)', { count: 'exact' })
-      if (search) query = query.or(`invoice_number.ilike.%${search}%,profiles.full_name.ilike.%${search}%`)
+      if (search) query = query.or(`number.ilike.%${search}%`)
       query = query.order('issue_date', { ascending: false }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       const { data, count, error: err } = await query
       if (err) throw err
@@ -92,10 +92,10 @@ export default function InvoicesTab() {
             <tbody>
               {invoices.map(inv => (
                 <TRow key={inv.id}>
-                  <TD mono bold>{inv.invoice_number || '—'}</TD>
+                  <TD mono bold>{inv.number || '—'}</TD>
                   <TD>{inv.profiles?.full_name || '—'}</TD>
-                  <TD bold>{fmt(inv.total_amount)}</TD>
-                  <TD>{fmt(inv.vat_amount)}</TD>
+                  <TD bold>{fmt(inv.total)}</TD>
+                  <TD>{fmt(inv.tax_amount)}</TD>
                   <TD>{inv.issue_date ? new Date(inv.issue_date).toLocaleDateString('cs-CZ') : '—'}</TD>
                   <TD>{inv.due_date ? new Date(inv.due_date).toLocaleDateString('cs-CZ') : '—'}</TD>
                   <TD><StatusBadge status={inv.status || 'pending'} /></TD>
@@ -131,7 +131,7 @@ function SmallBtn({ children, onClick }) {
 function NewInvoiceModal({ onClose, onSaved }) {
   const [customers, setCustomers] = useState([])
   const [bookings, setBookings] = useState([])
-  const [form, setForm] = useState({ customer_id: '', booking_id: '', total_amount: '', vat_amount: '', due_date: '' })
+  const [form, setForm] = useState({ customer_id: '', booking_id: '', total: '', tax_amount: '', due_date: '' })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
 
@@ -148,8 +148,8 @@ function NewInvoiceModal({ onClose, onSaved }) {
       const { error } = await supabase.from('invoices').insert({
         customer_id: form.customer_id || null,
         booking_id: form.booking_id || null,
-        total_amount: Number(form.total_amount) || 0,
-        vat_amount: Number(form.vat_amount) || 0,
+        total: Number(form.total) || 0,
+        tax_amount: Number(form.tax_amount) || 0,
         due_date: form.due_date || null,
         issue_date: new Date().toISOString().slice(0, 10),
         status: 'unpaid',
@@ -180,11 +180,11 @@ function NewInvoiceModal({ onClose, onSaved }) {
         </div>
         <div>
           <Label>Částka (Kč)</Label>
-          <input type="number" value={form.total_amount} onChange={e => set('total_amount', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
+          <input type="number" value={form.total} onChange={e => set('total', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
         </div>
         <div>
           <Label>DPH (Kč)</Label>
-          <input type="number" value={form.vat_amount} onChange={e => set('vat_amount', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
+          <input type="number" value={form.tax_amount} onChange={e => set('tax_amount', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
         </div>
         <div>
           <Label>Splatnost</Label>
