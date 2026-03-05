@@ -36,8 +36,8 @@ export default function PromoCodes() {
         .select('*', { count: 'exact' })
         .order('created_at', { ascending: false })
 
-      if (filters.status === 'active') query = query.eq('status', 'active')
-      else if (filters.status === 'inactive') query = query.eq('status', 'inactive')
+      if (filters.status === 'active') query = query.eq('active', true)
+      else if (filters.status === 'inactive') query = query.eq('active', false)
       else if (filters.status === 'expired') {
         query = query.lt('valid_to', new Date().toISOString().split('T')[0])
       }
@@ -60,13 +60,13 @@ export default function PromoCodes() {
 
   async function loadSummary() {
     try {
-      const { data } = await supabase.from('promo_codes').select('status, used_count, discount_value, discount_type, valid_to')
+      const { data } = await supabase.from('promo_codes').select('active, used_count, value, type, valid_to')
       if (data) {
         const now = new Date()
         setSummary({
           total: data.length,
-          active: data.filter(c => c.status === 'active' && (!c.valid_to || new Date(c.valid_to) >= now)).length,
-          inactive: data.filter(c => c.status === 'inactive' || c.status !== 'active').length,
+          active: data.filter(c => c.active && (!c.valid_to || new Date(c.valid_to) >= now)).length,
+          inactive: data.filter(c => !c.active).length,
           expired: data.filter(c => c.valid_to && new Date(c.valid_to) < now).length,
           totalUsed: data.reduce((s, c) => s + (c.used_count || 0), 0),
         })
@@ -75,11 +75,11 @@ export default function PromoCodes() {
   }
 
   async function toggleStatus(code) {
-    const newStatus = code.status === 'active' ? 'inactive' : 'active'
-    const { error: err } = await supabase.from('promo_codes').update({ status: newStatus }).eq('id', code.id)
+    const newActive = !code.active
+    const { error: err } = await supabase.from('promo_codes').update({ active: newActive }).eq('id', code.id)
     if (err) { setError(err.message); return }
-    await logAudit(newStatus === 'active' ? 'promo_code_activated' : 'promo_code_deactivated', { code: code.code })
-    setCodes(prev => prev.map(c => c.id === code.id ? { ...c, status: newStatus } : c))
+    await logAudit(newActive ? 'promo_code_activated' : 'promo_code_deactivated', { code: code.code })
+    setCodes(prev => prev.map(c => c.id === code.id ? { ...c, active: newActive } : c))
     loadSummary()
   }
 
@@ -165,9 +165,9 @@ export default function PromoCodes() {
             </thead>
             <tbody>
               {codes.map(c => {
-                const isActive = c.status === 'active' && (!c.valid_to || new Date(c.valid_to) >= new Date())
+                const isActive = c.active && (!c.valid_to || new Date(c.valid_to) >= new Date())
                 const isExpired = c.valid_to && new Date(c.valid_to) < new Date()
-                const isLimitReached = c.usage_limit && (c.used_count || 0) >= c.usage_limit
+                const isLimitReached = c.max_uses && (c.used_count || 0) >= c.max_uses
                 return (
                   <TRow key={c.id}>
                     <TD>
@@ -180,9 +180,9 @@ export default function PromoCodes() {
                       </button>
                     </TD>
                     <TD bold>
-                      {c.discount_type === 'percent'
-                        ? `${c.discount_value}%`
-                        : `${(c.discount_value || 0).toLocaleString('cs-CZ')} Kč`
+                      {c.type === 'percent'
+                        ? `${c.value}%`
+                        : `${(c.value || 0).toLocaleString('cs-CZ')} Kč`
                       }
                     </TD>
                     <TD>
@@ -198,7 +198,7 @@ export default function PromoCodes() {
                     </TD>
                     <TD>
                       <span style={{ color: isLimitReached ? '#dc2626' : undefined, fontWeight: isLimitReached ? 700 : undefined }}>
-                        {c.used_count ?? 0} / {c.usage_limit ?? '∞'}
+                        {c.used_count ?? 0} / {c.max_uses ?? '∞'}
                       </span>
                       {isLimitReached && <span className="text-[10px] ml-1" style={{ color: '#dc2626' }}>(vyčerpáno)</span>}
                     </TD>
@@ -220,11 +220,8 @@ export default function PromoCodes() {
                     <TD>
                       <div className="flex gap-1">
                         <ActionBtn color="#2563eb" onClick={() => openEdit(c)}>Upravit</ActionBtn>
-                        <ActionBtn color="#b45309" onClick={() => {
-                          const newStatus = c.status === 'active' ? 'inactive' : 'active'
-                          toggleStatus(c)
-                        }}>
-                          {c.status === 'active' ? 'Deaktivovat' : 'Aktivovat'}
+                        <ActionBtn color="#b45309" onClick={() => toggleStatus(c)}>
+                          {c.active ? 'Deaktivovat' : 'Aktivovat'}
                         </ActionBtn>
                         <ActionBtn color="#dc2626" onClick={() => setDeleteConfirm(c)}>Smazat</ActionBtn>
                       </div>
@@ -244,13 +241,13 @@ export default function PromoCodes() {
         <Modal open title={`Detail: ${detailCode.code}`} onClose={() => setDetailCode(null)}>
           <div className="grid grid-cols-2 gap-4">
             <DetailRow label="Kód" value={detailCode.code} mono />
-            <DetailRow label="Stav" value={detailCode.status === 'active' ? 'Aktivní' : 'Neaktivní'} />
-            <DetailRow label="Typ slevy" value={detailCode.discount_type === 'percent' ? 'Procentuální' : 'Pevná částka'} />
-            <DetailRow label="Hodnota" value={detailCode.discount_type === 'percent' ? `${detailCode.discount_value}%` : `${detailCode.discount_value?.toLocaleString('cs-CZ')} Kč`} />
+            <DetailRow label="Stav" value={detailCode.active ? 'Aktivní' : 'Neaktivní'} />
+            <DetailRow label="Typ slevy" value={detailCode.type === 'percent' ? 'Procentuální' : 'Pevná částka'} />
+            <DetailRow label="Hodnota" value={detailCode.type === 'percent' ? `${detailCode.value}%` : `${detailCode.value?.toLocaleString('cs-CZ')} Kč`} />
             <DetailRow label="Platnost od" value={detailCode.valid_from ? new Date(detailCode.valid_from).toLocaleDateString('cs-CZ') : 'Neuvedeno'} />
             <DetailRow label="Platnost do" value={detailCode.valid_to ? new Date(detailCode.valid_to).toLocaleDateString('cs-CZ') : 'Neomezená'} />
             <DetailRow label="Použito" value={`${detailCode.used_count ?? 0}×`} />
-            <DetailRow label="Limit" value={detailCode.usage_limit ?? 'Neomezeno'} />
+            <DetailRow label="Limit" value={detailCode.max_uses ?? 'Neomezeno'} />
             <DetailRow label="Vytvořeno" value={detailCode.created_at ? new Date(detailCode.created_at).toLocaleString('cs-CZ') : '—'} />
           </div>
           <div className="flex justify-end gap-3 mt-5">
@@ -290,12 +287,12 @@ function PromoModal({ existing, onClose, onSaved }) {
     existing
       ? {
           code: existing.code || '',
-          discount_type: existing.discount_type || 'percent',
-          discount_value: existing.discount_value?.toString() || '',
+          discount_type: existing.type || 'percent',
+          discount_value: existing.value?.toString() || '',
           valid_from: existing.valid_from || '',
           valid_to: existing.valid_to || '',
-          usage_limit: existing.usage_limit?.toString() || '',
-          status: existing.status || 'active',
+          usage_limit: existing.max_uses?.toString() || '',
+          status: existing.active ? 'active' : 'inactive',
         }
       : { code: '', discount_type: 'percent', discount_value: '', valid_from: '', valid_to: '', usage_limit: '', status: 'active' }
   )
@@ -308,12 +305,12 @@ function PromoModal({ existing, onClose, onSaved }) {
     try {
       const payload = {
         code: form.code.trim().toUpperCase(),
-        discount_type: form.discount_type,
-        discount_value: Number(form.discount_value) || 0,
-        usage_limit: form.usage_limit ? Number(form.usage_limit) : null,
+        type: form.discount_type,
+        value: Number(form.discount_value) || 0,
+        max_uses: form.usage_limit ? Number(form.usage_limit) : null,
         valid_from: form.valid_from || null,
         valid_to: form.valid_to || null,
-        status: form.status,
+        active: form.status === 'active',
       }
 
       if (isEdit) {
@@ -386,7 +383,7 @@ function PromoModal({ existing, onClose, onSaved }) {
       {isEdit && existing.used_count > 0 && (
         <div className="mt-3 p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
           <span className="text-xs font-bold" style={{ color: '#4a6357' }}>
-            Tento kód byl použit {existing.used_count}× z {existing.usage_limit ?? '∞'} povolených.
+            Tento kód byl použit {existing.used_count}× z {existing.max_uses ?? '∞'} povolených.
           </span>
         </div>
       )}
