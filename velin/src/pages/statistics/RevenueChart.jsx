@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { supabase } from '../../lib/supabase'
-import { isDemoMode, REVENUE_MONTHLY, COST_MONTHLY } from '../../lib/demoData'
+
 import Card from '../../components/ui/Card'
 
 export default function RevenueChart() {
@@ -11,20 +11,6 @@ export default function RevenueChart() {
   useEffect(() => { load() }, [])
 
   async function load() {
-    if (isDemoMode()) {
-      const now = new Date()
-      const chart = REVENUE_MONTHLY.map((rev, i) => {
-        const d = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1)
-        return {
-          name: d.toLocaleDateString('cs-CZ', { month: 'short', year: '2-digit' }),
-          tržby: rev * 1000,
-          náklady: COST_MONTHLY[i] * 1000,
-        }
-      })
-      setData(chart)
-      setLoading(false)
-      return
-    }
     const months = []
     const now = new Date()
     for (let i = 11; i >= 0; i--) {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { isDemoMode } from '../lib/demoData'
+
 
 const NAV = [
   { id: 'dashboard', path: '/', label: 'Velín', icon: '⚡' },
@@ -58,7 +58,6 @@ export default function Sidebar({ admin, onSignOut }) {
   }, [])
 
   async function loadBadges() {
-    if (isDemoMode()) { setBadges({ messages: 3, sos: 0 }); return }
     try {
       const [msgRes, sosRes] = await Promise.all([
         supabase.from('messages').select('id', { count: 'exact', head: true }).eq('read', false),

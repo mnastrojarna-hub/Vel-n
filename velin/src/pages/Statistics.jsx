@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import Button from '../components/ui/Button'
 import { supabase } from '../lib/supabase'
-import { isDemoMode } from '../lib/demoData'
 import RevenueChart from './statistics/RevenueChart'
 import { FleetUtilization, TopMotoRevenue, BranchComparison } from './statistics/FleetCharts'
 import { BookingsByStatus, CustomerRetention } from './statistics/BookingCharts'
@@ -11,10 +10,6 @@ export default function Statistics() {
   const [generating, setGenerating] = useState(false)
 
   async function handleGenerateReport() {
-    if (isDemoMode()) {
-      setError('Generování reportu není v demo režimu dostupné.')
-      return
-    }
     setGenerating(true)
     setError(null)
     try {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { isDemoMode } from '../../lib/demoData'
+
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import StatusBadge from '../../components/ui/StatusBadge'
@@ -21,12 +21,6 @@ export default function OrdersTab() {
   useEffect(() => { load() }, [page])
 
   async function load() {
-    if (isDemoMode()) {
-      setOrders([])
-      setTotal(0)
-      setLoading(false)
-      return
-    }
     setLoading(true)
     const { data, count } = await supabase
       .from('purchase_orders')

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { isDemoMode, SERVICE_LOG } from '../../lib/demoData'
+
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import StatusBadge from '../../components/ui/StatusBadge'
@@ -25,12 +25,6 @@ export default function ServiceLog() {
   useEffect(() => { load() }, [page, filters])
 
   async function load() {
-    if (isDemoMode()) {
-      setLogs(SERVICE_LOG.map(s => ({ ...s, motorcycles: { model: s.motorcycle_name, spz: '' } })))
-      setTotal(SERVICE_LOG.length)
-      setLoading(false)
-      return
-    }
     setLoading(true)
     setError(null)
     try {

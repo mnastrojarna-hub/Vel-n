@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { isDemoMode, MOTOS, BOOKINGS, MESSAGES, INVENTORY, REVENUE_MONTHLY, SOS_INCIDENTS } from '../lib/demoData'
 import Card from '../components/ui/Card'
 import Stat from '../components/ui/Stat'
 import Badge from '../components/ui/Badge'
@@ -27,28 +26,6 @@ function Spinner() {
   )
 }
 
-function buildDemoStats() {
-  const activeMotos = MOTOS.filter(m => m.status === 'active').length
-  const totalMotos = MOTOS.length
-  const activeBookings = BOOKINGS.filter(b => b.status === 'active').length
-  const pendingBookings = BOOKINGS.filter(b => b.status === 'pending').length
-  const monthRevenue = REVENUE_MONTHLY[new Date().getMonth()] * 1000
-  const unreadMessages = MESSAGES.filter(m => !m.read).length
-  const lowStock = INVENTORY.filter(i => i.stock <= i.min_stock).length
-  const utilization = activeMotos > 0 ? Math.round((activeBookings / activeMotos) * 100) : 0
-  return {
-    activeMotos, totalMotos, activeBookings, pendingBookings,
-    monthRevenue, unreadMessages, lowStock,
-    utilization: Math.min(utilization, 100),
-    activeSos: SOS_INCIDENTS.length,
-    stkExpiring: MOTOS.filter(m => {
-      if (!m.stk_valid_until) return false
-      const in30 = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
-      return m.stk_valid_until <= in30
-    }),
-  }
-}
-
 export default function Dashboard() {
   const [stats, setStats] = useState(null)
   const [revenueChart, setRevenueChart] = useState([])
@@ -56,14 +33,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (isDemoMode()) {
-      setStats(buildDemoStats())
-      setRevenueChart(REVENUE_MONTHLY.map(v => v * 1000))
-      setUpcomingEvents(BOOKINGS.filter(b => b.status === 'pending' || b.status === 'active').slice(0, 5))
-      setLoading(false)
-    } else {
-      fetchDashboardData()
-    }
+    fetchDashboardData()
   }, [])
 
   async function fetchDashboardData() {
@@ -106,9 +76,6 @@ export default function Dashboard() {
       setRevenueChart(monthlyData)
       setUpcomingEvents(eventsRes.data || [])
     } catch {
-      setStats(buildDemoStats())
-      setRevenueChart(REVENUE_MONTHLY.map(v => v * 1000))
-      setUpcomingEvents(BOOKINGS.filter(b => b.status === 'pending' || b.status === 'active').slice(0, 5))
     } finally {
       setLoading(false)
     }

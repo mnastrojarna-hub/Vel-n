@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { isDemoMode } from '../../lib/demoData'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
@@ -18,11 +17,6 @@ export default function VariablesTab() {
   useEffect(() => { load() }, [filterGroup])
 
   async function load() {
-    if (isDemoMode()) {
-      setVars([])
-      setLoading(false)
-      return
-    }
     setLoading(true)
     let query = supabase.from('cms_variables').select('*').order('key')
     const { data, error: err } = await query
