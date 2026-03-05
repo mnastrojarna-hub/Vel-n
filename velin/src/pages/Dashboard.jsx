@@ -13,6 +13,7 @@ const STATUS_MAP = {
   pending: { label: 'Čekající', color: '#92400e', bg: '#fef3c7' },
   confirmed: { label: 'Potvrzená', color: '#1a8a18', bg: '#dcfce7' },
   completed: { label: 'Dokončena', color: '#3b82f6', bg: '#dbeafe' },
+  cancelled: { label: 'Zrušeno', color: '#dc2626', bg: '#fee2e2' },
 }
 
 const MONTHS = ['Led', 'Úno', 'Bře', 'Dub', 'Kvě', 'Čvn', 'Čvc', 'Srp', 'Zář', 'Říj', 'Lis', 'Pro']
