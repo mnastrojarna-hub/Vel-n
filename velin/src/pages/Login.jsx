@@ -24,7 +24,7 @@ const Logo = ({ size = 64 }) => (
   </svg>
 )
 
-export default function Login({ user, onSignIn, onSignInDemo }) {
+export default function Login({ user, onSignIn }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
@@ -164,33 +164,6 @@ export default function Login({ user, onSignIn, onSignInDemo }) {
           </Button>
         </form>
 
-        {onSignInDemo && (
-          <div className="mt-4 text-center">
-            <div
-              className="text-[10px] font-bold uppercase mb-2"
-              style={{ color: '#8aab99', letterSpacing: 1 }}
-            >
-              nebo
-            </div>
-            <button
-              onClick={onSignInDemo}
-              className="w-full cursor-pointer font-montserrat"
-              style={{
-                padding: '12px 22px',
-                borderRadius: 50,
-                fontSize: 13,
-                fontWeight: 800,
-                border: '2px solid #74FB71',
-                background: 'transparent',
-                color: '#3dba3a',
-                textTransform: 'uppercase',
-                letterSpacing: 0.5,
-              }}
-            >
-              Demo přístup
-            </button>
-          </div>
-        )}
       </div>
     </div>
   )

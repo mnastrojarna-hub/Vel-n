@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { isDemoMode, ACCOUNTING_ENTRIES, REVENUE_MONTHLY, COST_MONTHLY } from '../lib/demoData'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
@@ -31,28 +30,9 @@ export default function Finance() {
     setLoading(true)
     setError(null)
     try {
-      if (isDemoMode()) {
-        const rev = ACCOUNTING_ENTRIES.filter(d => d.type === 'revenue').reduce((s, d) => s + (d.amount || 0), 0)
-        const exp = ACCOUNTING_ENTRIES.filter(d => d.type === 'expense').reduce((s, d) => s + Math.abs(d.amount || 0), 0)
-        setSummary({ revenue: rev, expense: exp, unpaid: 0 })
-        let filtered = [...ACCOUNTING_ENTRIES]
-        if (filters.type) filtered = filtered.filter(e => e.type === filters.type)
-        setTransactions(filtered)
-        const monthLabels = ['led', 'úno', 'bře', 'dub', 'kvě', 'čvn', 'čvc', 'srp', 'zář', 'říj', 'lis', 'pro']
-        setChartData(REVENUE_MONTHLY.map((r, i) => ({ label: monthLabels[i], revenue: r * 1000, expense: COST_MONTHLY[i] * 1000 })))
-        setLoading(false)
-        return
-      }
       await Promise.all([loadSummary(), loadTransactions(), loadChart()])
     } catch (e) {
       setError(e.message)
-      // Fallback to demo data
-      const rev = ACCOUNTING_ENTRIES.filter(d => d.type === 'revenue').reduce((s, d) => s + (d.amount || 0), 0)
-      const exp = ACCOUNTING_ENTRIES.filter(d => d.type === 'expense').reduce((s, d) => s + Math.abs(d.amount || 0), 0)
-      setSummary({ revenue: rev, expense: exp, unpaid: 0 })
-      setTransactions(ACCOUNTING_ENTRIES)
-      const monthLabels = ['led', 'úno', 'bře', 'dub', 'kvě', 'čvn', 'čvc', 'srp', 'zář', 'říj', 'lis', 'pro']
-      setChartData(REVENUE_MONTHLY.map((r, i) => ({ label: monthLabels[i], revenue: r * 1000, expense: COST_MONTHLY[i] * 1000 })))
     } finally {
       setLoading(false)
     }

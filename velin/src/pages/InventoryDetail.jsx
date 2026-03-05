@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { isDemoMode, INVENTORY } from '../lib/demoData'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
@@ -23,12 +22,6 @@ export default function InventoryDetail() {
 
   async function loadItem() {
     setLoading(true)
-    if (isDemoMode()) {
-      const found = INVENTORY.find(i => String(i.id) === String(id)) || INVENTORY[0]
-      setItem({ ...found, suppliers: { name: '—' } })
-      setLoading(false)
-      return
-    }
     try {
       const { data, error: err } = await supabase
         .from('inventory')
@@ -38,14 +31,12 @@ export default function InventoryDetail() {
       if (err) setError(err.message)
       else setItem(data)
     } catch (e) {
-      const found = INVENTORY.find(i => String(i.id) === String(id)) || INVENTORY[0]
-      setItem({ ...found, suppliers: { name: '—' } })
+      setError(e.message)
     }
     setLoading(false)
   }
 
   async function loadMovements() {
-    if (isDemoMode()) { setMovements([]); return }
     try {
       const { data } = await supabase
         .from('inventory_movements')

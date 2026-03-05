@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { isDemoMode, CUSTOMERS } from '../lib/demoData'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import StatusBadge from '../components/ui/StatusBadge'
@@ -21,12 +20,6 @@ export default function CustomerDetail() {
 
   async function loadCustomer() {
     setLoading(true)
-    if (isDemoMode()) {
-      const found = CUSTOMERS.find(c => String(c.id) === String(id)) || CUSTOMERS[0]
-      setCustomer({ ...found, full_name: found.name })
-      setLoading(false)
-      return
-    }
     try {
       const { data, error: err } = await supabase
         .from('profiles')
@@ -36,8 +29,7 @@ export default function CustomerDetail() {
       if (err) setError(err.message)
       else setCustomer(data)
     } catch (e) {
-      const found = CUSTOMERS.find(c => String(c.id) === String(id)) || CUSTOMERS[0]
-      setCustomer({ ...found, full_name: found.name })
+      setError(e.message)
     }
     setLoading(false)
   }
@@ -139,7 +131,6 @@ function CustomerBookings({ userId }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (isDemoMode()) { setBookings([]); setLoading(false); return }
     supabase.from('bookings').select('*, motorcycles(model, spz)').eq('user_id', userId).order('start_date', { ascending: false })
       .then(({ data }) => { setBookings(data || []); setLoading(false) })
       .catch(() => { setBookings([]); setLoading(false) })
@@ -173,7 +164,6 @@ function CustomerDocuments({ userId }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (isDemoMode()) { setDocs([]); setLoading(false); return }
     supabase.from('documents').select('*').eq('user_id', userId).order('created_at', { ascending: false })
       .then(({ data }) => { setDocs(data || []); setLoading(false) })
       .catch(() => { setDocs([]); setLoading(false) })
@@ -202,7 +192,6 @@ function CustomerReviews({ userId }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (isDemoMode()) { setReviews([]); setLoading(false); return }
     supabase.from('reviews').select('*').eq('user_id', userId).order('created_at', { ascending: false })
       .then(({ data }) => { setReviews(data || []); setLoading(false) })
       .catch(() => { setReviews([]); setLoading(false) })
@@ -234,7 +223,6 @@ function CustomerSOS({ userId }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (isDemoMode()) { setIncidents([]); setLoading(false); return }
     supabase.from('sos_incidents').select('*, bookings!inner(user_id)').eq('bookings.user_id', userId).order('created_at', { ascending: false })
       .then(({ data }) => { setIncidents(data || []); setLoading(false) })
       .catch(() => { setIncidents([]); setLoading(false) })

@@ -8,15 +8,6 @@ const supabaseAdmin = createClient(
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZud25xdGVza2J5a2V1Y2FubGhrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjQ5MTM2MywiZXhwIjoyMDg4MDY3MzYzfQ.mTFJQZzsBBosMycHLr0pj06HrHElTQtXSUIp0UwasGs'
 )
 
-const DEMO_ADMIN = {
-  id: 'demo-user',
-  name: 'Demo Admin',
-  email: 'demo@motogo24.cz',
-  role: 'superadmin',
-  branch_access: ['all'],
-  permissions: { all: true },
-}
-
 export function useAdmin(user) {
   const [admin, setAdmin] = useState(null)
   const [role, setRole] = useState(null)
@@ -31,15 +22,6 @@ export function useAdmin(user) {
       setRole(null)
       setBranchAccess(null)
       setPermissions(null)
-      setLoading(false)
-      return
-    }
-
-    if (user._demo) {
-      setAdmin(DEMO_ADMIN)
-      setRole(DEMO_ADMIN.role)
-      setBranchAccess(DEMO_ADMIN.branch_access)
-      setPermissions(DEMO_ADMIN.permissions)
       setLoading(false)
       return
     }

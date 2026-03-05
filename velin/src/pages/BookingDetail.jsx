@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { isDemoMode, BOOKINGS } from '../lib/demoData'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import StatusBadge from '../components/ui/StatusBadge'
@@ -37,16 +36,6 @@ export default function BookingDetail() {
 
   async function loadBooking() {
     setLoading(true)
-    if (isDemoMode()) {
-      const found = BOOKINGS.find(b => b.id === id) || BOOKINGS[0]
-      setBooking({
-        ...found,
-        profiles: { full_name: found.customer_name, email: found.customer_email, phone: found.customer_phone },
-        motorcycles: { model: found.motorcycle_name, spz: '', price_per_day: 0 },
-      })
-      setLoading(false)
-      return
-    }
     try {
       const { data, error: err } = await supabase
         .from('bookings')
@@ -56,12 +45,7 @@ export default function BookingDetail() {
       if (err) setError(err.message)
       else setBooking(data)
     } catch (e) {
-      const found = BOOKINGS.find(b => b.id === id) || BOOKINGS[0]
-      setBooking({
-        ...found,
-        profiles: { full_name: found.customer_name, email: found.customer_email, phone: found.customer_phone },
-        motorcycles: { model: found.motorcycle_name, spz: '', price_per_day: 0 },
-      })
+      setError(e.message)
     }
     setLoading(false)
   }
@@ -246,7 +230,6 @@ function DocumentsTab({ bookingId }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (isDemoMode()) { setDocs([]); setLoading(false); return }
     supabase.from('documents').select('*').eq('booking_id', bookingId).order('created_at', { ascending: false })
       .then(({ data }) => { setDocs(data || []); setLoading(false) })
       .catch(() => { setDocs([]); setLoading(false) })
@@ -275,7 +258,6 @@ function PaymentsTab({ bookingId }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (isDemoMode()) { setEntries([]); setLoading(false); return }
     supabase.from('accounting_entries').select('*').eq('booking_id', bookingId).order('created_at', { ascending: false })
       .then(({ data }) => { setEntries(data || []); setLoading(false) })
       .catch(() => { setEntries([]); setLoading(false) })

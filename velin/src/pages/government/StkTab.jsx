@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { isDemoMode, MOTOS } from '../../lib/demoData'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 
 export default function StkTab() {
@@ -10,11 +9,6 @@ export default function StkTab() {
   useEffect(() => { load() }, [])
 
   async function load() {
-    if (isDemoMode()) {
-      setMotos(MOTOS.map(m => ({ id: m.id, model: m.model, spz: m.spz, stk_valid_until: m.stk_valid_until, emission_valid_until: null })))
-      setLoading(false)
-      return
-    }
     setLoading(true)
     const { data } = await supabase
       .from('motorcycles')

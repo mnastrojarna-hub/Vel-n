@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { isDemoMode } from '../../lib/demoData'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 
 export default function InsuranceTab() {
@@ -10,11 +9,6 @@ export default function InsuranceTab() {
   useEffect(() => { load() }, [])
 
   async function load() {
-    if (isDemoMode()) {
-      setMotos([])
-      setLoading(false)
-      return
-    }
     setLoading(true)
     const { data } = await supabase
       .from('motorcycles')
