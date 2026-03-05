@@ -7,8 +7,10 @@ import StatusBadge from '../components/ui/StatusBadge'
 import SearchInput from '../components/ui/SearchInput'
 import Pagination from '../components/ui/Pagination'
 import Modal from '../components/ui/Modal'
+import Card from '../components/ui/Card'
 
 const PER_PAGE = 25
+const VIEWS = ['Seznam', 'Kalendář']
 
 export default function Bookings() {
   const navigate = useNavigate()
@@ -19,8 +21,9 @@ export default function Bookings() {
   const [total, setTotal] = useState(0)
   const [filters, setFilters] = useState({ status: '', search: '', dateFrom: '', dateTo: '' })
   const [showAdd, setShowAdd] = useState(false)
+  const [view, setView] = useState('Seznam')
 
-  useEffect(() => { loadBookings() }, [page, filters])
+  useEffect(() => { if (view === 'Seznam') loadBookings() }, [page, filters, view])
 
   async function loadBookings() {
     setLoading(true)
@@ -29,14 +32,12 @@ export default function Bookings() {
       let query = supabase
         .from('bookings')
         .select('*, motorcycles(model, spz), profiles(full_name, email, phone)', { count: 'exact' })
-
       if (filters.status) query = query.eq('status', filters.status)
       if (filters.dateFrom) query = query.gte('start_date', filters.dateFrom)
       if (filters.dateTo) query = query.lte('end_date', filters.dateTo)
       if (filters.search) {
         query = query.or(`motorcycles.model.ilike.%${filters.search}%,profiles.full_name.ilike.%${filters.search}%`)
       }
-
       query = query.order('start_date', { ascending: false }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       const { data, count, error: err } = await query
       if (err) throw err
@@ -54,32 +55,36 @@ export default function Bookings() {
   return (
     <div>
       <div className="flex flex-wrap items-center gap-3 mb-5">
-        <SearchInput
-          value={filters.search}
-          onChange={v => { setPage(1); setFilters(f => ({ ...f, search: v })) }}
-          placeholder="Hledat zákazníka, motorku…"
-        />
-        <FilterSelect
-          value={filters.status}
-          onChange={v => { setPage(1); setFilters(f => ({ ...f, status: v })) }}
-          options={[
-            { value: '', label: 'Všechny stavy' },
-            { value: 'pending', label: 'Čekající' },
-            { value: 'active', label: 'Aktivní' },
-            { value: 'completed', label: 'Dokončeno' },
-            { value: 'cancelled', label: 'Zrušeno' },
-          ]}
-        />
-        <DateFilter
-          label="Od"
-          value={filters.dateFrom}
-          onChange={v => { setPage(1); setFilters(f => ({ ...f, dateFrom: v })) }}
-        />
-        <DateFilter
-          label="Do"
-          value={filters.dateTo}
-          onChange={v => { setPage(1); setFilters(f => ({ ...f, dateTo: v })) }}
-        />
+        {/* Přepínač pohledů */}
+        {VIEWS.map(v => (
+          <button key={v} onClick={() => setView(v)}
+            className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
+            style={{ padding: '8px 16px', background: view === v ? '#74FB71' : '#f1faf7', color: view === v ? '#1a2e22' : '#4a6357', border: 'none', boxShadow: view === v ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>
+            {v}
+          </button>
+        ))}
+        {view === 'Seznam' && (
+          <>
+            <SearchInput
+              value={filters.search}
+              onChange={v => { setPage(1); setFilters(f => ({ ...f, search: v })) }}
+              placeholder="Hledat zákazníka, motorku…"
+            />
+            <FilterSelect
+              value={filters.status}
+              onChange={v => { setPage(1); setFilters(f => ({ ...f, status: v })) }}
+              options={[
+                { value: '', label: 'Všechny stavy' },
+                { value: 'pending', label: 'Čekající' },
+                { value: 'active', label: 'Aktivní' },
+                { value: 'completed', label: 'Dokončeno' },
+                { value: 'cancelled', label: 'Zrušeno' },
+              ]}
+            />
+            <DateFilter label="Od" value={filters.dateFrom} onChange={v => { setPage(1); setFilters(f => ({ ...f, dateFrom: v })) }} />
+            <DateFilter label="Do" value={filters.dateTo} onChange={v => { setPage(1); setFilters(f => ({ ...f, dateTo: v })) }} />
+          </>
+        )}
         <div className="ml-auto">
           <Button green onClick={() => setShowAdd(true)}>+ Nová rezervace</Button>
         </div>
@@ -92,10 +97,10 @@ export default function Bookings() {
         </div>
       )}
 
-      {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" />
-        </div>
+      {view === 'Kalendář' ? (
+        <GlobalCalendar />
+      ) : loading ? (
+        <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
           <Table>
@@ -107,12 +112,9 @@ export default function Bookings() {
             </thead>
             <tbody>
               {bookings.map(b => (
-                <tr
-                  key={b.id}
-                  onClick={() => navigate(`/rezervace/${b.id}`)}
+                <tr key={b.id} onClick={() => navigate(`/rezervace/${b.id}`)}
                   className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
-                  style={{ borderBottom: '1px solid #d4e8e0' }}
-                >
+                  style={{ borderBottom: '1px solid #d4e8e0' }}>
                   <TD mono>{b.id?.slice(0, 8)}</TD>
                   <TD bold>{b.profiles?.full_name || '—'}</TD>
                   <TD>{b.motorcycles?.model || '—'} <span className="text-xs font-mono" style={{ color: '#8aab99' }}>{b.motorcycles?.spz}</span></TD>
@@ -122,9 +124,7 @@ export default function Bookings() {
                   <TD><StatusBadge status={b.status} /></TD>
                 </tr>
               ))}
-              {bookings.length === 0 && (
-                <TRow><TD>Žádné rezervace</TD></TRow>
-              )}
+              {bookings.length === 0 && <TRow><TD>Žádné rezervace</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
@@ -136,14 +136,177 @@ export default function Bookings() {
   )
 }
 
+/* ═══ GLOBÁLNÍ KALENDÁŘ REZERVACÍ ═══ */
+const DAYS = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne']
+const MONTHS_FULL = ['Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen', 'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec']
+const navBtnStyle = { background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 8, padding: '4px 12px', cursor: 'pointer', fontWeight: 800 }
+
+function GlobalCalendar() {
+  const [bookings, setBookings] = useState([])
+  const [motos, setMotos] = useState([])
+  const [month, setMonth] = useState(new Date())
+  const [loading, setLoading] = useState(true)
+  const [selectedDay, setSelectedDay] = useState(null)
+
+  useEffect(() => { loadData() }, [month])
+
+  async function loadData() {
+    setLoading(true)
+    const start = new Date(month.getFullYear(), month.getMonth(), 1)
+    const end = new Date(month.getFullYear(), month.getMonth() + 1, 0)
+    const startStr = start.toISOString().split('T')[0]
+    const endStr = end.toISOString().split('T')[0]
+
+    const [bRes, mRes] = await Promise.all([
+      supabase
+        .from('bookings')
+        .select('id, start_date, end_date, status, moto_id, profiles(full_name), motorcycles(model, spz), total_price')
+        .in('status', ['pending', 'active', 'confirmed', 'completed', 'reserved'])
+        .gte('end_date', startStr)
+        .lte('start_date', endStr),
+      supabase.from('motorcycles').select('id, model').eq('status', 'active'),
+    ])
+
+    setBookings(bRes.data || [])
+    setMotos(mRes.data || [])
+    setLoading(false)
+  }
+
+  const year = month.getFullYear()
+  const mon = month.getMonth()
+  const daysInMonth = new Date(year, mon + 1, 0).getDate()
+  const firstDayOfWeek = (new Date(year, mon, 1).getDay() + 6) % 7
+  const todayStr = new Date().toISOString().split('T')[0]
+  const totalMotos = motos.length || 1
+
+  function getDayBookings(day) {
+    const dateStr = `${year}-${String(mon + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    return bookings.filter(b => dateStr >= b.start_date.split('T')[0] && dateStr <= b.end_date.split('T')[0])
+  }
+
+  function getDayInfo(day) {
+    const dateStr = `${year}-${String(mon + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    const dayBookings = getDayBookings(day)
+    const occupiedCount = new Set(dayBookings.map(b => b.moto_id)).size
+    const isToday = dateStr === todayStr
+    const ratio = occupiedCount / totalMotos
+
+    if (occupiedCount === 0) {
+      return { bg: isToday ? '#bbf7d0' : '#dcfce7', color: '#15803d', label: 'Vše volné', count: 0 }
+    }
+    if (ratio >= 1) {
+      return { bg: '#166534', color: '#fff', label: `Plně obsazeno (${occupiedCount}/${totalMotos})`, count: occupiedCount }
+    }
+    if (ratio >= 0.5) {
+      return { bg: '#15803d', color: '#fff', label: `${occupiedCount}/${totalMotos} obsazeno`, count: occupiedCount }
+    }
+    return { bg: '#4ade80', color: '#0f1a14', label: `${occupiedCount}/${totalMotos} obsazeno`, count: occupiedCount }
+  }
+
+  const prevMonth = () => setMonth(new Date(year, mon - 1, 1))
+  const nextMonth = () => setMonth(new Date(year, mon + 1, 1))
+
+  if (loading) return <div className="py-8 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
+
+  const dayDetail = selectedDay ? getDayBookings(selectedDay) : []
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="lg:col-span-2">
+        <Card>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <button onClick={prevMonth} style={navBtnStyle}>←</button>
+            <span style={{ fontWeight: 800, fontSize: 15 }}>{MONTHS_FULL[mon]} {year}</span>
+            <button onClick={nextMonth} style={navBtnStyle}>→</button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3 }}>
+            {DAYS.map(d => (
+              <div key={d} style={{ textAlign: 'center', fontSize: 10, fontWeight: 800, color: '#8aab99', padding: 4 }}>{d}</div>
+            ))}
+            {Array.from({ length: firstDayOfWeek }).map((_, i) => <div key={`e${i}`} />)}
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+              const day = i + 1
+              const info = getDayInfo(day)
+              return (
+                <div key={day} title={info.label}
+                  onClick={() => setSelectedDay(day)}
+                  style={{
+                    textAlign: 'center', padding: '10px 2px', borderRadius: 8,
+                    background: info.bg, color: info.color,
+                    fontSize: 12, fontWeight: 800, cursor: 'pointer',
+                    outline: selectedDay === day ? '2px solid #0f1a14' : 'none',
+                  }}>
+                  <div>{day}</div>
+                  {info.count > 0 && <div style={{ fontSize: 9, marginTop: 2, opacity: 0.8 }}>{info.count}/{totalMotos}</div>}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Legenda */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 14, fontSize: 10, fontWeight: 700 }}>
+            <LegendItem bg="#dcfce7" color="#15803d" label="Vše volné" />
+            <LegendItem bg="#4ade80" color="#0f1a14" label="Částečně" />
+            <LegendItem bg="#15803d" color="#fff" label=">50% obsazeno" />
+            <LegendItem bg="#166534" color="#fff" label="Plně obsazeno" />
+          </div>
+        </Card>
+      </div>
+
+      {/* Detail dne */}
+      <div>
+        <Card>
+          {selectedDay ? (
+            <>
+              <h3 className="text-sm font-extrabold mb-3" style={{ color: '#0f1a14' }}>
+                {selectedDay}. {MONTHS_FULL[mon]} {year}
+              </h3>
+              {dayDetail.length === 0 ? (
+                <p style={{ color: '#8aab99', fontSize: 13 }}>Žádné rezervace v tento den</p>
+              ) : (
+                <div className="space-y-2">
+                  {dayDetail.map(b => (
+                    <div key={b.id} className="p-3 rounded-lg" style={{ background: '#f1faf7' }}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-bold text-sm">{b.motorcycles?.model || '—'}</span>
+                        <span className="text-[10px] font-mono" style={{ color: '#8aab99' }}>{b.motorcycles?.spz}</span>
+                        <StatusBadge status={b.status} />
+                      </div>
+                      <div className="text-xs" style={{ color: '#4a6357' }}>
+                        {b.profiles?.full_name || 'Zákazník'}
+                        <span className="ml-2" style={{ color: '#8aab99' }}>{b.start_date?.split('T')[0]} → {b.end_date?.split('T')[0]}</span>
+                      </div>
+                      {b.total_price && <div className="text-xs font-bold mt-1" style={{ color: '#3dba3a' }}>{Number(b.total_price).toLocaleString('cs-CZ')} Kč</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <p style={{ color: '#8aab99', fontSize: 13 }}>Klikněte na den pro zobrazení detailu</p>
+          )}
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+function LegendItem({ bg, color, label }) {
+  return (
+    <span className="flex items-center gap-1">
+      <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 3, background: bg }} />
+      <span style={{ color: '#4a6357' }}>{label}</span>
+    </span>
+  )
+}
+
+/* ═══ HELPER COMPONENTS ═══ */
 function FilterSelect({ value, onChange, options }) {
   return (
-    <select
-      value={value}
-      onChange={e => onChange(e.target.value)}
+    <select value={value} onChange={e => onChange(e.target.value)}
       className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
-      style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}
-    >
+      style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
   )
@@ -153,13 +316,9 @@ function DateFilter({ label, value, onChange }) {
   return (
     <div className="flex items-center gap-1">
       <span className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>{label}</span>
-      <input
-        type="date"
-        value={value}
-        onChange={e => onChange(e.target.value)}
+      <input type="date" value={value} onChange={e => onChange(e.target.value)}
         className="rounded-btn text-xs outline-none cursor-pointer"
-        style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}
-      />
+        style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }} />
     </div>
   )
 }
@@ -173,11 +332,9 @@ function AddBookingModal({ onClose, onSaved }) {
 
   useEffect(() => {
     supabase.from('motorcycles').select('id, model, spz').eq('status', 'active').order('model')
-      .then(({ data }) => setMotos(data || []))
-      .catch(() => {})
+      .then(({ data }) => setMotos(data || [])).catch(() => {})
     supabase.from('profiles').select('id, full_name, email').order('full_name')
-      .then(({ data }) => setCustomers(data || []))
-      .catch(() => {})
+      .then(({ data }) => setCustomers(data || [])).catch(() => {})
   }, [])
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
@@ -186,15 +343,10 @@ function AddBookingModal({ onClose, onSaved }) {
     setSaving(true)
     setErr(null)
     try {
-      const { error } = await supabase.from('bookings').insert({
-        ...form,
-        total_price: Number(form.total_price) || 0,
-      })
+      const { error } = await supabase.from('bookings').insert({ ...form, total_price: Number(form.total_price) || 0 })
       if (error) throw error
       const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('admin_audit_log').insert({
-        admin_id: user?.id, action: 'booking_created', details: { moto_id: form.moto_id },
-      })
+      await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'booking_created', details: { moto_id: form.moto_id } })
       onSaved()
     } catch (e) {
       setErr(e.message)
