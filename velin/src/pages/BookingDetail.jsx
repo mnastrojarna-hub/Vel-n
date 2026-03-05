@@ -71,8 +71,70 @@ export default function BookingDetail() {
     const { error: err } = await supabase.from('bookings').update(update).eq('id', id)
     if (err) { setError(err.message); setSaving(false); return }
     await logAudit(`booking_${newStatus}`, { booking_id: id })
+
+    // Auto-triggers per status
+    const emailBody = {
+      booking_id: id,
+      customer_email: booking.profiles?.email,
+      customer_name: booking.profiles?.full_name,
+      motorcycle: booking.motorcycles?.model,
+      start_date: booking.start_date,
+      end_date: booking.end_date,
+      total_price: booking.total_price,
+    }
+    try {
+      if (newStatus === 'reserved') {
+        // Generate proforma invoice + rental contract + send confirmation email
+        await Promise.allSettled([
+          supabase.functions.invoke('generate-invoice', { body: { type: 'proforma', booking_id: id } }),
+          supabase.functions.invoke('generate-document', { body: { template_slug: 'rental_contract', booking_id: id } }),
+          supabase.functions.invoke('send-booking-email', { body: { ...emailBody, type: 'booking_reserved' } }),
+        ])
+      } else if (newStatus === 'active') {
+        // Generate handover protocol
+        await supabase.functions.invoke('generate-document', { body: { template_slug: 'handover_protocol', booking_id: id } })
+      } else if (newStatus === 'completed') {
+        // Generate final invoice + send completion email
+        await Promise.allSettled([
+          supabase.functions.invoke('generate-invoice', { body: { type: 'final', booking_id: id } }),
+          supabase.functions.invoke('send-booking-email', { body: { ...emailBody, type: 'booking_completed' } }),
+        ])
+      }
+    } catch {} // Non-blocking — edge functions may not be deployed yet
+
+    // Auto in-app message to customer
+    await sendBookingMessage(newStatus, booking)
+
     setBooking(b => ({ ...b, ...update }))
     setConfirm(null); setSaving(false)
+  }
+
+  const MSG_TEMPLATES = {
+    reserved: (b) => `Vaše rezervace motorky ${b.motorcycles?.model || ''} (${new Date(b.start_date).toLocaleDateString('cs-CZ')} – ${new Date(b.end_date).toLocaleDateString('cs-CZ')}) byla potvrzena. Smlouvu a fakturu najdete v sekci Dokumenty.`,
+    active: (b) => `Motorka ${b.motorcycles?.model || ''} byla vydána. Přejeme příjemnou jízdu! V případě problému nás kontaktujte nebo použijte SOS tlačítko.`,
+    completed: (b) => `Vaše jízda na ${b.motorcycles?.model || ''} byla dokončena. Děkujeme a těšíme se na příště! Konečnou fakturu najdete v sekci Dokumenty.`,
+  }
+
+  async function sendBookingMessage(status, bk) {
+    const template = MSG_TEMPLATES[status]
+    if (!template || !bk.user_id) return
+    try {
+      // Find or create thread
+      let { data: thread } = await supabase.from('message_threads')
+        .select('id').eq('customer_id', bk.user_id).limit(1).single()
+      if (!thread) {
+        const { data: newThread } = await supabase.from('message_threads')
+          .insert({ customer_id: bk.user_id, subject: 'Rezervace', channel: 'app' })
+          .select('id').single()
+        thread = newThread
+      }
+      if (!thread) return
+      await supabase.from('messages').insert({
+        thread_id: thread.id, direction: 'admin', sender_name: 'MotoGo',
+        content: template(bk),
+      })
+      await supabase.from('message_threads').update({ last_message_at: new Date().toISOString() }).eq('id', thread.id)
+    } catch {}
   }
 
   async function handleCancel() {
@@ -118,8 +180,23 @@ export default function BookingDetail() {
     const { start_date, end_date, total_price, extras, notes, moto_id, user_id } = booking
     const { error: err } = await supabase.from('bookings')
       .update({ start_date, end_date, total_price, extras, notes, moto_id, user_id }).eq('id', id)
-    if (err) setError(err.message)
-    else await logAudit('booking_updated', { booking_id: id })
+    if (err) { setError(err.message); setSaving(false); return }
+    await logAudit('booking_updated', { booking_id: id })
+
+    // Send modification email if booking is reserved or active
+    if (['reserved', 'active'].includes(booking.status) && booking.profiles?.email) {
+      try {
+        await supabase.functions.invoke('send-booking-email', {
+          body: {
+            type: 'booking_modified', booking_id: id,
+            customer_email: booking.profiles.email,
+            customer_name: booking.profiles.full_name,
+            motorcycle: booking.motorcycles?.model,
+            start_date, end_date, total_price,
+          },
+        })
+      } catch {}
+    }
     setSaving(false)
   }
 
