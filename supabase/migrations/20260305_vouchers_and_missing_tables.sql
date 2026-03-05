@@ -50,7 +50,7 @@ ALTER TABLE vouchers ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS vouchers_admin_all ON vouchers;
 CREATE POLICY vouchers_admin_all ON vouchers
   FOR ALL USING (
-    auth.uid() IN (SELECT id FROM admin_users)
+    is_admin()
   );
 
 DROP POLICY IF EXISTS vouchers_user_select ON vouchers;
@@ -113,7 +113,7 @@ ALTER TABLE moto_locations ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS moto_locations_admin ON moto_locations;
 CREATE POLICY moto_locations_admin ON moto_locations
   FOR ALL USING (
-    auth.uid() IN (SELECT id FROM admin_users)
+    is_admin()
   );
 
 DROP POLICY IF EXISTS moto_locations_read ON moto_locations;
@@ -147,7 +147,7 @@ ALTER TABLE service_orders ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS service_orders_admin ON service_orders;
 CREATE POLICY service_orders_admin ON service_orders
   FOR ALL USING (
-    auth.uid() IN (SELECT id FROM admin_users)
+    is_admin()
   );
 
 -- Trigger updated_at
