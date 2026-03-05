@@ -162,7 +162,7 @@ function ServiceModal({ entry, onClose, onSaved }) {
           <Label>Stav</Label>
           <select value={form.status} onChange={e => set('status', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle}>
             <option value="pending">Čekající</option>
-            <option value="in_progress">Probíhá</option>
+            <option value="in_service">V servisu</option>
             <option value="completed">Dokončeno</option>
           </select>
         </div>

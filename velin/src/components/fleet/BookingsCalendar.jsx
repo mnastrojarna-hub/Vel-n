@@ -27,7 +27,7 @@ export default function BookingsCalendar({ motoId }) {
       supabase.from('bookings')
         .select('id, start_date, end_date, status, user_id, profiles(full_name), total_price')
         .eq('moto_id', motoId)
-        .in('status', ['pending', 'active', 'confirmed', 'completed', 'reserved'])
+        .in('status', ['pending', 'active', 'reserved', 'completed'])
         .gte('end_date', startStr).lte('start_date', endStr),
       supabase.from('maintenance_log')
         .select('id, created_at, type')

@@ -47,7 +47,7 @@ export default function FleetDetail() {
   async function handleDeactivate() {
     const { data: activeBookings } = await supabase.from('bookings')
       .select('id, user_id, start_date, end_date, status, profiles(full_name)')
-      .eq('moto_id', id).in('status', ['pending', 'active', 'confirmed'])
+      .eq('moto_id', id).in('status', ['pending', 'active', 'reserved'])
     if (activeBookings?.length > 0) {
       setConfirm({ type: 'deactivate', title: `${activeBookings.length} aktivních rezervací`, message: 'Při deaktivaci budou stornovány. Pokračovat?',
         action: async () => {

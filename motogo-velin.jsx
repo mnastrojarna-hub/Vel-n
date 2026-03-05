@@ -72,7 +72,7 @@ const COST_DATA = [48,42,72,89,112,134,148,152,124,88,52,38];
 
 const STATUS = {
   active:{ l:"Aktivní", c:C.gdk, bg:"#dcfce7" },
-  confirmed:{ l:"Potvrzená", c:C.gdk, bg:"#dcfce7" },
+  reserved:{ l:"Rezervováno", c:C.blue, bg:"#dbeafe" },
   maintenance:{ l:"V servisu", c:"#92400e", bg:"#fef3c7" },
   out_of_service:{ l:"Vyřazena", c:"#991b1b", bg:"#fee2e2" },
   pending:{ l:"Čekající", c:"#92400e", bg:"#fef3c7" },

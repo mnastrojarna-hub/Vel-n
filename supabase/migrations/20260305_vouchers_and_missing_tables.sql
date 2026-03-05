@@ -131,7 +131,7 @@ CREATE TABLE IF NOT EXISTS service_orders (
   items jsonb NOT NULL DEFAULT '[]',
   km integer,
   status text NOT NULL DEFAULT 'pending'
-    CHECK (status IN ('pending', 'in_progress', 'completed', 'cancelled')),
+    CHECK (status IN ('pending', 'in_service', 'completed', 'cancelled')),
   assigned_to text,
   notes text,
   completed_at timestamptz,

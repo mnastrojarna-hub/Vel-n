@@ -9,7 +9,7 @@ const STATUS_COLORS = {
   pending: '#fbbf24',
   completed: '#94a3b8',
   cancelled: '#f87171',
-  confirmed: '#3dba3a',
+  reserved: '#2563eb',
 }
 
 const STATUS_LABELS = {
@@ -17,7 +17,7 @@ const STATUS_LABELS = {
   pending: 'Čekající',
   completed: 'Dokončené',
   cancelled: 'Zrušené',
-  confirmed: 'Potvrzené',
+  reserved: 'Rezervováno',
 }
 
 export function BookingsByStatus() {
