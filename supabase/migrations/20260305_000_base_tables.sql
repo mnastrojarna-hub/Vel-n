@@ -91,11 +91,26 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_created ON admin_audit_log(created_at D
 
 ALTER TABLE admin_audit_log ENABLE ROW LEVEL SECURITY;
 
+-- Čtení: jen admini
 DROP POLICY IF EXISTS audit_log_admin ON admin_audit_log;
-CREATE POLICY audit_log_admin ON admin_audit_log
-  FOR ALL USING (
-    is_admin()
-  );
+DROP POLICY IF EXISTS audit_log_read ON admin_audit_log;
+CREATE POLICY audit_log_read ON admin_audit_log
+  FOR SELECT USING (is_admin());
+
+-- Zápis: admini insertují přes SECURITY DEFINER funkci,
+-- ale i přímý insert musí projít
+DROP POLICY IF EXISTS audit_log_insert ON admin_audit_log;
+CREATE POLICY audit_log_insert ON admin_audit_log
+  FOR INSERT WITH CHECK (is_admin());
+
+-- Update/Delete: jen superadmin (audit log by se neměl mazat)
+DROP POLICY IF EXISTS audit_log_modify ON admin_audit_log;
+CREATE POLICY audit_log_modify ON admin_audit_log
+  FOR UPDATE USING (is_superadmin());
+
+DROP POLICY IF EXISTS audit_log_delete ON admin_audit_log;
+CREATE POLICY audit_log_delete ON admin_audit_log
+  FOR DELETE USING (is_superadmin());
 
 -- ═══════════════════════════════════════════════════════
 -- 3. PROMO_CODES (slevové kódy)
