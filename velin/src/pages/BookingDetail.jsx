@@ -14,10 +14,10 @@ const TABS = ['Detail', 'Kalendář motorky', 'Dokumenty', 'Platby']
 
 const ACTIONS = {
   pending: [
-    { label: 'Potvrdit', status: 'confirmed', green: true },
+    { label: 'Potvrdit', status: 'reserved', green: true },
     { label: 'Zrušit', status: 'cancelled', danger: true },
   ],
-  confirmed: [
+  reserved: [
     { label: 'Vydat motorku', status: 'active', green: true },
     { label: 'Zrušit', status: 'cancelled', danger: true },
   ],
@@ -64,7 +64,7 @@ export default function BookingDetail() {
     setSaving(true)
     const now = new Date().toISOString()
     const update = { status: newStatus }
-    if (newStatus === 'confirmed') update.confirmed_at = now
+    if (newStatus === 'reserved') update.confirmed_at = now
     if (newStatus === 'active') update.picked_up_at = now
     if (newStatus === 'completed') update.returned_at = now
 
@@ -302,7 +302,7 @@ function FieldInput({ label, type = 'text', value, onChange }) {
 function Timeline({ booking }) {
   const steps = [
     { label: 'Vytvořeno', done: true, time: booking.created_at },
-    { label: 'Potvrzeno', done: ['confirmed', 'active', 'completed'].includes(booking.status), time: booking.confirmed_at },
+    { label: 'Rezervováno', done: ['reserved', 'active', 'completed'].includes(booking.status), time: booking.confirmed_at },
     { label: 'Vydáno', done: ['active', 'completed'].includes(booking.status), time: booking.picked_up_at },
     { label: 'Vráceno', done: booking.status === 'completed', time: booking.returned_at },
   ]

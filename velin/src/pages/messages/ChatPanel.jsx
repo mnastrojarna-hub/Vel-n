@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase'
 import Button from '../../components/ui/Button'
 
 const TEMPLATE_LABELS = {
-  booking_confirmed: 'Potvrzení rezervace',
+  booking_reserved: 'Potvrzení rezervace',
   booking_abandoned: 'Nedokončená rezervace',
   booking_cancelled: 'Storno rezervace',
   booking_completed: 'Po skončení rezervace',

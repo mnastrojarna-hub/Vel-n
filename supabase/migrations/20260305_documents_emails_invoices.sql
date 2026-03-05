@@ -293,7 +293,7 @@ ON CONFLICT (key) DO NOTHING;
 -- ═══════════════════════════════════════════════════════
 INSERT INTO email_templates (slug, name, subject, description, variables, body_html) VALUES
   (
-    'booking_confirmed',
+    'booking_reserved',
     'Potvrzení rezervace',
     'Vaše rezervace č. {{booking_number}} motocyklu u MotoGo24 je potvrzena',
     'Odesláno zákazníkovi po potvrzení rezervace adminem.',

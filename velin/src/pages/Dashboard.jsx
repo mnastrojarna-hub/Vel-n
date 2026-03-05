@@ -11,7 +11,7 @@ const STATUS_MAP = {
   maintenance: { label: 'V servisu', color: '#92400e', bg: '#fef3c7' },
   out_of_service: { label: 'Vyřazena', color: '#991b1b', bg: '#fee2e2' },
   pending: { label: 'Čekající', color: '#92400e', bg: '#fef3c7' },
-  confirmed: { label: 'Potvrzená', color: '#1a8a18', bg: '#dcfce7' },
+  reserved: { label: 'Rezervováno', color: '#2563eb', bg: '#dbeafe' },
   completed: { label: 'Dokončena', color: '#3b82f6', bg: '#dbeafe' },
   cancelled: { label: 'Zrušeno', color: '#dc2626', bg: '#fee2e2' },
 }
@@ -42,7 +42,7 @@ export default function Dashboard() {
     try {
       const [motorcyclesRes, bookingsRes, revenueRes, messagesRes, inventoryRes, chartRes, eventsRes, sosRes, stkRes] = await Promise.all([
         supabase.from('motorcycles').select('id, status', { count: 'exact' }),
-        supabase.from('bookings').select('id, status').in('status', ['active', 'pending', 'confirmed']),
+        supabase.from('bookings').select('id, status').in('status', ['active', 'pending', 'reserved']),
         supabase.from('accounting_entries').select('amount').eq('type', 'revenue')
           .gte('date', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]),
         supabase.from('messages').select('id', { count: 'exact' }).is('read_at', null),
@@ -58,7 +58,7 @@ export default function Dashboard() {
       const allMotos = motorcyclesRes.data || []
       const activeMotos = allMotos.filter(m => m.status === 'active').length
       const bookings = bookingsRes.data || []
-      const activeBookings = bookings.filter(b => b.status === 'active' || b.status === 'confirmed').length
+      const activeBookings = bookings.filter(b => b.status === 'active' || b.status === 'reserved').length
       const pendingBookings = bookings.filter(b => b.status === 'pending').length
       const monthRevenue = (revenueRes.data || []).reduce((s, e) => s + (Number(e.amount) || 0), 0)
       const unreadMessages = messagesRes.count || (messagesRes.data || []).length

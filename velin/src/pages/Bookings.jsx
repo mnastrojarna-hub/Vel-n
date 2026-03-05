@@ -76,7 +76,7 @@ export default function Bookings() {
               options={[
                 { value: '', label: 'Všechny stavy' },
                 { value: 'pending', label: 'Čekající' },
-                { value: 'confirmed', label: 'Potvrzeno' },
+                { value: 'reserved', label: 'Rezervováno' },
                 { value: 'active', label: 'Aktivní' },
                 { value: 'completed', label: 'Dokončeno' },
                 { value: 'cancelled', label: 'Zrušeno' },
@@ -162,7 +162,7 @@ function GlobalCalendar() {
       supabase
         .from('bookings')
         .select('id, start_date, end_date, status, moto_id, profiles(full_name), motorcycles(model, spz), total_price')
-        .in('status', ['pending', 'active', 'confirmed', 'completed', 'reserved'])
+        .in('status', ['pending', 'active', 'reserved', 'completed'])
         .gte('end_date', startStr)
         .lte('start_date', endStr),
       supabase.from('motorcycles').select('id, model').eq('status', 'active'),

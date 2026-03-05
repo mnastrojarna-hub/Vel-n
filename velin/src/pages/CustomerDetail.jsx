@@ -66,7 +66,7 @@ export default function CustomerDetail() {
       .from('bookings')
       .select('id')
       .eq('user_id', id)
-      .in('status', ['pending', 'active', 'confirmed'])
+      .in('status', ['pending', 'active', 'reserved'])
 
     if (bookings && bookings.length > 0) {
       setError('Zákazník má aktivní rezervace. Nejdřív je stornujte.')
