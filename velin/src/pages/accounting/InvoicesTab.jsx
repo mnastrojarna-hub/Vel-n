@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { generateInvoiceNumber, calculateTotals } from '../../lib/invoiceUtils'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import StatusBadge from '../../components/ui/StatusBadge'
@@ -131,7 +132,7 @@ function SmallBtn({ children, onClick }) {
 function NewInvoiceModal({ onClose, onSaved }) {
   const [customers, setCustomers] = useState([])
   const [bookings, setBookings] = useState([])
-  const [form, setForm] = useState({ customer_id: '', booking_id: '', total: '', tax_amount: '', due_date: '' })
+  const [form, setForm] = useState({ customer_id: '', booking_id: '', type: 'final', total: '', tax_amount: '', due_date: '' })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
 
@@ -145,18 +146,25 @@ function NewInvoiceModal({ onClose, onSaved }) {
   async function handleSave() {
     setSaving(true); setErr(null)
     try {
+      const totalVal = Number(form.total) || 0
+      const taxVal = Number(form.tax_amount) || Math.round(totalVal * 0.21 / 1.21 * 100) / 100
+      const subtotalVal = totalVal - taxVal
+      const number = await generateInvoiceNumber(form.type)
       const { error } = await supabase.from('invoices').insert({
+        number,
+        type: form.type,
         customer_id: form.customer_id || null,
         booking_id: form.booking_id || null,
-        total: Number(form.total) || 0,
-        tax_amount: Number(form.tax_amount) || 0,
+        subtotal: subtotalVal,
+        total: totalVal,
+        tax_amount: taxVal,
         due_date: form.due_date || null,
         issue_date: new Date().toISOString().slice(0, 10),
-        status: 'unpaid',
+        status: 'issued',
       })
       if (error) throw error
       const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'invoice_created', details: {} })
+      await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'invoice_created', details: { number } })
       onSaved()
     } catch (e) { setErr(e.message) } finally { setSaving(false) }
   }
@@ -164,6 +172,15 @@ function NewInvoiceModal({ onClose, onSaved }) {
   return (
     <Modal open title="Nová faktura" onClose={onClose}>
       <div className="grid grid-cols-2 gap-3">
+        <div className="col-span-2">
+          <Label>Typ faktury</Label>
+          <select value={form.type} onChange={e => set('type', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle}>
+            <option value="proforma">Zálohová</option>
+            <option value="final">Konečná</option>
+            <option value="shop_proforma">Shop zálohová</option>
+            <option value="shop_final">Shop konečná</option>
+          </select>
+        </div>
         <div className="col-span-2">
           <Label>Zákazník</Label>
           <select value={form.customer_id} onChange={e => set('customer_id', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle}>
