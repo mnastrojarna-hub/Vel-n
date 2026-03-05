@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
@@ -294,11 +294,12 @@ function Field({ label, value, onChange, type = 'text', disabled = false }) {
 }
 
 function CustomerBookings({ userId }) {
+  const navigate = useNavigate()
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.from('bookings').select('*, motorcycles(model, spz)').eq('user_id', userId).order('start_date', { ascending: false })
+    supabase.from('bookings').select('*, motorcycles(id, model, spz)').eq('user_id', userId).order('start_date', { ascending: false })
       .then(({ data }) => { setBookings(data || []); setLoading(false) })
       .catch(() => { setBookings([]); setLoading(false) })
   }, [userId])
@@ -310,7 +311,8 @@ function CustomerBookings({ userId }) {
       {bookings.length === 0 ? <EmptyState text="Žádné rezervace" /> : (
         <div className="space-y-3">
           {bookings.map(b => (
-            <div key={b.id} className="flex items-center gap-4 p-3 rounded-lg" style={{ background: '#f1faf7' }}>
+            <div key={b.id} className="flex items-center gap-4 p-3 rounded-lg cursor-pointer hover:bg-[#e8f5e9]"
+              style={{ background: '#f1faf7' }} onClick={() => navigate(`/rezervace/${b.id}`)}>
               <div className="flex-1">
                 <span className="font-bold text-sm">{b.motorcycles?.model || '—'}</span>
                 <span className="text-xs font-mono ml-2" style={{ color: '#8aab99' }}>{b.motorcycles?.spz}</span>
@@ -318,6 +320,12 @@ function CustomerBookings({ userId }) {
               </div>
               <StatusBadge status={b.status} />
               <span className="text-sm font-bold">{b.total_price?.toLocaleString('cs-CZ')} Kč</span>
+              {b.motorcycles?.id && (
+                <button onClick={e => { e.stopPropagation(); navigate(`/flotila/${b.motorcycles.id}`) }}
+                  className="text-[10px] font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none' }}>
+                  → Motorka
+                </button>
+              )}
             </div>
           ))}
         </div>
