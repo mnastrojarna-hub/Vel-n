@@ -2,6 +2,7 @@ export default function Button({
   children,
   green = false,
   outline = false,
+  small = false,
   onClick,
   className = '',
   style = {},
@@ -24,7 +25,7 @@ export default function Button({
       disabled={disabled}
       className={`${base} ${variant} ${className} disabled:opacity-50 disabled:cursor-not-allowed`}
       style={{
-        padding: '10px 22px',
+        padding: small ? '5px 12px' : '10px 22px',
         background: green ? '#74FB71' : outline ? 'transparent' : '#f1faf7',
         color: green ? '#1a2e22' : outline ? '#3dba3a' : '#4a6357',
         borderColor: outline ? '#74FB71' : undefined,
