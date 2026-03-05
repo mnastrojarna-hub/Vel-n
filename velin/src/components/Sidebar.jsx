@@ -56,15 +56,20 @@ export default function Sidebar({ admin, onSignOut }) {
 
   useEffect(() => {
     loadBadges()
-    const interval = setInterval(loadBadges, 15000)
-    return () => clearInterval(interval)
+
+    // Realtime subscription pro badge aktualizace
+    const channel = supabase.channel('sidebar-badges')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => loadBadges())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sos_incidents' }, () => loadBadges())
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
   }, [])
 
   async function loadBadges() {
     try {
       const [msgRes, sosRes] = await Promise.all([
-        supabase.from('messages').select('id', { count: 'exact', head: true }).is('read_at', null),
-        supabase.from('sos_incidents').select('id', { count: 'exact', head: true }).in('status', ['reported', 'acknowledged']),
+        supabase.from('messages').select('id', { count: 'exact', head: true }).eq('direction', 'customer').is('read_at', null),
+        supabase.from('sos_incidents').select('id', { count: 'exact', head: true }).in('status', ['reported', 'acknowledged', 'in_progress']),
       ])
       setBadges({ messages: msgRes.count || 0, sos: sosRes.count || 0 })
     } catch {

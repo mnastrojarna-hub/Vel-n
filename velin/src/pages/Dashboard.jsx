@@ -45,14 +45,14 @@ export default function Dashboard() {
         supabase.from('bookings').select('id, status').in('status', ['active', 'pending', 'reserved']),
         supabase.from('accounting_entries').select('amount').eq('type', 'revenue')
           .gte('date', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]),
-        supabase.from('messages').select('id', { count: 'exact' }).is('read_at', null),
+        supabase.from('messages').select('id', { count: 'exact' }).eq('direction', 'customer').is('read_at', null),
         supabase.from('inventory').select('id, stock, min_stock'),
         supabase.from('accounting_entries').select('amount, date').eq('type', 'revenue')
           .gte('date', new Date(new Date().getFullYear() - 1, new Date().getMonth(), 1).toISOString().split('T')[0])
           .order('date', { ascending: true }),
         supabase.from('bookings').select('id, customer_name, motorcycle_name, start_date, end_date, status, total_price')
           .gte('start_date', new Date().toISOString().split('T')[0]).order('start_date', { ascending: true }).limit(5),
-        supabase.from('sos_incidents').select('id', { count: 'exact', head: true }).in('status', ['reported', 'acknowledged']),
+        supabase.from('sos_incidents').select('id, type, severity, status', { count: 'exact' }).in('status', ['reported', 'acknowledged', 'in_progress']),
         supabase.from('motorcycles').select('id, model, spz, stk_valid_until'),
       ])
       const allMotos = motorcyclesRes.data || []
@@ -69,7 +69,9 @@ export default function Dashboard() {
       setStats({
         activeMotos, totalMotos: allMotos.length, activeBookings, pendingBookings,
         monthRevenue, unreadMessages, lowStock, utilization: Math.min(utilization, 100),
-        activeSos: sosRes.count || 0, stkExpiring,
+        activeSos: sosRes.count || (sosRes.data || []).length,
+        sosCritical: (sosRes.data || []).filter(s => s.severity === 'critical' || s.severity === 'high').length,
+        stkExpiring,
       })
       const chartEntries = chartRes.data || []
       const monthlyData = new Array(12).fill(0)
@@ -136,9 +138,16 @@ export default function Dashboard() {
           {stats.activeSos > 0 ? (
             <div className="flex items-center gap-3">
               <div className="text-2xl font-black" style={{ color: '#dc2626' }}>{stats.activeSos}</div>
-              <div className="text-xs font-bold" style={{ color: '#dc2626' }}>aktivních incidentů</div>
+              <div>
+                <div className="text-xs font-bold" style={{ color: '#dc2626' }}>aktivních incidentů</div>
+                {stats.sosCritical > 0 && (
+                  <div className="text-[10px] font-extrabold uppercase tracking-wide mt-0.5 animate-pulse" style={{ color: '#dc2626' }}>
+                    {stats.sosCritical} kritických!
+                  </div>
+                )}
+              </div>
             </div>
-          ) : <div className="text-xs font-medium" style={{ color: '#1a8a18' }}>✅ Žádné aktivní incidenty</div>}
+          ) : <div className="text-xs font-medium" style={{ color: '#1a8a18' }}>Žádné aktivní incidenty</div>}
         </Card>
         <Card>
           <div className="text-[13px] font-extrabold mb-2.5" style={{ color: '#0f1a14' }}>🏛️ Blížící se STK</div>
