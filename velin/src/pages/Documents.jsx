@@ -2,8 +2,10 @@ import { useState } from 'react'
 import TemplatesTab from './documents/TemplatesTab'
 import GeneratedTab from './documents/GeneratedTab'
 import UploadedTab from './documents/UploadedTab'
+import EmailTemplatesTab from './documents/EmailTemplatesTab'
+import InvoicesTab from './documents/InvoicesTab'
 
-const TABS = ['Šablony', 'Vygenerované', 'Nahrané doklady']
+const TABS = ['Šablony', 'Vygenerované', 'Nahrané doklady', 'E-mailové šablony', 'Faktury']
 
 export default function Documents() {
   const [tab, setTab] = useState('Šablony')
@@ -32,6 +34,8 @@ export default function Documents() {
       {tab === 'Šablony' && <TemplatesTab />}
       {tab === 'Vygenerované' && <GeneratedTab />}
       {tab === 'Nahrané doklady' && <UploadedTab />}
+      {tab === 'E-mailové šablony' && <EmailTemplatesTab />}
+      {tab === 'Faktury' && <InvoicesTab />}
     </div>
   )
 }

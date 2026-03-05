@@ -16,7 +16,7 @@ const NAV = [
   { id: 'messages', path: '/zpravy', label: 'Zprávy', icon: '💬', badgeKey: 'messages' },
   { id: 'cms', path: '/cms', label: 'Web CMS', icon: '🌐' },
   { id: 'stats', path: '/statistiky', label: 'Statistiky', icon: '📊' },
-  { id: 'vouchers', path: '/poukazy', label: 'Poukazy', icon: '🎫' },
+  { id: 'vouchers', path: '/poukazy', label: 'Promo kódy', icon: '🎫' },
   { id: 'purchases', path: '/nakupy', label: 'Nákupy', icon: '🛒' },
   { id: 'government', path: '/statni-sprava', label: 'Státní správa', icon: '🏛️' },
   { id: 'ai', path: '/ai-copilot', label: 'AI Copilot', icon: '🤖' },
@@ -125,7 +125,7 @@ export default function Sidebar({ admin, onSignOut }) {
                 fontSize: 13,
                 fontWeight: active ? 800 : 600,
                 background: active ? 'rgba(116,251,113,.12)' : 'transparent',
-                color: active ? '#74FB71' : 'rgba(255,255,255,.5)',
+                color: active ? '#74FB71' : '#ffffff',
                 borderLeft: active ? '3px solid #74FB71' : '3px solid transparent',
                 fontFamily: 'inherit',
               }}

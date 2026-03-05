@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import StatusBadge from '../components/ui/StatusBadge'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
+import Modal from '../components/ui/Modal'
+import BookingDocumentsTab from './booking/BookingDocumentsTab'
+import BookingPaymentsTab from './booking/BookingPaymentsTab'
 
 const TABS = ['Detail', 'Dokumenty', 'Platby']
 
@@ -22,6 +25,22 @@ const ACTIONS = {
   ],
 }
 
+const SOURCE_LABELS = {
+  velin: 'Velín (admin)',
+  web: 'Web (zákazník)',
+  app: 'Aplikace (zákazník)',
+  system: 'Systém (automaticky)',
+}
+
+const CANCEL_REASONS = [
+  'Zákazník požádal o zrušení',
+  'Nezaplaceno — automatické zrušení po 4h',
+  'Motorka nedostupná',
+  'Technický problém',
+  'Duplicitní rezervace',
+  'Jiný důvod',
+]
+
 export default function BookingDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -31,6 +50,9 @@ export default function BookingDetail() {
   const [tab, setTab] = useState('Detail')
   const [confirm, setConfirm] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [showCancelModal, setShowCancelModal] = useState(false)
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancelReasonCustom, setCancelReasonCustom] = useState('')
 
   useEffect(() => { loadBooking() }, [id])
 
@@ -54,6 +76,64 @@ export default function BookingDetail() {
     setConfirm(null); setSaving(false)
   }
 
+  async function handleCancel() {
+    setSaving(true)
+    const reason = cancelReason === 'Jiný důvod' ? cancelReasonCustom : cancelReason
+    if (!reason) { setError('Vyplňte důvod zrušení'); setSaving(false); return }
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    const updatePayload = {
+      status: 'cancelled',
+      cancelled_by: user?.id || null,
+      cancelled_by_source: 'velin',
+      cancellation_reason: reason,
+      cancelled_at: new Date().toISOString(),
+    }
+
+    const { error: err } = await supabase.from('bookings').update(updatePayload).eq('id', id)
+    if (err) { setError(err.message); setSaving(false); return }
+
+    await logAudit('booking_cancelled', {
+      booking_id: id,
+      reason,
+      source: 'velin',
+      customer_email: booking.profiles?.email,
+    })
+
+    // Send cancellation email notification
+    if (booking.profiles?.email) {
+      await sendCancellationEmail(id, booking, reason)
+    }
+
+    setBooking(b => ({ ...b, ...updatePayload }))
+    setShowCancelModal(false)
+    setCancelReason('')
+    setCancelReasonCustom('')
+    setSaving(false)
+  }
+
+  async function sendCancellationEmail(bookingId, bookingData, reason) {
+    try {
+      await supabase.functions.invoke('send-cancellation-email', {
+        body: {
+          booking_id: bookingId,
+          customer_email: bookingData.profiles?.email,
+          customer_name: bookingData.profiles?.full_name,
+          motorcycle: bookingData.motorcycles?.model,
+          start_date: bookingData.start_date,
+          end_date: bookingData.end_date,
+          cancellation_reason: reason,
+          cancelled_by_source: 'velin',
+        },
+      })
+      await supabase.from('bookings').update({ cancellation_notified: true }).eq('id', bookingId)
+    } catch {
+      // Email send failed — log but don't block
+      console.warn('Cancellation email failed to send')
+    }
+  }
+
   async function handleSave() {
     setSaving(true); setError(null)
     const { start_date, end_date, total_price, extras, notes, moto_id, user_id } = booking
@@ -69,6 +149,14 @@ export default function BookingDetail() {
   }
 
   const set = (k, v) => setBooking(b => ({ ...b, [k]: v }))
+
+  function handleAction(action) {
+    if (action.status === 'cancelled') {
+      setShowCancelModal(true)
+    } else {
+      setConfirm(action)
+    }
+  }
 
   if (loading) return <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
   if (!booking) return <div className="p-4" style={{ color: '#8aab99' }}>{error || 'Rezervace nenalezena'}</div>
@@ -89,13 +177,55 @@ export default function BookingDetail() {
             style={{ padding: '8px 18px', background: tab === t ? '#74FB71' : '#f1faf7', color: tab === t ? '#1a2e22' : '#4a6357', border: 'none', boxShadow: tab === t ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>{t}</button>
         ))}
       </div>
-      {tab === 'Detail' && <DetailTab booking={booking} set={set} error={error} saving={saving} onSave={handleSave} actions={actions} onAction={setConfirm} navigate={navigate} />}
-      {tab === 'Dokumenty' && <DocumentsTab bookingId={id} />}
-      {tab === 'Platby' && <PaymentsTab bookingId={id} />}
+      {tab === 'Detail' && <DetailTab booking={booking} set={set} error={error} saving={saving} onSave={handleSave} actions={actions} onAction={handleAction} navigate={navigate} />}
+      {tab === 'Dokumenty' && <BookingDocumentsTab bookingId={id} />}
+      {tab === 'Platby' && <BookingPaymentsTab bookingId={id} />}
 
       {confirm && (
         <ConfirmDialog open title={`${confirm.label}?`} message={`Změnit stav na "${confirm.label}"?`}
           danger={confirm.danger} onConfirm={() => changeStatus(confirm.status)} onCancel={() => setConfirm(null)} />
+      )}
+
+      {showCancelModal && (
+        <Modal open title="Zrušit rezervaci" onClose={() => setShowCancelModal(false)}>
+          <p className="text-sm mb-4" style={{ color: '#4a6357' }}>
+            Zákazník bude informován emailem o zrušení a dostane výzvu k obnovení rezervace.
+          </p>
+          <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Důvod zrušení</label>
+          <select
+            value={cancelReason}
+            onChange={e => setCancelReason(e.target.value)}
+            className="w-full rounded-btn text-sm outline-none mb-3"
+            style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}
+          >
+            <option value="">— Vyberte důvod —</option>
+            {CANCEL_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+          {cancelReason === 'Jiný důvod' && (
+            <>
+              <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Vlastní důvod</label>
+              <textarea
+                value={cancelReasonCustom}
+                onChange={e => setCancelReasonCustom(e.target.value)}
+                rows={3}
+                className="w-full rounded-btn text-sm outline-none mb-3"
+                style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', resize: 'vertical' }}
+                placeholder="Popište důvod zrušení…"
+              />
+            </>
+          )}
+          {error && <p className="text-sm mb-3" style={{ color: '#dc2626' }}>{error}</p>}
+          <div className="flex justify-end gap-3 mt-2">
+            <Button onClick={() => setShowCancelModal(false)}>Zpět</Button>
+            <Button
+              onClick={handleCancel}
+              disabled={saving || (!cancelReason || (cancelReason === 'Jiný důvod' && !cancelReasonCustom))}
+              style={{ background: '#dc2626', color: '#fff', boxShadow: '0 4px 16px rgba(220,38,38,.25)' }}
+            >
+              {saving ? 'Ruším…' : 'Zrušit rezervaci'}
+            </Button>
+          </div>
+        </Modal>
       )}
     </div>
   )
@@ -104,7 +234,7 @@ export default function BookingDetail() {
 function DetailTab({ booking, set, error, saving, onSave, actions, onAction, navigate }) {
   return (
     <div className="grid grid-cols-2 gap-5">
-      {/* Zákazník — proklik na detail */}
+      {/* Zákazník */}
       <Card>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>Zákazník</h3>
@@ -121,7 +251,7 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
         <InfoRow label="Město" value={booking.profiles?.city} />
       </Card>
 
-      {/* Motorka — proklik na detail */}
+      {/* Motorka */}
       <Card>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>Motorka</h3>
@@ -139,7 +269,7 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
         <InfoRow label="Cena víkend" value={booking.motorcycles?.price_weekend ? `${booking.motorcycles.price_weekend.toLocaleString('cs-CZ')} Kč` : '—'} />
       </Card>
 
-      {/* Termín, platba, poznámky — editovatelné */}
+      {/* Termín, platba, poznámky */}
       <Card className="col-span-2">
         <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-4" style={{ color: '#8aab99' }}>Termín a platba</h3>
         <div className="grid grid-cols-4 gap-4">
@@ -160,9 +290,26 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
         </div>
       </Card>
 
+      {/* Cancellation info — only if cancelled */}
+      {booking.status === 'cancelled' && (
+        <Card className="col-span-2">
+          <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-4" style={{ color: '#dc2626' }}>Informace o zrušení</h3>
+          <div className="p-4 rounded-lg" style={{ background: '#fef2f2', border: '1px solid #fecaca' }}>
+            <div className="grid grid-cols-2 gap-3">
+              <InfoRow label="Zrušil/a" value={SOURCE_LABELS[booking.cancelled_by_source] || booking.cancelled_by_source || 'Neuvedeno'} />
+              <InfoRow label="Kdy" value={booking.cancelled_at ? new Date(booking.cancelled_at).toLocaleString('cs-CZ') : '—'} />
+              <div className="col-span-2">
+                <InfoRow label="Důvod" value={booking.cancellation_reason || 'Neuvedeno'} />
+              </div>
+              <InfoRow label="Email odeslán" value={booking.cancellation_notified ? 'Ano' : 'Ne'} />
+            </div>
+          </div>
+        </Card>
+      )}
+
       <Card className="col-span-2">
         <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-4" style={{ color: '#8aab99' }}>Timeline</h3>
-        <Timeline status={booking.status} createdAt={booking.created_at} />
+        <Timeline status={booking.status} createdAt={booking.created_at} cancelledAt={booking.cancelled_at} cancelSource={booking.cancelled_by_source} />
       </Card>
     </div>
   )
@@ -186,14 +333,31 @@ function FieldInput({ label, type = 'text', value, onChange }) {
   )
 }
 
-function Timeline({ status, createdAt }) {
+function Timeline({ status, createdAt, cancelledAt, cancelSource }) {
   const steps = [
     { label: 'Vytvořeno', done: true, date: createdAt },
     { label: 'Potvrzeno', done: ['confirmed', 'active', 'completed'].includes(status) },
     { label: 'Vydáno', done: ['active', 'completed'].includes(status) },
     { label: 'Vráceno', done: status === 'completed' },
   ]
-  if (status === 'cancelled') return <div className="p-3 rounded-lg" style={{ background: '#fee2e2' }}><span style={{ color: '#dc2626', fontWeight: 700, fontSize: 13 }}>Zrušena</span></div>
+  if (status === 'cancelled') {
+    const sourceLabel = SOURCE_LABELS[cancelSource] || cancelSource || ''
+    return (
+      <div className="p-4 rounded-lg" style={{ background: '#fee2e2' }}>
+        <span style={{ color: '#dc2626', fontWeight: 700, fontSize: 13 }}>Zrušena</span>
+        {cancelledAt && (
+          <span className="ml-3 text-xs" style={{ color: '#dc2626' }}>
+            {new Date(cancelledAt).toLocaleString('cs-CZ')}
+          </span>
+        )}
+        {sourceLabel && (
+          <span className="ml-3 text-xs font-bold" style={{ color: '#991b1b' }}>
+            — {sourceLabel}
+          </span>
+        )}
+      </div>
+    )
+  }
   return (
     <div className="flex items-center">
       {steps.map((s, i) => (
@@ -211,47 +375,3 @@ function Timeline({ status, createdAt }) {
   )
 }
 
-function DocumentsTab({ bookingId }) {
-  const [docs, setDocs] = useState([])
-  const [loading, setLoading] = useState(true)
-  useEffect(() => {
-    supabase.from('documents').select('*').eq('booking_id', bookingId).order('created_at', { ascending: false })
-      .then(({ data }) => { setDocs(data || []); setLoading(false) }).catch(() => { setDocs([]); setLoading(false) })
-  }, [bookingId])
-  if (loading) return <div className="py-8 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
-  return (
-    <Card>
-      {docs.length === 0 ? <p style={{ color: '#8aab99', fontSize: 13 }}>Žádné dokumenty</p> :
-        docs.map(d => (
-          <div key={d.id} className="flex items-center gap-4 p-3 rounded-lg mb-2" style={{ background: '#f1faf7' }}>
-            <span className="text-sm font-bold">{d.name || d.type || 'Dokument'}</span>
-            <span className="text-xs" style={{ color: '#8aab99' }}>{d.created_at?.slice(0, 10)}</span>
-          </div>
-        ))}
-    </Card>
-  )
-}
-
-function PaymentsTab({ bookingId }) {
-  const [entries, setEntries] = useState([])
-  const [loading, setLoading] = useState(true)
-  useEffect(() => {
-    supabase.from('accounting_entries').select('*').eq('booking_id', bookingId).order('created_at', { ascending: false })
-      .then(({ data }) => { setEntries(data || []); setLoading(false) }).catch(() => { setEntries([]); setLoading(false) })
-  }, [bookingId])
-  if (loading) return <div className="py-8 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
-  return (
-    <Card>
-      {entries.length === 0 ? <p style={{ color: '#8aab99', fontSize: 13 }}>Žádné platby</p> :
-        entries.map(e => (
-          <div key={e.id} className="flex items-center gap-4 p-3 rounded-lg mb-2" style={{ background: '#f1faf7' }}>
-            <div className="flex-1">
-              <span className="text-sm font-bold">{e.description || 'Platba'}</span>
-              <span className="text-xs ml-3" style={{ color: '#8aab99' }}>{e.created_at?.slice(0, 10)}</span>
-            </div>
-            <span className="text-sm font-bold" style={{ color: e.amount >= 0 ? '#1a8a18' : '#dc2626' }}>{e.amount?.toLocaleString('cs-CZ')} Kč</span>
-          </div>
-        ))}
-    </Card>
-  )
-}
