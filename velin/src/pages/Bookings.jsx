@@ -76,6 +76,7 @@ export default function Bookings() {
               options={[
                 { value: '', label: 'Všechny stavy' },
                 { value: 'pending', label: 'Čekající' },
+                { value: 'confirmed', label: 'Potvrzeno' },
                 { value: 'active', label: 'Aktivní' },
                 { value: 'completed', label: 'Dokončeno' },
                 { value: 'cancelled', label: 'Zrušeno' },
