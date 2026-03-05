@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
-import Badge from '../components/ui/Badge'
 import StatusBadge from '../components/ui/StatusBadge'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
+import Modal from '../components/ui/Modal'
 import BookingsCalendar from '../components/fleet/BookingsCalendar'
 import ServiceTab from '../components/fleet/ServiceTab'
+import PricingTab from '../components/fleet/PricingTab'
 import MotoMap from '../components/shared/MotoMap'
 
-const TABS = ['Info', 'Rezervace', 'Servis', 'Mapa', 'Výkon']
+const TABS = ['Info', 'Rezervace', 'Ceník', 'Servis', 'Mapa', 'Výkon']
 
 export default function FleetDetail() {
   const { id } = useParams()
@@ -26,7 +27,7 @@ export default function FleetDetail() {
 
   async function loadMoto() {
     setLoading(true)
-    const { data, error: err } = await supabase.from('motorcycles').select('*, branches(name)').eq('id', id).single()
+    const { data, error: err } = await supabase.from('motorcycles').select('*, branches(id, name)').eq('id', id).single()
     if (err) setError(err.message)
     else setMoto(data)
     setLoading(false)
@@ -34,8 +35,10 @@ export default function FleetDetail() {
 
   async function handleSave() {
     setSaving(true); setError(null)
-    const { model, spz, vin, category, branch_id, price_weekday, price_weekend, mileage, status, year, engine_cc, color } = moto
-    const { error: err } = await supabase.from('motorcycles').update({ model, spz, vin, category, branch_id, price_weekday, price_weekend, mileage, status, year, engine_cc, color }).eq('id', id)
+    const { model, spz, vin, category, branch_id, mileage, status, year, engine_cc, color, acquired_at } = moto
+    const { error: err } = await supabase.from('motorcycles').update({
+      model, spz, vin, category, branch_id, mileage, status, year, engine_cc, color, acquired_at,
+    }).eq('id', id)
     if (err) setError(err.message)
     await logAudit('motorcycle_updated', { moto_id: id })
     setSaving(false)
@@ -88,14 +91,15 @@ export default function FleetDetail() {
         <StatusBadge status={moto.status} />
         <span className="text-xs font-mono" style={{ color: '#8aab99' }}>{moto.spz}</span>
       </div>
-      <div className="flex gap-2 mb-5">
+      <div className="flex gap-2 mb-5 flex-wrap">
         {TABS.map(t => (
           <button key={t} onClick={() => setTab(t)} className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
             style={{ padding: '8px 18px', background: tab === t ? '#74FB71' : '#f1faf7', color: tab === t ? '#1a2e22' : '#4a6357', border: 'none', boxShadow: tab === t ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>{t}</button>
         ))}
       </div>
-      {tab === 'Info' && <InfoTab moto={moto} set={set} error={error} saving={saving} onSave={handleSave} onDeactivate={handleDeactivate} onDelete={() => setConfirm({ type: 'delete' })} />}
+      {tab === 'Info' && <InfoTab moto={moto} set={set} error={error} saving={saving} onSave={handleSave} onDeactivate={handleDeactivate} onDelete={() => setConfirm({ type: 'delete' })} onMotoReload={loadMoto} />}
       {tab === 'Rezervace' && <BookingsCalendar motoId={id} />}
+      {tab === 'Ceník' && <PricingTab motoId={id} />}
       {tab === 'Servis' && <ServiceTab motoId={id} motoMileage={moto.mileage} logAudit={logAudit} />}
       {tab === 'Mapa' && <MotoMap singleMotoId={id} />}
       {tab === 'Výkon' && <PerformanceTab motoId={id} />}
@@ -105,9 +109,15 @@ export default function FleetDetail() {
   )
 }
 
-function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete }) {
+function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onMotoReload }) {
   const [schedules, setSchedules] = useState([])
   const [avgKm, setAvgKm] = useState(null)
+  const [branches, setBranches] = useState([])
+  const [showMigrate, setShowMigrate] = useState(false)
+  const [migrateTo, setMigrateTo] = useState('')
+  const [migrating, setMigrating] = useState(false)
+  const [manualUrl, setManualUrl] = useState(null)
+  const [uploadingManual, setUploadingManual] = useState(false)
 
   useEffect(() => {
     supabase.from('maintenance_schedules').select('*').eq('moto_id', moto.id).eq('active', true)
@@ -121,7 +131,45 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete }) {
         }
         if (moto.year && moto.mileage) setAvgKm(Math.round(moto.mileage / Math.max(1, (new Date().getFullYear() - moto.year) * 12)))
       })
+    supabase.from('branches').select('id, name').order('name').then(({ data }) => setBranches(data || []))
+    loadManual()
   }, [moto.id])
+
+  async function loadManual() {
+    try {
+      const { data } = await supabase.storage.from('media').list(`motos/${moto.id}/manual`)
+      const file = data?.find(f => f.name !== '.emptyFolderPlaceholder')
+      if (file) {
+        setManualUrl(supabase.storage.from('media').getPublicUrl(`motos/${moto.id}/manual/${file.name}`).data.publicUrl)
+      }
+    } catch {}
+  }
+
+  async function handleManualUpload(e) {
+    const file = e.target.files?.[0]; if (!file) return
+    setUploadingManual(true)
+    // Remove old manual
+    const { data: old } = await supabase.storage.from('media').list(`motos/${moto.id}/manual`)
+    if (old?.length) await supabase.storage.from('media').remove(old.map(f => `motos/${moto.id}/manual/${f.name}`))
+    await supabase.storage.from('media').upload(`motos/${moto.id}/manual/${file.name}`, file)
+    await loadManual()
+    setUploadingManual(false)
+  }
+
+  async function handleMigrate() {
+    if (!migrateTo) return
+    setMigrating(true)
+    await supabase.from('motorcycles').update({ branch_id: migrateTo }).eq('id', moto.id)
+    const { data: { user } } = await supabase.auth.getUser()
+    const targetBranch = branches.find(b => b.id === migrateTo)
+    await supabase.from('admin_audit_log').insert({
+      admin_id: user?.id, action: 'motorcycle_migrated',
+      details: { moto_id: moto.id, from_branch: moto.branches?.name, to_branch: targetBranch?.name },
+    })
+    setMigrating(false)
+    setShowMigrate(false)
+    onMotoReload()
+  }
 
   return (
     <div className="space-y-5">
@@ -134,11 +182,55 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete }) {
           <Field label="Rok výroby" value={moto.year} onChange={v => set('year', v)} type="number" />
           <Field label="Objem (cc)" value={moto.engine_cc} onChange={v => set('engine_cc', v)} type="number" />
           <Field label="Barva" value={moto.color} onChange={v => set('color', v)} />
-          <Field label="Cena pracovní den (Kč)" value={moto.price_weekday} onChange={v => set('price_weekday', v)} type="number" />
-          <Field label="Cena víkend (Kč)" value={moto.price_weekend} onChange={v => set('price_weekend', v)} type="number" />
+          <Field label="Datum pořízení" value={moto.acquired_at || ''} onChange={v => set('acquired_at', v)} type="date" />
           <Field label="Nájezd (km)" value={moto.mileage} onChange={v => set('mileage', v)} type="number" />
-          <Field label="Pobočka" value={moto.branches?.name || '—'} disabled />
+          <div>
+            <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Pobočka</label>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium" style={{ color: '#0f1a14' }}>{moto.branches?.name || '—'}</span>
+              <button onClick={() => setShowMigrate(!showMigrate)}
+                className="rounded-btn text-[10px] font-extrabold uppercase cursor-pointer"
+                style={{ padding: '4px 10px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>
+                Přesunout
+              </button>
+            </div>
+            {showMigrate && (
+              <div className="flex items-center gap-2 mt-2 p-2 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+                <select value={migrateTo} onChange={e => setMigrateTo(e.target.value)}
+                  className="flex-1 rounded-btn text-sm outline-none"
+                  style={{ padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0' }}>
+                  <option value="">— Vyberte pobočku —</option>
+                  {branches.filter(b => b.id !== moto.branch_id).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+                <button onClick={handleMigrate} disabled={!migrateTo || migrating}
+                  className="rounded-btn text-[10px] font-extrabold uppercase cursor-pointer"
+                  style={{ padding: '6px 12px', background: migrating ? '#d4e8e0' : '#74FB71', color: '#1a2e22', border: 'none' }}>
+                  {migrating ? 'Přesouvám...' : 'Potvrdit'}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* Manual upload */}
+        <div className="mt-5 p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>Návod k motorce (PDF)</span>
+            <label className="rounded-btn text-xs font-extrabold cursor-pointer"
+              style={{ padding: '4px 14px', background: '#dbeafe', color: '#2563eb' }}>
+              {uploadingManual ? 'Nahrávám...' : manualUrl ? 'Aktualizovat' : '+ Nahrát'}
+              <input type="file" accept=".pdf" onChange={handleManualUpload} className="hidden" />
+            </label>
+            {manualUrl && (
+              <a href={manualUrl} target="_blank" rel="noopener noreferrer"
+                className="text-xs font-bold underline" style={{ color: '#1a8a18' }}>
+                Zobrazit PDF ↗
+              </a>
+            )}
+          </div>
+          <p className="text-[10px] mt-1" style={{ color: '#8aab99' }}>Návod se zobrazí zákazníkům na webu i v aplikaci.</p>
+        </div>
+
         <PhotoGallery motoId={moto.id} />
         {error && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{error}</p>}
         <div className="flex gap-3 mt-6">
@@ -193,7 +285,7 @@ function PhotoGallery({ motoId }) {
   const [uploading, setUploading] = useState(false)
   useEffect(() => { loadPhotos() }, [motoId])
   async function loadPhotos() {
-    try { const { data } = await supabase.storage.from('media').list(`motos/${motoId}`); if (data) setPhotos(data.filter(f => f.name !== '.emptyFolderPlaceholder')) } catch { setPhotos([]) }
+    try { const { data } = await supabase.storage.from('media').list(`motos/${motoId}`); if (data) setPhotos(data.filter(f => f.name !== '.emptyFolderPlaceholder' && f.name !== 'manual')) } catch { setPhotos([]) }
   }
   async function handleUpload(e) {
     const file = e.target.files?.[0]; if (!file) return; setUploading(true)

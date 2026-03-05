@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
@@ -15,14 +15,9 @@ const SAMPLE_VARS = {
   total_price: '7 800 Kč',
   pickup_location: 'Mezná 9, 393 01 Mezná',
   resume_link: 'https://motogo24.cz/booking/resume/abc123',
-  order_number: '#OBJ-2026-0012',
   voucher_code: 'GIFT-ABC123',
   voucher_amount: '3 000 Kč',
-  voucher_valid_until: '15. 6. 2029',
-  discount_code: 'DIKY200',
-  google_review_link: 'https://g.page/motogo24/review',
-  facebook_review_link: 'https://facebook.com/MotoGo24/reviews',
-  business_card: '<div style="border-top:2px solid #74FB71;margin-top:24px;padding-top:16px;"><strong>MotoGo24 – Půjčovna motorek</strong><br>+420 774 256 271 · info@motogo24.cz<br>Instagram: moto.go24 · Facebook: MotoGo24</div>',
+  business_card: '<div style="border-top:2px solid #74FB71;margin-top:24px;padding-top:16px;"><strong>MotoGo24</strong><br>+420 774 256 271</div>',
 }
 
 const EMAIL_STATUS = {
@@ -44,10 +39,7 @@ export default function EmailTemplatesTab() {
   async function load() {
     setLoading(true)
     try {
-      const { data, error: err } = await supabase
-        .from('email_templates')
-        .select('*')
-        .order('name')
+      const { data, error: err } = await supabase.from('email_templates').select('*').order('name')
       if (err) throw err
       setTemplates(data || [])
     } catch (e) { setError(e.message) }
@@ -56,11 +48,7 @@ export default function EmailTemplatesTab() {
 
   async function loadSent() {
     try {
-      const { data } = await supabase
-        .from('sent_emails')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(20)
+      const { data } = await supabase.from('sent_emails').select('*').order('created_at', { ascending: false }).limit(20)
       setSentEmails(data || [])
     } catch {}
   }
@@ -70,7 +58,6 @@ export default function EmailTemplatesTab() {
 
   return (
     <div>
-      {/* Templates grid */}
       {templates.length === 0 ? (
         <Card><p style={{ color: '#8aab99', fontSize: 13 }}>Žádné e-mailové šablony</p></Card>
       ) : (
@@ -81,7 +68,6 @@ export default function EmailTemplatesTab() {
         </div>
       )}
 
-      {/* Sent emails log */}
       <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Poslední odeslané e-maily</h3>
       <SentEmailsTable emails={sentEmails} />
 
@@ -102,16 +88,10 @@ function TemplateCard({ template, onEdit }) {
     <Card>
       <div className="flex items-center justify-between mb-2">
         <h4 className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{template.name}</h4>
-        <Badge
-          label={template.active ? 'Aktivní' : 'Neaktivní'}
-          color={template.active ? '#1a8a18' : '#6b7280'}
-          bg={template.active ? '#dcfce7' : '#f3f4f6'}
-        />
+        <Badge label={template.active ? 'Aktivní' : 'Neaktivní'} color={template.active ? '#1a8a18' : '#6b7280'} bg={template.active ? '#dcfce7' : '#f3f4f6'} />
       </div>
       <div className="text-[10px] font-mono mb-2" style={{ color: '#8aab99' }}>{template.slug}</div>
-      <p className="text-xs mb-3" style={{ color: '#4a6357', lineHeight: 1.5 }}>
-        {template.description || 'Bez popisu'}
-      </p>
+      <p className="text-xs mb-3" style={{ color: '#4a6357', lineHeight: 1.5 }}>{template.description || 'Bez popisu'}</p>
       {vars.length > 0 && (
         <div className="flex flex-wrap gap-1 mb-3">
           {vars.map(v => (
@@ -134,16 +114,10 @@ function extractVars(content) {
 }
 
 function SentEmailsTable({ emails }) {
-  if (emails.length === 0) {
-    return <Card><p style={{ color: '#8aab99', fontSize: 13 }}>Žádné odeslané e-maily</p></Card>
-  }
+  if (emails.length === 0) return <Card><p style={{ color: '#8aab99', fontSize: 13 }}>Žádné odeslané e-maily</p></Card>
   return (
     <Table>
-      <thead>
-        <TRow header>
-          <TH>Příjemce</TH><TH>Šablona</TH><TH>Předmět</TH><TH>Stav</TH><TH>Datum</TH>
-        </TRow>
-      </thead>
+      <thead><TRow header><TH>Příjemce</TH><TH>Šablona</TH><TH>Předmět</TH><TH>Stav</TH><TH>Datum</TH></TRow></thead>
       <tbody>
         {emails.map(e => {
           const st = EMAIL_STATUS[e.status] || EMAIL_STATUS.queued
@@ -171,26 +145,37 @@ function EditEmailTemplateModal({ template, onClose, onSaved }) {
   const [testing, setTesting] = useState(false)
   const [err, setErr] = useState(null)
   const [showPreview, setShowPreview] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
   const textareaRef = useRef(null)
+  const fileInputRef = useRef(null)
 
   const vars = template.variables || extractVars(bodyHtml)
 
   function insertVariable(varName) {
-    const ta = textareaRef.current
-    if (!ta) return
-    const start = ta.selectionStart
-    const end = ta.selectionEnd
+    const ta = textareaRef.current; if (!ta) return
+    const start = ta.selectionStart; const end = ta.selectionEnd
     const tag = `{{${varName}}}`
     const newVal = bodyHtml.slice(0, start) + tag + bodyHtml.slice(end)
     setBodyHtml(newVal)
     setTimeout(() => { ta.focus(); ta.selectionStart = ta.selectionEnd = start + tag.length }, 0)
   }
 
+  const handleFileDrop = useCallback((e) => {
+    e.preventDefault(); setDragOver(false)
+    const file = e.dataTransfer?.files?.[0] || e.target?.files?.[0]
+    if (!file) return
+    if (file.name.endsWith('.html') || file.name.endsWith('.htm') || file.type === 'text/html') {
+      const reader = new FileReader()
+      reader.onload = (ev) => setBodyHtml(ev.target.result)
+      reader.readAsText(file)
+    } else {
+      setErr('Podporované formáty: .html, .htm')
+    }
+  }, [])
+
   function getPreviewHtml() {
     let html = bodyHtml
-    for (const [k, v] of Object.entries(SAMPLE_VARS)) {
-      html = html.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v)
-    }
+    for (const [k, v] of Object.entries(SAMPLE_VARS)) html = html.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v)
     return html
   }
 
@@ -199,12 +184,9 @@ function EditEmailTemplateModal({ template, onClose, onSaved }) {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       const { error } = await supabase.from('email_templates')
-        .update({ name, subject, body_html: bodyHtml, active, updated_by: user?.id })
-        .eq('id', template.id)
+        .update({ name, subject, body_html: bodyHtml, active, updated_by: user?.id }).eq('id', template.id)
       if (error) throw error
-      await supabase.from('admin_audit_log').insert({
-        admin_id: user?.id, action: 'email_template_updated', details: { template_id: template.id, slug: template.slug },
-      })
+      await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'email_template_updated', details: { template_id: template.id } })
       onSaved()
     } catch (e) { setErr(e.message) } finally { setSaving(false) }
   }
@@ -212,13 +194,9 @@ function EditEmailTemplateModal({ template, onClose, onSaved }) {
   async function handleTestSend() {
     setTesting(true); setErr(null)
     try {
-      const { error } = await supabase.functions.invoke('send-email', {
-        body: { template_slug: template.slug, test: true },
-      })
+      const { error } = await supabase.functions.invoke('send-email', { body: { template_slug: template.slug, test: true } })
       if (error) throw error
-    } catch (e) {
-      setErr(`Test e-mail se nepodařilo odeslat: ${e.message || 'Edge Function nemusí být nasazena.'}`)
-    }
+    } catch (e) { setErr(`Test e-mail se nepodařilo odeslat: ${e.message || 'Edge Function nemusí být nasazena.'}`) }
     setTesting(false)
   }
 
@@ -227,24 +205,39 @@ function EditEmailTemplateModal({ template, onClose, onSaved }) {
       <div className="space-y-3">
         <div>
           <Label>Název</Label>
-          <input type="text" value={name} onChange={e => setName(e.target.value)}
-            className="w-full rounded-btn text-sm outline-none"
-            style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
+          <input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
         </div>
         <div>
           <Label>Předmět</Label>
-          <input type="text" value={subject} onChange={e => setSubject(e.target.value)}
-            className="w-full rounded-btn text-sm outline-none"
-            style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
-          <p className="text-[10px] mt-1" style={{ color: '#8aab99' }}>
-            Může obsahovat proměnné, např. {'{{customer_name}}'}
-          </p>
+          <input type="text" value={subject} onChange={e => setSubject(e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
         </div>
+
+        {/* Drag & drop upload zone */}
+        <div
+          className="rounded-lg text-center cursor-pointer transition-colors"
+          style={{
+            padding: '16px',
+            border: `2px dashed ${dragOver ? '#74FB71' : '#d4e8e0'}`,
+            background: dragOver ? '#f0fff4' : '#f9fdfb',
+          }}
+          onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleFileDrop}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <div className="text-2xl mb-1">{dragOver ? '📥' : '📄'}</div>
+          <div className="text-xs font-bold" style={{ color: '#4a6357' }}>
+            Přetáhněte HTML soubor sem nebo klikněte pro výběr
+          </div>
+          <div className="text-[10px] mt-1" style={{ color: '#8aab99' }}>Podporované formáty: .html, .htm</div>
+          <input ref={fileInputRef} type="file" accept=".html,.htm" onChange={handleFileDrop} className="hidden" />
+        </div>
+
         <div>
           <Label>HTML tělo</Label>
           <textarea ref={textareaRef} value={bodyHtml} onChange={e => setBodyHtml(e.target.value)}
             className="w-full rounded-btn text-sm outline-none font-mono"
-            style={{ padding: '12px', background: '#f1faf7', border: '1px solid #d4e8e0', minHeight: 400, resize: 'vertical' }} />
+            style={{ ...inputStyle, minHeight: 300, resize: 'vertical' }} />
         </div>
         {vars.length > 0 && (
           <div>
@@ -269,9 +262,7 @@ function EditEmailTemplateModal({ template, onClose, onSaved }) {
       <div className="flex justify-between gap-3 mt-5">
         <div className="flex gap-2">
           <Button onClick={() => setShowPreview(true)}>Náhled</Button>
-          <Button onClick={handleTestSend} disabled={testing}>
-            {testing ? 'Odesílám…' : 'Odeslat test'}
-          </Button>
+          <Button onClick={handleTestSend} disabled={testing}>{testing ? 'Odesílám…' : 'Odeslat test'}</Button>
         </div>
         <div className="flex gap-2">
           <Button onClick={onClose}>Zrušit</Button>
@@ -284,20 +275,16 @@ function EditEmailTemplateModal({ template, onClose, onSaved }) {
           <div className="text-xs font-bold mb-2" style={{ color: '#8aab99' }}>
             Předmět: {subject.replace(/\{\{(\w+)\}\}/g, (_, k) => SAMPLE_VARS[k] || `{{${k}}}`)}
           </div>
-          <div
-            className="rounded-card"
-            style={{ padding: 16, background: '#fff', border: '1px solid #d4e8e0', maxHeight: 500, overflow: 'auto' }}
-            dangerouslySetInnerHTML={{ __html: getPreviewHtml() }}
-          />
-          <div className="flex justify-end mt-4">
-            <Button onClick={() => setShowPreview(false)}>Zavřít</Button>
-          </div>
+          <div className="rounded-card" style={{ padding: 16, background: '#fff', border: '1px solid #d4e8e0', maxHeight: 500, overflow: 'auto' }}
+            dangerouslySetInnerHTML={{ __html: getPreviewHtml() }} />
+          <div className="flex justify-end mt-4"><Button onClick={() => setShowPreview(false)}>Zavřít</Button></div>
         </Modal>
       )}
     </Modal>
   )
 }
 
+const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
 function Label({ children }) {
   return <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{children}</label>
 }

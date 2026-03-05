@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 
-export default function Modal({ open, onClose, title, children, wide = false }) {
+export default function Modal({ open, onClose, title, children, wide = false, noBackdropClose = false }) {
   useEffect(() => {
     if (open) document.body.style.overflow = 'hidden'
     else document.body.style.overflow = ''
@@ -13,7 +13,7 @@ export default function Modal({ open, onClose, title, children, wide = false }) 
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
       style={{ background: 'rgba(15,26,20,.45)' }}
-      onClick={onClose}
+      onClick={noBackdropClose ? undefined : onClose}
     >
       <div
         className="bg-white rounded-card shadow-card relative"
