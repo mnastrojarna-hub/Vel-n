@@ -29,7 +29,7 @@ ALTER TABLE email_templates ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS email_templates_admin ON email_templates;
 CREATE POLICY email_templates_admin ON email_templates
-  FOR ALL USING (auth.uid() IN (SELECT id FROM admin_users));
+  FOR ALL USING (is_admin());
 
 DROP TRIGGER IF EXISTS trg_email_templates_updated ON email_templates;
 CREATE TRIGGER trg_email_templates_updated
@@ -62,7 +62,7 @@ ALTER TABLE document_templates ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS document_templates_admin ON document_templates;
 CREATE POLICY document_templates_admin ON document_templates
-  FOR ALL USING (auth.uid() IN (SELECT id FROM admin_users));
+  FOR ALL USING (is_admin());
 
 DROP TRIGGER IF EXISTS trg_document_templates_updated ON document_templates;
 CREATE TRIGGER trg_document_templates_updated
@@ -120,7 +120,7 @@ ALTER TABLE generated_documents ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS generated_documents_admin ON generated_documents;
 CREATE POLICY generated_documents_admin ON generated_documents
-  FOR ALL USING (auth.uid() IN (SELECT id FROM admin_users));
+  FOR ALL USING (is_admin());
 
 DROP POLICY IF EXISTS generated_documents_customer_select ON generated_documents;
 CREATE POLICY generated_documents_customer_select ON generated_documents
@@ -167,7 +167,7 @@ ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS invoices_admin ON invoices;
 CREATE POLICY invoices_admin ON invoices
-  FOR ALL USING (auth.uid() IN (SELECT id FROM admin_users));
+  FOR ALL USING (is_admin());
 
 DROP POLICY IF EXISTS invoices_customer_select ON invoices;
 CREATE POLICY invoices_customer_select ON invoices
@@ -206,7 +206,7 @@ ALTER TABLE sent_emails ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS sent_emails_admin ON sent_emails;
 CREATE POLICY sent_emails_admin ON sent_emails
-  FOR ALL USING (auth.uid() IN (SELECT id FROM admin_users));
+  FOR ALL USING (is_admin());
 
 -- ═══════════════════════════════════════════════════════
 -- 6. MESSAGE_THREADS
@@ -226,7 +226,7 @@ ALTER TABLE message_threads ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS message_threads_admin ON message_threads;
 CREATE POLICY message_threads_admin ON message_threads
-  FOR ALL USING (auth.uid() IN (SELECT id FROM admin_users));
+  FOR ALL USING (is_admin());
 
 DROP POLICY IF EXISTS message_threads_customer_select ON message_threads;
 CREATE POLICY message_threads_customer_select ON message_threads
@@ -259,7 +259,7 @@ ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS messages_admin ON messages;
 CREATE POLICY messages_admin ON messages
-  FOR ALL USING (auth.uid() IN (SELECT id FROM admin_users));
+  FOR ALL USING (is_admin());
 
 DROP POLICY IF EXISTS messages_customer_select ON messages;
 CREATE POLICY messages_customer_select ON messages
@@ -308,7 +308,7 @@ ALTER TABLE message_templates ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS message_templates_admin ON message_templates;
 CREATE POLICY message_templates_admin ON message_templates
-  FOR ALL USING (auth.uid() IN (SELECT id FROM admin_users));
+  FOR ALL USING (is_admin());
 
 -- ═══════════════════════════════════════════════════════
 -- 9. APP_SETTINGS
@@ -323,7 +323,7 @@ ALTER TABLE app_settings ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS app_settings_admin ON app_settings;
 CREATE POLICY app_settings_admin ON app_settings
-  FOR ALL USING (auth.uid() IN (SELECT id FROM admin_users));
+  FOR ALL USING (is_admin());
 
 DROP POLICY IF EXISTS app_settings_read ON app_settings;
 CREATE POLICY app_settings_read ON app_settings

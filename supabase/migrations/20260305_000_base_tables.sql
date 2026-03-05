@@ -35,17 +35,37 @@ CREATE TABLE IF NOT EXISTS admin_users (
 CREATE INDEX IF NOT EXISTS idx_admin_users_email ON admin_users(email);
 CREATE INDEX IF NOT EXISTS idx_admin_users_role ON admin_users(role);
 
+-- Helper funkce — SECURITY DEFINER obchází RLS na admin_users,
+-- takže nedochází k cyklické referenci (tabulka kontrolující sama sebe)
+CREATE OR REPLACE FUNCTION is_admin()
+RETURNS boolean AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM admin_users
+    WHERE id = auth.uid() AND active = true
+  );
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+CREATE OR REPLACE FUNCTION is_superadmin()
+RETURNS boolean AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM admin_users
+    WHERE id = auth.uid() AND role = 'superadmin' AND active = true
+  );
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
 ALTER TABLE admin_users ENABLE ROW LEVEL SECURITY;
 
+-- Všichni admini vidí všechny adminy (potřeba pro audit log, UI apod.)
 DROP POLICY IF EXISTS admin_users_self ON admin_users;
-CREATE POLICY admin_users_self ON admin_users
-  FOR SELECT USING (auth.uid() = id);
-
 DROP POLICY IF EXISTS admin_users_admin_all ON admin_users;
-CREATE POLICY admin_users_admin_all ON admin_users
-  FOR ALL USING (
-    auth.uid() IN (SELECT id FROM admin_users WHERE role = 'superadmin')
-  );
+
+CREATE POLICY admin_users_read ON admin_users
+  FOR SELECT USING (is_admin());
+
+-- Pouze superadmin může vytvářet/editovat/mazat adminy
+CREATE POLICY admin_users_write ON admin_users
+  FOR ALL USING (is_superadmin())
+  WITH CHECK (is_superadmin());
 
 -- Trigger updated_at
 DROP TRIGGER IF EXISTS trg_admin_users_updated ON admin_users;
@@ -74,7 +94,7 @@ ALTER TABLE admin_audit_log ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS audit_log_admin ON admin_audit_log;
 CREATE POLICY audit_log_admin ON admin_audit_log
   FOR ALL USING (
-    auth.uid() IN (SELECT id FROM admin_users)
+    is_admin()
   );
 
 -- ═══════════════════════════════════════════════════════
@@ -109,7 +129,7 @@ ALTER TABLE promo_codes ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS promo_codes_admin ON promo_codes;
 CREATE POLICY promo_codes_admin ON promo_codes
   FOR ALL USING (
-    auth.uid() IN (SELECT id FROM admin_users)
+    is_admin()
   );
 
 -- Zákazníci: čtení aktivních kódů (pro validaci na frontendu)
@@ -143,7 +163,7 @@ ALTER TABLE promo_code_usage ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS promo_usage_admin ON promo_code_usage;
 CREATE POLICY promo_usage_admin ON promo_code_usage
   FOR ALL USING (
-    auth.uid() IN (SELECT id FROM admin_users)
+    is_admin()
   );
 
 -- Automatická inkrementace used_count při insertu do promo_code_usage
