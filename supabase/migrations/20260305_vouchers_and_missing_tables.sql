@@ -48,12 +48,14 @@ CREATE INDEX IF NOT EXISTS idx_vouchers_valid_until ON vouchers(valid_until);
 ALTER TABLE vouchers ENABLE ROW LEVEL SECURITY;
 
 -- Admini vidí vše
+DROP POLICY IF EXISTS vouchers_admin_all ON vouchers;
 CREATE POLICY vouchers_admin_all ON vouchers
   FOR ALL USING (
     auth.uid() IN (SELECT id FROM admin_users)
   );
 
 -- Zákazník vidí své poukazy
+DROP POLICY IF EXISTS vouchers_user_select ON vouchers;
 CREATE POLICY vouchers_user_select ON vouchers
   FOR SELECT USING (
     buyer_id = auth.uid() OR redeemed_by = auth.uid()
@@ -92,11 +94,13 @@ CREATE INDEX IF NOT EXISTS idx_moto_locations_moto ON moto_locations(moto_id);
 
 ALTER TABLE moto_locations ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS moto_locations_admin ON moto_locations;
 CREATE POLICY moto_locations_admin ON moto_locations
   FOR ALL USING (
     auth.uid() IN (SELECT id FROM admin_users)
   );
 
+DROP POLICY IF EXISTS moto_locations_read ON moto_locations;
 CREATE POLICY moto_locations_read ON moto_locations
   FOR SELECT USING (true);
 
@@ -124,6 +128,7 @@ CREATE INDEX IF NOT EXISTS idx_service_orders_status ON service_orders(status);
 
 ALTER TABLE service_orders ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS service_orders_admin ON service_orders;
 CREATE POLICY service_orders_admin ON service_orders
   FOR ALL USING (
     auth.uid() IN (SELECT id FROM admin_users)
