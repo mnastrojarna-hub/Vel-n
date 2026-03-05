@@ -38,7 +38,7 @@ export default function BookingDetail() {
     setLoading(true)
     const { data, error: err } = await supabase
       .from('bookings')
-      .select('*, motorcycles(id, model, spz, price_per_day, status), profiles(id, full_name, email, phone, city)')
+      .select('*, motorcycles(id, model, spz, price_weekday, price_weekend, status), profiles(id, full_name, email, phone, city)')
       .eq('id', id).single()
     if (err) setError(err.message)
     else setBooking(data)
@@ -135,7 +135,8 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
         <InfoRow label="Model" value={booking.motorcycles?.model} />
         <InfoRow label="SPZ" value={booking.motorcycles?.spz} />
         <InfoRow label="Stav" value={booking.motorcycles?.status} />
-        <InfoRow label="Cena/den" value={booking.motorcycles?.price_per_day ? `${booking.motorcycles.price_per_day.toLocaleString('cs-CZ')} Kč` : '—'} />
+        <InfoRow label="Cena/den" value={booking.motorcycles?.price_weekday ? `${booking.motorcycles.price_weekday.toLocaleString('cs-CZ')} Kč` : '—'} />
+        <InfoRow label="Cena víkend" value={booking.motorcycles?.price_weekend ? `${booking.motorcycles.price_weekend.toLocaleString('cs-CZ')} Kč` : '—'} />
       </Card>
 
       {/* Termín, platba, poznámky — editovatelné */}

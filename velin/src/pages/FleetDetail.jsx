@@ -34,8 +34,8 @@ export default function FleetDetail() {
 
   async function handleSave() {
     setSaving(true); setError(null)
-    const { model, spz, vin, category, branch_id, price_per_day, km, status, year, engine_cc, color } = moto
-    const { error: err } = await supabase.from('motorcycles').update({ model, spz, vin, category, branch_id, price_per_day, km, status, year, engine_cc, color }).eq('id', id)
+    const { model, spz, vin, category, branch_id, price_weekday, price_weekend, mileage, status, year, engine_cc, color } = moto
+    const { error: err } = await supabase.from('motorcycles').update({ model, spz, vin, category, branch_id, price_weekday, price_weekend, mileage, status, year, engine_cc, color }).eq('id', id)
     if (err) setError(err.message)
     await logAudit('motorcycle_updated', { moto_id: id })
     setSaving(false)
@@ -45,7 +45,6 @@ export default function FleetDetail() {
     const { data: activeBookings } = await supabase.from('bookings')
       .select('id, user_id, start_date, end_date, status, profiles(full_name)')
       .eq('moto_id', id).in('status', ['pending', 'active', 'confirmed'])
-
     if (activeBookings?.length > 0) {
       setConfirm({ type: 'deactivate', title: `${activeBookings.length} aktivních rezervací`, message: 'Při deaktivaci budou stornovány. Pokračovat?',
         action: async () => {
@@ -95,34 +94,32 @@ export default function FleetDetail() {
             style={{ padding: '8px 18px', background: tab === t ? '#74FB71' : '#f1faf7', color: tab === t ? '#1a2e22' : '#4a6357', border: 'none', boxShadow: tab === t ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>{t}</button>
         ))}
       </div>
-      {tab === 'Info' && <InfoTab moto={moto} set={set} error={error} saving={saving} onSave={handleSave} onDeactivate={handleDeactivate} onDelete={() => setConfirm({ type: 'delete' })} logAudit={logAudit} />}
+      {tab === 'Info' && <InfoTab moto={moto} set={set} error={error} saving={saving} onSave={handleSave} onDeactivate={handleDeactivate} onDelete={() => setConfirm({ type: 'delete' })} />}
       {tab === 'Rezervace' && <BookingsCalendar motoId={id} />}
-      {tab === 'Servis' && <ServiceTab motoId={id} motoKm={moto.km} logAudit={logAudit} />}
+      {tab === 'Servis' && <ServiceTab motoId={id} motoMileage={moto.mileage} logAudit={logAudit} />}
       {tab === 'Mapa' && <MotoMap singleMotoId={id} />}
       {tab === 'Výkon' && <PerformanceTab motoId={id} />}
-
       <ConfirmDialog open={confirm?.type === 'deactivate'} title={confirm?.title || ''} message={confirm?.message || ''} onConfirm={() => confirm?.action?.()} onCancel={() => setConfirm(null)} danger />
       <ConfirmDialog open={confirm?.type === 'delete'} title="Smazat motorku?" message="Tato akce je nevratná." danger onConfirm={handleDelete} onCancel={() => setConfirm(null)} />
     </div>
   )
 }
 
-function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, logAudit }) {
+function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete }) {
   const [schedules, setSchedules] = useState([])
   const [avgKm, setAvgKm] = useState(null)
 
   useEffect(() => {
     supabase.from('maintenance_schedules').select('*').eq('moto_id', moto.id).eq('active', true)
       .then(({ data }) => setSchedules(data || []))
-    // Průměrný nájezd
-    supabase.from('maintenance_log').select('km_at_service, created_at').eq('moto_id', moto.id).order('created_at', { ascending: true })
+    supabase.from('maintenance_log').select('mileage_at_service, created_at').eq('moto_id', moto.id).order('created_at', { ascending: true })
       .then(({ data }) => {
         if (data?.length >= 2) {
-          const kmDiff = (data[data.length - 1].km_at_service || 0) - (data[0].km_at_service || 0)
-          const daysDiff = (new Date(data[data.length - 1].created_at) - new Date(data[0].created_at)) / 86400000
-          if (daysDiff > 0) { setAvgKm(Math.round((kmDiff / daysDiff) * 30)); return }
+          const diff = (data[data.length - 1].mileage_at_service || 0) - (data[0].mileage_at_service || 0)
+          const days = (new Date(data[data.length - 1].created_at) - new Date(data[0].created_at)) / 86400000
+          if (days > 0) { setAvgKm(Math.round((diff / days) * 30)); return }
         }
-        if (moto.year && moto.km) setAvgKm(Math.round(moto.km / Math.max(1, (new Date().getFullYear() - moto.year) * 12)))
+        if (moto.year && moto.mileage) setAvgKm(Math.round(moto.mileage / Math.max(1, (new Date().getFullYear() - moto.year) * 12)))
       })
   }, [moto.id])
 
@@ -137,8 +134,9 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, log
           <Field label="Rok výroby" value={moto.year} onChange={v => set('year', v)} type="number" />
           <Field label="Objem (cc)" value={moto.engine_cc} onChange={v => set('engine_cc', v)} type="number" />
           <Field label="Barva" value={moto.color} onChange={v => set('color', v)} />
-          <Field label="Cena/den (Kč)" value={moto.price_per_day} onChange={v => set('price_per_day', v)} type="number" />
-          <Field label="Km" value={moto.km} onChange={v => set('km', v)} type="number" />
+          <Field label="Cena pracovní den (Kč)" value={moto.price_weekday} onChange={v => set('price_weekday', v)} type="number" />
+          <Field label="Cena víkend (Kč)" value={moto.price_weekend} onChange={v => set('price_weekend', v)} type="number" />
+          <Field label="Nájezd (km)" value={moto.mileage} onChange={v => set('mileage', v)} type="number" />
           <Field label="Pobočka" value={moto.branches?.name || '—'} disabled />
         </div>
         <PhotoGallery motoId={moto.id} />
@@ -149,7 +147,6 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, log
           <Button onClick={onDelete} style={{ color: '#dc2626' }}>Smazat</Button>
         </div>
       </Card>
-      {/* Průměrný nájezd + servisní intervaly (read-only preview) */}
       <Card>
         <h3 className="text-[10px] font-extrabold uppercase tracking-widest mb-3" style={{ color: '#8aab99' }}>Nájezd a servis</h3>
         <div className="flex gap-6 mb-3">
@@ -159,11 +156,11 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, log
           </div>
           <div className="p-3 rounded-lg" style={{ background: '#f1faf7' }}>
             <div className="text-[10px] font-extrabold uppercase" style={{ color: '#8aab99' }}>Celkem</div>
-            <div className="text-lg font-extrabold">{moto.km ? `${Number(moto.km).toLocaleString('cs-CZ')} km` : '—'}</div>
+            <div className="text-lg font-extrabold">{moto.mileage ? `${Number(moto.mileage).toLocaleString('cs-CZ')} km` : '—'}</div>
           </div>
         </div>
         {schedules.map(s => {
-          const rem = ((s.last_service_km || 0) + (s.interval_km || 0)) - (Number(moto.km) || 0)
+          const rem = ((s.last_service_km || 0) + (s.interval_km || 0)) - (Number(moto.mileage) || 0)
           const overdue = rem <= 0
           return (
             <div key={s.id} className="flex items-center gap-3 p-2 rounded-lg mb-1" style={{ background: overdue ? '#fee2e2' : '#f1faf7', fontSize: 12 }}>
