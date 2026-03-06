@@ -164,17 +164,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
       return errorResponse('Missing incident_id');
     }
 
-    // Načti incident z DB s JOIN na profiles, motorcycles, bookings
+    // Načti incident z DB s LEFT JOIN na profiles, bookings, motorcycles
     const admin = getAdminClient();
     const { data: incident, error: fetchError } = await admin
       .from('sos_incidents')
       .select(`
-        id, type, latitude, longitude, description, is_fault, status, created_at,
-        user_id,
-        profiles!inner ( full_name, phone ),
-        bookings!inner (
+        id, type, latitude, longitude, description, customer_fault, status, created_at,
+        user_id, contact_phone, severity,
+        profiles ( full_name, phone, email ),
+        bookings (
           id,
-          motorcycles!inner ( model, license_plate )
+          motorcycles ( model, spz )
         )
       `)
       .eq('id', body.incident_id)
@@ -186,28 +186,28 @@ Deno.serve(async (req: Request): Promise<Response> => {
       return errorResponse('Incident not found', 404);
     }
 
-    // Bezpečně extrahuj nested data
-    const profile = incident.profiles as unknown as { full_name: string; phone: string };
-    const booking = incident.bookings as unknown as {
-      id: string;
-      motorcycles: { model: string; license_plate: string };
+    // Bezpečně extrahuj nested data (left join → může být null)
+    const profile = (incident.profiles ?? {}) as { full_name?: string; phone?: string; email?: string };
+    const booking = (incident.bookings ?? {}) as {
+      id?: string;
+      motorcycles?: { model?: string; spz?: string };
     };
 
     const incidentData: SosIncident = {
       id: incident.id as string,
       user_id: incident.user_id as string,
-      booking_id: booking.id,
+      booking_id: booking.id ?? '',
       type: incident.type as SosIncident['type'],
       latitude: incident.latitude as number,
       longitude: incident.longitude as number,
       description: incident.description as string,
-      is_fault: incident.is_fault as boolean,
+      is_fault: (incident.customer_fault ?? false) as boolean,
       status: incident.status as SosIncident['status'],
       created_at: incident.created_at as string,
-      customer_name: profile.full_name,
-      customer_phone: profile.phone,
-      moto_model: booking.motorcycles.model,
-      moto_spz: booking.motorcycles.license_plate,
+      customer_name: profile.full_name ?? 'Neznámý',
+      customer_phone: (incident.contact_phone as string) ?? profile.phone ?? '',
+      moto_model: booking.motorcycles?.model ?? 'Neznámá motorka',
+      moto_spz: booking.motorcycles?.spz ?? '—',
     };
 
     // Sestav a odešli email administrátorovi
@@ -265,9 +265,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .from('sos_timeline')
       .insert({
         incident_id: body.incident_id,
-        action: 'acknowledged',
-        note: `Automatická notifikace odeslána (email: ${emailSent ? 'OK' : 'FAIL'}, SMS: ${smsSent ? 'OK' : 'FAIL'})`,
-        performed_by: user.id,
+        action: `Automatická notifikace odeslána (email: ${emailSent ? 'OK' : 'FAIL'}, SMS: ${smsSent ? 'OK' : 'FAIL'})`,
+        description: 'acknowledged',
+        performed_by: 'Systém (send-sos)',
       });
 
     if (timelineError) {

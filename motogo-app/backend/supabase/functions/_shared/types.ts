@@ -9,7 +9,9 @@ export type SosType =
   | 'theft'
   | 'breakdown_minor'
   | 'breakdown_major'
-  | 'location_share';
+  | 'defect_question'
+  | 'location_share'
+  | 'other';
 
 export type SosStatus =
   | 'reported'

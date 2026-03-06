@@ -369,25 +369,73 @@ async function apiSendDocumentEmail(docId){
 }
 
 // ===== SOS =====
+
+// Auto-severity dle typu incidentu
+function _sosSeverity(type){
+  if(type === 'theft') return 'critical';
+  if(type === 'accident_major' || type === 'breakdown_major') return 'high';
+  if(type === 'accident_minor') return 'medium';
+  if(type === 'breakdown_minor') return 'low';
+  return 'medium';
+}
+
 async function apiCreateSosIncident(type, bookingId, lat, lng, desc, critical, motoId){
   _ensureSupabase();
   if(!window.supabase) return {error:'Offline'};
   try {
     var uid = await _getUserId();
+    // Mapuj location_share → other (location_share není v DB CHECK constraintu)
+    var dbType = type === 'location_share' ? 'other' : type;
     var data = {
       user_id: uid,
-      booking_id: bookingId,
-      moto_id: motoId || null,
-      type: type,
+      booking_id: bookingId || null,
+      type: dbType,
+      severity: _sosSeverity(dbType),
       latitude: lat,
       longitude: lng,
-      description: desc,
+      description: type === 'location_share' ? ('Sdílení polohy' + (desc ? ': ' + desc : '')) : desc,
       status: 'reported'
     };
+    // Přidej kontaktní telefon z profilu
+    try {
+      var profile = await apiFetchProfile();
+      if(profile && profile.phone) data.contact_phone = profile.phone;
+    } catch(e){}
     var r = await window.supabase.from('sos_incidents').insert(data).select().single();
     if(r.error) return {error: r.error.message};
+    // Zavolej send-sos Edge Function pro notifikaci admina (neblokující)
+    if(r.data && r.data.id) _sosNotifyAdmin(r.data.id);
     return r.data || {};
-  } catch(e){ return {error:'Chyba při hlášení incidentu'}; }
+  } catch(e){ console.error('[API] apiCreateSosIncident:', e); return {error:'Chyba při hlášení incidentu'}; }
+}
+
+// Zavolá send-sos Edge Function — neblokující, chyby nebrání uživateli
+async function _sosNotifyAdmin(incidentId){
+  try {
+    var cfg = window.MOTOGO_CONFIG || {};
+    var baseUrl = cfg.SUPABASE_URL;
+    var anonKey = cfg.SUPABASE_ANON_KEY;
+    if(!baseUrl) return;
+    var token = anonKey;
+    try {
+      var sess = await window.supabase.auth.getSession();
+      if(sess.data && sess.data.session) token = sess.data.session.access_token;
+    } catch(e){}
+    fetch(baseUrl + '/functions/v1/send-sos', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token,
+        'apikey': anonKey || ''
+      },
+      body: JSON.stringify({ incident_id: incidentId })
+    }).then(function(resp){
+      if(!resp.ok) console.warn('[API] send-sos Edge Function HTTP ' + resp.status);
+      else console.log('[API] send-sos notifikace odeslána');
+    }).catch(function(e){
+      console.warn('[API] send-sos nedostupné:', e.message);
+    });
+  } catch(e){ console.warn('[API] _sosNotifyAdmin error:', e); }
 }
 
 async function apiGetMySosIncidents(){
@@ -409,39 +457,51 @@ async function apiSosRequestReplacement(incidentId){
   _ensureSupabase();
   if(!window.supabase) return {};
   try {
-    await window.supabase.from('sos_timeline').insert({
+    var r = await window.supabase.from('sos_timeline').insert({
       incident_id: incidentId,
-      action: 'replacement_requested',
-      data: { note: 'Zákazník žádá náhradní motorku' }
+      action: 'Zákazník žádá náhradní motorku',
+      description: 'replacement_requested',
+      performed_by: 'Zákazník (app)'
     });
-    return {success:true};
-  } catch(e){ return {}; }
+    if(r.error) console.warn('[API] apiSosRequestReplacement:', r.error.message);
+    return {success:!r.error};
+  } catch(e){ console.error('[API] apiSosRequestReplacement:', e); return {}; }
 }
 
 async function apiSosRequestTow(incidentId){
   _ensureSupabase();
   if(!window.supabase) return {};
   try {
-    await window.supabase.from('sos_timeline').insert({
+    var r = await window.supabase.from('sos_timeline').insert({
       incident_id: incidentId,
-      action: 'tow_requested',
-      data: { note: 'Zákazník žádá odtahovou službu' }
+      action: 'Zákazník žádá odtahovou službu',
+      description: 'tow_requested',
+      performed_by: 'Zákazník (app)'
     });
-    return {success:true};
-  } catch(e){ return {}; }
+    if(r.error) console.warn('[API] apiSosRequestTow:', r.error.message);
+    return {success:!r.error};
+  } catch(e){ console.error('[API] apiSosRequestTow:', e); return {}; }
 }
 
 async function apiSosShareLocation(incidentId, lat, lng){
   _ensureSupabase();
   if(!window.supabase) return {};
   try {
-    await window.supabase.from('sos_timeline').insert({
+    var r = await window.supabase.from('sos_timeline').insert({
       incident_id: incidentId,
-      action: 'location_shared',
-      data: { note: 'GPS: ' + lat + ', ' + lng, latitude: lat, longitude: lng }
+      action: 'GPS poloha sdílena: ' + (lat ? lat.toFixed(5) : '?') + ', ' + (lng ? lng.toFixed(5) : '?'),
+      description: 'location_shared',
+      performed_by: 'Zákazník (app)'
     });
-    return {success:true};
-  } catch(e){ return {}; }
+    if(r.error) console.warn('[API] apiSosShareLocation:', r.error.message);
+    // Aktualizuj GPS i na samotném incidentu
+    if(lat && lng){
+      await window.supabase.from('sos_incidents').update({
+        latitude: lat, longitude: lng
+      }).eq('id', incidentId);
+    }
+    return {success:!r.error};
+  } catch(e){ console.error('[API] apiSosShareLocation:', e); return {}; }
 }
 
 // ===== ADMIN MESSAGES (Zprávy z velínu) =====
