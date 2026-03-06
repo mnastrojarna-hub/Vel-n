@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { debugAction } from '../lib/debugLog'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import Badge from '../components/ui/Badge'
@@ -31,13 +32,11 @@ export default function CustomerDetail() {
   async function loadCustomer() {
     setLoading(true)
     try {
-      const { data, error: err } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', id)
-        .single()
-      if (err) setError(err.message)
-      else setCustomer(data)
+      const result = await debugAction('customer.load', 'CustomerDetail', () =>
+        supabase.from('profiles').select('*').eq('id', id).single()
+      , { customer_id: id })
+      if (result?.error) setError(result.error.message)
+      else setCustomer(result?.data)
     } catch (e) {
       setError(e.message)
     }
@@ -53,27 +52,22 @@ export default function CustomerDetail() {
       emergency_phone, riding_experience, marketing_consent,
       reliability_score,
     } = customer
-    const { error: err } = await supabase
-      .from('profiles')
-      .update({
-        full_name, phone, street, city, zip, country,
-        date_of_birth, license_group, emergency_contact,
-        emergency_phone, riding_experience, marketing_consent,
-        reliability_score,
-      })
-      .eq('id', id)
-    if (err) setError(err.message)
+    const updateData = { full_name, phone, street, city, zip, country,
+      date_of_birth, license_group, emergency_contact,
+      emergency_phone, riding_experience, marketing_consent,
+      reliability_score }
+    const result = await debugAction('customer.save', 'CustomerDetail', () =>
+      supabase.from('profiles').update(updateData).eq('id', id)
+    , updateData)
+    if (result?.error) setError(result.error.message)
     else await logAudit('customer_updated', { customer_id: id })
     setSaving(false)
   }
 
   async function handleDelete() {
-    // Zkontroluj aktivní rezervace
-    const { data: bookings } = await supabase
-      .from('bookings')
-      .select('id')
-      .eq('user_id', id)
-      .in('status', ['pending', 'active', 'reserved'])
+    const { data: bookings } = await debugAction('customer.checkBookings', 'CustomerDetail', () =>
+      supabase.from('bookings').select('id').eq('user_id', id).in('status', ['pending', 'active', 'reserved'])
+    , { customer_id: id })
 
     if (bookings && bookings.length > 0) {
       setError('Zákazník má aktivní rezervace. Nejdřív je stornujte.')
@@ -81,9 +75,11 @@ export default function CustomerDetail() {
       return
     }
 
-    const { error: err } = await supabase.from('profiles').delete().eq('id', id)
-    if (err) {
-      setError(err.message)
+    const result = await debugAction('customer.delete', 'CustomerDetail', () =>
+      supabase.from('profiles').delete().eq('id', id)
+    , { customer_id: id })
+    if (result?.error) {
+      setError(result.error.message)
       setConfirmDelete(false)
       return
     }
@@ -105,27 +101,25 @@ export default function CustomerDetail() {
     setResetPwLoading(true)
     setResetPwMsg(null)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const token = session?.access_token
-      const baseUrl = supabase.supabaseUrl || 'https://vnwnqteskbykeucanlhk.supabase.co'
-      const resp = await fetch(`${baseUrl}/functions/v1/admin-reset-password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'apikey': supabase.supabaseKey || '',
-        },
-        body: JSON.stringify({
-          user_id: id,
-          ...(resetPwMode === 'manual' && newPassword ? { new_password: newPassword } : {}),
-        }),
-      })
-      const result = await resp.json()
-      if (result.success) {
-        setResetPwMsg({ type: 'ok', text: result.method === 'email' ? `Reset email odeslán na ${result.email}` : 'Heslo bylo změněno' })
+      const reqData = { user_id: id, mode: resetPwMode }
+      const result = await debugAction('customer.resetPassword', 'CustomerDetail', async () => {
+        const { data: { session } } = await supabase.auth.getSession()
+        const token = session?.access_token
+        const baseUrl = supabase.supabaseUrl || 'https://vnwnqteskbykeucanlhk.supabase.co'
+        const resp = await fetch(`${baseUrl}/functions/v1/admin-reset-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, 'apikey': supabase.supabaseKey || '' },
+          body: JSON.stringify({ user_id: id, ...(resetPwMode === 'manual' && newPassword ? { new_password: newPassword } : {}) }),
+        })
+        const data = await resp.json()
+        return { data }
+      }, reqData)
+      const r = result?.data
+      if (r?.success) {
+        setResetPwMsg({ type: 'ok', text: r.method === 'email' ? `Reset email odeslán na ${r.email}` : 'Heslo bylo změněno' })
         setNewPassword('')
       } else {
-        setResetPwMsg({ type: 'err', text: result.error || 'Chyba' })
+        setResetPwMsg({ type: 'err', text: r?.error || 'Chyba' })
       }
     } catch (e) {
       setResetPwMsg({ type: 'err', text: e.message })

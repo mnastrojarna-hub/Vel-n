@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { debugAction, debugLog } from '../lib/debugLog'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import StatusBadge from '../components/ui/StatusBadge'
@@ -27,35 +28,46 @@ export default function FleetDetail() {
 
   async function loadMoto() {
     setLoading(true)
-    const { data, error: err } = await supabase.from('motorcycles').select('*, branches(id, name)').eq('id', id).single()
-    if (err) setError(err.message)
-    else setMoto(data)
+    const result = await debugAction('fleet.load', 'FleetDetail', () =>
+      supabase.from('motorcycles').select('*, branches(id, name)').eq('id', id).single()
+    , { moto_id: id })
+    if (result?.error) setError(result.error.message)
+    else setMoto(result?.data)
     setLoading(false)
   }
 
   async function handleSave() {
     setSaving(true); setError(null)
-    const { model, spz, vin, category, branch_id, mileage, status, year, engine_cc, color, acquired_at } = moto
-    const { error: err } = await supabase.from('motorcycles').update({
-      model, spz, vin, category, branch_id, mileage, status, year, engine_cc, color, acquired_at,
-    }).eq('id', id)
-    if (err) setError(err.message)
+    const { model, spz, vin, category, branch_id, mileage, status, year, engine_cc, color, acquired_at,
+      power_kw, power_hp, torque_nm, weight_kg, fuel_tank_l, seat_height_mm, license_required,
+      has_abs, has_asc, description, ideal_usage, features, engine_type } = moto
+    const updateData = { model, spz, vin, category, branch_id, mileage, status, year, engine_cc, color, acquired_at,
+      power_kw, power_hp, torque_nm, weight_kg, fuel_tank_l, seat_height_mm, license_required,
+      has_abs, has_asc, description, ideal_usage, features, engine_type }
+    const result = await debugAction('fleet.save', 'FleetDetail', () =>
+      supabase.from('motorcycles').update(updateData).eq('id', id)
+    , updateData)
+    if (result?.error) setError(result.error.message)
     await logAudit('motorcycle_updated', { moto_id: id })
     setSaving(false)
   }
 
   async function handleDeactivate() {
-    const { data: activeBookings } = await supabase.from('bookings')
-      .select('id, user_id, start_date, end_date, status, profiles(full_name)')
-      .eq('moto_id', id).in('status', ['pending', 'active', 'reserved'])
+    const { data: activeBookings } = await debugAction('fleet.checkBookings', 'FleetDetail', () =>
+      supabase.from('bookings').select('id, user_id, start_date, end_date, status, profiles(full_name)')
+        .eq('moto_id', id).in('status', ['pending', 'active', 'reserved'])
+    , { moto_id: id })
     if (activeBookings?.length > 0) {
       setConfirm({ type: 'deactivate', title: `${activeBookings.length} aktivních rezervací`, message: 'Při deaktivaci budou stornovány. Pokračovat?',
         action: async () => {
           const newStatus = moto.status === 'out_of_service' ? 'active' : 'out_of_service'
-          await supabase.from('motorcycles').update({ status: newStatus }).eq('id', id)
-          if (newStatus !== 'active') {
-            for (const b of activeBookings) await supabase.from('bookings').update({ status: 'cancelled', notes: 'Motorka vyřazena' }).eq('id', b.id)
-          }
+          await debugAction('fleet.deactivate', 'FleetDetail', async () => {
+            await supabase.from('motorcycles').update({ status: newStatus }).eq('id', id)
+            if (newStatus !== 'active') {
+              for (const b of activeBookings) await supabase.from('bookings').update({ status: 'cancelled', notes: 'Motorka vyřazena' }).eq('id', b.id)
+            }
+            return { data: { status: newStatus, affected: activeBookings.length } }
+          }, { moto_id: id, newStatus })
           await logAudit('motorcycle_status_changed', { moto_id: id, status: newStatus, affected: activeBookings.length })
           setMoto(m => ({ ...m, status: newStatus })); setConfirm(null)
         },
@@ -63,13 +75,17 @@ export default function FleetDetail() {
       return
     }
     const newStatus = moto.status === 'out_of_service' ? 'active' : 'out_of_service'
-    await supabase.from('motorcycles').update({ status: newStatus }).eq('id', id)
+    await debugAction('fleet.toggleStatus', 'FleetDetail', () =>
+      supabase.from('motorcycles').update({ status: newStatus }).eq('id', id)
+    , { moto_id: id, newStatus })
     await logAudit('motorcycle_status_changed', { moto_id: id, status: newStatus })
     setMoto(m => ({ ...m, status: newStatus }))
   }
 
   async function handleDelete() {
-    await supabase.from('motorcycles').delete().eq('id', id)
+    await debugAction('fleet.delete', 'FleetDetail', () =>
+      supabase.from('motorcycles').delete().eq('id', id)
+    , { moto_id: id })
     await logAudit('motorcycle_deleted', { moto_id: id })
     navigate('/flotila')
   }
@@ -140,7 +156,10 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
       const { data } = await supabase.storage.from('media').list(`motos/${moto.id}/manual`)
       const file = data?.find(f => f.name !== '.emptyFolderPlaceholder')
       if (file) {
-        setManualUrl(supabase.storage.from('media').getPublicUrl(`motos/${moto.id}/manual/${file.name}`).data.publicUrl)
+        const url = supabase.storage.from('media').getPublicUrl(`motos/${moto.id}/manual/${file.name}`).data.publicUrl
+        setManualUrl(url)
+        // Sync manual_url to DB for app access
+        await supabase.from('motorcycles').update({ manual_url: url }).eq('id', moto.id)
       }
     } catch {}
   }
@@ -159,13 +178,16 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
   async function handleMigrate() {
     if (!migrateTo) return
     setMigrating(true)
-    await supabase.from('motorcycles').update({ branch_id: migrateTo }).eq('id', moto.id)
-    const { data: { user } } = await supabase.auth.getUser()
     const targetBranch = branches.find(b => b.id === migrateTo)
-    await supabase.from('admin_audit_log').insert({
-      admin_id: user?.id, action: 'motorcycle_migrated',
-      details: { moto_id: moto.id, from_branch: moto.branches?.name, to_branch: targetBranch?.name },
-    })
+    await debugAction('fleet.migrate', 'FleetDetail', async () => {
+      await supabase.from('motorcycles').update({ branch_id: migrateTo }).eq('id', moto.id)
+      const { data: { user } } = await supabase.auth.getUser()
+      await supabase.from('admin_audit_log').insert({
+        admin_id: user?.id, action: 'motorcycle_migrated',
+        details: { moto_id: moto.id, from_branch: moto.branches?.name, to_branch: targetBranch?.name },
+      })
+      return { data: { migrated: true } }
+    }, { moto_id: moto.id, to_branch: targetBranch?.name })
     setMigrating(false)
     setShowMigrate(false)
     onMotoReload()
@@ -184,6 +206,24 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
           <Field label="Barva" value={moto.color} onChange={v => set('color', v)} />
           <Field label="Datum pořízení" value={moto.acquired_at || ''} onChange={v => set('acquired_at', v)} type="date" />
           <Field label="Nájezd (km)" value={moto.mileage} onChange={v => set('mileage', v)} type="number" />
+          <Field label="Typ motoru" value={moto.engine_type} onChange={v => set('engine_type', v)} placeholder="např. boxer, řadový 4V" />
+          <Field label="Výkon (kW)" value={moto.power_kw} onChange={v => set('power_kw', v)} type="number" />
+          <Field label="Výkon (HP)" value={moto.power_hp} onChange={v => set('power_hp', v)} type="number" />
+          <Field label="Točivý moment (Nm)" value={moto.torque_nm} onChange={v => set('torque_nm', v)} type="number" />
+          <Field label="Hmotnost (kg)" value={moto.weight_kg} onChange={v => set('weight_kg', v)} type="number" />
+          <Field label="Nádrž (L)" value={moto.fuel_tank_l} onChange={v => set('fuel_tank_l', v)} type="number" />
+          <Field label="Výška sedla (mm)" value={moto.seat_height_mm} onChange={v => set('seat_height_mm', v)} type="number" />
+          <Field label="ŘP kategorie" value={moto.license_required} onChange={v => set('license_required', v)} placeholder="A, A2, A1" />
+          <div className="flex items-center gap-6">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={moto.has_abs || false} onChange={e => set('has_abs', e.target.checked)} />
+              <span className="text-xs font-bold" style={{ color: '#4a6357' }}>ABS</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={moto.has_asc || false} onChange={e => set('has_asc', e.target.checked)} />
+              <span className="text-xs font-bold" style={{ color: '#4a6357' }}>ASC</span>
+            </label>
+          </div>
           <div>
             <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Pobočka</label>
             <div className="flex items-center gap-2">
@@ -209,6 +249,31 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
                 </button>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Description & features */}
+        <div className="mt-5 space-y-3">
+          <div>
+            <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Popis motorky</label>
+            <textarea value={moto.description || ''} onChange={e => set('description', e.target.value)}
+              className="w-full rounded-btn text-sm outline-none" rows={3}
+              style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', resize: 'vertical' }}
+              placeholder="Popis motorky pro zákazníky…" />
+          </div>
+          <div>
+            <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Ideální použití (každé na nový řádek)</label>
+            <textarea value={(moto.ideal_usage || []).join('\n')} onChange={e => set('ideal_usage', e.target.value.split('\n').filter(Boolean))}
+              className="w-full rounded-btn text-sm outline-none" rows={3}
+              style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', resize: 'vertical' }}
+              placeholder="Cestování&#10;Adventure&#10;Offroad" />
+          </div>
+          <div>
+            <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Vlastnosti / Features (každá na nový řádek)</label>
+            <textarea value={(moto.features || []).join('\n')} onChange={e => set('features', e.target.value.split('\n').filter(Boolean))}
+              className="w-full rounded-btn text-sm outline-none" rows={3}
+              style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', resize: 'vertical' }}
+              placeholder="Vyhřívaná madla&#10;Cruise control&#10;Tempomat" />
           </div>
         </div>
 
@@ -271,11 +336,11 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
   )
 }
 
-function Field({ label, value, onChange, type = 'text', disabled = false }) {
+function Field({ label, value, onChange, type = 'text', disabled = false, placeholder = '' }) {
   return (
     <div>
       <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{label}</label>
-      <input type={type} value={value || ''} onChange={e => onChange?.(e.target.value)} disabled={disabled} className="w-full rounded-btn text-sm outline-none disabled:opacity-50" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
+      <input type={type} value={value || ''} onChange={e => onChange?.(e.target.value)} disabled={disabled} placeholder={placeholder} className="w-full rounded-btn text-sm outline-none disabled:opacity-50" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
     </div>
   )
 }

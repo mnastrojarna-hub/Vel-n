@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { debugAction } from '../../lib/debugLog'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import SOSTimeline from './SOSTimeline'
@@ -66,7 +67,9 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
   }
 
   async function assignAdmin(adminId) {
-    await supabase.from('sos_incidents').update({ assigned_to: adminId || null }).eq('id', incident.id)
+    await debugAction('sos.assignAdmin', 'SOSDetailPanel', () =>
+      supabase.from('sos_incidents').update({ assigned_to: adminId || null }).eq('id', incident.id)
+    , { incident_id: incident.id, admin_id: adminId })
     const { data: { user } } = await supabase.auth.getUser()
     const adminName = admins.find(a => a.id === adminId)?.name || 'admin'
     await supabase.from('sos_timeline').insert({
@@ -78,7 +81,9 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
   }
 
   async function updateDecision(decision) {
-    await supabase.from('sos_incidents').update({ customer_decision: decision }).eq('id', incident.id)
+    await debugAction('sos.updateDecision', 'SOSDetailPanel', () =>
+      supabase.from('sos_incidents').update({ customer_decision: decision }).eq('id', incident.id)
+    , { incident_id: incident.id, decision })
     const { data: { user } } = await supabase.auth.getUser()
     await supabase.from('sos_timeline').insert({
       incident_id: incident.id,
@@ -89,7 +94,9 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
   }
 
   async function updateFault(isFault) {
-    await supabase.from('sos_incidents').update({ customer_fault: isFault }).eq('id', incident.id)
+    await debugAction('sos.updateFault', 'SOSDetailPanel', () =>
+      supabase.from('sos_incidents').update({ customer_fault: isFault }).eq('id', incident.id)
+    , { incident_id: incident.id, customer_fault: isFault })
     const { data: { user } } = await supabase.auth.getUser()
     await supabase.from('sos_timeline').insert({
       incident_id: incident.id,
@@ -100,7 +107,9 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
   }
 
   async function saveField(field, value) {
-    await supabase.from('sos_incidents').update({ [field]: value }).eq('id', incident.id)
+    await debugAction('sos.saveField', 'SOSDetailPanel', () =>
+      supabase.from('sos_incidents').update({ [field]: value }).eq('id', incident.id)
+    , { incident_id: incident.id, field, value })
   }
 
   async function sendMessage() {
@@ -123,10 +132,13 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
       }
 
       if (thread) {
-        await supabase.from('messages').insert({
+        const msgData = {
           thread_id: thread.id, direction: 'admin', sender_name: 'Admin (SOS)',
           content: message.trim(), read_at: new Date().toISOString(),
-        })
+        }
+        await debugAction('sos.sendMessage', 'SOSDetailPanel', () =>
+          supabase.from('messages').insert(msgData)
+        , { incident_id: incident.id, customer_id: customer.id, content: message.trim() })
         await supabase.from('message_threads').update({ last_message_at: new Date().toISOString() }).eq('id', thread.id)
       }
 

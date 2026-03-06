@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { debugAction } from '../../lib/debugLog'
 
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
@@ -96,11 +97,15 @@ function SupplierModal({ entry, onClose, onSaved }) {
     setSaving(true); setErr(null)
     try {
       if (entry) {
-        const { error } = await supabase.from('suppliers').update(form).eq('id', entry.id)
-        if (error) throw error
+        const result = await debugAction('supplier.update', 'SupplierModal', () =>
+          supabase.from('suppliers').update(form).eq('id', entry.id)
+        , form)
+        if (result?.error) throw result.error
       } else {
-        const { error } = await supabase.from('suppliers').insert(form)
-        if (error) throw error
+        const result = await debugAction('supplier.create', 'SupplierModal', () =>
+          supabase.from('suppliers').insert(form)
+        , form)
+        if (result?.error) throw result.error
       }
       onSaved()
     } catch (e) { setErr(e.message) } finally { setSaving(false) }

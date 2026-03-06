@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { debugAction } from '../../lib/debugLog'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 
@@ -20,9 +21,13 @@ export default function DataBoxTab() {
     setSaving(true)
     const { data: existing } = await supabase.from('cms_variables').select('id').eq('key', 'datove_schranky_id').single()
     if (existing) {
-      await supabase.from('cms_variables').update({ value: dsId }).eq('id', existing.id)
+      await debugAction('dataBox.update', 'DataBoxTab', () =>
+        supabase.from('cms_variables').update({ value: dsId }).eq('id', existing.id)
+      , { key: 'datove_schranky_id', value: dsId })
     } else {
-      await supabase.from('cms_variables').insert({ key: 'datove_schranky_id', value: dsId, group: 'general' })
+      await debugAction('dataBox.create', 'DataBoxTab', () =>
+        supabase.from('cms_variables').insert({ key: 'datove_schranky_id', value: dsId, group: 'general' })
+      , { key: 'datove_schranky_id', value: dsId })
     }
     setSaving(false)
   }

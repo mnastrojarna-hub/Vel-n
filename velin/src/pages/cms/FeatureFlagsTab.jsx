@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { debugAction } from '../../lib/debugLog'
 import Card from '../../components/ui/Card'
 
 export default function FeatureFlagsTab() {
@@ -22,12 +23,11 @@ export default function FeatureFlagsTab() {
 
   async function toggle(flag) {
     const newEnabled = !flag.enabled
-    const { error } = await supabase
-      .from('feature_flags')
-      .update({ enabled: newEnabled })
-      .eq('id', flag.id)
-    if (error) {
-      setError(error.message)
+    const result = await debugAction('featureFlag.toggle', 'FeatureFlagsTab', () =>
+      supabase.from('feature_flags').update({ enabled: newEnabled }).eq('id', flag.id)
+    , { flag_id: flag.id, flag_name: flag.name, enabled: newEnabled })
+    if (result?.error) {
+      setError(result.error.message)
       return
     }
     setFlags(f => f.map(fl => fl.id === flag.id ? { ...fl, enabled: newEnabled } : fl))

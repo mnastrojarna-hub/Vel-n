@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { debugAction } from '../lib/debugLog'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
 import Button from '../components/ui/Button'
 import StatusBadge from '../components/ui/StatusBadge'
@@ -29,20 +30,21 @@ export default function Bookings() {
     setLoading(true)
     setError(null)
     try {
-      let query = supabase
-        .from('bookings')
-        .select('*, motorcycles(model, spz), profiles(full_name, email, phone)', { count: 'exact' })
-      if (filters.status) query = query.eq('status', filters.status)
-      if (filters.dateFrom) query = query.gte('start_date', filters.dateFrom)
-      if (filters.dateTo) query = query.lte('end_date', filters.dateTo)
-      if (filters.search) {
-        query = query.or(`motorcycles.model.ilike.%${filters.search}%,profiles.full_name.ilike.%${filters.search}%`)
-      }
-      query = query.order('start_date', { ascending: false }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
-      const { data, count, error: err } = await query
-      if (err) throw err
-      setBookings(data || [])
-      setTotal(count || 0)
+      const result = await debugAction('bookings.load', 'Bookings', () => {
+        let query = supabase
+          .from('bookings')
+          .select('*, motorcycles(model, spz), profiles(full_name, email, phone)', { count: 'exact' })
+        if (filters.status) query = query.eq('status', filters.status)
+        if (filters.dateFrom) query = query.gte('start_date', filters.dateFrom)
+        if (filters.dateTo) query = query.lte('end_date', filters.dateTo)
+        if (filters.search) {
+          query = query.or(`motorcycles.model.ilike.%${filters.search}%,profiles.full_name.ilike.%${filters.search}%`)
+        }
+        return query.order('start_date', { ascending: false }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
+      }, { page, filters })
+      if (result?.error) throw result.error
+      setBookings(result?.data || [])
+      setTotal(result?.count || 0)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -344,8 +346,10 @@ function AddBookingModal({ onClose, onSaved }) {
     setSaving(true)
     setErr(null)
     try {
-      const { error } = await supabase.from('bookings').insert({ ...form, total_price: Number(form.total_price) || 0 })
-      if (error) throw error
+      const result = await debugAction('bookings.create', 'AddBookingModal', () =>
+        supabase.from('bookings').insert({ ...form, total_price: Number(form.total_price) || 0 })
+      , form)
+      if (result?.error) throw result.error
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'booking_created', details: { moto_id: form.moto_id } })
       onSaved()

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { debugAction } from '../lib/debugLog'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import SOSDetailPanel from './sos/SOSDetailPanel'
@@ -97,49 +98,57 @@ export default function SOSPanel() {
   async function load() {
     setLoading(true)
     try {
-      const { data } = await supabase
-        .from('sos_incidents')
-        .select('*, profiles(full_name, phone, email), bookings(id, moto_id, start_date, end_date, status, motorcycles(model, spz, branch_id, branches(name)))')
-        .in('status', ['reported', 'acknowledged', 'in_progress'])
-        .order('created_at', { ascending: false })
-      const { data: resolved } = await supabase
-        .from('sos_incidents')
-        .select('*, profiles(full_name, phone, email), bookings(id, moto_id, start_date, end_date, status, motorcycles(model, spz, branch_id, branches(name)))')
-        .in('status', ['resolved', 'closed'])
-        .order('created_at', { ascending: false })
-        .limit(10)
+      const { data } = await debugAction('load_active_incidents', 'SOSPanel', () =>
+        supabase
+          .from('sos_incidents')
+          .select('*, profiles(full_name, phone, email), bookings(id, moto_id, start_date, end_date, status, motorcycles(model, spz, branch_id, branches(name)))')
+          .in('status', ['reported', 'acknowledged', 'in_progress'])
+          .order('created_at', { ascending: false })
+      )
+      const { data: resolved } = await debugAction('load_resolved_incidents', 'SOSPanel', () =>
+        supabase
+          .from('sos_incidents')
+          .select('*, profiles(full_name, phone, email), bookings(id, moto_id, start_date, end_date, status, motorcycles(model, spz, branch_id, branches(name)))')
+          .in('status', ['resolved', 'closed'])
+          .order('created_at', { ascending: false })
+          .limit(10)
+      )
       setIncidents([...(data || []), ...(resolved || [])])
     } catch {}
     setLoading(false)
   }
 
   async function updateStatus(id, newStatus) {
-    const updates = { status: newStatus }
-    if (newStatus === 'resolved') {
+    await debugAction('updateStatus', 'SOSPanel', async () => {
+      const updates = { status: newStatus }
+      if (newStatus === 'resolved') {
+        const { data: { user } } = await supabase.auth.getUser()
+        updates.resolved_at = new Date().toISOString()
+        updates.resolved_by = user?.id
+      }
+      await supabase.from('sos_incidents').update(updates).eq('id', id)
       const { data: { user } } = await supabase.auth.getUser()
-      updates.resolved_at = new Date().toISOString()
-      updates.resolved_by = user?.id
-    }
-    await supabase.from('sos_incidents').update(updates).eq('id', id)
-    const { data: { user } } = await supabase.auth.getUser()
-    await supabase.from('sos_timeline').insert({
-      incident_id: id,
-      action: `Stav změněn na: ${STATUS_COLORS[newStatus]?.label || newStatus}`,
-      performed_by: user?.email || 'Admin',
-      admin_id: user?.id,
-    })
-    await supabase.from('admin_audit_log').insert({
-      admin_id: user?.id, action: 'sos_status_changed',
-      details: { incident_id: id, new_status: newStatus },
-    })
+      await supabase.from('sos_timeline').insert({
+        incident_id: id,
+        action: `Stav změněn na: ${STATUS_COLORS[newStatus]?.label || newStatus}`,
+        performed_by: user?.email || 'Admin',
+        admin_id: user?.id,
+      })
+      await supabase.from('admin_audit_log').insert({
+        admin_id: user?.id, action: 'sos_status_changed',
+        details: { incident_id: id, new_status: newStatus },
+      })
+    }, { id, newStatus })
     load()
   }
 
   async function addTimelineEntry(id, action) {
-    const { data: { user } } = await supabase.auth.getUser()
-    await supabase.from('sos_timeline').insert({
-      incident_id: id, action, performed_by: user?.email || 'Admin', admin_id: user?.id,
-    })
+    await debugAction('addTimelineEntry', 'SOSPanel', async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      await supabase.from('sos_timeline').insert({
+        incident_id: id, action, performed_by: user?.email || 'Admin', admin_id: user?.id,
+      })
+    }, { id, action })
   }
 
   if (loading && incidents.length === 0) {

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { debugAction } from '../../lib/debugLog'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
@@ -123,11 +124,11 @@ function EditTemplateModal({ template, onClose, onSaved }) {
     try {
       const newVersion = (template.version || 1) + 1
       const { data: { user } } = await supabase.auth.getUser()
-      const { error } = await supabase
-        .from('document_templates')
-        .update({ name, html_content: content, version: newVersion, updated_by: user?.id })
-        .eq('id', template.id)
-      if (error) throw error
+      const updatePayload = { name, html_content: content, version: newVersion, updated_by: user?.id }
+      const result = await debugAction('template.update', 'EditTemplateModal', () =>
+        supabase.from('document_templates').update(updatePayload).eq('id', template.id)
+      , updatePayload)
+      if (result?.error) throw result.error
       await supabase.from('admin_audit_log').insert({
         admin_id: user?.id, action: 'template_updated', details: { template_id: template.id, version: newVersion },
       })
@@ -142,8 +143,10 @@ function EditTemplateModal({ template, onClose, onSaved }) {
     try {
       const version = (template.version || 1) + 1
       const path = `templates/${template.id}_v${version}.pdf`
-      const { error: upErr } = await supabase.storage.from('documents').upload(path, file, { upsert: true })
-      if (upErr) throw upErr
+      const uploadResult = await debugAction('template.pdfUpload', 'EditTemplateModal', () =>
+        supabase.storage.from('documents').upload(path, file, { upsert: true })
+      , { template_id: template.id, path, fileName: file.name })
+      if (uploadResult?.error) throw uploadResult.error
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({
         admin_id: user?.id, action: 'template_pdf_uploaded', details: { template_id: template.id, path },

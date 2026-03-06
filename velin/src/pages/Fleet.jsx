@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { debugAction } from '../lib/debugLog'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
 import Button from '../components/ui/Button'
 import StatusBadge from '../components/ui/StatusBadge'
@@ -43,20 +44,17 @@ export default function Fleet() {
     setLoading(true)
     setError(null)
     try {
-      let query = supabase
-        .from('motorcycles')
-        .select('*, branches(name)', { count: 'exact' })
-
-      if (filters.status) query = query.eq('status', filters.status)
-      if (filters.branch) query = query.eq('branch_id', filters.branch)
-      if (filters.category) query = query.eq('category', filters.category)
-      if (filters.search) query = query.or(`model.ilike.%${filters.search}%,spz.ilike.%${filters.search}%`)
-
-      query = query.order('model').range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
-      const { data, count, error: err } = await query
-      if (err) throw err
-      setMotos(data || [])
-      setTotal(count || 0)
+      const result = await debugAction('fleet.load', 'Fleet', () => {
+        let query = supabase.from('motorcycles').select('*, branches(name)', { count: 'exact' })
+        if (filters.status) query = query.eq('status', filters.status)
+        if (filters.branch) query = query.eq('branch_id', filters.branch)
+        if (filters.category) query = query.eq('category', filters.category)
+        if (filters.search) query = query.or(`model.ilike.%${filters.search}%,spz.ilike.%${filters.search}%`)
+        return query.order('model').range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
+      }, { page, filters })
+      if (result?.error) throw result.error
+      setMotos(result?.data || [])
+      setTotal(result?.count || 0)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -187,17 +185,19 @@ function AddMotoModal({ branches, onClose, onSaved }) {
     setSaving(true)
     setErr(null)
     try {
-      // 1. Vytvoř motorku
-      const { data: newMoto, error } = await supabase.from('motorcycles').insert({
+      const motoData = {
         model: form.model, spz: form.spz, vin: form.vin,
         category: form.category, status: form.status,
         acquired_at: form.acquired_at || null,
         mileage: Number(form.mileage) || 0,
         branch_id: form.branch_id || null,
         stk_valid_until: form.stk_valid_until || null,
-      }).select().single()
-
-      if (error) throw error
+      }
+      const result = await debugAction('fleet.create', 'AddMotoModal', () =>
+        supabase.from('motorcycles').insert(motoData).select().single()
+      , motoData)
+      if (result?.error) throw result.error
+      const newMoto = result?.data
 
       // 2. Automaticky vytvoř servisní plány
       if (newMoto && form.oil_interval_km) {
