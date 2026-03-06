@@ -115,7 +115,7 @@ export async function storeInvoicePdf(invoiceId, html) {
 export async function loadInvoiceData(invoiceId) {
   const { data, error } = await supabase
     .from('invoices')
-    .select('*, profiles:customer_id(full_name, email, phone, address, ico, dic), bookings:booking_id(id, start_date, end_date, total_price, motorcycles(model, spz))')
+    .select('*, profiles:customer_id(full_name, email, phone, street, city, zip, country, ico, dic), bookings:booking_id(id, start_date, end_date, total_price, motorcycles(model, spz))')
     .eq('id', invoiceId)
     .single()
 

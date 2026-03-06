@@ -41,7 +41,7 @@ serve(async (req) => {
     // Load booking with relations
     const { data: booking, error: bErr } = await supabase
       .from('bookings')
-      .select('*, motorcycles(model, spz), profiles(id, full_name, email, phone, address, ico, dic)')
+      .select('*, motorcycles(model, spz), profiles(id, full_name, email, phone, street, city, zip, country, ico, dic)')
       .eq('id', booking_id).single()
     if (bErr || !booking) return new Response(JSON.stringify({ error: 'Booking not found' }), { status: 404 })
 
@@ -131,7 +131,7 @@ serve(async (req) => {
     <div style="flex:1;padding:14px;background:#f8faf9;border-radius:8px">
       <p style="margin:0 0 6px;font-size:10px;font-weight:700;text-transform:uppercase;color:#888">Odběratel</p>
       <p style="margin:0;font-size:13px;font-weight:700">${customer.full_name || '—'}</p>
-      <p style="margin:2px 0;font-size:11px">${customer.address || ''}</p>
+      <p style="margin:2px 0;font-size:11px">${[customer.street, customer.city, customer.zip, customer.country].filter(Boolean).join(', ') || ''}</p>
       <p style="margin:2px 0;font-size:11px">${customer.email || ''}</p>
     </div>
   </div>

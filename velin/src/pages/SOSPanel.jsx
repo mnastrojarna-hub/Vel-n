@@ -57,7 +57,7 @@ export default function SOSPanel() {
   const [selectedIncident, setSelectedIncident] = useState(null)
   const [notifyEnabled, setNotifyEnabled] = useState(false)
   const [filter, setFilter] = useState('active')
-  const [severityFilter, setSeverityFilter] = useState('light')
+  const [severityFilter, setSeverityFilter] = useState('all_sev')
 
   useEffect(() => {
     load()
