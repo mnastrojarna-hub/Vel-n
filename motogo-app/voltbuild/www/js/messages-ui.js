@@ -97,7 +97,7 @@ function showMsgNotification(msg){
   }
   updateMsgBadge();
 
-  // Native notification (Cordova local notification)
+  // Native notification — plugin removed (Gradle incompatible)
   if(window.cordova && window.cordova.plugins &&
      window.cordova.plugins.notification &&
      window.cordova.plugins.notification.local){
@@ -110,6 +110,8 @@ function showMsgNotification(msg){
       foreground: true,
       lockscreen: true
     });
+  } else {
+    console.log('[Notify] No native plugin, in-app only:', title);
   }
 }
 
