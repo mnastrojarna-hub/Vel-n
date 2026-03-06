@@ -45,7 +45,7 @@ export default function Fleet() {
     setError(null)
     try {
       const result = await debugAction('fleet.load', 'Fleet', () => {
-        let query = supabase.from('motorcycles').select('*, branches(name)', { count: 'exact' })
+        let query = supabase.from('motorcycles').select('*, branches(name), image_url, images', { count: 'exact' })
         if (filters.status) query = query.eq('status', filters.status)
         if (filters.branch) query = query.eq('branch_id', filters.branch)
         if (filters.category) query = query.eq('category', filters.category)
@@ -119,18 +119,27 @@ export default function Fleet() {
           <Table>
             <thead>
               <TRow header>
-                <TH>Model</TH><TH>SPZ</TH><TH>Kategorie</TH><TH>Pobočka</TH>
+                <TH>Foto</TH><TH>Model</TH><TH>SPZ</TH><TH>Kategorie</TH><TH>Pobočka</TH>
                 <TH>Status</TH><TH>Km</TH><TH>Pořízeno</TH><TH>Další servis</TH>
               </TRow>
             </thead>
             <tbody>
-              {motos.map(m => (
+              {motos.map(m => {
+                const thumb = m.image_url || (m.images && m.images[0]) || null
+                return (
                 <tr
                   key={m.id}
                   onClick={() => navigate(`/flotila/${m.id}`)}
                   className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
                   style={{ borderBottom: '1px solid #d4e8e0' }}
                 >
+                  <TD>
+                    {thumb ? (
+                      <img src={thumb} alt={m.model} style={{ width: 48, height: 36, objectFit: 'cover', borderRadius: 6, background: '#f1faf7' }} />
+                    ) : (
+                      <div style={{ width: 48, height: 36, borderRadius: 6, background: '#f1faf7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: '#8aab99' }}>🏍️</div>
+                    )}
+                  </TD>
                   <TD bold>{m.model}</TD>
                   <TD mono>{m.spz}</TD>
                   <TD>{m.category || '—'}</TD>
@@ -140,7 +149,8 @@ export default function Fleet() {
                   <TD>{m.acquired_at ? new Date(m.acquired_at).toLocaleDateString('cs-CZ') : '—'}</TD>
                   <TD>{m.next_service_date || '—'}</TD>
                 </tr>
-              ))}
+                )
+              })}
               {motos.length === 0 && (
                 <TRow><TD>Žádné motorky</TD></TRow>
               )}

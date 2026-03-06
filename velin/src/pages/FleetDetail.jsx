@@ -357,31 +357,103 @@ function Field({ label, value, onChange, type = 'text', disabled = false, placeh
 
 function PhotoGallery({ motoId }) {
   const [photos, setPhotos] = useState([])
+  const [dbImages, setDbImages] = useState([])
   const [uploading, setUploading] = useState(false)
-  useEffect(() => { loadPhotos() }, [motoId])
-  async function loadPhotos() {
-    try { const { data } = await supabase.storage.from('media').list(`motos/${motoId}`); if (data) setPhotos(data.filter(f => f.name !== '.emptyFolderPlaceholder' && f.name !== 'manual')) } catch { setPhotos([]) }
+  const [urlInput, setUrlInput] = useState('')
+  const [showUrlInput, setShowUrlInput] = useState(false)
+
+  useEffect(() => { loadPhotos(); loadDbImages() }, [motoId])
+
+  async function loadDbImages() {
+    try {
+      const { data } = await supabase.from('motorcycles').select('image_url, images').eq('id', motoId).single()
+      if (data) setDbImages(data.images || [])
+    } catch {}
   }
+
+  async function syncToDb(urls) {
+    await supabase.from('motorcycles').update({
+      image_url: urls[0] || null,
+      images: urls
+    }).eq('id', motoId)
+    setDbImages(urls)
+  }
+
+  async function loadPhotos() {
+    try {
+      const { data } = await supabase.storage.from('media').list(`motos/${motoId}`)
+      if (data) setPhotos(data.filter(f => f.name !== '.emptyFolderPlaceholder' && f.name !== 'manual'))
+    } catch { setPhotos([]) }
+  }
+
   async function handleUpload(e) {
     const file = e.target.files?.[0]; if (!file) return; setUploading(true)
-    await supabase.storage.from('media').upload(`motos/${motoId}/${file.name}`, file); await loadPhotos(); setUploading(false)
+    await supabase.storage.from('media').upload(`motos/${motoId}/${file.name}`, file)
+    await loadPhotos()
+    const url = getUrl(file.name)
+    const updated = [...dbImages, url]
+    await syncToDb(updated)
+    setUploading(false)
   }
+
+  async function handleAddUrl() {
+    const url = urlInput.trim(); if (!url) return
+    const updated = [...dbImages, url]
+    await syncToDb(updated)
+    setUrlInput(''); setShowUrlInput(false)
+  }
+
+  async function handleRemoveImage(url, storageName) {
+    if (storageName) {
+      await supabase.storage.from('media').remove([`motos/${motoId}/${storageName}`])
+      await loadPhotos()
+    }
+    const updated = dbImages.filter(u => u !== url)
+    await syncToDb(updated)
+  }
+
   const getUrl = (name) => supabase.storage.from('media').getPublicUrl(`motos/${motoId}/${name}`).data.publicUrl
+
+  const allImages = [...new Set([...dbImages, ...photos.map(p => getUrl(p.name))])]
+
   return (
     <div className="mt-5">
       <div className="flex items-center gap-3 mb-2">
-        <span className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>Fotogalerie</span>
+        <span className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>Fotogalerie ({allImages.length})</span>
         <label className="rounded-btn text-xs font-extrabold cursor-pointer" style={{ padding: '4px 14px', background: '#f1faf7', color: '#4a6357' }}>
           {uploading ? 'Nahrávám…' : '+ Foto'}<input type="file" accept="image/*" onChange={handleUpload} className="hidden" />
         </label>
+        <button onClick={() => setShowUrlInput(!showUrlInput)} className="rounded-btn text-xs font-extrabold cursor-pointer"
+          style={{ padding: '4px 14px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>
+          + URL
+        </button>
       </div>
+      {showUrlInput && (
+        <div className="flex gap-2 mb-2">
+          <input type="url" value={urlInput} onChange={e => setUrlInput(e.target.value)}
+            placeholder="https://..."
+            className="flex-1 rounded-btn text-sm outline-none"
+            style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0' }}
+            onKeyDown={e => e.key === 'Enter' && handleAddUrl()} />
+          <button onClick={handleAddUrl} className="rounded-btn text-xs font-extrabold cursor-pointer"
+            style={{ padding: '6px 12px', background: '#74FB71', color: '#1a2e22', border: 'none' }}>
+            Přidat
+          </button>
+        </div>
+      )}
       <div className="flex flex-wrap gap-2">
-        {photos.map(p => (
-          <div key={p.name} className="relative group" style={{ width: 80, height: 80 }}>
-            <img src={getUrl(p.name)} alt={p.name} className="w-full h-full object-cover rounded-lg" />
-            <button onClick={async () => { await supabase.storage.from('media').remove([`motos/${motoId}/${p.name}`]); await loadPhotos() }} className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 cursor-pointer" style={{ background: 'rgba(220,38,38,.8)', color: '#fff', border: 'none', borderRadius: 50, width: 18, height: 18, fontSize: 9 }}>✕</button>
-          </div>
-        ))}
+        {allImages.map((url, i) => {
+          const storagePhoto = photos.find(p => getUrl(p.name) === url)
+          return (
+            <div key={url} className="relative group" style={{ width: 80, height: 80 }}>
+              {i === 0 && <div className="absolute top-1 left-1 z-10" style={{ background: '#74FB71', color: '#1a2e22', borderRadius: 4, padding: '1px 4px', fontSize: 8, fontWeight: 800 }}>HLAVNÍ</div>}
+              <img src={url} alt={`Foto ${i + 1}`} className="w-full h-full object-cover rounded-lg" />
+              <button onClick={() => handleRemoveImage(url, storagePhoto?.name)}
+                className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 cursor-pointer"
+                style={{ background: 'rgba(220,38,38,.8)', color: '#fff', border: 'none', borderRadius: 50, width: 18, height: 18, fontSize: 9 }}>✕</button>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
