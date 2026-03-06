@@ -1,7 +1,7 @@
 {
   "name": "motogo24-velin",
   "private": true,
-  "version": "1.0.0",
+  "version": "5.5.0",
   "type": "module",
   "scripts": {
     "start": "vite",
