@@ -6,7 +6,7 @@ var _currentPaymentMethod = 'card';
 var _paymentAttempts = 0;
 var _paymentTimeout = null;
 var _MAX_PAYMENT_ATTEMPTS = 3;
-var _PAYMENT_TIMEOUT_MS = 120000; // 2 minutes
+var _PAYMENT_TIMEOUT_MS = 300000; // 5 minutes
 
 // Called from booking form "Pokračovat k platbě"
 async function proceedToPayment(){
