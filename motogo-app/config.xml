@@ -66,7 +66,7 @@
     <plugin name="cordova-plugin-fingerprint-aio" spec="^6.0.0" />
     <plugin name="cordova-plugin-inappbrowser" spec="^6.0.0" />
     <plugin name="cordova-plugin-file" spec="^8.1.2" />
-    <plugin name="cordova-plugin-local-notification" spec="^0.9.0-beta.4" />
+    <plugin name="cordova-plugin-local-notification-12" spec="^0.0.3" />
 
     <engine name="android" spec="^13.0.0" />
 </widget>
