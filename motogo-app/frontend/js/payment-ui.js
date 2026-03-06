@@ -247,6 +247,19 @@ async function _autoCancelUnpaid(bookingId, reason){
   if(_paymentTimeout){ clearTimeout(_paymentTimeout); _paymentTimeout = null; }
   try {
     if(window.supabase && bookingId){
+      // Restore any applied voucher codes back to 'active' so they can be reused
+      if(appliedCode){
+        var codes = appliedCode.split(',');
+        for(var ci = 0; ci < codes.length; ci++){
+          var c = codes[ci].trim();
+          if(!c) continue;
+          try {
+            await window.supabase.from('vouchers')
+              .update({ status: 'active', redeemed_at: null, redeemed_by: null, booking_id: null, updated_at: new Date().toISOString() })
+              .eq('code', c).eq('status', 'redeemed');
+          } catch(ve){ console.warn('[PAY] voucher restore failed for', c, ve); }
+        }
+      }
       await window.supabase.from('bookings').update({
         status: 'cancelled',
         cancelled_by_source: 'unpaid_auto',
@@ -255,6 +268,10 @@ async function _autoCancelUnpaid(bookingId, reason){
       }).eq('id', bookingId).eq('payment_status', 'unpaid');
     }
   } catch(e){ console.error('[PAY] autoCancelUnpaid:', e); }
+  appliedCode = null;
+  _appliedPromoId = null;
+  _appliedCodes = [];
+  discountAmt = 0;
   _currentBookingId = null;
   _paymentAttempts = 0;
   showT('✗', _t('pay').declined||'Rezervace zrušena', 'Rezervace byla automaticky zrušena pro nezaplacení');
