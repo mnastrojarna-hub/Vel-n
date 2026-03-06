@@ -83,6 +83,16 @@ MOTOS = MOTOS.concat([
    branch:'mezna',manual:'KTM_SX65_Navod.pdf',
    price:'1 000 Kč',vyuziti:['teren','zacatecnici']},
 
+  {id:'ktm-50',name:'KTM 50 SX',loc:'Mezná 9, 393 01 Mezná · 2021',
+   img:'photos/ktm-50_1.jpg',
+   imgs:['photos/ktm-50_1.jpg','photos/ktm-50_2.jpg','photos/ktm-50_3.jpg'],avail:true,cat:'detske',rp:'N',vykon:3,
+   desc:'Nejmenší KTM v naší flotile – závodní geny v miniaturním balení. KTM 50 SX je dětská motokrosová motorka pro děti od 4 let. Dvoutaktní motor, hydraulická spojka a WP odpružení.',
+   specs:[{l:'Motor',v:'49 cc dvoutakt'},{l:'Výkon',v:'cca 3 kW'},{l:'Převodovka',v:'Automatická'},{l:'Hmotnost',v:'28 kg'},{l:'Sedlo',v:'557 mm'},{l:'Věk',v:'4–10 let'},{l:'ŘP',v:'Nevyžaduje'},{l:'Bezpečnost',v:'Omezovač plynu'}],
+   feats:['Dětský motokros – od 4 let','Závodní KTM geny','Automatická převodovka','WP odpružení','Omezovač plynu pro rodiče'],
+   pricing:{po:1000,ut:1000,st:1000,ct:1000,pa:1200,so:1200,ne:1200},
+   branch:'mezna',manual:'KTM_50SX_Navod.pdf',
+   price:'1 000 Kč',vyuziti:['teren','zacatecnici']},
+
   {id:'triumph-tiger',name:'Triumph Tiger 1200 Explorer',loc:'Mezná 9, 393 01 Mezná · 2018',
    img:'photos/triumph-tiger_1.jpg',
    imgs:['photos/triumph-tiger_1.jpg','photos/triumph-tiger_2.jpg','photos/triumph-tiger_3.jpg','photos/triumph-tiger_4.jpg','photos/triumph-tiger_5.jpg'],avail:true,cat:'cestovni',rp:'A',vykon:96,

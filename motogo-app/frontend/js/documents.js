@@ -309,6 +309,16 @@ async function renderInvoicesPage(){
 
 // ===== DOWNLOAD MANUAL =====
 function downloadManual(m){
+  // Pokud je manual_url z Velínu (PDF z Supabase storage), otevři přímo
+  if(m.manual && (m.manual.startsWith('http://') || m.manual.startsWith('https://'))){
+    showT('📖','Otevírám PDF…',m.name);
+    if(window.cordova && window.cordova.InAppBrowser){
+      window.cordova.InAppBrowser.open(m.manual, '_system');
+    } else {
+      window.open(m.manual, '_blank');
+    }
+    return;
+  }
   showT('⬇️',_t('common').downloading,'...');
   var sp=(m.specs||[]).map(function(s){return s.l+': '+s.v;}).join('\n');
   var ft=(m.feats||[]).join('\n- ');

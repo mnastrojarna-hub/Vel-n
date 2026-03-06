@@ -617,6 +617,10 @@ async function enrichMOTOS(){
         stk_valid_until: db.stk_valid_until,
       };
 
+      // Fotky z Velínu (Supabase storage) mají přednost před statickými
+      if(db.image_url) m.img = db.image_url;
+      if(db.images && db.images.length) m.imgs = db.images;
+
       // Aktualizuj specs z DB (pokud jsou vyplněny ve Velínu)
       if(db.engine_type || db.power_kw || db.torque_nm || db.weight_kg){
         var dbSpecs = [];

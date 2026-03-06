@@ -30,6 +30,10 @@ function goTo(id){
   if(cur==='s-booking')bookingFromDetail=false;
   // Stop scanner camera when leaving scan screen
   if(cur==='s-doc-scan'&&typeof DocScanner!=='undefined') DocScanner.stopCamera();
+  // Leaving payment screen without paying – keep auto-cancel timer running
+  if(cur==='s-payment'&&id!=='s-success'&&typeof _currentBookingId!=='undefined'&&_currentBookingId){
+    console.log('[NAV] Left payment without paying – auto-cancel timer still active');
+  }
 
   // --- State resets on navigation (BUG 2/3/4/5) ---
   // Full reset when going home or to search – clean start
