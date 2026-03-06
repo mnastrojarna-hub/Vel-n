@@ -115,34 +115,30 @@ async function renderInvoices(){
     var wrap = document.getElementById('invoices-list');
     if(!wrap) return;
     var docs = await apiFetchDocuments();
-    if(!docs || docs.length === 0){
-      wrap.innerHTML = '<div style="text-align:center;padding:30px;color:var(--g400);">'+_t('common').noDocuments+'</div>';
+    // Filter only invoice types
+    var invoices = (docs || []).filter(function(d){
+      return d.type === 'invoice_advance' || d.type === 'invoice_final';
+    });
+    if(invoices.length === 0){
+      wrap.innerHTML = '<div style="text-align:center;padding:30px;color:var(--g400);">'+(_t('common').noDocuments||'Zatím žádné faktury')+'</div>';
       return;
     }
-    // Group by year
     var years = {};
-    docs.forEach(function(d){
+    invoices.forEach(function(d){
       var y = new Date(d.created_at || d.date).getFullYear();
       if(!years[y]) years[y] = [];
       years[y].push(d);
     });
-    var typeIcons = {
-      contract:'📄', invoice_advance:'🧾',
-      invoice_final:'💰', protocol:'📋'
-    };
-    var typeLabels = {
-      contract:_t('doc').contractLabel, invoice_advance:_t('doc').invoiceAdvance,
-      invoice_final:_t('doc').invoiceFinal, protocol:_t('doc').protocolLabel
-    };
     var html = '';
     Object.keys(years).sort(function(a,b){return b-a;}).forEach(function(yr){
       html += '<div class="msec-t" style="padding:'+(html?'12':'0')+'px 0 8px;">'+yr+'</div>';
       years[yr].forEach(function(d){
         var dateFmt = new Date(d.date || d.created_at).toLocaleDateString('cs-CZ');
-        var icon = typeIcons[d.type] || '📎';
-        var label = typeLabels[d.type] || d.type;
+        var icon = d.type === 'invoice_advance' ? '🧾' : '💰';
+        var label = d.type === 'invoice_advance' ? (_t('doc').invoiceAdvance||'Zálohová faktura') : (_t('doc').invoiceFinal||'Faktura');
         var amt = d.amount ? d.amount.toLocaleString('cs-CZ') + ' Kč' : '';
-        html += '<div class="inv-item" onclick="downloadDoc(\''+d.id+'\')">' +
+        var invType = d.type === 'invoice_advance' ? 'advance' : 'final';
+        html += '<div class="inv-item" onclick="showInvoice(\''+d.booking_id+'\',\''+invType+'\')">' +
           '<div class="inv-icon">'+icon+'</div>' +
           '<div class="inv-info"><div class="inv-name">'+(d.moto_name||'')+' · '+label+'</div>' +
           '<div class="inv-sub">'+(d.res_num||'')+' · '+dateFmt+'</div></div>' +
