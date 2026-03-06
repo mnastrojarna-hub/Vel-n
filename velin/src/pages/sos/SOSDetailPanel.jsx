@@ -375,6 +375,16 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
               className="text-[10px] font-bold underline" style={{ color: '#1a8a18' }}>
               Google Maps
             </a>
+            <a href={`https://mapy.cz/zakladni?q=${incident.latitude},${incident.longitude}`}
+              target="_blank" rel="noopener noreferrer"
+              className="text-[10px] font-bold underline" style={{ color: '#2563eb' }}>
+              Mapy.cz
+            </a>
+            <a href={`https://www.google.com/maps/dir/?api=1&destination=${incident.latitude},${incident.longitude}`}
+              target="_blank" rel="noopener noreferrer"
+              className="text-[10px] font-bold underline" style={{ color: '#b45309' }}>
+              Navigovat
+            </a>
           </div>
         </Card>
       )}

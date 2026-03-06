@@ -94,7 +94,8 @@ function sosReportAccident(type) {
     _sosActiveIncidentId = null;
     _sosFault = null;
     _sosEnsureIncident(sosType, sosType === 'accident_minor' ? 'Lehká nehoda – pokračuji v jízdě' : 'Závažná nehoda')
-      .then(function(){
+      .then(function(incId){
+        if(!incId){ showT('❌','Chyba','Nepodařilo se nahlásit incident – zkuste znovu'); return; }
         showT('✅', 'Incident nahlášen MotoGo24', ts + '\nAsistent vás kontaktuje.');
         setTimeout(function(){ histBack(); }, 2000);
       });
@@ -105,7 +106,8 @@ function sosReportTheft() {
     _sosActiveIncidentId = null;
     _sosFault = null;
     _sosEnsureIncident('theft', 'Krádež motorky – zákazník informován o postupu (policie 158)')
-      .then(function(){
+      .then(function(incId){
+        if(!incId){ showT('❌','Chyba','Nepodařilo se nahlásit – zkuste znovu'); return; }
         showT('🚨', 'Krádež nahlášena MotoGo24', ts + '\nVolejte policii 158!');
       });
 }
@@ -162,16 +164,26 @@ function sosShareLocation() {
     showT('📍', 'Zjišťuji polohu...', 'Čekejte prosím');
 
     function _sendLocation(lat, lng) {
+        // Pokud máme aktivní incident, přidej GPS do timeline + aktualizuj
+        if (_sosActiveIncidentId) {
+            apiSosShareLocation(_sosActiveIncidentId, lat, lng).then(function() {
+                showT('📍', 'Poloha sdílena MotoGo24', lat.toFixed(5) + ', ' + lng.toFixed(5));
+            });
+            return;
+        }
+        // Jinak najdi poslední incident nebo vytvoř nový
         apiGetMySosIncidents().then(function(incidents) {
             var latest = incidents && incidents.length ? incidents[0] : null;
-            if (latest) {
+            if (latest && latest.status !== 'closed' && latest.status !== 'resolved') {
                 apiSosShareLocation(latest.id, lat, lng).then(function() {
                     showT('📍', 'Poloha sdílena MotoGo24', lat.toFixed(5) + ', ' + lng.toFixed(5));
                 });
             } else {
                 apiGetActiveLoan().then(function(loan) {
                     var loanId = loan ? loan.id : null;
-                    apiCreateSosIncident('location_share', loanId, lat, lng, null, null).then(function() {
+                    // location_share se mapuje na 'other' v apiCreateSosIncident
+                    apiCreateSosIncident('location_share', loanId, lat, lng, 'Sdílení GPS polohy zákazníkem').then(function(r) {
+                        if(r && r.error){ showT('❌','Chyba', r.error); return; }
                         showT('📍', 'Poloha sdílena MotoGo24', lat.toFixed(5) + ', ' + lng.toFixed(5));
                     });
                 });
@@ -203,9 +215,12 @@ function sosDrobnaZavada() {
     showT('🔩', 'Hlásím závadu...', '');
     apiGetActiveLoan().then(function(loan) {
         var loanId = loan ? loan.id : null;
-        apiCreateSosIncident('breakdown_minor', loanId, null, null, 'Drobná závada', false).then(function() {
-            showT('🔩', 'Závada zaznamenána', 'MotoGo24 upozorněno – pokračujte v jízdě');
-            setTimeout(function(){ histBack(); }, 1600);
+        _sosGetGPS().then(function(gps){
+            apiCreateSosIncident('breakdown_minor', loanId, gps.lat, gps.lng, 'Drobná závada – zákazník pokračuje v jízdě').then(function(r) {
+                if(r && r.error){ showT('❌','Chyba', r.error); return; }
+                showT('🔩', 'Závada zaznamenána', 'MotoGo24 upozorněno – pokračujte v jízdě');
+                setTimeout(function(){ histBack(); }, 1600);
+            });
         });
     });
 }

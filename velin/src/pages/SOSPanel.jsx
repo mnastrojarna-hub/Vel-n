@@ -371,6 +371,26 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
                 <div className="col-span-2">
                   <span style={{ color: '#8aab99' }}>Poloha: </span>
                   <b style={{ color: '#1a8a18' }}>{inc.address || `${Number(inc.latitude).toFixed(4)}, ${Number(inc.longitude).toFixed(4)}`}</b>
+                  {inc.latitude && inc.longitude && (
+                    <a href={`https://www.google.com/maps?q=${inc.latitude},${inc.longitude}`}
+                      target="_blank" rel="noopener noreferrer"
+                      onClick={e => e.stopPropagation()}
+                      className="inline-flex items-center gap-1 ml-2 text-[10px] font-bold px-2 py-0.5 rounded-btn"
+                      style={{ background: '#dbeafe', color: '#2563eb', textDecoration: 'none' }}>
+                      Otevřít mapu
+                    </a>
+                  )}
+                </div>
+              )}
+              {inc.latitude && inc.longitude && !inc.address && (
+                <div className="col-span-2">
+                  <a href={`https://mapy.cz/zakladni?q=${inc.latitude},${inc.longitude}`}
+                    target="_blank" rel="noopener noreferrer"
+                    onClick={e => e.stopPropagation()}
+                    className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-btn"
+                    style={{ background: '#f1faf7', color: '#4a6357', textDecoration: 'none' }}>
+                    Mapy.cz
+                  </a>
                 </div>
               )}
             </div>
