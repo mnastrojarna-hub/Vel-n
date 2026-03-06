@@ -30,7 +30,6 @@ function findCatalogPrices(modelName) {
   for (const [key, val] of Object.entries(CATALOG_PRICES)) {
     if (lower.includes(key.toLowerCase()) || key.toLowerCase().includes(lower)) return val
   }
-  // Fuzzy: try matching key words
   const words = lower.split(/\s+/).filter(w => w.length > 2)
   for (const [key, val] of Object.entries(CATALOG_PRICES)) {
     const keyLower = key.toLowerCase()
@@ -60,7 +59,6 @@ export default function PricingTab({ motoId }) {
     if (priceRes.data) {
       setPrices(priceRes.data)
     } else {
-      // Try to auto-fill from catalog
       const catalog = findCatalogPrices(motoRes.data?.model)
       const defaults = { moto_id: motoId }
       DAY_KEYS.forEach(k => { defaults[`price_${k}`] = catalog?.[k] || 0 })

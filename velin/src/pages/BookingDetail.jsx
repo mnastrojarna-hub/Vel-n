@@ -316,13 +316,11 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
           const total = calcPriceFromDayPrices(data, booking.start_date, booking.end_date)
           if (total !== null && total > 0) {
             set('total_price', total)
-            const start = new Date(booking.start_date)
-            const end = new Date(booking.end_date)
-            const days = Math.max(1, Math.round((end - start) / 86400000) + 1)
-            setPriceBreakdown(`${days} dn\u00ed \u00d7 denn\u00ed sazba = ${total.toLocaleString('cs-CZ')} K\u010d`)
+            const days = Math.max(1, Math.round((new Date(booking.end_date) - new Date(booking.start_date)) / 86400000) + 1)
+            setPriceBreakdown(`${days} dní × denní sazba = ${total.toLocaleString('cs-CZ')} Kč`)
           }
         } else {
-          setPriceBreakdown('Cen\u00edk nen\u00ed nastaven')
+          setPriceBreakdown('Ceník není nastaven')
         }
         setRecalculating(false)
       }).catch(() => setRecalculating(false))

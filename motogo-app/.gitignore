@@ -1,0 +1,28 @@
+# Backend
+backend/.env
+
+# Frontend
+frontend/www/
+frontend/node_modules/
+frontend/android/
+frontend/ios/
+
+# Dependencies
+node_modules/
+
+# Capacitor build output (local only)
+/android/
+/ios/
+# Note: root www/ is NOT ignored – VoltBuilder needs it in the repo
+
+# APK artifacts
+*.apk
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
