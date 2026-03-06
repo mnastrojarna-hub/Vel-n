@@ -26,6 +26,28 @@ export default function Bookings() {
 
   useEffect(() => { if (view === 'Seznam') loadBookings() }, [page, filters, view])
 
+  // Auto-cancel unpaid bookings older than 5 minutes
+  useEffect(() => {
+    async function autoCancelStale() {
+      try {
+        const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+        const { data: stale } = await supabase
+          .from('bookings')
+          .select('id')
+          .in('status', ['pending', 'reserved'])
+          .eq('payment_status', 'unpaid')
+          .lt('created_at', fiveMinAgo)
+        if (stale && stale.length > 0) {
+          await supabase
+            .from('bookings')
+            .update({ status: 'cancelled', cancellation_reason: 'Automaticky zrušeno — nezaplaceno déle než 5 minut' })
+            .in('id', stale.map(b => b.id))
+        }
+      } catch (e) { console.error('[AutoCancel]', e) }
+    }
+    autoCancelStale()
+  }, [])
+
   async function loadBookings() {
     setLoading(true)
     setError(null)
@@ -127,8 +149,8 @@ export default function Bookings() {
                   <TD bold>{b.total_price ? `${b.total_price.toLocaleString('cs-CZ')} Kč` : '—'}</TD>
                   <TD>
                     <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase"
-                      style={{ padding: '3px 8px', background: b.payment_status === 'paid' ? '#dcfce7' : '#fef3c7', color: b.payment_status === 'paid' ? '#1a8a18' : '#b45309' }}>
-                      {b.payment_status === 'paid' ? 'Zaplaceno' : b.payment_status === 'unpaid' ? 'Čeká' : b.payment_status || '—'}
+                      style={{ padding: '3px 8px', background: b.payment_status === 'paid' ? '#dcfce7' : '#fee2e2', color: b.payment_status === 'paid' ? '#1a8a18' : '#dc2626' }}>
+                      {b.payment_status === 'paid' ? 'Zaplaceno' : 'Nezaplaceno'}
                     </span>
                   </TD>
                   <TD><StatusBadge status={b.status} /></TD>

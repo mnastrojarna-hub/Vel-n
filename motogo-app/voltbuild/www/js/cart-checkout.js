@@ -148,21 +148,27 @@ function recalcTotal(){
   if(dcr&&dca){dcr.style.display=discountAmt>0?'flex':'none';dca.textContent='-'+discountAmt+' Kč';}
 }
 
+var _extraTimer=null;
 function toggleExtra(label,price){
   const chk=label.querySelector('input[type=checkbox]');
-  // Recalculate extraTotal from all checked extras
-  extraTotal=0;
-  document.querySelectorAll('#s-booking label[id^="extra-"]').forEach(function(lbl){
-    var cb=lbl.querySelector('input[type=checkbox]');
-    if(cb&&cb.checked){
-      var priceAttr=lbl.getAttribute('data-price');
-      if(priceAttr) extraTotal+=parseInt(priceAttr);
-      lbl.style.borderColor='var(--green)';
-    } else if(cb) {
-      lbl.style.borderColor='var(--g200)';
-    }
-  });
-  recalcTotal();
+  if(_extraTimer) clearTimeout(_extraTimer);
+  _extraTimer=setTimeout(function(){
+    extraTotal=0;
+    document.querySelectorAll('#s-booking label[id^="extra-"]').forEach(function(lbl){
+      var cb=lbl.querySelector('input[type=checkbox]');
+      if(cb&&cb.checked){
+        var priceAttr=lbl.getAttribute('data-price');
+        if(priceAttr) extraTotal+=parseInt(priceAttr);
+        lbl.style.borderColor='var(--green)';
+      } else if(cb) {
+        lbl.style.borderColor='var(--g200)';
+      }
+    });
+    recalcTotal();
+  },80);
+  if(chk){
+    label.style.borderColor=chk.checked?'var(--green)':'var(--g200)';
+  }
 }
 
 function _setDelivMode(type,val){

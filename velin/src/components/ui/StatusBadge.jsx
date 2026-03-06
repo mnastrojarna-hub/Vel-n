@@ -7,7 +7,7 @@ const STATUS_MAP = {
   pending: { label: 'Čekající', color: '#b45309', bg: '#fef3c7' },
   completed: { label: 'Dokončeno', color: '#6b7280', bg: '#f3f4f6' },
   cancelled: { label: 'Zrušeno', color: '#dc2626', bg: '#fee2e2' },
-  reserved: { label: 'Rezervováno', color: '#2563eb', bg: '#dbeafe' },
+  reserved: { label: 'Nadcházející', color: '#2563eb', bg: '#dbeafe' },
   in_service: { label: 'V servisu', color: '#2563eb', bg: '#dbeafe' },
 }
 

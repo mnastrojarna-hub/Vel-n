@@ -132,6 +132,8 @@ function showMsgNotification(msg){
       foreground: true,
       lockscreen: true
     });
+  } else {
+    console.log('[Notify] No native plugin, in-app only:', title);
   }
 }
 
