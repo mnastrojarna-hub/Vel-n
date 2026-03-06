@@ -49,7 +49,7 @@ async function renderMyReservations(){
     var filtered = bookings;
     if(_resFilter !== 'all'){
       filtered = bookings.filter(function(b){
-        var st = _mapStatus(b.status, b.start_date, b.end_date);
+        var st = _mapStatus(b.status, b.start_date, b.end_date, b.payment_status);
         return st === _resFilter;
       });
     }
@@ -79,13 +79,16 @@ function _setResContent(html){
   resScreen.appendChild(container);
 }
 
-function _mapStatus(status, startDate, endDate){
+function _mapStatus(status, startDate, endDate, paymentStatus){
   if(status === 'cancelled') return 'cancelled';
+  // Unpaid bookings never become active regardless of dates
+  if(paymentStatus === 'unpaid' && status === 'pending') return 'nadchazejici';
   var now = new Date(); now.setHours(0,0,0,0);
   var s = new Date(startDate); s.setHours(0,0,0,0);
   var e = new Date(endDate); e.setHours(0,0,0,0);
   if(now > e) return 'dokoncene';
-  if(now >= s && now <= e) return 'aktivni';
+  if(now >= s && now <= e && (status === 'active' || paymentStatus === 'paid')) return 'aktivni';
+  if(now >= s && now <= e) return 'nadchazejici';
   return 'nadchazejici';
 }
 
@@ -107,7 +110,7 @@ function _fmtDate(iso){
 }
 
 function _renderResCard(b){
-  var st = _mapStatus(b.status, b.start_date, b.end_date);
+  var st = _mapStatus(b.status, b.start_date, b.end_date, b.payment_status);
   var stLabel = _statusLabel(st);
   var stClass = _statusClass(st);
   var s = new Date(b.start_date); s.setHours(0,0,0,0);
@@ -135,7 +138,7 @@ function _renderResCard(b){
   }
 
   return '<div class="rcard" onclick="openResDetailById(\''+b.id+'\')">' +
-    '<div class="rci" style="'+grayscale+'"><img src="'+img+'" onerror="this.style.display=\'none\'" loading="lazy"><div class="rcio"><div><div class="rcn">'+name+'</div><div class="rcid">#'+b.id.substr(-12)+'</div></div></div><div class="rst '+stClass+'">'+stLabel+'</div></div>' +
+    '<div class="rci" style="'+grayscale+'"><img src="'+img+'" onerror="this.style.display=\'none\'" loading="lazy"><div class="rcio"><div><div class="rcn">'+name+'</div><div class="rcid">#'+b.id.substr(-8).toUpperCase()+'</div></div></div><div class="rst '+stClass+'">'+stLabel+'</div></div>' +
     '<div class="rcb"><div class="rcinfo"><div class="rccol"><div class="rccol-l">'+_t('res').date+'</div><div class="rccol-v">'+_fmtDate(b.start_date)+'</div></div><div class="rccol"><div class="rccol-l">'+_t('res').duration+'</div><div class="rccol-v">'+days+' '+(days===1?_t('res').day1:_t('res').days5)+'</div></div><div class="rccol"><div class="rccol-l">'+_t('res').total+'</div><div class="rccol-v">'+(b.total_price||0).toLocaleString('cs-CZ')+' Kč</div></div></div>' +
     '<div class="ract">'+btns+'</div></div></div>';
 }
@@ -157,7 +160,7 @@ async function openResDetailById(bookingId){
     if(!booking){ showT('✗',_t('common').error,_t('res').resNotFound); return; }
 
     var moto = booking.motorcycles || (booking.moto_id ? await _getMotoById(booking.moto_id) : null);
-    var st = _mapStatus(booking.status, booking.start_date, booking.end_date);
+    var st = _mapStatus(booking.status, booking.start_date, booking.end_date, booking.payment_status);
     var s = new Date(booking.start_date);
     var e = new Date(booking.end_date);
     var days = Math.max(1, Math.round((e-s)/86400000)+1);
@@ -166,7 +169,7 @@ async function openResDetailById(bookingId){
     var titleEl = document.getElementById('rd-title');
     if(titleEl) titleEl.textContent = _t('res').resDetail + ' – ' + _statusLabel(st);
     var subEl = document.getElementById('rd-subtitle');
-    if(subEl) subEl.textContent = '#' + bookingId.substr(-12);
+    if(subEl) subEl.textContent = '#' + bookingId.substr(-8).toUpperCase();
 
     var imgEl = document.getElementById('rd-moto-img');
     if(imgEl && moto) imgEl.src = moto.image_url || '';
@@ -302,7 +305,7 @@ async function openEditResByBookingId(bookingId){
     var booking = await _getBookingById(bookingId);
     if(!booking){ showT('✗',_t('common').error,_t('res').resNotFound); return; }
     var moto = booking.motorcycles || (booking.moto_id ? await _getMotoById(booking.moto_id) : null);
-    var st = _mapStatus(booking.status, booking.start_date, booking.end_date);
+    var st = _mapStatus(booking.status, booking.start_date, booking.end_date, booking.payment_status);
     var isActive = (st === 'aktivni');
 
     // Set V9 global variables for edit screen
@@ -319,7 +322,7 @@ async function openEditResByBookingId(bookingId){
 
     // Fill UI
     var subEl = document.getElementById('edit-subtitle');
-    if(subEl) subEl.textContent = motoName + ' · #' + bookingId.substr(-12);
+    if(subEl) subEl.textContent = motoName + ' · #' + bookingId.substr(-8).toUpperCase();
 
     var durEl = document.getElementById('edit-res-duration');
     var dateRangeEl = document.getElementById('edit-res-dates');
@@ -339,7 +342,7 @@ async function openEditResByBookingId(bookingId){
     var calResMoto = document.getElementById('edit-cal-res-moto');
     var calResInfo = document.getElementById('edit-res-info-cal');
     if(calResDates) calResDates.textContent = dateRangeEl ? dateRangeEl.textContent : '';
-    if(calResMoto) calResMoto.textContent = motoName + ' · #' + bookingId.substr(-12);
+    if(calResMoto) calResMoto.textContent = motoName + ' · #' + bookingId.substr(-8).toUpperCase();
     if(calResInfo){
       var infoDiv = calResInfo.querySelector('div');
       if(infoDiv) infoDiv.textContent = isActive ? _t('res').yourActiveRes : _t('res').yourUpcomingRes;
