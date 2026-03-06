@@ -63,6 +63,13 @@ async function finalizeCheckout(){
         console.warn('[SHOP] create_shop_order error:', r.data.error);
       } else if(r.data && r.data.success){
         console.log('[SHOP] Order created:', r.data.order_id);
+        // Mark as paid (shop checkout = immediate payment)
+        if(r.data.order_id){
+          await window.supabase.from('shop_orders').update({
+            payment_status: 'paid',
+            order_number: 'OBJ-' + new Date().getFullYear() + '-' + r.data.order_id.substr(-6).toUpperCase()
+          }).eq('id', r.data.order_id);
+        }
       }
       if(r.error) console.warn('[SHOP] RPC error:', r.error.message);
     } catch(e){ console.error('[SHOP] finalizeCheckout DB error:', e); }

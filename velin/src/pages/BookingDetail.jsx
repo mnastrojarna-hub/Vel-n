@@ -33,6 +33,7 @@ const CANCEL_REASONS = [
   { value: 'velin', label: 'Zrušeno ve Velínu' },
   { value: 'admin', label: 'Zrušeno administrátorem (vlastní důvod)' },
   { value: 'unpaid_4h', label: 'Zrušeno pro nezaplacení po 4h' },
+  { value: 'unpaid_auto', label: 'Automaticky zrušeno pro nezaplacení' },
 ]
 
 export default function BookingDetail() {
@@ -247,8 +248,14 @@ export default function BookingDetail() {
       <div className="flex items-center gap-3 mb-5">
         <button onClick={() => navigate('/rezervace')} className="cursor-pointer" style={{ background: 'none', border: 'none', fontSize: 18, color: '#8aab99' }}>←</button>
         <h2 className="font-extrabold text-lg" style={{ color: '#0f1a14' }}>Rezervace</h2>
-        <span className="text-xs font-mono" style={{ color: '#8aab99' }}>#{id?.slice(0, 8)}</span>
+        <span className="text-xs font-mono" style={{ color: '#8aab99' }}>#{id?.slice(-8).toUpperCase()}</span>
         <StatusBadge status={booking.status} />
+        {booking.payment_status && (
+          <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase"
+            style={{ padding: '3px 8px', background: booking.payment_status === 'paid' ? '#dcfce7' : '#fef3c7', color: booking.payment_status === 'paid' ? '#1a8a18' : '#b45309' }}>
+            {booking.payment_status === 'paid' ? 'Zaplaceno' : booking.payment_status === 'unpaid' ? 'Nezaplaceno' : booking.payment_status}
+          </span>
+        )}
         <span className="text-xs" style={{ color: '#8aab99' }}>
           Vytvořena: {booking.created_at ? new Date(booking.created_at).toLocaleString('cs-CZ') : '—'}
         </span>

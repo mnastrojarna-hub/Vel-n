@@ -53,6 +53,7 @@ export default function Bookings() {
   }
 
   const totalPages = Math.ceil(total / PER_PAGE)
+  const fmtDateRange = d => d ? new Date(d).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric' }) : '—'
 
   return (
     <div>
@@ -110,7 +111,7 @@ export default function Bookings() {
             <thead>
               <TRow header>
                 <TH>ID</TH><TH>Zákazník</TH><TH>Motorka</TH>
-                <TH>Od</TH><TH>Do</TH><TH>Částka</TH><TH>Stav</TH>
+                <TH>Od</TH><TH>Do</TH><TH>Částka</TH><TH>Platba</TH><TH>Stav</TH>
               </TRow>
             </thead>
             <tbody>
@@ -118,12 +119,18 @@ export default function Bookings() {
                 <tr key={b.id} onClick={() => navigate(`/rezervace/${b.id}`)}
                   className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
                   style={{ borderBottom: '1px solid #d4e8e0' }}>
-                  <TD mono>{b.id?.slice(0, 8)}</TD>
+                  <TD mono>{b.id?.slice(-8).toUpperCase()}</TD>
                   <TD bold>{b.profiles?.full_name || '—'}</TD>
                   <TD>{b.motorcycles?.model || '—'} <span className="text-xs font-mono" style={{ color: '#8aab99' }}>{b.motorcycles?.spz}</span></TD>
-                  <TD>{b.start_date || '—'}</TD>
-                  <TD>{b.end_date || '—'}</TD>
+                  <TD>{fmtDateRange(b.start_date)}</TD>
+                  <TD>{fmtDateRange(b.end_date)}</TD>
                   <TD bold>{b.total_price ? `${b.total_price.toLocaleString('cs-CZ')} Kč` : '—'}</TD>
+                  <TD>
+                    <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase"
+                      style={{ padding: '3px 8px', background: b.payment_status === 'paid' ? '#dcfce7' : '#fef3c7', color: b.payment_status === 'paid' ? '#1a8a18' : '#b45309' }}>
+                      {b.payment_status === 'paid' ? 'Zaplaceno' : b.payment_status === 'unpaid' ? 'Čeká' : b.payment_status || '—'}
+                    </span>
+                  </TD>
                   <TD><StatusBadge status={b.status} /></TD>
                 </tr>
               ))}
@@ -278,7 +285,7 @@ function GlobalCalendar() {
                       </div>
                       <div className="text-xs" style={{ color: '#4a6357' }}>
                         {b.profiles?.full_name || 'Zákazník'}
-                        <span className="ml-2" style={{ color: '#8aab99' }}>{b.start_date?.split('T')[0]} → {b.end_date?.split('T')[0]}</span>
+                        <span className="ml-2" style={{ color: '#8aab99' }}>{b.start_date ? new Date(b.start_date).toLocaleDateString('cs-CZ', {day:'numeric',month:'numeric'}) : ''} → {b.end_date ? new Date(b.end_date).toLocaleDateString('cs-CZ', {day:'numeric',month:'numeric',year:'numeric'}) : ''}</span>
                       </div>
                       {b.total_price && <div className="text-xs font-bold mt-1" style={{ color: '#3dba3a' }}>{Number(b.total_price).toLocaleString('cs-CZ')} Kč</div>}
                     </div>

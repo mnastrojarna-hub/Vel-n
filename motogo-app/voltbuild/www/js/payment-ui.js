@@ -3,6 +3,10 @@
 var _currentBookingId = null;
 var _currentPaymentAmount = 0;
 var _currentPaymentMethod = 'card';
+var _paymentAttempts = 0;
+var _paymentTimeout = null;
+var _MAX_PAYMENT_ATTEMPTS = 3;
+var _PAYMENT_TIMEOUT_MS = 120000; // 2 minutes
 
 // Called from booking form "Pokračovat k platbě"
 async function proceedToPayment(){
@@ -130,6 +134,13 @@ async function proceedToPayment(){
     var applePayBtn = document.getElementById('apple-pay-btn');
     if(applePayBtn) applePayBtn.textContent = '🍎 Pay ' + totalPrice.toLocaleString('cs-CZ') + ' Kč';
 
+    _paymentAttempts = 0;
+    if(_paymentTimeout) clearTimeout(_paymentTimeout);
+    _paymentTimeout = setTimeout(function(){
+      if(_currentBookingId && _paymentAttempts === 0){
+        _autoCancelUnpaid(_currentBookingId, 'Nezaplaceno do 2 minut');
+      }
+    }, _PAYMENT_TIMEOUT_MS);
     goTo('s-payment');
   } catch(e){ console.error('proceedToPayment error:', e); showT('✗',_t('common').error||'Chyba',_t('pay').createFailed||'Nepodařilo se vytvořit rezervaci'); }
 }
@@ -165,6 +176,9 @@ function doPayment(){
       }
 
       if(result.success){
+        // Payment succeeded – clear timeout and counter
+        _paymentAttempts = 0;
+        if(_paymentTimeout){ clearTimeout(_paymentTimeout); _paymentTimeout = null; }
         // Zaloguj promo k\u00f3d pokud byl pou\u017eit
         if(typeof appliedCode !== 'undefined' && appliedCode && typeof apiUsePromoCode === 'function'){
           try {
@@ -174,7 +188,7 @@ function doPayment(){
 
         // Update success screen
         var sucResId = document.getElementById('suc-res-id');
-        if(sucResId && _currentBookingId) sucResId.textContent = '#' + _currentBookingId.substr(-12);
+        if(sucResId && _currentBookingId) sucResId.textContent = '#' + _currentBookingId.substr(-8).toUpperCase();
 
         var booking = null;
         if(_isSupabaseReady()){
@@ -210,7 +224,12 @@ function doPayment(){
           }
         }, 5000);
       } else {
-        showT('✗',_t('pay').declined||'Platba zamítnuta',_t('pay').retry||'Zkuste to znovu');
+        _paymentAttempts++;
+        if(_paymentAttempts >= _MAX_PAYMENT_ATTEMPTS){
+          _autoCancelUnpaid(_currentBookingId, 'Zamítnuto po ' + _paymentAttempts + ' pokusech');
+          return;
+        }
+        showT('✗',_t('pay').declined||'Platba zamítnuta',(_t('pay').retry||'Zkuste to znovu')+' ('+_paymentAttempts+'/'+_MAX_PAYMENT_ATTEMPTS+')');
         if(payBtn) payBtn.textContent = (_t('pay').payBtn||'Zaplatit') + ' ' + _currentPaymentAmount.toLocaleString('cs-CZ') + ' Kč →';
       }
     }, 2000);
@@ -222,6 +241,25 @@ function _fmtDatePayment(iso){
     var d = new Date(iso);
     return d.getDate() + '. ' + (d.getMonth()+1) + '. ' + d.getFullYear();
   } catch(e){ return '—'; }
+}
+
+async function _autoCancelUnpaid(bookingId, reason){
+  if(_paymentTimeout){ clearTimeout(_paymentTimeout); _paymentTimeout = null; }
+  try {
+    if(window.supabase && bookingId){
+      await window.supabase.from('bookings').update({
+        status: 'cancelled',
+        cancelled_by_source: 'unpaid_auto',
+        cancellation_reason: reason || 'Automaticky zrušeno pro nezaplacení',
+        cancelled_at: new Date().toISOString()
+      }).eq('id', bookingId).eq('payment_status', 'unpaid');
+    }
+  } catch(e){ console.error('[PAY] autoCancelUnpaid:', e); }
+  _currentBookingId = null;
+  _paymentAttempts = 0;
+  showT('✗', _t('pay').declined||'Rezervace zrušena', 'Rezervace byla automaticky zrušena pro nezaplacení');
+  goTo('s-res');
+  if(typeof renderMyReservations === 'function') renderMyReservations();
 }
 
 // Payment method selection (existing selP function enhancement)
