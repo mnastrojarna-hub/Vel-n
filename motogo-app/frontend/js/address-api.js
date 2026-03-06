@@ -1,15 +1,19 @@
-// ===== ADDRESS-API.JS – Czech address autocomplete via Nominatim + OSRM =====
-// Uses OpenStreetMap Nominatim (free, no key) for Czech address search
+// ===== ADDRESS-API.JS – Czech address autocomplete via Mapy.cz API =====
+// Uses Mapy.cz Suggest API (free for reasonable usage) for Czech address search
 // Falls back to local ADDR_DB if offline or API fails
 
 var AddressAPI = (function(){
   'use strict';
 
-  // Nominatim API (free, no key, Czech addresses)
-  var NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
+  // Mapy.cz Suggest API
+  var SUGGEST_URL = 'https://api.mapy.cz/v1/suggest';
+  // Mapy.cz Geocode API
+  var GEOCODE_URL = 'https://api.mapy.cz/v1/geocode';
+  // Mapy.cz Route API
+  var ROUTE_URL = 'https://api.mapy.cz/v1/routing/route';
 
-  // OSRM public demo server for distance calculation
-  var OSRM_URL = 'https://router.project-osrm.org/route/v1/driving';
+  // Mapy.cz API key (free tier)
+  var API_KEY = '';
 
   // Branch coordinates (Mezná 9, 393 01)
   var BRANCH_LAT = 49.4147;
@@ -27,7 +31,7 @@ var AddressAPI = (function(){
   var _geoCache = {};
 
   /**
-   * Search Czech addresses via Nominatim API
+   * Search Czech addresses via Mapy.cz Suggest API
    */
   function suggest(query, callback){
     if(!query || query.length < 2){ callback([]); return; }
@@ -38,13 +42,54 @@ var AddressAPI = (function(){
       return;
     }
 
-    var url = NOMINATIM_URL +
-      '?q=' + encodeURIComponent(query) +
-      '&format=json' +
-      '&addressdetails=1' +
-      '&countrycodes=cz' +
+    var url = SUGGEST_URL +
+      '?query=' + encodeURIComponent(query) +
+      '&lang=cs' +
       '&limit=6' +
-      '&accept-language=cs';
+      '&type=regional.address' +
+      '&locality=cz';
+
+    if(API_KEY) url += '&apikey=' + API_KEY;
+
+    _fetchJSON(url, function(err, data){
+      if(err || !data || !data.items || !Array.isArray(data.items)){
+        // Fallback to Nominatim if Mapy.cz fails
+        _suggestNominatim(query, callback);
+        return;
+      }
+      var results = data.items.map(function(item){
+        var label = item.name || '';
+        var location = item.location || {};
+        var regionalStructure = item.regionalStructure || [];
+        var city = '';
+        var zip = '';
+        regionalStructure.forEach(function(r){
+          if(r.type === 'regional.municipality') city = r.name || '';
+          if(r.type === 'regional.municipality_part' && !city) city = r.name || '';
+        });
+        if(item.zip) zip = item.zip;
+        if(item.label) label = item.label;
+        return {
+          label: label,
+          lat: location.lat || null,
+          lng: location.lon || null,
+          city: city,
+          zip: zip
+        };
+      }).filter(function(r){ return r.label; });
+
+      _cache[cacheKey] = { data: results, ts: Date.now() };
+      callback(results);
+    });
+  }
+
+  /**
+   * Fallback: Nominatim (OpenStreetMap)
+   */
+  function _suggestNominatim(query, callback){
+    var url = 'https://nominatim.openstreetmap.org/search' +
+      '?q=' + encodeURIComponent(query) +
+      '&format=json&addressdetails=1&countrycodes=cz&limit=6&accept-language=cs';
 
     _fetchJSON(url, function(err, data){
       if(err || !data || !Array.isArray(data)){
@@ -58,7 +103,6 @@ var AddressAPI = (function(){
         var street = addr.road || '';
         var houseNum = addr.house_number || '';
         var label = item.display_name || '';
-        // Build shorter label: street + number, city
         if(street){
           label = street + (houseNum ? ' ' + houseNum : '') + ', ' +
             (zip ? zip + ' ' : '') + city;
@@ -72,7 +116,7 @@ var AddressAPI = (function(){
         };
       }).filter(function(r){ return r.label; });
 
-      _cache[cacheKey] = { data: results, ts: Date.now() };
+      _cache[query.toLowerCase().trim()] = { data: results, ts: Date.now() };
       callback(results);
     });
   }
@@ -110,10 +154,36 @@ var AddressAPI = (function(){
   }
 
   /**
-   * Route calculation from coordinates using OSRM
+   * Route calculation from coordinates using Mapy.cz Route API
    */
   function _routeFromCoords(lat, lng, callback){
-    var url = OSRM_URL + '/' +
+    var url = ROUTE_URL +
+      '?start=' + BRANCH_LNG + ',' + BRANCH_LAT +
+      '&end=' + lng + ',' + lat +
+      '&routeType=car_fast' +
+      '&lang=cs';
+
+    if(API_KEY) url += '&apikey=' + API_KEY;
+
+    _fetchJSON(url, function(err, data){
+      if(err || !data || !data.length || !data[0]){
+        // Fallback to OSRM
+        _routeFromCoordsOSRM(lat, lng, callback);
+        return;
+      }
+      var route = data[0];
+      var km = Math.round((route.length || 0) / 1000);
+      var fee = 1000 + km * 20;
+      var mins = Math.round((route.duration || 0) / 60);
+      callback({ km: km, fee: fee, duration: mins, approx: false });
+    });
+  }
+
+  /**
+   * Fallback: OSRM route calculation
+   */
+  function _routeFromCoordsOSRM(lat, lng, callback){
+    var url = 'https://router.project-osrm.org/route/v1/driving/' +
       BRANCH_LNG + ',' + BRANCH_LAT + ';' +
       lng + ',' + lat +
       '?overview=false';
@@ -135,7 +205,7 @@ var AddressAPI = (function(){
   }
 
   /**
-   * Geocode address string via Nominatim
+   * Geocode address string via Mapy.cz Geocode API
    */
   function _geocode(addr, callback){
     var cacheKey = 'geo_' + addr.toLowerCase().trim();
@@ -144,15 +214,40 @@ var AddressAPI = (function(){
       return;
     }
 
-    var url = NOMINATIM_URL +
+    var url = GEOCODE_URL +
+      '?query=' + encodeURIComponent(addr) +
+      '&lang=cs&limit=1&locality=cz';
+
+    if(API_KEY) url += '&apikey=' + API_KEY;
+
+    _fetchJSON(url, function(err, data){
+      if(err || !data || !data.items || !data.items.length){
+        // Fallback to Nominatim geocode
+        _geocodeNominatim(addr, callback);
+        return;
+      }
+      var loc = data.items[0].location || {};
+      var coords = {
+        lat: loc.lat || null,
+        lng: loc.lon || null
+      };
+      if(!coords.lat){ _geocodeNominatim(addr, callback); return; }
+      _geoCache[cacheKey] = coords;
+      callback(coords);
+    });
+  }
+
+  /**
+   * Fallback geocode via Nominatim
+   */
+  function _geocodeNominatim(addr, callback){
+    var cacheKey = 'geo_' + addr.toLowerCase().trim();
+    var url = 'https://nominatim.openstreetmap.org/search' +
       '?q=' + encodeURIComponent(addr) +
       '&format=json&countrycodes=cz&limit=1&accept-language=cs';
 
     _fetchJSON(url, function(err, data){
-      if(err || !data || !data.length){
-        callback(null);
-        return;
-      }
+      if(err || !data || !data.length){ callback(null); return; }
       var coords = {
         lat: parseFloat(data[0].lat),
         lng: parseFloat(data[0].lon)

@@ -104,7 +104,8 @@ async function proceedToPayment(){
       total_price: totalPrice,
       extras_price: extraTotal || 0,
       delivery_fee: deliveryFee || 0,
-      discount_amount: discountAmt || 0
+      discount_amount: discountAmt || 0,
+      discount_code: appliedCode || null
     });
 
     if(result.error){

@@ -97,6 +97,7 @@ var _BOOKING_FORM_PART2 = `
         <button id="t-bkApplyBtn" onclick="applyDiscount()" style="background:var(--green);color:#fff;border:none;border-radius:var(--rsm);padding:11px 16px;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">Použít</button>
       </div>
       <div id="discount-msg" style="font-size:11px;margin-top:6px;font-weight:600;min-height:16px;"></div>
+      <div id="add-code-btn-wrap" style="display:none;margin-top:8px;"><button onclick="showAddCodeInput()" style="background:var(--g100);color:var(--gd);border:2px solid var(--g200);border-radius:var(--rsm);padding:9px 16px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;">+ Další slevový kód</button></div>
     </div>
   </div>
   <div class="bcard">
