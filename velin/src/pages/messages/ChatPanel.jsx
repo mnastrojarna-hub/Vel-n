@@ -79,6 +79,19 @@ export default function ChatPanel({ thread, onThreadUpdate }) {
         last_message_at: new Date().toISOString(),
         status: 'open',
       }).eq('id', thread.id)
+
+      // Bridge: vytvor admin_messages zaznam pro zakaznickou appku
+      const customerId = thread.customer_id || thread.profiles?.id
+      if (customerId) {
+        await supabase.from('admin_messages').insert({
+          user_id: customerId,
+          title: thread.subject || 'Zprava z Moto Go',
+          message: reply.trim(),
+          type: 'info',
+          read: false,
+        }).catch(() => {}) // silent fail if table missing
+      }
+
       setReply('')
       await loadMessages()
     } catch {}

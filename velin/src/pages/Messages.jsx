@@ -49,6 +49,14 @@ export default function Messages() {
           content: newMessage.trim(),
           read_at: new Date().toISOString(),
         })
+        // Bridge: notifikace pro zakaznickou appku
+        await supabase.from('admin_messages').insert({
+          user_id: newCustomerId,
+          title: newSubject || 'Zprava z Moto Go',
+          message: newMessage.trim(),
+          type: 'info',
+          read: false,
+        }).catch(() => {})
         setSelected(thread)
       }
       setShowNew(false)
