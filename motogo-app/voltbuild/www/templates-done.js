@@ -101,6 +101,7 @@ Templates['s-profile'] = `  <div class="prof-hdr">
       <div class="edit-field"><label id="t-pLicCat">Kategorie ŘP</label><input id="profile-license-group" type="text" value=""></div>
       <button class="save-btn" id="t-saveChanges" onclick="doSaveProfile()">Uložit změny</button>
     </div>
+    <div class="mi" onclick="goTo('s-messages')" style="position:relative;"><div class="mii" style="background:#e8ffe8;">📩</div><div class="mit" id="prof-lbl-messages">Zprávy z Moto Go</div><div id="msg-badge" class="msg-badge" style="display:none;">0</div><div class="mia">›</div></div>
     <div class="mi" onclick="goTo('s-docs')"><div class="mii">📋</div><div class="mit" id="prof-lbl-docs">Moje doklady</div><div class="mia">›</div></div>
     <div class="mi" onclick="goTo('s-invoices')"><div class="mii">🧾</div><div class="mit" id="prof-lbl-invoices">Faktury a vyúčtování</div><div class="mia">›</div></div>
     <div class="mi" onclick="goTo('s-contracts')"><div class="mii">📄</div><div class="mit" id="prof-lbl-contracts">Dokumenty a smlouvy</div><div class="mia">›</div></div>
@@ -178,6 +179,16 @@ Templates['s-profile'] = `  <div class="prof-hdr">
       <span onclick="doDeleteAccount()" style="font-size:11px;color:var(--g400);cursor:pointer;text-decoration:underline;" id="prof-lbl-delete">Smazat účet a všechna data</span>
     </div>
   <div style="height:14px;"></div>`;
+
+Templates['s-messages'] = `  <div class="topbar">
+    <div class="back-row" onclick="histBack()"><div class="bk-c">\u2190</div><div class="bk-l">Zp\u011bt na profil</div></div>
+    <h2>Zpr\u00e1vy z Moto Go</h2>
+    <p>Reakce na va\u0161e SOS hl\u00e1\u0161en\u00ed a ozn\u00e1men\u00ed</p>
+  </div>
+  <div id="messages-list" style="margin:12px 20px 0;">
+    <div style="text-align:center;padding:20px;color:var(--g400);">\u23f3 Na\u010d\u00edt\u00e1n\u00ed...</div>
+  </div>
+  <div style="height:20px;"></div>`;
 
 Templates['s-invoices'] = `  <div class="topbar">
     <div class="back-row" onclick="histBack()"><div class="bk-c">←</div><div class="bk-l" id="t-backToProfile">Zpět na profil</div></div>

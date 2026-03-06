@@ -30,26 +30,55 @@ function selCheckoutP(t){
   const r=document.getElementById('pmr-'+t+'-ch');if(r)r.classList.add('on');
 }
 
-function finalizeCheckout(){
-  const total=cart.reduce((s,c)=>s+c.price*c.qty,0);
-  if(total===0){showT('⚠️',_t('cart').cart,_t('cart').cartEmpty);return;}
+async function finalizeCheckout(){
+  var total=cart.reduce(function(s,c){return s+c.price*c.qty;},0);
+  if(total===0){showT('\u26a0\ufe0f',_t('cart').cart,_t('cart').cartEmpty);return;}
   if(shipMode==='post'){
-    const nm=document.getElementById('ship-name')?.value;
-    if(!nm){showT('⚠️',_t('cart').address,_t('cart').fillAddress);return;}
+    var nm=(document.getElementById('ship-name')||{}).value;
+    if(!nm){showT('\u26a0\ufe0f',_t('cart').address,_t('cart').fillAddress);return;}
   }
-  showT('💳',_t('cart').processing,_t('cart').pleaseWait);
-  setTimeout(function(){
-    cart=[];
-    cartFabDismissed=false;
-    updateCartFab();
-    showT('✅',_t('cart').orderAccepted,_t('cart').confirmEmail);
-    // Zobraz krátkou děkovací zprávu, pak redirect
-    var checkoutEl = document.getElementById('s-checkout');
-    if(checkoutEl){
-      checkoutEl.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;padding:40px;text-align:center;"><div style="font-size:64px;margin-bottom:16px;">✅</div><div style="font-size:22px;font-weight:900;color:var(--black);margin-bottom:8px;">'+_t('cart').thankYou+'</div><div style="font-size:14px;color:var(--g400);line-height:1.6;">'+_t('cart').orderReceived+'<br>'+_t('cart').emailConfirm+'</div></div>';
-    }
-    setTimeout(function(){ goTo('s-merch'); }, 5000);
-  }, 2000);
+  showT('\ud83d\udcb3',_t('cart').processing,_t('cart').pleaseWait);
+
+  // Vytvo\u0159 objedn\u00e1vku v Supabase
+  if(window.supabase){
+    try {
+      var items = cart.map(function(c){ return {id:c.id, name:c.name, price:c.price, qty:c.qty}; });
+      var shipAddr = null;
+      if(shipMode==='post'){
+        shipAddr = {
+          name: (document.getElementById('ship-name')||{}).value || '',
+          street: (document.getElementById('ship-street')||{}).value || '',
+          zip: (document.getElementById('ship-zip')||{}).value || '',
+          city: (document.getElementById('ship-city')||{}).value || ''
+        };
+      }
+      var r = await window.supabase.rpc('create_shop_order', {
+        p_items: items,
+        p_shipping_method: shipMode,
+        p_shipping_address: shipAddr,
+        p_payment_method: 'card',
+        p_promo_code: appliedCode || null
+      });
+      if(r.data && r.data.error){
+        console.warn('[SHOP] create_shop_order error:', r.data.error);
+      } else if(r.data && r.data.success){
+        console.log('[SHOP] Order created:', r.data.order_id);
+      }
+      if(r.error) console.warn('[SHOP] RPC error:', r.error.message);
+    } catch(e){ console.error('[SHOP] finalizeCheckout DB error:', e); }
+  }
+
+  cart=[];
+  cartFabDismissed=false;
+  appliedCode=null;
+  _appliedPromoId=null;
+  updateCartFab();
+  showT('\u2705',_t('cart').orderAccepted,_t('cart').confirmEmail);
+  var checkoutEl = document.getElementById('s-checkout');
+  if(checkoutEl){
+    checkoutEl.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;padding:40px;text-align:center;"><div style="font-size:64px;margin-bottom:16px;">\u2705</div><div style="font-size:22px;font-weight:900;color:var(--black);margin-bottom:8px;">'+_t('cart').thankYou+'</div><div style="font-size:14px;color:var(--g400);line-height:1.6;">'+_t('cart').orderReceived+'<br>'+_t('cart').emailConfirm+'</div></div>';
+  }
+  setTimeout(function(){ goTo('s-merch'); }, 5000);
 }
 
 function initCheckout(){
@@ -191,24 +220,62 @@ function _calcDeliveryFallback(type, addr, calcEl, kmTxt){
   recalcTotal();
 }
 
-function applyDiscount(){
-  const code=(document.getElementById('discount-input')?.value||'').trim().toUpperCase();
-  const msg=document.getElementById('discount-msg');
-  const inp=document.getElementById('discount-input');
+var _appliedPromoId = null;
+
+async function applyDiscount(){
+  var code=(document.getElementById('discount-input')||{value:''}).value.trim().toUpperCase();
+  var msg=document.getElementById('discount-msg');
+  var inp=document.getElementById('discount-input');
   if(!code){if(msg)msg.innerHTML='<span style="color:var(--red)">'+_t('cart').enterCode+'</span>';return;}
-  if(CODES[code]){
-    const pct=CODES[code];
-    var baseForDiscount=0;
+
+  // Supabase DB validace — single source of truth
+  if(window.supabase){
+    try {
+      var baseForDiscount=0;
+      if(typeof calcTotalPrice==='function'&&bookingMoto&&bOd&&bDo){
+        baseForDiscount=calcTotalPrice(bookingMoto,new Date(bOd.y,bOd.m,bOd.d),new Date(bDo.y,bDo.m,bDo.d));
+      } else { baseForDiscount=2600*(bookingDays||1); }
+
+      var r = await window.supabase.rpc('validate_promo_code', { p_code: code });
+      if(r.data && r.data.valid){
+        var promoData = r.data;
+        _appliedPromoId = promoData.id;
+        appliedCode = code;
+        if(promoData.type === 'percent'){
+          discountAmt = Math.round(baseForDiscount * promoData.value / 100);
+          if(msg)msg.innerHTML='<span style="color:var(--gd)">\u2713 '+_t('cart').discount+' '+promoData.value+'% '+_t('cart').applied+' \u2013 '+_t('cart').youSave+' '+discountAmt+' K\u010d</span>';
+          showT('\ud83c\udff7\ufe0f',_t('cart').discount+' '+promoData.value+'%',_t('cart').youSave+' '+discountAmt+' K\u010d');
+        } else {
+          discountAmt = promoData.value;
+          if(msg)msg.innerHTML='<span style="color:var(--gd)">\u2713 '+_t('cart').discount+' '+promoData.value+' K\u010d '+_t('cart').applied+'</span>';
+          showT('\ud83c\udff7\ufe0f',_t('cart').discount+' '+promoData.value+' K\u010d','');
+        }
+        if(inp){inp.style.borderColor='var(--green)';inp.setAttribute('readonly','true');}
+        recalcTotal();
+      } else {
+        var errMsg = (r.data && r.data.error) ? r.data.error : _t('cart').codeNotFound;
+        if(msg)msg.innerHTML='<span style="color:var(--red)">\u2717 '+errMsg+'</span>';
+        if(inp)inp.style.borderColor='var(--red)';
+      }
+      return;
+    } catch(e){ console.error('[PROMO] DB validation failed:', e); }
+  }
+
+  // Hardcoded fallback (offline)
+  if(typeof CODES !== 'undefined' && CODES[code]){
+    var pct=CODES[code];
+    var base2=0;
     if(typeof calcTotalPrice==='function'&&bookingMoto&&bOd&&bDo){
-      baseForDiscount=calcTotalPrice(bookingMoto,new Date(bOd.y,bOd.m,bOd.d),new Date(bDo.y,bDo.m,bDo.d));
-    } else { baseForDiscount=2600*bookingDays; }
-    discountAmt=Math.round(baseForDiscount*pct/100);
-    if(msg)msg.innerHTML='<span style="color:var(--gd)">✓ '+_t('cart').discount+' '+pct+'% '+_t('cart').applied+' – '+_t('cart').youSave+' '+discountAmt+' Kč</span>';
+      base2=calcTotalPrice(bookingMoto,new Date(bOd.y,bOd.m,bOd.d),new Date(bDo.y,bDo.m,bDo.d));
+    } else { base2=2600*(bookingDays||1); }
+    discountAmt=Math.round(base2*pct/100);
+    appliedCode = code;
+    if(msg)msg.innerHTML='<span style="color:var(--gd)">\u2713 '+_t('cart').discount+' '+pct+'% '+_t('cart').applied+' \u2013 '+_t('cart').youSave+' '+discountAmt+' K\u010d</span>';
     if(inp){inp.style.borderColor='var(--green)';inp.setAttribute('readonly','true');}
     recalcTotal();
-    showT('🏷️',_t('cart').discount+' '+pct+'%',_t('cart').youSave+' '+discountAmt+' Kč');
+    showT('\ud83c\udff7\ufe0f',_t('cart').discount+' '+pct+'%',_t('cart').youSave+' '+discountAmt+' K\u010d');
   } else {
-    if(msg)msg.innerHTML='<span style="color:var(--red)">✗ '+_t('cart').codeNotFound+'</span>';
+    if(msg)msg.innerHTML='<span style="color:var(--red)">\u2717 '+_t('cart').codeNotFound+'</span>';
     if(inp)inp.style.borderColor='var(--red)';
   }
 }
@@ -423,17 +490,11 @@ function showAddrSuggestions(inp,type){
   var val=(inp.value||'').trim();
   if(val.length<2){sugEl.style.display='none';return;}
 
-  // Use Mapy.cz API if available, fallback to local ADDR_DB
+  // Use Nominatim API if available, fallback to local ADDR_DB
   if(typeof AddressAPI !== 'undefined'){
     AddressAPI.suggestDebounced(val, function(results){
       if(!results || results.length===0){sugEl.style.display='none';return;}
-      sugEl.innerHTML=results.map(function(r){
-        var escaped=r.label.replace(/'/g,"\\'");
-        var cityEsc=(r.city||'').replace(/'/g,"\\'");
-        var lat=r.lat||'null';
-        var lng=r.lng||'null';
-        return '<div class="addr-sug-item" onclick="selectAddr(\''+type+'\',\''+escaped+'\',\''+cityEsc+'\','+lat+','+lng+')">📍 '+r.label+'</div>';
-      }).join('');
+      _renderAddrSuggestions(sugEl, results, type);
       sugEl.style.display='block';
     });
     return;
@@ -443,8 +504,30 @@ function showAddrSuggestions(inp,type){
   var q=val.toLowerCase();
   var matches=ADDR_DB.filter(function(a){return a.addr.toLowerCase().indexOf(q)!==-1||a.city.toLowerCase().indexOf(q)!==-1;}).slice(0,5);
   if(matches.length===0){sugEl.style.display='none';return;}
-  sugEl.innerHTML=matches.map(function(a){return '<div class="addr-sug-item" onclick="selectAddr(\''+type+'\',\''+a.addr.replace(/'/g,"\\'")+'\',\''+a.city.replace(/'/g,"\\'")+'\')">📍 '+a.addr+'</div>';}).join('');
+  var results=matches.map(function(a){
+    var zipMatch=a.addr.match(/(\d{3})\s?(\d{2})/);
+    return {label:a.addr,lat:null,lng:null,city:a.city,zip:zipMatch?zipMatch[1]+' '+zipMatch[2]:''};
+  });
+  _renderAddrSuggestions(sugEl, results, type);
   sugEl.style.display='block';
+}
+
+// Render suggestions with touch-safe events (fixes mobile tap issues)
+function _renderAddrSuggestions(sugEl, results, type){
+  sugEl.innerHTML='';
+  results.forEach(function(r){
+    var div=document.createElement('div');
+    div.className='addr-sug-item';
+    div.textContent='\uD83D\uDCCD '+r.label;
+    function handler(e){
+      e.preventDefault();
+      e.stopPropagation();
+      selectAddr(type, r.label, r.city||'', r.lat||null, r.lng||null);
+    }
+    div.addEventListener('mousedown', handler);
+    div.addEventListener('touchstart', handler, {passive:false});
+    sugEl.appendChild(div);
+  });
 }
 
 function showCitySuggestions(inp){

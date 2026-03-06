@@ -20,6 +20,7 @@ const navMap = {
   's-merch-detail':'ni-merch',
   's-voucher':'ni-merch',
   's-profile':'ni-profile',
+  's-messages':'ni-profile',
   's-invoices':'ni-profile',
   's-contracts':'ni-profile'
 };
@@ -137,6 +138,9 @@ function goTo(id){
     recalcTotal();
     // Fill contact data
     if(typeof renderUserData==='function') renderUserData();
+  }
+  if(id==='s-messages'){
+    if(typeof renderAdminMessages==='function') renderAdminMessages();
   }
   if(id==='s-invoices'){
     if(typeof renderInvoicesPage==='function') renderInvoicesPage();
