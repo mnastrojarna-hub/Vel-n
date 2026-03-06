@@ -137,6 +137,9 @@ function openMerchItem(id) {
   document.querySelectorAll('.md-size-btn').forEach(function(b){
     b.style.borderColor='var(--g200)'; b.style.background='#fff'; b.style.color='var(--black)';
   });
+  // Set add-to-cart button text with price
+  var addBtn = document.getElementById('md-add-btn');
+  if(addBtn) addBtn.textContent = '\uD83D\uDED2 ' + (_t('cart').addToCart||'Přidat do košíku') + ' – ' + item.price.toLocaleString('cs-CZ') + ' Kč';
 }
 
 function selectMerchSize(size) {

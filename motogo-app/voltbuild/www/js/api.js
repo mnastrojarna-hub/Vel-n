@@ -190,11 +190,23 @@ async function apiProcessPayment(bookingId, amount, method){
   }
 }
 
-async function apiCancelBooking(bookingId){
+async function apiCancelBooking(bookingId, reason){
   _ensureSupabase();
   if(!window.supabase) return {error:'Offline'};
   try {
-    // Načti booking pro výpočet refundu
+    // Zkus RPC s cancellation tracking
+    var rpc = await window.supabase.rpc('cancel_booking_tracked', {
+      p_booking_id: bookingId,
+      p_reason: reason || null
+    });
+    if(rpc.data && rpc.data.success){
+      return {error:null, refund_percent: rpc.data.refund_percent, refund_amount: rpc.data.refund_amount};
+    }
+    if(rpc.data && rpc.data.error){
+      return {error: rpc.data.error};
+    }
+
+    // Fallback: přímý update
     var br = await window.supabase.from('bookings').select('*').eq('id', bookingId).single();
     if(!br.data) return {error:'Rezervace nenalezena'};
     var b = br.data;
@@ -468,6 +480,61 @@ function apiSubscribeAdminMessages(callback){
   });
 }
 
+// ===== PROMO KÓDY — zalogování použití při platbě =====
+async function apiUsePromoCode(code, bookingId, baseAmount){
+  _ensureSupabase();
+  if(!window.supabase || !code) return {valid:false};
+  try {
+    var r = await window.supabase.rpc('use_promo_code', {
+      p_code: code,
+      p_booking_id: bookingId || null,
+      p_base_amount: baseAmount || 0
+    });
+    if(r.data) return r.data;
+    if(r.error) console.warn('[API] usePromoCode error:', r.error.message);
+    return {valid:false};
+  } catch(e){ console.error('[API] apiUsePromoCode:', e); return {valid:false}; }
+}
+
+// ===== CUSTOMER → ADMIN ZPRÁVY =====
+async function apiSendCustomerMessage(threadId, content){
+  _ensureSupabase();
+  if(!window.supabase) return {error:'Offline'};
+  try {
+    var uid = await _getUserId();
+    if(!uid) return {error:'Nepřihlášen'};
+    var profile = await apiFetchProfile();
+    var senderName = profile ? profile.full_name : 'Zákazník';
+    var r = await window.supabase.from('messages').insert({
+      thread_id: threadId,
+      direction: 'customer',
+      sender_name: senderName,
+      content: content
+    });
+    if(r.error) return {error: r.error.message};
+    // Update thread last_message_at
+    await window.supabase.from('message_threads').update({
+      last_message_at: new Date().toISOString(),
+      status: 'open'
+    }).eq('id', threadId);
+    return {error:null};
+  } catch(e){ return {error:'Chyba při odesílání zprávy'}; }
+}
+
+async function apiFetchMyThreads(){
+  _ensureSupabase();
+  if(!window.supabase) return [];
+  try {
+    var uid = await _getUserId();
+    if(!uid) return [];
+    var r = await window.supabase.from('message_threads')
+      .select('*, messages(id, content, direction, created_at)')
+      .eq('customer_id', uid)
+      .order('last_message_at', {ascending: false});
+    return r.data || [];
+  } catch(e){ console.error('[API] apiFetchMyThreads:', e); return []; }
+}
+
 // ===== ENRICHMENT: propojení lokálního katalogu s Supabase =====
 
 // Originální kopie MOTOS — uloží se při prvním volání enrichMOTOS.
@@ -494,7 +561,7 @@ async function enrichMOTOS(){
     // Načti VŠECHNY motorky z DB
     var r = await window.supabase
       .from('motorcycles')
-      .select('id, model, status, mileage, price_weekday, price_weekend, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, branch_id, image_url, images, stk_valid_until, branches(name, address, city)');
+      .select('id, model, status, mileage, price_weekday, price_weekend, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, branch_id, image_url, images, stk_valid_until, engine_type, engine_cc, power_kw, power_hp, torque_nm, weight_kg, fuel_tank_l, seat_height_mm, license_required, has_abs, has_asc, description, ideal_usage, features, manual_url, branches(name, address, city)');
     var dbMotos = (r.data || []);
 
     // Vytvoř mapu podle normalizovaného jména
@@ -527,6 +594,27 @@ async function enrichMOTOS(){
         images: db.images,
         stk_valid_until: db.stk_valid_until,
       };
+
+      // Aktualizuj specs z DB (pokud jsou vyplněny ve Velínu)
+      if(db.engine_type || db.power_kw || db.torque_nm || db.weight_kg){
+        var dbSpecs = [];
+        if(db.engine_type || db.engine_cc) dbSpecs.push({l:'Motor', v: (db.engine_cc ? db.engine_cc+' cc ' : '')+(db.engine_type||'')});
+        if(db.power_kw) dbSpecs.push({l:'Výkon', v: db.power_kw+' kW'+(db.power_hp ? ' / '+db.power_hp+' k' : '')});
+        if(db.torque_nm) dbSpecs.push({l:'Točivý moment', v: db.torque_nm+' Nm'});
+        if(db.weight_kg) dbSpecs.push({l:'Hmotnost', v: db.weight_kg+' kg'});
+        if(db.fuel_tank_l) dbSpecs.push({l:'Nádrž', v: db.fuel_tank_l+' L'});
+        if(db.seat_height_mm) dbSpecs.push({l:'Sedlo', v: db.seat_height_mm+' mm'});
+        if(db.license_required) dbSpecs.push({l:'ŘP kategorie', v: db.license_required});
+        var absAsc = [];
+        if(db.has_abs !== null) absAsc.push(db.has_abs ? 'ABS' : '—');
+        if(db.has_asc !== null) absAsc.push(db.has_asc ? 'ASC' : '—');
+        if(absAsc.length) dbSpecs.push({l:'ABS / ASC', v: absAsc.join(' / ')});
+        if(dbSpecs.length > 0) m.specs = dbSpecs;
+      }
+      if(db.description) m.desc = db.description;
+      if(db.ideal_usage && db.ideal_usage.length) m.vyuziti = db.ideal_usage;
+      if(db.features && db.features.length) m.feats = db.features;
+      if(db.manual_url) m.manual = db.manual_url;
 
       // Aktualizuj ceny z DB (přepiš hardcoded pricing)
       if(db.price_weekday || db.price_weekend){

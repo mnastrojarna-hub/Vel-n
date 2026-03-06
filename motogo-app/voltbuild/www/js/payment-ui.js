@@ -164,6 +164,13 @@ function doPayment(){
       }
 
       if(result.success){
+        // Zaloguj promo k\u00f3d pokud byl pou\u017eit
+        if(typeof appliedCode !== 'undefined' && appliedCode && typeof apiUsePromoCode === 'function'){
+          try {
+            apiUsePromoCode(appliedCode, _currentBookingId, _currentPaymentAmount + (typeof discountAmt !== 'undefined' ? discountAmt : 0));
+          } catch(pe){ console.warn('[PAY] Promo tracking:', pe); }
+        }
+
         // Update success screen
         var sucResId = document.getElementById('suc-res-id');
         if(sucResId && _currentBookingId) sucResId.textContent = '#' + _currentBookingId.substr(-12);

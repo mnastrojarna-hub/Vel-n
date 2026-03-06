@@ -107,5 +107,5 @@ Templates['s-merch-detail'] = `  <div class="topbar">
       </div>
       <div id="md-size-msg" style="font-size:11px;color:var(--red);font-weight:600;margin-top:6px;display:none;"></div>
     </div>
-    <button class="btn-g" id="md-add-btn" onclick="addMerchFromDetail()"></button>
+    <button class="btn-g" id="md-add-btn" onclick="addMerchFromDetail()" style="position:sticky;bottom:14px;">🛒 Přidat do košíku</button>
   </div>`;

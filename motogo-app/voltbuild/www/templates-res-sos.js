@@ -88,7 +88,7 @@ Templates['s-sos-nehoda'] = `  <div class="sos-sub-hdr">
       <div id="t-accLegalInfo" style="font-size:12px;color:#b91c1c;font-weight:600;line-height:1.8;">
         🚑 Záchrannou (112/155) volejte dle potřeby sami.<br>
         🚔 <strong>Policii ČR jste povinni volat</strong> při: zranění · škodě nad 100 000 Kč · škodě na majetku třetích osob · nesouhlasu účastníků · krádeži.<br>
-        📱 <strong>Veškeré hlášení výhradně přes aplikaci.</strong> Policejní protokoly zasílejte e-mailem na <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="b8d1d6ded7f8d5d7ccd7dfd78a8c96dbc2">[email&#160;protected]</a>.<br>
+        📱 <strong>Veškeré hlášení výhradně přes aplikaci.</strong> Policejní protokoly zasílejte e-mailem na <a href="mailto:info@motogo.cz" style="color:#b91c1c;font-weight:700;">info@motogo.cz</a>.<br>
         💚 Při nezaviněné nehodě – náhradní motorka a odtah jsou zdarma.<br>
         ⚠️ Při porušení podmínek (alkohol, rychlost...) hradíte škodu v plné výši.
       </div>
