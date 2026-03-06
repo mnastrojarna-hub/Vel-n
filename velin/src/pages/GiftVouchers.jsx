@@ -305,8 +305,8 @@ export default function GiftVouchers() {
 
 function generateCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-  let code = 'MG-'
-  for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)]
+  let code = 'MG'
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)]
   return code
 }
 
@@ -396,7 +396,7 @@ function VoucherModal({ open, existing, onClose, onSaved }) {
               onChange={e => set('code', e.target.value.toUpperCase())}
               className="flex-1 rounded-btn text-sm outline-none font-mono"
               style={inputStyle}
-              placeholder="MG-XXXXXXXX"
+              placeholder="MGXXXXXX"
               disabled={isEdit}
             />
             {!isEdit && (

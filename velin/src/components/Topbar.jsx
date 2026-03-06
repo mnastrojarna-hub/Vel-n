@@ -20,6 +20,9 @@ const ROUTE_LABELS = {
   '/statni-sprava': 'Státní správa',
   '/ai-copilot': 'AI Copilot',
   '/sos': 'SOS Panel',
+  '/pobocky': 'Pobočky',
+  '/promo-kody': 'Promo kódy',
+  '/poukazy': 'Dárkové poukazy',
 }
 
 export default function Topbar() {
