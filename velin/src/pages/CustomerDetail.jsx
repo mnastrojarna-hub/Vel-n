@@ -7,6 +7,8 @@ import Badge from '../components/ui/Badge'
 import StatusBadge from '../components/ui/StatusBadge'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 
+import Modal from '../components/ui/Modal'
+
 const TABS = ['Profil', 'Rezervace', 'Dokumenty', 'Hodnocení', 'SOS']
 
 export default function CustomerDetail() {
@@ -18,6 +20,11 @@ export default function CustomerDetail() {
   const [error, setError] = useState(null)
   const [tab, setTab] = useState('Profil')
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [showResetPw, setShowResetPw] = useState(false)
+  const [resetPwMode, setResetPwMode] = useState('email')
+  const [newPassword, setNewPassword] = useState('')
+  const [resetPwLoading, setResetPwLoading] = useState(false)
+  const [resetPwMsg, setResetPwMsg] = useState(null)
 
   useEffect(() => { loadCustomer() }, [id])
 
@@ -94,6 +101,64 @@ export default function CustomerDetail() {
     } catch {}
   }
 
+  async function handleResetPassword() {
+    setResetPwLoading(true)
+    setResetPwMsg(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      const baseUrl = supabase.supabaseUrl || 'https://vnwnqteskbykeucanlhk.supabase.co'
+      const resp = await fetch(`${baseUrl}/functions/v1/admin-reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'apikey': supabase.supabaseKey || '',
+        },
+        body: JSON.stringify({
+          user_id: id,
+          ...(resetPwMode === 'manual' && newPassword ? { new_password: newPassword } : {}),
+        }),
+      })
+      const result = await resp.json()
+      if (result.success) {
+        setResetPwMsg({ type: 'ok', text: result.method === 'email' ? `Reset email odeslán na ${result.email}` : 'Heslo bylo změněno' })
+        setNewPassword('')
+      } else {
+        setResetPwMsg({ type: 'err', text: result.error || 'Chyba' })
+      }
+    } catch (e) {
+      setResetPwMsg({ type: 'err', text: e.message })
+    }
+    setResetPwLoading(false)
+  }
+
+  async function handleLoginAsCustomer() {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      const baseUrl = supabase.supabaseUrl || 'https://vnwnqteskbykeucanlhk.supabase.co'
+      const resp = await fetch(`${baseUrl}/functions/v1/admin-reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'apikey': supabase.supabaseKey || '',
+        },
+        body: JSON.stringify({ user_id: id }),
+      })
+      const result = await resp.json()
+      if (result.success && result.email) {
+        await logAudit('admin_login_as_customer', { customer_id: id, email: result.email })
+        setError(`Recovery link odeslán na ${result.email}. Pro impersonaci použijte tento link.`)
+      } else {
+        setError(result.error || 'Nepodařilo se')
+      }
+    } catch (e) {
+      setError(e.message)
+    }
+  }
+
   const set = (k, v) => setCustomer(c => ({ ...c, [k]: v }))
 
   if (loading) return <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
@@ -112,6 +177,24 @@ export default function CustomerDetail() {
             Skóre: {typeof score === 'object' ? score.total || '—' : score}
           </span>
         )}
+      </div>
+
+      {/* Admin akce */}
+      <div className="flex gap-2 mb-4">
+        <button
+          onClick={() => { setShowResetPw(true); setResetPwMsg(null); setNewPassword(''); setResetPwMode('email') }}
+          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
+          style={{ padding: '8px 16px', background: '#fef3c7', color: '#b45309', border: 'none' }}
+        >
+          Resetovat heslo
+        </button>
+        <button
+          onClick={handleLoginAsCustomer}
+          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
+          style={{ padding: '8px 16px', background: '#dbeafe', color: '#1d4ed8', border: 'none' }}
+        >
+          Prihlasit jako zakaznik
+        </button>
       </div>
 
       <div className="flex gap-2 mb-5">
@@ -137,10 +220,71 @@ export default function CustomerDetail() {
       {tab === 'Hodnocení' && <CustomerReviews userId={id} />}
       {tab === 'SOS' && <CustomerSOS userId={id} />}
 
+      {/* Reset hesla modal */}
+      {showResetPw && (
+        <Modal open title="Resetovat heslo zakaznika" onClose={() => setShowResetPw(false)}>
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <button
+                onClick={() => setResetPwMode('email')}
+                className="rounded-btn text-xs font-bold cursor-pointer"
+                style={{ padding: '6px 14px', background: resetPwMode === 'email' ? '#74FB71' : '#f1faf7', color: resetPwMode === 'email' ? '#1a2e22' : '#4a6357', border: 'none' }}
+              >
+                Poslat reset email
+              </button>
+              <button
+                onClick={() => setResetPwMode('manual')}
+                className="rounded-btn text-xs font-bold cursor-pointer"
+                style={{ padding: '6px 14px', background: resetPwMode === 'manual' ? '#74FB71' : '#f1faf7', color: resetPwMode === 'manual' ? '#1a2e22' : '#4a6357', border: 'none' }}
+              >
+                Nastavit heslo rucne
+              </button>
+            </div>
+
+            {resetPwMode === 'email' && (
+              <p className="text-sm" style={{ color: '#4a6357' }}>
+                Zakaznikovi bude odeslan email s odkazem pro nastaveni noveho hesla.
+              </p>
+            )}
+
+            {resetPwMode === 'manual' && (
+              <div>
+                <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Nove heslo</label>
+                <input
+                  type="text"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  placeholder="Min. 8 znaku"
+                  className="w-full rounded-btn text-sm outline-none"
+                  style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}
+                />
+              </div>
+            )}
+
+            {resetPwMsg && (
+              <p className="text-sm" style={{ color: resetPwMsg.type === 'ok' ? '#1a8a18' : '#dc2626' }}>
+                {resetPwMsg.text}
+              </p>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button onClick={() => setShowResetPw(false)}>Zrusit</Button>
+              <Button
+                green
+                onClick={handleResetPassword}
+                disabled={resetPwLoading || (resetPwMode === 'manual' && newPassword.length < 8)}
+              >
+                {resetPwLoading ? 'Zpracovavam...' : resetPwMode === 'email' ? 'Odeslat email' : 'Nastavit heslo'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       <ConfirmDialog
         open={confirmDelete}
-        title="Smazat zákazníka?"
-        message="Tato akce je nevratná. Profil zákazníka bude trvale odstraněn."
+        title="Smazat zakaznika?"
+        message="Tato akce je nevratna. Profil zakaznika bude trvale odstranen."
         danger
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(false)}
@@ -398,8 +542,14 @@ function CustomerSOS({ userId }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.from('sos_incidents').select('*, bookings!inner(user_id)').eq('bookings.user_id', userId).order('created_at', { ascending: false })
-      .then(({ data }) => { setIncidents(data || []); setLoading(false) })
+    supabase.from('sos_incidents').select('*').eq('user_id', userId).order('created_at', { ascending: false })
+      .then(({ data }) => {
+        if (data && data.length > 0) { setIncidents(data); setLoading(false); return }
+        // Fallback: hledej přes bookings pokud user_id na sos_incidents není
+        supabase.from('sos_incidents').select('*, bookings!inner(user_id)').eq('bookings.user_id', userId).order('created_at', { ascending: false })
+          .then(({ data: d2 }) => { setIncidents(d2 || []); setLoading(false) })
+          .catch(() => { setIncidents([]); setLoading(false) })
+      })
       .catch(() => { setIncidents([]); setLoading(false) })
   }, [userId])
 

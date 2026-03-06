@@ -238,23 +238,7 @@ export default function PromoCodes() {
 
       {/* Detail panel */}
       {detailCode && (
-        <Modal open title={`Detail: ${detailCode.code}`} onClose={() => setDetailCode(null)}>
-          <div className="grid grid-cols-2 gap-4">
-            <DetailRow label="Kód" value={detailCode.code} mono />
-            <DetailRow label="Stav" value={detailCode.active ? 'Aktivní' : 'Neaktivní'} />
-            <DetailRow label="Typ slevy" value={detailCode.type === 'percent' ? 'Procentuální' : 'Pevná částka'} />
-            <DetailRow label="Hodnota" value={detailCode.type === 'percent' ? `${detailCode.value}%` : `${detailCode.value?.toLocaleString('cs-CZ')} Kč`} />
-            <DetailRow label="Platnost od" value={detailCode.valid_from ? new Date(detailCode.valid_from).toLocaleDateString('cs-CZ') : 'Neuvedeno'} />
-            <DetailRow label="Platnost do" value={detailCode.valid_to ? new Date(detailCode.valid_to).toLocaleDateString('cs-CZ') : 'Neomezená'} />
-            <DetailRow label="Použito" value={`${detailCode.used_count ?? 0}×`} />
-            <DetailRow label="Limit" value={detailCode.max_uses ?? 'Neomezeno'} />
-            <DetailRow label="Vytvořeno" value={detailCode.created_at ? new Date(detailCode.created_at).toLocaleString('cs-CZ') : '—'} />
-          </div>
-          <div className="flex justify-end gap-3 mt-5">
-            <Button onClick={() => setDetailCode(null)}>Zavřít</Button>
-            <Button onClick={() => openEdit(detailCode)} style={{ background: '#2563eb', color: '#fff' }}>Upravit</Button>
-          </div>
-        </Modal>
+        <PromoDetailModal code={detailCode} onClose={() => setDetailCode(null)} onEdit={() => openEdit(detailCode)} />
       )}
 
       {/* Create/Edit modal */}
@@ -414,6 +398,62 @@ function DetailRow({ label, value, mono }) {
       <div className="text-[10px] font-extrabold uppercase tracking-wide mb-0.5" style={{ color: '#8aab99' }}>{label}</div>
       <div className={`text-sm font-semibold ${mono ? 'font-mono' : ''}`} style={{ color: '#0f1a14' }}>{value ?? '—'}</div>
     </div>
+  )
+}
+
+function PromoDetailModal({ code, onClose, onEdit }) {
+  const [usage, setUsage] = useState([])
+  const [loadingUsage, setLoadingUsage] = useState(true)
+
+  useEffect(() => {
+    supabase.from('promo_code_usage')
+      .select('*, profiles:customer_id(full_name, email)')
+      .eq('promo_code_id', code.id)
+      .order('used_at', { ascending: false })
+      .limit(20)
+      .then(({ data }) => { setUsage(data || []); setLoadingUsage(false) })
+      .catch(() => { setUsage([]); setLoadingUsage(false) })
+  }, [code.id])
+
+  return (
+    <Modal open title={`Detail: ${code.code}`} onClose={onClose}>
+      <div className="grid grid-cols-2 gap-4">
+        <DetailRow label="Kod" value={code.code} mono />
+        <DetailRow label="Stav" value={code.active ? 'Aktivni' : 'Neaktivni'} />
+        <DetailRow label="Typ slevy" value={code.type === 'percent' ? 'Procentualni' : 'Pevna castka'} />
+        <DetailRow label="Hodnota" value={code.type === 'percent' ? `${code.value}%` : `${code.value?.toLocaleString('cs-CZ')} Kc`} />
+        <DetailRow label="Platnost od" value={code.valid_from ? new Date(code.valid_from).toLocaleDateString('cs-CZ') : 'Neuvedeno'} />
+        <DetailRow label="Platnost do" value={code.valid_to ? new Date(code.valid_to).toLocaleDateString('cs-CZ') : 'Neomezena'} />
+        <DetailRow label="Pouzito" value={`${code.used_count ?? 0}x`} />
+        <DetailRow label="Limit" value={code.max_uses ?? 'Neomezeno'} />
+        <DetailRow label="Vytvoreno" value={code.created_at ? new Date(code.created_at).toLocaleString('cs-CZ') : '\u2014'} />
+      </div>
+
+      {/* Historie pouziti */}
+      <div className="mt-5">
+        <h4 className="text-[10px] font-extrabold uppercase tracking-widest mb-3" style={{ color: '#8aab99' }}>Historie pouziti</h4>
+        {loadingUsage ? (
+          <div className="text-xs" style={{ color: '#8aab99' }}>Nacitam...</div>
+        ) : usage.length === 0 ? (
+          <div className="text-xs" style={{ color: '#8aab99' }}>Zatim nepouzito</div>
+        ) : (
+          <div className="space-y-2 max-h-48 overflow-auto">
+            {usage.map(u => (
+              <div key={u.id} className="flex items-center gap-3 p-2 rounded-lg text-xs" style={{ background: '#f1faf7' }}>
+                <span className="font-bold">{u.profiles?.full_name || u.profiles?.email || 'Neznamy'}</span>
+                <span style={{ color: '#8aab99' }}>{u.used_at ? new Date(u.used_at).toLocaleString('cs-CZ') : ''}</span>
+                <span className="ml-auto font-bold" style={{ color: '#1a8a18' }}>-{u.discount_applied?.toLocaleString('cs-CZ')} Kc</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="flex justify-end gap-3 mt-5">
+        <Button onClick={onClose}>Zavrit</Button>
+        <Button onClick={onEdit} style={{ background: '#2563eb', color: '#fff' }}>Upravit</Button>
+      </div>
+    </Modal>
   )
 }
 
