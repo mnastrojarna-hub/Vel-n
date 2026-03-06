@@ -10,7 +10,7 @@ import Modal from '../components/ui/Modal'
 
 const PER_PAGE = 25
 
-const CATEGORIES = ['Naked', 'Sport', 'Adventure', 'Cruiser', 'Scooter', 'Enduro', 'Custom']
+const CATEGORIES = ['Naked', 'Sport', 'Adventure', 'Cruiser', 'Scooter', 'Enduro', 'Custom', 'Dětské']
 
 export default function Fleet() {
   const navigate = useNavigate()
@@ -257,7 +257,7 @@ function AddMotoModal({ branches, onClose, onSaved }) {
           <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Kategorie</label>
           <select value={form.category} onChange={e => set('category', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
             <option value="">—</option>
-            {['Naked','Sport','Adventure','Cruiser','Scooter','Enduro','Custom'].map(c => <option key={c} value={c}>{c}</option>)}
+            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
         <div>
