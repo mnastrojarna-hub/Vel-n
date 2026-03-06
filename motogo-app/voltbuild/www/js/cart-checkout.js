@@ -253,7 +253,33 @@ async function applyDiscount(){
         if(inp){inp.style.borderColor='var(--green)';inp.setAttribute('readonly','true');}
         recalcTotal();
       } else {
+        // Fallback: pokud server řekne "vyčerpán", ověř přímo v tabulce
         var errMsg = (r.data && r.data.error) ? r.data.error : _t('cart').codeNotFound;
+        if(errMsg && errMsg.indexOf('vyčerpán') !== -1){
+          try {
+            var directCheck = await window.supabase.from('promo_codes').select('id,type,value,max_uses,used_count,active,min_order_amount').eq('code', code).eq('active', true).single();
+            if(directCheck.data){
+              var pc = directCheck.data;
+              var usageCheck = await window.supabase.from('promo_code_usage').select('id', {count:'exact', head:true}).eq('promo_code_id', pc.id);
+              var realUses = usageCheck.count || 0;
+              if(pc.max_uses === null || pc.max_uses === 0 || realUses < pc.max_uses){
+                // Kód je ve skutečnosti platný — used_count je desync
+                _appliedPromoId = pc.id;
+                appliedCode = code;
+                if(pc.type === 'percent'){
+                  discountAmt = Math.round(baseForDiscount * pc.value / 100);
+                  if(msg)msg.innerHTML='<span style="color:var(--gd)">\u2713 '+_t('cart').discount+' '+pc.value+'% '+_t('cart').applied+' \u2013 '+_t('cart').youSave+' '+discountAmt+' K\u010d</span>';
+                } else {
+                  discountAmt = pc.value;
+                  if(msg)msg.innerHTML='<span style="color:var(--gd)">\u2713 '+_t('cart').discount+' '+pc.value+' K\u010d '+_t('cart').applied+'</span>';
+                }
+                if(inp){inp.style.borderColor='var(--green)';inp.setAttribute('readonly','true');}
+                recalcTotal();
+                return;
+              }
+            }
+          } catch(fe){ console.warn('[PROMO] Fallback check failed:', fe); }
+        }
         if(msg)msg.innerHTML='<span style="color:var(--red)">\u2717 '+errMsg+'</span>';
         if(inp)inp.style.borderColor='var(--red)';
       }
@@ -487,6 +513,9 @@ var ADDR_DB=[
 function showAddrSuggestions(inp,type){
   var sugEl=document.getElementById(type+'-addr-suggestions');
   if(!sugEl)return;
+  // Hide confirmation when user edits
+  var conf=document.getElementById(type+'-addr-confirmed');
+  if(conf)conf.style.display='none';
   var val=(inp.value||'').trim();
   if(val.length<2){sugEl.style.display='none';return;}
 
@@ -518,7 +547,7 @@ function _renderAddrSuggestions(sugEl, results, type){
   results.forEach(function(r){
     var div=document.createElement('div');
     div.className='addr-sug-item';
-    div.textContent='\uD83D\uDCCD '+r.label;
+    div.innerHTML='<span style="flex-shrink:0;">📍</span><span style="flex:1;line-height:1.3;">'+_escHtml(r.label)+'</span>';
     function handler(e){
       e.preventDefault();
       e.stopPropagation();
@@ -526,9 +555,11 @@ function _renderAddrSuggestions(sugEl, results, type){
     }
     div.addEventListener('mousedown', handler);
     div.addEventListener('touchstart', handler, {passive:false});
+    div.addEventListener('click', handler);
     sugEl.appendChild(div);
   });
 }
+function _escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 function showCitySuggestions(inp){
   var sugEl=document.getElementById('edit-return-city-suggestions');
@@ -572,7 +603,7 @@ function selectAddr(type,addr,city,lat,lng){
   var cityInputMap={'ship':'ship-city','b-contact':'b-contact-city'};
   var zipInputMap={'ship':'ship-zip','b-contact':'b-contact-zip'};
   var inp=document.getElementById(addrInputMap[type]||'')||document.getElementById(type+'-addr-input')||document.getElementById(type+'-address');
-  if(inp){inp.value=addr;}
+  if(inp){inp.value=addr;inp.style.borderColor='var(--green)';}
   // Store coordinates for distance calc
   if(inp && lat && lng){inp.dataset.lat=lat;inp.dataset.lng=lng;}
   var cityInp=document.getElementById(cityInputMap[type]||'')||document.getElementById(type+'-city');
@@ -585,6 +616,25 @@ function selectAddr(type,addr,city,lat,lng){
   }
   var sugEl=document.getElementById(type+'-addr-suggestions');
   if(sugEl)sugEl.style.display='none';
+  // Show visible confirmation of selected address
+  _showAddrConfirm(type, addr, city);
   if(type==='pickup'||type==='return'){calcDelivery(type);}
   if(type==='edit-return'&&typeof calcEditDelivery==='function'){calcEditDelivery();}
+}
+function _showAddrConfirm(type, addr, city){
+  var confId=type+'-addr-confirmed';
+  var conf=document.getElementById(confId);
+  if(!conf){
+    // Create confirmation element after the input's parent .ff
+    var addrInputMap={'ship':'ship-street','b-contact':'b-contact-street'};
+    var inp=document.getElementById(addrInputMap[type]||'')||document.getElementById(type+'-addr-input');
+    if(!inp)return;
+    var parent=inp.closest('.ff')||inp.parentElement;
+    conf=document.createElement('div');
+    conf.id=confId;
+    conf.className='addr-confirmed';
+    parent.appendChild(conf);
+  }
+  conf.innerHTML='✅ '+_escHtml(addr)+(city?' · '+_escHtml(city):'');
+  conf.style.display='flex';
 }
