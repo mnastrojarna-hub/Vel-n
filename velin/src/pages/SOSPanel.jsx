@@ -57,6 +57,7 @@ export default function SOSPanel() {
   const [selectedIncident, setSelectedIncident] = useState(null)
   const [notifyEnabled, setNotifyEnabled] = useState(false)
   const [filter, setFilter] = useState('active')
+  const [severityFilter, setSeverityFilter] = useState('light')
 
   useEffect(() => {
     load()
@@ -148,7 +149,18 @@ export default function SOSPanel() {
   const active = incidents.filter(i => !['resolved', 'closed'].includes(i.status))
   const resolved = incidents.filter(i => ['resolved', 'closed'].includes(i.status))
   const critical = active.filter(i => i.severity === 'critical' || i.severity === 'high')
-  const displayed = filter === 'active' ? active : filter === 'resolved' ? resolved : incidents
+
+  const LIGHT_TYPES = ['breakdown_minor', 'defect_question', 'other']
+  const HEAVY_TYPES = ['theft', 'accident_minor', 'accident_major', 'breakdown_major', 'accident', 'breakdown']
+
+  const filterBySeverity = (list) => {
+    if (severityFilter === 'light') return list.filter(i => LIGHT_TYPES.includes(i.type))
+    if (severityFilter === 'heavy') return list.filter(i => HEAVY_TYPES.includes(i.type))
+    return list
+  }
+
+  const baseList = filter === 'active' ? active : filter === 'resolved' ? resolved : incidents
+  const displayed = filterBySeverity(baseList)
 
   return (
     <div className="flex gap-5" style={{ minHeight: 'calc(100vh - 100px)' }}>
@@ -169,6 +181,24 @@ export default function SOSPanel() {
               {critical.length} kritických!
             </span>
           )}
+
+          <div className="flex items-center gap-1">
+            {[
+              { key: 'light', label: 'Lehké závady' },
+              { key: 'heavy', label: 'Těžké závady' },
+              { key: 'all_sev', label: 'Vše' },
+            ].map(f => (
+              <button key={f.key} onClick={() => setSeverityFilter(f.key)}
+                className="rounded-btn text-[10px] font-extrabold uppercase tracking-wide cursor-pointer border-none"
+                style={{
+                  padding: '5px 12px',
+                  background: severityFilter === f.key ? (f.key === 'heavy' ? '#7f1d1d' : '#1a2e22') : '#f1faf7',
+                  color: severityFilter === f.key ? (f.key === 'heavy' ? '#fff' : '#74FB71') : '#4a6357',
+                }}>
+                {f.label}
+              </button>
+            ))}
+          </div>
 
           <div className="flex items-center gap-1 ml-auto">
             {[

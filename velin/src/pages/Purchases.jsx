@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import SuppliersTab from './purchases/SuppliersTab'
 import OrdersTab from './purchases/OrdersTab'
+import ShopOrdersTab from './purchases/ShopOrdersTab'
 
-const TABS = ['Objednávky', 'Dodavatelé']
+const TABS = ['Objednávky', 'E-shop', 'Dodavatelé']
 
 export default function Purchases() {
   const [tab, setTab] = useState('Objednávky')
@@ -25,6 +26,7 @@ export default function Purchases() {
         ))}
       </div>
       {tab === 'Objednávky' && <OrdersTab />}
+      {tab === 'E-shop' && <ShopOrdersTab />}
       {tab === 'Dodavatelé' && <SuppliersTab />}
     </div>
   )
