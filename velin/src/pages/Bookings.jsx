@@ -326,12 +326,29 @@ function DateFilter({ label, value, onChange }) {
   )
 }
 
+function calcPriceFromDayPrices(dayPrices, startDate, endDate) {
+  if (!dayPrices || !startDate || !endDate) return null
+  const start = new Date(startDate)
+  const end = new Date(endDate)
+  if (isNaN(start) || isNaN(end) || end < start) return null
+  const dayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+  let total = 0
+  const cur = new Date(start)
+  while (cur <= end) {
+    const key = `price_${dayKeys[cur.getDay()]}`
+    total += Number(dayPrices[key]) || 0
+    cur.setDate(cur.getDate() + 1)
+  }
+  return total
+}
+
 function AddBookingModal({ onClose, onSaved }) {
   const [motos, setMotos] = useState([])
   const [customers, setCustomers] = useState([])
   const [form, setForm] = useState({ user_id: '', moto_id: '', start_date: '', end_date: '', total_price: '', status: 'pending' })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
+  const [priceInfo, setPriceInfo] = useState(null)
 
   useEffect(() => {
     supabase.from('motorcycles').select('id, model, spz').eq('status', 'active').order('model')
@@ -339,6 +356,23 @@ function AddBookingModal({ onClose, onSaved }) {
     supabase.from('profiles').select('id, full_name, email').order('full_name')
       .then(({ data }) => setCustomers(data || [])).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (!form.moto_id || !form.start_date || !form.end_date) return
+    supabase.from('moto_day_prices').select('*').eq('moto_id', form.moto_id).single()
+      .then(({ data }) => {
+        if (data) {
+          const total = calcPriceFromDayPrices(data, form.start_date, form.end_date)
+          if (total !== null && total > 0) {
+            setForm(f => ({ ...f, total_price: total }))
+            const days = Math.max(1, Math.round((new Date(form.end_date) - new Date(form.start_date)) / 86400000) + 1)
+            setPriceInfo(`${days} dní × denní sazba = ${total.toLocaleString('cs-CZ')} Kč`)
+          }
+        } else {
+          setPriceInfo('Ceník není nastaven pro tuto motorku')
+        }
+      }).catch(() => {})
+  }, [form.moto_id, form.start_date, form.end_date])
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
@@ -388,6 +422,7 @@ function AddBookingModal({ onClose, onSaved }) {
         <div>
           <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Celková částka (Kč)</label>
           <input type="number" value={form.total_price} onChange={e => set('total_price', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
+          {priceInfo && <p className="text-[10px] mt-1 font-bold" style={{ color: '#1a8a18' }}>{priceInfo}</p>}
         </div>
       </div>
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}

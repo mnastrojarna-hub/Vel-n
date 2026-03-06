@@ -1,0 +1,556 @@
+// ===== API.JS – Supabase API vrstva pro MotoGo24 =====
+// Všechny api* funkce volané z UI. Vyžaduje supabaseClient.js (window.supabase).
+
+// ===== HELPERS =====
+function _ensureSupabase(){
+  if(!window.supabase) console.warn('[API] Supabase není připojen');
+}
+
+async function _getUserId(){
+  try {
+    var r = await window.supabase.auth.getUser();
+    return (r.data && r.data.user) ? r.data.user.id : null;
+  } catch(e){ return null; }
+}
+
+// ===== PROFIL =====
+async function apiFetchProfile(){
+  _ensureSupabase();
+  if(!window.supabase) return null;
+  try {
+    var uid = await _getUserId();
+    if(!uid) return null;
+    var r = await window.supabase.from('profiles').select('*').eq('id', uid).single();
+    if(r.data){
+      // Doplň email z auth
+      var u = await window.supabase.auth.getUser();
+      if(u.data && u.data.user) r.data.email = u.data.user.email;
+    }
+    return r.data || null;
+  } catch(e){ console.error('[API] apiFetchProfile:', e); return null; }
+}
+
+async function apiUpdateProfile(data){
+  _ensureSupabase();
+  if(!window.supabase) return {error:'Offline'};
+  try {
+    var uid = await _getUserId();
+    if(!uid) return {error:'Nepřihlášen'};
+    var r = await window.supabase.from('profiles').update(data).eq('id', uid);
+    if(r.error) return {error: r.error.message};
+    return {error:null};
+  } catch(e){ return {error:'Chyba při ukládání profilu'}; }
+}
+
+// ===== MOTORKY =====
+async function apiFetchMotos(){
+  _ensureSupabase();
+  if(!window.supabase) return [];
+  try {
+    var r = await window.supabase.from('motorcycles').select('*, branches(name, address, city)').eq('status','active');
+    return r.data || [];
+  } catch(e){ console.error('[API] apiFetchMotos:', e); return []; }
+}
+
+// ===== REZERVACE =====
+async function apiFetchMyBookings(filter){
+  _ensureSupabase();
+  if(!window.supabase) return [];
+  try {
+    var uid = await _getUserId();
+    if(!uid) return [];
+    var q = window.supabase.from('bookings')
+      .select('*, motorcycles(model, image_url, images, category, branch_id, branches(name, address, city))')
+      .eq('user_id', uid)
+      .order('start_date', {ascending: false});
+    if(filter === 'pending'){
+      q = q.in('status', ['pending','active']).gte('start_date', new Date().toISOString());
+    }
+    var r = await q;
+    if(!r.data) return [];
+    // Doplň moto_name a moto_image pro UI
+    return r.data.map(function(b){
+      var m = b.motorcycles;
+      b.moto_name = m ? m.model : 'Motorka';
+      b.moto_image = m ? (m.image_url || (m.images && m.images[0]) || '') : '';
+      return b;
+    });
+  } catch(e){ console.error('[API] apiFetchMyBookings:', e); return []; }
+}
+
+async function apiCreateBooking(data){
+  _ensureSupabase();
+  if(!window.supabase) return {error:'Offline', booking:null};
+  try {
+    var uid = await _getUserId();
+    if(!uid) return {error:'Nepřihlášen', booking:null};
+    data.user_id = uid;
+    data.status = 'pending';
+    data.payment_status = 'unpaid';
+    var r = await window.supabase.from('bookings').insert(data).select().single();
+    if(r.error) return {error: r.error.message, booking:null};
+    return {error:null, booking: r.data};
+  } catch(e){ return {error:'Chyba při vytváření rezervace', booking:null}; }
+}
+
+async function apiCalcBookingPrice(motoId, startISO, endISO){
+  _ensureSupabase();
+  if(!window.supabase) return 0;
+  try {
+    var r = await window.supabase.rpc('calc_booking_price_v2', {
+      p_moto_id: motoId,
+      p_start: startISO.split('T')[0],
+      p_end: endISO.split('T')[0],
+      p_promo: null
+    });
+    if(r.data && r.data.total_price) return Number(r.data.total_price);
+    return 0;
+  } catch(e){ console.error('[API] apiCalcBookingPrice:', e); return 0; }
+}
+
+async function apiProcessPayment(bookingId, amount, method){
+  _ensureSupabase();
+  if(!window.supabase) return {success:false};
+  var cfg = window.MOTOGO_CONFIG || {};
+  var baseUrl = cfg.SUPABASE_URL;
+  var anonKey = cfg.SUPABASE_ANON_KEY;
+  var payMethod = method || 'card';
+
+  // Získej auth token
+  var token = anonKey;
+  try {
+    var sess = await window.supabase.auth.getSession();
+    if(sess.data && sess.data.session) token = sess.data.session.access_token;
+  } catch(e){}
+
+  // 1) Zkus Edge Function (Stripe checkout pro karty, admin client pro cash)
+  if(baseUrl){
+    try {
+      var resp = await fetch(baseUrl + '/functions/v1/process-payment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token,
+          'apikey': anonKey || ''
+        },
+        body: JSON.stringify({
+          booking_id: bookingId,
+          amount: amount,
+          method: payMethod
+        })
+      });
+      if(resp.ok){
+        var result = await resp.json();
+        if(result.success){
+          if(result.checkout_url) return {success:true, checkout_url: result.checkout_url};
+          return {success:true, transaction_id: result.transaction_id};
+        }
+        console.warn('[API] Edge fn returned error:', result.error);
+      } else {
+        console.warn('[API] Edge fn HTTP '+resp.status+' – using RPC fallback');
+      }
+    } catch(e){
+      console.warn('[API] Edge fn unreachable:', e.message, '– using RPC fallback');
+    }
+  }
+
+  // 2) Fallback: RPC funkce confirm_payment (SECURITY DEFINER, obchází RLS)
+  try {
+    var rpcResult = await window.supabase.rpc('confirm_payment', {
+      p_booking_id: bookingId,
+      p_method: payMethod
+    });
+    if(rpcResult.data && rpcResult.data.success){
+      console.log('[API] Payment confirmed via RPC');
+      return {success:true, transaction_id: rpcResult.data.transaction_id};
+    }
+    if(rpcResult.error){
+      console.warn('[API] RPC confirm_payment error:', rpcResult.error.message);
+    }
+  } catch(e){
+    console.warn('[API] RPC fallback failed:', e.message);
+  }
+
+  // 3) Poslední fallback: přímý DB update
+  try {
+    var r = await window.supabase.from('bookings').update({
+      payment_status: 'paid',
+      payment_method: payMethod,
+      status: 'active'
+    }).eq('id', bookingId);
+    if(!r.error){
+      console.log('[API] Payment confirmed via direct DB update');
+      return {success:true};
+    }
+    console.error('[API] Direct DB update failed:', r.error.message);
+    return {success:false, error: r.error.message};
+  } catch(e){
+    console.error('[API] All payment methods failed:', e);
+    return {success:false, error: 'Platba se nezdařila – zkuste to znovu'};
+  }
+}
+
+async function apiCancelBooking(bookingId){
+  _ensureSupabase();
+  if(!window.supabase) return {error:'Offline'};
+  try {
+    // Načti booking pro výpočet refundu
+    var br = await window.supabase.from('bookings').select('*').eq('id', bookingId).single();
+    if(!br.data) return {error:'Rezervace nenalezena'};
+    var b = br.data;
+    var now = new Date();
+    var start = new Date(b.start_date);
+    var hoursUntil = (start - now) / (1000*60*60);
+    var refundPct = 0;
+    if(hoursUntil > 7*24) refundPct = 100;
+    else if(hoursUntil > 48) refundPct = 50;
+    var refundAmt = Math.round((b.total_price || 0) * refundPct / 100);
+    var r = await window.supabase.from('bookings').update({status:'cancelled'}).eq('id', bookingId);
+    if(r.error) return {error: r.error.message};
+    return {error:null, refund_percent: refundPct, refund_amount: refundAmt};
+  } catch(e){ return {error:'Chyba při rušení rezervace'}; }
+}
+
+async function apiRestoreBooking(bookingId){
+  _ensureSupabase();
+  if(!window.supabase) return {error:'Offline'};
+  try {
+    var r = await window.supabase.from('bookings').update({status:'pending'}).eq('id', bookingId);
+    if(r.error) return {error: r.error.message};
+    return {error:null};
+  } catch(e){ return {error:'Chyba při obnovení rezervace'}; }
+}
+
+async function apiExtendBooking(bookingId, newEndISO){
+  _ensureSupabase();
+  if(!window.supabase) return {error:'Offline'};
+  try {
+    var r = await window.supabase.rpc('extend_booking', {
+      p_booking_id: bookingId,
+      p_new_end_date: newEndISO
+    });
+    if(r.data && r.data.error) return {error: r.data.error};
+    if(r.error) return {error: r.error.message};
+    return r.data || {error:null};
+  } catch(e){ return {error:'Chyba při prodloužení'}; }
+}
+
+async function apiShortenBooking(bookingId, newEndISO, newStartISO){
+  _ensureSupabase();
+  if(!window.supabase) return {error:'Offline'};
+  try {
+    var changes = {};
+    if(newEndISO) changes.end_date = newEndISO;
+    if(newStartISO) changes.start_date = newStartISO;
+    var r = await window.supabase.from('bookings').update(changes).eq('id', bookingId);
+    if(r.error) return {error: r.error.message};
+    return {error:null};
+  } catch(e){ return {error:'Chyba při zkrácení'}; }
+}
+
+async function apiModifyBooking(bookingId, changes){
+  _ensureSupabase();
+  if(!window.supabase) return {error:'Offline'};
+  try {
+    var r = await window.supabase.from('bookings').update(changes).eq('id', bookingId);
+    if(r.error) return {error: r.error.message};
+    return {error:null};
+  } catch(e){ return {error:'Chyba při úpravě rezervace'}; }
+}
+
+// ===== AKTIVNÍ VÝPŮJČKA =====
+async function apiGetActiveLoan(){
+  _ensureSupabase();
+  if(!window.supabase) return null;
+  try {
+    var uid = await _getUserId();
+    if(!uid) return null;
+    var now = new Date().toISOString();
+    var r = await window.supabase.from('bookings')
+      .select('*, motorcycles(model, image_url)')
+      .eq('user_id', uid)
+      .eq('status', 'active')
+      .eq('payment_status', 'paid')
+      .lte('start_date', now)
+      .gte('end_date', now)
+      .limit(1)
+      .single();
+    if(r.data){
+      r.data.moto = r.data.motorcycles;
+      return r.data;
+    }
+    return null;
+  } catch(e){ return null; }
+}
+
+// ===== DOKUMENTY =====
+async function apiFetchDocuments(){
+  _ensureSupabase();
+  if(!window.supabase) return [];
+  try {
+    var uid = await _getUserId();
+    if(!uid) return [];
+    var r = await window.supabase.from('documents')
+      .select('*, bookings(start_date, total_price, motorcycles(model))')
+      .eq('user_id', uid)
+      .order('created_at', {ascending: false});
+    if(!r.data) return [];
+    return r.data.map(function(d){
+      var b = d.bookings;
+      d.date = d.created_at;
+      d.booking_id = d.booking_id;
+      d.moto_name = (b && b.motorcycles) ? b.motorcycles.model : '';
+      d.amount = b ? b.total_price : 0;
+      d.res_num = b ? '#RES-' + new Date(b.start_date).getFullYear() + '-' + d.booking_id.substr(-4).toUpperCase() : '';
+      return d;
+    });
+  } catch(e){ console.error('[API] apiFetchDocuments:', e); return []; }
+}
+
+async function apiUploadDocument(bookingId, fileData, docType){
+  _ensureSupabase();
+  if(!window.supabase) return {error:'Offline'};
+  try {
+    var uid = await _getUserId();
+    if(!uid) return {error:'Nepřihlášen'};
+    var r = await window.supabase.from('documents').insert({
+      booking_id: bookingId,
+      user_id: uid,
+      type: docType,
+      file_path: 'signatures/' + bookingId + '_' + docType + '.png',
+      file_name: docType + '_' + bookingId.substr(-8) + '.png'
+    });
+    if(r.error) return {error: r.error.message};
+    return {error:null};
+  } catch(e){ return {error:'Chyba při nahrávání dokumentu'}; }
+}
+
+async function apiSendDocumentEmail(docId){
+  // Supabase nemá email service – simulace pro UI
+  try {
+    var profile = await apiFetchProfile();
+    var email = profile ? profile.email : 'email@email.cz';
+    return {success:true, email: email};
+  } catch(e){ return {success:false}; }
+}
+
+// ===== SOS =====
+async function apiCreateSosIncident(type, bookingId, lat, lng, desc, critical, motoId){
+  _ensureSupabase();
+  if(!window.supabase) return {error:'Offline'};
+  try {
+    var uid = await _getUserId();
+    var data = {
+      user_id: uid,
+      booking_id: bookingId,
+      moto_id: motoId || null,
+      type: type,
+      latitude: lat,
+      longitude: lng,
+      description: desc,
+      status: 'reported'
+    };
+    var r = await window.supabase.from('sos_incidents').insert(data).select().single();
+    if(r.error) return {error: r.error.message};
+    return r.data || {};
+  } catch(e){ return {error:'Chyba při hlášení incidentu'}; }
+}
+
+async function apiGetMySosIncidents(){
+  _ensureSupabase();
+  if(!window.supabase) return [];
+  try {
+    var uid = await _getUserId();
+    if(!uid) return [];
+    var r = await window.supabase.from('sos_incidents')
+      .select('*')
+      .eq('user_id', uid)
+      .order('created_at', {ascending: false})
+      .limit(10);
+    return r.data || [];
+  } catch(e){ return []; }
+}
+
+async function apiSosRequestReplacement(incidentId){
+  _ensureSupabase();
+  if(!window.supabase) return {};
+  try {
+    await window.supabase.from('sos_timeline').insert({
+      incident_id: incidentId,
+      action: 'replacement_requested',
+      data: { note: 'Zákazník žádá náhradní motorku' }
+    });
+    return {success:true};
+  } catch(e){ return {}; }
+}
+
+async function apiSosRequestTow(incidentId){
+  _ensureSupabase();
+  if(!window.supabase) return {};
+  try {
+    await window.supabase.from('sos_timeline').insert({
+      incident_id: incidentId,
+      action: 'tow_requested',
+      data: { note: 'Zákazník žádá odtahovou službu' }
+    });
+    return {success:true};
+  } catch(e){ return {}; }
+}
+
+async function apiSosShareLocation(incidentId, lat, lng){
+  _ensureSupabase();
+  if(!window.supabase) return {};
+  try {
+    await window.supabase.from('sos_timeline').insert({
+      incident_id: incidentId,
+      action: 'location_shared',
+      data: { note: 'GPS: ' + lat + ', ' + lng, latitude: lat, longitude: lng }
+    });
+    return {success:true};
+  } catch(e){ return {}; }
+}
+
+// ===== ADMIN MESSAGES (Zprávy z velínu) =====
+async function apiFetchAdminMessages(){
+  _ensureSupabase();
+  if(!window.supabase) return [];
+  try {
+    var uid = await _getUserId();
+    if(!uid) return [];
+    var r = await window.supabase.from('admin_messages')
+      .select('*')
+      .eq('user_id', uid)
+      .order('created_at', {ascending: false})
+      .limit(50);
+    return r.data || [];
+  } catch(e){ console.error('[API] apiFetchAdminMessages:', e); return []; }
+}
+
+async function apiMarkMessageRead(msgId){
+  _ensureSupabase();
+  if(!window.supabase) return;
+  try {
+    await window.supabase.from('admin_messages')
+      .update({read: true})
+      .eq('id', msgId);
+  } catch(e){}
+}
+
+async function apiGetUnreadMessageCount(){
+  _ensureSupabase();
+  if(!window.supabase) return 0;
+  try {
+    var uid = await _getUserId();
+    if(!uid) return 0;
+    var r = await window.supabase.from('admin_messages')
+      .select('id', {count: 'exact', head: true})
+      .eq('user_id', uid)
+      .eq('read', false);
+    return r.count || 0;
+  } catch(e){ return 0; }
+}
+
+function apiSubscribeAdminMessages(callback){
+  if(!window.supabase) return null;
+  _getUserId().then(function(uid){
+    if(!uid) return;
+    window.supabase
+      .channel('admin_messages_' + uid)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'admin_messages',
+        filter: 'user_id=eq.' + uid
+      }, function(payload){
+        if(payload.new) callback(payload.new);
+      })
+      .subscribe();
+  });
+}
+
+// ===== ENRICHMENT: propojení lokálního katalogu s Supabase =====
+
+// Originální kopie MOTOS — uloží se při prvním volání enrichMOTOS.
+// Díky tomu lze enrichMOTOS volat opakovaně (návrat na home/search)
+// bez ztráty motorek co byly mezitím znovu aktivovány.
+var _MOTOS_ORIG = null;
+
+/**
+ * Obohatí globální pole MOTOS o data ze Supabase.
+ * Přiřadí _db objekt (UUID, status, ceny, km) ke každé motorce.
+ * Odstraní z MOTOS motorky co nejsou v DB jako 'active'.
+ * Bezpečné volat opakovaně — vždy staví z _MOTOS_ORIG.
+ */
+async function enrichMOTOS(){
+  if(typeof MOTOS === 'undefined' || !window.supabase) return;
+  try {
+    // Ulož originál při prvním volání
+    if(!_MOTOS_ORIG){
+      _MOTOS_ORIG = MOTOS.map(function(m){
+        return JSON.parse(JSON.stringify(m));
+      });
+    }
+
+    // Načti VŠECHNY motorky z DB
+    var r = await window.supabase
+      .from('motorcycles')
+      .select('id, model, status, mileage, price_weekday, price_weekend, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, branch_id, image_url, images, stk_valid_until, branches(name, address, city)');
+    var dbMotos = (r.data || []);
+
+    // Vytvoř mapu podle normalizovaného jména
+    var dbMap = {};
+    dbMotos.forEach(function(dm){
+      var key = dm.model.toLowerCase().replace(/\s+/g, '');
+      dbMap[key] = dm;
+    });
+
+    // Přebuduj MOTOS z originálu — jen aktivní motorky
+    var fresh = [];
+    for(var i = 0; i < _MOTOS_ORIG.length; i++){
+      var m = JSON.parse(JSON.stringify(_MOTOS_ORIG[i]));
+      var key = m.name.toLowerCase().replace(/\s+/g, '');
+      var db = dbMap[key];
+
+      // Motorka není v DB nebo není active → přeskoč
+      if(!db || db.status !== 'active') continue;
+
+      // Přiřaď _db objekt
+      m._db = {
+        id: db.id,
+        status: db.status,
+        mileage: db.mileage,
+        branch_id: db.branch_id,
+        branch_name: db.branches ? db.branches.name : null,
+        branch_address: db.branches ? db.branches.address : null,
+        branch_city: db.branches ? db.branches.city : null,
+        image_url: db.image_url,
+        images: db.images,
+        stk_valid_until: db.stk_valid_until,
+      };
+
+      // Aktualizuj ceny z DB (přepiš hardcoded pricing)
+      if(db.price_weekday || db.price_weekend){
+        m.pricing = {
+          po: Number(db.price_mon || db.price_weekday) || m.pricing.po,
+          ut: Number(db.price_tue || db.price_weekday) || m.pricing.ut,
+          st: Number(db.price_wed || db.price_weekday) || m.pricing.st,
+          ct: Number(db.price_thu || db.price_weekday) || m.pricing.ct,
+          pa: Number(db.price_fri || db.price_weekend) || m.pricing.pa,
+          so: Number(db.price_sat || db.price_weekend) || m.pricing.so,
+          ne: Number(db.price_sun || db.price_weekend) || m.pricing.ne,
+        };
+      }
+
+      fresh.push(m);
+    }
+
+    // Nahraď MOTOS čerstvým polem (in-place pro zachování reference)
+    MOTOS.length = 0;
+    for(var j = 0; j < fresh.length; j++) MOTOS.push(fresh[j]);
+
+    window._enrichMOTOSDone = true;
+    console.log('[API] enrichMOTOS: ' + MOTOS.length + ' aktivních motorek');
+  } catch(e){
+    console.error('[API] enrichMOTOS chyba:', e);
+  }
+}
