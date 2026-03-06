@@ -287,47 +287,7 @@ export default function BookingDetail() {
   )
 }
 
-function calcPriceFromDayPrices(dayPrices, startDate, endDate) {
-  if (!dayPrices || !startDate || !endDate) return null
-  const start = new Date(startDate)
-  const end = new Date(endDate)
-  if (isNaN(start) || isNaN(end) || end < start) return null
-  const dayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-  let total = 0
-  const cur = new Date(start)
-  while (cur <= end) {
-    const key = `price_${dayKeys[cur.getDay()]}`
-    total += Number(dayPrices[key]) || 0
-    cur.setDate(cur.getDate() + 1)
-  }
-  return total
-}
-
 function DetailTab({ booking, set, error, saving, onSave, actions, onAction, navigate }) {
-  const [priceBreakdown, setPriceBreakdown] = useState(null)
-  const [recalculating, setRecalculating] = useState(false)
-
-  function handleRecalcPrice() {
-    if (!booking.moto_id || !booking.start_date || !booking.end_date) return
-    setRecalculating(true)
-    supabase.from('moto_day_prices').select('*').eq('moto_id', booking.moto_id).single()
-      .then(({ data }) => {
-        if (data) {
-          const total = calcPriceFromDayPrices(data, booking.start_date, booking.end_date)
-          if (total !== null && total > 0) {
-            set('total_price', total)
-            const start = new Date(booking.start_date)
-            const end = new Date(booking.end_date)
-            const days = Math.max(1, Math.round((end - start) / 86400000) + 1)
-            setPriceBreakdown(`${days} dn\u00ed \u00d7 denn\u00ed sazba = ${total.toLocaleString('cs-CZ')} K\u010d`)
-          }
-        } else {
-          setPriceBreakdown('Cen\u00edk nen\u00ed nastaven')
-        }
-        setRecalculating(false)
-      }).catch(() => setRecalculating(false))
-  }
-
   return (
     <div className="grid grid-cols-2 gap-5">
       <Card>
@@ -367,15 +327,7 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
         <div className="grid grid-cols-4 gap-4">
           <FieldInput label="Od" type="date" value={booking.start_date} onChange={v => set('start_date', v)} />
           <FieldInput label="Do" type="date" value={booking.end_date} onChange={v => set('end_date', v)} />
-          <div>
-            <FieldInput label="Celkem (Kč)" type="number" value={booking.total_price} onChange={v => set('total_price', Number(v))} />
-            <button onClick={handleRecalcPrice} disabled={recalculating}
-              className="text-[10px] font-bold mt-1 cursor-pointer"
-              style={{ color: '#2563eb', background: 'none', border: 'none', padding: 0 }}>
-              {recalculating ? 'Počítám...' : 'Přepočítat dle ceníku'}
-            </button>
-            {priceBreakdown && <p className="text-[10px] font-bold" style={{ color: '#1a8a18' }}>{priceBreakdown}</p>}
-          </div>
+          <FieldInput label="Celkem (Kč)" type="number" value={booking.total_price} onChange={v => set('total_price', Number(v))} />
           <FieldInput label="Poznámky" value={booking.notes} onChange={v => set('notes', v)} />
         </div>
         {error && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{error}</p>}

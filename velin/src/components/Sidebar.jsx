@@ -12,7 +12,6 @@ const NAV = [
   { id: 'accounting', path: '/ucetnictvi', label: 'Účetnictví', icon: '📒' },
   { id: 'documents', path: '/dokumenty', label: 'Dokumenty', icon: '📄' },
   { id: 'inventory', path: '/sklady', label: 'Sklady', icon: '📦' },
-  { id: 'branches', path: '/pobocky', label: 'Pobočky', icon: '🏢' },
   { id: 'service', path: '/servis', label: 'Servis', icon: '🔧' },
   { id: 'messages', path: '/zpravy', label: 'Zprávy', icon: '💬', badgeKey: 'messages' },
   { id: 'cms', path: '/cms', label: 'Web CMS', icon: '🌐' },
@@ -22,6 +21,7 @@ const NAV = [
   { id: 'purchases', path: '/nakupy', label: 'Nákupy', icon: '🛒' },
   { id: 'government', path: '/statni-sprava', label: 'Státní správa', icon: '🏛️' },
   { id: 'ai', path: '/ai-copilot', label: 'AI Copilot', icon: '🤖' },
+  { id: 'branches', path: '/pobocky', label: 'Pobočky', icon: '🏢' },
   { id: 'sos', path: '/sos', label: 'SOS Panel', icon: '🚨', badgeKey: 'sos' },
 ]
 
@@ -57,13 +57,12 @@ export default function Sidebar({ admin, onSignOut }) {
   useEffect(() => {
     loadBadges()
 
-    // Polling every 15s + realtime subscription pro badge aktualizace
-    const interval = setInterval(loadBadges, 15000)
+    // Realtime subscription pro badge aktualizace
     const channel = supabase.channel('sidebar-badges')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => loadBadges())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sos_incidents' }, () => loadBadges())
       .subscribe()
-    return () => { clearInterval(interval); supabase.removeChannel(channel) }
+    return () => { supabase.removeChannel(channel) }
   }, [])
 
   async function loadBadges() {
