@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { debugAction } from '../../lib/debugLog'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 
@@ -33,9 +34,13 @@ export default function CompanyTab() {
     for (const field of FIELDS) {
       const { data: existing } = await supabase.from('cms_variables').select('id').eq('key', field.key).single()
       if (existing) {
-        await supabase.from('cms_variables').update({ value: values[field.key] || '' }).eq('id', existing.id)
+        await debugAction('company.updateField', 'CompanyTab', () =>
+          supabase.from('cms_variables').update({ value: values[field.key] || '' }).eq('id', existing.id)
+        , { key: field.key, value: values[field.key] || '' })
       } else {
-        await supabase.from('cms_variables').insert({ key: field.key, value: values[field.key] || '', group: 'general' })
+        await debugAction('company.createField', 'CompanyTab', () =>
+          supabase.from('cms_variables').insert({ key: field.key, value: values[field.key] || '', group: 'general' })
+        , { key: field.key, value: values[field.key] || '' })
       }
     }
     const { data: { user } } = await supabase.auth.getUser()

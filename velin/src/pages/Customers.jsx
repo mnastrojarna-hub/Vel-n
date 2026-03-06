@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { debugAction } from '../lib/debugLog'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
 import Button from '../components/ui/Button'
 import Badge from '../components/ui/Badge'
@@ -26,13 +27,14 @@ export default function Customers() {
     setLoading(true)
     setError(null)
     try {
-      let query = supabase.from('profiles').select('*, bookings(count)', { count: 'exact' })
-      if (search) query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`)
-      query = query.order('full_name').range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
-      const { data, count, error: err } = await query
-      if (err) throw err
-      setCustomers(data || [])
-      setTotal(count || 0)
+      const result = await debugAction('customers.load', 'Customers', () => {
+        let query = supabase.from('profiles').select('*, bookings(count)', { count: 'exact' })
+        if (search) query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`)
+        return query.order('full_name').range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
+      }, { page, search })
+      if (result?.error) throw result.error
+      setCustomers(result?.data || [])
+      setTotal(result?.count || 0)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -110,11 +112,10 @@ function AddCustomerModal({ onClose, onSaved }) {
     setSaving(true)
     setErr(null)
     try {
-      // Vytvoří profil přímo (bez auth.users — admin přidání)
-      const { error } = await supabase.from('profiles').insert({
-        ...form, id: crypto.randomUUID(),
-      })
-      if (error) throw error
+      const result = await debugAction('customers.create', 'AddCustomerModal', () =>
+        supabase.from('profiles').insert({ ...form, id: crypto.randomUUID() })
+      , form)
+      if (result?.error) throw result.error
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'customer_created', details: { email: form.email } })
       onSaved()

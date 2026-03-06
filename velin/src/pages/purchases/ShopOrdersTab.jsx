@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { debugAction } from '../../lib/debugLog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import Pagination from '../../components/ui/Pagination'
@@ -161,15 +162,17 @@ function NewShopOrderModal({ onClose, onSaved }) {
   async function handleSave() {
     setSaving(true); setErr(null)
     try {
-      const { data: order, error: oErr } = await supabase.from('shop_orders')
-        .insert({
-          customer_name: form.customer_name, customer_email: form.customer_email,
-          customer_phone: form.customer_phone, shipping_address: form.shipping_address,
-          billing_address: form.billing_address, payment_method: form.payment_method,
-          notes: form.notes, subtotal, total: subtotal, status: 'new', payment_status: 'pending',
-        })
-        .select().single()
-      if (oErr) throw oErr
+      const orderPayload = {
+        customer_name: form.customer_name, customer_email: form.customer_email,
+        customer_phone: form.customer_phone, shipping_address: form.shipping_address,
+        billing_address: form.billing_address, payment_method: form.payment_method,
+        notes: form.notes, subtotal, total: subtotal, status: 'new', payment_status: 'pending',
+      }
+      const result = await debugAction('shopOrder.create', 'NewShopOrderModal', () =>
+        supabase.from('shop_orders').insert(orderPayload).select().single()
+      , orderPayload)
+      if (result?.error) throw result.error
+      const order = result.data
 
       const orderItems = items.filter(it => it.product_name).map(it => ({
         order_id: order.id, product_name: it.product_name, product_sku: it.product_sku,
@@ -177,8 +180,10 @@ function NewShopOrderModal({ onClose, onSaved }) {
         total_price: (Number(it.quantity) || 0) * (Number(it.unit_price) || 0),
       }))
       if (orderItems.length > 0) {
-        const { error: iErr } = await supabase.from('shop_order_items').insert(orderItems)
-        if (iErr) throw iErr
+        const itemsResult = await debugAction('shopOrder.createItems', 'NewShopOrderModal', () =>
+          supabase.from('shop_order_items').insert(orderItems)
+        , orderItems)
+        if (itemsResult?.error) throw itemsResult.error
       }
       onSaved()
     } catch (e) { setErr(e.message) } finally { setSaving(false) }
@@ -254,14 +259,21 @@ function ShopOrderDetail({ order, onClose, onUpdated }) {
     if (status === 'shipped') extra.shipped_at = new Date().toISOString()
     if (status === 'delivered') extra.delivered_at = new Date().toISOString()
     if (status === 'cancelled') extra.cancelled_at = new Date().toISOString()
-    await supabase.from('shop_orders').update({ status, ...extra }).eq('id', order.id)
+    const updateData = { status, ...extra }
+    const result = await debugAction('shopOrder.updateStatus', 'ShopOrderDetail', () =>
+      supabase.from('shop_orders').update(updateData).eq('id', order.id)
+    , updateData)
+    if (result?.error) throw result.error
     setUpdating(false)
     onUpdated()
   }
 
   async function updatePayment(payment_status) {
     setUpdating(true)
-    await supabase.from('shop_orders').update({ payment_status }).eq('id', order.id)
+    const result = await debugAction('shopOrder.updatePayment', 'ShopOrderDetail', () =>
+      supabase.from('shop_orders').update({ payment_status }).eq('id', order.id)
+    , { payment_status })
+    if (result?.error) throw result.error
     setUpdating(false)
     onUpdated()
   }

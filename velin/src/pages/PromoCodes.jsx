@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { debugAction } from '../lib/debugLog'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
 import Button from '../components/ui/Button'
 import Badge from '../components/ui/Badge'
@@ -47,7 +48,7 @@ export default function PromoCodes() {
       }
 
       query = query.range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
-      const { data, count, error: err } = await query
+      const { data, count, error: err } = await debugAction('loadCodes', 'PromoCodes', () => query, { page, filters })
       if (err) throw err
       setCodes(data || [])
       setTotal(count || 0)
@@ -76,7 +77,7 @@ export default function PromoCodes() {
 
   async function toggleStatus(code) {
     const newActive = !code.active
-    const { error: err } = await supabase.from('promo_codes').update({ active: newActive }).eq('id', code.id)
+    const { error: err } = await debugAction('toggleStatus', 'PromoCodes', () => supabase.from('promo_codes').update({ active: newActive }).eq('id', code.id), { id: code.id, active: newActive })
     if (err) { setError(err.message); return }
     await logAudit(newActive ? 'promo_code_activated' : 'promo_code_deactivated', { code: code.code })
     setCodes(prev => prev.map(c => c.id === code.id ? { ...c, active: newActive } : c))
@@ -84,7 +85,7 @@ export default function PromoCodes() {
   }
 
   async function handleDelete(code) {
-    const { error: err } = await supabase.from('promo_codes').delete().eq('id', code.id)
+    const { error: err } = await debugAction('handleDelete', 'PromoCodes', () => supabase.from('promo_codes').delete().eq('id', code.id), { id: code.id, code: code.code })
     if (err) { setError(err.message); return }
     await logAudit('promo_code_deleted', { code: code.code })
     setDeleteConfirm(null)
@@ -298,11 +299,11 @@ function PromoModal({ existing, onClose, onSaved }) {
       }
 
       if (isEdit) {
-        const { error } = await supabase.from('promo_codes').update(payload).eq('id', existing.id)
+        const { error } = await debugAction('handleSave:update', 'PromoCodes', () => supabase.from('promo_codes').update(payload).eq('id', existing.id), { id: existing.id, payload })
         if (error) throw error
         await logAudit('promo_code_updated', { code: payload.code })
       } else {
-        const { error } = await supabase.from('promo_codes').insert({ ...payload, used_count: 0 })
+        const { error } = await debugAction('handleSave:insert', 'PromoCodes', () => supabase.from('promo_codes').insert({ ...payload, used_count: 0 }), { payload })
         if (error) throw error
         await logAudit('promo_code_created', { code: payload.code })
       }

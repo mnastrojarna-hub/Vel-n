@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
+import { debugAction } from '../../lib/debugLog'
 
 import Button from '../../components/ui/Button'
 
@@ -42,11 +43,14 @@ export default function ChatPanel({ thread, onThreadUpdate }) {
 
   async function loadMessages() {
     setLoading(true)
-    const { data } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('thread_id', thread.id)
-      .order('created_at')
+    const { data } = await debugAction('loadMessages', 'ChatPanel', () =>
+      supabase
+        .from('messages')
+        .select('*')
+        .eq('thread_id', thread.id)
+        .order('created_at'),
+      { thread_id: thread.id }
+    )
     setMessages(data || [])
     setLoading(false)
     // Mark customer messages as read
@@ -68,17 +72,23 @@ export default function ChatPanel({ thread, onThreadUpdate }) {
     if (!reply.trim()) return
     setSending(true)
     try {
-      await supabase.from('messages').insert({
-        thread_id: thread.id,
-        direction: 'admin',
-        sender_name: 'Admin',
-        content: reply.trim(),
-        read_at: new Date().toISOString(),
-      })
-      await supabase.from('message_threads').update({
-        last_message_at: new Date().toISOString(),
-        status: 'open',
-      }).eq('id', thread.id)
+      await debugAction('handleSend:insert', 'ChatPanel', () =>
+        supabase.from('messages').insert({
+          thread_id: thread.id,
+          direction: 'admin',
+          sender_name: 'Admin',
+          content: reply.trim(),
+          read_at: new Date().toISOString(),
+        }),
+        { thread_id: thread.id, content: reply.trim() }
+      )
+      await debugAction('handleSend:updateThread', 'ChatPanel', () =>
+        supabase.from('message_threads').update({
+          last_message_at: new Date().toISOString(),
+          status: 'open',
+        }).eq('id', thread.id),
+        { thread_id: thread.id }
+      )
 
       // Bridge: vytvor admin_messages zaznam pro zakaznickou appku
       const customerId = thread.customer_id || thread.profiles?.id
@@ -100,12 +110,18 @@ export default function ChatPanel({ thread, onThreadUpdate }) {
 
   async function toggleStatus() {
     const newStatus = thread.status === 'closed' ? 'open' : 'closed'
-    await supabase.from('message_threads').update({ status: newStatus }).eq('id', thread.id)
+    await debugAction('toggleStatus', 'ChatPanel', () =>
+      supabase.from('message_threads').update({ status: newStatus }).eq('id', thread.id),
+      { thread_id: thread.id, newStatus }
+    )
     onThreadUpdate?.({ ...thread, status: newStatus })
   }
 
   async function assignAdmin(adminId) {
-    await supabase.from('message_threads').update({ assigned_admin: adminId || null }).eq('id', thread.id)
+    await debugAction('assignAdmin', 'ChatPanel', () =>
+      supabase.from('message_threads').update({ assigned_admin: adminId || null }).eq('id', thread.id),
+      { thread_id: thread.id, adminId: adminId || null }
+    )
     onThreadUpdate?.({ ...thread, assigned_admin: adminId || null })
   }
 

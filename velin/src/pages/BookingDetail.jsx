@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { debugAction } from '../lib/debugLog'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import StatusBadge from '../components/ui/StatusBadge'
@@ -51,12 +52,13 @@ export default function BookingDetail() {
 
   async function loadBooking() {
     setLoading(true)
-    const { data, error: err } = await supabase
-      .from('bookings')
-      .select('*, motorcycles(id, model, spz, status, branch_id, branches(name)), profiles(id, full_name, email, phone, city)')
-      .eq('id', id).single()
-    if (err) setError(err.message)
-    else setBooking(data)
+    const result = await debugAction('booking.load', 'BookingDetail', () =>
+      supabase.from('bookings')
+        .select('*, motorcycles(id, model, spz, status, branch_id, branches(name)), profiles(id, full_name, email, phone, city)')
+        .eq('id', id).single()
+    , { booking_id: id })
+    if (result?.error) setError(result.error.message)
+    else setBooking(result?.data)
     setLoading(false)
   }
 
@@ -68,8 +70,10 @@ export default function BookingDetail() {
     if (newStatus === 'active') update.picked_up_at = now
     if (newStatus === 'completed') update.returned_at = now
 
-    const { error: err } = await supabase.from('bookings').update(update).eq('id', id)
-    if (err) { setError(err.message); setSaving(false); return }
+    const result = await debugAction(`booking.status.${newStatus}`, 'BookingDetail', () =>
+      supabase.from('bookings').update(update).eq('id', id)
+    , { booking_id: id, newStatus })
+    if (result?.error) { setError(result.error.message); setSaving(false); return }
     await logAudit(`booking_${newStatus}`, { booking_id: id })
 
     // Auto-triggers per status
@@ -152,8 +156,10 @@ export default function BookingDetail() {
       cancelled_at: new Date().toISOString(),
     }
 
-    const { error: err } = await supabase.from('bookings').update(updatePayload).eq('id', id)
-    if (err) { setError(err.message); setSaving(false); return }
+    const cancelResult = await debugAction('booking.cancel', 'BookingDetail', () =>
+      supabase.from('bookings').update(updatePayload).eq('id', id)
+    , { booking_id: id, reason, source: cancelReason })
+    if (cancelResult?.error) { setError(cancelResult.error.message); setSaving(false); return }
     await logAudit('booking_cancelled', { booking_id: id, reason, source: cancelReason })
 
     if (booking.profiles?.email) {
@@ -178,9 +184,11 @@ export default function BookingDetail() {
   async function handleSave() {
     setSaving(true); setError(null)
     const { start_date, end_date, total_price, extras, notes, moto_id, user_id } = booking
-    const { error: err } = await supabase.from('bookings')
-      .update({ start_date, end_date, total_price, extras, notes, moto_id, user_id }).eq('id', id)
-    if (err) { setError(err.message); setSaving(false); return }
+    const saveData = { start_date, end_date, total_price, extras, notes, moto_id, user_id }
+    const saveResult = await debugAction('booking.save', 'BookingDetail', () =>
+      supabase.from('bookings').update(saveData).eq('id', id)
+    , saveData)
+    if (saveResult?.error) { setError(saveResult.error.message); setSaving(false); return }
     await logAudit('booking_updated', { booking_id: id })
 
     // Send modification email if booking is reserved or active

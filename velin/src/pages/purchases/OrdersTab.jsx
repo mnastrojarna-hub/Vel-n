@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { debugAction } from '../../lib/debugLog'
 
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
@@ -105,16 +106,20 @@ function NewOrderModal({ onClose, onSaved }) {
     setSaving(true); setErr(null)
     try {
       const total = items.reduce((s, it) => s + (Number(it.quantity) || 0) * (Number(it.unit_price) || 0), 0)
-      const { data: order, error: oErr } = await supabase.from('purchase_orders')
-        .insert({ supplier_id: form.supplier_id, notes: form.notes, status: 'draft', total_amount: total })
-        .select().single()
-      if (oErr) throw oErr
+      const orderPayload = { supplier_id: form.supplier_id, notes: form.notes, status: 'draft', total_amount: total }
+      const result = await debugAction('purchaseOrder.create', 'NewOrderModal', () =>
+        supabase.from('purchase_orders').insert(orderPayload).select().single()
+      , orderPayload)
+      if (result?.error) throw result.error
+      const order = result.data
       const orderItems = items.filter(it => it.item_id).map(it => ({
         order_id: order.id, item_id: it.item_id, quantity: Number(it.quantity), unit_price: Number(it.unit_price),
       }))
       if (orderItems.length > 0) {
-        const { error: iErr } = await supabase.from('purchase_order_items').insert(orderItems)
-        if (iErr) throw iErr
+        const itemsResult = await debugAction('purchaseOrder.createItems', 'NewOrderModal', () =>
+          supabase.from('purchase_order_items').insert(orderItems)
+        , orderItems)
+        if (itemsResult?.error) throw itemsResult.error
       }
       onSaved()
     } catch (e) { setErr(e.message) } finally { setSaving(false) }
@@ -179,7 +184,10 @@ function OrderDetail({ order, onClose, onUpdated }) {
   }
 
   async function markReceived() {
-    await supabase.from('purchase_orders').update({ status: 'received' }).eq('id', order.id)
+    const result = await debugAction('purchaseOrder.markReceived', 'OrderDetail', () =>
+      supabase.from('purchase_orders').update({ status: 'received' }).eq('id', order.id)
+    , { order_id: order.id })
+    if (result?.error) throw result.error
     for (const item of items) {
       if (item.item_id && item.quantity) {
         const { data: inv } = await supabase.from('inventory').select('stock').eq('id', item.item_id).single()

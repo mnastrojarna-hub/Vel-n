@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { debugAction } from '../lib/debugLog'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
@@ -45,8 +46,10 @@ export default function Branches() {
   }
 
   async function handleDelete(branch) {
-    const { error: err } = await supabase.from('branches').delete().eq('id', branch.id)
-    if (err) { setError(err.message); return }
+    const result = await debugAction('branches.delete', 'Branches', () =>
+      supabase.from('branches').delete().eq('id', branch.id)
+    , { branch_id: branch.id, name: branch.name })
+    if (result?.error) { setError(result.error.message); return }
     await logAudit('branch_deleted', { name: branch.name })
     setDeleteConfirm(null)
     load()
@@ -176,13 +179,10 @@ function BranchModal({ existing, onClose, onSaved }) {
         gps_lat: form.gps_lat ? Number(form.gps_lat) : null,
         gps_lng: form.gps_lng ? Number(form.gps_lng) : null,
       }
-      if (isEdit) {
-        const { error } = await supabase.from('branches').update(payload).eq('id', existing.id)
-        if (error) throw error
-      } else {
-        const { error } = await supabase.from('branches').insert(payload)
-        if (error) throw error
-      }
+      const result = await debugAction(isEdit ? 'branches.update' : 'branches.create', 'BranchModal', () =>
+        isEdit ? supabase.from('branches').update(payload).eq('id', existing.id) : supabase.from('branches').insert(payload)
+      , payload)
+      if (result?.error) throw result.error
       await supabase.from('admin_audit_log').insert({
         admin_id: user?.id,
         action: isEdit ? 'branch_updated' : 'branch_created',

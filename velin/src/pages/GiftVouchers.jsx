@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { debugAction } from '../lib/debugLog'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
 import Button from '../components/ui/Button'
 import SearchInput from '../components/ui/SearchInput'
@@ -75,10 +76,13 @@ export default function GiftVouchers() {
   }
 
   async function handleCancel(voucher) {
-    const { error: err } = await supabase
-      .from('vouchers')
-      .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-      .eq('id', voucher.id)
+    const { error: err } = await debugAction('cancelVoucher', 'GiftVouchers', () =>
+      supabase
+        .from('vouchers')
+        .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .eq('id', voucher.id),
+      { voucherId: voucher.id, code: voucher.code }
+    )
     if (err) { setError(err.message); return }
     await logAudit('voucher_cancelled', { code: voucher.code })
     setDeleteConfirm(null)
@@ -88,17 +92,20 @@ export default function GiftVouchers() {
 
   async function handleRedeem(voucher, redeemData) {
     const { data: { user } } = await supabase.auth.getUser()
-    const { error: err } = await supabase
-      .from('vouchers')
-      .update({
-        status: 'redeemed',
-        redeemed_at: new Date().toISOString(),
-        redeemed_by: redeemData.redeemed_by || null,
-        redeemed_for: redeemData.redeemed_for || null,
-        booking_id: redeemData.booking_id || null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', voucher.id)
+    const { error: err } = await debugAction('redeemVoucher', 'GiftVouchers', () =>
+      supabase
+        .from('vouchers')
+        .update({
+          status: 'redeemed',
+          redeemed_at: new Date().toISOString(),
+          redeemed_by: redeemData.redeemed_by || null,
+          redeemed_for: redeemData.redeemed_for || null,
+          booking_id: redeemData.booking_id || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', voucher.id),
+      { voucherId: voucher.id, code: voucher.code, redeemData }
+    )
     if (err) { setError(err.message); return }
     await logAudit('voucher_redeemed', { code: voucher.code, redeemed_for: redeemData.redeemed_for })
     setRedeemModal(null)
@@ -351,11 +358,17 @@ function VoucherModal({ open, existing, onClose, onSaved }) {
       }
 
       if (isEdit) {
-        const { error } = await supabase.from('vouchers').update(payload).eq('id', existing.id)
+        const { error } = await debugAction('updateVoucher', 'VoucherModal', () =>
+          supabase.from('vouchers').update(payload).eq('id', existing.id),
+          { voucherId: existing.id, payload }
+        )
         if (error) throw error
         await logAudit('voucher_updated', { code: payload.code })
       } else {
-        const { error } = await supabase.from('vouchers').insert({ ...payload, status: 'active', created_by: user?.id })
+        const { error } = await debugAction('createVoucher', 'VoucherModal', () =>
+          supabase.from('vouchers').insert({ ...payload, status: 'active', created_by: user?.id }),
+          { payload }
+        )
         if (error) throw error
         await logAudit('voucher_created', { code: payload.code, amount: payload.amount })
       }

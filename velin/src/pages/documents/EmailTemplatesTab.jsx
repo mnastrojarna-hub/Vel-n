@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
+import { debugAction } from '../../lib/debugLog'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
@@ -183,9 +184,11 @@ function EditEmailTemplateModal({ template, onClose, onSaved }) {
     setSaving(true); setErr(null)
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      const { error } = await supabase.from('email_templates')
-        .update({ name, subject, body_html: bodyHtml, active, updated_by: user?.id }).eq('id', template.id)
-      if (error) throw error
+      const updatePayload = { name, subject, body_html: bodyHtml, active, updated_by: user?.id }
+      const result = await debugAction('emailTemplate.update', 'EditEmailTemplateModal', () =>
+        supabase.from('email_templates').update(updatePayload).eq('id', template.id)
+      , updatePayload)
+      if (result?.error) throw result.error
       await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'email_template_updated', details: { template_id: template.id } })
       onSaved()
     } catch (e) { setErr(e.message) } finally { setSaving(false) }
@@ -194,8 +197,10 @@ function EditEmailTemplateModal({ template, onClose, onSaved }) {
   async function handleTestSend() {
     setTesting(true); setErr(null)
     try {
-      const { error } = await supabase.functions.invoke('send-email', { body: { template_slug: template.slug, test: true } })
-      if (error) throw error
+      const result = await debugAction('emailTemplate.testSend', 'EditEmailTemplateModal', () =>
+        supabase.functions.invoke('send-email', { body: { template_slug: template.slug, test: true } })
+      , { template_slug: template.slug, test: true })
+      if (result?.error) throw result.error
     } catch (e) { setErr(`Test e-mail se nepodařilo odeslat: ${e.message || 'Edge Function nemusí být nasazena.'}`) }
     setTesting(false)
   }

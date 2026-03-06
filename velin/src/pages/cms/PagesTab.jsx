@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { debugAction } from '../../lib/debugLog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import StatusBadge from '../../components/ui/StatusBadge'
@@ -90,11 +91,15 @@ function PageModal({ entry, onClose, onSaved }) {
     try {
       const payload = { ...form, updated_at: new Date().toISOString() }
       if (entry) {
-        const { error } = await supabase.from('cms_pages').update(payload).eq('id', entry.id)
-        if (error) throw error
+        const result = await debugAction('cmsPage.update', 'PageModal', () =>
+          supabase.from('cms_pages').update(payload).eq('id', entry.id)
+        , payload)
+        if (result?.error) throw result.error
       } else {
-        const { error } = await supabase.from('cms_pages').insert(payload)
-        if (error) throw error
+        const result = await debugAction('cmsPage.create', 'PageModal', () =>
+          supabase.from('cms_pages').insert(payload)
+        , payload)
+        if (result?.error) throw result.error
       }
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: entry ? 'cms_page_updated' : 'cms_page_created', details: { slug: form.slug } })

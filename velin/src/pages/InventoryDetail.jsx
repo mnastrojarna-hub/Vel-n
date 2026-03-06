@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { debugAction } from '../lib/debugLog'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
@@ -52,38 +53,44 @@ export default function InventoryDetail() {
   async function handleSave() {
     setSaving(true); setError(null)
     const { name, sku, category, min_stock, unit_price } = item
-    const { error: err } = await supabase.from('inventory').update({ name, sku, category, min_stock, unit_price }).eq('id', id)
-    if (err) setError(err.message)
-    else await logAudit('inventory_updated', { item_id: id })
+    await debugAction('handleSave', 'InventoryDetail', async () => {
+      const { error: err } = await supabase.from('inventory').update({ name, sku, category, min_stock, unit_price }).eq('id', id)
+      if (err) setError(err.message)
+      else await logAudit('inventory_updated', { item_id: id })
+    }, { name, sku, category, min_stock, unit_price })
     setSaving(false)
   }
 
   async function handleDelete() {
-    await supabase.from('inventory').delete().eq('id', id)
-    await logAudit('inventory_deleted', { item_id: id })
-    navigate('/sklady')
+    await debugAction('handleDelete', 'InventoryDetail', async () => {
+      await supabase.from('inventory').delete().eq('id', id)
+      await logAudit('inventory_deleted', { item_id: id })
+      navigate('/sklady')
+    }, { item_id: id })
   }
 
   async function handleMovement(type, quantity, note) {
-    const mult = type === 'receipt' ? 1 : type === 'issue' ? -1 : 0
-    const { data: { user } } = await supabase.auth.getUser()
+    await debugAction('handleMovement', 'InventoryDetail', async () => {
+      const mult = type === 'receipt' ? 1 : type === 'issue' ? -1 : 0
+      const { data: { user } } = await supabase.auth.getUser()
 
-    await supabase.from('inventory_movements').insert({
-      item_id: id, type, quantity, note, performed_by: user?.id,
-    })
+      await supabase.from('inventory_movements').insert({
+        item_id: id, type, quantity, note, performed_by: user?.id,
+      })
 
-    if (type === 'correction') {
-      await supabase.from('inventory').update({ stock: quantity }).eq('id', id)
-      setItem(i => ({ ...i, stock: quantity }))
-    } else {
-      const newStock = (item.stock || 0) + (mult * quantity)
-      await supabase.from('inventory').update({ stock: newStock }).eq('id', id)
-      setItem(i => ({ ...i, stock: newStock }))
-    }
+      if (type === 'correction') {
+        await supabase.from('inventory').update({ stock: quantity }).eq('id', id)
+        setItem(i => ({ ...i, stock: quantity }))
+      } else {
+        const newStock = (item.stock || 0) + (mult * quantity)
+        await supabase.from('inventory').update({ stock: newStock }).eq('id', id)
+        setItem(i => ({ ...i, stock: newStock }))
+      }
 
-    await logAudit(`inventory_${type}`, { item_id: id, quantity })
-    setMoveModal(null)
-    loadMovements()
+      await logAudit(`inventory_${type}`, { item_id: id, quantity })
+      setMoveModal(null)
+      loadMovements()
+    }, { type, quantity, note })
   }
 
   async function logAudit(action, details) {

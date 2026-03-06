@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { debugAction } from '../lib/debugLog'
 import ThreadList from './messages/ThreadList'
 import ChatPanel from './messages/ChatPanel'
 import Modal from '../components/ui/Modal'
@@ -16,7 +17,9 @@ export default function Messages() {
   const [customerSearch, setCustomerSearch] = useState('')
 
   async function loadCustomers() {
-    const { data } = await supabase.from('profiles').select('id, full_name, email').order('full_name').limit(100)
+    const { data } = await debugAction('messages.loadCustomers', 'Messages', () =>
+      supabase.from('profiles').select('id, full_name, email').order('full_name').limit(100)
+    )
     setCustomers(data || [])
   }
 
@@ -33,30 +36,39 @@ export default function Messages() {
     if (!newCustomerId || !newMessage.trim()) return
     setCreating(true)
     try {
-      const { data: thread } = await supabase.from('message_threads').insert({
+      const threadInsertData = {
         customer_id: newCustomerId,
         channel: 'web',
         status: 'open',
         subject: newSubject || null,
         last_message_at: new Date().toISOString(),
-      }).select('*, profiles(full_name, email)').single()
+      }
+      const { data: thread } = await debugAction('messages.createThread', 'Messages', () =>
+        supabase.from('message_threads').insert(threadInsertData).select('*, profiles(full_name, email)').single()
+      , threadInsertData)
 
       if (thread) {
-        await supabase.from('messages').insert({
+        const messageData = {
           thread_id: thread.id,
           direction: 'admin',
           sender_name: 'Admin',
           content: newMessage.trim(),
           read_at: new Date().toISOString(),
-        })
+        }
+        await debugAction('messages.insertMessage', 'Messages', () =>
+          supabase.from('messages').insert(messageData)
+        , messageData)
         // Bridge: notifikace pro zakaznickou appku
-        await supabase.from('admin_messages').insert({
+        const adminMsgData = {
           user_id: newCustomerId,
           title: newSubject || 'Zprava z Moto Go',
           message: newMessage.trim(),
           type: 'info',
           read: false,
-        }).catch(() => {})
+        }
+        await debugAction('messages.insertAdminMessage', 'Messages', () =>
+          supabase.from('admin_messages').insert(adminMsgData)
+        , adminMsgData).catch(() => {})
         setSelected(thread)
       }
       setShowNew(false)

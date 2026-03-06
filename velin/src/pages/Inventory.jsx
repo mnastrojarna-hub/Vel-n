@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { debugAction } from '../lib/debugLog'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
 import Button from '../components/ui/Button'
 import SearchInput from '../components/ui/SearchInput'
@@ -145,14 +146,16 @@ function AddItemModal({ onClose, onSaved }) {
   async function handleSave() {
     setSaving(true); setErr(null)
     try {
-      const { error } = await supabase.from('inventory').insert({
-        ...form, stock: Number(form.stock) || 0, min_stock: Number(form.min_stock) || 0,
-        unit_price: Number(form.unit_price) || 0,
-      })
-      if (error) throw error
-      const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'inventory_item_created', details: {} })
-      onSaved()
+      await debugAction('handleSave', 'AddItemModal', async () => {
+        const { error } = await supabase.from('inventory').insert({
+          ...form, stock: Number(form.stock) || 0, min_stock: Number(form.min_stock) || 0,
+          unit_price: Number(form.unit_price) || 0,
+        })
+        if (error) throw error
+        const { data: { user } } = await supabase.auth.getUser()
+        await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'inventory_item_created', details: {} })
+        onSaved()
+      }, form)
     } catch (e) { setErr(e.message) } finally { setSaving(false) }
   }
 

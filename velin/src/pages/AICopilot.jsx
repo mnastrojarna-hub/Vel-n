@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { debugAction } from '../lib/debugLog'
 import Button from '../components/ui/Button'
 
 export default function AICopilot() {
@@ -37,11 +38,14 @@ export default function AICopilot() {
 
   async function startNew() {
     try {
-      const { data, error } = await supabase
-        .from('ai_conversations')
-        .insert({ title: 'Nová konverzace', messages: [] })
-        .select()
-        .single()
+      const { data, error } = await debugAction('startNew', 'AICopilot', () =>
+        supabase
+          .from('ai_conversations')
+          .insert({ title: 'Nová konverzace', messages: [] })
+          .select()
+          .single(),
+        { title: 'Nová konverzace' }
+      )
       if (!error && data) {
         setActiveConv(data)
         setMessages([])
@@ -62,18 +66,24 @@ export default function AICopilot() {
     try {
       let convId = activeConv?.id
       if (!convId) {
-        const { data } = await supabase
-          .from('ai_conversations')
-          .insert({ title: input.trim().slice(0, 50), messages: [] })
-          .select().single()
+        const { data } = await debugAction('handleSend:createConv', 'AICopilot', () =>
+          supabase
+            .from('ai_conversations')
+            .insert({ title: input.trim().slice(0, 50), messages: [] })
+            .select().single(),
+          { title: input.trim().slice(0, 50) }
+        )
         convId = data.id
         setActiveConv(data)
         setConversations(c => [data, ...c])
       }
 
-      const { data, error: fnError } = await supabase.functions.invoke('ai-copilot', {
-        body: { message: input.trim(), conversation_id: convId },
-      })
+      const { data, error: fnError } = await debugAction('handleSend:invoke', 'AICopilot', () =>
+        supabase.functions.invoke('ai-copilot', {
+          body: { message: input.trim(), conversation_id: convId },
+        }),
+        { message: input.trim(), conversation_id: convId }
+      )
 
       if (fnError) throw fnError
 

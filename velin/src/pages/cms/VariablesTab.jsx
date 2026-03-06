@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { debugAction } from '../../lib/debugLog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
@@ -26,8 +27,10 @@ export default function VariablesTab() {
   }
 
   async function saveInline(id, value) {
-    const { error } = await supabase.from('cms_variables').update({ value }).eq('id', id)
-    if (error) setError(error.message)
+    const result = await debugAction('cmsVariable.saveInline', 'VariablesTab', () =>
+      supabase.from('cms_variables').update({ value }).eq('id', id)
+    , { id, value })
+    if (result?.error) setError(result.error.message)
     else {
       setVars(v => v.map(item => item.id === id ? { ...item, value } : item))
       const { data: { user } } = await supabase.auth.getUser()
@@ -119,11 +122,15 @@ function VarModal({ entry, onClose, onSaved }) {
     try {
       const { group: _g, ...payload } = form
       if (entry) {
-        const { error } = await supabase.from('cms_variables').update(payload).eq('id', entry.id)
-        if (error) throw error
+        const result = await debugAction('cmsVariable.update', 'VarModal', () =>
+          supabase.from('cms_variables').update(payload).eq('id', entry.id)
+        , payload)
+        if (result?.error) throw result.error
       } else {
-        const { error } = await supabase.from('cms_variables').insert(payload)
-        if (error) throw error
+        const result = await debugAction('cmsVariable.create', 'VarModal', () =>
+          supabase.from('cms_variables').insert(payload)
+        , payload)
+        if (result?.error) throw result.error
       }
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: entry ? 'cms_var_updated' : 'cms_var_created', details: { key: form.key } })

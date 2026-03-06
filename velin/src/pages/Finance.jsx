@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { debugAction } from '../lib/debugLog'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
@@ -97,11 +98,11 @@ export default function Finance() {
 
   async function handleExport(format) {
     try {
-      const { data, error } = await supabase.functions.invoke('export-data', {
-        body: { type: 'accounting_entries', format, filters },
-      })
-      if (error) throw error
-      if (data?.url) window.open(data.url, '_blank')
+      const result = await debugAction(`finance.export.${format}`, 'Finance', () =>
+        supabase.functions.invoke('export-data', { body: { type: 'accounting_entries', format, filters } })
+      , { format, filters })
+      if (result?.error) throw result.error
+      if (result?.data?.url) window.open(result.data.url, '_blank')
     } catch (e) {
       setError('Export selhal: ' + e.message)
     }
