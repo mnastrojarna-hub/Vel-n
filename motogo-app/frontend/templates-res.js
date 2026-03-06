@@ -25,7 +25,7 @@ Templates['s-res-detail'] = `  <div class="rd-hdr">
   </div>
   <div id="rd-banner" class="rd-info-banner rd-banner-info" style="display:none;"></div>
   <div class="rd-card" style="margin-top:10px;">
-    <img id="rd-moto-img" class="rd-moto-img" src="https://images.unsplash.com/photo-1558981359-219d6364c9c8?w=800&q=80" alt="">
+    <img id="rd-moto-img" class="rd-moto-img" src="" alt="" onerror="this.style.display='none'">
     <div class="rd-section-t" id="t-rdMotoSec">Motorka</div>
     <div class="rd-row"><div class="rd-label" id="t-rdModel">Model</div><div class="rd-value" id="rd-moto-name">BMW R 1200 GS Adventure</div></div>
     <div class="rd-row"><div class="rd-label" id="t-rdCat">Kategorie</div><div class="rd-value">Cestovní enduro · A</div></div>

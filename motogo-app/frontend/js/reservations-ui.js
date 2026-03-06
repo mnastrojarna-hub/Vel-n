@@ -172,7 +172,7 @@ async function openResDetailById(bookingId){
     if(subEl) subEl.textContent = '#' + bookingId.substr(-8).toUpperCase();
 
     var imgEl = document.getElementById('rd-moto-img');
-    if(imgEl && moto) imgEl.src = moto.image_url || '';
+    if(imgEl && moto) imgEl.src = moto.image_url || (moto.images && moto.images[0]) || '';
 
     var nameEl = document.getElementById('rd-moto-name');
     if(nameEl) nameEl.textContent = motoName;

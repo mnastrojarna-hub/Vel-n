@@ -68,9 +68,10 @@ function openResDetail(type){
   const daysAway=isNad?2:0;
 
   if(isNad){
+    var _bmw=MOTOS.find(function(x){return x.name&&x.name.toLowerCase().indexOf('bmw')>=0;})||MOTOS[0];
     document.getElementById('rd-title').textContent='BMW R 1200 GS Adventure';
     document.getElementById('rd-subtitle').textContent='#RES-'+UPC_START.y+'-0043 · Nadcházející';
-    document.getElementById('rd-moto-img').src='https://images.unsplash.com/photo-1558981359-219d6364c9c8?w=800&q=80';
+    document.getElementById('rd-moto-img').src=(_bmw&&(_bmw.img||((_bmw.imgs&&_bmw.imgs[0])||'')))||'';
     document.getElementById('rd-moto-name').textContent='BMW R 1200 GS Adventure';
     document.getElementById('rd-pickup').textContent=fmtDate(UPC_START.d,UPC_START.m,UPC_START.y)+' v 9:00';
     document.getElementById('rd-return').textContent=fmtDate(UPC_END.d,UPC_END.m,UPC_END.y)+' v 9:00';
@@ -90,9 +91,10 @@ function openResDetail(type){
     `;
   } else {
     // Active
+    var _jawa=MOTOS.find(function(x){return x.name&&x.name.toLowerCase().indexOf('jawa')>=0;})||MOTOS[0];
     document.getElementById('rd-title').textContent='Jawa RVM 500 Adventure';
     document.getElementById('rd-subtitle').textContent='#RES-'+ACT_START.y+'-0031 · Aktivní';
-    document.getElementById('rd-moto-img').src='https://images.unsplash.com/photo-1609630875171-b1321377ee65?w=800&q=80';
+    document.getElementById('rd-moto-img').src=(_jawa&&(_jawa.img||((_jawa.imgs&&_jawa.imgs[0])||'')))||'';
     document.getElementById('rd-moto-name').textContent='Jawa RVM 500 Adventure';
     document.getElementById('rd-pickup').textContent=fmtDate(ACT_START.d,ACT_START.m,ACT_START.y)+' v 9:00';
     document.getElementById('rd-return').textContent=fmtDate(ACT_END.d,ACT_END.m,ACT_END.y)+' v 9:00';
@@ -116,7 +118,7 @@ function openResDetail(type){
 
 function openDoneDetail(id){
   const m=MOTOS.find(x=>x.id===id)||MOTOS[0];
-  document.getElementById('done-img').src=m.img;
+  document.getElementById('done-img').src=m.img||(m.imgs&&m.imgs[0])||'';
   document.getElementById('done-moto').textContent=m.name;
   document.getElementById('done-sub').textContent=id==='benelli'?'#RES-2025-0018':'#RES-2025-0009';
   goTo('s-done-detail');
