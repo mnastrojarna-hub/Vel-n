@@ -84,7 +84,7 @@ export function generateInvoiceHtml(data) {
     <div style="flex:1;padding:14px;background:#f8faf9;border-radius:8px">
       <p style="margin:0 0 6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888">Odběratel</p>
       <p style="margin:0;font-size:13px;font-weight:700">${customer.name || customer.full_name || '—'}</p>
-      <p style="margin:2px 0;font-size:11px">${customer.address || ''}</p>
+      <p style="margin:2px 0;font-size:11px">${customer.address || [customer.street, customer.city, customer.zip].filter(Boolean).join(', ') || ''}</p>
       ${customer.ico ? `<p style="margin:2px 0;font-size:11px">IČO: ${customer.ico}${customer.dic ? ` | DIČ: ${customer.dic}` : ''}</p>` : ''}
       <p style="margin:2px 0;font-size:11px">${customer.email || ''}</p>
     </div>

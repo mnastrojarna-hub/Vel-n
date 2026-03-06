@@ -57,7 +57,7 @@ export default function BookingDocumentsTab({ bookingId }) {
   async function generateClientSide(templateSlug) {
     const { data: booking, error: bErr } = await supabase
       .from('bookings')
-      .select('*, motorcycles(model, spz, vin, year), profiles(id, full_name, email, phone, address, ico, dic, license_number, license_expiry)')
+      .select('*, motorcycles(model, spz, vin, year), profiles(id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry)')
       .eq('id', bookingId).single()
     if (bErr || !booking) throw new Error('Rezervace nenalezena')
 
@@ -69,7 +69,7 @@ export default function BookingDocumentsTab({ bookingId }) {
 
     const vars = {
       customer_name: customer.full_name || '—', customer_email: customer.email || '',
-      customer_phone: customer.phone || '', customer_address: customer.address || '',
+      customer_phone: customer.phone || '', customer_address: [customer.street, customer.city, customer.zip, customer.country].filter(Boolean).join(', ') || '',
       customer_ico: customer.ico || '', customer_dic: customer.dic || '',
       customer_license: customer.license_number || '',
       customer_license_expiry: fmtDate(customer.license_expiry),

@@ -226,7 +226,7 @@ function RegenerateModal({ template, onClose }) {
       // Load booking data for template filling
       const { data: booking, error: bErr } = await supabase
         .from('bookings')
-        .select('*, profiles(full_name, email, phone, address), motorcycles(model, spz)')
+        .select('*, profiles(full_name, email, phone, street, city, zip), motorcycles(model, spz)')
         .eq('id', selectedBooking)
         .single()
       if (bErr) throw bErr
@@ -236,7 +236,7 @@ function RegenerateModal({ template, onClose }) {
         customer_name: booking.profiles?.full_name || '',
         customer_email: booking.profiles?.email || '',
         customer_phone: booking.profiles?.phone || '',
-        customer_address: booking.profiles?.address || '',
+        customer_address: [booking.profiles?.street, booking.profiles?.city, booking.profiles?.zip].filter(Boolean).join(', ') || '',
         moto_model: booking.motorcycles?.model || '',
         moto_spz: booking.motorcycles?.spz || '',
         start_date: booking.start_date ? new Date(booking.start_date).toLocaleDateString('cs-CZ') : '',

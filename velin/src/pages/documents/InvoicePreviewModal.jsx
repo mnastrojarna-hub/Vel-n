@@ -59,7 +59,7 @@ export default function InvoicePreviewModal({ invoice, onClose, onUpdated }) {
           name: data.profiles?.full_name,
           email: data.profiles?.email,
           phone: data.profiles?.phone,
-          address: data.profiles?.address,
+          address: [data.profiles?.street, data.profiles?.city, data.profiles?.zip, data.profiles?.country].filter(Boolean).join(', ') || '',
           ico: data.profiles?.ico,
           dic: data.profiles?.dic,
         },
