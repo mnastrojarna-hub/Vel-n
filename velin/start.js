@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 
-const { execSync, spawn } = require("child_process");
-const fs = require("fs");
-const path = require("path");
+import { execSync, spawn } from "child_process";
+import fs from "fs";
+import { fileURLToPath } from "url";
+import path from "path";
 
-const root = __dirname;
+const root = path.dirname(fileURLToPath(import.meta.url));
 
 // Install dependencies if node_modules is missing
 if (!fs.existsSync(path.join(root, "node_modules"))) {
