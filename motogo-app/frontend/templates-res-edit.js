@@ -168,7 +168,7 @@ Templates['s-done-detail'] = `  <div class="done-hdr">
     <p id="done-sub">#RES-2025-0018</p>
   </div>
   <div class="rd-card" style="margin-top:10px;">
-    <img id="done-img" class="rd-moto-img" src="https://images.unsplash.com/photo-1547549082-6bc09f2049ae?w=800&q=80" alt="">
+    <img id="done-img" class="rd-moto-img" src="" alt="" onerror="this.style.display='none'">
     <div class="rd-section-t" id="t-doneHistory">Průběh výpůjčky</div>
     <div class="rd-row"><div class="rd-label" id="t-doneMoto">Motorka</div><div class="rd-value" id="done-moto">Benelli TRK 702X</div></div>
     <div class="rd-row"><div class="rd-label" id="t-donePickup">Vyzvednutí</div><div class="rd-value">10. 1. 2025 v 9:00</div></div>
