@@ -326,12 +326,30 @@ function DateFilter({ label, value, onChange }) {
   )
 }
 
+function calcPriceFromDayPrices(dayPrices, startDate, endDate) {
+  if (!dayPrices || !startDate || !endDate) return null
+  const start = new Date(startDate)
+  const end = new Date(endDate)
+  if (isNaN(start) || isNaN(end) || end < start) return null
+  const dayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+  let total = 0
+  const cur = new Date(start)
+  while (cur <= end) {
+    const key = `price_${dayKeys[cur.getDay()]}`
+    total += Number(dayPrices[key]) || 0
+    cur.setDate(cur.getDate() + 1)
+  }
+  return total
+}
+
 function AddBookingModal({ onClose, onSaved }) {
   const [motos, setMotos] = useState([])
   const [customers, setCustomers] = useState([])
   const [form, setForm] = useState({ user_id: '', moto_id: '', start_date: '', end_date: '', total_price: '', status: 'pending' })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
+  const [priceLoading, setPriceLoading] = useState(false)
+  const [priceBreakdown, setPriceBreakdown] = useState(null)
 
   useEffect(() => {
     supabase.from('motorcycles').select('id, model, spz').eq('status', 'active').order('model')
@@ -339,6 +357,30 @@ function AddBookingModal({ onClose, onSaved }) {
     supabase.from('profiles').select('id, full_name, email').order('full_name')
       .then(({ data }) => setCustomers(data || [])).catch(() => {})
   }, [])
+
+  // Auto-calculate price when moto + dates change
+  useEffect(() => {
+    if (!form.moto_id || !form.start_date || !form.end_date) return
+    setPriceLoading(true)
+    supabase.from('moto_day_prices').select('*').eq('moto_id', form.moto_id).single()
+      .then(({ data }) => {
+        if (data) {
+          const total = calcPriceFromDayPrices(data, form.start_date, form.end_date)
+          if (total !== null && total > 0) {
+            setForm(f => ({ ...f, total_price: total }))
+            const start = new Date(form.start_date)
+            const end = new Date(form.end_date)
+            const days = Math.max(1, Math.round((end - start) / 86400000) + 1)
+            setPriceBreakdown(`${days} dn\u00ed \u00d7 denn\u00ed sazba = ${total.toLocaleString('cs-CZ')} K\u010d`)
+          } else {
+            setPriceBreakdown(null)
+          }
+        } else {
+          setPriceBreakdown('Cen\u00edk nen\u00ed nastaven pro tuto motorku')
+        }
+        setPriceLoading(false)
+      }).catch(() => setPriceLoading(false))
+  }, [form.moto_id, form.start_date, form.end_date])
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
@@ -388,6 +430,8 @@ function AddBookingModal({ onClose, onSaved }) {
         <div>
           <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Celková částka (Kč)</label>
           <input type="number" value={form.total_price} onChange={e => set('total_price', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
+          {priceLoading && <p className="text-[10px] mt-1" style={{ color: '#8aab99' }}>Počítám cenu...</p>}
+          {priceBreakdown && <p className="text-[10px] mt-1 font-bold" style={{ color: '#1a8a18' }}>{priceBreakdown}</p>}
         </div>
       </div>
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}

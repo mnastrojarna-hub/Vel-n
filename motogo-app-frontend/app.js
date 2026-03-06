@@ -4,7 +4,7 @@
 // Backend: Supabase (production) — žádný mock fallback
 
 // ===== INITIALIZATION =====
-console.log('%c[MG] MotoGo24 v4.1.0','color:#74FB71;font-weight:bold;font-size:14px;');
+console.log('%c[MG] MotoGo24 v5.0.0','color:#74FB71;font-weight:bold;font-size:14px;');
 
 function _resolveSession(cb){
   // Supabase session (async, primary backend)
