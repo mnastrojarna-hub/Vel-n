@@ -219,7 +219,9 @@ window.MOTOGO_CONFIG = {
 <script src="js/doc-scanner-ocr.js"></script>
 <script src="js/scanner-ui.js"></script>
 <script src="js/scan-flow.js"></script>
-<!-- Native bridge (Capacitor) – must load before app.js, no-op in browser -->
+<!-- Cordova – injected by VoltBuilder at build time -->
+<script src="cordova.js"></script>
+<!-- Native bridge (Cordova) – must load before app.js -->
 <script src="native-bridge.js"></script>
 <!-- Language selection -->
 <script src="js/lang-select.js"></script>

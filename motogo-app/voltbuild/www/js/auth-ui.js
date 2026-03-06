@@ -17,10 +17,18 @@ function _syncLocalSession(userId, email){
   } catch(e){}
 }
 
-// Store biometric user data – call after every successful auth
+// Store biometric user data + refresh token – call after every successful auth
 function _storeBioUser(userId, email){
   try {
     localStorage.setItem('mg_bio_user', JSON.stringify({user_id: userId, email: email}));
+    // Ulož refresh token pro obnovení Supabase session po reinstalaci
+    if(window.supabase){
+      window.supabase.auth.getSession().then(function(r){
+        if(r.data && r.data.session && r.data.session.refresh_token){
+          localStorage.setItem('mg_bio_refresh', r.data.session.refresh_token);
+        }
+      }).catch(function(){});
+    }
   } catch(e){}
 }
 
@@ -81,7 +89,7 @@ function doLogin(){
 
   function _loginSuccess(userId, email){
     _syncLocalSession(userId, email);
-    _storeBioUser(userId, email);
+    _storeBioUser(userId, email); // also saves refresh token
     showT('✓',_t('auth').loginTitle,_t('auth').welcome);
     renderUserData();
     setTimeout(function(){ goTo('s-home'); }, 700);
@@ -139,16 +147,42 @@ function bioLogin(){
   try {
     var bioEnabled=localStorage.getItem('mg_bio_enabled');
     if(!bioEnabled){showT('ℹ️',_t('auth').bio,_t('auth').bioOff);return;}
-    // Restore session from stored biometric credentials
     var bioUser = null;
     try { var raw = localStorage.getItem('mg_bio_user'); if(raw) bioUser = JSON.parse(raw); } catch(e){}
-    if(bioUser && bioUser.user_id && bioUser.email){
-      _syncLocalSession(bioUser.user_id, bioUser.email);
-      showT('🔐',_t('auth').bio,_t('auth').bioOk);
-      renderUserData();
-      setTimeout(function(){ goTo('s-home'); }, 1200);
-    } else {
+    if(!bioUser || !bioUser.user_id || !bioUser.email){
       showT('ℹ️',_t('auth').bio,_t('auth').bioFirst);
+      return;
+    }
+    // Pokus o obnovení reálné Supabase session přes refresh token
+    var refreshToken = null;
+    try { refreshToken = localStorage.getItem('mg_bio_refresh'); } catch(e){}
+    if(refreshToken && window.supabase){
+      showT('🔐',_t('auth').bio,_t('auth').bioOk);
+      window.supabase.auth.refreshSession({refresh_token: refreshToken}).then(function(result){
+        if(result.data && result.data.session){
+          var s = result.data.session;
+          _syncLocalSession(s.user.id, s.user.email);
+          _storeBioUser(s.user.id, s.user.email);
+          console.log('[AUTH] Bio login: Supabase session restored');
+          renderUserData();
+          setTimeout(function(){ goTo('s-home'); }, 800);
+        } else {
+          // Refresh token expiroval — nutné přihlášení přes heslo
+          console.warn('[AUTH] Bio login: refresh token expired');
+          showT('⚠️',_t('auth').bio,_t('auth').bioRelogin||'Přihlaste se nejprve e-mailem a heslem');
+          goTo('s-login');
+        }
+      }).catch(function(e){
+        console.error('[AUTH] Bio login refresh error:', e);
+        showT('⚠️',_t('auth').bio,_t('auth').bioRelogin||'Přihlaste se nejprve e-mailem a heslem');
+        goTo('s-login');
+      });
+    } else {
+      // Žádný refresh token — zkus alespoň lokální session
+      // ale upozorni že je nutné se přihlásit pro plný přístup
+      _syncLocalSession(bioUser.user_id, bioUser.email);
+      showT('⚠️',_t('auth').bio,_t('auth').bioRelogin||'Pro plný přístup se přihlaste e-mailem');
+      goTo('s-login');
     }
   } catch(e){ console.error('bioLogin error:', e); showT('✗',_t('auth').error,_t('auth').bioFail); }
 }
