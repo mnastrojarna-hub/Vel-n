@@ -228,7 +228,7 @@ async function signDocument(type,bookingId){
   setTimeout(closeDocView,1200);
 }
 
-// ===== ENHANCED renderInvoices with document viewing =====
+// ===== ENHANCED renderContracts with document viewing =====
 async function renderContractsPage(){
   var wrap=document.getElementById('s-contracts');
   if(!wrap)return;
@@ -236,33 +236,46 @@ async function renderContractsPage(){
   var docs=await apiFetchDocuments();
   var contracts=docs.filter(function(d){return d.type==='contract';});
   var protocols=docs.filter(function(d){return d.type==='protocol';});
+  var vops=docs.filter(function(d){return d.type==='vop';});
 
   var html='<div class="topbar"><div class="back-row" onclick="histBack()"><div class="bk-c">←</div><div class="bk-l">'+t.back+'</div></div>'+
     '<h2>'+t.docsTitle+'</h2><p>'+t.docsSubtitle+'</p></div>'+
     '<div style="padding:10px 20px 0;"><div style="background:var(--gp);border-radius:var(--r);padding:13px;margin-bottom:10px;font-size:12px;color:var(--gd);line-height:1.6;">🔒 '+t.gdprNote+'</div></div>'+
     '<div style="padding:0 20px;">';
 
-  // VOP link
+  // VOP – always show general link
   html+='<div class="bcard" style="margin:0 0 10px;cursor:pointer;" onclick="showVOP()">'+
     '<div style="display:flex;align-items:center;gap:12px;"><div style="width:40px;height:40px;background:var(--gp);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;">📜</div>'+
     '<div style="flex:1;"><div style="font-size:13px;font-weight:800;">'+t.vopTitle+'</div>'+
     '<div style="font-size:11px;color:var(--g400);margin-top:2px;">'+COMPANY.name+'</div></div></div></div>';
 
+  // Per-booking VOP copies
+  vops.forEach(function(d){
+    html+='<div class="bcard" style="margin:0 0 10px;cursor:pointer;" onclick="showVOP()">'+
+      '<div style="display:flex;align-items:center;gap:12px;"><div style="width:40px;height:40px;background:#e0f2fe;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;">📜</div>'+
+      '<div style="flex:1;"><div style="font-size:13px;font-weight:800;">VOP – '+(d.moto_name||'Rezervace')+'</div>'+
+      '<div style="font-size:11px;color:var(--g400);margin-top:2px;">'+(d.res_num||'')+' · '+_docDate(d.date)+'</div></div></div></div>';
+  });
+
   // Contracts
   contracts.forEach(function(d){
     html+='<div class="bcard" style="margin:0 0 10px;cursor:pointer;" onclick="showRentalContract(\''+d.booking_id+'\')">'+
       '<div style="display:flex;align-items:center;gap:12px;"><div style="width:40px;height:40px;background:var(--gp);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;">📋</div>'+
-      '<div style="flex:1;"><div style="font-size:13px;font-weight:800;">'+t.contractLabel+' – '+d.moto_name+'</div>'+
-      '<div style="font-size:11px;color:var(--g400);margin-top:2px;">'+d.res_num+' · '+_docDate(d.date)+'</div></div></div></div>';
+      '<div style="flex:1;"><div style="font-size:13px;font-weight:800;">'+(t.contractLabel||'Smlouva')+' – '+(d.moto_name||'')+'</div>'+
+      '<div style="font-size:11px;color:var(--g400);margin-top:2px;">'+(d.res_num||'')+' · '+_docDate(d.date)+'</div></div></div></div>';
   });
 
   // Protocols
   protocols.forEach(function(d){
     html+='<div class="bcard" style="margin:0 0 10px;cursor:pointer;" onclick="showDigitalProtocol(\''+d.booking_id+'\')">'+
       '<div style="display:flex;align-items:center;gap:12px;"><div style="width:40px;height:40px;background:#fef3c7;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;">📋</div>'+
-      '<div style="flex:1;"><div style="font-size:13px;font-weight:800;">'+t.protocolLabel+' – '+d.moto_name+'</div>'+
-      '<div style="font-size:11px;color:var(--g400);margin-top:2px;">'+d.res_num+' · '+_docDate(d.date)+'</div></div></div></div>';
+      '<div style="flex:1;"><div style="font-size:13px;font-weight:800;">'+(t.protocolLabel||'Předávací protokol')+' – '+(d.moto_name||'')+'</div>'+
+      '<div style="font-size:11px;color:var(--g400);margin-top:2px;">'+(d.res_num||'')+' · '+_docDate(d.date)+'</div></div></div></div>';
   });
+
+  if(contracts.length===0 && protocols.length===0 && vops.length===0){
+    html+='<div style="text-align:center;padding:20px;color:var(--g400);font-size:12px;">Zatím žádné dokumenty. Dokumenty se automaticky vygenerují po zaplacení rezervace.</div>';
+  }
 
   html+='</div>';
   wrap.innerHTML=html;

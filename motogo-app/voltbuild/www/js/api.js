@@ -317,6 +317,93 @@ async function apiGetActiveLoan(){
   } catch(e){ return null; }
 }
 
+// ===== AUTO-GENERATE INVOICE & DOCUMENTS ON PAYMENT =====
+async function apiAutoGenerateInvoice(bookingId){
+  _ensureSupabase();
+  if(!window.supabase) return {error:'Offline'};
+  try {
+    var uid = await _getUserId();
+    if(!uid) return {error:'Nepřihlášen'};
+    // Load booking with moto
+    var br = await window.supabase.from('bookings')
+      .select('*, motorcycles(model, spz), profiles(full_name, email, phone, street, city, zip, country)')
+      .eq('id', bookingId).single();
+    if(!br.data) return {error:'Booking not found'};
+    var b = br.data, p = br.data.profiles || {}, m = br.data.motorcycles || {};
+    var days = Math.max(1, Math.ceil((new Date(b.end_date) - new Date(b.start_date)) / 86400000));
+    var dailyRate = Math.round((b.total_price || 0) / days);
+    var yr = new Date().getFullYear();
+    // Generate invoice number
+    var lr = await window.supabase.from('invoices').select('number')
+      .like('number', 'FV-' + yr + '-%').order('number', {ascending:false}).limit(1);
+    var seq = 1;
+    if(lr.data && lr.data.length > 0){
+      var mt = lr.data[0].number.match(/-(\d+)$/);
+      if(mt) seq = parseInt(mt[1], 10) + 1;
+    }
+    var invNum = 'FV-' + yr + '-' + String(seq).padStart(4, '0');
+    var items = [{description: 'Pronájem ' + (m.model||'motorky') + ' (' + (m.spz||'') + ')', qty: days, unit_price: dailyRate, vat_rate: 21}];
+    if(b.extras_price > 0) items.push({description: 'Příslušenství / doplňky', qty: 1, unit_price: b.extras_price, vat_rate: 21});
+    var subtotal = items.reduce(function(s, it){ return s + it.unit_price * it.qty; }, 0);
+    var tax = Math.round(subtotal * 0.21 * 100) / 100;
+    var total = subtotal + tax;
+    var issueDate = new Date().toISOString().slice(0, 10);
+    var dueDate = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
+    var inv = await window.supabase.from('invoices').insert({
+      number: invNum, type: 'final', customer_id: uid, booking_id: bookingId,
+      items: items, subtotal: subtotal, tax_amount: tax, total: total,
+      issue_date: issueDate, due_date: dueDate, status: 'paid', variable_symbol: invNum
+    }).select().single();
+    if(inv.error) console.warn('[API] Invoice insert error:', inv.error.message);
+    // Also insert a document record so it appears in the app
+    await window.supabase.from('documents').insert({
+      booking_id: bookingId, user_id: uid, type: 'invoice_final',
+      file_name: 'Faktura ' + invNum + '.pdf',
+      file_path: 'invoices/' + (inv.data ? inv.data.id : bookingId) + '.html'
+    });
+    return {error: null, invoice_number: invNum};
+  } catch(e){ console.error('[API] autoGenerateInvoice:', e); return {error: e.message}; }
+}
+
+async function apiAutoGenerateBookingDocs(bookingId){
+  _ensureSupabase();
+  if(!window.supabase) return;
+  try {
+    var uid = await _getUserId();
+    if(!uid) return;
+    // Check if docs already exist for this booking
+    var existing = await window.supabase.from('documents')
+      .select('type').eq('booking_id', bookingId).eq('user_id', uid)
+      .in('type', ['contract', 'vop', 'protocol']);
+    var existingTypes = (existing.data || []).map(function(d){ return d.type; });
+    var docsToInsert = [];
+    if(existingTypes.indexOf('contract') === -1){
+      docsToInsert.push({
+        booking_id: bookingId, user_id: uid, type: 'contract',
+        file_name: 'Smlouva o pronájmu.pdf',
+        file_path: 'contracts/' + bookingId + '_contract.html'
+      });
+    }
+    if(existingTypes.indexOf('vop') === -1){
+      docsToInsert.push({
+        booking_id: bookingId, user_id: uid, type: 'vop',
+        file_name: 'Všeobecné obchodní podmínky.pdf',
+        file_path: 'documents/vop_current.html'
+      });
+    }
+    if(existingTypes.indexOf('protocol') === -1){
+      docsToInsert.push({
+        booking_id: bookingId, user_id: uid, type: 'protocol',
+        file_name: 'Předávací protokol.pdf',
+        file_path: 'protocols/' + bookingId + '_protocol.html'
+      });
+    }
+    if(docsToInsert.length > 0){
+      await window.supabase.from('documents').insert(docsToInsert);
+    }
+  } catch(e){ console.error('[API] autoGenerateBookingDocs:', e); }
+}
+
 // ===== DOKUMENTY =====
 async function apiFetchDocuments(){
   _ensureSupabase();

@@ -11,6 +11,14 @@ import Modal from '../components/ui/Modal'
 
 const PER_PAGE = 25
 
+const COUNTRY_OPTS = [
+  { value: '', label: 'Všechny země' },
+  { value: 'CZ', label: 'Česko' }, { value: 'SK', label: 'Slovensko' },
+  { value: 'DE', label: 'Německo' }, { value: 'AT', label: 'Rakousko' },
+  { value: 'PL', label: 'Polsko' },
+]
+const LICENSE_GROUPS = ['A', 'A1', 'A2', 'AM', 'B']
+
 export default function Customers() {
   const navigate = useNavigate()
   const [customers, setCustomers] = useState([])
@@ -20,8 +28,15 @@ export default function Customers() {
   const [total, setTotal] = useState(0)
   const [search, setSearch] = useState('')
   const [showAdd, setShowAdd] = useState(false)
+  const [showFilters, setShowFilters] = useState(false)
+  const [filters, setFilters] = useState({
+    city: '', country: '', licenseGroup: '',
+    regFrom: '', regTo: '', minBookings: '', maxBookings: '',
+    sortBy: 'full_name', sortDir: 'asc'
+  })
+  const [stats, setStats] = useState({})
 
-  useEffect(() => { loadCustomers() }, [page, search])
+  useEffect(() => { loadCustomers() }, [page, search, filters])
 
   async function loadCustomers() {
     setLoading(true)
@@ -30,11 +45,23 @@ export default function Customers() {
       const result = await debugAction('customers.load', 'Customers', () => {
         let query = supabase.from('profiles').select('*, bookings(count)', { count: 'exact' })
         if (search) query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`)
-        return query.order('full_name').range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
-      }, { page, search })
+        if (filters.city) query = query.ilike('city', `%${filters.city}%`)
+        if (filters.country) query = query.eq('country', filters.country)
+        if (filters.licenseGroup) query = query.contains('license_group', [filters.licenseGroup])
+        if (filters.regFrom) query = query.gte('created_at', filters.regFrom)
+        if (filters.regTo) query = query.lte('created_at', filters.regTo + 'T23:59:59')
+        return query.order(filters.sortBy, { ascending: filters.sortDir === 'asc' })
+          .range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
+      }, { page, search, filters })
       if (result?.error) throw result.error
-      setCustomers(result?.data || [])
+      let data = result?.data || []
+      // Client-side filter by booking count (aggregated)
+      if (filters.minBookings) data = data.filter(c => (c.bookings?.[0]?.count ?? 0) >= Number(filters.minBookings))
+      if (filters.maxBookings) data = data.filter(c => (c.bookings?.[0]?.count ?? 0) <= Number(filters.maxBookings))
+      setCustomers(data)
       setTotal(result?.count || 0)
+      // Load aggregated stats for active filters
+      loadStats(data)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -42,16 +69,83 @@ export default function Customers() {
     }
   }
 
+  async function loadStats(custs) {
+    try {
+      const ids = custs.map(c => c.id)
+      if (!ids.length) { setStats({}); return }
+      const { data: bks } = await supabase.from('bookings')
+        .select('user_id, total_price, start_date, end_date, status, moto_id, motorcycles(model), branches(name)')
+        .in('user_id', ids.slice(0, 50))
+      if (!bks) return
+      const map = {}
+      bks.forEach(b => {
+        if (!map[b.user_id]) map[b.user_id] = { total: 0, sum: 0, days: 0, motos: {}, branches: {}, incidents: 0 }
+        const s = map[b.user_id]
+        s.total++
+        s.sum += b.total_price || 0
+        const d = Math.max(1, Math.ceil((new Date(b.end_date) - new Date(b.start_date)) / 86400000))
+        s.days += d
+        if (b.motorcycles?.model) s.motos[b.motorcycles.model] = (s.motos[b.motorcycles.model] || 0) + 1
+        if (b.branches?.name) s.branches[b.branches.name] = (s.branches[b.branches.name] || 0) + 1
+        if (b.status === 'incident') s.incidents++
+      })
+      setStats(map)
+    } catch (e) { console.error('stats err', e) }
+  }
+
   const totalPages = Math.ceil(total / PER_PAGE)
+  const activeFilterCount = Object.values(filters).filter(v => v && v !== 'full_name' && v !== 'asc').length
+  const setF = (k, v) => { setPage(1); setFilters(f => ({ ...f, [k]: v })) }
+  const resetFilters = () => { setPage(1); setFilters({ city: '', country: '', licenseGroup: '', regFrom: '', regTo: '', minBookings: '', maxBookings: '', sortBy: 'full_name', sortDir: 'asc' }) }
+
+  const topMoto = (uid) => { const s = stats[uid]; if (!s || !Object.keys(s.motos).length) return '—'; return Object.entries(s.motos).sort((a, b) => b[1] - a[1])[0][0] }
+  const topBranch = (uid) => { const s = stats[uid]; if (!s || !Object.keys(s.branches).length) return '—'; return Object.entries(s.branches).sort((a, b) => b[1] - a[1])[0][0] }
+  const avgPrice = (uid) => { const s = stats[uid]; if (!s || !s.total) return '—'; return Math.round(s.sum / s.total).toLocaleString('cs-CZ') + ' Kč' }
+  const avgDays = (uid) => { const s = stats[uid]; if (!s || !s.total) return '—'; return Math.round(s.days / s.total) + ' d' }
 
   return (
     <div>
       <div className="flex flex-wrap items-center gap-3 mb-5">
         <SearchInput value={search} onChange={v => { setPage(1); setSearch(v) }} placeholder="Hledat jméno, email, telefon…" />
+        <button onClick={() => setShowFilters(!showFilters)}
+          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
+          style={{ padding: '8px 14px', background: showFilters ? '#74FB71' : '#f1faf7', border: '1px solid #d4e8e0', color: showFilters ? '#1a2e22' : '#4a6357' }}>
+          ☰ Filtry {activeFilterCount > 0 && <span className="ml-1 inline-block rounded-full text-[10px]" style={{ background: '#74FB71', color: '#1a2e22', padding: '1px 6px' }}>{activeFilterCount}</span>}
+        </button>
         <div className="ml-auto">
           <Button green onClick={() => setShowAdd(true)}>+ Nový zákazník</Button>
         </div>
       </div>
+
+      {showFilters && (
+        <div className="mb-5 p-4 rounded-card" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-extrabold uppercase tracking-wide" style={{ color: '#4a6357' }}>Rozšířené filtry</span>
+            <button onClick={resetFilters} className="text-[10px] font-bold cursor-pointer underline" style={{ color: '#8aab99' }}>Resetovat</button>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <FilterField label="Město" value={filters.city} onChange={v => setF('city', v)} />
+            <div>
+              <FLabel>Země</FLabel>
+              <FSelect value={filters.country} onChange={v => setF('country', v)} options={COUNTRY_OPTS} />
+            </div>
+            <div>
+              <FLabel>Skupina ŘP</FLabel>
+              <FSelect value={filters.licenseGroup} onChange={v => setF('licenseGroup', v)}
+                options={[{ value: '', label: 'Všechny' }, ...LICENSE_GROUPS.map(g => ({ value: g, label: g }))]} />
+            </div>
+            <FilterField label="Registrace od" value={filters.regFrom} onChange={v => setF('regFrom', v)} type="date" />
+            <FilterField label="Registrace do" value={filters.regTo} onChange={v => setF('regTo', v)} type="date" />
+            <FilterField label="Min. rezervací" value={filters.minBookings} onChange={v => setF('minBookings', v)} type="number" />
+            <FilterField label="Max. rezervací" value={filters.maxBookings} onChange={v => setF('maxBookings', v)} type="number" />
+            <div>
+              <FLabel>Řadit dle</FLabel>
+              <FSelect value={filters.sortBy} onChange={v => setF('sortBy', v)}
+                options={[{ value: 'full_name', label: 'Jméno' }, { value: 'created_at', label: 'Registrace' }, { value: 'city', label: 'Město' }, { value: 'country', label: 'Země' }]} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>
@@ -68,7 +162,8 @@ export default function Customers() {
             <thead>
               <TRow header>
                 <TH>Jméno</TH><TH>Email</TH><TH>Telefon</TH>
-                <TH>Skupiny</TH><TH>Město</TH><TH>Registrace</TH><TH>Rezervací</TH>
+                <TH>Skupiny</TH><TH>Město</TH><TH>Země</TH><TH>Registrace</TH><TH>Rezervací</TH>
+                <TH>Ø částka</TH><TH>Ø délka</TH><TH>Top motorka</TH><TH>Top pobočka</TH>
               </TRow>
             </thead>
             <tbody>
@@ -86,8 +181,13 @@ export default function Customers() {
                     }
                   </TD>
                   <TD>{c.city || '—'}</TD>
+                  <TD>{c.country || '—'}</TD>
                   <TD>{c.created_at?.slice(0, 10) || '—'}</TD>
                   <TD bold>{c.bookings?.[0]?.count ?? 0}</TD>
+                  <TD>{avgPrice(c.id)}</TD>
+                  <TD>{avgDays(c.id)}</TD>
+                  <TD>{topMoto(c.id)}</TD>
+                  <TD>{topBranch(c.id)}</TD>
                 </tr>
               ))}
               {customers.length === 0 && <TRow><TD>Žádní zákazníci</TD></TRow>}
@@ -98,6 +198,29 @@ export default function Customers() {
       )}
 
       {showAdd && <AddCustomerModal onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); loadCustomers() }} />}
+    </div>
+  )
+}
+
+function FLabel({ children }) {
+  return <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{children}</label>
+}
+function FSelect({ value, onChange, options }) {
+  return (
+    <select value={value} onChange={e => onChange(e.target.value)}
+      className="w-full rounded-btn text-xs outline-none cursor-pointer"
+      style={{ padding: '7px 10px', background: '#fff', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+      {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+    </select>
+  )
+}
+function FilterField({ label, value, onChange, type = 'text' }) {
+  return (
+    <div>
+      <FLabel>{label}</FLabel>
+      <input type={type} value={value} onChange={e => onChange(e.target.value)}
+        className="w-full rounded-btn text-xs outline-none"
+        style={{ padding: '7px 10px', background: '#fff', border: '1px solid #d4e8e0', color: '#4a6357' }} />
     </div>
   )
 }

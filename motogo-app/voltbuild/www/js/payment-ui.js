@@ -186,6 +186,22 @@ function doPayment(){
           } catch(pe){ console.warn('[PAY] Promo tracking:', pe); }
         }
 
+        // AUTO-GENERATE: Invoice + Contract + VOP + Protocol
+        if(_currentBookingId){
+          try {
+            if(typeof apiAutoGenerateInvoice === 'function'){
+              apiAutoGenerateInvoice(_currentBookingId).then(function(ir){
+                console.log('[PAY] Invoice auto-generated:', ir && ir.invoice_number ? ir.invoice_number : 'err');
+              }).catch(function(e){ console.warn('[PAY] Invoice err:', e); });
+            }
+            if(typeof apiAutoGenerateBookingDocs === 'function'){
+              apiAutoGenerateBookingDocs(_currentBookingId).then(function(){
+                console.log('[PAY] Docs auto-generated (contract+VOP+protocol)');
+              }).catch(function(e){ console.warn('[PAY] Docs err:', e); });
+            }
+          } catch(de){ console.warn('[PAY] Doc gen err:', de); }
+        }
+
         // Update success screen
         var sucResId = document.getElementById('suc-res-id');
         if(sucResId && _currentBookingId) sucResId.textContent = '#' + _currentBookingId.substr(-8).toUpperCase();

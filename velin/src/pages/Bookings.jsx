@@ -20,11 +20,24 @@ export default function Bookings() {
   const [error, setError] = useState(null)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [filters, setFilters] = useState({ status: '', search: '', dateFrom: '', dateTo: '' })
+  const [filters, setFilters] = useState({
+    status: '', search: '', dateFrom: '', dateTo: '',
+    paymentStatus: '', customer: '', motoModel: '', branch: '',
+    priceMin: '', priceMax: '', durationMin: '', durationMax: '',
+    hasInvoice: '', hasContract: '', country: '', licenseGroup: '',
+    sortBy: 'start_date', sortDir: 'desc'
+  })
   const [showAdd, setShowAdd] = useState(false)
   const [view, setView] = useState('Seznam')
+  const [showFilters, setShowFilters] = useState(false)
+  const [branches, setBranches] = useState([])
+  const [motos, setMotos] = useState([])
 
   useEffect(() => { if (view === 'Seznam') loadBookings() }, [page, filters, view])
+  useEffect(() => {
+    supabase.from('branches').select('id, name').order('name').then(({ data }) => setBranches(data || []))
+    supabase.from('motorcycles').select('id, model').eq('status', 'active').order('model').then(({ data }) => setMotos(data || []))
+  }, [])
 
   // Auto-cancel unpaid bookings older than 5 minutes
   useEffect(() => {
@@ -32,14 +45,11 @@ export default function Bookings() {
       try {
         const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
         const { data: stale } = await supabase
-          .from('bookings')
-          .select('id')
-          .in('status', ['pending', 'reserved'])
-          .eq('payment_status', 'unpaid')
+          .from('bookings').select('id')
+          .in('status', ['pending', 'reserved']).eq('payment_status', 'unpaid')
           .lt('created_at', fiveMinAgo)
         if (stale && stale.length > 0) {
-          await supabase
-            .from('bookings')
+          await supabase.from('bookings')
             .update({ status: 'cancelled', cancellation_reason: 'Automaticky zrušeno — nezaplaceno déle než 5 minut' })
             .in('id', stale.map(b => b.id))
         }
@@ -55,17 +65,36 @@ export default function Bookings() {
       const result = await debugAction('bookings.load', 'Bookings', () => {
         let query = supabase
           .from('bookings')
-          .select('*, motorcycles(model, spz), profiles(full_name, email, phone)', { count: 'exact' })
+          .select('*, motorcycles(model, spz, branch_id), profiles(full_name, email, phone, country, license_group)', { count: 'exact' })
         if (filters.status) query = query.eq('status', filters.status)
+        if (filters.paymentStatus) query = query.eq('payment_status', filters.paymentStatus)
         if (filters.dateFrom) query = query.gte('start_date', filters.dateFrom)
         if (filters.dateTo) query = query.lte('end_date', filters.dateTo)
+        if (filters.priceMin) query = query.gte('total_price', Number(filters.priceMin))
+        if (filters.priceMax) query = query.lte('total_price', Number(filters.priceMax))
         if (filters.search) {
           query = query.or(`motorcycles.model.ilike.%${filters.search}%,profiles.full_name.ilike.%${filters.search}%`)
         }
-        return query.order('start_date', { ascending: false }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
+        return query.order(filters.sortBy, { ascending: filters.sortDir === 'asc' })
+          .range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       }, { page, filters })
       if (result?.error) throw result.error
-      setBookings(result?.data || [])
+      let data = result?.data || []
+      // Client-side filters for joined fields
+      if (filters.customer) data = data.filter(b => b.profiles?.full_name?.toLowerCase().includes(filters.customer.toLowerCase()))
+      if (filters.motoModel) data = data.filter(b => b.motorcycles?.model?.toLowerCase().includes(filters.motoModel.toLowerCase()))
+      if (filters.country) data = data.filter(b => b.profiles?.country === filters.country)
+      if (filters.licenseGroup) data = data.filter(b => b.profiles?.license_group?.includes?.(filters.licenseGroup))
+      if (filters.branch) data = data.filter(b => b.motorcycles?.branch_id === filters.branch)
+      if (filters.durationMin || filters.durationMax) {
+        data = data.filter(b => {
+          const d = Math.max(1, Math.ceil((new Date(b.end_date) - new Date(b.start_date)) / 86400000))
+          if (filters.durationMin && d < Number(filters.durationMin)) return false
+          if (filters.durationMax && d > Number(filters.durationMax)) return false
+          return true
+        })
+      }
+      setBookings(data)
       setTotal(result?.count || 0)
     } catch (e) {
       setError(e.message)
@@ -76,11 +105,13 @@ export default function Bookings() {
 
   const totalPages = Math.ceil(total / PER_PAGE)
   const fmtDateRange = d => d ? new Date(d).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric' }) : '—'
+  const setF = (k, v) => { setPage(1); setFilters(f => ({ ...f, [k]: v })) }
+  const activeFilterCount = Object.entries(filters).filter(([k, v]) => v && !['search', 'sortBy', 'sortDir'].includes(k)).length
+  const resetFilters = () => { setPage(1); setFilters(f => ({ ...f, status: '', paymentStatus: '', dateFrom: '', dateTo: '', customer: '', motoModel: '', branch: '', priceMin: '', priceMax: '', durationMin: '', durationMax: '', hasInvoice: '', hasContract: '', country: '', licenseGroup: '' })) }
 
   return (
     <div>
       <div className="flex flex-wrap items-center gap-3 mb-5">
-        {/* Přepínač pohledů */}
         {VIEWS.map(v => (
           <button key={v} onClick={() => setView(v)}
             className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
@@ -90,31 +121,57 @@ export default function Bookings() {
         ))}
         {view === 'Seznam' && (
           <>
-            <SearchInput
-              value={filters.search}
-              onChange={v => { setPage(1); setFilters(f => ({ ...f, search: v })) }}
-              placeholder="Hledat zákazníka, motorku…"
-            />
-            <FilterSelect
-              value={filters.status}
-              onChange={v => { setPage(1); setFilters(f => ({ ...f, status: v })) }}
-              options={[
-                { value: '', label: 'Všechny stavy' },
-                { value: 'pending', label: 'Čekající' },
-                { value: 'reserved', label: 'Rezervováno' },
-                { value: 'active', label: 'Aktivní' },
-                { value: 'completed', label: 'Dokončeno' },
-                { value: 'cancelled', label: 'Zrušeno' },
-              ]}
-            />
-            <DateFilter label="Od" value={filters.dateFrom} onChange={v => { setPage(1); setFilters(f => ({ ...f, dateFrom: v })) }} />
-            <DateFilter label="Do" value={filters.dateTo} onChange={v => { setPage(1); setFilters(f => ({ ...f, dateTo: v })) }} />
+            <SearchInput value={filters.search} onChange={v => { setPage(1); setFilters(f => ({ ...f, search: v })) }} placeholder="Hledat zákazníka, motorku…" />
+            <FilterSelect value={filters.status} onChange={v => setF('status', v)}
+              options={[{ value: '', label: 'Všechny stavy' }, { value: 'pending', label: 'Čekající' }, { value: 'reserved', label: 'Rezervováno' }, { value: 'active', label: 'Aktivní' }, { value: 'completed', label: 'Dokončeno' }, { value: 'cancelled', label: 'Zrušeno' }]} />
+            <FilterSelect value={filters.paymentStatus} onChange={v => setF('paymentStatus', v)}
+              options={[{ value: '', label: 'Platba' }, { value: 'paid', label: 'Zaplaceno' }, { value: 'unpaid', label: 'Nezaplaceno' }]} />
+            <button onClick={() => setShowFilters(!showFilters)}
+              className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
+              style={{ padding: '8px 14px', background: showFilters ? '#74FB71' : '#f1faf7', border: '1px solid #d4e8e0', color: showFilters ? '#1a2e22' : '#4a6357' }}>
+              ☰ Filtry {activeFilterCount > 0 && <span className="ml-1 inline-block rounded-full text-[10px]" style={{ background: '#74FB71', color: '#1a2e22', padding: '1px 6px' }}>{activeFilterCount}</span>}
+            </button>
           </>
         )}
         <div className="ml-auto">
           <Button green onClick={() => setShowAdd(true)}>+ Nová rezervace</Button>
         </div>
       </div>
+
+      {showFilters && view === 'Seznam' && (
+        <div className="mb-5 p-4 rounded-card" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-extrabold uppercase tracking-wide" style={{ color: '#4a6357' }}>Rozšířené filtry rezervací</span>
+            <button onClick={resetFilters} className="text-[10px] font-bold cursor-pointer underline" style={{ color: '#8aab99' }}>Resetovat</button>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <FField label="Zákazník" value={filters.customer} onChange={v => setF('customer', v)} />
+            <FField label="Model motorky" value={filters.motoModel} onChange={v => setF('motoModel', v)} />
+            <div><FLabel>Pobočka</FLabel>
+              <FSelWrap value={filters.branch} onChange={v => setF('branch', v)}
+                options={[{ value: '', label: 'Všechny' }, ...branches.map(b => ({ value: b.id, label: b.name }))]} />
+            </div>
+            <div><FLabel>Země zákazníka</FLabel>
+              <FSelWrap value={filters.country} onChange={v => setF('country', v)}
+                options={[{ value: '', label: 'Všechny' }, { value: 'CZ', label: 'Česko' }, { value: 'SK', label: 'Slovensko' }, { value: 'DE', label: 'Německo' }, { value: 'AT', label: 'Rakousko' }]} />
+            </div>
+            <FField label="Datum od" value={filters.dateFrom} onChange={v => setF('dateFrom', v)} type="date" />
+            <FField label="Datum do" value={filters.dateTo} onChange={v => setF('dateTo', v)} type="date" />
+            <FField label="Cena od (Kč)" value={filters.priceMin} onChange={v => setF('priceMin', v)} type="number" />
+            <FField label="Cena do (Kč)" value={filters.priceMax} onChange={v => setF('priceMax', v)} type="number" />
+            <FField label="Min. dní" value={filters.durationMin} onChange={v => setF('durationMin', v)} type="number" />
+            <FField label="Max. dní" value={filters.durationMax} onChange={v => setF('durationMax', v)} type="number" />
+            <div><FLabel>Skupina ŘP</FLabel>
+              <FSelWrap value={filters.licenseGroup} onChange={v => setF('licenseGroup', v)}
+                options={[{ value: '', label: 'Všechny' }, ...['A', 'A1', 'A2', 'AM', 'B'].map(g => ({ value: g, label: g }))]} />
+            </div>
+            <div><FLabel>Řadit dle</FLabel>
+              <FSelWrap value={filters.sortBy} onChange={v => setF('sortBy', v)}
+                options={[{ value: 'start_date', label: 'Datum začátku' }, { value: 'end_date', label: 'Datum konce' }, { value: 'total_price', label: 'Částka' }, { value: 'created_at', label: 'Vytvořeno' }]} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>
@@ -133,29 +190,33 @@ export default function Bookings() {
             <thead>
               <TRow header>
                 <TH>ID</TH><TH>Zákazník</TH><TH>Motorka</TH>
-                <TH>Od</TH><TH>Do</TH><TH>Částka</TH><TH>Platba</TH><TH>Stav</TH>
+                <TH>Od</TH><TH>Do</TH><TH>Dní</TH><TH>Částka</TH><TH>Platba</TH><TH>Stav</TH>
               </TRow>
             </thead>
             <tbody>
-              {bookings.map(b => (
-                <tr key={b.id} onClick={() => navigate(`/rezervace/${b.id}`)}
-                  className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
-                  style={{ borderBottom: '1px solid #d4e8e0' }}>
-                  <TD mono>{b.id?.slice(-8).toUpperCase()}</TD>
-                  <TD bold>{b.profiles?.full_name || '—'}</TD>
-                  <TD>{b.motorcycles?.model || '—'} <span className="text-xs font-mono" style={{ color: '#8aab99' }}>{b.motorcycles?.spz}</span></TD>
-                  <TD>{fmtDateRange(b.start_date)}</TD>
-                  <TD>{fmtDateRange(b.end_date)}</TD>
-                  <TD bold>{b.total_price ? `${b.total_price.toLocaleString('cs-CZ')} Kč` : '—'}</TD>
-                  <TD>
-                    <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase"
-                      style={{ padding: '3px 8px', background: b.payment_status === 'paid' ? '#dcfce7' : '#fee2e2', color: b.payment_status === 'paid' ? '#1a8a18' : '#dc2626' }}>
-                      {b.payment_status === 'paid' ? 'Zaplaceno' : 'Nezaplaceno'}
-                    </span>
-                  </TD>
-                  <TD><StatusBadge status={b.status} /></TD>
-                </tr>
-              ))}
+              {bookings.map(b => {
+                const days = b.start_date && b.end_date ? Math.max(1, Math.ceil((new Date(b.end_date) - new Date(b.start_date)) / 86400000)) : '—'
+                return (
+                  <tr key={b.id} onClick={() => navigate(`/rezervace/${b.id}`)}
+                    className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
+                    style={{ borderBottom: '1px solid #d4e8e0' }}>
+                    <TD mono>{b.id?.slice(-8).toUpperCase()}</TD>
+                    <TD bold>{b.profiles?.full_name || '—'}</TD>
+                    <TD>{b.motorcycles?.model || '—'} <span className="text-xs font-mono" style={{ color: '#8aab99' }}>{b.motorcycles?.spz}</span></TD>
+                    <TD>{fmtDateRange(b.start_date)}</TD>
+                    <TD>{fmtDateRange(b.end_date)}</TD>
+                    <TD>{days}</TD>
+                    <TD bold>{b.total_price ? `${b.total_price.toLocaleString('cs-CZ')} Kč` : '—'}</TD>
+                    <TD>
+                      <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase"
+                        style={{ padding: '3px 8px', background: b.payment_status === 'paid' ? '#dcfce7' : '#fee2e2', color: b.payment_status === 'paid' ? '#1a8a18' : '#dc2626' }}>
+                        {b.payment_status === 'paid' ? 'Zaplaceno' : 'Nezaplaceno'}
+                      </span>
+                    </TD>
+                    <TD><StatusBadge status={b.status} /></TD>
+                  </tr>
+                )
+              })}
               {bookings.length === 0 && <TRow><TD>Žádné rezervace</TD></TRow>}
             </tbody>
           </Table>
@@ -164,6 +225,30 @@ export default function Bookings() {
       )}
 
       {showAdd && <AddBookingModal onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); loadBookings() }} />}
+    </div>
+  )
+}
+
+/* ═══ FILTER HELPERS ═══ */
+function FLabel({ children }) {
+  return <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{children}</label>
+}
+function FSelWrap({ value, onChange, options }) {
+  return (
+    <select value={value} onChange={e => onChange(e.target.value)}
+      className="w-full rounded-btn text-xs outline-none cursor-pointer"
+      style={{ padding: '7px 10px', background: '#fff', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+      {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+    </select>
+  )
+}
+function FField({ label, value, onChange, type = 'text' }) {
+  return (
+    <div>
+      <FLabel>{label}</FLabel>
+      <input type={type} value={value} onChange={e => onChange(e.target.value)}
+        className="w-full rounded-btn text-xs outline-none"
+        style={{ padding: '7px 10px', background: '#fff', border: '1px solid #d4e8e0', color: '#4a6357' }} />
     </div>
   )
 }
@@ -190,15 +275,12 @@ function GlobalCalendar() {
     const endStr = end.toISOString().split('T')[0]
 
     const [bRes, mRes] = await Promise.all([
-      supabase
-        .from('bookings')
+      supabase.from('bookings')
         .select('id, start_date, end_date, status, moto_id, profiles(full_name), motorcycles(model, spz), total_price')
         .in('status', ['pending', 'active', 'reserved', 'completed'])
-        .gte('end_date', startStr)
-        .lte('start_date', endStr),
+        .gte('end_date', startStr).lte('start_date', endStr),
       supabase.from('motorcycles').select('id, model').eq('status', 'active'),
     ])
-
     setBookings(bRes.data || [])
     setMotos(mRes.data || [])
     setLoading(false)
@@ -222,16 +304,9 @@ function GlobalCalendar() {
     const occupiedCount = new Set(dayBookings.map(b => b.moto_id)).size
     const isToday = dateStr === todayStr
     const ratio = occupiedCount / totalMotos
-
-    if (occupiedCount === 0) {
-      return { bg: isToday ? '#bbf7d0' : '#dcfce7', color: '#15803d', label: 'Vše volné', count: 0 }
-    }
-    if (ratio >= 1) {
-      return { bg: '#166534', color: '#fff', label: `Plně obsazeno (${occupiedCount}/${totalMotos})`, count: occupiedCount }
-    }
-    if (ratio >= 0.5) {
-      return { bg: '#15803d', color: '#fff', label: `${occupiedCount}/${totalMotos} obsazeno`, count: occupiedCount }
-    }
+    if (occupiedCount === 0) return { bg: isToday ? '#bbf7d0' : '#dcfce7', color: '#15803d', label: 'Vše volné', count: 0 }
+    if (ratio >= 1) return { bg: '#166534', color: '#fff', label: `Plně obsazeno (${occupiedCount}/${totalMotos})`, count: occupiedCount }
+    if (ratio >= 0.5) return { bg: '#15803d', color: '#fff', label: `${occupiedCount}/${totalMotos} obsazeno`, count: occupiedCount }
     return { bg: '#4ade80', color: '#0f1a14', label: `${occupiedCount}/${totalMotos} obsazeno`, count: occupiedCount }
   }
 
@@ -251,7 +326,6 @@ function GlobalCalendar() {
             <span style={{ fontWeight: 800, fontSize: 15 }}>{MONTHS_FULL[mon]} {year}</span>
             <button onClick={nextMonth} style={navBtnStyle}>→</button>
           </div>
-
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3 }}>
             {DAYS.map(d => (
               <div key={d} style={{ textAlign: 'center', fontSize: 10, fontWeight: 800, color: '#8aab99', padding: 4 }}>{d}</div>
@@ -261,22 +335,14 @@ function GlobalCalendar() {
               const day = i + 1
               const info = getDayInfo(day)
               return (
-                <div key={day} title={info.label}
-                  onClick={() => setSelectedDay(day)}
-                  style={{
-                    textAlign: 'center', padding: '10px 2px', borderRadius: 8,
-                    background: info.bg, color: info.color,
-                    fontSize: 12, fontWeight: 800, cursor: 'pointer',
-                    outline: selectedDay === day ? '2px solid #0f1a14' : 'none',
-                  }}>
+                <div key={day} title={info.label} onClick={() => setSelectedDay(day)}
+                  style={{ textAlign: 'center', padding: '10px 2px', borderRadius: 8, background: info.bg, color: info.color, fontSize: 12, fontWeight: 800, cursor: 'pointer', outline: selectedDay === day ? '2px solid #0f1a14' : 'none' }}>
                   <div>{day}</div>
                   {info.count > 0 && <div style={{ fontSize: 9, marginTop: 2, opacity: 0.8 }}>{info.count}/{totalMotos}</div>}
                 </div>
               )
             })}
           </div>
-
-          {/* Legenda */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 14, fontSize: 10, fontWeight: 700 }}>
             <LegendItem bg="#dcfce7" color="#15803d" label="Vše volné" />
             <LegendItem bg="#4ade80" color="#0f1a14" label="Částečně" />
@@ -285,15 +351,11 @@ function GlobalCalendar() {
           </div>
         </Card>
       </div>
-
-      {/* Detail dne */}
       <div>
         <Card>
           {selectedDay ? (
             <>
-              <h3 className="text-sm font-extrabold mb-3" style={{ color: '#0f1a14' }}>
-                {selectedDay}. {MONTHS_FULL[mon]} {year}
-              </h3>
+              <h3 className="text-sm font-extrabold mb-3" style={{ color: '#0f1a14' }}>{selectedDay}. {MONTHS_FULL[mon]} {year}</h3>
               {dayDetail.length === 0 ? (
                 <p style={{ color: '#8aab99', fontSize: 13 }}>Žádné rezervace v tento den</p>
               ) : (
@@ -307,7 +369,7 @@ function GlobalCalendar() {
                       </div>
                       <div className="text-xs" style={{ color: '#4a6357' }}>
                         {b.profiles?.full_name || 'Zákazník'}
-                        <span className="ml-2" style={{ color: '#8aab99' }}>{b.start_date ? new Date(b.start_date).toLocaleDateString('cs-CZ', {day:'numeric',month:'numeric'}) : ''} → {b.end_date ? new Date(b.end_date).toLocaleDateString('cs-CZ', {day:'numeric',month:'numeric',year:'numeric'}) : ''}</span>
+                        <span className="ml-2" style={{ color: '#8aab99' }}>{b.start_date ? new Date(b.start_date).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' }) : ''} → {b.end_date ? new Date(b.end_date).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric' }) : ''}</span>
                       </div>
                       {b.total_price && <div className="text-xs font-bold mt-1" style={{ color: '#3dba3a' }}>{Number(b.total_price).toLocaleString('cs-CZ')} Kč</div>}
                     </div>
@@ -325,12 +387,7 @@ function GlobalCalendar() {
 }
 
 function LegendItem({ bg, color, label }) {
-  return (
-    <span className="flex items-center gap-1">
-      <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 3, background: bg }} />
-      <span style={{ color: '#4a6357' }}>{label}</span>
-    </span>
-  )
+  return <span className="flex items-center gap-1"><span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 3, background: bg }} /><span style={{ color: '#4a6357' }}>{label}</span></span>
 }
 
 /* ═══ HELPER COMPONENTS ═══ */
@@ -397,17 +454,14 @@ function AddBookingModal({ onClose, onSaved }) {
             const days = Math.max(1, Math.round((new Date(form.end_date) - new Date(form.start_date)) / 86400000) + 1)
             setPriceInfo(`${days} dní × denní sazba = ${total.toLocaleString('cs-CZ')} Kč`)
           }
-        } else {
-          setPriceInfo('Ceník není nastaven pro tuto motorku')
-        }
+        } else { setPriceInfo('Ceník není nastaven pro tuto motorku') }
       }).catch(() => {})
   }, [form.moto_id, form.start_date, form.end_date])
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   async function handleSave() {
-    setSaving(true)
-    setErr(null)
+    setSaving(true); setErr(null)
     try {
       const result = await debugAction('bookings.create', 'AddBookingModal', () =>
         supabase.from('bookings').insert({ ...form, total_price: Number(form.total_price) || 0 })
@@ -416,11 +470,7 @@ function AddBookingModal({ onClose, onSaved }) {
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'booking_created', details: { moto_id: form.moto_id } })
       onSaved()
-    } catch (e) {
-      setErr(e.message)
-    } finally {
-      setSaving(false)
-    }
+    } catch (e) { setErr(e.message) } finally { setSaving(false) }
   }
 
   return (
