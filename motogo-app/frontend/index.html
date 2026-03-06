@@ -281,6 +281,9 @@ if('serviceWorker' in navigator){
 if(window.navigator.standalone||window.matchMedia('(display-mode:standalone)').matches){
   document.documentElement.classList.add('pwa');
 }
+if(window.cordova||(document.URL.indexOf('http://')===-1&&document.URL.indexOf('https://')===-1)){
+  document.documentElement.classList.add('cordova');
+}
 </script>
 </body>
 </html>

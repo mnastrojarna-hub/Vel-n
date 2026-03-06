@@ -137,8 +137,8 @@ async function proceedToPayment(){
     _paymentAttempts = 0;
     if(_paymentTimeout) clearTimeout(_paymentTimeout);
     _paymentTimeout = setTimeout(function(){
-      if(_currentBookingId && _paymentAttempts === 0){
-        _autoCancelUnpaid(_currentBookingId, 'Nezaplaceno do 5 minut');
+      if(_currentBookingId){
+        _autoCancelUnpaid(_currentBookingId, 'Nezaplaceno do 5 minut (automatické zrušení)');
       }
     }, _PAYMENT_TIMEOUT_MS);
     goTo('s-payment');

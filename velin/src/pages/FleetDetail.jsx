@@ -213,7 +213,17 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
           <Field label="Hmotnost (kg)" value={moto.weight_kg} onChange={v => set('weight_kg', v)} type="number" />
           <Field label="Nádrž (L)" value={moto.fuel_tank_l} onChange={v => set('fuel_tank_l', v)} type="number" />
           <Field label="Výška sedla (mm)" value={moto.seat_height_mm} onChange={v => set('seat_height_mm', v)} type="number" />
-          <Field label="ŘP kategorie" value={moto.license_required} onChange={v => set('license_required', v)} placeholder="A, A2, A1" />
+          <div>
+            <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>ŘP kategorie</label>
+            <select value={moto.license_required || ''} onChange={e => set('license_required', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>
+              <option value="">—</option>
+              <option value="A">A</option>
+              <option value="A2">A2</option>
+              <option value="A1">A1</option>
+              <option value="AM">AM</option>
+              <option value="N">N – nevyžaduje</option>
+            </select>
+          </div>
           <div className="flex items-center gap-6">
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={moto.has_abs || false} onChange={e => set('has_abs', e.target.checked)} />

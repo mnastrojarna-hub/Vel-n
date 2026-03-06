@@ -33,7 +33,7 @@
 
   // ===== STATUS BAR =====
   try {
-    StatusBar.setBackgroundColor({ color: '#1a1a2e' });
+    StatusBar.setBackgroundColor({ color: '#000000' });
     StatusBar.setStyle({ style: 'DARK' });
   } catch (e) { console.warn('[bridge] StatusBar init:', e); }
 
@@ -372,4 +372,133 @@
   };
 
   console.log('[MotoGo24] Native bridge initialized \u2713');
+})();
+
+// ===== CORDOVA FINGERPRINT BRIDGE =====
+// VoltBuilder builds use Cordova plugins. This section adds support for
+// cordova-plugin-fingerprint-aio when Capacitor is NOT available.
+(function() {
+  'use strict';
+
+  // Skip if Capacitor already handled everything
+  var Cap = window.Capacitor;
+  if (Cap && Cap.isNativePlatform && Cap.isNativePlatform()) return;
+
+  // Check for Cordova fingerprint plugin
+  function _hasCordovaFingerprint() {
+    return !!(window.Fingerprint);
+  }
+
+  // Check if running inside Cordova webview
+  function _isCordova() {
+    return !!(window.cordova);
+  }
+
+  // Wait for deviceready if Cordova is present
+  function _onDeviceReady(cb) {
+    if (!_isCordova()) { cb(); return; }
+    if (document.readyState === 'complete') {
+      // deviceready may have already fired
+      setTimeout(cb, 100);
+    } else {
+      document.addEventListener('deviceready', cb, false);
+    }
+  }
+
+  _onDeviceReady(function() {
+    if (!_hasCordovaFingerprint()) return;
+
+    console.log('[MotoGo24] Cordova fingerprint plugin detected');
+
+    // ===== CORDOVA BIOMETRIC BUTTON =====
+    window.setupBioButton = function() {
+      var bs = document.getElementById('bio-section');
+      if (!bs) return;
+
+      window.Fingerprint.isAvailable(function(result) {
+        // Biometrics available
+        bs.style.display = '';
+        var icon = document.getElementById('bio-icon');
+        var label = document.getElementById('bio-label');
+        var sub = document.getElementById('bio-sub');
+        if (icon) icon.textContent = '\ud83d\udd10';
+        var t = (typeof _t === 'function') ? _t('auth') : {};
+        if (label) label.textContent = t.biometricBtn || 'Biometrick\u00e9 p\u0159ihl\u00e1\u0161en\u00ed';
+        if (sub) {
+          if (result === 'face') {
+            sub.textContent = 'Face ID';
+          } else {
+            sub.textContent = t.fingerprint || 'Otisk prstu';
+          }
+        }
+        try { localStorage.setItem('mg_bio_enabled', '1'); } catch (e) {}
+      }, function() {
+        // Not available – show if previously enabled
+        if (localStorage.getItem('mg_bio_enabled')) {
+          bs.style.display = '';
+        } else {
+          bs.style.display = 'none';
+        }
+      });
+    };
+
+    // ===== CORDOVA BIOMETRIC LOGIN =====
+    window.bioLogin = function() {
+      if (!localStorage.getItem('mg_bio_enabled')) {
+        if (typeof showT === 'function') showT('\u2139\ufe0f', 'Biometrika', 'Biometrika nen\u00ed povolena');
+        return;
+      }
+      var bioUser = null;
+      try {
+        var raw = localStorage.getItem('mg_bio_user');
+        if (raw) bioUser = JSON.parse(raw);
+      } catch (e) {}
+      if (!bioUser || !bioUser.user_id || !bioUser.email) {
+        if (typeof showT === 'function') showT('\u2139\ufe0f', 'Biometrika', 'Nejprve se p\u0159ihla\u0161te klasicky');
+        return;
+      }
+
+      window.Fingerprint.show({
+        title: 'MotoGo24',
+        subtitle: 'Ov\u011b\u0159te svou identitu',
+        description: 'P\u0159ihl\u00e1\u0161en\u00ed do MotoGo24',
+        fallbackButtonTitle: 'Pou\u017e\u00edt heslo',
+        disableBackup: false
+      }, function() {
+        // Success
+        if (typeof _syncLocalSession === 'function') {
+          _syncLocalSession(bioUser.user_id, bioUser.email);
+        }
+        if (typeof showT === 'function') showT('\ud83d\udd10', 'Biometrika', 'Ov\u011b\u0159eno \u2013 p\u0159ihla\u0161uji...');
+        if (typeof renderUserData === 'function') renderUserData();
+        setTimeout(function() {
+          if (typeof goTo === 'function') goTo('s-home');
+        }, 1200);
+      }, function(err) {
+        var msg = (err && err.message) || String(err || '');
+        if (msg.indexOf('cancel') !== -1 || msg.indexOf('Cancel') !== -1) {
+          if (typeof showT === 'function') showT('\u2139\ufe0f', 'Biometrika', 'Ov\u011b\u0159en\u00ed zru\u0161eno');
+        } else {
+          if (typeof showT === 'function') showT('\u2717', 'Chyba', 'Biometrika selhala');
+        }
+      });
+    };
+
+    // Re-run setupBioButton if app already initialized
+    if (typeof setupBioButton === 'function') {
+      setTimeout(setupBioButton, 200);
+    }
+
+    // ===== CORDOVA NATIVE STYLES =====
+    var notch = document.querySelector('.notch');
+    if (notch) notch.style.display = 'none';
+    var nativeCSS = document.createElement('style');
+    nativeCSS.textContent =
+      '.notch{display:none!important}' +
+      '.phone{padding-top:env(safe-area-inset-top)!important}' +
+      '.bnav{padding-bottom:env(safe-area-inset-bottom)!important}';
+    document.head.appendChild(nativeCSS);
+
+    console.log('[MotoGo24] Cordova fingerprint bridge initialized \u2713');
+  });
 })();
