@@ -50,6 +50,9 @@ export default function BookingDetail() {
 
   useEffect(() => { loadBooking() }, [id])
 
+  const [promoUsage, setPromoUsage] = useState([])
+  const [voucherUsed, setVoucherUsed] = useState(null)
+
   async function loadBooking() {
     setLoading(true)
     const result = await debugAction('booking.load', 'BookingDetail', () =>
@@ -60,6 +63,21 @@ export default function BookingDetail() {
     if (result?.error) setError(result.error.message)
     else setBooking(result?.data)
     setLoading(false)
+
+    // Load promo code usage for this booking
+    supabase.from('promo_code_usage')
+      .select('*, promo_codes(code, type, value)')
+      .eq('booking_id', id)
+      .then(({ data }) => { if (data) setPromoUsage(data) })
+      .catch(() => {})
+
+    // Load voucher applied to this booking
+    supabase.from('vouchers')
+      .select('code, amount, currency, status')
+      .eq('booking_id', id)
+      .limit(1)
+      .then(({ data }) => { if (data && data.length) setVoucherUsed(data[0]) })
+      .catch(() => {})
   }
 
   async function changeStatus(newStatus) {
@@ -241,7 +259,7 @@ export default function BookingDetail() {
             style={{ padding: '8px 18px', background: tab === t ? '#74FB71' : '#f1faf7', color: tab === t ? '#1a2e22' : '#4a6357', border: 'none', boxShadow: tab === t ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>{t}</button>
         ))}
       </div>
-      {tab === 'Detail' && <DetailTab booking={booking} set={set} error={error} saving={saving} onSave={handleSave} actions={actions} onAction={handleAction} navigate={navigate} />}
+      {tab === 'Detail' && <DetailTab booking={booking} set={set} error={error} saving={saving} onSave={handleSave} actions={actions} onAction={handleAction} navigate={navigate} promoUsage={promoUsage} voucherUsed={voucherUsed} />}
       {tab === 'Kalendář motorky' && booking.motorcycles?.id && <BookingsCalendar motoId={booking.motorcycles.id} />}
       {tab === 'Dokumenty' && <BookingDocumentsTab bookingId={id} />}
       {tab === 'Platby' && <BookingPaymentsTab bookingId={id} />}
@@ -303,7 +321,7 @@ function calcPriceFromDayPrices(dayPrices, startDate, endDate) {
   return total
 }
 
-function DetailTab({ booking, set, error, saving, onSave, actions, onAction, navigate }) {
+function DetailTab({ booking, set, error, saving, onSave, actions, onAction, navigate, promoUsage, voucherUsed }) {
   const [priceBreakdown, setPriceBreakdown] = useState(null)
   const [recalculating, setRecalculating] = useState(false)
 
@@ -359,6 +377,36 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
         <InfoRow label="Stav" value={booking.motorcycles?.status} />
         <InfoRow label="Pobočka" value={booking.motorcycles?.branches?.name} />
       </Card>
+
+      {(booking.discount_amount > 0 || booking.discount_code || (promoUsage && promoUsage.length > 0) || voucherUsed) && (
+        <Card className="col-span-2">
+          <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-4" style={{ color: '#b45309' }}>Uplatněné slevy a kódy</h3>
+          <div className="p-4 rounded-lg" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
+            <div className="grid grid-cols-3 gap-3">
+              {booking.discount_code && (
+                <InfoRow label="Slevový kód" value={booking.discount_code} />
+              )}
+              {booking.discount_amount > 0 && (
+                <InfoRow label="Sleva" value={`-${Number(booking.discount_amount).toLocaleString('cs-CZ')} Kč`} />
+              )}
+              {promoUsage && promoUsage.map((pu, i) => (
+                <div key={pu.id || i}>
+                  <InfoRow
+                    label={`Promo kód ${i + 1}`}
+                    value={`${pu.promo_codes?.code || '—'} (${pu.promo_codes?.type === 'percent' ? pu.promo_codes.value + '%' : pu.promo_codes?.value + ' Kč'}) → sleva ${Number(pu.discount_applied || 0).toLocaleString('cs-CZ')} Kč`}
+                  />
+                </div>
+              ))}
+              {voucherUsed && (
+                <InfoRow
+                  label="Dárkový poukaz"
+                  value={`${voucherUsed.code} — ${Number(voucherUsed.amount).toLocaleString('cs-CZ')} ${voucherUsed.currency}`}
+                />
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
 
       <Card className="col-span-2">
         <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-4" style={{ color: '#8aab99' }}>Termín a platba</h3>

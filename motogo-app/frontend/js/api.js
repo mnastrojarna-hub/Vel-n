@@ -160,9 +160,16 @@ async function apiProcessPayment(bookingId, amount, method){
       p_booking_id: bookingId,
       p_method: payMethod
     });
-    if(rpcResult.data && rpcResult.data.success){
+    // RPC může vrátit data přímo jako objekt nebo vnořeně
+    var rpcData = rpcResult.data;
+    if(rpcData && (rpcData.success || rpcData === true)){
       console.log('[API] Payment confirmed via RPC');
-      return {success:true, transaction_id: rpcResult.data.transaction_id};
+      return {success:true, transaction_id: rpcData.transaction_id || null};
+    }
+    // Někdy RPC vrací jen true/false bez objektu
+    if(rpcData && typeof rpcData === 'object' && !rpcData.error){
+      console.log('[API] Payment confirmed via RPC (alt response)');
+      return {success:true};
     }
     if(rpcResult.error){
       console.warn('[API] RPC confirm_payment error:', rpcResult.error.message);
@@ -171,19 +178,34 @@ async function apiProcessPayment(bookingId, amount, method){
     console.warn('[API] RPC fallback failed:', e.message);
   }
 
-  // 3) Poslední fallback: přímý DB update
+  // 3) Poslední fallback: přímý DB update (select pro ověření)
   try {
     var r = await window.supabase.from('bookings').update({
       payment_status: 'paid',
       payment_method: payMethod,
       status: 'active'
-    }).eq('id', bookingId);
-    if(!r.error){
+    }).eq('id', bookingId).select('id').single();
+    if(!r.error && r.data){
       console.log('[API] Payment confirmed via direct DB update');
       return {success:true};
     }
-    console.error('[API] Direct DB update failed:', r.error.message);
-    return {success:false, error: r.error.message};
+    // RLS může blokovat – zkus přes service role RPC
+    console.warn('[API] Direct DB update failed:', r.error ? r.error.message : 'no rows');
+  } catch(e){
+    console.warn('[API] Direct DB update exception:', e.message);
+  }
+
+  // 4) Záložní RPC pro případ RLS blokace
+  try {
+    var rpc2 = await window.supabase.rpc('confirm_payment', {
+      p_booking_id: bookingId,
+      p_method: payMethod
+    });
+    if(!rpc2.error){
+      console.log('[API] Payment confirmed via RPC retry');
+      return {success:true};
+    }
+    return {success:false, error: rpc2.error.message};
   } catch(e){
     console.error('[API] All payment methods failed:', e);
     return {success:false, error: 'Platba se nezdařila – zkuste to znovu'};

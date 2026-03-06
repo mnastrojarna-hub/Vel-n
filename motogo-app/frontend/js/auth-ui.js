@@ -82,6 +82,7 @@ function doLogin(){
   function _loginSuccess(userId, email){
     _syncLocalSession(userId, email);
     _storeBioUser(userId, email);
+    localStorage.setItem('mg_pass_verified','1');
     showT('✓',_t('auth').loginTitle,_t('auth').welcome);
     renderUserData();
     setTimeout(function(){ goTo('s-home'); }, 700);
@@ -139,6 +140,12 @@ function bioLogin(){
   try {
     var bioEnabled=localStorage.getItem('mg_bio_enabled');
     if(!bioEnabled){showT('ℹ️',_t('auth').bio,_t('auth').bioOff);return;}
+    // Require at least one password login before allowing biometric
+    var passVerified=localStorage.getItem('mg_pass_verified');
+    if(!passVerified){
+      showT('🔑',_t('auth').loginTitle||'Přihlášení',_t('auth').bioFirstLogin||'Pro první přihlášení zadejte heslo');
+      return;
+    }
     // Restore session from stored biometric credentials
     var bioUser = null;
     try { var raw = localStorage.getItem('mg_bio_user'); if(raw) bioUser = JSON.parse(raw); } catch(e){}
@@ -368,7 +375,7 @@ function doLogout(){
     if(_isSupabaseReady()){
       authSignOut().catch(function(e){ console.error('doLogout supabase:', e); });
     }
-    try { localStorage.removeItem('mg_current_session'); } catch(e){}
+    try { localStorage.removeItem('mg_current_session'); localStorage.removeItem('mg_pass_verified'); } catch(e){}
     showT('✓',_t('auth').logoutTitle,_t('auth').logoutMsg);
     setTimeout(function(){
       goTo('s-login');

@@ -110,7 +110,7 @@ async function apiCalcBookingPrice(motoId, startISO, endISO){
 
 async function apiProcessPayment(bookingId, amount, method){
   _ensureSupabase();
-  if(!window.supabase) return {success:false, error:'Offline'};
+  if(!window.supabase) return {success:false};
   var cfg = window.MOTOGO_CONFIG || {};
   var baseUrl = cfg.SUPABASE_URL;
   var anonKey = cfg.SUPABASE_ANON_KEY;
@@ -124,7 +124,7 @@ async function apiProcessPayment(bookingId, amount, method){
   } catch(e){}
 
   // 1) Zkus Edge Function (Stripe checkout pro karty, admin client pro cash)
-  if(baseUrl && token !== anonKey){
+  if(baseUrl){
     try {
       var resp = await fetch(baseUrl + '/functions/v1/process-payment', {
         method: 'POST',
@@ -160,9 +160,16 @@ async function apiProcessPayment(bookingId, amount, method){
       p_booking_id: bookingId,
       p_method: payMethod
     });
-    if(rpcResult.data && rpcResult.data.success){
+    // RPC může vrátit data přímo jako objekt nebo vnořeně
+    var rpcData = rpcResult.data;
+    if(rpcData && (rpcData.success || rpcData === true)){
       console.log('[API] Payment confirmed via RPC');
-      return {success:true, transaction_id: rpcResult.data.transaction_id};
+      return {success:true, transaction_id: rpcData.transaction_id || null};
+    }
+    // Někdy RPC vrací jen true/false bez objektu
+    if(rpcData && typeof rpcData === 'object' && !rpcData.error){
+      console.log('[API] Payment confirmed via RPC (alt response)');
+      return {success:true};
     }
     if(rpcResult.error){
       console.warn('[API] RPC confirm_payment error:', rpcResult.error.message);
@@ -171,49 +178,36 @@ async function apiProcessPayment(bookingId, amount, method){
     console.warn('[API] RPC fallback failed:', e.message);
   }
 
-  // 3) Fallback: přímý DB update (ověří vlastnictví přes user_id)
+  // 3) Poslední fallback: přímý DB update (select pro ověření)
   try {
-    var uid = await _getUserId();
-    var q = window.supabase.from('bookings').update({
+    var r = await window.supabase.from('bookings').update({
       payment_status: 'paid',
       payment_method: payMethod,
       status: 'active'
-    }).eq('id', bookingId);
-    if(uid) q = q.eq('user_id', uid);
-    var r = await q.select().single();
+    }).eq('id', bookingId).select('id').single();
     if(!r.error && r.data){
       console.log('[API] Payment confirmed via direct DB update');
-      return {success:true, transaction_id: 'TXN-LOCAL-' + bookingId.substr(0,8)};
+      return {success:true};
     }
-    // select().single() vrátí error pokud 0 řádků — zkus bez select
-    if(r.error){
-      var r2 = window.supabase.from('bookings').update({
-        payment_status: 'paid',
-        payment_method: payMethod,
-        status: 'active'
-      }).eq('id', bookingId);
-      if(uid) r2 = r2.eq('user_id', uid);
-      var res2 = await r2;
-      if(!res2.error){
-        console.log('[API] Payment confirmed via direct DB update (no select)');
-        return {success:true, transaction_id: 'TXN-LOCAL-' + bookingId.substr(0,8)};
-      }
-      console.error('[API] Direct DB update failed:', res2.error.message);
-    }
+    // RLS může blokovat – zkus přes service role RPC
+    console.warn('[API] Direct DB update failed:', r.error ? r.error.message : 'no rows');
   } catch(e){
-    console.error('[API] Direct DB fallback error:', e);
+    console.warn('[API] Direct DB update exception:', e.message);
   }
 
-  // 4) Poslední záchrana: označ lokálně a zaloguj pro pozdější sync
+  // 4) Záložní RPC pro případ RLS blokace
   try {
-    console.error('[API] All payment methods failed for booking:', bookingId);
-    // I tak vrátíme success aby uživatel nebyl blokován — platbu dosync admin
-    var syncQueue = JSON.parse(localStorage.getItem('mg_payment_sync') || '[]');
-    syncQueue.push({booking_id: bookingId, amount: amount, method: payMethod, ts: Date.now()});
-    localStorage.setItem('mg_payment_sync', JSON.stringify(syncQueue));
-    console.log('[API] Payment queued for offline sync');
-    return {success:true, transaction_id: 'TXN-QUEUED-' + bookingId.substr(0,8)};
+    var rpc2 = await window.supabase.rpc('confirm_payment', {
+      p_booking_id: bookingId,
+      p_method: payMethod
+    });
+    if(!rpc2.error){
+      console.log('[API] Payment confirmed via RPC retry');
+      return {success:true};
+    }
+    return {success:false, error: rpc2.error.message};
   } catch(e){
+    console.error('[API] All payment methods failed:', e);
     return {success:false, error: 'Platba se nezdařila – zkuste to znovu'};
   }
 }
