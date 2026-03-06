@@ -138,7 +138,7 @@ async function proceedToPayment(){
     if(_paymentTimeout) clearTimeout(_paymentTimeout);
     _paymentTimeout = setTimeout(function(){
       if(_currentBookingId && _paymentAttempts === 0){
-        _autoCancelUnpaid(_currentBookingId, 'Nezaplaceno do 2 minut');
+        _autoCancelUnpaid(_currentBookingId, 'Nezaplaceno do 5 minut');
       }
     }, _PAYMENT_TIMEOUT_MS);
     goTo('s-payment');
