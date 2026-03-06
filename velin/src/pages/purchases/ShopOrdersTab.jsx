@@ -25,9 +25,9 @@ const STATUS_COLORS = {
   refunded: { bg: '#f3f4f6', color: '#6b7280' },
 }
 
-const PAYMENT_LABELS = { pending: 'Čeká', paid: 'Zaplaceno', refunded: 'Vráceno', failed: 'Selhalo' }
+const PAYMENT_LABELS = { pending: 'Nezaplaceno', paid: 'Zaplaceno', refunded: 'Vráceno', failed: 'Selhalo' }
 const PAYMENT_COLORS = {
-  pending: { bg: '#fef3c7', color: '#b45309' },
+  pending: { bg: '#fee2e2', color: '#dc2626' },
   paid: { bg: '#dcfce7', color: '#1a8a18' },
   refunded: { bg: '#f3f4f6', color: '#6b7280' },
   failed: { bg: '#fee2e2', color: '#dc2626' },
@@ -44,6 +44,88 @@ export default function ShopOrdersTab() {
   const [showAdd, setShowAdd] = useState(false)
 
   useEffect(() => { load() }, [page, statusFilter])
+
+  // Auto-confirm paid voucher orders from app
+  useEffect(() => {
+    autoConfirmPaidVouchers()
+    const channel = supabase
+      .channel('shop-orders-paid')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'shop_orders', filter: 'payment_status=eq.paid' },
+        () => { autoConfirmPaidVouchers(); load() })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [])
+
+  async function autoConfirmPaidVouchers() {
+    try {
+      const { data: paidNew } = await supabase
+        .from('shop_orders')
+        .select('*, shop_order_items(*)')
+        .eq('payment_status', 'paid')
+        .eq('status', 'new')
+      if (!paidNew || paidNew.length === 0) return
+      for (const order of paidNew) {
+        const isVoucher = (order.shop_order_items || []).some(it =>
+          (it.product_name || '').toLowerCase().includes('voucher') ||
+          (it.product_name || '').toLowerCase().includes('poukaz')
+        )
+        // Auto-confirm all paid orders from app
+        await supabase.from('shop_orders').update({
+          status: 'confirmed',
+          confirmed_at: new Date().toISOString(),
+        }).eq('id', order.id)
+        // Generate voucher if order contains voucher/poukaz items
+        if (isVoucher) {
+          for (const item of (order.shop_order_items || [])) {
+            if (!(item.product_name || '').toLowerCase().includes('voucher') &&
+                !(item.product_name || '').toLowerCase().includes('poukaz')) continue
+            const code = 'MG' + Math.random().toString(36).substring(2, 8).toUpperCase()
+            const validUntil = new Date()
+            validUntil.setFullYear(validUntil.getFullYear() + 1)
+            await supabase.from('vouchers').insert({
+              code,
+              amount: item.unit_price || item.total_price || 0,
+              currency: 'CZK',
+              status: 'active',
+              buyer_name: order.customer_name || '',
+              buyer_email: order.customer_email || '',
+              valid_from: new Date().toISOString().split('T')[0],
+              valid_until: validUntil.toISOString().split('T')[0],
+              source: 'eshop',
+              order_id: order.id,
+            })
+            // Send voucher email via edge function
+            supabase.functions.invoke('send-booking-email', {
+              body: {
+                type: 'voucher_purchased',
+                to: order.customer_email,
+                voucher_code: code,
+                voucher_amount: item.unit_price || item.total_price || 0,
+                buyer_name: order.customer_name || '',
+              },
+            }).catch(e => console.warn('[Voucher email]', e))
+          }
+          // Send in-app thank you message
+          if (order.customer_id) {
+            supabase.from('messages').insert({
+              thread_id: null,
+              direction: 'admin',
+              sender_name: 'MotoGo24',
+              content: 'Děkujeme za nákup dárkového poukazu! Kód voucheru byl odeslán na Váš email. Přejeme mnoho radosti z jízdy!',
+            }).then(() => {}).catch(() => {})
+            supabase.from('admin_messages').insert({
+              user_id: order.customer_id,
+              title: 'Dárkový poukaz — potvrzení',
+              message: 'Děkujeme za nákup dárkového poukazu! Kód voucheru byl odeslán na Váš email.',
+              type: 'info',
+              read: false,
+            }).then(() => {}).catch(() => {})
+          }
+        }
+      }
+      load()
+    } catch (e) { console.error('[AutoConfirmVoucher]', e) }
+  }
 
   async function load() {
     setLoading(true)
@@ -377,6 +459,12 @@ function ShopOrderDetail({ order, onClose, onUpdated }) {
         )}
         {order.status !== 'cancelled' && order.status !== 'delivered' && order.status !== 'refunded' && (
           <Button onClick={() => updateStatus('cancelled')} disabled={updating}>Zrušit</Button>
+        )}
+        {order.status === 'confirmed' && items.some(it =>
+          ((it.product_name || '').toLowerCase().includes('voucher') || (it.product_name || '').toLowerCase().includes('poukaz')) &&
+          (it.product_name || '').toLowerCase().includes('fyzick')
+        ) && (
+          <Button green onClick={() => updateStatus('shipped')} disabled={updating}>Odesláno (fyzický poukaz)</Button>
         )}
         {nextStatus && (
           <Button green onClick={() => updateStatus(nextStatus)} disabled={updating}>

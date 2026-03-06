@@ -252,8 +252,8 @@ export default function BookingDetail() {
         <StatusBadge status={booking.status} />
         {booking.payment_status && (
           <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase"
-            style={{ padding: '3px 8px', background: booking.payment_status === 'paid' ? '#dcfce7' : '#fef3c7', color: booking.payment_status === 'paid' ? '#1a8a18' : '#b45309' }}>
-            {booking.payment_status === 'paid' ? 'Zaplaceno' : booking.payment_status === 'unpaid' ? 'Nezaplaceno' : booking.payment_status}
+            style={{ padding: '3px 8px', background: booking.payment_status === 'paid' ? '#dcfce7' : '#fee2e2', color: booking.payment_status === 'paid' ? '#1a8a18' : '#dc2626' }}>
+            {booking.payment_status === 'paid' ? 'Zaplaceno' : 'Nezaplaceno'}
           </span>
         )}
         <span className="text-xs" style={{ color: '#8aab99' }}>
