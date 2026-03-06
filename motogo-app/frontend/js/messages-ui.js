@@ -88,16 +88,38 @@ function updateMsgBadge(){
   });
 }
 
+// ===== FULL-SCREEN MESSAGE OVERLAY =====
+function showFullScreenMessage(title, body, icon){
+  var existing = document.getElementById('mg-fullscreen-msg');
+  if(existing) existing.remove();
+  var ov = document.createElement('div');
+  ov.id = 'mg-fullscreen-msg';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);';
+  ov.innerHTML = '<div style="background:#fff;border-radius:20px;padding:28px 24px;max-width:340px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3);">' +
+    '<div style="font-size:48px;margin-bottom:12px;">' + (icon || '\ud83d\udce9') + '</div>' +
+    '<div style="font-size:18px;font-weight:900;color:#0f1a14;margin-bottom:10px;">' + _escHtml(title || 'Zpr\u00e1va z Moto Go') + '</div>' +
+    '<div style="font-size:14px;color:#4a6357;line-height:1.6;margin-bottom:20px;font-weight:500;">' + _escHtml(body || '') + '</div>' +
+    '<button onclick="document.getElementById(\'mg-fullscreen-msg\').remove()" style="width:100%;padding:14px;background:#74FB71;color:#fff;border:none;border-radius:50px;font-family:var(--font,Montserrat,sans-serif);font-size:14px;font-weight:800;cursor:pointer;text-transform:uppercase;letter-spacing:.5px;">Rozum\u00edm</button>' +
+    '</div>';
+  document.body.appendChild(ov);
+}
+
 // ===== IN-APP NOTIFICATION BANNER =====
 function showMsgNotification(msg){
   var title = msg.title || 'Zpr\u00e1va z Moto Go';
   var body = msg.message || '';
+  var icon = _msgIcon(msg.type);
+
+  // Full-screen overlay (user must confirm)
+  showFullScreenMessage(title, body, icon);
+
+  // Also show toast
   if(typeof showT === 'function'){
     showT('\ud83d\udce9', title, body);
   }
   updateMsgBadge();
 
-  // Native notification — plugin removed (Gradle incompatible)
+  // Native notification (Cordova local notification)
   if(window.cordova && window.cordova.plugins &&
      window.cordova.plugins.notification &&
      window.cordova.plugins.notification.local){
@@ -110,8 +132,6 @@ function showMsgNotification(msg){
       foreground: true,
       lockscreen: true
     });
-  } else {
-    console.log('[Notify] No native plugin, in-app only:', title);
   }
 }
 

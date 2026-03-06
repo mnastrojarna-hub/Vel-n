@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<widget id="cz.motogo24.app" version="5.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
+<widget id="cz.motogo24.app" version="5.5.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
     <name>MotoGo24</name>
     <description>MotoGo24 – Půjčovna motorek</description>
     <author email="info@motogo24.cz" href="https://motogo24.vseproweb.com">MotoGo24</author>

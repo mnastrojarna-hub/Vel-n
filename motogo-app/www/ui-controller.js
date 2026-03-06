@@ -49,76 +49,112 @@ function setupBioButton(){
 
 // ===== SOS FUNCTIONS (PRODUCTION) =====
 
+// Global SOS state — tracks user selections across SOS screens
+var _sosFault = null;
+var _sosActiveIncidentId = null;
+
+function _sosGetGPS(){
+  return new Promise(function(resolve){
+    if(!navigator.geolocation){ resolve({lat:null,lng:null}); return; }
+    navigator.geolocation.getCurrentPosition(
+      function(pos){ resolve({lat:pos.coords.latitude,lng:pos.coords.longitude}); },
+      function(){ resolve({lat:null,lng:null}); },
+      {enableHighAccuracy:true,timeout:10000}
+    );
+  });
+}
+
+function _sosEnsureIncident(type, desc){
+  return new Promise(function(resolve){
+    if(_sosActiveIncidentId){ resolve(_sosActiveIncidentId); return; }
+    showT('⚠️','Hlásím incident...','Odesílám na centrálu');
+    apiGetActiveLoan().then(function(loan){
+      var bookingId = loan ? (loan.id || (loan._db && loan._db.id)) : null;
+      var motoId = loan ? (loan.moto_id || null) : null;
+      _sosGetGPS().then(function(gps){
+        apiCreateSosIncident(type, bookingId, gps.lat, gps.lng, desc, null, motoId)
+          .then(function(r){
+            if(r && r.id) _sosActiveIncidentId = r.id;
+            resolve(r && r.id ? r.id : null);
+          });
+      });
+    });
+  });
+}
+
+function _sosUpdateIncident(incidentId, data){
+  if(!incidentId || !window.supabase) return Promise.resolve();
+  return window.supabase.from('sos_incidents').update(data).eq('id', incidentId)
+    .then(function(){}).catch(function(){});
+}
+
 function sosReportAccident(type) {
     var sosType = type === 'lehka' ? 'accident_minor' : 'accident_major';
     var ts = new Date().toLocaleString('cs-CZ');
-    showT('⚠️', 'Hlásím incident...', 'Odesílám na centrálu');
+    _sosActiveIncidentId = null;
+    _sosFault = null;
+    _sosEnsureIncident(sosType, sosType === 'accident_minor' ? 'Lehká nehoda – pokračuji v jízdě' : 'Závažná nehoda')
+      .then(function(){
+        showT('✅', 'Incident nahlášen MotoGo24', ts + '\nAsistent vás kontaktuje.');
+        setTimeout(function(){ histBack(); }, 2000);
+      });
+}
 
-    apiGetActiveLoan().then(function(loan) {
-        var bookingId = loan ? (loan.id || (loan._db && loan._db.id)) : null;
-
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                function(pos) {
-                    apiCreateSosIncident(sosType, bookingId, pos.coords.latitude, pos.coords.longitude, null, null)
-                        .then(function(r) {
-                            showT('✅', 'Incident nahlášen MotoGo24', ts + '\nAsistent vás kontaktuje.');
-                            setTimeout(function(){ histBack(); }, 2000);
-                        });
-                },
-                function() {
-                    apiCreateSosIncident(sosType, bookingId, null, null, null, null)
-                        .then(function(r) {
-                            showT('✅', 'Incident nahlášen MotoGo24', ts);
-                            setTimeout(function(){ histBack(); }, 2000);
-                        });
-                },
-                { enableHighAccuracy: true, timeout: 10000 }
-            );
-        } else {
-            apiCreateSosIncident(sosType, bookingId, null, null, null, null).then(function() {
-                showT('✅', 'Incident nahlášen', ts);
-                setTimeout(function(){ histBack(); }, 1500);
-            });
-        }
-    });
+function sosReportTheft() {
+    var ts = new Date().toLocaleString('cs-CZ');
+    _sosActiveIncidentId = null;
+    _sosFault = null;
+    _sosEnsureIncident('theft', 'Krádež motorky – zákazník informován o postupu (policie 158)')
+      .then(function(){
+        showT('🚨', 'Krádež nahlášena MotoGo24', ts + '\nVolejte policii 158!');
+      });
 }
 
 function sosRequestReplacement() {
     showT('🏍️', 'Objednávám náhradní moto...', '');
-    apiGetMySosIncidents().then(function(incidents) {
-        var latest = incidents && incidents.length ? incidents[0] : null;
-        if (latest) {
-            apiSosRequestReplacement(latest.id).then(function() {
-                showT('🏍️', 'Náhradní moto objednáno', 'Asistent vás kontaktuje do 5 minut');
-                setTimeout(function(){ goTo('s-sos'); }, 1800);
-            });
-        } else {
-            showT('🏍️', 'Náhradní moto objednáno', 'Asistent vás kontaktuje do 5 minut');
-            setTimeout(function(){ goTo('s-sos'); }, 1800);
-        }
+    var faultDesc = _sosFault === true ? 'Nehoda byla moje chyba' : _sosFault === false ? 'Nehoda nebyla moje chyba' : '';
+    var desc = 'Motorka nepojízdná – žádám náhradní motorku. ' + faultDesc;
+    var type = _sosFault !== null ? 'accident_major' : 'breakdown_major';
+    _sosEnsureIncident(type, desc).then(function(incId){
+      if(!incId){ showT('❌','Chyba','Nepodařilo se nahlásit incident'); return; }
+      var upd = {customer_decision:'replacement_moto', moto_rideable:false};
+      if(_sosFault !== null) upd.customer_fault = _sosFault;
+      _sosUpdateIncident(incId, upd);
+      apiSosRequestReplacement(incId).then(function(){
+        var faultMsg = _sosFault === false ? ' (zdarma)' : _sosFault === true ? ' (za poplatek)' : '';
+        showT('🏍️', 'Náhradní moto objednáno' + faultMsg, 'Asistent vás kontaktuje do 5 minut');
+        setTimeout(function(){ goTo('s-sos'); }, 2500);
+      });
     });
 }
 
 function sosEndRide() {
     showT('🚛', 'Objednávám odtah...', '');
-    apiGetMySosIncidents().then(function(incidents) {
-        var latest = incidents && incidents.length ? incidents[0] : null;
-        if (latest) {
-            apiSosRequestTow(latest.id).then(function() {
-                showT('🚛', 'Odtah objednán', 'MotoGo24 zařídí odtah motorky');
-                setTimeout(function(){ goTo('s-sos'); }, 1800);
-            });
-        } else {
-            showT('🚛', 'Odtah objednán', 'MotoGo24 zařídí odtah');
-            setTimeout(function(){ goTo('s-sos'); }, 1800);
-        }
+    var faultDesc = _sosFault === true ? 'Nehoda byla moje chyba' : _sosFault === false ? 'Nehoda nebyla moje chyba' : '';
+    var desc = 'Motorka nepojízdná – ukončuji jízdu, žádám odtah. ' + faultDesc;
+    var type = _sosFault !== null ? 'accident_major' : 'breakdown_major';
+    _sosEnsureIncident(type, desc).then(function(incId){
+      if(!incId){ showT('❌','Chyba','Nepodařilo se nahlásit incident'); return; }
+      var upd = {customer_decision:'end_ride', moto_rideable:false};
+      if(_sosFault !== null) upd.customer_fault = _sosFault;
+      _sosUpdateIncident(incId, upd);
+      apiSosRequestTow(incId).then(function(){
+        showT('🚛', 'Odtah objednán', 'MotoGo24 zařídí odtah motorky');
+        setTimeout(function(){ goTo('s-sos'); }, 2500);
+      });
     });
 }
 
 function sosEndRideFree() {
-    showT('✅', 'Pronájem zdarma', 'Vracíme plnou částku. Odtah zajistíme.');
-    setTimeout(function(){ goTo('s-home'); }, 2200);
+    var desc = 'Porucha – motorka nepojízdná. Ukončuji jízdu, zařídím se sám.';
+    _sosEnsureIncident('breakdown_major', desc).then(function(incId){
+      if(incId){
+        _sosUpdateIncident(incId, {customer_decision:'end_ride', moto_rideable:false, customer_fault:false});
+        apiSosRequestTow(incId);
+      }
+      showT('✅', 'Pronájem zdarma', 'Vracíme plnou částku. Odtah zajistíme.');
+      setTimeout(function(){ goTo('s-home'); }, 2200);
+    });
 }
 
 function sosShareLocation() {
@@ -481,6 +517,8 @@ function setNehoda(vinik){
   }
 }
 function setNepojizda(vinik){
+  _sosFault = vinik;
+  _sosActiveIncidentId = null;
   const bv=document.getElementById('btn-nepoj-vinik');
   const bn=document.getElementById('btn-nepoj-nevinik');
   const info=document.getElementById('nepojizda-info');

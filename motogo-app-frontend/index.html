@@ -279,9 +279,10 @@ window.MOTOGO_CONFIG = {
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('./sw.js').catch(function(){});
 }
-if(window.navigator.standalone||window.matchMedia('(display-mode:standalone)').matches){
+if(window.navigator.standalone||window.matchMedia('(display-mode:standalone)').matches||window.cordova||document.URL.indexOf('http://')===-1&&document.URL.indexOf('https://')===-1){
   document.documentElement.classList.add('pwa');
 }
+document.addEventListener('deviceready',function(){document.documentElement.classList.add('pwa');},false);
 </script>
 </body>
 </html>

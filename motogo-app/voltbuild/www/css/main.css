@@ -54,23 +54,22 @@ body{background:#1a2e22;display:flex;justify-content:center;align-items:center;m
 .lang-flag{font-size:22px;flex-shrink:0;}
 .lang-name{font-size:14px;font-weight:700;color:var(--black);}
 
-/* === STANDALONE PWA / CORDOVA MODE – fullscreen, fixed, no body shift === */
+/* === STANDALONE PWA MODE – fullscreen, no phone frame === */
 @media all and (display-mode:standalone){
-  html,body{position:fixed;width:100%;height:100%;overflow:hidden;margin:0;padding:0;}
-  body{background:var(--bg);display:block;}
-  .phone{position:fixed;top:0;left:0;right:0;bottom:0;width:100%;height:100%;border-radius:0;box-shadow:none;padding-top:env(safe-area-inset-top);}
+  body{background:var(--bg);padding:0;align-items:stretch;min-height:100vh;min-height:100dvh;}
+  .phone{width:100%;height:100vh;height:100dvh;border-radius:0;box-shadow:none;flex-shrink:1;padding-top:env(safe-area-inset-top);}
   .notch{display:none;}
   .bnav{position:fixed;bottom:0;left:0;right:0;padding-bottom:max(18px,env(safe-area-inset-bottom));}
   .toast{bottom:250px;}
   .scroll-top{bottom:150px;}
 }
-html.pwa,html.pwa body,html.cordova,html.cordova body{position:fixed;width:100%;height:100%;overflow:hidden;margin:0;padding:0;}
-html.pwa body,html.cordova body{background:var(--bg);display:block;}
-html.pwa .phone,html.cordova .phone{position:fixed;top:0;left:0;right:0;bottom:0;width:100%;height:100%;border-radius:0;box-shadow:none;padding-top:env(safe-area-inset-top);}
-html.pwa .notch,html.cordova .notch{display:none;}
-html.pwa .bnav,html.cordova .bnav{position:fixed;bottom:0;left:0;right:0;padding-bottom:max(18px,env(safe-area-inset-bottom));}
-html.pwa .toast,html.cordova .toast{bottom:250px;}
-html.pwa .scroll-top,html.cordova .scroll-top{bottom:150px;}
+html.pwa body{background:var(--bg);padding:0;align-items:stretch;min-height:100vh;min-height:100dvh;overflow:hidden;}
+html.pwa .phone{width:100%;height:100vh;height:100dvh;max-height:100vh;max-height:100dvh;border-radius:0;box-shadow:none;flex-shrink:1;padding-top:env(safe-area-inset-top);overflow:hidden;}
+html.pwa .notch{display:none;}
+html.pwa .screen{max-height:calc(100dvh - 120px);max-height:calc(100vh - 120px);}
+html.pwa .bnav{position:fixed;bottom:0;left:0;right:0;padding-bottom:max(18px,env(safe-area-inset-bottom));}
+html.pwa .toast{bottom:250px;}
+html.pwa .scroll-top{bottom:150px;}
 
 /* Small mobile screens – improve registration text readability */
 @media (max-width:380px){
