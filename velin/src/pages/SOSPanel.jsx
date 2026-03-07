@@ -342,6 +342,28 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
               </div>
             )}
 
+            {/* Objednávka náhradní motorky – status */}
+            {inc.replacement_status && inc.replacement_status === 'admin_review' && (
+              <div className="text-xs font-extrabold mb-2 rounded-lg" style={{
+                padding: '4px 10px', display: 'inline-block',
+                background: '#fee2e2', color: '#dc2626',
+                animation: 'pulse 2s infinite',
+              }}>
+                ⚠️ ČEKÁ NA SCHVÁLENÍ — objednávka náhradní motorky
+              </div>
+            )}
+            {inc.replacement_status && inc.replacement_status !== 'admin_review' && inc.replacement_data && (
+              <div className="text-[10px] font-bold mb-1" style={{ color: '#2563eb' }}>
+                Náhr. moto: {inc.replacement_data.replacement_model} — {
+                  inc.replacement_status === 'approved' ? 'schváleno' :
+                  inc.replacement_status === 'dispatched' ? 'na cestě' :
+                  inc.replacement_status === 'delivered' ? 'doručeno' :
+                  inc.replacement_status === 'rejected' ? 'zamítnuto' :
+                  inc.replacement_status
+                }
+              </div>
+            )}
+
             {/* Pojízdnost */}
             {inc.moto_rideable !== null && inc.moto_rideable !== undefined && (
               <div className="text-[10px] font-bold mb-1" style={{

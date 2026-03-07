@@ -7,10 +7,32 @@ import SOSTimeline from './SOSTimeline'
 import { TYPE_LABELS, TYPE_ICONS, SEVERITY_MAP, STATUS_COLORS } from '../SOSPanel'
 
 const DECISION_LABELS = {
-  replacement_moto: 'Chce náhradní motorku',
-  end_ride: 'Ukončuje jízdu',
-  continue: 'Pokračuje v jízdě',
-  waiting: 'Čeká na rozhodnutí',
+  replacement_moto: '🏍️ Chce náhradní motorku',
+  end_ride: '🚛 Ukončuje jízdu (odtah)',
+  continue: '✅ Pokračuje v jízdě',
+  waiting: '⏳ Čeká na rozhodnutí',
+}
+
+const REPLACEMENT_STATUS_LABELS = {
+  selecting: 'Zákazník vybírá motorku',
+  pending_payment: 'Čeká na platbu',
+  paid: 'Zaplaceno',
+  admin_review: 'Čeká na schválení',
+  approved: 'Schváleno – připravit přistavení',
+  dispatched: 'Motorka na cestě',
+  delivered: 'Doručeno zákazníkovi',
+  rejected: 'Zamítnuto',
+}
+
+const REPLACEMENT_STATUS_COLORS = {
+  selecting: { bg: '#fef3c7', color: '#b45309' },
+  pending_payment: { bg: '#fef3c7', color: '#b45309' },
+  paid: { bg: '#dbeafe', color: '#2563eb' },
+  admin_review: { bg: '#fee2e2', color: '#dc2626' },
+  approved: { bg: '#dcfce7', color: '#1a8a18' },
+  dispatched: { bg: '#dbeafe', color: '#2563eb' },
+  delivered: { bg: '#dcfce7', color: '#1a8a18' },
+  rejected: { bg: '#fee2e2', color: '#dc2626' },
 }
 
 const DAMAGE_LABELS = {
@@ -30,14 +52,29 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
   const [resolution, setResolution] = useState(incident?.resolution || '')
   const [sending, setSending] = useState(false)
   const [msgSent, setMsgSent] = useState(false)
+  const [rejectReason, setRejectReason] = useState('')
+  const [showRejectForm, setShowRejectForm] = useState(false)
+  const [replacementMoto, setReplacementMoto] = useState(null)
 
   useEffect(() => {
     if (!incident) return
     loadDetails()
     loadAdmins()
+    loadReplacementMoto()
     setAdminNotes(incident.admin_notes || '')
     setResolution(incident.resolution || '')
+    setShowRejectForm(false)
+    setRejectReason('')
   }, [incident?.id])
+
+  async function loadReplacementMoto() {
+    setReplacementMoto(null)
+    const rd = incident?.replacement_data
+    if (!rd?.replacement_moto_id) return
+    const { data: m } = await supabase.from('motorcycles')
+      .select('*, branches(name)').eq('id', rd.replacement_moto_id).single()
+    if (m) setReplacementMoto(m)
+  }
 
   async function loadDetails() {
     setCustomer(null)
@@ -114,6 +151,58 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
     await debugAction('sos.saveField', 'SOSDetailPanel', () =>
       supabase.from('sos_incidents').update({ [field]: value }).eq('id', incident.id)
     , { incident_id: incident.id, field, value })
+  }
+
+  async function updateReplacementStatus(newStatus) {
+    await debugAction('sos.updateReplacementStatus', 'SOSDetailPanel', () =>
+      supabase.from('sos_incidents').update({ replacement_status: newStatus }).eq('id', incident.id)
+    , { incident_id: incident.id, replacement_status: newStatus })
+    const { data: { user } } = await supabase.auth.getUser()
+    const label = REPLACEMENT_STATUS_LABELS[newStatus] || newStatus
+    await supabase.from('sos_timeline').insert({
+      incident_id: incident.id,
+      action: `Náhradní moto: ${label}`,
+      performed_by: user?.email || 'Admin', admin_id: user?.id,
+    })
+    onRefresh?.()
+  }
+
+  async function approveReplacement() {
+    const rd = incident.replacement_data || {}
+    const updatedRd = { ...rd, approved_by_admin: true, approved_at: new Date().toISOString() }
+    await debugAction('sos.approveReplacement', 'SOSDetailPanel', () =>
+      supabase.from('sos_incidents').update({
+        replacement_data: updatedRd,
+        replacement_status: 'approved',
+      }).eq('id', incident.id)
+    , { incident_id: incident.id })
+    const { data: { user } } = await supabase.auth.getUser()
+    await supabase.from('sos_timeline').insert({
+      incident_id: incident.id,
+      action: `Objednávka náhradní motorky SCHVÁLENA: ${rd.replacement_model || '?'}`,
+      description: `Adresa: ${rd.delivery_address || '?'}, ${rd.delivery_city || '?'}. Částka: ${rd.payment_amount || '?'} Kč`,
+      performed_by: user?.email || 'Admin', admin_id: user?.id,
+    })
+    onRefresh?.()
+  }
+
+  async function rejectReplacement(reason) {
+    const rd = incident.replacement_data || {}
+    const updatedRd = { ...rd, approved_by_admin: false, rejected_at: new Date().toISOString(), rejection_reason: reason }
+    await debugAction('sos.rejectReplacement', 'SOSDetailPanel', () =>
+      supabase.from('sos_incidents').update({
+        replacement_data: updatedRd,
+        replacement_status: 'rejected',
+      }).eq('id', incident.id)
+    , { incident_id: incident.id })
+    const { data: { user } } = await supabase.auth.getUser()
+    await supabase.from('sos_timeline').insert({
+      incident_id: incident.id,
+      action: `Objednávka náhradní motorky ZAMÍTNUTA`,
+      description: reason || '',
+      performed_by: user?.email || 'Admin', admin_id: user?.id,
+    })
+    onRefresh?.()
   }
 
   async function sendMessage() {
@@ -215,6 +304,65 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
           </div>
         )}
 
+        {/* Preference zákazníka – prominentní zobrazení */}
+        {(incident.customer_decision || incident.customer_fault !== null) && (
+          <div className="mt-3 rounded-lg" style={{
+            padding: '12px 14px',
+            background: incident.customer_fault ? '#fef2f2' : '#f0fdf4',
+            border: `2px solid ${incident.customer_fault ? '#fca5a5' : '#86efac'}`,
+          }}>
+            <div className="text-[10px] font-extrabold uppercase tracking-wide mb-2" style={{
+              color: incident.customer_fault ? '#dc2626' : '#1a8a18'
+            }}>
+              Preference zákazníka
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {incident.customer_decision && (
+                <span className="inline-block rounded-btn text-xs font-extrabold" style={{
+                  padding: '4px 10px',
+                  background: incident.customer_fault ? '#fee2e2' : '#dcfce7',
+                  color: incident.customer_fault ? '#b91c1c' : '#15803d',
+                }}>
+                  {DECISION_LABELS[incident.customer_decision] || incident.customer_decision}
+                </span>
+              )}
+              {incident.customer_fault === true && (
+                <span className="inline-block rounded-btn text-xs font-extrabold" style={{
+                  padding: '4px 10px', background: '#fee2e2', color: '#b91c1c',
+                }}>
+                  ⚠️ Zavinil zákazník (platí)
+                </span>
+              )}
+              {incident.customer_fault === false && (
+                <span className="inline-block rounded-btn text-xs font-extrabold" style={{
+                  padding: '4px 10px', background: '#dcfce7', color: '#15803d',
+                }}>
+                  Cizí zavinění (zdarma)
+                </span>
+              )}
+              {incident.moto_rideable === false && (
+                <span className="inline-block rounded-btn text-xs font-extrabold" style={{
+                  padding: '4px 10px', background: '#fef3c7', color: '#b45309',
+                }}>
+                  Motorka nepojízdná
+                </span>
+              )}
+            </div>
+            {incident.replacement_status && (
+              <div className="mt-2">
+                <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase" style={{
+                  padding: '3px 8px',
+                  ...(REPLACEMENT_STATUS_COLORS[incident.replacement_status] || { bg: '#f1faf7', color: '#4a6357' }),
+                  background: (REPLACEMENT_STATUS_COLORS[incident.replacement_status] || {}).bg,
+                  color: (REPLACEMENT_STATUS_COLORS[incident.replacement_status] || {}).color,
+                }}>
+                  {REPLACEMENT_STATUS_LABELS[incident.replacement_status] || incident.replacement_status}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Přiřadit */}
         <div className="mt-3 flex items-center gap-2">
           <span className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>Přiřadit:</span>
@@ -271,6 +419,123 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
                   Cizí zavinění
                 </button>
               </div>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Objednávka náhradní motorky (zákazník zavinil) */}
+      {incident.replacement_data && (
+        <Card>
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#dc2626' }}>
+              Objednávka náhradní motorky
+            </h4>
+            {incident.replacement_status && (
+              <span className="inline-block rounded-btn text-[9px] font-extrabold tracking-wide uppercase" style={{
+                padding: '2px 7px',
+                background: (REPLACEMENT_STATUS_COLORS[incident.replacement_status] || {}).bg || '#f1faf7',
+                color: (REPLACEMENT_STATUS_COLORS[incident.replacement_status] || {}).color || '#4a6357',
+              }}>
+                {REPLACEMENT_STATUS_LABELS[incident.replacement_status] || incident.replacement_status}
+              </span>
+            )}
+          </div>
+
+          {/* Detaily objednávky */}
+          <div className="rounded-lg text-xs" style={{
+            padding: '12px', background: '#fef2f2', border: '1px solid #fecaca', lineHeight: 1.8,
+          }}>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+              <InfoRow label="Motorka" value={incident.replacement_data.replacement_model} />
+              {replacementMoto && <InfoRow label="SPZ" value={replacementMoto.spz} mono />}
+              {replacementMoto?.branches?.name && <InfoRow label="Pobočka" value={replacementMoto.branches.name} />}
+              <InfoRow label="Adresa" value={`${incident.replacement_data.delivery_address || '?'}, ${incident.replacement_data.delivery_city || '?'}`} />
+              {incident.replacement_data.delivery_zip && <InfoRow label="PSČ" value={incident.replacement_data.delivery_zip} />}
+              {incident.replacement_data.delivery_note && <InfoRow label="Poznámka" value={incident.replacement_data.delivery_note} />}
+              <InfoRow label="Pronájem/den" value={incident.replacement_data.daily_price ? `${Number(incident.replacement_data.daily_price).toLocaleString('cs-CZ')} Kč` : '—'} />
+              <InfoRow label="Přistavení" value={incident.replacement_data.delivery_fee ? `${Number(incident.replacement_data.delivery_fee).toLocaleString('cs-CZ')} Kč + km` : '—'} />
+            </div>
+            <div className="mt-2 pt-2" style={{ borderTop: '1px solid #fecaca' }}>
+              <div className="flex justify-between items-center">
+                <span className="font-extrabold text-sm" style={{ color: '#b91c1c' }}>Celkem k úhradě:</span>
+                <span className="font-extrabold text-sm" style={{ color: '#b91c1c' }}>
+                  {incident.replacement_data.payment_amount ? `${Number(incident.replacement_data.payment_amount).toLocaleString('cs-CZ')} Kč` : '—'}
+                </span>
+              </div>
+              <div className="text-[10px] mt-1" style={{ color: '#dc2626' }}>
+                Platba: {incident.replacement_data.payment_status === 'paid' ? 'Zaplaceno' : incident.replacement_data.payment_status || '?'}
+                {incident.replacement_data.customer_confirmed_at && ` · Potvrzeno: ${new Date(incident.replacement_data.customer_confirmed_at).toLocaleString('cs-CZ')}`}
+              </div>
+            </div>
+          </div>
+
+          {/* Akce: Schválit / Zamítnout */}
+          {isActive && incident.replacement_status === 'admin_review' && (
+            <div className="mt-3">
+              {!showRejectForm ? (
+                <div className="flex gap-2">
+                  <button onClick={approveReplacement}
+                    className="flex-1 rounded-btn text-xs font-extrabold tracking-wide cursor-pointer border-none"
+                    style={{ padding: '10px 16px', background: '#1a8a18', color: '#fff' }}>
+                    Schválit objednávku
+                  </button>
+                  <button onClick={() => setShowRejectForm(true)}
+                    className="flex-1 rounded-btn text-xs font-extrabold tracking-wide cursor-pointer border-none"
+                    style={{ padding: '10px 16px', background: '#dc2626', color: '#fff' }}>
+                    Zamítnout
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)}
+                    rows={2} placeholder="Důvod zamítnutí…"
+                    className="w-full rounded-btn text-xs outline-none mb-2"
+                    style={{ padding: '8px 10px', background: '#fff', border: '1px solid #fca5a5', resize: 'vertical' }}
+                  />
+                  <div className="flex gap-2">
+                    <button onClick={() => { rejectReplacement(rejectReason); setShowRejectForm(false) }}
+                      className="flex-1 rounded-btn text-xs font-extrabold cursor-pointer border-none"
+                      style={{ padding: '8px 12px', background: '#dc2626', color: '#fff' }}>
+                      Potvrdit zamítnutí
+                    </button>
+                    <button onClick={() => setShowRejectForm(false)}
+                      className="rounded-btn text-xs font-extrabold cursor-pointer border-none"
+                      style={{ padding: '8px 12px', background: '#f1faf7', color: '#4a6357' }}>
+                      Zrušit
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Akce: Změnit status přistavení */}
+          {isActive && incident.replacement_status === 'approved' && (
+            <div className="mt-3 flex gap-2">
+              <button onClick={() => updateReplacementStatus('dispatched')}
+                className="flex-1 rounded-btn text-xs font-extrabold cursor-pointer border-none"
+                style={{ padding: '8px 12px', background: '#2563eb', color: '#fff' }}>
+                Motorka na cestě
+              </button>
+            </div>
+          )}
+          {isActive && incident.replacement_status === 'dispatched' && (
+            <div className="mt-3 flex gap-2">
+              <button onClick={() => updateReplacementStatus('delivered')}
+                className="flex-1 rounded-btn text-xs font-extrabold cursor-pointer border-none"
+                style={{ padding: '8px 12px', background: '#1a8a18', color: '#fff' }}>
+                Doručeno zákazníkovi
+              </button>
+            </div>
+          )}
+
+          {/* Info o zamítnutí */}
+          {incident.replacement_status === 'rejected' && incident.replacement_data.rejection_reason && (
+            <div className="mt-3 rounded-lg text-xs" style={{
+              padding: '8px 12px', background: '#fee2e2', color: '#b91c1c', fontWeight: 600,
+            }}>
+              Důvod zamítnutí: {incident.replacement_data.rejection_reason}
             </div>
           )}
         </Card>
