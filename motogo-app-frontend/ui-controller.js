@@ -75,10 +75,22 @@ function _sosEnsureIncident(type, desc){
       _sosGetGPS().then(function(gps){
         apiCreateSosIncident(type, bookingId, gps.lat, gps.lng, desc, null, motoId)
           .then(function(r){
+            if(r && r.error){
+              console.error('[SOS] createIncident error:', r.error);
+              showT('❌','Chyba hlášení',''+r.error);
+            }
             if(r && r.id) _sosActiveIncidentId = r.id;
             resolve(r && r.id ? r.id : null);
+          })
+          .catch(function(e){
+            console.error('[SOS] createIncident exception:', e);
+            showT('❌','Chyba','Nepodařilo se vytvořit incident');
+            resolve(null);
           });
       });
+    }).catch(function(e){
+      console.error('[SOS] getLoan error:', e);
+      resolve(null);
     });
   });
 }
@@ -86,7 +98,11 @@ function _sosEnsureIncident(type, desc){
 function _sosUpdateIncident(incidentId, data){
   if(!incidentId || !window.supabase) return Promise.resolve();
   return window.supabase.from('sos_incidents').update(data).eq('id', incidentId)
-    .then(function(){}).catch(function(){});
+    .then(function(r){
+      if(r && r.error) console.error('[SOS] updateIncident error:', r.error.message, data);
+    }).catch(function(e){
+      console.error('[SOS] updateIncident exception:', e);
+    });
 }
 
 function sosReportAccident(type) {
@@ -343,10 +359,11 @@ async function sosConfirmReplacement(){
         if(result.success && result.checkout_url){
           // Stripe redirect
           replacementData.payment_status = 'processing';
-          await window.supabase.from('sos_incidents').update({
+          var upRes = await window.supabase.from('sos_incidents').update({
             replacement_status: 'pending_payment',
             replacement_data: replacementData
           }).eq('id', incId);
+          if(upRes.error) console.error('[SOS] update pending_payment error:', upRes.error.message);
           if(window.cordova && window.cordova.InAppBrowser){
             window.cordova.InAppBrowser.open(result.checkout_url, '_system');
           } else {
@@ -359,10 +376,11 @@ async function sosConfirmReplacement(){
         if(result.success){
           replacementData.payment_status = 'paid';
           replacementData.paid_at = new Date().toISOString();
-          await window.supabase.from('sos_incidents').update({
+          var upRes2 = await window.supabase.from('sos_incidents').update({
             replacement_status: 'admin_review',
             replacement_data: replacementData
           }).eq('id', incId);
+          if(upRes2.error) console.error('[SOS] update admin_review error:', upRes2.error.message);
           await window.supabase.from('sos_timeline').insert({
             incident_id: incId,
             action: 'Zákazník zaplatil ' + total + ' Kč a objednal náhradní motorku: ' + _sosReplacementData.selectedModel,
@@ -372,19 +390,22 @@ async function sosConfirmReplacement(){
           _sosPendingIncidentId = null;
           setTimeout(function(){ goTo('s-sos'); }, 3000);
         } else {
+          console.error('[SOS] payment failed:', result);
           showT('❌','Platba zamítnuta','Zkuste to znovu');
           if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '💳 Zaplatit a objednat motorku'; }
         }
       } catch(e){
+        console.error('[SOS] payment exception:', e);
         showT('❌','Chyba platby','Zkuste to znovu');
         if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '💳 Zaplatit a objednat motorku'; }
       }
     } else {
       // Porucha / nezaviněná → platba 0 Kč → rovnou do admin_review
-      await window.supabase.from('sos_incidents').update({
+      var upRes3 = await window.supabase.from('sos_incidents').update({
         replacement_status: 'admin_review',
         replacement_data: replacementData
       }).eq('id', incId);
+      if(upRes3.error) console.error('[SOS] update admin_review (free) error:', upRes3.error.message);
       await window.supabase.from('sos_timeline').insert({
         incident_id: incId,
         action: 'Zákazník objednal náhradní motorku: ' + _sosReplacementData.selectedModel + ' (zdarma)',

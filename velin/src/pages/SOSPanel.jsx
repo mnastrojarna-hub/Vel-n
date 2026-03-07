@@ -111,26 +111,35 @@ export default function SOSPanel() {
     }
   }
 
+  const SOS_SELECT = '*, profiles(full_name, phone, email), bookings(id, moto_id, start_date, end_date, status, motorcycles(model, spz, branch_id, branches(name)))'
+  const SOS_SELECT_MOTO = '*, profiles(full_name, phone, email), motorcycles!sos_incidents_moto_id_fkey(model, spz, vin, branch_id, mileage, branches(name)), bookings(id, moto_id, start_date, end_date, status, motorcycles(model, spz, branch_id, branches(name)))'
+
   async function load() {
     setLoading(true)
     try {
-      const { data } = await debugAction('load_active_incidents', 'SOSPanel', () =>
-        supabase
-          .from('sos_incidents')
-          .select('*, profiles(full_name, phone, email), motorcycles!sos_incidents_moto_id_fkey(model, spz, vin, branch_id, mileage, branches(name)), bookings(id, moto_id, start_date, end_date, status, motorcycles(model, spz, branch_id, branches(name)))')
-          .in('status', ['reported', 'acknowledged', 'in_progress'])
-          .order('created_at', { ascending: false })
-      )
-      const { data: resolved } = await debugAction('load_resolved_incidents', 'SOSPanel', () =>
-        supabase
-          .from('sos_incidents')
-          .select('*, profiles(full_name, phone, email), motorcycles!sos_incidents_moto_id_fkey(model, spz, vin, branch_id, mileage, branches(name)), bookings(id, moto_id, start_date, end_date, status, motorcycles(model, spz, branch_id, branches(name)))')
-          .in('status', ['resolved', 'closed'])
-          .order('created_at', { ascending: false })
-          .limit(10)
-      )
+      // Try with moto_id FK first, fallback without it if column doesn't exist
+      let data = null, resolved = null
+      try {
+        const r1 = await supabase.from('sos_incidents').select(SOS_SELECT_MOTO)
+          .in('status', ['reported', 'acknowledged', 'in_progress']).order('created_at', { ascending: false })
+        const r2 = await supabase.from('sos_incidents').select(SOS_SELECT_MOTO)
+          .in('status', ['resolved', 'closed']).order('created_at', { ascending: false }).limit(10)
+        if (r1.error) throw r1.error
+        data = r1.data
+        resolved = r2.data
+      } catch (fkErr) {
+        console.warn('[SOSPanel] moto FK query failed, falling back:', fkErr?.message)
+        const r1 = await supabase.from('sos_incidents').select(SOS_SELECT)
+          .in('status', ['reported', 'acknowledged', 'in_progress']).order('created_at', { ascending: false })
+        const r2 = await supabase.from('sos_incidents').select(SOS_SELECT)
+          .in('status', ['resolved', 'closed']).order('created_at', { ascending: false }).limit(10)
+        data = r1.data
+        resolved = r2.data
+      }
       setIncidents([...(data || []), ...(resolved || [])])
-    } catch {}
+    } catch (e) {
+      console.error('[SOSPanel] load failed:', e)
+    }
     setLoading(false)
   }
 
