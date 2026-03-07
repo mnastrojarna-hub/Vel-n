@@ -9,6 +9,7 @@ import SearchInput from '../components/ui/SearchInput'
 import Pagination from '../components/ui/Pagination'
 import Modal from '../components/ui/Modal'
 import Card from '../components/ui/Card'
+import ConfirmDialog from '../components/ui/ConfirmDialog'
 
 const PER_PAGE = 25
 const VIEWS = ['Seznam', 'Kalendář']
@@ -25,13 +26,14 @@ export default function Bookings() {
     paymentStatus: '', customer: '', motoModel: '', branch: '',
     priceMin: '', priceMax: '', durationMin: '', durationMax: '',
     hasInvoice: '', hasContract: '', country: '', licenseGroup: '',
-    sortBy: 'start_date', sortDir: 'desc'
+    sortBy: 'start_date', sortDir: 'desc', futureOnly: false
   })
   const [showAdd, setShowAdd] = useState(false)
   const [view, setView] = useState('Seznam')
   const [showFilters, setShowFilters] = useState(false)
   const [branches, setBranches] = useState([])
   const [motos, setMotos] = useState([])
+  const [deleteConfirm, setDeleteConfirm] = useState(null)
 
   useEffect(() => { if (view === 'Seznam') loadBookings() }, [page, filters, view])
   useEffect(() => {
@@ -72,6 +74,7 @@ export default function Bookings() {
         if (filters.dateTo) query = query.lte('end_date', filters.dateTo)
         if (filters.priceMin) query = query.gte('total_price', Number(filters.priceMin))
         if (filters.priceMax) query = query.lte('total_price', Number(filters.priceMax))
+        if (filters.futureOnly) query = query.gte('start_date', new Date().toISOString().slice(0, 10))
         if (filters.search) {
           query = query.or(`motorcycles.model.ilike.%${filters.search}%,profiles.full_name.ilike.%${filters.search}%`)
         }
@@ -106,8 +109,19 @@ export default function Bookings() {
   const totalPages = Math.ceil(total / PER_PAGE)
   const fmtDateRange = d => d ? new Date(d).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric' }) : '—'
   const setF = (k, v) => { setPage(1); setFilters(f => ({ ...f, [k]: v })) }
-  const activeFilterCount = Object.entries(filters).filter(([k, v]) => v && !['search', 'sortBy', 'sortDir'].includes(k)).length
-  const resetFilters = () => { setPage(1); setFilters(f => ({ ...f, status: '', paymentStatus: '', dateFrom: '', dateTo: '', customer: '', motoModel: '', branch: '', priceMin: '', priceMax: '', durationMin: '', durationMax: '', hasInvoice: '', hasContract: '', country: '', licenseGroup: '' })) }
+  const activeFilterCount = Object.entries(filters).filter(([k, v]) => v && !['search', 'sortBy', 'sortDir', 'futureOnly'].includes(k)).length
+  const resetFilters = () => { setPage(1); setFilters(f => ({ ...f, status: '', paymentStatus: '', dateFrom: '', dateTo: '', customer: '', motoModel: '', branch: '', priceMin: '', priceMax: '', durationMin: '', durationMax: '', hasInvoice: '', hasContract: '', country: '', licenseGroup: '', futureOnly: false })) }
+
+  async function handleDeleteBooking(booking) {
+    try {
+      const { error: err } = await supabase.from('bookings').delete().eq('id', booking.id)
+      if (err) throw err
+      const { data: { user } } = await supabase.auth.getUser()
+      await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'booking_deleted', details: { booking_id: booking.id } })
+      setDeleteConfirm(null)
+      loadBookings()
+    } catch (e) { setError(e.message) }
+  }
 
   return (
     <div>
@@ -126,6 +140,11 @@ export default function Bookings() {
               options={[{ value: '', label: 'Všechny stavy' }, { value: 'pending', label: 'Čekající' }, { value: 'reserved', label: 'Rezervováno' }, { value: 'active', label: 'Aktivní' }, { value: 'completed', label: 'Dokončeno' }, { value: 'cancelled', label: 'Zrušeno' }]} />
             <FilterSelect value={filters.paymentStatus} onChange={v => setF('paymentStatus', v)}
               options={[{ value: '', label: 'Platba' }, { value: 'paid', label: 'Zaplaceno' }, { value: 'unpaid', label: 'Nezaplaceno' }]} />
+            <label className="flex items-center gap-1.5 cursor-pointer rounded-btn text-xs font-extrabold uppercase tracking-wide"
+              style={{ padding: '8px 14px', background: filters.futureOnly ? '#74FB71' : '#f1faf7', border: '1px solid #d4e8e0', color: filters.futureOnly ? '#1a2e22' : '#4a6357' }}>
+              <input type="checkbox" checked={filters.futureOnly} onChange={e => setF('futureOnly', e.target.checked)} className="accent-[#1a8a18]" />
+              Jen budoucí
+            </label>
             <button onClick={() => setShowFilters(!showFilters)}
               className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
               style={{ padding: '8px 14px', background: showFilters ? '#74FB71' : '#f1faf7', border: '1px solid #d4e8e0', color: showFilters ? '#1a2e22' : '#4a6357' }}>
@@ -190,7 +209,7 @@ export default function Bookings() {
             <thead>
               <TRow header>
                 <TH>ID</TH><TH>Zákazník</TH><TH>Motorka</TH>
-                <TH>Od</TH><TH>Do</TH><TH>Dní</TH><TH>Částka</TH><TH>Platba</TH><TH>Stav</TH>
+                <TH>Od</TH><TH>Do</TH><TH>Dní</TH><TH>Částka</TH><TH>Platba</TH><TH>Stav</TH><TH>Akce</TH>
               </TRow>
             </thead>
             <tbody>
@@ -214,6 +233,13 @@ export default function Bookings() {
                       </span>
                     </TD>
                     <TD><StatusBadge status={b.status} /></TD>
+                    <TD>
+                      <button onClick={e => { e.stopPropagation(); setDeleteConfirm(b) }}
+                        className="text-[10px] font-bold cursor-pointer"
+                        style={{ color: '#dc2626', background: 'none', border: 'none', padding: '4px 6px' }}>
+                        Smazat
+                      </button>
+                    </TD>
                   </tr>
                 )
               })}
@@ -225,6 +251,15 @@ export default function Bookings() {
       )}
 
       {showAdd && <AddBookingModal onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); loadBookings() }} />}
+
+      {deleteConfirm && (
+        <ConfirmDialog
+          open title="Smazat rezervaci?"
+          message={`Opravdu chcete TRVALE smazat rezervaci #${deleteConfirm.id?.slice(-8).toUpperCase()} (${deleteConfirm.profiles?.full_name || 'zákazník'})? Tato akce je nevratná a smaže rezervaci ze Supabase.`}
+          danger onConfirm={() => handleDeleteBooking(deleteConfirm)}
+          onCancel={() => setDeleteConfirm(null)}
+        />
+      )}
     </div>
   )
 }

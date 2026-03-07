@@ -18,6 +18,7 @@ export default function InvoicesTab() {
   const [total, setTotal] = useState(0)
   const [search, setSearch] = useState('')
   const [showAdd, setShowAdd] = useState(false)
+  const [detailInv, setDetailInv] = useState(null)
 
   useEffect(() => { load() }, [page, search])
 
@@ -92,7 +93,9 @@ export default function InvoicesTab() {
             </thead>
             <tbody>
               {invoices.map(inv => (
-                <TRow key={inv.id}>
+                <tr key={inv.id} onClick={() => setDetailInv(inv)}
+                  className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
+                  style={{ borderBottom: '1px solid #d4e8e0' }}>
                   <TD mono bold>{inv.number || '—'}</TD>
                   <TD>{inv.profiles?.full_name || '—'}</TD>
                   <TD bold>{fmt(inv.total)}</TD>
@@ -106,7 +109,7 @@ export default function InvoicesTab() {
                       <SmallBtn onClick={() => sendEmail(inv.id)}>Email</SmallBtn>
                     </div>
                   </TD>
-                </TRow>
+                </tr>
               ))}
               {invoices.length === 0 && <TRow><TD>Žádné faktury</TD></TRow>}
             </tbody>
@@ -116,6 +119,37 @@ export default function InvoicesTab() {
       )}
 
       {showAdd && <NewInvoiceModal onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load() }} />}
+
+      {detailInv && (
+        <Modal open title={`Faktura ${detailInv.number || '—'}`} onClose={() => setDetailInv(null)}>
+          <div className="grid grid-cols-2 gap-4">
+            <DRow label="Číslo" value={detailInv.number} mono />
+            <DRow label="Zákazník" value={detailInv.profiles?.full_name || '—'} />
+            <DRow label="Částka" value={fmt(detailInv.total)} />
+            <DRow label="DPH" value={fmt(detailInv.tax_amount)} />
+            <DRow label="Základ" value={fmt(detailInv.subtotal)} />
+            <DRow label="Stav" value={detailInv.status || '—'} />
+            <DRow label="Vystavení" value={detailInv.issue_date ? new Date(detailInv.issue_date).toLocaleDateString('cs-CZ') : '—'} />
+            <DRow label="Splatnost" value={detailInv.due_date ? new Date(detailInv.due_date).toLocaleDateString('cs-CZ') : '—'} />
+            <DRow label="Typ" value={detailInv.type || '—'} />
+            {detailInv.booking_id && <DRow label="ID rezervace" value={detailInv.booking_id.slice(0, 8)} mono />}
+          </div>
+          <div className="flex justify-end gap-3 mt-5">
+            <Button onClick={() => setDetailInv(null)}>Zavřít</Button>
+            <SmallBtn onClick={() => generatePdf(detailInv.id)}>PDF</SmallBtn>
+            <SmallBtn onClick={() => sendEmail(detailInv.id)}>Email</SmallBtn>
+          </div>
+        </Modal>
+      )}
+    </div>
+  )
+}
+
+function DRow({ label, value, mono }) {
+  return (
+    <div>
+      <div className="text-[10px] font-extrabold uppercase tracking-wide mb-0.5" style={{ color: '#8aab99' }}>{label}</div>
+      <div className={`text-sm font-semibold ${mono ? 'font-mono' : ''}`} style={{ color: '#0f1a14' }}>{value ?? '—'}</div>
     </div>
   )
 }

@@ -65,6 +65,17 @@ async function finalizeCheckout(){
         console.log('[SHOP] Order created:', r.data.order_id);
       }
       if(r.error) console.warn('[SHOP] RPC error:', r.error.message);
+      // Generate shop invoices (proforma + final)
+      if(r.data && r.data.order_id){
+        try {
+          await window.supabase.functions.invoke('generate-invoice', {
+            body: { type: 'shop_proforma', order_id: r.data.order_id }
+          });
+          await window.supabase.functions.invoke('generate-invoice', {
+            body: { type: 'shop_final', order_id: r.data.order_id }
+          });
+        } catch(ie){ console.warn('[SHOP] Invoice generation:', ie); }
+      }
     } catch(e){ console.error('[SHOP] finalizeCheckout DB error:', e); }
   }
 
@@ -253,9 +264,22 @@ async function applyDiscount(){
         if(inp){inp.style.borderColor='var(--green)';inp.setAttribute('readonly','true');}
         recalcTotal();
       } else {
-        var errMsg = (r.data && r.data.error) ? r.data.error : _t('cart').codeNotFound;
-        if(msg)msg.innerHTML='<span style="color:var(--red)">\u2717 '+errMsg+'</span>';
-        if(inp)inp.style.borderColor='var(--red)';
+        // Promo code not found — try voucher
+        var vr = await window.supabase.rpc('validate_voucher_code', { p_code: code });
+        if(vr.data && vr.data.valid){
+          var vData = vr.data;
+          _appliedPromoId = vData.id;
+          appliedCode = code;
+          discountAmt = vData.value;
+          if(msg)msg.innerHTML='<span style="color:var(--gd)">\u2713 '+(_t('cart').voucher||'Poukaz')+' '+vData.value+' K\u010d '+_t('cart').applied+'</span>';
+          showT('\ud83c\udf81',(_t('cart').voucher||'Poukaz')+' '+vData.value+' K\u010d','');
+          if(inp){inp.style.borderColor='var(--green)';inp.setAttribute('readonly','true');}
+          recalcTotal();
+        } else {
+          var errMsg = (r.data && r.data.error) ? r.data.error : _t('cart').codeNotFound;
+          if(msg)msg.innerHTML='<span style="color:var(--red)">\u2717 '+errMsg+'</span>';
+          if(inp)inp.style.borderColor='var(--red)';
+        }
       }
       return;
     } catch(e){ console.error('[PROMO] DB validation failed:', e); }
