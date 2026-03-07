@@ -30,6 +30,7 @@ var ASSETS = [
   './templates-res-sos.js',
   './templates-res-sos2.js',
   './templates-res-sos3.js',
+  './templates-res-sos4.js',
   './templates-shop.js',
   './templates-shop-detail.js',
   './templates-done.js',
