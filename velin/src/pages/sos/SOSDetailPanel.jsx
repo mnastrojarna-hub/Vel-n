@@ -122,19 +122,27 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
   }
 
   async function updateDecision(decision) {
+    // SAFETY: Confirm decision change — affects customer billing
+    const label = DECISION_LABELS[decision] || decision
+    if (!window.confirm(`Nastavit rozhodnutí zákazníka na:\n\n${label}\n\nTato informace se zaznamená do timeline.`)) return
     await debugAction('sos.updateDecision', 'SOSDetailPanel', () =>
       supabase.from('sos_incidents').update({ customer_decision: decision }).eq('id', incident.id)
     , { incident_id: incident.id, decision })
     const { data: { user } } = await supabase.auth.getUser()
     await supabase.from('sos_timeline').insert({
       incident_id: incident.id,
-      action: `Rozhodnutí zákazníka: ${DECISION_LABELS[decision] || decision}`,
+      action: `Rozhodnutí zákazníka: ${label}`,
       performed_by: user?.email || 'Admin', admin_id: user?.id,
     })
     onRefresh?.()
   }
 
   async function updateFault(isFault) {
+    // SAFETY: Fault assignment has financial impact — confirm
+    const msg = isFault
+      ? 'Nastavit zavinění na ZÁKAZNÍKA?\n\n⚠️ Zákazník bude platit náklady za náhradní moto a odtah.'
+      : 'Nastavit jako CIZÍ ZAVINĚNÍ?\n\n💚 Zákazník nebude nic platit — náhradní moto a odtah zdarma.'
+    if (!window.confirm(msg)) return
     await debugAction('sos.updateFault', 'SOSDetailPanel', () =>
       supabase.from('sos_incidents').update({ customer_fault: isFault }).eq('id', incident.id)
     , { incident_id: incident.id, customer_fault: isFault })
@@ -154,11 +162,18 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
   }
 
   async function updateReplacementStatus(newStatus) {
+    // SAFETY: Confirm dispatch/delivery status changes
+    const label = REPLACEMENT_STATUS_LABELS[newStatus] || newStatus
+    if (newStatus === 'dispatched') {
+      if (!window.confirm('Potvrdit že motorka je na cestě k zákazníkovi?\n\nZákazník bude informován.')) return
+    }
+    if (newStatus === 'delivered') {
+      if (!window.confirm('Potvrdit doručení motorky zákazníkovi?\n\nTuto akci nelze vrátit zpět.')) return
+    }
     await debugAction('sos.updateReplacementStatus', 'SOSDetailPanel', () =>
       supabase.from('sos_incidents').update({ replacement_status: newStatus }).eq('id', incident.id)
     , { incident_id: incident.id, replacement_status: newStatus })
     const { data: { user } } = await supabase.auth.getUser()
-    const label = REPLACEMENT_STATUS_LABELS[newStatus] || newStatus
     await supabase.from('sos_timeline').insert({
       incident_id: incident.id,
       action: `Náhradní moto: ${label}`,
@@ -169,6 +184,16 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
 
   async function approveReplacement() {
     const rd = incident.replacement_data || {}
+    // SAFETY: Ověření že platba proběhla u zaviněných nehod
+    if (rd.customer_fault && rd.payment_status !== 'paid' && rd.payment_status !== 'free') {
+      if (!window.confirm('⚠️ POZOR: Zákazník ještě nezaplatil poplatek!\n\nPlatební stav: ' + (rd.payment_status || 'neznámý') + '\n\nOpravdu chcete schválit bez platby?')) {
+        return
+      }
+    }
+    // SAFETY: Potvrzení schválení
+    if (!window.confirm(`Schválit objednávku náhradní motorky?\n\n🏍️ ${rd.replacement_model || '?'}\n📍 ${rd.delivery_address || '?'}, ${rd.delivery_city || '?'}\n💰 ${rd.payment_amount || 0} Kč (${rd.payment_status === 'free' ? 'zdarma' : rd.payment_status || '?'})\n\nPo schválení bude motorka připravena k přistavení.`)) {
+      return
+    }
     const updatedRd = { ...rd, approved_by_admin: true, approved_at: new Date().toISOString() }
     await debugAction('sos.approveReplacement', 'SOSDetailPanel', () =>
       supabase.from('sos_incidents').update({
@@ -180,13 +205,20 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
     await supabase.from('sos_timeline').insert({
       incident_id: incident.id,
       action: `Objednávka náhradní motorky SCHVÁLENA: ${rd.replacement_model || '?'}`,
-      description: `Adresa: ${rd.delivery_address || '?'}, ${rd.delivery_city || '?'}. Částka: ${rd.payment_amount || '?'} Kč`,
+      description: `Adresa: ${rd.delivery_address || '?'}, ${rd.delivery_city || '?'}. Částka: ${rd.payment_amount || '?'} Kč (${rd.payment_status === 'free' ? 'zdarma' : 'zaplaceno'})`,
       performed_by: user?.email || 'Admin', admin_id: user?.id,
     })
     onRefresh?.()
   }
 
   async function rejectReplacement(reason) {
+    if (!reason?.trim()) {
+      alert('Vyplňte důvod zamítnutí — zákazník ho uvidí.')
+      return
+    }
+    if (!window.confirm(`Opravdu zamítnout objednávku?\n\nDůvod: ${reason}\n\nZákazník bude informován.`)) {
+      return
+    }
     const rd = incident.replacement_data || {}
     const updatedRd = { ...rd, approved_by_admin: false, rejected_at: new Date().toISOString(), rejection_reason: reason }
     await debugAction('sos.rejectReplacement', 'SOSDetailPanel', () =>
@@ -460,13 +492,37 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
               <div className="flex justify-between items-center">
                 <span className="font-extrabold text-sm" style={{ color: '#b91c1c' }}>Celkem k úhradě:</span>
                 <span className="font-extrabold text-sm" style={{ color: '#b91c1c' }}>
-                  {incident.replacement_data.payment_amount ? `${Number(incident.replacement_data.payment_amount).toLocaleString('cs-CZ')} Kč` : '—'}
+                  {incident.replacement_data.payment_status === 'free' ? '0 Kč (zdarma)' :
+                    incident.replacement_data.payment_amount ? `${Number(incident.replacement_data.payment_amount).toLocaleString('cs-CZ')} Kč` : '—'}
                 </span>
               </div>
-              <div className="text-[10px] mt-1" style={{ color: '#dc2626' }}>
-                Platba: {incident.replacement_data.payment_status === 'paid' ? 'Zaplaceno' : incident.replacement_data.payment_status || '?'}
-                {incident.replacement_data.customer_confirmed_at && ` · Potvrzeno: ${new Date(incident.replacement_data.customer_confirmed_at).toLocaleString('cs-CZ')}`}
+              {/* Výrazný platební status */}
+              <div className="mt-2 rounded-lg text-xs font-extrabold" style={{
+                padding: '6px 10px',
+                background: incident.replacement_data.payment_status === 'paid' ? '#dcfce7' :
+                  incident.replacement_data.payment_status === 'free' ? '#dcfce7' :
+                  incident.replacement_data.payment_status === 'pending' ? '#fee2e2' : '#fef3c7',
+                color: incident.replacement_data.payment_status === 'paid' ? '#1a8a18' :
+                  incident.replacement_data.payment_status === 'free' ? '#1a8a18' :
+                  incident.replacement_data.payment_status === 'pending' ? '#dc2626' : '#b45309',
+              }}>
+                {incident.replacement_data.payment_status === 'paid' && '✅ ZAPLACENO'}
+                {incident.replacement_data.payment_status === 'free' && '💚 ZDARMA (nezaviněná nehoda / porucha)'}
+                {incident.replacement_data.payment_status === 'pending' && '❌ NEZAPLACENO — zákazník ještě neuhradil poplatek'}
+                {incident.replacement_data.payment_status === 'processing' && '⏳ Platba se zpracovává...'}
+                {!incident.replacement_data.payment_status && '❓ Stav platby neznámý'}
+                {incident.replacement_data.paid_at && ` · ${new Date(incident.replacement_data.paid_at).toLocaleString('cs-CZ')}`}
               </div>
+              {incident.replacement_data.customer_fault && (
+                <div className="text-[10px] font-bold mt-1" style={{ color: '#dc2626' }}>
+                  ⚠️ Zavinil zákazník — platí poplatek
+                </div>
+              )}
+              {incident.replacement_data.customer_confirmed_at && (
+                <div className="text-[10px] mt-1" style={{ color: '#8aab99' }}>
+                  Objednáno: {new Date(incident.replacement_data.customer_confirmed_at).toLocaleString('cs-CZ')}
+                </div>
+              )}
             </div>
           </div>
 
