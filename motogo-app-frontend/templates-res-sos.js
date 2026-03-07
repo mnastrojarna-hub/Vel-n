@@ -134,3 +134,53 @@ Templates['s-sos-nepojizda'] = `  <div class="sos-sub-hdr">
       </button>
     </div>
   </div>`;
+
+// ===== OBJEDNÁVKA NÁHRADNÍ MOTORKY — výběr moto, adresa, platba =====
+Templates['s-sos-replacement'] = `  <div class="sos-sub-hdr" id="sos-repl-hdr" style="background:linear-gradient(135deg,#1a2e22,#2d5a3c);">
+    <div class="sos-sub-back" onclick="histBack()"><div class="sos-sub-back-btn">←</div><div style="color:rgba(255,255,255,.7);font-size:13px;font-weight:600;">Zpět</div></div>
+    <div style="font-size:28px;margin-bottom:8px;">🏍️</div>
+    <h2 style="color:#fff;font-size:20px;font-weight:900;">Náhradní motorka</h2>
+    <p style="color:rgba(255,255,255,.8);font-size:12px;margin-top:4px;" id="sos-repl-subtitle">Vyberte motorku a zadejte adresu přistavení</p>
+  </div>
+  <div style="padding:14px 20px 0;">
+    <!-- Info banner -->
+    <div id="sos-repl-banner" style="border-radius:var(--rsm);padding:10px 14px;font-size:12px;font-weight:600;line-height:1.6;margin-bottom:12px;"></div>
+
+    <!-- 1. Výběr motorky -->
+    <div style="background:#fff;border-radius:var(--r);padding:14px;box-shadow:var(--shadow);margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:800;color:var(--g400);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">1. Vyberte náhradní motorku</div>
+      <div id="sos-repl-motos" style="display:flex;flex-direction:column;gap:8px;">
+        <div style="text-align:center;padding:20px;color:var(--g400);font-size:12px;">Načítám dostupné motorky...</div>
+      </div>
+    </div>
+
+    <!-- 2. Adresa přistavení -->
+    <div style="background:#fff;border-radius:var(--r);padding:14px;box-shadow:var(--shadow);margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:800;color:var(--g400);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">2. Adresa přistavení</div>
+      <input type="text" id="sos-repl-address" placeholder="Ulice a číslo popisné" style="width:100%;box-sizing:border-box;padding:10px 12px;border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:13px;margin-bottom:8px;">
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;">
+        <input type="text" id="sos-repl-city" placeholder="Město" style="width:100%;box-sizing:border-box;padding:10px 12px;border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:13px;">
+        <input type="text" id="sos-repl-zip" placeholder="PSČ" style="width:100%;box-sizing:border-box;padding:10px 12px;border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:13px;">
+      </div>
+      <button onclick="sosReplFillGPS()" style="margin-top:8px;background:var(--gp);color:var(--gd);border:1px solid var(--green);border-radius:50px;padding:8px 16px;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;">📍 Použít mou aktuální polohu</button>
+      <textarea id="sos-repl-note" placeholder="Poznámka pro řidiče (volitelné)" rows="2" style="width:100%;box-sizing:border-box;padding:10px 12px;border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:13px;margin-top:8px;resize:vertical;"></textarea>
+    </div>
+
+    <!-- 3. Shrnutí a platba -->
+    <div style="background:#fff;border-radius:var(--r);padding:14px;box-shadow:var(--shadow);margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:800;color:var(--g400);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">3. Shrnutí objednávky</div>
+      <div id="sos-repl-summary" style="font-size:13px;line-height:1.8;color:var(--black);"></div>
+      <div style="border-top:2px solid var(--g100);margin-top:10px;padding-top:10px;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:15px;font-weight:900;" id="sos-repl-total-label">Celkem</span>
+        <span style="font-size:20px;font-weight:900;" id="sos-repl-total">0 Kč</span>
+      </div>
+    </div>
+
+    <!-- Tlačítko -->
+    <button id="sos-repl-btn" onclick="sosConfirmReplacement()" style="width:100%;background:var(--green);color:#fff;border:none;border-radius:50px;padding:16px;font-family:var(--font);font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 18px rgba(116,251,113,.4);">
+      Potvrdit objednávku
+    </button>
+    <div style="text-align:center;margin-top:10px;margin-bottom:20px;">
+      <button onclick="histBack()" style="background:none;border:none;font-family:var(--font);font-size:12px;font-weight:600;color:var(--g400);cursor:pointer;text-decoration:underline;">Zrušit</button>
+    </div>
+  </div>`;

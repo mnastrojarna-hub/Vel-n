@@ -52,6 +52,7 @@ function setupBioButton(){
 // Global SOS state — tracks user selections across SOS screens
 var _sosFault = null;
 var _sosActiveIncidentId = null;
+var _sosPendingIncidentId = null;  // Incident čekající na platbu (zaviněná nehoda)
 
 function _sosGetGPS(){
   return new Promise(function(resolve){
@@ -93,8 +94,21 @@ function sosReportAccident(type) {
     var ts = new Date().toLocaleString('cs-CZ');
     _sosActiveIncidentId = null;
     _sosFault = null;
-    _sosEnsureIncident(sosType, sosType === 'accident_minor' ? 'Lehká nehoda – pokračuji v jízdě' : 'Závažná nehoda')
-      .then(function(){
+    var desc = sosType === 'accident_minor' ? 'Lehká nehoda – pokračuji v jízdě' : 'Závažná nehoda';
+    _sosEnsureIncident(sosType, desc)
+      .then(function(incId){
+        if(incId){
+          // Lehká nehoda = pojízdná, závažná = nepojízdná
+          var upd = { moto_rideable: sosType === 'accident_minor' };
+          _sosUpdateIncident(incId, upd);
+          // Timeline entry s detaily
+          window.supabase.from('sos_timeline').insert({
+            incident_id: incId,
+            action: sosType === 'accident_minor'
+              ? 'Zákazník nahlásil lehkou nehodu — motorka pojízdná, pokračuje v jízdě'
+              : 'Zákazník nahlásil závažnou nehodu — čeká na pokyny',
+          }).then(function(){});
+        }
         showT('✅', 'Incident nahlášen MotoGo24', ts + '\nAsistent vás kontaktuje.');
         setTimeout(function(){ histBack(); }, 2000);
       });
@@ -105,27 +119,282 @@ function sosReportTheft() {
     _sosActiveIncidentId = null;
     _sosFault = null;
     _sosEnsureIncident('theft', 'Krádež motorky – zákazník informován o postupu (policie 158)')
-      .then(function(){
+      .then(function(incId){
+        if(incId){
+          _sosUpdateIncident(incId, { moto_rideable: false });
+          window.supabase.from('sos_timeline').insert({
+            incident_id: incId,
+            action: 'Zákazník nahlásil krádež motorky — přesměrován na policii ČR (158)',
+          }).then(function(){});
+        }
         showT('🚨', 'Krádež nahlášena MotoGo24', ts + '\nVolejte policii 158!');
       });
 }
 
+// ===== SOS REPLACEMENT — nový flow: výběr moto + adresa + platba =====
+var _sosReplacementData = { selectedMotoId: null, selectedModel: null, dailyPrice: 0, deliveryFee: 490 };
+
 function sosRequestReplacement() {
-    showT('🏍️', 'Objednávám náhradní moto...', '');
+    // Vždy přesměruj na výběrovou obrazovku
     var faultDesc = _sosFault === true ? 'Nehoda byla moje chyba' : _sosFault === false ? 'Nehoda nebyla moje chyba' : '';
     var desc = 'Motorka nepojízdná – žádám náhradní motorku. ' + faultDesc;
-    var type = _sosFault !== null ? 'accident_major' : 'breakdown_major';
+    var type = _sosFault === true ? 'accident_major' : _sosFault === false ? 'accident_major' : 'breakdown_major';
+
     _sosEnsureIncident(type, desc).then(function(incId){
       if(!incId){ showT('❌','Chyba','Nepodařilo se nahlásit incident'); return; }
-      var upd = {customer_decision:'replacement_moto', moto_rideable:false};
+      _sosPendingIncidentId = incId;
+      var upd = {customer_decision:'replacement_moto', moto_rideable:false, replacement_status: 'selecting'};
       if(_sosFault !== null) upd.customer_fault = _sosFault;
       _sosUpdateIncident(incId, upd);
-      apiSosRequestReplacement(incId).then(function(){
-        var faultMsg = _sosFault === false ? ' (zdarma)' : _sosFault === true ? ' (za poplatek)' : '';
-        showT('🏍️', 'Náhradní moto objednáno' + faultMsg, 'Asistent vás kontaktuje do 5 minut');
-        setTimeout(function(){ goTo('s-sos'); }, 2500);
-      });
+      goTo('s-sos-replacement');
+      setTimeout(function(){ sosReplInit(); }, 300);
     });
+}
+
+function sosReplInit(){
+    var isFault = _sosFault === true;
+    var hdr = document.getElementById('sos-repl-hdr');
+    var sub = document.getElementById('sos-repl-subtitle');
+    var banner = document.getElementById('sos-repl-banner');
+    var totalLabel = document.getElementById('sos-repl-total-label');
+    var totalEl = document.getElementById('sos-repl-total');
+    var btn = document.getElementById('sos-repl-btn');
+
+    if(isFault){
+      if(hdr) hdr.style.background = 'linear-gradient(135deg,#7f1d1d,#b91c1c)';
+      if(sub) sub.textContent = 'Zaviněná nehoda — náhradní motorka za poplatek';
+      if(banner){
+        banner.style.background = '#fee2e2';
+        banner.style.border = '1px solid #fca5a5';
+        banner.style.color = '#b91c1c';
+        banner.innerHTML = '⚠️ Nehoda zaviněná zákazníkem — motorka a přistavení jsou <strong>za poplatek</strong>. Po zaplacení bude motorka ihned přistavena.';
+      }
+      if(btn){
+        btn.style.background = '#b91c1c';
+        btn.textContent = '💳 Zaplatit a objednat motorku';
+      }
+    } else {
+      if(hdr) hdr.style.background = 'linear-gradient(135deg,#1a2e22,#2d5a3c)';
+      if(sub) sub.textContent = 'Porucha / nezaviněná nehoda — přistavení zdarma';
+      if(banner){
+        banner.style.background = 'var(--gp)';
+        banner.style.border = '1px solid var(--green)';
+        banner.style.color = 'var(--gd)';
+        banner.innerHTML = '💚 Náhradní motorka i přistavení jsou <strong>zdarma</strong> (porucha / nezaviněná nehoda).';
+      }
+      if(totalEl){ totalEl.textContent = '0 Kč'; totalEl.style.color = 'var(--green)'; }
+      if(totalLabel) totalLabel.style.color = 'var(--green)';
+      if(btn){
+        btn.style.background = 'var(--green)';
+        btn.textContent = '✅ Potvrdit objednávku (zdarma)';
+      }
+    }
+
+    // Načti dostupné motorky
+    sosReplLoadMotos();
+}
+
+async function sosReplLoadMotos(){
+    var container = document.getElementById('sos-repl-motos');
+    if(!container) return;
+    container.innerHTML = '<div style="text-align:center;padding:15px;color:var(--g400);font-size:12px;">⏳ Načítám dostupné motorky...</div>';
+
+    try {
+      // Najdi konec aktuální rezervace
+      var loan = await apiGetActiveLoan();
+      var endDate = loan && loan._db ? loan._db.end_date : null;
+
+      var r = await window.supabase.from('motorcycles')
+        .select('id, model, image_url, images, daily_price, price_per_day, category, branches(name, city)')
+        .eq('status', 'active')
+        .limit(20);
+      var motos = r.data || [];
+
+      if(motos.length === 0){
+        container.innerHTML = '<div style="text-align:center;padding:15px;color:#b91c1c;font-size:12px;font-weight:600;">Žádné motorky momentálně nejsou dostupné. Kontaktujte MotoGo24.</div>';
+        return;
+      }
+
+      var html = '';
+      motos.forEach(function(m){
+        var price = m.daily_price || m.price_per_day || 890;
+        var img = m.image_url || (m.images && m.images[0]) || '';
+        var branch = m.branches ? (m.branches.name || m.branches.city || '') : '';
+        html += '<div class="sos-repl-moto-card" onclick="sosReplSelectMoto(\'' + m.id + '\',\'' + (m.model||'').replace(/'/g,"\\'") + '\',' + price + ')" '
+          + 'id="sos-moto-' + m.id + '" '
+          + 'style="display:flex;align-items:center;gap:12px;padding:10px;border:2px solid var(--g200);border-radius:var(--rsm);cursor:pointer;transition:all .15s;">'
+          + (img ? '<img src="' + img + '" style="width:56px;height:40px;object-fit:cover;border-radius:8px;flex-shrink:0;" alt="">' : '<div style="width:56px;height:40px;background:var(--g100);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🏍️</div>')
+          + '<div style="flex:1;min-width:0;">'
+          + '<div style="font-size:13px;font-weight:800;color:var(--black);">' + (m.model||'Motorka') + '</div>'
+          + '<div style="font-size:10px;color:var(--g400);margin-top:1px;">' + branch + (endDate ? ' · do ' + new Date(endDate).toLocaleDateString('cs-CZ') : '') + '</div>'
+          + '</div>'
+          + '<div style="font-size:12px;font-weight:800;color:var(--black);">' + price.toLocaleString('cs-CZ') + ' Kč/den</div>'
+          + '</div>';
+      });
+      container.innerHTML = html;
+    } catch(e){
+      container.innerHTML = '<div style="text-align:center;padding:15px;color:#b91c1c;font-size:12px;font-weight:600;">Chyba při načítání motorek.</div>';
+      console.error('[SOS] loadMotos:', e);
+    }
+}
+
+function sosReplSelectMoto(motoId, model, dailyPrice){
+    _sosReplacementData.selectedMotoId = motoId;
+    _sosReplacementData.selectedModel = model;
+    _sosReplacementData.dailyPrice = dailyPrice;
+
+    // UI feedback
+    document.querySelectorAll('.sos-repl-moto-card').forEach(function(el){
+      el.style.borderColor = 'var(--g200)';
+      el.style.background = '#fff';
+    });
+    var sel = document.getElementById('sos-moto-' + motoId);
+    if(sel){ sel.style.borderColor = 'var(--green)'; sel.style.background = 'var(--gp)'; }
+
+    // Update summary
+    sosReplUpdateSummary();
+}
+
+function sosReplUpdateSummary(){
+    var isFault = _sosFault === true;
+    var summary = document.getElementById('sos-repl-summary');
+    var totalEl = document.getElementById('sos-repl-total');
+
+    var delivery = _sosReplacementData.deliveryFee;
+    var daily = _sosReplacementData.dailyPrice;
+    var total = isFault ? (daily + delivery) : 0;
+
+    if(summary){
+      summary.innerHTML = '<div style="display:flex;justify-content:space-between;"><span>🏍️ ' + (_sosReplacementData.selectedModel || '—') + '</span><span style="font-weight:800;">' + (isFault ? daily.toLocaleString('cs-CZ') + ' Kč' : 'zdarma') + '</span></div>'
+        + '<div style="display:flex;justify-content:space-between;margin-top:4px;"><span>🚛 Přistavení</span><span style="font-weight:800;">' + (isFault ? delivery.toLocaleString('cs-CZ') + ' Kč' : 'zdarma') + '</span></div>';
+    }
+    if(totalEl){
+      totalEl.textContent = total.toLocaleString('cs-CZ') + ' Kč';
+      if(!isFault){ totalEl.style.color = 'var(--green)'; }
+      else { totalEl.style.color = '#b91c1c'; }
+    }
+}
+
+function sosReplFillGPS(){
+    if(!navigator.geolocation){ showT('❌','GPS nedostupné',''); return; }
+    showT('📍','Zjišťuji polohu...','');
+    navigator.geolocation.getCurrentPosition(function(pos){
+      // Reverse geocode via Nominatim
+      fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat='+pos.coords.latitude+'&lon='+pos.coords.longitude+'&zoom=18&addressdetails=1')
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+          var addr = data.address || {};
+          var street = (addr.road || '') + (addr.house_number ? ' ' + addr.house_number : '');
+          var city = addr.city || addr.town || addr.village || '';
+          var zip = addr.postcode || '';
+          var addrEl = document.getElementById('sos-repl-address');
+          var cityEl = document.getElementById('sos-repl-city');
+          var zipEl = document.getElementById('sos-repl-zip');
+          if(addrEl) addrEl.value = street;
+          if(cityEl) cityEl.value = city;
+          if(zipEl) zipEl.value = zip;
+          showT('📍','Adresa doplněna', street + ', ' + city);
+        })
+        .catch(function(){ showT('📍','GPS OK, adresu vyplňte ručně',''); });
+    }, function(){ showT('❌','Poloha nedostupná','Vyplňte adresu ručně'); },
+    {enableHighAccuracy:true, timeout:15000});
+}
+
+async function sosConfirmReplacement(){
+    var incId = _sosPendingIncidentId;
+    if(!incId){ showT('❌','Chyba','Žádný incident'); return; }
+    if(!_sosReplacementData.selectedMotoId){ showT('⚠️','Vyberte motorku','Klikněte na jednu z nabídek'); return; }
+
+    var address = (document.getElementById('sos-repl-address')||{}).value || '';
+    var city = (document.getElementById('sos-repl-city')||{}).value || '';
+    var zip = (document.getElementById('sos-repl-zip')||{}).value || '';
+    var note = (document.getElementById('sos-repl-note')||{}).value || '';
+
+    if(!address.trim() || !city.trim()){ showT('⚠️','Vyplňte adresu','Zadejte ulici a město pro přistavení'); return; }
+
+    var isFault = _sosFault === true;
+    var daily = _sosReplacementData.dailyPrice;
+    var delivery = _sosReplacementData.deliveryFee;
+    var total = isFault ? (daily + delivery) : 0;
+
+    var btn = document.getElementById('sos-repl-btn');
+    if(btn){ btn.textContent = '⏳ Zpracovávám...'; btn.disabled = true; btn.style.opacity = '0.6'; }
+
+    var replacementData = {
+      replacement_moto_id: _sosReplacementData.selectedMotoId,
+      replacement_model: _sosReplacementData.selectedModel,
+      delivery_address: address,
+      delivery_city: city,
+      delivery_zip: zip,
+      delivery_note: note,
+      daily_price: daily,
+      delivery_fee: delivery,
+      payment_amount: total,
+      payment_status: isFault ? 'pending' : 'free',
+      customer_fault: isFault,
+      customer_confirmed_at: new Date().toISOString(),
+      requested_at: new Date().toISOString()
+    };
+
+    if(isFault){
+      // Zákazník zavinil → musí zaplatit → zpracuj platbu
+      try {
+        var result = await apiProcessPayment(null, total, _currentPaymentMethod || 'card');
+        if(result.success && result.checkout_url){
+          // Stripe redirect
+          replacementData.payment_status = 'processing';
+          await window.supabase.from('sos_incidents').update({
+            replacement_status: 'pending_payment',
+            replacement_data: replacementData
+          }).eq('id', incId);
+          if(window.cordova && window.cordova.InAppBrowser){
+            window.cordova.InAppBrowser.open(result.checkout_url, '_system');
+          } else {
+            window.open(result.checkout_url, '_blank');
+          }
+          showT('ℹ️','Platba','Otevřena platební brána');
+          if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '💳 Zaplatit a objednat motorku'; }
+          return;
+        }
+        if(result.success){
+          replacementData.payment_status = 'paid';
+          replacementData.paid_at = new Date().toISOString();
+          await window.supabase.from('sos_incidents').update({
+            replacement_status: 'admin_review',
+            replacement_data: replacementData
+          }).eq('id', incId);
+          await window.supabase.from('sos_timeline').insert({
+            incident_id: incId,
+            action: 'Zákazník zaplatil ' + total + ' Kč a objednal náhradní motorku: ' + _sosReplacementData.selectedModel,
+            description: 'Adresa: ' + address + ', ' + city + '. Čeká na schválení adminem.'
+          });
+          showT('✅','Zaplaceno — ' + total + ' Kč','Objednávka odeslána ke schválení. Kontaktujeme vás.');
+          _sosPendingIncidentId = null;
+          setTimeout(function(){ goTo('s-sos'); }, 3000);
+        } else {
+          showT('❌','Platba zamítnuta','Zkuste to znovu');
+          if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '💳 Zaplatit a objednat motorku'; }
+        }
+      } catch(e){
+        showT('❌','Chyba platby','Zkuste to znovu');
+        if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '💳 Zaplatit a objednat motorku'; }
+      }
+    } else {
+      // Porucha / nezaviněná → platba 0 Kč → rovnou do admin_review
+      await window.supabase.from('sos_incidents').update({
+        replacement_status: 'admin_review',
+        replacement_data: replacementData
+      }).eq('id', incId);
+      await window.supabase.from('sos_timeline').insert({
+        incident_id: incId,
+        action: 'Zákazník objednal náhradní motorku: ' + _sosReplacementData.selectedModel + ' (zdarma)',
+        description: 'Adresa: ' + address + ', ' + city + '. Čeká na schválení adminem.'
+      });
+      apiSosRequestReplacement(incId);
+      showT('✅','Objednávka odeslána','Náhradní motorka bude brzy přistavena (zdarma)');
+      _sosPendingIncidentId = null;
+      setTimeout(function(){ goTo('s-sos'); }, 2500);
+    }
 }
 
 function sosEndRide() {
@@ -139,6 +408,11 @@ function sosEndRide() {
       if(_sosFault !== null) upd.customer_fault = _sosFault;
       _sosUpdateIncident(incId, upd);
       apiSosRequestTow(incId).then(function(){
+        // Timeline entry s detaily
+        window.supabase.from('sos_timeline').insert({
+          incident_id: incId,
+          action: 'Zákazník ukončuje jízdu — žádá odtah' + (_sosFault === true ? ' (zavinil zákazník)' : _sosFault === false ? ' (cizí zavinění — zdarma)' : ''),
+        }).then(function(){});
         showT('🚛', 'Odtah objednán', 'MotoGo24 zařídí odtah motorky');
         setTimeout(function(){ goTo('s-sos'); }, 2500);
       });
@@ -151,6 +425,11 @@ function sosEndRideFree() {
       if(incId){
         _sosUpdateIncident(incId, {customer_decision:'end_ride', moto_rideable:false, customer_fault:false});
         apiSosRequestTow(incId);
+        // Timeline entry
+        window.supabase.from('sos_timeline').insert({
+          incident_id: incId,
+          action: 'Zákazník ukončuje jízdu — porucha (nezaviněná) — pronájem zdarma, odtah objednán',
+        }).then(function(){});
       }
       showT('✅', 'Pronájem zdarma', 'Vracíme plnou částku. Odtah zajistíme.');
       setTimeout(function(){ goTo('s-home'); }, 2200);
@@ -201,12 +480,18 @@ function sosShareLocation() {
 
 function sosDrobnaZavada() {
     showT('🔩', 'Hlásím závadu...', '');
-    apiGetActiveLoan().then(function(loan) {
-        var loanId = loan ? loan.id : null;
-        apiCreateSosIncident('breakdown_minor', loanId, null, null, 'Drobná závada', false).then(function() {
-            showT('🔩', 'Závada zaznamenána', 'MotoGo24 upozorněno – pokračujte v jízdě');
-            setTimeout(function(){ histBack(); }, 1600);
-        });
+    _sosActiveIncidentId = null;
+    _sosFault = null;
+    _sosEnsureIncident('breakdown_minor', 'Drobná závada – motorka pojízdná, pokračuji v jízdě').then(function(incId){
+      if(incId){
+        _sosUpdateIncident(incId, { moto_rideable: true, customer_fault: false, customer_decision: 'continue' });
+        window.supabase.from('sos_timeline').insert({
+          incident_id: incId,
+          action: 'Zákazník nahlásil drobnou závadu — motorka pojízdná, pokračuje v jízdě',
+        }).then(function(){});
+      }
+      showT('🔩', 'Závada zaznamenána', 'MotoGo24 upozorněno – pokračujte v jízdě');
+      setTimeout(function(){ histBack(); }, 1600);
     });
 }
 

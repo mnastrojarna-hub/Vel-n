@@ -135,6 +135,19 @@ export default function SOSPanel() {
   }
 
   async function updateStatus(id, newStatus) {
+    // SAFETY: Prevent closing incidents with pending replacements
+    const inc = incidents.find(i => i.id === id)
+    if (newStatus === 'resolved' && inc) {
+      const pendingRepl = ['selecting', 'pending_payment', 'admin_review', 'approved', 'dispatched']
+      if (pendingRepl.includes(inc.replacement_status)) {
+        if (!window.confirm(`⚠️ POZOR: Tento incident má nedokončenou objednávku náhradní motorky!\n\nStav objednávky: ${inc.replacement_status}\n\nOpravdu chcete označit incident jako vyřešený?`)) {
+          return
+        }
+      }
+      if (!window.confirm('Označit incident jako VYŘEŠENÝ?\n\nZákazník nebude moci do incidentu dále přidávat informace.')) {
+        return
+      }
+    }
     await debugAction('updateStatus', 'SOSPanel', async () => {
       const updates = { status: newStatus }
       if (newStatus === 'resolved') {
@@ -174,62 +187,105 @@ export default function SOSPanel() {
   const active = incidents.filter(i => !['resolved', 'closed'].includes(i.status))
   const resolved = incidents.filter(i => ['resolved', 'closed'].includes(i.status))
   const critical = active.filter(i => i.severity === 'critical' || i.severity === 'high')
+  const pendingApproval = active.filter(i => i.replacement_status === 'admin_review')
+  const pendingPayment = active.filter(i => i.replacement_status === 'pending_payment')
 
   const LIGHT_TYPES = ['breakdown_minor', 'defect_question', 'location_share', 'other']
   const HEAVY_TYPES = ['theft', 'accident_minor', 'accident_major', 'breakdown_major', 'accident', 'breakdown']
 
-  const filterBySeverity = (list) => {
+  const TYPE_FILTERS = [
+    { key: 'all_type', label: 'Vše', icon: '' },
+    { key: 'nehody', label: 'Nehody', icon: '💥', types: ['accident_minor','accident_major','accident'] },
+    { key: 'poruchy', label: 'Poruchy', icon: '🔧', types: ['breakdown_minor','breakdown_major','breakdown'] },
+    { key: 'kradeze', label: 'Krádeže', icon: '🔒', types: ['theft'] },
+    { key: 'ostatni', label: 'Ostatní', icon: '📞', types: ['defect_question','location_share','other'] },
+  ]
+
+  const filterByType = (list) => {
+    if (severityFilter === 'all_type' || severityFilter === 'all_sev') return list
+    const tf = TYPE_FILTERS.find(t => t.key === severityFilter)
+    if (tf?.types) return list.filter(i => tf.types.includes(i.type))
     if (severityFilter === 'light') return list.filter(i => LIGHT_TYPES.includes(i.type))
     if (severityFilter === 'heavy') return list.filter(i => HEAVY_TYPES.includes(i.type))
     return list
   }
 
+  // Priority sort: admin_review first, then pending_payment, then by severity, then by time
+  const prioritySort = (a, b) => {
+    const prio = (i) => {
+      if (i.replacement_status === 'admin_review') return 0
+      if (i.replacement_status === 'pending_payment') return 1
+      if (i.severity === 'critical') return 2
+      if (i.severity === 'high') return 3
+      if (i.status === 'reported') return 4
+      return 5
+    }
+    const pa = prio(a), pb = prio(b)
+    if (pa !== pb) return pa - pb
+    return new Date(b.created_at) - new Date(a.created_at)
+  }
+
   const baseList = filter === 'active' ? active : filter === 'resolved' ? resolved : incidents
-  const displayed = filterBySeverity(baseList)
+  const displayed = filterByType(baseList).sort(prioritySort)
 
   return (
     <div className="flex gap-5" style={{ minHeight: 'calc(100vh - 100px)' }}>
       {/* Left: incident list */}
       <div className={selectedIncident ? 'w-1/2' : 'w-full'} style={{ transition: 'width .2s' }}>
-        <div className="flex items-center gap-3 mb-4 flex-wrap">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">🚨</span>
-            <span className="text-xl font-black" style={{ color: active.length > 0 ? '#dc2626' : '#1a8a18' }}>
-              {active.length}
-            </span>
-            <span className="text-sm font-bold" style={{ color: '#4a6357' }}>aktivních</span>
+
+        {/* === DASHBOARD HEADER === */}
+        <div className="mb-4">
+          {/* Counters row */}
+          <div className="flex items-center gap-3 mb-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">🚨</span>
+              <span className="text-xl font-black" style={{ color: active.length > 0 ? '#dc2626' : '#1a8a18' }}>
+                {active.length}
+              </span>
+              <span className="text-sm font-bold" style={{ color: '#4a6357' }}>aktivních</span>
+            </div>
+
+            {critical.length > 0 && (
+              <span className="text-[10px] font-extrabold uppercase tracking-wide px-3 py-1 rounded-btn animate-pulse"
+                style={{ background: '#7f1d1d', color: '#fff' }}>
+                {critical.length} kritických!
+              </span>
+            )}
+
+            {pendingApproval.length > 0 && (
+              <span className="text-[10px] font-extrabold uppercase tracking-wide px-3 py-1 rounded-btn animate-pulse"
+                style={{ background: '#dc2626', color: '#fff' }}>
+                {pendingApproval.length}x SCHVÁLIT MOTORKU
+              </span>
+            )}
+
+            {pendingPayment.length > 0 && (
+              <span className="text-[10px] font-extrabold uppercase tracking-wide px-3 py-1 rounded-btn"
+                style={{ background: '#fef3c7', color: '#b45309' }}>
+                {pendingPayment.length}x čeká na platbu
+              </span>
+            )}
+
+            <div className="ml-auto">
+              {!notifyEnabled ? (
+                <Button onClick={enableNotifications} style={{ background: '#fef3c7', color: '#92400e', fontSize: 11 }}>
+                  Zapnout notifikace
+                </Button>
+              ) : (
+                <span className="text-[10px] font-bold px-3 py-1 rounded-btn" style={{ background: '#dcfce7', color: '#1a8a18' }}>
+                  Notifikace ON
+                </span>
+              )}
+            </div>
           </div>
 
-          {critical.length > 0 && (
-            <span className="text-[10px] font-extrabold uppercase tracking-wide px-3 py-1 rounded-btn animate-pulse"
-              style={{ background: '#7f1d1d', color: '#fff' }}>
-              {critical.length} kritických!
-            </span>
-          )}
-
-          <div className="flex items-center gap-1">
+          {/* Filters row */}
+          <div className="flex items-center gap-1 flex-wrap">
+            {/* Status filter */}
             {[
-              { key: 'light', label: 'Lehké závady' },
-              { key: 'heavy', label: 'Těžké závady' },
-              { key: 'all_sev', label: 'Vše' },
-            ].map(f => (
-              <button key={f.key} onClick={() => setSeverityFilter(f.key)}
-                className="rounded-btn text-[10px] font-extrabold uppercase tracking-wide cursor-pointer border-none"
-                style={{
-                  padding: '5px 12px',
-                  background: severityFilter === f.key ? (f.key === 'heavy' ? '#7f1d1d' : '#1a2e22') : '#f1faf7',
-                  color: severityFilter === f.key ? (f.key === 'heavy' ? '#fff' : '#74FB71') : '#4a6357',
-                }}>
-                {f.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-1 ml-auto">
-            {[
-              { key: 'active', label: 'Aktivní' },
-              { key: 'resolved', label: 'Vyřešené' },
-              { key: 'all', label: 'Vše' },
+              { key: 'active', label: 'Aktivní', count: active.length },
+              { key: 'resolved', label: 'Vyřešené', count: resolved.length },
+              { key: 'all', label: 'Vše', count: incidents.length },
             ].map(f => (
               <button key={f.key} onClick={() => setFilter(f.key)}
                 className="rounded-btn text-[10px] font-extrabold uppercase tracking-wide cursor-pointer border-none"
@@ -238,25 +294,34 @@ export default function SOSPanel() {
                   background: filter === f.key ? '#1a2e22' : '#f1faf7',
                   color: filter === f.key ? '#74FB71' : '#4a6357',
                 }}>
-                {f.label}
+                {f.label} ({f.count})
               </button>
             ))}
-          </div>
 
-          <div>
-            {!notifyEnabled ? (
-              <Button onClick={enableNotifications} style={{ background: '#fef3c7', color: '#92400e', fontSize: 11 }}>
-                Zapnout notifikace
-              </Button>
-            ) : (
-              <span className="text-[10px] font-bold px-3 py-1 rounded-btn" style={{ background: '#dcfce7', color: '#1a8a18' }}>
-                Notifikace aktivní
-              </span>
-            )}
+            <span style={{ width: 1, height: 20, background: '#d4e8e0', margin: '0 4px' }} />
+
+            {/* Type filter */}
+            {TYPE_FILTERS.map(f => {
+              const count = f.types
+                ? baseList.filter(i => f.types.includes(i.type)).length
+                : baseList.length
+              return (
+                <button key={f.key} onClick={() => setSeverityFilter(f.key)}
+                  className="rounded-btn text-[10px] font-extrabold uppercase tracking-wide cursor-pointer border-none"
+                  style={{
+                    padding: '5px 10px',
+                    background: severityFilter === f.key ? '#1a2e22' : '#f1faf7',
+                    color: severityFilter === f.key ? '#74FB71' : '#4a6357',
+                  }}>
+                  {f.icon} {f.label} {count > 0 ? `(${count})` : ''}
+                </button>
+              )
+            })}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 mb-6">
+        {/* === INCIDENT LIST === */}
+        <div className="grid grid-cols-1 gap-3 mb-6">
           {displayed.map(inc => (
             <IncidentCard key={inc.id} incident={inc}
               selected={selectedIncident?.id === inc.id}
@@ -383,25 +448,46 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
               </div>
             )}
 
-            {/* Objednávka náhradní motorky – status */}
-            {inc.replacement_status && inc.replacement_status === 'admin_review' && (
-              <div className="text-xs font-extrabold mb-2 rounded-lg" style={{
-                padding: '4px 10px', display: 'inline-block',
-                background: '#fee2e2', color: '#dc2626',
-                animation: 'pulse 2s infinite',
+            {/* Objednávka náhradní motorky – kompletní status */}
+            {inc.replacement_status && (
+              <div className="mb-2 rounded-lg" style={{
+                padding: '6px 10px',
+                background: inc.replacement_status === 'admin_review' ? '#fee2e2' :
+                  inc.replacement_status === 'pending_payment' ? '#fef3c7' :
+                  inc.replacement_status === 'approved' ? '#dcfce7' :
+                  inc.replacement_status === 'dispatched' ? '#dbeafe' :
+                  inc.replacement_status === 'delivered' ? '#f1faf7' :
+                  inc.replacement_status === 'rejected' ? '#fee2e2' :
+                  inc.replacement_status === 'paid' ? '#dbeafe' : '#f3f4f6',
+                border: inc.replacement_status === 'admin_review' ? '2px solid #dc2626' :
+                  inc.replacement_status === 'pending_payment' ? '2px solid #f59e0b' : 'none',
+                animation: inc.replacement_status === 'admin_review' ? 'pulse 2s infinite' : 'none',
               }}>
-                CEKA NA SCHVALENI — objednávka náhradní motorky
-              </div>
-            )}
-            {inc.replacement_status && inc.replacement_status !== 'admin_review' && inc.replacement_data && (
-              <div className="text-[10px] font-bold mb-1" style={{ color: '#2563eb' }}>
-                Náhr. moto: {inc.replacement_data.replacement_model} — {
-                  inc.replacement_status === 'approved' ? 'schváleno' :
-                  inc.replacement_status === 'dispatched' ? 'na cestě' :
-                  inc.replacement_status === 'delivered' ? 'doručeno' :
-                  inc.replacement_status === 'rejected' ? 'zamítnuto' :
-                  inc.replacement_status
-                }
+                <div className="text-[10px] font-extrabold uppercase tracking-wide" style={{
+                  color: inc.replacement_status === 'admin_review' ? '#dc2626' :
+                    inc.replacement_status === 'pending_payment' ? '#b45309' :
+                    inc.replacement_status === 'approved' ? '#1a8a18' :
+                    inc.replacement_status === 'dispatched' ? '#2563eb' : '#4a6357',
+                }}>
+                  {inc.replacement_status === 'admin_review' && '⚠️ ČEKÁ NA SCHVÁLENÍ'}
+                  {inc.replacement_status === 'pending_payment' && '💳 ČEKÁ NA PLATBU ZÁKAZNÍKA'}
+                  {inc.replacement_status === 'selecting' && '🏍️ Zákazník vybírá motorku'}
+                  {inc.replacement_status === 'paid' && '💰 ZAPLACENO — čeká na schválení'}
+                  {inc.replacement_status === 'approved' && '✅ Schváleno — připravit přistavení'}
+                  {inc.replacement_status === 'dispatched' && '🚛 Motorka na cestě'}
+                  {inc.replacement_status === 'delivered' && '📦 Doručeno'}
+                  {inc.replacement_status === 'rejected' && '❌ Zamítnuto'}
+                </div>
+                {inc.replacement_data?.replacement_model && (
+                  <div className="text-[10px] font-bold mt-1" style={{ color: '#4a6357' }}>
+                    {inc.replacement_data.replacement_model}
+                    {inc.replacement_data.payment_amount > 0 && ` · ${Number(inc.replacement_data.payment_amount).toLocaleString('cs-CZ')} Kč`}
+                    {inc.replacement_data.payment_status === 'free' && ' · zdarma'}
+                    {inc.replacement_data.payment_status === 'paid' && ' · zaplaceno'}
+                    {inc.replacement_data.payment_status === 'pending' && ' · nezaplaceno'}
+                    {inc.replacement_data.delivery_city && ` · ${inc.replacement_data.delivery_city}`}
+                  </div>
+                )}
               </div>
             )}
 
