@@ -101,14 +101,14 @@ export default function SOSPanel() {
       const { data } = await debugAction('load_active_incidents', 'SOSPanel', () =>
         supabase
           .from('sos_incidents')
-          .select('*, profiles(full_name, phone, email), bookings(id, moto_id, start_date, end_date, status, motorcycles(model, spz, branch_id, branches(name)))')
+          .select('*, profiles(full_name, phone, email), motorcycles(model, spz, vin, branch_id, mileage, branches(name)), bookings(id, moto_id, start_date, end_date, status, motorcycles(model, spz, branch_id, branches(name)))')
           .in('status', ['reported', 'acknowledged', 'in_progress'])
           .order('created_at', { ascending: false })
       )
       const { data: resolved } = await debugAction('load_resolved_incidents', 'SOSPanel', () =>
         supabase
           .from('sos_incidents')
-          .select('*, profiles(full_name, phone, email), bookings(id, moto_id, start_date, end_date, status, motorcycles(model, spz, branch_id, branches(name)))')
+          .select('*, profiles(full_name, phone, email), motorcycles(model, spz, vin, branch_id, mileage, branches(name)), bookings(id, moto_id, start_date, end_date, status, motorcycles(model, spz, branch_id, branches(name)))')
           .in('status', ['resolved', 'closed'])
           .order('created_at', { ascending: false })
           .limit(10)
@@ -279,7 +279,7 @@ export default function SOSPanel() {
 function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAddTimeline }) {
   const sc = STATUS_COLORS[inc.status] || STATUS_COLORS.reported
   const sev = SEVERITY_MAP[inc.severity] || SEVERITY_MAP.medium
-  const moto = inc.bookings?.motorcycles
+  const moto = inc.bookings?.motorcycles || inc.motorcycles
   const typeLabel = TYPE_LABELS[inc.type] || inc.type || 'Incident'
   const typeIcon = TYPE_ICONS[inc.type] || '⚠️'
   const displayTitle = inc.title || typeLabel
