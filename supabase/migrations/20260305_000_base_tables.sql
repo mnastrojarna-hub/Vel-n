@@ -32,6 +32,17 @@ CREATE TABLE IF NOT EXISTS admin_users (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Zajistit, že sloupce existují (tabulka mohla být vytvořena dříve bez nich)
+DO $$ BEGIN
+  ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS name text NOT NULL DEFAULT '';
+  ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS email text NOT NULL DEFAULT '';
+  ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'admin';
+  ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS phone text;
+  ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS active boolean NOT NULL DEFAULT true;
+  ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
+  ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_admin_users_email ON admin_users(email);
 CREATE INDEX IF NOT EXISTS idx_admin_users_role ON admin_users(role);
 
