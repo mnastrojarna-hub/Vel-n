@@ -15,7 +15,7 @@ CREATE TABLE message_threads (
 CREATE TABLE messages (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     thread_id UUID REFERENCES message_threads(id) ON DELETE CASCADE,
-    direction TEXT NOT NULL CHECK (direction IN ('inbound', 'outbound')),
+    direction TEXT NOT NULL CHECK (direction IN ('inbound', 'outbound', 'admin', 'customer', 'system')),
     sender_name TEXT,
     content TEXT NOT NULL,
     attachments TEXT[] DEFAULT '{}',

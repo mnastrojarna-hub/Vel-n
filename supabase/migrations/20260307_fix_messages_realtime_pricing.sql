@@ -84,15 +84,10 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
--- 5. RLS for documents type including new types from auto-generation
-DO $$ BEGIN
-  ALTER TABLE documents DROP CONSTRAINT IF EXISTS documents_type_check;
-EXCEPTION WHEN others THEN NULL;
-END $$;
-
--- Allow broader document types for auto-generated docs
-DO $$ BEGIN
-  ALTER TABLE documents ADD CONSTRAINT documents_type_check
-    CHECK (type IN ('contract', 'protocol', 'invoice', 'license_photo', 'id_photo', 'vop', 'invoice_advance', 'invoice_final'));
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
+-- 5. Extend document_type ENUM (new values for auto-generated docs)
+-- NOTE: Must be run SEPARATELY before any usage of new values.
+-- Already applied via KROK 1 in Supabase SQL Editor:
+--   ALTER TYPE document_type ADD VALUE IF NOT EXISTS 'vop';
+--   ALTER TYPE document_type ADD VALUE IF NOT EXISTS 'invoice_advance';
+--   ALTER TYPE document_type ADD VALUE IF NOT EXISTS 'invoice_final';
+-- No CHECK constraint needed — the ENUM type itself validates allowed values.
