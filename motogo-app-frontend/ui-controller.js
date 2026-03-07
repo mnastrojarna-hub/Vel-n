@@ -94,8 +94,21 @@ function sosReportAccident(type) {
     var ts = new Date().toLocaleString('cs-CZ');
     _sosActiveIncidentId = null;
     _sosFault = null;
-    _sosEnsureIncident(sosType, sosType === 'accident_minor' ? 'Lehká nehoda – pokračuji v jízdě' : 'Závažná nehoda')
-      .then(function(){
+    var desc = sosType === 'accident_minor' ? 'Lehká nehoda – pokračuji v jízdě' : 'Závažná nehoda';
+    _sosEnsureIncident(sosType, desc)
+      .then(function(incId){
+        if(incId){
+          // Lehká nehoda = pojízdná, závažná = nepojízdná
+          var upd = { moto_rideable: sosType === 'accident_minor' };
+          _sosUpdateIncident(incId, upd);
+          // Timeline entry s detaily
+          window.supabase.from('sos_timeline').insert({
+            incident_id: incId,
+            action: sosType === 'accident_minor'
+              ? 'Zákazník nahlásil lehkou nehodu — motorka pojízdná, pokračuje v jízdě'
+              : 'Zákazník nahlásil závažnou nehodu — čeká na pokyny',
+          }).then(function(){});
+        }
         showT('✅', 'Incident nahlášen MotoGo24', ts + '\nAsistent vás kontaktuje.');
         setTimeout(function(){ histBack(); }, 2000);
       });
@@ -106,7 +119,14 @@ function sosReportTheft() {
     _sosActiveIncidentId = null;
     _sosFault = null;
     _sosEnsureIncident('theft', 'Krádež motorky – zákazník informován o postupu (policie 158)')
-      .then(function(){
+      .then(function(incId){
+        if(incId){
+          _sosUpdateIncident(incId, { moto_rideable: false });
+          window.supabase.from('sos_timeline').insert({
+            incident_id: incId,
+            action: 'Zákazník nahlásil krádež motorky — přesměrován na policii ČR (158)',
+          }).then(function(){});
+        }
         showT('🚨', 'Krádež nahlášena MotoGo24', ts + '\nVolejte policii 158!');
       });
 }
@@ -460,12 +480,18 @@ function sosShareLocation() {
 
 function sosDrobnaZavada() {
     showT('🔩', 'Hlásím závadu...', '');
-    apiGetActiveLoan().then(function(loan) {
-        var loanId = loan ? loan.id : null;
-        apiCreateSosIncident('breakdown_minor', loanId, null, null, 'Drobná závada', false).then(function() {
-            showT('🔩', 'Závada zaznamenána', 'MotoGo24 upozorněno – pokračujte v jízdě');
-            setTimeout(function(){ histBack(); }, 1600);
-        });
+    _sosActiveIncidentId = null;
+    _sosFault = null;
+    _sosEnsureIncident('breakdown_minor', 'Drobná závada – motorka pojízdná, pokračuji v jízdě').then(function(incId){
+      if(incId){
+        _sosUpdateIncident(incId, { moto_rideable: true, customer_fault: false, customer_decision: 'continue' });
+        window.supabase.from('sos_timeline').insert({
+          incident_id: incId,
+          action: 'Zákazník nahlásil drobnou závadu — motorka pojízdná, pokračuje v jízdě',
+        }).then(function(){});
+      }
+      showT('🔩', 'Závada zaznamenána', 'MotoGo24 upozorněno – pokračujte v jízdě');
+      setTimeout(function(){ histBack(); }, 1600);
     });
 }
 
