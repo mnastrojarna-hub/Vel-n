@@ -4,7 +4,7 @@
 // Backend: Supabase (production) — žádný mock fallback
 
 // ===== INITIALIZATION =====
-console.log('%c[MG] MotoGo24 v5.5.0','color:#74FB71;font-weight:bold;font-size:14px;');
+console.log('%c[MG] MotoGo24 v5.5.2','color:#74FB71;font-weight:bold;font-size:14px;');
 
 function _resolveSession(cb){
   // Supabase session (async, primary backend)
@@ -94,6 +94,21 @@ function _continueInit(hasSession){
   // Subscribe to admin messages (realtime notifications)
   if(hasSession && typeof initAdminMessageSubscription==='function'){
     initAdminMessageSubscription();
+  }
+
+  // Subscribe to realtime updates (motorcycles, bookings, prices)
+  if(hasSession && typeof apiSubscribeRealtimeUpdates==='function'){
+    apiSubscribeRealtimeUpdates();
+  }
+
+  // Start background refresh as fallback (every 4s)
+  if(hasSession && typeof apiStartBackgroundRefresh==='function'){
+    apiStartBackgroundRefresh();
+  }
+
+  // Auto-expire vouchers check on app start
+  if(hasSession && window.supabase){
+    window.supabase.rpc('expire_vouchers_and_promos').catch(function(){});
   }
 
   // Spustit offline guard

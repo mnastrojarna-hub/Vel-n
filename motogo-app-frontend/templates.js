@@ -30,7 +30,7 @@ Templates['s-login'] = `  <div class="lt">
     </div>
     <div class="divr"><span id="t-or">nebo</span></div>
     <button class="btn-out" id="t-registerBtn" onclick="startRegistrationWithScan()">Registrovat se</button>
-    <div style="margin-top:12px;text-align:center;font-size:11px;color:var(--g400);font-weight:600;">📞 <a href="tel:+420774256271" style="color:var(--g400);text-decoration:none;">+420 774 256 271</a> · <a href="#" onclick="event.preventDefault();openExternalLink('https://motogo24.vseproweb.com')" style="color:var(--green);text-decoration:underline;">motogo24.vseproweb.com</a> · v5.0.0</div>
+    <div style="margin-top:12px;text-align:center;font-size:11px;color:var(--g400);font-weight:600;">📞 <a href="tel:+420774256271" style="color:var(--g400);text-decoration:none;">+420 774 256 271</a> · <a href="#" onclick="event.preventDefault();openExternalLink('https://motogo24.vseproweb.com')" style="color:var(--green);text-decoration:underline;">motogo24.vseproweb.com</a> · v5.5.2</div>
   </div>`;
 
 Templates['s-register'] = `  <div class="reg-hdr">
