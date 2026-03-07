@@ -146,52 +146,108 @@ async function showInvoice(bookingId,type){
   if(!data){showT('✗',_t('common').error,_t('common').noData);return;}
   var t=_t('doc');var b=data.b,p=data.p,mn=data.motoName,rn=data.resNum;
 
-  // Try to load real invoice from DB first
+  // Load real invoice from DB — filter by type
+  var isAdvance=(type==='advance');
   var dbInvoice=null;
   if(_isSupabaseReady()){
     try {
-      var invR=await supabase.from('invoices').select('*').eq('booking_id',bookingId).order('created_at',{ascending:false}).limit(1).single();
-      if(invR.data) dbInvoice=invR.data;
+      var dbTypes=isAdvance?['proforma','advance','shop_proforma']:['final','issued'];
+      var invR=await supabase.from('invoices').select('*')
+        .eq('booking_id',bookingId).in('type',dbTypes)
+        .order('created_at',{ascending:false}).limit(1);
+      if(invR.data && invR.data.length>0) dbInvoice=invR.data[0];
+      if(!dbInvoice){
+        var invR2=await supabase.from('invoices').select('*')
+          .eq('booking_id',bookingId)
+          .order('created_at',{ascending:false}).limit(1);
+        if(invR2.data && invR2.data.length>0) dbInvoice=invR2.data[0];
+      }
     } catch(e){}
   }
 
-  var isAdvance=(type==='advance');
   var invNum=dbInvoice?dbInvoice.number:((isAdvance?'ZF':'KF')+'-'+new Date(b.start_date).getFullYear()+'-'+b.id.substr(-4).toUpperCase());
   var title=isAdvance?t.invoiceAdvance:t.invoiceFinal;
-  var issueDate=_docDate(isAdvance?b.start_date:b.end_date);
-  var dueDate=_docDate(new Date(new Date(isAdvance?b.start_date:b.end_date).getTime()+14*86400000).toISOString());
-  var amt=b.total_price||0;
-  var pName=p?p.full_name:'—',pAddr=p?(p.street+', '+p.city+' '+p.zip):'—';
+  var issueDate=dbInvoice&&dbInvoice.issue_date?_docDate(dbInvoice.issue_date):_docDate(isAdvance?b.start_date:b.end_date);
+  var dueDate=dbInvoice&&dbInvoice.due_date?_docDate(dbInvoice.due_date):_docDate(new Date(new Date(isAdvance?b.start_date:b.end_date).getTime()+14*86400000).toISOString());
+  var amt=dbInvoice?Number(dbInvoice.total||0):(b.total_price||0);
+  var subtotal=dbInvoice?Number(dbInvoice.subtotal||0):amt;
+  var taxAmt=dbInvoice?Number(dbInvoice.tax_amount||0):0;
+  var pName=p?p.full_name:'—';
+  var pAddr=p?[p.street,p.city,p.zip,p.country].filter(Boolean).join(', '):'—';
+  var pIco=p&&p.ico?p.ico:'';
+  var pDic=p&&p.dic?p.dic:'';
+  var vs=dbInvoice&&dbInvoice.variable_symbol?dbInvoice.variable_symbol:invNum;
+  var invStatus=dbInvoice?dbInvoice.status:'';
+  var statusHtml='';
+  if(invStatus==='paid') statusHtml='<div style="color:#1a8a18;font-weight:800;font-size:12px;margin:6px 0;">✓ ZAPLACENO</div>';
+  else if(invStatus==='issued') statusHtml='<div style="color:#b45309;font-weight:800;font-size:12px;margin:6px 0;">⏳ VYSTAVENO — ČEKÁ NA ÚHRADU</div>';
+
+  var itemsHtml='';
+  if(dbInvoice&&dbInvoice.items&&Array.isArray(dbInvoice.items)){
+    dbInvoice.items.forEach(function(it,i){
+      itemsHtml+='<tr><td>'+(it.description||'')+'</td><td>'+(it.qty||1)+' '+(it.qty>1?t.days:'ks')+'</td>'+
+        '<td>'+(it.unit_price||0).toLocaleString('cs-CZ')+' Kč</td>'+
+        '<td>'+((it.unit_price||0)*(it.qty||1)).toLocaleString('cs-CZ')+' Kč</td></tr>';
+    });
+  } else {
+    itemsHtml='<tr><td>'+t.rentalOf+' '+mn+'</td><td>'+data.days+' '+t.days+'</td>'+
+      '<td>'+Math.round((b.total_price||0)/data.days).toLocaleString('cs-CZ')+' Kč</td>'+
+      '<td>'+(b.total_price||0).toLocaleString('cs-CZ')+' Kč</td></tr>';
+    if(b.extras_price>0){
+      itemsHtml+='<tr><td>'+t.extras+'</td><td>1</td><td>'+b.extras_price.toLocaleString('cs-CZ')+' Kč</td>'+
+        '<td>'+b.extras_price.toLocaleString('cs-CZ')+' Kč</td></tr>';
+    }
+  }
 
   var html='<div class="doc-view"><div class="doc-view-hdr"><div class="back-row" onclick="closeDocView()">'+
     '<div class="bk-c">←</div><div class="bk-l">'+t.back+'</div></div>'+
     '<h2>'+title+'</h2><p>'+invNum+'</p></div><div class="doc-view-body">'+
-    '<div class="inv-doc-header"><strong>'+title+'</strong> '+invNum+'</div>'+
+    '<div class="inv-doc-header"><strong>'+title+'</strong> '+invNum+'</div>'+statusHtml+
     '<div class="doc-parties"><div class="doc-party"><strong>'+t.supplier+':</strong><br>'+
     COMPANY.name+'<br>'+COMPANY.sidlo+'<br>IČ: '+COMPANY.ic+'</div>'+
-    '<div class="doc-party"><strong>'+t.customer+':</strong><br>'+pName+'<br>'+pAddr+'</div></div>'+
+    '<div class="doc-party"><strong>'+t.customer+':</strong><br>'+pName+'<br>'+pAddr+
+    (pIco?'<br>IČO: '+pIco:'')+(pDic?'<br>DIČ: '+pDic:'')+'</div></div>'+
     '<div class="inv-meta">'+
     '<div class="doc-field"><span class="doc-lbl">'+t.issueDate+':</span> '+issueDate+'</div>'+
     '<div class="doc-field"><span class="doc-lbl">'+t.dueDate+':</span> '+dueDate+'</div>'+
+    '<div class="doc-field"><span class="doc-lbl">VS:</span> '+vs+'</div>'+
     '<div class="doc-field"><span class="doc-lbl">'+t.payMethod+':</span> '+t.card+'</div>'+
     '<div class="doc-field"><span class="doc-lbl">'+t.bankAccount+':</span> '+COMPANY.bank+'</div></div>'+
     '<table class="inv-table"><thead><tr><th>'+t.item+'</th><th>'+t.qty+'</th><th>'+t.unitPrice+'</th><th>'+t.total+'</th></tr></thead>'+
-    '<tbody><tr><td>'+t.rentalOf+' '+mn+'</td><td>'+data.days+' '+t.days+'</td>'+
-    '<td>'+Math.round(amt/data.days).toLocaleString('cs-CZ')+' Kč</td>'+
-    '<td>'+amt.toLocaleString('cs-CZ')+' Kč</td></tr>';
-  if(b.extras_price>0){
-    html+='<tr><td>'+t.extras+'</td><td>1</td><td>'+b.extras_price.toLocaleString('cs-CZ')+' Kč</td>'+
-      '<td>'+b.extras_price.toLocaleString('cs-CZ')+' Kč</td></tr>';
-    amt+=b.extras_price;
+    '<tbody>'+itemsHtml+'</tbody></table>';
+  if(taxAmt>0){
+    html+='<div class="inv-meta" style="margin-top:8px;">'+
+      '<div class="doc-field"><span class="doc-lbl">Základ:</span> '+subtotal.toLocaleString('cs-CZ')+' Kč</div>'+
+      '<div class="doc-field"><span class="doc-lbl">DPH 21%:</span> '+taxAmt.toLocaleString('cs-CZ')+' Kč</div></div>';
   }
-  html+='</tbody></table>'+
-    '<div class="inv-total"><span>'+t.totalToPay+':</span> <strong>'+amt.toLocaleString('cs-CZ')+' Kč</strong></div>'+
+  html+='<div class="inv-total"><span>'+t.totalToPay+':</span> <strong>'+amt.toLocaleString('cs-CZ')+' Kč</strong></div>'+
     '<p style="font-size:10px;color:var(--g400);margin-top:8px;">'+COMPANY.note+'</p>'+
     '<div style="display:flex;gap:8px;margin-top:14px;">'+
     '<button class="btn-out" onclick="emailDoc(\''+bookingId+'\',\''+type+'\')">📧 '+t.sendEmail+'</button>'+
-    '<button class="btn-g" onclick="showT(\'⬇️\',\'PDF\',\''+invNum+'.pdf\')">⬇️ '+t.downloadPDF+'</button>'+
+    '<button class="btn-g" onclick="_downloadInvoiceHtml(\''+bookingId+'\',\''+invNum+'\')">⬇️ '+t.downloadPDF+'</button>'+
     '</div></div></div>';
   _openDocOverlay(html);
+}
+
+async function _downloadInvoiceHtml(bookingId,invNum){
+  if(!_isSupabaseReady()){showT('⬇️','PDF',invNum+'.pdf');return;}
+  try {
+    var inv=await supabase.from('invoices').select('pdf_path')
+      .eq('booking_id',bookingId).order('created_at',{ascending:false}).limit(1);
+    var path=(inv.data&&inv.data[0])?inv.data[0].pdf_path:null;
+    if(path){
+      var dl=await supabase.storage.from('documents').download(path);
+      if(dl.data){
+        var url=URL.createObjectURL(dl.data);
+        var a=document.createElement('a');a.href=url;
+        a.download='faktura_'+invNum+'.html';
+        document.body.appendChild(a);a.click();
+        document.body.removeChild(a);URL.revokeObjectURL(url);
+        showT('✓',_t('common').downloaded,invNum);return;
+      }
+    }
+  } catch(e){console.warn('[DOC] download err:',e);}
+  showT('⬇️','PDF',invNum+'.pdf');
 }
 
 async function emailDoc(bookingId,type){

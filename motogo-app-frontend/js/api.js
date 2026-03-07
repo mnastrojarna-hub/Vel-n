@@ -427,21 +427,91 @@ async function apiFetchDocuments(){
   try {
     var uid = await _getUserId();
     if(!uid) return [];
+    var results = [];
+    // 1) documents table (local auto-generated)
     var r = await window.supabase.from('documents')
       .select('*, bookings(start_date, total_price, motorcycles(model))')
       .eq('user_id', uid)
       .order('created_at', {ascending: false});
-    if(!r.data) return [];
-    return r.data.map(function(d){
+    if(r.data) r.data.forEach(function(d){
       var b = d.bookings;
       d.date = d.created_at;
-      d.booking_id = d.booking_id;
       d.moto_name = (b && b.motorcycles) ? b.motorcycles.model : '';
       d.amount = b ? b.total_price : 0;
       d.res_num = b ? '#RES-' + new Date(b.start_date).getFullYear() + '-' + d.booking_id.substr(-4).toUpperCase() : '';
-      return d;
+      results.push(d);
     });
+    // 2) invoices table (Velín-generated)
+    var ir = await window.supabase.from('invoices')
+      .select('*, bookings:booking_id(start_date, total_price, motorcycles(model))')
+      .eq('customer_id', uid)
+      .order('created_at', {ascending: false});
+    if(ir.data) ir.data.forEach(function(inv){
+      var b = inv.bookings;
+      var existing = results.find(function(d){
+        return d.booking_id === inv.booking_id &&
+          (d.type === 'invoice_advance' || d.type === 'invoice_final');
+      });
+      if(existing) return; // already have from documents table
+      var iType = (inv.type === 'proforma' || inv.type === 'advance')
+        ? 'invoice_advance' : 'invoice_final';
+      results.push({
+        id: inv.id, booking_id: inv.booking_id,
+        type: iType, _invoice: inv,
+        date: inv.created_at,
+        moto_name: (b && b.motorcycles) ? b.motorcycles.model : '',
+        amount: inv.total || (b ? b.total_price : 0),
+        res_num: b ? '#RES-' + new Date(b.start_date).getFullYear() + '-' + inv.booking_id.substr(-4).toUpperCase() : '',
+        file_name: inv.number || ''
+      });
+    });
+    // 3) generated_documents (Velín contracts/protocols)
+    var gr = await window.supabase.from('generated_documents')
+      .select('*, bookings:booking_id(start_date, total_price, motorcycles(model))')
+      .eq('customer_id', uid)
+      .order('created_at', {ascending: false});
+    if(gr.data) gr.data.forEach(function(gd){
+      var b = gd.bookings;
+      var hasContract = results.find(function(d){
+        return d.booking_id === gd.booking_id && d.type === 'contract';
+      });
+      if(hasContract) return;
+      results.push({
+        id: gd.id, booking_id: gd.booking_id,
+        type: 'contract', _genDoc: gd,
+        date: gd.created_at,
+        moto_name: (b && b.motorcycles) ? b.motorcycles.model : '',
+        amount: b ? b.total_price : 0,
+        res_num: b ? '#RES-' + new Date(b.start_date).getFullYear() + '-' + gd.booking_id.substr(-4).toUpperCase() : '',
+        file_path: gd.pdf_path || ''
+      });
+    });
+    return results;
   } catch(e){ console.error('[API] apiFetchDocuments:', e); return []; }
+}
+
+// Fetch invoices for a specific booking (from invoices table)
+async function apiFetchBookingInvoices(bookingId){
+  _ensureSupabase();
+  if(!window.supabase) return [];
+  try {
+    var r = await window.supabase.from('invoices')
+      .select('*').eq('booking_id', bookingId)
+      .order('created_at', {ascending: false});
+    return r.data || [];
+  } catch(e){ return []; }
+}
+
+// Fetch generated documents for a specific booking
+async function apiFetchBookingGenDocs(bookingId){
+  _ensureSupabase();
+  if(!window.supabase) return [];
+  try {
+    var r = await window.supabase.from('generated_documents')
+      .select('*').eq('booking_id', bookingId)
+      .order('created_at', {ascending: false});
+    return r.data || [];
+  } catch(e){ return []; }
 }
 
 async function apiUploadDocument(bookingId, fileData, docType){

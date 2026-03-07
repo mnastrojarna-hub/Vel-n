@@ -220,16 +220,28 @@ async function openResDetailById(bookingId){
     var actionsEl = document.getElementById('rd-actions');
     if(actionsEl){
       var btns = '';
+      // Document buttons (invoice + contract) for paid reservations
+      var docBtns = '';
+      if(booking.payment_status === 'paid' && st !== 'cancelled'){
+        docBtns = '<div style="border-top:1px solid var(--g100);margin-top:10px;padding-top:10px;">' +
+          '<div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--g400);margin-bottom:6px;">'+(_t('res').documents||'Dokumenty')+'</div>' +
+          '<button class="btn-out" onclick="showInvoice(\''+bookingId+'\',\'advance\')">🧾 '+(_t('res').proformaInvoice||'Zálohová faktura')+'</button>' +
+          '<button class="btn-out" style="margin-top:6px;" onclick="showRentalContract(\''+bookingId+'\')">📄 '+(_t('res').contract||'Smlouva o pronájmu')+'</button>' +
+          '<button class="btn-out" style="margin-top:6px;" onclick="showInvoice(\''+bookingId+'\',\'final\')">💰 '+(_t('res').finalInvoice||'Konečná faktura')+'</button>' +
+          '</div>';
+      }
       if(st === 'aktivni'){
         btns = '<button class="btn-g" onclick="openEditResByBookingId(\''+bookingId+'\')">✏️ '+_t('res').editExtend+'</button>' +
-               '<button class="btn-g" style="background:#fee2e2;color:#b91c1c;border:none;margin-top:8px;" onclick="goTo(\'s-sos\')">🆘 '+_t('res').reportFault+'</button>';
+               '<button class="btn-g" style="background:#fee2e2;color:#b91c1c;border:none;margin-top:8px;" onclick="goTo(\'s-sos\')">🆘 '+_t('res').reportFault+'</button>' +
+               docBtns;
       } else if(st === 'nadchazejici'){
         btns = '<button class="btn-g" onclick="openEditResByBookingId(\''+bookingId+'\')">✏️ '+_t('res').editReservation+'</button>' +
-               '<button class="btn-g" style="background:var(--red);color:#fff;border:none;margin-top:8px;" onclick="doCancelBooking(\''+bookingId+'\')">🗑️ '+_t('res').cancelRes+'</button>';
+               '<button class="btn-g" style="background:var(--red);color:#fff;border:none;margin-top:8px;" onclick="doCancelBooking(\''+bookingId+'\')">🗑️ '+_t('res').cancelRes+'</button>' +
+               docBtns;
       } else if(st === 'dokoncene'){
         btns = '<button class="btn-out" onclick="showDigitalProtocol(\''+bookingId+'\')">📝 '+_t('res').handoverProtocol+'</button>' +
-               '<button class="btn-out" style="margin-top:8px;" onclick="showRentalContract(\''+bookingId+'\')">📄 '+_t('res').contract+'</button>' +
-               '<button class="btn-out" style="margin-top:8px;" onclick="showInvoice(\''+bookingId+'\',\'final\')">💰 '+_t('res').finalInvoice+'</button>';
+               '<button class="btn-out" style="margin-top:8px;" onclick="showRentalContract(\''+bookingId+'\')">📄 '+(_t('res').contract||'Smlouva o pronájmu')+'</button>' +
+               '<button class="btn-out" style="margin-top:8px;" onclick="showInvoice(\''+bookingId+'\',\'final\')">💰 '+(_t('res').finalInvoice||'Konečná faktura')+'</button>';
       } else if(st === 'cancelled'){
         btns = '<button class="btn-g" onclick="restoreBooking(\''+bookingId+'\')">🔄 '+_t('res').restoreBtn+'</button>';
       }
