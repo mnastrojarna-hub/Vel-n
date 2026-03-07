@@ -372,11 +372,12 @@ function PhotoGallery({ motoId }) {
   }
 
   async function syncToDb(urls) {
+    const cleaned = urls.filter(u => u && typeof u === 'string')
     await supabase.from('motorcycles').update({
-      image_url: urls[0] || null,
-      images: urls
+      image_url: cleaned[0] || null,
+      images: cleaned
     }).eq('id', motoId)
-    setDbImages(urls)
+    setDbImages(cleaned)
   }
 
   async function loadPhotos() {
@@ -388,11 +389,16 @@ function PhotoGallery({ motoId }) {
 
   async function handleUpload(e) {
     const file = e.target.files?.[0]; if (!file) return; setUploading(true)
-    await supabase.storage.from('media').upload(`motos/${motoId}/${file.name}`, file)
+    const { error } = await supabase.storage.from('media').upload(`motos/${motoId}/${file.name}`, file, { upsert: true })
+    if (error) { console.error('Upload error:', error); setUploading(false); return }
     await loadPhotos()
     const url = getUrl(file.name)
-    const updated = [...dbImages, url]
-    await syncToDb(updated)
+    // Re-read current DB state to avoid stale data
+    const { data: fresh } = await supabase.from('motorcycles').select('images').eq('id', motoId).single()
+    const current = (fresh?.images || []).filter(u => u && typeof u === 'string')
+    if (!current.includes(url)) {
+      await syncToDb([...current, url])
+    }
     setUploading(false)
   }
 
@@ -447,7 +453,7 @@ function PhotoGallery({ motoId }) {
           return (
             <div key={url} className="relative group" style={{ width: 80, height: 80 }}>
               {i === 0 && <div className="absolute top-1 left-1 z-10" style={{ background: '#74FB71', color: '#1a2e22', borderRadius: 4, padding: '1px 4px', fontSize: 8, fontWeight: 800 }}>HLAVNÍ</div>}
-              <img src={url} alt={`Foto ${i + 1}`} className="w-full h-full object-cover rounded-lg" />
+              <img src={url} alt={`Foto ${i + 1}`} className="w-full h-full object-cover rounded-lg" onError={e => { e.target.style.display = 'none' }} />
               <button onClick={() => handleRemoveImage(url, storagePhoto?.name)}
                 className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 cursor-pointer"
                 style={{ background: 'rgba(220,38,38,.8)', color: '#fff', border: 'none', borderRadius: 50, width: 18, height: 18, fontSize: 9 }}>✕</button>
