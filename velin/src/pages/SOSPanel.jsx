@@ -12,6 +12,7 @@ export const TYPE_LABELS = {
   breakdown_minor: 'Lehká porucha (pojízdná)',
   breakdown_major: 'Těžká porucha (nepojízdná)',
   defect_question: 'Dotaz na závadu',
+  location_share: 'Sdílení polohy',
   other: 'Jiný problém',
   // Zpětná kompatibilita
   accident: 'Nehoda',
@@ -25,6 +26,7 @@ export const TYPE_ICONS = {
   breakdown_minor: '🔧',
   breakdown_major: '🛑',
   defect_question: '❓',
+  location_share: '📍',
   other: '📞',
   accident: '🚨',
   breakdown: '🔧',
@@ -159,7 +161,7 @@ export default function SOSPanel() {
   const resolved = incidents.filter(i => ['resolved', 'closed'].includes(i.status))
   const critical = active.filter(i => i.severity === 'critical' || i.severity === 'high')
 
-  const LIGHT_TYPES = ['breakdown_minor', 'defect_question', 'other']
+  const LIGHT_TYPES = ['breakdown_minor', 'defect_question', 'location_share', 'other']
   const HEAVY_TYPES = ['theft', 'accident_minor', 'accident_major', 'breakdown_major', 'accident', 'breakdown']
 
   const filterBySeverity = (list) => {
