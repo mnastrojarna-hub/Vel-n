@@ -1,69 +1,34 @@
 -- =====================================================
 -- MotoGo24 — Motorcycle specs + debug log
--- Přidává: parametry motorek (výkon, moment, hmotnost,
---          nádrž, sedlo, ABS/ASC, popis, využití, návod)
--- Idempotentní — bezpečné spustit opakovaně
+-- Idempotentni — bezpecne spustit opakovane
 -- =====================================================
 
--- ═══════════════════════════════════════════════════════
--- 1. MOTORCYCLES — technické parametry
--- ═══════════════════════════════════════════════════════
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='motorcycles' AND column_name='power_kw') THEN
-    ALTER TABLE motorcycles ADD COLUMN power_kw numeric(6,1);
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='motorcycles' AND column_name='torque_nm') THEN
-    ALTER TABLE motorcycles ADD COLUMN torque_nm numeric(6,1);
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='motorcycles' AND column_name='weight_kg') THEN
-    ALTER TABLE motorcycles ADD COLUMN weight_kg integer;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='motorcycles' AND column_name='fuel_tank_l') THEN
-    ALTER TABLE motorcycles ADD COLUMN fuel_tank_l numeric(4,1);
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='motorcycles' AND column_name='seat_height_mm') THEN
-    ALTER TABLE motorcycles ADD COLUMN seat_height_mm text; -- text kvůli rozsahu "850-870"
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='motorcycles' AND column_name='license_required') THEN
-    ALTER TABLE motorcycles ADD COLUMN license_required text DEFAULT 'A';
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='motorcycles' AND column_name='has_abs') THEN
-    ALTER TABLE motorcycles ADD COLUMN has_abs boolean DEFAULT true;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='motorcycles' AND column_name='has_asc') THEN
-    ALTER TABLE motorcycles ADD COLUMN has_asc boolean DEFAULT false;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='motorcycles' AND column_name='description') THEN
-    ALTER TABLE motorcycles ADD COLUMN description text;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='motorcycles' AND column_name='ideal_usage') THEN
-    ALTER TABLE motorcycles ADD COLUMN ideal_usage text[]; -- ['silnice','teren','dvou','dlouhe-cesty']
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='motorcycles' AND column_name='features') THEN
-    ALTER TABLE motorcycles ADD COLUMN features text[];
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='motorcycles' AND column_name='manual_url') THEN
-    ALTER TABLE motorcycles ADD COLUMN manual_url text;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='motorcycles' AND column_name='engine_type') THEN
-    ALTER TABLE motorcycles ADD COLUMN engine_type text; -- "1254 cc boxer"
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='motorcycles' AND column_name='power_hp') THEN
-    ALTER TABLE motorcycles ADD COLUMN power_hp integer;
-  END IF;
-END $$;
+-- 1. MOTORCYCLES — technicke parametry
 
--- ═══════════════════════════════════════════════════════
+ALTER TABLE motorcycles ADD COLUMN IF NOT EXISTS power_kw numeric(6,1);
+ALTER TABLE motorcycles ADD COLUMN IF NOT EXISTS torque_nm numeric(6,1);
+ALTER TABLE motorcycles ADD COLUMN IF NOT EXISTS weight_kg integer;
+ALTER TABLE motorcycles ADD COLUMN IF NOT EXISTS fuel_tank_l numeric(4,1);
+ALTER TABLE motorcycles ADD COLUMN IF NOT EXISTS seat_height_mm text;
+ALTER TABLE motorcycles ADD COLUMN IF NOT EXISTS license_required text DEFAULT 'A';
+ALTER TABLE motorcycles ADD COLUMN IF NOT EXISTS has_abs boolean DEFAULT true;
+ALTER TABLE motorcycles ADD COLUMN IF NOT EXISTS has_asc boolean DEFAULT false;
+ALTER TABLE motorcycles ADD COLUMN IF NOT EXISTS description text;
+ALTER TABLE motorcycles ADD COLUMN IF NOT EXISTS ideal_usage text[];
+ALTER TABLE motorcycles ADD COLUMN IF NOT EXISTS features text[];
+ALTER TABLE motorcycles ADD COLUMN IF NOT EXISTS manual_url text;
+ALTER TABLE motorcycles ADD COLUMN IF NOT EXISTS engine_type text;
+ALTER TABLE motorcycles ADD COLUMN IF NOT EXISTS power_hp integer;
+
 -- 2. DEBUG_LOG — admin debug tracking
--- ═══════════════════════════════════════════════════════
+
 CREATE TABLE IF NOT EXISTS debug_log (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   admin_id uuid,
-  source text NOT NULL, -- 'velin' | 'app' | 'backend'
+  source text NOT NULL,
   action text NOT NULL,
-  component text, -- 'FleetDetail', 'Bookings', etc.
-  status text NOT NULL DEFAULT 'info', -- 'info' | 'success' | 'error' | 'warning'
+  component text,
+  status text NOT NULL DEFAULT 'info',
   request_data jsonb,
   response_data jsonb,
   error_message text,
