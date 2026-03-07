@@ -16,7 +16,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TYPE booking_status AS ENUM ('pending', 'active', 'completed', 'cancelled');
 CREATE TYPE payment_status AS ENUM ('unpaid', 'paid', 'refunded', 'partial_refund');
 CREATE TYPE moto_status AS ENUM ('active', 'maintenance', 'out_of_service');
-CREATE TYPE document_type AS ENUM ('contract', 'protocol', 'invoice', 'license_photo', 'id_photo');
+CREATE TYPE document_type AS ENUM ('contract', 'protocol', 'invoice', 'license_photo', 'id_photo', 'vop', 'invoice_advance', 'invoice_final');
 CREATE TYPE license_group AS ENUM ('A', 'A1', 'A2', 'AM', 'B');
 
 -- ===== 3. TABLES =====
@@ -952,7 +952,7 @@ CREATE TABLE message_threads (
 CREATE TABLE messages (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     thread_id UUID REFERENCES message_threads(id) ON DELETE CASCADE,
-    direction TEXT NOT NULL CHECK (direction IN ('inbound', 'outbound')),
+    direction TEXT NOT NULL CHECK (direction IN ('inbound', 'outbound', 'admin', 'customer', 'system')),
     sender_name TEXT,
     content TEXT NOT NULL,
     attachments TEXT[] DEFAULT '{}',
