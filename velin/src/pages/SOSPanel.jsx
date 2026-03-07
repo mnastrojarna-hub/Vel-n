@@ -19,6 +19,20 @@ export const TYPE_LABELS = {
   breakdown: 'Porucha',
 }
 
+// Kategorie pro výrazný badge v kartě
+const TYPE_CATEGORY = {
+  theft:           { label: 'KRÁDEŽ',  bg: '#7f1d1d', color: '#fff' },
+  accident_minor:  { label: 'NEHODA',  bg: '#fee2e2', color: '#dc2626' },
+  accident_major:  { label: 'NEHODA',  bg: '#dc2626', color: '#fff' },
+  accident:        { label: 'NEHODA',  bg: '#dc2626', color: '#fff' },
+  breakdown_minor: { label: 'PORUCHA', bg: '#fef3c7', color: '#b45309' },
+  breakdown_major: { label: 'PORUCHA', bg: '#b45309', color: '#fff' },
+  breakdown:       { label: 'PORUCHA', bg: '#b45309', color: '#fff' },
+  defect_question: { label: 'ZÁVADA',  bg: '#f1faf7', color: '#4a6357' },
+  location_share:  { label: 'POLOHA',  bg: '#dbeafe', color: '#2563eb' },
+  other:           { label: 'JINÉ',    bg: '#f3f4f6', color: '#6b7280' },
+}
+
 export const TYPE_ICONS = {
   theft: '🔒',
   accident_minor: '⚠️',
@@ -284,8 +298,11 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
   const moto = inc.bookings?.motorcycles || inc.motorcycles
   const typeLabel = TYPE_LABELS[inc.type] || inc.type || 'Incident'
   const typeIcon = TYPE_ICONS[inc.type] || '⚠️'
+  const typeCat = TYPE_CATEGORY[inc.type] || { label: 'SOS', bg: '#f3f4f6', color: '#6b7280' }
   const displayTitle = inc.title || typeLabel
   const isActive = !['resolved', 'closed'].includes(inc.status)
+  const isAccident = inc.type?.startsWith('accident')
+  const isHeavy = ['theft', 'accident_major', 'breakdown_major'].includes(inc.type)
 
   return (
     <div onClick={onSelect} className="cursor-pointer" style={{
@@ -296,15 +313,21 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
         <div className="flex items-start gap-3">
           <div className="text-2xl">{typeIcon}</div>
           <div className="flex-1 min-w-0">
-            {/* Nadpis */}
+            {/* Nadpis + kategorie */}
             <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <span className="inline-block rounded-btn text-[9px] font-extrabold tracking-wider uppercase"
+                style={{ padding: '3px 10px', background: typeCat.bg, color: typeCat.color, letterSpacing: '0.08em' }}>
+                {typeCat.label}
+              </span>
               <span className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>
                 {displayTitle}
               </span>
-              <span className="inline-block rounded-btn text-[9px] font-extrabold tracking-wide uppercase"
-                style={{ padding: '2px 7px', background: sev.bg, color: sev.color }}>
-                {sev.label}
-              </span>
+              {isHeavy && (
+                <span className="inline-block rounded-btn text-[9px] font-extrabold tracking-wide uppercase"
+                  style={{ padding: '2px 7px', background: sev.bg, color: sev.color }}>
+                  {sev.label}
+                </span>
+              )}
               <span className="inline-block rounded-btn text-[9px] font-extrabold tracking-wide uppercase"
                 style={{ padding: '2px 7px', background: sc.bg, color: sc.color }}>
                 {sc.label}
@@ -317,11 +340,31 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
               </div>
             )}
 
+            {/* Klíčové info: zavinění + pojízdnost — vždy viditelné u nehod/poruch */}
+            {(isAccident || inc.type?.startsWith('breakdown') || inc.type === 'theft') && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {/* Zavinění */}
+                <span className="inline-flex items-center gap-1 rounded-btn text-[10px] font-extrabold px-2 py-0.5" style={{
+                  background: inc.customer_fault === true ? '#fee2e2' : inc.customer_fault === false ? '#dcfce7' : '#f3f4f6',
+                  color: inc.customer_fault === true ? '#dc2626' : inc.customer_fault === false ? '#1a8a18' : '#9ca3af',
+                }}>
+                  {inc.customer_fault === true ? 'Zavinil zákazník' : inc.customer_fault === false ? 'Cizí zavinění' : 'Zavinění: nezjištěno'}
+                </span>
+                {/* Pojízdnost */}
+                <span className="inline-flex items-center gap-1 rounded-btn text-[10px] font-extrabold px-2 py-0.5" style={{
+                  background: inc.moto_rideable === true ? '#dcfce7' : inc.moto_rideable === false ? '#fee2e2' : '#f3f4f6',
+                  color: inc.moto_rideable === true ? '#1a8a18' : inc.moto_rideable === false ? '#dc2626' : '#9ca3af',
+                }}>
+                  {inc.moto_rideable === true ? 'Pojízdná' : inc.moto_rideable === false ? 'NEPOJÍZDNÁ' : 'Pojízdnost: nezjištěno'}
+                </span>
+              </div>
+            )}
+
             {/* Popis */}
             {inc.description && (
               <div className="text-xs mb-2 rounded-lg" style={{
                 padding: '6px 10px', background: '#f8fcfa', color: '#4a6357',
-                borderLeft: '3px solid #d4e8e0', lineHeight: 1.5,
+                borderLeft: `3px solid ${isHeavy ? '#dc2626' : '#d4e8e0'}`, lineHeight: 1.5,
               }}>
                 {inc.description.length > 150 ? inc.description.slice(0, 150) + '…' : inc.description}
               </div>
@@ -337,8 +380,6 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
                   inc.customer_decision === 'end_ride' ? '#dc2626' : '#b45309',
               }}>
                 {DECISION_LABELS[inc.customer_decision] || inc.customer_decision}
-                {inc.customer_fault === true && ' (zavinil zákazník — platí)'}
-                {inc.customer_fault === false && ' (cizí zavinění)'}
               </div>
             )}
 
@@ -349,7 +390,7 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
                 background: '#fee2e2', color: '#dc2626',
                 animation: 'pulse 2s infinite',
               }}>
-                ⚠️ ČEKÁ NA SCHVÁLENÍ — objednávka náhradní motorky
+                CEKA NA SCHVALENI — objednávka náhradní motorky
               </div>
             )}
             {inc.replacement_status && inc.replacement_status !== 'admin_review' && inc.replacement_data && (
@@ -361,15 +402,6 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
                   inc.replacement_status === 'rejected' ? 'zamítnuto' :
                   inc.replacement_status
                 }
-              </div>
-            )}
-
-            {/* Pojízdnost */}
-            {inc.moto_rideable !== null && inc.moto_rideable !== undefined && (
-              <div className="text-[10px] font-bold mb-1" style={{
-                color: inc.moto_rideable ? '#1a8a18' : '#dc2626',
-              }}>
-                Motorka: {inc.moto_rideable ? 'pojízdná' : 'NEPOJÍZDNÁ'}
               </div>
             )}
 
