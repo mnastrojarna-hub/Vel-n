@@ -7,6 +7,9 @@ var _paymentAttempts = 0;
 var _paymentTimeout = null;
 var _MAX_PAYMENT_ATTEMPTS = 3;
 var _PAYMENT_TIMEOUT_MS = 300000; // 5 minutes
+var _isRestorePayment = false;
+var _isEditPayment = false;
+var _editPaymentBookingId = null;
 
 // Called from booking form "Pokračovat k platbě"
 async function proceedToPayment(){
@@ -293,6 +296,123 @@ async function _autoCancelUnpaid(bookingId, reason){
   showT('✗', _t('pay').declined||'Rezervace zrušena', 'Rezervace byla automaticky zrušena pro nezaplacení');
   goTo('s-res');
   if(typeof renderMyReservations === 'function') renderMyReservations();
+}
+
+// ===== RESTORE PAYMENT (cancelled reservation → pay to reactivate) =====
+function doRestorePayment(bookingId){
+  try {
+    var payBtn = document.getElementById('pay-btn');
+    if(payBtn){
+      payBtn.textContent = '⏳ ' + (_t('pay').processing||'Zpracování platby...');
+      payBtn.disabled = true;
+      payBtn.style.opacity = '0.6';
+    }
+
+    setTimeout(async function(){
+      var result = await apiProcessPayment(bookingId, _currentPaymentAmount, _currentPaymentMethod);
+
+      if(payBtn){
+        payBtn.disabled = false;
+        payBtn.style.opacity = '1';
+      }
+
+      if(result.success && result.checkout_url){
+        if(window.cordova && window.cordova.InAppBrowser){
+          window.cordova.InAppBrowser.open(result.checkout_url, '_system');
+        } else {
+          window.open(result.checkout_url, '_blank');
+        }
+        showT('ℹ️',_t('pay').payBtn||'Platba','Otevřena platební brána');
+        if(payBtn) payBtn.textContent = (_t('pay').payBtn||'Zaplatit') + ' ' + _currentPaymentAmount.toLocaleString('cs-CZ') + ' Kč →';
+        return;
+      }
+
+      if(result.success){
+        // Confirm restore: set booking to active + paid
+        if(typeof apiConfirmRestoreBooking === 'function'){
+          await apiConfirmRestoreBooking(bookingId);
+        }
+
+        // Auto-generate docs for restored booking
+        if(typeof apiAutoGenerateInvoice === 'function'){
+          apiAutoGenerateInvoice(bookingId).catch(function(e){ console.warn('[PAY] Invoice err:', e); });
+        }
+        if(typeof apiAutoGenerateBookingDocs === 'function'){
+          apiAutoGenerateBookingDocs(bookingId).catch(function(e){ console.warn('[PAY] Docs err:', e); });
+        }
+
+        _isRestorePayment = false;
+        _currentBookingId = null;
+        showT('✓',_t('pay').paid||'Zaplaceno',_t('res').restored||'Rezervace obnovena');
+        goTo('s-res');
+        if(typeof renderMyReservations === 'function') renderMyReservations();
+      } else {
+        _paymentAttempts++;
+        if(_paymentAttempts >= _MAX_PAYMENT_ATTEMPTS){
+          _isRestorePayment = false;
+          _currentBookingId = null;
+          showT('✗',_t('pay').declined||'Platba zamítnuta','Platba se nezdařila. Rezervace zůstává zrušená.');
+          goTo('s-res');
+          return;
+        }
+        showT('✗',_t('pay').declined||'Platba zamítnuta',(_t('pay').retry||'Zkuste to znovu')+' ('+_paymentAttempts+'/'+_MAX_PAYMENT_ATTEMPTS+')');
+        if(payBtn) payBtn.textContent = (_t('pay').payBtn||'Zaplatit') + ' ' + _currentPaymentAmount.toLocaleString('cs-CZ') + ' Kč →';
+      }
+    }, 2000);
+  } catch(e){ console.error('doRestorePayment error:', e); }
+}
+
+// ===== EDIT PAYMENT (extend/shorten booking → pay difference) =====
+function doEditPayment(bookingId, amount, changes){
+  try {
+    var payBtn = document.getElementById('pay-btn');
+    if(payBtn){
+      payBtn.textContent = '⏳ ' + (_t('pay').processing||'Zpracování platby...');
+      payBtn.disabled = true;
+      payBtn.style.opacity = '0.6';
+    }
+
+    setTimeout(async function(){
+      var result = await apiProcessPayment(bookingId, amount, _currentPaymentMethod);
+
+      if(payBtn){
+        payBtn.disabled = false;
+        payBtn.style.opacity = '1';
+      }
+
+      if(result.success && result.checkout_url){
+        if(window.cordova && window.cordova.InAppBrowser){
+          window.cordova.InAppBrowser.open(result.checkout_url, '_system');
+        } else {
+          window.open(result.checkout_url, '_blank');
+        }
+        return;
+      }
+
+      if(result.success){
+        // Apply the booking changes after successful payment
+        if(changes && typeof apiModifyBooking === 'function'){
+          await apiModifyBooking(bookingId, changes);
+        }
+
+        _isEditPayment = false;
+        _editPaymentBookingId = null;
+        showT('✓',_t('pay').paid||'Zaplaceno',_t('res').changesSavedShort||'Změny uloženy');
+        goTo('s-res');
+        if(typeof renderMyReservations === 'function') renderMyReservations();
+      } else {
+        _paymentAttempts++;
+        if(_paymentAttempts >= _MAX_PAYMENT_ATTEMPTS){
+          _isEditPayment = false;
+          showT('✗',_t('pay').declined||'Platba zamítnuta','Změny nebyly aplikovány.');
+          goTo('s-res');
+          return;
+        }
+        showT('✗',_t('pay').declined||'Platba zamítnuta',(_t('pay').retry||'Zkuste to znovu')+' ('+_paymentAttempts+'/'+_MAX_PAYMENT_ATTEMPTS+')');
+        if(payBtn) payBtn.textContent = (_t('pay').payBtn||'Zaplatit') + ' ' + amount.toLocaleString('cs-CZ') + ' Kč →';
+      }
+    }, 2000);
+  } catch(e){ console.error('doEditPayment error:', e); }
 }
 
 // Payment method selection (existing selP function enhancement)

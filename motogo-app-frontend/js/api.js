@@ -249,7 +249,23 @@ async function apiRestoreBooking(bookingId){
   _ensureSupabase();
   if(!window.supabase) return {error:'Offline'};
   try {
-    var r = await window.supabase.from('bookings').update({status:'pending'}).eq('id', bookingId);
+    // Fetch the booking to get amount for payment
+    var br = await window.supabase.from('bookings')
+      .select('*, motorcycles(model, image_url)')
+      .eq('id', bookingId).single();
+    if(!br.data) return {error:'Rezervace nenalezena'};
+    return {error:null, booking: br.data};
+  } catch(e){ return {error:'Chyba při obnovení rezervace'}; }
+}
+
+async function apiConfirmRestoreBooking(bookingId){
+  _ensureSupabase();
+  if(!window.supabase) return {error:'Offline'};
+  try {
+    var r = await window.supabase.from('bookings').update({
+      status:'active',
+      payment_status:'paid'
+    }).eq('id', bookingId);
     if(r.error) return {error: r.error.message};
     return {error:null};
   } catch(e){ return {error:'Chyba při obnovení rezervace'}; }
@@ -587,6 +603,88 @@ function apiSubscribeAdminMessages(callback){
       })
       .subscribe();
   });
+}
+
+// ===== REALTIME SUBSCRIPTIONS — auto-update when admin changes data =====
+var _realtimeChannel = null;
+var _realtimeRefreshTimer = null;
+
+function apiSubscribeRealtimeUpdates(){
+  if(!window.supabase) return;
+  if(_realtimeChannel) return; // already subscribed
+
+  _realtimeChannel = window.supabase
+    .channel('motogo-realtime')
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'motorcycles'
+    }, function(payload){
+      console.log('[RT] motorcycles changed:', payload.eventType);
+      _scheduleRealtimeRefresh('motos');
+    })
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'bookings'
+    }, function(payload){
+      console.log('[RT] bookings changed:', payload.eventType);
+      _scheduleRealtimeRefresh('bookings');
+    })
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'moto_day_prices'
+    }, function(payload){
+      console.log('[RT] moto_day_prices changed:', payload.eventType);
+      _scheduleRealtimeRefresh('motos');
+    })
+    .on('postgres_changes', {
+      event: 'INSERT', schema: 'public', table: 'documents'
+    }, function(payload){
+      console.log('[RT] new document:', payload.new && payload.new.type);
+    })
+    .on('postgres_changes', {
+      event: 'INSERT', schema: 'public', table: 'invoices'
+    }, function(payload){
+      console.log('[RT] new invoice');
+    })
+    .subscribe();
+}
+
+function _scheduleRealtimeRefresh(type){
+  // Debounce: wait 500ms then refresh to batch rapid changes
+  if(_realtimeRefreshTimer) clearTimeout(_realtimeRefreshTimer);
+  _realtimeRefreshTimer = setTimeout(function(){
+    _realtimeRefreshTimer = null;
+    if(type === 'motos' || type === 'all'){
+      if(typeof enrichMOTOS === 'function'){
+        enrichMOTOS().then(function(){
+          if(typeof initMotoAvailability === 'function') initMotoAvailability();
+          if(typeof applyFilters === 'function') applyFilters();
+        });
+      }
+    }
+    if(type === 'bookings' || type === 'all'){
+      if(typeof renderMyReservations === 'function' && typeof cur !== 'undefined' && cur === 's-res'){
+        renderMyReservations();
+      }
+      if(typeof _currentResId !== 'undefined' && _currentResId && typeof cur !== 'undefined' && cur === 's-res-detail'){
+        if(typeof openResDetailById === 'function') openResDetailById(_currentResId);
+      }
+    }
+  }, 500);
+}
+
+// Periodic background refresh (every 4 seconds) as fallback
+var _bgRefreshInterval = null;
+function apiStartBackgroundRefresh(){
+  if(_bgRefreshInterval) return;
+  _bgRefreshInterval = setInterval(function(){
+    if(typeof enrichMOTOS === 'function'){
+      enrichMOTOS().then(function(){
+        if(typeof initMotoAvailability === 'function') initMotoAvailability();
+      });
+    }
+  }, 4000);
+}
+
+function apiStopBackgroundRefresh(){
+  if(_bgRefreshInterval){ clearInterval(_bgRefreshInterval); _bgRefreshInterval = null; }
 }
 
 // ===== PROMO KÓDY — zalogování použití při platbě =====

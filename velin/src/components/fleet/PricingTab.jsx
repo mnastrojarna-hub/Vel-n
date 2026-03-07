@@ -105,6 +105,30 @@ export default function PricingTab({ motoId }) {
         setPrices(data)
       }
 
+      // Sync prices to motorcycles table so MotoGo app picks them up immediately
+      const weekdayAvg = Math.round((
+        (Number(payload.price_monday) || 0) +
+        (Number(payload.price_tuesday) || 0) +
+        (Number(payload.price_wednesday) || 0) +
+        (Number(payload.price_thursday) || 0) +
+        (Number(payload.price_friday) || 0)
+      ) / 5)
+      const weekendAvg = Math.round((
+        (Number(payload.price_saturday) || 0) +
+        (Number(payload.price_sunday) || 0)
+      ) / 2)
+      await supabase.from('motorcycles').update({
+        price_mon: Number(payload.price_monday) || 0,
+        price_tue: Number(payload.price_tuesday) || 0,
+        price_wed: Number(payload.price_wednesday) || 0,
+        price_thu: Number(payload.price_thursday) || 0,
+        price_fri: Number(payload.price_friday) || 0,
+        price_sat: Number(payload.price_saturday) || 0,
+        price_sun: Number(payload.price_sunday) || 0,
+        price_weekday: weekdayAvg,
+        price_weekend: weekendAvg,
+      }).eq('id', motoId)
+
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({
         admin_id: user?.id,

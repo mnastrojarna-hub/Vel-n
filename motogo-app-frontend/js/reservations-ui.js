@@ -390,9 +390,28 @@ async function restoreBooking(bookingId){
     if(!confirm(_t('res').restoreConfirm)) return;
     var result = await apiRestoreBooking(bookingId);
     if(result.error){ showT('✗',_t('common').error,result.error); return; }
-    showT('✓',_t('res').restored,_t('res').restoredMsg);
-    renderMyReservations();
-  } catch(e){ showT('✗',_t('common').error,_t('res').restoreFailed); }
+    var booking = result.booking;
+    if(!booking){ showT('✗',_t('common').error,'Rezervace nenalezena'); return; }
+
+    // Reservation stays cancelled until payment succeeds
+    // Set up payment flow for the restore
+    _currentBookingId = bookingId;
+    _currentPaymentAmount = booking.total_price || 0;
+    _currentPaymentMethod = 'card';
+    _paymentAttempts = 0;
+    _isRestorePayment = true;
+
+    // Navigate to payment screen
+    var payBtn = document.getElementById('pay-btn');
+    if(payBtn){
+      payBtn.textContent = (_t('pay').payBtn||'Zaplatit') + ' ' + _currentPaymentAmount.toLocaleString('cs-CZ') + ' Kč →';
+      payBtn.onclick = function(){ doRestorePayment(bookingId); };
+    }
+    var applePayBtn = document.getElementById('apple-pay-btn');
+    if(applePayBtn) applePayBtn.textContent = '🍎 Pay ' + _currentPaymentAmount.toLocaleString('cs-CZ') + ' Kč';
+
+    goTo('s-payment');
+  } catch(e){ console.error('restoreBooking error:', e); showT('✗',_t('common').error,_t('res').restoreFailed); }
 }
 
 async function openExtendBooking(bookingId){

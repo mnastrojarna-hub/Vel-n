@@ -482,10 +482,20 @@ async function saveEditReservation(){
   }
   if(diff>0){
     if(confirmBanner)confirmBanner.innerHTML='✓ '+_t('res').dateConfirmed+' · '+_t('res').toPay+': '+diff.toLocaleString('cs-CZ')+' Kč';
+    // Set up proper payment flow for edit
+    _currentBookingId = bookingId;
+    _currentPaymentAmount = diff;
+    _isEditPayment = true;
+    _editPaymentBookingId = bookingId;
+    _paymentAttempts = 0;
+
     goTo('s-payment');
     setTimeout(function(){
       var payBtn=document.getElementById('pay-btn');
-      if(payBtn)payBtn.textContent='Zaplatit '+diff.toLocaleString('cs-CZ')+' Kč →';
+      if(payBtn){
+        payBtn.textContent='Zaplatit '+diff.toLocaleString('cs-CZ')+' Kč →';
+        payBtn.onclick = function(){ doEditPayment(bookingId, diff, changes); };
+      }
       var appleBtn=document.getElementById('apple-pay-btn');
       if(appleBtn)appleBtn.textContent='🍎 Pay '+diff.toLocaleString('cs-CZ')+' Kč';
     },50);

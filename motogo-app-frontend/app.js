@@ -86,6 +86,21 @@ function _continueInit(hasSession){
     initAdminMessageSubscription();
   }
 
+  // Subscribe to realtime updates (motorcycles, bookings, prices)
+  if(hasSession && typeof apiSubscribeRealtimeUpdates==='function'){
+    apiSubscribeRealtimeUpdates();
+  }
+
+  // Start background refresh as fallback (every 4s)
+  if(hasSession && typeof apiStartBackgroundRefresh==='function'){
+    apiStartBackgroundRefresh();
+  }
+
+  // Auto-expire vouchers check on app start
+  if(hasSession && window.supabase){
+    window.supabase.rpc('expire_vouchers_and_promos').catch(function(){});
+  }
+
   // Spustit offline guard
   OfflineGuard.startWatching();
 }

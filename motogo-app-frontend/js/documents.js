@@ -56,23 +56,32 @@ async function showRentalContract(bookingId){
   var data=await _getBookingDataAsync(bookingId);
   if(!data) data=_getBookingData(bookingId);
   if(!data){showT('✗',_t('common').error,_t('common').noData);return;}
-  var t=_t('doc');var b=data.b,p=data.p,mn=data.motoName,rn=data.resNum;
+  var t=_t('doc');var b=data.b,m=data.m,p=data.p,mn=data.motoName,rn=data.resNum;
   var pName=p?p.full_name:'—',pAddr=p?(p.street+', '+p.city+' '+p.zip):'—';
   var pLic=p?p.license_number:'—',pPhone=p?p.phone:'—',pEmail=p?p.email:'—';
+  // Motorcycle details from DB for contract accuracy
+  var mSpz=m?m.spz:'—',mVin=m?m.vin:'—';
+  var isPaid=(b.payment_status==='paid');
+  var statusLine=isPaid?'<div style="color:#1a8a18;font-weight:800;font-size:12px;margin:8px 0;">✓ ZAPLACENO</div>':'<div style="color:#b91c1c;font-weight:800;font-size:12px;margin:8px 0;">⏳ ČEKÁ NA PLATBU</div>';
 
   var html='<div class="doc-view"><div class="doc-view-hdr"><div class="back-row" onclick="closeDocView()">'+
     '<div class="bk-c">←</div><div class="bk-l">'+t.back+'</div></div>'+
     '<h2>'+t.contractTitle+'</h2><p>'+rn+'</p></div><div class="doc-view-body">'+
-    '<h3>'+t.contractTitle+'</h3>'+
+    '<h3>'+t.contractTitle+'</h3>'+statusLine+
     '<div class="doc-parties"><div class="doc-party"><strong>'+t.lessor+':</strong><br>'+
-    COMPANY.name+'<br>'+COMPANY.sidlo+'<br>IČ: '+COMPANY.ic+'</div>'+
+    COMPANY.name+'<br>'+COMPANY.sidlo+'<br>IČ: '+COMPANY.ic+'<br>'+COMPANY.email+'</div>'+
     '<div class="doc-party"><strong>'+t.lessee+':</strong><br>'+
-    pName+'<br>'+pAddr+'<br>'+t.phone+': '+pPhone+'<br>ŘP: '+pLic+'</div></div>'+
+    pName+'<br>'+pAddr+'<br>'+t.phone+': '+pPhone+'<br>E-mail: '+pEmail+'<br>ŘP: '+pLic+'</div></div>'+
     '<h4>'+t.contractSubject+'</h4>'+
     '<p>'+t.contractSubjectText.replace('{moto}',mn).replace('{from}',_docDate(b.start_date))
       .replace('{to}',_docDate(b.end_date)).replace('{days}',data.days)+'</p>'+
+    '<div class="doc-field" style="margin:6px 0;"><span class="doc-lbl">SPZ:</span> '+mSpz+'</div>'+
+    '<div class="doc-field" style="margin:6px 0;"><span class="doc-lbl">VIN:</span> '+mVin+'</div>'+
     '<h4>'+t.contractPrice+'</h4>'+
     '<p>'+t.contractPriceText.replace('{total}',(b.total_price||0).toLocaleString('cs-CZ'))+'</p>'+
+    (b.extras_price>0?'<div class="doc-field"><span class="doc-lbl">Příslušenství:</span> '+b.extras_price.toLocaleString('cs-CZ')+' Kč</div>':'')+
+    (b.delivery_fee>0?'<div class="doc-field"><span class="doc-lbl">Doručení:</span> '+b.delivery_fee.toLocaleString('cs-CZ')+' Kč</div>':'')+
+    (b.discount_amount>0?'<div class="doc-field"><span class="doc-lbl">Sleva:</span> -'+b.discount_amount.toLocaleString('cs-CZ')+' Kč</div>':'')+
     '<h4>'+t.contractConditions+'</h4><p>'+t.contractConditionsText+'</p>'+
     '<div class="doc-sign-area" id="contract-sign-area">'+
     '<p style="font-size:11px;color:var(--g400);">'+t.signNote+'</p>'+
@@ -136,8 +145,18 @@ async function showInvoice(bookingId,type){
   if(!data) data=_getBookingData(bookingId);
   if(!data){showT('✗',_t('common').error,_t('common').noData);return;}
   var t=_t('doc');var b=data.b,p=data.p,mn=data.motoName,rn=data.resNum;
+
+  // Try to load real invoice from DB first
+  var dbInvoice=null;
+  if(_isSupabaseReady()){
+    try {
+      var invR=await supabase.from('invoices').select('*').eq('booking_id',bookingId).order('created_at',{ascending:false}).limit(1).single();
+      if(invR.data) dbInvoice=invR.data;
+    } catch(e){}
+  }
+
   var isAdvance=(type==='advance');
-  var invNum=(isAdvance?'ZF':'KF')+'-'+new Date(b.start_date).getFullYear()+'-'+b.id.substr(-4).toUpperCase();
+  var invNum=dbInvoice?dbInvoice.number:((isAdvance?'ZF':'KF')+'-'+new Date(b.start_date).getFullYear()+'-'+b.id.substr(-4).toUpperCase());
   var title=isAdvance?t.invoiceAdvance:t.invoiceFinal;
   var issueDate=_docDate(isAdvance?b.start_date:b.end_date);
   var dueDate=_docDate(new Date(new Date(isAdvance?b.start_date:b.end_date).getTime()+14*86400000).toISOString());
