@@ -67,7 +67,7 @@ var MgDebug = (function(){
       var hdr = document.createElement('div');
       hdr.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:1000000;background:#111;' +
         'padding:6px 10px;display:flex;justify-content:space-between;align-items:center;';
-      hdr.innerHTML = '<span style="color:#74FB71;font-weight:bold;font-size:12px;">MotoGo24 Debug v5.0.0</span>' +
+      hdr.innerHTML = '<span style="color:#74FB71;font-weight:bold;font-size:12px;">MotoGo24 Debug v5.5.2</span>' +
         '<span>' +
         '<button onclick="MgDebug.copyAll()" style="background:#333;color:#fff;border:none;padding:4px 8px;margin-right:4px;border-radius:4px;font-size:10px;">Copy</button>' +
         '<button onclick="MgDebug.clear()" style="background:#333;color:#fff;border:none;padding:4px 8px;margin-right:4px;border-radius:4px;font-size:10px;">Clear</button>' +
