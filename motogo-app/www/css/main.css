@@ -63,7 +63,8 @@ body{background:#1a2e22;display:flex;justify-content:center;align-items:center;m
   .toast{bottom:250px;}
   .scroll-top{bottom:150px;}
 }
-html.pwa body{background:var(--bg);padding:0;align-items:stretch;min-height:100vh;min-height:100dvh;overflow:hidden;}
+html.pwa{overflow:hidden;height:100vh;height:100dvh;}
+html.pwa body{background:var(--bg);padding:0;align-items:stretch;height:100vh;height:100dvh;min-height:0;overflow:hidden;}
 html.pwa .phone{width:100%;height:100vh;height:100dvh;max-height:100vh;max-height:100dvh;border-radius:0;box-shadow:none;flex-shrink:1;padding-top:env(safe-area-inset-top);overflow:hidden;}
 html.pwa .notch{display:none;}
 html.pwa .screen{max-height:calc(100dvh - 120px);max-height:calc(100vh - 120px);}
