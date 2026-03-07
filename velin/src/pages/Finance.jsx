@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
+import Modal from '../components/ui/Modal'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
 
 const PERIODS = [
@@ -24,6 +25,7 @@ export default function Finance() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [filters, setFilters] = useState({ period: 'month', type: '', category: '' })
+  const [detailTx, setDetailTx] = useState(null)
 
   useEffect(() => { loadData() }, [filters])
 
@@ -173,20 +175,50 @@ export default function Finance() {
             </thead>
             <tbody>
               {transactions.map(t => (
-                <TRow key={t.id}>
+                <tr key={t.id} onClick={() => setDetailTx(t)}
+                  className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
+                  style={{ borderBottom: '1px solid #d4e8e0' }}>
                   <TD>{t.date ? new Date(t.date).toLocaleDateString('cs-CZ') : '—'}</TD>
                   <TD><TypeBadge type={t.type} /></TD>
                   <TD>{t.description || '—'}</TD>
                   <TD bold color={t.type === 'revenue' ? '#1a8a18' : '#dc2626'}>{fmt(t.amount)}</TD>
                   <TD>{t.category || '—'}</TD>
                   <TD mono>{t.booking_id ? t.booking_id.slice(0, 8) : '—'}</TD>
-                </TRow>
+                </tr>
               ))}
               {transactions.length === 0 && <TRow><TD>Žádné transakce</TD></TRow>}
             </tbody>
           </Table>
         </>
       )}
+
+      {detailTx && (
+        <Modal open title="Detail transakce" onClose={() => setDetailTx(null)}>
+          <div className="grid grid-cols-2 gap-4">
+            <DetailRow label="Datum" value={detailTx.date ? new Date(detailTx.date).toLocaleDateString('cs-CZ') : '—'} />
+            <DetailRow label="Typ" value={detailTx.type === 'revenue' ? 'Příjem' : 'Výdaj'} />
+            <DetailRow label="Částka" value={fmt(detailTx.amount)} />
+            <DetailRow label="Kategorie" value={detailTx.category || '—'} />
+            <div className="col-span-2">
+              <DetailRow label="Popis" value={detailTx.description || '—'} />
+            </div>
+            {detailTx.booking_id && <DetailRow label="ID rezervace" value={detailTx.booking_id} mono />}
+            <DetailRow label="Vytvořeno" value={detailTx.created_at ? new Date(detailTx.created_at).toLocaleString('cs-CZ') : '—'} />
+          </div>
+          <div className="flex justify-end mt-5">
+            <Button onClick={() => setDetailTx(null)}>Zavřít</Button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  )
+}
+
+function DetailRow({ label, value, mono }) {
+  return (
+    <div>
+      <div className="text-[10px] font-extrabold uppercase tracking-wide mb-0.5" style={{ color: '#8aab99' }}>{label}</div>
+      <div className={`text-sm font-semibold ${mono ? 'font-mono' : ''}`} style={{ color: '#0f1a14' }}>{value ?? '—'}</div>
     </div>
   )
 }

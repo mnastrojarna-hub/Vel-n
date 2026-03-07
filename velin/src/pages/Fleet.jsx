@@ -21,16 +21,25 @@ export default function Fleet() {
   const [error, setError] = useState(null)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [filters, setFilters] = useState({ status: '', branch: '', category: '', search: '' })
+  const [filters, setFilters] = useState({ status: '', branch: '', category: '', search: '', sort: 'model', occupiedToday: false, occupiedFrom: '', occupiedTo: '' })
   const [showAdd, setShowAdd] = useState(false)
+  const [bookingCounts, setBookingCounts] = useState({})
+  const [todayOccupied, setTodayOccupied] = useState(new Set())
+  const [dateOccupied, setDateOccupied] = useState(new Set())
 
   useEffect(() => {
     loadBranches()
+    loadBookingStats()
   }, [])
 
   useEffect(() => {
     loadMotos()
   }, [page, filters])
+
+  useEffect(() => {
+    if (filters.occupiedFrom && filters.occupiedTo) loadDateOccupied()
+    else setDateOccupied(new Set())
+  }, [filters.occupiedFrom, filters.occupiedTo])
 
   async function loadBranches() {
     try {
@@ -38,6 +47,36 @@ export default function Fleet() {
       if (data) setBranches(data)
     } catch {
     }
+  }
+
+  async function loadBookingStats() {
+    try {
+      const today = new Date().toISOString().slice(0, 10)
+      const { data: allBookings } = await supabase
+        .from('bookings').select('moto_id, start_date, end_date')
+        .in('status', ['pending', 'active', 'reserved'])
+      const counts = {}
+      const todaySet = new Set()
+      ;(allBookings || []).forEach(b => {
+        if (!b.moto_id) return
+        counts[b.moto_id] = (counts[b.moto_id] || 0) + 1
+        const s = b.start_date?.split('T')[0], e = b.end_date?.split('T')[0]
+        if (s && e && today >= s && today <= e) todaySet.add(b.moto_id)
+      })
+      setBookingCounts(counts)
+      setTodayOccupied(todaySet)
+    } catch {}
+  }
+
+  async function loadDateOccupied() {
+    try {
+      const { data } = await supabase
+        .from('bookings').select('moto_id')
+        .in('status', ['pending', 'active', 'reserved'])
+        .lte('start_date', filters.occupiedTo)
+        .gte('end_date', filters.occupiedFrom)
+      setDateOccupied(new Set((data || []).map(b => b.moto_id)))
+    } catch {}
   }
 
   async function loadMotos() {
@@ -53,7 +92,11 @@ export default function Fleet() {
         return query.order('model').range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       }, { page, filters })
       if (result?.error) throw result.error
-      setMotos(result?.data || [])
+      let data = result?.data || []
+      if (filters.occupiedToday) data = data.filter(m => todayOccupied.has(m.id))
+      if (filters.occupiedFrom && filters.occupiedTo) data = data.filter(m => dateOccupied.has(m.id))
+      if (filters.sort === 'utilization') data.sort((a, b) => (bookingCounts[b.id] || 0) - (bookingCounts[a.id] || 0))
+      setMotos(data)
       setTotal(result?.count || 0)
     } catch (e) {
       setError(e.message)
@@ -98,6 +141,29 @@ export default function Fleet() {
             ...CATEGORIES.map(c => ({ value: c, label: c })),
           ]}
         />
+        <FilterSelect
+          value={filters.sort}
+          onChange={v => { setPage(1); setFilters(f => ({ ...f, sort: v })) }}
+          options={[
+            { value: 'model', label: 'Dle názvu' },
+            { value: 'utilization', label: 'Nejvíce vytížené' },
+          ]}
+        />
+        <label className="flex items-center gap-1.5 cursor-pointer rounded-btn text-xs font-extrabold uppercase tracking-wide"
+          style={{ padding: '8px 14px', background: filters.occupiedToday ? '#74FB71' : '#f1faf7', border: '1px solid #d4e8e0', color: filters.occupiedToday ? '#1a2e22' : '#4a6357' }}>
+          <input type="checkbox" checked={filters.occupiedToday} onChange={e => { setPage(1); setFilters(f => ({ ...f, occupiedToday: e.target.checked })) }} className="accent-[#1a8a18]" />
+          Dnes obsazené
+        </label>
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>Od</span>
+          <input type="date" value={filters.occupiedFrom} onChange={e => { setPage(1); setFilters(f => ({ ...f, occupiedFrom: e.target.value })) }}
+            className="rounded-btn text-xs outline-none cursor-pointer"
+            style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }} />
+          <span className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>Do</span>
+          <input type="date" value={filters.occupiedTo} onChange={e => { setPage(1); setFilters(f => ({ ...f, occupiedTo: e.target.value })) }}
+            className="rounded-btn text-xs outline-none cursor-pointer"
+            style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }} />
+        </div>
         <div className="ml-auto">
           <Button green onClick={() => setShowAdd(true)}>+ Nová motorka</Button>
         </div>
