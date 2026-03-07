@@ -103,14 +103,14 @@ export default function SOSPanel() {
       const { data } = await debugAction('load_active_incidents', 'SOSPanel', () =>
         supabase
           .from('sos_incidents')
-          .select('*, profiles(full_name, phone, email), motorcycles(model, spz, vin, branch_id, mileage, branches(name)), bookings(id, moto_id, start_date, end_date, status, motorcycles(model, spz, branch_id, branches(name)))')
+          .select('*, profiles(full_name, phone, email), motorcycles!sos_incidents_moto_id_fkey(model, spz, vin, branch_id, mileage, branches(name)), bookings(id, moto_id, start_date, end_date, status, motorcycles(model, spz, branch_id, branches(name)))')
           .in('status', ['reported', 'acknowledged', 'in_progress'])
           .order('created_at', { ascending: false })
       )
       const { data: resolved } = await debugAction('load_resolved_incidents', 'SOSPanel', () =>
         supabase
           .from('sos_incidents')
-          .select('*, profiles(full_name, phone, email), motorcycles(model, spz, vin, branch_id, mileage, branches(name)), bookings(id, moto_id, start_date, end_date, status, motorcycles(model, spz, branch_id, branches(name)))')
+          .select('*, profiles(full_name, phone, email), motorcycles!sos_incidents_moto_id_fkey(model, spz, vin, branch_id, mileage, branches(name)), bookings(id, moto_id, start_date, end_date, status, motorcycles(model, spz, branch_id, branches(name)))')
           .in('status', ['resolved', 'closed'])
           .order('created_at', { ascending: false })
           .limit(10)
