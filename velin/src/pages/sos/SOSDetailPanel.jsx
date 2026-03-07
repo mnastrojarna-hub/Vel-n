@@ -55,6 +55,10 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
         return
       }
     }
+    if (incident.moto_id) {
+      const { data: m } = await supabase.from('motorcycles').select('*, branches(name)').eq('id', incident.moto_id).single()
+      if (m) setMoto(m)
+    }
     if (incident.user_id) {
       const { data: p } = await supabase.from('profiles').select('*').eq('id', incident.user_id).single()
       if (p) setCustomer(p)

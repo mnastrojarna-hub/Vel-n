@@ -477,6 +477,11 @@ async function apiCreateSosIncident(type, bookingId, lat, lng, desc, critical, m
   if(!window.supabase) return {error:'Offline'};
   try {
     var uid = await _getUserId();
+    var phone = null;
+    try {
+      var prof = await apiFetchProfile();
+      if(prof) phone = prof.phone || null;
+    } catch(e){}
     var data = {
       user_id: uid,
       booking_id: bookingId,
@@ -485,6 +490,7 @@ async function apiCreateSosIncident(type, bookingId, lat, lng, desc, critical, m
       latitude: lat,
       longitude: lng,
       description: desc,
+      contact_phone: phone,
       status: 'reported'
     };
     var r = await window.supabase.from('sos_incidents').insert(data).select().single();
