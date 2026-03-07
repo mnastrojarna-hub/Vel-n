@@ -1,5 +1,6 @@
 {
   "name": "MotoGo24 – Půjčovna motorek",
+  "version": "5.5.4",
   "short_name": "MotoGo24",
   "description": "Rezervace a půjčování motorek online",
   "start_url": "./index.html",

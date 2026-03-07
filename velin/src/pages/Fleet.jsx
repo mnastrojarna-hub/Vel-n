@@ -135,7 +135,7 @@ export default function Fleet() {
                 >
                   <TD>
                     {thumb ? (
-                      <img src={thumb} alt={m.model} style={{ width: 48, height: 36, objectFit: 'cover', borderRadius: 6, background: '#f1faf7' }} />
+                      <img src={thumb} alt={m.model} style={{ width: 48, height: 36, objectFit: 'cover', borderRadius: 6, background: '#f1faf7' }} onError={e => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<div style="width:48px;height:36px;border-radius:6px;background:#f1faf7;display:flex;align-items:center;justify-content:center;font-size:16px;color:#8aab99">🏍️</div>' }} />
                     ) : (
                       <div style={{ width: 48, height: 36, borderRadius: 6, background: '#f1faf7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: '#8aab99' }}>🏍️</div>
                     )}
