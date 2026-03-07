@@ -26,7 +26,16 @@ export default function PromoCodes() {
   const [deleteConfirm, setDeleteConfirm] = useState(null)
 
   useEffect(() => { loadCodes() }, [page, filters])
-  useEffect(() => { loadSummary() }, [])
+  useEffect(() => { autoExpirePromos(); loadSummary() }, [])
+
+  async function autoExpirePromos() {
+    try {
+      await supabase.from('promo_codes')
+        .update({ active: false })
+        .eq('active', true)
+        .lt('valid_to', new Date().toISOString().slice(0, 10))
+    } catch (e) { console.warn('Auto-expire promos error:', e) }
+  }
 
   async function loadCodes() {
     setLoading(true)

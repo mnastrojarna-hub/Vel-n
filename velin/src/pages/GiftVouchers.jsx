@@ -32,7 +32,22 @@ export default function GiftVouchers() {
   const [redeemModal, setRedeemModal] = useState(null)
 
   useEffect(() => { loadVouchers() }, [page, filters])
-  useEffect(() => { loadSummary() }, [])
+  useEffect(() => { autoExpireVouchers(); loadSummary() }, [])
+
+  async function autoExpireVouchers() {
+    try {
+      // Auto-expire vouchers past valid_until
+      await supabase.from('vouchers')
+        .update({ status: 'expired', updated_at: new Date().toISOString() })
+        .eq('status', 'active')
+        .lt('valid_until', new Date().toISOString().slice(0, 10))
+      // Auto-deactivate promo codes past valid_to
+      await supabase.from('promo_codes')
+        .update({ active: false })
+        .eq('active', true)
+        .lt('valid_to', new Date().toISOString().slice(0, 10))
+    } catch (e) { console.warn('Auto-expire error:', e) }
+  }
 
   async function loadVouchers() {
     setLoading(true)
