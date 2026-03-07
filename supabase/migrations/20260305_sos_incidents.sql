@@ -1,93 +1,73 @@
 -- =====================================================
--- MotoGo24 Velín — SOS Incidenty & Timeline
--- Kompletní tabulky pro SOS systém
--- ZÁVISÍ NA: 20260305_000_base_tables.sql
+-- MotoGo24 Velin — SOS Incidenty & Timeline
+-- Kompletni tabulky pro SOS system
+-- ZAVISI NA: 20260305_000_base_tables.sql
 -- =====================================================
 
--- ═══════════════════════════════════════════════════════
 -- 1. SOS_INCIDENTS
--- ═══════════════════════════════════════════════════════
+
 CREATE TABLE IF NOT EXISTS sos_incidents (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid REFERENCES profiles(id) ON DELETE SET NULL,
   booking_id uuid REFERENCES bookings(id) ON DELETE SET NULL,
-
-  -- Typ incidentu (hlavní kategorie)
   type text NOT NULL DEFAULT 'other'
     CHECK (type IN (
-      'theft',              -- Krádež motorky
-      'accident_minor',     -- Lehká nehoda (motorka pojízdná)
-      'accident_major',     -- Závažná nehoda (motorka nepojízdná)
-      'breakdown_minor',    -- Lehká porucha (pojízdná, dojede na servis)
-      'breakdown_major',    -- Těžká porucha (nepojízdná, nutný odtah)
-      'defect_question',    -- Dotaz na závadu (poradenství)
-      'other'               -- Jiný problém
+      'theft', 'accident_minor', 'accident_major',
+      'breakdown_minor', 'breakdown_major', 'defect_question', 'other'
     )),
-
-  -- Nadpis — konkrétní popis situace od zákazníka
   title text,
-
-  -- Detailní popis
   description text,
-
-  -- Závažnost (automaticky dle typu, admin může změnit)
   severity text NOT NULL DEFAULT 'medium'
     CHECK (severity IN ('low', 'medium', 'high', 'critical')),
-
-  -- Stav
   status text NOT NULL DEFAULT 'reported'
     CHECK (status IN ('reported', 'acknowledged', 'in_progress', 'resolved', 'closed')),
-
-  -- Pojízdnost motorky
-  moto_rideable boolean,       -- true = pojízdná, false = nepojízdná, null = nezjištěno
-
-  -- Rozhodnutí zákazníka (u závažné nehody / těžké poruchy)
+  moto_rideable boolean,
   customer_decision text
-    CHECK (customer_decision IN (
-      'replacement_moto',   -- Chce náhradní motorku
-      'end_ride',           -- Ukončuje jízdu
-      'continue',           -- Pokračuje (po opravě)
-      'waiting'             -- Čeká na rozhodnutí
-    )),
-
-  -- Zavinění (u nehod)
-  customer_fault boolean,      -- true = zavinil zákazník → platí, false = cizí zavinění
-
-  -- Poškození
-  damage_description text,     -- Popis poškození motorky
-  damage_severity text         -- 'none', 'cosmetic', 'functional', 'totaled'
+    CHECK (customer_decision IN ('replacement_moto', 'end_ride', 'continue', 'waiting')),
+  customer_fault boolean,
+  damage_description text,
+  damage_severity text
     CHECK (damage_severity IN ('none', 'cosmetic', 'functional', 'totaled')),
-
-  -- Nejbližší servis (pro lehké poruchy / dotazy)
   nearest_service_name text,
   nearest_service_address text,
   nearest_service_phone text,
-
-  -- GPS poloha
   latitude numeric(10,7),
   longitude numeric(10,7),
-  address text,                -- Rozpoznaná adresa (geocoding)
-
-  -- Fotografie
+  address text,
   photos text[] DEFAULT '{}',
-
-  -- Přiřazený admin/technik
   assigned_to uuid REFERENCES admin_users(id) ON DELETE SET NULL,
-
-  -- Kontaktní telefon (může se lišit od profilu)
   contact_phone text,
-
-  -- Poznámky admina
   admin_notes text,
-
-  -- Vyřešení
-  resolution text,             -- Jak byl incident vyřešen
+  resolution text,
   resolved_at timestamptz,
   resolved_by uuid REFERENCES admin_users(id) ON DELETE SET NULL,
-
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Zajistit, ze sloupce existuji
+ALTER TABLE sos_incidents ADD COLUMN IF NOT EXISTS title text;
+ALTER TABLE sos_incidents ADD COLUMN IF NOT EXISTS description text;
+ALTER TABLE sos_incidents ADD COLUMN IF NOT EXISTS severity text DEFAULT 'medium';
+ALTER TABLE sos_incidents ADD COLUMN IF NOT EXISTS status text DEFAULT 'reported';
+ALTER TABLE sos_incidents ADD COLUMN IF NOT EXISTS moto_rideable boolean;
+ALTER TABLE sos_incidents ADD COLUMN IF NOT EXISTS customer_decision text;
+ALTER TABLE sos_incidents ADD COLUMN IF NOT EXISTS customer_fault boolean;
+ALTER TABLE sos_incidents ADD COLUMN IF NOT EXISTS damage_description text;
+ALTER TABLE sos_incidents ADD COLUMN IF NOT EXISTS damage_severity text;
+ALTER TABLE sos_incidents ADD COLUMN IF NOT EXISTS nearest_service_name text;
+ALTER TABLE sos_incidents ADD COLUMN IF NOT EXISTS nearest_service_address text;
+ALTER TABLE sos_incidents ADD COLUMN IF NOT EXISTS nearest_service_phone text;
+ALTER TABLE sos_incidents ADD COLUMN IF NOT EXISTS latitude numeric(10,7);
+ALTER TABLE sos_incidents ADD COLUMN IF NOT EXISTS longitude numeric(10,7);
+ALTER TABLE sos_incidents ADD COLUMN IF NOT EXISTS address text;
+ALTER TABLE sos_incidents ADD COLUMN IF NOT EXISTS photos text[] DEFAULT '{}';
+ALTER TABLE sos_incidents ADD COLUMN IF NOT EXISTS assigned_to uuid;
+ALTER TABLE sos_incidents ADD COLUMN IF NOT EXISTS contact_phone text;
+ALTER TABLE sos_incidents ADD COLUMN IF NOT EXISTS admin_notes text;
+ALTER TABLE sos_incidents ADD COLUMN IF NOT EXISTS resolution text;
+ALTER TABLE sos_incidents ADD COLUMN IF NOT EXISTS resolved_at timestamptz;
+ALTER TABLE sos_incidents ADD COLUMN IF NOT EXISTS resolved_by uuid;
 
 CREATE INDEX IF NOT EXISTS idx_sos_incidents_user ON sos_incidents(user_id);
 CREATE INDEX IF NOT EXISTS idx_sos_incidents_booking ON sos_incidents(booking_id);
@@ -97,22 +77,18 @@ CREATE INDEX IF NOT EXISTS idx_sos_incidents_severity ON sos_incidents(severity)
 
 ALTER TABLE sos_incidents ENABLE ROW LEVEL SECURITY;
 
--- Admini vidí vše
 DROP POLICY IF EXISTS sos_incidents_admin ON sos_incidents;
 CREATE POLICY sos_incidents_admin ON sos_incidents
   FOR ALL USING (is_admin());
 
--- Zákazník vidí své incidenty
 DROP POLICY IF EXISTS sos_incidents_customer_read ON sos_incidents;
 CREATE POLICY sos_incidents_customer_read ON sos_incidents
   FOR SELECT USING (user_id = auth.uid());
 
--- Zákazník může vytvořit incident
 DROP POLICY IF EXISTS sos_incidents_customer_insert ON sos_incidents;
 CREATE POLICY sos_incidents_customer_insert ON sos_incidents
   FOR INSERT WITH CHECK (user_id = auth.uid());
 
--- Zákazník může aktualizovat svůj incident (přidat popis, fotky)
 DROP POLICY IF EXISTS sos_incidents_customer_update ON sos_incidents;
 CREATE POLICY sos_incidents_customer_update ON sos_incidents
   FOR UPDATE USING (user_id = auth.uid())
@@ -123,15 +99,14 @@ CREATE TRIGGER trg_sos_incidents_updated
   BEFORE UPDATE ON sos_incidents
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
--- ═══════════════════════════════════════════════════════
 -- 2. SOS_TIMELINE
--- ═══════════════════════════════════════════════════════
+
 CREATE TABLE IF NOT EXISTS sos_timeline (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   incident_id uuid NOT NULL REFERENCES sos_incidents(id) ON DELETE CASCADE,
   action text NOT NULL,
   description text,
-  performed_by text,           -- jméno / email admina
+  performed_by text,
   admin_id uuid REFERENCES admin_users(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
@@ -151,14 +126,13 @@ CREATE POLICY sos_timeline_customer_read ON sos_timeline
     incident_id IN (SELECT id FROM sos_incidents WHERE user_id = auth.uid())
   );
 
--- ═══════════════════════════════════════════════════════
--- 3. Automatický timeline záznam při vytvoření incidentu
--- ═══════════════════════════════════════════════════════
+-- 3. Automaticky timeline zaznam pri vytvoreni incidentu
+
 CREATE OR REPLACE FUNCTION sos_auto_timeline()
 RETURNS trigger AS $$
 BEGIN
   INSERT INTO sos_timeline (incident_id, action, performed_by)
-  VALUES (NEW.id, 'Incident nahlášen zákazníkem', 'Systém');
+  VALUES (NEW.id, 'Incident nahlasen zakaznikem', 'System');
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -168,10 +142,21 @@ CREATE TRIGGER trg_sos_auto_timeline
   AFTER INSERT ON sos_incidents
   FOR EACH ROW EXECUTE FUNCTION sos_auto_timeline();
 
--- ═══════════════════════════════════════════════════════
--- 4. Realtime — povolení pro sos tabulky
--- ═══════════════════════════════════════════════════════
-ALTER PUBLICATION supabase_realtime ADD TABLE sos_incidents;
-ALTER PUBLICATION supabase_realtime ADD TABLE sos_timeline;
-ALTER PUBLICATION supabase_realtime ADD TABLE messages;
-ALTER PUBLICATION supabase_realtime ADD TABLE message_threads;
+-- 4. Realtime
+
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE sos_incidents;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE sos_timeline;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE messages;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE message_threads;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
