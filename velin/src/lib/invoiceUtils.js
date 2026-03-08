@@ -28,11 +28,12 @@ export async function generateInvoiceNumber(type) {
 
 /**
  * Calculate invoice totals from items
+ * Neplátce DPH — DPH = 0, cena je konečná
  */
-export function calculateTotals(items, vatRate = 21) {
+export function calculateTotals(items) {
   const subtotal = items.reduce((sum, it) => sum + (it.unit_price || 0) * (it.qty || 1), 0)
-  const taxAmount = Math.round(subtotal * (vatRate / 100) * 100) / 100
-  const total = subtotal + taxAmount
+  const taxAmount = 0
+  const total = subtotal
   return { subtotal, taxAmount, total }
 }
 
