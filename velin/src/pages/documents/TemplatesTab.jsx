@@ -38,7 +38,7 @@ export default function TemplatesTab() {
     const { data, error: err } = await supabase
       .from('document_templates')
       .select('*')
-      .order('template_type')
+      .order('type')
     if (err) setError(err.message)
     else setTemplates(data || [])
     setLoading(false)
@@ -50,7 +50,7 @@ export default function TemplatesTab() {
   const filtered = templates.filter(t => {
     if (!search) return true
     const s = search.toLowerCase()
-    return (t.title || '').toLowerCase().includes(s) || (t.template_type || '').toLowerCase().includes(s)
+    return (t.name || '').toLowerCase().includes(s) || (t.type || '').toLowerCase().includes(s)
   })
 
   return (
@@ -69,14 +69,14 @@ export default function TemplatesTab() {
             <Card key={t.id}>
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <h4 className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{t.title}</h4>
+                  <h4 className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{t.name}</h4>
                   <span className="text-[10px] font-bold" style={{ color: '#8aab99' }}>v{t.version || 1}</span>
                 </div>
-                <span className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>{t.template_type}</span>
+                <span className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>{t.type}</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px]" style={{ color: '#8aab99' }}>
-                  Proměnné: {extractVars(t.html_content).join(', ') || '—'}
+                  Proměnné: {extractVars(t.content_html).join(', ') || '—'}
                 </span>
               </div>
               <div className="flex items-center gap-2 mt-3">
@@ -117,8 +117,8 @@ function extractVars(content) {
 }
 
 function EditTemplateModal({ template, onClose, onSaved }) {
-  const [name, setName] = useState(template.title || '')
-  const [content, setContent] = useState(template.html_content || '')
+  const [name, setName] = useState(template.name || '')
+  const [content, setContent] = useState(template.content_html || '')
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [err, setErr] = useState(null)
@@ -137,7 +137,7 @@ function EditTemplateModal({ template, onClose, onSaved }) {
     try {
       const newVersion = (template.version || 1) + 1
       const { data: { user } } = await supabase.auth.getUser()
-      const updatePayload = { title: name, html_content: content, version: newVersion, updated_by: user?.id }
+      const updatePayload = { name, content_html: content, version: newVersion, updated_by: user?.id }
       const result = await debugAction('template.update', 'EditTemplateModal', () =>
         supabase.from('document_templates').update(updatePayload).eq('id', template.id)
       , updatePayload)
@@ -169,7 +169,7 @@ function EditTemplateModal({ template, onClose, onSaved }) {
   }
 
   return (
-    <Modal open title={`Upravit šablonu: ${template.title}`} onClose={onClose} wide>
+    <Modal open title={`Upravit šablonu: ${template.name}`} onClose={onClose} wide>
       <div className="space-y-3">
         <div>
           <Label>Název</Label>
@@ -264,7 +264,7 @@ function RegenerateModal({ template, onClose }) {
         company_ico: '12345678',
       }
 
-      let filledHtml = template.html_content || ''
+      let filledHtml = template.content_html || ''
       for (const [k, v] of Object.entries(vars)) {
         filledHtml = filledHtml.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v)
       }
@@ -295,7 +295,7 @@ function RegenerateModal({ template, onClose }) {
   }
 
   return (
-    <Modal open title={`Znovu vygenerovat: ${template.title}`} onClose={onClose}>
+    <Modal open title={`Znovu vygenerovat: ${template.name}`} onClose={onClose}>
       <Label>Vyberte rezervaci</Label>
       {loading ? (
         <div className="py-4 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>

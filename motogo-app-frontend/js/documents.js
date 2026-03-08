@@ -38,8 +38,8 @@ async function showVOP(){
   var t=_t('doc');
   var tpl = typeof apiFetchDocTemplate === 'function' ? await apiFetchDocTemplate('vop') : null;
   var bodyHtml = '';
-  if(tpl && tpl.html_content){
-    bodyHtml = tpl.html_content;
+  if(tpl && tpl.content_html){
+    bodyHtml = tpl.content_html;
   } else {
     bodyHtml = '<h3>'+t.vopTitle+'</h3><p><strong>'+COMPANY.name+'</strong>, '+t.seat+': '+COMPANY.sidlo+', IČ: '+COMPANY.ic+'</p>'+
       '<h4>1. '+t.vopSubject+'</h4><p>'+t.vopSubjectText+'</p>'+
@@ -71,8 +71,8 @@ async function showRentalContract(bookingId){
   // Try Velín template first, with placeholder replacement
   var tpl = typeof apiFetchDocTemplate === 'function' ? await apiFetchDocTemplate('contract') : null;
   var bodyHtml = '';
-  if(tpl && tpl.html_content){
-    bodyHtml = tpl.html_content
+  if(tpl && tpl.content_html){
+    bodyHtml = tpl.content_html
       .replace(/\{company_name\}/g, COMPANY.name).replace(/\{company_address\}/g, COMPANY.sidlo)
       .replace(/\{company_ic\}/g, COMPANY.ic).replace(/\{company_email\}/g, COMPANY.email)
       .replace(/\{customer_name\}/g, pName).replace(/\{customer_address\}/g, pAddr)
@@ -134,8 +134,8 @@ async function showDigitalProtocol(bookingId){
 
   var tpl = typeof apiFetchDocTemplate === 'function' ? await apiFetchDocTemplate('protocol') : null;
   var bodyHtml = '';
-  if(tpl && tpl.html_content){
-    bodyHtml = tpl.html_content
+  if(tpl && tpl.content_html){
+    bodyHtml = tpl.content_html
       .replace(/\{company_name\}/g, COMPANY.name)
       .replace(/\{customer_name\}/g, pName)
       .replace(/\{moto_name\}/g, mn).replace(/\{moto_spz\}/g, mSpz)
