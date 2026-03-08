@@ -294,12 +294,13 @@ async function sosReplLoadMotos(){
         if(pr.data && pr.data.license_group) customerLicense = pr.data.license_group; // array e.g. ['A'] or ['A2']
       }
 
-      // Načti všechny motorky (ne jen active – zobrazit všechny dostupné)
+      // Načti všechny motorky se statusem active
       var r = await window.supabase.from('motorcycles')
         .select('id, model, image_url, images, daily_price, price_per_day, category, license_required, branches(name, city)')
-        .in('status', ['active', 'available'])
+        .eq('status', 'active')
         .limit(50);
       var allMotos = r.data || [];
+      console.log('[SOS] allMotos from DB:', allMotos.length);
 
       // Filtruj: 1) ne aktuální motorku, 2) zákazník má odpovídající řidičák
       var motos = allMotos.filter(function(m){
@@ -315,22 +316,7 @@ async function sosReplLoadMotos(){
         }
         return true;
       });
-
-      // Zkontroluj dostupnost v termínu rezervace (vyřaď motorky s kolizí)
-      if(startDate && endDate){
-        var now = new Date().toISOString();
-        var bookedR = await window.supabase.from('bookings')
-          .select('moto_id')
-          .in('status', ['active', 'confirmed', 'pending'])
-          .in('payment_status', ['paid', 'pending'])
-          .lt('start_date', endDate)
-          .gt('end_date', now);
-        var bookedMotoIds = {};
-        if(bookedR.data){
-          bookedR.data.forEach(function(b){ bookedMotoIds[b.moto_id] = true; });
-        }
-        motos = motos.filter(function(m){ return !bookedMotoIds[m.id]; });
-      }
+      console.log('[SOS] after license+current filter:', motos.length);
 
       if(motos.length === 0){
         container.innerHTML = '<div style="text-align:center;padding:15px;color:#b91c1c;font-size:12px;font-weight:600;">Žádné motorky momentálně nejsou dostupné. Kontaktujte MotoGo24.</div>';
