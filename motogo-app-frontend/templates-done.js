@@ -17,21 +17,8 @@ Templates['s-done-detail'] = `  <div class="done-hdr">
   </div>
   <div class="rd-card">
     <div class="rd-section-t" id="t-docsToDownload">📄 Doklady ke stažení</div>
-    <div class="doc-dl-row" onclick="generateDocDownload('Zálohová faktura','zalohova_faktura.txt')">
-      <div class="doc-dl-icon">🧾</div>
-      <div class="doc-dl-info"><div class="doc-dl-name" id="t-advanceInvoice">Zálohová faktura</div><div class="doc-dl-sub">PDF · 45 kB</div></div>
-      <div class="doc-dl-actions">
-        <button class="doc-dl-btn dl" onclick="event.stopPropagation();generateDocDownload('Zálohová faktura','zalohova_faktura.txt')">⬇️</button>
-        <button class="doc-dl-btn sh" onclick="event.stopPropagation();sendDocEmail('Zálohová faktura')">📧</button>
-      </div>
-    </div>
-    <div class="doc-dl-row" onclick="generateDocDownload('Konečná faktura','konecna_faktura.txt')">
-      <div class="doc-dl-icon">💰</div>
-      <div class="doc-dl-info"><div class="doc-dl-name" id="t-finalInvoiceLabel">Konečná faktura</div><div class="doc-dl-sub">PDF · 52 kB</div></div>
-      <div class="doc-dl-actions">
-        <button class="doc-dl-btn dl" onclick="event.stopPropagation();generateDocDownload('Konečná faktura','konecna_faktura.txt')">⬇️</button>
-        <button class="doc-dl-btn sh" onclick="event.stopPropagation();sendDocEmail('Konečná faktura')">📧</button>
-      </div>
+    <div id="done-docs-list">
+      <!-- Dynamically filled by openResDetailById -->
     </div>
   </div>
   <div class="rd-card" id="done-rating-card">
