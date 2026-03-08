@@ -117,6 +117,14 @@ function _renderResCard(b){
   var name = b.moto_name || 'Motorka';
   var grayscale = (st === 'dokoncene' || st === 'cancelled') ? 'filter:grayscale(.5);' : '';
 
+  // SOS replacement badges
+  var sosBadge = '';
+  if(b.sos_replacement){
+    sosBadge = '<div style="background:#dcfce7;color:#1a8a18;border-radius:50px;padding:3px 10px;font-size:10px;font-weight:800;display:inline-block;margin-top:4px;">🏍️ Náhradní motorka (SOS)</div>';
+  } else if(b.ended_by_sos){
+    sosBadge = '<div style="background:#fee2e2;color:#b91c1c;border-radius:50px;padding:3px 10px;font-size:10px;font-weight:800;display:inline-block;margin-top:4px;">🆘 Ukončeno — SOS incident</div>';
+  }
+
   var btns = '';
   if(st === 'aktivni'){
     btns = '<div class="rbtn g" onclick="event.stopPropagation();openResDetailById(\''+b.id+'\')">📋 '+_t('res').detail+'</div>' +
@@ -134,7 +142,7 @@ function _renderResCard(b){
   }
 
   return '<div class="rcard" onclick="openResDetailById(\''+b.id+'\')">' +
-    '<div class="rci" style="'+grayscale+'"><img src="'+img+'" onerror="this.style.display=\'none\'" loading="lazy"><div class="rcio"><div><div class="rcn">'+name+'</div><div class="rcid">#'+b.id.substr(-12)+'</div></div></div><div class="rst '+stClass+'">'+stLabel+'</div></div>' +
+    '<div class="rci" style="'+grayscale+'"><img src="'+img+'" onerror="this.style.display=\'none\'" loading="lazy"><div class="rcio"><div><div class="rcn">'+name+'</div><div class="rcid">#'+b.id.substr(-12)+'</div>'+sosBadge+'</div></div><div class="rst '+stClass+'">'+stLabel+'</div></div>' +
     '<div class="rcb"><div class="rcinfo"><div class="rccol"><div class="rccol-l">'+_t('res').date+'</div><div class="rccol-v">'+_fmtDate(b.start_date)+'</div></div><div class="rccol"><div class="rccol-l">'+_t('res').duration+'</div><div class="rccol-v">'+days+' '+(days===1?_t('res').day1:_t('res').days5)+'</div></div><div class="rccol"><div class="rccol-l">'+_t('res').total+'</div><div class="rccol-v">'+(b.total_price||0).toLocaleString('cs-CZ')+' Kč</div></div></div>' +
     '<div class="ract">'+btns+'</div></div></div>';
 }
@@ -204,6 +212,35 @@ async function openResDetailById(bookingId){
       if(booking.discount_code) extrasHtml += '<div class="rd-row"><div class="rd-label">Kód poukazu</div><div class="rd-value">' + booking.discount_code + '</div></div>';
       extrasEl.innerHTML = extrasHtml;
       extrasEl.style.display = extrasHtml ? 'block' : 'none';
+    }
+
+    // SOS replacement info banner
+    var sosBanner = document.getElementById('rd-sos-banner');
+    if(!sosBanner){
+      // Create SOS banner element if not in template
+      var rdContainer = document.getElementById('s-res-detail');
+      if(rdContainer){
+        sosBanner = document.createElement('div');
+        sosBanner.id = 'rd-sos-banner';
+        var firstCard = rdContainer.querySelector('.bcard');
+        if(firstCard) firstCard.parentNode.insertBefore(sosBanner, firstCard);
+      }
+    }
+    if(sosBanner){
+      if(booking.sos_replacement){
+        sosBanner.style.display = 'block';
+        sosBanner.style.cssText = 'display:block;margin:0 16px 10px;padding:12px 14px;border-radius:12px;background:#dcfce7;border:2px solid #86efac;';
+        sosBanner.innerHTML = '<div style="font-size:13px;font-weight:800;color:#1a8a18;">🏍️ Náhradní motorka (SOS)</div>' +
+          '<div style="font-size:11px;color:#166534;margin-top:3px;line-height:1.5;">Tato rezervace byla vytvořena automaticky jako náhrada za poškozenou motorku.' +
+          (booking.replacement_for_booking_id ? ' Nahrazuje rezervaci #' + booking.replacement_for_booking_id.substr(-8) + '.' : '') + '</div>';
+      } else if(booking.ended_by_sos){
+        sosBanner.style.display = 'block';
+        sosBanner.style.cssText = 'display:block;margin:0 16px 10px;padding:12px 14px;border-radius:12px;background:#fee2e2;border:2px solid #fca5a5;';
+        sosBanner.innerHTML = '<div style="font-size:13px;font-weight:800;color:#b91c1c;">🆘 Ukončeno kvůli SOS incidentu</div>' +
+          '<div style="font-size:11px;color:#991b1b;margin-top:3px;line-height:1.5;">Tato rezervace byla předčasně ukončena kvůli poruše / nehodě. Byla objednána náhradní motorka.</div>';
+      } else {
+        sosBanner.style.display = 'none';
+      }
     }
 
     // Banner

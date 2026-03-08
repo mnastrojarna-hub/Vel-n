@@ -23,7 +23,8 @@ const navMap = {
   's-messages':'ni-profile',
   's-invoices':'ni-profile',
   's-contracts':'ni-profile',
-  's-sos-replacement':'ni-res'
+  's-sos-replacement':'ni-res',
+  's-sos-payment':'ni-res'
 };
 
 function goTo(id){
