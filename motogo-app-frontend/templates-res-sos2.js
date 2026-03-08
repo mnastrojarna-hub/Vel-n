@@ -72,7 +72,7 @@ Templates['s-sos-nepojizda-porucha'] = `  <div class="sos-sub-hdr warn">
     <p style="color:rgba(255,255,255,.7);font-size:12px;margin-top:4px;" id="t-wontStartSub">Vážná porucha – jak chcete pokračovat?</p>
   </div>
   <div style="padding:14px 20px 0;">
-    <div class="sos-option" onclick="_sosFault=false;_sosActiveIncidentId=null;sosRequestReplacement()" style="border-color:#86efac;">
+    <div class="sos-option" onclick="_sosActiveIncidentId=null;sosRequestReplacement()" style="border-color:#86efac;">
       <div class="sos-option-icon" style="background:var(--gp);">🏍️</div>
       <div style="flex:1;">
         <div class="sos-option-title" id="t-replaceTitle">Náhradní motorka co nejdříve</div>

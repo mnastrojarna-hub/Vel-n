@@ -209,7 +209,7 @@ function NewInvoiceModal({ onClose, onSaved }) {
         <div className="col-span-2">
           <Label>Typ faktury</Label>
           <select value={form.type} onChange={e => set('type', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle}>
-            <option value="proforma">Zálohová</option>
+            <option value="advance">Zálohová</option>
             <option value="final">Konečná</option>
             <option value="shop_proforma">Shop zálohová</option>
             <option value="shop_final">Shop konečná</option>

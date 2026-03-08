@@ -1158,8 +1158,8 @@ async function apiFetchDocTemplate(templateType){
   if(!window.supabase) return null;
   try {
     var r = await window.supabase.from('document_templates')
-      .select('content_html, name, version')
-      .eq('type', templateType).eq('active', true)
+      .select('html_content, title, version')
+      .eq('template_type', templateType).eq('active', true)
       .order('version', {ascending:false}).limit(1).single();
     return r.data || null;
   } catch(e){ return null; }
