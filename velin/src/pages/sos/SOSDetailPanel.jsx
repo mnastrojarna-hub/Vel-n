@@ -206,6 +206,17 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
     const { error } = await supabase.from('motorcycles').update({ status: 'maintenance' }).eq('id', motoId)
     if (error) { alert('Chyba: ' + error.message); return }
     const { data: { user } } = await supabase.auth.getUser()
+    // Create maintenance_log entry so moto is visible in Service section
+    const sosType = incident?.type || 'other'
+    const sosDesc = TYPE_LABELS[sosType] || sosType
+    await supabase.from('maintenance_log').insert({
+      moto_id: motoId,
+      type: 'repair',
+      description: `SOS incident: ${sosDesc}${incident?.description ? ' — ' + incident.description.slice(0, 200) : ''}`,
+      status: 'in_service',
+      performed_by: user?.email || 'Admin',
+      sos_incident_id: incident.id,
+    })
     await supabase.from('sos_timeline').insert({
       incident_id: incident.id,
       action: `Motorka ${moto?.model || motoId} přesunuta do servisu`,
