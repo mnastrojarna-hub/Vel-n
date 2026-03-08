@@ -366,7 +366,7 @@ async function renderInvoicesPage(){
   if(!wrap)return;
   var t=_t('doc');
   var docs=await apiFetchDocuments();
-  var invoices=docs.filter(function(d){return d.type==='invoice_advance'||d.type==='invoice_final';});
+  var invoices=docs.filter(function(d){return d.type==='invoice_advance'||d.type==='invoice_final'||d.type==='invoice_shop';});
 
   if(invoices.length===0){
     wrap.innerHTML='<div style="text-align:center;padding:30px;color:var(--g400);">'+t.noInvoices+'</div>';
@@ -384,19 +384,60 @@ async function renderInvoicesPage(){
   Object.keys(years).sort(function(a,b){return b-a;}).forEach(function(yr){
     html+='<div class="msec-t" style="padding:'+(html?'12':'0')+'px 0 8px;">'+yr+'</div>';
     years[yr].forEach(function(d){
-      var icon=d.type==='invoice_advance'?'🧾':'💰';
-      var label=d.type==='invoice_advance'?t.invoiceAdvance:t.invoiceFinal;
+      var isShop=(d.type==='invoice_shop');
+      var icon=isShop?'🛒':(d.type==='invoice_advance'?'🧾':'💰');
+      var label=isShop?(t.shopInvoice||'Faktura – Shop'):(d.type==='invoice_advance'?t.invoiceAdvance:t.invoiceFinal);
       var invType=d.type==='invoice_advance'?'advance':'final';
       var amt=d.amount?d.amount.toLocaleString('cs-CZ')+' Kč':'';
-      html+='<div class="inv-item" onclick="showInvoice(\''+d.booking_id+'\',\''+invType+'\')">'+
+      var itemName=isShop?(d.shop_items||'Shop'):(d.moto_name||'');
+      var onclick=isShop?'showShopOrderDetail(\''+d.id+'\')':'showInvoice(\''+d.booking_id+'\',\''+invType+'\')';
+      html+='<div class="inv-item" onclick="'+onclick+'">'+
         '<div class="inv-icon">'+icon+'</div>'+
-        '<div class="inv-info"><div class="inv-name">'+d.moto_name+' · '+label+'</div>'+
+        '<div class="inv-info"><div class="inv-name">'+itemName+' · '+label+'</div>'+
         '<div class="inv-sub">'+d.res_num+' · '+_docDate(d.date)+'</div></div>'+
         '<div>'+(amt?'<div class="inv-amt">'+amt+'</div>':'')+
         '<div style="font-size:10px;color:var(--g400);text-align:right;margin-top:2px;">PDF ⬇️ · 📧</div></div></div>';
     });
   });
   wrap.innerHTML=html;
+}
+
+// ===== SHOP ORDER DETAIL (invoice view for shop purchases) =====
+async function showShopOrderDetail(orderId){
+  if(!_isSupabaseReady()){showT('✗',_t('common').error,'Offline');return;}
+  try {
+    var r=await supabase.from('shop_orders').select('*, shop_order_items(*)').eq('id',orderId).single();
+    if(!r.data){showT('✗',_t('common').error,'Objednávka nenalezena');return;}
+    var o=r.data,t=_t('doc');
+    var p=await apiFetchProfile();
+    var pName=p?p.full_name:'—';
+    var pAddr=p?[p.street,p.city,p.zip].filter(Boolean).join(', '):'—';
+    var itemsHtml=(o.shop_order_items||[]).map(function(it){
+      return '<tr><td>'+(it.product_name||'')+'</td><td>'+(it.quantity||1)+' ks</td>'+
+        '<td>'+(it.unit_price||0).toLocaleString('cs-CZ')+' Kč</td>'+
+        '<td>'+(it.total_price||0).toLocaleString('cs-CZ')+' Kč</td></tr>';
+    }).join('');
+    var invNum='OBJ-'+(o.order_number||o.id.substr(-6).toUpperCase());
+    var html='<div class="doc-view"><div class="doc-view-hdr"><div class="back-row" onclick="closeDocView()">'+
+      '<div class="bk-c">←</div><div class="bk-l">'+t.back+'</div></div>'+
+      '<h2>'+(t.shopInvoice||'Faktura – Shop')+'</h2><p>'+invNum+'</p></div><div class="doc-view-body">'+
+      '<div class="inv-doc-header"><strong>'+(t.shopInvoice||'Faktura – Shop')+'</strong> '+invNum+'</div>'+
+      '<div class="doc-parties"><div class="doc-party"><strong>'+t.supplier+':</strong><br>'+
+      COMPANY.name+'<br>'+COMPANY.sidlo+'<br>IČ: '+COMPANY.ic+'</div>'+
+      '<div class="doc-party"><strong>'+t.customer+':</strong><br>'+pName+'<br>'+pAddr+'</div></div>'+
+      '<div class="inv-meta">'+
+      '<div class="doc-field"><span class="doc-lbl">'+t.issueDate+':</span> '+_docDate(o.created_at)+'</div>'+
+      '<div class="doc-field"><span class="doc-lbl">Stav:</span> '+(o.payment_status==='paid'?'✓ Zaplaceno':'⏳ Čeká na platbu')+'</div>';
+    if(o.shipping_address) html+='<div class="doc-field"><span class="doc-lbl">Doručení:</span> '+o.shipping_address+'</div>';
+    html+='</div><table class="inv-table"><thead><tr><th>'+t.item+'</th><th>'+t.qty+'</th><th>'+t.unitPrice+'</th><th>'+t.total+'</th></tr></thead>'+
+      '<tbody>'+itemsHtml+'</tbody></table>';
+    if(o.shipping_cost>0) html+='<div class="doc-field" style="margin:6px 0;"><span class="doc-lbl">Doprava:</span> '+o.shipping_cost.toLocaleString('cs-CZ')+' Kč</div>';
+    if(o.discount>0) html+='<div class="doc-field" style="margin:6px 0;"><span class="doc-lbl">Sleva:</span> -'+o.discount.toLocaleString('cs-CZ')+' Kč</div>';
+    html+='<div class="inv-total"><span>'+t.totalToPay+':</span> <strong>'+(o.total||0).toLocaleString('cs-CZ')+' Kč</strong></div>'+
+      '<p style="font-size:10px;color:var(--g400);margin-top:8px;">'+COMPANY.note+'</p>'+
+      '</div></div>';
+    _openDocOverlay(html);
+  } catch(e){console.error('showShopOrderDetail:',e);showT('✗',_t('common').error,'Chyba');}
 }
 
 // ===== DOWNLOAD MANUAL =====
