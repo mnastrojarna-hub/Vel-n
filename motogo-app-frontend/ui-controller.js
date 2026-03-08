@@ -722,7 +722,7 @@ async function _sosSwapBookingsAndConfirm(incId, replacementData, isPaid, addres
 
 function sosEndRide() {
     showT('🚛', 'Objednávám odtah...', '');
-    _sosActiveIncidentId = null;
+    // Keep _sosActiveIncidentId — reuse existing incident from sosReportAccident
     var faultDesc = _sosFault === true ? 'Nehoda byla moje chyba' : _sosFault === false ? 'Nehoda nebyla moje chyba' : '';
     var desc = 'Motorka nepojízdná – ukončuji jízdu, žádám odtah. ' + faultDesc;
     var type = _sosFault !== null ? 'accident_major' : 'breakdown_major';
@@ -743,7 +743,7 @@ function sosEndRide() {
 }
 
 function sosEndRideFree() {
-    _sosActiveIncidentId = null;
+    // Keep _sosActiveIncidentId — reuse existing incident
     var desc = 'Porucha – motorka nepojízdná. Ukončuji jízdu, zařídím se sám.';
     _sosEnsureIncident('breakdown_major', desc).then(function(incId){
       if(incId){
@@ -1128,7 +1128,7 @@ function setNehoda(vinik){
 }
 function setNepojizda(vinik){
   _sosFault = vinik;
-  _sosActiveIncidentId = null;
+  // Keep _sosActiveIncidentId — reuse existing incident, don't create duplicate
   const bv=document.getElementById('btn-nepoj-vinik');
   const bn=document.getElementById('btn-nepoj-nevinik');
   const info=document.getElementById('nepojizda-info');
