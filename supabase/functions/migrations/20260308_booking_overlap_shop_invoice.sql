@@ -12,7 +12,7 @@ BEGIN
     WHERE moto_id = NEW.moto_id
       AND id != COALESCE(NEW.id, '00000000-0000-0000-0000-000000000000'::uuid)
       AND status NOT IN ('cancelled', 'completed')
-      AND tstzrange(pickup_date, return_date) && tstzrange(NEW.pickup_date, NEW.return_date)
+      AND tstzrange(start_date, end_date) && tstzrange(NEW.start_date, NEW.end_date)
   ) THEN
     RAISE EXCEPTION 'Booking overlap detected for moto_id %', NEW.moto_id;
   END IF;
@@ -28,7 +28,7 @@ CREATE TRIGGER trg_check_booking_overlap
 
 -- 2) Index for fast overlap queries
 CREATE INDEX IF NOT EXISTS idx_bookings_moto_dates
-  ON bookings (moto_id, pickup_date, return_date);
+  ON bookings (moto_id, start_date, end_date);
 
 -- 3) Trigger function: auto-generate invoice when shop order is paid
 CREATE OR REPLACE FUNCTION generate_shop_invoice()
