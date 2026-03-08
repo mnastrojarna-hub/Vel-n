@@ -148,13 +148,33 @@ Templates['s-profile'] = `  <div class="prof-hdr">
 
 Templates['s-messages'] = `  <div class="topbar">
     <div class="back-row" onclick="histBack()"><div class="bk-c">\u2190</div><div class="bk-l">Zp\u011bt na profil</div></div>
-    <h2>Zpr\u00e1vy z Moto Go</h2>
-    <p>Reakce na va\u0161e SOS hl\u00e1\u0161en\u00ed a ozn\u00e1men\u00ed</p>
+    <h2>Zpr\u00e1vy</h2>
+    <p>Komunikace s MotoGo24</p>
   </div>
-  <div id="messages-list" style="margin:12px 20px 0;">
+  <div style="margin:0 20px;">
+    <div id="msg-tabs" style="display:flex;gap:4px;margin-bottom:12px;">
+      <button onclick="msgSwitchTab('notif')" id="msg-tab-notif" class="msg-tab msg-tab-active" style="flex:1;padding:10px;border:2px solid var(--green);border-radius:var(--rsm);font-family:var(--font);font-size:12px;font-weight:800;cursor:pointer;background:var(--green);color:#fff;">Ozn\u00e1men\u00ed</button>
+      <button onclick="msgSwitchTab('chat')" id="msg-tab-chat" class="msg-tab" style="flex:1;padding:10px;border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:12px;font-weight:800;cursor:pointer;background:#fff;color:var(--black);">Konverzace</button>
+    </div>
+  </div>
+  <div id="messages-list" style="margin:0 20px;">
+    <div style="text-align:center;padding:20px;color:var(--g400);">\u23f3 Na\u010d\u00edt\u00e1n\u00ed...</div>
+  </div>
+  <div id="threads-list" style="margin:0 20px;display:none;">
     <div style="text-align:center;padding:20px;color:var(--g400);">\u23f3 Na\u010d\u00edt\u00e1n\u00ed...</div>
   </div>
   <div style="height:20px;"></div>`;
+
+Templates['s-messages-thread'] = `  <div class="topbar">
+    <div class="back-row" onclick="goTo('s-messages');msgSwitchTab('chat')"><div class="bk-c">\u2190</div><div class="bk-l">Zp\u011bt</div></div>
+    <h2 id="thread-title">Konverzace</h2>
+    <p id="thread-status" style="font-size:11px;"></p>
+  </div>
+  <div id="thread-messages" style="margin:0 20px;padding-bottom:80px;"></div>
+  <div id="thread-reply-bar" style="position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:2px solid var(--g100);padding:10px 16px;display:flex;gap:8px;z-index:100;">
+    <input type="text" id="thread-reply-input" placeholder="Napi\u0161te zpr\u00e1vu..." style="flex:1;padding:10px 14px;border:2px solid var(--g200);border-radius:50px;font-family:var(--font);font-size:13px;">
+    <button onclick="sendThreadReply()" style="background:var(--green);color:#fff;border:none;border-radius:50px;padding:10px 18px;font-family:var(--font);font-size:13px;font-weight:800;cursor:pointer;">Odeslat</button>
+  </div>`;
 
 Templates['s-invoices'] = `  <div class="topbar">
     <div class="back-row" onclick="histBack()"><div class="bk-c">←</div><div class="bk-l" id="t-backToProfile">Zpět na profil</div></div>

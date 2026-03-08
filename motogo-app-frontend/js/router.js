@@ -21,10 +21,12 @@ const navMap = {
   's-voucher':'ni-merch',
   's-profile':'ni-profile',
   's-messages':'ni-profile',
+  's-messages-thread':'ni-profile',
   's-invoices':'ni-profile',
   's-contracts':'ni-profile',
   's-sos-replacement':'ni-res',
-  's-sos-payment':'ni-res'
+  's-sos-payment':'ni-res',
+  's-sos-done':'ni-res'
 };
 
 function goTo(id){
@@ -143,6 +145,10 @@ function goTo(id){
   }
   if(id==='s-messages'){
     if(typeof renderAdminMessages==='function') renderAdminMessages();
+    if(typeof renderThreadsList==='function') renderThreadsList();
+  }
+  if(id==='s-messages-thread'){
+    if(typeof renderThreadChat==='function') renderThreadChat();
   }
   if(id==='s-invoices'){
     if(typeof renderInvoicesPage==='function') renderInvoicesPage();
