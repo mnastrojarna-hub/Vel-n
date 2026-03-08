@@ -142,12 +142,24 @@ async function showDigitalProtocol(bookingId){
       .replace(/\{date_from\}/g, pickup).replace(/\{date_to\}/g, returnD)
       .replace(/\{res_number\}/g, rn);
   } else {
-    var items=['Klíče (od motorky + od kufru)','Zelená karta','Malý technický průkaz',
-      '2× reflexní vesta','Motolékárnička','Záznam o dopravní nehodě','Kukla (nová)',
-      'Helma řidiče','Rukavice','Bunda','Kalhoty'];
+    var items=[
+      {name:'Klíče (od motorky + od kufru)',checked:true,locked:true},
+      {name:'Zelená karta',checked:true,locked:true},
+      {name:'Malý technický průkaz',checked:true,locked:true},
+      {name:'2× reflexní vesta',checked:true,locked:true},
+      {name:'Motolékárnička',checked:true,locked:true},
+      {name:'Záznam o dopravní nehodě',checked:true,locked:true},
+      {name:'Kukla (nová) – zákazník si nechává',checked:true,locked:true},
+      {name:'Helma řidiče',checked:true,locked:false},
+      {name:'Rukavice',checked:true,locked:false},
+      {name:'Bunda',checked:true,locked:false},
+      {name:'Kalhoty',checked:true,locked:false}
+    ];
     var checkHtml=items.map(function(it){
-      return '<label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;cursor:pointer;">'+
-        '<input type="checkbox" class="proto-chk" style="accent-color:var(--green);width:15px;height:15px;"> '+it+'</label>';
+      var dis=it.locked?' disabled':'';
+      var chk=it.checked?' checked':'';
+      return '<label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;cursor:'+(it.locked?'default':'pointer')+';">'+
+        '<input type="checkbox" class="proto-chk"'+chk+dis+' style="accent-color:var(--green);width:15px;height:15px;"> '+it.name+'</label>';
     }).join('');
     bodyHtml = '<div class="doc-parties"><div class="doc-party"><strong>'+COMPANY.name+'</strong></div>'+
       '<div class="doc-party"><strong>'+pName+'</strong></div></div>'+
@@ -250,7 +262,8 @@ async function showInvoice(bookingId,type){
     '<div class="doc-field"><span class="doc-lbl">'+t.dueDate+':</span> '+dueDate+'</div>'+
     '<div class="doc-field"><span class="doc-lbl">VS:</span> '+vs+'</div>'+
     '<div class="doc-field"><span class="doc-lbl">'+t.payMethod+':</span> '+t.card+'</div>'+
-    '<div class="doc-field"><span class="doc-lbl">'+t.bankAccount+':</span> '+COMPANY.bank+'</div></div>'+
+    '<div class="doc-field"><span class="doc-lbl">'+t.bankAccount+':</span> '+COMPANY.bank+'</div>'+
+    '<div class="doc-field"><span class="doc-lbl">Č. rezervace:</span> '+rn+'</div></div>'+
     '<table class="inv-table"><thead><tr><th>'+t.item+'</th><th>'+t.qty+'</th><th>'+t.unitPrice+'</th><th>'+t.total+'</th></tr></thead>'+
     '<tbody>'+itemsHtml+'</tbody></table>';
   if(taxAmt>0){
@@ -267,26 +280,33 @@ async function showInvoice(bookingId,type){
   _openDocOverlay(html);
 }
 
-// Download invoice HTML from Supabase storage if available
+// Download invoice as HTML file generated from current view
 async function _downloadInvoiceHtml(bookingId,invNum){
-  if(!_isSupabaseReady()){showT('⬇️','PDF',invNum+'.pdf');return;}
-  try {
-    var inv=await supabase.from('invoices').select('pdf_path')
-      .eq('booking_id',bookingId).order('created_at',{ascending:false}).limit(1);
-    var path=(inv.data&&inv.data[0])?inv.data[0].pdf_path:null;
-    if(path){
-      var dl=await supabase.storage.from('documents').download(path);
-      if(dl.data){
-        var url=URL.createObjectURL(dl.data);
-        var a=document.createElement('a');a.href=url;
-        a.download='faktura_'+invNum+'.html';
-        document.body.appendChild(a);a.click();
-        document.body.removeChild(a);URL.revokeObjectURL(url);
-        showT('✓',_t('common').downloaded,invNum);return;
-      }
+  // Get the currently displayed invoice HTML from overlay
+  var ov=document.getElementById('doc-overlay');
+  if(ov && ov.style.display!=='none'){
+    var body=ov.querySelector('.doc-view-body');
+    if(body){
+      var htmlContent='<!DOCTYPE html><html><head><meta charset="utf-8">'+
+        '<title>'+invNum+'</title>'+
+        '<style>body{font-family:Arial,sans-serif;padding:20px;max-width:800px;margin:0 auto;}'+
+        'table{width:100%;border-collapse:collapse;margin:12px 0;}th,td{border:1px solid #ddd;padding:8px;text-align:left;}'+
+        'th{background:#f5f5f5;font-weight:700;}.doc-parties{display:flex;gap:20px;margin:12px 0;}'+
+        '.doc-party{flex:1;padding:10px;background:#f9f9f9;border-radius:6px;font-size:13px;line-height:1.6;}'+
+        '.doc-field{font-size:13px;margin:4px 0;}.doc-lbl{font-weight:700;color:#555;}'+
+        '.inv-total{font-size:18px;font-weight:900;text-align:right;margin:16px 0;padding:12px;background:#f0fdf4;border-radius:8px;}</style></head>'+
+        '<body>'+body.innerHTML.replace(/<button[^>]*>.*?<\/button>/gi,'')+'</body></html>';
+      var blob=new Blob([htmlContent],{type:'text/html;charset=utf-8'});
+      var url=URL.createObjectURL(blob);
+      var a=document.createElement('a');a.href=url;
+      a.download='faktura_'+invNum+'.html';
+      document.body.appendChild(a);a.click();
+      document.body.removeChild(a);URL.revokeObjectURL(url);
+      showT('✓',_t('common').downloaded||'Staženo',invNum);
+      return;
     }
-  } catch(e){console.warn('[DOC] download err:',e);}
-  showT('⬇️','PDF',invNum+'.pdf');
+  }
+  showT('⚠️','PDF','Nejprve otevřete fakturu');
 }
 
 async function emailDoc(bookingId,type){

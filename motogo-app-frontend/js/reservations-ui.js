@@ -249,7 +249,6 @@ async function openResDetailById(bookingId){
           '<div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--g400);margin-bottom:6px;">'+(_t('res').documents||'Dokumenty')+'</div>' +
           '<button class="btn-out" onclick="showInvoice(\''+bookingId+'\',\'advance\')">🧾 '+(_t('res').proformaInvoice||'Zálohová faktura')+'</button>' +
           '<button class="btn-out" style="margin-top:6px;" onclick="showRentalContract(\''+bookingId+'\')">📄 '+(_t('res').contract||'Smlouva o pronájmu')+'</button>' +
-          '<button class="btn-out" style="margin-top:6px;" onclick="showInvoice(\''+bookingId+'\',\'final\')">💰 '+(_t('res').finalInvoice||'Konečná faktura')+'</button>' +
           '</div>';
       }
       if(st === 'aktivni'){
@@ -262,12 +261,41 @@ async function openResDetailById(bookingId){
                '<button class="btn-g" style="background:var(--red);color:#fff;border:none;margin-top:8px;" onclick="doCancelBooking(\''+bookingId+'\')">🗑️ '+_t('res').cancelRes+'</button>' +
                docBtns;
       } else if(st === 'dokoncene'){
-        btns = '<button class="btn-out" onclick="showRentalContract(\''+bookingId+'\')">📄 '+(_t('res').contract||'Smlouva o pronájmu')+'</button>' +
-               '<button class="btn-out" style="margin-top:8px;" onclick="showInvoice(\''+bookingId+'\',\'final\')">💰 '+(_t('res').finalInvoice||'Konečná faktura')+'</button>';
+        var motoId = booking.moto_id || (moto ? moto.id : '');
+        btns = '<div style="border-top:1px solid var(--g100);padding-top:10px;">' +
+               '<div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--g400);margin-bottom:6px;">'+(_t('res').documents||'Dokumenty')+'</div>' +
+               '<button class="btn-out" onclick="showInvoice(\''+bookingId+'\',\'advance\')">🧾 '+(_t('res').proformaInvoice||'Zálohová faktura')+'</button>' +
+               '<button class="btn-out" style="margin-top:6px;" onclick="showInvoice(\''+bookingId+'\',\'final\')">💰 '+(_t('res').finalInvoice||'Konečná faktura')+'</button>' +
+               '<button class="btn-out" style="margin-top:6px;" onclick="showRentalContract(\''+bookingId+'\')">📄 '+(_t('res').contract||'Smlouva o pronájmu')+'</button>' +
+               '</div>' +
+               '<div style="border-top:1px solid var(--g100);margin-top:12px;padding-top:12px;">' +
+               '<div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--g400);margin-bottom:8px;">⭐ '+(_t('res').yourRating||'Vaše hodnocení')+'</div>' +
+               '<div id="rd-stars-wrap" style="display:flex;justify-content:center;gap:8px;padding:6px 0;">' +
+               '<span class="star-btn" data-v="1" onclick="rateRide(1)" style="font-size:32px;cursor:pointer;transition:transform .15s;color:#f59e0b;transform:scale(1.15);">★</span>' +
+               '<span class="star-btn" data-v="2" onclick="rateRide(2)" style="font-size:32px;cursor:pointer;transition:transform .15s;color:#f59e0b;transform:scale(1.15);">★</span>' +
+               '<span class="star-btn" data-v="3" onclick="rateRide(3)" style="font-size:32px;cursor:pointer;transition:transform .15s;color:#f59e0b;transform:scale(1.15);">★</span>' +
+               '<span class="star-btn" data-v="4" onclick="rateRide(4)" style="font-size:32px;cursor:pointer;transition:transform .15s;color:#f59e0b;transform:scale(1.15);">★</span>' +
+               '<span class="star-btn" data-v="5" onclick="rateRide(5)" style="font-size:32px;cursor:pointer;transition:transform .15s;color:#f59e0b;transform:scale(1.15);">★</span>' +
+               '</div>' +
+               '<div id="done-rating-msg" style="text-align:center;font-size:12px;color:var(--g400);font-weight:600;padding-bottom:4px;">🏆 '+(_t('res').excellent||'Výborná zkušenost!')+'</div>' +
+               '</div>' +
+               '<button class="btn-g" style="margin-top:12px;" onclick="_rebookMoto(\''+motoId+'\')">🔁 '+(_t('res').bookAgain||'Znovu rezervovat')+'</button>';
       } else if(st === 'cancelled'){
         btns = '<button class="btn-g" onclick="restoreBooking(\''+bookingId+'\')">🔄 '+_t('res').restoreBtn+'</button>';
       }
       actionsEl.innerHTML = btns;
+      // Pre-fill existing rating for completed reservations
+      if(st === 'dokoncene' && booking.rating){
+        var r = booking.rating;
+        _currentRating = r;
+        actionsEl.querySelectorAll('.star-btn').forEach(function(s,i){
+          s.style.color = i < r ? '#f59e0b' : '#d1d5db';
+          s.style.transform = i < r ? 'scale(1.15)' : 'scale(1)';
+        });
+        var msgs = ['','😞','😐','🙂','😊','🏆'];
+        var msgEl = actionsEl.querySelector('#done-rating-msg');
+        if(msgEl) msgEl.textContent = msgs[r] + ' ' + (_t('res').thankStars||'Děkujeme').replace('{n}',r);
+      }
     }
 
     goTo('s-res-detail');
@@ -456,6 +484,17 @@ async function restoreBooking(bookingId){
 
     goTo('s-payment');
   } catch(e){ console.error('restoreBooking error:', e); showT('✗',_t('common').error,_t('res').restoreFailed); }
+}
+
+function _rebookMoto(motoId){
+  if(motoId && typeof openDetail === 'function'){
+    openDetail(motoId);
+    goTo('s-detail');
+    showT('🏍️',_t('res').bookAgain||'Rezervace',_t('res').selectDateSameMoto||'Vyberte termín pro stejnou motorku');
+  } else {
+    goTo('s-home');
+    showT('🏍️',_t('res').bookAgain||'Rezervace',_t('res').selectMoto||'Vyberte motorku');
+  }
 }
 
 async function openExtendBooking(bookingId){
