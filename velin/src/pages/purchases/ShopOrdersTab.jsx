@@ -65,21 +65,29 @@ export default function ShopOrdersTab() {
         .eq('status', 'new')
       if (!paidNew || paidNew.length === 0) return
       for (const order of paidNew) {
-        const isVoucher = (order.shop_order_items || []).some(it =>
+        const items = order.shop_order_items || []
+        const voucherItems = items.filter(it =>
           (it.product_name || '').toLowerCase().includes('voucher') ||
           (it.product_name || '').toLowerCase().includes('poukaz')
         )
-        // Auto-confirm all paid orders from app
+        const isAllDigitalVouchers = voucherItems.length === items.length &&
+          items.every(it => !(it.product_name || '').toLowerCase().includes('fyzick') &&
+                           !(it.product_name || '').toLowerCase().includes('printed') &&
+                           !(it.product_name || '').toLowerCase().includes('tišt'))
+
+        // Auto-confirm all paid orders
         await supabase.from('shop_orders').update({
-          status: 'confirmed',
+          status: isAllDigitalVouchers ? 'delivered' : 'confirmed',
           confirmed_at: new Date().toISOString(),
+          ...(isAllDigitalVouchers ? { delivered_at: new Date().toISOString() } : {}),
         }).eq('id', order.id)
-        // Generate voucher if order contains voucher/poukaz items
-        if (isVoucher) {
-          for (const item of (order.shop_order_items || [])) {
-            if (!(item.product_name || '').toLowerCase().includes('voucher') &&
-                !(item.product_name || '').toLowerCase().includes('poukaz')) continue
+
+        // Generate voucher codes for voucher items
+        if (voucherItems.length > 0) {
+          const generatedCodes = []
+          for (const item of voucherItems) {
             const code = 'MG' + Math.random().toString(36).substring(2, 8).toUpperCase()
+            generatedCodes.push(code)
             const validUntil = new Date()
             validUntil.setFullYear(validUntil.getFullYear() + 1)
             await supabase.from('vouchers').insert({
@@ -94,7 +102,7 @@ export default function ShopOrdersTab() {
               source: 'eshop',
               order_id: order.id,
             })
-            // Send voucher email via edge function
+            // Send voucher email
             supabase.functions.invoke('send-booking-email', {
               body: {
                 type: 'voucher_purchased',
@@ -105,22 +113,24 @@ export default function ShopOrdersTab() {
               },
             }).catch(e => console.warn('[Voucher email]', e))
           }
-          // Send in-app thank you message
+          // In-app message with voucher codes
           if (order.customer_id) {
-            supabase.from('messages').insert({
-              thread_id: null,
-              direction: 'admin',
-              sender_name: 'MotoGo24',
-              content: 'Děkujeme za nákup dárkového poukazu! Kód voucheru byl odeslán na Váš email. Přejeme mnoho radosti z jízdy!',
-            }).then(() => {}).catch(() => {})
+            const codesStr = generatedCodes.join(', ')
             supabase.from('admin_messages').insert({
               user_id: order.customer_id,
               title: 'Dárkový poukaz — potvrzení',
-              message: 'Děkujeme za nákup dárkového poukazu! Kód voucheru byl odeslán na Váš email.',
+              message: 'Děkujeme za nákup! Vaše kódy: ' + codesStr + '. Kód můžete ihned uplatnit při rezervaci motorky.',
               type: 'info',
               read: false,
             }).then(() => {}).catch(() => {})
           }
+        }
+
+        // For fully digital voucher orders: generate final invoice immediately
+        if (isAllDigitalVouchers) {
+          supabase.functions.invoke('generate-invoice', {
+            body: { type: 'shop_final', order_id: order.id }
+          }).catch(e => console.warn('[Auto final invoice]', e))
         }
       }
       load()
@@ -338,6 +348,7 @@ function ShopOrderDetail({ order, onClose, onUpdated }) {
   async function updateStatus(status) {
     setUpdating(true)
     const extra = {}
+    if (status === 'confirmed') extra.confirmed_at = new Date().toISOString()
     if (status === 'shipped') extra.shipped_at = new Date().toISOString()
     if (status === 'delivered') extra.delivered_at = new Date().toISOString()
     if (status === 'cancelled') extra.cancelled_at = new Date().toISOString()
@@ -346,6 +357,14 @@ function ShopOrderDetail({ order, onClose, onUpdated }) {
       supabase.from('shop_orders').update(updateData).eq('id', order.id)
     , updateData)
     if (result?.error) throw result.error
+
+    // Generate final invoice when order is confirmed (delivered for digital, confirmed for physical)
+    if (status === 'confirmed' || status === 'delivered') {
+      supabase.functions.invoke('generate-invoice', {
+        body: { type: 'shop_final', order_id: order.id }
+      }).catch(e => console.warn('[Final invoice]', e))
+    }
+
     setUpdating(false)
     onUpdated()
   }

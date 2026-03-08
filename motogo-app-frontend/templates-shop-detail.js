@@ -65,6 +65,20 @@ Templates['s-checkout'] = `  <div class="topbar">
         <div class="pmr" id="pmr-apple-ch"></div>
       </div>
     </div>
+    <div class="bcard" style="margin:0 0 12px;padding:14px;">
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--g400);letter-spacing:.5px;margin-bottom:10px;">🏷️ Slevový kód / Dárkový poukaz</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="text" id="shop-discount-input" placeholder="Zadejte kód" style="flex:1;padding:10px 14px;border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:13px;font-weight:600;text-transform:uppercase;" autocomplete="off">
+        <button onclick="applyShopDiscount()" style="background:var(--green);color:#fff;border:none;border-radius:var(--rsm);padding:10px 16px;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">Uplatnit</button>
+      </div>
+      <div id="shop-discount-msg" style="font-size:11px;margin-top:6px;min-height:16px;"></div>
+      <div id="shop-discount-row" style="display:none;margin-top:8px;padding:8px 12px;background:var(--gp);border-radius:var(--rsm);">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:12px;font-weight:600;color:var(--gd);" id="shop-discount-label"></span>
+          <span style="font-size:13px;font-weight:800;color:var(--gd);" id="shop-discount-amt"></span>
+        </div>
+      </div>
+    </div>
     <div style="background:var(--g100);border-radius:var(--r);padding:14px;margin-bottom:14px;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <span style="font-size:13px;font-weight:700;">Celkem</span>
