@@ -1,5 +1,5 @@
 # SUPABASE BACKEND STATE — MotoGo24
-> **Poslední aktualizace:** 2026-03-08 23:30 UTC
+> **Poslední aktualizace:** 2026-03-09 00:15 UTC
 > **Zdroj:** Reálný stav Supabase databáze (SQL dump z dashboardu) + Edge Functions
 > **Projekt:** `vnwnqteskbykeucanlhk.supabase.co`
 > **POZOR:** Tento soubor MUSÍ být aktualizován při každé SQL změně!
@@ -297,7 +297,7 @@
 | `sos_share_location()` | Sdílení lokace v SOS |
 | `trigger_sos_auto_reply()` | Trigger pro auto SOS odpověď |
 | `update_moto_after_service()` | Aktualizace motorky po servisu |
-| `validate_voucher_code()` | Validace voucherového kódu |
+| `validate_voucher_code(p_code)` | Validace voucherového kódu (vrací {valid, id, type:'fixed', value, code}) |
 
 ---
 
@@ -525,3 +525,4 @@ Detailní politiky:
 | 2026-03-08 | Prvotní vytvoření ze 32 migrací + 6 edge funkcí |
 | 2026-03-08 | Aktualizace: doplněny chybějící triggery, realtime tabulky, RLS detaily |
 | 2026-03-08 23:30 | **MAJOR UPDATE:** Kompletní přepis dle reálného stavu Supabase DB. Doplněno: ENUM typy, 14 dalších edge funkcí, 3 storage buckety, branch-based RLS, dodatečné sloupce (bookings, motorcycles, profiles, sos_incidents), 19+ dalších DB funkcí, foreign keys, 11 secrets, cron jobs |
+| 2026-03-09 00:15 | Přidána funkce `validate_voucher_code(p_code)` — validace dárkových poukazů ve slevovém kódu |

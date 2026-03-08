@@ -2,6 +2,27 @@
 // Split from original cart-engine.js. Depends on global state variables
 // (cart, shipMode, pickupDelivFee, returnDelivFee, etc.) defined in cart-engine.js.
 
+// ===== SHOP DISCOUNT STATE =====
+var shopDiscountAmt = 0;
+var shopAppliedCodes = [];  // [{code, type:'promo'|'voucher', id, value, discountAmt}]
+
+function updateCheckoutTotal(){
+  var shipCost=shipMode==='post'?99:0;
+  var cartTotal=typeof cart!=='undefined'?cart.reduce(function(s,c){return s+c.price*c.qty;},0):0;
+  var finalTotal=Math.max(0, cartTotal+shipCost-shopDiscountAmt);
+  var el=document.getElementById('checkout-total');
+  if(el)el.textContent=finalTotal.toLocaleString('cs-CZ')+' Kč';
+  // Update discount display
+  var dRow=document.getElementById('shop-discount-row');
+  var dAmt=document.getElementById('shop-discount-amt');
+  var dLabel=document.getElementById('shop-discount-label');
+  if(dRow&&dAmt){
+    dRow.style.display=shopDiscountAmt>0?'block':'none';
+    dAmt.textContent='-'+shopDiscountAmt.toLocaleString('cs-CZ')+' Kč';
+    if(dLabel) dLabel.textContent=shopAppliedCodes.map(function(c){return c.code;}).join(' + ');
+  }
+}
+
 // ===== CHECKOUT FUNCTIONS =====
 
 function selectShipping(mode){
@@ -10,15 +31,9 @@ function selectShipping(mode){
   document.getElementById('ship-post').style.background=mode==='post'?'var(--gp)':'#fff';
   document.getElementById('ship-pickup').style.borderColor=mode==='pickup'?'var(--green)':'var(--g200)';
   document.getElementById('ship-pickup').style.background=mode==='pickup'?'var(--gp)':'#fff';
-  // NEMĚNIT display ship-address přímo – nechat collapse logiku na toggleShipDetails
-  // Jen zobrazíme wrapper pokud je post
   var shipWrap = document.getElementById('ship-section-wrap');
   if(shipWrap) shipWrap.style.display = mode==='post' ? 'block' : 'none';
-  // Update checkout total with shipping
-  var shipCost=mode==='post'?99:0;
-  var cartTotal=typeof cart!=='undefined'?cart.reduce(function(s,c){return s+c.price*c.qty;},0):0;
-  var el=document.getElementById('checkout-total');
-  if(el)el.textContent=(cartTotal+shipCost).toLocaleString('cs-CZ')+' Kč';
+  updateCheckoutTotal();
 }
 
 function selCheckoutP(t){
@@ -31,15 +46,17 @@ function selCheckoutP(t){
 }
 
 async function finalizeCheckout(){
-  var total=cart.reduce(function(s,c){return s+c.price*c.qty;},0);
-  if(total===0){showT('\u26a0\ufe0f',_t('cart').cart,_t('cart').cartEmpty);return;}
+  var subtotal=cart.reduce(function(s,c){return s+c.price*c.qty;},0);
+  if(subtotal===0){showT('\u26a0\ufe0f',_t('cart').cart,_t('cart').cartEmpty);return;}
   if(shipMode==='post'){
     var nm=(document.getElementById('ship-name')||{}).value;
     if(!nm){showT('\u26a0\ufe0f',_t('cart').address,_t('cart').fillAddress);return;}
   }
+  var shipCost=shipMode==='post'?99:0;
+  var finalTotal=Math.max(0, subtotal+shipCost-shopDiscountAmt);
+  if(finalTotal<=0){showT('\u26a0\ufe0f','Chyba','Celková cena musí být vyšší než 0 Kč');return;}
   showT('\ud83d\udcb3',_t('cart').processing,_t('cart').pleaseWait);
 
-  // Vytvo\u0159 objedn\u00e1vku v Supabase
   if(window.supabase){
     try {
       var items = cart.map(function(c){ return {id:c.id, name:c.name, price:c.price, qty:c.qty}; });
@@ -52,32 +69,51 @@ async function finalizeCheckout(){
           city: (document.getElementById('ship-city')||{}).value || ''
         };
       }
+      // Pass first promo code (if any) to create_shop_order
+      var promoCode = null;
+      for(var i=0;i<shopAppliedCodes.length;i++){
+        if(shopAppliedCodes[i].type==='promo'){promoCode=shopAppliedCodes[i].code;break;}
+      }
       var r = await window.supabase.rpc('create_shop_order', {
         p_items: items,
         p_shipping_method: shipMode,
         p_shipping_address: shipAddr,
         p_payment_method: 'card',
-        p_promo_code: appliedCode || null
+        p_promo_code: promoCode
       });
       if(r.data && r.data.error){
         console.warn('[SHOP] create_shop_order error:', r.data.error);
-      } else if(r.data && r.data.success){
-        console.log('[SHOP] Order created:', r.data.order_id);
+        showT('\u26a0\ufe0f','Chyba', r.data.error);return;
       }
-      if(r.error) console.warn('[SHOP] RPC error:', r.error.message);
-      // Generate shop invoices (proforma + payment receipt + final)
-      if(r.data && r.data.order_id){
+      if(r.error){console.warn('[SHOP] RPC error:', r.error.message);showT('\u26a0\ufe0f','Chyba', r.error.message);return;}
+
+      var orderId = r.data && r.data.order_id;
+      if(orderId){
+        // Mark vouchers as redeemed
+        for(var vi=0;vi<shopAppliedCodes.length;vi++){
+          if(shopAppliedCodes[vi].type==='voucher'){
+            await window.supabase.from('vouchers').update({
+              status:'redeemed', redeemed_at:new Date().toISOString(),
+              redeemed_by:(await window.supabase.auth.getUser()).data.user.id
+            }).eq('id', shopAppliedCodes[vi].id);
+          }
+        }
+
+        // SIMULOVANÁ PLATBA: označ objednávku jako zaplacenou
+        await window.supabase.from('shop_orders').update({
+          payment_status: 'paid'
+        }).eq('id', orderId);
+        console.log('[SHOP] Payment simulated, order paid:', orderId);
+
+        // Generuj ZF (zálohovou fakturu) + doklad k platbě — NE finální fakturu
         try {
           await window.supabase.functions.invoke('generate-invoice', {
-            body: { type: 'shop_proforma', order_id: r.data.order_id }
+            body: { type: 'shop_proforma', order_id: orderId }
           });
-          await window.supabase.functions.invoke('generate-invoice', {
-            body: { type: 'shop_final', order_id: r.data.order_id }
-          });
-        } catch(ie){ console.warn('[SHOP] Invoice generation:', ie); }
-        // Generate payment receipt for shop order
-        if(r.data.booking_id && typeof apiGeneratePaymentReceipt === 'function'){
-          apiGeneratePaymentReceipt(r.data.booking_id, total, 'shop').catch(function(e){ console.warn('[SHOP] Receipt err:', e); });
+        } catch(ie){ console.warn('[SHOP] ZF generation:', ie); }
+        // Doklad k přijaté platbě
+        if(typeof apiGeneratePaymentReceipt === 'function'){
+          apiGeneratePaymentReceipt(orderId, finalTotal, 'shop').catch(function(e){ console.warn('[SHOP] Receipt err:', e); });
         }
       }
     } catch(e){ console.error('[SHOP] finalizeCheckout DB error:', e); }
@@ -87,6 +123,8 @@ async function finalizeCheckout(){
   cartFabDismissed=false;
   appliedCode=null;
   _appliedPromoId=null;
+  shopDiscountAmt=0;
+  shopAppliedCodes=[];
   updateCartFab();
   showT('\u2705',_t('cart').orderAccepted,_t('cart').confirmEmail);
   var checkoutEl = document.getElementById('s-checkout');
@@ -96,10 +134,82 @@ async function finalizeCheckout(){
   setTimeout(function(){ goTo('s-merch'); }, 5000);
 }
 
+// ===== SHOP DISCOUNT: validace promo + voucher kódů v košíku =====
+
+async function applyShopDiscount(){
+  var inp=document.getElementById('shop-discount-input');
+  var msg=document.getElementById('shop-discount-msg');
+  if(!inp)return;
+  var code=inp.value.trim().toUpperCase();
+  if(!code){if(msg)msg.innerHTML='<span style="color:var(--red)">Zadejte kód</span>';return;}
+
+  // Check duplicates
+  for(var di=0;di<shopAppliedCodes.length;di++){
+    if(shopAppliedCodes[di].code===code){
+      if(msg)msg.innerHTML='<span style="color:var(--red)">Tento kód je již uplatněn</span>';return;
+    }
+  }
+
+  if(!window.supabase){if(msg)msg.innerHTML='<span style="color:var(--red)">Offline</span>';return;}
+
+  var cartTotal=cart.reduce(function(s,c){return s+c.price*c.qty;},0);
+  var shipCost=shipMode==='post'?99:0;
+  var orderTotal=cartTotal+shipCost;
+
+  // 1. Try promo code
+  var hasPromo=shopAppliedCodes.some(function(c){return c.type==='promo';});
+  if(!hasPromo){
+    var pr=await window.supabase.rpc('validate_promo_code',{p_code:code});
+    if(pr.data&&pr.data.valid){
+      var pd=pr.data;
+      var disc=pd.type==='percent'?Math.round(cartTotal*pd.value/100):pd.value;
+      if(shopDiscountAmt+disc>=orderTotal){
+        if(msg)msg.innerHTML='<span style="color:var(--red)">Sleva přesahuje cenu objednávky</span>';return;
+      }
+      shopAppliedCodes.push({code:code,type:'promo',id:pd.id,value:pd.value,discountAmt:disc});
+      shopDiscountAmt+=disc;
+      var label=pd.type==='percent'?'Sleva '+pd.value+'%':'Sleva '+pd.value+' Kč';
+      if(msg)msg.innerHTML='<span style="color:var(--gd)">\u2713 '+label+' uplatněna</span>';
+      inp.value='';
+      updateCheckoutTotal();
+      return;
+    }
+  }
+
+  // 2. Try voucher code
+  var hasVoucher=shopAppliedCodes.some(function(c){return c.type==='voucher';});
+  if(!hasVoucher){
+    var vr=await window.supabase.rpc('validate_voucher_code',{p_code:code});
+    if(vr.data&&vr.data.valid){
+      var vd=vr.data;
+      var vDisc=Math.min(vd.value, orderTotal-shopDiscountAmt-1);
+      if(vDisc<=0){
+        if(msg)msg.innerHTML='<span style="color:var(--red)">Poukaz přesahuje cenu objednávky</span>';return;
+      }
+      shopAppliedCodes.push({code:code,type:'voucher',id:vd.id,value:vd.value,discountAmt:vDisc});
+      shopDiscountAmt+=vDisc;
+      if(msg)msg.innerHTML='<span style="color:var(--gd)">\u2713 Poukaz '+vd.value+' Kč uplatněn (sleva '+vDisc+' Kč)</span>';
+      inp.value='';
+      updateCheckoutTotal();
+      return;
+    }
+  }
+
+  // 3. Already has both types or code not found
+  if(hasPromo&&hasVoucher){
+    if(msg)msg.innerHTML='<span style="color:var(--red)">Lze uplatnit max 1 promo kód + 1 poukaz</span>';
+  } else {
+    if(msg)msg.innerHTML='<span style="color:var(--red)">\u2717 Kód nenalezen</span>';
+  }
+}
+
 function initCheckout(){
+  shopDiscountAmt=0;
+  shopAppliedCodes=[];
   renderCart();
   selectShipping(shipMode);
   autofillCheckout();
+  updateCheckoutTotal();
 }
 async function autofillCheckout(){
   try {
