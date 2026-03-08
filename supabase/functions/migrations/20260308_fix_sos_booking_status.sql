@@ -12,7 +12,7 @@
 UPDATE bookings
 SET status = 'completed'
 WHERE ended_by_sos = true
-  AND status IN ('active', 'confirmed', 'pending');
+  AND status IN ('active', 'pending');
 
 -- 2. Re-create the RPC function with the fix
 CREATE OR REPLACE FUNCTION sos_swap_bookings(
@@ -40,7 +40,7 @@ BEGIN
 
   SELECT * INTO v_booking FROM bookings
     WHERE user_id = v_incident.user_id
-      AND status IN ('active', 'confirmed', 'pending')
+      AND status IN ('active', 'pending')
       AND payment_status = 'paid'
       AND start_date::date <= v_today
       AND end_date::date >= v_today
