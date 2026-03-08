@@ -75,9 +75,10 @@ BEGIN
   v_remaining_days := GREATEST(1, (v_original_end - v_today) + 1);
   v_total_price := CASE WHEN p_is_free THEN 0 ELSE (p_daily_price * v_remaining_days + p_delivery_fee) END;
 
-  -- 4. End original booking at incident date (stays 'active' so today it still shows, tomorrow → dokoncene)
+  -- 4. End original booking — mark as completed immediately
   UPDATE bookings SET
     end_date = v_today,
+    status = 'completed',
     ended_by_sos = true,
     sos_incident_id = p_incident_id,
     notes = COALESCE(notes, '') || E'\n[SOS] Ukončeno ke dni ' || v_today::text || '. Náhradní motorka objednána.'

@@ -385,6 +385,29 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
         <InfoRow label="Pobočka" value={booking.motorcycles?.branches?.name} />
       </Card>
 
+      {/* SOS Replacement info */}
+      {(booking.sos_replacement || booking.ended_by_sos) && (
+        <Card className="col-span-2">
+          <div className="p-4 rounded-lg" style={{
+            background: booking.sos_replacement ? '#dcfce7' : '#fee2e2',
+            border: `2px solid ${booking.sos_replacement ? '#86efac' : '#fca5a5'}`,
+          }}>
+            <h3 className="text-xs font-extrabold mb-2" style={{ color: booking.sos_replacement ? '#1a8a18' : '#b91c1c' }}>
+              {booking.sos_replacement ? '🏍️ Náhradní motorka (SOS)' : '🆘 Ukončeno kvůli SOS incidentu'}
+            </h3>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              {booking.replacement_for_booking_id && (
+                <InfoRow label="Nahrazuje rezervaci" value={`#${booking.replacement_for_booking_id.slice(-8)}`} mono />
+              )}
+              {booking.sos_incident_id && (
+                <InfoRow label="SOS incident" value={`#${booking.sos_incident_id.slice(-8)}`} mono />
+              )}
+              <InfoRow label="Stav" value={booking.sos_replacement ? 'Náhradní motorka aktivní' : 'Původní rezervace ukončena'} />
+            </div>
+          </div>
+        </Card>
+      )}
+
       {(booking.discount_amount > 0 || booking.discount_code || (promoUsage && promoUsage.length > 0) || voucherUsed) && (
         <Card className="col-span-2">
           <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-4" style={{ color: '#b45309' }}>Uplatněné slevy a kódy</h3>

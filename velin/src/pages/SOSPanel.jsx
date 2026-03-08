@@ -183,6 +183,68 @@ export default function SOSPanel() {
         const { data: { user } } = await supabase.auth.getUser()
         updates.resolved_at = new Date().toISOString()
         updates.resolved_by = user?.id
+
+        // === SOS RESOLVE: finalize booking swap ===
+        // 1. If replacement exists but swap wasn't done yet, do it now
+        const rd = inc?.replacement_data || {}
+        if (rd.replacement_moto_id && !rd.replacement_booking_id) {
+          try {
+            const swapResult = await supabase.rpc('sos_swap_bookings', {
+              p_incident_id: id,
+              p_replacement_moto_id: rd.replacement_moto_id,
+              p_replacement_model: rd.replacement_model || null,
+              p_delivery_fee: rd.delivery_fee || 0,
+              p_daily_price: rd.daily_price || 0,
+              p_is_free: !rd.customer_fault,
+            })
+            if (swapResult.data?.success) {
+              rd.replacement_booking_id = swapResult.data.replacement_booking_id
+              rd.original_booking_id = swapResult.data.original_booking_id
+              updates.replacement_data = { ...rd, approved_by_admin: true }
+            }
+          } catch (e) { console.error('[SOS] swap on resolve:', e) }
+        }
+
+        // 2. Mark original booking as completed (immediately, not date-based)
+        const origBookingId = rd.original_booking_id || inc?.original_booking_id
+        if (origBookingId) {
+          await supabase.from('bookings').update({
+            status: 'completed',
+            ended_by_sos: true,
+          }).eq('id', origBookingId)
+        }
+
+        // 3. Ensure replacement booking is active + paid
+        const replBookingId = rd.replacement_booking_id || inc?.replacement_booking_id
+        if (replBookingId) {
+          await supabase.from('bookings').update({
+            status: 'active',
+            payment_status: 'paid',
+          }).eq('id', replBookingId)
+        }
+
+        // 4. If no replacement but incident has a booking, just mark it properly
+        if (!replBookingId && inc?.booking_id) {
+          // No replacement ordered — just mark original booking with SOS flag
+          await supabase.from('bookings').update({
+            ended_by_sos: true,
+            sos_incident_id: id,
+          }).eq('id', inc.booking_id)
+        }
+
+        // 5. Send confirmation message to customer
+        if (inc?.user_id) {
+          const replModel = rd.replacement_model
+          const msgText = replModel
+            ? `Váš SOS incident byl vyřešen. Náhradní motorka: ${replModel}. Původní rezervace ukončena, nová aktivní.`
+            : 'Váš SOS incident byl vyřešen. Děkujeme za trpělivost.'
+          await supabase.from('admin_messages').insert({
+            user_id: inc.user_id,
+            title: 'SOS vyřešeno',
+            message: msgText,
+            type: 'sos_response',
+          })
+        }
       }
       await supabase.from('sos_incidents').update(updates).eq('id', id)
       const { data: { user } } = await supabase.auth.getUser()
