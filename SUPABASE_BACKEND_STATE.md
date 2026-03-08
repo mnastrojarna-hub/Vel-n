@@ -1,11 +1,26 @@
 # SUPABASE BACKEND STATE — MotoGo24
-> **Poslední aktualizace:** 2026-03-08 22:15 UTC
-> **Zdroj:** Migrace v `supabase/functions/migrations/` + edge funkce
+> **Poslední aktualizace:** 2026-03-08 23:30 UTC
+> **Zdroj:** Reálný stav Supabase databáze (SQL dump z dashboardu) + Edge Functions
+> **Projekt:** `vnwnqteskbykeucanlhk.supabase.co`
 > **POZOR:** Tento soubor MUSÍ být aktualizován při každé SQL změně!
 
 ---
 
-## 1. TABULKY (public schema)
+## 1. ENUM TYPY
+
+| Typ | Hodnoty |
+|-----|---------|
+| `admin_role` | viewer, manager, operator, technician, readonly, admin, superadmin |
+| `booking_status` | pending, reserved, active, completed, cancelled, rejected |
+| `payment_status` | pending, paid, unpaid, refunded, failed |
+| `moto_status` | available, rented, maintenance, unavailable, retired |
+| `sos_status` | reported, acknowledged, in_progress, resolved, closed |
+| `license_group` | AM, A1, A2, A, B |
+| `document_type` | rental_contract, handover_protocol, return_protocol, damage_report, invoice, other |
+
+---
+
+## 2. TABULKY (public schema) — 61 tabulek
 
 ### Hlavní entity
 
@@ -15,7 +30,7 @@
 | `motorcycles` | Flotila motorek |
 | `bookings` | Rezervace |
 | `branches` | Pobočky |
-| `admin_users` | Admin uživatelé (role: admin, superadmin, technician, readonly) |
+| `admin_users` | Admin uživatelé (role: admin_role ENUM, branch_access uuid[], permissions jsonb) |
 
 ### Booking systém
 
@@ -33,7 +48,7 @@
 | Tabulka | Popis |
 |---------|-------|
 | `sos_incidents` | Nouzové incidenty (typ, závažnost, lokace, fotky) |
-| `sos_timeline` | Timeline akcí v rámci incidentu |
+| `sos_timeline` | Timeline akcí v rámci incidentu (data jsonb) |
 
 ### Komunikace
 
@@ -51,8 +66,8 @@
 
 | Tabulka | Popis |
 |---------|-------|
-| `invoices` | Faktury (type: issued/received/final/proforma/shop_proforma/shop_final/advance/payment_receipt) |
-| `document_templates` | Šablony dokumentů (type, html_content, variables) |
+| `invoices` | Faktury (type: issued/received/final/proforma/shop_proforma/shop_final/advance/payment_receipt, source: booking/edit/sos/shop/restore) |
+| `document_templates` | Šablony dokumentů (type document_type ENUM, html_content, variables) |
 | `generated_documents` | Vygenerované dokumenty |
 | `documents` | Nahrané dokumenty (soubory) |
 | `email_templates` | Šablony emailů (slug: booking_reserved, booking_abandoned, booking_cancelled, booking_completed, voucher_purchased, booking_modified) |
@@ -62,7 +77,7 @@
 
 | Tabulka | Popis |
 |---------|-------|
-| `shop_orders` | Objednávky (status: new/confirmed/processing/shipped/delivered/cancelled/returned/refunded) |
+| `shop_orders` | Objednávky (status: new/confirmed/processing/shipped/delivered/cancelled/returned/refunded, confirmed_at) |
 | `shop_order_items` | Položky objednávek |
 
 ### Promo a vouchery
@@ -71,7 +86,7 @@
 |---------|-------|
 | `promo_codes` | Slevové kódy (type: percent/fixed) |
 | `promo_code_usage` | Použití slevových kódů |
-| `vouchers` | Dárkové poukazy (status: active/redeemed/expired/cancelled) |
+| `vouchers` | Dárkové poukazy (status: active/redeemed/expired/cancelled, order_id FK→shop_orders, source) |
 
 ### Servis a údržba
 
@@ -122,7 +137,6 @@
 | `cms_variables` | CMS proměnné |
 | `feature_flags` | Feature flags |
 | `reviews` | Recenze zákazníků |
-| `debug_log` | Debug log |
 
 ### Audit a debug
 
@@ -131,24 +145,38 @@
 | `admin_audit_log` | Audit log admin akcí (admin_id, action, details jsonb, ip_address) |
 | `debug_log` | Debug log (source, action, component, status, request/response_data, error_message, duration_ms) |
 
-### Dodatečné sloupce (sos_timeline)
-
-- `data` jsonb — přidáno v pozdějších migracích
-
 ---
 
-## 2. KLÍČOVÉ SLOUPCE
+## 3. KLÍČOVÉ SLOUPCE (reálný stav DB)
+
+### admin_users
+- id, email, name, role (`admin_role` ENUM), password_hash
+- branch_access (uuid[]), permissions (jsonb)
+- last_login_at, created_at, updated_at
 
 ### bookings
 - id, user_id, moto_id, start_date, end_date, pickup_time
-- status (pending/reserved/active/completed/cancelled/rejected)
-- payment_status (pending/paid/unpaid/refunded/failed)
+- status (`booking_status` ENUM)
+- payment_status (`payment_status` ENUM)
 - payment_method, total_price, delivery_fee, deposit
 - promo_code_id, voucher_id, notes
 - confirmed_at, picked_up_at, returned_at
 - cancelled_by, cancelled_by_source, cancellation_reason, cancelled_at, cancellation_notified
 - sos_replacement (boolean), replacement_for_booking_id, sos_incident_id, ended_by_sos
 - pickup_date, return_date (timestamptz pro overlap check)
+- **actual_return_date** — skutečné datum vrácení
+- **pickup_method, pickup_address** — způsob vyzvednutí
+- **return_method, return_address** — způsob vrácení
+- **extras_price** — cena příslušenství
+- **discount_amount, discount_code** — sleva
+- **contract_url** — URL smlouvy
+- **insurance_type** — typ pojištění
+- **signed_contract** — podepsaná smlouva (boolean)
+- **mileage_start, mileage_end** — nájezd km
+- **damage_report** — hlášení poškození
+- **promo_code** — promo kód (text)
+- **rating, rated_at** — hodnocení zákazníkem
+- **boots_size, helmet_size, jacket_size** — velikosti výbavy
 
 ### profiles
 - id (refs auth.users), full_name, email, phone
@@ -158,33 +186,57 @@
 - emergency_contact, emergency_phone
 - gear_sizes (jsonb), reliability_score (jsonb)
 - marketing_consent (boolean)
+- **date_of_birth** — datum narození
+- **avatar_url** — URL avataru
+- **preferred_branch** — preferovaná pobočka
+- **language** — jazyk (cs/en/de)
 
 ### motorcycles
-- id, model, spz, vin, year, status
+- id, model, spz, vin, year, status (`moto_status` ENUM)
 - stk_valid_until, acquired_at
 - power_kw, torque_nm, weight_kg, fuel_tank_l, seat_height_mm
 - license_required, has_abs, has_asc
 - description, ideal_usage, features, manual_url
 - engine_type, power_hp
+- **branch_id** — pobočka (FK→branches)
+- **category** — kategorie motorky
+- **engine_cc** — objem motoru
+- **price_weekday, price_weekend** — ceny
+- **price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun** — ceny dle dne
+- **mileage** — aktuální nájezd
+- **image_url** — hlavní fotka
+- **images[]** — galerie fotek
+- **color** — barva
+- **deposit_amount** — výše kauce
+- **insurance_price** — cena pojištění
+- **min_rental_days, max_rental_days** — min/max délka pronájmu
+- **oil_interval_km, oil_interval_days** — interval výměny oleje
+- **tire_interval_km** — interval výměny pneumatik
+- **full_service_interval_km, full_service_interval_days** — interval celkového servisu
+- **last_service_date, next_service_date** — datum posledního/příštího servisu
 
 ### sos_incidents
 - id, user_id, booking_id, moto_id, type, title, description
 - severity (low/medium/high/critical)
-- status (reported/acknowledged/in_progress/resolved/closed)
+- status (`sos_status` ENUM)
 - moto_rideable, customer_decision, customer_fault
 - damage_description, damage_severity (none/cosmetic/functional/totaled)
 - latitude, longitude, address, photos[]
 - nearest_service_name/address/phone
 - assigned_to, contact_phone, admin_notes
 - resolution, resolved_at, resolved_by
-- replacement_data (jsonb), replacement_status (selecting/pending_payment/paid/admin_review/approved/dispatched/delivered/rejected)
+- replacement_data (jsonb), replacement_status
 - original_booking_id, replacement_booking_id, original_moto_id
+- **is_customer_fault** — vina zákazníka (boolean)
+- **police_report_number** — číslo policejní zprávy
+- **replacement_moto_id** — ID náhradní motorky
+- **tow_requested** — požadavek na odtah (boolean)
 - type CHECK: theft/accident_minor/accident_major/breakdown_minor/breakdown_major/defect_question/location_share/other
 
 ### invoices
-- id, number, type, customer_id, supplier_id, booking_id
-- issue_date, due_date, paid_date
-- subtotal, tax_amount, total, status, pdf_path
+- id, number, type, customer_id, supplier_id, booking_id, order_id
+- issue_date, due_date, paid_date, issued_at
+- subtotal, tax_amount, total, amount, currency, status, pdf_path
 - items (jsonb), notes, variable_symbol, source
 
 ### vouchers
@@ -194,11 +246,21 @@
 - redeemed_at, redeemed_by, redeemed_for, booking_id
 - description, category (rental/gear/experience/gift)
 - created_by
+- **order_id** (FK→shop_orders) — vazba na e-shop objednávku
+- **source** — zdroj voucheru
+
+### shop_orders
+- id, order_number, customer_id, status, payment_status, payment_method
+- total_amount, currency, shipping_address, shipping_method
+- promo_code_id, notes
+- **confirmed_at** — datum potvrzení
+- created_at, updated_at
 
 ---
 
-## 3. RPC FUNKCE (callable z frontendu)
+## 4. RPC FUNKCE (callable z frontendu)
 
+### Existující v migracích
 | Funkce | Popis |
 |--------|-------|
 | `is_admin()` | Vrací boolean — je aktuální user admin? |
@@ -211,11 +273,37 @@
 | `expire_vouchers()` | Automatická expirace voucherů (pg_cron) |
 | `expire_vouchers_and_promos()` | Expirace voucherů + deaktivace promo kódů po valid_to |
 | `confirm_payment(booking_id, method)` | RPC: označí booking jako zaplacený |
+| `check_booking_overlap()` | Trigger funkce: kontrola překrytí rezervací |
+| `generate_shop_invoice()` | Trigger funkce: auto-faktura při zaplacení shop objednávky |
+
+### Další funkce v reálné DB (ne v migracích)
+| Funkce | Popis |
+|--------|-------|
+| `auto_accounting_on_booking_paid()` | Auto účetní záznam při zaplacení bookingu |
+| `auto_reply_sos()` | Automatická odpověď na SOS |
+| `auto_schedule_services()` | Auto plánování servisů |
+| `calc_booking_price()` | Kalkulace ceny bookingu v1 |
+| `calc_booking_price_v2()` | Kalkulace ceny bookingu v2 |
+| `calculate_moto_roi()` | Výpočet ROI motorky |
+| `check_admin_permission()` | Kontrola admin oprávnění |
+| `check_moto_availability()` | Kontrola dostupnosti motorky |
+| `create_sos_incident()` | Vytvoření SOS incidentu |
+| `extend_booking()` | Prodloužení bookingu |
+| `generate_invoice_number()` | Generování čísla faktury |
+| `get_available_motos()` | Získání dostupných motorek |
+| `handle_new_user()` | Zpracování nového uživatele (auth trigger) |
+| `send_admin_message()` | Odeslání admin zprávy |
+| `snapshot_daily_stats()` | Snapshot denních statistik |
+| `sos_share_location()` | Sdílení lokace v SOS |
+| `trigger_sos_auto_reply()` | Trigger pro auto SOS odpověď |
+| `update_moto_after_service()` | Aktualizace motorky po servisu |
+| `validate_voucher_code()` | Validace voucherového kódu |
 
 ---
 
-## 4. TRIGGERY
+## 5. TRIGGERY
 
+### Z migrací
 | Trigger | Tabulka | Funkce |
 |---------|---------|--------|
 | `trg_admin_users_updated` | admin_users | update_updated_at() |
@@ -235,18 +323,26 @@
 | `trg_generate_shop_invoice` | shop_orders (payment_status) | generate_shop_invoice() |
 | `moto_day_prices_updated` | moto_day_prices | update_updated_at() |
 | `trg_ai_conversations_updated` | ai_conversations | update_updated_at() |
-| `trg_sos_notify_user` | sos_incidents (INSERT) | sos_notify_user_on_create() — posílá admin_message s 2min dedup |
-| `trg_one_active_sos` | sos_incidents (INSERT) | check_one_active_sos() — max 1 aktivní SOS/user (light exempt) |
-| `trg_bridge_admin_message` | messages (INSERT) | bridge_admin_message_to_app() — bridge z Velín do admin_messages s 30s dedup |
-| `trg_restore_vouchers_on_cancel` | bookings (UPDATE) | restore_vouchers_on_cancel() — obnoví voucher při stornu |
+| `trg_sos_notify_user` | sos_incidents (INSERT) | sos_notify_user_on_create() |
+| `trg_one_active_sos` | sos_incidents (INSERT) | check_one_active_sos() |
+| `trg_bridge_admin_message` | messages (INSERT) | bridge_admin_message_to_app() |
+| `trg_restore_vouchers_on_cancel` | bookings (UPDATE) | restore_vouchers_on_cancel() |
 | `trg_sync_invoice_to_documents` | invoices (INSERT) | sync_invoice_to_documents() |
 | `trg_sync_invoice_pdf_update` | invoices (UPDATE pdf_path) | sync_invoice_pdf_update() |
 | `trg_sync_generated_doc_to_documents` | generated_documents (INSERT) | sync_generated_doc_to_documents() |
 | `trg_sync_moto_day_prices` | moto_day_prices (INSERT/UPDATE) | sync_moto_day_prices_to_motorcycles() |
 
+### Další triggery v reálné DB
+| Trigger | Tabulka | Funkce |
+|---------|---------|--------|
+| `bookings_auto_accounting` | bookings | auto_accounting_on_booking_paid() |
+| `maintenance_log_after_insert` | maintenance_log | update_moto_after_service() |
+| `sos_auto_reply_on_create` | sos_incidents (INSERT) | trigger_sos_auto_reply() |
+| Různé `_updated_at` triggery | více tabulek | update_updated_at() |
+
 ---
 
-## 5. RLS POLITIKY (kompletní)
+## 6. RLS POLITIKY (kompletní)
 
 Všechny tabulky mají RLS zapnuté. Vzory:
 - **Admin full access:** `FOR ALL USING (is_admin())`
@@ -254,6 +350,7 @@ Všechny tabulky mají RLS zapnuté. Vzory:
 - **Customer read own:** `FOR SELECT USING (user_id = auth.uid())`
 - **Customer insert own:** `FOR INSERT WITH CHECK (user_id = auth.uid())`
 - **Public read:** `FOR SELECT USING (true)` — branches, moto_locations, moto_day_prices, promo_codes(active), app_settings, motorcycles
+- **Branch-based admin access:** Některé politiky kontrolují `admin_users.branch_access` pro omezení přístupu dle pobočky
 
 Detailní politiky:
 - **bookings:** user SELECT/INSERT/UPDATE (user_id=uid OR is_admin), admin DELETE
@@ -274,7 +371,7 @@ Detailní politiky:
 
 ---
 
-## 6. REALTIME (supabase_realtime publication)
+## 7. REALTIME (supabase_realtime publication)
 
 - `sos_incidents`
 - `sos_timeline`
@@ -289,65 +386,71 @@ Detailní politiky:
 
 ---
 
-## 7. EDGE FUNKCE
+## 8. EDGE FUNKCE (20 deployovaných)
 
-### send-booking-email
-- **Secrets:** RESEND_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, FROM_EMAIL, SITE_URL
-- **Popis:** Odesílá branded HTML emaily (booking_reserved, booking_completed, booking_modified, voucher_purchased)
-- **Tabulky:** email_log (write)
+### V repozitáři (6)
 
-### generate-invoice
-- **Secrets:** SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, RESEND_API_KEY, FROM_EMAIL
-- **Popis:** Generuje proforma (ZF-YYYY-NNNN) nebo finální (FV-YYYY-NNNN) fakturu
-- **Tabulky:** bookings, motorcycles, profiles (read), invoices, admin_audit_log (write)
-- **Storage:** documents/invoices/{id}.html
+| Funkce | Popis |
+|--------|-------|
+| `send-booking-email` | Odesílá branded HTML emaily (booking_reserved, booking_completed, booking_modified, voucher_purchased) |
+| `generate-invoice` | Generuje proforma/finální fakturu (ZF-/FV-YYYY-NNNN) |
+| `generate-document` | Generuje dokumenty z šablon (rental_contract, handover_protocol) |
+| `send-cancellation-email` | Email o stornování rezervace s "obnovit" CTA |
+| `admin-reset-password` | Admin reset hesla zákazníka |
+| `process-payment` | SIMULOVANÁ platební brána (DEV ONLY, 90% úspěšnost) |
 
-### generate-document
-- **Secrets:** SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
-- **Popis:** Generuje dokumenty z šablon (rental_contract, handover_protocol)
-- **Tabulky:** document_templates, bookings, motorcycles, profiles (read), generated_documents, admin_audit_log (write)
-- **Storage:** documents/generated/{uuid}.html
+### Pouze v Supabase dashboardu (14 dalších)
 
-### send-cancellation-email
-- **Secrets:** RESEND_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, FROM_EMAIL, SITE_URL
-- **Popis:** Odesílá email o stornování rezervace s "obnovit" CTA
-- **Tabulky:** bookings (write: cancellation_notified=true)
-
-### admin-reset-password
-- **Secrets:** SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY
-- **Popis:** Admin reset hesla zákazníka (direct nebo email recovery link)
-- **Tabulky:** admin_users, profiles (read), admin_audit_log (write)
-
-### process-payment (motogo-app-frontend)
-- **Secrets:** SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
-- **Popis:** SIMULOVANÁ platební brána (90% úspěšnost, 2s delay) — DEV ONLY
-- **Tabulky:** bookings (write: payment_status, payment_method)
-
----
-
-## 8. STORAGE BUCKETY
-
-| Bucket | Použití |
-|--------|---------|
-| `documents` | Faktury (invoices/{id}.html), generované dokumenty (generated/{uuid}.html) |
-| (ověřit v dashboardu další buckety pro fotky motorek, SOS fotky atd.) |
+| Funkce | Popis |
+|--------|-------|
+| `admin-auth` | Autentizace admin uživatelů |
+| `ai-copilot` | AI Copilot pro Velín dashboard |
+| `bright-endpoint` | Bright Data endpoint |
+| `cms-sync` | Synchronizace CMS obsahu |
+| `cron-daily` | Denní cron úlohy |
+| `cron-monthly` | Měsíční cron úlohy |
+| `export-data` | Export dat (CSV/XLSX) |
+| `generate-report` | Generování reportů |
+| `generate-tax` | Generování daňových záznamů |
+| `inventory-check` | Kontrola stavu skladu |
+| `prediction-engine` | Predikční engine (obsazenost, tržby) |
+| `scan-document` | Skenování dokumentů (Mindee OCR) |
+| `send-email` | Obecné odesílání emailů (jiné než booking) |
+| `send-sos` | SOS notifikace |
+| `upload-handler` | Zpracování nahraných souborů |
+| `webhook-receiver` | Příjem webhooků (Stripe, platební brány) |
 
 ---
 
-## 9. SECRETS PŘEHLED
+## 9. STORAGE BUCKETY
+
+| Bucket | Přístup | Použití |
+|--------|---------|---------|
+| `documents` | **private** | Faktury (invoices/{id}.html), generované dokumenty (generated/{uuid}.html), smlouvy |
+| `media` | **public** | Fotky motorek, loga, marketingové materiály |
+| `sos-photos` | **private** | Fotky z SOS incidentů (poškození, nehody) |
+
+---
+
+## 10. SECRETS (8)
 
 | Secret | Kde se používá |
 |--------|---------------|
 | `SUPABASE_URL` | Všechny edge funkce |
 | `SUPABASE_SERVICE_ROLE_KEY` | Všechny edge funkce |
 | `SUPABASE_ANON_KEY` | admin-reset-password |
-| `RESEND_API_KEY` | send-booking-email, generate-invoice, send-cancellation-email |
-| `FROM_EMAIL` | send-booking-email, generate-invoice, send-cancellation-email (default: noreply@motogo24.cz) |
+| `SUPABASE_DB_URL` | Přímý DB přístup z edge funkcí |
+| `RESEND_API_KEY` | send-booking-email, generate-invoice, send-cancellation-email, send-email |
+| `FROM_EMAIL` | Email funkce (default: noreply@motogo24.cz) |
 | `SITE_URL` | send-booking-email, send-cancellation-email (default: https://motogo24.cz) |
+| `MINDEE_API_KEY` | scan-document (OCR) |
+| `STRIPE_SECRET_KEY` | webhook-receiver, process-payment |
+| `ADMIN_EMAIL` | SOS notifikace, cron alerty |
+| `ADMIN_PHONE` | SOS SMS notifikace |
 
 ---
 
-## 10. SEED DATA (app_settings)
+## 11. SEED DATA (app_settings)
 
 ```json
 {
@@ -367,15 +470,51 @@ Detailní politiky:
 
 ---
 
-## 11. SEKVENCE
+## 12. SEKVENCE
 
 - `shop_order_seq` — formát: OBJ-YYYY-NNNNN (start 1001)
 
 ---
 
-## 12. CRON JOBS (pg_cron)
+## 13. CRON JOBS (pg_cron)
 
-- `expire-vouchers` — denně 01:00 UTC — `SELECT expire_vouchers()`
+| Job | Čas | Funkce |
+|-----|-----|--------|
+| `expire-vouchers` | denně 01:00 UTC | `SELECT expire_vouchers()` |
+| Denní cron | denně | `cron-daily` edge function (snapshot_daily_stats, auto_schedule_services) |
+| Měsíční cron | 1. den měsíce | `cron-monthly` edge function (generate-tax, monthly reports) |
+
+---
+
+## 14. FOREIGN KEYS (klíčové vazby)
+
+- `bookings.user_id` → `profiles.id`
+- `bookings.moto_id` → `motorcycles.id`
+- `bookings.promo_code_id` → `promo_codes.id`
+- `bookings.voucher_id` → `vouchers.id`
+- `bookings.replacement_for_booking_id` → `bookings.id`
+- `bookings.sos_incident_id` → `sos_incidents.id`
+- `booking_extras.booking_id` → `bookings.id`
+- `booking_extras.extra_id` → `extras_catalog.id`
+- `sos_incidents.user_id` → `profiles.id`
+- `sos_incidents.booking_id` → `bookings.id`
+- `sos_incidents.moto_id` → `motorcycles.id`
+- `sos_incidents.original_booking_id` → `bookings.id`
+- `sos_incidents.replacement_booking_id` → `bookings.id`
+- `invoices.customer_id` → `profiles.id`
+- `invoices.booking_id` → `bookings.id`
+- `invoices.order_id` → `shop_orders.id`
+- `vouchers.order_id` → `shop_orders.id`
+- `shop_orders.customer_id` → `profiles.id`
+- `shop_order_items.order_id` → `shop_orders.id`
+- `motorcycles.branch_id` → `branches.id`
+- `moto_day_prices.moto_id` → `motorcycles.id`
+- `message_threads.customer_id` → `profiles.id`
+- `messages.thread_id` → `message_threads.id`
+- `promo_code_usage.promo_code_id` → `promo_codes.id`
+- `promo_code_usage.user_id` → `profiles.id`
+- `maintenance_log.moto_id` → `motorcycles.id`
+- `service_orders.moto_id` → `motorcycles.id`
 
 ---
 
@@ -384,4 +523,5 @@ Detailní politiky:
 | Datum | Změna |
 |-------|-------|
 | 2026-03-08 | Prvotní vytvoření ze 32 migrací + 6 edge funkcí |
-| 2026-03-08 | Aktualizace: doplněny chybějící triggery (bridge, sync, SOS notify/dedup), realtime tabulky, RLS detaily, motorcycles sloupce, sos_incidents.replacement_data/status |
+| 2026-03-08 | Aktualizace: doplněny chybějící triggery, realtime tabulky, RLS detaily |
+| 2026-03-08 23:30 | **MAJOR UPDATE:** Kompletní přepis dle reálného stavu Supabase DB. Doplněno: ENUM typy, 14 dalších edge funkcí, 3 storage buckety, branch-based RLS, dodatečné sloupce (bookings, motorcycles, profiles, sos_incidents), 19+ dalších DB funkcí, foreign keys, 11 secrets, cron jobs |
