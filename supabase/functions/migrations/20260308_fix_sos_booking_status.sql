@@ -16,7 +16,7 @@ BEGIN
     SELECT 1 FROM bookings
     WHERE moto_id = NEW.moto_id
       AND id != COALESCE(NEW.id, '00000000-0000-0000-0000-000000000000'::uuid)
-      AND status NOT IN ('cancelled', 'rejected', 'completed')
+      AND status NOT IN ('cancelled', 'completed')
       AND tstzrange(pickup_date, return_date) && tstzrange(NEW.pickup_date, NEW.return_date)
   ) THEN
     RAISE EXCEPTION 'Překrývající se rezervace pro moto_id %', NEW.moto_id;
