@@ -32,12 +32,15 @@ Templates['s-res-detail'] = `  <div class="rd-hdr">
     <div class="rd-row"><div class="rd-label" id="t-rdPickup">Vyzvednutí</div><div class="rd-value" id="rd-pickup">22. 2. 2026 v 9:00</div></div>
     <div class="rd-row"><div class="rd-label" id="t-rdReturn">Vrácení</div><div class="rd-value" id="rd-return">24. 2. 2026 v 9:00</div></div>
     <div class="rd-row"><div class="rd-label" id="t-rdDuration">Délka výpůjčky</div><div class="rd-value" id="rd-duration">2 dny</div></div>
-    <div class="rd-row"><div class="rd-label" id="t-rdPickupPlace">Místo vyzvednutí</div><div class="rd-value">Mezná 9, 393 01 Mezná</div></div>
+    <div class="rd-row"><div class="rd-label" id="t-rdPickupPlace">Místo vyzvednutí</div><div class="rd-value" id="rd-pickup-loc">Mezná 9, 393 01 Mezná</div></div>
+    <div class="rd-row"><div class="rd-label" id="t-rdReturnPlace">Místo vrácení</div><div class="rd-value" id="rd-return-loc">Mezná 9, 393 01 Mezná</div></div>
+  </div>
+  <div id="rd-extras" class="rd-card" style="display:none;">
+    <div class="rd-section-t">Doplňky a slevy</div>
+    <!-- dynamically filled by reservations-ui.js -->
   </div>
   <div class="rd-card">
     <div class="rd-section-t" id="t-rdPaySec">Platba</div>
-    <div class="rd-row"><div class="rd-label" id="t-rdPriceDay">Cena za den</div><div class="rd-value">2 600 Kč</div></div>
-
     <div class="rd-row"><div class="rd-label" id="t-rdDeposit">Záloha</div><div class="rd-value" id="t-rdNoDeposit" style="color:var(--gd)">Neúčtujeme ✓</div></div>
     <div class="rd-row"><div class="rd-label" id="t-rdTotal">Celkem</div><div class="rd-value" id="rd-total" style="color:var(--gd);font-size:16px;">5 400 Kč</div></div>
     <div class="rd-row"><div class="rd-label" id="t-rdPayMethod">Způsob platby</div><div class="rd-value">Platební karta ••••4242</div></div>

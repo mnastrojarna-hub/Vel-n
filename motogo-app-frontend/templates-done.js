@@ -25,14 +25,6 @@ Templates['s-done-detail'] = `  <div class="done-hdr">
         <button class="doc-dl-btn sh" onclick="event.stopPropagation();sendDocEmail('Zálohová faktura')">📧</button>
       </div>
     </div>
-    <div class="doc-dl-row" onclick="showDigitalProtocol()">
-      <div class="doc-dl-icon">📋</div>
-      <div class="doc-dl-info"><div class="doc-dl-name" id="t-protocolDigital">Předávací protokol</div><div class="doc-dl-sub">Digitální · zobrazit a podepsat</div></div>
-      <div class="doc-dl-actions">
-        <button class="doc-dl-btn dl" onclick="event.stopPropagation();generateDocDownload('Předávací protokol','predavaci_protokol.txt')">⬇️</button>
-        <button class="doc-dl-btn sh" onclick="event.stopPropagation();sendDocEmail('Předávací protokol')">📧</button>
-      </div>
-    </div>
     <div class="doc-dl-row" onclick="generateDocDownload('Konečná faktura','konecna_faktura.txt')">
       <div class="doc-dl-icon">💰</div>
       <div class="doc-dl-info"><div class="doc-dl-name" id="t-finalInvoiceLabel">Konečná faktura</div><div class="doc-dl-sub">PDF · 52 kB</div></div>
@@ -45,13 +37,13 @@ Templates['s-done-detail'] = `  <div class="done-hdr">
   <div class="rd-card" id="done-rating-card">
     <div class="rd-section-t" id="t-yourRating">⭐ Vaše hodnocení</div>
     <div id="done-stars-wrap" style="display:flex;justify-content:center;gap:8px;padding:10px 0;">
-      <span class="star-btn" data-v="1" onclick="rateRide(1)" style="font-size:32px;cursor:pointer;transition:transform .15s;">★</span>
-      <span class="star-btn" data-v="2" onclick="rateRide(2)" style="font-size:32px;cursor:pointer;transition:transform .15s;">★</span>
-      <span class="star-btn" data-v="3" onclick="rateRide(3)" style="font-size:32px;cursor:pointer;transition:transform .15s;">★</span>
-      <span class="star-btn" data-v="4" onclick="rateRide(4)" style="font-size:32px;cursor:pointer;transition:transform .15s;">★</span>
-      <span class="star-btn" data-v="5" onclick="rateRide(5)" style="font-size:32px;cursor:pointer;transition:transform .15s;">★</span>
+      <span class="star-btn" data-v="1" onclick="rateRide(1)" style="font-size:32px;cursor:pointer;transition:transform .15s;color:#f59e0b;transform:scale(1.15);">★</span>
+      <span class="star-btn" data-v="2" onclick="rateRide(2)" style="font-size:32px;cursor:pointer;transition:transform .15s;color:#f59e0b;transform:scale(1.15);">★</span>
+      <span class="star-btn" data-v="3" onclick="rateRide(3)" style="font-size:32px;cursor:pointer;transition:transform .15s;color:#f59e0b;transform:scale(1.15);">★</span>
+      <span class="star-btn" data-v="4" onclick="rateRide(4)" style="font-size:32px;cursor:pointer;transition:transform .15s;color:#f59e0b;transform:scale(1.15);">★</span>
+      <span class="star-btn" data-v="5" onclick="rateRide(5)" style="font-size:32px;cursor:pointer;transition:transform .15s;color:#f59e0b;transform:scale(1.15);">★</span>
     </div>
-    <div id="done-rating-msg" style="text-align:center;font-size:12px;color:var(--g400);font-weight:600;padding-bottom:4px;"><span id="t-tapToRate">Klepněte na hvězdičku pro hodnocení</span></div>
+    <div id="done-rating-msg" style="text-align:center;font-size:12px;color:var(--g400);font-weight:600;padding-bottom:4px;">🏆 <span id="t-tapToRate">Výborná zkušenost!</span></div>
   </div>
   <div style="padding:12px 20px 22px;">
     <button class="btn-g" id="t-bookAgain" onclick="openDetail('benelli');goTo('s-detail');showT('🏍️','Rezervace','Vyberte termín pro stejnou motorku')">🔁 Znovu rezervovat</button>

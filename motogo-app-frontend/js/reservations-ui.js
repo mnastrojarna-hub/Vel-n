@@ -127,8 +127,7 @@ function _renderResCard(b){
            '<div class="rbtn" style="background:var(--green);color:#fff;border-color:var(--green);" onclick="event.stopPropagation();openEditResByBookingId(\''+b.id+'\')">✏️ '+_t('res').editReservation+'</div>';
   } else if(st === 'dokoncene'){
     btns = '<div class="rbtn g" onclick="event.stopPropagation();openResDetailById(\''+b.id+'\')">📋 '+_t('res').rideDetail+'</div>' +
-           '<div class="rbtn" style="background:var(--dark);color:#fff;border-color:var(--dark);" onclick="event.stopPropagation();goTo(\'s-protocol\')">📝 '+_t('res').returnProtocol+'</div>' +
-           '<div class="rbtn" onclick="event.stopPropagation();showT(\'⭐\',_t(\'res\').sent,_t(\'res\').thankRating)">⭐ '+_t('res').rate+'</div>';
+           '<div class="rbtn" onclick="event.stopPropagation();openResDetailById(\''+b.id+'\')">⭐ '+_t('res').rate+'</div>';
   } else if(st === 'cancelled'){
     btns = '<div class="rbtn g" onclick="event.stopPropagation();openResDetailById(\''+b.id+'\')">📋 '+_t('res').detail+'</div>' +
            '<div class="rbtn" style="background:var(--green);color:#fff;border-color:var(--green);" onclick="event.stopPropagation();restoreBooking(\''+b.id+'\')">🔄 '+_t('res').restoreRes+'</div>';
@@ -184,6 +183,29 @@ async function openResDetailById(bookingId){
     var totalEl = document.getElementById('rd-total');
     if(totalEl) totalEl.textContent = (booking.total_price||0).toLocaleString('cs-CZ') + ' Kč';
 
+    // Pickup/return locations
+    var pickupLocEl = document.getElementById('rd-pickup-loc');
+    if(pickupLocEl) pickupLocEl.textContent = booking.pickup_address || (moto && moto.branches ? moto.branches.name + ', ' + moto.branches.city : '—');
+    var returnLocEl = document.getElementById('rd-return-loc');
+    if(returnLocEl) returnLocEl.textContent = booking.return_address || (moto && moto.branches ? moto.branches.name + ', ' + moto.branches.city : '—');
+
+    // Extras detail section
+    var extrasEl = document.getElementById('rd-extras');
+    if(extrasEl){
+      var extrasHtml = '';
+      if(booking.extras_price > 0){
+        extrasHtml += '<div class="rd-row"><div class="rd-label">Příslušenství</div><div class="rd-value">' + (booking.extras_price||0).toLocaleString('cs-CZ') + ' Kč</div></div>';
+      }
+      if(booking.boots_size) extrasHtml += '<div class="rd-row"><div class="rd-label">Boty</div><div class="rd-value">vel. ' + booking.boots_size + '</div></div>';
+      if(booking.helmet_size) extrasHtml += '<div class="rd-row"><div class="rd-label">Helma</div><div class="rd-value">vel. ' + booking.helmet_size + '</div></div>';
+      if(booking.jacket_size) extrasHtml += '<div class="rd-row"><div class="rd-label">Bunda</div><div class="rd-value">vel. ' + booking.jacket_size + '</div></div>';
+      if(booking.delivery_fee > 0) extrasHtml += '<div class="rd-row"><div class="rd-label">Doručení</div><div class="rd-value">' + booking.delivery_fee.toLocaleString('cs-CZ') + ' Kč</div></div>';
+      if(booking.discount_amount > 0) extrasHtml += '<div class="rd-row"><div class="rd-label">Sleva / poukaz</div><div class="rd-value" style="color:var(--green);">-' + booking.discount_amount.toLocaleString('cs-CZ') + ' Kč</div></div>';
+      if(booking.discount_code) extrasHtml += '<div class="rd-row"><div class="rd-label">Kód poukazu</div><div class="rd-value">' + booking.discount_code + '</div></div>';
+      extrasEl.innerHTML = extrasHtml;
+      extrasEl.style.display = extrasHtml ? 'block' : 'none';
+    }
+
     // Banner
     var banner = document.getElementById('rd-banner');
     if(banner){
@@ -233,14 +255,14 @@ async function openResDetailById(bookingId){
       if(st === 'aktivni'){
         btns = '<button class="btn-g" onclick="openEditResByBookingId(\''+bookingId+'\')">✏️ '+_t('res').editExtend+'</button>' +
                '<button class="btn-g" style="background:#fee2e2;color:#b91c1c;border:none;margin-top:8px;" onclick="goTo(\'s-sos\')">🆘 '+_t('res').reportFault+'</button>' +
+               '<button class="btn-out" style="margin-top:8px;" onclick="showDigitalProtocol(\''+bookingId+'\')">📝 '+(_t('res').handoverProtocol||'Předávací protokol')+'</button>' +
                docBtns;
       } else if(st === 'nadchazejici'){
         btns = '<button class="btn-g" onclick="openEditResByBookingId(\''+bookingId+'\')">✏️ '+_t('res').editReservation+'</button>' +
                '<button class="btn-g" style="background:var(--red);color:#fff;border:none;margin-top:8px;" onclick="doCancelBooking(\''+bookingId+'\')">🗑️ '+_t('res').cancelRes+'</button>' +
                docBtns;
       } else if(st === 'dokoncene'){
-        btns = '<button class="btn-out" onclick="showDigitalProtocol(\''+bookingId+'\')">📝 '+_t('res').handoverProtocol+'</button>' +
-               '<button class="btn-out" style="margin-top:8px;" onclick="showRentalContract(\''+bookingId+'\')">📄 '+(_t('res').contract||'Smlouva o pronájmu')+'</button>' +
+        btns = '<button class="btn-out" onclick="showRentalContract(\''+bookingId+'\')">📄 '+(_t('res').contract||'Smlouva o pronájmu')+'</button>' +
                '<button class="btn-out" style="margin-top:8px;" onclick="showInvoice(\''+bookingId+'\',\'final\')">💰 '+(_t('res').finalInvoice||'Konečná faktura')+'</button>';
       } else if(st === 'cancelled'){
         btns = '<button class="btn-g" onclick="restoreBooking(\''+bookingId+'\')">🔄 '+_t('res').restoreBtn+'</button>';

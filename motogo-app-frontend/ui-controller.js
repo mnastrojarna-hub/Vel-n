@@ -956,7 +956,9 @@ function sosNearbyServis(){
 }
 
 // ===== RATE RIDE =====
+var _currentRating=5;
 function rateRide(val){
+  _currentRating=val;
   document.querySelectorAll('.star-btn').forEach((s,i)=>{
     s.style.color=i<val?'#f59e0b':'#d1d5db';
     s.style.transform=i<val?'scale(1.15)':'scale(1)';
@@ -964,7 +966,12 @@ function rateRide(val){
   const msgs=['','😞 '+_t('res').badExp,'😐 '+_t('res').average,'🙂 '+_t('res').good,'😊 '+_t('res').veryGood,'🏆 '+_t('res').excellent];
   const msg=document.getElementById('done-rating-msg');
   if(msg)msg.textContent=msgs[val]||'';
-  setTimeout(()=>showT('⭐',_t('res').thankStars.replace('{n}',val),_t('res').feedbackHelps),300);
+  // Save rating to DB
+  if(_currentResId && _isSupabaseReady()){
+    supabase.from('bookings').update({rating:val,rated_at:new Date().toISOString()}).eq('id',_currentResId)
+      .then(()=>{}).catch(e=>console.warn('[RATE]',e));
+  }
+  showT('⭐',_t('res').thankStars.replace('{n}',val),_t('res').feedbackHelps);
 }
 
 // ===== DIGITÁLNÍ PŘEDÁVACÍ PROTOKOL JS =====
