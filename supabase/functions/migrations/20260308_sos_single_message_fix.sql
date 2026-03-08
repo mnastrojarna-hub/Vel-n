@@ -24,27 +24,15 @@ DROP TRIGGER IF EXISTS trg_sos_admin_message ON sos_incidents;
 DROP TRIGGER IF EXISTS trg_sos_user_message ON sos_incidents;
 DROP TRIGGER IF EXISTS trg_sos_confirmation ON sos_incidents;
 
--- 2. Disable any automation/notification rules for SOS
--- (these tables may contain rules that auto-send messages)
-UPDATE automation_rules SET enabled = false
-  WHERE trigger_event ILIKE '%sos%' OR trigger_table = 'sos_incidents'
-     OR action_type ILIKE '%message%';
-
-UPDATE notification_rules SET enabled = false
-  WHERE event_type ILIKE '%sos%' OR table_name = 'sos_incidents'
-     OR trigger_table = 'sos_incidents';
-
--- Also try with 'active' column name (schema may vary)
+-- 2. Disable automation/notification rules for SOS (schema-safe)
 DO $$ BEGIN
-  UPDATE automation_rules SET active = false
-    WHERE trigger_event ILIKE '%sos%' OR trigger_table = 'sos_incidents';
-EXCEPTION WHEN undefined_column THEN NULL;
+  EXECUTE 'UPDATE automation_rules SET enabled = false WHERE id IN (SELECT id FROM automation_rules WHERE to_jsonb(automation_rules)::text ILIKE ''%sos%'')';
+EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
 DO $$ BEGIN
-  UPDATE notification_rules SET active = false
-    WHERE event_type ILIKE '%sos%' OR table_name = 'sos_incidents';
-EXCEPTION WHEN undefined_column THEN NULL;
+  EXECUTE 'UPDATE notification_rules SET enabled = false WHERE id IN (SELECT id FROM notification_rules WHERE to_jsonb(notification_rules)::text ILIKE ''%sos%'')';
+EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
 -- 3. Create the ONE and ONLY notification function
