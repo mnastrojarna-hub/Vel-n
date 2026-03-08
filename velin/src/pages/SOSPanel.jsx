@@ -514,6 +514,17 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
               </div>
             )}
 
+            {/* Poznámky admina – viditelné na první pohled */}
+            {inc.admin_notes && (
+              <div className="text-xs mb-2 rounded-lg" style={{
+                padding: '6px 10px', background: '#fffbeb', color: '#92400e',
+                borderLeft: '3px solid #fbbf24', lineHeight: 1.5,
+              }}>
+                <span className="font-extrabold text-[9px] uppercase tracking-wide">Poznámka: </span>
+                {inc.admin_notes.length > 100 ? inc.admin_notes.slice(0, 100) + '…' : inc.admin_notes}
+              </div>
+            )}
+
             {/* Rozhodnutí zákazníka */}
             {inc.customer_decision && (
               <div className="text-xs font-bold mb-2 rounded-lg" style={{

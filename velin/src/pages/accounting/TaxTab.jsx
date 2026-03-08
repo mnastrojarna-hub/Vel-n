@@ -9,6 +9,8 @@ export default function TaxTab() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [generating, setGenerating] = useState(false)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
 
   useEffect(() => { load() }, [])
 
@@ -62,10 +64,21 @@ export default function TaxTab() {
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
         <Button green onClick={() => generateTax(currentQ)} disabled={generating}>
           {generating ? 'Generuji…' : `Generovat DPH ${currentQ}`}
         </Button>
+        <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Hledat období, typ…"
+          className="rounded-btn text-xs outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357', minWidth: 150 }} />
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+          <option value="">Všechny stavy</option>
+          <option value="submitted">Odesláno</option>
+          <option value="prepared">Připraveno</option>
+        </select>
         <div className="ml-auto flex gap-2">
           <Button onClick={() => handleExport('csv')}>CSV</Button>
           <Button onClick={() => handleExport('xlsx')}>XLSX</Button>
@@ -87,7 +100,14 @@ export default function TaxTab() {
             </TRow>
           </thead>
           <tbody>
-            {records.map(r => (
+            {records.filter(r => {
+              if (statusFilter && r.status !== statusFilter) return false
+              if (search) {
+                const s = search.toLowerCase()
+                if (!(r.period || '').toLowerCase().includes(s) && !(r.type || '').toLowerCase().includes(s)) return false
+              }
+              return true
+            }).map(r => (
               <TRow key={r.id}>
                 <TD bold>{r.period || '—'}</TD>
                 <TD>{r.type || '—'}</TD>

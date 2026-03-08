@@ -14,6 +14,8 @@ export default function CashRegisterTab() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [showAdd, setShowAdd] = useState(false)
+  const [search, setSearch] = useState('')
+  const [typeFilter, setTypeFilter] = useState('')
 
   useEffect(() => { load() }, [page])
 
@@ -27,7 +29,8 @@ export default function CashRegisterTab() {
         .order('date', { ascending: false })
         .range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       if (err) throw err
-      setEntries(data || [])
+      let filtered = data || []
+      setEntries(filtered)
       setTotal(count || 0)
     } catch (e) {
       setError(e.message)
@@ -42,6 +45,17 @@ export default function CashRegisterTab() {
   return (
     <div>
       <div className="flex items-center gap-3 mb-4">
+        <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Hledat popis…"
+          className="rounded-btn text-xs outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357', minWidth: 180 }} />
+        <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
+          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+          <option value="">Vše</option>
+          <option value="income">Příjmy</option>
+          <option value="expense">Výdaje</option>
+        </select>
         <div className="ml-auto">
           <Button green onClick={() => setShowAdd(true)}>+ Nový záznam</Button>
         </div>
@@ -60,7 +74,11 @@ export default function CashRegisterTab() {
               </TRow>
             </thead>
             <tbody>
-              {entries.map(e => (
+              {entries.filter(e => {
+                if (typeFilter && e.type !== typeFilter) return false
+                if (search && !(e.description || '').toLowerCase().includes(search.toLowerCase())) return false
+                return true
+              }).map(e => (
                 <TRow key={e.id}>
                   <TD>{e.date ? new Date(e.date).toLocaleDateString('cs-CZ') : '—'}</TD>
                   <TD>

@@ -18,13 +18,30 @@ const TYPES = [
   { value: 'expense', label: 'Výdaje' },
 ]
 
+// Kategorie, které jsou VŽDY příjmy (i když type = 'expense')
+const REVENUE_CATEGORIES = ['pronájem', 'pronajem', 'rezervace', 'booking', 'rental']
+// Popisy, které indikují příjem
+const REVENUE_DESCRIPTIONS = ['platba za rezervaci', 'platba za pronájem', 'příjem z pronájmu']
+
+function classifyEntry(entry) {
+  const cat = (entry.category || '').toLowerCase()
+  const desc = (entry.description || '').toLowerCase()
+  // If category or description matches revenue patterns, it's revenue
+  if (REVENUE_CATEGORIES.some(rc => cat.includes(rc)) ||
+      REVENUE_DESCRIPTIONS.some(rd => desc.includes(rd))) {
+    return 'revenue'
+  }
+  return entry.type || 'expense'
+}
+
 export default function Finance() {
   const [summary, setSummary] = useState({ revenue: 0, expense: 0, unpaid: 0 })
   const [transactions, setTransactions] = useState([])
   const [chartData, setChartData] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [filters, setFilters] = useState({ period: 'month', type: '', category: '' })
+  const [filters, setFilters] = useState({ period: 'month', type: '', category: '', search: '' })
+  const [categories, setCategories] = useState([])
   const [detailTx, setDetailTx] = useState(null)
 
   useEffect(() => { loadData() }, [filters])
@@ -46,11 +63,11 @@ export default function Finance() {
     const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
     const { data } = await supabase
       .from('accounting_entries')
-      .select('type, amount')
+      .select('type, amount, category, description')
       .gte('date', start)
     if (data) {
-      const rev = data.filter(d => d.type === 'revenue').reduce((s, d) => s + (d.amount || 0), 0)
-      const exp = data.filter(d => d.type === 'expense').reduce((s, d) => s + Math.abs(d.amount || 0), 0)
+      const rev = data.filter(d => classifyEntry(d) === 'revenue').reduce((s, d) => s + Math.abs(d.amount || 0), 0)
+      const exp = data.filter(d => classifyEntry(d) === 'expense').reduce((s, d) => s + Math.abs(d.amount || 0), 0)
       setSummary({ revenue: rev, expense: exp, unpaid: 0 })
     }
     const { data: inv } = await supabase
@@ -67,12 +84,27 @@ export default function Finance() {
       .from('accounting_entries')
       .select('*')
       .order('date', { ascending: false })
-      .limit(50)
-    if (filters.type) query = query.eq('type', filters.type)
+      .limit(200)
     if (filters.category) query = query.eq('category', filters.category)
     const { data, error: err } = await query
     if (err) throw err
-    setTransactions(data || [])
+    let results = data || []
+    // Collect unique categories
+    const cats = [...new Set(results.map(r => r.category).filter(Boolean))].sort()
+    setCategories(cats)
+    // Apply classification and filter
+    results = results.map(r => ({ ...r, _classified: classifyEntry(r) }))
+    if (filters.type) {
+      results = results.filter(r => r._classified === filters.type)
+    }
+    if (filters.search) {
+      const s = filters.search.toLowerCase()
+      results = results.filter(r =>
+        (r.description || '').toLowerCase().includes(s) ||
+        (r.category || '').toLowerCase().includes(s)
+      )
+    }
+    setTransactions(results.slice(0, 50))
   }
 
   async function loadChart() {
@@ -84,15 +116,15 @@ export default function Finance() {
     }
     const { data } = await supabase
       .from('accounting_entries')
-      .select('type, amount, date')
+      .select('type, amount, date, category, description')
       .gte('date', months[0].start)
     const chart = months.map(m => {
       const mEnd = new Date(new Date(m.start).getFullYear(), new Date(m.start).getMonth() + 1, 0).toISOString().slice(0, 10)
       const mData = (data || []).filter(d => d.date >= m.start && d.date <= mEnd)
       return {
         label: m.label,
-        revenue: mData.filter(d => d.type === 'revenue').reduce((s, d) => s + (d.amount || 0), 0),
-        expense: mData.filter(d => d.type === 'expense').reduce((s, d) => s + Math.abs(d.amount || 0), 0),
+        revenue: mData.filter(d => classifyEntry(d) === 'revenue').reduce((s, d) => s + Math.abs(d.amount || 0), 0),
+        expense: mData.filter(d => classifyEntry(d) === 'expense').reduce((s, d) => s + Math.abs(d.amount || 0), 0),
       }
     })
     setChartData(chart)
@@ -128,6 +160,18 @@ export default function Finance() {
           style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
           {TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
+        {categories.length > 0 && (
+          <select value={filters.category} onChange={e => setFilters(f => ({ ...f, category: e.target.value }))}
+            className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+            style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+            <option value="">Všechny kategorie</option>
+            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        )}
+        <input type="text" value={filters.search} onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
+          placeholder="Hledat popis…"
+          className="rounded-btn text-xs outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357', minWidth: 150 }} />
         <div className="ml-auto flex gap-2">
           <Button onClick={() => handleExport('csv')}>CSV</Button>
           <Button onClick={() => handleExport('xlsx')}>XLSX</Button>
@@ -179,9 +223,9 @@ export default function Finance() {
                   className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
                   style={{ borderBottom: '1px solid #d4e8e0' }}>
                   <TD>{t.date ? new Date(t.date).toLocaleDateString('cs-CZ') : '—'}</TD>
-                  <TD><TypeBadge type={t.type} /></TD>
+                  <TD><TypeBadge type={t._classified || classifyEntry(t)} /></TD>
                   <TD>{t.description || '—'}</TD>
-                  <TD bold color={t.type === 'revenue' ? '#1a8a18' : '#dc2626'}>{fmt(t.amount)}</TD>
+                  <TD bold color={(t._classified || classifyEntry(t)) === 'revenue' ? '#1a8a18' : '#dc2626'}>{fmt(Math.abs(t.amount))}</TD>
                   <TD>{t.category || '—'}</TD>
                   <TD mono>{t.booking_id ? t.booking_id.slice(0, 8) : '—'}</TD>
                 </tr>
@@ -196,7 +240,7 @@ export default function Finance() {
         <Modal open title="Detail transakce" onClose={() => setDetailTx(null)}>
           <div className="grid grid-cols-2 gap-4">
             <DetailRow label="Datum" value={detailTx.date ? new Date(detailTx.date).toLocaleDateString('cs-CZ') : '—'} />
-            <DetailRow label="Typ" value={detailTx.type === 'revenue' ? 'Příjem' : 'Výdaj'} />
+            <DetailRow label="Typ" value={classifyEntry(detailTx) === 'revenue' ? 'Příjem' : 'Výdaj'} />
             <DetailRow label="Částka" value={fmt(detailTx.amount)} />
             <DetailRow label="Kategorie" value={detailTx.category || '—'} />
             <div className="col-span-2">
