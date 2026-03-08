@@ -58,6 +58,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
   const [rejectReason, setRejectReason] = useState('')
   const [showRejectForm, setShowRejectForm] = useState(false)
   const [replacementMoto, setReplacementMoto] = useState(null)
+  const [motoInService, setMotoInService] = useState(false)
 
   useEffect(() => {
     // Reset all state when incident changes to prevent stale view
@@ -161,6 +162,22 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
       action: adminId ? `Přiřazeno: ${adminName}` : 'Přiřazení odebráno',
       performed_by: user?.email || 'Admin', admin_id: user?.id,
     })
+    onRefresh?.()
+  }
+
+  async function setMotoToService() {
+    const motoId = moto?.id || incident?.moto_id || incident?.replacement_data?.original_moto_id
+    if (!motoId) return
+    if (!window.confirm('Přesunout motorku do servisu (maintenance)?\n\nMotorka bude nedostupná pro nové rezervace.')) return
+    const { error } = await supabase.from('motorcycles').update({ status: 'maintenance' }).eq('id', motoId)
+    if (error) { alert('Chyba: ' + error.message); return }
+    const { data: { user } } = await supabase.auth.getUser()
+    await supabase.from('sos_timeline').insert({
+      incident_id: incident.id,
+      action: `Motorka ${moto?.model || motoId} přesunuta do servisu`,
+      performed_by: user?.email || 'Admin', admin_id: user?.id,
+    })
+    setMotoInService(true)
     onRefresh?.()
   }
 
@@ -454,11 +471,27 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
                 </span>
               )}
               {incident.moto_rideable === false && (
-                <span className="inline-block rounded-btn text-xs font-extrabold" style={{
-                  padding: '4px 10px', background: '#fef3c7', color: '#b45309',
-                }}>
-                  Motorka nepojízdná
-                </span>
+                <>
+                  <span className="inline-block rounded-btn text-xs font-extrabold" style={{
+                    padding: '4px 10px', background: '#fef3c7', color: '#b45309',
+                  }}>
+                    Motorka nepojízdná
+                  </span>
+                  {!motoInService && moto?.status !== 'maintenance' && (
+                    <button onClick={setMotoToService} className="inline-block rounded-btn text-[10px] font-extrabold cursor-pointer" style={{
+                      padding: '4px 10px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5',
+                    }}>
+                      🔧 Přesunout do servisu
+                    </button>
+                  )}
+                  {(motoInService || moto?.status === 'maintenance') && (
+                    <span className="inline-block rounded-btn text-[10px] font-extrabold" style={{
+                      padding: '4px 10px', background: '#dcfce7', color: '#15803d',
+                    }}>
+                      ✅ V servisu
+                    </span>
+                  )}
+                </>
               )}
             </div>
             {incident.replacement_status && (

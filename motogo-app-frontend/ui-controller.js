@@ -156,6 +156,7 @@ var _sosReplacementMode = false;
 var _sosReplacementData = { selectedMotoId: null, selectedModel: null, dailyPrice: 0, deliveryFee: 490 };
 
 var _sosReplacementLoading = false;
+var _sosCurrentMotoId = null; // ID aktuální (rozbité) motorky zákazníka
 function sosRequestReplacement() {
     if(_sosReplacementLoading) return; // guard against double-click
     _sosReplacementLoading = true;
@@ -165,12 +166,36 @@ function sosRequestReplacement() {
     var desc = 'Motorka nepojízdná – žádám náhradní motorku. ' + faultDesc;
     var type = _sosFault === true ? 'accident_major' : _sosFault === false ? 'accident_major' : 'breakdown_major';
 
+    // Předem načti aktivní booking a ulož moto_id (robustnější než v sosReplLoadMotos)
+    _sosCurrentMotoId = null;
+    (async function(){
+      try {
+        var uid = null;
+        try { var u = await window.supabase.auth.getUser(); uid = u.data && u.data.user ? u.data.user.id : null; } catch(e){}
+        if(uid){
+          // Hledej jakoukoliv aktivní/potvrzenou rezervaci, ne jen paid+active
+          var bk = await window.supabase.from('bookings')
+            .select('moto_id')
+            .eq('user_id', uid)
+            .in('status', ['active', 'confirmed', 'pending'])
+            .lte('start_date', new Date().toISOString())
+            .gte('end_date', new Date().toISOString())
+            .limit(1);
+          if(bk.data && bk.data.length > 0 && bk.data[0].moto_id){
+            _sosCurrentMotoId = bk.data[0].moto_id;
+          }
+        }
+      } catch(e){ console.warn('[SOS] pre-fetch moto_id:', e); }
+    })();
+
     _sosEnsureIncident(type, desc).then(function(incId){
       _sosReplacementLoading = false;
       if(!incId){ showT('❌','Chyba','Nepodařilo se nahlásit incident'); return; }
       _sosPendingIncidentId = incId;
       var upd = {customer_decision:'replacement_moto', moto_rideable:false, replacement_status: 'selecting'};
       if(_sosFault !== null) upd.customer_fault = _sosFault;
+      // Ulož aktuální moto_id i do incidentu
+      if(_sosCurrentMotoId) upd.original_moto_id = _sosCurrentMotoId;
       _sosUpdateIncident(incId, upd);
       _sosReplacementMode = true;
       // Přejdi na dedicated SOS replacement screen
@@ -230,15 +255,39 @@ async function sosReplLoadMotos(){
     container.innerHTML = '<div style="text-align:center;padding:15px;color:var(--g400);font-size:12px;">⏳ Načítám dostupné motorky...</div>';
 
     try {
-      // Najdi aktivní rezervaci a profil zákazníka
-      var loan = await apiGetActiveLoan();
-      var startDate = loan ? (loan.start_date || (loan._db && loan._db.start_date)) : null;
-      var endDate = loan ? (loan.end_date || (loan._db && loan._db.end_date)) : null;
-      var currentMotoId = loan ? (loan.moto_id || (loan._db && loan._db.moto_id)) : null;
-
-      // Zjisti řidičák zákazníka
+      // Zjisti uživatele
       var uid = null;
       try { var u = await window.supabase.auth.getUser(); uid = u.data && u.data.user ? u.data.user.id : null; } catch(e){}
+
+      // Najdi aktivní rezervaci — širší dotaz než apiGetActiveLoan (zahrnuje i confirmed/pending)
+      var startDate = null, endDate = null, currentMotoId = _sosCurrentMotoId || null;
+      if(uid){
+        var bkR = await window.supabase.from('bookings')
+          .select('moto_id, start_date, end_date')
+          .eq('user_id', uid)
+          .in('status', ['active', 'confirmed', 'pending'])
+          .lte('start_date', new Date().toISOString())
+          .gte('end_date', new Date().toISOString())
+          .limit(1);
+        if(bkR.data && bkR.data.length > 0){
+          var bk = bkR.data[0];
+          startDate = bk.start_date;
+          endDate = bk.end_date;
+          if(!currentMotoId) currentMotoId = bk.moto_id;
+        }
+      }
+      // Záloha: zkus i apiGetActiveLoan
+      if(!currentMotoId){
+        var loan = await apiGetActiveLoan();
+        if(loan){
+          if(!startDate) startDate = loan.start_date;
+          if(!endDate) endDate = loan.end_date;
+          currentMotoId = loan.moto_id;
+        }
+      }
+      console.log('[SOS] currentMotoId to exclude:', currentMotoId);
+
+      // Zjisti řidičák zákazníka
       var customerLicense = null;
       if(uid){
         var pr = await window.supabase.from('profiles').select('license_group').eq('id', uid).single();
@@ -254,8 +303,8 @@ async function sosReplLoadMotos(){
 
       // Filtruj: 1) ne aktuální motorku, 2) zákazník má odpovídající řidičák
       var motos = allMotos.filter(function(m){
-        // Vyřaď aktuální motorku zákazníka
-        if(currentMotoId && m.id === currentMotoId) return false;
+        // Vyřaď aktuální motorku zákazníka (case-insensitive UUID porovnání)
+        if(currentMotoId && String(m.id).toLowerCase() === String(currentMotoId).toLowerCase()) return false;
         // Zkontroluj řidičák – A zahrnuje A2, A2 nezahrnuje A
         if(customerLicense && m.license_required){
           var req = m.license_required; // e.g. 'A' or 'A2'
@@ -423,6 +472,7 @@ async function sosConfirmReplacement(){
     var replacementData = {
       replacement_moto_id: _sosReplacementData.selectedMotoId,
       replacement_model: _sosReplacementData.selectedModel,
+      original_moto_id: _sosCurrentMotoId || null,
       delivery_address: address,
       delivery_city: city,
       delivery_zip: zip,
@@ -437,6 +487,17 @@ async function sosConfirmReplacement(){
       customer_confirmed_at: new Date().toISOString(),
       requested_at: new Date().toISOString()
     };
+
+    // Automaticky přesuň rozbitou motorku do servisu (maintenance)
+    if(_sosCurrentMotoId){
+      window.supabase.from('motorcycles')
+        .update({ status: 'maintenance' })
+        .eq('id', _sosCurrentMotoId)
+        .then(function(r){
+          if(r.error) console.error('[SOS] set moto maintenance error:', r.error.message);
+          else console.log('[SOS] Motorka ' + _sosCurrentMotoId + ' přesunuta do servisu');
+        });
+    }
 
     if(isFault){
       // Zákazník zavinil → musí zaplatit → zpracuj platbu
