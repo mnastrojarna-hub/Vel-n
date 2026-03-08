@@ -233,3 +233,34 @@ Templates['s-sos-replacement'] = `  <div class="sos-sub-hdr" id="sos-repl-hdr" s
       <button onclick="histBack()" style="background:none;border:none;font-family:var(--font);font-size:12px;font-weight:600;color:var(--g400);cursor:pointer;text-decoration:underline;">Zrušit</button>
     </div>
   </div>`;
+
+// ===== SOS DONE — potvrzení po nahlášení =====
+Templates['s-sos-done'] = `  <div class="sos-sub-hdr" style="background:linear-gradient(135deg,#1a8a18,#22c55e);">
+    <div style="font-size:48px;margin-bottom:8px;margin-top:20px;">✅</div>
+    <h2 style="color:#fff;font-size:22px;font-weight:900;">Incident nahlášen</h2>
+    <p style="color:rgba(255,255,255,.8);font-size:13px;margin-top:6px;" id="sos-done-subtitle">MotoGo24 přijala vaše hlášení</p>
+  </div>
+  <div style="padding:14px 20px 0;">
+    <div id="sos-done-detail" style="background:#fff;border-radius:var(--r);padding:16px;box-shadow:var(--shadow);margin-bottom:12px;"></div>
+
+    <div style="background:#fff;border-radius:var(--r);padding:16px;box-shadow:var(--shadow);margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:800;color:var(--g400);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Co bude dál?</div>
+      <div id="sos-done-next" style="font-size:13px;line-height:1.8;color:var(--black);"></div>
+    </div>
+
+    <div style="background:#fff;border-radius:var(--r);padding:14px;box-shadow:var(--shadow);margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:800;color:var(--g400);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Přímý kontakt</div>
+      <a href="tel:+420774256271" style="display:flex;align-items:center;gap:12px;text-decoration:none;">
+        <div style="width:40px;height:40px;background:var(--green);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">📞</div>
+        <div><div style="font-size:14px;font-weight:800;color:var(--black);">+420 774 256 271</div><div style="font-size:11px;color:var(--g400);margin-top:2px;">MotoGo24 asistenční linka 24/7</div></div>
+      </a>
+    </div>
+
+    <button onclick="goTo('s-messages')" style="width:100%;background:var(--gp);color:var(--gd);border:2px solid var(--green);border-radius:50px;padding:14px;font-family:var(--font);font-size:14px;font-weight:800;cursor:pointer;margin-bottom:8px;">
+      📨 Zprávy z MotoGo24
+    </button>
+
+    <button onclick="_sosActiveIncidentId=null;goTo('s-home')" style="width:100%;background:var(--green);color:#fff;border:none;border-radius:50px;padding:14px;font-family:var(--font);font-size:14px;font-weight:800;cursor:pointer;margin-bottom:20px;">
+      Zpět na hlavní obrazovku
+    </button>
+  </div>`;

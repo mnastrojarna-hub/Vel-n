@@ -53,6 +53,18 @@ function setupBioButton(){
 var _sosFault = null;
 var _sosActiveIncidentId = null;
 var _sosPendingIncidentId = null;  // Incident čekající na platbu (zaviněná nehoda)
+var _sosSubmitting = false;        // Guard against double-tap
+
+function _sosShowDone(typeLabel, nextInfo) {
+  goTo('s-sos-done');
+  setTimeout(function(){
+    var detail = document.getElementById('sos-done-detail');
+    var next = document.getElementById('sos-done-next');
+    if(detail) detail.innerHTML = '<div style="font-size:13px;font-weight:800;color:var(--black);">' + (typeLabel || 'Incident') + '</div>' +
+      '<div style="font-size:12px;color:var(--g400);margin-top:4px;">' + new Date().toLocaleString('cs-CZ') + '</div>';
+    if(next) next.innerHTML = nextInfo || 'Asistent MotoGo24 vás bude kontaktovat.';
+  }, 100);
+}
 
 function _sosGetGPS(){
   return new Promise(function(resolve){
@@ -67,7 +79,22 @@ function _sosGetGPS(){
 
 function _sosEnsureIncident(type, desc){
   return new Promise(function(resolve){
-    if(_sosActiveIncidentId){ resolve(_sosActiveIncidentId); return; }
+    if(_sosActiveIncidentId){
+      // Verify the incident is still active (not resolved/closed by admin)
+      if(window.supabase){
+        window.supabase.from('sos_incidents').select('id,status').eq('id', _sosActiveIncidentId).single()
+          .then(function(r){
+            if(r.data && !['resolved','closed'].includes(r.data.status)){
+              resolve(_sosActiveIncidentId);
+            } else {
+              _sosActiveIncidentId = null;
+              _sosEnsureIncident(type, desc).then(resolve);
+            }
+          }).catch(function(){ resolve(_sosActiveIncidentId); });
+        return;
+      }
+      resolve(_sosActiveIncidentId); return;
+    }
     showT('⚠️','Hlásím incident...','Odesílám na centrálu');
     apiGetActiveLoan().then(function(loan){
       var bookingId = loan ? (loan.id || (loan._db && loan._db.id)) : null;
@@ -106,18 +133,19 @@ function _sosUpdateIncident(incidentId, data){
 }
 
 function sosReportAccident(type) {
+    if(_sosSubmitting) return;
+    _sosSubmitting = true;
     var sosType = type === 'lehka' ? 'accident_minor' : 'accident_major';
-    var ts = new Date().toLocaleString('cs-CZ');
     _sosActiveIncidentId = null;
     _sosFault = null;
     var desc = sosType === 'accident_minor' ? 'Lehká nehoda – pokračuji v jízdě' : 'Závažná nehoda';
+    var typeLabel = sosType === 'accident_minor' ? 'Lehká nehoda' : 'Závažná nehoda';
     _sosEnsureIncident(sosType, desc)
       .then(function(incId){
+        _sosSubmitting = false;
         if(incId){
-          // Lehká nehoda = pojízdná, závažná = nepojízdná
           var upd = { moto_rideable: sosType === 'accident_minor' };
           _sosUpdateIncident(incId, upd);
-          // Timeline entry s detaily
           window.supabase.from('sos_timeline').insert({
             incident_id: incId,
             action: sosType === 'accident_minor'
@@ -125,21 +153,20 @@ function sosReportAccident(type) {
               : 'Zákazník nahlásil závažnou nehodu — čeká na pokyny',
           }).then(function(){});
         }
-        if(sosType === 'accident_minor'){
-          showT('✅', 'Děkujeme za nahlášení', 'Šťastnou cestu! 🏍️');
-        } else {
-          showT('✅', 'Incident nahlášen MotoGo24', ts + '\nAsistent vás kontaktuje.');
-        }
-        setTimeout(function(){ histBack(); }, 2000);
-      });
+        _sosShowDone(typeLabel, sosType === 'accident_minor'
+          ? 'Děkujeme za nahlášení. Šťastnou cestu!'
+          : 'Asistent MotoGo24 vás bude kontaktovat.');
+      }).catch(function(){ _sosSubmitting = false; });
 }
 
 function sosReportTheft() {
-    var ts = new Date().toLocaleString('cs-CZ');
+    if(_sosSubmitting) return;
+    _sosSubmitting = true;
     _sosActiveIncidentId = null;
     _sosFault = null;
     _sosEnsureIncident('theft', 'Krádež motorky – zákazník informován o postupu (policie 158)')
       .then(function(incId){
+        _sosSubmitting = false;
         if(incId){
           _sosUpdateIncident(incId, { moto_rideable: false });
           window.supabase.from('sos_timeline').insert({
@@ -147,8 +174,8 @@ function sosReportTheft() {
             action: 'Zákazník nahlásil krádež motorky — přesměrován na policii ČR (158)',
           }).then(function(){});
         }
-        showT('🚨', 'Krádež nahlášena MotoGo24', ts + '\nVolejte policii 158!');
-      });
+        // Don't navigate to done yet — user sees s-sos-kradez with police instructions
+      }).catch(function(){ _sosSubmitting = false; });
 }
 
 // ===== SOS REPLACEMENT — přesměrování na Upravit rezervaci =====
@@ -633,8 +660,7 @@ function sosEndRide() {
           incident_id: incId,
           action: 'Zákazník ukončuje jízdu — žádá odtah' + (_sosFault === true ? ' (zavinil zákazník)' : _sosFault === false ? ' (cizí zavinění — zdarma)' : ''),
         }).then(function(){});
-        showT('🚛', 'Odtah objednán', 'MotoGo24 zařídí odtah motorky');
-        setTimeout(function(){ goTo('s-sos'); }, 2500);
+        _sosShowDone('Odtah objednán', 'MotoGo24 zařídí odtah motorky. Asistent vás bude kontaktovat.');
       });
     });
 }
@@ -652,8 +678,7 @@ function sosEndRideFree() {
           action: 'Zákazník ukončuje jízdu — porucha (nezaviněná) — pronájem zdarma, odtah objednán',
         }).then(function(){});
       }
-      showT('✅', 'Pronájem zdarma', 'Vracíme plnou částku. Odtah zajistíme.');
-      setTimeout(function(){ goTo('s-home'); }, 2200);
+      _sosShowDone('Pronájem zdarma', 'Vracíme plnou částku. Odtah zajistíme.');
     });
 }
 
@@ -700,10 +725,13 @@ function sosShareLocation() {
 }
 
 function sosDrobnaZavada() {
+    if(_sosSubmitting) return;
+    _sosSubmitting = true;
     showT('🔩', 'Hlásím závadu...', '');
     _sosActiveIncidentId = null;
     _sosFault = null;
     _sosEnsureIncident('breakdown_minor', 'Drobná závada – motorka pojízdná, pokračuji v jízdě').then(function(incId){
+      _sosSubmitting = false;
       if(incId){
         _sosUpdateIncident(incId, { moto_rideable: true, customer_fault: false, customer_decision: 'continue' });
         window.supabase.from('sos_timeline').insert({
@@ -711,9 +739,8 @@ function sosDrobnaZavada() {
           action: 'Zákazník nahlásil drobnou závadu — motorka pojízdná, pokračuje v jízdě',
         }).then(function(){});
       }
-      showT('✅', 'Děkujeme za nahlášení', 'Šťastnou cestu! 🏍️');
-      setTimeout(function(){ histBack(); }, 1600);
-    });
+      _sosShowDone('Drobná závada', 'Děkujeme za nahlášení. Šťastnou cestu!');
+    }).catch(function(){ _sosSubmitting = false; });
 }
 
 // ===== AI CHAT =====
