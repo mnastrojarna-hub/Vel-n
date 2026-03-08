@@ -162,116 +162,16 @@ function sosRequestReplacement() {
       var upd = {customer_decision:'replacement_moto', moto_rideable:false, replacement_status: 'selecting'};
       if(_sosFault !== null) upd.customer_fault = _sosFault;
       _sosUpdateIncident(incId, upd);
-      // Otevři Upravit rezervaci v SOS režimu
       _sosReplacementMode = true;
-      _sosOpenEditReservation();
+      // Přejdi na dedicated SOS replacement screen
+      goTo('s-sos-replacement');
     });
 }
 
-async function _sosOpenEditReservation(){
-    try {
-      var loan = await apiGetActiveLoan();
-      if(!loan || !loan._db){
-        showT('⚠️','Žádná aktivní rezervace','Nemáte aktivní rezervaci');
-        _sosReplacementMode = false;
-        return;
-      }
-      var bookingId = loan._db.id || loan.id;
-      await openEditResByBookingId(bookingId);
-      // Po otevření nastav SOS UI
-      setTimeout(function(){ _sosInitEditUI(); }, 350);
-    } catch(e){
-      showT('❌','Chyba','Nepodařilo se otevřít rezervaci');
-      _sosReplacementMode = false;
-    }
-}
-
-function _sosInitEditUI(){
-    var isFault = _sosFault === true;
-    // Skryj záložky prodloužit/zkrátit — v SOS jde jen o výměnu moto
-    var tabProd = document.getElementById('etab-prodlouzit');
-    var tabZkr = document.getElementById('etab-zkratit');
-    if(tabProd) tabProd.style.display = 'none';
-    if(tabZkr) tabZkr.style.display = 'none';
-    // Skryj kalendář — termín zůstává stejný
-    var calCard = document.getElementById('edit-cal-card');
-    if(calCard) calCard.style.display = 'none';
-    // Skryj extras
-    var extrasCard = document.getElementById('edit-extras-card');
-    if(extrasCard) extrasCard.style.display = 'none';
-    // Skryj vrácení — nedává smysl při SOS
-    var returnCard = document.getElementById('edit-return-location-card');
-    if(returnCard) returnCard.style.display = 'none';
-    // Skryj branch
-    var branchCard = document.getElementById('edit-branch-card');
-    if(branchCard) branchCard.style.display = 'none';
-    // Zobraz moto change card
-    var motoCard = document.getElementById('edit-moto-change-card');
-    if(motoCard) motoCard.style.display = 'block';
-    if(typeof populateEditMotoList === 'function') populateEditMotoList();
-    // Zobraz pickup (adresa přistavení)
-    var pickupCard = document.getElementById('edit-pickup-location-card');
-    if(pickupCard) pickupCard.style.display = 'block';
-    // Nastav pickup na "přistavení na adresu" defaultně
-    var delivRadio = document.querySelector('input[name="edit-pickup"][value="other"]');
-    if(delivRadio){ delivRadio.checked = true; setEditPickup('other'); }
-
-    // SOS banner nad formulářem
-    var topbar = document.querySelector('#screen .topbar');
-    var existBanner = document.getElementById('sos-edit-banner');
-    if(!existBanner && topbar){
-      var banner = document.createElement('div');
-      banner.id = 'sos-edit-banner';
-      if(isFault){
-        banner.style.cssText = 'background:#fee2e2;border:2px solid #fca5a5;border-radius:12px;padding:12px 16px;margin:10px 20px 0;font-size:12px;font-weight:700;color:#b91c1c;line-height:1.6;';
-        banner.innerHTML = '⚠️ Nehoda zaviněná zákazníkem — náklady na přistavení <strong>hradí zákazník</strong> dle výpočtu vzdálenosti.';
-      } else {
-        banner.style.cssText = 'background:#dcfce7;border:2px solid #86efac;border-radius:12px;padding:12px 16px;margin:10px 20px 0;font-size:12px;font-weight:700;color:#15803d;line-height:1.6;';
-        banner.innerHTML = '💚 Porucha / nezaviněná nehoda — náhradní motorka i přistavení jsou <strong>zdarma</strong>.';
-      }
-      topbar.parentNode.insertBefore(banner, topbar.nextSibling);
-    }
-
-    // Uprav nadpis
-    var editTitle = document.getElementById('t-editTitle');
-    if(editTitle) editTitle.textContent = '🏍️ Náhradní motorka';
-    // Uprav subtitle
-    var editSub = document.getElementById('edit-subtitle');
-    if(editSub) editSub.textContent = 'Vyberte náhradní motorku a adresu přistavení';
-
-    // Uprav save button text
-    var saveBtn = document.getElementById('edit-save-btn');
-    if(saveBtn){
-      if(isFault){
-        saveBtn.innerHTML = '💳 Potvrdit a zaplatit přistavení →';
-      } else {
-        saveBtn.innerHTML = '✅ Potvrdit objednávku (zdarma) →';
-      }
-    }
-    // Zobrazit cenový souhrn s SOS info
-    var priceSum = document.getElementById('edit-price-summary');
-    if(priceSum) priceSum.style.display = 'block';
-    // Skryjeme nepotřebné řádky
-    var origRow = document.getElementById('edit-orig-price');
-    if(origRow && origRow.parentNode) origRow.parentNode.style.display = 'none';
-    var extRow = document.getElementById('edit-extend-row');
-    if(extRow) extRow.style.display = 'none';
-    var shrRow = document.getElementById('edit-shorten-row');
-    if(shrRow) shrRow.style.display = 'none';
-    var motoDiffRow = document.getElementById('edit-moto-diff-row');
-    if(motoDiffRow) motoDiffRow.style.display = 'none';
-    var extrasRow = document.getElementById('edit-extras-fee-row');
-    if(extrasRow) extrasRow.style.display = 'none';
-    // Pro nezaviněné: nulová cena
-    if(!isFault){
-      var diffEl = document.getElementById('edit-diff-total');
-      if(diffEl){ diffEl.textContent = '0 Kč (zdarma)'; diffEl.style.color = 'var(--gd)'; }
-      var payLabel = document.getElementById('t-editPayRefund');
-      if(payLabel) payLabel.textContent = 'Celkem';
-    }
-}
-
 function sosReplInit(){
+    // Reset state
+    _sosReplacementData = { selectedMotoId: null, selectedModel: null, dailyPrice: 0, deliveryFee: 490 };
+
     var isFault = _sosFault === true;
     var hdr = document.getElementById('sos-repl-hdr');
     var sub = document.getElementById('sos-repl-subtitle');
