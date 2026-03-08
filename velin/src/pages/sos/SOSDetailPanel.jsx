@@ -310,17 +310,8 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
         await supabase.from('message_threads').update({ last_message_at: new Date().toISOString() }).eq('id', thread.id)
       }
 
-      // Insert into admin_messages for MotoG app fullscreen overlay
-      const sosTitle = incident.title || TYPE_LABELS[incident.type] || 'SOS'
-      await supabase.from('admin_messages').insert({
-        user_id: customer.id,
-        title: `SOS: ${sosTitle}`,
-        message: message.trim(),
-        type: 'sos_response',
-        read: false,
-      }).then(r => {
-        if (r.error) console.warn('[SOSDetail] admin_messages insert failed:', r.error.message)
-      })
+      // admin_messages is handled by bridge trigger (trg_bridge_admin_message)
+      // on messages table insert — no direct insert needed here
 
       await supabase.from('sos_timeline').insert({
         incident_id: incident.id,

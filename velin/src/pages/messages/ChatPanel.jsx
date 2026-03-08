@@ -90,17 +90,8 @@ export default function ChatPanel({ thread, onThreadUpdate }) {
         { thread_id: thread.id }
       )
 
-      // Bridge: vytvor admin_messages zaznam pro zakaznickou appku
-      const customerId = thread.customer_id || thread.profiles?.id
-      if (customerId) {
-        await supabase.from('admin_messages').insert({
-          user_id: customerId,
-          title: thread.subject || 'Zprava z Moto Go',
-          message: reply.trim(),
-          type: 'info',
-          read: false,
-        }).catch(() => {}) // silent fail if table missing
-      }
+      // admin_messages is handled by bridge trigger (trg_bridge_admin_message)
+      // on messages table insert — no direct insert needed here
 
       setReply('')
       await loadMessages()
