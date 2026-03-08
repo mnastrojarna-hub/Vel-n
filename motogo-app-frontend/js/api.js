@@ -372,53 +372,110 @@ async function apiGetActiveLoan(){
   } catch(e){ return null; }
 }
 
-// ===== AUTO-GENERATE INVOICE & DOCUMENTS ON PAYMENT =====
-async function apiAutoGenerateInvoice(bookingId){
+// ===== INVOICE GENERATION =====
+// Generate advance (zálohová) invoice — called on every payment gateway pass
+async function apiGenerateAdvanceInvoice(bookingId, amount, source){
   _ensureSupabase();
   if(!window.supabase) return {error:'Offline'};
   try {
     var uid = await _getUserId();
     if(!uid) return {error:'Nepřihlášen'};
-    // Load booking with moto
     var br = await window.supabase.from('bookings')
       .select('*, motorcycles(model, spz), profiles(full_name, email, phone, street, city, zip, country)')
       .eq('id', bookingId).single();
     if(!br.data) return {error:'Booking not found'};
-    var b = br.data, p = br.data.profiles || {}, m = br.data.motorcycles || {};
-    var days = Math.max(1, Math.ceil((new Date(b.end_date) - new Date(b.start_date)) / 86400000));
-    var dailyRate = Math.round((b.total_price || 0) / days);
+    var b = br.data, m = br.data.motorcycles || {};
     var yr = new Date().getFullYear();
-    // Generate invoice number
     var lr = await window.supabase.from('invoices').select('number')
-      .like('number', 'FV-' + yr + '-%').order('number', {ascending:false}).limit(1);
+      .like('number', 'ZF-' + yr + '-%').order('number', {ascending:false}).limit(1);
     var seq = 1;
     if(lr.data && lr.data.length > 0){
       var mt = lr.data[0].number.match(/-(\d+)$/);
       if(mt) seq = parseInt(mt[1], 10) + 1;
     }
-    var invNum = 'FV-' + yr + '-' + String(seq).padStart(4, '0');
-    var items = [{description: 'Pronájem ' + (m.model||'motorky') + ' (' + (m.spz||'') + ')', qty: days, unit_price: dailyRate, vat_rate: 21}];
-    if(b.extras_price > 0) items.push({description: 'Příslušenství / doplňky', qty: 1, unit_price: b.extras_price, vat_rate: 21});
-    var subtotal = items.reduce(function(s, it){ return s + it.unit_price * it.qty; }, 0);
+    var invNum = 'ZF-' + yr + '-' + String(seq).padStart(4, '0');
+    var desc = 'Záloha – ' + (source === 'edit' ? 'úprava rezervace' : source === 'sos' ? 'SOS' : source === 'shop' ? 'e-shop' : 'rezervace');
+    var items = [{description: desc + ' ' + (m.model||''), qty: 1, unit_price: amount || 0, vat_rate: 21}];
+    var subtotal = amount || 0;
     var tax = Math.round(subtotal * 0.21 * 100) / 100;
     var total = subtotal + tax;
     var issueDate = new Date().toISOString().slice(0, 10);
-    var dueDate = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
+    var dueDate = issueDate; // advance = immediate
     var inv = await window.supabase.from('invoices').insert({
-      number: invNum, type: 'final', customer_id: uid, booking_id: bookingId,
+      number: invNum, type: 'advance', customer_id: uid, booking_id: bookingId,
       items: items, subtotal: subtotal, tax_amount: tax, total: total,
-      issue_date: issueDate, due_date: dueDate, status: 'paid', variable_symbol: invNum
+      issue_date: issueDate, due_date: dueDate, status: 'paid',
+      variable_symbol: invNum, source: source || 'booking'
     }).select().single();
-    if(inv.error) console.warn('[API] Invoice insert error:', inv.error.message);
-    // Also insert a document record so it appears in the app
+    if(inv.error) console.warn('[API] Advance invoice err:', inv.error.message);
     await window.supabase.from('documents').insert({
-      booking_id: bookingId, user_id: uid, type: 'invoice_final',
-      file_name: 'Faktura ' + invNum + '.pdf',
+      booking_id: bookingId, user_id: uid, type: 'invoice_advance',
+      file_name: 'Zálohová faktura ' + invNum + '.pdf',
       file_path: 'invoices/' + (inv.data ? inv.data.id : bookingId) + '.html'
     });
     return {error: null, invoice_number: invNum};
-  } catch(e){ console.error('[API] autoGenerateInvoice:', e); return {error: e.message}; }
+  } catch(e){ console.error('[API] advanceInvoice:', e); return {error: e.message}; }
 }
+
+// Generate final (konečná) invoice — called after ride end, summarizes all ZFs
+async function apiGenerateFinalInvoice(bookingId){
+  _ensureSupabase();
+  if(!window.supabase) return {error:'Offline'};
+  try {
+    var uid = await _getUserId();
+    if(!uid) return {error:'Nepřihlášen'};
+    var br = await window.supabase.from('bookings')
+      .select('*, motorcycles(model, spz), profiles(full_name, email, phone, street, city, zip, country)')
+      .eq('id', bookingId).single();
+    if(!br.data) return {error:'Booking not found'};
+    var b = br.data, m = br.data.motorcycles || {};
+    // Fetch all advance invoices for this booking
+    var advR = await window.supabase.from('invoices').select('*')
+      .eq('booking_id', bookingId).eq('type', 'advance')
+      .order('created_at', {ascending: true});
+    var advances = advR.data || [];
+    var yr = new Date().getFullYear();
+    var lr = await window.supabase.from('invoices').select('number')
+      .like('number', 'KF-' + yr + '-%').order('number', {ascending:false}).limit(1);
+    var seq = 1;
+    if(lr.data && lr.data.length > 0){
+      var mt = lr.data[0].number.match(/-(\d+)$/);
+      if(mt) seq = parseInt(mt[1], 10) + 1;
+    }
+    var invNum = 'KF-' + yr + '-' + String(seq).padStart(4, '0');
+    var days = Math.max(1, Math.ceil((new Date(b.end_date) - new Date(b.start_date)) / 86400000));
+    var dailyRate = Math.round((b.total_price || 0) / days);
+    var items = [{description: 'Pronájem ' + (m.model||'motorky') + ' (' + (m.spz||'') + ')', qty: days, unit_price: dailyRate, vat_rate: 21}];
+    if(b.extras_price > 0) items.push({description: 'Příslušenství / doplňky', qty: 1, unit_price: b.extras_price, vat_rate: 21});
+    if(b.delivery_fee > 0) items.push({description: 'Doručení', qty: 1, unit_price: b.delivery_fee, vat_rate: 21});
+    // Add all advance invoice references
+    var advTotal = 0;
+    advances.forEach(function(a){
+      advTotal += Number(a.total || 0);
+      items.push({description: 'Záloha ' + a.number + ' (' + (a.source||'') + ')', qty: 1, unit_price: -Number(a.total || 0), vat_rate: 21});
+    });
+    var subtotal = items.reduce(function(s, it){ return s + (it.unit_price * (it.qty||1)); }, 0);
+    var tax = Math.round(subtotal * 0.21 * 100) / 100;
+    var total = subtotal + tax; // Should be ~0 CZK (all paid via advances)
+    var issueDate = new Date().toISOString().slice(0, 10);
+    var inv = await window.supabase.from('invoices').insert({
+      number: invNum, type: 'final', customer_id: uid, booking_id: bookingId,
+      items: items, subtotal: subtotal, tax_amount: tax, total: total,
+      issue_date: issueDate, due_date: issueDate, status: 'paid',
+      variable_symbol: invNum, source: 'final_summary'
+    }).select().single();
+    if(inv.error) console.warn('[API] Final invoice err:', inv.error.message);
+    await window.supabase.from('documents').insert({
+      booking_id: bookingId, user_id: uid, type: 'invoice_final',
+      file_name: 'Konečná faktura ' + invNum + '.pdf',
+      file_path: 'invoices/' + (inv.data ? inv.data.id : bookingId) + '.html'
+    });
+    return {error: null, invoice_number: invNum};
+  } catch(e){ console.error('[API] finalInvoice:', e); return {error: e.message}; }
+}
+
+// Legacy alias
+var apiAutoGenerateInvoice = apiGenerateAdvanceInvoice;
 
 async function apiAutoGenerateBookingDocs(bookingId){
   _ensureSupabase();
@@ -446,13 +503,7 @@ async function apiAutoGenerateBookingDocs(bookingId){
         file_path: 'documents/vop_current.html'
       });
     }
-    if(existingTypes.indexOf('protocol') === -1){
-      docsToInsert.push({
-        booking_id: bookingId, user_id: uid, type: 'protocol',
-        file_name: 'Předávací protokol.pdf',
-        file_path: 'protocols/' + bookingId + '_protocol.html'
-      });
-    }
+    // Protocol is auto-generated on rental start date, NOT at booking time
     if(docsToInsert.length > 0){
       await window.supabase.from('documents').insert(docsToInsert);
     }
@@ -1048,4 +1099,68 @@ async function enrichMOTOS(){
   } catch(e){
     console.error('[API] enrichMOTOS chyba:', e);
   }
+}
+
+// ===== AUTO-GENERATE PROTOCOL ON RENTAL START DATE =====
+async function apiAutoGenerateProtocolForToday(){
+  if(!window.supabase) return;
+  try {
+    var uid = await _getUserId();
+    if(!uid) return;
+    var today = new Date().toISOString().slice(0,10);
+    // Find bookings starting today that don't have a protocol yet
+    var bks = await window.supabase.from('bookings').select('id')
+      .eq('user_id', uid).eq('payment_status','paid')
+      .gte('start_date', today + 'T00:00:00')
+      .lte('start_date', today + 'T23:59:59');
+    if(!bks.data) return;
+    for(var i=0;i<bks.data.length;i++){
+      var bid = bks.data[i].id;
+      var existing = await window.supabase.from('documents').select('id')
+        .eq('booking_id', bid).eq('user_id', uid).eq('type','protocol').limit(1);
+      if(existing.data && existing.data.length > 0) continue;
+      await window.supabase.from('documents').insert({
+        booking_id: bid, user_id: uid, type: 'protocol',
+        file_name: 'Předávací protokol.pdf',
+        file_path: 'protocols/' + bid + '_protocol.html'
+      });
+    }
+  } catch(e){ console.warn('[API] protocolAutoGen:', e); }
+}
+
+// ===== AUTO-GENERATE FINAL INVOICE FOR ENDED BOOKINGS =====
+async function apiAutoGenerateFinalInvoiceForEnded(){
+  if(!window.supabase) return;
+  try {
+    var uid = await _getUserId();
+    if(!uid) return;
+    var yesterday = new Date(Date.now() - 86400000).toISOString().slice(0,10);
+    var today = new Date().toISOString().slice(0,10);
+    // Find bookings that ended yesterday/today, paid, no final invoice yet
+    var bks = await window.supabase.from('bookings').select('id')
+      .eq('user_id', uid).eq('payment_status','paid')
+      .gte('end_date', yesterday + 'T00:00:00')
+      .lte('end_date', today + 'T23:59:59');
+    if(!bks.data) return;
+    for(var i=0;i<bks.data.length;i++){
+      var bid = bks.data[i].id;
+      // Check if final invoice exists
+      var existing = await window.supabase.from('invoices').select('id')
+        .eq('booking_id', bid).eq('type','final').limit(1);
+      if(existing.data && existing.data.length > 0) continue;
+      await apiGenerateFinalInvoice(bid);
+    }
+  } catch(e){ console.warn('[API] finalInvoiceAutoGen:', e); }
+}
+
+// ===== FETCH DOCUMENT TEMPLATE (from Velín-uploaded PDFs) =====
+async function apiFetchDocTemplate(templateType){
+  if(!window.supabase) return null;
+  try {
+    var r = await window.supabase.from('document_templates')
+      .select('content_html, name, version')
+      .eq('type', templateType).eq('active', true)
+      .order('version', {ascending:false}).limit(1).single();
+    return r.data || null;
+  } catch(e){ return null; }
 }

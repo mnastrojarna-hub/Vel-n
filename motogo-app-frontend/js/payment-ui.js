@@ -205,18 +205,14 @@ function doPayment(){
           } catch(pe){ console.warn('[PAY] Promo tracking:', pe); }
         }
 
-        // AUTO-GENERATE: Invoice + Contract + VOP + Protocol
+        // AUTO-GENERATE: Advance invoice + Contract + VOP (no protocol yet)
         if(_currentBookingId){
           try {
-            if(typeof apiAutoGenerateInvoice === 'function'){
-              apiAutoGenerateInvoice(_currentBookingId).then(function(ir){
-                console.log('[PAY] Invoice auto-generated:', ir && ir.invoice_number ? ir.invoice_number : 'err');
-              }).catch(function(e){ console.warn('[PAY] Invoice err:', e); });
+            if(typeof apiGenerateAdvanceInvoice === 'function'){
+              apiGenerateAdvanceInvoice(_currentBookingId, _currentPaymentAmount, 'booking').catch(function(e){ console.warn('[PAY] Advance invoice err:', e); });
             }
             if(typeof apiAutoGenerateBookingDocs === 'function'){
-              apiAutoGenerateBookingDocs(_currentBookingId).then(function(){
-                console.log('[PAY] Docs auto-generated (contract+VOP+protocol)');
-              }).catch(function(e){ console.warn('[PAY] Docs err:', e); });
+              apiAutoGenerateBookingDocs(_currentBookingId).then(function(){}).catch(function(e){ console.warn('[PAY] Docs err:', e); });
             }
           } catch(de){ console.warn('[PAY] Doc gen err:', de); }
         }
@@ -349,9 +345,9 @@ function doRestorePayment(bookingId){
           await apiConfirmRestoreBooking(bookingId);
         }
 
-        // Auto-generate docs for restored booking
-        if(typeof apiAutoGenerateInvoice === 'function'){
-          apiAutoGenerateInvoice(bookingId).catch(function(e){ console.warn('[PAY] Invoice err:', e); });
+        // Auto-generate advance invoice + docs for restored booking
+        if(typeof apiGenerateAdvanceInvoice === 'function'){
+          apiGenerateAdvanceInvoice(bookingId, _currentPaymentAmount, 'restore').catch(function(e){ console.warn('[PAY] Invoice err:', e); });
         }
         if(typeof apiAutoGenerateBookingDocs === 'function'){
           apiAutoGenerateBookingDocs(bookingId).catch(function(e){ console.warn('[PAY] Docs err:', e); });
@@ -411,11 +407,23 @@ function doEditPayment(bookingId, amount, changes){
           await apiModifyBooking(bookingId, changes);
         }
 
+        // Auto-generate advance invoice for the edit payment
+        if(typeof apiGenerateAdvanceInvoice === 'function'){
+          apiGenerateAdvanceInvoice(bookingId, amount, 'edit').catch(function(e){ console.warn('[PAY] edit invoice err:', e); });
+        }
+
         _isEditPayment = false;
         _editPaymentBookingId = null;
         showT('✓',_t('pay').paid||'Zaplaceno',_t('res').changesSavedShort||'Změny uloženy');
-        goTo('s-res');
+        // Invalidate cache and refresh
+        _cachedBookings = null;
         if(typeof renderMyReservations === 'function') renderMyReservations();
+        // Re-open updated detail immediately
+        if(typeof openResDetailById === 'function'){
+          openResDetailById(bookingId);
+        } else {
+          goTo('s-res');
+        }
       } else {
         _paymentAttempts++;
         if(_paymentAttempts >= _MAX_PAYMENT_ATTEMPTS){

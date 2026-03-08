@@ -111,6 +111,16 @@ function _continueInit(hasSession){
     window.supabase.rpc('expire_vouchers_and_promos').catch(function(){});
   }
 
+  // Auto-generate protocol for bookings starting today
+  if(hasSession && typeof apiAutoGenerateProtocolForToday === 'function'){
+    apiAutoGenerateProtocolForToday();
+  }
+
+  // Auto-generate final invoice for bookings ending today/yesterday
+  if(hasSession && typeof apiAutoGenerateFinalInvoiceForEnded === 'function'){
+    apiAutoGenerateFinalInvoiceForEnded();
+  }
+
   // Spustit offline guard
   OfflineGuard.startWatching();
 }

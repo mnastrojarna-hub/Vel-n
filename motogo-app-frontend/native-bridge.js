@@ -371,6 +371,77 @@
     });
   };
 
+  // ===== CAPACITOR LOCAL NOTIFICATIONS (replaces Cordova) =====
+  var LocalNotif = Plugins.LocalNotifications;
+  if(LocalNotif){
+    // Override showMsgNotification for native notifications
+    var _origShowMsgNotif = window.showMsgNotification;
+    window.showMsgNotification = function(msg){
+      // Always show fullscreen DOM overlay (foreground)
+      if(typeof showFullScreenMessage === 'function'){
+        var icon = (typeof _msgIcon === 'function') ? _msgIcon(msg.type) : '';
+        showFullScreenMessage(msg.title || 'Zpráva z Moto Go', msg.message || '', icon);
+      }
+      // Also fire native local notification (works in background)
+      try {
+        LocalNotif.schedule({ notifications: [{
+          id: Date.now() % 2147483647,
+          title: msg.title || 'Zpráva z Moto Go',
+          body: msg.message || '',
+          smallIcon: 'res://icon',
+          largeIcon: 'res://icon',
+          sound: 'default'
+        }]}).catch(function(){});
+      } catch(e){}
+      if(typeof updateMsgBadge === 'function') updateMsgBadge();
+    };
+    // Request permission
+    try { LocalNotif.requestPermissions().catch(function(){}); } catch(e){}
+  }
+
+  // ===== MESSAGE POLLING (Supabase realtime unreliable in native background) =====
+  var _lastMsgTs = null;
+  var _msgPollTimer = null;
+  function _pollMessages(){
+    if(!window.supabase) return;
+    var uid = null;
+    try { uid = localStorage.getItem('mg_user_id'); } catch(e){}
+    if(!uid) return;
+    var q = window.supabase.from('admin_messages').select('*')
+      .eq('user_id', uid).eq('read', false)
+      .order('created_at', {ascending:false}).limit(5);
+    q.then(function(r){
+      if(!r.data || r.data.length === 0) return;
+      r.data.forEach(function(m){
+        var ts = m.created_at || '';
+        if(_lastMsgTs && ts <= _lastMsgTs) return;
+        _lastMsgTs = ts;
+        if(typeof window.showMsgNotification === 'function'){
+          window.showMsgNotification(m);
+        }
+      });
+    }).catch(function(){});
+  }
+  function _startMsgPolling(){
+    if(_msgPollTimer) clearInterval(_msgPollTimer);
+    // Poll every 30s
+    _msgPollTimer = setInterval(_pollMessages, 30000);
+    // Also poll immediately on app resume
+    _pollMessages();
+  }
+
+  // Start polling when app comes to foreground
+  AppPlugin.addListener('appStateChange', function(state){
+    if(state && state.isActive){
+      _pollMessages();
+      // Also re-check for pending fullscreen messages
+      if(typeof updateMsgBadge === 'function') updateMsgBadge();
+    }
+  });
+
+  // Start polling after short delay (wait for supabase init)
+  setTimeout(_startMsgPolling, 5000);
+
   console.log('[MotoGo24] Native bridge initialized \u2713');
 })();
 

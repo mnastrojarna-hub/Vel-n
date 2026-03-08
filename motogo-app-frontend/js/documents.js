@@ -33,25 +33,30 @@ function _getBookingData(bookingId){
   return null;
 }
 
-// ===== VOP (General Terms) =====
-function showVOP(){
+// ===== VOP (General Terms) – fetch from Velín template if available =====
+async function showVOP(){
   var t=_t('doc');
+  var tpl = typeof apiFetchDocTemplate === 'function' ? await apiFetchDocTemplate('vop') : null;
+  var bodyHtml = '';
+  if(tpl && tpl.content_html){
+    bodyHtml = tpl.content_html;
+  } else {
+    bodyHtml = '<h3>'+t.vopTitle+'</h3><p><strong>'+COMPANY.name+'</strong>, '+t.seat+': '+COMPANY.sidlo+', IČ: '+COMPANY.ic+'</p>'+
+      '<h4>1. '+t.vopSubject+'</h4><p>'+t.vopSubjectText+'</p>'+
+      '<h4>2. '+t.vopRental+'</h4><p>'+t.vopRentalText+'</p>'+
+      '<h4>3. '+t.vopObligations+'</h4><p>'+t.vopObligationsText+'</p>'+
+      '<h4>4. '+t.vopDeposit+'</h4><p>'+t.vopDepositText+'</p>'+
+      '<h4>5. '+t.vopInsurance+'</h4><p>'+t.vopInsuranceText+'</p>'+
+      '<h4>6. '+t.vopCancel+'</h4><p>'+t.vopCancelText+'</p>'+
+      '<h4>7. '+t.vopFinal+'</h4><p>'+t.vopFinalText+'</p>';
+  }
   var html='<div class="doc-view"><div class="doc-view-hdr"><div class="back-row" onclick="closeDocView()">'+
     '<div class="bk-c">←</div><div class="bk-l">'+t.back+'</div></div>'+
-    '<h2>'+t.vopTitle+'</h2></div><div class="doc-view-body">'+
-    '<h3>'+t.vopTitle+'</h3><p><strong>'+COMPANY.name+'</strong>, '+t.seat+': '+COMPANY.sidlo+', IČ: '+COMPANY.ic+'</p>'+
-    '<h4>1. '+t.vopSubject+'</h4><p>'+t.vopSubjectText+'</p>'+
-    '<h4>2. '+t.vopRental+'</h4><p>'+t.vopRentalText+'</p>'+
-    '<h4>3. '+t.vopObligations+'</h4><p>'+t.vopObligationsText+'</p>'+
-    '<h4>4. '+t.vopDeposit+'</h4><p>'+t.vopDepositText+'</p>'+
-    '<h4>5. '+t.vopInsurance+'</h4><p>'+t.vopInsuranceText+'</p>'+
-    '<h4>6. '+t.vopCancel+'</h4><p>'+t.vopCancelText+'</p>'+
-    '<h4>7. '+t.vopFinal+'</h4><p>'+t.vopFinalText+'</p>'+
-    '</div></div>';
+    '<h2>'+t.vopTitle+'</h2></div><div class="doc-view-body">'+bodyHtml+'</div></div>';
   _openDocOverlay(html);
 }
 
-// ===== RENTAL CONTRACT =====
+// ===== RENTAL CONTRACT – fetch template from Velín if available =====
 async function showRentalContract(bookingId){
   var data=await _getBookingDataAsync(bookingId);
   if(!data) data=_getBookingData(bookingId);
@@ -59,30 +64,49 @@ async function showRentalContract(bookingId){
   var t=_t('doc');var b=data.b,m=data.m,p=data.p,mn=data.motoName,rn=data.resNum;
   var pName=p?p.full_name:'—',pAddr=p?(p.street+', '+p.city+' '+p.zip):'—';
   var pLic=p?p.license_number:'—',pPhone=p?p.phone:'—',pEmail=p?p.email:'—';
-  // Motorcycle details from DB for contract accuracy
   var mSpz=m?m.spz:'—',mVin=m?m.vin:'—';
   var isPaid=(b.payment_status==='paid');
   var statusLine=isPaid?'<div style="color:#1a8a18;font-weight:800;font-size:12px;margin:8px 0;">✓ ZAPLACENO</div>':'<div style="color:#b91c1c;font-weight:800;font-size:12px;margin:8px 0;">⏳ ČEKÁ NA PLATBU</div>';
 
+  // Try Velín template first, with placeholder replacement
+  var tpl = typeof apiFetchDocTemplate === 'function' ? await apiFetchDocTemplate('contract') : null;
+  var bodyHtml = '';
+  if(tpl && tpl.content_html){
+    bodyHtml = tpl.content_html
+      .replace(/\{company_name\}/g, COMPANY.name).replace(/\{company_address\}/g, COMPANY.sidlo)
+      .replace(/\{company_ic\}/g, COMPANY.ic).replace(/\{company_email\}/g, COMPANY.email)
+      .replace(/\{customer_name\}/g, pName).replace(/\{customer_address\}/g, pAddr)
+      .replace(/\{customer_phone\}/g, pPhone).replace(/\{customer_email\}/g, pEmail)
+      .replace(/\{customer_license\}/g, pLic)
+      .replace(/\{moto_name\}/g, mn).replace(/\{moto_spz\}/g, mSpz).replace(/\{moto_vin\}/g, mVin)
+      .replace(/\{date_from\}/g, _docDate(b.start_date)).replace(/\{date_to\}/g, _docDate(b.end_date))
+      .replace(/\{days\}/g, data.days).replace(/\{total_price\}/g, (b.total_price||0).toLocaleString('cs-CZ'))
+      .replace(/\{extras_price\}/g, (b.extras_price||0).toLocaleString('cs-CZ'))
+      .replace(/\{delivery_fee\}/g, (b.delivery_fee||0).toLocaleString('cs-CZ'))
+      .replace(/\{discount\}/g, (b.discount_amount||0).toLocaleString('cs-CZ'))
+      .replace(/\{res_number\}/g, rn);
+  } else {
+    bodyHtml = '<h3>'+t.contractTitle+'</h3>'+statusLine+
+      '<div class="doc-parties"><div class="doc-party"><strong>'+t.lessor+':</strong><br>'+
+      COMPANY.name+'<br>'+COMPANY.sidlo+'<br>IČ: '+COMPANY.ic+'<br>'+COMPANY.email+'</div>'+
+      '<div class="doc-party"><strong>'+t.lessee+':</strong><br>'+
+      pName+'<br>'+pAddr+'<br>'+t.phone+': '+pPhone+'<br>E-mail: '+pEmail+'<br>ŘP: '+pLic+'</div></div>'+
+      '<h4>'+t.contractSubject+'</h4>'+
+      '<p>'+t.contractSubjectText.replace('{moto}',mn).replace('{from}',_docDate(b.start_date))
+        .replace('{to}',_docDate(b.end_date)).replace('{days}',data.days)+'</p>'+
+      '<div class="doc-field" style="margin:6px 0;"><span class="doc-lbl">SPZ:</span> '+mSpz+'</div>'+
+      '<div class="doc-field" style="margin:6px 0;"><span class="doc-lbl">VIN:</span> '+mVin+'</div>'+
+      '<h4>'+t.contractPrice+'</h4>'+
+      '<p>'+t.contractPriceText.replace('{total}',(b.total_price||0).toLocaleString('cs-CZ'))+'</p>'+
+      (b.extras_price>0?'<div class="doc-field"><span class="doc-lbl">Příslušenství:</span> '+b.extras_price.toLocaleString('cs-CZ')+' Kč</div>':'')+
+      (b.delivery_fee>0?'<div class="doc-field"><span class="doc-lbl">Doručení:</span> '+b.delivery_fee.toLocaleString('cs-CZ')+' Kč</div>':'')+
+      (b.discount_amount>0?'<div class="doc-field"><span class="doc-lbl">Sleva:</span> -'+b.discount_amount.toLocaleString('cs-CZ')+' Kč</div>':'')+
+      '<h4>'+t.contractConditions+'</h4><p>'+t.contractConditionsText+'</p>';
+  }
+
   var html='<div class="doc-view"><div class="doc-view-hdr"><div class="back-row" onclick="closeDocView()">'+
     '<div class="bk-c">←</div><div class="bk-l">'+t.back+'</div></div>'+
-    '<h2>'+t.contractTitle+'</h2><p>'+rn+'</p></div><div class="doc-view-body">'+
-    '<h3>'+t.contractTitle+'</h3>'+statusLine+
-    '<div class="doc-parties"><div class="doc-party"><strong>'+t.lessor+':</strong><br>'+
-    COMPANY.name+'<br>'+COMPANY.sidlo+'<br>IČ: '+COMPANY.ic+'<br>'+COMPANY.email+'</div>'+
-    '<div class="doc-party"><strong>'+t.lessee+':</strong><br>'+
-    pName+'<br>'+pAddr+'<br>'+t.phone+': '+pPhone+'<br>E-mail: '+pEmail+'<br>ŘP: '+pLic+'</div></div>'+
-    '<h4>'+t.contractSubject+'</h4>'+
-    '<p>'+t.contractSubjectText.replace('{moto}',mn).replace('{from}',_docDate(b.start_date))
-      .replace('{to}',_docDate(b.end_date)).replace('{days}',data.days)+'</p>'+
-    '<div class="doc-field" style="margin:6px 0;"><span class="doc-lbl">SPZ:</span> '+mSpz+'</div>'+
-    '<div class="doc-field" style="margin:6px 0;"><span class="doc-lbl">VIN:</span> '+mVin+'</div>'+
-    '<h4>'+t.contractPrice+'</h4>'+
-    '<p>'+t.contractPriceText.replace('{total}',(b.total_price||0).toLocaleString('cs-CZ'))+'</p>'+
-    (b.extras_price>0?'<div class="doc-field"><span class="doc-lbl">Příslušenství:</span> '+b.extras_price.toLocaleString('cs-CZ')+' Kč</div>':'')+
-    (b.delivery_fee>0?'<div class="doc-field"><span class="doc-lbl">Doručení:</span> '+b.delivery_fee.toLocaleString('cs-CZ')+' Kč</div>':'')+
-    (b.discount_amount>0?'<div class="doc-field"><span class="doc-lbl">Sleva:</span> -'+b.discount_amount.toLocaleString('cs-CZ')+' Kč</div>':'')+
-    '<h4>'+t.contractConditions+'</h4><p>'+t.contractConditionsText+'</p>'+
+    '<h2>'+t.contractTitle+'</h2><p>'+rn+'</p></div><div class="doc-view-body">'+bodyHtml+
     '<div class="doc-sign-area" id="contract-sign-area">'+
     '<p style="font-size:11px;color:var(--g400);">'+t.signNote+'</p>'+
     '<canvas id="sign-canvas-contract" width="300" height="120" style="border:2px solid var(--g200);border-radius:8px;background:#fff;touch-action:none;"></canvas>'+
@@ -94,10 +118,9 @@ async function showRentalContract(bookingId){
   setTimeout(function(){_initSignCanvas('contract');},100);
 }
 
-// ===== HANDOVER PROTOCOL =====
+// ===== HANDOVER PROTOCOL – fetch template from Velín if available =====
 async function showDigitalProtocol(bookingId){
   if(!bookingId){
-    // Try to find from current context
     var bks=await apiFetchMyBookings();
     if(bks.length>0) bookingId=bks[0].id;
   }
@@ -107,27 +130,39 @@ async function showDigitalProtocol(bookingId){
   var pName=data&&data.p?data.p.full_name:'—';
   var pickup=data?_docDate(data.b.start_date):'—';
   var returnD=data?_docDate(data.b.end_date):'—';
+  var mSpz=data&&data.m?data.m.spz:'—';
 
-  var items=['Klíče (od motorky + od kufru)','Zelená karta','Malý technický průkaz',
-    '2× reflexní vesta','Motolékárnička','Záznam o dopravní nehodě','Kukla (nová)',
-    'Helma řidiče','Rukavice','Bunda','Kalhoty'];
-  var checkHtml=items.map(function(it,i){
-    return '<label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;cursor:pointer;">'+
-      '<input type="checkbox" class="proto-chk" style="accent-color:var(--green);width:15px;height:15px;"> '+it+'</label>';
-  }).join('');
+  var tpl = typeof apiFetchDocTemplate === 'function' ? await apiFetchDocTemplate('protocol') : null;
+  var bodyHtml = '';
+  if(tpl && tpl.content_html){
+    bodyHtml = tpl.content_html
+      .replace(/\{company_name\}/g, COMPANY.name)
+      .replace(/\{customer_name\}/g, pName)
+      .replace(/\{moto_name\}/g, mn).replace(/\{moto_spz\}/g, mSpz)
+      .replace(/\{date_from\}/g, pickup).replace(/\{date_to\}/g, returnD)
+      .replace(/\{res_number\}/g, rn);
+  } else {
+    var items=['Klíče (od motorky + od kufru)','Zelená karta','Malý technický průkaz',
+      '2× reflexní vesta','Motolékárnička','Záznam o dopravní nehodě','Kukla (nová)',
+      'Helma řidiče','Rukavice','Bunda','Kalhoty'];
+    var checkHtml=items.map(function(it){
+      return '<label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;cursor:pointer;">'+
+        '<input type="checkbox" class="proto-chk" style="accent-color:var(--green);width:15px;height:15px;"> '+it+'</label>';
+    }).join('');
+    bodyHtml = '<div class="doc-parties"><div class="doc-party"><strong>'+COMPANY.name+'</strong></div>'+
+      '<div class="doc-party"><strong>'+pName+'</strong></div></div>'+
+      '<div class="doc-field"><span class="doc-lbl">'+t.motorcycle+':</span> '+mn+'</div>'+
+      '<div class="doc-field"><span class="doc-lbl">'+t.pickupDate+':</span> '+pickup+'</div>'+
+      '<div class="doc-field"><span class="doc-lbl">'+t.returnDate+':</span> '+returnD+'</div>'+
+      '<h4>'+t.protocolItems+'</h4>'+
+      '<div style="display:flex;flex-direction:column;gap:7px;">'+checkHtml+'</div>'+
+      '<h4 style="margin-top:14px;">'+t.protocolNotes+'</h4>'+
+      '<textarea id="proto-notes" rows="3" style="width:100%;border:1.5px solid var(--g200);border-radius:8px;padding:8px;font-family:var(--font);font-size:12px;" placeholder="'+t.protocolNotesPlaceholder+'"></textarea>';
+  }
 
   var html='<div class="doc-view"><div class="doc-view-hdr"><div class="back-row" onclick="closeDocView()">'+
     '<div class="bk-c">←</div><div class="bk-l">'+t.back+'</div></div>'+
-    '<h2>'+t.protocolTitle+'</h2><p>'+rn+'</p></div><div class="doc-view-body">'+
-    '<div class="doc-parties"><div class="doc-party"><strong>'+COMPANY.name+'</strong></div>'+
-    '<div class="doc-party"><strong>'+pName+'</strong></div></div>'+
-    '<div class="doc-field"><span class="doc-lbl">'+t.motorcycle+':</span> '+mn+'</div>'+
-    '<div class="doc-field"><span class="doc-lbl">'+t.pickupDate+':</span> '+pickup+'</div>'+
-    '<div class="doc-field"><span class="doc-lbl">'+t.returnDate+':</span> '+returnD+'</div>'+
-    '<h4>'+t.protocolItems+'</h4>'+
-    '<div style="display:flex;flex-direction:column;gap:7px;">'+checkHtml+'</div>'+
-    '<h4 style="margin-top:14px;">'+t.protocolNotes+'</h4>'+
-    '<textarea id="proto-notes" rows="3" style="width:100%;border:1.5px solid var(--g200);border-radius:8px;padding:8px;font-family:var(--font);font-size:12px;" placeholder="'+t.protocolNotesPlaceholder+'"></textarea>'+
+    '<h2>'+t.protocolTitle+'</h2><p>'+rn+'</p></div><div class="doc-view-body">'+bodyHtml+
     '<div class="doc-sign-area" id="protocol-sign-area">'+
     '<p style="font-size:11px;color:var(--g400);">'+t.signNote+'</p>'+
     '<canvas id="sign-canvas-protocol" width="300" height="120" style="border:2px solid var(--g200);border-radius:8px;background:#fff;touch-action:none;"></canvas>'+
