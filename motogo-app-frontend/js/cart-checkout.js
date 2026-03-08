@@ -592,9 +592,9 @@ function selectCity(city){
 }
 function selectAddr(type,addr,city,lat,lng){
   // Map special types to their input IDs
-  var addrInputMap={'ship':'ship-street','b-contact':'b-contact-street'};
-  var cityInputMap={'ship':'ship-city','b-contact':'b-contact-city'};
-  var zipInputMap={'ship':'ship-zip','b-contact':'b-contact-zip'};
+  var addrInputMap={'ship':'ship-street','b-contact':'b-contact-street','sos-repl':'sos-repl-address'};
+  var cityInputMap={'ship':'ship-city','b-contact':'b-contact-city','sos-repl':'sos-repl-city'};
+  var zipInputMap={'ship':'ship-zip','b-contact':'b-contact-zip','sos-repl':'sos-repl-zip'};
   var inp=document.getElementById(addrInputMap[type]||'')||document.getElementById(type+'-addr-input')||document.getElementById(type+'-address');
   if(inp){inp.value=addr;}
   // Store coordinates for distance calc
