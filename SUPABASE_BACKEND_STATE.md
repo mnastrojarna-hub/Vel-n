@@ -1,5 +1,5 @@
 # SUPABASE BACKEND STATE — MotoGo24
-> **Poslední aktualizace:** 2026-03-08 21:45 UTC
+> **Poslední aktualizace:** 2026-03-08 22:15 UTC
 > **Zdroj:** Migrace v `supabase/functions/migrations/` + edge funkce
 > **POZOR:** Tento soubor MUSÍ být aktualizován při každé SQL změně!
 
@@ -124,11 +124,16 @@
 | `reviews` | Recenze zákazníků |
 | `debug_log` | Debug log |
 
-### Audit
+### Audit a debug
 
 | Tabulka | Popis |
 |---------|-------|
 | `admin_audit_log` | Audit log admin akcí (admin_id, action, details jsonb, ip_address) |
+| `debug_log` | Debug log (source, action, component, status, request/response_data, error_message, duration_ms) |
+
+### Dodatečné sloupce (sos_timeline)
+
+- `data` jsonb — přidáno v pozdějších migracích
 
 ---
 
@@ -157,10 +162,13 @@
 ### motorcycles
 - id, model, spz, vin, year, status
 - stk_valid_until, acquired_at
-- (další sloupce definované mimo migrace v repo)
+- power_kw, torque_nm, weight_kg, fuel_tank_l, seat_height_mm
+- license_required, has_abs, has_asc
+- description, ideal_usage, features, manual_url
+- engine_type, power_hp
 
 ### sos_incidents
-- id, user_id, booking_id, type, title, description
+- id, user_id, booking_id, moto_id, type, title, description
 - severity (low/medium/high/critical)
 - status (reported/acknowledged/in_progress/resolved/closed)
 - moto_rideable, customer_decision, customer_fault
@@ -169,6 +177,7 @@
 - nearest_service_name/address/phone
 - assigned_to, contact_phone, admin_notes
 - resolution, resolved_at, resolved_by
+- replacement_data (jsonb), replacement_status (selecting/pending_payment/paid/admin_review/approved/dispatched/delivered/rejected)
 - original_booking_id, replacement_booking_id, original_moto_id
 - type CHECK: theft/accident_minor/accident_major/breakdown_minor/breakdown_major/defect_question/location_share/other
 
@@ -200,6 +209,8 @@
 | `cancel_booking_tracked(booking_id, reason)` | Stornuje rezervaci s refund kalkulací |
 | `sos_swap_bookings(incident_id, replacement_moto_id, ...)` | SOS výměna motorky — atomický swap |
 | `expire_vouchers()` | Automatická expirace voucherů (pg_cron) |
+| `expire_vouchers_and_promos()` | Expirace voucherů + deaktivace promo kódů po valid_to |
+| `confirm_payment(booking_id, method)` | RPC: označí booking jako zaplacený |
 
 ---
 
@@ -224,17 +235,42 @@
 | `trg_generate_shop_invoice` | shop_orders (payment_status) | generate_shop_invoice() |
 | `moto_day_prices_updated` | moto_day_prices | update_updated_at() |
 | `trg_ai_conversations_updated` | ai_conversations | update_updated_at() |
+| `trg_sos_notify_user` | sos_incidents (INSERT) | sos_notify_user_on_create() — posílá admin_message s 2min dedup |
+| `trg_one_active_sos` | sos_incidents (INSERT) | check_one_active_sos() — max 1 aktivní SOS/user (light exempt) |
+| `trg_bridge_admin_message` | messages (INSERT) | bridge_admin_message_to_app() — bridge z Velín do admin_messages s 30s dedup |
+| `trg_restore_vouchers_on_cancel` | bookings (UPDATE) | restore_vouchers_on_cancel() — obnoví voucher při stornu |
+| `trg_sync_invoice_to_documents` | invoices (INSERT) | sync_invoice_to_documents() |
+| `trg_sync_invoice_pdf_update` | invoices (UPDATE pdf_path) | sync_invoice_pdf_update() |
+| `trg_sync_generated_doc_to_documents` | generated_documents (INSERT) | sync_generated_doc_to_documents() |
+| `trg_sync_moto_day_prices` | moto_day_prices (INSERT/UPDATE) | sync_moto_day_prices_to_motorcycles() |
 
 ---
 
-## 5. RLS POLITIKY (souhrn)
+## 5. RLS POLITIKY (kompletní)
 
-Všechny tabulky mají RLS zapnuté. Vzor:
+Všechny tabulky mají RLS zapnuté. Vzory:
 - **Admin full access:** `FOR ALL USING (is_admin())`
 - **Superadmin write:** `FOR ALL USING (is_superadmin())`
 - **Customer read own:** `FOR SELECT USING (user_id = auth.uid())`
 - **Customer insert own:** `FOR INSERT WITH CHECK (user_id = auth.uid())`
-- **Public read:** `FOR SELECT USING (true)` — branches, moto_locations, moto_day_prices, promo_codes(active), app_settings
+- **Public read:** `FOR SELECT USING (true)` — branches, moto_locations, moto_day_prices, promo_codes(active), app_settings, motorcycles
+
+Detailní politiky:
+- **bookings:** user SELECT/INSERT/UPDATE (user_id=uid OR is_admin), admin DELETE
+- **profiles:** user SELECT (id=uid OR is_admin), user UPDATE (id=uid), admin ALL
+- **motorcycles:** public SELECT, admin ALL
+- **sos_incidents:** admin ALL, customer SELECT/INSERT/UPDATE (user_id=uid)
+- **sos_timeline:** admin ALL, customer SELECT/INSERT (own incident)
+- **messages:** admin ALL, customer SELECT (own thread), customer INSERT (direction='customer' + own thread)
+- **message_threads:** admin ALL, customer SELECT/UPDATE/INSERT (customer_id=uid)
+- **admin_messages:** admin ALL + INSERT, user SELECT (user_id=uid OR is_admin), user UPDATE (own)
+- **vouchers:** admin ALL, user SELECT (buyer_id OR redeemed_by = uid)
+- **reviews:** admin ALL, customer SELECT (own OR visible=true), customer INSERT (own)
+- **documents:** admin ALL, customer SELECT/INSERT (user_id=uid)
+- **invoices:** admin ALL, customer SELECT/INSERT (customer_id=uid)
+- **shop_orders:** admin ALL, customer SELECT/INSERT (customer_id=uid)
+- **shop_order_items:** admin ALL, customer SELECT/INSERT (order owned by user)
+- **booking_cancellations:** admin ALL, customer SELECT (cancelled_by=uid)
 
 ---
 
@@ -244,6 +280,12 @@ Všechny tabulky mají RLS zapnuté. Vzor:
 - `sos_timeline`
 - `messages`
 - `message_threads`
+- `admin_messages`
+- `motorcycles`
+- `bookings`
+- `documents`
+- `invoices`
+- `vouchers`
 
 ---
 
@@ -342,3 +384,4 @@ Všechny tabulky mají RLS zapnuté. Vzor:
 | Datum | Změna |
 |-------|-------|
 | 2026-03-08 | Prvotní vytvoření ze 32 migrací + 6 edge funkcí |
+| 2026-03-08 | Aktualizace: doplněny chybějící triggery (bridge, sync, SOS notify/dedup), realtime tabulky, RLS detaily, motorcycles sloupce, sos_incidents.replacement_data/status |
