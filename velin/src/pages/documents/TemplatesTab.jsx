@@ -38,7 +38,7 @@ export default function TemplatesTab() {
     const { data, error: err } = await supabase
       .from('document_templates')
       .select('*')
-      .order('name')
+      .order('type')
     if (err) setError(err.message)
     else setTemplates(data || [])
     setLoading(false)
@@ -76,7 +76,7 @@ export default function TemplatesTab() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px]" style={{ color: '#8aab99' }}>
-                  Proměnné: {extractVars(t.html_content).join(', ') || '—'}
+                  Proměnné: {extractVars(t.content_html).join(', ') || '—'}
                 </span>
               </div>
               <div className="flex items-center gap-2 mt-3">
@@ -118,7 +118,7 @@ function extractVars(content) {
 
 function EditTemplateModal({ template, onClose, onSaved }) {
   const [name, setName] = useState(template.name || '')
-  const [content, setContent] = useState(template.html_content || '')
+  const [content, setContent] = useState(template.content_html || '')
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [err, setErr] = useState(null)
@@ -137,7 +137,7 @@ function EditTemplateModal({ template, onClose, onSaved }) {
     try {
       const newVersion = (template.version || 1) + 1
       const { data: { user } } = await supabase.auth.getUser()
-      const updatePayload = { name, html_content: content, version: newVersion, updated_by: user?.id }
+      const updatePayload = { name, content_html: content, version: newVersion, updated_by: user?.id }
       const result = await debugAction('template.update', 'EditTemplateModal', () =>
         supabase.from('document_templates').update(updatePayload).eq('id', template.id)
       , updatePayload)
@@ -264,7 +264,7 @@ function RegenerateModal({ template, onClose }) {
         company_ico: '12345678',
       }
 
-      let filledHtml = template.html_content || ''
+      let filledHtml = template.content_html || ''
       for (const [k, v] of Object.entries(vars)) {
         filledHtml = filledHtml.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v)
       }

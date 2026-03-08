@@ -14,6 +14,7 @@ const PER_PAGE = 25
 
 const TYPE_MAP = {
   proforma: { label: 'Zálohová', color: '#2563eb', bg: '#dbeafe' },
+  advance: { label: 'Zálohová', color: '#2563eb', bg: '#dbeafe' },
   final: { label: 'Konečná', color: '#1a8a18', bg: '#dcfce7' },
   shop_proforma: { label: 'Shop zálohová', color: '#8b5cf6', bg: '#ede9fe' },
   shop_final: { label: 'Shop konečná', color: '#059669', bg: '#d1fae5' },
@@ -134,7 +135,7 @@ export default function InvoicesTab() {
         <FilterSelect value={filters.type} onChange={v => { setPage(1); setFilters(f => ({ ...f, type: v })) }}
           options={[
             { value: '', label: 'Všechny typy' },
-            { value: 'proforma', label: 'Zálohové' },
+            { value: 'advance', label: 'Zálohové' },
             { value: 'final', label: 'Konečné' },
             { value: 'shop_proforma', label: 'Shop zálohové' },
             { value: 'shop_final', label: 'Shop konečné' },
