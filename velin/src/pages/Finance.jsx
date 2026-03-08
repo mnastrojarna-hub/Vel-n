@@ -5,6 +5,7 @@ import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
+import InvoicesTab from './documents/InvoicesTab'
 
 const PERIODS = [
   { value: 'month', label: 'Měsíc' },
@@ -34,7 +35,10 @@ function classifyEntry(entry) {
   return entry.type || 'expense'
 }
 
+const FINANCE_TABS = ['Přehled', 'Faktury']
+
 export default function Finance() {
+  const [activeTab, setActiveTab] = useState('Přehled')
   const [summary, setSummary] = useState({ revenue: 0, expense: 0, unpaid: 0 })
   const [transactions, setTransactions] = useState([])
   const [chartData, setChartData] = useState([])
@@ -73,7 +77,7 @@ export default function Finance() {
     const { data: inv } = await supabase
       .from('invoices')
       .select('total')
-      .eq('status', 'unpaid')
+      .eq('status', 'issued')
     if (inv) {
       setSummary(s => ({ ...s, unpaid: inv.reduce((sum, i) => sum + (i.total || 0), 0) }))
     }
@@ -147,6 +151,19 @@ export default function Finance() {
 
   return (
     <div>
+      <div className="flex gap-2 mb-5">
+        {FINANCE_TABS.map(t => (
+          <button key={t} onClick={() => setActiveTab(t)}
+            className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
+            style={{ padding: '8px 18px', background: activeTab === t ? '#74FB71' : '#f1faf7', color: activeTab === t ? '#1a2e22' : '#4a6357', border: 'none', boxShadow: activeTab === t ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'Faktury' && <InvoicesTab />}
+
+      {activeTab === 'Přehled' && <>
       <div className="flex flex-wrap items-center gap-3 mb-5">
         {PERIODS.map(p => (
           <button key={p.value} onClick={() => setFilters(f => ({ ...f, period: p.value }))}
@@ -254,6 +271,7 @@ export default function Finance() {
           </div>
         </Modal>
       )}
+      </>}
     </div>
   )
 }
