@@ -32,6 +32,7 @@ export default function Dashboard() {
   const [revenueChart, setRevenueChart] = useState([])
   const [upcomingEvents, setUpcomingEvents] = useState([])
   const [loading, setLoading] = useState(true)
+  const [financeData, setFinanceData] = useState({ revenue: 0, expense: 0, profit: 0, unpaid: 0 })
 
   useEffect(() => {
     fetchDashboardData()
@@ -42,7 +43,7 @@ export default function Dashboard() {
   async function fetchDashboardData() {
     setLoading(true)
     try {
-      const [motorcyclesRes, bookingsRes, revenueRes, messagesRes, inventoryRes, chartRes, eventsRes, sosRes, stkRes] = await Promise.all([
+      const [motorcyclesRes, bookingsRes, revenueRes, messagesRes, inventoryRes, chartRes, eventsRes, sosRes, stkRes, financeRes, unpaidRes] = await Promise.all([
         supabase.from('motorcycles').select('id, status', { count: 'exact' }),
         supabase.from('bookings').select('id, status').in('status', ['active', 'pending', 'reserved']),
         supabase.from('accounting_entries').select('amount').eq('type', 'revenue')
@@ -56,6 +57,9 @@ export default function Dashboard() {
           .gte('start_date', new Date().toISOString().split('T')[0]).order('start_date', { ascending: true }).limit(5),
         supabase.from('sos_incidents').select('id, type, severity, status', { count: 'exact' }).in('status', ['reported', 'acknowledged', 'in_progress']),
         supabase.from('motorcycles').select('id, model, spz, stk_valid_until'),
+        supabase.from('accounting_entries').select('type, amount, category, description')
+          .gte('date', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]),
+        supabase.from('invoices').select('total').eq('status', 'unpaid'),
       ])
       const allMotos = motorcyclesRes.data || []
       const activeMotos = allMotos.filter(m => m.status === 'active').length
@@ -75,6 +79,21 @@ export default function Dashboard() {
         sosCritical: (sosRes.data || []).filter(s => s.severity === 'critical' || s.severity === 'high').length,
         stkExpiring,
       })
+      // Finance summary with proper classification
+      const REVENUE_CATS = ['pronájem', 'pronajem', 'rezervace', 'booking', 'rental']
+      const REVENUE_DESCS = ['platba za rezervaci', 'platba za pronájem', 'příjem z pronájmu']
+      const classEntry = (e) => {
+        const cat = (e.category || '').toLowerCase()
+        const desc = (e.description || '').toLowerCase()
+        if (REVENUE_CATS.some(rc => cat.includes(rc)) || REVENUE_DESCS.some(rd => desc.includes(rd))) return 'revenue'
+        return e.type || 'expense'
+      }
+      const finEntries = financeRes.data || []
+      const finRev = finEntries.filter(e => classEntry(e) === 'revenue').reduce((s, e) => s + Math.abs(e.amount || 0), 0)
+      const finExp = finEntries.filter(e => classEntry(e) === 'expense').reduce((s, e) => s + Math.abs(e.amount || 0), 0)
+      const finUnpaid = (unpaidRes.data || []).reduce((s, i) => s + (i.total || 0), 0)
+      setFinanceData({ revenue: finRev, expense: finExp, profit: finRev - finExp, unpaid: finUnpaid })
+
       const chartEntries = chartRes.data || []
       const monthlyData = new Array(12).fill(0)
       chartEntries.forEach(e => { monthlyData[new Date(e.date).getMonth()] += Number(e.amount) || 0 })
@@ -170,6 +189,29 @@ export default function Dashboard() {
               })}
             </div>
           ) : <div className="text-xs font-medium" style={{ color: '#1a8a18' }}>✅ Žádné STK nevyprší v nejbližších 30 dnech</div>}
+        </Card>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+        <Card>
+          <div className="text-[13px] font-extrabold mb-2.5" style={{ color: '#0f1a14' }}>💰 Finance — měsíční přehled</div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-lg" style={{ padding: '10px 14px', background: '#dcfce7' }}>
+              <div className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>Příjmy</div>
+              <div className="text-lg font-extrabold" style={{ color: '#1a8a18' }}>{formatCurrency(financeData.revenue)}</div>
+            </div>
+            <div className="rounded-lg" style={{ padding: '10px 14px', background: '#fee2e2' }}>
+              <div className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>Výdaje</div>
+              <div className="text-lg font-extrabold" style={{ color: '#dc2626' }}>{formatCurrency(financeData.expense)}</div>
+            </div>
+            <div className="rounded-lg" style={{ padding: '10px 14px', background: financeData.profit >= 0 ? '#f0fdf4' : '#fef2f2' }}>
+              <div className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>Zisk</div>
+              <div className="text-lg font-extrabold" style={{ color: financeData.profit >= 0 ? '#1a8a18' : '#dc2626' }}>{formatCurrency(financeData.profit)}</div>
+            </div>
+            <div className="rounded-lg" style={{ padding: '10px 14px', background: '#fef3c7' }}>
+              <div className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>Neuhrazené</div>
+              <div className="text-lg font-extrabold" style={{ color: '#b45309' }}>{formatCurrency(financeData.unpaid)}</div>
+            </div>
+          </div>
         </Card>
       </div>
       {stats.lowStock > 0 && (

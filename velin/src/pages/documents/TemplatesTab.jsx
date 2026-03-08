@@ -29,6 +29,7 @@ export default function TemplatesTab() {
   const [error, setError] = useState(null)
   const [editing, setEditing] = useState(null)
   const [regenerate, setRegenerate] = useState(null)
+  const [search, setSearch] = useState('')
 
   useEffect(() => { load() }, [])
 
@@ -46,13 +47,25 @@ export default function TemplatesTab() {
   if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
   if (error) return <div className="p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>
 
+  const filtered = templates.filter(t => {
+    if (!search) return true
+    const s = search.toLowerCase()
+    return (t.name || '').toLowerCase().includes(s) || (t.type || '').toLowerCase().includes(s)
+  })
+
   return (
     <div>
-      {templates.length === 0 ? (
+      <div className="flex items-center gap-3 mb-4">
+        <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Hledat šablonu…"
+          className="rounded-btn text-xs outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357', minWidth: 200 }} />
+      </div>
+      {filtered.length === 0 ? (
         <Card><p style={{ color: '#8aab99', fontSize: 13 }}>Žádné šablony</p></Card>
       ) : (
         <div className="grid grid-cols-2 gap-4">
-          {templates.map(t => (
+          {filtered.map(t => (
             <Card key={t.id}>
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">

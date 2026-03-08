@@ -50,6 +50,9 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
   const [message, setMessage] = useState('')
   const [adminNotes, setAdminNotes] = useState(incident?.admin_notes || '')
   const [resolution, setResolution] = useState(incident?.resolution || '')
+  const [noteText, setNoteText] = useState('')
+  const [savingNote, setSavingNote] = useState(false)
+  const [incidentNotes, setIncidentNotes] = useState([])
   const [sending, setSending] = useState(false)
   const [msgSent, setMsgSent] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
@@ -68,11 +71,44 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
     loadDetails()
     loadAdmins()
     loadReplacementMoto()
+    loadIncidentNotes()
     setAdminNotes(incident.admin_notes || '')
     setResolution(incident.resolution || '')
     setShowRejectForm(false)
     setRejectReason('')
+    setNoteText('')
   }, [incident?.id])
+
+  async function loadIncidentNotes() {
+    setIncidentNotes([])
+    const { data } = await supabase
+      .from('sos_timeline')
+      .select('*')
+      .eq('incident_id', incident.id)
+      .eq('action', 'admin_note')
+      .order('created_at', { ascending: false })
+    setIncidentNotes(data || [])
+  }
+
+  async function addNote() {
+    if (!noteText.trim()) return
+    setSavingNote(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      await supabase.from('sos_timeline').insert({
+        incident_id: incident.id,
+        action: 'admin_note',
+        description: noteText.trim(),
+        performed_by: user?.email || 'Admin',
+        admin_id: user?.id,
+      })
+      setNoteText('')
+      loadIncidentNotes()
+    } catch (e) {
+      console.error('[SOSDetail] addNote failed:', e)
+    }
+    setSavingNote(false)
+  }
 
   async function loadReplacementMoto() {
     setReplacementMoto(null)
@@ -354,6 +390,41 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
             {incident.description}
           </div>
         )}
+
+        {/* POZNÁMKY K INCIDENTU — prominentní zobrazení */}
+        <div className="mt-3 rounded-lg" style={{
+          padding: '12px 14px',
+          background: '#fffbeb',
+          border: '2px solid #fbbf24',
+        }}>
+          <div className="text-[10px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#b45309' }}>
+            Poznámky k incidentu (tel. komunikace apod.)
+          </div>
+          {incidentNotes.length > 0 && (
+            <div className="space-y-2 mb-3">
+              {incidentNotes.map(n => (
+                <div key={n.id} className="rounded-lg text-xs" style={{
+                  padding: '8px 10px', background: '#fff', border: '1px solid #fde68a', lineHeight: 1.6,
+                }}>
+                  <div style={{ color: '#0f1a14', whiteSpace: 'pre-wrap' }}>{n.description}</div>
+                  <div className="text-[10px] mt-1" style={{ color: '#8aab99' }}>
+                    {n.created_at ? new Date(n.created_at).toLocaleString('cs-CZ') : ''}
+                    {n.performed_by && ` · ${n.performed_by}`}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <textarea value={noteText} onChange={e => setNoteText(e.target.value)}
+            rows={3} placeholder="Napište poznámku (např. z telefonátu se zákazníkem)…"
+            className="w-full rounded-btn text-sm outline-none mb-2"
+            style={{ padding: '8px 12px', background: '#fff', border: '1px solid #fde68a', resize: 'vertical' }}
+          />
+          <Button onClick={addNote} disabled={savingNote || !noteText.trim()}
+            style={{ background: '#fbbf24', color: '#78350f', fontSize: 11, padding: '6px 16px' }}>
+            {savingNote ? 'Ukládám…' : 'Přidat poznámku'}
+          </Button>
+        </div>
 
         {/* Preference zákazníka – prominentní zobrazení */}
         {(incident.customer_decision || incident.customer_fault !== null) && (

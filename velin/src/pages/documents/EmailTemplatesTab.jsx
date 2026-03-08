@@ -34,6 +34,8 @@ export default function EmailTemplatesTab() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [editing, setEditing] = useState(null)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
 
   useEffect(() => { load(); loadSent() }, [])
 
@@ -57,20 +59,50 @@ export default function EmailTemplatesTab() {
   if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
   if (error) return <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>
 
+  const filteredTemplates = templates.filter(t => {
+    if (!search) return true
+    const s = search.toLowerCase()
+    return (t.name || '').toLowerCase().includes(s) || (t.slug || '').toLowerCase().includes(s) || (t.description || '').toLowerCase().includes(s)
+  })
+
+  const filteredEmails = sentEmails.filter(e => {
+    if (statusFilter && e.status !== statusFilter) return false
+    if (search) {
+      const s = search.toLowerCase()
+      if (!(e.recipient_email || '').toLowerCase().includes(s) && !(e.subject || '').toLowerCase().includes(s) && !(e.template_slug || '').toLowerCase().includes(s)) return false
+    }
+    return true
+  })
+
   return (
     <div>
-      {templates.length === 0 ? (
+      <div className="flex items-center gap-3 mb-4">
+        <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Hledat šablonu, e-mail…"
+          className="rounded-btn text-xs outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357', minWidth: 200 }} />
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+          <option value="">Všechny stavy</option>
+          <option value="sent">Odesláno</option>
+          <option value="failed">Chyba</option>
+          <option value="queued">Ve frontě</option>
+        </select>
+      </div>
+
+      {filteredTemplates.length === 0 ? (
         <Card><p style={{ color: '#8aab99', fontSize: 13 }}>Žádné e-mailové šablony</p></Card>
       ) : (
         <div className="grid grid-cols-2 gap-4 mb-8">
-          {templates.map(t => (
+          {filteredTemplates.map(t => (
             <TemplateCard key={t.id} template={t} onEdit={() => setEditing(t)} />
           ))}
         </div>
       )}
 
       <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Poslední odeslané e-maily</h3>
-      <SentEmailsTable emails={sentEmails} />
+      <SentEmailsTable emails={filteredEmails} />
 
       {editing && (
         <EditEmailTemplateModal
