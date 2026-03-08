@@ -186,6 +186,8 @@ function histBack(){
     if(prev==='s-detail'&&typeof renderDetail==='function')renderDetail();
     if(prev==='s-res'){if(typeof initDynamicDates==='function')initDynamicDates();if(typeof updateResButtons==='function')updateResButtons();if(typeof renderMyReservations==='function')renderMyReservations();}
     if(prev==='s-profile'&&typeof renderProfile==='function')renderProfile();
+    // Reset SOS replacement mode on back from edit
+    if(typeof _sosReplacementMode!=='undefined'&&_sosReplacementMode){_sosReplacementMode=false;var sb=document.getElementById('sos-edit-banner');if(sb)sb.remove();}
     if(typeof updateCartFab==='function')updateCartFab();
   }
 }

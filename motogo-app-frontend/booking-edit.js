@@ -301,6 +301,12 @@ async function updateEditPriceSummary(){
   var priceSum = document.getElementById('edit-price-summary');
   if(!priceSum) return;
 
+  // V SOS režimu speciální cenový souhrn
+  if(typeof _sosReplacementMode !== 'undefined' && _sosReplacementMode){
+    _sosUpdateEditPrice();
+    return;
+  }
+
   var booking = null;
   if(window._editBookingId){
     if(_isSupabaseReady()){
@@ -394,6 +400,11 @@ async function updateEditPriceSummary(){
 }
 
 async function saveEditReservation(){
+  // SOS replacement flow — přesměrovat na SOS potvrzení
+  if(typeof _sosReplacementMode !== 'undefined' && _sosReplacementMode){
+    return _sosSaveReplacement();
+  }
+
   var bookingId = window._editBookingId;
   var diff=0;
   var diffEl=document.getElementById('edit-diff-total');
@@ -685,4 +696,259 @@ function proceedToEditPayment(){
     var appleBtn=document.getElementById('apple-pay-btn');
     if(appleBtn) appleBtn.textContent='🍎 Pay '+formatted+' Kč';
   },50);
+}
+
+// ===== SOS REPLACEMENT — uložení z edit reservation =====
+async function _sosSaveReplacement(){
+  var bookingId = window._editBookingId;
+  var incId = typeof _sosPendingIncidentId !== 'undefined' ? _sosPendingIncidentId : null;
+  var isFault = typeof _sosFault !== 'undefined' && _sosFault === true;
+
+  // Validace: musí být vybrána motorka
+  if(!editNewMotoId){
+    showT('⚠️','Vyberte motorku','Klikněte na náhradní motorku ze seznamu');
+    return;
+  }
+
+  // Validace: musí být adresa přistavení
+  var pickupAddr = document.getElementById('edit-pickup-address');
+  var pickupLoc = (pickupAddr && pickupAddr.value.trim()) ? pickupAddr.value.trim() : null;
+  if(!pickupLoc){
+    showT('⚠️','Vyplňte adresu','Zadejte adresu přistavení náhradní motorky');
+    return;
+  }
+
+  var btn = document.getElementById('edit-save-btn');
+  if(btn){ btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '⏳ Zpracovávám...'; }
+
+  // Změnit motorku na rezervaci
+  var changes = {};
+  if(editNewMotoId){
+    var newMotoDb = null;
+    if(_isSupabaseReady() && typeof MOTOS !== 'undefined'){
+      for(var mi=0;mi<MOTOS.length;mi++){
+        if(MOTOS[mi].id === editNewMotoId){
+          if(MOTOS[mi]._db && MOTOS[mi]._db.id){
+            newMotoDb = { id: MOTOS[mi]._db.id };
+          } else {
+            try {
+              var _mr=await supabase.from('motorcycles').select('id').or('model.eq.'+MOTOS[mi].name).limit(1).single();
+              if(_mr.data) newMotoDb=_mr.data;
+            } catch(e){}
+          }
+          break;
+        }
+      }
+    }
+    if(newMotoDb) changes.moto_id = newMotoDb.id;
+  }
+  changes.pickup_location = pickupLoc;
+  changes.sos_replacement = true;
+
+  // Náklady na přistavení
+  var deliveryCost = 0;
+  if(isFault){
+    // Spočítat z edit-pickup adresy
+    var retFeeEl = document.getElementById('edit-return-fee');
+    if(retFeeEl){
+      var parsed = parseInt(retFeeEl.textContent.replace(/[^0-9]/g,''));
+      if(!isNaN(parsed)) deliveryCost = parsed;
+    }
+    if(deliveryCost <= 0) deliveryCost = editReturnFee || 1000;
+  }
+
+  // Uložit změnu moto na booking
+  if(bookingId && typeof apiModifyBooking === 'function'){
+    await apiModifyBooking(bookingId, changes);
+  }
+
+  // Aktualizovat SOS incident
+  if(incId && window.supabase){
+    var selectedModel = '';
+    if(typeof MOTOS !== 'undefined'){
+      for(var i=0;i<MOTOS.length;i++){
+        if(MOTOS[i].id === editNewMotoId){ selectedModel = MOTOS[i].name; break; }
+      }
+    }
+    var replacementData = {
+      replacement_moto_id: editNewMotoId,
+      replacement_model: selectedModel,
+      delivery_address: pickupLoc,
+      delivery_fee: deliveryCost,
+      payment_amount: deliveryCost,
+      payment_status: isFault ? 'pending' : 'free',
+      customer_fault: isFault,
+      customer_confirmed_at: new Date().toISOString(),
+      requested_at: new Date().toISOString()
+    };
+
+    if(isFault && deliveryCost > 0){
+      // Zákazník zavinil — musí zaplatit přistavení
+      try {
+        var result = await apiProcessPayment(null, deliveryCost, _currentPaymentMethod || 'card');
+        if(result.success && result.checkout_url){
+          replacementData.payment_status = 'processing';
+          await window.supabase.from('sos_incidents').update({
+            replacement_status: 'pending_payment',
+            replacement_data: replacementData
+          }).eq('id', incId);
+          if(window.cordova && window.cordova.InAppBrowser){
+            window.cordova.InAppBrowser.open(result.checkout_url, '_system');
+          } else { window.open(result.checkout_url, '_blank'); }
+          showT('ℹ️','Platba','Otevřena platební brána');
+          _sosCleanupEditUI(btn, isFault);
+          return;
+        }
+        if(result.success){
+          replacementData.payment_status = 'paid';
+          replacementData.paid_at = new Date().toISOString();
+        } else {
+          showT('❌','Platba zamítnuta','Zkuste to znovu');
+          _sosCleanupEditUI(btn, isFault);
+          return;
+        }
+      } catch(e){
+        showT('❌','Chyba platby','Zkuste to znovu');
+        _sosCleanupEditUI(btn, isFault);
+        return;
+      }
+    }
+
+    await window.supabase.from('sos_incidents').update({
+      replacement_status: 'admin_review',
+      replacement_data: replacementData
+    }).eq('id', incId);
+    await window.supabase.from('sos_timeline').insert({
+      incident_id: incId,
+      action: 'Zákazník objednal náhradní motorku: ' + selectedModel + (isFault ? ' (zaplaceno ' + deliveryCost + ' Kč)' : ' (zdarma)'),
+      description: 'Adresa přistavení: ' + pickupLoc + '. Čeká na schválení adminem.'
+    });
+    if(!isFault && typeof apiSosRequestReplacement === 'function'){
+      apiSosRequestReplacement(incId);
+    }
+  }
+
+  // Úklid a zpráva
+  _sosReplacementMode = false;
+  _sosPendingIncidentId = null;
+  var sosBanner = document.getElementById('sos-edit-banner');
+  if(sosBanner) sosBanner.remove();
+
+  if(isFault && deliveryCost > 0){
+    showT('✅','Zaplaceno — ' + deliveryCost.toLocaleString('cs-CZ') + ' Kč','Náhradní motorka bude přistavena.');
+  } else {
+    showT('✅','Objednávka odeslána','Náhradní motorka bude brzy přistavena (zdarma)');
+  }
+  setTimeout(function(){ goTo('s-sos'); }, 2500);
+}
+
+function _sosCalcPickupDelivery(){
+  if(typeof _sosReplacementMode === 'undefined' || !_sosReplacementMode) return;
+  var isFault = typeof _sosFault !== 'undefined' && _sosFault === true;
+  if(!isFault){ updateEditPriceSummary(); return; }
+  // Pro zaviněného: spočítej cenu přistavení z pickup adresy
+  var addr = document.getElementById('edit-pickup-address');
+  var calc = document.getElementById('edit-pickup-calc');
+  var kmTxt = document.getElementById('edit-pickup-km-txt');
+  if(!addr || !addr.value.trim()){
+    if(calc) calc.style.display = 'none';
+    editReturnFee = 0;
+    updateEditPriceSummary();
+    return;
+  }
+  if(typeof AddressAPI !== 'undefined'){
+    var coords = (addr.dataset.lat && addr.dataset.lng)
+      ? {lat: parseFloat(addr.dataset.lat), lng: parseFloat(addr.dataset.lng)}
+      : addr.value.trim();
+    if(kmTxt) kmTxt.textContent = 'Vypočítávám vzdálenost...';
+    if(calc) calc.style.display = 'block';
+    AddressAPI.calcDistance(coords, function(result){
+      if(!result){ _sosCalcPickupFallback(addr, calc, kmTxt); return; }
+      editReturnFee = result.fee;
+      var txt = '~' + result.km + ' km · ' + result.fee.toLocaleString('cs-CZ') + ' Kč';
+      if(result.duration) txt += ' (~' + result.duration + ' min)';
+      if(kmTxt) kmTxt.textContent = txt;
+      updateEditPriceSummary();
+    });
+    return;
+  }
+  _sosCalcPickupFallback(addr, calc, kmTxt);
+}
+
+function _sosCalcPickupFallback(addr, calc, kmTxt){
+  var km = 50;
+  var val = addr.value.toLowerCase();
+  if(typeof KM_ESTIMATES !== 'undefined'){
+    for(var c in KM_ESTIMATES){ if(val.indexOf(c.toLowerCase()) !== -1){ km = KM_ESTIMATES[c]; break; } }
+  } else {
+    var KM_EST = {praha:160,brno:60,jihlava:40,tabor:35,ceske:90,plzen:200,ostrava:280};
+    for(var c2 in KM_EST){ if(val.indexOf(c2) !== -1){ km = KM_EST[c2]; break; } }
+  }
+  var fee = 1000 + km * 20;
+  editReturnFee = fee;
+  if(calc) calc.style.display = 'block';
+  if(kmTxt) kmTxt.textContent = '~' + km + ' km · ' + fee.toLocaleString('cs-CZ') + ' Kč (odhad)';
+  updateEditPriceSummary();
+}
+
+function _sosCleanupEditUI(btn, isFault){
+  if(btn){
+    btn.disabled = false; btn.style.opacity = '1';
+    btn.textContent = isFault ? '💳 Potvrdit a zaplatit přistavení →' : '✅ Potvrdit objednávku (zdarma) →';
+  }
+}
+
+function _sosUpdateEditPrice(){
+  var isFault = typeof _sosFault !== 'undefined' && _sosFault === true;
+  var priceSum = document.getElementById('edit-price-summary');
+  if(!priceSum) return;
+  priceSum.style.display = 'block';
+  // Skryj nepotřebné řádky
+  var ids = ['edit-extend-row','edit-shorten-row','edit-moto-diff-row','edit-extras-fee-row'];
+  ids.forEach(function(id){ var el=document.getElementById(id); if(el) el.style.display='none'; });
+  var origRow = document.getElementById('edit-orig-price');
+  if(origRow && origRow.parentNode) origRow.parentNode.style.display = 'none';
+
+  var payLabel = document.getElementById('t-editPayRefund');
+  var diffEl = document.getElementById('edit-diff-total');
+
+  if(!isFault){
+    // Nezaviněná — vše zdarma
+    if(payLabel) payLabel.textContent = 'Celkem';
+    if(diffEl){ diffEl.textContent = '0 Kč (zdarma)'; diffEl.style.color = 'var(--gd)'; }
+    // Skryj řádek přistavení
+    var retRow = document.getElementById('edit-return-fee-row');
+    if(retRow) retRow.style.display = 'none';
+  } else {
+    // Zaviněná — zobraz náklady na přistavení
+    if(payLabel) payLabel.textContent = 'Náklady na přistavení';
+    var retRow2 = document.getElementById('edit-return-fee-row');
+    // Spočítej vzdálenost z pickup adresy jako fee
+    var pickupAddr = document.getElementById('edit-pickup-address');
+    if(pickupAddr && pickupAddr.value.trim()){
+      // calcEditDelivery spočítá editReturnFee
+      if(retRow2) retRow2.style.display = 'flex';
+      var retFee = document.getElementById('edit-return-fee');
+      if(retFee) retFee.textContent = '+' + (editReturnFee||0).toLocaleString('cs-CZ') + ' Kč';
+      if(diffEl){
+        diffEl.textContent = (editReturnFee||0).toLocaleString('cs-CZ') + ' Kč';
+        diffEl.style.color = '#b91c1c';
+      }
+    } else {
+      if(retRow2) retRow2.style.display = 'none';
+      if(diffEl){ diffEl.textContent = 'Zadejte adresu'; diffEl.style.color = 'var(--g400)'; }
+    }
+  }
+
+  // Aktualizuj button text
+  var saveBtn = document.getElementById('edit-save-btn');
+  if(saveBtn){
+    if(isFault && editReturnFee > 0){
+      saveBtn.textContent = '💳 Zaplatit ' + editReturnFee.toLocaleString('cs-CZ') + ' Kč a objednat →';
+    } else if(isFault){
+      saveBtn.textContent = '💳 Potvrdit a zaplatit přistavení →';
+    } else {
+      saveBtn.textContent = '✅ Potvrdit objednávku (zdarma) →';
+    }
+  }
 }
