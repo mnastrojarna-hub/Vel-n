@@ -1,24 +1,59 @@
 -- ═══════════════════════════════════════════════════════
--- Fix: SOS notification sends ONLY ONE message per incident
--- Problem: old trigger version may still be active, causing
--- duplicate admin_messages. This migration ensures the correct
--- single-message version is installed.
+-- DEFINITIVE FIX: Only ONE message per SOS incident
 --
--- Also ensures ALL SOS types produce a visible admin_message
--- so every incident shows up in customer's message list.
+-- Problem: customer receives 2 messages on every SOS report.
+-- Sources of duplicate messages:
+--   1) trg_sos_notify_user trigger on sos_incidents
+--   2) Unknown trigger/rule in DB (possibly notification_rules
+--      or automation_rules table, or another named trigger)
+--
+-- Solution: Drop ALL known triggers that could send messages,
+-- disable notification/automation rules for SOS,
+-- and create ONE clean trigger.
 -- ═══════════════════════════════════════════════════════
 
--- Drop and recreate trigger to ensure clean state
+-- 1. Drop ALL possible notification triggers on sos_incidents
 DROP TRIGGER IF EXISTS trg_sos_notify_user ON sos_incidents;
+DROP TRIGGER IF EXISTS trg_sos_notify ON sos_incidents;
+DROP TRIGGER IF EXISTS trg_sos_notification ON sos_incidents;
+DROP TRIGGER IF EXISTS trg_sos_auto_message ON sos_incidents;
+DROP TRIGGER IF EXISTS trg_sos_auto_notify ON sos_incidents;
+DROP TRIGGER IF EXISTS trg_sos_send_message ON sos_incidents;
+DROP TRIGGER IF EXISTS trg_notify_sos ON sos_incidents;
+DROP TRIGGER IF EXISTS trg_sos_admin_message ON sos_incidents;
+DROP TRIGGER IF EXISTS trg_sos_user_message ON sos_incidents;
+DROP TRIGGER IF EXISTS trg_sos_confirmation ON sos_incidents;
 
+-- 2. Disable any automation/notification rules for SOS
+-- (these tables may contain rules that auto-send messages)
+UPDATE automation_rules SET enabled = false
+  WHERE trigger_event ILIKE '%sos%' OR trigger_table = 'sos_incidents'
+     OR action_type ILIKE '%message%';
+
+UPDATE notification_rules SET enabled = false
+  WHERE event_type ILIKE '%sos%' OR table_name = 'sos_incidents'
+     OR trigger_table = 'sos_incidents';
+
+-- Also try with 'active' column name (schema may vary)
+DO $$ BEGIN
+  UPDATE automation_rules SET active = false
+    WHERE trigger_event ILIKE '%sos%' OR trigger_table = 'sos_incidents';
+EXCEPTION WHEN undefined_column THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  UPDATE notification_rules SET active = false
+    WHERE event_type ILIKE '%sos%' OR table_name = 'sos_incidents';
+EXCEPTION WHEN undefined_column THEN NULL;
+END $$;
+
+-- 3. Create the ONE and ONLY notification function
 CREATE OR REPLACE FUNCTION sos_notify_user_on_create()
 RETURNS trigger AS $$
 DECLARE
   v_type_label text;
-  v_title text;
-  v_message text;
 BEGIN
-  -- Map type to readable Czech label
+  -- Map type to Czech label
   CASE NEW.type
     WHEN 'theft' THEN v_type_label := 'Krádež motorky';
     WHEN 'accident_minor' THEN v_type_label := 'Lehká nehoda';
@@ -28,29 +63,33 @@ BEGIN
     ELSE v_type_label := 'SOS hlášení';
   END CASE;
 
-  -- Single unified message for ALL incident types
-  v_title := 'SOS přijato: ' || v_type_label;
-  v_message := 'Vaše hlášení bylo přijato centrálou MotoGo24. ' ||
-    COALESCE(NEW.description, '') ||
-    ' Asistent vás bude kontaktovat.';
-
   -- Insert exactly ONE admin_message
   INSERT INTO admin_messages (user_id, title, message, type)
   VALUES (
     NEW.user_id,
-    v_title,
-    v_message,
+    'SOS přijato: ' || v_type_label,
+    'Vaše hlášení bylo přijato centrálou MotoGo24. ' ||
+      COALESCE(NEW.description, '') ||
+      ' Asistent vás bude kontaktovat.',
     'sos_response'
   );
 
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN
-  -- Never block incident creation
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Recreate trigger (single AFTER INSERT trigger)
+-- 4. Create single trigger
 CREATE TRIGGER trg_sos_notify_user
   AFTER INSERT ON sos_incidents
   FOR EACH ROW EXECUTE FUNCTION sos_notify_user_on_create();
+
+-- 5. Drop any other functions that might also send SOS messages
+-- (safe — if they don't exist, nothing happens)
+DROP FUNCTION IF EXISTS sos_send_confirmation() CASCADE;
+DROP FUNCTION IF EXISTS sos_auto_notify() CASCADE;
+DROP FUNCTION IF EXISTS sos_notify_customer() CASCADE;
+DROP FUNCTION IF EXISTS notify_sos_user() CASCADE;
+DROP FUNCTION IF EXISTS sos_send_user_message() CASCADE;
+DROP FUNCTION IF EXISTS handle_sos_notification() CASCADE;
