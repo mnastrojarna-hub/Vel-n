@@ -95,6 +95,10 @@ function _sosEnsureIncident(type, desc){
       }
       resolve(_sosActiveIncidentId); return;
     }
+    // Confirmation dialog before submitting
+    if(!confirm('Opravdu chcete nahlásit SOS incident?\n\nPo potvrzení bude informována centrála MotoGo24.')){
+      resolve(null); return;
+    }
     showT('⚠️','Hlásím incident...','Odesílám na centrálu');
     apiGetActiveLoan().then(function(loan){
       var bookingId = loan ? (loan.id || (loan._db && loan._db.id)) : null;
@@ -104,7 +108,11 @@ function _sosEnsureIncident(type, desc){
           .then(function(r){
             if(r && r.error){
               console.error('[SOS] createIncident error:', r.error);
-              showT('❌','Chyba hlášení',''+r.error);
+              if(String(r.error).indexOf('aktivní SOS') >= 0 || String(r.error).indexOf('active') >= 0){
+                showT('⚠️','Aktivní SOS','Máte již aktivní SOS incident. Počkejte na vyřešení velínem.');
+              } else {
+                showT('❌','Chyba hlášení',''+r.error);
+              }
             }
             if(r && r.id) _sosActiveIncidentId = r.id;
             resolve(r && r.id ? r.id : null);
@@ -514,8 +522,9 @@ async function sosConfirmReplacement(){
       // Zákazník zavinil → simulace platební brány → pak swap bookings
       _sosReplacementPaymentData = { incId: incId, replacementData: replacementData, total: total, address: address, city: city };
       goTo('s-sos-payment');
-      _sosInitPaymentGateway(total);
-      if(btn){ btn.disabled = false; btn.style.opacity = '1'; }
+      // Wait for DOM to render after page transition before initializing payment form
+      setTimeout(function(){ _sosInitPaymentGateway(total); }, 150);
+      if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = 'Potvrdit objednávku'; }
     } else {
       // Porucha / nezaviněná → rovnou swap bookings + do admin_review
       await _sosSwapBookingsAndConfirm(incId, replacementData, false, address, city);
@@ -524,6 +533,13 @@ async function sosConfirmReplacement(){
 
 // Uložená data pro platbu
 var _sosReplacementPaymentData = null;
+
+// Called from router when navigating to s-sos-payment
+function _sosInitPaymentFromRouter(){
+  if(_sosReplacementPaymentData && _sosReplacementPaymentData.total){
+    _sosInitPaymentGateway(_sosReplacementPaymentData.total);
+  }
+}
 
 // Simulace platební brány (pro zaviněné nehody)
 function _sosInitPaymentGateway(amount){

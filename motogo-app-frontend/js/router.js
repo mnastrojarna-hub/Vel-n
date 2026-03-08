@@ -156,6 +156,7 @@ function goTo(id){
   }
   if(id==='s-contracts' && typeof renderContractsPage==='function') renderContractsPage();
   if(id==='s-sos-replacement' && typeof sosReplInit==='function') sosReplInit();
+  if(id==='s-sos-payment' && typeof _sosInitPaymentFromRouter==='function') _sosInitPaymentFromRouter();
   if(typeof updateCartFab==='function')updateCartFab();
   if(typeof scrollCurrentToTop==='function')scrollCurrentToTop();
 }

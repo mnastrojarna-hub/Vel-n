@@ -165,6 +165,40 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
     onRefresh?.()
   }
 
+  async function updateIncidentStatus(newStatus) {
+    // Safety: confirm resolve
+    if (newStatus === 'resolved') {
+      const pendingRepl = ['selecting', 'pending_payment', 'admin_review', 'approved', 'dispatched']
+      if (pendingRepl.includes(incident.replacement_status)) {
+        if (!window.confirm(`⚠️ POZOR: Tento incident má nedokončenou objednávku náhradní motorky!\n\nStav objednávky: ${incident.replacement_status}\n\nOpravdu chcete označit incident jako vyřešený?`)) return
+      }
+      if (!window.confirm('Označit incident jako VYŘEŠENÝ?\n\nZákazník nebude moci do incidentu dále přidávat informace.')) return
+    }
+    const updates = { status: newStatus }
+    if (newStatus === 'resolved') {
+      const { data: { user } } = await supabase.auth.getUser()
+      updates.resolved_at = new Date().toISOString()
+      updates.resolved_by = user?.id
+      // Send confirmation to customer
+      if (incident.user_id) {
+        await supabase.from('admin_messages').insert({
+          user_id: incident.user_id,
+          title: 'SOS vyřešeno',
+          message: 'Váš SOS incident byl vyřešen. Děkujeme za trpělivost.',
+          type: 'sos_response',
+        })
+      }
+    }
+    await supabase.from('sos_incidents').update(updates).eq('id', incident.id)
+    const { data: { user } } = await supabase.auth.getUser()
+    await supabase.from('sos_timeline').insert({
+      incident_id: incident.id,
+      action: `Stav změněn na: ${STATUS_COLORS[newStatus]?.label || newStatus}`,
+      performed_by: user?.email || 'Admin', admin_id: user?.id,
+    })
+    onRefresh?.()
+  }
+
   async function setMotoToService() {
     const motoId = moto?.id || incident?.moto_id || incident?.replacement_data?.original_moto_id
     if (!motoId) return
@@ -551,6 +585,33 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
             {admins.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
         </div>
+
+        {/* Status forward buttons */}
+        {isActive && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {incident.status === 'reported' && (
+              <button onClick={() => updateIncidentStatus('acknowledged')}
+                className="rounded-btn text-[10px] font-extrabold uppercase tracking-wide cursor-pointer border-none"
+                style={{ padding: '8px 16px', background: '#fef3c7', color: '#b45309' }}>
+                Potvrdit příjem
+              </button>
+            )}
+            {(incident.status === 'reported' || incident.status === 'acknowledged') && (
+              <button onClick={() => updateIncidentStatus('in_progress')}
+                className="rounded-btn text-[10px] font-extrabold uppercase tracking-wide cursor-pointer border-none"
+                style={{ padding: '8px 16px', background: '#dbeafe', color: '#2563eb' }}>
+                Začít řešit
+              </button>
+            )}
+            {incident.status !== 'resolved' && (
+              <button onClick={() => updateIncidentStatus('resolved')}
+                className="rounded-btn text-[10px] font-extrabold uppercase tracking-wide cursor-pointer border-none"
+                style={{ padding: '8px 16px', background: '#dcfce7', color: '#1a8a18' }}>
+                Vyřešeno
+              </button>
+            )}
+          </div>
+        )}
       </Card>
 
       {/* Rozhodnutí zákazníka (u nepojízdných) */}
