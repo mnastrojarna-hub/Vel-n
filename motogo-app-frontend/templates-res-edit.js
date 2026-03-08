@@ -62,7 +62,10 @@ Templates['s-edit-res'] = `
       </label>
     </div>
     <div id="edit-pickup-detail" style="display:none;border-top:1px solid var(--g200);padding-top:10px;">
-      <div class="ff" style="margin:0;position:relative;"><label id="t-editDelAddr">Adresa p\u0159istaven\u00ed</label><input type="text" id="edit-pickup-address" placeholder="Ulice, m\u011bsto, PS\u010c" oninput="showAddrSuggestions(this,'edit-pickup')" autocomplete="off"><div id="edit-pickup-addr-suggestions" class="addr-suggestions" style="display:none;"></div></div>
+      <div class="ff" style="margin:0;position:relative;"><label id="t-editDelAddr">Adresa p\u0159istaven\u00ed</label><input type="text" id="edit-pickup-address" placeholder="Ulice, m\u011bsto, PS\u010c" oninput="showAddrSuggestions(this,'edit-pickup');if(typeof _sosCalcPickupDelivery==='function')_sosCalcPickupDelivery();" autocomplete="off"><div id="edit-pickup-addr-suggestions" class="addr-suggestions" style="display:none;"></div></div>
+      <div id="edit-pickup-calc" style="display:none;margin-top:8px;background:var(--gp);border-radius:var(--rsm);padding:10px 12px;font-size:12px;color:var(--gd);">
+        \ud83d\udccd <span id="edit-pickup-km-txt">Zadejte adresu</span>
+      </div>
     </div>
     <div style="margin-top:10px;border-top:1px solid var(--g200);padding-top:10px;">
       <div style="font-size:10px;font-weight:700;color:var(--g400);text-transform:uppercase;margin-bottom:6px;" id="t-editDelTime">\ud83d\udd52 \u010cas p\u0159istaven\u00ed</div>
