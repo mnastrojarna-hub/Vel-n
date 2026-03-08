@@ -308,6 +308,45 @@ async function apiModifyBooking(bookingId, changes){
   } catch(e){ return {error:'Chyba při úpravě rezervace'}; }
 }
 
+// ===== OVERLAP CHECK – zákazník nesmí mít překrývající se rezervace =====
+async function apiCheckBookingOverlap(startISO, endISO, excludeBookingId){
+  _ensureSupabase();
+  if(!window.supabase) return {overlap:false};
+  try {
+    var uid = await _getUserId();
+    if(!uid) return {overlap:false};
+    var q = window.supabase.from('bookings')
+      .select('id, start_date, end_date, moto_name, status')
+      .eq('user_id', uid)
+      .in('status', ['pending','active','confirmed'])
+      .lte('start_date', endISO)
+      .gte('end_date', startISO);
+    if(excludeBookingId){
+      q = q.neq('id', excludeBookingId);
+    }
+    var r = await q;
+    if(r.data && r.data.length > 0){
+      return {overlap:true, conflicting: r.data[0]};
+    }
+    return {overlap:false};
+  } catch(e){ console.error('[API] apiCheckBookingOverlap:', e); return {overlap:false}; }
+}
+
+// ===== SHOP INVOICES – fetch shop order invoices =====
+async function apiFetchShopInvoices(){
+  _ensureSupabase();
+  if(!window.supabase) return [];
+  try {
+    var uid = await _getUserId();
+    if(!uid) return [];
+    var r = await window.supabase.from('shop_orders')
+      .select('*, shop_order_items(*)')
+      .eq('customer_id', uid)
+      .order('created_at', {ascending: false});
+    return r.data || [];
+  } catch(e){ console.error('[API] apiFetchShopInvoices:', e); return []; }
+}
+
 // ===== AKTIVNÍ VÝPŮJČKA =====
 async function apiGetActiveLoan(){
   _ensureSupabase();
@@ -486,6 +525,27 @@ async function apiFetchDocuments(){
         file_path: gd.pdf_path || ''
       });
     });
+    // 4) shop_orders – faktury z e-shopu
+    try {
+      var sr = await window.supabase.from('shop_orders')
+        .select('*, shop_order_items(*)')
+        .eq('customer_id', uid)
+        .in('payment_status', ['paid','pending'])
+        .order('created_at', {ascending: false});
+      if(sr.data) sr.data.forEach(function(so){
+        var itemNames = (so.shop_order_items||[]).map(function(i){ return i.product_name; }).join(', ');
+        results.push({
+          id: so.id, booking_id: null,
+          type: 'invoice_shop', _shopOrder: so,
+          date: so.created_at,
+          moto_name: '',
+          shop_items: itemNames || 'Shop',
+          amount: so.total || 0,
+          res_num: '#OBJ-' + (so.order_number || so.id.substr(-6).toUpperCase()),
+          file_name: 'Faktura objednávka ' + (so.order_number || '')
+        });
+      });
+    } catch(se){ console.error('[API] shop_orders fetch:', se); }
     return results;
   } catch(e){ console.error('[API] apiFetchDocuments:', e); return []; }
 }

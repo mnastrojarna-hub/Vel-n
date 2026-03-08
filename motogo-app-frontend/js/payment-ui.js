@@ -62,6 +62,22 @@ async function proceedToPayment(){
       return;
     }
 
+    // Check for overlapping reservations
+    if(typeof apiCheckBookingOverlap === 'function'){
+      var overlapCheck = await apiCheckBookingOverlap(startDate.toISOString(), endDate.toISOString());
+      if(overlapCheck.overlap){
+        var cf = overlapCheck.conflicting;
+        var cfName = cf.moto_name || 'motorka';
+        var cfFrom = _fmtDatePayment(cf.start_date);
+        var cfTo = _fmtDatePayment(cf.end_date);
+        showT('\u26a0\ufe0f',
+          _t('pay').overlapTitle||'Termín obsazen',
+          (_t('pay').overlapMsg||'Již máte rezervaci v tomto termínu')+': '+cfName+' ('+cfFrom+' – '+cfTo+'). '+(_t('pay').overlapHint||'Zvolte jiný termín nebo upravte stávající rezervaci.')
+        );
+        return;
+      }
+    }
+
     // Získej UUID z _db (enrichMOTOS), nebo fallback lookup v Supabase
     var motoId = null;
     if(bookingMoto._db && bookingMoto._db.id){

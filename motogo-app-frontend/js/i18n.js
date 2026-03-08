@@ -29,7 +29,7 @@ cs:{
     bankAccount:'Bankovní účet',item:'Položka',qty:'Množství',unitPrice:'Cena/den',
     total:'Celkem',rentalOf:'Pronájem motocyklu',days:'dní',extras:'Příslušenství',
     totalToPay:'Celkem k úhradě',sendEmail:'Odeslat e-mailem',downloadPDF:'Stáhnout PDF',
-    emailSent:'Odesláno na',noInvoices:'Žádné faktury',
+    emailSent:'Odesláno na',noInvoices:'Žádné faktury',shopInvoice:'Faktura – Shop',
     docsTitle:'Dokumenty a smlouvy',docsSubtitle:'Archiv smluvní dokumentace',
     gdprNote:'Přístupné pouze vám. Zpracování dle GDPR.',
     vopSubject:'Předmět',vopSubjectText:'Tyto VOP upravují podmínky pronájmu motocyklů provozovaného společností MotoGo24 s.r.o.',

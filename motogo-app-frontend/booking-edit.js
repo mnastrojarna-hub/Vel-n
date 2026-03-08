@@ -412,6 +412,21 @@ async function saveEditReservation(){
   if(bookingId){
     var newEndISO = (typeof eDo !== 'undefined' && eDo) ? new Date(eDo.y, eDo.m, eDo.d).toISOString() : null;
     var newStartISO = (typeof eOd !== 'undefined' && eOd && !editIsActive) ? new Date(eOd.y, eOd.m, eOd.d).toISOString() : null;
+
+    // Check for overlapping reservations with new dates
+    if(typeof apiCheckBookingOverlap === 'function'){
+      var checkStart = newStartISO || (typeof origResStart !== 'undefined' ? new Date(origResStart.y, origResStart.m, origResStart.d).toISOString() : null);
+      var checkEnd = newEndISO || (typeof origResEnd !== 'undefined' ? new Date(origResEnd.y, origResEnd.m, origResEnd.d).toISOString() : null);
+      if(checkStart && checkEnd){
+        var oc = await apiCheckBookingOverlap(checkStart, checkEnd, bookingId);
+        if(oc.overlap){
+          var cf = oc.conflicting;
+          showT('⚠️',_t('pay').overlapTitle||'Termín obsazen',
+            (_t('pay').overlapMsg||'Již máte rezervaci v tomto termínu')+'. '+(_t('pay').overlapHint||'Zvolte jiný termín nebo upravte stávající rezervaci.'));
+          return;
+        }
+      }
+    }
     var changes = {};
     if(newEndISO) changes.end_date = newEndISO;
     if(newStartISO) changes.start_date = newStartISO;

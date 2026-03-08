@@ -403,6 +403,16 @@ async function restoreBooking(bookingId){
     var result = await apiRestoreBooking(bookingId);
     if(result.error){ showT('✗',_t('common').error,result.error); return; }
     var booking = result.booking;
+    // Check for overlapping reservations before restoring
+    if(typeof apiCheckBookingOverlap === 'function' && booking){
+      var oc = await apiCheckBookingOverlap(booking.start_date, booking.end_date, bookingId);
+      if(oc.overlap){
+        var cf = oc.conflicting;
+        showT('⚠️',_t('pay').overlapTitle||'Termín obsazen',
+          (_t('pay').overlapMsg||'Již máte rezervaci v tomto termínu')+': '+(cf.moto_name||'motorka')+' ('+_fmtDate(cf.start_date)+' – '+_fmtDate(cf.end_date)+'). '+(_t('pay').overlapHint||'Zvolte jiný termín nebo upravte stávající rezervaci.'));
+        return;
+      }
+    }
     if(!booking){ showT('✗',_t('common').error,'Rezervace nenalezena'); return; }
 
     // Reservation stays cancelled until payment succeeds
