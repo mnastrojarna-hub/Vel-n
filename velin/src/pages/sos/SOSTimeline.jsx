@@ -7,7 +7,11 @@ export default function SOSTimeline({ incidentId }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Reset state when incident changes to prevent stale data
+    setEvents([])
+    setLoading(true)
     if (incidentId) load()
+    else setLoading(false)
   }, [incidentId])
 
   async function load() {

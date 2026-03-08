@@ -68,6 +68,9 @@ const DECISION_LABELS = {
   waiting: 'Čeká na rozhodnutí',
 }
 
+// Lehké typy — automatické potvrzení velínem
+const LIGHT_AUTO_ACK = ['breakdown_minor', 'defect_question', 'location_share', 'other']
+
 export default function SOSPanel() {
   const [incidents, setIncidents] = useState([])
   const [loading, setLoading] = useState(true)
@@ -75,14 +78,32 @@ export default function SOSPanel() {
   const [notifyEnabled, setNotifyEnabled] = useState(false)
   const [filter, setFilter] = useState('active')
   const [severityFilter, setSeverityFilter] = useState('all_sev')
+  const [subFilter, setSubFilter] = useState('all')
+
+  // Auto-acknowledge light faults
+  async function autoAcknowledge(incidentId, type) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      await supabase.from('sos_incidents').update({ status: 'acknowledged' }).eq('id', incidentId)
+      await supabase.from('sos_timeline').insert({
+        incident_id: incidentId,
+        action: `Automaticky potvrzeno (lehký incident: ${TYPE_LABELS[type] || type})`,
+        performed_by: 'System (auto-ack)', admin_id: user?.id,
+      })
+    } catch (e) { console.error('[SOSPanel] autoAck failed:', e) }
+  }
 
   useEffect(() => {
     load()
     const channel = supabase.channel('sos-realtime')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sos_incidents' }, (payload) => {
         load()
+        const n = payload.new
+        // Auto-confirm light faults
+        if (n && LIGHT_AUTO_ACK.includes(n.type) && n.status === 'reported') {
+          autoAcknowledge(n.id, n.type)
+        }
         if (notifyEnabled && 'Notification' in window && Notification.permission === 'granted') {
-          const n = payload.new
           const title = n?.title || TYPE_LABELS[n?.type] || 'Nový incident'
           const sev = SEVERITY_MAP[n?.severity]
           new Notification(`SOS: ${title}`, {
@@ -93,7 +114,6 @@ export default function SOSPanel() {
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'sos_incidents' }, (payload) => {
         load()
-        // Aktualizuj selected incident pokud se změnil
         if (selectedIncident && payload.new?.id === selectedIncident.id) {
           setSelectedIncident(prev => ({ ...prev, ...payload.new }))
         }
@@ -210,13 +230,37 @@ export default function SOSPanel() {
     { key: 'ostatni', label: 'Ostatní', icon: '📞', types: ['defect_question','location_share','other'] },
   ]
 
+  // Sub-filtry pro nehody a poruchy
+  const SUB_FILTERS = {
+    nehody: [
+      { key: 'all', label: 'Všechny nehody' },
+      { key: 'lehke', label: 'Lehké', types: ['accident_minor'] },
+      { key: 'tezke', label: 'Těžké', types: ['accident_major', 'accident'] },
+      { key: 'zavinene', label: 'Zaviněné', filterFn: i => i.customer_fault === true },
+      { key: 'nezavinene', label: 'Bez zavinění', filterFn: i => i.customer_fault === false },
+    ],
+    poruchy: [
+      { key: 'all', label: 'Všechny poruchy' },
+      { key: 'lehke', label: 'Lehké', types: ['breakdown_minor'] },
+      { key: 'tezke', label: 'Těžké', types: ['breakdown_major', 'breakdown'] },
+    ],
+  }
+
   const filterByType = (list) => {
     if (severityFilter === 'all_type' || severityFilter === 'all_sev') return list
     const tf = TYPE_FILTERS.find(t => t.key === severityFilter)
-    if (tf?.types) return list.filter(i => tf.types.includes(i.type))
-    if (severityFilter === 'light') return list.filter(i => LIGHT_TYPES.includes(i.type))
-    if (severityFilter === 'heavy') return list.filter(i => HEAVY_TYPES.includes(i.type))
-    return list
+    if (!tf?.types) return list
+    let filtered = list.filter(i => tf.types.includes(i.type))
+    // Apply sub-filter
+    if (subFilter !== 'all') {
+      const subs = SUB_FILTERS[severityFilter]
+      if (subs) {
+        const sf = subs.find(s => s.key === subFilter)
+        if (sf?.types) filtered = filtered.filter(i => sf.types.includes(i.type))
+        if (sf?.filterFn) filtered = filtered.filter(sf.filterFn)
+      }
+    }
+    return filtered
   }
 
   // Priority sort: admin_review first, then pending_payment, then by severity, then by time
@@ -296,7 +340,7 @@ export default function SOSPanel() {
               { key: 'resolved', label: 'Vyřešené', count: resolved.length },
               { key: 'all', label: 'Vše', count: incidents.length },
             ].map(f => (
-              <button key={f.key} onClick={() => setFilter(f.key)}
+              <button key={f.key} onClick={() => { setFilter(f.key); setSelectedIncident(null) }}
                 className="rounded-btn text-[10px] font-extrabold uppercase tracking-wide cursor-pointer border-none"
                 style={{
                   padding: '5px 12px',
@@ -315,7 +359,7 @@ export default function SOSPanel() {
                 ? baseList.filter(i => f.types.includes(i.type)).length
                 : baseList.length
               return (
-                <button key={f.key} onClick={() => setSeverityFilter(f.key)}
+                <button key={f.key} onClick={() => { setSeverityFilter(f.key); setSubFilter('all') }}
                   className="rounded-btn text-[10px] font-extrabold uppercase tracking-wide cursor-pointer border-none"
                   style={{
                     padding: '5px 10px',
@@ -327,6 +371,32 @@ export default function SOSPanel() {
               )
             })}
           </div>
+
+          {/* Sub-filtry pro nehody/poruchy */}
+          {SUB_FILTERS[severityFilter] && (
+            <div className="flex items-center gap-1 mt-2 flex-wrap">
+              <span className="text-[9px] font-bold uppercase tracking-wide mr-1" style={{ color: '#8aab99' }}>Filtr:</span>
+              {SUB_FILTERS[severityFilter].map(sf => {
+                const sfCount = sf.types
+                  ? baseList.filter(i => sf.types.includes(i.type)).length
+                  : sf.filterFn
+                    ? baseList.filter(i => TYPE_FILTERS.find(t => t.key === severityFilter)?.types?.includes(i.type)).filter(sf.filterFn).length
+                    : baseList.filter(i => TYPE_FILTERS.find(t => t.key === severityFilter)?.types?.includes(i.type)).length
+                return (
+                  <button key={sf.key} onClick={() => setSubFilter(sf.key)}
+                    className="rounded-btn text-[9px] font-extrabold uppercase tracking-wide cursor-pointer border-none"
+                    style={{
+                      padding: '3px 8px',
+                      background: subFilter === sf.key ? '#4a6357' : '#f8fcfa',
+                      color: subFilter === sf.key ? '#fff' : '#4a6357',
+                      border: '1px solid #d4e8e0',
+                    }}>
+                    {sf.label} {sfCount > 0 ? `(${sfCount})` : ''}
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         {/* === INCIDENT LIST === */}

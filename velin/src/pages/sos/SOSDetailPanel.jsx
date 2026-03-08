@@ -57,6 +57,13 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
   const [replacementMoto, setReplacementMoto] = useState(null)
 
   useEffect(() => {
+    // Reset all state when incident changes to prevent stale view
+    setBooking(null)
+    setCustomer(null)
+    setMoto(null)
+    setMessage('')
+    setMsgSent(false)
+    setReplacementMoto(null)
     if (!incident) return
     loadDetails()
     loadAdmins()
@@ -266,6 +273,18 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
         , { incident_id: incident.id, customer_id: customer.id, content: message.trim() })
         await supabase.from('message_threads').update({ last_message_at: new Date().toISOString() }).eq('id', thread.id)
       }
+
+      // Insert into admin_messages for MotoG app fullscreen overlay
+      const sosTitle = incident.title || TYPE_LABELS[incident.type] || 'SOS'
+      await supabase.from('admin_messages').insert({
+        user_id: customer.id,
+        title: `SOS: ${sosTitle}`,
+        message: message.trim(),
+        type: 'sos_response',
+        read: false,
+      }).then(r => {
+        if (r.error) console.warn('[SOSDetail] admin_messages insert failed:', r.error.message)
+      })
 
       await supabase.from('sos_timeline').insert({
         incident_id: incident.id,
