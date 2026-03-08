@@ -1,19 +1,5 @@
-// ===== TEMPLATES-RES-SOS.JS – Contracts & SOS core screens (s-contracts, s-sos, s-sos-nehoda, s-sos-nepojizda) =====
-Templates['s-contracts'] = `  <div class="topbar"><div class="back-row" onclick="histBack()"><div class="bk-c">←</div><div class="bk-l" id="t-contrBack">Zpět</div></div><h2 id="t-contrTitle">📄 Dokumenty a smlouvy</h2><p id="t-contrSub">Archiv smluvní dokumentace</p></div>
-  <div style="padding:10px 20px 0;"><div id="t-contrGDPR" style="background:var(--gp);border-radius:var(--r);padding:13px;margin-bottom:10px;font-size:12px;color:var(--gd);line-height:1.6;">🔒 Přístupné pouze vám. Zpracování dle GDPR.</div></div>
-  <div style="padding:0 20px;">
-    <div style="font-size:11px;font-weight:800;color:var(--g400);text-transform:uppercase;letter-spacing:1px;padding:8px 0;">2026</div>
-    <div class="bcard" style="margin:0 0 10px;">
-      <div style="display:flex;align-items:center;gap:12px;"><div style="width:40px;height:40px;background:var(--gp);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">📋</div><div style="flex:1;"><div style="font-size:13px;font-weight:800;">Smlouva – BMW R 1200 GS</div><div style="font-size:11px;color:var(--g400);margin-top:2px;">#RES-2026-0043 · 22. 2. 2026</div></div><button onclick="showT('⬇️','Stahování...','Smlouva_2026-0043.pdf')" style="background:var(--green);color:#fff;border:none;border-radius:var(--rsm);padding:8px 14px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;">⬇️ PDF</button></div>
-    </div>
-    <div class="bcard" style="margin:0 0 10px;">
-      <div style="display:flex;align-items:center;gap:12px;"><div style="width:40px;height:40px;background:var(--gp);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🧾</div><div style="flex:1;"><div style="font-size:13px;font-weight:800;">Faktura – BMW R 1200 GS</div><div style="font-size:11px;color:var(--g400);margin-top:2px;">#FAK-2026-0043 · 5 400 Kč cena bez DPH není plátcem</div></div><button onclick="showT('⬇️','Stahování...','Faktura_2026-0043.pdf')" style="background:var(--green);color:#fff;border:none;border-radius:var(--rsm);padding:8px 14px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;">⬇️ PDF</button></div>
-    </div>
-    <div style="font-size:11px;font-weight:800;color:var(--g400);text-transform:uppercase;letter-spacing:1px;padding:8px 0;">2025</div>
-    <div class="bcard" style="margin:0 0 10px;">
-      <div style="display:flex;align-items:center;gap:12px;"><div style="width:40px;height:40px;background:var(--g100);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">📋</div><div style="flex:1;"><div style="font-size:13px;font-weight:800;">Smlouva – Benelli TRK 702X</div><div style="font-size:11px;color:var(--g400);margin-top:2px;">#RES-2025-0018 · 10. 1. 2025</div></div><button onclick="showT('⬇️','Stahování...','Smlouva_2025-0018.pdf')" style="background:var(--dark);color:#fff;border:none;border-radius:var(--rsm);padding:8px 14px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;">⬇️ PDF</button></div>
-    </div>
-  </div>`;
+// ===== TEMPLATES-RES-SOS.JS – SOS core screens (s-sos, s-sos-nehoda, s-sos-nepojizda) =====
+// s-contracts template moved to templates-done.js (dynamic renderContractsPage)
 
 Templates['s-sos'] = `  <div class="sos-hdr">
     <div class="back-row" onclick="histBack()" style="margin-bottom:10px;"><div class="bk-c">←</div><div class="bk-l">Zpět</div></div>
