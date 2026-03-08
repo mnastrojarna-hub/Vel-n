@@ -250,10 +250,41 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
         return
       }
     }
+
+    // Info o swap bookings
+    const hasSwap = rd.original_booking_id && rd.replacement_booking_id
+    const swapInfo = hasSwap
+      ? '\n\n✅ Rezervace již přepnuty automaticky.'
+      : '\n\n🔄 Rezervace budou automaticky přepnuty (stará ukončena, nová vytvořena).'
+
     // SAFETY: Potvrzení schválení
-    if (!window.confirm(`Schválit objednávku náhradní motorky?\n\n🏍️ ${rd.replacement_model || '?'}\n📍 ${rd.delivery_address || '?'}, ${rd.delivery_city || '?'}\n💰 ${rd.payment_amount || 0} Kč (${rd.payment_status === 'free' ? 'zdarma' : rd.payment_status || '?'})\n\nPo schválení bude motorka připravena k přistavení.`)) {
+    if (!window.confirm(`Schválit objednávku náhradní motorky?\n\n🏍️ ${rd.replacement_model || '?'}\n📍 ${rd.delivery_address || '?'}, ${rd.delivery_city || '?'}\n💰 ${rd.payment_amount || 0} Kč (${rd.payment_status === 'free' ? 'zdarma' : rd.payment_status || '?'})${swapInfo}\n\nPo schválení bude motorka připravena k přistavení.`)) {
       return
     }
+
+    // If bookings haven't been swapped yet (e.g. RPC failed during customer flow), do it now
+    if (!hasSwap && rd.replacement_moto_id) {
+      try {
+        const swapResult = await supabase.rpc('sos_swap_bookings', {
+          p_incident_id: incident.id,
+          p_replacement_moto_id: rd.replacement_moto_id,
+          p_replacement_model: rd.replacement_model || null,
+          p_delivery_fee: rd.delivery_fee || 0,
+          p_daily_price: rd.daily_price || 0,
+          p_is_free: !rd.customer_fault,
+        })
+        if (swapResult.data && swapResult.data.success) {
+          rd.original_booking_id = swapResult.data.original_booking_id
+          rd.replacement_booking_id = swapResult.data.replacement_booking_id
+          rd.original_end_date = swapResult.data.original_end_date
+        } else {
+          console.warn('[SOS] swap on approve:', swapResult.data?.error || swapResult.error?.message)
+        }
+      } catch (e) {
+        console.error('[SOS] swap on approve exception:', e)
+      }
+    }
+
     const updatedRd = { ...rd, approved_by_admin: true, approved_at: new Date().toISOString() }
     await debugAction('sos.approveReplacement', 'SOSDetailPanel', () =>
       supabase.from('sos_incidents').update({
@@ -265,7 +296,8 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
     await supabase.from('sos_timeline').insert({
       incident_id: incident.id,
       action: `Objednávka náhradní motorky SCHVÁLENA: ${rd.replacement_model || '?'}`,
-      description: `Adresa: ${rd.delivery_address || '?'}, ${rd.delivery_city || '?'}. Částka: ${rd.payment_amount || '?'} Kč (${rd.payment_status === 'free' ? 'zdarma' : 'zaplaceno'})`,
+      description: `Adresa: ${rd.delivery_address || '?'}, ${rd.delivery_city || '?'}. Částka: ${rd.payment_amount || '?'} Kč (${rd.payment_status === 'free' ? 'zdarma' : 'zaplaceno'}).` +
+        (rd.original_booking_id ? ` Původní rez.: #${rd.original_booking_id.slice(-8)}, nová: #${rd.replacement_booking_id?.slice(-8) || '?'}` : ''),
       performed_by: user?.email || 'Admin', admin_id: user?.id,
     })
     onRefresh?.()
@@ -639,6 +671,30 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
               )}
             </div>
           </div>
+
+          {/* Booking swap info */}
+          {(incident.replacement_data.original_booking_id || incident.original_booking_id) && (
+            <div className="mt-3 rounded-lg text-xs" style={{
+              padding: '12px', background: '#f0fdf4', border: '1px solid #86efac', lineHeight: 1.8,
+            }}>
+              <div className="text-[10px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a8a18' }}>
+                Přepnutí rezervace
+              </div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                <InfoRow label="Původní rez." value={`#${(incident.replacement_data.original_booking_id || incident.original_booking_id || '').slice(-8)}`} mono />
+                <InfoRow label="Nová rez." value={`#${(incident.replacement_data.replacement_booking_id || incident.replacement_booking_id || '').slice(-8)}`} mono />
+                {incident.replacement_data.original_end_date && (
+                  <InfoRow label="Pův. konec" value={new Date(incident.replacement_data.original_end_date).toLocaleDateString('cs-CZ')} />
+                )}
+                {incident.replacement_data.remaining_days && (
+                  <InfoRow label="Zbývá dní" value={`${incident.replacement_data.remaining_days}`} />
+                )}
+              </div>
+              <div className="text-[10px] mt-1" style={{ color: '#166534' }}>
+                ✅ Původní rezervace ukončena ke dni incidentu. Nová rezervace s náhradní motorkou aktivní do konce původního termínu.
+              </div>
+            </div>
+          )}
 
           {/* Akce: Schválit / Zamítnout */}
           {isActive && incident.replacement_status === 'admin_review' && (

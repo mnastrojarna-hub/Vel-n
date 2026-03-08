@@ -475,81 +475,145 @@ async function sosConfirmReplacement(){
       requested_at: new Date().toISOString()
     };
 
-    // Automaticky přesuň rozbitou motorku do servisu (maintenance)
-    if(_sosCurrentMotoId){
-      window.supabase.from('motorcycles')
-        .update({ status: 'maintenance' })
-        .eq('id', _sosCurrentMotoId)
-        .then(function(r){
-          if(r.error) console.error('[SOS] set moto maintenance error:', r.error.message);
-          else console.log('[SOS] Motorka ' + _sosCurrentMotoId + ' přesunuta do servisu');
-        });
+    if(isFault){
+      // Zákazník zavinil → simulace platební brány → pak swap bookings
+      _sosReplacementPaymentData = { incId: incId, replacementData: replacementData, total: total, address: address, city: city };
+      goTo('s-sos-payment');
+      _sosInitPaymentGateway(total);
+      if(btn){ btn.disabled = false; btn.style.opacity = '1'; }
+    } else {
+      // Porucha / nezaviněná → rovnou swap bookings + do admin_review
+      await _sosSwapBookingsAndConfirm(incId, replacementData, false, address, city);
+    }
+}
+
+// Uložená data pro platbu
+var _sosReplacementPaymentData = null;
+
+// Simulace platební brány (pro zaviněné nehody)
+function _sosInitPaymentGateway(amount){
+    var cardNum = document.getElementById('sos-pay-card');
+    var expiry = document.getElementById('sos-pay-expiry');
+    var cvc = document.getElementById('sos-pay-cvc');
+    var amountEl = document.getElementById('sos-pay-amount');
+    var errorEl = document.getElementById('sos-pay-error');
+
+    if(amountEl) amountEl.textContent = amount.toLocaleString('cs-CZ') + ' Kč';
+    if(errorEl) errorEl.style.display = 'none';
+    if(cardNum) cardNum.value = '';
+    if(expiry) expiry.value = '';
+    if(cvc) cvc.value = '';
+}
+
+async function sosPaymentSubmit(){
+    var cardNum = (document.getElementById('sos-pay-card')||{}).value || '';
+    var expiry = (document.getElementById('sos-pay-expiry')||{}).value || '';
+    var cvc = (document.getElementById('sos-pay-cvc')||{}).value || '';
+    var errorEl = document.getElementById('sos-pay-error');
+    var btn = document.getElementById('sos-pay-btn');
+
+    // Validace
+    var cleanCard = cardNum.replace(/\s/g, '');
+    if(cleanCard.length < 13 || cleanCard.length > 19){
+      if(errorEl){ errorEl.textContent = 'Zadejte platné číslo karty'; errorEl.style.display = 'block'; }
+      return;
+    }
+    if(!/^\d{2}\/\d{2}$/.test(expiry.trim())){
+      if(errorEl){ errorEl.textContent = 'Expirace ve formátu MM/RR'; errorEl.style.display = 'block'; }
+      return;
+    }
+    if(cvc.trim().length < 3){
+      if(errorEl){ errorEl.textContent = 'Zadejte CVC kód (3 číslice)'; errorEl.style.display = 'block'; }
+      return;
     }
 
-    if(isFault){
-      // Zákazník zavinil → musí zaplatit → zpracuj platbu
-      try {
-        var result = await apiProcessPayment(null, total, _currentPaymentMethod || 'card');
-        if(result.success && result.checkout_url){
-          // Stripe redirect
-          replacementData.payment_status = 'processing';
-          var upRes = await window.supabase.from('sos_incidents').update({
-            replacement_status: 'pending_payment',
-            replacement_data: replacementData
-          }).eq('id', incId);
-          if(upRes.error) console.error('[SOS] update pending_payment error:', upRes.error.message);
-          if(window.cordova && window.cordova.InAppBrowser){
-            window.cordova.InAppBrowser.open(result.checkout_url, '_system');
-          } else {
-            window.open(result.checkout_url, '_blank');
-          }
-          showT('ℹ️','Platba','Otevřena platební brána');
-          if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '💳 Zaplatit a objednat motorku'; }
-          return;
-        }
-        if(result.success){
-          replacementData.payment_status = 'paid';
-          replacementData.paid_at = new Date().toISOString();
-          var upRes2 = await window.supabase.from('sos_incidents').update({
-            replacement_status: 'admin_review',
-            replacement_data: replacementData
-          }).eq('id', incId);
-          if(upRes2.error) console.error('[SOS] update admin_review error:', upRes2.error.message);
-          await window.supabase.from('sos_timeline').insert({
-            incident_id: incId,
-            action: 'Zákazník zaplatil ' + total + ' Kč a objednal náhradní motorku: ' + _sosReplacementData.selectedModel,
-            description: 'Adresa: ' + address + ', ' + city + '. Čeká na schválení adminem.'
-          });
-          showT('✅','Zaplaceno — ' + total + ' Kč','Objednávka odeslána ke schválení. Kontaktujeme vás.');
-          _sosPendingIncidentId = null;
-          setTimeout(function(){ goTo('s-sos'); }, 3000);
-        } else {
-          console.error('[SOS] payment failed:', result);
-          showT('❌','Platba zamítnuta','Zkuste to znovu');
-          if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '💳 Zaplatit a objednat motorku'; }
-        }
-      } catch(e){
-        console.error('[SOS] payment exception:', e);
-        showT('❌','Chyba platby','Zkuste to znovu');
-        if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '💳 Zaplatit a objednat motorku'; }
+    if(errorEl) errorEl.style.display = 'none';
+    if(btn){ btn.textContent = '⏳ Ověřuji platbu...'; btn.disabled = true; btn.style.opacity = '0.6'; }
+
+    // Simulace 2s zpracování
+    setTimeout(async function(){
+      // Simulace: platba vždy projde (testovací prostředí)
+      var pd = _sosReplacementPaymentData;
+      if(!pd){
+        showT('❌','Chyba','Chybí data objednávky');
+        if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '💳 Zaplatit'; }
+        return;
       }
-    } else {
-      // Porucha / nezaviněná → platba 0 Kč → rovnou do admin_review
-      var upRes3 = await window.supabase.from('sos_incidents').update({
-        replacement_status: 'admin_review',
-        replacement_data: replacementData
-      }).eq('id', incId);
-      if(upRes3.error) console.error('[SOS] update admin_review (free) error:', upRes3.error.message);
-      await window.supabase.from('sos_timeline').insert({
-        incident_id: incId,
-        action: 'Zákazník objednal náhradní motorku: ' + _sosReplacementData.selectedModel + ' (zdarma)',
-        description: 'Adresa: ' + address + ', ' + city + '. Čeká na schválení adminem.'
+
+      pd.replacementData.payment_status = 'paid';
+      pd.replacementData.paid_at = new Date().toISOString();
+
+      await _sosSwapBookingsAndConfirm(pd.incId, pd.replacementData, true, pd.address, pd.city);
+
+      if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '💳 Zaplatit'; }
+    }, 2000);
+}
+
+// Core: swap bookings via RPC + update incident
+async function _sosSwapBookingsAndConfirm(incId, replacementData, isPaid, address, city){
+    var isFault = replacementData.customer_fault;
+    var total = replacementData.payment_amount || 0;
+
+    try {
+      // 1. Swap bookings via RPC (atomická operace v DB)
+      var swapResult = await window.supabase.rpc('sos_swap_bookings', {
+        p_incident_id: incId,
+        p_replacement_moto_id: replacementData.replacement_moto_id,
+        p_replacement_model: replacementData.replacement_model || null,
+        p_delivery_fee: replacementData.delivery_fee || 0,
+        p_daily_price: replacementData.daily_price || 0,
+        p_is_free: !isFault
       });
-      apiSosRequestReplacement(incId);
-      showT('✅','Objednávka odeslána','Náhradní motorka bude brzy přistavena (zdarma)');
-      _sosPendingIncidentId = null;
-      setTimeout(function(){ goTo('s-sos'); }, 2500);
+
+      if(swapResult.error){
+        console.error('[SOS] sos_swap_bookings RPC error:', swapResult.error.message);
+        // Fallback: pokračuj bez swap (admin to udělá ručně)
+      } else if(swapResult.data){
+        var sr = swapResult.data;
+        if(sr.error){
+          console.warn('[SOS] swap returned error:', sr.error);
+        } else {
+          console.log('[SOS] Booking swap OK:', sr);
+          replacementData.original_booking_id = sr.original_booking_id;
+          replacementData.replacement_booking_id = sr.replacement_booking_id;
+          replacementData.original_end_date = sr.original_end_date;
+        }
+      }
+    } catch(e){
+      console.error('[SOS] swap exception:', e);
     }
+
+    // 2. Update incident
+    var newStatus = isFault ? (isPaid ? 'admin_review' : 'pending_payment') : 'admin_review';
+    await window.supabase.from('sos_incidents').update({
+      replacement_status: newStatus,
+      replacement_data: replacementData
+    }).eq('id', incId);
+
+    // 3. Timeline
+    var actionText = isFault
+      ? 'Zákazník zaplatil ' + total + ' Kč a objednal náhradní motorku: ' + (replacementData.replacement_model || '?')
+      : 'Zákazník objednal náhradní motorku: ' + (replacementData.replacement_model || '?') + ' (zdarma)';
+    await window.supabase.from('sos_timeline').insert({
+      incident_id: incId,
+      action: actionText,
+      description: 'Adresa: ' + (address||'') + ', ' + (city||'') + '. Rezervace automaticky přepnuta. Čeká na schválení adminem.'
+    });
+
+    if(!isFault) apiSosRequestReplacement(incId);
+
+    // 4. Refresh reservations cache
+    _cachedBookings = null;
+
+    // 5. Success feedback
+    if(isFault){
+      showT('✅','Zaplaceno — ' + total.toLocaleString('cs-CZ') + ' Kč','Rezervace přepnuta. Objednávka čeká na schválení.');
+    } else {
+      showT('✅','Objednávka odeslána','Rezervace přepnuta na náhradní motorku (zdarma)');
+    }
+    _sosPendingIncidentId = null;
+    _sosReplacementPaymentData = null;
+    setTimeout(function(){ goTo('s-res'); if(typeof renderMyReservations === 'function') renderMyReservations(); }, 2500);
 }
 
 function sosEndRide() {
