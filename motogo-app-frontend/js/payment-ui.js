@@ -205,11 +205,14 @@ function doPayment(){
           } catch(pe){ console.warn('[PAY] Promo tracking:', pe); }
         }
 
-        // AUTO-GENERATE: Advance invoice + Contract + VOP (no protocol yet)
+        // AUTO-GENERATE: Advance invoice + Payment receipt + Contract + VOP
         if(_currentBookingId){
           try {
             if(typeof apiGenerateAdvanceInvoice === 'function'){
               apiGenerateAdvanceInvoice(_currentBookingId, _currentPaymentAmount, 'booking').catch(function(e){ console.warn('[PAY] Advance invoice err:', e); });
+            }
+            if(typeof apiGeneratePaymentReceipt === 'function'){
+              apiGeneratePaymentReceipt(_currentBookingId, _currentPaymentAmount, 'booking').catch(function(e){ console.warn('[PAY] Payment receipt err:', e); });
             }
             if(typeof apiAutoGenerateBookingDocs === 'function'){
               apiAutoGenerateBookingDocs(_currentBookingId).then(function(){}).catch(function(e){ console.warn('[PAY] Docs err:', e); });
@@ -345,9 +348,12 @@ function doRestorePayment(bookingId){
           await apiConfirmRestoreBooking(bookingId);
         }
 
-        // Auto-generate advance invoice + docs for restored booking
+        // Auto-generate advance invoice + payment receipt + docs for restored booking
         if(typeof apiGenerateAdvanceInvoice === 'function'){
           apiGenerateAdvanceInvoice(bookingId, _currentPaymentAmount, 'restore').catch(function(e){ console.warn('[PAY] Invoice err:', e); });
+        }
+        if(typeof apiGeneratePaymentReceipt === 'function'){
+          apiGeneratePaymentReceipt(bookingId, _currentPaymentAmount, 'restore').catch(function(e){ console.warn('[PAY] Receipt err:', e); });
         }
         if(typeof apiAutoGenerateBookingDocs === 'function'){
           apiAutoGenerateBookingDocs(bookingId).catch(function(e){ console.warn('[PAY] Docs err:', e); });
@@ -407,9 +413,12 @@ function doEditPayment(bookingId, amount, changes){
           await apiModifyBooking(bookingId, changes);
         }
 
-        // Auto-generate advance invoice for the edit payment
+        // Auto-generate advance invoice + payment receipt for the edit payment
         if(typeof apiGenerateAdvanceInvoice === 'function'){
           apiGenerateAdvanceInvoice(bookingId, amount, 'edit').catch(function(e){ console.warn('[PAY] edit invoice err:', e); });
+        }
+        if(typeof apiGeneratePaymentReceipt === 'function'){
+          apiGeneratePaymentReceipt(bookingId, amount, 'edit').catch(function(e){ console.warn('[PAY] edit receipt err:', e); });
         }
 
         _isEditPayment = false;

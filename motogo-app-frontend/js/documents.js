@@ -421,7 +421,7 @@ async function renderInvoicesPage(){
   if(!wrap)return;
   var t=_t('doc');
   var docs=await apiFetchDocuments();
-  var invoices=docs.filter(function(d){return d.type==='invoice_advance'||d.type==='invoice_final'||d.type==='invoice_shop';});
+  var invoices=docs.filter(function(d){return d.type==='invoice_advance'||d.type==='invoice_final'||d.type==='invoice_shop'||d.type==='payment_receipt';});
 
   if(invoices.length===0){
     wrap.innerHTML='<div style="text-align:center;padding:30px;color:var(--g400);">'+t.noInvoices+'</div>';
@@ -440,9 +440,10 @@ async function renderInvoicesPage(){
     html+='<div class="msec-t" style="padding:'+(html?'12':'0')+'px 0 8px;">'+yr+'</div>';
     years[yr].forEach(function(d){
       var isShop=(d.type==='invoice_shop');
-      var icon=isShop?'🛒':(d.type==='invoice_advance'?'🧾':'💰');
-      var label=isShop?(t.shopInvoice||'Faktura – Shop'):(d.type==='invoice_advance'?t.invoiceAdvance:t.invoiceFinal);
-      var invType=d.type==='invoice_advance'?'advance':'final';
+      var isReceipt=(d.type==='payment_receipt');
+      var icon=isShop?'🛒':isReceipt?'✅':(d.type==='invoice_advance'?'🧾':'💰');
+      var label=isShop?(t.shopInvoice||'Faktura – Shop'):isReceipt?(t.paymentReceipt||'Doklad k platbě'):(d.type==='invoice_advance'?t.invoiceAdvance:t.invoiceFinal);
+      var invType=isReceipt?'payment_receipt':(d.type==='invoice_advance'?'advance':'final');
       var amt=d.amount?d.amount.toLocaleString('cs-CZ')+' Kč':'';
       var itemName=isShop?(d.shop_items||'Shop'):(d.moto_name||'');
       var onclick=isShop?'showShopOrderDetail(\''+d.id+'\')':'showInvoice(\''+d.booking_id+'\',\''+invType+'\')';

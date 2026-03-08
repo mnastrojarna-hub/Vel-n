@@ -602,19 +602,27 @@ async function sosPaymentSubmit(){
       // Generate ZF (zálohová faktura) for the damage deposit + replacement
       try {
         var replBookingId = pd.replacementData.replacement_booking_id;
+        var sosPaymentTotal = pd.replacementData.payment_amount || 0;
         if(replBookingId){
+          // Use apiGenerateAdvanceInvoice (writes directly to invoices table)
+          if(typeof apiGenerateAdvanceInvoice === 'function'){
+            await apiGenerateAdvanceInvoice(replBookingId, sosPaymentTotal, 'sos');
+          }
+          // Also generate edge function invoice with extra_items (damage deposit line)
           await window.supabase.functions.invoke('generate-invoice', {
             body: {
               type: 'proforma',
               booking_id: replBookingId,
-              custom_label: 'ZF',
-              custom_note: 'Zálohová faktura — SOS náhradní motorka: ' +
-                (pd.replacementData.replacement_model || '') +
-                '. Záloha na poškození: 30 000 Kč.' +
-                (pd.replacementData.delivery_address ? ' Přistavení: ' + pd.replacementData.delivery_address + ', ' + pd.replacementData.delivery_city : '')
+              extra_items: [
+                { description: 'Záloha na poškození motorky', qty: 1, unit_price: 30000, vat_rate: 21 }
+              ]
             }
           });
-          console.log('[SOS] ZF invoice generated for booking:', replBookingId);
+          // Generate payment receipt (doklad k přijaté platbě)
+          if(typeof apiGeneratePaymentReceipt === 'function'){
+            await apiGeneratePaymentReceipt(replBookingId, sosPaymentTotal, 'sos');
+          }
+          console.log('[SOS] ZF + DP generated for booking:', replBookingId);
         }
       } catch(e){ console.error('[SOS] ZF generation failed:', e); }
 

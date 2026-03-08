@@ -33,7 +33,7 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
   try {
-    const { type, booking_id, send_email } = await req.json()
+    const { type, booking_id, send_email, extra_items } = await req.json()
     if (!booking_id) return new Response(JSON.stringify({ error: 'Missing booking_id' }), { status: 400 })
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
@@ -75,6 +75,28 @@ serve(async (req) => {
           extras.forEach((e: any) => items.push({ description: e.name || e, qty: 1, unit_price: e.price || 0, vat_rate: 21 }))
         }
       } catch {}
+    }
+
+    // Add extra items (e.g. damage deposit for SOS)
+    if (extra_items && Array.isArray(extra_items)) {
+      extra_items.forEach((ei: any) => {
+        items.push({
+          description: ei.description || 'Položka',
+          qty: ei.qty || 1,
+          unit_price: ei.unit_price || 0,
+          vat_rate: ei.vat_rate ?? 21,
+        })
+      })
+    }
+
+    // Auto-detect SOS replacement: add damage deposit if booking has sos_replacement flag
+    if (booking.sos_replacement && !extra_items) {
+      items.push({
+        description: 'Záloha na poškození motorky',
+        qty: 1,
+        unit_price: 30000,
+        vat_rate: 21,
+      })
     }
 
     const subtotal = items.reduce((s, it) => s + it.unit_price * it.qty, 0)

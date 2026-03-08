@@ -117,7 +117,7 @@ async function renderInvoices(){
     var docs = await apiFetchDocuments();
     // Filter only invoice types
     var invoices = (docs || []).filter(function(d){
-      return d.type === 'invoice_advance' || d.type === 'invoice_final';
+      return d.type === 'invoice_advance' || d.type === 'invoice_final' || d.type === 'payment_receipt';
     });
     if(invoices.length === 0){
       wrap.innerHTML = '<div style="text-align:center;padding:30px;color:var(--g400);">'+(_t('common').noDocuments||'Zatím žádné faktury')+'</div>';
@@ -134,10 +134,11 @@ async function renderInvoices(){
       html += '<div class="msec-t" style="padding:'+(html?'12':'0')+'px 0 8px;">'+yr+'</div>';
       years[yr].forEach(function(d){
         var dateFmt = new Date(d.date || d.created_at).toLocaleDateString('cs-CZ');
-        var icon = d.type === 'invoice_advance' ? '🧾' : '💰';
-        var label = d.type === 'invoice_advance' ? (_t('doc').invoiceAdvance||'Zálohová faktura') : (_t('doc').invoiceFinal||'Faktura');
+        var isReceipt = d.type === 'payment_receipt';
+        var icon = isReceipt ? '✅' : (d.type === 'invoice_advance' ? '🧾' : '💰');
+        var label = isReceipt ? (_t('doc').paymentReceipt||'Doklad k platbě') : (d.type === 'invoice_advance' ? (_t('doc').invoiceAdvance||'Zálohová faktura') : (_t('doc').invoiceFinal||'Faktura'));
         var amt = d.amount ? d.amount.toLocaleString('cs-CZ') + ' Kč' : '';
-        var invType = d.type === 'invoice_advance' ? 'advance' : 'final';
+        var invType = isReceipt ? 'payment_receipt' : (d.type === 'invoice_advance' ? 'advance' : 'final');
         html += '<div class="inv-item" onclick="showInvoice(\''+d.booking_id+'\',\''+invType+'\')">' +
           '<div class="inv-icon">'+icon+'</div>' +
           '<div class="inv-info"><div class="inv-name">'+(d.moto_name||'')+' · '+label+'</div>' +
