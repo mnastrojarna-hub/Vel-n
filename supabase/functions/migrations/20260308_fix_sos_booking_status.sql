@@ -8,13 +8,30 @@
 --   3. App still finds old booking via apiGetActiveLoan()
 -- ═══════════════════════════════════════════════════════
 
--- 1. Fix existing bookings that were ended by SOS but still active
+-- 1. Fix overlap check — completed bookings must not block calendar
+CREATE OR REPLACE FUNCTION check_booking_overlap()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM bookings
+    WHERE moto_id = NEW.moto_id
+      AND id != COALESCE(NEW.id, '00000000-0000-0000-0000-000000000000'::uuid)
+      AND status NOT IN ('cancelled', 'rejected', 'completed')
+      AND tstzrange(pickup_date, return_date) && tstzrange(NEW.pickup_date, NEW.return_date)
+  ) THEN
+    RAISE EXCEPTION 'Překrývající se rezervace pro moto_id %', NEW.moto_id;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 2. Fix existing bookings that were ended by SOS but still active
 UPDATE bookings
 SET status = 'completed'
 WHERE ended_by_sos = true
   AND status IN ('active', 'pending');
 
--- 2. Re-create the RPC function with the fix
+-- 3. Re-create the RPC function with the fix
 CREATE OR REPLACE FUNCTION sos_swap_bookings(
   p_incident_id uuid,
   p_replacement_moto_id uuid,
