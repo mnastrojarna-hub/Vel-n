@@ -296,9 +296,10 @@ async function sosReplLoadMotos(){
 
       // Načti všechny motorky se statusem active
       var r = await window.supabase.from('motorcycles')
-        .select('id, model, image_url, images, daily_price, price_per_day, category, license_required, branches(name, city)')
+        .select('id, model, image_url, images, price_weekday, price_weekend, category, license_required, branches(name, city)')
         .eq('status', 'active')
         .limit(50);
+      console.log('[SOS] motorcycles query result:', r.error, r.data ? r.data.length : 'null');
       var allMotos = r.data || [];
       console.log('[SOS] allMotos from DB:', allMotos.length);
 
@@ -336,7 +337,7 @@ async function sosReplLoadMotos(){
       var isFault = _sosFault === true;
       var html = '';
       motos.forEach(function(m){
-        var price = m.daily_price || m.price_per_day || 890;
+        var price = parseFloat(m.price_weekday) || parseFloat(m.price_weekend) || 890;
         var img = m.image_url || (m.images && m.images[0]) || '';
         var branch = m.branches ? (m.branches.name || m.branches.city || '') : '';
         html += '<div class="sos-repl-moto-card" onclick="sosReplSelectMoto(\'' + m.id + '\',\'' + (m.model||'').replace(/'/g,"\\'") + '\',' + price + ')" '
