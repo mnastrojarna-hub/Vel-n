@@ -16,6 +16,7 @@ const TYPE_MAP = {
   proforma: { label: 'Zálohová', color: '#2563eb', bg: '#dbeafe' },
   advance: { label: 'Zálohová', color: '#2563eb', bg: '#dbeafe' },
   final: { label: 'Konečná', color: '#1a8a18', bg: '#dcfce7' },
+  payment_receipt: { label: 'Doklad k platbě', color: '#0891b2', bg: '#cffafe' },
   shop_proforma: { label: 'Shop zálohová', color: '#8b5cf6', bg: '#ede9fe' },
   shop_final: { label: 'Shop konečná', color: '#059669', bg: '#d1fae5' },
 }
@@ -51,7 +52,12 @@ export default function InvoicesTab() {
         .select('*, profiles:customer_id(full_name, email), bookings:booking_id(id, start_date, motorcycles(model))', { count: 'exact' })
         .order('created_at', { ascending: false })
 
-      if (filters.type) query = query.eq('type', filters.type)
+      if (filters.type === 'advance') {
+        // ZF: match both 'advance' and 'proforma' types
+        query = query.in('type', ['advance', 'proforma'])
+      } else if (filters.type) {
+        query = query.eq('type', filters.type)
+      }
       if (filters.status) query = query.eq('status', filters.status)
       if (filters.search) query = query.or(`number.ilike.%${filters.search}%`)
       query = query.range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
@@ -135,8 +141,10 @@ export default function InvoicesTab() {
         <FilterSelect value={filters.type} onChange={v => { setPage(1); setFilters(f => ({ ...f, type: v })) }}
           options={[
             { value: '', label: 'Všechny typy' },
-            { value: 'advance', label: 'Zálohové' },
-            { value: 'final', label: 'Konečné' },
+            { value: 'advance', label: 'Zálohové (ZF)' },
+            { value: 'proforma', label: 'Proforma (ZF)' },
+            { value: 'final', label: 'Konečné (KF)' },
+            { value: 'payment_receipt', label: 'Doklady k platbě (DP)' },
             { value: 'shop_proforma', label: 'Shop zálohové' },
             { value: 'shop_final', label: 'Shop konečné' },
           ]} />

@@ -65,7 +65,7 @@ async function finalizeCheckout(){
         console.log('[SHOP] Order created:', r.data.order_id);
       }
       if(r.error) console.warn('[SHOP] RPC error:', r.error.message);
-      // Generate shop invoices (proforma + final)
+      // Generate shop invoices (proforma + payment receipt + final)
       if(r.data && r.data.order_id){
         try {
           await window.supabase.functions.invoke('generate-invoice', {
@@ -75,6 +75,10 @@ async function finalizeCheckout(){
             body: { type: 'shop_final', order_id: r.data.order_id }
           });
         } catch(ie){ console.warn('[SHOP] Invoice generation:', ie); }
+        // Generate payment receipt for shop order
+        if(r.data.booking_id && typeof apiGeneratePaymentReceipt === 'function'){
+          apiGeneratePaymentReceipt(r.data.booking_id, total, 'shop').catch(function(e){ console.warn('[SHOP] Receipt err:', e); });
+        }
       }
     } catch(e){ console.error('[SHOP] finalizeCheckout DB error:', e); }
   }

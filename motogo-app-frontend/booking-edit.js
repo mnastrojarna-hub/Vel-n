@@ -478,6 +478,13 @@ async function saveEditReservation(){
           if(pickupLoc) extraChanges.pickup_location = pickupLoc;
           await apiModifyBooking(bookingId, extraChanges);
         }
+        // Generate ZF for the shortening change + payment receipt
+        if(typeof apiGenerateAdvanceInvoice === 'function'){
+          apiGenerateAdvanceInvoice(bookingId, Math.abs(diff), 'edit').catch(function(e){ console.warn('[EDIT] ZF err:', e); });
+        }
+        if(typeof apiGeneratePaymentReceipt === 'function'){
+          apiGeneratePaymentReceipt(bookingId, Math.abs(diff), 'edit').catch(function(e){ console.warn('[EDIT] DP err:', e); });
+        }
       }
     } else {
       if(typeof apiModifyBooking === 'function'){

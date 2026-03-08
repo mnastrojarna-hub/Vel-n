@@ -414,13 +414,19 @@ function sosReplUpdateSummary(){
     var daily = _sosReplacementData.dailyPrice;
     var days = _sosReplacementData._remainingDays || 1;
     var motoTotal = daily * days;
-    var total = isFault ? (motoTotal + delivery) : 0;
+    var damageDeposit = isFault ? 30000 : 0;
+    var total = isFault ? (motoTotal + delivery + damageDeposit) : 0;
 
     var daysLabel = days === 1 ? 'den' : days < 5 ? 'dny' : 'dní';
 
     if(summary){
-      summary.innerHTML = '<div style="display:flex;justify-content:space-between;"><span>🏍️ ' + (_sosReplacementData.selectedModel || '—') + ' (' + days + ' ' + daysLabel + ' × ' + daily.toLocaleString('cs-CZ') + ' Kč)</span><span style="font-weight:800;">' + (isFault ? motoTotal.toLocaleString('cs-CZ') + ' Kč' : 'zdarma') + '</span></div>'
+      var html = '<div style="display:flex;justify-content:space-between;"><span>🏍️ ' + (_sosReplacementData.selectedModel || '—') + ' (' + days + ' ' + daysLabel + ' × ' + daily.toLocaleString('cs-CZ') + ' Kč)</span><span style="font-weight:800;">' + (isFault ? motoTotal.toLocaleString('cs-CZ') + ' Kč' : 'zdarma') + '</span></div>'
         + '<div style="display:flex;justify-content:space-between;margin-top:4px;"><span>🚛 Přistavení</span><span style="font-weight:800;">' + (isFault ? delivery.toLocaleString('cs-CZ') + ' Kč' : 'zdarma') + '</span></div>';
+      if(isFault){
+        html += '<div style="display:flex;justify-content:space-between;margin-top:4px;border-top:1px solid var(--g200);padding-top:4px;"><span>🛡️ Záloha na poškození</span><span style="font-weight:800;color:#b91c1c;">' + damageDeposit.toLocaleString('cs-CZ') + ' Kč</span></div>';
+        html += '<div style="font-size:10px;color:var(--g400);margin-top:4px;">Záloha je vratná po vyhodnocení škody. Obdržíte zálohovou fakturu.</div>';
+      }
+      summary.innerHTML = html;
     }
     if(totalEl){
       totalEl.textContent = (isFault ? total.toLocaleString('cs-CZ') : '0') + ' Kč';
@@ -478,7 +484,8 @@ async function sosConfirmReplacement(){
     var delivery = _sosReplacementData.deliveryFee;
     var days = _sosReplacementData._remainingDays || 1;
     var motoTotal = daily * days;
-    var total = isFault ? (motoTotal + delivery) : 0;
+    var damageDeposit = isFault ? 30000 : 0;
+    var total = isFault ? (motoTotal + delivery + damageDeposit) : 0;
 
     var btn = document.getElementById('sos-repl-btn');
     if(btn){ btn.textContent = '⏳ Zpracovávám...'; btn.disabled = true; btn.style.opacity = '0.6'; }
@@ -492,6 +499,7 @@ async function sosConfirmReplacement(){
       delivery_zip: zip,
       delivery_note: note,
       daily_price: daily,
+      damage_deposit: damageDeposit,
       remaining_days: days,
       moto_total: motoTotal,
       delivery_fee: delivery,
@@ -525,7 +533,23 @@ function _sosInitPaymentGateway(amount){
     var amountEl = document.getElementById('sos-pay-amount');
     var errorEl = document.getElementById('sos-pay-error');
 
-    if(amountEl) amountEl.textContent = amount.toLocaleString('cs-CZ') + ' Kč';
+    if(amountEl){
+      amountEl.textContent = amount.toLocaleString('cs-CZ') + ' Kč';
+      // Show breakdown under amount
+      var parent = amountEl.parentElement;
+      if(parent){
+        var breakdown = parent.querySelector('.pay-breakdown');
+        if(!breakdown){ breakdown = document.createElement('div'); breakdown.className = 'pay-breakdown'; parent.appendChild(breakdown); }
+        var pd = _sosReplacementPaymentData;
+        if(pd && pd.replacementData){
+          var rd = pd.replacementData;
+          breakdown.style.cssText = 'font-size:11px;color:var(--g400,#6b7280);margin-top:8px;text-align:left;line-height:1.8;';
+          breakdown.innerHTML = '🏍️ Motorka: ' + (rd.moto_total || 0).toLocaleString('cs-CZ') + ' Kč<br>' +
+            '🚛 Přistavení: ' + (rd.delivery_fee || 0).toLocaleString('cs-CZ') + ' Kč<br>' +
+            '🛡️ <strong>Záloha na poškození: ' + (rd.damage_deposit || 30000).toLocaleString('cs-CZ') + ' Kč</strong>';
+        }
+      }
+    }
     if(errorEl) errorEl.style.display = 'none';
     if(cardNum) cardNum.value = '';
     if(expiry) expiry.value = '';
@@ -570,9 +594,39 @@ async function sosPaymentSubmit(){
       pd.replacementData.payment_status = 'paid';
       pd.replacementData.paid_at = new Date().toISOString();
 
+      // Show success animation
+      if(btn){ btn.textContent = '✅ Platba přijata!'; btn.style.background = '#1a8a18'; }
+
       await _sosSwapBookingsAndConfirm(pd.incId, pd.replacementData, true, pd.address, pd.city);
 
-      if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '💳 Zaplatit'; }
+      // Generate ZF (zálohová faktura) for the damage deposit + replacement
+      try {
+        var replBookingId = pd.replacementData.replacement_booking_id;
+        var sosPaymentTotal = pd.replacementData.payment_amount || 0;
+        if(replBookingId){
+          // Use apiGenerateAdvanceInvoice (writes directly to invoices table)
+          if(typeof apiGenerateAdvanceInvoice === 'function'){
+            await apiGenerateAdvanceInvoice(replBookingId, sosPaymentTotal, 'sos');
+          }
+          // Also generate edge function invoice with extra_items (damage deposit line)
+          await window.supabase.functions.invoke('generate-invoice', {
+            body: {
+              type: 'proforma',
+              booking_id: replBookingId,
+              extra_items: [
+                { description: 'Záloha na poškození motorky', qty: 1, unit_price: 30000, vat_rate: 21 }
+              ]
+            }
+          });
+          // Generate payment receipt (doklad k přijaté platbě)
+          if(typeof apiGeneratePaymentReceipt === 'function'){
+            await apiGeneratePaymentReceipt(replBookingId, sosPaymentTotal, 'sos');
+          }
+          console.log('[SOS] ZF + DP generated for booking:', replBookingId);
+        }
+      } catch(e){ console.error('[SOS] ZF generation failed:', e); }
+
+      if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '💳 Zaplatit'; btn.style.background = '#b91c1c'; }
     }, 2000);
 }
 
@@ -633,14 +687,21 @@ async function _sosSwapBookingsAndConfirm(incId, replacementData, isPaid, addres
     _cachedBookings = null;
 
     // 5. Success feedback
-    if(isFault){
-      showT('✅','Zaplaceno — ' + total.toLocaleString('cs-CZ') + ' Kč','Rezervace přepnuta. Objednávka čeká na schválení.');
-    } else {
-      showT('✅','Objednávka odeslána','Rezervace přepnuta na náhradní motorku (zdarma)');
-    }
     _sosPendingIncidentId = null;
     _sosReplacementPaymentData = null;
-    setTimeout(function(){ goTo('s-res'); if(typeof renderMyReservations === 'function') renderMyReservations(); }, 2500);
+    // Refresh reservations cache
+    if(typeof renderMyReservations === 'function') renderMyReservations();
+
+    if(isFault){
+      _sosShowDone('Zaplaceno — ' + total.toLocaleString('cs-CZ') + ' Kč',
+        'Rezervace přepnuta na ' + (replacementData.replacement_model || 'náhradní motorku') + '.<br>' +
+        'Objednávka čeká na schválení MotoGo24.<br>' +
+        'Zálohová faktura byla vygenerována do sekce Faktury.');
+    } else {
+      _sosShowDone('Náhradní motorka objednána',
+        'Rezervace přepnuta na ' + (replacementData.replacement_model || 'náhradní motorku') + ' (zdarma).<br>' +
+        'Objednávka čeká na schválení MotoGo24.');
+    }
 }
 
 function sosEndRide() {

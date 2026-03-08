@@ -49,7 +49,7 @@ async function renderMyReservations(){
     var filtered = bookings;
     if(_resFilter !== 'all'){
       filtered = bookings.filter(function(b){
-        var st = _mapStatus(b.status, b.start_date, b.end_date);
+        var st = _mapStatus(b.status, b.start_date, b.end_date, b);
         return st === _resFilter;
       });
     }
@@ -79,8 +79,11 @@ function _setResContent(html){
   resScreen.appendChild(container);
 }
 
-function _mapStatus(status, startDate, endDate){
+function _mapStatus(status, startDate, endDate, booking){
   if(status === 'cancelled') return 'cancelled';
+  if(status === 'completed') return 'dokoncene';
+  // ended_by_sos = always completed regardless of dates
+  if(booking && booking.ended_by_sos) return 'dokoncene';
   var now = new Date(); now.setHours(0,0,0,0);
   var s = new Date(startDate); s.setHours(0,0,0,0);
   var e = new Date(endDate); e.setHours(0,0,0,0);
@@ -107,7 +110,7 @@ function _fmtDate(iso){
 }
 
 function _renderResCard(b){
-  var st = _mapStatus(b.status, b.start_date, b.end_date);
+  var st = _mapStatus(b.status, b.start_date, b.end_date, b);
   var stLabel = _statusLabel(st);
   var stClass = _statusClass(st);
   var s = new Date(b.start_date); s.setHours(0,0,0,0);
@@ -164,7 +167,7 @@ async function openResDetailById(bookingId){
     if(!booking){ showT('✗',_t('common').error,_t('res').resNotFound); return; }
 
     var moto = booking.motorcycles || (booking.moto_id ? await _getMotoById(booking.moto_id) : null);
-    var st = _mapStatus(booking.status, booking.start_date, booking.end_date);
+    var st = _mapStatus(booking.status, booking.start_date, booking.end_date, booking);
     var s = new Date(booking.start_date);
     var e = new Date(booking.end_date);
     var days = Math.max(1, Math.round((e-s)/86400000)+1);
@@ -401,7 +404,7 @@ async function openEditResByBookingId(bookingId){
     var booking = await _getBookingById(bookingId);
     if(!booking){ showT('✗',_t('common').error,_t('res').resNotFound); return; }
     var moto = booking.motorcycles || (booking.moto_id ? await _getMotoById(booking.moto_id) : null);
-    var st = _mapStatus(booking.status, booking.start_date, booking.end_date);
+    var st = _mapStatus(booking.status, booking.start_date, booking.end_date, booking);
     var isActive = (st === 'aktivni');
 
     // Set V9 global variables for edit screen

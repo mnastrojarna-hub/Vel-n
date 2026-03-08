@@ -474,6 +474,49 @@ async function apiGenerateFinalInvoice(bookingId){
   } catch(e){ console.error('[API] finalInvoice:', e); return {error: e.message}; }
 }
 
+// Generate payment receipt (doklad k přijaté platbě) — issued alongside ZF after payment
+async function apiGeneratePaymentReceipt(bookingId, amount, source){
+  _ensureSupabase();
+  if(!window.supabase) return {error:'Offline'};
+  try {
+    var uid = await _getUserId();
+    if(!uid) return {error:'Nepřihlášen'};
+    var br = await window.supabase.from('bookings')
+      .select('*, motorcycles(model, spz), profiles(full_name, email)')
+      .eq('id', bookingId).single();
+    if(!br.data) return {error:'Booking not found'};
+    var b = br.data, m = br.data.motorcycles || {};
+    var yr = new Date().getFullYear();
+    var lr = await window.supabase.from('invoices').select('number')
+      .like('number', 'DP-' + yr + '-%').order('number', {ascending:false}).limit(1);
+    var seq = 1;
+    if(lr.data && lr.data.length > 0){
+      var mt = lr.data[0].number.match(/-(\d+)$/);
+      if(mt) seq = parseInt(mt[1], 10) + 1;
+    }
+    var dpNum = 'DP-' + yr + '-' + String(seq).padStart(4, '0');
+    var desc = 'Přijatá platba – ' + (source === 'edit' ? 'úprava rezervace' : source === 'sos' ? 'SOS' : source === 'shop' ? 'e-shop' : source === 'restore' ? 'obnova' : 'rezervace');
+    var items = [{description: desc + ' ' + (m.model||''), qty: 1, unit_price: amount || 0, vat_rate: 21}];
+    var subtotal = amount || 0;
+    var tax = Math.round(subtotal * 0.21 * 100) / 100;
+    var total = subtotal + tax;
+    var issueDate = new Date().toISOString().slice(0, 10);
+    var inv = await window.supabase.from('invoices').insert({
+      number: dpNum, type: 'payment_receipt', customer_id: uid, booking_id: bookingId,
+      items: items, subtotal: subtotal, tax_amount: tax, total: total,
+      issue_date: issueDate, due_date: issueDate, status: 'paid',
+      variable_symbol: dpNum, source: source || 'booking'
+    }).select().single();
+    if(inv.error) console.warn('[API] Payment receipt err:', inv.error.message);
+    await window.supabase.from('documents').insert({
+      booking_id: bookingId, user_id: uid, type: 'payment_receipt',
+      file_name: 'Doklad k přijaté platbě ' + dpNum + '.pdf',
+      file_path: 'invoices/' + (inv.data ? inv.data.id : bookingId) + '.html'
+    });
+    return {error: null, receipt_number: dpNum};
+  } catch(e){ console.error('[API] paymentReceipt:', e); return {error: e.message}; }
+}
+
 // Legacy alias
 var apiAutoGenerateInvoice = apiGenerateAdvanceInvoice;
 

@@ -10,6 +10,15 @@ import Pagination from '../../components/ui/Pagination'
 
 const PER_PAGE = 25
 
+const TYPE_LABELS = {
+  proforma: 'Zálohová (ZF)',
+  advance: 'Zálohová (ZF)',
+  final: 'Konečná (KF)',
+  payment_receipt: 'Doklad k platbě (DP)',
+  shop_proforma: 'Shop zálohová',
+  shop_final: 'Shop konečná',
+}
+
 export default function InvoicesTab() {
   const [invoices, setInvoices] = useState([])
   const [loading, setLoading] = useState(true)
@@ -17,10 +26,11 @@ export default function InvoicesTab() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [search, setSearch] = useState('')
+  const [typeFilter, setTypeFilter] = useState('')
   const [showAdd, setShowAdd] = useState(false)
   const [detailInv, setDetailInv] = useState(null)
 
-  useEffect(() => { load() }, [page, search])
+  useEffect(() => { load() }, [page, search, typeFilter])
 
   async function load() {
     setLoading(true)
@@ -30,6 +40,11 @@ export default function InvoicesTab() {
         .from('invoices')
         .select('*, profiles(full_name)', { count: 'exact' })
       if (search) query = query.or(`number.ilike.%${search}%`)
+      if (typeFilter === 'advance') {
+        query = query.in('type', ['advance', 'proforma'])
+      } else if (typeFilter) {
+        query = query.eq('type', typeFilter)
+      }
       query = query.order('issue_date', { ascending: false }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       const { data, count, error: err } = await query
       if (err) throw err
@@ -71,8 +86,19 @@ export default function InvoicesTab() {
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex flex-wrap items-center gap-3 mb-4">
         <SearchInput value={search} onChange={v => { setPage(1); setSearch(v) }} placeholder="Hledat číslo, zákazníka…" />
+        <select value={typeFilter} onChange={e => { setPage(1); setTypeFilter(e.target.value) }}
+          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+          <option value="">Všechny typy</option>
+          <option value="advance">Zálohové (ZF)</option>
+          <option value="proforma">Proforma (ZF)</option>
+          <option value="final">Konečné (KF)</option>
+          <option value="payment_receipt">Doklady k platbě (DP)</option>
+          <option value="shop_proforma">Shop zálohové</option>
+          <option value="shop_final">Shop konečné</option>
+        </select>
         <div className="ml-auto">
           <Button green onClick={() => setShowAdd(true)}>+ Nová faktura</Button>
         </div>
@@ -87,7 +113,7 @@ export default function InvoicesTab() {
           <Table>
             <thead>
               <TRow header>
-                <TH>Číslo</TH><TH>Zákazník</TH><TH>Částka</TH><TH>DPH</TH>
+                <TH>Číslo</TH><TH>Typ</TH><TH>Zákazník</TH><TH>Částka</TH><TH>DPH</TH>
                 <TH>Vystavení</TH><TH>Splatnost</TH><TH>Stav</TH><TH>Akce</TH>
               </TRow>
             </thead>
@@ -97,6 +123,10 @@ export default function InvoicesTab() {
                   className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
                   style={{ borderBottom: '1px solid #d4e8e0' }}>
                   <TD mono bold>{inv.number || '—'}</TD>
+                  <TD><span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded" style={{
+                    background: inv.type === 'payment_receipt' ? '#cffafe' : inv.type === 'final' ? '#dcfce7' : '#dbeafe',
+                    color: inv.type === 'payment_receipt' ? '#0891b2' : inv.type === 'final' ? '#1a8a18' : '#2563eb'
+                  }}>{TYPE_LABELS[inv.type] || inv.type}</span></TD>
                   <TD>{inv.profiles?.full_name || '—'}</TD>
                   <TD bold>{fmt(inv.total)}</TD>
                   <TD>{fmt(inv.tax_amount)}</TD>
@@ -209,8 +239,9 @@ function NewInvoiceModal({ onClose, onSaved }) {
         <div className="col-span-2">
           <Label>Typ faktury</Label>
           <select value={form.type} onChange={e => set('type', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle}>
-            <option value="advance">Zálohová</option>
-            <option value="final">Konečná</option>
+            <option value="advance">Zálohová (ZF)</option>
+            <option value="final">Konečná (KF)</option>
+            <option value="payment_receipt">Doklad k platbě (DP)</option>
             <option value="shop_proforma">Shop zálohová</option>
             <option value="shop_final">Shop konečná</option>
           </select>
