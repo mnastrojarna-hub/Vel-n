@@ -8,13 +8,30 @@
 --   3. App still finds old booking via apiGetActiveLoan()
 -- ═══════════════════════════════════════════════════════
 
--- 1. Fix existing bookings that were ended by SOS but still active
+-- 1. Fix overlap check — completed bookings must not block calendar
+CREATE OR REPLACE FUNCTION check_booking_overlap()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM bookings
+    WHERE moto_id = NEW.moto_id
+      AND id != COALESCE(NEW.id, '00000000-0000-0000-0000-000000000000'::uuid)
+      AND status NOT IN ('cancelled', 'completed')
+      AND tstzrange(start_date, end_date) && tstzrange(NEW.start_date, NEW.end_date)
+  ) THEN
+    RAISE EXCEPTION 'Překrývající se rezervace pro moto_id %', NEW.moto_id;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 2. Fix existing bookings that were ended by SOS but still active
 UPDATE bookings
 SET status = 'completed'
 WHERE ended_by_sos = true
-  AND status IN ('active', 'confirmed', 'pending');
+  AND status IN ('active', 'pending');
 
--- 2. Re-create the RPC function with the fix
+-- 3. Re-create the RPC function with the fix
 CREATE OR REPLACE FUNCTION sos_swap_bookings(
   p_incident_id uuid,
   p_replacement_moto_id uuid,
@@ -40,7 +57,7 @@ BEGIN
 
   SELECT * INTO v_booking FROM bookings
     WHERE user_id = v_incident.user_id
-      AND status IN ('active', 'confirmed', 'pending')
+      AND status IN ('active', 'pending')
       AND payment_status = 'paid'
       AND start_date::date <= v_today
       AND end_date::date >= v_today

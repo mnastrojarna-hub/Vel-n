@@ -46,7 +46,7 @@ BEGIN
   -- 2. Find original active booking for this user
   SELECT * INTO v_booking FROM bookings
     WHERE user_id = v_incident.user_id
-      AND status IN ('active', 'confirmed', 'pending')
+      AND status IN ('active', 'pending')
       AND payment_status = 'paid'
       AND start_date::date <= v_today
       AND end_date::date >= v_today
