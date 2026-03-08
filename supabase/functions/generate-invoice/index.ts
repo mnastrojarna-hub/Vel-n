@@ -84,9 +84,11 @@ serve(async (req) => {
       customer = booking.profiles || {}
       customerId = customer.id || booking.user_id
 
+      const startDate = fmtDate(booking.start_date)
+      const endDate = fmtDate(booking.end_date)
       const days = Math.max(1, Math.ceil((new Date(booking.end_date).getTime() - new Date(booking.start_date).getTime()) / 86400000))
       const dailyRate = Math.round((booking.total_price || 0) / days)
-      items.push({ description: `Pronájem ${booking.motorcycles?.model || 'motorky'} (${booking.motorcycles?.spz || ''})`, qty: days, unit_price: dailyRate })
+      items.push({ description: `Pronájem ${booking.motorcycles?.model || 'motorky'} (${booking.motorcycles?.spz || ''}) — ${startDate} – ${endDate}`, qty: days, unit_price: dailyRate })
 
       if (booking.extras) {
         try {
@@ -101,6 +103,12 @@ serve(async (req) => {
       }
       if (booking.sos_replacement && !extra_items) {
         items.push({ description: 'Záloha na poškození motorky', qty: 1, unit_price: 30000 })
+      }
+
+      // Voucher / discount deduction
+      if (booking.discount_amount && Number(booking.discount_amount) > 0) {
+        const discLabel = booking.discount_code ? `Sleva (kód: ${booking.discount_code})` : 'Sleva / voucher'
+        items.push({ description: discLabel, qty: 1, unit_price: -Number(booking.discount_amount) })
       }
     }
 
@@ -139,7 +147,6 @@ serve(async (req) => {
     if (iErr) return new Response(JSON.stringify({ error: iErr.message }), { status: 500 })
 
     // Generate HTML
-    const customer = booking.profiles || {}
     const itemsHtml = items.map((it, i) => `
       <tr>
         <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px">${i + 1}</td>
