@@ -17,7 +17,7 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
     notes: '',
   })
   const [items, setItems] = useState([
-    { description: '', qty: 1, unit_price: 0, vat_rate: 21 },
+    { description: '', qty: 1, unit_price: 0 },
   ])
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
@@ -38,7 +38,6 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
         description: `Pronájem ${b.motorcycles?.model || 'motorky'} (${b.start_date} – ${b.end_date})`,
         qty: 1,
         unit_price: b.total_price || 0,
-        vat_rate: 21,
       }])
     }
     if (!form.customer_id && b.profiles) {
@@ -54,7 +53,7 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
   }
 
   function addItem() {
-    setItems(prev => [...prev, { description: '', qty: 1, unit_price: 0, vat_rate: 21 }])
+    setItems(prev => [...prev, { description: '', qty: 1, unit_price: 0 }])
   }
 
   function removeItem(idx) {
@@ -136,7 +135,6 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
                   <th style={{ padding: '6px 8px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: '#8aab99' }}>Popis</th>
                   <th style={{ padding: '6px 8px', textAlign: 'center', fontSize: 10, fontWeight: 700, color: '#8aab99', width: 60 }}>Ks</th>
                   <th style={{ padding: '6px 8px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: '#8aab99', width: 100 }}>Cena/ks</th>
-                  <th style={{ padding: '6px 8px', textAlign: 'center', fontSize: 10, fontWeight: 700, color: '#8aab99', width: 60 }}>DPH %</th>
                   <th style={{ padding: '6px 8px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: '#8aab99', width: 90 }}>Celkem</th>
                   <th style={{ width: 32 }} />
                 </tr>
@@ -156,14 +154,6 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
                     <td style={{ padding: 4 }}>
                       <input type="number" value={it.unit_price} onChange={e => updateItem(i, 'unit_price', Number(e.target.value))}
                         className="w-full text-sm text-right outline-none" style={{ padding: '4px', background: 'transparent' }} />
-                    </td>
-                    <td style={{ padding: 4 }}>
-                      <select value={it.vat_rate} onChange={e => updateItem(i, 'vat_rate', Number(e.target.value))}
-                        className="w-full text-sm text-center outline-none cursor-pointer" style={{ padding: '4px', background: 'transparent' }}>
-                        <option value={21}>21</option>
-                        <option value={12}>12</option>
-                        <option value={0}>0</option>
-                      </select>
                     </td>
                     <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 600, fontSize: 12 }}>
                       {((it.unit_price || 0) * (it.qty || 1)).toLocaleString('cs-CZ')} Kč
@@ -186,11 +176,10 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
         {/* Totals */}
         <div className="flex justify-end">
           <div style={{ minWidth: 220, fontSize: 12 }}>
-            <div className="flex justify-between py-1"><span style={{ color: '#888' }}>Základ:</span><span>{fmt(subtotal)}</span></div>
-            <div className="flex justify-between py-1"><span style={{ color: '#888' }}>DPH 21 %:</span><span>{fmt(taxAmount)}</span></div>
             <div className="flex justify-between py-1 font-bold text-sm" style={{ borderTop: '2px solid #1a8a18', color: '#1a8a18' }}>
               <span>Celkem:</span><span>{fmt(total)}</span>
             </div>
+            <div className="py-1" style={{ color: '#888', fontSize: 10 }}>Cena je konečná — neplátce DPH</div>
           </div>
         </div>
 

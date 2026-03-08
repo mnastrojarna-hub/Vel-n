@@ -142,9 +142,8 @@ export default function InvoicesTab() {
           options={[
             { value: '', label: 'Všechny typy' },
             { value: 'advance', label: 'Zálohové (ZF)' },
-            { value: 'proforma', label: 'Proforma (ZF)' },
-            { value: 'final', label: 'Konečné (KF)' },
-            { value: 'payment_receipt', label: 'Doklady k platbě (DP)' },
+            { value: 'final', label: 'Konečné (FV)' },
+            { value: 'payment_receipt', label: 'Doklady k platbě' },
             { value: 'shop_proforma', label: 'Shop zálohové' },
             { value: 'shop_final', label: 'Shop konečné' },
           ]} />

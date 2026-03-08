@@ -125,9 +125,8 @@ export default function InvoicePreviewModal({ invoice, onClose, onUpdated }) {
   async function handleSaveItems() {
     try {
       const subtotal = items.reduce((s, it) => s + (it.unit_price || 0) * (it.qty || 1), 0)
-      const taxAmount = Math.round(subtotal * 0.21 * 100) / 100
       const { error } = await supabase.from('invoices').update({
-        items, notes, subtotal, tax_amount: taxAmount, total: subtotal + taxAmount,
+        items, notes, subtotal, tax_amount: 0, total: subtotal,
       }).eq('id', invoice.id)
       if (error) throw error
       setEditItems(false)
