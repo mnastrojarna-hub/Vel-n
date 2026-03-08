@@ -554,6 +554,7 @@ async function sosConfirmReplacement(){
 
 function sosEndRide() {
     showT('🚛', 'Objednávám odtah...', '');
+    _sosActiveIncidentId = null;
     var faultDesc = _sosFault === true ? 'Nehoda byla moje chyba' : _sosFault === false ? 'Nehoda nebyla moje chyba' : '';
     var desc = 'Motorka nepojízdná – ukončuji jízdu, žádám odtah. ' + faultDesc;
     var type = _sosFault !== null ? 'accident_major' : 'breakdown_major';
@@ -575,6 +576,7 @@ function sosEndRide() {
 }
 
 function sosEndRideFree() {
+    _sosActiveIncidentId = null;
     var desc = 'Porucha – motorka nepojízdná. Ukončuji jízdu, zařídím se sám.';
     _sosEnsureIncident('breakdown_major', desc).then(function(incId){
       if(incId){
