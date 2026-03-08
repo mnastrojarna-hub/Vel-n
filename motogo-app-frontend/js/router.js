@@ -22,7 +22,8 @@ const navMap = {
   's-profile':'ni-profile',
   's-messages':'ni-profile',
   's-invoices':'ni-profile',
-  's-contracts':'ni-profile'
+  's-contracts':'ni-profile',
+  's-sos-replacement':'ni-res'
 };
 
 function goTo(id){
@@ -147,6 +148,7 @@ function goTo(id){
     else if(typeof renderInvoices==='function') renderInvoices();
   }
   if(id==='s-contracts' && typeof renderContractsPage==='function') renderContractsPage();
+  if(id==='s-sos-replacement' && typeof sosReplInit==='function') sosReplInit();
   if(typeof updateCartFab==='function')updateCartFab();
   if(typeof scrollCurrentToTop==='function')scrollCurrentToTop();
 }

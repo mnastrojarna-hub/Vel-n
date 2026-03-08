@@ -153,5 +153,8 @@ Templates['s-sos-kradez'] = `  <div class="sos-sub-hdr" style="background:linear
         🏍️ <strong>Po vyřešení s policií:</strong><br>
         MotoGo24 vám zajistí náhradní motorku. Přistavení se v tomto případě účtuje dle km (1 000 Kč + 20 Kč/km) – krádež není provozní závada.
       </div>
+      <button onclick="_sosFault=true;_sosActiveIncidentId=null;sosRequestReplacement()" style="width:100%;margin-top:10px;background:var(--green);color:#fff;border:none;border-radius:50px;padding:13px;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;">
+        🏍️ Objednat náhradní motorku
+      </button>
     </div>
   </div>`;
