@@ -143,7 +143,7 @@ Templates['s-sos-replacement'] = `  <div class="sos-sub-hdr" id="sos-repl-hdr" s
     <!-- 2. Adresa přistavení -->
     <div style="background:#fff;border-radius:var(--r);padding:14px;box-shadow:var(--shadow);margin-bottom:12px;">
       <div style="font-size:11px;font-weight:800;color:var(--g400);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">2. Adresa přistavení</div>
-      <input type="text" id="sos-repl-address" placeholder="Ulice a číslo popisné" style="width:100%;box-sizing:border-box;padding:10px 12px;border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:13px;margin-bottom:8px;">
+      <div style="position:relative;"><input type="text" id="sos-repl-address" placeholder="Ulice a číslo popisné" oninput="showAddrSuggestions(this,'sos-repl')" autocomplete="off" style="width:100%;box-sizing:border-box;padding:10px 12px;border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:13px;margin-bottom:8px;"><div id="sos-repl-addr-suggestions" class="addr-suggestions" style="display:none;"></div></div>
       <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;">
         <input type="text" id="sos-repl-city" placeholder="Město" style="width:100%;box-sizing:border-box;padding:10px 12px;border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:13px;">
         <input type="text" id="sos-repl-zip" placeholder="PSČ" style="width:100%;box-sizing:border-box;padding:10px 12px;border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:13px;">

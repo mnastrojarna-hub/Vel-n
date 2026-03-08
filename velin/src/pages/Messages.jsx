@@ -58,17 +58,8 @@ export default function Messages() {
         await debugAction('messages.insertMessage', 'Messages', () =>
           supabase.from('messages').insert(messageData)
         , messageData)
-        // Bridge: notifikace pro zakaznickou appku
-        const adminMsgData = {
-          user_id: newCustomerId,
-          title: newSubject || 'Zprava z Moto Go',
-          message: newMessage.trim(),
-          type: 'info',
-          read: false,
-        }
-        await debugAction('messages.insertAdminMessage', 'Messages', () =>
-          supabase.from('admin_messages').insert(adminMsgData)
-        , adminMsgData).catch(() => {})
+        // admin_messages is handled by bridge trigger (trg_bridge_admin_message)
+        // on messages table insert — no direct insert needed here
         setSelected(thread)
       }
       setShowNew(false)

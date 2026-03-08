@@ -310,17 +310,8 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
         await supabase.from('message_threads').update({ last_message_at: new Date().toISOString() }).eq('id', thread.id)
       }
 
-      // Insert into admin_messages for MotoG app fullscreen overlay
-      const sosTitle = incident.title || TYPE_LABELS[incident.type] || 'SOS'
-      await supabase.from('admin_messages').insert({
-        user_id: customer.id,
-        title: `SOS: ${sosTitle}`,
-        message: message.trim(),
-        type: 'sos_response',
-        read: false,
-      }).then(r => {
-        if (r.error) console.warn('[SOSDetail] admin_messages insert failed:', r.error.message)
-      })
+      // admin_messages is handled by bridge trigger (trg_bridge_admin_message)
+      // on messages table insert — no direct insert needed here
 
       await supabase.from('sos_timeline').insert({
         incident_id: incident.id,
@@ -836,6 +827,11 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
       {/* Odeslat zprávu */}
       <Card>
         <h4 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Odeslat zprávu zákazníkovi</h4>
+        {['accident_minor', 'breakdown_minor', 'defect_question', 'location_share', 'other'].includes(incident.type) && (
+          <div className="rounded-lg text-xs font-semibold mb-3" style={{ padding: '8px 12px', background: '#f0fdf4', color: '#1a8a18', border: '1px solid #86efac' }}>
+            Automatická zpráva odeslána: &quot;Děkujeme za nahlášení, šťastnou cestu!&quot; — další zprávu odesílejte jen pokud je potřeba.
+          </div>
+        )}
         <textarea value={message} onChange={e => setMessage(e.target.value)}
           rows={3} placeholder="Napište zprávu zákazníkovi…"
           className="w-full rounded-btn text-sm outline-none mb-3"
