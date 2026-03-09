@@ -407,8 +407,18 @@ async function apiGenerateAdvanceInvoice(bookingId, amount, source){
       issue_date: issueDate, due_date: dueDate, status: 'paid',
       variable_symbol: invNum, source: source || 'booking'
     }).select().single();
-    if(inv.error) console.warn('[API] Advance invoice err:', inv.error.message);
-    // Document sync is handled by DB trigger (trg_sync_invoice_to_documents)
+    if(inv.error){ console.error('[API] Advance invoice INSERT FAILED:', inv.error.message, inv.error.details, inv.error.hint); return {error: inv.error.message}; }
+    console.log('[API] Advance invoice created:', invNum, 'id:', inv.data?.id, 'total:', total);
+    // Insert into documents table for app display (type is TEXT column, accepts any value)
+    try {
+      var docR = await window.supabase.from('documents').insert({
+        booking_id: bookingId, user_id: uid, type: 'invoice_advance',
+        file_name: 'Zálohová faktura ' + invNum + '.pdf',
+        file_path: 'invoices/' + (inv.data ? inv.data.id : bookingId) + '.html'
+      });
+      if(docR.error) console.warn('[API] ZF doc insert err:', docR.error.message);
+      else console.log('[API] ZF doc inserted OK');
+    } catch(de){ console.warn('[API] ZF doc insert exception:', de); }
     return {error: null, invoice_number: invNum};
   } catch(e){ console.error('[API] advanceInvoice:', e); return {error: e.message}; }
 }
@@ -460,8 +470,18 @@ async function apiGenerateFinalInvoice(bookingId){
       issue_date: issueDate, due_date: issueDate, status: 'paid',
       variable_symbol: invNum, source: 'final_summary'
     }).select().single();
-    if(inv.error) console.warn('[API] Final invoice err:', inv.error.message);
-    // Document sync is handled by DB trigger (trg_sync_invoice_to_documents)
+    if(inv.error){ console.error('[API] Final invoice INSERT FAILED:', inv.error.message, inv.error.details, inv.error.hint); return {error: inv.error.message}; }
+    console.log('[API] Final invoice created:', invNum, 'id:', inv.data?.id, 'total:', total);
+    // Insert into documents table for app display (type is TEXT column, accepts any value)
+    try {
+      var docR = await window.supabase.from('documents').insert({
+        booking_id: bookingId, user_id: uid, type: 'invoice_final',
+        file_name: 'Konečná faktura ' + invNum + '.pdf',
+        file_path: 'invoices/' + (inv.data ? inv.data.id : bookingId) + '.html'
+      });
+      if(docR.error) console.warn('[API] KF doc insert err:', docR.error.message);
+      else console.log('[API] KF doc inserted OK');
+    } catch(de){ console.warn('[API] KF doc insert exception:', de); }
     return {error: null, invoice_number: invNum};
   } catch(e){ console.error('[API] finalInvoice:', e); return {error: e.message}; }
 }
@@ -499,8 +519,18 @@ async function apiGeneratePaymentReceipt(bookingId, amount, source){
       issue_date: issueDate, due_date: issueDate, status: 'paid',
       variable_symbol: dpNum, source: source || 'booking'
     }).select().single();
-    if(inv.error) console.warn('[API] Payment receipt err:', inv.error.message);
-    // Document sync is handled by DB trigger (trg_sync_invoice_to_documents)
+    if(inv.error){ console.error('[API] Payment receipt INSERT FAILED:', inv.error.message, inv.error.details, inv.error.hint); return {error: inv.error.message}; }
+    console.log('[API] Payment receipt created:', dpNum, 'id:', inv.data?.id, 'total:', total);
+    // Insert into documents table for app display (type is TEXT column, accepts any value)
+    try {
+      var docR = await window.supabase.from('documents').insert({
+        booking_id: bookingId, user_id: uid, type: 'payment_receipt',
+        file_name: 'Doklad k přijaté platbě ' + dpNum + '.pdf',
+        file_path: 'invoices/' + (inv.data ? inv.data.id : bookingId) + '.html'
+      });
+      if(docR.error) console.warn('[API] DP doc insert err:', docR.error.message);
+      else console.log('[API] DP doc inserted OK');
+    } catch(de){ console.warn('[API] DP doc insert exception:', de); }
     return {error: null, receipt_number: dpNum};
   } catch(e){ console.error('[API] paymentReceipt:', e); return {error: e.message}; }
 }
@@ -554,6 +584,7 @@ async function apiFetchDocuments(){
       .select('*, bookings(start_date, total_price, motorcycles(model))')
       .eq('user_id', uid)
       .order('created_at', {ascending: false});
+    console.log('[DOCS] 1) documents table:', r.error ? 'ERR: '+r.error.message : (r.data||[]).length + ' rows', (r.data||[]).map(function(d){return d.type+'/'+d.booking_id?.substr(-4);}));
     if(r.data) r.data.forEach(function(d){
       var b = d.bookings;
       d.date = d.created_at;
@@ -567,6 +598,7 @@ async function apiFetchDocuments(){
       .select('*, bookings:booking_id(start_date, total_price, motorcycles(model))')
       .eq('customer_id', uid)
       .order('created_at', {ascending: false});
+    console.log('[DOCS] 2) invoices table:', ir.error ? 'ERR: '+ir.error.message : (ir.data||[]).length + ' rows', (ir.data||[]).map(function(i){return i.type+'/'+i.number+'/'+i.booking_id?.substr(-4);}));
     if(ir.data) ir.data.forEach(function(inv){
       var b = inv.bookings;
       var iType = inv.type === 'payment_receipt' ? 'payment_receipt'
@@ -630,6 +662,7 @@ async function apiFetchDocuments(){
         });
       });
     } catch(se){ console.error('[API] shop_orders fetch:', se); }
+    console.log('[DOCS] FINAL results:', results.length, 'items:', results.map(function(d){return d.type+'/'+(d.file_name||d.booking_id?.substr(-4)||'?');}));
     return results;
   } catch(e){ console.error('[API] apiFetchDocuments:', e); return []; }
 }
