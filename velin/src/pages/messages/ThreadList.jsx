@@ -9,15 +9,16 @@ export default function ThreadList({ selectedId, onSelect, onNewThread }) {
   const [unreadCounts, setUnreadCounts] = useState({})
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [sortBy, setSortBy] = useState('last_message_at')
 
-  useEffect(() => { load() }, [search])
+  useEffect(() => { load() }, [search, sortBy])
 
   async function load() {
     setLoading(true)
     let query = supabase
       .from('message_threads')
       .select('*, profiles(full_name, email)')
-      .order('last_message_at', { ascending: false })
+      .order(sortBy === 'customer' ? 'customer_id' : 'last_message_at', { ascending: sortBy === 'customer' })
     if (search) query = query.or(`profiles.full_name.ilike.%${search}%,profiles.email.ilike.%${search}%`)
     const { data } = await query
     setThreads(data || [])
@@ -62,6 +63,13 @@ export default function ThreadList({ selectedId, onSelect, onNewThread }) {
           <Button green small onClick={onNewThread}>+ Nová</Button>
         </div>
         <SearchInput value={search} onChange={setSearch} placeholder="Hledat…" />
+        <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+          className="w-full rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none mt-2"
+          style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+          <option value="last_message_at">Dle poslední zprávy</option>
+          <option value="customer">Dle zákazníka</option>
+          <option value="created_at">Dle data vytvoření</option>
+        </select>
       </div>
       <div className="flex-1 overflow-auto">
         {loading && threads.length === 0 ? (

@@ -178,6 +178,15 @@
 - **rating, rated_at** — hodnocení zákazníkem
 - **boots_size, helmet_size, jacket_size** — velikosti výbavy
 - **original_start_date, original_end_date** — původní data rezervace (před prodloužením/zkrácením)
+- **complaint_status** — stav reklamace (open, in_progress, resolved, rejected, null)
+
+### booking_complaints
+- id (uuid PK), booking_id (refs bookings), customer_id (refs profiles)
+- subject (text NOT NULL), description (text)
+- status (text: open, in_progress, resolved, rejected)
+- resolution (text), created_at, updated_at, resolved_at
+- resolved_by (refs auth.users)
+- RLS: Admin full access
 
 ### profiles
 - id (refs auth.users), full_name, email, phone
