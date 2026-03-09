@@ -495,7 +495,7 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
 
       <Card className="col-span-2">
         <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-4" style={{ color: '#8aab99' }}>Termín a platba</h3>
-        {booking.original_start_date && booking.original_end_date && (booking.original_start_date !== booking.start_date || booking.original_end_date !== booking.end_date) && (() => {
+        {booking.original_start_date && booking.original_end_date && (() => { const _ld = d => d ? new Date(d).toLocaleDateString('sv-SE') : ''; return _ld(booking.start_date) !== _ld(booking.original_start_date) || _ld(booking.end_date) !== _ld(booking.original_end_date) })() && (() => {
           const origDays = Math.max(1, Math.ceil((new Date(booking.original_end_date) - new Date(booking.original_start_date)) / 86400000))
           const curDays = Math.max(1, Math.ceil((new Date(booking.end_date) - new Date(booking.start_date)) / 86400000))
           const delta = curDays - origDays
@@ -587,8 +587,9 @@ function BookingSummary({ booking, sosIncidents, bookingExtras, cancellation, pr
   const days = Math.max(1, Math.ceil((new Date(b.end_date) - new Date(b.start_date)) / 86400000) + 1)
   const branchName = b.motorcycles?.branches?.name || '—'
 
+  const toLD = d => d ? new Date(d).toLocaleDateString('sv-SE') : ''
   const hasModification = b.original_start_date && b.original_end_date &&
-    (b.original_start_date !== b.start_date || b.original_end_date !== b.end_date)
+    (toLD(b.start_date) !== toLD(b.original_start_date) || toLD(b.end_date) !== toLD(b.original_end_date))
   let origDays, delta
   if (hasModification) {
     origDays = Math.max(1, Math.ceil((new Date(b.original_end_date) - new Date(b.original_start_date)) / 86400000) + 1)

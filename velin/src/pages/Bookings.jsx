@@ -228,8 +228,12 @@ export default function Bookings() {
             </thead>
             <tbody>
               {bookings.map(b => {
+                const toLocalDate = d => d ? new Date(d).toLocaleDateString('sv-SE') : ''
                 const days = b.start_date && b.end_date ? Math.max(1, Math.ceil((new Date(b.end_date) - new Date(b.start_date)) / 86400000)) : '—'
-                const origDays = b.original_start_date && b.original_end_date ? Math.max(1, Math.ceil((new Date(b.original_end_date) - new Date(b.original_start_date)) / 86400000)) : null
+                // Only show delta when dates actually changed (compare in local timezone)
+                const datesModified = b.original_start_date && b.original_end_date &&
+                  (toLocalDate(b.start_date) !== toLocalDate(b.original_start_date) || toLocalDate(b.end_date) !== toLocalDate(b.original_end_date))
+                const origDays = datesModified ? Math.max(1, Math.ceil((new Date(b.original_end_date) - new Date(b.original_start_date)) / 86400000)) : null
                 const daysDelta = origDays !== null && typeof days === 'number' ? days - origDays : null
                 return (
                   <tr key={b.id} onClick={() => navigate(`/rezervace/${b.id}`)}
