@@ -16,7 +16,7 @@ export default function StkTab() {
       const { data, error } = await debugAction('motorcycles.stk', 'StkTab', () =>
         supabase
           .from('motorcycles')
-          .select('id, model, spz, stk_valid_until, emission_valid_until')
+          .select('id, model, spz, stk_valid_until')
           .order('stk_valid_until')
       )
       if (error) throw error
@@ -48,13 +48,11 @@ export default function StkTab() {
       <thead>
         <TRow header>
           <TH>Motorka</TH><TH>SPZ</TH><TH>STK do</TH><TH>Dní do STK</TH>
-          <TH>Emise do</TH><TH>Dní do emisí</TH>
         </TRow>
       </thead>
       <tbody>
         {motos.map(m => {
           const stkDays = daysUntil(m.stk_valid_until)
-          const emisDays = daysUntil(m.emission_valid_until)
           return (
             <TRow key={m.id}>
               <TD bold>{m.model}</TD>
@@ -63,12 +61,6 @@ export default function StkTab() {
               <TD>
                 <span style={{ color: daysColor(stkDays), fontWeight: 700 }}>
                   {stkDays !== null ? (stkDays < 0 ? `${Math.abs(stkDays)} po` : stkDays) : '—'}
-                </span>
-              </TD>
-              <TD>{m.emission_valid_until ? new Date(m.emission_valid_until).toLocaleDateString('cs-CZ') : '—'}</TD>
-              <TD>
-                <span style={{ color: daysColor(emisDays), fontWeight: 700 }}>
-                  {emisDays !== null ? (emisDays < 0 ? `${Math.abs(emisDays)} po` : emisDays) : '—'}
                 </span>
               </TD>
             </TRow>
