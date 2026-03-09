@@ -21,7 +21,7 @@ export default function Statistics() {
         supabase.from('profiles').select('id', { count: 'exact', head: true }),
         supabase.from('motorcycles').select('id', { count: 'exact', head: true }).eq('status', 'active'),
         supabase.from('accounting_entries').select('type, amount, category, description'),
-      ])
+      ]))
       // Revenue classification — same logic as Dashboard (type + keyword matching)
       const REVENUE_CATS = ['pronájem', 'pronajem', 'rezervace', 'booking', 'rental']
       const REVENUE_DESCS = ['platba za rezervaci', 'platba za pronájem', 'příjem z pronájmu']
