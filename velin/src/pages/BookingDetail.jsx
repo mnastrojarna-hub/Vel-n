@@ -476,6 +476,21 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
 
       <Card className="col-span-2">
         <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-4" style={{ color: '#8aab99' }}>Termín a platba</h3>
+        {booking.original_start_date && booking.original_end_date && (booking.original_start_date !== booking.start_date || booking.original_end_date !== booking.end_date) && (() => {
+          const origDays = Math.max(1, Math.ceil((new Date(booking.original_end_date) - new Date(booking.original_start_date)) / 86400000))
+          const curDays = Math.max(1, Math.ceil((new Date(booking.end_date) - new Date(booking.start_date)) / 86400000))
+          const delta = curDays - origDays
+          return (
+            <div className="mb-3 p-2 rounded-lg flex items-center gap-3" style={{ background: delta > 0 ? '#dbeafe' : '#fee2e2', fontSize: 11 }}>
+              <span className="font-extrabold" style={{ color: delta > 0 ? '#2563eb' : '#dc2626' }}>
+                {delta > 0 ? `+${delta}` : delta} dní
+              </span>
+              <span style={{ color: '#4a6357' }}>
+                Původní: {new Date(booking.original_start_date).toLocaleDateString('cs-CZ')} – {new Date(booking.original_end_date).toLocaleDateString('cs-CZ')} ({origDays}d)
+              </span>
+            </div>
+          )
+        })()}
         <div className="grid grid-cols-4 gap-4">
           <FieldInput label="Od" type="date" value={booking.start_date} onChange={v => set('start_date', v)} />
           <FieldInput label="Do" type="date" value={booking.end_date} onChange={v => set('end_date', v)} />

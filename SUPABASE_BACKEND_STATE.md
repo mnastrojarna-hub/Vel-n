@@ -177,6 +177,7 @@
 - **promo_code** — promo kód (text)
 - **rating, rated_at** — hodnocení zákazníkem
 - **boots_size, helmet_size, jacket_size** — velikosti výbavy
+- **original_start_date, original_end_date** — původní data rezervace (před prodloužením/zkrácením)
 
 ### profiles
 - id (refs auth.users), full_name, email, phone
