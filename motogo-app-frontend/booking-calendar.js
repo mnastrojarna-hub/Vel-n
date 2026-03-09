@@ -19,6 +19,9 @@ function resetBookingState(){
   // Cart FAB: respect user's X dismiss – do not reset cartFabDismissed
   // Payment
   if(typeof _currentBookingId !== 'undefined') _currentBookingId = null;
+  // SOS
+  if(typeof _sosCurrentBookingId !== 'undefined') _sosCurrentBookingId = null;
+  if(typeof _sosCurrentMotoId !== 'undefined') _sosCurrentMotoId = null;
 }
 
 function showDetailCal(){

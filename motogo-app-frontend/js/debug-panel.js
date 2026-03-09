@@ -47,16 +47,18 @@ function _debugPanel(screenId){
       break;
 
     case 's-detail':
-      lines.push('bookingMoto: ' + (typeof bookingMoto !== 'undefined' && bookingMoto ? bookingMoto.name + ' (id:' + bookingMoto.id + ')' : 'null'));
+      var detMoto = (typeof dList !== 'undefined' && typeof dIdx !== 'undefined') ? dList[dIdx] : null;
+      lines.push('detailMoto: ' + (detMoto ? detMoto.name + ' (id:' + (detMoto.id||'?').toString().substr(-8) + ')' : 'null'));
       lines.push('dOd: ' + (typeof dOd !== 'undefined' && dOd ? dOd.d+'.'+(dOd.m+1)+'.'+dOd.y : 'null'));
       lines.push('dDo: ' + (typeof dDo !== 'undefined' && dDo ? dDo.d+'.'+(dDo.m+1)+'.'+dDo.y : 'null'));
       lines.push('dStep: ' + (typeof dStep !== 'undefined' ? dStep : '?'));
-      lines.push('dIdx: ' + (typeof dIdx !== 'undefined' ? dIdx : '?'));
-      if(typeof bookingMoto !== 'undefined' && bookingMoto){
-        lines.push('cat: ' + (bookingMoto.cat||'?') + ' | rp: ' + (bookingMoto.rp||'?'));
-        lines.push('pricing: ' + (bookingMoto.pricing ? JSON.stringify(bookingMoto.pricing) : 'N/A'));
-        if(bookingMoto._db) lines.push('DB id: ' + bookingMoto._db.id.substr(-8));
+      lines.push('dIdx: ' + (typeof dIdx !== 'undefined' ? dIdx : '?') + '/' + (typeof dList !== 'undefined' ? dList.length : '?'));
+      if(detMoto){
+        lines.push('cat: ' + (detMoto.cat||'?') + ' | rp: ' + (detMoto.rp||'?'));
+        lines.push('pricing: ' + (detMoto.pricing ? JSON.stringify(detMoto.pricing) : 'N/A'));
+        if(detMoto._db) lines.push('DB id: ' + detMoto._db.id.substr(-8));
       }
+      lines.push('bookingMoto: ' + (typeof bookingMoto !== 'undefined' && bookingMoto ? bookingMoto.name : 'null'));
       break;
 
     case 's-booking':
@@ -160,8 +162,9 @@ function _debugPanel(screenId){
     case 's-sos-servis':
     case 's-sos-kradez':
       lines.push('SOS screen: ' + screenId);
-      lines.push('_sosCurrentBookingId: ' + (typeof _sosCurrentBookingId !== 'undefined' ? (_sosCurrentBookingId||'').substr(-8) : '?'));
-      lines.push('_sosCurrentMotoId: ' + (typeof _sosCurrentMotoId !== 'undefined' ? (_sosCurrentMotoId||'').substr(-8) : '?'));
+      lines.push('_sosCurrentBookingId: ' + (typeof _sosCurrentBookingId !== 'undefined' && _sosCurrentBookingId ? _sosCurrentBookingId.substr(-8) : 'none'));
+      lines.push('_sosCurrentMotoId: ' + (typeof _sosCurrentMotoId !== 'undefined' && _sosCurrentMotoId ? _sosCurrentMotoId.substr(-8) : 'none'));
+      lines.push('_sosActiveIncidentId: ' + (typeof _sosActiveIncidentId !== 'undefined' && _sosActiveIncidentId ? _sosActiveIncidentId.substr(-8) : 'none'));
       lines.push('_sosReplacementMode: ' + (typeof _sosReplacementMode !== 'undefined' ? _sosReplacementMode : '?'));
       lines.push('_sosFault: ' + (typeof _sosFault !== 'undefined' ? _sosFault : '?'));
       break;

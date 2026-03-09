@@ -155,6 +155,8 @@ function goTo(id){
     else if(typeof renderInvoices==='function') renderInvoices();
   }
   if(id==='s-contracts' && typeof renderContractsPage==='function') renderContractsPage();
+  // Pre-fetch active booking/moto IDs on any SOS screen entry
+  if(id.indexOf('s-sos')===0 && typeof _sosPreFetchIds==='function') _sosPreFetchIds();
   if(id==='s-sos-replacement' && typeof sosReplInit==='function') sosReplInit();
   if(id==='s-sos-payment' && typeof _sosInitPaymentFromRouter==='function') _sosInitPaymentFromRouter();
   if(typeof updateCartFab==='function')updateCartFab();
