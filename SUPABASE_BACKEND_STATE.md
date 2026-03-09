@@ -178,6 +178,7 @@
 - **rating, rated_at** — hodnocení zákazníkem
 - **boots_size, helmet_size, jacket_size** — velikosti výbavy
 - **original_start_date, original_end_date** — původní data rezervace (před prodloužením/zkrácením)
+- **modification_history** (jsonb, default '[]') — historie všech úprav termínu. Každý záznam: `{at, from_start, from_end, to_start, to_end, source}`
 - **complaint_status** — stav reklamace (open, in_progress, resolved, rejected, null)
 
 ### booking_complaints
@@ -541,3 +542,4 @@ Detailní politiky:
 | 2026-03-09 | **FIX shop payment:** Přidána RPC `confirm_shop_payment(p_order_id, p_method)` (SECURITY DEFINER) + UPDATE RLS policy na shop_orders pro zákazníka |
 | 2026-03-09 | **FIX documents.type:** Sloupec `documents.type` změněn z `document_type` ENUM na TEXT. ENUM `document_type` zrušen. Trigger `sync_invoice_to_documents()` přepsán s TEXT mapováním (invoice_advance, payment_receipt, invoice_shop, invoice_final) |
 | 2026-03-09 | **FIX generate_shop_invoice:** Opraven typ faktury z `'shop'` na `'shop_final'` (splňuje CHECK constraint). Přidán `source='shop'` a SECURITY DEFINER |
+| 2026-03-09 | **NEW:** Přidán sloupec `bookings.modification_history` (jsonb, default '[]') — historie všech úprav termínu rezervace |
