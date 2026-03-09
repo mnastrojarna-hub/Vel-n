@@ -74,7 +74,7 @@ export default function Customers() {
       const ids = custs.map(c => c.id)
       if (!ids.length) { setStats({}); return }
       const { data: bks } = await supabase.from('bookings')
-        .select('user_id, total_price, start_date, end_date, status, moto_id, motorcycles(model), branches(name)')
+        .select('user_id, total_price, start_date, end_date, status, moto_id, motorcycles(model, branches(name))')
         .in('user_id', ids.slice(0, 50))
       if (!bks) return
       const map = {}
@@ -86,7 +86,7 @@ export default function Customers() {
         const d = Math.max(1, Math.ceil((new Date(b.end_date) - new Date(b.start_date)) / 86400000))
         s.days += d
         if (b.motorcycles?.model) s.motos[b.motorcycles.model] = (s.motos[b.motorcycles.model] || 0) + 1
-        if (b.branches?.name) s.branches[b.branches.name] = (s.branches[b.branches.name] || 0) + 1
+        if (b.motorcycles?.branches?.name) s.branches[b.motorcycles.branches.name] = (s.branches[b.motorcycles.branches.name] || 0) + 1
         if (b.status === 'incident') s.incidents++
       })
       setStats(map)

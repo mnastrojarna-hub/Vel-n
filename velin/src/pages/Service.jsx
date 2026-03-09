@@ -24,7 +24,7 @@ export default function Service() {
 
       const [planned, inService, costs] = await debugAction('service.loadStats', 'Service', () => Promise.all([
         supabase.from('maintenance_schedules').select('id', { count: 'exact', head: true })
-          .gte('next_date', monthStart).lte('next_date', monthEnd),
+          .eq('active', true),
         supabase.from('motorcycles').select('id', { count: 'exact', head: true })
           .eq('status', 'maintenance'),
         supabase.from('maintenance_log').select('cost').not('cost', 'is', null),
@@ -49,7 +49,7 @@ export default function Service() {
     <div>
       <div className="grid grid-cols-3 gap-4 mb-5">
         <Card>
-          <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Plánované tento měsíc</div>
+          <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Aktivní servisní plány</div>
           <div className="text-xl font-extrabold" style={{ color: '#0f1a14' }}>{fmt(stats.planned)}</div>
         </Card>
         <Card>

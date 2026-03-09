@@ -13,14 +13,15 @@ export default function ServiceSchedule() {
 
   async function load() {
     setLoading(true)
+    // Show all active schedules (with or without next_date)
     try {
       debugLog('ServiceSchedule', 'load')
       const { data, error } = await debugAction('maintenance_schedules.list', 'ServiceSchedule', () =>
         supabase
           .from('maintenance_schedules')
-          .select('*, motorcycles(model, spz)')
-          .gte('next_date', new Date().toISOString().slice(0, 10))
-          .order('next_date')
+          .select('*, motorcycles(model, spz, mileage)')
+          .eq('active', true)
+          .order('next_date', { ascending: true, nullsFirst: false })
       )
       if (error) throw error
       setSchedules(data || [])
@@ -36,21 +37,31 @@ export default function ServiceSchedule() {
     <Table>
       <thead>
         <TRow header>
-          <TH>Motorka</TH><TH>SPZ</TH><TH>Typ</TH>
-          <TH>Plánované datum</TH><TH>Stav</TH>
+          <TH>Motorka</TH><TH>SPZ</TH><TH>Popis</TH>
+          <TH>Interval</TH><TH>Zbývá km</TH><TH>Plánované datum</TH>
         </TRow>
       </thead>
       <tbody>
-        {schedules.map(s => (
-          <TRow key={s.id}>
-            <TD bold>{s.motorcycles?.model || '—'}</TD>
-            <TD mono>{s.motorcycles?.spz || '—'}</TD>
-            <TD>{TYPE_LABELS[s.type] || s.type || '—'}</TD>
-            <TD>{s.next_date ? new Date(s.next_date).toLocaleDateString('cs-CZ') : '—'}</TD>
-            <TD><StatusBadge status={s.status || 'pending'} /></TD>
-          </TRow>
-        ))}
-        {schedules.length === 0 && <TRow><TD>Žádné plánované servisy</TD></TRow>}
+        {schedules.map(s => {
+          const currentKm = Number(s.motorcycles?.mileage) || 0
+          const nextAt = (s.last_service_km || 0) + (s.interval_km || 0)
+          const remaining = nextAt - currentKm
+          const overdue = s.interval_km && remaining <= 0
+          return (
+            <TRow key={s.id}>
+              <TD bold>{s.motorcycles?.model || '—'}</TD>
+              <TD mono>{s.motorcycles?.spz || '—'}</TD>
+              <TD>{s.description || TYPE_LABELS[s.schedule_type] || s.schedule_type || '—'}</TD>
+              <TD>{s.interval_km ? `${s.interval_km.toLocaleString('cs-CZ')} km` : ''}{s.interval_days ? ` / ${s.interval_days} dní` : ''}</TD>
+              <TD style={overdue ? { color: '#dc2626', fontWeight: 700 } : undefined}>
+                {s.interval_km ? (overdue ? `⚠ ${Math.abs(remaining).toLocaleString('cs-CZ')} km po` : `${remaining.toLocaleString('cs-CZ')} km`) : '—'}
+                {!currentKm && s.interval_km ? ' (km nenastaven)' : ''}
+              </TD>
+              <TD>{s.next_date ? new Date(s.next_date).toLocaleDateString('cs-CZ') : '—'}</TD>
+            </TRow>
+          )
+        })}
+        {schedules.length === 0 && <TRow><TD>Žádné servisní plány. Nastavte intervaly v detailu motorky.</TD></TRow>}
       </tbody>
     </Table>
   )
