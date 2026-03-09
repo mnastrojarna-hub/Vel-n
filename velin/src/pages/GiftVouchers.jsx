@@ -155,6 +155,16 @@ export default function GiftVouchers() {
 
   return (
     <div>
+      {/* DIAGNOSTIKA */}
+      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+        <strong>DIAGNOSTIKA GiftVouchers</strong><br/>
+        <div>vouchers: {vouchers.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
+        <div>summary: total={summary.total}, active={summary.active}, redeemed={summary.redeemed}, expired={summary.expired}</div>
+        <div>totalValue (active): {summary.totalValue?.toLocaleString('cs-CZ')} Kč</div>
+        <div>filtry: status={filters.status || 'vše'}, search="{filters.search}"</div>
+        {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
+      </div>
+
       {/* Summary */}
       <div className="grid grid-cols-5 gap-3 mb-5">
         <SummaryCard label="Celkem poukazů" value={summary.total} color="#0f1a14" />

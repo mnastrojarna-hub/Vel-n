@@ -60,6 +60,13 @@ export default function Service() {
         </Card>
       </div>
 
+      {/* DIAGNOSTIKA */}
+      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+        <strong>DIAGNOSTIKA Service</strong><br/>
+        <div>planned (this month): {stats.planned}, inService: {stats.inService}, avgCost: {fmt(stats.avgCost)}</div>
+        <div>tab: {tab}</div>
+      </div>
+
       <div className="flex gap-2 mb-5">
         {TABS.map(t => (
           <button key={t} onClick={() => setTab(t)} className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"

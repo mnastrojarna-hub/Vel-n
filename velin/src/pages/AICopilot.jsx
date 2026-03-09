@@ -112,6 +112,14 @@ export default function AICopilot() {
   }
 
   return (
+    <>
+    {/* DIAGNOSTIKA */}
+    <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+      <strong>DIAGNOSTIKA AICopilot</strong><br/>
+      <div>conversations: {conversations.length}, activeConv: {activeConv ? activeConv.id?.slice(-8) : 'žádná'}</div>
+      <div>messages: {messages.length}, sending: {String(sending)}</div>
+      {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
+    </div>
     <div className="flex rounded-card shadow-card overflow-hidden bg-white" style={{ height: 'calc(100vh - 140px)' }}>
       {/* Conversation list */}
       <div className="flex-shrink-0 flex flex-col" style={{ width: 240, borderRight: '1px solid #d4e8e0' }}>
@@ -210,5 +218,6 @@ export default function AICopilot() {
         </div>
       </div>
     </div>
+    </>
   )
 }

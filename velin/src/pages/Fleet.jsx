@@ -176,6 +176,15 @@ export default function Fleet() {
         </div>
       )}
 
+      {/* DIAGNOSTIKA */}
+      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+        <strong>DIAGNOSTIKA Fleet</strong><br/>
+        <div>motorcycles: {motos.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
+        <div>filtry: status={filters.status || 'vše'}, branch={filters.branch || 'vše'}, category={filters.category || 'vše'}, search="{filters.search}", sort={filters.sort}</div>
+        <div>branches: {branches.length}, todayOccupied: {todayOccupied.size}, bookingCounts: {Object.keys(bookingCounts).length} motorek</div>
+        {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
+      </div>
+
       {loading ? (
         <div className="flex justify-center py-16">
           <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" />

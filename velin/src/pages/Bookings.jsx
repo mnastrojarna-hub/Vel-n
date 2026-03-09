@@ -199,6 +199,15 @@ export default function Bookings() {
         </div>
       )}
 
+      {/* DIAGNOSTIKA */}
+      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+        <strong>DIAGNOSTIKA Bookings</strong><br/>
+        <div>bookings: {bookings.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
+        <div>filtry: status={filters.status || 'vše'}, payment={filters.paymentStatus || 'vše'}, search="{filters.search}", future={filters.futureOnly ? 'ano' : 'ne'}</div>
+        <div>branches: {branches.length}, motos: {motos.length}</div>
+        {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
+      </div>
+
       {view === 'Kalendář' ? (
         <GlobalCalendar />
       ) : loading ? (

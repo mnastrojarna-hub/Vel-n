@@ -113,6 +113,16 @@ export default function FleetDetail() {
             style={{ padding: '8px 18px', background: tab === t ? '#74FB71' : '#f1faf7', color: tab === t ? '#1a2e22' : '#4a6357', border: 'none', boxShadow: tab === t ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>{t}</button>
         ))}
       </div>
+      {/* DIAGNOSTIKA */}
+      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+        <strong>DIAGNOSTIKA FleetDetail (#{id?.slice(-8)})</strong><br/>
+        <div>moto: {moto.model} ({moto.spz}), status={moto.status}, category={moto.category || '—'}</div>
+        <div>branch: {moto.branches?.name || '—'}, mileage: {moto.mileage?.toLocaleString('cs-CZ') || 0} km</div>
+        <div>year: {moto.year || '—'}, engine: {moto.engine_cc || '—'}cc, power: {moto.power_kw || '—'}kW/{moto.power_hp || '—'}HP</div>
+        <div>STK: {moto.stk_valid_until || '—'}, tab: {tab}</div>
+        {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
+      </div>
+
       {tab === 'Info' && <InfoTab moto={moto} set={set} error={error} saving={saving} onSave={handleSave} onDeactivate={handleDeactivate} onDelete={() => setConfirm({ type: 'delete' })} onMotoReload={loadMoto} />}
       {tab === 'Rezervace' && <BookingsCalendar motoId={id} />}
       {tab === 'Ceník' && <PricingTab motoId={id} />}
