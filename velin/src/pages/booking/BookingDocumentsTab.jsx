@@ -34,21 +34,30 @@ export default function BookingDocumentsTab({ bookingId }) {
   const [error, setError] = useState(null)
   const [viewDoc, setViewDoc] = useState(null)
   const [viewHtml, setViewHtml] = useState(null)
+  const [debug, setDebug] = useState(null)
 
   useEffect(() => { loadAll() }, [bookingId])
 
   async function loadAll() {
     setLoading(true)
+    const diag = { bookingId, docs: null, gen: null, inv: null, errors: [] }
     try {
       const [docsRes, genRes, invRes] = await Promise.all([
         supabase.from('documents').select('*').eq('booking_id', bookingId).order('created_at', { ascending: false }),
-        supabase.from('generated_documents').select('*, document_templates(name, type)').eq('booking_id', bookingId).order('created_at', { ascending: false }),
+        supabase.from('generated_documents').select('*, document_templates(name, type, html_content)').eq('booking_id', bookingId).order('created_at', { ascending: false }),
         supabase.from('invoices').select('*').eq('booking_id', bookingId).order('issue_date', { ascending: false, nullsFirst: false }),
       ])
+      if (docsRes.error) diag.errors.push('documents: ' + docsRes.error.message)
+      if (genRes.error) diag.errors.push('generated_documents: ' + genRes.error.message)
+      if (invRes.error) diag.errors.push('invoices: ' + invRes.error.message)
+      diag.docs = (docsRes.data || []).map(d => ({ type: d.type, file_path: d.file_path, file_name: d.file_name }))
+      diag.gen = (genRes.data || []).map(d => ({ tpl_type: d.document_templates?.type, tpl_name: d.document_templates?.name, has_filled: !!d.filled_data, has_pdf: !!d.pdf_path, has_html: !!d.document_templates?.html_content }))
+      diag.inv = (invRes.data || []).map(i => ({ type: i.type, number: i.number, total: i.total, status: i.status, has_pdf: !!i.pdf_path }))
       setDocs(docsRes.data || [])
       setGeneratedDocs(genRes.data || [])
       setInvoices(invRes.data || [])
-    } catch (e) { setError(e.message) }
+    } catch (e) { setError(e.message); diag.errors.push('EXCEPTION: ' + e.message) }
+    setDebug(diag)
     setLoading(false)
   }
 
@@ -174,15 +183,88 @@ export default function BookingDocumentsTab({ bookingId }) {
     } catch { return null }
   }
 
-  async function handleViewDoc(doc) {
-    // For generated docs, try filled_data first
+  async function handleViewGeneratedDoc(doc) {
+    // 1) Try template + filled_data
+    if (doc.document_templates?.html_content && doc.filled_data) {
+      let html = doc.document_templates.html_content
+      for (const [k, v] of Object.entries(doc.filled_data)) {
+        html = html.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v || '')
+      }
+      setViewHtml(html); setViewDoc(doc); return
+    }
+    // 2) Try client template + filled_data
     if (doc.filled_data) {
+      const docType = doc.document_templates?.type || ''
+      const slug = docType === 'rental_contract' ? 'rental_contract' : docType === 'handover_protocol' ? 'handover_protocol' : null
+      if (slug) {
+        let html = getClientTemplate(slug)
+        if (html) {
+          for (const [k, v] of Object.entries(doc.filled_data)) {
+            html = html.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v || '')
+          }
+          setViewHtml(html); setViewDoc(doc); return
+        }
+      }
+      // 3) Minimal rebuild
       const html = rebuildFromFilledData(doc)
       if (html) { setViewHtml(html); setViewDoc(doc); return }
     }
+    // 4) If no filled_data, regenerate from booking
+    try {
+      const { data: booking } = await supabase.from('bookings')
+        .select('*, motorcycles(model, spz, vin, year), profiles(id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry)')
+        .eq('id', bookingId).single()
+      if (booking) {
+        const customer = booking.profiles || {}
+        const moto = booking.motorcycles || {}
+        const days = Math.max(1, Math.ceil((new Date(booking.end_date) - new Date(booking.start_date)) / 86400000))
+        const fmtD = (d) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
+        const fmtP = (n) => (n || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2 })
+        const vars = {
+          customer_name: customer.full_name || '—', customer_email: customer.email || '',
+          customer_phone: customer.phone || '', customer_address: [customer.street, customer.city, customer.zip].filter(Boolean).join(', '),
+          customer_ico: customer.ico || '', customer_dic: customer.dic || '',
+          customer_license: customer.license_number || '', customer_license_expiry: fmtD(customer.license_expiry),
+          moto_model: moto.model || '—', moto_spz: moto.spz || '', moto_vin: moto.vin || '', moto_year: String(moto.year || ''),
+          start_date: fmtD(booking.start_date), end_date: fmtD(booking.end_date),
+          days: String(days), total_price: fmtP(booking.total_price || 0),
+          daily_rate: fmtP(Math.round((booking.total_price || 0) / days)),
+          booking_id: bookingId.slice(-8).toUpperCase(), booking_number: bookingId.slice(-8).toUpperCase(),
+          today: fmtD(new Date().toISOString()),
+          company_name: 'Bc. Petra Semorádová', company_address: 'Mezná 9, 393 01 Mezná', company_ico: '21874263', company_dic: '',
+        }
+        const docType = doc.document_templates?.type || ''
+        const slug = docType === 'handover_protocol' ? 'handover_protocol' : 'rental_contract'
+        let html = getClientTemplate(slug)
+        if (html) {
+          for (const [k, v] of Object.entries(vars)) {
+            html = html.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v || '')
+          }
+          setViewHtml(html); setViewDoc(doc); return
+        }
+      }
+    } catch {}
+    // 5) Try storage as absolute last resort
+    const path = doc.pdf_path || doc.file_path
+    if (path) {
+      try {
+        const { data, error: err } = await supabase.storage.from('documents').download(path)
+        if (!err) { setViewHtml(await data.text()); setViewDoc(doc); return }
+      } catch {}
+    }
+    setError('Dokument nemá obsah — zkuste jej znovu vygenerovat')
+  }
+
+  async function handleViewDoc(doc) {
+    // For invoice-type docs from documents table (created by trigger), generate invoice HTML
+    if (doc.type === 'invoice' && doc.booking_id) {
+      // Find matching invoice
+      const inv = invoices.find(i => i.booking_id === doc.booking_id)
+      if (inv) { handleViewInvoice(inv); return }
+    }
     // Try storage
     const path = doc.pdf_path || doc.file_path
-    if (!path) return
+    if (!path) { setError('Dokument nemá cestu k souboru'); return }
     try {
       const { data, error: err } = await supabase.storage.from('documents').download(path)
       if (err) throw err
@@ -190,7 +272,14 @@ export default function BookingDocumentsTab({ bookingId }) {
       setViewHtml(text)
       setViewDoc(doc)
     } catch {
-      setError('Dokument není dostupný — storage bucket neexistuje')
+      // If it's a contract/protocol type, try to regenerate
+      if (doc.type === 'rental_contract' || doc.type === 'contract') {
+        handleViewGeneratedDoc({ ...doc, document_templates: { type: 'rental_contract' } })
+      } else if (doc.type === 'handover_protocol' || doc.type === 'protocol') {
+        handleViewGeneratedDoc({ ...doc, document_templates: { type: 'handover_protocol' } })
+      } else {
+        setError('Dokument není dostupný — storage bucket neexistuje. Typ: ' + (doc.type || '?') + ', cesta: ' + (path || '?'))
+      }
     }
   }
 
@@ -237,6 +326,17 @@ export default function BookingDocumentsTab({ bookingId }) {
   return (
     <div className="space-y-5">
       {error && <div className="p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
+
+      {/* DIAGNOSTIKA — viditelný debug panel */}
+      {debug && (
+        <div className="p-3 rounded-card mb-3" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+          <strong>DIAGNOSTIKA (booking: ...{bookingId?.slice(-8)})</strong><br/>
+          {debug.errors.length > 0 && <div style={{ color: '#dc2626' }}>CHYBY: {debug.errors.join(' | ')}</div>}
+          <div>documents tabulka: {debug.docs?.length || 0} záznamů {debug.docs?.length > 0 && `[${debug.docs.map(d => d.type).join(', ')}]`}</div>
+          <div>generated_documents: {debug.gen?.length || 0} záznamů {debug.gen?.length > 0 && `[${debug.gen.map(d => `${d.tpl_type||'?'}(filled:${d.has_filled},html:${d.has_html},pdf:${d.has_pdf})`).join(', ')}]`}</div>
+          <div>invoices: {debug.inv?.length || 0} záznamů {debug.inv?.length > 0 && `[${debug.inv.map(i => `${i.type}/${i.number}/${i.total}Kč/${i.status}`).join(', ')}]`}</div>
+        </div>
+      )}
 
       {/* Generate buttons */}
       <div className="flex gap-3">
@@ -290,21 +390,17 @@ export default function BookingDocumentsTab({ bookingId }) {
             const docType = d.document_templates?.type || 'contract'
             return (
               <div key={d.id} className="flex items-center gap-4 p-3 rounded-lg mb-2 cursor-pointer hover:shadow-sm transition-shadow"
-                style={{ background: '#f1faf7' }} onClick={() => d.pdf_path ? handleViewDoc(d) : null}>
+                style={{ background: '#f1faf7' }} onClick={() => handleViewGeneratedDoc(d)}>
                 <span style={{ fontSize: 16 }}>{DOC_ICONS[docType] || '📄'}</span>
                 <div className="flex-1">
                   <span className="text-sm font-bold">{d.document_templates?.name || 'Dokument'}</span>
                   <span className="text-xs ml-3" style={{ color: '#8aab99' }}>{d.created_at?.slice(0, 10)}</span>
                 </div>
-                <div className="flex gap-2">
-                  {d.pdf_path && (
-                    <>
-                      <button onClick={(e) => { e.stopPropagation(); handleViewDoc(d) }} className="text-[10px] font-bold cursor-pointer"
-                        style={{ color: '#2563eb', background: 'none', border: 'none' }}>Zobrazit</button>
-                      <button onClick={(e) => { e.stopPropagation(); handleDownload(d) }} className="text-[10px] font-bold cursor-pointer"
-                        style={{ color: '#4a6357', background: 'none', border: 'none' }}>Stáhnout</button>
-                    </>
-                  )}
+                <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                  <button onClick={() => handleViewGeneratedDoc(d)} className="text-[10px] font-bold cursor-pointer"
+                    style={{ color: '#2563eb', background: 'none', border: 'none' }}>Zobrazit</button>
+                  <button onClick={() => handleDownload(d)} className="text-[10px] font-bold cursor-pointer"
+                    style={{ color: '#4a6357', background: 'none', border: 'none' }}>Stáhnout</button>
                 </div>
               </div>
             )

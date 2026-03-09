@@ -422,7 +422,9 @@ async function renderInvoicesPage(){
   if(!wrap)return;
   var t=_t('doc');
   var docs=await apiFetchDocuments();
-  var invoices=docs.filter(function(d){return d.type==='invoice_advance'||d.type==='invoice_final'||d.type==='invoice_shop'||d.type==='payment_receipt';});
+  console.log('[INVOICES PAGE] All docs:', docs.length, docs.map(function(d){return d.type;}));
+  var invoices=docs.filter(function(d){return d.type==='invoice_advance'||d.type==='invoice_final'||d.type==='invoice_shop'||d.type==='payment_receipt'||d.type==='invoice';});
+  console.log('[INVOICES PAGE] Filtered invoices:', invoices.length);
 
   if(invoices.length===0){
     wrap.innerHTML='<div style="text-align:center;padding:30px;color:var(--g400);">'+t.noInvoices+'</div>';

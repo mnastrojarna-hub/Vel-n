@@ -66,12 +66,14 @@ export default function Finance() {
   }
 
   async function loadRecentInvoices() {
-    const { data } = await supabase
+    const result = await supabase
       .from('invoices')
       .select('*, profiles:customer_id(full_name)')
       .order('issue_date', { ascending: false, nullsFirst: false })
       .limit(20)
-    setRecentInvoices(data || [])
+    console.log('[Finance] invoices query:', result.error ? 'ERR: ' + result.error.message : (result.data?.length || 0) + ' rows')
+    if (result.error) console.error('[Finance] invoices error details:', result.error)
+    setRecentInvoices(result.data || [])
   }
 
   async function loadShopPayments() {
@@ -249,6 +251,14 @@ export default function Finance() {
               </div>
             </Card>
           )}
+
+          {/* DIAGNOSTIKA */}
+          <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+            <strong>DIAGNOSTIKA Finance</strong><br/>
+            <div>invoices: {recentInvoices.length} záznamů {recentInvoices.length > 0 && `[${recentInvoices.slice(0,5).map(i => `${i.type}/${i.number}/${i.total}Kč`).join(', ')}${recentInvoices.length > 5 ? '...' : ''}]`}</div>
+            <div>accounting_entries: {transactions.length} záznamů</div>
+            <div>shop_orders (paid): {shopPayments.length} záznamů</div>
+          </div>
 
           {/* Invoices (ZF, DP, KF) */}
           <Card className="mb-5">
