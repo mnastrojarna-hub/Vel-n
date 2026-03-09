@@ -156,14 +156,8 @@ var _currentResId = null;
 async function openResDetailById(bookingId){
   try {
     _currentResId = bookingId;
-    // Try cached bookings first, then Supabase
-    var booking = null;
-    if(_cachedBookings){
-      for(var ci=0;ci<_cachedBookings.length;ci++){
-        if(_cachedBookings[ci].id === bookingId){ booking = _cachedBookings[ci]; break; }
-      }
-    }
-    if(!booking) booking = await _getBookingById(bookingId);
+    // Always fetch fresh data from Supabase for detail view
+    var booking = await _getBookingById(bookingId);
     if(!booking){ showT('✗',_t('common').error,_t('res').resNotFound); return; }
 
     var moto = booking.motorcycles || (booking.moto_id ? await _getMotoById(booking.moto_id) : null);
@@ -195,10 +189,11 @@ async function openResDetailById(bookingId){
     if(totalEl) totalEl.textContent = (booking.total_price||0).toLocaleString('cs-CZ') + ' Kč';
 
     // Pickup/return locations
+    var branchName = moto && moto.branches ? moto.branches.name + ', ' + moto.branches.city : '—';
     var pickupLocEl = document.getElementById('rd-pickup-loc');
-    if(pickupLocEl) pickupLocEl.textContent = booking.pickup_address || (moto && moto.branches ? moto.branches.name + ', ' + moto.branches.city : '—');
+    if(pickupLocEl) pickupLocEl.textContent = booking.pickup_address || branchName;
     var returnLocEl = document.getElementById('rd-return-loc');
-    if(returnLocEl) returnLocEl.textContent = booking.return_address || (moto && moto.branches ? moto.branches.name + ', ' + moto.branches.city : '—');
+    if(returnLocEl) returnLocEl.textContent = booking.return_address || branchName;
 
     // Extras detail section
     var extrasEl = document.getElementById('rd-extras');
@@ -220,7 +215,6 @@ async function openResDetailById(bookingId){
     // SOS replacement info banner
     var sosBanner = document.getElementById('rd-sos-banner');
     if(!sosBanner){
-      // Create SOS banner element if not in template
       var rdContainer = document.getElementById('s-res-detail');
       if(rdContainer){
         sosBanner = document.createElement('div');
@@ -278,11 +272,13 @@ async function openResDetailById(bookingId){
       }
     }
 
+    // ===== COMPREHENSIVE DETAIL SUMMARY =====
+    _renderDetailSummary(booking, moto, st, days, branchName, bookingId);
+
     // Action buttons
     var actionsEl = document.getElementById('rd-actions');
     if(actionsEl){
       var btns = '';
-      // Document buttons (contract only for paid reservations, no advance invoice)
       var docBtns = '';
       if(booking.payment_status === 'paid' && st !== 'cancelled'){
         docBtns = '<div style="border-top:1px solid var(--g100);margin-top:10px;padding-top:10px;">' +
@@ -315,7 +311,6 @@ async function openResDetailById(bookingId){
         btns = '<button class="btn-g" onclick="restoreBooking(\''+bookingId+'\')">🔄 '+_t('res').restoreBtn+'</button>';
       }
       actionsEl.innerHTML = btns;
-      // Pre-fill existing rating for completed reservations
       if(st === 'dokoncene' && booking.rating){
         var r = booking.rating;
         _currentRating = r;
@@ -526,6 +521,113 @@ function _rebookMoto(motoId){
     goTo('s-home');
     showT('🏍️',_t('res').bookAgain||'Rezervace',_t('res').selectMoto||'Vyberte motorku');
   }
+}
+
+function _fmtDT(iso){
+  try { var d=new Date(iso); return d.getDate()+'.'+(d.getMonth()+1)+'.'+d.getFullYear()+' '+d.getHours()+':'+('0'+d.getMinutes()).slice(-2); } catch(e){ return '—'; }
+}
+
+function _renderDetailSummary(b, moto, st, days, branchName, bookingId){
+  var el = document.getElementById('rd-detail-summary');
+  if(!el) return;
+  var li = function(label, val){ return val ? '<li><strong>'+label+':</strong> '+val+'</li>' : ''; };
+  var h = '<ul class="rd-sum">';
+
+  // Status & ID
+  h += li('Stav', _statusLabel(st));
+  h += li('ID rezervace', '#'+bookingId.substr(-8).toUpperCase());
+  h += li('Motorka', moto ? (moto.model||'—') + (moto.spz ? ' ('+moto.spz+')' : '') : '—');
+  if(moto && moto.category) h += li('Kategorie', moto.category);
+  h += li('Pobočka', branchName);
+
+  // Dates — current
+  h += li('Začátek', _fmtDate(b.start_date) + ' v ' + (b.pickup_time||'9:00'));
+  h += li('Konec', _fmtDate(b.end_date) + ' v 9:00');
+  h += li('Délka', days + ' ' + (days===1?'den':days<5?'dny':'dní'));
+
+  // Original dates (if modified)
+  if(b.original_start_date && b.original_end_date && (b.original_start_date !== b.start_date || b.original_end_date !== b.end_date)){
+    var os = new Date(b.original_start_date), oe = new Date(b.original_end_date);
+    var origDays = Math.max(1, Math.round((oe-os)/86400000)+1);
+    var curDays = days;
+    var delta = curDays - origDays;
+    var deltaStr = delta > 0 ? ' (+'+delta+' dní)' : delta < 0 ? ' ('+delta+' dní)' : '';
+    h += '<li style="color:#b45309;"><strong>Původní termín:</strong> '+_fmtDate(b.original_start_date)+' – '+_fmtDate(b.original_end_date)+' ('+origDays+' dní)</li>';
+    h += '<li style="color:#2563eb;"><strong>Úprava rozsahu:</strong> '+deltaStr.trim()+' → nový termín '+_fmtDate(b.start_date)+' – '+_fmtDate(b.end_date)+'</li>';
+  }
+
+  // Pickup/return method & address
+  h += li('Vyzvednutí', (b.pickup_method==='delivery'?'Doručení na adresu':'Na pobočce') + ' — ' + (b.pickup_address||branchName));
+  h += li('Vrácení', (b.return_method==='delivery'?'Svoz z adresy':'Na pobočce') + ' — ' + (b.return_address||branchName));
+
+  // Gear
+  if(b.boots_size) h += li('Boty', 'vel. '+b.boots_size);
+  if(b.helmet_size) h += li('Helma', 'vel. '+b.helmet_size);
+  if(b.jacket_size) h += li('Bunda', 'vel. '+b.jacket_size);
+
+  // Insurance
+  if(b.insurance_type) h += li('Pojištění', b.insurance_type);
+
+  // Pricing
+  h += li('Cena výpůjčky', (b.total_price||0).toLocaleString('cs-CZ')+' Kč');
+  if(b.extras_price > 0) h += li('Příslušenství', b.extras_price.toLocaleString('cs-CZ')+' Kč');
+  if(b.delivery_fee > 0) h += li('Doručení', b.delivery_fee.toLocaleString('cs-CZ')+' Kč');
+  if(b.discount_amount > 0) h += li('Sleva', '-'+b.discount_amount.toLocaleString('cs-CZ')+' Kč'+(b.discount_code?' (kód: '+b.discount_code+')':''));
+  h += li('Platba', b.payment_status==='paid'?'Zaplaceno':'Nezaplaceno');
+  if(b.payment_method) h += li('Způsob platby', b.payment_method);
+
+  // Mileage
+  if(b.mileage_start) h += li('Nájezd při převzetí', b.mileage_start+' km');
+  if(b.mileage_end) h += li('Nájezd při vrácení', b.mileage_end+' km');
+  if(b.mileage_start && b.mileage_end) h += li('Najeto', (b.mileage_end-b.mileage_start)+' km');
+
+  // Damage
+  if(b.damage_report) h += '<li style="color:#b91c1c;"><strong>Poškození:</strong> '+b.damage_report+'</li>';
+
+  // SOS
+  if(b.sos_replacement) h += '<li style="color:#1a8a18;"><strong>SOS náhrada:</strong> Ano'+(b.replacement_for_booking_id?' (za #'+b.replacement_for_booking_id.substr(-8)+')':'')+'</li>';
+  if(b.ended_by_sos) h += '<li style="color:#b91c1c;"><strong>Ukončeno SOS:</strong> Ano'+(b.sos_incident_id?' (incident #'+b.sos_incident_id.substr(-8)+')':'')+'</li>';
+
+  // Cancellation
+  if(b.status==='cancelled'){
+    h += '<li style="color:#b91c1c;"><strong>Zrušeno:</strong> '+_fmtDT(b.cancelled_at)+'</li>';
+    if(b.cancellation_reason) h += '<li style="color:#b91c1c;"><strong>Důvod:</strong> '+b.cancellation_reason+'</li>';
+  }
+
+  // Timeline
+  h += '</ul><div class="rd-sum-t" style="margin-top:8px;"><strong>Průběh:</strong></div><ul class="rd-sum">';
+  if(b.created_at) h += '<li>Vytvořeno: '+_fmtDT(b.created_at)+'</li>';
+  if(b.confirmed_at) h += '<li>Potvrzeno: '+_fmtDT(b.confirmed_at)+'</li>';
+  if(b.picked_up_at) h += '<li>Vydáno: '+_fmtDT(b.picked_up_at)+'</li>';
+  if(b.returned_at) h += '<li>Vráceno: '+_fmtDT(b.returned_at)+'</li>';
+  if(b.actual_return_date) h += '<li>Skutečné vrácení: '+_fmtDT(b.actual_return_date)+'</li>';
+  if(b.cancelled_at) h += '<li style="color:#b91c1c;">Zrušeno: '+_fmtDT(b.cancelled_at)+'</li>';
+  if(b.rated_at) h += '<li>Hodnoceno: '+_fmtDT(b.rated_at)+' ('+b.rating+'/5)</li>';
+  h += '</ul>';
+
+  // Fetch SOS incidents async
+  el.innerHTML = h;
+  el.style.display = 'block';
+  _loadSosForDetail(b.id, el);
+}
+
+async function _loadSosForDetail(bookingId, el){
+  if(!_isSupabaseReady()) return;
+  try {
+    var r = await supabase.from('sos_incidents').select('id,type,title,status,severity,created_at,resolved_at,description').eq('booking_id',bookingId).order('created_at',{ascending:false});
+    if(!r.data || r.data.length===0) return;
+    var h = '<div class="rd-sum-t" style="margin-top:8px;"><strong>SOS incidenty:</strong></div><ul class="rd-sum">';
+    for(var i=0;i<r.data.length;i++){
+      var inc = r.data[i];
+      h += '<li style="color:#b91c1c;">#'+inc.id.substr(-6)+' — '+inc.type+' ('+inc.severity+') — '+inc.status;
+      if(inc.title) h += ' — '+inc.title;
+      h += ' — '+_fmtDT(inc.created_at);
+      if(inc.resolved_at) h += ' → vyřešeno '+_fmtDT(inc.resolved_at);
+      h += '</li>';
+    }
+    h += '</ul>';
+    el.innerHTML += h;
+  } catch(e){}
 }
 
 async function openExtendBooking(bookingId){
