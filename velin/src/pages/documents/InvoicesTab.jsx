@@ -101,16 +101,15 @@ export default function InvoicesTab() {
   }
 
   async function handleDownload(invoice) {
-    if (!invoice.pdf_path) return
     try {
-      const { data, error: err } = await supabase.storage.from('documents').download(invoice.pdf_path)
-      if (err) throw err
-      const url = URL.createObjectURL(data)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `faktura_${invoice.number || 'doc'}.html`
-      a.click()
-      URL.revokeObjectURL(url)
+      // Always generate from template (storage bucket may not exist)
+      const { loadInvoiceData } = await import('../../lib/invoiceUtils')
+      const { generateInvoiceHtml } = await import('../../lib/invoiceTemplate')
+      const fullInv = await loadInvoiceData(invoice.id)
+      const html = generateInvoiceHtml({ ...fullInv, customer: fullInv.profiles || {}, items: fullInv.items || [] })
+      const blob = new Blob([html], { type: 'text/html' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a'); a.href = url; a.download = `faktura_${invoice.number || 'doc'}.html`; a.click(); URL.revokeObjectURL(url)
     } catch (e) { setError(`Stažení selhalo: ${e.message}`) }
   }
 
@@ -196,7 +195,7 @@ export default function InvoicesTab() {
                     <TD>
                       <div className="flex gap-1">
                         <ActionBtn color="#2563eb" onClick={() => setDetail(inv)}>Náhled</ActionBtn>
-                        {inv.pdf_path && <ActionBtn color="#4a6357" onClick={() => handleDownload(inv)}>Stáhnout</ActionBtn>}
+                        <ActionBtn color="#4a6357" onClick={() => handleDownload(inv)}>Stáhnout</ActionBtn>
                         {inv.status !== 'cancelled' && inv.status !== 'refunded' && (
                           <ActionBtn color="#dc2626" onClick={() => setCancelConfirm(inv)}>Storno</ActionBtn>
                         )}

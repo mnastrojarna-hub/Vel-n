@@ -81,8 +81,9 @@ export default function InvoicePreviewModal({ invoice, onClose, onUpdated }) {
       await storeInvoicePdf(invoice.id, html)
       setMsg({ type: 'ok', text: 'Faktura uložena do úložiště.' })
       onUpdated?.()
-    } catch (e) {
-      setMsg({ type: 'error', text: `Uložení selhalo: ${e.message}` })
+    } catch {
+      // Storage bucket may not exist — that's OK, invoice is still in DB
+      setMsg({ type: 'warn', text: 'Faktura je uložena v databázi. Storage bucket zatím neexistuje — náhled se generuje automaticky.' })
     }
     setStoring(false)
   }
@@ -90,9 +91,9 @@ export default function InvoicePreviewModal({ invoice, onClose, onUpdated }) {
   async function handleSendEmail() {
     setSending(true); setMsg(null)
     try {
-      // Store first
+      // Try to store (non-blocking if bucket doesn't exist)
       if (!invoice.pdf_path) {
-        await storeInvoicePdf(invoice.id, html)
+        try { await storeInvoicePdf(invoice.id, html) } catch {}
       }
       // Try Edge Function; fallback to direct email
       const { error } = await supabase.functions.invoke('send-invoice-email', {

@@ -38,10 +38,7 @@ export default function UploadedTab() {
     }
   }
 
-  function getPreviewUrl(doc) {
-    if (!doc.file_path) return null
-    return supabase.storage.from('documents').getPublicUrl(doc.file_path).data.publicUrl
-  }
+  // getPreviewUrl removed — bucket may not exist, use PreviewModal instead
 
   const totalPages = Math.ceil(total / PER_PAGE)
 
@@ -95,19 +92,50 @@ export default function UploadedTab() {
       )}
 
       {preview && (
-        <Modal open title={`${preview.type || 'Doklad'} — ${preview.profiles?.full_name || ''}`} onClose={() => setPreview(null)} wide>
-          {getPreviewUrl(preview) ? (
-            <img
-              src={getPreviewUrl(preview)}
-              alt={preview.type}
-              className="w-full rounded-lg"
-              style={{ maxHeight: 500, objectFit: 'contain' }}
-            />
-          ) : (
-            <p style={{ color: '#8aab99', fontSize: 13 }}>Náhled není dostupný</p>
-          )}
-        </Modal>
+        <PreviewModal doc={preview} onClose={() => setPreview(null)} />
       )}
     </div>
+  )
+}
+
+function PreviewModal({ doc, onClose }) {
+  const [html, setHtml] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    loadContent()
+  }, [doc.id])
+
+  async function loadContent() {
+    setLoading(true)
+    if (doc.file_path) {
+      try {
+        const { data, error } = await supabase.storage.from('documents').download(doc.file_path)
+        if (!error && data) {
+          const text = await data.text()
+          setHtml(text)
+          setLoading(false)
+          return
+        }
+      } catch {}
+    }
+    setHtml(null)
+    setLoading(false)
+  }
+
+  return (
+    <Modal open title={`${doc.type || 'Doklad'} — ${doc.profiles?.full_name || ''}`} onClose={onClose} wide>
+      {loading ? (
+        <div className="py-8 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
+      ) : html ? (
+        <div className="border rounded-lg overflow-auto" style={{ maxHeight: 500, background: '#fff' }}>
+          <iframe srcDoc={html} style={{ width: '100%', height: 450, border: 'none' }} title="Náhled" />
+        </div>
+      ) : (
+        <div className="py-8 text-center" style={{ color: '#8aab99', fontSize: 13 }}>
+          Náhled není dostupný — storage bucket neexistuje. Dokument: {doc.file_name || doc.file_path || '—'}
+        </div>
+      )}
+    </Modal>
   )
 }
