@@ -13,10 +13,12 @@ import InvoicePreviewModal from './InvoicePreviewModal'
 const PER_PAGE = 25
 
 const TYPE_MAP = {
-  proforma: { label: 'Zálohová', color: '#2563eb', bg: '#dbeafe' },
-  advance: { label: 'Zálohová', color: '#2563eb', bg: '#dbeafe' },
-  final: { label: 'Konečná', color: '#1a8a18', bg: '#dcfce7' },
-  payment_receipt: { label: 'Doklad k platbě', color: '#0891b2', bg: '#cffafe' },
+  proforma: { label: 'Zálohová (ZF)', color: '#2563eb', bg: '#dbeafe' },
+  advance: { label: 'Zálohová (ZF)', color: '#2563eb', bg: '#dbeafe' },
+  issued: { label: 'Vystavená', color: '#6b7280', bg: '#f3f4f6' },
+  received: { label: 'Přijatá', color: '#6b7280', bg: '#f3f4f6' },
+  final: { label: 'Konečná (KF)', color: '#1a8a18', bg: '#dcfce7' },
+  payment_receipt: { label: 'Doklad k platbě (DP)', color: '#0891b2', bg: '#cffafe' },
   shop_proforma: { label: 'Shop zálohová', color: '#8b5cf6', bg: '#ede9fe' },
   shop_final: { label: 'Shop konečná', color: '#059669', bg: '#d1fae5' },
 }
@@ -142,8 +144,9 @@ export default function InvoicesTab() {
           options={[
             { value: '', label: 'Všechny typy' },
             { value: 'advance', label: 'Zálohové (ZF)' },
-            { value: 'final', label: 'Konečné (FV)' },
-            { value: 'payment_receipt', label: 'Doklady k platbě' },
+            { value: 'payment_receipt', label: 'Doklady k platbě (DP)' },
+            { value: 'final', label: 'Konečné (KF)' },
+            { value: 'issued', label: 'Vystavené' },
             { value: 'shop_proforma', label: 'Shop zálohové' },
             { value: 'shop_final', label: 'Shop konečné' },
           ]} />
@@ -175,7 +178,7 @@ export default function InvoicesTab() {
             </thead>
             <tbody>
               {invoices.map(inv => {
-                const tp = TYPE_MAP[inv.type] || TYPE_MAP.proforma
+                const tp = TYPE_MAP[inv.type] || { label: inv.type || 'Neznámý', color: '#6b7280', bg: '#f3f4f6' }
                 const st = STATUS_MAP[inv.status] || STATUS_MAP.draft
                 return (
                   <TRow key={inv.id}>

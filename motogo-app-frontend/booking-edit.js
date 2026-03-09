@@ -809,9 +809,12 @@ async function _sosSaveReplacement(){
         if(result.success){
           replacementData.payment_status = 'paid';
           replacementData.paid_at = new Date().toISOString();
-          // Generate advance invoice for SOS payment
+          // Generate advance invoice + payment receipt for SOS payment
           if(typeof apiGenerateAdvanceInvoice === 'function' && bookingId){
             apiGenerateAdvanceInvoice(bookingId, deliveryCost, 'sos').catch(function(){});
+          }
+          if(typeof apiGeneratePaymentReceipt === 'function' && bookingId){
+            apiGeneratePaymentReceipt(bookingId, deliveryCost, 'sos').catch(function(){});
           }
         } else {
           showT('❌','Platba zamítnuta','Zkuste to znovu');
