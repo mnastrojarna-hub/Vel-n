@@ -13,7 +13,7 @@
 | `admin_role` | viewer, manager, operator, technician, readonly, admin, superadmin |
 | `booking_status` | pending, reserved, active, completed, cancelled, rejected |
 | `payment_status` | pending, paid, unpaid, refunded, failed |
-| `moto_status` | available, rented, maintenance, unavailable, retired |
+| `moto_status` | active, rented, maintenance, unavailable, retired |
 | `sos_status` | reported, acknowledged, in_progress, resolved, closed |
 | `license_group` | AM, A1, A2, A, B |
 | `document_type` | rental_contract, handover_protocol, return_protocol, damage_report, invoice, other |
