@@ -11,15 +11,16 @@ export default function TaxTab() {
   const [generating, setGenerating] = useState(false)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [sort, setSort] = useState('date_desc')
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [sort])
 
   async function load() {
     setLoading(true)
     const { data, error: err } = await supabase
       .from('tax_records')
       .select('*')
-      .order('period', { ascending: false })
+      .order(sort.startsWith('amount') ? 'total' : 'period', { ascending: sort.endsWith('_asc') })
     if (err) setError(err.message)
     else setRecords(data || [])
     setLoading(false)
@@ -72,6 +73,14 @@ export default function TaxTab() {
           placeholder="Hledat období, typ…"
           className="rounded-btn text-xs outline-none"
           style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357', minWidth: 150 }} />
+        <select value={sort} onChange={e => setSort(e.target.value)}
+          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+          <option value="date_desc">Období ↓ nejnovější</option>
+          <option value="date_asc">Období ↑ nejstarší</option>
+          <option value="amount_desc">Částka ↓ nejvyšší</option>
+          <option value="amount_asc">Částka ↑ nejnižší</option>
+        </select>
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
           className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
           style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>

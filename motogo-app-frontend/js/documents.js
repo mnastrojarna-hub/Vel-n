@@ -27,7 +27,7 @@ async function _getBookingDataAsync(bookingId){
   var days=Math.max(1,Math.round((new Date(b.end_date)-new Date(b.start_date))/86400000)+1);
   return {b:b,m:m,p:p,days:days,
     motoName:m?(m.model||m.name):'Motorka',
-    resNum:'#RES-'+new Date(b.start_date).getFullYear()+'-'+b.id.substr(-4).toUpperCase()};
+    resNum:'#'+b.id.substr(-8).toUpperCase()};
 }
 function _getBookingData(bookingId){
   return null;

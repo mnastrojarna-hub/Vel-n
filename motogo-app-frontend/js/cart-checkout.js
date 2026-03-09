@@ -57,6 +57,8 @@ async function finalizeCheckout(){
   if(finalTotal<=0){showT('\u26a0\ufe0f','Chyba','Celková cena musí být vyšší než 0 Kč');return;}
   showT('\ud83d\udcb3',_t('cart').processing,_t('cart').pleaseWait);
 
+  var orderSuccess = false;
+
   if(window.supabase){
     try {
       var items = cart.map(function(c){ return {id:c.id, name:c.name, price:c.price, qty:c.qty}; });
@@ -74,6 +76,7 @@ async function finalizeCheckout(){
       for(var i=0;i<shopAppliedCodes.length;i++){
         if(shopAppliedCodes[i].type==='promo'){promoCode=shopAppliedCodes[i].code;break;}
       }
+      console.log('[SHOP] Creating order:', JSON.stringify({items:items.length, shipMode:shipMode, promoCode:promoCode}));
       var r = await window.supabase.rpc('create_shop_order', {
         p_items: items,
         p_shipping_method: shipMode,
@@ -81,65 +84,92 @@ async function finalizeCheckout(){
         p_payment_method: 'card',
         p_promo_code: promoCode
       });
+      console.log('[SHOP] create_shop_order result:', JSON.stringify(r.data), r.error ? 'ERR: '+r.error.message : 'OK');
       if(r.data && r.data.error){
         console.warn('[SHOP] create_shop_order error:', r.data.error);
-        showT('\u26a0\ufe0f','Chyba', r.data.error);return;
+        showT('\u26a0\ufe0f','Chyba objednávky', r.data.error);return;
       }
-      if(r.error){console.warn('[SHOP] RPC error:', r.error.message);showT('\u26a0\ufe0f','Chyba', r.error.message);return;}
+      if(r.error){
+        console.warn('[SHOP] RPC error:', r.error.message);
+        showT('\u26a0\ufe0f','Chyba objednávky', 'RPC selhalo: ' + r.error.message);return;
+      }
 
       var orderId = r.data && r.data.order_id;
-      if(orderId){
-        // Mark vouchers as redeemed
-        for(var vi=0;vi<shopAppliedCodes.length;vi++){
-          if(shopAppliedCodes[vi].type==='voucher'){
-            await window.supabase.from('vouchers').update({
-              status:'redeemed', redeemed_at:new Date().toISOString(),
-              redeemed_by:(await window.supabase.auth.getUser()).data.user.id
-            }).eq('id', shopAppliedCodes[vi].id);
-          }
-        }
+      if(!orderId){
+        console.warn('[SHOP] No order_id returned:', JSON.stringify(r.data));
+        showT('\u26a0\ufe0f','Chyba','Objednávka nebyla vytvořena (chybí order_id)');return;
+      }
 
-        // SIMULOVANÁ PLATBA: označ objednávku jako zaplacenou (přes RPC — obchází RLS)
-        var payRes = await window.supabase.rpc('confirm_shop_payment', {
-          p_order_id: orderId,
-          p_method: 'card'
-        });
-        if(payRes.error){
-          console.warn('[SHOP] RPC confirm_shop_payment failed:', payRes.error.message, '— trying direct update');
-          // Fallback: přímý update (funguje jen pokud existuje UPDATE RLS policy)
-          await window.supabase.from('shop_orders').update({
-            payment_status: 'paid', confirmed_at: new Date().toISOString()
-          }).eq('id', orderId);
-        }
-        console.log('[SHOP] Payment confirmed, order:', orderId, payRes.data);
-
-        // Generuj ZF (zálohovou fakturu) + doklad k platbě — NE finální fakturu
-        try {
-          await window.supabase.functions.invoke('generate-invoice', {
-            body: { type: 'shop_proforma', order_id: orderId }
-          });
-        } catch(ie){ console.warn('[SHOP] ZF generation:', ie); }
-        // Doklad k přijaté platbě
-        if(typeof apiGeneratePaymentReceipt === 'function'){
-          apiGeneratePaymentReceipt(orderId, finalTotal, 'shop').catch(function(e){ console.warn('[SHOP] Receipt err:', e); });
+      // Mark vouchers as redeemed
+      for(var vi=0;vi<shopAppliedCodes.length;vi++){
+        if(shopAppliedCodes[vi].type==='voucher'){
+          await window.supabase.from('vouchers').update({
+            status:'redeemed', redeemed_at:new Date().toISOString(),
+            redeemed_by:(await window.supabase.auth.getUser()).data.user.id
+          }).eq('id', shopAppliedCodes[vi].id);
         }
       }
-    } catch(e){ console.error('[SHOP] finalizeCheckout DB error:', e); }
+
+      // SIMULOVANÁ PLATBA: označ objednávku jako zaplacenou (přes RPC — obchází RLS)
+      console.log('[SHOP] Confirming payment for order:', orderId);
+      var payRes = await window.supabase.rpc('confirm_shop_payment', {
+        p_order_id: orderId,
+        p_method: 'card'
+      });
+      if(payRes.error){
+        console.warn('[SHOP] RPC confirm_shop_payment failed:', payRes.error.message, '— trying direct update');
+        // Fallback: přímý update (funguje jen pokud existuje UPDATE RLS policy)
+        var fbRes = await window.supabase.from('shop_orders').update({
+          payment_status: 'paid', status: 'confirmed', confirmed_at: new Date().toISOString()
+        }).eq('id', orderId);
+        if(fbRes.error){
+          console.warn('[SHOP] Fallback update also failed:', fbRes.error.message);
+          showT('\u26a0\ufe0f','Chyba platby','Objednávka vytvořena ('+orderId.substr(-8)+'), ale platba selhala. Kontaktujte nás.');return;
+        }
+      }
+      console.log('[SHOP] Payment confirmed, order:', orderId);
+
+      // Generuj ZF (zálohovou fakturu) + doklad k platbě
+      try {
+        console.log('[SHOP] Generating ZF proforma invoice for order:', orderId);
+        await window.supabase.functions.invoke('generate-invoice', {
+          body: { type: 'shop_proforma', order_id: orderId }
+        });
+      } catch(ie){ console.warn('[SHOP] ZF generation:', ie); }
+      // Doklad k přijaté platbě
+      try {
+        if(typeof apiGeneratePaymentReceipt === 'function'){
+          console.log('[SHOP] Generating DP payment receipt for order:', orderId, 'amount:', finalTotal);
+          await apiGeneratePaymentReceipt(orderId, finalTotal, 'shop');
+        }
+      } catch(re){ console.warn('[SHOP] Receipt err:', re); }
+
+      orderSuccess = true;
+    } catch(e){
+      console.error('[SHOP] finalizeCheckout DB error:', e);
+      showT('\u26a0\ufe0f','Chyba','Nepodařilo se dokončit objednávku: ' + (e.message || e));
+      return;
+    }
+  } else {
+    showT('\u26a0\ufe0f','Offline','Nelze vytvořit objednávku bez připojení');
+    return;
   }
 
-  cart=[];
-  cartFabDismissed=false;
-  appliedCode=null;
-  _appliedPromoId=null;
-  shopDiscountAmt=0;
-  shopAppliedCodes=[];
-  updateCartFab();
-  showT('\u2705',_t('cart').orderAccepted,_t('cart').confirmEmail);
-  var checkoutEl = document.getElementById('s-checkout');
-  if(checkoutEl){
-    checkoutEl.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;padding:40px;text-align:center;"><div style="font-size:64px;margin-bottom:16px;">\u2705</div><div style="font-size:22px;font-weight:900;color:var(--black);margin-bottom:8px;">'+_t('cart').thankYou+'</div><div style="font-size:14px;color:var(--g400);line-height:1.6;">'+_t('cart').orderReceived+'<br>'+_t('cart').emailConfirm+'</div></div>';
+  if(orderSuccess){
+    cart=[];
+    cartFabDismissed=false;
+    appliedCode=null;
+    _appliedPromoId=null;
+    shopDiscountAmt=0;
+    shopAppliedCodes=[];
+    updateCartFab();
+    showT('\u2705',_t('cart').orderAccepted,_t('cart').confirmEmail);
+    var checkoutEl = document.getElementById('s-checkout');
+    if(checkoutEl){
+      checkoutEl.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;padding:40px;text-align:center;"><div style="font-size:64px;margin-bottom:16px;">\u2705</div><div style="font-size:22px;font-weight:900;color:var(--black);margin-bottom:8px;">'+_t('cart').thankYou+'</div><div style="font-size:14px;color:var(--g400);line-height:1.6;">'+_t('cart').orderReceived+'<br>'+_t('cart').emailConfirm+'</div></div>';
+    }
+    setTimeout(function(){ goTo('s-merch'); }, 5000);
   }
-  setTimeout(function(){ goTo('s-merch'); }, 5000);
 }
 
 // ===== SHOP DISCOUNT: validace promo + voucher kódů v košíku =====

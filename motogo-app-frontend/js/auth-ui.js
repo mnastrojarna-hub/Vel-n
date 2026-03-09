@@ -428,7 +428,7 @@ function _renderUserDataAsync(){
         var motoName = activeLoan.moto ? activeLoan.moto.model : 'Motorka';
         homeActiveRes.innerHTML = '<div class="ares" onclick="openResDetailById(\''+activeLoan.id+'\')">' +
           '<div style="font-size:24px;">🏍️</div>' +
-          '<div><div class="ares-n">'+motoName+'</div><div class="ares-s">#'+activeLoan.id.substr(-12)+' · '+_t('auth').active+'</div></div>' +
+          '<div><div class="ares-n">'+motoName+'</div><div class="ares-s">#'+activeLoan.id.substr(-8).toUpperCase()+' · '+_t('auth').active+'</div></div>' +
           '<div class="ares-tag">'+_t('auth').active+'</div></div>';
       } else {
         return Promise.resolve(apiFetchMyBookings('pending')).then(function(upcoming){
@@ -437,7 +437,7 @@ function _renderUserDataAsync(){
             var nextName = nextBooking.moto_name || 'Motorka';
             homeActiveRes.innerHTML = '<div class="ares" onclick="openResDetailById(\''+nextBooking.id+'\')">' +
               '<div style="font-size:24px;">📅</div>' +
-              '<div><div class="ares-n">'+nextName+'</div><div class="ares-s">#'+nextBooking.id.substr(-12)+' · '+_t('auth').upcoming+'</div></div>' +
+              '<div><div class="ares-n">'+nextName+'</div><div class="ares-s">#'+nextBooking.id.substr(-8).toUpperCase()+' · '+_t('auth').upcoming+'</div></div>' +
               '<div class="ares-tag" style="background:rgba(59,130,246,.15);color:#1d4ed8;">'+_t('auth').ready+'</div></div>';
           } else {
             homeActiveRes.innerHTML = '<div class="ares" onclick="goTo(\'s-search\')" style="cursor:pointer;">' +

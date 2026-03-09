@@ -31,8 +31,9 @@ export default function InvoicesTab() {
   const [typeFilter, setTypeFilter] = useState('')
   const [showAdd, setShowAdd] = useState(false)
   const [detailInv, setDetailInv] = useState(null)
+  const [sort, setSort] = useState('date_desc')
 
-  useEffect(() => { load() }, [page, search, typeFilter])
+  useEffect(() => { load() }, [page, search, typeFilter, sort])
 
   async function load() {
     setLoading(true)
@@ -47,7 +48,7 @@ export default function InvoicesTab() {
       } else if (typeFilter) {
         query = query.eq('type', typeFilter)
       }
-      query = query.order('issue_date', { ascending: false, nullsFirst: false }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
+      query = query.order(sort.startsWith('amount') ? 'total' : 'issue_date', { ascending: sort.endsWith('_asc'), nullsFirst: false }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       const { data, count, error: err } = await query
       if (err) throw err
       setInvoices(data || [])
@@ -100,6 +101,14 @@ export default function InvoicesTab() {
           <option value="issued">Vystavené</option>
           <option value="shop_proforma">Shop zálohové</option>
           <option value="shop_final">Shop konečné</option>
+        </select>
+        <select value={sort} onChange={e => { setPage(1); setSort(e.target.value) }}
+          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+          <option value="date_desc">Datum ↓ nejnovější</option>
+          <option value="date_asc">Datum ↑ nejstarší</option>
+          <option value="amount_desc">Částka ↓ nejvyšší</option>
+          <option value="amount_asc">Částka ↑ nejnižší</option>
         </select>
         <div className="ml-auto">
           <Button green onClick={() => setShowAdd(true)}>+ Nová faktura</Button>

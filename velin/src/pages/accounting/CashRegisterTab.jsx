@@ -16,8 +16,9 @@ export default function CashRegisterTab() {
   const [showAdd, setShowAdd] = useState(false)
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
+  const [sort, setSort] = useState('date_desc')
 
-  useEffect(() => { load() }, [page])
+  useEffect(() => { load() }, [page, sort])
 
   async function load() {
     setLoading(true)
@@ -26,7 +27,7 @@ export default function CashRegisterTab() {
       const { data, count, error: err } = await supabase
         .from('cash_register')
         .select('*', { count: 'exact' })
-        .order('date', { ascending: false })
+        .order(sort.startsWith('amount') ? 'amount' : 'date', { ascending: sort.endsWith('_asc') })
         .range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       if (err) throw err
       let filtered = data || []
@@ -55,6 +56,14 @@ export default function CashRegisterTab() {
           <option value="">Vše</option>
           <option value="income">Příjmy</option>
           <option value="expense">Výdaje</option>
+        </select>
+        <select value={sort} onChange={e => { setPage(1); setSort(e.target.value) }}
+          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+          <option value="date_desc">Datum ↓ nejnovější</option>
+          <option value="date_asc">Datum ↑ nejstarší</option>
+          <option value="amount_desc">Částka ↓ nejvyšší</option>
+          <option value="amount_asc">Částka ↑ nejnižší</option>
         </select>
         <div className="ml-auto">
           <Button green onClick={() => setShowAdd(true)}>+ Nový záznam</Button>

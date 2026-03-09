@@ -3,7 +3,7 @@ import SuppliersTab from './purchases/SuppliersTab'
 import OrdersTab from './purchases/OrdersTab'
 import ShopOrdersTab from './purchases/ShopOrdersTab'
 
-const TABS = ['Objednávky', 'E-shop', 'Dodavatelé']
+const TABS = ['Objednávky', 'Nákupy', 'Dodavatelé']
 
 export default function Purchases() {
   const [tab, setTab] = useState('Objednávky')
@@ -25,8 +25,8 @@ export default function Purchases() {
           </button>
         ))}
       </div>
-      {tab === 'Objednávky' && <OrdersTab />}
-      {tab === 'E-shop' && <ShopOrdersTab />}
+      {tab === 'Objednávky' && <ShopOrdersTab />}
+      {tab === 'Nákupy' && <OrdersTab />}
       {tab === 'Dodavatelé' && <SuppliersTab />}
     </div>
   )

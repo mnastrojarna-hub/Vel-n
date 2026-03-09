@@ -107,6 +107,20 @@ export default function Customers() {
     <div>
       <div className="flex flex-wrap items-center gap-3 mb-5">
         <SearchInput value={search} onChange={v => { setPage(1); setSearch(v) }} placeholder="Hledat jméno, email, telefon…" />
+        <select value={filters.sortBy} onChange={e => setF('sortBy', e.target.value)}
+          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+          <option value="full_name">Dle jména</option>
+          <option value="created_at">Dle registrace</option>
+          <option value="city">Dle města</option>
+          <option value="country">Dle země</option>
+        </select>
+        <select value={filters.sortDir} onChange={e => setF('sortDir', e.target.value)}
+          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+          <option value="asc">↑ Vzestupně</option>
+          <option value="desc">↓ Sestupně</option>
+        </select>
         <button onClick={() => setShowFilters(!showFilters)}
           className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
           style={{ padding: '8px 14px', background: showFilters ? '#74FB71' : '#f1faf7', border: '1px solid #d4e8e0', color: showFilters ? '#1a2e22' : '#4a6357' }}>

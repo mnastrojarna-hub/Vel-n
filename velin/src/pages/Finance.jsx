@@ -45,7 +45,7 @@ export default function Finance() {
   const [chartData, setChartData] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [filters, setFilters] = useState({ period: 'month', type: '', category: '', search: '' })
+  const [filters, setFilters] = useState({ period: 'month', type: '', category: '', search: '', sort: 'date_desc' })
   const [categories, setCategories] = useState([])
   const [detailTx, setDetailTx] = useState(null)
   const [recentInvoices, setRecentInvoices] = useState([])
@@ -66,10 +66,12 @@ export default function Finance() {
   }
 
   async function loadRecentInvoices() {
+    const sortField = filters.sort.startsWith('amount') ? 'total' : 'issue_date'
+    const ascending = filters.sort.endsWith('_asc')
     const result = await supabase
       .from('invoices')
       .select('*, profiles:customer_id(full_name)')
-      .order('issue_date', { ascending: false, nullsFirst: false })
+      .order(sortField, { ascending, nullsFirst: false })
       .limit(20)
     console.log('[Finance] invoices query:', result.error ? 'ERR: ' + result.error.message : (result.data?.length || 0) + ' rows')
     if (result.error) console.error('[Finance] invoices error details:', result.error)
@@ -77,11 +79,13 @@ export default function Finance() {
   }
 
   async function loadShopPayments() {
+    const sortField = filters.sort.startsWith('amount') ? 'total' : 'created_at'
+    const ascending = filters.sort.endsWith('_asc')
     const { data } = await supabase
       .from('shop_orders')
       .select('*, profiles:customer_id(full_name)')
       .eq('payment_status', 'paid')
-      .order('created_at', { ascending: false })
+      .order(sortField, { ascending })
       .limit(20)
     setShopPayments(data || [])
   }
@@ -108,10 +112,12 @@ export default function Finance() {
   }
 
   async function loadTransactions() {
+    const sortField = filters.sort.startsWith('amount') ? 'amount' : 'date'
+    const ascending = filters.sort.endsWith('_asc')
     let query = supabase
       .from('accounting_entries')
       .select('*')
-      .order('date', { ascending: false })
+      .order(sortField, { ascending })
       .limit(200)
     if (filters.category) query = query.eq('category', filters.category)
     const { data, error: err } = await query
@@ -213,6 +219,14 @@ export default function Finance() {
           placeholder="Hledat popis…"
           className="rounded-btn text-xs outline-none"
           style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357', minWidth: 150 }} />
+        <select value={filters.sort} onChange={e => setFilters(f => ({ ...f, sort: e.target.value }))}
+          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+          <option value="date_desc">Datum ↓ nejnovější</option>
+          <option value="date_asc">Datum ↑ nejstarší</option>
+          <option value="amount_desc">Částka ↓ nejvyšší</option>
+          <option value="amount_asc">Částka ↑ nejnižší</option>
+        </select>
         <div className="ml-auto flex gap-2">
           <Button onClick={() => handleExport('csv')}>CSV</Button>
           <Button onClick={() => handleExport('xlsx')}>XLSX</Button>
