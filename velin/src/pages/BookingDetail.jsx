@@ -114,8 +114,11 @@ export default function BookingDetail() {
           supabase.functions.invoke('send-booking-email', { body: { ...emailBody, type: 'booking_reserved' } }),
         ])
       } else if (newStatus === 'active') {
-        // Generate handover protocol
-        await supabase.functions.invoke('generate-document', { body: { template_slug: 'handover_protocol', booking_id: id } })
+        // Generate handover protocol + payment receipt (daňový doklad k přijaté platbě)
+        await Promise.allSettled([
+          supabase.functions.invoke('generate-document', { body: { template_slug: 'handover_protocol', booking_id: id } }),
+          supabase.functions.invoke('generate-invoice', { body: { type: 'payment_receipt', booking_id: id } }),
+        ])
       } else if (newStatus === 'completed') {
         // Generate final invoice + send completion email
         await Promise.allSettled([

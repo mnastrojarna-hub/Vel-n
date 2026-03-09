@@ -7,7 +7,9 @@ import Modal from '../../components/ui/Modal'
 
 const TYPE_MAP = {
   proforma: { label: 'Zálohová', color: '#2563eb', bg: '#dbeafe' },
+  advance: { label: 'Zálohová', color: '#2563eb', bg: '#dbeafe' },
   final: { label: 'Konečná', color: '#1a8a18', bg: '#dcfce7' },
+  payment_receipt: { label: 'Doklad k platbě', color: '#0891b2', bg: '#cffafe' },
   shop_proforma: { label: 'Shop zálohová', color: '#8b5cf6', bg: '#ede9fe' },
   shop_final: { label: 'Shop konečná', color: '#059669', bg: '#d1fae5' },
 }
@@ -34,7 +36,7 @@ export default function BookingPaymentsTab({ bookingId }) {
     setLoading(true)
     try {
       const [invRes, entRes] = await Promise.all([
-        supabase.from('invoices').select('*').eq('booking_id', bookingId).order('created_at', { ascending: false }),
+        supabase.from('invoices').select('*').eq('booking_id', bookingId).order('issued_at', { ascending: false, nullsFirst: false }),
         supabase.from('accounting_entries').select('*').eq('reference_type', 'booking').eq('reference_id', bookingId).order('created_at', { ascending: false }),
       ])
       setInvoices(invRes.data || [])
@@ -67,6 +69,9 @@ export default function BookingPaymentsTab({ bookingId }) {
       <div className="flex gap-3">
         <Button green onClick={() => handleGenerateInvoice('proforma')} disabled={generating === 'proforma'}>
           {generating === 'proforma' ? 'Vystavuji…' : 'Vystavit zálohovou fakturu'}
+        </Button>
+        <Button green onClick={() => handleGenerateInvoice('payment_receipt')} disabled={generating === 'payment_receipt'}>
+          {generating === 'payment_receipt' ? 'Vystavuji…' : 'Vystavit doklad k platbě'}
         </Button>
         <Button green onClick={() => handleGenerateInvoice('final')} disabled={generating === 'final'}>
           {generating === 'final' ? 'Vystavuji…' : 'Vystavit konečnou fakturu'}

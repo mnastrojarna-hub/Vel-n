@@ -49,8 +49,8 @@ export default function InvoicesTab() {
     try {
       let query = supabase
         .from('invoices')
-        .select('*, profiles:customer_id(full_name, email), bookings:booking_id(id, start_date, motorcycles(model))', { count: 'exact' })
-        .order('created_at', { ascending: false })
+        .select('*, profiles:customer_id(full_name, email), bookings:booking_id(id, start_date, motorcycles:moto_id(model))', { count: 'exact' })
+        .order('issued_at', { ascending: false, nullsFirst: false })
 
       if (filters.type === 'advance') {
         // ZF: match both 'advance' and 'proforma' types
@@ -189,7 +189,7 @@ export default function InvoicesTab() {
                       </span>
                     </TD>
                     <TD><Badge label={st.label} color={st.color} bg={st.bg} /></TD>
-                    <TD>{inv.created_at ? new Date(inv.created_at).toLocaleDateString('cs-CZ') : '—'}</TD>
+                    <TD>{(inv.issue_date || inv.issued_at) ? new Date(inv.issue_date || inv.issued_at).toLocaleDateString('cs-CZ') : '—'}</TD>
                     <TD>
                       <div className="flex gap-1">
                         <ActionBtn color="#2563eb" onClick={() => setDetail(inv)}>Náhled</ActionBtn>

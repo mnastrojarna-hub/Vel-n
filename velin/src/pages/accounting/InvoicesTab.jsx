@@ -38,7 +38,7 @@ export default function InvoicesTab() {
     try {
       let query = supabase
         .from('invoices')
-        .select('*, profiles(full_name)', { count: 'exact' })
+        .select('*, profiles:customer_id(full_name)', { count: 'exact' })
       if (search) query = query.or(`number.ilike.%${search}%`)
       if (typeFilter === 'advance') {
         query = query.in('type', ['advance', 'proforma'])
