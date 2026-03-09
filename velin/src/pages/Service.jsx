@@ -3,7 +3,6 @@ import { supabase } from '../lib/supabase'
 import Card from '../components/ui/Card'
 import StatusBadge from '../components/ui/StatusBadge'
 import Button from '../components/ui/Button'
-import { Table, TRow, TH, TD } from '../components/ui/Table'
 import ServiceSchedule from './service/ServiceSchedule'
 import ServiceLog from './service/ServiceLog'
 
@@ -80,6 +79,10 @@ function ActiveServiceTab({ onRefresh }) {
   const [motos, setMotos] = useState([])
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
+  const [expanded, setExpanded] = useState({})
+  const [newDesc, setNewDesc] = useState({})
+  const [savingDesc, setSavingDesc] = useState({})
+  const [endingService, setEndingService] = useState({})
 
   useEffect(() => { load() }, [])
 
@@ -96,28 +99,77 @@ function ActiveServiceTab({ onRefresh }) {
     setLoading(false)
   }
 
+  function toggleExpand(motoId) {
+    setExpanded(e => ({ ...e, [motoId]: !e[motoId] }))
+  }
+
   async function markCompleted(logEntry) {
-    if (!window.confirm(`Dokončit servis pro ${logEntry.motorcycles?.model || 'motorku'}?`)) return
-    await supabase.from('maintenance_log').update({
-      status: 'completed',
-      completed_date: new Date().toISOString().slice(0, 10),
-    }).eq('id', logEntry.id)
-    if (logEntry.moto_id) {
-      const { data: otherActive } = await supabase.from('maintenance_log')
-        .select('id').eq('moto_id', logEntry.moto_id).eq('status', 'in_service').neq('id', logEntry.id)
-      if (!otherActive || otherActive.length === 0) {
-        await supabase.from('motorcycles').update({
-          status: 'active', last_service_date: new Date().toISOString().slice(0, 10),
-        }).eq('id', logEntry.moto_id)
+    setEndingService(s => ({ ...s, [logEntry.id]: true }))
+    try {
+      await supabase.from('maintenance_log').update({
+        status: 'completed',
+        completed_date: new Date().toISOString().slice(0, 10),
+      }).eq('id', logEntry.id)
+      if (logEntry.moto_id) {
+        const { data: otherActive } = await supabase.from('maintenance_log')
+          .select('id').eq('moto_id', logEntry.moto_id).eq('status', 'in_service').neq('id', logEntry.id)
+        if (!otherActive || otherActive.length === 0) {
+          await supabase.from('motorcycles').update({
+            status: 'available', last_service_date: new Date().toISOString().slice(0, 10),
+          }).eq('id', logEntry.moto_id)
+        }
       }
+      const { data: { user } } = await supabase.auth.getUser()
+      await supabase.from('admin_audit_log').insert({
+        admin_id: user?.id, action: 'service_completed',
+        details: { log_id: logEntry.id, moto_id: logEntry.moto_id },
+      })
+      load()
+      onRefresh?.()
+    } finally {
+      setEndingService(s => ({ ...s, [logEntry.id]: false }))
     }
-    const { data: { user } } = await supabase.auth.getUser()
-    await supabase.from('admin_audit_log').insert({
-      admin_id: user?.id, action: 'service_completed',
-      details: { log_id: logEntry.id, moto_id: logEntry.moto_id },
-    })
-    load()
-    onRefresh?.()
+  }
+
+  async function endServiceDirect(moto) {
+    setEndingService(s => ({ ...s, [moto.id]: true }))
+    try {
+      await supabase.from('motorcycles').update({
+        status: 'available', last_service_date: new Date().toISOString().slice(0, 10),
+      }).eq('id', moto.id)
+      const { data: { user } } = await supabase.auth.getUser()
+      await supabase.from('admin_audit_log').insert({
+        admin_id: user?.id, action: 'service_ended_direct',
+        details: { moto_id: moto.id, model: moto.model },
+      })
+      load()
+      onRefresh?.()
+    } finally {
+      setEndingService(s => ({ ...s, [moto.id]: false }))
+    }
+  }
+
+  async function saveDescription(motoId, logId) {
+    const desc = newDesc[logId || motoId]
+    if (!desc?.trim()) return
+    setSavingDesc(s => ({ ...s, [logId || motoId]: true }))
+    try {
+      if (logId) {
+        await supabase.from('maintenance_log').update({ description: desc.trim() }).eq('id', logId)
+      } else {
+        // Create a new maintenance_log entry for the moto
+        await supabase.from('maintenance_log').insert({
+          moto_id: motoId,
+          description: desc.trim(),
+          service_type: 'Neplánovaný servis',
+          status: 'in_service',
+        })
+      }
+      setNewDesc(d => ({ ...d, [logId || motoId]: '' }))
+      load()
+    } finally {
+      setSavingDesc(s => ({ ...s, [logId || motoId]: false }))
+    }
   }
 
   if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
@@ -143,42 +195,114 @@ function ActiveServiceTab({ onRefresh }) {
     <div className="space-y-4">
       {motos.map(m => {
         const mLogs = logsByMoto[m.id] || []
+        const isExpanded = expanded[m.id]
         return (
           <Card key={m.id}>
-            <div className="flex items-center gap-4 mb-3">
-              <div>
+            <div
+              className="flex items-center gap-4 cursor-pointer select-none"
+              onClick={() => toggleExpand(m.id)}
+            >
+              <span style={{ color: '#8aab99', fontSize: 14, fontWeight: 700, transition: 'transform .2s', transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>
+                ▶
+              </span>
+              <div className="flex-1">
                 <span className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{m.model}</span>
                 <span className="font-mono text-xs ml-2" style={{ color: '#8aab99' }}>{m.spz}</span>
+                {m.branches?.name && <span className="text-xs ml-3" style={{ color: '#8aab99' }}>{m.branches.name}</span>}
               </div>
-              <span className="text-xs" style={{ color: '#8aab99' }}>{m.branches?.name || ''}</span>
               <StatusBadge status="maintenance" />
+              {mLogs.length > 0 && (
+                <span className="text-[10px] font-bold" style={{ color: '#b45309' }}>{mLogs.length} záznam{mLogs.length > 1 ? 'y' : ''}</span>
+              )}
             </div>
-            {mLogs.length > 0 ? (
-              <Table>
-                <thead>
-                  <TRow header>
-                    <TH>Popis</TH><TH>Typ</TH><TH>Vytvořeno</TH><TH>Technik</TH><TH>Akce</TH>
-                  </TRow>
-                </thead>
-                <tbody>
-                  {mLogs.map(l => (
-                    <TRow key={l.id}>
-                      <TD>{l.description || '—'}</TD>
-                      <TD>{l.type || '—'}</TD>
-                      <TD>{l.created_at ? new Date(l.created_at).toLocaleDateString('cs-CZ') : '—'}</TD>
-                      <TD>{l.performed_by || '—'}</TD>
-                      <TD>
-                        <Button green onClick={() => markCompleted(l)} style={{ fontSize: 10, padding: '4px 10px' }}>
-                          Dokončit
-                        </Button>
-                      </TD>
-                    </TRow>
-                  ))}
-                </tbody>
-              </Table>
-            ) : (
-              <div className="text-xs p-3 rounded-lg" style={{ background: '#fef3c7', color: '#b45309' }}>
-                Motorka je ve stavu servis, ale nemá aktivní servisní záznam.
+
+            {isExpanded && (
+              <div className="mt-4">
+                {mLogs.length > 0 ? (
+                  <div className="space-y-3">
+                    {mLogs.map(l => (
+                      <div key={l.id} className="p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+                        <div className="flex items-start gap-3 mb-2">
+                          <div className="flex-1">
+                            <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Popis</div>
+                            <div className="text-sm" style={{ color: '#0f1a14' }}>{l.description || '—'}</div>
+                          </div>
+                          <div>
+                            <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Typ</div>
+                            <div className="text-xs" style={{ color: '#4a6357' }}>{l.service_type || l.type || '—'}</div>
+                          </div>
+                          <div>
+                            <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Vytvořeno</div>
+                            <div className="text-xs" style={{ color: '#4a6357' }}>{l.created_at ? new Date(l.created_at).toLocaleDateString('cs-CZ') : '—'}</div>
+                          </div>
+                          <div>
+                            <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Technik</div>
+                            <div className="text-xs" style={{ color: '#4a6357' }}>{l.performed_by || '—'}</div>
+                          </div>
+                        </div>
+                        {/* Edit description */}
+                        <div className="flex gap-2 items-end mt-2">
+                          <div className="flex-1">
+                            <textarea
+                              value={newDesc[l.id] ?? l.description ?? ''}
+                              onChange={e => setNewDesc(d => ({ ...d, [l.id]: e.target.value }))}
+                              placeholder="Doplnit popis závady / detaily servisu…"
+                              className="w-full rounded-btn text-xs outline-none"
+                              style={{ padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0', minHeight: 40, resize: 'vertical' }}
+                            />
+                          </div>
+                          <Button
+                            onClick={() => saveDescription(m.id, l.id)}
+                            disabled={savingDesc[l.id]}
+                            style={{ fontSize: 10, padding: '6px 12px' }}
+                          >
+                            {savingDesc[l.id] ? 'Ukládám…' : 'Uložit popis'}
+                          </Button>
+                          <Button
+                            green
+                            onClick={() => markCompleted(l)}
+                            disabled={endingService[l.id]}
+                            style={{ fontSize: 10, padding: '6px 12px' }}
+                          >
+                            {endingService[l.id] ? 'Dokončuji…' : 'Ukončit servis'}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-lg" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
+                    <div className="text-xs font-bold mb-2" style={{ color: '#b45309' }}>
+                      Motorka je ve stavu servis, ale nemá servisní záznam.
+                    </div>
+                    <div className="flex gap-2 items-end">
+                      <div className="flex-1">
+                        <textarea
+                          value={newDesc[m.id] || ''}
+                          onChange={e => setNewDesc(d => ({ ...d, [m.id]: e.target.value }))}
+                          placeholder="Popište závadu / důvod servisu…"
+                          className="w-full rounded-btn text-xs outline-none"
+                          style={{ padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0', minHeight: 40, resize: 'vertical' }}
+                        />
+                      </div>
+                      <Button
+                        onClick={() => saveDescription(m.id, null)}
+                        disabled={savingDesc[m.id] || !newDesc[m.id]?.trim()}
+                        style={{ fontSize: 10, padding: '6px 12px' }}
+                      >
+                        {savingDesc[m.id] ? 'Ukládám…' : 'Vytvořit záznam'}
+                      </Button>
+                      <Button
+                        green
+                        onClick={() => endServiceDirect(m)}
+                        disabled={endingService[m.id]}
+                        style={{ fontSize: 10, padding: '6px 12px' }}
+                      >
+                        {endingService[m.id] ? 'Vracím…' : 'Ukončit servis'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </Card>

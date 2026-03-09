@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Component } from 'react'
 import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
@@ -8,7 +8,38 @@ import Modal from '../components/ui/Modal'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import SearchInput from '../components/ui/SearchInput'
 
-export default function Branches() {
+class BranchesErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { hasError: false, error: null } }
+  static getDerivedStateFromError(error) { return { hasError: true, error } }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 24 }}>
+          <div className="p-4 rounded-card" style={{ background: '#fee2e2', color: '#dc2626' }}>
+            <p className="font-bold mb-2">Chyba při zobrazení poboček</p>
+            <p className="text-xs mb-3">{this.state.error?.message || 'Neznámá chyba'}</p>
+            <button onClick={() => { this.setState({ hasError: false, error: null }) }}
+              className="rounded-btn text-xs font-bold cursor-pointer"
+              style={{ padding: '6px 14px', background: '#dc2626', color: '#fff', border: 'none' }}>
+              Zkusit znovu
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
+export default function BranchesPage() {
+  return (
+    <BranchesErrorBoundary>
+      <Branches />
+    </BranchesErrorBoundary>
+  )
+}
+
+function Branches() {
   const [branches, setBranches] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -60,9 +91,9 @@ export default function Branches() {
           if (!m.branch_id) return
           if (!s[m.branch_id]) s[m.branch_id] = { total: 0, active: 0, maintenance: 0, out_of_service: 0 }
           s[m.branch_id].total++
-          if (m.status === 'active') s[m.branch_id].active++
+          if (m.status === 'available' || m.status === 'rented') s[m.branch_id].active++
           if (m.status === 'maintenance') s[m.branch_id].maintenance++
-          if (m.status === 'out_of_service') s[m.branch_id].out_of_service++
+          if (m.status === 'unavailable' || m.status === 'retired') s[m.branch_id].out_of_service++
         })
         setStats(s)
       } catch (e) {
@@ -73,22 +104,34 @@ export default function Branches() {
       try {
         const { data: bookings } = await supabase
           .from('bookings')
-          .select('id, motorcycles(branch_id)')
+          .select('id, moto_id')
           .in('status', ['active', 'reserved', 'pending'])
-        const bs = {}
-        ;(bookings || []).forEach(b => {
-          const bid = b.motorcycles?.branch_id
-          if (!bid) return
-          bs[bid] = (bs[bid] || 0) + 1
-        })
-        setBookingStats(bs)
+        if (bookings && bookings.length > 0) {
+          const motoIds = [...new Set(bookings.map(b => b.moto_id).filter(Boolean))]
+          if (motoIds.length > 0) {
+            const { data: motosForBookings } = await supabase
+              .from('motorcycles')
+              .select('id, branch_id')
+              .in('id', motoIds)
+            const motoToBranch = {}
+            ;(motosForBookings || []).forEach(m => { motoToBranch[m.id] = m.branch_id })
+            const bs = {}
+            bookings.forEach(b => {
+              const bid = motoToBranch[b.moto_id]
+              if (!bid) return
+              bs[bid] = (bs[bid] || 0) + 1
+            })
+            setBookingStats(bs)
+          }
+        }
       } catch (e) {
         console.warn('[Branches] booking stats failed:', e.message)
       }
     } catch (e) {
       setError(e.message)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   async function handleDelete(branch) {
@@ -340,9 +383,11 @@ function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEd
   }
 
   const STATUS_LABELS = {
-    active: { label: 'Aktivní', bg: '#dcfce7', color: '#1a8a18' },
+    available: { label: 'Dostupná', bg: '#dcfce7', color: '#1a8a18' },
+    rented: { label: 'Pronajatá', bg: '#dbeafe', color: '#2563eb' },
     maintenance: { label: 'V servisu', bg: '#fef3c7', color: '#b45309' },
-    out_of_service: { label: 'Vyřazena', bg: '#fee2e2', color: '#dc2626' },
+    unavailable: { label: 'Nedostupná', bg: '#fee2e2', color: '#dc2626' },
+    retired: { label: 'Vyřazena', bg: '#f3f4f6', color: '#6b7280' },
   }
 
   return (
@@ -397,7 +442,7 @@ function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEd
       ) : (
         <div className="space-y-1 max-h-48 overflow-y-auto">
           {motos.map(m => {
-            const st = STATUS_LABELS[m.status] || STATUS_LABELS.active
+            const st = STATUS_LABELS[m.status] || STATUS_LABELS.available
             return (
               <div key={m.id} className="flex items-center text-xs" style={{ padding: '6px 10px', background: '#f8fcfa', borderRadius: 8 }}>
                 <span className="font-bold" style={{ color: '#0f1a14' }}>{m.model}</span>
