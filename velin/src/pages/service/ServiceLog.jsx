@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
@@ -28,17 +29,18 @@ export default function ServiceLog() {
     setLoading(true)
     setError(null)
     try {
+      debugLog('ServiceLog', 'load', { page, filters })
       let query = supabase
         .from('maintenance_log')
         .select('*, motorcycles(model, spz)', { count: 'exact' })
       if (filters.type) query = query.eq('type', filters.type)
       if (filters.search) query = query.or(`motorcycles.model.ilike.%${filters.search}%,motorcycles.spz.ilike.%${filters.search}%`)
       query = query.order('created_at', { ascending: false }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
-      const { data, count, error: err } = await query
+      const { data, count, error: err } = await debugAction('maintenance_log.list', 'ServiceLog', () => query)
       if (err) throw err
       setLogs(data || [])
       setTotal(count || 0)
-    } catch (e) { setError(e.message) }
+    } catch (e) { debugError('ServiceLog', 'load', e); setError(e.message) }
     finally { setLoading(false) }
   }
 
@@ -123,13 +125,16 @@ function ServiceModal({ entry, onClose, onSaved }) {
   async function handleSave() {
     setSaving(true); setErr(null)
     try {
+      debugLog('ServiceLog', 'handleSave', { isEdit: !!entry, moto_id: form.moto_id })
       const { scheduled_date: _sd, ...rest } = form
       const payload = { ...rest, cost: Number(rest.cost) || null }
       if (entry) {
-        const { error } = await supabase.from('maintenance_log').update(payload).eq('id', entry.id)
+        const { error } = await debugAction('maintenance_log.update', 'ServiceLog', () =>
+          supabase.from('maintenance_log').update(payload).eq('id', entry.id))
         if (error) throw error
       } else {
-        const { error } = await supabase.from('maintenance_log').insert(payload)
+        const { error } = await debugAction('maintenance_log.insert', 'ServiceLog', () =>
+          supabase.from('maintenance_log').insert(payload))
         if (error) throw error
       }
       if (form.status === 'completed' && form.moto_id) {
@@ -138,7 +143,7 @@ function ServiceModal({ entry, onClose, onSaved }) {
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: entry ? 'service_updated' : 'service_created', details: { moto_id: form.moto_id } })
       onSaved()
-    } catch (e) { setErr(e.message) } finally { setSaving(false) }
+    } catch (e) { debugError('ServiceLog', 'handleSave', e); setErr(e.message) } finally { setSaving(false) }
   }
 
   return (

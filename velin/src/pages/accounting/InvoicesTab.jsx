@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import { generateInvoiceNumber, calculateTotals } from '../../lib/invoiceUtils'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
@@ -39,6 +40,7 @@ export default function InvoicesTab() {
     setLoading(true)
     setError(null)
     try {
+      debugLog('AccInvoicesTab', 'load', { page, search, typeFilter, sort })
       let query = supabase
         .from('invoices')
         .select('*, profiles:customer_id(full_name)', { count: 'exact' })
@@ -49,11 +51,12 @@ export default function InvoicesTab() {
         query = query.eq('type', typeFilter)
       }
       query = query.order(sort.startsWith('amount') ? 'total' : 'issue_date', { ascending: sort.endsWith('_asc'), nullsFirst: false }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
-      const { data, count, error: err } = await query
+      const { data, count, error: err } = await debugAction('invoices.list', 'AccInvoicesTab', () => query)
       if (err) throw err
       setInvoices(data || [])
       setTotal(count || 0)
     } catch (e) {
+      debugError('AccInvoicesTab', 'load', e)
       setError(e.message)
     } finally {
       setLoading(false)
@@ -62,24 +65,32 @@ export default function InvoicesTab() {
 
   async function generatePdf(invoiceId) {
     try {
-      const { data, error } = await supabase.functions.invoke('generate-document', {
-        body: { type: 'invoice', invoice_id: invoiceId },
-      })
+      debugLog('AccInvoicesTab', 'generatePdf', { invoiceId })
+      const { data, error } = await debugAction('functions.generate-document', 'AccInvoicesTab', () =>
+        supabase.functions.invoke('generate-document', {
+          body: { type: 'invoice', invoice_id: invoiceId },
+        })
+      )
       if (error) throw error
       if (data?.url) window.open(data.url, '_blank')
     } catch (e) {
+      debugError('AccInvoicesTab', 'generatePdf', e)
       setError('Generování PDF selhalo: ' + e.message)
     }
   }
 
   async function sendEmail(invoiceId) {
     try {
-      const { error } = await supabase.functions.invoke('send-email', {
-        body: { type: 'invoice', invoice_id: invoiceId },
-      })
+      debugLog('AccInvoicesTab', 'sendEmail', { invoiceId })
+      const { error } = await debugAction('functions.send-email', 'AccInvoicesTab', () =>
+        supabase.functions.invoke('send-email', {
+          body: { type: 'invoice', invoice_id: invoiceId },
+        })
+      )
       if (error) throw error
       alert('Email odeslán')
     } catch (e) {
+      debugError('AccInvoicesTab', 'sendEmail', e)
       setError('Odeslání emailu selhalo: ' + e.message)
     }
   }

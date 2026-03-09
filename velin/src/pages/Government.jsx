@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { debugLog } from '../lib/debugLog'
 import StkTab from './government/StkTab'
 import InsuranceTab from './government/InsuranceTab'
 import DataBoxTab from './government/DataBoxTab'
@@ -9,11 +10,13 @@ const TABS = ['STK & Emise', 'Pojistky', 'Datová schránka', 'IČO / DIČ']
 export default function Government() {
   const [tab, setTab] = useState('STK & Emise')
 
+  useEffect(() => { debugLog('page.mount', 'Government') }, [])
+
   return (
     <div>
       <div className="flex gap-2 mb-5 flex-wrap">
         {TABS.map(t => (
-          <button key={t} onClick={() => setTab(t)}
+          <button key={t} onClick={() => { debugLog('tab.switch', 'Government', { tab: t }); setTab(t) }}
             className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
             style={{
               padding: '8px 18px',

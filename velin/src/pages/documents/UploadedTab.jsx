@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import SearchInput from '../../components/ui/SearchInput'
 import Pagination from '../../components/ui/Pagination'
@@ -23,16 +24,18 @@ export default function UploadedTab() {
     setLoading(true)
     setError(null)
     try {
+      debugLog('UploadedTab', 'load', { page, search, sort })
       let query = supabase
         .from('documents')
         .select('*, profiles(full_name)', { count: 'exact' })
       if (search) query = query.or(`type.ilike.%${search}%,profiles.full_name.ilike.%${search}%`)
       query = query.order('created_at', { ascending: sort === 'date_asc' }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
-      const { data, count, error: err } = await query
+      const { data, count, error: err } = await debugAction('documents.list', 'UploadedTab', () => query)
       if (err) throw err
       setDocs(data || [])
       setTotal(count || 0)
     } catch (e) {
+      debugError('UploadedTab', 'load', e)
       setError(e.message)
     } finally {
       setLoading(false)
@@ -117,14 +120,17 @@ function PreviewModal({ doc, onClose }) {
     setLoading(true)
     if (doc.file_path) {
       try {
-        const { data, error } = await supabase.storage.from('documents').download(doc.file_path)
+        debugLog('UploadedTab', 'loadContent', { docId: doc.id, filePath: doc.file_path })
+        const { data, error } = await debugAction('documents.download', 'UploadedTab', () =>
+          supabase.storage.from('documents').download(doc.file_path)
+        )
         if (!error && data) {
           const text = await data.text()
           setHtml(text)
           setLoading(false)
           return
         }
-      } catch {}
+      } catch (e) { debugError('UploadedTab', 'loadContent', e) }
     }
     setHtml(null)
     setLoading(false)

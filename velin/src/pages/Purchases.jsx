@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { debugLog } from '../lib/debugLog'
 import SuppliersTab from './purchases/SuppliersTab'
 import OrdersTab from './purchases/OrdersTab'
 import ShopOrdersTab from './purchases/ShopOrdersTab'
@@ -8,11 +9,13 @@ const TABS = ['Objednávky', 'Nákupy', 'Dodavatelé']
 export default function Purchases() {
   const [tab, setTab] = useState('Objednávky')
 
+  useEffect(() => { debugLog('page.mount', 'Purchases') }, [])
+
   return (
     <div>
       <div className="flex gap-2 mb-5">
         {TABS.map(t => (
-          <button key={t} onClick={() => setTab(t)}
+          <button key={t} onClick={() => { debugLog('tab.switch', 'Purchases', { tab: t }); setTab(t) }}
             className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
             style={{
               padding: '8px 18px',

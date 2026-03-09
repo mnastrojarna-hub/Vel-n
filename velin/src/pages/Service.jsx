@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { debugAction, debugLog, debugError } from '../lib/debugLog'
 import Card from '../components/ui/Card'
 import StatusBadge from '../components/ui/StatusBadge'
 import Button from '../components/ui/Button'
@@ -13,7 +14,7 @@ export default function Service() {
   const [tab, setTab] = useState('Aktivní v servisu')
   const [stats, setStats] = useState({ planned: 0, inService: 0, avgCost: 0 })
 
-  useEffect(() => { loadStats() }, [])
+  useEffect(() => { debugLog('page.mount', 'Service'); loadStats() }, [])
 
   async function loadStats() {
     try {
@@ -21,13 +22,13 @@ export default function Service() {
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
       const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10)
 
-      const [planned, inService, costs] = await Promise.all([
+      const [planned, inService, costs] = await debugAction('service.loadStats', 'Service', () => Promise.all([
         supabase.from('maintenance_schedules').select('id', { count: 'exact', head: true })
           .gte('next_date', monthStart).lte('next_date', monthEnd),
         supabase.from('motorcycles').select('id', { count: 'exact', head: true })
           .eq('status', 'maintenance'),
         supabase.from('maintenance_log').select('cost').not('cost', 'is', null),
-      ])
+      ]))
 
       const costArr = (costs.data || []).map(c => c.cost).filter(Boolean)
       const avg = costArr.length > 0 ? costArr.reduce((s, c) => s + c, 0) / costArr.length : 0
@@ -37,7 +38,8 @@ export default function Service() {
         inService: inService.count || 0,
         avgCost: Math.round(avg),
       })
-    } catch {
+    } catch (err) {
+      debugError('service.loadStats', 'Service', err)
     }
   }
 
@@ -69,7 +71,7 @@ export default function Service() {
 
       <div className="flex gap-2 mb-5">
         {TABS.map(t => (
-          <button key={t} onClick={() => setTab(t)} className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
+          <button key={t} onClick={() => { debugLog('tab.switch', 'Service', { tab: t }); setTab(t) }} className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
             style={{ padding: '8px 18px', background: tab === t ? '#74FB71' : '#f1faf7', color: tab === t ? '#1a2e22' : '#4a6357', border: 'none', boxShadow: tab === t ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>
             {t}
           </button>
@@ -98,16 +100,16 @@ function ActiveServiceTab({ onRefresh }) {
   async function load() {
     setLoading(true)
     try {
-      const [motosRes, logsRes] = await Promise.all([
+      const [motosRes, logsRes] = await debugAction('activeService.load', 'ActiveServiceTab', () => Promise.all([
         supabase.from('motorcycles').select('*, branches(name)')
           .eq('status', 'maintenance').order('model'),
         supabase.from('maintenance_log').select('*, motorcycles(model, spz)')
           .is('completed_date', null).order('created_at', { ascending: false }),
-      ])
+      ]))
       setMotos(motosRes.data || [])
       setLogs(logsRes.data || [])
     } catch (e) {
-      console.error('[ActiveServiceTab] load failed:', e)
+      debugError('activeService.load', 'ActiveServiceTab', e)
     } finally {
       setLoading(false)
     }
@@ -118,6 +120,7 @@ function ActiveServiceTab({ onRefresh }) {
   }
 
   async function markCompleted(logEntry) {
+    debugLog('service.markCompleted', 'ActiveServiceTab', { logId: logEntry.id, motoId: logEntry.moto_id })
     setEndingService(s => ({ ...s, [logEntry.id]: true }))
     try {
       const { error: logErr } = await supabase.from('maintenance_log').update({
@@ -144,13 +147,14 @@ function ActiveServiceTab({ onRefresh }) {
       await load()
       onRefresh?.()
     } catch (e) {
-      console.error('[markCompleted]', e)
+      debugError('service.markCompleted', 'ActiveServiceTab', e, { logId: logEntry.id })
     } finally {
       setEndingService(s => ({ ...s, [logEntry.id]: false }))
     }
   }
 
   async function endServiceDirect(moto) {
+    debugLog('service.endDirect', 'ActiveServiceTab', { motoId: moto.id, model: moto.model })
     setEndingService(s => ({ ...s, [moto.id]: true }))
     try {
       const { error: motoErr } = await supabase.from('motorcycles').update({
@@ -174,7 +178,7 @@ function ActiveServiceTab({ onRefresh }) {
       await load()
       onRefresh?.()
     } catch (e) {
-      console.error('[endServiceDirect]', e)
+      debugError('service.endDirect', 'ActiveServiceTab', e, { motoId: moto.id })
       alert('Chyba při ukončení servisu: ' + e.message)
     } finally {
       setEndingService(s => ({ ...s, [moto.id]: false }))
