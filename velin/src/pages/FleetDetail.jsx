@@ -7,6 +7,7 @@ import Button from '../components/ui/Button'
 import StatusBadge from '../components/ui/StatusBadge'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import Modal from '../components/ui/Modal'
+import MotoActionModal from '../components/fleet/MotoActionModal'
 import BookingsCalendar from '../components/fleet/BookingsCalendar'
 import ServiceTab from '../components/fleet/ServiceTab'
 import PricingTab from '../components/fleet/PricingTab'
@@ -23,6 +24,7 @@ export default function FleetDetail() {
   const [error, setError] = useState(null)
   const [tab, setTab] = useState('Info')
   const [confirm, setConfirm] = useState(null)
+  const [showActionModal, setShowActionModal] = useState(false)
 
   useEffect(() => { loadMoto() }, [id])
 
@@ -106,6 +108,11 @@ export default function FleetDetail() {
         <h2 className="font-extrabold text-lg" style={{ color: '#0f1a14' }}>{moto.model}</h2>
         <StatusBadge status={moto.status} />
         <span className="text-xs font-mono" style={{ color: '#8aab99' }}>{moto.spz}</span>
+        <button onClick={() => setShowActionModal(true)}
+          className="rounded-btn text-[10px] font-extrabold uppercase cursor-pointer ml-auto"
+          style={{ padding: '6px 14px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>
+          Správa motorky
+        </button>
       </div>
       <div className="flex gap-2 mb-5 flex-wrap">
         {TABS.map(t => (
@@ -121,6 +128,7 @@ export default function FleetDetail() {
       {tab === 'Výkon' && <PerformanceTab motoId={id} />}
       <ConfirmDialog open={confirm?.type === 'deactivate'} title={confirm?.title || ''} message={confirm?.message || ''} onConfirm={() => confirm?.action?.()} onCancel={() => setConfirm(null)} danger />
       <ConfirmDialog open={confirm?.type === 'delete'} title="Smazat motorku?" message="Tato akce je nevratná." danger onConfirm={handleDelete} onCancel={() => setConfirm(null)} />
+      <MotoActionModal open={showActionModal} moto={moto} onClose={() => setShowActionModal(false)} onUpdated={() => { loadMoto(); setShowActionModal(false) }} />
     </div>
   )
 }
