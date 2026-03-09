@@ -273,6 +273,7 @@
 | `expire_vouchers()` | Automatická expirace voucherů (pg_cron) |
 | `expire_vouchers_and_promos()` | Expirace voucherů + deaktivace promo kódů po valid_to |
 | `confirm_payment(booking_id, method)` | RPC: označí booking jako zaplacený |
+| `confirm_shop_payment(order_id, method)` | RPC: označí shop objednávku jako zaplacenou (SECURITY DEFINER) |
 | `check_booking_overlap()` | Trigger funkce: kontrola překrytí rezervací |
 | `generate_shop_invoice()` | Trigger funkce: auto-faktura při zaplacení shop objednávky |
 
@@ -365,7 +366,7 @@ Detailní politiky:
 - **reviews:** admin ALL, customer SELECT (own OR visible=true), customer INSERT (own)
 - **documents:** admin ALL, customer SELECT/INSERT (user_id=uid)
 - **invoices:** admin ALL, customer SELECT/INSERT (customer_id=uid)
-- **shop_orders:** admin ALL, customer SELECT/INSERT (customer_id=uid)
+- **shop_orders:** admin ALL, customer SELECT/INSERT/UPDATE (customer_id=uid)
 - **shop_order_items:** admin ALL, customer SELECT/INSERT (order owned by user)
 - **booking_cancellations:** admin ALL, customer SELECT (cancelled_by=uid)
 
@@ -527,3 +528,4 @@ Detailní politiky:
 | 2026-03-08 23:30 | **MAJOR UPDATE:** Kompletní přepis dle reálného stavu Supabase DB. Doplněno: ENUM typy, 14 dalších edge funkcí, 3 storage buckety, branch-based RLS, dodatečné sloupce (bookings, motorcycles, profiles, sos_incidents), 19+ dalších DB funkcí, foreign keys, 11 secrets, cron jobs |
 | 2026-03-09 00:15 | Přidána funkce `validate_voucher_code(p_code)` — validace dárkových poukazů ve slevovém kódu |
 | 2026-03-09 | **FIX invoices:** Oprava sync triggeru (payment_receipt → správný doc type), přidán WITH CHECK na RLS policy, zajištění sloupců variable_symbol/source/order_id, customer INSERT policy |
+| 2026-03-09 | **FIX shop payment:** Přidána RPC `confirm_shop_payment(p_order_id, p_method)` (SECURITY DEFINER) + UPDATE RLS policy na shop_orders pro zákazníka |

@@ -375,7 +375,13 @@ async function renderContractsPage(){
 
   var html='<div class="topbar"><div class="back-row" onclick="histBack()"><div class="bk-c">←</div><div class="bk-l">'+t.back+'</div></div>'+
     '<h2>'+t.docsTitle+'</h2><p>'+t.docsSubtitle+'</p></div>'+
-    '<div style="padding:10px 20px 0;"><div style="background:var(--gp);border-radius:var(--r);padding:13px;margin-bottom:10px;font-size:12px;color:var(--gd);line-height:1.6;">🔒 '+t.gdprNote+'</div></div>'+
+    '<div style="padding:10px 20px 0;">'+
+    '<div style="background:#fffbeb;border:1px solid #fbbf24;border-radius:8px;padding:10px;margin:0 0 10px;font-size:10px;font-family:monospace;color:#78350f;">'+
+    '<strong>DIAGNOSTIKA DOCS</strong><br>'+
+    'Celkem: '+docs.length+' | Smlouvy: '+contracts.length+' | Protokoly: '+protocols.length+' | VOP: '+vops.length+'<br>'+
+    'Typy: ['+docs.map(function(d){return d.type;}).join(', ')+']'+
+    '</div>'+
+    '<div style="background:var(--gp);border-radius:var(--r);padding:13px;margin-bottom:10px;font-size:12px;color:var(--gd);line-height:1.6;">🔒 '+t.gdprNote+'</div></div>'+
     '<div style="padding:0 20px;">';
 
   // VOP – always show general link
@@ -426,8 +432,21 @@ async function renderInvoicesPage(){
   var invoices=docs.filter(function(d){return d.type==='invoice_advance'||d.type==='invoice_final'||d.type==='invoice_shop'||d.type==='payment_receipt'||d.type==='invoice';});
   console.log('[INVOICES PAGE] Filtered invoices:', invoices.length);
 
+  // DIAGNOSTIKA — viditelný debug panel
+  var dbg=docs._debug||{};
+  var diagHtml='<div style="background:#fffbeb;border:1px solid #fbbf24;border-radius:8px;padding:10px;margin:0 0 12px;font-size:10px;font-family:monospace;color:#78350f;">'+
+    '<strong>DIAGNOSTIKA APP – Faktury</strong><br>'+
+    'documents tabulka: '+(dbg.docs||'?')+' ['+((dbg.docsTypes||[]).join(', '))+']<br>'+
+    'invoices tabulka: '+(dbg.invoices||'?')+' ['+((dbg.invTypes||[]).join(', '))+']<br>'+
+    'Celkem po sloučení: '+docs.length+' | Filtr faktur: '+invoices.length+'<br>'+
+    'Zdroje: local='+docs.filter(function(d){return !d._invoice&&!d._genDoc&&!d._shopOrder;}).length+
+    ' inv='+docs.filter(function(d){return !!d._invoice;}).length+
+    ' gen='+docs.filter(function(d){return !!d._genDoc;}).length+
+    ' shop='+docs.filter(function(d){return !!d._shopOrder;}).length+
+    '</div>';
+
   if(invoices.length===0){
-    wrap.innerHTML='<div style="text-align:center;padding:30px;color:var(--g400);">'+t.noInvoices+'</div>';
+    wrap.innerHTML=diagHtml+'<div style="text-align:center;padding:30px;color:var(--g400);">'+t.noInvoices+'</div>';
     return;
   }
 
@@ -438,7 +457,7 @@ async function renderInvoicesPage(){
     years[y].push(d);
   });
 
-  var html='';
+  var html=diagHtml;
   Object.keys(years).sort(function(a,b){return b-a;}).forEach(function(yr){
     html+='<div class="msec-t" style="padding:'+(html?'12':'0')+'px 0 8px;">'+yr+'</div>';
     years[yr].forEach(function(d){

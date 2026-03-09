@@ -663,6 +663,13 @@ async function apiFetchDocuments(){
       });
     } catch(se){ console.error('[API] shop_orders fetch:', se); }
     console.log('[DOCS] FINAL results:', results.length, 'items:', results.map(function(d){return d.type+'/'+(d.file_name||d.booking_id?.substr(-4)||'?');}));
+    // Attach debug info for visible diagnostics
+    results._debug = {
+      docs: r.error ? 'ERR: '+r.error.message : (r.data||[]).length,
+      invoices: ir.error ? 'ERR: '+ir.error.message : (ir.data||[]).length,
+      docsTypes: (r.data||[]).map(function(d){return d.type;}),
+      invTypes: (ir.data||[]).map(function(i){return i.type+'/'+i.number;})
+    };
     return results;
   } catch(e){ console.error('[API] apiFetchDocuments:', e); return []; }
 }
