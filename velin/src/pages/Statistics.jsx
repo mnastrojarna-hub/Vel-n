@@ -19,13 +19,22 @@ export default function Statistics() {
         supabase.from('bookings').select('id', { count: 'exact', head: true }),
         supabase.from('profiles').select('id', { count: 'exact', head: true }),
         supabase.from('motorcycles').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-        supabase.from('accounting_entries').select('amount').eq('type', 'revenue'),
+        supabase.from('accounting_entries').select('type, amount, category, description'),
       ])
+      // Revenue classification — same logic as Dashboard (type + keyword matching)
+      const REVENUE_CATS = ['pronájem', 'pronajem', 'rezervace', 'booking', 'rental']
+      const REVENUE_DESCS = ['platba za rezervaci', 'platba za pronájem', 'příjem z pronájmu']
+      const isRevenue = (e) => {
+        const cat = (e.category || '').toLowerCase()
+        const desc = (e.description || '').toLowerCase()
+        if (e.type === 'revenue') return true
+        return REVENUE_CATS.some(rc => cat.includes(rc)) || REVENUE_DESCS.some(rd => desc.includes(rd))
+      }
       setStats({
         bookings: bk.count || 0,
         customers: pr.count || 0,
         motos: mo.count || 0,
-        revenue: (ae.data || []).reduce((s, e) => s + Math.abs(e.amount || 0), 0),
+        revenue: (ae.data || []).filter(e => isRevenue(e)).reduce((s, e) => s + Math.abs(e.amount || 0), 0),
       })
     } catch (e) { console.error('[Statistics] quickStats err:', e) }
   }
