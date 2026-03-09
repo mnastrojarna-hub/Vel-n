@@ -537,7 +537,12 @@ function _renderDetailSummary(b, moto, st, days, branchName, bookingId){
   h += li('Stav', _statusLabel(st));
   h += li('ID rezervace', '#'+bookingId.substr(-8).toUpperCase());
   h += li('Motorka', moto ? (moto.model||'—') + (moto.spz ? ' ('+moto.spz+')' : '') : '—');
-  if(moto && moto.category) h += li('Kategorie', moto.category);
+  if(moto && moto.category){
+    var catMap = {cestovni:'Cestovní enduro',naked:'Naked',supermoto:'Supermoto',detske:'Dětské',sportovni:'Sportovní'};
+    var catLabel = catMap[(moto.category||'').toLowerCase()] || moto.category;
+    var licReq = moto.license_required ? ' · ' + moto.license_required : '';
+    h += li('Kategorie', catLabel + licReq);
+  }
   h += li('Pobočka', branchName);
 
   // Dates — current

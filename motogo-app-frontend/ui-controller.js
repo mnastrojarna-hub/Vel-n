@@ -54,6 +54,30 @@ var _sosFault = null;
 var _sosActiveIncidentId = null;
 var _sosPendingIncidentId = null;  // Incident čekající na platbu (zaviněná nehoda)
 var _sosSubmitting = false;        // Guard against double-tap
+var _sosCurrentBookingId = null;   // ID aktivní rezervace pro SOS
+
+// Pre-fetch active booking & moto IDs when entering any SOS screen
+function _sosPreFetchIds(){
+  if(_sosCurrentBookingId && _sosCurrentMotoId) return; // already fetched
+  (async function(){
+    try {
+      var uid = null;
+      try { var u = await window.supabase.auth.getUser(); uid = u.data && u.data.user ? u.data.user.id : null; } catch(e){}
+      if(!uid) return;
+      var bk = await window.supabase.from('bookings')
+        .select('id, moto_id')
+        .eq('user_id', uid)
+        .in('status', ['active', 'confirmed', 'pending'])
+        .lte('start_date', new Date().toISOString())
+        .gte('end_date', new Date().toISOString())
+        .limit(1);
+      if(bk.data && bk.data.length > 0){
+        if(!_sosCurrentBookingId) _sosCurrentBookingId = bk.data[0].id;
+        if(!_sosCurrentMotoId) _sosCurrentMotoId = bk.data[0].moto_id;
+      }
+    } catch(e){ console.warn('[SOS] pre-fetch IDs:', e); }
+  })();
+}
 
 function _sosShowDone(typeLabel, nextInfo) {
   goTo('s-sos-done');
