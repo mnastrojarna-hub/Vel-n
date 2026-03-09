@@ -195,10 +195,11 @@ async function showInvoice(bookingId,type){
 
   // Load real invoice from DB — filter by type
   var isAdvance=(type==='advance');
+  var isReceipt=(type==='payment_receipt');
   var dbInvoice=null;
   if(_isSupabaseReady()){
     try {
-      var dbTypes=isAdvance?['proforma','advance','shop_proforma']:['final','issued'];
+      var dbTypes=isReceipt?['payment_receipt']:isAdvance?['proforma','advance','shop_proforma']:['final','issued'];
       var invR=await supabase.from('invoices').select('*')
         .eq('booking_id',bookingId).in('type',dbTypes)
         .order('created_at',{ascending:false}).limit(1);
@@ -214,8 +215,8 @@ async function showInvoice(bookingId,type){
   }
 
   // Use DB invoice data when available
-  var invNum=dbInvoice?dbInvoice.number:((isAdvance?'ZF':'KF')+'-'+new Date(b.start_date).getFullYear()+'-'+b.id.substr(-4).toUpperCase());
-  var title=isAdvance?t.invoiceAdvance:t.invoiceFinal;
+  var invNum=dbInvoice?dbInvoice.number:((isReceipt?'DP':isAdvance?'ZF':'KF')+'-'+new Date(b.start_date).getFullYear()+'-'+b.id.substr(-4).toUpperCase());
+  var title=isReceipt?(t.paymentReceipt||'Daňový doklad k přijaté platbě'):isAdvance?t.invoiceAdvance:t.invoiceFinal;
   var issueDate=dbInvoice&&dbInvoice.issue_date?_docDate(dbInvoice.issue_date):_docDate(isAdvance?b.start_date:b.end_date);
   var dueDate=dbInvoice&&dbInvoice.due_date?_docDate(dbInvoice.due_date):_docDate(new Date(new Date(isAdvance?b.start_date:b.end_date).getTime()+14*86400000).toISOString());
   var amt=dbInvoice?Number(dbInvoice.total||0):(b.total_price||0);

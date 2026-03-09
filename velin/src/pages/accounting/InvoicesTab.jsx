@@ -13,6 +13,8 @@ const PER_PAGE = 25
 const TYPE_LABELS = {
   proforma: 'Zálohová (ZF)',
   advance: 'Zálohová (ZF)',
+  issued: 'Vystavená',
+  received: 'Přijatá',
   final: 'Konečná (KF)',
   payment_receipt: 'Doklad k platbě (DP)',
   shop_proforma: 'Shop zálohová',
@@ -93,9 +95,9 @@ export default function InvoicesTab() {
           style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
           <option value="">Všechny typy</option>
           <option value="advance">Zálohové (ZF)</option>
-          <option value="proforma">Proforma (ZF)</option>
-          <option value="final">Konečné (KF)</option>
           <option value="payment_receipt">Doklady k platbě (DP)</option>
+          <option value="final">Konečné (KF)</option>
+          <option value="issued">Vystavené</option>
           <option value="shop_proforma">Shop zálohové</option>
           <option value="shop_final">Shop konečné</option>
         </select>
