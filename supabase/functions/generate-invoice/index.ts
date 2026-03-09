@@ -40,7 +40,8 @@ serve(async (req) => {
     const invoiceType = type || 'proforma'
     const isShop = invoiceType === 'shop_proforma' || invoiceType === 'shop_final'
     const isProforma = invoiceType === 'proforma' || invoiceType === 'shop_proforma'
-    const prefix = isProforma ? 'ZF' : 'FV'
+    const isPaymentReceipt = invoiceType === 'payment_receipt'
+    const prefix = isPaymentReceipt ? 'DP' : isProforma ? 'ZF' : 'FV'
     const year = new Date().getFullYear()
 
     let customer: any = {}
@@ -156,8 +157,8 @@ serve(async (req) => {
         <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;text-align:right;font-weight:600">${fmtPrice(it.unit_price * it.qty)} Kč</td>
       </tr>`).join('')
 
-    const accent = isProforma ? '#2563eb' : '#1a8a18'
-    const title = isProforma ? 'ZÁLOHOVÁ FAKTURA' : 'FAKTURA'
+    const accent = isPaymentReceipt ? '#0891b2' : isProforma ? '#2563eb' : '#1a8a18'
+    const title = isPaymentReceipt ? 'DAŇOVÝ DOKLAD K PŘIJATÉ PLATBĚ' : isProforma ? 'ZÁLOHOVÁ FAKTURA' : 'FAKTURA'
     const customerIcoLine = customer.ico ? `<p style="margin:2px 0;font-size:11px">IČO: ${customer.ico}${customer.dic ? ' | DIČ: ' + customer.dic : ''}</p>` : ''
 
     const html = `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>${title} ${number}</title></head>
@@ -208,6 +209,7 @@ serve(async (req) => {
     <div style="font-size:12px"><span style="color:#888">Banka:</span> ${COMPANY.bank} | <span style="color:#888">Č. účtu:</span> ${COMPANY.account} | <span style="color:#888">VS:</span> ${number}</div>
   </div>
   ${isProforma ? '<div style="padding:10px 14px;background:#dbeafe;border-radius:8px;font-size:11px;color:#1e40af">Tento doklad není daňovým dokladem. Po přijetí platby Vám bude vystavena konečná faktura.</div>' : ''}
+  ${isPaymentReceipt ? '<div style="padding:10px 14px;background:#cffafe;border-radius:8px;font-size:11px;color:#0e7490">Tento doklad potvrzuje přijetí platby. Konečná faktura bude vystavena po dokončení služby.</div>' : ''}
 </div></body></html>`
 
     // Store HTML in storage
@@ -223,10 +225,10 @@ serve(async (req) => {
         headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           from: FROM_EMAIL, to: customer.email,
-          subject: `${isProforma ? 'Zálohová faktura' : 'Faktura'} č. ${number} — MOTO GO 24`,
+          subject: `${isPaymentReceipt ? 'Doklad k přijaté platbě' : isProforma ? 'Zálohová faktura' : 'Faktura'} č. ${number} — MOTO GO 24`,
           html: `<div style="font-family:sans-serif;padding:24px">
             <h2 style="color:#1a2e22">Dobrý den${customer.full_name ? ` ${customer.full_name}` : ''},</h2>
-            <p>V příloze zasíláme ${isProforma ? 'zálohovou fakturu' : 'fakturu'} č. <strong>${number}</strong> na částku <strong>${fmtPrice(total)} Kč</strong>.</p>
+            <p>V příloze zasíláme ${isPaymentReceipt ? 'doklad k přijaté platbě' : isProforma ? 'zálohovou fakturu' : 'fakturu'} č. <strong>${number}</strong> na částku <strong>${fmtPrice(total)} Kč</strong>.</p>
             <p>Splatnost: <strong>${fmtDate(dueDate)}</strong></p>
             <p>Variabilní symbol: <strong>${number}</strong></p>
             <hr style="border:1px solid #e5e7eb">
