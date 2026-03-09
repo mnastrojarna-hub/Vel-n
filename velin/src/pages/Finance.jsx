@@ -50,6 +50,7 @@ export default function Finance() {
   const [detailTx, setDetailTx] = useState(null)
   const [recentInvoices, setRecentInvoices] = useState([])
   const [shopPayments, setShopPayments] = useState([])
+  const [invoiceSums, setInvoiceSums] = useState({ zf: 0, dp: 0, kf: 0, shopZf: 0, shopKf: 0, rental: 0, eshop: 0, vouchers: 0 })
 
   useEffect(() => { loadData() }, [filters])
 
@@ -57,12 +58,31 @@ export default function Finance() {
     setLoading(true)
     setError(null)
     try {
-      await Promise.all([loadSummary(), loadTransactions(), loadChart(), loadRecentInvoices(), loadShopPayments()])
+      await Promise.all([loadSummary(), loadTransactions(), loadChart(), loadRecentInvoices(), loadShopPayments(), loadInvoiceSums()])
     } catch (e) {
       setError(e.message)
     } finally {
       setLoading(false)
     }
+  }
+
+  async function loadInvoiceSums() {
+    const [invRes, shopRes, rentalRes, voucherRes] = await Promise.all([
+      supabase.from('invoices').select('type, total, status'),
+      supabase.from('shop_orders').select('total').eq('payment_status', 'paid'),
+      supabase.from('bookings').select('total_price').eq('status', 'completed').eq('payment_status', 'paid'),
+      supabase.from('promo_code_usage').select('discount_amount'),
+    ])
+    const invs = invRes.data || []
+    const zf = invs.filter(i => ['advance', 'proforma'].includes(i.type)).reduce((s, i) => s + (i.total || 0), 0)
+    const dp = invs.filter(i => i.type === 'payment_receipt').reduce((s, i) => s + (i.total || 0), 0)
+    const kf = invs.filter(i => i.type === 'final').reduce((s, i) => s + (i.total || 0), 0)
+    const shopZf = invs.filter(i => i.type === 'shop_proforma').reduce((s, i) => s + (i.total || 0), 0)
+    const shopKf = invs.filter(i => i.type === 'shop_final').reduce((s, i) => s + (i.total || 0), 0)
+    const eshop = (shopRes.data || []).reduce((s, o) => s + (o.total || 0), 0)
+    const rental = (rentalRes.data || []).reduce((s, b) => s + (b.total_price || 0), 0)
+    const vouchers = (voucherRes.data || []).reduce((s, v) => s + (v.discount_amount || 0), 0)
+    setInvoiceSums({ zf, dp, kf, shopZf, shopKf, rental, eshop, vouchers })
   }
 
   async function loadRecentInvoices() {
@@ -274,6 +294,23 @@ export default function Finance() {
             <div>shop_orders (paid): {shopPayments.length} záznamů</div>
           </div>
 
+          {/* Invoice sums overview */}
+          <Card className="mb-5">
+            <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Přehled dle typu</h3>
+            <div className="grid grid-cols-4 gap-3 mb-3">
+              <MiniStat label="Zálohy (ZF)" value={fmt(invoiceSums.zf)} color="#2563eb" />
+              <MiniStat label="Doklady k platbě (DP)" value={fmt(invoiceSums.dp)} color="#0891b2" />
+              <MiniStat label="Konečné (KF)" value={fmt(invoiceSums.kf)} color="#1a8a18" />
+              <MiniStat label="Pronájem (dokončeno)" value={fmt(invoiceSums.rental)} color="#059669" />
+            </div>
+            <div className="grid grid-cols-4 gap-3">
+              <MiniStat label="E-shop prodeje" value={fmt(invoiceSums.eshop)} color="#8b5cf6" />
+              <MiniStat label="Shop ZF" value={fmt(invoiceSums.shopZf)} color="#7c3aed" />
+              <MiniStat label="Shop KF" value={fmt(invoiceSums.shopKf)} color="#059669" />
+              <MiniStat label="Poukazy (slevy)" value={fmt(invoiceSums.vouchers)} color="#b45309" />
+            </div>
+          </Card>
+
           {/* Invoices (ZF, DP, KF) */}
           <Card className="mb-5">
             <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Faktury (ZF, DP, KF)</h3>
@@ -401,6 +438,15 @@ function SummaryCard({ label, value, color }) {
       <div className="text-[10px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#8aab99' }}>{label}</div>
       <div className="text-xl font-extrabold" style={{ color }}>{value}</div>
     </Card>
+  )
+}
+
+function MiniStat({ label, value, color }) {
+  return (
+    <div className="p-2 rounded-lg" style={{ background: '#f1faf7' }}>
+      <div className="text-[9px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{label}</div>
+      <div className="text-sm font-extrabold" style={{ color }}>{value}</div>
+    </div>
   )
 }
 

@@ -222,7 +222,7 @@ export default function Bookings() {
             <thead>
               <TRow header>
                 <TH>ID</TH><TH>Zákazník</TH><TH>Motorka</TH>
-                <TH>Od</TH><TH>Do</TH><TH>Dní</TH><TH>Částka</TH><TH>Platba</TH><TH>Stav</TH><TH>Akce</TH>
+                <TH>Od</TH><TH>Do</TH><TH>Dní</TH><TH>Částka</TH><TH>Platba</TH><TH>Stav</TH><TH>Vytvořeno</TH><TH>Akce</TH>
               </TRow>
             </thead>
             <tbody>
@@ -251,7 +251,9 @@ export default function Bookings() {
                       <StatusBadge status={b.status} />
                       {b.sos_replacement && <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#dcfce7', color: '#1a8a18' }}>SOS</span>}
                       {b.ended_by_sos && <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#fee2e2', color: '#b91c1c' }}>SOS</span>}
+                      {b.complaint_status && <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#fef3c7', color: '#92400e' }}>RKL</span>}
                     </TD>
+                    <TD><span className="text-[10px]" style={{ color: '#4a6357' }}>{b.created_at ? new Date(b.created_at).toLocaleString('cs-CZ') : '—'}</span></TD>
                     <TD>
                       <button onClick={e => { e.stopPropagation(); setDeleteConfirm(b) }}
                         className="text-[10px] font-bold cursor-pointer"
