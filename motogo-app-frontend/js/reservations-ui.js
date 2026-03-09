@@ -282,13 +282,12 @@ async function openResDetailById(bookingId){
     var actionsEl = document.getElementById('rd-actions');
     if(actionsEl){
       var btns = '';
-      // Document buttons (invoice + contract) for paid reservations
+      // Document buttons (contract only for paid reservations, no advance invoice)
       var docBtns = '';
       if(booking.payment_status === 'paid' && st !== 'cancelled'){
         docBtns = '<div style="border-top:1px solid var(--g100);margin-top:10px;padding-top:10px;">' +
           '<div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--g400);margin-bottom:6px;">'+(_t('res').documents||'Dokumenty')+'</div>' +
-          '<button class="btn-out" onclick="showInvoice(\''+bookingId+'\',\'advance\')">🧾 '+(_t('res').proformaInvoice||'Zálohová faktura')+'</button>' +
-          '<button class="btn-out" style="margin-top:6px;" onclick="showRentalContract(\''+bookingId+'\')">📄 '+(_t('res').contract||'Smlouva o pronájmu')+'</button>' +
+          '<button class="btn-out" onclick="showRentalContract(\''+bookingId+'\')">📄 '+(_t('res').contract||'Smlouva o pronájmu')+'</button>' +
           '</div>';
       }
       if(st === 'aktivni'){
@@ -304,20 +303,12 @@ async function openResDetailById(bookingId){
         var motoId = booking.moto_id || (moto ? moto.id : '');
         btns = '<div style="border-top:1px solid var(--g100);padding-top:10px;">' +
                '<div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--g400);margin-bottom:6px;">'+(_t('res').documents||'Dokumenty')+'</div>' +
-               '<button class="btn-out" onclick="showInvoice(\''+bookingId+'\',\'advance\')">🧾 '+(_t('res').proformaInvoice||'Zálohová faktura')+'</button>' +
-               '<button class="btn-out" style="margin-top:6px;" onclick="showInvoice(\''+bookingId+'\',\'final\')">💰 '+(_t('res').finalInvoice||'Konečná faktura')+'</button>' +
+               '<button class="btn-out" onclick="showInvoice(\''+bookingId+'\',\'final\')">💰 '+(_t('res').finalInvoice||'Konečná faktura')+'</button>' +
                '<button class="btn-out" style="margin-top:6px;" onclick="showRentalContract(\''+bookingId+'\')">📄 '+(_t('res').contract||'Smlouva o pronájmu')+'</button>' +
                '</div>' +
                '<div style="border-top:1px solid var(--g100);margin-top:12px;padding-top:12px;">' +
                '<div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--g400);margin-bottom:8px;">⭐ '+(_t('res').yourRating||'Vaše hodnocení')+'</div>' +
-               '<div id="rd-stars-wrap" style="display:flex;justify-content:center;gap:8px;padding:6px 0;">' +
-               '<span class="star-btn" data-v="1" onclick="rateRide(1)" style="font-size:32px;cursor:pointer;transition:transform .15s;color:#f59e0b;transform:scale(1.15);">★</span>' +
-               '<span class="star-btn" data-v="2" onclick="rateRide(2)" style="font-size:32px;cursor:pointer;transition:transform .15s;color:#f59e0b;transform:scale(1.15);">★</span>' +
-               '<span class="star-btn" data-v="3" onclick="rateRide(3)" style="font-size:32px;cursor:pointer;transition:transform .15s;color:#f59e0b;transform:scale(1.15);">★</span>' +
-               '<span class="star-btn" data-v="4" onclick="rateRide(4)" style="font-size:32px;cursor:pointer;transition:transform .15s;color:#f59e0b;transform:scale(1.15);">★</span>' +
-               '<span class="star-btn" data-v="5" onclick="rateRide(5)" style="font-size:32px;cursor:pointer;transition:transform .15s;color:#f59e0b;transform:scale(1.15);">★</span>' +
-               '</div>' +
-               '<div id="done-rating-msg" style="text-align:center;font-size:12px;color:var(--g400);font-weight:600;padding-bottom:4px;">🏆 '+(_t('res').excellent||'Výborná zkušenost!')+'</div>' +
+               '<button class="btn-g" style="margin-top:4px;" onclick="window.open(\'https://www.google.com/maps/search/MotoGo24+p%C5%AFj%C4%8Dovna+motorek\',\'_blank\')">⭐ '+(_t('res').rateOnGoogle||'Ohodnotit na Google')+'</button>' +
                '</div>' +
                '<button class="btn-g" style="margin-top:12px;" onclick="_rebookMoto(\''+motoId+'\')">🔁 '+(_t('res').bookAgain||'Znovu rezervovat')+'</button>';
       } else if(st === 'cancelled'){

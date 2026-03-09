@@ -502,6 +502,9 @@ async function saveEditReservation(){
     if(typeof initMotoAvailability === 'function') initMotoAvailability();
   }
 
+  // Invalidate cached bookings so the list/detail reload fresh data
+  if(typeof _cachedBookings !== 'undefined') _cachedBookings = null;
+
   // Show inline confirmation
   var confirmBanner=document.getElementById('edit-confirm-banner');
   if(!confirmBanner){

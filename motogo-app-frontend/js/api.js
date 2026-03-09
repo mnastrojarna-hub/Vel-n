@@ -289,6 +289,14 @@ async function apiShortenBooking(bookingId, newEndISO, newStartISO){
   _ensureSupabase();
   if(!window.supabase) return {error:'Offline'};
   try {
+    // Store original dates before first modification
+    var cur = await window.supabase.from('bookings').select('start_date, end_date, original_start_date, original_end_date').eq('id', bookingId).single();
+    if(cur.data && !cur.data.original_start_date){
+      await window.supabase.from('bookings').update({
+        original_start_date: cur.data.start_date,
+        original_end_date: cur.data.end_date
+      }).eq('id', bookingId);
+    }
     var changes = {};
     if(newEndISO) changes.end_date = newEndISO;
     if(newStartISO) changes.start_date = newStartISO;
@@ -302,6 +310,16 @@ async function apiModifyBooking(bookingId, changes){
   _ensureSupabase();
   if(!window.supabase) return {error:'Offline'};
   try {
+    // Store original dates before first date modification
+    if(changes.start_date || changes.end_date){
+      var cur = await window.supabase.from('bookings').select('start_date, end_date, original_start_date, original_end_date').eq('id', bookingId).single();
+      if(cur.data && !cur.data.original_start_date){
+        await window.supabase.from('bookings').update({
+          original_start_date: cur.data.start_date,
+          original_end_date: cur.data.end_date
+        }).eq('id', bookingId);
+      }
+    }
     var r = await window.supabase.from('bookings').update(changes).eq('id', bookingId);
     if(r.error) return {error: r.error.message};
     return {error:null};

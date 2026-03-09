@@ -228,6 +228,8 @@ export default function Bookings() {
             <tbody>
               {bookings.map(b => {
                 const days = b.start_date && b.end_date ? Math.max(1, Math.ceil((new Date(b.end_date) - new Date(b.start_date)) / 86400000)) : '—'
+                const origDays = b.original_start_date && b.original_end_date ? Math.max(1, Math.ceil((new Date(b.original_end_date) - new Date(b.original_start_date)) / 86400000)) : null
+                const daysDelta = origDays !== null && typeof days === 'number' ? days - origDays : null
                 return (
                   <tr key={b.id} onClick={() => navigate(`/rezervace/${b.id}`)}
                     className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
@@ -237,7 +239,7 @@ export default function Bookings() {
                     <TD>{b.motorcycles?.model || '—'} <span className="text-xs font-mono" style={{ color: '#8aab99' }}>{b.motorcycles?.spz}</span></TD>
                     <TD>{fmtDateRange(b.start_date)}</TD>
                     <TD>{fmtDateRange(b.end_date)}</TD>
-                    <TD>{days}</TD>
+                    <TD>{days}{daysDelta !== null && daysDelta !== 0 && <span className="ml-1 text-[9px] font-extrabold px-1 py-0.5 rounded-btn" style={{ background: daysDelta > 0 ? '#dbeafe' : '#fee2e2', color: daysDelta > 0 ? '#2563eb' : '#dc2626' }}>{daysDelta > 0 ? '+' : ''}{daysDelta}d</span>}</TD>
                     <TD bold>{b.total_price ? `${b.total_price.toLocaleString('cs-CZ')} Kč` : '—'}</TD>
                     <TD>
                       <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase"
