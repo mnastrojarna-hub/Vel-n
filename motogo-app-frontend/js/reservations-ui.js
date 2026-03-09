@@ -548,12 +548,25 @@ function _renderDetailSummary(b, moto, st, days, branchName, bookingId){
   // Original dates (if modified)
   if(b.original_start_date && b.original_end_date && (b.original_start_date !== b.start_date || b.original_end_date !== b.end_date)){
     var os = new Date(b.original_start_date), oe = new Date(b.original_end_date);
+    var cs = new Date(b.start_date), ce = new Date(b.end_date);
     var origDays = Math.max(1, Math.round((oe-os)/86400000)+1);
     var curDays = days;
     var delta = curDays - origDays;
-    var deltaStr = delta > 0 ? ' (+'+delta+' dní)' : delta < 0 ? ' ('+delta+' dní)' : '';
+    var deltaStr;
+    if(delta > 0) deltaStr = '+'+delta+' dní';
+    else if(delta < 0) deltaStr = delta+' dní';
+    else {
+      var startShift = Math.round((cs-os)/86400000);
+      var endShift = Math.round((ce-oe)/86400000);
+      if(startShift !== 0 || endShift !== 0){
+        var parts = [];
+        if(startShift !== 0) parts.push('začátek '+(startShift>0?'+':'')+startShift+'d');
+        if(endShift !== 0) parts.push('konec '+(endShift>0?'+':'')+endShift+'d');
+        deltaStr = 'posunuto ('+parts.join(', ')+')';
+      } else deltaStr = 'změněn termín';
+    }
     h += '<li style="color:#b45309;"><strong>Původní termín:</strong> '+_fmtDate(b.original_start_date)+' – '+_fmtDate(b.original_end_date)+' ('+origDays+' dní)</li>';
-    h += '<li style="color:#2563eb;"><strong>Úprava rozsahu:</strong> '+deltaStr.trim()+' → nový termín '+_fmtDate(b.start_date)+' – '+_fmtDate(b.end_date)+'</li>';
+    h += '<li style="color:#2563eb;"><strong>Úprava rozsahu:</strong> '+deltaStr+' → nový termín '+_fmtDate(b.start_date)+' – '+_fmtDate(b.end_date)+'</li>';
   }
 
   // Pickup/return method & address

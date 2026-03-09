@@ -499,10 +499,25 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
           const origDays = Math.max(1, Math.ceil((new Date(booking.original_end_date) - new Date(booking.original_start_date)) / 86400000))
           const curDays = Math.max(1, Math.ceil((new Date(booking.end_date) - new Date(booking.start_date)) / 86400000))
           const delta = curDays - origDays
+          const startShift = Math.round((new Date(booking.start_date) - new Date(booking.original_start_date)) / 86400000)
+          const endShift = Math.round((new Date(booking.end_date) - new Date(booking.original_end_date)) / 86400000)
+          let label, bg, color
+          if (delta !== 0) {
+            label = `${delta > 0 ? '+' : ''}${delta} dní`
+            bg = delta > 0 ? '#dbeafe' : '#fee2e2'
+            color = delta > 0 ? '#2563eb' : '#dc2626'
+          } else {
+            const parts = []
+            if (startShift !== 0) parts.push(`začátek ${startShift > 0 ? '+' : ''}${startShift}d`)
+            if (endShift !== 0) parts.push(`konec ${endShift > 0 ? '+' : ''}${endShift}d`)
+            label = parts.length > 0 ? `posunuto (${parts.join(', ')})` : 'změněn termín'
+            bg = '#fef3c7'
+            color = '#92400e'
+          }
           return (
-            <div className="mb-3 p-2 rounded-lg flex items-center gap-3" style={{ background: delta > 0 ? '#dbeafe' : '#fee2e2', fontSize: 11 }}>
-              <span className="font-extrabold" style={{ color: delta > 0 ? '#2563eb' : '#dc2626' }}>
-                {delta > 0 ? `+${delta}` : delta} dní
+            <div className="mb-3 p-2 rounded-lg flex items-center gap-3" style={{ background: bg, fontSize: 11 }}>
+              <span className="font-extrabold" style={{ color }}>
+                {label}
               </span>
               <span style={{ color: '#4a6357' }}>
                 Původní: {new Date(booking.original_start_date).toLocaleDateString('cs-CZ')} – {new Date(booking.original_end_date).toLocaleDateString('cs-CZ')} ({origDays}d)
@@ -589,10 +604,20 @@ function BookingSummary({ booking, sosIncidents, bookingExtras, cancellation, pr
 
   const hasModification = b.original_start_date && b.original_end_date &&
     (b.original_start_date !== b.start_date || b.original_end_date !== b.end_date)
-  let origDays, delta
+  let origDays, delta, modLabel
   if (hasModification) {
     origDays = Math.max(1, Math.ceil((new Date(b.original_end_date) - new Date(b.original_start_date)) / 86400000) + 1)
     delta = days - origDays
+    if (delta !== 0) {
+      modLabel = `${delta > 0 ? '+' : ''}${delta} dní`
+    } else {
+      const startShift = Math.round((new Date(b.start_date) - new Date(b.original_start_date)) / 86400000)
+      const endShift = Math.round((new Date(b.end_date) - new Date(b.original_end_date)) / 86400000)
+      const parts = []
+      if (startShift !== 0) parts.push(`začátek ${startShift > 0 ? '+' : ''}${startShift}d`)
+      if (endShift !== 0) parts.push(`konec ${endShift > 0 ? '+' : ''}${endShift}d`)
+      modLabel = parts.length > 0 ? `posunuto (${parts.join(', ')})` : 'změněn termín'
+    }
   }
 
   return (
@@ -612,7 +637,7 @@ function BookingSummary({ booking, sosIncidents, bookingExtras, cancellation, pr
       {hasModification && (
         <>
           <SumRow label="Původní termín" value={`${new Date(b.original_start_date).toLocaleDateString('cs-CZ')} – ${new Date(b.original_end_date).toLocaleDateString('cs-CZ')} (${origDays} dní)`} color="#b45309" />
-          <SumRow label="Úprava rozsahu" value={`${delta > 0 ? '+' : ''}${delta} dní → nový: ${new Date(b.start_date).toLocaleDateString('cs-CZ')} – ${new Date(b.end_date).toLocaleDateString('cs-CZ')}`} color="#2563eb" />
+          <SumRow label="Úprava rozsahu" value={`${modLabel} → nový: ${new Date(b.start_date).toLocaleDateString('cs-CZ')} – ${new Date(b.end_date).toLocaleDateString('cs-CZ')}`} color="#2563eb" />
         </>
       )}
 
