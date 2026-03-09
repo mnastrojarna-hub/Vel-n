@@ -8,6 +8,7 @@ import StatusBadge from '../components/ui/StatusBadge'
 import SearchInput from '../components/ui/SearchInput'
 import Pagination from '../components/ui/Pagination'
 import Modal from '../components/ui/Modal'
+import MotoActionModal from '../components/fleet/MotoActionModal'
 
 const PER_PAGE = 25
 
@@ -23,6 +24,7 @@ export default function Fleet() {
   const [total, setTotal] = useState(0)
   const [filters, setFilters] = useState({ status: '', branch: '', category: '', search: '', sort: 'model', occupiedToday: false, occupiedFrom: '', occupiedTo: '' })
   const [showAdd, setShowAdd] = useState(false)
+  const [actionMoto, setActionMoto] = useState(null)
   const [bookingCounts, setBookingCounts] = useState({})
   const [todayOccupied, setTodayOccupied] = useState(new Set())
   const [dateOccupied, setDateOccupied] = useState(new Set())
@@ -186,7 +188,7 @@ export default function Fleet() {
             <thead>
               <TRow header>
                 <TH>Foto</TH><TH>Model</TH><TH>SPZ</TH><TH>Kategorie</TH><TH>Pobočka</TH>
-                <TH>Status</TH><TH>Km</TH><TH>Pořízeno</TH><TH>Další servis</TH>
+                <TH>Status</TH><TH>Km</TH><TH>Pořízeno</TH><TH>Další servis</TH><TH>Akce</TH>
               </TRow>
             </thead>
             <tbody>
@@ -214,6 +216,14 @@ export default function Fleet() {
                   <TD mono>{m.mileage?.toLocaleString('cs-CZ') || '—'}</TD>
                   <TD>{m.acquired_at ? new Date(m.acquired_at).toLocaleDateString('cs-CZ') : '—'}</TD>
                   <TD>{m.next_service_date || '—'}</TD>
+                  <TD>
+                    <button
+                      onClick={e => { e.stopPropagation(); setActionMoto(m) }}
+                      className="rounded-btn text-[10px] font-extrabold uppercase cursor-pointer"
+                      style={{ padding: '4px 10px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>
+                      Správa
+                    </button>
+                  </TD>
                 </tr>
                 )
               })}
@@ -227,6 +237,7 @@ export default function Fleet() {
       )}
 
       {showAdd && <AddMotoModal branches={branches} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); loadMotos() }} />}
+      <MotoActionModal open={!!actionMoto} moto={actionMoto} onClose={() => setActionMoto(null)} onUpdated={() => { loadMotos(); setActionMoto(null) }} />
     </div>
   )
 }

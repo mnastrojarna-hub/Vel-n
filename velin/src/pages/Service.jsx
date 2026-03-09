@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import Card from '../components/ui/Card'
 import StatusBadge from '../components/ui/StatusBadge'
 import Button from '../components/ui/Button'
+import MotoActionModal from '../components/fleet/MotoActionModal'
 import ServiceSchedule from './service/ServiceSchedule'
 import ServiceLog from './service/ServiceLog'
 
@@ -83,6 +84,7 @@ function ActiveServiceTab({ onRefresh }) {
   const [newDesc, setNewDesc] = useState({})
   const [savingDesc, setSavingDesc] = useState({})
   const [endingService, setEndingService] = useState({})
+  const [actionMoto, setActionMoto] = useState(null)
 
   useEffect(() => { load() }, [])
 
@@ -236,6 +238,12 @@ function ActiveServiceTab({ onRefresh }) {
               {mLogs.length > 0 && (
                 <span className="text-[10px] font-bold" style={{ color: '#b45309' }}>{mLogs.length} záznam{mLogs.length > 1 ? 'y' : ''}</span>
               )}
+              <button
+                onClick={e => { e.stopPropagation(); setActionMoto(m) }}
+                className="rounded-btn text-[10px] font-extrabold uppercase cursor-pointer"
+                style={{ padding: '4px 10px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>
+                Správa
+              </button>
             </div>
 
             {isExpanded && (
@@ -330,6 +338,7 @@ function ActiveServiceTab({ onRefresh }) {
           </Card>
         )
       })}
+      <MotoActionModal open={!!actionMoto} moto={actionMoto} onClose={() => setActionMoto(null)} onUpdated={() => { load(); onRefresh?.(); setActionMoto(null) }} />
     </div>
   )
 }
