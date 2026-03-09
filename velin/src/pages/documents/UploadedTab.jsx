@@ -14,9 +14,10 @@ export default function UploadedTab() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [search, setSearch] = useState('')
+  const [sort, setSort] = useState('date_desc')
   const [preview, setPreview] = useState(null)
 
-  useEffect(() => { load() }, [page, search])
+  useEffect(() => { load() }, [page, search, sort])
 
   async function load() {
     setLoading(true)
@@ -26,7 +27,7 @@ export default function UploadedTab() {
         .from('documents')
         .select('*, profiles(full_name)', { count: 'exact' })
       if (search) query = query.or(`type.ilike.%${search}%,profiles.full_name.ilike.%${search}%`)
-      query = query.order('created_at', { ascending: false }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
+      query = query.order('created_at', { ascending: sort === 'date_asc' }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       const { data, count, error: err } = await query
       if (err) throw err
       setDocs(data || [])
@@ -46,6 +47,12 @@ export default function UploadedTab() {
     <div>
       <div className="flex items-center gap-3 mb-4">
         <SearchInput value={search} onChange={v => { setPage(1); setSearch(v) }} placeholder="Hledat zákazníka, typ…" />
+        <select value={sort} onChange={e => { setPage(1); setSort(e.target.value) }}
+          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+          <option value="date_desc">Datum ↓ nejnovější</option>
+          <option value="date_asc">Datum ↑ nejstarší</option>
+        </select>
       </div>
 
       {error && <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}

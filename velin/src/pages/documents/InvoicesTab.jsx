@@ -37,7 +37,7 @@ export default function InvoicesTab() {
   const [error, setError] = useState(null)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [filters, setFilters] = useState({ search: '', type: '', status: '' })
+  const [filters, setFilters] = useState({ search: '', type: '', status: '', sort: 'date_desc' })
   const [summary, setSummary] = useState({ total: 0, paid: 0, unpaid: 0, cancelled: 0 })
   const [detail, setDetail] = useState(null)
   const [showCreate, setShowCreate] = useState(false)
@@ -52,7 +52,7 @@ export default function InvoicesTab() {
       let query = supabase
         .from('invoices')
         .select('*, profiles:customer_id(full_name, email), bookings:booking_id(id, start_date, motorcycles:moto_id(model))', { count: 'exact' })
-        .order('issue_date', { ascending: false, nullsFirst: false })
+        .order(filters.sort.startsWith('amount') ? 'total' : 'issue_date', { ascending: filters.sort.endsWith('_asc'), nullsFirst: false })
 
       if (filters.type === 'advance') {
         // ZF: match both 'advance' and 'proforma' types
@@ -156,6 +156,13 @@ export default function InvoicesTab() {
             { value: 'paid', label: 'Zaplacené' },
             { value: 'cancelled', label: 'Stornované' },
             { value: 'refunded', label: 'Refundované' },
+          ]} />
+        <FilterSelect value={filters.sort} onChange={v => { setPage(1); setFilters(f => ({ ...f, sort: v })) }}
+          options={[
+            { value: 'date_desc', label: 'Datum ↓ nejnovější' },
+            { value: 'date_asc', label: 'Datum ↑ nejstarší' },
+            { value: 'amount_desc', label: 'Částka ↓ nejvyšší' },
+            { value: 'amount_asc', label: 'Částka ↑ nejnižší' },
           ]} />
         <div className="ml-auto">
           <Button green onClick={() => setShowCreate(true)}>+ Nová faktura</Button>

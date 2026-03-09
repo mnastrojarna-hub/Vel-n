@@ -91,7 +91,10 @@ export default function Fleet() {
         if (filters.branch) query = query.eq('branch_id', filters.branch)
         if (filters.category) query = query.eq('category', filters.category)
         if (filters.search) query = query.or(`model.ilike.%${filters.search}%,spz.ilike.%${filters.search}%`)
-        return query.order('model').range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
+        const sortMap = { model: 'model', acquired_desc: 'acquired_at', acquired_asc: 'acquired_at', mileage_desc: 'mileage', mileage_asc: 'mileage' }
+        const sortCol = sortMap[filters.sort] || 'model'
+        const sortAsc = filters.sort === 'mileage_asc' || filters.sort === 'acquired_asc' || filters.sort === 'model'
+        return query.order(sortCol, { ascending: sortAsc }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       }, { page, filters })
       if (result?.error) throw result.error
       let data = result?.data || []
@@ -149,6 +152,10 @@ export default function Fleet() {
           options={[
             { value: 'model', label: 'Dle názvu' },
             { value: 'utilization', label: 'Nejvíce vytížené' },
+            { value: 'acquired_desc', label: 'Datum ↓ nejnovější' },
+            { value: 'acquired_asc', label: 'Datum ↑ nejstarší' },
+            { value: 'mileage_desc', label: 'Km ↓ nejvyšší' },
+            { value: 'mileage_asc', label: 'Km ↑ nejnižší' },
           ]}
         />
         <label className="flex items-center gap-1.5 cursor-pointer rounded-btn text-xs font-extrabold uppercase tracking-wide"

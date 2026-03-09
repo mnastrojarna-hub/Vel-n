@@ -145,7 +145,7 @@ function _renderResCard(b){
   }
 
   return '<div class="rcard" onclick="openResDetailById(\''+b.id+'\')">' +
-    '<div class="rci" style="'+grayscale+'"><img src="'+img+'" onerror="this.style.display=\'none\'" loading="lazy"><div class="rcio"><div><div class="rcn">'+name+'</div><div class="rcid">#'+b.id.substr(-12)+'</div>'+sosBadge+'</div></div><div class="rst '+stClass+'">'+stLabel+'</div></div>' +
+    '<div class="rci" style="'+grayscale+'"><img src="'+img+'" onerror="this.style.display=\'none\'" loading="lazy"><div class="rcio"><div><div class="rcn">'+name+'</div><div class="rcid">#'+b.id.substr(-8).toUpperCase()+'</div>'+sosBadge+'</div></div><div class="rst '+stClass+'">'+stLabel+'</div></div>' +
     '<div class="rcb"><div class="rcinfo"><div class="rccol"><div class="rccol-l">'+_t('res').date+'</div><div class="rccol-v">'+_fmtDate(b.start_date)+'</div></div><div class="rccol"><div class="rccol-l">'+_t('res').duration+'</div><div class="rccol-v">'+days+' '+(days===1?_t('res').day1:_t('res').days5)+'</div></div><div class="rccol"><div class="rccol-l">'+_t('res').total+'</div><div class="rccol-v">'+(b.total_price||0).toLocaleString('cs-CZ')+' Kč</div></div></div>' +
     '<div class="ract">'+btns+'</div></div></div>';
 }
@@ -176,7 +176,7 @@ async function openResDetailById(bookingId){
     var titleEl = document.getElementById('rd-title');
     if(titleEl) titleEl.textContent = _t('res').resDetail + ' – ' + _statusLabel(st);
     var subEl = document.getElementById('rd-subtitle');
-    if(subEl) subEl.textContent = '#' + bookingId.substr(-12);
+    if(subEl) subEl.textContent = '#' + bookingId.substr(-8).toUpperCase();
 
     var imgEl = document.getElementById('rd-moto-img');
     if(imgEl && moto) imgEl.src = moto.image_url || '';
@@ -421,7 +421,7 @@ async function openEditResByBookingId(bookingId){
 
     // Fill UI
     var subEl = document.getElementById('edit-subtitle');
-    if(subEl) subEl.textContent = motoName + ' · #' + bookingId.substr(-12);
+    if(subEl) subEl.textContent = motoName + ' · #' + bookingId.substr(-8).toUpperCase();
 
     var durEl = document.getElementById('edit-res-duration');
     var dateRangeEl = document.getElementById('edit-res-dates');
@@ -441,7 +441,7 @@ async function openEditResByBookingId(bookingId){
     var calResMoto = document.getElementById('edit-cal-res-moto');
     var calResInfo = document.getElementById('edit-res-info-cal');
     if(calResDates) calResDates.textContent = dateRangeEl ? dateRangeEl.textContent : '';
-    if(calResMoto) calResMoto.textContent = motoName + ' · #' + bookingId.substr(-12);
+    if(calResMoto) calResMoto.textContent = motoName + ' · #' + bookingId.substr(-8).toUpperCase();
     if(calResInfo){
       var infoDiv = calResInfo.querySelector('div');
       if(infoDiv) infoDiv.textContent = isActive ? _t('res').yourActiveRes : _t('res').yourUpcomingRes;

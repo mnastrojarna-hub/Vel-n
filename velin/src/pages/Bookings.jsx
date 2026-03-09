@@ -140,6 +140,10 @@ export default function Bookings() {
               options={[{ value: '', label: 'Všechny stavy' }, { value: 'pending', label: 'Čekající' }, { value: 'reserved', label: 'Rezervováno' }, { value: 'active', label: 'Aktivní' }, { value: 'completed', label: 'Dokončeno' }, { value: 'cancelled', label: 'Zrušeno' }]} />
             <FilterSelect value={filters.paymentStatus} onChange={v => setF('paymentStatus', v)}
               options={[{ value: '', label: 'Platba' }, { value: 'paid', label: 'Zaplaceno' }, { value: 'unpaid', label: 'Nezaplaceno' }]} />
+            <FilterSelect value={filters.sortBy} onChange={v => setF('sortBy', v)}
+              options={[{ value: 'start_date', label: 'Datum začátku' }, { value: 'end_date', label: 'Datum konce' }, { value: 'total_price', label: 'Částka' }, { value: 'created_at', label: 'Vytvořeno' }]} />
+            <FilterSelect value={filters.sortDir} onChange={v => setF('sortDir', v)}
+              options={[{ value: 'desc', label: '↓ Sestupně' }, { value: 'asc', label: '↑ Vzestupně' }]} />
             <label className="flex items-center gap-1.5 cursor-pointer rounded-btn text-xs font-extrabold uppercase tracking-wide"
               style={{ padding: '8px 14px', background: filters.futureOnly ? '#74FB71' : '#f1faf7', border: '1px solid #d4e8e0', color: filters.futureOnly ? '#1a2e22' : '#4a6357' }}>
               <input type="checkbox" checked={filters.futureOnly} onChange={e => setF('futureOnly', e.target.checked)} className="accent-[#1a8a18]" />

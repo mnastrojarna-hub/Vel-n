@@ -590,7 +590,7 @@ async function apiFetchDocuments(){
       d.date = d.created_at;
       d.moto_name = (b && b.motorcycles) ? b.motorcycles.model : '';
       d.amount = b ? b.total_price : 0;
-      d.res_num = b ? '#RES-' + new Date(b.start_date).getFullYear() + '-' + d.booking_id.substr(-4).toUpperCase() : '';
+      d.res_num = b ? '#' + d.booking_id.substr(-8).toUpperCase() : '';
       results.push(d);
     });
     // 2) invoices table (Velín-generated)
@@ -614,7 +614,7 @@ async function apiFetchDocuments(){
         date: inv.created_at,
         moto_name: (b && b.motorcycles) ? b.motorcycles.model : '',
         amount: inv.total || (b ? b.total_price : 0),
-        res_num: b ? '#RES-' + new Date(b.start_date).getFullYear() + '-' + inv.booking_id.substr(-4).toUpperCase() : '',
+        res_num: b ? '#' + inv.booking_id.substr(-8).toUpperCase() : '',
         file_name: inv.number || ''
       });
     });
@@ -637,7 +637,7 @@ async function apiFetchDocuments(){
         date: gd.created_at,
         moto_name: (b && b.motorcycles) ? b.motorcycles.model : '',
         amount: b ? b.total_price : 0,
-        res_num: b ? '#RES-' + new Date(b.start_date).getFullYear() + '-' + gd.booking_id.substr(-4).toUpperCase() : '',
+        res_num: b ? '#' + gd.booking_id.substr(-8).toUpperCase() : '',
         file_path: gd.pdf_path || ''
       });
     });

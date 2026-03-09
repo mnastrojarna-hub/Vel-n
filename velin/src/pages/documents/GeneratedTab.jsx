@@ -18,8 +18,9 @@ export default function GeneratedTab() {
   const [typeFilter, setTypeFilter] = useState('')
   const [preview, setPreview] = useState(null)
   const [previewHtml, setPreviewHtml] = useState('')
+  const [sort, setSort] = useState('date_desc')
 
-  useEffect(() => { load() }, [page, search, typeFilter])
+  useEffect(() => { load() }, [page, search, typeFilter, sort])
 
   async function load() {
     setLoading(true)
@@ -28,7 +29,7 @@ export default function GeneratedTab() {
       let query = supabase
         .from('generated_documents')
         .select('*, document_templates(name, type, html_content), profiles(full_name), bookings(id)', { count: 'exact' })
-      query = query.order('created_at', { ascending: false }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
+      query = query.order('created_at', { ascending: sort === 'date_asc' }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       const { data, count, error: err } = await query
       if (err) throw err
       let filtered = data || []
@@ -108,6 +109,12 @@ export default function GeneratedTab() {
     <div>
       <div className="flex items-center gap-3 mb-4">
         <SearchInput value={search} onChange={v => { setPage(1); setSearch(v) }} placeholder="Hledat dokument, zákazníka…" />
+        <select value={sort} onChange={e => { setPage(1); setSort(e.target.value) }}
+          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+          <option value="date_desc">Datum ↓ nejnovější</option>
+          <option value="date_asc">Datum ↑ nejstarší</option>
+        </select>
         {docTypes.length > 0 && (
           <select value={typeFilter} onChange={e => { setPage(1); setTypeFilter(e.target.value) }}
             className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
