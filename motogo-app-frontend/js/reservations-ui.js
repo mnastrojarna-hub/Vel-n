@@ -527,6 +527,25 @@ function _fmtDT(iso){
   try { var d=new Date(iso); return d.getDate()+'.'+(d.getMonth()+1)+'.'+d.getFullYear()+' '+d.getHours()+':'+('0'+d.getMinutes()).slice(-2); } catch(e){ return '—'; }
 }
 
+function _descMod(fromStart, fromEnd, toStart, toEnd){
+  var fs=new Date(fromStart),fe=new Date(fromEnd),ts=new Date(toStart),te=new Date(toEnd);
+  var sd=Math.round((ts-fs)/86400000), ed=Math.round((te-fe)/86400000);
+  var origD=Math.max(1,Math.round((fe-fs)/86400000)+1), newD=Math.max(1,Math.round((te-ts)/86400000)+1);
+  var dd=newD-origD;
+  var parts=[];
+  if(sd<0) parts.push('začátek dříve o '+Math.abs(sd)+' d');
+  else if(sd>0) parts.push('začátek později o '+sd+' d');
+  if(ed>0) parts.push('konec později o '+ed+' d');
+  else if(ed<0) parts.push('konec dříve o '+Math.abs(ed)+' d');
+  var type,color;
+  if(dd>0){type='prodlouženo o '+dd+' d';color='#2563eb';}
+  else if(dd<0){type='zkráceno o '+Math.abs(dd)+' d';color='#dc2626';}
+  else if(sd!==0||ed!==0){type='posunuto';color='#92400e';}
+  else{type='beze změny';color='#4a6357';}
+  var detail=parts.length>0?parts.join(', '):type;
+  return {type:type,detail:detail,origDays:origD,newDays:newD,color:color};
+}
+
 function _renderDetailSummary(b, moto, st, days, branchName, bookingId){
   var el = document.getElementById('rd-detail-summary');
   if(!el) return;
@@ -552,26 +571,15 @@ function _renderDetailSummary(b, moto, st, days, branchName, bookingId){
 
   // Original dates (if modified)
   if(b.original_start_date && b.original_end_date && (b.original_start_date !== b.start_date || b.original_end_date !== b.end_date)){
-    var os = new Date(b.original_start_date), oe = new Date(b.original_end_date);
-    var cs = new Date(b.start_date), ce = new Date(b.end_date);
-    var origDays = Math.max(1, Math.round((oe-os)/86400000)+1);
-    var curDays = days;
-    var delta = curDays - origDays;
-    var deltaStr;
-    if(delta > 0) deltaStr = '+'+delta+' dní';
-    else if(delta < 0) deltaStr = delta+' dní';
-    else {
-      var startShift = Math.round((cs-os)/86400000);
-      var endShift = Math.round((ce-oe)/86400000);
-      if(startShift !== 0 || endShift !== 0){
-        var parts = [];
-        if(startShift !== 0) parts.push('začátek '+(startShift>0?'+':'')+startShift+'d');
-        if(endShift !== 0) parts.push('konec '+(endShift>0?'+':'')+endShift+'d');
-        deltaStr = 'posunuto ('+parts.join(', ')+')';
-      } else deltaStr = 'změněn termín';
+    var _mod = _descMod(b.original_start_date, b.original_end_date, b.start_date, b.end_date);
+    h += '<li style="color:#b45309;"><strong>Původní termín:</strong> '+_fmtDate(b.original_start_date)+' – '+_fmtDate(b.original_end_date)+' ('+_mod.origDays+' dní)</li>';
+    h += '<li style="color:'+_mod.color+';"><strong>Celkem:</strong> '+_mod.type+' ('+_mod.detail+') → '+_fmtDate(b.start_date)+' – '+_fmtDate(b.end_date)+' ('+days+' dní)</li>';
+    // Show full modification history
+    var _hist = Array.isArray(b.modification_history) ? b.modification_history : [];
+    for(var hi=0; hi<_hist.length; hi++){
+      var _hm = _descMod(_hist[hi].from_start, _hist[hi].from_end, _hist[hi].to_start, _hist[hi].to_end);
+      h += '<li style="color:'+_hm.color+';font-size:11px;"><strong>Úprava #'+(hi+1)+':</strong> '+_fmtDT(_hist[hi].at)+' — '+_hm.type+' ('+_hm.detail+') · '+(_hist[hi].source==='admin'?'admin':'zákazník')+'</li>';
     }
-    h += '<li style="color:#b45309;"><strong>Původní termín:</strong> '+_fmtDate(b.original_start_date)+' – '+_fmtDate(b.original_end_date)+' ('+origDays+' dní)</li>';
-    h += '<li style="color:#2563eb;"><strong>Úprava rozsahu:</strong> '+deltaStr+' → nový termín '+_fmtDate(b.start_date)+' – '+_fmtDate(b.end_date)+'</li>';
   }
 
   // Pickup/return method & address

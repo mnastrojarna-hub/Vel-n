@@ -425,16 +425,27 @@ async function saveEditReservation(){
     var newStartISO = (typeof eOd !== 'undefined' && eOd && !editIsActive) ? new Date(eOd.y, eOd.m, eOd.d).toISOString() : null;
 
     // Check for overlapping reservations with new dates
-    if(typeof apiCheckBookingOverlap === 'function'){
-      var checkStart = newStartISO || (typeof origResStart !== 'undefined' ? new Date(origResStart.y, origResStart.m, origResStart.d).toISOString() : null);
-      var checkEnd = newEndISO || (typeof origResEnd !== 'undefined' ? new Date(origResEnd.y, origResEnd.m, origResEnd.d).toISOString() : null);
-      if(checkStart && checkEnd){
+    var checkStart = newStartISO || (typeof origResStart !== 'undefined' ? new Date(origResStart.y, origResStart.m, origResStart.d).toISOString() : null);
+    var checkEnd = newEndISO || (typeof origResEnd !== 'undefined' ? new Date(origResEnd.y, origResEnd.m, origResEnd.d).toISOString() : null);
+    if(checkStart && checkEnd){
+      // Check customer's own bookings overlap
+      if(typeof apiCheckBookingOverlap === 'function'){
         var oc = await apiCheckBookingOverlap(checkStart, checkEnd, bookingId);
         if(oc.overlap){
-          var cf = oc.conflicting;
           showT('⚠️',_t('pay').overlapTitle||'Termín obsazen',
             (_t('pay').overlapMsg||'Již máte rezervaci v tomto termínu')+'. '+(_t('pay').overlapHint||'Zvolte jiný termín nebo upravte stávající rezervaci.'));
           return;
+        }
+      }
+      // Check motorcycle availability (other customers' bookings)
+      if(typeof apiCheckMotoAvailability === 'function'){
+        var motoId = window._editBookingMoto ? window._editBookingMoto.id : null;
+        if(motoId){
+          var ma = await apiCheckMotoAvailability(motoId, checkStart, checkEnd, bookingId);
+          if(!ma.available){
+            showT('⚠️','Motorka obsazena','Motorka je v požadovaném termínu již rezervována jiným zákazníkem. Zvolte jiný termín.');
+            return;
+          }
         }
       }
     }
