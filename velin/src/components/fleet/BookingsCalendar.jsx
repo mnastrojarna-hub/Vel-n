@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase'
 import Card from '../ui/Card'
 import Button from '../ui/Button'
 import Modal from '../ui/Modal'
-import StatusBadge from '../ui/StatusBadge'
+import StatusBadge, { getDisplayStatus } from '../ui/StatusBadge'
 
 const DAYS = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne']
 const MONTHS = ['Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen', 'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec']
@@ -127,7 +127,7 @@ export default function BookingsCalendar({ motoId }) {
                   <span style={{ color: '#8aab99', marginLeft: 8 }}>{b.start_date.split('T')[0]} → {b.end_date.split('T')[0]}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <StatusBadge status={b.status} />
+                  <StatusBadge status={getDisplayStatus(b)} />
                   <span style={{ fontWeight: 800, color: '#3dba3a' }}>{Number(b.total_price).toLocaleString('cs-CZ')} Kč</span>
                 </div>
               </div>

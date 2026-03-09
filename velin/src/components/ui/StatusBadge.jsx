@@ -2,6 +2,7 @@ import Badge from './Badge'
 
 const STATUS_MAP = {
   active: { label: 'Aktivní', color: '#1a8a18', bg: '#dcfce7' },
+  upcoming: { label: 'Nadcházející', color: '#7c3aed', bg: '#ede9fe' },
   maintenance: { label: 'Servis', color: '#b45309', bg: '#fef3c7' },
   out_of_service: { label: 'Vyřazeno', color: '#dc2626', bg: '#fee2e2' },
   unavailable: { label: 'Nedostupná', color: '#7c3aed', bg: '#ede9fe' },
@@ -9,8 +10,17 @@ const STATUS_MAP = {
   pending: { label: 'Čekající', color: '#b45309', bg: '#fef3c7' },
   completed: { label: 'Dokončeno', color: '#6b7280', bg: '#f3f4f6' },
   cancelled: { label: 'Zrušeno', color: '#dc2626', bg: '#fee2e2' },
-  reserved: { label: 'Nadcházející', color: '#2563eb', bg: '#dbeafe' },
+  reserved: { label: 'Rezervováno', color: '#2563eb', bg: '#dbeafe' },
   in_service: { label: 'V servisu', color: '#2563eb', bg: '#dbeafe' },
+}
+
+export function getDisplayStatus(booking) {
+  if (!booking) return booking?.status || 'pending'
+  const today = new Date().toISOString().slice(0, 10)
+  if ((booking.status === 'active' || booking.status === 'reserved') && booking.start_date && booking.start_date.slice(0, 10) > today) {
+    return 'upcoming'
+  }
+  return booking.status
 }
 
 export default function StatusBadge({ status }) {

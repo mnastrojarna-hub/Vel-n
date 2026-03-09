@@ -5,7 +5,7 @@ import { debugAction } from '../lib/debugLog'
 import { generateAdvanceInvoice, generatePaymentReceipt, generateFinalInvoice } from '../lib/invoiceUtils'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
-import StatusBadge from '../components/ui/StatusBadge'
+import StatusBadge, { getDisplayStatus } from '../components/ui/StatusBadge'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import Modal from '../components/ui/Modal'
 import BookingDocumentsTab from './booking/BookingDocumentsTab'
@@ -274,7 +274,7 @@ export default function BookingDetail() {
         <button onClick={() => navigate('/rezervace')} className="cursor-pointer" style={{ background: 'none', border: 'none', fontSize: 18, color: '#8aab99' }}>←</button>
         <h2 className="font-extrabold text-lg" style={{ color: '#0f1a14' }}>Rezervace</h2>
         <span className="text-xs font-mono" style={{ color: '#8aab99' }}>#{id?.slice(-8).toUpperCase()}</span>
-        <StatusBadge status={booking.status} />
+        <StatusBadge status={getDisplayStatus(booking)} />
         {booking.payment_status && (
           <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase"
             style={{ padding: '3px 8px', background: booking.payment_status === 'paid' ? '#dcfce7' : '#fee2e2', color: booking.payment_status === 'paid' ? '#1a8a18' : '#dc2626' }}>

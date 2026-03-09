@@ -5,7 +5,7 @@ import { debugAction } from '../lib/debugLog'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import Badge from '../components/ui/Badge'
-import StatusBadge from '../components/ui/StatusBadge'
+import StatusBadge, { getDisplayStatus } from '../components/ui/StatusBadge'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 
 import Modal from '../components/ui/Modal'
@@ -467,7 +467,7 @@ function CustomerBookings({ userId }) {
                 <span className="text-xs font-mono ml-2" style={{ color: '#8aab99' }}>{b.motorcycles?.spz}</span>
                 <span className="text-xs ml-3" style={{ color: '#8aab99' }}>{b.start_date} → {b.end_date}</span>
               </div>
-              <StatusBadge status={b.status} />
+              <StatusBadge status={getDisplayStatus(b)} />
               <span className="text-sm font-bold">{b.total_price?.toLocaleString('cs-CZ')} Kč</span>
               {b.motorcycles?.id && (
                 <button onClick={e => { e.stopPropagation(); navigate(`/flotila/${b.motorcycles.id}`) }}
