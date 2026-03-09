@@ -44,14 +44,25 @@ export default function BookingDocumentsTab({ bookingId }) {
     try {
       const [docsRes, genRes, invRes] = await Promise.all([
         supabase.from('documents').select('*').eq('booking_id', bookingId).order('created_at', { ascending: false }),
-        supabase.from('generated_documents').select('*, document_templates(name, type, html_content)').eq('booking_id', bookingId).order('created_at', { ascending: false }),
+        supabase.from('generated_documents').select('*').eq('booking_id', bookingId).order('created_at', { ascending: false }),
         supabase.from('invoices').select('*').eq('booking_id', bookingId).order('issue_date', { ascending: false, nullsFirst: false }),
       ])
+      // If generated_documents found, try to enrich with template info (separate query, no FK needed)
+      if (genRes.data?.length > 0) {
+        const templateIds = [...new Set(genRes.data.map(d => d.template_id).filter(Boolean))]
+        if (templateIds.length > 0) {
+          const { data: templates } = await supabase.from('document_templates').select('id, name, type, html_content').in('id', templateIds)
+          if (templates) {
+            const tplMap = Object.fromEntries(templates.map(t => [t.id, t]))
+            genRes.data.forEach(d => { d.document_templates = tplMap[d.template_id] || null })
+          }
+        }
+      }
       if (docsRes.error) diag.errors.push('documents: ' + docsRes.error.message)
       if (genRes.error) diag.errors.push('generated_documents: ' + genRes.error.message)
       if (invRes.error) diag.errors.push('invoices: ' + invRes.error.message)
       diag.docs = (docsRes.data || []).map(d => ({ type: d.type, file_path: d.file_path, file_name: d.file_name }))
-      diag.gen = (genRes.data || []).map(d => ({ tpl_type: d.document_templates?.type, tpl_name: d.document_templates?.name, has_filled: !!d.filled_data, has_pdf: !!d.pdf_path, has_html: !!d.document_templates?.html_content }))
+      diag.gen = (genRes.data || []).map(d => ({ tpl_id: d.template_id, tpl_type: d.document_templates?.type, tpl_name: d.document_templates?.name, has_filled: !!d.filled_data, has_pdf: !!d.pdf_path }))
       diag.inv = (invRes.data || []).map(i => ({ type: i.type, number: i.number, total: i.total, status: i.status, has_pdf: !!i.pdf_path }))
       setDocs(docsRes.data || [])
       setGeneratedDocs(genRes.data || [])

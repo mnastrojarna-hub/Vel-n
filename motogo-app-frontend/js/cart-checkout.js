@@ -99,11 +99,19 @@ async function finalizeCheckout(){
           }
         }
 
-        // SIMULOVANÁ PLATBA: označ objednávku jako zaplacenou
-        await window.supabase.from('shop_orders').update({
-          payment_status: 'paid'
-        }).eq('id', orderId);
-        console.log('[SHOP] Payment simulated, order paid:', orderId);
+        // SIMULOVANÁ PLATBA: označ objednávku jako zaplacenou (přes RPC — obchází RLS)
+        var payRes = await window.supabase.rpc('confirm_shop_payment', {
+          p_order_id: orderId,
+          p_method: 'card'
+        });
+        if(payRes.error){
+          console.warn('[SHOP] RPC confirm_shop_payment failed:', payRes.error.message, '— trying direct update');
+          // Fallback: přímý update (funguje jen pokud existuje UPDATE RLS policy)
+          await window.supabase.from('shop_orders').update({
+            payment_status: 'paid', confirmed_at: new Date().toISOString()
+          }).eq('id', orderId);
+        }
+        console.log('[SHOP] Payment confirmed, order:', orderId, payRes.data);
 
         // Generuj ZF (zálohovou fakturu) + doklad k platbě — NE finální fakturu
         try {
