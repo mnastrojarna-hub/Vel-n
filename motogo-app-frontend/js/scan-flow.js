@@ -31,18 +31,11 @@ function _isCameraLikelyAvailable(){
   return ok;
 }
 
-// Called from "Registrovat se" button – opens scanner before registration
+// Called from "Registrovat se" button – go straight to registration form
 function startRegistrationWithScan(){
   var _d = (typeof CamDebug!=='undefined') ? CamDebug.log.bind(CamDebug) : function(){};
-  _d('FLOW','startRegistrationWithScan called');
-  if(typeof CamDebug!=='undefined') CamDebug.logEnv();
-  if(typeof ScannerUI!=='undefined' && _isCameraLikelyAvailable()){
-    _d('FLOW','opening ScannerUI...');
-    ScannerUI.open('s-register');
-  } else {
-    _d('FLOW','camera unavailable – skipping to s-register');
-    goTo('s-register');
-  }
+  _d('FLOW','startRegistrationWithScan called – skipping scanner, going to form');
+  goTo('s-register');
 }
 
 // Booking flow – require login, go straight to booking (no scan here)

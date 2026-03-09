@@ -130,8 +130,27 @@ function enableBiometric(yes){
   if(typeof _pendingBookingAction!=='undefined' && _pendingBookingAction){
     continuePendingBooking();
   } else {
-    goTo('s-home');
+    // Show gentle doc upload hint, then go home
+    setTimeout(function(){ _showDocsHint(); }, 400);
   }
+}
+
+// Gentle, informative hint to upload documents after registration
+function _showDocsHint(){
+  var ov=document.getElementById('docs-hint-overlay');
+  if(!ov){ov=document.createElement('div');ov.id='docs-hint-overlay';ov.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;padding:20px;';document.querySelector('.phone').appendChild(ov);}
+  ov.innerHTML='<div style="background:#fff;border-radius:18px;padding:24px;max-width:320px;width:100%;text-align:center;">'+
+    '<div style="font-size:42px;margin-bottom:10px;">🎉</div>'+
+    '<div style="font-size:18px;font-weight:900;color:var(--black);margin-bottom:6px;">Registrace dokončena!</div>'+
+    '<div style="font-size:13px;color:var(--g400);margin-bottom:16px;line-height:1.5;">Pro rychlejší vyřízení rezervace můžete nahrát doklady (OP a řidičák) v sekci <strong>Profil → Moje doklady</strong>.</div>'+
+    '<div style="font-size:11px;color:var(--g300);margin-bottom:18px;line-height:1.4;">Není to povinné hned — doklady lze nahrát kdykoliv před první jízdou.</div>'+
+    '<button onclick="_closeDocsHint()" style="width:100%;background:var(--green);color:#fff;border:none;border-radius:12px;padding:14px;font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer;">Rozumím, pokračovat</button>'+
+    '</div>';
+  ov.style.display='flex';
+}
+function _closeDocsHint(){
+  var ov=document.getElementById('docs-hint-overlay');if(ov)ov.style.display='none';
+  goTo('s-home');
 }
 
 // ===== BIO LOGIN =====
