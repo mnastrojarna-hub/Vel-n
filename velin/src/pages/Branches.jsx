@@ -105,7 +105,7 @@ function Branches() {
           if (!m.branch_id) return
           if (!s[m.branch_id]) s[m.branch_id] = { total: 0, active: 0, maintenance: 0, out_of_service: 0 }
           s[m.branch_id].total++
-          if (m.status === 'available' || m.status === 'rented') s[m.branch_id].active++
+          if (m.status === 'active' || m.status === 'rented') s[m.branch_id].active++
           if (m.status === 'maintenance') s[m.branch_id].maintenance++
           if (m.status === 'unavailable' || m.status === 'retired') s[m.branch_id].out_of_service++
         })
@@ -406,7 +406,7 @@ function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEd
   }
 
   const STATUS_LABELS = {
-    available: { label: 'Dostupná', bg: '#dcfce7', color: '#1a8a18' },
+    active: { label: 'Dostupná', bg: '#dcfce7', color: '#1a8a18' },
     rented: { label: 'Pronajatá', bg: '#dbeafe', color: '#2563eb' },
     maintenance: { label: 'V servisu', bg: '#fef3c7', color: '#b45309' },
     unavailable: { label: 'Nedostupná', bg: '#fee2e2', color: '#dc2626' },
@@ -465,7 +465,7 @@ function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEd
       ) : (
         <div className="space-y-1 max-h-48 overflow-y-auto">
           {motos.map(m => {
-            const st = STATUS_LABELS[m.status] || STATUS_LABELS.available
+            const st = STATUS_LABELS[m.status] || STATUS_LABELS.active
             return (
               <div key={m.id} className="flex items-center text-xs" style={{ padding: '6px 10px', background: '#f8fcfa', borderRadius: 8 }}>
                 <span className="font-bold" style={{ color: '#0f1a14' }}>{m.model}</span>
