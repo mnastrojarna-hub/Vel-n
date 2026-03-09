@@ -36,8 +36,8 @@ export default function BookingPaymentsTab({ bookingId }) {
     setLoading(true)
     try {
       const [invRes, entRes] = await Promise.all([
-        supabase.from('invoices').select('*').eq('booking_id', bookingId).order('issued_at', { ascending: false, nullsFirst: false }),
-        supabase.from('accounting_entries').select('*').eq('reference_type', 'booking').eq('reference_id', bookingId).order('created_at', { ascending: false }),
+        supabase.from('invoices').select('*').eq('booking_id', bookingId).order('issue_date', { ascending: false, nullsFirst: false }),
+        supabase.from('accounting_entries').select('*').eq('booking_id', bookingId).order('date', { ascending: false }),
       ])
       setInvoices(invRes.data || [])
       setEntries(entRes.data || [])
@@ -95,7 +95,7 @@ export default function BookingPaymentsTab({ bookingId }) {
                   {(inv.total || 0).toLocaleString('cs-CZ')} Kč
                 </span>
                 <Badge label={st.label} color={st.color} bg={st.bg} />
-                <span className="text-xs" style={{ color: '#8aab99' }}>{inv.created_at?.slice(0, 10)}</span>
+                <span className="text-xs" style={{ color: '#8aab99' }}>{inv.issue_date || '—'}</span>
                 <button onClick={() => setViewInvoice(inv)} className="text-[10px] font-bold cursor-pointer ml-auto"
                   style={{ color: '#2563eb', background: 'none', border: 'none' }}>Zobrazit</button>
               </div>
@@ -114,7 +114,7 @@ export default function BookingPaymentsTab({ bookingId }) {
             <div key={e.id} className="flex items-center gap-4 p-3 rounded-lg mb-2" style={{ background: '#f1faf7' }}>
               <div className="flex-1">
                 <span className="text-sm font-bold">{e.description || 'Platba'}</span>
-                <span className="text-xs ml-3" style={{ color: '#8aab99' }}>{e.created_at?.slice(0, 10)}</span>
+                <span className="text-xs ml-3" style={{ color: '#8aab99' }}>{e.date || e.created_at?.slice(0, 10) || '—'}</span>
               </div>
               <span className="text-sm font-bold" style={{ color: e.amount >= 0 ? '#1a8a18' : '#dc2626' }}>
                 {e.amount?.toLocaleString('cs-CZ')} Kč
