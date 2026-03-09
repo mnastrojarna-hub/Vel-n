@@ -1,5 +1,5 @@
 # SUPABASE BACKEND STATE — MotoGo24
-> **Poslední aktualizace:** 2026-03-09 00:15 UTC
+> **Poslední aktualizace:** 2026-03-09 10:00 UTC
 > **Zdroj:** Reálný stav Supabase databáze (SQL dump z dashboardu) + Edge Functions
 > **Projekt:** `vnwnqteskbykeucanlhk.supabase.co`
 > **POZOR:** Tento soubor MUSÍ být aktualizován při každé SQL změně!
@@ -16,7 +16,7 @@
 | `moto_status` | active, rented, maintenance, unavailable, retired |
 | `sos_status` | reported, acknowledged, in_progress, resolved, closed |
 | `license_group` | AM, A1, A2, A, B |
-| `document_type` | rental_contract, handover_protocol, return_protocol, damage_report, invoice, other |
+| ~~`document_type`~~ | **ZRUŠENO** — sloupec `documents.type` je nyní TEXT (ne ENUM). Používané hodnoty: contract, vop, invoice_advance, payment_receipt, invoice_final, invoice_shop, protocol |
 
 ---
 
@@ -67,9 +67,9 @@
 | Tabulka | Popis |
 |---------|-------|
 | `invoices` | Faktury (type: issued/received/final/proforma/shop_proforma/shop_final/advance/payment_receipt, source: booking/edit/sos/shop/restore) |
-| `document_templates` | Šablony dokumentů (type document_type ENUM, html_content, variables) |
+| `document_templates` | Šablony dokumentů (type TEXT, html_content, variables) |
 | `generated_documents` | Vygenerované dokumenty |
-| `documents` | Nahrané dokumenty (soubory) |
+| `documents` | Nahrané dokumenty (type TEXT — contract, vop, invoice_advance, payment_receipt, invoice_final, invoice_shop, protocol) |
 | `email_templates` | Šablony emailů (slug: booking_reserved, booking_abandoned, booking_cancelled, booking_completed, voucher_purchased, booking_modified) |
 | `sent_emails` | Log odeslaných emailů |
 
@@ -275,7 +275,7 @@
 | `confirm_payment(booking_id, method)` | RPC: označí booking jako zaplacený |
 | `confirm_shop_payment(order_id, method)` | RPC: označí shop objednávku jako zaplacenou (SECURITY DEFINER) |
 | `check_booking_overlap()` | Trigger funkce: kontrola překrytí rezervací |
-| `generate_shop_invoice()` | Trigger funkce: auto-faktura při zaplacení shop objednávky |
+| `generate_shop_invoice()` | Trigger funkce: auto-faktura při zaplacení shop objednávky (type='shop_final', source='shop', SECURITY DEFINER) |
 
 ### Další funkce v reálné DB (ne v migracích)
 | Funkce | Popis |
@@ -529,3 +529,5 @@ Detailní politiky:
 | 2026-03-09 00:15 | Přidána funkce `validate_voucher_code(p_code)` — validace dárkových poukazů ve slevovém kódu |
 | 2026-03-09 | **FIX invoices:** Oprava sync triggeru (payment_receipt → správný doc type), přidán WITH CHECK na RLS policy, zajištění sloupců variable_symbol/source/order_id, customer INSERT policy |
 | 2026-03-09 | **FIX shop payment:** Přidána RPC `confirm_shop_payment(p_order_id, p_method)` (SECURITY DEFINER) + UPDATE RLS policy na shop_orders pro zákazníka |
+| 2026-03-09 | **FIX documents.type:** Sloupec `documents.type` změněn z `document_type` ENUM na TEXT. ENUM `document_type` zrušen. Trigger `sync_invoice_to_documents()` přepsán s TEXT mapováním (invoice_advance, payment_receipt, invoice_shop, invoice_final) |
+| 2026-03-09 | **FIX generate_shop_invoice:** Opraven typ faktury z `'shop'` na `'shop_final'` (splňuje CHECK constraint). Přidán `source='shop'` a SECURITY DEFINER |
