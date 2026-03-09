@@ -144,6 +144,7 @@ async function _initMotoAvailabilityAsync(){
     });
     if(typeof syncGlobalOcc === 'function') syncGlobalOcc();
   } catch(e){
+    console.error('_initMotoAvailabilityAsync error:', e);
   }
 }
 

@@ -78,7 +78,7 @@ function updateCartFab(){
     }
     if(countEl) countEl.textContent = count;
     if(totalEl) totalEl.textContent = total.toLocaleString('cs-CZ') + ' Kč';
-  } catch(e){ }
+  } catch(e){ console.error('updateCartFab error:', e); }
 }
 
 function clearCart() {
@@ -95,7 +95,7 @@ function dismissCartFab(){
     cartFabDismissed = true;
     var fab = document.getElementById('cart-fab');
     if(fab) fab.style.display = 'none';
-  } catch(e){ }
+  } catch(e){ console.error('dismissCartFab error:', e); }
 }
 
 function checkoutMerch() {

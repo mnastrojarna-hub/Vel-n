@@ -30,7 +30,7 @@ function filterRes(el, filter){
     document.querySelectorAll('#s-res .chip').forEach(function(c){ c.classList.remove('active'); });
     if(el) el.classList.add('active');
     renderMyReservations();
-  } catch(e){ }
+  } catch(e){ console.error('filterRes error:', e); }
 }
 
 async function renderMyReservations(){
@@ -61,7 +61,7 @@ async function renderMyReservations(){
 
     var html = filtered.map(function(b){ return _renderResCard(b); }).join('');
     _setResContent(html);
-  } catch(e){ }
+  } catch(e){ console.error('renderMyReservations error:', e); }
 }
 
 function _setResContent(html){
@@ -325,7 +325,7 @@ async function openResDetailById(bookingId){
     }
 
     goTo('s-res-detail');
-  } catch(e){ }
+  } catch(e){ console.error('openResDetailById error:', e); }
 }
 
 async function doCancelBooking(bookingId){
@@ -348,7 +348,7 @@ async function doCancelBooking(bookingId){
     else refundMsg = _t('res').refundNone+'<br><span style="font-size:11px;color:var(--g400);">'+_t('res').lessThan2days+'</span>';
 
     _showCancelDialog(bookingId, refundMsg + refundPolicy);
-  } catch(e){ showT('✗',_t('common').error,_t('res').cancelFailed); }
+  } catch(e){ console.error('doCancelBooking error:', e); showT('✗',_t('common').error,_t('res').cancelFailed); }
 }
 
 function _showCancelDialog(bookingId, refundMsg){
@@ -468,6 +468,7 @@ async function openEditResByBookingId(bookingId){
     if(typeof switchEditTab === 'function') switchEditTab('prodlouzit');
     goTo('s-edit-res');
   } catch(e){
+    console.error('openEditResByBookingId error:', e);
     showT('✗',_t('common').error,_t('res').openEditFailed);
   }
 }
@@ -508,7 +509,7 @@ async function restoreBooking(bookingId){
     if(applePayBtn) applePayBtn.textContent = '🍎 Pay ' + _currentPaymentAmount.toLocaleString('cs-CZ') + ' Kč';
 
     goTo('s-payment');
-  } catch(e){ showT('✗',_t('common').error,_t('res').restoreFailed); }
+  } catch(e){ console.error('restoreBooking error:', e); showT('✗',_t('common').error,_t('res').restoreFailed); }
 }
 
 function _rebookMoto(motoId){
@@ -668,5 +669,5 @@ async function openExtendBooking(bookingId){
     showT('✓',_t('res').extended,_t('res').extendedMsg);
     renderMyReservations();
     if(_currentResId === bookingId) openResDetailById(bookingId);
-  } catch(e){ showT('✗',_t('common').error,_t('res').extendFailed); }
+  } catch(e){ console.error('openExtendBooking error:', e); showT('✗',_t('common').error,_t('res').extendFailed); }
 }

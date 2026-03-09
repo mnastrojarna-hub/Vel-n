@@ -4,12 +4,14 @@
 // Backend: Supabase (production) — žádný mock fallback
 
 // ===== INITIALIZATION =====
+console.log('%c[MG] MotoGo24 v5.5.4','color:#74FB71;font-weight:bold;font-size:14px;');
 
 function _resolveSession(cb){
   // Supabase session (async, primary backend)
   if(typeof supabase !== 'undefined' && supabase){
     supabase.auth.getSession().then(function(result){
       if(result.error && result.error.code === 'refresh_token_not_found'){
+        console.log('[MG] Stale session detected, signing out...');
         supabase.auth.signOut().catch(function(){});
         cb(false);
         return;
@@ -26,6 +28,7 @@ function _resolveSession(cb){
       cb(hasSession);
     }).catch(function(err){
       if(err && err.code === 'refresh_token_not_found'){
+        console.log('[MG] Refresh token invalid, clearing session...');
         supabase.auth.signOut().catch(function(){});
       }
       cb(false);
