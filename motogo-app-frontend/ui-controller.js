@@ -75,7 +75,7 @@ function _sosPreFetchIds(){
         if(!_sosCurrentBookingId) _sosCurrentBookingId = bk.data[0].id;
         if(!_sosCurrentMotoId) _sosCurrentMotoId = bk.data[0].moto_id;
       }
-    } catch(e){ console.warn('[SOS] pre-fetch IDs:', e); }
+    } catch(e){ }
   })();
 }
 
@@ -131,7 +131,6 @@ function _sosEnsureIncident(type, desc){
         apiCreateSosIncident(type, bookingId, gps.lat, gps.lng, desc, null, motoId)
           .then(function(r){
             if(r && r.error){
-              console.error('[SOS] createIncident error:', r.error);
               if(String(r.error).indexOf('aktivní SOS') >= 0 || String(r.error).indexOf('active') >= 0){
                 showT('⚠️','Aktivní SOS','Máte již aktivní SOS incident. Počkejte na vyřešení velínem.');
               } else {
@@ -142,13 +141,11 @@ function _sosEnsureIncident(type, desc){
             resolve(r && r.id ? r.id : null);
           })
           .catch(function(e){
-            console.error('[SOS] createIncident exception:', e);
             showT('❌','Chyba','Nepodařilo se vytvořit incident');
             resolve(null);
           });
       });
     }).catch(function(e){
-      console.error('[SOS] getLoan error:', e);
       resolve(null);
     });
   });
@@ -158,9 +155,7 @@ function _sosUpdateIncident(incidentId, data){
   if(!incidentId || !window.supabase) return Promise.resolve();
   return window.supabase.from('sos_incidents').update(data).eq('id', incidentId)
     .then(function(r){
-      if(r && r.error) console.error('[SOS] updateIncident error:', r.error.message, data);
     }).catch(function(e){
-      console.error('[SOS] updateIncident exception:', e);
     });
 }
 
@@ -244,7 +239,7 @@ function sosRequestReplacement() {
             _sosCurrentMotoId = bk.data[0].moto_id;
           }
         }
-      } catch(e){ console.warn('[SOS] pre-fetch moto_id:', e); }
+      } catch(e){ }
     })();
 
     _sosEnsureIncident(type, desc).then(function(incId){
@@ -344,7 +339,6 @@ async function sosReplLoadMotos(){
           currentMotoId = loan.moto_id;
         }
       }
-      console.log('[SOS] currentMotoId to exclude:', currentMotoId);
 
       // Zjisti řidičák zákazníka
       var customerLicense = null;
@@ -358,9 +352,7 @@ async function sosReplLoadMotos(){
         .select('id, model, image_url, images, price_weekday, price_weekend, category, license_required, branches(name, city)')
         .eq('status', 'active')
         .limit(50);
-      console.log('[SOS] motorcycles query result:', r.error, r.data ? r.data.length : 'null');
       var allMotos = r.data || [];
-      console.log('[SOS] allMotos from DB:', allMotos.length);
 
       // Filtruj: 1) ne aktuální motorku, 2) zákazník má odpovídající řidičák
       var motos = allMotos.filter(function(m){
@@ -376,7 +368,6 @@ async function sosReplLoadMotos(){
         }
         return true;
       });
-      console.log('[SOS] after license+current filter:', motos.length);
 
       if(motos.length === 0){
         container.innerHTML = '<div style="text-align:center;padding:15px;color:#b91c1c;font-size:12px;font-weight:600;">Žádné motorky momentálně nejsou dostupné. Kontaktujte MotoGo24.</div>';
@@ -416,7 +407,6 @@ async function sosReplLoadMotos(){
       container.innerHTML = html;
     } catch(e){
       container.innerHTML = '<div style="text-align:center;padding:15px;color:#b91c1c;font-size:12px;font-weight:600;">Chyba při načítání motorek.</div>';
-      console.error('[SOS] loadMotos:', e);
     }
 }
 
@@ -662,9 +652,8 @@ async function sosPaymentSubmit(){
           if(typeof apiGeneratePaymentReceipt === 'function'){
             await apiGeneratePaymentReceipt(replBookingId, sosPaymentTotal, 'sos');
           }
-          console.log('[SOS] ZF + DP generated for booking:', replBookingId);
         }
-      } catch(e){ console.error('[SOS] ZF generation failed:', e); }
+      } catch(e){ }
 
       if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '💳 Zaplatit'; btn.style.background = '#b91c1c'; }
     }, 2000);
@@ -687,21 +676,17 @@ async function _sosSwapBookingsAndConfirm(incId, replacementData, isPaid, addres
       });
 
       if(swapResult.error){
-        console.error('[SOS] sos_swap_bookings RPC error:', swapResult.error.message);
         // Fallback: pokračuj bez swap (admin to udělá ručně)
       } else if(swapResult.data){
         var sr = swapResult.data;
         if(sr.error){
-          console.warn('[SOS] swap returned error:', sr.error);
         } else {
-          console.log('[SOS] Booking swap OK:', sr);
           replacementData.original_booking_id = sr.original_booking_id;
           replacementData.replacement_booking_id = sr.replacement_booking_id;
           replacementData.original_end_date = sr.original_end_date;
         }
       }
     } catch(e){
-      console.error('[SOS] swap exception:', e);
     }
 
     // 2. Update incident
@@ -1193,7 +1178,7 @@ function rateRide(val){
   // Save rating to DB
   if(_currentResId && _isSupabaseReady()){
     supabase.from('bookings').update({rating:val,rated_at:new Date().toISOString()}).eq('id',_currentResId)
-      .then(()=>{}).catch(e=>console.warn('[RATE]',e));
+      .then(()=>{}).catch(function(){});
   }
   showT('⭐',_t('res').thankStars.replace('{n}',val),_t('res').feedbackHelps);
 }

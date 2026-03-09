@@ -64,7 +64,6 @@ async function renderAdminMessages(){
     });
     wrap.innerHTML = html;
   } catch(e){
-    console.error('renderAdminMessages error:', e);
     wrap.innerHTML = '<div style="text-align:center;padding:20px;color:var(--red);">Chyba p\u0159i na\u010d\u00edt\u00e1n\u00ed zpr\u00e1v</div>';
   }
 }
@@ -123,7 +122,6 @@ async function renderThreadsList(){
 
     wrap.innerHTML = html;
   } catch(e){
-    console.error('renderThreadsList error:', e);
     wrap.innerHTML = '<div style="text-align:center;padding:20px;color:var(--red);">Chyba</div>';
   }
 }
@@ -194,7 +192,6 @@ async function renderThreadChat(){
       }
     });
   } catch(e){
-    console.error('renderThreadChat error:', e);
     msgsWrap.innerHTML = '<div style="text-align:center;padding:20px;color:var(--red);">Chyba</div>';
   }
 }
@@ -259,7 +256,6 @@ async function startNewThread(){
     _currentThreadId = thread.id;
     goTo('s-messages-thread');
   } catch(e){
-    console.error('startNewThread error:', e);
     showT('\u274c', 'Chyba', 'Nepodařilo se vytvořit konverzaci');
   }
 }

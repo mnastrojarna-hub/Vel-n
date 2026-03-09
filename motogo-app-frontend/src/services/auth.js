@@ -72,7 +72,6 @@ async function authSignUp(email, password, metadata) {
             error: null
         };
     } catch (e) {
-        console.error('[MotoGo24] authSignUp error:', e);
         return { user: null, session: null, error: 'Chyba při registraci.' };
     }
 }
@@ -93,7 +92,6 @@ async function authSignIn(email, password) {
         if (result.error) return { user: null, session: null, error: result.error.message };
         return { user: result.data.user, session: result.data.session, error: null };
     } catch (e) {
-        console.error('[MotoGo24] authSignIn error:', e);
         return { user: null, session: null, error: 'Chyba při přihlášení.' };
     }
 }
@@ -109,7 +107,6 @@ async function authSignOut() {
         var result = await supabase.auth.signOut();
         return { error: result.error ? result.error.message : null };
     } catch (e) {
-        console.error('[MotoGo24] authSignOut error:', e);
         return { error: 'Chyba při odhlášení.' };
     }
 }
@@ -128,7 +125,6 @@ async function authGetSession() {
             session: result.data.session
         };
     } catch (e) {
-        console.error('[MotoGo24] authGetSession error:', e);
         return { user: null, session: null };
     }
 }
@@ -144,7 +140,6 @@ async function authGetUser() {
         var result = await supabase.auth.getUser();
         return (result.data && result.data.user) || null;
     } catch (e) {
-        console.error('[MotoGo24] authGetUser error:', e);
         return null;
     }
 }
@@ -162,7 +157,6 @@ function onAuthStateChange(callback) {
         });
         return result.data.subscription;
     } catch (e) {
-        console.error('[MotoGo24] onAuthStateChange error:', e);
         return { unsubscribe: function () {} };
     }
 }
@@ -180,7 +174,6 @@ async function authResetPassword(email) {
         });
         return { error: result.error ? result.error.message : null };
     } catch (e) {
-        console.error('[MotoGo24] authResetPassword error:', e);
         return { error: 'Chyba při odesílání emailu pro reset hesla.' };
     }
 }

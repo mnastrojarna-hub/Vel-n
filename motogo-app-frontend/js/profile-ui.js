@@ -41,7 +41,7 @@ async function renderProfile(){
 
     // Documents section
     renderDocuments();
-  } catch(e){ console.error('renderProfile error:', e); }
+  } catch(e){ }
 }
 
 async function doSaveProfile(){
@@ -64,7 +64,7 @@ async function doSaveProfile(){
     }
     showT('✓',_t('common').profileSaved,_t('common').changesSaved);
     renderUserData();
-  } catch(e){ console.error('doSaveProfile error:', e); showT('✗',_t('common').error,_t('common').saveFailed); }
+  } catch(e){ showT('✗',_t('common').error,_t('common').saveFailed); }
 }
 
 async function renderDocuments(){
@@ -86,7 +86,7 @@ async function renderDocuments(){
         '<div style="flex:1;"><div style="font-size:12px;font-weight:700;">' + (d.file_name || d.type) + '</div>' +
         '<div style="font-size:10px;color:var(--g400);">' + (d.created_at ? new Date(d.created_at).toLocaleDateString('cs-CZ') : '') + '</div></div></div>';
     }).join('');
-  } catch(e){ console.error('renderDocuments error:', e); }
+  } catch(e){ }
 }
 
 async function doDeleteAccount(){
@@ -101,13 +101,13 @@ async function doDeleteAccount(){
           await supabase.from('profiles').delete().eq('id', session.user_id);
         }
         await supabase.auth.signOut();
-      } catch(e){ console.error('doDeleteAccount supabase error:', e); }
+      } catch(e){ }
     }
 
     try { localStorage.removeItem('mg_current_session'); } catch(e){}
     showT('✓',_t('common').accountDeleted,_t('common').dataRemoved);
     setTimeout(function(){ goTo('s-login'); }, 1000);
-  } catch(e){ console.error('doDeleteAccount error:', e); showT('✗',_t('common').error,_t('common').deleteFailed); }
+  } catch(e){ showT('✗',_t('common').error,_t('common').deleteFailed); }
 }
 
 async function renderInvoices(){
@@ -148,7 +148,7 @@ async function renderInvoices(){
       });
     });
     wrap.innerHTML = html;
-  } catch(e){ console.error('renderInvoices error:', e); }
+  } catch(e){ }
 }
 
 async function downloadDoc(docId){

@@ -189,7 +189,6 @@
                   mgDir.getFile(fname,{create:true},function(fileEntry){
                     fileEntry.createWriter(function(writer){
                       writer.write(blob);
-                      console.log('[DocScanner] Gallery photo: '+fileEntry.nativeURL);
                       // Trigger media scanner so photo appears in gallery
                       if(window.plugins && window.plugins.mediascanner){
                         window.plugins.mediascanner.scan(fileEntry.nativeURL);
@@ -202,7 +201,7 @@
           });
         }
       }
-    }catch(e){ console.warn('[DocScanner] Gallery save failed:',e); }
+    }catch(e){ }
   }
 
   // Send only the BEST frame to Mindee API (saves API calls)

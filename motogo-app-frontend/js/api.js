@@ -3,7 +3,6 @@
 
 // ===== HELPERS =====
 function _ensureSupabase(){
-  if(!window.supabase) console.warn('[API] Supabase není připojen');
 }
 
 async function _getUserId(){
@@ -27,7 +26,7 @@ async function apiFetchProfile(){
       if(u.data && u.data.user) r.data.email = u.data.user.email;
     }
     return r.data || null;
-  } catch(e){ console.error('[API] apiFetchProfile:', e); return null; }
+  } catch(e){ return null; }
 }
 
 async function apiUpdateProfile(data){
@@ -49,7 +48,7 @@ async function apiFetchMotos(){
   try {
     var r = await window.supabase.from('motorcycles').select('*, branches(name, address, city)').eq('status','active');
     return r.data || [];
-  } catch(e){ console.error('[API] apiFetchMotos:', e); return []; }
+  } catch(e){ return []; }
 }
 
 // ===== REZERVACE =====
@@ -75,7 +74,7 @@ async function apiFetchMyBookings(filter){
       b.moto_image = m ? (m.image_url || (m.images && m.images[0]) || '') : '';
       return b;
     });
-  } catch(e){ console.error('[API] apiFetchMyBookings:', e); return []; }
+  } catch(e){ return []; }
 }
 
 async function apiCreateBooking(data){
@@ -105,7 +104,7 @@ async function apiCalcBookingPrice(motoId, startISO, endISO){
     });
     if(r.data && r.data.total_price) return Number(r.data.total_price);
     return 0;
-  } catch(e){ console.error('[API] apiCalcBookingPrice:', e); return 0; }
+  } catch(e){ return 0; }
 }
 
 async function apiProcessPayment(bookingId, amount, method){
@@ -145,12 +144,9 @@ async function apiProcessPayment(bookingId, amount, method){
           if(result.checkout_url) return {success:true, checkout_url: result.checkout_url};
           return {success:true, transaction_id: result.transaction_id};
         }
-        console.warn('[API] Edge fn returned error:', result.error);
       } else {
-        console.warn('[API] Edge fn HTTP '+resp.status+' – using RPC fallback');
       }
     } catch(e){
-      console.warn('[API] Edge fn unreachable:', e.message, '– using RPC fallback');
     }
   }
 
@@ -163,19 +159,15 @@ async function apiProcessPayment(bookingId, amount, method){
     // RPC může vrátit data přímo jako objekt nebo vnořeně
     var rpcData = rpcResult.data;
     if(rpcData && (rpcData.success || rpcData === true)){
-      console.log('[API] Payment confirmed via RPC');
       return {success:true, transaction_id: rpcData.transaction_id || null};
     }
     // Někdy RPC vrací jen true/false bez objektu
     if(rpcData && typeof rpcData === 'object' && !rpcData.error){
-      console.log('[API] Payment confirmed via RPC (alt response)');
       return {success:true};
     }
     if(rpcResult.error){
-      console.warn('[API] RPC confirm_payment error:', rpcResult.error.message);
     }
   } catch(e){
-    console.warn('[API] RPC fallback failed:', e.message);
   }
 
   // 3) Poslední fallback: přímý DB update (select pro ověření)
@@ -186,13 +178,10 @@ async function apiProcessPayment(bookingId, amount, method){
       status: 'active'
     }).eq('id', bookingId).select('id').single();
     if(!r.error && r.data){
-      console.log('[API] Payment confirmed via direct DB update');
       return {success:true};
     }
     // RLS může blokovat – zkus přes service role RPC
-    console.warn('[API] Direct DB update failed:', r.error ? r.error.message : 'no rows');
   } catch(e){
-    console.warn('[API] Direct DB update exception:', e.message);
   }
 
   // 4) Záložní RPC pro případ RLS blokace
@@ -202,12 +191,10 @@ async function apiProcessPayment(bookingId, amount, method){
       p_method: payMethod
     });
     if(!rpc2.error){
-      console.log('[API] Payment confirmed via RPC retry');
       return {success:true};
     }
     return {success:false, error: rpc2.error.message};
   } catch(e){
-    console.error('[API] All payment methods failed:', e);
     return {success:false, error: 'Platba se nezdařila – zkuste to znovu'};
   }
 }
@@ -347,7 +334,7 @@ async function apiCheckBookingOverlap(startISO, endISO, excludeBookingId){
       return {overlap:true, conflicting: r.data[0]};
     }
     return {overlap:false};
-  } catch(e){ console.error('[API] apiCheckBookingOverlap:', e); return {overlap:false}; }
+  } catch(e){ return {overlap:false}; }
 }
 
 // ===== SHOP INVOICES – fetch shop order invoices =====
@@ -362,7 +349,7 @@ async function apiFetchShopInvoices(){
       .eq('customer_id', uid)
       .order('created_at', {ascending: false});
     return r.data || [];
-  } catch(e){ console.error('[API] apiFetchShopInvoices:', e); return []; }
+  } catch(e){ return []; }
 }
 
 // ===== AKTIVNÍ VÝPŮJČKA =====
@@ -425,8 +412,7 @@ async function apiGenerateAdvanceInvoice(bookingId, amount, source){
       issue_date: issueDate, due_date: dueDate, status: 'paid',
       variable_symbol: invNum, source: source || 'booking'
     }).select().single();
-    if(inv.error){ console.error('[API] Advance invoice INSERT FAILED:', inv.error.message, inv.error.details, inv.error.hint); return {error: inv.error.message}; }
-    console.log('[API] Advance invoice created:', invNum, 'id:', inv.data?.id, 'total:', total);
+    if(inv.error){ return {error: inv.error.message}; }
     // Insert into documents table for app display (type is TEXT column, accepts any value)
     try {
       var docR = await window.supabase.from('documents').insert({
@@ -434,11 +420,9 @@ async function apiGenerateAdvanceInvoice(bookingId, amount, source){
         file_name: 'Zálohová faktura ' + invNum + '.pdf',
         file_path: 'invoices/' + (inv.data ? inv.data.id : bookingId) + '.html'
       });
-      if(docR.error) console.warn('[API] ZF doc insert err:', docR.error.message);
-      else console.log('[API] ZF doc inserted OK');
-    } catch(de){ console.warn('[API] ZF doc insert exception:', de); }
+          } catch(de){ }
     return {error: null, invoice_number: invNum};
-  } catch(e){ console.error('[API] advanceInvoice:', e); return {error: e.message}; }
+  } catch(e){ return {error: e.message}; }
 }
 
 // Generate final (konečná) invoice — called after ride end, summarizes all ZFs
@@ -488,8 +472,7 @@ async function apiGenerateFinalInvoice(bookingId){
       issue_date: issueDate, due_date: issueDate, status: 'paid',
       variable_symbol: invNum, source: 'final_summary'
     }).select().single();
-    if(inv.error){ console.error('[API] Final invoice INSERT FAILED:', inv.error.message, inv.error.details, inv.error.hint); return {error: inv.error.message}; }
-    console.log('[API] Final invoice created:', invNum, 'id:', inv.data?.id, 'total:', total);
+    if(inv.error){ return {error: inv.error.message}; }
     // Insert into documents table for app display (type is TEXT column, accepts any value)
     try {
       var docR = await window.supabase.from('documents').insert({
@@ -497,11 +480,9 @@ async function apiGenerateFinalInvoice(bookingId){
         file_name: 'Konečná faktura ' + invNum + '.pdf',
         file_path: 'invoices/' + (inv.data ? inv.data.id : bookingId) + '.html'
       });
-      if(docR.error) console.warn('[API] KF doc insert err:', docR.error.message);
-      else console.log('[API] KF doc inserted OK');
-    } catch(de){ console.warn('[API] KF doc insert exception:', de); }
+          } catch(de){ }
     return {error: null, invoice_number: invNum};
-  } catch(e){ console.error('[API] finalInvoice:', e); return {error: e.message}; }
+  } catch(e){ return {error: e.message}; }
 }
 
 // Generate payment receipt (doklad k přijaté platbě) — issued alongside ZF after payment
@@ -537,8 +518,7 @@ async function apiGeneratePaymentReceipt(bookingId, amount, source){
       issue_date: issueDate, due_date: issueDate, status: 'paid',
       variable_symbol: dpNum, source: source || 'booking'
     }).select().single();
-    if(inv.error){ console.error('[API] Payment receipt INSERT FAILED:', inv.error.message, inv.error.details, inv.error.hint); return {error: inv.error.message}; }
-    console.log('[API] Payment receipt created:', dpNum, 'id:', inv.data?.id, 'total:', total);
+    if(inv.error){ return {error: inv.error.message}; }
     // Insert into documents table for app display (type is TEXT column, accepts any value)
     try {
       var docR = await window.supabase.from('documents').insert({
@@ -546,11 +526,9 @@ async function apiGeneratePaymentReceipt(bookingId, amount, source){
         file_name: 'Doklad k přijaté platbě ' + dpNum + '.pdf',
         file_path: 'invoices/' + (inv.data ? inv.data.id : bookingId) + '.html'
       });
-      if(docR.error) console.warn('[API] DP doc insert err:', docR.error.message);
-      else console.log('[API] DP doc inserted OK');
-    } catch(de){ console.warn('[API] DP doc insert exception:', de); }
+          } catch(de){ }
     return {error: null, receipt_number: dpNum};
-  } catch(e){ console.error('[API] paymentReceipt:', e); return {error: e.message}; }
+  } catch(e){ return {error: e.message}; }
 }
 
 // Legacy alias
@@ -586,7 +564,7 @@ async function apiAutoGenerateBookingDocs(bookingId){
     if(docsToInsert.length > 0){
       await window.supabase.from('documents').insert(docsToInsert);
     }
-  } catch(e){ console.error('[API] autoGenerateBookingDocs:', e); }
+  } catch(e){ }
 }
 
 // ===== DOKUMENTY =====
@@ -602,7 +580,6 @@ async function apiFetchDocuments(){
       .select('*, bookings(start_date, total_price, motorcycles(model))')
       .eq('user_id', uid)
       .order('created_at', {ascending: false});
-    console.log('[DOCS] 1) documents table:', r.error ? 'ERR: '+r.error.message : (r.data||[]).length + ' rows', (r.data||[]).map(function(d){return d.type+'/'+d.booking_id?.substr(-4);}));
     if(r.data) r.data.forEach(function(d){
       // Skip invoice_shop from documents table — step 4 (shop_orders) handles these with correct IDs
       if(d.type === 'invoice_shop') return;
@@ -618,7 +595,6 @@ async function apiFetchDocuments(){
       .select('*, bookings:booking_id(start_date, total_price, motorcycles(model))')
       .eq('customer_id', uid)
       .order('created_at', {ascending: false});
-    console.log('[DOCS] 2) invoices table:', ir.error ? 'ERR: '+ir.error.message : (ir.data||[]).length + ' rows', (ir.data||[]).map(function(i){return i.type+'/'+i.number+'/'+i.booking_id?.substr(-4);}));
     if(ir.data) ir.data.forEach(function(inv){
       // Skip shop_final invoices — step 4 (shop_orders) handles these with correct IDs
       if(inv.type === 'shop_final') return;
@@ -683,8 +659,7 @@ async function apiFetchDocuments(){
           file_name: 'Faktura objednávka ' + (so.order_number || '')
         });
       });
-    } catch(se){ console.error('[API] shop_orders fetch:', se); }
-    console.log('[DOCS] FINAL results:', results.length, 'items:', results.map(function(d){return d.type+'/'+(d.file_name||d.booking_id?.substr(-4)||'?');}));
+    } catch(se){ }
     // Attach debug info for visible diagnostics
     results._debug = {
       docs: r.error ? 'ERR: '+r.error.message : (r.data||[]).length,
@@ -693,7 +668,7 @@ async function apiFetchDocuments(){
       invTypes: (ir.data||[]).map(function(i){return i.type+'/'+i.number;})
     };
     return results;
-  } catch(e){ console.error('[API] apiFetchDocuments:', e); return []; }
+  } catch(e){ return []; }
 }
 
 // Fetch invoices for a specific booking (from invoices table)
@@ -836,7 +811,7 @@ async function apiFetchAdminMessages(){
       .order('created_at', {ascending: false})
       .limit(50);
     return r.data || [];
-  } catch(e){ console.error('[API] apiFetchAdminMessages:', e); return []; }
+  } catch(e){ return []; }
 }
 
 async function apiMarkMessageRead(msgId){
@@ -894,30 +869,25 @@ function apiSubscribeRealtimeUpdates(){
     .on('postgres_changes', {
       event: '*', schema: 'public', table: 'motorcycles'
     }, function(payload){
-      console.log('[RT] motorcycles changed:', payload.eventType);
       _scheduleRealtimeRefresh('motos');
     })
     .on('postgres_changes', {
       event: '*', schema: 'public', table: 'bookings'
     }, function(payload){
-      console.log('[RT] bookings changed:', payload.eventType);
       _scheduleRealtimeRefresh('bookings');
     })
     .on('postgres_changes', {
       event: '*', schema: 'public', table: 'moto_day_prices'
     }, function(payload){
-      console.log('[RT] moto_day_prices changed:', payload.eventType);
       _scheduleRealtimeRefresh('motos');
     })
     .on('postgres_changes', {
       event: 'INSERT', schema: 'public', table: 'documents'
     }, function(payload){
-      console.log('[RT] new document:', payload.new && payload.new.type);
     })
     .on('postgres_changes', {
       event: 'INSERT', schema: 'public', table: 'invoices'
     }, function(payload){
-      console.log('[RT] new invoice');
     })
     .subscribe();
 }
@@ -974,9 +944,8 @@ async function apiUsePromoCode(code, bookingId, baseAmount){
       p_base_amount: baseAmount || 0
     });
     if(r.data) return r.data;
-    if(r.error) console.warn('[API] usePromoCode error:', r.error.message);
     return {valid:false};
-  } catch(e){ console.error('[API] apiUsePromoCode:', e); return {valid:false}; }
+  } catch(e){ return {valid:false}; }
 }
 
 // ===== CUSTOMER → ADMIN ZPRÁVY =====
@@ -1015,7 +984,7 @@ async function apiFetchMyThreads(){
       .eq('customer_id', uid)
       .order('last_message_at', {ascending: false});
     return r.data || [];
-  } catch(e){ console.error('[API] apiFetchMyThreads:', e); return []; }
+  } catch(e){ return []; }
 }
 
 // ===== ENRICHMENT: propojení lokálního katalogu s Supabase =====
@@ -1190,9 +1159,7 @@ async function enrichMOTOS(){
     for(var j = 0; j < fresh.length; j++) MOTOS.push(fresh[j]);
 
     window._enrichMOTOSDone = true;
-    console.log('[API] enrichMOTOS: ' + MOTOS.length + ' aktivních motorek (' + (fresh.length - Object.keys(usedKeys).length) + ' z Velínu)');
   } catch(e){
-    console.error('[API] enrichMOTOS chyba:', e);
   }
 }
 
@@ -1220,7 +1187,7 @@ async function apiAutoGenerateProtocolForToday(){
         file_path: 'protocols/' + bid + '_protocol.html'
       });
     }
-  } catch(e){ console.warn('[API] protocolAutoGen:', e); }
+  } catch(e){ }
 }
 
 // ===== AUTO-GENERATE FINAL INVOICE FOR ENDED BOOKINGS =====
@@ -1245,7 +1212,7 @@ async function apiAutoGenerateFinalInvoiceForEnded(){
       if(existing.data && existing.data.length > 0) continue;
       await apiGenerateFinalInvoice(bid);
     }
-  } catch(e){ console.warn('[API] finalInvoiceAutoGen:', e); }
+  } catch(e){ }
 }
 
 // ===== FETCH DOCUMENT TEMPLATE (from Velín-uploaded PDFs) =====

@@ -40,9 +40,6 @@
   }
 
   function _sendWithRetry(baseUrl, anonKey, token, imageBase64, docType, attempt, cb){
-    console.log('[DocScanner] OCR attempt '+(attempt+1)+'/'+
-      (MAX_RETRIES+1)+' docType='+docType);
-
     fetch(baseUrl + '/functions/v1/scan-document', {
       method: 'POST',
       headers: {
@@ -57,7 +54,6 @@
     })
     .then(function(resp){
       if(!resp.ok && attempt < MAX_RETRIES){
-        console.warn('[DocScanner] OCR HTTP '+resp.status+', retrying...');
         setTimeout(function(){
           _sendWithRetry(baseUrl, anonKey, token, imageBase64, docType, attempt+1, cb);
         }, 1000 * (attempt+1));
@@ -78,26 +74,21 @@
         var text = textParts.join('\n');
 
         DocScanner._lastMindeeData = result.data;
-        console.log('[DocScanner] Mindee OK, fields: '+textParts.length);
         cb(null, text);
       } else if(attempt < MAX_RETRIES){
-        console.warn('[DocScanner] Mindee no data, retrying...');
         setTimeout(function(){
           _sendWithRetry(baseUrl, anonKey, token, imageBase64, docType, attempt+1, cb);
         }, 1000 * (attempt+1));
       } else {
-        console.error('[DocScanner] Mindee failed after all retries:', result.error);
         cb(new Error(result.error || 'OCR failed'), '');
       }
     })
     .catch(function(err){
       if(attempt < MAX_RETRIES){
-        console.warn('[DocScanner] OCR network error, retrying:', err.message);
         setTimeout(function(){
           _sendWithRetry(baseUrl, anonKey, token, imageBase64, docType, attempt+1, cb);
         }, 1000 * (attempt+1));
       } else {
-        console.error('[DocScanner] OCR failed after all retries:', err);
         cb(err, '');
       }
     });
