@@ -14,6 +14,31 @@ import BookingsCalendar from '../components/fleet/BookingsCalendar'
 
 const TABS = ['Detail', 'Kalendář motorky', 'Dokumenty', 'Platby', 'Reklamace']
 
+// Helper: describe a single date modification step
+function describeModification(fromStart, fromEnd, toStart, toEnd) {
+  const fs = new Date(fromStart), fe = new Date(fromEnd), ts = new Date(toStart), te = new Date(toEnd)
+  const startDelta = Math.round((ts - fs) / 86400000)
+  const endDelta = Math.round((te - fe) / 86400000)
+  const origDays = Math.max(1, Math.round((fe - fs) / 86400000) + 1)
+  const newDays = Math.max(1, Math.round((te - ts) / 86400000) + 1)
+  const durationDelta = newDays - origDays
+
+  const parts = []
+  if (startDelta < 0) parts.push(`začátek dříve o ${Math.abs(startDelta)} d`)
+  else if (startDelta > 0) parts.push(`začátek později o ${startDelta} d`)
+  if (endDelta > 0) parts.push(`konec později o ${endDelta} d`)
+  else if (endDelta < 0) parts.push(`konec dříve o ${Math.abs(endDelta)} d`)
+
+  let type, color, bg
+  if (durationDelta > 0) { type = `prodlouženo o ${durationDelta} d`; color = '#2563eb'; bg = '#dbeafe' }
+  else if (durationDelta < 0) { type = `zkráceno o ${Math.abs(durationDelta)} d`; color = '#dc2626'; bg = '#fee2e2' }
+  else if (startDelta !== 0 || endDelta !== 0) { type = 'posunuto'; color = '#92400e'; bg = '#fef3c7' }
+  else { type = 'beze změny'; color = '#4a6357'; bg = '#f1faf7' }
+
+  const detail = parts.length > 0 ? parts.join(', ') : type
+  return { type, detail, parts, durationDelta, startDelta, endDelta, origDays, newDays, color, bg }
+}
+
 const ACTIONS = {
   pending: [
     { label: 'Potvrdit', status: 'reserved', green: true },
@@ -228,7 +253,39 @@ export default function BookingDetail() {
   async function handleSave() {
     setSaving(true); setError(null)
     const { start_date, end_date, total_price, extras, notes, moto_id, user_id } = booking
+
+    // Build save data — record date changes in modification_history
     const saveData = { start_date, end_date, total_price, extras, notes, moto_id, user_id }
+
+    // Fetch current DB state to detect date changes
+    const { data: dbBooking } = await supabase.from('bookings')
+      .select('start_date, end_date, original_start_date, original_end_date, modification_history')
+      .eq('id', id).single()
+
+    if (dbBooking) {
+      const toLD = d => d ? new Date(d).toLocaleDateString('sv-SE') : ''
+      const dateChanged = toLD(dbBooking.start_date) !== toLD(start_date) || toLD(dbBooking.end_date) !== toLD(end_date)
+
+      if (dateChanged) {
+        // Set original dates on first-ever modification
+        if (!dbBooking.original_start_date) {
+          saveData.original_start_date = dbBooking.start_date
+          saveData.original_end_date = dbBooking.end_date
+        }
+        // Append to modification_history
+        const history = Array.isArray(dbBooking.modification_history) ? [...dbBooking.modification_history] : []
+        history.push({
+          at: new Date().toISOString(),
+          from_start: toLD(dbBooking.start_date),
+          from_end: toLD(dbBooking.end_date),
+          to_start: toLD(start_date),
+          to_end: toLD(end_date),
+          source: 'admin'
+        })
+        saveData.modification_history = history
+      }
+    }
+
     const saveResult = await debugAction('booking.save', 'BookingDetail', () =>
       supabase.from('bookings').update(saveData).eq('id', id)
     , saveData)
@@ -495,33 +552,35 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
 
       <Card className="col-span-2">
         <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-4" style={{ color: '#8aab99' }}>Termín a platba</h3>
-        {booking.original_start_date && booking.original_end_date && (() => { const _ld = d => d ? new Date(d).toLocaleDateString('sv-SE') : ''; return _ld(booking.start_date) !== _ld(booking.original_start_date) || _ld(booking.end_date) !== _ld(booking.original_end_date) })() && (() => {
-          const origDays = Math.max(1, Math.ceil((new Date(booking.original_end_date) - new Date(booking.original_start_date)) / 86400000))
-          const curDays = Math.max(1, Math.ceil((new Date(booking.end_date) - new Date(booking.start_date)) / 86400000))
-          const delta = curDays - origDays
-          const startShift = Math.round((new Date(booking.start_date) - new Date(booking.original_start_date)) / 86400000)
-          const endShift = Math.round((new Date(booking.end_date) - new Date(booking.original_end_date)) / 86400000)
-          let label, bg, color
-          if (delta !== 0) {
-            label = `${delta > 0 ? '+' : ''}${delta} dní`
-            bg = delta > 0 ? '#dbeafe' : '#fee2e2'
-            color = delta > 0 ? '#2563eb' : '#dc2626'
-          } else {
-            const parts = []
-            if (startShift !== 0) parts.push(`začátek ${startShift > 0 ? '+' : ''}${startShift}d`)
-            if (endShift !== 0) parts.push(`konec ${endShift > 0 ? '+' : ''}${endShift}d`)
-            label = parts.length > 0 ? `posunuto (${parts.join(', ')})` : 'změněn termín'
-            bg = '#fef3c7'
-            color = '#92400e'
-          }
+        {booking.original_start_date && booking.original_end_date && (() => {
+          const _ld = d => d ? new Date(d).toLocaleDateString('sv-SE') : ''
+          return _ld(booking.start_date) !== _ld(booking.original_start_date) || _ld(booking.end_date) !== _ld(booking.original_end_date)
+        })() && (() => {
+          const mod = describeModification(booking.original_start_date, booking.original_end_date, booking.start_date, booking.end_date)
+          const history = Array.isArray(booking.modification_history) ? booking.modification_history : []
           return (
-            <div className="mb-3 p-2 rounded-lg flex items-center gap-3" style={{ background: bg, fontSize: 11 }}>
-              <span className="font-extrabold" style={{ color }}>
-                {label}
-              </span>
-              <span style={{ color: '#4a6357' }}>
-                Původní: {new Date(booking.original_start_date).toLocaleDateString('cs-CZ')} – {new Date(booking.original_end_date).toLocaleDateString('cs-CZ')} ({origDays}d)
-              </span>
+            <div className="mb-3 space-y-1">
+              <div className="p-2 rounded-lg flex items-center gap-3" style={{ background: mod.bg, fontSize: 11 }}>
+                <span className="font-extrabold" style={{ color: mod.color }}>
+                  {mod.type}
+                </span>
+                <span style={{ color: '#4a6357' }}>
+                  {mod.detail} · Původní: {new Date(booking.original_start_date).toLocaleDateString('cs-CZ')} – {new Date(booking.original_end_date).toLocaleDateString('cs-CZ')} ({mod.origDays}d)
+                </span>
+              </div>
+              {history.length > 1 && (
+                <div className="text-[10px] px-2 py-1 rounded" style={{ background: '#f1faf7', color: '#4a6357' }}>
+                  <span className="font-extrabold">Historie úprav ({history.length}×):</span>
+                  {history.map((h, i) => {
+                    const m = describeModification(h.from_start, h.from_end, h.to_start, h.to_end)
+                    return (
+                      <div key={i} className="ml-2">
+                        {i + 1}. {new Date(h.at).toLocaleString('cs-CZ')} — <span className="font-bold" style={{ color: m.color }}>{m.type}</span> ({m.detail}) · {h.from_start} → {h.to_end} · {h.source === 'admin' ? 'admin' : 'zákazník'}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )
         })()}
@@ -605,21 +664,11 @@ function BookingSummary({ booking, sosIncidents, bookingExtras, cancellation, pr
   const toLD = d => d ? new Date(d).toLocaleDateString('sv-SE') : ''
   const hasModification = b.original_start_date && b.original_end_date &&
     (toLD(b.start_date) !== toLD(b.original_start_date) || toLD(b.end_date) !== toLD(b.original_end_date))
-  let origDays, delta, modLabel
+  let mod
   if (hasModification) {
-    origDays = Math.max(1, Math.ceil((new Date(b.original_end_date) - new Date(b.original_start_date)) / 86400000) + 1)
-    delta = days - origDays
-    if (delta !== 0) {
-      modLabel = `${delta > 0 ? '+' : ''}${delta} dní`
-    } else {
-      const startShift = Math.round((new Date(b.start_date) - new Date(b.original_start_date)) / 86400000)
-      const endShift = Math.round((new Date(b.end_date) - new Date(b.original_end_date)) / 86400000)
-      const parts = []
-      if (startShift !== 0) parts.push(`začátek ${startShift > 0 ? '+' : ''}${startShift}d`)
-      if (endShift !== 0) parts.push(`konec ${endShift > 0 ? '+' : ''}${endShift}d`)
-      modLabel = parts.length > 0 ? `posunuto (${parts.join(', ')})` : 'změněn termín'
-    }
+    mod = describeModification(b.original_start_date, b.original_end_date, b.start_date, b.end_date)
   }
+  const history = Array.isArray(b.modification_history) ? b.modification_history : []
 
   return (
     <div className="space-y-1">
@@ -637,8 +686,12 @@ function BookingSummary({ booking, sosIncidents, bookingExtras, cancellation, pr
 
       {hasModification && (
         <>
-          <SumRow label="Původní termín" value={`${new Date(b.original_start_date).toLocaleDateString('cs-CZ')} – ${new Date(b.original_end_date).toLocaleDateString('cs-CZ')} (${origDays} dní)`} color="#b45309" />
-          <SumRow label="Úprava rozsahu" value={`${modLabel} → nový: ${new Date(b.start_date).toLocaleDateString('cs-CZ')} – ${new Date(b.end_date).toLocaleDateString('cs-CZ')}`} color="#2563eb" />
+          <SumRow label="Původní termín" value={`${new Date(b.original_start_date).toLocaleDateString('cs-CZ')} – ${new Date(b.original_end_date).toLocaleDateString('cs-CZ')} (${mod.origDays} dní)`} color="#b45309" />
+          <SumRow label="Úprava rozsahu" value={`${mod.type} (${mod.detail}) → nový: ${new Date(b.start_date).toLocaleDateString('cs-CZ')} – ${new Date(b.end_date).toLocaleDateString('cs-CZ')}`} color={mod.color} />
+          {history.length > 0 && history.map((h, i) => {
+            const hm = describeModification(h.from_start, h.from_end, h.to_start, h.to_end)
+            return <SumRow key={i} label={`Úprava #${i + 1}`} value={`${new Date(h.at).toLocaleString('cs-CZ')} — ${hm.type} (${hm.detail}) · ${h.source === 'admin' ? 'admin' : 'zákazník'}`} color={hm.color} />
+          })}
         </>
       )}
 

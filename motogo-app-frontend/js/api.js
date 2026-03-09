@@ -289,17 +289,21 @@ async function apiShortenBooking(bookingId, newEndISO, newStartISO){
   _ensureSupabase();
   if(!window.supabase) return {error:'Offline'};
   try {
-    // Store original dates before first modification
-    var cur = await window.supabase.from('bookings').select('start_date, end_date, original_start_date, original_end_date').eq('id', bookingId).single();
-    if(cur.data && !cur.data.original_start_date){
-      await window.supabase.from('bookings').update({
-        original_start_date: cur.data.start_date,
-        original_end_date: cur.data.end_date
-      }).eq('id', bookingId);
-    }
+    var cur = await window.supabase.from('bookings').select('start_date, end_date, original_start_date, original_end_date, modification_history').eq('id', bookingId).single();
+    if(!cur.data) return {error:'Rezervace nenalezena'};
     var changes = {};
+    // Store original dates on first-ever modification
+    if(!cur.data.original_start_date){
+      changes.original_start_date = cur.data.start_date;
+      changes.original_end_date = cur.data.end_date;
+    }
     if(newEndISO) changes.end_date = newEndISO;
     if(newStartISO) changes.start_date = newStartISO;
+    // Append to modification_history
+    var hist = Array.isArray(cur.data.modification_history) ? cur.data.modification_history.slice() : [];
+    var _ld = function(d){ return d ? new Date(d).toISOString().slice(0,10) : ''; };
+    hist.push({at:new Date().toISOString(), from_start:_ld(cur.data.start_date), from_end:_ld(cur.data.end_date), to_start:_ld(newStartISO||cur.data.start_date), to_end:_ld(newEndISO||cur.data.end_date), source:'customer'});
+    changes.modification_history = hist;
     var r = await window.supabase.from('bookings').update(changes).eq('id', bookingId);
     if(r.error) return {error: r.error.message};
     return {error:null};
@@ -310,14 +314,20 @@ async function apiModifyBooking(bookingId, changes){
   _ensureSupabase();
   if(!window.supabase) return {error:'Offline'};
   try {
-    // Store original dates before first date modification
+    // Record date changes in modification_history
     if(changes.start_date || changes.end_date){
-      var cur = await window.supabase.from('bookings').select('start_date, end_date, original_start_date, original_end_date').eq('id', bookingId).single();
-      if(cur.data && !cur.data.original_start_date){
-        await window.supabase.from('bookings').update({
-          original_start_date: cur.data.start_date,
-          original_end_date: cur.data.end_date
-        }).eq('id', bookingId);
+      var cur = await window.supabase.from('bookings').select('start_date, end_date, original_start_date, original_end_date, modification_history').eq('id', bookingId).single();
+      if(cur.data){
+        var _ld = function(d){ return d ? new Date(d).toISOString().slice(0,10) : ''; };
+        // Store original dates on first-ever modification
+        if(!cur.data.original_start_date){
+          changes.original_start_date = cur.data.start_date;
+          changes.original_end_date = cur.data.end_date;
+        }
+        // Append to modification_history
+        var hist = Array.isArray(cur.data.modification_history) ? cur.data.modification_history.slice() : [];
+        hist.push({at:new Date().toISOString(), from_start:_ld(cur.data.start_date), from_end:_ld(cur.data.end_date), to_start:_ld(changes.start_date||cur.data.start_date), to_end:_ld(changes.end_date||cur.data.end_date), source:'customer'});
+        changes.modification_history = hist;
       }
     }
     var r = await window.supabase.from('bookings').update(changes).eq('id', bookingId);
@@ -348,6 +358,26 @@ async function apiCheckBookingOverlap(startISO, endISO, excludeBookingId){
     }
     return {overlap:false};
   } catch(e){ console.error('[API] apiCheckBookingOverlap:', e); return {overlap:false}; }
+}
+
+// ===== MOTO AVAILABILITY CHECK – motorka nesmí být v daném termínu u jiného zákazníka =====
+async function apiCheckMotoAvailability(motoId, startISO, endISO, excludeBookingId){
+  _ensureSupabase();
+  if(!window.supabase || !motoId) return {available:true};
+  try {
+    var q = window.supabase.from('bookings')
+      .select('id, start_date, end_date, user_id, status')
+      .eq('moto_id', motoId)
+      .in('status', ['pending','reserved','active'])
+      .lte('start_date', endISO)
+      .gte('end_date', startISO);
+    if(excludeBookingId) q = q.neq('id', excludeBookingId);
+    var r = await q;
+    if(r.data && r.data.length > 0){
+      return {available:false, conflicting: r.data[0]};
+    }
+    return {available:true};
+  } catch(e){ console.error('[API] apiCheckMotoAvailability:', e); return {available:true}; }
 }
 
 // ===== SHOP INVOICES – fetch shop order invoices =====
