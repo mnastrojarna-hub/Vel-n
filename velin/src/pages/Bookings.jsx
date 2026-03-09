@@ -228,8 +228,11 @@ export default function Bookings() {
             </thead>
             <tbody>
               {bookings.map(b => {
+                const toLocalDate = d => d ? new Date(d).toLocaleDateString('sv-SE') : ''
                 const days = b.start_date && b.end_date ? Math.max(1, Math.ceil((new Date(b.end_date) - new Date(b.start_date)) / 86400000)) : '—'
-                const hasDateChange = b.original_start_date && b.original_end_date && (b.original_start_date !== b.start_date || b.original_end_date !== b.end_date)
+                // Only show delta when dates actually changed (compare in local timezone to avoid date vs timestamptz mismatch)
+                const hasDateChange = b.original_start_date && b.original_end_date &&
+                  (toLocalDate(b.start_date) !== toLocalDate(b.original_start_date) || toLocalDate(b.end_date) !== toLocalDate(b.original_end_date))
                 const origDays = hasDateChange ? Math.max(1, Math.ceil((new Date(b.original_end_date) - new Date(b.original_start_date)) / 86400000)) : null
                 const daysDelta = origDays !== null && typeof days === 'number' ? days - origDays : null
                 const startShift = hasDateChange ? Math.round((new Date(b.start_date) - new Date(b.original_start_date)) / 86400000) : 0
