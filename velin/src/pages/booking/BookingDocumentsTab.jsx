@@ -337,6 +337,30 @@ export default function BookingDocumentsTab({ bookingId }) {
     }
   }
 
+  async function handleDeleteInvoice(inv) {
+    if (!window.confirm(`Opravdu smazat ${inv.number || 'fakturu'}? Tato akce je nevratná.`)) return
+    try {
+      // Delete synced documents from documents table (created by trigger)
+      const { data: syncedDocs } = await supabase.from('documents').select('id, file_name').eq('booking_id', inv.booking_id)
+      const toDelete = (syncedDocs || []).filter(d => d.file_name?.includes(inv.number))
+      if (toDelete.length > 0) {
+        await supabase.from('documents').delete().in('id', toDelete.map(d => d.id))
+      }
+      // Delete invoice items
+      await supabase.from('invoice_items').delete().eq('invoice_id', inv.id)
+      // Try to delete storage file if exists
+      if (inv.pdf_path) {
+        try { await supabase.storage.from('documents').remove([inv.pdf_path]) } catch {}
+      }
+      // Delete the invoice itself
+      const { error: err } = await supabase.from('invoices').delete().eq('id', inv.id)
+      if (err) throw err
+      await loadAll()
+    } catch (e) {
+      setError(`Smazání faktury selhalo: ${e.message}`)
+    }
+  }
+
   async function handleStoreInvoice(inv) {
     try {
       const fullInv = await loadInvoiceData(inv.id)
@@ -401,6 +425,8 @@ export default function BookingDocumentsTab({ bookingId }) {
                     style={{ color: '#4a6357', background: 'none', border: 'none' }}>Tisk</button>
                   <button onClick={() => handleDownload(inv)} className="text-[10px] font-bold cursor-pointer"
                     style={{ color: '#4a6357', background: 'none', border: 'none' }}>Stáhnout</button>
+                  <button onClick={() => handleDeleteInvoice(inv)} className="text-[10px] font-bold cursor-pointer"
+                    style={{ color: '#dc2626', background: 'none', border: 'none' }}>Smazat</button>
                 </div>
               </div>
             )
