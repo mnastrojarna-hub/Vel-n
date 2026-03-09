@@ -47,7 +47,7 @@ export default function InvoicesTab() {
       } else if (typeFilter) {
         query = query.eq('type', typeFilter)
       }
-      query = query.order('issue_date', { ascending: false }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
+      query = query.order('issue_date', { ascending: false, nullsFirst: false }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       const { data, count, error: err } = await query
       if (err) throw err
       setInvoices(data || [])

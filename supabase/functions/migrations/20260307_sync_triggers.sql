@@ -23,6 +23,10 @@ BEGIN
 
   IF NEW.type IN ('proforma', 'advance', 'shop_proforma') THEN
     v_doc_type := 'invoice_advance';
+  ELSIF NEW.type = 'payment_receipt' THEN
+    v_doc_type := 'payment_receipt';
+  ELSIF NEW.type IN ('shop_final') THEN
+    v_doc_type := 'invoice_shop';
   ELSE
     v_doc_type := 'invoice_final';
   END IF;

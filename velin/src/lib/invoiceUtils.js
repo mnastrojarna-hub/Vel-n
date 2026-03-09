@@ -58,7 +58,6 @@ export async function createInvoice({ type, customer_id, booking_id, order_id, i
     type,
     customer_id: customer_id || null,
     booking_id: booking_id || null,
-    order_id: order_id || null,
     items,
     subtotal,
     tax_amount: taxAmount,
@@ -67,34 +66,49 @@ export async function createInvoice({ type, customer_id, booking_id, order_id, i
     issue_date: issueDate,
     due_date: due_date || issueDate,
     status: status || 'issued',
-    variable_symbol: number,
     source: source || 'booking',
   }
+  // Add optional columns only if they have values (columns may not exist in all environments)
+  if (order_id) payload.order_id = order_id
+  if (number) payload.variable_symbol = number
 
-  const { data, error } = await supabase
+  let data = null
+  let insertError = null
+
+  // Try insert
+  const result = await supabase
     .from('invoices')
     .insert(payload)
     .select()
     .single()
 
-  if (error) throw error
-
-  // Sync to documents table (like mobile app does)
-  if (booking_id && customer_id) {
-    const typeLabel = type === 'advance' || type === 'proforma' ? 'invoice_advance'
-      : type === 'payment_receipt' ? 'payment_receipt'
-      : type === 'final' ? 'invoice_final'
-      : 'invoice'
-    await supabase.from('documents').insert({
-      booking_id,
-      user_id: customer_id,
-      type: typeLabel,
-      file_name: `${number}.pdf`,
-      file_path: `invoices/${data.id}.html`,
-    }).catch(() => {}) // non-blocking
+  if (result.error) {
+    console.error('[createInvoice] Insert failed:', result.error.message, result.error.details, result.error.hint)
+    // If insert fails (e.g. unknown column), retry without optional columns
+    const minPayload = {
+      number, type,
+      customer_id: customer_id || null,
+      booking_id: booking_id || null,
+      items, subtotal, tax_amount: taxAmount, total,
+      notes: notes || null,
+      issue_date: issueDate,
+      due_date: due_date || issueDate,
+      status: status || 'issued',
+    }
+    const retry = await supabase.from('invoices').insert(minPayload).select().single()
+    if (retry.error) {
+      console.error('[createInvoice] Retry also failed:', retry.error.message)
+      throw retry.error
+    }
+    data = retry.data
+  } else {
+    data = result.data
   }
 
-  // Audit log
+  // Document sync is handled by DB trigger (sync_invoice_to_documents)
+  // Do NOT manually insert into documents — the trigger does it automatically
+
+  // Audit log (non-blocking)
   try {
     const { data: { user } } = await supabase.auth.getUser()
     await supabase.from('admin_audit_log').insert({
