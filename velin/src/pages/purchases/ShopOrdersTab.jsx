@@ -65,26 +65,32 @@ export default function ShopOrdersTab() {
         .eq('status', 'new')
       if (!paidNew || paidNew.length === 0) return
       for (const order of paidNew) {
+        // Guard: skip if vouchers already generated (avoid duplicates with processVoucherOrder)
+        const { data: existingVouchers } = await supabase
+          .from('vouchers').select('code').eq('order_id', order.id)
+        if (existingVouchers && existingVouchers.length > 0) continue
+
         const items = order.shop_order_items || []
         const voucherItems = items.filter(it =>
           (it.product_name || '').toLowerCase().includes('voucher') ||
           (it.product_name || '').toLowerCase().includes('poukaz')
         )
-        const isAllDigitalVouchers = voucherItems.length === items.length &&
+        const isAllDigitalVouchers = voucherItems.length === items.length && items.length > 0 &&
           items.every(it => !(it.product_name || '').toLowerCase().includes('fyzick') &&
                            !(it.product_name || '').toLowerCase().includes('printed') &&
                            !(it.product_name || '').toLowerCase().includes('tišt'))
 
         // Auto-confirm all paid orders
+        const newStatus = isAllDigitalVouchers ? 'delivered' : 'confirmed'
         await supabase.from('shop_orders').update({
-          status: isAllDigitalVouchers ? 'delivered' : 'confirmed',
+          status: newStatus,
           confirmed_at: new Date().toISOString(),
           ...(isAllDigitalVouchers ? { delivered_at: new Date().toISOString() } : {}),
         }).eq('id', order.id)
 
         // Generate voucher codes for voucher items
+        const generatedCodes = []
         if (voucherItems.length > 0) {
-          const generatedCodes = []
           for (const item of voucherItems) {
             const code = 'MG' + Math.random().toString(36).substring(2, 8).toUpperCase()
             generatedCodes.push(code)
@@ -127,12 +133,14 @@ export default function ShopOrdersTab() {
           }
         }
 
-        // For fully digital voucher orders: generate final invoice immediately with codes
-        if (isAllDigitalVouchers) {
-          supabase.functions.invoke('generate-invoice', {
-            body: { type: 'shop_final', order_id: order.id, voucher_codes: generatedCodes }
-          }).catch(e => console.warn('[Auto final invoice]', e))
-        }
+        // Generate final invoice with voucher codes
+        supabase.functions.invoke('generate-invoice', {
+          body: {
+            type: 'shop_final',
+            order_id: order.id,
+            ...(generatedCodes.length > 0 ? { voucher_codes: generatedCodes } : {}),
+          }
+        }).catch(e => console.warn('[Auto final invoice]', e))
       }
       load()
     } catch (e) { console.error('[AutoConfirmVoucher]', e) }
@@ -392,6 +400,22 @@ function ShopOrderDetail({ order, onClose, onUpdated }) {
 
   async function processVoucherOrder(ord) {
     try {
+      // Guard: check if vouchers already exist for this order (avoid duplicates)
+      const { data: existingVouchers } = await supabase
+        .from('vouchers').select('code').eq('order_id', ord.id)
+      if (existingVouchers && existingVouchers.length > 0) {
+        console.log('[processVoucherOrder] Vouchers already exist for order', ord.id)
+        return
+      }
+
+      // Re-check order status from DB (avoid race with autoConfirmPaidVouchers)
+      const { data: freshOrder } = await supabase
+        .from('shop_orders').select('status, payment_status').eq('id', ord.id).single()
+      if (freshOrder && freshOrder.status !== 'new') {
+        console.log('[processVoucherOrder] Order already processed, status:', freshOrder.status)
+        return
+      }
+
       // Load items for this order
       const { data: orderItems } = await supabase
         .from('shop_order_items')
@@ -408,15 +432,16 @@ function ShopOrderDetail({ order, onClose, onUpdated }) {
                              !(it.product_name || '').toLowerCase().includes('tišt'))
 
       // Auto-confirm / deliver
+      const newStatus = isAllDigitalVouchers ? 'delivered' : 'confirmed'
       await supabase.from('shop_orders').update({
-        status: isAllDigitalVouchers ? 'delivered' : 'confirmed',
+        status: newStatus,
         confirmed_at: new Date().toISOString(),
         ...(isAllDigitalVouchers ? { delivered_at: new Date().toISOString() } : {}),
       }).eq('id', ord.id)
 
       // Generate voucher codes
+      const generatedCodes = []
       if (voucherItems.length > 0) {
-        const generatedCodes = []
         for (const item of voucherItems) {
           const code = 'MG' + Math.random().toString(36).substring(2, 8).toUpperCase()
           generatedCodes.push(code)
@@ -457,20 +482,16 @@ function ShopOrderDetail({ order, onClose, onUpdated }) {
             read: false,
           }).then(() => {}).catch(() => {})
         }
-
-        // Generate final invoice with voucher codes
-        supabase.functions.invoke('generate-invoice', {
-          body: {
-            type: 'shop_final',
-            order_id: ord.id,
-            voucher_codes: generatedCodes,
-          }
-        }).catch(e => console.warn('[Auto final invoice]', e))
-      } else if (isAllDigitalVouchers) {
-        supabase.functions.invoke('generate-invoice', {
-          body: { type: 'shop_final', order_id: ord.id }
-        }).catch(e => console.warn('[Auto final invoice]', e))
       }
+
+      // Generate final invoice with voucher codes
+      await supabase.functions.invoke('generate-invoice', {
+        body: {
+          type: 'shop_final',
+          order_id: ord.id,
+          ...(generatedCodes.length > 0 ? { voucher_codes: generatedCodes } : {}),
+        }
+      }).catch(e => console.warn('[Auto final invoice]', e))
     } catch (e) { console.error('[processVoucherOrder]', e) }
   }
 

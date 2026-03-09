@@ -88,15 +88,20 @@ function ActiveServiceTab({ onRefresh }) {
 
   async function load() {
     setLoading(true)
-    const [motosRes, logsRes] = await Promise.all([
-      supabase.from('motorcycles').select('*, branches(name)')
-        .eq('status', 'maintenance').order('model'),
-      supabase.from('maintenance_log').select('*, motorcycles(model, spz)')
-        .eq('status', 'in_service').order('created_at', { ascending: false }),
-    ])
-    setMotos(motosRes.data || [])
-    setLogs(logsRes.data || [])
-    setLoading(false)
+    try {
+      const [motosRes, logsRes] = await Promise.all([
+        supabase.from('motorcycles').select('*, branches(name)')
+          .eq('status', 'maintenance').order('model'),
+        supabase.from('maintenance_log').select('*, motorcycles(model, spz)')
+          .is('completed_date', null).order('created_at', { ascending: false }),
+      ])
+      setMotos(motosRes.data || [])
+      setLogs(logsRes.data || [])
+    } catch (e) {
+      console.error('[ActiveServiceTab] load failed:', e)
+    } finally {
+      setLoading(false)
+    }
   }
 
   function toggleExpand(motoId) {
@@ -106,26 +111,31 @@ function ActiveServiceTab({ onRefresh }) {
   async function markCompleted(logEntry) {
     setEndingService(s => ({ ...s, [logEntry.id]: true }))
     try {
-      await supabase.from('maintenance_log').update({
-        status: 'completed',
+      const { error: logErr } = await supabase.from('maintenance_log').update({
         completed_date: new Date().toISOString().slice(0, 10),
       }).eq('id', logEntry.id)
+      if (logErr) console.error('[markCompleted] log update failed:', logErr)
+
       if (logEntry.moto_id) {
+        // Check if there are other uncompleted service logs for this moto
         const { data: otherActive } = await supabase.from('maintenance_log')
-          .select('id').eq('moto_id', logEntry.moto_id).eq('status', 'in_service').neq('id', logEntry.id)
+          .select('id').eq('moto_id', logEntry.moto_id).is('completed_date', null).neq('id', logEntry.id)
         if (!otherActive || otherActive.length === 0) {
-          await supabase.from('motorcycles').update({
+          const { error: motoErr } = await supabase.from('motorcycles').update({
             status: 'available', last_service_date: new Date().toISOString().slice(0, 10),
           }).eq('id', logEntry.moto_id)
+          if (motoErr) console.error('[markCompleted] moto update failed:', motoErr)
         }
       }
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({
         admin_id: user?.id, action: 'service_completed',
         details: { log_id: logEntry.id, moto_id: logEntry.moto_id },
-      })
-      load()
+      }).catch(() => {})
+      await load()
       onRefresh?.()
+    } catch (e) {
+      console.error('[markCompleted]', e)
     } finally {
       setEndingService(s => ({ ...s, [logEntry.id]: false }))
     }
@@ -134,16 +144,29 @@ function ActiveServiceTab({ onRefresh }) {
   async function endServiceDirect(moto) {
     setEndingService(s => ({ ...s, [moto.id]: true }))
     try {
-      await supabase.from('motorcycles').update({
+      const { error: motoErr } = await supabase.from('motorcycles').update({
         status: 'available', last_service_date: new Date().toISOString().slice(0, 10),
       }).eq('id', moto.id)
+      if (motoErr) {
+        console.error('[endServiceDirect] moto update failed:', motoErr)
+        alert('Chyba při ukončení servisu: ' + motoErr.message)
+        return
+      }
+      // Also complete any open maintenance_log entries for this moto
+      await supabase.from('maintenance_log').update({
+        completed_date: new Date().toISOString().slice(0, 10),
+      }).eq('moto_id', moto.id).is('completed_date', null)
+
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({
         admin_id: user?.id, action: 'service_ended_direct',
         details: { moto_id: moto.id, model: moto.model },
-      })
-      load()
+      }).catch(() => {})
+      await load()
       onRefresh?.()
+    } catch (e) {
+      console.error('[endServiceDirect]', e)
+      alert('Chyba při ukončení servisu: ' + e.message)
     } finally {
       setEndingService(s => ({ ...s, [moto.id]: false }))
     }
@@ -162,7 +185,6 @@ function ActiveServiceTab({ onRefresh }) {
           moto_id: motoId,
           description: desc.trim(),
           service_type: 'Neplánovaný servis',
-          status: 'in_service',
         })
       }
       setNewDesc(d => ({ ...d, [logId || motoId]: '' }))

@@ -32,7 +32,7 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
   try {
-    const { type, booking_id, order_id, send_email, extra_items } = await req.json()
+    const { type, booking_id, order_id, send_email, extra_items, voucher_codes } = await req.json()
     if (!booking_id && !order_id) return new Response(JSON.stringify({ error: 'Missing booking_id or order_id' }), { status: 400 })
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
@@ -208,6 +208,12 @@ serve(async (req) => {
     <p style="margin:0 0 6px;font-size:10px;font-weight:700;text-transform:uppercase;color:#888">Platební údaje</p>
     <div style="font-size:12px"><span style="color:#888">Banka:</span> ${COMPANY.bank} | <span style="color:#888">Č. účtu:</span> ${COMPANY.account} | <span style="color:#888">VS:</span> ${number}</div>
   </div>
+  ${voucher_codes && voucher_codes.length > 0 ? `
+  <div style="padding:14px;background:#dcfce7;border-radius:8px;margin-bottom:16px;border:1px solid #86efac">
+    <p style="margin:0 0 6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#166534">Kódy dárkových poukazů</p>
+    ${voucher_codes.map((c: string) => `<p style="margin:2px 0;font-size:14px;font-weight:700;font-family:monospace;color:#166534">${c}</p>`).join('')}
+    <p style="margin:6px 0 0;font-size:10px;color:#4a6357">Kódy uplatníte při rezervaci motorky na motogo24.cz nebo v mobilní aplikaci MotoGo24.</p>
+  </div>` : ''}
   ${isProforma ? '<div style="padding:10px 14px;background:#dbeafe;border-radius:8px;font-size:11px;color:#1e40af">Tento doklad není daňovým dokladem. Po přijetí platby Vám bude vystavena konečná faktura.</div>' : ''}
   ${isPaymentReceipt ? '<div style="padding:10px 14px;background:#cffafe;border-radius:8px;font-size:11px;color:#0e7490">Tento doklad potvrzuje přijetí platby. Konečná faktura bude vystavena po dokončení služby.</div>' : ''}
 </div></body></html>`
@@ -231,6 +237,7 @@ serve(async (req) => {
             <p>V příloze zasíláme ${isPaymentReceipt ? 'doklad k přijaté platbě' : isProforma ? 'zálohovou fakturu' : 'fakturu'} č. <strong>${number}</strong> na částku <strong>${fmtPrice(total)} Kč</strong>.</p>
             <p>Splatnost: <strong>${fmtDate(dueDate)}</strong></p>
             <p>Variabilní symbol: <strong>${number}</strong></p>
+            ${voucher_codes && voucher_codes.length > 0 ? `<div style="padding:12px;background:#dcfce7;border-radius:8px;margin:12px 0"><p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#166534">Kódy dárkových poukazů:</p>${voucher_codes.map((c: string) => `<p style="margin:2px 0;font-size:16px;font-weight:700;font-family:monospace;color:#166534">${c}</p>`).join('')}</div>` : ''}
             <hr style="border:1px solid #e5e7eb">
             <p style="font-size:12px;color:#888">${COMPANY.name} | ${COMPANY.email}</p>
           </div>`,

@@ -8,6 +8,20 @@ import Modal from '../components/ui/Modal'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import SearchInput from '../components/ui/SearchInput'
 
+const DAY_NAMES = { mo: 'Po', tu: 'Út', we: 'St', th: 'Čt', fr: 'Pá', sa: 'So', su: 'Ne' }
+
+function formatOpeningHours(oh) {
+  if (!oh) return '—'
+  if (typeof oh === 'string') return oh
+  if (typeof oh !== 'object') return String(oh)
+  try {
+    return ['mo','tu','we','th','fr','sa','su']
+      .filter(d => oh[d])
+      .map(d => `${DAY_NAMES[d]}: ${oh[d]}`)
+      .join(', ') || '—'
+  } catch { return '—' }
+}
+
 class BranchesErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { hasError: false, error: null } }
   static getDerivedStateFromError(error) { return { hasError: true, error } }
@@ -307,7 +321,7 @@ function Branches() {
                     {bookingStats[b.id] || 0}
                   </span>
                 </TD>
-                <TD>{b.opening_hours || '—'}</TD>
+                <TD>{formatOpeningHours(b.opening_hours)}</TD>
                 <TD>
                   <div className="flex gap-1" onClick={e => e.stopPropagation()}>
                     <SmallBtn color="#2563eb" onClick={() => { setEditing(b); setShowModal(true) }}>Upravit</SmallBtn>
@@ -397,7 +411,7 @@ function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEd
         <DRow label="Adresa" value={branch.address} />
         <DRow label="Telefon" value={branch.phone} mono />
         <DRow label="Email" value={branch.email} />
-        <DRow label="Otevírací doba" value={branch.opening_hours} />
+        <DRow label="Otevírací doba" value={formatOpeningHours(branch.opening_hours)} />
         <DRow label="Stav" value={branch.active === false ? 'Neaktivní' : 'Aktivní'} />
         {branch.gps_lat && branch.gps_lng && (
           <div className="col-span-2">
@@ -476,7 +490,7 @@ function BranchModal({ existing, onClose, onSaved }) {
     address: existing?.address || '',
     phone: existing?.phone || '',
     email: existing?.email || '',
-    opening_hours: existing?.opening_hours || '',
+    opening_hours: typeof existing?.opening_hours === 'object' ? formatOpeningHours(existing.opening_hours) : (existing?.opening_hours || ''),
     gps_lat: existing?.gps_lat || '',
     gps_lng: existing?.gps_lng || '',
     notes: existing?.notes || '',
