@@ -1,11 +1,20 @@
 import { supabase } from './supabase'
 
+const PREFIX_MAP = {
+  advance: 'ZF',
+  proforma: 'ZF',
+  shop_proforma: 'ZF',
+  payment_receipt: 'DP',
+  final: 'KF',
+  shop_final: 'FV',
+}
+
 /**
  * Generate next invoice number
- * Format: FV-2026-0001 (final), ZF-2026-0001 (proforma)
+ * Format: ZF-2026-0001 (advance), DP-2026-0001 (receipt), KF-2026-0001 (final)
  */
 export async function generateInvoiceNumber(type) {
-  const prefix = (type === 'proforma' || type === 'shop_proforma') ? 'ZF' : 'FV'
+  const prefix = PREFIX_MAP[type] || 'FV'
   const year = new Date().getFullYear()
   const pattern = `${prefix}-${year}-%`
 
@@ -18,8 +27,7 @@ export async function generateInvoiceNumber(type) {
 
   let seq = 1
   if (data && data.length > 0) {
-    const last = data[0].number
-    const match = last.match(/-(\d+)$/)
+    const match = data[0].number.match(/-(\d+)$/)
     if (match) seq = parseInt(match[1], 10) + 1
   }
 
@@ -38,42 +46,153 @@ export function calculateTotals(items) {
 }
 
 /**
- * Create invoice record in DB
+ * Create invoice record in DB (direct insert, no edge function dependency)
  */
-export async function createInvoice({ type, customer_id, booking_id, items, notes, due_date }) {
+export async function createInvoice({ type, customer_id, booking_id, order_id, items, notes, due_date, source, status }) {
   const number = await generateInvoiceNumber(type)
   const { subtotal, taxAmount, total } = calculateTotals(items)
   const issueDate = new Date().toISOString().slice(0, 10)
 
+  const payload = {
+    number,
+    type,
+    customer_id: customer_id || null,
+    booking_id: booking_id || null,
+    order_id: order_id || null,
+    items,
+    subtotal,
+    tax_amount: taxAmount,
+    total,
+    notes: notes || null,
+    issue_date: issueDate,
+    due_date: due_date || issueDate,
+    status: status || 'issued',
+    variable_symbol: number,
+    source: source || 'booking',
+  }
+
   const { data, error } = await supabase
     .from('invoices')
-    .insert({
-      number,
-      type,
-      customer_id: customer_id || null,
-      booking_id: booking_id || null,
-      items,
-      subtotal,
-      tax_amount: taxAmount,
-      total,
-      notes: notes || null,
-      issue_date: issueDate,
-      due_date: due_date || null,
-      status: 'issued',
-    })
+    .insert(payload)
     .select()
     .single()
 
   if (error) throw error
 
-  const { data: { user } } = await supabase.auth.getUser()
-  await supabase.from('admin_audit_log').insert({
-    admin_id: user?.id,
-    action: 'invoice_created',
-    details: { invoice_id: data.id, number, type },
-  })
+  // Sync to documents table (like mobile app does)
+  if (booking_id && customer_id) {
+    const typeLabel = type === 'advance' || type === 'proforma' ? 'invoice_advance'
+      : type === 'payment_receipt' ? 'payment_receipt'
+      : type === 'final' ? 'invoice_final'
+      : 'invoice'
+    await supabase.from('documents').insert({
+      booking_id,
+      user_id: customer_id,
+      type: typeLabel,
+      file_name: `${number}.pdf`,
+      file_path: `invoices/${data.id}.html`,
+    }).catch(() => {}) // non-blocking
+  }
+
+  // Audit log
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    await supabase.from('admin_audit_log').insert({
+      admin_id: user?.id,
+      action: 'invoice_created',
+      details: { invoice_id: data.id, number, type, source },
+    })
+  } catch {} // non-blocking
 
   return data
+}
+
+/**
+ * Generate advance invoice (ZF) for a booking — mirrors mobile app logic
+ */
+export async function generateAdvanceInvoice(bookingId, source = 'booking') {
+  const { data: booking, error: bErr } = await supabase
+    .from('bookings')
+    .select('*, motorcycles(model, spz), profiles:user_id(id, full_name, email)')
+    .eq('id', bookingId).single()
+  if (bErr || !booking) throw new Error(bErr?.message || 'Booking not found')
+
+  const moto = booking.motorcycles || {}
+  const desc = source === 'edit' ? 'úprava rezervace' : source === 'sos' ? 'SOS' : source === 'restore' ? 'obnova' : 'rezervace'
+  const items = [{ description: `Záloha – ${desc} ${moto.model || ''}`.trim(), qty: 1, unit_price: booking.total_price || 0 }]
+
+  return createInvoice({
+    type: 'advance',
+    customer_id: booking.profiles?.id || booking.user_id,
+    booking_id: bookingId,
+    items,
+    source,
+    status: 'paid',
+  })
+}
+
+/**
+ * Generate payment receipt (DP) for a booking — mirrors mobile app logic
+ */
+export async function generatePaymentReceipt(bookingId, source = 'booking') {
+  const { data: booking, error: bErr } = await supabase
+    .from('bookings')
+    .select('*, motorcycles(model, spz), profiles:user_id(id, full_name, email)')
+    .eq('id', bookingId).single()
+  if (bErr || !booking) throw new Error(bErr?.message || 'Booking not found')
+
+  const moto = booking.motorcycles || {}
+  const desc = source === 'edit' ? 'úprava rezervace' : source === 'sos' ? 'SOS' : source === 'restore' ? 'obnova' : 'rezervace'
+  const items = [{ description: `Přijatá platba – ${desc} ${moto.model || ''}`.trim(), qty: 1, unit_price: booking.total_price || 0 }]
+
+  return createInvoice({
+    type: 'payment_receipt',
+    customer_id: booking.profiles?.id || booking.user_id,
+    booking_id: bookingId,
+    items,
+    source,
+    status: 'paid',
+  })
+}
+
+/**
+ * Generate final invoice (KF) for a booking — mirrors mobile app logic
+ */
+export async function generateFinalInvoice(bookingId) {
+  const { data: booking, error: bErr } = await supabase
+    .from('bookings')
+    .select('*, motorcycles(model, spz), profiles:user_id(id, full_name, email)')
+    .eq('id', bookingId).single()
+  if (bErr || !booking) throw new Error(bErr?.message || 'Booking not found')
+
+  const moto = booking.motorcycles || {}
+  const days = Math.max(1, Math.ceil((new Date(booking.end_date) - new Date(booking.start_date)) / 86400000))
+  const dailyRate = Math.round((booking.total_price || 0) / days)
+
+  const items = [{ description: `Pronájem ${moto.model || 'motorky'} (${moto.spz || ''})`, qty: days, unit_price: dailyRate }]
+  if (booking.extras_price > 0) items.push({ description: 'Příslušenství / doplňky', qty: 1, unit_price: booking.extras_price })
+  if (booking.delivery_fee > 0) items.push({ description: 'Doručení', qty: 1, unit_price: booking.delivery_fee })
+  if (booking.discount_amount > 0) items.push({ description: `Sleva${booking.discount_code ? ` (${booking.discount_code})` : ''}`, qty: 1, unit_price: -booking.discount_amount })
+
+  // Deduct all advance invoices
+  const { data: advances } = await supabase
+    .from('invoices').select('number, total, source')
+    .eq('booking_id', bookingId).in('type', ['advance', 'proforma'])
+    .order('issue_date', { ascending: true })
+  if (advances?.length) {
+    advances.forEach(a => {
+      items.push({ description: `Záloha ${a.number} (${a.source || ''})`, qty: 1, unit_price: -Number(a.total || 0) })
+    })
+  }
+
+  return createInvoice({
+    type: 'final',
+    customer_id: booking.profiles?.id || booking.user_id,
+    booking_id: bookingId,
+    items,
+    source: 'final_summary',
+    status: 'paid',
+  })
 }
 
 /**
@@ -84,9 +203,7 @@ export function printInvoiceHtml(html) {
   if (!win) return
   win.document.write(html)
   win.document.close()
-  win.onload = () => {
-    win.print()
-  }
+  win.onload = () => { win.print() }
 }
 
 /**

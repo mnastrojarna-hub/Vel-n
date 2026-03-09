@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
+import { generateAdvanceInvoice, generatePaymentReceipt, generateFinalInvoice } from '../lib/invoiceUtils'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import StatusBadge from '../components/ui/StatusBadge'
@@ -105,28 +106,28 @@ export default function BookingDetail() {
       end_date: booking.end_date,
       total_price: booking.total_price,
     }
+    // Generate invoices directly in DB (primary) + edge functions for docs/emails (secondary)
     try {
       if (newStatus === 'reserved') {
-        // Generate proforma invoice + rental contract + send confirmation email
-        await Promise.allSettled([
-          supabase.functions.invoke('generate-invoice', { body: { type: 'proforma', booking_id: id } }),
+        // Generate advance invoice (ZF) directly in DB
+        await generateAdvanceInvoice(id, 'booking').catch(e => console.warn('[Invoice] ZF error:', e.message))
+        // Generate payment receipt (DP) directly in DB
+        await generatePaymentReceipt(id, 'booking').catch(e => console.warn('[Invoice] DP error:', e.message))
+        // Edge functions for rental contract + confirmation email (non-blocking)
+        Promise.allSettled([
           supabase.functions.invoke('generate-document', { body: { template_slug: 'rental_contract', booking_id: id } }),
           supabase.functions.invoke('send-booking-email', { body: { ...emailBody, type: 'booking_reserved' } }),
-        ])
+        ]).catch(() => {})
       } else if (newStatus === 'active') {
-        // Generate handover protocol + payment receipt (daňový doklad k přijaté platbě)
-        await Promise.allSettled([
-          supabase.functions.invoke('generate-document', { body: { template_slug: 'handover_protocol', booking_id: id } }),
-          supabase.functions.invoke('generate-invoice', { body: { type: 'payment_receipt', booking_id: id } }),
-        ])
+        // Generate handover protocol (edge function, non-blocking)
+        supabase.functions.invoke('generate-document', { body: { template_slug: 'handover_protocol', booking_id: id } }).catch(() => {})
       } else if (newStatus === 'completed') {
-        // Generate final invoice + send completion email
-        await Promise.allSettled([
-          supabase.functions.invoke('generate-invoice', { body: { type: 'final', booking_id: id } }),
-          supabase.functions.invoke('send-booking-email', { body: { ...emailBody, type: 'booking_completed' } }),
-        ])
+        // Generate final invoice (KF) directly in DB
+        await generateFinalInvoice(id).catch(e => console.warn('[Invoice] KF error:', e.message))
+        // Send completion email (edge function, non-blocking)
+        supabase.functions.invoke('send-booking-email', { body: { ...emailBody, type: 'booking_completed' } }).catch(() => {})
       }
-    } catch {} // Non-blocking — edge functions may not be deployed yet
+    } catch (e) { console.warn('[Auto-triggers]', e.message) }
 
     // Auto in-app message to customer
     await sendBookingMessage(newStatus, booking)
