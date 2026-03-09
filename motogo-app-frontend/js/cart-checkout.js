@@ -76,6 +76,7 @@ async function finalizeCheckout(){
       for(var i=0;i<shopAppliedCodes.length;i++){
         if(shopAppliedCodes[i].type==='promo'){promoCode=shopAppliedCodes[i].code;break;}
       }
+      console.log('[SHOP] Creating order:', JSON.stringify({items:items.length, shipMode:shipMode, promoCode:promoCode}));
       var r = await window.supabase.rpc('create_shop_order', {
         p_items: items,
         p_shipping_method: shipMode,
@@ -83,15 +84,19 @@ async function finalizeCheckout(){
         p_payment_method: 'card',
         p_promo_code: promoCode
       });
+      console.log('[SHOP] create_shop_order result:', JSON.stringify(r.data), r.error ? 'ERR: '+r.error.message : 'OK');
       if(r.data && r.data.error){
+        console.warn('[SHOP] create_shop_order error:', r.data.error);
         showT('\u26a0\ufe0f','Chyba objednávky', r.data.error);return;
       }
       if(r.error){
+        console.warn('[SHOP] RPC error:', r.error.message);
         showT('\u26a0\ufe0f','Chyba objednávky', 'RPC selhalo: ' + r.error.message);return;
       }
 
       var orderId = r.data && r.data.order_id;
       if(!orderId){
+        console.warn('[SHOP] No order_id returned:', JSON.stringify(r.data));
         showT('\u26a0\ufe0f','Chyba','Objednávka nebyla vytvořena (chybí order_id)');return;
       }
 
@@ -106,35 +111,42 @@ async function finalizeCheckout(){
       }
 
       // SIMULOVANÁ PLATBA: označ objednávku jako zaplacenou (přes RPC — obchází RLS)
+      console.log('[SHOP] Confirming payment for order:', orderId);
       var payRes = await window.supabase.rpc('confirm_shop_payment', {
         p_order_id: orderId,
         p_method: 'card'
       });
       if(payRes.error){
+        console.warn('[SHOP] RPC confirm_shop_payment failed:', payRes.error.message, '— trying direct update');
         // Fallback: přímý update (funguje jen pokud existuje UPDATE RLS policy)
         var fbRes = await window.supabase.from('shop_orders').update({
           payment_status: 'paid', status: 'confirmed', confirmed_at: new Date().toISOString()
         }).eq('id', orderId);
         if(fbRes.error){
+          console.warn('[SHOP] Fallback update also failed:', fbRes.error.message);
           showT('\u26a0\ufe0f','Chyba platby','Objednávka vytvořena ('+orderId.substr(-8)+'), ale platba selhala. Kontaktujte nás.');return;
         }
       }
+      console.log('[SHOP] Payment confirmed, order:', orderId);
 
       // Generuj ZF (zálohovou fakturu) + doklad k platbě
       try {
+        console.log('[SHOP] Generating ZF proforma invoice for order:', orderId);
         await window.supabase.functions.invoke('generate-invoice', {
           body: { type: 'shop_proforma', order_id: orderId }
         });
-      } catch(ie){ }
+      } catch(ie){ console.warn('[SHOP] ZF generation:', ie); }
       // Doklad k přijaté platbě
       try {
         if(typeof apiGeneratePaymentReceipt === 'function'){
+          console.log('[SHOP] Generating DP payment receipt for order:', orderId, 'amount:', finalTotal);
           await apiGeneratePaymentReceipt(orderId, finalTotal, 'shop');
         }
-      } catch(re){ }
+      } catch(re){ console.warn('[SHOP] Receipt err:', re); }
 
       orderSuccess = true;
     } catch(e){
+      console.error('[SHOP] finalizeCheckout DB error:', e);
       showT('\u26a0\ufe0f','Chyba','Nepodařilo se dokončit objednávku: ' + (e.message || e));
       return;
     }
@@ -284,7 +296,7 @@ async function autofillCheckout(){
     }
     var namePreview=document.getElementById('ship-details-name');
     if(namePreview && profile) namePreview.textContent='\u00b7 '+profile.full_name;
-  } catch(e){ }
+  } catch(e){ console.error('autofillCheckout error:', e); }
 }
 
 function toggleShipDetails(){
@@ -506,7 +518,7 @@ async function applyDiscount(){
         }
       }
       return;
-    } catch(e){ }
+    } catch(e){ console.error('[PROMO] DB validation failed:', e); }
   }
 
   // Hardcoded fallback (offline)

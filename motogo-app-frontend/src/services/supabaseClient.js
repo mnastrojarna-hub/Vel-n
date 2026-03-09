@@ -9,6 +9,7 @@
 (function() {
     var cfg = window.MOTOGO_CONFIG || {};
     if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) {
+        console.error('[MG] CHYBA: Chybí SUPABASE_URL nebo SUPABASE_ANON_KEY v MOTOGO_CONFIG');
         window.supabase = null;
         return;
     }
@@ -16,6 +17,8 @@
     // Uložit referenci na SDK dřív, než ji přepíšeme klientem
     var sdk = window.supabase;
     if (!sdk || typeof sdk.createClient !== 'function') {
+        console.error('[MG] CHYBA: Supabase SDK nenalezen — supabase-sdk.js chybí nebo je poškozený');
+        console.error('[MG] window.supabase =', typeof window.supabase, window.supabase);
         window.supabase = null;
         return;
     }
@@ -23,7 +26,9 @@
     try {
         // Přepsat window.supabase z SDK namespace na klienta
         window.supabase = sdk.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+        console.log('[MG] Supabase klient vytvořen OK:', cfg.SUPABASE_URL);
     } catch(e) {
+        console.error('[MG] Supabase init selhal:', e);
         window.supabase = null;
     }
 })();
