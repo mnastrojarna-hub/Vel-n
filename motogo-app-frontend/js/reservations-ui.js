@@ -244,10 +244,10 @@ async function openResDetailById(bookingId){
     var banner = document.getElementById('rd-banner');
     if(banner){
       if(st === 'aktivni'){
-        var now2 = new Date();
-        var endD = new Date(booking.end_date);
-        var hoursLeft = (endD - now2) / (1000*60*60);
-        var daysLeft = Math.ceil(hoursLeft / 24);
+        var now2 = new Date(); now2.setHours(0,0,0,0);
+        var endD = new Date(booking.end_date); endD.setHours(0,0,0,0);
+        var daysLeft = Math.max(0, Math.round((endD - now2) / 86400000)) + 1;
+        var hoursLeft = (new Date(booking.end_date) - new Date()) / (1000*60*60);
         var refInfo = '';
         if(hoursLeft > 7*24) refInfo = '<div style="font-size:11px;margin-top:6px;color:var(--gd);">'+_t('res').cancelFull+'</div>';
         else if(hoursLeft > 48) refInfo = '<div style="font-size:11px;margin-top:6px;color:#d97706;">'+_t('res').cancelHalf+'</div>';

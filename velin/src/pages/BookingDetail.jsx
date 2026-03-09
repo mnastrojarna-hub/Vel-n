@@ -88,7 +88,16 @@ export default function BookingDetail() {
         .eq('id', id).single()
     , { booking_id: id })
     if (result?.error) setError(result.error.message)
-    else setBooking(result?.data)
+    else {
+      const d = result?.data
+      if (d) {
+        // Normalize TIMESTAMPTZ dates to YYYY-MM-DD local for correct date input display
+        const normDate = v => v && v.length > 10 ? new Date(v).toLocaleDateString('sv-SE') : v
+        if (d.start_date) d.start_date = normDate(d.start_date)
+        if (d.end_date) d.end_date = normDate(d.end_date)
+      }
+      setBooking(d)
+    }
     setLoading(false)
 
     // Load promo code usage for this booking
@@ -920,10 +929,15 @@ function SmallActionBtn({ children, onClick, color, bg }) {
 }
 
 function FieldInput({ label, type = 'text', value, onChange }) {
+  // For date inputs, convert TIMESTAMPTZ to YYYY-MM-DD in local timezone
+  let displayValue = value || ''
+  if (type === 'date' && value && value.length > 10) {
+    displayValue = new Date(value).toLocaleDateString('sv-SE')
+  }
   return (
     <div>
       <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{label}</label>
-      <input type={type} value={value || ''} onChange={e => onChange(e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
+      <input type={type} value={displayValue} onChange={e => onChange(e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
     </div>
   )
 }
