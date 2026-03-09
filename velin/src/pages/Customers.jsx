@@ -154,6 +154,15 @@ export default function Customers() {
         </div>
       )}
 
+      {/* DIAGNOSTIKA */}
+      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+        <strong>DIAGNOSTIKA Customers</strong><br/>
+        <div>profiles: {customers.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
+        <div>filtry: search="{search}", city="{filters.city}", country={filters.country || 'vše'}, licenseGroup={filters.licenseGroup || 'vše'}</div>
+        <div>sort: {filters.sortBy} {filters.sortDir}, stats loaded: {Object.keys(stats).length} zákazníků</div>
+        {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
+      </div>
+
       {loading ? (
         <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (

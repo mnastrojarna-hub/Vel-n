@@ -229,6 +229,15 @@ function Branches() {
         <StatCard label="Aktivní rezervace" value={totalBookings} color="#8b5cf6" />
       </div>
 
+      {/* DIAGNOSTIKA */}
+      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+        <strong>DIAGNOSTIKA Branches</strong><br/>
+        <div>branches: {branches.length} (zobrazeno: {filtered.length}), statusFilter: {statusFilter}</div>
+        <div>totalMotos: {totalMotos} (active: {activeMotos}), totalBookings: {totalBookings}</div>
+        <div>search: "{search}"</div>
+        {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
+      </div>
+
       <div className="flex items-center gap-3 mb-5 flex-wrap">
         <SearchInput value={search} onChange={setSearch} placeholder="Hledat pobočku, město, adresu..." />
         <div className="flex gap-1">

@@ -75,6 +75,15 @@ export default function Inventory() {
         </div>
       </div>
 
+      {/* DIAGNOSTIKA */}
+      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+        <strong>DIAGNOSTIKA Inventory</strong><br/>
+        <div>items: {items.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
+        <div>filtry: search="{filters.search}", category={filters.category || 'vše'}, stock={filters.stock || 'vše'}</div>
+        <div>lowStock: {items.filter(i => i.stock <= i.min_stock).length} položek pod minimem</div>
+        {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
+      </div>
+
       {error && <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
 
       {loading ? (

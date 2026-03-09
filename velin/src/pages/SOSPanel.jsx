@@ -344,6 +344,16 @@ export default function SOSPanel() {
   const displayed = filterByType(baseList).sort(prioritySort)
 
   return (
+    <>
+    {/* DIAGNOSTIKA */}
+    <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+      <strong>DIAGNOSTIKA SOSPanel</strong><br/>
+      <div>incidents total: {incidents.length}, active: {active.length}, resolved: {resolved.length}</div>
+      <div>critical/high: {critical.length}, pendingApproval: {pendingApproval.length}, pendingPayment: {pendingPayment.length}</div>
+      <div>filter: {filter}, severityFilter: {severityFilter}, subFilter: {subFilter}</div>
+      <div>displayed: {displayed.length}, selectedIncident: {selectedIncident ? selectedIncident.id?.slice(-8) : 'žádný'}</div>
+      <div>notifications: {notifyEnabled ? 'ON' : 'OFF'}</div>
+    </div>
     <div className="flex gap-5" style={{ minHeight: 'calc(100vh - 100px)' }}>
       {/* Left: incident list */}
       <div className={selectedIncident ? 'w-1/2' : 'w-full'} style={{ transition: 'width .2s' }}>
@@ -495,6 +505,7 @@ export default function SOSPanel() {
         </div>
       )}
     </div>
+    </>
   )
 }
 

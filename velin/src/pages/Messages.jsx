@@ -80,6 +80,13 @@ export default function Messages() {
 
   return (
     <>
+      {/* DIAGNOSTIKA */}
+      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+        <strong>DIAGNOSTIKA Messages</strong><br/>
+        <div>selected thread: {selected ? `${selected.id?.slice(-8)} (${selected.profiles?.full_name || selected.customer_id?.slice(-8) || '—'})` : 'žádný'}</div>
+        <div>customers loaded: {customers.length}, newThread modal: {String(showNew)}</div>
+      </div>
+
       <div className="flex bg-white rounded-card shadow-card overflow-hidden" style={{ height: 'calc(100vh - 140px)' }}>
         {/* Thread list — left panel */}
         <div className="flex-shrink-0" style={{ width: 320, borderRight: '1px solid #d4e8e0' }}>

@@ -221,6 +221,20 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+      {/* DIAGNOSTIKA */}
+      <div className="mt-4 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+        <strong>DIAGNOSTIKA Dashboard</strong><br/>
+        <div>motorcycles: {stats.totalMotos} (active: {stats.activeMotos}, využití: {stats.utilization}%)</div>
+        <div>bookings (active/pending): {stats.activeBookings}/{stats.pendingBookings}</div>
+        <div>revenue (month): {stats.monthRevenue?.toLocaleString('cs-CZ')} Kč</div>
+        <div>unread messages: {stats.unreadMessages}</div>
+        <div>low stock items: {stats.lowStock}</div>
+        <div>active SOS: {stats.activeSos} (critical: {stats.sosCritical})</div>
+        <div>STK expiring (30d): {stats.stkExpiring?.length || 0}</div>
+        <div>finance: příjmy={financeData.revenue?.toLocaleString('cs-CZ')} Kč, výdaje={financeData.expense?.toLocaleString('cs-CZ')} Kč, neuhrazené={financeData.unpaid?.toLocaleString('cs-CZ')} Kč</div>
+        <div>revenueChart: {revenueChart.filter(v => v > 0).length}/12 měsíců s daty</div>
+        <div>upcomingEvents: {upcomingEvents.length} záznamů</div>
+      </div>
       <ExportBar />
     </div>
   )

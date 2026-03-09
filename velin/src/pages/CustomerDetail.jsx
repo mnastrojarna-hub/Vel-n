@@ -199,6 +199,17 @@ export default function CustomerDetail() {
         ))}
       </div>
 
+      {/* DIAGNOSTIKA */}
+      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+        <strong>DIAGNOSTIKA CustomerDetail (#{id?.slice(-8)})</strong><br/>
+        <div>profile: {customer.full_name || '—'} ({customer.email || '—'})</div>
+        <div>phone: {customer.phone || '—'}, city: {customer.city || '—'}, country: {customer.country || '—'}</div>
+        <div>license_group: {(customer.license_group || []).join(', ') || 'žádné'}, marketing_consent: {String(!!customer.marketing_consent)}</div>
+        <div>reliability_score: {typeof customer.reliability_score === 'object' ? JSON.stringify(customer.reliability_score) : customer.reliability_score || '—'}</div>
+        <div>tab: {tab}</div>
+        {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
+      </div>
+
       {tab === 'Profil' && (
         <ProfileTab
           customer={customer}
