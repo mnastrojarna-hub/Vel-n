@@ -41,14 +41,16 @@ export default function BookingPaymentsTab({ bookingId }) {
     setLoading(true)
     try {
       debugLog('BookingPaymentsTab', 'loadAll', { bookingId })
-      const [invRes, entRes] = await Promise.all([
-        debugAction('invoices.byBooking', 'BookingPaymentsTab', () =>
-          supabase.from('invoices').select('*').eq('booking_id', bookingId).order('issue_date', { ascending: false, nullsFirst: false })),
-        debugAction('accounting_entries.byBooking', 'BookingPaymentsTab', () =>
-          supabase.from('accounting_entries').select('*').eq('booking_id', bookingId).order('date', { ascending: false })),
-      ])
+      const invRes = await debugAction('invoices.byBooking', 'BookingPaymentsTab', () =>
+        supabase.from('invoices').select('*').eq('booking_id', bookingId).order('issue_date', { ascending: false, nullsFirst: false }))
       setInvoices(invRes.data || [])
-      setEntries(entRes.data || [])
+      // accounting_entries may not have booking_id column — load all and filter client-side by reference
+      try {
+        const entRes = await debugAction('accounting_entries.byBooking', 'BookingPaymentsTab', () =>
+          supabase.from('accounting_entries').select('*').order('created_at', { ascending: false }))
+        const all = entRes.data || []
+        setEntries(all.filter(e => e.booking_id === bookingId || e.reference_id === bookingId))
+      } catch { setEntries([]) }
     } catch (e) { debugError('BookingPaymentsTab', 'loadAll', e); setError(e.message) }
     setLoading(false)
   }

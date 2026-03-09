@@ -23,7 +23,7 @@ export default function TaxTab() {
       supabase
         .from('tax_records')
         .select('*')
-        .order(sort.startsWith('amount') ? 'total' : 'period', { ascending: sort.endsWith('_asc') })
+        .order(sort.startsWith('amount') ? 'total' : 'period_to', { ascending: sort.endsWith('_asc') })
     )
     if (err) { debugError('TaxTab', 'load', err); setError(err.message) }
     else setRecords(data || [])
@@ -125,12 +125,12 @@ export default function TaxTab() {
               if (statusFilter && r.status !== statusFilter) return false
               if (search) {
                 const s = search.toLowerCase()
-                if (!(r.period || '').toLowerCase().includes(s) && !(r.type || '').toLowerCase().includes(s)) return false
+                if (!(r.period_to || '').toLowerCase().includes(s) && !(r.type || '').toLowerCase().includes(s)) return false
               }
               return true
             }).map(r => (
               <TRow key={r.id}>
-                <TD bold>{r.period || '—'}</TD>
+                <TD bold>{r.period_from && r.period_to ? `${r.period_from} — ${r.period_to}` : r.period_to || '—'}</TD>
                 <TD>{r.type || '—'}</TD>
                 <TD>{fmt(r.tax_base)}</TD>
                 <TD bold>{fmt(r.vat_amount)}</TD>

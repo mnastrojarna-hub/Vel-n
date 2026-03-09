@@ -13,7 +13,7 @@ export default function ServiceSchedule() {
 
   async function load() {
     setLoading(true)
-    // Show all active schedules (with or without next_date)
+    // Show all active schedules (with or without next_due)
     try {
       debugLog('ServiceSchedule', 'load')
       const { data, error } = await debugAction('maintenance_schedules.list', 'ServiceSchedule', () =>
@@ -21,7 +21,7 @@ export default function ServiceSchedule() {
           .from('maintenance_schedules')
           .select('*, motorcycles(model, spz, mileage)')
           .eq('active', true)
-          .order('next_date', { ascending: true, nullsFirst: false })
+          .order('next_due', { ascending: true, nullsFirst: false })
       )
       if (error) throw error
       setSchedules(data || [])
@@ -57,7 +57,7 @@ export default function ServiceSchedule() {
                 {s.interval_km ? (overdue ? `⚠ ${Math.abs(remaining).toLocaleString('cs-CZ')} km po` : `${remaining.toLocaleString('cs-CZ')} km`) : '—'}
                 {!currentKm && s.interval_km ? ' (km nenastaven)' : ''}
               </TD>
-              <TD>{s.next_date ? new Date(s.next_date).toLocaleDateString('cs-CZ') : '—'}</TD>
+              <TD>{s.next_due ? new Date(s.next_due).toLocaleDateString('cs-CZ') : '—'}</TD>
             </TRow>
           )
         })}
