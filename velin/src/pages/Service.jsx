@@ -122,7 +122,7 @@ function ActiveServiceTab({ onRefresh }) {
           .select('id').eq('moto_id', logEntry.moto_id).is('completed_date', null).neq('id', logEntry.id)
         if (!otherActive || otherActive.length === 0) {
           const { error: motoErr } = await supabase.from('motorcycles').update({
-            status: 'available', last_service_date: new Date().toISOString().slice(0, 10),
+            status: 'active', last_service_date: new Date().toISOString().slice(0, 10),
           }).eq('id', logEntry.moto_id)
           if (motoErr) console.error('[markCompleted] moto update failed:', motoErr)
         }
@@ -145,7 +145,7 @@ function ActiveServiceTab({ onRefresh }) {
     setEndingService(s => ({ ...s, [moto.id]: true }))
     try {
       const { error: motoErr } = await supabase.from('motorcycles').update({
-        status: 'available', last_service_date: new Date().toISOString().slice(0, 10),
+        status: 'active', last_service_date: new Date().toISOString().slice(0, 10),
       }).eq('id', moto.id)
       if (motoErr) {
         console.error('[endServiceDirect] moto update failed:', motoErr)
