@@ -581,13 +581,13 @@ async function apiFetchDocuments(){
       .order('created_at', {ascending: false});
     if(ir.data) ir.data.forEach(function(inv){
       var b = inv.bookings;
+      var iType = inv.type === 'payment_receipt' ? 'payment_receipt'
+        : (inv.type === 'proforma' || inv.type === 'advance') ? 'invoice_advance'
+        : 'invoice_final';
       var existing = results.find(function(d){
-        return d.booking_id === inv.booking_id &&
-          (d.type === 'invoice_advance' || d.type === 'invoice_final');
+        return d.booking_id === inv.booking_id && d.type === iType;
       });
       if(existing) return; // already have from documents table
-      var iType = (inv.type === 'proforma' || inv.type === 'advance')
-        ? 'invoice_advance' : 'invoice_final';
       results.push({
         id: inv.id, booking_id: inv.booking_id,
         type: iType, _invoice: inv,
@@ -605,13 +605,15 @@ async function apiFetchDocuments(){
       .order('created_at', {ascending: false});
     if(gr.data) gr.data.forEach(function(gd){
       var b = gd.bookings;
-      var hasContract = results.find(function(d){
-        return d.booking_id === gd.booking_id && d.type === 'contract';
+      var isProtocol = gd.type === 'handover_protocol' || gd.type === 'return_protocol';
+      var mappedType = isProtocol ? 'protocol' : 'contract';
+      var hasDup = results.find(function(d){
+        return d.booking_id === gd.booking_id && d.type === mappedType;
       });
-      if(hasContract) return;
+      if(hasDup) return;
       results.push({
         id: gd.id, booking_id: gd.booking_id,
-        type: 'contract', _genDoc: gd,
+        type: mappedType, _genDoc: gd,
         date: gd.created_at,
         moto_name: (b && b.motorcycles) ? b.motorcycles.model : '',
         amount: b ? b.total_price : 0,

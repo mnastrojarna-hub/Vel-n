@@ -1,8 +1,8 @@
 // ===== DOCUMENTS.JS – Contract/Invoice/Protocol generation & digital signature =====
 // Auto-fills from booking + profile data, renders in-app, supports digital signature
 
-var COMPANY={name:'MotoGo24 s.r.o.',ic:'12345678',sidlo:'Mezná 9, 393 01 Mezná',
-  email:'info@motogo24.cz',tel:'+420 123 456 789',bank:'CZ65 0800 0000 0012 3456 7890',
+var COMPANY={name:'Bc. Petra Semorádová',ic:'21874263',sidlo:'Mezná 9, 393 01 Mezná',
+  email:'info@motogo24.cz',tel:'+420 774 256 271',bank:'670100-2225851630/6210',
   note:'Nejsme plátci DPH dle §6 zákona č. 235/2004 Sb.'};
 
 function _docDate(iso){
