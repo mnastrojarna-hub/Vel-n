@@ -154,18 +154,7 @@ function InvoiceViewModal({ invoice, onClose }) {
   async function loadHtml() {
     setLoading(true)
     try {
-      // Try loading from storage first
-      if (invoice.pdf_path) {
-        try {
-          const { data, error } = await supabase.storage.from('documents').download(invoice.pdf_path)
-          if (!error) {
-            setHtml(await data.text())
-            setLoading(false)
-            return
-          }
-        } catch {}
-      }
-      // Generate from template
+      // Always generate from template (storage bucket may not exist)
       const fullInv = await loadInvoiceData(invoice.id)
       const generated = generateInvoiceHtml({
         ...fullInv,

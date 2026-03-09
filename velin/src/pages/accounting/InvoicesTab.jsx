@@ -213,7 +213,7 @@ function NewInvoiceModal({ onClose, onSaved }) {
     setSaving(true); setErr(null)
     try {
       const totalVal = Number(form.total) || 0
-      const taxVal = Number(form.tax_amount) || Math.round(totalVal * 0.21 / 1.21 * 100) / 100
+      const taxVal = Number(form.tax_amount) || 0 // Neplátce DPH
       const subtotalVal = totalVal - taxVal
       const number = await generateInvoiceNumber(form.type)
       const { error } = await supabase.from('invoices').insert({

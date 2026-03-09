@@ -130,21 +130,57 @@ export default function BookingDocumentsTab({ bookingId }) {
   }
 
   async function handleDownload(doc) {
-    const path = doc.pdf_path || doc.file_path
-    if (!path) return
     try {
-      const { data, error: err } = await supabase.storage.from('documents').download(path)
-      if (err) throw err
-      const url = URL.createObjectURL(data)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = doc.document_templates?.name || doc.file_name || 'dokument.pdf'
-      a.click()
-      URL.revokeObjectURL(url)
+      // For invoices — generate HTML on-the-fly
+      if (doc.number && doc.type) {
+        const html = await generateInvoiceHtmlForDoc(doc)
+        if (html) { downloadBlob(html, `faktura_${doc.number}.html`); return }
+      }
+      // For generated docs — try regenerate from filled_data
+      if (doc.filled_data) {
+        const html = rebuildFromFilledData(doc)
+        if (html) { downloadBlob(html, doc.document_templates?.name || 'dokument.html'); return }
+      }
+      // Try storage as last resort
+      const path = doc.pdf_path || doc.file_path
+      if (path) {
+        const { data, error: err } = await supabase.storage.from('documents').download(path)
+        if (!err && data) {
+          const url = URL.createObjectURL(data)
+          const a = document.createElement('a'); a.href = url; a.download = doc.file_name || 'dokument.html'; a.click(); URL.revokeObjectURL(url)
+          return
+        }
+      }
+      setError('Soubor není dostupný')
     } catch (e) { setError(`Stažení selhalo: ${e.message}`) }
   }
 
+  function downloadBlob(html, filename) {
+    const blob = new Blob([html], { type: 'text/html' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url)
+  }
+
+  function rebuildFromFilledData(doc) {
+    if (!doc.filled_data) return null
+    const v = doc.filled_data
+    return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Dokument</title></head><body style="margin:0;padding:0;font-family:'Segoe UI',sans-serif;color:#1a1a1a"><div style="max-width:780px;margin:0 auto;padding:32px"><h2>${v.company_name || 'MotoGo24'}</h2><p>Zákazník: ${v.customer_name || '—'}</p><p>Motocykl: ${v.moto_model || '—'} (${v.moto_spz || ''})</p><p>Období: ${v.start_date || '—'} — ${v.end_date || '—'} (${v.days || '—'} dní)</p><p>Cena: ${v.total_price || '—'} Kč</p></div></body></html>`
+  }
+
+  async function generateInvoiceHtmlForDoc(inv) {
+    try {
+      const fullInv = await loadInvoiceData(inv.id)
+      return generateInvoiceHtml({ ...fullInv, customer: fullInv.profiles || {}, items: fullInv.items || [] })
+    } catch { return null }
+  }
+
   async function handleViewDoc(doc) {
+    // For generated docs, try filled_data first
+    if (doc.filled_data) {
+      const html = rebuildFromFilledData(doc)
+      if (html) { setViewHtml(html); setViewDoc(doc); return }
+    }
+    // Try storage
     const path = doc.pdf_path || doc.file_path
     if (!path) return
     try {
@@ -153,27 +189,13 @@ export default function BookingDocumentsTab({ bookingId }) {
       const text = await data.text()
       setViewHtml(text)
       setViewDoc(doc)
-    } catch (e) {
-      // Fallback: open in new tab
-      const { data } = supabase.storage.from('documents').getPublicUrl(path)
-      if (data?.publicUrl) window.open(data.publicUrl, '_blank')
-      else setError(`Otevření selhalo: ${e.message}`)
+    } catch {
+      setError('Dokument není dostupný — storage bucket neexistuje')
     }
   }
 
   async function handleViewInvoice(inv) {
-    // If stored in storage, download and show
-    if (inv.pdf_path) {
-      try {
-        const { data, error: err } = await supabase.storage.from('documents').download(inv.pdf_path)
-        if (err) throw err
-        const text = await data.text()
-        setViewHtml(text)
-        setViewDoc(inv)
-        return
-      } catch {}
-    }
-    // Generate HTML from template on-the-fly
+    // Always generate HTML from template on-the-fly (storage bucket may not exist)
     try {
       const fullInv = await loadInvoiceData(inv.id)
       const html = generateInvoiceHtml({
@@ -190,15 +212,8 @@ export default function BookingDocumentsTab({ bookingId }) {
 
   async function handlePrintInvoice(inv) {
     try {
-      let html
-      if (inv.pdf_path) {
-        const { data, error: err } = await supabase.storage.from('documents').download(inv.pdf_path)
-        if (!err) html = await data.text()
-      }
-      if (!html) {
-        const fullInv = await loadInvoiceData(inv.id)
-        html = generateInvoiceHtml({ ...fullInv, customer: fullInv.profiles || {}, items: fullInv.items || [] })
-      }
+      const fullInv = await loadInvoiceData(inv.id)
+      const html = generateInvoiceHtml({ ...fullInv, customer: fullInv.profiles || {}, items: fullInv.items || [] })
       printInvoiceHtml(html)
     } catch (e) {
       setError(`Tisk faktury selhal: ${e.message}`)
@@ -209,7 +224,8 @@ export default function BookingDocumentsTab({ bookingId }) {
     try {
       const fullInv = await loadInvoiceData(inv.id)
       const html = generateInvoiceHtml({ ...fullInv, customer: fullInv.profiles || {}, items: fullInv.items || [] })
-      await storeInvoicePdf(inv.id, html)
+      // Try storage, but don't fail if bucket doesn't exist
+      try { await storeInvoicePdf(inv.id, html) } catch {}
       await loadAll()
     } catch (e) {
       setError(`Uložení selhalo: ${e.message}`)
@@ -255,14 +271,8 @@ export default function BookingDocumentsTab({ bookingId }) {
                     style={{ color: '#2563eb', background: 'none', border: 'none' }}>Náhled</button>
                   <button onClick={() => handlePrintInvoice(inv)} className="text-[10px] font-bold cursor-pointer"
                     style={{ color: '#4a6357', background: 'none', border: 'none' }}>Tisk</button>
-                  {!inv.pdf_path && (
-                    <button onClick={() => handleStoreInvoice(inv)} className="text-[10px] font-bold cursor-pointer"
-                      style={{ color: '#b45309', background: 'none', border: 'none' }}>Uložit PDF</button>
-                  )}
-                  {inv.pdf_path && (
-                    <button onClick={() => handleDownload(inv)} className="text-[10px] font-bold cursor-pointer"
-                      style={{ color: '#4a6357', background: 'none', border: 'none' }}>Stáhnout</button>
-                  )}
+                  <button onClick={() => handleDownload(inv)} className="text-[10px] font-bold cursor-pointer"
+                    style={{ color: '#4a6357', background: 'none', border: 'none' }}>Stáhnout</button>
                 </div>
               </div>
             )

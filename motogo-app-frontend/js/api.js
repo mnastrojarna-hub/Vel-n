@@ -395,10 +395,10 @@ async function apiGenerateAdvanceInvoice(bookingId, amount, source){
     }
     var invNum = 'ZF-' + yr + '-' + String(seq).padStart(4, '0');
     var desc = 'Záloha – ' + (source === 'edit' ? 'úprava rezervace' : source === 'sos' ? 'SOS' : source === 'shop' ? 'e-shop' : 'rezervace');
-    var items = [{description: desc + ' ' + (m.model||''), qty: 1, unit_price: amount || 0, vat_rate: 21}];
+    var items = [{description: desc + ' ' + (m.model||''), qty: 1, unit_price: amount || 0}];
     var subtotal = amount || 0;
-    var tax = Math.round(subtotal * 0.21 * 100) / 100;
-    var total = subtotal + tax;
+    var tax = 0; // Neplátce DPH
+    var total = subtotal;
     var issueDate = new Date().toISOString().slice(0, 10);
     var dueDate = issueDate; // advance = immediate
     var inv = await window.supabase.from('invoices').insert({
@@ -408,11 +408,7 @@ async function apiGenerateAdvanceInvoice(bookingId, amount, source){
       variable_symbol: invNum, source: source || 'booking'
     }).select().single();
     if(inv.error) console.warn('[API] Advance invoice err:', inv.error.message);
-    await window.supabase.from('documents').insert({
-      booking_id: bookingId, user_id: uid, type: 'invoice_advance',
-      file_name: 'Zálohová faktura ' + invNum + '.pdf',
-      file_path: 'invoices/' + (inv.data ? inv.data.id : bookingId) + '.html'
-    });
+    // Document sync is handled by DB trigger (trg_sync_invoice_to_documents)
     return {error: null, invoice_number: invNum};
   } catch(e){ console.error('[API] advanceInvoice:', e); return {error: e.message}; }
 }
@@ -445,18 +441,18 @@ async function apiGenerateFinalInvoice(bookingId){
     var invNum = 'KF-' + yr + '-' + String(seq).padStart(4, '0');
     var days = Math.max(1, Math.ceil((new Date(b.end_date) - new Date(b.start_date)) / 86400000));
     var dailyRate = Math.round((b.total_price || 0) / days);
-    var items = [{description: 'Pronájem ' + (m.model||'motorky') + ' (' + (m.spz||'') + ')', qty: days, unit_price: dailyRate, vat_rate: 21}];
-    if(b.extras_price > 0) items.push({description: 'Příslušenství / doplňky', qty: 1, unit_price: b.extras_price, vat_rate: 21});
-    if(b.delivery_fee > 0) items.push({description: 'Doručení', qty: 1, unit_price: b.delivery_fee, vat_rate: 21});
+    var items = [{description: 'Pronájem ' + (m.model||'motorky') + ' (' + (m.spz||'') + ')', qty: days, unit_price: dailyRate}];
+    if(b.extras_price > 0) items.push({description: 'Příslušenství / doplňky', qty: 1, unit_price: b.extras_price});
+    if(b.delivery_fee > 0) items.push({description: 'Doručení', qty: 1, unit_price: b.delivery_fee});
     // Add all advance invoice references
     var advTotal = 0;
     advances.forEach(function(a){
       advTotal += Number(a.total || 0);
-      items.push({description: 'Záloha ' + a.number + ' (' + (a.source||'') + ')', qty: 1, unit_price: -Number(a.total || 0), vat_rate: 21});
+      items.push({description: 'Záloha ' + a.number + ' (' + (a.source||'') + ')', qty: 1, unit_price: -Number(a.total || 0)});
     });
     var subtotal = items.reduce(function(s, it){ return s + (it.unit_price * (it.qty||1)); }, 0);
-    var tax = Math.round(subtotal * 0.21 * 100) / 100;
-    var total = subtotal + tax; // Should be ~0 CZK (all paid via advances)
+    var tax = 0; // Neplátce DPH
+    var total = subtotal;
     var issueDate = new Date().toISOString().slice(0, 10);
     var inv = await window.supabase.from('invoices').insert({
       number: invNum, type: 'final', customer_id: uid, booking_id: bookingId,
@@ -465,11 +461,7 @@ async function apiGenerateFinalInvoice(bookingId){
       variable_symbol: invNum, source: 'final_summary'
     }).select().single();
     if(inv.error) console.warn('[API] Final invoice err:', inv.error.message);
-    await window.supabase.from('documents').insert({
-      booking_id: bookingId, user_id: uid, type: 'invoice_final',
-      file_name: 'Konečná faktura ' + invNum + '.pdf',
-      file_path: 'invoices/' + (inv.data ? inv.data.id : bookingId) + '.html'
-    });
+    // Document sync is handled by DB trigger (trg_sync_invoice_to_documents)
     return {error: null, invoice_number: invNum};
   } catch(e){ console.error('[API] finalInvoice:', e); return {error: e.message}; }
 }
@@ -496,10 +488,10 @@ async function apiGeneratePaymentReceipt(bookingId, amount, source){
     }
     var dpNum = 'DP-' + yr + '-' + String(seq).padStart(4, '0');
     var desc = 'Přijatá platba – ' + (source === 'edit' ? 'úprava rezervace' : source === 'sos' ? 'SOS' : source === 'shop' ? 'e-shop' : source === 'restore' ? 'obnova' : 'rezervace');
-    var items = [{description: desc + ' ' + (m.model||''), qty: 1, unit_price: amount || 0, vat_rate: 21}];
+    var items = [{description: desc + ' ' + (m.model||''), qty: 1, unit_price: amount || 0}];
     var subtotal = amount || 0;
-    var tax = Math.round(subtotal * 0.21 * 100) / 100;
-    var total = subtotal + tax;
+    var tax = 0; // Neplátce DPH
+    var total = subtotal;
     var issueDate = new Date().toISOString().slice(0, 10);
     var inv = await window.supabase.from('invoices').insert({
       number: dpNum, type: 'payment_receipt', customer_id: uid, booking_id: bookingId,
@@ -508,11 +500,7 @@ async function apiGeneratePaymentReceipt(bookingId, amount, source){
       variable_symbol: dpNum, source: source || 'booking'
     }).select().single();
     if(inv.error) console.warn('[API] Payment receipt err:', inv.error.message);
-    await window.supabase.from('documents').insert({
-      booking_id: bookingId, user_id: uid, type: 'payment_receipt',
-      file_name: 'Doklad k přijaté platbě ' + dpNum + '.pdf',
-      file_path: 'invoices/' + (inv.data ? inv.data.id : bookingId) + '.html'
-    });
+    // Document sync is handled by DB trigger (trg_sync_invoice_to_documents)
     return {error: null, receipt_number: dpNum};
   } catch(e){ console.error('[API] paymentReceipt:', e); return {error: e.message}; }
 }
