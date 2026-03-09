@@ -42,6 +42,7 @@ BEGIN
       currency,
       status,
       type,
+      source,
       issued_at
     ) VALUES (
       NEW.id,
@@ -49,6 +50,7 @@ BEGIN
       NEW.total_amount,
       COALESCE(NEW.currency, 'CZK'),
       'issued',
+      'shop_final',
       'shop',
       NOW()
     )
@@ -56,7 +58,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 DROP TRIGGER IF EXISTS trg_generate_shop_invoice ON shop_orders;
 CREATE TRIGGER trg_generate_shop_invoice
