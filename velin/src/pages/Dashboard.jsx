@@ -43,22 +43,25 @@ export default function Dashboard() {
   async function fetchDashboardData() {
     setLoading(true)
     try {
-      const [motorcyclesRes, bookingsRes, revenueRes, messagesRes, inventoryRes, chartRes, eventsRes, sosRes, stkRes, financeRes, unpaidRes] = await Promise.all([
+      const today = new Date().toISOString().split('T')[0]
+      const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
+      const yearAgoMonth = new Date(new Date().getFullYear() - 1, new Date().getMonth(), 1).toISOString().split('T')[0]
+      const [motorcyclesRes, bookingsRes, messagesRes, inventoryRes, eventsRes, sosRes, stkRes, financeRes, chartFinanceRes, unpaidRes] = await Promise.all([
         supabase.from('motorcycles').select('id, status', { count: 'exact' }),
         supabase.from('bookings').select('id, status').in('status', ['active', 'pending', 'reserved']),
-        supabase.from('accounting_entries').select('amount').eq('type', 'revenue')
-          .gte('date', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]),
         supabase.from('messages').select('id', { count: 'exact' }).eq('direction', 'customer').is('read_at', null),
         supabase.from('inventory').select('id, stock, min_stock'),
-        supabase.from('accounting_entries').select('amount, date').eq('type', 'revenue')
-          .gte('date', new Date(new Date().getFullYear() - 1, new Date().getMonth(), 1).toISOString().split('T')[0])
-          .order('date', { ascending: true }),
-        supabase.from('bookings').select('id, customer_name, motorcycle_name, start_date, end_date, status, total_price')
-          .gte('start_date', new Date().toISOString().split('T')[0]).order('start_date', { ascending: true }).limit(5),
+        supabase.from('bookings').select('id, user_id, moto_id, start_date, end_date, status, total_price')
+          .or(`start_date.gte.${today},status.eq.active`)
+          .in('status', ['active', 'reserved', 'pending'])
+          .order('start_date', { ascending: true }).limit(5),
         supabase.from('sos_incidents').select('id, type, severity, status', { count: 'exact' }).in('status', ['reported', 'acknowledged', 'in_progress']),
         supabase.from('motorcycles').select('id, model, spz, stk_valid_until'),
         supabase.from('accounting_entries').select('type, amount, category, description')
-          .gte('date', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]),
+          .gte('date', monthStart),
+        supabase.from('accounting_entries').select('type, amount, category, description, date')
+          .gte('date', yearAgoMonth)
+          .order('date', { ascending: true }),
         supabase.from('invoices').select('total').eq('status', 'unpaid'),
       ])
       const allMotos = motorcyclesRes.data || []
@@ -66,12 +69,32 @@ export default function Dashboard() {
       const bookings = bookingsRes.data || []
       const activeBookings = bookings.filter(b => b.status === 'active' || b.status === 'reserved').length
       const pendingBookings = bookings.filter(b => b.status === 'pending').length
-      const monthRevenue = (revenueRes.data || []).reduce((s, e) => s + (Number(e.amount) || 0), 0)
       const unreadMessages = messagesRes.count || (messagesRes.data || []).length
       const lowStock = (inventoryRes.data || []).filter(i => i.stock <= (i.min_stock || 0)).length
       const utilization = activeMotos > 0 ? Math.round((activeBookings / activeMotos) * 100) : 0
       const in30days = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
       const stkExpiring = (stkRes.data || []).filter(m => m.stk_valid_until && m.stk_valid_until <= in30days)
+
+      // Revenue classification (shared logic for stats, finance box, and chart)
+      const REVENUE_CATS = ['pronájem', 'pronajem', 'rezervace', 'booking', 'rental']
+      const REVENUE_DESCS = ['platba za rezervaci', 'platba za pronájem', 'příjem z pronájmu']
+      const isRevenue = (e) => {
+        const cat = (e.category || '').toLowerCase()
+        const desc = (e.description || '').toLowerCase()
+        if (e.type === 'revenue') return true
+        return REVENUE_CATS.some(rc => cat.includes(rc)) || REVENUE_DESCS.some(rd => desc.includes(rd))
+      }
+
+      // Finance summary
+      const finEntries = financeRes.data || []
+      const finRev = finEntries.filter(e => isRevenue(e)).reduce((s, e) => s + Math.abs(e.amount || 0), 0)
+      const finExp = finEntries.filter(e => !isRevenue(e)).reduce((s, e) => s + Math.abs(e.amount || 0), 0)
+      const finUnpaid = (unpaidRes.data || []).reduce((s, i) => s + (i.total || 0), 0)
+      setFinanceData({ revenue: finRev, expense: finExp, profit: finRev - finExp, unpaid: finUnpaid })
+
+      // Month revenue stat uses same classification
+      const monthRevenue = finRev
+
       setStats({
         activeMotos, totalMotos: allMotos.length, activeBookings, pendingBookings,
         monthRevenue, unreadMessages, lowStock, utilization: Math.min(utilization, 100),
@@ -79,26 +102,34 @@ export default function Dashboard() {
         sosCritical: (sosRes.data || []).filter(s => s.severity === 'critical' || s.severity === 'high').length,
         stkExpiring,
       })
-      // Finance summary with proper classification
-      const REVENUE_CATS = ['pronájem', 'pronajem', 'rezervace', 'booking', 'rental']
-      const REVENUE_DESCS = ['platba za rezervaci', 'platba za pronájem', 'příjem z pronájmu']
-      const classEntry = (e) => {
-        const cat = (e.category || '').toLowerCase()
-        const desc = (e.description || '').toLowerCase()
-        if (REVENUE_CATS.some(rc => cat.includes(rc)) || REVENUE_DESCS.some(rd => desc.includes(rd))) return 'revenue'
-        return e.type || 'expense'
-      }
-      const finEntries = financeRes.data || []
-      const finRev = finEntries.filter(e => classEntry(e) === 'revenue').reduce((s, e) => s + Math.abs(e.amount || 0), 0)
-      const finExp = finEntries.filter(e => classEntry(e) === 'expense').reduce((s, e) => s + Math.abs(e.amount || 0), 0)
-      const finUnpaid = (unpaidRes.data || []).reduce((s, i) => s + (i.total || 0), 0)
-      setFinanceData({ revenue: finRev, expense: finExp, profit: finRev - finExp, unpaid: finUnpaid })
 
-      const chartEntries = chartRes.data || []
+      // Revenue chart (last 12 months) — same classification
+      const chartEntries = chartFinanceRes.data || []
       const monthlyData = new Array(12).fill(0)
-      chartEntries.forEach(e => { monthlyData[new Date(e.date).getMonth()] += Number(e.amount) || 0 })
+      chartEntries.forEach(e => {
+        if (isRevenue(e)) monthlyData[new Date(e.date).getMonth()] += Math.abs(Number(e.amount) || 0)
+      })
       setRevenueChart(monthlyData)
-      setUpcomingEvents(eventsRes.data || [])
+
+      // Enrich upcoming events with profile/motorcycle names
+      const rawEvents = eventsRes.data || []
+      let enrichedEvents = rawEvents
+      if (rawEvents.length > 0) {
+        const userIds = [...new Set(rawEvents.map(e => e.user_id).filter(Boolean))]
+        const motoIds = [...new Set(rawEvents.map(e => e.moto_id).filter(Boolean))]
+        const [profilesRes, motosRes] = await Promise.all([
+          userIds.length > 0 ? supabase.from('profiles').select('id, full_name').in('id', userIds) : { data: [] },
+          motoIds.length > 0 ? supabase.from('motorcycles').select('id, model').in('id', motoIds) : { data: [] },
+        ])
+        const profileMap = Object.fromEntries((profilesRes.data || []).map(p => [p.id, p.full_name]))
+        const motoMap = Object.fromEntries((motosRes.data || []).map(m => [m.id, m.model]))
+        enrichedEvents = rawEvents.map(e => ({
+          ...e,
+          customer_name: profileMap[e.user_id] || null,
+          motorcycle_name: motoMap[e.moto_id] || null,
+        }))
+      }
+      setUpcomingEvents(enrichedEvents)
     } catch {
     } finally {
       setLoading(false)
