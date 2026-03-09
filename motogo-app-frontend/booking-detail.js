@@ -260,7 +260,7 @@ function renderDetail(){
           };
           if(typeof startBookingWithScan==='function') startBookingWithScan(setupFn);
           else { setupFn(); goTo('s-booking'); }
-        }catch(e){console.error('CTA click error:',e);showT('\u2717',_t('common').error,_t('res').failedToBook||'Nepoda\u0159ilo se p\u0159ej\u00edt k rezervaci');}
+        }catch(e){showT('\u2717',_t('common').error,_t('res').failedToBook||'Nepoda\u0159ilo se p\u0159ej\u00edt k rezervaci');}
       });
     }
   }

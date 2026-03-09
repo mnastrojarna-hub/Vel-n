@@ -93,7 +93,7 @@ async function proceedToPayment(){
           .limit(1)
           .single();
         if(_lookup.data) motoId = _lookup.data.id;
-      } catch(e){ console.error('[PAY] moto lookup failed:', e); }
+      } catch(e){ }
     }
     if(!motoId){
       showT('✗', 'Chyba', 'Nepodařilo se identifikovat motorku. Zkuste to znovu.');
@@ -161,7 +161,7 @@ async function proceedToPayment(){
       }
     }, _PAYMENT_TIMEOUT_MS);
     goTo('s-payment');
-  } catch(e){ console.error('proceedToPayment error:', e); showT('✗',_t('common').error||'Chyba',_t('pay').createFailed||'Nepodařilo se vytvořit rezervaci'); }
+  } catch(e){ showT('✗',_t('common').error||'Chyba',_t('pay').createFailed||'Nepodařilo se vytvořit rezervaci'); }
 }
 
 // Process payment with 2s delay
@@ -202,22 +202,22 @@ function doPayment(){
         if(typeof appliedCode !== 'undefined' && appliedCode && typeof apiUsePromoCode === 'function'){
           try {
             apiUsePromoCode(appliedCode, _currentBookingId, _currentPaymentAmount + (typeof discountAmt !== 'undefined' ? discountAmt : 0));
-          } catch(pe){ console.warn('[PAY] Promo tracking:', pe); }
+          } catch(pe){ }
         }
 
         // AUTO-GENERATE: Advance invoice + Payment receipt + Contract + VOP
         if(_currentBookingId){
           try {
             if(typeof apiGenerateAdvanceInvoice === 'function'){
-              apiGenerateAdvanceInvoice(_currentBookingId, _currentPaymentAmount, 'booking').catch(function(e){ console.warn('[PAY] Advance invoice err:', e); });
+              apiGenerateAdvanceInvoice(_currentBookingId, _currentPaymentAmount, 'booking').catch(function(e){ });
             }
             if(typeof apiGeneratePaymentReceipt === 'function'){
-              apiGeneratePaymentReceipt(_currentBookingId, _currentPaymentAmount, 'booking').catch(function(e){ console.warn('[PAY] Payment receipt err:', e); });
+              apiGeneratePaymentReceipt(_currentBookingId, _currentPaymentAmount, 'booking').catch(function(e){ });
             }
             if(typeof apiAutoGenerateBookingDocs === 'function'){
-              apiAutoGenerateBookingDocs(_currentBookingId).then(function(){}).catch(function(e){ console.warn('[PAY] Docs err:', e); });
+              apiAutoGenerateBookingDocs(_currentBookingId).then(function(){}).catch(function(e){ });
             }
-          } catch(de){ console.warn('[PAY] Doc gen err:', de); }
+          } catch(de){ }
         }
 
         // Update success screen
@@ -267,7 +267,7 @@ function doPayment(){
         if(payBtn) payBtn.textContent = (_t('pay').payBtn||'Zaplatit') + ' ' + _currentPaymentAmount.toLocaleString('cs-CZ') + ' Kč →';
       }
     }, 2000);
-  } catch(e){ console.error('doPayment error:', e); showT('✗',_t('common').error||'Chyba',_t('pay').processingError||'Chyba při zpracování platby'); }
+  } catch(e){ showT('✗',_t('common').error||'Chyba',_t('pay').processingError||'Chyba při zpracování platby'); }
 }
 
 function _fmtDatePayment(iso){
@@ -291,7 +291,7 @@ async function _autoCancelUnpaid(bookingId, reason){
             await window.supabase.from('vouchers')
               .update({ status: 'active', redeemed_at: null, redeemed_by: null, booking_id: null, updated_at: new Date().toISOString() })
               .eq('code', c).eq('status', 'redeemed');
-          } catch(ve){ console.warn('[PAY] voucher restore failed for', c, ve); }
+          } catch(ve){ }
         }
       }
       await window.supabase.from('bookings').update({
@@ -301,7 +301,7 @@ async function _autoCancelUnpaid(bookingId, reason){
         cancelled_at: new Date().toISOString()
       }).eq('id', bookingId).eq('payment_status', 'unpaid');
     }
-  } catch(e){ console.error('[PAY] autoCancelUnpaid:', e); }
+  } catch(e){ }
   appliedCode = null;
   _appliedPromoId = null;
   _appliedCodes = [];
@@ -350,13 +350,13 @@ function doRestorePayment(bookingId){
 
         // Auto-generate advance invoice + payment receipt + docs for restored booking
         if(typeof apiGenerateAdvanceInvoice === 'function'){
-          apiGenerateAdvanceInvoice(bookingId, _currentPaymentAmount, 'restore').catch(function(e){ console.warn('[PAY] Invoice err:', e); });
+          apiGenerateAdvanceInvoice(bookingId, _currentPaymentAmount, 'restore').catch(function(e){ });
         }
         if(typeof apiGeneratePaymentReceipt === 'function'){
-          apiGeneratePaymentReceipt(bookingId, _currentPaymentAmount, 'restore').catch(function(e){ console.warn('[PAY] Receipt err:', e); });
+          apiGeneratePaymentReceipt(bookingId, _currentPaymentAmount, 'restore').catch(function(e){ });
         }
         if(typeof apiAutoGenerateBookingDocs === 'function'){
-          apiAutoGenerateBookingDocs(bookingId).catch(function(e){ console.warn('[PAY] Docs err:', e); });
+          apiAutoGenerateBookingDocs(bookingId).catch(function(e){ });
         }
 
         _isRestorePayment = false;
@@ -377,7 +377,7 @@ function doRestorePayment(bookingId){
         if(payBtn) payBtn.textContent = (_t('pay').payBtn||'Zaplatit') + ' ' + _currentPaymentAmount.toLocaleString('cs-CZ') + ' Kč →';
       }
     }, 2000);
-  } catch(e){ console.error('doRestorePayment error:', e); }
+  } catch(e){ }
 }
 
 // ===== EDIT PAYMENT (extend/shorten booking → pay difference) =====
@@ -415,10 +415,10 @@ function doEditPayment(bookingId, amount, changes){
 
         // Auto-generate advance invoice + payment receipt for the edit payment
         if(typeof apiGenerateAdvanceInvoice === 'function'){
-          apiGenerateAdvanceInvoice(bookingId, amount, 'edit').catch(function(e){ console.warn('[PAY] edit invoice err:', e); });
+          apiGenerateAdvanceInvoice(bookingId, amount, 'edit').catch(function(e){ });
         }
         if(typeof apiGeneratePaymentReceipt === 'function'){
-          apiGeneratePaymentReceipt(bookingId, amount, 'edit').catch(function(e){ console.warn('[PAY] edit receipt err:', e); });
+          apiGeneratePaymentReceipt(bookingId, amount, 'edit').catch(function(e){ });
         }
 
         _isEditPayment = false;
@@ -445,7 +445,7 @@ function doEditPayment(bookingId, amount, changes){
         if(payBtn) payBtn.textContent = (_t('pay').payBtn||'Zaplatit') + ' ' + amount.toLocaleString('cs-CZ') + ' Kč →';
       }
     }, 2000);
-  } catch(e){ console.error('doEditPayment error:', e); }
+  } catch(e){ }
 }
 
 // Payment method selection (existing selP function enhancement)
@@ -461,5 +461,5 @@ function selP(method){
       if(pmr) pmr.classList.toggle('on', c===method);
       if(pmd) pmd.classList.toggle('open', c===method);
     });
-  } catch(e){ console.error('selP error:', e); }
+  } catch(e){ }
 }

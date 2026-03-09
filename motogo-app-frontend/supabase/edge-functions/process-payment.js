@@ -50,7 +50,6 @@ Deno.serve(async (req) => {
         .eq('id', booking_id);
 
       if (updateError) {
-        console.error('DB update error:', updateError);
       }
     }
 

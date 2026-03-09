@@ -40,15 +40,14 @@ async function _getSession(){
         if(refreshResult.data && refreshResult.data.session){
           var s = refreshResult.data.session;
           _syncLocalSession(s.user.id, s.user.email);
-          console.log('[AUTH] Session refreshed OK');
           return {
             user_id: s.user.id,
             email: s.user.email,
             access_token: s.access_token
           };
         }
-      } catch(re){ console.warn('[AUTH] refreshSession failed:', re); }
-    } catch(e){ console.warn('[AUTH] getSession error:', e); }
+      } catch(re){ }
+    } catch(e){ }
   }
   // Fallback: lokální session (7 dní platnost)
   try {
@@ -96,7 +95,6 @@ function doLogin(){
       }
       if(result.user) _loginSuccess(result.user.id, email);
     }).catch(function(e){
-      console.error('doLogin supabase error:', e);
       showT('✗',_t('auth').error,_t('auth').loginFail);
     });
     return;
@@ -169,7 +167,7 @@ function bioLogin(){
     } else {
       showT('ℹ️',_t('auth').bio,_t('auth').bioFirst);
     }
-  } catch(e){ console.error('bioLogin error:', e); showT('✗',_t('auth').error,_t('auth').bioFail); }
+  } catch(e){ showT('✗',_t('auth').error,_t('auth').bioFail); }
 }
 
 // ===== REGISTER =====
@@ -222,7 +220,7 @@ function regNext(){
       // Final step – validate consents and register
       doRegister();
     }
-  } catch(e){ console.error('regNext error:', e); }
+  } catch(e){ }
 }
 
 function _regResetForm(){
@@ -291,7 +289,6 @@ function doRegister(){
   if(_isSupabaseReady()){
     authSignUp(f.email, f.pass, metadata).then(function(result){
       if(result.error){
-        console.error('doRegister supabase error:', result.error);
         showT('✗',_t('auth').regErr,result.error);
         return;
       }
@@ -302,7 +299,6 @@ function doRegister(){
         showT('✗',_t('auth').regErr,'Registrace se nezdařila. Zkuste to znovu.');
       }
     }).catch(function(e){
-      console.error('doRegister supabase error:', e);
       showT('✗',_t('auth').error,'Registrace selhala. Zkontrolujte připojení.');
     });
     return;
@@ -385,7 +381,7 @@ function fpNext(){
 function doLogout(){
   try {
     if(_isSupabaseReady()){
-      authSignOut().catch(function(e){ console.error('doLogout supabase:', e); });
+      authSignOut().catch(function(e){ });
     }
     try { localStorage.removeItem('mg_current_session'); } catch(e){}
     showT('✓',_t('auth').logoutTitle,_t('auth').logoutMsg);
@@ -393,12 +389,12 @@ function doLogout(){
       goTo('s-login');
       if(typeof setupBioButton==='function') setupBioButton();
     }, 700);
-  } catch(e){ console.error('doLogout error:', e); }
+  } catch(e){ }
 }
 
 // ===== RENDER USER DATA =====
 function renderUserData(){
-  _renderUserDataAsync().catch(function(e){ console.error('renderUserData error:', e); });
+  _renderUserDataAsync().catch(function(e){ });
 }
 
 function _renderUserDataAsync(){

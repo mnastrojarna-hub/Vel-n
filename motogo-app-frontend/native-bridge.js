@@ -35,7 +35,7 @@
   try {
     StatusBar.setBackgroundColor({ color: '#000000' });
     StatusBar.setStyle({ style: 'DARK' });
-  } catch (e) { console.warn('[bridge] StatusBar init:', e); }
+  } catch (e) { }
 
   // ===== HARDWARE BACK BUTTON =====
   AppPlugin.addListener('backButton', function() {
@@ -88,7 +88,6 @@
       if (typeof renderUserData === 'function') renderUserData();
       setTimeout(function() { if (typeof goTo === 'function') goTo('s-home'); }, 1200);
     }).catch(function(e) {
-      console.error('[bridge] bioLogin:', e);
       var msg = (e && e.message) || String(e);
       if (msg.indexOf('cancel') !== -1 || msg.indexOf('Cancel') !== -1) {
         showT('\u2139\ufe0f', 'Biometrika', 'Ov\u011b\u0159en\u00ed zru\u0161eno');
@@ -442,7 +441,6 @@
   // Start polling after short delay (wait for supabase init)
   setTimeout(_startMsgPolling, 5000);
 
-  console.log('[MotoGo24] Native bridge initialized \u2713');
 })();
 
 // ===== CORDOVA FINGERPRINT BRIDGE =====
@@ -479,7 +477,6 @@
   _onDeviceReady(function() {
     if (!_hasCordovaFingerprint()) return;
 
-    console.log('[MotoGo24] Cordova fingerprint plugin detected');
 
     // ===== CORDOVA BIOMETRIC BUTTON =====
     window.setupBioButton = function() {
@@ -570,6 +567,5 @@
       '.bnav{padding-bottom:env(safe-area-inset-bottom)!important}';
     document.head.appendChild(nativeCSS);
 
-    console.log('[MotoGo24] Cordova fingerprint bridge initialized \u2713');
   });
 })();
