@@ -66,10 +66,16 @@ export default function BookingDocumentsTab({ bookingId }) {
       if (docsRes.error) diag.errors.push('documents: ' + docsRes.error.message)
       if (genRes.error) diag.errors.push('generated_documents: ' + genRes.error.message)
       if (invRes.error) diag.errors.push('invoices: ' + invRes.error.message)
-      diag.docs = (docsRes.data || []).map(d => ({ type: d.type, file_path: d.file_path, file_name: d.file_name }))
+      diag.docs = filteredDocs.map(d => ({ type: d.type, file_path: d.file_path, file_name: d.file_name }))
+      diag.docsRaw = (docsRes.data || []).length
+      diag.docsFiltered = filteredDocs.length
       diag.gen = (genRes.data || []).map(d => ({ tpl_id: d.template_id, tpl_type: d.document_templates?.type, tpl_name: d.document_templates?.name, has_filled: !!d.filled_data, has_pdf: !!d.pdf_path }))
       diag.inv = (invRes.data || []).map(i => ({ type: i.type, number: i.number, total: i.total, status: i.status, has_pdf: !!i.pdf_path }))
-      setDocs(docsRes.data || [])
+      // Filter out invoice-synced documents to avoid duplicates
+      // (trigger trg_sync_invoice_to_documents copies invoices → documents table)
+      const INVOICE_SYNCED_TYPES = ['invoice_advance', 'payment_receipt', 'invoice_final', 'invoice_shop']
+      const filteredDocs = (docsRes.data || []).filter(d => !INVOICE_SYNCED_TYPES.includes(d.type))
+      setDocs(filteredDocs)
       setGeneratedDocs(genRes.data || [])
       setInvoices(invRes.data || [])
     } catch (e) { debugError('BookingDocumentsTab', 'loadAll', e); setError(e.message); diag.errors.push('EXCEPTION: ' + e.message) }
@@ -276,12 +282,19 @@ export default function BookingDocumentsTab({ bookingId }) {
 
   async function handleViewDoc(doc) {
     // For invoice-type docs from documents table (created by trigger), generate invoice HTML
-    if (doc.type === 'invoice' && doc.booking_id) {
-      // Find matching invoice
+    const INVOICE_DOC_TYPES = ['invoice', 'invoice_advance', 'payment_receipt', 'invoice_final', 'invoice_shop']
+    if (INVOICE_DOC_TYPES.includes(doc.type) && doc.booking_id) {
       const inv = invoices.find(i => i.booking_id === doc.booking_id)
       if (inv) { handleViewInvoice(inv); return }
     }
-    // Try storage
+    // For contract/protocol — regenerate from template (no storage needed)
+    if (doc.type === 'rental_contract' || doc.type === 'contract') {
+      handleViewGeneratedDoc({ ...doc, document_templates: { type: 'rental_contract' } }); return
+    }
+    if (doc.type === 'handover_protocol' || doc.type === 'protocol') {
+      handleViewGeneratedDoc({ ...doc, document_templates: { type: 'handover_protocol' } }); return
+    }
+    // For VOP — try storage, fallback to inline notice
     const path = doc.pdf_path || doc.file_path
     if (!path) { setError('Dokument nemá cestu k souboru'); return }
     try {
@@ -291,14 +304,10 @@ export default function BookingDocumentsTab({ bookingId }) {
       setViewHtml(text)
       setViewDoc(doc)
     } catch {
-      // If it's a contract/protocol type, try to regenerate
-      if (doc.type === 'rental_contract' || doc.type === 'contract') {
-        handleViewGeneratedDoc({ ...doc, document_templates: { type: 'rental_contract' } })
-      } else if (doc.type === 'handover_protocol' || doc.type === 'protocol') {
-        handleViewGeneratedDoc({ ...doc, document_templates: { type: 'handover_protocol' } })
-      } else {
-        setError('Dokument není dostupný — storage bucket neexistuje. Typ: ' + (doc.type || '?') + ', cesta: ' + (path || '?'))
-      }
+      // VOP and other docs without storage — show info message
+      const label = doc.file_name || doc.type || 'Dokument'
+      setViewHtml(`<html><body style="font-family:sans-serif;padding:40px;text-align:center;color:#666"><h2>${label}</h2><p>Soubor není uložen v online úložišti.</p><p style="font-size:13px">Pokud máte PDF verzi, nahrajte ji do storage bucketu <code>documents</code>.</p></body></html>`)
+      setViewDoc(doc)
     }
   }
 
@@ -351,7 +360,7 @@ export default function BookingDocumentsTab({ bookingId }) {
         <div className="p-3 rounded-card mb-3" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
           <strong>DIAGNOSTIKA (booking: ...{bookingId?.slice(-8)})</strong><br/>
           {debug.errors.length > 0 && <div style={{ color: '#dc2626' }}>CHYBY: {debug.errors.join(' | ')}</div>}
-          <div>documents tabulka: {debug.docs?.length || 0} záznamů {debug.docs?.length > 0 && `[${debug.docs.map(d => d.type).join(', ')}]`}</div>
+          <div>documents tabulka: {debug.docsRaw || 0} záznamů (zobrazeno {debug.docsFiltered || 0}, fakturní typy odfiltrovány) {debug.docs?.length > 0 && `[${debug.docs.map(d => d.type).join(', ')}]`}</div>
           <div>generated_documents: {debug.gen?.length || 0} záznamů {debug.gen?.length > 0 && `[${debug.gen.map(d => `${d.tpl_type||'?'}(filled:${d.has_filled},html:${d.has_html},pdf:${d.has_pdf})`).join(', ')}]`}</div>
           <div>invoices: {debug.inv?.length || 0} záznamů {debug.inv?.length > 0 && `[${debug.inv.map(i => `${i.type}/${i.number}/${i.total}Kč/${i.status}`).join(', ')}]`}</div>
         </div>
