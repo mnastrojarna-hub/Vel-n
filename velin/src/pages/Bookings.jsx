@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
 import Button from '../components/ui/Button'
-import StatusBadge from '../components/ui/StatusBadge'
+import StatusBadge, { getDisplayStatus } from '../components/ui/StatusBadge'
 import SearchInput from '../components/ui/SearchInput'
 import Pagination from '../components/ui/Pagination'
 import Modal from '../components/ui/Modal'
@@ -68,7 +68,8 @@ export default function Bookings() {
         let query = supabase
           .from('bookings')
           .select('*, motorcycles(model, spz, branch_id), profiles(full_name, email, phone, country, license_group)', { count: 'exact' })
-        if (filters.status) query = query.eq('status', filters.status)
+        if (filters.status && filters.status !== 'upcoming') query = query.eq('status', filters.status)
+        if (filters.status === 'upcoming') query = query.in('status', ['active', 'reserved']).gt('start_date', new Date().toISOString().slice(0, 10))
         if (filters.paymentStatus) query = query.eq('payment_status', filters.paymentStatus)
         if (filters.dateFrom) query = query.gte('start_date', filters.dateFrom)
         if (filters.dateTo) query = query.lte('end_date', filters.dateTo)
@@ -137,7 +138,7 @@ export default function Bookings() {
           <>
             <SearchInput value={filters.search} onChange={v => { setPage(1); setFilters(f => ({ ...f, search: v })) }} placeholder="Hledat zákazníka, motorku…" />
             <FilterSelect value={filters.status} onChange={v => setF('status', v)}
-              options={[{ value: '', label: 'Všechny stavy' }, { value: 'pending', label: 'Čekající' }, { value: 'reserved', label: 'Rezervováno' }, { value: 'active', label: 'Aktivní' }, { value: 'completed', label: 'Dokončeno' }, { value: 'cancelled', label: 'Zrušeno' }]} />
+              options={[{ value: '', label: 'Všechny stavy' }, { value: 'pending', label: 'Čekající' }, { value: 'reserved', label: 'Rezervováno' }, { value: 'upcoming', label: 'Nadcházející' }, { value: 'active', label: 'Aktivní' }, { value: 'completed', label: 'Dokončeno' }, { value: 'cancelled', label: 'Zrušeno' }]} />
             <FilterSelect value={filters.paymentStatus} onChange={v => setF('paymentStatus', v)}
               options={[{ value: '', label: 'Platba' }, { value: 'paid', label: 'Zaplaceno' }, { value: 'unpaid', label: 'Nezaplaceno' }]} />
             <FilterSelect value={filters.sortBy} onChange={v => setF('sortBy', v)}
@@ -248,7 +249,7 @@ export default function Bookings() {
                       </span>
                     </TD>
                     <TD>
-                      <StatusBadge status={b.status} />
+                      <StatusBadge status={getDisplayStatus(b)} />
                       {b.sos_replacement && <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#dcfce7', color: '#1a8a18' }}>SOS</span>}
                       {b.ended_by_sos && <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#fee2e2', color: '#b91c1c' }}>SOS</span>}
                       {b.complaint_status && <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#fef3c7', color: '#92400e' }}>RKL</span>}
@@ -421,7 +422,7 @@ function GlobalCalendar() {
                       <div className="flex items-center gap-2 mb-1">
                         <span className="font-bold text-sm">{b.motorcycles?.model || '—'}</span>
                         <span className="text-[10px] font-mono" style={{ color: '#8aab99' }}>{b.motorcycles?.spz}</span>
-                        <StatusBadge status={b.status} />
+                        <StatusBadge status={getDisplayStatus(b)} />
                       </div>
                       <div className="text-xs" style={{ color: '#4a6357' }}>
                         {b.profiles?.full_name || 'Zákazník'}
