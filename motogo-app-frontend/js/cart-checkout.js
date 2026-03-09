@@ -172,6 +172,7 @@ async function applyShopDiscount(){
       if(msg)msg.innerHTML='<span style="color:var(--gd)">\u2713 '+label+' uplatněna</span>';
       inp.value='';
       updateCheckoutTotal();
+      _renderShopAppliedCodes();
       return;
     }
   }
@@ -191,6 +192,7 @@ async function applyShopDiscount(){
       if(msg)msg.innerHTML='<span style="color:var(--gd)">\u2713 Poukaz '+vd.value+' Kč uplatněn (sleva '+vDisc+' Kč)</span>';
       inp.value='';
       updateCheckoutTotal();
+      _renderShopAppliedCodes();
       return;
     }
   }
@@ -201,6 +203,36 @@ async function applyShopDiscount(){
   } else {
     if(msg)msg.innerHTML='<span style="color:var(--red)">\u2717 Kód nenalezen</span>';
   }
+}
+
+function removeShopDiscount(code){
+  shopAppliedCodes=shopAppliedCodes.filter(function(c){return c.code!==code;});
+  shopDiscountAmt=shopAppliedCodes.reduce(function(s,c){return s+c.discountAmt;},0);
+  var msg=document.getElementById('shop-discount-msg');
+  if(msg)msg.innerHTML='<span style="color:var(--gd)">Kód '+code+' odebrán</span>';
+  var inp=document.getElementById('shop-discount-input');
+  if(inp)inp.value='';
+  updateCheckoutTotal();
+  _renderShopAppliedCodes();
+}
+
+function _renderShopAppliedCodes(){
+  var wrap=document.getElementById('shop-applied-codes');
+  if(!wrap){
+    var msg=document.getElementById('shop-discount-msg');
+    if(!msg||!msg.parentNode)return;
+    wrap=document.createElement('div');
+    wrap.id='shop-applied-codes';
+    wrap.style.cssText='margin-top:6px;';
+    msg.parentNode.insertBefore(wrap,msg.nextSibling);
+  }
+  if(shopAppliedCodes.length===0){wrap.innerHTML='';return;}
+  wrap.innerHTML=shopAppliedCodes.map(function(c){
+    return '<div style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--gp);border:1px solid var(--green);border-radius:8px;margin-bottom:4px;font-size:12px;font-weight:700;color:var(--gd);">'+
+      '<span>'+c.code+' (-'+c.discountAmt.toLocaleString('cs-CZ')+' Kč)</span>'+
+      '<button onclick="removeShopDiscount(\''+c.code+'\')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:6px;width:22px;height:22px;font-size:12px;font-weight:800;cursor:pointer;margin-left:auto;padding:0;">✕</button>'+
+      '</div>';
+  }).join('');
 }
 
 function initCheckout(){
@@ -346,12 +378,64 @@ function _calcDeliveryFallback(type, addr, calcEl, kmTxt){
 }
 
 var _appliedPromoId = null;
+var _appliedBookingCodes = []; // [{code, type:'promo'|'voucher', id, discountAmt}]
+
+function removeDiscount(){
+  discountAmt=0;
+  appliedCode=null;
+  _appliedPromoId=null;
+  _appliedBookingCodes=[];
+  var inp=document.getElementById('discount-input');
+  if(inp){inp.value='';inp.style.borderColor='var(--g200)';}
+  var msg=document.getElementById('discount-msg');
+  if(msg)msg.innerHTML='';
+  var wrap=document.getElementById('booking-applied-codes');
+  if(wrap)wrap.innerHTML='';
+  recalcTotal();
+}
+
+function _renderBookingAppliedCodes(){
+  var wrap=document.getElementById('booking-applied-codes');
+  if(!wrap){
+    var msg=document.getElementById('discount-msg');
+    if(!msg||!msg.parentNode)return;
+    wrap=document.createElement('div');
+    wrap.id='booking-applied-codes';
+    wrap.style.cssText='margin-top:6px;';
+    msg.parentNode.appendChild(wrap);
+  }
+  if(_appliedBookingCodes.length===0){wrap.innerHTML='';return;}
+  wrap.innerHTML=_appliedBookingCodes.map(function(c){
+    return '<div style="display:flex;align-items:center;gap:6px;padding:5px 10px;background:var(--gp);border:1px solid var(--green);border-radius:8px;margin-bottom:4px;font-size:11px;font-weight:700;color:var(--gd);">'+
+      '<span>'+c.code+' (-'+c.discountAmt.toLocaleString('cs-CZ')+' Kč)</span>'+
+      '<button onclick="removeOneDiscount(\''+c.code+'\')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:6px;width:20px;height:20px;font-size:11px;font-weight:800;cursor:pointer;margin-left:auto;padding:0;">✕</button>'+
+      '</div>';
+  }).join('');
+}
+
+function removeOneDiscount(code){
+  _appliedBookingCodes=_appliedBookingCodes.filter(function(c){return c.code!==code;});
+  discountAmt=_appliedBookingCodes.reduce(function(s,c){return s+c.discountAmt;},0);
+  appliedCode=_appliedBookingCodes.length>0?_appliedBookingCodes[_appliedBookingCodes.length-1].code:null;
+  _appliedPromoId=_appliedBookingCodes.length>0?_appliedBookingCodes[_appliedBookingCodes.length-1].id:null;
+  _renderBookingAppliedCodes();
+  var msg=document.getElementById('discount-msg');
+  if(msg)msg.innerHTML='<span style="color:var(--gd)">Kód '+code+' odebrán</span>';
+  recalcTotal();
+}
 
 async function applyDiscount(){
   var code=(document.getElementById('discount-input')||{value:''}).value.trim().toUpperCase();
   var msg=document.getElementById('discount-msg');
   var inp=document.getElementById('discount-input');
   if(!code){if(msg)msg.innerHTML='<span style="color:var(--red)">'+_t('cart').enterCode+'</span>';return;}
+
+  // Check duplicates
+  for(var di=0;di<_appliedBookingCodes.length;di++){
+    if(_appliedBookingCodes[di].code===code){
+      if(msg)msg.innerHTML='<span style="color:var(--red)">Tento kód je již uplatněn</span>';return;
+    }
+  }
 
   // Supabase DB validace — single source of truth
   if(window.supabase){
@@ -364,30 +448,30 @@ async function applyDiscount(){
       var r = await window.supabase.rpc('validate_promo_code', { p_code: code });
       if(r.data && r.data.valid){
         var promoData = r.data;
+        var disc=promoData.type==='percent'?Math.round(baseForDiscount*promoData.value/100):promoData.value;
+        _appliedBookingCodes.push({code:code,type:'promo',id:promoData.id,discountAmt:disc});
         _appliedPromoId = promoData.id;
         appliedCode = code;
-        if(promoData.type === 'percent'){
-          discountAmt = Math.round(baseForDiscount * promoData.value / 100);
-          if(msg)msg.innerHTML='<span style="color:var(--gd)">\u2713 '+_t('cart').discount+' '+promoData.value+'% '+_t('cart').applied+' \u2013 '+_t('cart').youSave+' '+discountAmt+' K\u010d</span>';
-          showT('\ud83c\udff7\ufe0f',_t('cart').discount+' '+promoData.value+'%',_t('cart').youSave+' '+discountAmt+' K\u010d');
-        } else {
-          discountAmt = promoData.value;
-          if(msg)msg.innerHTML='<span style="color:var(--gd)">\u2713 '+_t('cart').discount+' '+promoData.value+' K\u010d '+_t('cart').applied+'</span>';
-          showT('\ud83c\udff7\ufe0f',_t('cart').discount+' '+promoData.value+' K\u010d','');
-        }
-        if(inp){inp.style.borderColor='var(--green)';inp.setAttribute('readonly','true');}
+        discountAmt=_appliedBookingCodes.reduce(function(s,c){return s+c.discountAmt;},0);
+        var label=promoData.type==='percent'?promoData.value+'%':promoData.value+' Kč';
+        if(msg)msg.innerHTML='<span style="color:var(--gd)">\u2713 '+_t('cart').discount+' '+label+' '+_t('cart').applied+'</span>';
+        showT('\ud83c\udff7\ufe0f',_t('cart').discount+' '+label,_t('cart').youSave+' '+disc+' K\u010d');
+        if(inp)inp.value='';
+        _renderBookingAppliedCodes();
         recalcTotal();
       } else {
         // Promo code not found — try voucher
         var vr = await window.supabase.rpc('validate_voucher_code', { p_code: code });
         if(vr.data && vr.data.valid){
           var vData = vr.data;
+          _appliedBookingCodes.push({code:code,type:'voucher',id:vData.id,discountAmt:vData.value});
           _appliedPromoId = vData.id;
           appliedCode = code;
-          discountAmt = vData.value;
+          discountAmt=_appliedBookingCodes.reduce(function(s,c){return s+c.discountAmt;},0);
           if(msg)msg.innerHTML='<span style="color:var(--gd)">\u2713 '+(_t('cart').voucher||'Poukaz')+' '+vData.value+' K\u010d '+_t('cart').applied+'</span>';
           showT('\ud83c\udf81',(_t('cart').voucher||'Poukaz')+' '+vData.value+' K\u010d','');
-          if(inp){inp.style.borderColor='var(--green)';inp.setAttribute('readonly','true');}
+          if(inp)inp.value='';
+          _renderBookingAppliedCodes();
           recalcTotal();
         } else {
           var errMsg = (r.data && r.data.error) ? r.data.error : _t('cart').codeNotFound;
@@ -406,12 +490,15 @@ async function applyDiscount(){
     if(typeof calcTotalPrice==='function'&&bookingMoto&&bOd&&bDo){
       base2=calcTotalPrice(bookingMoto,new Date(bOd.y,bOd.m,bOd.d),new Date(bDo.y,bDo.m,bDo.d));
     } else { base2=2600*(bookingDays||1); }
-    discountAmt=Math.round(base2*pct/100);
+    var disc2=Math.round(base2*pct/100);
+    _appliedBookingCodes.push({code:code,type:'promo',id:null,discountAmt:disc2});
+    discountAmt=_appliedBookingCodes.reduce(function(s,c){return s+c.discountAmt;},0);
     appliedCode = code;
-    if(msg)msg.innerHTML='<span style="color:var(--gd)">\u2713 '+_t('cart').discount+' '+pct+'% '+_t('cart').applied+' \u2013 '+_t('cart').youSave+' '+discountAmt+' K\u010d</span>';
-    if(inp){inp.style.borderColor='var(--green)';inp.setAttribute('readonly','true');}
+    if(msg)msg.innerHTML='<span style="color:var(--gd)">\u2713 '+_t('cart').discount+' '+pct+'% '+_t('cart').applied+'</span>';
+    if(inp)inp.value='';
+    _renderBookingAppliedCodes();
     recalcTotal();
-    showT('\ud83c\udff7\ufe0f',_t('cart').discount+' '+pct+'%',_t('cart').youSave+' '+discountAmt+' K\u010d');
+    showT('\ud83c\udff7\ufe0f',_t('cart').discount+' '+pct+'%',_t('cart').youSave+' '+disc2+' K\u010d');
   } else {
     if(msg)msg.innerHTML='<span style="color:var(--red)">\u2717 '+_t('cart').codeNotFound+'</span>';
     if(inp)inp.style.borderColor='var(--red)';

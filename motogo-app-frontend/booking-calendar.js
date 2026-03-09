@@ -302,12 +302,12 @@ function switchEditTab(tab){
   // Extras: show for upcoming
   var extrasCard=document.getElementById('edit-extras-card');
   if(extrasCard) extrasCard.style.display=editIsActive?'none':'block';
-  // Branch card: show on both tabs
+  // Branch card: only for upcoming (active = customer already has the moto)
   var branchCard=document.getElementById('edit-branch-card');
-  if(branchCard) branchCard.style.display='block';
-  // Moto change card: show on both tabs
+  if(branchCard) branchCard.style.display=editIsActive?'none':'block';
+  // Moto change card: only for upcoming (active = customer already has the moto)
   var motoCard=document.getElementById('edit-moto-change-card');
-  if(motoCard) motoCard.style.display='block';
+  if(motoCard) motoCard.style.display=editIsActive?'none':'block';
   // Populate moto change list
   if(typeof populateEditMotoList==='function') populateEditMotoList();
   // Reset selection
