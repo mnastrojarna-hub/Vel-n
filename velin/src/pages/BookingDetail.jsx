@@ -107,12 +107,23 @@ export default function BookingDetail() {
       total_price: booking.total_price,
     }
     // Generate invoices directly in DB (primary) + edge functions for docs/emails (secondary)
+    const invoiceErrors = []
     try {
       if (newStatus === 'reserved') {
         // Generate advance invoice (ZF) directly in DB
-        await generateAdvanceInvoice(id, 'booking').catch(e => console.warn('[Invoice] ZF error:', e.message))
+        try {
+          await generateAdvanceInvoice(id, 'booking')
+        } catch (e) {
+          console.error('[Invoice] ZF error:', e.message)
+          invoiceErrors.push(`ZF: ${e.message}`)
+        }
         // Generate payment receipt (DP) directly in DB
-        await generatePaymentReceipt(id, 'booking').catch(e => console.warn('[Invoice] DP error:', e.message))
+        try {
+          await generatePaymentReceipt(id, 'booking')
+        } catch (e) {
+          console.error('[Invoice] DP error:', e.message)
+          invoiceErrors.push(`DP: ${e.message}`)
+        }
         // Edge functions for rental contract + confirmation email (non-blocking)
         Promise.allSettled([
           supabase.functions.invoke('generate-document', { body: { template_slug: 'rental_contract', booking_id: id } }),
@@ -123,11 +134,21 @@ export default function BookingDetail() {
         supabase.functions.invoke('generate-document', { body: { template_slug: 'handover_protocol', booking_id: id } }).catch(() => {})
       } else if (newStatus === 'completed') {
         // Generate final invoice (KF) directly in DB
-        await generateFinalInvoice(id).catch(e => console.warn('[Invoice] KF error:', e.message))
+        try {
+          await generateFinalInvoice(id)
+        } catch (e) {
+          console.error('[Invoice] KF error:', e.message)
+          invoiceErrors.push(`KF: ${e.message}`)
+        }
         // Send completion email (edge function, non-blocking)
         supabase.functions.invoke('send-booking-email', { body: { ...emailBody, type: 'booking_completed' } }).catch(() => {})
       }
-    } catch (e) { console.warn('[Auto-triggers]', e.message) }
+    } catch (e) { console.error('[Auto-triggers]', e.message) }
+
+    // Show invoice errors to admin so they know what went wrong
+    if (invoiceErrors.length > 0) {
+      setError(`Stav změněn, ale generování faktur selhalo: ${invoiceErrors.join('; ')}`)
+    }
 
     // Auto in-app message to customer
     await sendBookingMessage(newStatus, booking)

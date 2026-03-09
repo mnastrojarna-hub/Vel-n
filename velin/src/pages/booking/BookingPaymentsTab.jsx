@@ -51,15 +51,20 @@ export default function BookingPaymentsTab({ bookingId }) {
   async function handleGenerateInvoice(type) {
     setGenerating(type); setError(null)
     try {
+      let result
       if (type === 'proforma' || type === 'advance') {
-        await generateAdvanceInvoice(bookingId, 'booking')
+        result = await generateAdvanceInvoice(bookingId, 'booking')
       } else if (type === 'payment_receipt') {
-        await generatePaymentReceipt(bookingId, 'booking')
+        result = await generatePaymentReceipt(bookingId, 'booking')
       } else if (type === 'final') {
-        await generateFinalInvoice(bookingId)
+        result = await generateFinalInvoice(bookingId)
+      }
+      if (result) {
+        console.log('[Invoice] Created:', result.number, result.id)
       }
       await loadAll()
     } catch (e) {
+      console.error('[Invoice] Generation failed:', e)
       setError(`Vystavení faktury selhalo: ${e.message}`)
     }
     setGenerating(null)

@@ -526,3 +526,4 @@ Detailní politiky:
 | 2026-03-08 | Aktualizace: doplněny chybějící triggery, realtime tabulky, RLS detaily |
 | 2026-03-08 23:30 | **MAJOR UPDATE:** Kompletní přepis dle reálného stavu Supabase DB. Doplněno: ENUM typy, 14 dalších edge funkcí, 3 storage buckety, branch-based RLS, dodatečné sloupce (bookings, motorcycles, profiles, sos_incidents), 19+ dalších DB funkcí, foreign keys, 11 secrets, cron jobs |
 | 2026-03-09 00:15 | Přidána funkce `validate_voucher_code(p_code)` — validace dárkových poukazů ve slevovém kódu |
+| 2026-03-09 | **FIX invoices:** Oprava sync triggeru (payment_receipt → správný doc type), přidán WITH CHECK na RLS policy, zajištění sloupců variable_symbol/source/order_id, customer INSERT policy |
