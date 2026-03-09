@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { generateAdvanceInvoice, generatePaymentReceipt, generateFinalInvoice } from '../../lib/invoiceUtils'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
@@ -48,13 +49,16 @@ export default function BookingPaymentsTab({ bookingId }) {
   async function handleGenerateInvoice(type) {
     setGenerating(type); setError(null)
     try {
-      const { error: err } = await supabase.functions.invoke('generate-invoice', {
-        body: { type, booking_id: bookingId },
-      })
-      if (err) throw err
+      if (type === 'proforma' || type === 'advance') {
+        await generateAdvanceInvoice(bookingId, 'booking')
+      } else if (type === 'payment_receipt') {
+        await generatePaymentReceipt(bookingId, 'booking')
+      } else if (type === 'final') {
+        await generateFinalInvoice(bookingId)
+      }
       await loadAll()
     } catch (e) {
-      setError(`Vystavení faktury selhalo: ${e.message || 'Edge Function nemusí být nasazena.'}`)
+      setError(`Vystavení faktury selhalo: ${e.message}`)
     }
     setGenerating(null)
   }
