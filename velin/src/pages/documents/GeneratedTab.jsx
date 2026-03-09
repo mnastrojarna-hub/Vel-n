@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
@@ -26,11 +27,12 @@ export default function GeneratedTab() {
     setLoading(true)
     setError(null)
     try {
+      debugLog('GeneratedTab', 'load', { page, search, typeFilter, sort })
       let query = supabase
         .from('generated_documents')
         .select('*, document_templates(name, type, html_content), profiles(full_name), bookings(id)', { count: 'exact' })
       query = query.order('created_at', { ascending: sort === 'date_asc' }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
-      const { data, count, error: err } = await query
+      const { data, count, error: err } = await debugAction('generated_documents.list', 'GeneratedTab', () => query)
       if (err) throw err
       let filtered = data || []
       if (search) {
@@ -47,6 +49,7 @@ export default function GeneratedTab() {
       setDocs(filtered)
       setTotal(search || typeFilter ? filtered.length : (count || 0))
     } catch (e) {
+      debugError('GeneratedTab', 'load', e)
       setError(e.message)
     } finally {
       setLoading(false)
@@ -66,8 +69,11 @@ export default function GeneratedTab() {
 
   async function download(doc) {
     try {
+      debugLog('GeneratedTab', 'download', { docId: doc.id, hasPdfPath: !!doc.pdf_path })
       if (doc.pdf_path) {
-        const { data, error } = await supabase.storage.from('documents').download(doc.pdf_path)
+        const { data, error } = await debugAction('documents.download', 'GeneratedTab', () =>
+          supabase.storage.from('documents').download(doc.pdf_path)
+        )
         if (!error && data) {
           const url = URL.createObjectURL(data)
           const a = document.createElement('a')
@@ -92,6 +98,7 @@ export default function GeneratedTab() {
         setError('Dokument nemá obsah ke stažení.')
       }
     } catch (e) {
+      debugError('GeneratedTab', 'download', e)
       setError('Stažení selhalo: ' + e.message)
     }
   }

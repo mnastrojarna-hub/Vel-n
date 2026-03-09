@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 
 
 export default function SOSTimeline({ incidentId }) {
@@ -16,12 +17,20 @@ export default function SOSTimeline({ incidentId }) {
 
   async function load() {
     setLoading(true)
-    const { data } = await supabase
-      .from('sos_timeline')
-      .select('*')
-      .eq('incident_id', incidentId)
-      .order('created_at')
-    setEvents(data || [])
+    try {
+      debugLog('SOSTimeline', 'load', { incidentId })
+      const { data, error } = await debugAction('sos_timeline.list', 'SOSTimeline', () =>
+        supabase
+          .from('sos_timeline')
+          .select('*')
+          .eq('incident_id', incidentId)
+          .order('created_at')
+      )
+      if (error) throw error
+      setEvents(data || [])
+    } catch (e) {
+      debugError('SOSTimeline', 'load', e)
+    }
     setLoading(false)
   }
 

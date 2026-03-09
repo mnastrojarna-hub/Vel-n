@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { debugLog } from '../lib/debugLog'
 import VariablesTab from './cms/VariablesTab'
 import PagesTab from './cms/PagesTab'
 import FeatureFlagsTab from './cms/FeatureFlagsTab'
@@ -8,13 +9,15 @@ const TABS = ['Proměnné', 'Stránky', 'Feature flags']
 export default function CMS() {
   const [tab, setTab] = useState('Proměnné')
 
+  useEffect(() => { debugLog('page.mount', 'CMS') }, [])
+
   return (
     <div>
       <div className="flex gap-2 mb-5">
         {TABS.map(t => (
           <button
             key={t}
-            onClick={() => setTab(t)}
+            onClick={() => { debugLog('tab.switch', 'CMS', { tab: t }); setTab(t) }}
             className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
             style={{
               padding: '8px 18px',

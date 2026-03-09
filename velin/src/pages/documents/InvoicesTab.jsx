@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
@@ -49,6 +50,7 @@ export default function InvoicesTab() {
   async function loadInvoices() {
     setLoading(true); setError(null)
     try {
+      debugLog('DocInvoicesTab', 'loadInvoices', { page, filters })
       let query = supabase
         .from('invoices')
         .select('*, profiles:customer_id(full_name, email), bookings:booking_id(id, start_date, motorcycles:moto_id(model))', { count: 'exact' })
@@ -64,17 +66,19 @@ export default function InvoicesTab() {
       if (filters.search) query = query.or(`number.ilike.%${filters.search}%`)
       query = query.range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
 
-      const { data, count, error: err } = await query
+      const { data, count, error: err } = await debugAction('invoices.list', 'DocInvoicesTab', () => query)
       if (err) throw err
       setInvoices(data || [])
       setTotal(count || 0)
-    } catch (e) { setError(e.message) }
+    } catch (e) { debugError('DocInvoicesTab', 'loadInvoices', e); setError(e.message) }
     setLoading(false)
   }
 
   async function loadSummary() {
     try {
-      const { data } = await supabase.from('invoices').select('status, total')
+      const { data } = await debugAction('invoices.summary', 'DocInvoicesTab', () =>
+        supabase.from('invoices').select('status, total')
+      )
       if (data) {
         setSummary({
           total: data.length,
@@ -83,12 +87,15 @@ export default function InvoicesTab() {
           cancelled: data.filter(i => i.status === 'cancelled').length,
         })
       }
-    } catch {}
+    } catch (e) { debugError('DocInvoicesTab', 'loadSummary', e) }
   }
 
   async function handleCancel(invoice) {
     try {
-      const { error: err } = await supabase.from('invoices').update({ status: 'cancelled' }).eq('id', invoice.id)
+      debugLog('DocInvoicesTab', 'handleCancel', { invoiceId: invoice.id })
+      const { error: err } = await debugAction('invoices.cancel', 'DocInvoicesTab', () =>
+        supabase.from('invoices').update({ status: 'cancelled' }).eq('id', invoice.id)
+      )
       if (err) throw err
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({
@@ -97,7 +104,7 @@ export default function InvoicesTab() {
       setCancelConfirm(null)
       loadInvoices()
       loadSummary()
-    } catch (e) { setError(e.message) }
+    } catch (e) { debugError('DocInvoicesTab', 'handleCancel', e); setError(e.message) }
   }
 
   async function handleDownload(invoice) {
@@ -110,7 +117,7 @@ export default function InvoicesTab() {
       const blob = new Blob([html], { type: 'text/html' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a'); a.href = url; a.download = `faktura_${invoice.number || 'doc'}.html`; a.click(); URL.revokeObjectURL(url)
-    } catch (e) { setError(`Stažení selhalo: ${e.message}`) }
+    } catch (e) { debugError('DocInvoicesTab', 'handleDownload', e); setError(`Stažení selhalo: ${e.message}`) }
   }
 
   function handleCreated() {

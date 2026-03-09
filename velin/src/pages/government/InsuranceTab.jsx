@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 
 export default function InsuranceTab() {
@@ -10,11 +11,19 @@ export default function InsuranceTab() {
 
   async function load() {
     setLoading(true)
-    const { data } = await supabase
-      .from('motorcycles')
-      .select('id, model, spz, insurance_company, insurance_valid_until, insurance_policy_number')
-      .order('insurance_valid_until')
-    setMotos(data || [])
+    try {
+      debugLog('InsuranceTab', 'load')
+      const { data, error } = await debugAction('motorcycles.insurance', 'InsuranceTab', () =>
+        supabase
+          .from('motorcycles')
+          .select('id, model, spz, insurance_company, insurance_valid_until, insurance_policy_number')
+          .order('insurance_valid_until')
+      )
+      if (error) throw error
+      setMotos(data || [])
+    } catch (e) {
+      debugError('InsuranceTab', 'load', e)
+    }
     setLoading(false)
   }
 

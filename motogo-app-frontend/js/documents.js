@@ -485,6 +485,22 @@ async function showShopOrderDetail(orderId){
   if(!_isSupabaseReady()){showT('✗',_t('common').error,'Offline');return;}
   try {
     var r=await supabase.from('shop_orders').select('*, shop_order_items(*)').eq('id',orderId).single();
+    if(!r.data){
+      // Fallback: orderId might be a document or invoice ID — try to find the real order
+      var inv=await supabase.from('invoices').select('order_id').eq('id',orderId).single();
+      if(inv.data && inv.data.order_id){
+        r=await supabase.from('shop_orders').select('*, shop_order_items(*)').eq('id',inv.data.order_id).single();
+      }
+      if(!r.data){
+        var doc=await supabase.from('documents').select('booking_id').eq('id',orderId).single();
+        if(doc.data && doc.data.booking_id){
+          inv=await supabase.from('invoices').select('order_id').eq('booking_id',doc.data.booking_id).eq('type','shop_final').single();
+          if(inv.data && inv.data.order_id){
+            r=await supabase.from('shop_orders').select('*, shop_order_items(*)').eq('id',inv.data.order_id).single();
+          }
+        }
+      }
+    }
     if(!r.data){showT('✗',_t('common').error,'Objednávka nenalezena');return;}
     var o=r.data,t=_t('doc');
     var p=await apiFetchProfile();
