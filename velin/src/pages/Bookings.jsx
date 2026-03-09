@@ -10,6 +10,7 @@ import Pagination from '../components/ui/Pagination'
 import Modal from '../components/ui/Modal'
 import Card from '../components/ui/Card'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
+import NewBookingModal from './booking/NewBookingModal'
 
 const PER_PAGE = 25
 const VIEWS = ['Seznam', 'Kalendář']
@@ -277,7 +278,7 @@ export default function Bookings() {
         </>
       )}
 
-      {showAdd && <AddBookingModal onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); loadBookings() }} />}
+      {showAdd && <NewBookingModal onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); loadBookings() }} />}
 
       {deleteConfirm && (
         <ConfirmDialog
@@ -474,119 +475,3 @@ function DateFilter({ label, value, onChange }) {
   )
 }
 
-function calcPriceFromDayPrices(dayPrices, startDate, endDate) {
-  if (!dayPrices || !startDate || !endDate) return null
-  const start = new Date(startDate)
-  const end = new Date(endDate)
-  if (isNaN(start) || isNaN(end) || end < start) return null
-  const dayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-  let total = 0
-  const cur = new Date(start)
-  while (cur <= end) {
-    const key = `price_${dayKeys[cur.getDay()]}`
-    total += Number(dayPrices[key]) || 0
-    cur.setDate(cur.getDate() + 1)
-  }
-  return total
-}
-
-function AddBookingModal({ onClose, onSaved }) {
-  const [motos, setMotos] = useState([])
-  const [customers, setCustomers] = useState([])
-  const [form, setForm] = useState({ user_id: '', moto_id: '', start_date: '', end_date: '', total_price: '', status: 'reserved', payment_status: 'unpaid' })
-  const [saving, setSaving] = useState(false)
-  const [err, setErr] = useState(null)
-  const [priceInfo, setPriceInfo] = useState(null)
-
-  useEffect(() => {
-    supabase.from('motorcycles').select('id, model, spz').eq('status', 'active').order('model')
-      .then(({ data }) => setMotos(data || [])).catch(() => {})
-    supabase.from('profiles').select('id, full_name, email').order('full_name')
-      .then(({ data }) => setCustomers(data || [])).catch(() => {})
-  }, [])
-
-  useEffect(() => {
-    if (!form.moto_id || !form.start_date || !form.end_date) return
-    supabase.from('moto_day_prices').select('*').eq('moto_id', form.moto_id).single()
-      .then(({ data }) => {
-        if (data) {
-          const total = calcPriceFromDayPrices(data, form.start_date, form.end_date)
-          if (total !== null && total > 0) {
-            setForm(f => ({ ...f, total_price: total }))
-            const days = Math.max(1, Math.round((new Date(form.end_date) - new Date(form.start_date)) / 86400000) + 1)
-            setPriceInfo(`${days} dní × denní sazba = ${total.toLocaleString('cs-CZ')} Kč`)
-          }
-        } else { setPriceInfo('Ceník není nastaven pro tuto motorku') }
-      }).catch(() => {})
-  }, [form.moto_id, form.start_date, form.end_date])
-
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
-
-  async function handleSave() {
-    setSaving(true); setErr(null)
-    try {
-      const result = await debugAction('bookings.create', 'AddBookingModal', () =>
-        supabase.from('bookings').insert({ ...form, total_price: Number(form.total_price) || 0 })
-      , form)
-      if (result?.error) throw result.error
-      const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'booking_created', details: { moto_id: form.moto_id } })
-      onSaved()
-    } catch (e) { setErr(e.message) } finally { setSaving(false) }
-  }
-
-  return (
-    <Modal open title="Nová rezervace" onClose={onClose}>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="col-span-2">
-          <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Zákazník</label>
-          <select value={form.user_id} onChange={e => set('user_id', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-            <option value="">— Vyberte zákazníka —</option>
-            {customers.map(c => <option key={c.id} value={c.id}>{c.full_name} ({c.email})</option>)}
-          </select>
-        </div>
-        <div className="col-span-2">
-          <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Motorka</label>
-          <select value={form.moto_id} onChange={e => set('moto_id', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-            <option value="">— Vyberte motorku —</option>
-            {motos.map(m => <option key={m.id} value={m.id}>{m.model} ({m.spz})</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Od</label>
-          <input type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
-        </div>
-        <div>
-          <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Do</label>
-          <input type="date" value={form.end_date} onChange={e => set('end_date', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
-        </div>
-        <div>
-          <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Celková částka (Kč)</label>
-          <input type="number" value={form.total_price} onChange={e => set('total_price', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
-          {priceInfo && <p className="text-[10px] mt-1 font-bold" style={{ color: '#1a8a18' }}>{priceInfo}</p>}
-        </div>
-        <div>
-          <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Stav</label>
-          <select value={form.status} onChange={e => set('status', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-            <option value="reserved">Rezervováno</option>
-            <option value="active">Aktivní</option>
-            <option value="pending">Čekající</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Platba</label>
-          <select value={form.payment_status} onChange={e => set('payment_status', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-            <option value="unpaid">Nezaplaceno</option>
-            <option value="paid">Zaplaceno</option>
-            <option value="pending">Čeká na platbu</option>
-          </select>
-        </div>
-      </div>
-      {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}
-      <div className="flex justify-end gap-3 mt-5">
-        <Button onClick={onClose}>Zrušit</Button>
-        <Button green onClick={handleSave} disabled={saving || !form.user_id || !form.moto_id}>{saving ? 'Ukládám…' : 'Vytvořit'}</Button>
-      </div>
-    </Modal>
-  )
-}
