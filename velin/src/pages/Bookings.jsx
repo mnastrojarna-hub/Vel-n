@@ -41,18 +41,18 @@ export default function Bookings() {
     supabase.from('motorcycles').select('id, model').eq('status', 'active').order('model').then(({ data }) => setMotos(data || []))
   }, [])
 
-  // Auto-cancel unpaid bookings older than 5 minutes
+  // Auto-cancel unpaid PENDING bookings older than 4 hours (only app-created with status 'pending')
   useEffect(() => {
     async function autoCancelStale() {
       try {
-        const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+        const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()
         const { data: stale } = await supabase
           .from('bookings').select('id')
-          .in('status', ['pending', 'reserved']).eq('payment_status', 'unpaid')
-          .lt('created_at', fiveMinAgo)
+          .eq('status', 'pending').eq('payment_status', 'unpaid')
+          .lt('created_at', fourHoursAgo)
         if (stale && stale.length > 0) {
           await supabase.from('bookings')
-            .update({ status: 'cancelled', cancellation_reason: 'Automaticky zrušeno — nezaplaceno déle než 5 minut' })
+            .update({ status: 'cancelled', cancellation_reason: 'Automaticky zrušeno — nezaplaceno déle než 4 hodiny' })
             .in('id', stale.map(b => b.id))
         }
       } catch (e) { console.error('[AutoCancel]', e) }
@@ -488,7 +488,7 @@ function calcPriceFromDayPrices(dayPrices, startDate, endDate) {
 function AddBookingModal({ onClose, onSaved }) {
   const [motos, setMotos] = useState([])
   const [customers, setCustomers] = useState([])
-  const [form, setForm] = useState({ user_id: '', moto_id: '', start_date: '', end_date: '', total_price: '', status: 'pending' })
+  const [form, setForm] = useState({ user_id: '', moto_id: '', start_date: '', end_date: '', total_price: '', status: 'reserved', payment_status: 'unpaid' })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
   const [priceInfo, setPriceInfo] = useState(null)
@@ -559,6 +559,22 @@ function AddBookingModal({ onClose, onSaved }) {
           <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Celková částka (Kč)</label>
           <input type="number" value={form.total_price} onChange={e => set('total_price', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
           {priceInfo && <p className="text-[10px] mt-1 font-bold" style={{ color: '#1a8a18' }}>{priceInfo}</p>}
+        </div>
+        <div>
+          <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Stav</label>
+          <select value={form.status} onChange={e => set('status', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+            <option value="reserved">Rezervováno</option>
+            <option value="active">Aktivní</option>
+            <option value="pending">Čekající</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Platba</label>
+          <select value={form.payment_status} onChange={e => set('payment_status', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+            <option value="unpaid">Nezaplaceno</option>
+            <option value="paid">Zaplaceno</option>
+            <option value="pending">Čeká na platbu</option>
+          </select>
         </div>
       </div>
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}

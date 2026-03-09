@@ -44,13 +44,22 @@ export default function ServiceTab({ motoId, motoMileage, logAudit }) {
 
   async function handleAddSchedule(form) {
     setSaving(true)
+    const intervalDays = Number(form.interval_days) || null
+    // Calculate next_date from interval_days so it shows in "Plánované" tab
+    let nextDate = null
+    if (intervalDays) {
+      const d = new Date()
+      d.setDate(d.getDate() + intervalDays)
+      nextDate = d.toISOString().slice(0, 10)
+    }
     await supabase.from('maintenance_schedules').insert({
       moto_id: motoId,
       description: form.description,
       interval_km: Number(form.interval_km) || 10000,
-      interval_days: Number(form.interval_days) || null,
-      schedule_type: form.interval_days ? 'both' : 'mileage',
+      interval_days: intervalDays,
+      schedule_type: intervalDays ? 'both' : 'mileage',
       active: true,
+      next_date: nextDate,
     })
     await logAudit('schedule_created', { moto_id: motoId })
     setSaving(false)
@@ -70,8 +79,18 @@ export default function ServiceTab({ motoId, motoMileage, logAudit }) {
       mileage_at_service: Number(motoMileage) || 0,
     }).select().single()
 
+    // Recalculate next_date based on interval_days
+    const updateData = {
+      last_service_km: Number(motoMileage) || 0,
+      last_performed: new Date().toISOString().split('T')[0],
+    }
+    if (schedule.interval_days) {
+      const nd = new Date()
+      nd.setDate(nd.getDate() + schedule.interval_days)
+      updateData.next_date = nd.toISOString().slice(0, 10)
+    }
     await supabase.from('maintenance_schedules')
-      .update({ last_service_km: Number(motoMileage) || 0, last_performed: new Date().toISOString().split('T')[0] })
+      .update(updateData)
       .eq('id', schedule.id)
 
     await logAudit('service_confirmed', { moto_id: motoId, schedule_id: schedule.id })

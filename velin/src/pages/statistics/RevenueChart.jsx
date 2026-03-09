@@ -24,15 +24,25 @@ export default function RevenueChart() {
 
     const { data: entries } = await supabase
       .from('accounting_entries')
-      .select('type, amount, date')
+      .select('type, amount, date, category, description')
       .gte('date', months[0].start)
+
+    // Revenue classification — same logic as Dashboard (type + keyword matching)
+    const REVENUE_CATS = ['pronájem', 'pronajem', 'rezervace', 'booking', 'rental']
+    const REVENUE_DESCS = ['platba za rezervaci', 'platba za pronájem', 'příjem z pronájmu']
+    const isRevenue = (e) => {
+      const cat = (e.category || '').toLowerCase()
+      const desc = (e.description || '').toLowerCase()
+      if (e.type === 'revenue') return true
+      return REVENUE_CATS.some(rc => cat.includes(rc)) || REVENUE_DESCS.some(rd => desc.includes(rd))
+    }
 
     const chart = months.map(m => {
       const mEntries = (entries || []).filter(e => e.date >= m.start && e.date <= m.end)
       return {
         name: m.label,
-        tržby: mEntries.filter(e => e.type === 'revenue').reduce((s, e) => s + (e.amount || 0), 0),
-        náklady: mEntries.filter(e => e.type === 'expense').reduce((s, e) => s + Math.abs(e.amount || 0), 0),
+        tržby: mEntries.filter(e => isRevenue(e)).reduce((s, e) => s + Math.abs(e.amount || 0), 0),
+        náklady: mEntries.filter(e => !isRevenue(e)).reduce((s, e) => s + Math.abs(e.amount || 0), 0),
       }
     })
     setData(chart)
