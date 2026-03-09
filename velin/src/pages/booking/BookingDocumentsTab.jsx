@@ -1,34 +1,53 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { generateInvoiceHtml } from '../../lib/invoiceTemplate'
+import { loadInvoiceData, printInvoiceHtml, storeInvoicePdf } from '../../lib/invoiceUtils'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
+import Badge from '../../components/ui/Badge'
 import Modal from '../../components/ui/Modal'
 
 const DOC_ICONS = {
   contract: '📋',
+  rental_contract: '📋',
   protocol: '📝',
+  handover_protocol: '📝',
   terms: '📜',
+  invoice: '🧾',
+}
+
+const INV_TYPE_MAP = {
+  proforma: { label: 'Zálohová faktura (ZF)', color: '#2563eb', bg: '#dbeafe' },
+  advance: { label: 'Zálohová faktura (ZF)', color: '#2563eb', bg: '#dbeafe' },
+  payment_receipt: { label: 'Daňový doklad (DP)', color: '#0891b2', bg: '#cffafe' },
+  final: { label: 'Konečná faktura (KF)', color: '#1a8a18', bg: '#dcfce7' },
+  shop_proforma: { label: 'Shop zálohová', color: '#8b5cf6', bg: '#ede9fe' },
+  shop_final: { label: 'Shop konečná', color: '#059669', bg: '#d1fae5' },
 }
 
 export default function BookingDocumentsTab({ bookingId }) {
   const [docs, setDocs] = useState([])
   const [generatedDocs, setGeneratedDocs] = useState([])
+  const [invoices, setInvoices] = useState([])
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(null)
   const [error, setError] = useState(null)
   const [viewDoc, setViewDoc] = useState(null)
+  const [viewHtml, setViewHtml] = useState(null)
 
   useEffect(() => { loadAll() }, [bookingId])
 
   async function loadAll() {
     setLoading(true)
     try {
-      const [docsRes, genRes] = await Promise.all([
+      const [docsRes, genRes, invRes] = await Promise.all([
         supabase.from('documents').select('*').eq('booking_id', bookingId).order('created_at', { ascending: false }),
         supabase.from('generated_documents').select('*, document_templates(name, type)').eq('booking_id', bookingId).order('created_at', { ascending: false }),
+        supabase.from('invoices').select('*').eq('booking_id', bookingId).order('issue_date', { ascending: false, nullsFirst: false }),
       ])
       setDocs(docsRes.data || [])
       setGeneratedDocs(genRes.data || [])
+      setInvoices(invRes.data || [])
     } catch (e) { setError(e.message) }
     setLoading(false)
   }
@@ -36,14 +55,12 @@ export default function BookingDocumentsTab({ bookingId }) {
   async function handleGenerate(templateSlug) {
     setGenerating(templateSlug); setError(null)
     try {
-      // Try edge function first
       const { error: err } = await supabase.functions.invoke('generate-document', {
         body: { template_slug: templateSlug, booking_id: bookingId },
       })
       if (err) throw err
       await loadAll()
     } catch {
-      // Fallback: client-side generation
       try {
         await generateClientSide(templateSlug)
         await loadAll()
@@ -78,7 +95,7 @@ export default function BookingDocumentsTab({ bookingId }) {
       start_date: fmtDate(booking.start_date), end_date: fmtDate(booking.end_date),
       days: String(days), total_price: fmtPrice(booking.total_price || 0),
       daily_rate: fmtPrice(Math.round((booking.total_price || 0) / days)),
-      booking_id: bookingId.slice(0, 8), booking_number: bookingId.slice(0, 8).toUpperCase(),
+      booking_id: bookingId.slice(-8).toUpperCase(), booking_number: bookingId.slice(-8).toUpperCase(),
       today: fmtDate(new Date().toISOString()),
       company_name: 'MotoGo24 s.r.o.', company_address: 'Mezná 9, 393 01 Pelhřimov',
       company_ico: '12345678', company_dic: 'CZ12345678',
@@ -90,7 +107,6 @@ export default function BookingDocumentsTab({ bookingId }) {
       html = html.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val)
     }
 
-    // Store as generated_documents record
     const docId = crypto.randomUUID()
     const { error: gErr } = await supabase.from('generated_documents').insert({
       id: docId, template_id: null, booking_id: bookingId,
@@ -99,7 +115,6 @@ export default function BookingDocumentsTab({ bookingId }) {
     })
     if (gErr) throw gErr
 
-    // Open in new tab for printing
     const win = window.open('', '_blank')
     if (win) { win.document.write(html); win.document.close() }
   }
@@ -129,6 +144,78 @@ export default function BookingDocumentsTab({ bookingId }) {
     } catch (e) { setError(`Stažení selhalo: ${e.message}`) }
   }
 
+  async function handleViewDoc(doc) {
+    const path = doc.pdf_path || doc.file_path
+    if (!path) return
+    try {
+      const { data, error: err } = await supabase.storage.from('documents').download(path)
+      if (err) throw err
+      const text = await data.text()
+      setViewHtml(text)
+      setViewDoc(doc)
+    } catch (e) {
+      // Fallback: open in new tab
+      const { data } = supabase.storage.from('documents').getPublicUrl(path)
+      if (data?.publicUrl) window.open(data.publicUrl, '_blank')
+      else setError(`Otevření selhalo: ${e.message}`)
+    }
+  }
+
+  async function handleViewInvoice(inv) {
+    // If stored in storage, download and show
+    if (inv.pdf_path) {
+      try {
+        const { data, error: err } = await supabase.storage.from('documents').download(inv.pdf_path)
+        if (err) throw err
+        const text = await data.text()
+        setViewHtml(text)
+        setViewDoc(inv)
+        return
+      } catch {}
+    }
+    // Generate HTML from template on-the-fly
+    try {
+      const fullInv = await loadInvoiceData(inv.id)
+      const html = generateInvoiceHtml({
+        ...fullInv,
+        customer: fullInv.profiles || {},
+        items: fullInv.items || [],
+      })
+      setViewHtml(html)
+      setViewDoc(inv)
+    } catch (e) {
+      setError(`Náhled faktury selhal: ${e.message}`)
+    }
+  }
+
+  async function handlePrintInvoice(inv) {
+    try {
+      let html
+      if (inv.pdf_path) {
+        const { data, error: err } = await supabase.storage.from('documents').download(inv.pdf_path)
+        if (!err) html = await data.text()
+      }
+      if (!html) {
+        const fullInv = await loadInvoiceData(inv.id)
+        html = generateInvoiceHtml({ ...fullInv, customer: fullInv.profiles || {}, items: fullInv.items || [] })
+      }
+      printInvoiceHtml(html)
+    } catch (e) {
+      setError(`Tisk faktury selhal: ${e.message}`)
+    }
+  }
+
+  async function handleStoreInvoice(inv) {
+    try {
+      const fullInv = await loadInvoiceData(inv.id)
+      const html = generateInvoiceHtml({ ...fullInv, customer: fullInv.profiles || {}, items: fullInv.items || [] })
+      await storeInvoicePdf(inv.id, html)
+      await loadAll()
+    } catch (e) {
+      setError(`Uložení selhalo: ${e.message}`)
+    }
+  }
+
   if (loading) return <div className="py-8 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
 
   return (
@@ -138,12 +225,50 @@ export default function BookingDocumentsTab({ bookingId }) {
       {/* Generate buttons */}
       <div className="flex gap-3">
         <Button green onClick={() => handleGenerate('rental_contract')} disabled={generating === 'rental_contract'}>
-          {generating === 'rental_contract' ? 'Generuji…' : '📋 Vygenerovat smlouvu'}
+          {generating === 'rental_contract' ? 'Generuji...' : 'Vygenerovat smlouvu'}
         </Button>
         <Button green onClick={() => handleGenerate('handover_protocol')} disabled={generating === 'handover_protocol'}>
-          {generating === 'handover_protocol' ? 'Generuji…' : '📝 Vygenerovat protokol'}
+          {generating === 'handover_protocol' ? 'Generuji...' : 'Vygenerovat protokol'}
         </Button>
       </div>
+
+      {/* Invoices (ZF, DP, KF) */}
+      <Card>
+        <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Faktury a daňové doklady</h3>
+        {invoices.length === 0 ? (
+          <p style={{ color: '#8aab99', fontSize: 13 }}>Žádné faktury k této rezervaci</p>
+        ) : (
+          invoices.map(inv => {
+            const tp = INV_TYPE_MAP[inv.type] || { label: inv.type || 'Faktura', color: '#6b7280', bg: '#f3f4f6' }
+            return (
+              <div key={inv.id} className="flex items-center gap-4 p-3 rounded-lg mb-2 cursor-pointer hover:shadow-sm transition-shadow"
+                style={{ background: '#f1faf7' }} onClick={() => handleViewInvoice(inv)}>
+                <span style={{ fontSize: 16 }}>🧾</span>
+                <span className="text-sm font-bold font-mono">{inv.number || '—'}</span>
+                <Badge label={tp.label} color={tp.color} bg={tp.bg} />
+                <span className="text-sm font-bold" style={{ color: '#0f1a14' }}>
+                  {(inv.total || 0).toLocaleString('cs-CZ')} Kč
+                </span>
+                <span className="text-xs" style={{ color: '#8aab99' }}>{inv.issue_date || '—'}</span>
+                <div className="flex gap-2 ml-auto" onClick={e => e.stopPropagation()}>
+                  <button onClick={() => handleViewInvoice(inv)} className="text-[10px] font-bold cursor-pointer"
+                    style={{ color: '#2563eb', background: 'none', border: 'none' }}>Náhled</button>
+                  <button onClick={() => handlePrintInvoice(inv)} className="text-[10px] font-bold cursor-pointer"
+                    style={{ color: '#4a6357', background: 'none', border: 'none' }}>Tisk</button>
+                  {!inv.pdf_path && (
+                    <button onClick={() => handleStoreInvoice(inv)} className="text-[10px] font-bold cursor-pointer"
+                      style={{ color: '#b45309', background: 'none', border: 'none' }}>Uložit PDF</button>
+                  )}
+                  {inv.pdf_path && (
+                    <button onClick={() => handleDownload(inv)} className="text-[10px] font-bold cursor-pointer"
+                      style={{ color: '#4a6357', background: 'none', border: 'none' }}>Stáhnout</button>
+                  )}
+                </div>
+              </div>
+            )
+          })
+        )}
+      </Card>
 
       {/* Generated documents */}
       <Card>
@@ -154,7 +279,8 @@ export default function BookingDocumentsTab({ bookingId }) {
           generatedDocs.map(d => {
             const docType = d.document_templates?.type || 'contract'
             return (
-              <div key={d.id} className="flex items-center gap-4 p-3 rounded-lg mb-2" style={{ background: '#f1faf7' }}>
+              <div key={d.id} className="flex items-center gap-4 p-3 rounded-lg mb-2 cursor-pointer hover:shadow-sm transition-shadow"
+                style={{ background: '#f1faf7' }} onClick={() => d.pdf_path ? handleViewDoc(d) : null}>
                 <span style={{ fontSize: 16 }}>{DOC_ICONS[docType] || '📄'}</span>
                 <div className="flex-1">
                   <span className="text-sm font-bold">{d.document_templates?.name || 'Dokument'}</span>
@@ -162,8 +288,12 @@ export default function BookingDocumentsTab({ bookingId }) {
                 </div>
                 <div className="flex gap-2">
                   {d.pdf_path && (
-                    <button onClick={() => handleDownload(d)} className="text-[10px] font-bold cursor-pointer"
-                      style={{ color: '#4a6357', background: 'none', border: 'none' }}>Stáhnout</button>
+                    <>
+                      <button onClick={(e) => { e.stopPropagation(); handleViewDoc(d) }} className="text-[10px] font-bold cursor-pointer"
+                        style={{ color: '#2563eb', background: 'none', border: 'none' }}>Zobrazit</button>
+                      <button onClick={(e) => { e.stopPropagation(); handleDownload(d) }} className="text-[10px] font-bold cursor-pointer"
+                        style={{ color: '#4a6357', background: 'none', border: 'none' }}>Stáhnout</button>
+                    </>
                   )}
                 </div>
               </div>
@@ -172,29 +302,60 @@ export default function BookingDocumentsTab({ bookingId }) {
         )}
       </Card>
 
-      {/* Uploaded documents */}
+      {/* Uploaded documents (nahrané doklady) */}
       <Card>
         <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Nahrané doklady</h3>
         {docs.length === 0 ? (
           <p style={{ color: '#8aab99', fontSize: 13 }}>Žádné nahrané doklady</p>
         ) : (
           docs.map(d => (
-            <div key={d.id} className="flex items-center gap-4 p-3 rounded-lg mb-2" style={{ background: '#f1faf7' }}>
-              <span className="text-sm font-bold">{d.file_name || d.type || 'Dokument'}</span>
-              <span className="text-xs" style={{ color: '#8aab99' }}>{d.created_at?.slice(0, 10)}</span>
+            <div key={d.id} className="flex items-center gap-4 p-3 rounded-lg mb-2 cursor-pointer hover:shadow-sm transition-shadow"
+              style={{ background: '#f1faf7' }} onClick={() => (d.file_path || d.pdf_path) ? handleViewDoc(d) : null}>
+              <span style={{ fontSize: 16 }}>{DOC_ICONS[d.type] || '📄'}</span>
+              <div className="flex-1">
+                <span className="text-sm font-bold">{d.file_name || d.type || 'Dokument'}</span>
+                <span className="text-xs ml-3" style={{ color: '#8aab99' }}>{d.created_at?.slice(0, 10)}</span>
+              </div>
+              <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                {(d.file_path || d.pdf_path) && (
+                  <>
+                    <button onClick={() => handleViewDoc(d)} className="text-[10px] font-bold cursor-pointer"
+                      style={{ color: '#2563eb', background: 'none', border: 'none' }}>Zobrazit</button>
+                    <button onClick={() => handleDownload(d)} className="text-[10px] font-bold cursor-pointer"
+                      style={{ color: '#4a6357', background: 'none', border: 'none' }}>Stáhnout</button>
+                  </>
+                )}
+              </div>
             </div>
           ))
         )}
       </Card>
 
+      {/* Document/Invoice preview modal */}
       {viewDoc && (
-        <Modal open title={viewDoc.document_templates?.name || 'Dokument'} onClose={() => setViewDoc(null)} wide>
-          <div className="py-8 text-center" style={{ color: '#8aab99', fontSize: 13 }}>
-            {viewDoc.pdf_path ? 'Stáhněte PDF verzi dokumentu.' : 'Dokument nemá PDF.'}
-          </div>
+        <Modal open title={viewDoc.number ? `Faktura ${viewDoc.number}` : (viewDoc.document_templates?.name || viewDoc.file_name || 'Dokument')} onClose={() => { setViewDoc(null); setViewHtml(null) }} wide>
+          {viewHtml ? (
+            <div className="border rounded-lg overflow-auto" style={{ maxHeight: 600, background: '#fff' }}>
+              <iframe
+                srcDoc={viewHtml}
+                style={{ width: '100%', height: 550, border: 'none' }}
+                title="Náhled dokumentu"
+              />
+            </div>
+          ) : (
+            <div className="py-8 text-center" style={{ color: '#8aab99', fontSize: 13 }}>
+              Dokument nemá náhled.
+            </div>
+          )}
           <div className="flex justify-end gap-3 mt-4">
-            {viewDoc.pdf_path && <Button onClick={() => handleDownload(viewDoc)}>Stáhnout PDF</Button>}
-            <Button onClick={() => setViewDoc(null)}>Zavřít</Button>
+            {viewHtml && (
+              <Button onClick={() => {
+                const win = window.open('', '_blank')
+                if (win) { win.document.write(viewHtml); win.document.close(); win.onload = () => win.print() }
+              }}>Tisk / PDF</Button>
+            )}
+            {(viewDoc.pdf_path || viewDoc.file_path) && <Button onClick={() => handleDownload(viewDoc)}>Stáhnout</Button>}
+            <Button onClick={() => { setViewDoc(null); setViewHtml(null) }}>Zavřít</Button>
           </div>
         </Modal>
       )}

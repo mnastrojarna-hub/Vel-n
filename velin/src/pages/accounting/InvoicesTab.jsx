@@ -164,7 +164,7 @@ export default function InvoicesTab() {
             <DRow label="Vystavení" value={detailInv.issue_date ? new Date(detailInv.issue_date).toLocaleDateString('cs-CZ') : '—'} />
             <DRow label="Splatnost" value={detailInv.due_date ? new Date(detailInv.due_date).toLocaleDateString('cs-CZ') : '—'} />
             <DRow label="Typ" value={detailInv.type || '—'} />
-            {detailInv.booking_id && <DRow label="ID rezervace" value={detailInv.booking_id.slice(0, 8)} mono />}
+            {detailInv.booking_id && <DRow label="ID rezervace" value={detailInv.booking_id.slice(-8).toUpperCase()} mono />}
           </div>
           <div className="flex justify-end gap-3 mt-5">
             <Button onClick={() => setDetailInv(null)}>Zavřít</Button>

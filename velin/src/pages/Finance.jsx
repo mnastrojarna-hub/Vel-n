@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
+import Badge from '../components/ui/Badge'
 import Modal from '../components/ui/Modal'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
 import InvoicesTab from './documents/InvoicesTab'
@@ -47,6 +48,8 @@ export default function Finance() {
   const [filters, setFilters] = useState({ period: 'month', type: '', category: '', search: '' })
   const [categories, setCategories] = useState([])
   const [detailTx, setDetailTx] = useState(null)
+  const [recentInvoices, setRecentInvoices] = useState([])
+  const [shopPayments, setShopPayments] = useState([])
 
   useEffect(() => { loadData() }, [filters])
 
@@ -54,12 +57,31 @@ export default function Finance() {
     setLoading(true)
     setError(null)
     try {
-      await Promise.all([loadSummary(), loadTransactions(), loadChart()])
+      await Promise.all([loadSummary(), loadTransactions(), loadChart(), loadRecentInvoices(), loadShopPayments()])
     } catch (e) {
       setError(e.message)
     } finally {
       setLoading(false)
     }
+  }
+
+  async function loadRecentInvoices() {
+    const { data } = await supabase
+      .from('invoices')
+      .select('*, profiles:customer_id(full_name)')
+      .order('issue_date', { ascending: false, nullsFirst: false })
+      .limit(20)
+    setRecentInvoices(data || [])
+  }
+
+  async function loadShopPayments() {
+    const { data } = await supabase
+      .from('shop_orders')
+      .select('*, profiles:customer_id(full_name)')
+      .eq('payment_status', 'paid')
+      .order('created_at', { ascending: false })
+      .limit(20)
+    setShopPayments(data || [])
   }
 
   async function loadSummary() {
@@ -228,6 +250,69 @@ export default function Finance() {
             </Card>
           )}
 
+          {/* Invoices (ZF, DP, KF) */}
+          <Card className="mb-5">
+            <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Faktury (ZF, DP, KF)</h3>
+            {recentInvoices.length === 0 ? (
+              <p style={{ color: '#8aab99', fontSize: 13 }}>Žádné faktury</p>
+            ) : (
+              <Table>
+                <thead>
+                  <TRow header>
+                    <TH>Číslo</TH><TH>Typ</TH><TH>Zákazník</TH><TH>Částka</TH><TH>Stav</TH><TH>Datum</TH>
+                  </TRow>
+                </thead>
+                <tbody>
+                  {recentInvoices.map(inv => {
+                    const typeLabels = { advance: 'ZF', proforma: 'ZF', payment_receipt: 'DP', final: 'KF', shop_proforma: 'Shop ZF', shop_final: 'Shop KF' }
+                    const typeColors = { advance: '#2563eb', proforma: '#2563eb', payment_receipt: '#0891b2', final: '#1a8a18', shop_proforma: '#8b5cf6', shop_final: '#059669' }
+                    const typeBgs = { advance: '#dbeafe', proforma: '#dbeafe', payment_receipt: '#cffafe', final: '#dcfce7', shop_proforma: '#ede9fe', shop_final: '#d1fae5' }
+                    const statusLabels = { draft: 'Koncept', issued: 'Vystavena', paid: 'Zaplacena', cancelled: 'Storno', refunded: 'Refund' }
+                    const statusColors = { draft: '#6b7280', issued: '#b45309', paid: '#1a8a18', cancelled: '#dc2626', refunded: '#6b7280' }
+                    return (
+                      <TRow key={inv.id}>
+                        <TD mono bold>{inv.number || '—'}</TD>
+                        <TD><Badge label={typeLabels[inv.type] || inv.type} color={typeColors[inv.type] || '#6b7280'} bg={typeBgs[inv.type] || '#f3f4f6'} /></TD>
+                        <TD>{inv.profiles?.full_name || '—'}</TD>
+                        <TD bold>{fmt(inv.total)}</TD>
+                        <TD><span className="text-[10px] font-bold" style={{ color: statusColors[inv.status] || '#6b7280' }}>{statusLabels[inv.status] || inv.status}</span></TD>
+                        <TD>{inv.issue_date ? new Date(inv.issue_date).toLocaleDateString('cs-CZ') : '—'}</TD>
+                      </TRow>
+                    )
+                  })}
+                </tbody>
+              </Table>
+            )}
+          </Card>
+
+          {/* Shop payments */}
+          {shopPayments.length > 0 && (
+            <Card className="mb-5">
+              <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Platby z e-shopu</h3>
+              <Table>
+                <thead>
+                  <TRow header>
+                    <TH>Objednávka</TH><TH>Zákazník</TH><TH>Částka</TH><TH>Způsob</TH><TH>Datum</TH>
+                  </TRow>
+                </thead>
+                <tbody>
+                  {shopPayments.map(o => (
+                    <TRow key={o.id}>
+                      <TD mono bold>{o.order_number || o.id?.slice(-8) || '—'}</TD>
+                      <TD>{o.profiles?.full_name || '—'}</TD>
+                      <TD bold color="#1a8a18">{fmt(o.total_amount)}</TD>
+                      <TD>{o.payment_method || '—'}</TD>
+                      <TD>{o.created_at ? new Date(o.created_at).toLocaleDateString('cs-CZ') : '—'}</TD>
+                    </TRow>
+                  ))}
+                </tbody>
+              </Table>
+            </Card>
+          )}
+
+          {/* Accounting entries (platby za rezervace) */}
+          <Card className="mb-5">
+            <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Účetní záznamy (platby za rezervace)</h3>
           <Table>
             <thead>
               <TRow header>
@@ -244,12 +329,13 @@ export default function Finance() {
                   <TD>{t.description || '—'}</TD>
                   <TD bold color={(t._classified || classifyEntry(t)) === 'revenue' ? '#1a8a18' : '#dc2626'}>{fmt(Math.abs(t.amount))}</TD>
                   <TD>{t.category || '—'}</TD>
-                  <TD mono>{t.booking_id ? t.booking_id.slice(0, 8) : '—'}</TD>
+                  <TD mono>{t.booking_id ? t.booking_id.slice(-8) : '—'}</TD>
                 </tr>
               ))}
               {transactions.length === 0 && <TRow><TD>Žádné transakce</TD></TRow>}
             </tbody>
           </Table>
+          </Card>
         </>
       )}
 

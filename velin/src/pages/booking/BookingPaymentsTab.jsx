@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { generateAdvanceInvoice, generatePaymentReceipt, generateFinalInvoice } from '../../lib/invoiceUtils'
+import { generateAdvanceInvoice, generatePaymentReceipt, generateFinalInvoice, loadInvoiceData, printInvoiceHtml } from '../../lib/invoiceUtils'
+import { generateInvoiceHtml } from '../../lib/invoiceTemplate'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
@@ -136,15 +137,67 @@ export default function BookingPaymentsTab({ bookingId }) {
       </Card>
 
       {viewInvoice && (
-        <Modal open title={`Faktura ${viewInvoice.number}`} onClose={() => setViewInvoice(null)} wide>
-          <div className="py-8 text-center" style={{ color: '#8aab99', fontSize: 13 }}>
-            Detail faktury {viewInvoice.number}. Částka: {(viewInvoice.total || 0).toLocaleString('cs-CZ')} Kč
-          </div>
-          <div className="flex justify-end mt-4">
-            <Button onClick={() => setViewInvoice(null)}>Zavřít</Button>
-          </div>
-        </Modal>
+        <InvoiceViewModal invoice={viewInvoice} onClose={() => setViewInvoice(null)} />
       )}
     </div>
+  )
+}
+
+function InvoiceViewModal({ invoice, onClose }) {
+  const [html, setHtml] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    loadHtml()
+  }, [invoice.id])
+
+  async function loadHtml() {
+    setLoading(true)
+    try {
+      // Try loading from storage first
+      if (invoice.pdf_path) {
+        try {
+          const { data, error } = await supabase.storage.from('documents').download(invoice.pdf_path)
+          if (!error) {
+            setHtml(await data.text())
+            setLoading(false)
+            return
+          }
+        } catch {}
+      }
+      // Generate from template
+      const fullInv = await loadInvoiceData(invoice.id)
+      const generated = generateInvoiceHtml({
+        ...fullInv,
+        customer: fullInv.profiles || {},
+        items: fullInv.items || [],
+      })
+      setHtml(generated)
+    } catch {
+      setHtml(null)
+    }
+    setLoading(false)
+  }
+
+  return (
+    <Modal open title={`Faktura ${invoice.number}`} onClose={onClose} wide>
+      {loading ? (
+        <div className="py-8 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
+      ) : html ? (
+        <div className="border rounded-lg overflow-auto" style={{ maxHeight: 550, background: '#fff' }}>
+          <iframe srcDoc={html} style={{ width: '100%', height: 500, border: 'none' }} title="Náhled faktury" />
+        </div>
+      ) : (
+        <div className="py-8 text-center" style={{ color: '#8aab99', fontSize: 13 }}>
+          Náhled faktury není dostupný. Částka: {(invoice.total || 0).toLocaleString('cs-CZ')} Kč
+        </div>
+      )}
+      <div className="flex justify-end gap-3 mt-4">
+        {html && (
+          <Button onClick={() => printInvoiceHtml(html)}>Tisk / PDF</Button>
+        )}
+        <Button onClick={onClose}>Zavřít</Button>
+      </div>
+    </Modal>
   )
 }

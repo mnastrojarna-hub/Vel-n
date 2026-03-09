@@ -37,10 +37,11 @@ function buildItems(items) {
 }
 
 export function generateInvoiceHtml(data) {
-  const isProforma = data.type === 'proforma' || data.type === 'shop_proforma'
-  const title = isProforma ? 'ZÁLOHOVÁ FAKTURA' : 'FAKTURA'
-  const subtitle = isProforma ? 'Proforma invoice' : 'Invoice'
-  const accent = isProforma ? '#2563eb' : '#1a8a18'
+  const isProforma = data.type === 'proforma' || data.type === 'shop_proforma' || data.type === 'advance'
+  const isPaymentReceipt = data.type === 'payment_receipt'
+  const title = isPaymentReceipt ? 'DAŇOVÝ DOKLAD K PŘIJATÉ PLATBĚ' : isProforma ? 'ZÁLOHOVÁ FAKTURA' : 'FAKTURA'
+  const subtitle = isPaymentReceipt ? 'Payment receipt' : isProforma ? 'Proforma invoice' : 'Invoice'
+  const accent = isPaymentReceipt ? '#0891b2' : isProforma ? '#2563eb' : '#1a8a18'
 
   const supplier = data.supplier || COMPANY
   const customer = data.customer || {}
@@ -129,6 +130,7 @@ export function generateInvoiceHtml(data) {
   ${data.notes ? `<div style="padding:10px 14px;background:#fffbeb;border-radius:8px;font-size:11px;color:#92400e;margin-bottom:16px"><strong>Poznámka:</strong> ${data.notes}</div>` : ''}
 
   ${isProforma ? `<div style="padding:10px 14px;background:#dbeafe;border-radius:8px;font-size:11px;color:#1e40af;margin-bottom:16px">Tento doklad není daňovým dokladem. Po přijetí platby Vám bude vystavena konečná faktura.</div>` : ''}
+  ${isPaymentReceipt ? `<div style="padding:10px 14px;background:#cffafe;border-radius:8px;font-size:11px;color:#0e7490;margin-bottom:16px">Daňový doklad k přijaté platbě dle zákona č. 235/2004 Sb., o dani z přidané hodnoty.</div>` : ''}
 
   <!-- Footer -->
   <div style="text-align:center;margin-top:24px;padding-top:12px;border-top:1px solid #e5e7eb">
