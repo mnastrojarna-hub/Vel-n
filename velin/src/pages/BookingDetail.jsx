@@ -368,6 +368,24 @@ function calcPriceFromDayPrices(dayPrices, startDate, endDate) {
 function DetailTab({ booking, set, error, saving, onSave, actions, onAction, navigate, promoUsage, voucherUsed }) {
   const [priceBreakdown, setPriceBreakdown] = useState(null)
   const [recalculating, setRecalculating] = useState(false)
+  const [sosIncidents, setSosIncidents] = useState([])
+  const [bookingExtras, setBookingExtras] = useState([])
+  const [cancellation, setCancellation] = useState(null)
+
+  useEffect(() => {
+    if (!booking?.id) return
+    supabase.from('sos_incidents').select('id,type,title,status,severity,created_at,resolved_at,description,damage_severity,customer_fault')
+      .eq('booking_id', booking.id).order('created_at', { ascending: false })
+      .then(({ data }) => { if (data) setSosIncidents(data) }).catch(() => {})
+    supabase.from('booking_extras').select('*, extras_catalog(name, price)')
+      .eq('booking_id', booking.id)
+      .then(({ data }) => { if (data) setBookingExtras(data) }).catch(() => {})
+    if (booking.status === 'cancelled') {
+      supabase.from('booking_cancellations').select('*')
+        .eq('booking_id', booking.id).limit(1).single()
+        .then(({ data }) => { if (data) setCancellation(data) }).catch(() => {})
+    }
+  }, [booking?.id])
 
   function handleRecalcPrice() {
     if (!booking.moto_id || !booking.start_date || !booking.end_date) return
@@ -533,6 +551,11 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
       )}
 
       <Card className="col-span-2">
+        <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-4" style={{ color: '#8aab99' }}>Kompletní přehled rezervace</h3>
+        <BookingSummary booking={booking} sosIncidents={sosIncidents} bookingExtras={bookingExtras} cancellation={cancellation} promoUsage={promoUsage} voucherUsed={voucherUsed} />
+      </Card>
+
+      <Card className="col-span-2">
         <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-4" style={{ color: '#8aab99' }}>Timeline</h3>
         <Timeline booking={booking} />
       </Card>
@@ -541,6 +564,162 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
 }
 
 const CANCEL_SOURCE_LABELS = Object.fromEntries(CANCEL_REASONS.map(r => [r.value, r.label]))
+
+const STATUS_LABELS = { pending: 'Čeká na platbu', reserved: 'Nadcházející', active: 'Aktivní', completed: 'Dokončená', cancelled: 'Zrušená' }
+
+function fmtDT(iso) {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleString('cs-CZ')
+}
+
+function SumRow({ label, value, color }) {
+  if (!value) return null
+  return (
+    <div className="flex gap-2 py-[3px]" style={{ borderBottom: '1px solid #f1faf7', fontSize: 12 }}>
+      <span className="font-bold" style={{ color: '#4a6357', minWidth: 160, flexShrink: 0 }}>{label}</span>
+      <span className="font-medium" style={{ color: color || '#0f1a14' }}>{value}</span>
+    </div>
+  )
+}
+
+function BookingSummary({ booking, sosIncidents, bookingExtras, cancellation, promoUsage, voucherUsed }) {
+  const b = booking
+  const days = Math.max(1, Math.ceil((new Date(b.end_date) - new Date(b.start_date)) / 86400000) + 1)
+  const branchName = b.motorcycles?.branches?.name || '—'
+
+  const hasModification = b.original_start_date && b.original_end_date &&
+    (b.original_start_date !== b.start_date || b.original_end_date !== b.end_date)
+  let origDays, delta
+  if (hasModification) {
+    origDays = Math.max(1, Math.ceil((new Date(b.original_end_date) - new Date(b.original_start_date)) / 86400000) + 1)
+    delta = days - origDays
+  }
+
+  return (
+    <div className="space-y-1">
+      <div className="text-[10px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#8aab99' }}>Základní údaje</div>
+      <SumRow label="Stav" value={STATUS_LABELS[b.status] || b.status} color={b.status === 'cancelled' ? '#dc2626' : b.status === 'active' ? '#1a8a18' : undefined} />
+      <SumRow label="ID" value={`#${b.id?.slice(-8).toUpperCase()}`} />
+      <SumRow label="Motorka" value={`${b.motorcycles?.model || '—'}${b.motorcycles?.spz ? ` (${b.motorcycles.spz})` : ''}`} />
+      <SumRow label="Pobočka" value={branchName} />
+      <SumRow label="Zákazník" value={`${b.profiles?.full_name || '—'} (${b.profiles?.email || '—'}, ${b.profiles?.phone || '—'})`} />
+
+      <div className="text-[10px] font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#8aab99' }}>Termín</div>
+      <SumRow label="Začátek" value={`${new Date(b.start_date).toLocaleDateString('cs-CZ')} v ${b.pickup_time || '9:00'}`} />
+      <SumRow label="Konec" value={`${new Date(b.end_date).toLocaleDateString('cs-CZ')} v 9:00`} />
+      <SumRow label="Délka" value={`${days} ${days === 1 ? 'den' : days < 5 ? 'dny' : 'dní'}`} />
+
+      {hasModification && (
+        <>
+          <SumRow label="Původní termín" value={`${new Date(b.original_start_date).toLocaleDateString('cs-CZ')} – ${new Date(b.original_end_date).toLocaleDateString('cs-CZ')} (${origDays} dní)`} color="#b45309" />
+          <SumRow label="Úprava rozsahu" value={`${delta > 0 ? '+' : ''}${delta} dní → nový: ${new Date(b.start_date).toLocaleDateString('cs-CZ')} – ${new Date(b.end_date).toLocaleDateString('cs-CZ')}`} color="#2563eb" />
+        </>
+      )}
+
+      <div className="text-[10px] font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#8aab99' }}>Vyzvednutí a vrácení</div>
+      <SumRow label="Vyzvednutí" value={`${b.pickup_method === 'delivery' ? 'Doručení' : 'Na pobočce'} — ${b.pickup_address || branchName}`} />
+      <SumRow label="Vrácení" value={`${b.return_method === 'delivery' ? 'Svoz' : 'Na pobočce'} — ${b.return_address || branchName}`} />
+
+      {(b.boots_size || b.helmet_size || b.jacket_size) && (
+        <>
+          <div className="text-[10px] font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#8aab99' }}>Výbava</div>
+          <SumRow label="Boty" value={b.boots_size ? `vel. ${b.boots_size}` : null} />
+          <SumRow label="Helma" value={b.helmet_size ? `vel. ${b.helmet_size}` : null} />
+          <SumRow label="Bunda" value={b.jacket_size ? `vel. ${b.jacket_size}` : null} />
+        </>
+      )}
+
+      {b.insurance_type && <SumRow label="Pojištění" value={b.insurance_type} />}
+
+      {bookingExtras.length > 0 && (
+        <>
+          <div className="text-[10px] font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#8aab99' }}>Příslušenství</div>
+          {bookingExtras.map((ex, i) => (
+            <SumRow key={i} label={ex.extras_catalog?.name || `Extra ${i + 1}`} value={`${Number(ex.extras_catalog?.price || 0).toLocaleString('cs-CZ')} Kč`} />
+          ))}
+        </>
+      )}
+
+      <div className="text-[10px] font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#8aab99' }}>Platba</div>
+      <SumRow label="Celkem" value={`${Number(b.total_price || 0).toLocaleString('cs-CZ')} Kč`} />
+      {b.extras_price > 0 && <SumRow label="Příslušenství" value={`${b.extras_price.toLocaleString('cs-CZ')} Kč`} />}
+      {b.delivery_fee > 0 && <SumRow label="Doručení" value={`${b.delivery_fee.toLocaleString('cs-CZ')} Kč`} />}
+      {b.discount_amount > 0 && <SumRow label="Sleva" value={`-${Number(b.discount_amount).toLocaleString('cs-CZ')} Kč${b.discount_code ? ` (${b.discount_code})` : ''}`} color="#1a8a18" />}
+      <SumRow label="Stav platby" value={b.payment_status === 'paid' ? 'Zaplaceno' : 'Nezaplaceno'} color={b.payment_status === 'paid' ? '#1a8a18' : '#dc2626'} />
+      {b.payment_method && <SumRow label="Způsob platby" value={b.payment_method} />}
+      {b.deposit > 0 && <SumRow label="Kauce" value={`${Number(b.deposit).toLocaleString('cs-CZ')} Kč`} />}
+
+      {promoUsage?.length > 0 && promoUsage.map((pu, i) => (
+        <SumRow key={pu.id || i} label={`Promo kód ${i + 1}`} value={`${pu.promo_codes?.code || '—'} → sleva ${Number(pu.discount_applied || 0).toLocaleString('cs-CZ')} Kč`} />
+      ))}
+      {voucherUsed && <SumRow label="Dárkový poukaz" value={`${voucherUsed.code} — ${Number(voucherUsed.amount).toLocaleString('cs-CZ')} ${voucherUsed.currency}`} />}
+
+      {(b.mileage_start || b.mileage_end) && (
+        <>
+          <div className="text-[10px] font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#8aab99' }}>Nájezd</div>
+          {b.mileage_start && <SumRow label="Při převzetí" value={`${b.mileage_start} km`} />}
+          {b.mileage_end && <SumRow label="Při vrácení" value={`${b.mileage_end} km`} />}
+          {b.mileage_start && b.mileage_end && <SumRow label="Najeto" value={`${b.mileage_end - b.mileage_start} km`} />}
+        </>
+      )}
+
+      {b.damage_report && <SumRow label="Poškození" value={b.damage_report} color="#dc2626" />}
+
+      {(b.sos_replacement || b.ended_by_sos || sosIncidents.length > 0) && (
+        <>
+          <div className="text-[10px] font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#dc2626' }}>SOS</div>
+          {b.sos_replacement && <SumRow label="SOS náhrada" value={`Ano${b.replacement_for_booking_id ? ` (za #${b.replacement_for_booking_id.slice(-8)})` : ''}`} color="#1a8a18" />}
+          {b.ended_by_sos && <SumRow label="Ukončeno SOS" value={`Ano${b.sos_incident_id ? ` (incident #${b.sos_incident_id.slice(-8)})` : ''}`} color="#dc2626" />}
+          {sosIncidents.map(inc => (
+            <div key={inc.id} className="py-1" style={{ borderBottom: '1px solid #fef2f2', fontSize: 11 }}>
+              <span className="font-bold" style={{ color: '#dc2626' }}>#{inc.id.slice(-6)}</span>
+              <span className="ml-2">{inc.type} ({inc.severity}) — {inc.status}</span>
+              {inc.title && <span className="ml-1">— {inc.title}</span>}
+              <span className="ml-2" style={{ color: '#8aab99' }}>{fmtDT(inc.created_at)}</span>
+              {inc.resolved_at && <span className="ml-1" style={{ color: '#1a8a18' }}>→ vyřešeno {fmtDT(inc.resolved_at)}</span>}
+              {inc.customer_fault && <span className="ml-1 font-bold" style={{ color: '#b91c1c' }}>[vina zákazníka]</span>}
+              {inc.damage_severity && inc.damage_severity !== 'none' && <span className="ml-1" style={{ color: '#b45309' }}>[{inc.damage_severity}]</span>}
+            </div>
+          ))}
+        </>
+      )}
+
+      {b.status === 'cancelled' && (
+        <>
+          <div className="text-[10px] font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#dc2626' }}>Zrušení</div>
+          <SumRow label="Zrušeno" value={fmtDT(b.cancelled_at)} color="#dc2626" />
+          <SumRow label="Zdroj" value={CANCEL_SOURCE_LABELS[b.cancelled_by_source] || b.cancelled_by_source || '—'} />
+          <SumRow label="Důvod" value={b.cancellation_reason || '—'} />
+          <SumRow label="Email odeslán" value={b.cancellation_notified ? 'Ano' : 'Ne'} />
+          {cancellation && (
+            <>
+              <SumRow label="Vráceno" value={cancellation.refund_amount ? `${Number(cancellation.refund_amount).toLocaleString('cs-CZ')} Kč (${cancellation.refund_percent}%)` : 'Bez refundu'} />
+            </>
+          )}
+        </>
+      )}
+
+      <div className="text-[10px] font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#8aab99' }}>Průběh</div>
+      <SumRow label="Vytvořeno" value={fmtDT(b.created_at)} />
+      <SumRow label="Potvrzeno" value={fmtDT(b.confirmed_at)} />
+      <SumRow label="Vydáno" value={fmtDT(b.picked_up_at)} />
+      <SumRow label="Vráceno" value={fmtDT(b.returned_at)} />
+      {b.actual_return_date && <SumRow label="Skutečné vrácení" value={fmtDT(b.actual_return_date)} />}
+      {b.cancelled_at && <SumRow label="Zrušeno" value={fmtDT(b.cancelled_at)} color="#dc2626" />}
+      {b.rated_at && <SumRow label="Hodnoceno" value={`${fmtDT(b.rated_at)} (${b.rating}/5)`} />}
+
+      {b.notes && (
+        <>
+          <div className="text-[10px] font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#8aab99' }}>Poznámky</div>
+          <p className="text-xs" style={{ color: '#4a6357' }}>{b.notes}</p>
+        </>
+      )}
+
+      {b.contract_url && <SumRow label="Smlouva" value={b.signed_contract ? 'Podepsána' : 'Nepodepsána'} />}
+      {b.complaint_status && <SumRow label="Reklamace" value={b.complaint_status} color="#b45309" />}
+    </div>
+  )
+}
 
 function InfoRow({ label, value }) {
   return (

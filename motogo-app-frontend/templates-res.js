@@ -37,7 +37,6 @@ Templates['s-res-detail'] = `  <div class="rd-hdr">
   </div>
   <div id="rd-extras" class="rd-card" style="display:none;">
     <div class="rd-section-t">Doplňky a slevy</div>
-    <!-- dynamically filled by reservations-ui.js -->
   </div>
   <div class="rd-card">
     <div class="rd-section-t" id="t-rdPaySec">Platba</div>
@@ -45,7 +44,8 @@ Templates['s-res-detail'] = `  <div class="rd-hdr">
     <div class="rd-row"><div class="rd-label" id="t-rdTotal">Celkem</div><div class="rd-value" id="rd-total" style="color:var(--gd);font-size:16px;">5 400 Kč</div></div>
     <div class="rd-row"><div class="rd-label" id="t-rdPayMethod">Způsob platby</div><div class="rd-value">Platební karta ••••4242</div></div>
   </div>
-  <div class="rd-actions" id="rd-actions">
-    <!-- dynamically filled -->
+  <div id="rd-detail-summary" class="rd-card" style="display:none;">
+    <div class="rd-section-t">Kompletní přehled rezervace</div>
   </div>
+  <div class="rd-actions" id="rd-actions"></div>
   <div style="height:10px;"></div>`;
