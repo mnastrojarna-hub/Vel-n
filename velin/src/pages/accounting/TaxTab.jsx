@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import Card from '../../components/ui/Card'
@@ -17,11 +18,14 @@ export default function TaxTab() {
 
   async function load() {
     setLoading(true)
-    const { data, error: err } = await supabase
-      .from('tax_records')
-      .select('*')
-      .order(sort.startsWith('amount') ? 'total' : 'period', { ascending: sort.endsWith('_asc') })
-    if (err) setError(err.message)
+    debugLog('TaxTab', 'load', { sort })
+    const { data, error: err } = await debugAction('tax_records.list', 'TaxTab', () =>
+      supabase
+        .from('tax_records')
+        .select('*')
+        .order(sort.startsWith('amount') ? 'total' : 'period', { ascending: sort.endsWith('_asc') })
+    )
+    if (err) { debugError('TaxTab', 'load', err); setError(err.message) }
     else setRecords(data || [])
     setLoading(false)
   }
@@ -30,9 +34,12 @@ export default function TaxTab() {
     setGenerating(true)
     setError(null)
     try {
-      const { data, error } = await supabase.functions.invoke('generate-tax', {
-        body: { period, type: 'vat_summary' },
-      })
+      debugLog('TaxTab', 'generateTax', { period })
+      const { data, error } = await debugAction('functions.generate-tax', 'TaxTab', () =>
+        supabase.functions.invoke('generate-tax', {
+          body: { period, type: 'vat_summary' },
+        })
+      )
       if (error) throw error
       if (data?.url) window.open(data.url, '_blank')
       await load()
@@ -41,6 +48,7 @@ export default function TaxTab() {
         admin_id: user?.id, action: 'tax_generated', details: { period },
       })
     } catch (e) {
+      debugError('TaxTab', 'generateTax', e)
       setError('Generování selhalo: ' + e.message)
     } finally {
       setGenerating(false)
@@ -49,12 +57,16 @@ export default function TaxTab() {
 
   async function handleExport(format) {
     try {
-      const { data, error } = await supabase.functions.invoke('export-data', {
-        body: { type: 'tax_records', format },
-      })
+      debugLog('TaxTab', 'handleExport', { format })
+      const { data, error } = await debugAction('functions.export-data', 'TaxTab', () =>
+        supabase.functions.invoke('export-data', {
+          body: { type: 'tax_records', format },
+        })
+      )
       if (error) throw error
       if (data?.url) window.open(data.url, '_blank')
     } catch (e) {
+      debugError('TaxTab', 'handleExport', e)
       setError('Export selhal: ' + e.message)
     }
   }

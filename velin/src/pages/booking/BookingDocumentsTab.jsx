@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import { generateInvoiceHtml } from '../../lib/invoiceTemplate'
 import { loadInvoiceData, printInvoiceHtml, storeInvoicePdf } from '../../lib/invoiceUtils'
 import Card from '../../components/ui/Card'
@@ -42,10 +43,14 @@ export default function BookingDocumentsTab({ bookingId }) {
     setLoading(true)
     const diag = { bookingId, docs: null, gen: null, inv: null, errors: [] }
     try {
+      debugLog('BookingDocumentsTab', 'loadAll', { bookingId })
       const [docsRes, genRes, invRes] = await Promise.all([
-        supabase.from('documents').select('*').eq('booking_id', bookingId).order('created_at', { ascending: false }),
-        supabase.from('generated_documents').select('*').eq('booking_id', bookingId).order('created_at', { ascending: false }),
-        supabase.from('invoices').select('*').eq('booking_id', bookingId).order('issue_date', { ascending: false, nullsFirst: false }),
+        debugAction('documents.byBooking', 'BookingDocumentsTab', () =>
+          supabase.from('documents').select('*').eq('booking_id', bookingId).order('created_at', { ascending: false })),
+        debugAction('generated_documents.byBooking', 'BookingDocumentsTab', () =>
+          supabase.from('generated_documents').select('*').eq('booking_id', bookingId).order('created_at', { ascending: false })),
+        debugAction('invoices.byBooking', 'BookingDocumentsTab', () =>
+          supabase.from('invoices').select('*').eq('booking_id', bookingId).order('issue_date', { ascending: false, nullsFirst: false })),
       ])
       // If generated_documents found, try to enrich with template info (separate query, no FK needed)
       if (genRes.data?.length > 0) {
@@ -67,7 +72,7 @@ export default function BookingDocumentsTab({ bookingId }) {
       setDocs(docsRes.data || [])
       setGeneratedDocs(genRes.data || [])
       setInvoices(invRes.data || [])
-    } catch (e) { setError(e.message); diag.errors.push('EXCEPTION: ' + e.message) }
+    } catch (e) { debugError('BookingDocumentsTab', 'loadAll', e); setError(e.message); diag.errors.push('EXCEPTION: ' + e.message) }
     setDebug(diag)
     setLoading(false)
   }
@@ -75,9 +80,12 @@ export default function BookingDocumentsTab({ bookingId }) {
   async function handleGenerate(templateSlug) {
     setGenerating(templateSlug); setError(null)
     try {
-      const { error: err } = await supabase.functions.invoke('generate-document', {
-        body: { template_slug: templateSlug, booking_id: bookingId },
-      })
+      debugLog('BookingDocumentsTab', 'handleGenerate', { templateSlug, bookingId })
+      const { error: err } = await debugAction('functions.generate-document', 'BookingDocumentsTab', () =>
+        supabase.functions.invoke('generate-document', {
+          body: { template_slug: templateSlug, booking_id: bookingId },
+        })
+      )
       if (err) throw err
       await loadAll()
     } catch {

@@ -159,6 +159,8 @@ function goTo(id){
   if(id==='s-sos-payment' && typeof _sosInitPaymentFromRouter==='function') _sosInitPaymentFromRouter();
   if(typeof updateCartFab==='function')updateCartFab();
   if(typeof scrollCurrentToTop==='function')scrollCurrentToTop();
+  // Debug panel – show diagnostics on every screen
+  if(typeof _debugPanel==='function') setTimeout(function(){ _debugPanel(id); }, 100);
 }
 
 function histBack(){

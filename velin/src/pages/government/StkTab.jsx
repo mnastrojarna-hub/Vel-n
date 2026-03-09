@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 
 export default function StkTab() {
@@ -10,11 +11,19 @@ export default function StkTab() {
 
   async function load() {
     setLoading(true)
-    const { data } = await supabase
-      .from('motorcycles')
-      .select('id, model, spz, stk_valid_until, emission_valid_until')
-      .order('stk_valid_until')
-    setMotos(data || [])
+    try {
+      debugLog('StkTab', 'load')
+      const { data, error } = await debugAction('motorcycles.stk', 'StkTab', () =>
+        supabase
+          .from('motorcycles')
+          .select('id, model, spz, stk_valid_until, emission_valid_until')
+          .order('stk_valid_until')
+      )
+      if (error) throw error
+      setMotos(data || [])
+    } catch (e) {
+      debugError('StkTab', 'load', e)
+    }
     setLoading(false)
   }
 

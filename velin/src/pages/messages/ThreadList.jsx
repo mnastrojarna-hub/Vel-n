@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 
 import SearchInput from '../../components/ui/SearchInput'
 import Button from '../../components/ui/Button'
@@ -15,27 +16,36 @@ export default function ThreadList({ selectedId, onSelect, onNewThread }) {
 
   async function load() {
     setLoading(true)
-    let query = supabase
-      .from('message_threads')
-      .select('*, profiles(full_name, email)')
-      .order(sortBy === 'customer' ? 'customer_id' : 'last_message_at', { ascending: sortBy === 'customer' })
-    if (search) query = query.or(`profiles.full_name.ilike.%${search}%,profiles.email.ilike.%${search}%`)
-    const { data } = await query
-    setThreads(data || [])
-    setLoading(false)
+    try {
+      debugLog('ThreadList', 'load', { search, sortBy })
+      let query = supabase
+        .from('message_threads')
+        .select('*, profiles(full_name, email)')
+        .order(sortBy === 'customer' ? 'customer_id' : 'last_message_at', { ascending: sortBy === 'customer' })
+      if (search) query = query.or(`profiles.full_name.ilike.%${search}%,profiles.email.ilike.%${search}%`)
+      const { data, error } = await debugAction('message_threads.list', 'ThreadList', () => query)
+      if (error) throw error
+      setThreads(data || [])
+      setLoading(false)
 
-    // Load unread counts per thread
-    if (data && data.length > 0) {
-      const ids = data.map(t => t.id)
-      const { data: msgs } = await supabase
-        .from('messages')
-        .select('thread_id')
-        .in('thread_id', ids)
-        .is('read_at', null)
-        .eq('direction', 'customer')
-      const counts = {}
-      ;(msgs || []).forEach(m => { counts[m.thread_id] = (counts[m.thread_id] || 0) + 1 })
-      setUnreadCounts(counts)
+      // Load unread counts per thread
+      if (data && data.length > 0) {
+        const ids = data.map(t => t.id)
+        const { data: msgs } = await debugAction('messages.unreadCounts', 'ThreadList', () =>
+          supabase
+            .from('messages')
+            .select('thread_id')
+            .in('thread_id', ids)
+            .is('read_at', null)
+            .eq('direction', 'customer')
+        )
+        const counts = {}
+        ;(msgs || []).forEach(m => { counts[m.thread_id] = (counts[m.thread_id] || 0) + 1 })
+        setUnreadCounts(counts)
+      }
+    } catch (e) {
+      debugError('ThreadList', 'load', e)
+      setLoading(false)
     }
   }
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import StatusBadge from '../../components/ui/StatusBadge'
@@ -13,12 +14,20 @@ export default function ServiceSchedule() {
   async function load() {
     setLoading(true)
     // Show all active schedules (with or without next_date)
-    const { data } = await supabase
-      .from('maintenance_schedules')
-      .select('*, motorcycles(model, spz, mileage)')
-      .eq('active', true)
-      .order('next_date', { ascending: true, nullsFirst: false })
-    setSchedules(data || [])
+    try {
+      debugLog('ServiceSchedule', 'load')
+      const { data, error } = await debugAction('maintenance_schedules.list', 'ServiceSchedule', () =>
+        supabase
+          .from('maintenance_schedules')
+          .select('*, motorcycles(model, spz, mileage)')
+          .eq('active', true)
+          .order('next_date', { ascending: true, nullsFirst: false })
+      )
+      if (error) throw error
+      setSchedules(data || [])
+    } catch (e) {
+      debugError('ServiceSchedule', 'load', e)
+    }
     setLoading(false)
   }
 

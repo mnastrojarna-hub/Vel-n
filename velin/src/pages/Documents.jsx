@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { debugLog } from '../lib/debugLog'
 import TemplatesTab from './documents/TemplatesTab'
 import GeneratedTab from './documents/GeneratedTab'
 import UploadedTab from './documents/UploadedTab'
@@ -10,13 +11,15 @@ const TABS = ['Šablony', 'Vygenerované', 'Nahrané doklady', 'E-mailové šabl
 export default function Documents() {
   const [tab, setTab] = useState('Šablony')
 
+  useEffect(() => { debugLog('page.mount', 'Documents') }, [])
+
   return (
     <div>
       <div className="flex gap-2 mb-5">
         {TABS.map(t => (
           <button
             key={t}
-            onClick={() => setTab(t)}
+            onClick={() => { debugLog('tab.switch', 'Documents', { tab: t }); setTab(t) }}
             className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
             style={{
               padding: '8px 18px',

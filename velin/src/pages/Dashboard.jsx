@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { debugAction, debugLog, debugError } from '../lib/debugLog'
 import Card from '../components/ui/Card'
 import Stat from '../components/ui/Stat'
 import Badge from '../components/ui/Badge'
@@ -35,6 +36,7 @@ export default function Dashboard() {
   const [financeData, setFinanceData] = useState({ revenue: 0, expense: 0, profit: 0, unpaid: 0 })
 
   useEffect(() => {
+    debugLog('page.mount', 'Dashboard')
     fetchDashboardData()
     const interval = setInterval(fetchDashboardData, 120000)
     return () => clearInterval(interval)
@@ -46,7 +48,7 @@ export default function Dashboard() {
       const today = new Date().toISOString().split('T')[0]
       const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
       const yearAgoMonth = new Date(new Date().getFullYear() - 1, new Date().getMonth(), 1).toISOString().split('T')[0]
-      const [motorcyclesRes, bookingsRes, messagesRes, inventoryRes, eventsRes, sosRes, stkRes, financeRes, chartFinanceRes, unpaidRes] = await Promise.all([
+      const [motorcyclesRes, bookingsRes, messagesRes, inventoryRes, eventsRes, sosRes, stkRes, financeRes, chartFinanceRes, unpaidRes] = await debugAction('dashboard.fetchAll', 'Dashboard', () => Promise.all([
         supabase.from('motorcycles').select('id, status', { count: 'exact' }),
         supabase.from('bookings').select('id, status').in('status', ['active', 'pending', 'reserved']),
         supabase.from('messages').select('id', { count: 'exact' }).eq('direction', 'customer').is('read_at', null),
@@ -63,7 +65,7 @@ export default function Dashboard() {
           .gte('date', yearAgoMonth)
           .order('date', { ascending: true }),
         supabase.from('invoices').select('total').eq('status', 'unpaid'),
-      ])
+      ]))
       const allMotos = motorcyclesRes.data || []
       const activeMotos = allMotos.filter(m => m.status === 'active').length
       const bookings = bookingsRes.data || []
@@ -117,10 +119,10 @@ export default function Dashboard() {
       if (rawEvents.length > 0) {
         const userIds = [...new Set(rawEvents.map(e => e.user_id).filter(Boolean))]
         const motoIds = [...new Set(rawEvents.map(e => e.moto_id).filter(Boolean))]
-        const [profilesRes, motosRes] = await Promise.all([
+        const [profilesRes, motosRes] = await debugAction('dashboard.enrichEvents', 'Dashboard', () => Promise.all([
           userIds.length > 0 ? supabase.from('profiles').select('id, full_name').in('id', userIds) : { data: [] },
           motoIds.length > 0 ? supabase.from('motorcycles').select('id, model').in('id', motoIds) : { data: [] },
-        ])
+        ]))
         const profileMap = Object.fromEntries((profilesRes.data || []).map(p => [p.id, p.full_name]))
         const motoMap = Object.fromEntries((motosRes.data || []).map(m => [m.id, m.model]))
         enrichedEvents = rawEvents.map(e => ({
@@ -130,7 +132,8 @@ export default function Dashboard() {
         }))
       }
       setUpcomingEvents(enrichedEvents)
-    } catch {
+    } catch (err) {
+      debugError('dashboard.fetchAll', 'Dashboard', err)
     } finally {
       setLoading(false)
     }

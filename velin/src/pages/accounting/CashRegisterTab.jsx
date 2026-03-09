@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
@@ -24,16 +25,20 @@ export default function CashRegisterTab() {
     setLoading(true)
     setError(null)
     try {
-      const { data, count, error: err } = await supabase
-        .from('cash_register')
-        .select('*', { count: 'exact' })
-        .order(sort.startsWith('amount') ? 'amount' : 'date', { ascending: sort.endsWith('_asc') })
-        .range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
+      debugLog('CashRegisterTab', 'load', { page, sort })
+      const { data, count, error: err } = await debugAction('cash_register.list', 'CashRegisterTab', () =>
+        supabase
+          .from('cash_register')
+          .select('*', { count: 'exact' })
+          .order(sort.startsWith('amount') ? 'amount' : 'date', { ascending: sort.endsWith('_asc') })
+          .range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
+      )
       if (err) throw err
       let filtered = data || []
       setEntries(filtered)
       setTotal(count || 0)
     } catch (e) {
+      debugError('CashRegisterTab', 'load', e)
       setError(e.message)
     } finally {
       setLoading(false)
@@ -127,19 +132,22 @@ function AddCashModal({ onClose, onSaved }) {
   async function handleSave() {
     setSaving(true); setErr(null)
     try {
-      const { error } = await supabase.from('cash_register').insert({
-        type: form.type,
-        amount: Number(form.amount) || 0,
-        description: form.description,
-        date: new Date().toISOString().slice(0, 10),
-      })
+      debugLog('CashRegisterTab', 'handleSave', { type: form.type, amount: form.amount })
+      const { error } = await debugAction('cash_register.insert', 'CashRegisterTab', () =>
+        supabase.from('cash_register').insert({
+          type: form.type,
+          amount: Number(form.amount) || 0,
+          description: form.description,
+          date: new Date().toISOString().slice(0, 10),
+        })
+      )
       if (error) throw error
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({
         admin_id: user?.id, action: 'cash_register_entry', details: { type: form.type },
       })
       onSaved()
-    } catch (e) { setErr(e.message) } finally { setSaving(false) }
+    } catch (e) { debugError('CashRegisterTab', 'handleSave', e); setErr(e.message) } finally { setSaving(false) }
   }
 
   return (

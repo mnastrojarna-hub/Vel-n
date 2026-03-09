@@ -604,6 +604,8 @@ async function apiFetchDocuments(){
       .order('created_at', {ascending: false});
     console.log('[DOCS] 1) documents table:', r.error ? 'ERR: '+r.error.message : (r.data||[]).length + ' rows', (r.data||[]).map(function(d){return d.type+'/'+d.booking_id?.substr(-4);}));
     if(r.data) r.data.forEach(function(d){
+      // Skip invoice_shop from documents table — step 4 (shop_orders) handles these with correct IDs
+      if(d.type === 'invoice_shop') return;
       var b = d.bookings;
       d.date = d.created_at;
       d.moto_name = (b && b.motorcycles) ? b.motorcycles.model : '';
@@ -618,6 +620,8 @@ async function apiFetchDocuments(){
       .order('created_at', {ascending: false});
     console.log('[DOCS] 2) invoices table:', ir.error ? 'ERR: '+ir.error.message : (ir.data||[]).length + ' rows', (ir.data||[]).map(function(i){return i.type+'/'+i.number+'/'+i.booking_id?.substr(-4);}));
     if(ir.data) ir.data.forEach(function(inv){
+      // Skip shop_final invoices — step 4 (shop_orders) handles these with correct IDs
+      if(inv.type === 'shop_final') return;
       var b = inv.bookings;
       var iType = inv.type === 'payment_receipt' ? 'payment_receipt'
         : (inv.type === 'proforma' || inv.type === 'advance') ? 'invoice_advance'

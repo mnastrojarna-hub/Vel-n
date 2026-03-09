@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import Button from '../components/ui/Button'
 import { supabase } from '../lib/supabase'
+import { debugAction, debugLog, debugError } from '../lib/debugLog'
 import RevenueChart from './statistics/RevenueChart'
 import { FleetUtilization, TopMotoRevenue, BranchComparison } from './statistics/FleetCharts'
 import { BookingsByStatus, CustomerRetention } from './statistics/BookingCharts'
@@ -11,16 +12,16 @@ export default function Statistics() {
   const [stats, setStats] = useState({ bookings: 0, customers: 0, motos: 0, revenue: 0 })
   const [chartErrors, setChartErrors] = useState([])
 
-  useEffect(() => { loadQuickStats() }, [])
+  useEffect(() => { debugLog('page.mount', 'Statistics'); loadQuickStats() }, [])
 
   async function loadQuickStats() {
     try {
-      const [bk, pr, mo, ae] = await Promise.all([
+      const [bk, pr, mo, ae] = await debugAction('statistics.quickStats', 'Statistics', () => Promise.all([
         supabase.from('bookings').select('id', { count: 'exact', head: true }),
         supabase.from('profiles').select('id', { count: 'exact', head: true }),
         supabase.from('motorcycles').select('id', { count: 'exact', head: true }).eq('status', 'active'),
         supabase.from('accounting_entries').select('type, amount, category, description'),
-      ])
+      ]))
       // Revenue classification — same logic as Dashboard (type + keyword matching)
       const REVENUE_CATS = ['pronájem', 'pronajem', 'rezervace', 'booking', 'rental']
       const REVENUE_DESCS = ['platba za rezervaci', 'platba za pronájem', 'příjem z pronájmu']
@@ -36,21 +37,25 @@ export default function Statistics() {
         motos: mo.count || 0,
         revenue: (ae.data || []).filter(e => isRevenue(e)).reduce((s, e) => s + Math.abs(e.amount || 0), 0),
       })
-    } catch (e) { console.error('[Statistics] quickStats err:', e) }
+    } catch (e) { debugError('statistics.quickStats', 'Statistics', e) }
   }
 
   async function handleGenerateReport() {
+    debugLog('report.generate', 'Statistics', { action: 'start' })
     setGenerating(true)
     setError(null)
     try {
       const now = new Date()
       const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-      const { data, error } = await supabase.functions.invoke('generate-report', {
-        body: { type: 'monthly', period },
-      })
+      const { data, error } = await debugAction('report.generate', 'Statistics', () =>
+        supabase.functions.invoke('generate-report', {
+          body: { type: 'monthly', period },
+        })
+      )
       if (error) throw error
       if (data?.url) window.open(data.url, '_blank')
     } catch (e) {
+      debugError('report.generate', 'Statistics', e)
       setError('Generování reportu selhalo: ' + e.message)
     } finally {
       setGenerating(false)

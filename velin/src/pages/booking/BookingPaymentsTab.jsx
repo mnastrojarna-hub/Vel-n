@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import { generateAdvanceInvoice, generatePaymentReceipt, generateFinalInvoice, loadInvoiceData, printInvoiceHtml } from '../../lib/invoiceUtils'
 import { generateInvoiceHtml } from '../../lib/invoiceTemplate'
 import Card from '../../components/ui/Card'
@@ -39,19 +40,23 @@ export default function BookingPaymentsTab({ bookingId }) {
   async function loadAll() {
     setLoading(true)
     try {
+      debugLog('BookingPaymentsTab', 'loadAll', { bookingId })
       const [invRes, entRes] = await Promise.all([
-        supabase.from('invoices').select('*').eq('booking_id', bookingId).order('issue_date', { ascending: false, nullsFirst: false }),
-        supabase.from('accounting_entries').select('*').eq('booking_id', bookingId).order('date', { ascending: false }),
+        debugAction('invoices.byBooking', 'BookingPaymentsTab', () =>
+          supabase.from('invoices').select('*').eq('booking_id', bookingId).order('issue_date', { ascending: false, nullsFirst: false })),
+        debugAction('accounting_entries.byBooking', 'BookingPaymentsTab', () =>
+          supabase.from('accounting_entries').select('*').eq('booking_id', bookingId).order('date', { ascending: false })),
       ])
       setInvoices(invRes.data || [])
       setEntries(entRes.data || [])
-    } catch (e) { setError(e.message) }
+    } catch (e) { debugError('BookingPaymentsTab', 'loadAll', e); setError(e.message) }
     setLoading(false)
   }
 
   async function handleGenerateInvoice(type) {
     setGenerating(type); setError(null)
     try {
+      debugLog('BookingPaymentsTab', 'handleGenerateInvoice', { type, bookingId })
       let result
       if (type === 'proforma' || type === 'advance') {
         result = await generateAdvanceInvoice(bookingId, 'booking')
@@ -65,7 +70,7 @@ export default function BookingPaymentsTab({ bookingId }) {
       }
       await loadAll()
     } catch (e) {
-      console.error('[Invoice] Generation failed:', e)
+      debugError('BookingPaymentsTab', 'handleGenerateInvoice', e)
       setError(`Vystavení faktury selhalo: ${e.message}`)
     }
     setGenerating(null)
