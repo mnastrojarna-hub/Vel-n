@@ -14,6 +14,40 @@ Templates['s-res'] = `  <div class="res-hdr" style="position:relative;"><div cla
     <div class="chip" id="t-resUpcoming" onclick="filterRes(this,'nadchazejici')">Nadcházející</div>
     <div class="chip" id="t-resDone" onclick="filterRes(this,'dokoncene')">Dokončené</div>
   </div>
+  <div style="padding:4px 20px 0;display:flex;gap:8px;align-items:center;">
+    <div style="flex:1;position:relative;">
+      <select id="res-sort" onchange="resApplySort(this.value)" style="width:100%;padding:7px 28px 7px 10px;border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:11px;font-weight:700;color:var(--black);background:#fff;appearance:none;-webkit-appearance:none;cursor:pointer;">
+        <option value="start_desc">Začátek: nejnovější</option>
+        <option value="start_asc">Začátek: nejstarší</option>
+        <option value="created_desc">Vytvořeno: nejnovější</option>
+        <option value="created_asc">Vytvořeno: nejstarší</option>
+        <option value="price_desc">Cena: nejvyšší</option>
+        <option value="price_asc">Cena: nejnižší</option>
+        <option value="rating_desc">Hodnocení: nejlepší</option>
+      </select>
+      <div style="position:absolute;right:8px;top:50%;transform:translateY(-50%);pointer-events:none;font-size:10px;color:var(--g400);">▼</div>
+    </div>
+    <button id="res-filter-toggle" onclick="resToggleExtFilter()" style="padding:7px 12px;border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:11px;font-weight:700;color:var(--black);background:#fff;cursor:pointer;white-space:nowrap;">⚙ Filtr</button>
+  </div>
+  <div id="res-ext-filter" style="display:none;padding:6px 20px 0;">
+    <div style="background:#fff;border-radius:var(--rsm);padding:10px 12px;border:2px solid var(--g200);">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div>
+          <label style="font-size:10px;font-weight:700;color:var(--g400);display:block;margin-bottom:3px;">Pobočka</label>
+          <select id="res-filter-branch" onchange="renderMyReservations()" style="width:100%;padding:6px 8px;border:1px solid var(--g200);border-radius:6px;font-family:var(--font);font-size:11px;">
+            <option value="">Všechny</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:10px;font-weight:700;color:var(--g400);display:block;margin-bottom:3px;">Motorka</label>
+          <select id="res-filter-moto" onchange="renderMyReservations()" style="width:100%;padding:6px 8px;border:1px solid var(--g200);border-radius:6px;font-family:var(--font);font-size:11px;">
+            <option value="">Všechny</option>
+          </select>
+        </div>
+      </div>
+      <button onclick="resClearExtFilter()" style="margin-top:6px;padding:5px 12px;border:none;background:var(--g100);border-radius:6px;font-family:var(--font);font-size:10px;font-weight:700;color:var(--g400);cursor:pointer;">Smazat filtry</button>
+    </div>
+  </div>
   <div style="height:9px;"></div>
   <div id="res-list" style="padding:0 20px;"></div>
   <!-- Dynamic reservation cards rendered by reservations-ui.js -->`;

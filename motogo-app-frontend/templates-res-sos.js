@@ -248,6 +248,8 @@ Templates['s-sos-done'] = `  <div class="sos-sub-hdr" style="background:linear-g
       <div id="sos-done-next" style="font-size:13px;line-height:1.8;color:var(--black);"></div>
     </div>
 
+    <div id="sos-done-actions" style="margin-bottom:12px;"></div>
+
     <div style="background:#fff;border-radius:var(--r);padding:14px;box-shadow:var(--shadow);margin-bottom:12px;">
       <div style="font-size:11px;font-weight:800;color:var(--g400);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Přímý kontakt</div>
       <a href="tel:+420774256271" style="display:flex;align-items:center;gap:12px;text-decoration:none;">
@@ -260,7 +262,11 @@ Templates['s-sos-done'] = `  <div class="sos-sub-hdr" style="background:linear-g
       📨 Zprávy z MotoGo24
     </button>
 
-    <button onclick="_sosActiveIncidentId=null;goTo('s-home')" style="width:100%;background:var(--green);color:#fff;border:none;border-radius:50px;padding:14px;font-family:var(--font);font-size:14px;font-weight:800;cursor:pointer;margin-bottom:20px;">
+    <button onclick="goTo('s-res')" style="width:100%;background:var(--green);color:#fff;border:none;border-radius:50px;padding:14px;font-family:var(--font);font-size:14px;font-weight:800;cursor:pointer;margin-bottom:8px;">
+      📋 Moje rezervace
+    </button>
+
+    <button onclick="goTo('s-home')" style="width:100%;background:var(--g100);color:var(--black);border:none;border-radius:50px;padding:14px;font-family:var(--font);font-size:14px;font-weight:800;cursor:pointer;margin-bottom:20px;">
       Zpět na hlavní obrazovku
     </button>
   </div>`;
