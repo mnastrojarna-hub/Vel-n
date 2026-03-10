@@ -436,6 +436,31 @@ async function apiGetActiveLoan(){
 }
 
 // ===== INVOICE GENERATION =====
+var _DAY_NAMES = ['ne','po','út','st','čt','pá','so'];
+var _MOTO_PRICE_COLS = 'model, spz, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, price_weekday, price_weekend';
+function _getDayPrice(m, dow){
+  var map = {0:m.price_sun,1:m.price_mon,2:m.price_tue,3:m.price_wed,4:m.price_thu,5:m.price_fri,6:m.price_sat};
+  return Number(map[dow] || m.price_weekday || m.price_weekend || 0);
+}
+function _buildDailyItems(m, startDate, endDate){
+  var items = [], s = new Date(startDate+'T00:00:00'), e = new Date(endDate+'T00:00:00'), c = new Date(s);
+  var name = m.model || 'motorky';
+  while(c <= e){
+    var dow = c.getDay(), p = _getDayPrice(m, dow);
+    items.push({description:'Pronájem '+name+' – '+_DAY_NAMES[dow]+' '+c.getDate()+'.'+(c.getMonth()+1)+'.', qty:1, unit_price:p});
+    c.setDate(c.getDate()+1);
+  }
+  return items;
+}
+function _buildBookingItems(b, m){
+  var items = _buildDailyItems(m, b.start_date, b.end_date);
+  if(b.extras_price > 0) items.push({description:'Příslušenství / doplňky', qty:1, unit_price:b.extras_price});
+  if(b.delivery_fee > 0) items.push({description:'Doručení', qty:1, unit_price:b.delivery_fee});
+  if(b.discount_amount > 0) items.push({description:'Sleva'+(b.discount_code?' ('+b.discount_code+')':''), qty:1, unit_price:-b.discount_amount});
+  return items;
+}
+function _calcItemsTotal(items){ return items.reduce(function(s,it){ return s + (it.unit_price||0)*(it.qty||1); }, 0); }
+
 // Generate advance (zálohová) invoice — called on every payment gateway pass
 async function apiGenerateAdvanceInvoice(bookingId, amount, source){
   _ensureSupabase();
@@ -444,7 +469,7 @@ async function apiGenerateAdvanceInvoice(bookingId, amount, source){
     var uid = await _getUserId();
     if(!uid) return {error:'Nepřihlášen'};
     var br = await window.supabase.from('bookings')
-      .select('*, motorcycles(model, spz), profiles(full_name, email, phone, street, city, zip, country)')
+      .select('*, motorcycles('+_MOTO_PRICE_COLS+'), profiles(full_name, email, phone, street, city, zip, country)')
       .eq('id', bookingId).single();
     if(!br.data) return {error:'Booking not found'};
     var b = br.data, m = br.data.motorcycles || {};
@@ -457,9 +482,8 @@ async function apiGenerateAdvanceInvoice(bookingId, amount, source){
       if(mt) seq = parseInt(mt[1], 10) + 1;
     }
     var invNum = 'ZF-' + yr + '-' + String(seq).padStart(4, '0');
-    var desc = 'Záloha – ' + (source === 'edit' ? 'úprava rezervace' : source === 'sos' ? 'SOS' : source === 'shop' ? 'e-shop' : 'rezervace');
-    var items = [{description: desc + ' ' + (m.model||''), qty: 1, unit_price: amount || 0}];
-    var subtotal = amount || 0;
+    var items = _buildBookingItems(b, m);
+    var subtotal = _calcItemsTotal(items);
     var tax = 0; // Neplátce DPH
     var total = subtotal;
     var issueDate = new Date().toISOString().slice(0, 10);
@@ -494,7 +518,7 @@ async function apiGenerateFinalInvoice(bookingId){
     var uid = await _getUserId();
     if(!uid) return {error:'Nepřihlášen'};
     var br = await window.supabase.from('bookings')
-      .select('*, motorcycles(model, spz), profiles(full_name, email, phone, street, city, zip, country)')
+      .select('*, motorcycles('+_MOTO_PRICE_COLS+'), profiles(full_name, email, phone, street, city, zip, country)')
       .eq('id', bookingId).single();
     if(!br.data) return {error:'Booking not found'};
     var b = br.data, m = br.data.motorcycles || {};
@@ -512,18 +536,12 @@ async function apiGenerateFinalInvoice(bookingId){
       if(mt) seq = parseInt(mt[1], 10) + 1;
     }
     var invNum = 'KF-' + yr + '-' + String(seq).padStart(4, '0');
-    var days = Math.max(1, Math.ceil((new Date(b.end_date) - new Date(b.start_date)) / 86400000));
-    var dailyRate = Math.round((b.total_price || 0) / days);
-    var items = [{description: 'Pronájem ' + (m.model||'motorky') + ' (' + (m.spz||'') + ')', qty: days, unit_price: dailyRate}];
-    if(b.extras_price > 0) items.push({description: 'Příslušenství / doplňky', qty: 1, unit_price: b.extras_price});
-    if(b.delivery_fee > 0) items.push({description: 'Doručení', qty: 1, unit_price: b.delivery_fee});
-    // Add all advance invoice references
-    var advTotal = 0;
+    var items = _buildBookingItems(b, m);
+    // Deduct all advance invoices
     advances.forEach(function(a){
-      advTotal += Number(a.total || 0);
-      items.push({description: 'Záloha ' + a.number + ' (' + (a.source||'') + ')', qty: 1, unit_price: -Number(a.total || 0)});
+      items.push({description: 'Odpočet zálohy ' + a.number, qty: 1, unit_price: -Number(a.total || 0)});
     });
-    var subtotal = items.reduce(function(s, it){ return s + (it.unit_price * (it.qty||1)); }, 0);
+    var subtotal = _calcItemsTotal(items);
     var tax = 0; // Neplátce DPH
     var total = subtotal;
     var issueDate = new Date().toISOString().slice(0, 10);
@@ -557,7 +575,7 @@ async function apiGeneratePaymentReceipt(bookingId, amount, source){
     var uid = await _getUserId();
     if(!uid) return {error:'Nepřihlášen'};
     var br = await window.supabase.from('bookings')
-      .select('*, motorcycles(model, spz), profiles(full_name, email)')
+      .select('*, motorcycles('+_MOTO_PRICE_COLS+'), profiles(full_name, email)')
       .eq('id', bookingId).single();
     if(!br.data) return {error:'Booking not found'};
     var b = br.data, m = br.data.motorcycles || {};
@@ -570,9 +588,8 @@ async function apiGeneratePaymentReceipt(bookingId, amount, source){
       if(mt) seq = parseInt(mt[1], 10) + 1;
     }
     var dpNum = 'DP-' + yr + '-' + String(seq).padStart(4, '0');
-    var desc = 'Přijatá platba – ' + (source === 'edit' ? 'úprava rezervace' : source === 'sos' ? 'SOS' : source === 'shop' ? 'e-shop' : source === 'restore' ? 'obnova' : 'rezervace');
-    var items = [{description: desc + ' ' + (m.model||''), qty: 1, unit_price: amount || 0}];
-    var subtotal = amount || 0;
+    var items = _buildBookingItems(b, m);
+    var subtotal = _calcItemsTotal(items);
     var tax = 0; // Neplátce DPH
     var total = subtotal;
     var issueDate = new Date().toISOString().slice(0, 10);

@@ -607,6 +607,45 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
           </div>
           <FieldInput label="Poznámky" value={booking.notes} onChange={v => set('notes', v)} />
         </div>
+
+        {/* Pickup / Return / Insurance / Extras */}
+        <div className="grid grid-cols-3 gap-4 mt-4 p-3 rounded-lg" style={{ background: '#f1faf7' }}>
+          <div>
+            <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Přistavení</div>
+            <div className="text-sm">{booking.pickup_method === 'delivery' ? 'Přistavení na adresu' : 'Na pobočce'} — {booking.pickup_address || booking.motorcycles?.branches?.name || '—'}</div>
+          </div>
+          <div>
+            <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Vrácení</div>
+            <div className="text-sm">{booking.return_method === 'delivery' ? 'Svoz z adresy' : 'Na pobočce'} — {booking.return_address || booking.motorcycles?.branches?.name || '—'}</div>
+          </div>
+          <div>
+            <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Pojištění</div>
+            <div className="text-sm">{booking.insurance_type || '—'}</div>
+          </div>
+        </div>
+
+        {/* Price breakdown */}
+        <div className="grid grid-cols-4 gap-4 mt-3 p-3 rounded-lg" style={{ background: '#f1faf7' }}>
+          <div>
+            <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Příslušenství</div>
+            <div className="text-sm font-bold">{booking.extras_price > 0 ? `${Number(booking.extras_price).toLocaleString('cs-CZ')} Kč` : '—'}</div>
+            {bookingExtras.length > 0 && bookingExtras.map((ex, i) => (
+              <div key={i} className="text-[10px]" style={{ color: '#4a6357' }}>{ex.extras_catalog?.name || `Extra ${i + 1}`}: {Number(ex.extras_catalog?.price || 0).toLocaleString('cs-CZ')} Kč</div>
+            ))}
+          </div>
+          <div>
+            <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Doručení</div>
+            <div className="text-sm font-bold">{booking.delivery_fee > 0 ? `${Number(booking.delivery_fee).toLocaleString('cs-CZ')} Kč` : '—'}</div>
+          </div>
+          <div>
+            <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Sleva</div>
+            <div className="text-sm font-bold" style={{ color: booking.discount_amount > 0 ? '#1a8a18' : undefined }}>{booking.discount_amount > 0 ? `-${Number(booking.discount_amount).toLocaleString('cs-CZ')} Kč` : '—'}{booking.discount_code ? ` (${booking.discount_code})` : ''}</div>
+          </div>
+          <div>
+            <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Kauce</div>
+            <div className="text-sm font-bold">{booking.deposit > 0 ? `${Number(booking.deposit).toLocaleString('cs-CZ')} Kč` : '—'}</div>
+          </div>
+        </div>
         {error && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{error}</p>}
         <div className="flex gap-3 mt-5">
           <Button green onClick={onSave} disabled={saving}>{saving ? 'Ukládám…' : 'Uložit změny'}</Button>
@@ -705,8 +744,8 @@ function BookingSummary({ booking, sosIncidents, bookingExtras, cancellation, pr
       )}
 
       <div className="text-[10px] font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#8aab99' }}>Vyzvednutí a vrácení</div>
-      <SumRow label="Vyzvednutí" value={`${b.pickup_method === 'delivery' ? 'Doručení' : 'Na pobočce'} — ${b.pickup_address || branchName}`} />
-      <SumRow label="Vrácení" value={`${b.return_method === 'delivery' ? 'Svoz' : 'Na pobočce'} — ${b.return_address || branchName}`} />
+      <SumRow label="Přistavení" value={`${b.pickup_method === 'delivery' ? 'Přistavení na adresu' : 'Na pobočce'} — ${b.pickup_address || branchName}`} />
+      <SumRow label="Vrácení" value={`${b.return_method === 'delivery' ? 'Svoz z adresy' : 'Na pobočce'} — ${b.return_address || branchName}`} />
 
       {(b.boots_size || b.helmet_size || b.jacket_size) && (
         <>
