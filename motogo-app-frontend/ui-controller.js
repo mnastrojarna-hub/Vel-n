@@ -225,12 +225,13 @@ function _sosEnsureIncident(type, desc){
 
         try {
           var gps = await _sosGetGPS();
+          console.log('[SOS] GPS:', gps.lat, gps.lng, 'bookingId:', bookingId, 'motoId:', motoId);
           var r = await apiCreateSosIncident(type, bookingId, gps.lat, gps.lng, desc, null, motoId);
+          console.log('[SOS] createIncident result:', JSON.stringify(r));
           if(r && r.error){
-            console.error('[SOS] createIncident error:', r.error);
-            if(String(r.error).indexOf('aktivní SOS') >= 0 || String(r.error).indexOf('active') >= 0){
-              showT('⚠️','Aktivní SOS','Máte již aktivní SOS incident. Počkejte na vyřešení velínem.');
-              // Try to recover by fetching the existing incident
+            console.error('[SOS] createIncident error:', r.error, r.code, r.details);
+            if(String(r.error).indexOf('aktivní SOS') >= 0 || String(r.error).indexOf('active') >= 0 || String(r.error).indexOf('Máte již') >= 0){
+              showT('⚠️','Aktivní SOS','Máte již aktivní SOS incident.');
               try {
                 var uid3 = await _getUserId();
                 var fallback = await window.supabase.from('sos_incidents')
@@ -246,15 +247,16 @@ function _sosEnsureIncident(type, desc){
                   return;
                 }
               } catch(e2){}
-            } else {
-              showT('❌','Chyba hlášení',''+r.error);
             }
+            showT('❌','Chyba SOS', String(r.error).substring(0,80));
+            resolve(null);
+            return;
           }
           if(r && r.id) _sosActiveIncidentId = r.id;
           resolve(r && r.id ? r.id : null);
         } catch(e){
           console.error('[SOS] createIncident exception:', e);
-          showT('❌','Chyba','Nepodařilo se vytvořit incident');
+          showT('❌','Chyba','Nepodařilo se vytvořit incident: '+(e.message||e));
           resolve(null);
         }
       })();
@@ -287,16 +289,19 @@ function sosReportAccident(type) {
     _sosEnsureIncident(sosType, desc)
       .then(function(incId){
         _sosSubmitting = false;
-        if(incId){
-          var upd = { moto_rideable: sosType === 'accident_minor' };
-          _sosUpdateIncident(incId, upd);
-          window.supabase.from('sos_timeline').insert({
-            incident_id: incId,
-            action: sosType === 'accident_minor'
-              ? 'Zákazník nahlásil lehkou nehodu — motorka pojízdná, pokračuje v jízdě'
-              : 'Zákazník nahlásil závažnou nehodu — čeká na pokyny',
-          }).then(function(){});
+        if(!incId){
+          _sosShowDone(typeLabel, '❌ Nepodařilo se vytvořit incident. Zkontrolujte připojení a zkuste znovu.',
+            '<button onclick="goTo(\'s-sos\')" style="width:100%;background:#b91c1c;color:#fff;border:none;border-radius:50px;padding:14px;font-family:var(--font);font-size:14px;font-weight:800;cursor:pointer;">↩ Zkusit znovu</button>');
+          return;
         }
+        var upd = { moto_rideable: sosType === 'accident_minor' };
+        _sosUpdateIncident(incId, upd);
+        window.supabase.from('sos_timeline').insert({
+          incident_id: incId,
+          action: sosType === 'accident_minor'
+            ? 'Zákazník nahlásil lehkou nehodu — motorka pojízdná, pokračuje v jízdě'
+            : 'Zákazník nahlásil závažnou nehodu — čeká na pokyny',
+        }).then(function(){});
         if(sosType === 'accident_minor'){
           _sosShowDone(typeLabel, 'Děkujeme za nahlášení. Šťastnou cestu!');
         } else {
