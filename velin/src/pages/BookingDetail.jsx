@@ -95,6 +95,8 @@ export default function BookingDetail() {
         const normDate = v => v && v.length > 10 ? new Date(v).toLocaleDateString('sv-SE') : v
         if (d.start_date) d.start_date = normDate(d.start_date)
         if (d.end_date) d.end_date = normDate(d.end_date)
+        if (d.original_start_date) d.original_start_date = normDate(d.original_start_date)
+        if (d.original_end_date) d.original_end_date = normDate(d.original_end_date)
       }
       setBooking(d)
     }
@@ -577,7 +579,7 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
                   {mod.detail} · Původní: {new Date(booking.original_start_date).toLocaleDateString('cs-CZ')} – {new Date(booking.original_end_date).toLocaleDateString('cs-CZ')} ({mod.origDays}d)
                 </span>
               </div>
-              {history.length > 1 && (
+              {history.length > 0 && (
                 <div className="text-[10px] px-2 py-1 rounded" style={{ background: '#f1faf7', color: '#4a6357' }}>
                   <span className="font-extrabold">Historie úprav ({history.length}×):</span>
                   {history.map((h, i) => {

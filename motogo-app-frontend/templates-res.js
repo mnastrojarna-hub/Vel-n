@@ -69,6 +69,10 @@ Templates['s-res-detail'] = `  <div class="rd-hdr">
     <div class="rd-row"><div class="rd-label" id="t-rdPickupPlace">Místo vyzvednutí</div><div class="rd-value" id="rd-pickup-loc">Mezná 9, 393 01 Mezná</div></div>
     <div class="rd-row"><div class="rd-label" id="t-rdReturnPlace">Místo vrácení</div><div class="rd-value" id="rd-return-loc">Mezná 9, 393 01 Mezná</div></div>
   </div>
+  <div id="rd-modification" class="rd-card" style="display:none;">
+    <div class="rd-section-t">Úprava termínu</div>
+    <div id="rd-mod-content"></div>
+  </div>
   <div id="rd-extras" class="rd-card" style="display:none;">
     <div class="rd-section-t">Doplňky a slevy</div>
   </div>
