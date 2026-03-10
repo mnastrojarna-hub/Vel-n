@@ -9,6 +9,57 @@ const PREFIX_MAP = {
   shop_final: 'FV',
 }
 
+const DAY_NAMES_CS = ['ne', 'po', 'út', 'st', 'čt', 'pá', 'so']
+const MOTO_SELECT = 'model, spz, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, price_weekday, price_weekend'
+
+function getDayPrice(moto, dayOfWeek) {
+  const map = { 0: moto.price_sun, 1: moto.price_mon, 2: moto.price_tue, 3: moto.price_wed, 4: moto.price_thu, 5: moto.price_fri, 6: moto.price_sat }
+  return Number(map[dayOfWeek] || moto.price_weekday || moto.price_weekend || 0)
+}
+
+function fmtDateCS(d) {
+  if (!d) return '—'
+  const dt = new Date(d + 'T00:00:00')
+  return `${dt.getDate()}.${dt.getMonth() + 1}.${dt.getFullYear()}`
+}
+
+/**
+ * Build daily line items from motorcycle per-day prices
+ * Each day = one line with day name, date, and that day's price
+ */
+function buildDailyLineItems(moto, startDate, endDate) {
+  const items = []
+  const start = new Date(startDate + 'T00:00:00')
+  const end = new Date(endDate + 'T00:00:00')
+  const current = new Date(start)
+  const modelName = moto.model || 'motorky'
+
+  while (current <= end) {
+    const dow = current.getDay()
+    const price = getDayPrice(moto, dow)
+    const dayName = DAY_NAMES_CS[dow]
+    const dateStr = `${current.getDate()}.${current.getMonth() + 1}.`
+    items.push({
+      description: `Pronájem ${modelName} – ${dayName} ${dateStr}`,
+      qty: 1,
+      unit_price: price,
+    })
+    current.setDate(current.getDate() + 1)
+  }
+  return items
+}
+
+/**
+ * Build booking line items: daily breakdown + extras/delivery/discount
+ */
+function buildBookingItems(moto, booking) {
+  const items = buildDailyLineItems(moto, booking.start_date, booking.end_date)
+  if (booking.extras_price > 0) items.push({ description: 'Příslušenství / doplňky', qty: 1, unit_price: booking.extras_price })
+  if (booking.delivery_fee > 0) items.push({ description: 'Doručení', qty: 1, unit_price: booking.delivery_fee })
+  if (booking.discount_amount > 0) items.push({ description: `Sleva${booking.discount_code ? ` (${booking.discount_code})` : ''}`, qty: 1, unit_price: -booking.discount_amount })
+  return items
+}
+
 /**
  * Generate next invoice number
  * Format: ZF-2026-0001 (advance), DP-2026-0001 (receipt), KF-2026-0001 (final)
@@ -122,71 +173,65 @@ export async function createInvoice({ type, customer_id, booking_id, order_id, i
 }
 
 /**
- * Generate advance invoice (ZF) for a booking — mirrors mobile app logic
+ * Generate advance invoice (ZF) for a booking — daily price breakdown
  */
 export async function generateAdvanceInvoice(bookingId, source = 'booking') {
   const { data: booking, error: bErr } = await supabase
     .from('bookings')
-    .select('*, motorcycles(model, spz), profiles:user_id(id, full_name, email)')
+    .select(`*, motorcycles(${MOTO_SELECT}), profiles:user_id(id, full_name, email)`)
     .eq('id', bookingId).single()
   if (bErr || !booking) throw new Error(bErr?.message || 'Booking not found')
 
   const moto = booking.motorcycles || {}
-  const desc = source === 'edit' ? 'úprava rezervace' : source === 'sos' ? 'SOS' : source === 'restore' ? 'obnova' : 'rezervace'
-  const items = [{ description: `Záloha – ${desc} ${moto.model || ''}`.trim(), qty: 1, unit_price: booking.total_price || 0 }]
+  const items = buildBookingItems(moto, booking)
 
   return createInvoice({
     type: 'advance',
     customer_id: booking.profiles?.id || booking.user_id,
     booking_id: bookingId,
     items,
+    notes: `Období pronájmu: ${fmtDateCS(booking.start_date)} – ${fmtDateCS(booking.end_date)}`,
     source,
     status: 'paid',
   })
 }
 
 /**
- * Generate payment receipt (DP) for a booking — mirrors mobile app logic
+ * Generate payment receipt (DP) for a booking — daily price breakdown
  */
 export async function generatePaymentReceipt(bookingId, source = 'booking') {
   const { data: booking, error: bErr } = await supabase
     .from('bookings')
-    .select('*, motorcycles(model, spz), profiles:user_id(id, full_name, email)')
+    .select(`*, motorcycles(${MOTO_SELECT}), profiles:user_id(id, full_name, email)`)
     .eq('id', bookingId).single()
   if (bErr || !booking) throw new Error(bErr?.message || 'Booking not found')
 
   const moto = booking.motorcycles || {}
-  const desc = source === 'edit' ? 'úprava rezervace' : source === 'sos' ? 'SOS' : source === 'restore' ? 'obnova' : 'rezervace'
-  const items = [{ description: `Přijatá platba – ${desc} ${moto.model || ''}`.trim(), qty: 1, unit_price: booking.total_price || 0 }]
+  const items = buildBookingItems(moto, booking)
 
   return createInvoice({
     type: 'payment_receipt',
     customer_id: booking.profiles?.id || booking.user_id,
     booking_id: bookingId,
     items,
+    notes: `Období pronájmu: ${fmtDateCS(booking.start_date)} – ${fmtDateCS(booking.end_date)}`,
     source,
     status: 'paid',
   })
 }
 
 /**
- * Generate final invoice (KF) for a booking — mirrors mobile app logic
+ * Generate final invoice (KF) for a booking — daily price breakdown + deduct advances
  */
 export async function generateFinalInvoice(bookingId) {
   const { data: booking, error: bErr } = await supabase
     .from('bookings')
-    .select('*, motorcycles(model, spz), profiles:user_id(id, full_name, email)')
+    .select(`*, motorcycles(${MOTO_SELECT}), profiles:user_id(id, full_name, email)`)
     .eq('id', bookingId).single()
   if (bErr || !booking) throw new Error(bErr?.message || 'Booking not found')
 
   const moto = booking.motorcycles || {}
-  const days = Math.max(1, Math.ceil((new Date(booking.end_date) - new Date(booking.start_date)) / 86400000))
-  const dailyRate = Math.round((booking.total_price || 0) / days)
-
-  const items = [{ description: `Pronájem ${moto.model || 'motorky'} (${moto.spz || ''})`, qty: days, unit_price: dailyRate }]
-  if (booking.extras_price > 0) items.push({ description: 'Příslušenství / doplňky', qty: 1, unit_price: booking.extras_price })
-  if (booking.delivery_fee > 0) items.push({ description: 'Doručení', qty: 1, unit_price: booking.delivery_fee })
-  if (booking.discount_amount > 0) items.push({ description: `Sleva${booking.discount_code ? ` (${booking.discount_code})` : ''}`, qty: 1, unit_price: -booking.discount_amount })
+  const items = buildBookingItems(moto, booking)
 
   // Deduct all advance invoices
   const { data: advances } = await supabase
@@ -195,7 +240,7 @@ export async function generateFinalInvoice(bookingId) {
     .order('issue_date', { ascending: true })
   if (advances?.length) {
     advances.forEach(a => {
-      items.push({ description: `Záloha ${a.number} (${a.source || ''})`, qty: 1, unit_price: -Number(a.total || 0) })
+      items.push({ description: `Odpočet zálohy ${a.number}`, qty: 1, unit_price: -Number(a.total || 0) })
     })
   }
 
@@ -204,6 +249,7 @@ export async function generateFinalInvoice(bookingId) {
     customer_id: booking.profiles?.id || booking.user_id,
     booking_id: bookingId,
     items,
+    notes: `Období pronájmu: ${fmtDateCS(booking.start_date)} – ${fmtDateCS(booking.end_date)}`,
     source: 'final_summary',
     status: 'paid',
   })

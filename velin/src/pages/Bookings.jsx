@@ -246,13 +246,10 @@ export default function Bookings() {
                     <TD>{b.motorcycles?.model || '—'} <span className="text-xs font-mono" style={{ color: '#8aab99' }}>{b.motorcycles?.spz}</span></TD>
                     <TD>{fmtDateRange(b.start_date)}</TD>
                     <TD>{fmtDateRange(b.end_date)}</TD>
-                    <TD>{days}{hasDateChange && (() => {
-                      const endShift = Math.round((new Date(b.end_date) - new Date(b.original_end_date)) / 86400000)
-                      let lbl, lbg, lcol
-                      if (daysDelta > 0) { lbl = `+${daysDelta}d`; lbg = '#dbeafe'; lcol = '#2563eb' }
-                      else if (daysDelta < 0) { lbl = `${daysDelta}d`; lbg = '#fee2e2'; lcol = '#dc2626' }
-                      else if (startShift !== 0 || endShift !== 0) { lbl = 'posunuto'; lbg = '#fef3c7'; lcol = '#92400e' }
-                      else return null
+                    <TD>{days}{hasDateChange && daysDelta !== 0 && (() => {
+                      const lbl = daysDelta > 0 ? `+${daysDelta}d` : `${daysDelta}d`
+                      const lbg = daysDelta > 0 ? '#dbeafe' : '#fee2e2'
+                      const lcol = daysDelta > 0 ? '#2563eb' : '#dc2626'
                       return <span className="ml-1 text-[9px] font-extrabold px-1 py-0.5 rounded-btn" style={{ background: lbg, color: lcol }}>{lbl}</span>
                     })()}</TD>
                     <TD bold>{b.total_price ? `${b.total_price.toLocaleString('cs-CZ')} Kč` : '—'}</TD>

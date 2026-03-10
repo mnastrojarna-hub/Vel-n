@@ -32,7 +32,7 @@ function describeModification(fromStart, fromEnd, toStart, toEnd) {
   let type, color, bg
   if (durationDelta > 0) { type = `prodlouženo o ${durationDelta} d`; color = '#2563eb'; bg = '#dbeafe' }
   else if (durationDelta < 0) { type = `zkráceno o ${Math.abs(durationDelta)} d`; color = '#dc2626'; bg = '#fee2e2' }
-  else if (startDelta !== 0 || endDelta !== 0) { type = 'posunuto'; color = '#92400e'; bg = '#fef3c7' }
+  else if (startDelta !== 0 || endDelta !== 0) { type = 'přesunuto'; color = '#92400e'; bg = '#fef3c7' }
   else { type = 'beze změny'; color = '#4a6357'; bg = '#f1faf7' }
 
   const detail = parts.length > 0 ? parts.join(', ') : type
