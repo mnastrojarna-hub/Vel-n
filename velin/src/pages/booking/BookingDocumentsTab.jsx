@@ -66,15 +66,15 @@ export default function BookingDocumentsTab({ bookingId }) {
       if (docsRes.error) diag.errors.push('documents: ' + docsRes.error.message)
       if (genRes.error) diag.errors.push('generated_documents: ' + genRes.error.message)
       if (invRes.error) diag.errors.push('invoices: ' + invRes.error.message)
+      // Filter out invoice-synced documents to avoid duplicates
+      // (trigger trg_sync_invoice_to_documents copies invoices → documents table)
+      const INVOICE_SYNCED_TYPES = ['invoice_advance', 'payment_receipt', 'invoice_final', 'invoice_shop']
+      const filteredDocs = (docsRes.data || []).filter(d => !INVOICE_SYNCED_TYPES.includes(d.type))
       diag.docs = filteredDocs.map(d => ({ type: d.type, file_path: d.file_path, file_name: d.file_name }))
       diag.docsRaw = (docsRes.data || []).length
       diag.docsFiltered = filteredDocs.length
       diag.gen = (genRes.data || []).map(d => ({ tpl_id: d.template_id, tpl_type: d.document_templates?.type, tpl_name: d.document_templates?.name, has_filled: !!d.filled_data, has_pdf: !!d.pdf_path }))
       diag.inv = (invRes.data || []).map(i => ({ type: i.type, number: i.number, total: i.total, status: i.status, has_pdf: !!i.pdf_path }))
-      // Filter out invoice-synced documents to avoid duplicates
-      // (trigger trg_sync_invoice_to_documents copies invoices → documents table)
-      const INVOICE_SYNCED_TYPES = ['invoice_advance', 'payment_receipt', 'invoice_final', 'invoice_shop']
-      const filteredDocs = (docsRes.data || []).filter(d => !INVOICE_SYNCED_TYPES.includes(d.type))
       setDocs(filteredDocs)
       setGeneratedDocs(genRes.data || [])
       setInvoices(invRes.data || [])
