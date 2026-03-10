@@ -307,7 +307,7 @@
 | `send_admin_message()` | Odeslání admin zprávy |
 | `snapshot_daily_stats()` | Snapshot denních statistik |
 | `sos_share_location()` | Sdílení lokace v SOS |
-| `trigger_sos_auto_reply()` | Trigger pro auto SOS odpověď |
+| `trigger_sos_auto_reply()` | **REPLACED** safe no-op (SECURITY DEFINER) — původní funkce crashovala INSERT |
 | `update_moto_after_service()` | Aktualizace motorky po servisu |
 | `validate_voucher_code(p_code)` | Validace voucherového kódu (vrací {valid, id, type:'fixed', value, code}) |
 
@@ -335,8 +335,8 @@
 | `trg_generate_shop_invoice` | shop_orders (payment_status) | generate_shop_invoice() |
 | `moto_day_prices_updated` | moto_day_prices | update_updated_at() |
 | `trg_ai_conversations_updated` | ai_conversations | update_updated_at() |
-| `trg_sos_notify_user` | sos_incidents (INSERT) | sos_notify_user_on_create() |
-| `trg_one_active_sos` | sos_incidents (INSERT) | check_one_active_sos() |
+| `trg_sos_notify_user` | sos_incidents (INSERT) | sos_notify_user_on_create() — SECURITY DEFINER, dedup 2min |
+| `trg_one_active_sos` | sos_incidents (BEFORE INSERT) | check_one_active_sos() — SECURITY DEFINER, blokuje duplikáty |
 | `trg_bridge_admin_message` | messages (INSERT) | bridge_admin_message_to_app() |
 | `trg_restore_vouchers_on_cancel` | bookings (UPDATE) | restore_vouchers_on_cancel() |
 | `trg_sync_invoice_to_documents` | invoices (INSERT) | sync_invoice_to_documents() |
@@ -349,7 +349,7 @@
 |---------|---------|--------|
 | `bookings_auto_accounting` | bookings | auto_accounting_on_booking_paid() |
 | `maintenance_log_after_insert` | maintenance_log | update_moto_after_service() |
-| `sos_auto_reply_on_create` | sos_incidents (INSERT) | trigger_sos_auto_reply() |
+| ~~`sos_auto_reply_on_create`~~ | ~~sos_incidents (INSERT)~~ | **DROPPED 2026-03-10** — crashoval INSERT bez error handleru |
 | Různé `_updated_at` triggery | více tabulek | update_updated_at() |
 
 ---
@@ -543,3 +543,4 @@ Detailní politiky:
 | 2026-03-09 | **FIX documents.type:** Sloupec `documents.type` změněn z `document_type` ENUM na TEXT. ENUM `document_type` zrušen. Trigger `sync_invoice_to_documents()` přepsán s TEXT mapováním (invoice_advance, payment_receipt, invoice_shop, invoice_final) |
 | 2026-03-09 | **FIX generate_shop_invoice:** Opraven typ faktury z `'shop'` na `'shop_final'` (splňuje CHECK constraint). Přidán `source='shop'` a SECURITY DEFINER |
 | 2026-03-09 | **NEW:** Přidán sloupec `bookings.modification_history` (jsonb, default '[]') — historie všech úprav termínu rezervace |
+| 2026-03-10 | **FIX SOS triggers:** Dropnut trigger `sos_auto_reply_on_create` (crashoval INSERT bez error handleru). `trigger_sos_auto_reply()` přepsán na safe no-op. `check_one_active_sos()` a `sos_notify_user_on_create()` přepsány s SECURITY DEFINER |
