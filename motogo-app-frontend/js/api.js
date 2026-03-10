@@ -275,12 +275,27 @@ async function apiExtendBooking(bookingId, newEndISO){
   _ensureSupabase();
   if(!window.supabase) return {error:'Offline'};
   try {
+    // Fetch current state before RPC call
+    var cur = await window.supabase.from('bookings').select('start_date, end_date, original_start_date, original_end_date, modification_history').eq('id', bookingId).single();
     var r = await window.supabase.rpc('extend_booking', {
       p_booking_id: bookingId,
       p_new_end_date: newEndISO
     });
     if(r.data && r.data.error) return {error: r.data.error};
     if(r.error) return {error: r.error.message};
+    // Save original dates and modification_history
+    if(cur.data){
+      var _ld = function(d){ return d ? new Date(d).toLocaleDateString('sv-SE') : ''; };
+      var changes = {};
+      if(!cur.data.original_start_date){
+        changes.original_start_date = cur.data.start_date;
+        changes.original_end_date = cur.data.end_date;
+      }
+      var hist = Array.isArray(cur.data.modification_history) ? cur.data.modification_history.slice() : [];
+      hist.push({at:new Date().toISOString(), from_start:_ld(cur.data.start_date), from_end:_ld(cur.data.end_date), to_start:_ld(cur.data.start_date), to_end:_ld(newEndISO), source:'customer'});
+      changes.modification_history = hist;
+      await window.supabase.from('bookings').update(changes).eq('id', bookingId);
+    }
     return r.data || {error:null};
   } catch(e){ return {error:'Chyba při prodloužení'}; }
 }
@@ -301,7 +316,7 @@ async function apiShortenBooking(bookingId, newEndISO, newStartISO){
     if(newStartISO) changes.start_date = newStartISO;
     // Append to modification_history
     var hist = Array.isArray(cur.data.modification_history) ? cur.data.modification_history.slice() : [];
-    var _ld = function(d){ return d ? new Date(d).toISOString().slice(0,10) : ''; };
+    var _ld = function(d){ return d ? new Date(d).toLocaleDateString('sv-SE') : ''; };
     hist.push({at:new Date().toISOString(), from_start:_ld(cur.data.start_date), from_end:_ld(cur.data.end_date), to_start:_ld(newStartISO||cur.data.start_date), to_end:_ld(newEndISO||cur.data.end_date), source:'customer'});
     changes.modification_history = hist;
     var r = await window.supabase.from('bookings').update(changes).eq('id', bookingId);
@@ -318,7 +333,7 @@ async function apiModifyBooking(bookingId, changes){
     if(changes.start_date || changes.end_date){
       var cur = await window.supabase.from('bookings').select('start_date, end_date, original_start_date, original_end_date, modification_history').eq('id', bookingId).single();
       if(cur.data){
-        var _ld = function(d){ return d ? new Date(d).toISOString().slice(0,10) : ''; };
+        var _ld = function(d){ return d ? new Date(d).toLocaleDateString('sv-SE') : ''; };
         // Store original dates on first-ever modification
         if(!cur.data.original_start_date){
           changes.original_start_date = cur.data.start_date;
