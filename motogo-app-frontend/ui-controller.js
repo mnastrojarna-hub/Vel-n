@@ -56,6 +56,45 @@ var _sosPendingIncidentId = null;  // Incident čekající na platbu (zaviněná
 var _sosSubmitting = false;        // Guard against double-tap
 var _sosCurrentBookingId = null;   // ID aktivní rezervace pro SOS
 
+// Check for active SOS incident and show banner on SOS entry screen
+function _sosCheckActiveIncident(){
+  if(!window.supabase) return;
+  (async function(){
+    try {
+      var uid = await _getUserId();
+      if(!uid) return;
+      var r = await window.supabase.from('sos_incidents')
+        .select('id, type, status, created_at, replacement_status')
+        .eq('user_id', uid)
+        .not('status', 'in', '("resolved","closed")')
+        .not('type', 'in', '("breakdown_minor","defect_question","location_share","other")')
+        .order('created_at', {ascending: false})
+        .limit(1);
+      var sosScreen = document.getElementById('s-sos');
+      var existing = document.getElementById('sos-active-banner');
+      if(existing) existing.remove();
+      if(r.data && r.data.length > 0){
+        var inc = r.data[0];
+        _sosActiveIncidentId = inc.id;
+        var banner = document.createElement('div');
+        banner.id = 'sos-active-banner';
+        banner.style.cssText = 'margin:0 20px 10px;padding:12px 14px;border-radius:12px;background:#fef3c7;border:2px solid #fde68a;';
+        var statusMap = {reported:'Nahlášeno',acknowledged:'Přijato',in_progress:'Řeší se'};
+        var statusLabel = statusMap[inc.status] || inc.status;
+        banner.innerHTML = '<div style="font-size:13px;font-weight:800;color:#92400e;">⚠️ Máte aktivní SOS incident</div>' +
+          '<div style="font-size:11px;color:#78350f;margin-top:3px;line-height:1.5;">Stav: ' + statusLabel + ' · ID: #' + inc.id.substr(-6) + '<br>Dokud nebude vyřešen, nelze vytvořit nový SOS incident.</div>' +
+          (inc.replacement_status ? '<div style="font-size:11px;color:#78350f;margin-top:4px;">Náhradní moto: ' + inc.replacement_status + '</div>' : '') +
+          '<button onclick="goTo(\'s-sos-nepojizda\')" style="margin-top:8px;width:100%;background:#b45309;color:#fff;border:none;border-radius:50px;padding:10px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;">🏍️ Pokračovat v řešení incidentu</button>';
+        if(sosScreen){
+          var insertPoint = sosScreen.querySelector('[style*="padding:14px 20px"]');
+          if(insertPoint) insertPoint.prepend(banner);
+          else sosScreen.appendChild(banner);
+        }
+      }
+    } catch(e){ console.warn('[SOS] checkActive:', e); }
+  })();
+}
+
 // Pre-fetch active booking & moto IDs when entering any SOS screen
 function _sosPreFetchIds(){
   if(_sosCurrentBookingId && _sosCurrentMotoId) return; // already fetched
@@ -79,14 +118,16 @@ function _sosPreFetchIds(){
   })();
 }
 
-function _sosShowDone(typeLabel, nextInfo) {
+function _sosShowDone(typeLabel, nextInfo, actionButtons) {
   goTo('s-sos-done');
   setTimeout(function(){
     var detail = document.getElementById('sos-done-detail');
     var next = document.getElementById('sos-done-next');
+    var actions = document.getElementById('sos-done-actions');
     if(detail) detail.innerHTML = '<div style="font-size:13px;font-weight:800;color:var(--black);">' + (typeLabel || 'Incident') + '</div>' +
       '<div style="font-size:12px;color:var(--g400);margin-top:4px;">' + new Date().toLocaleString('cs-CZ') + '</div>';
     if(next) next.innerHTML = nextInfo || 'Asistent MotoGo24 vás bude kontaktovat.';
+    if(actions) actions.innerHTML = actionButtons || '';
   }, 100);
 }
 
@@ -119,38 +160,109 @@ function _sosEnsureIncident(type, desc){
       }
       resolve(_sosActiveIncidentId); return;
     }
-    // Confirmation dialog before submitting
-    if(!confirm('Opravdu chcete nahlásit SOS incident?\n\nPo potvrzení bude informována centrála MotoGo24.')){
-      resolve(null); return;
-    }
-    showT('⚠️','Hlásím incident...','Odesílám na centrálu');
-    apiGetActiveLoan().then(function(loan){
-      var bookingId = loan ? (loan.id || (loan._db && loan._db.id)) : null;
-      var motoId = loan ? (loan.moto_id || null) : null;
-      _sosGetGPS().then(function(gps){
-        apiCreateSosIncident(type, bookingId, gps.lat, gps.lng, desc, null, motoId)
-          .then(function(r){
-            if(r && r.error){
-              console.error('[SOS] createIncident error:', r.error);
-              if(String(r.error).indexOf('aktivní SOS') >= 0 || String(r.error).indexOf('active') >= 0){
-                showT('⚠️','Aktivní SOS','Máte již aktivní SOS incident. Počkejte na vyřešení velínem.');
-              } else {
-                showT('❌','Chyba hlášení',''+r.error);
+
+    // Check DB for existing unresolved incident (from previous session/attempt)
+    if(window.supabase){
+      (async function(){
+        try {
+          var uid = await _getUserId();
+          if(uid){
+            var existing = await window.supabase.from('sos_incidents')
+              .select('id, status, type')
+              .eq('user_id', uid)
+              .not('status', 'in', '("resolved","closed")')
+              .not('type', 'in', '("breakdown_minor","defect_question","location_share","other")')
+              .order('created_at', {ascending: false})
+              .limit(1);
+            if(existing.data && existing.data.length > 0){
+              _sosActiveIncidentId = existing.data[0].id;
+              console.log('[SOS] Reusing existing active incident:', _sosActiveIncidentId);
+              showT('ℹ️','Aktivní incident','Pokračujete v existujícím SOS incidentu');
+              resolve(_sosActiveIncidentId);
+              return;
+            }
+          }
+        } catch(e){ console.warn('[SOS] check existing:', e); }
+
+        // No existing incident — ask confirmation and create new
+        if(!confirm('Opravdu chcete nahlásit SOS incident?\n\nPo potvrzení bude informována centrála MotoGo24.')){
+          resolve(null); return;
+        }
+        showT('⚠️','Hlásím incident...','Odesílám na centrálu');
+
+        // Use pre-fetched IDs as fallback
+        var bookingId = _sosCurrentBookingId || null;
+        var motoId = _sosCurrentMotoId || null;
+
+        // Try apiGetActiveLoan for more complete booking data
+        try {
+          var loan = await apiGetActiveLoan();
+          if(loan){
+            bookingId = loan.id || (loan._db && loan._db.id) || bookingId;
+            motoId = loan.moto_id || motoId;
+          }
+        } catch(e){ console.warn('[SOS] getLoan:', e); }
+
+        // Broader search if still no booking
+        if(!bookingId){
+          try {
+            var uid2 = await _getUserId();
+            if(uid2){
+              var bk = await window.supabase.from('bookings')
+                .select('id, moto_id')
+                .eq('user_id', uid2)
+                .in('status', ['active', 'confirmed', 'pending'])
+                .lte('start_date', new Date().toISOString())
+                .gte('end_date', new Date().toISOString())
+                .limit(1);
+              if(bk.data && bk.data.length > 0){
+                bookingId = bk.data[0].id;
+                motoId = motoId || bk.data[0].moto_id;
               }
             }
-            if(r && r.id) _sosActiveIncidentId = r.id;
-            resolve(r && r.id ? r.id : null);
-          })
-          .catch(function(e){
-            console.error('[SOS] createIncident exception:', e);
-            showT('❌','Chyba','Nepodařilo se vytvořit incident');
-            resolve(null);
-          });
-      });
-    }).catch(function(e){
-      console.error('[SOS] getLoan error:', e);
-      resolve(null);
-    });
+          } catch(e){}
+        }
+
+        try {
+          var gps = await _sosGetGPS();
+          var r = await apiCreateSosIncident(type, bookingId, gps.lat, gps.lng, desc, null, motoId);
+          if(r && r.error){
+            console.error('[SOS] createIncident error:', r.error);
+            if(String(r.error).indexOf('aktivní SOS') >= 0 || String(r.error).indexOf('active') >= 0){
+              showT('⚠️','Aktivní SOS','Máte již aktivní SOS incident. Počkejte na vyřešení velínem.');
+              // Try to recover by fetching the existing incident
+              try {
+                var uid3 = await _getUserId();
+                var fallback = await window.supabase.from('sos_incidents')
+                  .select('id')
+                  .eq('user_id', uid3)
+                  .not('status', 'in', '("resolved","closed")')
+                  .not('type', 'in', '("breakdown_minor","defect_question","location_share","other")')
+                  .order('created_at', {ascending: false})
+                  .limit(1);
+                if(fallback.data && fallback.data.length > 0){
+                  _sosActiveIncidentId = fallback.data[0].id;
+                  resolve(_sosActiveIncidentId);
+                  return;
+                }
+              } catch(e2){}
+            } else {
+              showT('❌','Chyba hlášení',''+r.error);
+            }
+          }
+          if(r && r.id) _sosActiveIncidentId = r.id;
+          resolve(r && r.id ? r.id : null);
+        } catch(e){
+          console.error('[SOS] createIncident exception:', e);
+          showT('❌','Chyba','Nepodařilo se vytvořit incident');
+          resolve(null);
+        }
+      })();
+      return;
+    }
+
+    // Fallback: no supabase
+    resolve(null);
   });
 }
 
@@ -185,9 +297,12 @@ function sosReportAccident(type) {
               : 'Zákazník nahlásil závažnou nehodu — čeká na pokyny',
           }).then(function(){});
         }
-        _sosShowDone(typeLabel, sosType === 'accident_minor'
-          ? 'Děkujeme za nahlášení. Šťastnou cestu!'
-          : 'Asistent MotoGo24 vás bude kontaktovat.');
+        if(sosType === 'accident_minor'){
+          _sosShowDone(typeLabel, 'Děkujeme za nahlášení. Šťastnou cestu!');
+        } else {
+          _sosShowDone(typeLabel, 'Asistent MotoGo24 vás bude kontaktovat.<br>Pokud je motorka nepojízdná, pokračujte na další krok.',
+            '<button onclick="goTo(\'s-sos-nepojizda\')" style="width:100%;background:#b91c1c;color:#fff;border:none;border-radius:50px;padding:14px;font-family:var(--font);font-size:14px;font-weight:800;cursor:pointer;">🏍️ Motorka je nepojízdná → pokračovat</button>');
+        }
       }).catch(function(){ _sosSubmitting = false; });
 }
 
@@ -732,15 +847,18 @@ async function _sosSwapBookingsAndConfirm(incId, replacementData, isPaid, addres
     // Refresh reservations cache
     if(typeof renderMyReservations === 'function') renderMyReservations();
 
+    var resBtn = '<button onclick="goTo(\'s-res\')" style="width:100%;background:var(--green);color:#fff;border:none;border-radius:50px;padding:14px;font-family:var(--font);font-size:14px;font-weight:800;cursor:pointer;">📋 Zobrazit moje rezervace</button>';
     if(isFault){
       _sosShowDone('Zaplaceno — ' + total.toLocaleString('cs-CZ') + ' Kč',
         'Rezervace přepnuta na ' + (replacementData.replacement_model || 'náhradní motorku') + '.<br>' +
         'Objednávka čeká na schválení MotoGo24.<br>' +
-        'Zálohová faktura byla vygenerována do sekce Faktury.');
+        'Zálohová faktura byla vygenerována do sekce Faktury.',
+        resBtn);
     } else {
       _sosShowDone('Náhradní motorka objednána',
         'Rezervace přepnuta na ' + (replacementData.replacement_model || 'náhradní motorku') + ' (zdarma).<br>' +
-        'Objednávka čeká na schválení MotoGo24.');
+        'Objednávka čeká na schválení MotoGo24.',
+        resBtn);
     }
 }
 

@@ -2,6 +2,7 @@
 // Renders reservation cards from Supabase backend data.
 
 var _resFilter = 'all';
+var _resSort = 'start_desc';
 var _cachedBookings = null;
 
 async function _getBookingById(bookingId){
@@ -45,6 +46,9 @@ async function renderMyReservations(){
       return;
     }
 
+    // Populate extended filter dropdowns (branches, motos)
+    _resPopulateExtFilters(bookings);
+
     // Filter by status
     var filtered = bookings;
     if(_resFilter !== 'all'){
@@ -53,6 +57,25 @@ async function renderMyReservations(){
         return st === _resFilter;
       });
     }
+
+    // Extended filters (branch, moto)
+    var branchFilter = (document.getElementById('res-filter-branch') || {}).value || '';
+    var motoFilter = (document.getElementById('res-filter-moto') || {}).value || '';
+    if(branchFilter){
+      filtered = filtered.filter(function(b){
+        var m = b.motorcycles;
+        var branchName = m && m.branches ? (m.branches.name || '') : '';
+        return branchName === branchFilter;
+      });
+    }
+    if(motoFilter){
+      filtered = filtered.filter(function(b){
+        return b.moto_name === motoFilter;
+      });
+    }
+
+    // Sort
+    filtered = _resSortBookings(filtered, _resSort);
 
     if(filtered.length === 0){
       _setResContent('<div style="padding:40px 20px;text-align:center;color:var(--g400);font-size:13px;font-weight:600;">'+_t('res').noInCategory+'</div>');
@@ -77,6 +100,73 @@ function _setResContent(html){
   container.className = 'res-cards-dynamic';
   container.innerHTML = html;
   resScreen.appendChild(container);
+}
+
+// ===== SORTING =====
+function resApplySort(val){
+  _resSort = val;
+  renderMyReservations();
+}
+
+function _resSortBookings(arr, sortKey){
+  var copy = arr.slice();
+  copy.sort(function(a, b){
+    switch(sortKey){
+      case 'start_asc': return new Date(a.start_date) - new Date(b.start_date);
+      case 'start_desc': return new Date(b.start_date) - new Date(a.start_date);
+      case 'created_asc': return new Date(a.created_at) - new Date(b.created_at);
+      case 'created_desc': return new Date(b.created_at) - new Date(a.created_at);
+      case 'price_asc': return (a.total_price||0) - (b.total_price||0);
+      case 'price_desc': return (b.total_price||0) - (a.total_price||0);
+      case 'rating_desc': return (b.rating||0) - (a.rating||0);
+      default: return new Date(b.start_date) - new Date(a.start_date);
+    }
+  });
+  return copy;
+}
+
+// ===== EXTENDED FILTERS =====
+function resToggleExtFilter(){
+  var el = document.getElementById('res-ext-filter');
+  var btn = document.getElementById('res-filter-toggle');
+  if(!el) return;
+  var visible = el.style.display !== 'none';
+  el.style.display = visible ? 'none' : 'block';
+  if(btn) btn.style.background = visible ? '#fff' : 'var(--gp)';
+  if(btn) btn.style.borderColor = visible ? 'var(--g200)' : 'var(--green)';
+}
+
+function resClearExtFilter(){
+  var branchSel = document.getElementById('res-filter-branch');
+  var motoSel = document.getElementById('res-filter-moto');
+  if(branchSel) branchSel.value = '';
+  if(motoSel) motoSel.value = '';
+  renderMyReservations();
+}
+
+function _resPopulateExtFilters(bookings){
+  var branchSel = document.getElementById('res-filter-branch');
+  var motoSel = document.getElementById('res-filter-moto');
+  if(!branchSel && !motoSel) return;
+  var branches = {}, motos = {};
+  for(var i = 0; i < bookings.length; i++){
+    var b = bookings[i];
+    var m = b.motorcycles;
+    if(m && m.branches && m.branches.name) branches[m.branches.name] = 1;
+    if(b.moto_name) motos[b.moto_name] = 1;
+  }
+  var branchVal = branchSel ? branchSel.value : '';
+  var motoVal = motoSel ? motoSel.value : '';
+  if(branchSel){
+    var bhtml = '<option value="">Všechny</option>';
+    Object.keys(branches).sort().forEach(function(name){ bhtml += '<option value="'+name+'"'+(name===branchVal?' selected':'')+'>'+name+'</option>'; });
+    branchSel.innerHTML = bhtml;
+  }
+  if(motoSel){
+    var mhtml = '<option value="">Všechny</option>';
+    Object.keys(motos).sort().forEach(function(name){ mhtml += '<option value="'+name+'"'+(name===motoVal?' selected':'')+'>'+name+'</option>'; });
+    motoSel.innerHTML = mhtml;
+  }
 }
 
 function _mapStatus(status, startDate, endDate, booking){
