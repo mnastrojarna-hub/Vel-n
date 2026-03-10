@@ -814,23 +814,31 @@ async function apiSendDocumentEmail(docId){
 // ===== SOS =====
 async function apiCreateSosIncident(type, bookingId, lat, lng, desc, critical, motoId){
   _ensureSupabase();
-  if(!window.supabase) return {error:'Offline'};
+  if(!window.supabase) return {error:'Offline – Supabase nepřipojen'};
   try {
     var uid = await _getUserId();
-    var data = {
-      user_id: uid,
-      booking_id: bookingId,
-      moto_id: motoId || null,
-      type: type,
-      latitude: lat,
-      longitude: lng,
-      description: desc,
-      status: 'reported'
-    };
+    if(!uid){
+      console.error('[SOS] apiCreateSosIncident: user_id is null — session expired?');
+      return {error:'Nepřihlášen – přihlaste se znovu'};
+    }
+    var data = {user_id: uid, type: type, status: 'reported'};
+    if(bookingId) data.booking_id = bookingId;
+    if(motoId) data.moto_id = motoId;
+    if(lat != null && !isNaN(lat)) data.latitude = lat;
+    if(lng != null && !isNaN(lng)) data.longitude = lng;
+    if(desc) data.description = desc;
+    console.log('[SOS] INSERT sos_incidents:', JSON.stringify(data));
     var r = await window.supabase.from('sos_incidents').insert(data).select().single();
-    if(r.error) return {error: r.error.message};
+    if(r.error){
+      console.error('[SOS] INSERT error:', r.error.code, r.error.message, r.error.details, r.error.hint);
+      return {error: r.error.message, code: r.error.code, details: r.error.details};
+    }
+    console.log('[SOS] INSERT ok, id:', r.data && r.data.id);
     return r.data || {};
-  } catch(e){ return {error:'Chyba při hlášení incidentu'}; }
+  } catch(e){
+    console.error('[SOS] apiCreateSosIncident exception:', e);
+    return {error:'Výjimka: ' + (e.message || e)};
+  }
 }
 
 async function apiGetMySosIncidents(){
