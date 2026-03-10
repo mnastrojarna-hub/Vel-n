@@ -139,7 +139,7 @@ function renderDetail(){
   const nameEl=document.getElementById('d-name');if(nameEl)nameEl.textContent=m.name;
   const locEl=document.getElementById('d-loc');if(locEl)locEl.textContent=m.loc;
   const brEl=document.getElementById('d-branch');
-  if(brEl){var _bl=_t('pricingL')||{};var _bp=_bl.branch||'Pobočka';brEl.textContent=({mezna:_bp+': Mezná 9, Pelhřimov',brno:_bp+': Brno',prague:_bp+': Praha'}[m.branch]||m.loc);}
+  if(brEl){var _bl=_t('pricingL')||{};var _bp=_bl.branch||'Pobočka';brEl.textContent=_bp+': '+m.loc;}
   // Check per-motorcycle availability: use selected dates if available, otherwise today
   var motoFree;
   if(sOd && sDo){
@@ -242,7 +242,7 @@ function renderDetail(){
             calState.b.motoId=currentM.id;
             var bi=document.getElementById('b-img');if(bi)bi.src=(currentM.imgs&&currentM.imgs.length)?currentM.imgs[0]:(currentM.img||'');
             var bn2=document.getElementById('b-name');if(bn2)bn2.textContent=currentM.name;
-            var bbn=document.getElementById('b-branch-info');if(bbn)bbn.textContent='\ud83d\udccd Pobo\u010dka: '+({mezna:'Mezn\u00e1 9, Pelh\u0159imov'}[currentM.branch]||currentM.loc);
+            var bbn=document.getElementById('b-branch-info');if(bbn)bbn.textContent='\ud83d\udccd Pobo\u010dka: '+currentM.loc;
             if(localDOd && localDDo){
               bOd={d:localDOd.d,y:localDOd.y,m:localDOd.m};bDo={d:localDDo.d,y:localDDo.y,m:localDDo.m};bStep=1;
               bookingFromDetail=true;

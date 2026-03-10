@@ -11,6 +11,42 @@ var _isRestorePayment = false;
 var _isEditPayment = false;
 var _editPaymentBookingId = null;
 
+// Save individual extras from booking form checkboxes into booking_extras table
+var _EXTRA_MAP = {
+  'extra-spolujezdec': 'Výbava spolujezdce',
+  'extra-boty-ridic': 'Boty řidiče',
+  'extra-boty-spolu': 'Boty spolujezdce'
+};
+async function _saveBookingExtras(bookingId){
+  if(!window.supabase) return;
+  var labels = document.querySelectorAll('#s-booking label[id^="extra-"]');
+  if(!labels || !labels.length) return;
+  var checked = [];
+  labels.forEach(function(lbl){
+    var cb = lbl.querySelector('input[type=checkbox]');
+    if(cb && cb.checked){
+      var price = parseInt(lbl.getAttribute('data-price')) || 0;
+      var name = _EXTRA_MAP[lbl.id] || lbl.id;
+      checked.push({name: name, price: price});
+    }
+  });
+  if(!checked.length) return;
+  // Find or create extras_catalog entries, then insert booking_extras
+  for(var i = 0; i < checked.length; i++){
+    var ext = checked[i];
+    var cat = await window.supabase.from('extras_catalog').select('id').eq('name', ext.name).limit(1).single();
+    var catId = null;
+    if(cat.data) { catId = cat.data.id; }
+    else {
+      var ins = await window.supabase.from('extras_catalog').insert({name: ext.name, price: ext.price}).select('id').single();
+      if(ins.data) catId = ins.data.id;
+    }
+    if(catId){
+      await window.supabase.from('booking_extras').insert({booking_id: bookingId, extra_id: catId});
+    }
+  }
+}
+
 // Called from booking form "Pokračovat k platbě"
 async function proceedToPayment(){
   try {
@@ -118,6 +154,15 @@ async function proceedToPayment(){
       pickupTime = pickupTimeEl.value + ':' + pickupMinEl.value;
     }
 
+    // Determine pickup/return method and address
+    var pickupMethod = (typeof pickupDelivFee !== 'undefined' && pickupDelivFee > 0) ? 'delivery' : 'branch';
+    var returnMethod = (typeof returnDelivFee !== 'undefined' && returnDelivFee > 0) ? 'delivery' : 'branch';
+    var pickupAddr = '', returnAddr = '';
+    var pInp = document.getElementById('pickup-addr-input');
+    var rInp = document.getElementById('return-addr-input');
+    if(pInp && pInp.value.trim()) pickupAddr = pInp.value.trim();
+    if(rInp && rInp.value.trim()) returnAddr = rInp.value.trim();
+
     // Create booking
     var result = await apiCreateBooking({
       moto_id: motoId,
@@ -128,7 +173,11 @@ async function proceedToPayment(){
       extras_price: extraTotal || 0,
       delivery_fee: deliveryFee || 0,
       discount_amount: discountAmt || 0,
-      discount_code: appliedCode || null
+      discount_code: appliedCode || null,
+      pickup_method: pickupMethod,
+      pickup_address: pickupAddr || null,
+      return_method: returnMethod,
+      return_address: returnAddr || null,
     });
 
     if(result.error){
@@ -143,6 +192,9 @@ async function proceedToPayment(){
 
     _currentBookingId = result.booking.id;
     _currentPaymentAmount = totalPrice;
+
+    // Save individual extras to booking_extras table (non-blocking)
+    _saveBookingExtras(result.booking.id).catch(function(e){ console.warn('[PAY] Extras save err:', e); });
 
     // Update payment screen
     var payBtn = document.getElementById('pay-btn');
