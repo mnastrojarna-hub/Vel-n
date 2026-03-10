@@ -92,14 +92,22 @@ export function generateInvoiceHtml(data) {
     </div>
   </div>
 
+  ${data.bookings ? `
+  <!-- Booking info -->
+  <div style="margin-bottom:16px;padding:10px 14px;background:#f0fdf4;border-radius:8px;font-size:12px;color:#1a1a1a">
+    <span style="color:#888;font-weight:600">Rezervace:</span> #${(data.bookings.id || data.booking_id || '').slice(-8).toUpperCase()}
+    &nbsp;|&nbsp; <span style="color:#888;font-weight:600">Období:</span> ${fmtDate(data.bookings.start_date)} – ${fmtDate(data.bookings.end_date)}
+    ${data.bookings.motorcycles ? `&nbsp;|&nbsp; <span style="color:#888;font-weight:600">Motorka:</span> ${data.bookings.motorcycles.model || '—'} (${data.bookings.motorcycles.spz || '—'})` : ''}
+  </div>` : ''}
+
   <!-- Items table -->
   <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
     <thead>
       <tr style="background:${accent}">
         <th style="padding:8px 10px;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;text-align:left">#</th>
-        <th style="padding:8px 10px;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;text-align:left">Popis</th>
-        <th style="padding:8px 10px;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;text-align:center">Ks</th>
-        <th style="padding:8px 10px;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;text-align:right">Cena/ks</th>
+        <th style="padding:8px 10px;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;text-align:left">Položka</th>
+        <th style="padding:8px 10px;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;text-align:center">Množství</th>
+        <th style="padding:8px 10px;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;text-align:right">Cena/den</th>
         <th style="padding:8px 10px;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;text-align:right">Celkem</th>
       </tr>
     </thead>
