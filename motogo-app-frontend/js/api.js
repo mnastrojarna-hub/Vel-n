@@ -361,7 +361,7 @@ async function apiCheckBookingOverlap(startISO, endISO, excludeBookingId){
     var q = window.supabase.from('bookings')
       .select('id, start_date, end_date, moto_name, status')
       .eq('user_id', uid)
-      .in('status', ['pending','active','confirmed'])
+      .in('status', ['pending','reserved','active'])
       .lte('start_date', endISO)
       .gte('end_date', startISO);
     if(excludeBookingId){
