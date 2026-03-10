@@ -390,6 +390,42 @@ async function openResDetailById(bookingId){
       }
     }
 
+    // ===== MODIFICATION INFO (prominent card) =====
+    var modEl = document.getElementById('rd-modification');
+    var modContent = document.getElementById('rd-mod-content');
+    if(modEl && modContent){
+      if(booking.original_start_date && booking.original_end_date){
+        var _ldCmp = function(a,b){ try{return new Date(a).toLocaleDateString('sv-SE')!==new Date(b).toLocaleDateString('sv-SE');}catch(e){return a!==b;} };
+        var datesDiffer = _ldCmp(booking.original_start_date, booking.start_date) || _ldCmp(booking.original_end_date, booking.end_date);
+        if(datesDiffer){
+          var _m = _descMod(booking.original_start_date, booking.original_end_date, booking.start_date, booking.end_date);
+          var mh = '<div style="background:'+(_m.color==='#2563eb'?'#dbeafe':_m.color==='#dc2626'?'#fee2e2':'#fef3c7')+';border:2px solid '+_m.color+';border-radius:12px;padding:12px 14px;margin-bottom:8px;">';
+          mh += '<div style="font-size:14px;font-weight:900;color:'+_m.color+';">'+_m.type.charAt(0).toUpperCase()+_m.type.slice(1)+'</div>';
+          mh += '<div style="font-size:12px;color:#4a6357;margin-top:4px;">'+_m.detail+'</div>';
+          mh += '</div>';
+          mh += '<div class="rd-row"><div class="rd-label">Původní termín</div><div class="rd-value" style="color:#b45309;">'+_fmtDate(booking.original_start_date)+' – '+_fmtDate(booking.original_end_date)+' ('+_m.origDays+' dní)</div></div>';
+          mh += '<div class="rd-row"><div class="rd-label">Nový termín</div><div class="rd-value" style="color:'+_m.color+';">'+_fmtDate(booking.start_date)+' – '+_fmtDate(booking.end_date)+' ('+_m.newDays+' dní)</div></div>';
+          // Show full history
+          var _hist2 = Array.isArray(booking.modification_history) ? booking.modification_history : [];
+          if(_hist2.length > 0){
+            mh += '<div style="margin-top:8px;border-top:1px solid var(--g100);padding-top:8px;">';
+            mh += '<div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--g400);margin-bottom:4px;">Historie úprav ('+_hist2.length+'×)</div>';
+            for(var hi2=0; hi2<_hist2.length; hi2++){
+              var _hm2 = _descMod(_hist2[hi2].from_start, _hist2[hi2].from_end, _hist2[hi2].to_start, _hist2[hi2].to_end);
+              mh += '<div style="font-size:11px;color:'+_hm2.color+';margin-bottom:2px;">'+(hi2+1)+'. '+_fmtDT(_hist2[hi2].at)+' — '+_hm2.type+' ('+_hm2.detail+') · '+(_hist2[hi2].source==='admin'?'admin':'zákazník')+'</div>';
+            }
+            mh += '</div>';
+          }
+          modContent.innerHTML = mh;
+          modEl.style.display = 'block';
+        } else {
+          modEl.style.display = 'none';
+        }
+      } else {
+        modEl.style.display = 'none';
+      }
+    }
+
     // ===== COMPREHENSIVE DETAIL SUMMARY =====
     _renderDetailSummary(booking, moto, st, days, branchName, bookingId);
 
