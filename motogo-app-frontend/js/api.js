@@ -442,8 +442,10 @@ function _getDayPrice(m, dow){
   var map = {0:m.price_sun,1:m.price_mon,2:m.price_tue,3:m.price_wed,4:m.price_thu,5:m.price_fri,6:m.price_sat};
   return Number(map[dow] || m.price_weekday || m.price_weekend || 0);
 }
+function _toDateStr(d){ return d ? String(d).split('T')[0] : ''; }
 function _buildDailyItems(m, startDate, endDate){
-  var items = [], s = new Date(startDate+'T00:00:00'), e = new Date(endDate+'T00:00:00'), c = new Date(s);
+  var sd = _toDateStr(startDate), ed = _toDateStr(endDate);
+  var items = [], s = new Date(sd+'T00:00:00'), e = new Date(ed+'T00:00:00'), c = new Date(s);
   var name = m.model || 'motorky';
   while(c <= e){
     var dow = c.getDay(), p = _getDayPrice(m, dow);
@@ -1164,6 +1166,15 @@ async function enrichMOTOS(){
       if(db.ideal_usage && db.ideal_usage.length) m.vyuziti = db.ideal_usage;
       if(db.features && db.features.length) m.feats = db.features;
       if(db.manual_url) m.manual = db.manual_url;
+
+      // Aktualizuj pobočku z DB (přepiš hardcoded loc)
+      if(db.branches){
+        m.loc = (db.branches.address || '') + ', ' + (db.branches.city || '') + (db.year ? ' · ' + db.year : '');
+        m.branch = db.branch_id;
+        m._db.branch_name = db.branches.name;
+        m._db.branch_address = db.branches.address;
+        m._db.branch_city = db.branches.city;
+      }
 
       // Aktualizuj ceny z DB (přepiš hardcoded pricing)
       if(db.price_weekday || db.price_weekend){

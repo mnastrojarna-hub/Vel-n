@@ -17,9 +17,14 @@ function getDayPrice(moto, dayOfWeek) {
   return Number(map[dayOfWeek] || moto.price_weekday || moto.price_weekend || 0)
 }
 
+function toDateStr(d) {
+  if (!d) return ''
+  return String(d).split('T')[0]
+}
+
 function fmtDateCS(d) {
   if (!d) return '—'
-  const dt = new Date(d + 'T00:00:00')
+  const dt = new Date(toDateStr(d) + 'T00:00:00')
   return `${dt.getDate()}.${dt.getMonth() + 1}.${dt.getFullYear()}`
 }
 
@@ -29,8 +34,8 @@ function fmtDateCS(d) {
  */
 function buildDailyLineItems(moto, startDate, endDate) {
   const items = []
-  const start = new Date(startDate + 'T00:00:00')
-  const end = new Date(endDate + 'T00:00:00')
+  const start = new Date(toDateStr(startDate) + 'T00:00:00')
+  const end = new Date(toDateStr(endDate) + 'T00:00:00')
   const current = new Date(start)
   const modelName = moto.model || 'motorky'
 

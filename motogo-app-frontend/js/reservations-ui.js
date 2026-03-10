@@ -191,9 +191,21 @@ async function openResDetailById(bookingId){
     // Pickup/return locations
     var branchName = moto && moto.branches ? moto.branches.name + ', ' + moto.branches.city : '—';
     var pickupLocEl = document.getElementById('rd-pickup-loc');
-    if(pickupLocEl) pickupLocEl.textContent = booking.pickup_address || branchName;
+    if(pickupLocEl){
+      if(booking.pickup_method === 'delivery' && booking.pickup_address){
+        pickupLocEl.textContent = '🚚 Přistavení: ' + booking.pickup_address;
+      } else {
+        pickupLocEl.textContent = '🏪 ' + branchName;
+      }
+    }
     var returnLocEl = document.getElementById('rd-return-loc');
-    if(returnLocEl) returnLocEl.textContent = booking.return_address || branchName;
+    if(returnLocEl){
+      if(booking.return_method === 'delivery' && booking.return_address){
+        returnLocEl.textContent = '🚚 Svoz: ' + booking.return_address;
+      } else {
+        returnLocEl.textContent = '🏪 ' + branchName;
+      }
+    }
 
     // Extras detail section
     var extrasEl = document.getElementById('rd-extras');
@@ -210,6 +222,22 @@ async function openResDetailById(bookingId){
       if(booking.discount_code) extrasHtml += '<div class="rd-row"><div class="rd-label">Kód poukazu</div><div class="rd-value">' + booking.discount_code + '</div></div>';
       extrasEl.innerHTML = extrasHtml;
       extrasEl.style.display = extrasHtml ? 'block' : 'none';
+      // Load individual extras from booking_extras (async)
+      if(window.supabase && booking.id){
+        window.supabase.from('booking_extras').select('*, extras_catalog(name, price)').eq('booking_id', booking.id)
+          .then(function(r){
+            if(r.data && r.data.length > 0){
+              var h = '';
+              r.data.forEach(function(ex){ h += '<div class="rd-row"><div class="rd-label">'+(ex.extras_catalog?ex.extras_catalog.name:'Extra')+'</div><div class="rd-value">'+(ex.extras_catalog?ex.extras_catalog.price:0).toLocaleString('cs-CZ')+' Kč</div></div>'; });
+              var container = document.getElementById('rd-extras-detail');
+              if(!container){
+                container = document.createElement('div'); container.id='rd-extras-detail'; container.style.cssText='margin-top:4px;padding:6px 10px;background:var(--gp);border-radius:var(--rsm);';
+                extrasEl.appendChild(container);
+              }
+              container.innerHTML = h;
+            }
+          }).catch(function(){});
+      }
     }
 
     // SOS replacement info banner
@@ -583,8 +611,14 @@ function _renderDetailSummary(b, moto, st, days, branchName, bookingId){
   }
 
   // Pickup/return method & address
-  h += li('Vyzvednutí', (b.pickup_method==='delivery'?'Doručení na adresu':'Na pobočce') + ' — ' + (b.pickup_address||branchName));
-  h += li('Vrácení', (b.return_method==='delivery'?'Svoz z adresy':'Na pobočce') + ' — ' + (b.return_address||branchName));
+  h += li(b.pickup_method==='delivery'?'Přistavení':'Vyzvednutí', (b.pickup_method==='delivery'?'Přistavení na adresu':'Na pobočce') + ' — ' + (b.pickup_address||branchName));
+  h += li(b.return_method==='delivery'?'Svoz':'Vrácení', (b.return_method==='delivery'?'Svoz z adresy':'Na pobočce') + ' — ' + (b.return_address||branchName));
+  if(b.delivery_fee > 0){
+    var pFee = typeof pickupDelivFee !== 'undefined' ? pickupDelivFee : 0;
+    var rFee = typeof returnDelivFee !== 'undefined' ? returnDelivFee : 0;
+    if(pFee > 0) h += li('Přistavení cena', pFee.toLocaleString('cs-CZ')+' Kč');
+    if(rFee > 0) h += li('Svoz cena', rFee.toLocaleString('cs-CZ')+' Kč');
+  }
 
   // Gear
   if(b.boots_size) h += li('Boty', 'vel. '+b.boots_size);
