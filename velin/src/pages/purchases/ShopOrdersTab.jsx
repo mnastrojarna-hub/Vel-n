@@ -75,17 +75,15 @@ export default function ShopOrdersTab() {
           (it.product_name || '').toLowerCase().includes('voucher') ||
           (it.product_name || '').toLowerCase().includes('poukaz')
         )
-        const isAllDigitalVouchers = voucherItems.length === items.length && items.length > 0 &&
-          items.every(it => !(it.product_name || '').toLowerCase().includes('fyzick') &&
-                           !(it.product_name || '').toLowerCase().includes('printed') &&
-                           !(it.product_name || '').toLowerCase().includes('tišt'))
+        const isAllVouchers = voucherItems.length === items.length && items.length > 0
 
-        // Auto-confirm all paid orders
-        const newStatus = isAllDigitalVouchers ? 'delivered' : 'confirmed'
+        // All vouchers (digital or physical) → delivered (codes sent electronically)
+        // Mixed (vouchers + physical products) → confirmed (vouchers sent, physical processed separately)
+        const newStatus = isAllVouchers ? 'delivered' : 'confirmed'
         await supabase.from('shop_orders').update({
           status: newStatus,
           confirmed_at: new Date().toISOString(),
-          ...(isAllDigitalVouchers ? { delivered_at: new Date().toISOString() } : {}),
+          ...(isAllVouchers ? { delivered_at: new Date().toISOString() } : {}),
         }).eq('id', order.id)
 
         // Generate voucher codes for voucher items
@@ -426,17 +424,15 @@ function ShopOrderDetail({ order, onClose, onUpdated }) {
         (it.product_name || '').toLowerCase().includes('voucher') ||
         (it.product_name || '').toLowerCase().includes('poukaz')
       )
-      const isAllDigitalVouchers = voucherItems.length === allItems.length && allItems.length > 0 &&
-        allItems.every(it => !(it.product_name || '').toLowerCase().includes('fyzick') &&
-                             !(it.product_name || '').toLowerCase().includes('printed') &&
-                             !(it.product_name || '').toLowerCase().includes('tišt'))
+      const isAllVouchers = voucherItems.length === allItems.length && allItems.length > 0
 
-      // Auto-confirm / deliver
-      const newStatus = isAllDigitalVouchers ? 'delivered' : 'confirmed'
+      // All vouchers (digital or physical) → delivered (codes sent electronically)
+      // Mixed (vouchers + physical products) → confirmed (vouchers sent, physical processed separately)
+      const newStatus = isAllVouchers ? 'delivered' : 'confirmed'
       await supabase.from('shop_orders').update({
         status: newStatus,
         confirmed_at: new Date().toISOString(),
-        ...(isAllDigitalVouchers ? { delivered_at: new Date().toISOString() } : {}),
+        ...(isAllVouchers ? { delivered_at: new Date().toISOString() } : {}),
       }).eq('id', ord.id)
 
       // Generate voucher codes
