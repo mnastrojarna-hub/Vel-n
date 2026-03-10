@@ -185,14 +185,18 @@ async function populateEditMotoList(){
     var isCurrent = (m.id === currentMotoKey || m.name === (currentMoto ? currentMoto.model : ''));
     var avgPrice = _getMotoAvgDailyPrice(m.id);
     var selected = (editNewMotoId === m.id);
-    var border = selected ? 'var(--green)' : isCurrent ? 'var(--g300)' : 'var(--g200)';
-    var bg = selected ? 'var(--gp)' : isCurrent ? 'var(--g100)' : '#fff';
-    html += '<div style="display:flex;align-items:center;gap:9px;padding:9px 11px;background:'+bg+';border-radius:var(--rsm);border:2px solid '+border+';cursor:'+(isCurrent?'default':'pointer')+';'+(isCurrent?'opacity:.6;':'')+'" '+
-      (isCurrent ? '' : 'onclick="selectEditMoto(\''+m.id+'\')"') + '>' +
+    // Current moto is clickable when another moto is selected (to allow deselection)
+    var isCurrentLocked = isCurrent && !editNewMotoId;
+    var isCurrentActive = isCurrent && !editNewMotoId;
+    var border = selected ? 'var(--green)' : isCurrentActive ? 'var(--green)' : isCurrent ? 'var(--g300)' : 'var(--g200)';
+    var bg = selected ? 'var(--gp)' : isCurrentActive ? 'var(--gp)' : isCurrent ? '#fff' : '#fff';
+    html += '<div style="display:flex;align-items:center;gap:9px;padding:9px 11px;background:'+bg+';border-radius:var(--rsm);border:2px solid '+border+';cursor:'+(isCurrentLocked?'default':'pointer')+';'+(isCurrentLocked?'opacity:.6;':'')+'" '+
+      (isCurrentLocked ? '' : 'onclick="selectEditMoto(\''+m.id+'\')"') + '>' +
       '<img src="'+(m.img||'')+'" style="width:48px;height:36px;object-fit:cover;border-radius:6px;" onerror="this.style.display=\'none\'">' +
       '<div style="flex:1;"><div style="font-size:12px;font-weight:700;">'+m.name+'</div>' +
       '<div style="font-size:11px;color:var(--g400);">'+m.rp+' · '+(avgPrice?avgPrice.toLocaleString('cs-CZ')+' Kč/den':'')+'</div></div>' +
-      (isCurrent ? '<div style="font-size:10px;font-weight:700;color:var(--g400);">AKTUÁLNÍ</div>' : '') +
+      (isCurrentActive ? '<div style="font-size:10px;font-weight:700;color:var(--gd);">✓ AKTUÁLNÍ</div>' : '') +
+      (isCurrent && editNewMotoId ? '<div style="font-size:10px;font-weight:700;color:var(--g400);">AKTUÁLNÍ</div>' : '') +
       (selected ? '<div style="font-size:10px;font-weight:700;color:var(--gd);">✓ VYBRÁNO</div>' : '') +
       '</div>';
   }
@@ -437,13 +441,26 @@ async function saveEditReservation(){
           return;
         }
       }
-      // Check motorcycle availability (other customers' bookings)
+      // Check motorcycle availability (other bookings for same moto)
       if(typeof apiCheckMotoAvailability === 'function'){
-        var motoId = window._editBookingMoto ? window._editBookingMoto.id : null;
-        if(motoId){
-          var ma = await apiCheckMotoAvailability(motoId, checkStart, checkEnd, bookingId);
+        // If user changed the moto, check the NEW moto; otherwise check the original
+        var motoIdToCheck = null;
+        if(editNewMotoId && typeof MOTOS !== 'undefined'){
+          for(var _mi=0;_mi<MOTOS.length;_mi++){
+            if(MOTOS[_mi].id === editNewMotoId){
+              if(MOTOS[_mi]._db && MOTOS[_mi]._db.id) motoIdToCheck = MOTOS[_mi]._db.id;
+              else {
+                try { var _mr2=await supabase.from('motorcycles').select('id').or('model.eq.'+MOTOS[_mi].name).limit(1).single(); if(_mr2.data) motoIdToCheck=_mr2.data.id; } catch(e){}
+              }
+              break;
+            }
+          }
+        }
+        if(!motoIdToCheck) motoIdToCheck = window._editBookingMoto ? window._editBookingMoto.id : null;
+        if(motoIdToCheck){
+          var ma = await apiCheckMotoAvailability(motoIdToCheck, checkStart, checkEnd, bookingId);
           if(!ma.available){
-            showT('⚠️','Motorka obsazena','Motorka je v požadovaném termínu již rezervována jiným zákazníkem. Zvolte jiný termín.');
+            showT('⚠️',_t('res').motoOccupied||'Motorka obsazena',_t('res').motoOccupiedMsg||'Motorka je v požadovaném termínu již rezervována. Zvolte jinou motorku nebo jiný termín.');
             return;
           }
         }
