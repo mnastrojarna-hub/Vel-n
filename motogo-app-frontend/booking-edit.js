@@ -422,6 +422,14 @@ async function saveEditReservation(){
   var returnTime = getTimePickerValue('edit-return-time-hour','edit-return-time-min');
   var pickupAddr = document.getElementById('edit-pickup-address');
   var pickupLoc = (pickupAddr && pickupAddr.value.trim()) ? pickupAddr.value.trim() : null;
+  // Collect return address
+  var returnAddr = document.getElementById('edit-return-address');
+  var returnLoc = (returnAddr && returnAddr.value.trim()) ? returnAddr.value.trim() : null;
+  // Collect pickup/return method (store vs delivery)
+  var pickupRadio = document.querySelector('input[name="edit-pickup"]:checked');
+  var pickupMethod = pickupRadio ? (pickupRadio.value === 'other' ? 'delivery' : 'branch') : null;
+  var returnRadio = document.querySelector('input[name="edit-return"]:checked');
+  var returnMethod = returnRadio ? (returnRadio.value === 'other' ? 'delivery' : 'branch') : null;
 
   // Save to backend
   if(bookingId){
@@ -472,6 +480,10 @@ async function saveEditReservation(){
     if(pickupTime) changes.pickup_time = pickupTime;
     if(returnTime) changes.return_time = returnTime;
     if(pickupLoc) changes.pickup_location = pickupLoc;
+    if(pickupLoc) changes.pickup_address = pickupLoc;
+    if(returnLoc) changes.return_address = returnLoc;
+    if(pickupMethod) changes.pickup_method = pickupMethod;
+    if(returnMethod) changes.return_method = returnMethod;
     // Handle moto change
     if(editNewMotoId){
       var newMotoDb = null;
@@ -498,13 +510,17 @@ async function saveEditReservation(){
       if(typeof apiShortenBooking === 'function'){
         var res = await apiShortenBooking(bookingId, newEndISO, newStartISO);
         if(res.error){ showT('✗',_t('common').error,res.error); return; }
-        // Also save time/location
-        if(pickupTime || returnTime || pickupLoc){
-          var extraChanges = {};
-          if(pickupTime) extraChanges.pickup_time = pickupTime;
-          if(returnTime) extraChanges.return_time = returnTime;
-          if(pickupLoc) extraChanges.pickup_location = pickupLoc;
-          await apiModifyBooking(bookingId, extraChanges);
+        // Also save time/location/return address
+        var extraChanges = {};
+        if(pickupTime) extraChanges.pickup_time = pickupTime;
+        if(returnTime) extraChanges.return_time = returnTime;
+        if(pickupLoc){ extraChanges.pickup_location = pickupLoc; extraChanges.pickup_address = pickupLoc; }
+        if(returnLoc) extraChanges.return_address = returnLoc;
+        if(pickupMethod) extraChanges.pickup_method = pickupMethod;
+        if(returnMethod) extraChanges.return_method = returnMethod;
+        if(Object.keys(extraChanges).length > 0){
+          var ecRes = await apiModifyBooking(bookingId, extraChanges);
+          if(ecRes && ecRes.error) console.warn('[EDIT] Extra changes err:', ecRes.error);
         }
         // Generate ZF for the shortening change + payment receipt
         if(typeof apiGenerateAdvanceInvoice === 'function'){
@@ -514,17 +530,17 @@ async function saveEditReservation(){
           apiGeneratePaymentReceipt(bookingId, Math.abs(diff), 'edit').catch(function(e){ console.warn('[EDIT] DP err:', e); });
         }
       }
+    } else if(diff > 0){
+      // For extensions that require payment: calculate new price, but DON'T save yet.
+      // Changes will be saved AFTER successful payment in doEditPayment.
+      if(_isSupabaseReady()){
+        try { var _rb=await supabase.from('bookings').select('total_price').eq('id',bookingId).single(); if(_rb.data) changes.total_price = (_rb.data.total_price || 0) + diff; } catch(e){}
+      }
     } else {
+      // diff == 0: no price change, save immediately
       if(typeof apiModifyBooking === 'function'){
-        var editBooking = null;
-        if(_isSupabaseReady()){
-          try { var _rb=await supabase.from('bookings').select('total_price').eq('id',bookingId).single(); editBooking=_rb.data; } catch(e){}
-        }
-        if(diff > 0){
-          var newPrice = (editBooking ? editBooking.total_price : 0) + diff;
-          changes.total_price = newPrice;
-        }
-        await apiModifyBooking(bookingId, changes);
+        var saveRes = await apiModifyBooking(bookingId, changes);
+        if(saveRes && saveRes.error){ showT('✗',_t('common').error,saveRes.error); return; }
       }
     }
     if(typeof initMotoAvailability === 'function') initMotoAvailability();

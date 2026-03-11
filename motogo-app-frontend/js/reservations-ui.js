@@ -271,7 +271,7 @@ async function openResDetailById(bookingId){
     var pickupEl = document.getElementById('rd-pickup');
     if(pickupEl) pickupEl.textContent = _fmtDate(booking.start_date) + ' ' + _t('res').at + ' ' + (booking.pickup_time || '9:00');
     var returnEl = document.getElementById('rd-return');
-    if(returnEl) returnEl.textContent = _fmtDate(booking.end_date) + ' ' + _t('res').at + ' 9:00';
+    if(returnEl) returnEl.textContent = _fmtDate(booking.end_date) + ' ' + _t('res').at + ' ' + (booking.return_time || '9:00');
     var durEl = document.getElementById('rd-duration');
     if(durEl) durEl.textContent = days + ' ' + (days===1?_t('res').day1:_t('res').days5);
 
@@ -720,7 +720,7 @@ function _renderDetailSummary(b, moto, st, days, branchName, bookingId){
 
   // Dates — current
   h += li('Začátek', _fmtDate(b.start_date) + ' v ' + (b.pickup_time||'9:00'));
-  h += li('Konec', _fmtDate(b.end_date) + ' v 9:00');
+  h += li('Konec', _fmtDate(b.end_date) + ' v ' + (b.return_time || '9:00'));
   h += li('Délka', days + ' ' + (days===1?'den':days<5?'dny':'dní'));
 
   // Original dates (if modified)
