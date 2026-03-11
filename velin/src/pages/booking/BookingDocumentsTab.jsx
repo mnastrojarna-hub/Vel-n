@@ -36,8 +36,9 @@ export default function BookingDocumentsTab({ bookingId }) {
   const [viewDoc, setViewDoc] = useState(null)
   const [viewHtml, setViewHtml] = useState(null)
   const [debug, setDebug] = useState(null)
+  const [dbTemplates, setDbTemplates] = useState({})
 
-  useEffect(() => { loadAll() }, [bookingId])
+  useEffect(() => { loadAll(); loadDbTemplates() }, [bookingId])
 
   async function loadAll() {
     setLoading(true)
@@ -81,6 +82,18 @@ export default function BookingDocumentsTab({ bookingId }) {
     } catch (e) { debugError('BookingDocumentsTab', 'loadAll', e); setError(e.message); diag.errors.push('EXCEPTION: ' + e.message) }
     setDebug(diag)
     setLoading(false)
+  }
+
+  async function loadDbTemplates() {
+    try {
+      const { data } = await supabase.from('document_templates').select('type, content_html')
+        .in('type', ['rental_contract', 'handover_protocol', 'vop'])
+      if (data) {
+        const map = {}
+        data.forEach(t => { map[t.type] = t.content_html })
+        setDbTemplates(map)
+      }
+    } catch {}
   }
 
   async function handleGenerate(templateSlug) {
@@ -131,8 +144,17 @@ export default function BookingDocumentsTab({ bookingId }) {
       daily_rate: fmtPrice(Math.round((booking.total_price || 0) / days)),
       booking_id: bookingId.slice(-8).toUpperCase(), booking_number: bookingId.slice(-8).toUpperCase(),
       today: fmtDate(new Date().toISOString()),
-      company_name: 'MotoGo24 s.r.o.', company_address: 'Mezná 9, 393 01 Pelhřimov',
-      company_ico: '12345678', company_dic: 'CZ12345678',
+      start_time: booking.pickup_time || '', end_time: '24:00',
+      rental_period: `${fmtDate(booking.start_date)} — ${fmtDate(booking.end_date)} (${days} dní)`,
+      total_price_words: '',
+      customer_id_number: '',
+      pickup_location: booking.pickup_address || 'Mezná 9, 393 01 Mezná',
+      return_location: booking.return_address || 'Mezná 9, 393 01 Mezná',
+      mileage: String(booking.mileage_start || ''),
+      fuel_state: '', technical_state: '',
+      today_time: new Date().toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' }),
+      company_name: 'Bc. Petra Semorádová', company_address: 'Mezná 9, 393 01 Mezná',
+      company_ico: '21874263', company_dic: '',
     }
 
     let html = getClientTemplate(templateSlug)
@@ -154,11 +176,14 @@ export default function BookingDocumentsTab({ bookingId }) {
   }
 
   function getClientTemplate(slug) {
+    // Prefer DB templates (loaded from document_templates table)
+    if (dbTemplates[slug]) return dbTemplates[slug]
+    // Fallback to hardcoded minimal templates
     if (slug === 'rental_contract') {
-      return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Smlouva o pronájmu</title></head><body style="margin:0;padding:0;font-family:'Segoe UI',sans-serif;color:#1a1a1a"><div style="max-width:780px;margin:0 auto;padding:32px"><h1 style="text-align:center;font-size:20px;border-bottom:2px solid #1a8a18;padding-bottom:12px">SMLOUVA O PRONÁJMU MOTOCYKLU</h1><p style="text-align:center;font-size:12px;color:#666">č. {{booking_number}} ze dne {{today}}</p><div style="display:flex;gap:24px;margin:24px 0"><div style="flex:1;padding:14px;background:#f8faf9;border-radius:8px"><p style="margin:0 0 4px;font-size:10px;font-weight:700;text-transform:uppercase;color:#888">Pronajímatel</p><p style="margin:0;font-weight:700">{{company_name}}</p><p style="margin:2px 0;font-size:12px">{{company_address}}</p><p style="margin:2px 0;font-size:12px">IČO: {{company_ico}} | DIČ: {{company_dic}}</p></div><div style="flex:1;padding:14px;background:#f8faf9;border-radius:8px"><p style="margin:0 0 4px;font-size:10px;font-weight:700;text-transform:uppercase;color:#888">Nájemce</p><p style="margin:0;font-weight:700">{{customer_name}}</p><p style="margin:2px 0;font-size:12px">{{customer_address}}</p><p style="margin:2px 0;font-size:12px">Tel: {{customer_phone}} | Email: {{customer_email}}</p><p style="margin:2px 0;font-size:12px">ŘP: {{customer_license}} (platnost do {{customer_license_expiry}})</p></div></div><h3 style="font-size:13px;margin-top:24px">I. Předmět pronájmu</h3><table style="width:100%;border-collapse:collapse;font-size:12px;margin:8px 0"><tr><td style="padding:4px 8px;background:#f8faf9;font-weight:600;width:120px">Model</td><td style="padding:4px 8px">{{moto_model}}</td></tr><tr><td style="padding:4px 8px;background:#f8faf9;font-weight:600">SPZ</td><td style="padding:4px 8px">{{moto_spz}}</td></tr><tr><td style="padding:4px 8px;background:#f8faf9;font-weight:600">VIN</td><td style="padding:4px 8px">{{moto_vin}}</td></tr><tr><td style="padding:4px 8px;background:#f8faf9;font-weight:600">Rok výroby</td><td style="padding:4px 8px">{{moto_year}}</td></tr></table><h3 style="font-size:13px">II. Doba pronájmu</h3><p style="font-size:12px">Od: <strong>{{start_date}}</strong> do: <strong>{{end_date}}</strong> ({{days}} dní)</p><h3 style="font-size:13px">III. Cena</h3><p style="font-size:12px">Denní sazba: <strong>{{daily_rate}} Kč</strong> | Celkem: <strong>{{total_price}} Kč</strong> vč. DPH</p><div style="margin-top:48px;display:flex;justify-content:space-between"><div style="text-align:center;width:45%"><div style="border-top:1px solid #999;padding-top:8px;font-size:11px">Pronajímatel</div></div><div style="text-align:center;width:45%"><div style="border-top:1px solid #999;padding-top:8px;font-size:11px">Nájemce — {{customer_name}}</div></div></div></div></body></html>`
+      return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Smlouva o pronájmu</title></head><body style="margin:0;padding:0;font-family:'Segoe UI',sans-serif;color:#1a1a1a"><div style="max-width:780px;margin:0 auto;padding:32px"><h1 style="text-align:center;font-size:20px;border-bottom:2px solid #1a8a18;padding-bottom:12px">SMLOUVA O PRONÁJMU MOTOCYKLU</h1><p style="text-align:center;font-size:12px;color:#666">č. {{booking_number}} ze dne {{today}}</p><p>Pronajímatel: Bc. Petra Semorádová, IČO: 21874263</p><p>Nájemce: {{customer_name}}, {{customer_address}}</p><p>Motocykl: {{moto_model}} ({{moto_spz}}), VIN: {{moto_vin}}</p><p>Období: {{start_date}} — {{end_date}} ({{days}} dní)</p><p>Celkem: {{total_price}} Kč</p><p style="color:#b45309;font-size:11px;margin-top:24px">⚠ Toto je záložní šablona. Plné texty smluv najdete v Dokumenty → Smluvní texty.</p></div></body></html>`
     }
     if (slug === 'handover_protocol') {
-      return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Předávací protokol</title></head><body style="margin:0;padding:0;font-family:'Segoe UI',sans-serif;color:#1a1a1a"><div style="max-width:780px;margin:0 auto;padding:32px"><h1 style="text-align:center;font-size:20px;border-bottom:2px solid #2563eb;padding-bottom:12px">PŘEDÁVACÍ PROTOKOL</h1><p style="text-align:center;font-size:12px;color:#666">k rezervaci č. {{booking_number}} ze dne {{today}}</p><table style="width:100%;border-collapse:collapse;font-size:12px;margin:20px 0"><tr><td style="padding:6px 10px;background:#f8faf9;font-weight:600;width:160px">Zákazník</td><td style="padding:6px 10px">{{customer_name}}</td></tr><tr><td style="padding:6px 10px;background:#f8faf9;font-weight:600">Motocykl</td><td style="padding:6px 10px">{{moto_model}} ({{moto_spz}})</td></tr><tr><td style="padding:6px 10px;background:#f8faf9;font-weight:600">VIN</td><td style="padding:6px 10px">{{moto_vin}}</td></tr><tr><td style="padding:6px 10px;background:#f8faf9;font-weight:600">Období</td><td style="padding:6px 10px">{{start_date}} — {{end_date}}</td></tr></table><h3 style="font-size:13px">Stav při předání</h3><table style="width:100%;border-collapse:collapse;font-size:12px;margin:8px 0;border:1px solid #ddd"><tr><td style="padding:8px;border:1px solid #ddd;width:50%">Stav km:</td><td style="padding:8px;border:1px solid #ddd"></td></tr><tr><td style="padding:8px;border:1px solid #ddd">Stav paliva:</td><td style="padding:8px;border:1px solid #ddd"></td></tr><tr><td style="padding:8px;border:1px solid #ddd">Viditelné poškození:</td><td style="padding:8px;border:1px solid #ddd"></td></tr><tr><td style="padding:8px;border:1px solid #ddd">Příslušenství:</td><td style="padding:8px;border:1px solid #ddd"></td></tr><tr><td style="padding:8px;border:1px solid #ddd">Poznámky:</td><td style="padding:8px;border:1px solid #ddd"></td></tr></table><div style="margin-top:48px;display:flex;justify-content:space-between"><div style="text-align:center;width:45%"><div style="border-top:1px solid #999;padding-top:8px;font-size:11px">Předávající</div></div><div style="text-align:center;width:45%"><div style="border-top:1px solid #999;padding-top:8px;font-size:11px">Přebírající — {{customer_name}}</div></div></div></div></body></html>`
+      return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Předávací protokol</title></head><body style="margin:0;padding:0;font-family:'Segoe UI',sans-serif;color:#1a1a1a"><div style="max-width:780px;margin:0 auto;padding:32px"><h1 style="text-align:center;font-size:20px;border-bottom:2px solid #2563eb;padding-bottom:12px">PŘEDÁVACÍ PROTOKOL</h1><p style="text-align:center;font-size:12px;color:#666">k rezervaci č. {{booking_number}} ze dne {{today}}</p><p>Nájemce: {{customer_name}}</p><p>Motocykl: {{moto_model}} ({{moto_spz}}), VIN: {{moto_vin}}</p><p style="color:#b45309;font-size:11px;margin-top:24px">⚠ Toto je záložní šablona. Plné texty najdete v Dokumenty → Smluvní texty.</p></div></body></html>`
     }
     return null
   }
@@ -391,13 +416,21 @@ export default function BookingDocumentsTab({ bookingId }) {
       )}
 
       {/* Generate buttons */}
-      <div className="flex gap-3">
+      <div className="flex gap-3 flex-wrap">
         <Button green onClick={() => handleGenerate('rental_contract')} disabled={generating === 'rental_contract'}>
           {generating === 'rental_contract' ? 'Generuji...' : 'Vygenerovat smlouvu'}
         </Button>
         <Button green onClick={() => handleGenerate('handover_protocol')} disabled={generating === 'handover_protocol'}>
           {generating === 'handover_protocol' ? 'Generuji...' : 'Vygenerovat protokol'}
         </Button>
+        {dbTemplates.vop && (
+          <Button onClick={() => {
+            setViewHtml(dbTemplates.vop)
+            setViewDoc({ file_name: 'Obchodní podmínky (VOP)' })
+          }}>
+            Zobrazit VOP
+          </Button>
+        )}
       </div>
 
       {/* Invoices (ZF, DP, KF) */}
