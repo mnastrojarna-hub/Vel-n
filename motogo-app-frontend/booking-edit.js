@@ -433,8 +433,10 @@ async function saveEditReservation(){
 
   // Save to backend
   if(bookingId){
-    var newEndISO = (typeof eDo !== 'undefined' && eDo) ? new Date(eDo.y, eDo.m, eDo.d).toISOString() : null;
-    var newStartISO = (typeof eOd !== 'undefined' && eOd && !editIsActive) ? new Date(eOd.y, eOd.m, eOd.d).toISOString() : null;
+    // Use date-only ISO format (YYYY-MM-DD) to avoid timezone drift
+    var _isoD=function(o){return o.y+'-'+String(o.m+1).padStart(2,'0')+'-'+String(o.d).padStart(2,'0');};
+    var newEndISO = (typeof eDo !== 'undefined' && eDo) ? _isoD(eDo) : null;
+    var newStartISO = (typeof eOd !== 'undefined' && eOd && !editIsActive) ? _isoD(eOd) : null;
 
     // Check for overlapping reservations with new dates
     var checkStart = newStartISO || (typeof origResStart !== 'undefined' ? new Date(origResStart.y, origResStart.m, origResStart.d).toISOString() : null);
