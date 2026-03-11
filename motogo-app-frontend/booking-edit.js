@@ -478,7 +478,7 @@ async function saveEditReservation(){
     if(newEndISO) changes.end_date = newEndISO;
     if(newStartISO) changes.start_date = newStartISO;
     if(pickupTime) changes.pickup_time = pickupTime;
-    if(returnTime) changes.return_time = returnTime;
+
     if(pickupLoc) changes.pickup_location = pickupLoc;
     if(pickupLoc) changes.pickup_address = pickupLoc;
     if(returnLoc) changes.return_address = returnLoc;
@@ -513,7 +513,7 @@ async function saveEditReservation(){
         // Also save time/location/return address
         var extraChanges = {};
         if(pickupTime) extraChanges.pickup_time = pickupTime;
-        if(returnTime) extraChanges.return_time = returnTime;
+
         if(pickupLoc){ extraChanges.pickup_location = pickupLoc; extraChanges.pickup_address = pickupLoc; }
         if(returnLoc) extraChanges.return_address = returnLoc;
         if(pickupMethod) extraChanges.pickup_method = pickupMethod;
