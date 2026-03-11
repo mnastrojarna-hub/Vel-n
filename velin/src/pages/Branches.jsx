@@ -31,9 +31,9 @@ class BranchesErrorBoundary extends Component {
         <div style={{ padding: 24 }}>
           <div className="p-4 rounded-card" style={{ background: '#fee2e2', color: '#dc2626' }}>
             <p className="font-bold mb-2">Chyba při zobrazení poboček</p>
-            <p className="text-xs mb-3">{this.state.error?.message || 'Neznámá chyba'}</p>
+            <p className="text-sm mb-3">{this.state.error?.message || 'Neznámá chyba'}</p>
             <button onClick={() => { this.setState({ hasError: false, error: null }) }}
-              className="rounded-btn text-xs font-bold cursor-pointer"
+              className="rounded-btn text-sm font-bold cursor-pointer"
               style={{ padding: '6px 14px', background: '#dc2626', color: '#fff', border: 'none' }}>
               Zkusit znovu
             </button>
@@ -230,7 +230,7 @@ function Branches() {
       </div>
 
       {/* DIAGNOSTIKA */}
-      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA Branches</strong><br/>
         <div>branches: {branches.length} (zobrazeno: {filtered.length}), statusFilter: {statusFilter}</div>
         <div>totalMotos: {totalMotos} (active: {activeMotos}), totalBookings: {totalBookings}</div>
@@ -247,11 +247,11 @@ function Branches() {
             { key: 'inactive', label: 'Neaktivní' },
           ].map(f => (
             <button key={f.key} onClick={() => setStatusFilter(f.key)}
-              className="rounded-btn text-[10px] font-extrabold uppercase tracking-wide cursor-pointer border-none"
+              className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none"
               style={{
                 padding: '6px 12px',
                 background: statusFilter === f.key ? '#1a2e22' : '#f1faf7',
-                color: statusFilter === f.key ? '#74FB71' : '#4a6357',
+                color: statusFilter === f.key ? '#74FB71' : '#1a2e22',
               }}>
               {f.label}
             </button>
@@ -280,8 +280,8 @@ function Branches() {
         <Card>
           <div className="text-center py-12">
             <div className="text-4xl mb-3">🏢</div>
-            <div className="text-sm font-bold mb-1" style={{ color: '#4a6357' }}>Žádné pobočky</div>
-            <div className="text-xs mb-4" style={{ color: '#8aab99' }}>
+            <div className="text-sm font-bold mb-1" style={{ color: '#1a2e22' }}>Žádné pobočky</div>
+            <div className="text-sm mb-4" style={{ color: '#1a2e22' }}>
               Zatím nemáte vytvořené žádné pobočky. Vytvořte první pobočku kliknutím na tlačítko výše.
             </div>
             <Button green onClick={() => { setEditing(null); setShowModal(true) }}>+ Vytvořit pobočku</Button>
@@ -320,13 +320,13 @@ function Branches() {
                   <span className="font-bold" style={{ color: '#1a8a18' }}>
                     {stats[b.id]?.active || 0}
                   </span>
-                  <span style={{ color: '#8aab99' }}> / {stats[b.id]?.total || 0}</span>
+                  <span style={{ color: '#1a2e22' }}> / {stats[b.id]?.total || 0}</span>
                   {stats[b.id]?.maintenance > 0 && (
                     <span className="text-[9px] ml-1" style={{ color: '#b45309' }}>({stats[b.id].maintenance} servis)</span>
                   )}
                 </TD>
                 <TD>
-                  <span className="font-bold" style={{ color: bookingStats[b.id] > 0 ? '#8b5cf6' : '#8aab99' }}>
+                  <span className="font-bold" style={{ color: bookingStats[b.id] > 0 ? '#8b5cf6' : '#1a2e22' }}>
                     {bookingStats[b.id] || 0}
                   </span>
                 </TD>
@@ -410,7 +410,7 @@ function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEd
     rented: { label: 'Pronajatá', bg: '#dbeafe', color: '#2563eb' },
     maintenance: { label: 'V servisu', bg: '#fef3c7', color: '#b45309' },
     unavailable: { label: 'Nedostupná', bg: '#fee2e2', color: '#dc2626' },
-    retired: { label: 'Vyřazena', bg: '#f3f4f6', color: '#6b7280' },
+    retired: { label: 'Vyřazena', bg: '#f3f4f6', color: '#1a2e22' },
   }
 
   return (
@@ -427,7 +427,7 @@ function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEd
             <DRow label="GPS" value={`${branch.gps_lat}, ${branch.gps_lng}`} mono />
             <a href={`https://www.google.com/maps?q=${branch.gps_lat},${branch.gps_lng}`}
               target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-btn mt-1"
+              className="inline-flex items-center gap-1 text-sm font-bold px-2 py-0.5 rounded-btn mt-1"
               style={{ background: '#dbeafe', color: '#2563eb', textDecoration: 'none' }}>
               Otevřít v mapách
             </a>
@@ -442,35 +442,35 @@ function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEd
 
       <div className="grid grid-cols-3 gap-3 mb-4">
         <div className="rounded-lg text-center" style={{ padding: '10px', background: '#f1faf7' }}>
-          <div className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>Motorky</div>
+          <div className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Motorky</div>
           <div className="text-lg font-extrabold" style={{ color: '#2563eb' }}>
             {branchStats?.active || 0} / {branchStats?.total || 0}
           </div>
         </div>
         <div className="rounded-lg text-center" style={{ padding: '10px', background: '#f1faf7' }}>
-          <div className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>Rezervace</div>
+          <div className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Rezervace</div>
           <div className="text-lg font-extrabold" style={{ color: '#8b5cf6' }}>{bookings}</div>
         </div>
         <div className="rounded-lg text-center" style={{ padding: '10px', background: '#f1faf7' }}>
-          <div className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>V servisu</div>
+          <div className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>V servisu</div>
           <div className="text-lg font-extrabold" style={{ color: '#b45309' }}>{branchStats?.maintenance || 0}</div>
         </div>
       </div>
 
-      <h4 className="text-[10px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#8aab99' }}>Motorky na pobočce</h4>
+      <h4 className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Motorky na pobočce</h4>
       {loadingMotos ? (
         <div className="flex justify-center py-4"><div className="animate-spin rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
       ) : motos.length === 0 ? (
-        <div className="text-xs py-3 text-center" style={{ color: '#8aab99' }}>Žádné motorky na této pobočce</div>
+        <div className="text-sm py-3 text-center" style={{ color: '#1a2e22' }}>Žádné motorky na této pobočce</div>
       ) : (
         <div className="space-y-1 max-h-48 overflow-y-auto">
           {motos.map(m => {
             const st = STATUS_LABELS[m.status] || STATUS_LABELS.active
             return (
-              <div key={m.id} className="flex items-center text-xs" style={{ padding: '6px 10px', background: '#f8fcfa', borderRadius: 8 }}>
+              <div key={m.id} className="flex items-center text-sm" style={{ padding: '6px 10px', background: '#f8fcfa', borderRadius: 8 }}>
                 <span className="font-bold" style={{ color: '#0f1a14' }}>{m.model}</span>
-                <span className="ml-2 font-mono text-[10px]" style={{ color: '#8aab99' }}>{m.spz || '—'}</span>
-                <span className="ml-auto mr-2 text-[10px]" style={{ color: '#8aab99' }}>
+                <span className="ml-2 font-mono text-sm" style={{ color: '#1a2e22' }}>{m.spz || '—'}</span>
+                <span className="ml-auto mr-2 text-sm" style={{ color: '#1a2e22' }}>
                   {m.mileage ? `${m.mileage.toLocaleString('cs-CZ')} km` : ''}
                 </span>
                 <span className="inline-block rounded-btn text-[9px] font-extrabold tracking-wide uppercase"
@@ -564,14 +564,14 @@ function BranchModal({ existing, onClose, onSaved }) {
         <FormField label="GPS délka" value={form.gps_lng} onChange={v => set('gps_lng', v)} type="number"
           placeholder="např. 15.3386" />
         <div className="col-span-2">
-          <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Poznámky</label>
+          <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Poznámky</label>
           <textarea value={form.notes} onChange={e => set('notes', e.target.value)}
             className="w-full rounded-btn text-sm outline-none"
             style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', minHeight: 60, resize: 'vertical' }} />
         </div>
         <div className="col-span-2 flex items-center gap-2">
           <input type="checkbox" checked={form.active} onChange={e => set('active', e.target.checked)} id="branch-active" />
-          <label htmlFor="branch-active" className="text-xs font-bold" style={{ color: '#4a6357' }}>Pobočka je aktivní</label>
+          <label htmlFor="branch-active" className="text-sm font-bold" style={{ color: '#1a2e22' }}>Pobočka je aktivní</label>
         </div>
       </div>
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626', whiteSpace: 'pre-wrap' }}>{err}</p>}
@@ -588,7 +588,7 @@ function BranchModal({ existing, onClose, onSaved }) {
 function DRow({ label, value, mono }) {
   return (
     <div>
-      <div className="text-[10px] font-extrabold uppercase tracking-wide mb-0.5" style={{ color: '#8aab99' }}>{label}</div>
+      <div className="text-sm font-extrabold uppercase tracking-wide mb-0.5" style={{ color: '#1a2e22' }}>{label}</div>
       <div className={`text-sm font-semibold ${mono ? 'font-mono' : ''}`} style={{ color: '#0f1a14' }}>{value || '—'}</div>
     </div>
   )
@@ -597,7 +597,7 @@ function DRow({ label, value, mono }) {
 function FormField({ label, value, onChange, type = 'text', placeholder }) {
   return (
     <div>
-      <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{label}</label>
+      <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</label>
       <input type={type} value={value} onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
         className="w-full rounded-btn text-sm outline-none"
@@ -609,7 +609,7 @@ function FormField({ label, value, onChange, type = 'text', placeholder }) {
 function StatCard({ label, value, color }) {
   return (
     <Card>
-      <div className="text-[10px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#8aab99' }}>{label}</div>
+      <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>{label}</div>
       <div className="text-xl font-extrabold" style={{ color }}>{value}</div>
     </Card>
   )
@@ -617,7 +617,7 @@ function StatCard({ label, value, color }) {
 
 function SmallBtn({ children, color, onClick }) {
   return (
-    <button onClick={onClick} className="text-[10px] font-bold cursor-pointer"
+    <button onClick={onClick} className="text-sm font-bold cursor-pointer"
       style={{ color, background: 'none', border: 'none', padding: '4px 6px' }}>
       {children}
     </button>

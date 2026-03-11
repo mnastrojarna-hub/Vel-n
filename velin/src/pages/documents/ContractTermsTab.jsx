@@ -76,17 +76,17 @@ export default function ContractTermsTab() {
                   <span style={{ fontSize: 28 }}>{ct.icon}</span>
                   <div>
                     <h3 className="text-sm font-extrabold" style={{ color: '#0f1a14' }}>{ct.label}</h3>
-                    <p className="text-xs mt-1" style={{ color: '#8aab99' }}>{ct.description}</p>
+                    <p className="text-sm mt-1" style={{ color: '#1a2e22' }}>{ct.description}</p>
                     {tpl && (
                       <div className="flex items-center gap-3 mt-2">
-                        <span className="text-[10px] font-bold" style={{ color: '#8aab99' }}>
+                        <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>
                           Verze {tpl.version || 1}
                         </span>
-                        <span className="text-[10px]" style={{ color: '#8aab99' }}>
+                        <span className="text-sm" style={{ color: '#1a2e22' }}>
                           Upraveno: {tpl.updated_at ? new Date(tpl.updated_at).toLocaleDateString('cs-CZ') : '\u2014'}
                         </span>
                         {vars.length > 0 && (
-                          <span className="text-[10px]" style={{ color: '#8aab99' }}>
+                          <span className="text-sm" style={{ color: '#1a2e22' }}>
                             Prom\u011bnn\u00e9: {vars.length}
                           </span>
                         )}
@@ -96,18 +96,18 @@ export default function ContractTermsTab() {
                 </div>
                 <div className="flex gap-2">
                   {tpl && (
-                    <Button onClick={() => setPreview(tpl)} style={{ padding: '5px 14px', fontSize: 10 }}>
+                    <Button onClick={() => setPreview(tpl)} style={{ padding: '5px 14px', fontSize: 13 }}>
                       N\u00e1hled
                     </Button>
                   )}
                   <Button green onClick={() => setEditing(tpl || { type: ct.type, name: ct.label, content_html: '', version: 0 })}
-                    style={{ padding: '5px 14px', fontSize: 10 }}>
+                    style={{ padding: '5px 14px', fontSize: 13 }}>
                     {tpl ? 'Upravit' : 'Vytvo\u0159it'}
                   </Button>
                 </div>
               </div>
               {!tpl && (
-                <div className="mt-3 p-2 rounded-lg text-center" style={{ background: '#fef3c7', fontSize: 11, color: '#b45309' }}>
+                <div className="mt-3 p-2 rounded-lg text-center" style={{ background: '#fef3c7', fontSize: 13, color: '#b45309' }}>
                   \u0160ablona je\u0161t\u011b nebyla vytvo\u0159ena. Klikn\u011bte &quot;Vytvo\u0159it&quot; pro vlo\u017een\u00ed textu.
                 </div>
               )}
@@ -200,7 +200,7 @@ function EditContractModal({ template, onClose, onSaved }) {
                     setContent(newContent)
                   }
                 }}
-                  className="rounded-btn text-[10px] font-mono cursor-pointer"
+                  className="rounded-btn text-sm font-mono cursor-pointer"
                   style={{ padding: '2px 8px', background: '#dcfce7', color: '#166534', border: '1px solid #bbf7d0' }}>
                   {`{{${v}}}`}
                 </button>
@@ -216,7 +216,7 @@ function EditContractModal({ template, onClose, onSaved }) {
             style={{ ...inputStyle, minHeight: 450, resize: 'vertical' }} />
         </div>
 
-        <div className="flex items-center gap-2 text-[10px]" style={{ color: '#8aab99' }}>
+        <div className="flex items-center gap-2 text-sm" style={{ color: '#1a2e22' }}>
           <span>D\u00e9lka: {content.length} znak\u016f</span>
           {vars.length > 0 && (
             <span>| Pou\u017eit\u00e9 prom\u011bnn\u00e9: {extractVars(content).length}/{vars.length}</span>
@@ -283,5 +283,5 @@ function extractVars(content) {
 
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
 function Label({ children }) {
-  return <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{children}</label>
+  return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>
 }

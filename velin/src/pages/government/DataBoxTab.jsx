@@ -36,14 +36,14 @@ export default function DataBoxTab() {
     <div className="max-w-lg">
       <Card>
         <div className="text-sm font-bold mb-3" style={{ color: '#0f1a14' }}>Datová schránka</div>
-        <div className="text-xs mb-4" style={{ color: '#8aab99' }}>
+        <div className="text-sm mb-4" style={{ color: '#1a2e22' }}>
           Napojení na ISDS připravujeme. Zde můžete uložit ID datové schránky.
         </div>
 
         {loaded && (
           <div className="space-y-3">
             <div>
-              <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>ID datové schránky</label>
+              <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>ID datové schránky</label>
               <input value={dsId} onChange={e => setDsId(e.target.value)}
                 className="w-full rounded-btn text-sm outline-none"
                 style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}
@@ -57,7 +57,7 @@ export default function DataBoxTab() {
       <Card>
         <div className="flex items-center gap-3 mt-2">
           <div className="w-3 h-3 rounded-full" style={{ background: '#fbbf24' }} />
-          <span className="text-xs font-bold" style={{ color: '#b45309' }}>Napojení na ISDS je v přípravě</span>
+          <span className="text-sm font-bold" style={{ color: '#b45309' }}>Napojení na ISDS je v přípravě</span>
         </div>
       </Card>
     </div>

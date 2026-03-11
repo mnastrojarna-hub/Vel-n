@@ -25,7 +25,7 @@ const EMAIL_STATUS = {
   sent: { label: 'Odesláno', color: '#1a8a18', bg: '#dcfce7' },
   failed: { label: 'Chyba', color: '#dc2626', bg: '#fee2e2' },
   queued: { label: 'Ve frontě', color: '#b45309', bg: '#fef3c7' },
-  bounced: { label: 'Nedoručeno', color: '#6b7280', bg: '#f3f4f6' },
+  bounced: { label: 'Nedoručeno', color: '#1a2e22', bg: '#f3f4f6' },
 }
 
 export default function EmailTemplatesTab() {
@@ -79,11 +79,11 @@ export default function EmailTemplatesTab() {
       <div className="flex items-center gap-3 mb-4">
         <input type="text" value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Hledat šablonu, e-mail…"
-          className="rounded-btn text-xs outline-none"
-          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357', minWidth: 200 }} />
+          className="rounded-btn text-sm outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22', minWidth: 200 }} />
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
-          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
           <option value="">Všechny stavy</option>
           <option value="sent">Odesláno</option>
           <option value="failed">Chyba</option>
@@ -92,7 +92,7 @@ export default function EmailTemplatesTab() {
       </div>
 
       {filteredTemplates.length === 0 ? (
-        <Card><p style={{ color: '#8aab99', fontSize: 13 }}>Žádné e-mailové šablony</p></Card>
+        <Card><p style={{ color: '#1a2e22', fontSize: 13 }}>Žádné e-mailové šablony</p></Card>
       ) : (
         <div className="grid grid-cols-2 gap-4 mb-8">
           {filteredTemplates.map(t => (
@@ -101,7 +101,7 @@ export default function EmailTemplatesTab() {
         </div>
       )}
 
-      <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Poslední odeslané e-maily</h3>
+      <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Poslední odeslané e-maily</h3>
       <SentEmailsTable emails={filteredEmails} />
 
       {editing && (
@@ -123,19 +123,19 @@ function TemplateCard({ template, onEdit }) {
         <h4 className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{template.name}</h4>
         <Badge label={template.active ? 'Aktivní' : 'Neaktivní'} color={template.active ? '#1a8a18' : '#6b7280'} bg={template.active ? '#dcfce7' : '#f3f4f6'} />
       </div>
-      <div className="text-[10px] font-mono mb-2" style={{ color: '#8aab99' }}>{template.slug}</div>
-      <p className="text-xs mb-3" style={{ color: '#4a6357', lineHeight: 1.5 }}>{template.description || 'Bez popisu'}</p>
+      <div className="text-sm font-mono mb-2" style={{ color: '#1a2e22' }}>{template.slug}</div>
+      <p className="text-sm mb-3" style={{ color: '#1a2e22', lineHeight: 1.5 }}>{template.description || 'Bez popisu'}</p>
       {vars.length > 0 && (
         <div className="flex flex-wrap gap-1 mb-3">
           {vars.map(v => (
             <span key={v} className="inline-block rounded-btn text-[9px] font-mono font-bold"
-              style={{ padding: '2px 6px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+              style={{ padding: '2px 6px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
               {`{{${v}}}`}
             </span>
           ))}
         </div>
       )}
-      <Button onClick={onEdit} style={{ padding: '4px 14px', fontSize: 10 }}>Upravit</Button>
+      <Button onClick={onEdit} style={{ padding: '4px 14px', fontSize: 13 }}>Upravit</Button>
     </Card>
   )
 }
@@ -147,7 +147,7 @@ function extractVars(content) {
 }
 
 function SentEmailsTable({ emails }) {
-  if (emails.length === 0) return <Card><p style={{ color: '#8aab99', fontSize: 13 }}>Žádné odeslané e-maily</p></Card>
+  if (emails.length === 0) return <Card><p style={{ color: '#1a2e22', fontSize: 13 }}>Žádné odeslané e-maily</p></Card>
   return (
     <Table>
       <thead><TRow header><TH>Příjemce</TH><TH>Šablona</TH><TH>Předmět</TH><TH>Stav</TH><TH>Datum</TH></TRow></thead>
@@ -157,7 +157,7 @@ function SentEmailsTable({ emails }) {
           return (
             <TRow key={e.id}>
               <TD>{e.recipient_email || '—'}</TD>
-              <TD><span className="font-mono text-xs">{e.template_slug || '—'}</span></TD>
+              <TD><span className="font-mono text-sm">{e.template_slug || '—'}</span></TD>
               <TD>{e.subject || '—'}</TD>
               <TD><Badge label={st.label} color={st.color} bg={st.bg} /></TD>
               <TD>{e.created_at ? new Date(e.created_at).toLocaleString('cs-CZ') : '—'}</TD>
@@ -263,10 +263,10 @@ function EditEmailTemplateModal({ template, onClose, onSaved }) {
           onClick={() => fileInputRef.current?.click()}
         >
           <div className="text-2xl mb-1">{dragOver ? '📥' : '📄'}</div>
-          <div className="text-xs font-bold" style={{ color: '#4a6357' }}>
+          <div className="text-sm font-bold" style={{ color: '#1a2e22' }}>
             Přetáhněte HTML soubor sem nebo klikněte pro výběr
           </div>
-          <div className="text-[10px] mt-1" style={{ color: '#8aab99' }}>Podporované formáty: .html, .htm</div>
+          <div className="text-sm mt-1" style={{ color: '#1a2e22' }}>Podporované formáty: .html, .htm</div>
           <input ref={fileInputRef} type="file" accept=".html,.htm" onChange={handleFileDrop} className="hidden" />
         </div>
 
@@ -278,7 +278,7 @@ function EditEmailTemplateModal({ template, onClose, onSaved }) {
         </div>
         {vars.length > 0 && (
           <div>
-            <span className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>Vložit proměnnou:</span>
+            <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Vložit proměnnou:</span>
             <div className="flex flex-wrap gap-1 mt-1">
               {vars.map(v => (
                 <button key={v} onClick={() => insertVariable(v)}
@@ -292,7 +292,7 @@ function EditEmailTemplateModal({ template, onClose, onSaved }) {
         )}
         <div className="flex items-center gap-2">
           <input type="checkbox" checked={active} onChange={e => setActive(e.target.checked)} id="tpl-active" />
-          <label htmlFor="tpl-active" className="text-xs font-bold" style={{ color: '#4a6357' }}>Aktivní</label>
+          <label htmlFor="tpl-active" className="text-sm font-bold" style={{ color: '#1a2e22' }}>Aktivní</label>
         </div>
       </div>
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}
@@ -309,7 +309,7 @@ function EditEmailTemplateModal({ template, onClose, onSaved }) {
 
       {showPreview && (
         <Modal open title="Náhled e-mailu" onClose={() => setShowPreview(false)} wide>
-          <div className="text-xs font-bold mb-2" style={{ color: '#8aab99' }}>
+          <div className="text-sm font-bold mb-2" style={{ color: '#1a2e22' }}>
             Předmět: {subject.replace(/\{\{(\w+)\}\}/g, (_, k) => SAMPLE_VARS[k] || `{{${k}}}`)}
           </div>
           <div className="rounded-card" style={{ padding: 16, background: '#fff', border: '1px solid #d4e8e0', maxHeight: 500, overflow: 'auto' }}
@@ -323,5 +323,5 @@ function EditEmailTemplateModal({ template, onClose, onSaved }) {
 
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
 function Label({ children }) {
-  return <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{children}</label>
+  return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>
 }

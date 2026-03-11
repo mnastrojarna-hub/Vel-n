@@ -27,19 +27,19 @@ export default function Placeholder() {
       <h2 className="text-xl font-black mb-2" style={{ color: '#0f1a14' }}>
         {module.title}
       </h2>
-      <p className="text-[13px] font-medium mb-5" style={{ color: '#8aab99' }}>
+      <p className="text-[13px] font-medium mb-5" style={{ color: '#1a2e22' }}>
         Modul připravený pro backend
       </p>
       <div className="flex flex-wrap gap-2 justify-center">
         {module.features.map((f, i) => (
           <div
             key={i}
-            className="text-xs font-bold"
+            className="text-sm font-bold"
             style={{
               padding: '7px 16px',
               background: '#f1faf7',
               borderRadius: 50,
-              color: '#4a6357',
+              color: '#1a2e22',
               border: '1px solid #d4e8e0',
             }}
           >

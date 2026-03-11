@@ -57,7 +57,7 @@ export default function CompanyTab() {
         <div className="space-y-3">
           {FIELDS.map(f => (
             <div key={f.key}>
-              <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{f.label}</label>
+              <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{f.label}</label>
               <input value={values[f.key] || ''} onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))}
                 className="w-full rounded-btn text-sm outline-none"
                 style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />

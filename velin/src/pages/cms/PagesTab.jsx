@@ -48,7 +48,7 @@ export default function PagesTab() {
                 <TD bold>{p.title}</TD>
                 <TD mono>{p.slug}</TD>
                 <TD>
-                  <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase"
+                  <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
                     style={{
                       padding: '4px 10px',
                       background: p.published ? '#dcfce7' : '#fef3c7',
@@ -59,8 +59,8 @@ export default function PagesTab() {
                 </TD>
                 <TD>{p.updated_at ? new Date(p.updated_at).toLocaleDateString('cs-CZ') : '—'}</TD>
                 <TD>
-                  <button onClick={() => setEditing(p)} className="rounded-btn text-[10px] font-extrabold uppercase tracking-wide cursor-pointer"
-                    style={{ padding: '3px 8px', background: '#f1faf7', color: '#4a6357', border: 'none' }}>
+                  <button onClick={() => setEditing(p)} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+                    style={{ padding: '3px 8px', background: '#f1faf7', color: '#1a2e22', border: 'none' }}>
                     Upravit
                   </button>
                 </TD>
@@ -139,5 +139,5 @@ function PageModal({ entry, onClose, onSaved }) {
 
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
 function Label({ children }) {
-  return <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{children}</label>
+  return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>
 }

@@ -28,9 +28,9 @@ const TYPE_CATEGORY = {
   breakdown_minor: { label: 'PORUCHA', bg: '#fef3c7', color: '#b45309' },
   breakdown_major: { label: 'PORUCHA', bg: '#b45309', color: '#fff' },
   breakdown:       { label: 'PORUCHA', bg: '#b45309', color: '#fff' },
-  defect_question: { label: 'ZÁVADA',  bg: '#f1faf7', color: '#4a6357' },
+  defect_question: { label: 'ZÁVADA',  bg: '#f1faf7', color: '#1a2e22' },
   location_share:  { label: 'POLOHA',  bg: '#dbeafe', color: '#2563eb' },
-  other:           { label: 'JINÉ',    bg: '#f3f4f6', color: '#6b7280' },
+  other:           { label: 'JINÉ',    bg: '#f3f4f6', color: '#1a2e22' },
 }
 
 export const TYPE_ICONS = {
@@ -50,7 +50,7 @@ export const SEVERITY_MAP = {
   critical: { label: 'Kritické', bg: '#7f1d1d', color: '#fff', border: '#dc2626' },
   high: { label: 'Vysoká', bg: '#fee2e2', color: '#dc2626', border: '#dc2626' },
   medium: { label: 'Střední', bg: '#fef3c7', color: '#b45309', border: '#f59e0b' },
-  low: { label: 'Nízká', bg: '#f1faf7', color: '#4a6357', border: '#d4e8e0' },
+  low: { label: 'Nízká', bg: '#f1faf7', color: '#1a2e22', border: '#d4e8e0' },
 }
 
 export const STATUS_COLORS = {
@@ -58,7 +58,7 @@ export const STATUS_COLORS = {
   acknowledged: { bg: '#fef3c7', color: '#b45309', label: 'Potvrzeno' },
   in_progress: { bg: '#dbeafe', color: '#2563eb', label: 'Řeší se' },
   resolved: { bg: '#dcfce7', color: '#1a8a18', label: 'Vyřešeno' },
-  closed: { bg: '#f3f4f6', color: '#6b7280', label: 'Uzavřeno' },
+  closed: { bg: '#f3f4f6', color: '#1a2e22', label: 'Uzavřeno' },
 }
 
 const DECISION_LABELS = {
@@ -348,7 +348,7 @@ export default function SOSPanel() {
   return (
     <>
     {/* DIAGNOSTIKA */}
-    <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+    <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
       <strong>DIAGNOSTIKA SOSPanel</strong><br/>
       <div>incidents total: {incidents.length}, active: {active.length}, resolved: {resolved.length}</div>
       <div>critical/high: {critical.length}, pendingApproval: {pendingApproval.length}, pendingPayment: {pendingPayment.length}</div>
@@ -369,25 +369,25 @@ export default function SOSPanel() {
               <span className="text-xl font-black" style={{ color: active.length > 0 ? '#dc2626' : '#1a8a18' }}>
                 {active.length}
               </span>
-              <span className="text-sm font-bold" style={{ color: '#4a6357' }}>aktivních</span>
+              <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>aktivních</span>
             </div>
 
             {critical.length > 0 && (
-              <span className="text-[10px] font-extrabold uppercase tracking-wide px-3 py-1 rounded-btn animate-pulse"
+              <span className="text-sm font-extrabold uppercase tracking-wide px-3 py-1 rounded-btn animate-pulse"
                 style={{ background: '#7f1d1d', color: '#fff' }}>
                 {critical.length} kritických!
               </span>
             )}
 
             {pendingApproval.length > 0 && (
-              <span className="text-[10px] font-extrabold uppercase tracking-wide px-3 py-1 rounded-btn animate-pulse"
+              <span className="text-sm font-extrabold uppercase tracking-wide px-3 py-1 rounded-btn animate-pulse"
                 style={{ background: '#dc2626', color: '#fff' }}>
                 {pendingApproval.length}x SCHVÁLIT MOTORKU
               </span>
             )}
 
             {pendingPayment.length > 0 && (
-              <span className="text-[10px] font-extrabold uppercase tracking-wide px-3 py-1 rounded-btn"
+              <span className="text-sm font-extrabold uppercase tracking-wide px-3 py-1 rounded-btn"
                 style={{ background: '#fef3c7', color: '#b45309' }}>
                 {pendingPayment.length}x čeká na platbu
               </span>
@@ -395,11 +395,11 @@ export default function SOSPanel() {
 
             <div className="ml-auto">
               {!notifyEnabled ? (
-                <Button onClick={enableNotifications} style={{ background: '#fef3c7', color: '#92400e', fontSize: 11 }}>
+                <Button onClick={enableNotifications} style={{ background: '#fef3c7', color: '#92400e', fontSize: 13 }}>
                   Zapnout notifikace
                 </Button>
               ) : (
-                <span className="text-[10px] font-bold px-3 py-1 rounded-btn" style={{ background: '#dcfce7', color: '#1a8a18' }}>
+                <span className="text-sm font-bold px-3 py-1 rounded-btn" style={{ background: '#dcfce7', color: '#1a8a18' }}>
                   Notifikace ON
                 </span>
               )}
@@ -415,11 +415,11 @@ export default function SOSPanel() {
               { key: 'all', label: 'Vše', count: incidents.length },
             ].map(f => (
               <button key={f.key} onClick={() => { setFilter(f.key); setSelectedIncident(null) }}
-                className="rounded-btn text-[10px] font-extrabold uppercase tracking-wide cursor-pointer border-none"
+                className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none"
                 style={{
                   padding: '5px 12px',
                   background: filter === f.key ? '#1a2e22' : '#f1faf7',
-                  color: filter === f.key ? '#74FB71' : '#4a6357',
+                  color: filter === f.key ? '#74FB71' : '#1a2e22',
                 }}>
                 {f.label} ({f.count})
               </button>
@@ -434,11 +434,11 @@ export default function SOSPanel() {
                 : baseList.length
               return (
                 <button key={f.key} onClick={() => { setSeverityFilter(f.key); setSubFilter('all') }}
-                  className="rounded-btn text-[10px] font-extrabold uppercase tracking-wide cursor-pointer border-none"
+                  className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none"
                   style={{
                     padding: '5px 10px',
                     background: severityFilter === f.key ? '#1a2e22' : '#f1faf7',
-                    color: severityFilter === f.key ? '#74FB71' : '#4a6357',
+                    color: severityFilter === f.key ? '#74FB71' : '#1a2e22',
                   }}>
                   {f.icon} {f.label} {count > 0 ? `(${count})` : ''}
                 </button>
@@ -449,7 +449,7 @@ export default function SOSPanel() {
           {/* Sub-filtry pro nehody/poruchy */}
           {SUB_FILTERS[severityFilter] && (
             <div className="flex items-center gap-1 mt-2 flex-wrap">
-              <span className="text-[9px] font-bold uppercase tracking-wide mr-1" style={{ color: '#8aab99' }}>Filtr:</span>
+              <span className="text-[9px] font-bold uppercase tracking-wide mr-1" style={{ color: '#1a2e22' }}>Filtr:</span>
               {SUB_FILTERS[severityFilter].map(sf => {
                 const sfCount = sf.types
                   ? baseList.filter(i => sf.types.includes(i.type)).length
@@ -461,8 +461,8 @@ export default function SOSPanel() {
                     className="rounded-btn text-[9px] font-extrabold uppercase tracking-wide cursor-pointer border-none"
                     style={{
                       padding: '3px 8px',
-                      background: subFilter === sf.key ? '#4a6357' : '#f8fcfa',
-                      color: subFilter === sf.key ? '#fff' : '#4a6357',
+                      background: subFilter === sf.key ? '#1a2e22' : '#f8fcfa',
+                      color: subFilter === sf.key ? '#fff' : '#1a2e22',
                       border: '1px solid #d4e8e0',
                     }}>
                     {sf.label} {sfCount > 0 ? `(${sfCount})` : ''}
@@ -517,7 +517,7 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
   const moto = inc.bookings?.motorcycles || inc.motorcycles
   const typeLabel = TYPE_LABELS[inc.type] || inc.type || 'Incident'
   const typeIcon = TYPE_ICONS[inc.type] || '⚠️'
-  const typeCat = TYPE_CATEGORY[inc.type] || { label: 'SOS', bg: '#f3f4f6', color: '#6b7280' }
+  const typeCat = TYPE_CATEGORY[inc.type] || { label: 'SOS', bg: '#f3f4f6', color: '#1a2e22' }
   const displayTitle = inc.title || typeLabel
   const isActive = !['resolved', 'closed'].includes(inc.status)
   const isAccident = inc.type?.startsWith('accident')
@@ -554,7 +554,7 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
             </div>
 
             {inc.title && (
-              <div className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>
+              <div className="text-sm font-bold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>
                 {typeLabel}
               </div>
             )}
@@ -563,14 +563,14 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
             {(isAccident || inc.type?.startsWith('breakdown') || inc.type === 'theft') && (
               <div className="flex flex-wrap gap-2 mb-2">
                 {/* Zavinění */}
-                <span className="inline-flex items-center gap-1 rounded-btn text-[10px] font-extrabold px-2 py-0.5" style={{
+                <span className="inline-flex items-center gap-1 rounded-btn text-sm font-extrabold px-2 py-0.5" style={{
                   background: inc.customer_fault === true ? '#fee2e2' : inc.customer_fault === false ? '#dcfce7' : '#f3f4f6',
                   color: inc.customer_fault === true ? '#dc2626' : inc.customer_fault === false ? '#1a8a18' : '#9ca3af',
                 }}>
                   {inc.customer_fault === true ? 'Zavinil zákazník' : inc.customer_fault === false ? 'Cizí zavinění' : 'Zavinění: nezjištěno'}
                 </span>
                 {/* Pojízdnost */}
-                <span className="inline-flex items-center gap-1 rounded-btn text-[10px] font-extrabold px-2 py-0.5" style={{
+                <span className="inline-flex items-center gap-1 rounded-btn text-sm font-extrabold px-2 py-0.5" style={{
                   background: inc.moto_rideable === true ? '#dcfce7' : inc.moto_rideable === false ? '#fee2e2' : '#f3f4f6',
                   color: inc.moto_rideable === true ? '#1a8a18' : inc.moto_rideable === false ? '#dc2626' : '#9ca3af',
                 }}>
@@ -581,8 +581,8 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
 
             {/* Popis */}
             {inc.description && (
-              <div className="text-xs mb-2 rounded-lg" style={{
-                padding: '6px 10px', background: '#f8fcfa', color: '#4a6357',
+              <div className="text-sm mb-2 rounded-lg" style={{
+                padding: '6px 10px', background: '#f8fcfa', color: '#1a2e22',
                 borderLeft: `3px solid ${isHeavy ? '#dc2626' : '#d4e8e0'}`, lineHeight: 1.5,
               }}>
                 {inc.description.length > 150 ? inc.description.slice(0, 150) + '…' : inc.description}
@@ -591,7 +591,7 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
 
             {/* Poznámky admina – viditelné na první pohled */}
             {inc.admin_notes && (
-              <div className="text-xs mb-2 rounded-lg" style={{
+              <div className="text-sm mb-2 rounded-lg" style={{
                 padding: '6px 10px', background: '#fffbeb', color: '#92400e',
                 borderLeft: '3px solid #fbbf24', lineHeight: 1.5,
               }}>
@@ -602,7 +602,7 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
 
             {/* Rozhodnutí zákazníka */}
             {inc.customer_decision && (
-              <div className="text-xs font-bold mb-2 rounded-lg" style={{
+              <div className="text-sm font-bold mb-2 rounded-lg" style={{
                 padding: '4px 10px', display: 'inline-block',
                 background: inc.customer_decision === 'replacement_moto' ? '#dbeafe' :
                   inc.customer_decision === 'end_ride' ? '#fee2e2' : '#fef3c7',
@@ -628,11 +628,11 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
                   inc.replacement_status === 'pending_payment' ? '2px solid #f59e0b' : 'none',
                 animation: inc.replacement_status === 'admin_review' ? 'pulse 2s infinite' : 'none',
               }}>
-                <div className="text-[10px] font-extrabold uppercase tracking-wide" style={{
+                <div className="text-sm font-extrabold uppercase tracking-wide" style={{
                   color: inc.replacement_status === 'admin_review' ? '#dc2626' :
                     inc.replacement_status === 'pending_payment' ? '#b45309' :
                     inc.replacement_status === 'approved' ? '#1a8a18' :
-                    inc.replacement_status === 'dispatched' ? '#2563eb' : '#4a6357',
+                    inc.replacement_status === 'dispatched' ? '#2563eb' : '#1a2e22',
                 }}>
                   {inc.replacement_status === 'admin_review' && '⚠️ ČEKÁ NA SCHVÁLENÍ'}
                   {inc.replacement_status === 'pending_payment' && '💳 ČEKÁ NA PLATBU ZÁKAZNÍKA'}
@@ -644,7 +644,7 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
                   {inc.replacement_status === 'rejected' && '❌ Zamítnuto'}
                 </div>
                 {inc.replacement_data?.replacement_model && (
-                  <div className="text-[10px] font-bold mt-1" style={{ color: '#4a6357' }}>
+                  <div className="text-sm font-bold mt-1" style={{ color: '#1a2e22' }}>
                     {inc.replacement_data.replacement_model}
                     {inc.replacement_data.payment_amount > 0 && ` · ${Number(inc.replacement_data.payment_amount).toLocaleString('cs-CZ')} Kč`}
                     {inc.replacement_data.payment_status === 'free' && ' · zdarma'}
@@ -657,32 +657,32 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
             )}
 
             {/* Info grid */}
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mt-1">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm mt-1">
               <div>
-                <span style={{ color: '#8aab99' }}>Zákazník: </span>
+                <span style={{ color: '#1a2e22' }}>Zákazník: </span>
                 <b style={{ color: '#0f1a14' }}>{inc.profiles?.full_name || '—'}</b>
               </div>
               <div>
-                <span style={{ color: '#8aab99' }}>Telefon: </span>
+                <span style={{ color: '#1a2e22' }}>Telefon: </span>
                 <b style={{ color: '#0f1a14' }}>{inc.contact_phone || inc.profiles?.phone || '—'}</b>
               </div>
               <div>
-                <span style={{ color: '#8aab99' }}>Motorka: </span>
+                <span style={{ color: '#1a2e22' }}>Motorka: </span>
                 <b style={{ color: '#0f1a14' }}>{moto?.model || '—'} {moto?.spz ? `(${moto.spz})` : ''}</b>
               </div>
               <div>
-                <span style={{ color: '#8aab99' }}>Nahlášeno: </span>
+                <span style={{ color: '#1a2e22' }}>Nahlášeno: </span>
                 <b style={{ color: '#0f1a14' }}>{formatTimeAgo(inc.created_at)}</b>
               </div>
               {(inc.address || (inc.latitude && inc.longitude)) && (
                 <div className="col-span-2">
-                  <span style={{ color: '#8aab99' }}>Poloha: </span>
+                  <span style={{ color: '#1a2e22' }}>Poloha: </span>
                   <b style={{ color: '#1a8a18' }}>{inc.address || `${Number(inc.latitude).toFixed(4)}, ${Number(inc.longitude).toFixed(4)}`}</b>
                   {inc.latitude && inc.longitude && (
                     <a href={`https://www.google.com/maps?q=${inc.latitude},${inc.longitude}`}
                       target="_blank" rel="noopener noreferrer"
                       onClick={e => e.stopPropagation()}
-                      className="inline-flex items-center gap-1 ml-2 text-[10px] font-bold px-2 py-0.5 rounded-btn"
+                      className="inline-flex items-center gap-1 ml-2 text-sm font-bold px-2 py-0.5 rounded-btn"
                       style={{ background: '#dbeafe', color: '#2563eb', textDecoration: 'none' }}>
                       Otevřít mapu
                     </a>
@@ -694,8 +694,8 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
                   <a href={`https://mapy.cz/zakladni?q=${inc.latitude},${inc.longitude}`}
                     target="_blank" rel="noopener noreferrer"
                     onClick={e => e.stopPropagation()}
-                    className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-btn"
-                    style={{ background: '#f1faf7', color: '#4a6357', textDecoration: 'none' }}>
+                    className="inline-flex items-center gap-1 text-sm font-bold px-2 py-0.5 rounded-btn"
+                    style={{ background: '#f1faf7', color: '#1a2e22', textDecoration: 'none' }}>
                     Mapy.cz
                   </a>
                 </div>
@@ -709,8 +709,8 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
                   <img key={i} src={photo} alt="" className="rounded object-cover" style={{ width: 36, height: 36 }} />
                 ))}
                 {inc.photos.length > 3 && (
-                  <span className="flex items-center justify-center rounded text-[10px] font-bold"
-                    style={{ width: 36, height: 36, background: '#f1faf7', color: '#8aab99' }}>
+                  <span className="flex items-center justify-center rounded text-sm font-bold"
+                    style={{ width: 36, height: 36, background: '#f1faf7', color: '#1a2e22' }}>
                     +{inc.photos.length - 3}
                   </span>
                 )}
@@ -730,21 +730,21 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
                 {/* Akce specifické dle typu */}
                 {(inc.type === 'accident_major' || inc.type === 'breakdown_major') && (
                   <>
-                    <ActionBtn label="Odeslat odtah" color="#4a6357" bg="#f1faf7" onClick={() => onAddTimeline(inc.id, 'Odtahová služba kontaktována a odeslána na místo')} />
+                    <ActionBtn label="Odeslat odtah" color="#1a2e22" bg="#f1faf7" onClick={() => onAddTimeline(inc.id, 'Odtahová služba kontaktována a odeslána na místo')} />
                     <ActionBtn label="Přistavit náhr. moto" color="#2563eb" bg="#dbeafe" onClick={() => onAddTimeline(inc.id, 'Náhradní motorka připravena k přistavení')} />
                   </>
                 )}
                 {(inc.type === 'breakdown_minor' || inc.type === 'defect_question') && (
-                  <ActionBtn label="Navigovat na servis" color="#4a6357" bg="#f1faf7" onClick={() => onAddTimeline(inc.id, 'Zákazník navigován na nejbližší servis')} />
+                  <ActionBtn label="Navigovat na servis" color="#1a2e22" bg="#f1faf7" onClick={() => onAddTimeline(inc.id, 'Zákazník navigován na nejbližší servis')} />
                 )}
                 {inc.type === 'theft' && (
                   <ActionBtn label="Policie kontaktována" color="#dc2626" bg="#fee2e2" onClick={() => onAddTimeline(inc.id, 'Policie ČR kontaktována, číslo případu zaznamenáno')} />
                 )}
                 {(inc.type === 'accident_major' || inc.type === 'accident_minor') && (
-                  <ActionBtn label="Kontaktovat pojišťovnu" color="#4a6357" bg="#f1faf7" onClick={() => onAddTimeline(inc.id, 'Pojišťovna kontaktována, hlášena škodná událost')} />
+                  <ActionBtn label="Kontaktovat pojišťovnu" color="#1a2e22" bg="#f1faf7" onClick={() => onAddTimeline(inc.id, 'Pojišťovna kontaktována, hlášena škodná událost')} />
                 )}
 
-                <ActionBtn label="Zákazník kontaktován" color="#4a6357" bg="#f1faf7" onClick={() => onAddTimeline(inc.id, 'Zákazník telefonicky kontaktován')} />
+                <ActionBtn label="Zákazník kontaktován" color="#1a2e22" bg="#f1faf7" onClick={() => onAddTimeline(inc.id, 'Zákazník telefonicky kontaktován')} />
                 <ActionBtn label="Vyřešeno" color="#1a8a18" bg="#dcfce7" onClick={() => onUpdateStatus(inc.id, 'resolved')} />
               </div>
             )}
@@ -757,7 +757,7 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
 
 function ActionBtn({ label, color, bg, onClick }) {
   return (
-    <button onClick={onClick} className="rounded-btn text-[10px] font-extrabold uppercase tracking-wide cursor-pointer"
+    <button onClick={onClick} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
       style={{ padding: '5px 12px', background: bg, color, border: 'none' }}>
       {label}
     </button>

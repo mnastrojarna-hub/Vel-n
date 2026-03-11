@@ -58,11 +58,11 @@ export default function TemplatesTab() {
       <div className="flex items-center gap-3 mb-4">
         <input type="text" value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Hledat šablonu…"
-          className="rounded-btn text-xs outline-none"
-          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357', minWidth: 200 }} />
+          className="rounded-btn text-sm outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22', minWidth: 200 }} />
       </div>
       {filtered.length === 0 ? (
-        <Card><p style={{ color: '#8aab99', fontSize: 13 }}>Žádné šablony</p></Card>
+        <Card><p style={{ color: '#1a2e22', fontSize: 13 }}>Žádné šablony</p></Card>
       ) : (
         <div className="grid grid-cols-2 gap-4">
           {filtered.map(t => (
@@ -70,20 +70,20 @@ export default function TemplatesTab() {
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <h4 className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{t.name}</h4>
-                  <span className="text-[10px] font-bold" style={{ color: '#8aab99' }}>v{t.version || 1}</span>
+                  <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>v{t.version || 1}</span>
                 </div>
-                <span className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>{t.type}</span>
+                <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>{t.type}</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px]" style={{ color: '#8aab99' }}>
+                <span className="text-sm" style={{ color: '#1a2e22' }}>
                   Proměnné: {extractVars(t.content_html).join(', ') || '—'}
                 </span>
               </div>
               <div className="flex items-center gap-2 mt-3">
-                <Button onClick={() => setEditing(t)} style={{ padding: '4px 14px', fontSize: 10 }}>
+                <Button onClick={() => setEditing(t)} style={{ padding: '4px 14px', fontSize: 13 }}>
                   Upravit
                 </Button>
-                <Button onClick={() => setRegenerate(t)} style={{ padding: '4px 14px', fontSize: 10 }}>
+                <Button onClick={() => setRegenerate(t)} style={{ padding: '4px 14px', fontSize: 13 }}>
                   Znovu vygenerovat
                 </Button>
               </div>
@@ -183,7 +183,7 @@ function EditTemplateModal({ template, onClose, onSaved }) {
             className="w-full rounded-btn text-sm outline-none font-mono"
             style={{ padding: '12px', background: '#f1faf7', border: '1px solid #d4e8e0', minHeight: 300, resize: 'vertical' }} />
         </div>
-        <p className="text-[10px]" style={{ color: '#8aab99' }}>
+        <p className="text-sm" style={{ color: '#1a2e22' }}>
           Proměnné: {extractVars(content).map(v => `{{${v}}}`).join(', ') || 'žádné'}
         </p>
 
@@ -191,8 +191,8 @@ function EditTemplateModal({ template, onClose, onSaved }) {
         <div className="p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
           <Label>PDF šablona</Label>
           <input type="file" accept=".pdf" onChange={handlePdfUpload}
-            className="text-xs" style={{ color: '#4a6357' }} />
-          {uploading && <span className="text-[10px] ml-2" style={{ color: '#8aab99' }}>Nahrávám…</span>}
+            className="text-sm" style={{ color: '#1a2e22' }} />
+          {uploading && <span className="text-sm ml-2" style={{ color: '#1a2e22' }}>Nahrávám…</span>}
         </div>
       </div>
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}
@@ -324,5 +324,5 @@ function RegenerateModal({ template, onClose }) {
 }
 
 function Label({ children }) {
-  return <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{children}</label>
+  return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>
 }

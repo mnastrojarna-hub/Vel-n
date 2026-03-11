@@ -125,7 +125,7 @@ export default function PromoCodes() {
   return (
     <div>
       {/* DIAGNOSTIKA */}
-      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA PromoCodes</strong><br/>
         <div>codes: {codes.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
         <div>summary: total={summary.total}, active={summary.active}, inactive={summary.inactive}, expired={summary.expired}</div>
@@ -206,7 +206,7 @@ export default function PromoCodes() {
                       }
                     </TD>
                     <TD>
-                      <span className="text-xs">
+                      <span className="text-sm">
                         {c.valid_from ? new Date(c.valid_from).toLocaleDateString('cs-CZ') : '—'}
                         {' → '}
                         {c.valid_to ? (
@@ -220,12 +220,12 @@ export default function PromoCodes() {
                       <span style={{ color: isLimitReached ? '#dc2626' : undefined, fontWeight: isLimitReached ? 700 : undefined }}>
                         {c.used_count ?? 0} / {c.max_uses ?? '∞'}
                       </span>
-                      {isLimitReached && <span className="text-[10px] ml-1" style={{ color: '#dc2626' }}>(vyčerpáno)</span>}
+                      {isLimitReached && <span className="text-sm ml-1" style={{ color: '#dc2626' }}>(vyčerpáno)</span>}
                     </TD>
                     <TD>
                       <button
                         onClick={() => toggleStatus(c)}
-                        className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase cursor-pointer"
+                        className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase cursor-pointer"
                         style={{
                           padding: '4px 10px',
                           background: isActive ? '#dcfce7' : isExpired ? '#fee2e2' : '#f3f4f6',
@@ -350,7 +350,7 @@ function PromoModal({ existing, onClose, onSaved }) {
             placeholder="LETO2026"
             disabled={isEdit}
           />
-          {isEdit && <span className="text-[10px]" style={{ color: '#8aab99' }}>Kód nelze měnit po vytvoření</span>}
+          {isEdit && <span className="text-sm" style={{ color: '#1a2e22' }}>Kód nelze měnit po vytvoření</span>}
         </div>
         <div>
           <Label>Typ slevy</Label>
@@ -386,7 +386,7 @@ function PromoModal({ existing, onClose, onSaved }) {
 
       {isEdit && existing.used_count > 0 && (
         <div className="mt-3 p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-          <span className="text-xs font-bold" style={{ color: '#4a6357' }}>
+          <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>
             Tento kód byl použit {existing.used_count}× z {existing.max_uses ?? '∞'} povolených.
           </span>
         </div>
@@ -406,7 +406,7 @@ function PromoModal({ existing, onClose, onSaved }) {
 function SummaryCard({ label, value, color }) {
   return (
     <Card>
-      <div className="text-[10px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#8aab99' }}>{label}</div>
+      <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>{label}</div>
       <div className="text-xl font-extrabold" style={{ color }}>{value}</div>
     </Card>
   )
@@ -415,7 +415,7 @@ function SummaryCard({ label, value, color }) {
 function DetailRow({ label, value, mono }) {
   return (
     <div>
-      <div className="text-[10px] font-extrabold uppercase tracking-wide mb-0.5" style={{ color: '#8aab99' }}>{label}</div>
+      <div className="text-sm font-extrabold uppercase tracking-wide mb-0.5" style={{ color: '#1a2e22' }}>{label}</div>
       <div className={`text-sm font-semibold ${mono ? 'font-mono' : ''}`} style={{ color: '#0f1a14' }}>{value ?? '—'}</div>
     </div>
   )
@@ -451,17 +451,17 @@ function PromoDetailModal({ code, onClose, onEdit }) {
 
       {/* Historie pouziti */}
       <div className="mt-5">
-        <h4 className="text-[10px] font-extrabold uppercase tracking-widest mb-3" style={{ color: '#8aab99' }}>Historie pouziti</h4>
+        <h4 className="text-sm font-extrabold uppercase tracking-widest mb-3" style={{ color: '#1a2e22' }}>Historie pouziti</h4>
         {loadingUsage ? (
-          <div className="text-xs" style={{ color: '#8aab99' }}>Nacitam...</div>
+          <div className="text-sm" style={{ color: '#1a2e22' }}>Nacitam...</div>
         ) : usage.length === 0 ? (
-          <div className="text-xs" style={{ color: '#8aab99' }}>Zatim nepouzito</div>
+          <div className="text-sm" style={{ color: '#1a2e22' }}>Zatim nepouzito</div>
         ) : (
           <div className="space-y-2 max-h-48 overflow-auto">
             {usage.map(u => (
-              <div key={u.id} className="flex items-center gap-3 p-2 rounded-lg text-xs" style={{ background: '#f1faf7' }}>
+              <div key={u.id} className="flex items-center gap-3 p-2 rounded-lg text-sm" style={{ background: '#f1faf7' }}>
                 <span className="font-bold">{u.profiles?.full_name || u.profiles?.email || 'Neznamy'}</span>
-                <span style={{ color: '#8aab99' }}>{u.used_at ? new Date(u.used_at).toLocaleString('cs-CZ') : ''}</span>
+                <span style={{ color: '#1a2e22' }}>{u.used_at ? new Date(u.used_at).toLocaleString('cs-CZ') : ''}</span>
                 <span className="ml-auto font-bold" style={{ color: '#1a8a18' }}>-{u.discount_applied?.toLocaleString('cs-CZ')} Kc</span>
               </div>
             ))}
@@ -481,7 +481,7 @@ function ActionBtn({ children, color, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="text-[10px] font-bold cursor-pointer"
+      className="text-sm font-bold cursor-pointer"
       style={{ color, background: 'none', border: 'none', padding: '4px 6px' }}
     >
       {children}
@@ -492,8 +492,8 @@ function ActionBtn({ children, color, onClick }) {
 function FilterSelect({ value, onChange, options }) {
   return (
     <select value={value} onChange={e => onChange(e.target.value)}
-      className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
-      style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+      className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+      style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
   )
@@ -501,5 +501,5 @@ function FilterSelect({ value, onChange, options }) {
 
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
 function Label({ children }) {
-  return <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{children}</label>
+  return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>
 }

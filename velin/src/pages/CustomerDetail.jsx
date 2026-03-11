@@ -157,17 +157,17 @@ export default function CustomerDetail() {
 
   if (loading) return <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
   if (error && !customer) return <div className="p-4 rounded-card" style={{ background: '#fee2e2', color: '#dc2626' }}>{error}</div>
-  if (!customer) return <div className="p-4" style={{ color: '#8aab99' }}>Zákazník nenalezen</div>
+  if (!customer) return <div className="p-4" style={{ color: '#1a2e22' }}>Zákazník nenalezen</div>
 
   const score = customer.reliability_score
 
   return (
     <div>
       <div className="flex items-center gap-3 mb-5">
-        <button onClick={() => navigate('/zakaznici')} className="cursor-pointer" style={{ background: 'none', border: 'none', fontSize: 18, color: '#8aab99' }}>←</button>
+        <button onClick={() => navigate('/zakaznici')} className="cursor-pointer" style={{ background: 'none', border: 'none', fontSize: 18, color: '#1a2e22' }}>←</button>
         <h2 className="font-extrabold text-lg" style={{ color: '#0f1a14' }}>{customer.full_name || 'Zákazník'}</h2>
         {score && (
-          <span className="rounded-btn text-[10px] font-extrabold uppercase tracking-wide" style={{ padding: '4px 12px', background: getScoreColor(score).bg, color: getScoreColor(score).color }}>
+          <span className="rounded-btn text-sm font-extrabold uppercase tracking-wide" style={{ padding: '4px 12px', background: getScoreColor(score).bg, color: getScoreColor(score).color }}>
             Skóre: {typeof score === 'object' ? score.total || '—' : score}
           </span>
         )}
@@ -177,14 +177,14 @@ export default function CustomerDetail() {
       <div className="flex gap-2 mb-4">
         <button
           onClick={() => { setShowResetPw(true); setResetPwMsg(null); setNewPassword(''); setResetPwMode('email') }}
-          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
           style={{ padding: '8px 16px', background: '#fef3c7', color: '#b45309', border: 'none' }}
         >
           Resetovat heslo
         </button>
         <button
           onClick={handleLoginAsCustomer}
-          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
           style={{ padding: '8px 16px', background: '#dbeafe', color: '#1d4ed8', border: 'none' }}
         >
           Prihlasit jako zakaznik
@@ -193,14 +193,14 @@ export default function CustomerDetail() {
 
       <div className="flex gap-2 mb-5">
         {TABS.map(t => (
-          <button key={t} onClick={() => setTab(t)} className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer" style={{ padding: '8px 18px', background: tab === t ? '#74FB71' : '#f1faf7', color: tab === t ? '#1a2e22' : '#4a6357', border: 'none', boxShadow: tab === t ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>
+          <button key={t} onClick={() => setTab(t)} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer" style={{ padding: '8px 18px', background: tab === t ? '#74FB71' : '#f1faf7', color: tab === t ? '#1a2e22' : '#1a2e22', border: 'none', boxShadow: tab === t ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>
             {t}
           </button>
         ))}
       </div>
 
       {/* DIAGNOSTIKA */}
-      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA CustomerDetail (#{id?.slice(-8)})</strong><br/>
         <div>profile: {customer.full_name || '—'} ({customer.email || '—'})</div>
         <div>phone: {customer.phone || '—'}, city: {customer.city || '—'}, country: {customer.country || '—'}</div>
@@ -232,29 +232,29 @@ export default function CustomerDetail() {
             <div className="flex gap-2">
               <button
                 onClick={() => setResetPwMode('email')}
-                className="rounded-btn text-xs font-bold cursor-pointer"
-                style={{ padding: '6px 14px', background: resetPwMode === 'email' ? '#74FB71' : '#f1faf7', color: resetPwMode === 'email' ? '#1a2e22' : '#4a6357', border: 'none' }}
+                className="rounded-btn text-sm font-bold cursor-pointer"
+                style={{ padding: '6px 14px', background: resetPwMode === 'email' ? '#74FB71' : '#f1faf7', color: resetPwMode === 'email' ? '#1a2e22' : '#1a2e22', border: 'none' }}
               >
                 Poslat reset email
               </button>
               <button
                 onClick={() => setResetPwMode('manual')}
-                className="rounded-btn text-xs font-bold cursor-pointer"
-                style={{ padding: '6px 14px', background: resetPwMode === 'manual' ? '#74FB71' : '#f1faf7', color: resetPwMode === 'manual' ? '#1a2e22' : '#4a6357', border: 'none' }}
+                className="rounded-btn text-sm font-bold cursor-pointer"
+                style={{ padding: '6px 14px', background: resetPwMode === 'manual' ? '#74FB71' : '#f1faf7', color: resetPwMode === 'manual' ? '#1a2e22' : '#1a2e22', border: 'none' }}
               >
                 Nastavit heslo rucne
               </button>
             </div>
 
             {resetPwMode === 'email' && (
-              <p className="text-sm" style={{ color: '#4a6357' }}>
+              <p className="text-sm" style={{ color: '#1a2e22' }}>
                 Zakaznikovi bude odeslan email s odkazem pro nastaveni noveho hesla.
               </p>
             )}
 
             {resetPwMode === 'manual' && (
               <div>
-                <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Nove heslo</label>
+                <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Nove heslo</label>
                 <input
                   type="text"
                   value={newPassword}
@@ -339,13 +339,13 @@ function ProfileTab({ customer, set, error, saving, onSave, onDelete }) {
         <SectionTitle>Řidičák a zkušenosti</SectionTitle>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Řidičské skupiny</label>
+            <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Řidičské skupiny</label>
             <div className="flex flex-wrap gap-1">
               {(customer.license_group && customer.license_group.length > 0)
                 ? customer.license_group.map(g => (
                   <Badge key={g} label={g} color="#1a8a18" bg="#dcfce7" />
                 ))
-                : <span style={{ color: '#8aab99', fontSize: 13 }}>—</span>
+                : <span style={{ color: '#1a2e22', fontSize: 13 }}>—</span>
               }
             </div>
           </div>
@@ -408,7 +408,7 @@ function ProfileTab({ customer, set, error, saving, onSave, onDelete }) {
 
 function SectionTitle({ children }) {
   return (
-    <h3 className="text-[10px] font-extrabold uppercase tracking-widest mb-4" style={{ color: '#8aab99' }}>
+    <h3 className="text-sm font-extrabold uppercase tracking-widest mb-4" style={{ color: '#1a2e22' }}>
       {children}
     </h3>
   )
@@ -416,27 +416,27 @@ function SectionTitle({ children }) {
 
 function GearSizes({ gearSizes }) {
   if (!gearSizes || (typeof gearSizes === 'object' && Object.keys(gearSizes).length === 0)) {
-    return <span style={{ color: '#8aab99', fontSize: 13 }}>—</span>
+    return <span style={{ color: '#1a2e22', fontSize: 13 }}>—</span>
   }
   if (typeof gearSizes === 'object' && !Array.isArray(gearSizes)) {
     return (
       <div className="grid grid-cols-2 gap-2">
         {Object.entries(gearSizes).map(([k, v]) => (
           <div key={k} className="flex items-center gap-2 p-2 rounded-lg" style={{ background: '#f1faf7' }}>
-            <span className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>{k}</span>
+            <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>{k}</span>
             <span className="text-sm font-bold" style={{ color: '#0f1a14' }}>{String(v)}</span>
           </div>
         ))}
       </div>
     )
   }
-  return <span className="text-sm" style={{ color: '#4a6357' }}>{JSON.stringify(gearSizes)}</span>
+  return <span className="text-sm" style={{ color: '#1a2e22' }}>{JSON.stringify(gearSizes)}</span>
 }
 
 function Field({ label, value, onChange, type = 'text', disabled = false }) {
   return (
     <div>
-      <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{label}</label>
+      <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</label>
       <input type={type} value={value || ''} onChange={e => onChange?.(e.target.value)} disabled={disabled} className="w-full rounded-btn text-sm outline-none disabled:opacity-50" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
     </div>
   )
@@ -464,14 +464,14 @@ function CustomerBookings({ userId }) {
               style={{ background: '#f1faf7' }} onClick={() => navigate(`/rezervace/${b.id}`)}>
               <div className="flex-1">
                 <span className="font-bold text-sm">{b.motorcycles?.model || '—'}</span>
-                <span className="text-xs font-mono ml-2" style={{ color: '#8aab99' }}>{b.motorcycles?.spz}</span>
-                <span className="text-xs ml-3" style={{ color: '#8aab99' }}>{b.start_date} → {b.end_date}</span>
+                <span className="text-sm font-mono ml-2" style={{ color: '#1a2e22' }}>{b.motorcycles?.spz}</span>
+                <span className="text-sm ml-3" style={{ color: '#1a2e22' }}>{b.start_date} → {b.end_date}</span>
               </div>
               <StatusBadge status={getDisplayStatus(b)} />
               <span className="text-sm font-bold">{b.total_price?.toLocaleString('cs-CZ')} Kč</span>
               {b.motorcycles?.id && (
                 <button onClick={e => { e.stopPropagation(); navigate(`/flotila/${b.motorcycles.id}`) }}
-                  className="text-[10px] font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none' }}>
+                  className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none' }}>
                   → Motorka
                 </button>
               )}
@@ -502,7 +502,7 @@ function CustomerDocuments({ userId }) {
           {docs.map(d => (
             <div key={d.id} className="flex items-center gap-4 p-3 rounded-lg" style={{ background: '#f1faf7' }}>
               <span className="font-bold text-sm">{d.name || d.type || 'Dokument'}</span>
-              <span className="text-xs" style={{ color: '#8aab99' }}>{d.created_at?.slice(0, 10)}</span>
+              <span className="text-sm" style={{ color: '#1a2e22' }}>{d.created_at?.slice(0, 10)}</span>
             </div>
           ))}
         </div>
@@ -531,9 +531,9 @@ function CustomerReviews({ userId }) {
             <div key={r.id} className="p-3 rounded-lg" style={{ background: '#f1faf7' }}>
               <div className="flex items-center gap-2 mb-1">
                 <span className="font-bold text-sm">{'★'.repeat(r.rating || 0)}{'☆'.repeat(5 - (r.rating || 0))}</span>
-                <span className="text-xs" style={{ color: '#8aab99' }}>{r.created_at?.slice(0, 10)}</span>
+                <span className="text-sm" style={{ color: '#1a2e22' }}>{r.created_at?.slice(0, 10)}</span>
               </div>
-              <p className="text-sm" style={{ color: '#4a6357' }}>{r.comment || '—'}</p>
+              <p className="text-sm" style={{ color: '#1a2e22' }}>{r.comment || '—'}</p>
             </div>
           ))}
         </div>
@@ -568,9 +568,9 @@ function CustomerSOS({ userId }) {
             <div key={s.id} className="flex items-center gap-4 p-3 rounded-lg" style={{ background: '#fee2e2' }}>
               <div className="flex-1">
                 <span className="font-bold text-sm" style={{ color: '#dc2626' }}>{s.type || 'SOS'}</span>
-                <span className="text-xs ml-3" style={{ color: '#8aab99' }}>{s.created_at?.slice(0, 16)}</span>
+                <span className="text-sm ml-3" style={{ color: '#1a2e22' }}>{s.created_at?.slice(0, 16)}</span>
               </div>
-              <span className="text-sm" style={{ color: '#4a6357' }}>{s.description || '—'}</span>
+              <span className="text-sm" style={{ color: '#1a2e22' }}>{s.description || '—'}</span>
               <StatusBadge status={s.status || 'pending'} />
             </div>
           ))}
@@ -585,5 +585,5 @@ function LoadingSpinner() {
 }
 
 function EmptyState({ text }) {
-  return <p style={{ color: '#8aab99', fontSize: 13 }}>{text}</p>
+  return <p style={{ color: '#1a2e22', fontSize: 13 }}>{text}</p>
 }

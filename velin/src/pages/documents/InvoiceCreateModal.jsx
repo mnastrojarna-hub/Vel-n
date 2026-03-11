@@ -92,11 +92,11 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
             { value: 'shop_final', label: 'Shop konečná' },
           ].map(t => (
             <button key={t.value} onClick={() => set('type', t.value)}
-              className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
+              className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
               style={{
                 padding: '6px 14px', border: 'none',
                 background: form.type === t.value ? '#74FB71' : '#f1faf7',
-                color: form.type === t.value ? '#1a2e22' : '#4a6357',
+                color: form.type === t.value ? '#1a2e22' : '#1a2e22',
               }}>{t.label}</button>
           ))}
         </div>
@@ -132,10 +132,10 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr style={{ background: '#f1faf7' }}>
-                  <th style={{ padding: '6px 8px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: '#8aab99' }}>Popis</th>
-                  <th style={{ padding: '6px 8px', textAlign: 'center', fontSize: 10, fontWeight: 700, color: '#8aab99', width: 60 }}>Ks</th>
-                  <th style={{ padding: '6px 8px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: '#8aab99', width: 100 }}>Cena/ks</th>
-                  <th style={{ padding: '6px 8px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: '#8aab99', width: 90 }}>Celkem</th>
+                  <th style={{ padding: '6px 8px', textAlign: 'left', fontSize: 13, fontWeight: 700, color: '#1a2e22' }}>Popis</th>
+                  <th style={{ padding: '6px 8px', textAlign: 'center', fontSize: 13, fontWeight: 700, color: '#1a2e22', width: 60 }}>Ks</th>
+                  <th style={{ padding: '6px 8px', textAlign: 'right', fontSize: 13, fontWeight: 700, color: '#1a2e22', width: 100 }}>Cena/ks</th>
+                  <th style={{ padding: '6px 8px', textAlign: 'right', fontSize: 13, fontWeight: 700, color: '#1a2e22', width: 90 }}>Celkem</th>
                   <th style={{ width: 32 }} />
                 </tr>
               </thead>
@@ -169,7 +169,7 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
               </tbody>
             </table>
           </div>
-          <button onClick={addItem} className="mt-2 text-xs font-bold cursor-pointer"
+          <button onClick={addItem} className="mt-2 text-sm font-bold cursor-pointer"
             style={{ background: 'none', border: 'none', color: '#2563eb' }}>+ Přidat položku</button>
         </div>
 
@@ -179,7 +179,7 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
             <div className="flex justify-between py-1 font-bold text-sm" style={{ borderTop: '2px solid #1a8a18', color: '#1a8a18' }}>
               <span>Celkem:</span><span>{fmt(total)}</span>
             </div>
-            <div className="py-1" style={{ color: '#888', fontSize: 10 }}>Cena je konečná — neplátce DPH</div>
+            <div className="py-1" style={{ color: '#1a2e22', fontSize: 13 }}>Cena je konečná — neplátce DPH</div>
           </div>
         </div>
 
@@ -208,5 +208,5 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
 }
 
 function Label({ children }) {
-  return <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{children}</label>
+  return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>
 }

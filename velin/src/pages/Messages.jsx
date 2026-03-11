@@ -81,7 +81,7 @@ export default function Messages() {
   return (
     <>
       {/* DIAGNOSTIKA */}
-      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA Messages</strong><br/>
         <div>selected thread: {selected ? `${selected.id?.slice(-8)} (${selected.profiles?.full_name || selected.customer_id?.slice(-8) || '—'})` : 'žádný'}</div>
         <div>customers loaded: {customers.length}, newThread modal: {String(showNew)}</div>
@@ -103,7 +103,7 @@ export default function Messages() {
       <Modal open={showNew} title="Nová konverzace" onClose={() => setShowNew(false)}>
           <div className="space-y-3">
             <div>
-              <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>
+              <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>
                 Zákazník
               </label>
               <input
@@ -118,7 +118,7 @@ export default function Messages() {
                 value={newCustomerId}
                 onChange={e => setNewCustomerId(e.target.value)}
                 className="w-full rounded-btn text-sm outline-none"
-                style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}
+                style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}
                 size={Math.min(filteredCustomers.length + 1, 6)}
               >
                 <option value="">— Vyberte zákazníka —</option>
@@ -129,7 +129,7 @@ export default function Messages() {
             </div>
 
             <div>
-              <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>
+              <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>
                 Předmět (volitelné)
               </label>
               <input
@@ -143,7 +143,7 @@ export default function Messages() {
             </div>
 
             <div>
-              <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>
+              <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>
                 Zpráva
               </label>
               <textarea

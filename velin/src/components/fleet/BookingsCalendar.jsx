@@ -95,7 +95,7 @@ export default function BookingsCalendar({ motoId }) {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3 }}>
-          {DAYS.map(d => <div key={d} style={{ textAlign: 'center', fontSize: 10, fontWeight: 800, color: '#8aab99', padding: 4 }}>{d}</div>)}
+          {DAYS.map(d => <div key={d} style={{ textAlign: 'center', fontSize: 13, fontWeight: 800, color: '#1a2e22', padding: 4 }}>{d}</div>)}
           {Array.from({ length: firstDayOfWeek }).map((_, i) => <div key={`e${i}`} />)}
           {Array.from({ length: daysInMonth }).map((_, i) => {
             const day = i + 1
@@ -110,7 +110,7 @@ export default function BookingsCalendar({ motoId }) {
           })}
         </div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 14, fontSize: 10, fontWeight: 700 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 14, fontSize: 13, fontWeight: 700 }}>
           <Legend bg="#dcfce7" label="Volno" />
           <Legend bg="#15803d" label="Obsazeno" white />
           <Legend bg="#166534" label="Historie" white />
@@ -124,7 +124,7 @@ export default function BookingsCalendar({ motoId }) {
               <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: '#f1faf7', borderRadius: 10, marginBottom: 4, fontSize: 12 }}>
                 <div>
                   <span style={{ fontWeight: 700 }}>{b.profiles?.full_name || 'Zákazník'}</span>
-                  <span style={{ color: '#8aab99', marginLeft: 8 }}>{b.start_date.split('T')[0]} → {b.end_date.split('T')[0]}</span>
+                  <span style={{ color: '#1a2e22', marginLeft: 8 }}>{b.start_date.split('T')[0]} → {b.end_date.split('T')[0]}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <StatusBadge status={getDisplayStatus(b)} />
@@ -188,22 +188,22 @@ function AddBookingFromCalendar({ motoId, defaultDate, onClose, onSaved }) {
     <Modal open title="Nová rezervace (z kalendáře)" onClose={onClose}>
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2">
-          <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Zákazník</label>
+          <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Zákazník</label>
           <select value={form.user_id} onChange={e => set('user_id', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle}>
             <option value="">— Vyberte zákazníka —</option>
             {customers.map(c => <option key={c.id} value={c.id}>{c.full_name} ({c.email})</option>)}
           </select>
         </div>
         <div>
-          <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Od</label>
+          <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Od</label>
           <input type="date" value={form.start_date} onChange={e => set('start_date', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
         </div>
         <div>
-          <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Do</label>
+          <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Do</label>
           <input type="date" value={form.end_date} onChange={e => set('end_date', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
         </div>
         <div>
-          <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Celková částka (Kč)</label>
+          <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Celková částka (Kč)</label>
           <input type="number" value={form.total_price} onChange={e => set('total_price', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
         </div>
       </div>
@@ -246,7 +246,7 @@ function AddServiceFromCalendar({ motoId, onClose, onSaved }) {
     <Modal open title="Nová servisní událost" onClose={onClose}>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Typ</label>
+          <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Typ</label>
           <select value={form.type} onChange={e => set('type', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle}>
             <option value="regular">Pravidelný servis</option>
             <option value="repair">Oprava</option>
@@ -256,15 +256,15 @@ function AddServiceFromCalendar({ motoId, onClose, onSaved }) {
           </select>
         </div>
         <div>
-          <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Datum</label>
+          <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Datum</label>
           <input type="date" value={form.scheduled_date} onChange={e => set('scheduled_date', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
         </div>
         <div className="col-span-2">
-          <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Popis</label>
+          <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Popis</label>
           <textarea value={form.description} onChange={e => set('description', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} />
         </div>
         <div>
-          <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Odhadované náklady (Kč)</label>
+          <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Odhadované náklady (Kč)</label>
           <input type="number" value={form.cost} onChange={e => set('cost', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
         </div>
       </div>
@@ -281,7 +281,7 @@ function Legend({ bg, label, white, border }) {
   return (
     <span className="flex items-center gap-1">
       <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 3, background: bg, border: border ? '2px solid #d4e8e0' : 'none' }} />
-      <span style={{ color: '#4a6357' }}>{label}</span>
+      <span style={{ color: '#1a2e22' }}>{label}</span>
     </span>
   )
 }

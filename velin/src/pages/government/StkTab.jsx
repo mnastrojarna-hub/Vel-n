@@ -34,7 +34,7 @@ export default function StkTab() {
   }
 
   function daysColor(days) {
-    if (days === null) return '#8aab99'
+    if (days === null) return '#1a2e22'
     if (days < 0) return '#dc2626'
     if (days < 30) return '#dc2626'
     if (days < 90) return '#b45309'

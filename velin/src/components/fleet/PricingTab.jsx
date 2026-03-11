@@ -156,18 +156,18 @@ export default function PricingTab({ motoId }) {
   return (
     <Card>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-[10px] font-extrabold uppercase tracking-widest" style={{ color: '#8aab99' }}>
+        <h3 className="text-sm font-extrabold uppercase tracking-widest" style={{ color: '#1a2e22' }}>
           Ceník podle dne v týdnu
         </h3>
         {hasCatalog && (
           <button onClick={handleFillFromCatalog}
-            className="rounded-btn text-[10px] font-extrabold uppercase cursor-pointer"
+            className="rounded-btn text-sm font-extrabold uppercase cursor-pointer"
             style={{ padding: '5px 12px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>
             Naplnit z katalogu
           </button>
         )}
       </div>
-      <p className="text-xs mb-4" style={{ color: '#4a6357' }}>
+      <p className="text-sm mb-4" style={{ color: '#1a2e22' }}>
         Ceny za den pronájmu. Změny se projeví na všech frontech (web, aplikace).
         {allZero && hasCatalog && <span className="ml-2 font-bold" style={{ color: '#b45309' }}>Ceník je prázdný – klikněte "Naplnit z katalogu" a uložte.</span>}
       </p>
@@ -179,7 +179,7 @@ export default function PricingTab({ motoId }) {
               background: isWeekend ? '#fef3c7' : '#f1faf7',
               border: `1px solid ${isWeekend ? '#fde68a' : '#d4e8e0'}`,
             }}>
-              <span className="text-xs font-extrabold w-20" style={{ color: '#0f1a14' }}>
+              <span className="text-sm font-extrabold w-20" style={{ color: '#0f1a14' }}>
                 {DAY_LABELS[i]}
               </span>
               {isWeekend && (
@@ -195,7 +195,7 @@ export default function PricingTab({ motoId }) {
                   style={{ width: 100, padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0', color: '#0f1a14' }}
                   placeholder="0"
                 />
-                <span className="text-xs font-bold" style={{ color: '#8aab99' }}>Kč</span>
+                <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>Kč</span>
               </div>
             </div>
           )

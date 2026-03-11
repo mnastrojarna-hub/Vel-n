@@ -76,7 +76,7 @@ export default function Inventory() {
       </div>
 
       {/* DIAGNOSTIKA */}
-      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA Inventory</strong><br/>
         <div>items: {items.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
         <div>filtry: search="{filters.search}", category={filters.category || 'vše'}, stock={filters.stock || 'vše'}</div>
@@ -113,7 +113,7 @@ export default function Inventory() {
                     <TD bold color={isLow ? '#dc2626' : '#0f1a14'}>{item.stock ?? 0}</TD>
                     <TD>{item.min_stock ?? 0}</TD>
                     <TD>
-                      <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase"
+                      <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
                         style={{ padding: '4px 10px', background: isLow ? '#fee2e2' : '#dcfce7', color: isLow ? '#dc2626' : '#1a8a18' }}>
                         {isLow ? 'Nízké' : 'OK'}
                       </span>
@@ -138,8 +138,8 @@ export default function Inventory() {
 function FilterSelect({ value, onChange, options }) {
   return (
     <select value={value} onChange={e => onChange(e.target.value)}
-      className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
-      style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+      className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+      style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
   )
@@ -190,7 +190,7 @@ function AddItemModal({ onClose, onSaved }) {
 function FormField({ label, value, onChange, type = 'text' }) {
   return (
     <div>
-      <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{label}</label>
+      <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</label>
       <input type={type} value={value} onChange={e => onChange(e.target.value)}
         className="w-full rounded-btn text-sm outline-none"
         style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />

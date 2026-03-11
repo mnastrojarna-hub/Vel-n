@@ -49,21 +49,21 @@ export default function Service() {
     <div>
       <div className="grid grid-cols-3 gap-4 mb-5">
         <Card>
-          <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Aktivní servisní plány</div>
+          <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Aktivní servisní plány</div>
           <div className="text-xl font-extrabold" style={{ color: '#0f1a14' }}>{fmt(stats.planned)}</div>
         </Card>
         <Card>
-          <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Motorky v servisu</div>
+          <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Motorky v servisu</div>
           <div className="text-xl font-extrabold" style={{ color: '#b45309' }}>{fmt(stats.inService)}</div>
         </Card>
         <Card>
-          <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Ø náklady/servis</div>
+          <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Ø náklady/servis</div>
           <div className="text-xl font-extrabold" style={{ color: '#0f1a14' }}>{fmt(stats.avgCost)} Kč</div>
         </Card>
       </div>
 
       {/* DIAGNOSTIKA */}
-      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA Service</strong><br/>
         <div>planned (this month): {stats.planned}, inService: {stats.inService}, avgCost: {fmt(stats.avgCost)}</div>
         <div>tab: {tab}</div>
@@ -71,8 +71,8 @@ export default function Service() {
 
       <div className="flex gap-2 mb-5">
         {TABS.map(t => (
-          <button key={t} onClick={() => { debugLog('tab.switch', 'Service', { tab: t }); setTab(t) }} className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
-            style={{ padding: '8px 18px', background: tab === t ? '#74FB71' : '#f1faf7', color: tab === t ? '#1a2e22' : '#4a6357', border: 'none', boxShadow: tab === t ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>
+          <button key={t} onClick={() => { debugLog('tab.switch', 'Service', { tab: t }); setTab(t) }} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+            style={{ padding: '8px 18px', background: tab === t ? '#74FB71' : '#f1faf7', color: tab === t ? '#1a2e22' : '#1a2e22', border: 'none', boxShadow: tab === t ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>
             {t}
           </button>
         ))}
@@ -237,21 +237,21 @@ function ActiveServiceTab({ onRefresh }) {
               className="flex items-center gap-4 cursor-pointer select-none"
               onClick={() => toggleExpand(m.id)}
             >
-              <span style={{ color: '#8aab99', fontSize: 14, fontWeight: 700, transition: 'transform .2s', transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>
+              <span style={{ color: '#1a2e22', fontSize: 14, fontWeight: 700, transition: 'transform .2s', transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>
                 ▶
               </span>
               <div className="flex-1">
                 <span className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{m.model}</span>
-                <span className="font-mono text-xs ml-2" style={{ color: '#8aab99' }}>{m.spz}</span>
-                {m.branches?.name && <span className="text-xs ml-3" style={{ color: '#8aab99' }}>{m.branches.name}</span>}
+                <span className="font-mono text-sm ml-2" style={{ color: '#1a2e22' }}>{m.spz}</span>
+                {m.branches?.name && <span className="text-sm ml-3" style={{ color: '#1a2e22' }}>{m.branches.name}</span>}
               </div>
               <StatusBadge status="maintenance" />
               {mLogs.length > 0 && (
-                <span className="text-[10px] font-bold" style={{ color: '#b45309' }}>{mLogs.length} záznam{mLogs.length > 1 ? 'y' : ''}</span>
+                <span className="text-sm font-bold" style={{ color: '#b45309' }}>{mLogs.length} záznam{mLogs.length > 1 ? 'y' : ''}</span>
               )}
               <button
                 onClick={e => { e.stopPropagation(); setActionMoto(m) }}
-                className="rounded-btn text-[10px] font-extrabold uppercase cursor-pointer"
+                className="rounded-btn text-sm font-extrabold uppercase cursor-pointer"
                 style={{ padding: '4px 10px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>
                 Správa
               </button>
@@ -265,20 +265,20 @@ function ActiveServiceTab({ onRefresh }) {
                       <div key={l.id} className="p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
                         <div className="flex items-start gap-3 mb-2">
                           <div className="flex-1">
-                            <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Popis</div>
+                            <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Popis</div>
                             <div className="text-sm" style={{ color: '#0f1a14' }}>{l.description || '—'}</div>
                           </div>
                           <div>
-                            <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Typ</div>
-                            <div className="text-xs" style={{ color: '#4a6357' }}>{l.service_type || l.type || '—'}</div>
+                            <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Typ</div>
+                            <div className="text-sm" style={{ color: '#1a2e22' }}>{l.service_type || l.type || '—'}</div>
                           </div>
                           <div>
-                            <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Vytvořeno</div>
-                            <div className="text-xs" style={{ color: '#4a6357' }}>{l.created_at ? new Date(l.created_at).toLocaleDateString('cs-CZ') : '—'}</div>
+                            <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Vytvořeno</div>
+                            <div className="text-sm" style={{ color: '#1a2e22' }}>{l.created_at ? new Date(l.created_at).toLocaleDateString('cs-CZ') : '—'}</div>
                           </div>
                           <div>
-                            <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Technik</div>
-                            <div className="text-xs" style={{ color: '#4a6357' }}>{l.performed_by || '—'}</div>
+                            <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Technik</div>
+                            <div className="text-sm" style={{ color: '#1a2e22' }}>{l.performed_by || '—'}</div>
                           </div>
                         </div>
                         {/* Edit description */}
@@ -288,14 +288,14 @@ function ActiveServiceTab({ onRefresh }) {
                               value={newDesc[l.id] ?? l.description ?? ''}
                               onChange={e => setNewDesc(d => ({ ...d, [l.id]: e.target.value }))}
                               placeholder="Doplnit popis závady / detaily servisu…"
-                              className="w-full rounded-btn text-xs outline-none"
+                              className="w-full rounded-btn text-sm outline-none"
                               style={{ padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0', minHeight: 40, resize: 'vertical' }}
                             />
                           </div>
                           <Button
                             onClick={() => saveDescription(m.id, l.id)}
                             disabled={savingDesc[l.id]}
-                            style={{ fontSize: 10, padding: '6px 12px' }}
+                            style={{ fontSize: 13, padding: '6px 12px' }}
                           >
                             {savingDesc[l.id] ? 'Ukládám…' : 'Uložit popis'}
                           </Button>
@@ -303,7 +303,7 @@ function ActiveServiceTab({ onRefresh }) {
                             green
                             onClick={() => markCompleted(l)}
                             disabled={endingService[l.id]}
-                            style={{ fontSize: 10, padding: '6px 12px' }}
+                            style={{ fontSize: 13, padding: '6px 12px' }}
                           >
                             {endingService[l.id] ? 'Dokončuji…' : 'Ukončit servis'}
                           </Button>
@@ -313,7 +313,7 @@ function ActiveServiceTab({ onRefresh }) {
                   </div>
                 ) : (
                   <div className="p-3 rounded-lg" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
-                    <div className="text-xs font-bold mb-2" style={{ color: '#b45309' }}>
+                    <div className="text-sm font-bold mb-2" style={{ color: '#b45309' }}>
                       Motorka je ve stavu servis, ale nemá servisní záznam.
                     </div>
                     <div className="flex gap-2 items-end">
@@ -322,14 +322,14 @@ function ActiveServiceTab({ onRefresh }) {
                           value={newDesc[m.id] || ''}
                           onChange={e => setNewDesc(d => ({ ...d, [m.id]: e.target.value }))}
                           placeholder="Popište závadu / důvod servisu…"
-                          className="w-full rounded-btn text-xs outline-none"
+                          className="w-full rounded-btn text-sm outline-none"
                           style={{ padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0', minHeight: 40, resize: 'vertical' }}
                         />
                       </div>
                       <Button
                         onClick={() => saveDescription(m.id, null)}
                         disabled={savingDesc[m.id] || !newDesc[m.id]?.trim()}
-                        style={{ fontSize: 10, padding: '6px 12px' }}
+                        style={{ fontSize: 13, padding: '6px 12px' }}
                       >
                         {savingDesc[m.id] ? 'Ukládám…' : 'Vytvořit záznam'}
                       </Button>
@@ -337,7 +337,7 @@ function ActiveServiceTab({ onRefresh }) {
                         green
                         onClick={() => endServiceDirect(m)}
                         disabled={endingService[m.id]}
-                        style={{ fontSize: 10, padding: '6px 12px' }}
+                        style={{ fontSize: 13, padding: '6px 12px' }}
                       >
                         {endingService[m.id] ? 'Vracím…' : 'Ukončit servis'}
                       </Button>

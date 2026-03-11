@@ -34,7 +34,7 @@ export default function DebugPanel() {
           background: errorCount > 0 ? '#dc2626' : '#1a2e22',
           color: '#fff',
           border: 'none',
-          fontSize: 11,
+          fontSize: 13,
           fontWeight: 800,
           boxShadow: '0 4px 16px rgba(0,0,0,.3)',
         }}
@@ -57,8 +57,8 @@ export default function DebugPanel() {
     >
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2" style={{ borderBottom: '1px solid #1a3a28' }}>
-        <span style={{ color: '#74FB71', fontSize: 11, fontWeight: 800 }}>DEBUG LOG</span>
-        <span style={{ color: '#4a6357', fontSize: 10 }}>{logs.length} zazn.</span>
+        <span style={{ color: '#74FB71', fontSize: 13, fontWeight: 800 }}>DEBUG LOG</span>
+        <span style={{ color: '#1a2e22', fontSize: 13 }}>{logs.length} zazn.</span>
 
         {/* Filters */}
         {['all', 'error', 'success', 'info'].map(f => (
@@ -73,8 +73,8 @@ export default function DebugPanel() {
               textTransform: 'uppercase',
               border: 'none',
               borderRadius: 4,
-              background: filter === f ? (f === 'error' ? '#dc2626' : f === 'success' ? '#1a8a18' : '#4a6357') : 'transparent',
-              color: filter === f ? '#fff' : '#8aab99',
+              background: filter === f ? (f === 'error' ? '#dc2626' : f === 'success' ? '#1a8a18' : '#1a2e22') : 'transparent',
+              color: filter === f ? '#fff' : '#1a2e22',
             }}
           >
             {f === 'all' ? `Vse (${logs.length})` : f === 'error' ? `Err (${logs.filter(l => l.status === 'error').length})` : f === 'success' ? `OK (${logs.filter(l => l.status === 'success').length})` : `Info (${logs.filter(l => l.status === 'info').length})`}
@@ -85,21 +85,21 @@ export default function DebugPanel() {
           <button
             onClick={handleCopy}
             className="cursor-pointer"
-            style={{ padding: '3px 10px', fontSize: 10, fontWeight: 800, background: copied ? '#1a8a18' : '#2563eb', color: '#fff', border: 'none', borderRadius: 4 }}
+            style={{ padding: '3px 10px', fontSize: 13, fontWeight: 800, background: copied ? '#1a8a18' : '#2563eb', color: '#fff', border: 'none', borderRadius: 4 }}
           >
             {copied ? 'Zkopirovano!' : 'Kopirovat log'}
           </button>
           <button
             onClick={() => clearLogBuffer()}
             className="cursor-pointer"
-            style={{ padding: '3px 10px', fontSize: 10, fontWeight: 800, background: '#4a6357', color: '#fff', border: 'none', borderRadius: 4 }}
+            style={{ padding: '3px 10px', fontSize: 13, fontWeight: 800, background: '#1a2e22', color: '#fff', border: 'none', borderRadius: 4 }}
           >
             Smazat
           </button>
           <button
             onClick={() => setOpen(false)}
             className="cursor-pointer"
-            style={{ padding: '3px 10px', fontSize: 10, fontWeight: 800, background: '#dc2626', color: '#fff', border: 'none', borderRadius: 4 }}
+            style={{ padding: '3px 10px', fontSize: 13, fontWeight: 800, background: '#dc2626', color: '#fff', border: 'none', borderRadius: 4 }}
           >
             Zavrit
           </button>
@@ -107,9 +107,9 @@ export default function DebugPanel() {
       </div>
 
       {/* Log entries */}
-      <div ref={logRef} className="flex-1 overflow-auto px-3 py-1" style={{ fontFamily: 'monospace', fontSize: 11, lineHeight: 1.6 }}>
+      <div ref={logRef} className="flex-1 overflow-auto px-3 py-1" style={{ fontFamily: 'monospace', fontSize: 13, lineHeight: 1.6 }}>
         {filtered.length === 0 && (
-          <div style={{ color: '#4a6357', padding: 20, textAlign: 'center' }}>Zadne zaznamy</div>
+          <div style={{ color: '#1a2e22', padding: 20, textAlign: 'center' }}>Zadne zaznamy</div>
         )}
         {filtered.map(e => (
           <LogEntry key={e.id} entry={e} />
@@ -136,15 +136,15 @@ function LogEntry({ entry: e }) {
       }}
     >
       <div className="flex items-center gap-2">
-        <span style={{ color: '#4a6357', minWidth: 55 }}>{time}</span>
+        <span style={{ color: '#1a2e22', minWidth: 55 }}>{time}</span>
         <span style={{ color: statusColor, fontWeight: 800, minWidth: 35 }}>{statusLabel}</span>
-        {e.duration_ms > 0 && <span style={{ color: e.duration_ms > 2000 ? '#f59e0b' : '#4a6357', minWidth: 40 }}>{e.duration_ms}ms</span>}
+        {e.duration_ms > 0 && <span style={{ color: e.duration_ms > 2000 ? '#f59e0b' : '#1a2e22', minWidth: 40 }}>{e.duration_ms}ms</span>}
         <span style={{ color: '#74FB71', minWidth: 100 }}>{e.component || '-'}</span>
         <span style={{ color: '#d4e8e0' }}>{e.action}</span>
         {e.error_message && <span style={{ color: '#ef4444', marginLeft: 8 }}>{e.error_message.slice(0, 60)}</span>}
       </div>
       {expanded && (
-        <div style={{ padding: '4px 0 4px 60px', fontSize: 10, color: '#8aab99' }}>
+        <div style={{ padding: '4px 0 4px 60px', fontSize: 13, color: '#1a2e22' }}>
           {e.error_message && <div style={{ color: '#ef4444' }}>ERROR: {e.error_message}</div>}
           {e.error_stack && <pre style={{ color: '#b45309', margin: '2px 0', whiteSpace: 'pre-wrap' }}>{e.error_stack}</pre>}
           {e.request_data && <div>REQ: {JSON.stringify(e.request_data).slice(0, 500)}</div>}

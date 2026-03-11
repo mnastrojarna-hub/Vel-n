@@ -53,14 +53,14 @@ export default function RevenueChart() {
 
   return (
     <Card>
-      <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Tržby vs. náklady (12 měsíců)</h3>
+      <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Tržby vs. náklady (12 měsíců)</h3>
       <ResponsiveContainer width="100%" height={250}>
         <BarChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="#d4e8e0" />
-          <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#8aab99' }} />
-          <YAxis tick={{ fontSize: 10, fill: '#8aab99' }} />
+          <XAxis dataKey="name" tick={{ fontSize: 13, fill: '#1a2e22' }} />
+          <YAxis tick={{ fontSize: 13, fill: '#1a2e22' }} />
           <Tooltip formatter={(v) => `${v.toLocaleString('cs-CZ')} Kč`} />
-          <Legend wrapperStyle={{ fontSize: 11 }} />
+          <Legend wrapperStyle={{ fontSize: 13 }} />
           <Bar dataKey="tržby" fill="#74FB71" radius={[4, 4, 0, 0]} />
           <Bar dataKey="náklady" fill="#fca5a5" radius={[4, 4, 0, 0]} />
         </BarChart>

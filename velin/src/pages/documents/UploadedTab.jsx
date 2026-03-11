@@ -51,8 +51,8 @@ export default function UploadedTab() {
       <div className="flex items-center gap-3 mb-4">
         <SearchInput value={search} onChange={v => { setPage(1); setSearch(v) }} placeholder="Hledat zákazníka, typ…" />
         <select value={sort} onChange={e => { setPage(1); setSort(e.target.value) }}
-          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
-          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
           <option value="date_desc">Datum ↓ nejnovější</option>
           <option value="date_asc">Datum ↑ nejstarší</option>
         </select>
@@ -75,8 +75,8 @@ export default function UploadedTab() {
                 <TRow key={d.id}>
                   <TD bold>{d.profiles?.full_name || '—'}</TD>
                   <TD>
-                    <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase"
-                      style={{ padding: '4px 10px', background: '#f1faf7', color: '#4a6357' }}>
+                    <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
+                      style={{ padding: '4px 10px', background: '#f1faf7', color: '#1a2e22' }}>
                       {d.type || '—'}
                     </span>
                   </TD>
@@ -85,8 +85,8 @@ export default function UploadedTab() {
                     {d.file_path ? (
                       <button
                         onClick={() => setPreview(d)}
-                        className="rounded-btn text-[10px] font-extrabold uppercase tracking-wide cursor-pointer"
-                        style={{ padding: '3px 8px', background: '#f1faf7', color: '#4a6357', border: 'none' }}
+                        className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+                        style={{ padding: '3px 8px', background: '#f1faf7', color: '#1a2e22', border: 'none' }}
                       >
                         Zobrazit
                       </button>
@@ -145,7 +145,7 @@ function PreviewModal({ doc, onClose }) {
           <iframe srcDoc={html} style={{ width: '100%', height: 450, border: 'none' }} title="Náhled" />
         </div>
       ) : (
-        <div className="py-8 text-center" style={{ color: '#8aab99', fontSize: 13 }}>
+        <div className="py-8 text-center" style={{ color: '#1a2e22', fontSize: 13 }}>
           Náhled není dostupný — storage bucket neexistuje. Dokument: {doc.file_name || doc.file_path || '—'}
         </div>
       )}

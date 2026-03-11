@@ -140,11 +140,11 @@ export default function GiftVouchers() {
       active: { bg: '#dcfce7', color: '#1a8a18', label: 'Aktivní' },
       redeemed: { bg: '#dbeafe', color: '#2563eb', label: 'Uplatněn' },
       expired: { bg: '#fee2e2', color: '#dc2626', label: 'Expirovaný' },
-      cancelled: { bg: '#f3f4f6', color: '#6b7280', label: 'Zrušen' },
+      cancelled: { bg: '#f3f4f6', color: '#1a2e22', label: 'Zrušen' },
     }
     const s = map[status] || map.cancelled
     return (
-      <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase"
+      <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
         style={{ padding: '4px 10px', background: s.bg, color: s.color }}>
         {s.label}
       </span>
@@ -156,7 +156,7 @@ export default function GiftVouchers() {
   return (
     <div>
       {/* DIAGNOSTIKA */}
-      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA GiftVouchers</strong><br/>
         <div>vouchers: {vouchers.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
         <div>summary: total={summary.total}, active={summary.active}, redeemed={summary.redeemed}, expired={summary.expired}</div>
@@ -229,17 +229,17 @@ export default function GiftVouchers() {
                   </TD>
                   <TD bold>{Number(v.amount || 0).toLocaleString('cs-CZ')} {v.currency}</TD>
                   <TD>
-                    <span className="text-xs">{v.buyer_name || v.buyer_email || '—'}</span>
+                    <span className="text-sm">{v.buyer_name || v.buyer_email || '—'}</span>
                   </TD>
                   <TD>
-                    <span className="text-xs">
+                    <span className="text-sm">
                       {v.valid_from ? new Date(v.valid_from).toLocaleDateString('cs-CZ') : '—'}
                       {' → '}
                       {v.valid_until ? new Date(v.valid_until).toLocaleDateString('cs-CZ') : '∞'}
                     </span>
                   </TD>
                   <TD>
-                    <span className="text-xs">{CATEGORIES.find(c => c.value === v.category)?.label || v.category || '—'}</span>
+                    <span className="text-sm">{CATEGORIES.find(c => c.value === v.category)?.label || v.category || '—'}</span>
                   </TD>
                   <TD>{statusBadge(v.status)}</TD>
                   <TD>
@@ -427,14 +427,14 @@ function VoucherModal({ open, existing, onClose, onSaved }) {
             {!isEdit && (
               <button
                 onClick={() => set('code', generateCode())}
-                className="rounded-btn text-xs font-bold cursor-pointer"
-                style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}
+                className="rounded-btn text-sm font-bold cursor-pointer"
+                style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}
               >
                 Generovat
               </button>
             )}
           </div>
-          {isEdit && <span className="text-[10px]" style={{ color: '#8aab99' }}>Kód nelze měnit po vytvoření</span>}
+          {isEdit && <span className="text-sm" style={{ color: '#1a2e22' }}>Kód nelze měnit po vytvoření</span>}
         </div>
         <div>
           <Label>Hodnota</Label>
@@ -494,7 +494,7 @@ function RedeemModal({ voucher, onClose, onRedeem }) {
   return (
     <Modal open title={`Uplatnit poukaz: ${voucher.code}`} onClose={onClose}>
       <div className="mb-4 p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-        <span className="text-sm font-bold" style={{ color: '#4a6357' }}>
+        <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>
           Hodnota: {Number(voucher.amount).toLocaleString('cs-CZ')} {voucher.currency}
         </span>
       </div>
@@ -521,7 +521,7 @@ function RedeemModal({ voucher, onClose, onRedeem }) {
 function SummaryCard({ label, value, color }) {
   return (
     <Card>
-      <div className="text-[10px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#8aab99' }}>{label}</div>
+      <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>{label}</div>
       <div className="text-xl font-extrabold" style={{ color }}>{value}</div>
     </Card>
   )
@@ -530,7 +530,7 @@ function SummaryCard({ label, value, color }) {
 function DetailRow({ label, value, mono }) {
   return (
     <div>
-      <div className="text-[10px] font-extrabold uppercase tracking-wide mb-0.5" style={{ color: '#8aab99' }}>{label}</div>
+      <div className="text-sm font-extrabold uppercase tracking-wide mb-0.5" style={{ color: '#1a2e22' }}>{label}</div>
       <div className={`text-sm font-semibold ${mono ? 'font-mono' : ''}`} style={{ color: '#0f1a14' }}>{value ?? '—'}</div>
     </div>
   )
@@ -540,7 +540,7 @@ function ActionBtn({ children, color, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="text-[10px] font-bold cursor-pointer"
+      className="text-sm font-bold cursor-pointer"
       style={{ color, background: 'none', border: 'none', padding: '4px 6px' }}
     >
       {children}
@@ -551,8 +551,8 @@ function ActionBtn({ children, color, onClick }) {
 function FilterSelect({ value, onChange, options }) {
   return (
     <select value={value} onChange={e => onChange(e.target.value)}
-      className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
-      style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+      className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+      style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
   )
@@ -560,5 +560,5 @@ function FilterSelect({ value, onChange, options }) {
 
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
 function Label({ children }) {
-  return <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{children}</label>
+  return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>
 }

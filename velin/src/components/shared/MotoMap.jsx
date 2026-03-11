@@ -27,7 +27,7 @@ export default function MotoMap({ singleMotoId = null }) {
     return (
       <Card>
         <SectionTitle>Poloha motorek</SectionTitle>
-        <p style={{ color: '#8aab99', fontSize: 13 }}>Žádná motorka nesdílí polohu</p>
+        <p style={{ color: '#1a2e22', fontSize: 13 }}>Žádná motorka nesdílí polohu</p>
       </Card>
     )
   }
@@ -53,7 +53,7 @@ export default function MotoMap({ singleMotoId = null }) {
             <div className="flex flex-wrap gap-2">
               {locations.filter(l => l.lat && l.lng).map(l => (
                 <button key={l.moto_id} onClick={() => setSelected(l)}
-                  className="rounded-btn text-[10px] font-bold cursor-pointer"
+                  className="rounded-btn text-sm font-bold cursor-pointer"
                   style={{ padding: '4px 10px', background: selected?.moto_id === l.moto_id ? '#74FB71' : 'rgba(255,255,255,.9)', color: '#0f1a14', border: 'none' }}>
                   {l.motorcycles?.model || '?'} · {l.motorcycles?.spz || ''}
                 </button>
@@ -68,9 +68,9 @@ export default function MotoMap({ singleMotoId = null }) {
             <div key={l.moto_id || l.id} className="flex items-center gap-3 p-3 rounded-lg" style={{ background: '#f1faf7' }}>
               <div className="flex-1">
                 <span className="font-bold text-sm">{l.motorcycles?.model || '—'}</span>
-                <span className="text-xs font-mono ml-2" style={{ color: '#8aab99' }}>{l.motorcycles?.spz}</span>
+                <span className="text-sm font-mono ml-2" style={{ color: '#1a2e22' }}>{l.motorcycles?.spz}</span>
               </div>
-              <div className="text-xs" style={{ color: '#4a6357' }}>
+              <div className="text-sm" style={{ color: '#1a2e22' }}>
                 {l.lat && l.lng ? (
                   <a href={`https://maps.google.com/?q=${l.lat},${l.lng}`} target="_blank" rel="noreferrer"
                     className="underline" style={{ color: '#2563eb' }}>
@@ -78,7 +78,7 @@ export default function MotoMap({ singleMotoId = null }) {
                   </a>
                 ) : l.address || 'Poloha neznámá'}
               </div>
-              <div className="text-[10px]" style={{ color: '#8aab99' }}>
+              <div className="text-sm" style={{ color: '#1a2e22' }}>
                 {l.updated_at ? `${timeSince(l.updated_at)} ago` : ''}
               </div>
             </div>
@@ -89,14 +89,14 @@ export default function MotoMap({ singleMotoId = null }) {
       {selected && (
         <div className="mt-3 p-3 rounded-lg" style={{ background: '#f1faf7' }}>
           <div className="font-bold text-sm">{selected.motorcycles?.model} ({selected.motorcycles?.spz})</div>
-          <div className="text-xs mt-1" style={{ color: '#4a6357' }}>
+          <div className="text-sm mt-1" style={{ color: '#1a2e22' }}>
             Souřadnice: {Number(selected.lat).toFixed(5)}, {Number(selected.lng).toFixed(5)}
           </div>
-          <div className="text-xs" style={{ color: '#8aab99' }}>
+          <div className="text-sm" style={{ color: '#1a2e22' }}>
             Aktualizace: {selected.updated_at?.slice(0, 16) || '—'}
           </div>
           <a href={`https://maps.google.com/?q=${selected.lat},${selected.lng}`} target="_blank" rel="noreferrer"
-            className="inline-block mt-2 rounded-btn text-xs font-bold"
+            className="inline-block mt-2 rounded-btn text-sm font-bold"
             style={{ padding: '6px 14px', background: '#74FB71', color: '#1a2e22', textDecoration: 'none' }}>
             Otevřít v Google Maps
           </a>
@@ -123,5 +123,5 @@ function timeSince(dateStr) {
 }
 
 function SectionTitle({ children }) {
-  return <h3 className="text-[10px] font-extrabold uppercase tracking-widest mb-3" style={{ color: '#8aab99' }}>{children}</h3>
+  return <h3 className="text-sm font-extrabold uppercase tracking-widest mb-3" style={{ color: '#1a2e22' }}>{children}</h3>
 }

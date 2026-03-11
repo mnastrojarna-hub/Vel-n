@@ -22,14 +22,14 @@ const STATUS_COLORS = {
   delivered: { bg: '#dcfce7', color: '#15803d' },
   cancelled: { bg: '#fee2e2', color: '#dc2626' },
   returned: { bg: '#fef3c7', color: '#92400e' },
-  refunded: { bg: '#f3f4f6', color: '#6b7280' },
+  refunded: { bg: '#f3f4f6', color: '#1a2e22' },
 }
 
 const PAYMENT_LABELS = { pending: 'Nezaplaceno', paid: 'Zaplaceno', refunded: 'Vráceno', failed: 'Selhalo' }
 const PAYMENT_COLORS = {
   pending: { bg: '#fee2e2', color: '#dc2626' },
   paid: { bg: '#dcfce7', color: '#1a8a18' },
-  refunded: { bg: '#f3f4f6', color: '#6b7280' },
+  refunded: { bg: '#f3f4f6', color: '#1a2e22' },
   failed: { bg: '#fee2e2', color: '#dc2626' },
 }
 
@@ -178,11 +178,11 @@ export default function ShopOrdersTab() {
         <div className="flex items-center gap-1">
           {['all', 'new', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'].map(s => (
             <button key={s} onClick={() => { setStatusFilter(s); setPage(1) }}
-              className="rounded-btn text-[10px] font-extrabold uppercase tracking-wide cursor-pointer border-none"
+              className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none"
               style={{
                 padding: '5px 12px',
                 background: statusFilter === s ? '#1a2e22' : '#f1faf7',
-                color: statusFilter === s ? '#74FB71' : '#4a6357',
+                color: statusFilter === s ? '#74FB71' : '#1a2e22',
               }}>
               {s === 'all' ? 'Vše' : STATUS_LABELS[s] || s}
             </button>
@@ -205,8 +205,8 @@ export default function ShopOrdersTab() {
             </thead>
             <tbody>
               {orders.map(o => {
-                const sc = STATUS_COLORS[o.status] || { bg: '#f3f4f6', color: '#6b7280' }
-                const pc = PAYMENT_COLORS[o.payment_status] || { bg: '#f3f4f6', color: '#6b7280' }
+                const sc = STATUS_COLORS[o.status] || { bg: '#f3f4f6', color: '#1a2e22' }
+                const pc = PAYMENT_COLORS[o.payment_status] || { bg: '#f3f4f6', color: '#1a2e22' }
                 return (
                   <tr key={o.id} onClick={() => setDetail(o)} className="cursor-pointer hover:bg-[#f1faf7] transition-colors" style={{ borderBottom: '1px solid #d4e8e0' }}>
                     <TD mono bold>{o.order_number}</TD>
@@ -214,13 +214,13 @@ export default function ShopOrdersTab() {
                     <TD>{fmtDate(o.created_at)}</TD>
                     <TD bold>{fmt(o.total)}</TD>
                     <TD>
-                      <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase"
+                      <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
                         style={{ padding: '3px 8px', background: pc.bg, color: pc.color }}>
                         {PAYMENT_LABELS[o.payment_status] || o.payment_status}
                       </span>
                     </TD>
                     <TD>
-                      <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase"
+                      <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
                         style={{ padding: '3px 8px', background: sc.bg, color: sc.color }}>
                         {STATUS_LABELS[o.status] || o.status}
                       </span>
@@ -318,8 +318,8 @@ function NewShopOrderModal({ onClose, onSaved }) {
             </div>
           ))}
           <div className="flex items-center gap-3">
-            <button onClick={addItem} className="text-xs font-bold cursor-pointer bg-transparent border-none" style={{ color: '#1a8a18' }}>+ Přidat položku</button>
-            {subtotal > 0 && <span className="text-xs font-bold ml-auto" style={{ color: '#1a2e22' }}>Celkem: {subtotal.toLocaleString('cs-CZ')} Kč</span>}
+            <button onClick={addItem} className="text-sm font-bold cursor-pointer bg-transparent border-none" style={{ color: '#1a8a18' }}>+ Přidat položku</button>
+            {subtotal > 0 && <span className="text-sm font-bold ml-auto" style={{ color: '#1a2e22' }}>Celkem: {subtotal.toLocaleString('cs-CZ')} Kč</span>}
           </div>
         </div>
 
@@ -493,8 +493,8 @@ function ShopOrderDetail({ order, onClose, onUpdated }) {
 
   const fmt = n => n != null ? `${Number(n).toLocaleString('cs-CZ')} Kč` : '—'
   const fmtDate = d => d ? new Date(d).toLocaleDateString('cs-CZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
-  const sc = STATUS_COLORS[order.status] || { bg: '#f3f4f6', color: '#6b7280' }
-  const pc = PAYMENT_COLORS[order.payment_status] || { bg: '#f3f4f6', color: '#6b7280' }
+  const sc = STATUS_COLORS[order.status] || { bg: '#f3f4f6', color: '#1a2e22' }
+  const pc = PAYMENT_COLORS[order.payment_status] || { bg: '#f3f4f6', color: '#1a2e22' }
 
   const NEXT_STATUS = {
     new: 'confirmed', confirmed: 'processing', processing: 'shipped', shipped: 'delivered',
@@ -505,24 +505,24 @@ function ShopOrderDetail({ order, onClose, onUpdated }) {
     <Modal open title={`Objednávka ${order.order_number}`} onClose={onClose} wide>
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div>
-          <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Zákazník</div>
+          <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Zákazník</div>
           <div className="text-sm font-bold" style={{ color: '#0f1a14' }}>{order.customer_name || '—'}</div>
-          <div className="text-xs" style={{ color: '#4a6357' }}>{order.customer_email}</div>
-          <div className="text-xs" style={{ color: '#4a6357' }}>{order.customer_phone}</div>
+          <div className="text-sm" style={{ color: '#1a2e22' }}>{order.customer_email}</div>
+          <div className="text-sm" style={{ color: '#1a2e22' }}>{order.customer_phone}</div>
         </div>
         <div>
-          <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Stav</div>
+          <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Stav</div>
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase"
+            <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
               style={{ padding: '4px 10px', background: sc.bg, color: sc.color }}>
               {STATUS_LABELS[order.status] || order.status}
             </span>
-            <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase"
+            <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
               style={{ padding: '4px 10px', background: pc.bg, color: pc.color }}>
               {PAYMENT_LABELS[order.payment_status] || order.payment_status}
             </span>
           </div>
-          <div className="text-xs mt-1" style={{ color: '#4a6357' }}>
+          <div className="text-sm mt-1" style={{ color: '#1a2e22' }}>
             Vytvořeno: {fmtDate(order.created_at)}
             {order.shipped_at && <> · Odesláno: {fmtDate(order.shipped_at)}</>}
             {order.delivered_at && <> · Doručeno: {fmtDate(order.delivered_at)}</>}
@@ -532,24 +532,24 @@ function ShopOrderDetail({ order, onClose, onUpdated }) {
 
       {order.shipping_address && (
         <div className="mb-3">
-          <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Doručovací adresa</div>
-          <div className="text-xs" style={{ color: '#0f1a14' }}>{order.shipping_address}</div>
+          <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Doručovací adresa</div>
+          <div className="text-sm" style={{ color: '#0f1a14' }}>{order.shipping_address}</div>
         </div>
       )}
 
       {order.tracking_number && (
         <div className="mb-3">
-          <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Sledovací číslo</div>
+          <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Sledovací číslo</div>
           <div className="text-sm font-mono font-bold" style={{ color: '#0f1a14' }}>{order.tracking_number}</div>
         </div>
       )}
 
       {vouchers.length > 0 && (
         <div className="mb-3 p-3 rounded-btn" style={{ background: '#dcfce7', border: '1px solid #86efac' }}>
-          <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#166534' }}>Kódy poukazů</div>
+          <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#166534' }}>Kódy poukazů</div>
           <div className="flex flex-wrap gap-2">
             {vouchers.map(v => (
-              <span key={v.code} className="inline-block rounded-btn font-mono text-xs font-bold"
+              <span key={v.code} className="inline-block rounded-btn font-mono text-sm font-bold"
                 style={{ padding: '4px 10px', background: '#fff', color: '#166534', border: '1px solid #86efac' }}>
                 {v.code} ({Number(v.amount).toLocaleString('cs-CZ')} Kč)
               </span>
@@ -593,7 +593,7 @@ function ShopOrderDetail({ order, onClose, onUpdated }) {
       )}
 
       {order.notes && (
-        <div className="mt-3 p-3 rounded-btn text-xs" style={{ background: '#f1faf7', color: '#4a6357' }}>
+        <div className="mt-3 p-3 rounded-btn text-sm" style={{ background: '#f1faf7', color: '#1a2e22' }}>
           <strong>Poznámky:</strong> {order.notes}
         </div>
       )}
@@ -624,7 +624,7 @@ function ShopOrderDetail({ order, onClose, onUpdated }) {
 
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
 function Label({ children }) {
-  return <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{children}</label>
+  return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>
 }
 function Input({ value, onChange, placeholder }) {
   return <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}

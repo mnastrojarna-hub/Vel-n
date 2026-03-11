@@ -438,7 +438,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
             <div>
               <h3 className="font-extrabold text-base" style={{ color: '#0f1a14' }}>{displayTitle}</h3>
               {incident.title && (
-                <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#8aab99' }}>
+                <span className="text-sm font-bold uppercase tracking-wide" style={{ color: '#1a2e22' }}>
                   {TYPE_LABELS[incident.type] || incident.type}
                 </span>
               )}
@@ -449,12 +449,12 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
               style={{ padding: '2px 7px', background: sev.bg, color: sev.color }}>{sev.label}</span>
             <span className="inline-block rounded-btn text-[9px] font-extrabold tracking-wide uppercase"
               style={{ padding: '2px 7px', background: sc.bg, color: sc.color }}>{sc.label}</span>
-            <button onClick={onClose} className="text-xs font-bold cursor-pointer"
-              style={{ color: '#8aab99', background: 'none', border: 'none' }}>✕</button>
+            <button onClick={onClose} className="text-sm font-bold cursor-pointer"
+              style={{ color: '#1a2e22', background: 'none', border: 'none' }}>✕</button>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 text-xs">
+        <div className="grid grid-cols-2 gap-2 text-sm">
           <InfoRow label="ID" value={incident.id?.slice(0, 8)} mono />
           <InfoRow label="Nahlášeno" value={incident.created_at ? new Date(incident.created_at).toLocaleString('cs-CZ') : '—'} />
           <InfoRow label="Kontakt" value={incident.contact_phone || customer?.phone || incident.profiles?.phone} />
@@ -465,11 +465,11 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
 
         {/* Popis od zákazníka */}
         {incident.description && (
-          <div className="mt-3 rounded-lg text-xs" style={{
-            padding: '10px 14px', background: '#f8fcfa', color: '#4a6357',
+          <div className="mt-3 rounded-lg text-sm" style={{
+            padding: '10px 14px', background: '#f8fcfa', color: '#1a2e22',
             borderLeft: '3px solid #d4e8e0', lineHeight: 1.6,
           }}>
-            <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>
+            <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>
               Popis od zákazníka
             </div>
             {incident.description}
@@ -482,17 +482,17 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
           background: '#fffbeb',
           border: '2px solid #fbbf24',
         }}>
-          <div className="text-[10px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#b45309' }}>
+          <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#b45309' }}>
             Poznámky k incidentu (tel. komunikace apod.)
           </div>
           {incidentNotes.length > 0 && (
             <div className="space-y-2 mb-3">
               {incidentNotes.map(n => (
-                <div key={n.id} className="rounded-lg text-xs" style={{
+                <div key={n.id} className="rounded-lg text-sm" style={{
                   padding: '8px 10px', background: '#fff', border: '1px solid #fde68a', lineHeight: 1.6,
                 }}>
                   <div style={{ color: '#0f1a14', whiteSpace: 'pre-wrap' }}>{n.description}</div>
-                  <div className="text-[10px] mt-1" style={{ color: '#8aab99' }}>
+                  <div className="text-sm mt-1" style={{ color: '#1a2e22' }}>
                     {n.created_at ? new Date(n.created_at).toLocaleString('cs-CZ') : ''}
                     {n.performed_by && ` · ${n.performed_by}`}
                   </div>
@@ -506,7 +506,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
             style={{ padding: '8px 12px', background: '#fff', border: '1px solid #fde68a', resize: 'vertical' }}
           />
           <Button onClick={addNote} disabled={savingNote || !noteText.trim()}
-            style={{ background: '#fbbf24', color: '#78350f', fontSize: 11, padding: '6px 16px' }}>
+            style={{ background: '#fbbf24', color: '#78350f', fontSize: 13, padding: '6px 16px' }}>
             {savingNote ? 'Ukládám…' : 'Přidat poznámku'}
           </Button>
         </div>
@@ -518,14 +518,14 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
             background: incident.customer_fault ? '#fef2f2' : '#f0fdf4',
             border: `2px solid ${incident.customer_fault ? '#fca5a5' : '#86efac'}`,
           }}>
-            <div className="text-[10px] font-extrabold uppercase tracking-wide mb-2" style={{
+            <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{
               color: incident.customer_fault ? '#dc2626' : '#1a8a18'
             }}>
               Preference zákazníka
             </div>
             <div className="flex flex-wrap gap-2">
               {incident.customer_decision && (
-                <span className="inline-block rounded-btn text-xs font-extrabold" style={{
+                <span className="inline-block rounded-btn text-sm font-extrabold" style={{
                   padding: '4px 10px',
                   background: incident.customer_fault ? '#fee2e2' : '#dcfce7',
                   color: incident.customer_fault ? '#b91c1c' : '#15803d',
@@ -534,14 +534,14 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
                 </span>
               )}
               {incident.customer_fault === true && (
-                <span className="inline-block rounded-btn text-xs font-extrabold" style={{
+                <span className="inline-block rounded-btn text-sm font-extrabold" style={{
                   padding: '4px 10px', background: '#fee2e2', color: '#b91c1c',
                 }}>
                   ⚠️ Zavinil zákazník (platí)
                 </span>
               )}
               {incident.customer_fault === false && (
-                <span className="inline-block rounded-btn text-xs font-extrabold" style={{
+                <span className="inline-block rounded-btn text-sm font-extrabold" style={{
                   padding: '4px 10px', background: '#dcfce7', color: '#15803d',
                 }}>
                   Cizí zavinění (zdarma)
@@ -549,20 +549,20 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
               )}
               {incident.moto_rideable === false && (
                 <>
-                  <span className="inline-block rounded-btn text-xs font-extrabold" style={{
+                  <span className="inline-block rounded-btn text-sm font-extrabold" style={{
                     padding: '4px 10px', background: '#fef3c7', color: '#b45309',
                   }}>
                     Motorka nepojízdná
                   </span>
                   {!motoInService && moto?.status !== 'maintenance' && (
-                    <button onClick={setMotoToService} className="inline-block rounded-btn text-[10px] font-extrabold cursor-pointer" style={{
+                    <button onClick={setMotoToService} className="inline-block rounded-btn text-sm font-extrabold cursor-pointer" style={{
                       padding: '4px 10px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5',
                     }}>
                       🔧 Přesunout do servisu
                     </button>
                   )}
                   {(motoInService || moto?.status === 'maintenance') && (
-                    <span className="inline-block rounded-btn text-[10px] font-extrabold" style={{
+                    <span className="inline-block rounded-btn text-sm font-extrabold" style={{
                       padding: '4px 10px', background: '#dcfce7', color: '#15803d',
                     }}>
                       ✅ V servisu
@@ -573,9 +573,9 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
             </div>
             {incident.replacement_status && (
               <div className="mt-2">
-                <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase" style={{
+                <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase" style={{
                   padding: '3px 8px',
-                  ...(REPLACEMENT_STATUS_COLORS[incident.replacement_status] || { bg: '#f1faf7', color: '#4a6357' }),
+                  ...(REPLACEMENT_STATUS_COLORS[incident.replacement_status] || { bg: '#f1faf7', color: '#1a2e22' }),
                   background: (REPLACEMENT_STATUS_COLORS[incident.replacement_status] || {}).bg,
                   color: (REPLACEMENT_STATUS_COLORS[incident.replacement_status] || {}).color,
                 }}>
@@ -588,10 +588,10 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
 
         {/* Přiřadit */}
         <div className="mt-3 flex items-center gap-2">
-          <span className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>Přiřadit:</span>
+          <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Přiřadit:</span>
           <select value={incident.assigned_to || ''} onChange={e => assignAdmin(e.target.value)}
-            className="rounded-btn text-[11px] outline-none cursor-pointer"
-            style={{ padding: '4px 8px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+            className="rounded-btn text-sm outline-none cursor-pointer"
+            style={{ padding: '4px 8px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
             <option value="">Nepřiřazeno</option>
             {admins.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
@@ -602,21 +602,21 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
           <div className="mt-3 flex flex-wrap gap-2">
             {incident.status === 'reported' && (
               <button onClick={() => updateIncidentStatus('acknowledged')}
-                className="rounded-btn text-[10px] font-extrabold uppercase tracking-wide cursor-pointer border-none"
+                className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none"
                 style={{ padding: '8px 16px', background: '#fef3c7', color: '#b45309' }}>
                 Potvrdit příjem
               </button>
             )}
             {(incident.status === 'reported' || incident.status === 'acknowledged') && (
               <button onClick={() => updateIncidentStatus('in_progress')}
-                className="rounded-btn text-[10px] font-extrabold uppercase tracking-wide cursor-pointer border-none"
+                className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none"
                 style={{ padding: '8px 16px', background: '#dbeafe', color: '#2563eb' }}>
                 Začít řešit
               </button>
             )}
             {incident.status !== 'resolved' && (
               <button onClick={() => updateIncidentStatus('resolved')}
-                className="rounded-btn text-[10px] font-extrabold uppercase tracking-wide cursor-pointer border-none"
+                className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none"
                 style={{ padding: '8px 16px', background: '#dcfce7', color: '#1a8a18' }}>
                 Vyřešeno
               </button>
@@ -628,17 +628,17 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
       {/* Rozhodnutí zákazníka (u nepojízdných) */}
       {isActive && isMajor && (
         <Card>
-          <h4 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>
+          <h4 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>
             Rozhodnutí zákazníka
           </h4>
           <div className="flex flex-wrap gap-2 mb-3">
             {Object.entries(DECISION_LABELS).map(([key, label]) => (
               <button key={key} onClick={() => updateDecision(key)}
-                className="rounded-btn text-[10px] font-extrabold tracking-wide cursor-pointer border-none"
+                className="rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none"
                 style={{
                   padding: '6px 14px',
                   background: incident.customer_decision === key ? '#1a2e22' : '#f1faf7',
-                  color: incident.customer_decision === key ? '#74FB71' : '#4a6357',
+                  color: incident.customer_decision === key ? '#74FB71' : '#1a2e22',
                 }}>
                 {label}
               </button>
@@ -648,23 +648,23 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
           {/* Zavinění (u nehod) */}
           {isAccident && (
             <div className="mt-3">
-              <span className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>Zavinění: </span>
+              <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Zavinění: </span>
               <div className="flex gap-2 mt-1">
                 <button onClick={() => updateFault(true)}
-                  className="rounded-btn text-[10px] font-extrabold tracking-wide cursor-pointer border-none"
+                  className="rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none"
                   style={{
                     padding: '5px 12px',
                     background: incident.customer_fault === true ? '#dc2626' : '#f1faf7',
-                    color: incident.customer_fault === true ? '#fff' : '#4a6357',
+                    color: incident.customer_fault === true ? '#fff' : '#1a2e22',
                   }}>
                   Zákazník (platí)
                 </button>
                 <button onClick={() => updateFault(false)}
-                  className="rounded-btn text-[10px] font-extrabold tracking-wide cursor-pointer border-none"
+                  className="rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none"
                   style={{
                     padding: '5px 12px',
                     background: incident.customer_fault === false ? '#1a8a18' : '#f1faf7',
-                    color: incident.customer_fault === false ? '#fff' : '#4a6357',
+                    color: incident.customer_fault === false ? '#fff' : '#1a2e22',
                   }}>
                   Cizí zavinění
                 </button>
@@ -678,14 +678,14 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
       {incident.replacement_data && (
         <Card>
           <div className="flex items-center justify-between mb-3">
-            <h4 className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#dc2626' }}>
+            <h4 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#dc2626' }}>
               Objednávka náhradní motorky
             </h4>
             {incident.replacement_status && (
               <span className="inline-block rounded-btn text-[9px] font-extrabold tracking-wide uppercase" style={{
                 padding: '2px 7px',
                 background: (REPLACEMENT_STATUS_COLORS[incident.replacement_status] || {}).bg || '#f1faf7',
-                color: (REPLACEMENT_STATUS_COLORS[incident.replacement_status] || {}).color || '#4a6357',
+                color: (REPLACEMENT_STATUS_COLORS[incident.replacement_status] || {}).color || '#1a2e22',
               }}>
                 {REPLACEMENT_STATUS_LABELS[incident.replacement_status] || incident.replacement_status}
               </span>
@@ -693,7 +693,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
           </div>
 
           {/* Detaily objednávky */}
-          <div className="rounded-lg text-xs" style={{
+          <div className="rounded-lg text-sm" style={{
             padding: '12px', background: '#fef2f2', border: '1px solid #fecaca', lineHeight: 1.8,
           }}>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1">
@@ -715,7 +715,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
                 </span>
               </div>
               {/* Výrazný platební status */}
-              <div className="mt-2 rounded-lg text-xs font-extrabold" style={{
+              <div className="mt-2 rounded-lg text-sm font-extrabold" style={{
                 padding: '6px 10px',
                 background: incident.replacement_data.payment_status === 'paid' ? '#dcfce7' :
                   incident.replacement_data.payment_status === 'free' ? '#dcfce7' :
@@ -732,12 +732,12 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
                 {incident.replacement_data.paid_at && ` · ${new Date(incident.replacement_data.paid_at).toLocaleString('cs-CZ')}`}
               </div>
               {incident.replacement_data.customer_fault && (
-                <div className="text-[10px] font-bold mt-1" style={{ color: '#dc2626' }}>
+                <div className="text-sm font-bold mt-1" style={{ color: '#dc2626' }}>
                   ⚠️ Zavinil zákazník — platí poplatek
                 </div>
               )}
               {incident.replacement_data.customer_confirmed_at && (
-                <div className="text-[10px] mt-1" style={{ color: '#8aab99' }}>
+                <div className="text-sm mt-1" style={{ color: '#1a2e22' }}>
                   Objednáno: {new Date(incident.replacement_data.customer_confirmed_at).toLocaleString('cs-CZ')}
                 </div>
               )}
@@ -746,10 +746,10 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
 
           {/* Booking swap info */}
           {(incident.replacement_data.original_booking_id || incident.original_booking_id) && (
-            <div className="mt-3 rounded-lg text-xs" style={{
+            <div className="mt-3 rounded-lg text-sm" style={{
               padding: '12px', background: '#f0fdf4', border: '1px solid #86efac', lineHeight: 1.8,
             }}>
-              <div className="text-[10px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a8a18' }}>
+              <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a8a18' }}>
                 Přepnutí rezervace
               </div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1">
@@ -762,7 +762,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
                   <InfoRow label="Zbývá dní" value={`${incident.replacement_data.remaining_days}`} />
                 )}
               </div>
-              <div className="text-[10px] mt-1" style={{ color: '#166534' }}>
+              <div className="text-sm mt-1" style={{ color: '#166534' }}>
                 ✅ Původní rezervace ukončena ke dni incidentu. Nová rezervace s náhradní motorkou aktivní do konce původního termínu.
               </div>
             </div>
@@ -774,12 +774,12 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
               {!showRejectForm ? (
                 <div className="flex gap-2">
                   <button onClick={approveReplacement}
-                    className="flex-1 rounded-btn text-xs font-extrabold tracking-wide cursor-pointer border-none"
+                    className="flex-1 rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none"
                     style={{ padding: '10px 16px', background: '#1a8a18', color: '#fff' }}>
                     Schválit objednávku
                   </button>
                   <button onClick={() => setShowRejectForm(true)}
-                    className="flex-1 rounded-btn text-xs font-extrabold tracking-wide cursor-pointer border-none"
+                    className="flex-1 rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none"
                     style={{ padding: '10px 16px', background: '#dc2626', color: '#fff' }}>
                     Zamítnout
                   </button>
@@ -788,18 +788,18 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
                 <div>
                   <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)}
                     rows={2} placeholder="Důvod zamítnutí…"
-                    className="w-full rounded-btn text-xs outline-none mb-2"
+                    className="w-full rounded-btn text-sm outline-none mb-2"
                     style={{ padding: '8px 10px', background: '#fff', border: '1px solid #fca5a5', resize: 'vertical' }}
                   />
                   <div className="flex gap-2">
                     <button onClick={() => { rejectReplacement(rejectReason); setShowRejectForm(false) }}
-                      className="flex-1 rounded-btn text-xs font-extrabold cursor-pointer border-none"
+                      className="flex-1 rounded-btn text-sm font-extrabold cursor-pointer border-none"
                       style={{ padding: '8px 12px', background: '#dc2626', color: '#fff' }}>
                       Potvrdit zamítnutí
                     </button>
                     <button onClick={() => setShowRejectForm(false)}
-                      className="rounded-btn text-xs font-extrabold cursor-pointer border-none"
-                      style={{ padding: '8px 12px', background: '#f1faf7', color: '#4a6357' }}>
+                      className="rounded-btn text-sm font-extrabold cursor-pointer border-none"
+                      style={{ padding: '8px 12px', background: '#f1faf7', color: '#1a2e22' }}>
                       Zrušit
                     </button>
                   </div>
@@ -812,7 +812,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
           {isActive && incident.replacement_status === 'approved' && (
             <div className="mt-3 flex gap-2">
               <button onClick={() => updateReplacementStatus('dispatched')}
-                className="flex-1 rounded-btn text-xs font-extrabold cursor-pointer border-none"
+                className="flex-1 rounded-btn text-sm font-extrabold cursor-pointer border-none"
                 style={{ padding: '8px 12px', background: '#2563eb', color: '#fff' }}>
                 Motorka na cestě
               </button>
@@ -821,7 +821,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
           {isActive && incident.replacement_status === 'dispatched' && (
             <div className="mt-3 flex gap-2">
               <button onClick={() => updateReplacementStatus('delivered')}
-                className="flex-1 rounded-btn text-xs font-extrabold cursor-pointer border-none"
+                className="flex-1 rounded-btn text-sm font-extrabold cursor-pointer border-none"
                 style={{ padding: '8px 12px', background: '#1a8a18', color: '#fff' }}>
                 Doručeno zákazníkovi
               </button>
@@ -830,7 +830,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
 
           {/* Info o zamítnutí */}
           {incident.replacement_status === 'rejected' && incident.replacement_data.rejection_reason && (
-            <div className="mt-3 rounded-lg text-xs" style={{
+            <div className="mt-3 rounded-lg text-sm" style={{
               padding: '8px 12px', background: '#fee2e2', color: '#b91c1c', fontWeight: 600,
             }}>
               Důvod zamítnutí: {incident.replacement_data.rejection_reason}
@@ -842,22 +842,22 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
       {/* Poškození motorky */}
       {isAccident && (
         <Card>
-          <h4 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Poškození motorky</h4>
+          <h4 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Poškození motorky</h4>
           <div className="flex flex-wrap gap-2 mb-3">
             {Object.entries(DAMAGE_LABELS).map(([key, label]) => (
               <button key={key} onClick={() => saveField('damage_severity', key)}
-                className="rounded-btn text-[10px] font-extrabold tracking-wide cursor-pointer border-none"
+                className="rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none"
                 style={{
                   padding: '5px 12px',
                   background: incident.damage_severity === key ? '#1a2e22' : '#f1faf7',
-                  color: incident.damage_severity === key ? '#74FB71' : '#4a6357',
+                  color: incident.damage_severity === key ? '#74FB71' : '#1a2e22',
                 }}>
                 {label}
               </button>
             ))}
           </div>
           {incident.damage_description && (
-            <div className="text-xs rounded-lg" style={{ padding: '6px 10px', background: '#f8fcfa', color: '#4a6357' }}>
+            <div className="text-sm rounded-lg" style={{ padding: '6px 10px', background: '#f8fcfa', color: '#1a2e22' }}>
               {incident.damage_description}
             </div>
           )}
@@ -867,25 +867,25 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
       {/* Nejbližší servis (pro poruchy a dotazy) */}
       {(incident.type === 'breakdown_minor' || incident.type === 'defect_question') && (
         <Card>
-          <h4 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Nejbližší servis</h4>
+          <h4 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Nejbližší servis</h4>
           <div className="grid grid-cols-1 gap-2">
             <input type="text" placeholder="Název servisu" defaultValue={incident.nearest_service_name || ''}
               onBlur={e => saveField('nearest_service_name', e.target.value)}
-              className="rounded-btn text-xs outline-none" style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
+              className="rounded-btn text-sm outline-none" style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
             <input type="text" placeholder="Adresa servisu" defaultValue={incident.nearest_service_address || ''}
               onBlur={e => saveField('nearest_service_address', e.target.value)}
-              className="rounded-btn text-xs outline-none" style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
+              className="rounded-btn text-sm outline-none" style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
             <input type="text" placeholder="Telefon servisu" defaultValue={incident.nearest_service_phone || ''}
               onBlur={e => saveField('nearest_service_phone', e.target.value)}
-              className="rounded-btn text-xs outline-none" style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
+              className="rounded-btn text-sm outline-none" style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
           </div>
         </Card>
       )}
 
       {/* Zákazník */}
       <Card>
-        <h4 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Zákazník</h4>
-        <div className="grid grid-cols-2 gap-2 text-xs">
+        <h4 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Zákazník</h4>
+        <div className="grid grid-cols-2 gap-2 text-sm">
           <InfoRow label="Jméno" value={customer?.full_name || incident.profiles?.full_name} />
           <InfoRow label="Telefon" value={customer?.phone || incident.profiles?.phone} />
           <InfoRow label="Email" value={customer?.email || incident.profiles?.email} />
@@ -896,8 +896,8 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
       {/* Motorka */}
       {moto && (
         <Card>
-          <h4 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Motorka</h4>
-          <div className="grid grid-cols-2 gap-2 text-xs">
+          <h4 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Motorka</h4>
+          <div className="grid grid-cols-2 gap-2 text-sm">
             <InfoRow label="Model" value={moto.model} />
             <InfoRow label="SPZ" value={moto.spz} mono />
             <InfoRow label="VIN" value={moto.vin} mono />
@@ -910,8 +910,8 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
       {/* Rezervace */}
       {booking && (
         <Card>
-          <h4 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Rezervace</h4>
-          <div className="grid grid-cols-2 gap-2 text-xs">
+          <h4 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Rezervace</h4>
+          <div className="grid grid-cols-2 gap-2 text-sm">
             <InfoRow label="ID" value={booking.id?.slice(0, 8)} mono />
             <InfoRow label="Stav" value={booking.status} />
             <InfoRow label="Od" value={booking.start_date} />
@@ -924,9 +924,9 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
       {/* Mapa */}
       {incident.latitude && incident.longitude && (
         <Card>
-          <h4 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Poloha zákazníka</h4>
+          <h4 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Poloha zákazníka</h4>
           {incident.address && (
-            <div className="text-xs font-bold mb-2" style={{ color: '#0f1a14' }}>{incident.address}</div>
+            <div className="text-sm font-bold mb-2" style={{ color: '#0f1a14' }}>{incident.address}</div>
           )}
           <div className="rounded-lg overflow-hidden" style={{ height: 200 }}>
             <iframe title="Poloha" width="100%" height="200" frameBorder="0" style={{ border: 0 }}
@@ -934,22 +934,22 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
             />
           </div>
           <div className="flex items-center gap-2 mt-2">
-            <span className="text-[10px] font-mono" style={{ color: '#8aab99' }}>
+            <span className="text-sm font-mono" style={{ color: '#1a2e22' }}>
               {Number(incident.latitude).toFixed(6)}, {Number(incident.longitude).toFixed(6)}
             </span>
             <a href={`https://www.google.com/maps?q=${incident.latitude},${incident.longitude}`}
               target="_blank" rel="noopener noreferrer"
-              className="text-[10px] font-bold underline" style={{ color: '#1a8a18' }}>
+              className="text-sm font-bold underline" style={{ color: '#1a8a18' }}>
               Google Maps
             </a>
             <a href={`https://mapy.cz/zakladni?q=${incident.latitude},${incident.longitude}`}
               target="_blank" rel="noopener noreferrer"
-              className="text-[10px] font-bold underline" style={{ color: '#2563eb' }}>
+              className="text-sm font-bold underline" style={{ color: '#2563eb' }}>
               Mapy.cz
             </a>
             <a href={`https://www.google.com/maps/dir/?api=1&destination=${incident.latitude},${incident.longitude}`}
               target="_blank" rel="noopener noreferrer"
-              className="text-[10px] font-bold underline" style={{ color: '#b45309' }}>
+              className="text-sm font-bold underline" style={{ color: '#b45309' }}>
               Navigovat
             </a>
           </div>
@@ -958,7 +958,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
 
       {/* Poznámky admina */}
       <Card>
-        <h4 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Poznámky admina</h4>
+        <h4 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Poznámky admina</h4>
         <textarea value={adminNotes} onChange={e => setAdminNotes(e.target.value)}
           rows={3} placeholder="Interní poznámky (zákazník je nevidí)…"
           className="w-full rounded-btn text-sm outline-none"
@@ -970,7 +970,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
       {/* Řešení */}
       {['resolved', 'closed'].includes(incident.status) && (
         <Card>
-          <h4 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Řešení incidentu</h4>
+          <h4 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Řešení incidentu</h4>
           <textarea value={resolution} onChange={e => setResolution(e.target.value)}
             rows={3} placeholder="Jak byl incident vyřešen…"
             className="w-full rounded-btn text-sm outline-none"
@@ -978,7 +978,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
             onBlur={() => saveField('resolution', resolution)}
           />
           {incident.resolved_at && (
-            <div className="text-[10px] mt-1" style={{ color: '#8aab99' }}>
+            <div className="text-sm mt-1" style={{ color: '#1a2e22' }}>
               Vyřešeno: {new Date(incident.resolved_at).toLocaleString('cs-CZ')}
             </div>
           )}
@@ -987,9 +987,9 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
 
       {/* Odeslat zprávu */}
       <Card>
-        <h4 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Odeslat zprávu zákazníkovi</h4>
+        <h4 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Odeslat zprávu zákazníkovi</h4>
         {['accident_minor', 'breakdown_minor', 'defect_question', 'location_share', 'other'].includes(incident.type) && (
-          <div className="rounded-lg text-xs font-semibold mb-3" style={{ padding: '8px 12px', background: '#f0fdf4', color: '#1a8a18', border: '1px solid #86efac' }}>
+          <div className="rounded-lg text-sm font-semibold mb-3" style={{ padding: '8px 12px', background: '#f0fdf4', color: '#1a8a18', border: '1px solid #86efac' }}>
             Automatická zpráva odeslána: &quot;Děkujeme za nahlášení, šťastnou cestu!&quot; — další zprávu odesílejte jen pokud je potřeba.
           </div>
         )}
@@ -1002,14 +1002,14 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
           <Button green onClick={sendMessage} disabled={sending || !message.trim()}>
             {sending ? 'Odesílám…' : 'Odeslat'}
           </Button>
-          {msgSent && <span className="text-xs font-bold" style={{ color: '#1a8a18' }}>Odesláno!</span>}
+          {msgSent && <span className="text-sm font-bold" style={{ color: '#1a8a18' }}>Odesláno!</span>}
         </div>
       </Card>
 
       {/* Fotky */}
       {incident.photos && incident.photos.length > 0 && (
         <Card>
-          <h4 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Fotografie</h4>
+          <h4 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Fotografie</h4>
           <div className="flex flex-wrap gap-2">
             {incident.photos.map((photo, i) => (
               <a key={i} href={photo} target="_blank" rel="noopener noreferrer">
@@ -1022,7 +1022,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
 
       {/* Timeline */}
       <Card>
-        <h4 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Timeline</h4>
+        <h4 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Timeline</h4>
         <SOSTimeline incidentId={incident.id} />
       </Card>
     </div>
@@ -1032,7 +1032,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
 function InfoRow({ label, value, mono }) {
   return (
     <div className="flex items-center gap-2 mb-1">
-      <span className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99', minWidth: 55 }}>{label}</span>
+      <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22', minWidth: 55 }}>{label}</span>
       <span className={`text-sm font-medium ${mono ? 'font-mono' : ''}`} style={{ color: '#0f1a14' }}>{value || '—'}</span>
     </div>
   )
