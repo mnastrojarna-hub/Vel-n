@@ -68,23 +68,51 @@ async function showRentalContract(bookingId){
   var isPaid=(b.payment_status==='paid');
   var statusLine=isPaid?'<div style="color:#1a8a18;font-weight:800;font-size:12px;margin:8px 0;">✓ ZAPLACENO</div>':'<div style="color:#b91c1c;font-weight:800;font-size:12px;margin:8px 0;">⏳ ČEKÁ NA PLATBU</div>';
 
-  // Try Velín template first, with placeholder replacement
+  // Try Velín template first, with placeholder replacement (supports both {{key}} and {key})
   var tpl = typeof apiFetchDocTemplate === 'function' ? await apiFetchDocTemplate('contract') : null;
   var bodyHtml = '';
   if(tpl && tpl.content_html){
-    bodyHtml = tpl.content_html
-      .replace(/\{company_name\}/g, COMPANY.name).replace(/\{company_address\}/g, COMPANY.sidlo)
-      .replace(/\{company_ic\}/g, COMPANY.ic).replace(/\{company_email\}/g, COMPANY.email)
-      .replace(/\{customer_name\}/g, pName).replace(/\{customer_address\}/g, pAddr)
-      .replace(/\{customer_phone\}/g, pPhone).replace(/\{customer_email\}/g, pEmail)
-      .replace(/\{customer_license\}/g, pLic)
-      .replace(/\{moto_name\}/g, mn).replace(/\{moto_spz\}/g, mSpz).replace(/\{moto_vin\}/g, mVin)
-      .replace(/\{date_from\}/g, _docDate(b.start_date)).replace(/\{date_to\}/g, _docDate(b.end_date))
-      .replace(/\{days\}/g, data.days).replace(/\{total_price\}/g, (b.total_price||0).toLocaleString('cs-CZ'))
-      .replace(/\{extras_price\}/g, (b.extras_price||0).toLocaleString('cs-CZ'))
-      .replace(/\{delivery_fee\}/g, (b.delivery_fee||0).toLocaleString('cs-CZ'))
-      .replace(/\{discount\}/g, (b.discount_amount||0).toLocaleString('cs-CZ'))
-      .replace(/\{res_number\}/g, rn);
+    var pIdNum = p ? (p.id_number || '') : '';
+    var pLicExpiry = p && p.license_expiry ? _docDate(p.license_expiry) : '';
+    var startTime = b.pickup_time || '';
+    var endTime = '24:00';
+    var totalWords = '';
+    var pickupLoc = b.pickup_address || 'Mezná 9, 393 01 Mezná';
+    var returnLoc = b.return_address || 'Mezná 9, 393 01 Mezná';
+    var rentalPeriod = _docDate(b.start_date) + ' — ' + _docDate(b.end_date) + ' (' + data.days + ' dní)';
+    var dailyRate = Math.round((b.total_price||0)/data.days);
+    var mYear = m ? (m.year || '') : '';
+    var mileageStart = b.mileage_start || '';
+    var vars = {
+      'company_name': COMPANY.name, 'company_address': COMPANY.sidlo,
+      'company_ico': COMPANY.ic, 'company_dic': '', 'company_email': COMPANY.email,
+      'customer_name': pName, 'customer_address': pAddr,
+      'customer_phone': pPhone, 'customer_email': pEmail,
+      'customer_license': pLic, 'customer_license_expiry': pLicExpiry,
+      'customer_ico': p ? (p.ico || '') : '', 'customer_dic': p ? (p.dic || '') : '',
+      'customer_id_number': pIdNum,
+      'moto_model': mn, 'moto_name': mn, 'moto_spz': mSpz, 'moto_vin': mVin, 'moto_year': String(mYear),
+      'start_date': _docDate(b.start_date), 'end_date': _docDate(b.end_date),
+      'date_from': _docDate(b.start_date), 'date_to': _docDate(b.end_date),
+      'start_time': startTime, 'end_time': endTime,
+      'days': String(data.days), 'rental_period': rentalPeriod,
+      'total_price': (b.total_price||0).toLocaleString('cs-CZ'),
+      'total_price_words': totalWords,
+      'daily_rate': dailyRate.toLocaleString('cs-CZ'),
+      'extras_price': (b.extras_price||0).toLocaleString('cs-CZ'),
+      'delivery_fee': (b.delivery_fee||0).toLocaleString('cs-CZ'),
+      'discount': (b.discount_amount||0).toLocaleString('cs-CZ'),
+      'res_number': rn, 'booking_number': rn, 'booking_id': b.id.substr(-8).toUpperCase(),
+      'today': _docDate(new Date().toISOString()),
+      'today_time': new Date().toLocaleTimeString('cs-CZ', {hour:'2-digit',minute:'2-digit'}),
+      'pickup_location': pickupLoc, 'return_location': returnLoc,
+      'mileage': String(mileageStart), 'fuel_state': '', 'technical_state': ''
+    };
+    bodyHtml = tpl.content_html;
+    for(var k in vars){
+      bodyHtml = bodyHtml.replace(new RegExp('\\{\\{'+k+'\\}\\}','g'), vars[k])
+                         .replace(new RegExp('\\{'+k+'\\}','g'), vars[k]);
+    }
   } else {
     bodyHtml = '<h3>'+t.contractTitle+'</h3>'+statusLine+
       '<div class="doc-parties"><div class="doc-party"><strong>'+t.lessor+':</strong><br>'+
@@ -135,12 +163,23 @@ async function showDigitalProtocol(bookingId){
   var tpl = typeof apiFetchDocTemplate === 'function' ? await apiFetchDocTemplate('protocol') : null;
   var bodyHtml = '';
   if(tpl && tpl.content_html){
-    bodyHtml = tpl.content_html
-      .replace(/\{company_name\}/g, COMPANY.name)
-      .replace(/\{customer_name\}/g, pName)
-      .replace(/\{moto_name\}/g, mn).replace(/\{moto_spz\}/g, mSpz)
-      .replace(/\{date_from\}/g, pickup).replace(/\{date_to\}/g, returnD)
-      .replace(/\{res_number\}/g, rn);
+    var mVin = data && data.m ? (data.m.vin||'') : '';
+    var mileageVal = data ? (data.b.mileage_start||'') : '';
+    var vars2 = {
+      'company_name': COMPANY.name, 'company_address': COMPANY.sidlo,
+      'customer_name': pName, 'moto_model': mn, 'moto_name': mn,
+      'moto_spz': mSpz, 'moto_vin': mVin,
+      'start_date': pickup, 'end_date': returnD, 'date_from': pickup, 'date_to': returnD,
+      'res_number': rn, 'booking_number': rn,
+      'today': _docDate(new Date().toISOString()),
+      'today_time': new Date().toLocaleTimeString('cs-CZ', {hour:'2-digit',minute:'2-digit'}),
+      'mileage': String(mileageVal), 'fuel_state': '', 'technical_state': ''
+    };
+    bodyHtml = tpl.content_html;
+    for(var k2 in vars2){
+      bodyHtml = bodyHtml.replace(new RegExp('\\{\\{'+k2+'\\}\\}','g'), vars2[k2])
+                         .replace(new RegExp('\\{'+k2+'\\}','g'), vars2[k2]);
+    }
   } else {
     var items=[
       {name:'Klíče (od motorky + od kufru)',checked:true,locked:true},
@@ -396,19 +435,11 @@ async function renderContractsPage(){
     '<div style="background:var(--gp);border-radius:var(--r);padding:13px;margin-bottom:10px;font-size:12px;color:var(--gd);line-height:1.6;">🔒 '+t.gdprNote+'</div></div>'+
     '<div style="padding:0 20px;">';
 
-  // VOP – always show general link
+  // VOP – show only once (general link, no per-booking duplicates)
   html+='<div class="bcard" style="margin:0 0 10px;cursor:pointer;" onclick="showVOP()">'+
     '<div style="display:flex;align-items:center;gap:12px;"><div style="width:40px;height:40px;background:var(--gp);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;">📜</div>'+
     '<div style="flex:1;"><div style="font-size:13px;font-weight:800;">'+t.vopTitle+'</div>'+
     '<div style="font-size:11px;color:var(--g400);margin-top:2px;">'+COMPANY.name+'</div></div></div></div>';
-
-  // Per-booking VOP copies
-  vops.forEach(function(d){
-    html+='<div class="bcard" style="margin:0 0 10px;cursor:pointer;" onclick="showVOP()">'+
-      '<div style="display:flex;align-items:center;gap:12px;"><div style="width:40px;height:40px;background:#e0f2fe;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;">📜</div>'+
-      '<div style="flex:1;"><div style="font-size:13px;font-weight:800;">VOP – '+(d.moto_name||'Rezervace')+'</div>'+
-      '<div style="font-size:11px;color:var(--g400);margin-top:2px;">'+(d.res_num||'')+' · '+_docDate(d.date)+'</div></div></div></div>';
-  });
 
   // Contracts
   contracts.forEach(function(d){

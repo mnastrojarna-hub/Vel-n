@@ -121,7 +121,7 @@ export default function BookingDocumentsTab({ bookingId }) {
   async function generateClientSide(templateSlug) {
     const { data: booking, error: bErr } = await supabase
       .from('bookings')
-      .select('*, motorcycles(model, spz, vin, year), profiles(id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry)')
+      .select('*, motorcycles(model, spz, vin, year), profiles(id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry, id_number)')
       .eq('id', bookingId).single()
     if (bErr || !booking) throw new Error('Rezervace nenalezena')
 
@@ -137,6 +137,7 @@ export default function BookingDocumentsTab({ bookingId }) {
       customer_ico: customer.ico || '', customer_dic: customer.dic || '',
       customer_license: customer.license_number || '',
       customer_license_expiry: fmtDate(customer.license_expiry),
+      customer_id_number: customer.id_number || '',
       moto_model: moto.model || '—', moto_spz: moto.spz || '', moto_vin: moto.vin || '',
       moto_year: String(moto.year || ''),
       start_date: fmtDate(booking.start_date), end_date: fmtDate(booking.end_date),
@@ -147,7 +148,6 @@ export default function BookingDocumentsTab({ bookingId }) {
       start_time: booking.pickup_time || '', end_time: '24:00',
       rental_period: `${fmtDate(booking.start_date)} — ${fmtDate(booking.end_date)} (${days} dní)`,
       total_price_words: '',
-      customer_id_number: '',
       pickup_location: booking.pickup_address || 'Mezná 9, 393 01 Mezná',
       return_location: booking.return_address || 'Mezná 9, 393 01 Mezná',
       mileage: String(booking.mileage_start || ''),
@@ -262,7 +262,7 @@ export default function BookingDocumentsTab({ bookingId }) {
     // 4) If no filled_data, regenerate from booking
     try {
       const { data: booking } = await supabase.from('bookings')
-        .select('*, motorcycles(model, spz, vin, year), profiles(id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry)')
+        .select('*, motorcycles(model, spz, vin, year), profiles(id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry, id_number)')
         .eq('id', bookingId).single()
       if (booking) {
         const customer = booking.profiles || {}
@@ -275,12 +275,21 @@ export default function BookingDocumentsTab({ bookingId }) {
           customer_phone: customer.phone || '', customer_address: [customer.street, customer.city, customer.zip].filter(Boolean).join(', '),
           customer_ico: customer.ico || '', customer_dic: customer.dic || '',
           customer_license: customer.license_number || '', customer_license_expiry: fmtD(customer.license_expiry),
+          customer_id_number: customer.id_number || '',
           moto_model: moto.model || '—', moto_spz: moto.spz || '', moto_vin: moto.vin || '', moto_year: String(moto.year || ''),
           start_date: fmtD(booking.start_date), end_date: fmtD(booking.end_date),
           days: String(days), total_price: fmtP(booking.total_price || 0),
           daily_rate: fmtP(Math.round((booking.total_price || 0) / days)),
           booking_id: bookingId.slice(-8).toUpperCase(), booking_number: bookingId.slice(-8).toUpperCase(),
           today: fmtD(new Date().toISOString()),
+          today_time: new Date().toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' }),
+          start_time: booking.pickup_time || '', end_time: '24:00',
+          rental_period: `${fmtD(booking.start_date)} — ${fmtD(booking.end_date)} (${days} dní)`,
+          total_price_words: '',
+          pickup_location: booking.pickup_address || 'Mezná 9, 393 01 Mezná',
+          return_location: booking.return_address || 'Mezná 9, 393 01 Mezná',
+          mileage: String(booking.mileage_start || ''),
+          fuel_state: '', technical_state: '',
           company_name: 'Bc. Petra Semorádová', company_address: 'Mezná 9, 393 01 Mezná', company_ico: '21874263', company_dic: '',
         }
         const docType = doc.document_templates?.type || ''
