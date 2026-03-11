@@ -401,7 +401,7 @@ async function openResDetailById(bookingId){
           var _m = _descMod(booking.original_start_date, booking.original_end_date, booking.start_date, booking.end_date);
           var mh = '<div style="background:'+(_m.color==='#2563eb'?'#dbeafe':_m.color==='#dc2626'?'#fee2e2':'#fef3c7')+';border:2px solid '+_m.color+';border-radius:12px;padding:12px 14px;margin-bottom:8px;">';
           mh += '<div style="font-size:14px;font-weight:900;color:'+_m.color+';">'+_m.type.charAt(0).toUpperCase()+_m.type.slice(1)+'</div>';
-          mh += '<div style="font-size:12px;color:#4a6357;margin-top:4px;">'+_m.detail+'</div>';
+          mh += '<div style="font-size:12px;color:#4a6357;margin-top:4px;">'+_fmtDate(booking.original_start_date)+' – '+_fmtDate(booking.original_end_date)+' → '+_fmtDate(booking.start_date)+' – '+_fmtDate(booking.end_date)+'</div>';
           mh += '</div>';
           mh += '<div class="rd-row"><div class="rd-label">Původní termín</div><div class="rd-value" style="color:#b45309;">'+_fmtDate(booking.original_start_date)+' – '+_fmtDate(booking.original_end_date)+' ('+_m.origDays+' dní)</div></div>';
           mh += '<div class="rd-row"><div class="rd-label">Nový termín</div><div class="rd-value" style="color:'+_m.color+';">'+_fmtDate(booking.start_date)+' – '+_fmtDate(booking.end_date)+' ('+_m.newDays+' dní)</div></div>';
@@ -697,7 +697,9 @@ function _fmtDT(iso){
 }
 
 function _descMod(fromStart, fromEnd, toStart, toEnd){
-  var fs=new Date(fromStart),fe=new Date(fromEnd),ts=new Date(toStart),te=new Date(toEnd);
+  // Normalize to local midnight to avoid timezone drift
+  var _nd=function(d){var dt=new Date(d);return new Date(dt.getFullYear(),dt.getMonth(),dt.getDate());};
+  var fs=_nd(fromStart),fe=_nd(fromEnd),ts=_nd(toStart),te=_nd(toEnd);
   var sd=Math.round((ts-fs)/86400000), ed=Math.round((te-fe)/86400000);
   var origD=Math.max(1,Math.round((fe-fs)/86400000)+1), newD=Math.max(1,Math.round((te-ts)/86400000)+1);
   var dd=newD-origD;
@@ -742,7 +744,7 @@ function _renderDetailSummary(b, moto, st, days, branchName, bookingId){
   if(b.original_start_date && b.original_end_date && (b.original_start_date !== b.start_date || b.original_end_date !== b.end_date)){
     var _mod = _descMod(b.original_start_date, b.original_end_date, b.start_date, b.end_date);
     h += '<li style="color:#b45309;"><strong>Původní termín:</strong> '+_fmtDate(b.original_start_date)+' – '+_fmtDate(b.original_end_date)+' ('+_mod.origDays+' dní)</li>';
-    h += '<li style="color:'+_mod.color+';"><strong>Celkem:</strong> '+_mod.type+' ('+_mod.detail+') → '+_fmtDate(b.start_date)+' – '+_fmtDate(b.end_date)+' ('+days+' dní)</li>';
+    h += '<li style="color:'+_mod.color+';"><strong>Celkem:</strong> '+_mod.type+' → '+_fmtDate(b.start_date)+' – '+_fmtDate(b.end_date)+' ('+days+' dní)</li>';
     // Show full modification history
     var _hist = Array.isArray(b.modification_history) ? b.modification_history : [];
     for(var hi=0; hi<_hist.length; hi++){
@@ -843,7 +845,7 @@ async function openExtendBooking(bookingId){
     var msg = _t('res').extendConfirm + ' ' + newEnd.getDate() + '. ' + (newEnd.getMonth()+1) + '. ' + newEnd.getFullYear() + '?';
     if(!confirm(msg)) return;
 
-    var result = await apiExtendBooking(bookingId, newEnd.toISOString());
+    var result = await apiExtendBooking(bookingId, newEnd.getFullYear()+'-'+String(newEnd.getMonth()+1).padStart(2,'0')+'-'+String(newEnd.getDate()).padStart(2,'0'));
     if(result.error){
       showT('✗',_t('common').error, result.error);
       return;
