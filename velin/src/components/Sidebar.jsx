@@ -178,16 +178,16 @@ export default function Sidebar({ admin, onSignOut }) {
             {admin?.name?.[0]?.toUpperCase() || 'A'}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-xs font-bold text-white truncate">
+            <div className="text-sm font-bold text-white truncate">
               {admin?.name || 'Admin'}
             </div>
-            <div className="text-[10px] font-medium" style={{ color: 'rgba(255,255,255,.35)' }}>
+            <div className="text-sm font-medium" style={{ color: 'rgba(255,255,255,.35)' }}>
               {admin?.role || 'Správce'}
             </div>
           </div>
           <button
             onClick={onSignOut}
-            className="text-[10px] font-bold uppercase opacity-40 hover:opacity-100 transition-opacity cursor-pointer bg-transparent border-none text-white"
+            className="text-sm font-bold uppercase opacity-40 hover:opacity-100 transition-opacity cursor-pointer bg-transparent border-none text-white"
             title="Odhlásit se"
           >
             ↗

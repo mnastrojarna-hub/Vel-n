@@ -18,11 +18,11 @@ export default function CMS() {
           <button
             key={t}
             onClick={() => { debugLog('tab.switch', 'CMS', { tab: t }); setTab(t) }}
-            className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
+            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
             style={{
               padding: '8px 18px',
               background: tab === t ? '#74FB71' : '#f1faf7',
-              color: tab === t ? '#1a2e22' : '#4a6357',
+              color: tab === t ? '#1a2e22' : '#1a2e22',
               border: 'none',
               boxShadow: tab === t ? '0 4px 16px rgba(116,251,113,.35)' : 'none',
             }}

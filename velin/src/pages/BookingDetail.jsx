@@ -33,7 +33,7 @@ function describeModification(fromStart, fromEnd, toStart, toEnd) {
   if (durationDelta > 0) { type = `prodlouženo o ${durationDelta} d`; color = '#2563eb'; bg = '#dbeafe' }
   else if (durationDelta < 0) { type = `zkráceno o ${Math.abs(durationDelta)} d`; color = '#dc2626'; bg = '#fee2e2' }
   else if (startDelta !== 0 || endDelta !== 0) { type = 'přesunuto'; color = '#92400e'; bg = '#fef3c7' }
-  else { type = 'beze změny'; color = '#4a6357'; bg = '#f1faf7' }
+  else { type = 'beze změny'; color = '#1a2e22'; bg = '#f1faf7' }
 
   const detail = parts.length > 0 ? parts.join(', ') : type
   return { type, detail, parts, durationDelta, startDelta, endDelta, origDays, newDays, color, bg }
@@ -332,35 +332,35 @@ export default function BookingDetail() {
   }
 
   if (loading) return <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
-  if (!booking) return <div className="p-4" style={{ color: '#8aab99' }}>{error || 'Rezervace nenalezena'}</div>
+  if (!booking) return <div className="p-4" style={{ color: '#1a2e22' }}>{error || 'Rezervace nenalezena'}</div>
 
   const actions = ACTIONS[booking.status] || []
 
   return (
     <div>
       <div className="flex items-center gap-3 mb-5">
-        <button onClick={() => navigate('/rezervace')} className="cursor-pointer" style={{ background: 'none', border: 'none', fontSize: 18, color: '#8aab99' }}>←</button>
+        <button onClick={() => navigate('/rezervace')} className="cursor-pointer" style={{ background: 'none', border: 'none', fontSize: 18, color: '#1a2e22' }}>←</button>
         <h2 className="font-extrabold text-lg" style={{ color: '#0f1a14' }}>Rezervace</h2>
-        <span className="text-xs font-mono" style={{ color: '#8aab99' }}>#{id?.slice(-8).toUpperCase()}</span>
+        <span className="text-sm font-mono" style={{ color: '#1a2e22' }}>#{id?.slice(-8).toUpperCase()}</span>
         <StatusBadge status={getDisplayStatus(booking)} />
         {booking.payment_status && (
-          <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase"
+          <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
             style={{ padding: '3px 8px', background: booking.payment_status === 'paid' ? '#dcfce7' : '#fee2e2', color: booking.payment_status === 'paid' ? '#1a8a18' : '#dc2626' }}>
             {booking.payment_status === 'paid' ? 'Zaplaceno' : 'Nezaplaceno'}
           </span>
         )}
-        <span className="text-xs" style={{ color: '#8aab99' }}>
+        <span className="text-sm" style={{ color: '#1a2e22' }}>
           Vytvořena: {booking.created_at ? new Date(booking.created_at).toLocaleString('cs-CZ') : '—'}
         </span>
       </div>
       <div className="flex gap-2 mb-5 flex-wrap">
         {TABS.map(t => (
-          <button key={t} onClick={() => setTab(t)} className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
-            style={{ padding: '8px 18px', background: tab === t ? '#74FB71' : '#f1faf7', color: tab === t ? '#1a2e22' : '#4a6357', border: 'none', boxShadow: tab === t ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>{t}</button>
+          <button key={t} onClick={() => setTab(t)} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+            style={{ padding: '8px 18px', background: tab === t ? '#74FB71' : '#f1faf7', color: tab === t ? '#1a2e22' : '#1a2e22', border: 'none', boxShadow: tab === t ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>{t}</button>
         ))}
       </div>
       {/* DIAGNOSTIKA */}
-      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA BookingDetail (#{id?.slice(-8)})</strong><br/>
         <div>booking: status={booking.status}, payment={booking.payment_status}, price={booking.total_price} Kč</div>
         <div>customer: {booking.profiles?.full_name || '—'} ({booking.profiles?.email || '—'})</div>
@@ -383,10 +383,10 @@ export default function BookingDetail() {
 
       {showCancelModal && (
         <Modal open title="Zrušit rezervaci" onClose={() => setShowCancelModal(false)}>
-          <p className="text-sm mb-4" style={{ color: '#4a6357' }}>
+          <p className="text-sm mb-4" style={{ color: '#1a2e22' }}>
             Zákazník bude informován emailem. Vyberte důvod zrušení:
           </p>
-          <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Důvod zrušení</label>
+          <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Důvod zrušení</label>
           <select value={cancelReason} onChange={e => setCancelReason(e.target.value)}
             className="w-full rounded-btn text-sm outline-none mb-3"
             style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
@@ -395,7 +395,7 @@ export default function BookingDetail() {
           </select>
           {cancelReason === 'admin' && (
             <>
-              <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Vlastní důvod</label>
+              <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Vlastní důvod</label>
               <textarea value={cancelReasonCustom} onChange={e => setCancelReasonCustom(e.target.value)} rows={3}
                 className="w-full rounded-btn text-sm outline-none mb-3"
                 style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', resize: 'vertical' }}
@@ -478,10 +478,10 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
     <div className="grid grid-cols-2 gap-5">
       <Card>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>Zákazník</h3>
+          <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Zákazník</h3>
           {booking.profiles?.id && (
             <button onClick={() => navigate(`/zakaznici/${booking.profiles.id}`)}
-              className="text-[10px] font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none' }}>
+              className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none' }}>
               → Detail zákazníka
             </button>
           )}
@@ -494,10 +494,10 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
 
       <Card>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>Motorka</h3>
+          <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Motorka</h3>
           {booking.motorcycles?.id && (
             <button onClick={() => navigate(`/flotila/${booking.motorcycles.id}`)}
-              className="text-[10px] font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none' }}>
+              className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none' }}>
               → Detail motorky
             </button>
           )}
@@ -515,10 +515,10 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
             background: booking.sos_replacement ? '#dcfce7' : '#fee2e2',
             border: `2px solid ${booking.sos_replacement ? '#86efac' : '#fca5a5'}`,
           }}>
-            <h3 className="text-xs font-extrabold mb-2" style={{ color: booking.sos_replacement ? '#1a8a18' : '#b91c1c' }}>
+            <h3 className="text-sm font-extrabold mb-2" style={{ color: booking.sos_replacement ? '#1a8a18' : '#b91c1c' }}>
               {booking.sos_replacement ? '🏍️ Náhradní motorka (SOS)' : '🆘 Ukončeno kvůli SOS incidentu'}
             </h3>
-            <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="grid grid-cols-2 gap-2 text-sm">
               {booking.replacement_for_booking_id && (
                 <InfoRow label="Nahrazuje rezervaci" value={`#${booking.replacement_for_booking_id.slice(-8)}`} mono />
               )}
@@ -533,7 +533,7 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
 
       {(booking.discount_amount > 0 || booking.discount_code || (promoUsage && promoUsage.length > 0) || voucherUsed) && (
         <Card className="col-span-2">
-          <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-4" style={{ color: '#b45309' }}>Uplatněné slevy a kódy</h3>
+          <h3 className="text-sm font-extrabold uppercase tracking-wide mb-4" style={{ color: '#b45309' }}>Uplatněné slevy a kódy</h3>
           <div className="p-4 rounded-lg" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
             <div className="grid grid-cols-3 gap-3">
               {booking.discount_code && (
@@ -562,7 +562,7 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
       )}
 
       <Card className="col-span-2">
-        <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-4" style={{ color: '#8aab99' }}>Termín a platba</h3>
+        <h3 className="text-sm font-extrabold uppercase tracking-wide mb-4" style={{ color: '#1a2e22' }}>Termín a platba</h3>
         {booking.original_start_date && booking.original_end_date && (() => {
           const _ld = d => d ? new Date(d).toLocaleDateString('sv-SE') : ''
           return _ld(booking.start_date) !== _ld(booking.original_start_date) || _ld(booking.end_date) !== _ld(booking.original_end_date)
@@ -571,16 +571,16 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
           const history = Array.isArray(booking.modification_history) ? booking.modification_history : []
           return (
             <div className="mb-3 space-y-1">
-              <div className="p-2 rounded-lg flex items-center gap-3" style={{ background: mod.bg, fontSize: 11 }}>
+              <div className="p-2 rounded-lg flex items-center gap-3" style={{ background: mod.bg, fontSize: 13 }}>
                 <span className="font-extrabold" style={{ color: mod.color }}>
                   {mod.type}
                 </span>
-                <span style={{ color: '#4a6357' }}>
+                <span style={{ color: '#1a2e22' }}>
                   {mod.detail} · Původní: {new Date(booking.original_start_date).toLocaleDateString('cs-CZ')} – {new Date(booking.original_end_date).toLocaleDateString('cs-CZ')} ({mod.origDays}d)
                 </span>
               </div>
               {history.length > 0 && (
-                <div className="text-[10px] px-2 py-1 rounded" style={{ background: '#f1faf7', color: '#4a6357' }}>
+                <div className="text-sm px-2 py-1 rounded" style={{ background: '#f1faf7', color: '#1a2e22' }}>
                   <span className="font-extrabold">Historie úprav ({history.length}×):</span>
                   {history.map((h, i) => {
                     const m = describeModification(h.from_start, h.from_end, h.to_start, h.to_end)
@@ -601,11 +601,11 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
           <div>
             <FieldInput label="Celkem (Kč)" type="number" value={booking.total_price} onChange={v => set('total_price', Number(v))} />
             <button onClick={handleRecalcPrice} disabled={recalculating}
-              className="text-[10px] font-bold mt-1 cursor-pointer"
+              className="text-sm font-bold mt-1 cursor-pointer"
               style={{ color: '#2563eb', background: 'none', border: 'none', padding: 0 }}>
               {recalculating ? 'Počítám...' : 'Přepočítat dle ceníku'}
             </button>
-            {priceBreakdown && <p className="text-[10px] font-bold" style={{ color: '#1a8a18' }}>{priceBreakdown}</p>}
+            {priceBreakdown && <p className="text-sm font-bold" style={{ color: '#1a8a18' }}>{priceBreakdown}</p>}
           </div>
           <FieldInput label="Poznámky" value={booking.notes} onChange={v => set('notes', v)} />
         </div>
@@ -613,15 +613,15 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
         {/* Pickup / Return / Insurance / Extras */}
         <div className="grid grid-cols-3 gap-4 mt-4 p-3 rounded-lg" style={{ background: '#f1faf7' }}>
           <div>
-            <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Přistavení</div>
+            <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Přistavení</div>
             <div className="text-sm">{booking.pickup_method === 'delivery' ? 'Přistavení na adresu' : 'Na pobočce'} — {booking.pickup_address || booking.motorcycles?.branches?.name || '—'}</div>
           </div>
           <div>
-            <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Vrácení</div>
+            <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Vrácení</div>
             <div className="text-sm">{booking.return_method === 'delivery' ? 'Svoz z adresy' : 'Na pobočce'} — {booking.return_address || booking.motorcycles?.branches?.name || '—'}</div>
           </div>
           <div>
-            <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Pojištění</div>
+            <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Pojištění</div>
             <div className="text-sm">{booking.insurance_type || '—'}</div>
           </div>
         </div>
@@ -629,22 +629,22 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
         {/* Price breakdown */}
         <div className="grid grid-cols-4 gap-4 mt-3 p-3 rounded-lg" style={{ background: '#f1faf7' }}>
           <div>
-            <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Příslušenství</div>
+            <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Příslušenství</div>
             <div className="text-sm font-bold">{booking.extras_price > 0 ? `${Number(booking.extras_price).toLocaleString('cs-CZ')} Kč` : '—'}</div>
             {bookingExtras.length > 0 && bookingExtras.map((ex, i) => (
-              <div key={i} className="text-[10px]" style={{ color: '#4a6357' }}>{ex.extras_catalog?.name || `Extra ${i + 1}`}: {Number(ex.extras_catalog?.price || 0).toLocaleString('cs-CZ')} Kč</div>
+              <div key={i} className="text-sm" style={{ color: '#1a2e22' }}>{ex.extras_catalog?.name || `Extra ${i + 1}`}: {Number(ex.extras_catalog?.price || 0).toLocaleString('cs-CZ')} Kč</div>
             ))}
           </div>
           <div>
-            <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Doručení</div>
+            <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Doručení</div>
             <div className="text-sm font-bold">{booking.delivery_fee > 0 ? `${Number(booking.delivery_fee).toLocaleString('cs-CZ')} Kč` : '—'}</div>
           </div>
           <div>
-            <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Sleva</div>
+            <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Sleva</div>
             <div className="text-sm font-bold" style={{ color: booking.discount_amount > 0 ? '#1a8a18' : undefined }}>{booking.discount_amount > 0 ? `-${Number(booking.discount_amount).toLocaleString('cs-CZ')} Kč` : '—'}{booking.discount_code ? ` (${booking.discount_code})` : ''}</div>
           </div>
           <div>
-            <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Kauce</div>
+            <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Kauce</div>
             <div className="text-sm font-bold">{booking.deposit > 0 ? `${Number(booking.deposit).toLocaleString('cs-CZ')} Kč` : '—'}</div>
           </div>
         </div>
@@ -662,7 +662,7 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
 
       {booking.status === 'cancelled' && (
         <Card className="col-span-2">
-          <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-4" style={{ color: '#dc2626' }}>Informace o zrušení</h3>
+          <h3 className="text-sm font-extrabold uppercase tracking-wide mb-4" style={{ color: '#dc2626' }}>Informace o zrušení</h3>
           <div className="p-4 rounded-lg" style={{ background: '#fef2f2', border: '1px solid #fecaca' }}>
             <div className="grid grid-cols-2 gap-3">
               <InfoRow label="Zdroj" value={CANCEL_REASONS.find(r => r.value === booking.cancelled_by_source)?.label || booking.cancelled_by_source || '—'} />
@@ -675,12 +675,12 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
       )}
 
       <Card className="col-span-2">
-        <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-4" style={{ color: '#8aab99' }}>Kompletní přehled rezervace</h3>
+        <h3 className="text-sm font-extrabold uppercase tracking-wide mb-4" style={{ color: '#1a2e22' }}>Kompletní přehled rezervace</h3>
         <BookingSummary booking={booking} sosIncidents={sosIncidents} bookingExtras={bookingExtras} cancellation={cancellation} promoUsage={promoUsage} voucherUsed={voucherUsed} />
       </Card>
 
       <Card className="col-span-2">
-        <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-4" style={{ color: '#8aab99' }}>Timeline</h3>
+        <h3 className="text-sm font-extrabold uppercase tracking-wide mb-4" style={{ color: '#1a2e22' }}>Timeline</h3>
         <Timeline booking={booking} />
       </Card>
     </div>
@@ -700,7 +700,7 @@ function SumRow({ label, value, color }) {
   if (!value) return null
   return (
     <div className="flex gap-2 py-[3px]" style={{ borderBottom: '1px solid #f1faf7', fontSize: 12 }}>
-      <span className="font-bold" style={{ color: '#4a6357', minWidth: 160, flexShrink: 0 }}>{label}</span>
+      <span className="font-bold" style={{ color: '#1a2e22', minWidth: 160, flexShrink: 0 }}>{label}</span>
       <span className="font-medium" style={{ color: color || '#0f1a14' }}>{value}</span>
     </div>
   )
@@ -722,14 +722,14 @@ function BookingSummary({ booking, sosIncidents, bookingExtras, cancellation, pr
 
   return (
     <div className="space-y-1">
-      <div className="text-[10px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#8aab99' }}>Základní údaje</div>
+      <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Základní údaje</div>
       <SumRow label="Stav" value={STATUS_LABELS[b.status] || b.status} color={b.status === 'cancelled' ? '#dc2626' : b.status === 'active' ? '#1a8a18' : undefined} />
       <SumRow label="ID" value={`#${b.id?.slice(-8).toUpperCase()}`} />
       <SumRow label="Motorka" value={`${b.motorcycles?.model || '—'}${b.motorcycles?.spz ? ` (${b.motorcycles.spz})` : ''}`} />
       <SumRow label="Pobočka" value={branchName} />
       <SumRow label="Zákazník" value={`${b.profiles?.full_name || '—'} (${b.profiles?.email || '—'}, ${b.profiles?.phone || '—'})`} />
 
-      <div className="text-[10px] font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#8aab99' }}>Termín</div>
+      <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Termín</div>
       <SumRow label="Začátek" value={`${new Date(b.start_date).toLocaleDateString('cs-CZ')} v ${b.pickup_time || '9:00'}`} />
       <SumRow label="Konec" value={`${new Date(b.end_date).toLocaleDateString('cs-CZ')} v 9:00`} />
       <SumRow label="Délka" value={`${days} ${days === 1 ? 'den' : days < 5 ? 'dny' : 'dní'}`} />
@@ -745,13 +745,13 @@ function BookingSummary({ booking, sosIncidents, bookingExtras, cancellation, pr
         </>
       )}
 
-      <div className="text-[10px] font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#8aab99' }}>Vyzvednutí a vrácení</div>
+      <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Vyzvednutí a vrácení</div>
       <SumRow label="Přistavení" value={`${b.pickup_method === 'delivery' ? 'Přistavení na adresu' : 'Na pobočce'} — ${b.pickup_address || branchName}`} />
       <SumRow label="Vrácení" value={`${b.return_method === 'delivery' ? 'Svoz z adresy' : 'Na pobočce'} — ${b.return_address || branchName}`} />
 
       {(b.boots_size || b.helmet_size || b.jacket_size) && (
         <>
-          <div className="text-[10px] font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#8aab99' }}>Výbava</div>
+          <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Výbava</div>
           <SumRow label="Boty" value={b.boots_size ? `vel. ${b.boots_size}` : null} />
           <SumRow label="Helma" value={b.helmet_size ? `vel. ${b.helmet_size}` : null} />
           <SumRow label="Bunda" value={b.jacket_size ? `vel. ${b.jacket_size}` : null} />
@@ -762,14 +762,14 @@ function BookingSummary({ booking, sosIncidents, bookingExtras, cancellation, pr
 
       {bookingExtras.length > 0 && (
         <>
-          <div className="text-[10px] font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#8aab99' }}>Příslušenství</div>
+          <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Příslušenství</div>
           {bookingExtras.map((ex, i) => (
             <SumRow key={i} label={ex.extras_catalog?.name || `Extra ${i + 1}`} value={`${Number(ex.extras_catalog?.price || 0).toLocaleString('cs-CZ')} Kč`} />
           ))}
         </>
       )}
 
-      <div className="text-[10px] font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#8aab99' }}>Platba</div>
+      <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Platba</div>
       <SumRow label="Celkem" value={`${Number(b.total_price || 0).toLocaleString('cs-CZ')} Kč`} />
       {b.extras_price > 0 && <SumRow label="Příslušenství" value={`${b.extras_price.toLocaleString('cs-CZ')} Kč`} />}
       {b.delivery_fee > 0 && <SumRow label="Doručení" value={`${b.delivery_fee.toLocaleString('cs-CZ')} Kč`} />}
@@ -785,7 +785,7 @@ function BookingSummary({ booking, sosIncidents, bookingExtras, cancellation, pr
 
       {(b.mileage_start || b.mileage_end) && (
         <>
-          <div className="text-[10px] font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#8aab99' }}>Nájezd</div>
+          <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Nájezd</div>
           {b.mileage_start && <SumRow label="Při převzetí" value={`${b.mileage_start} km`} />}
           {b.mileage_end && <SumRow label="Při vrácení" value={`${b.mileage_end} km`} />}
           {b.mileage_start && b.mileage_end && <SumRow label="Najeto" value={`${b.mileage_end - b.mileage_start} km`} />}
@@ -796,15 +796,15 @@ function BookingSummary({ booking, sosIncidents, bookingExtras, cancellation, pr
 
       {(b.sos_replacement || b.ended_by_sos || sosIncidents.length > 0) && (
         <>
-          <div className="text-[10px] font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#dc2626' }}>SOS</div>
+          <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#dc2626' }}>SOS</div>
           {b.sos_replacement && <SumRow label="SOS náhrada" value={`Ano${b.replacement_for_booking_id ? ` (za #${b.replacement_for_booking_id.slice(-8)})` : ''}`} color="#1a8a18" />}
           {b.ended_by_sos && <SumRow label="Ukončeno SOS" value={`Ano${b.sos_incident_id ? ` (incident #${b.sos_incident_id.slice(-8)})` : ''}`} color="#dc2626" />}
           {sosIncidents.map(inc => (
-            <div key={inc.id} className="py-1" style={{ borderBottom: '1px solid #fef2f2', fontSize: 11 }}>
+            <div key={inc.id} className="py-1" style={{ borderBottom: '1px solid #fef2f2', fontSize: 13 }}>
               <span className="font-bold" style={{ color: '#dc2626' }}>#{inc.id.slice(-6)}</span>
               <span className="ml-2">{inc.type} ({inc.severity}) — {inc.status}</span>
               {inc.title && <span className="ml-1">— {inc.title}</span>}
-              <span className="ml-2" style={{ color: '#8aab99' }}>{fmtDT(inc.created_at)}</span>
+              <span className="ml-2" style={{ color: '#1a2e22' }}>{fmtDT(inc.created_at)}</span>
               {inc.resolved_at && <span className="ml-1" style={{ color: '#1a8a18' }}>→ vyřešeno {fmtDT(inc.resolved_at)}</span>}
               {inc.customer_fault && <span className="ml-1 font-bold" style={{ color: '#b91c1c' }}>[vina zákazníka]</span>}
               {inc.damage_severity && inc.damage_severity !== 'none' && <span className="ml-1" style={{ color: '#b45309' }}>[{inc.damage_severity}]</span>}
@@ -815,7 +815,7 @@ function BookingSummary({ booking, sosIncidents, bookingExtras, cancellation, pr
 
       {b.status === 'cancelled' && (
         <>
-          <div className="text-[10px] font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#dc2626' }}>Zrušení</div>
+          <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#dc2626' }}>Zrušení</div>
           <SumRow label="Zrušeno" value={fmtDT(b.cancelled_at)} color="#dc2626" />
           <SumRow label="Zdroj" value={CANCEL_SOURCE_LABELS[b.cancelled_by_source] || b.cancelled_by_source || '—'} />
           <SumRow label="Důvod" value={b.cancellation_reason || '—'} />
@@ -828,7 +828,7 @@ function BookingSummary({ booking, sosIncidents, bookingExtras, cancellation, pr
         </>
       )}
 
-      <div className="text-[10px] font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#8aab99' }}>Průběh</div>
+      <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Průběh</div>
       <SumRow label="Vytvořeno" value={fmtDT(b.created_at)} />
       <SumRow label="Potvrzeno" value={fmtDT(b.confirmed_at)} />
       <SumRow label="Vydáno" value={fmtDT(b.picked_up_at)} />
@@ -839,8 +839,8 @@ function BookingSummary({ booking, sosIncidents, bookingExtras, cancellation, pr
 
       {b.notes && (
         <>
-          <div className="text-[10px] font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#8aab99' }}>Poznámky</div>
-          <p className="text-xs" style={{ color: '#4a6357' }}>{b.notes}</p>
+          <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Poznámky</div>
+          <p className="text-sm" style={{ color: '#1a2e22' }}>{b.notes}</p>
         </>
       )}
 
@@ -853,7 +853,7 @@ function BookingSummary({ booking, sosIncidents, bookingExtras, cancellation, pr
 function InfoRow({ label, value }) {
   return (
     <div className="flex items-center gap-2 mb-1">
-      <span className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99', minWidth: 65 }}>{label}</span>
+      <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22', minWidth: 65 }}>{label}</span>
       <span className="text-sm font-medium" style={{ color: '#0f1a14' }}>{value || '—'}</span>
     </div>
   )
@@ -912,7 +912,7 @@ function ComplaintsTab({ bookingId, booking, setBooking }) {
   return (
     <Card>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>Reklamace</h3>
+        <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Reklamace</h3>
         <Button green onClick={() => setShowAdd(!showAdd)}>+ Nová reklamace</Button>
       </div>
 
@@ -933,20 +933,20 @@ function ComplaintsTab({ bookingId, booking, setBooking }) {
       {loading ? (
         <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
       ) : complaints.length === 0 ? (
-        <p style={{ color: '#8aab99', fontSize: 13 }}>Žádné reklamace</p>
+        <p style={{ color: '#1a2e22', fontSize: 13 }}>Žádné reklamace</p>
       ) : (
         <div className="space-y-3">
           {complaints.map(c => (
             <div key={c.id} className="p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
               <div className="flex items-center gap-2 mb-2">
                 <span className="font-bold text-sm" style={{ color: '#0f1a14' }}>{c.subject}</span>
-                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-btn" style={{ background: statusBgs[c.status] || '#f3f4f6', color: statusColors[c.status] || '#6b7280' }}>
+                <span className="text-sm font-extrabold uppercase px-2 py-0.5 rounded-btn" style={{ background: statusBgs[c.status] || '#f3f4f6', color: statusColors[c.status] || '#6b7280' }}>
                   {statusLabels[c.status] || c.status}
                 </span>
-                <span className="text-[10px] ml-auto" style={{ color: '#8aab99' }}>{c.created_at ? new Date(c.created_at).toLocaleString('cs-CZ') : ''}</span>
+                <span className="text-sm ml-auto" style={{ color: '#1a2e22' }}>{c.created_at ? new Date(c.created_at).toLocaleString('cs-CZ') : ''}</span>
               </div>
-              {c.description && <p className="text-xs mb-2" style={{ color: '#4a6357' }}>{c.description}</p>}
-              {c.resolution && <p className="text-xs mb-2" style={{ color: '#1a8a18' }}><strong>Řešení:</strong> {c.resolution}</p>}
+              {c.description && <p className="text-sm mb-2" style={{ color: '#1a2e22' }}>{c.description}</p>}
+              {c.resolution && <p className="text-sm mb-2" style={{ color: '#1a8a18' }}><strong>Řešení:</strong> {c.resolution}</p>}
               {c.status !== 'resolved' && c.status !== 'rejected' && (
                 <div className="flex gap-1 mt-2">
                   {c.status === 'open' && <SmallActionBtn onClick={() => updateStatus(c.id, 'in_progress')} color="#2563eb" bg="#dbeafe">Řešit</SmallActionBtn>}
@@ -964,7 +964,7 @@ function ComplaintsTab({ bookingId, booking, setBooking }) {
 
 function SmallActionBtn({ children, onClick, color, bg }) {
   return (
-    <button onClick={onClick} className="rounded-btn text-[10px] font-extrabold uppercase tracking-wide cursor-pointer"
+    <button onClick={onClick} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
       style={{ padding: '3px 8px', background: bg, color, border: 'none' }}>{children}</button>
   )
 }
@@ -977,7 +977,7 @@ function FieldInput({ label, type = 'text', value, onChange }) {
   }
   return (
     <div>
-      <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{label}</label>
+      <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</label>
       <input type={type} value={displayValue} onChange={e => onChange(e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
     </div>
   )
@@ -1001,15 +1001,15 @@ function Timeline({ booking }) {
               <div className="rounded-full flex items-center justify-center" style={{ width: 28, height: 28, background: '#74FB71' }}>
                 <span style={{ fontSize: 14 }}>✓</span>
               </div>
-              <span className="text-[10px] font-extrabold uppercase tracking-wide mt-1" style={{ color: '#1a8a18' }}>{s.label}</span>
-              {s.time && <span className="text-[9px] mt-0.5" style={{ color: '#8aab99' }}>{new Date(s.time).toLocaleString('cs-CZ')}</span>}
+              <span className="text-sm font-extrabold uppercase tracking-wide mt-1" style={{ color: '#1a8a18' }}>{s.label}</span>
+              {s.time && <span className="text-[9px] mt-0.5" style={{ color: '#1a2e22' }}>{new Date(s.time).toLocaleString('cs-CZ')}</span>}
             </div>
           ))}
         </div>
         <div className="p-4 rounded-lg" style={{ background: '#fee2e2' }}>
           <span style={{ color: '#dc2626', fontWeight: 700, fontSize: 13 }}>Zrušena</span>
-          {booking.cancelled_at && <span className="ml-3 text-xs" style={{ color: '#dc2626' }}>{new Date(booking.cancelled_at).toLocaleString('cs-CZ')}</span>}
-          {sourceLabel && <span className="ml-3 text-xs font-bold" style={{ color: '#991b1b' }}>— {sourceLabel}</span>}
+          {booking.cancelled_at && <span className="ml-3 text-sm" style={{ color: '#dc2626' }}>{new Date(booking.cancelled_at).toLocaleString('cs-CZ')}</span>}
+          {sourceLabel && <span className="ml-3 text-sm font-bold" style={{ color: '#991b1b' }}>— {sourceLabel}</span>}
         </div>
       </div>
     )
@@ -1022,8 +1022,8 @@ function Timeline({ booking }) {
             <div className="rounded-full flex items-center justify-center" style={{ width: 28, height: 28, background: s.done ? '#74FB71' : '#f1faf7', border: s.done ? 'none' : '2px solid #d4e8e0' }}>
               {s.done && <span style={{ fontSize: 14 }}>✓</span>}
             </div>
-            <span className="text-[10px] font-extrabold uppercase tracking-wide mt-1" style={{ color: s.done ? '#1a8a18' : '#8aab99' }}>{s.label}</span>
-            {s.time && <span className="text-[9px] mt-0.5" style={{ color: '#8aab99' }}>{new Date(s.time).toLocaleString('cs-CZ')}</span>}
+            <span className="text-sm font-extrabold uppercase tracking-wide mt-1" style={{ color: s.done ? '#1a8a18' : '#1a2e22' }}>{s.label}</span>
+            {s.time && <span className="text-[9px] mt-0.5" style={{ color: '#1a2e22' }}>{new Date(s.time).toLocaleString('cs-CZ')}</span>}
           </div>
           {i < steps.length - 1 && <div style={{ width: 60, height: 2, background: s.done ? '#74FB71' : '#d4e8e0', margin: '0 4px', marginBottom: 20 }} />}
         </div>

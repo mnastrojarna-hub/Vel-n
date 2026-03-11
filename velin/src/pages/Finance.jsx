@@ -204,8 +204,8 @@ export default function Finance() {
       <div className="flex gap-2 mb-5">
         {FINANCE_TABS.map(t => (
           <button key={t} onClick={() => setActiveTab(t)}
-            className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
-            style={{ padding: '8px 18px', background: activeTab === t ? '#74FB71' : '#f1faf7', color: activeTab === t ? '#1a2e22' : '#4a6357', border: 'none', boxShadow: activeTab === t ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>
+            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+            style={{ padding: '8px 18px', background: activeTab === t ? '#74FB71' : '#f1faf7', color: activeTab === t ? '#1a2e22' : '#1a2e22', border: 'none', boxShadow: activeTab === t ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>
             {t}
           </button>
         ))}
@@ -217,31 +217,31 @@ export default function Finance() {
       <div className="flex flex-wrap items-center gap-3 mb-5">
         {PERIODS.map(p => (
           <button key={p.value} onClick={() => setFilters(f => ({ ...f, period: p.value }))}
-            className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
-            style={{ padding: '8px 16px', background: filters.period === p.value ? '#74FB71' : '#f1faf7', color: filters.period === p.value ? '#1a2e22' : '#4a6357', border: 'none', boxShadow: filters.period === p.value ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>
+            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+            style={{ padding: '8px 16px', background: filters.period === p.value ? '#74FB71' : '#f1faf7', color: filters.period === p.value ? '#1a2e22' : '#1a2e22', border: 'none', boxShadow: filters.period === p.value ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>
             {p.label}
           </button>
         ))}
         <select value={filters.type} onChange={e => setFilters(f => ({ ...f, type: e.target.value }))}
-          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
-          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
           {TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
         {categories.length > 0 && (
           <select value={filters.category} onChange={e => setFilters(f => ({ ...f, category: e.target.value }))}
-            className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
-            style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+            style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
             <option value="">Všechny kategorie</option>
             {categories.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         )}
         <input type="text" value={filters.search} onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
           placeholder="Hledat popis…"
-          className="rounded-btn text-xs outline-none"
-          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357', minWidth: 150 }} />
+          className="rounded-btn text-sm outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22', minWidth: 150 }} />
         <select value={filters.sort} onChange={e => setFilters(f => ({ ...f, sort: e.target.value }))}
-          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
-          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
           <option value="date_desc">Datum ↓ nejnovější</option>
           <option value="date_asc">Datum ↑ nejstarší</option>
           <option value="amount_desc">Částka ↓ nejvyšší</option>
@@ -268,7 +268,7 @@ export default function Finance() {
 
           {chartData.length > 0 && (
             <Card className="mb-5">
-              <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Tržby vs. náklady (12 měsíců)</h3>
+              <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Tržby vs. náklady (12 měsíců)</h3>
               <div className="flex items-end gap-1" style={{ height: 120 }}>
                 {chartData.map((m, i) => {
                   const max = Math.max(...chartData.map(c => Math.max(c.revenue, c.expense)), 1)
@@ -278,7 +278,7 @@ export default function Finance() {
                         <div className="flex-1 rounded-t" style={{ background: '#74FB71', height: `${(m.revenue / max) * 100}%`, marginTop: 'auto' }} />
                         <div className="flex-1 rounded-t" style={{ background: '#fee2e2', height: `${(m.expense / max) * 100}%`, marginTop: 'auto' }} />
                       </div>
-                      <span className="text-[8px] font-bold" style={{ color: '#8aab99' }}>{m.label}</span>
+                      <span className="text-[8px] font-bold" style={{ color: '#1a2e22' }}>{m.label}</span>
                     </div>
                   )
                 })}
@@ -287,7 +287,7 @@ export default function Finance() {
           )}
 
           {/* DIAGNOSTIKA */}
-          <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+          <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
             <strong>DIAGNOSTIKA Finance</strong><br/>
             <div>invoices: {recentInvoices.length} záznamů {recentInvoices.length > 0 && `[${recentInvoices.slice(0,5).map(i => `${i.type}/${i.number}/${i.total}Kč`).join(', ')}${recentInvoices.length > 5 ? '...' : ''}]`}</div>
             <div>accounting_entries: {transactions.length} záznamů</div>
@@ -296,7 +296,7 @@ export default function Finance() {
 
           {/* Invoice sums overview */}
           <Card className="mb-5">
-            <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Přehled dle typu</h3>
+            <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Přehled dle typu</h3>
             <div className="grid grid-cols-4 gap-3 mb-3">
               <MiniStat label="Zálohy (ZF)" value={fmt(invoiceSums.zf)} color="#2563eb" />
               <MiniStat label="Doklady k platbě (DP)" value={fmt(invoiceSums.dp)} color="#0891b2" />
@@ -313,9 +313,9 @@ export default function Finance() {
 
           {/* Invoices (ZF, DP, KF) */}
           <Card className="mb-5">
-            <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Faktury (ZF, DP, KF)</h3>
+            <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Faktury (ZF, DP, KF)</h3>
             {recentInvoices.length === 0 ? (
-              <p style={{ color: '#8aab99', fontSize: 13 }}>Žádné faktury</p>
+              <p style={{ color: '#1a2e22', fontSize: 13 }}>Žádné faktury</p>
             ) : (
               <Table>
                 <thead>
@@ -336,7 +336,7 @@ export default function Finance() {
                         <TD><Badge label={typeLabels[inv.type] || inv.type} color={typeColors[inv.type] || '#6b7280'} bg={typeBgs[inv.type] || '#f3f4f6'} /></TD>
                         <TD>{inv.profiles?.full_name || '—'}</TD>
                         <TD bold>{fmt(inv.total)}</TD>
-                        <TD><span className="text-[10px] font-bold" style={{ color: statusColors[inv.status] || '#6b7280' }}>{statusLabels[inv.status] || inv.status}</span></TD>
+                        <TD><span className="text-sm font-bold" style={{ color: statusColors[inv.status] || '#6b7280' }}>{statusLabels[inv.status] || inv.status}</span></TD>
                         <TD>{inv.issue_date ? new Date(inv.issue_date).toLocaleDateString('cs-CZ') : '—'}</TD>
                       </TRow>
                     )
@@ -349,7 +349,7 @@ export default function Finance() {
           {/* Shop payments */}
           {shopPayments.length > 0 && (
             <Card className="mb-5">
-              <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Platby z e-shopu</h3>
+              <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Platby z e-shopu</h3>
               <Table>
                 <thead>
                   <TRow header>
@@ -373,7 +373,7 @@ export default function Finance() {
 
           {/* Accounting entries (platby za rezervace) */}
           <Card className="mb-5">
-            <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Účetní záznamy (platby za rezervace)</h3>
+            <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Účetní záznamy (platby za rezervace)</h3>
           <Table>
             <thead>
               <TRow header>
@@ -426,7 +426,7 @@ export default function Finance() {
 function DetailRow({ label, value, mono }) {
   return (
     <div>
-      <div className="text-[10px] font-extrabold uppercase tracking-wide mb-0.5" style={{ color: '#8aab99' }}>{label}</div>
+      <div className="text-sm font-extrabold uppercase tracking-wide mb-0.5" style={{ color: '#1a2e22' }}>{label}</div>
       <div className={`text-sm font-semibold ${mono ? 'font-mono' : ''}`} style={{ color: '#0f1a14' }}>{value ?? '—'}</div>
     </div>
   )
@@ -435,7 +435,7 @@ function DetailRow({ label, value, mono }) {
 function SummaryCard({ label, value, color }) {
   return (
     <Card>
-      <div className="text-[10px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#8aab99' }}>{label}</div>
+      <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>{label}</div>
       <div className="text-xl font-extrabold" style={{ color }}>{value}</div>
     </Card>
   )
@@ -444,7 +444,7 @@ function SummaryCard({ label, value, color }) {
 function MiniStat({ label, value, color }) {
   return (
     <div className="p-2 rounded-lg" style={{ background: '#f1faf7' }}>
-      <div className="text-[9px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{label}</div>
+      <div className="text-[9px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</div>
       <div className="text-sm font-extrabold" style={{ color }}>{value}</div>
     </div>
   )
@@ -453,7 +453,7 @@ function MiniStat({ label, value, color }) {
 function TypeBadge({ type }) {
   const isRev = type === 'revenue'
   return (
-    <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase"
+    <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
       style={{ padding: '4px 10px', background: isRev ? '#dcfce7' : '#fee2e2', color: isRev ? '#1a8a18' : '#dc2626' }}>
       {isRev ? 'Příjem' : 'Výdaj'}
     </span>

@@ -103,8 +103,8 @@ export default function InvoicesTab() {
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <SearchInput value={search} onChange={v => { setPage(1); setSearch(v) }} placeholder="Hledat číslo, zákazníka…" />
         <select value={typeFilter} onChange={e => { setPage(1); setTypeFilter(e.target.value) }}
-          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
-          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
           <option value="">Všechny typy</option>
           <option value="advance">Zálohové (ZF)</option>
           <option value="payment_receipt">Doklady k platbě (DP)</option>
@@ -114,8 +114,8 @@ export default function InvoicesTab() {
           <option value="shop_final">Shop konečné</option>
         </select>
         <select value={sort} onChange={e => { setPage(1); setSort(e.target.value) }}
-          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
-          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
           <option value="date_desc">Datum ↓ nejnovější</option>
           <option value="date_asc">Datum ↑ nejstarší</option>
           <option value="amount_desc">Částka ↓ nejvyšší</option>
@@ -145,7 +145,7 @@ export default function InvoicesTab() {
                   className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
                   style={{ borderBottom: '1px solid #d4e8e0' }}>
                   <TD mono bold>{inv.number || '—'}</TD>
-                  <TD><span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded" style={{
+                  <TD><span className="text-sm font-bold uppercase px-1.5 py-0.5 rounded" style={{
                     background: inv.type === 'payment_receipt' ? '#cffafe' : inv.type === 'final' ? '#dcfce7' : '#dbeafe',
                     color: inv.type === 'payment_receipt' ? '#0891b2' : inv.type === 'final' ? '#1a8a18' : '#2563eb'
                   }}>{TYPE_LABELS[inv.type] || inv.type}</span></TD>
@@ -200,7 +200,7 @@ export default function InvoicesTab() {
 function DRow({ label, value, mono }) {
   return (
     <div>
-      <div className="text-[10px] font-extrabold uppercase tracking-wide mb-0.5" style={{ color: '#8aab99' }}>{label}</div>
+      <div className="text-sm font-extrabold uppercase tracking-wide mb-0.5" style={{ color: '#1a2e22' }}>{label}</div>
       <div className={`text-sm font-semibold ${mono ? 'font-mono' : ''}`} style={{ color: '#0f1a14' }}>{value ?? '—'}</div>
     </div>
   )
@@ -208,8 +208,8 @@ function DRow({ label, value, mono }) {
 
 function SmallBtn({ children, onClick }) {
   return (
-    <button onClick={onClick} className="rounded-btn text-[10px] font-extrabold uppercase tracking-wide cursor-pointer"
-      style={{ padding: '3px 8px', background: '#f1faf7', color: '#4a6357', border: 'none' }}>
+    <button onClick={onClick} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+      style={{ padding: '3px 8px', background: '#f1faf7', color: '#1a2e22', border: 'none' }}>
       {children}
     </button>
   )
@@ -306,5 +306,5 @@ function NewInvoiceModal({ onClose, onSaved }) {
 
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
 function Label({ children }) {
-  return <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{children}</label>
+  return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>
 }

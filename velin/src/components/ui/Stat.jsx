@@ -9,8 +9,8 @@ export default function Stat({ icon, label, value, sub, color = '#1a8a18' }) {
         {icon}
       </div>
       <div
-        className="text-[10px] font-extrabold uppercase tracking-widest mb-1.5"
-        style={{ color: '#8aab99' }}
+        className="text-sm font-extrabold uppercase tracking-widest mb-1.5"
+        style={{ color: '#1a2e22' }}
       >
         {label}
       </div>
@@ -21,7 +21,7 @@ export default function Stat({ icon, label, value, sub, color = '#1a8a18' }) {
         {value}
       </div>
       {sub && (
-        <div className="text-[11px] font-medium mt-1" style={{ color: '#8aab99' }}>
+        <div className="text-sm font-medium mt-1" style={{ color: '#1a2e22' }}>
           {sub}
         </div>
       )}

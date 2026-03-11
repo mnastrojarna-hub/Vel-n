@@ -75,8 +75,8 @@ export default function Login({ user, onSignIn }) {
             MOTO GO 24
           </h1>
           <p
-            className="text-xs font-bold uppercase"
-            style={{ color: '#8aab99', letterSpacing: 3 }}
+            className="text-sm font-bold uppercase"
+            style={{ color: '#1a2e22', letterSpacing: 3 }}
           >
             Velín — přihlášení
           </p>
@@ -85,8 +85,8 @@ export default function Login({ user, onSignIn }) {
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label
-              className="block text-[10px] font-extrabold uppercase tracking-widest mb-2"
-              style={{ color: '#8aab99' }}
+              className="block text-sm font-extrabold uppercase tracking-widest mb-2"
+              style={{ color: '#1a2e22' }}
             >
               E-mail
             </label>
@@ -111,8 +111,8 @@ export default function Login({ user, onSignIn }) {
 
           <div className="mb-6">
             <label
-              className="block text-[10px] font-extrabold uppercase tracking-widest mb-2"
-              style={{ color: '#8aab99' }}
+              className="block text-sm font-extrabold uppercase tracking-widest mb-2"
+              style={{ color: '#1a2e22' }}
             >
               Heslo
             </label>
@@ -137,7 +137,7 @@ export default function Login({ user, onSignIn }) {
 
           {error && (
             <div
-              className="mb-4 text-center text-xs font-bold"
+              className="mb-4 text-center text-sm font-bold"
               style={{
                 padding: '10px 16px',
                 borderRadius: 14,

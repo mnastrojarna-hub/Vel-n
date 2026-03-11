@@ -99,29 +99,29 @@ export default function FleetDetail() {
   const set = (k, v) => setMoto(m => ({ ...m, [k]: v }))
 
   if (loading) return <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
-  if (!moto) return <div className="p-4" style={{ color: '#8aab99' }}>{error || 'Motorka nenalezena'}</div>
+  if (!moto) return <div className="p-4" style={{ color: '#1a2e22' }}>{error || 'Motorka nenalezena'}</div>
 
   return (
     <div>
       <div className="flex items-center gap-3 mb-5">
-        <button onClick={() => navigate('/flotila')} className="cursor-pointer" style={{ background: 'none', border: 'none', fontSize: 18, color: '#8aab99' }}>←</button>
+        <button onClick={() => navigate('/flotila')} className="cursor-pointer" style={{ background: 'none', border: 'none', fontSize: 18, color: '#1a2e22' }}>←</button>
         <h2 className="font-extrabold text-lg" style={{ color: '#0f1a14' }}>{moto.model}</h2>
         <StatusBadge status={moto.status} />
-        <span className="text-xs font-mono" style={{ color: '#8aab99' }}>{moto.spz}</span>
+        <span className="text-sm font-mono" style={{ color: '#1a2e22' }}>{moto.spz}</span>
         <button onClick={() => setShowActionModal(true)}
-          className="rounded-btn text-[10px] font-extrabold uppercase cursor-pointer ml-auto"
+          className="rounded-btn text-sm font-extrabold uppercase cursor-pointer ml-auto"
           style={{ padding: '6px 14px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>
           Správa motorky
         </button>
       </div>
       <div className="flex gap-2 mb-5 flex-wrap">
         {TABS.map(t => (
-          <button key={t} onClick={() => setTab(t)} className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
-            style={{ padding: '8px 18px', background: tab === t ? '#74FB71' : '#f1faf7', color: tab === t ? '#1a2e22' : '#4a6357', border: 'none', boxShadow: tab === t ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>{t}</button>
+          <button key={t} onClick={() => setTab(t)} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+            style={{ padding: '8px 18px', background: tab === t ? '#74FB71' : '#f1faf7', color: tab === t ? '#1a2e22' : '#1a2e22', border: 'none', boxShadow: tab === t ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>{t}</button>
         ))}
       </div>
       {/* DIAGNOSTIKA */}
-      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA FleetDetail (#{id?.slice(-8)})</strong><br/>
         <div>moto: {moto.model} ({moto.spz}), status={moto.status}, category={moto.category || '—'}</div>
         <div>branch: {moto.branches?.name || '—'}, mileage: {moto.mileage?.toLocaleString('cs-CZ') || 0} km</div>
@@ -219,7 +219,7 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
           <Field label="SPZ" value={moto.spz} onChange={v => set('spz', v)} />
           <Field label="VIN" value={moto.vin} onChange={v => set('vin', v)} />
           <div>
-            <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Kategorie</label>
+            <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Kategorie</label>
             <select value={moto.category || ''} onChange={e => set('category', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>
               <option value="">—</option>
               <option value="cestovni">Cestovní</option>
@@ -242,7 +242,7 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
           <Field label="Nádrž (L)" value={moto.fuel_tank_l} onChange={v => set('fuel_tank_l', v)} type="number" />
           <Field label="Výška sedla (mm)" value={moto.seat_height_mm} onChange={v => set('seat_height_mm', v)} type="number" />
           <div>
-            <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>ŘP kategorie</label>
+            <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>ŘP kategorie</label>
             <select value={moto.license_required || ''} onChange={e => set('license_required', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>
               <option value="">—</option>
               <option value="A">A</option>
@@ -255,19 +255,19 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
           <div className="flex items-center gap-6">
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={moto.has_abs || false} onChange={e => set('has_abs', e.target.checked)} />
-              <span className="text-xs font-bold" style={{ color: '#4a6357' }}>ABS</span>
+              <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>ABS</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={moto.has_asc || false} onChange={e => set('has_asc', e.target.checked)} />
-              <span className="text-xs font-bold" style={{ color: '#4a6357' }}>ASC</span>
+              <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>ASC</span>
             </label>
           </div>
           <div>
-            <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Pobočka</label>
+            <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Pobočka</label>
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium" style={{ color: '#0f1a14' }}>{moto.branches?.name || '—'}</span>
               <button onClick={() => setShowMigrate(!showMigrate)}
-                className="rounded-btn text-[10px] font-extrabold uppercase cursor-pointer"
+                className="rounded-btn text-sm font-extrabold uppercase cursor-pointer"
                 style={{ padding: '4px 10px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>
                 Přesunout
               </button>
@@ -281,7 +281,7 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
                   {branches.filter(b => b.id !== moto.branch_id).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
                 <button onClick={handleMigrate} disabled={!migrateTo || migrating}
-                  className="rounded-btn text-[10px] font-extrabold uppercase cursor-pointer"
+                  className="rounded-btn text-sm font-extrabold uppercase cursor-pointer"
                   style={{ padding: '6px 12px', background: migrating ? '#d4e8e0' : '#74FB71', color: '#1a2e22', border: 'none' }}>
                   {migrating ? 'Přesouvám...' : 'Potvrdit'}
                 </button>
@@ -293,21 +293,21 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
         {/* Description & features */}
         <div className="mt-5 space-y-3">
           <div>
-            <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Popis motorky</label>
+            <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Popis motorky</label>
             <textarea value={moto.description || ''} onChange={e => set('description', e.target.value)}
               className="w-full rounded-btn text-sm outline-none" rows={3}
               style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', resize: 'vertical' }}
               placeholder="Popis motorky pro zákazníky…" />
           </div>
           <div>
-            <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Ideální použití (každé na nový řádek)</label>
+            <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Ideální použití (každé na nový řádek)</label>
             <textarea value={(moto.ideal_usage || []).join('\n')} onChange={e => set('ideal_usage', e.target.value.split('\n').filter(Boolean))}
               className="w-full rounded-btn text-sm outline-none" rows={3}
               style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', resize: 'vertical' }}
               placeholder="Cestování&#10;Adventure&#10;Offroad" />
           </div>
           <div>
-            <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Vlastnosti / Features (každá na nový řádek)</label>
+            <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Vlastnosti / Features (každá na nový řádek)</label>
             <textarea value={(moto.features || []).join('\n')} onChange={e => set('features', e.target.value.split('\n').filter(Boolean))}
               className="w-full rounded-btn text-sm outline-none" rows={3}
               style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', resize: 'vertical' }}
@@ -318,20 +318,20 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
         {/* Manual upload */}
         <div className="mt-5 p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
           <div className="flex items-center gap-3">
-            <span className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>Návod k motorce (PDF)</span>
-            <label className="rounded-btn text-xs font-extrabold cursor-pointer"
+            <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Návod k motorce (PDF)</span>
+            <label className="rounded-btn text-sm font-extrabold cursor-pointer"
               style={{ padding: '4px 14px', background: '#dbeafe', color: '#2563eb' }}>
               {uploadingManual ? 'Nahrávám...' : manualUrl ? 'Aktualizovat' : '+ Nahrát'}
               <input type="file" accept=".pdf" onChange={handleManualUpload} className="hidden" />
             </label>
             {manualUrl && (
               <a href={manualUrl} target="_blank" rel="noopener noreferrer"
-                className="text-xs font-bold underline" style={{ color: '#1a8a18' }}>
+                className="text-sm font-bold underline" style={{ color: '#1a8a18' }}>
                 Zobrazit PDF ↗
               </a>
             )}
           </div>
-          <p className="text-[10px] mt-1" style={{ color: '#8aab99' }}>Návod se zobrazí zákazníkům na webu i v aplikaci.</p>
+          <p className="text-sm mt-1" style={{ color: '#1a2e22' }}>Návod se zobrazí zákazníkům na webu i v aplikaci.</p>
         </div>
 
         <PhotoGallery motoId={moto.id} />
@@ -343,14 +343,14 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
         </div>
       </Card>
       <Card>
-        <h3 className="text-[10px] font-extrabold uppercase tracking-widest mb-3" style={{ color: '#8aab99' }}>Nájezd a servis</h3>
+        <h3 className="text-sm font-extrabold uppercase tracking-widest mb-3" style={{ color: '#1a2e22' }}>Nájezd a servis</h3>
         <div className="flex gap-6 mb-3">
           <div className="p-3 rounded-lg" style={{ background: '#f1faf7' }}>
-            <div className="text-[10px] font-extrabold uppercase" style={{ color: '#8aab99' }}>Měsíční průměr</div>
+            <div className="text-sm font-extrabold uppercase" style={{ color: '#1a2e22' }}>Měsíční průměr</div>
             <div className="text-lg font-extrabold">{avgKm != null ? `${avgKm.toLocaleString('cs-CZ')} km` : '—'}</div>
           </div>
           <div className="p-3 rounded-lg" style={{ background: '#f1faf7' }}>
-            <div className="text-[10px] font-extrabold uppercase" style={{ color: '#8aab99' }}>Celkem</div>
+            <div className="text-sm font-extrabold uppercase" style={{ color: '#1a2e22' }}>Celkem</div>
             <div className="text-lg font-extrabold">{moto.mileage ? `${Number(moto.mileage).toLocaleString('cs-CZ')} km` : '—'}</div>
           </div>
         </div>
@@ -360,7 +360,7 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
           return (
             <div key={s.id} className="flex items-center gap-3 p-2 rounded-lg mb-1" style={{ background: overdue ? '#fee2e2' : '#f1faf7', fontSize: 12 }}>
               <span className="font-bold">{s.description}</span>
-              <span style={{ color: '#8aab99' }}>každých {s.interval_km?.toLocaleString('cs-CZ')} km</span>
+              <span style={{ color: '#1a2e22' }}>každých {s.interval_km?.toLocaleString('cs-CZ')} km</span>
               <span className="ml-auto font-bold" style={{ color: overdue ? '#dc2626' : '#1a8a18' }}>
                 {overdue ? `PO TERMÍNU ${Math.abs(rem).toLocaleString('cs-CZ')} km` : `za ${rem.toLocaleString('cs-CZ')} km`}
                 {!overdue && avgKm > 0 ? ` (~${Math.round((rem / avgKm) * 30)} dní)` : ''}
@@ -368,7 +368,7 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
             </div>
           )
         })}
-        {schedules.length === 0 && <p style={{ color: '#8aab99', fontSize: 12 }}>Žádné plány — přidejte v záložce Servis</p>}
+        {schedules.length === 0 && <p style={{ color: '#1a2e22', fontSize: 12 }}>Žádné plány — přidejte v záložce Servis</p>}
       </Card>
     </div>
   )
@@ -377,7 +377,7 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
 function Field({ label, value, onChange, type = 'text', disabled = false, placeholder = '' }) {
   return (
     <div>
-      <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{label}</label>
+      <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</label>
       <input type={type} value={value || ''} onChange={e => onChange?.(e.target.value)} disabled={disabled} placeholder={placeholder} className="w-full rounded-btn text-sm outline-none disabled:opacity-50" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
     </div>
   )
@@ -453,11 +453,11 @@ function PhotoGallery({ motoId }) {
   return (
     <div className="mt-5">
       <div className="flex items-center gap-3 mb-2">
-        <span className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>Fotogalerie ({allImages.length})</span>
-        <label className="rounded-btn text-xs font-extrabold cursor-pointer" style={{ padding: '4px 14px', background: '#f1faf7', color: '#4a6357' }}>
+        <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Fotogalerie ({allImages.length})</span>
+        <label className="rounded-btn text-sm font-extrabold cursor-pointer" style={{ padding: '4px 14px', background: '#f1faf7', color: '#1a2e22' }}>
           {uploading ? 'Nahrávám…' : '+ Foto'}<input type="file" accept="image/*" onChange={handleUpload} className="hidden" />
         </label>
-        <button onClick={() => setShowUrlInput(!showUrlInput)} className="rounded-btn text-xs font-extrabold cursor-pointer"
+        <button onClick={() => setShowUrlInput(!showUrlInput)} className="rounded-btn text-sm font-extrabold cursor-pointer"
           style={{ padding: '4px 14px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>
           + URL
         </button>
@@ -469,7 +469,7 @@ function PhotoGallery({ motoId }) {
             className="flex-1 rounded-btn text-sm outline-none"
             style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0' }}
             onKeyDown={e => e.key === 'Enter' && handleAddUrl()} />
-          <button onClick={handleAddUrl} className="rounded-btn text-xs font-extrabold cursor-pointer"
+          <button onClick={handleAddUrl} className="rounded-btn text-sm font-extrabold cursor-pointer"
             style={{ padding: '6px 12px', background: '#74FB71', color: '#1a2e22', border: 'none' }}>
             Přidat
           </button>
@@ -501,13 +501,13 @@ function PerformanceTab({ motoId }) {
       .then(({ data }) => { setPerf(data); setLoading(false) }).catch(() => { setPerf(null); setLoading(false) })
   }, [motoId])
   if (loading) return <div className="py-8 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
-  if (!perf) return <Card><p style={{ color: '#8aab99', fontSize: 13 }}>Žádné výkonové statistiky</p></Card>
+  if (!perf) return <Card><p style={{ color: '#1a2e22', fontSize: 13 }}>Žádné výkonové statistiky</p></Card>
   return (
     <Card>
       <div className="grid grid-cols-3 gap-4">
         {Object.entries(perf).filter(([k]) => !['id', 'moto_id', 'created_at', 'updated_at'].includes(k)).map(([k, v]) => (
           <div key={k} className="p-3 rounded-lg" style={{ background: '#f1faf7' }}>
-            <div className="text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{k.replace(/_/g, ' ')}</div>
+            <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{k.replace(/_/g, ' ')}</div>
             <div className="text-lg font-bold" style={{ color: '#0f1a14' }}>{typeof v === 'number' ? v.toLocaleString('cs-CZ') : String(v ?? '—')}</div>
           </div>
         ))}

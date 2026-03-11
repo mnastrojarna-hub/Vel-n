@@ -415,7 +415,7 @@ export default function BookingDocumentsTab({ bookingId }) {
 
       {/* DIAGNOSTIKA — viditelný debug panel */}
       {debug && (
-        <div className="p-3 rounded-card mb-3" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+        <div className="p-3 rounded-card mb-3" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
           <strong>DIAGNOSTIKA (booking: ...{bookingId?.slice(-8)})</strong><br/>
           {debug.errors.length > 0 && <div style={{ color: '#dc2626' }}>CHYBY: {debug.errors.join(' | ')}</div>}
           <div>documents tabulka: {debug.docsRaw || 0} záznamů (zobrazeno {debug.docsFiltered || 0}, fakturní typy odfiltrovány) {debug.docs?.length > 0 && `[${debug.docs.map(d => d.type).join(', ')}]`}</div>
@@ -444,12 +444,12 @@ export default function BookingDocumentsTab({ bookingId }) {
 
       {/* Invoices (ZF, DP, KF) */}
       <Card>
-        <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Faktury a daňové doklady</h3>
+        <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Faktury a daňové doklady</h3>
         {invoices.length === 0 ? (
-          <p style={{ color: '#8aab99', fontSize: 13 }}>Žádné faktury k této rezervaci</p>
+          <p style={{ color: '#1a2e22', fontSize: 13 }}>Žádné faktury k této rezervaci</p>
         ) : (
           invoices.map(inv => {
-            const tp = INV_TYPE_MAP[inv.type] || { label: inv.type || 'Faktura', color: '#6b7280', bg: '#f3f4f6' }
+            const tp = INV_TYPE_MAP[inv.type] || { label: inv.type || 'Faktura', color: '#1a2e22', bg: '#f3f4f6' }
             return (
               <div key={inv.id} className="flex items-center gap-4 p-3 rounded-lg mb-2 cursor-pointer hover:shadow-sm transition-shadow"
                 style={{ background: '#f1faf7' }} onClick={() => handleViewInvoice(inv)}>
@@ -459,15 +459,15 @@ export default function BookingDocumentsTab({ bookingId }) {
                 <span className="text-sm font-bold" style={{ color: '#0f1a14' }}>
                   {(inv.total || 0).toLocaleString('cs-CZ')} Kč
                 </span>
-                <span className="text-xs" style={{ color: '#8aab99' }}>{inv.issue_date || '—'}</span>
+                <span className="text-sm" style={{ color: '#1a2e22' }}>{inv.issue_date || '—'}</span>
                 <div className="flex gap-2 ml-auto" onClick={e => e.stopPropagation()}>
-                  <button onClick={() => handleViewInvoice(inv)} className="text-[10px] font-bold cursor-pointer"
+                  <button onClick={() => handleViewInvoice(inv)} className="text-sm font-bold cursor-pointer"
                     style={{ color: '#2563eb', background: 'none', border: 'none' }}>Náhled</button>
-                  <button onClick={() => handlePrintInvoice(inv)} className="text-[10px] font-bold cursor-pointer"
-                    style={{ color: '#4a6357', background: 'none', border: 'none' }}>Tisk</button>
-                  <button onClick={() => handleDownload(inv)} className="text-[10px] font-bold cursor-pointer"
-                    style={{ color: '#4a6357', background: 'none', border: 'none' }}>Stáhnout</button>
-                  <button onClick={() => handleDeleteInvoice(inv)} className="text-[10px] font-bold cursor-pointer"
+                  <button onClick={() => handlePrintInvoice(inv)} className="text-sm font-bold cursor-pointer"
+                    style={{ color: '#1a2e22', background: 'none', border: 'none' }}>Tisk</button>
+                  <button onClick={() => handleDownload(inv)} className="text-sm font-bold cursor-pointer"
+                    style={{ color: '#1a2e22', background: 'none', border: 'none' }}>Stáhnout</button>
+                  <button onClick={() => handleDeleteInvoice(inv)} className="text-sm font-bold cursor-pointer"
                     style={{ color: '#dc2626', background: 'none', border: 'none' }}>Smazat</button>
                 </div>
               </div>
@@ -478,9 +478,9 @@ export default function BookingDocumentsTab({ bookingId }) {
 
       {/* Generated documents */}
       <Card>
-        <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Vygenerované dokumenty</h3>
+        <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Vygenerované dokumenty</h3>
         {generatedDocs.length === 0 ? (
-          <p style={{ color: '#8aab99', fontSize: 13 }}>Žádné vygenerované dokumenty</p>
+          <p style={{ color: '#1a2e22', fontSize: 13 }}>Žádné vygenerované dokumenty</p>
         ) : (
           generatedDocs.map(d => {
             const docType = d.document_templates?.type || 'contract'
@@ -490,13 +490,13 @@ export default function BookingDocumentsTab({ bookingId }) {
                 <span style={{ fontSize: 16 }}>{DOC_ICONS[docType] || '📄'}</span>
                 <div className="flex-1">
                   <span className="text-sm font-bold">{d.document_templates?.name || 'Dokument'}</span>
-                  <span className="text-xs ml-3" style={{ color: '#8aab99' }}>{d.created_at?.slice(0, 10)}</span>
+                  <span className="text-sm ml-3" style={{ color: '#1a2e22' }}>{d.created_at?.slice(0, 10)}</span>
                 </div>
                 <div className="flex gap-2" onClick={e => e.stopPropagation()}>
-                  <button onClick={() => handleViewGeneratedDoc(d)} className="text-[10px] font-bold cursor-pointer"
+                  <button onClick={() => handleViewGeneratedDoc(d)} className="text-sm font-bold cursor-pointer"
                     style={{ color: '#2563eb', background: 'none', border: 'none' }}>Zobrazit</button>
-                  <button onClick={() => handleDownload(d)} className="text-[10px] font-bold cursor-pointer"
-                    style={{ color: '#4a6357', background: 'none', border: 'none' }}>Stáhnout</button>
+                  <button onClick={() => handleDownload(d)} className="text-sm font-bold cursor-pointer"
+                    style={{ color: '#1a2e22', background: 'none', border: 'none' }}>Stáhnout</button>
                 </div>
               </div>
             )
@@ -506,9 +506,9 @@ export default function BookingDocumentsTab({ bookingId }) {
 
       {/* Uploaded documents (nahrané doklady) */}
       <Card>
-        <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Nahrané doklady</h3>
+        <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Nahrané doklady</h3>
         {docs.length === 0 ? (
-          <p style={{ color: '#8aab99', fontSize: 13 }}>Žádné nahrané doklady</p>
+          <p style={{ color: '#1a2e22', fontSize: 13 }}>Žádné nahrané doklady</p>
         ) : (
           docs.map(d => (
             <div key={d.id} className="flex items-center gap-4 p-3 rounded-lg mb-2 cursor-pointer hover:shadow-sm transition-shadow"
@@ -516,15 +516,15 @@ export default function BookingDocumentsTab({ bookingId }) {
               <span style={{ fontSize: 16 }}>{DOC_ICONS[d.type] || '📄'}</span>
               <div className="flex-1">
                 <span className="text-sm font-bold">{d.file_name || d.type || 'Dokument'}</span>
-                <span className="text-xs ml-3" style={{ color: '#8aab99' }}>{d.created_at?.slice(0, 10)}</span>
+                <span className="text-sm ml-3" style={{ color: '#1a2e22' }}>{d.created_at?.slice(0, 10)}</span>
               </div>
               <div className="flex gap-2" onClick={e => e.stopPropagation()}>
                 {(d.file_path || d.pdf_path) && (
                   <>
-                    <button onClick={() => handleViewDoc(d)} className="text-[10px] font-bold cursor-pointer"
+                    <button onClick={() => handleViewDoc(d)} className="text-sm font-bold cursor-pointer"
                       style={{ color: '#2563eb', background: 'none', border: 'none' }}>Zobrazit</button>
-                    <button onClick={() => handleDownload(d)} className="text-[10px] font-bold cursor-pointer"
-                      style={{ color: '#4a6357', background: 'none', border: 'none' }}>Stáhnout</button>
+                    <button onClick={() => handleDownload(d)} className="text-sm font-bold cursor-pointer"
+                      style={{ color: '#1a2e22', background: 'none', border: 'none' }}>Stáhnout</button>
                   </>
                 )}
               </div>
@@ -545,7 +545,7 @@ export default function BookingDocumentsTab({ bookingId }) {
               />
             </div>
           ) : (
-            <div className="py-8 text-center" style={{ color: '#8aab99', fontSize: 13 }}>
+            <div className="py-8 text-center" style={{ color: '#1a2e22', fontSize: 13 }}>
               Dokument nemá náhled.
             </div>
           )}

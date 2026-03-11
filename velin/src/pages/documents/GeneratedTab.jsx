@@ -114,7 +114,7 @@ export default function GeneratedTab() {
 
   function showPreview(doc) {
     const html = generateFilledHtml(doc)
-    setPreviewHtml(html || '<p style="color:#8aab99;text-align:center;padding:40px;">Obsah dokumentu není dostupný. Zkuste znovu vygenerovat dokument ze šablony.</p>')
+    setPreviewHtml(html || '<p style="color:#1a2e22;text-align:center;padding:40px;">Obsah dokumentu není dostupný. Zkuste znovu vygenerovat dokument ze šablony.</p>')
     setPreview(doc)
   }
 
@@ -126,15 +126,15 @@ export default function GeneratedTab() {
       <div className="flex items-center gap-3 mb-4">
         <SearchInput value={search} onChange={v => { setPage(1); setSearch(v) }} placeholder="Hledat dokument, zákazníka…" />
         <select value={sort} onChange={e => { setPage(1); setSort(e.target.value) }}
-          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
-          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
           <option value="date_desc">Datum ↓ nejnovější</option>
           <option value="date_asc">Datum ↑ nejstarší</option>
         </select>
         {docTypes.length > 0 && (
           <select value={typeFilter} onChange={e => { setPage(1); setTypeFilter(e.target.value) }}
-            className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
-            style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+            style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
             <option value="">Všechny typy</option>
             {docTypes.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
@@ -161,8 +161,8 @@ export default function GeneratedTab() {
                   <TRow key={d.id}>
                     <TD bold>{d._template?.name || '—'}</TD>
                     <TD>
-                      <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase"
-                        style={{ padding: '4px 10px', background: '#f1faf7', color: '#4a6357' }}>
+                      <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
+                        style={{ padding: '4px 10px', background: '#f1faf7', color: '#1a2e22' }}>
                         {d._template?.type || '—'}
                       </span>
                     </TD>
@@ -182,11 +182,11 @@ export default function GeneratedTab() {
                     <TD>
                       <div className="flex gap-1">
                         <button onClick={() => showPreview(d)}
-                          className="rounded-btn text-[10px] font-extrabold uppercase tracking-wide cursor-pointer"
+                          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
                           style={{ padding: '3px 8px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>
                           Náhled
                         </button>
-                        <Button onClick={() => download(d)} style={{ padding: '4px 12px', fontSize: 10 }}>
+                        <Button onClick={() => download(d)} style={{ padding: '4px 12px', fontSize: 13 }}>
                           Stáhnout
                         </Button>
                       </div>
@@ -205,11 +205,11 @@ export default function GeneratedTab() {
         <Modal open title={`Náhled: ${preview._template?.name || 'Dokument'}`} onClose={() => setPreview(null)} wide>
           {preview.filled_data && (
             <div className="mb-3 p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-              <div className="text-[10px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#8aab99' }}>Vyplněná data</div>
-              <div className="grid grid-cols-2 gap-1 text-xs">
+              <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Vyplněná data</div>
+              <div className="grid grid-cols-2 gap-1 text-sm">
                 {Object.entries(preview.filled_data).map(([k, v]) => (
                   <div key={k}>
-                    <span style={{ color: '#8aab99' }}>{k}: </span>
+                    <span style={{ color: '#1a2e22' }}>{k}: </span>
                     <span className="font-bold" style={{ color: '#0f1a14' }}>{v || '—'}</span>
                   </div>
                 ))}

@@ -19,7 +19,7 @@ export default function SearchInput({ value, onChange, placeholder = 'Hledat…'
     <div className="relative">
       <span
         className="absolute left-3 top-1/2 -translate-y-1/2"
-        style={{ fontSize: 14, color: '#8aab99' }}
+        style={{ fontSize: 14, color: '#1a2e22' }}
       >
         🔍
       </span>

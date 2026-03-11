@@ -117,7 +117,7 @@ export default function ServiceTab({ motoId, motoMileage, logAudit }) {
           <SectionTitle>Servisní intervaly</SectionTitle>
           <AddScheduleBtn onAdd={handleAddSchedule} saving={saving} />
         </div>
-        {schedules.length === 0 ? <p style={{ color: '#8aab99', fontSize: 13 }}>Žádné servisní plány</p> : (
+        {schedules.length === 0 ? <p style={{ color: '#1a2e22', fontSize: 13 }}>Žádné servisní plány</p> : (
           <div className="space-y-3">
             {schedules.map(s => {
               const currentKm = Number(motoMileage) || 0
@@ -135,16 +135,16 @@ export default function ServiceTab({ motoId, motoMileage, logAudit }) {
                 <div key={s.id} className="flex items-center gap-3 p-3 rounded-lg" style={{ background: overdue ? '#fee2e2' : '#f1faf7' }}>
                   <div className="flex-1">
                     <span className="font-bold text-sm">{s.description}</span>
-                    <span className="text-xs ml-3" style={{ color: '#8aab99' }}>
+                    <span className="text-sm ml-3" style={{ color: '#1a2e22' }}>
                       každých {s.interval_km?.toLocaleString('cs-CZ')} km
                       {s.interval_days ? ` / ${s.interval_days} dní` : ''}
                     </span>
-                    <span className="text-xs ml-2" style={{ color: overdue ? '#dc2626' : '#1a8a18', fontWeight: 700 }}>
+                    <span className="text-sm ml-2" style={{ color: overdue ? '#dc2626' : '#1a8a18', fontWeight: 700 }}>
                       {overdue ? `PO TERMÍNU ${Math.abs(remaining).toLocaleString('cs-CZ')} km` : `za ${remaining.toLocaleString('cs-CZ')} km`}
                     </span>
                   </div>
-                  <button onClick={() => setEditing(s.id)} className="text-xs font-bold cursor-pointer" style={{ color: '#4a6357', background: 'none', border: 'none' }}>Upravit</button>
-                  <button onClick={() => handleDeleteSchedule(s.id)} className="text-xs font-bold cursor-pointer" style={{ color: '#dc2626', background: 'none', border: 'none' }}>×</button>
+                  <button onClick={() => setEditing(s.id)} className="text-sm font-bold cursor-pointer" style={{ color: '#1a2e22', background: 'none', border: 'none' }}>Upravit</button>
+                  <button onClick={() => handleDeleteSchedule(s.id)} className="text-sm font-bold cursor-pointer" style={{ color: '#dc2626', background: 'none', border: 'none' }}>×</button>
                   <Button green onClick={() => setConfirmService(s)}>Potvrdit servis</Button>
                 </div>
               )
@@ -156,14 +156,14 @@ export default function ServiceTab({ motoId, motoMileage, logAudit }) {
       {/* Historie */}
       <Card>
         <SectionTitle>Historie servisu</SectionTitle>
-        {logs.length === 0 ? <p style={{ color: '#8aab99', fontSize: 13 }}>Žádné servisní záznamy</p> : (
+        {logs.length === 0 ? <p style={{ color: '#1a2e22', fontSize: 13 }}>Žádné servisní záznamy</p> : (
           <div className="space-y-2">
             {logs.map(l => (
               <div key={l.id} className="flex items-center gap-4 p-3 rounded-lg" style={{ background: '#f1faf7' }}>
                 <div className="flex-1">
                   <span className="font-bold text-sm">{l.service_type || 'Servis'}</span>
-                  <span className="text-xs ml-3" style={{ color: '#8aab99' }}>{l.created_at?.slice(0, 10)}</span>
-                  {l.mileage_at_service && <span className="text-xs ml-2 font-mono" style={{ color: '#8aab99' }}>{l.mileage_at_service.toLocaleString('cs-CZ')} km</span>}
+                  <span className="text-sm ml-3" style={{ color: '#1a2e22' }}>{l.created_at?.slice(0, 10)}</span>
+                  {l.mileage_at_service && <span className="text-sm ml-2 font-mono" style={{ color: '#1a2e22' }}>{l.mileage_at_service.toLocaleString('cs-CZ')} km</span>}
                 </div>
                 <span className="text-sm font-bold">{l.total_cost ? `${l.total_cost.toLocaleString('cs-CZ')} Kč` : ''}</span>
               </div>
@@ -184,7 +184,7 @@ export default function ServiceTab({ motoId, motoMileage, logAudit }) {
         <Modal open title="Servisní objednávka" onClose={() => setShowOrder(null)}>
           <div className="p-4 rounded-lg mb-3" style={{ background: '#dcfce7' }}>
             <div className="text-sm font-bold mb-1" style={{ color: '#166534' }}>{showOrder.type}</div>
-            <div className="text-xs" style={{ color: '#4a6357' }}>Km: {showOrder.km.toLocaleString('cs-CZ')} | {showOrder.created_at.slice(0, 10)}</div>
+            <div className="text-sm" style={{ color: '#1a2e22' }}>Km: {showOrder.km.toLocaleString('cs-CZ')} | {showOrder.created_at.slice(0, 10)}</div>
           </div>
           <SectionTitle>Úkoly pro technika</SectionTitle>
           {showOrder.items.map((item, i) => (
@@ -218,12 +218,12 @@ function ScheduleEditRow({ schedule, saving, onSave, onCancel }) {
 function AddScheduleBtn({ onAdd, saving }) {
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState({ description: '', interval_km: '', interval_days: '' })
-  if (!open) return <button onClick={() => setOpen(true)} className="text-xs font-bold cursor-pointer" style={{ color: '#1a8a18', background: 'none', border: 'none' }}>+ Přidat plán</button>
+  if (!open) return <button onClick={() => setOpen(true)} className="text-sm font-bold cursor-pointer" style={{ color: '#1a8a18', background: 'none', border: 'none' }}>+ Přidat plán</button>
   return (
     <div className="flex gap-2 items-center">
-      <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Popis" className="rounded-btn text-xs outline-none" style={{ padding: '5px 8px', background: '#f1faf7', border: '1px solid #d4e8e0', width: 120 }} />
-      <input type="number" value={form.interval_km} onChange={e => setForm(f => ({ ...f, interval_km: e.target.value }))} placeholder="km" className="rounded-btn text-xs outline-none" style={{ padding: '5px 8px', background: '#f1faf7', border: '1px solid #d4e8e0', width: 70 }} />
-      <input type="number" value={form.interval_days} onChange={e => setForm(f => ({ ...f, interval_days: e.target.value }))} placeholder="dní" className="rounded-btn text-xs outline-none" style={{ padding: '5px 8px', background: '#f1faf7', border: '1px solid #d4e8e0', width: 70 }} />
+      <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Popis" className="rounded-btn text-sm outline-none" style={{ padding: '5px 8px', background: '#f1faf7', border: '1px solid #d4e8e0', width: 120 }} />
+      <input type="number" value={form.interval_km} onChange={e => setForm(f => ({ ...f, interval_km: e.target.value }))} placeholder="km" className="rounded-btn text-sm outline-none" style={{ padding: '5px 8px', background: '#f1faf7', border: '1px solid #d4e8e0', width: 70 }} />
+      <input type="number" value={form.interval_days} onChange={e => setForm(f => ({ ...f, interval_days: e.target.value }))} placeholder="dní" className="rounded-btn text-sm outline-none" style={{ padding: '5px 8px', background: '#f1faf7', border: '1px solid #d4e8e0', width: 70 }} />
       <Button green onClick={() => { onAdd(form); setOpen(false); setForm({ description: '', interval_km: '', interval_days: '' }) }} disabled={saving || !form.description}>OK</Button>
       <Button onClick={() => setOpen(false)}>×</Button>
     </div>
@@ -239,7 +239,7 @@ function getServiceItems(description) {
 }
 
 function SectionTitle({ children }) {
-  return <h3 className="text-[10px] font-extrabold uppercase tracking-widest mb-3" style={{ color: '#8aab99' }}>{children}</h3>
+  return <h3 className="text-sm font-extrabold uppercase tracking-widest mb-3" style={{ color: '#1a2e22' }}>{children}</h3>
 }
 
 function Spinner() {

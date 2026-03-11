@@ -83,19 +83,19 @@ export default function TaxTab() {
         </Button>
         <input type="text" value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Hledat období, typ…"
-          className="rounded-btn text-xs outline-none"
-          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357', minWidth: 150 }} />
+          className="rounded-btn text-sm outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22', minWidth: 150 }} />
         <select value={sort} onChange={e => setSort(e.target.value)}
-          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
-          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
           <option value="date_desc">Období ↓ nejnovější</option>
           <option value="date_asc">Období ↑ nejstarší</option>
           <option value="amount_desc">Částka ↓ nejvyšší</option>
           <option value="amount_asc">Částka ↑ nejnižší</option>
         </select>
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
-          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
           <option value="">Všechny stavy</option>
           <option value="submitted">Odesláno</option>
           <option value="prepared">Připraveno</option>
@@ -111,7 +111,7 @@ export default function TaxTab() {
       {loading ? (
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : records.length === 0 ? (
-        <Card><p style={{ color: '#8aab99', fontSize: 13 }}>Žádné daňové záznamy</p></Card>
+        <Card><p style={{ color: '#1a2e22', fontSize: 13 }}>Žádné daňové záznamy</p></Card>
       ) : (
         <Table>
           <thead>
@@ -136,7 +136,7 @@ export default function TaxTab() {
                 <TD bold>{fmt(r.vat_amount)}</TD>
                 <TD bold>{fmt(r.total)}</TD>
                 <TD>
-                  <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase"
+                  <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
                     style={{
                       padding: '4px 10px',
                       background: r.status === 'submitted' ? '#dcfce7' : '#fef3c7',

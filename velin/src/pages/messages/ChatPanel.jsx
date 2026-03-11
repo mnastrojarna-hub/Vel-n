@@ -122,7 +122,7 @@ export default function ChatPanel({ thread, onThreadUpdate }) {
 
   if (!thread) {
     return (
-      <div className="flex items-center justify-center h-full" style={{ color: '#8aab99', fontSize: 13 }}>
+      <div className="flex items-center justify-center h-full" style={{ color: '#1a2e22', fontSize: 13 }}>
         Vyberte konverzaci
       </div>
     )
@@ -137,16 +137,16 @@ export default function ChatPanel({ thread, onThreadUpdate }) {
         <span className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>
           {thread.profiles?.full_name || 'Zákazník'}
         </span>
-        <span className="text-xs" style={{ color: '#8aab99' }}>{thread.profiles?.email}</span>
-        {thread.subject && <span className="text-xs" style={{ color: '#4a6357' }}>{thread.subject}</span>}
+        <span className="text-sm" style={{ color: '#1a2e22' }}>{thread.profiles?.email}</span>
+        {thread.subject && <span className="text-sm" style={{ color: '#1a2e22' }}>{thread.subject}</span>}
 
         <div className="ml-auto flex items-center gap-2">
           {/* Assign admin */}
           <select
             value={thread.assigned_admin || ''}
             onChange={e => assignAdmin(e.target.value)}
-            className="rounded-btn text-[11px] outline-none cursor-pointer"
-            style={{ padding: '4px 8px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}
+            className="rounded-btn text-sm outline-none cursor-pointer"
+            style={{ padding: '4px 8px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}
           >
             <option value="">Nepřiřazeno</option>
             {admins.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -155,7 +155,7 @@ export default function ChatPanel({ thread, onThreadUpdate }) {
           {/* Close/Reopen thread */}
           <button
             onClick={toggleStatus}
-            className="text-[11px] font-bold cursor-pointer border-none rounded-btn"
+            className="text-sm font-bold cursor-pointer border-none rounded-btn"
             style={{
               padding: '4px 12px',
               background: isClosed ? '#dcfce7' : '#fee2e2',
@@ -169,7 +169,7 @@ export default function ChatPanel({ thread, onThreadUpdate }) {
 
       {/* Closed banner */}
       {isClosed && (
-        <div className="text-center text-xs font-bold py-2" style={{ background: '#f3f4f6', color: '#8aab99' }}>
+        <div className="text-center text-sm font-bold py-2" style={{ background: '#f3f4f6', color: '#1a2e22' }}>
           Konverzace je uzavřena
         </div>
       )}
@@ -190,14 +190,14 @@ export default function ChatPanel({ thread, onThreadUpdate }) {
       <div className="p-3" style={{ borderTop: '1px solid #d4e8e0' }}>
         {templates.length > 0 && (
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>Šablona:</span>
+            <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Šablona:</span>
             <select
               onChange={e => {
                 const tpl = templates.find(t => t.id === e.target.value)
                 if (tpl) applyTemplate(tpl)
               }}
-              className="rounded-btn text-xs outline-none cursor-pointer"
-              style={{ padding: '4px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}
+              className="rounded-btn text-sm outline-none cursor-pointer"
+              style={{ padding: '4px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}
               value=""
             >
               <option value="">— Použít šablonu —</option>
@@ -231,12 +231,12 @@ function MessageBubble({ message }) {
     return (
       <div className="flex justify-start">
         <div className="rounded-card max-w-[70%]"
-          style={{ padding: '10px 14px', background: '#f3f4f6', color: '#4a6357', boxShadow: '0 2px 8px rgba(15,26,20,.06)' }}>
+          style={{ padding: '10px 14px', background: '#f3f4f6', color: '#1a2e22', boxShadow: '0 2px 8px rgba(15,26,20,.06)' }}>
           <div className="flex items-start gap-2">
             <span style={{ fontSize: 14 }}>&#x1F916;</span>
             <p className="text-sm" style={{ lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{message.content}</p>
           </div>
-          <div className="text-[10px] mt-1" style={{ color: '#8aab99' }}>
+          <div className="text-sm mt-1" style={{ color: '#1a2e22' }}>
             {message.created_at ? new Date(message.created_at).toLocaleString('cs-CZ') : ''}
           </div>
         </div>
@@ -256,7 +256,7 @@ function MessageBubble({ message }) {
         }}
       >
         <p className="text-sm" style={{ lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{message.content}</p>
-        <div className="text-[10px] mt-1" style={{ color: isAdmin ? '#1a6a18' : '#8aab99' }}>
+        <div className="text-sm mt-1" style={{ color: isAdmin ? '#1a6a18' : '#1a2e22' }}>
           {message.created_at ? new Date(message.created_at).toLocaleString('cs-CZ') : ''}
         </div>
       </div>

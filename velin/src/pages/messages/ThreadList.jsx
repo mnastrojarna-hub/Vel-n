@@ -67,15 +67,15 @@ export default function ThreadList({ selectedId, onSelect, onNewThread }) {
     <div className="flex flex-col h-full">
       <div className="p-3" style={{ borderBottom: '1px solid #d4e8e0' }}>
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-[10px] font-extrabold uppercase tracking-wide flex-1" style={{ color: '#8aab99' }}>
+          <span className="text-sm font-extrabold uppercase tracking-wide flex-1" style={{ color: '#1a2e22' }}>
             Konverzace
           </span>
           <Button green small onClick={onNewThread}>+ Nová</Button>
         </div>
         <SearchInput value={search} onChange={setSearch} placeholder="Hledat…" />
         <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-          className="w-full rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none mt-2"
-          style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+          className="w-full rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none mt-2"
+          style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
           <option value="last_message_at">Dle poslední zprávy</option>
           <option value="customer">Dle zákazníka</option>
           <option value="created_at">Dle data vytvoření</option>
@@ -87,7 +87,7 @@ export default function ThreadList({ selectedId, onSelect, onNewThread }) {
             <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-brand-gd" />
           </div>
         ) : threads.length === 0 ? (
-          <div className="p-4 text-center" style={{ color: '#8aab99', fontSize: 13 }}>Žádné konverzace</div>
+          <div className="p-4 text-center" style={{ color: '#1a2e22', fontSize: 13 }}>Žádné konverzace</div>
         ) : (
           threads.map(t => (
             <ThreadItem
@@ -134,22 +134,22 @@ function ThreadItem({ thread, selected, unreadCount, onClick }) {
             {unreadCount}
           </span>
         )}
-        <span className="ml-auto text-[10px]" style={{ color: '#8aab99' }}>
+        <span className="ml-auto text-sm" style={{ color: '#1a2e22' }}>
           {thread.last_message_at ? new Date(thread.last_message_at).toLocaleDateString('cs-CZ') : ''}
         </span>
       </div>
-      <div className="text-xs mt-1 truncate" style={{ color: '#8aab99' }}>
+      <div className="text-sm mt-1 truncate" style={{ color: '#1a2e22' }}>
         {thread.profiles?.email || ''}
       </div>
       <div className="flex items-center gap-1.5 mt-1">
         {thread.subject && (
-          <span className="text-xs truncate" style={{ color: '#4a6357', fontWeight: hasUnread ? 600 : 400 }}>
+          <span className="text-sm truncate" style={{ color: '#1a2e22', fontWeight: hasUnread ? 600 : 400 }}>
             {thread.subject}
           </span>
         )}
         {isClosed && (
           <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded"
-            style={{ background: '#f3f4f6', color: '#8aab99' }}>
+            style={{ background: '#f3f4f6', color: '#1a2e22' }}>
             uzavřeno
           </span>
         )}

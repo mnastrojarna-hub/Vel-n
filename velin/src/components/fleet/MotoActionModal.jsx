@@ -128,14 +128,14 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
 
       <div className="flex items-center gap-3 mb-5 p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
         <span className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{moto.model}</span>
-        <span className="font-mono text-xs" style={{ color: '#8aab99' }}>{moto.spz}</span>
+        <span className="font-mono text-sm" style={{ color: '#1a2e22' }}>{moto.spz}</span>
         <StatusBadge status={moto.status} />
-        {moto.branches?.name && <span className="text-xs ml-auto" style={{ color: '#8aab99' }}>Pobočka: <b style={{ color: '#0f1a14' }}>{moto.branches.name}</b></span>}
+        {moto.branches?.name && <span className="text-sm ml-auto" style={{ color: '#1a2e22' }}>Pobočka: <b style={{ color: '#0f1a14' }}>{moto.branches.name}</b></span>}
       </div>
 
       {/* Section: Přesun na pobočku */}
       <div className="mb-5">
-        <h3 className="text-[10px] font-extrabold uppercase tracking-widest mb-3" style={{ color: '#8aab99' }}>Přesunout na pobočku</h3>
+        <h3 className="text-sm font-extrabold uppercase tracking-widest mb-3" style={{ color: '#1a2e22' }}>Přesunout na pobočku</h3>
         <div className="flex items-center gap-2">
           <select value={selectedBranch} onChange={e => setSelectedBranch(e.target.value)}
             className="flex-1 rounded-btn text-sm outline-none"
@@ -155,7 +155,7 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
 
       {/* Section: Změna stavu */}
       <div>
-        <h3 className="text-[10px] font-extrabold uppercase tracking-widest mb-3" style={{ color: '#8aab99' }}>Změnit stav motorky</h3>
+        <h3 className="text-sm font-extrabold uppercase tracking-widest mb-3" style={{ color: '#1a2e22' }}>Změnit stav motorky</h3>
 
         <div className="grid grid-cols-2 gap-3">
           {/* Vrátit do provozu */}
@@ -163,8 +163,8 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
             <button onClick={() => handleStatusChange('active')} disabled={busy}
               className="p-3 rounded-lg text-left cursor-pointer transition-colors"
               style={{ background: '#dcfce7', border: '2px solid #1a8a18', opacity: busy ? 0.5 : 1 }}>
-              <div className="text-xs font-extrabold mb-1" style={{ color: '#1a8a18' }}>Vrátit do provozu</div>
-              <div className="text-[10px]" style={{ color: '#4a6357' }}>Motorka bude opět k dispozici pro zákazníky</div>
+              <div className="text-sm font-extrabold mb-1" style={{ color: '#1a8a18' }}>Vrátit do provozu</div>
+              <div className="text-sm" style={{ color: '#1a2e22' }}>Motorka bude opět k dispozici pro zákazníky</div>
             </button>
           )}
 
@@ -173,8 +173,8 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
             <button onClick={() => { if (!note) { document.getElementById('moto-action-note')?.focus(); return }; handleStatusChange('maintenance') }} disabled={busy}
               className="p-3 rounded-lg text-left cursor-pointer transition-colors"
               style={{ background: '#fef3c7', border: '2px solid #b45309', opacity: busy ? 0.5 : 1 }}>
-              <div className="text-xs font-extrabold mb-1" style={{ color: '#b45309' }}>Odeslat do servisu</div>
-              <div className="text-[10px]" style={{ color: '#4a6357' }}>Vytvoří servisní záznam, motorka bude nedostupná</div>
+              <div className="text-sm font-extrabold mb-1" style={{ color: '#b45309' }}>Odeslat do servisu</div>
+              <div className="text-sm" style={{ color: '#1a2e22' }}>Vytvoří servisní záznam, motorka bude nedostupná</div>
             </button>
           )}
 
@@ -183,8 +183,8 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
             <button onClick={() => { if (!reason) return; handleStatusChange('out_of_service') }} disabled={busy || !reason}
               className="p-3 rounded-lg text-left cursor-pointer transition-colors"
               style={{ background: '#ede9fe', border: '2px solid #7c3aed', opacity: (busy || !reason) ? 0.5 : 1 }}>
-              <div className="text-xs font-extrabold mb-1" style={{ color: '#7c3aed' }}>Dočasně vyřadit</div>
-              <div className="text-[10px]" style={{ color: '#4a6357' }}>Čištění, tankování, přeprava — vyberte důvod níže</div>
+              <div className="text-sm font-extrabold mb-1" style={{ color: '#7c3aed' }}>Dočasně vyřadit</div>
+              <div className="text-sm" style={{ color: '#1a2e22' }}>Čištění, tankování, přeprava — vyberte důvod níže</div>
             </button>
           )}
 
@@ -193,8 +193,8 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
             <button onClick={() => { if (window.confirm('Opravdu trvale vyřadit motorku?')) handleStatusChange('retired') }} disabled={busy}
               className="p-3 rounded-lg text-left cursor-pointer transition-colors"
               style={{ background: '#f3f4f6', border: '2px solid #6b7280', opacity: busy ? 0.5 : 1 }}>
-              <div className="text-xs font-extrabold mb-1" style={{ color: '#6b7280' }}>Trvale vyřadit</div>
-              <div className="text-[10px]" style={{ color: '#4a6357' }}>Motorka bude označena jako vyřazena z flotily</div>
+              <div className="text-sm font-extrabold mb-1" style={{ color: '#1a2e22' }}>Trvale vyřadit</div>
+              <div className="text-sm" style={{ color: '#1a2e22' }}>Motorka bude označena jako vyřazena z flotily</div>
             </button>
           )}
         </div>
@@ -202,15 +202,15 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
         {/* Důvod dočasného vyřazení */}
         {!isOutOfService && (
           <div className="mt-4">
-            <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Důvod dočasného vyřazení</label>
+            <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Důvod dočasného vyřazení</label>
             <div className="flex flex-wrap gap-2">
               {UNAVAILABLE_REASONS.map(r => (
                 <button key={r.value} onClick={() => setReason(r.value)}
-                  className="rounded-btn text-xs font-bold cursor-pointer"
+                  className="rounded-btn text-sm font-bold cursor-pointer"
                   style={{
                     padding: '6px 12px', border: 'none',
                     background: reason === r.value ? '#7c3aed' : '#f1faf7',
-                    color: reason === r.value ? '#fff' : '#4a6357',
+                    color: reason === r.value ? '#fff' : '#1a2e22',
                   }}>
                   {r.label}
                 </button>
@@ -228,7 +228,7 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
         {/* Poznámka k servisu */}
         {!isMaintenance && (
           <div className="mt-4">
-            <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Poznámka / popis závady (pro servis)</label>
+            <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Poznámka / popis závady (pro servis)</label>
             <textarea id="moto-action-note" value={note} onChange={e => setNote(e.target.value)}
               placeholder="Popište důvod servisu, závadu, poznámku…"
               className="w-full rounded-btn text-sm outline-none"

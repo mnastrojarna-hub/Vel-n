@@ -42,8 +42,8 @@ export default function VariablesTab() {
     <div>
       <div className="flex items-center gap-3 mb-4">
         <select value={filterGroup} onChange={e => setFilterGroup(e.target.value)}
-          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
-          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
           <option value="">Všechny skupiny</option>
           {GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
         </select>
@@ -67,8 +67,8 @@ export default function VariablesTab() {
             {vars.map(v => (
               <TRow key={v.id}>
                 <TD>
-                  <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase"
-                    style={{ padding: '3px 8px', background: '#f1faf7', color: '#4a6357' }}>
+                  <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
+                    style={{ padding: '3px 8px', background: '#f1faf7', color: '#1a2e22' }}>
                     {v.group}
                   </span>
                 </TD>
@@ -77,8 +77,8 @@ export default function VariablesTab() {
                   <InlineEdit value={v.value} onSave={val => saveInline(v.id, val)} />
                 </TD>
                 <TD>
-                  <button onClick={() => setEditing(v)} className="rounded-btn text-[10px] font-extrabold uppercase tracking-wide cursor-pointer"
-                    style={{ padding: '3px 8px', background: '#f1faf7', color: '#4a6357', border: 'none' }}>
+                  <button onClick={() => setEditing(v)} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+                    style={{ padding: '3px 8px', background: '#f1faf7', color: '#1a2e22', border: 'none' }}>
                     Upravit
                   </button>
                 </TD>
@@ -161,5 +161,5 @@ function VarModal({ entry, onClose, onSaved }) {
 
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
 function Label({ children }) {
-  return <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{children}</label>
+  return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>
 }

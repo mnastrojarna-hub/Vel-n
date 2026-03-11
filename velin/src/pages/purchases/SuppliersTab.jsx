@@ -64,7 +64,7 @@ export default function SuppliersTab() {
                   <TD>{s.contact_person || '—'}</TD>
                   <TD>{s.email || '—'}</TD>
                   <TD>
-                    <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase" style={{ padding: '3px 8px', background: '#f1faf7', color: '#4a6357' }}>
+                    <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase" style={{ padding: '3px 8px', background: '#f1faf7', color: '#1a2e22' }}>
                       {s.category || '—'}
                     </span>
                   </TD>
@@ -132,5 +132,5 @@ function SupplierModal({ entry, onClose, onSaved }) {
 
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
 function Label({ children }) {
-  return <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{children}</label>
+  return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>
 }

@@ -62,7 +62,7 @@ export default function OrdersTab() {
                   <TD>{o.created_at ? new Date(o.created_at).toLocaleDateString('cs-CZ') : '—'}</TD>
                   <TD bold>{fmt(o.total_amount)}</TD>
                   <TD>
-                    <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase" style={{
+                    <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase" style={{
                       padding: '4px 10px',
                       background: o.status === 'received' ? '#dcfce7' : o.status === 'cancelled' ? '#fee2e2' : '#fef3c7',
                       color: o.status === 'received' ? '#1a8a18' : o.status === 'cancelled' ? '#dc2626' : '#b45309',
@@ -153,7 +153,7 @@ function NewOrderModal({ onClose, onSaved }) {
               <button onClick={() => removeItem(idx)} className="text-sm cursor-pointer bg-transparent border-none" style={{ color: '#dc2626' }}>✕</button>
             </div>
           ))}
-          <button onClick={addItem} className="text-xs font-bold cursor-pointer bg-transparent border-none" style={{ color: '#1a8a18' }}>+ Přidat položku</button>
+          <button onClick={addItem} className="text-sm font-bold cursor-pointer bg-transparent border-none" style={{ color: '#1a8a18' }}>+ Přidat položku</button>
         </div>
 
         <div><Label>Poznámky</Label><textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} /></div>
@@ -202,7 +202,7 @@ function OrderDetail({ order, onClose, onUpdated }) {
 
   return (
     <Modal open title={`Objednávka ${order.order_number || `#${order.id?.slice(0, 8)}`}`} onClose={onClose} wide>
-      <div className="mb-3 text-xs" style={{ color: '#8aab99' }}>
+      <div className="mb-3 text-sm" style={{ color: '#1a2e22' }}>
         Dodavatel: <b style={{ color: '#0f1a14' }}>{order.suppliers?.name}</b> · Stav: <b>{STATUS_LABELS[order.status] || order.status}</b>
       </div>
       {loading ? (
@@ -236,5 +236,5 @@ function OrderDetail({ order, onClose, onUpdated }) {
 
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
 function Label({ children }) {
-  return <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{children}</label>
+  return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>
 }

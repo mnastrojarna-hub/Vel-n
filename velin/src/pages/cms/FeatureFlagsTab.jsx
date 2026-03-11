@@ -45,7 +45,7 @@ export default function FeatureFlagsTab() {
 
   if (error) return <div className="p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>
 
-  if (flags.length === 0) return <Card><p style={{ color: '#8aab99', fontSize: 13 }}>Žádné feature flags</p></Card>
+  if (flags.length === 0) return <Card><p style={{ color: '#1a2e22', fontSize: 13 }}>Žádné feature flags</p></Card>
 
   return (
     <div className="space-y-3">
@@ -55,7 +55,7 @@ export default function FeatureFlagsTab() {
             <div className="flex-1">
               <div className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{f.name}</div>
               {f.description && (
-                <div className="text-xs mt-1" style={{ color: '#8aab99' }}>{f.description}</div>
+                <div className="text-sm mt-1" style={{ color: '#1a2e22' }}>{f.description}</div>
               )}
             </div>
             <ToggleSwitch enabled={f.enabled} onToggle={() => toggle(f)} />

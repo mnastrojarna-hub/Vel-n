@@ -74,7 +74,7 @@ export default function Statistics() {
       </div>
 
       {/* DIAGNOSTIKA */}
-      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA Statistics</strong><br/>
         <div>bookings: {stats.bookings}, customers: {stats.customers}, active motos: {stats.motos}</div>
         <div>total revenue (accounting): {fmt(stats.revenue)}</div>
