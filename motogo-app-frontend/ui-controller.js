@@ -51,6 +51,7 @@ function setupBioButton(){
 
 // Global SOS state — tracks user selections across SOS screens
 var _sosFault = null;
+var _sosFaultSnapshot = null;      // Persisted fault state (survives async operations)
 var _sosActiveIncidentId = null;
 var _sosPendingIncidentId = null;  // Incident čekající na platbu (zaviněná nehoda)
 var _sosSubmitting = false;        // Guard against double-tap
@@ -343,6 +344,9 @@ function sosRequestReplacement() {
     _sosReplacementLoading = true;
     showT('⏳','Načítám...','Připravuji náhradní motorky');
 
+    // Persist fault state so it survives async operations
+    _sosFaultSnapshot = _sosFault;
+
     var faultDesc = _sosFault === true ? 'Nehoda byla moje chyba' : _sosFault === false ? 'Nehoda nebyla moje chyba' : '';
     var desc = 'Motorka nepojízdná – žádám náhradní motorku. ' + faultDesc;
     var type = _sosFault === true ? 'accident_major' : _sosFault === false ? 'accident_major' : 'breakdown_major';
@@ -388,7 +392,8 @@ function sosReplInit(){
     // Reset state
     _sosReplacementData = { selectedMotoId: null, selectedModel: null, dailyPrice: 0, deliveryFee: 490 };
 
-    var isFault = _sosFault === true;
+    // Use snapshot as fallback
+    var isFault = _sosFault === true || _sosFaultSnapshot === true;
     var hdr = document.getElementById('sos-repl-hdr');
     var sub = document.getElementById('sos-repl-subtitle');
     var banner = document.getElementById('sos-repl-banner');
@@ -515,7 +520,7 @@ async function sosReplLoadMotos(){
       _sosReplacementData._remainingDays = remainingDays;
       _sosReplacementData._endDate = endDate;
 
-      var isFault = _sosFault === true;
+      var isFault = _sosFault === true || _sosFaultSnapshot === true;
       var html = '';
       motos.forEach(function(m){
         var price = parseFloat(m.price_weekday) || parseFloat(m.price_weekend) || 890;
@@ -560,7 +565,7 @@ function sosReplSelectMoto(motoId, model, dailyPrice){
 }
 
 function sosReplUpdateSummary(){
-    var isFault = _sosFault === true;
+    var isFault = _sosFault === true || _sosFaultSnapshot === true;
     var summary = document.getElementById('sos-repl-summary');
     var totalEl = document.getElementById('sos-repl-total');
 
@@ -633,7 +638,8 @@ async function sosConfirmReplacement(){
 
     if(!address.trim() || !city.trim()){ showT('⚠️','Vyplňte adresu','Zadejte ulici a město pro přistavení'); return; }
 
-    var isFault = _sosFault === true;
+    // Use snapshot as fallback — protects against _sosFault being reset by async ops
+    var isFault = _sosFault === true || _sosFaultSnapshot === true;
     var daily = _sosReplacementData.dailyPrice;
     var delivery = _sosReplacementData.deliveryFee;
     var days = _sosReplacementData._remainingDays || 1;
@@ -745,6 +751,7 @@ async function sosPaymentSubmit(){
 
     // Simulace 2s zpracování
     setTimeout(async function(){
+      try {
       // Simulace: platba vždy projde (testovací prostředí)
       var pd = _sosReplacementPaymentData;
       if(!pd){
@@ -755,9 +762,19 @@ async function sosPaymentSubmit(){
 
       pd.replacementData.payment_status = 'paid';
       pd.replacementData.paid_at = new Date().toISOString();
+      // Ensure customer_fault is preserved from snapshot
+      if(pd.replacementData.customer_fault !== true && _sosFaultSnapshot === true){
+        pd.replacementData.customer_fault = true;
+      }
 
-      // Show success animation
+      // Show success animation on button
       if(btn){ btn.textContent = '✅ Platba přijata!'; btn.style.background = '#1a8a18'; }
+
+      // Show success toast
+      showT('✅','Platba přijata!', pd.replacementData.payment_amount.toLocaleString('cs-CZ') + ' Kč — zpracovávám objednávku...');
+
+      // Wait 1.5s so user sees the "Platba přijata!" confirmation
+      await new Promise(function(r){ setTimeout(r, 1500); });
 
       await _sosSwapBookingsAndConfirm(pd.incId, pd.replacementData, true, pd.address, pd.city);
 
@@ -766,11 +783,9 @@ async function sosPaymentSubmit(){
         var replBookingId = pd.replacementData.replacement_booking_id;
         var sosPaymentTotal = pd.replacementData.payment_amount || 0;
         if(replBookingId){
-          // Use apiGenerateAdvanceInvoice (writes directly to invoices table)
           if(typeof apiGenerateAdvanceInvoice === 'function'){
             await apiGenerateAdvanceInvoice(replBookingId, sosPaymentTotal, 'sos');
           }
-          // Also generate edge function invoice with extra_items (damage deposit line)
           await window.supabase.functions.invoke('generate-invoice', {
             body: {
               type: 'proforma',
@@ -780,7 +795,6 @@ async function sosPaymentSubmit(){
               ]
             }
           });
-          // Generate payment receipt (doklad k přijaté platbě)
           if(typeof apiGeneratePaymentReceipt === 'function'){
             await apiGeneratePaymentReceipt(replBookingId, sosPaymentTotal, 'sos');
           }
@@ -788,7 +802,11 @@ async function sosPaymentSubmit(){
         }
       } catch(e){ console.error('[SOS] ZF generation failed:', e); }
 
-      if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '💳 Zaplatit'; btn.style.background = '#b91c1c'; }
+      } catch(e){
+        console.error('[SOS] Payment processing error:', e);
+        showT('❌','Chyba při zpracování','Zkuste to znovu');
+        if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '💳 Zaplatit'; btn.style.background = '#b91c1c'; }
+      }
     }, 2000);
 }
 
@@ -1277,6 +1295,7 @@ function setNehoda(vinik){
 }
 function setNepojizda(vinik){
   _sosFault = vinik;
+  _sosFaultSnapshot = vinik;
   // Keep _sosActiveIncidentId — reuse existing incident, don't create duplicate
   const bv=document.getElementById('btn-nepoj-vinik');
   const bn=document.getElementById('btn-nepoj-nevinik');
