@@ -57,14 +57,21 @@ var AddressAPI = (function(){
         var zip = addr.postcode || '';
         var street = addr.road || '';
         var houseNum = addr.house_number || '';
-        var label = item.display_name || '';
-        // Build shorter label: street + number, city
+        var district = addr.suburb || addr.city_district || addr.quarter || '';
+        // Short label for input field: "Ulice čp, Město"
+        var label = '';
         if(street){
-          label = street + (houseNum ? ' ' + houseNum : '') + ', ' +
-            (zip ? zip + ' ' : '') + city;
+          label = street + (houseNum ? ' ' + houseNum : '') + ', ' + city;
+        } else if(city){
+          label = city + (zip ? ', ' + zip : '');
+        } else {
+          label = item.display_name || '';
         }
         return {
           label: label,
+          street: street,
+          houseNum: houseNum,
+          district: district,
           lat: parseFloat(item.lat) || null,
           lng: parseFloat(item.lon) || null,
           city: city,
@@ -200,8 +207,15 @@ var AddressAPI = (function(){
         a.city.toLowerCase().indexOf(q) !== -1;
     }).slice(0, 6).map(function(a){
       var zipMatch = a.addr.match(/(\d{3})\s?(\d{2})/);
+      // Try to parse street from "Street Num, ZIP City" format
+      var streetMatch = a.addr.match(/^([^,]+?)(?:,\s*\d)/);
+      var street = streetMatch ? streetMatch[1] : '';
+      var numMatch = street.match(/^(.+?)\s+(\d+.*)$/);
       return {
         label: a.addr, lat: null, lng: null,
+        street: numMatch ? numMatch[1] : street,
+        houseNum: numMatch ? numMatch[2] : '',
+        district: '',
         city: a.city,
         zip: zipMatch ? zipMatch[1] + ' ' + zipMatch[2] : ''
       };
