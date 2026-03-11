@@ -92,6 +92,7 @@ function pickB(el,d,y,m){
 // updateBookingPrice → js/cart-engine.js
 var eStep=1,eOd=null,eDo=null;
 var editMode='prodlouzit'; // 'prodlouzit' or 'zkratit'
+var editShortenDir=null; // 'start' or 'end' — user-chosen direction for shortening
 // Original reservation: dynamic based on current date
 var origResStart={d:ACT_START.d,m:ACT_START.m,y:ACT_START.y};
 var origResEnd={d:ACT_END.d,m:ACT_END.m,y:ACT_END.y};
@@ -120,27 +121,30 @@ function pickE(el,d,y,m){
       eOd={d:now.getDate(),y:now.getFullYear(),m:now.getMonth()};
       eDo={d:d,y:y,m:m};
     } else {
-      // Upcoming: shorten from both sides based on click position
+      // Upcoming: shorten from start or end
       var totalDays=Math.round((origEndDate-origStartDate)/86400000)+1;
       var daysFromStart=Math.round((clickedDate-origStartDate)/86400000);
       if(totalDays<=1){showT('⚠️','Zkrácení','Rezervace je již na minimální délce (1 den)');return;}
-      if(daysFromStart<totalDays/2){
-        // Closer to start → new start (move start later)
-        if(clickedDate<origStartDate){showT('⚠️','Zkrácení','Vyberte den po '+resStart.d+'.'+(resStart.m+1)+'.');return;}
-        if(clickedDate.getTime()===origStartDate.getTime()){
-          // Click on start day = keep only this day
+
+      // Determine direction: use user-chosen direction if set, otherwise auto-detect
+      var dir=editShortenDir;
+      if(!dir) dir=(daysFromStart<totalDays/2)?'start':'end';
+
+      if(dir==='start'){
+        // Shorten from start → new start (move start later)
+        if(clickedDate<=origStartDate){
+          // Click on first day or before = keep full reservation
           eOd={d:resStart.d,y:resStart.y,m:resStart.m};
-          eDo={d:resStart.d,y:resStart.y,m:resStart.m};
+          eDo={d:resEnd.d,y:resEnd.y,m:resEnd.m};
         } else {
           eOd={d:d,y:y,m:m};
           eDo={d:resEnd.d,y:resEnd.y,m:resEnd.m};
         }
       } else {
-        // Closer to end → new end (move end earlier)
-        if(clickedDate>origEndDate){showT('⚠️','Zkrácení','Vyberte den po '+resEnd.d+'.'+(resEnd.m+1)+'.');return;}
-        if(clickedDate.getTime()===origEndDate.getTime()){
-          // Click on end day = keep only this day
-          eOd={d:resEnd.d,y:resEnd.y,m:resEnd.m};
+        // Shorten from end → new end (move end earlier)
+        if(clickedDate>=origEndDate){
+          // Click on last day or after = keep full reservation
+          eOd={d:resStart.d,y:resStart.y,m:resStart.m};
           eDo={d:resEnd.d,y:resEnd.y,m:resEnd.m};
         } else {
           eOd={d:resStart.d,y:resStart.y,m:resStart.m};
@@ -202,6 +206,40 @@ function pickE(el,d,y,m){
   var extra2=Math.round((clickedDate-origEndDate)/86400000);
   showT('✓','+ '+extra2+(extra2===1?' den':extra2<5?' dny':' dní'),'Nový konec: '+d+'.'+(m+1)+'.'+y);
   updateEditPriceSummary();highlightEditResDates();
+}
+
+// ===== SHORTEN DIRECTION TOGGLE =====
+function setShortenDir(dir){
+  editShortenDir=dir;
+  _updateShortenDirUI();
+  // Reset current selection and re-render calendar
+  eOd=null;eDo=null;
+  if(typeof buildECal==='function')buildECal();
+  if(typeof updateEditPriceSummary==='function')updateEditPriceSummary();
+}
+function _updateShortenDirUI(){
+  var wrap=document.getElementById('edit-shorten-dir-wrap');
+  if(!wrap)return;
+  if(editMode!=='zkratit'||editIsActive){wrap.style.display='none';return;}
+  wrap.style.display='flex';
+  var btnS=document.getElementById('edit-dir-start');
+  var btnE=document.getElementById('edit-dir-end');
+  if(btnS){
+    btnS.style.background=editShortenDir==='start'?'var(--green)':'var(--g100)';
+    btnS.style.color=editShortenDir==='start'?'#fff':'var(--g600)';
+    btnS.style.borderColor=editShortenDir==='start'?'var(--green)':'var(--g200)';
+  }
+  if(btnE){
+    btnE.style.background=editShortenDir==='end'?'var(--green)':'var(--g100)';
+    btnE.style.color=editShortenDir==='end'?'#fff':'var(--g600)';
+    btnE.style.borderColor=editShortenDir==='end'?'var(--green)':'var(--g200)';
+  }
+  var hint=document.getElementById('edit-cal-instruction');
+  if(hint){
+    if(editShortenDir==='start')hint.textContent='Klikněte na nový první den rezervace';
+    else if(editShortenDir==='end')hint.textContent='Klikněte na nový poslední den rezervace';
+    else hint.textContent='Vyberte směr zkrácení a poté klikněte na datum';
+  }
 }
 
 // ===== EDIT DATE FROM INPUT =====
@@ -302,6 +340,7 @@ function switchEditTab(tab){
   // Calendar: always show
   if(calCard)calCard.style.display='block';
   if(typeof editMode!=='undefined')editMode=tab==='zkratit'?'zkratit':'prodlouzit';
+  editShortenDir=null;
   // Extras: show for upcoming
   var extrasCard=document.getElementById('edit-extras-card');
   if(extrasCard) extrasCard.style.display=editIsActive?'none':'block';
@@ -314,7 +353,8 @@ function switchEditTab(tab){
   // Populate moto change list
   if(typeof populateEditMotoList==='function') populateEditMotoList();
   // Reset selection
-  eStep=1;eOd=null;eDo=null;
+  eStep=1;eOd=null;eDo=null;editShortenDir=null;
+  _updateShortenDirUI();
   var priceSum=document.getElementById('edit-price-summary');
   if(priceSum)priceSum.style.display='none';
   buildECal();
@@ -332,7 +372,7 @@ function switchEditTab(tab){
       if(editIsActive){
         calInstruction.textContent='Klikněte na nové datum vrácení (dříve než '+getEditResRange().end.d+'.'+(getEditResRange().end.m+1)+'.)';
       } else {
-        calInstruction.textContent='Klikněte uvnitř rezervace – blíže začátku = nový začátek, blíže konci = nový konec';
+        calInstruction.textContent='Vyberte směr zkrácení a poté klikněte na datum';
       }
     }
   }

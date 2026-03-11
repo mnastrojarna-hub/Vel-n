@@ -31,7 +31,11 @@ Templates['s-edit-res'] = `
         <div id="edit-cal-res-moto" style="font-size:12px;color:var(--g600);font-weight:600;margin-top:2px;"></div>
       </div>
       <div id="edit-cal-instruction" style="font-size:11px;color:var(--g400);font-weight:600;margin-bottom:10px;text-align:center;"></div>
-      <div style="font-size:11px;color:var(--g400);font-weight:500;margin-bottom:6px;text-align:center;" id="t-editCalHint">Pro výběr jednoho dne klikněte na stejný den dvakrát</div>
+      <div id="edit-shorten-dir-wrap" style="display:none;gap:8px;margin-bottom:12px;justify-content:center;">
+        <button id="edit-dir-start" onclick="setShortenDir('start')" style="flex:1;max-width:160px;padding:8px 12px;font-size:12px;font-weight:700;border-radius:var(--rsm);border:2px solid var(--g200);background:var(--g100);color:var(--g600);cursor:pointer;">⬅ Zkrátit začátek</button>
+        <button id="edit-dir-end" onclick="setShortenDir('end')" style="flex:1;max-width:160px;padding:8px 12px;font-size:12px;font-weight:700;border-radius:var(--rsm);border:2px solid var(--g200);background:var(--g100);color:var(--g600);cursor:pointer;">Zkrátit konec ➡</button>
+      </div>
+      <div style="font-size:11px;color:var(--g400);font-weight:500;margin-bottom:6px;text-align:center;" id="t-editCalHint">Vyberte směr zkrácení a poté klikněte na datum v kalendáři</div>
       <div class="cal-mr"><button class="cal-ar" onclick="prevMonthE()">\u2039</button><div class="cal-mn" id="e-month-name">B\u0159ezen 2026</div><button class="cal-ar" onclick="nextMonthE()">\u203a</button></div>
       <div class="cal-hdr"><div class="cal-dn">Po</div><div class="cal-dn">\u00dat</div><div class="cal-dn">St</div><div class="cal-dn">\u010ct</div><div class="cal-dn">P\u00e1</div><div class="cal-dn">So</div><div class="cal-dn">Ne</div></div>
       <div class="cal-g" id="e-cal"></div>

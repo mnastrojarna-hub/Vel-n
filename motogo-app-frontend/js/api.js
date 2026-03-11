@@ -484,8 +484,25 @@ async function apiGenerateAdvanceInvoice(bookingId, amount, source){
       if(mt) seq = parseInt(mt[1], 10) + 1;
     }
     var invNum = 'ZF-' + yr + '-' + String(seq).padStart(4, '0');
-    var items = _buildBookingItems(b, m);
-    var subtotal = _calcItemsTotal(items);
+    var items, subtotal;
+    var mName = m.model || 'motorky';
+    if(source === 'edit'){
+      // Edit: single summary line (no per-day breakdown)
+      if(amount < 0){
+        // Shortening (refund) – amount is negative
+        items = [{description:'Zkrácení rezervace – vrácení ' + mName, qty:1, unit_price:amount}];
+      } else {
+        // Extension (doplatek) – amount is positive
+        items = [{description:'Prodloužení rezervace – ' + mName, qty:1, unit_price:amount}];
+      }
+      subtotal = amount;
+    } else if(source === 'sos'){
+      items = [{description:'SOS incident – ' + mName, qty:1, unit_price:amount}];
+      subtotal = amount;
+    } else {
+      items = _buildBookingItems(b, m);
+      subtotal = _calcItemsTotal(items);
+    }
     var tax = 0; // Neplátce DPH
     var total = subtotal;
     var issueDate = new Date().toISOString().slice(0, 10);
@@ -590,8 +607,23 @@ async function apiGeneratePaymentReceipt(bookingId, amount, source){
       if(mt) seq = parseInt(mt[1], 10) + 1;
     }
     var dpNum = 'DP-' + yr + '-' + String(seq).padStart(4, '0');
-    var items = _buildBookingItems(b, m);
-    var subtotal = _calcItemsTotal(items);
+    var items, subtotal;
+    var mName = m.model || 'motorky';
+    if(source === 'edit'){
+      // Edit: single summary line (no per-day breakdown)
+      if(amount < 0){
+        items = [{description:'Vrácení za zkrácení rezervace – ' + mName, qty:1, unit_price:amount}];
+      } else {
+        items = [{description:'Doplatek za prodloužení rezervace – ' + mName, qty:1, unit_price:amount}];
+      }
+      subtotal = amount;
+    } else if(source === 'sos'){
+      items = [{description:'SOS incident – ' + mName, qty:1, unit_price:amount}];
+      subtotal = amount;
+    } else {
+      items = _buildBookingItems(b, m);
+      subtotal = _calcItemsTotal(items);
+    }
     var tax = 0; // Neplátce DPH
     var total = subtotal;
     var issueDate = new Date().toISOString().slice(0, 10);
