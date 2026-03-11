@@ -522,12 +522,12 @@ async function saveEditReservation(){
           var ecRes = await apiModifyBooking(bookingId, extraChanges);
           if(ecRes && ecRes.error) console.warn('[EDIT] Extra changes err:', ecRes.error);
         }
-        // Generate ZF for the shortening change + payment receipt
+        // Generate ZF for the shortening change + payment receipt (negative amount = refund)
         if(typeof apiGenerateAdvanceInvoice === 'function'){
-          apiGenerateAdvanceInvoice(bookingId, Math.abs(diff), 'edit').catch(function(e){ console.warn('[EDIT] ZF err:', e); });
+          apiGenerateAdvanceInvoice(bookingId, diff, 'edit').catch(function(e){ console.warn('[EDIT] ZF err:', e); });
         }
         if(typeof apiGeneratePaymentReceipt === 'function'){
-          apiGeneratePaymentReceipt(bookingId, Math.abs(diff), 'edit').catch(function(e){ console.warn('[EDIT] DP err:', e); });
+          apiGeneratePaymentReceipt(bookingId, diff, 'edit').catch(function(e){ console.warn('[EDIT] DP err:', e); });
         }
       }
     } else if(diff > 0){

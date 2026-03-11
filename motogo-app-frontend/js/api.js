@@ -485,10 +485,20 @@ async function apiGenerateAdvanceInvoice(bookingId, amount, source){
     }
     var invNum = 'ZF-' + yr + '-' + String(seq).padStart(4, '0');
     var items, subtotal;
-    if(source === 'edit' && amount > 0){
-      // Edit/shorten: single summary line with the refund amount
-      items = [{description:'Zkrácení rezervace – vrácení ' + (m.model || 'motorky'), qty:1, unit_price:-amount}];
-      subtotal = -amount;
+    var mName = m.model || 'motorky';
+    if(source === 'edit'){
+      // Edit: single summary line (no per-day breakdown)
+      if(amount < 0){
+        // Shortening (refund) – amount is negative
+        items = [{description:'Zkrácení rezervace – vrácení ' + mName, qty:1, unit_price:amount}];
+      } else {
+        // Extension (doplatek) – amount is positive
+        items = [{description:'Prodloužení rezervace – ' + mName, qty:1, unit_price:amount}];
+      }
+      subtotal = amount;
+    } else if(source === 'sos'){
+      items = [{description:'SOS incident – ' + mName, qty:1, unit_price:amount}];
+      subtotal = amount;
     } else {
       items = _buildBookingItems(b, m);
       subtotal = _calcItemsTotal(items);
@@ -598,10 +608,18 @@ async function apiGeneratePaymentReceipt(bookingId, amount, source){
     }
     var dpNum = 'DP-' + yr + '-' + String(seq).padStart(4, '0');
     var items, subtotal;
-    if(source === 'edit' && amount > 0){
-      // Edit/shorten: single summary line with the refund amount
-      items = [{description:'Vrácení za zkrácení rezervace – ' + (m.model || 'motorky'), qty:1, unit_price:-amount}];
-      subtotal = -amount;
+    var mName = m.model || 'motorky';
+    if(source === 'edit'){
+      // Edit: single summary line (no per-day breakdown)
+      if(amount < 0){
+        items = [{description:'Vrácení za zkrácení rezervace – ' + mName, qty:1, unit_price:amount}];
+      } else {
+        items = [{description:'Doplatek za prodloužení rezervace – ' + mName, qty:1, unit_price:amount}];
+      }
+      subtotal = amount;
+    } else if(source === 'sos'){
+      items = [{description:'SOS incident – ' + mName, qty:1, unit_price:amount}];
+      subtotal = amount;
     } else {
       items = _buildBookingItems(b, m);
       subtotal = _calcItemsTotal(items);
