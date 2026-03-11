@@ -65,7 +65,7 @@ MOTOS = MOTOS.concat([
 
   {id:'yamaha-pw50',name:'Yamaha PW 50',loc:'Mezná 9, 393 01 Mezná · 2016',
    img:'photos/yamaha-pw50_1.jpg',
-   imgs:['photos/yamaha-pw50_1.jpg','photos/yamaha-pw50_2.jpg','photos/yamaha-pw50_3.jpg','photos/yamaha-pw50_4.jpg','photos/yamaha-pw50_5.jpg'],avail:true,cat:'detske',rp:'A1',vykon:1,
+   imgs:['photos/yamaha-pw50_1.jpg','photos/yamaha-pw50_2.jpg','photos/yamaha-pw50_3.jpg','photos/yamaha-pw50_4.jpg','photos/yamaha-pw50_5.jpg'],avail:true,cat:'detske',rp:'N',vykon:1,
    desc:'Malý pomocník pro velké začátky. Yamaha PW 50 je legendární dětská motorka pro první kroky v motosportu. Automatická převodovka, nízké sedlo a maximálních 50 ccm jsou ideální pro děti od 3 let.',
    specs:[{l:'Motor',v:'49 cc jednoválec'},{l:'Výkon',v:'cca 1 kW'},{l:'Převodovka',v:'Automatická'},{l:'Hmotnost',v:'25 kg'},{l:'Sedlo',v:'485 mm'},{l:'Věk',v:'3–7 let'},{l:'ŘP',v:'Nevyžaduje'},{l:'Bezpečnost',v:'Omezovač plynu'}],
    feats:['Dětská motorka – od 3 let','Automatická převodovka','Nízké sedlo – 485 mm','Omezovač plynu pro rodiče','Legendární volba pro začátky'],
@@ -75,7 +75,7 @@ MOTOS = MOTOS.concat([
 
   {id:'ktm-sx65',name:'KTM SX 65',loc:'Mezná 9, 393 01 Mezná · 2020',
    img:'photos/ktm-sx65_1.jpg',
-   imgs:['photos/ktm-sx65_1.jpg','photos/ktm-sx65_2.jpg','photos/ktm-sx65_3.jpg','photos/ktm-sx65_4.jpg','photos/ktm-sx65_5.jpg'],avail:true,cat:'detske',rp:'A1',vykon:8,
+   imgs:['photos/ktm-sx65_1.jpg','photos/ktm-sx65_2.jpg','photos/ktm-sx65_3.jpg','photos/ktm-sx65_4.jpg','photos/ktm-sx65_5.jpg'],avail:true,cat:'detske',rp:'N',vykon:8,
    desc:'Závodní motokros pro mladé piloty. KTM SX 65 je skutečná závodní motorka v malém provedení – pro děti 7–12 let. Výkonný dvoutaktní motor, závodní podvozek a oranžové KTM barvy.',
    specs:[{l:'Motor',v:'65 cc dvoutakt'},{l:'Výkon',v:'cca 8 kW'},{l:'Převodovka',v:'Manuál 6st.'},{l:'Hmotnost',v:'49 kg'},{l:'Sedlo',v:'670 mm'},{l:'Věk',v:'7–12 let'},{l:'Typ',v:'Motokros'},{l:'ABS',v:'Ne'}],
    feats:['Závodní motokros pro děti','Dvoutaktní motor – závodní výkon','Věk 7–12 let','Uzavřené tratě / areály','Výchozí bod závodní kariéry'],

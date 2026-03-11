@@ -54,14 +54,15 @@ Templates['s-home'] = `  <div class="hdr">
       <div style="display:flex;gap:6px;flex-wrap:nowrap;margin-bottom:14px;">
         <div class="hf-chip" id="hfc-sportovni" onclick="setHF('cat','sportovni',this)"><span id="t-hfSport">⚡ Sportovní</span></div>
         <div class="hf-chip" id="hfc-naked" onclick="setHF('cat','naked',this)"><span id="t-hfNaked">🔥 Naked</span></div>
-        <div class="hf-chip" id="hfc-supermoto" onclick="setHF('cat','supermoto',this)"><span id="t-hfSupermoto">🏁 Supermoto</span></div>
+        <div class="hf-chip" id="hfc-chopper" onclick="setHF('cat','chopper',this)"><span id="t-hfChopper">🛵 Chopper</span></div>
       </div>
       <!-- ŘP -->
       <div id="t-licGroup" style="font-size:10px;font-weight:800;color:var(--g400);text-transform:uppercase;letter-spacing:.6px;margin-bottom:7px;">Skupina ŘP</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
-        <div class="hf-chip on" id="hfr-all" onclick="setHF('rp','all',this)"><span id="t-hfAllGroups">Všechny skupiny</span></div>
+        <div class="hf-chip on" id="hfr-all" onclick="setHF('rp','all',this)"><span id="t-hfAllGroups">Vše</span></div>
         <div class="hf-chip" id="hfr-A2" onclick="setHF('rp','A2',this)"><span id="t-hfA2">A2 (do 35 kW)</span></div>
         <div class="hf-chip" id="hfr-A" onclick="setHF('rp','A',this)"><span id="t-hfA">A (plný)</span></div>
+        <div class="hf-chip" id="hfr-N" onclick="setHF('rp','N',this)"><span id="t-hfN">N (bez ŘP)</span></div>
       </div>
       <!-- Výkon slider -->
       <div style="font-size:10px;font-weight:800;color:var(--g400);text-transform:uppercase;letter-spacing:.6px;margin-bottom:7px;"><span id="t-maxPower">Max. výkon</span>: <span id="hf-vykon-lbl" style="color:var(--gd);">vše</span></div>
@@ -129,11 +130,11 @@ Templates['s-search'] = `  <div class="search-hdr" style="position:relative;">
       </select>
     </div>
     <div class="frow" style="display:flex;gap:8px;">
-      <select class="fsel" id="f-cat" style="flex:1;" onchange="applyFilters()"><option id="t-fCat" value="">Kategorie</option><option id="t-fKids" value="detske">Dětské</option><option id="t-fTouring" value="cestovni">Cestovní</option><option id="t-fSport" value="sportovni">Sportovní</option><option id="t-fNaked" value="naked">Naked</option><option id="t-fSupermoto" value="supermoto">Supermoto</option></select>
+      <select class="fsel" id="f-cat" style="flex:1;" onchange="applyFilters()"><option id="t-fCat" value="">Kategorie</option><option id="t-fKids" value="detske">Dětské</option><option id="t-fTouring" value="cestovni">Cestovní</option><option id="t-fSport" value="sportovni">Sportovní</option><option id="t-fNaked" value="naked">Naked</option><option id="t-fChopper" value="chopper">Chopper</option></select>
       <select class="fsel" id="f-vykon" style="flex:1;" onchange="applyFilters()"><option id="t-fPower" value="">Výkon</option><option id="t-fPow35" value="35">do 35 kW</option><option id="t-fPow60" value="60">do 60 kW</option><option id="t-fPow61" value="61">60+ kW</option></select>
     </div>
     <div class="frow" style="display:flex;gap:8px;align-items:center;">
-      <select class="fsel" id="f-rp" style="flex:1;" onchange="applyFilters()"><option id="t-fRP" value="">ŘP skupina</option><option id="t-fRPA2" value="A2">A2 (do 35 kW)</option><option id="t-fRPA" value="A">A (plný)</option></select>
+      <select class="fsel" id="f-rp" style="flex:1;" onchange="applyFilters()"><option id="t-fRP" value="">ŘP skupina</option><option id="t-fRPA2" value="A2">A2 (do 35 kW)</option><option id="t-fRPA" value="A">A (plný)</option><option id="t-fRPN" value="N">N (bez ŘP)</option></select>
       <label class="fsel" style="flex:1;display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="f-avail-chk" style="accent-color:var(--green);" onchange="applyFilters()"> <span id="t-todayFree">Dnes volné</span></label>
     </div>
     <div id="t-usageLabel" style="font-size:11px;font-weight:700;color:var(--g600);margin-bottom:7px;text-transform:uppercase;letter-spacing:.5px;">Využití</div>

@@ -1180,6 +1180,11 @@ async function enrichMOTOS(){
         if(absAsc.length) dbSpecs.push({l:'ABS / ASC', v: absAsc.join(' / ')});
         if(dbSpecs.length > 0) m.specs = dbSpecs;
       }
+      // Aktualizuj kategorii, ŘP a výkon z DB (přepiš hardcoded)
+      if(db.category){ var _nc=db.category.toLowerCase().replace(/[íé]/g,function(c){return c==='í'?'i':'e';}); m.cat=_nc; }
+      if(db.license_required) m.rp = db.license_required;
+      if(db.power_kw) m.vykon = db.power_kw;
+
       if(db.description) m.desc = db.description;
       if(db.ideal_usage && db.ideal_usage.length) m.vyuziti = db.ideal_usage;
       if(db.features && db.features.length) m.feats = db.features;
@@ -1227,7 +1232,7 @@ async function enrichMOTOS(){
         img: db.image_url || '',
         imgs: db.images && db.images.length ? db.images : (db.image_url ? [db.image_url] : []),
         avail: true,
-        cat: (db.category || 'cestovni').toLowerCase(),
+        cat: (db.category || 'cestovni').toLowerCase().replace(/[íé]/g,function(c){return c==='í'?'i':'e';}),
         rp: db.license_required || 'A',
         vykon: db.power_kw || 0,
         desc: db.description || db.model,

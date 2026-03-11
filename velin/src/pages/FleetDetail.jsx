@@ -218,7 +218,17 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
           <Field label="Model" value={moto.model} onChange={v => set('model', v)} />
           <Field label="SPZ" value={moto.spz} onChange={v => set('spz', v)} />
           <Field label="VIN" value={moto.vin} onChange={v => set('vin', v)} />
-          <Field label="Kategorie" value={moto.category} onChange={v => set('category', v)} />
+          <div>
+            <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Kategorie</label>
+            <select value={moto.category || ''} onChange={e => set('category', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>
+              <option value="">—</option>
+              <option value="cestovni">Cestovní</option>
+              <option value="sportovni">Sportovní</option>
+              <option value="naked">Naked</option>
+              <option value="chopper">Chopper</option>
+              <option value="detske">Dětské</option>
+            </select>
+          </div>
           <Field label="Rok výroby" value={moto.year} onChange={v => set('year', v)} type="number" />
           <Field label="Objem (cc)" value={moto.engine_cc} onChange={v => set('engine_cc', v)} type="number" />
           <Field label="Barva" value={moto.color} onChange={v => set('color', v)} />

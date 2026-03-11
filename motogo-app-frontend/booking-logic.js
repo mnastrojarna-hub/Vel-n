@@ -19,7 +19,7 @@ function mCard(m){
   const dots=imgs.map((_,i)=>`<div class="mc-dot ${i===0?'on':''}" onclick="event.stopPropagation();mcSlide('${m.id}',${i})"></div>`).join('');
   const imgTags=imgs.map((src,i)=>`<img src="${src}" class="${i===0?'active':''}" loading="lazy" alt="${m.name}">`).join('');
   var _sr=_t('search')||{};var _pl=_t('pricingL')||{};var _mt=_t('moto')||{};var _mtr=_mt[m.id]||{};
-  const catLabels={cestovni:_sr.touring||'Cestovní/Enduro',sportovni:_sr.sport||'Sportovní',naked:_sr.naked||'Naked',supermoto:_sr.supermoto||'Supermoto',detske:'👶 '+(_sr.kids||'Dětské')};
+  const catLabels={cestovni:_sr.touring||'Cestovní',sportovni:_sr.sport||'Sportovní',naked:_sr.naked||'Naked',chopper:_sr.chopper||'Chopper',detske:'👶 '+(_sr.kids||'Dětské'),supermoto:_sr.supermoto||'Supermoto'};
   return `<div class="mc" id="mc-${m.id}">
     <div class="mc-carousel" onclick="openDetail('${m.id}')">
       ${imgTags}
@@ -92,9 +92,10 @@ function applyHomeFilters(){
   if(so)HF.sort=so.value;
   let list=[...MOTOS];
   if(HF.cat!=='all')list=list.filter(m=>m.cat===HF.cat);
-  if(HF.rp==='A2')list=list.filter(m=>m.rp==='A2'||m.rp==='A1');
+  if(HF.rp==='A2')list=list.filter(m=>m.rp==='A2'||m.rp==='A1'||m.rp==='N');
   else if(HF.rp==='A')list=list.filter(m=>m.rp==='A');
-  else if(HF.rp==='A1')list=list.filter(m=>m.rp==='A1');
+  else if(HF.rp==='A1')list=list.filter(m=>m.rp==='A1'||m.rp==='N');
+  else if(HF.rp==='N')list=list.filter(m=>m.rp==='N');
   if(HF.vykon<120)list=list.filter(m=>m.vykon<=HF.vykon);
   if(HF.avail)list=list.filter(function(m){return isMotoFreeToday(m.id);});
   const brHome=document.getElementById('f-branch-home')?.value||'';
