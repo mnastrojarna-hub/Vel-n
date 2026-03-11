@@ -461,8 +461,14 @@ function doEditPayment(bookingId, amount, changes){
 
       if(result.success){
         // Apply the booking changes after successful payment
+        var saveOk = true;
         if(changes && typeof apiModifyBooking === 'function'){
-          await apiModifyBooking(bookingId, changes);
+          var modRes = await apiModifyBooking(bookingId, changes);
+          if(modRes && modRes.error){
+            console.error('[PAY] apiModifyBooking failed:', modRes.error);
+            showT('⚠️',_t('pay').paid||'Zaplaceno','Platba OK, ale uložení změn selhalo: ' + modRes.error);
+            saveOk = false;
+          }
         }
 
         // Auto-generate advance invoice + payment receipt for the edit payment
@@ -475,7 +481,7 @@ function doEditPayment(bookingId, amount, changes){
 
         _isEditPayment = false;
         _editPaymentBookingId = null;
-        showT('✓',_t('pay').paid||'Zaplaceno',_t('res').changesSavedShort||'Změny uloženy');
+        if(saveOk) showT('✓',_t('pay').paid||'Zaplaceno',_t('res').changesSavedShort||'Změny uloženy');
         // Invalidate cache and refresh
         _cachedBookings = null;
         if(typeof renderMyReservations === 'function') renderMyReservations();
