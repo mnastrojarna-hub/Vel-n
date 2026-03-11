@@ -139,7 +139,7 @@ export default function Bookings() {
           <>
             <SearchInput value={filters.search} onChange={v => { setPage(1); setFilters(f => ({ ...f, search: v })) }} placeholder="Hledat zákazníka, motorku…" />
             <FilterSelect value={filters.status} onChange={v => setF('status', v)}
-              options={[{ value: '', label: 'Všechny stavy' }, { value: 'pending', label: 'Čekající' }, { value: 'reserved', label: 'Rezervováno' }, { value: 'upcoming', label: 'Nadcházející' }, { value: 'active', label: 'Aktivní' }, { value: 'completed', label: 'Dokončeno' }, { value: 'cancelled', label: 'Zrušeno' }]} />
+              options={[{ value: '', label: 'Všechny stavy' }, { value: 'pending', label: 'Čekající' }, { value: 'upcoming', label: 'Nadcházející' }, { value: 'active', label: 'Aktivní' }, { value: 'completed', label: 'Dokončeno' }, { value: 'cancelled', label: 'Zrušeno' }]} />
             <FilterSelect value={filters.paymentStatus} onChange={v => setF('paymentStatus', v)}
               options={[{ value: '', label: 'Platba' }, { value: 'paid', label: 'Zaplaceno' }, { value: 'unpaid', label: 'Nezaplaceno' }]} />
             <FilterSelect value={filters.sortBy} onChange={v => setF('sortBy', v)}
