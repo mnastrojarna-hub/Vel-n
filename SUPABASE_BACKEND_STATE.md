@@ -544,3 +544,4 @@ Detailní politiky:
 | 2026-03-09 | **FIX generate_shop_invoice:** Opraven typ faktury z `'shop'` na `'shop_final'` (splňuje CHECK constraint). Přidán `source='shop'` a SECURITY DEFINER |
 | 2026-03-09 | **NEW:** Přidán sloupec `bookings.modification_history` (jsonb, default '[]') — historie všech úprav termínu rezervace |
 | 2026-03-10 | **FIX SOS triggers:** Dropnut trigger `sos_auto_reply_on_create` (crashoval INSERT bez error handleru). `trigger_sos_auto_reply()` přepsán na safe no-op. `check_one_active_sos()` a `sos_notify_user_on_create()` přepsány s SECURITY DEFINER |
+| 2026-03-11 | **KOMPLETNÍ OPRAVA SOS v2:** DROP ALL triggers na sos_incidents + recreate. Klíčová oprava: `check_one_active_sos()` doplněn `WHEN OTHERS THEN RETURN NEW` (dříve libovolná neočekávaná chyba blokovala INSERT). Všechny SOS funkce s explicitním `::text` castem pro ENUM kompatibilitu. Přidán diagnostický + test INSERT v migraci |
