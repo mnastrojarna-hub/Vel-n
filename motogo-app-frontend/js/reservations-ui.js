@@ -599,6 +599,21 @@ async function openEditResByBookingId(bookingId){
     window._editBookingId = bookingId;
     window._editBookingMoto = moto;
 
+    // Update branch address in pickup/return/branch sections dynamically
+    var _brAddr = moto && moto.branches && moto.branches.address ? moto.branches.address : 'Mezná 9';
+    var _brCity = moto && moto.branches && moto.branches.city ? moto.branches.city : '393 01 Mezná';
+    var _brName = moto && moto.branches && moto.branches.name ? moto.branches.name : 'Mezná';
+    var _brFull = _brAddr + ', ' + _brCity;
+    // Pickup section
+    var psl = document.getElementById('edit-pickup-store-label');
+    if(psl){ var psn = psl.querySelector('div > div:last-child'); if(psn) psn.textContent = _brFull; }
+    // Return section
+    var rsl = document.getElementById('edit-return-store-label');
+    if(rsl){ var rsn = rsl.querySelector('div > div:last-child'); if(rsn) rsn.textContent = _brFull; }
+    // Branch change section
+    var bml = document.getElementById('edit-branch-mezna-label');
+    if(bml){ var bn = bml.querySelector('div > div:first-child'); if(bn) bn.innerHTML = '🏍️ ' + _brName; var ba = bml.querySelector('div > div:last-child'); if(ba) ba.textContent = _brFull; }
+
     // Zobrazit doplňky jen pro nadcházející
     var extrasCard = document.getElementById('edit-extras-card');
     if(extrasCard) extrasCard.style.display = isActive ? 'none' : 'block';

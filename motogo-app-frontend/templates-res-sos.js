@@ -150,7 +150,7 @@ Templates['s-sos-payment'] = `  <div class="sos-sub-hdr" style="background:linea
       <div style="margin-bottom:10px;">
         <label style="font-size:11px;font-weight:700;color:var(--g400);display:block;margin-bottom:4px;">Číslo karty</label>
         <input type="text" id="sos-pay-card" placeholder="1234 5678 9012 3456" maxlength="19"
-          oninput="this.value=this.value.replace(/[^0-9 ]/g,'').replace(/(.{4})/g,'$1 ').trim()"
+          oninput="var v=this.value.replace(/[^0-9]/g,'').slice(0,16);var f='';for(var i=0;i<v.length;i++){if(i>0&&i%4===0)f+=' ';f+=v[i];}this.value=f;"
           style="width:100%;box-sizing:border-box;padding:12px;border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:15px;letter-spacing:2px;">
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
