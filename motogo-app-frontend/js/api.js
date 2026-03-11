@@ -1379,10 +1379,13 @@ async function apiAutoGenerateFinalInvoiceForEnded(){
 // ===== FETCH DOCUMENT TEMPLATE (from Velín-uploaded PDFs) =====
 async function apiFetchDocTemplate(templateType){
   if(!window.supabase) return null;
+  // Map legacy type names to DB template types
+  var typeMap = { 'contract': 'rental_contract', 'protocol': 'handover_protocol' };
+  var dbType = typeMap[templateType] || templateType;
   try {
     var r = await window.supabase.from('document_templates')
       .select('content_html, name, version')
-      .eq('type', templateType).eq('active', true)
+      .eq('type', dbType)
       .order('version', {ascending:false}).limit(1).single();
     return r.data || null;
   } catch(e){ return null; }
