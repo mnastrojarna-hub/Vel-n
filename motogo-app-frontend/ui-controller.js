@@ -162,19 +162,30 @@ function _sosEnsureIncident(type, desc){
       resolve(_sosActiveIncidentId); return;
     }
 
-    // Check DB for existing unresolved incident (from previous session/attempt)
+    // Check DB for existing unresolved serious incident on same booking
     if(window.supabase){
       (async function(){
         try {
           var uid = await _getUserId();
           if(uid){
-            var existing = await window.supabase.from('sos_incidents')
-              .select('id, status, type')
+            // Find active booking first
+            var activeBookingId = _sosCurrentBookingId || null;
+            if(!activeBookingId){
+              try {
+                var loan = await apiGetActiveLoan();
+                if(loan) activeBookingId = loan.id || (loan._db && loan._db.id) || null;
+              } catch(e){}
+            }
+            // Check for existing serious incident on same booking
+            var existingQ = window.supabase.from('sos_incidents')
+              .select('id, status, type, booking_id')
               .eq('user_id', uid)
               .not('status', 'in', '("resolved","closed")')
               .not('type', 'in', '("breakdown_minor","defect_question","location_share","other")')
               .order('created_at', {ascending: false})
               .limit(1);
+            if(activeBookingId) existingQ = existingQ.eq('booking_id', activeBookingId);
+            var existing = await existingQ;
             if(existing.data && existing.data.length > 0){
               _sosActiveIncidentId = existing.data[0].id;
               console.log('[SOS] Reusing existing active incident:', _sosActiveIncidentId);
@@ -231,17 +242,19 @@ function _sosEnsureIncident(type, desc){
           console.log('[SOS] createIncident result:', JSON.stringify(r));
           if(r && r.error){
             console.error('[SOS] createIncident error:', r.error, r.code, r.details);
-            if(String(r.error).indexOf('aktivní SOS') >= 0 || String(r.error).indexOf('active') >= 0 || String(r.error).indexOf('Máte již') >= 0){
-              showT('⚠️','Aktivní SOS','Máte již aktivní SOS incident.');
+            if(String(r.error).indexOf('aktivní') >= 0 || String(r.error).indexOf('active') >= 0 || String(r.error).indexOf('Máte již') >= 0 || String(r.error).indexOf('existuje') >= 0){
+              showT('⚠️','Aktivní SOS','Na tuto rezervaci již existuje aktivní SOS incident.');
               try {
                 var uid3 = await _getUserId();
-                var fallback = await window.supabase.from('sos_incidents')
+                var fallbackQ = window.supabase.from('sos_incidents')
                   .select('id')
                   .eq('user_id', uid3)
                   .not('status', 'in', '("resolved","closed")')
                   .not('type', 'in', '("breakdown_minor","defect_question","location_share","other")')
                   .order('created_at', {ascending: false})
                   .limit(1);
+                if(bookingId) fallbackQ = fallbackQ.eq('booking_id', bookingId);
+                var fallback = await fallbackQ;
                 if(fallback.data && fallback.data.length > 0){
                   _sosActiveIncidentId = fallback.data[0].id;
                   resolve(_sosActiveIncidentId);

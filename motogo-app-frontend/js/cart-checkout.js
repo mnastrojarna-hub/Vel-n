@@ -800,7 +800,19 @@ function _renderAddrSuggestions(sugEl, results, type){
     function handler(e){
       e.preventDefault();
       e.stopPropagation();
-      selectAddr(type, r.label, r.city||'', r.lat||null, r.lng||null);
+      // For forms with separate city/zip fields, put only street+number in address input
+      var addrVal = r.label;
+      var hasSeparateFields = !!document.getElementById(type+'-city') || type==='sos-repl' || type==='ship' || type==='b-contact';
+      if(hasSeparateFields && r.street){
+        addrVal = r.street + (r.houseNum ? ' ' + r.houseNum : '');
+      }
+      selectAddr(type, addrVal, r.city||'', r.lat||null, r.lng||null);
+      // Also fill zip from structured data
+      if(r.zip){
+        var zipMaps={'ship':'ship-zip','b-contact':'b-contact-zip','sos-repl':'sos-repl-zip'};
+        var zipEl=document.getElementById(zipMaps[type]||'')||document.getElementById(type+'-zip');
+        if(zipEl)zipEl.value=r.zip;
+      }
     }
     div.addEventListener('mousedown', handler);
     div.addEventListener('touchstart', handler, {passive:false});
@@ -855,16 +867,18 @@ function selectAddr(type,addr,city,lat,lng){
   if(inp){inp.value=addr;}
   // Store coordinates for distance calc
   if(inp && lat && lng){inp.dataset.lat=lat;inp.dataset.lng=lng;}
+  // Fill city field — try mapped IDs first, then type-city
   var cityInp=document.getElementById(cityInputMap[type]||'')||document.getElementById(type+'-city');
-  if(cityInp){cityInp.value=city;}
-  // Auto-fill ZIP from address
+  if(cityInp && city){cityInp.value=city;}
+  // Auto-fill ZIP from address — try mapped IDs first, then type-zip
   var zipMatch=addr.match(/(\d{3}\s?\d{2})/);
   if(zipMatch){
-    var zipInp=document.getElementById(zipInputMap[type]||'');
+    var zipInp=document.getElementById(zipInputMap[type]||'')||document.getElementById(type+'-zip');
     if(zipInp)zipInp.value=zipMatch[1];
   }
   var sugEl=document.getElementById(type+'-addr-suggestions');
   if(sugEl)sugEl.style.display='none';
   if(type==='pickup'||type==='return'){calcDelivery(type);}
+  if(type==='edit-pickup'&&typeof _sosCalcPickupDelivery==='function'){_sosCalcPickupDelivery();}
   if(type==='edit-return'&&typeof calcEditDelivery==='function'){calcEditDelivery();}
 }

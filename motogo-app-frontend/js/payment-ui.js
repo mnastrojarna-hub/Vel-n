@@ -154,14 +154,22 @@ async function proceedToPayment(){
       pickupTime = pickupTimeEl.value + ':' + pickupMinEl.value;
     }
 
-    // Determine pickup/return method and address
+    // Determine pickup/return method and address (composed from separate fields)
     var pickupMethod = (typeof pickupDelivFee !== 'undefined' && pickupDelivFee > 0) ? 'delivery' : 'branch';
     var returnMethod = (typeof returnDelivFee !== 'undefined' && returnDelivFee > 0) ? 'delivery' : 'branch';
     var pickupAddr = '', returnAddr = '';
     var pInp = document.getElementById('pickup-addr-input');
+    var pCity = document.getElementById('pickup-city');
+    var pZip = document.getElementById('pickup-zip');
+    if(pInp && pInp.value.trim()){
+      pickupAddr = [pInp.value.trim(), pCity?pCity.value.trim():'', pZip?pZip.value.trim():''].filter(Boolean).join(', ');
+    }
     var rInp = document.getElementById('return-addr-input');
-    if(pInp && pInp.value.trim()) pickupAddr = pInp.value.trim();
-    if(rInp && rInp.value.trim()) returnAddr = rInp.value.trim();
+    var rCity = document.getElementById('return-city');
+    var rZip = document.getElementById('return-zip');
+    if(rInp && rInp.value.trim()){
+      returnAddr = [rInp.value.trim(), rCity?rCity.value.trim():'', rZip?rZip.value.trim():''].filter(Boolean).join(', ');
+    }
 
     // Create booking
     var result = await apiCreateBooking({
