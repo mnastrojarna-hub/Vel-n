@@ -243,6 +243,14 @@ function renderDetail(){
             var bi=document.getElementById('b-img');if(bi)bi.src=(currentM.imgs&&currentM.imgs.length)?currentM.imgs[0]:(currentM.img||'');
             var bn2=document.getElementById('b-name');if(bn2)bn2.textContent=currentM.name;
             var bbn=document.getElementById('b-branch-info');if(bbn)bbn.textContent='\ud83d\udccd Pobo\u010dka: '+currentM.loc;
+            // Update branch info in pickup/return steps (5 & 6)
+            var _brAddr=currentM._db&&currentM._db.branch_address?currentM._db.branch_address:'Mezná 9';
+            var _brCity=currentM._db&&currentM._db.branch_city?currentM._db.branch_city:'393 01 Mezná';
+            var _brFull=_brAddr+', '+_brCity;
+            var bkBr=document.getElementById('t-bkBranch');if(bkBr)bkBr.innerHTML='🏪 Pobočka: <strong>'+_brFull+'</strong>';
+            var bkPS=document.getElementById('t-bkPickupStoreNote');if(bkPS)bkPS.textContent=_brFull+' – ve vámi zvolenou dobu';
+            var bkDN=document.getElementById('t-bkDeliveryNote');if(bkDN)bkDN.textContent='1 000 Kč + 20 Kč/km od provozovny ('+_brFull+')';
+            var bkRS=document.getElementById('t-bkReturnStoreNote');if(bkRS)bkRS.textContent=_brFull+' – nejpozději do 24:00 posledního dne';
             if(localDOd && localDDo){
               bOd={d:localDOd.d,y:localDOd.y,m:localDOd.m};bDo={d:localDDo.d,y:localDDo.y,m:localDDo.m};bStep=1;
               bookingFromDetail=true;

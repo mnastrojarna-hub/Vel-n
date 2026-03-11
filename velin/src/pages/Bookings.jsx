@@ -327,11 +327,13 @@ const MONTHS_FULL = ['Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen',
 const navBtnStyle = { background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 8, padding: '4px 12px', cursor: 'pointer', fontWeight: 800 }
 
 function GlobalCalendar() {
+  const navigate = useNavigate()
   const [bookings, setBookings] = useState([])
   const [motos, setMotos] = useState([])
   const [month, setMonth] = useState(new Date())
   const [loading, setLoading] = useState(true)
   const [selectedDay, setSelectedDay] = useState(null)
+  const [showFree, setShowFree] = useState(false)
 
   useEffect(() => { loadData() }, [month])
 
@@ -347,7 +349,7 @@ function GlobalCalendar() {
         .select('id, start_date, end_date, status, moto_id, profiles(full_name), motorcycles(model, spz), total_price')
         .in('status', ['pending', 'active', 'reserved', 'completed'])
         .gte('end_date', startStr).lte('start_date', endStr),
-      supabase.from('motorcycles').select('id, model').eq('status', 'active'),
+      supabase.from('motorcycles').select('id, model, spz, branch_id, branches(name)').eq('status', 'active'),
     ])
     setBookings(bRes.data || [])
     setMotos(mRes.data || [])
@@ -424,7 +426,11 @@ function GlobalCalendar() {
           {selectedDay ? (
             <>
               <h3 className="text-sm font-extrabold mb-3" style={{ color: '#0f1a14' }}>{selectedDay}. {MONTHS_FULL[mon]} {year}</h3>
-              {dayDetail.length === 0 ? (
+              <label className="flex items-center gap-2 cursor-pointer mb-3 pb-3" style={{ borderBottom: '1px solid #d4e8e0' }}>
+                <input type="checkbox" checked={showFree} onChange={e => setShowFree(e.target.checked)} className="accent-[#1a8a18]" />
+                <span className="text-xs font-extrabold uppercase tracking-wide" style={{ color: showFree ? '#1a8a18' : '#4a6357' }}>Zobrazit volné motorky</span>
+              </label>
+              {dayDetail.length === 0 && !showFree ? (
                 <p style={{ color: '#8aab99', fontSize: 13 }}>Žádné rezervace v tento den</p>
               ) : (
                 <div className="space-y-2">
@@ -442,6 +448,31 @@ function GlobalCalendar() {
                       {b.total_price && <div className="text-xs font-bold mt-1" style={{ color: '#3dba3a' }}>{Number(b.total_price).toLocaleString('cs-CZ')} Kč</div>}
                     </div>
                   ))}
+                  {showFree && (() => {
+                    const occupiedMotoIds = new Set(dayDetail.map(b => b.moto_id))
+                    const freeMotos = motos.filter(m => !occupiedMotoIds.has(m.id))
+                    if (freeMotos.length === 0) return <p style={{ color: '#8aab99', fontSize: 12, marginTop: 8 }}>Žádné volné motorky</p>
+                    return (
+                      <>
+                        <div className="text-[10px] font-extrabold uppercase tracking-wide mt-3 mb-1" style={{ color: '#1a8a18' }}>Volné motorky ({freeMotos.length})</div>
+                        {freeMotos.map(m => (
+                          <div key={m.id} onClick={() => navigate(`/flotila/${m.id}`)}
+                            className="p-3 rounded-lg cursor-pointer hover:ring-2 hover:ring-[#74FB71] transition-all"
+                            style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-sm">{m.model}</span>
+                              <span className="text-[10px] font-mono" style={{ color: '#8aab99' }}>{m.spz}</span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="inline-block rounded-btn text-[9px] font-extrabold tracking-wide uppercase" style={{ padding: '2px 6px', background: '#dcfce7', color: '#15803d' }}>Volná</span>
+                              {m.branches?.name && <span className="text-[10px]" style={{ color: '#8aab99' }}>{m.branches.name}</span>}
+                              <span className="text-[10px] ml-auto" style={{ color: '#3dba3a' }}>Detail flotily →</span>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    )
+                  })()}
                 </div>
               )}
             </>

@@ -279,7 +279,7 @@ async function openResDetailById(bookingId){
     if(totalEl) totalEl.textContent = (booking.total_price||0).toLocaleString('cs-CZ') + ' Kč';
 
     // Pickup/return locations
-    var branchName = moto && moto.branches ? moto.branches.name + ', ' + moto.branches.city : '—';
+    var branchName = moto && moto.branches ? (moto.branches.address || moto.branches.name) + ', ' + moto.branches.city : '—';
     var pickupLocEl = document.getElementById('rd-pickup-loc');
     if(pickupLocEl){
       if(booking.pickup_method === 'delivery' && booking.pickup_address){
