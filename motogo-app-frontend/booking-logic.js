@@ -33,7 +33,7 @@ function mCard(m){
         <span class="mc-badge mc-badge-rp">${_pl.rpLabel||'ŘP'} ${m.rp}</span>
         <span class="mc-badge mc-badge-cat">${catLabels[m.cat]||m.cat}</span>
         <span class="mc-badge mc-badge-vykon">${m.vykon} kW</span>
-        <span class="mc-badge" style="background:#f3e8ff;color:#7e22ce;">📍 Mezná</span>
+        <span class="mc-badge" style="background:#f3e8ff;color:#7e22ce;">📍 ${m._db&&m._db.branch_name?m._db.branch_name:'Mezná'}</span>
       </div>
       ${m.cat==='detske'?'<div style=\"background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:7px 10px;font-size:11px;font-weight:600;color:#92400e;margin-bottom:8px;\">'+(_pl.kidsWarn||'⚠️ Pouze pro děti · uzavřený prostor · dohled zákonného zástupce · není povolen provoz na veřejných komunikacích')+'</div>':''}
       <ul class="mc-feats">${(_mtr.feats||m.feats).slice(0,2).map(f=>`<li>${f}</li>`).join('')}</ul>
