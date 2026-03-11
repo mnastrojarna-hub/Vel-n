@@ -238,14 +238,27 @@ export async function generateFinalInvoice(bookingId) {
   const moto = booking.motorcycles || {}
   const items = buildBookingItems(moto, booking)
 
-  // Deduct all advance invoices
-  const { data: advances } = await supabase
-    .from('invoices').select('number, total, source')
-    .eq('booking_id', bookingId).in('type', ['advance', 'proforma'])
+  // Deduct all previously paid invoices (DP = payment receipt, ZF = advance/proforma)
+  // Priority: deduct DP (actual payments). If no DP exists, fall back to ZF (advance requests).
+  // This prevents double-counting when both ZF and DP exist for the same payment.
+  const { data: receipts } = await supabase
+    .from('invoices').select('number, total, type, source')
+    .eq('booking_id', bookingId).in('type', ['payment_receipt'])
+    .neq('status', 'cancelled')
     .order('issue_date', { ascending: true })
-  if (advances?.length) {
-    advances.forEach(a => {
-      items.push({ description: `Odpočet zálohy ${a.number}`, qty: 1, unit_price: -Number(a.total || 0) })
+
+  const { data: advances } = await supabase
+    .from('invoices').select('number, total, type, source')
+    .eq('booking_id', bookingId).in('type', ['advance', 'proforma'])
+    .neq('status', 'cancelled')
+    .order('issue_date', { ascending: true })
+
+  // Use DP if available (documents actual payment), otherwise use ZF (advance invoice)
+  const deductions = (receipts?.length ? receipts : advances) || []
+  if (deductions.length) {
+    deductions.forEach(a => {
+      const label = a.type === 'payment_receipt' ? 'Odpočet dle dokladu k platbě' : 'Odpočet zálohy'
+      items.push({ description: `${label} ${a.number}`, qty: 1, unit_price: -Number(a.total || 0) })
     })
   }
 

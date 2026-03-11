@@ -117,10 +117,27 @@ export function generateInvoiceHtml(data) {
   <!-- Totals -->
   <div style="display:flex;justify-content:flex-end;margin-bottom:24px">
     <table style="border-collapse:collapse;min-width:280px">
-      <tr style="border-top:2px solid ${accent}">
-        <td style="padding:8px 12px;font-size:15px;font-weight:800;color:${accent}">Celkem k úhradě</td>
-        <td style="padding:8px 12px;font-size:15px;font-weight:800;text-align:right;color:${accent}">${fmtPrice(total)} Kč</td>
-      </tr>
+      ${(() => {
+        // Detect if this is a final invoice with deductions (negative line items = "Odpočet")
+        const hasDeductions = items.some(it => (it.unit_price || 0) < 0)
+        const isFinal = data.type === 'final'
+        if (isFinal && hasDeductions) {
+          const grossTotal = items.filter(it => (it.unit_price || 0) >= 0).reduce((s, it) => s + (it.unit_price || 0) * (it.qty || 1), 0)
+          const deducted = items.filter(it => (it.unit_price || 0) < 0).reduce((s, it) => s + Math.abs((it.unit_price || 0) * (it.qty || 1)), 0)
+          const toPay = grossTotal - deducted
+          return '<tr style="border-top:1px solid #d1d5db">' +
+            '<td style="padding:6px 12px;font-size:12px;color:#6b7280">Celkem za služby</td>' +
+            '<td style="padding:6px 12px;font-size:12px;text-align:right;color:#6b7280">' + fmtPrice(grossTotal) + ' Kč</td></tr>' +
+            '<tr><td style="padding:4px 12px;font-size:12px;color:#6b7280">Uhrazeno (záloha / doklad k platbě)</td>' +
+            '<td style="padding:4px 12px;font-size:12px;text-align:right;color:#6b7280">−' + fmtPrice(deducted) + ' Kč</td></tr>' +
+            '<tr style="border-top:2px solid ' + accent + '">' +
+            '<td style="padding:8px 12px;font-size:15px;font-weight:800;color:' + accent + '">K doplatku</td>' +
+            '<td style="padding:8px 12px;font-size:15px;font-weight:800;text-align:right;color:' + accent + '">' + fmtPrice(toPay) + ' Kč</td></tr>'
+        }
+        return '<tr style="border-top:2px solid ' + accent + '">' +
+          '<td style="padding:8px 12px;font-size:15px;font-weight:800;color:' + accent + '">Celkem k úhradě</td>' +
+          '<td style="padding:8px 12px;font-size:15px;font-weight:800;text-align:right;color:' + accent + '">' + fmtPrice(total) + ' Kč</td></tr>'
+      })()}
       <tr><td colspan="2" style="padding:2px 12px;font-size:10px;color:#888">Cena je konečná — dodavatel není plátce DPH</td></tr>
     </table>
   </div>
