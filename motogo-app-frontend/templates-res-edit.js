@@ -66,7 +66,11 @@ Templates['s-edit-res'] = `
       </label>
     </div>
     <div id="edit-pickup-detail" style="display:none;border-top:1px solid var(--g200);padding-top:10px;">
-      <div class="ff" style="margin:0;position:relative;"><label id="t-editDelAddr">Adresa p\u0159istaven\u00ed</label><input type="text" id="edit-pickup-address" placeholder="Ulice, m\u011bsto, PS\u010c" oninput="showAddrSuggestions(this,'edit-pickup');if(typeof _sosCalcPickupDelivery==='function')_sosCalcPickupDelivery();" autocomplete="off"><div id="edit-pickup-addr-suggestions" class="addr-suggestions" style="display:none;"></div></div>
+      <div class="ff" style="margin:0;position:relative;"><label id="t-editDelAddr">Ulice a \u010d.p.</label><input type="text" id="edit-pickup-address" placeholder="nap\u0159. Vodi\u010dkova 36" oninput="showAddrSuggestions(this,'edit-pickup');if(typeof _sosCalcPickupDelivery==='function')_sosCalcPickupDelivery();" autocomplete="off"><div id="edit-pickup-addr-suggestions" class="addr-suggestions" style="display:none;"></div></div>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-top:8px;">
+        <div class="ff" style="margin:0;"><label>M\u011bsto</label><input type="text" id="edit-pickup-city" placeholder="M\u011bsto"></div>
+        <div class="ff" style="margin:0;"><label>PS\u010c</label><input type="text" id="edit-pickup-zip" placeholder="PS\u010c" maxlength="6"></div>
+      </div>
       <div id="edit-pickup-calc" style="display:none;margin-top:8px;background:var(--gp);border-radius:var(--rsm);padding:10px 12px;font-size:12px;color:var(--gd);">
         <span id="edit-pickup-km-txt">\ud83d\udccd Zadejte adresu</span>
       </div>
@@ -92,7 +96,11 @@ Templates['s-edit-res'] = `
       </label>
     </div>
     <div id="edit-return-detail" style="display:none;border-top:1px solid var(--g200);padding-top:10px;">
-      <div class="ff" style="margin:0;position:relative;"><label id="t-editReturnAddr">Adresa vr\u00e1cen\u00ed</label><input type="text" id="edit-return-address" placeholder="Ulice, m\u011bsto, PS\u010c" oninput="calcEditDelivery();showAddrSuggestions(this,'edit-return')" autocomplete="off"><div id="edit-return-addr-suggestions" class="addr-suggestions" style="display:none;"></div></div>
+      <div class="ff" style="margin:0;position:relative;"><label id="t-editReturnAddr">Ulice a \u010d.p.</label><input type="text" id="edit-return-address" placeholder="nap\u0159. Vodi\u010dkova 36" oninput="calcEditDelivery();showAddrSuggestions(this,'edit-return')" autocomplete="off"><div id="edit-return-addr-suggestions" class="addr-suggestions" style="display:none;"></div></div>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-top:8px;">
+        <div class="ff" style="margin:0;"><label>M\u011bsto</label><input type="text" id="edit-return-city" placeholder="M\u011bsto"></div>
+        <div class="ff" style="margin:0;"><label>PS\u010c</label><input type="text" id="edit-return-zip" placeholder="PS\u010c" maxlength="6"></div>
+      </div>
       <div id="edit-return-calc" style="margin-top:8px;background:var(--gp);border-radius:var(--rsm);padding:10px 12px;font-size:12px;color:var(--gd);display:none;">
         <span id="edit-return-km-txt">\ud83d\udccd Zadejte adresu</span>
       </div>

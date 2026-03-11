@@ -88,9 +88,14 @@ serve(async (req) => {
       const startDate = fmtDate(booking.start_date)
       const endDate = fmtDate(booking.end_date)
       const days = Math.max(1, Math.ceil((new Date(booking.end_date).getTime() - new Date(booking.start_date).getTime()) / 86400000))
-      const dailyRate = Math.round((booking.total_price || 0) / days)
+      // Reconstruct base rental: total_price is final (base+extras+delivery-discount)
+      const baseRental = (booking.total_price || 0) - (booking.extras_price || 0) - (booking.delivery_fee || 0) + (booking.discount_amount || 0)
+      const dailyRate = Math.round(baseRental / days)
       items.push({ description: `Pronájem ${booking.motorcycles?.model || 'motorky'} (${booking.motorcycles?.spz || ''}) — ${startDate} – ${endDate}`, qty: days, unit_price: dailyRate })
 
+      if (booking.extras_price && Number(booking.extras_price) > 0) {
+        items.push({ description: 'Příslušenství a výbava', qty: 1, unit_price: Number(booking.extras_price) })
+      }
       if (booking.extras) {
         try {
           const extras = typeof booking.extras === 'string' ? JSON.parse(booking.extras) : booking.extras
@@ -101,6 +106,9 @@ serve(async (req) => {
       }
       if (extra_items && Array.isArray(extra_items)) {
         extra_items.forEach((ei: any) => items.push({ description: ei.description || 'Položka', qty: ei.qty || 1, unit_price: ei.unit_price || 0 }))
+      }
+      if (booking.delivery_fee && Number(booking.delivery_fee) > 0) {
+        items.push({ description: 'Přistavení / odvoz motorky', qty: 1, unit_price: Number(booking.delivery_fee) })
       }
       if (booking.sos_replacement && !extra_items) {
         items.push({ description: 'Záloha na poškození motorky', qty: 1, unit_price: 30000 })

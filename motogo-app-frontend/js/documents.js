@@ -220,7 +220,7 @@ async function showInvoice(bookingId,type){
   var issueDate=dbInvoice&&dbInvoice.issue_date?_docDate(dbInvoice.issue_date):_docDate(isAdvance?b.start_date:b.end_date);
   var dueDate=dbInvoice&&dbInvoice.due_date?_docDate(dbInvoice.due_date):_docDate(new Date(new Date(isAdvance?b.start_date:b.end_date).getTime()+14*86400000).toISOString());
   var amt=dbInvoice?Number(dbInvoice.total||0):(b.total_price||0);
-  var subtotal=dbInvoice?Number(dbInvoice.subtotal||0):amt;
+  var subtotal=dbInvoice?Number(dbInvoice.subtotal||0):(b.total_price||0);
   var taxAmt=dbInvoice?Number(dbInvoice.tax_amount||0):0;
   var pName=p?p.full_name:'—';
   var pAddr=p?[p.street,p.city,p.zip,p.country].filter(Boolean).join(', '):'—';
@@ -241,12 +241,24 @@ async function showInvoice(bookingId,type){
         '<td>'+((it.unit_price||0)*(it.qty||1)).toLocaleString('cs-CZ')+' Kč</td></tr>';
     });
   } else {
+    // Reconstruct base rental price: total_price is final (base+extras+delivery-discount)
+    var baseRental=(b.total_price||0)-(b.extras_price||0)-(b.delivery_fee||0)+(b.discount_amount||0);
+    var dailyRate=data.days>0?Math.round(baseRental/data.days):0;
     itemsHtml='<tr><td>'+t.rentalOf+' '+mn+'</td><td>'+data.days+' '+t.days+'</td>'+
-      '<td>'+Math.round((b.total_price||0)/data.days).toLocaleString('cs-CZ')+' Kč</td>'+
-      '<td>'+(b.total_price||0).toLocaleString('cs-CZ')+' Kč</td></tr>';
+      '<td>'+dailyRate.toLocaleString('cs-CZ')+' Kč</td>'+
+      '<td>'+baseRental.toLocaleString('cs-CZ')+' Kč</td></tr>';
     if(b.extras_price>0){
       itemsHtml+='<tr><td>'+t.extras+'</td><td>1</td><td>'+b.extras_price.toLocaleString('cs-CZ')+' Kč</td>'+
         '<td>'+b.extras_price.toLocaleString('cs-CZ')+' Kč</td></tr>';
+    }
+    if(b.delivery_fee>0){
+      itemsHtml+='<tr><td>'+(t.delivery||'Doručení')+'</td><td>1</td><td>'+b.delivery_fee.toLocaleString('cs-CZ')+' Kč</td>'+
+        '<td>'+b.delivery_fee.toLocaleString('cs-CZ')+' Kč</td></tr>';
+    }
+    if(b.discount_amount>0){
+      var discLabel=b.discount_code?('Sleva (kód: '+b.discount_code+')'):(t.discount||'Sleva / voucher');
+      itemsHtml+='<tr><td>'+discLabel+'</td><td>1</td><td>-'+b.discount_amount.toLocaleString('cs-CZ')+' Kč</td>'+
+        '<td>-'+b.discount_amount.toLocaleString('cs-CZ')+' Kč</td></tr>';
     }
   }
 
