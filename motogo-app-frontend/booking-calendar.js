@@ -247,7 +247,7 @@ function applyFilters(){
   const activeVyuziti=[...document.querySelectorAll('#fchips-wrap .fchip.on')].map(c=>c.dataset.vyuziti).filter(Boolean);
   let list=MOTOS.filter(m=>{
     if(cat&&m.cat!==cat)return false;
-    if(rp&&m.rp&&m.rp!==rp&&!(rp==='A2'&&(m.rp==='A2'||m.rp==='A1')))return false;
+    if(rp&&m.rp&&m.rp!==rp&&!(rp==='A2'&&(m.rp==='A2'||m.rp==='A1'||m.rp==='N')))return false;
     if(vykonFilter==='35'&&m.vykon>35)return false;
     if(vykonFilter==='60'&&m.vykon>60)return false;
     if(vykonFilter==='61'&&m.vykon<61)return false;
