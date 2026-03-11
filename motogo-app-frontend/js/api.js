@@ -484,8 +484,15 @@ async function apiGenerateAdvanceInvoice(bookingId, amount, source){
       if(mt) seq = parseInt(mt[1], 10) + 1;
     }
     var invNum = 'ZF-' + yr + '-' + String(seq).padStart(4, '0');
-    var items = _buildBookingItems(b, m);
-    var subtotal = _calcItemsTotal(items);
+    var items, subtotal;
+    if(source === 'edit' && amount > 0){
+      // Edit/shorten: single summary line with the refund amount
+      items = [{description:'Zkrácení rezervace – vrácení ' + (m.model || 'motorky'), qty:1, unit_price:-amount}];
+      subtotal = -amount;
+    } else {
+      items = _buildBookingItems(b, m);
+      subtotal = _calcItemsTotal(items);
+    }
     var tax = 0; // Neplátce DPH
     var total = subtotal;
     var issueDate = new Date().toISOString().slice(0, 10);
@@ -590,8 +597,15 @@ async function apiGeneratePaymentReceipt(bookingId, amount, source){
       if(mt) seq = parseInt(mt[1], 10) + 1;
     }
     var dpNum = 'DP-' + yr + '-' + String(seq).padStart(4, '0');
-    var items = _buildBookingItems(b, m);
-    var subtotal = _calcItemsTotal(items);
+    var items, subtotal;
+    if(source === 'edit' && amount > 0){
+      // Edit/shorten: single summary line with the refund amount
+      items = [{description:'Vrácení za zkrácení rezervace – ' + (m.model || 'motorky'), qty:1, unit_price:-amount}];
+      subtotal = -amount;
+    } else {
+      items = _buildBookingItems(b, m);
+      subtotal = _calcItemsTotal(items);
+    }
     var tax = 0; // Neplátce DPH
     var total = subtotal;
     var issueDate = new Date().toISOString().slice(0, 10);
