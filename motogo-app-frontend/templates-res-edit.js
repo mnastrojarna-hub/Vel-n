@@ -68,7 +68,7 @@ Templates['s-edit-res'] = `
     <div id="edit-pickup-detail" style="display:none;border-top:1px solid var(--g200);padding-top:10px;">
       <div class="ff" style="margin:0;position:relative;"><label id="t-editDelAddr">Adresa p\u0159istaven\u00ed</label><input type="text" id="edit-pickup-address" placeholder="Ulice, m\u011bsto, PS\u010c" oninput="showAddrSuggestions(this,'edit-pickup');if(typeof _sosCalcPickupDelivery==='function')_sosCalcPickupDelivery();" autocomplete="off"><div id="edit-pickup-addr-suggestions" class="addr-suggestions" style="display:none;"></div></div>
       <div id="edit-pickup-calc" style="display:none;margin-top:8px;background:var(--gp);border-radius:var(--rsm);padding:10px 12px;font-size:12px;color:var(--gd);">
-        \ud83d\udccd <span id="edit-pickup-km-txt">Zadejte adresu</span>
+        <span id="edit-pickup-km-txt">\ud83d\udccd Zadejte adresu</span>
       </div>
     </div>
     <div style="margin-top:10px;border-top:1px solid var(--g200);padding-top:10px;">
@@ -94,7 +94,7 @@ Templates['s-edit-res'] = `
     <div id="edit-return-detail" style="display:none;border-top:1px solid var(--g200);padding-top:10px;">
       <div class="ff" style="margin:0;position:relative;"><label id="t-editReturnAddr">Adresa vr\u00e1cen\u00ed</label><input type="text" id="edit-return-address" placeholder="Ulice, m\u011bsto, PS\u010c" oninput="calcEditDelivery();showAddrSuggestions(this,'edit-return')" autocomplete="off"><div id="edit-return-addr-suggestions" class="addr-suggestions" style="display:none;"></div></div>
       <div id="edit-return-calc" style="margin-top:8px;background:var(--gp);border-radius:var(--rsm);padding:10px 12px;font-size:12px;color:var(--gd);display:none;">
-        \ud83d\udccd <span id="edit-return-km-txt">Zadejte adresu</span>
+        <span id="edit-return-km-txt">\ud83d\udccd Zadejte adresu</span>
       </div>
     </div>
     <div style="margin-top:10px;border-top:1px solid var(--g200);padding-top:10px;">

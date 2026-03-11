@@ -24,7 +24,7 @@ var _BOOKING_FORM_PART2 = `
         <div class="ff" style="margin:0;position:relative;"><label id="t-bkDelivAddr">Adresa přistavení</label><input type="text" id="pickup-addr-input" placeholder="Ulice č.p., město, PSČ" oninput="calcDelivery('pickup');showAddrSuggestions(this,'pickup')" autocomplete="off"><div id="pickup-addr-suggestions" class="addr-suggestions" style="display:none;"></div></div>
       </div>
       <div id="pickup-price-calc" style="margin-top:8px;background:var(--gp);border-radius:var(--rsm);padding:10px 12px;font-size:12px;color:var(--gd);display:none;">
-        📍 <span id="pickup-km-txt">Zadejte adresu pro výpočet</span>
+        <span id="pickup-km-txt">📍 Zadejte adresu pro výpočet</span>
       </div>
     </div>
   </div>
@@ -51,7 +51,7 @@ var _BOOKING_FORM_PART2 = `
         </div>
       </div>
       <div id="return-price-calc" style="margin-top:8px;background:var(--gp);border-radius:var(--rsm);padding:10px 12px;font-size:12px;color:var(--gd);display:none;">
-        📍 <span id="return-km-txt">Zadejte adresu pro výpočet</span>
+        <span id="return-km-txt">📍 Zadejte adresu pro výpočet</span>
       </div>
     </div>
   </div>

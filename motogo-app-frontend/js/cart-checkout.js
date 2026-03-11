@@ -389,8 +389,8 @@ function calcDelivery(type){
       if(type==='pickup'){pickupDelivFee=fee;}else{returnDelivFee=fee;}
       deliveryFee=pickupDelivFee+returnDelivFee;
       if(calcEl)calcEl.style.display='block';
-      var txt='~'+km+' km od Mezné → 1 000 Kč + '+km+'×20 Kč = '+fee.toLocaleString('cs-CZ')+' Kč';
-      if(result.duration) txt+=' (~'+result.duration+' min)';
+      var txt='📍 ~'+km+' km · '+fee.toLocaleString('cs-CZ')+' Kč';
+      if(result.duration) txt+=' · ~'+result.duration+' min';
       if(result.approx) txt+=' (odhad)';
       if(kmTxt)kmTxt.textContent=txt;
       recalcTotal();
@@ -411,7 +411,7 @@ function _calcDeliveryFallback(type, addr, calcEl, kmTxt){
   if(type==='pickup'){pickupDelivFee=fee;}else{returnDelivFee=fee;}
   deliveryFee=pickupDelivFee+returnDelivFee;
   if(calcEl)calcEl.style.display='block';
-  if(kmTxt)kmTxt.textContent='~'+km+' km od Mezné → 1 000 Kč + '+km+'×20 Kč = '+fee.toLocaleString('cs-CZ')+' Kč (odhad)';
+  if(kmTxt)kmTxt.textContent='📍 ~'+km+' km · '+fee.toLocaleString('cs-CZ')+' Kč (odhad)';
   recalcTotal();
 }
 
@@ -769,7 +769,10 @@ function showAddrSuggestions(inp,type){
   if(matches.length===0){sugEl.style.display='none';return;}
   var results=matches.map(function(a){
     var zipMatch=a.addr.match(/(\d{3})\s?(\d{2})/);
-    return {label:a.addr,lat:null,lng:null,city:a.city,zip:zipMatch?zipMatch[1]+' '+zipMatch[2]:''};
+    var streetMatch=a.addr.match(/^([^,]+?)(?:,\s*\d)/);
+    var street=streetMatch?streetMatch[1]:'';
+    var numMatch=street.match(/^(.+?)\s+(\d+.*)$/);
+    return {label:a.addr,lat:null,lng:null,street:numMatch?numMatch[1]:street,houseNum:numMatch?numMatch[2]:'',district:'',city:a.city,zip:zipMatch?zipMatch[1]+' '+zipMatch[2]:''};
   });
   _renderAddrSuggestions(sugEl, results, type);
   sugEl.style.display='block';
@@ -781,7 +784,19 @@ function _renderAddrSuggestions(sugEl, results, type){
   results.forEach(function(r){
     var div=document.createElement('div');
     div.className='addr-sug-item';
-    div.textContent='\uD83D\uDCCD '+r.label;
+    // Structured display: street+number on top, city+zip below
+    var streetLine = r.street ? (r.street + (r.houseNum ? ' ' + r.houseNum : '')) : r.label;
+    var cityLine = r.city || '';
+    if(r.zip && cityLine) cityLine = r.zip + ' ' + cityLine;
+    if(r.district && r.district !== r.city) cityLine += ' · ' + r.district;
+    if(cityLine && r.street){
+      div.innerHTML='<div style="display:flex;align-items:flex-start;gap:8px;">'+
+        '<span style="color:var(--green);font-size:15px;line-height:1;">📍</span>'+
+        '<div><div style="font-weight:700;font-size:13px;line-height:1.3;">'+_esc(streetLine)+'</div>'+
+        '<div style="font-size:11px;color:var(--g400);font-weight:500;line-height:1.3;">'+_esc(cityLine)+'</div></div></div>';
+    } else {
+      div.innerHTML='<span style="color:var(--green);font-size:15px;">📍</span> <span style="font-weight:600;">'+_esc(streetLine)+'</span>';
+    }
     function handler(e){
       e.preventDefault();
       e.stopPropagation();
@@ -792,6 +807,8 @@ function _renderAddrSuggestions(sugEl, results, type){
     sugEl.appendChild(div);
   });
 }
+function _esc(s){return s?s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):'';}
+
 
 function showCitySuggestions(inp){
   var sugEl=document.getElementById('edit-return-city-suggestions');

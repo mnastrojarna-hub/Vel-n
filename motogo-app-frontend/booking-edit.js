@@ -97,9 +97,9 @@ function calcEditDelivery(){
       var fee = result.fee;
       var diff = Math.max(0, fee - editOrigDeliveryPaid);
       editReturnFee = diff;
-      var txt = '~' + result.km + ' km · ' + fee.toLocaleString('cs-CZ') + ' Kč';
-      if(result.duration) txt += ' (~' + result.duration + ' min)';
-      if(editOrigDeliveryPaid > 0) txt += ' (zaplaceno ' + editOrigDeliveryPaid.toLocaleString('cs-CZ') + ' Kč, doplatek ' + diff.toLocaleString('cs-CZ') + ' Kč)';
+      var txt = '📍 ~' + result.km + ' km · ' + fee.toLocaleString('cs-CZ') + ' Kč';
+      if(result.duration) txt += ' · ~' + result.duration + ' min';
+      if(editOrigDeliveryPaid > 0 && diff > 0) txt += '\nDoplatek: ' + diff.toLocaleString('cs-CZ') + ' Kč (zaplaceno ' + editOrigDeliveryPaid.toLocaleString('cs-CZ') + ' Kč)';
       if(kmTxt) kmTxt.textContent = txt;
       updateEditPriceSummary();
     });
@@ -122,8 +122,9 @@ function _calcEditDelivFallback(addr, calc, kmTxt){
   var diff = Math.max(0, fee - editOrigDeliveryPaid);
   editReturnFee = diff;
   if(calc) calc.style.display='block';
-  if(kmTxt) kmTxt.textContent = '~' + km + ' km · ' + fee.toLocaleString('cs-CZ') + ' Kč' +
-    (editOrigDeliveryPaid > 0 ? ' (zaplaceno ' + editOrigDeliveryPaid.toLocaleString('cs-CZ') + ' Kč, doplatek ' + diff.toLocaleString('cs-CZ') + ' Kč)' : '') + ' (odhad)';
+  var _t2 = '📍 ~' + km + ' km · ' + fee.toLocaleString('cs-CZ') + ' Kč (odhad)';
+  if(editOrigDeliveryPaid > 0 && diff > 0) _t2 += '\nDoplatek: ' + diff.toLocaleString('cs-CZ') + ' Kč (zaplaceno ' + editOrigDeliveryPaid.toLocaleString('cs-CZ') + ' Kč)';
+  if(kmTxt) kmTxt.textContent = _t2;
   updateEditPriceSummary();
 }
 
@@ -928,8 +929,8 @@ function _sosCalcPickupDelivery(){
     AddressAPI.calcDistance(coords, function(result){
       if(!result){ _sosCalcPickupFallback(addr, calc, kmTxt); return; }
       editReturnFee = result.fee;
-      var txt = '~' + result.km + ' km · ' + result.fee.toLocaleString('cs-CZ') + ' Kč';
-      if(result.duration) txt += ' (~' + result.duration + ' min)';
+      var txt = '📍 ~' + result.km + ' km · ' + result.fee.toLocaleString('cs-CZ') + ' Kč';
+      if(result.duration) txt += ' · ~' + result.duration + ' min';
       if(kmTxt) kmTxt.textContent = txt;
       updateEditPriceSummary();
     });
@@ -950,7 +951,7 @@ function _sosCalcPickupFallback(addr, calc, kmTxt){
   var fee = 1000 + km * 20;
   editReturnFee = fee;
   if(calc) calc.style.display = 'block';
-  if(kmTxt) kmTxt.textContent = '~' + km + ' km · ' + fee.toLocaleString('cs-CZ') + ' Kč (odhad)';
+  if(kmTxt) kmTxt.textContent = '📍 ~' + km + ' km · ' + fee.toLocaleString('cs-CZ') + ' Kč (odhad)';
   updateEditPriceSummary();
 }
 
