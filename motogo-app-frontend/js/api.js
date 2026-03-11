@@ -830,8 +830,13 @@ async function apiCreateSosIncident(type, bookingId, lat, lng, desc, critical, m
     console.log('[SOS] INSERT sos_incidents:', JSON.stringify(data));
     var r = await window.supabase.from('sos_incidents').insert(data).select().single();
     if(r.error){
-      console.error('[SOS] INSERT error:', r.error.code, r.error.message, r.error.details, r.error.hint);
-      return {error: r.error.message, code: r.error.code, details: r.error.details};
+      console.error('[SOS] INSERT error:', r.error.code, r.error.message, r.error.details, r.error.hint, 'status:', r.status);
+      var errMsg = r.error.message || 'Neznámá chyba';
+      // Pokud je to 403/RLS error, přidej nápovědu
+      if(r.status === 403 || (errMsg && errMsg.indexOf('policy') >= 0)){
+        errMsg = 'Nemáte oprávnění — zkuste se odhlásit a přihlásit znovu. (' + errMsg + ')';
+      }
+      return {error: errMsg, code: r.error.code, details: r.error.details, status: r.status};
     }
     console.log('[SOS] INSERT ok, id:', r.data && r.data.id);
     return r.data || {};

@@ -153,6 +153,8 @@ export default function SOSPanel() {
           .in('status', ['reported', 'acknowledged', 'in_progress']).order('created_at', { ascending: false })
         const r2 = await supabase.from('sos_incidents').select(SOS_SELECT)
           .in('status', ['resolved', 'closed']).order('created_at', { ascending: false }).limit(10)
+        if (r1.error) console.error('[SOSPanel] fallback query ALSO failed:', r1.error)
+        if (r2.error) console.error('[SOSPanel] fallback resolved query failed:', r2.error)
         data = r1.data
         resolved = r2.data
       }

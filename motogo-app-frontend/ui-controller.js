@@ -248,7 +248,9 @@ function _sosEnsureIncident(type, desc){
                 }
               } catch(e2){}
             }
-            showT('❌','Chyba SOS', String(r.error).substring(0,80));
+            var errDetail = String(r.error).substring(0,100);
+            if(r.status === 403) errDetail = 'Oprávnění — odhlaste se a přihlaste znovu';
+            showT('❌','Chyba SOS', errDetail);
             resolve(null);
             return;
           }
