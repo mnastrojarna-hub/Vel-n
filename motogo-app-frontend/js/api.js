@@ -670,6 +670,11 @@ async function apiFetchDocuments(){
     if(r.data) r.data.forEach(function(d){
       // Skip invoice_shop from documents table — step 4 (shop_orders) handles these with correct IDs
       if(d.type === 'invoice_shop') return;
+      // Dedup within documents table (sync trigger can create multiple rows for same booking+type)
+      var existingDoc = results.find(function(ex){
+        return ex.booking_id === d.booking_id && ex.type === d.type;
+      });
+      if(existingDoc) return;
       var b = d.bookings;
       d.date = d.created_at;
       d.moto_name = (b && b.motorcycles) ? b.motorcycles.model : '';
