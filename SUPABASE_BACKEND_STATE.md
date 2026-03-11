@@ -15,7 +15,7 @@
 | `payment_status` | pending, paid, unpaid, refunded, failed |
 | `moto_status` | active, rented, maintenance, unavailable, retired |
 | `sos_status` | reported, acknowledged, in_progress, resolved, closed |
-| `license_group` | AM, A1, A2, A, B |
+| `license_group` | AM, A1, A2, A, B, N |
 | ~~`document_type`~~ | **ZRUŠENO** — sloupec `documents.type` je nyní TEXT (ne ENUM). Používané hodnoty: contract, vop, invoice_advance, payment_receipt, invoice_final, invoice_shop, protocol |
 
 ---
@@ -545,3 +545,4 @@ Detailní politiky:
 | 2026-03-09 | **NEW:** Přidán sloupec `bookings.modification_history` (jsonb, default '[]') — historie všech úprav termínu rezervace |
 | 2026-03-10 | **FIX SOS triggers:** Dropnut trigger `sos_auto_reply_on_create` (crashoval INSERT bez error handleru). `trigger_sos_auto_reply()` přepsán na safe no-op. `check_one_active_sos()` a `sos_notify_user_on_create()` přepsány s SECURITY DEFINER |
 | 2026-03-11 | **KOMPLETNÍ OPRAVA SOS v2:** DROP ALL triggers na sos_incidents + recreate. Klíčová oprava: `check_one_active_sos()` doplněn `WHEN OTHERS THEN RETURN NEW` (dříve libovolná neočekávaná chyba blokovala INSERT). Všechny SOS funkce s explicitním `::text` castem pro ENUM kompatibilitu. Přidán diagnostický + test INSERT v migraci |
+| 2026-03-11 | **FIX license_group enum:** Přidána hodnota `N` (nevyžaduje ŘP) do enumu `license_group` — oprava chyby při ukládání dětských motorek s `license_required = 'N'` |

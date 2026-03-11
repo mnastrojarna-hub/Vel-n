@@ -44,7 +44,7 @@ export default function FleetDetail() {
       power_kw, power_hp, torque_nm, weight_kg, fuel_tank_l, seat_height_mm, license_required,
       has_abs, has_asc, description, ideal_usage, features, engine_type } = moto
     const updateData = { model, spz, vin, category, branch_id, mileage, status, year, engine_cc, color, acquired_at,
-      power_kw, power_hp, torque_nm, weight_kg, fuel_tank_l, seat_height_mm, license_required,
+      power_kw, power_hp, torque_nm, weight_kg, fuel_tank_l, seat_height_mm, license_required: license_required || null,
       has_abs, has_asc, description, ideal_usage, features, engine_type }
     const result = await debugAction('fleet.save', 'FleetDetail', () =>
       supabase.from('motorcycles').update(updateData).eq('id', id)
