@@ -8,6 +8,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
 interface PaymentRequest {
@@ -91,6 +92,25 @@ Deno.serve(async (req: Request) => {
 
     if (updateError) {
       console.error('DB update error:', updateError)
+      // Zkus minimální update (jen payment_status) — obejde potenciální trigger problém
+      const { error: minError } = await supabase
+        .from('bookings')
+        .update({ payment_status: 'paid', payment_method: method || 'card' })
+        .eq('id', booking_id)
+
+      if (!minError) {
+        // Druhý update pro status (separátně)
+        await supabase
+          .from('bookings')
+          .update({
+            status: newStatus,
+            ...(updateData.confirmed_at ? { confirmed_at: updateData.confirmed_at } : {}),
+            ...(updateData.picked_up_at ? { picked_up_at: updateData.picked_up_at } : {}),
+          })
+          .eq('id', booking_id)
+      } else {
+        console.error('Minimal DB update also failed:', minError)
+      }
     }
 
     return new Response(

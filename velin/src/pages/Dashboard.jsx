@@ -34,7 +34,7 @@ function BannerEditor() {
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
-    supabase.from('app_settings').select('value').eq('key', 'header_banner').single()
+    supabase.from('app_settings').select('value').eq('key', 'header_banner').maybeSingle()
       .then(({ data }) => {
         if (data?.value) {
           const v = typeof data.value === 'string' ? JSON.parse(data.value) : data.value
