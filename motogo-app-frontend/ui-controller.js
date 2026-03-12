@@ -405,6 +405,19 @@ function sosReplInit(){
     // Reset state
     _sosReplacementData = { selectedMotoId: null, selectedModel: null, dailyPrice: 0, deliveryFee: 490 };
 
+    // Restore from pending SOS incident if coming from floating banner
+    if(window._pendingSosIncident && !_sosPendingIncidentId){
+      _sosPendingIncidentId = window._pendingSosIncident.id;
+      if(window._pendingSosIncident.customer_fault === true){
+        _sosFault = true; _sosFaultSnapshot = true;
+      } else if(window._pendingSosIncident.customer_fault === false){
+        _sosFault = false; _sosFaultSnapshot = false;
+      }
+      if(window._pendingSosIncident.original_moto_id){
+        _sosCurrentMotoId = window._pendingSosIncident.original_moto_id;
+      }
+    }
+
     // Use snapshot as fallback
     var isFault = _sosFault === true || _sosFaultSnapshot === true;
     var hdr = document.getElementById('sos-repl-hdr');

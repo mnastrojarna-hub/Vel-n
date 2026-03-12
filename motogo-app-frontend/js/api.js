@@ -52,6 +52,24 @@ async function apiFetchMotos(){
   } catch(e){ console.error('[API] apiFetchMotos:', e); return []; }
 }
 
+// ===== SOS REPLACEMENT CHECK =====
+async function apiCheckPendingSosReplacement(){
+  _ensureSupabase();
+  if(!window.supabase) return null;
+  try {
+    var uid = await _getUserId();
+    if(!uid) return null;
+    var r = await window.supabase.from('sos_incidents')
+      .select('id, replacement_status, replacement_data, booking_id, original_moto_id, customer_fault')
+      .eq('user_id', uid)
+      .eq('replacement_status', 'selecting')
+      .order('created_at', {ascending: false})
+      .limit(1);
+    if(r.data && r.data.length > 0) return r.data[0];
+    return null;
+  } catch(e){ console.error('[API] apiCheckPendingSosReplacement:', e); return null; }
+}
+
 // ===== REZERVACE =====
 async function apiFetchMyBookings(filter){
   _ensureSupabase();
@@ -1078,6 +1096,12 @@ function apiSubscribeRealtimeUpdates(){
     }, function(payload){
       console.log('[RT] new invoice');
     })
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'sos_incidents'
+    }, function(payload){
+      console.log('[RT] sos_incidents changed:', payload.eventType);
+      _scheduleRealtimeRefresh('sos');
+    })
     .subscribe();
 }
 
@@ -1101,6 +1125,10 @@ function _scheduleRealtimeRefresh(type){
       if(typeof _currentResId !== 'undefined' && _currentResId && typeof cur !== 'undefined' && cur === 's-res-detail'){
         if(typeof openResDetailById === 'function') openResDetailById(_currentResId);
       }
+    }
+    if(type === 'sos'){
+      // Check for pending SOS replacement and show banner
+      if(typeof _checkAndShowSosBanner === 'function') _checkAndShowSosBanner();
     }
   }, 500);
 }
