@@ -41,6 +41,8 @@ async function renderMyReservations(){
 
     var bookings = await apiFetchMyBookings();
     _cachedBookings = bookings;
+    // Check for pending SOS replacement (floating banner)
+    _checkAndShowSosBanner();
     if(!bookings || bookings.length === 0){
       _setResContent('<div style="padding:40px 20px;text-align:center;color:var(--g400);font-size:13px;font-weight:600;">'+_t('res').noReservations+'</div>');
       return;
@@ -85,6 +87,33 @@ async function renderMyReservations(){
     var html = filtered.map(function(b){ return _renderResCard(b); }).join('');
     _setResContent(html);
   } catch(e){ console.error('renderMyReservations error:', e); }
+}
+
+// ===== FLOATING SOS REPLACEMENT BANNER (like shopping cart) =====
+var _sosBannerEl = null;
+function _checkAndShowSosBanner(){
+  if(typeof apiCheckPendingSosReplacement !== 'function') return;
+  apiCheckPendingSosReplacement().then(function(pending){
+    if(!_sosBannerEl){
+      _sosBannerEl = document.createElement('div');
+      _sosBannerEl.id = 'sos-float-banner';
+      _sosBannerEl.style.cssText = 'position:fixed;bottom:70px;left:12px;right:12px;z-index:9999;padding:14px 16px;border-radius:14px;background:linear-gradient(135deg,#b91c1c,#dc2626);color:#fff;box-shadow:0 4px 20px rgba(185,28,28,.4);display:none;cursor:pointer;';
+      _sosBannerEl.onclick = function(){ goTo('s-sos-replacement'); };
+      document.body.appendChild(_sosBannerEl);
+    }
+    if(pending){
+      window._pendingSosIncident = pending;
+      _sosBannerEl.style.display = 'flex';
+      _sosBannerEl.style.alignItems = 'center';
+      _sosBannerEl.style.gap = '12px';
+      _sosBannerEl.innerHTML = '<div style="font-size:28px;animation:pulse 1.5s infinite;">🆘</div>' +
+        '<div style="flex:1;"><div style="font-weight:800;font-size:13px;">Nedokončený výběr náhrady</div>' +
+        '<div style="font-size:11px;opacity:.9;margin-top:2px;">Vyberte náhradní motorku →</div></div>' +
+        '<div style="font-size:22px;font-weight:800;">›</div>';
+    } else {
+      _sosBannerEl.style.display = 'none';
+    }
+  }).catch(function(){});
 }
 
 function _setResContent(html){
@@ -351,8 +380,13 @@ async function openResDetailById(bookingId){
       } else if(booking.ended_by_sos){
         sosBanner.style.display = 'block';
         sosBanner.style.cssText = 'display:block;margin:0 16px 10px;padding:12px 14px;border-radius:12px;background:#fee2e2;border:2px solid #fca5a5;';
-        sosBanner.innerHTML = '<div style="font-size:13px;font-weight:800;color:#b91c1c;">🆘 Ukončeno kvůli SOS incidentu</div>' +
-          '<div style="font-size:11px;color:#991b1b;margin-top:3px;line-height:1.5;">Tato rezervace byla předčasně ukončena kvůli poruše / nehodě. Byla objednána náhradní motorka.</div>';
+        var sosMsg = '<div style="font-size:13px;font-weight:800;color:#b91c1c;">🆘 Ukončeno kvůli SOS incidentu</div>' +
+          '<div style="font-size:11px;color:#991b1b;margin-top:3px;line-height:1.5;">Tato rezervace byla předčasně ukončena kvůli poruše / nehodě.</div>';
+        // Check if replacement is pending
+        if(window._pendingSosIncident){
+          sosMsg += '<div onclick="event.stopPropagation();goTo(\'s-sos-replacement\')" style="margin-top:8px;padding:10px;border-radius:8px;background:#b91c1c;color:#fff;text-align:center;font-weight:800;font-size:12px;cursor:pointer;">🏍️ Vybrat náhradní motorku →</div>';
+        }
+        sosBanner.innerHTML = sosMsg;
       } else {
         sosBanner.style.display = 'none';
       }

@@ -485,7 +485,7 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
 
   useEffect(() => {
     if (!booking?.id) return
-    supabase.from('sos_incidents').select('id,type,title,status,severity,created_at,resolved_at,description,damage_severity,customer_fault,replacement_booking_id,original_booking_id')
+    supabase.from('sos_incidents').select('id,type,title,status,severity,created_at,resolved_at,description,damage_severity,customer_fault,replacement_booking_id,original_booking_id,replacement_status,replacement_data')
       .eq('booking_id', booking.id).order('created_at', { ascending: false })
       .then(({ data }) => { if (data) setSosIncidents(data) }).catch(() => {})
     supabase.from('booking_extras').select('*, extras_catalog(name, price)')
@@ -587,6 +587,14 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
                     className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none', fontFamily: 'monospace' }}>
                     #{sosIncidents[0].replacement_booking_id.slice(-8).toUpperCase()}
                   </button>
+                </div>
+              )}
+              {booking.ended_by_sos && sosIncidents.length > 0 && !sosIncidents[0].replacement_booking_id && (
+                <div className="flex items-center gap-2 mb-1 p-2 rounded" style={{ background: '#fef3c7', border: '1px solid #fbbf24' }}>
+                  <span className="text-sm font-extrabold" style={{ color: '#92400e' }}>⚠️ Zákazník dosud nevybral náhradní motorku</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full font-bold" style={{ background: '#f59e0b', color: '#fff' }}>
+                    {sosIncidents[0].replacement_status || 'selecting'}
+                  </span>
                 </div>
               )}
               <InfoRow label="Stav" value={booking.sos_replacement ? 'Náhradní motorka aktivní' : 'Původní rezervace ukončena'} />
@@ -883,6 +891,12 @@ function BookingSummary({ booking, sosIncidents, bookingExtras, cancellation, pr
                   (incident #{b.sos_incident_id.slice(-8).toUpperCase()})
                 </button>
               )}
+            </div>
+          )}
+          {b.ended_by_sos && sosIncidents.length > 0 && !sosIncidents[0].replacement_booking_id && (
+            <div className="flex items-center gap-2 py-1 px-2 rounded" style={{ borderBottom: '1px solid #e5e7eb', fontSize: 13, background: '#fef3c7' }}>
+              <span className="font-extrabold" style={{ color: '#92400e', minWidth: 130 }}>⚠️ Náhrada</span>
+              <span style={{ color: '#92400e' }}>Zákazník dosud nevybral náhradní motorku ({sosIncidents[0].replacement_status || 'selecting'})</span>
             </div>
           )}
           {b.ended_by_sos && sosIncidents.length > 0 && sosIncidents[0].replacement_booking_id && (

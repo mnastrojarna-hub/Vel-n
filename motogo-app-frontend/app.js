@@ -106,6 +106,11 @@ function _continueInit(hasSession){
     apiStartBackgroundRefresh();
   }
 
+  // Check for pending SOS replacement (floating banner)
+  if(hasSession && typeof _checkAndShowSosBanner==='function'){
+    _checkAndShowSosBanner();
+  }
+
   // Auto-expire vouchers check on app start
   if(hasSession && window.supabase){
     window.supabase.rpc('expire_vouchers_and_promos').catch(function(){});
