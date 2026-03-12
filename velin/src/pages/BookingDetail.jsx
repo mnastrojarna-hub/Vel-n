@@ -166,9 +166,49 @@ export default function BookingDetail() {
           supabase.functions.invoke('send-booking-email', { body: { ...emailBody, type: 'booking_reserved' } }),
         ]).catch(() => {})
       } else if (newStatus === 'active') {
+        // Check if ZF/DP already exist — generate if missing (covers pending→active skip)
+        try {
+          const { data: existingInv } = await supabase.from('invoices').select('type').eq('booking_id', id)
+            .in('type', ['advance', 'proforma', 'payment_receipt']).neq('status', 'cancelled')
+          const hasZF = (existingInv || []).some(i => i.type === 'advance' || i.type === 'proforma')
+          const hasDP = (existingInv || []).some(i => i.type === 'payment_receipt')
+          if (!hasZF) {
+            try { await generateAdvanceInvoice(id, 'booking') } catch (e) {
+              console.error('[Invoice] ZF (active) error:', e.message)
+              invoiceErrors.push(`ZF: ${e.message}`)
+            }
+          }
+          if (!hasDP) {
+            try { await generatePaymentReceipt(id, 'booking') } catch (e) {
+              console.error('[Invoice] DP (active) error:', e.message)
+              invoiceErrors.push(`DP: ${e.message}`)
+            }
+          }
+        } catch (e) { console.error('[Invoice] check existing:', e.message) }
+        // Generate rental contract if not already generated
+        supabase.functions.invoke('generate-document', { body: { template_slug: 'rental_contract', booking_id: id } }).catch(() => {})
         // Generate handover protocol (edge function, non-blocking)
         supabase.functions.invoke('generate-document', { body: { template_slug: 'handover_protocol', booking_id: id } }).catch(() => {})
       } else if (newStatus === 'completed') {
+        // Ensure ZF/DP exist before generating KF (covers edge cases where earlier steps were skipped)
+        try {
+          const { data: existingInv } = await supabase.from('invoices').select('type').eq('booking_id', id)
+            .in('type', ['advance', 'proforma', 'payment_receipt']).neq('status', 'cancelled')
+          const hasZF = (existingInv || []).some(i => i.type === 'advance' || i.type === 'proforma')
+          const hasDP = (existingInv || []).some(i => i.type === 'payment_receipt')
+          if (!hasZF) {
+            try { await generateAdvanceInvoice(id, 'booking') } catch (e) {
+              console.error('[Invoice] ZF (completed) error:', e.message)
+              invoiceErrors.push(`ZF: ${e.message}`)
+            }
+          }
+          if (!hasDP) {
+            try { await generatePaymentReceipt(id, 'booking') } catch (e) {
+              console.error('[Invoice] DP (completed) error:', e.message)
+              invoiceErrors.push(`DP: ${e.message}`)
+            }
+          }
+        } catch (e) { console.error('[Invoice] check existing (completed):', e.message) }
         // Generate final invoice (KF) directly in DB
         try {
           await generateFinalInvoice(id)

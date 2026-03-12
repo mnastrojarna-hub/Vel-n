@@ -82,7 +82,7 @@ serve(async (req) => {
     }
 
     // Substitute variables in template HTML
-    let htmlContent = template?.html_content || getFallbackTemplate(template_slug) || ''
+    let htmlContent = template?.content_html || template?.html_content || getFallbackTemplate(template_slug) || ''
     for (const [key, val] of Object.entries(vars)) {
       htmlContent = htmlContent.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val)
     }
