@@ -19,7 +19,8 @@ export function getDisplayStatus(booking) {
   if ((booking.status === 'active' || booking.status === 'reserved') && booking.start_date) {
     const now = new Date()
     const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const startLocal = new Date(booking.start_date.slice(0, 10) + 'T00:00:00')
+    const start = new Date(booking.start_date)
+    const startLocal = new Date(start.getFullYear(), start.getMonth(), start.getDate())
     if (startLocal > todayLocal) return 'upcoming'
   }
   return booking.status
