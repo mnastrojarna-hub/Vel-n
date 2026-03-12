@@ -936,15 +936,16 @@ async function apiFetchDocuments(){
         file_name: inv.number || ''
       });
     });
-    // 3) generated_documents (Velín contracts/protocols)
+    // 3) generated_documents (Velín contracts/protocols/VOP)
     var gr = await window.supabase.from('generated_documents')
-      .select('*, bookings:booking_id(start_date, total_price, motorcycles(model))')
+      .select('*, document_templates:template_id(type, name), bookings:booking_id(start_date, total_price, motorcycles(model))')
       .eq('customer_id', uid)
       .order('created_at', {ascending: false});
     if(gr.data) gr.data.forEach(function(gd){
       var b = gd.bookings;
-      var isProtocol = gd.type === 'handover_protocol' || gd.type === 'return_protocol';
-      var mappedType = isProtocol ? 'protocol' : 'contract';
+      var tplType = (gd.document_templates && gd.document_templates.type) || '';
+      var mappedType = tplType === 'handover_protocol' ? 'protocol'
+        : tplType === 'vop' ? 'vop' : 'contract';
       var hasDup = results.find(function(d){
         return d.booking_id === gd.booking_id && d.type === mappedType;
       });
@@ -1586,8 +1587,8 @@ async function apiFetchDocTemplate(templateType){
   try {
     var r = await window.supabase.from('document_templates')
       .select('content_html, name, version')
-      .eq('type', dbType)
-      .order('version', {ascending:false}).limit(1).single();
-    return r.data || null;
+      .eq('type', dbType).eq('active', true)
+      .order('version', {ascending:false}).limit(1);
+    return (r.data && r.data[0]) || null;
   } catch(e){ return null; }
 }

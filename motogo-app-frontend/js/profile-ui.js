@@ -80,7 +80,7 @@ async function renderDocuments(){
 
     docsWrap.innerHTML = docs.map(function(d){
       var typeLabels = {contract:'📄 '+_t('doc').contractLabel, protocol:'📋 '+_t('doc').protocolLabel, invoice:'🧾 '+_t('doc').invoiceFinal.split(' ')[0],
-        license_photo:'🏍️', id_photo:'🪪', document:'📎'};
+        vop:'📜 VOP', license_photo:'🏍️', id_photo:'🪪', document:'📎'};
       return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--g100);">' +
         '<div style="font-size:20px;">' + (typeLabels[d.type] ? typeLabels[d.type].split(' ')[0] : '📎') + '</div>' +
         '<div style="flex:1;"><div style="font-size:12px;font-weight:700;">' + (d.file_name || d.type) + '</div>' +

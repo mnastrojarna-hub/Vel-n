@@ -24,22 +24,27 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
-    // Load template
-    const { data: template, error: tErr } = await supabase
+    // Load template from DB (avoid .single() — errors on 0 or 2+ rows)
+    const { data: templates, error: tErr } = await supabase
       .from('document_templates')
       .select('*')
       .eq('type', template_slug)
       .eq('active', true)
       .order('version', { ascending: false })
-      .limit(1).single()
+      .limit(1)
 
-    if (tErr || !template) {
-      // If no template in DB, use built-in fallback
+    const template = templates?.[0] || null
+    if (tErr) console.error('Template query error:', tErr.message, 'slug:', template_slug)
+
+    if (!template) {
+      console.warn('No DB template for slug:', template_slug, '— using fallback')
       const fallbackHtml = getFallbackTemplate(template_slug)
       if (!fallbackHtml) {
         return new Response(JSON.stringify({ error: `Template '${template_slug}' not found` }), { status: 404 })
       }
       // Continue with fallback
+    } else {
+      console.log('Loaded DB template:', template.id, template.name, 'content length:', (template.content_html || '').length)
     }
 
     // Load booking with relations (separate profile query to avoid FK ambiguity)
