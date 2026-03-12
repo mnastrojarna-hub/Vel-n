@@ -183,7 +183,8 @@ async function apiProcessPayment(bookingId, amount, method){
     var r = await window.supabase.from('bookings').update({
       payment_status: 'paid',
       payment_method: payMethod,
-      status: 'active'
+      status: 'reserved',
+      confirmed_at: new Date().toISOString()
     }).eq('id', bookingId).select('id').single();
     if(!r.error && r.data){
       console.log('[API] Payment confirmed via direct DB update');
