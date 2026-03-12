@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import { generateInvoiceHtml } from '../../lib/invoiceTemplate'
-import { loadInvoiceData, printInvoiceHtml, storeInvoicePdf } from '../../lib/invoiceUtils'
+import { loadInvoiceData, printInvoiceHtml, storeInvoicePdf, generateAdvanceInvoice, generatePaymentReceipt } from '../../lib/invoiceUtils'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
@@ -121,7 +121,7 @@ export default function BookingDocumentsTab({ bookingId }) {
   async function generateClientSide(templateSlug) {
     const { data: booking, error: bErr } = await supabase
       .from('bookings')
-      .select('*, motorcycles(model, spz, vin, year), profiles(id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry, id_number)')
+      .select('*, motorcycles(model, spz, vin, year), profiles(id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry)')
       .eq('id', bookingId).single()
     if (bErr || !booking) throw new Error('Rezervace nenalezena')
 
@@ -137,7 +137,7 @@ export default function BookingDocumentsTab({ bookingId }) {
       customer_ico: customer.ico || '', customer_dic: customer.dic || '',
       customer_license: customer.license_number || '',
       customer_license_expiry: fmtDate(customer.license_expiry),
-      customer_id_number: customer.id_number || '',
+      customer_id_number: '',
       moto_model: moto.model || '—', moto_spz: moto.spz || '', moto_vin: moto.vin || '',
       moto_year: String(moto.year || ''),
       start_date: fmtDate(booking.start_date), end_date: fmtDate(booking.end_date),
@@ -262,7 +262,7 @@ export default function BookingDocumentsTab({ bookingId }) {
     // 4) If no filled_data, regenerate from booking
     try {
       const { data: booking } = await supabase.from('bookings')
-        .select('*, motorcycles(model, spz, vin, year), profiles(id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry, id_number)')
+        .select('*, motorcycles(model, spz, vin, year), profiles(id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry)')
         .eq('id', bookingId).single()
       if (booking) {
         const customer = booking.profiles || {}
@@ -275,7 +275,7 @@ export default function BookingDocumentsTab({ bookingId }) {
           customer_phone: customer.phone || '', customer_address: [customer.street, customer.city, customer.zip].filter(Boolean).join(', '),
           customer_ico: customer.ico || '', customer_dic: customer.dic || '',
           customer_license: customer.license_number || '', customer_license_expiry: fmtD(customer.license_expiry),
-          customer_id_number: customer.id_number || '',
+          customer_id_number: '',
           moto_model: moto.model || '—', moto_spz: moto.spz || '', moto_vin: moto.vin || '', moto_year: String(moto.year || ''),
           start_date: fmtD(booking.start_date), end_date: fmtD(booking.end_date),
           days: String(days), total_price: fmtP(booking.total_price || 0),
@@ -446,7 +446,20 @@ export default function BookingDocumentsTab({ bookingId }) {
       <Card>
         <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Faktury a daňové doklady</h3>
         {invoices.length === 0 ? (
-          <p style={{ color: '#1a2e22', fontSize: 13 }}>Žádné faktury k této rezervaci</p>
+          <div>
+            <p style={{ color: '#1a2e22', fontSize: 13, marginBottom: 8 }}>Žádné faktury k této rezervaci</p>
+            <Button green onClick={async () => {
+              setGenerating('invoices'); setError(null)
+              try {
+                await generateAdvanceInvoice(bookingId, 'booking')
+                await generatePaymentReceipt(bookingId, 'booking')
+                await loadAll()
+              } catch (e) { setError(`Generování faktur selhalo: ${e.message}`) }
+              setGenerating(null)
+            }} disabled={generating === 'invoices'}>
+              {generating === 'invoices' ? 'Generuji...' : 'Vygenerovat ZF + DP'}
+            </Button>
+          </div>
         ) : (
           invoices.map(inv => {
             const tp = INV_TYPE_MAP[inv.type] || { label: inv.type || 'Faktura', color: '#1a2e22', bg: '#f3f4f6' }
