@@ -258,6 +258,18 @@ function doPayment(){
         // Payment succeeded – clear timeout and counter
         _paymentAttempts = 0;
         if(_paymentTimeout){ clearTimeout(_paymentTimeout); _paymentTimeout = null; }
+
+        // Verify booking status was actually updated (edge fn may silently fail)
+        if(_currentBookingId && window.supabase){
+          try {
+            var _vb = await window.supabase.from('bookings').select('status, payment_status').eq('id', _currentBookingId).single();
+            if(_vb.data && _vb.data.status === 'pending'){
+              console.warn('[PAY] Booking still pending after payment — forcing status update via RPC');
+              await window.supabase.rpc('confirm_payment', {p_booking_id: _currentBookingId, p_method: _currentPaymentMethod || 'card'});
+            }
+          } catch(ve){ console.warn('[PAY] Status verify err:', ve); }
+        }
+
         // Zaloguj promo k\u00f3d pokud byl pou\u017eit
         if(typeof appliedCode !== 'undefined' && appliedCode && typeof apiUsePromoCode === 'function'){
           try {

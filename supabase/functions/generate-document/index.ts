@@ -42,14 +42,25 @@ serve(async (req) => {
       // Continue with fallback
     }
 
-    // Load booking with relations
+    // Load booking with relations (separate profile query to avoid FK ambiguity)
     const { data: booking, error: bErr } = await supabase
       .from('bookings')
-      .select('*, motorcycles(model, spz, vin, year), profiles:user_id(id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry)')
+      .select('*, motorcycles(model, spz, vin, year)')
       .eq('id', booking_id).single()
-    if (bErr || !booking) return new Response(JSON.stringify({ error: 'Booking not found' }), { status: 404 })
+    if (bErr || !booking) {
+      console.error('Booking query error:', bErr?.message, 'booking_id:', booking_id)
+      return new Response(JSON.stringify({ error: 'Booking not found: ' + (bErr?.message || 'no data') }), { status: 404 })
+    }
+    // Fetch profile separately to avoid PostgREST FK ambiguity
+    let customer: Record<string, unknown> = {}
+    if (booking.user_id) {
+      const { data: prof } = await supabase.from('profiles')
+        .select('id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry')
+        .eq('id', booking.user_id).single()
+      if (prof) customer = prof
+    }
 
-    const customer = booking.profiles || {}
+    // customer is already loaded above via separate query
     const moto = booking.motorcycles || {}
     const days = Math.max(1, Math.ceil((new Date(booking.end_date).getTime() - new Date(booking.start_date).getTime()) / 86400000))
 

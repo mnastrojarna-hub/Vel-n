@@ -436,9 +436,9 @@ async function apiModifyBooking(bookingId, changes){
   _ensureSupabase();
   if(!window.supabase) return {error:'Offline'};
   try {
-    // Record date changes in modification_history
-    if(changes.start_date || changes.end_date){
-      var cur = await window.supabase.from('bookings').select('start_date, end_date, original_start_date, original_end_date, modification_history').eq('id', bookingId).single();
+    // Record date/moto changes in modification_history
+    if(changes.start_date || changes.end_date || changes.moto_id){
+      var cur = await window.supabase.from('bookings').select('start_date, end_date, moto_id, original_start_date, original_end_date, modification_history, motorcycles(model)').eq('id', bookingId).single();
       if(cur.data){
         var _ld = function(d){ return d ? new Date(d).toLocaleDateString('sv-SE') : ''; };
         // Store original dates on first-ever modification
@@ -448,7 +448,17 @@ async function apiModifyBooking(bookingId, changes){
         }
         // Append to modification_history
         var hist = Array.isArray(cur.data.modification_history) ? cur.data.modification_history.slice() : [];
-        hist.push({at:new Date().toISOString(), from_start:_ld(cur.data.start_date), from_end:_ld(cur.data.end_date), to_start:_ld(changes.start_date||cur.data.start_date), to_end:_ld(changes.end_date||cur.data.end_date), source:'customer'});
+        var entry = {at:new Date().toISOString(), from_start:_ld(cur.data.start_date), from_end:_ld(cur.data.end_date), to_start:_ld(changes.start_date||cur.data.start_date), to_end:_ld(changes.end_date||cur.data.end_date), source:'customer'};
+        // Track motorcycle change
+        if(changes.moto_id && changes.moto_id !== cur.data.moto_id){
+          entry.from_moto = (cur.data.motorcycles && cur.data.motorcycles.model) || cur.data.moto_id;
+          // Fetch new moto name
+          try {
+            var _nm = await window.supabase.from('motorcycles').select('model').eq('id', changes.moto_id).single();
+            entry.to_moto = (_nm.data && _nm.data.model) || changes.moto_id;
+          } catch(e){ entry.to_moto = changes.moto_id; }
+        }
+        hist.push(entry);
         changes.modification_history = hist;
       }
     }
@@ -624,9 +634,9 @@ async function apiGenerateAdvanceInvoice(bookingId, amount, source, editCtx){
     var uid = await _getUserId();
     if(!uid) return {error:'Nepřihlášen'};
     var br = await window.supabase.from('bookings')
-      .select('*, motorcycles('+_MOTO_PRICE_COLS+'), profiles(full_name, email, phone, street, city, zip, country)')
+      .select('*, motorcycles('+_MOTO_PRICE_COLS+')')
       .eq('id', bookingId).single();
-    if(!br.data) return {error:'Booking not found'};
+    if(br.error || !br.data){ console.error('[API] ZF booking query failed:', br.error ? br.error.message : 'no data'); return {error:'Booking not found: '+(br.error?br.error.message:'no data')}; }
     var b = br.data, m = br.data.motorcycles || {};
     var yr = new Date().getFullYear();
     var lr = await window.supabase.from('invoices').select('number')
@@ -687,9 +697,9 @@ async function apiGenerateFinalInvoice(bookingId){
     var uid = await _getUserId();
     if(!uid) return {error:'Nepřihlášen'};
     var br = await window.supabase.from('bookings')
-      .select('*, motorcycles('+_MOTO_PRICE_COLS+'), profiles(full_name, email, phone, street, city, zip, country)')
+      .select('*, motorcycles('+_MOTO_PRICE_COLS+')')
       .eq('id', bookingId).single();
-    if(!br.data) return {error:'Booking not found'};
+    if(br.error || !br.data){ console.error('[API] KF booking query failed:', br.error ? br.error.message : 'no data'); return {error:'Booking not found: '+(br.error?br.error.message:'no data')}; }
     var b = br.data, m = br.data.motorcycles || {};
     // Fetch all advance invoices for this booking
     var advR = await window.supabase.from('invoices').select('*')
@@ -745,9 +755,9 @@ async function apiGeneratePaymentReceipt(bookingId, amount, source, editCtx){
     var uid = await _getUserId();
     if(!uid) return {error:'Nepřihlášen'};
     var br = await window.supabase.from('bookings')
-      .select('*, motorcycles('+_MOTO_PRICE_COLS+'), profiles(full_name, email)')
+      .select('*, motorcycles('+_MOTO_PRICE_COLS+')')
       .eq('id', bookingId).single();
-    if(!br.data) return {error:'Booking not found'};
+    if(br.error || !br.data){ console.error('[API] DP booking query failed:', br.error ? br.error.message : 'no data'); return {error:'Booking not found: '+(br.error?br.error.message:'no data')}; }
     var b = br.data, m = br.data.motorcycles || {};
     var yr = new Date().getFullYear();
     var lr = await window.supabase.from('invoices').select('number')
