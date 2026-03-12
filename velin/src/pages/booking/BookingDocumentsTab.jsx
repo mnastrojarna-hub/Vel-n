@@ -121,7 +121,7 @@ export default function BookingDocumentsTab({ bookingId }) {
   async function generateClientSide(templateSlug) {
     const { data: booking, error: bErr } = await supabase
       .from('bookings')
-      .select('*, motorcycles(model, spz, vin, year), profiles(id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry)')
+      .select('*, motorcycles(model, spz, vin, year), profiles:user_id(id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry)')
       .eq('id', bookingId).single()
     if (bErr || !booking) throw new Error('Rezervace nenalezena')
 
@@ -262,7 +262,7 @@ export default function BookingDocumentsTab({ bookingId }) {
     // 4) If no filled_data, regenerate from booking
     try {
       const { data: booking } = await supabase.from('bookings')
-        .select('*, motorcycles(model, spz, vin, year), profiles(id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry)')
+        .select('*, motorcycles(model, spz, vin, year), profiles:user_id(id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry)')
         .eq('id', bookingId).single()
       if (booking) {
         const customer = booking.profiles || {}
@@ -431,6 +431,9 @@ export default function BookingDocumentsTab({ bookingId }) {
         </Button>
         <Button green onClick={() => handleGenerate('handover_protocol')} disabled={generating === 'handover_protocol'}>
           {generating === 'handover_protocol' ? 'Generuji...' : 'Vygenerovat protokol'}
+        </Button>
+        <Button green onClick={() => handleGenerate('vop')} disabled={generating === 'vop'}>
+          {generating === 'vop' ? 'Generuji...' : 'Vygenerovat VOP'}
         </Button>
         {dbTemplates.vop && (
           <Button onClick={() => {
