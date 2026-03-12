@@ -60,7 +60,7 @@ async function apiCheckPendingSosReplacement(){
     var uid = await _getUserId();
     if(!uid) return null;
     var r = await window.supabase.from('sos_incidents')
-      .select('id, replacement_status, replacement_data, booking_id, original_moto_id, customer_fault')
+      .select('id, type, replacement_status, replacement_data, booking_id, original_moto_id, customer_fault')
       .eq('user_id', uid)
       .eq('replacement_status', 'selecting')
       .order('created_at', {ascending: false})

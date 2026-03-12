@@ -443,9 +443,11 @@ function _renderUserDataAsync(){
       if(pendingSos){
         var homeActiveRes = document.getElementById('home-active-res');
         if(homeActiveRes){
+          var isFault = pendingSos.customer_fault === true;
+          var subText = isFault ? 'Vyberte motorku a zaplaťte →' : 'Vyberte náhradní motorku zdarma →';
           homeActiveRes.innerHTML = '<div class="ares" onclick="goTo(\'s-sos-replacement\')" style="cursor:pointer;border:2px solid #fca5a5;background:#fee2e2;">' +
             '<div style="font-size:24px;">🆘</div>' +
-            '<div><div class="ares-n" style="color:#b91c1c;">Nedokončený výběr náhrady</div><div class="ares-s" style="color:#991b1b;">Klikněte pro výběr náhradní motorky</div></div>' +
+            '<div><div class="ares-n" style="color:#b91c1c;">Nedokončený výběr náhrady</div><div class="ares-s" style="color:#991b1b;">'+subText+'</div></div>' +
             '<div style="font-size:18px;color:#b91c1c;">›</div></div>';
         }
         // Store for SOS replacement flow

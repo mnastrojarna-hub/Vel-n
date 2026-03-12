@@ -407,15 +407,17 @@ function sosReplInit(){
 
     // Restore from pending SOS incident if coming from floating banner
     if(window._pendingSosIncident && !_sosPendingIncidentId){
-      _sosPendingIncidentId = window._pendingSosIncident.id;
-      if(window._pendingSosIncident.customer_fault === true){
+      var inc = window._pendingSosIncident;
+      _sosPendingIncidentId = inc.id;
+      // 3 paths: breakdown (null) = free, not-at-fault (false) = free, at-fault (true) = paid
+      if(inc.customer_fault === true){
         _sosFault = true; _sosFaultSnapshot = true;
-      } else if(window._pendingSosIncident.customer_fault === false){
-        _sosFault = false; _sosFaultSnapshot = false;
+      } else {
+        // breakdown (null) or not-at-fault (false) → both free
+        _sosFault = inc.customer_fault === false ? false : null;
+        _sosFaultSnapshot = _sosFault;
       }
-      if(window._pendingSosIncident.original_moto_id){
-        _sosCurrentMotoId = window._pendingSosIncident.original_moto_id;
-      }
+      if(inc.original_moto_id) _sosCurrentMotoId = inc.original_moto_id;
     }
 
     // Use snapshot as fallback

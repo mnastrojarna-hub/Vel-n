@@ -106,9 +106,13 @@ function _checkAndShowSosBanner(){
       _sosBannerEl.style.display = 'flex';
       _sosBannerEl.style.alignItems = 'center';
       _sosBannerEl.style.gap = '12px';
+      // 3 paths: breakdown (null) / not-at-fault (false) = free, at-fault (true) = paid
+      var isFault = pending.customer_fault === true;
+      var subtitle = isFault ? 'Vyberte motorku a zaplaťte →' : 'Vyberte náhradní motorku zdarma →';
+      var badge = isFault ? '<div style="font-size:9px;background:#fff;color:#b91c1c;border-radius:50px;padding:1px 7px;font-weight:800;margin-top:3px;display:inline-block;">💳 K ZAPLACENÍ</div>' : '<div style="font-size:9px;background:#dcfce7;color:#166534;border-radius:50px;padding:1px 7px;font-weight:800;margin-top:3px;display:inline-block;">✓ ZDARMA</div>';
       _sosBannerEl.innerHTML = '<div style="font-size:28px;animation:pulse 1.5s infinite;">🆘</div>' +
         '<div style="flex:1;"><div style="font-weight:800;font-size:13px;">Nedokončený výběr náhrady</div>' +
-        '<div style="font-size:11px;opacity:.9;margin-top:2px;">Vyberte náhradní motorku →</div></div>' +
+        '<div style="font-size:11px;opacity:.9;margin-top:2px;">'+subtitle+'</div>'+badge+'</div>' +
         '<div style="font-size:22px;font-weight:800;">›</div>';
     } else {
       _sosBannerEl.style.display = 'none';
