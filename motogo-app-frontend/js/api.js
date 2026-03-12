@@ -362,6 +362,26 @@ async function apiModifyBooking(bookingId, changes){
   } catch(e){ return {error:'Chyba při úpravě rezervace'}; }
 }
 
+// ===== ACTIVE BOOKING CHECK – zákazník smí mít max 1 aktivní/rezervovanou rezervaci =====
+async function apiCheckActiveBookingExists(excludeBookingId){
+  _ensureSupabase();
+  if(!window.supabase) return {exists:false};
+  try {
+    var uid = await _getUserId();
+    if(!uid) return {exists:false};
+    var q = window.supabase.from('bookings')
+      .select('id, start_date, end_date, status')
+      .eq('user_id', uid)
+      .in('status', ['reserved','active']);
+    if(excludeBookingId) q = q.neq('id', excludeBookingId);
+    var r = await q;
+    if(r.data && r.data.length > 0){
+      return {exists:true, existing: r.data[0]};
+    }
+    return {exists:false};
+  } catch(e){ console.error('[API] apiCheckActiveBookingExists:', e); return {exists:false}; }
+}
+
 // ===== OVERLAP CHECK – zákazník nesmí mít překrývající se rezervace =====
 async function apiCheckBookingOverlap(startISO, endISO, excludeBookingId){
   _ensureSupabase();

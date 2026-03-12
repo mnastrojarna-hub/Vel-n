@@ -485,7 +485,7 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
 
   useEffect(() => {
     if (!booking?.id) return
-    supabase.from('sos_incidents').select('id,type,title,status,severity,created_at,resolved_at,description,damage_severity,customer_fault')
+    supabase.from('sos_incidents').select('id,type,title,status,severity,created_at,resolved_at,description,damage_severity,customer_fault,replacement_booking_id,original_booking_id')
       .eq('booking_id', booking.id).order('created_at', { ascending: false })
       .then(({ data }) => { if (data) setSosIncidents(data) }).catch(() => {})
     supabase.from('booking_extras').select('*, extras_catalog(name, price)')
@@ -563,10 +563,31 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
             </h3>
             <div className="grid grid-cols-2 gap-2 text-sm">
               {booking.replacement_for_booking_id && (
-                <InfoRow label="Nahrazuje rezervaci" value={`#${booking.replacement_for_booking_id.slice(-8)}`} mono />
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22', minWidth: 65 }}>Nahrazuje rezervaci</span>
+                  <button onClick={() => navigate(`/rezervace/${booking.replacement_for_booking_id}`)}
+                    className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none', fontFamily: 'monospace' }}>
+                    #{booking.replacement_for_booking_id.slice(-8).toUpperCase()}
+                  </button>
+                </div>
               )}
               {booking.sos_incident_id && (
-                <InfoRow label="SOS incident" value={`#${booking.sos_incident_id.slice(-8)}`} mono />
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22', minWidth: 65 }}>SOS incident</span>
+                  <button onClick={() => navigate('/sos', { state: { openIncidentId: booking.sos_incident_id } })}
+                    className="text-sm font-bold cursor-pointer" style={{ color: '#dc2626', background: 'none', border: 'none', fontFamily: 'monospace' }}>
+                    #{booking.sos_incident_id.slice(-8).toUpperCase()}
+                  </button>
+                </div>
+              )}
+              {booking.ended_by_sos && sosIncidents.length > 0 && sosIncidents[0].replacement_booking_id && (
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22', minWidth: 65 }}>Náhradní rezervace</span>
+                  <button onClick={() => navigate(`/rezervace/${sosIncidents[0].replacement_booking_id}`)}
+                    className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none', fontFamily: 'monospace' }}>
+                    #{sosIncidents[0].replacement_booking_id.slice(-8).toUpperCase()}
+                  </button>
+                </div>
               )}
               <InfoRow label="Stav" value={booking.sos_replacement ? 'Náhradní motorka aktivní' : 'Původní rezervace ukončena'} />
             </div>
@@ -840,17 +861,51 @@ function BookingSummary({ booking, sosIncidents, bookingExtras, cancellation, pr
       {(b.sos_replacement || b.ended_by_sos || sosIncidents.length > 0) && (
         <>
           <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#dc2626' }}>SOS</div>
-          {b.sos_replacement && <SumRow label="SOS náhrada" value={`Ano${b.replacement_for_booking_id ? ` (za #${b.replacement_for_booking_id.slice(-8)})` : ''}`} color="#1a8a18" />}
-          {b.ended_by_sos && <SumRow label="Ukončeno SOS" value={`Ano${b.sos_incident_id ? ` (incident #${b.sos_incident_id.slice(-8)})` : ''}`} color="#dc2626" />}
+          {b.sos_replacement && (
+            <div className="flex items-center gap-2 py-1" style={{ borderBottom: '1px solid #e5e7eb', fontSize: 13 }}>
+              <span className="font-extrabold" style={{ color: '#1a2e22', minWidth: 130 }}>SOS náhrada</span>
+              <span style={{ color: '#1a8a18' }}>Ano</span>
+              {b.replacement_for_booking_id && (
+                <button onClick={() => navigate(`/rezervace/${b.replacement_for_booking_id}`)}
+                  className="font-bold cursor-pointer ml-1" style={{ color: '#2563eb', background: 'none', border: 'none', fontFamily: 'monospace', fontSize: 13 }}>
+                  (za #{b.replacement_for_booking_id.slice(-8).toUpperCase()})
+                </button>
+              )}
+            </div>
+          )}
+          {b.ended_by_sos && (
+            <div className="flex items-center gap-2 py-1 flex-wrap" style={{ borderBottom: '1px solid #e5e7eb', fontSize: 13 }}>
+              <span className="font-extrabold" style={{ color: '#1a2e22', minWidth: 130 }}>Ukončeno SOS</span>
+              <span style={{ color: '#dc2626' }}>Ano</span>
+              {b.sos_incident_id && (
+                <button onClick={() => navigate('/sos', { state: { openIncidentId: b.sos_incident_id } })}
+                  className="font-bold cursor-pointer ml-1" style={{ color: '#dc2626', background: 'none', border: 'none', fontFamily: 'monospace', fontSize: 13 }}>
+                  (incident #{b.sos_incident_id.slice(-8).toUpperCase()})
+                </button>
+              )}
+            </div>
+          )}
+          {b.ended_by_sos && sosIncidents.length > 0 && sosIncidents[0].replacement_booking_id && (
+            <div className="flex items-center gap-2 py-1" style={{ borderBottom: '1px solid #e5e7eb', fontSize: 13 }}>
+              <span className="font-extrabold" style={{ color: '#1a2e22', minWidth: 130 }}>Náhradní rezervace</span>
+              <button onClick={() => navigate(`/rezervace/${sosIncidents[0].replacement_booking_id}`)}
+                className="font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none', fontFamily: 'monospace', fontSize: 13, padding: 0 }}>
+                #{sosIncidents[0].replacement_booking_id.slice(-8).toUpperCase()}
+              </button>
+            </div>
+          )}
           {sosIncidents.map(inc => (
-            <div key={inc.id} className="py-1" style={{ borderBottom: '1px solid #fef2f2', fontSize: 13 }}>
-              <span className="font-bold" style={{ color: '#dc2626' }}>#{inc.id.slice(-6)}</span>
-              <span className="ml-2">{inc.type} ({inc.severity}) — {inc.status}</span>
-              {inc.title && <span className="ml-1">— {inc.title}</span>}
-              <span className="ml-2" style={{ color: '#1a2e22' }}>{fmtDT(inc.created_at)}</span>
-              {inc.resolved_at && <span className="ml-1" style={{ color: '#1a8a18' }}>→ vyřešeno {fmtDT(inc.resolved_at)}</span>}
-              {inc.customer_fault && <span className="ml-1 font-bold" style={{ color: '#b91c1c' }}>[vina zákazníka]</span>}
-              {inc.damage_severity && inc.damage_severity !== 'none' && <span className="ml-1" style={{ color: '#b45309' }}>[{inc.damage_severity}]</span>}
+            <div key={inc.id} className="py-1 flex items-center flex-wrap gap-x-2" style={{ borderBottom: '1px solid #fef2f2', fontSize: 13 }}>
+              <button onClick={() => navigate('/sos', { state: { openIncidentId: inc.id } })}
+                className="font-bold cursor-pointer" style={{ color: '#dc2626', background: 'none', border: 'none', fontFamily: 'monospace', fontSize: 13, padding: 0 }}>
+                #{inc.id.slice(-6)}
+              </button>
+              <span>{inc.type} ({inc.severity}) — {inc.status}</span>
+              {inc.title && <span>— {inc.title}</span>}
+              <span style={{ color: '#1a2e22' }}>{fmtDT(inc.created_at)}</span>
+              {inc.resolved_at && <span style={{ color: '#1a8a18' }}>→ vyřešeno {fmtDT(inc.resolved_at)}</span>}
+              {inc.customer_fault && <span className="font-bold" style={{ color: '#b91c1c' }}>[vina zákazníka]</span>}
+              {inc.damage_severity && inc.damage_severity !== 'none' && <span style={{ color: '#b45309' }}>[{inc.damage_severity}]</span>}
             </div>
           ))}
         </>

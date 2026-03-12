@@ -98,6 +98,21 @@ async function proceedToPayment(){
       return;
     }
 
+    // Check if customer already has an active/reserved booking
+    if(typeof apiCheckActiveBookingExists === 'function'){
+      var activeCheck = await apiCheckActiveBookingExists();
+      if(activeCheck.exists){
+        var ae = activeCheck.existing;
+        var aeFrom = _fmtDatePayment(ae.start_date);
+        var aeTo = _fmtDatePayment(ae.end_date);
+        showT('⚠️',
+          _t('pay').activeExistsTitle||'Aktivní rezervace',
+          (_t('pay').activeExistsMsg||'Již máte aktivní rezervaci')+' ('+aeFrom+' – '+aeTo+'). '+(_t('pay').activeExistsHint||'Dokončete nebo zrušte stávající rezervaci před vytvořením nové.')
+        );
+        return;
+      }
+    }
+
     // Check for overlapping reservations
     if(typeof apiCheckBookingOverlap === 'function'){
       var overlapCheck = await apiCheckBookingOverlap(startDate.toISOString(), endDate.toISOString());
@@ -310,13 +325,7 @@ function doPayment(){
         if(typeof promptPostPaymentScan==='function'){
           setTimeout(function(){ promptPostPaymentScan(); }, 1200);
         }
-        // Auto-redirect po 5 sekundách
-        setTimeout(function(){
-          if(cur === 's-success'){
-            if(typeof closePostPayScan==='function') closePostPayScan();
-            goTo('s-res');
-          }
-        }, 5000);
+        // Uživatel klikne na tlačítko "Moje rezervace" ručně — žádný auto-redirect
       } else {
         _paymentAttempts++;
         if(_paymentAttempts >= _MAX_PAYMENT_ATTEMPTS){
