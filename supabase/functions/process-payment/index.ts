@@ -110,6 +110,14 @@ Deno.serve(async (req: Request) => {
           .eq('id', booking_id)
       } else {
         console.error('Minimal DB update also failed:', minError)
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'DB update failed: ' + updateError.message,
+            transaction_id: transactionId,
+          }),
+          { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+        )
       }
     }
 

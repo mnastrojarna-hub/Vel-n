@@ -404,7 +404,9 @@ async function openResDetailById(bookingId){
             mh += '<div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--g400);margin-bottom:4px;">Historie úprav ('+_hist2.length+'×)</div>';
             for(var hi2=0; hi2<_hist2.length; hi2++){
               var _hm2 = _descMod(_hist2[hi2].from_start, _hist2[hi2].from_end, _hist2[hi2].to_start, _hist2[hi2].to_end);
-              mh += '<div style="font-size:11px;color:'+_hm2.color+';margin-bottom:2px;">'+(hi2+1)+'. '+_fmtDT(_hist2[hi2].at)+' — '+_hm2.type+' ('+_hm2.detail+') · '+(_hist2[hi2].source==='admin'?'admin':'zákazník')+'</div>';
+              var _hmE2 = '';
+              if(_hist2[hi2].from_moto && _hist2[hi2].to_moto) _hmE2 = ' · motorka: '+_hist2[hi2].from_moto+' → '+_hist2[hi2].to_moto;
+              mh += '<div style="font-size:11px;color:'+_hm2.color+';margin-bottom:2px;">'+(hi2+1)+'. '+_fmtDT(_hist2[hi2].at)+' — '+_hm2.type+' ('+_hm2.detail+')'+_hmE2+' · '+(_hist2[hi2].source==='admin'?'admin':'zákazník')+'</div>';
             }
             mh += '</div>';
           }
@@ -741,7 +743,9 @@ function _renderDetailSummary(b, moto, st, days, branchName, bookingId){
     var _hist = Array.isArray(b.modification_history) ? b.modification_history : [];
     for(var hi=0; hi<_hist.length; hi++){
       var _hm = _descMod(_hist[hi].from_start, _hist[hi].from_end, _hist[hi].to_start, _hist[hi].to_end);
-      h += '<li style="color:'+_hm.color+';font-size:11px;"><strong>Úprava #'+(hi+1)+':</strong> '+_fmtDT(_hist[hi].at)+' — '+_hm.type+' ('+_hm.detail+') · '+(_hist[hi].source==='admin'?'admin':'zákazník')+'</li>';
+      var _hmExtra = '';
+      if(_hist[hi].from_moto && _hist[hi].to_moto) _hmExtra = ' · motorka: '+_hist[hi].from_moto+' → '+_hist[hi].to_moto;
+      h += '<li style="color:'+_hm.color+';font-size:11px;"><strong>Úprava #'+(hi+1)+':</strong> '+_fmtDT(_hist[hi].at)+' — '+_hm.type+' ('+_hm.detail+')'+_hmExtra+' · '+(_hist[hi].source==='admin'?'admin':'zákazník')+'</li>';
     }
   }
 
