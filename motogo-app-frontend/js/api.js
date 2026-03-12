@@ -672,26 +672,40 @@ async function apiAutoGenerateBookingDocs(bookingId){
     // Check if docs already exist for this booking
     var existing = await window.supabase.from('documents')
       .select('type').eq('booking_id', bookingId).eq('user_id', uid)
-      .in('type', ['contract', 'vop', 'protocol']);
+      .in('type', ['contract', 'vop']);
     var existingTypes = (existing.data || []).map(function(d){ return d.type; });
-    var docsToInsert = [];
+
+    // Generate contract via edge function (creates generated_documents + syncs to documents via trigger)
     if(existingTypes.indexOf('contract') === -1){
-      docsToInsert.push({
-        booking_id: bookingId, user_id: uid, type: 'contract',
-        file_name: 'Smlouva o pronájmu.pdf',
-        file_path: 'contracts/' + bookingId + '_contract.html'
-      });
+      try {
+        await window.supabase.functions.invoke('generate-document', {
+          body: { template_slug: 'rental_contract', booking_id: bookingId }
+        });
+        console.log('[API] Contract generated via edge function');
+      } catch(e){
+        console.warn('[API] Contract edge fn failed, inserting fallback:', e.message);
+        await window.supabase.from('documents').insert({
+          booking_id: bookingId, user_id: uid, type: 'contract',
+          file_name: 'Smlouva o pronájmu.pdf',
+          file_path: 'contracts/' + bookingId + '_contract.html'
+        });
+      }
     }
+    // Generate VOP via edge function
     if(existingTypes.indexOf('vop') === -1){
-      docsToInsert.push({
-        booking_id: bookingId, user_id: uid, type: 'vop',
-        file_name: 'Všeobecné obchodní podmínky.pdf',
-        file_path: 'documents/vop_current.html'
-      });
-    }
-    // Protocol is auto-generated on rental start date, NOT at booking time
-    if(docsToInsert.length > 0){
-      await window.supabase.from('documents').insert(docsToInsert);
+      try {
+        await window.supabase.functions.invoke('generate-document', {
+          body: { template_slug: 'vop', booking_id: bookingId }
+        });
+        console.log('[API] VOP generated via edge function');
+      } catch(e){
+        console.warn('[API] VOP edge fn failed, inserting fallback:', e.message);
+        await window.supabase.from('documents').insert({
+          booking_id: bookingId, user_id: uid, type: 'vop',
+          file_name: 'Všeobecné obchodní podmínky.pdf',
+          file_path: 'documents/vop_current.html'
+        });
+      }
     }
   } catch(e){ console.error('[API] autoGenerateBookingDocs:', e); }
 }
