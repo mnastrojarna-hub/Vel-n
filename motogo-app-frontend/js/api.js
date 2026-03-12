@@ -496,7 +496,7 @@ async function apiCheckBookingOverlap(startISO, endISO, excludeBookingId){
     var uid = await _getUserId();
     if(!uid) return {overlap:false};
     var q = window.supabase.from('bookings')
-      .select('id, start_date, end_date, moto_name, status')
+      .select('id, start_date, end_date, status, motorcycles(model)')
       .eq('user_id', uid)
       .in('status', ['pending','reserved','active'])
       .lte('start_date', endISO)
@@ -506,7 +506,9 @@ async function apiCheckBookingOverlap(startISO, endISO, excludeBookingId){
     }
     var r = await q;
     if(r.data && r.data.length > 0){
-      return {overlap:true, conflicting: r.data[0]};
+      var cf = r.data[0];
+      cf.moto_name = (cf.motorcycles && cf.motorcycles.model) || '';
+      return {overlap:true, conflicting: cf};
     }
     return {overlap:false};
   } catch(e){ console.error('[API] apiCheckBookingOverlap:', e); return {overlap:false}; }

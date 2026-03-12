@@ -100,7 +100,7 @@ Deno.serve(async (req: Request) => {
 
       if (!minError) {
         // Druhý update pro status (separátně)
-        await supabase
+        const { error: statusError } = await supabase
           .from('bookings')
           .update({
             status: newStatus,
@@ -108,6 +108,9 @@ Deno.serve(async (req: Request) => {
             ...(updateData.picked_up_at ? { picked_up_at: updateData.picked_up_at } : {}),
           })
           .eq('id', booking_id)
+        if (statusError) {
+          console.error('Status update failed:', statusError)
+        }
       } else {
         console.error('Minimal DB update also failed:', minError)
         return new Response(

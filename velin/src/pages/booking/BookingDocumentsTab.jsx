@@ -121,11 +121,18 @@ export default function BookingDocumentsTab({ bookingId }) {
   async function generateClientSide(templateSlug) {
     const { data: booking, error: bErr } = await supabase
       .from('bookings')
-      .select('*, motorcycles(model, spz, vin, year), profiles:user_id(id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry)')
+      .select('*, motorcycles(model, spz, vin, year)')
       .eq('id', bookingId).single()
-    if (bErr || !booking) throw new Error('Rezervace nenalezena')
+    if (bErr || !booking) throw new Error('Rezervace nenalezena: ' + (bErr?.message || 'no data'))
 
-    const customer = booking.profiles || {}
+    // Fetch profile separately to avoid PostgREST FK ambiguity
+    let customer = {}
+    if (booking.user_id) {
+      const { data: prof } = await supabase.from('profiles')
+        .select('id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry')
+        .eq('id', booking.user_id).single()
+      if (prof) customer = prof
+    }
     const moto = booking.motorcycles || {}
     const days = Math.max(1, Math.ceil((new Date(booking.end_date) - new Date(booking.start_date)) / 86400000))
     const fmtDate = (d) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
@@ -184,6 +191,9 @@ export default function BookingDocumentsTab({ bookingId }) {
     }
     if (slug === 'handover_protocol') {
       return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Předávací protokol</title></head><body style="margin:0;padding:0;font-family:'Segoe UI',sans-serif;color:#1a1a1a"><div style="max-width:780px;margin:0 auto;padding:32px"><h1 style="text-align:center;font-size:20px;border-bottom:2px solid #2563eb;padding-bottom:12px">PŘEDÁVACÍ PROTOKOL</h1><p style="text-align:center;font-size:12px;color:#666">k rezervaci č. {{booking_number}} ze dne {{today}}</p><p>Nájemce: {{customer_name}}</p><p>Motocykl: {{moto_model}} ({{moto_spz}}), VIN: {{moto_vin}}</p><p style="color:#b45309;font-size:11px;margin-top:24px">⚠ Toto je záložní šablona. Plné texty najdete v Dokumenty → Smluvní texty.</p></div></body></html>`
+    }
+    if (slug === 'vop') {
+      return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Všeobecné obchodní podmínky</title></head><body style="margin:0;padding:0;font-family:'Segoe UI',sans-serif;color:#1a1a1a"><div style="max-width:780px;margin:0 auto;padding:32px"><h1 style="text-align:center;font-size:20px;border-bottom:2px solid #1a8a18;padding-bottom:12px">VŠEOBECNÉ OBCHODNÍ PODMÍNKY</h1><p style="text-align:center;font-size:12px;color:#666">{{company_name}} | IČO: {{company_ico}} | {{company_address}}</p><p style="text-align:center;font-size:12px;color:#666">Platné od {{today}} k rezervaci č. {{booking_number}}</p><h3 style="font-size:13px;margin-top:24px">1. Úvodní ustanovení</h3><p style="font-size:12px">Tyto všeobecné obchodní podmínky upravují práva a povinnosti smluvních stran při pronájmu motocyklu provozovaném společností {{company_name}}, IČO: {{company_ico}}, se sídlem {{company_address}}.</p><h3 style="font-size:13px">2. Předmět pronájmu</h3><p style="font-size:12px">Předmětem pronájmu je motocykl specifikovaný v nájemní smlouvě.</p><h3 style="font-size:13px">3. Podmínky pronájmu</h3><p style="font-size:12px">Nájemce musí být držitelem platného řidičského průkazu příslušné skupiny. Minimální věk nájemce je 21 let.</p><h3 style="font-size:13px">4. Cena a platební podmínky</h3><p style="font-size:12px">Cena pronájmu se řídí aktuálním ceníkem. Platba je splatná před převzetím motocyklu.</p><h3 style="font-size:13px">5. Odpovědnost za škody</h3><p style="font-size:12px">Nájemce odpovídá za veškeré škody vzniklé na motocyklu po dobu pronájmu.</p><h3 style="font-size:13px">6. Storno podmínky</h3><p style="font-size:12px">Bezplatné storno je možné do 48 hodin před začátkem pronájmu.</p><p style="color:#b45309;font-size:11px;margin-top:24px">⚠ Toto je záložní šablona. Plné texty VOP najdete v Dokumenty → Smluvní texty.</p></div></body></html>`
     }
     return null
   }
@@ -262,10 +272,16 @@ export default function BookingDocumentsTab({ bookingId }) {
     // 4) If no filled_data, regenerate from booking
     try {
       const { data: booking } = await supabase.from('bookings')
-        .select('*, motorcycles(model, spz, vin, year), profiles:user_id(id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry)')
+        .select('*, motorcycles(model, spz, vin, year)')
         .eq('id', bookingId).single()
       if (booking) {
-        const customer = booking.profiles || {}
+        let customer = {}
+        if (booking.user_id) {
+          const { data: prof } = await supabase.from('profiles')
+            .select('id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry')
+            .eq('id', booking.user_id).single()
+          if (prof) customer = prof
+        }
         const moto = booking.motorcycles || {}
         const days = Math.max(1, Math.ceil((new Date(booking.end_date) - new Date(booking.start_date)) / 86400000))
         const fmtD = (d) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
