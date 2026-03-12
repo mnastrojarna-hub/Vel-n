@@ -67,7 +67,7 @@
 | Tabulka | Popis |
 |---------|-------|
 | `invoices` | Faktury (type: issued/received/final/proforma/shop_proforma/shop_final/advance/payment_receipt, source: booking/edit/sos/shop/restore) |
-| `document_templates` | Šablony dokumentů (type TEXT, html_content, variables) |
+| `document_templates` | Šablony dokumentů (id uuid, type TEXT, name TEXT, content_html TEXT, active BOOL, version INT, updated_by uuid, created_at, updated_at) |
 | `generated_documents` | Vygenerované dokumenty |
 | `documents` | Nahrané dokumenty (type TEXT — contract, vop, invoice_advance, payment_receipt, invoice_final, invoice_shop, protocol) |
 | `email_templates` | Šablony emailů (slug: booking_reserved, booking_abandoned, booking_cancelled, booking_completed, voucher_purchased, booking_modified) |
