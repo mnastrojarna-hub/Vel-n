@@ -29,7 +29,7 @@ serve(async (req) => {
       .from('document_templates')
       .select('*')
       .eq('type', template_slug)
-      .eq('status', 'active')
+      .eq('active', true)
       .order('version', { ascending: false })
       .limit(1).single()
 
@@ -75,10 +75,10 @@ serve(async (req) => {
       booking_id: booking_id.slice(0, 8),
       booking_number: booking_id.slice(0, 8).toUpperCase(),
       today: fmtDate(new Date().toISOString()),
-      company_name: 'MotoGo24 s.r.o.',
-      company_address: 'Mezná 9, 393 01 Pelhřimov',
-      company_ico: '12345678',
-      company_dic: 'CZ12345678',
+      company_name: 'Bc. Petra Semorádová',
+      company_address: 'Mezná 9, 393 01 Mezná',
+      company_ico: '21874263',
+      company_dic: '',
     }
 
     // Substitute variables in template HTML
