@@ -160,9 +160,10 @@ export default function BookingDetail() {
           console.error('[Invoice] DP error:', e.message)
           invoiceErrors.push(`DP: ${e.message}`)
         }
-        // Edge functions for rental contract + confirmation email (non-blocking)
+        // Edge functions for rental contract + VOP + confirmation email (non-blocking)
         Promise.allSettled([
           supabase.functions.invoke('generate-document', { body: { template_slug: 'rental_contract', booking_id: id } }),
+          supabase.functions.invoke('generate-document', { body: { template_slug: 'vop', booking_id: id } }),
           supabase.functions.invoke('send-booking-email', { body: { ...emailBody, type: 'booking_reserved' } }),
         ]).catch(() => {})
       } else if (newStatus === 'active') {
@@ -185,10 +186,12 @@ export default function BookingDetail() {
             }
           }
         } catch (e) { console.error('[Invoice] check existing:', e.message) }
-        // Generate rental contract if not already generated
-        supabase.functions.invoke('generate-document', { body: { template_slug: 'rental_contract', booking_id: id } }).catch(() => {})
-        // Generate handover protocol (edge function, non-blocking)
-        supabase.functions.invoke('generate-document', { body: { template_slug: 'handover_protocol', booking_id: id } }).catch(() => {})
+        // Generate rental contract + VOP + handover protocol if not already generated (non-blocking)
+        Promise.allSettled([
+          supabase.functions.invoke('generate-document', { body: { template_slug: 'rental_contract', booking_id: id } }),
+          supabase.functions.invoke('generate-document', { body: { template_slug: 'vop', booking_id: id } }),
+          supabase.functions.invoke('generate-document', { body: { template_slug: 'handover_protocol', booking_id: id } }),
+        ]).catch(() => {})
       } else if (newStatus === 'completed') {
         // Ensure ZF/DP exist before generating KF (covers edge cases where earlier steps were skipped)
         try {
