@@ -4,6 +4,7 @@ import { debugAction } from '../../lib/debugLog'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import SOSTimeline from './SOSTimeline'
+import SOSWorkflowStepper from './SOSWorkflowStepper'
 import { TYPE_LABELS, TYPE_ICONS, SEVERITY_MAP, STATUS_COLORS } from '../SOSPanel'
 
 const DECISION_LABELS = {
@@ -59,6 +60,8 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
   const [showRejectForm, setShowRejectForm] = useState(false)
   const [replacementMoto, setReplacementMoto] = useState(null)
   const [motoInService, setMotoInService] = useState(false)
+  const [timelineActions, setTimelineActions] = useState([])
+  const [policeNumber, setPoliceNumber] = useState(incident?.police_report_number || '')
 
   useEffect(() => {
     // Reset all state when incident changes to prevent stale view
@@ -73,12 +76,22 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
     loadAdmins()
     loadReplacementMoto()
     loadIncidentNotes()
+    loadTimelineActions()
     setAdminNotes(incident.admin_notes || '')
     setResolution(incident.resolution || '')
+    setPoliceNumber(incident.police_report_number || '')
     setShowRejectForm(false)
     setRejectReason('')
     setNoteText('')
   }, [incident?.id])
+
+  async function loadTimelineActions() {
+    const { data } = await supabase
+      .from('sos_timeline')
+      .select('action')
+      .eq('incident_id', incident.id)
+    setTimelineActions((data || []).map(d => d.action || ''))
+  }
 
   async function loadIncidentNotes() {
     setIncidentNotes([])
@@ -625,6 +638,155 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
         )}
       </Card>
 
+      {/* === WORKFLOW STEPPER === */}
+      <SOSWorkflowStepper
+        incident={incident}
+        timelineActions={timelineActions}
+        motoInService={motoInService || moto?.status === 'maintenance'}
+      />
+
+      {/* === AKČNÍ PANEL — kontextová tlačítka dle typu === */}
+      {isActive && (
+        <Card>
+          <h4 className="text-[10px] font-extrabold uppercase tracking-wider mb-3" style={{ color: '#1a2e22' }}>
+            Akce pro tento incident
+          </h4>
+          <div className="flex flex-wrap gap-2">
+            {/* Kontaktovat zákazníka */}
+            <WorkflowBtn
+              label="Zákazník kontaktován"
+              icon="📞"
+              done={timelineActions.some(a => a.toLowerCase().includes('kontaktován'))}
+              onClick={async () => {
+                const { data: { user } } = await supabase.auth.getUser()
+                await supabase.from('sos_timeline').insert({
+                  incident_id: incident.id,
+                  action: 'Zákazník telefonicky kontaktován',
+                  performed_by: user?.email || 'Admin', admin_id: user?.id,
+                })
+                loadTimelineActions()
+                onRefresh?.()
+              }}
+            />
+
+            {/* Odtah — pro těžké nehody a poruchy */}
+            {(incident.type === 'accident_major' || incident.type === 'breakdown_major' || incident.type === 'theft') && (
+              <WorkflowBtn
+                label="Odeslat odtah"
+                icon="🚛"
+                done={!!incident.tow_requested || timelineActions.some(a => a.toLowerCase().includes('dtah'))}
+                onClick={async () => {
+                  if (!window.confirm('Potvrdit objednání odtahové služby?')) return
+                  await supabase.from('sos_incidents').update({ tow_requested: true }).eq('id', incident.id)
+                  const { data: { user } } = await supabase.auth.getUser()
+                  await supabase.from('sos_timeline').insert({
+                    incident_id: incident.id,
+                    action: 'Odtahová služba objednána a odeslána na místo',
+                    performed_by: user?.email || 'Admin', admin_id: user?.id,
+                  })
+                  loadTimelineActions()
+                  onRefresh?.()
+                }}
+              />
+            )}
+
+            {/* Policie — pro krádeže a nehody */}
+            {(incident.type === 'theft' || isAccident) && (
+              <WorkflowBtn
+                label="Policie kontaktována"
+                icon="🚔"
+                done={!!incident.police_report_number || timelineActions.some(a => a.toLowerCase().includes('olicie'))}
+                onClick={async () => {
+                  const num = window.prompt('Zadejte číslo policejního spisu (nebo nechte prázdné):')
+                  if (num === null) return
+                  const updates = {}
+                  if (num.trim()) updates.police_report_number = num.trim()
+                  if (Object.keys(updates).length > 0) {
+                    await supabase.from('sos_incidents').update(updates).eq('id', incident.id)
+                    setPoliceNumber(num.trim())
+                  }
+                  const { data: { user } } = await supabase.auth.getUser()
+                  await supabase.from('sos_timeline').insert({
+                    incident_id: incident.id,
+                    action: `Policie ČR kontaktována${num.trim() ? `, číslo spisu: ${num.trim()}` : ''}`,
+                    performed_by: user?.email || 'Admin', admin_id: user?.id,
+                  })
+                  loadTimelineActions()
+                  onRefresh?.()
+                }}
+              />
+            )}
+
+            {/* Pojišťovna — pro nehody */}
+            {isAccident && (
+              <WorkflowBtn
+                label="Kontaktovat pojišťovnu"
+                icon="🏦"
+                done={timelineActions.some(a => a.toLowerCase().includes('ojišťovn'))}
+                onClick={async () => {
+                  if (!window.confirm('Potvrdit kontaktování pojišťovny?')) return
+                  const { data: { user } } = await supabase.auth.getUser()
+                  await supabase.from('sos_timeline').insert({
+                    incident_id: incident.id,
+                    action: 'Pojišťovna kontaktována, hlášena škodná událost',
+                    performed_by: user?.email || 'Admin', admin_id: user?.id,
+                  })
+                  loadTimelineActions()
+                  onRefresh?.()
+                }}
+              />
+            )}
+
+            {/* Motorka do servisu — pro těžké typy */}
+            {(isMajor || incident.type === 'theft') && !motoInService && moto?.status !== 'maintenance' && (
+              <WorkflowBtn
+                label="Motorka do servisu"
+                icon="🔧"
+                done={false}
+                onClick={setMotoToService}
+              />
+            )}
+            {(isMajor || incident.type === 'theft') && (motoInService || moto?.status === 'maintenance') && (
+              <WorkflowBtn label="V servisu" icon="✅" done={true} onClick={() => {}} />
+            )}
+
+            {/* Servis navigace — pro lehké poruchy */}
+            {(incident.type === 'breakdown_minor' || incident.type === 'defect_question') && (
+              <WorkflowBtn
+                label="Navigovat na servis"
+                icon="🗺️"
+                done={!!incident.nearest_service_name || timelineActions.some(a => a.toLowerCase().includes('servis'))}
+                onClick={async () => {
+                  const { data: { user } } = await supabase.auth.getUser()
+                  await supabase.from('sos_timeline').insert({
+                    incident_id: incident.id,
+                    action: 'Zákazník navigován na nejbližší servis',
+                    performed_by: user?.email || 'Admin', admin_id: user?.id,
+                  })
+                  loadTimelineActions()
+                  onRefresh?.()
+                }}
+              />
+            )}
+          </div>
+
+          {/* Číslo policejního spisu — inline input */}
+          {(incident.type === 'theft' || isAccident) && (
+            <div className="flex items-center gap-2 mt-3">
+              <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22', whiteSpace: 'nowrap' }}>
+                Číslo PČR spisu:
+              </span>
+              <input type="text" value={policeNumber} onChange={e => setPoliceNumber(e.target.value)}
+                placeholder="KRPX-12345/ČJ-2026"
+                onBlur={() => saveField('police_report_number', policeNumber)}
+                className="flex-1 rounded-btn text-sm outline-none font-mono"
+                style={{ padding: '5px 10px', background: '#f1faf7', border: '1px solid #d4e8e0' }}
+              />
+            </div>
+          )}
+        </Card>
+      )}
+
       {/* Rozhodnutí zákazníka (u nepojízdných) */}
       {isActive && isMajor && (
         <Card>
@@ -865,7 +1027,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
       )}
 
       {/* Nejbližší servis (pro poruchy a dotazy) */}
-      {(incident.type === 'breakdown_minor' || incident.type === 'defect_question') && (
+      {(incident.type === 'breakdown_minor' || incident.type === 'breakdown_major' || incident.type === 'defect_question') && (
         <Card>
           <h4 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Nejbližší servis</h4>
           <div className="grid grid-cols-1 gap-2">
@@ -1026,6 +1188,24 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
         <SOSTimeline incidentId={incident.id} />
       </Card>
     </div>
+  )
+}
+
+function WorkflowBtn({ label, icon, done, onClick }) {
+  return (
+    <button onClick={done ? undefined : onClick}
+      className="rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none inline-flex items-center gap-1"
+      style={{
+        padding: '6px 14px',
+        background: done ? '#dcfce7' : '#f1faf7',
+        color: done ? '#15803d' : '#1a2e22',
+        border: done ? '1px solid #86efac' : '1px solid #d4e8e0',
+        opacity: done ? 0.7 : 1,
+        cursor: done ? 'default' : 'pointer',
+      }}>
+      <span>{icon}</span>
+      <span>{done ? `${label} ✓` : label}</span>
+    </button>
   )
 }
 

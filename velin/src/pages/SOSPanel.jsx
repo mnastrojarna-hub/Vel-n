@@ -347,15 +347,6 @@ export default function SOSPanel() {
 
   return (
     <>
-    {/* DIAGNOSTIKA */}
-    <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
-      <strong>DIAGNOSTIKA SOSPanel</strong><br/>
-      <div>incidents total: {incidents.length}, active: {active.length}, resolved: {resolved.length}</div>
-      <div>critical/high: {critical.length}, pendingApproval: {pendingApproval.length}, pendingPayment: {pendingPayment.length}</div>
-      <div>filter: {filter}, severityFilter: {severityFilter}, subFilter: {subFilter}</div>
-      <div>displayed: {displayed.length}, selectedIncident: {selectedIncident ? selectedIncident.id?.slice(-8) : 'žádný'}</div>
-      <div>notifications: {notifyEnabled ? 'ON' : 'OFF'}</div>
-    </div>
     <div className="flex gap-5" style={{ minHeight: 'calc(100vh - 100px)' }}>
       {/* Left: incident list */}
       <div className={selectedIncident ? 'w-1/2' : 'w-full'} style={{ transition: 'width .2s' }}>
@@ -727,24 +718,8 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
                   <ActionBtn label="Začít řešit" color="#2563eb" bg="#dbeafe" onClick={() => onUpdateStatus(inc.id, 'in_progress')} />
                 )}
 
-                {/* Akce specifické dle typu */}
-                {(inc.type === 'accident_major' || inc.type === 'breakdown_major') && (
-                  <>
-                    <ActionBtn label="Odeslat odtah" color="#1a2e22" bg="#f1faf7" onClick={() => onAddTimeline(inc.id, 'Odtahová služba kontaktována a odeslána na místo')} />
-                    <ActionBtn label="Přistavit náhr. moto" color="#2563eb" bg="#dbeafe" onClick={() => onAddTimeline(inc.id, 'Náhradní motorka připravena k přistavení')} />
-                  </>
-                )}
-                {(inc.type === 'breakdown_minor' || inc.type === 'defect_question') && (
-                  <ActionBtn label="Navigovat na servis" color="#1a2e22" bg="#f1faf7" onClick={() => onAddTimeline(inc.id, 'Zákazník navigován na nejbližší servis')} />
-                )}
-                {inc.type === 'theft' && (
-                  <ActionBtn label="Policie kontaktována" color="#dc2626" bg="#fee2e2" onClick={() => onAddTimeline(inc.id, 'Policie ČR kontaktována, číslo případu zaznamenáno')} />
-                )}
-                {(inc.type === 'accident_major' || inc.type === 'accident_minor') && (
-                  <ActionBtn label="Kontaktovat pojišťovnu" color="#1a2e22" bg="#f1faf7" onClick={() => onAddTimeline(inc.id, 'Pojišťovna kontaktována, hlášena škodná událost')} />
-                )}
-
-                <ActionBtn label="Zákazník kontaktován" color="#1a2e22" bg="#f1faf7" onClick={() => onAddTimeline(inc.id, 'Zákazník telefonicky kontaktován')} />
+                {/* Akce specifické dle typu — odkaz na detail pro workflow */}
+                <ActionBtn label="Otevřít detail" color="#2563eb" bg="#dbeafe" onClick={() => onSelect()} />
                 <ActionBtn label="Vyřešeno" color="#1a8a18" bg="#dcfce7" onClick={() => onUpdateStatus(inc.id, 'resolved')} />
               </div>
             )}
