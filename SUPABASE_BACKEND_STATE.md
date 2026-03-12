@@ -333,7 +333,7 @@
 | `trg_branches_updated` | branches | update_updated_at() |
 | `trg_shop_orders_updated` | shop_orders | update_updated_at() |
 | `trg_shop_order_number` | shop_orders (INSERT) | generate_shop_order_number() |
-| `trg_check_booking_overlap` | bookings (INSERT/UPDATE) | check_booking_overlap() |
+| `trg_check_booking_overlap` | bookings (INSERT/UPDATE OF start_date, end_date, moto_id) | check_booking_overlap() |
 | `trg_generate_shop_invoice` | shop_orders (payment_status) | generate_shop_invoice() |
 | `moto_day_prices_updated` | moto_day_prices | update_updated_at() |
 | `trg_ai_conversations_updated` | ai_conversations | update_updated_at() |
@@ -349,7 +349,7 @@
 ### Další triggery v reálné DB
 | Trigger | Tabulka | Funkce |
 |---------|---------|--------|
-| `bookings_auto_accounting` | bookings | auto_accounting_on_booking_paid() |
+| `bookings_auto_accounting` | bookings (AFTER UPDATE OF payment_status, WHEN paid) | auto_accounting_on_booking_paid() — EXCEPTION safe |
 | `maintenance_log_after_insert` | maintenance_log | update_moto_after_service() |
 | ~~`sos_auto_reply_on_create`~~ | ~~sos_incidents (INSERT)~~ | **DROPPED 2026-03-10** — crashoval INSERT bez error handleru |
 | Různé `_updated_at` triggery | více tabulek | update_updated_at() |
@@ -567,3 +567,4 @@ Detailní politiky:
 | 2026-03-12 | **NEW: Header banner:** Nový klíč `header_banner` v `app_settings` (jsonb: enabled, text, bg, color). Rotující promo banner v mobilní aplikaci nad logem, editovatelný z Velín dashboardu |
 | 2026-03-12 | **FIX confirm_payment v3 (robust):** Přidáno exception handling — pokud trigger (bookings_auto_accounting) zhavaruje, funkce provede minimální update (payment_status+payment_method) a pak separátní update statusu. Frontend: opraveno parsování RPC jsonb odpovědi (string vs object), přidán 5. fallback tier (minimální update). Edge function: přidán CORS Allow-Methods, robustnější error handling |
 | 2026-03-12 | **FIX header banner:** Frontend: `.single()` → `.maybeSingle()` (nehavaruje když klíč neexistuje). Přidán realtime subscription pro okamžitou aktualizaci banneru. Velín: opraveno načítání banneru |
+| 2026-03-12 | **FIX payment triggers (root cause):** `auto_accounting_on_booking_paid()` přepsán s EXCEPTION handling — crashující trigger blokoval VŠECHNY booking UPDATy (platba vždy zamítnuta). Trigger `bookings_auto_accounting` omezen na `AFTER UPDATE OF payment_status WHEN (NEW='paid' AND OLD IS DISTINCT FROM 'paid')`. Trigger `trg_check_booking_overlap` omezen na `UPDATE OF start_date, end_date, moto_id` (nefiruje při platebních updatech). Edge function: `!amount` → `amount == null` (akceptuje amount=0). Znovuaplikován robust `confirm_payment` s EXCEPTION handling |
