@@ -438,24 +438,8 @@ function _renderUserDataAsync(){
       contactNamePrev.textContent = profile.full_name;
     }
 
-    // Check for pending SOS replacement first
-    return Promise.resolve(apiCheckPendingSosReplacement()).then(function(pendingSos){
-      if(pendingSos){
-        var homeActiveRes = document.getElementById('home-active-res');
-        if(homeActiveRes){
-          var isFault = pendingSos.customer_fault === true;
-          var subText = isFault ? 'Vyberte motorku a zaplaťte →' : 'Vyberte náhradní motorku zdarma →';
-          homeActiveRes.innerHTML = '<div class="ares" onclick="goTo(\'s-sos-replacement\')" style="cursor:pointer;border:2px solid #fca5a5;background:#fee2e2;">' +
-            '<div style="font-size:24px;">🆘</div>' +
-            '<div><div class="ares-n" style="color:#b91c1c;">Nedokončený výběr náhrady</div><div class="ares-s" style="color:#991b1b;">'+subText+'</div></div>' +
-            '<div style="font-size:18px;color:#b91c1c;">›</div></div>';
-        }
-        // Store for SOS replacement flow
-        window._pendingSosIncident = pendingSos;
-        return;
-      }
-      // Active loan banner on home
-      return Promise.resolve(apiGetActiveLoan()).then(function(activeLoan){
+    // Active loan banner on home
+    return Promise.resolve(apiGetActiveLoan()).then(function(activeLoan){
       var homeActiveRes = document.getElementById('home-active-res');
       if(!homeActiveRes) return;
 
@@ -483,6 +467,5 @@ function _renderUserDataAsync(){
         });
       }
     });
-    }); // end apiCheckPendingSosReplacement
   });
 }
