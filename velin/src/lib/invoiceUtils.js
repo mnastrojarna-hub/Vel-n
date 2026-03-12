@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 
 const PREFIX_MAP = {
+  issued: 'FV',
   advance: 'ZF',
   proforma: 'ZF',
   shop_proforma: 'ZF',

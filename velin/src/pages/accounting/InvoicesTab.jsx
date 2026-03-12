@@ -43,7 +43,7 @@ export default function InvoicesTab() {
       debugLog('AccInvoicesTab', 'load', { page, search, typeFilter, sort })
       let query = supabase
         .from('invoices')
-        .select('*, profiles:customer_id(full_name)', { count: 'exact' })
+        .select('*, profiles:customer_id(full_name), bookings:booking_id(modification_history, sos_incident_id)', { count: 'exact' })
       if (search) query = query.or(`number.ilike.%${search}%`)
       if (typeFilter === 'advance') {
         query = query.in('type', ['advance', 'proforma'])
@@ -66,13 +66,33 @@ export default function InvoicesTab() {
   async function generatePdf(invoiceId) {
     try {
       debugLog('AccInvoicesTab', 'generatePdf', { invoiceId })
-      const { data, error } = await debugAction('functions.generate-document', 'AccInvoicesTab', () =>
-        supabase.functions.invoke('generate-document', {
-          body: { type: 'invoice', invoice_id: invoiceId },
-        })
-      )
-      if (error) throw error
-      if (data?.url) window.open(data.url, '_blank')
+      // Generate HTML from local template and open print dialog
+      const { loadInvoiceData } = await import('../../lib/invoiceUtils')
+      const { generateInvoiceHtml } = await import('../../lib/invoiceTemplate')
+      const fullInv = await loadInvoiceData(invoiceId)
+      const html = generateInvoiceHtml({
+        type: fullInv.type,
+        number: fullInv.number,
+        issue_date: fullInv.issue_date,
+        due_date: fullInv.due_date,
+        duzp: fullInv.issue_date,
+        items: fullInv.items || [],
+        subtotal: fullInv.subtotal,
+        tax_amount: fullInv.tax_amount,
+        total: fullInv.total,
+        notes: fullInv.notes,
+        variable_symbol: fullInv.number?.replace(/[^0-9]/g, ''),
+        customer: {
+          name: fullInv.profiles?.full_name,
+          email: fullInv.profiles?.email,
+          phone: fullInv.profiles?.phone,
+          address: [fullInv.profiles?.street, fullInv.profiles?.city, fullInv.profiles?.zip].filter(Boolean).join(', ') || '',
+          ico: fullInv.profiles?.ico,
+          dic: fullInv.profiles?.dic,
+        },
+      })
+      const { printInvoiceHtml } = await import('../../lib/invoiceUtils')
+      printInvoiceHtml(html)
     } catch (e) {
       debugError('AccInvoicesTab', 'generatePdf', e)
       setError('Generování PDF selhalo: ' + e.message)
@@ -103,19 +123,19 @@ export default function InvoicesTab() {
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <SearchInput value={search} onChange={v => { setPage(1); setSearch(v) }} placeholder="Hledat číslo, zákazníka…" />
         <select value={typeFilter} onChange={e => { setPage(1); setTypeFilter(e.target.value) }}
-          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
-          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
           <option value="">Všechny typy</option>
+          <option value="issued">Vystavené (FV)</option>
           <option value="advance">Zálohové (ZF)</option>
           <option value="payment_receipt">Doklady k platbě (DP)</option>
           <option value="final">Konečné (KF)</option>
-          <option value="issued">Vystavené</option>
           <option value="shop_proforma">Shop zálohové</option>
           <option value="shop_final">Shop konečné</option>
         </select>
         <select value={sort} onChange={e => { setPage(1); setSort(e.target.value) }}
-          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
-          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
           <option value="date_desc">Datum ↓ nejnovější</option>
           <option value="date_asc">Datum ↑ nejstarší</option>
           <option value="amount_desc">Částka ↓ nejvyšší</option>
@@ -140,12 +160,21 @@ export default function InvoicesTab() {
               </TRow>
             </thead>
             <tbody>
-              {invoices.map(inv => (
+              {invoices.map(inv => {
+                const isSOS = inv.source === 'sos' || !!inv.bookings?.sos_incident_id
+                const isModified = inv.bookings?.modification_history && Array.isArray(inv.bookings.modification_history) && inv.bookings.modification_history.length > 0
+                return (
                 <tr key={inv.id} onClick={() => setDetailInv(inv)}
                   className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
                   style={{ borderBottom: '1px solid #d4e8e0' }}>
-                  <TD mono bold>{inv.number || '—'}</TD>
-                  <TD><span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded" style={{
+                  <TD mono bold>
+                    <div className="flex items-center gap-1">
+                      {inv.number || '—'}
+                      {isSOS && <span title="SOS faktura" style={{ color: '#dc2626', fontSize: 12, fontWeight: 800 }}>SOS</span>}
+                      {isModified && <span title="Změna rezervace" style={{ color: '#b45309', fontSize: 12, fontWeight: 800 }}>MOD</span>}
+                    </div>
+                  </TD>
+                  <TD><span className="text-sm font-bold uppercase px-1.5 py-0.5 rounded" style={{
                     background: inv.type === 'payment_receipt' ? '#cffafe' : inv.type === 'final' ? '#dcfce7' : '#dbeafe',
                     color: inv.type === 'payment_receipt' ? '#0891b2' : inv.type === 'final' ? '#1a8a18' : '#2563eb'
                   }}>{TYPE_LABELS[inv.type] || inv.type}</span></TD>
@@ -162,7 +191,7 @@ export default function InvoicesTab() {
                     </div>
                   </TD>
                 </tr>
-              ))}
+              )})}
               {invoices.length === 0 && <TRow><TD>Žádné faktury</TD></TRow>}
             </tbody>
           </Table>
@@ -200,7 +229,7 @@ export default function InvoicesTab() {
 function DRow({ label, value, mono }) {
   return (
     <div>
-      <div className="text-[10px] font-extrabold uppercase tracking-wide mb-0.5" style={{ color: '#8aab99' }}>{label}</div>
+      <div className="text-sm font-extrabold uppercase tracking-wide mb-0.5" style={{ color: '#1a2e22' }}>{label}</div>
       <div className={`text-sm font-semibold ${mono ? 'font-mono' : ''}`} style={{ color: '#0f1a14' }}>{value ?? '—'}</div>
     </div>
   )
@@ -208,8 +237,8 @@ function DRow({ label, value, mono }) {
 
 function SmallBtn({ children, onClick }) {
   return (
-    <button onClick={onClick} className="rounded-btn text-[10px] font-extrabold uppercase tracking-wide cursor-pointer"
-      style={{ padding: '3px 8px', background: '#f1faf7', color: '#4a6357', border: 'none' }}>
+    <button onClick={onClick} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+      style={{ padding: '3px 8px', background: '#f1faf7', color: '#1a2e22', border: 'none' }}>
       {children}
     </button>
   )
@@ -218,7 +247,7 @@ function SmallBtn({ children, onClick }) {
 function NewInvoiceModal({ onClose, onSaved }) {
   const [customers, setCustomers] = useState([])
   const [bookings, setBookings] = useState([])
-  const [form, setForm] = useState({ customer_id: '', booking_id: '', type: 'final', total: '', tax_amount: '', due_date: '' })
+  const [form, setForm] = useState({ customer_id: '', booking_id: '', type: 'issued', total: '', tax_amount: '', due_date: '', description: '' })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
 
@@ -247,6 +276,7 @@ function NewInvoiceModal({ onClose, onSaved }) {
         due_date: form.due_date || null,
         issue_date: new Date().toISOString().slice(0, 10),
         status: 'issued',
+        notes: form.description || null,
       })
       if (error) throw error
       const { data: { user } } = await supabase.auth.getUser()
@@ -261,6 +291,7 @@ function NewInvoiceModal({ onClose, onSaved }) {
         <div className="col-span-2">
           <Label>Typ faktury</Label>
           <select value={form.type} onChange={e => set('type', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle}>
+            <option value="issued">Vystavená (FV)</option>
             <option value="advance">Zálohová (ZF)</option>
             <option value="final">Konečná (KF)</option>
             <option value="payment_receipt">Doklad k platbě (DP)</option>
@@ -281,6 +312,11 @@ function NewInvoiceModal({ onClose, onSaved }) {
             <option value="">—</option>
             {bookings.map(b => <option key={b.id} value={b.id}>{b.motorcycles?.model} — {b.start_date}</option>)}
           </select>
+        </div>
+        <div className="col-span-2">
+          <Label>Důvod / popis</Label>
+          <input value={form.description} onChange={e => set('description', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle}
+            placeholder="Oprava poškození, pozdní vrácení, tankování…" />
         </div>
         <div>
           <Label>Částka (Kč)</Label>
@@ -306,5 +342,5 @@ function NewInvoiceModal({ onClose, onSaved }) {
 
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
 function Label({ children }) {
-  return <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{children}</label>
+  return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>
 }

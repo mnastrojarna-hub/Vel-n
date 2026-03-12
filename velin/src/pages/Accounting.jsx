@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react'
 import { debugLog } from '../lib/debugLog'
 import InvoicesTab from './accounting/InvoicesTab'
 import TaxTab from './accounting/TaxTab'
-import CashRegisterTab from './accounting/CashRegisterTab'
+import ReceivedInvoicesTab from './accounting/ReceivedInvoicesTab'
 
-const TABS = ['Faktury', 'Daňové podklady', 'Pokladna']
+const TABS = ['Faktury', 'Daňové podklady', 'Faktury přijaté']
 
 export default function Accounting() {
   const [tab, setTab] = useState('Faktury')
@@ -18,11 +18,11 @@ export default function Accounting() {
           <button
             key={t}
             onClick={() => { debugLog('tab.switch', 'Accounting', { tab: t }); setTab(t) }}
-            className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
+            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
             style={{
               padding: '8px 18px',
               background: tab === t ? '#74FB71' : '#f1faf7',
-              color: tab === t ? '#1a2e22' : '#4a6357',
+              color: tab === t ? '#1a2e22' : '#1a2e22',
               border: 'none',
               boxShadow: tab === t ? '0 4px 16px rgba(116,251,113,.35)' : 'none',
             }}
@@ -34,7 +34,7 @@ export default function Accounting() {
 
       {tab === 'Faktury' && <InvoicesTab />}
       {tab === 'Daňové podklady' && <TaxTab />}
-      {tab === 'Pokladna' && <CashRegisterTab />}
+      {tab === 'Faktury přijaté' && <ReceivedInvoicesTab />}
     </div>
   )
 }

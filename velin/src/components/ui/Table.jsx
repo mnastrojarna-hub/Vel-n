@@ -22,8 +22,8 @@ export function TRow({ children, header = false }) {
 export function TH({ children }) {
   return (
     <th
-      className="text-left text-[10px] font-extrabold uppercase tracking-wide"
-      style={{ padding: '10px 14px', color: '#8aab99' }}
+      className="text-left text-sm font-extrabold uppercase tracking-wide"
+      style={{ padding: '10px 14px', color: '#1a2e22' }}
     >
       {children}
     </th>

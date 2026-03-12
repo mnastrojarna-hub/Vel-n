@@ -95,7 +95,7 @@ export default function Topbar() {
         </h1>
       </div>
       <div className="flex items-center gap-5">
-        <div className="text-xs font-semibold hidden sm:block" style={{ color: '#8aab99' }}>
+        <div className="text-sm font-semibold hidden sm:block" style={{ color: '#1a2e22' }}>
           {time.toLocaleDateString('cs-CZ', {
             weekday: 'long',
             day: 'numeric',
@@ -134,11 +134,11 @@ export default function Topbar() {
           {dropdownOpen && (
             <div className="absolute right-0 top-full mt-2 z-50 rounded-card shadow-card bg-white"
               style={{ width: 280, border: '1px solid #d4e8e0' }}>
-              <div className="p-3 text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99', borderBottom: '1px solid #d4e8e0' }}>
+              <div className="p-3 text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22', borderBottom: '1px solid #d4e8e0' }}>
                 Notifikace
               </div>
               {notifItems.length === 0 ? (
-                <div className="p-4 text-center text-xs" style={{ color: '#8aab99' }}>Žádné notifikace</div>
+                <div className="p-4 text-center text-sm" style={{ color: '#1a2e22' }}>Žádné notifikace</div>
               ) : (
                 notifItems.map((n, i) => (
                   <div key={i}
@@ -146,7 +146,7 @@ export default function Topbar() {
                     className="flex items-center gap-2 cursor-pointer transition-colors hover:bg-[#f1faf7]"
                     style={{ padding: '10px 14px', borderBottom: '1px solid #d4e8e0' }}>
                     <span className="text-base">{n.icon}</span>
-                    <span className="text-xs font-bold" style={{ color: n.color }}>{n.text}</span>
+                    <span className="text-sm font-bold" style={{ color: n.color }}>{n.text}</span>
                   </div>
                 ))
               )}

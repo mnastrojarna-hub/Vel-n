@@ -180,11 +180,22 @@ async function apiProcessPayment(bookingId, amount, method){
 
   // 3) Poslední fallback: přímý DB update (select pro ověření)
   try {
-    var r = await window.supabase.from('bookings').update({
+    // Zjisti start_date pro určení cílového stavu
+    var bk = await window.supabase.from('bookings').select('start_date').eq('id', bookingId).single();
+    var startsToday = false;
+    if(bk.data && bk.data.start_date){
+      var sd = new Date(bk.data.start_date); sd.setHours(0,0,0,0);
+      var today = new Date(); today.setHours(0,0,0,0);
+      startsToday = sd <= today;
+    }
+    var updateData = {
       payment_status: 'paid',
       payment_method: payMethod,
-      status: 'active'
-    }).eq('id', bookingId).select('id').single();
+      status: startsToday ? 'active' : 'reserved',
+      confirmed_at: new Date().toISOString()
+    };
+    if(startsToday) updateData.picked_up_at = new Date().toISOString();
+    var r = await window.supabase.from('bookings').update(updateData).eq('id', bookingId).select('id').single();
     if(!r.error && r.data){
       console.log('[API] Payment confirmed via direct DB update');
       return {success:true};
@@ -349,6 +360,26 @@ async function apiModifyBooking(bookingId, changes){
     if(r.error) return {error: r.error.message};
     return {error:null};
   } catch(e){ return {error:'Chyba při úpravě rezervace'}; }
+}
+
+// ===== ACTIVE BOOKING CHECK – zákazník smí mít max 1 aktivní/rezervovanou rezervaci =====
+async function apiCheckActiveBookingExists(excludeBookingId){
+  _ensureSupabase();
+  if(!window.supabase) return {exists:false};
+  try {
+    var uid = await _getUserId();
+    if(!uid) return {exists:false};
+    var q = window.supabase.from('bookings')
+      .select('id, start_date, end_date, status')
+      .eq('user_id', uid)
+      .in('status', ['reserved','active']);
+    if(excludeBookingId) q = q.neq('id', excludeBookingId);
+    var r = await q;
+    if(r.data && r.data.length > 0){
+      return {exists:true, existing: r.data[0]};
+    }
+    return {exists:false};
+  } catch(e){ console.error('[API] apiCheckActiveBookingExists:', e); return {exists:false}; }
 }
 
 // ===== OVERLAP CHECK – zákazník nesmí mít překrývající se rezervace =====
@@ -661,26 +692,40 @@ async function apiAutoGenerateBookingDocs(bookingId){
     // Check if docs already exist for this booking
     var existing = await window.supabase.from('documents')
       .select('type').eq('booking_id', bookingId).eq('user_id', uid)
-      .in('type', ['contract', 'vop', 'protocol']);
+      .in('type', ['contract', 'vop']);
     var existingTypes = (existing.data || []).map(function(d){ return d.type; });
-    var docsToInsert = [];
+
+    // Generate contract via edge function (creates generated_documents + syncs to documents via trigger)
     if(existingTypes.indexOf('contract') === -1){
-      docsToInsert.push({
-        booking_id: bookingId, user_id: uid, type: 'contract',
-        file_name: 'Smlouva o pronájmu.pdf',
-        file_path: 'contracts/' + bookingId + '_contract.html'
-      });
+      try {
+        await window.supabase.functions.invoke('generate-document', {
+          body: { template_slug: 'rental_contract', booking_id: bookingId }
+        });
+        console.log('[API] Contract generated via edge function');
+      } catch(e){
+        console.warn('[API] Contract edge fn failed, inserting fallback:', e.message);
+        await window.supabase.from('documents').insert({
+          booking_id: bookingId, user_id: uid, type: 'contract',
+          file_name: 'Smlouva o pronájmu.pdf',
+          file_path: 'contracts/' + bookingId + '_contract.html'
+        });
+      }
     }
+    // Generate VOP via edge function
     if(existingTypes.indexOf('vop') === -1){
-      docsToInsert.push({
-        booking_id: bookingId, user_id: uid, type: 'vop',
-        file_name: 'Všeobecné obchodní podmínky.pdf',
-        file_path: 'documents/vop_current.html'
-      });
-    }
-    // Protocol is auto-generated on rental start date, NOT at booking time
-    if(docsToInsert.length > 0){
-      await window.supabase.from('documents').insert(docsToInsert);
+      try {
+        await window.supabase.functions.invoke('generate-document', {
+          body: { template_slug: 'vop', booking_id: bookingId }
+        });
+        console.log('[API] VOP generated via edge function');
+      } catch(e){
+        console.warn('[API] VOP edge fn failed, inserting fallback:', e.message);
+        await window.supabase.from('documents').insert({
+          booking_id: bookingId, user_id: uid, type: 'vop',
+          file_name: 'Všeobecné obchodní podmínky.pdf',
+          file_path: 'documents/vop_current.html'
+        });
+      }
     }
   } catch(e){ console.error('[API] autoGenerateBookingDocs:', e); }
 }

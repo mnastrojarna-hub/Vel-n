@@ -45,7 +45,7 @@ serve(async (req) => {
     // Load booking with relations
     const { data: booking, error: bErr } = await supabase
       .from('bookings')
-      .select('*, motorcycles(model, spz, vin, year), profiles(id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry)')
+      .select('*, motorcycles(model, spz, vin, year), profiles:user_id(id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry)')
       .eq('id', booking_id).single()
     if (bErr || !booking) return new Response(JSON.stringify({ error: 'Booking not found' }), { status: 404 })
 
@@ -82,7 +82,7 @@ serve(async (req) => {
     }
 
     // Substitute variables in template HTML
-    let htmlContent = template?.html_content || getFallbackTemplate(template_slug) || ''
+    let htmlContent = template?.content_html || template?.html_content || getFallbackTemplate(template_slug) || ''
     for (const [key, val] of Object.entries(vars)) {
       htmlContent = htmlContent.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val)
     }

@@ -108,23 +108,23 @@ export default function Customers() {
       <div className="flex flex-wrap items-center gap-3 mb-5">
         <SearchInput value={search} onChange={v => { setPage(1); setSearch(v) }} placeholder="Hledat jméno, email, telefon…" />
         <select value={filters.sortBy} onChange={e => setF('sortBy', e.target.value)}
-          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
-          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
           <option value="full_name">Dle jména</option>
           <option value="created_at">Dle registrace</option>
           <option value="city">Dle města</option>
           <option value="country">Dle země</option>
         </select>
         <select value={filters.sortDir} onChange={e => setF('sortDir', e.target.value)}
-          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
-          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
           <option value="asc">↑ Vzestupně</option>
           <option value="desc">↓ Sestupně</option>
         </select>
         <button onClick={() => setShowFilters(!showFilters)}
-          className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
-          style={{ padding: '8px 14px', background: showFilters ? '#74FB71' : '#f1faf7', border: '1px solid #d4e8e0', color: showFilters ? '#1a2e22' : '#4a6357' }}>
-          ☰ Filtry {activeFilterCount > 0 && <span className="ml-1 inline-block rounded-full text-[10px]" style={{ background: '#74FB71', color: '#1a2e22', padding: '1px 6px' }}>{activeFilterCount}</span>}
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+          style={{ padding: '8px 14px', background: showFilters ? '#74FB71' : '#f1faf7', border: '1px solid #d4e8e0', color: showFilters ? '#1a2e22' : '#1a2e22' }}>
+          ☰ Filtry {activeFilterCount > 0 && <span className="ml-1 inline-block rounded-full text-sm" style={{ background: '#74FB71', color: '#1a2e22', padding: '1px 6px' }}>{activeFilterCount}</span>}
         </button>
         <div className="ml-auto">
           <Button green onClick={() => setShowAdd(true)}>+ Nový zákazník</Button>
@@ -134,8 +134,8 @@ export default function Customers() {
       {showFilters && (
         <div className="mb-5 p-4 rounded-card" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-extrabold uppercase tracking-wide" style={{ color: '#4a6357' }}>Rozšířené filtry</span>
-            <button onClick={resetFilters} className="text-[10px] font-bold cursor-pointer underline" style={{ color: '#8aab99' }}>Resetovat</button>
+            <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Rozšířené filtry</span>
+            <button onClick={resetFilters} className="text-sm font-bold cursor-pointer underline" style={{ color: '#1a2e22' }}>Resetovat</button>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <FilterField label="Město" value={filters.city} onChange={v => setF('city', v)} />
@@ -169,7 +169,7 @@ export default function Customers() {
       )}
 
       {/* DIAGNOSTIKA */}
-      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA Customers</strong><br/>
         <div>profiles: {customers.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
         <div>filtry: search="{search}", city="{filters.city}", country={filters.country || 'vše'}, licenseGroup={filters.licenseGroup || 'vše'}</div>
@@ -226,13 +226,13 @@ export default function Customers() {
 }
 
 function FLabel({ children }) {
-  return <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{children}</label>
+  return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>
 }
 function FSelect({ value, onChange, options }) {
   return (
     <select value={value} onChange={e => onChange(e.target.value)}
-      className="w-full rounded-btn text-xs outline-none cursor-pointer"
-      style={{ padding: '7px 10px', background: '#fff', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+      className="w-full rounded-btn text-sm outline-none cursor-pointer"
+      style={{ padding: '7px 10px', background: '#fff', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
   )
@@ -242,8 +242,8 @@ function FilterField({ label, value, onChange, type = 'text' }) {
     <div>
       <FLabel>{label}</FLabel>
       <input type={type} value={value} onChange={e => onChange(e.target.value)}
-        className="w-full rounded-btn text-xs outline-none"
-        style={{ padding: '7px 10px', background: '#fff', border: '1px solid #d4e8e0', color: '#4a6357' }} />
+        className="w-full rounded-btn text-sm outline-none"
+        style={{ padding: '7px 10px', background: '#fff', border: '1px solid #d4e8e0', color: '#1a2e22' }} />
     </div>
   )
 }
@@ -295,7 +295,7 @@ function AddCustomerModal({ onClose, onSaved }) {
 function Field({ label, value, onChange }) {
   return (
     <div>
-      <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{label}</label>
+      <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</label>
       <input value={value} onChange={e => onChange(e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
     </div>
   )

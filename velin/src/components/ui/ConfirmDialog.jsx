@@ -20,7 +20,7 @@ export default function ConfirmDialog({ open, title, message, onConfirm, onCance
         >
           {title}
         </h3>
-        <p className="mb-6" style={{ fontSize: 13, color: '#4a6357', lineHeight: 1.6 }}>
+        <p className="mb-6" style={{ fontSize: 13, color: '#1a2e22', lineHeight: 1.6 }}>
           {message}
         </p>
         <div className="flex gap-3 justify-end">

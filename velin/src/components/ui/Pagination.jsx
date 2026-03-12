@@ -15,25 +15,25 @@ export default function Pagination({ page, totalPages, onPageChange }) {
       <button
         onClick={() => onPageChange(page - 1)}
         disabled={page <= 1}
-        className="rounded-btn text-xs font-extrabold cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-        style={{ padding: '6px 14px', background: '#f1faf7', color: '#4a6357', border: 'none' }}
+        className="rounded-btn text-sm font-extrabold cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+        style={{ padding: '6px 14px', background: '#f1faf7', color: '#1a2e22', border: 'none' }}
       >
         ←
       </button>
       {pages.map((p, i) =>
         p === '...' ? (
-          <span key={`dots-${i}`} style={{ padding: '6px 8px', color: '#8aab99', fontSize: 12 }}>
+          <span key={`dots-${i}`} style={{ padding: '6px 8px', color: '#1a2e22', fontSize: 12 }}>
             …
           </span>
         ) : (
           <button
             key={p}
             onClick={() => onPageChange(p)}
-            className="rounded-btn text-xs font-extrabold cursor-pointer"
+            className="rounded-btn text-sm font-extrabold cursor-pointer"
             style={{
               padding: '6px 14px',
               background: p === page ? '#74FB71' : '#f1faf7',
-              color: p === page ? '#1a2e22' : '#4a6357',
+              color: p === page ? '#1a2e22' : '#1a2e22',
               border: 'none',
               boxShadow: p === page ? '0 4px 16px rgba(116,251,113,.35)' : 'none',
             }}
@@ -45,8 +45,8 @@ export default function Pagination({ page, totalPages, onPageChange }) {
       <button
         onClick={() => onPageChange(page + 1)}
         disabled={page >= totalPages}
-        className="rounded-btn text-xs font-extrabold cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-        style={{ padding: '6px 14px', background: '#f1faf7', color: '#4a6357', border: 'none' }}
+        className="rounded-btn text-sm font-extrabold cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+        style={{ padding: '6px 14px', background: '#f1faf7', color: '#1a2e22', border: 'none' }}
       >
         →
       </button>

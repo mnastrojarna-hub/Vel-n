@@ -67,7 +67,7 @@
 | Tabulka | Popis |
 |---------|-------|
 | `invoices` | Faktury (type: issued/received/final/proforma/shop_proforma/shop_final/advance/payment_receipt, source: booking/edit/sos/shop/restore) |
-| `document_templates` | Šablony dokumentů (type TEXT, html_content, variables) |
+| `document_templates` | Šablony dokumentů (id uuid, type TEXT, name TEXT, content_html TEXT, active BOOL, version INT, updated_by uuid, created_at, updated_at) |
 | `generated_documents` | Vygenerované dokumenty |
 | `documents` | Nahrané dokumenty (type TEXT — contract, vop, invoice_advance, payment_receipt, invoice_final, invoice_shop, protocol) |
 | `email_templates` | Šablony emailů (slug: booking_reserved, booking_abandoned, booking_cancelled, booking_completed, voucher_purchased, booking_modified) |
@@ -285,7 +285,7 @@
 | `expire_vouchers()` | Automatická expirace voucherů (pg_cron) |
 | `expire_vouchers_and_promos()` | Expirace voucherů + deaktivace promo kódů po valid_to |
 | `auto_cancel_expired_pending()` | Auto-cancel pending+unpaid bookings (app: 10min, web: 4h). SECURITY DEFINER |
-| `confirm_payment(booking_id, method)` | RPC: označí booking jako zaplacený |
+| `confirm_payment(booking_id, method)` | RPC: označí booking jako zaplacený. start_date<=dnes → pending→**active** (+picked_up_at), start_date>dnes → pending→**reserved** (+confirmed_at). SECURITY DEFINER |
 | `confirm_shop_payment(order_id, method)` | RPC: označí shop objednávku jako zaplacenou (SECURITY DEFINER) |
 | `check_booking_overlap()` | Trigger funkce: kontrola překrytí rezervací |
 | `generate_shop_invoice()` | Trigger funkce: auto-faktura při zaplacení shop objednávky (type='shop_final', source='shop', SECURITY DEFINER) |
@@ -551,4 +551,5 @@ Detailní politiky:
 | 2026-03-11 | **FIX license_group enum:** Přidána hodnota `N` (nevyžaduje ŘP) do enumu `license_group` — oprava chyby při ukládání dětských motorek s `license_required = 'N'` |
 | 2026-03-11 | **NEW: Smluvní texty v document_templates:** Seed 3 šablon — VOP (type=`vop`), Nájemní smlouva (type=`rental_contract`), Předávací protokol (type=`handover_protocol`) s kompletními právními texty jako HTML. Velín: nový tab „Smluvní texty" v Dokumenty. BookingDocumentsTab nyní načítá šablony z DB místo hardcoded HTML |
 | 2026-03-11 | **FIX check_one_active_sos:** Změna logiky z per-user na per-booking. Kontrola: max 1 závažný aktivní incident (typ NOT IN breakdown_minor, defect_question, location_share, other) na jednu aktivní rezervaci (status reserved/active). Lehké incidenty nejsou omezeny. Pokud incident nemá booking_id, fallback na per-user kontrolu |
+| 2026-03-12 | **FIX confirm_payment:** Podmíněný přechod stavu dle start_date: start_date <= dnes → `pending→active` (pronájem začíná), start_date > dnes → `pending→reserved` (nadcházející). Nastavení `confirmed_at`, při active i `picked_up_at` |
 | 2026-03-12 | **NEW: Auto-cancel pending bookings:** Přidán sloupec `bookings.booking_source` (text, default 'app'). Nová funkce `auto_cancel_expired_pending()` (SECURITY DEFINER) — ruší pending+unpaid: app po 10 min, web po 4h. pg_cron job `auto-cancel-pending-bookings` každé 2 minuty |

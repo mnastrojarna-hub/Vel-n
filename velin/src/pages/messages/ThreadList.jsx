@@ -14,6 +14,35 @@ export default function ThreadList({ selectedId, onSelect, onNewThread }) {
 
   useEffect(() => { load() }, [search, sortBy])
 
+  // Client-side sort for fields from joined tables
+  function sortThreads(data) {
+    if (!data) return []
+    const sorted = [...data]
+    switch (sortBy) {
+      case 'customer':
+        return sorted.sort((a, b) => {
+          const nameA = (a.profiles?.full_name || '').toLowerCase()
+          const nameB = (b.profiles?.full_name || '').toLowerCase()
+          return nameA.localeCompare(nameB, 'cs')
+        })
+      case 'subject':
+        return sorted.sort((a, b) => {
+          const subA = (a.subject || '').toLowerCase()
+          const subB = (b.subject || '').toLowerCase()
+          if (!subA && !subB) return new Date(b.last_message_at) - new Date(a.last_message_at)
+          if (!subA) return 1
+          if (!subB) return -1
+          const cmp = subA.localeCompare(subB, 'cs')
+          if (cmp !== 0) return cmp
+          return new Date(b.last_message_at) - new Date(a.last_message_at)
+        })
+      case 'created_at':
+        return sorted.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      default: // last_message_at
+        return sorted.sort((a, b) => new Date(b.last_message_at || b.created_at) - new Date(a.last_message_at || a.created_at))
+    }
+  }
+
   async function load() {
     setLoading(true)
     try {
@@ -21,11 +50,11 @@ export default function ThreadList({ selectedId, onSelect, onNewThread }) {
       let query = supabase
         .from('message_threads')
         .select('*, profiles(full_name, email)')
-        .order(sortBy === 'customer' ? 'customer_id' : 'last_message_at', { ascending: sortBy === 'customer' })
+        .order('last_message_at', { ascending: false })
       if (search) query = query.or(`profiles.full_name.ilike.%${search}%,profiles.email.ilike.%${search}%`)
       const { data, error } = await debugAction('message_threads.list', 'ThreadList', () => query)
       if (error) throw error
-      setThreads(data || [])
+      setThreads(sortThreads(data || []))
       setLoading(false)
 
       // Load unread counts per thread
@@ -67,17 +96,18 @@ export default function ThreadList({ selectedId, onSelect, onNewThread }) {
     <div className="flex flex-col h-full">
       <div className="p-3" style={{ borderBottom: '1px solid #d4e8e0' }}>
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-[10px] font-extrabold uppercase tracking-wide flex-1" style={{ color: '#8aab99' }}>
+          <span className="text-sm font-extrabold uppercase tracking-wide flex-1" style={{ color: '#1a2e22' }}>
             Konverzace
           </span>
           <Button green small onClick={onNewThread}>+ Nová</Button>
         </div>
         <SearchInput value={search} onChange={setSearch} placeholder="Hledat…" />
         <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-          className="w-full rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none mt-2"
-          style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+          className="w-full rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none mt-2"
+          style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
           <option value="last_message_at">Dle poslední zprávy</option>
-          <option value="customer">Dle zákazníka</option>
+          <option value="customer">Dle zákazníka (A-Z)</option>
+          <option value="subject">Dle předmětu (A-Z)</option>
           <option value="created_at">Dle data vytvoření</option>
         </select>
       </div>
@@ -87,17 +117,41 @@ export default function ThreadList({ selectedId, onSelect, onNewThread }) {
             <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-brand-gd" />
           </div>
         ) : threads.length === 0 ? (
-          <div className="p-4 text-center" style={{ color: '#8aab99', fontSize: 13 }}>Žádné konverzace</div>
+          <div className="p-4 text-center" style={{ color: '#1a2e22', fontSize: 13 }}>Žádné konverzace</div>
         ) : (
-          threads.map(t => (
-            <ThreadItem
-              key={t.id}
-              thread={t}
-              selected={t.id === selectedId}
-              unreadCount={unreadCounts[t.id] || 0}
-              onClick={() => onSelect(t)}
-            />
-          ))
+          threads.map((t, idx) => {
+            // Group headers for customer/subject sort
+            let groupHeader = null
+            if (sortBy === 'customer') {
+              const name = t.profiles?.full_name || 'Neznámý zákazník'
+              const prev = idx > 0 ? (threads[idx - 1].profiles?.full_name || 'Neznámý zákazník') : null
+              if (idx === 0 || name !== prev) {
+                groupHeader = name
+              }
+            } else if (sortBy === 'subject') {
+              const subj = t.subject || 'Bez předmětu'
+              const prev = idx > 0 ? (threads[idx - 1].subject || 'Bez předmětu') : null
+              if (idx === 0 || subj !== prev) {
+                groupHeader = subj
+              }
+            }
+            return (
+              <div key={t.id}>
+                {groupHeader && (
+                  <div className="text-[10px] font-extrabold uppercase tracking-wider px-4 py-2"
+                    style={{ background: '#f1faf7', color: '#1a2e22', borderBottom: '1px solid #d4e8e0' }}>
+                    {groupHeader}
+                  </div>
+                )}
+                <ThreadItem
+                  thread={t}
+                  selected={t.id === selectedId}
+                  unreadCount={unreadCounts[t.id] || 0}
+                  onClick={() => onSelect(t)}
+                />
+              </div>
+            )
+          })
         )}
       </div>
     </div>
@@ -134,22 +188,22 @@ function ThreadItem({ thread, selected, unreadCount, onClick }) {
             {unreadCount}
           </span>
         )}
-        <span className="ml-auto text-[10px]" style={{ color: '#8aab99' }}>
+        <span className="ml-auto text-sm" style={{ color: '#1a2e22' }}>
           {thread.last_message_at ? new Date(thread.last_message_at).toLocaleDateString('cs-CZ') : ''}
         </span>
       </div>
-      <div className="text-xs mt-1 truncate" style={{ color: '#8aab99' }}>
+      <div className="text-sm mt-1 truncate" style={{ color: '#1a2e22' }}>
         {thread.profiles?.email || ''}
       </div>
       <div className="flex items-center gap-1.5 mt-1">
         {thread.subject && (
-          <span className="text-xs truncate" style={{ color: '#4a6357', fontWeight: hasUnread ? 600 : 400 }}>
+          <span className="text-sm truncate" style={{ color: '#1a2e22', fontWeight: hasUnread ? 600 : 400 }}>
             {thread.subject}
           </span>
         )}
         {isClosed && (
           <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded"
-            style={{ background: '#f3f4f6', color: '#8aab99' }}>
+            style={{ background: '#f3f4f6', color: '#1a2e22' }}>
             uzavřeno
           </span>
         )}

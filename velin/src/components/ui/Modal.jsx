@@ -43,7 +43,7 @@ export default function Modal({ open, onClose, title, children, wide = false, no
               width: 32,
               height: 32,
               fontSize: 18,
-              color: '#8aab99',
+              color: '#1a2e22',
             }}
           >
             ✕

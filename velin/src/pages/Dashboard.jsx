@@ -163,19 +163,19 @@ export default function Dashboard() {
           <div className="text-[13px] font-extrabold mb-2.5" style={{ color: '#0f1a14' }}>📈 Tržby dle měsíců (Kč)</div>
           <MiniChart data={revenueChart} color="#1a8a18" height={70} />
           <div className="flex justify-between mt-1.5">
-            {MONTHS.map((m, i) => <span key={i} className="text-[8px] font-bold" style={{ color: '#8aab99' }}>{m}</span>)}
+            {MONTHS.map((m, i) => <span key={i} className="text-[8px] font-bold" style={{ color: '#1a2e22' }}>{m}</span>)}
           </div>
         </Card>
         <Card>
           <div className="text-[13px] font-extrabold mb-2.5" style={{ color: '#0f1a14' }}>📅 Nejbližší události</div>
           {upcomingEvents.length === 0 ? (
-            <div className="text-xs font-medium py-4 text-center" style={{ color: '#8aab99' }}>Žádné nadcházející události</div>
+            <div className="text-sm font-medium py-4 text-center" style={{ color: '#1a2e22' }}>Žádné nadcházející události</div>
           ) : upcomingEvents.map(event => (
             <div key={event.id} className="flex items-center mb-1.5"
               style={{ padding: '8px 10px', background: '#f1faf7', borderRadius: 12, fontSize: 12 }}>
               <div className="flex-1">
                 <div className="font-bold" style={{ color: '#0f1a14' }}>{event.customer_name || 'Zákazník'}</div>
-                <div className="text-[11px]" style={{ color: '#8aab99' }}>
+                <div className="text-sm" style={{ color: '#1a2e22' }}>
                   {event.motorcycle_name || 'Motorka'} · {event.start_date}→{event.end_date}
                 </div>
               </div>
@@ -194,15 +194,15 @@ export default function Dashboard() {
             <div className="flex items-center gap-3">
               <div className="text-2xl font-black" style={{ color: '#dc2626' }}>{stats.activeSos}</div>
               <div>
-                <div className="text-xs font-bold" style={{ color: '#dc2626' }}>aktivních incidentů</div>
+                <div className="text-sm font-bold" style={{ color: '#dc2626' }}>aktivních incidentů</div>
                 {stats.sosCritical > 0 && (
-                  <div className="text-[10px] font-extrabold uppercase tracking-wide mt-0.5 animate-pulse" style={{ color: '#dc2626' }}>
+                  <div className="text-sm font-extrabold uppercase tracking-wide mt-0.5 animate-pulse" style={{ color: '#dc2626' }}>
                     {stats.sosCritical} kritických!
                   </div>
                 )}
               </div>
             </div>
-          ) : <div className="text-xs font-medium" style={{ color: '#1a8a18' }}>Žádné aktivní incidenty</div>}
+          ) : <div className="text-sm font-medium" style={{ color: '#1a8a18' }}>Žádné aktivní incidenty</div>}
         </Card>
         <Card>
           <div className="text-[13px] font-extrabold mb-2.5" style={{ color: '#0f1a14' }}>🏛️ Blížící se STK</div>
@@ -211,10 +211,10 @@ export default function Dashboard() {
               {stats.stkExpiring.slice(0, 4).map(m => {
                 const days = Math.ceil((new Date(m.stk_valid_until) - new Date()) / 86400000)
                 return (
-                  <div key={m.id} className="flex items-center text-xs"
+                  <div key={m.id} className="flex items-center text-sm"
                     style={{ padding: '6px 10px', background: days < 0 ? '#fee2e2' : '#fef3c7', borderRadius: 8 }}>
                     <span className="font-bold" style={{ color: '#0f1a14' }}>{m.model}</span>
-                    <span className="ml-2 font-mono text-[10px]" style={{ color: '#8aab99' }}>{m.spz}</span>
+                    <span className="ml-2 font-mono text-sm" style={{ color: '#1a2e22' }}>{m.spz}</span>
                     <span className="ml-auto font-bold" style={{ color: days < 0 ? '#dc2626' : '#b45309' }}>
                       {days < 0 ? `${Math.abs(days)} dní po` : `za ${days} dní`}
                     </span>
@@ -222,7 +222,7 @@ export default function Dashboard() {
                 )
               })}
             </div>
-          ) : <div className="text-xs font-medium" style={{ color: '#1a8a18' }}>✅ Žádné STK nevyprší v nejbližších 30 dnech</div>}
+          ) : <div className="text-sm font-medium" style={{ color: '#1a8a18' }}>✅ Žádné STK nevyprší v nejbližších 30 dnech</div>}
         </Card>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
@@ -230,19 +230,19 @@ export default function Dashboard() {
           <div className="text-[13px] font-extrabold mb-2.5" style={{ color: '#0f1a14' }}>💰 Finance — měsíční přehled</div>
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-lg" style={{ padding: '10px 14px', background: '#dcfce7' }}>
-              <div className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>Příjmy</div>
+              <div className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Příjmy</div>
               <div className="text-lg font-extrabold" style={{ color: '#1a8a18' }}>{formatCurrency(financeData.revenue)}</div>
             </div>
             <div className="rounded-lg" style={{ padding: '10px 14px', background: '#fee2e2' }}>
-              <div className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>Výdaje</div>
+              <div className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Výdaje</div>
               <div className="text-lg font-extrabold" style={{ color: '#dc2626' }}>{formatCurrency(financeData.expense)}</div>
             </div>
             <div className="rounded-lg" style={{ padding: '10px 14px', background: financeData.profit >= 0 ? '#f0fdf4' : '#fef2f2' }}>
-              <div className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>Zisk</div>
+              <div className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Zisk</div>
               <div className="text-lg font-extrabold" style={{ color: financeData.profit >= 0 ? '#1a8a18' : '#dc2626' }}>{formatCurrency(financeData.profit)}</div>
             </div>
             <div className="rounded-lg" style={{ padding: '10px 14px', background: '#fef3c7' }}>
-              <div className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>Neuhrazené</div>
+              <div className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Neuhrazené</div>
               <div className="text-lg font-extrabold" style={{ color: '#b45309' }}>{formatCurrency(financeData.unpaid)}</div>
             </div>
           </div>
@@ -250,13 +250,13 @@ export default function Dashboard() {
       </div>
       {stats.lowStock > 0 && (
         <div className="flex gap-2.5 mt-4 flex-wrap">
-          <div className="text-xs font-bold" style={{ background: '#fef3c7', borderRadius: 50, padding: '8px 18px', color: '#92400e' }}>
+          <div className="text-sm font-bold" style={{ background: '#fef3c7', borderRadius: 50, padding: '8px 18px', color: '#92400e' }}>
             ⚠️ {stats.lowStock} položek pod minimem
           </div>
         </div>
       )}
       {/* DIAGNOSTIKA */}
-      <div className="mt-4 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+      <div className="mt-4 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA Dashboard</strong><br/>
         <div>motorcycles: {stats.totalMotos} (active: {stats.activeMotos}, využití: {stats.utilization}%)</div>
         <div>bookings (active/pending): {stats.activeBookings}/{stats.pendingBookings}</div>

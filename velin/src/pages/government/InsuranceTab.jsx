@@ -43,7 +43,7 @@ export default function InsuranceTab() {
             <TD mono>{m.spz || '—'}</TD>
             <TD>{m.insurance_price ? `${m.insurance_price.toLocaleString('cs-CZ')} Kč` : '—'}</TD>
             <TD>
-              <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase" style={{
+              <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase" style={{
                 padding: '4px 10px',
                 background: m.status === 'active' || m.status === 'rented' ? '#dcfce7' : '#fef3c7',
                 color: m.status === 'active' || m.status === 'rented' ? '#1a8a18' : '#b45309',

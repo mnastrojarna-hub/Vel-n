@@ -32,12 +32,12 @@ export function FleetUtilization() {
 
   return (
     <Card>
-      <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Vytíženost flotily</h3>
+      <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Vytíženost flotily</h3>
       <ResponsiveContainer width="100%" height={250}>
         <LineChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="#d4e8e0" />
-          <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#8aab99' }} angle={-20} textAnchor="end" height={50} />
-          <YAxis tick={{ fontSize: 10, fill: '#8aab99' }} unit="%" />
+          <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#1a2e22' }} angle={-20} textAnchor="end" height={50} />
+          <YAxis tick={{ fontSize: 13, fill: '#1a2e22' }} unit="%" />
           <Tooltip formatter={(v) => `${v}%`} />
           <Line type="monotone" dataKey="využití" stroke="#74FB71" strokeWidth={2} dot={{ fill: '#74FB71' }} />
         </LineChart>
@@ -69,12 +69,12 @@ export function TopMotoRevenue() {
 
   return (
     <Card>
-      <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Top 5 motorek (tržby)</h3>
+      <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Top 5 motorek (tržby)</h3>
       <ResponsiveContainer width="100%" height={200}>
         <BarChart data={data} layout="vertical">
           <CartesianGrid strokeDasharray="3 3" stroke="#d4e8e0" />
-          <XAxis type="number" tick={{ fontSize: 10, fill: '#8aab99' }} />
-          <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 10, fill: '#8aab99' }} />
+          <XAxis type="number" tick={{ fontSize: 13, fill: '#1a2e22' }} />
+          <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 13, fill: '#1a2e22' }} />
           <Tooltip formatter={(v) => `${v.toLocaleString('cs-CZ')} Kč`} />
           <Bar dataKey="tržby" radius={[0, 4, 4, 0]}>
             {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
@@ -108,12 +108,12 @@ export function BranchComparison() {
 
   return (
     <Card>
-      <h3 className="text-[10px] font-extrabold uppercase tracking-wide mb-3" style={{ color: '#8aab99' }}>Pobočky — srovnání</h3>
+      <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Pobočky — srovnání</h3>
       <ResponsiveContainer width="100%" height={250}>
         <BarChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="#d4e8e0" />
-          <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#8aab99' }} />
-          <YAxis tick={{ fontSize: 10, fill: '#8aab99' }} />
+          <XAxis dataKey="name" tick={{ fontSize: 13, fill: '#1a2e22' }} />
+          <YAxis tick={{ fontSize: 13, fill: '#1a2e22' }} />
           <Tooltip />
           <Bar dataKey="tržby" fill="#74FB71" radius={[4, 4, 0, 0]} />
           <Bar dataKey="rezervace" fill="#93c5fd" radius={[4, 4, 0, 0]} />

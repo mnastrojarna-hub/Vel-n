@@ -16,7 +16,7 @@ export default function ProtectedRoute({ user, loading, adminLoading, adminError
               borderTopColor: '#74FB71',
             }}
           />
-          <div className="text-sm font-semibold" style={{ color: '#8aab99' }}>
+          <div className="text-sm font-semibold" style={{ color: '#1a2e22' }}>
             Načítání...
           </div>
         </div>
@@ -42,7 +42,7 @@ export default function ProtectedRoute({ user, loading, adminLoading, adminError
           <h2 className="text-lg font-black mb-2" style={{ color: '#0f1a14' }}>
             Přístup odepřen
           </h2>
-          <p className="text-sm font-medium mb-4" style={{ color: '#8aab99' }}>
+          <p className="text-sm font-medium mb-4" style={{ color: '#1a2e22' }}>
             {adminError}
           </p>
           <button

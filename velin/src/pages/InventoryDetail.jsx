@@ -105,17 +105,17 @@ export default function InventoryDetail() {
 
   if (loading) return <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
   if (error && !item) return <div className="p-4 rounded-card" style={{ background: '#fee2e2', color: '#dc2626' }}>{error}</div>
-  if (!item) return <div className="p-4" style={{ color: '#8aab99' }}>Položka nenalezena</div>
+  if (!item) return <div className="p-4" style={{ color: '#1a2e22' }}>Položka nenalezena</div>
 
   const isLow = item.stock <= item.min_stock
 
   return (
     <div>
       <div className="flex items-center gap-3 mb-5">
-        <button onClick={() => navigate('/sklady')} className="cursor-pointer" style={{ background: 'none', border: 'none', fontSize: 18, color: '#8aab99' }}>←</button>
+        <button onClick={() => navigate('/sklady')} className="cursor-pointer" style={{ background: 'none', border: 'none', fontSize: 18, color: '#1a2e22' }}>←</button>
         <h2 className="font-extrabold text-lg" style={{ color: '#0f1a14' }}>{item.name}</h2>
-        <span className="text-xs font-mono" style={{ color: '#8aab99' }}>{item.sku}</span>
-        <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase"
+        <span className="text-sm font-mono" style={{ color: '#1a2e22' }}>{item.sku}</span>
+        <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
           style={{ padding: '4px 10px', background: isLow ? '#fee2e2' : '#dcfce7', color: isLow ? '#dc2626' : '#1a8a18' }}>
           Sklad: {item.stock ?? 0}
         </span>
@@ -123,8 +123,8 @@ export default function InventoryDetail() {
 
       <div className="flex gap-2 mb-5">
         {['Info', 'Pohyby'].map(t => (
-          <button key={t} onClick={() => setTab(t)} className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
-            style={{ padding: '8px 18px', background: tab === t ? '#74FB71' : '#f1faf7', color: tab === t ? '#1a2e22' : '#4a6357', border: 'none', boxShadow: tab === t ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>
+          <button key={t} onClick={() => setTab(t)} className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+            style={{ padding: '8px 18px', background: tab === t ? '#74FB71' : '#f1faf7', color: tab === t ? '#1a2e22' : '#1a2e22', border: 'none', boxShadow: tab === t ? '0 4px 16px rgba(116,251,113,.35)' : 'none' }}>
             {t}
           </button>
         ))}
@@ -154,18 +154,18 @@ export default function InventoryDetail() {
 
       {tab === 'Pohyby' && (
         <Card>
-          {movements.length === 0 ? <p style={{ color: '#8aab99', fontSize: 13 }}>Žádné pohyby</p> : (
+          {movements.length === 0 ? <p style={{ color: '#1a2e22', fontSize: 13 }}>Žádné pohyby</p> : (
             <div className="space-y-3">
               {movements.map(m => (
                 <div key={m.id} className="flex items-center gap-4 p-3 rounded-lg" style={{ background: '#f1faf7' }}>
                   <MovementBadge type={m.type} />
                   <div className="flex-1">
                     <span className="text-sm font-bold">{m.note || '—'}</span>
-                    <span className="text-xs ml-3" style={{ color: '#8aab99' }}>
+                    <span className="text-sm ml-3" style={{ color: '#1a2e22' }}>
                       {m.created_at ? new Date(m.created_at).toLocaleDateString('cs-CZ') : '—'}
                     </span>
                   </div>
-                  <span className="text-sm font-bold" style={{ color: m.type === 'receipt' ? '#1a8a18' : m.type === 'issue' ? '#dc2626' : '#4a6357' }}>
+                  <span className="text-sm font-bold" style={{ color: m.type === 'receipt' ? '#1a8a18' : m.type === 'issue' ? '#dc2626' : '#1a2e22' }}>
                     {m.type === 'receipt' ? '+' : m.type === 'issue' ? '−' : '='}{m.quantity}
                   </span>
                 </div>
@@ -185,7 +185,7 @@ export default function InventoryDetail() {
 function Field({ label, value, onChange, type = 'text', disabled = false }) {
   return (
     <div>
-      <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{label}</label>
+      <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</label>
       <input type={type} value={value || ''} onChange={e => onChange?.(e.target.value)} disabled={disabled} className="w-full rounded-btn text-sm outline-none disabled:opacity-50" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
     </div>
   )
@@ -195,11 +195,11 @@ function MovementBadge({ type }) {
   const map = {
     receipt: { label: 'Příjem', bg: '#dcfce7', color: '#1a8a18' },
     issue: { label: 'Výdej', bg: '#fee2e2', color: '#dc2626' },
-    correction: { label: 'Korekce', bg: '#f3f4f6', color: '#6b7280' },
+    correction: { label: 'Korekce', bg: '#f3f4f6', color: '#1a2e22' },
   }
   const s = map[type] || map.correction
   return (
-    <span className="inline-block rounded-btn text-[10px] font-extrabold tracking-wide uppercase"
+    <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
       style={{ padding: '4px 10px', background: s.bg, color: s.color }}>
       {s.label}
     </span>
@@ -223,17 +223,17 @@ function MovementModal({ type, currentStock, onSave, onClose }) {
     <Modal open title={labels[type]} onClose={onClose}>
       <div className="space-y-3">
         {type === 'correction' && (
-          <p className="text-xs" style={{ color: '#8aab99' }}>Aktuální stav: {currentStock}. Zadejte nový stav.</p>
+          <p className="text-sm" style={{ color: '#1a2e22' }}>Aktuální stav: {currentStock}. Zadejte nový stav.</p>
         )}
         <div>
-          <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>
+          <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>
             {type === 'correction' ? 'Nový stav' : 'Množství'}
           </label>
           <input type="number" value={quantity} onChange={e => setQuantity(e.target.value)}
             className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
         </div>
         <div>
-          <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Poznámka</label>
+          <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Poznámka</label>
           <input type="text" value={note} onChange={e => setNote(e.target.value)}
             className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
         </div>

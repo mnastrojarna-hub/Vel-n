@@ -14,11 +14,11 @@ const TYPE_MAP = {
 }
 
 const STATUS_MAP = {
-  draft: { label: 'Koncept', color: '#6b7280', bg: '#f3f4f6' },
+  draft: { label: 'Koncept', color: '#1a2e22', bg: '#f3f4f6' },
   issued: { label: 'Vystavena', color: '#b45309', bg: '#fef3c7' },
   paid: { label: 'Zaplacena', color: '#1a8a18', bg: '#dcfce7' },
   cancelled: { label: 'Stornována', color: '#dc2626', bg: '#fee2e2' },
-  refunded: { label: 'Refundována', color: '#6b7280', bg: '#f3f4f6' },
+  refunded: { label: 'Refundována', color: '#1a2e22', bg: '#f3f4f6' },
 }
 
 export default function InvoicePreviewModal({ invoice, onClose, onUpdated }) {
@@ -160,7 +160,7 @@ export default function InvoicePreviewModal({ invoice, onClose, onUpdated }) {
       </div>
 
       {msg && (
-        <div className="mb-3 p-2 rounded-lg text-xs font-bold" style={{
+        <div className="mb-3 p-2 rounded-lg text-sm font-bold" style={{
           background: msg.type === 'error' ? '#fee2e2' : msg.type === 'warn' ? '#fef3c7' : '#dcfce7',
           color: msg.type === 'error' ? '#dc2626' : msg.type === 'warn' ? '#92400e' : '#1a8a18',
         }}>{msg.text}</div>
@@ -170,7 +170,7 @@ export default function InvoicePreviewModal({ invoice, onClose, onUpdated }) {
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : editItems ? (
         <div>
-          <p className="text-[10px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#8aab99' }}>Upravit položky</p>
+          <p className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Upravit položky</p>
           {items.map((it, i) => (
             <div key={i} className="flex gap-2 mb-2">
               <input value={it.description} onChange={e => { const n = [...items]; n[i] = { ...n[i], description: e.target.value }; setItems(n) }}

@@ -166,20 +166,20 @@ export default function Fleet() {
             { value: 'mileage_asc', label: 'Km ↑ nejnižší' },
           ]}
         />
-        <label className="flex items-center gap-1.5 cursor-pointer rounded-btn text-xs font-extrabold uppercase tracking-wide"
-          style={{ padding: '8px 14px', background: filters.occupiedToday ? '#74FB71' : '#f1faf7', border: '1px solid #d4e8e0', color: filters.occupiedToday ? '#1a2e22' : '#4a6357' }}>
+        <label className="flex items-center gap-1.5 cursor-pointer rounded-btn text-sm font-extrabold uppercase tracking-wide"
+          style={{ padding: '8px 14px', background: filters.occupiedToday ? '#74FB71' : '#f1faf7', border: '1px solid #d4e8e0', color: filters.occupiedToday ? '#1a2e22' : '#1a2e22' }}>
           <input type="checkbox" checked={filters.occupiedToday} onChange={e => { setPage(1); setFilters(f => ({ ...f, occupiedToday: e.target.checked })) }} className="accent-[#1a8a18]" />
           Dnes obsazené
         </label>
         <div className="flex items-center gap-1">
-          <span className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>Od</span>
+          <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Od</span>
           <input type="date" value={filters.occupiedFrom} onChange={e => { setPage(1); setFilters(f => ({ ...f, occupiedFrom: e.target.value })) }}
-            className="rounded-btn text-xs outline-none cursor-pointer"
-            style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }} />
-          <span className="text-[10px] font-extrabold uppercase tracking-wide" style={{ color: '#8aab99' }}>Do</span>
+            className="rounded-btn text-sm outline-none cursor-pointer"
+            style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }} />
+          <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Do</span>
           <input type="date" value={filters.occupiedTo} onChange={e => { setPage(1); setFilters(f => ({ ...f, occupiedTo: e.target.value })) }}
-            className="rounded-btn text-xs outline-none cursor-pointer"
-            style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }} />
+            className="rounded-btn text-sm outline-none cursor-pointer"
+            style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }} />
         </div>
         <div className="ml-auto">
           <Button green onClick={() => setShowAdd(true)}>+ Nová motorka</Button>
@@ -194,7 +194,7 @@ export default function Fleet() {
       )}
 
       {/* DIAGNOSTIKA */}
-      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA Fleet</strong><br/>
         <div>motorcycles: {motos.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
         <div>filtry: status={filters.status || 'vše'}, branch={filters.branch || 'vše'}, category={filters.category || 'vše'}, search="{filters.search}", sort={filters.sort}</div>
@@ -227,9 +227,9 @@ export default function Fleet() {
                 >
                   <TD>
                     {thumb ? (
-                      <img src={thumb} alt={m.model} style={{ width: 48, height: 36, objectFit: 'cover', borderRadius: 6, background: '#f1faf7' }} onError={e => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<div style="width:48px;height:36px;border-radius:6px;background:#f1faf7;display:flex;align-items:center;justify-content:center;font-size:16px;color:#8aab99">🏍️</div>' }} />
+                      <img src={thumb} alt={m.model} style={{ width: 48, height: 36, objectFit: 'cover', borderRadius: 6, background: '#f1faf7' }} onError={e => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<div style="width:48px;height:36px;border-radius:6px;background:#f1faf7;display:flex;align-items:center;justify-content:center;font-size:16px;color:#1a2e22">🏍️</div>' }} />
                     ) : (
-                      <div style={{ width: 48, height: 36, borderRadius: 6, background: '#f1faf7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: '#8aab99' }}>🏍️</div>
+                      <div style={{ width: 48, height: 36, borderRadius: 6, background: '#f1faf7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: '#1a2e22' }}>🏍️</div>
                     )}
                   </TD>
                   <TD bold>{m.model}</TD>
@@ -243,7 +243,7 @@ export default function Fleet() {
                   <TD>
                     <button
                       onClick={e => { e.stopPropagation(); setActionMoto(m) }}
-                      className="rounded-btn text-[10px] font-extrabold uppercase cursor-pointer"
+                      className="rounded-btn text-sm font-extrabold uppercase cursor-pointer"
                       style={{ padding: '4px 10px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>
                       Správa
                     </button>
@@ -271,8 +271,8 @@ function FilterSelect({ value, onChange, options }) {
     <select
       value={value}
       onChange={e => onChange(e.target.value)}
-      className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer outline-none"
-      style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}
+      className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+      style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}
     >
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
@@ -365,14 +365,14 @@ function AddMotoModal({ branches, onClose, onSaved }) {
         <FormField label="SPZ" value={form.spz} onChange={v => set('spz', v)} />
         <FormField label="VIN" value={form.vin} onChange={v => set('vin', v)} />
         <div>
-          <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Kategorie</label>
+          <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Kategorie</label>
           <select value={form.category} onChange={e => set('category', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
             <option value="">—</option>
             {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
           </select>
         </div>
         <div>
-          <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>Pobočka</label>
+          <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Pobočka</label>
           <select value={form.branch_id} onChange={e => set('branch_id', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
             <option value="">—</option>
             {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -383,7 +383,7 @@ function AddMotoModal({ branches, onClose, onSaved }) {
       </div>
 
       {/* Servisní intervaly */}
-      <h4 className="text-[10px] font-extrabold uppercase tracking-widest mt-5 mb-3" style={{ color: '#8aab99' }}>Servisní intervaly</h4>
+      <h4 className="text-sm font-extrabold uppercase tracking-widest mt-5 mb-3" style={{ color: '#1a2e22' }}>Servisní intervaly</h4>
       <div className="grid grid-cols-2 gap-3">
         <FormField label="Olej — interval (km)" value={form.oil_interval_km} onChange={v => set('oil_interval_km', v)} type="number" />
         <FormField label="Olej — interval (dní)" value={form.oil_interval_days} onChange={v => set('oil_interval_days', v)} type="number" />
@@ -405,7 +405,7 @@ function AddMotoModal({ branches, onClose, onSaved }) {
 function FormField({ label, value, onChange, type = 'text' }) {
   return (
     <div>
-      <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{label}</label>
+      <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</label>
       <input type={type} value={value} onChange={e => onChange(e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
     </div>
   )

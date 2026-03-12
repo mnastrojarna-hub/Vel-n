@@ -1,20 +1,33 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { createInvoice, calculateTotals } from '../../lib/invoiceUtils'
+import { generateInvoiceHtml } from '../../lib/invoiceTemplate'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
 
+const REASON_PRESETS = [
+  'Oprava poškození',
+  'Pozdní vrácení',
+  'Tankování',
+  'Mytí motorky',
+  'Spoluúčast na pojistné události',
+  'Ztráta klíčů',
+  'Nadměrný nájezd km',
+]
+
 export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking }) {
   const [customers, setCustomers] = useState([])
   const [bookings, setBookings] = useState([])
   const [form, setForm] = useState({
-    type: 'proforma',
+    type: 'issued',
     customer_id: '',
     booking_id: prefillBooking || '',
     due_date: '',
     notes: '',
+    description: '',
+    send_email: true,
   })
   const [items, setItems] = useState([
     { description: '', qty: 1, unit_price: 0 },
@@ -24,7 +37,7 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
 
   useEffect(() => {
     supabase.from('profiles').select('id, full_name, email').order('full_name').then(({ data }) => setCustomers(data || []))
-    supabase.from('bookings').select('id, start_date, end_date, total_price, profiles(full_name), motorcycles(model)')
+    supabase.from('bookings').select('id, start_date, end_date, total_price, contract_url, profiles(full_name, email), motorcycles(model), sos_incident_id, modification_history')
       .order('start_date', { ascending: false }).limit(50).then(({ data }) => setBookings(data || []))
   }, [])
 
@@ -60,22 +73,61 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
     setItems(prev => prev.filter((_, i) => i !== idx))
   }
 
+  function applyPreset(preset) {
+    set('description', preset)
+    if (items.length === 1 && !items[0].description) {
+      setItems([{ description: preset, qty: 1, unit_price: 0 }])
+    }
+  }
+
   const { subtotal, taxAmount, total } = calculateTotals(items)
   const fmt = (n) => n.toLocaleString('cs-CZ', { minimumFractionDigits: 2 }) + ' Kč'
+
+  // Find contract number from selected booking
+  const selectedBooking = bookings.find(x => x.id === form.booking_id)
+  const contractNumber = selectedBooking?.contract_url ? selectedBooking.id.slice(0, 8).toUpperCase() : null
 
   async function handleSave() {
     if (!form.customer_id) return setErr('Vyberte zákazníka.')
     if (items.length === 0 || !items[0].description) return setErr('Přidejte alespoň jednu položku.')
     setSaving(true); setErr(null)
     try {
-      await createInvoice({
+      const notesWithDesc = [form.description, form.notes].filter(Boolean).join(' — ')
+      const invoice = await createInvoice({
         type: form.type,
         customer_id: form.customer_id,
         booking_id: form.booking_id || null,
         items,
-        notes: form.notes,
+        notes: notesWithDesc,
         due_date: form.due_date || null,
+        source: selectedBooking?.sos_incident_id ? 'sos' : 'edit',
       })
+
+      // Auto-send email to customer
+      if (form.send_email && invoice) {
+        const customer = customers.find(c => c.id === form.customer_id)
+        if (customer?.email) {
+          try {
+            // Try edge function first
+            const { error: efErr } = await supabase.functions.invoke('send-email', {
+              body: { type: 'invoice', invoice_id: invoice.id },
+            })
+            if (efErr) {
+              // Fallback: queue in sent_emails
+              await supabase.from('sent_emails').insert({
+                template_slug: 'invoice',
+                recipient_email: customer.email,
+                recipient_id: form.customer_id,
+                booking_id: form.booking_id || null,
+                subject: `Faktura ${invoice.number} — MotoGo24`,
+                body_html: `<p>Dobrý den, byla Vám vystavena faktura č. ${invoice.number} na částku ${fmt(total)}.</p>`,
+                status: 'queued',
+              })
+            }
+          } catch {} // non-blocking
+        }
+      }
+
       onSaved()
     } catch (e) { setErr(e.message) } finally { setSaving(false) }
   }
@@ -84,21 +136,26 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
     <Modal open title="Nová faktura" onClose={onClose} wide noBackdropClose>
       <div className="space-y-4">
         {/* Type selector */}
-        <div className="flex gap-2">
-          {[
-            { value: 'proforma', label: 'Zálohová' },
-            { value: 'final', label: 'Konečná' },
-            { value: 'shop_proforma', label: 'Shop zálohová' },
-            { value: 'shop_final', label: 'Shop konečná' },
-          ].map(t => (
-            <button key={t.value} onClick={() => set('type', t.value)}
-              className="rounded-btn text-xs font-extrabold uppercase tracking-wide cursor-pointer"
-              style={{
-                padding: '6px 14px', border: 'none',
-                background: form.type === t.value ? '#74FB71' : '#f1faf7',
-                color: form.type === t.value ? '#1a2e22' : '#4a6357',
-              }}>{t.label}</button>
-          ))}
+        <div>
+          <Label>Typ faktury</Label>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { value: 'issued', label: 'Vystavená (FV)' },
+              { value: 'proforma', label: 'Zálohová (ZF)' },
+              { value: 'final', label: 'Konečná (KF)' },
+              { value: 'payment_receipt', label: 'Doklad k platbě (DP)' },
+              { value: 'shop_proforma', label: 'Shop zálohová' },
+              { value: 'shop_final', label: 'Shop konečná' },
+            ].map(t => (
+              <button key={t.value} onClick={() => set('type', t.value)}
+                className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+                style={{
+                  padding: '6px 14px', border: 'none',
+                  background: form.type === t.value ? '#74FB71' : '#f1faf7',
+                  color: form.type === t.value ? '#1a2e22' : '#1a2e22',
+                }}>{t.label}</button>
+            ))}
+          </div>
         </div>
 
         {/* Customer + Booking */}
@@ -125,6 +182,30 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
           </div>
         </div>
 
+        {/* Contract number info */}
+        {contractNumber && (
+          <div className="p-2 rounded-lg text-sm" style={{ background: '#dbeafe', color: '#1e40af' }}>
+            Smlouva: <span className="font-bold font-mono">{contractNumber}</span>
+          </div>
+        )}
+
+        {/* Description / reason */}
+        <div>
+          <Label>Důvod / popis faktury</Label>
+          <input value={form.description} onChange={e => set('description', e.target.value)}
+            className="w-full rounded-btn text-sm outline-none" style={inputStyle}
+            placeholder="Např. oprava poškození, pozdní vrácení…" />
+          <div className="flex flex-wrap gap-1 mt-2">
+            {REASON_PRESETS.map(p => (
+              <button key={p} onClick={() => applyPreset(p)}
+                className="text-sm cursor-pointer rounded-btn"
+                style={{ padding: '3px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Items */}
         <div>
           <Label>Položky faktury</Label>
@@ -132,10 +213,10 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr style={{ background: '#f1faf7' }}>
-                  <th style={{ padding: '6px 8px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: '#8aab99' }}>Popis</th>
-                  <th style={{ padding: '6px 8px', textAlign: 'center', fontSize: 10, fontWeight: 700, color: '#8aab99', width: 60 }}>Ks</th>
-                  <th style={{ padding: '6px 8px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: '#8aab99', width: 100 }}>Cena/ks</th>
-                  <th style={{ padding: '6px 8px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: '#8aab99', width: 90 }}>Celkem</th>
+                  <th style={{ padding: '6px 8px', textAlign: 'left', fontSize: 13, fontWeight: 700, color: '#1a2e22' }}>Popis</th>
+                  <th style={{ padding: '6px 8px', textAlign: 'center', fontSize: 13, fontWeight: 700, color: '#1a2e22', width: 60 }}>Ks</th>
+                  <th style={{ padding: '6px 8px', textAlign: 'right', fontSize: 13, fontWeight: 700, color: '#1a2e22', width: 100 }}>Cena/ks</th>
+                  <th style={{ padding: '6px 8px', textAlign: 'right', fontSize: 13, fontWeight: 700, color: '#1a2e22', width: 90 }}>Celkem</th>
                   <th style={{ width: 32 }} />
                 </tr>
               </thead>
@@ -169,7 +250,7 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
               </tbody>
             </table>
           </div>
-          <button onClick={addItem} className="mt-2 text-xs font-bold cursor-pointer"
+          <button onClick={addItem} className="mt-2 text-sm font-bold cursor-pointer"
             style={{ background: 'none', border: 'none', color: '#2563eb' }}>+ Přidat položku</button>
         </div>
 
@@ -179,7 +260,7 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
             <div className="flex justify-between py-1 font-bold text-sm" style={{ borderTop: '2px solid #1a8a18', color: '#1a8a18' }}>
               <span>Celkem:</span><span>{fmt(total)}</span>
             </div>
-            <div className="py-1" style={{ color: '#888', fontSize: 10 }}>Cena je konečná — neplátce DPH</div>
+            <div className="py-1" style={{ color: '#1a2e22', fontSize: 13 }}>Cena je konečná — neplátce DPH</div>
           </div>
         </div>
 
@@ -196,6 +277,14 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
               className="w-full rounded-btn text-sm outline-none" style={inputStyle} placeholder="Volitelná poznámka…" />
           </div>
         </div>
+
+        {/* Send email toggle */}
+        <div className="flex items-center gap-2">
+          <input type="checkbox" id="send_email" checked={form.send_email} onChange={e => set('send_email', e.target.checked)} />
+          <label htmlFor="send_email" className="text-sm font-bold cursor-pointer" style={{ color: '#1a2e22' }}>
+            Automaticky odeslat zákazníkovi (email + notifikace)
+          </label>
+        </div>
       </div>
 
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}
@@ -208,5 +297,5 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
 }
 
 function Label({ children }) {
-  return <label className="block text-[10px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#8aab99' }}>{children}</label>
+  return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>
 }

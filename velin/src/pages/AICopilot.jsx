@@ -114,7 +114,7 @@ export default function AICopilot() {
   return (
     <>
     {/* DIAGNOSTIKA */}
-    <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 11, fontFamily: 'monospace', color: '#78350f' }}>
+    <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
       <strong>DIAGNOSTIKA AICopilot</strong><br/>
       <div>conversations: {conversations.length}, activeConv: {activeConv ? activeConv.id?.slice(-8) : 'žádná'}</div>
       <div>messages: {messages.length}, sending: {String(sending)}</div>
@@ -124,7 +124,7 @@ export default function AICopilot() {
       {/* Conversation list */}
       <div className="flex-shrink-0 flex flex-col" style={{ width: 240, borderRight: '1px solid #d4e8e0' }}>
         <div className="p-3" style={{ borderBottom: '1px solid #d4e8e0' }}>
-          <Button green onClick={startNew} style={{ width: '100%', fontSize: 11, padding: '6px 12px' }}>+ Nová konverzace</Button>
+          <Button green onClick={startNew} style={{ width: '100%', fontSize: 13, padding: '6px 12px' }}>+ Nová konverzace</Button>
         </div>
         <div className="flex-1 overflow-auto">
           {conversations.map(c => (
@@ -139,8 +139,8 @@ export default function AICopilot() {
                 borderLeft: activeConv?.id === c.id ? '3px solid #74FB71' : '3px solid transparent',
               }}
             >
-              <div className="text-xs font-bold truncate" style={{ color: '#0f1a14' }}>{c.title || 'Konverzace'}</div>
-              <div className="text-[10px] mt-0.5" style={{ color: '#8aab99' }}>
+              <div className="text-sm font-bold truncate" style={{ color: '#0f1a14' }}>{c.title || 'Konverzace'}</div>
+              <div className="text-sm mt-0.5" style={{ color: '#1a2e22' }}>
                 {c.updated_at ? new Date(c.updated_at).toLocaleDateString('cs-CZ') : ''}
               </div>
             </div>
@@ -152,7 +152,7 @@ export default function AICopilot() {
       <div className="flex-1 flex flex-col">
         <div className="p-4 flex items-center" style={{ borderBottom: '1px solid #d4e8e0' }}>
           <span className="text-sm font-extrabold" style={{ color: '#0f1a14' }}>AI Copilot</span>
-          <span className="ml-2 text-xs" style={{ color: '#8aab99' }}>— Asistent pro řízení MotoGo24</span>
+          <span className="ml-2 text-sm" style={{ color: '#1a2e22' }}>— Asistent pro řízení MotoGo24</span>
         </div>
 
         <div className="flex-1 overflow-auto p-4 space-y-3" style={{ background: '#f8fcfa' }}>
@@ -160,14 +160,14 @@ export default function AICopilot() {
             <div className="text-center py-12">
               <div className="text-3xl mb-3">🤖</div>
               <div className="text-sm font-bold" style={{ color: '#0f1a14' }}>Jak vám mohu pomoci?</div>
-              <div className="text-xs mt-1" style={{ color: '#8aab99' }}>
+              <div className="text-sm mt-1" style={{ color: '#1a2e22' }}>
                 Ptejte se na tržby, flotilu, servis nebo cokoli dalšího.
               </div>
               <div className="flex flex-wrap gap-2 justify-center mt-4">
                 {['Kolik jsme vydělali tento měsíc?', 'Které motorky potřebují servis?', 'Navrhni cenu pro víkendový pronájem'].map(q => (
                   <button key={q} onClick={() => { setInput(q) }}
-                    className="rounded-btn text-xs cursor-pointer"
-                    style={{ padding: '6px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#4a6357' }}>
+                    className="rounded-btn text-sm cursor-pointer"
+                    style={{ padding: '6px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
                     {q}
                   </button>
                 ))}
@@ -183,7 +183,7 @@ export default function AICopilot() {
                 boxShadow: '0 2px 8px rgba(15,26,20,.06)',
               }}>
                 <p className="text-sm" style={{ lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{m.content}</p>
-                <div className="text-[10px] mt-1" style={{ color: m.role === 'user' ? '#1a6a18' : '#8aab99' }}>
+                <div className="text-sm mt-1" style={{ color: m.role === 'user' ? '#1a6a18' : '#1a2e22' }}>
                   {m.timestamp ? new Date(m.timestamp).toLocaleTimeString('cs-CZ') : ''}
                 </div>
               </div>
