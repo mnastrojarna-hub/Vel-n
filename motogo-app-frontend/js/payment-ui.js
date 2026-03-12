@@ -462,6 +462,28 @@ function doEditPayment(bookingId, amount, changes){
       }
 
       if(result.success){
+        // Fetch OLD booking state BEFORE modification (for itemized invoice comparison)
+        var editCtx = null;
+        try {
+          var _oldB = await window.supabase.from('bookings')
+            .select('*, motorcycles('+(_MOTO_PRICE_COLS||'model, spz, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, price_weekday, price_weekend')+')')
+            .eq('id', bookingId).single();
+          if(_oldB.data){
+            var _ob = _oldB.data, _om = _oldB.data.motorcycles || {};
+            // Find original ZF number for reference link
+            var _origZf = await window.supabase.from('invoices').select('number')
+              .eq('booking_id', bookingId).eq('type','advance').eq('source','booking')
+              .order('created_at',{ascending:true}).limit(1);
+            editCtx = {
+              orig_start: _ob.start_date, orig_end: _ob.end_date,
+              orig_moto: _om, orig_total: _ob.total_price || 0,
+              orig_extras: _ob.extras_price || 0, orig_delivery: _ob.delivery_fee || 0,
+              orig_discount: _ob.discount_amount || 0,
+              orig_zf_number: (_origZf.data && _origZf.data.length > 0) ? _origZf.data[0].number : null
+            };
+          }
+        } catch(ec){ console.warn('[PAY] editCtx fetch err:', ec); }
+
         // Apply the booking changes after successful payment
         var saveOk = true;
         if(changes && typeof apiModifyBooking === 'function'){
@@ -473,12 +495,16 @@ function doEditPayment(bookingId, amount, changes){
           }
         }
 
-        // Auto-generate advance invoice + payment receipt for the edit payment
+        // Auto-generate advance invoice + payment receipt with itemized edit breakdown
         if(typeof apiGenerateAdvanceInvoice === 'function'){
-          apiGenerateAdvanceInvoice(bookingId, amount, 'edit').catch(function(e){ console.warn('[PAY] edit invoice err:', e); });
+          apiGenerateAdvanceInvoice(bookingId, amount, 'edit', editCtx).catch(function(e){ console.warn('[PAY] edit invoice err:', e); });
         }
         if(typeof apiGeneratePaymentReceipt === 'function'){
-          apiGeneratePaymentReceipt(bookingId, amount, 'edit').catch(function(e){ console.warn('[PAY] edit receipt err:', e); });
+          apiGeneratePaymentReceipt(bookingId, amount, 'edit', editCtx).catch(function(e){ console.warn('[PAY] edit receipt err:', e); });
+        }
+        // Regenerate contract + VOP with updated booking data (force=true deletes old ones)
+        if(typeof apiAutoGenerateBookingDocs === 'function'){
+          apiAutoGenerateBookingDocs(bookingId, true).catch(function(e){ console.warn('[PAY] edit docs err:', e); });
         }
 
         _isEditPayment = false;

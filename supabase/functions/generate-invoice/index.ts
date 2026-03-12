@@ -156,14 +156,22 @@ serve(async (req) => {
     if (iErr) return new Response(JSON.stringify({ error: iErr.message }), { status: 500 })
 
     // Generate HTML
-    const itemsHtml = items.map((it, i) => `
+    const itemsHtml = items.map((it, i) => {
+      // Section headers (── Původní/Nová rezervace ──) — render as spanning header row
+      if (it.description && it.description.startsWith('──') && (it.unit_price || 0) === 0) {
+        const label = it.description.replace(/──/g, '').trim()
+        return `<tr><td colspan="5" style="padding:10px 10px 4px;font-weight:800;font-size:12px;border-bottom:2px solid ${accent};color:${accent}">${label}</td></tr>`
+      }
+      const priceColor = (it.unit_price || 0) < 0 ? 'color:#b91c1c;' : ''
+      return `
       <tr>
         <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px">${i + 1}</td>
         <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px">${it.description}</td>
         <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;text-align:center">${it.qty}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;text-align:right">${fmtPrice(it.unit_price)} Kč</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;text-align:right;font-weight:600">${fmtPrice(it.unit_price * it.qty)} Kč</td>
-      </tr>`).join('')
+        <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;text-align:right;${priceColor}">${fmtPrice(it.unit_price)} Kč</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;text-align:right;font-weight:600;${priceColor}">${fmtPrice(it.unit_price * it.qty)} Kč</td>
+      </tr>`
+    }).join('')
 
     const accent = isPaymentReceipt ? '#0891b2' : isProforma ? '#2563eb' : '#1a8a18'
     const title = isPaymentReceipt ? 'DAŇOVÝ DOKLAD K PŘIJATÉ PLATBĚ' : isProforma ? 'ZÁLOHOVÁ FAKTURA' : 'FAKTURA'

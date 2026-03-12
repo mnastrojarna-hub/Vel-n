@@ -532,8 +532,34 @@ function _buildBookingItems(b, m){
 }
 function _calcItemsTotal(items){ return items.reduce(function(s,it){ return s + (it.unit_price||0)*(it.qty||1); }, 0); }
 
+// Build itemized edit items: original reservation (negative) + new reservation (positive) + extras/moto change
+function _buildEditItems(editCtx, newBooking, newMoto){
+  var items = [];
+  var origMoto = editCtx.orig_moto || newMoto;
+  var origMotoName = origMoto.model || 'motorky';
+  var newMotoName = newMoto.model || 'motorky';
+  // Find original ZF number for reference
+  var origRef = editCtx.orig_zf_number ? ' (navazuje na '+editCtx.orig_zf_number+')' : '';
+  // Section: Original reservation (negative — odpočet)
+  items.push({description:'── Původní rezervace'+origRef+' ──', qty:1, unit_price:0});
+  var origItems = _buildDailyItems(origMoto, editCtx.orig_start, editCtx.orig_end);
+  origItems.forEach(function(it){ items.push({description:it.description, qty:1, unit_price:-it.unit_price}); });
+  if(editCtx.orig_extras > 0) items.push({description:'Příslušenství / doplňky (původní)', qty:1, unit_price:-editCtx.orig_extras});
+  if(editCtx.orig_delivery > 0) items.push({description:'Doručení (původní)', qty:1, unit_price:-editCtx.orig_delivery});
+  if(editCtx.orig_discount > 0) items.push({description:'Sleva (původní)', qty:1, unit_price:editCtx.orig_discount});
+  // Section: New reservation (positive)
+  items.push({description:'── Nová rezervace ──', qty:1, unit_price:0});
+  var newItems = _buildDailyItems(newMoto, newBooking.start_date, newBooking.end_date);
+  newItems.forEach(function(it){ items.push(it); });
+  if(newBooking.extras_price > 0) items.push({description:'Příslušenství / doplňky', qty:1, unit_price:newBooking.extras_price});
+  if(newBooking.delivery_fee > 0) items.push({description:'Doručení', qty:1, unit_price:newBooking.delivery_fee});
+  if(newBooking.discount_amount > 0) items.push({description:'Sleva'+(newBooking.discount_code?' ('+newBooking.discount_code+')':''), qty:1, unit_price:-newBooking.discount_amount});
+  return items;
+}
+
 // Generate advance (zálohová) invoice — called on every payment gateway pass
-async function apiGenerateAdvanceInvoice(bookingId, amount, source){
+// editCtx (optional for source=edit): {orig_start, orig_end, orig_moto:{model,price_*}, orig_total, orig_extras, orig_delivery, orig_discount, orig_zf_number}
+async function apiGenerateAdvanceInvoice(bookingId, amount, source, editCtx){
   _ensureSupabase();
   if(!window.supabase) return {error:'Offline'};
   try {
@@ -554,19 +580,16 @@ async function apiGenerateAdvanceInvoice(bookingId, amount, source){
     }
     var invNum = 'ZF-' + yr + '-' + String(seq).padStart(4, '0');
     var items, subtotal;
-    var mName = m.model || 'motorky';
-    if(source === 'edit'){
-      // Edit: single summary line (no per-day breakdown)
-      if(amount < 0){
-        // Shortening (refund) – amount is negative
-        items = [{description:'Zkrácení rezervace – vrácení ' + mName, qty:1, unit_price:amount}];
-      } else {
-        // Extension (doplatek) – amount is positive
-        items = [{description:'Prodloužení rezervace – ' + mName, qty:1, unit_price:amount}];
-      }
+    if(source === 'edit' && editCtx){
+      items = _buildEditItems(editCtx, b, m);
+      subtotal = _calcItemsTotal(items);
+    } else if(source === 'edit'){
+      // Fallback if no editCtx — use amount
+      var mName = m.model || 'motorky';
+      items = [{description:(amount<0?'Zkrácení':'Prodloužení')+' rezervace – '+mName, qty:1, unit_price:amount}];
       subtotal = amount;
     } else if(source === 'sos'){
-      items = [{description:'SOS incident – ' + mName, qty:1, unit_price:amount}];
+      items = [{description:'SOS incident – ' + (m.model||'motorky'), qty:1, unit_price:amount}];
       subtotal = amount;
     } else {
       items = _buildBookingItems(b, m);
@@ -656,7 +679,8 @@ async function apiGenerateFinalInvoice(bookingId){
 }
 
 // Generate payment receipt (doklad k přijaté platbě) — issued alongside ZF after payment
-async function apiGeneratePaymentReceipt(bookingId, amount, source){
+// editCtx (optional for source=edit): same as apiGenerateAdvanceInvoice
+async function apiGeneratePaymentReceipt(bookingId, amount, source, editCtx){
   _ensureSupabase();
   if(!window.supabase) return {error:'Offline'};
   try {
@@ -677,17 +701,15 @@ async function apiGeneratePaymentReceipt(bookingId, amount, source){
     }
     var dpNum = 'DP-' + yr + '-' + String(seq).padStart(4, '0');
     var items, subtotal;
-    var mName = m.model || 'motorky';
-    if(source === 'edit'){
-      // Edit: single summary line (no per-day breakdown)
-      if(amount < 0){
-        items = [{description:'Vrácení za zkrácení rezervace – ' + mName, qty:1, unit_price:amount}];
-      } else {
-        items = [{description:'Doplatek za prodloužení rezervace – ' + mName, qty:1, unit_price:amount}];
-      }
+    if(source === 'edit' && editCtx){
+      items = _buildEditItems(editCtx, b, m);
+      subtotal = _calcItemsTotal(items);
+    } else if(source === 'edit'){
+      var mName = m.model || 'motorky';
+      items = [{description:(amount<0?'Vrácení za zkrácení':'Doplatek za prodloužení')+' rezervace – '+mName, qty:1, unit_price:amount}];
       subtotal = amount;
     } else if(source === 'sos'){
-      items = [{description:'SOS incident – ' + mName, qty:1, unit_price:amount}];
+      items = [{description:'SOS incident – ' + (m.model||'motorky'), qty:1, unit_price:amount}];
       subtotal = amount;
     } else {
       items = _buildBookingItems(b, m);
@@ -721,7 +743,8 @@ async function apiGeneratePaymentReceipt(bookingId, amount, source){
 // Legacy alias
 var apiAutoGenerateInvoice = apiGenerateAdvanceInvoice;
 
-async function apiAutoGenerateBookingDocs(bookingId){
+// force=true: delete existing contract/vop and regenerate (used after booking modification)
+async function apiAutoGenerateBookingDocs(bookingId, force){
   _ensureSupabase();
   if(!window.supabase) return;
   try {
@@ -729,9 +752,20 @@ async function apiAutoGenerateBookingDocs(bookingId){
     if(!uid) return;
     // Check if docs already exist for this booking
     var existing = await window.supabase.from('documents')
-      .select('type').eq('booking_id', bookingId).eq('user_id', uid)
+      .select('id, type').eq('booking_id', bookingId).eq('user_id', uid)
       .in('type', ['contract', 'vop']);
     var existingTypes = (existing.data || []).map(function(d){ return d.type; });
+
+    // Force mode: delete old contract/vop so new ones are generated with updated data
+    if(force && existing.data && existing.data.length > 0){
+      for(var di=0; di<existing.data.length; di++){
+        await window.supabase.from('documents').delete().eq('id', existing.data[di].id);
+      }
+      // Also delete from generated_documents
+      await window.supabase.from('generated_documents').delete().eq('booking_id', bookingId);
+      existingTypes = [];
+      console.log('[API] Force: deleted old contract/vop docs for regeneration');
+    }
 
     // Generate contract via edge function (creates generated_documents + syncs to documents via trigger)
     if(existingTypes.indexOf('contract') === -1){
@@ -785,9 +819,10 @@ async function apiFetchDocuments(){
     if(r.data) r.data.forEach(function(d){
       // Skip invoice_shop from documents table — step 4 (shop_orders) handles these with correct IDs
       if(d.type === 'invoice_shop') return;
-      // Dedup within documents table (sync trigger can create multiple rows for same booking+type)
+      // Dedup within documents table by file_path (sync trigger can create duplicate rows)
+      // Allow multiple invoices of same type per booking (e.g. original ZF + edit ZF)
       var existingDoc = results.find(function(ex){
-        return ex.booking_id === d.booking_id && ex.type === d.type;
+        return ex.file_path && d.file_path && ex.file_path === d.file_path;
       });
       if(existingDoc) return;
       var b = d.bookings;
@@ -810,10 +845,17 @@ async function apiFetchDocuments(){
       var iType = inv.type === 'payment_receipt' ? 'payment_receipt'
         : (inv.type === 'proforma' || inv.type === 'advance') ? 'invoice_advance'
         : 'invoice_final';
+      // Dedup by invoice id or file_path (allow multiple invoices of same type per booking)
+      var invFilePath = 'invoices/' + inv.id + '.html';
       var existing = results.find(function(d){
-        return d.booking_id === inv.booking_id && d.type === iType;
+        return d.id === inv.id || (d.file_path && d.file_path === invFilePath);
       });
-      if(existing) return; // already have from documents table
+      if(existing){
+        // Enrich existing doc entry with invoice data (source, number, total)
+        if(!existing._invoice) existing._invoice = inv;
+        if(!existing.amount || existing.amount === 0) existing.amount = inv.total || 0;
+        return;
+      }
       results.push({
         id: inv.id, booking_id: inv.booking_id,
         type: iType, _invoice: inv,
