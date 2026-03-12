@@ -1,7 +1,6 @@
--- Fix confirm_payment: pending → reserved (ne active)
--- Booking by měl po zaplacení přejít do 'reserved' (potvrzeno, čeká na vydání motorky),
--- NE do 'active' (motorka vydána). Stav 'active' nastavuje admin ve Velínu při vydání.
--- Zároveň nastavit confirmed_at.
+-- Fix confirm_payment: podmíněný přechod stavu dle start_date
+-- start_date <= dnes → pending → active (pronájem začíná dnes, motorka se vydává)
+-- start_date > dnes  → pending → reserved (nadcházející, čeká na vydání)
 
 CREATE OR REPLACE FUNCTION confirm_payment(
   p_booking_id uuid,
@@ -10,6 +9,7 @@ CREATE OR REPLACE FUNCTION confirm_payment(
 RETURNS jsonb AS $$
 DECLARE
   v_booking bookings%ROWTYPE;
+  v_new_status text;
 BEGIN
   SELECT * INTO v_booking FROM bookings WHERE id = p_booking_id;
   IF NOT FOUND THEN
@@ -20,11 +20,23 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'error', 'Nemate opravneni');
   END IF;
 
+  -- Určení cílového stavu: active pokud pronájem začíná dnes nebo dříve, jinak reserved
+  IF v_booking.status = 'pending' THEN
+    IF v_booking.start_date::date <= CURRENT_DATE THEN
+      v_new_status := 'active';
+    ELSE
+      v_new_status := 'reserved';
+    END IF;
+  ELSE
+    v_new_status := v_booking.status;
+  END IF;
+
   UPDATE bookings SET
     payment_status = 'paid',
     payment_method = p_method,
-    status = CASE WHEN status = 'pending' THEN 'reserved' ELSE status END,
-    confirmed_at = CASE WHEN status = 'pending' AND confirmed_at IS NULL THEN now() ELSE confirmed_at END
+    status = v_new_status,
+    confirmed_at = CASE WHEN v_booking.status = 'pending' AND confirmed_at IS NULL THEN now() ELSE confirmed_at END,
+    picked_up_at = CASE WHEN v_booking.status = 'pending' AND v_new_status = 'active' AND picked_up_at IS NULL THEN now() ELSE picked_up_at END
   WHERE id = p_booking_id;
 
   RETURN jsonb_build_object(
