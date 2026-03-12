@@ -135,6 +135,9 @@ function initApp(){
   if(typeof loadTemplates==='function') loadTemplates();
   if(typeof initTimePickers==='function') initTimePickers();
 
+  // Load header banner from app_settings (public, no auth needed)
+  if(typeof apiFetchHeaderBanner==='function') apiFetchHeaderBanner();
+
   // Check for existing session (Supabase only)
   _resolveSession(function(hasSession){
     _continueInit(hasSession);
