@@ -443,12 +443,15 @@ async function saveEditReservation(){
     var checkStart = newStartISO || (typeof origResStart !== 'undefined' ? new Date(origResStart.y, origResStart.m, origResStart.d).toISOString() : null);
     var checkEnd = newEndISO || (typeof origResEnd !== 'undefined' ? new Date(origResEnd.y, origResEnd.m, origResEnd.d).toISOString() : null);
     if(checkStart && checkEnd){
-      // Check customer's own bookings overlap
+      // Check customer's own bookings date overlap (new dates must not clash with another reservation)
       if(typeof apiCheckBookingOverlap === 'function'){
         var oc = await apiCheckBookingOverlap(checkStart, checkEnd, bookingId);
         if(oc.overlap){
+          var ocCf = oc.conflicting;
+          var ocFrom = _fmtDatePayment ? _fmtDatePayment(ocCf.start_date) : ocCf.start_date;
+          var ocTo = _fmtDatePayment ? _fmtDatePayment(ocCf.end_date) : ocCf.end_date;
           showT('⚠️',_t('pay').overlapTitle||'Termín obsazen',
-            (_t('pay').overlapMsg||'Již máte rezervaci v tomto termínu')+'. '+(_t('pay').overlapHint||'Zvolte jiný termín nebo upravte stávající rezervaci.'));
+            (_t('pay').overlapMsg||'Již máte rezervaci v tomto termínu')+' ('+ocFrom+' – '+ocTo+'). '+(_t('pay').overlapHint||'Zvolte jiný termín nebo upravte stávající rezervaci.'));
           return;
         }
       }

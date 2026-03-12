@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
 import Card from '../components/ui/Card'
@@ -72,6 +73,7 @@ const DECISION_LABELS = {
 const LIGHT_AUTO_ACK = ['breakdown_minor', 'defect_question', 'location_share', 'other']
 
 export default function SOSPanel() {
+  const location = useLocation()
   const [incidents, setIncidents] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedIncident, setSelectedIncident] = useState(null)
@@ -79,6 +81,7 @@ export default function SOSPanel() {
   const [filter, setFilter] = useState('active')
   const [severityFilter, setSeverityFilter] = useState('all_sev')
   const [subFilter, setSubFilter] = useState('all')
+  const openIncidentHandled = useRef(null)
 
   // Auto-acknowledge light faults
   async function autoAcknowledge(incidentId, type) {
@@ -164,6 +167,18 @@ export default function SOSPanel() {
     }
     setLoading(false)
   }
+
+  // Auto-open incident from navigation state (e.g. from BookingDetail)
+  useEffect(() => {
+    const openId = location.state?.openIncidentId
+    if (!openId || !incidents.length || openIncidentHandled.current === openId) return
+    const found = incidents.find(i => i.id === openId)
+    if (found) {
+      setSelectedIncident(found)
+      setFilter('all')
+      openIncidentHandled.current = openId
+    }
+  }, [incidents, location.state])
 
   async function updateStatus(id, newStatus) {
     // SAFETY: Prevent closing incidents with pending replacements
