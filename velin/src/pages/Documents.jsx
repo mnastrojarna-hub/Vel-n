@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react'
 import { debugLog } from '../lib/debugLog'
 import ContractTermsTab from './documents/ContractTermsTab'
-import TemplatesTab from './documents/TemplatesTab'
 import GeneratedTab from './documents/GeneratedTab'
-import UploadedTab from './documents/UploadedTab'
 import EmailTemplatesTab from './documents/EmailTemplatesTab'
+import SentEmailsTab from './documents/SentEmailsTab'
 import InvoicesTab from './documents/InvoicesTab'
 
-const TABS = ['Smluvní texty', 'Šablony', 'Vygenerované', 'Nahrané doklady', 'E-mailové šablony', 'Faktury']
+const TABS = ['Smluvní texty', 'Vygenerované', 'E-mailové šablony', 'Zaslané emaily', 'Faktury']
 
 export default function Documents() {
   const [tab, setTab] = useState('Smluvní texty')
@@ -36,10 +35,9 @@ export default function Documents() {
       </div>
 
       {tab === 'Smluvní texty' && <ContractTermsTab />}
-      {tab === 'Šablony' && <TemplatesTab />}
       {tab === 'Vygenerované' && <GeneratedTab />}
-      {tab === 'Nahrané doklady' && <UploadedTab />}
       {tab === 'E-mailové šablony' && <EmailTemplatesTab />}
+      {tab === 'Zaslané emaily' && <SentEmailsTab />}
       {tab === 'Faktury' && <InvoicesTab />}
     </div>
   )
