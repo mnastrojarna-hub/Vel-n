@@ -226,23 +226,30 @@ async function showDigitalProtocol(bookingId){
 }
 
 // ===== INVOICE GENERATION (Czech accounting standards) =====
-async function showInvoice(bookingId,type){
+// invoiceId (optional 3rd param): show specific invoice by ID (for multiple ZFs/DPs per booking)
+async function showInvoice(bookingId,type,invoiceId){
   var data=await _getBookingDataAsync(bookingId);
   if(!data) data=_getBookingData(bookingId);
   if(!data){showT('✗',_t('common').error,_t('common').noData);return;}
   var t=_t('doc');var b=data.b,p=data.p,mn=data.motoName,rn=data.resNum;
 
-  // Load real invoice from DB — filter by type
+  // Load real invoice from DB — by ID or filter by type
   var isAdvance=(type==='advance');
   var isReceipt=(type==='payment_receipt');
   var dbInvoice=null;
   if(_isSupabaseReady()){
     try {
-      var dbTypes=isReceipt?['payment_receipt']:isAdvance?['proforma','advance','shop_proforma']:['final','issued'];
-      var invR=await supabase.from('invoices').select('*')
-        .eq('booking_id',bookingId).in('type',dbTypes)
-        .order('created_at',{ascending:false}).limit(1);
-      if(invR.data && invR.data.length>0) dbInvoice=invR.data[0];
+      if(invoiceId){
+        var invById=await supabase.from('invoices').select('*').eq('id',invoiceId).single();
+        if(invById.data) dbInvoice=invById.data;
+      }
+      if(!dbInvoice){
+        var dbTypes=isReceipt?['payment_receipt']:isAdvance?['proforma','advance','shop_proforma']:['final','issued'];
+        var invR=await supabase.from('invoices').select('*')
+          .eq('booking_id',bookingId).in('type',dbTypes)
+          .order('created_at',{ascending:false}).limit(1);
+        if(invR.data && invR.data.length>0) dbInvoice=invR.data[0];
+      }
       // Fallback: any invoice for this booking
       if(!dbInvoice){
         var invR2=await supabase.from('invoices').select('*')
@@ -275,9 +282,15 @@ async function showInvoice(bookingId,type){
   var itemsHtml='';
   if(dbInvoice&&dbInvoice.items&&Array.isArray(dbInvoice.items)){
     dbInvoice.items.forEach(function(it,i){
+      // Section headers (── Původní/Nová rezervace ──) — render as spanning header row
+      if(it.description && it.description.indexOf('──') === 0 && (it.unit_price||0) === 0){
+        itemsHtml+='<tr><td colspan="4" style="font-weight:800;font-size:12px;padding:10px 0 4px;border-bottom:2px solid var(--green,#1a8a18);color:var(--gd,#1a1a2e);">'+it.description.replace(/──/g,'').trim()+'</td></tr>';
+        return;
+      }
+      var priceColor = (it.unit_price||0) < 0 ? 'color:#b91c1c;' : '';
       itemsHtml+='<tr><td>'+(it.description||'')+'</td><td>'+(it.qty||1)+' '+(it.qty>1?t.days:'ks')+'</td>'+
-        '<td>'+(it.unit_price||0).toLocaleString('cs-CZ')+' Kč</td>'+
-        '<td>'+((it.unit_price||0)*(it.qty||1)).toLocaleString('cs-CZ')+' Kč</td></tr>';
+        '<td style="'+priceColor+'">'+(it.unit_price||0).toLocaleString('cs-CZ')+' Kč</td>'+
+        '<td style="'+priceColor+'">'+((it.unit_price||0)*(it.qty||1)).toLocaleString('cs-CZ')+' Kč</td></tr>';
     });
   } else {
     // Reconstruct base rental price: total_price is final (base+extras+delivery-discount)
@@ -496,15 +509,20 @@ async function renderInvoicesPage(){
       var isShop=(d.type==='invoice_shop');
       var isReceipt=(d.type==='payment_receipt');
       var icon=isShop?'🛒':isReceipt?'✅':(d.type==='invoice_advance'?'🧾':'💰');
+      // Distinguish edit invoices from original ones
+      var inv = d._invoice || null;
+      var isEdit = inv && inv.source === 'edit';
       var label=isShop?(t.shopInvoice||'Faktura – Shop'):isReceipt?(t.paymentReceipt||'Doklad k platbě'):(d.type==='invoice_advance'?t.invoiceAdvance:t.invoiceFinal);
+      if(isEdit) label = (isReceipt?'Doklad k platbě – úprava':'Zálohová faktura – úprava');
       var invType=isReceipt?'payment_receipt':(d.type==='invoice_advance'?'advance':'final');
       var amt=d.amount?d.amount.toLocaleString('cs-CZ')+' Kč':'';
       var itemName=isShop?(d.shop_items||'Shop'):(d.moto_name||'');
-      var onclick=isShop?'showShopOrderDetail(\''+d.id+'\')':'showInvoice(\''+d.booking_id+'\',\''+invType+'\')';
+      var invId = (inv && inv.id) ? inv.id : d.id;
+      var onclick=isShop?'showShopOrderDetail(\''+d.id+'\')':'showInvoice(\''+d.booking_id+'\',\''+invType+'\',\''+(invId||'')+'\')';
       html+='<div class="inv-item" onclick="'+onclick+'">'+
         '<div class="inv-icon">'+icon+'</div>'+
         '<div class="inv-info"><div class="inv-name">'+itemName+' · '+label+'</div>'+
-        '<div class="inv-sub">'+d.res_num+' · '+_docDate(d.date)+'</div></div>'+
+        '<div class="inv-sub">'+(inv&&inv.number?inv.number+' · ':'')+d.res_num+' · '+_docDate(d.date)+'</div></div>'+
         '<div>'+(amt?'<div class="inv-amt">'+amt+'</div>':'')+
         '<div style="font-size:10px;color:var(--g400);text-align:right;margin-top:2px;">PDF ⬇️ · 📧</div></div></div>';
     });

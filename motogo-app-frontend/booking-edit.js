@@ -514,12 +514,31 @@ async function saveEditReservation(){
 
     if(diff < 0){
       if(typeof apiShortenBooking === 'function'){
+        // Fetch OLD booking state BEFORE shortening (for itemized invoice)
+        var editCtxShort = null;
+        try {
+          var _cols = typeof _MOTO_PRICE_COLS !== 'undefined' ? _MOTO_PRICE_COLS : 'model, spz, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, price_weekday, price_weekend';
+          var _oldBs = await supabase.from('bookings').select('*, motorcycles('+_cols+')').eq('id', bookingId).single();
+          if(_oldBs.data){
+            var _obs = _oldBs.data, _oms = _oldBs.data.motorcycles || {};
+            var _origZfs = await supabase.from('invoices').select('number')
+              .eq('booking_id', bookingId).eq('type','advance').eq('source','booking')
+              .order('created_at',{ascending:true}).limit(1);
+            editCtxShort = {
+              orig_start: _obs.start_date, orig_end: _obs.end_date,
+              orig_moto: _oms, orig_total: _obs.total_price || 0,
+              orig_extras: _obs.extras_price || 0, orig_delivery: _obs.delivery_fee || 0,
+              orig_discount: _obs.discount_amount || 0,
+              orig_zf_number: (_origZfs.data && _origZfs.data.length > 0) ? _origZfs.data[0].number : null
+            };
+          }
+        } catch(ece){ console.warn('[EDIT] editCtx fetch err:', ece); }
+
         var res = await apiShortenBooking(bookingId, newEndISO, newStartISO);
         if(res.error){ showT('✗',_t('common').error,res.error); return; }
         // Also save time/location/return address
         var extraChanges = {};
         if(pickupTime) extraChanges.pickup_time = pickupTime;
-
         if(pickupLoc){ extraChanges.pickup_location = pickupLoc; extraChanges.pickup_address = pickupLoc; }
         if(returnLoc) extraChanges.return_address = returnLoc;
         if(pickupMethod) extraChanges.pickup_method = pickupMethod;
@@ -528,12 +547,15 @@ async function saveEditReservation(){
           var ecRes = await apiModifyBooking(bookingId, extraChanges);
           if(ecRes && ecRes.error) console.warn('[EDIT] Extra changes err:', ecRes.error);
         }
-        // Generate ZF for the shortening change + payment receipt (negative amount = refund)
+        // Generate ZF + DP with itemized breakdown (original vs new) + contract + VOP
         if(typeof apiGenerateAdvanceInvoice === 'function'){
-          apiGenerateAdvanceInvoice(bookingId, diff, 'edit').catch(function(e){ console.warn('[EDIT] ZF err:', e); });
+          apiGenerateAdvanceInvoice(bookingId, diff, 'edit', editCtxShort).catch(function(e){ console.warn('[EDIT] ZF err:', e); });
         }
         if(typeof apiGeneratePaymentReceipt === 'function'){
-          apiGeneratePaymentReceipt(bookingId, diff, 'edit').catch(function(e){ console.warn('[EDIT] DP err:', e); });
+          apiGeneratePaymentReceipt(bookingId, diff, 'edit', editCtxShort).catch(function(e){ console.warn('[EDIT] DP err:', e); });
+        }
+        if(typeof apiAutoGenerateBookingDocs === 'function'){
+          apiAutoGenerateBookingDocs(bookingId, true).catch(function(e){ console.warn('[EDIT] docs err:', e); });
         }
       }
     } else if(diff > 0){
@@ -547,6 +569,10 @@ async function saveEditReservation(){
       if(typeof apiModifyBooking === 'function'){
         var saveRes = await apiModifyBooking(bookingId, changes);
         if(saveRes && saveRes.error){ showT('✗',_t('common').error,saveRes.error); return; }
+      }
+      // Regenerate contract + VOP with updated data (new dates/location/moto)
+      if(typeof apiAutoGenerateBookingDocs === 'function'){
+        apiAutoGenerateBookingDocs(bookingId, true).catch(function(e){ console.warn('[EDIT] docs err:', e); });
       }
     }
     if(typeof initMotoAvailability === 'function') initMotoAvailability();
