@@ -198,5 +198,33 @@ function getFallbackTemplate(slug: string): string | null {
 </div></body></html>`
   }
 
+  if (slug === 'vop') {
+    return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Všeobecné obchodní podmínky</title></head>
+<body style="margin:0;padding:0;font-family:'Segoe UI',sans-serif;color:#1a1a1a">
+<div style="max-width:780px;margin:0 auto;padding:32px">
+  <h1 style="text-align:center;font-size:20px;border-bottom:2px solid #1a8a18;padding-bottom:12px">VŠEOBECNÉ OBCHODNÍ PODMÍNKY</h1>
+  <p style="text-align:center;font-size:12px;color:#666">{{company_name}} | IČO: {{company_ico}} | {{company_address}}</p>
+  <p style="text-align:center;font-size:12px;color:#666">Platné od {{today}} k rezervaci č. {{booking_number}}</p>
+  <h3 style="font-size:13px;margin-top:24px">1. Úvodní ustanovení</h3>
+  <p style="font-size:12px">Tyto všeobecné obchodní podmínky (dále jen „VOP") upravují práva a povinnosti smluvních stran při pronájmu motocyklu provozovaném společností {{company_name}}, IČO: {{company_ico}}, se sídlem {{company_address}} (dále jen „Pronajímatel").</p>
+  <h3 style="font-size:13px">2. Předmět pronájmu</h3>
+  <p style="font-size:12px">Předmětem pronájmu je motocykl specifikovaný v nájemní smlouvě. Nájemce je povinen užívat motocykl výhradně k účelům stanoveným smlouvou a v souladu s platnými právními předpisy.</p>
+  <h3 style="font-size:13px">3. Podmínky pronájmu</h3>
+  <p style="font-size:12px">Nájemce musí být držitelem platného řidičského průkazu příslušné skupiny. Minimální věk nájemce je 21 let. Nájemce je povinen předložit platný doklad totožnosti a řidičský průkaz při převzetí motocyklu.</p>
+  <h3 style="font-size:13px">4. Cena a platební podmínky</h3>
+  <p style="font-size:12px">Cena pronájmu se řídí aktuálním ceníkem. Platba je splatná před převzetím motocyklu. Kauce je vratná po vrácení motocyklu v bezvadném stavu.</p>
+  <h3 style="font-size:13px">5. Odpovědnost za škody</h3>
+  <p style="font-size:12px">Nájemce odpovídá za veškeré škody vzniklé na motocyklu po dobu pronájmu. V případě nehody je nájemce povinen neprodleně informovat Pronajímatele a příslušné orgány.</p>
+  <h3 style="font-size:13px">6. Storno podmínky</h3>
+  <p style="font-size:12px">Bezplatné storno je možné do 48 hodin před začátkem pronájmu. Pozdější storno podléhá storno poplatku dle aktuálních podmínek.</p>
+  <h3 style="font-size:13px">7. Závěrečná ustanovení</h3>
+  <p style="font-size:12px">Tyto VOP jsou nedílnou součástí nájemní smlouvy. Pronajímatel si vyhrazuje právo na změnu VOP. Právní vztahy neupravené těmito VOP se řídí občanským zákoníkem.</p>
+  <div style="margin-top:32px;padding:16px;background:#f8faf9;border-radius:8px;font-size:11px;color:#666">
+    <p style="margin:0">{{company_name}} | {{company_address}} | IČO: {{company_ico}}</p>
+    <p style="margin:4px 0 0">Kontakt: info@motogo24.cz | +420 774 256 271 | www.motogo24.cz</p>
+  </div>
+</div></body></html>`
+  }
+
   return null
 }
