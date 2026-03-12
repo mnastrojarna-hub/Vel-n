@@ -1146,10 +1146,6 @@ function _scheduleRealtimeRefresh(type){
         if(typeof openResDetailById === 'function') openResDetailById(_currentResId);
       }
     }
-    if(type === 'sos'){
-      // Check for pending SOS replacement and show banner
-      if(typeof _checkAndShowSosBanner === 'function') _checkAndShowSosBanner();
-    }
   }, 500);
 }
 
