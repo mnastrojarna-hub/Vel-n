@@ -107,6 +107,11 @@ function _continueInit(hasSession){
   }
 
 
+  // Check for pending SOS replacement (small FAB banner)
+  if(hasSession && typeof _checkAndShowSosFab==='function'){
+    _checkAndShowSosFab();
+  }
+
   // Auto-expire vouchers check on app start
   if(hasSession && window.supabase){
     window.supabase.rpc('expire_vouchers_and_promos').catch(function(){});
