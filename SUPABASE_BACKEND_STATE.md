@@ -482,6 +482,17 @@ Detailní politiky:
 }
 ```
 
+### header_banner (app_settings key)
+Řídí rotující banner v horní části mobilní aplikace. Spravuje se z Velín dashboardu.
+```json
+{
+  "enabled": true,
+  "text": "Letní akce -20% na všechny motorky!",
+  "bg": "#1a2e22",
+  "color": "#74FB71"
+}
+```
+
 ---
 
 ## 12. SEKVENCE
@@ -553,3 +564,4 @@ Detailní politiky:
 | 2026-03-11 | **FIX check_one_active_sos:** Změna logiky z per-user na per-booking. Kontrola: max 1 závažný aktivní incident (typ NOT IN breakdown_minor, defect_question, location_share, other) na jednu aktivní rezervaci (status reserved/active). Lehké incidenty nejsou omezeny. Pokud incident nemá booking_id, fallback na per-user kontrolu |
 | 2026-03-12 | **FIX confirm_payment:** Podmíněný přechod stavu dle start_date: start_date <= dnes → `pending→active` (pronájem začíná), start_date > dnes → `pending→reserved` (nadcházející). Nastavení `confirmed_at`, při active i `picked_up_at` |
 | 2026-03-12 | **NEW: Auto-cancel pending bookings:** Přidán sloupec `bookings.booking_source` (text, default 'app'). Nová funkce `auto_cancel_expired_pending()` (SECURITY DEFINER) — ruší pending+unpaid: app po 10 min, web po 4h. pg_cron job `auto-cancel-pending-bookings` každé 2 minuty |
+| 2026-03-12 | **NEW: Header banner:** Nový klíč `header_banner` v `app_settings` (jsonb: enabled, text, bg, color). Rotující promo banner v mobilní aplikaci nad logem, editovatelný z Velín dashboardu |

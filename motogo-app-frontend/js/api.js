@@ -1,6 +1,26 @@
 // ===== API.JS – Supabase API vrstva pro MotoGo24 =====
 // Všechny api* funkce volané z UI. Vyžaduje supabaseClient.js (window.supabase).
 
+// ===== HEADER BANNER =====
+async function apiFetchHeaderBanner(){
+  if(!window.supabase) return;
+  try {
+    var r = await window.supabase.from('app_settings').select('value').eq('key','header_banner').single();
+    if(!r.data || !r.data.value) return;
+    var cfg = typeof r.data.value === 'string' ? JSON.parse(r.data.value) : r.data.value;
+    if(!cfg.enabled || !cfg.text) return;
+    var el = document.getElementById('header-banner');
+    var track = document.getElementById('header-banner-track');
+    if(!el || !track) return;
+    var txt = cfg.text;
+    track.innerHTML = '<span>' + txt + '</span><span>' + txt + '</span><span>' + txt + '</span><span>' + txt + '</span>';
+    el.style.display = 'flex';
+    if(cfg.bg) el.style.background = cfg.bg;
+    if(cfg.color) track.style.color = cfg.color;
+    document.documentElement.classList.add('has-banner');
+  } catch(e){ console.warn('[API] banner:', e); }
+}
+
 // ===== HELPERS =====
 function _ensureSupabase(){
   if(!window.supabase) console.warn('[API] Supabase není připojen');
