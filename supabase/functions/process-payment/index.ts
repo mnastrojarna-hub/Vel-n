@@ -32,7 +32,7 @@ Deno.serve(async (req: Request) => {
   try {
     const { booking_id, amount, method }: PaymentRequest = await req.json()
 
-    if (!booking_id || !amount) {
+    if (!booking_id || amount == null) {
       return new Response(
         JSON.stringify({ success: false, error: 'Missing booking_id or amount' }),
         { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
