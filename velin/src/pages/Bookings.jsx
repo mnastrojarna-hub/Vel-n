@@ -42,18 +42,18 @@ export default function Bookings() {
     supabase.from('motorcycles').select('id, model').eq('status', 'active').order('model').then(({ data }) => setMotos(data || []))
   }, [])
 
-  // Auto-cancel unpaid PENDING bookings older than 4 hours (only app-created with status 'pending')
+  // Auto-cancel unpaid PENDING bookings older than 10 minutes
   useEffect(() => {
     async function autoCancelStale() {
       try {
-        const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()
+        const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString()
         const { data: stale } = await supabase
           .from('bookings').select('id')
           .eq('status', 'pending').eq('payment_status', 'unpaid')
-          .lt('created_at', fourHoursAgo)
+          .lt('created_at', tenMinAgo)
         if (stale && stale.length > 0) {
           await supabase.from('bookings')
-            .update({ status: 'cancelled', cancellation_reason: 'Automaticky zrušeno — nezaplaceno déle než 4 hodiny' })
+            .update({ status: 'cancelled', cancellation_reason: 'Automaticky zrušeno — nezaplaceno do 10 minut' })
             .in('id', stale.map(b => b.id))
         }
       } catch (e) { console.error('[AutoCancel]', e) }
