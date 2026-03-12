@@ -180,6 +180,7 @@
 - **original_start_date, original_end_date** — původní data rezervace (před prodloužením/zkrácením)
 - **modification_history** (jsonb, default '[]') — historie všech úprav termínu. Každý záznam: `{at, from_start, from_end, to_start, to_end, source}`
 - **complaint_status** — stav reklamace (open, in_progress, resolved, rejected, null)
+- **booking_source** — zdroj rezervace (text, default 'app') — 'app' nebo 'web'
 
 ### booking_complaints
 - id (uuid PK), booking_id (refs bookings), customer_id (refs profiles)
@@ -283,6 +284,7 @@
 | `sos_swap_bookings(incident_id, replacement_moto_id, ...)` | SOS výměna motorky — atomický swap |
 | `expire_vouchers()` | Automatická expirace voucherů (pg_cron) |
 | `expire_vouchers_and_promos()` | Expirace voucherů + deaktivace promo kódů po valid_to |
+| `auto_cancel_expired_pending()` | Auto-cancel pending+unpaid bookings (app: 10min, web: 4h). SECURITY DEFINER |
 | `confirm_payment(booking_id, method)` | RPC: označí booking jako zaplacený. start_date<=dnes → pending→**active** (+picked_up_at), start_date>dnes → pending→**reserved** (+confirmed_at). SECURITY DEFINER |
 | `confirm_shop_payment(order_id, method)` | RPC: označí shop objednávku jako zaplacenou (SECURITY DEFINER) |
 | `check_booking_overlap()` | Trigger funkce: kontrola překrytí rezervací |
@@ -493,6 +495,7 @@ Detailní politiky:
 | Job | Čas | Funkce |
 |-----|-----|--------|
 | `expire-vouchers` | denně 01:00 UTC | `SELECT expire_vouchers()` |
+| `auto-cancel-pending-bookings` | každé 2 min (`*/2 * * * *`) | `SELECT auto_cancel_expired_pending()` — ruší pending+unpaid bookings: app=10min, web=4h |
 | Denní cron | denně | `cron-daily` edge function (snapshot_daily_stats, auto_schedule_services) |
 | Měsíční cron | 1. den měsíce | `cron-monthly` edge function (generate-tax, monthly reports) |
 
@@ -549,3 +552,4 @@ Detailní politiky:
 | 2026-03-11 | **NEW: Smluvní texty v document_templates:** Seed 3 šablon — VOP (type=`vop`), Nájemní smlouva (type=`rental_contract`), Předávací protokol (type=`handover_protocol`) s kompletními právními texty jako HTML. Velín: nový tab „Smluvní texty" v Dokumenty. BookingDocumentsTab nyní načítá šablony z DB místo hardcoded HTML |
 | 2026-03-11 | **FIX check_one_active_sos:** Změna logiky z per-user na per-booking. Kontrola: max 1 závažný aktivní incident (typ NOT IN breakdown_minor, defect_question, location_share, other) na jednu aktivní rezervaci (status reserved/active). Lehké incidenty nejsou omezeny. Pokud incident nemá booking_id, fallback na per-user kontrolu |
 | 2026-03-12 | **FIX confirm_payment:** Podmíněný přechod stavu dle start_date: start_date <= dnes → `pending→active` (pronájem začíná), start_date > dnes → `pending→reserved` (nadcházející). Nastavení `confirmed_at`, při active i `picked_up_at` |
+| 2026-03-12 | **NEW: Auto-cancel pending bookings:** Přidán sloupec `bookings.booking_source` (text, default 'app'). Nová funkce `auto_cancel_expired_pending()` (SECURITY DEFINER) — ruší pending+unpaid: app po 10 min, web po 4h. pg_cron job `auto-cancel-pending-bookings` každé 2 minuty |

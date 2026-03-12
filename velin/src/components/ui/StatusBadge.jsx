@@ -16,9 +16,11 @@ const STATUS_MAP = {
 
 export function getDisplayStatus(booking) {
   if (!booking) return booking?.status || 'pending'
-  const today = new Date().toISOString().slice(0, 10)
-  if ((booking.status === 'active' || booking.status === 'reserved') && booking.start_date && booking.start_date.slice(0, 10) > today) {
-    return 'upcoming'
+  if ((booking.status === 'active' || booking.status === 'reserved') && booking.start_date) {
+    const now = new Date()
+    const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const startLocal = new Date(booking.start_date.slice(0, 10) + 'T00:00:00')
+    if (startLocal > todayLocal) return 'upcoming'
   }
   return booking.status
 }
