@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react'
 import { debugLog } from '../lib/debugLog'
 import InvoicesTab from './accounting/InvoicesTab'
 import TaxTab from './accounting/TaxTab'
-import CashRegisterTab from './accounting/CashRegisterTab'
+import ReceivedInvoicesTab from './accounting/ReceivedInvoicesTab'
 
-const TABS = ['Faktury', 'Daňové podklady', 'Pokladna']
+const TABS = ['Faktury', 'Daňové podklady', 'Faktury přijaté']
 
 export default function Accounting() {
   const [tab, setTab] = useState('Faktury')
@@ -34,7 +34,7 @@ export default function Accounting() {
 
       {tab === 'Faktury' && <InvoicesTab />}
       {tab === 'Daňové podklady' && <TaxTab />}
-      {tab === 'Pokladna' && <CashRegisterTab />}
+      {tab === 'Faktury přijaté' && <ReceivedInvoicesTab />}
     </div>
   )
 }

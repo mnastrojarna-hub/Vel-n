@@ -53,7 +53,7 @@ export default function InvoicesTab() {
       debugLog('DocInvoicesTab', 'loadInvoices', { page, filters })
       let query = supabase
         .from('invoices')
-        .select('*, profiles:customer_id(full_name, email), bookings:booking_id(id, start_date, motorcycles:moto_id(model))', { count: 'exact' })
+        .select('*, profiles:customer_id(full_name, email), bookings:booking_id(id, start_date, modification_history, sos_incident_id, motorcycles:moto_id(model))', { count: 'exact' })
         .order(filters.sort.startsWith('amount') ? 'total' : 'issue_date', { ascending: filters.sort.endsWith('_asc'), nullsFirst: false })
 
       if (filters.type === 'advance') {
@@ -193,9 +193,17 @@ export default function InvoicesTab() {
               {invoices.map(inv => {
                 const tp = TYPE_MAP[inv.type] || { label: inv.type || 'Neznámý', color: '#1a2e22', bg: '#f3f4f6' }
                 const st = STATUS_MAP[inv.status] || STATUS_MAP.draft
+                const isSOS = inv.source === 'sos' || !!inv.bookings?.sos_incident_id
+                const isModified = inv.bookings?.modification_history && Array.isArray(inv.bookings.modification_history) && inv.bookings.modification_history.length > 0
                 return (
                   <TRow key={inv.id}>
-                    <TD mono bold>{inv.number || '—'}</TD>
+                    <TD mono bold>
+                      <div className="flex items-center gap-1">
+                        {inv.number || '—'}
+                        {isSOS && <span title="SOS faktura" style={{ color: '#dc2626', fontSize: 14, fontWeight: 800 }}>SOS</span>}
+                        {isModified && <span title="Změna rezervace" style={{ color: '#b45309', fontSize: 14, fontWeight: 800 }}>MOD</span>}
+                      </div>
+                    </TD>
                     <TD><Badge label={tp.label} color={tp.color} bg={tp.bg} /></TD>
                     <TD>{inv.profiles?.full_name || '—'}</TD>
                     <TD>{inv.bookings?.motorcycles?.model || '—'}</TD>
