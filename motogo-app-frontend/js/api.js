@@ -180,11 +180,22 @@ async function apiProcessPayment(bookingId, amount, method){
 
   // 3) Poslední fallback: přímý DB update (select pro ověření)
   try {
-    var r = await window.supabase.from('bookings').update({
+    // Zjisti start_date pro určení cílového stavu
+    var bk = await window.supabase.from('bookings').select('start_date').eq('id', bookingId).single();
+    var startsToday = false;
+    if(bk.data && bk.data.start_date){
+      var sd = new Date(bk.data.start_date); sd.setHours(0,0,0,0);
+      var today = new Date(); today.setHours(0,0,0,0);
+      startsToday = sd <= today;
+    }
+    var updateData = {
       payment_status: 'paid',
       payment_method: payMethod,
-      status: 'active'
-    }).eq('id', bookingId).select('id').single();
+      status: startsToday ? 'active' : 'reserved',
+      confirmed_at: new Date().toISOString()
+    };
+    if(startsToday) updateData.picked_up_at = new Date().toISOString();
+    var r = await window.supabase.from('bookings').update(updateData).eq('id', bookingId).select('id').single();
     if(!r.error && r.data){
       console.log('[API] Payment confirmed via direct DB update');
       return {success:true};
