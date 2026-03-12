@@ -27,31 +27,62 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Simulate payment processing delay (2 seconds)
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    // Simulate payment processing delay (1 second)
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    // 90% success rate
-    const success = Math.random() < 0.9;
-    const transactionId = success ? 'TXN-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6).toUpperCase() : null;
+    // Simulated gateway – always succeeds (real Stripe integration will replace this)
+    const success = true;
+    const transactionId = 'TXN-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6).toUpperCase();
 
-    if (success) {
-      // Update booking payment status in database
-      const supabase = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    // Update booking: payment status + proper status transition
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // Fetch booking to determine target status
+    const { data: booking, error: fetchError } = await supabase
+      .from('bookings')
+      .select('start_date, status, confirmed_at, picked_up_at')
+      .eq('id', booking_id)
+      .single();
+
+    if (fetchError || !booking) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Booking not found: ' + (fetchError?.message || 'unknown') }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
 
-      const { error: updateError } = await supabase
-        .from('bookings')
-        .update({
-          payment_status: 'paid',
-          payment_method: method || 'card'
-        })
-        .eq('id', booking_id);
+    // Determine new status: active if rental starts today or earlier, reserved if future
+    let newStatus = booking.status;
+    if (booking.status === 'pending') {
+      const startDate = new Date(booking.start_date);
+      startDate.setHours(0, 0, 0, 0);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      newStatus = startDate <= today ? 'active' : 'reserved';
+    }
 
-      if (updateError) {
-        console.error('DB update error:', updateError);
-      }
+    const updateData = {
+      payment_status: 'paid',
+      payment_method: method || 'card',
+      status: newStatus
+    };
+    if (!booking.confirmed_at && booking.status === 'pending') {
+      updateData.confirmed_at = new Date().toISOString();
+    }
+    if (newStatus === 'active' && !booking.picked_up_at) {
+      updateData.picked_up_at = new Date().toISOString();
+    }
+
+    const { error: updateError } = await supabase
+      .from('bookings')
+      .update(updateData)
+      .eq('id', booking_id);
+
+    if (updateError) {
+      console.error('DB update error:', updateError);
     }
 
     const response = {
@@ -60,13 +91,13 @@ Deno.serve(async (req) => {
       amount,
       method: method || 'card',
       processed_at: new Date().toISOString(),
-      error: success ? null : 'Payment declined by processor. Please try again or use a different payment method.'
+      error: null
     };
 
     return new Response(
       JSON.stringify(response),
       {
-        status: success ? 200 : 402,
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
