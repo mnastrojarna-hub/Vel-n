@@ -291,6 +291,7 @@
 | `confirm_shop_payment(order_id, method)` | RPC: označí shop objednávku jako zaplacenou (SECURITY DEFINER) |
 | `check_booking_overlap()` | Trigger funkce: kontrola překrytí rezervací |
 | `generate_shop_invoice()` | Trigger funkce: auto-faktura při zaplacení shop objednávky (type='shop_final', source='shop', SECURITY DEFINER) |
+| `auto_process_voucher_order()` | BEFORE UPDATE trigger na shop_orders: při payment_status→'paid' automaticky generuje voucher kódy, posílá in-app notifikaci, nastavuje status (delivered pro digitální, confirmed pro mixed). SECURITY DEFINER |
 
 ### Další funkce v reálné DB (ne v migracích)
 | Funkce | Popis |
@@ -343,6 +344,7 @@
 | `trg_one_active_sos` | sos_incidents (BEFORE INSERT) | check_one_active_sos() — SECURITY DEFINER, blokuje duplikáty |
 | `trg_bridge_admin_message` | messages (INSERT) | bridge_admin_message_to_app() |
 | `trg_restore_vouchers_on_cancel` | bookings (UPDATE) | restore_vouchers_on_cancel() |
+| `trg_auto_process_voucher_order` | shop_orders (BEFORE UPDATE OF payment_status, WHEN paid) | auto_process_voucher_order() — auto voucher kódy + in-app notifikace + status update |
 | `trg_sync_invoice_to_documents` | invoices (INSERT) | sync_invoice_to_documents() |
 | `trg_sync_invoice_pdf_update` | invoices (UPDATE pdf_path) | sync_invoice_pdf_update() |
 | `trg_sync_generated_doc_to_documents` | generated_documents (INSERT) | sync_generated_doc_to_documents() |
@@ -574,3 +576,4 @@ Detailní politiky:
 | 2026-03-13 | **NEW: Per-user overlap check:** `check_user_booking_overlap()` trigger — zákazník nesmí mít 2 překrývající se rezervace (kromě dětských motorek license_required=N). Trigger `trg_check_user_booking_overlap` BEFORE INSERT/UPDATE OF start_date, end_date, user_id, status |
 | 2026-03-13 | **NEW: Auto-complete expired bookings:** `auto_complete_expired_bookings()` — active/reserved + end_date < today + paid → completed. pg_cron job `auto-complete-expired-bookings` denně v 00:01 |
 | 2026-03-13 | **FIX: Document templates .single()→array:** Edge function generate-document a app apiFetchDocTemplate: `.single()` nahrazeno `.limit(1)` + array[0] (single selhával při 0/2+ výsledcích → fallback místo DB šablony). Per-user overlap check v apiCreateBooking a Velín NewBookingModal. Velín getDisplayStatus: end_date < today → completed, reserved → Nadcházející/Aktivní dle data |
+| 2026-03-13 | **NEW: Auto voucher processing:** BEFORE UPDATE trigger `auto_process_voucher_order()` na shop_orders — při zaplacení automaticky: (1) generuje voucher kódy, (2) posílá in-app notifikaci do admin_messages, (3) nastavuje status (delivered pro čistě digitální, confirmed pro mixed/fyzické). Velín: odstraněna klientská autoConfirmPaidVouchers, nahrazena DB triggerem. Frontend: checkout zobrazuje specifickou success zprávu s odkazem na zprávy pro voucher objednávky |
