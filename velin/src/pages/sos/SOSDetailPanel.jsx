@@ -944,7 +944,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
           )}
 
           {/* Akce: Znovu vyvolat FAB v appce zákazníka */}
-          {isActive && (incident.replacement_status === 'selecting' || incident.replacement_status === 'pending_payment') && (
+          {(incident.replacement_status === 'selecting' || incident.replacement_status === 'pending_payment') && (
             <div className="mt-3 flex gap-2">
               <button onClick={retriggerSosFab}
                 className="flex-1 rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none"
@@ -955,7 +955,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
           )}
 
           {/* Akce: Schválit / Zamítnout */}
-          {isActive && incident.replacement_status === 'admin_review' && (
+          {incident.replacement_status === 'admin_review' && (
             <div className="mt-3">
               {!showRejectForm ? (
                 <div className="flex gap-2">
@@ -995,7 +995,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
           )}
 
           {/* Akce: Změnit status přistavení */}
-          {isActive && incident.replacement_status === 'approved' && (
+          {incident.replacement_status === 'approved' && (
             <div className="mt-3 flex gap-2">
               <button onClick={() => updateReplacementStatus('dispatched')}
                 className="flex-1 rounded-btn text-sm font-extrabold cursor-pointer border-none"
@@ -1004,7 +1004,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
               </button>
             </div>
           )}
-          {isActive && incident.replacement_status === 'dispatched' && (
+          {incident.replacement_status === 'dispatched' && (
             <div className="mt-3 flex gap-2">
               <button onClick={() => updateReplacementStatus('delivered')}
                 className="flex-1 rounded-btn text-sm font-extrabold cursor-pointer border-none"
