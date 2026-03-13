@@ -106,7 +106,7 @@ async function apiCheckPendingSosReplacement(){
     var r = await window.supabase.from('sos_incidents')
       .select('id, type, replacement_status, replacement_data, booking_id, original_moto_id, customer_fault')
       .eq('user_id', uid)
-      .eq('replacement_status', 'selecting')
+      .in('replacement_status', ['selecting', 'pending_payment'])
       .order('created_at', {ascending: false})
       .limit(1);
     if(r.data && r.data.length > 0) return r.data[0];
