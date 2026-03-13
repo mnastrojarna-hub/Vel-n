@@ -300,6 +300,19 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
     onRefresh?.()
   }
 
+  async function retriggerSosFab() {
+    if (!window.confirm('Znovu vyvolat FAB banner v aplikaci zákazníka?\n\nZákazník uvidí banner "SOS dokončit" i pokud ho dříve zavřel.')) return
+    const rd = { ...(incident.replacement_data || {}), fab_retrigger_at: new Date().toISOString() }
+    await supabase.from('sos_incidents').update({ replacement_data: rd }).eq('id', incident.id)
+    const { data: { user } } = await supabase.auth.getUser()
+    await supabase.from('sos_timeline').insert({
+      incident_id: incident.id,
+      action: 'Admin znovu vyvolal FAB banner pro výběr náhradní motorky',
+      performed_by: user?.email || 'Admin', admin_id: user?.id,
+    })
+    onRefresh?.()
+  }
+
   async function approveReplacement() {
     const rd = incident.replacement_data || {}
     // SAFETY: Ověření že platba proběhla u zaviněných nehod
@@ -927,6 +940,17 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
               <div className="text-sm mt-1" style={{ color: '#166534' }}>
                 ✅ Původní rezervace ukončena ke dni incidentu. Nová rezervace s náhradní motorkou aktivní do konce původního termínu.
               </div>
+            </div>
+          )}
+
+          {/* Akce: Znovu vyvolat FAB v appce zákazníka */}
+          {isActive && (incident.replacement_status === 'selecting' || incident.replacement_status === 'pending_payment') && (
+            <div className="mt-3 flex gap-2">
+              <button onClick={retriggerSosFab}
+                className="flex-1 rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none"
+                style={{ padding: '8px 12px', background: '#d97706', color: '#fff' }}>
+                🔔 Znovu vyvolat FAB v appce
+              </button>
             </div>
           )}
 

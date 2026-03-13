@@ -98,14 +98,19 @@ function _checkAndShowSosFab(){
       if(!fab) return;
       if(pending){
         // Check if this specific incident was permanently dismissed
-        var dismissedIds = [];
-        try { dismissedIds = JSON.parse(localStorage.getItem('mg_sos_fab_dismissed') || '[]'); } catch(e){}
-        if(dismissedIds.indexOf(pending.id) !== -1){ fab.style.display = 'none'; return; }
+        var dismissData = {};
+        try { dismissData = JSON.parse(localStorage.getItem('mg_sos_fab_dismissed') || '{}'); } catch(e){}
+        var dismissedAt = dismissData[pending.id] || null;
+        // Admin can re-trigger via fab_retrigger_at in replacement_data
+        var retriggerAt = (pending.replacement_data && pending.replacement_data.fab_retrigger_at) || null;
+        if(dismissedAt && (!retriggerAt || new Date(retriggerAt) <= new Date(dismissedAt))){
+          fab.style.display = 'none'; return;
+        }
 
         window._pendingSosIncident = pending;
         window._sosFabIncidentId = pending.id;
         var label = document.getElementById('sos-repl-fab-text');
-        if(label) label.textContent = pending.customer_fault ? 'SOS dokončit' : 'SOS dokončit';
+        if(label) label.textContent = 'SOS dokončit';
         fab.style.display = 'flex';
       } else {
         fab.style.display = 'none';
@@ -115,16 +120,14 @@ function _checkAndShowSosFab(){
 }
 
 function dismissSosFab(){
-  // Permanently dismiss this specific SOS incident FAB
+  // Permanently dismiss this specific SOS incident FAB (stores timestamp)
   var fab = document.getElementById('sos-repl-fab');
   if(fab) fab.style.display = 'none';
   if(window._sosFabIncidentId){
     try {
-      var dismissed = JSON.parse(localStorage.getItem('mg_sos_fab_dismissed') || '[]');
-      if(dismissed.indexOf(window._sosFabIncidentId) === -1){
-        dismissed.push(window._sosFabIncidentId);
-        localStorage.setItem('mg_sos_fab_dismissed', JSON.stringify(dismissed));
-      }
+      var dismissData = JSON.parse(localStorage.getItem('mg_sos_fab_dismissed') || '{}');
+      dismissData[window._sosFabIncidentId] = new Date().toISOString();
+      localStorage.setItem('mg_sos_fab_dismissed', JSON.stringify(dismissData));
     } catch(e){}
   }
 }
@@ -192,14 +195,7 @@ function _updateSosFabVisibility(){
   if(!fab) return;
   // Hide on certain screens
   var hideOn = ['s-login','s-register','s-docs','s-sos-replacement','s-sos-payment','s-sos-done'];
-  if(hideOn.indexOf(cur) !== -1){ fab.style.display = 'none'; return; }
-  // Check permanent dismiss for this incident
-  if(window._sosFabIncidentId){
-    try {
-      var dismissed = JSON.parse(localStorage.getItem('mg_sos_fab_dismissed') || '[]');
-      if(dismissed.indexOf(window._sosFabIncidentId) !== -1){ fab.style.display = 'none'; return; }
-    } catch(e){}
-  }
+  if(hideOn.indexOf(cur) !== -1){ fab.style.display = 'none'; }
 }
 
 function _setResContent(html){
