@@ -40,7 +40,6 @@ async function _getSession(){
         if(refreshResult.data && refreshResult.data.session){
           var s = refreshResult.data.session;
           _syncLocalSession(s.user.id, s.user.email);
-          console.log('[AUTH] Session refreshed OK');
           return {
             user_id: s.user.id,
             email: s.user.email,

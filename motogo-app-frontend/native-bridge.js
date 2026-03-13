@@ -442,7 +442,6 @@
   // Start polling after short delay (wait for supabase init)
   setTimeout(_startMsgPolling, 5000);
 
-  console.log('[MotoGo24] Native bridge initialized \u2713');
 })();
 
 // ===== CORDOVA FINGERPRINT BRIDGE =====
@@ -478,8 +477,6 @@
 
   _onDeviceReady(function() {
     if (!_hasCordovaFingerprint()) return;
-
-    console.log('[MotoGo24] Cordova fingerprint plugin detected');
 
     // ===== CORDOVA BIOMETRIC BUTTON =====
     window.setupBioButton = function() {
@@ -570,6 +567,5 @@
       '.bnav{padding-bottom:env(safe-area-inset-bottom)!important}';
     document.head.appendChild(nativeCSS);
 
-    console.log('[MotoGo24] Cordova fingerprint bridge initialized \u2713');
   });
 })();

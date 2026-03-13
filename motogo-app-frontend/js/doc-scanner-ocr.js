@@ -40,9 +40,6 @@
   }
 
   function _sendWithRetry(baseUrl, anonKey, token, imageBase64, docType, attempt, cb){
-    console.log('[DocScanner] OCR attempt '+(attempt+1)+'/'+
-      (MAX_RETRIES+1)+' docType='+docType);
-
     fetch(baseUrl + '/functions/v1/scan-document', {
       method: 'POST',
       headers: {
@@ -78,7 +75,6 @@
         var text = textParts.join('\n');
 
         DocScanner._lastMindeeData = result.data;
-        console.log('[DocScanner] Mindee OK, fields: '+textParts.length);
         cb(null, text);
       } else if(attempt < MAX_RETRIES){
         console.warn('[DocScanner] Mindee no data, retrying...');

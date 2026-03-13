@@ -188,7 +188,6 @@ function _sosEnsureIncident(type, desc){
             var existing = await existingQ;
             if(existing.data && existing.data.length > 0){
               _sosActiveIncidentId = existing.data[0].id;
-              console.log('[SOS] Reusing existing active incident:', _sosActiveIncidentId);
               showT('ℹ️','Aktivní incident','Pokračujete v existujícím SOS incidentu');
               resolve(_sosActiveIncidentId);
               return;
@@ -237,9 +236,7 @@ function _sosEnsureIncident(type, desc){
 
         try {
           var gps = await _sosGetGPS();
-          console.log('[SOS] GPS:', gps.lat, gps.lng, 'bookingId:', bookingId, 'motoId:', motoId);
           var r = await apiCreateSosIncident(type, bookingId, gps.lat, gps.lng, desc, null, motoId);
-          console.log('[SOS] createIncident result:', JSON.stringify(r));
           if(r && r.error){
             console.error('[SOS] createIncident error:', r.error, r.code, r.details);
             if(String(r.error).indexOf('aktivní') >= 0 || String(r.error).indexOf('active') >= 0 || String(r.error).indexOf('Máte již') >= 0 || String(r.error).indexOf('existuje') >= 0){
@@ -319,7 +316,6 @@ async function _sosEndBooking(incidentId){
     }
     // Invalidate cache
     _cachedBookings = null;
-    console.log('[SOS] Booking', booking.id.substr(-8), 'marked as completed + ended_by_sos');
   } catch(e){ console.error('[SOS] _sosEndBooking error:', e); }
 }
 
@@ -538,8 +534,6 @@ async function sosReplLoadMotos(){
           currentMotoId = loan.moto_id;
         }
       }
-      console.log('[SOS] currentMotoId to exclude:', currentMotoId);
-
       // Zjisti řidičák zákazníka
       var customerLicense = null;
       if(uid){
@@ -552,9 +546,7 @@ async function sosReplLoadMotos(){
         .select('id, model, image_url, images, price_weekday, price_weekend, category, license_required, branches(name, city)')
         .eq('status', 'active')
         .limit(50);
-      console.log('[SOS] motorcycles query result:', r.error, r.data ? r.data.length : 'null');
       var allMotos = r.data || [];
-      console.log('[SOS] allMotos from DB:', allMotos.length);
 
       // Filtruj: 1) ne aktuální motorku, 2) zákazník má odpovídající řidičák
       var motos = allMotos.filter(function(m){
@@ -570,8 +562,6 @@ async function sosReplLoadMotos(){
         }
         return true;
       });
-      console.log('[SOS] after license+current filter:', motos.length);
-
       if(motos.length === 0){
         container.innerHTML = '<div style="text-align:center;padding:15px;color:#b91c1c;font-size:12px;font-weight:600;">Žádné motorky momentálně nejsou dostupné. Kontaktujte MotoGo24.</div>';
         return;
@@ -868,7 +858,6 @@ async function sosPaymentSubmit(){
           if(typeof apiGeneratePaymentReceipt === 'function'){
             await apiGeneratePaymentReceipt(replBookingId, sosPaymentTotal, 'sos');
           }
-          console.log('[SOS] ZF + DP generated for booking:', replBookingId, 'amount:', sosPaymentTotal);
         } else {
           console.warn('[SOS] No replacement booking ID — ZF/DP not generated');
         }
@@ -906,7 +895,6 @@ async function _sosSwapBookingsAndConfirm(incId, replacementData, isPaid, addres
         if(sr.error){
           console.warn('[SOS] swap returned error:', sr.error);
         } else {
-          console.log('[SOS] Booking swap OK:', sr);
           replacementData.original_booking_id = sr.original_booking_id;
           replacementData.replacement_booking_id = sr.replacement_booking_id;
           replacementData.original_end_date = sr.original_end_date;

@@ -236,12 +236,10 @@ async function apiProcessPayment(bookingId, amount, method){
       try { rpcData = JSON.parse(rpcData); } catch(pe){}
     }
     if(rpcData && (rpcData.success === true || rpcData === true)){
-      console.log('[API] Payment confirmed via RPC');
       return {success:true, transaction_id: rpcData.transaction_id || null};
     }
     // Pokud RPC vrátila data bez chyby = úspěch (funkce provedla UPDATE i bez explicit success)
     if(!rpcResult.error && rpcData !== null && rpcData !== undefined){
-      console.log('[API] Payment confirmed via RPC (alt response)');
       return {success:true};
     }
     if(rpcResult.error){
@@ -270,7 +268,6 @@ async function apiProcessPayment(bookingId, amount, method){
     if(startsToday) updateData.picked_up_at = new Date().toISOString();
     var r = await window.supabase.from('bookings').update(updateData).eq('id', bookingId).select('id').single();
     if(!r.error && r.data){
-      console.log('[API] Payment confirmed via direct DB update');
       return {success:true};
     }
     // RLS může blokovat – zkus přes service role RPC
@@ -290,7 +287,6 @@ async function apiProcessPayment(bookingId, amount, method){
       try { rpc2Data = JSON.parse(rpc2Data); } catch(pe){}
     }
     if(!rpc2.error || (rpc2Data && rpc2Data.success === true)){
-      console.log('[API] Payment confirmed via RPC retry');
       return {success:true};
     }
     console.warn('[API] RPC retry failed:', rpc2.error ? rpc2.error.message : 'unknown');
@@ -316,7 +312,6 @@ async function apiProcessPayment(bookingId, amount, method){
       await window.supabase.from('bookings')
         .update({ status: st ? 'active' : 'reserved', confirmed_at: new Date().toISOString() })
         .eq('id', bookingId);
-      console.log('[API] Payment confirmed via minimal fallback');
       return {success:true};
     }
   } catch(e){
@@ -692,7 +687,6 @@ async function apiGenerateAdvanceInvoice(bookingId, amount, source, editCtx){
       variable_symbol: invNum, source: source || 'booking'
     }).select().single();
     if(inv.error){ console.error('[API] Advance invoice INSERT FAILED:', inv.error.message, inv.error.details, inv.error.hint); return {error: inv.error.message}; }
-    console.log('[API] Advance invoice created:', invNum, 'id:', inv.data?.id, 'total:', total);
     // Insert into documents table for app display (type is TEXT column, accepts any value)
     try {
       var docR = await window.supabase.from('documents').insert({
@@ -701,7 +695,6 @@ async function apiGenerateAdvanceInvoice(bookingId, amount, source, editCtx){
         file_path: 'invoices/' + (inv.data ? inv.data.id : bookingId) + '.html'
       });
       if(docR.error) console.warn('[API] ZF doc insert err:', docR.error.message);
-      else console.log('[API] ZF doc inserted OK');
     } catch(de){ console.warn('[API] ZF doc insert exception:', de); }
     return {error: null, invoice_number: invNum};
   } catch(e){ console.error('[API] advanceInvoice:', e); return {error: e.message}; }
@@ -750,7 +743,6 @@ async function apiGenerateFinalInvoice(bookingId){
       variable_symbol: invNum, source: 'final_summary'
     }).select().single();
     if(inv.error){ console.error('[API] Final invoice INSERT FAILED:', inv.error.message, inv.error.details, inv.error.hint); return {error: inv.error.message}; }
-    console.log('[API] Final invoice created:', invNum, 'id:', inv.data?.id, 'total:', total);
     // Insert into documents table for app display (type is TEXT column, accepts any value)
     try {
       var docR = await window.supabase.from('documents').insert({
@@ -759,7 +751,6 @@ async function apiGenerateFinalInvoice(bookingId){
         file_path: 'invoices/' + (inv.data ? inv.data.id : bookingId) + '.html'
       });
       if(docR.error) console.warn('[API] KF doc insert err:', docR.error.message);
-      else console.log('[API] KF doc inserted OK');
     } catch(de){ console.warn('[API] KF doc insert exception:', de); }
     return {error: null, invoice_number: invNum};
   } catch(e){ console.error('[API] finalInvoice:', e); return {error: e.message}; }
@@ -812,7 +803,6 @@ async function apiGeneratePaymentReceipt(bookingId, amount, source, editCtx){
       variable_symbol: dpNum, source: source || 'booking'
     }).select().single();
     if(inv.error){ console.error('[API] Payment receipt INSERT FAILED:', inv.error.message, inv.error.details, inv.error.hint); return {error: inv.error.message}; }
-    console.log('[API] Payment receipt created:', dpNum, 'id:', inv.data?.id, 'total:', total);
     // Insert into documents table for app display (type is TEXT column, accepts any value)
     try {
       var docR = await window.supabase.from('documents').insert({
@@ -821,7 +811,6 @@ async function apiGeneratePaymentReceipt(bookingId, amount, source, editCtx){
         file_path: 'invoices/' + (inv.data ? inv.data.id : bookingId) + '.html'
       });
       if(docR.error) console.warn('[API] DP doc insert err:', docR.error.message);
-      else console.log('[API] DP doc inserted OK');
     } catch(de){ console.warn('[API] DP doc insert exception:', de); }
     return {error: null, receipt_number: dpNum};
   } catch(e){ console.error('[API] paymentReceipt:', e); return {error: e.message}; }
@@ -851,7 +840,6 @@ async function apiAutoGenerateBookingDocs(bookingId, force){
       // Also delete from generated_documents
       await window.supabase.from('generated_documents').delete().eq('booking_id', bookingId);
       existingTypes = [];
-      console.log('[API] Force: deleted old contract/vop docs for regeneration');
     }
 
     // Generate contract via edge function (creates generated_documents + syncs to documents via trigger)
@@ -860,7 +848,6 @@ async function apiAutoGenerateBookingDocs(bookingId, force){
         await window.supabase.functions.invoke('generate-document', {
           body: { template_slug: 'rental_contract', booking_id: bookingId }
         });
-        console.log('[API] Contract generated via edge function');
       } catch(e){
         console.warn('[API] Contract edge fn failed, inserting fallback:', e.message);
         await window.supabase.from('documents').insert({
@@ -876,7 +863,7 @@ async function apiAutoGenerateBookingDocs(bookingId, force){
         await window.supabase.functions.invoke('generate-document', {
           body: { template_slug: 'vop', booking_id: bookingId }
         });
-        console.log('[API] VOP generated via edge function');
+
       } catch(e){
         console.warn('[API] VOP edge fn failed, inserting fallback:', e.message);
         await window.supabase.from('documents').insert({
@@ -902,7 +889,6 @@ async function apiFetchDocuments(){
       .select('*, bookings(start_date, total_price, motorcycles(model))')
       .eq('user_id', uid)
       .order('created_at', {ascending: false});
-    console.log('[DOCS] 1) documents table:', r.error ? 'ERR: '+r.error.message : (r.data||[]).length + ' rows', (r.data||[]).map(function(d){return d.type+'/'+d.booking_id?.substr(-4);}));
     if(r.data) r.data.forEach(function(d){
       // Skip invoice_shop from documents table — step 4 (shop_orders) handles these with correct IDs
       if(d.type === 'invoice_shop') return;
@@ -924,7 +910,6 @@ async function apiFetchDocuments(){
       .select('*, bookings:booking_id(start_date, total_price, motorcycles(model))')
       .eq('customer_id', uid)
       .order('created_at', {ascending: false});
-    console.log('[DOCS] 2) invoices table:', ir.error ? 'ERR: '+ir.error.message : (ir.data||[]).length + ' rows', (ir.data||[]).map(function(i){return i.type+'/'+i.number+'/'+i.booking_id?.substr(-4);}));
     if(ir.data) ir.data.forEach(function(inv){
       // Skip shop_final invoices — step 4 (shop_orders) handles these with correct IDs
       if(inv.type === 'shop_final') return;
@@ -998,7 +983,6 @@ async function apiFetchDocuments(){
         });
       });
     } catch(se){ console.error('[API] shop_orders fetch:', se); }
-    console.log('[DOCS] FINAL results:', results.length, 'items:', results.map(function(d){return d.type+'/'+(d.file_name||d.booking_id?.substr(-4)||'?');}));
     // Attach debug info for visible diagnostics
     results._debug = {
       docs: r.error ? 'ERR: '+r.error.message : (r.data||[]).length,
@@ -1077,7 +1061,6 @@ async function apiCreateSosIncident(type, bookingId, lat, lng, desc, critical, m
     if(lat != null && !isNaN(lat)) data.latitude = lat;
     if(lng != null && !isNaN(lng)) data.longitude = lng;
     if(desc) data.description = desc;
-    console.log('[SOS] INSERT sos_incidents:', JSON.stringify(data));
     var r = await window.supabase.from('sos_incidents').insert(data).select().single();
     if(r.error){
       console.error('[SOS] INSERT error:', r.error.code, r.error.message, r.error.details, r.error.hint, 'status:', r.status);
@@ -1088,7 +1071,6 @@ async function apiCreateSosIncident(type, bookingId, lat, lng, desc, critical, m
       }
       return {error: errMsg, code: r.error.code, details: r.error.details, status: r.status};
     }
-    console.log('[SOS] INSERT ok, id:', r.data && r.data.id);
     return r.data || {};
   } catch(e){
     console.error('[SOS] apiCreateSosIncident exception:', e);
@@ -1221,35 +1203,29 @@ function apiSubscribeRealtimeUpdates(){
     .on('postgres_changes', {
       event: '*', schema: 'public', table: 'motorcycles'
     }, function(payload){
-      console.log('[RT] motorcycles changed:', payload.eventType);
       _scheduleRealtimeRefresh('motos');
     })
     .on('postgres_changes', {
       event: '*', schema: 'public', table: 'bookings'
     }, function(payload){
-      console.log('[RT] bookings changed:', payload.eventType);
       _scheduleRealtimeRefresh('bookings');
     })
     .on('postgres_changes', {
       event: '*', schema: 'public', table: 'moto_day_prices'
     }, function(payload){
-      console.log('[RT] moto_day_prices changed:', payload.eventType);
       _scheduleRealtimeRefresh('motos');
     })
     .on('postgres_changes', {
       event: 'INSERT', schema: 'public', table: 'documents'
     }, function(payload){
-      console.log('[RT] new document:', payload.new && payload.new.type);
     })
     .on('postgres_changes', {
       event: 'INSERT', schema: 'public', table: 'invoices'
     }, function(payload){
-      console.log('[RT] new invoice');
     })
     .on('postgres_changes', {
       event: '*', schema: 'public', table: 'sos_incidents'
     }, function(payload){
-      console.log('[RT] sos_incidents changed:', payload.eventType);
       _scheduleRealtimeRefresh('sos');
     })
     .subscribe();
@@ -1537,7 +1513,6 @@ async function enrichMOTOS(){
     for(var j = 0; j < fresh.length; j++) MOTOS.push(fresh[j]);
 
     window._enrichMOTOSDone = true;
-    console.log('[API] enrichMOTOS: ' + MOTOS.length + ' aktivních motorek (' + (fresh.length - Object.keys(usedKeys).length) + ' z Velínu)');
   } catch(e){
     console.error('[API] enrichMOTOS chyba:', e);
   }

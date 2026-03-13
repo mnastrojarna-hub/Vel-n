@@ -132,7 +132,6 @@ Templates['s-profile'] = `  <div class="prof-hdr">
 
   <div class="msec">
     <div class="msec-t" id="prof-sec-help">Pomoc & Podpora</div>
-    <div class="mi" onclick="goTo('s-sos')"><div class="mii">🆘</div><div class="mit" id="t-accident">Nehoda nebo porucha</div><div class="mia">›</div></div>
     <div class="mi" onclick="showT('❓','Nápověda','Otevírám FAQ...')"><div class="mii">❓</div><div class="mit" id="t-helpFAQ">Nápověda & FAQ</div><div class="mia">›</div></div>
     <div class="mi" onclick="openExternalLink('https://motogo24.vseproweb.com')"><div class="mii">🌐</div><div class="mit">motogo24.vseproweb.com</div><div class="mia">›</div></div>
     <div class="mi" onclick="openExternalLink('https://motogo24.vseproweb.com/blog')"><div class="mii">📝</div><div class="mit">Blog MotoGo24</div><div class="mia">›</div></div>
