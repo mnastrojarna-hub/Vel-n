@@ -17,7 +17,7 @@ const STATUS_LABELS = {
   pending: 'Čekající',
   completed: 'Dokončené',
   cancelled: 'Zrušené',
-  reserved: 'Rezervováno',
+  reserved: 'Nadcházející',
 }
 
 export function BookingsByStatus() {

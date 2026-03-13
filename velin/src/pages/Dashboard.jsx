@@ -12,7 +12,7 @@ const STATUS_MAP = {
   maintenance: { label: 'V servisu', color: '#92400e', bg: '#fef3c7' },
   out_of_service: { label: 'Vyřazena', color: '#991b1b', bg: '#fee2e2' },
   pending: { label: 'Čekající', color: '#92400e', bg: '#fef3c7' },
-  reserved: { label: 'Rezervováno', color: '#2563eb', bg: '#dbeafe' },
+  reserved: { label: 'Nadcházející', color: '#7c3aed', bg: '#ede9fe' },
   completed: { label: 'Dokončena', color: '#3b82f6', bg: '#dbeafe' },
   cancelled: { label: 'Zrušeno', color: '#dc2626', bg: '#fee2e2' },
 }
