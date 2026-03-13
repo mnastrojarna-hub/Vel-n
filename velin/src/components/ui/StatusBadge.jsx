@@ -23,11 +23,11 @@ export function getDisplayStatus(booking) {
     const startLocal = new Date(start.getFullYear(), start.getMonth(), start.getDate())
     const end = booking.end_date ? new Date(booking.end_date) : null
     const endLocal = end ? new Date(end.getFullYear(), end.getMonth(), end.getDate()) : null
+    // end_date < today → expired, show as completed
+    if (endLocal && endLocal < todayLocal) return 'completed'
     if (startLocal > todayLocal) return 'upcoming'
-    // reserved + start_date <= today → display as active (rental has started)
-    if (booking.status === 'reserved' && startLocal <= todayLocal) {
-      if (!endLocal || endLocal >= todayLocal) return 'active'
-    }
+    // start_date <= today <= end_date → active
+    if (booking.status === 'reserved' && startLocal <= todayLocal) return 'active'
   }
   return booking.status
 }
