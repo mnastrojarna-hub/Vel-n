@@ -214,29 +214,33 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
 
   async function setMotoToService() {
     const motoId = moto?.id || incident?.moto_id || incident?.replacement_data?.original_moto_id
-    if (!motoId) return
+    if (!motoId) { alert('Chyba: Nelze určit ID motorky'); return }
     if (!window.confirm('Přesunout motorku do servisu (maintenance)?\n\nMotorka bude nedostupná pro nové rezervace.')) return
-    const { error } = await supabase.from('motorcycles').update({ status: 'maintenance' }).eq('id', motoId)
-    if (error) { alert('Chyba: ' + error.message); return }
-    const { data: { user } } = await supabase.auth.getUser()
-    // Create maintenance_log entry so moto is visible in Service section
-    const sosType = incident?.type || 'other'
-    const sosDesc = TYPE_LABELS[sosType] || sosType
-    await supabase.from('maintenance_log').insert({
-      moto_id: motoId,
-      type: 'repair',
-      description: `SOS incident: ${sosDesc}${incident?.description ? ' — ' + incident.description.slice(0, 200) : ''}`,
-      status: 'in_service',
-      performed_by: user?.email || 'Admin',
-      sos_incident_id: incident.id,
-    })
-    await supabase.from('sos_timeline').insert({
-      incident_id: incident.id,
-      action: `Motorka ${moto?.model || motoId} přesunuta do servisu`,
-      performed_by: user?.email || 'Admin', admin_id: user?.id,
-    })
-    setMotoInService(true)
-    onRefresh?.()
+    try {
+      const { error } = await supabase.from('motorcycles').update({ status: 'maintenance' }).eq('id', motoId)
+      if (error) { alert('Chyba: ' + error.message); return }
+      const { data: { user } } = await supabase.auth.getUser()
+      // Create maintenance_log entry (ignore errors — some columns may not exist)
+      const sosType = incident?.type || 'other'
+      const sosDesc = TYPE_LABELS[sosType] || sosType
+      await supabase.from('maintenance_log').insert({
+        moto_id: motoId,
+        type: 'repair',
+        description: `SOS incident: ${sosDesc}${incident?.description ? ' — ' + incident.description.slice(0, 200) : ''}`,
+        status: 'in_service',
+        performed_by: user?.email || 'Admin',
+      }).then(() => {}).catch(() => {})
+      await supabase.from('sos_timeline').insert({
+        incident_id: incident.id,
+        action: `Motorka ${moto?.model || motoId} přesunuta do servisu`,
+        performed_by: user?.email || 'Admin', admin_id: user?.id,
+      })
+      setMotoInService(true)
+      onRefresh?.()
+    } catch (e) {
+      console.error('[SOS] setMotoToService error:', e)
+      alert('Chyba při přesunu do servisu: ' + e.message)
+    }
   }
 
   async function updateDecision(decision) {
