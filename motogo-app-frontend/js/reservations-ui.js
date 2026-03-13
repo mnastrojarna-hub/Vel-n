@@ -618,6 +618,11 @@ async function _execCancelBooking(bookingId){
   var result = await apiCancelBooking(bookingId);
   if(result.error){ showT('✗',_t('common').error, result.error); return; }
 
+  // Generate cancellation receipt (storno doklad) with storno conditions
+  if(typeof apiGenerateCancellationReceipt === 'function'){
+    apiGenerateCancellationReceipt(bookingId, result.refund_percent || 0, result.refund_amount || 0).catch(function(e){});
+  }
+
   var refundText = result.refund_percent > 0
     ? _t('res').refundOf+' ' + (result.refund_amount||0).toLocaleString('cs-CZ') + ' Kč (' + result.refund_percent + ' %)'
     : _t('res').noRefundText;

@@ -343,17 +343,74 @@ async function apiCancelBooking(bookingId, reason){
     var br = await window.supabase.from('bookings').select('*').eq('id', bookingId).single();
     if(!br.data) return {error:'Rezervace nenalezena'};
     var b = br.data;
-    var now = new Date();
-    var start = new Date(b.start_date);
-    var hoursUntil = (start - now) / (1000*60*60);
-    var refundPct = 0;
-    if(hoursUntil > 7*24) refundPct = 100;
-    else if(hoursUntil > 48) refundPct = 50;
+    var refundPct = _getStornoPercent(b.start_date);
     var refundAmt = Math.round((b.total_price || 0) * refundPct / 100);
     var r = await window.supabase.from('bookings').update({status:'cancelled'}).eq('id', bookingId);
     if(r.error) return {error: r.error.message};
     return {error:null, refund_percent: refundPct, refund_amount: refundAmt};
   } catch(e){ return {error:'Chyba při rušení rezervace'}; }
+}
+
+// Generate cancellation receipt (storno doklad) — called after booking cancellation
+async function apiGenerateCancellationReceipt(bookingId, refundPercent, refundAmount){
+  _ensureSupabase();
+  if(!window.supabase) return {error:'Offline'};
+  try {
+    var uid = await _getUserId();
+    if(!uid) return {error:'Nepřihlášen'};
+    var br = await window.supabase.from('bookings')
+      .select('*, motorcycles('+_MOTO_PRICE_COLS+')')
+      .eq('id', bookingId).single();
+    if(br.error || !br.data) return {error:'Booking not found'};
+    var b = br.data, m = br.data.motorcycles || {};
+    var yr = new Date().getFullYear();
+    var lr = await window.supabase.from('invoices').select('number')
+      .like('number', 'DP-' + yr + '-%').order('number', {ascending:false}).limit(1);
+    var seq = 1;
+    if(lr.data && lr.data.length > 0){
+      var mt = lr.data[0].number.match(/-(\d+)$/);
+      if(mt) seq = parseInt(mt[1], 10) + 1;
+    }
+    var dpNum = 'DP-' + yr + '-' + String(seq).padStart(4, '0');
+    // Find original ZF for reference
+    var origZf = await window.supabase.from('invoices').select('number')
+      .eq('booking_id', bookingId).eq('type','advance').eq('source','booking')
+      .order('created_at',{ascending:true}).limit(1);
+    var origRef = (origZf.data && origZf.data.length > 0) ? ' (storno k '+origZf.data[0].number+')' : '';
+    // Build items: original booking (negative) + storno fee if applicable
+    var items = [];
+    items.push({description:'── Storno rezervace'+origRef+' ──', qty:1, unit_price:0});
+    var bookingItems = _buildDailyItems(m, b.start_date, b.end_date);
+    bookingItems.forEach(function(it){ items.push({description:it.description, qty:1, unit_price:-it.unit_price}); });
+    if(b.extras_price > 0) items.push({description:'Příslušenství / doplňky', qty:1, unit_price:-b.extras_price});
+    if(b.delivery_fee > 0) items.push({description:'Doručení', qty:1, unit_price:-b.delivery_fee});
+    if(b.discount_amount > 0) items.push({description:'Sleva'+(b.discount_code?' ('+b.discount_code+')':''), qty:1, unit_price:b.discount_amount});
+    var rawRefund = _calcItemsTotal(items);
+    if(refundPercent < 100 && rawRefund < 0){
+      var stornoFee = Math.round(Math.abs(rawRefund) * (100 - refundPercent) / 100);
+      var stornoLabel = refundPercent === 0
+        ? 'Storno poplatek (méně než 2 dny – bez vrácení)'
+        : 'Storno poplatek (2–7 dní – vrácení 50 %)';
+      items.push({description:stornoLabel, qty:1, unit_price:stornoFee});
+    }
+    var subtotal = _calcItemsTotal(items);
+    var issueDate = new Date().toISOString().slice(0, 10);
+    var inv = await window.supabase.from('invoices').insert({
+      number: dpNum, type: 'payment_receipt', customer_id: uid, booking_id: bookingId,
+      items: items, subtotal: subtotal, tax_amount: 0, total: subtotal,
+      issue_date: issueDate, due_date: issueDate, status: 'paid',
+      variable_symbol: dpNum, source: 'cancellation'
+    }).select().single();
+    if(inv.error) return {error: inv.error.message};
+    try {
+      await window.supabase.from('documents').insert({
+        booking_id: bookingId, user_id: uid, type: 'payment_receipt',
+        file_name: 'Storno doklad ' + dpNum + '.pdf',
+        file_path: 'invoices/' + (inv.data ? inv.data.id : bookingId) + '.html'
+      });
+    } catch(de){}
+    return {error: null, receipt_number: dpNum};
+  } catch(e){ return {error: e.message}; }
 }
 
 async function apiRestoreBooking(bookingId){
@@ -614,14 +671,14 @@ function _buildBookingItems(b, m){
 }
 function _calcItemsTotal(items){ return items.reduce(function(s,it){ return s + (it.unit_price||0)*(it.qty||1); }, 0); }
 
-// Storno conditions: 7+ days before start = 100% refund, 2-7 days = 50%, <2 days = 0%
-function _getStornoPercent(startDate){
+// Storno conditions: 7+ days = 100% refund, 2-7 days = 50%, <2 days = 0%
+// refDate = date to measure against (start_date for cancellation, first removed day for shortening)
+function _getStornoPercent(refDate){
   var now = new Date(); now.setHours(0,0,0,0);
-  var start = new Date(_toDateStr(startDate)+'T00:00:00');
-  var diffMs = start.getTime() - now.getTime();
-  var diffDays = Math.ceil(diffMs / 86400000);
-  if(diffDays >= 7) return 100;
-  if(diffDays >= 2) return 50;
+  var ref = new Date(_toDateStr(refDate)+'T00:00:00');
+  var hoursUntil = (ref.getTime() - now.getTime()) / (1000*60*60);
+  if(hoursUntil > 7*24) return 100;
+  if(hoursUntil > 48) return 50;
   return 0;
 }
 
@@ -648,12 +705,28 @@ function _buildEditItems(editCtx, newBooking, newMoto){
   // Apply storno conditions for shortened reservations
   var rawTotal = _calcItemsTotal(items);
   if(rawTotal < 0){
-    var stornoPercent = _getStornoPercent(editCtx.orig_start);
+    // Determine first removed day for storno calculation (matches UI logic)
+    var origEnd = new Date(_toDateStr(editCtx.orig_end)+'T00:00:00');
+    var newEnd = new Date(_toDateStr(newBooking.end_date)+'T00:00:00');
+    var origStart = new Date(_toDateStr(editCtx.orig_start)+'T00:00:00');
+    var newStart = new Date(_toDateStr(newBooking.start_date)+'T00:00:00');
+    var stornoRefDate;
+    if(newEnd < origEnd){
+      // End shortened — first removed day is newEnd + 1
+      var frd = new Date(newEnd); frd.setDate(frd.getDate()+1);
+      stornoRefDate = frd.toISOString();
+    } else if(newStart > origStart){
+      // Start shortened — reference is the new start
+      stornoRefDate = newStart.toISOString();
+    } else {
+      stornoRefDate = editCtx.orig_start;
+    }
+    var stornoPercent = _getStornoPercent(stornoRefDate);
     if(stornoPercent < 100){
       var stornoFee = Math.round(Math.abs(rawTotal) * (100 - stornoPercent) / 100);
       var stornoLabel = stornoPercent === 0
-        ? 'Storno poplatek (méně než 2 dny před začátkem – bez vrácení)'
-        : 'Storno poplatek (2–7 dní před začátkem – vrácení 50 %)';
+        ? 'Storno poplatek (méně než 2 dny – bez vrácení)'
+        : 'Storno poplatek (2–7 dní – vrácení 50 %)';
       items.push({description:stornoLabel, qty:1, unit_price:stornoFee});
     }
   }
