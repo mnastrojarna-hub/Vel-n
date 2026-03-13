@@ -46,6 +46,18 @@ async function renderProfile(){
 
 async function doSaveProfile(){
   try {
+    // Convert Czech date "D. M. YYYY" to ISO "YYYY-MM-DD"
+    function czToIso(v){
+      if(!v) return null;
+      var m=v.match(/(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})/);
+      if(m) return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+      if(/^\d{4}-\d{2}-\d{2}/.test(v)) return v.substring(0,10);
+      return null;
+    }
+
+    var licExpVal = (document.getElementById('profile-license-expiry') || {}).value || '';
+    var licExpIso = czToIso(licExpVal);
+
     var data = {
       full_name: (document.getElementById('profile-name') || {}).value || '',
       phone: (document.getElementById('profile-phone') || {}).value || '',
@@ -53,9 +65,9 @@ async function doSaveProfile(){
       city: (document.getElementById('profile-city') || {}).value || '',
       zip: (document.getElementById('profile-zip') || {}).value || '',
       license_number: (document.getElementById('profile-license-num') || {}).value || '',
-      license_expiry: (document.getElementById('profile-license-expiry') || {}).value || '',
       license_group: (document.getElementById('profile-license-group') || {}).value || ''
     };
+    if(licExpIso) data.license_expiry = licExpIso;
 
     var result = await apiUpdateProfile(data);
     if(result.error){

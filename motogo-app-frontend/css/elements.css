@@ -130,8 +130,8 @@
 .cart-fab-clear:active{transform:scale(.97);}
 
 /* FAB stacking — booking FAB sits above cart, SOS above booking */
-#booking-fab{bottom:140px;}
-#sos-repl-fab{bottom:190px;}
+#booking-fab{bottom:145px;}
+#sos-repl-fab{bottom:145px;}
 
 /* Address autocomplete suggestions */
 .addr-suggestions{position:absolute;top:100%;left:0;right:0;background:#fff;border:2px solid var(--green);border-top:none;border-radius:0 0 var(--rsm) var(--rsm);z-index:50;max-height:220px;overflow-y:auto;box-shadow:0 8px 20px rgba(0,0,0,.12);}
