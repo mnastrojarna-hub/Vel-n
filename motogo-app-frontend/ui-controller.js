@@ -284,6 +284,45 @@ function _sosEnsureIncident(type, desc){
   });
 }
 
+// End active booking when SOS incident ends ride (without replacement)
+async function _sosEndBooking(incidentId){
+  try {
+    var uid = await _getUserId();
+    if(!uid) return;
+    var todayISO = new Date().toISOString().slice(0,10);
+    // Find active booking linked to this incident or current active booking
+    var bk = null;
+    var incR = await window.supabase.from('sos_incidents').select('booking_id').eq('id', incidentId).single();
+    if(incR.data && incR.data.booking_id){
+      bk = await window.supabase.from('bookings').select('id, moto_id, end_date').eq('id', incR.data.booking_id).single();
+    }
+    if(!bk || !bk.data){
+      var bkR = await window.supabase.from('bookings').select('id, moto_id, end_date')
+        .eq('user_id', uid).in('status', ['active','confirmed','reserved'])
+        .eq('payment_status', 'paid')
+        .order('start_date', {ascending: false}).limit(1);
+      if(bkR.data && bkR.data.length > 0) bk = {data: bkR.data[0]};
+    }
+    if(!bk || !bk.data) return;
+    var booking = bk.data;
+    // Update booking: completed + ended_by_sos
+    await window.supabase.from('bookings').update({
+      status: 'completed',
+      end_date: todayISO,
+      ended_by_sos: true,
+      sos_incident_id: incidentId,
+      notes: '[SOS] Ukončeno ke dni ' + todayISO + ' — incident #' + incidentId.substr(-8)
+    }).eq('id', booking.id);
+    // Set motorcycle to maintenance
+    if(booking.moto_id){
+      await window.supabase.from('motorcycles').update({status: 'maintenance'}).eq('id', booking.moto_id);
+    }
+    // Invalidate cache
+    _cachedBookings = null;
+    console.log('[SOS] Booking', booking.id.substr(-8), 'marked as completed + ended_by_sos');
+  } catch(e){ console.error('[SOS] _sosEndBooking error:', e); }
+}
+
 function _sosUpdateIncident(incidentId, data){
   if(!incidentId || !window.supabase) return Promise.resolve();
   return window.supabase.from('sos_incidents').update(data).eq('id', incidentId)
@@ -806,29 +845,34 @@ async function sosPaymentSubmit(){
 
       await _sosSwapBookingsAndConfirm(pd.incId, pd.replacementData, true, pd.address, pd.city);
 
-      // Generate ZF (zálohová faktura) for the damage deposit + replacement
+      // Generate ZF + DP for the SOS replacement payment
       try {
         var replBookingId = pd.replacementData.replacement_booking_id;
         var sosPaymentTotal = pd.replacementData.payment_amount || 0;
+        // If swap failed, try to get the booking ID from the incident
+        if(!replBookingId && pd.incId){
+          var incCheck = await window.supabase.from('sos_incidents').select('replacement_booking_id').eq('id', pd.incId).single();
+          if(incCheck.data && incCheck.data.replacement_booking_id) replBookingId = incCheck.data.replacement_booking_id;
+        }
         if(replBookingId){
+          // Mark replacement booking as paid
+          await window.supabase.from('bookings').update({
+            payment_status: 'paid',
+            confirmed_at: new Date().toISOString()
+          }).eq('id', replBookingId);
+          // Generate ZF (zálohová faktura)
           if(typeof apiGenerateAdvanceInvoice === 'function'){
             await apiGenerateAdvanceInvoice(replBookingId, sosPaymentTotal, 'sos');
           }
-          await window.supabase.functions.invoke('generate-invoice', {
-            body: {
-              type: 'proforma',
-              booking_id: replBookingId,
-              extra_items: [
-                { description: 'Záloha na poškození motorky', qty: 1, unit_price: 30000, vat_rate: 21 }
-              ]
-            }
-          });
+          // Generate DP (daňový doklad)
           if(typeof apiGeneratePaymentReceipt === 'function'){
             await apiGeneratePaymentReceipt(replBookingId, sosPaymentTotal, 'sos');
           }
-          console.log('[SOS] ZF + DP generated for booking:', replBookingId);
+          console.log('[SOS] ZF + DP generated for booking:', replBookingId, 'amount:', sosPaymentTotal);
+        } else {
+          console.warn('[SOS] No replacement booking ID — ZF/DP not generated');
         }
-      } catch(e){ console.error('[SOS] ZF generation failed:', e); }
+      } catch(e){ console.error('[SOS] ZF/DP generation failed:', e); }
 
       } catch(e){
         console.error('[SOS] Payment processing error:', e);
@@ -926,13 +970,16 @@ function sosEndRide() {
       var upd = {customer_decision:'end_ride', moto_rideable:false};
       if(_sosFault !== null) upd.customer_fault = _sosFault;
       _sosUpdateIncident(incId, upd);
+      // Mark booking as completed + ended_by_sos
+      _sosEndBooking(incId);
       apiSosRequestTow(incId).then(function(){
         // Timeline entry s detaily
         window.supabase.from('sos_timeline').insert({
           incident_id: incId,
           action: 'Zákazník ukončuje jízdu — žádá odtah' + (_sosFault === true ? ' (zavinil zákazník)' : _sosFault === false ? ' (cizí zavinění — zdarma)' : ''),
         }).then(function(){});
-        _sosShowDone('Odtah objednán', 'MotoGo24 zařídí odtah motorky. Asistent vás bude kontaktovat.');
+        _sosShowDone('Odtah objednán', 'MotoGo24 zařídí odtah motorky. Asistent vás bude kontaktovat.',
+          '<button onclick="goTo(\'s-res\')" style="width:100%;background:var(--green);color:#fff;border:none;border-radius:50px;padding:14px;font-family:var(--font);font-size:14px;font-weight:800;cursor:pointer;">📋 Zobrazit moje rezervace</button>');
       });
     });
 }
@@ -943,6 +990,8 @@ function sosEndRideFree() {
     _sosEnsureIncident('breakdown_major', desc).then(function(incId){
       if(incId){
         _sosUpdateIncident(incId, {customer_decision:'end_ride', moto_rideable:false, customer_fault:false});
+        // Mark booking as completed + ended_by_sos
+        _sosEndBooking(incId);
         apiSosRequestTow(incId);
         // Timeline entry
         window.supabase.from('sos_timeline').insert({
@@ -950,7 +999,8 @@ function sosEndRideFree() {
           action: 'Zákazník ukončuje jízdu — porucha (nezaviněná) — pronájem zdarma, odtah objednán',
         }).then(function(){});
       }
-      _sosShowDone('Pronájem zdarma', 'Vracíme plnou částku. Odtah zajistíme.');
+      _sosShowDone('Pronájem zdarma', 'Vracíme plnou částku. Odtah zajistíme.',
+        '<button onclick="goTo(\'s-res\')" style="width:100%;background:var(--green);color:#fff;border:none;border-radius:50px;padding:14px;font-family:var(--font);font-size:14px;font-weight:800;cursor:pointer;">📋 Zobrazit moje rezervace</button>');
     });
 }
 
