@@ -36,6 +36,7 @@ export default function Bookings() {
   const [branches, setBranches] = useState([])
   const [motos, setMotos] = useState([])
   const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [dpTotals, setDpTotals] = useState({})
 
   useEffect(() => { if (view === 'Seznam') loadBookings() }, [page, filters, view])
   useEffect(() => {
@@ -119,6 +120,18 @@ export default function Bookings() {
       }
       setBookings(data)
       setTotal(result?.count || 0)
+      // Load DP totals per booking (sum of all payment_receipt invoices)
+      const bookingIds = data.map(b => b.id).filter(Boolean)
+      if (bookingIds.length > 0) {
+        const { data: dpInvoices } = await supabase.from('invoices')
+          .select('booking_id, total').eq('type', 'payment_receipt').neq('status', 'cancelled')
+          .in('booking_id', bookingIds)
+        if (dpInvoices) {
+          const map = {}
+          dpInvoices.forEach(i => { map[i.booking_id] = (map[i.booking_id] || 0) + Number(i.total || 0) })
+          setDpTotals(map)
+        }
+      }
     } catch (e) {
       setError(e.message)
     } finally {
@@ -270,7 +283,7 @@ export default function Bookings() {
                       const lcol = daysDelta > 0 ? '#2563eb' : '#dc2626'
                       return <span className="ml-1 text-[9px] font-extrabold px-1 py-0.5 rounded-btn" style={{ background: lbg, color: lcol }}>{lbl}</span>
                     })()}</TD>
-                    <TD bold>{b.total_price ? `${b.total_price.toLocaleString('cs-CZ')} Kč` : '—'}</TD>
+                    <TD bold>{(dpTotals[b.id] || b.total_price) ? `${Number(dpTotals[b.id] || b.total_price).toLocaleString('cs-CZ')} Kč` : '—'}</TD>
                     <TD>
                       <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
                         style={{ padding: '3px 8px', background: b.payment_status === 'paid' ? '#dcfce7' : '#fee2e2', color: b.payment_status === 'paid' ? '#1a8a18' : '#dc2626' }}>
@@ -463,7 +476,7 @@ function GlobalCalendar() {
                         {b.profiles?.full_name || 'Zákazník'}
                         <span className="ml-2" style={{ color: '#1a2e22' }}>{b.start_date ? new Date(b.start_date).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' }) : ''} → {b.end_date ? new Date(b.end_date).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric' }) : ''}</span>
                       </div>
-                      {b.total_price && <div className="text-sm font-bold mt-1" style={{ color: '#3dba3a' }}>{Number(b.total_price).toLocaleString('cs-CZ')} Kč</div>}
+                      {(dpTotals[b.id] || b.total_price) && <div className="text-sm font-bold mt-1" style={{ color: '#3dba3a' }}>{Number(dpTotals[b.id] || b.total_price).toLocaleString('cs-CZ')} Kč</div>}
                     </div>
                   ))}
                   {showFree && (() => {
