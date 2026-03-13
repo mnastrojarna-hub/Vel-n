@@ -61,6 +61,22 @@ export default function Bookings() {
       } catch (e) { console.error('[AutoCancel]', e) }
     }
     autoCancelStale()
+    // Auto-activate: reserved + paid + start_date <= today → active
+    async function autoActivateReserved() {
+      try {
+        const today = new Date().toISOString().slice(0, 10)
+        const { data: ready } = await supabase.from('bookings').select('id')
+          .eq('status', 'reserved').eq('payment_status', 'paid')
+          .lte('start_date', today)
+        if (ready && ready.length > 0) {
+          await supabase.from('bookings')
+            .update({ status: 'active', picked_up_at: new Date().toISOString() })
+            .in('id', ready.map(b => b.id))
+          console.log('[AutoActivate]', ready.length, 'bookings activated')
+        }
+      } catch (e) { console.error('[AutoActivate]', e) }
+    }
+    autoActivateReserved()
     // Auto-generate KF for completed bookings without final invoice
     async function autoGenerateKF() {
       try {
