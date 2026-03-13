@@ -285,6 +285,8 @@
 | `expire_vouchers()` | Automatická expirace voucherů (pg_cron) |
 | `expire_vouchers_and_promos()` | Expirace voucherů + deaktivace promo kódů po valid_to |
 | `auto_cancel_expired_pending()` | Auto-cancel pending+unpaid bookings (app: 10min, web: 4h). SECURITY DEFINER |
+| `auto_complete_expired_bookings()` | Auto-complete: active/reserved + end_date < today + paid → completed. SECURITY DEFINER |
+| `check_user_booking_overlap()` | Trigger: per-user overlap check — zákazník nesmí mít 2 překrývající se rezervace. Výjimka: dětské motorky (license_required=N). SECURITY DEFINER |
 | `confirm_payment(booking_id, method)` | RPC: označí booking jako zaplacený. start_date<=dnes → pending→**active** (+picked_up_at), start_date>dnes → pending→**reserved** (+confirmed_at). SECURITY DEFINER |
 | `confirm_shop_payment(order_id, method)` | RPC: označí shop objednávku jako zaplacenou (SECURITY DEFINER) |
 | `check_booking_overlap()` | Trigger funkce: kontrola překrytí rezervací |
@@ -507,6 +509,7 @@ Detailní politiky:
 |-----|-----|--------|
 | `expire-vouchers` | denně 01:00 UTC | `SELECT expire_vouchers()` |
 | `auto-cancel-pending-bookings` | každé 2 min (`*/2 * * * *`) | `SELECT auto_cancel_expired_pending()` — ruší pending+unpaid bookings: app=10min, web=4h |
+| `auto-complete-expired-bookings` | denně 00:01 (`1 0 * * *`) | `SELECT auto_complete_expired_bookings()` — active/reserved + end_date < today + paid → completed |
 | Denní cron | denně | `cron-daily` edge function (snapshot_daily_stats, auto_schedule_services) |
 | Měsíční cron | 1. den měsíce | `cron-monthly` edge function (generate-tax, monthly reports) |
 
@@ -568,3 +571,6 @@ Detailní politiky:
 | 2026-03-12 | **FIX confirm_payment v3 (robust):** Přidáno exception handling — pokud trigger (bookings_auto_accounting) zhavaruje, funkce provede minimální update (payment_status+payment_method) a pak separátní update statusu. Frontend: opraveno parsování RPC jsonb odpovědi (string vs object), přidán 5. fallback tier (minimální update). Edge function: přidán CORS Allow-Methods, robustnější error handling |
 | 2026-03-12 | **FIX header banner:** Frontend: `.single()` → `.maybeSingle()` (nehavaruje když klíč neexistuje). Přidán realtime subscription pro okamžitou aktualizaci banneru. Velín: opraveno načítání banneru |
 | 2026-03-12 | **FIX payment triggers (root cause):** `auto_accounting_on_booking_paid()` přepsán s EXCEPTION handling — crashující trigger blokoval VŠECHNY booking UPDATy (platba vždy zamítnuta). Trigger `bookings_auto_accounting` omezen na `AFTER UPDATE OF payment_status WHEN (NEW='paid' AND OLD IS DISTINCT FROM 'paid')`. Trigger `trg_check_booking_overlap` omezen na `UPDATE OF start_date, end_date, moto_id` (nefiruje při platebních updatech). Edge function: `!amount` → `amount == null` (akceptuje amount=0). Znovuaplikován robust `confirm_payment` s EXCEPTION handling |
+| 2026-03-13 | **NEW: Per-user overlap check:** `check_user_booking_overlap()` trigger — zákazník nesmí mít 2 překrývající se rezervace (kromě dětských motorek license_required=N). Trigger `trg_check_user_booking_overlap` BEFORE INSERT/UPDATE OF start_date, end_date, user_id, status |
+| 2026-03-13 | **NEW: Auto-complete expired bookings:** `auto_complete_expired_bookings()` — active/reserved + end_date < today + paid → completed. pg_cron job `auto-complete-expired-bookings` denně v 00:01 |
+| 2026-03-13 | **FIX: Document templates .single()→array:** Edge function generate-document a app apiFetchDocTemplate: `.single()` nahrazeno `.limit(1)` + array[0] (single selhával při 0/2+ výsledcích → fallback místo DB šablony). Per-user overlap check v apiCreateBooking a Velín NewBookingModal. Velín getDisplayStatus: end_date < today → completed, reserved → Nadcházející/Aktivní dle data |
