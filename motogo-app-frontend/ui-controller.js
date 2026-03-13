@@ -107,7 +107,7 @@ function _sosPreFetchIds(){
       var bk = await window.supabase.from('bookings')
         .select('id, moto_id')
         .eq('user_id', uid)
-        .in('status', ['active', 'confirmed', 'pending'])
+        .in('status', ['active', 'confirmed', 'pending', 'reserved'])
         .lte('start_date', new Date().toISOString())
         .gte('end_date', new Date().toISOString())
         .limit(1);
@@ -223,7 +223,7 @@ function _sosEnsureIncident(type, desc){
               var bk = await window.supabase.from('bookings')
                 .select('id, moto_id')
                 .eq('user_id', uid2)
-                .in('status', ['active', 'confirmed', 'pending'])
+                .in('status', ['active', 'confirmed', 'pending', 'reserved'])
                 .lte('start_date', new Date().toISOString())
                 .gte('end_date', new Date().toISOString())
                 .limit(1);
@@ -414,7 +414,7 @@ function sosRequestReplacement() {
           var bk = await window.supabase.from('bookings')
             .select('moto_id')
             .eq('user_id', uid)
-            .in('status', ['active', 'confirmed', 'pending'])
+            .in('status', ['active', 'confirmed', 'pending', 'reserved'])
             .lte('start_date', new Date().toISOString())
             .gte('end_date', new Date().toISOString())
             .limit(1);
@@ -518,7 +518,7 @@ async function sosReplLoadMotos(){
         var bkR = await window.supabase.from('bookings')
           .select('moto_id, start_date, end_date')
           .eq('user_id', uid)
-          .in('status', ['active', 'confirmed', 'pending'])
+          .in('status', ['active', 'confirmed', 'pending', 'reserved'])
           .lte('start_date', new Date().toISOString())
           .gte('end_date', new Date().toISOString())
           .limit(1);

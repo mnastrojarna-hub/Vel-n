@@ -1,24 +1,8 @@
 -- ═══════════════════════════════════════════════════════════
--- SOS Replacement: Booking swap support
---
--- When customer picks a replacement motorcycle in SOS flow:
--- 1. Original booking ends at incident date (moved to completed)
--- 2. New booking created for replacement moto (incident date → original end)
---
--- bookings already has: sos_replacement boolean DEFAULT false
+-- 2026-03-13: Fix sos_swap_bookings + auto-activate reserved
 -- ═══════════════════════════════════════════════════════════
 
--- Bookings: add missing columns for SOS replacement tracking
-ALTER TABLE bookings ADD COLUMN IF NOT EXISTS replacement_for_booking_id uuid;
-ALTER TABLE bookings ADD COLUMN IF NOT EXISTS sos_incident_id uuid;
-ALTER TABLE bookings ADD COLUMN IF NOT EXISTS ended_by_sos boolean DEFAULT false;
-
--- sos_incidents: link to original and replacement booking
-ALTER TABLE sos_incidents ADD COLUMN IF NOT EXISTS original_booking_id uuid;
-ALTER TABLE sos_incidents ADD COLUMN IF NOT EXISTS replacement_booking_id uuid;
-ALTER TABLE sos_incidents ADD COLUMN IF NOT EXISTS original_moto_id uuid;
-
--- RPC function: swap bookings atomically when SOS replacement is confirmed
+-- 1. Fix sos_swap_bookings: přidán 'reserved','confirmed' do status lookup
 CREATE OR REPLACE FUNCTION sos_swap_bookings(
   p_incident_id uuid,
   p_replacement_moto_id uuid,
@@ -37,13 +21,11 @@ DECLARE
   v_total_price numeric;
   v_today date := CURRENT_DATE;
 BEGIN
-  -- 1. Get incident
   SELECT * INTO v_incident FROM sos_incidents WHERE id = p_incident_id;
   IF v_incident IS NULL THEN
     RETURN jsonb_build_object('error', 'Incident not found');
   END IF;
 
-  -- 2. Find original active booking for this user
   SELECT * INTO v_booking FROM bookings
     WHERE user_id = v_incident.user_id
       AND status IN ('active', 'pending', 'reserved', 'confirmed')
@@ -54,7 +36,6 @@ BEGIN
     LIMIT 1;
 
   IF v_booking IS NULL THEN
-    -- Broader: any non-cancelled booking overlapping today
     SELECT * INTO v_booking FROM bookings
       WHERE user_id = v_incident.user_id
         AND status NOT IN ('cancelled')
@@ -68,14 +49,10 @@ BEGIN
     RETURN jsonb_build_object('error', 'No active booking found for user');
   END IF;
 
-  -- Save original end date before we modify
   v_original_end := v_booking.end_date::date;
-
-  -- 3. Calculate remaining days (from today to original end)
   v_remaining_days := GREATEST(1, (v_original_end - v_today) + 1);
   v_total_price := CASE WHEN p_is_free THEN 0 ELSE (p_daily_price * v_remaining_days + p_delivery_fee) END;
 
-  -- 4. End original booking — mark as completed immediately
   UPDATE bookings SET
     end_date = v_today,
     status = 'completed',
@@ -84,7 +61,6 @@ BEGIN
     notes = COALESCE(notes, '') || E'\n[SOS] Ukončeno ke dni ' || v_today::text || '. Náhradní motorka objednána.'
   WHERE id = v_booking.id;
 
-  -- 5. Create new replacement booking (from today to original end)
   INSERT INTO bookings (
     user_id, moto_id, start_date, end_date, pickup_time,
     status, payment_status, total_price, delivery_fee,
@@ -107,14 +83,12 @@ BEGIN
   )
   RETURNING id INTO v_new_booking_id;
 
-  -- 6. Update incident with booking references
   UPDATE sos_incidents SET
     original_booking_id = v_booking.id,
     replacement_booking_id = v_new_booking_id,
     original_moto_id = v_booking.moto_id
   WHERE id = p_incident_id;
 
-  -- 7. Set original moto to maintenance
   UPDATE motorcycles SET status = 'maintenance'
   WHERE id = v_booking.moto_id;
 
@@ -128,3 +102,23 @@ BEGIN
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 2. Auto-activate: reserved + paid + start_date <= today → active
+CREATE OR REPLACE FUNCTION auto_activate_reserved_bookings()
+RETURNS void AS $$
+BEGIN
+  UPDATE bookings SET
+    status = 'active',
+    picked_up_at = COALESCE(picked_up_at, NOW())
+  WHERE status = 'reserved'
+    AND payment_status = 'paid'
+    AND start_date::date <= CURRENT_DATE;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 3. pg_cron: run auto-activate daily at 00:01 (same time as auto-complete)
+SELECT cron.schedule(
+  'auto-activate-reserved-bookings',
+  '1 0 * * *',
+  $$SELECT auto_activate_reserved_bookings()$$
+);
