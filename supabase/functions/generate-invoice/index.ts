@@ -32,13 +32,16 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
   try {
-    const { type, booking_id, order_id, send_email, extra_items, voucher_codes } = await req.json()
+    const { type, booking_id, order_id, send_email, extra_items, voucher_codes: explicitVoucherCodes } = await req.json()
     if (!booking_id && !order_id) return new Response(JSON.stringify({ error: 'Missing booking_id or order_id' }), { status: 400 })
+
+    // voucher_codes can come from params or auto-fetched from DB
+    let voucher_codes: string[] | undefined = explicitVoucherCodes
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
     const invoiceType = type || 'proforma'
-    const isShop = invoiceType === 'shop_proforma' || invoiceType === 'shop_final'
+    const isShop = invoiceType === 'shop_proforma' || invoiceType === 'shop_final' || (order_id && !booking_id)
     const isProforma = invoiceType === 'proforma' || invoiceType === 'shop_proforma'
     const isPaymentReceipt = invoiceType === 'payment_receipt'
     const prefix = isPaymentReceipt ? 'DP' : isProforma ? 'ZF' : 'FV'
@@ -73,6 +76,17 @@ serve(async (req) => {
       }
       if (order.discount > 0) {
         items.push({ description: 'Sleva', qty: 1, unit_price: -Number(order.discount) })
+      }
+
+      // Auto-fetch voucher codes from DB if not explicitly provided
+      if (!explicitVoucherCodes || explicitVoucherCodes.length === 0) {
+        const { data: orderVouchers } = await supabase
+          .from('vouchers')
+          .select('code, amount')
+          .eq('order_id', order_id)
+        if (orderVouchers && orderVouchers.length > 0) {
+          voucher_codes = orderVouchers.map((v: any) => `${v.code} (${fmtPrice(v.amount)} Kč)`)
+        }
       }
     } else {
       // ===== BOOKING =====

@@ -45,104 +45,15 @@ export default function ShopOrdersTab() {
 
   useEffect(() => { load() }, [page, statusFilter])
 
-  // Auto-confirm paid voucher orders from app
+  // Realtime: reload when shop orders change (voucher auto-processing happens in DB trigger)
   useEffect(() => {
-    autoConfirmPaidVouchers()
     const channel = supabase
-      .channel('shop-orders-paid')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'shop_orders', filter: 'payment_status=eq.paid' },
-        () => { autoConfirmPaidVouchers(); load() })
+      .channel('shop-orders-changes')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'shop_orders' },
+        () => { load() })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [])
-
-  async function autoConfirmPaidVouchers() {
-    try {
-      const { data: paidNew } = await supabase
-        .from('shop_orders')
-        .select('*, shop_order_items(*)')
-        .eq('payment_status', 'paid')
-        .eq('status', 'new')
-      if (!paidNew || paidNew.length === 0) return
-      for (const order of paidNew) {
-        // Guard: skip if vouchers already generated (avoid duplicates with processVoucherOrder)
-        const { data: existingVouchers } = await supabase
-          .from('vouchers').select('code').eq('order_id', order.id)
-        if (existingVouchers && existingVouchers.length > 0) continue
-
-        const items = order.shop_order_items || []
-        const voucherItems = items.filter(it =>
-          (it.product_name || '').toLowerCase().includes('voucher') ||
-          (it.product_name || '').toLowerCase().includes('poukaz')
-        )
-        const isAllVouchers = voucherItems.length === items.length && items.length > 0
-
-        // All vouchers (digital or physical) → delivered (codes sent electronically)
-        // Mixed (vouchers + physical products) → confirmed (vouchers sent, physical processed separately)
-        const newStatus = isAllVouchers ? 'delivered' : 'confirmed'
-        await supabase.from('shop_orders').update({
-          status: newStatus,
-          confirmed_at: new Date().toISOString(),
-          ...(isAllVouchers ? { delivered_at: new Date().toISOString() } : {}),
-        }).eq('id', order.id)
-
-        // Generate voucher codes for voucher items
-        const generatedCodes = []
-        if (voucherItems.length > 0) {
-          for (const item of voucherItems) {
-            const code = 'MG' + Math.random().toString(36).substring(2, 8).toUpperCase()
-            generatedCodes.push(code)
-            const validUntil = new Date()
-            validUntil.setFullYear(validUntil.getFullYear() + 1)
-            await supabase.from('vouchers').insert({
-              code,
-              amount: item.unit_price || item.total_price || 0,
-              currency: 'CZK',
-              status: 'active',
-              buyer_id: order.customer_id || null,
-              buyer_name: order.customer_name || '',
-              buyer_email: order.customer_email || '',
-              valid_from: new Date().toISOString().split('T')[0],
-              valid_until: validUntil.toISOString().split('T')[0],
-              source: 'eshop',
-              order_id: order.id,
-            })
-            // Send voucher email
-            supabase.functions.invoke('send-booking-email', {
-              body: {
-                type: 'voucher_purchased',
-                to: order.customer_email,
-                voucher_code: code,
-                voucher_amount: item.unit_price || item.total_price || 0,
-                buyer_name: order.customer_name || '',
-              },
-            }).catch(e => console.warn('[Voucher email]', e))
-          }
-          // In-app message with voucher codes
-          if (order.customer_id) {
-            const codesStr = generatedCodes.join(', ')
-            supabase.from('admin_messages').insert({
-              user_id: order.customer_id,
-              title: 'Dárkový poukaz — potvrzení',
-              message: 'Děkujeme za nákup! Vaše kódy: ' + codesStr + '. Kód můžete ihned uplatnit při rezervaci motorky.',
-              type: 'info',
-              read: false,
-            }).then(() => {}).catch(() => {})
-          }
-        }
-
-        // Generate final invoice with voucher codes
-        supabase.functions.invoke('generate-invoice', {
-          body: {
-            type: 'shop_final',
-            order_id: order.id,
-            ...(generatedCodes.length > 0 ? { voucher_codes: generatedCodes } : {}),
-          }
-        }).catch(e => console.warn('[Auto final invoice]', e))
-      }
-      load()
-    } catch (e) { console.error('[AutoConfirmVoucher]', e) }
-  }
 
   async function load() {
     setLoading(true)
@@ -380,115 +291,16 @@ function ShopOrderDetail({ order, onClose, onUpdated }) {
   async function updatePayment(payment_status) {
     setUpdating(true)
     try {
+      // DB trigger auto_process_voucher_order handles voucher generation + status change
       const result = await debugAction('shopOrder.updatePayment', 'ShopOrderDetail', () =>
         supabase.from('shop_orders').update({ payment_status }).eq('id', order.id)
       , { payment_status })
       if (result?.error) throw result.error
-
-      // When marking as paid, directly run voucher generation + auto-confirm
-      if (payment_status === 'paid' && order.status === 'new') {
-        await processVoucherOrder(order)
-      }
     } catch (e) {
       console.error('[updatePayment]', e)
     }
     setUpdating(false)
     onUpdated()
-  }
-
-  async function processVoucherOrder(ord) {
-    try {
-      // Guard: check if vouchers already exist for this order (avoid duplicates)
-      const { data: existingVouchers } = await supabase
-        .from('vouchers').select('code').eq('order_id', ord.id)
-      if (existingVouchers && existingVouchers.length > 0) {
-        console.log('[processVoucherOrder] Vouchers already exist for order', ord.id)
-        return
-      }
-
-      // Re-check order status from DB (avoid race with autoConfirmPaidVouchers)
-      const { data: freshOrder } = await supabase
-        .from('shop_orders').select('status, payment_status').eq('id', ord.id).single()
-      if (freshOrder && freshOrder.status !== 'new') {
-        console.log('[processVoucherOrder] Order already processed, status:', freshOrder.status)
-        return
-      }
-
-      // Load items for this order
-      const { data: orderItems } = await supabase
-        .from('shop_order_items')
-        .select('*')
-        .eq('order_id', ord.id)
-      const allItems = orderItems || []
-      const voucherItems = allItems.filter(it =>
-        (it.product_name || '').toLowerCase().includes('voucher') ||
-        (it.product_name || '').toLowerCase().includes('poukaz')
-      )
-      const isAllVouchers = voucherItems.length === allItems.length && allItems.length > 0
-
-      // All vouchers (digital or physical) → delivered (codes sent electronically)
-      // Mixed (vouchers + physical products) → confirmed (vouchers sent, physical processed separately)
-      const newStatus = isAllVouchers ? 'delivered' : 'confirmed'
-      await supabase.from('shop_orders').update({
-        status: newStatus,
-        confirmed_at: new Date().toISOString(),
-        ...(isAllVouchers ? { delivered_at: new Date().toISOString() } : {}),
-      }).eq('id', ord.id)
-
-      // Generate voucher codes
-      const generatedCodes = []
-      if (voucherItems.length > 0) {
-        for (const item of voucherItems) {
-          const code = 'MG' + Math.random().toString(36).substring(2, 8).toUpperCase()
-          generatedCodes.push(code)
-          const validUntil = new Date()
-          validUntil.setFullYear(validUntil.getFullYear() + 1)
-          await supabase.from('vouchers').insert({
-            code,
-            amount: item.unit_price || item.total_price || 0,
-            currency: 'CZK',
-            status: 'active',
-            buyer_id: ord.customer_id || null,
-            buyer_name: ord.customer_name || '',
-            buyer_email: ord.customer_email || '',
-            valid_from: new Date().toISOString().split('T')[0],
-            valid_until: validUntil.toISOString().split('T')[0],
-            source: 'eshop',
-            order_id: ord.id,
-          })
-          // Send voucher email
-          supabase.functions.invoke('send-booking-email', {
-            body: {
-              type: 'voucher_purchased',
-              to: ord.customer_email,
-              voucher_code: code,
-              voucher_amount: item.unit_price || item.total_price || 0,
-              buyer_name: ord.customer_name || '',
-            },
-          }).catch(e => console.warn('[Voucher email]', e))
-        }
-        // In-app message with voucher codes
-        if (ord.customer_id) {
-          const codesStr = generatedCodes.join(', ')
-          supabase.from('admin_messages').insert({
-            user_id: ord.customer_id,
-            title: 'Dárkový poukaz — potvrzení',
-            message: 'Děkujeme za nákup! Vaše kódy: ' + codesStr + '. Kód můžete ihned uplatnit při rezervaci motorky.',
-            type: 'info',
-            read: false,
-          }).then(() => {}).catch(() => {})
-        }
-      }
-
-      // Generate final invoice with voucher codes
-      await supabase.functions.invoke('generate-invoice', {
-        body: {
-          type: 'shop_final',
-          order_id: ord.id,
-          ...(generatedCodes.length > 0 ? { voucher_codes: generatedCodes } : {}),
-        }
-      }).catch(e => console.warn('[Auto final invoice]', e))
-    } catch (e) { console.error('[processVoucherOrder]', e) }
   }
 
   const fmt = n => n != null ? `${Number(n).toLocaleString('cs-CZ')} Kč` : '—'
@@ -521,9 +333,22 @@ function ShopOrderDetail({ order, onClose, onUpdated }) {
               style={{ padding: '4px 10px', background: pc.bg, color: pc.color }}>
               {PAYMENT_LABELS[order.payment_status] || order.payment_status}
             </span>
+            {order.status === 'delivered' && order.payment_status === 'paid' && vouchers.length > 0 && (
+              <span className="inline-block rounded-btn text-xs font-bold"
+                style={{ padding: '3px 8px', background: '#dbeafe', color: '#2563eb' }}>
+                Auto-vyřízeno
+              </span>
+            )}
+            {order.status === 'confirmed' && order.payment_status === 'paid' && vouchers.length > 0 && (
+              <span className="inline-block rounded-btn text-xs font-bold"
+                style={{ padding: '3px 8px', background: '#fef3c7', color: '#b45309' }}>
+                Voucher odeslán — čeká fyzické odeslání
+              </span>
+            )}
           </div>
           <div className="text-sm mt-1" style={{ color: '#1a2e22' }}>
             Vytvořeno: {fmtDate(order.created_at)}
+            {order.confirmed_at && <> · Potvrzeno: {fmtDate(order.confirmed_at)}</>}
             {order.shipped_at && <> · Odesláno: {fmtDate(order.shipped_at)}</>}
             {order.delivered_at && <> · Doručeno: {fmtDate(order.delivered_at)}</>}
           </div>
@@ -546,7 +371,13 @@ function ShopOrderDetail({ order, onClose, onUpdated }) {
 
       {vouchers.length > 0 && (
         <div className="mb-3 p-3 rounded-btn" style={{ background: '#dcfce7', border: '1px solid #86efac' }}>
-          <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#166534' }}>Kódy poukazů</div>
+          <div className="flex items-center gap-2 mb-1">
+            <div className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#166534' }}>Kódy poukazů</div>
+            <span className="inline-block rounded-btn text-xs font-bold"
+              style={{ padding: '2px 8px', background: '#bbf7d0', color: '#166534' }}>
+              Auto-vygenerováno
+            </span>
+          </div>
           <div className="flex flex-wrap gap-2">
             {vouchers.map(v => (
               <span key={v.code} className="inline-block rounded-btn font-mono text-sm font-bold"
@@ -554,6 +385,9 @@ function ShopOrderDetail({ order, onClose, onUpdated }) {
                 {v.code} ({Number(v.amount).toLocaleString('cs-CZ')} Kč)
               </span>
             ))}
+          </div>
+          <div className="text-xs mt-1" style={{ color: '#166534' }}>
+            Kódy + notifikace odeslány zákazníkovi do aplikace automaticky.
           </div>
         </div>
       )}
@@ -605,13 +439,17 @@ function ShopOrderDetail({ order, onClose, onUpdated }) {
         {order.status !== 'cancelled' && order.status !== 'delivered' && order.status !== 'refunded' && (
           <Button onClick={() => updateStatus('cancelled')} disabled={updating}>Zrušit</Button>
         )}
-        {order.status === 'confirmed' && items.some(it =>
-          ((it.product_name || '').toLowerCase().includes('voucher') || (it.product_name || '').toLowerCase().includes('poukaz')) &&
-          (it.product_name || '').toLowerCase().includes('fyzick')
-        ) && (
-          <Button green onClick={() => updateStatus('shipped')} disabled={updating}>Odesláno (fyzický poukaz)</Button>
+        {order.status === 'confirmed' && vouchers.length > 0 && (
+          <Button green onClick={() => updateStatus('shipped')} disabled={updating}>
+            Odeslat fyzické zboží
+          </Button>
         )}
-        {nextStatus && (
+        {nextStatus && !(order.status === 'confirmed' && vouchers.length > 0) && (
+          <Button green onClick={() => updateStatus(nextStatus)} disabled={updating}>
+            {STATUS_LABELS[nextStatus]}
+          </Button>
+        )}
+        {nextStatus && order.status === 'confirmed' && vouchers.length > 0 && nextStatus !== 'processing' && (
           <Button green onClick={() => updateStatus(nextStatus)} disabled={updating}>
             {STATUS_LABELS[nextStatus]}
           </Button>
