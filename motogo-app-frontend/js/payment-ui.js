@@ -66,6 +66,26 @@ async function proceedToPayment(){
       return;
     }
 
+    // Validate profile completeness before payment
+    var profile = typeof apiFetchProfile === 'function' ? await apiFetchProfile() : null;
+    if(profile){
+      var isKidsBike = bookingMoto && bookingMoto.cat === 'detske';
+      var missing = [];
+      if(!profile.full_name || !profile.full_name.trim()) missing.push('Jméno a příjmení');
+      if(!profile.phone || !profile.phone.trim()) missing.push('Telefon');
+      if(!profile.street || !profile.street.trim()) missing.push('Ulice');
+      if(!profile.city || !profile.city.trim()) missing.push('Město');
+      if(!profile.zip || !profile.zip.trim()) missing.push('PSČ');
+      if(!isKidsBike){
+        if(!profile.license_number || !profile.license_number.trim()) missing.push('Číslo ŘP');
+      }
+      if(missing.length > 0){
+        showT('⚠️','Vyplňte osobní údaje','Chybí: ' + missing.join(', '));
+        goTo('s-profile');
+        return;
+      }
+    }
+
     // Get booking data
     if(!bookingMoto){
       showT('⚠️',_t('pay').motoLabel||'Motorka',_t('pay').selectMoto||'Vyberte motorku');
