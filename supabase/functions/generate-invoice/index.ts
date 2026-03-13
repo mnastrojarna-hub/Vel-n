@@ -37,6 +37,7 @@ serve(async (req) => {
 
     // voucher_codes can come from params or auto-fetched from DB
     let voucher_codes: string[] | undefined = explicitVoucherCodes
+    let voucherValidUntil: string | null = null
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
@@ -78,14 +79,16 @@ serve(async (req) => {
         items.push({ description: 'Sleva', qty: 1, unit_price: -Number(order.discount) })
       }
 
-      // Auto-fetch voucher codes from DB if not explicitly provided
+      // Auto-fetch voucher codes + validity from DB if not explicitly provided
       if (!explicitVoucherCodes || explicitVoucherCodes.length === 0) {
         const { data: orderVouchers } = await supabase
           .from('vouchers')
-          .select('code, amount')
+          .select('code, amount, valid_until')
           .eq('order_id', order_id)
         if (orderVouchers && orderVouchers.length > 0) {
-          voucher_codes = orderVouchers.map((v: any) => `${v.code} (${fmtPrice(v.amount)} Kč)`)
+          voucher_codes = orderVouchers.map((v: any) =>
+            `${v.code} — ${fmtPrice(v.amount)} Kč, platný do ${fmtDate(v.valid_until)}`)
+          voucherValidUntil = orderVouchers[0].valid_until
         }
       }
     } else {
@@ -240,9 +243,10 @@ serve(async (req) => {
   </div>
   ${voucher_codes && voucher_codes.length > 0 ? `
   <div style="padding:14px;background:#dcfce7;border-radius:8px;margin-bottom:16px;border:1px solid #86efac">
-    <p style="margin:0 0 6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#166534">Kódy dárkových poukazů</p>
-    ${voucher_codes.map((c: string) => `<p style="margin:2px 0;font-size:14px;font-weight:700;font-family:monospace;color:#166534">${c}</p>`).join('')}
-    <p style="margin:6px 0 0;font-size:10px;color:#4a6357">Kódy uplatníte při rezervaci motorky na motogo24.cz nebo v mobilní aplikaci MotoGo24.</p>
+    <p style="margin:0 0 6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#166534">Dárkové poukazy</p>
+    ${voucher_codes.map((c: string) => `<p style="margin:4px 0;font-size:14px;font-weight:700;font-family:monospace;color:#166534">${c}</p>`).join('')}
+    ${voucherValidUntil ? `<p style="margin:8px 0 2px;font-size:11px;font-weight:600;color:#166534">Platnost poukazu: 3 roky (do ${fmtDate(voucherValidUntil)})</p>` : ''}
+    <p style="margin:4px 0 0;font-size:10px;color:#4a6357">Kód uplatníte při rezervaci motorky na motogo24.cz nebo v mobilní aplikaci MotoGo24 v sekci „Slevový kód".</p>
   </div>` : ''}
   ${isProforma ? '<div style="padding:10px 14px;background:#dbeafe;border-radius:8px;font-size:11px;color:#1e40af">Tento doklad není daňovým dokladem. Po přijetí platby Vám bude vystavena konečná faktura.</div>' : ''}
   ${isPaymentReceipt ? '<div style="padding:10px 14px;background:#cffafe;border-radius:8px;font-size:11px;color:#0e7490">Tento doklad potvrzuje přijetí platby. Konečná faktura bude vystavena po dokončení služby.</div>' : ''}
@@ -267,7 +271,7 @@ serve(async (req) => {
             <p>V příloze zasíláme ${isPaymentReceipt ? 'doklad k přijaté platbě' : isProforma ? 'zálohovou fakturu' : 'fakturu'} č. <strong>${number}</strong> na částku <strong>${fmtPrice(total)} Kč</strong>.</p>
             <p>Splatnost: <strong>${fmtDate(dueDate)}</strong></p>
             <p>Variabilní symbol: <strong>${number}</strong></p>
-            ${voucher_codes && voucher_codes.length > 0 ? `<div style="padding:12px;background:#dcfce7;border-radius:8px;margin:12px 0"><p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#166534">Kódy dárkových poukazů:</p>${voucher_codes.map((c: string) => `<p style="margin:2px 0;font-size:16px;font-weight:700;font-family:monospace;color:#166534">${c}</p>`).join('')}</div>` : ''}
+            ${voucher_codes && voucher_codes.length > 0 ? `<div style="padding:12px;background:#dcfce7;border-radius:8px;margin:12px 0"><p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#166534">Dárkové poukazy:</p>${voucher_codes.map((c: string) => `<p style="margin:2px 0;font-size:16px;font-weight:700;font-family:monospace;color:#166534">${c}</p>`).join('')}${voucherValidUntil ? `<p style="margin:6px 0 0;font-size:11px;color:#166534">Platnost: 3 roky (do ${fmtDate(voucherValidUntil)}). Kód uplatníte při rezervaci v aplikaci MotoGo24.</p>` : ''}</div>` : ''}
             <hr style="border:1px solid #e5e7eb">
             <p style="font-size:12px;color:#888">${COMPANY.name} | ${COMPANY.email}</p>
           </div>`,

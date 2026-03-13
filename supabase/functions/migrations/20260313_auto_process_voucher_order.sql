@@ -60,7 +60,7 @@ BEGIN
 
   -- Generate voucher codes for voucher items (respecting quantity)
   IF v_voucher_items_count > 0 THEN
-    v_valid_until := CURRENT_DATE + INTERVAL '1 year';
+    v_valid_until := CURRENT_DATE + INTERVAL '3 years';
 
     FOR v_item IN
       SELECT * FROM shop_order_items WHERE order_id = NEW.id
