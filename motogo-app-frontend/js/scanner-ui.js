@@ -183,7 +183,6 @@ var ScannerUI = (function(){
               mgDir.getFile(fname,{create:true},function(fileEntry){
                 fileEntry.createWriter(function(writer){
                   writer.write(blob);
-                  console.log('[DocScanner] Photo saved: '+fileEntry.nativeURL);
                   if(window.plugins && window.plugins.mediascanner){
                     window.plugins.mediascanner.scan(fileEntry.nativeURL);
                   }
@@ -213,7 +212,6 @@ var ScannerUI = (function(){
     _frameOk(true);
     showT('📸','Fotka pořízena','Odesílám na rozpoznání textu...');
     _setStatus('processing','Připojuji k Mindee OCR...');
-    console.log('[DocScanner] Fotka pořízena, rozměry: '+frame.width+'x'+frame.height);
 
     // Uložit fotku lokálně VŽDY (nezávisle na Mindee výsledku)
     _savePhotoLocally(frame);
@@ -258,7 +256,6 @@ var ScannerUI = (function(){
         });
       }
 
-      console.log('[DocScanner] Mindee OK: '+fieldCount+' polí ['+fieldNames.join(',')+']');
       _setStatus('success','Rozpoznáno '+fieldCount+' údajů ✓');
       showT('✓','Mindee rozpoznal '+fieldCount+' údajů',
         DocScanner.DOC_LABELS[type]);
@@ -292,7 +289,6 @@ var ScannerUI = (function(){
     var merged = DocScanner.mergeResults();
     var hasData = Object.keys(merged).length > 0;
     var fieldList = Object.keys(merged).filter(function(k){return k.charAt(0)!=='_';});
-    console.log('[DocScanner] Finish: merged '+fieldList.length+' fields: '+fieldList.join(','));
     if(hasData){
       var msg = _afterScanTarget==='s-docs'
         ? 'Uloženo v zařízení ('+fieldList.length+' údajů)'

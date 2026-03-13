@@ -56,6 +56,53 @@ async function showVOP(){
   _openDocOverlay(html);
 }
 
+// ===== CONTRACT PREVIEW (no booking data – just the template) =====
+async function showContractPreview(){
+  var t=_t('doc');
+  var tpl = typeof apiFetchDocTemplate === 'function' ? await apiFetchDocTemplate('contract') : null;
+  var bodyHtml = '';
+  if(tpl && tpl.content_html){
+    bodyHtml = tpl.content_html;
+    // Replace placeholders with generic labels
+    bodyHtml = bodyHtml.replace(/\{\{[^}]+\}\}/g, '___').replace(/\{[^}]+\}/g, '___');
+  } else {
+    bodyHtml = '<h3>'+t.contractTitle+'</h3>'+
+      '<div class="doc-parties"><div class="doc-party"><strong>'+t.lessor+':</strong><br>'+
+      COMPANY.name+'<br>'+COMPANY.sidlo+'<br>IČ: '+COMPANY.ic+'<br>'+COMPANY.email+'</div>'+
+      '<div class="doc-party"><strong>'+t.lessee+':</strong><br>(doplní se při rezervaci)</div></div>'+
+      '<h4>'+t.contractSubject+'</h4><p>Pronajímatel přenechává nájemci k užívání motorové vozidlo dle rezervace.</p>'+
+      '<h4>'+t.contractPrice+'</h4><p>Cena dle platného ceníku.</p>'+
+      '<h4>'+t.contractConditions+'</h4><p>'+t.contractConditionsText+'</p>';
+  }
+  var html='<div class="doc-view"><div class="doc-view-hdr"><div class="back-row" onclick="closeDocView()">'+
+    '<div class="bk-c">←</div><div class="bk-l">'+t.back+'</div></div>'+
+    '<h2>'+t.contractTitle+'</h2><p>Náhled vzorové smlouvy</p></div><div class="doc-view-body">'+bodyHtml+'</div></div>';
+  _openDocOverlay(html);
+}
+
+// ===== GDPR – fetch from Velín template if available =====
+async function showGDPR(){
+  var t=_t('doc');
+  var tpl = typeof apiFetchDocTemplate === 'function' ? await apiFetchDocTemplate('gdpr') : null;
+  var bodyHtml = '';
+  if(tpl && tpl.content_html){
+    bodyHtml = tpl.content_html;
+  } else {
+    bodyHtml = '<h3>Zpracování osobních údajů (GDPR)</h3>'+
+      '<p><strong>Správce:</strong> '+COMPANY.name+', '+COMPANY.sidlo+', IČ: '+COMPANY.ic+'</p>'+
+      '<h4>1. Účel zpracování</h4><p>Osobní údaje jsou zpracovávány za účelem plnění smlouvy o pronájmu motorového vozidla, vystavení daňových dokladů a zajištění bezpečnosti provozu.</p>'+
+      '<h4>2. Rozsah údajů</h4><p>Jméno, příjmení, datum narození, adresa, e-mail, telefon, číslo řidičského průkazu, platnost ŘP, kategorie ŘP.</p>'+
+      '<h4>3. Právní základ</h4><p>Plnění smlouvy (čl. 6 odst. 1 písm. b) GDPR), plnění právní povinnosti (čl. 6 odst. 1 písm. c) GDPR), oprávněný zájem správce (čl. 6 odst. 1 písm. f) GDPR).</p>'+
+      '<h4>4. Doba uchování</h4><p>Po dobu trvání smluvního vztahu a dále po dobu stanovenou právními předpisy (zejména daňové a účetní předpisy).</p>'+
+      '<h4>5. Práva subjektu údajů</h4><p>Máte právo na přístup k údajům, opravu, výmaz, omezení zpracování, přenositelnost a právo vznést námitku. Kontakt: '+COMPANY.email+'</p>'+
+      '<h4>6. Dozorový úřad</h4><p>Úřad pro ochranu osobních údajů, Pplk. Sochora 27, 170 00 Praha 7, www.uoou.cz</p>';
+  }
+  var html='<div class="doc-view"><div class="doc-view-hdr"><div class="back-row" onclick="closeDocView()">'+
+    '<div class="bk-c">←</div><div class="bk-l">'+(t.back||'Zpět')+'</div></div>'+
+    '<h2>Zpracování osobních údajů</h2></div><div class="doc-view-body">'+bodyHtml+'</div></div>';
+  _openDocOverlay(html);
+}
+
 // ===== RENTAL CONTRACT – fetch template from Velín if available =====
 async function showRentalContract(bookingId){
   var data=await _getBookingDataAsync(bookingId);
@@ -384,36 +431,6 @@ function closeDocView(){
   if(ov) ov.style.display='none';
 }
 
-var _signCtx={};
-function _initSignCanvas(id){
-  var c=document.getElementById('sign-canvas-'+id);
-  if(!c)return;
-  var ctx=c.getContext('2d');
-  ctx.lineWidth=2;ctx.lineCap='round';ctx.strokeStyle='#1a1a2e';
-  _signCtx[id]={canvas:c,ctx:ctx,drawing:false};
-  c.addEventListener('pointerdown',function(e){_signCtx[id].drawing=true;ctx.beginPath();ctx.moveTo(e.offsetX,e.offsetY);});
-  c.addEventListener('pointermove',function(e){if(!_signCtx[id].drawing)return;ctx.lineTo(e.offsetX,e.offsetY);ctx.stroke();});
-  c.addEventListener('pointerup',function(){_signCtx[id].drawing=false;});
-}
-
-function clearSignCanvas(id){
-  var s=_signCtx[id];
-  if(s) s.ctx.clearRect(0,0,s.canvas.width,s.canvas.height);
-}
-
-async function signDocument(type,bookingId){
-  var s=_signCtx[type];
-  if(!s){showT('✗',_t('common').error,_t('common').sigNotFound);return;}
-  var blank=document.createElement('canvas');
-  blank.width=s.canvas.width;blank.height=s.canvas.height;
-  if(s.canvas.toDataURL()===blank.toDataURL()){
-    showT('⚠️',_t('doc').signRequired,_t('doc').signFirst);return;
-  }
-  var sigData=s.canvas.toDataURL('image/png');
-  if(bookingId) await apiUploadDocument(bookingId,sigData,type==='protocol'?'protocol':'contract');
-  showT('✓',_t('doc').signed,_t('doc').savedOK);
-  setTimeout(closeDocView,1200);
-}
 
 // ===== ENHANCED renderContracts with document viewing =====
 async function renderContractsPage(){
@@ -428,11 +445,6 @@ async function renderContractsPage(){
   var html='<div class="topbar"><div class="back-row" onclick="histBack()"><div class="bk-c">←</div><div class="bk-l">'+t.back+'</div></div>'+
     '<h2>'+t.docsTitle+'</h2><p>'+t.docsSubtitle+'</p></div>'+
     '<div style="padding:10px 20px 0;">'+
-    '<div style="background:#fffbeb;border:1px solid #fbbf24;border-radius:8px;padding:10px;margin:0 0 10px;font-size:10px;font-family:monospace;color:#78350f;">'+
-    '<strong>DIAGNOSTIKA DOCS</strong><br>'+
-    'Celkem: '+docs.length+' | Smlouvy: '+contracts.length+' | Protokoly: '+protocols.length+' | VOP: '+vops.length+'<br>'+
-    'Typy: ['+docs.map(function(d){return d.type;}).join(', ')+']'+
-    '</div>'+
     '<div style="background:var(--gp);border-radius:var(--r);padding:13px;margin-bottom:10px;font-size:12px;color:var(--gd);line-height:1.6;">🔒 '+t.gdprNote+'</div></div>'+
     '<div style="padding:0 20px;">';
 
@@ -472,9 +484,7 @@ async function renderInvoicesPage(){
   if(!wrap)return;
   var t=_t('doc');
   var docs=await apiFetchDocuments();
-  console.log('[INVOICES PAGE] All docs:', docs.length, docs.map(function(d){return d.type;}));
   var invoices=docs.filter(function(d){return d.type==='invoice_advance'||d.type==='invoice_final'||d.type==='invoice_shop'||d.type==='payment_receipt'||d.type==='invoice';});
-  console.log('[INVOICES PAGE] Filtered invoices:', invoices.length);
 
   var diagHtml='';
 
