@@ -90,27 +90,43 @@ async function renderMyReservations(){
 // ===== SOS REPLACEMENT FAB (small, cart-style) =====
 function _checkAndShowSosFab(){
   if(typeof apiCheckPendingSosReplacement !== 'function') return;
-  apiCheckPendingSosReplacement().then(function(pending){
-    var fab = document.getElementById('sos-repl-fab');
-    if(!fab) return;
-    if(pending && !sosFabDismissed){
-      window._pendingSosIncident = pending;
-      var label = document.getElementById('sos-repl-fab-text');
-      if(label){
-        label.textContent = pending.customer_fault ? 'Dokončit výběr náhrady \u00b7 za poplatek' : 'Dokončit výběr náhrady \u00b7 zdarma';
+  // Must be logged in
+  _getSession().then(function(session){
+    if(!session) return;
+    apiCheckPendingSosReplacement().then(function(pending){
+      var fab = document.getElementById('sos-repl-fab');
+      if(!fab) return;
+      if(pending){
+        // Check if this specific incident was permanently dismissed
+        var dismissedIds = [];
+        try { dismissedIds = JSON.parse(localStorage.getItem('mg_sos_fab_dismissed') || '[]'); } catch(e){}
+        if(dismissedIds.indexOf(pending.id) !== -1){ fab.style.display = 'none'; return; }
+
+        window._pendingSosIncident = pending;
+        window._sosFabIncidentId = pending.id;
+        var label = document.getElementById('sos-repl-fab-text');
+        if(label) label.textContent = pending.customer_fault ? 'SOS dokončit' : 'SOS dokončit';
+        fab.style.display = 'flex';
+      } else {
+        fab.style.display = 'none';
       }
-      fab.style.display = 'flex';
-    } else {
-      fab.style.display = 'none';
-    }
+    }).catch(function(){});
   }).catch(function(){});
 }
 
-var sosFabDismissed = false;
 function dismissSosFab(){
-  sosFabDismissed = true;
+  // Permanently dismiss this specific SOS incident FAB
   var fab = document.getElementById('sos-repl-fab');
   if(fab) fab.style.display = 'none';
+  if(window._sosFabIncidentId){
+    try {
+      var dismissed = JSON.parse(localStorage.getItem('mg_sos_fab_dismissed') || '[]');
+      if(dismissed.indexOf(window._sosFabIncidentId) === -1){
+        dismissed.push(window._sosFabIncidentId);
+        localStorage.setItem('mg_sos_fab_dismissed', JSON.stringify(dismissed));
+      }
+    } catch(e){}
+  }
 }
 
 // ===== PENDING BOOKING FAB (unpaid reserved bookings) =====
@@ -174,9 +190,16 @@ function _updateBookingFabVisibility(){
 function _updateSosFabVisibility(){
   var fab = document.getElementById('sos-repl-fab');
   if(!fab) return;
-  if(sosFabDismissed){ fab.style.display = 'none'; return; }
+  // Hide on certain screens
   var hideOn = ['s-login','s-register','s-docs','s-sos-replacement','s-sos-payment','s-sos-done'];
-  if(hideOn.indexOf(cur) !== -1){ fab.style.display = 'none'; }
+  if(hideOn.indexOf(cur) !== -1){ fab.style.display = 'none'; return; }
+  // Check permanent dismiss for this incident
+  if(window._sosFabIncidentId){
+    try {
+      var dismissed = JSON.parse(localStorage.getItem('mg_sos_fab_dismissed') || '[]');
+      if(dismissed.indexOf(window._sosFabIncidentId) !== -1){ fab.style.display = 'none'; return; }
+    } catch(e){}
+  }
 }
 
 function _setResContent(html){
