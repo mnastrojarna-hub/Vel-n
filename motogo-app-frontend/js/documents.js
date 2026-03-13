@@ -135,15 +135,9 @@ async function showRentalContract(bookingId){
   var html='<div class="doc-view"><div class="doc-view-hdr"><div class="back-row" onclick="closeDocView()">'+
     '<div class="bk-c">←</div><div class="bk-l">'+t.back+'</div></div>'+
     '<h2>'+t.contractTitle+'</h2><p>'+rn+'</p></div><div class="doc-view-body">'+bodyHtml+
-    '<div class="doc-sign-area" id="contract-sign-area">'+
-    '<p style="font-size:11px;color:var(--g400);">'+t.signNote+'</p>'+
-    '<canvas id="sign-canvas-contract" width="300" height="120" style="border:2px solid var(--g200);border-radius:8px;background:#fff;touch-action:none;"></canvas>'+
-    '<div style="display:flex;gap:8px;margin-top:8px;">'+
-    '<button class="btn-out" onclick="clearSignCanvas(\'contract\')">'+t.clearSign+'</button>'+
-    '<button class="btn-g" onclick="signDocument(\'contract\',\''+bookingId+'\')">'+t.signBtn+'</button></div>'+
-    '</div></div></div>';
+    '<div style="margin-top:14px;padding:10px;background:#f0fdf4;border-radius:8px;font-size:11px;color:#1a8a18;font-weight:700;">✓ Souhlas udělen při rezervaci (zaškrtnutím podmínek)</div>'+
+    '</div></div>';
   _openDocOverlay(html);
-  setTimeout(function(){_initSignCanvas('contract');},100);
 }
 
 // ===== HANDOVER PROTOCOL – fetch template from Velín if available =====
@@ -214,15 +208,9 @@ async function showDigitalProtocol(bookingId){
   var html='<div class="doc-view"><div class="doc-view-hdr"><div class="back-row" onclick="closeDocView()">'+
     '<div class="bk-c">←</div><div class="bk-l">'+t.back+'</div></div>'+
     '<h2>'+t.protocolTitle+'</h2><p>'+rn+'</p></div><div class="doc-view-body">'+bodyHtml+
-    '<div class="doc-sign-area" id="protocol-sign-area">'+
-    '<p style="font-size:11px;color:var(--g400);">'+t.signNote+'</p>'+
-    '<canvas id="sign-canvas-protocol" width="300" height="120" style="border:2px solid var(--g200);border-radius:8px;background:#fff;touch-action:none;"></canvas>'+
-    '<div style="display:flex;gap:8px;margin-top:8px;">'+
-    '<button class="btn-out" onclick="clearSignCanvas(\'protocol\')">'+t.clearSign+'</button>'+
-    '<button class="btn-g" onclick="signDocument(\'protocol\',\''+(bookingId||'')+'\')">'+t.signBtn+'</button></div>'+
-    '</div></div></div>';
+    '<div style="margin-top:14px;padding:10px;background:#f0fdf4;border-radius:8px;font-size:11px;color:#1a8a18;font-weight:700;">✓ Souhlas udělen při rezervaci (zaškrtnutím podmínek)</div>'+
+    '</div></div>';
   _openDocOverlay(html);
-  setTimeout(function(){_initSignCanvas('protocol');},100);
 }
 
 // ===== INVOICE GENERATION (Czech accounting standards) =====

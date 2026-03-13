@@ -326,7 +326,7 @@ async function updateEditPriceSummary(){
   var origEl = document.getElementById('edit-orig-price');
   if(origEl) origEl.textContent = editOrigPrice.toLocaleString('cs-CZ') + ' Kč';
 
-  var extendPrice = 0, refundAmt = 0;
+  var extendPrice = 0, refundAmt = 0, rawRefundTotal = 0, appliedStornoPct = -1;
 
   if(eOd && eDo){
     var moto = window._editBookingMoto;
@@ -345,12 +345,31 @@ async function updateEditPriceSummary(){
       while(d2 < origStart){ extendPrice += pricePerDay; d2.setDate(d2.getDate()+1); }
     }
     if(newEnd < origEnd){
+      var rawRefund = 0;
       var d3 = new Date(newEnd); d3.setDate(d3.getDate()+1);
-      while(d3 <= origEnd){ refundAmt += pricePerDay; d3.setDate(d3.getDate()+1); }
+      while(d3 <= origEnd){ rawRefund += pricePerDay; d3.setDate(d3.getDate()+1); }
+      rawRefundTotal += rawRefund;
+      // Apply storno conditions: based on hours until the first removed day
+      var firstRemovedDay = new Date(newEnd); firstRemovedDay.setDate(firstRemovedDay.getDate()+1);
+      var hoursUntil = (firstRemovedDay.getTime() - Date.now()) / (1000*60*60);
+      var stornoPct = 0;
+      if(hoursUntil > 7*24) stornoPct = 100;
+      else if(hoursUntil > 48) stornoPct = 50;
+      appliedStornoPct = stornoPct;
+      refundAmt += Math.round(rawRefund * stornoPct / 100);
     }
     if(newStart > origStart && !editIsActive){
+      var rawRefundStart = 0;
       var d4 = new Date(origStart);
-      while(d4 < newStart){ refundAmt += pricePerDay; d4.setDate(d4.getDate()+1); }
+      while(d4 < newStart){ rawRefundStart += pricePerDay; d4.setDate(d4.getDate()+1); }
+      rawRefundTotal += rawRefundStart;
+      // Apply storno conditions for start-side shortening
+      var hoursUntilStart = (newStart.getTime() - Date.now()) / (1000*60*60);
+      var stornoPctStart = 0;
+      if(hoursUntilStart > 7*24) stornoPctStart = 100;
+      else if(hoursUntilStart > 48) stornoPctStart = 50;
+      appliedStornoPct = stornoPctStart;
+      refundAmt += Math.round(rawRefundStart * stornoPctStart / 100);
     }
   }
 
@@ -361,11 +380,28 @@ async function updateEditPriceSummary(){
 
   var shrRow = document.getElementById('edit-shorten-row');
   var shrAmt = document.getElementById('edit-refund-amt');
-  if(shrRow) shrRow.style.display = refundAmt > 0 ? 'flex' : 'none';
+  var isShortening = rawRefundTotal > 0;
+  if(shrRow) shrRow.style.display = isShortening ? 'flex' : 'none';
   if(shrAmt) shrAmt.textContent = '-' + refundAmt.toLocaleString('cs-CZ') + ' Kč';
 
+  // Update the label to show storno percentage
+  var shrLabel = document.getElementById('t-editShortening');
+  if(shrLabel && isShortening){
+    shrLabel.textContent = 'Zkrácení (vrácení ' + appliedStornoPct + ' %)';
+  }
+
   var shortenNote = document.getElementById('edit-shorten-note');
-  if(shortenNote) shortenNote.style.display = refundAmt > 0 ? 'block' : 'none';
+  if(shortenNote){
+    if(isShortening){
+      var activePct = appliedStornoPct >= 0 ? appliedStornoPct : 0;
+      shortenNote.innerHTML = '⚠️ Storno podmínky: <strong>7+ dní = 100 %</strong> · <strong>2–7 dní = 50 %</strong> · <strong>méně než 2 dny = bez vrácení</strong>.' +
+        '<br>➤ Aktuálně platí: <strong>' + activePct + ' % vrácení</strong>' +
+        (activePct < 100 && rawRefundTotal > 0 ? ' (z ' + rawRefundTotal.toLocaleString('cs-CZ') + ' Kč)' : '');
+      shortenNote.style.display = 'block';
+    } else {
+      shortenNote.style.display = 'none';
+    }
+  }
 
   var retRow = document.getElementById('edit-return-fee-row');
   if(retRow) retRow.style.display = editReturnFee > 0 ? 'flex' : 'none';
@@ -401,7 +437,7 @@ async function updateEditPriceSummary(){
     else saveBtn.textContent = 'Uložit změny →';
   }
 
-  priceSum.style.display = (extendPrice > 0 || refundAmt > 0 || editReturnFee > 0 || editExtrasTotal > 0 || editMotoDiffPrice !== 0) ? 'block' : 'none';
+  priceSum.style.display = (extendPrice > 0 || isShortening || editReturnFee > 0 || editExtrasTotal > 0 || editMotoDiffPrice !== 0) ? 'block' : 'none';
 }
 
 async function saveEditReservation(){
