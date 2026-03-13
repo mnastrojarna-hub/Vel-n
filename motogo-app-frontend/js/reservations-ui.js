@@ -90,9 +90,10 @@ async function renderMyReservations(){
 // ===== SOS REPLACEMENT FAB (small, cart-style) =====
 function _checkAndShowSosFab(){
   if(typeof apiCheckPendingSosReplacement !== 'function') return;
-  // Must be logged in
-  _getSession().then(function(session){
-    if(!session) return;
+  if(!_isSupabaseReady() || !window.supabase) return;
+  // Must have valid Supabase auth (not just localStorage fallback)
+  window.supabase.auth.getUser().then(function(r){
+    if(!r.data || !r.data.user) return;
     apiCheckPendingSosReplacement().then(function(pending){
       var fab = document.getElementById('sos-repl-fab');
       if(!fab) return;
@@ -115,7 +116,7 @@ function _checkAndShowSosFab(){
       } else {
         fab.style.display = 'none';
       }
-    }).catch(function(){});
+    }).catch(function(){ var f=document.getElementById('sos-repl-fab'); if(f) f.style.display='none'; });
   }).catch(function(){});
 }
 
