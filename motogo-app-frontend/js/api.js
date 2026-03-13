@@ -719,15 +719,12 @@ async function apiGenerateFinalInvoice(bookingId){
       .eq('id', bookingId).single();
     if(br.error || !br.data){ console.error('[API] KF booking query failed:', br.error ? br.error.message : 'no data'); return {error:'Booking not found: '+(br.error?br.error.message:'no data')}; }
     var b = br.data, m = br.data.motorcycles || {};
-    // Fetch all DP (payment_receipt) and ZF (advance) invoices for this booking
+    // Fetch all DP (payment_receipt) for this booking — only DP are tax documents
     var dpR = await window.supabase.from('invoices').select('*')
       .eq('booking_id', bookingId).eq('type', 'payment_receipt')
+      .neq('status', 'cancelled')
       .order('created_at', {ascending: true});
     var receipts = dpR.data || [];
-    var advR = await window.supabase.from('invoices').select('*')
-      .eq('booking_id', bookingId).eq('type', 'advance')
-      .order('created_at', {ascending: true});
-    var advances = advR.data || [];
     var yr = new Date().getFullYear();
     var lr = await window.supabase.from('invoices').select('number')
       .like('number', 'KF-' + yr + '-%').order('number', {ascending:false}).limit(1);
@@ -738,11 +735,9 @@ async function apiGenerateFinalInvoice(bookingId){
     }
     var invNum = 'KF-' + yr + '-' + String(seq).padStart(4, '0');
     var items = _buildBookingItems(b, m);
-    // Deduct: prioritize DP (payment receipts), fall back to ZF (advances)
-    var deductions = receipts.length > 0 ? receipts : advances;
-    deductions.forEach(function(a){
-      var label = a.type === 'payment_receipt' ? 'Odpočet dle dokladu k platbě ' : 'Odpočet zálohy ';
-      items.push({description: label + a.number, qty: 1, unit_price: -Number(a.total || 0)});
+    // Deduct ALL DP (daňové doklady k platbě): reservation, edits, SOS
+    receipts.forEach(function(a){
+      items.push({description: 'Odpočet dle DP ' + a.number, qty: 1, unit_price: -Number(a.total || 0)});
     });
     var subtotal = _calcItemsTotal(items);
     var tax = 0; // Neplátce DPH

@@ -5,6 +5,7 @@ import { debugAction } from '../lib/debugLog'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
 import Button from '../components/ui/Button'
 import StatusBadge, { getDisplayStatus } from '../components/ui/StatusBadge'
+import { generateFinalInvoice } from '../lib/invoiceUtils'
 import SearchInput from '../components/ui/SearchInput'
 import Pagination from '../components/ui/Pagination'
 import Modal from '../components/ui/Modal'
@@ -59,6 +60,23 @@ export default function Bookings() {
       } catch (e) { console.error('[AutoCancel]', e) }
     }
     autoCancelStale()
+    // Auto-generate KF for completed bookings without final invoice
+    async function autoGenerateKF() {
+      try {
+        const today = new Date().toISOString().slice(0, 10)
+        const { data: expired } = await supabase.from('bookings').select('id, status, end_date')
+          .in('status', ['active', 'reserved', 'completed']).eq('payment_status', 'paid')
+          .lt('end_date', today)
+        if (!expired || expired.length === 0) return
+        for (const b of expired) {
+          const { data: kf } = await supabase.from('invoices').select('id')
+            .eq('booking_id', b.id).eq('type', 'final').limit(1)
+          if (kf && kf.length > 0) continue
+          try { await generateFinalInvoice(b.id) } catch (e) { console.error('[AutoKF]', b.id, e.message) }
+        }
+      } catch (e) { console.error('[AutoKF]', e) }
+    }
+    autoGenerateKF()
   }, [])
 
   async function loadBookings() {
