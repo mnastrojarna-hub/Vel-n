@@ -144,6 +144,7 @@ export default function FleetDetail() {
 }
 
 function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onMotoReload }) {
+  const navigate = useNavigate()
   const [schedules, setSchedules] = useState([])
   const [avgKm, setAvgKm] = useState(null)
   const [branches, setBranches] = useState([])
@@ -152,10 +153,14 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
   const [migrating, setMigrating] = useState(false)
   const [manualUrl, setManualUrl] = useState(null)
   const [uploadingManual, setUploadingManual] = useState(false)
+  const [sosIncidents, setSosIncidents] = useState([])
 
   useEffect(() => {
     supabase.from('maintenance_schedules').select('*').eq('moto_id', moto.id).eq('active', true)
       .then(({ data }) => setSchedules(data || []))
+    supabase.from('sos_incidents').select('id, type, status, severity, created_at, description, booking_id')
+      .eq('moto_id', moto.id).order('created_at', { ascending: false }).limit(10)
+      .then(({ data }) => setSosIncidents(data || []))
     supabase.from('maintenance_log').select('mileage_at_service, created_at').eq('moto_id', moto.id).order('created_at', { ascending: true })
       .then(({ data }) => {
         if (data?.length >= 2) {
@@ -370,6 +375,29 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
         })}
         {schedules.length === 0 && <p style={{ color: '#1a2e22', fontSize: 12 }}>Žádné plány — přidejte v záložce Servis</p>}
       </Card>
+
+      {/* SOS Incidenty */}
+      {sosIncidents.length > 0 && (
+        <Card>
+          <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#dc2626' }}>🆘 SOS Incidenty ({sosIncidents.length})</h3>
+          <div className="space-y-2">
+            {sosIncidents.map(inc => {
+              const typeLabels = { theft: '🔒 Krádež', accident_minor: '💥 Lehká nehoda', accident_major: '💥 Závažná nehoda', breakdown_minor: '🔧 Drobná závada', breakdown_major: '🔧 Velká porucha', defect_question: '❓ Dotaz', location_share: '📍 Poloha', other: '📋 Jiné' }
+              const statusColors = { reported: '#fee2e2', acknowledged: '#fef3c7', in_progress: '#dbeafe', resolved: '#dcfce7', closed: '#f3f4f6' }
+              return (
+                <div key={inc.id} className="flex items-center gap-3 p-2 rounded-lg cursor-pointer" style={{ background: statusColors[inc.status] || '#f3f4f6', fontSize: 12 }}
+                  onClick={() => navigate('/sos', { state: { openIncidentId: inc.id } })}>
+                  <span className="font-extrabold">{typeLabels[inc.type] || inc.type}</span>
+                  <span style={{ color: '#1a2e22' }}>{inc.status}</span>
+                  {inc.severity && <span className="font-bold" style={{ color: inc.severity === 'critical' ? '#dc2626' : inc.severity === 'high' ? '#b91c1c' : '#1a2e22' }}>{inc.severity}</span>}
+                  <span className="ml-auto" style={{ color: '#1a2e22' }}>{new Date(inc.created_at).toLocaleDateString('cs-CZ')}</span>
+                  {inc.booking_id && <span className="font-mono text-[10px]" style={{ color: '#1a2e22' }}>#{inc.booking_id.slice(-8).toUpperCase()}</span>}
+                </div>
+              )
+            })}
+          </div>
+        </Card>
+      )}
     </div>
   )
 }

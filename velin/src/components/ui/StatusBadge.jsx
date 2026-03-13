@@ -9,6 +9,7 @@ const STATUS_MAP = {
   retired: { label: 'Vyřazena trvale', color: '#1a2e22', bg: '#f3f4f6' },
   pending: { label: 'Čekající', color: '#b45309', bg: '#fef3c7' },
   completed: { label: 'Dokončeno', color: '#1a2e22', bg: '#f3f4f6' },
+  completed_sos: { label: 'Dokončeno SOS', color: '#b91c1c', bg: '#fee2e2' },
   cancelled: { label: 'Zrušeno', color: '#dc2626', bg: '#fee2e2' },
   reserved: { label: 'Nadcházející', color: '#7c3aed', bg: '#ede9fe' },
   in_service: { label: 'V servisu', color: '#2563eb', bg: '#dbeafe' },
@@ -16,6 +17,8 @@ const STATUS_MAP = {
 
 export function getDisplayStatus(booking) {
   if (!booking) return booking?.status || 'pending'
+  // SOS-ended bookings
+  if (booking.status === 'completed' && booking.ended_by_sos) return 'completed_sos'
   if ((booking.status === 'active' || booking.status === 'reserved') && booking.start_date) {
     const now = new Date()
     const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate())
