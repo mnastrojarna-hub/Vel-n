@@ -93,17 +93,90 @@ function _checkAndShowSosFab(){
   apiCheckPendingSosReplacement().then(function(pending){
     var fab = document.getElementById('sos-repl-fab');
     if(!fab) return;
-    if(pending){
+    if(pending && !sosFabDismissed){
       window._pendingSosIncident = pending;
       var label = document.getElementById('sos-repl-fab-text');
       if(label){
         label.textContent = pending.customer_fault ? 'Dokončit výběr náhrady \u00b7 za poplatek' : 'Dokončit výběr náhrady \u00b7 zdarma';
       }
-      fab.style.display = '';
+      fab.style.display = 'flex';
     } else {
       fab.style.display = 'none';
     }
   }).catch(function(){});
+}
+
+var sosFabDismissed = false;
+function dismissSosFab(){
+  sosFabDismissed = true;
+  var fab = document.getElementById('sos-repl-fab');
+  if(fab) fab.style.display = 'none';
+}
+
+// ===== PENDING BOOKING FAB (unpaid reserved bookings) =====
+var bookingFabDismissed = false;
+var _pendingBookingId = null;
+
+function _checkAndShowBookingFab(){
+  if(!window.supabase) return;
+  _getSession().then(function(session){
+    if(!session) return;
+    var uid = session.user.id;
+    window.supabase.from('bookings')
+      .select('id, status, payment_status, motorcycles(name)')
+      .eq('user_id', uid)
+      .in('status', ['reserved','pending'])
+      .eq('payment_status', 'unpaid')
+      .order('created_at', {ascending: false})
+      .limit(1)
+      .then(function(r){
+        var fab = document.getElementById('booking-fab');
+        if(!fab) return;
+        if(r.data && r.data.length > 0 && !bookingFabDismissed){
+          _pendingBookingId = r.data[0].id;
+          var label = document.getElementById('booking-fab-text');
+          var motoName = r.data[0].motorcycles ? r.data[0].motorcycles.name : '';
+          if(label) label.textContent = 'Dokončit rezervaci' + (motoName ? ' · ' + motoName : '');
+          fab.style.display = 'flex';
+        } else {
+          fab.style.display = 'none';
+        }
+      });
+  }).catch(function(){});
+}
+
+function dismissBookingFab(){
+  bookingFabDismissed = true;
+  var fab = document.getElementById('booking-fab');
+  if(fab) fab.style.display = 'none';
+}
+
+function goToBookingFab(){
+  if(_pendingBookingId){
+    if(typeof openResDetailById === 'function'){
+      openResDetailById(_pendingBookingId);
+    } else {
+      goTo('s-res');
+    }
+  } else {
+    goTo('s-res');
+  }
+}
+
+function _updateBookingFabVisibility(){
+  var fab = document.getElementById('booking-fab');
+  if(!fab) return;
+  if(bookingFabDismissed){ fab.style.display = 'none'; return; }
+  var hideOn = ['s-login','s-register','s-docs','s-booking','s-payment','s-success','s-res-detail'];
+  if(hideOn.indexOf(cur) !== -1){ fab.style.display = 'none'; }
+}
+
+function _updateSosFabVisibility(){
+  var fab = document.getElementById('sos-repl-fab');
+  if(!fab) return;
+  if(sosFabDismissed){ fab.style.display = 'none'; return; }
+  var hideOn = ['s-login','s-register','s-docs','s-sos-replacement','s-sos-payment','s-sos-done'];
+  if(hideOn.indexOf(cur) !== -1){ fab.style.display = 'none'; }
 }
 
 function _setResContent(html){

@@ -108,6 +108,11 @@ function _continueInit(hasSession){
     _checkAndShowSosFab();
   }
 
+  // Check for unpaid reserved bookings (small FAB banner)
+  if(hasSession && typeof _checkAndShowBookingFab==='function'){
+    _checkAndShowBookingFab();
+  }
+
   // Auto-expire vouchers check on app start
   if(hasSession && window.supabase){
     window.supabase.rpc('expire_vouchers_and_promos').catch(function(){});

@@ -161,6 +161,9 @@ function goTo(id){
   if(id==='s-sos-replacement' && typeof sosReplInit==='function') sosReplInit();
   if(id==='s-sos-payment' && typeof _sosInitPaymentFromRouter==='function') _sosInitPaymentFromRouter();
   if(typeof updateCartFab==='function')updateCartFab();
+  // Update booking & SOS FABs visibility on navigation
+  if(typeof _updateBookingFabVisibility==='function')_updateBookingFabVisibility();
+  if(typeof _updateSosFabVisibility==='function')_updateSosFabVisibility();
   if(typeof scrollCurrentToTop==='function')scrollCurrentToTop();
   // Debug panel – show diagnostics on every screen
   if(typeof _debugPanel==='function') setTimeout(function(){ _debugPanel(id); }, 100);
@@ -204,6 +207,8 @@ function histBack(){
     // Reset SOS replacement mode on back from edit
     if(typeof _sosReplacementMode!=='undefined'&&_sosReplacementMode){_sosReplacementMode=false;var sb=document.getElementById('sos-edit-banner');if(sb)sb.remove();}
     if(typeof updateCartFab==='function')updateCartFab();
+    if(typeof _updateBookingFabVisibility==='function')_updateBookingFabVisibility();
+    if(typeof _updateSosFabVisibility==='function')_updateSosFabVisibility();
   }
 }
 
