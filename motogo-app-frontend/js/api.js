@@ -146,6 +146,14 @@ async function apiCreateBooking(data){
   try {
     var uid = await _getUserId();
     if(!uid) return {error:'Nepřihlášen', booking:null};
+    // Final overlap guard — block creation if user has overlapping booking
+    if(data.start_date && data.end_date){
+      var oc = await apiCheckBookingOverlap(data.start_date, data.end_date);
+      if(oc.overlap){
+        var cf = oc.conflicting;
+        return {error:'Již máte rezervaci v tomto termínu: '+(cf.moto_name||'motorka')+' ('+cf.start_date?.slice(0,10)+' – '+cf.end_date?.slice(0,10)+')', booking:null};
+      }
+    }
     data.user_id = uid;
     data.status = 'pending';
     data.payment_status = 'unpaid';
@@ -489,6 +497,7 @@ async function apiCheckActiveBookingExists(excludeBookingId){
 }
 
 // ===== OVERLAP CHECK – zákazník nesmí mít překrývající se rezervace =====
+// Výjimka: dětské motorky (license_required = 'N') se nepočítají
 async function apiCheckBookingOverlap(startISO, endISO, excludeBookingId){
   _ensureSupabase();
   if(!window.supabase) return {overlap:false};
@@ -496,7 +505,7 @@ async function apiCheckBookingOverlap(startISO, endISO, excludeBookingId){
     var uid = await _getUserId();
     if(!uid) return {overlap:false};
     var q = window.supabase.from('bookings')
-      .select('id, start_date, end_date, status, motorcycles(model)')
+      .select('id, start_date, end_date, status, moto_id, motorcycles(model, license_required)')
       .eq('user_id', uid)
       .in('status', ['pending','reserved','active'])
       .lte('start_date', endISO)
@@ -505,10 +514,17 @@ async function apiCheckBookingOverlap(startISO, endISO, excludeBookingId){
       q = q.neq('id', excludeBookingId);
     }
     var r = await q;
+    if(r.error){ console.error('[API] apiCheckBookingOverlap query error:', r.error.message); }
     if(r.data && r.data.length > 0){
-      var cf = r.data[0];
-      cf.moto_name = (cf.motorcycles && cf.motorcycles.model) || '';
-      return {overlap:true, conflicting: cf};
+      // Filter out children's motorcycles (license_required = 'N')
+      var nonKids = r.data.filter(function(b){
+        return !(b.motorcycles && b.motorcycles.license_required === 'N');
+      });
+      if(nonKids.length > 0){
+        var cf = nonKids[0];
+        cf.moto_name = (cf.motorcycles && cf.motorcycles.model) || '';
+        return {overlap:true, conflicting: cf};
+      }
     }
     return {overlap:false};
   } catch(e){ console.error('[API] apiCheckBookingOverlap:', e); return {overlap:false}; }
