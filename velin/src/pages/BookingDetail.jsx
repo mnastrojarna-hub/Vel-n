@@ -98,6 +98,22 @@ export default function BookingDetail() {
         if (d.original_start_date) d.original_start_date = normDate(d.original_start_date)
         if (d.original_end_date) d.original_end_date = normDate(d.original_end_date)
       }
+      // Auto-fix: pending + paid → reserved/active
+      if (d && d.status === 'pending' && d.payment_status === 'paid') {
+        const today = new Date().toISOString().slice(0, 10)
+        const startLocal = d.start_date ? d.start_date.slice(0, 10) : ''
+        const newStatus = startLocal <= today ? 'active' : 'reserved'
+        const update = { status: newStatus }
+        if (newStatus === 'active') update.picked_up_at = new Date().toISOString()
+        else update.confirmed_at = new Date().toISOString()
+        const { error: fixErr } = await supabase.from('bookings').update(update).eq('id', d.id)
+        if (!fixErr) {
+          d.status = newStatus
+          if (newStatus === 'active') d.picked_up_at = update.picked_up_at
+          else d.confirmed_at = update.confirmed_at
+          console.log(`[AutoFix] Booking ${d.id} pending+paid → ${newStatus}`)
+        }
+      }
       setBooking(d)
     }
     setLoading(false)
