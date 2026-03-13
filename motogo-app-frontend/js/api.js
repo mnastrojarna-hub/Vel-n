@@ -576,15 +576,15 @@ async function apiGetActiveLoan(){
     var r = await window.supabase.from('bookings')
       .select('*, motorcycles(model, image_url)')
       .eq('user_id', uid)
-      .eq('status', 'active')
+      .in('status', ['active', 'reserved', 'confirmed', 'pending'])
       .eq('payment_status', 'paid')
       .lte('start_date', now)
       .gte('end_date', now)
-      .limit(1)
-      .single();
-    if(r.data){
-      r.data.moto = r.data.motorcycles;
-      return r.data;
+      .order('start_date', {ascending: false})
+      .limit(1);
+    if(r.data && r.data.length > 0){
+      r.data[0].moto = r.data[0].motorcycles;
+      return r.data[0];
     }
     return null;
   } catch(e){ return null; }

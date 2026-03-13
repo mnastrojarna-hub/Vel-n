@@ -286,6 +286,7 @@
 | `expire_vouchers_and_promos()` | Expirace voucherů + deaktivace promo kódů po valid_to |
 | `auto_cancel_expired_pending()` | Auto-cancel pending+unpaid bookings (app: 10min, web: 4h). SECURITY DEFINER |
 | `auto_complete_expired_bookings()` | Auto-complete: active/reserved + end_date < today + paid → completed. SECURITY DEFINER |
+| `auto_activate_reserved_bookings()` | Auto-activate: reserved + paid + start_date <= today → active (+picked_up_at). SECURITY DEFINER |
 | `check_user_booking_overlap()` | Trigger: per-user overlap check — zákazník nesmí mít 2 překrývající se rezervace. Výjimka: dětské motorky (license_required=N). SECURITY DEFINER |
 | `confirm_payment(booking_id, method)` | RPC: označí booking jako zaplacený. start_date<=dnes → pending→**active** (+picked_up_at), start_date>dnes → pending→**reserved** (+confirmed_at). SECURITY DEFINER |
 | `confirm_shop_payment(order_id, method)` | RPC: označí shop objednávku jako zaplacenou (SECURITY DEFINER) |
@@ -512,6 +513,7 @@ Detailní politiky:
 | `expire-vouchers` | denně 01:00 UTC | `SELECT expire_vouchers()` |
 | `auto-cancel-pending-bookings` | každé 2 min (`*/2 * * * *`) | `SELECT auto_cancel_expired_pending()` — ruší pending+unpaid bookings: app=10min, web=4h |
 | `auto-complete-expired-bookings` | denně 00:01 (`1 0 * * *`) | `SELECT auto_complete_expired_bookings()` — active/reserved + end_date < today + paid → completed |
+| `auto-activate-reserved-bookings` | denně 00:01 (`1 0 * * *`) | `SELECT auto_activate_reserved_bookings()` — reserved + paid + start_date <= today → active |
 | Denní cron | denně | `cron-daily` edge function (snapshot_daily_stats, auto_schedule_services) |
 | Měsíční cron | 1. den měsíce | `cron-monthly` edge function (generate-tax, monthly reports) |
 
@@ -576,4 +578,5 @@ Detailní politiky:
 | 2026-03-13 | **NEW: Per-user overlap check:** `check_user_booking_overlap()` trigger — zákazník nesmí mít 2 překrývající se rezervace (kromě dětských motorek license_required=N). Trigger `trg_check_user_booking_overlap` BEFORE INSERT/UPDATE OF start_date, end_date, user_id, status |
 | 2026-03-13 | **NEW: Auto-complete expired bookings:** `auto_complete_expired_bookings()` — active/reserved + end_date < today + paid → completed. pg_cron job `auto-complete-expired-bookings` denně v 00:01 |
 | 2026-03-13 | **FIX: Document templates .single()→array:** Edge function generate-document a app apiFetchDocTemplate: `.single()` nahrazeno `.limit(1)` + array[0] (single selhával při 0/2+ výsledcích → fallback místo DB šablony). Per-user overlap check v apiCreateBooking a Velín NewBookingModal. Velín getDisplayStatus: end_date < today → completed, reserved → Nadcházející/Aktivní dle data |
+| 2026-03-13 | **FIX: SOS flow + auto-activate reserved:** 1) SOS booking queries přidán status 'reserved' (apiGetActiveLoan, ui-controller 4× query, sos_swap_bookings RPC). 2) sosEndRide/sosEndRideFree: booking→completed+ended_by_sos+moto→maintenance. 3) sosPaymentSubmit: opraveno ZF/DP generování (fallback booking_id, payment_status update). 4) Velín: StatusBadge 'Dokončeno SOS', FleetDetail SOS incidenty. 5) auto_activate_reserved_bookings() — reserved+paid+start_date<=today→active. pg_cron denně 00:01. Velín Bookings.jsx: autoActivateReserved() při každém načtení |
 | 2026-03-13 | **NEW: Auto voucher processing:** BEFORE UPDATE trigger `auto_process_voucher_order()` na shop_orders — při zaplacení automaticky: (1) generuje voucher kódy, (2) posílá in-app notifikaci do admin_messages, (3) nastavuje status (delivered pro čistě digitální, confirmed pro mixed/fyzické). Velín: odstraněna klientská autoConfirmPaidVouchers, nahrazena DB triggerem. Frontend: checkout zobrazuje specifickou success zprávu s odkazem na zprávy pro voucher objednávky |

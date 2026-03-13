@@ -129,20 +129,28 @@ async function finalizeCheckout(){
       }
       console.log('[SHOP] Payment confirmed, order:', orderId);
 
-      // Generuj ZF (zálohovou fakturu) + doklad k platbě
+      // Generuj ZF (zálohovou fakturu) + DP (doklad k platbě)
+      // Edge funkce auto-natáhne voucher kódy z DB a zobrazí je na dokladech
       try {
         console.log('[SHOP] Generating ZF proforma invoice for order:', orderId);
         await window.supabase.functions.invoke('generate-invoice', {
           body: { type: 'shop_proforma', order_id: orderId }
         });
       } catch(ie){ console.warn('[SHOP] ZF generation:', ie); }
-      // Doklad k přijaté platbě
       try {
-        if(typeof apiGeneratePaymentReceipt === 'function'){
-          console.log('[SHOP] Generating DP payment receipt for order:', orderId, 'amount:', finalTotal);
-          await apiGeneratePaymentReceipt(orderId, finalTotal, 'shop');
-        }
-      } catch(re){ console.warn('[SHOP] Receipt err:', re); }
+        console.log('[SHOP] Generating DP payment receipt for order:', orderId);
+        await window.supabase.functions.invoke('generate-invoice', {
+          body: { type: 'payment_receipt', order_id: orderId }
+        });
+      } catch(re){ console.warn('[SHOP] DP receipt err:', re); }
+      // FK (shop_final) se generuje automaticky DB triggerem trg_generate_shop_invoice
+      // + edge funkce generate-invoice s voucher kódy
+      try {
+        console.log('[SHOP] Generating FK final invoice for order:', orderId);
+        await window.supabase.functions.invoke('generate-invoice', {
+          body: { type: 'shop_final', order_id: orderId }
+        });
+      } catch(fe){ console.warn('[SHOP] FK generation:', fe); }
 
       orderSuccess = true;
     } catch(e){
