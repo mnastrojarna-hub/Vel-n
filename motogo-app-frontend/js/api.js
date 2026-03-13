@@ -104,9 +104,10 @@ async function apiCheckPendingSosReplacement(){
     var uid = await _getUserId();
     if(!uid) return null;
     var r = await window.supabase.from('sos_incidents')
-      .select('id, type, replacement_status, replacement_data, booking_id, original_moto_id, customer_fault')
+      .select('id, type, status, replacement_status, replacement_data, booking_id, original_moto_id, customer_fault')
       .eq('user_id', uid)
       .in('replacement_status', ['selecting', 'pending_payment'])
+      .not('status', 'in', '("resolved","closed")')
       .order('created_at', {ascending: false})
       .limit(1);
     if(r.data && r.data.length > 0) return r.data[0];
@@ -613,12 +614,21 @@ function _buildBookingItems(b, m){
 }
 function _calcItemsTotal(items){ return items.reduce(function(s,it){ return s + (it.unit_price||0)*(it.qty||1); }, 0); }
 
-// Build itemized edit items: original reservation (negative) + new reservation (positive) + extras/moto change
+// Storno conditions: 7+ days before start = 100% refund, 2-7 days = 50%, <2 days = 0%
+function _getStornoPercent(startDate){
+  var now = new Date(); now.setHours(0,0,0,0);
+  var start = new Date(_toDateStr(startDate)+'T00:00:00');
+  var diffMs = start.getTime() - now.getTime();
+  var diffDays = Math.ceil(diffMs / 86400000);
+  if(diffDays >= 7) return 100;
+  if(diffDays >= 2) return 50;
+  return 0;
+}
+
+// Build itemized edit items: original reservation (negative) + new reservation (positive) + storno
 function _buildEditItems(editCtx, newBooking, newMoto){
   var items = [];
   var origMoto = editCtx.orig_moto || newMoto;
-  var origMotoName = origMoto.model || 'motorky';
-  var newMotoName = newMoto.model || 'motorky';
   // Find original ZF number for reference
   var origRef = editCtx.orig_zf_number ? ' (navazuje na '+editCtx.orig_zf_number+')' : '';
   // Section: Original reservation (negative — odpočet)
@@ -635,6 +645,18 @@ function _buildEditItems(editCtx, newBooking, newMoto){
   if(newBooking.extras_price > 0) items.push({description:'Příslušenství / doplňky', qty:1, unit_price:newBooking.extras_price});
   if(newBooking.delivery_fee > 0) items.push({description:'Doručení', qty:1, unit_price:newBooking.delivery_fee});
   if(newBooking.discount_amount > 0) items.push({description:'Sleva'+(newBooking.discount_code?' ('+newBooking.discount_code+')':''), qty:1, unit_price:-newBooking.discount_amount});
+  // Apply storno conditions for shortened reservations
+  var rawTotal = _calcItemsTotal(items);
+  if(rawTotal < 0){
+    var stornoPercent = _getStornoPercent(editCtx.orig_start);
+    if(stornoPercent < 100){
+      var stornoFee = Math.round(Math.abs(rawTotal) * (100 - stornoPercent) / 100);
+      var stornoLabel = stornoPercent === 0
+        ? 'Storno poplatek (méně než 2 dny před začátkem – bez vrácení)'
+        : 'Storno poplatek (2–7 dní před začátkem – vrácení 50 %)';
+      items.push({description:stornoLabel, qty:1, unit_price:stornoFee});
+    }
+  }
   return items;
 }
 
