@@ -719,7 +719,11 @@ async function apiGenerateFinalInvoice(bookingId){
       .eq('id', bookingId).single();
     if(br.error || !br.data){ console.error('[API] KF booking query failed:', br.error ? br.error.message : 'no data'); return {error:'Booking not found: '+(br.error?br.error.message:'no data')}; }
     var b = br.data, m = br.data.motorcycles || {};
-    // Fetch all advance invoices for this booking
+    // Fetch all DP (payment_receipt) and ZF (advance) invoices for this booking
+    var dpR = await window.supabase.from('invoices').select('*')
+      .eq('booking_id', bookingId).eq('type', 'payment_receipt')
+      .order('created_at', {ascending: true});
+    var receipts = dpR.data || [];
     var advR = await window.supabase.from('invoices').select('*')
       .eq('booking_id', bookingId).eq('type', 'advance')
       .order('created_at', {ascending: true});
@@ -734,9 +738,11 @@ async function apiGenerateFinalInvoice(bookingId){
     }
     var invNum = 'KF-' + yr + '-' + String(seq).padStart(4, '0');
     var items = _buildBookingItems(b, m);
-    // Deduct all advance invoices
-    advances.forEach(function(a){
-      items.push({description: 'Odpočet zálohy ' + a.number, qty: 1, unit_price: -Number(a.total || 0)});
+    // Deduct: prioritize DP (payment receipts), fall back to ZF (advances)
+    var deductions = receipts.length > 0 ? receipts : advances;
+    deductions.forEach(function(a){
+      var label = a.type === 'payment_receipt' ? 'Odpočet dle dokladu k platbě ' : 'Odpočet zálohy ';
+      items.push({description: label + a.number, qty: 1, unit_price: -Number(a.total || 0)});
     });
     var subtotal = _calcItemsTotal(items);
     var tax = 0; // Neplátce DPH
@@ -1575,21 +1581,24 @@ async function apiAutoGenerateFinalInvoiceForEnded(){
   try {
     var uid = await _getUserId();
     if(!uid) return;
-    var yesterday = new Date(Date.now() - 86400000).toISOString().slice(0,10);
     var today = new Date().toISOString().slice(0,10);
-    // Find bookings that ended yesterday/today, paid, no final invoice yet
-    var bks = await window.supabase.from('bookings').select('id')
+    // Find completed/active/reserved bookings that are paid and ended (end_date < today or status=completed)
+    var bks = await window.supabase.from('bookings').select('id, status, end_date')
       .eq('user_id', uid).eq('payment_status','paid')
-      .gte('end_date', yesterday + 'T00:00:00')
+      .in('status', ['completed','active','reserved'])
       .lte('end_date', today + 'T23:59:59');
     if(!bks.data) return;
     for(var i=0;i<bks.data.length;i++){
-      var bid = bks.data[i].id;
+      var b = bks.data[i];
+      // Only process if status=completed or end_date < today
+      var endDate = new Date(b.end_date); endDate.setHours(0,0,0,0);
+      var todayDate = new Date(today); todayDate.setHours(0,0,0,0);
+      if(b.status !== 'completed' && endDate >= todayDate) continue;
       // Check if final invoice exists
       var existing = await window.supabase.from('invoices').select('id')
-        .eq('booking_id', bid).eq('type','final').limit(1);
+        .eq('booking_id', b.id).eq('type','final').limit(1);
       if(existing.data && existing.data.length > 0) continue;
-      await apiGenerateFinalInvoice(bid);
+      await apiGenerateFinalInvoice(b.id);
     }
   } catch(e){ console.warn('[API] finalInvoiceAutoGen:', e); }
 }
