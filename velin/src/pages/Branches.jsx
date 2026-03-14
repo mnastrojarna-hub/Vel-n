@@ -1,4 +1,4 @@
-import { useState, useEffect, Component } from 'react'
+import { useState, useEffect, useRef, Component } from 'react'
 import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
@@ -17,7 +17,8 @@ const ACCESSORY_TYPES = [
   { key: 'pants', label: 'Kalhoty', sizes: ['XS','S','M','L','XL','XXL'] },
 ]
 
-const DETAIL_TABS = ['Info', 'Motorky', 'Příslušenství', 'Přístupové kódy']
+const MAX_MOTOS = 24
+const DETAIL_TABS = ['Info', 'Motorky & Koje', 'Příslušenství', 'Přístupové kódy']
 
 // ─── Helpers ──────────────────────────────────────────────────────
 function generateDoorCode() {
@@ -189,7 +190,7 @@ function Branches() {
     try {
       const { error: err } = await supabase
         .from('branches')
-        .update({ is_open: newOpen })
+        .update({ is_open: newOpen, updated_at: new Date().toISOString() })
         .eq('id', branch.id)
       if (err) throw err
       await logAudit(newOpen ? 'branch_opened' : 'branch_closed', { name: branch.name })
@@ -204,7 +205,7 @@ function Branches() {
     try {
       const { error: err } = await supabase
         .from('branches')
-        .update({ active: newActive })
+        .update({ active: newActive, updated_at: new Date().toISOString() })
         .eq('id', branch.id)
       if (err) throw err
       await logAudit(newActive ? 'branch_activated' : 'branch_deactivated', { name: branch.name })
@@ -424,9 +425,9 @@ function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEd
     try {
       const { data } = await supabase
         .from('motorcycles')
-        .select('id, model, spz, status, mileage, image_url')
+        .select('id, model, spz, status, mileage, image_url, box_number')
         .eq('branch_id', branch.id)
-        .order('model')
+        .order('box_number', { ascending: true, nullsFirst: false })
       setMotos(data || [])
     } catch {}
     setLoadingMotos(false)
@@ -623,29 +624,126 @@ function TabInfo({ branch, branchStats, bookings }) {
   )
 }
 
-// ─── Tab: Motorcycles ─────────────────────────────────────────────
+// ─── Tab: Motorcycles & Koje ──────────────────────────────────────
 function TabMotorcycles({ motos, loading, statusLabels, branchId, onRefresh }) {
+  const [saving, setSaving] = useState(false)
+
   if (loading) return <Spinner />
   if (motos.length === 0) return <EmptyState text="Žádné motorky na této pobočce" />
 
+  // Sort by box_number (nulls last)
+  const sorted = [...motos].sort((a, b) => {
+    if (a.box_number == null && b.box_number == null) return 0
+    if (a.box_number == null) return 1
+    if (b.box_number == null) return -1
+    return a.box_number - b.box_number
+  })
+
+  async function setBoxNumber(motoId, num) {
+    setSaving(true)
+    try {
+      const { error } = await supabase.from('motorcycles').update({ box_number: num }).eq('id', motoId)
+      if (error) throw error
+      onRefresh()
+    } catch (e) {
+      alert('Chyba: ' + e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function swapBoxNumbers(indexA, indexB) {
+    if (indexA < 0 || indexB < 0 || indexA >= sorted.length || indexB >= sorted.length) return
+    setSaving(true)
+    try {
+      const mA = sorted[indexA]
+      const mB = sorted[indexB]
+      const numA = mA.box_number
+      const numB = mB.box_number
+      // Swap: set A to temp -1, set B to A's number, set A to B's number
+      await supabase.from('motorcycles').update({ box_number: -1 }).eq('id', mA.id)
+      await supabase.from('motorcycles').update({ box_number: numA }).eq('id', mB.id)
+      await supabase.from('motorcycles').update({ box_number: numB }).eq('id', mA.id)
+      onRefresh()
+    } catch (e) {
+      alert('Chyba: ' + e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function autoAssignBoxNumbers() {
+    if (!window.confirm(`Automaticky přiřadit čísla kojí 1–${motos.length} všem motorkám na pobočce?`)) return
+    setSaving(true)
+    try {
+      for (let i = 0; i < sorted.length; i++) {
+        const { error } = await supabase.from('motorcycles').update({ box_number: i + 1 }).eq('id', sorted[i].id)
+        if (error) throw error
+      }
+      onRefresh()
+    } catch (e) {
+      alert('Chyba: ' + e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const hasUnassigned = sorted.some(m => m.box_number == null)
+
   return (
     <div>
-      <div className="text-sm mb-2" style={{ color: '#1a2e22' }}>
-        <strong>{motos.length}</strong> motorek na pobočce (max. 8 doporučeno)
-        {motos.length > 8 && (
-          <span className="ml-2 text-[10px] font-bold" style={{ color: '#dc2626' }}>Překročen limit 8 motorek!</span>
-        )}
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-sm" style={{ color: '#1a2e22' }}>
+          <strong>{motos.length}</strong> motorek na pobočce (max {MAX_MOTOS})
+        </div>
+        <div className="flex gap-2">
+          {hasUnassigned && (
+            <button onClick={autoAssignBoxNumbers} disabled={saving}
+              className="rounded-btn text-sm font-bold cursor-pointer border-none"
+              style={{ padding: '4px 10px', background: '#dbeafe', color: '#2563eb', opacity: saving ? 0.5 : 1 }}>
+              Auto-přiřadit čísla kojí
+            </button>
+          )}
+        </div>
       </div>
-      <div className="space-y-1 max-h-72 overflow-y-auto">
-        {motos.map((m, i) => {
+
+      <div className="space-y-1 max-h-96 overflow-y-auto">
+        {sorted.map((m, i) => {
           const st = statusLabels[m.status] || statusLabels.active
           return (
-            <div key={m.id} className="flex items-center text-sm" style={{ padding: '8px 10px', background: i % 2 === 0 ? '#f8fcfa' : '#fff', borderRadius: 8 }}>
-              <span className="text-[10px] font-mono font-bold mr-2" style={{ color: '#1a2e22', minWidth: 20 }}>
-                #{i + 1}
-              </span>
+            <div key={m.id} className="flex items-center text-sm gap-1" style={{ padding: '6px 8px', background: i % 2 === 0 ? '#f8fcfa' : '#fff', borderRadius: 8 }}>
+              {/* Box number */}
+              <div className="flex items-center gap-0.5 mr-1" style={{ minWidth: 70 }}>
+                <span className="font-mono font-extrabold text-sm" style={{
+                  color: m.box_number != null ? '#1a2e22' : '#dc2626',
+                  background: m.box_number != null ? '#dcfce7' : '#fee2e2',
+                  padding: '2px 6px',
+                  borderRadius: 6,
+                  minWidth: 32,
+                  textAlign: 'center',
+                  display: 'inline-block',
+                }}>
+                  {m.box_number != null ? `#${m.box_number}` : '—'}
+                </span>
+                {/* Move arrows */}
+                <div className="flex flex-col" style={{ lineHeight: 0 }}>
+                  <button onClick={() => swapBoxNumbers(i, i - 1)} disabled={i === 0 || saving}
+                    className="cursor-pointer border-none bg-transparent"
+                    style={{ padding: 0, fontSize: 10, color: i === 0 ? '#ccc' : '#1a2e22', lineHeight: '12px' }}
+                    title="Posunout nahoru">
+                    ▲
+                  </button>
+                  <button onClick={() => swapBoxNumbers(i, i + 1)} disabled={i === sorted.length - 1 || saving}
+                    className="cursor-pointer border-none bg-transparent"
+                    style={{ padding: 0, fontSize: 10, color: i === sorted.length - 1 ? '#ccc' : '#1a2e22', lineHeight: '12px' }}
+                    title="Posunout dolů">
+                    ▼
+                  </button>
+                </div>
+              </div>
+              {/* Moto info */}
               <span className="font-bold" style={{ color: '#0f1a14' }}>{m.model}</span>
-              <span className="ml-2 font-mono text-sm" style={{ color: '#1a2e22' }}>{m.spz || '—'}</span>
+              <span className="ml-1 font-mono text-sm" style={{ color: '#1a2e22' }}>{m.spz || '—'}</span>
               <span className="ml-auto mr-2 text-sm" style={{ color: '#1a2e22' }}>
                 {m.mileage ? `${m.mileage.toLocaleString('cs-CZ')} km` : ''}
               </span>
@@ -653,6 +751,23 @@ function TabMotorcycles({ motos, loading, statusLabels, branchId, onRefresh }) {
                 style={{ padding: '2px 6px', background: st.bg, color: st.color }}>
                 {st.label}
               </span>
+              {/* Manual box number edit */}
+              {m.box_number == null && (
+                <input type="number" min="1" max={MAX_MOTOS} placeholder="Koje"
+                  className="rounded-btn text-sm outline-none font-mono ml-1"
+                  style={{ width: 50, padding: '2px 4px', background: '#fffbeb', border: '1px solid #fbbf24', textAlign: 'center' }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      const val = parseInt(e.target.value)
+                      if (val >= 1 && val <= MAX_MOTOS) setBoxNumber(m.id, val)
+                    }
+                  }}
+                  onBlur={e => {
+                    const val = parseInt(e.target.value)
+                    if (val >= 1 && val <= MAX_MOTOS) setBoxNumber(m.id, val)
+                  }}
+                />
+              )}
             </div>
           )
         })}
@@ -886,15 +1001,44 @@ function AccessoryEditModal({ existing, branchId, onSave, onDelete, onClose, sav
 function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onRefresh }) {
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState(null)
+  const autoGenerated = useRef(false)
+
+  // Auto-generate codes for bookings without them
+  useEffect(() => {
+    if (loading || autoGenerated.current) return
+    const bookingsWithCodes = new Set(doorCodes.map(c => c.booking_id))
+    const missing = activeBookings.filter(b => !bookingsWithCodes.has(b.id))
+    if (missing.length > 0) {
+      autoGenerated.current = true
+      autoGenerateAll(missing)
+    }
+  }, [loading, activeBookings, doorCodes])
 
   if (loading) return <Spinner />
 
   const activeCodes = doorCodes.filter(c => c.is_active)
   const inactiveCodes = doorCodes.filter(c => !c.is_active).slice(0, 20)
 
-  async function generateCodesForBooking(booking) {
+  async function autoGenerateAll(bookings) {
     setGenerating(true)
     setError(null)
+    try {
+      for (const booking of bookings) {
+        await generateCodesForBooking(booking, true)
+      }
+      onRefresh()
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  async function generateCodesForBooking(booking, silent) {
+    if (!silent) {
+      setGenerating(true)
+      setError(null)
+    }
     try {
       // Check if customer has uploaded documents (OP/pas/ŘP)
       const { data: docs } = await supabase
@@ -902,7 +1046,6 @@ function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onR
         .select('id, type')
         .eq('user_id', booking.user_id)
         .in('type', ['contract', 'protocol'])
-      // Check if profile has license_number
       const { data: profile } = await supabase
         .from('profiles')
         .select('license_number')
@@ -912,7 +1055,6 @@ function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onR
       const hasDocuments = (docs && docs.length > 0) || profile?.license_number
       const withheldReason = hasDocuments ? null : 'Chybí doklady (OP/pas/ŘP)'
 
-      // Generate motorcycle door code
       const motoCode = generateDoorCode()
       const accessoriesCode = generateDoorCode()
 
@@ -951,15 +1093,16 @@ function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onR
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({
         admin_id: user?.id,
-        action: 'door_codes_generated',
+        action: 'door_codes_auto_generated',
         details: { booking_id: booking.id, branch_id: branchId, withheld: !hasDocuments },
       })
 
-      onRefresh()
+      if (!silent) onRefresh()
     } catch (e) {
-      setError(e.message)
+      if (!silent) setError(e.message)
+      else console.warn('[DoorCodes] auto-generate failed for booking', booking.id, e.message)
     } finally {
-      setGenerating(false)
+      if (!silent) setGenerating(false)
     }
   }
 
@@ -989,7 +1132,6 @@ function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onR
         withheld_reason: null,
       }).eq('id', code.id)
 
-      // Send in-app message
       if (code.bookings?.user_id) {
         await supabase.from('admin_messages').insert({
           user_id: code.bookings.user_id,
@@ -1012,25 +1154,37 @@ function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onR
     }
   }
 
-  // Find bookings without codes
+  // Find bookings still without codes (after auto-generate attempt)
   const bookingsWithCodes = new Set(doorCodes.map(c => c.booking_id))
   const bookingsWithoutCodes = activeBookings.filter(b => !bookingsWithCodes.has(b.id))
 
   return (
     <div>
+      {/* Info banner */}
+      <div className="mb-3 p-2 rounded-card text-sm" style={{ background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
+        Kódy se generují <strong>automaticky</strong> pro každou novou rezervaci. Ruční generování pouze při výpadku systému.
+      </div>
+
+      {generating && (
+        <div className="mb-3 p-2 rounded-card text-sm flex items-center gap-2" style={{ background: '#fffbeb', border: '1px solid #fbbf24', color: '#78350f' }}>
+          <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-[#b45309]" />
+          Auto-generování kódů...
+        </div>
+      )}
+
       {error && (
         <div className="mb-3 p-2 rounded-card text-sm" style={{ background: '#fee2e2', color: '#dc2626' }}>{error}</div>
       )}
 
-      {/* Generate codes for bookings without codes */}
-      {bookingsWithoutCodes.length > 0 && (
+      {/* Bookings without codes — manual fallback */}
+      {bookingsWithoutCodes.length > 0 && !generating && (
         <div className="mb-4">
-          <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#b45309' }}>
-            Rezervace bez kódů ({bookingsWithoutCodes.length})
+          <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#dc2626' }}>
+            Nouzové generování — rezervace bez kódů ({bookingsWithoutCodes.length})
           </div>
           <div className="space-y-1">
             {bookingsWithoutCodes.map(b => (
-              <div key={b.id} className="flex items-center gap-2 rounded-lg" style={{ padding: '6px 10px', background: '#fffbeb', border: '1px solid #fbbf24' }}>
+              <div key={b.id} className="flex items-center gap-2 rounded-lg" style={{ padding: '6px 10px', background: '#fee2e2', border: '1px solid #fca5a5' }}>
                 <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>
                   {b.profiles?.full_name || 'Neznámý'}
                 </span>
@@ -1041,10 +1195,10 @@ function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onR
                   style={{ padding: '2px 6px', background: b.status === 'active' ? '#dcfce7' : '#dbeafe', color: b.status === 'active' ? '#1a8a18' : '#2563eb' }}>
                   {b.status === 'active' ? 'Aktivní' : 'Nadcházející'}
                 </span>
-                <button onClick={() => generateCodesForBooking(b)} disabled={generating}
+                <button onClick={() => generateCodesForBooking(b, false)} disabled={generating}
                   className="ml-auto rounded-btn text-sm font-bold cursor-pointer border-none"
-                  style={{ padding: '4px 10px', background: '#1a2e22', color: '#74FB71', opacity: generating ? 0.5 : 1 }}>
-                  {generating ? 'Generuji...' : 'Generovat kódy'}
+                  style={{ padding: '4px 10px', background: '#dc2626', color: '#fff', opacity: generating ? 0.5 : 1 }}>
+                  Nouzově generovat
                 </button>
               </div>
             ))}
@@ -1200,6 +1354,7 @@ function BranchModal({ existing, onClose, onSaved }) {
         gps_lat: form.gps_lat ? Number(form.gps_lat) : null,
         gps_lng: form.gps_lng ? Number(form.gps_lng) : null,
         active: form.active,
+        updated_at: new Date().toISOString(),
       }
       const result = await debugAction(isEdit ? 'branches.update' : 'branches.create', 'BranchModal', () =>
         isEdit ? supabase.from('branches').update(payload).eq('id', existing.id) : supabase.from('branches').insert(payload)
