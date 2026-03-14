@@ -939,33 +939,49 @@ async function apiAutoGenerateBookingDocs(bookingId, force){
 
     // Generate contract via edge function (creates generated_documents + syncs to documents via trigger)
     if(existingTypes.indexOf('contract') === -1){
+      var contractOk = false;
       try {
-        await window.supabase.functions.invoke('generate-document', {
+        var cRes = await window.supabase.functions.invoke('generate-document', {
           body: { template_slug: 'rental_contract', booking_id: bookingId }
         });
+        if(cRes.error){ throw new Error(cRes.error.message || 'Edge function error'); }
+        // Check response body for success
+        var cBody = cRes.data;
+        if(typeof cBody === 'string'){ try { cBody = JSON.parse(cBody); } catch(pe){} }
+        if(cBody && cBody.error){ throw new Error(cBody.error); }
+        contractOk = true;
       } catch(e){
-        console.warn('[API] Contract edge fn failed, inserting fallback:', e.message);
-        await window.supabase.from('documents').insert({
-          booking_id: bookingId, user_id: uid, type: 'contract',
-          file_name: 'Smlouva o pronájmu.pdf',
-          file_path: 'contracts/' + bookingId + '_contract.html'
-        });
+        console.warn('[API] Contract edge fn failed:', e.message, '— inserting direct fallback');
+        try {
+          await window.supabase.from('documents').insert({
+            booking_id: bookingId, user_id: uid, type: 'contract',
+            file_name: 'Smlouva o pronájmu.pdf',
+            file_path: 'contracts/' + bookingId + '_contract.html'
+          });
+        } catch(e2){ console.warn('[API] Contract fallback insert failed:', e2.message); }
       }
     }
     // Generate VOP via edge function
     if(existingTypes.indexOf('vop') === -1){
+      var vopOk = false;
       try {
-        await window.supabase.functions.invoke('generate-document', {
+        var vRes = await window.supabase.functions.invoke('generate-document', {
           body: { template_slug: 'vop', booking_id: bookingId }
         });
-
+        if(vRes.error){ throw new Error(vRes.error.message || 'Edge function error'); }
+        var vBody = vRes.data;
+        if(typeof vBody === 'string'){ try { vBody = JSON.parse(vBody); } catch(pe){} }
+        if(vBody && vBody.error){ throw new Error(vBody.error); }
+        vopOk = true;
       } catch(e){
-        console.warn('[API] VOP edge fn failed, inserting fallback:', e.message);
-        await window.supabase.from('documents').insert({
-          booking_id: bookingId, user_id: uid, type: 'vop',
-          file_name: 'Všeobecné obchodní podmínky.pdf',
-          file_path: 'documents/vop_current.html'
-        });
+        console.warn('[API] VOP edge fn failed:', e.message, '— inserting direct fallback');
+        try {
+          await window.supabase.from('documents').insert({
+            booking_id: bookingId, user_id: uid, type: 'vop',
+            file_name: 'Všeobecné obchodní podmínky.pdf',
+            file_path: 'documents/vop_current.html'
+          });
+        } catch(e2){ console.warn('[API] VOP fallback insert failed:', e2.message); }
       }
     }
   } catch(e){ console.error('[API] autoGenerateBookingDocs:', e); }
