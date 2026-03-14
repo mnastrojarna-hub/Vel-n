@@ -303,19 +303,35 @@ export default function BookingDetail() {
     if (!reason) { setError('Vyplňte důvod zrušení'); setSaving(false); return }
 
     const { data: { user } } = await supabase.auth.getUser()
+    const wasPaid = booking.payment_status === 'paid'
     const updatePayload = {
       status: 'cancelled',
       cancelled_by: user?.id || null,
       cancelled_by_source: cancelReason,
       cancellation_reason: reason,
       cancelled_at: new Date().toISOString(),
+      ...(wasPaid ? { payment_status: 'refunded' } : {}),
     }
 
     const cancelResult = await debugAction('booking.cancel', 'BookingDetail', () =>
       supabase.from('bookings').update(updatePayload).eq('id', id)
     , { booking_id: id, reason, source: cancelReason })
     if (cancelResult?.error) { setError(cancelResult.error.message); setSaving(false); return }
-    await logAudit('booking_cancelled', { booking_id: id, reason, source: cancelReason })
+
+    // Admin cancellation = always 100% refund — create booking_cancellations record
+    if (wasPaid && booking.total_price) {
+      try {
+        await supabase.from('booking_cancellations').insert({
+          booking_id: id,
+          cancelled_by: user?.id || null,
+          reason,
+          refund_amount: booking.total_price,
+          refund_percent: 100,
+        })
+      } catch {}
+    }
+
+    await logAudit('booking_cancelled', { booking_id: id, reason, source: cancelReason, refund: wasPaid ? '100%' : 'n/a' })
 
     if (booking.profiles?.email) {
       try {
@@ -325,6 +341,7 @@ export default function BookingDetail() {
             customer_name: booking.profiles?.full_name, motorcycle: booking.motorcycles?.model,
             start_date: booking.start_date, end_date: booking.end_date,
             cancellation_reason: reason, cancelled_by_source: cancelReason,
+            ...(wasPaid ? { refund_amount: booking.total_price, refund_percent: 100 } : {}),
           },
         })
         await supabase.from('bookings').update({ cancellation_notified: true }).eq('id', id)
