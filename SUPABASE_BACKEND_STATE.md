@@ -29,7 +29,9 @@
 | `profiles` | Zákaznické profily (vazba na auth.users) |
 | `motorcycles` | Flotila motorek |
 | `bookings` | Rezervace |
-| `branches` | Pobočky |
+| `branches` | Pobočky (autonomní, branch_code, is_open toggle) |
+| `branch_accessories` | Příslušenství na pobočce (boty, helmy, kukly, rukavice, kalhoty) — typ+velikost+počet |
+| `branch_door_codes` | Přístupové kódy ke dveřím (motorka / příslušenství) — per booking, auto-generované |
 | `admin_users` | Admin uživatelé (role: admin_role ENUM, branch_access uuid[], permissions jsonb) |
 
 ### Booking systém
@@ -548,6 +550,40 @@ Detailní politiky:
 - `promo_code_usage.user_id` → `profiles.id`
 - `maintenance_log.moto_id` → `motorcycles.id`
 - `service_orders.moto_id` → `motorcycles.id`
+- `branch_accessories.branch_id` → `branches.id`
+- `branch_door_codes.branch_id` → `branches.id`
+- `branch_door_codes.booking_id` → `bookings.id`
+- `branch_door_codes.moto_id` → `motorcycles.id`
+
+---
+
+### branches (nové sloupce)
+- **branch_code** (TEXT UNIQUE) — unikátní kód pobočky (6 číslic, např. "000126")
+- **is_open** (BOOLEAN DEFAULT false) — otevřená (nonstop provoz) / zavřená
+
+### branch_accessories
+- id (UUID PK), branch_id (FK→branches ON DELETE CASCADE)
+- type (TEXT CHECK: boots/helmet/balaclava/gloves/pants)
+- size (TEXT) — velikost (36-46 pro boty, XS-XXL pro ostatní, UNI pro kukly)
+- quantity (INTEGER DEFAULT 0)
+- created_at, updated_at
+- UNIQUE(branch_id, type, size)
+- RLS: Admin full access
+
+### branch_door_codes
+- id (UUID PK), branch_id (FK→branches ON DELETE CASCADE)
+- booking_id (FK→bookings ON DELETE CASCADE)
+- moto_id (FK→motorcycles ON DELETE SET NULL)
+- code_type (TEXT CHECK: motorcycle/accessories)
+- door_code (TEXT NOT NULL) — 6-místný kód
+- is_active (BOOLEAN DEFAULT false) — aktivní jen po dobu aktivní rezervace
+- valid_from, valid_until (TIMESTAMPTZ)
+- sent_to_customer (BOOLEAN DEFAULT false) — odesláno zákazníkovi
+- sent_at (TIMESTAMPTZ)
+- withheld_reason (TEXT) — důvod zadržení kódu (chybí doklady)
+- created_at, updated_at
+- RLS: Admin full access, Customer read own (via booking.user_id)
+- Realtime: ANO
 
 ---
 
@@ -580,3 +616,4 @@ Detailní politiky:
 | 2026-03-13 | **FIX: Document templates .single()→array:** Edge function generate-document a app apiFetchDocTemplate: `.single()` nahrazeno `.limit(1)` + array[0] (single selhával při 0/2+ výsledcích → fallback místo DB šablony). Per-user overlap check v apiCreateBooking a Velín NewBookingModal. Velín getDisplayStatus: end_date < today → completed, reserved → Nadcházející/Aktivní dle data |
 | 2026-03-13 | **FIX: SOS flow + auto-activate reserved:** 1) SOS booking queries přidán status 'reserved' (apiGetActiveLoan, ui-controller 4× query, sos_swap_bookings RPC). 2) sosEndRide/sosEndRideFree: booking→completed+ended_by_sos+moto→maintenance. 3) sosPaymentSubmit: opraveno ZF/DP generování (fallback booking_id, payment_status update). 4) Velín: StatusBadge 'Dokončeno SOS', FleetDetail SOS incidenty. 5) auto_activate_reserved_bookings() — reserved+paid+start_date<=today→active. pg_cron denně 00:01. Velín Bookings.jsx: autoActivateReserved() při každém načtení |
 | 2026-03-13 | **NEW: Auto voucher processing:** BEFORE UPDATE trigger `auto_process_voucher_order()` na shop_orders — při zaplacení automaticky: (1) generuje voucher kódy, (2) posílá in-app notifikaci do admin_messages, (3) nastavuje status (delivered pro čistě digitální, confirmed pro mixed/fyzické). Velín: odstraněna klientská autoConfirmPaidVouchers, nahrazena DB triggerem. Frontend: checkout zobrazuje specifickou success zprávu s odkazem na zprávy pro voucher objednávky |
+| 2026-03-14 | **NEW: Autonomní pobočky:** 1) Nové sloupce `branches.branch_code` (TEXT UNIQUE) a `branches.is_open` (BOOLEAN). Odstraněny opening_hours a email z UI. 2) Nová tabulka `branch_accessories` — sklad příslušenství per pobočka (boty, helmy, kukly, rukavice, kalhoty v různých velikostech). 3) Nová tabulka `branch_door_codes` — přístupové kódy ke dveřím per motorka a příslušenství. Kódy auto-generovány (6 číslic), aktivní jen při aktivní rezervaci. Pokud zákazník nemá nahrané doklady (OP/pas/ŘP), kód je zadržen a odeslán dodatečně. Každá motorka má vlastní dveře (vlastní kód), příslušenství má sdílené dveře (max 8 aktivních kódů). Velín: kompletní přepis Branches.jsx s taby (Info, Motorky, Příslušenství, Přístupové kódy) |
