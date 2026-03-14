@@ -59,7 +59,7 @@
 | `message_threads` | Vlákna zpráv (channel, status, assigned_admin) |
 | `messages` | Jednotlivé zprávy (direction, content, ai_suggested_reply) |
 | `message_templates` | Šablony pro rychlé odpovědi |
-| `admin_messages` | Admin zprávy |
+| `admin_messages` | Admin zprávy (type CHECK: sos_response, accident_response, replacement, tow, info, thanks, voucher) |
 | `notification_log` | Log notifikací |
 | `notification_rules` | Pravidla notifikací |
 | `push_tokens` | Push tokeny zařízení |
@@ -618,3 +618,4 @@ Detailní politiky:
 | 2026-03-13 | **NEW: Auto voucher processing:** BEFORE UPDATE trigger `auto_process_voucher_order()` na shop_orders — při zaplacení automaticky: (1) generuje voucher kódy, (2) posílá in-app notifikaci do admin_messages, (3) nastavuje status (delivered pro čistě digitální, confirmed pro mixed/fyzické). Velín: odstraněna klientská autoConfirmPaidVouchers, nahrazena DB triggerem. Frontend: checkout zobrazuje specifickou success zprávu s odkazem na zprávy pro voucher objednávky |
 | 2026-03-14 | **FIX: Door codes in DP + email:** Edge function `generate-invoice` nyní pro payment_receipt (DP) načítá přístupové kódy z `branch_door_codes` a renderuje je v HTML faktuře i v emailu zákazníkovi. Motogo app: blokuje rezervace na zavřených pobočkách (`is_open=false`) |
 | 2026-03-14 | **NEW: Autonomní pobočky:** 1) Nové sloupce `branches.branch_code` (TEXT UNIQUE) a `branches.is_open` (BOOLEAN). Odstraněny opening_hours a email z UI. 2) Nová tabulka `branch_accessories` — sklad příslušenství per pobočka (boty, helmy, kukly, rukavice, kalhoty v různých velikostech). 3) Nová tabulka `branch_door_codes` — přístupové kódy ke dveřím per motorka a příslušenství. Kódy auto-generovány (6 číslic), aktivní jen při aktivní rezervaci. Pokud zákazník nemá nahrané doklady (OP/pas/ŘP), kód je zadržen a odeslán dodatečně. Každá motorka má vlastní dveře (vlastní kód), příslušenství má sdílené dveře (max 8 aktivních kódů). Velín: kompletní přepis Branches.jsx s taby (Info, Motorky, Příslušenství, Přístupové kódy) |
+| 2026-03-14 | **FIX: Voucher trigger silent fail:** `admin_messages_type_check` CHECK constraint neobsahoval hodnotu `'voucher'` → trigger `auto_process_voucher_order()` tiše padal (EXCEPTION handler). Oprava: přidán `'voucher'` do CHECK constraint. Platnost voucherů: 3 roky. Doklady (ZF/DP/FK) + email: zobrazují kód, částku i platnost |
