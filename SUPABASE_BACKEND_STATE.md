@@ -57,7 +57,7 @@
 | `message_threads` | Vlákna zpráv (channel, status, assigned_admin) |
 | `messages` | Jednotlivé zprávy (direction, content, ai_suggested_reply) |
 | `message_templates` | Šablony pro rychlé odpovědi |
-| `admin_messages` | Admin zprávy |
+| `admin_messages` | Admin zprávy (type CHECK: sos_response, accident_response, replacement, tow, info, thanks, voucher) |
 | `notification_log` | Log notifikací |
 | `notification_rules` | Pravidla notifikací |
 | `push_tokens` | Push tokeny zařízení |
@@ -580,3 +580,4 @@ Detailní politiky:
 | 2026-03-13 | **FIX: Document templates .single()→array:** Edge function generate-document a app apiFetchDocTemplate: `.single()` nahrazeno `.limit(1)` + array[0] (single selhával při 0/2+ výsledcích → fallback místo DB šablony). Per-user overlap check v apiCreateBooking a Velín NewBookingModal. Velín getDisplayStatus: end_date < today → completed, reserved → Nadcházející/Aktivní dle data |
 | 2026-03-13 | **FIX: SOS flow + auto-activate reserved:** 1) SOS booking queries přidán status 'reserved' (apiGetActiveLoan, ui-controller 4× query, sos_swap_bookings RPC). 2) sosEndRide/sosEndRideFree: booking→completed+ended_by_sos+moto→maintenance. 3) sosPaymentSubmit: opraveno ZF/DP generování (fallback booking_id, payment_status update). 4) Velín: StatusBadge 'Dokončeno SOS', FleetDetail SOS incidenty. 5) auto_activate_reserved_bookings() — reserved+paid+start_date<=today→active. pg_cron denně 00:01. Velín Bookings.jsx: autoActivateReserved() při každém načtení |
 | 2026-03-13 | **NEW: Auto voucher processing:** BEFORE UPDATE trigger `auto_process_voucher_order()` na shop_orders — při zaplacení automaticky: (1) generuje voucher kódy, (2) posílá in-app notifikaci do admin_messages, (3) nastavuje status (delivered pro čistě digitální, confirmed pro mixed/fyzické). Velín: odstraněna klientská autoConfirmPaidVouchers, nahrazena DB triggerem. Frontend: checkout zobrazuje specifickou success zprávu s odkazem na zprávy pro voucher objednávky |
+| 2026-03-14 | **FIX: Voucher trigger silent fail:** `admin_messages_type_check` CHECK constraint neobsahoval hodnotu `'voucher'` → trigger `auto_process_voucher_order()` tiše padal (EXCEPTION handler). Oprava: přidán `'voucher'` do CHECK constraint. Platnost voucherů: 3 roky. Doklady (ZF/DP/FK) + email: zobrazují kód, částku i platnost |
