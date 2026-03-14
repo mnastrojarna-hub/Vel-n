@@ -159,6 +159,19 @@ export function generateInvoiceHtml(data) {
     <p style="margin:6px 0 0;font-size:10px;color:#4a6357">Kódy uplatníte při rezervaci motorky na motogo24.cz nebo v mobilní aplikaci MotoGo24.</p>
   </div>` : ''}
 
+  ${data.door_codes && data.door_codes.length > 0 ? `
+  <div style="padding:14px;background:#e0f2fe;border-radius:8px;margin-bottom:16px;border:2px solid #0284c7">
+    <p style="margin:0 0 8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#0c4a6e">Přístupové kódy k pobočce</p>
+    ${data.door_codes.filter(c => !c.withheld_reason).map(dc => `
+      <p style="margin:4px 0;font-size:14px;font-weight:700;font-family:'Courier New',monospace;color:#0c4a6e">
+        ${dc.code_type === 'motorcycle' ? 'Kód k motorce' : 'Kód k příslušenství'}: <span style="font-size:18px;letter-spacing:3px;color:#0369a1">${dc.door_code}</span>
+      </p>`).join('')}
+    ${data.door_codes.some(c => c.withheld_reason)
+      ? '<p style="margin:6px 0 0;font-size:12px;font-weight:600;color:#b45309">Kódy budou zaslány po ověření dokladů (OP/pas/ŘP).</p>'
+      : '<p style="margin:8px 0 0;font-size:11px;color:#164e63">Kódy jsou platné pouze po dobu trvání pronájmu. Po skončení pronájmu přestanou automaticky platit.</p>'
+    }
+  </div>` : ''}
+
   ${data.notes ? `<div style="padding:10px 14px;background:#fffbeb;border-radius:8px;font-size:11px;color:#92400e;margin-bottom:16px"><strong>Poznámka:</strong> ${data.notes}</div>` : ''}
 
   ${isProforma ? `<div style="padding:10px 14px;background:#dbeafe;border-radius:8px;font-size:11px;color:#1e40af;margin-bottom:16px">Tento doklad není daňovým dokladem. Po přijetí platby Vám bude vystavena konečná faktura.</div>` : ''}

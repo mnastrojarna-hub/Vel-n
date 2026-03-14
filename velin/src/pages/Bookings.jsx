@@ -77,6 +77,26 @@ export default function Bookings() {
       } catch (e) { console.error('[AutoActivate]', e) }
     }
     autoActivateReserved()
+    // Auto-fix: pending + paid → reserved (or active if start_date <= today)
+    async function autoFixPendingPaid() {
+      try {
+        const today = new Date().toISOString().slice(0, 10)
+        const { data: stuck } = await supabase.from('bookings').select('id, start_date')
+          .eq('status', 'pending').eq('payment_status', 'paid')
+        if (stuck && stuck.length > 0) {
+          for (const b of stuck) {
+            const startLocal = b.start_date ? b.start_date.slice(0, 10) : ''
+            if (startLocal <= today) {
+              await supabase.from('bookings').update({ status: 'active', picked_up_at: new Date().toISOString() }).eq('id', b.id)
+            } else {
+              await supabase.from('bookings').update({ status: 'reserved', confirmed_at: new Date().toISOString() }).eq('id', b.id)
+            }
+          }
+          console.log('[AutoFixPendingPaid]', stuck.length, 'bookings fixed')
+        }
+      } catch (e) { console.error('[AutoFixPendingPaid]', e) }
+    }
+    autoFixPendingPaid()
     // Auto-generate KF for completed bookings without final invoice
     async function autoGenerateKF() {
       try {

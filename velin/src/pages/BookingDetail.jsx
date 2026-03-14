@@ -98,6 +98,38 @@ export default function BookingDetail() {
         if (d.original_start_date) d.original_start_date = normDate(d.original_start_date)
         if (d.original_end_date) d.original_end_date = normDate(d.original_end_date)
       }
+      // Auto-fix: pending + paid → reserved/active
+      if (d && d.status === 'pending' && d.payment_status === 'paid') {
+        const today = new Date().toISOString().slice(0, 10)
+        const startLocal = d.start_date ? d.start_date.slice(0, 10) : ''
+        const newStatus = startLocal <= today ? 'active' : 'reserved'
+        const update = { status: newStatus }
+        if (newStatus === 'active') update.picked_up_at = new Date().toISOString()
+        else update.confirmed_at = new Date().toISOString()
+        const { error: fixErr } = await supabase.from('bookings').update(update).eq('id', d.id)
+        if (!fixErr) {
+          d.status = newStatus
+          if (newStatus === 'active') d.picked_up_at = update.picked_up_at
+          else d.confirmed_at = update.confirmed_at
+          console.log(`[AutoFix] Booking ${d.id} pending+paid → ${newStatus}`)
+          // Auto-generate contract + VOP (non-blocking) since status change was done by auto-fix
+          Promise.allSettled([
+            supabase.functions.invoke('generate-document', { body: { template_slug: 'rental_contract', booking_id: d.id } }),
+            supabase.functions.invoke('generate-document', { body: { template_slug: 'vop', booking_id: d.id } }),
+          ]).catch(() => {})
+        }
+      }
+      // Also check: status=active/reserved + paid but 0 generated_documents → trigger generation
+      if (d && (d.status === 'active' || d.status === 'reserved') && d.payment_status === 'paid') {
+        const { data: genDocs } = await supabase.from('generated_documents').select('id').eq('booking_id', d.id).limit(1)
+        if (!genDocs || genDocs.length === 0) {
+          console.log(`[AutoFix] Booking ${d.id} is ${d.status}+paid but has 0 generated docs — triggering generation`)
+          Promise.allSettled([
+            supabase.functions.invoke('generate-document', { body: { template_slug: 'rental_contract', booking_id: d.id } }),
+            supabase.functions.invoke('generate-document', { body: { template_slug: 'vop', booking_id: d.id } }),
+          ]).catch(() => {})
+        }
+      }
       setBooking(d)
     }
     setLoading(false)
@@ -271,19 +303,35 @@ export default function BookingDetail() {
     if (!reason) { setError('Vyplňte důvod zrušení'); setSaving(false); return }
 
     const { data: { user } } = await supabase.auth.getUser()
+    const wasPaid = booking.payment_status === 'paid'
     const updatePayload = {
       status: 'cancelled',
       cancelled_by: user?.id || null,
       cancelled_by_source: cancelReason,
       cancellation_reason: reason,
       cancelled_at: new Date().toISOString(),
+      ...(wasPaid ? { payment_status: 'refunded' } : {}),
     }
 
     const cancelResult = await debugAction('booking.cancel', 'BookingDetail', () =>
       supabase.from('bookings').update(updatePayload).eq('id', id)
     , { booking_id: id, reason, source: cancelReason })
     if (cancelResult?.error) { setError(cancelResult.error.message); setSaving(false); return }
-    await logAudit('booking_cancelled', { booking_id: id, reason, source: cancelReason })
+
+    // Admin cancellation = always 100% refund — create booking_cancellations record
+    if (wasPaid && booking.total_price) {
+      try {
+        await supabase.from('booking_cancellations').insert({
+          booking_id: id,
+          cancelled_by: user?.id || null,
+          reason,
+          refund_amount: booking.total_price,
+          refund_percent: 100,
+        })
+      } catch {}
+    }
+
+    await logAudit('booking_cancelled', { booking_id: id, reason, source: cancelReason, refund: wasPaid ? '100%' : 'n/a' })
 
     if (booking.profiles?.email) {
       try {
@@ -293,6 +341,7 @@ export default function BookingDetail() {
             customer_name: booking.profiles?.full_name, motorcycle: booking.motorcycles?.model,
             start_date: booking.start_date, end_date: booking.end_date,
             cancellation_reason: reason, cancelled_by_source: cancelReason,
+            ...(wasPaid ? { refund_amount: booking.total_price, refund_percent: 100 } : {}),
           },
         })
         await supabase.from('bookings').update({ cancellation_notified: true }).eq('id', id)

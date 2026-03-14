@@ -38,6 +38,7 @@ serve(async (req) => {
     // voucher_codes can come from params or auto-fetched from DB
     let voucher_codes: string[] | undefined = explicitVoucherCodes
     let voucherValidUntil: string | null = null
+    let doorCodes: any[] = []
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
@@ -135,6 +136,17 @@ serve(async (req) => {
       if (booking.discount_amount && Number(booking.discount_amount) > 0) {
         const discLabel = booking.discount_code ? `Sleva (kód: ${booking.discount_code})` : 'Sleva / voucher'
         items.push({ description: discLabel, qty: 1, unit_price: -Number(booking.discount_amount) })
+      }
+
+      // Fetch door codes for payment receipts (DP)
+      if (isPaymentReceipt) {
+        try {
+          const { data: codes } = await supabase
+            .from('branch_door_codes')
+            .select('code_type, door_code, withheld_reason')
+            .eq('booking_id', booking_id)
+          if (codes && codes.length > 0) doorCodes = codes
+        } catch (e) { console.warn('Failed to fetch door codes:', e) }
       }
     }
 
@@ -248,6 +260,18 @@ serve(async (req) => {
     ${voucherValidUntil ? `<p style="margin:8px 0 2px;font-size:11px;font-weight:600;color:#166534">Platnost poukazu: 3 roky (do ${fmtDate(voucherValidUntil)})</p>` : ''}
     <p style="margin:4px 0 0;font-size:10px;color:#4a6357">Kód uplatníte při rezervaci motorky na motogo24.cz nebo v mobilní aplikaci MotoGo24 v sekci „Slevový kód".</p>
   </div>` : ''}
+  ${doorCodes.length > 0 ? `
+  <div style="padding:14px;background:#e0f2fe;border-radius:8px;margin-bottom:16px;border:2px solid #0284c7">
+    <p style="margin:0 0 8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#0c4a6e">Přístupové kódy k pobočce</p>
+    ${doorCodes.filter((c: any) => !c.withheld_reason).map((dc: any) => `
+      <p style="margin:4px 0;font-size:14px;font-weight:700;font-family:'Courier New',monospace;color:#0c4a6e">
+        ${dc.code_type === 'motorcycle' ? 'Kód k motorce' : 'Kód k příslušenství'}: <span style="font-size:18px;letter-spacing:3px;color:#0369a1">${dc.door_code}</span>
+      </p>`).join('')}
+    ${doorCodes.some((c: any) => c.withheld_reason)
+      ? '<p style="margin:6px 0 0;font-size:12px;font-weight:600;color:#b45309">Kódy budou zaslány po ověření dokladů (OP/pas/ŘP).</p>'
+      : '<p style="margin:8px 0 0;font-size:11px;color:#164e63">Kódy jsou platné pouze po dobu trvání pronájmu. Po skončení pronájmu přestanou automaticky platit.</p>'
+    }
+  </div>` : ''}
   ${isProforma ? '<div style="padding:10px 14px;background:#dbeafe;border-radius:8px;font-size:11px;color:#1e40af">Tento doklad není daňovým dokladem. Po přijetí platby Vám bude vystavena konečná faktura.</div>' : ''}
   ${isPaymentReceipt ? '<div style="padding:10px 14px;background:#cffafe;border-radius:8px;font-size:11px;color:#0e7490">Tento doklad potvrzuje přijetí platby. Konečná faktura bude vystavena po dokončení služby.</div>' : ''}
 </div></body></html>`
@@ -272,6 +296,7 @@ serve(async (req) => {
             <p>Splatnost: <strong>${fmtDate(dueDate)}</strong></p>
             <p>Variabilní symbol: <strong>${number}</strong></p>
             ${voucher_codes && voucher_codes.length > 0 ? `<div style="padding:12px;background:#dcfce7;border-radius:8px;margin:12px 0"><p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#166534">Dárkové poukazy:</p>${voucher_codes.map((c: string) => `<p style="margin:2px 0;font-size:16px;font-weight:700;font-family:monospace;color:#166534">${c}</p>`).join('')}${voucherValidUntil ? `<p style="margin:6px 0 0;font-size:11px;color:#166534">Platnost: 3 roky (do ${fmtDate(voucherValidUntil)}). Kód uplatníte při rezervaci v aplikaci MotoGo24.</p>` : ''}</div>` : ''}
+            ${doorCodes.length > 0 ? `<div style="padding:12px;background:#e0f2fe;border-radius:8px;margin:12px 0;border:2px solid #0284c7"><p style="margin:0 0 8px;font-size:11px;font-weight:700;color:#0c4a6e">PŘÍSTUPOVÉ KÓDY K POBOČCE:</p>${doorCodes.filter((c: any) => !c.withheld_reason).map((dc: any) => `<p style="margin:4px 0;font-size:18px;font-weight:700;font-family:monospace;letter-spacing:3px;color:#0369a1">${dc.code_type === 'motorcycle' ? 'Motorka' : 'Příslušenství'}: ${dc.door_code}</p>`).join('')}${doorCodes.some((c: any) => c.withheld_reason) ? '<p style="margin:6px 0 0;font-size:12px;color:#b45309">Kódy budou zaslány po ověření dokladů.</p>' : '<p style="margin:6px 0 0;font-size:11px;color:#164e63">Kódy jsou platné po dobu trvání pronájmu.</p>'}</div>` : ''}
             <hr style="border:1px solid #e5e7eb">
             <p style="font-size:12px;color:#888">${COMPANY.name} | ${COMPANY.email}</p>
           </div>`,

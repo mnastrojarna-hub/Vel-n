@@ -26,7 +26,6 @@
     try {
         // Přepsat window.supabase z SDK namespace na klienta
         window.supabase = sdk.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
-        console.log('[MG] Supabase klient vytvořen OK:', cfg.SUPABASE_URL);
     } catch(e) {
         console.error('[MG] Supabase init selhal:', e);
         window.supabase = null;
