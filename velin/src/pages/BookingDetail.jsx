@@ -112,6 +112,22 @@ export default function BookingDetail() {
           if (newStatus === 'active') d.picked_up_at = update.picked_up_at
           else d.confirmed_at = update.confirmed_at
           console.log(`[AutoFix] Booking ${d.id} pending+paid → ${newStatus}`)
+          // Auto-generate contract + VOP (non-blocking) since status change was done by auto-fix
+          Promise.allSettled([
+            supabase.functions.invoke('generate-document', { body: { template_slug: 'rental_contract', booking_id: d.id } }),
+            supabase.functions.invoke('generate-document', { body: { template_slug: 'vop', booking_id: d.id } }),
+          ]).catch(() => {})
+        }
+      }
+      // Also check: status=active/reserved + paid but 0 generated_documents → trigger generation
+      if (d && (d.status === 'active' || d.status === 'reserved') && d.payment_status === 'paid') {
+        const { data: genDocs } = await supabase.from('generated_documents').select('id').eq('booking_id', d.id).limit(1)
+        if (!genDocs || genDocs.length === 0) {
+          console.log(`[AutoFix] Booking ${d.id} is ${d.status}+paid but has 0 generated docs — triggering generation`)
+          Promise.allSettled([
+            supabase.functions.invoke('generate-document', { body: { template_slug: 'rental_contract', booking_id: d.id } }),
+            supabase.functions.invoke('generate-document', { body: { template_slug: 'vop', booking_id: d.id } }),
+          ]).catch(() => {})
         }
       }
       setBooking(d)
