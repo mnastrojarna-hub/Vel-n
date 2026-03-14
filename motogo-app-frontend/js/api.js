@@ -91,7 +91,7 @@ async function apiFetchMotos(){
   _ensureSupabase();
   if(!window.supabase) return [];
   try {
-    var r = await window.supabase.from('motorcycles').select('*, branches(name, address, city)').eq('status','active');
+    var r = await window.supabase.from('motorcycles').select('*, branches(name, address, city, is_open)').eq('status','active');
     return r.data || [];
   } catch(e){ console.error('[API] apiFetchMotos:', e); return []; }
 }
@@ -123,7 +123,7 @@ async function apiFetchMyBookings(filter){
     var uid = await _getUserId();
     if(!uid) return [];
     var q = window.supabase.from('bookings')
-      .select('*, motorcycles(model, image_url, images, category, branch_id, branches(name, address, city))')
+      .select('*, motorcycles(model, image_url, images, category, branch_id, branches(name, address, city, is_open))')
       .eq('user_id', uid)
       .order('start_date', {ascending: false});
     if(filter === 'pending'){
@@ -147,6 +147,13 @@ async function apiCreateBooking(data){
   try {
     var uid = await _getUserId();
     if(!uid) return {error:'Nepřihlášen', booking:null};
+    // Block booking if motorcycle's branch is closed
+    if(data.motorcycle_id){
+      var br = await window.supabase.from('motorcycles').select('branch_id, branches(is_open)').eq('id', data.motorcycle_id).single();
+      if(br.data && br.data.branches && br.data.branches.is_open === false){
+        return {error:'Pobočka je momentálně zavřená. Rezervaci nelze vytvořit.', booking:null};
+      }
+    }
     // Final overlap guard — block creation if user has overlapping booking
     if(data.start_date && data.end_date){
       var oc = await apiCheckBookingOverlap(data.start_date, data.end_date);
@@ -1448,7 +1455,7 @@ async function enrichMOTOS(){
     // Načti VŠECHNY motorky z DB
     var r = await window.supabase
       .from('motorcycles')
-      .select('id, model, status, mileage, year, category, price_weekday, price_weekend, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, branch_id, image_url, images, stk_valid_until, engine_type, engine_cc, power_kw, power_hp, torque_nm, weight_kg, fuel_tank_l, seat_height_mm, license_required, has_abs, has_asc, description, ideal_usage, features, manual_url, branches(name, address, city)');
+      .select('id, model, status, mileage, year, category, price_weekday, price_weekend, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, branch_id, image_url, images, stk_valid_until, engine_type, engine_cc, power_kw, power_hp, torque_nm, weight_kg, fuel_tank_l, seat_height_mm, license_required, has_abs, has_asc, description, ideal_usage, features, manual_url, branches(name, address, city, is_open)');
     var dbMotos = (r.data || []);
 
     // Vytvoř mapu podle normalizovaného jména
@@ -1467,6 +1474,8 @@ async function enrichMOTOS(){
 
       // Motorka není v DB nebo není active → přeskoč
       if(!db || db.status !== 'active') continue;
+      // Pobočka je zavřená → přeskoč
+      if(db.branches && db.branches.is_open === false) continue;
 
       // Přiřaď _db objekt
       m._db = {
@@ -1477,6 +1486,7 @@ async function enrichMOTOS(){
         branch_name: db.branches ? db.branches.name : null,
         branch_address: db.branches ? db.branches.address : null,
         branch_city: db.branches ? db.branches.city : null,
+        branch_is_open: db.branches ? db.branches.is_open : null,
         image_url: db.image_url,
         images: db.images,
         stk_valid_until: db.stk_valid_until,
