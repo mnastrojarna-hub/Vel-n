@@ -3,7 +3,7 @@
  * Zobrazuje kroky specifické pro daný typ incidentu a zvýrazňuje aktuální stav.
  */
 
-const WORKFLOWS = {
+export const WORKFLOWS = {
   theft: {
     label: 'Krádež motorky',
     steps: [
@@ -92,7 +92,7 @@ const WORKFLOWS = {
   },
 }
 
-function hasTimeline(incident, keyword) {
+export function hasTimeline(incident, keyword) {
   return (incident._timelineActions || []).some(a => a.toLowerCase().includes(keyword.toLowerCase()))
 }
 
