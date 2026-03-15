@@ -51,7 +51,7 @@ export default function NewBookingModal({ onClose, onSaved }) {
     async function loadMotos() {
       try {
         const [motosRes, pricesRes, branchesRes] = await Promise.all([
-          supabase.from('motorcycles').select('id, model, spz, category, image_url, status, branch_id, license_required').order('model'),
+          supabase.from('motorcycles').select('id, model, spz, category, image_url, status, branch_id, license_required, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun').order('model'),
           supabase.from('moto_day_prices').select('*'),
           supabase.from('branches').select('id, name'),
         ])
@@ -94,10 +94,20 @@ export default function NewBookingModal({ onClose, onSaved }) {
   const motos = useMemo(() => allMotos.filter(m => m.status === 'active' || m.status === 'rented'), [allMotos])
   const occupiedMotoIds = useMemo(() => new Set(bookings.map(b => b.moto_id)), [bookings])
 
+  const MOTO_DAY_MAP = { 0: 'price_sun', 1: 'price_mon', 2: 'price_tue', 3: 'price_wed', 4: 'price_thu', 5: 'price_fri', 6: 'price_sat' }
+  const PRICES_DAY_MAP = { 0: 'price_sunday', 1: 'price_monday', 2: 'price_tuesday', 3: 'price_wednesday', 4: 'price_thursday', 5: 'price_friday', 6: 'price_saturday' }
+
   function calcPrice(motoId) {
-    const dp = motoPrices[motoId]; if (!dp || !startDate || !endDate) return null
+    if (!startDate || !endDate) return null
+    const dp = motoPrices[motoId]
+    const moto = allMotos.find(m => m.id === motoId)
     let total = 0; const cur = new Date(startDate); const end = new Date(endDate)
-    while (cur <= end) { total += Number(dp[`price_${DAY_KEYS[cur.getDay()]}`]) || 0; cur.setDate(cur.getDate() + 1) }
+    while (cur <= end) {
+      const dow = cur.getDay()
+      const price = (dp && Number(dp[PRICES_DAY_MAP[dow]])) || (moto && Number(moto[MOTO_DAY_MAP[dow]])) || 0
+      total += price
+      cur.setDate(cur.getDate() + 1)
+    }
     return total
   }
 
