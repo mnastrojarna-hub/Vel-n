@@ -148,9 +148,17 @@ function _sosEnsureIncident(type, desc){
     if(_sosActiveIncidentId){
       // Verify the incident is still active (not resolved/closed by admin)
       if(window.supabase){
-        window.supabase.from('sos_incidents').select('id,status').eq('id', _sosActiveIncidentId).single()
-          .then(function(r){
+        window.supabase.from('sos_incidents').select('id,status,type').eq('id', _sosActiveIncidentId).single()
+          .then(async function(r){
             if(r.data && !['resolved','closed'].includes(r.data.status)){
+              // Update type if flow changed
+              if(r.data.type !== type){
+                await window.supabase.from('sos_incidents').update({type: type, description: desc, title: desc}).eq('id', _sosActiveIncidentId);
+                await window.supabase.from('sos_timeline').insert({
+                  incident_id: _sosActiveIncidentId,
+                  action: 'Typ incidentu změněn: ' + r.data.type + ' → ' + type,
+                });
+              }
               resolve(_sosActiveIncidentId);
             } else {
               _sosActiveIncidentId = null;
@@ -187,7 +195,20 @@ function _sosEnsureIncident(type, desc){
             if(activeBookingId) existingQ = existingQ.eq('booking_id', activeBookingId);
             var existing = await existingQ;
             if(existing.data && existing.data.length > 0){
+              // Always ask for confirmation — even when reusing existing incident
+              if(!confirm('Opravdu chcete nahlásit SOS incident?\n\nPo potvrzení bude informována centrála MotoGo24.')){
+                resolve(null); return;
+              }
               _sosActiveIncidentId = existing.data[0].id;
+              // Update type if the flow changed (e.g. user started with minor, now doing major)
+              var existingType = existing.data[0].type;
+              if(existingType !== type){
+                await window.supabase.from('sos_incidents').update({type: type, description: desc, title: desc}).eq('id', _sosActiveIncidentId);
+                await window.supabase.from('sos_timeline').insert({
+                  incident_id: _sosActiveIncidentId,
+                  action: 'Typ incidentu změněn: ' + existingType + ' → ' + type,
+                });
+              }
               showT('ℹ️','Aktivní incident','Pokračujete v existujícím SOS incidentu');
               resolve(_sosActiveIncidentId);
               return;
@@ -356,8 +377,8 @@ function sosReportAccident(type) {
         if(sosType === 'accident_minor'){
           _sosShowDone(typeLabel, 'Děkujeme za nahlášení. Šťastnou cestu!');
         } else {
-          _sosShowDone(typeLabel, 'Asistent MotoGo24 vás bude kontaktovat.<br>Pokud je motorka nepojízdná, pokračujte na další krok.',
-            '<button onclick="goTo(\'s-sos-nepojizda\')" style="width:100%;background:#b91c1c;color:#fff;border:none;border-radius:50px;padding:14px;font-family:var(--font);font-size:14px;font-weight:800;cursor:pointer;">🏍️ Motorka je nepojízdná → pokračovat</button>');
+          // Těžká nehoda → rovnou přesměruj na výběr motorky (nepojízdná)
+          goTo('s-sos-nepojizda');
         }
       }).catch(function(){ _sosSubmitting = false; });
 }
@@ -370,14 +391,21 @@ function sosReportTheft() {
     _sosEnsureIncident('theft', 'Krádež motorky – zákazník informován o postupu (policie 158)')
       .then(function(incId){
         _sosSubmitting = false;
-        if(incId){
-          _sosUpdateIncident(incId, { moto_rideable: false });
-          window.supabase.from('sos_timeline').insert({
-            incident_id: incId,
-            action: 'Zákazník nahlásil krádež motorky — přesměrován na policii ČR (158)',
-          }).then(function(){});
+        if(!incId) return; // User cancelled confirmation
+        _sosUpdateIncident(incId, { moto_rideable: false });
+        window.supabase.from('sos_timeline').insert({
+          incident_id: incId,
+          action: 'Zákazník nahlásil krádež motorky — přesměrován na policii ČR (158)',
+        }).then(function(){});
+        // Mark button as reported
+        var btn = document.getElementById('sos-kradez-report-btn');
+        if(btn){
+          btn.textContent = '✅ Krádež nahlášena MotoGo24';
+          btn.style.background = '#1a8a18';
+          btn.disabled = true;
+          btn.style.opacity = '0.8';
         }
-        // Don't navigate to done yet — user sees s-sos-kradez with police instructions
+        showT('✅','Krádež nahlášena','MotoGo24 byla informována o krádeži');
       }).catch(function(){ _sosSubmitting = false; });
 }
 

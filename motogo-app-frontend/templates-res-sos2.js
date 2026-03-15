@@ -148,6 +148,9 @@ Templates['s-sos-kradez'] = `  <div class="sos-sub-hdr" style="background:linear
     <a href="tel:+420774256271" style="display:flex;align-items:center;justify-content:center;gap:10px;background:var(--green);color:#fff;border:none;border-radius:50px;padding:16px;font-family:var(--font);font-size:15px;font-weight:800;cursor:pointer;text-decoration:none;box-shadow:0 4px 18px rgba(116,251,113,.4);">
       <span id="t-callMotoGoBtn">📞 Volat MotoGo24</span>
     </a>
+    <button id="sos-kradez-report-btn" onclick="sosReportTheft()" style="width:100%;margin-top:12px;background:#7f1d1d;color:#fff;border:none;border-radius:50px;padding:16px;font-family:var(--font);font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 18px rgba(127,29,29,.4);">
+      🚨 Nahlásit krádež MotoGo24
+    </button>
     <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:var(--r);padding:12px;margin-top:12px;">
       <div style="font-size:12px;font-weight:700;color:var(--gd);line-height:1.7;">
         🏍️ <strong>Po vyřešení s policií:</strong><br>
