@@ -192,12 +192,66 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
       const { data: { user } } = await supabase.auth.getUser()
       updates.resolved_at = new Date().toISOString()
       updates.resolved_by = user?.id
-      // Send confirmation to customer
+
+      // === SOS RESOLVE: finalize booking swap (same logic as SOSPanel) ===
+      const rd = incident?.replacement_data || {}
+
+      // 1. If replacement exists but swap wasn't done yet, do it now
+      if (rd.replacement_moto_id && !rd.replacement_booking_id && !incident?.replacement_booking_id) {
+        try {
+          const swapResult = await supabase.rpc('sos_swap_bookings', {
+            p_incident_id: incident.id,
+            p_replacement_moto_id: rd.replacement_moto_id,
+            p_replacement_model: rd.replacement_model || null,
+            p_delivery_fee: rd.delivery_fee || 0,
+            p_daily_price: rd.daily_price || 0,
+            p_is_free: !rd.customer_fault,
+          })
+          if (swapResult.data?.success) {
+            rd.replacement_booking_id = swapResult.data.replacement_booking_id
+            rd.original_booking_id = swapResult.data.original_booking_id
+            updates.replacement_data = { ...rd, approved_by_admin: true }
+          }
+        } catch (e) { console.error('[SOS] swap on resolve:', e) }
+      }
+
+      // 2. Mark original booking as completed
+      const origBookingId = rd.original_booking_id || incident?.original_booking_id
+      if (origBookingId) {
+        await supabase.from('bookings').update({
+          status: 'completed',
+          ended_by_sos: true,
+          sos_incident_id: incident.id,
+        }).eq('id', origBookingId)
+      }
+
+      // 3. Ensure replacement booking is active + paid
+      const replBookingId = rd.replacement_booking_id || incident?.replacement_booking_id
+      if (replBookingId) {
+        await supabase.from('bookings').update({
+          status: 'active',
+          payment_status: 'paid',
+        }).eq('id', replBookingId)
+      }
+
+      // 4. If no replacement but incident has a booking, just mark it with SOS flag
+      if (!replBookingId && incident?.booking_id) {
+        await supabase.from('bookings').update({
+          ended_by_sos: true,
+          sos_incident_id: incident.id,
+        }).eq('id', incident.booking_id)
+      }
+
+      // 5. Send confirmation message to customer
       if (incident.user_id) {
+        const replModel = rd.replacement_model
+        const msgText = replModel
+          ? `Váš SOS incident byl vyřešen. Náhradní motorka: ${replModel}. Původní rezervace ukončena, nová aktivní.`
+          : 'Váš SOS incident byl vyřešen. Děkujeme za trpělivost.'
         await supabase.from('admin_messages').insert({
           user_id: incident.user_id,
           title: 'SOS vyřešeno',
-          message: 'Váš SOS incident byl vyřešen. Děkujeme za trpělivost.',
+          message: msgText,
           type: 'sos_response',
         })
       }
@@ -213,7 +267,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
   }
 
   async function setMotoToService() {
-    const motoId = moto?.id || incident?.moto_id || booking?.moto_id || incident?.original_moto_id || incident?.replacement_data?.original_moto_id
+    const motoId = moto?.id || incident?.moto_id || booking?.moto_id || incident?.bookings?.moto_id || incident?.original_moto_id || incident?.replacement_data?.original_moto_id
     if (!motoId) { alert('Chyba: Nelze určit ID motorky'); return }
     if (!window.confirm('Přesunout motorku do servisu (maintenance)?\n\nMotorka bude nedostupná pro nové rezervace.')) return
     try {

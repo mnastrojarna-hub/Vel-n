@@ -427,7 +427,7 @@ function sosRequestReplacement() {
     var desc = 'Motorka nepojízdná – žádám náhradní motorku. ' + faultDesc;
     var type = _sosFault === true ? 'accident_major' : _sosFault === false ? 'accident_major' : 'breakdown_major';
 
-    // Předem načti aktivní booking a ulož moto_id (robustnější než v sosReplLoadMotos)
+    // Předem načti aktivní booking a ulož moto_id — MUSÍ se počkat než se vytvoří incident
     _sosCurrentMotoId = null;
     (async function(){
       try {
@@ -447,9 +447,9 @@ function sosRequestReplacement() {
           }
         }
       } catch(e){ console.warn('[SOS] pre-fetch moto_id:', e); }
-    })();
 
-    _sosEnsureIncident(type, desc).then(function(incId){
+    // Teprve po načtení moto_id vytvoř/reuse incident
+    var incId = await _sosEnsureIncident(type, desc);
       _sosReplacementLoading = false;
       if(!incId){ showT('❌','Chyba','Nepodařilo se nahlásit incident'); return; }
       _sosPendingIncidentId = incId;
@@ -461,7 +461,7 @@ function sosRequestReplacement() {
       _sosReplacementMode = true;
       // Přejdi na dedicated SOS replacement screen
       goTo('s-sos-replacement');
-    }).catch(function(){ _sosReplacementLoading = false; });
+    })().catch(function(e){ console.error('[SOS] sosRequestReplacement:', e); _sosReplacementLoading = false; });
 }
 
 function sosReplInit(){
@@ -903,6 +903,7 @@ async function sosPaymentSubmit(){
 async function _sosSwapBookingsAndConfirm(incId, replacementData, isPaid, address, city){
     var isFault = replacementData.customer_fault;
     var total = replacementData.payment_amount || 0;
+    var swapOk = false;
 
     try {
       // 1. Swap bookings via RPC (atomická operace v DB)
@@ -917,12 +918,12 @@ async function _sosSwapBookingsAndConfirm(incId, replacementData, isPaid, addres
 
       if(swapResult.error){
         console.error('[SOS] sos_swap_bookings RPC error:', swapResult.error.message);
-        // Fallback: pokračuj bez swap (admin to udělá ručně)
       } else if(swapResult.data){
-        var sr = swapResult.data;
+        var sr = typeof swapResult.data === 'string' ? JSON.parse(swapResult.data) : swapResult.data;
         if(sr.error){
           console.warn('[SOS] swap returned error:', sr.error);
-        } else {
+        } else if(sr.success){
+          swapOk = true;
           replacementData.original_booking_id = sr.original_booking_id;
           replacementData.replacement_booking_id = sr.replacement_booking_id;
           replacementData.original_end_date = sr.original_end_date;
@@ -930,6 +931,68 @@ async function _sosSwapBookingsAndConfirm(incId, replacementData, isPaid, addres
       }
     } catch(e){
       console.error('[SOS] swap exception:', e);
+    }
+
+    // Pokud RPC swap selhal, zkus manuální fallback (přímé DB operace)
+    if(!swapOk){
+      console.warn('[SOS] RPC swap failed — trying manual fallback');
+      try {
+        var uid = await _getUserId();
+        if(uid){
+          // Najdi aktivní booking
+          var bkR = await window.supabase.from('bookings')
+            .select('id, moto_id, end_date')
+            .eq('user_id', uid)
+            .in('status', ['active','confirmed','reserved'])
+            .eq('payment_status', 'paid')
+            .lte('start_date', new Date().toISOString().slice(0,10))
+            .gte('end_date', new Date().toISOString().slice(0,10))
+            .limit(1);
+          var origBooking = bkR.data && bkR.data[0];
+          if(origBooking){
+            var todayISO = new Date().toISOString().slice(0,10);
+            // Ukonči původní booking
+            await window.supabase.from('bookings').update({
+              end_date: todayISO,
+              status: 'completed',
+              ended_by_sos: true,
+              sos_incident_id: incId
+            }).eq('id', origBooking.id);
+            // Vytvoř náhradní booking
+            var newBk = await window.supabase.from('bookings').insert({
+              user_id: uid,
+              moto_id: replacementData.replacement_moto_id,
+              start_date: todayISO,
+              end_date: origBooking.end_date,
+              pickup_time: '09:00',
+              status: 'active',
+              payment_status: isFault ? 'unpaid' : 'paid',
+              total_price: total,
+              delivery_fee: isFault ? (replacementData.delivery_fee || 0) : 0,
+              sos_replacement: true,
+              replacement_for_booking_id: origBooking.id,
+              sos_incident_id: incId,
+              notes: '[SOS] Náhradní motorka (fallback). Incident: ' + incId
+            }).select('id').single();
+            if(newBk.data){
+              swapOk = true;
+              replacementData.original_booking_id = origBooking.id;
+              replacementData.replacement_booking_id = newBk.data.id;
+              replacementData.original_end_date = origBooking.end_date;
+              // Update incident
+              await window.supabase.from('sos_incidents').update({
+                original_booking_id: origBooking.id,
+                replacement_booking_id: newBk.data.id,
+                original_moto_id: origBooking.moto_id
+              }).eq('id', incId);
+              // Motorka do servisu
+              if(origBooking.moto_id){
+                await window.supabase.from('motorcycles').update({status:'maintenance'}).eq('id', origBooking.moto_id);
+              }
+            }
+          }
+        }
+      } catch(e2){ console.error('[SOS] manual fallback failed:', e2); }
     }
 
     // 2. Update incident
@@ -943,10 +1006,11 @@ async function _sosSwapBookingsAndConfirm(incId, replacementData, isPaid, addres
     var actionText = isFault
       ? 'Zákazník zaplatil ' + total + ' Kč a objednal náhradní motorku: ' + (replacementData.replacement_model || '?')
       : 'Zákazník objednal náhradní motorku: ' + (replacementData.replacement_model || '?') + ' (zdarma)';
+    if(!swapOk) actionText += ' [SWAP SELHAL — čeká na ruční zpracování adminem]';
     await window.supabase.from('sos_timeline').insert({
       incident_id: incId,
       action: actionText,
-      description: 'Adresa: ' + (address||'') + ', ' + (city||'') + '. Rezervace automaticky přepnuta. Čeká na schválení adminem.'
+      description: 'Adresa: ' + (address||'') + ', ' + (city||'') + '.' + (swapOk ? ' Rezervace automaticky přepnuta.' : ' SWAP SELHAL — admin musí zpracovat ručně.') + ' Čeká na schválení adminem.'
     });
 
     if(!isFault) apiSosRequestReplacement(incId);
@@ -961,7 +1025,14 @@ async function _sosSwapBookingsAndConfirm(incId, replacementData, isPaid, addres
     if(typeof renderMyReservations === 'function') renderMyReservations();
 
     var resBtn = '<button onclick="goTo(\'s-res\')" style="width:100%;background:var(--green);color:#fff;border:none;border-radius:50px;padding:14px;font-family:var(--font);font-size:14px;font-weight:800;cursor:pointer;">📋 Zobrazit moje rezervace</button>';
-    if(isFault){
+    if(!swapOk){
+      // Swap selhal — informuj uživatele že admin to vyřeší
+      _sosShowDone(isFault ? 'Zaplaceno — ' + total.toLocaleString('cs-CZ') + ' Kč' : 'Požadavek odeslán',
+        'Objednávka náhradní motorky (' + (replacementData.replacement_model || '?') + ') byla zaznamenána.<br>' +
+        'MotoGo24 zpracuje váš požadavek co nejdříve.<br>' +
+        (isFault ? 'Platba přijata, admin potvrdí přepnutí rezervace.' : ''),
+        resBtn);
+    } else if(isFault){
       _sosShowDone('Zaplaceno — ' + total.toLocaleString('cs-CZ') + ' Kč',
         'Rezervace přepnuta na ' + (replacementData.replacement_model || 'náhradní motorku') + '.<br>' +
         'Objednávka čeká na schválení MotoGo24.<br>' +
