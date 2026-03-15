@@ -62,6 +62,9 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
   const [motoInService, setMotoInService] = useState(false)
   const [timelineActions, setTimelineActions] = useState([])
   const [policeNumber, setPoliceNumber] = useState(incident?.police_report_number || '')
+  const [availableMotos, setAvailableMotos] = useState([])
+  const [showMotoSelector, setShowMotoSelector] = useState(false)
+  const [swapping, setSwapping] = useState(false)
 
   useEffect(() => {
     // Reset all state when incident changes to prevent stale view
@@ -360,6 +363,108 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
     , { incident_id: incident.id, field, value })
   }
 
+  async function ensureBookingSwap() {
+    const rd = incident?.replacement_data || {}
+    const hasSwap = (rd.original_booking_id && rd.replacement_booking_id) || (incident?.original_booking_id && incident?.replacement_booking_id)
+    if (hasSwap || !rd.replacement_moto_id) return rd
+    // Swap hasn't happened yet — trigger it now
+    try {
+      const swapResult = await supabase.rpc('sos_swap_bookings', {
+        p_incident_id: incident.id,
+        p_replacement_moto_id: rd.replacement_moto_id,
+        p_replacement_model: rd.replacement_model || null,
+        p_delivery_fee: rd.delivery_fee || 0,
+        p_daily_price: rd.daily_price || 0,
+        p_is_free: !rd.customer_fault,
+      })
+      if (swapResult.data?.success) {
+        const updatedRd = {
+          ...rd,
+          original_booking_id: swapResult.data.original_booking_id,
+          replacement_booking_id: swapResult.data.replacement_booking_id,
+          original_end_date: swapResult.data.original_end_date,
+        }
+        await supabase.from('sos_incidents').update({ replacement_data: updatedRd }).eq('id', incident.id)
+        const { data: { user } } = await supabase.auth.getUser()
+        await supabase.from('sos_timeline').insert({
+          incident_id: incident.id,
+          action: `Rezervace automaticky přepnuta (admin akce). Původní: #${swapResult.data.original_booking_id?.slice(-8)}, nová: #${swapResult.data.replacement_booking_id?.slice(-8)}`,
+          performed_by: user?.email || 'Admin', admin_id: user?.id,
+        })
+        return updatedRd
+      } else {
+        console.error('[SOS] ensureBookingSwap RPC failed:', swapResult.data?.error || swapResult.error?.message)
+      }
+    } catch (e) {
+      console.error('[SOS] ensureBookingSwap exception:', e)
+    }
+    return rd
+  }
+
+  async function loadAvailableMotos() {
+    const { data } = await supabase.from('motorcycles')
+      .select('id, model, spz, branch_id, branches(name), price_weekday, status, image_url, license_required')
+      .eq('status', 'active')
+    const currentMotoId = moto?.id || incident?.moto_id
+    setAvailableMotos((data || []).filter(m => m.id !== currentMotoId))
+    setShowMotoSelector(true)
+  }
+
+  async function adminInitiateReplacement(selectedMoto) {
+    const isFree = !incident.customer_fault
+    const dailyPrice = selectedMoto.price_weekday || 0
+    if (!window.confirm(`Přiřadit náhradní motorku?\n\n🏍️ ${selectedMoto.model} (${selectedMoto.spz})\n💰 ${isFree ? 'ZDARMA' : dailyPrice + ' Kč/den'}\n\nBude vytvořena nová rezervace a původní ukončena.`)) return
+    setSwapping(true)
+    try {
+      const swapResult = await supabase.rpc('sos_swap_bookings', {
+        p_incident_id: incident.id,
+        p_replacement_moto_id: selectedMoto.id,
+        p_replacement_model: selectedMoto.model,
+        p_delivery_fee: 0,
+        p_daily_price: dailyPrice,
+        p_is_free: isFree,
+      })
+      if (swapResult.data?.success) {
+        const rd = {
+          replacement_moto_id: selectedMoto.id,
+          replacement_model: selectedMoto.model,
+          daily_price: dailyPrice,
+          delivery_fee: 0,
+          payment_status: isFree ? 'free' : 'pending',
+          payment_amount: 0,
+          customer_fault: !!incident.customer_fault,
+          original_booking_id: swapResult.data.original_booking_id,
+          replacement_booking_id: swapResult.data.replacement_booking_id,
+          original_end_date: swapResult.data.original_end_date,
+          remaining_days: swapResult.data.remaining_days,
+          admin_initiated: true,
+          customer_confirmed_at: new Date().toISOString(),
+        }
+        await supabase.from('sos_incidents').update({
+          replacement_data: rd,
+          replacement_moto_id: selectedMoto.id,
+          replacement_status: 'approved',
+          customer_decision: 'replacement_moto',
+        }).eq('id', incident.id)
+        const { data: { user } } = await supabase.auth.getUser()
+        await supabase.from('sos_timeline').insert({
+          incident_id: incident.id,
+          action: `Admin přiřadil náhradní motorku: ${selectedMoto.model} (${selectedMoto.spz}). Rezervace přepnuta.`,
+          performed_by: user?.email || 'Admin', admin_id: user?.id,
+        })
+        setShowMotoSelector(false)
+        alert(`✅ Náhradní motorka přiřazena!\n\nNová rezervace: #${swapResult.data.replacement_booking_id?.slice(-8)}`)
+      } else {
+        alert('❌ Swap selhal: ' + (swapResult.data?.error || swapResult.error?.message || 'neznámá chyba'))
+      }
+    } catch (e) {
+      console.error('[SOS] adminInitiateReplacement:', e)
+      alert('❌ Chyba: ' + e.message)
+    }
+    setSwapping(false)
+    onRefresh?.()
+  }
+
   async function updateReplacementStatus(newStatus) {
     // SAFETY: Confirm dispatch/delivery status changes
     const label = REPLACEMENT_STATUS_LABELS[newStatus] || newStatus
@@ -369,6 +474,12 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
     }
     if (newStatus === 'delivered') {
       if (!window.confirm('Potvrdit doručení náhradní motorky zákazníkovi?\n\nPůvodní motorka bude odvezena do servisu.')) return
+    }
+    // Auto-trigger booking swap if it hasn't happened yet
+    const rd = incident?.replacement_data || {}
+    const hasSwap = (rd.original_booking_id && rd.replacement_booking_id) || (incident?.original_booking_id && incident?.replacement_booking_id)
+    if (!hasSwap && rd.replacement_moto_id) {
+      await ensureBookingSwap()
     }
     await debugAction('sos.updateReplacementStatus', 'SOSDetailPanel', () =>
       supabase.from('sos_incidents').update({ replacement_status: newStatus }).eq('id', incident.id)
@@ -440,24 +551,11 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
 
     // If bookings haven't been swapped yet (e.g. RPC failed during customer flow), do it now
     if (!hasSwap && rd.replacement_moto_id) {
-      try {
-        const swapResult = await supabase.rpc('sos_swap_bookings', {
-          p_incident_id: incident.id,
-          p_replacement_moto_id: rd.replacement_moto_id,
-          p_replacement_model: rd.replacement_model || null,
-          p_delivery_fee: rd.delivery_fee || 0,
-          p_daily_price: rd.daily_price || 0,
-          p_is_free: !rd.customer_fault,
-        })
-        if (swapResult.data && swapResult.data.success) {
-          rd.original_booking_id = swapResult.data.original_booking_id
-          rd.replacement_booking_id = swapResult.data.replacement_booking_id
-          rd.original_end_date = swapResult.data.original_end_date
-        } else {
-          console.warn('[SOS] swap on approve:', swapResult.data?.error || swapResult.error?.message)
-        }
-      } catch (e) {
-        console.error('[SOS] swap on approve exception:', e)
+      const swapRd = await ensureBookingSwap()
+      if (swapRd.original_booking_id) {
+        rd.original_booking_id = swapRd.original_booking_id
+        rd.replacement_booking_id = swapRd.replacement_booking_id
+        rd.original_end_date = swapRd.original_end_date
       }
     }
 
@@ -1014,6 +1112,55 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
         </Card>
       )}
 
+      {/* Admin: Přiřadit náhradní motorku (pokud zákazník neobjednal z appky) */}
+      {isActive && isMajor && incident.customer_decision === 'replacement_moto' && !incident.replacement_data?.replacement_moto_id && (
+        <Card>
+          <h4 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#2563eb' }}>
+            Přiřadit náhradní motorku
+          </h4>
+          <div className="rounded-lg text-sm mb-3" style={{
+            padding: '10px 14px', background: '#eff6ff', color: '#1e40af', border: '1px solid #93c5fd',
+          }}>
+            Zákazník si zatím nevybral náhradní motorku z aplikace. Můžete ji přiřadit ručně.
+          </div>
+          {!showMotoSelector ? (
+            <button onClick={loadAvailableMotos}
+              className="rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none"
+              style={{ padding: '8px 16px', background: '#2563eb', color: '#fff' }}>
+              🏍️ Vybrat náhradní motorku
+            </button>
+          ) : (
+            <div>
+              <div className="text-sm font-extrabold mb-2" style={{ color: '#1a2e22' }}>
+                Dostupné motorky ({availableMotos.length}):
+              </div>
+              <div className="space-y-2" style={{ maxHeight: 300, overflowY: 'auto' }}>
+                {availableMotos.map(m => (
+                  <div key={m.id} className="flex items-center justify-between rounded-lg cursor-pointer"
+                    style={{ padding: '8px 12px', background: '#f8fcfa', border: '1px solid #d4e8e0' }}
+                    onClick={() => !swapping && adminInitiateReplacement(m)}>
+                    <div>
+                      <div className="text-sm font-extrabold" style={{ color: '#0f1a14' }}>{m.model}</div>
+                      <div className="text-sm" style={{ color: '#1a2e22' }}>
+                        {m.spz} · {m.branches?.name || '—'} · {m.price_weekday || '?'} Kč/den
+                      </div>
+                    </div>
+                    <span className="text-sm font-extrabold" style={{ color: '#2563eb' }}>
+                      {swapping ? '⏳' : 'Vybrat →'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => setShowMotoSelector(false)}
+                className="mt-2 rounded-btn text-sm font-extrabold cursor-pointer border-none"
+                style={{ padding: '6px 12px', background: '#f1faf7', color: '#1a2e22' }}>
+                Zrušit
+              </button>
+            </div>
+          )}
+        </Card>
+      )}
+
       {/* Objednávka náhradní motorky (zákazník zavinil) */}
       {incident.replacement_data && (
         <Card>
@@ -1105,6 +1252,36 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
               <div className="text-sm mt-1" style={{ color: '#166534' }}>
                 ✅ Původní rezervace ukončena ke dni incidentu. Nová rezervace s náhradní motorkou aktivní do konce původního termínu.
               </div>
+            </div>
+          )}
+
+          {/* WARNING: Swap neproběhl — manuální tlačítko */}
+          {incident.replacement_data?.replacement_moto_id &&
+            !(incident.replacement_data.original_booking_id || incident.original_booking_id) &&
+            !(incident.replacement_data.replacement_booking_id || incident.replacement_booking_id) && (
+            <div className="mt-3 rounded-lg text-sm" style={{
+              padding: '12px', background: '#fef2f2', border: '2px solid #dc2626', lineHeight: 1.8,
+            }}>
+              <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#dc2626' }}>
+                ⚠️ Rezervace NEBYLA přepnuta!
+              </div>
+              <div style={{ color: '#b91c1c' }}>
+                Zákazník objednal náhradní motorku, ale automatický swap selhal. Původní rezervace je stále aktivní a nová nebyla vytvořena.
+              </div>
+              <button onClick={async () => {
+                if (!window.confirm('Provést swap rezervací nyní?\n\nPůvodní rezervace bude ukončena a vytvoří se nová s náhradní motorkou.')) return
+                const result = await ensureBookingSwap()
+                if (result?.replacement_booking_id) {
+                  alert('✅ Swap proveden úspěšně! Nová rezervace: #' + result.replacement_booking_id.slice(-8))
+                } else {
+                  alert('❌ Swap se nepodařil. Zkontrolujte konzoli pro detaily.')
+                }
+                onRefresh?.()
+              }}
+                className="mt-2 rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none"
+                style={{ padding: '8px 16px', background: '#dc2626', color: '#fff' }}>
+                🔄 Provést swap rezervací nyní
+              </button>
             </div>
           )}
 
