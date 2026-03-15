@@ -146,7 +146,13 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
       if (b) {
         setBooking(b)
         if (b.profiles) setCustomer(b.profiles)
-        if (b.motorcycles) { setMoto(b.motorcycles); foundMoto = true }
+        if (b.motorcycles) {
+          setMoto(b.motorcycles); foundMoto = true
+        } else if (b.moto_id) {
+          // Booking has moto_id but join failed — load motorcycle directly
+          const { data: m } = await supabase.from('motorcycles').select('*, branches(name)').eq('id', b.moto_id).single()
+          if (m) { setMoto(m); foundMoto = true }
+        }
       }
     }
     // Fallback: load moto directly from incident fields
