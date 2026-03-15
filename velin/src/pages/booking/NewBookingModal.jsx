@@ -31,37 +31,67 @@ export default function NewBookingModal({ onClose, onSaved }) {
   const [endDate, setEndDate] = useState(null)
   const [calStep, setCalStep] = useState(1)
 
-  const [motos, setMotos] = useState([])
+  const [allMotos, setAllMotos] = useState([])
   const [motoPrices, setMotoPrices] = useState({})
   const [bookings, setBookings] = useState([])
   const [selectedMoto, setSelectedMoto] = useState(null)
-  const [loadingMotos, setLoadingMotos] = useState(false)
+  const [loadingMotos, setLoadingMotos] = useState(true)
+  const [loadingBookings, setLoadingBookings] = useState(false)
+  const [queryError, setQueryError] = useState(null)
   const [branches, setBranches] = useState([])
   const [branchFilter, setBranchFilter] = useState('')
   const [customers, setCustomers] = useState([])
   const [noPayment, setNoPayment] = useState(false)
 
+  // Load motorcycles, prices, branches, customers on mount
   useEffect(() => {
     supabase.from('profiles').select('id, full_name, email, phone').order('full_name').then(({ data }) => setCustomers(data || []))
     supabase.from('branches').select('id, name').order('name').then(({ data }) => setBranches(data || []))
+
+    async function loadMotos() {
+      try {
+        const [motosRes, pricesRes, branchesRes] = await Promise.all([
+          supabase.from('motorcycles').select('id, model, spz, category, image_url, status, branch_id, license_required').order('model'),
+          supabase.from('moto_day_prices').select('*'),
+          supabase.from('branches').select('id, name'),
+        ])
+        if (motosRes.error) {
+          console.error('[NewBooking] motorcycles error:', motosRes.error)
+          setQueryError('Chyba načítání motorek: ' + motosRes.error.message)
+        }
+        const motoList = motosRes.data || []
+        const branchMap = {}; (branchesRes.data || []).forEach(b => { branchMap[b.id] = b.name })
+        const motosWithBranch = motoList.map(m => ({ ...m, branch_name: branchMap[m.branch_id] || null }))
+        setAllMotos(motosWithBranch)
+        console.log('[NewBooking] loaded', motoList.length, 'motorcycles, statuses:', [...new Set(motoList.map(m => m.status))])
+        const pm = {}; (pricesRes.data || []).forEach(p => { pm[p.moto_id] = p })
+        setMotoPrices(pm)
+      } catch (e) {
+        console.error('[NewBooking] init failed:', e)
+        setQueryError('Chyba: ' + e.message)
+      }
+      setLoadingMotos(false)
+    }
+    loadMotos()
   }, [])
 
+  // Load overlapping bookings when dates change
   useEffect(() => {
-    if (!startDate || !endDate) return
-    setLoadingMotos(true)
-    Promise.all([
-      supabase.from('motorcycles').select('id, model, spz, category, image_url, status, branch_id, license_required, branches(name)').in('status', ['active', 'rented']).order('model'),
-      supabase.from('moto_day_prices').select('*'),
-      supabase.from('bookings').select('id, moto_id, start_date, end_date, status').in('status', ['reserved', 'active', 'pending']).lte('start_date', isoDate(endDate)).gte('end_date', isoDate(startDate)),
-    ]).then(([motosRes, pricesRes, bookingsRes]) => {
-      if (motosRes.error) console.error('[NewBooking] motorcycles query error:', motosRes.error)
-      if (bookingsRes.error) console.error('[NewBooking] bookings query error:', bookingsRes.error)
-      setMotos(motosRes.data || [])
-      const pm = {}; (pricesRes.data || []).forEach(p => { pm[p.moto_id] = p })
-      setMotoPrices(pm); setBookings(bookingsRes.data || []); setLoadingMotos(false)
-    }).catch(e => { console.error('[NewBooking] query failed:', e); setLoadingMotos(false) })
+    if (!startDate || !endDate) { setBookings([]); return }
+    setLoadingBookings(true)
+    supabase.from('bookings')
+      .select('id, moto_id, start_date, end_date, status')
+      .in('status', ['reserved', 'active', 'pending'])
+      .lte('start_date', isoDate(endDate))
+      .gte('end_date', isoDate(startDate))
+      .then(({ data, error }) => {
+        if (error) console.error('[NewBooking] bookings error:', error)
+        setBookings(data || [])
+        setLoadingBookings(false)
+      })
   }, [startDate, endDate])
 
+  const motos = useMemo(() => allMotos.filter(m => m.status === 'active' || m.status === 'rented'), [allMotos])
   const occupiedMotoIds = useMemo(() => new Set(bookings.map(b => b.moto_id)), [bookings])
 
   function calcPrice(motoId) {
@@ -76,6 +106,11 @@ export default function NewBookingModal({ onClose, onSaved }) {
   const filteredMotos = branchFilter ? motos.filter(m => m.branch_id === branchFilter) : motos
   const availableMotos = filteredMotos.filter(m => !occupiedMotoIds.has(m.id))
   const unavailableMotos = filteredMotos.filter(m => occupiedMotoIds.has(m.id))
+  const statusCounts = useMemo(() => {
+    const counts = {}
+    allMotos.forEach(m => { counts[m.status] = (counts[m.status] || 0) + 1 })
+    return counts
+  }, [allMotos])
 
   function handleCalClick(date) {
     if (calStep === 1) { setStartDate(date); setEndDate(null); setCalStep(2); setSelectedMoto(null) }
@@ -176,11 +211,24 @@ export default function NewBookingModal({ onClose, onSaved }) {
               <span className="text-sm font-bold" style={{ color: '#1a8a18' }}>{availableMotos.length} volných</span>
             </div>
           </div>
-          {loadingMotos ? (
+          {(loadingMotos || loadingBookings) ? (
             <div className="py-8 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
           ) : (
             <div style={{ maxHeight: 380, overflowY: 'auto' }}>
-              {availableMotos.length === 0 && <p className="text-sm py-6 text-center" style={{ color: '#1a2e22' }}>Žádná motorka není volná v tomto termínu</p>}
+              {availableMotos.length === 0 && (
+                <div className="py-6 text-center">
+                  <p className="text-sm" style={{ color: '#1a2e22' }}>Žádná motorka není volná v tomto termínu</p>
+                  {queryError && <p className="text-xs mt-2" style={{ color: '#dc2626' }}>Chyba: {queryError}</p>}
+                  {!queryError && allMotos.length === 0 && <p className="text-xs mt-2" style={{ color: '#888' }}>Dotaz vrátil 0 motorek</p>}
+                  {!queryError && allMotos.length > 0 && motos.length === 0 && (
+                    <p className="text-xs mt-2" style={{ color: '#888' }}>
+                      Nalezeno {allMotos.length} motorek, ale žádná nemá status active/rented.
+                      Stavy: {Object.entries(statusCounts).map(([s, c]) => `${s}: ${c}`).join(', ')}
+                    </p>
+                  )}
+                  {!queryError && motos.length > 0 && <p className="text-xs mt-2" style={{ color: '#888' }}>{motos.length} motorek, {bookings.length} překrývajících rezervací</p>}
+                </div>
+              )}
               {availableMotos.map(m => {
                 const price = calcPrice(m.id); const isSelected = selectedMoto?.id === m.id
                 return (
@@ -189,7 +237,7 @@ export default function NewBookingModal({ onClose, onSaved }) {
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-bold" style={{ color: '#0f1a14' }}>{m.model}</div>
                       <div className="text-sm" style={{ color: '#1a2e22' }}>{m.spz || '—'} · {m.category || '—'} · ŘP: {m.license_required || '—'}</div>
-                      {m.branches?.name && <div className="text-xs" style={{ color: '#888' }}>{m.branches.name}</div>}
+                      {m.branch_name && <div className="text-xs" style={{ color: '#888' }}>{m.branch_name}</div>}
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-extrabold" style={{ color: '#1a8a18' }}>{price ? price.toLocaleString('cs-CZ') + ' Kč' : '—'}</div>
