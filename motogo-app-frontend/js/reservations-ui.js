@@ -87,49 +87,90 @@ async function renderMyReservations(){
   } catch(e){ console.error('renderMyReservations error:', e); }
 }
 
-// ===== SOS REPLACEMENT FAB (small, cart-style) =====
+// ===== SOS INCIDENT FAB (small, cart-style) =====
+var _sosFabTypeLabels = {
+  theft: 'Krádež',
+  accident_minor: 'Lehká nehoda',
+  accident_major: 'Těžká nehoda',
+  breakdown_minor: 'Lehká porucha',
+  breakdown_major: 'Těžká porucha',
+  defect_question: 'Závada',
+  location_share: 'Poloha',
+  other: 'SOS'
+};
+
 function _checkAndShowSosFab(){
   if(typeof apiCheckPendingSosReplacement !== 'function') return;
   if(!_isSupabaseReady() || !window.supabase) return;
-  // Must have valid Supabase auth (not just localStorage fallback)
   window.supabase.auth.getUser().then(function(r){
     if(!r.data || !r.data.user) return;
     apiCheckPendingSosReplacement().then(function(pending){
       var fab = document.getElementById('sos-repl-fab');
       if(!fab) return;
       if(pending){
-        // Check if this specific incident was permanently dismissed
-        var dismissData = {};
-        try { dismissData = JSON.parse(localStorage.getItem('mg_sos_fab_dismissed') || '{}'); } catch(e){}
-        var dismissedAt = dismissData[pending.id] || null;
-        // Admin can re-trigger via fab_retrigger_at in replacement_data
-        var retriggerAt = (pending.replacement_data && pending.replacement_data.fab_retrigger_at) || null;
-        if(dismissedAt && (!retriggerAt || new Date(retriggerAt) <= new Date(dismissedAt))){
-          fab.style.display = 'none'; return;
-        }
-
         window._pendingSosIncident = pending;
         window._sosFabIncidentId = pending.id;
         var label = document.getElementById('sos-repl-fab-text');
-        if(label) label.textContent = 'SOS dokončit';
+        var typeText = _sosFabTypeLabels[pending.type] || 'SOS';
+        // Different text based on replacement status
+        if(pending.replacement_status === 'selecting' || pending.replacement_status === 'pending_payment'){
+          if(label) label.textContent = typeText + ' · dokončit objednávku';
+        } else {
+          if(label) label.textContent = typeText + ' · aktivní incident';
+        }
         fab.style.display = 'flex';
       } else {
         fab.style.display = 'none';
+        window._pendingSosIncident = null;
+        window._sosFabIncidentId = null;
       }
     }).catch(function(){ var f=document.getElementById('sos-repl-fab'); if(f) f.style.display='none'; });
   }).catch(function(){});
 }
 
+function sosFabClick(){
+  var pending = window._pendingSosIncident;
+  if(!pending){ goTo('s-sos'); return; }
+  // If replacement is in progress, go to replacement screen
+  if(pending.replacement_status === 'selecting' || pending.replacement_status === 'pending_payment'){
+    goTo('s-sos-replacement');
+  } else {
+    // Otherwise go to SOS main screen (user can continue/modify)
+    goTo('s-sos');
+  }
+}
+
 function dismissSosFab(){
-  // Permanently dismiss this specific SOS incident FAB (stores timestamp)
+  // Dismiss = incident is resolved/not relevant anymore
+  if(!confirm('Zavřít SOS incident?\n\nIncident bude označen jako vyřešený / neaktuální.\nPokud potřebujete novou pomoc, můžete vytvořit nový incident.')){
+    return;
+  }
   var fab = document.getElementById('sos-repl-fab');
   if(fab) fab.style.display = 'none';
-  if(window._sosFabIncidentId){
-    try {
-      var dismissData = JSON.parse(localStorage.getItem('mg_sos_fab_dismissed') || '{}');
-      dismissData[window._sosFabIncidentId] = new Date().toISOString();
-      localStorage.setItem('mg_sos_fab_dismissed', JSON.stringify(dismissData));
-    } catch(e){}
+  // Mark incident as resolved in DB
+  var incId = window._sosFabIncidentId;
+  if(incId && window.supabase){
+    window.supabase.from('sos_incidents').update({
+      status: 'resolved',
+      resolved_at: new Date().toISOString(),
+      resolution: 'Uzavřeno zákazníkem (FAB dismiss)'
+    }).eq('id', incId).then(function(){
+      // Timeline entry
+      window.supabase.from('sos_timeline').insert({
+        incident_id: incId,
+        action: 'Zákazník uzavřel incident (označil jako vyřešený/neaktuální)',
+      }).then(function(){});
+    });
+    // If there was a replacement in progress, cancel it
+    var pending = window._pendingSosIncident;
+    if(pending && pending.replacement_status && pending.replacement_status !== 'delivered'){
+      window.supabase.from('sos_incidents').update({
+        replacement_status: null
+      }).eq('id', incId).then(function(){});
+    }
+    window._pendingSosIncident = null;
+    window._sosFabIncidentId = null;
+    showT('✅','Incident uzavřen','SOS incident byl označen jako vyřešený');
   }
 }
 
@@ -194,9 +235,14 @@ function _updateBookingFabVisibility(){
 function _updateSosFabVisibility(){
   var fab = document.getElementById('sos-repl-fab');
   if(!fab) return;
-  // Hide on certain screens
-  var hideOn = ['s-login','s-register','s-docs','s-sos-replacement','s-sos-payment','s-sos-done'];
-  if(hideOn.indexOf(cur) !== -1){ fab.style.display = 'none'; }
+  // Hide on certain screens (SOS flow screens, auth)
+  var hideOn = ['s-login','s-register','s-docs','s-sos','s-sos-nehoda','s-sos-nepojizda','s-sos-porucha','s-sos-nepojizda-porucha','s-sos-servis','s-sos-kradez','s-sos-replacement','s-sos-payment','s-sos-done'];
+  if(hideOn.indexOf(cur) !== -1){ fab.style.display = 'none'; return; }
+  // Re-check on navigation to main screens (FAB might need refresh after SOS resolved)
+  var recheckOn = ['s-home','s-res','s-search','s-profile'];
+  if(recheckOn.indexOf(cur) !== -1 && typeof _checkAndShowSosFab === 'function'){
+    _checkAndShowSosFab();
+  }
 }
 
 function _setResContent(html){

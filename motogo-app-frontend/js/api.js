@@ -96,17 +96,18 @@ async function apiFetchMotos(){
   } catch(e){ console.error('[API] apiFetchMotos:', e); return []; }
 }
 
-// ===== SOS REPLACEMENT CHECK =====
+// ===== SOS ACTIVE INCIDENT CHECK (only heavy: theft, accident, breakdown_major) =====
 async function apiCheckPendingSosReplacement(){
   _ensureSupabase();
   if(!window.supabase) return null;
   try {
     var uid = await _getUserId();
     if(!uid) return null;
+    // Only show FAB for heavy incidents (nepojízdná, nehoda, krádež)
     var r = await window.supabase.from('sos_incidents')
-      .select('id, type, status, replacement_status, replacement_data, booking_id, original_moto_id, customer_fault')
+      .select('id, type, status, replacement_status, replacement_data, booking_id, original_moto_id, customer_fault, title, description')
       .eq('user_id', uid)
-      .in('replacement_status', ['selecting', 'pending_payment'])
+      .in('type', ['theft', 'accident_minor', 'accident_major', 'breakdown_major'])
       .not('status', 'in', '("resolved","closed")')
       .order('created_at', {ascending: false})
       .limit(1);
