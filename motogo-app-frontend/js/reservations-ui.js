@@ -88,9 +88,10 @@ async function renderMyReservations(){
 }
 
 // ===== SOS REPLACEMENT FAB (small, cart-style) =====
-// Shows only when replacement flow is in progress (selecting / pending_payment).
+// Navigation helper: shows only during replacement flow (selecting / pending_payment).
+// Lets user return to motorcycle selection if they accidentally leave the screen.
 // After payment or free selection → replacement_status changes → FAB disappears.
-// Dismiss (X) = user says incident is resolved → marks resolved in DB.
+// Dismiss (X) = just hides the banner, no DB changes.
 
 function _checkAndShowSosFab(){
   if(typeof apiCheckPendingSosReplacement !== 'function') return;
@@ -101,6 +102,12 @@ function _checkAndShowSosFab(){
       var fab = document.getElementById('sos-repl-fab');
       if(!fab) return;
       if(pending){
+        // Check if dismissed for this incident
+        var dismissed = {};
+        try { dismissed = JSON.parse(localStorage.getItem('mg_sos_fab_dismissed') || '{}'); } catch(e){}
+        if(dismissed[pending.id]){
+          fab.style.display = 'none'; return;
+        }
         window._pendingSosIncident = pending;
         window._sosFabIncidentId = pending.id;
         var label = document.getElementById('sos-repl-fab-text');
@@ -120,28 +127,15 @@ function sosFabClick(){
 }
 
 function dismissSosFab(){
-  // Dismiss = incident resolved / not relevant — confirm + mark in DB
-  if(!confirm('Zavřít SOS incident?\n\nIncident bude označen jako vyřešený.\nPokud potřebujete novou pomoc, můžete vytvořit nový.')){
-    return;
-  }
+  // Just hide the banner — no DB changes
   var fab = document.getElementById('sos-repl-fab');
   if(fab) fab.style.display = 'none';
-  var incId = window._sosFabIncidentId;
-  if(incId && window.supabase){
-    window.supabase.from('sos_incidents').update({
-      status: 'resolved',
-      replacement_status: null,
-      resolved_at: new Date().toISOString(),
-      resolution: 'Uzavřeno zákazníkem (nepotřebuje náhradní motorku)'
-    }).eq('id', incId).then(function(){
-      window.supabase.from('sos_timeline').insert({
-        incident_id: incId,
-        action: 'Zákazník uzavřel incident (nepotřebuje náhradní motorku)',
-      }).then(function(){});
-    });
-    window._pendingSosIncident = null;
-    window._sosFabIncidentId = null;
-    showT('✅','Incident uzavřen','SOS incident byl označen jako vyřešený');
+  if(window._sosFabIncidentId){
+    try {
+      var d = JSON.parse(localStorage.getItem('mg_sos_fab_dismissed') || '{}');
+      d[window._sosFabIncidentId] = true;
+      localStorage.setItem('mg_sos_fab_dismissed', JSON.stringify(d));
+    } catch(e){}
   }
 }
 
