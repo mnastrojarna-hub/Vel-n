@@ -13,6 +13,11 @@ import Card from '../components/ui/Card'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import NewBookingModal from './booking/NewBookingModal'
 
+function localIso(d) {
+  const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 const PER_PAGE = 25
 const VIEWS = ['Seznam', 'Kalendář']
 
@@ -64,7 +69,7 @@ export default function Bookings() {
     // Auto-activate: reserved + paid + start_date <= today → active
     async function autoActivateReserved() {
       try {
-        const today = new Date().toISOString().slice(0, 10)
+        const today = localIso(new Date())
         const { data: ready } = await supabase.from('bookings').select('id')
           .eq('status', 'reserved').eq('payment_status', 'paid')
           .lte('start_date', today)
@@ -80,7 +85,7 @@ export default function Bookings() {
     // Auto-fix: pending + paid → reserved (or active if start_date <= today)
     async function autoFixPendingPaid() {
       try {
-        const today = new Date().toISOString().slice(0, 10)
+        const today = localIso(new Date())
         const { data: stuck } = await supabase.from('bookings').select('id, start_date')
           .eq('status', 'pending').eq('payment_status', 'paid')
         if (stuck && stuck.length > 0) {
@@ -100,7 +105,7 @@ export default function Bookings() {
     // Auto-generate KF for completed bookings without final invoice
     async function autoGenerateKF() {
       try {
-        const today = new Date().toISOString().slice(0, 10)
+        const today = localIso(new Date())
         const { data: expired } = await supabase.from('bookings').select('id, status, end_date')
           .in('status', ['active', 'reserved', 'completed']).eq('payment_status', 'paid')
           .lt('end_date', today)
@@ -125,13 +130,13 @@ export default function Bookings() {
           .from('bookings')
           .select('*, motorcycles(model, spz, branch_id), profiles(full_name, email, phone, country, license_group)', { count: 'exact' })
         if (filters.status && filters.status !== 'upcoming') query = query.eq('status', filters.status)
-        if (filters.status === 'upcoming') query = query.in('status', ['active', 'reserved']).gt('start_date', new Date().toISOString().slice(0, 10))
+        if (filters.status === 'upcoming') query = query.in('status', ['active', 'reserved']).gt('start_date', localIso(new Date()))
         if (filters.paymentStatus) query = query.eq('payment_status', filters.paymentStatus)
         if (filters.dateFrom) query = query.gte('start_date', filters.dateFrom)
         if (filters.dateTo) query = query.lte('end_date', filters.dateTo)
         if (filters.priceMin) query = query.gte('total_price', Number(filters.priceMin))
         if (filters.priceMax) query = query.lte('total_price', Number(filters.priceMax))
-        if (filters.futureOnly) query = query.gte('start_date', new Date().toISOString().slice(0, 10))
+        if (filters.futureOnly) query = query.gte('start_date', localIso(new Date()))
         if (filters.search) {
           query = query.or(`motorcycles.model.ilike.%${filters.search}%,profiles.full_name.ilike.%${filters.search}%`)
         }
@@ -413,8 +418,8 @@ function GlobalCalendar() {
     setLoading(true)
     const start = new Date(month.getFullYear(), month.getMonth(), 1)
     const end = new Date(month.getFullYear(), month.getMonth() + 1, 0)
-    const startStr = start.toISOString().split('T')[0]
-    const endStr = end.toISOString().split('T')[0]
+    const startStr = localIso(start)
+    const endStr = localIso(end)
 
     const [bRes, mRes] = await Promise.all([
       supabase.from('bookings')
@@ -432,7 +437,7 @@ function GlobalCalendar() {
   const mon = month.getMonth()
   const daysInMonth = new Date(year, mon + 1, 0).getDate()
   const firstDayOfWeek = (new Date(year, mon, 1).getDay() + 6) % 7
-  const todayStr = new Date().toISOString().split('T')[0]
+  const todayStr = localIso(new Date())
   const totalMotos = motos.length || 1
 
   function getDayBookings(day) {
