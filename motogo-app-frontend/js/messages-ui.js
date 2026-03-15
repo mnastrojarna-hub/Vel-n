@@ -56,6 +56,14 @@ function _msgRenderFiltered(){
   var typeF = (document.getElementById('msg-type-filter') || {}).value || '';
   if(typeF) msgs = msgs.filter(function(m){ return m.type === typeF; });
 
+  // Apply sort
+  var sortV = (document.getElementById('msg-sort') || {}).value || 'date_desc';
+  var asc = sortV === 'date_asc';
+  msgs.sort(function(a, b){
+    var da = new Date(a.created_at || 0), db = new Date(b.created_at || 0);
+    return asc ? da - db : db - da;
+  });
+
   if(msgs.length === 0){
     wrap.innerHTML = '<div style="text-align:center;padding:40px 20px;">' +
       '<div style="font-size:48px;margin-bottom:12px;">\ud83d\udce8</div>' +
