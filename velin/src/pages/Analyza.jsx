@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { debugLog } from '../lib/debugLog'
 import { supabase } from '../lib/supabase'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 
 const TABS = ['Výkon poboček', 'Výkon motorek', 'Poptávka kategorií', 'Optimální flotila', 'Doporučení přesunů']
 
@@ -239,6 +239,261 @@ function VykonPobocek() {
   )
 }
 
+function VykonMotorek() {
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [data, setData] = useState(null)
+
+  useEffect(() => { loadData() }, [])
+
+  async function loadData() {
+    setLoading(true)
+    setError(null)
+    try {
+      const [mRes, bRes] = await Promise.all([
+        supabase.from('motorcycles').select('id, model, brand, category, daily_rate, purchase_price, location_id, status'),
+        supabase.from('bookings').select('motorcycle_id, start_date, end_date, total_price, status'),
+      ])
+      if (mRes.error) throw mRes.error
+      if (bRes.error) throw bRes.error
+
+      const motorcycles = mRes.data || []
+      const bookings = bRes.data || []
+      const completed = bookings.filter(b => b.status === 'completed')
+
+      const motoStats = motorcycles.map(m => {
+        const mCompleted = completed.filter(b => b.motorcycle_id === m.id)
+        const rentedDays = mCompleted.reduce((s, b) => s + diffDays(b.start_date, b.end_date), 0)
+        const revenue = mCompleted.reduce((s, b) => s + (Number(b.total_price) || 0), 0)
+        const reservationCount = mCompleted.length
+        const availableDays = 365
+        const utilizationIndex = availableDays > 0 ? (rentedDays / availableDays) * 100 : 0
+        const avgDailyRate = rentedDays > 0 ? revenue / rentedDays : 0
+        return { ...m, rentedDays, revenue, reservationCount, utilizationIndex, avgDailyRate }
+      }).sort((a, b) => b.revenue - a.revenue)
+
+      // Brand aggregation
+      const brandMap = {}
+      for (const m of motoStats) {
+        const br = m.brand || 'Neznámá'
+        if (!brandMap[br]) brandMap[br] = { brand: br, count: 0, totalRevenue: 0, totalUtilization: 0 }
+        brandMap[br].count++
+        brandMap[br].totalRevenue += m.revenue
+        brandMap[br].totalUtilization += m.utilizationIndex
+      }
+      const brandStats = Object.values(brandMap).map(b => ({
+        ...b,
+        revenuePerMoto: b.count > 0 ? b.totalRevenue / b.count : 0,
+        avgUtilization: b.count > 0 ? b.totalUtilization / b.count : 0,
+      }))
+      const maxRevenuePerMoto = Math.max(...brandStats.map(b => b.revenuePerMoto), 1)
+      for (const b of brandStats) {
+        b.performanceScore = ((b.revenuePerMoto / maxRevenuePerMoto) + (b.avgUtilization / 100)) / 2
+      }
+
+      setData({ motoStats, brandStats, motorcycles })
+    } catch (e) {
+      setError(e.message || 'Chyba při načítání dat')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) return <div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-t-2" style={{ borderColor: '#74FB71' }} /></div>
+  if (error) return <div className="p-4 text-center" style={{ color: '#dc2626' }}>{error}</div>
+  if (!data || data.motorcycles.length === 0) return <div className="p-8 text-center" style={{ color: '#888' }}><div style={{ fontSize: 48 }}>🏍️</div><div className="font-bold mt-2">Žádné motorky</div></div>
+
+  const { motoStats, brandStats } = data
+
+  return (
+    <div>
+      {/* Ranking table */}
+      <div style={{ background: '#fff', borderRadius: 14, padding: 16, marginBottom: 24, overflowX: 'auto', boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
+        <div className="font-bold mb-3" style={{ color: '#1a2e22' }}>Ranking motorek podle revenue</div>
+        <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
+              {['Model', 'Značka', 'Kategorie', 'Pronajato dní', 'Revenue', 'Obsazenost %', 'Avg Kč/den'].map(h => (
+                <th key={h} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {motoStats.map((m, i) => (
+              <tr key={m.id} style={{ borderBottom: '1px solid #f3f4f6', background: i % 2 === 1 ? '#f9fdfb' : 'transparent', transition: 'background .15s' }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#f0faf4' }}
+                onMouseLeave={e => { e.currentTarget.style.background = i % 2 === 1 ? '#f9fdfb' : 'transparent' }}>
+                <td className="py-2 px-3 font-semibold">{m.model}</td>
+                <td className="py-2 px-3">{m.brand}</td>
+                <td className="py-2 px-3">{m.category}</td>
+                <td className="py-2 px-3">{m.rentedDays}</td>
+                <td className="py-2 px-3">{Math.round(m.revenue).toLocaleString('cs-CZ')} Kč</td>
+                <td className="py-2 px-3" style={{ minWidth: 120 }}>
+                  <div className="flex items-center gap-2">
+                    <div style={{ flex: 1, height: 8, borderRadius: 4, background: '#e5e7eb' }}>
+                      <div style={{ width: `${Math.min(m.utilizationIndex, 100)}%`, height: '100%', borderRadius: 4, background: '#74FB71' }} />
+                    </div>
+                    <span style={{ fontSize: 11, minWidth: 40 }}>{m.utilizationIndex.toFixed(1)}%</span>
+                  </div>
+                </td>
+                <td className="py-2 px-3">{Math.round(m.avgDailyRate).toLocaleString('cs-CZ')} Kč</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Brand table */}
+      <div style={{ background: '#fff', borderRadius: 14, padding: 16, boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
+        <div className="font-bold mb-3" style={{ color: '#1a2e22' }}>Výkon značek</div>
+        <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
+              {['Značka', 'Počet motorek', 'Průměrná obsazenost %', 'Revenue/motorku', 'Performance Score'].map(h => (
+                <th key={h} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {brandStats.map(b => {
+              const sc = b.performanceScore
+              const dotColor = sc > 0.6 ? '#22c55e' : sc >= 0.3 ? '#eab308' : '#dc2626'
+              return (
+                <tr key={b.brand} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                  <td className="py-2 px-3 font-semibold">{b.brand}</td>
+                  <td className="py-2 px-3">{b.count}</td>
+                  <td className="py-2 px-3">{b.avgUtilization.toFixed(1)} %</td>
+                  <td className="py-2 px-3">{Math.round(b.revenuePerMoto).toLocaleString('cs-CZ')} Kč</td>
+                  <td className="py-2 px-3">
+                    <span className="flex items-center gap-2">
+                      <span style={{ width: 10, height: 10, borderRadius: '50%', background: dotColor, display: 'inline-block' }} />
+                      {sc.toFixed(2)}
+                    </span>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+const CATEGORY_COLORS = ['#74FB71', '#22c55e', '#16a34a', '#15803d', '#166534', '#14532d']
+const CATEGORIES = ['adventure', 'naked', 'sport', 'touring', 'retro', 'A2']
+
+function PoptavkaKategorii() {
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [data, setData] = useState(null)
+
+  useEffect(() => { loadData() }, [])
+
+  async function loadData() {
+    setLoading(true)
+    setError(null)
+    try {
+      const [mRes, bRes] = await Promise.all([
+        supabase.from('motorcycles').select('id, model, brand, category, daily_rate, purchase_price, location_id, status'),
+        supabase.from('bookings').select('motorcycle_id, start_date, end_date, total_price, status'),
+      ])
+      if (mRes.error) throw mRes.error
+      if (bRes.error) throw bRes.error
+
+      const motorcycles = mRes.data || []
+      const bookings = bRes.data || []
+      const completed = bookings.filter(b => b.status === 'completed')
+
+      // Build moto lookup for category
+      const motoMap = {}
+      for (const m of motorcycles) motoMap[m.id] = m
+
+      const catStats = CATEGORIES.map(cat => {
+        const catMotos = motorcycles.filter(m => (m.category || '').toLowerCase() === cat.toLowerCase())
+        const motorcycleCount = catMotos.length
+        const catMotoIds = new Set(catMotos.map(m => m.id))
+        const catCompleted = completed.filter(b => catMotoIds.has(b.motorcycle_id))
+        const totalRevenue = catCompleted.reduce((s, b) => s + (Number(b.total_price) || 0), 0)
+        const revenuePerMoto = motorcycleCount > 0 ? totalRevenue / motorcycleCount : 0
+        const totalRentedDays = catCompleted.reduce((s, b) => s + diffDays(b.start_date, b.end_date), 0)
+        const avgUtilization = motorcycleCount > 0 ? (totalRentedDays / (motorcycleCount * 365)) * 100 : 0
+        return { category: cat, motorcycleCount, totalRevenue, revenuePerMoto, avgUtilization }
+      }).sort((a, b) => b.avgUtilization - a.avgUtilization)
+
+      setData({ catStats, motorcycles })
+    } catch (e) {
+      setError(e.message || 'Chyba při načítání dat')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) return <div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-t-2" style={{ borderColor: '#74FB71' }} /></div>
+  if (error) return <div className="p-4 text-center" style={{ color: '#dc2626' }}>{error}</div>
+  if (!data || data.motorcycles.length === 0) return <div className="p-8 text-center" style={{ color: '#888' }}><div style={{ fontSize: 48 }}>🏍️</div><div className="font-bold mt-2">Žádné motorky</div></div>
+
+  const { catStats } = data
+  const pieData = catStats.filter(c => c.totalRevenue > 0).map(c => ({ name: c.category, value: c.totalRevenue }))
+  const barData = catStats.map(c => ({ name: c.category, utilization: Math.round(c.avgUtilization * 10) / 10 }))
+
+  return (
+    <div>
+      {/* Category table */}
+      <div style={{ background: '#fff', borderRadius: 14, padding: 16, marginBottom: 24, overflowX: 'auto', boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
+        <div className="font-bold mb-3" style={{ color: '#1a2e22' }}>Poptávka podle kategorií</div>
+        <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
+              {['Kategorie', 'Počet motorek', 'Obsazenost %', 'Revenue celkem', 'Revenue/motorku'].map(h => (
+                <th key={h} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {catStats.map(c => (
+              <tr key={c.category} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                <td className="py-2 px-3 font-semibold">{c.category}</td>
+                <td className="py-2 px-3">{c.motorcycleCount}</td>
+                <td className="py-2 px-3">{c.avgUtilization.toFixed(1)} %</td>
+                <td className="py-2 px-3">{Math.round(c.totalRevenue).toLocaleString('cs-CZ')} Kč</td>
+                <td className="py-2 px-3">{Math.round(c.revenuePerMoto).toLocaleString('cs-CZ')} Kč</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Donut chart */}
+      <div style={{ background: '#fff', borderRadius: 14, padding: 16, marginBottom: 24, boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
+        <div className="font-bold mb-3" style={{ color: '#1a2e22' }}>Podíl revenue podle kategorie</div>
+        <ResponsiveContainer width="100%" height={260}>
+          <PieChart>
+            <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={55} outerRadius={100} paddingAngle={2}>
+              {pieData.map((_, i) => <Cell key={i} fill={CATEGORY_COLORS[i % CATEGORY_COLORS.length]} />)}
+            </Pie>
+            <Tooltip formatter={v => [`${Number(v).toLocaleString('cs-CZ')} Kč`, 'Revenue']} />
+            <Legend layout="vertical" align="right" verticalAlign="middle" />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Bar chart */}
+      <div style={{ background: '#fff', borderRadius: 14, padding: 16, boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
+        <div className="font-bold mb-3" style={{ color: '#1a2e22' }}>Obsazenost podle kategorie</div>
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={barData}>
+            <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+            <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} tickFormatter={v => `${v}%`} />
+            <Tooltip formatter={v => [`${v} %`, 'Obsazenost']} />
+            <Bar dataKey="utilization" fill="#74FB71" radius={[6, 6, 0, 0]} label={{ position: 'top', fontSize: 11, formatter: v => `${v}%` }} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  )
+}
+
 export default function Analyza() {
   const [tab, setTab] = useState(TABS[0])
 
@@ -269,7 +524,9 @@ export default function Analyza() {
       </div>
 
       {tab === 'Výkon poboček' && <VykonPobocek />}
-      {tab !== 'Výkon poboček' && (
+      {tab === 'Výkon motorek' && <VykonMotorek />}
+      {tab === 'Poptávka kategorií' && <PoptavkaKategorii />}
+      {!['Výkon poboček', 'Výkon motorek', 'Poptávka kategorií'].includes(tab) && (
         <div className="p-8 text-center" style={{ color: '#888' }}>
           <div style={{ fontSize: 48 }}>📊</div>
           <div className="font-bold mt-2">Sekce se připravuje</div>
