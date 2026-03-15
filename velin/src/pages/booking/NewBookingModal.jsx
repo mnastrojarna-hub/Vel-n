@@ -11,7 +11,13 @@ const MONTH_NAMES = ['Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen',
 const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
 
 function fmtDate(d) { return d ? d.toLocaleDateString('cs-CZ') : '—' }
-function isoDate(d) { return d ? d.toISOString().slice(0, 10) : '' }
+function isoDate(d) {
+  if (!d) return ''
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
 function sameDay(a, b) { return a && b && isoDate(a) === isoDate(b) }
 function inRange(d, from, to) { return d >= from && d <= to }
 
@@ -48,10 +54,12 @@ export default function NewBookingModal({ onClose, onSaved }) {
       supabase.from('moto_day_prices').select('*'),
       supabase.from('bookings').select('id, moto_id, start_date, end_date, status').in('status', ['reserved', 'active', 'pending']).lte('start_date', isoDate(endDate)).gte('end_date', isoDate(startDate)),
     ]).then(([motosRes, pricesRes, bookingsRes]) => {
+      if (motosRes.error) console.error('[NewBooking] motorcycles query error:', motosRes.error)
+      if (bookingsRes.error) console.error('[NewBooking] bookings query error:', bookingsRes.error)
       setMotos(motosRes.data || [])
       const pm = {}; (pricesRes.data || []).forEach(p => { pm[p.moto_id] = p })
       setMotoPrices(pm); setBookings(bookingsRes.data || []); setLoadingMotos(false)
-    }).catch(() => setLoadingMotos(false))
+    }).catch(e => { console.error('[NewBooking] query failed:', e); setLoadingMotos(false) })
   }, [startDate, endDate])
 
   const occupiedMotoIds = useMemo(() => new Set(bookings.map(b => b.moto_id)), [bookings])
