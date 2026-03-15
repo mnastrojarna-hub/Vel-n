@@ -236,10 +236,11 @@ function _sosEnsureIncident(type, desc){
         } catch(e){ console.warn('[SOS] getLoan:', e); }
 
         // Broader search if still no booking
-        if(!bookingId){
+        if(!bookingId || !motoId){
           try {
             var uid2 = await _getUserId();
             if(uid2){
+              // 1) Try exact date range match
               var bk = await window.supabase.from('bookings')
                 .select('id, moto_id')
                 .eq('user_id', uid2)
@@ -248,8 +249,22 @@ function _sosEnsureIncident(type, desc){
                 .gte('end_date', new Date().toISOString())
                 .limit(1);
               if(bk.data && bk.data.length > 0){
-                bookingId = bk.data[0].id;
+                bookingId = bookingId || bk.data[0].id;
                 motoId = motoId || bk.data[0].moto_id;
+              }
+              // 2) Fallback: most recent paid booking (any active/reserved)
+              if(!bookingId || !motoId){
+                var bk2 = await window.supabase.from('bookings')
+                  .select('id, moto_id')
+                  .eq('user_id', uid2)
+                  .in('status', ['active', 'reserved'])
+                  .eq('payment_status', 'paid')
+                  .order('created_at', {ascending: false})
+                  .limit(1);
+                if(bk2.data && bk2.data.length > 0){
+                  bookingId = bookingId || bk2.data[0].id;
+                  motoId = motoId || bk2.data[0].moto_id;
+                }
               }
             }
           } catch(e){}
