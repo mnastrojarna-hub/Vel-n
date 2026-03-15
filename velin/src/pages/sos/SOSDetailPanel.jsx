@@ -210,9 +210,10 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
             p_daily_price: rd.daily_price || 0,
             p_is_free: !rd.customer_fault,
           })
-          if (swapResult.data?.success) {
-            rd.replacement_booking_id = swapResult.data.replacement_booking_id
-            rd.original_booking_id = swapResult.data.original_booking_id
+          const sr = typeof swapResult.data === 'string' ? JSON.parse(swapResult.data) : swapResult.data
+          if (sr?.success) {
+            rd.replacement_booking_id = sr.replacement_booking_id
+            rd.original_booking_id = sr.original_booking_id
             updates.replacement_data = { ...rd, approved_by_admin: true }
           }
         } catch (e) { console.error('[SOS] swap on resolve:', e) }
