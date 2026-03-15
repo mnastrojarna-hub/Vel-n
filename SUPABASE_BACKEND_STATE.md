@@ -560,6 +560,11 @@ Detailní politiky:
 ### branches (nové sloupce)
 - **branch_code** (TEXT UNIQUE) — unikátní kód pobočky (6 číslic, např. "000126")
 - **is_open** (BOOLEAN DEFAULT false) — otevřená (nonstop provoz) / zavřená
+- **type** (TEXT DEFAULT NULL) — typ pobočky: turistická, městská, horská, rekreační voda, metropolitní centrum, městská tranzitní
+
+### motorcycles (nové sloupce pro analytiku)
+- **brand** (TEXT DEFAULT NULL) — značka motorky (Honda, Yamaha, BMW...)
+- **purchase_price** (NUMERIC DEFAULT 0) — pořizovací cena motorky v Kč
 
 ### branch_accessories
 - id (UUID PK), branch_id (FK→branches ON DELETE CASCADE)
