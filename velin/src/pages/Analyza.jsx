@@ -3,7 +3,7 @@ import { debugLog } from '../lib/debugLog'
 import { supabase } from '../lib/supabase'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 
-const TABS = ['Výkon poboček', 'Výkon motorek', 'Poptávka kategorií', 'Optimální flotila', 'Doporučení přesunů']
+const TABS = ['Výkon poboček', 'Výkon motorek', 'Poptávka kategorií', 'Optimální flotila', 'Doporučení přesunů', 'Doporučení lokací']
 
 function diffDays(start, end) {
   const a = new Date(start)
@@ -1279,6 +1279,403 @@ function DoporuceniPresunu() {
   )
 }
 
+const IDEAL_PORTFOLIO = [
+  { type: 'metropolitní centrum', min: 1, max: 2, label: 'Metropolitní centrum' },
+  { type: 'městská tranzitní', min: 2, max: 3, label: 'Městská tranzitní' },
+  { type: 'turistická', min: 3, max: 4, label: 'Turistická' },
+  { type: 'horská', min: 1, max: 2, label: 'Horská' },
+  { type: 'rekreační voda', min: 1, max: 2, label: 'Rekreační voda' },
+]
+
+const REGION_SUGGESTIONS = {
+  'turistická': [
+    { region: 'Český Krumlov / Třeboň', reason: 'Vysoká turistická návštěvnost, adventure poptávka' },
+    { region: 'Znojmo / Pálava', reason: 'Vinařský turismus, touring kategorie' },
+  ],
+  'horská': [
+    { region: 'Špindlerův Mlýn / Pec pod Sněžkou', reason: 'Sezónní peak léto+zima' },
+    { region: 'Železná Ruda / Kvilda', reason: 'Šumava, adventure/enduro' },
+  ],
+  'rekreační voda': [
+    { region: 'Lipno nad Vltavou', reason: 'Největší přehrada ČR, rodinný turismus' },
+    { region: 'Máchovo jezero', reason: 'Blízkost Prahy, víkendové výlety' },
+  ],
+  'metropolitní centrum': [
+    { region: 'Praha — Smíchov nebo Holešovice', reason: 'Poblíž vlakových nádraží, vysoká poptávka' },
+    { region: 'Brno — Židenice nebo Husovice', reason: 'Druhé největší město, tranzitní hub' },
+  ],
+  'městská tranzitní': [
+    { region: 'Okraj Prahy — D1/D5 koridor', reason: 'Tranzitní bod pro dálkové výlety' },
+    { region: 'Ostrava — průjezd do Beskyd', reason: 'Brána do Beskyd a Polska' },
+  ],
+}
+
+const DEFAULT_FLEET = {
+  'turistická': [{ cat: 'adventure', n: 4 }, { cat: 'touring', n: 2 }, { cat: 'naked', n: 1 }, { cat: 'sport', n: 1 }],
+  'horská': [{ cat: 'adventure', n: 4 }, { cat: 'enduro', n: 2 }, { cat: 'touring', n: 1 }, { cat: 'sport', n: 1 }],
+  'rekreační voda': [{ cat: 'adventure', n: 3 }, { cat: 'touring', n: 2 }, { cat: 'naked', n: 2 }, { cat: 'retro', n: 1 }],
+  'metropolitní centrum': [{ cat: 'naked', n: 3 }, { cat: 'A2', n: 2 }, { cat: 'sport', n: 2 }, { cat: 'touring', n: 1 }],
+  'městská tranzitní': [{ cat: 'naked', n: 3 }, { cat: 'A2', n: 2 }, { cat: 'sport', n: 2 }, { cat: 'adventure', n: 1 }],
+}
+
+function resolveLocationType(environment, distance, seasonality) {
+  if (environment === 'Centrum města' && distance === 'Do 50 km') return 'metropolitní centrum'
+  if (environment === 'Okraj města' && distance === 'Do 50 km') return 'městská tranzitní'
+  if (environment === 'Turistická oblast' && (seasonality === 'Převážně zima' || seasonality === 'Léto + zima')) return 'horská'
+  if (environment === 'Turistická oblast') return 'turistická'
+  if (environment === 'Hory') return 'horská'
+  if (environment === 'Přehrada/jezero') return 'rekreační voda'
+  if (environment === 'Průmyslová zóna') return 'městská tranzitní'
+  if (environment === 'Centrum města') return 'metropolitní centrum'
+  if (environment === 'Okraj města') return 'městská tranzitní'
+  return 'turistická'
+}
+
+function resolveFleet(locType) {
+  return DEFAULT_FLEET[locType] || DEFAULT_FLEET['turistická']
+}
+
+function resolveRisk(seasonality) {
+  if (seasonality === 'Převážně léto') return 'Nízká zimní obsazenost — zvažte sezónní přesuny'
+  if (seasonality === 'Převážně zima') return 'Nízká letní obsazenost — zvažte doplnění touring kategorií'
+  if (seasonality === 'Léto + zima') return 'Slabé jaro/podzim — zvažte promo akce v přechodných měsících'
+  return 'Celoroční provoz — udržujte rovnoměrné pokrytí kategorií'
+}
+
+function DoporuceniLokaci() {
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [data, setData] = useState(null)
+  // Calculator state
+  const [calcEnv, setCalcEnv] = useState('Centrum města')
+  const [calcDist, setCalcDist] = useState('Do 50 km')
+  const [calcSeason, setCalcSeason] = useState('Celoroční')
+  const [calcResult, setCalcResult] = useState(null)
+
+  useEffect(() => { loadData() }, [])
+
+  async function loadData() {
+    setLoading(true)
+    setError(null)
+    try {
+      const [lRes, bRes, mRes] = await Promise.all([
+        supabase.from('locations').select('id, name, city, type'),
+        supabase.from('bookings').select('location_id, start_date, end_date, total_price, status, created_at'),
+        supabase.from('motorcycles').select('location_id, category, status'),
+      ])
+      if (lRes.error) throw lRes.error
+      if (bRes.error) throw bRes.error
+      if (mRes.error) throw mRes.error
+
+      const locations = lRes.data || []
+      const bookings = bRes.data || []
+      const motorcycles = mRes.data || []
+      const completed = bookings.filter(b => b.status === 'completed')
+
+      // Per-location stats
+      const locStats = locations.map(loc => {
+        const locMotos = motorcycles.filter(m => m.location_id === loc.id)
+        const locCompleted = completed.filter(b => b.location_id === loc.id)
+        const revenue = locCompleted.reduce((s, b) => s + (Number(b.total_price) || 0), 0)
+        const rentedDays = locCompleted.reduce((s, b) => s + diffDays(b.start_date, b.end_date), 0)
+        const motoCount = locMotos.length
+        const utilizationPct = motoCount > 0 ? (rentedDays / (motoCount * 365)) * 100 : 0
+        const revPerSlot = motoCount > 0 ? revenue / motoCount : 0
+        return { ...loc, revenue, motoCount, utilizationPct, revPerSlot }
+      }).sort((a, b) => b.revenue - a.revenue)
+
+      // Avg rev/slot across all
+      const totalRevenue = locStats.reduce((s, l) => s + l.revenue, 0)
+      const totalMotos = locStats.reduce((s, l) => s + l.motoCount, 0)
+      const avgRevPerSlot = totalMotos > 0 ? totalRevenue / totalMotos : 0
+      const avgUtil = locStats.length > 0 ? locStats.reduce((s, l) => s + l.utilizationPct, 0) / locStats.length : 0
+
+      // Star rating (1-5) based on revPerSlot vs average
+      for (const l of locStats) {
+        if (avgRevPerSlot === 0) { l.stars = 3; continue }
+        const ratio = l.revPerSlot / avgRevPerSlot
+        if (ratio >= 1.5) l.stars = 5
+        else if (ratio >= 1.2) l.stars = 4
+        else if (ratio >= 0.8) l.stars = 3
+        else if (ratio >= 0.5) l.stars = 2
+        else l.stars = 1
+      }
+
+      // Type counts
+      const typeCounts = {}
+      for (const l of locations) {
+        const t = (l.type || '').toLowerCase()
+        typeCounts[t] = (typeCounts[t] || 0) + 1
+      }
+
+      // Avg revenue by type for estimation
+      const typeRevenue = {}
+      for (const l of locStats) {
+        const t = (l.type || '').toLowerCase()
+        if (!typeRevenue[t]) typeRevenue[t] = { total: 0, count: 0 }
+        typeRevenue[t].total += l.revenue
+        typeRevenue[t].count++
+      }
+      const avgRevenueByType = {}
+      for (const t in typeRevenue) {
+        avgRevenueByType[t] = typeRevenue[t].count > 0 ? typeRevenue[t].total / typeRevenue[t].count : 0
+      }
+
+      setData({ locStats, totalRevenue, avgUtil, typeCounts, avgRevenueByType, locations })
+    } catch (e) {
+      setError(e.message || 'Chyba při načítání dat')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function handleCalc() {
+    const locType = resolveLocationType(calcEnv, calcDist, calcSeason)
+    const fleet = resolveFleet(locType)
+    const risk = resolveRisk(calcSeason)
+    const estRevenue = data?.avgRevenueByType[locType] || data?.avgRevenueByType[Object.keys(data?.avgRevenueByType || {})[0]] || 0
+    const topCats = fleet.slice(0, 3).map(f => f.cat)
+    const label = IDEAL_PORTFOLIO.find(p => p.type === locType)?.label || locType
+    setCalcResult({ locType, label, fleet, risk, estRevenue, topCats })
+  }
+
+  if (loading) return <div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-t-2" style={{ borderColor: '#74FB71' }} /></div>
+  if (error) return <div className="p-4 text-center" style={{ color: '#dc2626' }}>{error}</div>
+  if (!data || data.locations.length === 0) return <div className="p-8 text-center" style={{ color: '#888' }}><div style={{ fontSize: 48 }}>🏢</div><div className="font-bold mt-2">Žádné pobočky</div></div>
+
+  const { locStats, totalRevenue, avgUtil, typeCounts, avgRevenueByType } = data
+  const cardStyle = { background: '#fff', borderRadius: 14, padding: 16, boxShadow: '0 1px 4px rgba(0,0,0,.06)' }
+  const selectStyle = {
+    padding: '8px 14px', borderRadius: 10, border: '2px solid #e5e7eb',
+    background: '#fff', color: '#1a2e22', cursor: 'pointer', fontSize: 13, fontWeight: 600, minWidth: 180,
+  }
+
+  // Missing types analysis
+  const missingTypes = IDEAL_PORTFOLIO.map(p => {
+    const current = typeCounts[p.type] || 0
+    const missing = Math.max(0, p.min - current)
+    let priority = 'Nízká'
+    if (missing > 1 && (p.type === 'turistická' || p.type === 'horská')) priority = 'Vysoká'
+    else if (missing > 0) priority = 'Střední'
+    return { ...p, current, missing, priority }
+  })
+
+  // Expansion cards for missing types
+  const expansionCards = missingTypes.filter(m => m.missing > 0).flatMap(m => {
+    const suggestions = REGION_SUGGESTIONS[m.type] || []
+    const estRevenue = avgRevenueByType[m.type] || avgRevenueByType[Object.keys(avgRevenueByType)[0]] || 0
+    const fleet = DEFAULT_FLEET[m.type] || DEFAULT_FLEET['turistická']
+    return suggestions.map(s => ({
+      ...s, type: m.type, label: m.label, priority: m.priority, estRevenue, fleet,
+    }))
+  })
+
+  return (
+    <div>
+      {/* Section A: Branch performance cards */}
+      <div style={{ marginBottom: 32, paddingBottom: 24, borderBottom: '2px solid #e5e7eb' }}>
+        <div className="text-lg font-extrabold mb-2" style={{ color: '#1a2e22' }}>Mapa stávajících poboček</div>
+        <div className="text-sm mb-5" style={{ color: '#888' }}>
+          {locStats.length} poboček celkem, průměrná obsazenost {avgUtil.toFixed(1)}%, celkový obrat {Math.round(totalRevenue).toLocaleString('cs-CZ')} Kč
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {locStats.map(l => {
+            const status = l.stars >= 4 ? { icon: '🟢', text: 'Výkonná' } : l.stars >= 3 ? { icon: '🟡', text: 'Průměrná' } : { icon: '🔴', text: 'Podvýkonná' }
+            return (
+              <div key={l.id} style={cardStyle}>
+                <div className="flex items-start justify-between mb-2">
+                  <div>
+                    <div className="font-bold text-sm" style={{ color: '#1a2e22' }}>{l.name}</div>
+                    <div className="text-xs" style={{ color: '#888' }}>{l.city}</div>
+                  </div>
+                  <span style={{ background: '#f3f4f6', color: '#6b7280', borderRadius: 8, padding: '2px 8px', fontSize: 10, fontWeight: 700 }}>
+                    {l.type || '—'}
+                  </span>
+                </div>
+                <div className="text-xl font-extrabold mb-2" style={{ color: '#166534' }}>
+                  {Math.round(l.revenue).toLocaleString('cs-CZ')} Kč
+                </div>
+                <div className="flex items-center gap-2 mb-2">
+                  <div style={{ flex: 1, height: 8, borderRadius: 4, background: '#e5e7eb' }}>
+                    <div style={{ width: `${Math.min(l.utilizationPct, 100)}%`, height: '100%', borderRadius: 4, background: '#74FB71' }} />
+                  </div>
+                  <span className="text-xs font-bold" style={{ minWidth: 40 }}>{l.utilizationPct.toFixed(1)}%</span>
+                </div>
+                <div className="flex items-center justify-between text-xs" style={{ color: '#888' }}>
+                  <span>{l.motoCount} motorek</span>
+                  <span style={{ letterSpacing: 1 }}>{'⭐'.repeat(l.stars)}{'☆'.repeat(5 - l.stars)}</span>
+                  <span>{status.icon} {status.text}</span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Section B: Missing types */}
+      <div style={{ marginBottom: 32, paddingBottom: 24, borderBottom: '2px solid #e5e7eb' }}>
+        <div className="text-lg font-extrabold mb-4" style={{ color: '#1a2e22' }}>Doporučení nových lokalit</div>
+
+        <div style={{ ...cardStyle, overflowX: 'auto', marginBottom: 20 }}>
+          <div className="font-bold mb-3 text-sm" style={{ color: '#1a2e22' }}>Chybějící typy poboček</div>
+          <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
+                {['Typ', 'Ideální počet', 'Aktuální počet', 'Chybí', 'Priorita'].map(h => (
+                  <th key={h} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {missingTypes.map(m => {
+                const prioStyle = m.priority === 'Vysoká' ? { bg: '#fecaca', color: '#991b1b' } : m.priority === 'Střední' ? { bg: '#fef9c3', color: '#854d0e' } : { bg: '#f3f4f6', color: '#6b7280' }
+                return (
+                  <tr key={m.type} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                    <td className="py-2 px-3 font-semibold">{m.label}</td>
+                    <td className="py-2 px-3">{m.min}–{m.max}</td>
+                    <td className="py-2 px-3">{m.current}</td>
+                    <td className="py-2 px-3 font-bold" style={{ color: m.missing > 0 ? '#991b1b' : '#166534' }}>{m.missing}</td>
+                    <td className="py-2 px-3">
+                      <span style={{ background: prioStyle.bg, color: prioStyle.color, borderRadius: 8, padding: '2px 10px', fontSize: 11, fontWeight: 700 }}>
+                        {m.priority}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Expansion cards */}
+        {expansionCards.length > 0 && (
+          <>
+            <div className="font-bold mb-3 text-sm" style={{ color: '#1a2e22' }}>Doporučené regiony pro expanzi</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {expansionCards.map((c, i) => (
+                <div key={i} style={cardStyle}>
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="font-bold text-sm" style={{ color: '#1a2e22' }}>{c.region}</div>
+                    <span style={{
+                      background: c.priority === 'Vysoká' ? '#fecaca' : '#fef9c3',
+                      color: c.priority === 'Vysoká' ? '#991b1b' : '#854d0e',
+                      borderRadius: 8, padding: '2px 10px', fontSize: 10, fontWeight: 700,
+                    }}>
+                      {c.priority === 'Vysoká' ? '🔥 Vysoká priorita' : '📍 Středně prioritní'}
+                    </span>
+                  </div>
+                  <div className="text-xs mb-1" style={{ color: '#888' }}>
+                    Typ: <span className="font-semibold" style={{ color: '#1a2e22' }}>{c.label}</span>
+                  </div>
+                  <div className="text-xs mb-2" style={{ color: '#854d0e' }}>{c.reason}</div>
+                  <div className="text-sm font-extrabold mb-2" style={{ color: '#166534' }}>
+                    Odhad revenue: {Math.round(c.estRevenue).toLocaleString('cs-CZ')} Kč/rok
+                  </div>
+                  <div className="text-xs mb-1 font-bold" style={{ color: '#1a2e22' }}>Doporučená flotila (8 slotů):</div>
+                  <div className="flex flex-wrap gap-1">
+                    {c.fleet.map((f, fi) => (
+                      <span key={fi} style={{ background: '#f1faf7', color: '#1a2e22', borderRadius: 6, padding: '2px 8px', fontSize: 10, fontWeight: 700 }}>
+                        {f.n}× {f.cat}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Section C: Location calculator */}
+      <div>
+        <div className="text-lg font-extrabold mb-4" style={{ color: '#1a2e22' }}>Doporučený typ pobočky pro lokalitu</div>
+        <div style={cardStyle}>
+          <div className="flex flex-wrap gap-4 mb-4">
+            <div>
+              <div className="text-xs font-bold mb-1" style={{ color: '#888' }}>Typ prostředí</div>
+              <select value={calcEnv} onChange={e => setCalcEnv(e.target.value)} style={selectStyle}>
+                {['Centrum města', 'Okraj města', 'Turistická oblast', 'Hory', 'Přehrada/jezero', 'Průmyslová zóna'].map(o => (
+                  <option key={o} value={o}>{o}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <div className="text-xs font-bold mb-1" style={{ color: '#888' }}>Vzdálenost od Prahy</div>
+              <select value={calcDist} onChange={e => setCalcDist(e.target.value)} style={selectStyle}>
+                {['Do 50 km', '50–150 km', 'Nad 150 km'].map(o => (
+                  <option key={o} value={o}>{o}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <div className="text-xs font-bold mb-1" style={{ color: '#888' }}>Sezónnost</div>
+              <select value={calcSeason} onChange={e => setCalcSeason(e.target.value)} style={selectStyle}>
+                {['Celoroční', 'Převážně léto', 'Převážně zima', 'Léto + zima'].map(o => (
+                  <option key={o} value={o}>{o}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <button
+            onClick={handleCalc}
+            className="text-sm font-extrabold cursor-pointer"
+            style={{ padding: '10px 24px', borderRadius: 10, border: 'none', background: '#74FB71', color: '#1a2e22' }}
+          >
+            Doporučit typ pobočky
+          </button>
+
+          {calcResult && (
+            <div className="mt-5" style={{ borderTop: '2px solid #e5e7eb', paddingTop: 16 }}>
+              <div className="mb-4">
+                <span className="text-sm font-extrabold" style={{
+                  background: '#74FB71', color: '#1a2e22', borderRadius: 10, padding: '6px 18px', fontSize: 14,
+                }}>
+                  {calcResult.label}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <div className="text-xs font-bold mb-2" style={{ color: '#888' }}>Optimální složení flotily (8 motorek)</div>
+                  <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+                    <tbody>
+                      {calcResult.fleet.map((f, i) => (
+                        <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                          <td className="py-1 px-2 font-semibold">{f.cat}</td>
+                          <td className="py-1 px-2 font-bold" style={{ color: '#166534' }}>{f.n}×</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div>
+                  <div className="text-xs font-bold mb-2" style={{ color: '#888' }}>Odhadovaný roční revenue</div>
+                  <div className="text-2xl font-extrabold mb-3" style={{ color: '#166534' }}>
+                    {Math.round(calcResult.estRevenue).toLocaleString('cs-CZ')} Kč
+                  </div>
+                  <div className="text-xs font-bold mb-1" style={{ color: '#888' }}>Top 3 kategorie</div>
+                  <div className="flex gap-2 mb-3">
+                    {calcResult.topCats.map((c, i) => (
+                      <span key={i} style={{ background: '#dcfce7', color: '#166534', borderRadius: 8, padding: '3px 10px', fontSize: 11, fontWeight: 700 }}>{c}</span>
+                    ))}
+                  </div>
+                  <div className="text-xs font-bold mb-1" style={{ color: '#888' }}>Klíčové riziko</div>
+                  <div style={{
+                    background: '#fffbeb', borderRadius: 10, padding: '8px 12px',
+                    border: '1px solid #fde68a', fontSize: 12, color: '#854d0e', fontWeight: 600,
+                  }}>
+                    ⚠️ {calcResult.risk}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Analyza() {
   const [tab, setTab] = useState(TABS[0])
 
@@ -1313,6 +1710,7 @@ export default function Analyza() {
       {tab === 'Poptávka kategorií' && <PoptavkaKategorii />}
       {tab === 'Optimální flotila' && <OptimalniFlotila />}
       {tab === 'Doporučení přesunů' && <DoporuceniPresunu />}
+      {tab === 'Doporučení lokací' && <DoporuceniLokaci />}
     </div>
   )
 }
