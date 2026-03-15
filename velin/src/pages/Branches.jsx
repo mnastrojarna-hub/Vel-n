@@ -1288,6 +1288,7 @@ function BranchModal({ existing, onClose, onSaved }) {
     city: existing?.city || '',
     address: existing?.address || '',
     phone: existing?.phone || '',
+    type: existing?.type || '',
     is_open: existing?.is_open ?? false,
     gps_lat: existing?.gps_lat || '',
     gps_lng: existing?.gps_lng || '',
@@ -1312,6 +1313,7 @@ function BranchModal({ existing, onClose, onSaved }) {
         city: form.city?.trim() || null,
         address: form.address?.trim() || null,
         phone: form.phone?.trim() || null,
+        type: form.type?.trim() || null,
         is_open: form.is_open,
         notes: form.notes?.trim() || null,
         gps_lat: form.gps_lat ? Number(form.gps_lat) : null,
@@ -1343,6 +1345,16 @@ function BranchModal({ existing, onClose, onSaved }) {
           placeholder="Automaticky generován pokud prázdný" />
         <FormField label="Město" value={form.city} onChange={v => set('city', v)} />
         <FormField label="Telefon" value={form.phone} onChange={v => set('phone', v)} />
+        <div>
+          <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Typ pobočky</label>
+          <select value={form.type} onChange={e => set('type', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>
+            <option value="">—</option>
+            <option value="centrum">Centrum</option>
+            <option value="předměstí">Předměstí</option>
+            <option value="letiště">Letiště</option>
+            <option value="turistická">Turistická</option>
+          </select>
+        </div>
         <div className="col-span-2">
           <FormField label="Adresa" value={form.address} onChange={v => set('address', v)} />
         </div>
