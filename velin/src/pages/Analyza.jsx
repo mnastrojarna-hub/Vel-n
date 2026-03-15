@@ -800,6 +800,259 @@ function OptimalniFlotila() {
   )
 }
 
+function DoporuceniPresunu() {
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [data, setData] = useState(null)
+  const [planned, setPlanned] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('velin_relocations') || '[]') } catch { return [] }
+  })
+
+  useEffect(() => { loadData() }, [])
+
+  function togglePlan(motoId, targetLocId) {
+    const key = `${motoId}_${targetLocId}`
+    let next
+    if (planned.includes(key)) {
+      next = planned.filter(k => k !== key)
+    } else {
+      next = [...planned, key]
+    }
+    setPlanned(next)
+    localStorage.setItem('velin_relocations', JSON.stringify(next))
+  }
+
+  async function loadData() {
+    setLoading(true)
+    setError(null)
+    try {
+      const [mRes, bRes, lRes] = await Promise.all([
+        supabase.from('motorcycles').select('id, model, brand, category, location_id, daily_rate, purchase_price, status'),
+        supabase.from('bookings').select('motorcycle_id, location_id, start_date, end_date, total_price, status'),
+        supabase.from('locations').select('id, name, type'),
+      ])
+      if (mRes.error) throw mRes.error
+      if (bRes.error) throw bRes.error
+      if (lRes.error) throw lRes.error
+
+      const motorcycles = mRes.data || []
+      const bookings = bRes.data || []
+      const locations = lRes.data || []
+      const completed = bookings.filter(b => b.status === 'completed')
+
+      const locMap = {}
+      for (const l of locations) locMap[l.id] = l
+
+      // Per-moto stats
+      const motoStats = motorcycles.map(m => {
+        const mCompleted = completed.filter(b => b.motorcycle_id === m.id)
+        const rentedDays = mCompleted.reduce((s, b) => s + diffDays(b.start_date, b.end_date), 0)
+        const revenue = mCompleted.reduce((s, b) => s + (Number(b.total_price) || 0), 0)
+        const reservationCount = mCompleted.length
+        const utilization = rentedDays / 365
+        const purchasePrice = Number(m.purchase_price) || 0
+        const annualCosts = purchasePrice * 0.20
+        const roi = purchasePrice > 0 ? (revenue - annualCosts) / purchasePrice : 0
+        return { ...m, rentedDays, revenue, reservationCount, utilization, purchasePrice, roi }
+      })
+
+      // Per location×category avg utilization
+      const locCatUtil = {}
+      for (const m of motoStats) {
+        const cat = (m.category || '').toLowerCase()
+        const lid = m.location_id
+        if (!cat || !lid) continue
+        const key = `${lid}_${cat}`
+        if (!locCatUtil[key]) locCatUtil[key] = { total: 0, count: 0 }
+        locCatUtil[key].total += m.utilization
+        locCatUtil[key].count++
+      }
+      for (const k in locCatUtil) locCatUtil[k].avg = locCatUtil[k].total / locCatUtil[k].count
+
+      // Section A: relocation recommendations
+      const relocations = []
+      for (const m of motoStats) {
+        if (m.utilization >= 0.60) continue
+        const cat = (m.category || '').toLowerCase()
+        if (!cat) continue
+
+        let bestLoc = null
+        let bestUtil = 0
+        for (const l of locations) {
+          if (l.id === m.location_id) continue
+          const key = `${l.id}_${cat}`
+          const avg = locCatUtil[key]?.avg || 0
+          if (avg > 0.75 && avg > bestUtil) {
+            bestLoc = l
+            bestUtil = avg
+          }
+        }
+        if (bestLoc) {
+          const fromLoc = locMap[m.location_id]
+          const diffPp = Math.round((bestUtil - m.utilization) * 100)
+          relocations.push({
+            motoId: m.id, model: m.model, brand: m.brand, category: cat,
+            fromName: fromLoc?.name || '—', fromUtil: m.utilization,
+            toName: bestLoc.name, toLocId: bestLoc.id, toUtil: bestUtil, diffPp,
+          })
+        }
+      }
+
+      // Section B: buy score per unique model
+      const modelMap = {}
+      for (const m of motoStats) {
+        const key = `${m.model}_${m.brand}_${(m.category || '').toLowerCase()}`
+        if (!modelMap[key]) modelMap[key] = { model: m.model, brand: m.brand, category: (m.category || '').toLowerCase(), count: 0, totalRoi: 0, totalUtil: 0, totalRes: 0, totalRevenue: 0, totalPurchasePrice: 0 }
+        modelMap[key].count++
+        modelMap[key].totalRoi += m.roi
+        modelMap[key].totalUtil += m.utilization
+        modelMap[key].totalRes += m.reservationCount
+        modelMap[key].totalRevenue += m.revenue
+        modelMap[key].totalPurchasePrice += m.purchasePrice
+      }
+      const buyScores = Object.values(modelMap).map(g => {
+        const roi = g.count > 0 ? g.totalRoi / g.count : 0
+        const utilization = g.count > 0 ? g.totalUtil / g.count : 0
+        const demandIndex = g.count > 0 ? g.totalRes / g.count : 0
+        const buyScore = roi * utilization * demandIndex
+        let recommendation = 'Neprioritní'
+        if (buyScore > 0.4) recommendation = 'Koupit'
+        else if (buyScore >= 0.2) recommendation = 'Sledovat'
+        return { ...g, roi, utilization, demandIndex, buyScore, recommendation }
+      }).sort((a, b) => b.buyScore - a.buyScore).slice(0, 10)
+
+      // Section C: consider retiring
+      const retiring = motoStats.filter(m => m.utilization < 0.40 || (m.roi < 0.20 && m.purchasePrice > 0))
+
+      setData({ relocations, buyScores, retiring, motorcycles })
+    } catch (e) {
+      setError(e.message || 'Chyba při načítání dat')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) return <div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-t-2" style={{ borderColor: '#74FB71' }} /></div>
+  if (error) return <div className="p-4 text-center" style={{ color: '#dc2626' }}>{error}</div>
+  if (!data || data.motorcycles.length === 0) return <div className="p-8 text-center" style={{ color: '#888' }}><div style={{ fontSize: 48 }}>🏍️</div><div className="font-bold mt-2">Žádné motorky</div></div>
+
+  const { relocations, buyScores, retiring } = data
+  const cardStyle = { background: '#fff', borderRadius: 14, padding: 16, boxShadow: '0 1px 4px rgba(0,0,0,.06)' }
+
+  return (
+    <div>
+      {/* Section A: Relocations */}
+      <div style={{ marginBottom: 32, paddingBottom: 24, borderBottom: '2px solid #e5e7eb' }}>
+        <div className="text-lg font-extrabold mb-4" style={{ color: '#1a2e22' }}>Doporučení přesunů</div>
+        {relocations.length === 0 ? (
+          <div style={{ ...cardStyle, textAlign: 'center', padding: 24 }}>
+            <div style={{ fontSize: 36 }}>✅</div>
+            <div className="font-bold mt-2" style={{ color: '#166534' }}>Flotila je optimálně rozmístěna</div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {relocations.map(r => {
+              const isPlanned = planned.includes(`${r.motoId}_${r.toLocId}`)
+              return (
+                <div key={`${r.motoId}_${r.toLocId}`} style={cardStyle}>
+                  <div className="font-bold text-sm mb-2" style={{ color: '#1a2e22' }}>
+                    {r.model} {r.brand}
+                    <span style={{ background: '#f3f4f6', color: '#6b7280', borderRadius: 8, padding: '2px 8px', fontSize: 10, fontWeight: 700, marginLeft: 8 }}>{r.category}</span>
+                  </div>
+                  <div className="text-xs mb-1" style={{ color: '#888' }}>
+                    Z pobočky: <span className="font-semibold" style={{ color: '#1a2e22' }}>{r.fromName}</span> (utilization: {(r.fromUtil * 100).toFixed(0)}%)
+                  </div>
+                  <div className="text-xs mb-1" style={{ color: '#888' }}>
+                    → Do pobočky: <span className="font-semibold" style={{ color: '#166534' }}>{r.toName}</span> (poptávka: {(r.toUtil * 100).toFixed(0)}%)
+                  </div>
+                  <div className="text-xs mb-3" style={{ color: '#854d0e' }}>
+                    Důvod: Vyšší poptávka o {r.diffPp} procentních bodů
+                  </div>
+                  <button
+                    onClick={() => togglePlan(r.motoId, r.toLocId)}
+                    className="text-xs font-bold cursor-pointer"
+                    style={{
+                      padding: '6px 14px', borderRadius: 8, border: 'none',
+                      background: isPlanned ? '#74FB71' : '#f1faf7',
+                      color: '#1a2e22',
+                    }}
+                  >
+                    {isPlanned ? '✓ Naplánováno' : '✓ Naplánovat'}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Section B: Buy Score */}
+      <div style={{ marginBottom: 32, paddingBottom: 24, borderBottom: '2px solid #e5e7eb' }}>
+        <div className="text-lg font-extrabold mb-4" style={{ color: '#1a2e22' }}>Top kandidáti na dokoupení</div>
+        <div style={{ ...cardStyle, overflowX: 'auto' }}>
+          <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
+                {['Model', 'Značka', 'Kategorie', 'ROI', 'Utilization', 'Demand Index', 'Buy Score', 'Doporučení'].map(h => (
+                  <th key={h} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {buyScores.map((b, i) => {
+                const scoreColor = b.buyScore > 0.4 ? '#166534' : b.buyScore >= 0.2 ? '#854d0e' : '#991b1b'
+                const scoreBg = b.buyScore > 0.4 ? '#dcfce7' : b.buyScore >= 0.2 ? '#fef9c3' : '#fecaca'
+                return (
+                  <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                    <td className="py-2 px-3 font-semibold">{b.model}</td>
+                    <td className="py-2 px-3">{b.brand}</td>
+                    <td className="py-2 px-3">{b.category}</td>
+                    <td className="py-2 px-3">{(b.roi * 100).toFixed(1)}%</td>
+                    <td className="py-2 px-3">{(b.utilization * 100).toFixed(1)}%</td>
+                    <td className="py-2 px-3">{b.demandIndex.toFixed(2)}</td>
+                    <td className="py-2 px-3">
+                      <span style={{ background: scoreBg, color: scoreColor, borderRadius: 8, padding: '2px 10px', fontSize: 11, fontWeight: 700 }}>
+                        {b.buyScore.toFixed(3)}
+                      </span>
+                    </td>
+                    <td className="py-2 px-3 font-bold" style={{ color: scoreColor }}>{b.recommendation}</td>
+                  </tr>
+                )
+              })}
+              {buyScores.length === 0 && (
+                <tr><td colSpan={8} className="py-4 text-center" style={{ color: '#888' }}>Žádné modely k hodnocení</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Section C: Consider retiring */}
+      <div>
+        <div className="text-lg font-extrabold mb-4" style={{ color: '#1a2e22' }}>Zvažte vyřazení</div>
+        {retiring.length === 0 ? (
+          <div style={{ ...cardStyle, textAlign: 'center', padding: 24 }}>
+            <div className="font-bold" style={{ color: '#166534' }}>Žádné motorky k vyřazení</div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {retiring.map(m => (
+              <div key={m.id} style={{
+                background: '#fffbeb', borderRadius: 14, padding: '14px 18px',
+                border: '1px solid #fde68a', boxShadow: '0 1px 4px rgba(0,0,0,.04)',
+              }}>
+                <span className="text-sm font-bold" style={{ color: '#854d0e' }}>
+                  ⚠️ {m.model} {m.brand} — Utilization: {(m.utilization * 100).toFixed(1)}%, ROI: {(m.roi * 100).toFixed(1)}% — Zvažte vyřazení z flotily
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function Analyza() {
   const [tab, setTab] = useState(TABS[0])
 
@@ -833,12 +1086,7 @@ export default function Analyza() {
       {tab === 'Výkon motorek' && <VykonMotorek />}
       {tab === 'Poptávka kategorií' && <PoptavkaKategorii />}
       {tab === 'Optimální flotila' && <OptimalniFlotila />}
-      {!['Výkon poboček', 'Výkon motorek', 'Poptávka kategorií', 'Optimální flotila'].includes(tab) && (
-        <div className="p-8 text-center" style={{ color: '#888' }}>
-          <div style={{ fontSize: 48 }}>📊</div>
-          <div className="font-bold mt-2">Sekce se připravuje</div>
-        </div>
-      )}
+      {tab === 'Doporučení přesunů' && <DoporuceniPresunu />}
     </div>
   )
 }
