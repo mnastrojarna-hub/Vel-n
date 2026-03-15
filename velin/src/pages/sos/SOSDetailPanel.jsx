@@ -357,9 +357,11 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
       })
       if (swapResult.error) {
         console.error('[SOS] ensureBookingSwap RPC error:', swapResult.error.message)
+        alert('❌ Swap RPC chyba: ' + swapResult.error.message)
         return rd
       }
       const sr = typeof swapResult.data === 'string' ? JSON.parse(swapResult.data) : swapResult.data
+      console.log('[SOS] ensureBookingSwap RPC response:', sr)
       if (sr?.success) {
         const updatedRd = {
           ...rd,
@@ -376,10 +378,14 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
         })
         return updatedRd
       } else {
-        console.error('[SOS] ensureBookingSwap RPC failed:', sr?.error || 'unknown')
+        const errMsg = sr?.error || 'Neznámá chyba'
+        const errDetail = sr?.step ? ` [krok: ${sr.step}]` : ''
+        console.error('[SOS] ensureBookingSwap RPC failed:', sr)
+        alert('❌ Swap selhal: ' + errMsg + errDetail)
       }
     } catch (e) {
       console.error('[SOS] ensureBookingSwap exception:', e)
+      alert('❌ Swap výjimka: ' + e.message)
     }
     return rd
   }
