@@ -220,9 +220,10 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
             p_daily_price: rd.daily_price || 0,
             p_is_free: !rd.customer_fault,
           })
-          if (swapResult.data?.success) {
-            rd.replacement_booking_id = swapResult.data.replacement_booking_id
-            rd.original_booking_id = swapResult.data.original_booking_id
+          const sr = typeof swapResult.data === 'string' ? JSON.parse(swapResult.data) : swapResult.data
+          if (sr?.success) {
+            rd.replacement_booking_id = sr.replacement_booking_id
+            rd.original_booking_id = sr.original_booking_id
             updates.replacement_data = { ...rd, approved_by_admin: true }
           }
         } catch (e) { console.error('[SOS] swap on resolve:', e) }
@@ -377,23 +378,28 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
         p_daily_price: rd.daily_price || 0,
         p_is_free: !rd.customer_fault,
       })
-      if (swapResult.data?.success) {
+      if (swapResult.error) {
+        console.error('[SOS] ensureBookingSwap RPC error:', swapResult.error.message)
+        return rd
+      }
+      const sr = typeof swapResult.data === 'string' ? JSON.parse(swapResult.data) : swapResult.data
+      if (sr?.success) {
         const updatedRd = {
           ...rd,
-          original_booking_id: swapResult.data.original_booking_id,
-          replacement_booking_id: swapResult.data.replacement_booking_id,
-          original_end_date: swapResult.data.original_end_date,
+          original_booking_id: sr.original_booking_id,
+          replacement_booking_id: sr.replacement_booking_id,
+          original_end_date: sr.original_end_date,
         }
         await supabase.from('sos_incidents').update({ replacement_data: updatedRd }).eq('id', incident.id)
         const { data: { user } } = await supabase.auth.getUser()
         await supabase.from('sos_timeline').insert({
           incident_id: incident.id,
-          action: `Rezervace automaticky přepnuta (admin akce). Původní: #${swapResult.data.original_booking_id?.slice(-8)}, nová: #${swapResult.data.replacement_booking_id?.slice(-8)}`,
+          action: `Rezervace automaticky přepnuta (admin akce). Původní: #${sr.original_booking_id?.slice(-8)}, nová: #${sr.replacement_booking_id?.slice(-8)}`,
           performed_by: user?.email || 'Admin', admin_id: user?.id,
         })
         return updatedRd
       } else {
-        console.error('[SOS] ensureBookingSwap RPC failed:', swapResult.data?.error || swapResult.error?.message)
+        console.error('[SOS] ensureBookingSwap RPC failed:', sr?.error || 'unknown')
       }
     } catch (e) {
       console.error('[SOS] ensureBookingSwap exception:', e)
@@ -424,7 +430,13 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
         p_daily_price: dailyPrice,
         p_is_free: isFree,
       })
-      if (swapResult.data?.success) {
+      if (swapResult.error) {
+        alert('❌ Swap selhal: ' + swapResult.error.message)
+        setSwapping(false)
+        return
+      }
+      const sr = typeof swapResult.data === 'string' ? JSON.parse(swapResult.data) : swapResult.data
+      if (sr?.success) {
         const rd = {
           replacement_moto_id: selectedMoto.id,
           replacement_model: selectedMoto.model,
@@ -433,10 +445,10 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
           payment_status: isFree ? 'free' : 'pending',
           payment_amount: 0,
           customer_fault: !!incident.customer_fault,
-          original_booking_id: swapResult.data.original_booking_id,
-          replacement_booking_id: swapResult.data.replacement_booking_id,
-          original_end_date: swapResult.data.original_end_date,
-          remaining_days: swapResult.data.remaining_days,
+          original_booking_id: sr.original_booking_id,
+          replacement_booking_id: sr.replacement_booking_id,
+          original_end_date: sr.original_end_date,
+          remaining_days: sr.remaining_days,
           admin_initiated: true,
           customer_confirmed_at: new Date().toISOString(),
         }
@@ -453,9 +465,9 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
           performed_by: user?.email || 'Admin', admin_id: user?.id,
         })
         setShowMotoSelector(false)
-        alert(`✅ Náhradní motorka přiřazena!\n\nNová rezervace: #${swapResult.data.replacement_booking_id?.slice(-8)}`)
+        alert(`✅ Náhradní motorka přiřazena!\n\nNová rezervace: #${sr.replacement_booking_id?.slice(-8)}`)
       } else {
-        alert('❌ Swap selhal: ' + (swapResult.data?.error || swapResult.error?.message || 'neznámá chyba'))
+        alert('❌ Swap selhal: ' + (sr?.error || 'neznámá chyba'))
       }
     } catch (e) {
       console.error('[SOS] adminInitiateReplacement:', e)
