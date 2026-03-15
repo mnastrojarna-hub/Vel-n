@@ -213,7 +213,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
   }
 
   async function setMotoToService() {
-    const motoId = moto?.id || incident?.moto_id || incident?.replacement_data?.original_moto_id
+    const motoId = moto?.id || incident?.moto_id || booking?.moto_id || incident?.original_moto_id || incident?.replacement_data?.original_moto_id
     if (!motoId) { alert('Chyba: Nelze určit ID motorky'); return }
     if (!window.confirm('Přesunout motorku do servisu (maintenance)?\n\nMotorka bude nedostupná pro nové rezervace.')) return
     try {
@@ -735,23 +735,43 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
             )}
 
             {/* Pojišťovna — pro nehody */}
-            {isAccident && (
-              <WorkflowBtn
-                label="Kontaktovat pojišťovnu"
-                icon="🏦"
-                done={timelineActions.some(a => a.toLowerCase().includes('ojišťovn'))}
-                onClick={async () => {
-                  if (!window.confirm('Potvrdit kontaktování pojišťovny?')) return
-                  const { data: { user } } = await supabase.auth.getUser()
-                  await supabase.from('sos_timeline').insert({
-                    incident_id: incident.id,
-                    action: 'Pojišťovna kontaktována, hlášena škodná událost',
-                    performed_by: user?.email || 'Admin', admin_id: user?.id,
-                  })
-                  loadTimelineActions()
-                  onRefresh?.()
-                }}
-              />
+            {isAccident && !timelineActions.some(a => a.toLowerCase().includes('ojišťovna přeskočen')) && (
+              <>
+                <WorkflowBtn
+                  label="Kontaktovat pojišťovnu"
+                  icon="🏦"
+                  done={timelineActions.some(a => a.toLowerCase().includes('ojišťovn'))}
+                  onClick={async () => {
+                    if (!window.confirm('Potvrdit kontaktování pojišťovny?')) return
+                    const { data: { user } } = await supabase.auth.getUser()
+                    await supabase.from('sos_timeline').insert({
+                      incident_id: incident.id,
+                      action: 'Pojišťovna kontaktována, hlášena škodná událost',
+                      performed_by: user?.email || 'Admin', admin_id: user?.id,
+                    })
+                    loadTimelineActions()
+                    onRefresh?.()
+                  }}
+                />
+                {!timelineActions.some(a => a.toLowerCase().includes('ojišťovn')) && (
+                  <WorkflowBtn
+                    label="Přeskočit pojišťovnu"
+                    icon="⏭️"
+                    done={false}
+                    onClick={async () => {
+                      if (!window.confirm('Přeskočit kontaktování pojišťovny?\n\nTento krok bude přeskočen v postupu řešení.')) return
+                      const { data: { user } } = await supabase.auth.getUser()
+                      await supabase.from('sos_timeline').insert({
+                        incident_id: incident.id,
+                        action: 'Pojišťovna přeskočena — není potřeba kontaktovat',
+                        performed_by: user?.email || 'Admin', admin_id: user?.id,
+                      })
+                      loadTimelineActions()
+                      onRefresh?.()
+                    }}
+                  />
+                )}
+              </>
             )}
 
             {/* Motorka do servisu — pro těžké typy */}
@@ -1029,25 +1049,17 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
         </Card>
       )}
 
-      {/* Poškození motorky */}
-      {isAccident && (
+      {/* Poškození motorky — pouze zobrazení pokud už bylo nastaveno (posouzení dělá servis) */}
+      {isAccident && incident.damage_severity && (
         <Card>
           <h4 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Poškození motorky</h4>
-          <div className="flex flex-wrap gap-2 mb-3">
-            {Object.entries(DAMAGE_LABELS).map(([key, label]) => (
-              <button key={key} onClick={() => saveField('damage_severity', key)}
-                className="rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none"
-                style={{
-                  padding: '5px 12px',
-                  background: incident.damage_severity === key ? '#1a2e22' : '#f1faf7',
-                  color: incident.damage_severity === key ? '#74FB71' : '#1a2e22',
-                }}>
-                {label}
-              </button>
-            ))}
-          </div>
+          <span className="inline-block rounded-btn text-sm font-extrabold" style={{
+            padding: '5px 12px', background: '#1a2e22', color: '#74FB71',
+          }}>
+            {DAMAGE_LABELS[incident.damage_severity] || incident.damage_severity}
+          </span>
           {incident.damage_description && (
-            <div className="text-sm rounded-lg" style={{ padding: '6px 10px', background: '#f8fcfa', color: '#1a2e22' }}>
+            <div className="text-sm rounded-lg mt-2" style={{ padding: '6px 10px', background: '#f8fcfa', color: '#1a2e22' }}>
               {incident.damage_description}
             </div>
           )}
