@@ -3,6 +3,7 @@
 
 var _currentThreadId = null;
 var _msgActiveTab = 'notif';
+var _msgAllNotifs = null;
 
 // ===== TAB SWITCHING =====
 function msgSwitchTab(tab){
@@ -34,39 +35,55 @@ async function renderAdminMessages(){
   wrap.innerHTML = '<div style="text-align:center;padding:20px;color:var(--g400);">\u23f3 Na\u010d\u00edt\u00e1n\u00ed...</div>';
 
   try {
-    var msgs = await apiFetchAdminMessages();
-    if(!msgs || msgs.length === 0){
-      wrap.innerHTML = '<div style="text-align:center;padding:40px 20px;">' +
-        '<div style="font-size:48px;margin-bottom:12px;">\ud83d\udce8</div>' +
-        '<div style="font-size:14px;font-weight:700;color:var(--black);margin-bottom:4px;">\u017d\u00e1dn\u00e9 ozn\u00e1men\u00ed</div>' +
-        '<div style="font-size:12px;color:var(--g400);line-height:1.5;">Zat\u00edm nem\u00e1te \u017e\u00e1dn\u00e9 ozn\u00e1men\u00ed z MotoGo24.</div>' +
-        '</div>';
-      return;
-    }
-
-    var html = '';
-    msgs.forEach(function(m){
-      var date = m.created_at ? new Date(m.created_at) : new Date();
-      var fmt = date.toLocaleDateString('cs-CZ') + ' ' +
-        date.toLocaleTimeString('cs-CZ', {hour:'2-digit', minute:'2-digit'});
-      var isUnread = !m.read;
-      var icon = _msgIcon(m.type);
-
-      html += '<div class="msg-item' + (isUnread ? ' msg-unread' : '') + '"' +
-        ' onclick="markMsgRead(\'' + m.id + '\',this)">' +
-        '<div class="msg-icon-wrap"><div class="msg-icon">' + icon + '</div>' +
-        (isUnread ? '<div class="msg-dot"></div>' : '') + '</div>' +
-        '<div class="msg-body">' +
-        '<div class="msg-title">' + _escHtml(m.title || 'Zpr\u00e1va z Moto Go') + '</div>' +
-        '<div class="msg-text">' + _escHtml(m.message || '') + '</div>' +
-        '<div class="msg-time">' + fmt + '</div>' +
-        '</div></div>';
-    });
-    wrap.innerHTML = html;
+    _msgAllNotifs = await apiFetchAdminMessages();
+    _msgRenderFiltered();
   } catch(e){
     console.error('renderAdminMessages error:', e);
     wrap.innerHTML = '<div style="text-align:center;padding:20px;color:var(--red);">Chyba p\u0159i na\u010d\u00edt\u00e1n\u00ed zpr\u00e1v</div>';
   }
+}
+
+function msgApplyFilter(){
+  if(_msgActiveTab === 'notif') _msgRenderFiltered();
+}
+
+function _msgRenderFiltered(){
+  var wrap = document.getElementById('messages-list');
+  if(!wrap) return;
+  var msgs = (_msgAllNotifs || []).slice();
+
+  // Apply type filter
+  var typeF = (document.getElementById('msg-type-filter') || {}).value || '';
+  if(typeF) msgs = msgs.filter(function(m){ return m.type === typeF; });
+
+  if(msgs.length === 0){
+    wrap.innerHTML = '<div style="text-align:center;padding:40px 20px;">' +
+      '<div style="font-size:48px;margin-bottom:12px;">\ud83d\udce8</div>' +
+      '<div style="font-size:14px;font-weight:700;color:var(--black);margin-bottom:4px;">\u017d\u00e1dn\u00e9 ozn\u00e1men\u00ed</div>' +
+      '<div style="font-size:12px;color:var(--g400);line-height:1.5;">Zat\u00edm nem\u00e1te \u017e\u00e1dn\u00e9 ozn\u00e1men\u00ed z MotoGo24.</div>' +
+      '</div>';
+    return;
+  }
+
+  var html = '';
+  msgs.forEach(function(m){
+    var date = m.created_at ? new Date(m.created_at) : new Date();
+    var fmt = date.toLocaleDateString('cs-CZ') + ' ' +
+      date.toLocaleTimeString('cs-CZ', {hour:'2-digit', minute:'2-digit'});
+    var isUnread = !m.read;
+    var icon = _msgIcon(m.type);
+
+    html += '<div class="msg-item' + (isUnread ? ' msg-unread' : '') + '"' +
+      ' onclick="markMsgRead(\'' + m.id + '\',this)">' +
+      '<div class="msg-icon-wrap"><div class="msg-icon">' + icon + '</div>' +
+      (isUnread ? '<div class="msg-dot"></div>' : '') + '</div>' +
+      '<div class="msg-body">' +
+      '<div class="msg-title">' + _escHtml(m.title || 'Zpr\u00e1va z Moto Go') + '</div>' +
+      '<div class="msg-text">' + _escHtml(m.message || '') + '</div>' +
+      '<div class="msg-time">' + fmt + '</div>' +
+      '</div></div>';
+  });
+  wrap.innerHTML = html;
 }
 
 // ===== RENDER THREADS LIST =====
