@@ -47,7 +47,7 @@ Templates['s-checkout'] = `  <div class="topbar">
           <div class="ff" style="margin-bottom:8px;position:relative;"><label>Ulice a \u010d\u00edslo popisn\u00e9</label><input type="text" id="ship-street" placeholder="P\u0159\u00edkladov\u00e1 123" oninput="showAddrSuggestions(this,'ship')" autocomplete="off"><div id="ship-addr-suggestions" class="addr-suggestions" style="display:none;"></div></div>
           <div style="display:grid;grid-template-columns:1fr 2fr;gap:8px;">
             <div class="ff"><label>PS\u010c</label><input type="text" id="ship-zip" placeholder="393 01" maxlength="6" list="cz-zip-list"></div>
-            <div class="ff"><label>M\u011bsto</label><input type="text" id="ship-city" placeholder="Pelh\u0159imov" list="cz-city-list"></div>
+            <div class="ff" style="position:relative;"><label>M\u011bsto</label><input type="text" id="ship-city" placeholder="Pelh\u0159imov" oninput="showCitySuggestionsFor(this,'ship')" autocomplete="off"><div id="ship-city-suggestions" class="addr-suggestions" style="display:none;"></div></div>
           </div>
         </div>
       </div>

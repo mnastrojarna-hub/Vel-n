@@ -58,7 +58,7 @@ Templates['s-booking'] = `  <div class="topbar"><div class="back-row" onclick="h
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px;">
         <div class="ff" style="margin:0;"><label id="t-bkZip">PSČ</label><input type="text" id="b-contact-zip" list="cz-zip-list" value=""></div>
-        <div class="ff" style="margin:0;"><label id="t-bkCity">Město</label><input type="text" id="b-contact-city" list="cz-city-list" value=""></div>
+        <div class="ff" style="margin:0;position:relative;"><label id="t-bkCity">Město</label><input type="text" id="b-contact-city" list="cz-city-list" value="" oninput="showCitySuggestionsFor(this,'b-contact')" autocomplete="off"><div id="b-contact-city-suggestions" class="addr-suggestions" style="display:none;"></div></div>
       </div>
       <div class="ff" style="margin-top:9px;"><label id="t-bkCountry">Stát</label><select id="b-contact-country" style="width:100%;border:2px solid var(--g200);border-radius:var(--rsm);padding:12px 14px;font-size:14px;font-family:var(--font);outline:none;background:var(--g100);color:var(--black);font-weight:500;"><option id="t-bkCZ" selected>Česká republika</option><option id="t-bkSK">Slovensko</option><option id="t-bkDE">Německo</option><option id="t-bkAT">Rakousko</option><option id="t-bkPL">Polsko</option><option id="t-bkOther">Jiné</option></select></div>
       <div class="ff" style="margin-top:9px;"><label id="t-bkEmail">E-mail</label><input type="email" id="b-contact-email" value=""></div>
