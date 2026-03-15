@@ -807,6 +807,9 @@ function DoporuceniPresunu() {
   const [planned, setPlanned] = useState(() => {
     try { return JSON.parse(localStorage.getItem('velin_relocations') || '[]') } catch { return [] }
   })
+  const [bulkPlanned, setBulkPlanned] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('velin_bulk_relocations') || '[]') } catch { return [] }
+  })
 
   useEffect(() => { loadData() }, [])
 
@@ -822,13 +825,26 @@ function DoporuceniPresunu() {
     localStorage.setItem('velin_relocations', JSON.stringify(next))
   }
 
+  function toggleBulkPlan(category, fromLocationId, toLocationId, count) {
+    const key = `${category}_${fromLocationId}_${toLocationId}`
+    const exists = bulkPlanned.find(b => `${b.category}_${b.fromLocationId}_${b.toLocationId}` === key)
+    let next
+    if (exists) {
+      next = bulkPlanned.filter(b => `${b.category}_${b.fromLocationId}_${b.toLocationId}` !== key)
+    } else {
+      next = [...bulkPlanned, { category, fromLocationId, toLocationId, count, plannedAt: new Date().toISOString() }]
+    }
+    setBulkPlanned(next)
+    localStorage.setItem('velin_bulk_relocations', JSON.stringify(next))
+  }
+
   async function loadData() {
     setLoading(true)
     setError(null)
     try {
       const [mRes, bRes, lRes] = await Promise.all([
         supabase.from('motorcycles').select('id, model, brand, category, location_id, daily_rate, purchase_price, status'),
-        supabase.from('bookings').select('motorcycle_id, location_id, start_date, end_date, total_price, status'),
+        supabase.from('bookings').select('motorcycle_id, location_id, start_date, end_date, total_price, status, created_at'),
         supabase.from('locations').select('id, name, type'),
       ])
       if (mRes.error) throw mRes.error
@@ -842,6 +858,10 @@ function DoporuceniPresunu() {
 
       const locMap = {}
       for (const l of locations) locMap[l.id] = l
+
+      // Moto location lookup
+      const motoLocLookup = {}
+      for (const m of motorcycles) motoLocLookup[m.id] = m.location_id
 
       // Per-moto stats
       const motoStats = motorcycles.map(m => {
@@ -924,7 +944,104 @@ function DoporuceniPresunu() {
       // Section C: consider retiring
       const retiring = motoStats.filter(m => m.utilization < 0.40 || (m.roi < 0.20 && m.purchasePrice > 0))
 
-      setData({ relocations, buyScores, retiring, motorcycles })
+      // Section B2: Seasonal relocations
+      const SEASON_DAYS = { leto: 92, jaro_podzim: 153, zima: 120 }
+      function getSeason(date) {
+        const m = new Date(date).getMonth() + 1
+        if (m >= 6 && m <= 8) return 'leto'
+        if ((m >= 3 && m <= 5) || (m >= 9 && m <= 10)) return 'jaro_podzim'
+        return 'zima'
+      }
+
+      // Compute per loc×cat×season rented days
+      const seasonalMap = {}
+      for (const b of completed) {
+        const mLocId = motoLocLookup[b.motorcycle_id]
+        const lid = b.location_id || mLocId
+        const moto = motorcycles.find(mm => mm.id === b.motorcycle_id)
+        if (!moto || !lid) continue
+        const cat = (moto.category || '').toLowerCase()
+        if (!cat) continue
+        const season = getSeason(b.start_date || b.created_at)
+        const days = diffDays(b.start_date, b.end_date)
+        const key = `${lid}_${cat}`
+        if (!seasonalMap[key]) seasonalMap[key] = { lid, cat, leto: 0, jaro_podzim: 0, zima: 0 }
+        seasonalMap[key][season] += days
+      }
+
+      // Compute utilization by season
+      const seasonalRows = []
+      const seasonalActions = []
+      for (const key in seasonalMap) {
+        const s = seasonalMap[key]
+        const locCatKey = `${s.lid}_${s.cat}`
+        const motoCount = locCatUtil[locCatKey]?.count || 0
+        if (motoCount === 0) continue
+        const utilLeto = motoCount > 0 ? s.leto / (motoCount * SEASON_DAYS.leto) : 0
+        const utilJP = motoCount > 0 ? s.jaro_podzim / (motoCount * SEASON_DAYS.jaro_podzim) : 0
+        const utilZima = motoCount > 0 ? s.zima / (motoCount * SEASON_DAYS.zima) : 0
+        const utils = { leto: utilLeto, jaro_podzim: utilJP, zima: utilZima }
+        const vals = [utilLeto, utilJP, utilZima]
+        const maxU = Math.max(...vals)
+        const minU = Math.min(...vals)
+
+        let recommendation = 'Stabilní'
+        if (maxU > 0.75 && minU < 0.45) {
+          const maxSeason = Object.entries(utils).sort((a, b) => b[1] - a[1])[0][0]
+          const minSeason = Object.entries(utils).sort((a, b) => a[1] - b[1])[0][0]
+          const seasonLabels = { leto: 'léto', jaro_podzim: 'jaro/podzim', zima: 'zimu' }
+          if (maxSeason === 'leto') recommendation = 'Posílit léto'
+          else if (maxSeason === 'zima') recommendation = 'Přesunout na zimu'
+          else recommendation = 'Přesunout na léto'
+
+          const loc = locMap[s.lid]
+          if (loc) {
+            const emoji = maxSeason === 'leto' ? '🌞 Léto' : maxSeason === 'zima' ? '❄️ Zima' : '🍂 Jaro/Podzim'
+            seasonalActions.push(`${emoji}: +${motoCount} ${s.cat} → ${loc.name}`)
+          }
+        }
+
+        const loc = locMap[s.lid]
+        seasonalRows.push({
+          locName: loc?.name || '—', cat: s.cat,
+          leto: utilLeto, jaro_podzim: utilJP, zima: utilZima,
+          recommendation, hasSeasonal: maxU > 0.75 && minU < 0.45,
+        })
+      }
+
+      // Section C2: Bulk relocations
+      const bulkRelocations = []
+      const allCats = [...new Set(motorcycles.map(m => (m.category || '').toLowerCase()).filter(Boolean))]
+      for (const cat of allCats) {
+        const surplus = []
+        const deficit = []
+        for (const l of locations) {
+          const key = `${l.id}_${cat}`
+          const entry = locCatUtil[key]
+          if (!entry) continue
+          const avg = entry.avg || 0
+          const count = entry.count || 0
+          if (avg < 0.50 && count > 1) surplus.push({ loc: l, avg, count })
+          if (avg > 0.80) deficit.push({ loc: l, avg, count })
+        }
+        if (surplus.length > 0 && deficit.length > 0) {
+          for (const s of surplus) {
+            for (const d of deficit) {
+              const moveCount = Math.floor(s.count / 2)
+              if (moveCount > 0) {
+                bulkRelocations.push({
+                  category: cat,
+                  fromLoc: s.loc, fromUtil: s.avg,
+                  toLoc: d.loc, toUtil: d.avg,
+                  count: moveCount,
+                })
+              }
+            }
+          }
+        }
+      }
+
+      setData({ relocations, buyScores, retiring, motorcycles, seasonalRows, seasonalActions, bulkRelocations, locations })
     } catch (e) {
       setError(e.message || 'Chyba při načítání dat')
     } finally {
@@ -936,8 +1053,14 @@ function DoporuceniPresunu() {
   if (error) return <div className="p-4 text-center" style={{ color: '#dc2626' }}>{error}</div>
   if (!data || data.motorcycles.length === 0) return <div className="p-8 text-center" style={{ color: '#888' }}><div style={{ fontSize: 48 }}>🏍️</div><div className="font-bold mt-2">Žádné motorky</div></div>
 
-  const { relocations, buyScores, retiring } = data
+  const { relocations, buyScores, retiring, seasonalRows, seasonalActions, bulkRelocations, locations: locs } = data
   const cardStyle = { background: '#fff', borderRadius: 14, padding: 16, boxShadow: '0 1px 4px rgba(0,0,0,.06)' }
+
+  function seasonCellStyle(val) {
+    if (val > 0.70) return { background: 'rgba(116,251,113,0.2)', color: '#166534' }
+    if (val >= 0.40) return { background: 'rgba(251,191,36,0.15)', color: '#92400e' }
+    return { background: 'rgba(220,38,38,0.12)', color: '#991b1b' }
+  }
 
   return (
     <div>
@@ -986,7 +1109,110 @@ function DoporuceniPresunu() {
         )}
       </div>
 
-      {/* Section B: Buy Score */}
+      {/* Section B: Seasonal relocations */}
+      <div style={{ marginBottom: 32, paddingBottom: 24, borderBottom: '2px solid #e5e7eb' }}>
+        <div className="text-lg font-extrabold mb-4" style={{ color: '#1a2e22' }}>Sezónní přesuny</div>
+        {seasonalRows.length === 0 ? (
+          <div style={{ ...cardStyle, textAlign: 'center', padding: 24, color: '#888' }}>Žádná sezónní data</div>
+        ) : (
+          <>
+            <div style={{ ...cardStyle, overflowX: 'auto', marginBottom: seasonalActions.length > 0 ? 16 : 0 }}>
+              <div className="font-bold mb-3 text-sm" style={{ color: '#1a2e22' }}>Sezónní obsazenost podle kategorií</div>
+              <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
+                    {['Pobočka', 'Kategorie', 'Léto', 'Jaro/Podzim', 'Zima', 'Doporučení'].map(h => (
+                      <th key={h} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {seasonalRows.map((r, i) => (
+                    <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                      <td className="py-2 px-3 font-semibold">{r.locName}</td>
+                      <td className="py-2 px-3">{r.cat}</td>
+                      {['leto', 'jaro_podzim', 'zima'].map(s => (
+                        <td key={s} className="py-2 px-3">
+                          <span style={{ ...seasonCellStyle(r[s]), borderRadius: 6, padding: '2px 8px', fontSize: 12, fontWeight: 700 }}>
+                            {(r[s] * 100).toFixed(0)}%
+                          </span>
+                        </td>
+                      ))}
+                      <td className="py-2 px-3 font-bold text-xs" style={{ color: r.hasSeasonal ? '#854d0e' : '#166534' }}>{r.recommendation}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {seasonalActions.length > 0 && (
+              <div>
+                <div className="text-sm font-bold mb-2" style={{ color: '#1a2e22' }}>Doporučené sezónní akce</div>
+                <div className="flex flex-wrap gap-2">
+                  {seasonalActions.map((a, i) => (
+                    <span key={i} style={{
+                      background: '#dcfce7', color: '#166534',
+                      borderRadius: 8, padding: '4px 12px', fontSize: 12, fontWeight: 700,
+                    }}>{a}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Section C: Bulk relocations */}
+      <div style={{ marginBottom: 32, paddingBottom: 24, borderBottom: '2px solid #e5e7eb' }}>
+        <div className="text-lg font-extrabold mb-4" style={{ color: '#1a2e22' }}>Hromadné relokace kategorií</div>
+        {bulkRelocations.length === 0 ? (
+          <div style={{ ...cardStyle, textAlign: 'center', padding: 24 }}>
+            <div className="font-bold" style={{ color: '#166534' }}>✅ Žádné hromadné relokace potřeba — kategorie jsou rovnoměrně rozmístěny</div>
+          </div>
+        ) : (
+          <div style={{ ...cardStyle, overflowX: 'auto' }}>
+            <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
+                  {['Kategorie', 'Z pobočky', 'Obsazenost (přebytek)', 'Do pobočky', 'Obsazenost (nedostatek)', 'Počet k přesunu', 'Akce'].map(h => (
+                    <th key={h} className="text-left font-bold py-2 px-3" style={{ color: '#1a2e22' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {bulkRelocations.map((r, i) => {
+                  const bKey = `${r.category}_${r.fromLoc.id}_${r.toLoc.id}`
+                  const isBulkPlanned = bulkPlanned.some(b => `${b.category}_${b.fromLocationId}_${b.toLocationId}` === bKey)
+                  return (
+                    <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                      <td className="py-2 px-3 font-semibold">{r.category}</td>
+                      <td className="py-2 px-3">{r.fromLoc.name}</td>
+                      <td className="py-2 px-3">{(r.fromUtil * 100).toFixed(1)}%</td>
+                      <td className="py-2 px-3">{r.toLoc.name}</td>
+                      <td className="py-2 px-3">{(r.toUtil * 100).toFixed(1)}%</td>
+                      <td className="py-2 px-3 font-bold">{r.count}</td>
+                      <td className="py-2 px-3">
+                        <button
+                          onClick={() => toggleBulkPlan(r.category, r.fromLoc.id, r.toLoc.id, r.count)}
+                          className="text-xs font-bold cursor-pointer"
+                          style={{
+                            padding: '5px 12px', borderRadius: 8, border: 'none',
+                            background: isBulkPlanned ? '#e5e7eb' : '#f1faf7',
+                            color: isBulkPlanned ? '#6b7280' : '#1a2e22',
+                          }}
+                        >
+                          {isBulkPlanned ? '✓ Naplánováno' : 'Naplánovat'}
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Section D: Buy Score */}
       <div style={{ marginBottom: 32, paddingBottom: 24, borderBottom: '2px solid #e5e7eb' }}>
         <div className="text-lg font-extrabold mb-4" style={{ color: '#1a2e22' }}>Top kandidáti na dokoupení</div>
         <div style={{ ...cardStyle, overflowX: 'auto' }}>
