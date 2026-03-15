@@ -285,7 +285,8 @@
 | `expire_vouchers()` | Automatická expirace voucherů (pg_cron) |
 | `expire_vouchers_and_promos()` | Expirace voucherů + deaktivace promo kódů po valid_to |
 | `auto_cancel_expired_pending()` | Auto-cancel pending+unpaid bookings (app: 10min, web: 4h). SECURITY DEFINER |
-| `auto_complete_expired_bookings()` | Auto-complete: active/reserved + end_date < today + paid → completed. SECURITY DEFINER |
+| `auto_complete_expired_bookings()` | Auto-complete: active/reserved + end_date < today + paid → completed (BEZ fakturace — KF generuje trigger). SECURITY DEFINER |
+| `generate_final_invoice_on_complete()` | Trigger funkce: generuje KF (konečnou fakturu) při přechodu active→completed. SECURITY DEFINER |
 | `auto_activate_reserved_bookings()` | Auto-activate: reserved + paid + start_date <= today → active (+picked_up_at). SECURITY DEFINER |
 | `check_user_booking_overlap()` | Trigger: per-user overlap check — zákazník nesmí mít 2 překrývající se rezervace. Výjimka: dětské motorky (license_required=N). SECURITY DEFINER |
 | `confirm_payment(booking_id, method)` | RPC: označí booking jako zaplacený. start_date<=dnes → pending→**active** (+picked_up_at), start_date>dnes → pending→**reserved** (+confirmed_at). SECURITY DEFINER |
@@ -348,6 +349,7 @@
 | `trg_sync_invoice_pdf_update` | invoices (UPDATE pdf_path) | sync_invoice_pdf_update() |
 | `trg_sync_generated_doc_to_documents` | generated_documents (INSERT) | sync_generated_doc_to_documents() |
 | `trg_sync_moto_day_prices` | moto_day_prices (INSERT/UPDATE) | sync_moto_day_prices_to_motorcycles() |
+| `trg_generate_final_invoice` | bookings (AFTER UPDATE OF status, WHEN active→completed) | generate_final_invoice_on_complete() — SECURITY DEFINER, EXCEPTION safe |
 
 ### Další triggery v reálné DB
 | Trigger | Tabulka | Funkce |
@@ -577,3 +579,4 @@ Detailní politiky:
 | 2026-03-13 | **NEW: Auto-complete expired bookings:** `auto_complete_expired_bookings()` — active/reserved + end_date < today + paid → completed. pg_cron job `auto-complete-expired-bookings` denně v 00:01 |
 | 2026-03-13 | **FIX: Document templates .single()→array:** Edge function generate-document a app apiFetchDocTemplate: `.single()` nahrazeno `.limit(1)` + array[0] (single selhával při 0/2+ výsledcích → fallback místo DB šablony). Per-user overlap check v apiCreateBooking a Velín NewBookingModal. Velín getDisplayStatus: end_date < today → completed, reserved → Nadcházející/Aktivní dle data |
 | 2026-03-13 | **FIX: SOS flow + auto-activate reserved:** 1) SOS booking queries přidán status 'reserved' (apiGetActiveLoan, ui-controller 4× query, sos_swap_bookings RPC). 2) sosEndRide/sosEndRideFree: booking→completed+ended_by_sos+moto→maintenance. 3) sosPaymentSubmit: opraveno ZF/DP generování (fallback booking_id, payment_status update). 4) Velín: StatusBadge 'Dokončeno SOS', FleetDetail SOS incidenty. 5) auto_activate_reserved_bookings() — reserved+paid+start_date<=today→active. pg_cron denně 00:01. Velín Bookings.jsx: autoActivateReserved() při každém načtení |
+| 2026-03-15 | **REFACTOR: KF faktura triggerem:** `auto_complete_expired_bookings()` přepsána — pouze mění status, negeneruje KF. Nová trigger funkce `generate_final_invoice_on_complete()` generuje KF (konečnou fakturu) při přechodu `active→completed`. Trigger `trg_generate_final_invoice` AFTER UPDATE OF status WHEN (active→completed). EXCEPTION safe — chyba logována ale neblokuje UPDATE |
