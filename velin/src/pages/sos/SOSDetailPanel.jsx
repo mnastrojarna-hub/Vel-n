@@ -476,9 +476,9 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
       if (!window.confirm('Potvrdit doručení náhradní motorky zákazníkovi?\n\nPůvodní motorka bude odvezena do servisu.')) return
     }
     // Auto-trigger booking swap if it hasn't happened yet
-    const rd = incident?.replacement_data || {}
-    const hasSwap = (rd.original_booking_id && rd.replacement_booking_id) || (incident?.original_booking_id && incident?.replacement_booking_id)
-    if (!hasSwap && rd.replacement_moto_id) {
+    const replData = incident?.replacement_data || {}
+    const swapDone = (replData.original_booking_id && replData.replacement_booking_id) || (incident?.original_booking_id && incident?.replacement_booking_id)
+    if (!swapDone && replData.replacement_moto_id) {
       await ensureBookingSwap()
     }
     await debugAction('sos.updateReplacementStatus', 'SOSDetailPanel', () =>
