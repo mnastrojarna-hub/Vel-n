@@ -20,7 +20,9 @@ function getDayPrice(moto, dayOfWeek) {
 
 function toDateStr(d) {
   if (!d) return ''
-  return String(d).split('T')[0]
+  // Use local timezone to avoid UTC date shift (e.g. 2026-03-14T23:00Z → should be 2026-03-15 in CET)
+  const dt = new Date(d)
+  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`
 }
 
 function fmtDateCS(d) {

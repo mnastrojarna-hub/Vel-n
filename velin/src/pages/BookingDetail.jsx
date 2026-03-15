@@ -16,7 +16,11 @@ const TABS = ['Detail', 'Kalendář motorky', 'Dokumenty', 'Platby', 'Reklamace'
 
 // Helper: describe a single date modification step
 function describeModification(fromStart, fromEnd, toStart, toEnd) {
-  const fs = new Date(fromStart), fe = new Date(fromEnd), ts = new Date(toStart), te = new Date(toEnd)
+  // Normalize to local midnight to avoid timezone-caused fractional days
+  const fs = new Date(fromStart); fs.setHours(0,0,0,0)
+  const fe = new Date(fromEnd); fe.setHours(0,0,0,0)
+  const ts = new Date(toStart); ts.setHours(0,0,0,0)
+  const te = new Date(toEnd); te.setHours(0,0,0,0)
   const startDelta = Math.round((ts - fs) / 86400000)
   const endDelta = Math.round((te - fe) / 86400000)
   const origDays = Math.max(1, Math.round((fe - fs) / 86400000) + 1)
@@ -370,10 +374,10 @@ export default function BookingDetail() {
       const dateChanged = toLD(dbBooking.start_date) !== toLD(start_date) || toLD(dbBooking.end_date) !== toLD(end_date)
 
       if (dateChanged) {
-        // Set original dates on first-ever modification
+        // Set original dates on first-ever modification (YYYY-MM-DD to avoid UTC truncation on DATE column)
         if (!dbBooking.original_start_date) {
-          saveData.original_start_date = dbBooking.start_date
-          saveData.original_end_date = dbBooking.end_date
+          saveData.original_start_date = toLD(dbBooking.start_date)
+          saveData.original_end_date = toLD(dbBooking.end_date)
         }
         // Append to modification_history
         const history = Array.isArray(dbBooking.modification_history) ? [...dbBooking.modification_history] : []
@@ -829,7 +833,10 @@ function SumRow({ label, value, color }) {
 
 function BookingSummary({ booking, sosIncidents, bookingExtras, cancellation, promoUsage, voucherUsed }) {
   const b = booking
-  const days = Math.max(1, Math.ceil((new Date(b.end_date) - new Date(b.start_date)) / 86400000) + 1)
+  // Normalize to local midnight to avoid timezone-caused fractional days
+  const _sd = new Date(b.start_date); _sd.setHours(0,0,0,0)
+  const _ed = new Date(b.end_date); _ed.setHours(0,0,0,0)
+  const days = Math.max(1, Math.round((_ed - _sd) / 86400000) + 1)
   const branchName = b.motorcycles?.branches?.name || '—'
 
   const toLD = d => d ? new Date(d).toLocaleDateString('sv-SE') : ''

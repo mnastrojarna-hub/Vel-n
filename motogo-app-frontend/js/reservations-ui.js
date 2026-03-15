@@ -364,8 +364,8 @@ async function openResDetailById(bookingId){
 
     var moto = booking.motorcycles || (booking.moto_id ? await _getMotoById(booking.moto_id) : null);
     var st = _mapStatus(booking.status, booking.start_date, booking.end_date, booking);
-    var s = new Date(booking.start_date);
-    var e = new Date(booking.end_date);
+    var s = new Date(booking.start_date); s.setHours(0,0,0,0);
+    var e = new Date(booking.end_date); e.setHours(0,0,0,0);
     var days = Math.max(1, Math.round((e-s)/86400000)+1);
     var motoName = moto ? (moto.model || moto.name) : (booking.moto_name || 'Motorka');
 

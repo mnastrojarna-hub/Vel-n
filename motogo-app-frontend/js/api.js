@@ -463,8 +463,9 @@ async function apiExtendBooking(bookingId, newEndISO){
       var _ld = function(d){ return d ? new Date(d).toLocaleDateString('sv-SE') : ''; };
       var changes = {};
       if(!cur.data.original_start_date){
-        changes.original_start_date = cur.data.start_date;
-        changes.original_end_date = cur.data.end_date;
+        // Use YYYY-MM-DD in local timezone to avoid UTC truncation bug
+        changes.original_start_date = _ld(cur.data.start_date);
+        changes.original_end_date = _ld(cur.data.end_date);
       }
       var hist = Array.isArray(cur.data.modification_history) ? cur.data.modification_history.slice() : [];
       hist.push({at:new Date().toISOString(), from_start:_ld(cur.data.start_date), from_end:_ld(cur.data.end_date), to_start:_ld(cur.data.start_date), to_end:_ld(newEndISO), source:'customer'});
@@ -482,10 +483,11 @@ async function apiShortenBooking(bookingId, newEndISO, newStartISO){
     var cur = await window.supabase.from('bookings').select('start_date, end_date, original_start_date, original_end_date, modification_history').eq('id', bookingId).single();
     if(!cur.data) return {error:'Rezervace nenalezena'};
     var changes = {};
-    // Store original dates on first-ever modification
+    // Store original dates on first-ever modification (YYYY-MM-DD to avoid UTC truncation)
+    var _ld = function(d){ return d ? new Date(d).toLocaleDateString('sv-SE') : ''; };
     if(!cur.data.original_start_date){
-      changes.original_start_date = cur.data.start_date;
-      changes.original_end_date = cur.data.end_date;
+      changes.original_start_date = _ld(cur.data.start_date);
+      changes.original_end_date = _ld(cur.data.end_date);
     }
     if(newEndISO) changes.end_date = newEndISO;
     if(newStartISO) changes.start_date = newStartISO;
@@ -509,10 +511,10 @@ async function apiModifyBooking(bookingId, changes){
       var cur = await window.supabase.from('bookings').select('start_date, end_date, moto_id, original_start_date, original_end_date, modification_history, motorcycles(model)').eq('id', bookingId).single();
       if(cur.data){
         var _ld = function(d){ return d ? new Date(d).toLocaleDateString('sv-SE') : ''; };
-        // Store original dates on first-ever modification
+        // Store original dates on first-ever modification (YYYY-MM-DD to avoid UTC truncation)
         if(!cur.data.original_start_date){
-          changes.original_start_date = cur.data.start_date;
-          changes.original_end_date = cur.data.end_date;
+          changes.original_start_date = _ld(cur.data.start_date);
+          changes.original_end_date = _ld(cur.data.end_date);
         }
         // Append to modification_history
         var hist = Array.isArray(cur.data.modification_history) ? cur.data.modification_history.slice() : [];
