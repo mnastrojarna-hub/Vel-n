@@ -145,12 +145,21 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
       if (b) {
         setBooking(b)
         setCustomer(b.profiles)
-        setMoto(b.motorcycles)
-        return
+        if (b.motorcycles) {
+          setMoto(b.motorcycles)
+        } else if (b.moto_id) {
+          // Booking has moto_id but join failed — load motorcycle directly
+          const { data: m } = await supabase.from('motorcycles').select('*, branches(name)').eq('id', b.moto_id).single()
+          if (m) setMoto(m)
+        }
+        // Don't return — fall through to try incident.moto_id if moto still null
+        if (b.motorcycles) return
       }
     }
-    if (incident.moto_id) {
-      const { data: m } = await supabase.from('motorcycles').select('*, branches(name)').eq('id', incident.moto_id).single()
+    // Try loading motorcycle from incident's direct moto_id
+    const directMotoId = incident.moto_id || incident.original_moto_id
+    if (directMotoId) {
+      const { data: m } = await supabase.from('motorcycles').select('*, branches(name)').eq('id', directMotoId).single()
       if (m) setMoto(m)
     }
     if (incident.user_id) {
@@ -213,8 +222,8 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
   }
 
   async function setMotoToService() {
-    const motoId = moto?.id || incident?.moto_id || incident?.replacement_data?.original_moto_id
-    if (!motoId) { alert('Chyba: Nelze určit ID motorky'); return }
+    const motoId = moto?.id || incident?.moto_id || incident?.original_moto_id || incident?.replacement_data?.original_moto_id || booking?.moto_id || incident?.bookings?.moto_id
+    if (!motoId) { alert('Chyba: Nelze určit ID motorky. Zkuste obnovit stránku.'); return }
     if (!window.confirm('Přesunout motorku do servisu (maintenance)?\n\nMotorka bude nedostupná pro nové rezervace.')) return
     try {
       const { error } = await supabase.from('motorcycles').update({ status: 'maintenance' }).eq('id', motoId)
