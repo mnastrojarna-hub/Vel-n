@@ -148,7 +148,10 @@ export default function Bookings() {
       if (filters.branch) data = data.filter(b => b.motorcycles?.branch_id === filters.branch)
       if (filters.durationMin || filters.durationMax) {
         data = data.filter(b => {
-          const d = Math.max(1, Math.ceil((new Date(b.end_date) - new Date(b.start_date)) / 86400000))
+          // Normalize to local midnight to avoid timezone-caused fractional days
+          const _s = new Date(b.start_date); _s.setHours(0,0,0,0)
+          const _e = new Date(b.end_date); _e.setHours(0,0,0,0)
+          const d = Math.max(1, Math.round((_e - _s) / 86400000) + 1)
           if (filters.durationMin && d < Number(filters.durationMin)) return false
           if (filters.durationMax && d > Number(filters.durationMax)) return false
           return true
@@ -297,13 +300,15 @@ export default function Bookings() {
             <tbody>
               {bookings.map(b => {
                 const toLocalDate = d => d ? new Date(d).toLocaleDateString('sv-SE') : ''
-                const days = b.start_date && b.end_date ? Math.max(1, Math.round((new Date(b.end_date) - new Date(b.start_date)) / 86400000) + 1) : '—'
+                // Normalize to local midnight to avoid timezone fractional days
+                const _nm = d => { const dt = new Date(d); dt.setHours(0,0,0,0); return dt }
+                const days = b.start_date && b.end_date ? Math.max(1, Math.round((_nm(b.end_date) - _nm(b.start_date)) / 86400000) + 1) : '—'
                 // Only show delta when dates actually changed (compare in local timezone to avoid date vs timestamptz mismatch)
                 const hasDateChange = b.original_start_date && b.original_end_date &&
                   (toLocalDate(b.start_date) !== toLocalDate(b.original_start_date) || toLocalDate(b.end_date) !== toLocalDate(b.original_end_date))
-                const origDays = hasDateChange ? Math.max(1, Math.round((new Date(b.original_end_date) - new Date(b.original_start_date)) / 86400000) + 1) : null
+                const origDays = hasDateChange ? Math.max(1, Math.round((_nm(b.original_end_date) - _nm(b.original_start_date)) / 86400000) + 1) : null
                 const daysDelta = origDays !== null && typeof days === 'number' ? days - origDays : null
-                const startShift = hasDateChange ? Math.round((new Date(b.start_date) - new Date(b.original_start_date)) / 86400000) : 0
+                const startShift = hasDateChange ? Math.round((_nm(b.start_date) - _nm(b.original_start_date)) / 86400000) : 0
                 return (
                   <tr key={b.id} onClick={() => navigate(`/rezervace/${b.id}`)}
                     className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
