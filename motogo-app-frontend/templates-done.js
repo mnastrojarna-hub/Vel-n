@@ -67,10 +67,10 @@ Templates['s-profile'] = `  <div class="prof-hdr">
       <div class="edit-field"><label id="t-pLicCat">Kategorie ŘP</label><input id="profile-license-group" type="text" value=""></div>
       <button class="save-btn" id="t-saveChanges" onclick="doSaveProfile()">Uložit změny</button>
     </div>
-    <div class="mi" onclick="goTo('s-messages')" style="position:relative;"><div class="mii" style="background:#e8ffe8;">📩</div><div class="mit" id="prof-lbl-messages">Zprávy z Moto Go</div><div id="msg-badge" class="msg-badge" style="display:none;">0</div><div class="mia">›</div></div>
+    <div class="mi" onclick="phubOpenTab('messages')" style="position:relative;"><div class="mii" style="background:#e8ffe8;">📩</div><div class="mit" id="prof-lbl-messages">Zprávy z Moto Go</div><div id="msg-badge" class="msg-badge" style="display:none;">0</div><div class="mia">›</div></div>
     <div class="mi" onclick="goTo('s-docs')"><div class="mii">📋</div><div class="mit" id="prof-lbl-docs">Moje doklady</div><div class="mia">›</div></div>
-    <div class="mi" onclick="goTo('s-invoices')"><div class="mii">🧾</div><div class="mit" id="prof-lbl-invoices">Faktury a vyúčtování</div><div class="mia">›</div></div>
-    <div class="mi" onclick="goTo('s-contracts')"><div class="mii">📄</div><div class="mit" id="prof-lbl-contracts">Dokumenty a smlouvy</div><div class="mia">›</div></div>
+    <div class="mi" onclick="phubOpenTab('invoices')"><div class="mii">🧾</div><div class="mit" id="prof-lbl-invoices">Faktury a vyúčtování</div><div class="mia">›</div></div>
+    <div class="mi" onclick="phubOpenTab('contracts')"><div class="mii">📄</div><div class="mit" id="prof-lbl-contracts">Dokumenty a smlouvy</div><div class="mia">›</div></div>
     <div id="profile-documents" style="display:none;"></div>
     <div class="mi" onclick="toggleExpand('exp-platba','arr-platba')"><div class="mii">💳</div><div class="mit" id="prof-lbl-pay">Platební metody</div><div class="mia" id="arr-platba">›</div></div>
     <div class="mi-expand" id="exp-platba">
@@ -182,6 +182,32 @@ Templates['s-invoices'] = `  <div class="topbar">
   </div>
   <div id="invoices-list" style="margin:12px 20px 0;">
     <div style="text-align:center;padding:20px;color:var(--g400);"><span id="t-loading">⏳ Načítání...</span></div>
+  </div>
+  <div style="height:20px;"></div>`;
+
+Templates['s-profile-hub'] = `  <div class="topbar">
+    <div class="back-row" onclick="histBack()"><div class="bk-c">\u2190</div><div class="bk-l">Zp\u011bt na profil</div></div>
+    <h2 id="phub-title">M\u016fj \u00fa\u010det</h2>
+    <p id="phub-sub">Zpr\u00e1vy, faktury a smlouvy</p>
+  </div>
+  <div id="phub-tabs" style="display:flex;gap:4px;margin:10px 20px 0;">
+    <button onclick="phubSwitchTab('messages')" id="phub-tab-messages" class="phub-tab phub-tab-active">Zpr\u00e1vy</button>
+    <button onclick="phubSwitchTab('invoices')" id="phub-tab-invoices" class="phub-tab">Faktury</button>
+    <button onclick="phubSwitchTab('contracts')" id="phub-tab-contracts" class="phub-tab">Smlouvy</button>
+  </div>
+  <div id="phub-filters" style="margin:8px 20px 0;">
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+      <select id="phub-sort" onchange="phubApplyFilters()" style="flex:1;min-width:120px;padding:8px 10px;border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:11px;font-weight:700;background:#fff;color:var(--black);">
+        <option value="date_desc">Datum: nejnov\u011bj\u0161\u00ed</option>
+        <option value="date_asc">Datum: nejstar\u0161\u00ed</option>
+      </select>
+      <select id="phub-type-filter" onchange="phubApplyFilters()" style="flex:1;min-width:120px;padding:8px 10px;border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:11px;font-weight:700;background:#fff;color:var(--black);">
+        <option value="">V\u0161echny typy</option>
+      </select>
+    </div>
+  </div>
+  <div id="phub-content" style="margin:10px 20px 0;">
+    <div style="text-align:center;padding:20px;color:var(--g400);">\u23f3 Na\u010d\u00edt\u00e1m...</div>
   </div>
   <div style="height:20px;"></div>`;
 
