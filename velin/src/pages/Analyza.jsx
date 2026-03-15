@@ -41,9 +41,9 @@ function VykonPobocek() {
     setError(null)
     try {
       const [bRes, mRes, lRes] = await Promise.all([
-        supabase.from('bookings').select('id, location_id, motorcycle_id, start_date, end_date, total_price, status, created_at'),
-        supabase.from('motorcycles').select('id, location_id, model, category, brand, daily_rate, status'),
-        supabase.from('locations').select('id, name, city, type'),
+        supabase.from('bookings').select('id, moto_id, start_date, end_date, total_price, status, created_at'),
+        supabase.from('motorcycles').select('id, branch_id, model, category, brand, status'),
+        supabase.from('branches').select('id, name, city, type'),
       ])
       if (bRes.error) throw bRes.error
       if (mRes.error) throw mRes.error
@@ -55,13 +55,18 @@ function VykonPobocek() {
 
       const completed = bookings.filter(b => b.status === 'completed')
 
+      // Build moto→branch lookup (bookings don't have branch_id)
+      const motoBranchMap = {}
+      for (const m of motorcycles) motoBranchMap[m.id] = m.branch_id
+
       const now = new Date()
       const thisMonth = now.getMonth()
       const thisYear = now.getFullYear()
 
       const branchStats = locations.map(loc => {
-        const locCompleted = completed.filter(b => b.location_id === loc.id)
-        const locMotos = motorcycles.filter(m => m.location_id === loc.id)
+        const locMotos = motorcycles.filter(m => m.branch_id === loc.id)
+        const locMotoIds = new Set(locMotos.map(m => m.id))
+        const locCompleted = completed.filter(b => locMotoIds.has(b.moto_id))
         const revenue = locCompleted.reduce((s, b) => s + (Number(b.total_price) || 0), 0)
         const reservationCount = locCompleted.length
         const motorcycleCount = locMotos.length
@@ -111,7 +116,7 @@ function VykonPobocek() {
 
       const chartData = [...branchStats].sort((a, b) => b.revenue - a.revenue).map(b => ({ name: b.name, revenue: b.revenue }))
 
-      setData({ branchStats, totalRevenue, totalReservations, avgDaysTotal, avgUtilization, byType, chartData, locations })
+      setData({ branchStats, totalRevenue, totalReservations, avgDaysTotal, avgUtilization, byType, chartData, branches: locations })
     } catch (e) {
       setError(e.message || 'Chyba při načítání dat')
     } finally {
@@ -131,7 +136,7 @@ function VykonPobocek() {
     return <div className="p-4 text-center" style={{ color: '#dc2626' }}>{error}</div>
   }
 
-  if (!data || data.locations.length === 0) {
+  if (!data || data.branches.length === 0) {
     return (
       <div className="p-8 text-center" style={{ color: '#888' }}>
         <div style={{ fontSize: 48 }}>🏢</div>
@@ -251,8 +256,8 @@ function VykonMotorek() {
     setError(null)
     try {
       const [mRes, bRes] = await Promise.all([
-        supabase.from('motorcycles').select('id, model, brand, category, daily_rate, purchase_price, location_id, status'),
-        supabase.from('bookings').select('motorcycle_id, start_date, end_date, total_price, status'),
+        supabase.from('motorcycles').select('id, model, brand, category, purchase_price, branch_id, status'),
+        supabase.from('bookings').select('moto_id, start_date, end_date, total_price, status'),
       ])
       if (mRes.error) throw mRes.error
       if (bRes.error) throw bRes.error
@@ -262,7 +267,7 @@ function VykonMotorek() {
       const completed = bookings.filter(b => b.status === 'completed')
 
       const motoStats = motorcycles.map(m => {
-        const mCompleted = completed.filter(b => b.motorcycle_id === m.id)
+        const mCompleted = completed.filter(b => b.moto_id === m.id)
         const rentedDays = mCompleted.reduce((s, b) => s + diffDays(b.start_date, b.end_date), 0)
         const revenue = mCompleted.reduce((s, b) => s + (Number(b.total_price) || 0), 0)
         const reservationCount = mCompleted.length
@@ -395,8 +400,8 @@ function PoptavkaKategorii() {
     setError(null)
     try {
       const [mRes, bRes] = await Promise.all([
-        supabase.from('motorcycles').select('id, model, brand, category, daily_rate, purchase_price, location_id, status'),
-        supabase.from('bookings').select('motorcycle_id, start_date, end_date, total_price, status'),
+        supabase.from('motorcycles').select('id, model, brand, category, purchase_price, branch_id, status'),
+        supabase.from('bookings').select('moto_id, start_date, end_date, total_price, status'),
       ])
       if (mRes.error) throw mRes.error
       if (bRes.error) throw bRes.error
@@ -413,7 +418,7 @@ function PoptavkaKategorii() {
         const catMotos = motorcycles.filter(m => (m.category || '').toLowerCase() === cat.toLowerCase())
         const motorcycleCount = catMotos.length
         const catMotoIds = new Set(catMotos.map(m => m.id))
-        const catCompleted = completed.filter(b => catMotoIds.has(b.motorcycle_id))
+        const catCompleted = completed.filter(b => catMotoIds.has(b.moto_id))
         const totalRevenue = catCompleted.reduce((s, b) => s + (Number(b.total_price) || 0), 0)
         const revenuePerMoto = motorcycleCount > 0 ? totalRevenue / motorcycleCount : 0
         const totalRentedDays = catCompleted.reduce((s, b) => s + diffDays(b.start_date, b.end_date), 0)
@@ -548,9 +553,9 @@ function OptimalniFlotila() {
     setError(null)
     try {
       const [lRes, mRes, bRes] = await Promise.all([
-        supabase.from('locations').select('id, name, city, type'),
-        supabase.from('motorcycles').select('id, location_id, category, daily_rate, status'),
-        supabase.from('bookings').select('motorcycle_id, location_id, start_date, end_date, total_price, status'),
+        supabase.from('branches').select('id, name, city, type'),
+        supabase.from('motorcycles').select('id, branch_id, category, status'),
+        supabase.from('bookings').select('moto_id, start_date, end_date, total_price, status'),
       ])
       if (lRes.error) throw lRes.error
       if (mRes.error) throw mRes.error
@@ -563,15 +568,15 @@ function OptimalniFlotila() {
 
       // Build moto->location map
       const motoLocMap = {}
-      for (const m of motorcycles) motoLocMap[m.id] = m.location_id
+      for (const m of motorcycles) motoLocMap[m.id] = m.branch_id
 
       // Compute per-location per-category stats
       const locData = {}
       for (const loc of locations) {
-        const locMotos = motorcycles.filter(m => m.location_id === loc.id)
+        const locMotos = motorcycles.filter(m => m.branch_id === loc.id)
         const locCompleted = completed.filter(b => {
-          const mLocId = motoLocMap[b.motorcycle_id]
-          return mLocId === loc.id || b.location_id === loc.id
+          const mLocId = motoLocMap[b.moto_id]
+          return mLocId === loc.id
         })
 
         // Gather unique categories at this location
@@ -582,7 +587,7 @@ function OptimalniFlotila() {
           const catMotos = locMotos.filter(m => (m.category || '').toLowerCase() === cat)
           const motorcycleCount = catMotos.length
           const catMotoIds = new Set(catMotos.map(m => m.id))
-          const catCompleted = locCompleted.filter(b => catMotoIds.has(b.motorcycle_id))
+          const catCompleted = locCompleted.filter(b => catMotoIds.has(b.moto_id))
           const totalRevenue = catCompleted.reduce((s, b) => s + (Number(b.total_price) || 0), 0)
           const rentedDays = catCompleted.reduce((s, b) => s + diffDays(b.start_date, b.end_date), 0)
           const utilizationPct = motorcycleCount > 0 ? (rentedDays / (motorcycleCount * 365)) * 100 : 0
@@ -843,9 +848,9 @@ function DoporuceniPresunu() {
     setError(null)
     try {
       const [mRes, bRes, lRes] = await Promise.all([
-        supabase.from('motorcycles').select('id, model, brand, category, location_id, daily_rate, purchase_price, status'),
-        supabase.from('bookings').select('motorcycle_id, location_id, start_date, end_date, total_price, status, created_at'),
-        supabase.from('locations').select('id, name, type'),
+        supabase.from('motorcycles').select('id, model, brand, category, branch_id, purchase_price, status'),
+        supabase.from('bookings').select('moto_id, start_date, end_date, total_price, status, created_at'),
+        supabase.from('branches').select('id, name, type'),
       ])
       if (mRes.error) throw mRes.error
       if (bRes.error) throw bRes.error
@@ -861,11 +866,11 @@ function DoporuceniPresunu() {
 
       // Moto location lookup
       const motoLocLookup = {}
-      for (const m of motorcycles) motoLocLookup[m.id] = m.location_id
+      for (const m of motorcycles) motoLocLookup[m.id] = m.branch_id
 
       // Per-moto stats
       const motoStats = motorcycles.map(m => {
-        const mCompleted = completed.filter(b => b.motorcycle_id === m.id)
+        const mCompleted = completed.filter(b => b.moto_id === m.id)
         const rentedDays = mCompleted.reduce((s, b) => s + diffDays(b.start_date, b.end_date), 0)
         const revenue = mCompleted.reduce((s, b) => s + (Number(b.total_price) || 0), 0)
         const reservationCount = mCompleted.length
@@ -880,7 +885,7 @@ function DoporuceniPresunu() {
       const locCatUtil = {}
       for (const m of motoStats) {
         const cat = (m.category || '').toLowerCase()
-        const lid = m.location_id
+        const lid = m.branch_id
         if (!cat || !lid) continue
         const key = `${lid}_${cat}`
         if (!locCatUtil[key]) locCatUtil[key] = { total: 0, count: 0 }
@@ -899,7 +904,7 @@ function DoporuceniPresunu() {
         let bestLoc = null
         let bestUtil = 0
         for (const l of locations) {
-          if (l.id === m.location_id) continue
+          if (l.id === m.branch_id) continue
           const key = `${l.id}_${cat}`
           const avg = locCatUtil[key]?.avg || 0
           if (avg > 0.75 && avg > bestUtil) {
@@ -908,7 +913,7 @@ function DoporuceniPresunu() {
           }
         }
         if (bestLoc) {
-          const fromLoc = locMap[m.location_id]
+          const fromLoc = locMap[m.branch_id]
           const diffPp = Math.round((bestUtil - m.utilization) * 100)
           relocations.push({
             motoId: m.id, model: m.model, brand: m.brand, category: cat,
@@ -956,9 +961,9 @@ function DoporuceniPresunu() {
       // Compute per loc×cat×season rented days
       const seasonalMap = {}
       for (const b of completed) {
-        const mLocId = motoLocLookup[b.motorcycle_id]
-        const lid = b.location_id || mLocId
-        const moto = motorcycles.find(mm => mm.id === b.motorcycle_id)
+        const mLocId = motoLocLookup[b.moto_id]
+        const lid = mLocId
+        const moto = motorcycles.find(mm => mm.id === b.moto_id)
         if (!moto || !lid) continue
         const cat = (moto.category || '').toLowerCase()
         if (!cat) continue
@@ -1359,9 +1364,9 @@ function DoporuceniLokaci() {
     setError(null)
     try {
       const [lRes, bRes, mRes] = await Promise.all([
-        supabase.from('locations').select('id, name, city, type'),
-        supabase.from('bookings').select('location_id, start_date, end_date, total_price, status, created_at'),
-        supabase.from('motorcycles').select('location_id, category, status'),
+        supabase.from('branches').select('id, name, city, type'),
+        supabase.from('bookings').select('moto_id, start_date, end_date, total_price, status, created_at'),
+        supabase.from('motorcycles').select('id, branch_id, category, status'),
       ])
       if (lRes.error) throw lRes.error
       if (bRes.error) throw bRes.error
@@ -1372,10 +1377,15 @@ function DoporuceniLokaci() {
       const motorcycles = mRes.data || []
       const completed = bookings.filter(b => b.status === 'completed')
 
+      // Build moto→branch lookup
+      const motoBrMap = {}
+      for (const m of motorcycles) motoBrMap[m.id] = m.branch_id
+
       // Per-location stats
       const locStats = locations.map(loc => {
-        const locMotos = motorcycles.filter(m => m.location_id === loc.id)
-        const locCompleted = completed.filter(b => b.location_id === loc.id)
+        const locMotos = motorcycles.filter(m => m.branch_id === loc.id)
+        const locMotoIds = new Set(locMotos.map(m => m.id))
+        const locCompleted = completed.filter(b => locMotoIds.has(b.moto_id))
         const revenue = locCompleted.reduce((s, b) => s + (Number(b.total_price) || 0), 0)
         const rentedDays = locCompleted.reduce((s, b) => s + diffDays(b.start_date, b.end_date), 0)
         const motoCount = locMotos.length
