@@ -22,6 +22,7 @@ const InventoryDetail = lazy(() => import('./pages/InventoryDetail'))
 const Service = lazy(() => import('./pages/Service'))
 const Messages = lazy(() => import('./pages/Messages'))
 const CMS = lazy(() => import('./pages/CMS'))
+const Analyza = lazy(() => import('./pages/Analyza'))
 const Statistics = lazy(() => import('./pages/Statistics'))
 const Purchases = lazy(() => import('./pages/Purchases'))
 const Government = lazy(() => import('./pages/Government'))
@@ -74,6 +75,7 @@ export default function App() {
           <Route path="/servis" element={<Service />} />
           <Route path="/zpravy" element={<Messages />} />
           <Route path="/cms" element={<CMS />} />
+          <Route path="/analyza" element={<Analyza />} />
           <Route path="/statistiky" element={<Statistics />} />
           <Route path="/nakupy" element={<Purchases />} />
           <Route path="/statni-sprava" element={<Government />} />
