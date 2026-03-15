@@ -191,11 +191,12 @@ async function proceedToPayment(){
       returnAddr = [rInp.value.trim(), rCity?rCity.value.trim():'', rZip?rZip.value.trim():''].filter(Boolean).join(', ');
     }
 
-    // Create booking
+    // Create booking (YYYY-MM-DD format to avoid timezone shift)
+    var _toDateStr = function(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
     var result = await apiCreateBooking({
       moto_id: motoId,
-      start_date: startDate.toISOString(),
-      end_date: endDate.toISOString(),
+      start_date: _toDateStr(startDate),
+      end_date: _toDateStr(endDate),
       pickup_time: pickupTime,
       total_price: totalPrice,
       extras_price: extraTotal || 0,

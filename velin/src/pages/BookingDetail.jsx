@@ -16,7 +16,11 @@ const TABS = ['Detail', 'Kalendář motorky', 'Dokumenty', 'Platby', 'Reklamace'
 
 // Helper: describe a single date modification step
 function describeModification(fromStart, fromEnd, toStart, toEnd) {
-  const fs = new Date(fromStart), fe = new Date(fromEnd), ts = new Date(toStart), te = new Date(toEnd)
+  // Normalize to local midnight to avoid timezone-caused fractional days
+  const fs = new Date(fromStart); fs.setHours(0,0,0,0)
+  const fe = new Date(fromEnd); fe.setHours(0,0,0,0)
+  const ts = new Date(toStart); ts.setHours(0,0,0,0)
+  const te = new Date(toEnd); te.setHours(0,0,0,0)
   const startDelta = Math.round((ts - fs) / 86400000)
   const endDelta = Math.round((te - fe) / 86400000)
   const origDays = Math.max(1, Math.round((fe - fs) / 86400000) + 1)
@@ -97,6 +101,38 @@ export default function BookingDetail() {
         if (d.end_date) d.end_date = normDate(d.end_date)
         if (d.original_start_date) d.original_start_date = normDate(d.original_start_date)
         if (d.original_end_date) d.original_end_date = normDate(d.original_end_date)
+      }
+      // Auto-fix: pending + paid → reserved/active
+      if (d && d.status === 'pending' && d.payment_status === 'paid') {
+        const today = new Date().toISOString().slice(0, 10)
+        const startLocal = d.start_date ? d.start_date.slice(0, 10) : ''
+        const newStatus = startLocal <= today ? 'active' : 'reserved'
+        const update = { status: newStatus }
+        if (newStatus === 'active') update.picked_up_at = new Date().toISOString()
+        else update.confirmed_at = new Date().toISOString()
+        const { error: fixErr } = await supabase.from('bookings').update(update).eq('id', d.id)
+        if (!fixErr) {
+          d.status = newStatus
+          if (newStatus === 'active') d.picked_up_at = update.picked_up_at
+          else d.confirmed_at = update.confirmed_at
+          console.log(`[AutoFix] Booking ${d.id} pending+paid → ${newStatus}`)
+          // Auto-generate contract + VOP (non-blocking) since status change was done by auto-fix
+          Promise.allSettled([
+            supabase.functions.invoke('generate-document', { body: { template_slug: 'rental_contract', booking_id: d.id } }),
+            supabase.functions.invoke('generate-document', { body: { template_slug: 'vop', booking_id: d.id } }),
+          ]).catch(() => {})
+        }
+      }
+      // Also check: status=active/reserved + paid but 0 generated_documents → trigger generation
+      if (d && (d.status === 'active' || d.status === 'reserved') && d.payment_status === 'paid') {
+        const { data: genDocs } = await supabase.from('generated_documents').select('id').eq('booking_id', d.id).limit(1)
+        if (!genDocs || genDocs.length === 0) {
+          console.log(`[AutoFix] Booking ${d.id} is ${d.status}+paid but has 0 generated docs — triggering generation`)
+          Promise.allSettled([
+            supabase.functions.invoke('generate-document', { body: { template_slug: 'rental_contract', booking_id: d.id } }),
+            supabase.functions.invoke('generate-document', { body: { template_slug: 'vop', booking_id: d.id } }),
+          ]).catch(() => {})
+        }
       }
       setBooking(d)
     }
@@ -271,19 +307,35 @@ export default function BookingDetail() {
     if (!reason) { setError('Vyplňte důvod zrušení'); setSaving(false); return }
 
     const { data: { user } } = await supabase.auth.getUser()
+    const wasPaid = booking.payment_status === 'paid'
     const updatePayload = {
       status: 'cancelled',
       cancelled_by: user?.id || null,
       cancelled_by_source: cancelReason,
       cancellation_reason: reason,
       cancelled_at: new Date().toISOString(),
+      ...(wasPaid ? { payment_status: 'refunded' } : {}),
     }
 
     const cancelResult = await debugAction('booking.cancel', 'BookingDetail', () =>
       supabase.from('bookings').update(updatePayload).eq('id', id)
     , { booking_id: id, reason, source: cancelReason })
     if (cancelResult?.error) { setError(cancelResult.error.message); setSaving(false); return }
-    await logAudit('booking_cancelled', { booking_id: id, reason, source: cancelReason })
+
+    // Admin cancellation = always 100% refund — create booking_cancellations record
+    if (wasPaid && booking.total_price) {
+      try {
+        await supabase.from('booking_cancellations').insert({
+          booking_id: id,
+          cancelled_by: user?.id || null,
+          reason,
+          refund_amount: booking.total_price,
+          refund_percent: 100,
+        })
+      } catch {}
+    }
+
+    await logAudit('booking_cancelled', { booking_id: id, reason, source: cancelReason, refund: wasPaid ? '100%' : 'n/a' })
 
     if (booking.profiles?.email) {
       try {
@@ -293,6 +345,7 @@ export default function BookingDetail() {
             customer_name: booking.profiles?.full_name, motorcycle: booking.motorcycles?.model,
             start_date: booking.start_date, end_date: booking.end_date,
             cancellation_reason: reason, cancelled_by_source: cancelReason,
+            ...(wasPaid ? { refund_amount: booking.total_price, refund_percent: 100 } : {}),
           },
         })
         await supabase.from('bookings').update({ cancellation_notified: true }).eq('id', id)
@@ -321,10 +374,10 @@ export default function BookingDetail() {
       const dateChanged = toLD(dbBooking.start_date) !== toLD(start_date) || toLD(dbBooking.end_date) !== toLD(end_date)
 
       if (dateChanged) {
-        // Set original dates on first-ever modification
+        // Set original dates on first-ever modification (YYYY-MM-DD to avoid UTC truncation on DATE column)
         if (!dbBooking.original_start_date) {
-          saveData.original_start_date = dbBooking.start_date
-          saveData.original_end_date = dbBooking.end_date
+          saveData.original_start_date = toLD(dbBooking.start_date)
+          saveData.original_end_date = toLD(dbBooking.end_date)
         }
         // Append to modification_history
         const history = Array.isArray(dbBooking.modification_history) ? [...dbBooking.modification_history] : []
@@ -780,7 +833,10 @@ function SumRow({ label, value, color }) {
 
 function BookingSummary({ booking, sosIncidents, bookingExtras, cancellation, promoUsage, voucherUsed }) {
   const b = booking
-  const days = Math.max(1, Math.ceil((new Date(b.end_date) - new Date(b.start_date)) / 86400000) + 1)
+  // Normalize to local midnight to avoid timezone-caused fractional days
+  const _sd = new Date(b.start_date); _sd.setHours(0,0,0,0)
+  const _ed = new Date(b.end_date); _ed.setHours(0,0,0,0)
+  const days = Math.max(1, Math.round((_ed - _sd) / 86400000) + 1)
   const branchName = b.motorcycles?.branches?.name || '—'
 
   const toLD = d => d ? new Date(d).toLocaleDateString('sv-SE') : ''

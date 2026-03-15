@@ -29,7 +29,9 @@
 | `profiles` | Zákaznické profily (vazba na auth.users) |
 | `motorcycles` | Flotila motorek |
 | `bookings` | Rezervace |
-| `branches` | Pobočky |
+| `branches` | Pobočky (autonomní, branch_code, is_open toggle) |
+| `branch_accessories` | Příslušenství na pobočce (boty, helmy, kukly, rukavice, kalhoty) — typ+velikost+počet |
+| `branch_door_codes` | Přístupové kódy ke dveřím (motorka / příslušenství) — per booking, auto-generované |
 | `admin_users` | Admin uživatelé (role: admin_role ENUM, branch_access uuid[], permissions jsonb) |
 
 ### Booking systém
@@ -57,7 +59,7 @@
 | `message_threads` | Vlákna zpráv (channel, status, assigned_admin) |
 | `messages` | Jednotlivé zprávy (direction, content, ai_suggested_reply) |
 | `message_templates` | Šablony pro rychlé odpovědi |
-| `admin_messages` | Admin zprávy |
+| `admin_messages` | Admin zprávy (type CHECK: sos_response, accident_response, replacement, tow, info, thanks, voucher) |
 | `notification_log` | Log notifikací |
 | `notification_rules` | Pravidla notifikací |
 | `push_tokens` | Push tokeny zařízení |
@@ -293,6 +295,7 @@
 | `confirm_shop_payment(order_id, method)` | RPC: označí shop objednávku jako zaplacenou (SECURITY DEFINER) |
 | `check_booking_overlap()` | Trigger funkce: kontrola překrytí rezervací |
 | `generate_shop_invoice()` | Trigger funkce: auto-faktura při zaplacení shop objednávky (type='shop_final', source='shop', SECURITY DEFINER) |
+| `auto_process_voucher_order()` | BEFORE UPDATE trigger na shop_orders: při payment_status→'paid' automaticky generuje voucher kódy, posílá in-app notifikaci, nastavuje status (delivered pro digitální, confirmed pro mixed). SECURITY DEFINER |
 
 ### Další funkce v reálné DB (ne v migracích)
 | Funkce | Popis |
@@ -345,6 +348,7 @@
 | `trg_one_active_sos` | sos_incidents (BEFORE INSERT) | check_one_active_sos() — SECURITY DEFINER, blokuje duplikáty |
 | `trg_bridge_admin_message` | messages (INSERT) | bridge_admin_message_to_app() |
 | `trg_restore_vouchers_on_cancel` | bookings (UPDATE) | restore_vouchers_on_cancel() |
+| `trg_auto_process_voucher_order` | shop_orders (BEFORE UPDATE OF payment_status, WHEN paid) | auto_process_voucher_order() — auto voucher kódy + in-app notifikace + status update |
 | `trg_sync_invoice_to_documents` | invoices (INSERT) | sync_invoice_to_documents() |
 | `trg_sync_invoice_pdf_update` | invoices (UPDATE pdf_path) | sync_invoice_pdf_update() |
 | `trg_sync_generated_doc_to_documents` | generated_documents (INSERT) | sync_generated_doc_to_documents() |
@@ -548,6 +552,45 @@ Detailní politiky:
 - `promo_code_usage.user_id` → `profiles.id`
 - `maintenance_log.moto_id` → `motorcycles.id`
 - `service_orders.moto_id` → `motorcycles.id`
+- `branch_accessories.branch_id` → `branches.id`
+- `branch_door_codes.branch_id` → `branches.id`
+- `branch_door_codes.booking_id` → `bookings.id`
+- `branch_door_codes.moto_id` → `motorcycles.id`
+
+---
+
+### branches (nové sloupce)
+- **branch_code** (TEXT UNIQUE) — unikátní kód pobočky (6 číslic, např. "000126")
+- **is_open** (BOOLEAN DEFAULT false) — otevřená (nonstop provoz) / zavřená
+- **type** (TEXT DEFAULT NULL) — typ pobočky: turistická, městská, horská, rekreační voda, metropolitní centrum, městská tranzitní
+
+### motorcycles (nové sloupce pro analytiku)
+- **brand** (TEXT DEFAULT NULL) — značka motorky (Honda, Yamaha, BMW...)
+- **purchase_price** (NUMERIC DEFAULT 0) — pořizovací cena motorky v Kč
+
+### branch_accessories
+- id (UUID PK), branch_id (FK→branches ON DELETE CASCADE)
+- type (TEXT CHECK: boots/helmet/balaclava/gloves/pants)
+- size (TEXT) — velikost (36-46 pro boty, XS-XXL pro ostatní, UNI pro kukly)
+- quantity (INTEGER DEFAULT 0)
+- created_at, updated_at
+- UNIQUE(branch_id, type, size)
+- RLS: Admin full access
+
+### branch_door_codes
+- id (UUID PK), branch_id (FK→branches ON DELETE CASCADE)
+- booking_id (FK→bookings ON DELETE CASCADE)
+- moto_id (FK→motorcycles ON DELETE SET NULL)
+- code_type (TEXT CHECK: motorcycle/accessories)
+- door_code (TEXT NOT NULL) — 6-místný kód
+- is_active (BOOLEAN DEFAULT false) — aktivní jen po dobu aktivní rezervace
+- valid_from, valid_until (TIMESTAMPTZ)
+- sent_to_customer (BOOLEAN DEFAULT false) — odesláno zákazníkovi
+- sent_at (TIMESTAMPTZ)
+- withheld_reason (TEXT) — důvod zadržení kódu (chybí doklady)
+- created_at, updated_at
+- RLS: Admin full access, Customer read own (via booking.user_id)
+- Realtime: ANO
 
 ---
 
@@ -579,4 +622,8 @@ Detailní politiky:
 | 2026-03-13 | **NEW: Auto-complete expired bookings:** `auto_complete_expired_bookings()` — active/reserved + end_date < today + paid → completed. pg_cron job `auto-complete-expired-bookings` denně v 00:01 |
 | 2026-03-13 | **FIX: Document templates .single()→array:** Edge function generate-document a app apiFetchDocTemplate: `.single()` nahrazeno `.limit(1)` + array[0] (single selhával při 0/2+ výsledcích → fallback místo DB šablony). Per-user overlap check v apiCreateBooking a Velín NewBookingModal. Velín getDisplayStatus: end_date < today → completed, reserved → Nadcházející/Aktivní dle data |
 | 2026-03-13 | **FIX: SOS flow + auto-activate reserved:** 1) SOS booking queries přidán status 'reserved' (apiGetActiveLoan, ui-controller 4× query, sos_swap_bookings RPC). 2) sosEndRide/sosEndRideFree: booking→completed+ended_by_sos+moto→maintenance. 3) sosPaymentSubmit: opraveno ZF/DP generování (fallback booking_id, payment_status update). 4) Velín: StatusBadge 'Dokončeno SOS', FleetDetail SOS incidenty. 5) auto_activate_reserved_bookings() — reserved+paid+start_date<=today→active. pg_cron denně 00:01. Velín Bookings.jsx: autoActivateReserved() při každém načtení |
+| 2026-03-13 | **NEW: Auto voucher processing:** BEFORE UPDATE trigger `auto_process_voucher_order()` na shop_orders — při zaplacení automaticky: (1) generuje voucher kódy, (2) posílá in-app notifikaci do admin_messages, (3) nastavuje status (delivered pro čistě digitální, confirmed pro mixed/fyzické). Velín: odstraněna klientská autoConfirmPaidVouchers, nahrazena DB triggerem. Frontend: checkout zobrazuje specifickou success zprávu s odkazem na zprávy pro voucher objednávky |
+| 2026-03-14 | **FIX: Door codes in DP + email:** Edge function `generate-invoice` nyní pro payment_receipt (DP) načítá přístupové kódy z `branch_door_codes` a renderuje je v HTML faktuře i v emailu zákazníkovi. Motogo app: blokuje rezervace na zavřených pobočkách (`is_open=false`) |
+| 2026-03-14 | **NEW: Autonomní pobočky:** 1) Nové sloupce `branches.branch_code` (TEXT UNIQUE) a `branches.is_open` (BOOLEAN). Odstraněny opening_hours a email z UI. 2) Nová tabulka `branch_accessories` — sklad příslušenství per pobočka (boty, helmy, kukly, rukavice, kalhoty v různých velikostech). 3) Nová tabulka `branch_door_codes` — přístupové kódy ke dveřím per motorka a příslušenství. Kódy auto-generovány (6 číslic), aktivní jen při aktivní rezervaci. Pokud zákazník nemá nahrané doklady (OP/pas/ŘP), kód je zadržen a odeslán dodatečně. Každá motorka má vlastní dveře (vlastní kód), příslušenství má sdílené dveře (max 8 aktivních kódů). Velín: kompletní přepis Branches.jsx s taby (Info, Motorky, Příslušenství, Přístupové kódy) |
+| 2026-03-14 | **FIX: Voucher trigger silent fail:** `admin_messages_type_check` CHECK constraint neobsahoval hodnotu `'voucher'` → trigger `auto_process_voucher_order()` tiše padal (EXCEPTION handler). Oprava: přidán `'voucher'` do CHECK constraint. Platnost voucherů: 3 roky. Doklady (ZF/DP/FK) + email: zobrazují kód, částku i platnost |
 | 2026-03-15 | **REFACTOR: KF faktura triggerem:** `auto_complete_expired_bookings()` přepsána — pouze mění status, negeneruje KF. Nová trigger funkce `generate_final_invoice_on_complete()` generuje KF (konečnou fakturu) při přechodu `active→completed`. Trigger `trg_generate_final_invoice` AFTER UPDATE OF status WHEN (active→completed). EXCEPTION safe — chyba logována ale neblokuje UPDATE |

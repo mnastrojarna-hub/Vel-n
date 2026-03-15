@@ -76,7 +76,6 @@ async function finalizeCheckout(){
       for(var i=0;i<shopAppliedCodes.length;i++){
         if(shopAppliedCodes[i].type==='promo'){promoCode=shopAppliedCodes[i].code;break;}
       }
-      console.log('[SHOP] Creating order:', JSON.stringify({items:items.length, shipMode:shipMode, promoCode:promoCode}));
       var r = await window.supabase.rpc('create_shop_order', {
         p_items: items,
         p_shipping_method: shipMode,
@@ -84,7 +83,6 @@ async function finalizeCheckout(){
         p_payment_method: 'card',
         p_promo_code: promoCode
       });
-      console.log('[SHOP] create_shop_order result:', JSON.stringify(r.data), r.error ? 'ERR: '+r.error.message : 'OK');
       if(r.data && r.data.error){
         console.warn('[SHOP] create_shop_order error:', r.data.error);
         showT('\u26a0\ufe0f','Chyba objednávky', r.data.error);return;
@@ -111,7 +109,6 @@ async function finalizeCheckout(){
       }
 
       // SIMULOVANÁ PLATBA: označ objednávku jako zaplacenou (přes RPC — obchází RLS)
-      console.log('[SHOP] Confirming payment for order:', orderId);
       var payRes = await window.supabase.rpc('confirm_shop_payment', {
         p_order_id: orderId,
         p_method: 'card'
@@ -127,22 +124,25 @@ async function finalizeCheckout(){
           showT('\u26a0\ufe0f','Chyba platby','Objednávka vytvořena ('+orderId.substr(-8)+'), ale platba selhala. Kontaktujte nás.');return;
         }
       }
-      console.log('[SHOP] Payment confirmed, order:', orderId);
-
-      // Generuj ZF (zálohovou fakturu) + doklad k platbě
+      // Generuj ZF (zálohovou fakturu) + DP (doklad k platbě)
+      // Edge funkce auto-natáhne voucher kódy z DB a zobrazí je na dokladech
       try {
-        console.log('[SHOP] Generating ZF proforma invoice for order:', orderId);
         await window.supabase.functions.invoke('generate-invoice', {
           body: { type: 'shop_proforma', order_id: orderId }
         });
       } catch(ie){ console.warn('[SHOP] ZF generation:', ie); }
-      // Doklad k přijaté platbě
       try {
-        if(typeof apiGeneratePaymentReceipt === 'function'){
-          console.log('[SHOP] Generating DP payment receipt for order:', orderId, 'amount:', finalTotal);
-          await apiGeneratePaymentReceipt(orderId, finalTotal, 'shop');
-        }
-      } catch(re){ console.warn('[SHOP] Receipt err:', re); }
+        await window.supabase.functions.invoke('generate-invoice', {
+          body: { type: 'payment_receipt', order_id: orderId }
+        });
+      } catch(re){ console.warn('[SHOP] DP receipt err:', re); }
+      // FK (shop_final) se generuje automaticky DB triggerem trg_generate_shop_invoice
+      // + edge funkce generate-invoice s voucher kódy
+      try {
+        await window.supabase.functions.invoke('generate-invoice', {
+          body: { type: 'shop_final', order_id: orderId }
+        });
+      } catch(fe){ console.warn('[SHOP] FK generation:', fe); }
 
       orderSuccess = true;
     } catch(e){
@@ -156,6 +156,11 @@ async function finalizeCheckout(){
   }
 
   if(orderSuccess){
+    // Check if cart contains voucher items
+    var hasVoucher = cart.some(function(c){ return c.id==='voucher' || (c.name||'').toLowerCase().indexOf('poukaz')!==-1 || (c.name||'').toLowerCase().indexOf('voucher')!==-1; });
+    var isAllVouchers = hasVoucher && cart.every(function(c){ return c.id==='voucher' || (c.name||'').toLowerCase().indexOf('poukaz')!==-1 || (c.name||'').toLowerCase().indexOf('voucher')!==-1; });
+    var hasPrintedVoucher = cart.some(function(c){ return (c.name||'').toLowerCase().indexOf('tišt')!==-1 || (c.name||'').toLowerCase().indexOf('printed')!==-1; });
+
     cart=[];
     cartFabDismissed=false;
     appliedCode=null;
@@ -163,12 +168,43 @@ async function finalizeCheckout(){
     shopDiscountAmt=0;
     shopAppliedCodes=[];
     updateCartFab();
-    showT('\u2705',_t('cart').orderAccepted,_t('cart').confirmEmail);
+
+    var successTitle = _t('cart').thankYou;
+    var successLine1 = _t('cart').orderReceived;
+    var successLine2 = _t('cart').emailConfirm;
+    var successIcon = '\u2705';
+    var toastTitle = _t('cart').orderAccepted;
+    var toastMsg = _t('cart').confirmEmail;
+
+    if(isAllVouchers && !hasPrintedVoucher){
+      // Pure digital voucher — auto-fulfilled
+      successIcon = '\uD83C\uDF81';
+      successLine1 = 'Váš dárkový poukaz byl vytvořen a odeslán do zpráv v aplikaci.';
+      successLine2 = 'Kód najdete v sekci Zprávy. Můžete ho ihned uplatnit při rezervaci.';
+      toastTitle = 'Poukaz odeslán!';
+      toastMsg = 'Kód najdete ve zprávách v aplikaci.';
+    } else if(hasVoucher && hasPrintedVoucher){
+      // Physical voucher — code sent digitally, physical card shipped separately
+      successIcon = '\uD83C\uDF81';
+      successLine1 = 'Kód poukazu byl odeslán do zpráv v aplikaci. Fyzický poukaz vám bude zaslán poštou.';
+      successLine2 = 'Kód můžete uplatnit ihned, nemusíte čekat na zásilku.';
+      toastTitle = 'Poukaz odeslán!';
+      toastMsg = 'Kód ve zprávách, fyzický poukaz poštou.';
+    } else if(hasVoucher){
+      // Mixed order with voucher + other items
+      successIcon = '\uD83C\uDF81';
+      successLine1 = 'Kód dárkového poukazu byl odeslán do zpráv v aplikaci.';
+      successLine2 = 'Zbylé zboží vám bude zasláno. Kód můžete uplatnit ihned.';
+      toastTitle = 'Poukaz odeslán!';
+      toastMsg = 'Kód ve zprávách, zboží bude zasláno.';
+    }
+
+    showT(successIcon, toastTitle, toastMsg);
     var checkoutEl = document.getElementById('s-checkout');
     if(checkoutEl){
-      checkoutEl.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;padding:40px;text-align:center;"><div style="font-size:64px;margin-bottom:16px;">\u2705</div><div style="font-size:22px;font-weight:900;color:var(--black);margin-bottom:8px;">'+_t('cart').thankYou+'</div><div style="font-size:14px;color:var(--g400);line-height:1.6;">'+_t('cart').orderReceived+'<br>'+_t('cart').emailConfirm+'</div></div>';
+      checkoutEl.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;padding:40px;text-align:center;"><div style="font-size:64px;margin-bottom:16px;">'+successIcon+'</div><div style="font-size:22px;font-weight:900;color:var(--black);margin-bottom:8px;">'+successTitle+'</div><div style="font-size:14px;color:var(--g400);line-height:1.6;">'+successLine1+'<br>'+successLine2+'</div>'+(hasVoucher?'<button onclick="goTo(\'s-messages\')" style="margin-top:20px;background:var(--green);color:#fff;border:none;border-radius:50px;padding:12px 28px;font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer;">Otevřít zprávy</button>':'')+'</div>';
     }
-    setTimeout(function(){ goTo('s-merch'); }, 5000);
+    setTimeout(function(){ goTo('s-merch'); }, hasVoucher ? 8000 : 5000);
   }
 }
 

@@ -85,7 +85,7 @@ html.pwa .scroll-top{bottom:150px;}
 
 /* Small mobile screens – improve registration text readability */
 @media (max-width:380px){
-  .reg-hdr{padding:44px 16px 16px;}
+  .reg-hdr{padding:32px 16px 16px;}
   .reg-hdr h2{font-size:20px;}
   #s-register .bcard{padding:14px 12px;margin:10px 14px 0;}
   #s-register .reg-step-title{font-size:14px;}

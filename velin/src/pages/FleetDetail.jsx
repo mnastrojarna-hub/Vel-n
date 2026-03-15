@@ -42,10 +42,11 @@ export default function FleetDetail() {
     setSaving(true); setError(null)
     const { model, spz, vin, category, branch_id, mileage, status, year, engine_cc, color, acquired_at,
       power_kw, power_hp, torque_nm, weight_kg, fuel_tank_l, seat_height_mm, license_required,
-      has_abs, has_asc, description, ideal_usage, features, engine_type } = moto
+      has_abs, has_asc, description, ideal_usage, features, engine_type, brand, purchase_price } = moto
     const updateData = { model, spz, vin, category, branch_id, mileage, status, year, engine_cc, color, acquired_at,
       power_kw, power_hp, torque_nm, weight_kg, fuel_tank_l, seat_height_mm, license_required: license_required || null,
-      has_abs, has_asc, description, ideal_usage, features, engine_type }
+      has_abs, has_asc, description, ideal_usage, features, engine_type,
+      brand: brand?.trim() || null, purchase_price: purchase_price ? Number(purchase_price) : 0 }
     const result = await debugAction('fleet.save', 'FleetDetail', () =>
       supabase.from('motorcycles').update(updateData).eq('id', id)
     , updateData)
@@ -223,6 +224,8 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
           <Field label="Model" value={moto.model} onChange={v => set('model', v)} />
           <Field label="SPZ" value={moto.spz} onChange={v => set('spz', v)} />
           <Field label="VIN" value={moto.vin} onChange={v => set('vin', v)} />
+          <Field label="Značka" value={moto.brand} onChange={v => set('brand', v)} placeholder="např. BMW, Honda, Yamaha" />
+          <Field label="Pořizovací cena (Kč)" value={moto.purchase_price} onChange={v => set('purchase_price', v)} type="number" />
           <div>
             <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Kategorie</label>
             <select value={moto.category || ''} onChange={e => set('category', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>

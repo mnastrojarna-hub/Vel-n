@@ -283,6 +283,7 @@ function AddMotoModal({ branches, onClose, onSaved }) {
   const [form, setForm] = useState({
     model: '', spz: '', vin: '', category: '', branch_id: '',
     acquired_at: '', mileage: 0, status: 'active',
+    brand: '', purchase_price: '',
     oil_interval_km: '', oil_interval_days: '',
     tire_interval_km: '', full_service_interval_km: '',
     full_service_interval_days: '', stk_valid_until: '',
@@ -302,6 +303,8 @@ function AddMotoModal({ branches, onClose, onSaved }) {
         acquired_at: form.acquired_at || null,
         mileage: Number(form.mileage) || 0,
         branch_id: form.branch_id || null,
+        brand: form.brand?.trim() || null,
+        purchase_price: form.purchase_price ? Number(form.purchase_price) : 0,
         stk_valid_until: form.stk_valid_until || null,
       }
       const result = await debugAction('fleet.create', 'AddMotoModal', () =>
@@ -364,6 +367,8 @@ function AddMotoModal({ branches, onClose, onSaved }) {
         <FormField label="Model" value={form.model} onChange={v => set('model', v)} />
         <FormField label="SPZ" value={form.spz} onChange={v => set('spz', v)} />
         <FormField label="VIN" value={form.vin} onChange={v => set('vin', v)} />
+        <FormField label="Značka" value={form.brand} onChange={v => set('brand', v)} placeholder="např. BMW, Honda, Yamaha" />
+        <FormField label="Pořizovací cena (Kč)" value={form.purchase_price} onChange={v => set('purchase_price', v)} type="number" />
         <div>
           <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Kategorie</label>
           <select value={form.category} onChange={e => set('category', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>

@@ -16,6 +16,7 @@ const NAV = [
   { id: 'service', path: '/servis', label: 'Servis', icon: '🔧' },
   { id: 'messages', path: '/zpravy', label: 'Zprávy', icon: '💬', badgeKey: 'messages' },
   { id: 'cms', path: '/cms', label: 'Web CMS', icon: '🌐' },
+  { id: 'analyza', path: '/analyza', label: 'Analýza', icon: '🧠' },
   { id: 'stats', path: '/statistiky', label: 'Statistiky', icon: '📊' },
   { id: 'promo-codes', path: '/promo-kody', label: 'Promo kódy', icon: '🏷️' },
   { id: 'vouchers', path: '/poukazy', label: 'Dárkové poukazy', icon: '🎫' },

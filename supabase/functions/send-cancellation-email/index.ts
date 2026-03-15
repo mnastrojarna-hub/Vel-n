@@ -35,6 +35,8 @@ serve(async (req) => {
       end_date,
       cancellation_reason,
       cancelled_by_source,
+      refund_amount,
+      refund_percent,
     } = await req.json()
 
     if (!customer_email) {
@@ -69,6 +71,17 @@ serve(async (req) => {
           <tr><td style="padding: 4px 0; font-weight: 700;">Důvod:</td><td>${cancellation_reason || 'Neuvedeno'}</td></tr>
         </table>
       </div>
+
+      ${refund_amount ? `
+      <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 16px; margin: 20px 0;">
+        <p style="margin: 0; color: #166534; font-weight: 700; font-size: 15px;">
+          💰 Vrácení platby: ${Number(refund_amount).toLocaleString('cs-CZ')} Kč (${refund_percent || 100}%)
+        </p>
+        <p style="margin: 8px 0 0; color: #166534; font-size: 13px;">
+          Platba Vám bude vrácena stejným způsobem, jakým byla provedena.
+        </p>
+      </div>
+      ` : ''}
 
       <p style="color: #374151; line-height: 1.6;">
         Pokud si přejete rezervaci obnovit, klikněte na tlačítko níže:

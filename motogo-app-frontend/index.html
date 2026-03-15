@@ -92,6 +92,7 @@
 <div class="screen hidden" id="s-edit-res"></div>
 <div class="screen hidden" id="s-done-detail"></div>
 <div class="screen hidden" id="s-contracts"></div>
+<div class="screen hidden" id="s-profile-hub"></div>
 <div class="screen hidden" id="s-sos"></div>
 <div class="screen hidden" id="s-sos-nehoda"></div>
 <div class="screen hidden" id="s-sos-nepojizda"></div>
@@ -100,6 +101,7 @@
 <div class="screen hidden" id="s-sos-servis"></div>
 <div class="screen hidden" id="s-sos-kradez"></div>
 <div class="screen hidden" id="s-sos-replacement"></div>
+<div class="screen hidden" id="s-sos-payment"></div>
 <div class="screen hidden" id="s-sos-done"></div>
 <div class="screen hidden" id="s-protocol"></div>
 <div class="screen hidden" id="s-merch"></div>
@@ -121,8 +123,15 @@
 </div>
 <div id="sos-repl-fab" class="cart-fab-bar" style="display:none;">
   <button onclick="goTo('s-sos-replacement')" class="cart-fab-btn" style="background:#b91c1c;">
-    🆘 <span id="sos-repl-fab-text">Dokončit výběr náhrady</span>
+    🆘 <span id="sos-repl-fab-text">SOS dokončit</span>
   </button>
+  <button class="cart-fab-clear" onclick="event.stopPropagation();dismissSosFab();">✕</button>
+</div>
+<div id="booking-fab" class="cart-fab-bar" style="display:none;">
+  <button onclick="goToBookingFab()" class="cart-fab-btn" style="background:#d97706;">
+    📋 <span id="booking-fab-text">Dokončit rezervaci</span>
+  </button>
+  <button class="cart-fab-clear" onclick="event.stopPropagation();dismissBookingFab();">✕</button>
 </div>
 
 <!-- Bottom navigation -->
@@ -218,6 +227,7 @@ window.MOTOGO_CONFIG = {
 <script src="js/i18n-moto3.js"></script>
 <script src="js/i18n-aliases.js"></script>
 <script src="js/i18n-dom.js"></script>
+<script src="js/profile-tabs-ui.js"></script>
 <script src="js/documents.js"></script>
 <!-- Document scanner (Mindee API OCR) -->
 <script src="js/doc-parser-core.js"></script>

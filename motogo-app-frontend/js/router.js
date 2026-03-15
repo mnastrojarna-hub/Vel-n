@@ -24,6 +24,7 @@ const navMap = {
   's-messages-thread':'ni-profile',
   's-invoices':'ni-profile',
   's-contracts':'ni-profile',
+  's-profile-hub':'ni-profile',
   's-sos-replacement':'ni-res',
   's-sos-payment':'ni-res',
   's-sos-done':'ni-res'
@@ -155,12 +156,16 @@ function goTo(id){
     else if(typeof renderInvoices==='function') renderInvoices();
   }
   if(id==='s-contracts' && typeof renderContractsPage==='function') renderContractsPage();
+  if(id==='s-profile-hub' && typeof renderProfileHub==='function') renderProfileHub();
   // Pre-fetch active booking/moto IDs on any SOS screen entry
   if(id.indexOf('s-sos')===0 && typeof _sosPreFetchIds==='function') _sosPreFetchIds();
   if(id==='s-sos' && typeof _sosCheckActiveIncident==='function') _sosCheckActiveIncident();
   if(id==='s-sos-replacement' && typeof sosReplInit==='function') sosReplInit();
   if(id==='s-sos-payment' && typeof _sosInitPaymentFromRouter==='function') _sosInitPaymentFromRouter();
   if(typeof updateCartFab==='function')updateCartFab();
+  // Update booking & SOS FABs visibility on navigation
+  if(typeof _updateBookingFabVisibility==='function')_updateBookingFabVisibility();
+  if(typeof _updateSosFabVisibility==='function')_updateSosFabVisibility();
   if(typeof scrollCurrentToTop==='function')scrollCurrentToTop();
   // Debug panel – show diagnostics on every screen
   if(typeof _debugPanel==='function') setTimeout(function(){ _debugPanel(id); }, 100);
@@ -204,6 +209,8 @@ function histBack(){
     // Reset SOS replacement mode on back from edit
     if(typeof _sosReplacementMode!=='undefined'&&_sosReplacementMode){_sosReplacementMode=false;var sb=document.getElementById('sos-edit-banner');if(sb)sb.remove();}
     if(typeof updateCartFab==='function')updateCartFab();
+    if(typeof _updateBookingFabVisibility==='function')_updateBookingFabVisibility();
+    if(typeof _updateSosFabVisibility==='function')_updateSosFabVisibility();
   }
 }
 

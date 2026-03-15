@@ -57,7 +57,7 @@ export default function BookingDocumentsTab({ bookingId }) {
       if (genRes.data?.length > 0) {
         const templateIds = [...new Set(genRes.data.map(d => d.template_id).filter(Boolean))]
         if (templateIds.length > 0) {
-          const { data: templates } = await supabase.from('document_templates').select('id, name, type, html_content').in('id', templateIds)
+          const { data: templates } = await supabase.from('document_templates').select('id, name, type, content_html').in('id', templateIds)
           if (templates) {
             const tplMap = Object.fromEntries(templates.map(t => [t.id, t]))
             genRes.data.forEach(d => { d.document_templates = tplMap[d.template_id] || null })
@@ -244,9 +244,9 @@ export default function BookingDocumentsTab({ bookingId }) {
   }
 
   async function handleViewGeneratedDoc(doc) {
-    // 1) Try template + filled_data
-    if (doc.document_templates?.html_content && doc.filled_data) {
-      let html = doc.document_templates.html_content
+    // 1) Try template + filled_data (content_html = DB column name)
+    if ((doc.document_templates?.content_html || doc.document_templates?.html_content) && doc.filled_data) {
+      let html = doc.document_templates.content_html || doc.document_templates.html_content
       for (const [k, v] of Object.entries(doc.filled_data)) {
         html = html.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v || '')
       }
@@ -255,7 +255,7 @@ export default function BookingDocumentsTab({ bookingId }) {
     // 2) Try client template + filled_data
     if (doc.filled_data) {
       const docType = doc.document_templates?.type || ''
-      const slug = docType === 'rental_contract' ? 'rental_contract' : docType === 'handover_protocol' ? 'handover_protocol' : null
+      const slug = docType === 'rental_contract' ? 'rental_contract' : docType === 'handover_protocol' ? 'handover_protocol' : docType === 'vop' ? 'vop' : null
       if (slug) {
         let html = getClientTemplate(slug)
         if (html) {

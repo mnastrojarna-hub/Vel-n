@@ -214,29 +214,33 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
 
   async function setMotoToService() {
     const motoId = moto?.id || incident?.moto_id || incident?.replacement_data?.original_moto_id
-    if (!motoId) return
+    if (!motoId) { alert('Chyba: Nelze určit ID motorky'); return }
     if (!window.confirm('Přesunout motorku do servisu (maintenance)?\n\nMotorka bude nedostupná pro nové rezervace.')) return
-    const { error } = await supabase.from('motorcycles').update({ status: 'maintenance' }).eq('id', motoId)
-    if (error) { alert('Chyba: ' + error.message); return }
-    const { data: { user } } = await supabase.auth.getUser()
-    // Create maintenance_log entry so moto is visible in Service section
-    const sosType = incident?.type || 'other'
-    const sosDesc = TYPE_LABELS[sosType] || sosType
-    await supabase.from('maintenance_log').insert({
-      moto_id: motoId,
-      type: 'repair',
-      description: `SOS incident: ${sosDesc}${incident?.description ? ' — ' + incident.description.slice(0, 200) : ''}`,
-      status: 'in_service',
-      performed_by: user?.email || 'Admin',
-      sos_incident_id: incident.id,
-    })
-    await supabase.from('sos_timeline').insert({
-      incident_id: incident.id,
-      action: `Motorka ${moto?.model || motoId} přesunuta do servisu`,
-      performed_by: user?.email || 'Admin', admin_id: user?.id,
-    })
-    setMotoInService(true)
-    onRefresh?.()
+    try {
+      const { error } = await supabase.from('motorcycles').update({ status: 'maintenance' }).eq('id', motoId)
+      if (error) { alert('Chyba: ' + error.message); return }
+      const { data: { user } } = await supabase.auth.getUser()
+      // Create maintenance_log entry (ignore errors — some columns may not exist)
+      const sosType = incident?.type || 'other'
+      const sosDesc = TYPE_LABELS[sosType] || sosType
+      await supabase.from('maintenance_log').insert({
+        moto_id: motoId,
+        type: 'repair',
+        description: `SOS incident: ${sosDesc}${incident?.description ? ' — ' + incident.description.slice(0, 200) : ''}`,
+        status: 'in_service',
+        performed_by: user?.email || 'Admin',
+      }).then(() => {}).catch(() => {})
+      await supabase.from('sos_timeline').insert({
+        incident_id: incident.id,
+        action: `Motorka ${moto?.model || motoId} přesunuta do servisu`,
+        performed_by: user?.email || 'Admin', admin_id: user?.id,
+      })
+      setMotoInService(true)
+      onRefresh?.()
+    } catch (e) {
+      console.error('[SOS] setMotoToService error:', e)
+      alert('Chyba při přesunu do servisu: ' + e.message)
+    }
   }
 
   async function updateDecision(decision) {
@@ -295,6 +299,19 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
     await supabase.from('sos_timeline').insert({
       incident_id: incident.id,
       action: `Náhradní moto: ${label}`,
+      performed_by: user?.email || 'Admin', admin_id: user?.id,
+    })
+    onRefresh?.()
+  }
+
+  async function retriggerSosFab() {
+    if (!window.confirm('Znovu vyvolat FAB banner v aplikaci zákazníka?\n\nZákazník uvidí banner "SOS dokončit" i pokud ho dříve zavřel.')) return
+    const rd = { ...(incident.replacement_data || {}), fab_retrigger_at: new Date().toISOString() }
+    await supabase.from('sos_incidents').update({ replacement_data: rd }).eq('id', incident.id)
+    const { data: { user } } = await supabase.auth.getUser()
+    await supabase.from('sos_timeline').insert({
+      incident_id: incident.id,
+      action: 'Admin znovu vyvolal FAB banner pro výběr náhradní motorky',
       performed_by: user?.email || 'Admin', admin_id: user?.id,
     })
     onRefresh?.()
@@ -930,8 +947,19 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
             </div>
           )}
 
+          {/* Akce: Znovu vyvolat FAB v appce zákazníka */}
+          {(incident.replacement_status === 'selecting' || incident.replacement_status === 'pending_payment') && (
+            <div className="mt-3 flex gap-2">
+              <button onClick={retriggerSosFab}
+                className="flex-1 rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none"
+                style={{ padding: '8px 12px', background: '#d97706', color: '#fff' }}>
+                🔔 Znovu vyvolat FAB v appce
+              </button>
+            </div>
+          )}
+
           {/* Akce: Schválit / Zamítnout */}
-          {isActive && incident.replacement_status === 'admin_review' && (
+          {incident.replacement_status === 'admin_review' && (
             <div className="mt-3">
               {!showRejectForm ? (
                 <div className="flex gap-2">
@@ -971,7 +999,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
           )}
 
           {/* Akce: Změnit status přistavení */}
-          {isActive && incident.replacement_status === 'approved' && (
+          {incident.replacement_status === 'approved' && (
             <div className="mt-3 flex gap-2">
               <button onClick={() => updateReplacementStatus('dispatched')}
                 className="flex-1 rounded-btn text-sm font-extrabold cursor-pointer border-none"
@@ -980,7 +1008,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
               </button>
             </div>
           )}
-          {isActive && incident.replacement_status === 'dispatched' && (
+          {incident.replacement_status === 'dispatched' && (
             <div className="mt-3 flex gap-2">
               <button onClick={() => updateReplacementStatus('delivered')}
                 className="flex-1 rounded-btn text-sm font-extrabold cursor-pointer border-none"

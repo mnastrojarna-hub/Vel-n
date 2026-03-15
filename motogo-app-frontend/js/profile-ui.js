@@ -18,7 +18,7 @@ async function renderProfile(){
       'profile-zip': profile.zip,
       'profile-license-num': profile.license_number,
       'profile-license-expiry': fmtIso(profile.license_expiry),
-      'profile-license-group': profile.license_group
+      'profile-license-group': Array.isArray(profile.license_group) ? profile.license_group.join(', ') : (profile.license_group || '')
     };
 
     for(var id in fields){
@@ -46,6 +46,15 @@ async function renderProfile(){
 
 async function doSaveProfile(){
   try {
+    // Parse Czech date "D. M. YYYY" back to ISO "YYYY-MM-DD"
+    function parseCzDate(v){
+      if(!v) return null;
+      v = v.trim();
+      if(/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+      var m = v.match(/^(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})$/);
+      if(m) return m[3]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[1]).slice(-2);
+      return null;
+    }
     var data = {
       full_name: (document.getElementById('profile-name') || {}).value || '',
       phone: (document.getElementById('profile-phone') || {}).value || '',
@@ -53,9 +62,12 @@ async function doSaveProfile(){
       city: (document.getElementById('profile-city') || {}).value || '',
       zip: (document.getElementById('profile-zip') || {}).value || '',
       license_number: (document.getElementById('profile-license-num') || {}).value || '',
-      license_expiry: (document.getElementById('profile-license-expiry') || {}).value || '',
-      license_group: (document.getElementById('profile-license-group') || {}).value || ''
+      license_group: (function(){ var v = (document.getElementById('profile-license-group') || {}).value || ''; return v ? v.split(/[,\s]+/).filter(Boolean) : []; })()
     };
+    var dob = parseCzDate((document.getElementById('profile-dob') || {}).value);
+    if(dob) data.date_of_birth = dob;
+    var licExp = parseCzDate((document.getElementById('profile-license-expiry') || {}).value);
+    if(licExp) data.license_expiry = licExp;
 
     var result = await apiUpdateProfile(data);
     if(result.error){

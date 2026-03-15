@@ -90,20 +90,113 @@ async function renderMyReservations(){
 // ===== SOS REPLACEMENT FAB (small, cart-style) =====
 function _checkAndShowSosFab(){
   if(typeof apiCheckPendingSosReplacement !== 'function') return;
-  apiCheckPendingSosReplacement().then(function(pending){
-    var fab = document.getElementById('sos-repl-fab');
-    if(!fab) return;
-    if(pending){
-      window._pendingSosIncident = pending;
-      var label = document.getElementById('sos-repl-fab-text');
-      if(label){
-        label.textContent = pending.customer_fault ? 'Dokončit výběr náhrady \u00b7 za poplatek' : 'Dokončit výběr náhrady \u00b7 zdarma';
+  if(!_isSupabaseReady() || !window.supabase) return;
+  // Must have valid Supabase auth (not just localStorage fallback)
+  window.supabase.auth.getUser().then(function(r){
+    if(!r.data || !r.data.user) return;
+    apiCheckPendingSosReplacement().then(function(pending){
+      var fab = document.getElementById('sos-repl-fab');
+      if(!fab) return;
+      if(pending){
+        // Check if this specific incident was permanently dismissed
+        var dismissData = {};
+        try { dismissData = JSON.parse(localStorage.getItem('mg_sos_fab_dismissed') || '{}'); } catch(e){}
+        var dismissedAt = dismissData[pending.id] || null;
+        // Admin can re-trigger via fab_retrigger_at in replacement_data
+        var retriggerAt = (pending.replacement_data && pending.replacement_data.fab_retrigger_at) || null;
+        if(dismissedAt && (!retriggerAt || new Date(retriggerAt) <= new Date(dismissedAt))){
+          fab.style.display = 'none'; return;
+        }
+
+        window._pendingSosIncident = pending;
+        window._sosFabIncidentId = pending.id;
+        var label = document.getElementById('sos-repl-fab-text');
+        if(label) label.textContent = 'SOS dokončit';
+        fab.style.display = 'flex';
+      } else {
+        fab.style.display = 'none';
       }
-      fab.style.display = '';
-    } else {
-      fab.style.display = 'none';
-    }
+    }).catch(function(){ var f=document.getElementById('sos-repl-fab'); if(f) f.style.display='none'; });
   }).catch(function(){});
+}
+
+function dismissSosFab(){
+  // Permanently dismiss this specific SOS incident FAB (stores timestamp)
+  var fab = document.getElementById('sos-repl-fab');
+  if(fab) fab.style.display = 'none';
+  if(window._sosFabIncidentId){
+    try {
+      var dismissData = JSON.parse(localStorage.getItem('mg_sos_fab_dismissed') || '{}');
+      dismissData[window._sosFabIncidentId] = new Date().toISOString();
+      localStorage.setItem('mg_sos_fab_dismissed', JSON.stringify(dismissData));
+    } catch(e){}
+  }
+}
+
+// ===== PENDING BOOKING FAB (unpaid reserved bookings) =====
+var bookingFabDismissed = false;
+var _pendingBookingId = null;
+
+function _checkAndShowBookingFab(){
+  if(!window.supabase) return;
+  _getSession().then(function(session){
+    if(!session) return;
+    var uid = session.user.id;
+    window.supabase.from('bookings')
+      .select('id, status, payment_status, motorcycles(name)')
+      .eq('user_id', uid)
+      .in('status', ['reserved','pending'])
+      .eq('payment_status', 'unpaid')
+      .order('created_at', {ascending: false})
+      .limit(1)
+      .then(function(r){
+        var fab = document.getElementById('booking-fab');
+        if(!fab) return;
+        if(r.data && r.data.length > 0 && !bookingFabDismissed){
+          _pendingBookingId = r.data[0].id;
+          var label = document.getElementById('booking-fab-text');
+          var motoName = r.data[0].motorcycles ? r.data[0].motorcycles.name : '';
+          if(label) label.textContent = 'Dokončit rezervaci' + (motoName ? ' · ' + motoName : '');
+          fab.style.display = 'flex';
+        } else {
+          fab.style.display = 'none';
+        }
+      });
+  }).catch(function(){});
+}
+
+function dismissBookingFab(){
+  bookingFabDismissed = true;
+  var fab = document.getElementById('booking-fab');
+  if(fab) fab.style.display = 'none';
+}
+
+function goToBookingFab(){
+  if(_pendingBookingId){
+    if(typeof openResDetailById === 'function'){
+      openResDetailById(_pendingBookingId);
+    } else {
+      goTo('s-res');
+    }
+  } else {
+    goTo('s-res');
+  }
+}
+
+function _updateBookingFabVisibility(){
+  var fab = document.getElementById('booking-fab');
+  if(!fab) return;
+  if(bookingFabDismissed){ fab.style.display = 'none'; return; }
+  var hideOn = ['s-login','s-register','s-docs','s-booking','s-payment','s-success','s-res-detail'];
+  if(hideOn.indexOf(cur) !== -1){ fab.style.display = 'none'; }
+}
+
+function _updateSosFabVisibility(){
+  var fab = document.getElementById('sos-repl-fab');
+  if(!fab) return;
+  // Hide on certain screens
+  var hideOn = ['s-login','s-register','s-docs','s-sos-replacement','s-sos-payment','s-sos-done'];
+  if(hideOn.indexOf(cur) !== -1){ fab.style.display = 'none'; }
 }
 
 function _setResContent(html){
@@ -271,8 +364,8 @@ async function openResDetailById(bookingId){
 
     var moto = booking.motorcycles || (booking.moto_id ? await _getMotoById(booking.moto_id) : null);
     var st = _mapStatus(booking.status, booking.start_date, booking.end_date, booking);
-    var s = new Date(booking.start_date);
-    var e = new Date(booking.end_date);
+    var s = new Date(booking.start_date); s.setHours(0,0,0,0);
+    var e = new Date(booking.end_date); e.setHours(0,0,0,0);
     var days = Math.max(1, Math.round((e-s)/86400000)+1);
     var motoName = moto ? (moto.model || moto.name) : (booking.moto_name || 'Motorka');
 
@@ -524,6 +617,11 @@ async function _execCancelBooking(bookingId){
 
   var result = await apiCancelBooking(bookingId);
   if(result.error){ showT('✗',_t('common').error, result.error); return; }
+
+  // Generate cancellation receipt (storno doklad) with storno conditions
+  if(typeof apiGenerateCancellationReceipt === 'function'){
+    apiGenerateCancellationReceipt(bookingId, result.refund_percent || 0, result.refund_amount || 0).catch(function(e){});
+  }
 
   var refundText = result.refund_percent > 0
     ? _t('res').refundOf+' ' + (result.refund_amount||0).toLocaleString('cs-CZ') + ' Kč (' + result.refund_percent + ' %)'

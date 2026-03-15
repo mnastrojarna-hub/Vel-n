@@ -108,7 +108,10 @@ serve(async (req) => {
     const blob = new Blob([htmlContent], { type: 'text/html' })
     const path = `generated/${docId}.html`
     const { error: upErr } = await supabase.storage.from('documents').upload(path, blob, { upsert: true, contentType: 'text/html' })
-    if (upErr) console.error('Storage upload error:', upErr)
+    if (upErr) {
+      console.error('Storage upload error:', upErr)
+      // Continue — document will still be created in DB with filled_data for client-side rendering
+    }
 
     // Insert generated_documents record
     const { error: gErr } = await supabase.from('generated_documents').insert({
@@ -119,13 +122,18 @@ serve(async (req) => {
       filled_data: vars,
       pdf_path: path,
     })
-    if (gErr) console.error('Insert error:', gErr)
+    if (gErr) {
+      console.error('Insert error:', gErr)
+      return new Response(JSON.stringify({ error: 'Failed to insert generated document: ' + gErr.message }), {
+        status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
 
     // Audit log
     await supabase.from('admin_audit_log').insert({
       action: 'document_generated',
       details: { document_id: docId, template_slug, booking_id },
-    })
+    }).catch(() => {})
 
     return new Response(JSON.stringify({ success: true, document_id: docId, path }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },
