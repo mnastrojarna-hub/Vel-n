@@ -24,7 +24,6 @@ const navMap = {
   's-messages-thread':'ni-profile',
   's-invoices':'ni-profile',
   's-contracts':'ni-profile',
-  's-profile-hub':'ni-profile',
   's-sos-replacement':'ni-res',
   's-sos-payment':'ni-res',
   's-sos-done':'ni-res'
@@ -152,11 +151,14 @@ function goTo(id){
     if(typeof renderThreadChat==='function') renderThreadChat();
   }
   if(id==='s-invoices'){
+    if(typeof _invResetCache==='function') _invResetCache();
     if(typeof renderInvoicesPage==='function') renderInvoicesPage();
     else if(typeof renderInvoices==='function') renderInvoices();
   }
-  if(id==='s-contracts' && typeof renderContractsPage==='function') renderContractsPage();
-  if(id==='s-profile-hub' && typeof renderProfileHub==='function') renderProfileHub();
+  if(id==='s-contracts'){
+    if(typeof _conResetCache==='function') _conResetCache();
+    if(typeof renderContractsPage==='function') renderContractsPage();
+  }
   // Pre-fetch active booking/moto IDs on any SOS screen entry
   if(id.indexOf('s-sos')===0 && typeof _sosPreFetchIds==='function') _sosPreFetchIds();
   if(id==='s-sos' && typeof _sosCheckActiveIncident==='function') _sosCheckActiveIncident();

@@ -432,64 +432,96 @@ function closeDocView(){
 }
 
 
-// ===== ENHANCED renderContracts with document viewing =====
+// ===== ENHANCED renderContracts with document viewing + filter & sort =====
+var _conAllDocs=null;
 async function renderContractsPage(){
   var wrap=document.getElementById('s-contracts');
   if(!wrap)return;
   var t=_t('doc');
-  var docs=await apiFetchDocuments();
-  var contracts=docs.filter(function(d){return d.type==='contract';});
-  var protocols=docs.filter(function(d){return d.type==='protocol';});
-  var vops=docs.filter(function(d){return d.type==='vop';});
+  var loadEl=document.getElementById('contracts-loading');
 
-  var html='<div class="topbar"><div class="back-row" onclick="histBack()"><div class="bk-c">←</div><div class="bk-l">'+t.back+'</div></div>'+
-    '<h2>'+t.docsTitle+'</h2><p>'+t.docsSubtitle+'</p></div>'+
-    '<div style="padding:10px 20px 0;">'+
+  // Fetch only once, reuse on filter/sort change
+  if(!_conAllDocs){
+    var docs=await apiFetchDocuments();
+    _conAllDocs=[];
+    // Add VOP as a virtual entry (always present)
+    _conAllDocs.push({type:'vop',date:new Date().toISOString(),moto_name:'',res_num:'',booking_id:null,_isVop:true});
+    docs.forEach(function(d){
+      if(d.type==='contract'||d.type==='protocol'||d.type==='vop') _conAllDocs.push(d);
+    });
+  }
+  if(loadEl) loadEl.style.display='none';
+
+  var items=_conAllDocs.slice();
+
+  // Apply type filter
+  var typeF=(document.getElementById('con-type-filter')||{}).value||'';
+  if(typeF) items=items.filter(function(d){return d.type===typeF;});
+
+  // Apply sort
+  var sortV=(document.getElementById('con-sort')||{}).value||'date_desc';
+  var asc=sortV==='date_asc';
+  items.sort(function(a,b){var da=new Date(a.date||0),db=new Date(b.date||0);return asc?da-db:db-da;});
+
+  var html='<div style="padding:10px 20px 0;">'+
     '<div style="background:var(--gp);border-radius:var(--r);padding:13px;margin-bottom:10px;font-size:12px;color:var(--gd);line-height:1.6;">🔒 '+t.gdprNote+'</div></div>'+
     '<div style="padding:0 20px;">';
 
-  // VOP – show only once (general link, no per-booking duplicates)
-  html+='<div class="bcard" style="margin:0 0 10px;cursor:pointer;" onclick="showVOP()">'+
-    '<div style="display:flex;align-items:center;gap:12px;"><div style="width:40px;height:40px;background:var(--gp);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;">📜</div>'+
-    '<div style="flex:1;"><div style="font-size:13px;font-weight:800;">'+t.vopTitle+'</div>'+
-    '<div style="font-size:11px;color:var(--g400);margin-top:2px;">'+COMPANY.name+'</div></div></div></div>';
-
-  // Contracts
-  contracts.forEach(function(d){
-    html+='<div class="bcard" style="margin:0 0 10px;cursor:pointer;" onclick="showRentalContract(\''+d.booking_id+'\')">'+
-      '<div style="display:flex;align-items:center;gap:12px;"><div style="width:40px;height:40px;background:var(--gp);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;">📋</div>'+
-      '<div style="flex:1;"><div style="font-size:13px;font-weight:800;">'+(t.contractLabel||'Smlouva')+' – '+(d.moto_name||'')+'</div>'+
-      '<div style="font-size:11px;color:var(--g400);margin-top:2px;">'+(d.res_num||'')+' · '+_docDate(d.date)+'</div></div></div></div>';
-  });
-
-  // Protocols
-  protocols.forEach(function(d){
-    html+='<div class="bcard" style="margin:0 0 10px;cursor:pointer;" onclick="showDigitalProtocol(\''+d.booking_id+'\')">'+
-      '<div style="display:flex;align-items:center;gap:12px;"><div style="width:40px;height:40px;background:#fef3c7;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;">📋</div>'+
-      '<div style="flex:1;"><div style="font-size:13px;font-weight:800;">'+(t.protocolLabel||'Předávací protokol')+' – '+(d.moto_name||'')+'</div>'+
-      '<div style="font-size:11px;color:var(--g400);margin-top:2px;">'+(d.res_num||'')+' · '+_docDate(d.date)+'</div></div></div></div>';
-  });
-
-  if(contracts.length===0 && protocols.length===0 && vops.length===0){
-    html+='<div style="text-align:center;padding:20px;color:var(--g400);font-size:12px;">Zatím žádné dokumenty. Dokumenty se automaticky vygenerují po zaplacení rezervace.</div>';
+  if(items.length===0){
+    html+='<div style="text-align:center;padding:20px;color:var(--g400);font-size:12px;">Žádné dokumenty odpovídající filtru.</div>';
   }
 
-  html+='</div>';
-  wrap.innerHTML=html;
-}
+  items.forEach(function(d){
+    if(d._isVop){
+      html+='<div class="bcard" style="margin:0 0 10px;cursor:pointer;" onclick="showVOP()">'+
+        '<div style="display:flex;align-items:center;gap:12px;"><div style="width:40px;height:40px;background:var(--gp);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;">📜</div>'+
+        '<div style="flex:1;"><div style="font-size:13px;font-weight:800;">'+t.vopTitle+'</div>'+
+        '<div style="font-size:11px;color:var(--g400);margin-top:2px;">'+COMPANY.name+'</div></div></div></div>';
+    } else if(d.type==='contract'){
+      html+='<div class="bcard" style="margin:0 0 10px;cursor:pointer;" onclick="showRentalContract(\''+d.booking_id+'\')">'+
+        '<div style="display:flex;align-items:center;gap:12px;"><div style="width:40px;height:40px;background:var(--gp);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;">📋</div>'+
+        '<div style="flex:1;"><div style="font-size:13px;font-weight:800;">'+(t.contractLabel||'Smlouva')+' – '+(d.moto_name||'')+'</div>'+
+        '<div style="font-size:11px;color:var(--g400);margin-top:2px;">'+(d.res_num||'')+' · '+_docDate(d.date)+'</div></div></div></div>';
+    } else if(d.type==='protocol'){
+      html+='<div class="bcard" style="margin:0 0 10px;cursor:pointer;" onclick="showDigitalProtocol(\''+d.booking_id+'\')">'+
+        '<div style="display:flex;align-items:center;gap:12px;"><div style="width:40px;height:40px;background:#fef3c7;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;">📋</div>'+
+        '<div style="flex:1;"><div style="font-size:13px;font-weight:800;">'+(t.protocolLabel||'Předávací protokol')+' – '+(d.moto_name||'')+'</div>'+
+        '<div style="font-size:11px;color:var(--g400);margin-top:2px;">'+(d.res_num||'')+' · '+_docDate(d.date)+'</div></div></div></div>';
+    }
+  });
 
-// Enhanced invoices page with clickable items
+  html+='</div>';
+  var contentEl=document.getElementById('contracts-content');
+  if(contentEl) contentEl.innerHTML=html;
+  else wrap.innerHTML=html;
+}
+// Reset cached contracts data on screen entry
+function _conResetCache(){_conAllDocs=null;}
+
+// Enhanced invoices page with clickable items + filter & sort
+var _invAllDocs=null;
 async function renderInvoicesPage(){
   var wrap=document.getElementById('invoices-list');
   if(!wrap)return;
   var t=_t('doc');
-  var docs=await apiFetchDocuments();
-  var invoices=docs.filter(function(d){return d.type==='invoice_advance'||d.type==='invoice_final'||d.type==='invoice_shop'||d.type==='payment_receipt'||d.type==='invoice';});
+  // Fetch only once, reuse on filter/sort change
+  if(!_invAllDocs){
+    var docs=await apiFetchDocuments();
+    _invAllDocs=docs.filter(function(d){return d.type==='invoice_advance'||d.type==='invoice_final'||d.type==='invoice_shop'||d.type==='payment_receipt'||d.type==='invoice';});
+  }
+  var invoices=_invAllDocs.slice();
 
-  var diagHtml='';
+  // Apply type filter
+  var typeF=(document.getElementById('inv-type-filter')||{}).value||'';
+  if(typeF) invoices=invoices.filter(function(d){return d.type===typeF;});
+
+  // Apply sort
+  var sortV=(document.getElementById('inv-sort')||{}).value||'date_desc';
+  var asc=sortV==='date_asc';
+  invoices.sort(function(a,b){var da=new Date(a.date||0),db=new Date(b.date||0);return asc?da-db:db-da;});
 
   if(invoices.length===0){
-    wrap.innerHTML=diagHtml+'<div style="text-align:center;padding:30px;color:var(--g400);">'+t.noInvoices+'</div>';
+    wrap.innerHTML='<div style="text-align:center;padding:30px;color:var(--g400);">'+t.noInvoices+'</div>';
     return;
   }
 
@@ -500,14 +532,14 @@ async function renderInvoicesPage(){
     years[y].push(d);
   });
 
-  var html=diagHtml;
-  Object.keys(years).sort(function(a,b){return b-a;}).forEach(function(yr){
+  var sortedYears=Object.keys(years).sort(function(a,b){return asc?a-b:b-a;});
+  var html='';
+  sortedYears.forEach(function(yr){
     html+='<div class="msec-t" style="padding:'+(html?'12':'0')+'px 0 8px;">'+yr+'</div>';
     years[yr].forEach(function(d){
       var isShop=(d.type==='invoice_shop');
       var isReceipt=(d.type==='payment_receipt');
       var icon=isShop?'🛒':isReceipt?'✅':(d.type==='invoice_advance'?'🧾':'💰');
-      // Distinguish edit invoices from original ones
       var inv = d._invoice || null;
       var isEdit = inv && inv.source === 'edit';
       var label=isShop?(t.shopInvoice||'Faktura – Shop'):isReceipt?(t.paymentReceipt||'Doklad k platbě'):(d.type==='invoice_advance'?t.invoiceAdvance:t.invoiceFinal);
@@ -527,6 +559,8 @@ async function renderInvoicesPage(){
   });
   wrap.innerHTML=html;
 }
+// Reset cached invoice data on screen entry
+function _invResetCache(){_invAllDocs=null;}
 
 // ===== SHOP ORDER DETAIL (invoice view for shop purchases) =====
 async function showShopOrderDetail(orderId){
