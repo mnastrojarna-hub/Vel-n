@@ -87,17 +87,11 @@ async function renderMyReservations(){
   } catch(e){ console.error('renderMyReservations error:', e); }
 }
 
-// ===== SOS INCIDENT FAB (small, cart-style) =====
-var _sosFabTypeLabels = {
-  theft: 'Krádež',
-  accident_minor: 'Lehká nehoda',
-  accident_major: 'Těžká nehoda',
-  breakdown_minor: 'Lehká porucha',
-  breakdown_major: 'Těžká porucha',
-  defect_question: 'Závada',
-  location_share: 'Poloha',
-  other: 'SOS'
-};
+// ===== SOS REPLACEMENT FAB (small, cart-style) =====
+// Navigation helper: shows only during replacement flow (selecting / pending_payment).
+// Lets user return to motorcycle selection if they accidentally leave the screen.
+// After payment or free selection → replacement_status changes → FAB disappears.
+// Dismiss (X) = just hides the banner, no DB changes.
 
 function _checkAndShowSosFab(){
   if(typeof apiCheckPendingSosReplacement !== 'function') return;
@@ -108,16 +102,16 @@ function _checkAndShowSosFab(){
       var fab = document.getElementById('sos-repl-fab');
       if(!fab) return;
       if(pending){
+        // Check if dismissed for this incident
+        var dismissed = {};
+        try { dismissed = JSON.parse(localStorage.getItem('mg_sos_fab_dismissed') || '{}'); } catch(e){}
+        if(dismissed[pending.id]){
+          fab.style.display = 'none'; return;
+        }
         window._pendingSosIncident = pending;
         window._sosFabIncidentId = pending.id;
         var label = document.getElementById('sos-repl-fab-text');
-        var typeText = _sosFabTypeLabels[pending.type] || 'SOS';
-        // Different text based on replacement status
-        if(pending.replacement_status === 'selecting' || pending.replacement_status === 'pending_payment'){
-          if(label) label.textContent = typeText + ' · dokončit objednávku';
-        } else {
-          if(label) label.textContent = typeText + ' · aktivní incident';
-        }
+        if(label) label.textContent = 'SOS dokončit';
         fab.style.display = 'flex';
       } else {
         fab.style.display = 'none';
@@ -129,54 +123,27 @@ function _checkAndShowSosFab(){
 }
 
 function sosFabClick(){
-  var pending = window._pendingSosIncident;
-  if(!pending){ goTo('s-sos'); return; }
-  // If replacement is in progress, go to replacement screen
-  if(pending.replacement_status === 'selecting' || pending.replacement_status === 'pending_payment'){
-    goTo('s-sos-replacement');
-  } else {
-    // Otherwise go to SOS main screen (user can continue/modify)
-    goTo('s-sos');
-  }
+  goTo('s-sos-replacement');
 }
 
 function dismissSosFab(){
-  // Dismiss = incident is resolved/not relevant anymore
-  if(!confirm('Zavřít SOS incident?\n\nIncident bude označen jako vyřešený / neaktuální.\nPokud potřebujete novou pomoc, můžete vytvořit nový incident.')){
-    return;
-  }
+  // Just hide the banner — no DB changes
   var fab = document.getElementById('sos-repl-fab');
   if(fab) fab.style.display = 'none';
-  // Mark incident as resolved in DB
-  var incId = window._sosFabIncidentId;
-  if(incId && window.supabase){
-    window.supabase.from('sos_incidents').update({
-      status: 'resolved',
-      resolved_at: new Date().toISOString(),
-      resolution: 'Uzavřeno zákazníkem (FAB dismiss)'
-    }).eq('id', incId).then(function(){
-      // Timeline entry
-      window.supabase.from('sos_timeline').insert({
-        incident_id: incId,
-        action: 'Zákazník uzavřel incident (označil jako vyřešený/neaktuální)',
-      }).then(function(){});
-    });
-    // If there was a replacement in progress, cancel it
-    var pending = window._pendingSosIncident;
-    if(pending && pending.replacement_status && pending.replacement_status !== 'delivered'){
-      window.supabase.from('sos_incidents').update({
-        replacement_status: null
-      }).eq('id', incId).then(function(){});
-    }
-    window._pendingSosIncident = null;
-    window._sosFabIncidentId = null;
-    showT('✅','Incident uzavřen','SOS incident byl označen jako vyřešený');
+  if(window._sosFabIncidentId){
+    try {
+      var d = JSON.parse(localStorage.getItem('mg_sos_fab_dismissed') || '{}');
+      d[window._sosFabIncidentId] = true;
+      localStorage.setItem('mg_sos_fab_dismissed', JSON.stringify(d));
+    } catch(e){}
   }
 }
 
-// ===== PENDING BOOKING FAB (unpaid reserved bookings) =====
-var bookingFabDismissed = false;
+// ===== PENDING BOOKING FAB (unpaid reserved bookings — 10 min to pay) =====
 var _pendingBookingId = null;
+var _pendingBookingData = null;
+var _bookingFabTimer = null;
+var _BOOKING_EXPIRY_MS = 600000; // 10 minutes
 
 function _checkAndShowBookingFab(){
   if(!window.supabase) return;
@@ -184,7 +151,7 @@ function _checkAndShowBookingFab(){
     if(!session) return;
     var uid = session.user.id;
     window.supabase.from('bookings')
-      .select('id, status, payment_status, motorcycles(name)')
+      .select('id, status, payment_status, total_price, created_at, motorcycles(name, model)')
       .eq('user_id', uid)
       .in('status', ['reserved','pending'])
       .eq('payment_status', 'unpaid')
@@ -193,43 +160,102 @@ function _checkAndShowBookingFab(){
       .then(function(r){
         var fab = document.getElementById('booking-fab');
         if(!fab) return;
-        if(r.data && r.data.length > 0 && !bookingFabDismissed){
-          _pendingBookingId = r.data[0].id;
-          var label = document.getElementById('booking-fab-text');
-          var motoName = r.data[0].motorcycles ? r.data[0].motorcycles.name : '';
-          if(label) label.textContent = 'Dokončit rezervaci' + (motoName ? ' · ' + motoName : '');
+        if(r.data && r.data.length > 0){
+          var bk = r.data[0];
+          var created = new Date(bk.created_at).getTime();
+          var remaining = _BOOKING_EXPIRY_MS - (Date.now() - created);
+          if(remaining <= 0){
+            // Already expired — backend will cancel, hide FAB
+            fab.style.display = 'none';
+            return;
+          }
+          _pendingBookingId = bk.id;
+          _pendingBookingData = bk;
           fab.style.display = 'flex';
+          _startBookingFabCountdown(created);
         } else {
           fab.style.display = 'none';
+          _pendingBookingId = null;
+          _pendingBookingData = null;
+          if(_bookingFabTimer){ clearInterval(_bookingFabTimer); _bookingFabTimer = null; }
         }
       });
   }).catch(function(){});
 }
 
+function _startBookingFabCountdown(createdTs){
+  if(_bookingFabTimer) clearInterval(_bookingFabTimer);
+  var label = document.getElementById('booking-fab-text');
+  var fab = document.getElementById('booking-fab');
+  function update(){
+    var remaining = _BOOKING_EXPIRY_MS - (Date.now() - createdTs);
+    if(remaining <= 0){
+      if(_bookingFabTimer){ clearInterval(_bookingFabTimer); _bookingFabTimer = null; }
+      if(fab) fab.style.display = 'none';
+      _pendingBookingId = null;
+      _pendingBookingData = null;
+      return;
+    }
+    var min = Math.floor(remaining / 60000);
+    var sec = Math.floor((remaining % 60000) / 1000);
+    var timeStr = min + ':' + (sec < 10 ? '0' : '') + sec;
+    if(label) label.textContent = 'Dokončit platbu · ' + timeStr;
+  }
+  update();
+  _bookingFabTimer = setInterval(update, 1000);
+}
+
 function dismissBookingFab(){
-  bookingFabDismissed = true;
+  if(!confirm('Zrušit rezervaci?\n\nRezervace bude zrušena pro nezaplacení.')){
+    return;
+  }
   var fab = document.getElementById('booking-fab');
   if(fab) fab.style.display = 'none';
+  if(_bookingFabTimer){ clearInterval(_bookingFabTimer); _bookingFabTimer = null; }
+  // Cancel booking in DB
+  if(_pendingBookingId && window.supabase){
+    window.supabase.from('bookings').update({
+      status: 'cancelled',
+      cancelled_by_source: 'unpaid_customer',
+      cancellation_reason: 'Zrušeno zákazníkem (nezaplaceno)',
+      cancelled_at: new Date().toISOString()
+    }).eq('id', _pendingBookingId).eq('payment_status', 'unpaid').then(function(){});
+    showT('✗','Rezervace zrušena','Rezervace byla zrušena pro nezaplacení');
+  }
+  _pendingBookingId = null;
+  _pendingBookingData = null;
 }
 
 function goToBookingFab(){
-  if(_pendingBookingId){
-    if(typeof openResDetailById === 'function'){
-      openResDetailById(_pendingBookingId);
-    } else {
-      goTo('s-res');
-    }
-  } else {
-    goTo('s-res');
+  if(!_pendingBookingId || !_pendingBookingData) return;
+  var bk = _pendingBookingData;
+  // Set up payment context and go to payment screen
+  if(typeof _currentBookingId !== 'undefined') _currentBookingId = bk.id;
+  if(typeof _currentPaymentAmount !== 'undefined') _currentPaymentAmount = bk.total_price || 0;
+  if(typeof _currentPaymentMethod !== 'undefined') _currentPaymentMethod = 'card';
+  if(typeof _paymentAttempts !== 'undefined') _paymentAttempts = 0;
+  // Update payment button
+  var payBtn = document.getElementById('pay-btn');
+  if(payBtn){
+    payBtn.textContent = 'Zaplatit ' + (bk.total_price || 0).toLocaleString('cs-CZ') + ' Kč →';
+    payBtn.onclick = function(){ doPayment(); };
   }
+  var applePayBtn = document.getElementById('apple-pay-btn');
+  if(applePayBtn) applePayBtn.textContent = '🍎 Pay ' + (bk.total_price || 0).toLocaleString('cs-CZ') + ' Kč';
+  goTo('s-payment');
 }
 
 function _updateBookingFabVisibility(){
   var fab = document.getElementById('booking-fab');
   if(!fab) return;
-  if(bookingFabDismissed){ fab.style.display = 'none'; return; }
-  var hideOn = ['s-login','s-register','s-docs','s-booking','s-payment','s-success','s-res-detail'];
-  if(hideOn.indexOf(cur) !== -1){ fab.style.display = 'none'; }
+  // Hide on payment flow screens (user is already paying) and auth
+  var hideOn = ['s-login','s-register','s-docs','s-booking','s-payment','s-success'];
+  if(hideOn.indexOf(cur) !== -1){ fab.style.display = 'none'; return; }
+  // Re-check on main screens
+  var recheckOn = ['s-home','s-res','s-search','s-profile','s-res-detail'];
+  if(recheckOn.indexOf(cur) !== -1){
+    _checkAndShowBookingFab();
+  }
 }
 
 function _updateSosFabVisibility(){
