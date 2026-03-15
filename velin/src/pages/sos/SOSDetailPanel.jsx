@@ -4,7 +4,7 @@ import { debugAction } from '../../lib/debugLog'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import SOSTimeline from './SOSTimeline'
-import SOSWorkflowStepper from './SOSWorkflowStepper'
+import SOSWorkflowStepper, { WORKFLOWS, hasTimeline } from './SOSWorkflowStepper'
 import { TYPE_LABELS, TYPE_ICONS, SEVERITY_MAP, STATUS_COLORS } from '../SOSPanel'
 
 const DECISION_LABELS = {
@@ -137,6 +137,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
     setCustomer(null)
     setMoto(null)
     setBooking(null)
+    let foundMoto = false
     if (incident.booking_id || incident.bookings?.id) {
       const bookingId = incident.booking_id || incident.bookings?.id
       const { data: b } = await supabase.from('bookings')
@@ -144,16 +145,19 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
         .eq('id', bookingId).single()
       if (b) {
         setBooking(b)
-        setCustomer(b.profiles)
-        setMoto(b.motorcycles)
-        return
+        if (b.profiles) setCustomer(b.profiles)
+        if (b.motorcycles) { setMoto(b.motorcycles); foundMoto = true }
       }
     }
-    if (incident.moto_id) {
-      const { data: m } = await supabase.from('motorcycles').select('*, branches(name)').eq('id', incident.moto_id).single()
-      if (m) setMoto(m)
+    // Fallback: load moto directly from incident fields
+    if (!foundMoto) {
+      const directMotoId = incident.moto_id || incident.original_moto_id || incident.replacement_data?.original_moto_id
+      if (directMotoId) {
+        const { data: m } = await supabase.from('motorcycles').select('*, branches(name)').eq('id', directMotoId).single()
+        if (m) { setMoto(m); foundMoto = true }
+      }
     }
-    if (incident.user_id) {
+    if (!customer && incident.user_id) {
       const { data: p } = await supabase.from('profiles').select('*').eq('id', incident.user_id).single()
       if (p) setCustomer(p)
     }
@@ -213,8 +217,14 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
   }
 
   async function setMotoToService() {
-    const motoId = moto?.id || incident?.moto_id || booking?.moto_id || incident?.original_moto_id || incident?.replacement_data?.original_moto_id
-    if (!motoId) { alert('Chyba: Nelze určit ID motorky'); return }
+    let motoId = moto?.id || incident?.moto_id || booking?.moto_id || incident?.original_moto_id || incident?.replacement_data?.original_moto_id
+    // Fallback: try to get moto_id from booking in DB
+    if (!motoId && (incident?.booking_id || incident?.original_booking_id)) {
+      const bId = incident.original_booking_id || incident.booking_id
+      const { data: bk } = await supabase.from('bookings').select('moto_id').eq('id', bId).single()
+      if (bk?.moto_id) motoId = bk.moto_id
+    }
+    if (!motoId) { alert('Chyba: Nelze určit ID motorky. Zkuste obnovit stránku.'); return }
     if (!window.confirm('Přesunout motorku do servisu (maintenance)?\n\nMotorka bude nedostupná pro nové rezervace.')) return
     try {
       const { error } = await supabase.from('motorcycles').update({ status: 'maintenance' }).eq('id', motoId)
@@ -230,12 +240,19 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
         status: 'in_service',
         performed_by: user?.email || 'Admin',
       }).then(() => {}).catch(() => {})
+      // Get moto model for timeline
+      let motoModel = moto?.model
+      if (!motoModel) {
+        const { data: motoData } = await supabase.from('motorcycles').select('model').eq('id', motoId).single()
+        motoModel = motoData?.model || motoId.slice(0, 8)
+      }
       await supabase.from('sos_timeline').insert({
         incident_id: incident.id,
-        action: `Motorka ${moto?.model || motoId} přesunuta do servisu`,
+        action: `Motorka ${motoModel} přesunuta do servisu`,
         performed_by: user?.email || 'Admin', admin_id: user?.id,
       })
       setMotoInService(true)
+      await loadTimelineActions()
       onRefresh?.()
     } catch (e) {
       console.error('[SOS] setMotoToService error:', e)
@@ -286,21 +303,45 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
   async function updateReplacementStatus(newStatus) {
     // SAFETY: Confirm dispatch/delivery status changes
     const label = REPLACEMENT_STATUS_LABELS[newStatus] || newStatus
+    const rd = incident.replacement_data || {}
     if (newStatus === 'dispatched') {
-      if (!window.confirm('Potvrdit že motorka je na cestě k zákazníkovi?\n\nZákazník bude informován.')) return
+      if (!window.confirm('Potvrdit že náhradní motorka je na cestě k zákazníkovi?\n\nZákazník bude informován v aplikaci.')) return
     }
     if (newStatus === 'delivered') {
-      if (!window.confirm('Potvrdit doručení motorky zákazníkovi?\n\nTuto akci nelze vrátit zpět.')) return
+      if (!window.confirm('Potvrdit doručení náhradní motorky zákazníkovi?\n\nPůvodní motorka bude odvezena do servisu.')) return
     }
     await debugAction('sos.updateReplacementStatus', 'SOSDetailPanel', () =>
       supabase.from('sos_incidents').update({ replacement_status: newStatus }).eq('id', incident.id)
     , { incident_id: incident.id, replacement_status: newStatus })
     const { data: { user } } = await supabase.auth.getUser()
+
+    // Send notification to customer app
+    if (incident.user_id && (newStatus === 'dispatched' || newStatus === 'delivered')) {
+      const notifMsg = newStatus === 'dispatched'
+        ? `Vaše náhradní motorka ${rd.replacement_model || ''} je na cestě k vám. Předpokládaná adresa: ${rd.delivery_address || ''}, ${rd.delivery_city || ''}.`
+        : `Vaše náhradní motorka ${rd.replacement_model || ''} byla úspěšně doručena. Šťastnou cestu!`
+      await supabase.from('admin_messages').insert({
+        user_id: incident.user_id,
+        title: newStatus === 'dispatched' ? 'Náhradní motorka na cestě' : 'Náhradní motorka doručena',
+        message: notifMsg,
+        type: 'replacement',
+      })
+    }
+
+    // Timeline entries
+    let timelineAction = `Náhradní moto: ${label}`
+    if (newStatus === 'dispatched') {
+      timelineAction = `Náhradní motorka ${rd.replacement_model || ''} odeslána k zákazníkovi`
+    }
+    if (newStatus === 'delivered') {
+      timelineAction = `Náhradní motorka ${rd.replacement_model || ''} doručena zákazníkovi, původní motorka odvezena`
+    }
     await supabase.from('sos_timeline').insert({
       incident_id: incident.id,
-      action: `Náhradní moto: ${label}`,
+      action: timelineAction,
       performed_by: user?.email || 'Admin', admin_id: user?.id,
     })
+    await loadTimelineActions()
     onRefresh?.()
   }
 
@@ -439,13 +480,14 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
 
       await supabase.from('sos_timeline').insert({
         incident_id: incident.id,
-        action: `Zpráva odeslána: "${message.slice(0, 50)}${message.length > 50 ? '...' : ''}"`,
+        action: `Zpráva odeslána zákazníkovi: "${message.slice(0, 50)}${message.length > 50 ? '...' : ''}"`,
         performed_by: user?.email || 'Admin', admin_id: user?.id,
       })
       setMessage('')
       setMsgSent(true)
+      await loadTimelineActions()
       setTimeout(() => setMsgSent(false), 3000)
-    } catch {}
+    } catch (e) { console.error('[SOS] sendMessage error:', e) }
     setSending(false)
   }
 
@@ -505,41 +547,6 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
             {incident.description}
           </div>
         )}
-
-        {/* POZNÁMKY K INCIDENTU — prominentní zobrazení */}
-        <div className="mt-3 rounded-lg" style={{
-          padding: '12px 14px',
-          background: '#fffbeb',
-          border: '2px solid #fbbf24',
-        }}>
-          <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#b45309' }}>
-            Poznámky k incidentu (tel. komunikace apod.)
-          </div>
-          {incidentNotes.length > 0 && (
-            <div className="space-y-2 mb-3">
-              {incidentNotes.map(n => (
-                <div key={n.id} className="rounded-lg text-sm" style={{
-                  padding: '8px 10px', background: '#fff', border: '1px solid #fde68a', lineHeight: 1.6,
-                }}>
-                  <div style={{ color: '#0f1a14', whiteSpace: 'pre-wrap' }}>{n.description}</div>
-                  <div className="text-sm mt-1" style={{ color: '#1a2e22' }}>
-                    {n.created_at ? new Date(n.created_at).toLocaleString('cs-CZ') : ''}
-                    {n.performed_by && ` · ${n.performed_by}`}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          <textarea value={noteText} onChange={e => setNoteText(e.target.value)}
-            rows={3} placeholder="Napište poznámku (např. z telefonátu se zákazníkem)…"
-            className="w-full rounded-btn text-sm outline-none mb-2"
-            style={{ padding: '8px 12px', background: '#fff', border: '1px solid #fde68a', resize: 'vertical' }}
-          />
-          <Button onClick={addNote} disabled={savingNote || !noteText.trim()}
-            style={{ background: '#fbbf24', color: '#78350f', fontSize: 13, padding: '6px 16px' }}>
-            {savingNote ? 'Ukládám…' : 'Přidat poznámku'}
-          </Button>
-        </div>
 
         {/* Preference zákazníka – prominentní zobrazení */}
         {(incident.customer_decision || incident.customer_fault !== null) && (
@@ -628,31 +635,98 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
         </div>
 
         {/* Status forward buttons */}
-        {isActive && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {incident.status === 'reported' && (
-              <button onClick={() => updateIncidentStatus('acknowledged')}
-                className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none"
-                style={{ padding: '8px 16px', background: '#fef3c7', color: '#b45309' }}>
-                Potvrdit příjem
-              </button>
+        {isActive && (() => {
+          // Check if all workflow steps (except resolve itself) are complete
+          const workflow = WORKFLOWS[incident?.type]
+          let allPreResolveComplete = true
+          if (workflow) {
+            const enriched = {
+              ...incident,
+              _timelineActions: timelineActions || [],
+              _motoInService: motoInService || moto?.status === 'maintenance' || false,
+            }
+            const activeSteps = workflow.steps.filter(s => s.id !== 'resolve' && (!s.skip || !s.skip(enriched)))
+            allPreResolveComplete = activeSteps.every(s => s.check(enriched))
+          }
+          return (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {incident.status === 'reported' && (
+                <button onClick={() => updateIncidentStatus('acknowledged')}
+                  className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none"
+                  style={{ padding: '8px 16px', background: '#fef3c7', color: '#b45309' }}>
+                  Potvrdit příjem
+                </button>
+              )}
+              {(incident.status === 'reported' || incident.status === 'acknowledged') && (
+                <button onClick={() => updateIncidentStatus('in_progress')}
+                  className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none"
+                  style={{ padding: '8px 16px', background: '#dbeafe', color: '#2563eb' }}>
+                  Začít řešit
+                </button>
+              )}
+              {incident.status !== 'resolved' && (
+                <button
+                  onClick={allPreResolveComplete ? () => updateIncidentStatus('resolved') : undefined}
+                  disabled={!allPreResolveComplete}
+                  className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none"
+                  style={{
+                    padding: '8px 16px',
+                    background: allPreResolveComplete ? '#dcfce7' : '#e5e7eb',
+                    color: allPreResolveComplete ? '#1a8a18' : '#9ca3af',
+                    cursor: allPreResolveComplete ? 'pointer' : 'not-allowed',
+                    opacity: allPreResolveComplete ? 1 : 0.6,
+                  }}>
+                  {allPreResolveComplete ? 'Vyřešeno' : 'Vyřešeno (dokončete kroky)'}
+                </button>
+              )}
+            </div>
+          )
+        })()}
+      </Card>
+
+      {/* === POZNÁMKY K INCIDENTU — vlastní karta pro viditelnost === */}
+      <Card>
+        <div style={{
+          padding: '2px',
+          background: '#fffbeb',
+          border: '2px solid #fbbf24',
+          borderRadius: 8,
+        }}>
+          <div style={{ padding: '12px 14px' }}>
+            <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#b45309' }}>
+              Poznámky k incidentu (tel. komunikace apod.)
+            </div>
+            {incidentNotes.length > 0 && (
+              <div className="space-y-2 mb-3">
+                {incidentNotes.map(n => (
+                  <div key={n.id} className="rounded-lg text-sm" style={{
+                    padding: '8px 10px', background: '#fff', border: '1px solid #fde68a', lineHeight: 1.6,
+                  }}>
+                    <div style={{ color: '#0f1a14', whiteSpace: 'pre-wrap' }}>{n.description}</div>
+                    <div className="text-sm mt-1" style={{ color: '#1a2e22' }}>
+                      {n.created_at ? new Date(n.created_at).toLocaleString('cs-CZ') : ''}
+                      {n.performed_by && ` · ${n.performed_by}`}
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
-            {(incident.status === 'reported' || incident.status === 'acknowledged') && (
-              <button onClick={() => updateIncidentStatus('in_progress')}
-                className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none"
-                style={{ padding: '8px 16px', background: '#dbeafe', color: '#2563eb' }}>
-                Začít řešit
-              </button>
+            {incidentNotes.length === 0 && (
+              <div className="text-sm mb-3" style={{ color: '#92400e', fontStyle: 'italic' }}>
+                Zatím žádné poznámky.
+              </div>
             )}
-            {incident.status !== 'resolved' && (
-              <button onClick={() => updateIncidentStatus('resolved')}
-                className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none"
-                style={{ padding: '8px 16px', background: '#dcfce7', color: '#1a8a18' }}>
-                Vyřešeno
-              </button>
-            )}
+            <textarea value={noteText} onChange={e => setNoteText(e.target.value)}
+              rows={2} placeholder="Napište poznámku (např. z telefonátu se zákazníkem)…"
+              className="w-full rounded-btn text-sm outline-none mb-2"
+              style={{ padding: '8px 12px', background: '#fff', border: '1px solid #fde68a', resize: 'vertical' }}
+            />
+            <Button onClick={addNote} disabled={savingNote || !noteText.trim()}
+              style={{ background: '#fbbf24', color: '#78350f', fontSize: 13, padding: '6px 16px' }}>
+              {savingNote ? 'Ukládám…' : 'Přidat poznámku'}
+            </Button>
           </div>
-        )}
+        </div>
       </Card>
 
       {/* === WORKFLOW STEPPER === */}
@@ -673,7 +747,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
             <WorkflowBtn
               label="Zákazník kontaktován"
               icon="📞"
-              done={timelineActions.some(a => a.toLowerCase().includes('kontaktován'))}
+              done={timelineActions.some(a => a.toLowerCase().includes('kontaktován') || a.toLowerCase().includes('zpráva odeslána'))}
               onClick={async () => {
                 const { data: { user } } = await supabase.auth.getUser()
                 await supabase.from('sos_timeline').insert({
@@ -681,7 +755,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
                   action: 'Zákazník telefonicky kontaktován',
                   performed_by: user?.email || 'Admin', admin_id: user?.id,
                 })
-                loadTimelineActions()
+                await loadTimelineActions()
                 onRefresh?.()
               }}
             />
@@ -698,10 +772,10 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
                   const { data: { user } } = await supabase.auth.getUser()
                   await supabase.from('sos_timeline').insert({
                     incident_id: incident.id,
-                    action: 'Odtahová služba objednána a odeslána na místo',
+                    action: 'Odtahová služba objednána — motorka bude odtažena do servisu',
                     performed_by: user?.email || 'Admin', admin_id: user?.id,
                   })
-                  loadTimelineActions()
+                  await loadTimelineActions()
                   onRefresh?.()
                 }}
               />
@@ -728,51 +802,58 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
                     action: `Policie ČR kontaktována${num.trim() ? `, číslo spisu: ${num.trim()}` : ''}`,
                     performed_by: user?.email || 'Admin', admin_id: user?.id,
                   })
-                  loadTimelineActions()
+                  await loadTimelineActions()
                   onRefresh?.()
                 }}
               />
             )}
 
             {/* Pojišťovna — pro nehody */}
-            {isAccident && !timelineActions.some(a => a.toLowerCase().includes('ojišťovna přeskočen')) && (
-              <>
-                <WorkflowBtn
-                  label="Kontaktovat pojišťovnu"
-                  icon="🏦"
-                  done={timelineActions.some(a => a.toLowerCase().includes('ojišťovn'))}
-                  onClick={async () => {
-                    if (!window.confirm('Potvrdit kontaktování pojišťovny?')) return
-                    const { data: { user } } = await supabase.auth.getUser()
-                    await supabase.from('sos_timeline').insert({
-                      incident_id: incident.id,
-                      action: 'Pojišťovna kontaktována, hlášena škodná událost',
-                      performed_by: user?.email || 'Admin', admin_id: user?.id,
-                    })
-                    loadTimelineActions()
-                    onRefresh?.()
-                  }}
-                />
-                {!timelineActions.some(a => a.toLowerCase().includes('ojišťovn')) && (
+            {isAccident && (() => {
+              const insuranceDone = timelineActions.some(a => a.toLowerCase().includes('ojišťovn'))
+              const insuranceSkipped = timelineActions.some(a => a.toLowerCase().includes('ojišťovna přeskočen'))
+              if (insuranceSkipped) return (
+                <WorkflowBtn label="Pojišťovna přeskočena" icon="⏭️" done={true} onClick={() => {}} />
+              )
+              return (
+                <>
                   <WorkflowBtn
-                    label="Přeskočit pojišťovnu"
-                    icon="⏭️"
-                    done={false}
+                    label="Kontaktovat pojišťovnu"
+                    icon="🏦"
+                    done={insuranceDone}
                     onClick={async () => {
-                      if (!window.confirm('Přeskočit kontaktování pojišťovny?\n\nTento krok bude přeskočen v postupu řešení.')) return
+                      if (!window.confirm('Potvrdit kontaktování pojišťovny?')) return
                       const { data: { user } } = await supabase.auth.getUser()
                       await supabase.from('sos_timeline').insert({
                         incident_id: incident.id,
-                        action: 'Pojišťovna přeskočena — není potřeba kontaktovat',
+                        action: 'Pojišťovna kontaktována, hlášena škodná událost',
                         performed_by: user?.email || 'Admin', admin_id: user?.id,
                       })
-                      loadTimelineActions()
+                      await loadTimelineActions()
                       onRefresh?.()
                     }}
                   />
-                )}
-              </>
-            )}
+                  {!insuranceDone && (
+                    <WorkflowBtn
+                      label="Přeskočit pojišťovnu"
+                      icon="⏭️"
+                      done={false}
+                      onClick={async () => {
+                        if (!window.confirm('Přeskočit kontaktování pojišťovny?\n\nTento krok bude přeskočen v postupu řešení.')) return
+                        const { data: { user } } = await supabase.auth.getUser()
+                        await supabase.from('sos_timeline').insert({
+                          incident_id: incident.id,
+                          action: 'Pojišťovna přeskočena — není potřeba kontaktovat',
+                          performed_by: user?.email || 'Admin', admin_id: user?.id,
+                        })
+                        await loadTimelineActions()
+                        onRefresh?.()
+                      }}
+                    />
+                  )}
+                </>
+              )
+            })()}
 
             {/* Motorka do servisu — pro těžké typy */}
             {(isMajor || incident.type === 'theft') && !motoInService && moto?.status !== 'maintenance' && (
@@ -800,7 +881,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
                     action: 'Zákazník navigován na nejbližší servis',
                     performed_by: user?.email || 'Admin', admin_id: user?.id,
                   })
-                  loadTimelineActions()
+                  await loadTimelineActions()
                   onRefresh?.()
                 }}
               />
