@@ -168,6 +168,15 @@ Templates['s-messages'] = `  <div class="topbar">
       <button onclick="msgSwitchTab('notif')" id="msg-tab-notif" class="msg-tab msg-tab-active" style="flex:1;padding:10px;border:2px solid var(--green);border-radius:var(--rsm);font-family:var(--font);font-size:12px;font-weight:800;cursor:pointer;background:var(--green);color:#fff;">Ozn\u00e1men\u00ed</button>
       <button onclick="msgSwitchTab('chat')" id="msg-tab-chat" class="msg-tab" style="flex:1;padding:10px;border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:12px;font-weight:800;cursor:pointer;background:#fff;color:var(--black);">Konverzace</button>
     </div>
+    <select id="msg-type-filter" onchange="msgApplyFilter()" class="filter-sel" style="width:100%;">
+      <option value="">V\u0161echny typy</option>
+      <option value="info">Informace</option>
+      <option value="sos_response">SOS</option>
+      <option value="thanks">Pod\u011bkov\u00e1n\u00ed</option>
+      <option value="voucher">Voucher</option>
+      <option value="replacement">N\u00e1hrada</option>
+      <option value="tow">Odtah</option>
+    </select>
   </div>
   <div id="messages-list" style="margin:0 20px;">
     <div style="text-align:center;padding:20px;color:var(--g400);">\u23f3 Na\u010d\u00edt\u00e1n\u00ed...</div>
