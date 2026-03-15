@@ -55,6 +55,10 @@ const ACTIONS = {
   active: [
     { label: 'Přijmout zpět', status: 'completed', green: true },
   ],
+  // SOS replacement completed bookings can be reactivated
+  completed_sos_replacement: [
+    { label: 'Reaktivovat', status: 'active', green: true },
+  ],
 }
 
 const CANCEL_REASONS = [
@@ -430,7 +434,9 @@ export default function BookingDetail() {
   if (loading) return <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
   if (!booking) return <div className="p-4" style={{ color: '#1a2e22' }}>{error || 'Rezervace nenalezena'}</div>
 
-  const actions = ACTIONS[booking.status] || []
+  const actions = (booking.status === 'completed' && booking.sos_replacement && !booking.ended_by_sos)
+    ? ACTIONS.completed_sos_replacement || []
+    : ACTIONS[booking.status] || []
 
   return (
     <div>

@@ -867,16 +867,31 @@ async function sosPaymentSubmit(){
       try {
         var replBookingId = pd.replacementData.replacement_booking_id;
         var sosPaymentTotal = pd.replacementData.payment_amount || 0;
-        // If swap failed, try to get the booking ID from the incident
+        // Retry: try to get booking ID from incident (swap might have set it even on partial success)
         if(!replBookingId && pd.incId){
           var incCheck = await window.supabase.from('sos_incidents').select('replacement_booking_id').eq('id', pd.incId).single();
           if(incCheck.data && incCheck.data.replacement_booking_id) replBookingId = incCheck.data.replacement_booking_id;
         }
+        // Retry: search for any SOS replacement booking for this user created recently
+        if(!replBookingId){
+          try {
+            var uid = null;
+            try { var u = await window.supabase.auth.getUser(); uid = u.data && u.data.user ? u.data.user.id : null; } catch(e){}
+            if(uid){
+              var recentBk = await window.supabase.from('bookings').select('id')
+                .eq('user_id', uid).eq('sos_replacement', true)
+                .order('created_at', {ascending: false}).limit(1);
+              if(recentBk.data && recentBk.data.length > 0) replBookingId = recentBk.data[0].id;
+            }
+          } catch(e2){ console.warn('[SOS] Retry find replacement booking:', e2); }
+        }
         if(replBookingId){
-          // Mark replacement booking as paid
+          // Mark replacement booking as paid + active
           await window.supabase.from('bookings').update({
             payment_status: 'paid',
-            confirmed_at: new Date().toISOString()
+            status: 'active',
+            confirmed_at: new Date().toISOString(),
+            picked_up_at: new Date().toISOString()
           }).eq('id', replBookingId);
           // Generate ZF (zálohová faktura)
           if(typeof apiGenerateAdvanceInvoice === 'function'){
@@ -939,31 +954,44 @@ async function _sosSwapBookingsAndConfirm(incId, replacementData, isPaid, addres
       try {
         var uid = await _getUserId();
         if(uid){
-          // Najdi aktivní booking
+          var todayISO = new Date().toISOString().slice(0,10);
+          // Najdi aktivní booking (nebo ended_by_sos)
           var bkR = await window.supabase.from('bookings')
-            .select('id, moto_id, end_date')
+            .select('id, moto_id, end_date, original_end_date, status, ended_by_sos')
             .eq('user_id', uid)
             .in('status', ['active','confirmed','reserved'])
             .eq('payment_status', 'paid')
-            .lte('start_date', new Date().toISOString().slice(0,10))
-            .gte('end_date', new Date().toISOString().slice(0,10))
+            .lte('start_date', todayISO)
+            .gte('end_date', todayISO)
             .limit(1);
           var origBooking = bkR.data && bkR.data[0];
+          // Fallback: hledej ended_by_sos booking
+          if(!origBooking){
+            var bkR2 = await window.supabase.from('bookings')
+              .select('id, moto_id, end_date, original_end_date, status, ended_by_sos')
+              .eq('user_id', uid).eq('ended_by_sos', true).eq('status', 'completed')
+              .order('created_at', {ascending: false}).limit(1);
+            if(bkR2.data && bkR2.data.length > 0) origBooking = bkR2.data[0];
+          }
           if(origBooking){
-            var todayISO = new Date().toISOString().slice(0,10);
-            // Ukonči původní booking
-            await window.supabase.from('bookings').update({
-              end_date: todayISO,
-              status: 'completed',
-              ended_by_sos: true,
-              sos_incident_id: incId
-            }).eq('id', origBooking.id);
+            var alreadyEnded = origBooking.status === 'completed' && origBooking.ended_by_sos;
+            var origEndDate = origBooking.original_end_date || origBooking.end_date;
+            if(!alreadyEnded){
+              // Ukonči původní booking
+              await window.supabase.from('bookings').update({
+                original_end_date: origBooking.end_date,
+                end_date: todayISO,
+                status: 'completed',
+                ended_by_sos: true,
+                sos_incident_id: incId
+              }).eq('id', origBooking.id);
+            }
             // Vytvoř náhradní booking
             var newBk = await window.supabase.from('bookings').insert({
               user_id: uid,
               moto_id: replacementData.replacement_moto_id,
               start_date: todayISO,
-              end_date: origBooking.end_date,
+              end_date: origEndDate,
               pickup_time: '09:00',
               status: 'active',
               payment_status: isFault ? 'unpaid' : 'paid',
@@ -972,7 +1000,8 @@ async function _sosSwapBookingsAndConfirm(incId, replacementData, isPaid, addres
               sos_replacement: true,
               replacement_for_booking_id: origBooking.id,
               sos_incident_id: incId,
-              notes: '[SOS] Náhradní motorka (fallback). Incident: ' + incId
+              notes: '[SOS] Náhradní motorka (fallback). Incident: ' + incId,
+              picked_up_at: new Date().toISOString()
             }).select('id').single();
             if(newBk.data){
               swapOk = true;
