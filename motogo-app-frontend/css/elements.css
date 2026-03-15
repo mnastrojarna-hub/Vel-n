@@ -134,7 +134,7 @@
 #sos-repl-fab{bottom:145px;}
 
 /* Address autocomplete suggestions */
-.addr-suggestions{position:absolute;top:100%;left:0;right:0;background:#fff;border:2px solid var(--green);border-top:none;border-radius:0 0 var(--rsm) var(--rsm);z-index:50;max-height:220px;overflow-y:auto;box-shadow:0 8px 20px rgba(0,0,0,.12);}
+.addr-suggestions{position:absolute;top:100%;left:0;right:0;background:#fff;border:2px solid var(--green);border-top:none;border-radius:0 0 var(--rsm) var(--rsm);z-index:50;max-height:380px;overflow-y:auto;box-shadow:0 8px 20px rgba(0,0,0,.12);-webkit-overflow-scrolling:touch;}
 .addr-sug-item{padding:10px 14px;font-size:13px;font-weight:500;color:var(--black);cursor:pointer;border-bottom:1px solid var(--g100);display:flex;align-items:flex-start;gap:8px;transition:background .15s;}
 .addr-sug-item:last-child{border-bottom:none;}
 .addr-sug-item:active,.addr-sug-item:hover{background:var(--gp);}
