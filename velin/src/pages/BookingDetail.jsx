@@ -55,6 +55,10 @@ const ACTIONS = {
   active: [
     { label: 'Přijmout zpět', status: 'completed', green: true },
   ],
+  // SOS replacement completed bookings can be reactivated
+  completed_sos_replacement: [
+    { label: 'Reaktivovat', status: 'active', green: true },
+  ],
 }
 
 const CANCEL_REASONS = [
@@ -430,7 +434,9 @@ export default function BookingDetail() {
   if (loading) return <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
   if (!booking) return <div className="p-4" style={{ color: '#1a2e22' }}>{error || 'Rezervace nenalezena'}</div>
 
-  const actions = ACTIONS[booking.status] || []
+  const actions = (booking.status === 'completed' && booking.sos_replacement && !booking.ended_by_sos)
+    ? ACTIONS.completed_sos_replacement || []
+    : ACTIONS[booking.status] || []
 
   return (
     <div>
@@ -538,8 +544,9 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
 
   useEffect(() => {
     if (!booking?.id) return
-    supabase.from('sos_incidents').select('id,type,title,status,severity,created_at,resolved_at,description,damage_severity,customer_fault,replacement_booking_id,original_booking_id,replacement_status,replacement_data')
-      .eq('booking_id', booking.id).order('created_at', { ascending: false })
+    supabase.from('sos_incidents').select('id,type,title,status,severity,created_at,resolved_at,description,damage_severity,customer_fault,replacement_booking_id,original_booking_id,replacement_status,replacement_data,moto_id,original_moto_id,replacement_moto_id,customer_decision')
+      .or(`booking_id.eq.${booking.id},original_booking_id.eq.${booking.id},replacement_booking_id.eq.${booking.id}`)
+      .order('created_at', { ascending: false })
       .then(({ data }) => { if (data) setSosIncidents(data) }).catch(() => {})
     supabase.from('booking_extras').select('*, extras_catalog(name, price)')
       .eq('booking_id', booking.id)
@@ -605,56 +612,103 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
       </Card>
 
       {/* SOS Replacement info */}
-      {(booking.sos_replacement || booking.ended_by_sos) && (
+      {(booking.sos_replacement || booking.ended_by_sos || sosIncidents.length > 0) && (() => {
+        const SOS_TYPE_LABELS = { theft: 'Krádež', accident_minor: 'Lehká nehoda', accident_major: 'Těžká nehoda', breakdown_minor: 'Lehká porucha', breakdown_major: 'Těžká porucha', defect_question: 'Dotaz na závadu', location_share: 'Sdílení polohy', other: 'Jiné' }
+        const SOS_STATUS_LABELS = { reported: 'Nahlášeno', acknowledged: 'Přijato', in_progress: 'Řeší se', resolved: 'Vyřešeno', closed: 'Uzavřeno' }
+        const SOS_SEVERITY_COLORS = { critical: { bg: '#dc2626', color: '#fff' }, high: { bg: '#f97316', color: '#fff' }, medium: { bg: '#f59e0b', color: '#fff' }, low: { bg: '#6b7280', color: '#fff' } }
+        const SOS_DECISION_LABELS = { replacement_moto: 'Náhradní motorka', end_ride: 'Ukončení jízdy + odtah', continue: 'Pokračuje v jízdě', waiting: 'Čeká na rozhodnutí' }
+        const inc = sosIncidents[0]
+        const rd = inc?.replacement_data || {}
+        const isReplacement = booking.sos_replacement
+        const isEnded = booking.ended_by_sos
+        return (
         <Card className="col-span-2">
           <div className="p-4 rounded-lg" style={{
-            background: booking.sos_replacement ? '#dcfce7' : '#fee2e2',
-            border: `2px solid ${booking.sos_replacement ? '#86efac' : '#fca5a5'}`,
+            background: isReplacement ? '#dcfce7' : '#fee2e2',
+            border: `2px solid ${isReplacement ? '#86efac' : '#fca5a5'}`,
           }}>
-            <h3 className="text-sm font-extrabold mb-2" style={{ color: booking.sos_replacement ? '#1a8a18' : '#b91c1c' }}>
-              {booking.sos_replacement ? '🏍️ Náhradní motorka (SOS)' : '🆘 Ukončeno kvůli SOS incidentu'}
-            </h3>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              {booking.replacement_for_booking_id && (
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22', minWidth: 65 }}>Nahrazuje rezervaci</span>
-                  <button onClick={() => navigate(`/rezervace/${booking.replacement_for_booking_id}`)}
-                    className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none', fontFamily: 'monospace' }}>
-                    #{booking.replacement_for_booking_id.slice(-8).toUpperCase()}
-                  </button>
-                </div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-extrabold" style={{ color: isReplacement ? '#1a8a18' : '#b91c1c' }}>
+                {isReplacement ? '🏍️ Náhradní motorka (SOS)' : '🆘 Ukončeno kvůli SOS incidentu'}
+              </h3>
+              {(booking.sos_incident_id || inc?.id) && (
+                <button onClick={() => navigate('/sos', { state: { openIncidentId: booking.sos_incident_id || inc?.id } })}
+                  className="text-sm font-extrabold cursor-pointer rounded-btn"
+                  style={{ padding: '4px 12px', background: '#b91c1c', color: '#fff', border: 'none' }}>
+                  🆘 Otevřít SOS incident →
+                </button>
               )}
-              {booking.sos_incident_id && (
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22', minWidth: 65 }}>SOS incident</span>
-                  <button onClick={() => navigate('/sos', { state: { openIncidentId: booking.sos_incident_id } })}
-                    className="text-sm font-bold cursor-pointer" style={{ color: '#dc2626', background: 'none', border: 'none', fontFamily: 'monospace' }}>
-                    #{booking.sos_incident_id.slice(-8).toUpperCase()}
-                  </button>
-                </div>
-              )}
-              {booking.ended_by_sos && sosIncidents.length > 0 && sosIncidents[0].replacement_booking_id && (
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22', minWidth: 65 }}>Náhradní rezervace</span>
-                  <button onClick={() => navigate(`/rezervace/${sosIncidents[0].replacement_booking_id}`)}
-                    className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none', fontFamily: 'monospace' }}>
-                    #{sosIncidents[0].replacement_booking_id.slice(-8).toUpperCase()}
-                  </button>
-                </div>
-              )}
-              {booking.ended_by_sos && sosIncidents.length > 0 && !sosIncidents[0].replacement_booking_id && (
-                <div className="flex items-center gap-2 mb-1 p-2 rounded" style={{ background: '#fef3c7', border: '1px solid #fbbf24' }}>
-                  <span className="text-sm font-extrabold" style={{ color: '#92400e' }}>⚠️ Zákazník dosud nevybral náhradní motorku</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full font-bold" style={{ background: '#f59e0b', color: '#fff' }}>
-                    {sosIncidents[0].replacement_status || 'selecting'}
+            </div>
+
+            {/* Incident detail */}
+            {inc && (
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm mb-3" style={{ padding: '10px 12px', background: 'rgba(255,255,255,.6)', borderRadius: 8 }}>
+                <InfoRow label="Typ incidentu" value={<span style={{ fontWeight: 800 }}>{SOS_TYPE_LABELS[inc.type] || inc.type}</span>} />
+                <InfoRow label="Stav incidentu" value={
+                  <span className="inline-block rounded-full text-xs font-extrabold" style={{ padding: '2px 10px', ...(inc.status === 'resolved' || inc.status === 'closed' ? { background: '#dcfce7', color: '#1a8a18' } : { background: '#fee2e2', color: '#dc2626' }) }}>
+                    {SOS_STATUS_LABELS[inc.status] || inc.status}
                   </span>
-                </div>
+                } />
+                {inc.severity && (
+                  <InfoRow label="Závažnost" value={
+                    <span className="inline-block rounded-full text-xs font-extrabold" style={{ padding: '2px 10px', ...(SOS_SEVERITY_COLORS[inc.severity] || { bg: '#6b7280', color: '#fff' }) }}>
+                      {inc.severity.toUpperCase()}
+                    </span>
+                  } />
+                )}
+                {inc.customer_decision && (
+                  <InfoRow label="Rozhodnutí zákazníka" value={SOS_DECISION_LABELS[inc.customer_decision] || inc.customer_decision} />
+                )}
+                <InfoRow label="Zavinění" value={inc.customer_fault === true ? '⚠️ Zákazník' : inc.customer_fault === false ? '✅ Nezaviněno' : '—'} />
+                <InfoRow label="Nahlášeno" value={inc.created_at ? new Date(inc.created_at).toLocaleString('cs-CZ') : '—'} />
+                {inc.resolved_at && <InfoRow label="Vyřešeno" value={new Date(inc.resolved_at).toLocaleString('cs-CZ')} />}
+                {inc.damage_severity && <InfoRow label="Poškození" value={{ none: 'Žádné', cosmetic: 'Kosmetické', functional: 'Funkční', totaled: 'Totální škoda' }[inc.damage_severity] || inc.damage_severity} />}
+                {inc.description && <div className="col-span-2"><InfoRow label="Popis" value={inc.description} /></div>}
+              </div>
+            )}
+
+            {/* Replacement details */}
+            {(rd.replacement_model || rd.payment_amount) && (
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm mb-3" style={{ padding: '10px 12px', background: 'rgba(255,255,255,.6)', borderRadius: 8 }}>
+                <div className="col-span-2 text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Náhradní motorka</div>
+                {rd.replacement_model && <InfoRow label="Model" value={rd.replacement_model} />}
+                {rd.daily_price > 0 && <InfoRow label="Denní cena" value={`${Number(rd.daily_price).toLocaleString('cs-CZ')} Kč`} />}
+                {rd.remaining_days && <InfoRow label="Zbývající dny" value={`${rd.remaining_days} ${rd.remaining_days === 1 ? 'den' : rd.remaining_days < 5 ? 'dny' : 'dní'}`} />}
+                {rd.moto_total > 0 && <InfoRow label="Motorka celkem" value={`${Number(rd.moto_total).toLocaleString('cs-CZ')} Kč`} />}
+                {rd.delivery_fee > 0 && <InfoRow label="Přistavení" value={`${Number(rd.delivery_fee).toLocaleString('cs-CZ')} Kč`} />}
+                {rd.damage_deposit > 0 && <InfoRow label="Záloha na poškození" value={`${Number(rd.damage_deposit).toLocaleString('cs-CZ')} Kč`} />}
+                {rd.payment_amount > 0 && <InfoRow label="Zaplaceno celkem" value={<span style={{ fontWeight: 800, color: '#1a8a18' }}>{Number(rd.payment_amount).toLocaleString('cs-CZ')} Kč</span>} />}
+                {rd.delivery_address && <InfoRow label="Adresa přistavení" value={`${rd.delivery_address}, ${rd.delivery_city || ''} ${rd.delivery_zip || ''}`} />}
+                {rd.paid_at && <InfoRow label="Zaplaceno" value={new Date(rd.paid_at).toLocaleString('cs-CZ')} />}
+              </div>
+            )}
+
+            {/* Links */}
+            <div className="flex flex-wrap gap-3 text-sm">
+              {booking.replacement_for_booking_id && (
+                <button onClick={() => navigate(`/rezervace/${booking.replacement_for_booking_id}`)}
+                  className="text-sm font-extrabold cursor-pointer rounded-btn"
+                  style={{ padding: '4px 12px', background: '#2563eb', color: '#fff', border: 'none' }}>
+                  📋 Původní rezervace #{booking.replacement_for_booking_id.slice(-8).toUpperCase()}
+                </button>
               )}
-              <InfoRow label="Stav" value={booking.sos_replacement ? 'Náhradní motorka aktivní' : 'Původní rezervace ukončena'} />
+              {isEnded && inc?.replacement_booking_id && (
+                <button onClick={() => navigate(`/rezervace/${inc.replacement_booking_id}`)}
+                  className="text-sm font-extrabold cursor-pointer rounded-btn"
+                  style={{ padding: '4px 12px', background: '#1a8a18', color: '#fff', border: 'none' }}>
+                  🏍️ Náhradní rezervace #{inc.replacement_booking_id.slice(-8).toUpperCase()}
+                </button>
+              )}
+              {isEnded && (!inc?.replacement_booking_id) && inc?.replacement_status && (
+                <span className="inline-block rounded-btn text-sm font-extrabold" style={{ padding: '4px 12px', background: '#fef3c7', color: '#92400e', border: '1px solid #fbbf24' }}>
+                  ⚠️ Náhradní motorka: {inc.replacement_status}
+                </span>
+              )}
             </div>
           </div>
         </Card>
-      )}
+        )
+      })()}
 
       {(booking.discount_amount > 0 || booking.discount_code || (promoUsage && promoUsage.length > 0) || voucherUsed) && (
         <Card className="col-span-2">

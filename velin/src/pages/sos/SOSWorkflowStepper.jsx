@@ -3,16 +3,16 @@
  * Zobrazuje kroky specifické pro daný typ incidentu a zvýrazňuje aktuální stav.
  */
 
-const WORKFLOWS = {
+export const WORKFLOWS = {
   theft: {
     label: 'Krádež motorky',
     steps: [
       { id: 'ack', label: 'Potvrdit příjem', check: i => i.status !== 'reported' },
       { id: 'start', label: 'Začít řešit', check: i => ['in_progress', 'resolved', 'closed'].includes(i.status) },
-      { id: 'contact', label: 'Kontaktovat zákazníka', check: i => hasTimeline(i, 'kontaktován') },
+      { id: 'contact', label: 'Kontaktovat zákazníka', check: i => hasTimeline(i, 'kontaktován') || hasTimeline(i, 'Zpráva odeslána') },
       { id: 'police', label: 'Policie kontaktována', check: i => !!i.police_report_number || hasTimeline(i, 'olicie') },
       { id: 'service', label: 'Motorka do servisu', check: i => i._motoInService },
-      { id: 'insurance', label: 'Kontaktovat pojišťovnu', check: i => hasTimeline(i, 'ojišťovn') },
+      { id: 'insurance', label: 'Kontaktovat pojišťovnu', check: i => hasTimeline(i, 'ojišťovn'), skip: i => hasTimeline(i, 'ojišťovna přeskočen') },
       { id: 'decision', label: 'Rozhodnutí o náhradě', check: i => !!i.customer_decision },
       { id: 'resolve', label: 'Vyřešit incident', check: i => ['resolved', 'closed'].includes(i.status) },
     ],
@@ -22,10 +22,9 @@ const WORKFLOWS = {
     steps: [
       { id: 'ack', label: 'Potvrdit příjem', check: i => i.status !== 'reported' },
       { id: 'start', label: 'Začít řešit', check: i => ['in_progress', 'resolved', 'closed'].includes(i.status) },
-      { id: 'contact', label: 'Kontaktovat zákazníka', check: i => hasTimeline(i, 'kontaktován') },
+      { id: 'contact', label: 'Kontaktovat zákazníka', check: i => hasTimeline(i, 'kontaktován') || hasTimeline(i, 'Zpráva odeslána') },
       { id: 'fault', label: 'Určit zavinění', check: i => i.customer_fault !== null && i.customer_fault !== undefined },
-      { id: 'insurance', label: 'Kontaktovat pojišťovnu', check: i => hasTimeline(i, 'ojišťovn') },
-      { id: 'damage', label: 'Posoudit poškození', check: i => !!i.damage_severity && i.damage_severity !== 'none' },
+      { id: 'insurance', label: 'Kontaktovat pojišťovnu', check: i => hasTimeline(i, 'ojišťovn'), skip: i => hasTimeline(i, 'ojišťovna přeskočen') },
       { id: 'decision', label: 'Rozhodnutí zákazníka', check: i => !!i.customer_decision },
       { id: 'resolve', label: 'Vyřešit incident', check: i => ['resolved', 'closed'].includes(i.status) },
     ],
@@ -35,12 +34,11 @@ const WORKFLOWS = {
     steps: [
       { id: 'ack', label: 'Potvrdit příjem', check: i => i.status !== 'reported' },
       { id: 'start', label: 'Začít řešit', check: i => ['in_progress', 'resolved', 'closed'].includes(i.status) },
-      { id: 'contact', label: 'Kontaktovat zákazníka', check: i => hasTimeline(i, 'kontaktován') },
+      { id: 'contact', label: 'Kontaktovat zákazníka', check: i => hasTimeline(i, 'kontaktován') || hasTimeline(i, 'Zpráva odeslána') },
       { id: 'fault', label: 'Určit zavinění', check: i => i.customer_fault !== null && i.customer_fault !== undefined },
-      { id: 'tow', label: 'Odeslat odtah', check: i => !!i.tow_requested || hasTimeline(i, 'dtah') },
-      { id: 'insurance', label: 'Kontaktovat pojišťovnu', check: i => hasTimeline(i, 'ojišťovn') },
+      { id: 'tow', label: 'Odeslat odtah', check: i => !!i.tow_requested || hasTimeline(i, 'dtah') || i.customer_decision === 'replacement_moto', skip: i => i.customer_decision === 'replacement_moto' },
+      { id: 'insurance', label: 'Kontaktovat pojišťovnu', check: i => hasTimeline(i, 'ojišťovn'), skip: i => hasTimeline(i, 'ojišťovna přeskočen') },
       { id: 'service', label: 'Motorka do servisu', check: i => i._motoInService },
-      { id: 'damage', label: 'Posoudit poškození', check: i => !!i.damage_severity },
       { id: 'decision', label: 'Rozhodnutí zákazníka', check: i => !!i.customer_decision },
       { id: 'replacement', label: 'Náhradní motorka', check: i => i.customer_decision === 'end_ride' || ['approved', 'dispatched', 'delivered'].includes(i.replacement_status), skip: i => i.customer_decision === 'end_ride' },
       { id: 'resolve', label: 'Vyřešit incident', check: i => ['resolved', 'closed'].includes(i.status) },
@@ -60,9 +58,9 @@ const WORKFLOWS = {
     steps: [
       { id: 'ack', label: 'Potvrdit příjem', check: i => i.status !== 'reported' },
       { id: 'start', label: 'Začít řešit', check: i => ['in_progress', 'resolved', 'closed'].includes(i.status) },
-      { id: 'contact', label: 'Kontaktovat zákazníka', check: i => hasTimeline(i, 'kontaktován') },
+      { id: 'contact', label: 'Kontaktovat zákazníka', check: i => hasTimeline(i, 'kontaktován') || hasTimeline(i, 'Zpráva odeslána') },
       { id: 'fault_auto', label: 'Zavinění: MotoGo (porucha)', check: () => true },
-      { id: 'tow', label: 'Odeslat odtah', check: i => !!i.tow_requested || hasTimeline(i, 'dtah') },
+      { id: 'tow', label: 'Odeslat odtah', check: i => !!i.tow_requested || hasTimeline(i, 'dtah') || i.customer_decision === 'replacement_moto', skip: i => i.customer_decision === 'replacement_moto' },
       { id: 'service', label: 'Motorka do servisu', check: i => i._motoInService },
       { id: 'decision', label: 'Rozhodnutí zákazníka', check: i => !!i.customer_decision },
       { id: 'replacement', label: 'Náhradní moto (zdarma)', check: i => i.customer_decision === 'end_ride' || ['approved', 'dispatched', 'delivered'].includes(i.replacement_status), skip: i => i.customer_decision === 'end_ride' },
@@ -88,13 +86,13 @@ const WORKFLOWS = {
     label: 'Jiný problém',
     steps: [
       { id: 'ack', label: 'Potvrzeno (auto)', check: i => i.status !== 'reported' },
-      { id: 'contact', label: 'Kontaktovat zákazníka', check: i => hasTimeline(i, 'kontaktován') },
+      { id: 'contact', label: 'Kontaktovat zákazníka', check: i => hasTimeline(i, 'kontaktován') || hasTimeline(i, 'Zpráva odeslána') },
       { id: 'resolve', label: 'Vyřešit incident', check: i => ['resolved', 'closed'].includes(i.status) },
     ],
   },
 }
 
-function hasTimeline(incident, keyword) {
+export function hasTimeline(incident, keyword) {
   return (incident._timelineActions || []).some(a => a.toLowerCase().includes(keyword.toLowerCase()))
 }
 
