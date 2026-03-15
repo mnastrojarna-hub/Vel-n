@@ -54,7 +54,7 @@ Templates['s-sos-nehoda'] = `  <div class="sos-sub-hdr">
       </div>
       <div class="sos-option-arrow">›</div>
     </div>
-    <div class="sos-option" onclick="sosReportTheft();goTo('s-sos-kradez')" style="border-color:#dc2626;">
+    <div class="sos-option" onclick="goTo('s-sos-kradez')" style="border-color:#dc2626;">
       <div class="sos-option-icon" style="background:#fee2e2;">🔓</div>
       <div style="flex:1;">
         <div class="sos-option-title" id="t-accTheft" style="color:#b91c1c;">Krádež motorky</div>
