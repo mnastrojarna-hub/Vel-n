@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
-import { calcBikeEconomics } from '../../lib/fleetCalc'
+import { calcBikeEconomicsReal, calcBikeEconomicsBenchmark } from '../../lib/fleetCalc'
 import TimePeriodSelector, { filterByPeriod, hasMinimumData, diffDays } from './TimePeriodSelector'
 
 function classifyGrowth(cur, prev) {
@@ -88,9 +88,9 @@ export default function VykonPobocek() {
       let profitSum = 0, profitCount = 0
       for (const m of locMotos) {
         const mBookings = locCompleted.filter(b => b.moto_id === m.id)
-        const rented = mBookings.reduce((s, b) => s + diffDays(b.start_date, b.end_date), 0)
-        const realUtil = rented / periodDays
-        const econ = calcBikeEconomics(m.category, loc.type || 'turistická', realUtil)
+        const econ = mBookings.length > 0
+          ? calcBikeEconomicsReal(m, mBookings)
+          : calcBikeEconomicsBenchmark(m.category, loc.type || 'turistická')
         if (econ) { profitSum += econ.annualProfit; profitCount++ }
       }
       if (profitCount > 0) avgProfitPerBike = profitSum / profitCount
