@@ -35,6 +35,10 @@ function goTo(id){
   // Stop scanner camera when leaving scan screen
   if(cur==='s-doc-scan'&&typeof DocScanner!=='undefined') DocScanner.stopCamera();
 
+  // Clear 5-min payment auto-cancel when leaving s-payment — FAB + backend cron will handle expiry
+  if(cur==='s-payment' && id!=='s-success'){
+    if(typeof _paymentTimeout!=='undefined' && _paymentTimeout){ clearTimeout(_paymentTimeout); _paymentTimeout=null; }
+  }
   // --- State resets on navigation (BUG 2/3/4/5) ---
   // Full reset when going home or to search – clean start
   if(id==='s-home'||id==='s-search'){
@@ -178,6 +182,7 @@ function histBack(){
   if(navStack.length>1){
     navStack.pop();
     const prev=navStack[navStack.length-1];
+    var leavingScreen=cur;
     var curEl=document.getElementById(cur);
     if(curEl)curEl.classList.add('hidden');
     cur=prev;
@@ -188,6 +193,10 @@ function histBack(){
     document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
     const k=navMap[prev];
     if(k)document.getElementById(k)?.classList.add('active');
+    // Clear 5-min payment auto-cancel when leaving s-payment via back
+    if(leavingScreen==='s-payment'){
+      if(typeof _paymentTimeout!=='undefined' && _paymentTimeout){ clearTimeout(_paymentTimeout); _paymentTimeout=null; }
+    }
     // State resets on back navigation (same logic as goTo)
     if(prev==='s-home'||prev==='s-search'){
       if(typeof resetBookingState==='function') resetBookingState();
