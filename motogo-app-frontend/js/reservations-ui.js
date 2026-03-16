@@ -149,15 +149,16 @@ function _checkAndShowBookingFab(){
   if(!window.supabase) return;
   _getSession().then(function(session){
     if(!session) return;
-    var uid = session.user.id;
+    var uid = session.user_id || (session.user && session.user.id);
     window.supabase.from('bookings')
-      .select('id, status, payment_status, total_price, created_at, motorcycles(model)')
+      .select('id, status, payment_status, total_price, created_at')
       .eq('user_id', uid)
       .in('status', ['reserved','pending'])
       .eq('payment_status', 'unpaid')
       .order('created_at', {ascending: false})
       .limit(1)
       .then(function(r){
+        if(r.error){ console.error('[FAB] booking query error:', r.error); }
         var fab = document.getElementById('booking-fab');
         if(!fab) return;
         if(r.data && r.data.length > 0){
@@ -165,7 +166,6 @@ function _checkAndShowBookingFab(){
           var created = new Date(bk.created_at).getTime();
           var remaining = _BOOKING_EXPIRY_MS - (Date.now() - created);
           if(remaining <= 0){
-            // Already expired — backend will cancel, hide FAB
             fab.style.display = 'none';
             return;
           }
@@ -180,7 +180,7 @@ function _checkAndShowBookingFab(){
           if(_bookingFabTimer){ clearInterval(_bookingFabTimer); _bookingFabTimer = null; }
         }
       });
-  }).catch(function(){});
+  }).catch(function(e){ console.error('[FAB] session error:', e); });
 }
 
 function _startBookingFabCountdown(createdTs){
