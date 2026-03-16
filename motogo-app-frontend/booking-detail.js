@@ -14,7 +14,7 @@ function openDetail(id){
   if(!window._enrichMOTOSDone && typeof enrichMOTOS === 'function'){
     enrichMOTOS().then(function(){
       dList=[...MOTOS];
-      var i=dList.findIndex(function(m){return m.id===id;});
+      var i=dList.findIndex(function(m){return m.id===id||(m._db&&m._db.id===id);});
       dIdx=i>=0?i:0;
       goTo('s-detail');
       renderDetail();
@@ -22,7 +22,7 @@ function openDetail(id){
     return;
   }
   dList=[...MOTOS]; // Refresh seznam z aktuálního MOTOS (po enrichMOTOS)
-  const i=dList.findIndex(m=>m.id===id);
+  const i=dList.findIndex(m=>m.id===id||(m._db&&m._db.id===id));
   dIdx=i>=0?i:0;
   goTo('s-detail');   // navigate first (resets dOd/dDo)
   renderDetail();     // then render (sets dOd/dDo from sOd/sDo if available)

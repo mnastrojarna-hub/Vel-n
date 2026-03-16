@@ -859,7 +859,6 @@ async function restoreBooking(bookingId){
 function _rebookMoto(motoId){
   if(motoId && typeof openDetail === 'function'){
     openDetail(motoId);
-    goTo('s-detail');
     showT('🏍️',_t('res').bookAgain||'Rezervace',_t('res').selectDateSameMoto||'Vyberte termín pro stejnou motorku');
   } else {
     goTo('s-home');
