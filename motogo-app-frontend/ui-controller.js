@@ -83,7 +83,7 @@ function _sosCheckActiveIncident(){
         var statusMap = {reported:'Nahlášeno',acknowledged:'Přijato',in_progress:'Řeší se'};
         var statusLabel = statusMap[inc.status] || inc.status;
         banner.innerHTML = '<div style="font-size:13px;font-weight:800;color:#92400e;">⚠️ Máte aktivní SOS incident</div>' +
-          '<div style="font-size:11px;color:#78350f;margin-top:3px;line-height:1.5;">Stav: ' + statusLabel + ' · ID: #' + inc.id.substr(-6) + '<br>Dokud nebude vyřešen, nelze vytvořit nový SOS incident.</div>' +
+          '<div style="font-size:11px;color:#78350f;margin-top:3px;line-height:1.5;">Stav: ' + statusLabel + ' · ID: #' + inc.id.substr(-8).toUpperCase() + '<br>Dokud nebude vyřešen, nelze vytvořit nový SOS incident.</div>' +
           (inc.replacement_status ? '<div style="font-size:11px;color:#78350f;margin-top:4px;">Náhradní moto: ' + inc.replacement_status + '</div>' : '') +
           '<button onclick="goTo(\'s-sos-nepojizda\')" style="margin-top:8px;width:100%;background:#b45309;color:#fff;border:none;border-radius:50px;padding:10px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;">🏍️ Pokračovat v řešení incidentu</button>';
         if(sosScreen){
@@ -344,7 +344,7 @@ async function _sosEndBooking(incidentId){
       end_date: todayISO,
       ended_by_sos: true,
       sos_incident_id: incidentId,
-      notes: '[SOS] Ukončeno ke dni ' + todayISO + ' — incident #' + incidentId.substr(-8)
+      notes: '[SOS] Ukončeno ke dni ' + todayISO + ' — incident #' + incidentId.substr(-8).toUpperCase()
     }).eq('id', booking.id);
     // Set motorcycle to maintenance
     if(booking.moto_id){
@@ -473,6 +473,8 @@ function sosRequestReplacement() {
       // Ulož aktuální moto_id i do incidentu
       if(_sosCurrentMotoId) upd.original_moto_id = _sosCurrentMotoId;
       _sosUpdateIncident(incId, upd);
+      // End original booking immediately — moto is not rideable, ride is over
+      await _sosEndBooking(incId);
       _sosReplacementMode = true;
       // Přejdi na dedicated SOS replacement screen
       goTo('s-sos-replacement');

@@ -396,7 +396,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
         const { data: { user } } = await supabase.auth.getUser()
         await supabase.from('sos_timeline').insert({
           incident_id: incident.id,
-          action: `Rezervace automaticky přepnuta (admin akce). Původní: #${sr.original_booking_id?.slice(-8)}, nová: #${sr.replacement_booking_id?.slice(-8)}`,
+          action: `Rezervace automaticky přepnuta (admin akce). Původní: #${sr.original_booking_id?.slice(-8).toUpperCase()}, nová: #${sr.replacement_booking_id?.slice(-8).toUpperCase()}`,
           performed_by: user?.email || 'Admin', admin_id: user?.id,
         })
         return updatedRd
@@ -471,7 +471,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
           performed_by: user?.email || 'Admin', admin_id: user?.id,
         })
         setShowMotoSelector(false)
-        alert(`✅ Náhradní motorka přiřazena!\n\nNová rezervace: #${sr.replacement_booking_id?.slice(-8)}`)
+        alert(`✅ Náhradní motorka přiřazena!\n\nNová rezervace: #${sr.replacement_booking_id?.slice(-8).toUpperCase()}`)
       } else {
         alert('❌ Swap selhal: ' + (sr?.error || 'neznámá chyba'))
       }
@@ -589,7 +589,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
       incident_id: incident.id,
       action: `Objednávka náhradní motorky SCHVÁLENA: ${rd.replacement_model || '?'}`,
       description: `Adresa: ${rd.delivery_address || '?'}, ${rd.delivery_city || '?'}. Částka: ${rd.payment_amount || '?'} Kč (${rd.payment_status === 'free' ? 'zdarma' : 'zaplaceno'}).` +
-        (rd.original_booking_id ? ` Původní rez.: #${rd.original_booking_id.slice(-8)}, nová: #${rd.replacement_booking_id?.slice(-8) || '?'}` : ''),
+        (rd.original_booking_id ? ` Původní rez.: #${rd.original_booking_id.slice(-8).toUpperCase()}, nová: #${(rd.replacement_booking_id?.slice(-8) || '?').toUpperCase()}` : ''),
       performed_by: user?.email || 'Admin', admin_id: user?.id,
     })
     onRefresh?.()
@@ -1258,8 +1258,8 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
                 Přepnutí rezervace
               </div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                <InfoRow label="Původní rez." value={`#${(incident.replacement_data.original_booking_id || incident.original_booking_id || '').slice(-8)}`} mono />
-                <InfoRow label="Nová rez." value={`#${(incident.replacement_data.replacement_booking_id || incident.replacement_booking_id || '').slice(-8)}`} mono />
+                <InfoRow label="Původní rez." value={`#${(incident.replacement_data.original_booking_id || incident.original_booking_id || '').slice(-8).toUpperCase()}`} mono />
+                <InfoRow label="Nová rez." value={`#${(incident.replacement_data.replacement_booking_id || incident.replacement_booking_id || '').slice(-8).toUpperCase()}`} mono />
                 {incident.replacement_data.original_end_date && (
                   <InfoRow label="Pův. konec" value={new Date(incident.replacement_data.original_end_date).toLocaleDateString('cs-CZ')} />
                 )}
@@ -1290,7 +1290,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
                 if (!window.confirm('Provést swap rezervací nyní?\n\nPůvodní rezervace bude ukončena a vytvoří se nová s náhradní motorkou.')) return
                 const result = await ensureBookingSwap()
                 if (result?.replacement_booking_id) {
-                  alert('✅ Swap proveden úspěšně! Nová rezervace: #' + result.replacement_booking_id.slice(-8))
+                  alert('✅ Swap proveden úspěšně! Nová rezervace: #' + result.replacement_booking_id.slice(-8).toUpperCase())
                 } else {
                   alert('❌ Swap se nepodařil. Zkontrolujte konzoli pro detaily.')
                 }

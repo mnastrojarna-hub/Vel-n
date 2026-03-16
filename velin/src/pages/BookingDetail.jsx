@@ -1035,7 +1035,7 @@ function BookingSummary({ booking, sosIncidents, bookingExtras, cancellation, pr
             <div key={inc.id} className="py-1 flex items-center flex-wrap gap-x-2" style={{ borderBottom: '1px solid #fef2f2', fontSize: 13 }}>
               <button onClick={() => navigate('/sos', { state: { openIncidentId: inc.id } })}
                 className="font-bold cursor-pointer" style={{ color: '#dc2626', background: 'none', border: 'none', fontFamily: 'monospace', fontSize: 13, padding: 0 }}>
-                #{inc.id.slice(-6)}
+                #{inc.id.slice(-8).toUpperCase()}
               </button>
               <span>{inc.type} ({inc.severity}) — {inc.status}</span>
               {inc.title && <span>— {inc.title}</span>}
