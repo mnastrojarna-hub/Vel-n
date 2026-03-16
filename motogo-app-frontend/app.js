@@ -20,6 +20,10 @@ function _resolveSession(cb){
           if(typeof _syncLocalSession === 'function'){
             _syncLocalSession(user.id, user.email);
           }
+          // Keep bio refresh token up to date on every session resume
+          if(typeof _storeBioUser === 'function' && localStorage.getItem('mg_bio_user')){
+            _storeBioUser(user.id, user.email, result.data.session.refresh_token);
+          }
         } catch(e){}
       }
       cb(hasSession);
