@@ -925,6 +925,7 @@ function _selectCityFor(type, city, zip){
   if(addrEl){ addrEl.value=''; setTimeout(function(){ addrEl.focus(); }, 100); }
 
   if(typeof updateEditPriceSummary==='function') updateEditPriceSummary();
+  if(type==='sos-repl' && typeof sosReplCalcDelivery==='function') sosReplCalcDelivery();
 }
 
 /**
@@ -998,4 +999,5 @@ function selectAddr(type,addr,city,lat,lng){
   if(type==='pickup'||type==='return'){calcDelivery(type);}
   if(type==='edit-pickup'&&typeof _sosCalcPickupDelivery==='function'){_sosCalcPickupDelivery();}
   if(type==='edit-return'&&typeof calcEditDelivery==='function'){calcEditDelivery();}
+  if(type==='sos-repl'&&typeof sosReplCalcDelivery==='function'){sosReplCalcDelivery();}
 }
