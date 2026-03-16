@@ -197,8 +197,8 @@ Templates['s-messages-thread'] = `  <div class="topbar">
     <h2 id="thread-title">Konverzace</h2>
     <p id="thread-status" style="font-size:11px;"></p>
   </div>
-  <div id="thread-messages" style="margin:0 20px;padding-bottom:80px;"></div>
-  <div id="thread-reply-bar" style="position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:2px solid var(--g100);padding:8px 16px 10px;z-index:100;">
+  <div id="thread-messages" style="margin:0 20px;padding-bottom:140px;"></div>
+  <div id="thread-reply-bar" style="position:fixed;bottom:64px;left:0;right:0;background:#fff;border-top:2px solid var(--g100);padding:8px 16px 10px;z-index:210;">
     <div style="font-size:11px;font-weight:700;color:var(--g400);margin-bottom:6px;">Nov\u00e1 zpr\u00e1va</div>
     <div style="display:flex;gap:8px;">
       <input type="text" id="thread-reply-input" placeholder="Napi\u0161te zpr\u00e1vu..." style="flex:1;padding:10px 14px;border:2px solid var(--g200);border-radius:50px;font-family:var(--font);font-size:13px;">

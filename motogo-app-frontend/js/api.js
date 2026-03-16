@@ -1287,11 +1287,20 @@ async function apiGetUnreadMessageCount(){
   try {
     var uid = await _getUserId();
     if(!uid) return 0;
-    var r = await window.supabase.from('admin_messages')
+    // Count unread admin_messages (notifications)
+    var r1 = await window.supabase.from('admin_messages')
       .select('id', {count: 'exact', head: true})
       .eq('user_id', uid)
       .eq('read', false);
-    return r.count || 0;
+    var notifCount = r1.count || 0;
+    // Count unread thread messages (admin replies not yet read)
+    var r2 = await window.supabase.from('messages')
+      .select('id, message_threads!inner(customer_id)', {count: 'exact', head: true})
+      .eq('message_threads.customer_id', uid)
+      .eq('direction', 'admin')
+      .is('read_at', null);
+    var threadCount = r2.count || 0;
+    return notifCount + threadCount;
   } catch(e){ return 0; }
 }
 
