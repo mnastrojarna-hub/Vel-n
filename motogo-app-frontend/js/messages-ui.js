@@ -104,10 +104,10 @@ async function renderThreadsList(){
     var threads = await apiFetchMyThreads();
     var html = '';
 
-    // "New message" button
+    // "New conversation" button
     html += '<div onclick="startNewThread()" style="background:var(--green);color:#fff;border-radius:var(--r);padding:14px 16px;margin-bottom:12px;cursor:pointer;display:flex;align-items:center;gap:10px;">' +
       '<div style="font-size:20px;">✍️</div>' +
-      '<div><div style="font-size:13px;font-weight:800;">Nov\u00e1 zpr\u00e1va</div>' +
+      '<div><div style="font-size:13px;font-weight:800;">Nov\u00e1 konverzace</div>' +
       '<div style="font-size:11px;opacity:.8;">Napsat MotoGo24</div></div>' +
       '<div style="margin-left:auto;font-size:18px;">›</div></div>';
 
@@ -250,38 +250,74 @@ async function sendThreadReply(){
   renderThreadChat();
 }
 
-// ===== START NEW THREAD =====
-async function startNewThread(){
-  var subject = prompt('Předmět zprávy:');
-  if(!subject || !subject.trim()) return;
-  var message = prompt('Vaše zpráva:');
-  if(!message || !message.trim()) return;
+// ===== START NEW THREAD (subject picker) =====
+var _newThreadSubjects = [
+  { label: 'Dotaz k rezervaci', icon: '📋' },
+  { label: 'Problém s motorkou', icon: '🏍️' },
+  { label: 'Platba a fakturace', icon: '💳' },
+  { label: 'Příslušenství a výbava', icon: '🪖' },
+  { label: 'Storno / změna termínu', icon: '📅' },
+  { label: 'Pochvala / poděkování', icon: '🙏' },
+  { label: 'Jiný dotaz', icon: '💬' }
+];
 
+function startNewThread(){
+  _showNewConversationPicker();
+}
+
+function _showNewConversationPicker(){
+  var existing = document.getElementById('mg-new-conv-overlay');
+  if(existing) existing.remove();
+
+  var ov = document.createElement('div');
+  ov.id = 'mg-new-conv-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;padding:0;backdrop-filter:blur(3px);';
+
+  var html = '<div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:420px;padding:20px 20px 30px;box-shadow:0 -10px 40px rgba(0,0,0,.2);">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
+    '<h3 style="margin:0;font-size:16px;font-weight:900;color:var(--black);">Nová konverzace</h3>' +
+    '<div onclick="document.getElementById(\'mg-new-conv-overlay\').remove()" style="cursor:pointer;font-size:22px;color:var(--g400);padding:4px 8px;">✕</div>' +
+    '</div>' +
+    '<p style="margin:0 0 14px;font-size:12px;color:var(--g400);">Vyberte předmět konverzace s MotoGo24</p>';
+
+  _newThreadSubjects.forEach(function(s, i){
+    html += '<div onclick="_selectNewConvSubject(' + i + ')" style="display:flex;align-items:center;gap:12px;padding:13px 14px;margin-bottom:6px;background:var(--g50,#f8faf8);border-radius:var(--r,12px);cursor:pointer;border:2px solid var(--g100,#e8ece8);transition:border-color .15s;">' +
+      '<div style="font-size:20px;flex-shrink:0;">' + s.icon + '</div>' +
+      '<div style="font-size:13px;font-weight:700;color:var(--black);">' + _escHtml(s.label) + '</div>' +
+      '<div style="margin-left:auto;color:var(--g300);font-size:16px;">›</div>' +
+      '</div>';
+  });
+
+  html += '</div>';
+  ov.innerHTML = html;
+  ov.addEventListener('click', function(e){ if(e.target === ov) ov.remove(); });
+  document.body.appendChild(ov);
+}
+
+function _selectNewConvSubject(idx){
+  var subj = _newThreadSubjects[idx];
+  if(!subj) return;
+  var overlay = document.getElementById('mg-new-conv-overlay');
+  if(overlay) overlay.remove();
+  _createNewThreadWithSubject(subj.label);
+}
+
+async function _createNewThreadWithSubject(subject){
   try {
     var uid = await _getUserId();
     if(!uid){ showT('\u274c', 'Nepřihlášen', ''); return; }
-    var profile = await apiFetchProfile();
-    var senderName = profile ? profile.full_name : 'Zákazník';
 
     var r = await window.supabase.from('message_threads').insert({
       customer_id: uid,
       channel: 'app',
       status: 'open',
-      subject: subject.trim(),
+      subject: subject,
       last_message_at: new Date().toISOString()
     }).select().single();
 
     if(r.error){ showT('\u274c', 'Chyba', r.error.message); return; }
-    var thread = r.data;
 
-    await window.supabase.from('messages').insert({
-      thread_id: thread.id,
-      direction: 'customer',
-      sender_name: senderName,
-      content: message.trim()
-    });
-
-    _currentThreadId = thread.id;
+    _currentThreadId = r.data.id;
     goTo('s-messages-thread');
   } catch(e){
     console.error('startNewThread error:', e);
