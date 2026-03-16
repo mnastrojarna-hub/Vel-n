@@ -17,8 +17,17 @@ export default function Inventory() {
   const [error, setError] = useState(null)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [filters, setFilters] = useState({ search: '', category: '', stock: '' })
+  const defaultFilters = { search: '', category: '', stocks: [] }
+  const [filters, setFilters] = useState(() => {
+    try {
+      const saved = localStorage.getItem('velin_inventory_filters')
+      if (saved) return { ...defaultFilters, ...JSON.parse(saved) }
+    } catch {}
+    return defaultFilters
+  })
   const [showAdd, setShowAdd] = useState(false)
+
+  useEffect(() => { localStorage.setItem('velin_inventory_filters', JSON.stringify(filters)) }, [filters])
 
   useEffect(() => { load() }, [page, filters])
 
@@ -38,8 +47,10 @@ export default function Inventory() {
       if (err) throw err
 
       let filtered = data || []
-      if (filters.stock === 'low') filtered = filtered.filter(i => i.stock <= i.min_stock)
-      if (filters.stock === 'ok') filtered = filtered.filter(i => i.stock > i.min_stock)
+      if (filters.stocks?.length > 0) {
+        if (filters.stocks.includes('low') && !filters.stocks.includes('ok')) filtered = filtered.filter(i => i.stock <= i.min_stock)
+        else if (filters.stocks.includes('ok') && !filters.stocks.includes('low')) filtered = filtered.filter(i => i.stock > i.min_stock)
+      }
 
       setItems(filtered)
       setTotal(count || 0)
