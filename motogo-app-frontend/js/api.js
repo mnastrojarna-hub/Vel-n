@@ -1281,6 +1281,19 @@ async function apiMarkMessageRead(msgId){
   } catch(e){}
 }
 
+async function apiMarkAllMessagesRead(){
+  _ensureSupabase();
+  if(!window.supabase) return;
+  try {
+    var uid = await _getUserId();
+    if(!uid) return;
+    await window.supabase.from('admin_messages')
+      .update({read: true})
+      .eq('user_id', uid)
+      .eq('read', false);
+  } catch(e){}
+}
+
 async function apiGetUnreadMessageCount(){
   _ensureSupabase();
   if(!window.supabase) return 0;
