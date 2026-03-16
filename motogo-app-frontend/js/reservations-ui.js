@@ -383,6 +383,20 @@ function _fmtDate(iso){
   } catch(e){ return '—'; }
 }
 
+function _fmtDateRange(isoStart, isoEnd){
+  try {
+    var s = new Date(isoStart);
+    var e = new Date(isoEnd);
+    s.setHours(0,0,0,0); e.setHours(0,0,0,0);
+    if(s.getTime() === e.getTime()) return _fmtDate(isoStart);
+    var sd = s.getDate(), sm = s.getMonth()+1, sy = s.getFullYear();
+    var ed = e.getDate(), em = e.getMonth()+1, ey = e.getFullYear();
+    if(sy === ey && sm === em) return sd+'. – '+ed+'. '+em+'. '+ey;
+    if(sy === ey) return sd+'. '+sm+'. – '+ed+'. '+em+'. '+ey;
+    return sd+'. '+sm+'. '+sy+' – '+ed+'. '+em+'. '+ey;
+  } catch(ex){ return '—'; }
+}
+
 function _renderResCard(b){
   var st = _mapStatus(b.status, b.start_date, b.end_date, b);
   var stLabel = _statusLabel(st);
@@ -420,7 +434,7 @@ function _renderResCard(b){
 
   return '<div class="rcard" onclick="openResDetailById(\''+b.id+'\')">' +
     '<div class="rci" style="'+grayscale+'"><img src="'+img+'" onerror="this.style.display=\'none\'" loading="lazy"><div class="rcio"><div><div class="rcn">'+name+'</div><div class="rcid">#'+b.id.substr(-8).toUpperCase()+'</div>'+sosBadge+'</div></div><div class="rst '+stClass+'">'+stLabel+'</div></div>' +
-    '<div class="rcb"><div class="rcinfo"><div class="rccol"><div class="rccol-l">'+_t('res').date+'</div><div class="rccol-v">'+_fmtDate(b.start_date)+'</div></div><div class="rccol"><div class="rccol-l">'+_t('res').duration+'</div><div class="rccol-v">'+days+' '+(days===1?_t('res').day1:_t('res').days5)+'</div></div><div class="rccol"><div class="rccol-l">'+_t('res').total+'</div><div class="rccol-v">'+(b.total_price||0).toLocaleString('cs-CZ')+' Kč</div></div></div>' +
+    '<div class="rcb"><div class="rcinfo"><div class="rccol"><div class="rccol-l">'+_t('res').date+'</div><div class="rccol-v">'+_fmtDateRange(b.start_date, b.end_date)+'</div></div><div class="rccol"><div class="rccol-l">'+_t('res').duration+'</div><div class="rccol-v">'+days+' '+(days===1?_t('res').day1:_t('res').days5)+'</div></div><div class="rccol"><div class="rccol-l">'+_t('res').total+'</div><div class="rccol-v">'+(b.total_price||0).toLocaleString('cs-CZ')+' Kč</div></div></div>' +
     '<div class="ract">'+btns+'</div></div></div>';
 }
 
