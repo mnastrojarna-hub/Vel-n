@@ -1047,7 +1047,8 @@ async function apiFetchDocuments(){
       if(existing){
         // Enrich existing doc entry with invoice data (source, number, total)
         if(!existing._invoice) existing._invoice = inv;
-        if(!existing.amount || existing.amount === 0) existing.amount = inv.total || 0;
+        // Always prefer invoice total over booking total_price (SOS bookings have deposit not in total_price)
+        if(inv.total) existing.amount = inv.total;
         return;
       }
       results.push({

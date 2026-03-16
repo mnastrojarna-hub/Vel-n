@@ -966,22 +966,27 @@ async function sosPaymentSubmit(){
         }
         if(replBookingId){
           // Mark replacement booking as paid + active
-          await window.supabase.from('bookings').update({
+          var _bkUpd = await window.supabase.from('bookings').update({
             payment_status: 'paid',
             status: 'active',
             confirmed_at: new Date().toISOString(),
             picked_up_at: new Date().toISOString()
           }).eq('id', replBookingId);
+          if(_bkUpd.error) console.error('[SOS] Booking status update failed:', _bkUpd.error.message);
           // Generate ZF (zálohová faktura)
           if(typeof apiGenerateAdvanceInvoice === 'function'){
-            await apiGenerateAdvanceInvoice(replBookingId, sosPaymentTotal, 'sos');
+            var _zfSos = await apiGenerateAdvanceInvoice(replBookingId, sosPaymentTotal, 'sos');
+            if(_zfSos.error) console.error('[SOS] ZF generation failed:', _zfSos.error);
+            else console.log('[SOS] ZF generated:', _zfSos.invoice_number);
           }
           // Generate DP (daňový doklad)
           if(typeof apiGeneratePaymentReceipt === 'function'){
-            await apiGeneratePaymentReceipt(replBookingId, sosPaymentTotal, 'sos');
+            var _dpSos = await apiGeneratePaymentReceipt(replBookingId, sosPaymentTotal, 'sos');
+            if(_dpSos.error) console.error('[SOS] DP generation failed:', _dpSos.error);
+            else console.log('[SOS] DP generated:', _dpSos.receipt_number);
           }
         } else {
-          console.warn('[SOS] No replacement booking ID — ZF/DP not generated');
+          console.error('[SOS] No replacement booking ID found — ZF/DP not generated. incId=' + pd.incId);
         }
       } catch(e){ console.error('[SOS] ZF/DP generation failed:', e); }
 

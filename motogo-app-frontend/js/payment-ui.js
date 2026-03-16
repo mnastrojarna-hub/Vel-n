@@ -301,16 +301,22 @@ function doPayment(){
         // AUTO-GENERATE: Advance invoice + Payment receipt + Contract + VOP
         if(_currentBookingId){
           try {
+            var _zfOk = false, _dpOk = false;
             if(typeof apiGenerateAdvanceInvoice === 'function'){
-              apiGenerateAdvanceInvoice(_currentBookingId, _currentPaymentAmount, 'booking').catch(function(e){ console.warn('[PAY] Advance invoice err:', e); });
+              var _zfRes = await apiGenerateAdvanceInvoice(_currentBookingId, _currentPaymentAmount, 'booking');
+              _zfOk = !_zfRes.error;
+              if(_zfRes.error) console.error('[PAY] ZF generation failed:', _zfRes.error);
             }
             if(typeof apiGeneratePaymentReceipt === 'function'){
-              apiGeneratePaymentReceipt(_currentBookingId, _currentPaymentAmount, 'booking').catch(function(e){ console.warn('[PAY] Payment receipt err:', e); });
+              var _dpRes = await apiGeneratePaymentReceipt(_currentBookingId, _currentPaymentAmount, 'booking');
+              _dpOk = !_dpRes.error;
+              if(_dpRes.error) console.error('[PAY] DP generation failed:', _dpRes.error);
             }
+            if(!_zfOk || !_dpOk) console.warn('[PAY] Invoice auto-gen: ZF=' + _zfOk + ' DP=' + _dpOk);
             if(typeof apiAutoGenerateBookingDocs === 'function'){
-              apiAutoGenerateBookingDocs(_currentBookingId).then(function(){}).catch(function(e){ console.warn('[PAY] Docs err:', e); });
+              await apiAutoGenerateBookingDocs(_currentBookingId).catch(function(e){ console.warn('[PAY] Docs err:', e); });
             }
-          } catch(de){ console.warn('[PAY] Doc gen err:', de); }
+          } catch(de){ console.error('[PAY] Doc gen err:', de); }
         }
 
         // Update success screen
@@ -436,15 +442,19 @@ function doRestorePayment(bookingId){
         }
 
         // Auto-generate advance invoice + payment receipt + docs for restored booking
-        if(typeof apiGenerateAdvanceInvoice === 'function'){
-          apiGenerateAdvanceInvoice(bookingId, _currentPaymentAmount, 'restore').catch(function(e){ console.warn('[PAY] Invoice err:', e); });
-        }
-        if(typeof apiGeneratePaymentReceipt === 'function'){
-          apiGeneratePaymentReceipt(bookingId, _currentPaymentAmount, 'restore').catch(function(e){ console.warn('[PAY] Receipt err:', e); });
-        }
-        if(typeof apiAutoGenerateBookingDocs === 'function'){
-          apiAutoGenerateBookingDocs(bookingId).catch(function(e){ console.warn('[PAY] Docs err:', e); });
-        }
+        try {
+          if(typeof apiGenerateAdvanceInvoice === 'function'){
+            var _zfR = await apiGenerateAdvanceInvoice(bookingId, _currentPaymentAmount, 'restore');
+            if(_zfR.error) console.error('[PAY] Restore ZF failed:', _zfR.error);
+          }
+          if(typeof apiGeneratePaymentReceipt === 'function'){
+            var _dpR = await apiGeneratePaymentReceipt(bookingId, _currentPaymentAmount, 'restore');
+            if(_dpR.error) console.error('[PAY] Restore DP failed:', _dpR.error);
+          }
+          if(typeof apiAutoGenerateBookingDocs === 'function'){
+            await apiAutoGenerateBookingDocs(bookingId).catch(function(e){ console.warn('[PAY] Docs err:', e); });
+          }
+        } catch(de){ console.error('[PAY] Restore doc gen err:', de); }
 
         _isRestorePayment = false;
         _currentBookingId = null;
@@ -529,12 +539,16 @@ function doEditPayment(bookingId, amount, changes){
         }
 
         // Auto-generate advance invoice + payment receipt with itemized edit breakdown
-        if(typeof apiGenerateAdvanceInvoice === 'function'){
-          apiGenerateAdvanceInvoice(bookingId, amount, 'edit', editCtx).catch(function(e){ console.warn('[PAY] edit invoice err:', e); });
-        }
-        if(typeof apiGeneratePaymentReceipt === 'function'){
-          apiGeneratePaymentReceipt(bookingId, amount, 'edit', editCtx).catch(function(e){ console.warn('[PAY] edit receipt err:', e); });
-        }
+        try {
+          if(typeof apiGenerateAdvanceInvoice === 'function'){
+            var _zfE = await apiGenerateAdvanceInvoice(bookingId, amount, 'edit', editCtx);
+            if(_zfE.error) console.error('[PAY] Edit ZF failed:', _zfE.error);
+          }
+          if(typeof apiGeneratePaymentReceipt === 'function'){
+            var _dpE = await apiGeneratePaymentReceipt(bookingId, amount, 'edit', editCtx);
+            if(_dpE.error) console.error('[PAY] Edit DP failed:', _dpE.error);
+          }
+        } catch(de){ console.error('[PAY] Edit doc gen err:', de); }
         // Regenerate contract + VOP with updated booking data (force=true deletes old ones)
         if(typeof apiAutoGenerateBookingDocs === 'function'){
           apiAutoGenerateBookingDocs(bookingId, true).catch(function(e){ console.warn('[PAY] edit docs err:', e); });
