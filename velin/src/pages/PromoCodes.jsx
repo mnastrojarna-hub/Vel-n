@@ -18,7 +18,15 @@ export default function PromoCodes() {
   const [error, setError] = useState(null)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [filters, setFilters] = useState({ status: '', search: '' })
+  const defaultFilters = { statuses: [], search: '' }
+  const [filters, setFilters] = useState(() => {
+    try {
+      const saved = localStorage.getItem('velin_promo_filters')
+      if (saved) return { ...defaultFilters, ...JSON.parse(saved) }
+    } catch {}
+    return defaultFilters
+  })
+  useEffect(() => { localStorage.setItem('velin_promo_filters', JSON.stringify(filters)) }, [filters])
   const [summary, setSummary] = useState({ total: 0, active: 0, inactive: 0, expired: 0, totalUsed: 0, totalValue: 0 })
   const [showModal, setShowModal] = useState(false)
   const [editCode, setEditCode] = useState(null)
@@ -46,7 +54,15 @@ export default function PromoCodes() {
         .select('*', { count: 'exact' })
         .order('created_at', { ascending: false })
 
-      if (filters.status === 'active') query = query.eq('active', true)
+      if (filters.statuses?.length > 0) {
+        if (filters.statuses.includes('active') && !filters.statuses.includes('inactive') && !filters.statuses.includes('expired')) {
+          query = query.eq('active', true)
+        } else if (filters.statuses.includes('inactive') && !filters.statuses.includes('active') && !filters.statuses.includes('expired')) {
+          query = query.eq('active', false)
+        } else if (filters.statuses.includes('expired') && !filters.statuses.includes('active') && !filters.statuses.includes('inactive')) {
+          query = query.lt('valid_to', new Date().toISOString().split('T')[0])
+        }
+      } else if (filters.status === 'active') query = query.eq('active', true)
       else if (filters.status === 'inactive') query = query.eq('active', false)
       else if (filters.status === 'expired') {
         query = query.lt('valid_to', new Date().toISOString().split('T')[0])
@@ -130,7 +146,7 @@ export default function PromoCodes() {
         <div>codes: {codes.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
         <div>summary: total={summary.total}, active={summary.active}, inactive={summary.inactive}, expired={summary.expired}</div>
         <div>totalUsed: {summary.totalUsed}</div>
-        <div>filtry: status={filters.status || 'vše'}, search="{filters.search}"</div>
+        <div>filtry: status={filters.statuses?.length > 0 ? filters.statuses.join(',') : 'vše'}, search="{filters.search}"</div>
         {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>
 
@@ -150,16 +166,14 @@ export default function PromoCodes() {
           onChange={v => { setPage(1); setFilters(f => ({ ...f, search: v })) }}
           placeholder="Hledat kód…"
         />
-        <FilterSelect
-          value={filters.status}
-          onChange={v => { setPage(1); setFilters(f => ({ ...f, status: v })) }}
-          options={[
-            { value: '', label: 'Všechny stavy' },
-            { value: 'active', label: 'Aktivní' },
-            { value: 'inactive', label: 'Neaktivní' },
-            { value: 'expired', label: 'Expirované' },
-          ]}
-        />
+        <CheckboxFilterGroup label="Stav" values={filters.statuses || []}
+          onChange={v => { setPage(1); setFilters(f => ({ ...f, statuses: v })) }}
+          options={[{ value: 'active', label: 'Aktivní' }, { value: 'inactive', label: 'Neaktivní' }, { value: 'expired', label: 'Expirované' }]} />
+        <button onClick={() => { setPage(1); setFilters({ ...defaultFilters }); localStorage.removeItem('velin_promo_filters') }}
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+          style={{ padding: '8px 14px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626' }}>
+          Reset
+        </button>
         <div className="ml-auto">
           <Button green onClick={openCreate}>+ Nový promo kód</Button>
         </div>
@@ -486,6 +500,27 @@ function ActionBtn({ children, color, onClick }) {
     >
       {children}
     </button>
+  )
+}
+
+function CheckboxFilterGroup({ label, values, onChange, options }) {
+  const toggle = val => {
+    if (values.includes(val)) onChange(values.filter(v => v !== val))
+    else onChange([...values, val])
+  }
+  return (
+    <div className="flex items-center gap-1 flex-wrap rounded-btn"
+      style={{ padding: '4px 10px', background: values.length > 0 ? '#e8fde8' : '#f1faf7', border: '1px solid #d4e8e0' }}>
+      <span className="text-sm font-extrabold uppercase tracking-wide mr-1" style={{ color: '#1a2e22' }}>{label}:</span>
+      {options.map(o => (
+        <label key={o.value} className="flex items-center gap-1 cursor-pointer"
+          style={{ padding: '3px 6px', borderRadius: 6, background: values.includes(o.value) ? '#74FB71' : 'transparent' }}>
+          <input type="checkbox" checked={values.includes(o.value)} onChange={() => toggle(o.value)}
+            className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} />
+          <span className="text-sm font-bold" style={{ color: '#1a2e22', whiteSpace: 'nowrap' }}>{o.label}</span>
+        </label>
+      ))}
+    </div>
   )
 }
 

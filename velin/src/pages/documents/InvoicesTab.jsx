@@ -32,13 +32,37 @@ const STATUS_MAP = {
   refunded: { label: 'Refundována', color: '#1a2e22', bg: '#f3f4f6' },
 }
 
+const TYPE_OPTIONS = [
+  { value: 'advance', label: 'Zálohové (ZF)' },
+  { value: 'payment_receipt', label: 'Doklady k platbě (DP)' },
+  { value: 'final', label: 'Konečné (KF)' },
+  { value: 'issued', label: 'Vystavené' },
+  { value: 'shop_proforma', label: 'Shop zálohové' },
+  { value: 'shop_final', label: 'Shop konečné' },
+]
+
+const STATUS_OPTIONS = [
+  { value: 'issued', label: 'Vystavené' },
+  { value: 'paid', label: 'Zaplacené' },
+  { value: 'cancelled', label: 'Stornované' },
+  { value: 'refunded', label: 'Refundované' },
+]
+
 export default function InvoicesTab() {
   const [invoices, setInvoices] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [filters, setFilters] = useState({ search: '', type: '', status: '', sort: 'date_desc' })
+  const defaultFilters = { search: '', types: [], statuses: [], sort: 'date_desc' }
+  const [filters, setFilters] = useState(() => {
+    try {
+      const saved = localStorage.getItem('velin_doc_invoices_filters')
+      if (saved) return { ...defaultFilters, ...JSON.parse(saved) }
+    } catch {}
+    return defaultFilters
+  })
+  useEffect(() => { localStorage.setItem('velin_doc_invoices_filters', JSON.stringify(filters)) }, [filters])
   const [summary, setSummary] = useState({ total: 0, paid: 0, unpaid: 0, cancelled: 0 })
   const [detail, setDetail] = useState(null)
   const [showCreate, setShowCreate] = useState(false)
@@ -56,13 +80,11 @@ export default function InvoicesTab() {
         .select('*, profiles:customer_id(full_name, email), bookings:booking_id(id, start_date, modification_history, sos_incident_id, motorcycles:moto_id(model))', { count: 'exact' })
         .order(filters.sort.startsWith('amount') ? 'total' : 'issue_date', { ascending: filters.sort.endsWith('_asc'), nullsFirst: false })
 
-      if (filters.type === 'advance') {
-        // ZF: match both 'advance' and 'proforma' types
-        query = query.in('type', ['advance', 'proforma'])
-      } else if (filters.type) {
-        query = query.eq('type', filters.type)
+      if (filters.types?.length > 0) {
+        const expandedTypes = filters.types.includes('advance') ? [...filters.types, 'proforma'] : filters.types
+        query = query.in('type', expandedTypes)
       }
-      if (filters.status) query = query.eq('status', filters.status)
+      if (filters.statuses?.length > 0) query = query.in('status', filters.statuses)
       if (filters.search) query = query.or(`number.ilike.%${filters.search}%`)
       query = query.range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
 
@@ -109,7 +131,6 @@ export default function InvoicesTab() {
 
   async function handleDownload(invoice) {
     try {
-      // Always generate from template (storage bucket may not exist)
       const { loadInvoiceData } = await import('../../lib/invoiceUtils')
       const { generateInvoiceHtml } = await import('../../lib/invoiceTemplate')
       const fullInv = await loadInvoiceData(invoice.id)
@@ -146,34 +167,36 @@ export default function InvoicesTab() {
           onChange={v => { setPage(1); setFilters(f => ({ ...f, search: v })) }}
           placeholder="Hledat číslo faktury…"
         />
-        <FilterSelect value={filters.type} onChange={v => { setPage(1); setFilters(f => ({ ...f, type: v })) }}
-          options={[
-            { value: '', label: 'Všechny typy' },
-            { value: 'advance', label: 'Zálohové (ZF)' },
-            { value: 'payment_receipt', label: 'Doklady k platbě (DP)' },
-            { value: 'final', label: 'Konečné (KF)' },
-            { value: 'issued', label: 'Vystavené' },
-            { value: 'shop_proforma', label: 'Shop zálohové' },
-            { value: 'shop_final', label: 'Shop konečné' },
-          ]} />
-        <FilterSelect value={filters.status} onChange={v => { setPage(1); setFilters(f => ({ ...f, status: v })) }}
-          options={[
-            { value: '', label: 'Všechny stavy' },
-            { value: 'issued', label: 'Vystavené' },
-            { value: 'paid', label: 'Zaplacené' },
-            { value: 'cancelled', label: 'Stornované' },
-            { value: 'refunded', label: 'Refundované' },
-          ]} />
-        <FilterSelect value={filters.sort} onChange={v => { setPage(1); setFilters(f => ({ ...f, sort: v })) }}
-          options={[
-            { value: 'date_desc', label: 'Datum ↓ nejnovější' },
-            { value: 'date_asc', label: 'Datum ↑ nejstarší' },
-            { value: 'amount_desc', label: 'Částka ↓ nejvyšší' },
-            { value: 'amount_asc', label: 'Částka ↑ nejnižší' },
-          ]} />
+        <CheckboxFilterGroup label="Typ" values={filters.types || []}
+          onChange={v => { setPage(1); setFilters(f => ({ ...f, types: v })) }}
+          options={TYPE_OPTIONS} />
+        <CheckboxFilterGroup label="Stav" values={filters.statuses || []}
+          onChange={v => { setPage(1); setFilters(f => ({ ...f, statuses: v })) }}
+          options={STATUS_OPTIONS} />
+        <select value={filters.sort} onChange={e => { setPage(1); setFilters(f => ({ ...f, sort: e.target.value })) }}
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
+          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
+          <option value="date_desc">Datum ↓ nejnovější</option>
+          <option value="date_asc">Datum ↑ nejstarší</option>
+          <option value="amount_desc">Částka ↓ nejvyšší</option>
+          <option value="amount_asc">Částka ↑ nejnižší</option>
+        </select>
+        <button onClick={() => { setPage(1); setFilters({ ...defaultFilters }); localStorage.removeItem('velin_doc_invoices_filters') }}
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+          style={{ padding: '8px 14px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626' }}>
+          Reset
+        </button>
         <div className="ml-auto">
           <Button green onClick={() => setShowCreate(true)}>+ Nová faktura</Button>
         </div>
+      </div>
+
+      {/* DIAGNOSTIKA */}
+      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
+        <strong>DIAGNOSTIKA DocInvoicesTab</strong><br/>
+        <div>invoices: {invoices.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
+        <div>filtry: types={filters.types?.length > 0 ? filters.types.join(',') : 'vše'}, statuses={filters.statuses?.length > 0 ? filters.statuses.join(',') : 'vše'}, sort={filters.sort}, search="{filters.search}"</div>
+        {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>
 
       {error && <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
@@ -270,12 +293,23 @@ function ActionBtn({ children, color, onClick }) {
   )
 }
 
-function FilterSelect({ value, onChange, options }) {
+function CheckboxFilterGroup({ label, values, onChange, options }) {
+  const toggle = val => {
+    if (values.includes(val)) onChange(values.filter(v => v !== val))
+    else onChange([...values, val])
+  }
   return (
-    <select value={value} onChange={e => onChange(e.target.value)}
-      className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
-      style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
-      {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-    </select>
+    <div className="flex items-center gap-1 flex-wrap rounded-btn"
+      style={{ padding: '4px 10px', background: values.length > 0 ? '#e8fde8' : '#f1faf7', border: '1px solid #d4e8e0' }}>
+      <span className="text-sm font-extrabold uppercase tracking-wide mr-1" style={{ color: '#1a2e22' }}>{label}:</span>
+      {options.map(o => (
+        <label key={o.value} className="flex items-center gap-1 cursor-pointer"
+          style={{ padding: '3px 6px', borderRadius: 6, background: values.includes(o.value) ? '#74FB71' : 'transparent' }}>
+          <input type="checkbox" checked={values.includes(o.value)} onChange={() => toggle(o.value)}
+            className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} />
+          <span className="text-sm font-bold" style={{ color: '#1a2e22', whiteSpace: 'nowrap' }}>{o.label}</span>
+        </label>
+      ))}
+    </div>
   )
 }

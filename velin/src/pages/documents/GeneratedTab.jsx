@@ -16,29 +16,52 @@ const TYPE_LABELS = {
   handover_protocol: 'Předávací protokol',
 }
 
+const TYPE_OPTIONS = [
+  { value: 'vop', label: 'VOP' },
+  { value: 'rental_contract', label: 'Smlouva' },
+  { value: 'handover_protocol', label: 'Předávací protokol' },
+]
+
+const STORAGE_KEY = 'velin_generated_filters'
+const defaultFilters = { search: '', types: [], sort: 'date_desc' }
+
+function loadFilters() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      return { ...defaultFilters, ...parsed }
+    }
+  } catch { /* ignore */ }
+  return { ...defaultFilters }
+}
+
 export default function GeneratedTab() {
   const [docs, setDocs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [search, setSearch] = useState('')
-  const [typeFilter, setTypeFilter] = useState('')
+  const [filters, setFilters] = useState(loadFilters)
   const [preview, setPreview] = useState(null)
   const [previewHtml, setPreviewHtml] = useState('')
-  const [sort, setSort] = useState('date_desc')
   const [showGenerate, setShowGenerate] = useState(false)
 
-  useEffect(() => { load() }, [page, search, typeFilter, sort])
+  // Persist filters to localStorage
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(filters)) } catch { /* ignore */ }
+  }, [filters])
+
+  useEffect(() => { load() }, [page, filters])
 
   async function load() {
     setLoading(true); setError(null)
     try {
-      debugLog('GeneratedTab', 'load', { page, search, typeFilter, sort })
+      debugLog('GeneratedTab', 'load', { page, filters })
       let query = supabase
         .from('generated_documents')
         .select('*, profiles(full_name), bookings(id, start_date, motorcycles:moto_id(model))', { count: 'exact' })
-      query = query.order('created_at', { ascending: sort === 'date_asc' })
+      query = query.order('created_at', { ascending: filters.sort === 'date_asc' })
         .range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       const { data, count, error: err } = await debugAction('generated_documents.list', 'GeneratedTab', () => query)
       if (err) throw err
@@ -54,19 +77,19 @@ export default function GeneratedTab() {
       items = items.map(d => ({ ...d, _template: templatesMap[d.template_id] || null }))
 
       // Apply local filters
-      if (search) {
-        const s = search.toLowerCase()
+      if (filters.search) {
+        const s = filters.search.toLowerCase()
         items = items.filter(d =>
           (d._template?.name || d.type || '').toLowerCase().includes(s) ||
           (d.profiles?.full_name || '').toLowerCase().includes(s)
         )
       }
-      if (typeFilter) {
-        items = items.filter(d => (d._template?.type || d.type) === typeFilter)
+      if (filters.types?.length > 0) {
+        items = items.filter(d => filters.types.includes(d._template?.type || d.type))
       }
 
       setDocs(items)
-      setTotal(search || typeFilter ? items.length : (count || 0))
+      setTotal(filters.search || filters.types?.length > 0 ? items.length : (count || 0))
     } catch (e) {
       debugError('GeneratedTab', 'load', e)
       setError(e.message)
@@ -111,31 +134,45 @@ export default function GeneratedTab() {
     setPreview(doc)
   }
 
-  const docTypes = [...new Set(docs.map(d => d._template?.type).filter(Boolean))]
   const totalPages = Math.ceil(total / PER_PAGE)
+  const hasActiveFilters = filters.search || filters.types.length > 0 || filters.sort !== 'date_desc'
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-4">
-        <SearchInput value={search} onChange={v => { setPage(1); setSearch(v) }} placeholder="Hledat dokument, zákazníka…" />
-        <select value={sort} onChange={e => { setPage(1); setSort(e.target.value) }}
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <SearchInput value={filters.search} onChange={v => { setPage(1); setFilters(f => ({ ...f, search: v })) }} placeholder="Hledat dokument, zákazníka…" />
+        <select value={filters.sort} onChange={e => { setPage(1); setFilters(f => ({ ...f, sort: e.target.value })) }}
           className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
           style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
           <option value="date_desc">Datum ↓</option>
           <option value="date_asc">Datum ↑</option>
         </select>
-        {docTypes.length > 0 && (
-          <select value={typeFilter} onChange={e => { setPage(1); setTypeFilter(e.target.value) }}
-            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
-            style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
-            <option value="">Všechny typy</option>
-            {docTypes.map(t => <option key={t} value={t}>{TYPE_LABELS[t] || t}</option>)}
-          </select>
+        <CheckboxFilterGroup
+          label="Typ dokumentu"
+          options={TYPE_OPTIONS}
+          selected={filters.types}
+          onChange={types => { setPage(1); setFilters(f => ({ ...f, types })) }}
+        />
+        {hasActiveFilters && (
+          <button
+            onClick={() => { setPage(1); setFilters({ ...defaultFilters }) }}
+            className="text-sm font-bold cursor-pointer rounded-btn"
+            style={{ padding: '8px 14px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626' }}>
+            Resetovat filtry
+          </button>
         )}
         <div className="ml-auto">
           <Button green onClick={() => setShowGenerate(true)}>+ Vygenerovat dokument</Button>
         </div>
       </div>
+
+      {/* DIAGNOSTIKA */}
+      <details className="mb-4">
+        <summary className="text-xs font-bold cursor-pointer" style={{ color: '#6b7280' }}>DIAGNOSTIKA</summary>
+        <pre className="text-xs mt-1 p-2 rounded-card overflow-auto" style={{ background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22', maxHeight: 150 }}>
+{JSON.stringify({ filters, page, total, docsCount: docs.length, hasActiveFilters }, null, 2)}
+        </pre>
+      </details>
 
       {error && <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
 
@@ -336,4 +373,32 @@ function GenerateDocModal({ onClose, onGenerated }) {
 
 function Label({ children }) {
   return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>
+}
+
+function CheckboxFilterGroup({ label, options, selected, onChange }) {
+  function toggle(value) {
+    if (selected.includes(value)) {
+      onChange(selected.filter(v => v !== value))
+    } else {
+      onChange([...selected, value])
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-xs font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>{label}:</span>
+      {options.map(opt => (
+        <label key={opt.value} className="flex items-center gap-1 cursor-pointer text-sm" style={{ color: '#1a2e22' }}>
+          <input
+            type="checkbox"
+            checked={selected.includes(opt.value)}
+            onChange={() => toggle(opt.value)}
+            className="cursor-pointer"
+            style={{ accentColor: '#1a8a18' }}
+          />
+          <span className={selected.includes(opt.value) ? 'font-bold' : ''}>{opt.label}</span>
+        </label>
+      ))}
+    </div>
+  )
 }

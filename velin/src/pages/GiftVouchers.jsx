@@ -23,7 +23,15 @@ export default function GiftVouchers() {
   const [error, setError] = useState(null)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [filters, setFilters] = useState({ status: '', search: '' })
+  const defaultFilters = { statuses: [], search: '' }
+  const [filters, setFilters] = useState(() => {
+    try {
+      const saved = localStorage.getItem('velin_vouchers_filters')
+      if (saved) return { ...defaultFilters, ...JSON.parse(saved) }
+    } catch {}
+    return defaultFilters
+  })
+  useEffect(() => { localStorage.setItem('velin_vouchers_filters', JSON.stringify(filters)) }, [filters])
   const [summary, setSummary] = useState({ total: 0, active: 0, redeemed: 0, expired: 0, totalValue: 0 })
   const [showModal, setShowModal] = useState(false)
   const [editVoucher, setEditVoucher] = useState(null)
@@ -58,7 +66,8 @@ export default function GiftVouchers() {
         .select('*', { count: 'exact' })
         .order('created_at', { ascending: false })
 
-      if (filters.status) query = query.eq('status', filters.status)
+      if (filters.statuses?.length > 0) query = query.in('status', filters.statuses)
+      else if (filters.status) query = query.eq('status', filters.status)
       if (filters.search) {
         query = query.or(`code.ilike.%${filters.search}%,buyer_name.ilike.%${filters.search}%,buyer_email.ilike.%${filters.search}%`)
       }
@@ -161,7 +170,7 @@ export default function GiftVouchers() {
         <div>vouchers: {vouchers.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
         <div>summary: total={summary.total}, active={summary.active}, redeemed={summary.redeemed}, expired={summary.expired}</div>
         <div>totalValue (active): {summary.totalValue?.toLocaleString('cs-CZ')} Kč</div>
-        <div>filtry: status={filters.status || 'vše'}, search="{filters.search}"</div>
+        <div>filtry: status={filters.statuses?.length > 0 ? filters.statuses.join(',') : 'vše'}, search="{filters.search}"</div>
         {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>
 
@@ -181,17 +190,14 @@ export default function GiftVouchers() {
           onChange={v => { setPage(1); setFilters(f => ({ ...f, search: v })) }}
           placeholder="Hledat kód, jméno, email…"
         />
-        <FilterSelect
-          value={filters.status}
-          onChange={v => { setPage(1); setFilters(f => ({ ...f, status: v })) }}
-          options={[
-            { value: '', label: 'Všechny stavy' },
-            { value: 'active', label: 'Aktivní' },
-            { value: 'redeemed', label: 'Uplatněné' },
-            { value: 'expired', label: 'Expirované' },
-            { value: 'cancelled', label: 'Zrušené' },
-          ]}
-        />
+        <CheckboxFilterGroup label="Stav" values={filters.statuses || []}
+          onChange={v => { setPage(1); setFilters(f => ({ ...f, statuses: v })) }}
+          options={[{ value: 'active', label: 'Aktivní' }, { value: 'redeemed', label: 'Uplatněné' }, { value: 'expired', label: 'Expirované' }, { value: 'cancelled', label: 'Zrušené' }]} />
+        <button onClick={() => { setPage(1); setFilters({ ...defaultFilters }); localStorage.removeItem('velin_vouchers_filters') }}
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+          style={{ padding: '8px 14px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626' }}>
+          Reset
+        </button>
         <div className="ml-auto">
           <Button green onClick={() => { setEditVoucher(null); setShowModal(true) }}>+ Nový poukaz</Button>
         </div>
@@ -545,6 +551,27 @@ function ActionBtn({ children, color, onClick }) {
     >
       {children}
     </button>
+  )
+}
+
+function CheckboxFilterGroup({ label, values, onChange, options }) {
+  const toggle = val => {
+    if (values.includes(val)) onChange(values.filter(v => v !== val))
+    else onChange([...values, val])
+  }
+  return (
+    <div className="flex items-center gap-1 flex-wrap rounded-btn"
+      style={{ padding: '4px 10px', background: values.length > 0 ? '#e8fde8' : '#f1faf7', border: '1px solid #d4e8e0' }}>
+      <span className="text-sm font-extrabold uppercase tracking-wide mr-1" style={{ color: '#1a2e22' }}>{label}:</span>
+      {options.map(o => (
+        <label key={o.value} className="flex items-center gap-1 cursor-pointer"
+          style={{ padding: '3px 6px', borderRadius: 6, background: values.includes(o.value) ? '#74FB71' : 'transparent' }}>
+          <input type="checkbox" checked={values.includes(o.value)} onChange={() => toggle(o.value)}
+            className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} />
+          <span className="text-sm font-bold" style={{ color: '#1a2e22', whiteSpace: 'nowrap' }}>{o.label}</span>
+        </label>
+      ))}
+    </div>
   )
 }
 

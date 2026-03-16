@@ -17,8 +17,17 @@ export default function Inventory() {
   const [error, setError] = useState(null)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [filters, setFilters] = useState({ search: '', category: '', stock: '' })
+  const defaultFilters = { search: '', category: '', stocks: [] }
+  const [filters, setFilters] = useState(() => {
+    try {
+      const saved = localStorage.getItem('velin_inventory_filters')
+      if (saved) return { ...defaultFilters, ...JSON.parse(saved) }
+    } catch {}
+    return defaultFilters
+  })
   const [showAdd, setShowAdd] = useState(false)
+
+  useEffect(() => { localStorage.setItem('velin_inventory_filters', JSON.stringify(filters)) }, [filters])
 
   useEffect(() => { load() }, [page, filters])
 
@@ -38,8 +47,10 @@ export default function Inventory() {
       if (err) throw err
 
       let filtered = data || []
-      if (filters.stock === 'low') filtered = filtered.filter(i => i.stock <= i.min_stock)
-      if (filters.stock === 'ok') filtered = filtered.filter(i => i.stock > i.min_stock)
+      if (filters.stocks?.length > 0) {
+        if (filters.stocks.includes('low') && !filters.stocks.includes('ok')) filtered = filtered.filter(i => i.stock <= i.min_stock)
+        else if (filters.stocks.includes('ok') && !filters.stocks.includes('low')) filtered = filtered.filter(i => i.stock > i.min_stock)
+      }
 
       setItems(filtered)
       setTotal(count || 0)
@@ -61,15 +72,16 @@ export default function Inventory() {
           onChange={v => { setPage(1); setFilters(f => ({ ...f, search: v })) }}
           placeholder="Hledat SKU, název…"
         />
-        <FilterSelect
-          value={filters.stock}
-          onChange={v => { setPage(1); setFilters(f => ({ ...f, stock: v })) }}
-          options={[
-            { value: '', label: 'Všechny zásoby' },
-            { value: 'low', label: 'Nízké zásoby' },
-            { value: 'ok', label: 'Dostatečné' },
-          ]}
-        />
+        <CheckboxFilterGroup label="Zásoby" values={filters.stocks || []}
+          onChange={v => { setPage(1); setFilters(f => ({ ...f, stocks: v })) }}
+          options={[{ value: 'low', label: 'Nízké zásoby' }, { value: 'ok', label: 'Dostatečné' }]} />
+        {(filters.search || filters.category || (filters.stocks?.length > 0)) && (
+          <button onClick={() => { setPage(1); setFilters({ ...defaultFilters }); localStorage.removeItem('velin_inventory_filters') }}
+            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+            style={{ padding: '8px 14px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626' }}>
+            Reset
+          </button>
+        )}
         <div className="ml-auto">
           <Button green onClick={() => setShowAdd(true)}>+ Nová položka</Button>
         </div>
@@ -79,7 +91,7 @@ export default function Inventory() {
       <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA Inventory</strong><br/>
         <div>items: {items.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
-        <div>filtry: search="{filters.search}", category={filters.category || 'vše'}, stock={filters.stock || 'vše'}</div>
+        <div>filtry: search="{filters.search}", category={filters.category || 'vše'}, stocks=[{(filters.stocks || []).join(', ') || 'vše'}]</div>
         <div>lowStock: {items.filter(i => i.stock <= i.min_stock).length} položek pod minimem</div>
         {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>
@@ -135,13 +147,24 @@ export default function Inventory() {
   )
 }
 
-function FilterSelect({ value, onChange, options }) {
+function CheckboxFilterGroup({ label, values, onChange, options }) {
+  const toggle = val => {
+    if (values.includes(val)) onChange(values.filter(v => v !== val))
+    else onChange([...values, val])
+  }
   return (
-    <select value={value} onChange={e => onChange(e.target.value)}
-      className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
-      style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
-      {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-    </select>
+    <div className="flex items-center gap-1 flex-wrap rounded-btn"
+      style={{ padding: '4px 10px', background: values.length > 0 ? '#e8fde8' : '#f1faf7', border: '1px solid #d4e8e0' }}>
+      <span className="text-sm font-extrabold uppercase tracking-wide mr-1" style={{ color: '#1a2e22' }}>{label}:</span>
+      {options.map(o => (
+        <label key={o.value} className="flex items-center gap-1 cursor-pointer"
+          style={{ padding: '3px 6px', borderRadius: 6, background: values.includes(o.value) ? '#74FB71' : 'transparent' }}>
+          <input type="checkbox" checked={values.includes(o.value)} onChange={() => toggle(o.value)}
+            className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} />
+          <span className="text-sm font-bold" style={{ color: '#1a2e22', whiteSpace: 'nowrap' }}>{o.label}</span>
+        </label>
+      ))}
+    </div>
   )
 }
 

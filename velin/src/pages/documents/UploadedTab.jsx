@@ -7,6 +7,19 @@ import Pagination from '../../components/ui/Pagination'
 import Modal from '../../components/ui/Modal'
 
 const PER_PAGE = 25
+const STORAGE_KEY = 'velin_uploaded_filters'
+const defaultFilters = { search: '', sort: 'date_desc' }
+
+function loadFilters() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      return { ...defaultFilters, ...parsed }
+    }
+  } catch (_) { /* ignore */ }
+  return { ...defaultFilters }
+}
 
 export default function UploadedTab() {
   const [docs, setDocs] = useState([])
@@ -14,22 +27,27 @@ export default function UploadedTab() {
   const [error, setError] = useState(null)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [search, setSearch] = useState('')
-  const [sort, setSort] = useState('date_desc')
+  const [filters, setFilters] = useState(loadFilters)
   const [preview, setPreview] = useState(null)
 
-  useEffect(() => { load() }, [page, search, sort])
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(filters))
+    } catch (_) { /* ignore */ }
+  }, [filters])
+
+  useEffect(() => { load() }, [page, filters])
 
   async function load() {
     setLoading(true)
     setError(null)
     try {
-      debugLog('UploadedTab', 'load', { page, search, sort })
+      debugLog('UploadedTab', 'load', { page, filters })
       let query = supabase
         .from('documents')
         .select('*, profiles(full_name)', { count: 'exact' })
-      if (search) query = query.or(`type.ilike.%${search}%,profiles.full_name.ilike.%${search}%`)
-      query = query.order('created_at', { ascending: sort === 'date_asc' }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
+      if (filters.search) query = query.or(`type.ilike.%${filters.search}%,profiles.full_name.ilike.%${filters.search}%`)
+      query = query.order('created_at', { ascending: filters.sort === 'date_asc' }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       const { data, count, error: err } = await debugAction('documents.list', 'UploadedTab', () => query)
       if (err) throw err
       setDocs(data || [])
@@ -49,13 +67,26 @@ export default function UploadedTab() {
   return (
     <div>
       <div className="flex items-center gap-3 mb-4">
-        <SearchInput value={search} onChange={v => { setPage(1); setSearch(v) }} placeholder="Hledat zákazníka, typ…" />
-        <select value={sort} onChange={e => { setPage(1); setSort(e.target.value) }}
+        <SearchInput value={filters.search} onChange={v => { setPage(1); setFilters(f => ({ ...f, search: v })) }} placeholder="Hledat zákazníka, typ…" />
+        <select value={filters.sort} onChange={e => { setPage(1); setFilters(f => ({ ...f, sort: e.target.value })) }}
           className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
           style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
           <option value="date_desc">Datum ↓ nejnovější</option>
           <option value="date_asc">Datum ↑ nejstarší</option>
         </select>
+        {(filters.search || filters.sort !== 'date_desc') && (
+          <button
+            onClick={() => { setPage(1); setFilters({ ...defaultFilters }) }}
+            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+            style={{ padding: '8px 14px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626' }}>
+            Reset
+          </button>
+        )}
+      </div>
+
+      {/* DIAGNOSTIKA */}
+      <div className="mb-4 p-3 rounded-card text-xs" style={{ background: '#f0f9ff', border: '1px solid #bae6fd', color: '#0369a1' }}>
+        <strong>DIAGNOSTIKA:</strong> sort={filters.sort} | search="{filters.search}"
       </div>
 
       {error && <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}

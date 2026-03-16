@@ -45,7 +45,15 @@ export default function Finance() {
   const [chartData, setChartData] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [filters, setFilters] = useState({ period: 'month', type: '', category: '', search: '', sort: 'date_desc' })
+  const defaultFilters = { period: 'month', types: [], category: '', search: '', sort: 'date_desc' }
+  const [filters, setFilters] = useState(() => {
+    try {
+      const saved = localStorage.getItem('velin_finance_filters')
+      if (saved) return { ...defaultFilters, ...JSON.parse(saved) }
+    } catch {}
+    return defaultFilters
+  })
+  useEffect(() => { localStorage.setItem('velin_finance_filters', JSON.stringify(filters)) }, [filters])
   const [categories, setCategories] = useState([])
   const [detailTx, setDetailTx] = useState(null)
   const [recentInvoices, setRecentInvoices] = useState([])
@@ -148,7 +156,9 @@ export default function Finance() {
     setCategories(cats)
     // Apply classification and filter
     results = results.map(r => ({ ...r, _classified: classifyEntry(r) }))
-    if (filters.type) {
+    if (filters.types?.length > 0) {
+      results = results.filter(r => filters.types.includes(r._classified))
+    } else if (filters.type) {
       results = results.filter(r => r._classified === filters.type)
     }
     if (filters.search) {
@@ -222,11 +232,9 @@ export default function Finance() {
             {p.label}
           </button>
         ))}
-        <select value={filters.type} onChange={e => setFilters(f => ({ ...f, type: e.target.value }))}
-          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
-          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
-          {TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-        </select>
+        <CheckboxFilterGroup label="Typ" values={filters.types || []}
+          onChange={v => setFilters(f => ({ ...f, types: v }))}
+          options={[{ value: 'revenue', label: 'Příjmy' }, { value: 'expense', label: 'Výdaje' }]} />
         {categories.length > 0 && (
           <select value={filters.category} onChange={e => setFilters(f => ({ ...f, category: e.target.value }))}
             className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
@@ -247,6 +255,11 @@ export default function Finance() {
           <option value="amount_desc">Částka ↓ nejvyšší</option>
           <option value="amount_asc">Částka ↑ nejnižší</option>
         </select>
+        <button onClick={() => { setFilters({ ...defaultFilters }); localStorage.removeItem('velin_finance_filters') }}
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+          style={{ padding: '8px 14px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626' }}>
+          Reset
+        </button>
         <div className="ml-auto flex gap-2">
           <Button onClick={() => handleExport('csv')}>CSV</Button>
           <Button onClick={() => handleExport('xlsx')}>XLSX</Button>
@@ -446,6 +459,27 @@ function MiniStat({ label, value, color }) {
     <div className="p-2 rounded-lg" style={{ background: '#f1faf7' }}>
       <div className="text-[9px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</div>
       <div className="text-sm font-extrabold" style={{ color }}>{value}</div>
+    </div>
+  )
+}
+
+function CheckboxFilterGroup({ label, values, onChange, options }) {
+  const toggle = val => {
+    if (values.includes(val)) onChange(values.filter(v => v !== val))
+    else onChange([...values, val])
+  }
+  return (
+    <div className="flex items-center gap-1 flex-wrap rounded-btn"
+      style={{ padding: '4px 10px', background: values.length > 0 ? '#e8fde8' : '#f1faf7', border: '1px solid #d4e8e0' }}>
+      <span className="text-sm font-extrabold uppercase tracking-wide mr-1" style={{ color: '#1a2e22' }}>{label}:</span>
+      {options.map(o => (
+        <label key={o.value} className="flex items-center gap-1 cursor-pointer"
+          style={{ padding: '3px 6px', borderRadius: 6, background: values.includes(o.value) ? '#74FB71' : 'transparent' }}>
+          <input type="checkbox" checked={values.includes(o.value)} onChange={() => toggle(o.value)}
+            className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} />
+          <span className="text-sm font-bold" style={{ color: '#1a2e22', whiteSpace: 'nowrap' }}>{o.label}</span>
+        </label>
+      ))}
     </div>
   )
 }

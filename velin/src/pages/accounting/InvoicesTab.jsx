@@ -22,35 +22,49 @@ const TYPE_LABELS = {
   shop_final: 'Shop konečná',
 }
 
+const TYPE_OPTIONS = [
+  { value: 'issued', label: 'Vystavené (FV)' },
+  { value: 'advance', label: 'Zálohové (ZF)' },
+  { value: 'payment_receipt', label: 'Doklady k platbě (DP)' },
+  { value: 'final', label: 'Konečné (KF)' },
+  { value: 'shop_proforma', label: 'Shop zálohové' },
+  { value: 'shop_final', label: 'Shop konečné' },
+]
+
 export default function InvoicesTab() {
   const [invoices, setInvoices] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [search, setSearch] = useState('')
-  const [typeFilter, setTypeFilter] = useState('')
+  const defaultFilters = { search: '', types: [], sort: 'date_desc' }
+  const [filters, setFilters] = useState(() => {
+    try {
+      const saved = localStorage.getItem('velin_acc_invoices_filters')
+      if (saved) return { ...defaultFilters, ...JSON.parse(saved) }
+    } catch {}
+    return defaultFilters
+  })
+  useEffect(() => { localStorage.setItem('velin_acc_invoices_filters', JSON.stringify(filters)) }, [filters])
   const [showAdd, setShowAdd] = useState(false)
   const [detailInv, setDetailInv] = useState(null)
-  const [sort, setSort] = useState('date_desc')
 
-  useEffect(() => { load() }, [page, search, typeFilter, sort])
+  useEffect(() => { load() }, [page, filters])
 
   async function load() {
     setLoading(true)
     setError(null)
     try {
-      debugLog('AccInvoicesTab', 'load', { page, search, typeFilter, sort })
+      debugLog('AccInvoicesTab', 'load', { page, filters })
       let query = supabase
         .from('invoices')
         .select('*, profiles:customer_id(full_name), bookings:booking_id(modification_history, sos_incident_id)', { count: 'exact' })
-      if (search) query = query.or(`number.ilike.%${search}%`)
-      if (typeFilter === 'advance') {
-        query = query.in('type', ['advance', 'proforma'])
-      } else if (typeFilter) {
-        query = query.eq('type', typeFilter)
+      if (filters.types?.length > 0) {
+        const expandedTypes = filters.types.includes('advance') ? [...filters.types, 'proforma'] : filters.types
+        query = query.in('type', expandedTypes)
       }
-      query = query.order(sort.startsWith('amount') ? 'total' : 'issue_date', { ascending: sort.endsWith('_asc'), nullsFirst: false }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
+      if (filters.search) query = query.or(`number.ilike.%${filters.search}%`)
+      query = query.order(filters.sort.startsWith('amount') ? 'total' : 'issue_date', { ascending: filters.sort.endsWith('_asc'), nullsFirst: false }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       const { data, count, error: err } = await debugAction('invoices.list', 'AccInvoicesTab', () => query)
       if (err) throw err
       setInvoices(data || [])
@@ -66,7 +80,6 @@ export default function InvoicesTab() {
   async function generatePdf(invoiceId) {
     try {
       debugLog('AccInvoicesTab', 'generatePdf', { invoiceId })
-      // Generate HTML from local template and open print dialog
       const { loadInvoiceData } = await import('../../lib/invoiceUtils')
       const { generateInvoiceHtml } = await import('../../lib/invoiceTemplate')
       const fullInv = await loadInvoiceData(invoiceId)
@@ -121,19 +134,11 @@ export default function InvoicesTab() {
   return (
     <div>
       <div className="flex flex-wrap items-center gap-3 mb-4">
-        <SearchInput value={search} onChange={v => { setPage(1); setSearch(v) }} placeholder="Hledat číslo, zákazníka…" />
-        <select value={typeFilter} onChange={e => { setPage(1); setTypeFilter(e.target.value) }}
-          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
-          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
-          <option value="">Všechny typy</option>
-          <option value="issued">Vystavené (FV)</option>
-          <option value="advance">Zálohové (ZF)</option>
-          <option value="payment_receipt">Doklady k platbě (DP)</option>
-          <option value="final">Konečné (KF)</option>
-          <option value="shop_proforma">Shop zálohové</option>
-          <option value="shop_final">Shop konečné</option>
-        </select>
-        <select value={sort} onChange={e => { setPage(1); setSort(e.target.value) }}
+        <SearchInput value={filters.search} onChange={v => { setPage(1); setFilters(f => ({ ...f, search: v })) }} placeholder="Hledat číslo, zákazníka…" />
+        <CheckboxFilterGroup label="Typ" values={filters.types || []}
+          onChange={v => { setPage(1); setFilters(f => ({ ...f, types: v })) }}
+          options={TYPE_OPTIONS} />
+        <select value={filters.sort} onChange={e => { setPage(1); setFilters(f => ({ ...f, sort: e.target.value })) }}
           className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
           style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
           <option value="date_desc">Datum ↓ nejnovější</option>
@@ -141,9 +146,22 @@ export default function InvoicesTab() {
           <option value="amount_desc">Částka ↓ nejvyšší</option>
           <option value="amount_asc">Částka ↑ nejnižší</option>
         </select>
+        <button onClick={() => { setPage(1); setFilters({ ...defaultFilters }); localStorage.removeItem('velin_acc_invoices_filters') }}
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+          style={{ padding: '8px 14px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626' }}>
+          Reset
+        </button>
         <div className="ml-auto">
           <Button green onClick={() => setShowAdd(true)}>+ Nová faktura</Button>
         </div>
+      </div>
+
+      {/* DIAGNOSTIKA */}
+      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
+        <strong>DIAGNOSTIKA AccInvoicesTab</strong><br/>
+        <div>invoices: {invoices.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
+        <div>filtry: types={filters.types?.length > 0 ? filters.types.join(',') : 'vše'}, sort={filters.sort}, search="{filters.search}"</div>
+        {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>
 
       {error && <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
@@ -262,7 +280,7 @@ function NewInvoiceModal({ onClose, onSaved }) {
     setSaving(true); setErr(null)
     try {
       const totalVal = Number(form.total) || 0
-      const taxVal = Number(form.tax_amount) || 0 // Neplátce DPH
+      const taxVal = Number(form.tax_amount) || 0
       const subtotalVal = totalVal - taxVal
       const number = await generateInvoiceNumber(form.type)
       const { error } = await supabase.from('invoices').insert({
@@ -343,4 +361,25 @@ function NewInvoiceModal({ onClose, onSaved }) {
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
 function Label({ children }) {
   return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>
+}
+
+function CheckboxFilterGroup({ label, values, onChange, options }) {
+  const toggle = val => {
+    if (values.includes(val)) onChange(values.filter(v => v !== val))
+    else onChange([...values, val])
+  }
+  return (
+    <div className="flex items-center gap-1 flex-wrap rounded-btn"
+      style={{ padding: '4px 10px', background: values.length > 0 ? '#e8fde8' : '#f1faf7', border: '1px solid #d4e8e0' }}>
+      <span className="text-sm font-extrabold uppercase tracking-wide mr-1" style={{ color: '#1a2e22' }}>{label}:</span>
+      {options.map(o => (
+        <label key={o.value} className="flex items-center gap-1 cursor-pointer"
+          style={{ padding: '3px 6px', borderRadius: 6, background: values.includes(o.value) ? '#74FB71' : 'transparent' }}>
+          <input type="checkbox" checked={values.includes(o.value)} onChange={() => toggle(o.value)}
+            className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} />
+          <span className="text-sm font-bold" style={{ color: '#1a2e22', whiteSpace: 'nowrap' }}>{o.label}</span>
+        </label>
+      ))}
+    </div>
+  )
 }

@@ -29,7 +29,15 @@ export default function TemplatesTab() {
   const [error, setError] = useState(null)
   const [editing, setEditing] = useState(null)
   const [regenerate, setRegenerate] = useState(null)
-  const [search, setSearch] = useState('')
+  const defaultFilters = { search: '' }
+  const [filters, setFilters] = useState(() => {
+    try {
+      const saved = localStorage.getItem('velin_templates_filters')
+      if (saved) return { ...defaultFilters, ...JSON.parse(saved) }
+    } catch {}
+    return defaultFilters
+  })
+  useEffect(() => { localStorage.setItem('velin_templates_filters', JSON.stringify(filters)) }, [filters])
 
   useEffect(() => { load() }, [])
 
@@ -48,18 +56,25 @@ export default function TemplatesTab() {
   if (error) return <div className="p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>
 
   const filtered = templates.filter(t => {
-    if (!search) return true
-    const s = search.toLowerCase()
+    if (!filters.search) return true
+    const s = filters.search.toLowerCase()
     return (t.name || '').toLowerCase().includes(s) || (t.type || '').toLowerCase().includes(s)
   })
 
   return (
     <div>
       <div className="flex items-center gap-3 mb-4">
-        <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+        <input type="text" value={filters.search} onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
           placeholder="Hledat šablonu…"
           className="rounded-btn text-sm outline-none"
           style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22', minWidth: 200 }} />
+        {filters.search && (
+          <button onClick={() => { setFilters({ ...defaultFilters }); localStorage.removeItem('velin_templates_filters') }}
+            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+            style={{ padding: '8px 14px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626' }}>
+            Reset
+          </button>
+        )}
       </div>
       {filtered.length === 0 ? (
         <Card><p style={{ color: '#1a2e22', fontSize: 13 }}>Žádné šablony</p></Card>

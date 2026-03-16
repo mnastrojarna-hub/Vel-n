@@ -26,14 +26,22 @@ export default function Customers() {
   const [error, setError] = useState(null)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [search, setSearch] = useState('')
   const [showAdd, setShowAdd] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
-  const [filters, setFilters] = useState({
-    city: '', country: '', licenseGroup: '',
+  const defaultFilters = {
+    search: '', city: '', country: '', licenseGroups: [],
     regFrom: '', regTo: '', minBookings: '', maxBookings: '',
     sortBy: 'full_name', sortDir: 'asc'
+  }
+  const [filters, setFilters] = useState(() => {
+    try {
+      const saved = localStorage.getItem('velin_customers_filters')
+      if (saved) return { ...defaultFilters, ...JSON.parse(saved) }
+    } catch {}
+    return defaultFilters
   })
+  useEffect(() => { localStorage.setItem('velin_customers_filters', JSON.stringify(filters)) }, [filters])
+  const search = filters.search || ''
   const [stats, setStats] = useState({})
 
   useEffect(() => { loadCustomers() }, [page, search, filters])
@@ -47,7 +55,8 @@ export default function Customers() {
         if (search) query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`)
         if (filters.city) query = query.ilike('city', `%${filters.city}%`)
         if (filters.country) query = query.eq('country', filters.country)
-        if (filters.licenseGroup) query = query.contains('license_group', [filters.licenseGroup])
+        if (filters.licenseGroups?.length > 0) query = query.overlaps('license_group', filters.licenseGroups)
+        else if (filters.licenseGroup) query = query.contains('license_group', [filters.licenseGroup])
         if (filters.regFrom) query = query.gte('created_at', filters.regFrom)
         if (filters.regTo) query = query.lte('created_at', filters.regTo + 'T23:59:59')
         return query.order(filters.sortBy, { ascending: filters.sortDir === 'asc' })
@@ -94,9 +103,13 @@ export default function Customers() {
   }
 
   const totalPages = Math.ceil(total / PER_PAGE)
-  const activeFilterCount = Object.values(filters).filter(v => v && v !== 'full_name' && v !== 'asc').length
+  const activeFilterCount = Object.entries(filters).filter(([k, v]) => {
+    if (['search', 'sortBy', 'sortDir'].includes(k)) return false
+    if (Array.isArray(v)) return v.length > 0
+    return !!v
+  }).length
   const setF = (k, v) => { setPage(1); setFilters(f => ({ ...f, [k]: v })) }
-  const resetFilters = () => { setPage(1); setFilters({ city: '', country: '', licenseGroup: '', regFrom: '', regTo: '', minBookings: '', maxBookings: '', sortBy: 'full_name', sortDir: 'asc' }) }
+  const resetFilters = () => { setPage(1); setFilters({ ...defaultFilters }); localStorage.removeItem('velin_customers_filters') }
 
   const topMoto = (uid) => { const s = stats[uid]; if (!s || !Object.keys(s.motos).length) return '—'; return Object.entries(s.motos).sort((a, b) => b[1] - a[1])[0][0] }
   const topBranch = (uid) => { const s = stats[uid]; if (!s || !Object.keys(s.branches).length) return '—'; return Object.entries(s.branches).sort((a, b) => b[1] - a[1])[0][0] }
@@ -106,7 +119,10 @@ export default function Customers() {
   return (
     <div>
       <div className="flex flex-wrap items-center gap-3 mb-5">
-        <SearchInput value={search} onChange={v => { setPage(1); setSearch(v) }} placeholder="Hledat jméno, email, telefon…" />
+        <SearchInput value={filters.search} onChange={v => { setPage(1); setFilters(f => ({ ...f, search: v })) }} placeholder="Hledat jméno, email, telefon…" />
+        <CheckboxFilterGroup label="ŘP" values={filters.licenseGroups || []}
+          onChange={v => { setPage(1); setFilters(f => ({ ...f, licenseGroups: v })) }}
+          options={LICENSE_GROUPS.map(g => ({ value: g, label: g }))} />
         <select value={filters.sortBy} onChange={e => setF('sortBy', e.target.value)}
           className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
           style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
@@ -172,7 +188,7 @@ export default function Customers() {
       <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA Customers</strong><br/>
         <div>profiles: {customers.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
-        <div>filtry: search="{search}", city="{filters.city}", country={filters.country || 'vše'}, licenseGroup={filters.licenseGroup || 'vše'}</div>
+        <div>filtry: search="{search}", city="{filters.city}", country={filters.country || 'vše'}, licenseGroups={filters.licenseGroups?.length > 0 ? filters.licenseGroups.join(',') : 'vše'}</div>
         <div>sort: {filters.sortBy} {filters.sortDir}, stats loaded: {Object.keys(stats).length} zákazníků</div>
         {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>
@@ -221,6 +237,27 @@ export default function Customers() {
       )}
 
       {showAdd && <AddCustomerModal onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); loadCustomers() }} />}
+    </div>
+  )
+}
+
+function CheckboxFilterGroup({ label, values, onChange, options }) {
+  const toggle = val => {
+    if (values.includes(val)) onChange(values.filter(v => v !== val))
+    else onChange([...values, val])
+  }
+  return (
+    <div className="flex items-center gap-1 flex-wrap rounded-btn"
+      style={{ padding: '4px 10px', background: values.length > 0 ? '#e8fde8' : '#f1faf7', border: '1px solid #d4e8e0' }}>
+      <span className="text-sm font-extrabold uppercase tracking-wide mr-1" style={{ color: '#1a2e22' }}>{label}:</span>
+      {options.map(o => (
+        <label key={o.value} className="flex items-center gap-1 cursor-pointer"
+          style={{ padding: '3px 6px', borderRadius: 6, background: values.includes(o.value) ? '#74FB71' : 'transparent' }}>
+          <input type="checkbox" checked={values.includes(o.value)} onChange={() => toggle(o.value)}
+            className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} />
+          <span className="text-sm font-bold" style={{ color: '#1a2e22', whiteSpace: 'nowrap' }}>{o.label}</span>
+        </label>
+      ))}
     </div>
   )
 }

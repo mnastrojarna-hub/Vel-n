@@ -9,6 +9,7 @@ import SearchInput from '../../components/ui/SearchInput'
 import Pagination from '../../components/ui/Pagination'
 
 const PER_PAGE = 25
+const LS_KEY = 'velin_received_invoices_filters'
 
 const STATUS_MAP = {
   draft: { label: 'Koncept', color: '#1a2e22', bg: '#f3f4f6' },
@@ -17,29 +18,52 @@ const STATUS_MAP = {
   cancelled: { label: 'Stornována', color: '#dc2626', bg: '#fee2e2' },
 }
 
+const STATUS_OPTIONS = [
+  { value: 'issued', label: 'Přijata' },
+  { value: 'paid', label: 'Zaplacena' },
+  { value: 'cancelled', label: 'Stornována' },
+]
+
+const defaultFilters = { search: '', statuses: [], sort: 'date_desc' }
+
+function loadFilters() {
+  try {
+    const raw = localStorage.getItem(LS_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      return { ...defaultFilters, ...parsed }
+    }
+  } catch { /* ignore */ }
+  return { ...defaultFilters }
+}
+
 export default function ReceivedInvoicesTab() {
   const [invoices, setInvoices] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [search, setSearch] = useState('')
-  const [sort, setSort] = useState('date_desc')
+  const [filters, setFilters] = useState(loadFilters)
   const [showAdd, setShowAdd] = useState(false)
   const [detail, setDetail] = useState(null)
 
-  useEffect(() => { load() }, [page, search, sort])
+  useEffect(() => {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(filters)) } catch { /* ignore */ }
+  }, [filters])
+
+  useEffect(() => { load() }, [page, filters])
 
   async function load() {
     setLoading(true); setError(null)
     try {
-      debugLog('ReceivedInvoicesTab', 'load', { page, search, sort })
+      debugLog('ReceivedInvoicesTab', 'load', { page, filters })
       let query = supabase
         .from('invoices')
         .select('*, profiles:customer_id(full_name)', { count: 'exact' })
         .eq('type', 'received')
-      if (search) query = query.or(`number.ilike.%${search}%,notes.ilike.%${search}%`)
-      query = query.order(sort.startsWith('amount') ? 'total' : 'issue_date', { ascending: sort.endsWith('_asc'), nullsFirst: false })
+      if (filters.search) query = query.or(`number.ilike.%${filters.search}%,notes.ilike.%${filters.search}%`)
+      if (filters.statuses?.length > 0) query = query.in('status', filters.statuses)
+      query = query.order(filters.sort.startsWith('amount') ? 'total' : 'issue_date', { ascending: filters.sort.endsWith('_asc'), nullsFirst: false })
         .range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       const { data, count, error: err } = await debugAction('invoices.received.list', 'ReceivedInvoicesTab', () => query)
       if (err) throw err
@@ -59,14 +83,20 @@ export default function ReceivedInvoicesTab() {
     } catch (e) { setError(e.message) }
   }
 
+  function handleReset() {
+    setPage(1)
+    setFilters({ ...defaultFilters })
+  }
+
   const totalPages = Math.ceil(total / PER_PAGE)
   const fmt = (n) => (n || 0).toLocaleString('cs-CZ') + ' Kč'
+  const hasActiveFilters = filters.search || filters.statuses.length > 0 || filters.sort !== 'date_desc'
 
   return (
     <div>
       <div className="flex flex-wrap items-center gap-3 mb-4">
-        <SearchInput value={search} onChange={v => { setPage(1); setSearch(v) }} placeholder="Hledat číslo, dodavatele…" />
-        <select value={sort} onChange={e => { setPage(1); setSort(e.target.value) }}
+        <SearchInput value={filters.search} onChange={v => { setPage(1); setFilters(f => ({ ...f, search: v })) }} placeholder="Hledat číslo, dodavatele…" />
+        <select value={filters.sort} onChange={e => { setPage(1); setFilters(f => ({ ...f, sort: e.target.value })) }}
           className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
           style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
           <option value="date_desc">Datum ↓ nejnovější</option>
@@ -74,10 +104,34 @@ export default function ReceivedInvoicesTab() {
           <option value="amount_desc">Částka ↓ nejvyšší</option>
           <option value="amount_asc">Částka ↑ nejnižší</option>
         </select>
+        {hasActiveFilters && (
+          <button onClick={handleReset}
+            className="text-sm font-bold cursor-pointer rounded-btn"
+            style={{ padding: '8px 14px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626' }}>
+            Resetovat filtry
+          </button>
+        )}
         <div className="ml-auto">
           <Button green onClick={() => setShowAdd(true)}>+ Nová přijatá faktura</Button>
         </div>
       </div>
+
+      <CheckboxFilterGroup
+        label="Stav"
+        options={STATUS_OPTIONS}
+        selected={filters.statuses}
+        onChange={statuses => { setPage(1); setFilters(f => ({ ...f, statuses })) }}
+      />
+
+      {/* DIAGNOSTIKA */}
+      <details className="mb-4">
+        <summary className="text-xs font-bold uppercase tracking-wide cursor-pointer" style={{ color: '#6b7280' }}>Diagnostika filtrů</summary>
+        <div className="mt-1 p-3 rounded-card text-xs font-mono" style={{ background: '#f9fafb', border: '1px solid #e5e7eb', color: '#374151' }}>
+          <div><strong>search:</strong> {JSON.stringify(filters.search)}</div>
+          <div><strong>statuses:</strong> {JSON.stringify(filters.statuses)}</div>
+          <div><strong>sort:</strong> {JSON.stringify(filters.sort)}</div>
+        </div>
+      </details>
 
       {error && <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
 
@@ -200,4 +254,32 @@ function AddReceivedModal({ onClose, onSaved }) {
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
 function Label({ children }) {
   return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>
+}
+
+function CheckboxFilterGroup({ label, options, selected, onChange }) {
+  function toggle(value) {
+    if (selected.includes(value)) {
+      onChange(selected.filter(v => v !== value))
+    } else {
+      onChange([...selected, value])
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 mb-4">
+      <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>{label}:</span>
+      {options.map(opt => (
+        <label key={opt.value} className="flex items-center gap-1.5 cursor-pointer text-sm" style={{ color: '#1a2e22' }}>
+          <input
+            type="checkbox"
+            checked={selected.includes(opt.value)}
+            onChange={() => toggle(opt.value)}
+            className="cursor-pointer"
+            style={{ accentColor: '#1a8a18' }}
+          />
+          {opt.label}
+        </label>
+      ))}
+    </div>
+  )
 }

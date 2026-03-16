@@ -16,16 +16,24 @@ export default function SuppliersTab() {
   const [error, setError] = useState(null)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [search, setSearch] = useState('')
+  const defaultFilters = { search: '' }
+  const [filters, setFilters] = useState(() => {
+    try {
+      const saved = localStorage.getItem('velin_suppliers_filters')
+      if (saved) return { ...defaultFilters, ...JSON.parse(saved) }
+    } catch {}
+    return defaultFilters
+  })
+  useEffect(() => { localStorage.setItem('velin_suppliers_filters', JSON.stringify(filters)) }, [filters])
   const [showAdd, setShowAdd] = useState(false)
   const [editing, setEditing] = useState(null)
 
-  useEffect(() => { load() }, [page, search])
+  useEffect(() => { load() }, [page, filters])
 
   async function load() {
     setLoading(true)
     let query = supabase.from('suppliers').select('*', { count: 'exact' })
-    if (search) query = query.or(`name.ilike.%${search}%,ico.ilike.%${search}%,email.ilike.%${search}%`)
+    if (filters.search) query = query.or(`name.ilike.%${filters.search}%,ico.ilike.%${filters.search}%,email.ilike.%${filters.search}%`)
     query = query.order('name').range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
     const { data, count, error: err } = await query
     if (err) setError(err.message)
@@ -38,10 +46,25 @@ export default function SuppliersTab() {
   return (
     <div>
       <div className="flex flex-wrap items-center gap-3 mb-4">
-        <SearchInput value={search} onChange={v => { setPage(1); setSearch(v) }} placeholder="Hledat dodavatele…" />
+        <SearchInput value={filters.search} onChange={v => { setPage(1); setFilters(f => ({ ...f, search: v })) }} placeholder="Hledat dodavatele…" />
+        {filters.search && (
+          <button onClick={() => { setPage(1); setFilters({ ...defaultFilters }); localStorage.removeItem('velin_suppliers_filters') }}
+            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+            style={{ padding: '8px 14px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626' }}>
+            Reset
+          </button>
+        )}
         <div className="ml-auto">
           <Button green onClick={() => setShowAdd(true)}>+ Nový dodavatel</Button>
         </div>
+      </div>
+
+      {/* DIAGNOSTIKA */}
+      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
+        <strong>DIAGNOSTIKA Suppliers</strong><br/>
+        <div>suppliers: {suppliers.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
+        <div>filtry: search="{filters.search}"</div>
+        {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>
 
       {error && <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
