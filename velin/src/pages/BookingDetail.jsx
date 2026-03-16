@@ -11,6 +11,7 @@ import Modal from '../components/ui/Modal'
 import BookingDocumentsTab from './booking/BookingDocumentsTab'
 import BookingPaymentsTab from './booking/BookingPaymentsTab'
 import BookingsCalendar from '../components/fleet/BookingsCalendar'
+import BookingModifyModal from './booking/BookingModifyModal'
 
 const TABS = ['Detail', 'Kalendář motorky', 'Dokumenty', 'Platby', 'Reklamace']
 
@@ -82,6 +83,7 @@ export default function BookingDetail() {
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
   const [cancelReasonCustom, setCancelReasonCustom] = useState('')
+  const [showModifyModal, setShowModifyModal] = useState(false)
 
   useEffect(() => { loadBooking() }, [id])
 
@@ -472,7 +474,15 @@ export default function BookingDetail() {
         <div>flags: sos_replacement={String(!!booking.sos_replacement)}, ended_by_sos={String(!!booking.ended_by_sos)}</div>
         {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>
-      {tab === 'Detail' && <DetailTab booking={booking} set={set} error={error} saving={saving} onSave={handleSave} actions={actions} onAction={handleAction} navigate={navigate} promoUsage={promoUsage} voucherUsed={voucherUsed} />}
+      {tab === 'Detail' && <DetailTab booking={booking} set={set} error={error} saving={saving} actions={actions} onAction={handleAction} navigate={navigate} promoUsage={promoUsage} voucherUsed={voucherUsed} onModify={() => setShowModifyModal(true)} />}
+
+      {showModifyModal && booking && (
+        <BookingModifyModal
+          booking={booking}
+          onClose={() => setShowModifyModal(false)}
+          onSaved={() => { setShowModifyModal(false); loadBooking() }}
+        />
+      )}
       {tab === 'Kalendář motorky' && booking.motorcycles?.id && <BookingsCalendar motoId={booking.motorcycles.id} />}
       {tab === 'Dokumenty' && <BookingDocumentsTab bookingId={id} />}
       {tab === 'Platby' && <BookingPaymentsTab bookingId={id} />}
@@ -535,9 +545,7 @@ function calcPriceFromDayPrices(dayPrices, startDate, endDate) {
   return total
 }
 
-function DetailTab({ booking, set, error, saving, onSave, actions, onAction, navigate, promoUsage, voucherUsed }) {
-  const [priceBreakdown, setPriceBreakdown] = useState(null)
-  const [recalculating, setRecalculating] = useState(false)
+function DetailTab({ booking, set, error, saving, actions, onAction, navigate, promoUsage, voucherUsed, onModify }) {
   const [sosIncidents, setSosIncidents] = useState([])
   const [bookingExtras, setBookingExtras] = useState([])
   const [cancellation, setCancellation] = useState(null)
@@ -557,25 +565,6 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
         .then(({ data }) => { if (data) setCancellation(data) }).catch(() => {})
     }
   }, [booking?.id])
-
-  function handleRecalcPrice() {
-    if (!booking.moto_id || !booking.start_date || !booking.end_date) return
-    setRecalculating(true)
-    supabase.from('moto_day_prices').select('*').eq('moto_id', booking.moto_id).single()
-      .then(({ data }) => {
-        if (data) {
-          const total = calcPriceFromDayPrices(data, booking.start_date, booking.end_date)
-          if (total !== null && total > 0) {
-            set('total_price', total)
-            const days = Math.max(1, Math.round((new Date(booking.end_date) - new Date(booking.start_date)) / 86400000) + 1)
-            setPriceBreakdown(`${days} dní × denní sazba = ${total.toLocaleString('cs-CZ')} Kč`)
-          }
-        } else {
-          setPriceBreakdown('Ceník není nastaven')
-        }
-        setRecalculating(false)
-      }).catch(() => setRecalculating(false))
-  }
 
   return (
     <div className="grid grid-cols-2 gap-5">
@@ -741,7 +730,16 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
       )}
 
       <Card className="col-span-2">
-        <h3 className="text-sm font-extrabold uppercase tracking-wide mb-4" style={{ color: '#1a2e22' }}>Termín a platba</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Termín a platba</h3>
+          {!['cancelled', 'completed'].includes(booking.status) && (
+            <button onClick={onModify}
+              className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+              style={{ padding: '6px 16px', background: '#2563eb', color: '#fff', border: 'none', boxShadow: '0 2px 8px rgba(37,99,235,.25)' }}>
+              Upravit rezervaci
+            </button>
+          )}
+        </div>
         {booking.original_start_date && booking.original_end_date && (() => {
           const _ld = d => d ? new Date(d).toLocaleDateString('sv-SE') : ''
           return _ld(booking.start_date) !== _ld(booking.original_start_date) || _ld(booking.end_date) !== _ld(booking.original_end_date)
@@ -766,6 +764,8 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
                     return (
                       <div key={i} className="ml-2">
                         {i + 1}. {new Date(h.at).toLocaleString('cs-CZ')} — <span className="font-bold" style={{ color: m.color }}>{m.type}</span> ({m.detail}) · {h.from_start} → {h.to_end} · {h.source === 'admin' ? 'admin' : 'zákazník'}
+                        {h.moto_changed && <span className="ml-1" style={{ color: '#2563eb' }}>[motorka: {h.from_moto} → {h.to_moto}]</span>}
+                        {h.price_diff != null && h.price_diff !== 0 && <span className="ml-1" style={{ color: h.price_diff > 0 ? '#dc2626' : '#1a8a18' }}>[{h.charged ? 'doplatek' : 'zdarma'}: {h.price_diff > 0 ? '+' : ''}{Number(h.price_diff).toLocaleString('cs-CZ')} Kč]</span>}
                       </div>
                     )
                   })}
@@ -774,23 +774,29 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
             </div>
           )
         })()}
-        <div className="grid grid-cols-4 gap-4">
-          <FieldInput label="Od" type="date" value={booking.start_date} onChange={v => set('start_date', v)} />
-          <FieldInput label="Do" type="date" value={booking.end_date} onChange={v => set('end_date', v)} />
+
+        {/* Date & price overview (read-only, editable via modal) */}
+        <div className="grid grid-cols-4 gap-4 p-3 rounded-lg" style={{ background: '#f1faf7' }}>
           <div>
-            <FieldInput label="Celkem (Kč)" type="number" value={booking.total_price} onChange={v => set('total_price', Number(v))} />
-            <button onClick={handleRecalcPrice} disabled={recalculating}
-              className="text-sm font-bold mt-1 cursor-pointer"
-              style={{ color: '#2563eb', background: 'none', border: 'none', padding: 0 }}>
-              {recalculating ? 'Počítám...' : 'Přepočítat dle ceníku'}
-            </button>
-            {priceBreakdown && <p className="text-sm font-bold" style={{ color: '#1a8a18' }}>{priceBreakdown}</p>}
+            <div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Od</div>
+            <div className="text-sm font-bold" style={{ color: '#0f1a14' }}>{booking.start_date ? new Date(booking.start_date + 'T00:00:00').toLocaleDateString('cs-CZ') : '—'}</div>
           </div>
-          <FieldInput label="Poznámky" value={booking.notes} onChange={v => set('notes', v)} />
+          <div>
+            <div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Do</div>
+            <div className="text-sm font-bold" style={{ color: '#0f1a14' }}>{booking.end_date ? new Date(booking.end_date + 'T00:00:00').toLocaleDateString('cs-CZ') : '—'}</div>
+          </div>
+          <div>
+            <div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Celkem</div>
+            <div className="text-sm font-extrabold" style={{ color: '#1a8a18' }}>{Number(booking.total_price || 0).toLocaleString('cs-CZ')} Kč</div>
+          </div>
+          <div>
+            <div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Dní</div>
+            <div className="text-sm font-bold" style={{ color: '#0f1a14' }}>{(() => { const d = Math.max(1, Math.round((new Date(booking.end_date) - new Date(booking.start_date)) / 86400000) + 1); return `${d} ${d === 1 ? 'den' : d < 5 ? 'dny' : 'dní'}` })()}</div>
+          </div>
         </div>
 
-        {/* Pickup / Return / Insurance / Extras */}
-        <div className="grid grid-cols-3 gap-4 mt-4 p-3 rounded-lg" style={{ background: '#f1faf7' }}>
+        {/* Pickup / Return / Insurance */}
+        <div className="grid grid-cols-3 gap-4 mt-3 p-3 rounded-lg" style={{ background: '#f1faf7' }}>
           <div>
             <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Přistavení</div>
             <div className="text-sm">{booking.pickup_method === 'delivery' ? 'Přistavení na adresu' : 'Na pobočce'} — {booking.pickup_address || booking.motorcycles?.branches?.name || '—'}</div>
@@ -827,9 +833,17 @@ function DetailTab({ booking, set, error, saving, onSave, actions, onAction, nav
             <div className="text-sm font-bold">{booking.deposit > 0 ? `${Number(booking.deposit).toLocaleString('cs-CZ')} Kč` : '—'}</div>
           </div>
         </div>
+
+        {/* Notes (inline quick edit) */}
+        {booking.notes && (
+          <div className="mt-3 p-3 rounded-lg" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
+            <div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#92400e' }}>Poznámky</div>
+            <div className="text-sm" style={{ color: '#78350f' }}>{booking.notes}</div>
+          </div>
+        )}
+
         {error && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{error}</p>}
         <div className="flex gap-3 mt-5">
-          <Button green onClick={onSave} disabled={saving}>{saving ? 'Ukládám…' : 'Uložit změny'}</Button>
           {actions.map(a => (
             <Button key={a.status} onClick={() => onAction(a)} green={a.green}
               style={a.danger ? { background: '#dc2626', color: '#fff', boxShadow: '0 4px 16px rgba(220,38,38,.25)' } : undefined}>
