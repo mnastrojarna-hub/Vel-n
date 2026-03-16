@@ -151,7 +151,7 @@ function _checkAndShowBookingFab(){
     if(!session) return;
     var uid = session.user.id;
     window.supabase.from('bookings')
-      .select('id, status, payment_status, total_price, created_at, motorcycles(name, model)')
+      .select('id, status, payment_status, total_price, created_at, motorcycles(model)')
       .eq('user_id', uid)
       .in('status', ['reserved','pending'])
       .eq('payment_status', 'unpaid')
