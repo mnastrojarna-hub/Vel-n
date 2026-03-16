@@ -591,35 +591,57 @@ async function sosReplLoadMotos(){
         .limit(50);
       var allMotos = r.data || [];
 
-      // Načti motorky s aktivními rezervacemi — tyto nejsou k dispozici
+      // Načti motorky s rezervacemi překrývajícími zbývající období (dnes → konec původní rezervace)
       var rentedMotoIds = {};
+      var nowISO = new Date().toISOString().slice(0,10);
+      var overlapEnd = endDate || nowISO; // end_date původní rezervace = konec období náhradní motorky
       try {
+        // Najdi všechny bookings které se překrývají s obdobím [dnes, endDate]
+        // Překryv: booking.start_date <= overlapEnd AND booking.end_date >= nowISO
         var rentedR = await window.supabase.from('bookings')
           .select('moto_id')
           .in('status', ['active', 'reserved', 'pending'])
-          .lte('start_date', new Date().toISOString())
-          .gte('end_date', new Date().toISOString());
+          .lte('start_date', overlapEnd)
+          .gte('end_date', nowISO);
         if(rentedR.data){
           rentedR.data.forEach(function(b){ if(b.moto_id) rentedMotoIds[String(b.moto_id).toLowerCase()] = true; });
         }
       } catch(e){ console.warn('[SOS] fetch rented motos:', e); }
 
-      // Filtruj: 1) ne aktuální motorku, 2) ne motorky s aktivní rezervací, 3) řidičák
+      // Hierarchie ŘP skupin: A > A2 > A1 > AM, B samostatně, N = bez ŘP
+      // Skupina A smí řídit: A, A2, A1, AM
+      // Skupina A2 smí řídit: A2, A1, AM
+      // Skupina A1 smí řídit: A1, AM
+      // Skupina AM smí řídit: AM
+      // Skupina B smí řídit: B, AM
+      // N = nevyžaduje ŘP (dětské motorky) — může kdokoliv
+      var LICENSE_COVERS = {
+        'A':  ['A','A2','A1','AM'],
+        'A2': ['A2','A1','AM'],
+        'A1': ['A1','AM'],
+        'AM': ['AM'],
+        'B':  ['B','AM']
+      };
+
+      // Filtruj: 1) ne aktuální motorku, 2) ne motorky s překrývající rezervací, 3) řidičák
       var motos = allMotos.filter(function(m){
         var motoIdLower = String(m.id).toLowerCase();
-        // Vyřaď aktuální motorku zákazníka (case-insensitive UUID porovnání)
+        // Vyřaď aktuální (rozbitou) motorku zákazníka
         if(currentMotoId && motoIdLower === String(currentMotoId).toLowerCase()) return false;
-        // Vyřaď motorky s aktivní rezervací (pronajmuté)
+        // Vyřaď motorky s překrývající rezervací v období náhradní motorky
         if(rentedMotoIds[motoIdLower]) return false;
-        // Zkontroluj řidičák – A zahrnuje A2, A2 nezahrnuje A
-        if(customerLicense && m.license_required){
-          var req = m.license_required; // e.g. 'A' or 'A2'
-          var has = Array.isArray(customerLicense) ? customerLicense : [customerLicense];
-          // A licence covers A, A2, A1, AM; A2 covers A2, A1, AM
-          if(req === 'A' && has.indexOf('A') === -1) return false;
-          if(req === 'A2' && has.indexOf('A') === -1 && has.indexOf('A2') === -1) return false;
+        // Řidičák — motorky s N (dětské) může řídit kdokoliv
+        var req = m.license_required;
+        if(!req || req === 'N') return true;
+        if(!customerLicense) return true; // nemáme info → zobraz vše
+        var has = Array.isArray(customerLicense) ? customerLicense : [customerLicense];
+        // Zákazník smí řídit motorku pokud některá jeho skupina pokrývá požadovanou
+        var canRide = false;
+        for(var i = 0; i < has.length; i++){
+          var covers = LICENSE_COVERS[has[i]];
+          if(covers && covers.indexOf(req) !== -1){ canRide = true; break; }
         }
-        return true;
+        return canRide;
       });
       if(motos.length === 0){
         container.innerHTML = '<div style="text-align:center;padding:15px;color:#b91c1c;font-size:12px;font-weight:600;">Žádné motorky momentálně nejsou dostupné. Kontaktujte MotoGo24.</div>';
