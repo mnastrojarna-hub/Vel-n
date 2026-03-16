@@ -166,29 +166,45 @@ async function renderThreadChat(){
   var statusEl = document.getElementById('thread-status');
   if(!msgsWrap) return;
 
+  // Always show reply bar immediately (hide only if thread is closed)
+  _toggleReplyBar(true);
+
   msgsWrap.innerHTML = '<div style="text-align:center;padding:20px;color:var(--g400);">\u23f3</div>';
 
   try {
-    var threads = await apiFetchMyThreads();
+    // Try fetching thread directly first (faster, works for fresh threads)
     var thread = null;
-    for(var i = 0; i < threads.length; i++){
-      if(threads[i].id === _currentThreadId){ thread = threads[i]; break; }
+    var directR = await window.supabase.from('message_threads')
+      .select('*, messages(*)')
+      .eq('id', _currentThreadId)
+      .maybeSingle();
+    if(directR.data) thread = directR.data;
+
+    // Fallback: fetch all threads and find
+    if(!thread){
+      var threads = await apiFetchMyThreads();
+      for(var i = 0; i < threads.length; i++){
+        if(threads[i].id === _currentThreadId){ thread = threads[i]; break; }
+      }
     }
+
     if(!thread){
       msgsWrap.innerHTML = '<div style="text-align:center;padding:20px;">Konverzace nenalezena</div>';
+      _toggleReplyBar(false);
       return;
     }
 
     if(titleEl) titleEl.textContent = thread.subject || 'Konverzace';
-    if(statusEl) statusEl.textContent = thread.status === 'closed' ? 'Uzavřeno' : 'Aktivní';
+    var isClosed = thread.status === 'closed';
+    if(statusEl) statusEl.textContent = isClosed ? 'Uzavřeno' : 'Aktivní';
+    _toggleReplyBar(!isClosed);
 
     var msgs = (thread.messages || []).sort(function(a,b){
       return new Date(a.created_at) - new Date(b.created_at);
     });
 
     if(msgs.length === 0){
-      msgsWrap.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--g400);font-size:13px;">Zat\u00edm \u017e\u00e1dn\u00e9 zpr\u00e1vy</div>';
-      _toggleReplyBar(thread.status !== 'closed');
+      msgsWrap.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--g400);font-size:13px;">Napište první zprávu v této konverzaci</div>';
       return;
     }
 
@@ -210,7 +226,6 @@ async function renderThreadChat(){
 
     msgsWrap.innerHTML = html;
     msgsWrap.scrollTop = msgsWrap.scrollHeight;
-    _toggleReplyBar(thread.status !== 'closed');
 
     // Mark admin messages as read
     msgs.forEach(function(m){
@@ -221,6 +236,8 @@ async function renderThreadChat(){
   } catch(e){
     console.error('renderThreadChat error:', e);
     msgsWrap.innerHTML = '<div style="text-align:center;padding:20px;color:var(--red);">Chyba</div>';
+    // Still show reply bar on error (user can retry)
+    _toggleReplyBar(true);
   }
 }
 
