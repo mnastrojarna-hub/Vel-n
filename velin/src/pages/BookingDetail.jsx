@@ -50,7 +50,6 @@ const ACTIONS = {
     { label: 'Zrušit', status: 'cancelled', danger: true },
   ],
   reserved: [
-    { label: 'Vydat motorku', status: 'active', green: true },
     { label: 'Zrušit', status: 'cancelled', danger: true },
   ],
   active: [
