@@ -79,17 +79,32 @@ function setEditPickup(mode){
   }
 }
 
+var _calcEditDelivTimer = null;
 function calcEditDelivery(){
+  clearTimeout(_calcEditDelivTimer);
+  _calcEditDelivTimer = setTimeout(_doCalcEditDelivery, 500);
+}
+function _doCalcEditDelivery(){
   var addr = document.getElementById('edit-return-address');
   var calc = document.getElementById('edit-return-calc');
   var kmTxt = document.getElementById('edit-return-km-txt');
   if(!addr || !addr.value.trim()){ if(calc) calc.style.display='none'; editReturnFee=0; updateEditPriceSummary(); return; }
 
+  var addrVal = addr.value.trim();
+  // Build full address with city for accurate geocoding
+  var cityEl = document.getElementById('edit-return-city');
+  var zipEl = document.getElementById('edit-return-zip');
+  var city = (cityEl && cityEl.value) ? cityEl.value.trim() : '';
+  var zip = (zipEl && zipEl.value) ? zipEl.value.trim() : '';
+  var fullAddr = addrVal;
+  if(city) fullAddr += ', ' + city;
+  if(zip) fullAddr += ', ' + zip;
+
   // Use OSRM API if available
   if(typeof AddressAPI !== 'undefined'){
     var coords = (addr.dataset.lat && addr.dataset.lng)
       ? {lat: parseFloat(addr.dataset.lat), lng: parseFloat(addr.dataset.lng)}
-      : addr.value.trim();
+      : fullAddr;
     if(kmTxt) kmTxt.textContent = 'Vypočítávám vzdálenost...';
     if(calc) calc.style.display = 'block';
     AddressAPI.calcDistance(coords, function(result){
@@ -985,10 +1000,19 @@ function _sosCalcPickupDelivery(){
     updateEditPriceSummary();
     return;
   }
+  // Build full address with city for accurate geocoding
+  var cityEl = document.getElementById('edit-pickup-city');
+  var zipEl = document.getElementById('edit-pickup-zip');
+  var city = (cityEl && cityEl.value) ? cityEl.value.trim() : '';
+  var zip = (zipEl && zipEl.value) ? zipEl.value.trim() : '';
+  var fullAddr = addr.value.trim();
+  if(city) fullAddr += ', ' + city;
+  if(zip) fullAddr += ', ' + zip;
+
   if(typeof AddressAPI !== 'undefined'){
     var coords = (addr.dataset.lat && addr.dataset.lng)
       ? {lat: parseFloat(addr.dataset.lat), lng: parseFloat(addr.dataset.lng)}
-      : addr.value.trim();
+      : fullAddr;
     if(kmTxt) kmTxt.textContent = 'Vypočítávám vzdálenost...';
     if(calc) calc.style.display = 'block';
     AddressAPI.calcDistance(coords, function(result){

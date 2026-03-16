@@ -405,22 +405,44 @@ function _setDelivMode(type,val){
 function setPickup(val){_setDelivMode('pickup',val);}
 function setReturn(val){_setDelivMode('return',val);}
 
+var _calcDelivTimer = null;
 function calcDelivery(type){
+  // Debounce — don't geocode on every keystroke
+  clearTimeout(_calcDelivTimer);
+  _calcDelivTimer = setTimeout(function(){ _doCalcDelivery(type); }, 500);
+}
+function _doCalcDelivery(type){
   var inp=document.getElementById(type+'-addr-input');
   var calcEl=document.getElementById(type+'-price-calc');
   var kmTxt=document.getElementById(type+'-km-txt');
   if(!inp||!inp.value.trim()){if(calcEl)calcEl.style.display='none';return;}
   var addr=inp.value.trim();
 
-  // Use OSRM API if AddressAPI available + coordinates cached
+  // Don't geocode very short/partial input
+  if(addr.length < 3 && !(inp.dataset.lat && inp.dataset.lng)){
+    if(calcEl)calcEl.style.display='none';
+    return;
+  }
+
+  // Build full address with city+PSČ for accurate geocoding
+  var cityEl=document.getElementById(type+'-city');
+  var zipEl=document.getElementById(type+'-zip');
+  var city=(cityEl && cityEl.value) ? cityEl.value.trim() : '';
+  var zip=(zipEl && zipEl.value) ? zipEl.value.trim() : '';
+  var fullAddr = addr;
+  if(city) fullAddr += ', ' + city;
+  if(zip) fullAddr += ', ' + zip;
+
+  // Use OSRM API if AddressAPI available
   if(typeof AddressAPI !== 'undefined'){
+    // Prefer stored coordinates (from suggestion selection), else geocode full address
     var coords = (inp.dataset.lat && inp.dataset.lng)
       ? {lat: parseFloat(inp.dataset.lat), lng: parseFloat(inp.dataset.lng)}
-      : addr;
+      : fullAddr;
     if(kmTxt) kmTxt.textContent='Vypočítávám vzdálenost...';
     if(calcEl) calcEl.style.display='block';
     AddressAPI.calcDistance(coords, function(result){
-      if(!result){ _calcDeliveryFallback(type, addr, calcEl, kmTxt); return; }
+      if(!result){ _calcDeliveryFallback(type, fullAddr, calcEl, kmTxt); return; }
       var km=result.km; var fee=result.fee;
       if(type==='pickup'){pickupDelivFee=fee;}else{returnDelivFee=fee;}
       deliveryFee=pickupDelivFee+returnDelivFee;
@@ -434,7 +456,7 @@ function calcDelivery(type){
     return;
   }
 
-  _calcDeliveryFallback(type, addr, calcEl, kmTxt);
+  _calcDeliveryFallback(type, fullAddr, calcEl, kmTxt);
 }
 
 function _calcDeliveryFallback(type, addr, calcEl, kmTxt){
