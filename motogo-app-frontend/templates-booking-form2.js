@@ -20,13 +20,14 @@ var _BOOKING_FORM_PART2 = `
       </label>
     </div>
     <div id="pickup-detail" style="display:none;border-top:1px solid var(--g200);padding-top:10px;">
-      <div style="display:grid;grid-template-columns:1fr;gap:8px;">
-        <div class="ff" style="margin:0;position:relative;"><label id="t-bkDelivAddr">Ulice a č.p.</label><input type="text" id="pickup-addr-input" placeholder="např. Vodičkova 36" oninput="calcDelivery('pickup');showAddrSuggestions(this,'pickup')" autocomplete="off"><div id="pickup-addr-suggestions" class="addr-suggestions" style="display:none;"></div></div>
-      </div>
-      <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-top:8px;">
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;">
         <div class="ff" style="margin:0;position:relative;"><label>Město</label><input type="text" id="pickup-city" placeholder="Město" oninput="showCitySuggestionsFor(this,'pickup')" autocomplete="off"><div id="pickup-city-suggestions" class="addr-suggestions" style="display:none;"></div></div>
         <div class="ff" style="margin:0;"><label>PSČ</label><input type="text" id="pickup-zip" placeholder="PSČ" maxlength="6"></div>
       </div>
+      <div style="display:grid;grid-template-columns:1fr;gap:8px;margin-top:8px;">
+        <div class="ff" style="margin:0;position:relative;"><label id="t-bkDelivAddr">Ulice a č.p.</label><input type="text" id="pickup-addr-input" placeholder="např. Vodičkova 36" oninput="calcDelivery('pickup');showAddrSuggestions(this,'pickup')" autocomplete="off"><div id="pickup-addr-suggestions" class="addr-suggestions" style="display:none;"></div></div>
+      </div>
+      <div style="margin-top:8px;"><button type="button" onclick="useMyLocation('pickup')" style="display:flex;align-items:center;gap:6px;width:100%;padding:10px 12px;background:var(--g100);border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:12px;font-weight:700;color:var(--gd);cursor:pointer;">📍 Použít moji polohu</button></div>
       <div id="pickup-price-calc" style="margin-top:8px;background:var(--gp);border-radius:var(--rsm);padding:10px 12px;font-size:12px;color:var(--gd);display:none;">
         <span id="pickup-km-txt">📍 Zadejte adresu pro výpočet</span>
       </div>
@@ -48,13 +49,14 @@ var _BOOKING_FORM_PART2 = `
       </label>
     </div>
     <div id="return-detail" style="display:none;border-top:1px solid var(--g200);padding-top:10px;">
-      <div style="display:grid;grid-template-columns:1fr;gap:8px;">
-        <div class="ff" style="margin:0;position:relative;"><label id="t-bkReturnAddr">Ulice a č.p.</label><input type="text" id="return-addr-input" placeholder="např. Vodičkova 36" oninput="calcDelivery('return');showAddrSuggestions(this,'return')" autocomplete="off"><div id="return-addr-suggestions" class="addr-suggestions" style="display:none;"></div></div>
-      </div>
-      <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-top:8px;">
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;">
         <div class="ff" style="margin:0;position:relative;"><label>Město</label><input type="text" id="return-city" placeholder="Město" oninput="showCitySuggestionsFor(this,'return')" autocomplete="off"><div id="return-city-suggestions" class="addr-suggestions" style="display:none;"></div></div>
         <div class="ff" style="margin:0;"><label>PSČ</label><input type="text" id="return-zip" placeholder="PSČ" maxlength="6"></div>
       </div>
+      <div style="display:grid;grid-template-columns:1fr;gap:8px;margin-top:8px;">
+        <div class="ff" style="margin:0;position:relative;"><label id="t-bkReturnAddr">Ulice a č.p.</label><input type="text" id="return-addr-input" placeholder="např. Vodičkova 36" oninput="calcDelivery('return');showAddrSuggestions(this,'return')" autocomplete="off"><div id="return-addr-suggestions" class="addr-suggestions" style="display:none;"></div></div>
+      </div>
+      <div style="margin-top:8px;"><button type="button" onclick="useMyLocation('return')" style="display:flex;align-items:center;gap:6px;width:100%;padding:10px 12px;background:var(--g100);border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:12px;font-weight:700;color:var(--gd);cursor:pointer;">📍 Použít moji polohu</button></div>
       <div class="ff" style="margin:0;margin-top:8px;"><label id="t-bkReturnTime">Čas vrácení</label>
         <div id="return-time-picker"></div>
       </div>
