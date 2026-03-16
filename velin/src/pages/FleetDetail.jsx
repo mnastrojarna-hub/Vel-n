@@ -132,7 +132,7 @@ export default function FleetDetail() {
       </div>
 
       {tab === 'Info' && <InfoTab moto={moto} set={set} error={error} saving={saving} onSave={handleSave} onDeactivate={handleDeactivate} onDelete={() => setConfirm({ type: 'delete' })} onMotoReload={loadMoto} />}
-      {tab === 'Rezervace' && <BookingsCalendar motoId={id} />}
+      {tab === 'Rezervace' && <BookingsCalendar motoId={id} onSwitchTab={setTab} />}
       {tab === 'Ceník' && <PricingTab motoId={id} />}
       {tab === 'Servis' && <ServiceTab motoId={id} motoMileage={moto.mileage} logAudit={logAudit} />}
       {tab === 'Mapa' && <MotoMap singleMotoId={id} />}
