@@ -372,7 +372,7 @@ export default function Finance() {
                 <tbody>
                   {shopPayments.map(o => (
                     <TRow key={o.id}>
-                      <TD mono bold>{o.order_number || o.id?.slice(-8) || '—'}</TD>
+                      <TD mono bold>{o.order_number || o.id?.slice(-8).toUpperCase() || '—'}</TD>
                       <TD>{o.profiles?.full_name || '—'}</TD>
                       <TD bold color="#1a8a18">{fmt(o.total_amount)}</TD>
                       <TD>{o.payment_method || '—'}</TD>
@@ -403,7 +403,7 @@ export default function Finance() {
                   <TD>{t.description || '—'}</TD>
                   <TD bold color={(t._classified || classifyEntry(t)) === 'revenue' ? '#1a8a18' : '#dc2626'}>{fmt(Math.abs(t.amount))}</TD>
                   <TD>{t.category || '—'}</TD>
-                  <TD mono>{t.booking_id ? t.booking_id.slice(-8) : '—'}</TD>
+                  <TD mono>{t.booking_id ? t.booking_id.slice(-8).toUpperCase() : '—'}</TD>
                 </tr>
               ))}
               {transactions.length === 0 && <TRow><TD>Žádné transakce</TD></TRow>}

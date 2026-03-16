@@ -965,8 +965,8 @@ function _renderDetailSummary(b, moto, st, days, branchName, bookingId){
   if(b.damage_report) h += '<li style="color:#b91c1c;"><strong>Poškození:</strong> '+b.damage_report+'</li>';
 
   // SOS
-  if(b.sos_replacement) h += '<li style="color:#1a8a18;"><strong>SOS náhrada:</strong> Ano'+(b.replacement_for_booking_id?' (za #'+b.replacement_for_booking_id.substr(-8)+')':'')+'</li>';
-  if(b.ended_by_sos) h += '<li style="color:#b91c1c;"><strong>Ukončeno SOS:</strong> Ano'+(b.sos_incident_id?' (incident #'+b.sos_incident_id.substr(-8)+')':'')+'</li>';
+  if(b.sos_replacement) h += '<li style="color:#1a8a18;"><strong>SOS náhrada:</strong> Ano'+(b.replacement_for_booking_id?' (za #'+b.replacement_for_booking_id.substr(-8).toUpperCase()+')':'')+'</li>';
+  if(b.ended_by_sos) h += '<li style="color:#b91c1c;"><strong>Ukončeno SOS:</strong> Ano'+(b.sos_incident_id?' (incident #'+b.sos_incident_id.substr(-8).toUpperCase()+')':'')+'</li>';
 
   // Cancellation
   if(b.status==='cancelled'){
@@ -999,7 +999,7 @@ async function _loadSosForDetail(bookingId, el){
     var h = '<div class="rd-sum-t" style="margin-top:8px;"><strong>SOS incidenty:</strong></div><ul class="rd-sum">';
     for(var i=0;i<r.data.length;i++){
       var inc = r.data[i];
-      h += '<li style="color:#b91c1c;">#'+inc.id.substr(-6)+' — '+inc.type+' ('+inc.severity+') — '+inc.status;
+      h += '<li style="color:#b91c1c;">#'+inc.id.substr(-8).toUpperCase()+' — '+inc.type+' ('+inc.severity+') — '+inc.status;
       if(inc.title) h += ' — '+inc.title;
       h += ' — '+_fmtDT(inc.created_at);
       if(inc.resolved_at) h += ' → vyřešeno '+_fmtDT(inc.resolved_at);
