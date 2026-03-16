@@ -768,27 +768,65 @@ function sosReplFillGPS(){
 }
 
 // Výpočet ceny přistavení pro SOS replacement (1000 Kč + 20 Kč/km)
+var _sosReplDelivTimer = null;
 function sosReplCalcDelivery(){
+    clearTimeout(_sosReplDelivTimer);
+    _sosReplDelivTimer = setTimeout(_doSosReplCalcDelivery, 500);
+}
+function _doSosReplCalcDelivery(){
     var isFault = _sosFault === true || _sosFaultSnapshot === true;
     if(!isFault){ _sosReplacementData.deliveryFee = 0; sosReplUpdateSummary(); return; }
 
     var cityEl = document.getElementById('sos-repl-city');
-    var city = cityEl ? cityEl.value.trim().toLowerCase() : '';
-    if(!city){ _sosReplacementData.deliveryFee = 1000; sosReplUpdateSummary(); return; }
+    var addrEl = document.getElementById('sos-repl-address');
+    var zipEl = document.getElementById('sos-repl-zip');
+    var city = cityEl ? cityEl.value.trim() : '';
+    var addr = addrEl ? addrEl.value.trim() : '';
+    var zip = zipEl ? zipEl.value.trim() : '';
 
-    // Odhad km z města (base Mezná)
-    var km = 50; // default
-    var KM_EST = {praha:160,brno:60,jihlava:40,tabor:35,tábor:35,ceske:90,české:90,plzen:200,plzeň:200,ostrava:280,olomouc:180,liberec:130,hradec:110,pardubice:90,budejovice:70,budějovice:70,mezna:0,mezná:0};
+    if(!city && !addr){ _sosReplacementData.deliveryFee = 1000; sosReplUpdateSummary(); return; }
+
+    // Build full address for geocoding
+    var fullAddr = addr || city;
+    if(addr && city) fullAddr = addr + ', ' + city;
+    if(zip) fullAddr += ', ' + zip;
+
+    var calcEl = document.getElementById('sos-repl-delivery-calc');
+
+    // Use AddressAPI if available (OSRM routing for accurate distance)
+    if(typeof AddressAPI !== 'undefined'){
+        // Prefer stored coordinates from suggestion selection
+        var coords = (addrEl && addrEl.dataset.lat && addrEl.dataset.lng)
+            ? {lat: parseFloat(addrEl.dataset.lat), lng: parseFloat(addrEl.dataset.lng)}
+            : fullAddr;
+        if(calcEl){ calcEl.textContent = 'Vypočítávám vzdálenost...'; calcEl.style.display = 'block'; }
+        AddressAPI.calcDistance(coords, function(result){
+            if(!result){ _sosReplCalcFallback(city.toLowerCase()); return; }
+            var km = result.km;
+            var fee = result.fee;
+            _sosReplacementData.deliveryFee = fee;
+            _sosReplacementData._deliveryKm = km;
+            var txt = '📍 ~' + km + ' km · ' + fee.toLocaleString('cs-CZ') + ' Kč';
+            if(result.duration) txt += ' · ~' + result.duration + ' min';
+            if(result.approx) txt += ' (odhad)';
+            if(calcEl){ calcEl.textContent = txt; calcEl.style.display = 'block'; }
+            sosReplUpdateSummary();
+        });
+        return;
+    }
+
+    // Fallback: estimate from city name
+    _sosReplCalcFallback(city.toLowerCase());
+}
+function _sosReplCalcFallback(city){
+    var km = 50;
+    var KM_EST = {praha:160,brno:60,jihlava:40,tabor:35,tábor:35,ceske:90,české:90,plzen:200,plzeň:200,ostrava:280,olomouc:180,liberec:130,hradec:110,pardubice:90,budejovice:70,budějovice:70,mezna:0,mezná:0,humpolec:31,pelhřimov:18,pelhrimov:18};
     for(var c in KM_EST){ if(city.indexOf(c) !== -1){ km = KM_EST[c]; break; } }
-
     var fee = 1000 + km * 20;
     _sosReplacementData.deliveryFee = fee;
     _sosReplacementData._deliveryKm = km;
-
-    // Zobraz odhad km
     var calcEl = document.getElementById('sos-repl-delivery-calc');
-    if(calcEl){ calcEl.textContent = '📍 ~' + km + ' km · ' + fee.toLocaleString('cs-CZ') + ' Kč (1 000 Kč + ' + km + ' km × 20 Kč)'; calcEl.style.display = 'block'; }
-
+    if(calcEl){ calcEl.textContent = '📍 ~' + km + ' km · ' + fee.toLocaleString('cs-CZ') + ' Kč (odhad)'; calcEl.style.display = 'block'; }
     sosReplUpdateSummary();
 }
 
