@@ -29,8 +29,8 @@ export default function Bookings() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [filters, setFilters] = useState({
-    status: '', search: '', dateFrom: '', dateTo: '',
-    paymentStatus: '', customer: '', motoModel: '', branch: '',
+    statuses: [], search: '', dateFrom: '', dateTo: '',
+    paymentStatuses: [], customer: '', motoModel: '', branch: '',
     priceMin: '', priceMax: '', durationMin: '', durationMax: '',
     hasInvoice: '', hasContract: '', country: '', licenseGroup: '',
     sortBy: 'start_date', sortDir: 'desc', futureOnly: false
@@ -129,9 +129,14 @@ export default function Bookings() {
         let query = supabase
           .from('bookings')
           .select('*, motorcycles(model, spz, branch_id), profiles(full_name, email, phone, country, license_group)', { count: 'exact' })
-        if (filters.status && filters.status !== 'upcoming') query = query.eq('status', filters.status)
-        if (filters.status === 'upcoming') query = query.in('status', ['active', 'reserved']).gt('start_date', localIso(new Date()))
-        if (filters.paymentStatus) query = query.eq('payment_status', filters.paymentStatus)
+        if (filters.statuses.length > 0) {
+          const hasUpcoming = filters.statuses.includes('upcoming')
+          const dbStatuses = filters.statuses.filter(s => s !== 'upcoming')
+          if (hasUpcoming) dbStatuses.push('active', 'reserved')
+          const unique = [...new Set(dbStatuses)]
+          if (unique.length > 0) query = query.in('status', unique)
+        }
+        if (filters.paymentStatuses.length > 0) query = query.in('payment_status', filters.paymentStatuses)
         if (filters.dateFrom) query = query.gte('start_date', filters.dateFrom)
         if (filters.dateTo) query = query.lte('end_date', filters.dateTo)
         if (filters.priceMin) query = query.gte('total_price', Number(filters.priceMin))
@@ -146,6 +151,15 @@ export default function Bookings() {
       if (result?.error) throw result.error
       let data = result?.data || []
       // Client-side filters for joined fields
+      // Client-side: filter out non-upcoming when "upcoming" is checked alongside other statuses
+      if (filters.statuses.includes('upcoming') && filters.statuses.length > 0) {
+        const todayStr = localIso(new Date())
+        data = data.filter(b => {
+          if (filters.statuses.includes(b.status)) return true
+          if (['active', 'reserved'].includes(b.status) && b.start_date?.split('T')[0] > todayStr) return true
+          return false
+        })
+      }
       if (filters.customer) data = data.filter(b => b.profiles?.full_name?.toLowerCase().includes(filters.customer.toLowerCase()))
       if (filters.motoModel) data = data.filter(b => b.motorcycles?.model?.toLowerCase().includes(filters.motoModel.toLowerCase()))
       if (filters.country) data = data.filter(b => b.profiles?.country === filters.country)
@@ -186,8 +200,12 @@ export default function Bookings() {
   const totalPages = Math.ceil(total / PER_PAGE)
   const fmtDateRange = d => d ? new Date(d).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric' }) : '—'
   const setF = (k, v) => { setPage(1); setFilters(f => ({ ...f, [k]: v })) }
-  const activeFilterCount = Object.entries(filters).filter(([k, v]) => v && !['search', 'sortBy', 'sortDir', 'futureOnly'].includes(k)).length
-  const resetFilters = () => { setPage(1); setFilters(f => ({ ...f, status: '', paymentStatus: '', dateFrom: '', dateTo: '', customer: '', motoModel: '', branch: '', priceMin: '', priceMax: '', durationMin: '', durationMax: '', hasInvoice: '', hasContract: '', country: '', licenseGroup: '', futureOnly: false })) }
+  const activeFilterCount = Object.entries(filters).filter(([k, v]) => {
+    if (['search', 'sortBy', 'sortDir', 'futureOnly'].includes(k)) return false
+    if (Array.isArray(v)) return v.length > 0
+    return !!v
+  }).length
+  const resetFilters = () => { setPage(1); setFilters(f => ({ ...f, statuses: [], paymentStatuses: [], dateFrom: '', dateTo: '', customer: '', motoModel: '', branch: '', priceMin: '', priceMax: '', durationMin: '', durationMax: '', hasInvoice: '', hasContract: '', country: '', licenseGroup: '', futureOnly: false })) }
 
   async function handleDeleteBooking(booking) {
     try {
@@ -213,10 +231,12 @@ export default function Bookings() {
         {view === 'Seznam' && (
           <>
             <SearchInput value={filters.search} onChange={v => { setPage(1); setFilters(f => ({ ...f, search: v })) }} placeholder="Hledat zákazníka, motorku…" />
-            <FilterSelect value={filters.status} onChange={v => setF('status', v)}
-              options={[{ value: '', label: 'Všechny stavy' }, { value: 'pending', label: 'Čekající' }, { value: 'upcoming', label: 'Nadcházející' }, { value: 'active', label: 'Aktivní' }, { value: 'completed', label: 'Dokončeno' }, { value: 'cancelled', label: 'Zrušeno' }]} />
-            <FilterSelect value={filters.paymentStatus} onChange={v => setF('paymentStatus', v)}
-              options={[{ value: '', label: 'Platba' }, { value: 'paid', label: 'Zaplaceno' }, { value: 'unpaid', label: 'Nezaplaceno' }]} />
+            <CheckboxFilterGroup label="Stav" values={filters.statuses}
+              onChange={v => { setPage(1); setFilters(f => ({ ...f, statuses: v })) }}
+              options={[{ value: 'pending', label: 'Čekající' }, { value: 'upcoming', label: 'Nadcházející' }, { value: 'active', label: 'Aktivní' }, { value: 'completed', label: 'Dokončeno' }, { value: 'cancelled', label: 'Zrušeno' }]} />
+            <CheckboxFilterGroup label="Platba" values={filters.paymentStatuses}
+              onChange={v => { setPage(1); setFilters(f => ({ ...f, paymentStatuses: v })) }}
+              options={[{ value: 'paid', label: 'Zaplaceno' }, { value: 'unpaid', label: 'Nezaplaceno' }]} />
             <FilterSelect value={filters.sortBy} onChange={v => setF('sortBy', v)}
               options={[{ value: 'start_date', label: 'Datum začátku' }, { value: 'end_date', label: 'Datum konce' }, { value: 'total_price', label: 'Částka' }, { value: 'created_at', label: 'Vytvořeno' }]} />
             <FilterSelect value={filters.sortDir} onChange={v => setF('sortDir', v)}
@@ -284,7 +304,7 @@ export default function Bookings() {
       <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA Bookings</strong><br/>
         <div>bookings: {bookings.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
-        <div>filtry: status={filters.status || 'vše'}, payment={filters.paymentStatus || 'vše'}, search="{filters.search}", future={filters.futureOnly ? 'ano' : 'ne'}</div>
+        <div>filtry: status={filters.statuses.length > 0 ? filters.statuses.join(',') : 'vše'}, payment={filters.paymentStatuses.length > 0 ? filters.paymentStatuses.join(',') : 'vše'}, search="{filters.search}", future={filters.futureOnly ? 'ano' : 'ne'}</div>
         <div>branches: {branches.length}, motos: {motos.length}</div>
         {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>
@@ -567,6 +587,27 @@ function LegendItem({ bg, color, label }) {
 }
 
 /* ═══ HELPER COMPONENTS ═══ */
+function CheckboxFilterGroup({ label, values, onChange, options }) {
+  const toggle = val => {
+    if (values.includes(val)) onChange(values.filter(v => v !== val))
+    else onChange([...values, val])
+  }
+  return (
+    <div className="flex items-center gap-1 flex-wrap rounded-btn"
+      style={{ padding: '4px 10px', background: values.length > 0 ? '#e8fde8' : '#f1faf7', border: '1px solid #d4e8e0' }}>
+      <span className="text-sm font-extrabold uppercase tracking-wide mr-1" style={{ color: '#1a2e22' }}>{label}:</span>
+      {options.map(o => (
+        <label key={o.value} className="flex items-center gap-1 cursor-pointer"
+          style={{ padding: '3px 6px', borderRadius: 6, background: values.includes(o.value) ? '#74FB71' : 'transparent' }}>
+          <input type="checkbox" checked={values.includes(o.value)} onChange={() => toggle(o.value)}
+            className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} />
+          <span className="text-sm font-bold" style={{ color: '#1a2e22', whiteSpace: 'nowrap' }}>{o.label}</span>
+        </label>
+      ))}
+    </div>
+  )
+}
+
 function FilterSelect({ value, onChange, options }) {
   return (
     <select value={value} onChange={e => onChange(e.target.value)}
