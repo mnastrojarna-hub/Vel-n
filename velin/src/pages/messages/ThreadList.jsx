@@ -9,8 +9,18 @@ export default function ThreadList({ selectedId, onSelect, onNewThread }) {
   const [threads, setThreads] = useState([])
   const [unreadCounts, setUnreadCounts] = useState({})
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [sortBy, setSortBy] = useState('last_message_at')
+  const defaultFilters = { search: '', sortBy: 'last_message_at' }
+  const [filters, setFilters] = useState(() => {
+    try {
+      const saved = localStorage.getItem('velin_threads_filters')
+      if (saved) return { ...defaultFilters, ...JSON.parse(saved) }
+    } catch {}
+    return defaultFilters
+  })
+  useEffect(() => { localStorage.setItem('velin_threads_filters', JSON.stringify(filters)) }, [filters])
+
+  const search = filters.search
+  const sortBy = filters.sortBy
 
   useEffect(() => { load() }, [search, sortBy])
 
@@ -101,8 +111,8 @@ export default function ThreadList({ selectedId, onSelect, onNewThread }) {
           </span>
           <Button green small onClick={onNewThread}>+ Nová</Button>
         </div>
-        <SearchInput value={search} onChange={setSearch} placeholder="Hledat…" />
-        <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+        <SearchInput value={search} onChange={v => setFilters(f => ({ ...f, search: v }))} placeholder="Hledat…" />
+        <select value={sortBy} onChange={e => setFilters(f => ({ ...f, sortBy: e.target.value }))}
           className="w-full rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none mt-2"
           style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
           <option value="last_message_at">Dle poslední zprávy</option>

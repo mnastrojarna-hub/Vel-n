@@ -30,7 +30,15 @@ export default function Fleet() {
   const [error, setError] = useState(null)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [filters, setFilters] = useState({ status: '', branch: '', category: '', search: '', sort: 'model', occupiedToday: false, occupiedFrom: '', occupiedTo: '' })
+  const defaultFilters = { statuses: [], branch: '', category: '', search: '', sort: 'model', occupiedToday: false, occupiedFrom: '', occupiedTo: '' }
+  const [filters, setFilters] = useState(() => {
+    try {
+      const saved = localStorage.getItem('velin_fleet_filters')
+      if (saved) return { ...defaultFilters, ...JSON.parse(saved) }
+    } catch {}
+    return defaultFilters
+  })
+  useEffect(() => { localStorage.setItem('velin_fleet_filters', JSON.stringify(filters)) }, [filters])
   const [showAdd, setShowAdd] = useState(false)
   const [actionMoto, setActionMoto] = useState(null)
   const [bookingCounts, setBookingCounts] = useState({})
@@ -95,7 +103,8 @@ export default function Fleet() {
     try {
       const result = await debugAction('fleet.load', 'Fleet', () => {
         let query = supabase.from('motorcycles').select('*, branches(name), image_url, images', { count: 'exact' })
-        if (filters.status) query = query.eq('status', filters.status)
+        if (filters.statuses?.length > 0) query = query.in('status', filters.statuses)
+        else if (filters.status) query = query.eq('status', filters.status)
         if (filters.branch) query = query.eq('branch_id', filters.branch)
         if (filters.category) query = query.eq('category', filters.category)
         if (filters.search) query = query.or(`model.ilike.%${filters.search}%,spz.ilike.%${filters.search}%`)
@@ -128,16 +137,9 @@ export default function Fleet() {
           onChange={v => { setPage(1); setFilters(f => ({ ...f, search: v })) }}
           placeholder="Hledat model, SPZ…"
         />
-        <FilterSelect
-          value={filters.status}
-          onChange={v => { setPage(1); setFilters(f => ({ ...f, status: v })) }}
-          options={[
-            { value: '', label: 'Všechny stavy' },
-            { value: 'active', label: 'Aktivní' },
-            { value: 'maintenance', label: 'Servis' },
-            { value: 'out_of_service', label: 'Vyřazeno' },
-          ]}
-        />
+        <CheckboxFilterGroup label="Stav" values={filters.statuses || []}
+          onChange={v => { setPage(1); setFilters(f => ({ ...f, statuses: v })) }}
+          options={[{ value: 'active', label: 'Aktivní' }, { value: 'rented', label: 'Pronajato' }, { value: 'maintenance', label: 'Servis' }, { value: 'unavailable', label: 'Nedostupné' }, { value: 'retired', label: 'Vyřazeno' }]} />
         <FilterSelect
           value={filters.branch}
           onChange={v => { setPage(1); setFilters(f => ({ ...f, branch: v })) }}
@@ -181,6 +183,11 @@ export default function Fleet() {
             className="rounded-btn text-sm outline-none cursor-pointer"
             style={{ padding: '7px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }} />
         </div>
+        <button onClick={() => { setPage(1); setFilters({ ...defaultFilters }); localStorage.removeItem('velin_fleet_filters') }}
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+          style={{ padding: '8px 14px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626' }}>
+          Reset
+        </button>
         <div className="ml-auto">
           <Button green onClick={() => setShowAdd(true)}>+ Nová motorka</Button>
         </div>
@@ -197,7 +204,7 @@ export default function Fleet() {
       <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA Fleet</strong><br/>
         <div>motorcycles: {motos.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
-        <div>filtry: status={filters.status || 'vše'}, branch={filters.branch || 'vše'}, category={filters.category || 'vše'}, search="{filters.search}", sort={filters.sort}</div>
+        <div>filtry: status={filters.statuses?.length > 0 ? filters.statuses.join(',') : 'vše'}, branch={filters.branch || 'vše'}, category={filters.category || 'vše'}, search="{filters.search}", sort={filters.sort}</div>
         <div>branches: {branches.length}, todayOccupied: {todayOccupied.size}, bookingCounts: {Object.keys(bookingCounts).length} motorek</div>
         {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>
@@ -262,6 +269,27 @@ export default function Fleet() {
 
       {showAdd && <AddMotoModal branches={branches} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); loadMotos() }} />}
       <MotoActionModal open={!!actionMoto} moto={actionMoto} onClose={() => setActionMoto(null)} onUpdated={() => { loadMotos(); setActionMoto(null) }} />
+    </div>
+  )
+}
+
+function CheckboxFilterGroup({ label, values, onChange, options }) {
+  const toggle = val => {
+    if (values.includes(val)) onChange(values.filter(v => v !== val))
+    else onChange([...values, val])
+  }
+  return (
+    <div className="flex items-center gap-1 flex-wrap rounded-btn"
+      style={{ padding: '4px 10px', background: values.length > 0 ? '#e8fde8' : '#f1faf7', border: '1px solid #d4e8e0' }}>
+      <span className="text-sm font-extrabold uppercase tracking-wide mr-1" style={{ color: '#1a2e22' }}>{label}:</span>
+      {options.map(o => (
+        <label key={o.value} className="flex items-center gap-1 cursor-pointer"
+          style={{ padding: '3px 6px', borderRadius: 6, background: values.includes(o.value) ? '#74FB71' : 'transparent' }}>
+          <input type="checkbox" checked={values.includes(o.value)} onChange={() => toggle(o.value)}
+            className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} />
+          <span className="text-sm font-bold" style={{ color: '#1a2e22', whiteSpace: 'nowrap' }}>{o.label}</span>
+        </label>
+      ))}
     </div>
   )
 }

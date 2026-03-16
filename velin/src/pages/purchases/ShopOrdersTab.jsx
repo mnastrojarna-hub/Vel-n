@@ -25,6 +25,15 @@ const STATUS_COLORS = {
   refunded: { bg: '#f3f4f6', color: '#1a2e22' },
 }
 
+const STATUS_OPTIONS = [
+  { value: 'new', label: 'Nová' },
+  { value: 'confirmed', label: 'Potvrzeno' },
+  { value: 'processing', label: 'Zpracovává se' },
+  { value: 'shipped', label: 'Odesláno' },
+  { value: 'delivered', label: 'Doručeno' },
+  { value: 'cancelled', label: 'Zrušeno' },
+]
+
 const PAYMENT_LABELS = { pending: 'Nezaplaceno', paid: 'Zaplaceno', refunded: 'Vráceno', failed: 'Selhalo' }
 const PAYMENT_COLORS = {
   pending: { bg: '#fee2e2', color: '#dc2626' },
@@ -38,12 +47,19 @@ export default function ShopOrdersTab() {
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
+  const defaultFilters = { search: '', statuses: [] }
+  const [filters, setFilters] = useState(() => {
+    try {
+      const saved = localStorage.getItem('velin_shoporders_filters')
+      if (saved) return { ...defaultFilters, ...JSON.parse(saved) }
+    } catch {}
+    return defaultFilters
+  })
+  useEffect(() => { localStorage.setItem('velin_shoporders_filters', JSON.stringify(filters)) }, [filters])
   const [detail, setDetail] = useState(null)
   const [showAdd, setShowAdd] = useState(false)
 
-  useEffect(() => { load() }, [page, statusFilter])
+  useEffect(() => { load() }, [page, filters])
 
   // Realtime: reload when shop orders change (voucher auto-processing happens in DB trigger)
   useEffect(() => {
@@ -62,9 +78,9 @@ export default function ShopOrdersTab() {
       .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
 
-    if (statusFilter !== 'all') q = q.eq('status', statusFilter)
-    if (search.trim()) {
-      q = q.or(`order_number.ilike.%${search.trim()}%,customer_name.ilike.%${search.trim()}%,customer_email.ilike.%${search.trim()}%`)
+    if (filters.statuses?.length > 0) q = q.in('status', filters.statuses)
+    if (filters.search?.trim()) {
+      q = q.or(`order_number.ilike.%${filters.search.trim()}%,customer_name.ilike.%${filters.search.trim()}%,customer_email.ilike.%${filters.search.trim()}%`)
     }
 
     const { data, count } = await q.range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
@@ -73,11 +89,6 @@ export default function ShopOrdersTab() {
     setLoading(false)
   }
 
-  useEffect(() => {
-    const t = setTimeout(() => { setPage(1); load() }, 300)
-    return () => clearTimeout(t)
-  }, [search])
-
   const totalPages = Math.ceil(total / PER_PAGE)
   const fmt = n => n != null ? `${Number(n).toLocaleString('cs-CZ')} Kč` : '—'
   const fmtDate = d => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
@@ -85,23 +96,25 @@ export default function ShopOrdersTab() {
   return (
     <div>
       <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <SearchInput value={search} onChange={setSearch} placeholder="Hledat objednávku…" />
-        <div className="flex items-center gap-1">
-          {['all', 'new', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'].map(s => (
-            <button key={s} onClick={() => { setStatusFilter(s); setPage(1) }}
-              className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer border-none"
-              style={{
-                padding: '5px 12px',
-                background: statusFilter === s ? '#1a2e22' : '#f1faf7',
-                color: statusFilter === s ? '#74FB71' : '#1a2e22',
-              }}>
-              {s === 'all' ? 'Vše' : STATUS_LABELS[s] || s}
-            </button>
-          ))}
-        </div>
+        <SearchInput value={filters.search || ''} onChange={v => { setPage(1); setFilters(f => ({ ...f, search: v })) }} placeholder="Hledat objednávku…" />
+        <CheckboxFilterGroup label="Stav" values={filters.statuses || []}
+          onChange={v => { setPage(1); setFilters(f => ({ ...f, statuses: v })) }}
+          options={STATUS_OPTIONS} />
+        <button onClick={() => { setPage(1); setFilters({ ...defaultFilters }); localStorage.removeItem('velin_shoporders_filters') }}
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+          style={{ padding: '8px 14px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626' }}>
+          Reset
+        </button>
         <div className="ml-auto">
           <Button green onClick={() => setShowAdd(true)}>+ Nová objednávka</Button>
         </div>
+      </div>
+
+      {/* DIAGNOSTIKA */}
+      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
+        <strong>DIAGNOSTIKA ShopOrdersTab</strong><br/>
+        <div>orders: {orders.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
+        <div>filtry: statuses={filters.statuses?.length > 0 ? filters.statuses.join(',') : 'vše'}, search="{filters.search}"</div>
       </div>
 
       {loading ? (
@@ -277,7 +290,6 @@ function ShopOrderDetail({ order, onClose, onUpdated }) {
     , updateData)
     if (result?.error) throw result.error
 
-    // Generate final invoice when order is confirmed (delivered for digital, confirmed for physical)
     if (status === 'confirmed' || status === 'delivered') {
       supabase.functions.invoke('generate-invoice', {
         body: { type: 'shop_final', order_id: order.id }
@@ -291,7 +303,6 @@ function ShopOrderDetail({ order, onClose, onUpdated }) {
   async function updatePayment(payment_status) {
     setUpdating(true)
     try {
-      // DB trigger auto_process_voucher_order handles voucher generation + status change
       const result = await debugAction('shopOrder.updatePayment', 'ShopOrderDetail', () =>
         supabase.from('shop_orders').update({ payment_status }).eq('id', order.id)
       , { payment_status })
@@ -467,4 +478,25 @@ function Label({ children }) {
 function Input({ value, onChange, placeholder }) {
   return <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
     className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
+}
+
+function CheckboxFilterGroup({ label, values, onChange, options }) {
+  const toggle = val => {
+    if (values.includes(val)) onChange(values.filter(v => v !== val))
+    else onChange([...values, val])
+  }
+  return (
+    <div className="flex items-center gap-1 flex-wrap rounded-btn"
+      style={{ padding: '4px 10px', background: values.length > 0 ? '#e8fde8' : '#f1faf7', border: '1px solid #d4e8e0' }}>
+      <span className="text-sm font-extrabold uppercase tracking-wide mr-1" style={{ color: '#1a2e22' }}>{label}:</span>
+      {options.map(o => (
+        <label key={o.value} className="flex items-center gap-1 cursor-pointer"
+          style={{ padding: '3px 6px', borderRadius: 6, background: values.includes(o.value) ? '#74FB71' : 'transparent' }}>
+          <input type="checkbox" checked={values.includes(o.value)} onChange={() => toggle(o.value)}
+            className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} />
+          <span className="text-sm font-bold" style={{ color: '#1a2e22', whiteSpace: 'nowrap' }}>{o.label}</span>
+        </label>
+      ))}
+    </div>
+  )
 }

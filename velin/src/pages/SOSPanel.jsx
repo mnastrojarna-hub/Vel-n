@@ -78,9 +78,16 @@ export default function SOSPanel() {
   const [loading, setLoading] = useState(true)
   const [selectedIncident, setSelectedIncident] = useState(null)
   const [notifyEnabled, setNotifyEnabled] = useState(false)
-  const [filter, setFilter] = useState('active')
-  const [severityFilter, setSeverityFilter] = useState('all_sev')
-  const [subFilter, setSubFilter] = useState('all')
+  const [filter, setFilter] = useState(() => {
+    try { const s = localStorage.getItem('velin_sos_filters'); if (s) { const p = JSON.parse(s); return p.filter || 'active' } } catch {} return 'active'
+  })
+  const [severityFilter, setSeverityFilter] = useState(() => {
+    try { const s = localStorage.getItem('velin_sos_filters'); if (s) { const p = JSON.parse(s); return p.severityFilter || 'all_sev' } } catch {} return 'all_sev'
+  })
+  const [subFilter, setSubFilter] = useState(() => {
+    try { const s = localStorage.getItem('velin_sos_filters'); if (s) { const p = JSON.parse(s); return p.subFilter || 'all' } } catch {} return 'all'
+  })
+  useEffect(() => { localStorage.setItem('velin_sos_filters', JSON.stringify({ filter, severityFilter, subFilter })) }, [filter, severityFilter, subFilter])
   const openIncidentHandled = useRef(null)
 
   // Auto-acknowledge light faults

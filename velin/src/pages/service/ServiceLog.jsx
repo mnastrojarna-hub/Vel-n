@@ -19,7 +19,15 @@ export default function ServiceLog() {
   const [error, setError] = useState(null)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [filters, setFilters] = useState({ search: '', type: '' })
+  const defaultFilters = { search: '', types: [] }
+  const [filters, setFilters] = useState(() => {
+    try {
+      const saved = localStorage.getItem('velin_servicelog_filters')
+      if (saved) return { ...defaultFilters, ...JSON.parse(saved) }
+    } catch {}
+    return defaultFilters
+  })
+  useEffect(() => { localStorage.setItem('velin_servicelog_filters', JSON.stringify(filters)) }, [filters])
   const [showAdd, setShowAdd] = useState(false)
   const [editing, setEditing] = useState(null)
 
@@ -33,7 +41,8 @@ export default function ServiceLog() {
       let query = supabase
         .from('maintenance_log')
         .select('*, motorcycles(model, spz)', { count: 'exact' })
-      if (filters.type) query = query.eq('type', filters.type)
+      if (filters.types?.length > 0) query = query.in('type', filters.types)
+      else if (filters.type) query = query.eq('type', filters.type)
       if (filters.search) query = query.or(`motorcycles.model.ilike.%${filters.search}%,motorcycles.spz.ilike.%${filters.search}%`)
       query = query.order('created_at', { ascending: false }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       const { data, count, error: err } = await debugAction('maintenance_log.list', 'ServiceLog', () => query)
@@ -51,15 +60,25 @@ export default function ServiceLog() {
     <div>
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <SearchInput value={filters.search} onChange={v => { setPage(1); setFilters(f => ({ ...f, search: v })) }} placeholder="Hledat motorku…" />
-        <select value={filters.type} onChange={e => { setPage(1); setFilters(f => ({ ...f, type: e.target.value })) }}
-          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
-          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
-          <option value="">Všechny typy</option>
-          {TYPES.map(t => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
-        </select>
+        <CheckboxFilterGroup label="Typ" values={filters.types || []}
+          onChange={v => { setPage(1); setFilters(f => ({ ...f, types: v })) }}
+          options={TYPES.map(t => ({ value: t, label: TYPE_LABELS[t] }))} />
+        <button onClick={() => { setPage(1); setFilters({ ...defaultFilters }); localStorage.removeItem('velin_servicelog_filters') }}
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+          style={{ padding: '8px 14px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626' }}>
+          Reset
+        </button>
         <div className="ml-auto">
           <Button green onClick={() => setShowAdd(true)}>+ Naplánovat servis</Button>
         </div>
+      </div>
+
+      {/* DIAGNOSTIKA */}
+      <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
+        <strong>DIAGNOSTIKA ServiceLog</strong><br/>
+        <div>logs: {logs.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
+        <div>filtry: types={filters.types?.length > 0 ? filters.types.join(',') : 'vše'}, search="{filters.search}"</div>
+        {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>
 
       {error && <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
@@ -189,4 +208,25 @@ function ServiceModal({ entry, onClose, onSaved }) {
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
 function Label({ children }) {
   return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>
+}
+
+function CheckboxFilterGroup({ label, values, onChange, options }) {
+  const toggle = val => {
+    if (values.includes(val)) onChange(values.filter(v => v !== val))
+    else onChange([...values, val])
+  }
+  return (
+    <div className="flex items-center gap-1 flex-wrap rounded-btn"
+      style={{ padding: '4px 10px', background: values.length > 0 ? '#e8fde8' : '#f1faf7', border: '1px solid #d4e8e0' }}>
+      <span className="text-sm font-extrabold uppercase tracking-wide mr-1" style={{ color: '#1a2e22' }}>{label}:</span>
+      {options.map(o => (
+        <label key={o.value} className="flex items-center gap-1 cursor-pointer"
+          style={{ padding: '3px 6px', borderRadius: 6, background: values.includes(o.value) ? '#74FB71' : 'transparent' }}>
+          <input type="checkbox" checked={values.includes(o.value)} onChange={() => toggle(o.value)}
+            className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} />
+          <span className="text-sm font-bold" style={{ color: '#1a2e22', whiteSpace: 'nowrap' }}>{o.label}</span>
+        </label>
+      ))}
+    </div>
+  )
 }
