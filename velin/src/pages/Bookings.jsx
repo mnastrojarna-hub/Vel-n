@@ -28,13 +28,21 @@ export default function Bookings() {
   const [error, setError] = useState(null)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [filters, setFilters] = useState({
+  const defaultFilters = {
     statuses: [], search: '', dateFrom: '', dateTo: '',
     paymentStatuses: [], customer: '', motoModel: '', branch: '',
     priceMin: '', priceMax: '', durationMin: '', durationMax: '',
     hasInvoice: '', hasContract: '', country: '', licenseGroup: '',
     sortBy: 'start_date', sortDir: 'desc', futureOnly: false
+  }
+  const [filters, setFilters] = useState(() => {
+    try {
+      const saved = localStorage.getItem('velin_bookings_filters')
+      if (saved) return { ...defaultFilters, ...JSON.parse(saved) }
+    } catch {}
+    return defaultFilters
   })
+  useEffect(() => { localStorage.setItem('velin_bookings_filters', JSON.stringify(filters)) }, [filters])
   const [showAdd, setShowAdd] = useState(false)
   const [view, setView] = useState('Seznam')
   const [showFilters, setShowFilters] = useState(false)
@@ -205,7 +213,7 @@ export default function Bookings() {
     if (Array.isArray(v)) return v.length > 0
     return !!v
   }).length
-  const resetFilters = () => { setPage(1); setFilters(f => ({ ...f, statuses: [], paymentStatuses: [], dateFrom: '', dateTo: '', customer: '', motoModel: '', branch: '', priceMin: '', priceMax: '', durationMin: '', durationMax: '', hasInvoice: '', hasContract: '', country: '', licenseGroup: '', futureOnly: false })) }
+  const resetFilters = () => { setPage(1); setFilters({ ...defaultFilters }); localStorage.removeItem('velin_bookings_filters') }
 
   async function handleDeleteBooking(booking) {
     try {
