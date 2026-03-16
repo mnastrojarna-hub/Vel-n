@@ -5,7 +5,7 @@ var _currentLang='cs';
 
 var I18N={
 cs:{
-  nav:{home:'Domů',search:'Rezervovat',res:'Mé rezervace',shop:'Shop'},
+  nav:{home:'Domů',search:'Rezervovat',res:'Rezervace',shop:'Shop'},
   profile:{account:'Můj účet',settings:'Nastavení',help:'Pomoc & Podpora',other:'Ostatní',personalData:'Osobní údaje',docs:'Moje doklady',invoices:'Faktury a vyúčtování',contracts:'Dokumenty a smlouvy',payMethods:'Platební metody',notif:'Notifikace',biometric:'Biometrické přihlášení',privacy:'Soukromí & Oprávnění',language:'Jazyk aplikace',shareLocation:'Sdílení polohy',camera:'Fotoaparát',microphone:'Mikrofon',analytics:'Anonymní analytika',logout:'Odhlásit se',save:'Uložit',deleteAccount:'Smazat účet a všechna data'},
   // Doc module
   doc:{back:'Zpět',vopTitle:'Všeobecné obchodní podmínky',seat:'Sídlo',
