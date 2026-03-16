@@ -550,7 +550,7 @@ function GlobalCalendar() {
                         {b.profiles?.full_name || 'Zákazník'}
                         <span className="ml-2" style={{ color: '#1a2e22' }}>{b.start_date ? new Date(b.start_date).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' }) : ''} → {b.end_date ? new Date(b.end_date).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric' }) : ''}</span>
                       </div>
-                      {(dpTotals[b.id] || b.total_price) && <div className="text-sm font-bold mt-1" style={{ color: '#3dba3a' }}>{Number(dpTotals[b.id] || b.total_price).toLocaleString('cs-CZ')} Kč</div>}
+                      {b.total_price && <div className="text-sm font-bold mt-1" style={{ color: '#3dba3a' }}>{Number(b.total_price).toLocaleString('cs-CZ')} Kč</div>}
                     </div>
                   ))}
                   {showFree && (() => {
