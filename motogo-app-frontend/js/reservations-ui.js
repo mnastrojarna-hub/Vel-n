@@ -199,29 +199,29 @@ function _startBookingFabCountdown(createdTs){
     var min = Math.floor(remaining / 60000);
     var sec = Math.floor((remaining % 60000) / 1000);
     var timeStr = min + ':' + (sec < 10 ? '0' : '') + sec;
-    if(label) label.textContent = 'Dokončit platbu · ' + timeStr;
+    if(label) label.textContent = 'Dokončit rezervaci · ' + timeStr;
   }
   update();
   _bookingFabTimer = setInterval(update, 1000);
 }
 
 function dismissBookingFab(){
-  if(!confirm('Zrušit rezervaci?\n\nRezervace bude zrušena pro nezaplacení.')){
-    return;
-  }
   var fab = document.getElementById('booking-fab');
   if(fab) fab.style.display = 'none';
   if(_bookingFabTimer){ clearInterval(_bookingFabTimer); _bookingFabTimer = null; }
-  // Cancel booking in DB
+  // Cancel booking in DB — zákazník si to rozmyslel
   if(_pendingBookingId && window.supabase){
     window.supabase.from('bookings').update({
       status: 'cancelled',
-      cancelled_by_source: 'unpaid_customer',
-      cancellation_reason: 'Zrušeno zákazníkem (nezaplaceno)',
+      cancelled_by_source: 'customer',
+      cancellation_reason: 'Zákazník si to rozmyslel',
       cancelled_at: new Date().toISOString()
     }).eq('id', _pendingBookingId).eq('payment_status', 'unpaid').then(function(){});
-    showT('✗','Rezervace zrušena','Rezervace byla zrušena pro nezaplacení');
+    showT('✗','Rezervace zrušena','Rezervace byla zrušena');
   }
+  // Clear payment timeout if still running
+  if(typeof _paymentTimeout !== 'undefined' && _paymentTimeout){ clearTimeout(_paymentTimeout); _paymentTimeout = null; }
+  if(typeof _currentBookingId !== 'undefined') _currentBookingId = null;
   _pendingBookingId = null;
   _pendingBookingData = null;
 }
