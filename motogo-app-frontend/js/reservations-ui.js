@@ -251,11 +251,8 @@ function _updateBookingFabVisibility(){
   // Hide on payment flow screens (user is already paying) and auth
   var hideOn = ['s-login','s-register','s-docs','s-booking','s-payment','s-success'];
   if(hideOn.indexOf(cur) !== -1){ fab.style.display = 'none'; return; }
-  // Re-check on main screens
-  var recheckOn = ['s-home','s-res','s-search','s-profile','s-res-detail'];
-  if(recheckOn.indexOf(cur) !== -1){
-    _checkAndShowBookingFab();
-  }
+  // Re-check on ANY screen outside hideOn — FAB must be visible everywhere
+  _checkAndShowBookingFab();
 }
 
 function _updateSosFabVisibility(){
