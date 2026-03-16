@@ -34,8 +34,15 @@ export default function EmailTemplatesTab() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [editing, setEditing] = useState(null)
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+  const defaultFilters = { search: '', statuses: [] }
+  const [filters, setFilters] = useState(() => {
+    try {
+      const saved = localStorage.getItem('velin_emailtemplates_filters')
+      if (saved) return { ...defaultFilters, ...JSON.parse(saved) }
+    } catch {}
+    return defaultFilters
+  })
+  useEffect(() => { localStorage.setItem('velin_emailtemplates_filters', JSON.stringify(filters)) }, [filters])
 
   useEffect(() => { load(); loadSent() }, [])
 
@@ -60,15 +67,15 @@ export default function EmailTemplatesTab() {
   if (error) return <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>
 
   const filteredTemplates = templates.filter(t => {
-    if (!search) return true
-    const s = search.toLowerCase()
+    if (!filters.search) return true
+    const s = filters.search.toLowerCase()
     return (t.name || '').toLowerCase().includes(s) || (t.slug || '').toLowerCase().includes(s) || (t.description || '').toLowerCase().includes(s)
   })
 
   const filteredEmails = sentEmails.filter(e => {
-    if (statusFilter && e.status !== statusFilter) return false
-    if (search) {
-      const s = search.toLowerCase()
+    if (filters.statuses?.length > 0 && !filters.statuses.includes(e.status)) return false
+    if (filters.search) {
+      const s = filters.search.toLowerCase()
       if (!(e.recipient_email || '').toLowerCase().includes(s) && !(e.subject || '').toLowerCase().includes(s) && !(e.template_slug || '').toLowerCase().includes(s)) return false
     }
     return true
@@ -77,18 +84,20 @@ export default function EmailTemplatesTab() {
   return (
     <div>
       <div className="flex items-center gap-3 mb-4">
-        <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+        <input type="text" value={filters.search} onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
           placeholder="Hledat šablonu, e-mail…"
           className="rounded-btn text-sm outline-none"
           style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22', minWidth: 200 }} />
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
-          style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
-          <option value="">Všechny stavy</option>
-          <option value="sent">Odesláno</option>
-          <option value="failed">Chyba</option>
-          <option value="queued">Ve frontě</option>
-        </select>
+        <CheckboxFilterGroup label="Stav" values={filters.statuses || []}
+          onChange={v => setFilters(f => ({ ...f, statuses: v }))}
+          options={[{ value: 'sent', label: 'Odesláno' }, { value: 'failed', label: 'Chyba' }, { value: 'queued', label: 'Ve frontě' }]} />
+        {(filters.search || (filters.statuses?.length > 0)) && (
+          <button onClick={() => { setFilters({ ...defaultFilters }); localStorage.removeItem('velin_emailtemplates_filters') }}
+            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+            style={{ padding: '8px 14px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626' }}>
+            Reset
+          </button>
+        )}
       </div>
 
       {filteredTemplates.length === 0 ? (
@@ -324,4 +333,25 @@ function EditEmailTemplateModal({ template, onClose, onSaved }) {
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
 function Label({ children }) {
   return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>
+}
+
+function CheckboxFilterGroup({ label, values, onChange, options }) {
+  const toggle = val => {
+    if (values.includes(val)) onChange(values.filter(v => v !== val))
+    else onChange([...values, val])
+  }
+  return (
+    <div className="flex items-center gap-1 flex-wrap rounded-btn"
+      style={{ padding: '4px 10px', background: values.length > 0 ? '#e8fde8' : '#f1faf7', border: '1px solid #d4e8e0' }}>
+      <span className="text-sm font-extrabold uppercase tracking-wide mr-1" style={{ color: '#1a2e22' }}>{label}:</span>
+      {options.map(o => (
+        <label key={o.value} className="flex items-center gap-1 cursor-pointer"
+          style={{ padding: '3px 6px', borderRadius: 6, background: values.includes(o.value) ? '#74FB71' : 'transparent' }}>
+          <input type="checkbox" checked={values.includes(o.value)} onChange={() => toggle(o.value)}
+            className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} />
+          <span className="text-sm font-bold" style={{ color: '#1a2e22', whiteSpace: 'nowrap' }}>{o.label}</span>
+        </label>
+      ))}
+    </div>
+  )
 }

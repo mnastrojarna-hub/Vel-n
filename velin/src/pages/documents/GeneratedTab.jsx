@@ -374,3 +374,31 @@ function GenerateDocModal({ onClose, onGenerated }) {
 function Label({ children }) {
   return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>
 }
+
+function CheckboxFilterGroup({ label, options, selected, onChange }) {
+  function toggle(value) {
+    if (selected.includes(value)) {
+      onChange(selected.filter(v => v !== value))
+    } else {
+      onChange([...selected, value])
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-xs font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>{label}:</span>
+      {options.map(opt => (
+        <label key={opt.value} className="flex items-center gap-1 cursor-pointer text-sm" style={{ color: '#1a2e22' }}>
+          <input
+            type="checkbox"
+            checked={selected.includes(opt.value)}
+            onChange={() => toggle(opt.value)}
+            className="cursor-pointer"
+            style={{ accentColor: '#1a8a18' }}
+          />
+          <span className={selected.includes(opt.value) ? 'font-bold' : ''}>{opt.label}</span>
+        </label>
+      ))}
+    </div>
+  )
+}
