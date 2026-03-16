@@ -17,10 +17,12 @@ function _syncLocalSession(userId, email){
   } catch(e){}
 }
 
-// Store biometric user data – call after every successful auth
-function _storeBioUser(userId, email){
+// Store biometric user data + refresh token – call after every successful auth
+function _storeBioUser(userId, email, refreshToken){
   try {
-    localStorage.setItem('mg_bio_user', JSON.stringify({user_id: userId, email: email}));
+    var data = {user_id: userId, email: email};
+    if(refreshToken) data.refresh_token = refreshToken;
+    localStorage.setItem('mg_bio_user', JSON.stringify(data));
   } catch(e){}
 }
 
@@ -78,9 +80,10 @@ function doLogin(){
     return;
   }
 
-  function _loginSuccess(userId, email){
+  function _loginSuccess(userId, email, session){
     _syncLocalSession(userId, email);
-    _storeBioUser(userId, email);
+    var refreshToken = (session && session.refresh_token) || null;
+    _storeBioUser(userId, email, refreshToken);
     showT('✓',_t('auth').loginTitle,_t('auth').welcome);
     renderUserData();
     setTimeout(function(){ goTo('s-home'); }, 700);
@@ -93,7 +96,7 @@ function doLogin(){
         showT('✗',_t('auth').loginErr,result.error);
         return;
       }
-      if(result.user) _loginSuccess(result.user.id, email);
+      if(result.user) _loginSuccess(result.user.id, email, result.session);
     }).catch(function(e){
       console.error('doLogin supabase error:', e);
       showT('✗',_t('auth').error,_t('auth').loginFail);
@@ -157,18 +160,55 @@ function bioLogin(){
   try {
     var bioEnabled=localStorage.getItem('mg_bio_enabled');
     if(!bioEnabled){showT('ℹ️',_t('auth').bio,_t('auth').bioOff);return;}
-    // Restore session from stored biometric credentials
     var bioUser = null;
     try { var raw = localStorage.getItem('mg_bio_user'); if(raw) bioUser = JSON.parse(raw); } catch(e){}
-    if(bioUser && bioUser.user_id && bioUser.email){
-      _syncLocalSession(bioUser.user_id, bioUser.email);
-      showT('🔐',_t('auth').bio,_t('auth').bioOk);
-      renderUserData();
-      setTimeout(function(){ goTo('s-home'); }, 1200);
-    } else {
+    if(!bioUser || !bioUser.user_id || !bioUser.email){
       showT('ℹ️',_t('auth').bio,_t('auth').bioFirst);
+      return;
     }
+    // Must restore a REAL Supabase session, not just a local fake token
+    _bioRestoreSession(bioUser).then(function(ok){
+      if(ok){
+        _syncLocalSession(bioUser.user_id, bioUser.email);
+        showT('🔐',_t('auth').bio,_t('auth').bioOk);
+        renderUserData();
+        setTimeout(function(){ goTo('s-home'); }, 1200);
+      } else {
+        _clearBioData();
+        showT('ℹ️',_t('auth').bio,_t('auth').bioFirst);
+      }
+    });
   } catch(e){ console.error('bioLogin error:', e); showT('✗',_t('auth').error,_t('auth').bioFail); }
+}
+
+// Restore real Supabase session for biometric login
+function _bioRestoreSession(bioUser){
+  if(!_isSupabaseReady()) return Promise.resolve(false);
+  // 1. Check if Supabase already has a valid session
+  return window.supabase.auth.getSession().then(function(r){
+    if(r.data && r.data.session && r.data.session.user){
+      // Update stored refresh token
+      _storeBioUser(r.data.session.user.id, r.data.session.user.email, r.data.session.refresh_token);
+      return true;
+    }
+    // 2. Try to restore session using stored refresh token
+    if(bioUser.refresh_token){
+      return window.supabase.auth.refreshSession({refresh_token: bioUser.refresh_token}).then(function(ref){
+        if(ref.data && ref.data.session){
+          _storeBioUser(ref.data.session.user.id, ref.data.session.user.email, ref.data.session.refresh_token);
+          return true;
+        }
+        return false;
+      }).catch(function(){ return false; });
+    }
+    return false;
+  }).catch(function(){ return false; });
+}
+
+// Clear biometric data when session can't be restored
+function _clearBioData(){
+  try { localStorage.removeItem('mg_bio_user'); } catch(e){}
+  try { localStorage.removeItem('mg_bio_enabled'); } catch(e){}
 }
 
 // ===== REGISTER =====
@@ -254,9 +294,10 @@ function _collectRegFields(){
 }
 
 // Registration success handler
-function _regSuccess(userId, email){
+function _regSuccess(userId, email, session){
   _syncLocalSession(userId, email);
-  _storeBioUser(userId, email);
+  var refreshToken = (session && session.refresh_token) || null;
+  _storeBioUser(userId, email, refreshToken);
   showT('✓',_t('auth').regDone,_t('auth').regWelcome);
   _regResetForm();
   renderUserData();
@@ -296,7 +337,7 @@ function doRegister(){
       }
       var userId = (result.user && result.user.id) ? result.user.id : null;
       if(userId){
-        _regSuccess(userId, f.email);
+        _regSuccess(userId, f.email, result.session);
       } else {
         showT('✗',_t('auth').regErr,'Registrace se nezdařila. Zkuste to znovu.');
       }
@@ -387,6 +428,11 @@ function doLogout(){
       authSignOut().catch(function(e){ console.error('doLogout supabase:', e); });
     }
     try { localStorage.removeItem('mg_current_session'); } catch(e){}
+    // Clear stale DOM data to prevent ghost profile after bio login
+    var homeNameEl = document.getElementById('home-user-name');
+    if(homeNameEl) homeNameEl.textContent = '';
+    var har = document.getElementById('home-active-res');
+    if(har) har.innerHTML = '';
     showT('✓',_t('auth').logoutTitle,_t('auth').logoutMsg);
     setTimeout(function(){
       goTo('s-login');
