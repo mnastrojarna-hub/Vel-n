@@ -36,7 +36,15 @@ async function renderAdminMessages(){
 
   try {
     _msgAllNotifs = await apiFetchAdminMessages();
+    // Mark all notifications as read when viewing messages screen
+    var hasUnread = (_msgAllNotifs || []).some(function(m){ return !m.read; });
+    if(hasUnread && typeof apiMarkAllMessagesRead === 'function'){
+      apiMarkAllMessagesRead().then(function(){ updateMsgBadge(); });
+      // Update local state so UI shows them as read
+      _msgAllNotifs.forEach(function(m){ m.read = true; });
+    }
     _msgRenderFiltered();
+    updateMsgBadge();
   } catch(e){
     console.error('renderAdminMessages error:', e);
     wrap.innerHTML = '<div style="text-align:center;padding:20px;color:var(--red);">Chyba p\u0159i na\u010d\u00edt\u00e1n\u00ed zpr\u00e1v</div>';
@@ -247,7 +255,7 @@ async function renderThreadChat(){
 
 function _toggleReplyBar(show){
   var bar = document.getElementById('thread-reply-bar');
-  if(bar) bar.style.display = show ? 'flex' : 'none';
+  if(bar) bar.style.display = show ? 'block' : 'none';
 }
 
 // ===== SEND REPLY =====

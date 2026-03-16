@@ -32,6 +32,8 @@ const navMap = {
 function goTo(id){
   if(id===cur){const el=document.getElementById(id);if(el)el.scrollTo({top:0,behavior:'smooth'});return;}
   if(cur==='s-booking')bookingFromDetail=false;
+  // Hide thread reply bar when leaving thread screen
+  if(cur==='s-messages-thread'&&id!=='s-messages-thread'){var _rb=document.getElementById('thread-reply-bar');if(_rb)_rb.style.display='none';}
   // Stop scanner camera when leaving scan screen
   if(cur==='s-doc-scan'&&typeof DocScanner!=='undefined') DocScanner.stopCamera();
 
@@ -183,6 +185,8 @@ function histBack(){
     navStack.pop();
     const prev=navStack[navStack.length-1];
     var leavingScreen=cur;
+    // Hide thread reply bar when leaving thread screen via back
+    if(cur==='s-messages-thread'){var _rb2=document.getElementById('thread-reply-bar');if(_rb2)_rb2.style.display='none';}
     var curEl=document.getElementById(cur);
     if(curEl)curEl.classList.add('hidden');
     cur=prev;
