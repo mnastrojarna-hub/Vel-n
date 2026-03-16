@@ -228,11 +228,15 @@ async function renderThreadChat(){
     msgsWrap.scrollTop = msgsWrap.scrollHeight;
 
     // Mark admin messages as read
+    var hasUnread = false;
     msgs.forEach(function(m){
       if(m.direction === 'admin' && !m.read_at && window.supabase){
+        hasUnread = true;
         window.supabase.from('messages').update({read_at: new Date().toISOString()}).eq('id', m.id).then(function(){});
       }
     });
+    // Update badge after marking messages as read
+    if(hasUnread) setTimeout(function(){ updateMsgBadge(); }, 500);
   } catch(e){
     console.error('renderThreadChat error:', e);
     msgsWrap.innerHTML = '<div style="text-align:center;padding:20px;color:var(--red);">Chyba</div>';
@@ -368,9 +372,8 @@ function markMsgRead(msgId, el){
   var dot = el ? el.querySelector('.msg-dot') : null;
   if(dot) dot.remove();
   if(typeof apiMarkMessageRead === 'function'){
-    apiMarkMessageRead(msgId);
+    apiMarkMessageRead(msgId).then(function(){ updateMsgBadge(); });
   }
-  updateMsgBadge();
 }
 
 // ===== UPDATE UNREAD BADGE =====
