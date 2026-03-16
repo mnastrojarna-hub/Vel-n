@@ -147,8 +147,9 @@ var AddressAPI = (function(){
   }
 
   /**
-   * Suggest streets within a city (or general address if no city)
-   * For small villages, also searches by village name + house number
+   * Suggest streets/addresses within a city (or general if no city)
+   * Czech addresses: ulice + č.p., OR místní část + ev.č. (malé obce bez ulic)
+   * Example: "Hněvkovice 9, 396 01 Humpolec" — Hněvkovice is a hamlet, not a street
    */
   function suggestStreets(query, city, callback){
     if(!query || query.length < 2){ callback([]); return; }
@@ -160,26 +161,14 @@ var AddressAPI = (function(){
       return;
     }
 
-    // Use structured query when city is known for better results
-    var url;
-    if(city){
-      url = NOMINATIM_URL +
-        '?street=' + encodeURIComponent(query) +
-        '&city=' + encodeURIComponent(city) +
-        '&format=json' +
-        '&addressdetails=1' +
-        '&countrycodes=cz' +
-        '&limit=12' +
-        '&accept-language=cs';
-    } else {
-      url = NOMINATIM_URL +
-        '?q=' + encodeURIComponent(searchTerm) +
-        '&format=json' +
-        '&addressdetails=1' +
-        '&countrycodes=cz' +
-        '&limit=12' +
-        '&accept-language=cs';
-    }
+    // Always use free-text query — structured ?street= fails for Czech hamlets/localities
+    var url = NOMINATIM_URL +
+      '?q=' + encodeURIComponent(searchTerm) +
+      '&format=json' +
+      '&addressdetails=1' +
+      '&countrycodes=cz' +
+      '&limit=15' +
+      '&accept-language=cs';
 
     _fetchJSON(url, function(err, data){
       if(err || !data || !Array.isArray(data)){
@@ -188,40 +177,22 @@ var AddressAPI = (function(){
       }
       var results = _parseStreetResults(data, query, city);
 
-      // If structured query returned too few results, also try free-text
-      if(results.length < 3 && city){
-        var freeUrl = NOMINATIM_URL +
-          '?q=' + encodeURIComponent(query + ', ' + city) +
-          '&format=json&addressdetails=1&countrycodes=cz&limit=12&accept-language=cs';
-        _fetchJSON(freeUrl, function(err2, data2){
+      // If too few results and city is set, also try query alone (might be a hamlet name)
+      if(results.length < 2 && city){
+        var url2 = NOMINATIM_URL +
+          '?q=' + encodeURIComponent(query + ' ' + city) +
+          '&format=json&addressdetails=1&countrycodes=cz&limit=10&accept-language=cs';
+        _fetchJSON(url2, function(err2, data2){
           if(!err2 && data2 && Array.isArray(data2)){
             var extra = _parseStreetResults(data2, query, city);
             var seenKeys = {};
-            results.forEach(function(r){ seenKeys[r.street+'_'+r.houseNum] = true; });
+            results.forEach(function(r){ seenKeys[r.label] = true; });
             extra.forEach(function(r){
-              if(!seenKeys[r.street+'_'+r.houseNum]){
-                results.push(r);
-                seenKeys[r.street+'_'+r.houseNum] = true;
-              }
+              if(!seenKeys[r.label]){ results.push(r); seenKeys[r.label] = true; }
             });
           }
-          // For small villages, the query itself might be the village/locality name
-          // Try adding it as a result if it looks like a house number pattern
-          if(results.length === 0 && city){
-            var numMatch = query.match(/^(\d+.*)$/);
-            if(numMatch){
-              // User typed a house number — village uses ev. č. (house numbers without street)
-              results.push({
-                label: query,
-                street: '',
-                houseNum: query,
-                district: '',
-                lat: null, lng: null,
-                city: city, zip: ''
-              });
-            }
-          }
           results = results.slice(0, 8);
+          if(results.length === 0){ results = _fallbackStreets(query, city); }
           _cache[cacheKey] = { data: results, ts: Date.now() };
           callback(results);
         });
@@ -229,51 +200,100 @@ var AddressAPI = (function(){
       }
 
       results = results.slice(0, 8);
+      if(results.length === 0){ results = _fallbackStreets(query, city); }
       _cache[cacheKey] = { data: results, ts: Date.now() };
       callback(results);
     });
   }
 
   /**
-   * Parse Nominatim results into street suggestions
+   * Parse Nominatim results into street/address suggestions
+   * Handles: streets with house numbers, hamlets (místní části), ev.č. without street
    */
   function _parseStreetResults(data, query, city){
     var results = [];
     var seen = {};
+    var q = query.toLowerCase();
+
     data.forEach(function(item){
       var addr = item.address || {};
       var itemCity = addr.city || addr.town || addr.village || addr.municipality || '';
       var street = addr.road || '';
       var houseNum = addr.house_number || '';
       var zip = addr.postcode || '';
-      var district = addr.suburb || addr.city_district || addr.quarter || '';
+      var hamlet = addr.hamlet || addr.suburb || addr.city_district || addr.quarter || '';
+      var neighbourhood = addr.neighbourhood || '';
 
-      // Accept results without street name if village name matches (ev. č.)
-      if(!street && !houseNum) return;
+      // Build the best label for this result
+      var label = '';
+      var displayStreet = street;
+      var displayDistrict = hamlet;
 
-      // If city was specified, filter loosely (allow nearby villages/suburbs)
+      if(street && houseNum){
+        // Classic: "Nádražní 42"
+        label = street + ' ' + houseNum;
+      } else if(street){
+        // Street without number: "Nádražní"
+        label = street;
+      } else if(hamlet && houseNum){
+        // Hamlet with ev.č.: "Hněvkovice 9"
+        label = hamlet + ' ' + houseNum;
+        displayStreet = hamlet;
+      } else if(hamlet){
+        // Just hamlet name: "Hněvkovice"
+        label = hamlet;
+        displayStreet = hamlet;
+      } else if(houseNum){
+        // Just house number (ev.č.)
+        label = houseNum;
+      } else if(neighbourhood && houseNum){
+        label = neighbourhood + ' ' + houseNum;
+        displayStreet = neighbourhood;
+      } else {
+        // Nothing useful
+        return;
+      }
+
+      // If city was specified, filter: must be same city or nearby
       if(city && itemCity){
         var cityLc = city.toLowerCase();
         var itemCityLc = itemCity.toLowerCase();
-        if(itemCityLc !== cityLc && itemCityLc.indexOf(cityLc) === -1 && cityLc.indexOf(itemCityLc) === -1) return;
+        // Accept if: exact match, one contains the other, or hamlet matches
+        var cityOk = (itemCityLc === cityLc) ||
+          (itemCityLc.indexOf(cityLc) !== -1) ||
+          (cityLc.indexOf(itemCityLc) !== -1);
+        if(!cityOk) return;
       }
 
-      var key = (street || itemCity) + '_' + houseNum;
-      if(seen[key]) return;
-      seen[key] = true;
+      // Relevance: label or hamlet or street should relate to what user typed
+      var labelLc = label.toLowerCase();
+      var hamletLc = hamlet.toLowerCase();
+      var streetLc = street.toLowerCase();
+      var relevant = (labelLc.indexOf(q) !== -1) ||
+        (hamletLc.indexOf(q) !== -1) ||
+        (streetLc.indexOf(q) !== -1) ||
+        (q.indexOf(labelLc.split(' ')[0]) !== -1);
+      if(!relevant && city) {
+        // Still accept if this is a plausible address in the right city
+        relevant = true;
+      }
+      if(!relevant) return;
 
-      var label = street ? (street + (houseNum ? ' ' + houseNum : '')) : (houseNum || '');
+      if(seen[label]) return;
+      seen[label] = true;
+
       results.push({
         label: label,
-        street: street,
+        street: displayStreet,
         houseNum: houseNum,
-        district: district,
+        district: displayDistrict,
         lat: parseFloat(item.lat) || null,
         lng: parseFloat(item.lon) || null,
         city: itemCity || city || '',
         zip: zip
       });
     });
+
     return results;
   }
 
@@ -318,10 +338,18 @@ var AddressAPI = (function(){
         var zip = addr.postcode || '';
         var street = addr.road || '';
         var houseNum = addr.house_number || '';
-        var district = addr.suburb || addr.city_district || addr.quarter || '';
+        var hamlet = addr.hamlet || addr.suburb || addr.city_district || addr.quarter || '';
         var label = '';
+        var displayStreet = street;
         if(street){
           label = street + (houseNum ? ' ' + houseNum : '') + ', ' + city;
+        } else if(hamlet && houseNum){
+          // Hamlet address: "Hněvkovice 9, Humpolec"
+          label = hamlet + ' ' + houseNum + ', ' + city;
+          displayStreet = hamlet;
+        } else if(hamlet){
+          label = hamlet + ', ' + city;
+          displayStreet = hamlet;
         } else if(city){
           label = city + (zip ? ', ' + zip : '');
         } else {
@@ -329,9 +357,9 @@ var AddressAPI = (function(){
         }
         return {
           label: label,
-          street: street,
+          street: displayStreet,
           houseNum: houseNum,
-          district: district,
+          district: hamlet || '',
           lat: parseFloat(item.lat) || null,
           lng: parseFloat(item.lon) || null,
           city: city,
