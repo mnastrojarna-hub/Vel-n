@@ -60,11 +60,11 @@ Templates['s-register'] = `  <div class="reg-hdr">
     <div class="reg-step" id="reg-step-2">
       <div class="reg-step-title" id="t-s2t">🏠 Krok 2 / 4 – Adresa bydliště</div>
       <div class="reg-step-sub" id="t-s2s">Potřebujeme vaši kontaktní adresu</div>
-      <div class="ff"><label id="t-street">Ulice a č.p.</label><input id="reg-street" type="text" placeholder="Náměstí 1"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;">
-        <div class="ff" style="margin:0;"><label id="t-zip">PSČ</label><input id="reg-zip" type="text" placeholder="110 00"></div>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:9px;">
         <div class="ff" style="margin:0;"><label id="t-city">Město</label><input id="reg-city" type="text" placeholder="Praha"></div>
+        <div class="ff" style="margin:0;"><label id="t-zip">PSČ</label><input id="reg-zip" type="text" placeholder="110 00"></div>
       </div>
+      <div class="ff" style="margin-top:9px;"><label id="t-street">Ulice a č.p.</label><input id="reg-street" type="text" placeholder="Náměstí 1"></div>
       <div class="ff" style="margin-top:9px;margin-bottom:0;"><label id="t-country">Stát</label>
         <select id="reg-country"><option id="t-cCZ">Česká republika</option><option id="t-cSK">Slovenská republika</option><option id="t-cDE">Německo</option><option id="t-cAT">Rakousko</option><option id="t-cPL">Polsko</option></select>
       </div>
