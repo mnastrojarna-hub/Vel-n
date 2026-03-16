@@ -426,7 +426,7 @@ function sosReportTheft() {
 
 // ===== SOS REPLACEMENT — přesměrování na Upravit rezervaci =====
 var _sosReplacementMode = false;
-var _sosReplacementData = { selectedMotoId: null, selectedModel: null, dailyPrice: 0, deliveryFee: 490 };
+var _sosReplacementData = { selectedMotoId: null, selectedModel: null, dailyPrice: 0, deliveryFee: 0 };
 
 var _sosReplacementLoading = false;
 var _sosCurrentMotoId = null; // ID aktuální (rozbité) motorky zákazníka
@@ -481,7 +481,7 @@ function sosRequestReplacement() {
 
 function sosReplInit(){
     // Reset state
-    _sosReplacementData = { selectedMotoId: null, selectedModel: null, dailyPrice: 0, deliveryFee: 490 };
+    _sosReplacementData = { selectedMotoId: null, selectedModel: null, dailyPrice: 0, deliveryFee: 0 };
 
     // Restore from pending SOS incident if coming from floating banner
     if(window._pendingSosIncident && !_sosPendingIncidentId){
@@ -591,10 +591,26 @@ async function sosReplLoadMotos(){
         .limit(50);
       var allMotos = r.data || [];
 
-      // Filtruj: 1) ne aktuální motorku, 2) zákazník má odpovídající řidičák
+      // Načti motorky s aktivními rezervacemi — tyto nejsou k dispozici
+      var rentedMotoIds = {};
+      try {
+        var rentedR = await window.supabase.from('bookings')
+          .select('moto_id')
+          .in('status', ['active', 'reserved', 'pending'])
+          .lte('start_date', new Date().toISOString())
+          .gte('end_date', new Date().toISOString());
+        if(rentedR.data){
+          rentedR.data.forEach(function(b){ if(b.moto_id) rentedMotoIds[String(b.moto_id).toLowerCase()] = true; });
+        }
+      } catch(e){ console.warn('[SOS] fetch rented motos:', e); }
+
+      // Filtruj: 1) ne aktuální motorku, 2) ne motorky s aktivní rezervací, 3) řidičák
       var motos = allMotos.filter(function(m){
+        var motoIdLower = String(m.id).toLowerCase();
         // Vyřaď aktuální motorku zákazníka (case-insensitive UUID porovnání)
-        if(currentMotoId && String(m.id).toLowerCase() === String(currentMotoId).toLowerCase()) return false;
+        if(currentMotoId && motoIdLower === String(currentMotoId).toLowerCase()) return false;
+        // Vyřaď motorky s aktivní rezervací (pronajmuté)
+        if(rentedMotoIds[motoIdLower]) return false;
         // Zkontroluj řidičák – A zahrnuje A2, A2 nezahrnuje A
         if(customerLicense && m.license_required){
           var req = m.license_required; // e.g. 'A' or 'A2'
@@ -680,7 +696,7 @@ function sosReplUpdateSummary(){
 
     if(summary){
       var html = '<div style="display:flex;justify-content:space-between;"><span>🏍️ ' + (_sosReplacementData.selectedModel || '—') + ' (' + days + ' ' + daysLabel + ' × ' + daily.toLocaleString('cs-CZ') + ' Kč)</span><span style="font-weight:800;">' + (isFault ? motoTotal.toLocaleString('cs-CZ') + ' Kč' : 'zdarma') + '</span></div>'
-        + '<div style="display:flex;justify-content:space-between;margin-top:4px;"><span>🚛 Přistavení</span><span style="font-weight:800;">' + (isFault ? delivery.toLocaleString('cs-CZ') + ' Kč' : 'zdarma') + '</span></div>';
+        + '<div style="display:flex;justify-content:space-between;margin-top:4px;"><span>🚛 Přistavení' + (isFault && _sosReplacementData._deliveryKm ? ' (~' + _sosReplacementData._deliveryKm + ' km)' : '') + '</span><span style="font-weight:800;">' + (isFault ? (delivery ? delivery.toLocaleString('cs-CZ') + ' Kč' : 'zadejte adresu') : 'zdarma') + '</span></div>';
       if(isFault){
         html += '<div style="display:flex;justify-content:space-between;margin-top:4px;border-top:1px solid var(--g200);padding-top:4px;"><span>🛡️ Záloha na poškození</span><span style="font-weight:800;color:#b91c1c;">' + damageDeposit.toLocaleString('cs-CZ') + ' Kč</span></div>';
         html += '<div style="font-size:10px;color:var(--g400);margin-top:4px;">Záloha je vratná po vyhodnocení škody. Obdržíte zálohovou fakturu.</div>';
@@ -720,10 +736,36 @@ function sosReplFillGPS(){
           if(cityEl) cityEl.value = city;
           if(zipEl) zipEl.value = zip;
           showT('📍','Adresa doplněna', street + ', ' + city);
+          sosReplCalcDelivery();
         })
         .catch(function(){ showT('📍','GPS OK, adresu vyplňte ručně',''); });
     }, function(){ showT('❌','Poloha nedostupná','Vyplňte adresu ručně'); },
     {enableHighAccuracy:true, timeout:15000});
+}
+
+// Výpočet ceny přistavení pro SOS replacement (1000 Kč + 20 Kč/km)
+function sosReplCalcDelivery(){
+    var isFault = _sosFault === true || _sosFaultSnapshot === true;
+    if(!isFault){ _sosReplacementData.deliveryFee = 0; sosReplUpdateSummary(); return; }
+
+    var cityEl = document.getElementById('sos-repl-city');
+    var city = cityEl ? cityEl.value.trim().toLowerCase() : '';
+    if(!city){ _sosReplacementData.deliveryFee = 1000; sosReplUpdateSummary(); return; }
+
+    // Odhad km z města (base Mezná)
+    var km = 50; // default
+    var KM_EST = {praha:160,brno:60,jihlava:40,tabor:35,tábor:35,ceske:90,české:90,plzen:200,plzeň:200,ostrava:280,olomouc:180,liberec:130,hradec:110,pardubice:90,budejovice:70,budějovice:70,mezna:0,mezná:0};
+    for(var c in KM_EST){ if(city.indexOf(c) !== -1){ km = KM_EST[c]; break; } }
+
+    var fee = 1000 + km * 20;
+    _sosReplacementData.deliveryFee = fee;
+    _sosReplacementData._deliveryKm = km;
+
+    // Zobraz odhad km
+    var calcEl = document.getElementById('sos-repl-delivery-calc');
+    if(calcEl){ calcEl.textContent = '📍 ~' + km + ' km · ' + fee.toLocaleString('cs-CZ') + ' Kč (1 000 Kč + ' + km + ' km × 20 Kč)'; calcEl.style.display = 'block'; }
+
+    sosReplUpdateSummary();
 }
 
 async function sosConfirmReplacement(){
