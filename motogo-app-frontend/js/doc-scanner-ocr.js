@@ -14,6 +14,21 @@
     return 'id';
   }
 
+  // Get real JWT from Supabase SDK (not fake localStorage token)
+  function _getRealToken(anonKey){
+    try {
+      if(window.supabase && window.supabase.auth){
+        return window.supabase.auth.getSession().then(function(r){
+          if(r.data && r.data.session && r.data.session.access_token){
+            return { token: r.data.session.access_token, userId: r.data.session.user.id };
+          }
+          return { token: anonKey, userId: null };
+        }).catch(function(){ return { token: anonKey, userId: null }; });
+      }
+    } catch(e){}
+    return Promise.resolve({ token: anonKey, userId: null });
+  }
+
   // Send image to Mindee via Edge Function (with retry)
   function runOCR(canvas, cb){
     var cfg = window.MOTOGO_CONFIG || {};
@@ -31,15 +46,10 @@
     var dataUri = canvas.toDataURL('image/jpeg', 0.92);
     var imageBase64 = dataUri.indexOf(',') !== -1 ? dataUri.split(',')[1] : dataUri;
 
-    // Get auth token – preferuj user session, fallback na anon key
-    var token = anonKey;
-    var userId = null;
-    try {
-      var session = JSON.parse(localStorage.getItem('mg_current_session') || 'null');
-      if(session && session.access_token){ token = session.access_token; userId = session.user_id || null; }
-    } catch(e){}
-
-    _sendWithRetry(baseUrl, anonKey, token, imageBase64, docType, userId, 0, cb);
+    // Get real JWT from Supabase SDK (mg_current_session has fake token)
+    _getRealToken(anonKey).then(function(auth){
+      _sendWithRetry(baseUrl, anonKey, auth.token, imageBase64, docType, auth.userId, 0, cb);
+    });
   }
 
   function _sendWithRetry(baseUrl, anonKey, token, imageBase64, docType, userId, attempt, cb){
