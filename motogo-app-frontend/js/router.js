@@ -29,8 +29,21 @@ const navMap = {
   's-sos-done':'ni-res'
 };
 
+// Screens that require authentication — if no session, redirect to login
+var _authRequired = ['s-home','s-res','s-res-detail','s-edit-res','s-done-detail','s-booking','s-payment','s-success','s-profile','s-messages','s-messages-thread','s-invoices','s-contracts','s-sos','s-sos-replacement','s-sos-payment','s-sos-done'];
+
 function goTo(id){
   if(id===cur){const el=document.getElementById(id);if(el)el.scrollTo({top:0,behavior:'smooth'});return;}
+  // Auth guard: block protected screens when not logged in
+  if(_authRequired.indexOf(id)!==-1 && id!=='s-login'){
+    var _sess=null;
+    try{var _r=localStorage.getItem('mg_current_session');if(_r)_sess=JSON.parse(_r);}catch(e){}
+    if(!_sess || !_sess.user_id){
+      if(typeof showT==='function') showT('⚠️','Přihlášení','Pro pokračování se musíte přihlásit');
+      id='s-login';
+    }
+  }
+  if(id===cur){return;}
   if(cur==='s-booking')bookingFromDetail=false;
   // Hide thread reply bar when leaving thread screen
   if(cur==='s-messages-thread'&&id!=='s-messages-thread'){var _rb=document.getElementById('thread-reply-bar');if(_rb)_rb.style.display='none';}

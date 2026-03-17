@@ -50,8 +50,11 @@ async function _getSession(){
         }
       } catch(re){ console.warn('[AUTH] refreshSession failed:', re); }
     } catch(e){ console.warn('[AUTH] getSession error:', e); }
+    // Supabase is ready but session is invalid — do NOT fall back to stale localStorage
+    try { localStorage.removeItem('mg_current_session'); } catch(e){}
+    return null;
   }
-  // Fallback: lokální session (7 dní platnost)
+  // Fallback: lokální session ONLY when Supabase SDK is not loaded at all
   try {
     var raw = localStorage.getItem('mg_current_session');
     if(raw){
@@ -449,8 +452,17 @@ function renderUserData(){
 function _renderUserDataAsync(){
   return Promise.resolve(apiFetchProfile()).then(function(profile){
     if(!profile){
-      var har = document.getElementById('home-active-res');
-      if(har) har.innerHTML = '<div class="ares" onclick="goTo(\'s-search\')" style="cursor:pointer;"><div style="font-size:24px;">🏍️</div><div><div class="ares-n">'+_t('auth').noRes+'</div><div class="ares-s">'+_t('auth').newRes+'</div></div><div style="font-size:18px;color:var(--g400);">›</div></div>';
+      // Profile fetch failed — session is invalid, force redirect to login
+      console.warn('[AUTH] Profile fetch failed — redirecting to login');
+      try { localStorage.removeItem('mg_current_session'); } catch(e){}
+      try { if(window.supabase) window.supabase.auth.signOut().catch(function(){}); } catch(e){}
+      // Clear stale name from DOM
+      var homeNameEl = document.getElementById('home-user-name');
+      if(homeNameEl) homeNameEl.textContent = '';
+      // Hide bottom nav and go to login
+      var bnav = document.getElementById('bnav');
+      if(bnav) bnav.style.display = 'none';
+      if(typeof goTo === 'function') goTo('s-login');
       return;
     }
 

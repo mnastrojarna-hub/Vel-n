@@ -9,33 +9,60 @@ function _resolveSession(cb){
   if(typeof supabase !== 'undefined' && supabase){
     supabase.auth.getSession().then(function(result){
       if(result.error && result.error.code === 'refresh_token_not_found'){
-        supabase.auth.signOut().catch(function(){});
+        _forceCleanLogout();
         cb(false);
         return;
       }
       var hasSession = !!(result.data && result.data.session);
-      if(hasSession){
+      if(!hasSession){
+        _forceCleanLogout();
+        cb(false);
+        return;
+      }
+      // CRITICAL: getSession() returns CACHED data — verify JWT is valid server-side
+      supabase.auth.getUser().then(function(userResult){
+        if(!userResult.data || !userResult.data.user){
+          // JWT expired or invalid — clean up and go to login
+          console.warn('[AUTH] Cached session invalid — forcing logout');
+          _forceCleanLogout();
+          cb(false);
+          return;
+        }
+        // Session is truly valid
         try {
-          var user = result.data.session.user;
+          var user = userResult.data.user;
           if(typeof _syncLocalSession === 'function'){
             _syncLocalSession(user.id, user.email);
           }
-          // Keep bio refresh token up to date on every session resume
           if(typeof _storeBioUser === 'function' && localStorage.getItem('mg_bio_user')){
             _storeBioUser(user.id, user.email, result.data.session.refresh_token);
           }
         } catch(e){}
-      }
-      cb(hasSession);
+        cb(true);
+      }).catch(function(){
+        console.warn('[AUTH] getUser() failed — forcing logout');
+        _forceCleanLogout();
+        cb(false);
+      });
     }).catch(function(err){
       if(err && err.code === 'refresh_token_not_found'){
-        supabase.auth.signOut().catch(function(){});
+        _forceCleanLogout();
       }
       cb(false);
     });
     return;
   }
   cb(false);
+}
+
+// Force clean logout — clear all session data to prevent stale logins
+function _forceCleanLogout(){
+  try {
+    if(typeof supabase !== 'undefined' && supabase){
+      supabase.auth.signOut().catch(function(){});
+    }
+    localStorage.removeItem('mg_current_session');
+  } catch(e){}
 }
 
 function _continueInit(hasSession){
