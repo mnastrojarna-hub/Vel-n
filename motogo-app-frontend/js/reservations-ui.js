@@ -809,6 +809,16 @@ async function openEditResByBookingId(bookingId){
     if(typeof editMotoDiffPrice !== 'undefined') editMotoDiffPrice = 0;
     if(typeof editNewMotoId !== 'undefined') editNewMotoId = null;
 
+    // Pre-fill return address from booking if delivery was already set
+    if(booking.return_method === 'delivery' && booking.return_address){
+      var retRadio = document.querySelector('input[name="edit-return"][value="other"]');
+      if(retRadio){ retRadio.checked = true; if(typeof setEditReturn === 'function') setEditReturn('other'); }
+      var retAddr = document.getElementById('edit-return-address');
+      if(retAddr) retAddr.value = booking.return_address;
+      // Pre-set editOrigDeliveryPaid so delivery diff is calculated correctly
+      if(typeof editOrigDeliveryPaid !== 'undefined') editOrigDeliveryPaid = booking.delivery_fee || 0;
+    }
+
     if(typeof switchEditTab === 'function') switchEditTab('prodlouzit');
     goTo('s-edit-res');
   } catch(e){

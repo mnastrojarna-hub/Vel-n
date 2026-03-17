@@ -336,7 +336,7 @@ async function updateEditPriceSummary(){
   if(!booking){ priceSum.style.display='none'; return; }
 
   editOrigPrice = booking.total_price || 0;
-  editOrigDeliveryPaid = booking.return_fee || booking.delivery_price || 0;
+  editOrigDeliveryPaid = booking.delivery_fee || 0;
 
   var origEl = document.getElementById('edit-orig-price');
   if(origEl) origEl.textContent = editOrigPrice.toLocaleString('cs-CZ') + ' Kč';
@@ -346,8 +346,11 @@ async function updateEditPriceSummary(){
   if(eOd && eDo){
     var moto = window._editBookingMoto;
     var pricePerDay = moto ? (moto.daily_price || 2600) : 2600;
-    var origStart = new Date(booking.start_date);
-    var origEnd = new Date(booking.end_date);
+    // Parse date strings into LOCAL midnight (avoid UTC vs local timezone mismatch)
+    var _ps = booking.start_date.substring(0,10).split('-');
+    var origStart = new Date(parseInt(_ps[0]), parseInt(_ps[1])-1, parseInt(_ps[2]));
+    var _pe = booking.end_date.substring(0,10).split('-');
+    var origEnd = new Date(parseInt(_pe[0]), parseInt(_pe[1])-1, parseInt(_pe[2]));
     var newStart = new Date(eOd.y, eOd.m, eOd.d);
     var newEnd = new Date(eDo.y, eDo.m, eDo.d);
 
