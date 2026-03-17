@@ -34,10 +34,42 @@ function filterRes(el, filter){
   } catch(e){ console.error('filterRes error:', e); }
 }
 
+async function _autoActivateAndCompleteBookings(){
+  if(!window.supabase) return;
+  try {
+    var uid = await _getUserId();
+    if(!uid) return;
+    var today = new Date().toISOString().slice(0,10);
+    // Auto-activate: reserved + paid + start_date <= today → active
+    var r1 = await window.supabase.from('bookings').select('id')
+      .eq('user_id', uid).eq('status','reserved').eq('payment_status','paid')
+      .lte('start_date', today);
+    if(r1.data && r1.data.length > 0){
+      await window.supabase.from('bookings')
+        .update({status:'active', picked_up_at: new Date().toISOString()})
+        .in('id', r1.data.map(function(b){return b.id}));
+      console.log('[AutoActivate]', r1.data.length, 'bookings activated');
+    }
+    // Auto-complete: active + paid + end_date < today → completed
+    var r2 = await window.supabase.from('bookings').select('id')
+      .eq('user_id', uid).eq('status','active').eq('payment_status','paid')
+      .lt('end_date', today);
+    if(r2.data && r2.data.length > 0){
+      await window.supabase.from('bookings')
+        .update({status:'completed', returned_at: new Date().toISOString()})
+        .in('id', r2.data.map(function(b){return b.id}));
+      console.log('[AutoComplete]', r2.data.length, 'bookings completed');
+    }
+  } catch(e){ console.warn('[AutoActivateComplete]', e); }
+}
+
 async function renderMyReservations(){
   try {
     var session = await _getSession();
     if(!session) return;
+
+    // Auto-activate reserved and auto-complete expired bookings (triggers door code generation/deactivation)
+    await _autoActivateAndCompleteBookings();
 
     var bookings = await apiFetchMyBookings();
     _cachedBookings = bookings;

@@ -298,6 +298,8 @@
 | `auto_process_voucher_order()` | BEFORE UPDATE trigger na shop_orders: při payment_status→'paid' automaticky generuje voucher kódy, posílá in-app notifikaci, nastavuje status (delivered pro digitální, confirmed pro mixed). SECURITY DEFINER |
 | `mark_thread_messages_read(p_thread_id)` | RPC: označí admin zprávy ve vlákně jako přečtené (read_at=now). Ověřuje vlastnictví vlákna. SECURITY DEFINER |
 | `get_unread_thread_message_count(p_customer_id)` | RPC: vrací počet nepřečtených admin zpráv napříč všemi vlákny zákazníka. SECURITY DEFINER |
+| `auto_generate_door_codes()` | Trigger funkce: auto-generuje 2 přístupové kódy (motorcycle+accessories) při přechodu bookingu na 'active'. Kontroluje doklady zákazníka, posílá kódy jako admin_message. SECURITY DEFINER, EXCEPTION safe |
+| `auto_deactivate_door_codes()` | Trigger funkce: deaktivuje všechny aktivní kódy (is_active=false) při přechodu bookingu na 'completed' nebo 'cancelled'. SECURITY DEFINER, EXCEPTION safe |
 
 ### Další funkce v reálné DB (ne v migracích)
 | Funkce | Popis |
@@ -356,6 +358,9 @@
 | `trg_sync_generated_doc_to_documents` | generated_documents (INSERT) | sync_generated_doc_to_documents() |
 | `trg_sync_moto_day_prices` | moto_day_prices (INSERT/UPDATE) | sync_moto_day_prices_to_motorcycles() |
 | `trg_generate_final_invoice` | bookings (AFTER UPDATE OF status, WHEN active→completed) | generate_final_invoice_on_complete() — SECURITY DEFINER, EXCEPTION safe |
+| `trg_auto_generate_door_codes` | bookings (AFTER UPDATE OF status, WHEN →active) | auto_generate_door_codes() — SECURITY DEFINER, generuje 2 kódy (motorcycle+accessories), posílá admin_message. EXCEPTION safe |
+| `trg_auto_generate_door_codes_insert` | bookings (AFTER INSERT, WHEN status=active) | auto_generate_door_codes() — pro SOS replacement bookings vytvořené rovnou jako active |
+| `trg_auto_deactivate_door_codes` | bookings (AFTER UPDATE OF status, WHEN →completed/cancelled) | auto_deactivate_door_codes() — deaktivuje is_active=false. EXCEPTION safe |
 
 ### Další triggery v reálné DB
 | Trigger | Tabulka | Funkce |
@@ -632,3 +637,4 @@ Detailní politiky:
 | 2026-03-15 | **FIX: Robust SOS swap + KF + ZF/DP:** 1) `sos_swap_bookings` RPC: přidán fallback pro nalezení `ended_by_sos` bookingů (pokud `_sosEndBooking` běžel dříve), ukládá `original_end_date`, nastavuje `picked_up_at`. 2) `generate_final_invoice_on_complete()`: přeskakuje KF pro `ended_by_sos` a `sos_replacement` bookings (SOS potřebuje separátní fakturaci). 3) `check_user_booking_overlap()`: výjimka pro `sos_replacement=true` bookings. 4) Frontend `sosPaymentSubmit`: robustnější hledání replacement_booking_id (3 fallback metody), po platbě nastaví `status=active`+`picked_up_at`. Manuální fallback hledá i `ended_by_sos` bookings. 5) Velín: tlačítko "Reaktivovat" pro completed SOS replacement bookings |
 | 2026-03-17 | **FIX: Mindee OCR document recognition:** 1) Nová Edge Function `scan-document` v repozitáři — správná integrace Mindee API (international_id/v2 pro OP+ŘP, passport/v1 pro pasy). Multipart upload, retry 3×, logování do debug_log. 2) Frontend: strip data URI prefix z base64 před odesláním. 3) Auto-save OCR dat do profiles tabulky (jméno, datum narození, adresa, číslo ŘP, kategorie, expirace). 4) Upload fotek dokladů do Supabase storage (`documents` bucket, `user-docs/{uid}/`). 5) Nové API funkce: `apiSaveOcrToProfile()`, `apiUploadDocPhoto()`. 6) Po dokončení skenu automatický refresh profilu z DB |
 | 2026-03-17 | **FIX: Nepřečtené zprávy v konverzacích:** 1) Nové RPC `mark_thread_messages_read(p_thread_id)` — SECURITY DEFINER, označí admin zprávy jako přečtené (read_at=now). 2) Nové RPC `get_unread_thread_message_count(p_customer_id)` — vrací počet nepřečtených admin zpráv. 3) Frontend fix: `apiFetchMyThreads()` nyní načítá i `read_at` sloupec (dříve chyběl → badge vždy ukazoval nepřečtené) |
+| 2026-03-17 | **FIX: Přístupové kódy — automatický lifecycle:** 1) Nové trigger funkce `auto_generate_door_codes()` — auto-generuje 2 kódy (motorcycle+accessories) při přechodu bookingu na 'active'. Kontroluje doklady, posílá kódy jako admin_message. 2) `auto_deactivate_door_codes()` — deaktivuje kódy při přechodu na 'completed'/'cancelled'. 3) Triggery: `trg_auto_generate_door_codes` (UPDATE), `trg_auto_generate_door_codes_insert` (INSERT), `trg_auto_deactivate_door_codes` (UPDATE). 4) Jednorázový cleanup: deaktivace kódů u existujících dokončených/zrušených rezervací. 5) Mobilní app: `_autoActivateAndCompleteBookings()` — automatická aktivace reserved+paid bookingů a dokončení expired bookingů při otevření rezervací (nečeká na Velín nebo cron) |
