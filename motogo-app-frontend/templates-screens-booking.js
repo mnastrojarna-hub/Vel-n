@@ -63,9 +63,8 @@ Templates['s-detail'] = `  <div class="det-back" onclick="histBack()">←</div>
           <div style="font-size:20px;">🔍</div>
           <div style="font-size:12px;font-weight:700;" id="t-manualSearch">Hledat</div>
         </div>
-        <div style="flex:1;display:flex;align-items:center;gap:8px;padding:11px;background:var(--g100);border-radius:var(--rsm);cursor:pointer;" id="d-manual-btn">
+        <div style="display:flex;align-items:center;justify-content:center;padding:11px;background:var(--g100);border-radius:var(--rsm);cursor:pointer;min-width:44px;" id="d-manual-btn">
           <div style="font-size:20px;">⬇️</div>
-          <div style="font-size:12px;font-weight:700;" id="t-manualDl">Stáhnout</div>
         </div>
       </div>
     </div>
