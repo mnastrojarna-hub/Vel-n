@@ -4,6 +4,7 @@
 var _currentThreadId = null;
 var _msgActiveTab = 'notif';
 var _msgAllNotifs = null;
+var _readThreadIds = {}; // client-side fallback: threadId -> true
 
 // ===== TAB SWITCHING =====
 function msgSwitchTab(tab){
@@ -113,7 +114,7 @@ async function renderThreadsList(){
     var html = '';
 
     // "New conversation" button
-    html += '<div onclick="startNewThread()" style="background:var(--green);color:#fff;border-radius:var(--r);padding:14px 16px;margin-bottom:12px;cursor:pointer;display:flex;align-items:center;gap:10px;">' +
+    html += '<div onclick="startNewThread()" style="background:var(--green);color:var(--black);border-radius:var(--r);padding:14px 16px;margin-bottom:12px;cursor:pointer;display:flex;align-items:center;gap:10px;">' +
       '<div style="font-size:20px;">✍️</div>' +
       '<div><div style="font-size:13px;font-weight:800;">Nov\u00e1 konverzace</div>' +
       '<div style="font-size:11px;opacity:.8;">Napsat MotoGo24</div></div>' +
@@ -132,7 +133,7 @@ async function renderThreadsList(){
     threads.forEach(function(t){
       var msgs = t.messages || [];
       var lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : null;
-      var unread = msgs.filter(function(m){ return m.direction === 'admin' && !m.read_at; }).length;
+      var unread = _readThreadIds[t.id] ? 0 : msgs.filter(function(m){ return m.direction === 'admin' && !m.read_at; }).length;
       var date = t.last_message_at ? new Date(t.last_message_at) : new Date(t.created_at);
       var fmt = date.toLocaleDateString('cs-CZ') + ' ' + date.toLocaleTimeString('cs-CZ', {hour:'2-digit', minute:'2-digit'});
       var isSOS = t.subject && t.subject.indexOf('SOS:') === 0;
@@ -147,7 +148,7 @@ async function renderThreadsList(){
         '<div style="flex:1;min-width:0;">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;">' +
         '<div style="font-size:13px;font-weight:800;color:var(--black);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70%;">' + _escHtml(t.subject || 'Konverzace') + '</div>' +
-        (unread > 0 ? '<div style="background:var(--green);color:#fff;border-radius:50%;min-width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;">' + unread + '</div>' : '') +
+        (unread > 0 ? '<div style="background:var(--green);color:var(--black);border-radius:50%;min-width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;">' + unread + '</div>' : '') +
         '</div>' +
         '<div style="font-size:12px;color:var(--g400);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;">' + dirIcon + _escHtml(preview) + '</div>' +
         '<div style="font-size:10px;color:var(--g300);margin-top:3px;">' + fmt + '</div>' +
@@ -225,7 +226,7 @@ async function renderThreadChat(){
 
       html += '<div style="display:flex;' + (isMe ? 'justify-content:flex-end;' : 'justify-content:flex-start;') + 'margin-bottom:8px;">' +
         '<div style="max-width:80%;padding:10px 14px;border-radius:' + (isMe ? '16px 16px 4px 16px' : '16px 16px 16px 4px') + ';' +
-        'background:' + (isMe ? 'var(--green)' : '#fff') + ';color:' + (isMe ? '#fff' : 'var(--black)') + ';' +
+        'background:' + (isMe ? 'var(--green)' : '#fff') + ';color:var(--black);' +
         'box-shadow:0 1px 3px rgba(0,0,0,.08);font-size:13px;line-height:1.5;">' +
         '<div>' + _escHtml(m.content || '') + '</div>' +
         '<div style="font-size:10px;opacity:.6;margin-top:4px;text-align:right;">' + dayFmt + ' ' + fmt + '</div>' +
@@ -235,16 +236,12 @@ async function renderThreadChat(){
     msgsWrap.innerHTML = html;
     msgsWrap.scrollTop = msgsWrap.scrollHeight;
 
-    // Mark admin messages as read
-    var hasUnread = false;
-    msgs.forEach(function(m){
-      if(m.direction === 'admin' && !m.read_at && window.supabase){
-        hasUnread = true;
-        window.supabase.from('messages').update({read_at: new Date().toISOString()}).eq('id', m.id).then(function(){});
-      }
-    });
-    // Update badge after marking messages as read
-    if(hasUnread) setTimeout(function(){ updateMsgBadge(); }, 500);
+    // Mark admin messages as read via RPC (customer can't UPDATE messages directly)
+    var hasUnread = msgs.some(function(m){ return m.direction === 'admin' && !m.read_at; });
+    if(hasUnread && typeof apiMarkThreadMessagesRead === 'function'){
+      _readThreadIds[_currentThreadId] = true;
+      apiMarkThreadMessagesRead(_currentThreadId).then(function(){ updateMsgBadge(); });
+    }
   } catch(e){
     console.error('renderThreadChat error:', e);
     msgsWrap.innerHTML = '<div style="text-align:center;padding:20px;color:var(--red);">Chyba</div>';
@@ -411,7 +408,7 @@ function showFullScreenMessage(title, body, icon){
     '<div style="font-size:48px;margin-bottom:12px;">' + (icon || '\ud83d\udce9') + '</div>' +
     '<div style="font-size:18px;font-weight:900;color:#0f1a14;margin-bottom:10px;">' + _escHtml(title || 'Zpr\u00e1va z Moto Go') + '</div>' +
     '<div style="font-size:14px;color:#4a6357;line-height:1.6;margin-bottom:20px;font-weight:500;">' + _escHtml(body || '') + '</div>' +
-    '<button onclick="document.getElementById(\'mg-fullscreen-msg\').remove()" style="width:100%;padding:14px;background:#74FB71;color:#fff;border:none;border-radius:50px;font-family:var(--font,Montserrat,sans-serif);font-size:14px;font-weight:800;cursor:pointer;text-transform:uppercase;letter-spacing:.5px;">Rozum\u00edm</button>' +
+    '<button onclick="document.getElementById(\'mg-fullscreen-msg\').remove()" style="width:100%;padding:14px;background:#74FB71;color:#0f1a14;border:none;border-radius:50px;font-family:var(--font,Montserrat,sans-serif);font-size:14px;font-weight:800;cursor:pointer;text-transform:uppercase;letter-spacing:.5px;">Rozum\u00edm</button>' +
     '</div>';
   document.body.appendChild(ov);
 }
