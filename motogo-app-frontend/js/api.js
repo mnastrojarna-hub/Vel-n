@@ -1747,3 +1747,93 @@ async function apiFetchDocTemplate(templateType){
     return (r.data && r.data[0]) || null;
   } catch(e){ return null; }
 }
+
+// ===== OCR: Auto-save scanned document data to profile =====
+async function apiSaveOcrToProfile(ocrData){
+  _ensureSupabase();
+  if(!window.supabase) return {error:'Offline'};
+  try {
+    var uid = await _getUserId();
+    if(!uid) return {error:'Nepřihlášen'};
+
+    // Parse Czech date "D. M. YYYY" to ISO
+    function czToIso(v){
+      if(!v) return null;
+      v = v.trim();
+      if(/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+      var m = v.match(/^(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})$/);
+      if(m) return m[3]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[1]).slice(-2);
+      return null;
+    }
+
+    var update = {};
+    if(ocrData.firstName && ocrData.lastName){
+      update.full_name = ocrData.firstName + ' ' + ocrData.lastName;
+    }
+    if(ocrData.dob){
+      var isoDob = czToIso(ocrData.dob);
+      if(isoDob) update.date_of_birth = isoDob;
+    }
+    if(ocrData.street) update.street = ocrData.street;
+    if(ocrData.city) update.city = ocrData.city;
+    if(ocrData.zip) update.zip = ocrData.zip;
+    if(ocrData.licenseNumber) update.license_number = ocrData.licenseNumber;
+    if(ocrData.licenseExpiry){
+      var isoExp = czToIso(ocrData.licenseExpiry);
+      if(isoExp) update.license_expiry = isoExp;
+    }
+    if(ocrData.licenseCategory){
+      var cats = ocrData.licenseCategory.split(/[,\s]+/).filter(Boolean);
+      if(cats.length > 0) update.license_group = cats;
+    }
+
+    if(Object.keys(update).length === 0) return {error:null, updated: 0};
+
+    console.log('[API] apiSaveOcrToProfile: updating', Object.keys(update).length, 'fields:', Object.keys(update));
+    var r = await window.supabase.from('profiles').update(update).eq('id', uid);
+    if(r.error) return {error: r.error.message};
+    return {error:null, updated: Object.keys(update).length};
+  } catch(e){ console.error('[API] apiSaveOcrToProfile:', e); return {error:'Chyba při ukládání OCR dat'}; }
+}
+
+// ===== OCR: Upload scanned document photo to Supabase storage =====
+async function apiUploadDocPhoto(base64Data, docType){
+  _ensureSupabase();
+  if(!window.supabase) return {error:'Offline'};
+  try {
+    var uid = await _getUserId();
+    if(!uid) return {error:'Nepřihlášen'};
+
+    // Convert base64 to Blob
+    var clean = base64Data;
+    if(clean.indexOf(',') !== -1) clean = clean.split(',')[1];
+    var byteChars = atob(clean);
+    var byteArr = new Uint8Array(byteChars.length);
+    for(var i = 0; i < byteChars.length; i++) byteArr[i] = byteChars.charCodeAt(i);
+    var blob = new Blob([byteArr], {type:'image/jpeg'});
+
+    var filePath = 'user-docs/' + uid + '/' + docType + '_' + Date.now() + '.jpg';
+
+    var r = await window.supabase.storage.from('documents').upload(filePath, blob, {
+      contentType: 'image/jpeg',
+      upsert: true
+    });
+
+    if(r.error){
+      console.warn('[API] apiUploadDocPhoto storage error:', r.error.message);
+      return {error: r.error.message, filePath: null};
+    }
+
+    // Store reference in documents table
+    await window.supabase.from('documents').insert({
+      user_id: uid,
+      type: docType === 'id_front' || docType === 'id_back' ? 'id_photo' :
+            docType === 'dl_front' || docType === 'dl_back' ? 'license_photo' :
+            docType === 'passport_front' ? 'id_photo' : 'document',
+      file_path: filePath,
+      file_name: docType + '.jpg'
+    });
+
+    return {error: null, filePath: filePath};
+  } catch(e){ console.error('[API] apiUploadDocPhoto:', e); return {error:'Upload failed'}; }
+}
