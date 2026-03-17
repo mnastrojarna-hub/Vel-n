@@ -1477,7 +1477,7 @@ async function apiFetchMyThreads(){
     var uid = await _getUserId();
     if(!uid) return [];
     var r = await window.supabase.from('message_threads')
-      .select('*, messages(id, content, direction, created_at)')
+      .select('*, messages(id, content, direction, read_at, created_at)')
       .eq('customer_id', uid)
       .order('last_message_at', {ascending: false});
     return r.data || [];
