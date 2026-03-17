@@ -6,7 +6,9 @@ import Button from '../components/ui/Button'
 import Badge from '../components/ui/Badge'
 import Modal from '../components/ui/Modal'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
-import InvoicesTab from './documents/InvoicesTab'
+import InvoicesTab from './accounting/InvoicesTab'
+import TaxTab from './accounting/TaxTab'
+import ReceivedInvoicesTab from './accounting/ReceivedInvoicesTab'
 
 const PERIODS = [
   { value: 'month', label: 'Měsíc' },
@@ -36,7 +38,7 @@ function classifyEntry(entry) {
   return entry.type || 'expense'
 }
 
-const FINANCE_TABS = ['Přehled', 'Faktury']
+const FINANCE_TABS = ['Přehled', 'Faktury', 'Daňové podklady', 'Faktury přijaté']
 
 export default function Finance() {
   const [activeTab, setActiveTab] = useState('Přehled')
@@ -222,6 +224,8 @@ export default function Finance() {
       </div>
 
       {activeTab === 'Faktury' && <InvoicesTab />}
+      {activeTab === 'Daňové podklady' && <TaxTab />}
+      {activeTab === 'Faktury přijaté' && <ReceivedInvoicesTab />}
 
       {activeTab === 'Přehled' && <>
       <div className="flex flex-wrap items-center gap-3 mb-5">
