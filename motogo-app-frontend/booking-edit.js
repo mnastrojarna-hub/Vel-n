@@ -544,6 +544,8 @@ async function saveEditReservation(){
     if(returnLoc) changes.return_address = returnLoc;
     if(pickupMethod) changes.pickup_method = pickupMethod;
     if(returnMethod) changes.return_method = returnMethod;
+    // Always persist cumulative delivery_fee so next edit knows what was already paid
+    changes.delivery_fee = (editOrigDeliveryPaid || 0) + (editReturnFee || 0);
     // Handle moto change
     if(editNewMotoId){
       var newMotoDb = null;
@@ -597,6 +599,7 @@ async function saveEditReservation(){
         if(returnLoc) extraChanges.return_address = returnLoc;
         if(pickupMethod) extraChanges.pickup_method = pickupMethod;
         if(returnMethod) extraChanges.return_method = returnMethod;
+        extraChanges.delivery_fee = (editOrigDeliveryPaid || 0) + (editReturnFee || 0);
         if(Object.keys(extraChanges).length > 0){
           var ecRes = await apiModifyBooking(bookingId, extraChanges);
           if(ecRes && ecRes.error) console.warn('[EDIT] Extra changes err:', ecRes.error);
