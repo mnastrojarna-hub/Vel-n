@@ -39,6 +39,30 @@ async function renderProfile(){
       headerInitials.textContent = (profile.full_name || 'NN').split(' ').map(function(n){ return n.charAt(0).toUpperCase(); }).join('');
     }
 
+    // Verification badge
+    var vBadge = document.getElementById('profile-docs-badge');
+    if(vBadge){
+      if(profile.docs_verified_at){
+        vBadge.style.display = '';
+        vBadge.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;' +
+          'background:#dcfce7;color:#166534;border:1px solid #86efac;border-radius:20px;' +
+          'padding:6px 14px;font-size:12px;font-weight:700;">' +
+          '&#9989; Doklady ověřeny</span>';
+      } else if(profile.docs_verification_status === 'mismatch'){
+        vBadge.style.display = '';
+        vBadge.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;' +
+          'background:#fef3c7;color:#92400e;border:1px solid #f59e0b;border-radius:20px;' +
+          'padding:6px 14px;font-size:12px;font-weight:700;">' +
+          '&#9888;&#65039; Rozpory v dokladech</span>';
+      } else {
+        vBadge.style.display = '';
+        vBadge.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;' +
+          'background:#f3f4f6;color:#6b7280;border:1px solid #d1d5db;border-radius:20px;' +
+          'padding:6px 14px;font-size:12px;font-weight:700;">' +
+          '&#128196; Doklady neověřeny</span>';
+      }
+    }
+
     // Documents section
     renderDocuments();
   } catch(e){ console.error('renderProfile error:', e); }

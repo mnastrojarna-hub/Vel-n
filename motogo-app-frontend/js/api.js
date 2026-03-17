@@ -1777,6 +1777,7 @@ async function apiSaveOcrToProfile(ocrData){
     if(ocrData.street) update.street = ocrData.street;
     if(ocrData.city) update.city = ocrData.city;
     if(ocrData.zip) update.zip = ocrData.zip;
+    if(ocrData.idNumber) update.id_number = ocrData.idNumber;
     if(ocrData.licenseNumber) update.license_number = ocrData.licenseNumber;
     if(ocrData.licenseExpiry){
       var isoExp = czToIso(ocrData.licenseExpiry);
@@ -1836,4 +1837,46 @@ async function apiUploadDocPhoto(base64Data, docType){
 
     return {error: null, filePath: filePath};
   } catch(e){ console.error('[API] apiUploadDocPhoto:', e); return {error:'Upload failed'}; }
+}
+
+// ===== OCR: Verify customer documents (cross-check OP vs ŘP vs profile) =====
+async function apiVerifyDocs(ocrData){
+  _ensureSupabase();
+  if(!window.supabase) return {success:false, error:'Offline'};
+  try {
+    // Parse Czech date to ISO
+    function czToIso(v){
+      if(!v) return null;
+      v = v.trim();
+      if(/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+      var m = v.match(/^(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})$/);
+      if(m) return m[3]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[1]).slice(-2);
+      return null;
+    }
+    var name = '';
+    if(ocrData.firstName && ocrData.lastName) name = ocrData.firstName+' '+ocrData.lastName;
+    var r = await window.supabase.rpc('verify_customer_docs', {
+      p_ocr_name: name || null,
+      p_ocr_dob: czToIso(ocrData.dob) || null,
+      p_ocr_id_number: ocrData.idNumber || null,
+      p_ocr_license_number: ocrData.licenseNumber || null,
+      p_ocr_license_category: ocrData.licenseCategory || null,
+      p_ocr_license_expiry: czToIso(ocrData.licenseExpiry) || null
+    });
+    if(r.error) return {success:false, error:r.error.message};
+    var data = typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
+    return data;
+  } catch(e){ console.error('[API] apiVerifyDocs:', e); return {success:false, error:'Chyba verifikace'}; }
+}
+
+// ===== Check license compatibility for a motorcycle =====
+async function apiCheckLicenseForMoto(motoId){
+  _ensureSupabase();
+  if(!window.supabase) return {allowed:false, reason:'Offline'};
+  try {
+    var r = await window.supabase.rpc('check_license_for_moto', {p_moto_id: motoId});
+    if(r.error) return {allowed:false, reason:r.error.message};
+    var data = typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
+    return data;
+  } catch(e){ return {allowed:false, reason:'Chyba kontroly oprávnění'}; }
 }
