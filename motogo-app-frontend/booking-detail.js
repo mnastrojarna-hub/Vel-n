@@ -205,6 +205,8 @@ function renderDetail(){
   }
   const manEl=document.getElementById('d-manual-name');if(manEl)manEl.textContent=m.manual||'Návod k obsluze';
   const manBtn=document.getElementById('d-manual-btn');if(manBtn)manBtn.onclick=()=>downloadManual(m);
+  const manViewBtn=document.getElementById('d-manual-view-btn');if(manViewBtn)manViewBtn.onclick=()=>viewManual(m);
+  const manSearchBtn=document.getElementById('d-manual-search-btn');if(manSearchBtn)manSearchBtn.onclick=()=>{_manualSearchOrigHtml='';searchManual(m);};
   const pbarEl=document.getElementById('d-pbar');
   if(pbarEl)pbarEl.innerHTML=`<div><div class="pb-l">Cena od</div><div class="pb-p">${m.price}<span style="font-size:12px;font-weight:500;color:var(--g400)">/den</span></div></div><div style="text-align:right"><div class="pb-l">Záloha</div><div style="font-size:14px;font-weight:800;color:var(--green)">Neúčtujeme ✓</div></div>`;
   const imgs2=(m.imgs||[m.img||'']).filter(Boolean);
