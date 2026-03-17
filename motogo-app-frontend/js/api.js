@@ -1870,11 +1870,19 @@ async function apiVerifyDocs(ocrData){
 }
 
 // ===== Check license compatibility for a motorcycle =====
-async function apiCheckLicenseForMoto(motoId){
+async function apiCheckLicenseForMoto(motoId, rentalEndDate){
   _ensureSupabase();
   if(!window.supabase) return {allowed:false, reason:'Offline'};
   try {
-    var r = await window.supabase.rpc('check_license_for_moto', {p_moto_id: motoId});
+    var params = {p_moto_id: motoId};
+    if(rentalEndDate){
+      // Accept Date object or ISO string — convert to YYYY-MM-DD
+      var d = rentalEndDate instanceof Date ? rentalEndDate : new Date(rentalEndDate);
+      if(!isNaN(d.getTime())){
+        params.p_rental_end = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+      }
+    }
+    var r = await window.supabase.rpc('check_license_for_moto', params);
     if(r.error) return {allowed:false, reason:r.error.message};
     var data = typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
     return data;
