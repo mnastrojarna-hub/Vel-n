@@ -193,7 +193,7 @@ Templates['s-messages'] = `  <div class="topbar">
   <div style="height:20px;"></div>`;
 
 Templates['s-messages-thread'] = `  <div class="topbar">
-    <div class="back-row" onclick="goTo('s-messages');msgSwitchTab('chat')"><div class="bk-c">\u2190</div><div class="bk-l">Zp\u011bt</div></div>
+    <div class="back-row" onclick="histBack();msgSwitchTab('chat')"><div class="bk-c">\u2190</div><div class="bk-l">Zp\u011bt</div></div>
     <h2 id="thread-title">Konverzace</h2>
     <p id="thread-status" style="font-size:11px;"></p>
   </div>
