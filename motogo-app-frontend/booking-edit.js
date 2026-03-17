@@ -336,7 +336,7 @@ async function updateEditPriceSummary(){
   if(!booking){ priceSum.style.display='none'; return; }
 
   editOrigPrice = booking.total_price || 0;
-  editOrigDeliveryPaid = booking.return_fee || booking.delivery_price || 0;
+  editOrigDeliveryPaid = booking.delivery_fee || 0;
 
   var origEl = document.getElementById('edit-orig-price');
   if(origEl) origEl.textContent = editOrigPrice.toLocaleString('cs-CZ') + ' Kč';
@@ -346,8 +346,11 @@ async function updateEditPriceSummary(){
   if(eOd && eDo){
     var moto = window._editBookingMoto;
     var pricePerDay = moto ? (moto.daily_price || 2600) : 2600;
-    var origStart = new Date(booking.start_date);
-    var origEnd = new Date(booking.end_date);
+    // Parse date strings into LOCAL midnight (avoid UTC vs local timezone mismatch)
+    var _ps = booking.start_date.substring(0,10).split('-');
+    var origStart = new Date(parseInt(_ps[0]), parseInt(_ps[1])-1, parseInt(_ps[2]));
+    var _pe = booking.end_date.substring(0,10).split('-');
+    var origEnd = new Date(parseInt(_pe[0]), parseInt(_pe[1])-1, parseInt(_pe[2]));
     var newStart = new Date(eOd.y, eOd.m, eOd.d);
     var newEnd = new Date(eDo.y, eDo.m, eDo.d);
 
@@ -541,6 +544,8 @@ async function saveEditReservation(){
     if(returnLoc) changes.return_address = returnLoc;
     if(pickupMethod) changes.pickup_method = pickupMethod;
     if(returnMethod) changes.return_method = returnMethod;
+    // Always persist cumulative delivery_fee so next edit knows what was already paid
+    changes.delivery_fee = (editOrigDeliveryPaid || 0) + (editReturnFee || 0);
     // Handle moto change
     if(editNewMotoId){
       var newMotoDb = null;
@@ -594,6 +599,7 @@ async function saveEditReservation(){
         if(returnLoc) extraChanges.return_address = returnLoc;
         if(pickupMethod) extraChanges.pickup_method = pickupMethod;
         if(returnMethod) extraChanges.return_method = returnMethod;
+        extraChanges.delivery_fee = (editOrigDeliveryPaid || 0) + (editReturnFee || 0);
         if(Object.keys(extraChanges).length > 0){
           var ecRes = await apiModifyBooking(bookingId, extraChanges);
           if(ecRes && ecRes.error) console.warn('[EDIT] Extra changes err:', ecRes.error);
