@@ -1,38 +1,73 @@
 // ===== TEMPLATES-SHOP.JS – Merch, Cart, Checkout, Voucher =====
 
-// Merch items data for detail screen
-var MERCH_ITEMS = {
-  cap: {
-    id: 'cap', name: 'Snapback čepice', price: 490,
-    desc: 'Stylová snapback čepice s vyšitým logem MotoGo24. Nastavitelný pásek vzadu pro dokonalé padnutí. Kvalitní bavlněný materiál.',
-    img: 'https://images.unsplash.com/photo-1588850561407-ed78c334e67a?w=800&q=80&auto=format&fit=crop',
-    img2: 'https://images.unsplash.com/photo-1575428652377-a2d80e2277fc?w=800&q=80&auto=format&fit=crop',
-    color: 'Černá', material: '100% bavlna', needsSize: false
-  },
-  tshirt: {
-    id: 'tshirt', name: 'Tričko Classic', price: 590,
-    desc: 'Klasické tričko s logem MotoGo24 na hrudi. Pohodlný střih, kvalitní 100% bavlna. Ideální na motorku i do města.',
-    img: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&q=80&auto=format&fit=crop',
-    img2: 'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=800&q=80&auto=format&fit=crop',
-    color: 'Černé', material: '100% bavlna · 180g/m²', needsSize: true
-  },
-  hoodie: {
-    id: 'hoodie', name: 'Hoodie Premium', price: 990,
-    desc: 'Prémiová mikina s kapucí a zipem. Fleece podšívka pro maximální pohodlí. Vyšité logo MotoGo24 na hrudi.',
-    img: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=800&q=80&auto=format&fit=crop',
-    img2: 'https://images.unsplash.com/photo-1578768079470-0a4536cc4e96?w=800&q=80&auto=format&fit=crop',
-    color: 'Černá', material: '80% bavlna · 20% polyester · Fleece', needsSize: true
-  },
-  tshirt2: {
-    id: 'tshirt2', name: 'Tričko Ride Hard', price: 690,
-    desc: 'Prémiové tričko z limitované edice Ride Hard. Měkký materiál, moderní střih. Velký potisk MotoGo24 Ride Hard na zádech.',
-    img: 'https://images.unsplash.com/photo-1503341504253-dff4f94032fc?w=800&q=80&auto=format&fit=crop',
-    img2: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=800&q=80&auto=format&fit=crop',
-    color: 'Zelené', material: '100% bavlna · Premium 200g/m²', needsSize: true
-  }
-};
+// Dynamic product data loaded from Supabase (replaces old hardcoded MERCH_ITEMS)
+var MERCH_ITEMS = {};
+var _shopProductsLoaded = false;
 var selectedMerchSize = null;
 var currentMerchId = null;
+
+// Load products from Supabase products table
+function renderShopProducts() {
+  var grid = document.getElementById('merch-products-grid');
+  if (!grid) return;
+  if (_shopProductsLoaded && Object.keys(MERCH_ITEMS).length > 0) {
+    _renderProductGrid(grid); return;
+  }
+  grid.innerHTML = '<div style="text-align:center;padding:20px;color:var(--g400);font-size:13px;">Načítám produkty…</div>';
+  if (typeof window.supabase === 'undefined' || !window.supabase) {
+    grid.innerHTML = '<div style="text-align:center;padding:20px;color:var(--g400);font-size:13px;">Shop není dostupný offline</div>';
+    return;
+  }
+  window.supabase.from('products').select('*').eq('is_active', true).order('sort_order', { ascending: true })
+    .then(function(res) {
+      MERCH_ITEMS = {};
+      if (res.data && res.data.length > 0) {
+        res.data.forEach(function(p) {
+          var pid = p.sku ? p.sku.toLowerCase().replace(/[^a-z0-9]/g, '-') : p.id.substring(0, 8);
+          MERCH_ITEMS[pid] = {
+            id: pid, dbId: p.id, name: p.name, price: Number(p.price),
+            desc: p.description || '', color: p.color || '',
+            material: p.material || '',
+            img: (p.images && p.images[0]) || '',
+            img2: (p.images && p.images[1]) || (p.images && p.images[0]) || '',
+            images: p.images || [],
+            needsSize: p.sizes && p.sizes.length > 0,
+            sizes: p.sizes || [],
+            stock: p.stock_quantity || 0
+          };
+        });
+      }
+      _shopProductsLoaded = true;
+      _renderProductGrid(grid);
+    }).catch(function(e) {
+      console.error('[renderShopProducts]', e);
+      grid.innerHTML = '<div style="text-align:center;padding:20px;color:var(--g400);font-size:13px;">Chyba načítání produktů</div>';
+    });
+}
+
+function _renderProductGrid(grid) {
+  var keys = Object.keys(MERCH_ITEMS);
+  if (keys.length === 0) {
+    grid.innerHTML = '<div style="text-align:center;padding:20px;color:var(--g400);font-size:13px;">Žádné produkty</div>';
+    return;
+  }
+  grid.innerHTML = keys.map(function(k) {
+    var p = MERCH_ITEMS[k];
+    var imgSrc = p.img || '';
+    var stockLabel = p.stock <= 0 ? '<div style="font-size:10px;color:#dc2626;font-weight:700;margin-top:2px;">Vyprodáno</div>' : '';
+    return '<div style="background:#fff;border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow);cursor:pointer;'+(p.stock<=0?'opacity:.5;':'') +'" onclick="openMerchItem(\''+k+'\')">' +
+      '<div style="height:120px;background:linear-gradient(135deg,var(--dark) 0%,#1f2937 100%);overflow:hidden;">' +
+        (imgSrc ? '<img src="'+imgSrc+'?w=400&q=80&auto=format&fit=crop" style="width:100%;height:100%;object-fit:cover;opacity:.85;">' : '') +
+      '</div>' +
+      '<div style="padding:10px 12px 12px;">' +
+        '<div style="font-size:13px;font-weight:800;color:var(--dark);">'+p.name+'</div>' +
+        '<div style="font-size:11px;color:var(--g400);margin-top:2px;">'+(p.color||'')+(p.material?' · '+p.material:'')+'</div>' +
+        '<div style="font-size:15px;font-weight:900;color:var(--green);margin-top:6px;">'+p.price.toLocaleString('cs-CZ')+' Kč</div>' +
+        stockLabel +
+        '<button onclick="event.stopPropagation();openMerchItem(\''+k+'\')" class="t-productDetail" style="width:100%;margin-top:8px;background:var(--green);color:#fff;border:none;border-radius:var(--rsm);padding:8px;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;">Detail produktu</button>' +
+      '</div></div>';
+  }).join('');
+}
 Templates['s-merch'] = `  <div style="background:var(--dark);padding:50px 20px 20px;border-radius:0 0 28px 28px;position:relative;overflow:hidden;">
     <div class="h-av" onclick="goTo('s-profile')" title="Profil" style="position:absolute;right:20px;top:54px;width:36px;height:36px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:7px;cursor:pointer;z-index:20;"><div style="width:16px;height:2px;background:#fff;border-radius:2px;"></div><div style="width:12px;height:2px;background:#fff;border-radius:2px;"></div><div style="width:16px;height:2px;background:#fff;border-radius:2px;"></div></div>
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
@@ -82,54 +117,10 @@ Templates['s-merch'] = `  <div style="background:var(--dark);padding:50px 20px 2
     </div>
   </div>
 
-  <!-- MERCH -->
+  <!-- MERCH – dynamic from Supabase -->
   <div id="t-clothingTitle" style="margin:20px 20px 8px;font-size:13px;font-weight:800;color:var(--dark);text-transform:uppercase;letter-spacing:.5px;">👕 Oblečení a doplňky</div>
-  <div style="padding:0 20px;display:grid;grid-template-columns:1fr 1fr;gap:12px;padding-bottom:100px;">
-
-    <!-- Čepice -->
-    <div style="background:#fff;border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow);cursor:pointer;" onclick="openMerchItem('cap')">
-      <div style="height:120px;background:linear-gradient(135deg,var(--dark) 0%,#1f2937 100%);overflow:hidden;"><img src="https://images.unsplash.com/photo-1588850561407-ed78c334e67a?w=400&q=80&auto=format&fit=crop" style="width:100%;height:100%;object-fit:cover;opacity:.85;"></div>
-      <div style="padding:10px 12px 12px;">
-        <div id="t-capName" style="font-size:13px;font-weight:800;color:var(--dark);">Snapback čepice</div>
-        <div id="t-capSub" style="font-size:11px;color:var(--g400);margin-top:2px;">Černá · Logo MotoGo24</div>
-        <div style="font-size:15px;font-weight:900;color:var(--green);margin-top:6px;">490 Kč</div>
-        <button onclick="event.stopPropagation();openMerchItem('cap')" class="t-productDetail" style="width:100%;margin-top:8px;background:var(--green);color:#fff;border:none;border-radius:var(--rsm);padding:8px;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;">Detail produktu</button>
-      </div>
-    </div>
-
-    <!-- Tričko -->
-    <div style="background:#fff;border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow);cursor:pointer;" onclick="openMerchItem('tshirt')">
-      <div style="height:120px;background:linear-gradient(135deg,var(--dark) 0%,#1f2937 100%);overflow:hidden;"><img src="https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=400&q=80&auto=format&fit=crop" style="width:100%;height:100%;object-fit:cover;opacity:.85;"></div>
-      <div style="padding:10px 12px 12px;">
-        <div id="t-tshirtName" style="font-size:13px;font-weight:800;color:var(--dark);">Tričko Classic</div>
-        <div style="font-size:11px;color:var(--g400);margin-top:2px;">Černé · 100% bavlna</div>
-        <div style="font-size:15px;font-weight:900;color:var(--green);margin-top:6px;">590 Kč</div>
-        <button onclick="event.stopPropagation();openMerchItem('tshirt')" class="t-productDetail" style="width:100%;margin-top:8px;background:var(--green);color:#fff;border:none;border-radius:var(--rsm);padding:8px;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;">Detail produktu</button>
-      </div>
-    </div>
-
-    <!-- Mikina -->
-    <div style="background:#fff;border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow);cursor:pointer;" onclick="openMerchItem('hoodie')">
-      <div style="height:120px;background:linear-gradient(135deg,var(--dark) 0%,#1f2937 100%);overflow:hidden;"><img src="https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=400&q=80&auto=format&fit=crop" style="width:100%;height:100%;object-fit:cover;opacity:.85;"></div>
-      <div style="padding:10px 12px 12px;">
-        <div id="t-hoodieName" style="font-size:13px;font-weight:800;color:var(--dark);">Hoodie Premium</div>
-        <div style="font-size:11px;color:var(--g400);margin-top:2px;">Černá · Zip · Fleece</div>
-        <div style="font-size:15px;font-weight:900;color:var(--green);margin-top:6px;">990 Kč</div>
-        <button onclick="event.stopPropagation();openMerchItem('hoodie')" class="t-productDetail" style="width:100%;margin-top:8px;background:var(--green);color:#fff;border:none;border-radius:var(--rsm);padding:8px;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;">Detail produktu</button>
-      </div>
-    </div>
-
-    <!-- Tričko Ride -->
-    <div style="background:#fff;border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow);cursor:pointer;" onclick="openMerchItem('tshirt2')">
-      <div style="height:120px;background:linear-gradient(135deg,#3dba3a 0%,#74FB71 100%);overflow:hidden;"><img src="https://images.unsplash.com/photo-1503341504253-dff4f94032fc?w=400&q=80&auto=format&fit=crop" style="width:100%;height:100%;object-fit:cover;opacity:.85;"></div>
-      <div style="padding:10px 12px 12px;">
-        <div id="t-tshirt2Name" style="font-size:13px;font-weight:800;color:var(--dark);">Tričko Ride Hard</div>
-        <div style="font-size:11px;color:var(--g400);margin-top:2px;">Zelené · Premium</div>
-        <div style="font-size:15px;font-weight:900;color:var(--green);margin-top:6px;">690 Kč</div>
-        <button onclick="event.stopPropagation();openMerchItem('tshirt2')" class="t-productDetail" style="width:100%;margin-top:8px;background:var(--green);color:#fff;border:none;border-radius:var(--rsm);padding:8px;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;">Detail produktu</button>
-      </div>
-    </div>
-
+  <div id="merch-products-grid" style="padding:0 20px;display:grid;grid-template-columns:1fr 1fr;gap:12px;padding-bottom:100px;">
+    <div style="text-align:center;padding:20px;color:var(--g400);font-size:13px;grid-column:span 2;">Načítám produkty…</div>
   </div>
 `;
 
