@@ -1306,15 +1306,23 @@ async function apiGetUnreadMessageCount(){
       .eq('user_id', uid)
       .eq('read', false);
     var notifCount = r1.count || 0;
-    // Count unread thread messages (admin replies not yet read)
-    var r2 = await window.supabase.from('messages')
-      .select('id, message_threads!inner(customer_id)', {count: 'exact', head: true})
-      .eq('message_threads.customer_id', uid)
-      .eq('direction', 'admin')
-      .is('read_at', null);
-    var threadCount = r2.count || 0;
+    // Count unread thread messages via RPC (bypasses RLS)
+    var threadCount = 0;
+    try {
+      var r2 = await window.supabase.rpc('get_unread_thread_message_count', {p_customer_id: uid});
+      if(r2.data !== null && r2.data !== undefined) threadCount = r2.data;
+    } catch(e2){}
     return notifCount + threadCount;
   } catch(e){ return 0; }
+}
+
+async function apiMarkThreadMessagesRead(threadId){
+  _ensureSupabase();
+  if(!window.supabase) return;
+  try {
+    // Use RPC to mark messages as read (customer can't UPDATE messages directly)
+    await window.supabase.rpc('mark_thread_messages_read', {p_thread_id: threadId});
+  } catch(e){ console.warn('markThreadMessagesRead failed:', e); }
 }
 
 function apiSubscribeAdminMessages(callback){
