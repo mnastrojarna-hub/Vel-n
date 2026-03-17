@@ -9,20 +9,18 @@ const ROUTE_LABELS = {
   '/rezervace': 'Rezervace',
   '/zakaznici': 'Zákazníci',
   '/finance': 'Finance',
-  '/ucetnictvi': 'Účetnictví',
   '/dokumenty': 'Dokumenty',
   '/sklady': 'Sklady',
   '/servis': 'Servis',
   '/zpravy': 'Zprávy',
   '/cms': 'Web CMS',
-  '/statistiky': 'Statistiky',
-  '/nakupy': 'Nákupy',
+  '/analyza': 'Analýza',
+  '/e-shop': 'E-shop',
   '/statni-sprava': 'Státní správa',
   '/ai-copilot': 'AI Copilot',
   '/sos': 'SOS Panel',
   '/pobocky': 'Pobočky',
-  '/promo-kody': 'Promo kódy',
-  '/poukazy': 'Dárkové poukazy',
+  '/slevove-kody': 'Slevové kódy',
 }
 
 export default function Topbar() {

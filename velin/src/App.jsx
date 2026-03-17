@@ -15,7 +15,7 @@ const BookingDetail = lazy(() => import('./pages/BookingDetail'))
 const Customers = lazy(() => import('./pages/Customers'))
 const CustomerDetail = lazy(() => import('./pages/CustomerDetail'))
 const Finance = lazy(() => import('./pages/Finance'))
-const Accounting = lazy(() => import('./pages/Accounting'))
+const DiscountCodes = lazy(() => import('./pages/DiscountCodes'))
 const Documents = lazy(() => import('./pages/Documents'))
 const Inventory = lazy(() => import('./pages/Inventory'))
 const InventoryDetail = lazy(() => import('./pages/InventoryDetail'))
@@ -23,13 +23,10 @@ const Service = lazy(() => import('./pages/Service'))
 const Messages = lazy(() => import('./pages/Messages'))
 const CMS = lazy(() => import('./pages/CMS'))
 const Analyza = lazy(() => import('./pages/Analyza'))
-const Statistics = lazy(() => import('./pages/Statistics'))
 const Purchases = lazy(() => import('./pages/Purchases'))
 const Government = lazy(() => import('./pages/Government'))
 const AICopilot = lazy(() => import('./pages/AICopilot'))
 const SOSPanel = lazy(() => import('./pages/SOSPanel'))
-const PromoCodes = lazy(() => import('./pages/PromoCodes'))
-const GiftVouchers = lazy(() => import('./pages/GiftVouchers'))
 const Branches = lazy(() => import('./pages/Branches'))
 
 function PageLoader() {
@@ -68,7 +65,6 @@ export default function App() {
           <Route path="/zakaznici" element={<Customers />} />
           <Route path="/zakaznici/:id" element={<CustomerDetail />} />
           <Route path="/finance" element={<Finance />} />
-          <Route path="/ucetnictvi" element={<Accounting />} />
           <Route path="/dokumenty" element={<Documents />} />
           <Route path="/sklady" element={<Inventory />} />
           <Route path="/sklady/:id" element={<InventoryDetail />} />
@@ -76,12 +72,10 @@ export default function App() {
           <Route path="/zpravy" element={<Messages />} />
           <Route path="/cms" element={<CMS />} />
           <Route path="/analyza" element={<Analyza />} />
-          <Route path="/statistiky" element={<Statistics />} />
-          <Route path="/nakupy" element={<Purchases />} />
+          <Route path="/e-shop" element={<Purchases />} />
           <Route path="/statni-sprava" element={<Government />} />
           <Route path="/ai-copilot" element={<AICopilot />} />
-          <Route path="/promo-kody" element={<PromoCodes />} />
-          <Route path="/poukazy" element={<GiftVouchers />} />
+          <Route path="/slevove-kody" element={<DiscountCodes />} />
           <Route path="/pobocky" element={<Branches />} />
           <Route path="/sos" element={<SOSPanel />} />
         </Route>
