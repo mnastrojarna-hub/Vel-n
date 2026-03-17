@@ -1251,6 +1251,10 @@ async function apiSosShareLocation(incidentId, lat, lng){
       action: 'location_shared',
       data: { note: 'GPS: ' + lat + ', ' + lng, latitude: lat, longitude: lng }
     });
+    // Update incident coordinates so Velín can see location on map
+    await window.supabase.from('sos_incidents').update({
+      latitude: lat, longitude: lng
+    }).eq('id', incidentId);
     return {success:true};
   } catch(e){ return {}; }
 }
