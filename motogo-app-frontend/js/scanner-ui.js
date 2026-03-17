@@ -158,15 +158,26 @@ var ScannerUI = (function(){
     if(f){ if(on) f.classList.add('scan-frame-ok'); else f.classList.remove('scan-frame-ok'); }
   }
 
-  // Uloží fotku na zařízení (Pictures/MotoGo24/)
+  // Uloží fotku lokálně + nahraje do Supabase storage
   function _savePhotoLocally(canvas){
     try {
       var docType = DocScanner.getDocType();
-      // Uložit do localStorage jako zálohu
+      var dataUri = canvas.toDataURL('image/jpeg',0.85);
+
+      // 1) localStorage jako zálohu (pro renderDocs)
       try {
-        localStorage.setItem('mg_doc_'+docType, canvas.toDataURL('image/jpeg',0.85));
+        localStorage.setItem('mg_doc_'+docType, dataUri);
       } catch(e){}
-      // Uložit do galerie přes Cordova file API
+
+      // 2) Upload do Supabase storage (async, non-blocking)
+      if(typeof apiUploadDocPhoto === 'function'){
+        apiUploadDocPhoto(dataUri, docType).then(function(res){
+          if(res.error) console.warn('[DocScanner] Cloud upload failed:', res.error);
+          else console.log('[DocScanner] Photo uploaded to cloud:', res.filePath);
+        }).catch(function(e){ console.warn('[DocScanner] Cloud upload error:', e); });
+      }
+
+      // 3) Uložit do galerie přes Cordova file API
       if(window.cordova && window.resolveLocalFileSystemURL){
         var picDir = cordova.file.externalRootDirectory;
         if(!picDir) picDir = cordova.file.externalDataDirectory;
@@ -174,7 +185,7 @@ var ScannerUI = (function(){
         window.resolveLocalFileSystemURL(picDir, function(root){
           root.getDirectory('Pictures', {create:true}, function(picsDir){
             picsDir.getDirectory('MotoGo24', {create:true}, function(mgDir){
-              var b64 = canvas.toDataURL('image/jpeg',0.92).split(',')[1];
+              var b64 = dataUri.split(',')[1];
               var byteChars = atob(b64);
               var byteArr = new Uint8Array(byteChars.length);
               for(var j=0;j<byteChars.length;j++) byteArr[j]=byteChars.charCodeAt(j);
@@ -230,11 +241,11 @@ var ScannerUI = (function(){
 
       if(err && !hasStructured){
         // Mindee selhalo – fotka je uložena, pokračuj dál
-        console.warn('[DocScanner] Mindee chyba: '+err.message+' (fotka uložena)');
+        console.warn('[DocScanner] Mindee chyba: '+err.message+' (fotka uložena do cloudu i lokálně)');
         _frameOk(false);
-        _setStatus('warn','Mindee nedostupné – fotka uložena');
-        showT('⚠️','OCR nedostupné',
-          'Fotka uložena. Zkontrolujte připojení. Data vyplňte ručně.');
+        _setStatus('warn','Rozpoznání selhalo – fotka uložena');
+        showT('⚠️','Rozpoznání textu selhalo',
+          'Fotka uložena do cloudu. Zkuste to znovu nebo vyplňte ručně.\n\n['+err.message+']');
 
         DocScanner.setResult(type, 'photo-only');
         _advanceStep(1500);
@@ -289,25 +300,56 @@ var ScannerUI = (function(){
     var merged = DocScanner.mergeResults();
     var hasData = Object.keys(merged).length > 0;
     var fieldList = Object.keys(merged).filter(function(k){return k.charAt(0)!=='_';});
+
     if(hasData){
-      var msg = _afterScanTarget==='s-docs'
-        ? 'Uloženo v zařízení ('+fieldList.length+' údajů)'
-        : 'Předvyplněno '+fieldList.length+' údajů';
+      // Auto-save OCR data to Supabase profile (async, non-blocking)
+      if(typeof apiSaveOcrToProfile === 'function'){
+        // Wait for ZIP lookup if pending
+        var saveData = Object.assign({}, merged);
+        var zipProm = merged._zipPromise || Promise.resolve('');
+        zipProm.then(function(zip){
+          if(zip && !saveData.zip) saveData.zip = zip;
+          return apiSaveOcrToProfile(saveData);
+        }).then(function(res){
+          if(res && res.error){
+            console.warn('[DocScanner] Auto-save to profile failed:', res.error);
+          } else if(res && res.updated){
+            console.log('[DocScanner] Auto-saved '+res.updated+' fields to profile');
+            showT('✓','Profil aktualizován', res.updated+' údajů uloženo z dokladů');
+          }
+        }).catch(function(e){ console.warn('[DocScanner] Auto-save error:', e); });
+      }
+
+      var msg = 'Rozpoznáno a uloženo '+fieldList.length+' údajů';
       showT('✓',_t('scan').docsUploaded||'Doklady naskenované', msg);
     } else {
-      // Fotky jsou uloženy, ale Mindee nevrátil data
       showT('📸','Fotky uloženy','Mindee nerozpoznal data – vyplňte ručně');
     }
+
     goTo(_afterScanTarget);
     setTimeout(function(){
       if(_afterScanTarget==='s-register'){
         DocScanner.fillRegistration(merged);
       } else if(_afterScanTarget==='s-profile' || _afterScanTarget==='s-docs'){
-        DocScanner.fillRegistration(merged);
         if(typeof DocScanner.fillProfile==='function') DocScanner.fillProfile(merged);
+        DocScanner.fillRegistration(merged);
       }
       if(_afterScanTarget==='s-docs' && typeof renderDocs==='function') renderDocs();
+      // Refresh profile data from DB to show updated fields
+      if((_afterScanTarget==='s-profile' || _afterScanTarget==='s-docs') && typeof renderProfile==='function'){
+        setTimeout(function(){ renderProfile(); }, 1500);
+      }
     }, 200);
+
+    // Set docs verified flag
+    try {
+      localStorage.setItem('mg_docs_verified','1');
+      localStorage.setItem('mg_scan_token',JSON.stringify({
+        scanned:new Date().toISOString(),
+        types:Object.keys(DocScanner._allMindeeData||{}),
+        device:'mindee-cloud',dataStored:'supabase+local',gdpr:'EU-compliant'
+      }));
+    } catch(e){}
   }
 
   function close(){

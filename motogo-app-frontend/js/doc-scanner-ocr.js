@@ -26,20 +26,26 @@
 
     var docType = _getApiDocType(DocScanner.getDocType());
 
-    // POSÍLEJ ORIGINÁLNÍ BAREVNÝ OBRAZ – Mindee potřebuje barvy
-    var imageBase64 = canvas.toDataURL('image/jpeg', 0.92);
+    // Odeslat BAREVNÝ JPEG – Mindee potřebuje barvy
+    // Strip data URI prefix – posíláme čistý base64
+    var dataUri = canvas.toDataURL('image/jpeg', 0.92);
+    var imageBase64 = dataUri.indexOf(',') !== -1 ? dataUri.split(',')[1] : dataUri;
 
-    // Get auth token if available
+    // Get auth token – preferuj user session, fallback na anon key
     var token = anonKey;
+    var userId = null;
     try {
       var session = JSON.parse(localStorage.getItem('mg_current_session') || 'null');
-      if(session && session.access_token) token = session.access_token;
+      if(session && session.access_token){ token = session.access_token; userId = session.user_id || null; }
     } catch(e){}
 
-    _sendWithRetry(baseUrl, anonKey, token, imageBase64, docType, 0, cb);
+    _sendWithRetry(baseUrl, anonKey, token, imageBase64, docType, userId, 0, cb);
   }
 
-  function _sendWithRetry(baseUrl, anonKey, token, imageBase64, docType, attempt, cb){
+  function _sendWithRetry(baseUrl, anonKey, token, imageBase64, docType, userId, attempt, cb){
+    console.log('[DocScanner] OCR attempt '+(attempt+1)+'/'+
+      (MAX_RETRIES+1)+' type='+docType+' base64len='+imageBase64.length);
+
     fetch(baseUrl + '/functions/v1/scan-document', {
       method: 'POST',
       headers: {
@@ -49,16 +55,22 @@
       },
       body: JSON.stringify({
         image_base64: imageBase64,
-        document_type: docType
+        document_type: docType,
+        user_id: userId
       })
     })
     .then(function(resp){
       if(!resp.ok && attempt < MAX_RETRIES){
         console.warn('[DocScanner] OCR HTTP '+resp.status+', retrying...');
         setTimeout(function(){
-          _sendWithRetry(baseUrl, anonKey, token, imageBase64, docType, attempt+1, cb);
+          _sendWithRetry(baseUrl, anonKey, token, imageBase64, docType, userId, attempt+1, cb);
         }, 1000 * (attempt+1));
         return null;
+      }
+      if(!resp.ok){
+        return resp.text().then(function(txt){
+          throw new Error('HTTP '+resp.status+': '+txt.substring(0,200));
+        });
       }
       return resp.json();
     })
@@ -71,15 +83,18 @@
         if(d.firstName) textParts.push(d.firstName);
         if(d.dob) textParts.push(d.dob);
         if(d.idNumber) textParts.push(d.idNumber);
+        if(d.licenseNumber) textParts.push(d.licenseNumber);
         if(d.address) textParts.push(d.address);
+        if(d.licenseCategory) textParts.push('Sk. '+d.licenseCategory);
         var text = textParts.join('\n');
 
+        console.log('[DocScanner] Mindee OK: '+Object.keys(d).filter(function(k){return !!d[k];}).length+' fields');
         DocScanner._lastMindeeData = result.data;
         cb(null, text);
       } else if(attempt < MAX_RETRIES){
-        console.warn('[DocScanner] Mindee no data, retrying...');
+        console.warn('[DocScanner] Mindee no data (attempt '+(attempt+1)+'), retrying...');
         setTimeout(function(){
-          _sendWithRetry(baseUrl, anonKey, token, imageBase64, docType, attempt+1, cb);
+          _sendWithRetry(baseUrl, anonKey, token, imageBase64, docType, userId, attempt+1, cb);
         }, 1000 * (attempt+1));
       } else {
         console.error('[DocScanner] Mindee failed after all retries:', result.error);
@@ -88,9 +103,9 @@
     })
     .catch(function(err){
       if(attempt < MAX_RETRIES){
-        console.warn('[DocScanner] OCR network error, retrying:', err.message);
+        console.warn('[DocScanner] OCR error, retrying:', err.message);
         setTimeout(function(){
-          _sendWithRetry(baseUrl, anonKey, token, imageBase64, docType, attempt+1, cb);
+          _sendWithRetry(baseUrl, anonKey, token, imageBase64, docType, userId, attempt+1, cb);
         }, 1000 * (attempt+1));
       } else {
         console.error('[DocScanner] OCR failed after all retries:', err);
@@ -128,7 +143,10 @@
       if(addr.zip) result.zip = addr.zip;
     }
     if(merged.licenseCategory) result.licenseCategory = merged.licenseCategory;
-    if(merged.idNumber && /^[A-Z]{2}\s*\d+/.test(merged.idNumber)){
+    // License number: prefer explicit licenseNumber, fallback to idNumber from DL
+    if(merged.licenseNumber){
+      result.licenseNumber = merged.licenseNumber;
+    } else if(merged.idNumber && /^[A-Z]{1,2}\s*\d+/.test(merged.idNumber)){
       result.licenseNumber = merged.idNumber;
     }
     if(merged.issuedDate) result.licenseIssued = _formatDate(merged.issuedDate);

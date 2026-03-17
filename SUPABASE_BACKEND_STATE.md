@@ -411,7 +411,7 @@ Detailní politiky:
 
 ## 8. EDGE FUNKCE (20 deployovaných)
 
-### V repozitáři (6)
+### V repozitáři (7)
 
 | Funkce | Popis |
 |--------|-------|
@@ -421,8 +421,9 @@ Detailní politiky:
 | `send-cancellation-email` | Email o stornování rezervace s "obnovit" CTA |
 | `admin-reset-password` | Admin reset hesla zákazníka |
 | `process-payment` | SIMULOVANÁ platební brána (DEV ONLY, 90% úspěšnost) |
+| `scan-document` | OCR skenování dokladů (OP, ŘP, pas) přes Mindee API. Přijímá base64 JPEG + document_type (id/dl/passport), vrací strukturovaná data (jméno, datum narození, adresa, číslo ŘP, kategorie atd.). Retry 3×, loguje do debug_log |
 
-### Pouze v Supabase dashboardu (14 dalších)
+### Pouze v Supabase dashboardu (13 dalších)
 
 | Funkce | Popis |
 |--------|-------|
@@ -437,7 +438,6 @@ Detailní politiky:
 | `generate-tax` | Generování daňových záznamů |
 | `inventory-check` | Kontrola stavu skladu |
 | `prediction-engine` | Predikční engine (obsazenost, tržby) |
-| `scan-document` | Skenování dokumentů (Mindee OCR) |
 | `send-email` | Obecné odesílání emailů (jiné než booking) |
 | `send-sos` | SOS notifikace |
 | `upload-handler` | Zpracování nahraných souborů |
@@ -628,3 +628,4 @@ Detailní politiky:
 | 2026-03-14 | **FIX: Voucher trigger silent fail:** `admin_messages_type_check` CHECK constraint neobsahoval hodnotu `'voucher'` → trigger `auto_process_voucher_order()` tiše padal (EXCEPTION handler). Oprava: přidán `'voucher'` do CHECK constraint. Platnost voucherů: 3 roky. Doklady (ZF/DP/FK) + email: zobrazují kód, částku i platnost |
 | 2026-03-15 | **REFACTOR: KF faktura triggerem:** `auto_complete_expired_bookings()` přepsána — pouze mění status, negeneruje KF. Nová trigger funkce `generate_final_invoice_on_complete()` generuje KF (konečnou fakturu) při přechodu `active→completed`. Trigger `trg_generate_final_invoice` AFTER UPDATE OF status WHEN (active→completed). EXCEPTION safe — chyba logována ale neblokuje UPDATE |
 | 2026-03-15 | **FIX: Robust SOS swap + KF + ZF/DP:** 1) `sos_swap_bookings` RPC: přidán fallback pro nalezení `ended_by_sos` bookingů (pokud `_sosEndBooking` běžel dříve), ukládá `original_end_date`, nastavuje `picked_up_at`. 2) `generate_final_invoice_on_complete()`: přeskakuje KF pro `ended_by_sos` a `sos_replacement` bookings (SOS potřebuje separátní fakturaci). 3) `check_user_booking_overlap()`: výjimka pro `sos_replacement=true` bookings. 4) Frontend `sosPaymentSubmit`: robustnější hledání replacement_booking_id (3 fallback metody), po platbě nastaví `status=active`+`picked_up_at`. Manuální fallback hledá i `ended_by_sos` bookings. 5) Velín: tlačítko "Reaktivovat" pro completed SOS replacement bookings |
+| 2026-03-17 | **FIX: Mindee OCR document recognition:** 1) Nová Edge Function `scan-document` v repozitáři — správná integrace Mindee API (international_id/v2 pro OP+ŘP, passport/v1 pro pasy). Multipart upload, retry 3×, logování do debug_log. 2) Frontend: strip data URI prefix z base64 před odesláním. 3) Auto-save OCR dat do profiles tabulky (jméno, datum narození, adresa, číslo ŘP, kategorie, expirace). 4) Upload fotek dokladů do Supabase storage (`documents` bucket, `user-docs/{uid}/`). 5) Nové API funkce: `apiSaveOcrToProfile()`, `apiUploadDocPhoto()`. 6) Po dokončení skenu automatický refresh profilu z DB |

@@ -110,7 +110,7 @@ Templates['s-docs'] = `  <div class="docs-hdr">
   </div>
   <div style="margin:12px 20px 0;background:rgba(249,115,22,.1);border:2px solid rgba(249,115,22,.3);border-radius:var(--r);padding:13px;display:flex;gap:11px;">
     <div style="font-size:21px;flex-shrink:0;">⚠️</div>
-    <div style="font-size:13px;color:#9a3412;font-weight:600;line-height:1.5;">Pro rezervaci motorky jsou nutné oba doklady. Uloženy bezpečně ve vašem zařízení.</div>
+    <div style="font-size:13px;color:#9a3412;font-weight:600;line-height:1.5;">Pro rezervaci motorky jsou nutné oba doklady. Data z dokladů se automaticky uloží do vašeho profilu.</div>
   </div>
   <div style="margin:10px 20px 0;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:var(--rsm);padding:11px 13px;">
     <div style="font-size:13px;font-weight:700;color:#b91c1c;margin-bottom:3px;">⚠️ Bez nahraných dokladů</div>
