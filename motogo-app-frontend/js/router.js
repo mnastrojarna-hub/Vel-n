@@ -113,6 +113,7 @@ function goTo(id){
   if(id==='s-home'){
     if(typeof renderUserData==='function')renderUserData();
   }
+  if(id==='s-merch'&&typeof renderShopProducts==='function')renderShopProducts();
   if(id==='s-cart'&&typeof renderCart==='function')renderCart();
   if(id==='s-checkout'){
     if(typeof initCheckout==='function')initCheckout();

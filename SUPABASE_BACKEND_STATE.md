@@ -79,6 +79,7 @@
 
 | Tabulka | Popis |
 |---------|-------|
+| `products` | Katalog produktů (name, description, price, images[], sizes[], sku, stock_quantity, category, color, material, is_active, sort_order) |
 | `shop_orders` | Objednávky (status: new/confirmed/processing/shipped/delivered/cancelled/returned/refunded, confirmed_at) |
 | `shop_order_items` | Položky objednávek |
 
@@ -395,6 +396,7 @@ Detailní politiky:
 - **reviews:** admin ALL, customer SELECT (own OR visible=true), customer INSERT (own)
 - **documents:** admin ALL, customer SELECT/INSERT (user_id=uid)
 - **invoices:** admin ALL, customer SELECT/INSERT (customer_id=uid)
+- **products:** public SELECT (is_active), admin ALL
 - **shop_orders:** admin ALL, customer SELECT/INSERT/UPDATE (customer_id=uid)
 - **shop_order_items:** admin ALL, customer SELECT/INSERT (order owned by user)
 - **booking_cancellations:** admin ALL, customer SELECT (cancelled_by=uid)
@@ -410,6 +412,7 @@ Detailní politiky:
 - `admin_messages`
 - `motorcycles`
 - `bookings`
+- `products`
 - `documents`
 - `invoices`
 - `vouchers`
@@ -637,4 +640,5 @@ Detailní politiky:
 | 2026-03-15 | **FIX: Robust SOS swap + KF + ZF/DP:** 1) `sos_swap_bookings` RPC: přidán fallback pro nalezení `ended_by_sos` bookingů (pokud `_sosEndBooking` běžel dříve), ukládá `original_end_date`, nastavuje `picked_up_at`. 2) `generate_final_invoice_on_complete()`: přeskakuje KF pro `ended_by_sos` a `sos_replacement` bookings (SOS potřebuje separátní fakturaci). 3) `check_user_booking_overlap()`: výjimka pro `sos_replacement=true` bookings. 4) Frontend `sosPaymentSubmit`: robustnější hledání replacement_booking_id (3 fallback metody), po platbě nastaví `status=active`+`picked_up_at`. Manuální fallback hledá i `ended_by_sos` bookings. 5) Velín: tlačítko "Reaktivovat" pro completed SOS replacement bookings |
 | 2026-03-17 | **FIX: Mindee OCR document recognition:** 1) Nová Edge Function `scan-document` v repozitáři — správná integrace Mindee API (international_id/v2 pro OP+ŘP, passport/v1 pro pasy). Multipart upload, retry 3×, logování do debug_log. 2) Frontend: strip data URI prefix z base64 před odesláním. 3) Auto-save OCR dat do profiles tabulky (jméno, datum narození, adresa, číslo ŘP, kategorie, expirace). 4) Upload fotek dokladů do Supabase storage (`documents` bucket, `user-docs/{uid}/`). 5) Nové API funkce: `apiSaveOcrToProfile()`, `apiUploadDocPhoto()`. 6) Po dokončení skenu automatický refresh profilu z DB |
 | 2026-03-17 | **FIX: Nepřečtené zprávy v konverzacích:** 1) Nové RPC `mark_thread_messages_read(p_thread_id)` — SECURITY DEFINER, označí admin zprávy jako přečtené (read_at=now). 2) Nové RPC `get_unread_thread_message_count(p_customer_id)` — vrací počet nepřečtených admin zpráv. 3) Frontend fix: `apiFetchMyThreads()` nyní načítá i `read_at` sloupec (dříve chyběl → badge vždy ukazoval nepřečtené) |
+| 2026-03-17 | **NEW: Produkty v e-shopu:** 1) Nová tabulka `products` (name, description, price, images[], sizes[], sku, stock_quantity, category, color, material, is_active, sort_order). RLS: public SELECT, admin ALL. Realtime. Trigger `trg_products_updated`. 2) Velín: nový tab „Produkty" v E-shop sekci s kompletním CRUD (přidání, editace, smazání, toggle aktivní/neaktivní). 3) Mobilní app: `templates-shop.js` přepsán — produkty se načítají dynamicky z DB místo hardcoded MERCH_ITEMS. Dynamické velikosti z DB. Kontrola skladového množství (vyprodáno). 4) Seed 4 existujících produktů (Snapback čepice, Tričko Classic, Hoodie Premium, Tričko Ride Hard) |
 | 2026-03-17 | **FIX: Přístupové kódy — automatický lifecycle:** 1) Nové trigger funkce `auto_generate_door_codes()` — auto-generuje 2 kódy (motorcycle+accessories) při přechodu bookingu na 'active'. Kontroluje doklady, posílá kódy jako admin_message. 2) `auto_deactivate_door_codes()` — deaktivuje kódy při přechodu na 'completed'/'cancelled'. 3) Triggery: `trg_auto_generate_door_codes` (UPDATE), `trg_auto_generate_door_codes_insert` (INSERT), `trg_auto_deactivate_door_codes` (UPDATE). 4) Jednorázový cleanup: deaktivace kódů u existujících dokončených/zrušených rezervací. 5) Mobilní app: `_autoActivateAndCompleteBookings()` — automatická aktivace reserved+paid bookingů a dokončení expired bookingů při otevření rezervací (nečeká na Velín nebo cron) |

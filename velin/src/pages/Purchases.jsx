@@ -3,8 +3,9 @@ import { debugLog } from '../lib/debugLog'
 import SuppliersTab from './purchases/SuppliersTab'
 import OrdersTab from './purchases/OrdersTab'
 import ShopOrdersTab from './purchases/ShopOrdersTab'
+import ProductsTab from './purchases/ProductsTab'
 
-const TABS = ['Objednávky', 'Nákupy', 'Dodavatelé']
+const TABS = ['Objednávky', 'Produkty', 'Nákupy', 'Dodavatelé']
 
 export default function Purchases() {
   const [tab, setTab] = useState('Objednávky')
@@ -29,6 +30,7 @@ export default function Purchases() {
         ))}
       </div>
       {tab === 'Objednávky' && <ShopOrdersTab />}
+      {tab === 'Produkty' && <ProductsTab />}
       {tab === 'Nákupy' && <OrdersTab />}
       {tab === 'Dodavatelé' && <SuppliersTab />}
     </div>

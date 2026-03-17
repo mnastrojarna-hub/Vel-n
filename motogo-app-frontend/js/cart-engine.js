@@ -107,10 +107,14 @@ function checkoutMerch() {
 
 function openMerchItem(id) {
   if(typeof MERCH_ITEMS==='undefined'||!MERCH_ITEMS[id]) return;
+  var item = MERCH_ITEMS[id];
+  if(item.stock !== undefined && item.stock <= 0) {
+    showT('\u26A0\uFE0F','Vyprodáno','Tento produkt je momentálně vyprodaný');
+    return;
+  }
   currentMerchId = id;
   selectedMerchSize = null;
   goTo('s-merch-detail');
-  var item = MERCH_ITEMS[id];
   var _mr=_t('merch')||{};var _mtr=_mr[id]||{};
   var titleEl = document.getElementById('md-title');
   if(titleEl) titleEl.textContent = _mtr.name||item.name;
@@ -126,18 +130,26 @@ function openMerchItem(id) {
   if(matEl) matEl.textContent = item.material;
   var imagesEl = document.getElementById('md-images');
   if(imagesEl) {
-    imagesEl.innerHTML =
-      '<img src="'+item.img+'" style="width:100%;min-width:280px;height:220px;object-fit:cover;border-radius:var(--r);box-shadow:var(--shadow);flex-shrink:0;">'+
-      '<img src="'+item.img2+'" style="width:100%;min-width:280px;height:220px;object-fit:cover;border-radius:var(--r);box-shadow:var(--shadow);flex-shrink:0;">';
+    var allImgs = item.images && item.images.length > 0 ? item.images : [item.img, item.img2].filter(Boolean);
+    imagesEl.innerHTML = allImgs.map(function(src) {
+      return '<img src="'+src+'" style="width:100%;min-width:280px;height:220px;object-fit:cover;border-radius:var(--r);box-shadow:var(--shadow);flex-shrink:0;">';
+    }).join('');
   }
+  // Dynamic sizes from DB
   var sizeWrap = document.getElementById('md-size-wrap');
-  if(sizeWrap) sizeWrap.style.display = item.needsSize ? 'block' : 'none';
+  var sizesContainer = document.getElementById('md-sizes');
+  if(sizeWrap && sizesContainer) {
+    if(item.needsSize && item.sizes && item.sizes.length > 0) {
+      sizeWrap.style.display = 'block';
+      sizesContainer.innerHTML = item.sizes.map(function(s) {
+        return '<button onclick="selectMerchSize(\''+s+'\')" class="md-size-btn" style="flex:1;border:2px solid var(--g200);background:#fff;color:var(--black);border-radius:var(--rsm);padding:10px 4px;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;">'+s+'</button>';
+      }).join('');
+    } else {
+      sizeWrap.style.display = 'none';
+    }
+  }
   var sizeMsg = document.getElementById('md-size-msg');
   if(sizeMsg) sizeMsg.style.display = 'none';
-  document.querySelectorAll('.md-size-btn').forEach(function(b){
-    b.style.borderColor='var(--g200)'; b.style.background='#fff'; b.style.color='var(--black)';
-  });
-  // Set add-to-cart button text with price
   var addBtn = document.getElementById('md-add-btn');
   if(addBtn) addBtn.textContent = '\uD83D\uDED2 ' + (_t('cart').addToCart||'Přidat do košíku') + ' – ' + item.price.toLocaleString('cs-CZ') + ' Kč';
 }
