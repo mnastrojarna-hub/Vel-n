@@ -9,10 +9,21 @@ var ScannerUI = (function(){
   var _afterScanTarget = 's-register';
   var _d = (typeof CamDebug!=='undefined') ? CamDebug.log.bind(CamDebug) : function(){};
 
+  function _hideBanner(){
+    var b = document.getElementById('header-banner');
+    if(b) b.style.display = 'none';
+    document.documentElement.classList.remove('has-banner');
+  }
+  function _restoreBanner(){
+    // Re-fetch banner config — if banner is enabled it will re-appear
+    if(typeof apiFetchHeaderBanner === 'function') apiFetchHeaderBanner();
+  }
+
   function open(target, idType){
     _stepIdx = 0;
     _processing = false;
     _afterScanTarget = target || 's-register';
+    _hideBanner();
     DocScanner.reset();
     goTo('s-doc-scan');
     if(idType){
@@ -297,6 +308,7 @@ var ScannerUI = (function(){
 
   function _finishScan(){
     DocScanner.stopCamera();
+    _restoreBanner();
     var merged = DocScanner.mergeResults();
     var hasData = Object.keys(merged).length > 0;
     var fieldList = Object.keys(merged).filter(function(k){return k.charAt(0)!=='_';});
@@ -445,6 +457,7 @@ var ScannerUI = (function(){
 
   function close(){
     DocScanner.stopCamera();
+    _restoreBanner();
     histBack();
   }
 
