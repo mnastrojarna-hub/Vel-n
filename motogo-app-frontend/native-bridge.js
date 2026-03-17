@@ -130,8 +130,46 @@
   }
 
   window.sosShareLocation = function() {
-    showT('\ud83d\udccd', 'Zjišťuji polohu...', '');
-    _nativeGetPosition('Poloha sdílena MotoGo24');
+    showT('\ud83d\udccd', 'Zjišťuji polohu...', 'Čekejte prosím');
+    Geolocation.checkPermissions().then(function(perm){
+      if(perm && perm.location === 'denied'){
+        _showPermDeniedDialog('Pro sdílení polohy povolte přístup k GPS v nastavení telefonu.');
+        return;
+      }
+      return Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 15000 });
+    }).then(function(pos) {
+      if(!pos) return;
+      var lat = pos.coords.latitude;
+      var lng = pos.coords.longitude;
+      // Send location to Supabase (same logic as ui-controller.js sosShareLocation)
+      if (typeof apiGetMySosIncidents === 'function') {
+        apiGetMySosIncidents().then(function(incidents) {
+          var latest = incidents && incidents.length ? incidents[0] : null;
+          if (latest && typeof apiSosShareLocation === 'function') {
+            apiSosShareLocation(latest.id, lat, lng).then(function() {
+              showT('\ud83d\udccd', 'Poloha sdílena MotoGo24', lat.toFixed(5) + ', ' + lng.toFixed(5));
+            });
+          } else if (typeof apiGetActiveLoan === 'function') {
+            apiGetActiveLoan().then(function(loan) {
+              var loanId = loan ? loan.id : null;
+              if (typeof apiCreateSosIncident === 'function') {
+                apiCreateSosIncident('location_share', loanId, lat, lng, null, null).then(function() {
+                  showT('\ud83d\udccd', 'Poloha sdílena MotoGo24', lat.toFixed(5) + ', ' + lng.toFixed(5));
+                });
+              } else {
+                showT('\ud83d\udccd', 'Poloha sdílena MotoGo24', lat.toFixed(5) + ', ' + lng.toFixed(5));
+              }
+            });
+          } else {
+            showT('\ud83d\udccd', 'Poloha sdílena MotoGo24', lat.toFixed(5) + ', ' + lng.toFixed(5));
+          }
+        });
+      } else {
+        showT('\ud83d\udccd', 'Poloha sdílena MotoGo24', lat.toFixed(5) + ', ' + lng.toFixed(5));
+      }
+    }).catch(function() {
+      _showPermDeniedDialog('GPS není dostupné. Povolte přístup k poloze v nastavení.');
+    });
   };
 
   window.shareLocation = function() {

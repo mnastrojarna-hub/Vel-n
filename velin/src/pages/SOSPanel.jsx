@@ -487,6 +487,9 @@ export default function SOSPanel() {
           )}
         </div>
 
+        {/* === SOS MAPA — zobrazí se ve filtru Ostatní nebo když jsou incidenty s GPS === */}
+        {severityFilter === 'ostatni' && <SOSMap incidents={displayed} onSelect={setSelectedIncident} />}
+
         {/* === INCIDENT LIST === */}
         <div className="grid grid-cols-1 gap-3 mb-6">
           {displayed.map(inc => (
@@ -759,6 +762,52 @@ function ActionBtn({ label, color, bg, onClick }) {
       style={{ padding: '5px 12px', background: bg, color, border: 'none' }}>
       {label}
     </button>
+  )
+}
+
+function SOSMap({ incidents, onSelect }) {
+  const withGps = incidents.filter(i => i.latitude && i.longitude)
+  if (withGps.length === 0) return null
+
+  // Calculate bounding box for all markers
+  const lats = withGps.map(i => Number(i.latitude))
+  const lngs = withGps.map(i => Number(i.longitude))
+  const minLat = Math.min(...lats), maxLat = Math.max(...lats)
+  const minLng = Math.min(...lngs), maxLng = Math.max(...lngs)
+  const padLat = Math.max((maxLat - minLat) * 0.3, 0.005)
+  const padLng = Math.max((maxLng - minLng) * 0.3, 0.005)
+  const centerLat = (minLat + maxLat) / 2
+  const centerLng = (minLng + maxLng) / 2
+
+  const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${minLng - padLng},${minLat - padLat},${maxLng + padLng},${maxLat + padLat}&layer=mapnik&marker=${centerLat},${centerLng}`
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-extrabold uppercase tracking-widest" style={{ color: '#1a2e22' }}>
+          Mapa SOS incidentu
+        </h3>
+        <span className="text-sm font-bold px-2 py-0.5 rounded-btn" style={{ background: '#dbeafe', color: '#2563eb' }}>
+          {withGps.length} s GPS
+        </span>
+      </div>
+      <div className="rounded-lg overflow-hidden relative" style={{ height: 280, background: '#e8f5e9' }}>
+        <iframe title="SOS Mapa" width="100%" height="100%" style={{ border: 'none' }} src={mapUrl} />
+      </div>
+      <div className="flex flex-wrap gap-2 mt-3">
+        {withGps.map(inc => {
+          const typeIcon = TYPE_ICONS[inc.type] || '📍'
+          const sc = STATUS_COLORS[inc.status] || STATUS_COLORS.reported
+          return (
+            <button key={inc.id} onClick={() => onSelect(inc)}
+              className="rounded-btn text-sm font-bold cursor-pointer flex items-center gap-1"
+              style={{ padding: '4px 10px', background: sc.bg, color: sc.color, border: 'none' }}>
+              {typeIcon} {inc.profiles?.full_name || 'Zákazník'} · {Number(inc.latitude).toFixed(4)}, {Number(inc.longitude).toFixed(4)}
+            </button>
+          )
+        })}
+      </div>
+    </Card>
   )
 }
 
