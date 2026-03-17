@@ -466,25 +466,7 @@ function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEd
         console.warn('[Branches] branch_door_codes query failed:', error.message)
         setDoorCodes([])
       } else {
-        // Auto-deactivate orphaned codes (booking completed/cancelled but code still active)
-        const orphaned = (data || []).filter(c =>
-          c.is_active && c.bookings && ['completed', 'cancelled'].includes(c.bookings.status)
-        )
-        if (orphaned.length > 0) {
-          const orphanedIds = orphaned.map(c => c.id)
-          await supabase
-            .from('branch_door_codes')
-            .update({ is_active: false })
-            .in('id', orphanedIds)
-          // Update local data
-          const updated = (data || []).map(c =>
-            orphanedIds.includes(c.id) ? { ...c, is_active: false } : c
-          )
-          setDoorCodes(updated)
-          console.log(`[Branches] Auto-deactivated ${orphaned.length} orphaned door codes`)
-        } else {
-          setDoorCodes(data || [])
-        }
+        setDoorCodes(data || [])
       }
     } catch (e) {
       console.warn('[Branches] door codes load failed:', e.message)
