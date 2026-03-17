@@ -156,6 +156,15 @@ async function proceedToPayment(){
       return;
     }
 
+    // Check license validity for the entire rental period
+    if(typeof apiCheckLicenseForMoto === 'function'){
+      var licCheck = await apiCheckLicenseForMoto(motoId, endDate);
+      if(!licCheck.allowed){
+        showT('✗', _t('pay').licenseTitle||'Řidičský průkaz', licCheck.reason || (_t('pay').licenseInvalid||'Nemáte platný ŘP pro tuto motorku'));
+        return;
+      }
+    }
+
     var pickupTime = (document.getElementById('booking-pickup-time') || {}).value || '09:00';
 
     // Calculate total
