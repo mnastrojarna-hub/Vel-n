@@ -122,6 +122,7 @@ function _translateTemplates(){
   _s('t-dLegOcc',sr.occupied);_s('t-dLegUnconf',sr.unconfirmed);
   _s('t-dTotalLabel',b.totalRentalPrice);_s('t-dNoVAT',b.noVATNote);
   _s('t-manualTitle','\ud83d\udcd6 '+b.manual);_s('t-pdfGuide',b.manualPDF);
+  _s('t-manualView',b.manualView);_s('t-manualSearch',b.manualSearch);_s('t-manualDl',b.manualDl);
 
   // === BOOKING FORM ===
   _s('t-bkTitle',b.bookingTitle);_s('t-bkSub',b.fillForm);
