@@ -509,7 +509,7 @@ function doEditPayment(bookingId, amount, changes){
     }
 
     setTimeout(async function(){
-      var result = await apiProcessPayment(bookingId, amount, _currentPaymentMethod);
+      var result = await apiProcessPayment(bookingId, amount, _currentPaymentMethod, {type: 'extension'});
 
       if(payBtn){
         payBtn.disabled = false;
