@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react'
 import Button from '../components/ui/Button'
 import { supabase } from '../lib/supabase'
 import { debugAction, debugLog, debugError } from '../lib/debugLog'
+import { useDebugMode } from '../hooks/useDebugMode'
 import RevenueChart from './statistics/RevenueChart'
 import { FleetUtilization, TopMotoRevenue, BranchComparison } from './statistics/FleetCharts'
 import { BookingsByStatus, CustomerRetention } from './statistics/BookingCharts'
 
 export default function Statistics() {
+  const debugMode = useDebugMode()
   const [error, setError] = useState(null)
   const [generating, setGenerating] = useState(false)
   const [stats, setStats] = useState({ bookings: 0, customers: 0, motos: 0, revenue: 0 })
@@ -74,12 +76,14 @@ export default function Statistics() {
       </div>
 
       {/* DIAGNOSTIKA */}
+      {debugMode && (
       <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA Statistics</strong><br/>
         <div>bookings: {stats.bookings}, customers: {stats.customers}, active motos: {stats.motos}</div>
         <div>total revenue (accounting): {fmt(stats.revenue)}</div>
         {chartErrors.length > 0 && <div style={{ color: '#dc2626' }}>Chart errors: {chartErrors.join(', ')}</div>}
       </div>
+      )}
 
       <div className="grid grid-cols-2 gap-5">
         <div className="col-span-2">

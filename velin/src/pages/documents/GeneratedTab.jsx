@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { debugAction, debugLog, debugError } from '../../lib/debugLog'
+import { useDebugMode } from '../../hooks/useDebugMode'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
@@ -37,6 +38,7 @@ function loadFilters() {
 }
 
 export default function GeneratedTab() {
+  const debugMode = useDebugMode()
   const [docs, setDocs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -167,12 +169,14 @@ export default function GeneratedTab() {
       </div>
 
       {/* DIAGNOSTIKA */}
+      {debugMode && (
       <details className="mb-4">
         <summary className="text-xs font-bold cursor-pointer" style={{ color: '#6b7280' }}>DIAGNOSTIKA</summary>
         <pre className="text-xs mt-1 p-2 rounded-card overflow-auto" style={{ background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22', maxHeight: 150 }}>
 {JSON.stringify({ filters, page, total, docsCount: docs.length, hasActiveFilters }, null, 2)}
         </pre>
       </details>
+      )}
 
       {error && <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
 

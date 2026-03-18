@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { debugAction, debugLog, debugError } from '../../lib/debugLog'
+import { useDebugMode } from '../../hooks/useDebugMode'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import SearchInput from '../../components/ui/SearchInput'
 import Pagination from '../../components/ui/Pagination'
@@ -22,6 +23,7 @@ function loadFilters() {
 }
 
 export default function UploadedTab() {
+  const debugMode = useDebugMode()
   const [docs, setDocs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -85,9 +87,11 @@ export default function UploadedTab() {
       </div>
 
       {/* DIAGNOSTIKA */}
+      {debugMode && (
       <div className="mb-4 p-3 rounded-card text-xs" style={{ background: '#f0f9ff', border: '1px solid #bae6fd', color: '#0369a1' }}>
         <strong>DIAGNOSTIKA:</strong> sort={filters.sort} | search="{filters.search}"
       </div>
+      )}
 
       {error && <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
 

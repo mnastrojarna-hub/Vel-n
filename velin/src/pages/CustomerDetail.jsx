@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { supabase, supabaseUrl, supabaseAnonKey } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
+import { useDebugMode } from '../hooks/useDebugMode'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import Badge from '../components/ui/Badge'
@@ -13,6 +14,7 @@ import Modal from '../components/ui/Modal'
 const TABS = ['Profil', 'Rezervace', 'Dokumenty', 'Hodnocení', 'SOS']
 
 export default function CustomerDetail() {
+  const debugMode = useDebugMode()
   const { id } = useParams()
   const navigate = useNavigate()
   const [customer, setCustomer] = useState(null)
@@ -105,10 +107,10 @@ export default function CustomerDetail() {
       const result = await debugAction('customer.resetPassword', 'CustomerDetail', async () => {
         const { data: { session } } = await supabase.auth.getSession()
         const token = session?.access_token
-        const baseUrl = supabase.supabaseUrl || 'https://vnwnqteskbykeucanlhk.supabase.co'
+        const baseUrl = supabaseUrl
         const resp = await fetch(`${baseUrl}/functions/v1/admin-reset-password`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, 'apikey': supabase.supabaseKey || '' },
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, 'apikey': supabaseAnonKey },
           body: JSON.stringify({ user_id: id, ...(resetPwMode === 'manual' && newPassword ? { new_password: newPassword } : {}) }),
         })
         const data = await resp.json()
@@ -131,13 +133,13 @@ export default function CustomerDetail() {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const token = session?.access_token
-      const baseUrl = supabase.supabaseUrl || 'https://vnwnqteskbykeucanlhk.supabase.co'
+      const baseUrl = supabaseUrl
       const resp = await fetch(`${baseUrl}/functions/v1/admin-reset-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
-          'apikey': supabase.supabaseKey || '',
+          'apikey': supabaseAnonKey,
         },
         body: JSON.stringify({ user_id: id }),
       })
@@ -200,6 +202,7 @@ export default function CustomerDetail() {
       </div>
 
       {/* DIAGNOSTIKA */}
+      {debugMode && (
       <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA CustomerDetail (#{id?.slice(-8)})</strong><br/>
         <div>profile: {customer.full_name || '—'} ({customer.email || '—'})</div>
@@ -209,6 +212,7 @@ export default function CustomerDetail() {
         <div>tab: {tab}</div>
         {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>
+      )}
 
       {tab === 'Profil' && (
         <ProfileTab

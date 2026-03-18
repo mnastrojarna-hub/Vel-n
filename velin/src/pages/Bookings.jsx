@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
+import { useDebugMode } from '../hooks/useDebugMode'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
 import Button from '../components/ui/Button'
 import StatusBadge, { getDisplayStatus } from '../components/ui/StatusBadge'
@@ -22,6 +23,7 @@ const PER_PAGE = 25
 const VIEWS = ['Seznam', 'Kalendář']
 
 export default function Bookings() {
+  const debugMode = useDebugMode()
   const navigate = useNavigate()
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
@@ -309,6 +311,7 @@ export default function Bookings() {
       )}
 
       {/* DIAGNOSTIKA */}
+      {debugMode && (
       <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA Bookings</strong><br/>
         <div>bookings: {bookings.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
@@ -316,6 +319,7 @@ export default function Bookings() {
         <div>branches: {branches.length}, motos: {motos.length}</div>
         {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>
+      )}
 
       {view === 'Kalendář' ? (
         <GlobalCalendar />

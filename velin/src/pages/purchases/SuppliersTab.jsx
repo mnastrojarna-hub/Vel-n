@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { debugAction } from '../../lib/debugLog'
+import { useDebugMode } from '../../hooks/useDebugMode'
 
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
@@ -11,6 +12,7 @@ import Pagination from '../../components/ui/Pagination'
 const PER_PAGE = 25
 
 export default function SuppliersTab() {
+  const debugMode = useDebugMode()
   const [suppliers, setSuppliers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -60,12 +62,14 @@ export default function SuppliersTab() {
       </div>
 
       {/* DIAGNOSTIKA */}
+      {debugMode && (
       <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA Suppliers</strong><br/>
         <div>suppliers: {suppliers.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
         <div>filtry: search="{filters.search}"</div>
         {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>
+      )}
 
       {error && <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
 

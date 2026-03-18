@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { debugAction, debugLog } from '../lib/debugLog'
+import { useDebugMode } from '../hooks/useDebugMode'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import StatusBadge from '../components/ui/StatusBadge'
@@ -16,6 +17,7 @@ import MotoMap from '../components/shared/MotoMap'
 const TABS = ['Info', 'Rezervace', 'Ceník', 'Servis', 'Mapa', 'Výkon']
 
 export default function FleetDetail() {
+  const debugMode = useDebugMode()
   const { id } = useParams()
   const navigate = useNavigate()
   const [moto, setMoto] = useState(null)
@@ -122,6 +124,7 @@ export default function FleetDetail() {
         ))}
       </div>
       {/* DIAGNOSTIKA */}
+      {debugMode && (
       <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA FleetDetail (#{id?.slice(-8)})</strong><br/>
         <div>moto: {moto.model} ({moto.spz}), status={moto.status}, category={moto.category || '—'}</div>
@@ -130,6 +133,7 @@ export default function FleetDetail() {
         <div>STK: {moto.stk_valid_until || '—'}, tab: {tab}</div>
         {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>
+      )}
 
       {tab === 'Info' && <InfoTab moto={moto} set={set} error={error} saving={saving} onSave={handleSave} onDeactivate={handleDeactivate} onDelete={() => setConfirm({ type: 'delete' })} onMotoReload={loadMoto} />}
       {tab === 'Rezervace' && <BookingsCalendar motoId={id} onSwitchTab={setTab} />}

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
+import { useDebugMode } from '../hooks/useDebugMode'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
 import Button from '../components/ui/Button'
 import Badge from '../components/ui/Badge'
@@ -20,6 +21,7 @@ const COUNTRY_OPTS = [
 const LICENSE_GROUPS = ['A', 'A1', 'A2', 'AM', 'B']
 
 export default function Customers() {
+  const debugMode = useDebugMode()
   const navigate = useNavigate()
   const [customers, setCustomers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -185,6 +187,7 @@ export default function Customers() {
       )}
 
       {/* DIAGNOSTIKA */}
+      {debugMode && (
       <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA Customers</strong><br/>
         <div>profiles: {customers.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
@@ -192,6 +195,7 @@ export default function Customers() {
         <div>sort: {filters.sortBy} {filters.sortDir}, stats loaded: {Object.keys(stats).length} zákazníků</div>
         {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
