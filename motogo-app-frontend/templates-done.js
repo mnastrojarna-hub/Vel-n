@@ -32,6 +32,17 @@ Templates['s-done-detail'] = `  <div class="done-hdr">
     </div>
     <div id="done-rating-msg" style="text-align:center;font-size:12px;color:var(--g400);font-weight:600;padding-bottom:4px;">🏆 <span id="t-tapToRate">Výborná zkušenost!</span></div>
   </div>
+  <div class="rd-card" id="done-google-review" style="display:none;">
+    <div style="text-align:center;padding:8px 0;">
+      <div style="font-size:28px;margin-bottom:6px;">⭐</div>
+      <div style="font-size:14px;font-weight:800;color:var(--black);margin-bottom:4px;">Jak se v\u00e1m j\u00edzda l\u00edbila?</div>
+      <div style="font-size:12px;color:var(--g400);margin-bottom:12px;">Ohodno\u0165te n\u00e1s na Google \u2013 pom\u016f\u017eete dal\u0161\u00edm jezdc\u016fm!</div>
+      <button onclick="_openGoogleReview()" style="width:100%;background:var(--green);color:#fff;border:none;border-radius:50px;padding:13px;font-family:var(--font);font-size:14px;font-weight:800;cursor:pointer;margin-bottom:8px;">
+        \u2b50 Ohodnotit na Google
+      </button>
+      <button onclick="document.getElementById('done-google-review').style.display='none'" style="background:none;border:none;font-family:var(--font);font-size:12px;font-weight:600;color:var(--g400);cursor:pointer;">Pozd\u011bji</button>
+    </div>
+  </div>
   <div style="padding:12px 20px 22px;">
     <button class="btn-g" id="t-bookAgain" onclick="openDetail('benelli');goTo('s-detail');showT('🏍️','Rezervace','Vyberte termín pro stejnou motorku')">🔁 Znovu rezervovat</button>
   </div>

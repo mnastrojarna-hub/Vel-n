@@ -636,7 +636,7 @@ async function openResDetailById(bookingId){
                '</div>' +
                '<div style="border-top:1px solid var(--g100);margin-top:12px;padding-top:12px;">' +
                '<div style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--g400);margin-bottom:8px;">⭐ '+(_t('res').yourRating||'Vaše hodnocení')+'</div>' +
-               '<button class="btn-g" style="margin-top:4px;" onclick="window.open(\'https://www.google.com/maps/search/MotoGo24+p%C5%AFj%C4%8Dovna+motorek\',\'_blank\')">⭐ '+(_t('res').rateOnGoogle||'Ohodnotit na Google')+'</button>' +
+               '<button class="btn-g" style="margin-top:4px;" onclick="_openGoogleReview()">⭐ '+(_t('res').rateOnGoogle||'Ohodnotit na Google')+'</button>' +
                '</div>' +
                '<button class="btn-g" style="margin-top:12px;" onclick="_rebookMoto(\''+motoId+'\')">🔁 '+(_t('res').bookAgain||'Znovu rezervovat')+'</button>';
       } else if(st === 'cancelled'){

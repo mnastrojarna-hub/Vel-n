@@ -390,6 +390,10 @@ function sosReportAccident(type) {
         }
         var upd = { moto_rideable: sosType === 'accident_minor' };
         _sosUpdateIncident(incId, upd);
+        // Upload SOS photos if any
+        if(typeof _sosPhotos!=='undefined' && _sosPhotos.length > 0) {
+          uploadSOSPhotos(incId, _sosPhotos).then(function(urls){ if(urls.length) saveSOSPhotoUrls(incId, urls); _sosResetPhotos(); });
+        }
         window.supabase.from('sos_timeline').insert({
           incident_id: incId,
           action: sosType === 'accident_minor'
@@ -415,6 +419,10 @@ function sosReportTheft() {
         _sosSubmitting = false;
         if(!incId) return; // User cancelled confirmation
         _sosUpdateIncident(incId, { moto_rideable: false });
+        // Upload SOS photos if any
+        if(typeof _sosPhotos!=='undefined' && _sosPhotos.length > 0) {
+          uploadSOSPhotos(incId, _sosPhotos).then(function(urls){ if(urls.length) saveSOSPhotoUrls(incId, urls); _sosResetPhotos(); });
+        }
         window.supabase.from('sos_timeline').insert({
           incident_id: incId,
           action: 'Zákazník nahlásil krádež motorky — přesměrován na policii ČR (158)',
@@ -1310,6 +1318,10 @@ function sosDrobnaZavada() {
       _sosSubmitting = false;
       if(incId){
         _sosUpdateIncident(incId, { moto_rideable: true, customer_fault: false, customer_decision: 'continue' });
+        // Upload SOS photos if any
+        if(typeof _sosPhotos!=='undefined' && _sosPhotos.length > 0) {
+          uploadSOSPhotos(incId, _sosPhotos).then(function(urls){ if(urls.length) saveSOSPhotoUrls(incId, urls); _sosResetPhotos(); });
+        }
         window.supabase.from('sos_timeline').insert({
           incident_id: incId,
           action: 'Zákazník nahlásil drobnou závadu — motorka pojízdná, pokračuje v jízdě',
@@ -1672,6 +1684,64 @@ function rateRide(val){
       .then(()=>{}).catch(e=>console.warn('[RATE]',e));
   }
   showT('⭐',_t('res').thankStars.replace('{n}',val),_t('res').feedbackHelps);
+  // Show Google review prompt after rating
+  if(val >= 4) _showGoogleReviewBanner();
+}
+
+// ===== GOOGLE RECENZE =====
+var _googleReviewUrl = null;
+async function _loadGoogleReviewUrl(){
+  if(_googleReviewUrl) return _googleReviewUrl;
+  if(!window.supabase) return null;
+  try {
+    var r = await window.supabase.from('app_settings').select('value').eq('key','google_review_url').maybeSingle();
+    if(r.data && r.data.value){
+      _googleReviewUrl = typeof r.data.value === 'string' ? r.data.value : r.data.value.url || r.data.value;
+      return _googleReviewUrl;
+    }
+  } catch(e){}
+  // Fallback placeholder URL
+  return 'https://search.google.com/local/writereview?placeid=PLACE_ID';
+}
+
+function _showGoogleReviewBanner(){
+  var el = document.getElementById('done-google-review');
+  if(el) el.style.display = 'block';
+}
+
+async function _openGoogleReview(){
+  var url = await _loadGoogleReviewUrl();
+  // Track that user was asked for review
+  if(window.supabase && _currentResId){
+    try {
+      var uid = await _getUserId();
+      if(uid){
+        window.supabase.from('reviews').insert({
+          booking_id: _currentResId,
+          customer_id: uid,
+          source: 'google_prompt',
+          created_at: new Date().toISOString()
+        }).then(function(){}).catch(function(){});
+      }
+    } catch(e){}
+  }
+  if(url) {
+    if(typeof openExternalLink === 'function') openExternalLink(url);
+    else window.open(url, '_blank');
+  }
+  var el = document.getElementById('done-google-review');
+  if(el) el.style.display = 'none';
+}
+
+function _initDoneDetailGoogleReview(booking){
+  var el = document.getElementById('done-google-review');
+  if(!el) return;
+  // Show only for completed bookings that haven't been rated yet
+  if(booking && booking.status === 'completed' && !booking.rated_at){
+    el.style.display = 'block';
+  } else {
+    el.style.display = 'none';
+  }
 }
 
 // ===== DIGITÁLNÍ PŘEDÁVACÍ PROTOKOL JS =====
