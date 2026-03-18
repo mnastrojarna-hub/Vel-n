@@ -14,118 +14,73 @@
     return 'id';
   }
 
-  // Check if a JWT is expired (with 30s margin)
-  function _isExpired(token){
-    try {
-      var parts = token.split('.');
-      if(parts.length !== 3) return true;
-      var payload = JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
-      if(!payload.exp) return false;
-      return (payload.exp * 1000) < (Date.now() - 30000);
-    } catch(e){ return true; }
-  }
-
-  // Get real JWT from Supabase SDK (not fake localStorage token)
-  // Always refresh session first to avoid expired token → 401
-  function _getRealToken(anonKey){
+  // Get user ID from current session (best-effort, non-blocking)
+  function _getUserId(){
     try {
       if(window.supabase && window.supabase.auth){
-        return window.supabase.auth.refreshSession().then(function(ref){
-          if(ref.data && ref.data.session && ref.data.session.access_token){
-            var t = ref.data.session.access_token;
-            if(!_isExpired(t)) return { token: t, userId: ref.data.session.user.id };
-          }
-          // Refresh failed or returned expired token — try getSession
-          return window.supabase.auth.getSession().then(function(r){
-            if(r.data && r.data.session && r.data.session.access_token){
-              var t2 = r.data.session.access_token;
-              if(!_isExpired(t2)) return { token: t2, userId: r.data.session.user.id };
-            }
-            // All tokens expired — use anon key (always valid)
-            return { token: anonKey, userId: null };
-          });
-        }).catch(function(){
-          return window.supabase.auth.getSession().then(function(r){
-            if(r.data && r.data.session && r.data.session.access_token){
-              var t3 = r.data.session.access_token;
-              if(!_isExpired(t3)) return { token: t3, userId: r.data.session.user.id };
-            }
-            return { token: anonKey, userId: null };
-          }).catch(function(){ return { token: anonKey, userId: null }; });
-        });
+        return window.supabase.auth.getSession().then(function(r){
+          return (r.data && r.data.session && r.data.session.user) ? r.data.session.user.id : null;
+        }).catch(function(){ return null; });
       }
     } catch(e){}
-    return Promise.resolve({ token: anonKey, userId: null });
+    return Promise.resolve(null);
   }
 
-  // Send image to Mindee via Edge Function (with retry)
+  // Send image to Mindee via Edge Function using supabase.functions.invoke()
+  // This handles JWT auth automatically via the Supabase client
   function runOCR(canvas, cb){
-    var cfg = window.MOTOGO_CONFIG || {};
-    var baseUrl = cfg.SUPABASE_URL;
-    var anonKey = cfg.SUPABASE_ANON_KEY;
-    if(!baseUrl || !anonKey){
-      cb(new Error('Missing Supabase config'), '');
+    if(!window.supabase || !window.supabase.functions){
+      cb(new Error('Supabase client not available'), '');
       return;
     }
 
     var docType = _getApiDocType(DocScanner.getDocType());
 
     // Odeslat BAREVNÝ JPEG – Mindee potřebuje barvy
-    // Strip data URI prefix – posíláme čistý base64
     var dataUri = canvas.toDataURL('image/jpeg', 0.92);
     var imageBase64 = dataUri.indexOf(',') !== -1 ? dataUri.split(',')[1] : dataUri;
 
-    // Get real JWT from Supabase SDK (mg_current_session has fake token)
-    _getRealToken(anonKey).then(function(auth){
-      console.log('[DocScanner] Token type: '+(auth.userId ? 'user JWT' : 'anon key')+
-        ', token prefix: '+auth.token.substring(0,20)+'...');
-      _sendWithRetry(baseUrl, anonKey, auth.token, imageBase64, docType, auth.userId, 0, cb);
+    _getUserId().then(function(userId){
+      console.log('[DocScanner] Calling scan-document via supabase.functions.invoke, user='+(userId||'anon'));
+      _invokeWithRetry(imageBase64, docType, userId, 0, cb);
     });
   }
 
-  function _sendWithRetry(baseUrl, anonKey, token, imageBase64, docType, userId, attempt, cb){
-    console.log('[DocScanner] OCR attempt '+(attempt+1)+'/'+
-      (MAX_RETRIES+1)+' type='+docType+' base64len='+imageBase64.length);
+  function _invokeWithRetry(imageBase64, docType, userId, attempt, cb){
+    console.log('[DocScanner] OCR attempt '+(attempt+1)+'/'+(MAX_RETRIES+1)+' type='+docType+' base64len='+imageBase64.length);
 
-    fetch(baseUrl + '/functions/v1/scan-document', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + token,
-        'apikey': anonKey
-      },
-      body: JSON.stringify({
+    window.supabase.functions.invoke('scan-document', {
+      body: {
         image_base64: imageBase64,
         document_type: docType,
         user_id: userId
-      })
+      }
     })
-    .then(function(resp){
-      // On 401, force anon key on next retry (user JWT is clearly invalid)
-      if(resp.status === 401 && attempt < MAX_RETRIES){
-        console.warn('[DocScanner] 401 JWT rejected, retrying with anon key...');
-        setTimeout(function(){
-          _sendWithRetry(baseUrl, anonKey, anonKey, imageBase64, docType, null, attempt+1, cb);
-        }, 500);
-        return null;
+    .then(function(res){
+      var error = res.error;
+      var data = res.data;
+
+      // functions.invoke returns {data, error}
+      if(error){
+        var errMsg = (error.message || error.msg || String(error));
+        console.warn('[DocScanner] invoke error (attempt '+(attempt+1)+'):', errMsg);
+        if(attempt < MAX_RETRIES){
+          setTimeout(function(){
+            _invokeWithRetry(imageBase64, docType, userId, attempt+1, cb);
+          }, 1000 * (attempt+1));
+          return;
+        }
+        cb(new Error(errMsg), '');
+        return;
       }
-      if(!resp.ok && attempt < MAX_RETRIES){
-        console.warn('[DocScanner] OCR HTTP '+resp.status+', retrying...');
-        setTimeout(function(){
-          _sendWithRetry(baseUrl, anonKey, token, imageBase64, docType, userId, attempt+1, cb);
-        }, 1000 * (attempt+1));
-        return null;
+
+      // Parse result — data may be string or object
+      var result = data;
+      if(typeof data === 'string'){
+        try { result = JSON.parse(data); } catch(e){ result = {}; }
       }
-      if(!resp.ok){
-        return resp.text().then(function(txt){
-          throw new Error('HTTP '+resp.status+': '+txt.substring(0,200));
-        });
-      }
-      return resp.json();
-    })
-    .then(function(result){
-      if(!result) return; // retry in progress
-      if(result.success && result.data){
+
+      if(result && result.success && result.data){
         var textParts = [];
         var d = result.data;
         if(d.lastName) textParts.push(d.lastName);
@@ -143,18 +98,19 @@
       } else if(attempt < MAX_RETRIES){
         console.warn('[DocScanner] Mindee no data (attempt '+(attempt+1)+'), retrying...');
         setTimeout(function(){
-          _sendWithRetry(baseUrl, anonKey, token, imageBase64, docType, userId, attempt+1, cb);
+          _invokeWithRetry(imageBase64, docType, userId, attempt+1, cb);
         }, 1000 * (attempt+1));
       } else {
-        console.error('[DocScanner] Mindee failed after all retries:', result.error);
-        cb(new Error(result.error || 'OCR failed'), '');
+        var errDetail = (result && result.error) || 'OCR failed — no data';
+        console.error('[DocScanner] Mindee failed after all retries:', errDetail);
+        cb(new Error(errDetail), '');
       }
     })
     .catch(function(err){
       if(attempt < MAX_RETRIES){
         console.warn('[DocScanner] OCR error, retrying:', err.message);
         setTimeout(function(){
-          _sendWithRetry(baseUrl, anonKey, token, imageBase64, docType, userId, attempt+1, cb);
+          _invokeWithRetry(imageBase64, docType, userId, attempt+1, cb);
         }, 1000 * (attempt+1));
       } else {
         console.error('[DocScanner] OCR failed after all retries:', err);
