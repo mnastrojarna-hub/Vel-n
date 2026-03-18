@@ -1007,9 +1007,12 @@ async function sosPaymentSubmit(){
       if(payResult.success){
         // Stripe checkout redirect
         if(payResult.checkout_url){
-          if(btn){ btn.textContent = '↗ Přesměrování na platbu...'; }
+          _stripeCheckoutBookingId = replBookingId;
+          if(typeof _lockPaymentScreen==='function') _lockPaymentScreen('↗ Platební brána otevřena...');
+          if(btn){ btn.textContent = '↗ Přesměrování na platbu...'; btn.disabled = true; btn.style.opacity = '0.6'; }
           showT('✅','Přesměrování', 'Budete přesměrováni na platební bránu Stripe...');
-          window.location.href = payResult.checkout_url;
+          if(typeof _openExternalUrl==='function') _openExternalUrl(payResult.checkout_url);
+          else window.location.href = payResult.checkout_url;
           return;
         }
 

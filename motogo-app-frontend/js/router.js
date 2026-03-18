@@ -35,6 +35,12 @@ var _authRequired = ['s-home','s-res','s-res-detail','s-edit-res','s-done-detail
 
 function goTo(id){
   if(id===cur){const el=document.getElementById(id);if(el)el.scrollTo({top:0,behavior:'smooth'});return;}
+  // Block leaving payment screen when Stripe checkout is open (except to success/res which are valid post-payment destinations)
+  if(typeof _stripeCheckoutOpened!=='undefined' && _stripeCheckoutOpened && (cur==='s-payment'||cur==='s-sos-payment') && id!=='s-success' && id!=='s-res' && id!=='s-res-detail' && id!=='s-sos-done'){
+    showT('⚠️','Platba probíhá','Vyčkejte na dokončení platby');
+    if(typeof _checkPaymentAfterStripe==='function') _checkPaymentAfterStripe();
+    return;
+  }
   // Auth guard: block protected screens when not logged in
   if(_authRequired.indexOf(id)!==-1 && id!=='s-login'){
     var _sess=null;
@@ -204,6 +210,12 @@ function goTo(id){
 }
 
 function histBack(){
+  // Block back when Stripe checkout is open — prevent double payment
+  if(typeof _stripeCheckoutOpened!=='undefined' && _stripeCheckoutOpened && (cur==='s-payment'||cur==='s-sos-payment')){
+    showT('⚠️','Platba probíhá','Vyčkejte na dokončení platby');
+    if(typeof _checkPaymentAfterStripe==='function') _checkPaymentAfterStripe();
+    return;
+  }
   if(navStack.length<=1){if(cur!=='s-home'&&cur!=='s-login')goTo('s-home');return;}
   if(navStack.length>1){
     navStack.pop();
