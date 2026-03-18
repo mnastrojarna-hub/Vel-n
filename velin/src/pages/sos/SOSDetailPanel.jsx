@@ -248,9 +248,10 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
         }).eq('id', replBookingId)
       }
 
-      // 4. If no replacement but incident has a booking, just mark it with SOS flag
+      // 4. If no replacement but incident has a booking, complete it with SOS flag
       if (!replBookingId && incident?.booking_id) {
         await supabase.from('bookings').update({
+          status: 'completed',
           ended_by_sos: true,
           sos_incident_id: incident.id,
         }).eq('id', incident.booking_id)
