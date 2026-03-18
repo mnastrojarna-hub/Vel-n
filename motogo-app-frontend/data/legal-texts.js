@@ -42,9 +42,8 @@ const TEXTS = {
         Pokud nebylo zabezpečeno → <strong>plná tržní hodnota motorky</strong>.
       </div>`,
 
-  sosKradezNahradni: `<div style="font-size:12px;font-weight:700;color:var(--gd);line-height:1.7;">
-        🏍️ <strong>Po vyřešení s policií:</strong><br>
-        MotoGo24 vám zajistí náhradní motorku. Přistavení se v tomto případě účtuje dle km (1 000 Kč + 20 Kč/km) – krádež není provozní závada.
+  sosKradezNahradni: `<div style="font-size:13px;font-weight:800;color:#92400e;line-height:1.7;text-align:center;">
+        POKUD CHCETE NOVOU MOTORKU UDĚLEJTE NOVOU REZERVACI
       </div>`,
 
   // ── SOS Servis – postup (s-sos-servis) ────────────────────────────────
