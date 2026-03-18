@@ -37,5 +37,6 @@
     </platform>
     <plugin name="cordova-plugin-whitelist" spec="1" />
     <plugin name="cordova-plugin-statusbar" spec="4" />
+    <plugin name="cordova-plugin-geolocation" spec="5" />
     <engine name="android" spec="13.0.0" />
 </widget>
