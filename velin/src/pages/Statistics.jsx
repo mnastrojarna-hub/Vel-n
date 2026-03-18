@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import Button from '../components/ui/Button'
 import { supabase } from '../lib/supabase'
 import { debugAction, debugLog, debugError } from '../lib/debugLog'
+import { isRevenueEntry } from '../lib/revenueUtils'
 import RevenueChart from './statistics/RevenueChart'
 import { FleetUtilization, TopMotoRevenue, BranchComparison } from './statistics/FleetCharts'
 import { BookingsByStatus, CustomerRetention } from './statistics/BookingCharts'
@@ -22,20 +23,11 @@ export default function Statistics() {
         supabase.from('motorcycles').select('id', { count: 'exact', head: true }).eq('status', 'active'),
         supabase.from('accounting_entries').select('type, amount, category, description'),
       ]))
-      // Revenue classification — same logic as Dashboard (type + keyword matching)
-      const REVENUE_CATS = ['pronájem', 'pronajem', 'rezervace', 'booking', 'rental']
-      const REVENUE_DESCS = ['platba za rezervaci', 'platba za pronájem', 'příjem z pronájmu']
-      const isRevenue = (e) => {
-        const cat = (e.category || '').toLowerCase()
-        const desc = (e.description || '').toLowerCase()
-        if (e.type === 'revenue') return true
-        return REVENUE_CATS.some(rc => cat.includes(rc)) || REVENUE_DESCS.some(rd => desc.includes(rd))
-      }
       setStats({
         bookings: bk.count || 0,
         customers: pr.count || 0,
         motos: mo.count || 0,
-        revenue: (ae.data || []).filter(e => isRevenue(e)).reduce((s, e) => s + Math.abs(e.amount || 0), 0),
+        revenue: (ae.data || []).filter(e => isRevenueEntry(e)).reduce((s, e) => s + Math.abs(e.amount || 0), 0),
       })
     } catch (e) { debugError('statistics.quickStats', 'Statistics', e) }
   }
