@@ -19,6 +19,19 @@ function _resolveSession(cb){
         cb(false);
         return;
       }
+      // Odmítni cached session starší než 5 minut — vynutí revalidaci
+      try {
+        var raw = localStorage.getItem('mg_current_session');
+        if(raw){
+          var cached = JSON.parse(raw);
+          if(cached.created_at){
+            var age = Date.now() - new Date(cached.created_at).getTime();
+            if(age > 5 * 60 * 1000){
+              localStorage.removeItem('mg_current_session');
+            }
+          }
+        }
+      } catch(e){}
       // CRITICAL: getSession() returns CACHED data — verify JWT is valid server-side
       supabase.auth.getUser().then(function(userResult){
         if(!userResult.data || !userResult.data.user){
@@ -55,13 +68,23 @@ function _resolveSession(cb){
   cb(false);
 }
 
-// Force clean logout — clear all session data to prevent stale logins
+// Force clean logout — clear ALL session data SYNCHRONOUSLY to prevent stale logins
 function _forceCleanLogout(){
+  try {
+    // Synchronní cleanup VŠECH session-related localStorage klíčů PŘED čímkoli jiným
+    var keysToRemove = [
+      'mg_current_session', 'mg_user_id', 'mg_bio_enabled', 'mg_bio_user',
+      'mg_docs_verified', 'mg_scan_token', 'mg_reservations', 'mg_sos_fab_dismissed'
+    ];
+    for(var i = 0; i < keysToRemove.length; i++){
+      try { localStorage.removeItem(keysToRemove[i]); } catch(e2){}
+    }
+  } catch(e){}
+  // Async signOut po synchronním cleanup
   try {
     if(typeof supabase !== 'undefined' && supabase){
       supabase.auth.signOut().catch(function(){});
     }
-    localStorage.removeItem('mg_current_session');
   } catch(e){}
 }
 
@@ -170,6 +193,13 @@ function initApp(){
 
   // Load header banner from app_settings (public, no auth needed)
   if(typeof apiFetchHeaderBanner==='function') apiFetchHeaderBanner();
+
+  // Ping Supabase at startup — show offline overlay if unreachable
+  if(typeof OfflineGuard!=='undefined' && OfflineGuard.pingSupabase){
+    OfflineGuard.pingSupabase(function(ok){
+      if(!ok) OfflineGuard.check();
+    });
+  }
 
   // Check for existing session (Supabase only)
   _resolveSession(function(hasSession){

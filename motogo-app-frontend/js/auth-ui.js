@@ -113,8 +113,8 @@ function doLogin(){
 
 // ===== BIOMETRIC PROMPT AFTER REGISTRATION =====
 function showBiometricPrompt(){
-  var ov=document.getElementById('bio-prompt-overlay');
-  if(!ov){ov=document.createElement('div');ov.id='bio-prompt-overlay';ov.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:20px;';document.querySelector('.phone').appendChild(ov);}
+  var old=document.getElementById('bio-prompt-overlay');if(old)old.remove();
+  var ov=document.createElement('div');ov.id='bio-prompt-overlay';ov.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:20px;';document.querySelector('.phone').appendChild(ov);
   ov.innerHTML='<div style="background:#fff;border-radius:18px;padding:24px;max-width:320px;width:100%;text-align:center;">'+
     '<div style="font-size:48px;margin-bottom:12px;">🔐</div>'+
     '<div style="font-size:18px;font-weight:900;color:var(--black);margin-bottom:6px;">'+_t('auth').bioPromptTitle+'</div>'+
@@ -142,8 +142,8 @@ function enableBiometric(yes){
 
 // Gentle, informative hint to upload documents after registration
 function _showDocsHint(){
-  var ov=document.getElementById('docs-hint-overlay');
-  if(!ov){ov=document.createElement('div');ov.id='docs-hint-overlay';ov.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;padding:20px;';document.querySelector('.phone').appendChild(ov);}
+  var old=document.getElementById('docs-hint-overlay');if(old)old.remove();
+  var ov=document.createElement('div');ov.id='docs-hint-overlay';ov.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;padding:20px;';document.querySelector('.phone').appendChild(ov);
   ov.innerHTML='<div style="background:#fff;border-radius:18px;padding:24px;max-width:320px;width:100%;text-align:center;">'+
     '<div style="font-size:42px;margin-bottom:10px;">🎉</div>'+
     '<div style="font-size:18px;font-weight:900;color:var(--black);margin-bottom:6px;">Registrace dokončena!</div>'+
@@ -431,6 +431,10 @@ function doLogout(){
       authSignOut().catch(function(e){ console.error('doLogout supabase:', e); });
     }
     try { localStorage.removeItem('mg_current_session'); } catch(e){}
+    // Clear cart & shop state
+    if(typeof clearCart==='function') clearCart(true);
+    // Cleanup realtime subscriptions
+    if(typeof cleanupRealtimeChannels==='function') cleanupRealtimeChannels();
     // Clear stale DOM data to prevent ghost profile after bio login
     var homeNameEl = document.getElementById('home-user-name');
     if(homeNameEl) homeNameEl.textContent = '';

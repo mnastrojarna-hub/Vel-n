@@ -54,7 +54,22 @@ async function finalizeCheckout(){
   }
   var shipCost=shipMode==='post'?99:0;
   var finalTotal=Math.max(0, subtotal+shipCost-shopDiscountAmt);
-  if(finalTotal<=0){showT('\u26a0\ufe0f','Chyba','Celková cena musí být vyšší než 0 Kč');return;}
+  if(finalTotal===0 && shopDiscountAmt>0){showT('\u2139\ufe0f','100% sleva','Objednávka je plně pokryta slevou');}
+  else if(finalTotal<=0){showT('\u26a0\ufe0f','Chyba','Celková cena musí být vyšší než 0 Kč');return;}
+  // Validate stock before checkout
+  if(window.supabase){
+    for(var si=0;si<cart.length;si++){
+      var ci=cart[si];var baseId=ci.id.split('-')[0];
+      try{
+        var sr=await window.supabase.from('products').select('stock_quantity,name').eq('id',baseId).single();
+        if(sr.data && sr.data.stock_quantity!==null && sr.data.stock_quantity<ci.qty){
+          showT('\u26a0\ufe0f','Nedostatek skladu',(sr.data.name||ci.name)+': skladem '+sr.data.stock_quantity+' ks');
+          if(sr.data.stock_quantity<=0){cart=cart.filter(function(x){return x.id!==ci.id;});updateCartFab();}
+          return;
+        }
+      }catch(se){}
+    }
+  }
   showT('\ud83d\udcb3',_t('cart').processing,_t('cart').pleaseWait);
 
   var orderSuccess = false;

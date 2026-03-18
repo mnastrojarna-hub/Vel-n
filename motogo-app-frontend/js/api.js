@@ -1,6 +1,15 @@
 // ===== API.JS – Supabase API vrstva pro MotoGo24 =====
 // Všechny api* funkce volané z UI. Vyžaduje supabaseClient.js (window.supabase).
 
+// ===== REALTIME SINGLETON =====
+var _bannerChannel = null;
+function cleanupRealtimeChannels(){
+  if(_bannerChannel && window.supabase){
+    try { window.supabase.removeChannel(_bannerChannel); } catch(e){}
+    _bannerChannel = null;
+  }
+}
+
 // ===== HEADER BANNER =====
 function _applyBannerConfig(cfg){
   if(!cfg || !cfg.enabled || !cfg.text) {
@@ -29,19 +38,21 @@ async function apiFetchHeaderBanner(){
     var cfg = typeof r.data.value === 'string' ? JSON.parse(r.data.value) : r.data.value;
     _applyBannerConfig(cfg);
 
-    // Realtime subscription — banner se aktualizuje okamžitě po změně v admin dashboardu
-    try {
-      window.supabase.channel('header-banner-changes')
-        .on('postgres_changes', {event: '*', schema: 'public', table: 'app_settings', filter: 'key=eq.header_banner'}, function(payload){
-          try {
-            var newVal = payload.new && payload.new.value;
-            if(!newVal) return;
-            var newCfg = typeof newVal === 'string' ? JSON.parse(newVal) : newVal;
-            _applyBannerConfig(newCfg);
-          } catch(re){ console.warn('[API] banner realtime:', re); }
-        })
-        .subscribe();
-    } catch(se){ /* realtime optional */ }
+    // Realtime subscription (singleton) — banner se aktualizuje okamžitě
+    if(!_bannerChannel){
+      try {
+        _bannerChannel = window.supabase.channel('header-banner-changes')
+          .on('postgres_changes', {event: '*', schema: 'public', table: 'app_settings', filter: 'key=eq.header_banner'}, function(payload){
+            try {
+              var newVal = payload.new && payload.new.value;
+              if(!newVal) return;
+              var newCfg = typeof newVal === 'string' ? JSON.parse(newVal) : newVal;
+              _applyBannerConfig(newCfg);
+            } catch(re){ console.warn('[API] banner realtime:', re); }
+          })
+          .subscribe();
+      } catch(se){ /* realtime optional */ }
+    }
   } catch(e){ console.warn('[API] banner:', e); }
 }
 
@@ -240,7 +251,6 @@ async function apiProcessPayment(bookingId, amount, method){
       p_booking_id: bookingId,
       p_method: payMethod
     });
-    // RPC může vrátit data jako objekt NEBO jako JSON string (záleží na verzi klienta)
     var rpcData = rpcResult.data;
     if(typeof rpcData === 'string'){
       try { rpcData = JSON.parse(rpcData); } catch(pe){}
@@ -248,7 +258,6 @@ async function apiProcessPayment(bookingId, amount, method){
     if(rpcData && (rpcData.success === true || rpcData === true)){
       return {success:true, transaction_id: rpcData.transaction_id || null};
     }
-    // Pokud RPC vrátila data bez chyby = úspěch (funkce provedla UPDATE i bez explicit success)
     if(!rpcResult.error && rpcData !== null && rpcData !== undefined){
       return {success:true};
     }
@@ -259,77 +268,9 @@ async function apiProcessPayment(bookingId, amount, method){
     console.warn('[API] RPC fallback failed:', e.message);
   }
 
-  // 3) Poslední fallback: přímý DB update (select pro ověření)
-  try {
-    // Zjisti start_date pro určení cílového stavu
-    var bk = await window.supabase.from('bookings').select('start_date').eq('id', bookingId).single();
-    var startsToday = false;
-    if(bk.data && bk.data.start_date){
-      var sd = new Date(bk.data.start_date); sd.setHours(0,0,0,0);
-      var today = new Date(); today.setHours(0,0,0,0);
-      startsToday = sd <= today;
-    }
-    var updateData = {
-      payment_status: 'paid',
-      payment_method: payMethod,
-      status: startsToday ? 'active' : 'reserved',
-      confirmed_at: new Date().toISOString()
-    };
-    if(startsToday) updateData.picked_up_at = new Date().toISOString();
-    var r = await window.supabase.from('bookings').update(updateData).eq('id', bookingId).select('id').single();
-    if(!r.error && r.data){
-      return {success:true};
-    }
-    // RLS může blokovat – zkus přes service role RPC
-    console.warn('[API] Direct DB update failed:', r.error ? r.error.message : 'no rows');
-  } catch(e){
-    console.warn('[API] Direct DB update exception:', e.message);
-  }
-
-  // 4) Záložní RPC pro případ RLS blokace
-  try {
-    var rpc2 = await window.supabase.rpc('confirm_payment', {
-      p_booking_id: bookingId,
-      p_method: payMethod
-    });
-    var rpc2Data = rpc2.data;
-    if(typeof rpc2Data === 'string'){
-      try { rpc2Data = JSON.parse(rpc2Data); } catch(pe){}
-    }
-    if(!rpc2.error || (rpc2Data && rpc2Data.success === true)){
-      return {success:true};
-    }
-    console.warn('[API] RPC retry failed:', rpc2.error ? rpc2.error.message : 'unknown');
-  } catch(e){
-    console.warn('[API] RPC retry exception:', e.message);
-  }
-
-  // 5) Poslední záchrana: minimální update jen payment_status (obejde potenciální trigger problém)
-  try {
-    var minUpdate = await window.supabase.from('bookings')
-      .update({ payment_status: 'paid', payment_method: payMethod })
-      .eq('id', bookingId)
-      .select('id').single();
-    if(!minUpdate.error && minUpdate.data){
-      // Druhý update pro status (separátně aby trigger nehavaroval na komplexním update)
-      var bk2 = await window.supabase.from('bookings').select('start_date').eq('id', bookingId).single();
-      var st = false;
-      if(bk2.data && bk2.data.start_date){
-        var sd2 = new Date(bk2.data.start_date); sd2.setHours(0,0,0,0);
-        var td2 = new Date(); td2.setHours(0,0,0,0);
-        st = sd2 <= td2;
-      }
-      await window.supabase.from('bookings')
-        .update({ status: st ? 'active' : 'reserved', confirmed_at: new Date().toISOString() })
-        .eq('id', bookingId);
-      return {success:true};
-    }
-  } catch(e){
-    console.warn('[API] Minimal fallback failed:', e.message);
-  }
-
-  console.error('[API] All payment methods failed');
-  return {success:false, error: 'Platba se nezdařila – zkuste to znovu'};
+  // Obě vrstvy selhaly — jasná chyba uživateli
+  console.error('[API] Payment failed (Edge Function + RPC)');
+  return {success:false, error: 'Platba se nepodařila. Kontaktujte podporu: info@motogo24.cz'};
 }
 
 async function apiCancelBooking(bookingId, reason){
@@ -1883,21 +1824,17 @@ async function apiVerifyDocs(ocrData){
 }
 
 // ===== Check license compatibility for a motorcycle =====
-async function apiCheckLicenseForMoto(motoId, rentalEndDate){
+async function apiCheckLicenseForMoto(motoId, endDate){
   _ensureSupabase();
-  if(!window.supabase) return {allowed:false, reason:'Offline'};
+  if(!window.supabase) return {allowed:true};
   try {
-    var params = {p_moto_id: motoId};
-    if(rentalEndDate){
-      // Accept Date object or ISO string — convert to YYYY-MM-DD
-      var d = rentalEndDate instanceof Date ? rentalEndDate : new Date(rentalEndDate);
-      if(!isNaN(d.getTime())){
-        params.p_rental_end = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-      }
-    }
-    var r = await window.supabase.rpc('check_license_for_moto', params);
-    if(r.error) return {allowed:false, reason:r.error.message};
-    var data = typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
-    return data;
+    var moto = await window.supabase.from('motorcycles').select('license_required').eq('id', motoId).single();
+    if(!moto.data) return {allowed:true};
+    var required = moto.data.license_required;
+    if(!required || required === 'N') return {allowed:true};
+    var profile = await apiFetchProfile();
+    if(!profile || !profile.license_group) return {allowed:false, reason:'Nemáte vyplněný řidičský průkaz'};
+    if(profile.license_group.indexOf(required) !== -1) return {allowed:true};
+    return {allowed:false, reason:'Pro tuto motorku potřebujete skupinu ' + required};
   } catch(e){ return {allowed:false, reason:'Chyba kontroly oprávnění'}; }
 }

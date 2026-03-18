@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { supabase } from '../../lib/supabase'
+import { isRevenueEntry } from '../../lib/revenueUtils'
 
 import Card from '../../components/ui/Card'
 
@@ -27,22 +28,12 @@ export default function RevenueChart() {
       .select('type, amount, date, category, description')
       .gte('date', months[0].start)
 
-    // Revenue classification — same logic as Dashboard (type + keyword matching)
-    const REVENUE_CATS = ['pronájem', 'pronajem', 'rezervace', 'booking', 'rental']
-    const REVENUE_DESCS = ['platba za rezervaci', 'platba za pronájem', 'příjem z pronájmu']
-    const isRevenue = (e) => {
-      const cat = (e.category || '').toLowerCase()
-      const desc = (e.description || '').toLowerCase()
-      if (e.type === 'revenue') return true
-      return REVENUE_CATS.some(rc => cat.includes(rc)) || REVENUE_DESCS.some(rd => desc.includes(rd))
-    }
-
     const chart = months.map(m => {
       const mEntries = (entries || []).filter(e => e.date >= m.start && e.date <= m.end)
       return {
         name: m.label,
-        tržby: mEntries.filter(e => isRevenue(e)).reduce((s, e) => s + Math.abs(e.amount || 0), 0),
-        náklady: mEntries.filter(e => !isRevenue(e)).reduce((s, e) => s + Math.abs(e.amount || 0), 0),
+        tržby: mEntries.filter(e => isRevenueEntry(e)).reduce((s, e) => s + Math.abs(e.amount || 0), 0),
+        náklady: mEntries.filter(e => !isRevenueEntry(e)).reduce((s, e) => s + Math.abs(e.amount || 0), 0),
       }
     })
     setData(chart)

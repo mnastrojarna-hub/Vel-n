@@ -10,6 +10,7 @@ import { Table, TRow, TH, TD } from '../components/ui/Table'
 import InvoicesTab from './accounting/InvoicesTab'
 import TaxTab from './accounting/TaxTab'
 import ReceivedInvoicesTab from './accounting/ReceivedInvoicesTab'
+import { classifyEntry } from '../lib/revenueUtils'
 
 const PERIODS = [
   { value: 'month', label: 'Měsíc' },
@@ -22,22 +23,6 @@ const TYPES = [
   { value: 'revenue', label: 'Příjmy' },
   { value: 'expense', label: 'Výdaje' },
 ]
-
-// Kategorie, které jsou VŽDY příjmy (i když type = 'expense')
-const REVENUE_CATEGORIES = ['pronájem', 'pronajem', 'rezervace', 'booking', 'rental']
-// Popisy, které indikují příjem
-const REVENUE_DESCRIPTIONS = ['platba za rezervaci', 'platba za pronájem', 'příjem z pronájmu']
-
-function classifyEntry(entry) {
-  const cat = (entry.category || '').toLowerCase()
-  const desc = (entry.description || '').toLowerCase()
-  // If category or description matches revenue patterns, it's revenue
-  if (REVENUE_CATEGORIES.some(rc => cat.includes(rc)) ||
-      REVENUE_DESCRIPTIONS.some(rd => desc.includes(rd))) {
-    return 'revenue'
-  }
-  return entry.type || 'expense'
-}
 
 const FINANCE_TABS = ['Přehled', 'Faktury', 'Daňové podklady', 'Faktury přijaté']
 
