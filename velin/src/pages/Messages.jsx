@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
+import { useDebugMode } from '../hooks/useDebugMode'
 import ThreadList from './messages/ThreadList'
 import ChatPanel from './messages/ChatPanel'
 import Modal from '../components/ui/Modal'
 import Button from '../components/ui/Button'
 
 export default function Messages() {
+  const debugMode = useDebugMode()
   const [selected, setSelected] = useState(null)
   const [showNew, setShowNew] = useState(false)
   const [customers, setCustomers] = useState([])
@@ -81,11 +83,13 @@ export default function Messages() {
   return (
     <>
       {/* DIAGNOSTIKA */}
+      {debugMode && (
       <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA Messages</strong><br/>
         <div>selected thread: {selected ? `${selected.id?.slice(-8)} (${selected.profiles?.full_name || selected.customer_id?.slice(-8) || '—'})` : 'žádný'}</div>
         <div>customers loaded: {customers.length}, newThread modal: {String(showNew)}</div>
       </div>
+      )}
 
       <div className="flex bg-white rounded-card shadow-card overflow-hidden" style={{ height: 'calc(100vh - 140px)' }}>
         {/* Thread list — left panel */}

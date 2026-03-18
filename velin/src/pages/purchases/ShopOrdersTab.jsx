@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { debugAction } from '../../lib/debugLog'
+import { useDebugMode } from '../../hooks/useDebugMode'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import Pagination from '../../components/ui/Pagination'
@@ -43,6 +44,7 @@ const PAYMENT_COLORS = {
 }
 
 export default function ShopOrdersTab() {
+  const debugMode = useDebugMode()
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
@@ -111,11 +113,13 @@ export default function ShopOrdersTab() {
       </div>
 
       {/* DIAGNOSTIKA */}
+      {debugMode && (
       <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA ShopOrdersTab</strong><br/>
         <div>orders: {orders.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
         <div>filtry: statuses={filters.statuses?.length > 0 ? filters.statuses.join(',') : 'vše'}, search="{filters.search}"</div>
       </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>

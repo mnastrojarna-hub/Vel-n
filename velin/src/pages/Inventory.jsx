@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
+import { useDebugMode } from '../hooks/useDebugMode'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
 import Button from '../components/ui/Button'
 import SearchInput from '../components/ui/SearchInput'
@@ -11,6 +12,7 @@ import Modal from '../components/ui/Modal'
 const PER_PAGE = 25
 
 export default function Inventory() {
+  const debugMode = useDebugMode()
   const navigate = useNavigate()
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
@@ -88,6 +90,7 @@ export default function Inventory() {
       </div>
 
       {/* DIAGNOSTIKA */}
+      {debugMode && (
       <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA Inventory</strong><br/>
         <div>items: {items.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
@@ -95,6 +98,7 @@ export default function Inventory() {
         <div>lowStock: {items.filter(i => i.stock <= i.min_stock).length} položek pod minimem</div>
         {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>
+      )}
 
       {error && <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
 

@@ -24,6 +24,17 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
+    // Načtení firemních údajů z app_settings
+    let companyInfo = { name: 'Bc. Petra Semorádová', address: 'Mezná 9, 393 01 Mezná', ico: '21874263', dic: '' }
+    try {
+      const { data: settings } = await supabase
+        .from('app_settings').select('value').eq('key', 'company_info').limit(1)
+      const info = settings?.[0]?.value
+      if (info && info.name) {
+        companyInfo = { name: info.name, address: info.address || companyInfo.address, ico: info.ico || companyInfo.ico, dic: info.dic || '' }
+      }
+    } catch (e) { console.warn('Failed to load company_info:', e) }
+
     // Load template from DB (avoid .single() — errors on 0 or 2+ rows)
     const { data: templates, error: tErr } = await supabase
       .from('document_templates')
@@ -91,10 +102,10 @@ serve(async (req) => {
       booking_id: booking_id.slice(0, 8),
       booking_number: booking_id.slice(0, 8).toUpperCase(),
       today: fmtDate(new Date().toISOString()),
-      company_name: 'Bc. Petra Semorádová',
-      company_address: 'Mezná 9, 393 01 Mezná',
-      company_ico: '21874263',
-      company_dic: '',
+      company_name: companyInfo.name,
+      company_address: companyInfo.address,
+      company_ico: companyInfo.ico,
+      company_dic: companyInfo.dic,
     }
 
     // Substitute variables in template HTML

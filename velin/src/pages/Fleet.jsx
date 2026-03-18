@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
+import { useDebugMode } from '../hooks/useDebugMode'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
 import Button from '../components/ui/Button'
 import StatusBadge from '../components/ui/StatusBadge'
@@ -23,6 +24,7 @@ const CATEGORIES = [
 const CAT_LABELS = { cestovni: 'Cestovní', sportovni: 'Sportovní', naked: 'Naked', chopper: 'Chopper', detske: 'Dětské' }
 
 export default function Fleet() {
+  const debugMode = useDebugMode()
   const navigate = useNavigate()
   const [motos, setMotos] = useState([])
   const [branches, setBranches] = useState([])
@@ -201,6 +203,7 @@ export default function Fleet() {
       )}
 
       {/* DIAGNOSTIKA */}
+      {debugMode && (
       <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA Fleet</strong><br/>
         <div>motorcycles: {motos.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
@@ -208,6 +211,7 @@ export default function Fleet() {
         <div>branches: {branches.length}, todayOccupied: {todayOccupied.size}, bookingCounts: {Object.keys(bookingCounts).length} motorek</div>
         {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-16">

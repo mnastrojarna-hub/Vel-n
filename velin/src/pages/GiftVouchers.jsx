@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
+import { useDebugMode } from '../hooks/useDebugMode'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
 import Button from '../components/ui/Button'
 import SearchInput from '../components/ui/SearchInput'
@@ -18,6 +19,7 @@ const CATEGORIES = [
 ]
 
 export default function GiftVouchers() {
+  const debugMode = useDebugMode()
   const [vouchers, setVouchers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -165,6 +167,7 @@ export default function GiftVouchers() {
   return (
     <div>
       {/* DIAGNOSTIKA */}
+      {debugMode && (
       <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA GiftVouchers</strong><br/>
         <div>vouchers: {vouchers.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
@@ -173,6 +176,7 @@ export default function GiftVouchers() {
         <div>filtry: status={filters.statuses?.length > 0 ? filters.statuses.join(',') : 'vše'}, search="{filters.search}"</div>
         {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>
+      )}
 
       {/* Summary */}
       <div className="grid grid-cols-5 gap-3 mb-5">

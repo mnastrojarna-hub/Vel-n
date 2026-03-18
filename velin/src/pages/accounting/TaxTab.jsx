@@ -4,6 +4,7 @@ import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import Card from '../../components/ui/Card'
+import { useDebugMode } from '../../hooks/useDebugMode'
 
 const STATUS_OPTIONS = [
   { value: 'submitted', label: 'Odesláno' },
@@ -11,6 +12,7 @@ const STATUS_OPTIONS = [
 ]
 
 export default function TaxTab() {
+  const debugMode = useDebugMode()
   const [records, setRecords] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -128,12 +130,14 @@ export default function TaxTab() {
       </div>
 
       {/* DIAGNOSTIKA */}
+      {debugMode && (
       <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA TaxTab</strong><br/>
         <div>records: {filtered.length} zobrazeno / {records.length} celkem</div>
         <div>filtry: statuses={filters.statuses?.length > 0 ? filters.statuses.join(',') : 'vše'}, sort={filters.sort}, search="{filters.search}"</div>
         {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>
+      )}
 
       {error && <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
 

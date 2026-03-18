@@ -421,23 +421,23 @@ Detailní politiky:
 
 ## 8. EDGE FUNKCE (20 deployovaných)
 
-### V repozitáři (7)
+### V repozitáři (8)
 
 | Funkce | Popis |
 |--------|-------|
+| `admin-auth` | Autentizace a auto-provisioning admin uživatelů (ověření JWT + insert do admin_users přes service role) |
 | `send-booking-email` | Odesílá branded HTML emaily (booking_reserved, booking_completed, booking_modified, voucher_purchased) |
-| `generate-invoice` | Generuje proforma/finální fakturu (ZF-/FV-YYYY-NNNN) |
-| `generate-document` | Generuje dokumenty z šablon (rental_contract, handover_protocol) |
+| `generate-invoice` | Generuje proforma/finální fakturu (ZF-/FV-YYYY-NNNN). Firemní údaje načítá z app_settings (company_info) |
+| `generate-document` | Generuje dokumenty z šablon (rental_contract, handover_protocol). Firemní údaje načítá z app_settings (company_info) |
 | `send-cancellation-email` | Email o stornování rezervace s "obnovit" CTA |
 | `admin-reset-password` | Admin reset hesla zákazníka |
 | `process-payment` | SIMULOVANÁ platební brána (DEV ONLY, 90% úspěšnost) |
 | `scan-document` | OCR skenování dokladů (OP, ŘP, pas) přes Mindee API. Přijímá base64 JPEG + document_type (id/dl/passport), vrací strukturovaná data (jméno, datum narození, adresa, číslo ŘP, kategorie atd.). Retry 3×, loguje do debug_log |
 
-### Pouze v Supabase dashboardu (13 dalších)
+### Pouze v Supabase dashboardu (12 dalších)
 
 | Funkce | Popis |
 |--------|-------|
-| `admin-auth` | Autentizace admin uživatelů |
 | `ai-copilot` | AI Copilot pro Velín dashboard |
 | `bright-endpoint` | Bright Data endpoint |
 | `cms-sync` | Synchronizace CMS obsahu |
@@ -641,4 +641,5 @@ Detailní politiky:
 | 2026-03-17 | **FIX: Mindee OCR document recognition:** 1) Nová Edge Function `scan-document` v repozitáři — správná integrace Mindee API (international_id/v2 pro OP+ŘP, passport/v1 pro pasy). Multipart upload, retry 3×, logování do debug_log. 2) Frontend: strip data URI prefix z base64 před odesláním. 3) Auto-save OCR dat do profiles tabulky (jméno, datum narození, adresa, číslo ŘP, kategorie, expirace). 4) Upload fotek dokladů do Supabase storage (`documents` bucket, `user-docs/{uid}/`). 5) Nové API funkce: `apiSaveOcrToProfile()`, `apiUploadDocPhoto()`. 6) Po dokončení skenu automatický refresh profilu z DB |
 | 2026-03-17 | **FIX: Nepřečtené zprávy v konverzacích:** 1) Nové RPC `mark_thread_messages_read(p_thread_id)` — SECURITY DEFINER, označí admin zprávy jako přečtené (read_at=now). 2) Nové RPC `get_unread_thread_message_count(p_customer_id)` — vrací počet nepřečtených admin zpráv. 3) Frontend fix: `apiFetchMyThreads()` nyní načítá i `read_at` sloupec (dříve chyběl → badge vždy ukazoval nepřečtené) |
 | 2026-03-17 | **NEW: Produkty v e-shopu:** 1) Nová tabulka `products` (name, description, price, images[], sizes[], sku, stock_quantity, category, color, material, is_active, sort_order). RLS: public SELECT, admin ALL. Realtime. Trigger `trg_products_updated`. 2) Velín: nový tab „Produkty" v E-shop sekci s kompletním CRUD (přidání, editace, smazání, toggle aktivní/neaktivní). 3) Mobilní app: `templates-shop.js` přepsán — produkty se načítají dynamicky z DB místo hardcoded MERCH_ITEMS. Dynamické velikosti z DB. Kontrola skladového množství (vyprodáno). 4) Seed 4 existujících produktů (Snapback čepice, Tričko Classic, Hoodie Premium, Tričko Ride Hard) |
+| 2026-03-18 | **SECURITY: Odstranění Service Role Key z frontendu:** 1) `useAdmin.js` — odstraněn hardcoded service_role klient, hook nyní používá pouze anon key z `supabase.js`. Auto-provisioning přesunut do Edge Function `admin-auth`. 2) `admin-auth` Edge Function přidána do repozitáře — ověří JWT, vytvoří admin_users záznam přes service role (server-side). 3) `supabase.js` — exportuje `supabaseUrl` a `supabaseAnonKey` jako jedinou instanci. 4) `generate-invoice` a `generate-document` nyní načítají firemní údaje z `app_settings` (key: company_info) místo hardcoded konstant. 5) Všechny DIAGNOSTIKA panely ve Velínu (26 souborů) schované za `useDebugMode()` hook — zobrazí se jen přes URL `?debug=1`, localStorage `debug_mode=1`, nebo feature flag `debug_mode` v DB. 6) Dashboard: ISO datumy formátovány přes `toLocaleDateString('cs-CZ')` |
 | 2026-03-17 | **FIX: Přístupové kódy — automatický lifecycle:** 1) Nové trigger funkce `auto_generate_door_codes()` — auto-generuje 2 kódy (motorcycle+accessories) při přechodu bookingu na 'active'. Kontroluje doklady, posílá kódy jako admin_message. 2) `auto_deactivate_door_codes()` — deaktivuje kódy při přechodu na 'completed'/'cancelled'. 3) Triggery: `trg_auto_generate_door_codes` (UPDATE), `trg_auto_generate_door_codes_insert` (INSERT), `trg_auto_deactivate_door_codes` (UPDATE). 4) Jednorázový cleanup: deaktivace kódů u existujících dokončených/zrušených rezervací. 5) Mobilní app: `_autoActivateAndCompleteBookings()` — automatická aktivace reserved+paid bookingů a dokončení expired bookingů při otevření rezervací (nečeká na Velín nebo cron) |

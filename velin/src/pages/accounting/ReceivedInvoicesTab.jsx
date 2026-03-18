@@ -7,6 +7,7 @@ import Badge from '../../components/ui/Badge'
 import Modal from '../../components/ui/Modal'
 import SearchInput from '../../components/ui/SearchInput'
 import Pagination from '../../components/ui/Pagination'
+import { useDebugMode } from '../../hooks/useDebugMode'
 
 const PER_PAGE = 25
 const LS_KEY = 'velin_received_invoices_filters'
@@ -38,6 +39,7 @@ function loadFilters() {
 }
 
 export default function ReceivedInvoicesTab() {
+  const debugMode = useDebugMode()
   const [invoices, setInvoices] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -124,6 +126,7 @@ export default function ReceivedInvoicesTab() {
       />
 
       {/* DIAGNOSTIKA */}
+      {debugMode && (
       <details className="mb-4">
         <summary className="text-xs font-bold uppercase tracking-wide cursor-pointer" style={{ color: '#6b7280' }}>Diagnostika filtrů</summary>
         <div className="mt-1 p-3 rounded-card text-xs font-mono" style={{ background: '#f9fafb', border: '1px solid #e5e7eb', color: '#374151' }}>
@@ -132,6 +135,7 @@ export default function ReceivedInvoicesTab() {
           <div><strong>sort:</strong> {JSON.stringify(filters.sort)}</div>
         </div>
       </details>
+      )}
 
       {error && <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
 

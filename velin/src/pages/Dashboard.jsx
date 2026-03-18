@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { debugAction, debugLog, debugError } from '../lib/debugLog'
+import { useDebugMode } from '../hooks/useDebugMode'
 import { isRevenueEntry } from '../lib/revenueUtils'
 import Card from '../components/ui/Card'
 import Stat from '../components/ui/Stat'
@@ -127,6 +128,7 @@ function BannerEditor() {
 }
 
 export default function Dashboard() {
+  const debugMode = useDebugMode()
   const [stats, setStats] = useState(null)
   const [revenueChart, setRevenueChart] = useState([])
   const [upcomingEvents, setUpcomingEvents] = useState([])
@@ -267,7 +269,7 @@ export default function Dashboard() {
               <div className="flex-1">
                 <div className="font-bold" style={{ color: '#0f1a14' }}>{event.customer_name || 'Zákazník'}</div>
                 <div className="text-sm" style={{ color: '#1a2e22' }}>
-                  {event.motorcycle_name || 'Motorka'} · {event.start_date}→{event.end_date}
+                  {event.motorcycle_name || 'Motorka'} · {new Date(event.start_date).toLocaleDateString('cs-CZ')} – {new Date(event.end_date).toLocaleDateString('cs-CZ')}
                 </div>
               </div>
               <div className="text-right">
@@ -347,6 +349,7 @@ export default function Dashboard() {
         </div>
       )}
       {/* DIAGNOSTIKA */}
+      {debugMode && (
       <div className="mt-4 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA Dashboard</strong><br/>
         <div>motorcycles: {stats.totalMotos} (active: {stats.activeMotos}, využití: {stats.utilization}%)</div>
@@ -360,6 +363,7 @@ export default function Dashboard() {
         <div>revenueChart: {revenueChart.filter(v => v > 0).length}/12 měsíců s daty</div>
         <div>upcomingEvents: {upcomingEvents.length} záznamů</div>
       </div>
+      )}
       <ExportBar />
     </div>
   )

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { debugAction, debugLog, debugError } from '../../lib/debugLog'
+import { useDebugMode } from '../../hooks/useDebugMode'
 import { generateInvoiceNumber, calculateTotals } from '../../lib/invoiceUtils'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
@@ -32,6 +33,7 @@ const TYPE_OPTIONS = [
 ]
 
 export default function InvoicesTab() {
+  const debugMode = useDebugMode()
   const [invoices, setInvoices] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -157,12 +159,14 @@ export default function InvoicesTab() {
       </div>
 
       {/* DIAGNOSTIKA */}
+      {debugMode && (
       <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA AccInvoicesTab</strong><br/>
         <div>invoices: {invoices.length} zobrazeno / {total} celkem (strana {page}/{totalPages || 1})</div>
         <div>filtry: types={filters.types?.length > 0 ? filters.types.join(',') : 'vše'}, sort={filters.sort}, search="{filters.search}"</div>
         {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>
+      )}
 
       {error && <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
 

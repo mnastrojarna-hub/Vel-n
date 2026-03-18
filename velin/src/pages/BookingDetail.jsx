@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
+import { useDebugMode } from '../hooks/useDebugMode'
 import { generateAdvanceInvoice, generatePaymentReceipt, generateFinalInvoice } from '../lib/invoiceUtils'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
@@ -71,6 +72,7 @@ const CANCEL_REASONS = [
 ]
 
 export default function BookingDetail() {
+  const debugMode = useDebugMode()
   const { id } = useParams()
   const navigate = useNavigate()
   const [booking, setBooking] = useState(null)
@@ -463,6 +465,7 @@ export default function BookingDetail() {
         ))}
       </div>
       {/* DIAGNOSTIKA */}
+      {debugMode && (
       <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA BookingDetail (#{id?.slice(-8)})</strong><br/>
         <div>booking: status={booking.status}, payment={booking.payment_status}, price={booking.total_price} Kč</div>
@@ -473,6 +476,7 @@ export default function BookingDetail() {
         <div>flags: sos_replacement={String(!!booking.sos_replacement)}, ended_by_sos={String(!!booking.ended_by_sos)}</div>
         {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>
+      )}
       {tab === 'Detail' && <DetailTab booking={booking} set={set} error={error} saving={saving} actions={actions} onAction={handleAction} navigate={navigate} promoUsage={promoUsage} voucherUsed={voucherUsed} onModify={() => setShowModifyModal(true)} />}
 
       {showModifyModal && booking && (

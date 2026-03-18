@@ -6,17 +6,43 @@ const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'noreply@motogo24.cz'
 
-const COMPANY = {
+// Fallback firemních údajů — primární zdroj je app_settings (key: company_info)
+const COMPANY_FALLBACK = {
   name: 'Bc. Petra Semorádová',
   address: 'Mezná 9, 393 01 Mezná',
   ico: '21874263',
   dic: null,
-  vatPayer: false,
-  bank: 'mBank',
-  account: '670100-2225851630/6210',
+  vat_payer: false,
+  bank_account: '670100-2225851630/6210',
   phone: '+420 774 256 271',
   email: 'info@motogo24.cz',
   web: 'www.motogo24.cz',
+}
+
+async function loadCompanyInfo(supabase: any) {
+  try {
+    const { data } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'company_info')
+      .limit(1)
+    const info = data?.[0]?.value
+    if (info && info.name) {
+      return {
+        name: info.name || COMPANY_FALLBACK.name,
+        address: info.address || COMPANY_FALLBACK.address,
+        ico: info.ico || COMPANY_FALLBACK.ico,
+        dic: info.dic || null,
+        vatPayer: info.vat_payer || false,
+        bank: 'mBank',
+        account: info.bank_account || COMPANY_FALLBACK.bank_account,
+        phone: info.phone || COMPANY_FALLBACK.phone,
+        email: info.email || COMPANY_FALLBACK.email,
+        web: info.web || COMPANY_FALLBACK.web,
+      }
+    }
+  } catch (e) { console.warn('Failed to load company_info from app_settings:', e) }
+  return { ...COMPANY_FALLBACK, vatPayer: false, bank: 'mBank', account: COMPANY_FALLBACK.bank_account }
 }
 
 const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
@@ -41,6 +67,7 @@ serve(async (req) => {
     let doorCodes: any[] = []
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+    const COMPANY = await loadCompanyInfo(supabase)
 
     const invoiceType = type || 'proforma'
     const isShop = invoiceType === 'shop_proforma' || invoiceType === 'shop_final' || (order_id && !booking_id)

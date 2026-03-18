@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { debugAction, debugLog, debugError } from '../lib/debugLog'
+import { useDebugMode } from '../hooks/useDebugMode'
 import Card from '../components/ui/Card'
 import StatusBadge from '../components/ui/StatusBadge'
 import Button from '../components/ui/Button'
@@ -11,6 +12,7 @@ import ServiceLog from './service/ServiceLog'
 const TABS = ['Aktivní v servisu', 'Servisní log', 'Plánované']
 
 export default function Service() {
+  const debugMode = useDebugMode()
   const [tab, setTab] = useState('Aktivní v servisu')
   const [stats, setStats] = useState({ planned: 0, inService: 0, avgCost: 0 })
 
@@ -63,11 +65,13 @@ export default function Service() {
       </div>
 
       {/* DIAGNOSTIKA */}
+      {debugMode && (
       <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA Service</strong><br/>
         <div>planned (this month): {stats.planned}, inService: {stats.inService}, avgCost: {fmt(stats.avgCost)}</div>
         <div>tab: {tab}</div>
       </div>
+      )}
 
       <div className="flex gap-2 mb-5">
         {TABS.map(t => (

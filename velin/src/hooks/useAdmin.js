@@ -1,12 +1,5 @@
 import { useState, useEffect } from 'react'
-import { createClient } from '@supabase/supabase-js'
-import { supabase } from '../lib/supabase'
-
-// Service role klient pro auto-provision (obchází RLS) — dočasné řešení
-const supabaseAdmin = createClient(
-  'https://vnwnqteskbykeucanlhk.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZud25xdGVza2J5a2V1Y2FubGhrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjQ5MTM2MywiZXhwIjoyMDg4MDY3MzYzfQ.mTFJQZzsBBosMycHLr0pj06HrHElTQtXSUIp0UwasGs'
-)
+import { supabase, supabaseUrl, supabaseAnonKey } from '../lib/supabase'
 
 export function useAdmin(user) {
   const [admin, setAdmin] = useState(null)
@@ -30,21 +23,8 @@ export function useAdmin(user) {
       setLoading(true)
       setError(null)
       try {
-        // Nejdřív zjistíme strukturu tabulky
-        const { data: schemaCheck, error: schemaErr } = await supabaseAdmin
-          .from('admin_users')
-          .select('*')
-          .limit(0)
-
-        if (schemaErr) {
-          console.error('admin_users table check failed:', JSON.stringify(schemaErr))
-          setError(`Tabulka admin_users není dostupná: ${schemaErr.message}`)
-          setAdmin(null)
-          setLoading(false)
-          return
-        }
-
-        const { data, error: fetchError } = await supabaseAdmin
+        // Načtení admin záznamu přes anon client (RLS: is_admin())
+        const { data, error: fetchError } = await supabase
           .from('admin_users')
           .select('*')
           .eq('id', user.id)
@@ -52,22 +32,35 @@ export function useAdmin(user) {
 
         if (fetchError) {
           if (fetchError.code === 'PGRST116') {
-            // Auto-provision: první přihlášení — vytvořit admin záznam
-            // Vkládáme jen id, ostatní sloupce by měly mít default
-            const { data: created, error: insertErr } = await supabaseAdmin
-              .from('admin_users')
-              .insert({ id: user.id })
-              .select()
-              .single()
+            // Auto-provision: první přihlášení — volání Edge Function admin-auth
+            const { data: { session } } = await supabase.auth.getSession()
+            const token = session?.access_token
+            if (!token) {
+              setError('Chybí autentizační token')
+              setAdmin(null)
+              setLoading(false)
+              return
+            }
 
-            if (!insertErr && created) {
-              setAdmin(created)
-              setRole(created.role)
-              setBranchAccess(created.branch_access)
-              setPermissions(created.permissions)
+            const resp = await fetch(`${supabaseUrl}/functions/v1/admin-auth`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+                'apikey': supabaseAnonKey,
+              },
+              body: JSON.stringify({ action: 'provision' }),
+            })
+            const result = await resp.json()
+
+            if (result.success && result.admin) {
+              setAdmin(result.admin)
+              setRole(result.admin.role)
+              setBranchAccess(result.admin.branch_access)
+              setPermissions(result.admin.permissions)
             } else {
-              console.error('Auto-provision failed:', JSON.stringify(insertErr))
-              setError(`Nepodařilo se vytvořit admin účet: ${insertErr?.message || JSON.stringify(insertErr)}`)
+              console.error('Auto-provision failed:', result.error)
+              setError(`Nepodařilo se vytvořit admin účet: ${result.error || 'Neznámá chyba'}`)
               setAdmin(null)
             }
           } else {

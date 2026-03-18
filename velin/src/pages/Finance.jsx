@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
+import { useDebugMode } from '../hooks/useDebugMode'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import Badge from '../components/ui/Badge'
@@ -26,6 +27,7 @@ const TYPES = [
 const FINANCE_TABS = ['Přehled', 'Faktury', 'Daňové podklady', 'Faktury přijaté']
 
 export default function Finance() {
+  const debugMode = useDebugMode()
   const [activeTab, setActiveTab] = useState('Přehled')
   const [summary, setSummary] = useState({ revenue: 0, expense: 0, unpaid: 0 })
   const [transactions, setTransactions] = useState([])
@@ -289,12 +291,14 @@ export default function Finance() {
           )}
 
           {/* DIAGNOSTIKA */}
+          {debugMode && (
           <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
             <strong>DIAGNOSTIKA Finance</strong><br/>
             <div>invoices: {recentInvoices.length} záznamů {recentInvoices.length > 0 && `[${recentInvoices.slice(0,5).map(i => `${i.type}/${i.number}/${i.total}Kč`).join(', ')}${recentInvoices.length > 5 ? '...' : ''}]`}</div>
             <div>accounting_entries: {transactions.length} záznamů</div>
             <div>shop_orders (paid): {shopPayments.length} záznamů</div>
           </div>
+          )}
 
           {/* Invoice sums overview */}
           <Card className="mb-5">
