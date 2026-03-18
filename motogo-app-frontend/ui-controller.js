@@ -137,8 +137,15 @@ function _sosGetGPS(){
     if(!navigator.geolocation){ resolve({lat:null,lng:null}); return; }
     navigator.geolocation.getCurrentPosition(
       function(pos){ resolve({lat:pos.coords.latitude,lng:pos.coords.longitude}); },
-      function(){ resolve({lat:null,lng:null}); },
-      {enableHighAccuracy:true,timeout:10000}
+      function(){
+        // Fallback: try low accuracy
+        navigator.geolocation.getCurrentPosition(
+          function(pos){ resolve({lat:pos.coords.latitude,lng:pos.coords.longitude}); },
+          function(){ resolve({lat:null,lng:null}); },
+          {enableHighAccuracy:false,timeout:30000,maximumAge:60000}
+        );
+      },
+      {enableHighAccuracy:true,timeout:30000}
     );
   });
 }
@@ -744,8 +751,7 @@ function sosReplUpdateSummary(){
 function sosReplFillGPS(){
     if(!navigator.geolocation){ showT('❌','GPS nedostupné',''); return; }
     showT('📍','Zjišťuji polohu...','');
-    navigator.geolocation.getCurrentPosition(function(pos){
-      // Reverse geocode via Nominatim
+    function _fillAddr(pos){
       fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat='+pos.coords.latitude+'&lon='+pos.coords.longitude+'&zoom=18&addressdetails=1')
         .then(function(r){ return r.json(); })
         .then(function(data){
@@ -763,8 +769,16 @@ function sosReplFillGPS(){
           sosReplCalcDelivery();
         })
         .catch(function(){ showT('📍','GPS OK, adresu vyplňte ručně',''); });
-    }, function(){ showT('❌','Poloha nedostupná','Vyplňte adresu ručně'); },
-    {enableHighAccuracy:true, timeout:15000});
+    }
+    navigator.geolocation.getCurrentPosition(_fillAddr,
+    function(err){
+      if(err.code===1){ showT('❌','Přístup k poloze zamítnut','Povolte v nastavení'); return; }
+      showT('📍','Hledám polohu...','Zkouším alternativní metodu');
+      navigator.geolocation.getCurrentPosition(_fillAddr,
+        function(){ showT('❌','Poloha nedostupná','Vyplňte adresu ručně'); },
+        {enableHighAccuracy:false, timeout:30000, maximumAge:60000});
+    },
+    {enableHighAccuracy:true, timeout:30000});
 }
 
 // Výpočet ceny přistavení pro SOS replacement (1000 Kč + 20 Kč/km)
@@ -1279,10 +1293,10 @@ function sosShareLocation() {
                     else if (err2.code === 2) showT('❌', 'GPS nedostupné', 'Zkuste to venku nebo povolte polohu');
                     else showT('❌', 'Časový limit', 'GPS neodpovědělo – zkuste to venku');
                 },
-                { enableHighAccuracy: false, timeout: 20000, maximumAge: 60000 }
+                { enableHighAccuracy: false, timeout: 30000, maximumAge: 60000 }
             );
         },
-        { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+        { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
     );
 }
 

@@ -1048,12 +1048,50 @@ function useMyLocation(type){
       if(type==='sos-repl'&&typeof sosReplCalcDelivery==='function'){sosReplCalcDelivery();}
     });
   }, function(err){
-    if(cityEl) cityEl.value='';
-    var msg='Poloha zamítnuta';
-    if(err.code===2) msg='Poloha nedostupná';
-    if(err.code===3) msg='Vypršel čas';
-    showT('\u26a0\ufe0f','GPS',msg);
-  }, {enableHighAccuracy:true, timeout:10000, maximumAge:60000});
+    if(err.code===1){
+      if(cityEl) cityEl.value='';
+      showT('\u26a0\ufe0f','GPS','Poloha zamítnuta');
+      return;
+    }
+    // Fallback: try low accuracy
+    navigator.geolocation.getCurrentPosition(function(pos){
+      var lat=pos.coords.latitude;
+      var lng=pos.coords.longitude;
+      if(typeof AddressAPI==='undefined' || typeof AddressAPI.reverseGeocode!=='function'){
+        if(cityEl) cityEl.value='';
+        showT('\u26a0\ufe0f','Chyba','Reverzní geokódování nedostupné');
+        return;
+      }
+      AddressAPI.reverseGeocode(lat, lng, function(result){
+        if(!result){
+          if(cityEl) cityEl.value='';
+          showT('\u26a0\ufe0f','Chyba','Nepodařilo se zjistit adresu');
+          return;
+        }
+        if(cityEl) cityEl.value=result.city||'';
+        var zipEl=document.getElementById(zipInputMap[type]||'')||document.getElementById(type+'-zip');
+        if(zipEl && result.zip) zipEl.value=result.zip;
+        var addrEl=document.getElementById(addrInputMap[type]||'')||document.getElementById(type+'-addr-input')||document.getElementById(type+'-address');
+        if(addrEl){
+          var street=result.street||'';
+          if(result.houseNum) street+=(street?' ':'')+result.houseNum;
+          addrEl.value=street;
+          addrEl.dataset.lat=lat;
+          addrEl.dataset.lng=lng;
+        }
+        if(type==='pickup'||type==='return'){calcDelivery(type);}
+        if(type==='edit-pickup'&&typeof _sosCalcPickupDelivery==='function'){_sosCalcPickupDelivery();}
+        if(type==='edit-return'&&typeof calcEditDelivery==='function'){calcEditDelivery();}
+        if(type==='sos-repl'&&typeof sosReplCalcDelivery==='function'){sosReplCalcDelivery();}
+      });
+    }, function(err2){
+      if(cityEl) cityEl.value='';
+      var msg='Poloha zamítnuta';
+      if(err2.code===2) msg='Poloha nedostupná – zkuste to venku';
+      if(err2.code===3) msg='GPS neodpovědělo – zkuste to venku';
+      showT('\u26a0\ufe0f','GPS',msg);
+    }, {enableHighAccuracy:false, timeout:30000, maximumAge:60000});
+  }, {enableHighAccuracy:true, timeout:30000, maximumAge:60000});
 }
 
 function selectAddr(type,addr,city,lat,lng){
