@@ -151,13 +151,9 @@ Templates['s-sos-kradez'] = `  <div class="sos-sub-hdr" style="background:linear
     <button id="sos-kradez-report-btn" onclick="sosReportTheft()" style="width:100%;margin-top:12px;background:#7f1d1d;color:#fff;border:none;border-radius:50px;padding:16px;font-family:var(--font);font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 18px rgba(127,29,29,.4);">
       🚨 Nahlásit krádež MotoGo24
     </button>
-    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:var(--r);padding:12px;margin-top:12px;">
-      <div style="font-size:12px;font-weight:700;color:var(--gd);line-height:1.7;">
-        🏍️ <strong>Po vyřešení s policií:</strong><br>
-        MotoGo24 vám zajistí náhradní motorku. Přistavení se v tomto případě účtuje dle km (1 000 Kč + 20 Kč/km) – krádež není provozní závada.
+    <div style="background:#fff3cd;border:1px solid #fde68a;border-radius:var(--r);padding:14px;margin-top:12px;text-align:center;">
+      <div style="font-size:13px;font-weight:800;color:#92400e;line-height:1.7;">
+        POKUD CHCETE NOVOU MOTORKU UDĚLEJTE NOVOU REZERVACI
       </div>
-      <button onclick="_sosFault=true;_sosActiveIncidentId=null;sosRequestReplacement()" style="width:100%;margin-top:10px;background:var(--green);color:#fff;border:none;border-radius:50px;padding:13px;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;">
-        🏍️ Objednat náhradní motorku
-      </button>
     </div>
   </div>`;
