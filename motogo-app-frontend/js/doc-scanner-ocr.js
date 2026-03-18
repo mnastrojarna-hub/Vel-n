@@ -14,28 +14,41 @@
     return 'id';
   }
 
+  // Check if a JWT is expired (with 30s margin)
+  function _isExpired(token){
+    try {
+      var parts = token.split('.');
+      if(parts.length !== 3) return true;
+      var payload = JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
+      if(!payload.exp) return false;
+      return (payload.exp * 1000) < (Date.now() - 30000);
+    } catch(e){ return true; }
+  }
+
   // Get real JWT from Supabase SDK (not fake localStorage token)
   // Always refresh session first to avoid expired token → 401
   function _getRealToken(anonKey){
     try {
       if(window.supabase && window.supabase.auth){
-        // refreshSession() returns fresh token; if refresh fails, try getSession()
         return window.supabase.auth.refreshSession().then(function(ref){
           if(ref.data && ref.data.session && ref.data.session.access_token){
-            return { token: ref.data.session.access_token, userId: ref.data.session.user.id };
+            var t = ref.data.session.access_token;
+            if(!_isExpired(t)) return { token: t, userId: ref.data.session.user.id };
           }
-          // Refresh failed — try existing session (may still work if not expired)
+          // Refresh failed or returned expired token — try getSession
           return window.supabase.auth.getSession().then(function(r){
             if(r.data && r.data.session && r.data.session.access_token){
-              return { token: r.data.session.access_token, userId: r.data.session.user.id };
+              var t2 = r.data.session.access_token;
+              if(!_isExpired(t2)) return { token: t2, userId: r.data.session.user.id };
             }
+            // All tokens expired — use anon key (always valid)
             return { token: anonKey, userId: null };
           });
         }).catch(function(){
-          // Last resort: try getSession
           return window.supabase.auth.getSession().then(function(r){
             if(r.data && r.data.session && r.data.session.access_token){
-              return { token: r.data.session.access_token, userId: r.data.session.user.id };
+              var t3 = r.data.session.access_token;
+              if(!_isExpired(t3)) return { token: t3, userId: r.data.session.user.id };
             }
             return { token: anonKey, userId: null };
           }).catch(function(){ return { token: anonKey, userId: null }; });
@@ -88,15 +101,13 @@
       })
     })
     .then(function(resp){
-      // On 401, try refreshing token and retry once
+      // On 401, force anon key on next retry (user JWT is clearly invalid)
       if(resp.status === 401 && attempt < MAX_RETRIES){
-        console.warn('[DocScanner] 401 JWT rejected, refreshing token and retrying...');
-        return _getRealToken(anonKey).then(function(freshAuth){
-          console.log('[DocScanner] Refreshed token, user: '+(freshAuth.userId||'anon'));
-          setTimeout(function(){
-            _sendWithRetry(baseUrl, anonKey, freshAuth.token, imageBase64, docType, freshAuth.userId, attempt+1, cb);
-          }, 500);
-        }).then(function(){ return null; });
+        console.warn('[DocScanner] 401 JWT rejected, retrying with anon key...');
+        setTimeout(function(){
+          _sendWithRetry(baseUrl, anonKey, anonKey, imageBase64, docType, null, attempt+1, cb);
+        }, 500);
+        return null;
       }
       if(!resp.ok && attempt < MAX_RETRIES){
         console.warn('[DocScanner] OCR HTTP '+resp.status+', retrying...');
