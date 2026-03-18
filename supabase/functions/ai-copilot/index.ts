@@ -87,24 +87,22 @@ serve(async (req) => {
       return jsonResponse({ error: 'Missing message' }, 400)
     }
 
-    // Verify JWT
+    // Verify JWT using service role client (avoids SUPABASE_ANON_KEY dependency)
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
-      return jsonResponse({ error: 'Unauthorized' }, 401)
+      return jsonResponse({ error: 'Unauthorized: missing auth header' }, 401)
     }
 
-    const supabaseAnon = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_ANON_KEY') || '', {
-      global: { headers: { Authorization: authHeader } },
-    })
-    const { data: { user }, error: userErr } = await supabaseAnon.auth.getUser()
+    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: userErr } = await supabaseAdmin.auth.getUser(token)
     if (userErr || !user) {
       console.error('ai-copilot: auth failed', userErr?.message)
-      return jsonResponse({ error: 'Unauthorized' }, 401)
+      return jsonResponse({ error: 'Unauthorized: ' + (userErr?.message || 'invalid token') }, 401)
     }
 
     console.log('ai-copilot: authenticated user', user.id)
-
-    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
     // Load DB context
     const dbContext = await fetchDbContext(supabaseAdmin)

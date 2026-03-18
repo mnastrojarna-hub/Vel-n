@@ -40,25 +40,24 @@ serve(async (req) => {
       })
     }
 
-    // Verify JWT
+    // Verify JWT using service role client (avoids SUPABASE_ANON_KEY dependency)
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
-    }
-
-    const supabaseAnon = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_ANON_KEY') || '', {
-      global: { headers: { Authorization: authHeader } },
-    })
-    const { data: { user }, error: userErr } = await supabaseAnon.auth.getUser()
-    if (userErr || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      return new Response(JSON.stringify({ error: 'Unauthorized: missing auth header' }), {
         status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
       })
     }
 
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: userErr } = await supabaseAdmin.auth.getUser(token)
+    if (userErr || !user) {
+      console.error('ai-moto-agent: auth failed', userErr?.message)
+      return new Response(JSON.stringify({ error: 'Unauthorized: ' + (userErr?.message || 'invalid token') }), {
+        status: 401, headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
 
     // If booking_id provided, fetch moto context
     let motoContext = ''
