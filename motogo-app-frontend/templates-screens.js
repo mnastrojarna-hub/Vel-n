@@ -54,7 +54,7 @@ Templates['s-home'] = `  <div class="hdr">
       <div style="display:flex;gap:6px;flex-wrap:nowrap;margin-bottom:14px;">
         <div class="hf-chip" id="hfc-sportovni" onclick="setHF('cat','sportovni',this)"><span id="t-hfSport">⚡ Sportovní</span></div>
         <div class="hf-chip" id="hfc-naked" onclick="setHF('cat','naked',this)"><span id="t-hfNaked">🔥 Naked</span></div>
-        <div class="hf-chip" id="hfc-chopper" onclick="setHF('cat','chopper',this)"><span id="t-hfChopper">🛵 Chopper</span></div>
+        <div class="hf-chip" id="hfc-chopper" onclick="setHF('cat','chopper',this)"><span id="t-hfChopper">Chopper</span></div>
       </div>
       <!-- ŘP -->
       <div id="t-licGroup" style="font-size:10px;font-weight:800;color:var(--g400);text-transform:uppercase;letter-spacing:.6px;margin-bottom:7px;">Skupina ŘP</div>
