@@ -6,10 +6,19 @@ var _currentPaymentMethod = 'card';
 var _paymentAttempts = 0;
 var _paymentTimeout = null;
 var _MAX_PAYMENT_ATTEMPTS = 3;
-var _PAYMENT_TIMEOUT_MS = 300000; // 5 minutes
+var _PAYMENT_TIMEOUT_MS = 600000; // 10 minutes (shodně s backend cron auto_cancel_expired_pending)
 var _isRestorePayment = false;
 var _isEditPayment = false;
 var _editPaymentBookingId = null;
+
+// Capacitor Browser místo Cordova InAppBrowser
+function _openExternalUrl(url){
+  if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser){
+    window.Capacitor.Plugins.Browser.open({ url: url });
+  } else {
+    window.open(url, '_blank');
+  }
+}
 
 // Save individual extras from booking form checkboxes into booking_extras table
 var _EXTRA_MAP = {
@@ -245,11 +254,9 @@ async function proceedToPayment(){
 
     _paymentAttempts = 0;
     if(_paymentTimeout) clearTimeout(_paymentTimeout);
-    _paymentTimeout = setTimeout(function(){
-      if(_currentBookingId){
-        _autoCancelUnpaid(_currentBookingId, 'Nezaplaceno do 5 minut (automatické zrušení)');
-      }
-    }, _PAYMENT_TIMEOUT_MS);
+    // Spustit odpočet — storno řeší backend cron, frontend jen zobrazí čas a refreshne stav
+    _paymentDeadline = Date.now() + _PAYMENT_TIMEOUT_MS;
+    _startPaymentCountdown();
     goTo('s-payment');
   } catch(e){ console.error('proceedToPayment error:', e); showT('✗',_t('common').error||'Chyba',_t('pay').createFailed||'Nepodařilo se vytvořit rezervaci'); }
 }
@@ -274,11 +281,7 @@ function doPayment(){
 
       // Stripe Checkout – otevři platební stránku
       if(result.success && result.checkout_url){
-        if(window.cordova && window.cordova.InAppBrowser){
-          window.cordova.InAppBrowser.open(result.checkout_url, '_system');
-        } else {
-          window.open(result.checkout_url, '_blank');
-        }
+        _openExternalUrl(result.checkout_url);
         showT('ℹ️',_t('pay').payBtn||'Platba','Otevřena platební brána Stripe');
         if(payBtn) payBtn.textContent = (_t('pay').payBtn||'Zaplatit') + ' ' + _currentPaymentAmount.toLocaleString('cs-CZ') + ' Kč →';
         return;
@@ -379,40 +382,46 @@ function _fmtDatePayment(iso){
   } catch(e){ return '—'; }
 }
 
-async function _autoCancelUnpaid(bookingId, reason){
-  if(_paymentTimeout){ clearTimeout(_paymentTimeout); _paymentTimeout = null; }
-  try {
-    if(window.supabase && bookingId){
-      // Restore any applied voucher codes back to 'active' so they can be reused
-      if(appliedCode){
-        var codes = appliedCode.split(',');
-        for(var ci = 0; ci < codes.length; ci++){
-          var c = codes[ci].trim();
-          if(!c) continue;
-          try {
-            await window.supabase.from('vouchers')
-              .update({ status: 'active', redeemed_at: null, redeemed_by: null, booking_id: null, updated_at: new Date().toISOString() })
-              .eq('code', c).eq('status', 'redeemed');
-          } catch(ve){ console.warn('[PAY] voucher restore failed for', c, ve); }
-        }
-      }
-      await window.supabase.from('bookings').update({
-        status: 'cancelled',
-        cancelled_by_source: 'unpaid_auto',
-        cancellation_reason: reason || 'Automaticky zrušeno pro nezaplacení',
-        cancelled_at: new Date().toISOString()
-      }).eq('id', bookingId).eq('payment_status', 'unpaid');
+var _paymentDeadline = 0;
+var _countdownInterval = null;
+
+// Odpočet "Zbývá X minut na zaplacení" — storno řeší výhradně backend cron
+function _startPaymentCountdown(){
+  if(_countdownInterval) clearInterval(_countdownInterval);
+  _countdownInterval = setInterval(function(){
+    var remaining = _paymentDeadline - Date.now();
+    var el = document.getElementById('pay-countdown');
+    if(remaining <= 0){
+      clearInterval(_countdownInterval);
+      _countdownInterval = null;
+      if(el) el.textContent = 'Čas na zaplacení vypršel';
+      // Refreshni stav z DB — backend cron už mohl booking zrušit
+      _refreshBookingStatus();
+      return;
     }
-  } catch(e){ console.error('[PAY] autoCancelUnpaid:', e); }
-  appliedCode = null;
-  _appliedPromoId = null;
-  _appliedCodes = [];
-  discountAmt = 0;
-  _currentBookingId = null;
-  _paymentAttempts = 0;
-  showT('✗', _t('pay').declined||'Rezervace zrušena', 'Rezervace byla automaticky zrušena pro nezaplacení');
-  goTo('s-res');
-  if(typeof renderMyReservations === 'function') renderMyReservations();
+    var min = Math.floor(remaining / 60000);
+    var sec = Math.floor((remaining % 60000) / 1000);
+    if(el) el.textContent = 'Zbývá ' + min + ':' + String(sec).padStart(2,'0') + ' na zaplacení';
+  }, 1000);
+}
+
+// Po vypršení odpočtu refreshni stav bookingu z DB
+async function _refreshBookingStatus(){
+  if(!_currentBookingId || !window.supabase) return;
+  try {
+    var r = await window.supabase.from('bookings').select('status, payment_status').eq('id', _currentBookingId).single();
+    if(r.data && r.data.status === 'cancelled'){
+      appliedCode = null;
+      _appliedPromoId = null;
+      _appliedCodes = [];
+      discountAmt = 0;
+      _currentBookingId = null;
+      _paymentAttempts = 0;
+      showT('✗', _t('pay').declined||'Rezervace zrušena', 'Rezervace byla automaticky zrušena pro nezaplacení');
+      goTo('s-res');
+      if(typeof renderMyReservations === 'function') renderMyReservations();
+    }
+  } catch(e){ console.warn('[PAY] Status refresh err:', e); }
 }
 
 // ===== RESTORE PAYMENT (cancelled reservation → pay to reactivate) =====
@@ -434,11 +443,7 @@ function doRestorePayment(bookingId){
       }
 
       if(result.success && result.checkout_url){
-        if(window.cordova && window.cordova.InAppBrowser){
-          window.cordova.InAppBrowser.open(result.checkout_url, '_system');
-        } else {
-          window.open(result.checkout_url, '_blank');
-        }
+        _openExternalUrl(result.checkout_url);
         showT('ℹ️',_t('pay').payBtn||'Platba','Otevřena platební brána');
         if(payBtn) payBtn.textContent = (_t('pay').payBtn||'Zaplatit') + ' ' + _currentPaymentAmount.toLocaleString('cs-CZ') + ' Kč →';
         return;
@@ -505,11 +510,7 @@ function doEditPayment(bookingId, amount, changes){
       }
 
       if(result.success && result.checkout_url){
-        if(window.cordova && window.cordova.InAppBrowser){
-          window.cordova.InAppBrowser.open(result.checkout_url, '_system');
-        } else {
-          window.open(result.checkout_url, '_blank');
-        }
+        _openExternalUrl(result.checkout_url);
         return;
       }
 

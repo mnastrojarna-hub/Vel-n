@@ -956,9 +956,8 @@ async function _sosSaveReplacement(){
             replacement_status: 'pending_payment',
             replacement_data: replacementData
           }).eq('id', incId);
-          if(window.cordova && window.cordova.InAppBrowser){
-            window.cordova.InAppBrowser.open(result.checkout_url, '_system');
-          } else { window.open(result.checkout_url, '_blank'); }
+          if(typeof _openExternalUrl === 'function'){ _openExternalUrl(result.checkout_url); }
+          else { window.open(result.checkout_url, '_blank'); }
           showT('ℹ️','Platba','Otevřena platební brána');
           _sosCleanupEditUI(btn, isFault);
           return;

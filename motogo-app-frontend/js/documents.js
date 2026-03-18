@@ -634,11 +634,8 @@ function downloadManual(m){
   // Pokud je manual_url z Velínu (PDF z Supabase storage), otevři přímo
   if(m.manual && (m.manual.startsWith('http://') || m.manual.startsWith('https://'))){
     showT('📖','Otevírám PDF…',m.name);
-    if(window.cordova && window.cordova.InAppBrowser){
-      window.cordova.InAppBrowser.open(m.manual, '_system');
-    } else {
-      window.open(m.manual, '_blank');
-    }
+    if(typeof _openExternalUrl === 'function'){ _openExternalUrl(m.manual); }
+    else { window.open(m.manual, '_blank'); }
     return;
   }
   showT('⬇️',_t('common').downloading,'...');
@@ -731,11 +728,8 @@ function _buildManualHtml(m){
 function viewManual(m){
   // PDF URL — open externally
   if(m.manual && (m.manual.startsWith('http://') || m.manual.startsWith('https://'))){
-    if(window.cordova && window.cordova.InAppBrowser){
-      window.cordova.InAppBrowser.open(m.manual, '_blank', 'location=no,toolbar=yes');
-    } else {
-      window.open(m.manual, '_blank');
-    }
+    if(typeof _openExternalUrl === 'function'){ _openExternalUrl(m.manual); }
+    else { window.open(m.manual, '_blank'); }
     return;
   }
   var body=_buildManualHtml(m);
@@ -749,11 +743,8 @@ function viewManual(m){
 function searchManual(m){
   // PDF URL — can't search locally, open externally
   if(m.manual && (m.manual.startsWith('http://') || m.manual.startsWith('https://'))){
-    if(window.cordova && window.cordova.InAppBrowser){
-      window.cordova.InAppBrowser.open(m.manual, '_blank', 'location=no,toolbar=yes');
-    } else {
-      window.open(m.manual, '_blank');
-    }
+    if(typeof _openExternalUrl === 'function'){ _openExternalUrl(m.manual); }
+    else { window.open(m.manual, '_blank'); }
     return;
   }
   var body=_buildManualHtml(m);
