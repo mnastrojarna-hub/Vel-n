@@ -92,9 +92,11 @@ function applyHomeFilters(){
   if(so)HF.sort=so.value;
   let list=[...MOTOS];
   if(HF.cat!=='all')list=list.filter(m=>m.cat===HF.cat);
-  if(HF.rp==='A2')list=list.filter(m=>m.rp==='A2'||m.rp==='A1'||m.rp==='N');
-  else if(HF.rp==='A')list=list.filter(m=>m.rp==='A');
-  else if(HF.rp==='A1')list=list.filter(m=>m.rp==='A1'||m.rp==='N');
+  if(HF.rp==='A')list=list.filter(m=>m.rp==='A'||m.rp==='A2'||m.rp==='A1'||m.rp==='AM'||m.rp==='N');
+  else if(HF.rp==='A2')list=list.filter(m=>m.rp==='A2'||m.rp==='A1'||m.rp==='AM'||m.rp==='N');
+  else if(HF.rp==='A1')list=list.filter(m=>m.rp==='A1'||m.rp==='AM'||m.rp==='N');
+  else if(HF.rp==='AM')list=list.filter(m=>m.rp==='AM'||m.rp==='N');
+  else if(HF.rp==='B')list=list.filter(m=>m.rp==='B'||m.rp==='AM'||m.rp==='N');
   else if(HF.rp==='N')list=list.filter(m=>m.rp==='N');
   if(HF.vykon<120)list=list.filter(m=>m.vykon<=HF.vykon);
   if(HF.avail)list=list.filter(function(m){return isMotoFreeToday(m.id);});

@@ -1831,6 +1831,14 @@ async function apiVerifyDocs(ocrData){
 }
 
 // ===== Check license compatibility for a motorcycle =====
+// Hierarchie ŘP: A > A2 > A1 > AM, B samostatně, N = bez ŘP (dětské)
+var LICENSE_COVERS = {
+  'A':  ['A','A2','A1','AM'],
+  'A2': ['A2','A1','AM'],
+  'A1': ['A1','AM'],
+  'AM': ['AM'],
+  'B':  ['B','AM']
+};
 async function apiCheckLicenseForMoto(motoId, endDate){
   _ensureSupabase();
   if(!window.supabase) return {allowed:true};
@@ -1841,7 +1849,11 @@ async function apiCheckLicenseForMoto(motoId, endDate){
     if(!required || required === 'N') return {allowed:true};
     var profile = await apiFetchProfile();
     if(!profile || !profile.license_group) return {allowed:false, reason:'Nemáte vyplněný řidičský průkaz'};
-    if(profile.license_group.indexOf(required) !== -1) return {allowed:true};
+    var groups = profile.license_group;
+    for(var i = 0; i < groups.length; i++){
+      var covers = LICENSE_COVERS[groups[i]];
+      if(covers && covers.indexOf(required) !== -1) return {allowed:true};
+    }
     return {allowed:false, reason:'Pro tuto motorku potřebujete skupinu ' + required};
   } catch(e){ return {allowed:false, reason:'Chyba kontroly oprávnění'}; }
 }
