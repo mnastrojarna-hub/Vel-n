@@ -26,7 +26,8 @@ const navMap = {
   's-contracts':'ni-profile',
   's-sos-replacement':'ni-res',
   's-sos-payment':'ni-res',
-  's-sos-done':'ni-res'
+  's-sos-done':'ni-res',
+  's-ai-agent':'ni-res'
 };
 
 // Screens that require authentication — if no session, redirect to login
@@ -187,6 +188,10 @@ function goTo(id){
   // Pre-fetch active booking/moto IDs on any SOS screen entry
   if(id.indexOf('s-sos')===0 && typeof _sosPreFetchIds==='function') _sosPreFetchIds();
   if(id==='s-sos' && typeof _sosCheckActiveIncident==='function') _sosCheckActiveIncident();
+  // Inject SOS photo step on relevant screens
+  if(id==='s-sos-nehoda' && typeof _sosInjectPhotoStep==='function') setTimeout(function(){ _sosInjectPhotoStep('sos-photo-step-nehoda'); },50);
+  if(id==='s-sos-porucha' && typeof _sosInjectPhotoStep==='function') setTimeout(function(){ _sosInjectPhotoStep('sos-photo-step-porucha'); },50);
+  if(id==='s-sos-kradez' && typeof _sosInjectPhotoStep==='function') setTimeout(function(){ _sosInjectPhotoStep('sos-photo-step-kradez'); },50);
   if(id==='s-sos-replacement' && typeof sosReplInit==='function') sosReplInit();
   if(id==='s-sos-payment' && typeof _sosInitPaymentFromRouter==='function') _sosInitPaymentFromRouter();
   if(typeof updateCartFab==='function')updateCartFab();

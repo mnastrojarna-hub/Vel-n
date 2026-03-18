@@ -35,6 +35,10 @@ Templates['s-sos-porucha'] = `  <div class="sos-sub-hdr warn">
   </div>
 
   <div style="padding:0 20px;margin-top:12px;">
+    <div id="sos-photo-step-porucha"></div>
+    <button onclick="aiAgentOpen()" style="width:100%;background:var(--green);color:#fff;border:none;border-radius:var(--r);padding:14px;font-family:var(--font);font-size:14px;font-weight:800;cursor:pointer;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 18px rgba(116,251,113,.3);">
+      🤖 Otev\u0159\u00edt AI diagnostiku
+    </button>
     <div style="font-size:11px;font-weight:700;color:var(--g400);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;" id="t-orSelect">Nebo vyberte situaci:</div>
     <div style="background:var(--gp);border:1px solid var(--green);border-radius:var(--rsm);padding:10px 12px;margin-bottom:10px;font-size:12px;font-weight:600;color:var(--gd);line-height:1.6;" id="t-freeRepairNote">
       💚 Při vážné poruše (nezaviněné) je náhradní motorka i přistavení <strong>zdarma</strong>. Vše hlaste přes appku.
@@ -148,6 +152,7 @@ Templates['s-sos-kradez'] = `  <div class="sos-sub-hdr" style="background:linear
     <a href="tel:+420774256271" style="display:flex;align-items:center;justify-content:center;gap:10px;background:var(--green);color:#fff;border:none;border-radius:50px;padding:16px;font-family:var(--font);font-size:15px;font-weight:800;cursor:pointer;text-decoration:none;box-shadow:0 4px 18px rgba(116,251,113,.4);">
       <span id="t-callMotoGoBtn">📞 Volat MotoGo24</span>
     </a>
+    <div id="sos-photo-step-kradez"></div>
     <button id="sos-kradez-report-btn" onclick="sosReportTheft()" style="width:100%;margin-top:12px;background:#7f1d1d;color:#fff;border:none;border-radius:50px;padding:16px;font-family:var(--font);font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 18px rgba(127,29,29,.4);">
       🚨 Nahlásit krádež MotoGo24
     </button>

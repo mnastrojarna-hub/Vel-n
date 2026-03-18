@@ -421,11 +421,13 @@ Detailní politiky:
 
 ## 8. EDGE FUNKCE (20 deployovaných)
 
-### V repozitáři (9)
+### V repozitáři (11)
 
 | Funkce | Popis |
 |--------|-------|
 | `admin-auth` | Autentizace a auto-provisioning admin uživatelů (ověření JWT + insert do admin_users přes service role) |
+| `ai-copilot` | AI Copilot pro Velín dashboard — Anthropic Claude API, system prompt CZ, načítá kontext z DB (bookings, tržby, servis, SOS), ukládá do ai_conversations |
+| `ai-moto-agent` | AI Servisní agent pro zákazníky — diagnostika závad motorek přes Claude API, vrací {reply, is_rideable, suggest_sos}, načítá kontext motorky z booking_id |
 | `send-booking-email` | Odesílá branded HTML emaily (booking_reserved, booking_completed, booking_modified, voucher_purchased). Retry 3× s exponential backoff. Při selhání loguje do debug_log |
 | `generate-invoice` | Generuje proforma/finální fakturu (ZF-/FV-YYYY-NNNN). Firemní údaje načítá z app_settings (company_info) |
 | `generate-document` | Generuje dokumenty z šablon (rental_contract, handover_protocol). Firemní údaje načítá z app_settings (company_info) |
@@ -439,7 +441,6 @@ Detailní politiky:
 
 | Funkce | Popis |
 |--------|-------|
-| `ai-copilot` | AI Copilot pro Velín dashboard |
 | `bright-endpoint` | Bright Data endpoint |
 | `cms-sync` | Synchronizace CMS obsahu |
 | `cron-daily` | Denní cron úlohy |
@@ -471,8 +472,9 @@ Detailní politiky:
 |--------|---------------|
 | `SUPABASE_URL` | Všechny edge funkce |
 | `SUPABASE_SERVICE_ROLE_KEY` | Všechny edge funkce |
-| `SUPABASE_ANON_KEY` | admin-reset-password |
+| `SUPABASE_ANON_KEY` | admin-reset-password, ai-copilot, ai-moto-agent |
 | `SUPABASE_DB_URL` | Přímý DB přístup z edge funkcí |
+| `ANTHROPIC_API_KEY` | ai-copilot, ai-moto-agent (Anthropic Claude API) |
 | `RESEND_API_KEY` | send-booking-email, generate-invoice, send-cancellation-email, send-email |
 | `FROM_EMAIL` | Email funkce (default: noreply@motogo24.cz) |
 | `SITE_URL` | send-booking-email, send-cancellation-email (default: https://motogo24.cz) |
@@ -512,6 +514,13 @@ Detailní politiky:
   "color": "#74FB71"
 }
 ```
+
+### google_review_url (app_settings key)
+URL pro přesměrování zákazníka na Google recenze po dokončení rezervace.
+```
+https://search.google.com/local/writereview?placeid=PLACE_ID
+```
+> **POZNÁMKA:** PLACE_ID je potřeba zjistit z Google Business profilu MotoGo24 a nastavit v app_settings.
 
 ---
 
@@ -645,3 +654,4 @@ Detailní politiky:
 | 2026-03-18 | **SECURITY: Odstranění Service Role Key z frontendu:** 1) `useAdmin.js` — odstraněn hardcoded service_role klient, hook nyní používá pouze anon key z `supabase.js`. Auto-provisioning přesunut do Edge Function `admin-auth`. 2) `admin-auth` Edge Function přidána do repozitáře — ověří JWT, vytvoří admin_users záznam přes service role (server-side). 3) `supabase.js` — exportuje `supabaseUrl` a `supabaseAnonKey` jako jedinou instanci. 4) `generate-invoice` a `generate-document` nyní načítají firemní údaje z `app_settings` (key: company_info) místo hardcoded konstant. 5) Všechny DIAGNOSTIKA panely ve Velínu (26 souborů) schované za `useDebugMode()` hook — zobrazí se jen přes URL `?debug=1`, localStorage `debug_mode=1`, nebo feature flag `debug_mode` v DB. 6) Dashboard: ISO datumy formátovány přes `toLocaleDateString('cs-CZ')` |
 | 2026-03-18 | **NEW: Stripe integrace + Email retry:** 1) `process-payment` přepsán na reálnou Stripe integraci (TEST mode) — Checkout Session + PaymentIntent. Podporuje 4 typy plateb: `booking`, `shop`, `extension` (prodloužení rezervace), `sos` (placený SOS incident). 2) Nová edge function `webhook-receiver` v repozitáři — ověření Stripe signature, zpracování `checkout.session.completed` a `payment_intent.succeeded`, volání `confirm_payment`/`confirm_shop_payment` RPC + přímý update pro SOS. 3) `send-booking-email` a `send-cancellation-email` — přidán `sendWithRetry()` wrapper (3 pokusy, exponential backoff 2s/4s/8s). Při finálním selhání logování do `debug_log`. 4) Nový secret: `STRIPE_WEBHOOK_SECRET`. 5) Frontend: `apiProcessPayment()` rozšířen o 4. parametr `opts` ({type, order_id, incident_id}). `doEditPayment` posílá `type:'extension'`. `sosPaymentSubmit` přepsán — místo simulace volá Stripe přes `apiProcessPayment` s `type:'sos'` |
 | 2026-03-17 | **FIX: Přístupové kódy — automatický lifecycle:** 1) Nové trigger funkce `auto_generate_door_codes()` — auto-generuje 2 kódy (motorcycle+accessories) při přechodu bookingu na 'active'. Kontroluje doklady, posílá kódy jako admin_message. 2) `auto_deactivate_door_codes()` — deaktivuje kódy při přechodu na 'completed'/'cancelled'. 3) Triggery: `trg_auto_generate_door_codes` (UPDATE), `trg_auto_generate_door_codes_insert` (INSERT), `trg_auto_deactivate_door_codes` (UPDATE). 4) Jednorázový cleanup: deaktivace kódů u existujících dokončených/zrušených rezervací. 5) Mobilní app: `_autoActivateAndCompleteBookings()` — automatická aktivace reserved+paid bookingů a dokončení expired bookingů při otevření rezervací (nečeká na Velín nebo cron) |
+| 2026-03-18 | **NEW: AI Copilot + AI Agent + SOS foto + Google recenze:** 1) Edge Function `ai-copilot` přepsána — Anthropic Claude API (claude-sonnet-4), system prompt CZ, načítá DB kontext (bookings, tržby, servis, SOS), JWT auth. 2) Velín AICopilot.jsx: suggested prompts nyní kliknutím odešlou zprávu rovnou. 3) Nová Edge Function `ai-moto-agent` — servisní AI chatbot pro zákazníky, diagnostika závad, vrací {reply, is_rideable, suggest_sos}. 4) Nový screen `s-ai-agent` v mobilní app s chat UI, přístupný ze SOS/porucha. 5) SOS fotodokumentace: nový modul `sos-photo.js` — Capacitor Camera + HTML fallback, resize 2048px/JPEG 80%, upload do `sos-photos` bucket, 1-5 fotek. Photo step injektován do s-sos-nehoda, s-sos-porucha, s-sos-kradez. 6) Google recenze: po dokončení rezervace banner s přesměrováním na Google Reviews. URL z `app_settings.google_review_url`. Tracking v `reviews` tabulce. 7) Nový secret: `ANTHROPIC_API_KEY` |

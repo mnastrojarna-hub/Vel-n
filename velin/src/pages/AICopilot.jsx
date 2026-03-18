@@ -56,6 +56,63 @@ export default function AICopilot() {
     } catch {}
   }
 
+  async function handleSendWithMessage(msg) {
+    if (!msg || sending) return
+    setError(null)
+    const userMsg = { role: 'user', content: msg, timestamp: new Date().toISOString() }
+    const newMessages = [...messages, userMsg]
+    setMessages(newMessages)
+    setInput('')
+    setSending(true)
+
+    try {
+      let convId = activeConv?.id
+      if (!convId) {
+        const { data } = await debugAction('handleSend:createConv', 'AICopilot', () =>
+          supabase
+            .from('ai_conversations')
+            .insert({ title: msg.slice(0, 50), messages: [] })
+            .select().single(),
+          { title: msg.slice(0, 50) }
+        )
+        convId = data.id
+        setActiveConv(data)
+        setConversations(c => [data, ...c])
+      }
+
+      const { data, error: fnError } = await debugAction('handleSend:invoke', 'AICopilot', () =>
+        supabase.functions.invoke('ai-copilot', {
+          body: { message: msg, conversation_id: convId },
+        }),
+        { message: msg, conversation_id: convId }
+      )
+
+      if (fnError) throw fnError
+
+      const aiMsg = {
+        role: 'assistant',
+        content: data?.response || data?.message || 'AI momentálně nedostupný',
+        timestamp: new Date().toISOString(),
+      }
+      const allMessages = [...newMessages, aiMsg]
+      setMessages(allMessages)
+
+      await supabase.from('ai_conversations')
+        .update({ messages: allMessages, updated_at: new Date().toISOString() })
+        .eq('id', convId)
+    } catch (e) {
+      const errMsg = {
+        role: 'assistant',
+        content: 'AI momentálně nedostupný. Zkuste to později.',
+        timestamp: new Date().toISOString(),
+      }
+      setMessages(m => [...m, errMsg])
+      setError(e.message)
+    } finally {
+      setSending(false)
+    }
+  }
+
   async function handleSend() {
     if (!input.trim() || sending) return
     setError(null)
@@ -168,8 +225,8 @@ export default function AICopilot() {
                 Ptejte se na tržby, flotilu, servis nebo cokoli dalšího.
               </div>
               <div className="flex flex-wrap gap-2 justify-center mt-4">
-                {['Kolik jsme vydělali tento měsíc?', 'Které motorky potřebují servis?', 'Navrhni cenu pro víkendový pronájem'].map(q => (
-                  <button key={q} onClick={() => { setInput(q) }}
+                {['Kolik jsme vydělali tento měsíc?', 'Které motorky potřebují servis?', 'Navrhni cenu pro víkendový pronájem', 'Shrň aktivní SOS incidenty'].map(q => (
+                  <button key={q} onClick={() => { setInput(q); setTimeout(() => { handleSendWithMessage(q) }, 0) }}
                     className="rounded-btn text-sm cursor-pointer"
                     style={{ padding: '6px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
                     {q}

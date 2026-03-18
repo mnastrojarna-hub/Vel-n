@@ -70,6 +70,7 @@ Templates['s-sos-nehoda'] = `  <div class="sos-sub-hdr">
       </div>
       <div class="sos-option-arrow">›</div>
     </div>
+    <div id="sos-photo-step-nehoda"></div>
     <div style="margin-top:14px;background:rgba(239,68,68,.06);border-radius:var(--rsm);padding:12px 14px;border:1px solid rgba(239,68,68,.15);">
       <div id="t-accLegalInfo" style="font-size:12px;color:#b91c1c;font-weight:600;line-height:1.8;">
         🚑 Záchrannou (112/155) volejte dle potřeby sami.<br>
