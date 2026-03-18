@@ -332,7 +332,7 @@ function _resPopulateExtFilters(bookings){
   var branches = {}, motos = {};
   for(var i = 0; i < bookings.length; i++){
     var b = bookings[i];
-    var m = b.motorcycles;
+    var m = b.motorcycles || null;
     if(m && m.branches && m.branches.name) branches[m.branches.name] = 1;
     if(b.moto_name) motos[b.moto_name] = 1;
   }
@@ -356,8 +356,8 @@ function _mapStatus(status, startDate, endDate, booking){
   // ended_by_sos = always completed regardless of dates
   if(booking && booking.ended_by_sos) return 'dokoncene';
   var now = new Date(); now.setHours(0,0,0,0);
-  var s = new Date(startDate); s.setHours(0,0,0,0);
-  var e = new Date(endDate); e.setHours(0,0,0,0);
+  var s = _parseDateSafe(startDate); s.setHours(0,0,0,0);
+  var e = _parseDateSafe(endDate); e.setHours(0,0,0,0);
   if(now > e) return 'dokoncene';
   if(now >= s && now <= e) return 'aktivni';
   return 'nadchazejici';
@@ -373,17 +373,24 @@ function _statusClass(st){
   return map[st] || '';
 }
 
+function _parseDateSafe(str){
+  if(!str) return null;
+  if(typeof str==='string' && str.length===10) str += 'T12:00:00';
+  return new Date(str);
+}
+
 function _fmtDate(iso){
   try {
-    var d = new Date(iso);
+    var d = _parseDateSafe(iso);
+    if(!d || isNaN(d.getTime())) return '—';
     return d.getDate() + '. ' + (d.getMonth()+1) + '. ' + d.getFullYear();
   } catch(e){ return '—'; }
 }
 
 function _fmtDateRange(isoStart, isoEnd){
   try {
-    var s = new Date(isoStart);
-    var e = new Date(isoEnd);
+    var s = _parseDateSafe(isoStart);
+    var e = _parseDateSafe(isoEnd);
     s.setHours(0,0,0,0); e.setHours(0,0,0,0);
     if(s.getTime() === e.getTime()) return _fmtDate(isoStart);
     var sd = s.getDate(), sm = s.getMonth()+1, sy = s.getFullYear();
@@ -447,10 +454,11 @@ async function openResDetailById(bookingId){
 
     var moto = booking.motorcycles || (booking.moto_id ? await _getMotoById(booking.moto_id) : null);
     var st = _mapStatus(booking.status, booking.start_date, booking.end_date, booking);
-    var s = new Date(booking.start_date); s.setHours(0,0,0,0);
-    var e = new Date(booking.end_date); e.setHours(0,0,0,0);
+    var s = _parseDateSafe(booking.start_date); s.setHours(0,0,0,0);
+    var e = _parseDateSafe(booking.end_date); e.setHours(0,0,0,0);
     var days = Math.max(1, Math.round((e-s)/86400000)+1);
-    var motoName = moto ? (moto.model || moto.name) : (booking.moto_name || 'Motorka');
+    var motoName = (moto && moto.model) ? moto.model : (booking.moto_name || 'Motorka nedostupná');
+    var motoSpz = (moto && moto.spz) ? moto.spz : '—';
 
     var titleEl = document.getElementById('rd-title');
     if(titleEl) titleEl.textContent = _t('res').resDetail + ' – ' + _statusLabel(st);
@@ -458,7 +466,7 @@ async function openResDetailById(bookingId){
     if(subEl) subEl.textContent = '#' + bookingId.substr(-8).toUpperCase();
 
     var imgEl = document.getElementById('rd-moto-img');
-    if(imgEl && moto) imgEl.src = moto.image_url || '';
+    if(imgEl) imgEl.src = (moto && moto.image_url) ? moto.image_url : '';
 
     var nameEl = document.getElementById('rd-moto-name');
     if(nameEl) nameEl.textContent = motoName;
@@ -474,7 +482,7 @@ async function openResDetailById(bookingId){
     if(totalEl) totalEl.textContent = (booking.total_price||0).toLocaleString('cs-CZ') + ' Kč';
 
     // Pickup/return locations
-    var branchName = moto && moto.branches ? (moto.branches.address || moto.branches.name) + ', ' + moto.branches.city : '—';
+    var branchName = (moto && moto.branches) ? (moto.branches.address || moto.branches.name) + ', ' + (moto.branches.city || '') : '—';
     var pickupLocEl = document.getElementById('rd-pickup-loc');
     if(pickupLocEl){
       if(booking.pickup_method === 'delivery' && booking.pickup_address){

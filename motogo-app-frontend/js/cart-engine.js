@@ -81,11 +81,18 @@ function updateCartFab(){
   } catch(e){ console.error('updateCartFab error:', e); }
 }
 
-function clearCart() {
+function clearCart(silent) {
   cart = [];
+  voucherAmt = 0;
+  voucherType = 'digital';
+  shipMode = 'post';
+  appliedCode = null;
+  appliedDiscount = 0;
+  pickupDelivFee = 0;
+  returnDelivFee = 0;
   cartFabDismissed=false;
   updateCartFab();
-  showT('🗑️',_t('cart').cartCleared,_t('cart').allRemoved);
+  if(!silent) showT('🗑️',_t('cart').cartCleared,_t('cart').allRemoved);
 }
 
 // Dismiss the cart FAB bar (hide without clearing cart)

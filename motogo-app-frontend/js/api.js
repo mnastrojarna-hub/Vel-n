@@ -1,6 +1,15 @@
 // ===== API.JS – Supabase API vrstva pro MotoGo24 =====
 // Všechny api* funkce volané z UI. Vyžaduje supabaseClient.js (window.supabase).
 
+// ===== REALTIME SINGLETON =====
+var _bannerChannel = null;
+function cleanupRealtimeChannels(){
+  if(_bannerChannel && window.supabase){
+    try { window.supabase.removeChannel(_bannerChannel); } catch(e){}
+    _bannerChannel = null;
+  }
+}
+
 // ===== HEADER BANNER =====
 function _applyBannerConfig(cfg){
   if(!cfg || !cfg.enabled || !cfg.text) {
@@ -29,19 +38,21 @@ async function apiFetchHeaderBanner(){
     var cfg = typeof r.data.value === 'string' ? JSON.parse(r.data.value) : r.data.value;
     _applyBannerConfig(cfg);
 
-    // Realtime subscription — banner se aktualizuje okamžitě po změně v admin dashboardu
-    try {
-      window.supabase.channel('header-banner-changes')
-        .on('postgres_changes', {event: '*', schema: 'public', table: 'app_settings', filter: 'key=eq.header_banner'}, function(payload){
-          try {
-            var newVal = payload.new && payload.new.value;
-            if(!newVal) return;
-            var newCfg = typeof newVal === 'string' ? JSON.parse(newVal) : newVal;
-            _applyBannerConfig(newCfg);
-          } catch(re){ console.warn('[API] banner realtime:', re); }
-        })
-        .subscribe();
-    } catch(se){ /* realtime optional */ }
+    // Realtime subscription (singleton) — banner se aktualizuje okamžitě
+    if(!_bannerChannel){
+      try {
+        _bannerChannel = window.supabase.channel('header-banner-changes')
+          .on('postgres_changes', {event: '*', schema: 'public', table: 'app_settings', filter: 'key=eq.header_banner'}, function(payload){
+            try {
+              var newVal = payload.new && payload.new.value;
+              if(!newVal) return;
+              var newCfg = typeof newVal === 'string' ? JSON.parse(newVal) : newVal;
+              _applyBannerConfig(newCfg);
+            } catch(re){ console.warn('[API] banner realtime:', re); }
+          })
+          .subscribe();
+      } catch(se){ /* realtime optional */ }
+    }
   } catch(e){ console.warn('[API] banner:', e); }
 }
 
@@ -1883,21 +1894,17 @@ async function apiVerifyDocs(ocrData){
 }
 
 // ===== Check license compatibility for a motorcycle =====
-async function apiCheckLicenseForMoto(motoId, rentalEndDate){
+async function apiCheckLicenseForMoto(motoId, endDate){
   _ensureSupabase();
-  if(!window.supabase) return {allowed:false, reason:'Offline'};
+  if(!window.supabase) return {allowed:true};
   try {
-    var params = {p_moto_id: motoId};
-    if(rentalEndDate){
-      // Accept Date object or ISO string — convert to YYYY-MM-DD
-      var d = rentalEndDate instanceof Date ? rentalEndDate : new Date(rentalEndDate);
-      if(!isNaN(d.getTime())){
-        params.p_rental_end = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-      }
-    }
-    var r = await window.supabase.rpc('check_license_for_moto', params);
-    if(r.error) return {allowed:false, reason:r.error.message};
-    var data = typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
-    return data;
+    var moto = await window.supabase.from('motorcycles').select('license_required').eq('id', motoId).single();
+    if(!moto.data) return {allowed:true};
+    var required = moto.data.license_required;
+    if(!required || required === 'N') return {allowed:true};
+    var profile = await apiFetchProfile();
+    if(!profile || !profile.license_group) return {allowed:false, reason:'Nemáte vyplněný řidičský průkaz'};
+    if(profile.license_group.indexOf(required) !== -1) return {allowed:true};
+    return {allowed:false, reason:'Pro tuto motorku potřebujete skupinu ' + required};
   } catch(e){ return {allowed:false, reason:'Chyba kontroly oprávnění'}; }
 }

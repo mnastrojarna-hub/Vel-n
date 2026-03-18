@@ -171,6 +171,13 @@ function initApp(){
   // Load header banner from app_settings (public, no auth needed)
   if(typeof apiFetchHeaderBanner==='function') apiFetchHeaderBanner();
 
+  // Ping Supabase at startup — show offline overlay if unreachable
+  if(typeof OfflineGuard!=='undefined' && OfflineGuard.pingSupabase){
+    OfflineGuard.pingSupabase(function(ok){
+      if(!ok) OfflineGuard.check();
+    });
+  }
+
   // Check for existing session (Supabase only)
   _resolveSession(function(hasSession){
     _continueInit(hasSession);
