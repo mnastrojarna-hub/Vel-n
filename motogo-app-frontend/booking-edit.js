@@ -568,7 +568,22 @@ async function saveEditReservation(){
       if(newMotoDb) changes.moto_id = newMotoDb.id;
     }
 
-    if(diff < 0){
+    // Detect if dates were actually shortened (even if diff=0 due to storno conditions)
+    var isDateShortened = false;
+    try {
+      if(eDo && typeof origResEnd !== 'undefined' && origResEnd){
+        var _newEndD = new Date(eDo.y, eDo.m, eDo.d);
+        var _origEndD = new Date(origResEnd.y, origResEnd.m, origResEnd.d);
+        if(_newEndD < _origEndD) isDateShortened = true;
+      }
+      if(eOd && typeof origResStart !== 'undefined' && origResStart && !editIsActive){
+        var _newStartD = new Date(eOd.y, eOd.m, eOd.d);
+        var _origStartD = new Date(origResStart.y, origResStart.m, origResStart.d);
+        if(_newStartD > _origStartD) isDateShortened = true;
+      }
+    } catch(dce){ console.warn('[EDIT] date shortening detect err:', dce); }
+
+    if(diff < 0 || (diff === 0 && isDateShortened)){
       if(typeof apiShortenBooking === 'function'){
         // Fetch OLD booking state BEFORE shortening (for itemized invoice)
         var editCtxShort = null;
@@ -671,6 +686,12 @@ async function saveEditReservation(){
   } else if(diff<0){
     if(confirmBanner){
       confirmBanner.innerHTML='✓ '+_t('res').dateConfirmed+' · '+_t('res').refundToCard.replace('{amt}',Math.abs(diff).toLocaleString('cs-CZ'));
+      setTimeout(function(){histBack();},1500);
+    } else {histBack();}
+  } else if(isDateShortened){
+    // diff=0 but dates shortened (storno absorbed entire refund)
+    if(confirmBanner){
+      confirmBanner.innerHTML='✓ '+(_t('res').dateConfirmed||'Termín upraven')+' · '+(_t('res').shortenNoRefund||'Zkráceno dle storno podmínek (bez vrácení)');
       setTimeout(function(){histBack();},1500);
     } else {histBack();}
   } else {

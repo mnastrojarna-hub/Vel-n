@@ -285,8 +285,21 @@ async function showInvoice(bookingId,type,invoiceId){
           .order('created_at',{ascending:false}).limit(1);
         if(invR.data && invR.data.length>0) dbInvoice=invR.data[0];
       }
-      // Fallback: any invoice for this booking
-      if(!dbInvoice){
+      // For final invoices: auto-generate KF if not found (e.g. SOS-ended bookings skip trigger)
+      if(!dbInvoice && type==='final' && typeof apiGenerateFinalInvoice === 'function'){
+        try {
+          var kfRes = await apiGenerateFinalInvoice(bookingId);
+          if(!kfRes.error && kfRes.invoice_number){
+            // Reload the just-created KF
+            var kfR = await supabase.from('invoices').select('*')
+              .eq('booking_id',bookingId).eq('type','final')
+              .order('created_at',{ascending:false}).limit(1);
+            if(kfR.data && kfR.data.length>0) dbInvoice=kfR.data[0];
+          }
+        } catch(kfe){ console.warn('[DOC] Auto-generate KF failed:', kfe); }
+      }
+      // Fallback: any invoice for this booking (only for non-final types)
+      if(!dbInvoice && type!=='final'){
         var invR2=await supabase.from('invoices').select('*')
           .eq('booking_id',bookingId)
           .order('created_at',{ascending:false}).limit(1);

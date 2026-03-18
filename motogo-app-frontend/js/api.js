@@ -806,13 +806,19 @@ async function apiGenerateAdvanceInvoice(bookingId, amount, source, editCtx){
   } catch(e){ console.error('[API] advanceInvoice:', e); return {error: e.message}; }
 }
 
-// Generate final (konečná) invoice — called after ride end, summarizes all ZFs
+// Generate final (konečná) invoice — called after ride end, summarizes all DPs
 async function apiGenerateFinalInvoice(bookingId){
   _ensureSupabase();
   if(!window.supabase) return {error:'Offline'};
   try {
     var uid = await _getUserId();
     if(!uid) return {error:'Nepřihlášen'};
+    // Check if KF already exists for this booking (prevent duplicates)
+    var existingKf = await window.supabase.from('invoices').select('id, number')
+      .eq('booking_id', bookingId).eq('type', 'final').limit(1);
+    if(existingKf.data && existingKf.data.length > 0){
+      return {error: null, invoice_number: existingKf.data[0].number, existing: true};
+    }
     var br = await window.supabase.from('bookings')
       .select('*, motorcycles('+_MOTO_PRICE_COLS+')')
       .eq('id', bookingId).single();
@@ -834,6 +840,13 @@ async function apiGenerateFinalInvoice(bookingId){
     }
     var invNum = 'KF-' + yr + '-' + String(seq).padStart(4, '0');
     var items = _buildBookingItems(b, m);
+    var serviceTotal = _calcItemsTotal(items);
+    // If total_price > service total (due to storno-absorbed shortening), add storno fee line
+    var bookingTotal = Number(b.total_price || 0);
+    if(bookingTotal > serviceTotal && serviceTotal > 0){
+      var retainedAmount = Math.round(bookingTotal - serviceTotal);
+      items.push({description: 'Storno poplatek (dle storno podmínek)', qty: 1, unit_price: retainedAmount});
+    }
     // Deduct ALL DP (daňové doklady k platbě): reservation, edits, SOS
     receipts.forEach(function(a){
       items.push({description: 'Odpočet dle DP ' + a.number, qty: 1, unit_price: -Number(a.total || 0)});

@@ -256,6 +256,12 @@ export async function generatePaymentReceipt(bookingId, source = 'booking') {
  * Generate final invoice (KF) for a booking — daily price breakdown + deduct advances
  */
 export async function generateFinalInvoice(bookingId) {
+  // Check if KF already exists (prevent duplicates)
+  const { data: existingKf } = await supabase
+    .from('invoices').select('id, number')
+    .eq('booking_id', bookingId).eq('type', 'final').limit(1)
+  if (existingKf?.length) return existingKf[0]
+
   const { data: booking, error: bErr } = await supabase
     .from('bookings')
     .select(`*, motorcycles(${MOTO_SELECT}), profiles:user_id(id, full_name, email)`)
@@ -264,6 +270,14 @@ export async function generateFinalInvoice(bookingId) {
 
   const moto = booking.motorcycles || {}
   const items = buildBookingItems(moto, booking)
+
+  // If total_price > service total (due to storno-absorbed shortening), add storno fee line
+  const serviceTotal = calculateTotals(items).total
+  const bookingTotal = Number(booking.total_price || 0)
+  if (bookingTotal > serviceTotal && serviceTotal > 0) {
+    const retainedAmount = Math.round(bookingTotal - serviceTotal)
+    items.push({ description: 'Storno poplatek (dle storno podmínek)', qty: 1, unit_price: retainedAmount })
+  }
 
   // Deduct ALL DP (daňové doklady k platbě) — reservation, edits, SOS
   // ZF (zálohové faktury) se NEODEČÍTAJÍ — nejsou daňovým dokladem
