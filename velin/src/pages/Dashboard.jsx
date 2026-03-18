@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { debugAction, debugLog, debugError } from '../lib/debugLog'
+import { isRevenueEntry } from '../lib/revenueUtils'
 import Card from '../components/ui/Card'
 import Stat from '../components/ui/Stat'
 import Badge from '../components/ui/Badge'
@@ -174,20 +175,10 @@ export default function Dashboard() {
       const in30days = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
       const stkExpiring = (stkRes.data || []).filter(m => m.stk_valid_until && m.stk_valid_until <= in30days)
 
-      // Revenue classification (shared logic for stats, finance box, and chart)
-      const REVENUE_CATS = ['pronájem', 'pronajem', 'rezervace', 'booking', 'rental']
-      const REVENUE_DESCS = ['platba za rezervaci', 'platba za pronájem', 'příjem z pronájmu']
-      const isRevenue = (e) => {
-        const cat = (e.category || '').toLowerCase()
-        const desc = (e.description || '').toLowerCase()
-        if (e.type === 'revenue') return true
-        return REVENUE_CATS.some(rc => cat.includes(rc)) || REVENUE_DESCS.some(rd => desc.includes(rd))
-      }
-
       // Finance summary
       const finEntries = financeRes.data || []
-      const finRev = finEntries.filter(e => isRevenue(e)).reduce((s, e) => s + Math.abs(e.amount || 0), 0)
-      const finExp = finEntries.filter(e => !isRevenue(e)).reduce((s, e) => s + Math.abs(e.amount || 0), 0)
+      const finRev = finEntries.filter(e => isRevenueEntry(e)).reduce((s, e) => s + Math.abs(e.amount || 0), 0)
+      const finExp = finEntries.filter(e => !isRevenueEntry(e)).reduce((s, e) => s + Math.abs(e.amount || 0), 0)
       const finUnpaid = (unpaidRes.data || []).reduce((s, i) => s + (i.total || 0), 0)
       setFinanceData({ revenue: finRev, expense: finExp, profit: finRev - finExp, unpaid: finUnpaid })
 
@@ -206,7 +197,7 @@ export default function Dashboard() {
       const chartEntries = chartFinanceRes.data || []
       const monthlyData = new Array(12).fill(0)
       chartEntries.forEach(e => {
-        if (isRevenue(e)) monthlyData[new Date(e.date).getMonth()] += Math.abs(Number(e.amount) || 0)
+        if (isRevenueEntry(e)) monthlyData[new Date(e.date).getMonth()] += Math.abs(Number(e.amount) || 0)
       })
       setRevenueChart(monthlyData)
 

@@ -177,7 +177,6 @@ export default function VykonPobocek() {
                 <td className="py-2 px-3 font-semibold">{b.name}</td>
                 <td className="py-2 px-3">
                   <span style={{ background: '#f3f4f6', color: '#6b7280', borderRadius: 8, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{b.type || '—'}</span>
-                  {!b.type && <span className="text-xs ml-1" style={{ color: '#dc2626' }}>⚠️</span>}
                 </td>
                 <td className="py-2 px-3">{Math.round(b.revenue).toLocaleString('cs-CZ')} Kč</td>
                 <td className="py-2 px-3">{Math.round(b.revenuePerMoto).toLocaleString('cs-CZ')} Kč</td>
