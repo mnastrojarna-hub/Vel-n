@@ -664,9 +664,16 @@ async function saveEditReservation(){
       saveBtnEl.parentNode.insertBefore(confirmBanner,saveBtnEl);
     }
   }
-  if(diff>0){
-    if(confirmBanner)confirmBanner.innerHTML='✓ '+_t('res').dateConfirmed+' · '+_t('res').toPay+': '+diff.toLocaleString('cs-CZ')+' Kč';
-    // Set up proper payment flow for edit
+  if(isDateShortened && diff <= 0){
+    // Shortening with storno conditions — show appropriate message
+    if(diff < 0 && confirmBanner){
+      confirmBanner.innerHTML='✓ '+_t('res').dateConfirmed+' · '+_t('res').refundToCard.replace('{amt}',Math.abs(diff).toLocaleString('cs-CZ'));
+    } else if(confirmBanner){
+      confirmBanner.innerHTML='✓ '+(_t('res').dateConfirmed||'Termín upraven')+' · '+(_t('res').shortenNoRefund||'Zkráceno dle storno podmínek (bez vrácení)');
+    }
+    if(confirmBanner){ setTimeout(function(){histBack();},1500); } else {histBack();}
+  } else if(diff>0){
+    // Set up proper payment flow for edit (banner not needed — payment screen shows amount)
     _currentBookingId = bookingId;
     _currentPaymentAmount = diff;
     _isEditPayment = true;
@@ -686,12 +693,6 @@ async function saveEditReservation(){
   } else if(diff<0){
     if(confirmBanner){
       confirmBanner.innerHTML='✓ '+_t('res').dateConfirmed+' · '+_t('res').refundToCard.replace('{amt}',Math.abs(diff).toLocaleString('cs-CZ'));
-      setTimeout(function(){histBack();},1500);
-    } else {histBack();}
-  } else if(isDateShortened){
-    // diff=0 but dates shortened (storno absorbed entire refund)
-    if(confirmBanner){
-      confirmBanner.innerHTML='✓ '+(_t('res').dateConfirmed||'Termín upraven')+' · '+(_t('res').shortenNoRefund||'Zkráceno dle storno podmínek (bez vrácení)');
       setTimeout(function(){histBack();},1500);
     } else {histBack();}
   } else {
