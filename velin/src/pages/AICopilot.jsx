@@ -38,6 +38,17 @@ export default function AICopilot() {
     setMessages(conv.messages || [])
   }
 
+  async function deleteConversation(e, convId) {
+    e.stopPropagation()
+    if (!confirm('Smazat tuto konverzaci?')) return
+    await supabase.from('ai_conversations').delete().eq('id', convId)
+    setConversations(c => c.filter(x => x.id !== convId))
+    if (activeConv?.id === convId) {
+      setActiveConv(null)
+      setMessages([])
+    }
+  }
+
   async function startNew() {
     try {
       const { data, error } = await debugAction('startNew', 'AICopilot', () =>
@@ -200,7 +211,17 @@ export default function AICopilot() {
                 borderLeft: activeConv?.id === c.id ? '3px solid #74FB71' : '3px solid transparent',
               }}
             >
-              <div className="text-sm font-bold truncate" style={{ color: '#0f1a14' }}>{c.title || 'Konverzace'}</div>
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-bold truncate" style={{ color: '#0f1a14', flex: 1 }}>{c.title || 'Konverzace'}</div>
+                <button
+                  onClick={(e) => deleteConversation(e, c.id)}
+                  className="ml-1 flex-shrink-0 rounded-full hover:bg-red-100 transition-colors"
+                  style={{ width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: 14, lineHeight: 1 }}
+                  title="Smazat konverzaci"
+                >
+                  ✕
+                </button>
+              </div>
               <div className="text-sm mt-0.5" style={{ color: '#1a2e22' }}>
                 {c.updated_at ? new Date(c.updated_at).toLocaleDateString('cs-CZ') : ''}
               </div>
