@@ -1,9 +1,10 @@
-// ===== MotoGo24 – Edge Function: Process Payment =====
-// Simulated payment gateway (DEV). Real Stripe integration will replace this.
+// ===== MotoGo24 – Edge Function: Process Payment (Stripe TEST mode) =====
+// Supports booking, shop, extension, and SOS payments via Stripe.
 // Endpoint: POST /functions/v1/process-payment
-// Body: { booking_id, amount, method }
+// Body: { booking_id?, order_id?, amount, currency?, type: 'booking'|'shop'|'extension'|'sos' }
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import Stripe from 'https://esm.sh/stripe@14'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -11,17 +12,30 @@ const CORS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
+const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
+  apiVersion: '2024-04-10',
+  httpClient: Stripe.createFetchHttpClient(),
+})
+
+const SITE_URL = Deno.env.get('SITE_URL') || 'https://motogo24.cz'
+
+type PaymentType = 'booking' | 'shop' | 'extension' | 'sos'
+
 interface PaymentRequest {
-  booking_id: string
+  booking_id?: string
+  order_id?: string
+  incident_id?: string
   amount: number
+  currency?: string
   method?: string
+  type?: PaymentType
 }
 
-interface BookingRow {
-  start_date: string
-  status: string
-  confirmed_at: string | null
-  picked_up_at: string | null
+const PRODUCT_NAMES: Record<PaymentType, string> = {
+  booking: 'MotoGo24 — Pronájem motorky',
+  shop: 'MotoGo24 — E-shop objednávka',
+  extension: 'MotoGo24 — Prodloužení rezervace',
+  sos: 'MotoGo24 — SOS náhradní motorka',
 }
 
 Deno.serve(async (req: Request) => {
@@ -30,114 +44,133 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { booking_id, amount, method }: PaymentRequest = await req.json()
+    const body: PaymentRequest = await req.json()
+    const { booking_id, order_id, incident_id, amount, currency, method, type } = body
+    const paymentType: PaymentType = type || 'booking'
 
-    if (!booking_id || amount == null) {
+    // Validate required fields
+    if ((paymentType === 'booking' || paymentType === 'extension' || paymentType === 'sos') && !booking_id) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Missing booking_id or amount' }),
+        JSON.stringify({ success: false, error: `Missing booking_id for ${paymentType} payment` }),
         { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
       )
     }
-
-    // Simulate payment processing delay
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    const transactionId = 'TXN-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6).toUpperCase()
+    if (paymentType === 'shop' && !order_id) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Missing order_id for shop payment' }),
+        { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
+      )
+    }
+    if (amount == null) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Missing amount' }),
+        { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
+      )
+    }
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Fetch booking to determine target status
-    const { data: booking, error: fetchError } = await supabase
-      .from('bookings')
-      .select('start_date, status, confirmed_at, picked_up_at')
-      .eq('id', booking_id)
-      .single<BookingRow>()
+    // Build reference ID and URLs based on payment type
+    const referenceId = paymentType === 'shop' ? order_id! : booking_id!
+    const productName = PRODUCT_NAMES[paymentType]
 
-    if (fetchError || !booking) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Booking not found: ' + (fetchError?.message || 'unknown') }),
-        { status: 404, headers: { ...CORS, 'Content-Type': 'application/json' } }
-      )
+    let successPath: string
+    let cancelPath: string
+
+    if (paymentType === 'shop') {
+      successPath = `/payment-success?order_id=${referenceId}`
+      cancelPath = `/payment-cancel?order_id=${referenceId}`
+    } else if (paymentType === 'sos') {
+      successPath = `/payment-success?booking_id=${referenceId}&type=sos` + (incident_id ? `&incident_id=${incident_id}` : '')
+      cancelPath = `/payment-cancel?booking_id=${referenceId}&type=sos`
+    } else if (paymentType === 'extension') {
+      successPath = `/payment-success?booking_id=${referenceId}&type=extension`
+      cancelPath = `/payment-cancel?booking_id=${referenceId}&type=extension`
+    } else {
+      successPath = `/payment-success?booking_id=${referenceId}`
+      cancelPath = `/payment-cancel?booking_id=${referenceId}`
     }
 
-    // Determine new status: active if rental starts today or earlier, reserved if future
-    let newStatus = booking.status
-    if (booking.status === 'pending') {
-      const startDate = new Date(booking.start_date)
-      startDate.setHours(0, 0, 0, 0)
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      newStatus = startDate <= today ? 'active' : 'reserved'
+    // Build metadata
+    const metadata: Record<string, string> = {
+      type: paymentType,
+      source: 'motogo24',
     }
+    if (booking_id) metadata.booking_id = booking_id
+    if (order_id) metadata.order_id = order_id
+    if (incident_id) metadata.incident_id = incident_id
 
-    const updateData: Record<string, unknown> = {
-      payment_status: 'paid',
-      payment_method: method || 'card',
-      status: newStatus,
-    }
-    if (!booking.confirmed_at && booking.status === 'pending') {
-      updateData.confirmed_at = new Date().toISOString()
-    }
-    if (newStatus === 'active' && !booking.picked_up_at) {
-      updateData.picked_up_at = new Date().toISOString()
-    }
+    // --- OPTION A: Stripe Checkout Session (redirect flow) ---
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: currency || 'czk',
+          product_data: { name: productName },
+          unit_amount: Math.round(amount * 100), // Stripe expects cents
+        },
+        quantity: 1,
+      }],
+      mode: 'payment',
+      success_url: SITE_URL + successPath,
+      cancel_url: SITE_URL + cancelPath,
+      metadata,
+    })
 
-    const { error: updateError } = await supabase
-      .from('bookings')
-      .update(updateData)
-      .eq('id', booking_id)
+    // --- OPTION B: PaymentIntent (for Stripe Elements / in-app) ---
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(amount * 100),
+      currency: currency || 'czk',
+      metadata,
+    })
 
-    if (updateError) {
-      console.error('DB update error:', updateError)
-      // Zkus minimální update (jen payment_status) — obejde potenciální trigger problém
-      const { error: minError } = await supabase
-        .from('bookings')
-        .update({ payment_status: 'paid', payment_method: method || 'card' })
-        .eq('id', booking_id)
-
-      if (!minError) {
-        // Druhý update pro status (separátně)
-        const { error: statusError } = await supabase
-          .from('bookings')
-          .update({
-            status: newStatus,
-            ...(updateData.confirmed_at ? { confirmed_at: updateData.confirmed_at } : {}),
-            ...(updateData.picked_up_at ? { picked_up_at: updateData.picked_up_at } : {}),
-          })
-          .eq('id', booking_id)
-        if (statusError) {
-          console.error('Status update failed:', statusError)
-        }
-      } else {
-        console.error('Minimal DB update also failed:', minError)
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: 'DB update failed: ' + updateError.message,
-            transaction_id: transactionId,
-          }),
-          { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
-        )
-      }
-    }
+    // Log to debug_log
+    await supabase.from('debug_log').insert({
+      source: 'process-payment',
+      action: 'stripe_session_created',
+      component: paymentType,
+      status: 'ok',
+      request_data: { booking_id, order_id, incident_id, amount, currency, type: paymentType },
+      response_data: { session_id: session.id, payment_intent_id: paymentIntent.id },
+    }).catch(() => {})
 
     return new Response(
       JSON.stringify({
         success: true,
-        transaction_id: transactionId,
+        // Checkout Session (redirect flow)
+        checkout_url: session.url,
+        session_id: session.id,
+        // PaymentIntent (Stripe Elements flow)
+        client_secret: paymentIntent.client_secret,
+        payment_intent_id: paymentIntent.id,
         amount,
-        method: method || 'card',
-        processed_at: new Date().toISOString(),
-        error: null,
+        currency: currency || 'czk',
       }),
       { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
     )
   } catch (err) {
+    console.error('Stripe payment error:', err)
+
+    // Log error to debug_log
+    try {
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      )
+      await supabase.from('debug_log').insert({
+        source: 'process-payment',
+        action: 'stripe_error',
+        component: 'stripe',
+        status: 'error',
+        error_message: (err as Error).message,
+      })
+    } catch (_) { /* ignore logging errors */ }
+
     return new Response(
-      JSON.stringify({ success: false, error: 'Internal server error: ' + (err as Error).message }),
+      JSON.stringify({ success: false, error: 'Payment processing failed: ' + (err as Error).message }),
       { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } }
     )
   }

@@ -199,13 +199,16 @@ async function apiCalcBookingPrice(motoId, startISO, endISO){
   } catch(e){ console.error('[API] apiCalcBookingPrice:', e); return 0; }
 }
 
-async function apiProcessPayment(bookingId, amount, method){
+async function apiProcessPayment(bookingId, amount, method, opts){
   _ensureSupabase();
   if(!window.supabase) return {success:false};
   var cfg = window.MOTOGO_CONFIG || {};
   var baseUrl = cfg.SUPABASE_URL;
   var anonKey = cfg.SUPABASE_ANON_KEY;
   var payMethod = method || 'card';
+  var payType = (opts && opts.type) || 'booking';
+  var orderId = (opts && opts.order_id) || null;
+  var incidentId = (opts && opts.incident_id) || null;
 
   // Získej auth token
   var token = anonKey;
@@ -217,6 +220,14 @@ async function apiProcessPayment(bookingId, amount, method){
   // 1) Zkus Edge Function (Stripe checkout pro karty, admin client pro cash)
   if(baseUrl){
     try {
+      var payload = {
+        booking_id: bookingId,
+        amount: amount,
+        method: payMethod,
+        type: payType
+      };
+      if(orderId) payload.order_id = orderId;
+      if(incidentId) payload.incident_id = incidentId;
       var resp = await fetch(baseUrl + '/functions/v1/process-payment', {
         method: 'POST',
         headers: {
@@ -224,11 +235,7 @@ async function apiProcessPayment(bookingId, amount, method){
           'Authorization': 'Bearer ' + token,
           'apikey': anonKey || ''
         },
-        body: JSON.stringify({
-          booking_id: bookingId,
-          amount: amount,
-          method: payMethod
-        })
+        body: JSON.stringify(payload)
       });
       if(resp.ok){
         var result = await resp.json();
