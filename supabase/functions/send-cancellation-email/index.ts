@@ -7,6 +7,31 @@ const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'noreply@motogo24.cz'
 const SITE_URL = Deno.env.get('SITE_URL') || 'https://motogo24.cz'
 
+/** Send email with exponential backoff retry (max 3 attempts) */
+async function sendWithRetry(emailData: Record<string, unknown>, maxRetries = 3): Promise<Record<string, unknown>> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + RESEND_API_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(emailData),
+      })
+      if (res.ok) return await res.json()
+      if (attempt === maxRetries) {
+        const errBody = await res.text()
+        throw new Error('Email failed after ' + maxRetries + ' attempts: ' + res.status + ' ' + errBody)
+      }
+    } catch (e) {
+      if (attempt === maxRetries) throw e
+      await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt))) // exponential backoff
+    }
+  }
+  throw new Error('Email retry exhausted')
+}
+
 const SOURCE_LABELS: Record<string, string> = {
   velin: 'administrátorem',
   web: 'vámi přes web',
@@ -108,29 +133,31 @@ serve(async (req) => {
 </body>
 </html>`
 
-    // Send via Resend API
-    const emailRes = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+
+    // Send via Resend API with retry
+    try {
+      await sendWithRetry({
         from: FROM_EMAIL,
         to: customer_email,
         subject: `Vaše rezervace byla zrušena — MOTO GO 24`,
         html,
-      }),
-    })
-
-    if (!emailRes.ok) {
-      const errBody = await emailRes.text()
-      console.error('Resend error:', errBody)
-      return new Response(JSON.stringify({ error: 'Email send failed', details: errBody }), { status: 500 })
+      })
+    } catch (emailErr) {
+      console.error('Email send failed after retries:', emailErr)
+      // Log failure to debug_log
+      await supabase.from('debug_log').insert({
+        source: 'send-cancellation-email',
+        action: 'email_send_failed',
+        component: 'resend',
+        status: 'error',
+        error_message: (emailErr as Error).message,
+        request_data: { booking_id, customer_email },
+      }).catch(() => {})
+      return new Response(JSON.stringify({ error: 'Email send failed', details: (emailErr as Error).message }), { status: 500 })
     }
 
     // Mark booking as notified
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
     await supabase.from('bookings').update({ cancellation_notified: true }).eq('id', booking_id)
 
     return new Response(JSON.stringify({ success: true }), {
@@ -138,6 +165,6 @@ serve(async (req) => {
     })
   } catch (err) {
     console.error('Error:', err)
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 })
+    return new Response(JSON.stringify({ error: (err as Error).message }), { status: 500 })
   }
 })

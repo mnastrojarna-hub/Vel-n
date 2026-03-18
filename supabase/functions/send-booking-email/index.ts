@@ -7,6 +7,31 @@ const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'noreply@motogo24.cz'
 const SITE_URL = Deno.env.get('SITE_URL') || 'https://motogo24.cz'
 
+/** Send email with exponential backoff retry (max 3 attempts) */
+async function sendWithRetry(emailData: Record<string, unknown>, maxRetries = 3): Promise<Record<string, unknown>> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + RESEND_API_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(emailData),
+      })
+      if (res.ok) return await res.json()
+      if (attempt === maxRetries) {
+        const errBody = await res.text()
+        throw new Error('Email failed after ' + maxRetries + ' attempts: ' + res.status + ' ' + errBody)
+      }
+    } catch (e) {
+      if (attempt === maxRetries) throw e
+      await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt))) // exponential backoff
+    }
+  }
+  throw new Error('Email retry exhausted')
+}
+
 const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
 const fmtPrice = (n: number) => (n || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 0 })
 
@@ -120,20 +145,25 @@ serve(async (req) => {
     const subject = SUBJECTS[emailType]?.(vars) || `Oznámení — MOTO GO 24`
     const html = buildHtml(emailType, vars)
 
-    const emailRes = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: FROM_EMAIL, to: customer_email, subject, html }),
-    })
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
-    if (!emailRes.ok) {
-      const errBody = await emailRes.text()
-      console.error('Resend error:', errBody)
-      return new Response(JSON.stringify({ error: 'Email send failed', details: errBody }), { status: 500 })
+    try {
+      await sendWithRetry({ from: FROM_EMAIL, to: customer_email, subject, html })
+    } catch (emailErr) {
+      console.error('Email send failed after retries:', emailErr)
+      // Log failure to debug_log
+      await supabase.from('debug_log').insert({
+        source: 'send-booking-email',
+        action: 'email_send_failed',
+        component: 'resend',
+        status: 'error',
+        error_message: (emailErr as Error).message,
+        request_data: { type, customer_email, booking_id },
+      }).catch(() => {})
+      return new Response(JSON.stringify({ error: 'Email send failed', details: (emailErr as Error).message }), { status: 500 })
     }
 
     // Log email
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
     await supabase.from('email_log').insert({
       template_slug: type,
       recipient: customer_email,

@@ -943,34 +943,13 @@ function _sosInitPaymentGateway(amount){
 }
 
 async function sosPaymentSubmit(){
-    var cardNum = (document.getElementById('sos-pay-card')||{}).value || '';
-    var expiry = (document.getElementById('sos-pay-expiry')||{}).value || '';
-    var cvc = (document.getElementById('sos-pay-cvc')||{}).value || '';
     var errorEl = document.getElementById('sos-pay-error');
     var btn = document.getElementById('sos-pay-btn');
 
-    // Validace
-    var cleanCard = cardNum.replace(/\s/g, '');
-    if(cleanCard.length < 13 || cleanCard.length > 19){
-      if(errorEl){ errorEl.textContent = 'Zadejte platné číslo karty'; errorEl.style.display = 'block'; }
-      return;
-    }
-    if(!/^\d{2}\/\d{2}$/.test(expiry.trim())){
-      if(errorEl){ errorEl.textContent = 'Expirace ve formátu MM/RR'; errorEl.style.display = 'block'; }
-      return;
-    }
-    if(cvc.trim().length < 3){
-      if(errorEl){ errorEl.textContent = 'Zadejte CVC kód (3 číslice)'; errorEl.style.display = 'block'; }
-      return;
-    }
-
     if(errorEl) errorEl.style.display = 'none';
-    if(btn){ btn.textContent = '⏳ Ověřuji platbu...'; btn.disabled = true; btn.style.opacity = '0.6'; }
+    if(btn){ btn.textContent = '⏳ Zpracovávám platbu...'; btn.disabled = true; btn.style.opacity = '0.6'; }
 
-    // Simulace 2s zpracování
-    setTimeout(async function(){
-      try {
-      // Simulace: platba vždy projde (testovací prostředí)
+    try {
       var pd = _sosReplacementPaymentData;
       if(!pd){
         showT('❌','Chyba','Chybí data objednávky');
@@ -978,78 +957,89 @@ async function sosPaymentSubmit(){
         return;
       }
 
-      pd.replacementData.payment_status = 'paid';
-      pd.replacementData.paid_at = new Date().toISOString();
       // Ensure customer_fault is preserved from snapshot
       if(pd.replacementData.customer_fault !== true && _sosFaultSnapshot === true){
         pd.replacementData.customer_fault = true;
       }
 
-      // Show success animation on button
-      if(btn){ btn.textContent = '✅ Platba přijata!'; btn.style.background = '#1a8a18'; }
+      var sosAmount = pd.replacementData.payment_amount || pd.total || 0;
 
-      // Show success toast
-      showT('✅','Platba přijata!', pd.replacementData.payment_amount.toLocaleString('cs-CZ') + ' Kč — zpracovávám objednávku...');
-
-      // Wait 1.5s so user sees the "Platba přijata!" confirmation
-      await new Promise(function(r){ setTimeout(r, 1500); });
-
+      // First do the swap so we get a replacement booking ID
       await _sosSwapBookingsAndConfirm(pd.incId, pd.replacementData, true, pd.address, pd.city);
 
-      // Generate ZF + DP for the SOS replacement payment
-      try {
-        var replBookingId = pd.replacementData.replacement_booking_id;
-        var sosPaymentTotal = pd.replacementData.payment_amount || 0;
-        // Retry: try to get booking ID from incident (swap might have set it even on partial success)
-        if(!replBookingId && pd.incId){
-          var incCheck = await window.supabase.from('sos_incidents').select('replacement_booking_id').eq('id', pd.incId).single();
-          if(incCheck.data && incCheck.data.replacement_booking_id) replBookingId = incCheck.data.replacement_booking_id;
+      // Find replacement booking ID
+      var replBookingId = pd.replacementData.replacement_booking_id;
+      if(!replBookingId && pd.incId){
+        var incCheck = await window.supabase.from('sos_incidents').select('replacement_booking_id').eq('id', pd.incId).single();
+        if(incCheck.data && incCheck.data.replacement_booking_id) replBookingId = incCheck.data.replacement_booking_id;
+      }
+      if(!replBookingId){
+        try {
+          var uid = null;
+          try { var u = await window.supabase.auth.getUser(); uid = u.data && u.data.user ? u.data.user.id : null; } catch(e){}
+          if(uid){
+            var recentBk = await window.supabase.from('bookings').select('id')
+              .eq('user_id', uid).eq('sos_replacement', true)
+              .order('created_at', {ascending: false}).limit(1);
+            if(recentBk.data && recentBk.data.length > 0) replBookingId = recentBk.data[0].id;
+          }
+        } catch(e2){ console.warn('[SOS] Retry find replacement booking:', e2); }
+      }
+
+      if(!replBookingId){
+        console.error('[SOS] No replacement booking ID found after swap. incId=' + pd.incId);
+        showT('❌','Chyba','Nepodařilo se vytvořit náhradní rezervaci');
+        if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '💳 Zaplatit'; btn.style.background = '#b91c1c'; }
+        return;
+      }
+
+      // Process payment via Stripe
+      var payResult = await apiProcessPayment(replBookingId, sosAmount, 'card', {type: 'sos', incident_id: pd.incId});
+
+      if(payResult.success){
+        // Stripe checkout redirect
+        if(payResult.checkout_url){
+          if(btn){ btn.textContent = '↗ Přesměrování na platbu...'; }
+          showT('✅','Přesměrování', 'Budete přesměrováni na platební bránu Stripe...');
+          window.location.href = payResult.checkout_url;
+          return;
         }
-        // Retry: search for any SOS replacement booking for this user created recently
-        if(!replBookingId){
-          try {
-            var uid = null;
-            try { var u = await window.supabase.auth.getUser(); uid = u.data && u.data.user ? u.data.user.id : null; } catch(e){}
-            if(uid){
-              var recentBk = await window.supabase.from('bookings').select('id')
-                .eq('user_id', uid).eq('sos_replacement', true)
-                .order('created_at', {ascending: false}).limit(1);
-              if(recentBk.data && recentBk.data.length > 0) replBookingId = recentBk.data[0].id;
-            }
-          } catch(e2){ console.warn('[SOS] Retry find replacement booking:', e2); }
-        }
-        if(replBookingId){
-          // Mark replacement booking as paid + active
-          var _bkUpd = await window.supabase.from('bookings').update({
-            payment_status: 'paid',
-            status: 'active',
-            confirmed_at: new Date().toISOString(),
-            picked_up_at: new Date().toISOString()
-          }).eq('id', replBookingId);
-          if(_bkUpd.error) console.error('[SOS] Booking status update failed:', _bkUpd.error.message);
-          // Generate ZF (zálohová faktura)
+
+        // PaymentIntent confirmed (Stripe Elements or test)
+        pd.replacementData.payment_status = 'paid';
+        pd.replacementData.paid_at = new Date().toISOString();
+
+        if(btn){ btn.textContent = '✅ Platba přijata!'; btn.style.background = '#1a8a18'; }
+        showT('✅','Platba přijata!', sosAmount.toLocaleString('cs-CZ') + ' Kč');
+
+        await new Promise(function(r){ setTimeout(r, 1500); });
+
+        // Generate ZF + DP
+        try {
           if(typeof apiGenerateAdvanceInvoice === 'function'){
-            var _zfSos = await apiGenerateAdvanceInvoice(replBookingId, sosPaymentTotal, 'sos');
+            var _zfSos = await apiGenerateAdvanceInvoice(replBookingId, sosAmount, 'sos');
             if(_zfSos.error) console.error('[SOS] ZF generation failed:', _zfSos.error);
             else console.log('[SOS] ZF generated:', _zfSos.invoice_number);
           }
-          // Generate DP (daňový doklad)
           if(typeof apiGeneratePaymentReceipt === 'function'){
-            var _dpSos = await apiGeneratePaymentReceipt(replBookingId, sosPaymentTotal, 'sos');
+            var _dpSos = await apiGeneratePaymentReceipt(replBookingId, sosAmount, 'sos');
             if(_dpSos.error) console.error('[SOS] DP generation failed:', _dpSos.error);
             else console.log('[SOS] DP generated:', _dpSos.receipt_number);
           }
-        } else {
-          console.error('[SOS] No replacement booking ID found — ZF/DP not generated. incId=' + pd.incId);
-        }
-      } catch(e){ console.error('[SOS] ZF/DP generation failed:', e); }
+        } catch(e){ console.error('[SOS] ZF/DP generation failed:', e); }
 
-      } catch(e){
-        console.error('[SOS] Payment processing error:', e);
-        showT('❌','Chyba při zpracování','Zkuste to znovu');
+        // Navigate back
+        goTo('s-reservations');
+        await loadMyReservations();
+      } else {
+        showT('❌','Platba selhala', payResult.error || 'Zkuste to znovu');
         if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '💳 Zaplatit'; btn.style.background = '#b91c1c'; }
       }
-    }, 2000);
+    } catch(e){
+      console.error('[SOS] Payment processing error:', e);
+      showT('❌','Chyba při zpracování','Zkuste to znovu');
+      if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '💳 Zaplatit'; btn.style.background = '#b91c1c'; }
+    }
 }
 
 // Core: swap bookings via RPC + update incident
