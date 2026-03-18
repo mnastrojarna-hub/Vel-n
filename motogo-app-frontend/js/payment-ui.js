@@ -375,9 +375,16 @@ function doPayment(){
   } catch(e){ console.error('doPayment error:', e); showT('✗',_t('common').error||'Chyba',_t('pay').processingError||'Chyba při zpracování platby'); }
 }
 
+function _parseDate(str){
+  if(!str) return null;
+  if(typeof str==='string' && str.length===10) str += 'T12:00:00';
+  return new Date(str);
+}
+
 function _fmtDatePayment(iso){
   try {
-    var d = new Date(iso);
+    var d = _parseDate(iso);
+    if(!d || isNaN(d.getTime())) return '—';
     return d.getDate() + '. ' + (d.getMonth()+1) + '. ' + d.getFullYear();
   } catch(e){ return '—'; }
 }

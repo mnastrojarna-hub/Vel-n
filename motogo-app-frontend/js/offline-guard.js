@@ -7,9 +7,20 @@ var OfflineGuard = (function(){
     var _overlayId = 'motogo-offline-overlay';
     var _checkInterval = null;
 
-    /** Zkontroluje zda je Supabase dostupný (rychlý ping). */
+    /** Quick online check (sync). */
     function _isOnline() {
-        return navigator.onLine && typeof window.supabase !== 'undefined' && window.supabase !== null;
+        if (!navigator.onLine) return false;
+        if (typeof window.supabase === 'undefined' || !window.supabase) return false;
+        return true;
+    }
+
+    /** Real async ping to Supabase REST endpoint. */
+    function _pingSupabase(cb) {
+        var cfg = window.MOTOGO_CONFIG || {};
+        if (!cfg.SUPABASE_URL) { cb(false); return; }
+        fetch(cfg.SUPABASE_URL + '/rest/v1/', {method: 'HEAD', headers: {'apikey': cfg.SUPABASE_ANON_KEY || ''}})
+            .then(function(){ cb(true); })
+            .catch(function(){ cb(false); });
     }
 
     /** Zobrazí offline overlay. */
@@ -94,6 +105,7 @@ var OfflineGuard = (function(){
         retry: retry,
         startWatching: startWatching,
         requireOnline: requireOnline,
-        isOnline: _isOnline
+        isOnline: _isOnline,
+        pingSupabase: _pingSupabase
     };
 })();

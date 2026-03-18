@@ -59,6 +59,10 @@ function goTo(id){
   if(id==='s-home'||id==='s-search'){
     if(typeof resetBookingState==='function') resetBookingState();
     bookingMoto=null;
+    if(typeof dOd!=='undefined') dOd=null;
+    if(typeof dDo!=='undefined') dDo=null;
+    if(typeof bOd!=='undefined') bOd=null;
+    if(typeof bDo!=='undefined') bDo=null;
   }
   // Reset search dates when going home to prevent stale dates in detail pages
   if(id==='s-home'){
@@ -66,10 +70,11 @@ function goTo(id){
     if(typeof sDo!=='undefined') sDo=null;
     if(typeof sStep!=='undefined') sStep=1;
   }
-  // Reset detail-specific calendar step when entering a new detail
-  // dOd/dDo are set in renderDetail() from sOd/sDo – don't clear here
+  // Reset detail-specific state when entering a new detail
   if(id==='s-detail'){
     dStep=1;
+    if(typeof dOd!=='undefined') dOd=null;
+    if(typeof dDo!=='undefined') dDo=null;
   }
   // Cart FAB: only re-show after addToCart, not on navigation
 
@@ -219,6 +224,10 @@ function histBack(){
     if(prev==='s-home'||prev==='s-search'){
       if(typeof resetBookingState==='function') resetBookingState();
       bookingMoto=null;
+      if(typeof dOd!=='undefined') dOd=null;
+      if(typeof dDo!=='undefined') dDo=null;
+      if(typeof bOd!=='undefined') bOd=null;
+      if(typeof bDo!=='undefined') bDo=null;
     }
     if(prev==='s-home'){
       if(typeof sOd!=='undefined') sOd=null;
