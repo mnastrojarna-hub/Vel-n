@@ -246,7 +246,7 @@ export default function AICopilot() {
                 Ptejte se na tržby, flotilu, servis nebo cokoli dalšího.
               </div>
               <div className="flex flex-wrap gap-2 justify-center mt-4">
-                {['Kolik jsme vydělali tento měsíc?', 'Které motorky potřebují servis?', 'Navrhni cenu pro víkendový pronájem', 'Shrň aktivní SOS incidenty'].map(q => (
+                {['Dej mi kompletní přehled firmy', 'Kolik jsme vydělali a jak jsme na tom vs. minulý měsíc?', 'Které motorky potřebují servis?', 'Shrň aktivní SOS incidenty', 'Jaký je stav poboček a flotily?', 'Přehled e-shopu a voucherů'].map(q => (
                   <button key={q} onClick={() => { setInput(q); setTimeout(() => { handleSendWithMessage(q) }, 0) }}
                     className="rounded-btn text-sm cursor-pointer"
                     style={{ padding: '6px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
