@@ -625,13 +625,21 @@ async function apiGetActiveLoan(){
       .eq('user_id', uid)
       .eq('status', 'active')
       .order('start_date', {ascending: false})
-      .limit(1);
+      .limit(5);
     if(r.data && r.data.length > 0){
-      var b = r.data[0];
-      b.moto = b.motorcycles;
-      // Zkontroluj jestli výpůjčka ještě "běží" podle return_method
-      b._pastEndTime = !_isBookingStillActive(b);
-      return b;
+      // Preferuj booking co reálně začal a běží
+      var best = null;
+      for(var j = 0; j < r.data.length; j++){
+        var bk = r.data[j];
+        bk.moto = bk.motorcycles;
+        if(_hasBookingStarted(bk)){
+          bk._pastEndTime = !_isBookingStillActive(bk);
+          if(!best) best = bk;
+          // Preferuj ten co ještě běží (není past end)
+          if(!bk._pastEndTime){ best = bk; break; }
+        }
+      }
+      if(best) return best;
     }
     // 2) Fallback: reserved/confirmed — zkontroluj s ohledem na pickup/return method
     r = await window.supabase.from('bookings')
