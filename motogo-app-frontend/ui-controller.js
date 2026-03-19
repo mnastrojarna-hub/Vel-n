@@ -1324,6 +1324,56 @@ function sosDrobnaZavada() {
     }).catch(function(){ _sosSubmitting = false; });
 }
 
+// ===== SOS PHOTO-ONLY SUBMIT — informativní fotodokumentace =====
+function sosSubmitPhotosOnly() {
+    if(typeof _sosPhotos==='undefined' || _sosPhotos.length === 0) {
+      showT('⚠️', 'Žádné fotky', 'Nejdříve přidejte alespoň jednu fotku');
+      return;
+    }
+    if(_sosSubmitting) return;
+    _sosSubmitting = true;
+    var btn = document.getElementById('sos-photo-submit-btn');
+    if(btn){ btn.textContent = '⏳ Odesílám...'; btn.disabled = true; }
+    // Get active booking for linking
+    _sosPreFetchIds();
+    setTimeout(function(){
+      var bookingId = _sosCurrentBookingId || null;
+      var motoId = _sosCurrentMotoId || null;
+      // Create a lightweight 'other' incident for informative photo documentation
+      _sosGetGPS().then(function(gps){
+        return apiCreateSosIncident('other', bookingId, gps.lat, gps.lng, 'Informativní fotodokumentace – zákazník odeslal fotky', false, motoId);
+      }).then(function(incId){
+        if(!incId){
+          _sosSubmitting = false;
+          if(btn){ btn.textContent = '📤 Odeslat fotodokumentaci do MotoGo24'; btn.disabled = false; }
+          showT('❌', 'Chyba', 'Nepodařilo se odeslat. Zkuste znovu.');
+          return;
+        }
+        // Upload photos
+        uploadSOSPhotos(incId, _sosPhotos).then(function(urls){
+          if(urls.length) saveSOSPhotoUrls(incId, urls);
+          _sosResetPhotos();
+          _sosSubmitting = false;
+          // Timeline entry
+          window.supabase.from('sos_timeline').insert({
+            incident_id: incId,
+            action: 'Zákazník odeslal informativní fotodokumentaci (' + urls.length + ' fotek)',
+          }).then(function(){});
+          showT('✅', 'Fotodokumentace odeslána', 'MotoGo24 obdržela vaše fotky');
+          if(btn){ btn.textContent = '✅ Odesláno'; btn.style.background = '#1a8a18'; btn.style.opacity = '0.8'; }
+          setTimeout(function(){
+            if(btn){ btn.textContent = '📤 Odeslat fotodokumentaci do MotoGo24'; btn.disabled = false; btn.style.background = 'var(--green)'; btn.style.opacity = '1'; btn.style.display = 'none'; }
+          }, 3000);
+        });
+      }).catch(function(e){
+        console.error('[SOS] sosSubmitPhotosOnly error:', e);
+        _sosSubmitting = false;
+        if(btn){ btn.textContent = '📤 Odeslat fotodokumentaci do MotoGo24'; btn.disabled = false; }
+        showT('❌', 'Chyba', 'Nepodařilo se odeslat fotky');
+      });
+    }, 300);
+}
+
 // ===== AI CHAT =====
 function aiGetResponse(txt){
   const lc=txt.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');

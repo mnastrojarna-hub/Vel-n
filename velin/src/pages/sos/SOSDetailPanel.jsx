@@ -65,6 +65,9 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
   const [availableMotos, setAvailableMotos] = useState([])
   const [showMotoSelector, setShowMotoSelector] = useState(false)
   const [swapping, setSwapping] = useState(false)
+  const [relatedIncidents, setRelatedIncidents] = useState([])
+  const [showLinkPhotos, setShowLinkPhotos] = useState(false)
+  const [linkingPhotos, setLinkingPhotos] = useState(false)
 
   useEffect(() => {
     // Reset all state when incident changes to prevent stale view
@@ -80,6 +83,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
     loadReplacementMoto()
     loadIncidentNotes()
     loadTimelineActions()
+    loadRelatedIncidents()
     setAdminNotes(incident.admin_notes || '')
     setResolution(incident.resolution || '')
     setPoliceNumber(incident.police_report_number || '')
@@ -94,6 +98,49 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
       .select('action')
       .eq('incident_id', incident.id)
     setTimelineActions((data || []).map(d => d.action || ''))
+  }
+
+  async function loadRelatedIncidents() {
+    setRelatedIncidents([])
+    if (!incident?.booking_id) return
+    const { data } = await supabase.from('sos_incidents')
+      .select('id, type, title, description, status, photos, created_at')
+      .eq('booking_id', incident.booking_id)
+      .neq('id', incident.id)
+      .order('created_at', { ascending: false })
+    setRelatedIncidents(data || [])
+  }
+
+  async function linkPhotosToIncident(targetIncidentId) {
+    if (!incident?.photos?.length || linkingPhotos) return
+    if (!window.confirm('Přiřadit fotky z této fotodokumentace k vybranému incidentu?\n\nFotky budou zkopírovány (zůstanou i zde).')) return
+    setLinkingPhotos(true)
+    try {
+      const { data: target } = await supabase.from('sos_incidents')
+        .select('photos').eq('id', targetIncidentId).single()
+      const existingPhotos = target?.photos || []
+      const mergedPhotos = [...existingPhotos, ...incident.photos]
+      await supabase.from('sos_incidents')
+        .update({ photos: mergedPhotos }).eq('id', targetIncidentId)
+      const { data: { user } } = await supabase.auth.getUser()
+      await supabase.from('sos_timeline').insert({
+        incident_id: targetIncidentId,
+        action: `Přiřazena fotodokumentace (${incident.photos.length} fotek) z informativního hlášení #${incident.id?.slice(0, 8).toUpperCase()}`,
+        performed_by: user?.email || 'Admin', admin_id: user?.id,
+      })
+      await supabase.from('sos_timeline').insert({
+        incident_id: incident.id,
+        action: `Fotky přiřazeny k incidentu #${targetIncidentId?.slice(0, 8).toUpperCase()}`,
+        performed_by: user?.email || 'Admin', admin_id: user?.id,
+      })
+      setShowLinkPhotos(false)
+      alert('✅ Fotky úspěšně přiřazeny!')
+      onRefresh?.()
+    } catch (e) {
+      console.error('[SOS] linkPhotos error:', e)
+      alert('❌ Chyba: ' + e.message)
+    }
+    setLinkingPhotos(false)
   }
 
   async function loadIncidentNotes() {
@@ -676,6 +723,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
   const isActive = !['resolved', 'closed'].includes(incident.status)
   const isAccident = incident.type?.startsWith('accident')
   const isMajor = incident.type === 'accident_major' || incident.type === 'breakdown_major'
+  const isPhotoOnly = incident.type === 'other' && incident.description?.toLowerCase().includes('fotodokumentace')
 
   return (
     <div className="space-y-4">
@@ -1548,7 +1596,17 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
       {/* Fotky */}
       {incident.photos && incident.photos.length > 0 && (
         <Card>
-          <h4 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Fotografie</h4>
+          <h4 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>
+            Fotografie ({incident.photos.length})
+          </h4>
+          {isPhotoOnly && (
+            <div className="rounded-lg text-sm font-bold mb-3" style={{
+              padding: '8px 12px', background: '#eff6ff', color: '#2563eb', border: '1px solid #93c5fd',
+            }}>
+              📷 Informativní fotodokumentace — zákazník odeslal fotky bez nahlášení konkrétního incidentu.
+              {incident.booking_id && ' Můžete je přiřadit k jinému incidentu u této rezervace.'}
+            </div>
+          )}
           <div className="flex flex-wrap gap-2">
             {incident.photos.map((photo, i) => (
               <a key={i} href={photo} target="_blank" rel="noopener noreferrer">
@@ -1556,6 +1614,49 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
               </a>
             ))}
           </div>
+          {/* Přiřadit fotky k jinému incidentu */}
+          {isPhotoOnly && incident.booking_id && relatedIncidents.length > 0 && (
+            <div className="mt-3">
+              {!showLinkPhotos ? (
+                <button onClick={() => setShowLinkPhotos(true)}
+                  className="rounded-btn text-sm font-extrabold tracking-wide cursor-pointer border-none"
+                  style={{ padding: '8px 16px', background: '#2563eb', color: '#fff' }}>
+                  Přiřadit fotky k incidentu u této rezervace
+                </button>
+              ) : (
+                <div>
+                  <div className="text-sm font-extrabold mb-2" style={{ color: '#1a2e22' }}>
+                    Vyberte incident ({relatedIncidents.length}):
+                  </div>
+                  <div className="space-y-2" style={{ maxHeight: 200, overflowY: 'auto' }}>
+                    {relatedIncidents.map(ri => (
+                      <div key={ri.id} className="flex items-center justify-between rounded-lg cursor-pointer"
+                        style={{ padding: '8px 12px', background: '#f8fcfa', border: '1px solid #d4e8e0' }}
+                        onClick={() => !linkingPhotos && linkPhotosToIncident(ri.id)}>
+                        <div>
+                          <div className="text-sm font-extrabold" style={{ color: '#0f1a14' }}>
+                            {TYPE_ICONS[ri.type] || '⚠️'} {ri.title || TYPE_LABELS[ri.type] || ri.type}
+                          </div>
+                          <div className="text-sm" style={{ color: '#1a2e22' }}>
+                            #{ri.id?.slice(0, 8)} · {ri.status} · {ri.created_at ? new Date(ri.created_at).toLocaleString('cs-CZ') : ''}
+                            {ri.photos?.length ? ` · ${ri.photos.length} fotek` : ''}
+                          </div>
+                        </div>
+                        <span className="text-sm font-extrabold" style={{ color: '#2563eb' }}>
+                          {linkingPhotos ? '⏳' : 'Přiřadit →'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={() => setShowLinkPhotos(false)}
+                    className="mt-2 rounded-btn text-sm font-extrabold cursor-pointer border-none"
+                    style={{ padding: '6px 12px', background: '#f1faf7', color: '#1a2e22' }}>
+                    Zrušit
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </Card>
       )}
 
