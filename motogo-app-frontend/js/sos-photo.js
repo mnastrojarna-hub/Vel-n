@@ -99,7 +99,8 @@ async function uploadSOSPhotos(incidentId, photos) {
         .from('sos-photos')
         .upload(path, photo.blob, { contentType: 'image/jpeg', upsert: false });
       if (!r.error) {
-        urls.push('sos-photos/' + path);
+        var pubUrl = window.supabase.storage.from('sos-photos').getPublicUrl(path);
+        urls.push(pubUrl && pubUrl.data ? pubUrl.data.publicUrl : 'sos-photos/' + path);
       } else {
         console.warn('[SOS-PHOTO] upload error:', r.error);
       }
@@ -136,6 +137,8 @@ function _renderSOSPhotoPreview() {
   wrap.innerHTML = html;
   var countEl = document.getElementById('sos-photo-count');
   if (countEl) countEl.textContent = _sosPhotos.length + '/' + _sosPhotoMax;
+  var submitBtn = document.getElementById('sos-photo-submit-btn');
+  if (submitBtn) submitBtn.style.display = _sosPhotos.length > 0 ? 'block' : 'none';
 }
 
 function _sosRemovePhoto(idx) {
@@ -149,6 +152,8 @@ function _sosResetPhotos() {
   if (wrap) wrap.innerHTML = '';
   var countEl = document.getElementById('sos-photo-count');
   if (countEl) countEl.textContent = '0/' + _sosPhotoMax;
+  var submitBtn = document.getElementById('sos-photo-submit-btn');
+  if (submitBtn) submitBtn.style.display = 'none';
 }
 
 // Inject photo step HTML into a container
@@ -163,6 +168,8 @@ function _sosInjectPhotoStep(containerId) {
     '<button onclick="captureSOSPhoto()" style="width:100%;background:var(--gp);color:var(--gd);border:2px solid var(--green);border-radius:50px;padding:12px;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;">' +
     '📸 Vyfotit nebo vybrat z galerie</button>' +
     '<div style="font-size:10px;color:var(--g400);margin-top:6px;text-align:center;">Přidejte foto poškození (1-5 fotek)</div>' +
+    '<button id="sos-photo-submit-btn" onclick="sosSubmitPhotosOnly()" style="display:none;width:100%;margin-top:10px;background:var(--green);color:#fff;border:none;border-radius:50px;padding:13px;font-family:var(--font);font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(116,251,113,.35);">' +
+    '📤 Odeslat fotodokumentaci do MotoGo24</button>' +
     '</div>';
   _sosResetPhotos();
 }

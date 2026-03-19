@@ -529,7 +529,8 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
   const typeLabel = TYPE_LABELS[inc.type] || inc.type || 'Incident'
   const typeIcon = TYPE_ICONS[inc.type] || '⚠️'
   const typeCat = TYPE_CATEGORY[inc.type] || { label: 'SOS', bg: '#f3f4f6', color: '#1a2e22' }
-  const displayTitle = inc.title || typeLabel
+  const isPhotoOnly = inc.type === 'other' && inc.description?.toLowerCase().includes('fotodokumentace')
+  const displayTitle = isPhotoOnly ? '📷 Fotodokumentace' : (inc.title || typeLabel)
   const isActive = !['resolved', 'closed'].includes(inc.status)
   const isAccident = inc.type?.startsWith('accident')
   const isHeavy = ['theft', 'accident_major', 'breakdown_major'].includes(inc.type)
