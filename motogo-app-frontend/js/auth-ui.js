@@ -504,7 +504,13 @@ function _renderUserDataAsync(){
       var homeActiveRes = document.getElementById('home-active-res');
       if(!homeActiveRes) return;
 
-      if(activeLoan){
+      // Safeguard: ověř že booking reálně začal (ochrana proti špatnému statusu v DB)
+      if(activeLoan && typeof _hasBookingStarted==='function' && !_hasBookingStarted(activeLoan)){
+        console.warn('[HOME] apiGetActiveLoan vrátil booking co ještě nezačal:', activeLoan.id, 'start_date:', activeLoan.start_date);
+        activeLoan._isUpcoming = true;
+      }
+
+      if(activeLoan && !activeLoan._isUpcoming){
         var motoName = activeLoan.moto ? activeLoan.moto.model : 'Motorka';
         var isPast = activeLoan._pastEndTime;
         var icon = isPast ? '\u23f0' : '\ud83c\udfcd\ufe0f';
@@ -515,19 +521,23 @@ function _renderUserDataAsync(){
           '<div><div class="ares-n">'+motoName+'</div><div class="ares-s">#'+activeLoan.id.substr(-8).toUpperCase()+' \u00b7 '+label+'</div></div>' +
           '<div class="ares-tag" style="'+tagStyle+'">'+label+'</div></div>';
       } else {
-        return Promise.resolve(apiFetchMyBookings('pending')).then(function(upcoming){
+        // Pokud apiGetActiveLoan vrátil upcoming booking, použij ho; jinak fetch pending
+        var upcomingPromise = (activeLoan && activeLoan._isUpcoming)
+          ? Promise.resolve([activeLoan])
+          : Promise.resolve(apiFetchMyBookings('pending'));
+        return upcomingPromise.then(function(upcoming){
           if(upcoming && upcoming.length > 0){
-            var nextBooking = upcoming[upcoming.length-1];
-            var nextName = nextBooking.moto_name || 'Motorka';
+            var nextBooking = (upcoming.length === 1 && upcoming[0]._isUpcoming) ? upcoming[0] : upcoming[upcoming.length-1];
+            var nextName = nextBooking.moto_name || (nextBooking.moto ? nextBooking.moto.model : 'Motorka');
             homeActiveRes.innerHTML = '<div class="ares" onclick="openResDetailById(\''+nextBooking.id+'\')">' +
-              '<div style="font-size:24px;">📅</div>' +
-              '<div><div class="ares-n">'+nextName+'</div><div class="ares-s">#'+nextBooking.id.substr(-8).toUpperCase()+' · '+_t('auth').upcoming+'</div></div>' +
+              '<div style="font-size:24px;">\ud83d\udcc5</div>' +
+              '<div><div class="ares-n">'+nextName+'</div><div class="ares-s">#'+nextBooking.id.substr(-8).toUpperCase()+' \u00b7 '+_t('auth').upcoming+'</div></div>' +
               '<div class="ares-tag" style="background:rgba(59,130,246,.15);color:#1d4ed8;">'+_t('auth').ready+'</div></div>';
           } else {
             homeActiveRes.innerHTML = '<div class="ares" onclick="goTo(\'s-search\')" style="cursor:pointer;">' +
-              '<div style="font-size:24px;">🏍️</div>' +
+              '<div style="font-size:24px;">\ud83c\udfcd\ufe0f</div>' +
               '<div><div class="ares-n">'+_t('auth').noRes+'</div><div class="ares-s">'+_t('auth').newRes+'</div></div>' +
-              '<div style="font-size:18px;color:var(--g400);">›</div></div>';
+              '<div style="font-size:18px;color:var(--g400);">\u203a</div></div>';
           }
         });
       }
