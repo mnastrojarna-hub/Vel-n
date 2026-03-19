@@ -506,10 +506,14 @@ function _renderUserDataAsync(){
 
       if(activeLoan){
         var motoName = activeLoan.moto ? activeLoan.moto.model : 'Motorka';
+        var isPast = activeLoan._pastEndTime;
+        var icon = isPast ? '\u23f0' : '\ud83c\udfcd\ufe0f';
+        var label = isPast ? 'K vr\u00e1cen\u00ed' : _t('auth').active;
+        var tagStyle = isPast ? 'background:rgba(239,68,68,.15);color:#b91c1c;' : '';
         homeActiveRes.innerHTML = '<div class="ares" onclick="openResDetailById(\''+activeLoan.id+'\')">' +
-          '<div style="font-size:24px;">🏍️</div>' +
-          '<div><div class="ares-n">'+motoName+'</div><div class="ares-s">#'+activeLoan.id.substr(-8).toUpperCase()+' · '+_t('auth').active+'</div></div>' +
-          '<div class="ares-tag">'+_t('auth').active+'</div></div>';
+          '<div style="font-size:24px;">'+icon+'</div>' +
+          '<div><div class="ares-n">'+motoName+'</div><div class="ares-s">#'+activeLoan.id.substr(-8).toUpperCase()+' \u00b7 '+label+'</div></div>' +
+          '<div class="ares-tag" style="'+tagStyle+'">'+label+'</div></div>';
       } else {
         return Promise.resolve(apiFetchMyBookings('pending')).then(function(upcoming){
           if(upcoming && upcoming.length > 0){

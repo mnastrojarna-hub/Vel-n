@@ -578,13 +578,30 @@ async function apiFetchShopInvoices(){
 }
 
 // ===== AKTIVNÍ VÝPŮJČKA =====
+// Logika konce výpůjčky závisí na return_method:
+//   'delivery' (svoz) → řídí se časem end_date (přesný čas)
+//   'store' (zákazník vrací na pobočku) → zákazník má do půlnoci posledního dne
+function _isBookingStillActive(booking){
+  if(!booking || !booking.end_date) return true; // chybí data → raději ukaž
+  var now = new Date();
+  var endDate = new Date(booking.end_date);
+  if(booking.return_method === 'store'){
+    // Zákazník vrací sám → do půlnoci posledního dne
+    var midnight = new Date(endDate);
+    midnight.setHours(23,59,59,999);
+    return now <= midnight;
+  }
+  // Svoz/přistavení → přesný čas
+  return now <= endDate;
+}
+
 async function apiGetActiveLoan(){
   _ensureSupabase();
   if(!window.supabase) return null;
   try {
     var uid = await _getUserId();
     if(!uid) return null;
-    // 1) Priorita: booking se statusem 'active' (motorka je venku, bez ohledu na datum)
+    // 1) Priorita: booking se statusem 'active' (motorka je venku)
     var r = await window.supabase.from('bookings')
       .select('*, motorcycles(model, image_url)')
       .eq('user_id', uid)
@@ -592,8 +609,11 @@ async function apiGetActiveLoan(){
       .order('start_date', {ascending: false})
       .limit(1);
     if(r.data && r.data.length > 0){
-      r.data[0].moto = r.data[0].motorcycles;
-      return r.data[0];
+      var b = r.data[0];
+      b.moto = b.motorcycles;
+      // Zkontroluj jestli výpůjčka ještě "běží" podle return_method
+      b._pastEndTime = !_isBookingStillActive(b);
+      return b;
     }
     // 2) Fallback: reserved/confirmed v aktuálním časovém rozmezí
     var now = new Date().toISOString();
