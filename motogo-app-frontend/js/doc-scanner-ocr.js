@@ -26,19 +26,40 @@
     return Promise.resolve(null);
   }
 
+  // Resize image to max dimension for OCR (saves bandwidth, avoids body size limits)
+  var MAX_OCR_DIM = 1600; // px — sufficient for Mindee OCR
+  var OCR_JPEG_QUALITY = 0.80;
+
+  function _resizeForOCR(canvas){
+    var w = canvas.width, h = canvas.height;
+    if(w <= MAX_OCR_DIM && h <= MAX_OCR_DIM) return canvas;
+    var scale = Math.min(MAX_OCR_DIM / w, MAX_OCR_DIM / h);
+    var nw = Math.round(w * scale), nh = Math.round(h * scale);
+    var c2 = document.createElement('canvas');
+    c2.width = nw; c2.height = nh;
+    c2.getContext('2d').drawImage(canvas, 0, 0, nw, nh);
+    return c2;
+  }
+
   // Send image to Mindee via Edge Function using supabase.functions.invoke()
   // This handles JWT auth automatically via the Supabase client
   function runOCR(canvas, cb){
     if(!window.supabase || !window.supabase.functions){
+      console.error('[DocScanner] supabase client or functions not available!',
+        'supabase:', !!window.supabase,
+        'functions:', !!(window.supabase && window.supabase.functions));
       cb(new Error('Supabase client not available'), '');
       return;
     }
 
     var docType = _getApiDocType(DocScanner.getDocType());
 
-    // Odeslat BAREVNÝ JPEG – Mindee potřebuje barvy
-    var dataUri = canvas.toDataURL('image/jpeg', 0.92);
+    // Resize to max 1600px and use lower quality — OCR doesn't need 4K
+    var resized = _resizeForOCR(canvas);
+    var dataUri = resized.toDataURL('image/jpeg', OCR_JPEG_QUALITY);
     var imageBase64 = dataUri.indexOf(',') !== -1 ? dataUri.split(',')[1] : dataUri;
+
+    console.log('[DocScanner] Image for OCR: '+resized.width+'x'+resized.height+' base64len='+imageBase64.length+' (~'+Math.round(imageBase64.length/1024)+'KB)');
 
     _getUserId().then(function(userId){
       console.log('[DocScanner] Calling scan-document via supabase.functions.invoke, user='+(userId||'anon'));
@@ -60,10 +81,13 @@
       var error = res.error;
       var data = res.data;
 
+      console.log('[DocScanner] invoke response: error=', error, 'data type=', typeof data, 'data=', data ? (typeof data === 'string' ? data.substring(0,200) : JSON.stringify(data).substring(0,200)) : null);
+
       // functions.invoke returns {data, error}
       if(error){
         var errMsg = (error.message || error.msg || String(error));
-        console.warn('[DocScanner] invoke error (attempt '+(attempt+1)+'):', errMsg);
+        var errContext = error.context || '';
+        console.error('[DocScanner] invoke error (attempt '+(attempt+1)+'):', errMsg, 'context:', errContext, 'full:', error);
         if(attempt < MAX_RETRIES){
           setTimeout(function(){
             _invokeWithRetry(imageBase64, docType, userId, attempt+1, cb);
