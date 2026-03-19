@@ -44,29 +44,32 @@ function _aiLoadConversations() {
   if (!window.supabase) {
     _aiShowOffline(); return;
   }
-  var uid = _aiGetUserId();
-  if (!uid) { _aiShowOffline(); return; }
+  _aiGetUserIdAsync(function(uid) {
+    if (!uid) { _aiShowOffline(); return; }
 
-  window.supabase
-    .from('ai_customer_conversations')
-    .select('id, title, booking_id, created_at, updated_at')
-    .eq('user_id', uid)
-    .order('updated_at', { ascending: false })
-    .limit(50)
-    .then(function(res) {
-      if (res.error) {
-        console.warn('[AI-CONV] load error:', res.error);
-        _aiConvList = [];
-      } else {
+    window.supabase
+      .from('ai_customer_conversations')
+      .select('id, title, booking_id, created_at, updated_at')
+      .eq('user_id', uid)
+      .order('updated_at', { ascending: false })
+      .limit(50)
+      .then(function(res) {
+        if (res.error) {
+          console.warn('[AI-CONV] load error:', res.error);
+          // Fallback: work without persistence (table may not exist)
+          _aiConvList = [];
+          _aiFallbackNewConv();
+          return;
+        }
         _aiConvList = res.data || [];
-      }
-      // Open last conversation or create new one
-      if (_aiConvList.length > 0) {
-        _aiSwitchConversation(_aiConvList[0].id);
-      } else {
-        _aiNewConversation();
-      }
-    });
+        // Open last conversation or create new one
+        if (_aiConvList.length > 0) {
+          _aiSwitchConversation(_aiConvList[0].id);
+        } else {
+          _aiNewConversation();
+        }
+      });
+  });
 }
 
 // ─── Get current user ID ───
@@ -93,6 +96,18 @@ function _aiGetUserIdAsync(callback) {
   window.supabase.auth.getUser().then(function(res) {
     callback(res.data && res.data.user ? res.data.user.id : null);
   }).catch(function() { callback(null); });
+}
+
+// ─── Fallback: local-only conversation (no DB table) ───
+
+function _aiFallbackNewConv() {
+  var newId = _aiGenUUID();
+  _aiActiveConvId = newId;
+  _aiActiveConv = { id: newId, title: 'Nová konverzace', messages: [], booking_id: _aiAgentBookingId };
+  _aiConvList = [{ id: newId, title: 'Nová konverzace', created_at: new Date().toISOString(), updated_at: new Date().toISOString() }];
+  _aiConvListOpen = false;
+  _aiRenderChat();
+  _aiRenderWelcome();
 }
 
 // ─── Create new conversation ───
