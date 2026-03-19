@@ -13,18 +13,29 @@ const CORS = {
 
 const MAX_ITERATIONS = 5
 
-const SYSTEM_PROMPT = `Jsi AI servisní technik MotoGo24. Máš k dispozici nástroje pro přístup k datům. Při každém dotazu:
-1) Identifikuj aktivní motorku zákazníka (tool: get_active_booking)
-2) Pokud potřebuješ info o motorce/návodu, zavolej příslušný nástroj
-3) Odpovídej konkrétně pro daný model
+const SYSTEM_PROMPT = `Jsi AI servisní technik MotoGo24 — půjčovny motorek.
 
+## KRITICKÁ PRAVIDLA (NIKDY neporušuj):
+1. NIKDY si nevymýšlej informace. NIKDY nehalucinuj názvy motorek, parametry ani postupy.
+2. Pracuj VÝHRADNĚ s daty, která máš v kontextu nebo získáš přes nástroje.
+3. Pokud nemáš dostatek dat, řekni to přímo: "Nemám k dispozici přesné informace o..." nebo "Na 100% to nemohu potvrdit, ale mohlo by to být..."
+4. Pokud si nejsi jistý, nabídni obecnou radu a dodej: "Pro přesnou diagnostiku kontaktujte naši SOS linku: +420 774 256 271"
+5. NIKDY neuváděj jinou motorku než tu, kterou má zákazník v rezervaci (viz KONTEXT REZERVACE níže).
+
+## Co umíš:
+- Diagnostika závad na základě popisu nebo fotek
+- Rady k obsluze a funkcím konkrétní motorky
+- Informace o rezervaci zákazníka
+- Obecné rady pro jízdu a bezpečnost
+
+## Formát odpovědi:
 Na konci každé odpovědi přidej JSON blok:
 ---JSON---
 {"suggest_sos": true/false}
 ---END---
 suggest_sos: true pokud je závada vážná a zákazník by měl kontaktovat SOS.
 
-Odpovídej v češtině, stručně.`
+Odpovídej v češtině, stručně a konkrétně pro daný model motorky.`
 
 // ─── Tool definitions (Anthropic tool_use format) ───
 
@@ -290,10 +301,73 @@ serve(async (req) => {
       apiMessages.push({ role: 'user', content: message })
     }
 
-    // Inject booking_id hint so the agent knows which booking to look at
-    const systemPrompt = booking_id
-      ? SYSTEM_PROMPT + `\n\nKontext: zákazník má booking_id=${booking_id}. Použij get_active_booking pro zjištění detailů.`
-      : SYSTEM_PROMPT
+    // ─── Pre-fetch booking context (inject directly into system prompt) ───
+    let bookingContext = ''
+    try {
+      // Try specific booking_id first, then fall back to latest active/reserved
+      let bookingQuery = supabaseAdmin
+        .from('bookings')
+        .select(`
+          id, status, payment_status, start_date, end_date, pickup_time,
+          total_price, extras_price, pickup_method, return_method, pickup_address, return_address,
+          mileage_start, mileage_end, notes, insurance_type,
+          motorcycles(
+            id, model, brand, spz, engine_type, engine_cc, power_kw, power_hp,
+            weight_kg, has_abs, has_asc, features, manual_url, description,
+            ideal_usage, category, fuel_tank_l, seat_height_mm, color, mileage,
+            year, license_required, image_url
+          )
+        `)
+        .eq('user_id', user.id)
+
+      if (booking_id) {
+        bookingQuery = bookingQuery.eq('id', booking_id)
+      } else {
+        bookingQuery = bookingQuery.in('status', ['active', 'reserved']).order('start_date', { ascending: false })
+      }
+
+      const { data: bookingData, error: bookingErr } = await bookingQuery.limit(1)
+
+      if (!bookingErr && bookingData && bookingData.length > 0) {
+        const b = bookingData[0]
+        const m = b.motorcycles as Record<string, unknown> | null
+        if (m) {
+          bookingContext = `\n\n## KONTEXT REZERVACE (reálná data z DB — toto je PRAVDA):
+- Rezervace #${(b.id as string).substring(0, 8).toUpperCase()}
+- Stav: ${b.status}
+- Motorka: ${m.brand || '?'} ${m.model || '?'}
+- SPZ: ${m.spz || '?'}
+- Kategorie: ${m.category || '?'}
+- Motor: ${m.engine_type || '?'} ${m.engine_cc || '?'}cc, ${m.power_kw || '?'}kW / ${m.power_hp || '?'}hp
+- Hmotnost: ${m.weight_kg || '?'}kg
+- ABS: ${m.has_abs ? 'ANO' : 'NE'}, ASC: ${m.has_asc ? 'ANO' : 'NE'}
+- Nádrž: ${m.fuel_tank_l || '?'}L, Výška sedla: ${m.seat_height_mm || '?'}mm
+- Barva: ${m.color || '?'}, Rok: ${m.year || '?'}
+- Popis: ${m.description || 'N/A'}
+- Ideální použití: ${m.ideal_usage || 'N/A'}
+- Funkce: ${m.features || 'N/A'}
+- Návod: ${m.manual_url || 'N/A'}
+- Nájezd: ${m.mileage || '?'}km
+- Období: ${b.start_date} – ${b.end_date}
+- Vyzvednutí: ${b.pickup_method || '?'} ${b.pickup_address ? '(' + b.pickup_address + ')' : ''}
+- Vrácení: ${b.return_method || '?'} ${b.return_address ? '(' + b.return_address + ')' : ''}
+- Pojištění: ${b.insurance_type || 'N/A'}
+
+DŮLEŽITÉ: Zákazník má motorku "${m.brand} ${m.model}". Veškeré odpovědi MUSÍ být pro tento konkrétní model. NIKDY nezmiňuj jinou motorku.`
+        } else {
+          bookingContext = `\n\n## KONTEXT REZERVACE:
+Zákazník má rezervaci #${(b.id as string).substring(0, 8).toUpperCase()} (stav: ${b.status}), ale detaily motorky se nepodařilo načíst. Použij nástroj get_active_booking pro zjištění detailů.`
+        }
+      } else {
+        bookingContext = `\n\n## KONTEXT REZERVACE:
+Zákazník nemá aktivní rezervaci nebo se nepodařilo načíst data. Při dotazech na konkrétní motorku použij nástroj get_active_booking. NIKDY si nevymýšlej, jakou motorku má zákazník.`
+      }
+    } catch (prefetchErr) {
+      console.error('ai-moto-agent: booking prefetch error', prefetchErr)
+      bookingContext = '\n\nNepodařilo se předem načíst rezervaci. Použij get_active_booking.'
+    }
+
+    const systemPrompt = SYSTEM_PROMPT + bookingContext
 
     // ─── Agentic loop ───
     let finalText = ''
