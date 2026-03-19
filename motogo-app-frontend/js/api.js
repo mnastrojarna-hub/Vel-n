@@ -1009,7 +1009,7 @@ async function apiFetchDocuments(){
         // Enrich existing doc entry with invoice data (source, number, total)
         if(!existing._invoice) existing._invoice = inv;
         // Always prefer invoice total over booking total_price (SOS bookings have deposit not in total_price)
-        if(inv.total) existing.amount = inv.total;
+        if(inv.total != null) existing.amount = inv.total;
         return;
       }
       results.push({
@@ -1017,7 +1017,7 @@ async function apiFetchDocuments(){
         type: iType, _invoice: inv,
         date: inv.created_at,
         moto_name: (b && b.motorcycles) ? b.motorcycles.model : '',
-        amount: inv.total || (b ? b.total_price : 0),
+        amount: (inv.total != null) ? inv.total : (b ? b.total_price : 0),
         res_num: b ? '#' + inv.booking_id.substr(-8).toUpperCase() : '',
         file_name: inv.number || ''
       });
