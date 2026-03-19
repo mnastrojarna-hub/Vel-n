@@ -116,20 +116,57 @@ function extractLicenseCategory(data: Record<string, string>, rawText: string): 
   return found.length > 0 ? found.join(', ') : ''
 }
 
+// Helper: log to debug_log (best-effort, non-blocking)
+async function debugLog(action: string, component: string, status: string, requestData: any, responseData: any, errorMessage?: string) {
+  try {
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) return
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+    await supabase.from('debug_log').insert({
+      source: 'scan-document',
+      action,
+      component,
+      status,
+      request_data: requestData,
+      response_data: responseData,
+      error_message: errorMessage || null,
+      duration_ms: 0,
+    })
+  } catch (e) {
+    console.warn('[scan-document] debugLog failed:', e)
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+
+  const startTime = Date.now()
 
   try {
     const body = await req.json()
     const { image_base64, document_type, user_id } = body
 
+    console.log('[scan-document] Invoked: document_type=' + (document_type || 'id') +
+      ' user_id=' + (user_id || 'anon') +
+      ' image_len=' + (image_base64 ? image_base64.length : 0) +
+      ' MINDEE_KEY_SET=' + (!!MINDEE_API_KEY))
+
+    // Log entry — so we can see the function WAS called even if it fails later
+    await debugLog('invoke', document_type || 'id', 'started', {
+      document_type: document_type || 'id',
+      user_id: user_id || null,
+      image_length: image_base64 ? image_base64.length : 0,
+      mindee_key_set: !!MINDEE_API_KEY,
+    }, null)
+
     if (!image_base64) {
+      await debugLog('invoke', document_type || 'id', 'error', null, null, 'Missing image_base64')
       return new Response(JSON.stringify({ success: false, error: 'Missing image_base64' }), {
         status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
       })
     }
 
     if (!MINDEE_API_KEY) {
+      await debugLog('invoke', document_type || 'id', 'error', null, null, 'MINDEE_API_KEY not configured')
       return new Response(JSON.stringify({ success: false, error: 'MINDEE_API_KEY not configured' }), {
         status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
       })
@@ -188,6 +225,9 @@ serve(async (req) => {
     }
 
     if (!mindeeResult) {
+      await debugLog('mindee_call', docType, 'error',
+        { document_type: docType, user_id: user_id || null, endpoint },
+        null, 'Mindee API failed: ' + lastError)
       return new Response(JSON.stringify({
         success: false,
         error: 'Mindee API failed: ' + lastError,
@@ -199,6 +239,10 @@ serve(async (req) => {
     // Extract prediction from Mindee response
     const prediction = mindeeResult?.document?.inference?.prediction
     if (!prediction) {
+      await debugLog('mindee_parse', docType, 'error',
+        { document_type: docType, user_id: user_id || null },
+        { raw_keys: Object.keys(mindeeResult || {}) },
+        'No prediction in Mindee response')
       return new Response(JSON.stringify({
         success: false,
         error: 'No prediction in Mindee response',
@@ -231,23 +275,11 @@ serve(async (req) => {
       if (data.idNumber) data.licenseNumber = data.idNumber
     }
 
-    // Log to debug_log for diagnostics
-    try {
-      if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
-        const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-        await supabase.from('debug_log').insert({
-          source: 'scan-document',
-          action: 'mindee_ocr',
-          component: docType,
-          status: 'success',
-          request_data: { document_type: docType, user_id: user_id || null },
-          response_data: { fields_found: Object.keys(data).length, fields: Object.keys(data) },
-          duration_ms: 0,
-        })
-      }
-    } catch (logErr) {
-      console.warn('[scan-document] Debug log failed:', logErr)
-    }
+    // Log success to debug_log
+    const durationMs = Date.now() - startTime
+    await debugLog('mindee_ocr', docType, 'success',
+      { document_type: docType, user_id: user_id || null },
+      { fields_found: Object.keys(data).length, fields: Object.keys(data), duration_ms: durationMs })
 
     return new Response(JSON.stringify({
       success: true,
@@ -259,6 +291,7 @@ serve(async (req) => {
 
   } catch (e) {
     console.error('[scan-document] Error:', e)
+    await debugLog('invoke', 'unknown', 'error', null, null, 'Unhandled: ' + String(e))
     return new Response(JSON.stringify({
       success: false,
       error: String(e),
