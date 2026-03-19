@@ -584,11 +584,23 @@ async function apiGetActiveLoan(){
   try {
     var uid = await _getUserId();
     if(!uid) return null;
-    var now = new Date().toISOString();
+    // 1) Priorita: booking se statusem 'active' (motorka je venku, bez ohledu na datum)
     var r = await window.supabase.from('bookings')
       .select('*, motorcycles(model, image_url)')
       .eq('user_id', uid)
-      .in('status', ['active', 'reserved', 'confirmed', 'pending'])
+      .eq('status', 'active')
+      .order('start_date', {ascending: false})
+      .limit(1);
+    if(r.data && r.data.length > 0){
+      r.data[0].moto = r.data[0].motorcycles;
+      return r.data[0];
+    }
+    // 2) Fallback: reserved/confirmed v aktuálním časovém rozmezí
+    var now = new Date().toISOString();
+    r = await window.supabase.from('bookings')
+      .select('*, motorcycles(model, image_url)')
+      .eq('user_id', uid)
+      .in('status', ['reserved', 'confirmed'])
       .eq('payment_status', 'paid')
       .lte('start_date', now)
       .gte('end_date', now)
