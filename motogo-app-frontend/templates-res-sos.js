@@ -6,6 +6,27 @@ Templates['s-sos'] = `  <div class="sos-hdr">
     <h2 id="t-sosTitle">🆘 Pomoc na cestě</h2><p id="t-sosSub">Co se stalo? Vybereme nejlepší pomoc.</p>
   </div>
   <div style="padding:14px 20px 0;">
+    <!-- AI Diagnostika — featured card -->
+    <div onclick="aiAgentOpen()" style="background:linear-gradient(135deg,#1a2e22,#2d5a3c);border-radius:var(--r);padding:16px;margin-bottom:14px;cursor:pointer;box-shadow:0 4px 20px rgba(26,46,34,.35);position:relative;overflow:hidden;">
+      <div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;background:rgba(116,251,113,.08);border-radius:50%;"></div>
+      <div style="position:absolute;bottom:-30px;right:30px;width:70px;height:70px;background:rgba(116,251,113,.05);border-radius:50%;"></div>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+        <div style="width:44px;height:44px;background:var(--green);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;box-shadow:0 2px 12px rgba(116,251,113,.4);">🤖</div>
+        <div style="flex:1;">
+          <div style="font-size:15px;font-weight:900;color:#fff;">MotoGo AI Asistent</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.6);margin-top:2px;">AI diagnostika & technická podpora 24/7</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;"><div style="width:7px;height:7px;background:#4ade80;border-radius:50%;"></div><span style="font-size:10px;color:#4ade80;font-weight:700;">Online</span></div>
+      </div>
+      <div style="font-size:12px;color:rgba(255,255,255,.75);line-height:1.6;margin-bottom:10px;">Svítí kontrolka? Motorka dělá divný zvuk? Popište problém a AI technik vám poradí:</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">
+        <span style="background:rgba(116,251,113,.15);color:#4ade80;font-size:10px;font-weight:700;padding:4px 10px;border-radius:50px;">🔍 Diagnostika závady</span>
+        <span style="background:rgba(116,251,113,.15);color:#4ade80;font-size:10px;font-weight:700;padding:4px 10px;border-radius:50px;">✅ Mohu jet dál?</span>
+        <span style="background:rgba(116,251,113,.15);color:#4ade80;font-size:10px;font-weight:700;padding:4px 10px;border-radius:50px;">🛠️ Řešení na místě</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;background:var(--green);border-radius:50px;padding:11px 16px;font-size:13px;font-weight:800;color:#fff;">🤖 Spustit AI diagnostiku<span style="font-size:16px;">›</span></div>
+    </div>
+
     <div class="sos-option" onclick="goTo('s-sos-nehoda')" style="border-color:#fca5a5;">
       <div class="sos-option-icon" style="background:#fee2e2;">💥</div>
       <div style="flex:1;">
@@ -18,7 +39,7 @@ Templates['s-sos'] = `  <div class="sos-hdr">
       <div class="sos-option-icon" style="background:#fef3c7;">🔧</div>
       <div style="flex:1;">
         <div class="sos-option-title" id="t-sosBreakdown">Porucha motorky</div>
-        <div class="sos-option-sub" id="t-sosBreakdownDesc">Technická závada – AI asistent & asistence</div>
+        <div class="sos-option-sub" id="t-sosBreakdownDesc">Technická závada – náhradní moto & asistence</div>
       </div>
       <div class="sos-option-arrow">›</div>
     </div>

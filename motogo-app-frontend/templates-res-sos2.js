@@ -3,43 +3,12 @@ Templates['s-sos-porucha'] = `  <div class="sos-sub-hdr warn">
     <div class="sos-sub-back" onclick="histBack()"><div class="sos-sub-back-btn">←</div><div style="color:rgba(255,255,255,.7);font-size:13px;font-weight:600;">Zpět</div></div>
     <div style="font-size:28px;margin-bottom:8px;">🔧</div>
     <h2 style="color:#fff;font-size:22px;font-weight:900;" id="t-breakdownTitle">Porucha motorky</h2>
-    <p style="color:rgba(255,255,255,.7);font-size:12px;margin-top:4px;" id="t-breakdownSub">AI asistent vám pomůže diagnostikovat problém</p>
+    <p style="color:rgba(255,255,255,.7);font-size:12px;margin-top:4px;" id="t-breakdownSub">Vyberte situaci, která nejlépe popisuje váš problém</p>
   </div>
 
-  <!-- AI CHAT -->
-  <div class="ai-chat-wrap" style="margin-top:14px;">
-    <div class="ai-chat-hdr">
-      <div style="width:36px;height:36px;background:var(--green);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">🤖</div>
-      <div>
-        <div style="font-size:13px;font-weight:800;color:#fff;" id="t-aiName">MotoGo AI Asistent</div>
-        <div style="font-size:10px;color:rgba(255,255,255,.5);" id="t-aiSupport">Technická podpora 24/7</div>
-      </div>
-      <div style="margin-left:auto;"><div style="width:8px;height:8px;background:#4ade80;border-radius:50%;"></div></div>
-    </div>
-    <div class="ai-chat-msgs" id="ai-chat-msgs">
-      <div class="ai-msg bot"><div class="ai-bubble">👋 Jsem technický asistent MotoGo24 – pomáhám s <strong>kontrolkami, výstrahami a elektronickými systémy</strong> vaší motorky. Zeptejte se mě například:<br><br>
-💡 <em>"Svítí červená kontrolka motoru"</em><br>
-🛢️ <em>"Bliká olejová kontrolka"</em><br>
-⚙️ <em>"ABS kontrolka zůstává svítit"</em><br>
-⛽ <em>"Svítí rezerva paliva, kolik dojedu?"</em><br>
-🔋 <em>"Baterie se nevybíjí?"</em><br>
-🔧 <em>"Co znamená servisní kontrolka?"</em><br><br>
-📖 Mám přístup ke všem manuálům a technickým specifikacím vašich motorek.</div></div>
-    </div>
-    <div class="ai-chat-input">
-      <button id="ai-mic-btn" onclick="aiToggleMic()" style="width:36px;height:36px;flex-shrink:0;background:var(--g100);border:2px solid var(--g200);border-radius:var(--rsm);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .2s;">🎤</button>
-      <input type="text" id="ai-chat-inp" placeholder="Popište závadu..." onkeydown="if(event.key==='Enter')aiSend()" style="min-width:0;">
-      <button onclick="aiSend()" style="white-space:nowrap;flex-shrink:0;padding:10px 12px;">➤</button>
-    </div>
-    <div id="ai-mic-status" style="padding:0 12px 8px;font-size:11px;color:var(--g400);font-weight:600;display:none;"><span id="t-aiListening">🔴 Poslouchám... (klikněte znovu pro zastavení)</span></div>
-  </div>
-
-  <div style="padding:0 20px;margin-top:12px;">
+  <div style="padding:14px 20px 0;">
     <div id="sos-photo-step-porucha"></div>
-    <button onclick="aiAgentOpen()" style="width:100%;background:var(--green);color:#fff;border:none;border-radius:var(--r);padding:14px;font-family:var(--font);font-size:14px;font-weight:800;cursor:pointer;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 18px rgba(116,251,113,.3);">
-      🤖 Otev\u0159\u00edt AI diagnostiku
-    </button>
-    <div style="font-size:11px;font-weight:700;color:var(--g400);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;" id="t-orSelect">Nebo vyberte situaci:</div>
+    <div style="font-size:11px;font-weight:700;color:var(--g400);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;" id="t-orSelect">Vyberte situaci:</div>
     <div style="background:var(--gp);border:1px solid var(--green);border-radius:var(--rsm);padding:10px 12px;margin-bottom:10px;font-size:12px;font-weight:600;color:var(--gd);line-height:1.6;" id="t-freeRepairNote">
       💚 Při vážné poruše (nezaviněné) je náhradní motorka i přistavení <strong>zdarma</strong>. Vše hlaste přes appku.
     </div>
