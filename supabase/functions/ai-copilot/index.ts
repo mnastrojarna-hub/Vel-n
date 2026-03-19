@@ -46,7 +46,7 @@ Tvoje oblasti:
 Odpovídej v češtině, stručně, s konkrétními čísly z dat. Pokud data nemáš, řekni to upřímně.`
 
 // ---------------------------------------------------------------------------
-// TOOLS DEFINITION — 15 nástrojů pro Anthropic tool-use API
+// TOOLS DEFINITION — 25 nástrojů pro Anthropic tool-use API
 // ---------------------------------------------------------------------------
 
 const TOOLS_DEFINITION = [
@@ -225,10 +225,129 @@ const TOOLS_DEFINITION = [
       required: [],
     },
   },
+  {
+    name: 'get_inventory',
+    description: 'Sklady — položky, zásoby, nízké stavy, dodavatelé',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        search: { type: 'string', description: 'Hledání dle názvu nebo SKU' },
+        low_stock_only: { type: 'boolean', description: 'Pouze položky s nízkým stavem' },
+        category: { type: 'string', description: 'Filtr dle kategorie' },
+        limit: { type: 'number', description: 'Max počet výsledků (default 50)' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'get_inventory_movements',
+    description: 'Pohyby skladu — příjmy, výdeje, korekce pro konkrétní položku nebo celkově',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        item_id: { type: 'string', description: 'UUID skladové položky' },
+        type: { type: 'string', description: 'Typ pohybu (receipt/issue/correction)' },
+        limit: { type: 'number', description: 'Max počet výsledků (default 30)' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'get_branch_detail',
+    description: 'Kompletní detail pobočky: motorky s kojemi (box_number), příslušenství (helmy/boty/rukavice s velikostmi), aktivní přístupové kódy, aktivní rezervace na pobočce',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        branch_id: { type: 'string', description: 'UUID pobočky' },
+      },
+      required: ['branch_id'],
+    },
+  },
+  {
+    name: 'get_documents',
+    description: 'Dokumenty — smlouvy, šablony, vygenerované dokumenty, odeslané e-maily',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        type: { type: 'string', description: 'Typ: contracts, templates, generated, emails' },
+        search: { type: 'string', description: 'Hledání v dokumentech' },
+        limit: { type: 'number', description: 'Max počet výsledků (default 20)' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'get_reviews',
+    description: 'Hodnocení zákazníků — recenze motorek a služeb',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        moto_id: { type: 'string', description: 'UUID motorky pro filtraci' },
+        min_rating: { type: 'number', description: 'Minimální hodnocení (1-5)' },
+        limit: { type: 'number', description: 'Max počet výsledků (default 20)' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'get_cms_settings',
+    description: 'CMS nastavení — feature flagy, proměnné, app_settings',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        section: { type: 'string', description: 'Sekce: flags, variables, settings' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'get_audit_log',
+    description: 'Audit log — historie akcí adminů (kdo, co, kdy)',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        admin_id: { type: 'string', description: 'UUID admina' },
+        action: { type: 'string', description: 'Filtr dle akce' },
+        limit: { type: 'number', description: 'Max počet výsledků (default 30)' },
+      },
+      required: [],
+    },
+  },
+  {
+    name: 'get_government_overview',
+    description: 'Státní správa — STK termíny, pojistky, přehled pro celou flotilu',
+    input_schema: {
+      type: 'object' as const,
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: 'get_sos_detail',
+    description: 'Detail SOS incidentu včetně timeline a workflow',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        incident_id: { type: 'string', description: 'UUID SOS incidentu' },
+      },
+      required: ['incident_id'],
+    },
+  },
+  {
+    name: 'get_pricing_overview',
+    description: 'Ceník — denní ceny motorek po dnech v týdnu, speciální ceny',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        motorcycle_id: { type: 'string', description: 'UUID motorky (volitelné — bez něj vrátí ceník všech)' },
+      },
+      required: [],
+    },
+  },
 ]
 
 // ---------------------------------------------------------------------------
-// TOOL EXECUTOR — 15 provozních nástrojů
+// TOOL EXECUTOR — 25 provozních nástrojů
 // ---------------------------------------------------------------------------
 
 async function executeTool(
@@ -662,7 +781,440 @@ async function executeTool(
       }
 
       // =====================================================================
-      // Analytické nástroje 16-20 — TODO: implementace v dalším kroku
+      // 16. get_inventory
+      // =====================================================================
+      case 'get_inventory': {
+        try {
+          const limit = (toolInput.limit as number) || 50
+          let query = supabaseAdmin.from('inventory')
+            .select('id, name, sku, category, stock, min_stock, unit_price, supplier_id')
+            .order('name', { ascending: true })
+            .limit(limit)
+
+          if (toolInput.search) {
+            const s = toolInput.search as string
+            query = query.or(`name.ilike.%${s}%,sku.ilike.%${s}%`)
+          }
+          if (toolInput.category) query = query.eq('category', toolInput.category as string)
+
+          const { data: items, error: invErr } = await query
+          if (invErr) throw invErr
+
+          // Fetch suppliers for names
+          const supplierIds = [...new Set((items || []).map((i: Record<string, unknown>) => i.supplier_id).filter(Boolean))]
+          const { data: suppliers } = supplierIds.length > 0
+            ? await supabaseAdmin.from('suppliers').select('id, name').in('id', supplierIds)
+            : { data: [] }
+          const supplierMap: Record<string, string> = {}
+          for (const s of (suppliers || [])) supplierMap[s.id] = s.name
+
+          let enriched = (items || []).map((i: Record<string, unknown>) => ({
+            ...i,
+            supplier_name: supplierMap[i.supplier_id as string] || null,
+          }))
+
+          if (toolInput.low_stock_only) {
+            enriched = enriched.filter((i: Record<string, unknown>) => (i.stock as number) <= (i.min_stock as number))
+          }
+
+          const lowStockCount = (items || []).filter((i: Record<string, unknown>) => (i.stock as number) <= (i.min_stock as number)).length
+
+          result = { total: enriched.length, low_stock_count: lowStockCount, items: enriched }
+        } catch {
+          result = { error: 'Table not available', data: [] }
+        }
+        break
+      }
+
+      // =====================================================================
+      // 17. get_inventory_movements
+      // =====================================================================
+      case 'get_inventory_movements': {
+        try {
+          const limit = (toolInput.limit as number) || 30
+          let query = supabaseAdmin.from('inventory_movements')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(limit)
+
+          if (toolInput.item_id) query = query.eq('item_id', toolInput.item_id as string)
+          if (toolInput.type) query = query.eq('type', toolInput.type as string)
+
+          const { data, error: mvErr } = await query
+          if (mvErr) throw mvErr
+
+          result = { movements: data || [], count: (data || []).length }
+        } catch {
+          result = { error: 'Table not available', data: [] }
+        }
+        break
+      }
+
+      // =====================================================================
+      // 18. get_branch_detail
+      // =====================================================================
+      case 'get_branch_detail': {
+        try {
+          const branchId = toolInput.branch_id as string
+          if (!branchId) {
+            result = { error: 'branch_id je povinný parametr' }
+            break
+          }
+
+          const [branchR, motosR, accessoriesR, codesR, bookingsR] = await Promise.all([
+            supabaseAdmin.from('branches').select('*').eq('id', branchId).single(),
+            supabaseAdmin.from('motorcycles').select('id, model, brand, spz, status, mileage, image_url, category, year').eq('branch_id', branchId),
+            supabaseAdmin.from('branch_accessories').select('*').eq('branch_id', branchId),
+            supabaseAdmin.from('branch_door_codes').select('*').eq('branch_id', branchId).eq('is_active', true),
+            supabaseAdmin.from('bookings')
+              .select('id, user_id, moto_id, start_date, end_date, status, total_price, payment_status')
+              .in('status', ['active', 'reserved']),
+          ])
+
+          if (!branchR.data) {
+            result = { error: 'Pobočka nenalezena' }
+            break
+          }
+
+          // Filter bookings to this branch's motorcycles
+          const branchMotoIds = (motosR.data || []).map((m: Record<string, unknown>) => m.id)
+          const branchBookings = (bookingsR.data || []).filter((b: Record<string, unknown>) =>
+            branchMotoIds.includes(b.moto_id)
+          )
+
+          // Fetch customer names for active bookings
+          const userIds = [...new Set(branchBookings.map((b: Record<string, unknown>) => b.user_id).filter(Boolean))]
+          const { data: profiles } = userIds.length > 0
+            ? await supabaseAdmin.from('profiles').select('id, full_name, email, phone').in('id', userIds)
+            : { data: [] }
+          const profileMap: Record<string, Record<string, unknown>> = {}
+          for (const p of (profiles || [])) profileMap[p.id] = p
+
+          const enrichedBookings = branchBookings.map((b: Record<string, unknown>) => ({
+            ...b,
+            customer: profileMap[b.user_id as string] || null,
+          }))
+
+          result = {
+            branch: branchR.data,
+            motorcycles: motosR.data || [],
+            accessories: accessoriesR.data || [],
+            door_codes: codesR.data || [],
+            active_bookings: enrichedBookings,
+          }
+        } catch {
+          result = { error: 'Table not available', data: [] }
+        }
+        break
+      }
+
+      // =====================================================================
+      // 19. get_documents
+      // =====================================================================
+      case 'get_documents': {
+        try {
+          const limit = (toolInput.limit as number) || 20
+          const docType = toolInput.type as string | undefined
+
+          if (docType === 'contracts') {
+            const { data } = await supabaseAdmin.from('documents')
+              .select('id, type, user_id, created_at')
+              .order('created_at', { ascending: false })
+              .limit(limit)
+            result = { documents: data || [], total_count: (data || []).length }
+          } else if (docType === 'templates') {
+            const { data } = await supabaseAdmin.from('document_templates')
+              .select('id, type, name, active, version, updated_at')
+              .order('name', { ascending: true })
+            result = { documents: data || [], total_count: (data || []).length }
+          } else if (docType === 'generated') {
+            const { data } = await supabaseAdmin.from('generated_documents')
+              .select('*')
+              .order('created_at', { ascending: false })
+              .limit(limit)
+            result = { documents: data || [], total_count: (data || []).length }
+          } else if (docType === 'emails') {
+            const { data } = await supabaseAdmin.from('sent_emails')
+              .select('*')
+              .order('created_at', { ascending: false })
+              .limit(limit)
+            result = { documents: data || [], total_count: (data || []).length }
+          } else {
+            // No type — return counts + last 5 from each
+            const [contractsR, templatesR, generatedR, emailsR] = await Promise.all([
+              supabaseAdmin.from('documents').select('id, type, created_at').order('created_at', { ascending: false }).limit(5),
+              supabaseAdmin.from('document_templates').select('id, type, name, active').order('name', { ascending: true }),
+              supabaseAdmin.from('generated_documents').select('id, created_at').order('created_at', { ascending: false }).limit(5),
+              supabaseAdmin.from('sent_emails').select('id, created_at').order('created_at', { ascending: false }).limit(5),
+            ])
+            result = {
+              contracts: { recent: contractsR.data || [], count: (contractsR.data || []).length },
+              templates: { items: templatesR.data || [], count: (templatesR.data || []).length },
+              generated: { recent: generatedR.data || [], count: (generatedR.data || []).length },
+              emails: { recent: emailsR.data || [], count: (emailsR.data || []).length },
+            }
+          }
+        } catch {
+          result = { error: 'Table not available', data: [] }
+        }
+        break
+      }
+
+      // =====================================================================
+      // 20. get_reviews
+      // =====================================================================
+      case 'get_reviews': {
+        try {
+          const limit = (toolInput.limit as number) || 20
+          let query = supabaseAdmin.from('reviews')
+            .select('id, user_id, rating, created_at')
+            .order('created_at', { ascending: false })
+            .limit(limit)
+
+          if (toolInput.moto_id) query = query.eq('moto_id', toolInput.moto_id as string)
+          if (toolInput.min_rating) query = query.gte('rating', toolInput.min_rating as number)
+
+          const { data: reviews, error: revErr } = await query
+          if (revErr) throw revErr
+
+          // Fetch profiles for names
+          const userIds = [...new Set((reviews || []).map((r: Record<string, unknown>) => r.user_id).filter(Boolean))]
+          const { data: profiles } = userIds.length > 0
+            ? await supabaseAdmin.from('profiles').select('id, full_name').in('id', userIds)
+            : { data: [] }
+          const profileMap: Record<string, string> = {}
+          for (const p of (profiles || [])) profileMap[p.id] = p.full_name
+
+          const enriched = (reviews || []).map((r: Record<string, unknown>) => ({
+            ...r,
+            customer_name: profileMap[r.user_id as string] || null,
+          }))
+
+          const ratings = (reviews || []).map((r: Record<string, unknown>) => r.rating as number).filter(Boolean)
+          const avgRating = ratings.length > 0 ? Math.round(ratings.reduce((s, v) => s + v, 0) / ratings.length * 10) / 10 : null
+
+          result = { avg_rating: avgRating, total_count: (reviews || []).length, reviews: enriched }
+        } catch {
+          result = { error: 'Table not available', data: [] }
+        }
+        break
+      }
+
+      // =====================================================================
+      // 21. get_cms_settings
+      // =====================================================================
+      case 'get_cms_settings': {
+        try {
+          const section = toolInput.section as string | undefined
+
+          if (section === 'flags') {
+            const { data } = await supabaseAdmin.from('feature_flags').select('*').order('name', { ascending: true })
+            result = { feature_flags: data || [] }
+          } else if (section === 'variables') {
+            const { data } = await supabaseAdmin.from('cms_variables').select('*').order('key', { ascending: true })
+            result = { variables: data || [] }
+          } else if (section === 'settings') {
+            const { data } = await supabaseAdmin.from('app_settings').select('*').order('key', { ascending: true })
+            result = { app_settings: data || [] }
+          } else {
+            const [flagsR, varsR, settingsR] = await Promise.all([
+              supabaseAdmin.from('feature_flags').select('*').order('name', { ascending: true }),
+              supabaseAdmin.from('cms_variables').select('*').order('key', { ascending: true }),
+              supabaseAdmin.from('app_settings').select('*').order('key', { ascending: true }),
+            ])
+            result = {
+              feature_flags: flagsR.data || [],
+              variables: varsR.data || [],
+              app_settings: settingsR.data || [],
+            }
+          }
+        } catch {
+          result = { error: 'Table not available', data: [] }
+        }
+        break
+      }
+
+      // =====================================================================
+      // 22. get_audit_log
+      // =====================================================================
+      case 'get_audit_log': {
+        try {
+          const limit = (toolInput.limit as number) || 30
+          let query = supabaseAdmin.from('admin_audit_log')
+            .select('id, admin_id, action, details, ip_address, created_at')
+            .order('created_at', { ascending: false })
+            .limit(limit)
+
+          if (toolInput.admin_id) query = query.eq('admin_id', toolInput.admin_id as string)
+          if (toolInput.action) query = query.ilike('action', `%${toolInput.action}%`)
+
+          const { data: logs, error: auditErr } = await query
+          if (auditErr) throw auditErr
+
+          // Fetch admin emails
+          const adminIds = [...new Set((logs || []).map((l: Record<string, unknown>) => l.admin_id).filter(Boolean))]
+          const { data: admins } = adminIds.length > 0
+            ? await supabaseAdmin.from('admin_users').select('id, email, name').in('id', adminIds)
+            : { data: [] }
+          const adminMap: Record<string, Record<string, unknown>> = {}
+          for (const a of (admins || [])) adminMap[a.id] = a
+
+          const enriched = (logs || []).map((l: Record<string, unknown>) => ({
+            ...l,
+            admin: adminMap[l.admin_id as string] || null,
+          }))
+
+          result = { logs: enriched, count: enriched.length }
+        } catch {
+          result = { error: 'Table not available', data: [] }
+        }
+        break
+      }
+
+      // =====================================================================
+      // 23. get_government_overview
+      // =====================================================================
+      case 'get_government_overview': {
+        try {
+          const { data: motos, error: govErr } = await supabaseAdmin.from('motorcycles')
+            .select('id, model, brand, spz, stk_valid_until, insurance_price, status')
+
+          if (govErr) throw govErr
+
+          const today = now.toISOString().slice(0, 10)
+          const d30 = new Date(now.getTime() + 30 * 86400000).toISOString().slice(0, 10)
+          const d60 = new Date(now.getTime() + 60 * 86400000).toISOString().slice(0, 10)
+          const d90 = new Date(now.getTime() + 90 * 86400000).toISOString().slice(0, 10)
+
+          let expired = 0, within30 = 0, within60 = 0, within90 = 0, ok = 0, noStk = 0
+          for (const m of (motos || [])) {
+            const stk = (m as Record<string, unknown>).stk_valid_until as string | null
+            if (!stk) { noStk++; continue }
+            if (stk < today) expired++
+            else if (stk <= d30) within30++
+            else if (stk <= d60) within60++
+            else if (stk <= d90) within90++
+            else ok++
+          }
+
+          const totalInsurance = (motos || []).reduce((s: number, m: Record<string, unknown>) => s + ((m.insurance_price as number) || 0), 0)
+
+          result = {
+            motorcycles: motos || [],
+            stk_summary: { expired, within_30d: within30, within_60d: within60, within_90d: within90, ok, no_stk: noStk },
+            total_insurance_cost: totalInsurance,
+          }
+        } catch {
+          result = { error: 'Table not available', data: [] }
+        }
+        break
+      }
+
+      // =====================================================================
+      // 24. get_sos_detail
+      // =====================================================================
+      case 'get_sos_detail': {
+        try {
+          const incidentId = toolInput.incident_id as string
+          if (!incidentId) {
+            result = { error: 'incident_id je povinný parametr' }
+            break
+          }
+
+          const { data: incident, error: sosErr } = await supabaseAdmin.from('sos_incidents')
+            .select('*')
+            .eq('id', incidentId)
+            .single()
+
+          if (sosErr || !incident) {
+            result = { error: 'SOS incident nenalezen' }
+            break
+          }
+
+          const { data: timeline } = await supabaseAdmin.from('sos_timeline')
+            .select('*')
+            .eq('incident_id', incidentId)
+            .order('created_at', { ascending: true })
+
+          // Fetch related booking, motorcycle, customer
+          const [bookingR, motoR, profileR] = await Promise.all([
+            incident.booking_id
+              ? supabaseAdmin.from('bookings').select('id, start_date, end_date, status, total_price, payment_status').eq('id', incident.booking_id).single()
+              : Promise.resolve({ data: null }),
+            incident.moto_id
+              ? supabaseAdmin.from('motorcycles').select('id, model, brand, spz, status').eq('id', incident.moto_id).single()
+              : Promise.resolve({ data: null }),
+            incident.user_id
+              ? supabaseAdmin.from('profiles').select('id, full_name, email, phone').eq('id', incident.user_id).single()
+              : Promise.resolve({ data: null }),
+          ])
+
+          result = {
+            incident,
+            timeline: timeline || [],
+            booking: bookingR.data || null,
+            motorcycle: motoR.data || null,
+            customer: profileR.data || null,
+          }
+        } catch {
+          result = { error: 'Table not available', data: [] }
+        }
+        break
+      }
+
+      // =====================================================================
+      // 25. get_pricing_overview
+      // =====================================================================
+      case 'get_pricing_overview': {
+        try {
+          let motosQuery = supabaseAdmin.from('motorcycles')
+            .select('id, model, brand, spz, price_weekday, price_weekend, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, category, status')
+
+          if (toolInput.motorcycle_id) {
+            motosQuery = motosQuery.eq('id', toolInput.motorcycle_id as string)
+          }
+
+          const { data: motos, error: priceErr } = await motosQuery
+          if (priceErr) throw priceErr
+
+          // Also fetch moto_day_prices if they exist
+          const motoIds = (motos || []).map((m: Record<string, unknown>) => m.id)
+          const { data: dayPrices } = motoIds.length > 0
+            ? await supabaseAdmin.from('moto_day_prices').select('*').in('moto_id', motoIds)
+            : { data: [] }
+
+          const dayPriceMap: Record<string, unknown[]> = {}
+          for (const dp of (dayPrices || [])) {
+            const mid = (dp as Record<string, unknown>).moto_id as string
+            if (!dayPriceMap[mid]) dayPriceMap[mid] = []
+            dayPriceMap[mid].push(dp)
+          }
+
+          const enriched = (motos || []).map((m: Record<string, unknown>) => ({
+            id: m.id,
+            model: m.model,
+            brand: m.brand,
+            spz: m.spz,
+            category: m.category,
+            status: m.status,
+            prices_by_day: {
+              mon: m.price_mon, tue: m.price_tue, wed: m.price_wed, thu: m.price_thu,
+              fri: m.price_fri, sat: m.price_sat, sun: m.price_sun,
+            },
+            price_weekday: m.price_weekday,
+            price_weekend: m.price_weekend,
+            day_prices_table: dayPriceMap[m.id as string] || [],
+          }))
+
+          result = { motorcycles: enriched }
+        } catch {
+          result = { error: 'Table not available', data: [] }
+        }
+        break
+      }
+
+      // =====================================================================
+      // Analytické nástroje 26+ — TODO: implementace v dalším kroku
       // =====================================================================
       case 'analyze_branch_performance':
       case 'analyze_motorcycle_performance':
