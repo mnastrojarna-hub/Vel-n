@@ -21,7 +21,7 @@ Templates['s-sos'] = `  <div class="sos-hdr">
       <div style="font-size:12px;color:rgba(255,255,255,.75);line-height:1.6;margin-bottom:10px;">Svítí kontrolka? Motorka dělá divný zvuk? Popište problém a AI technik vám poradí:</div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">
         <span style="background:rgba(116,251,113,.15);color:#4ade80;font-size:10px;font-weight:700;padding:4px 10px;border-radius:50px;">🔍 Diagnostika závady</span>
-        <span style="background:rgba(116,251,113,.15);color:#4ade80;font-size:10px;font-weight:700;padding:4px 10px;border-radius:50px;">✅ Mohu jet dál?</span>
+        <span style="background:rgba(116,251,113,.15);color:#4ade80;font-size:10px;font-weight:700;padding:4px 10px;border-radius:50px;">📖 Návody & obsluha</span>
         <span style="background:rgba(116,251,113,.15);color:#4ade80;font-size:10px;font-weight:700;padding:4px 10px;border-radius:50px;">🛠️ Řešení na místě</span>
       </div>
       <div style="display:flex;align-items:center;justify-content:center;gap:8px;background:var(--green);border-radius:50px;padding:11px 16px;font-size:13px;font-weight:800;color:#fff;">🤖 Spustit AI diagnostiku<span style="font-size:16px;">›</span></div>
