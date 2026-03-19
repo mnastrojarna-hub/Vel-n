@@ -20,12 +20,12 @@ function aiAgentOpen(bookingId) {
     if (msgs) msgs.innerHTML =
       '<div class="ai-msg bot"><div class="ai-bubble">' +
       '👋 Ahoj! Jsem AI servisní technik MotoGo24.<br><br>' +
-      'Popište mi problém s vaší motorkou a pomohu vám:<br>' +
-      '🔍 Diagnostikovat závadu<br>' +
-      '✅ Rozhodnout jestli můžete jet dál<br>' +
-      '🛠️ Doporučit řešení na místě<br><br>' +
+      'Mám přehled o vašich rezervacích i návody k motorkám. Pomohu vám s:<br>' +
+      '🔍 Diagnostika závady<br>' +
+      '🛠️ Řešení na místě<br>' +
+      '📖 Návod k obsluze a funkce motorky<br><br>' +
       '<strong>📸 Tip:</strong> Vyfoťte kontrolky na budíku — pomohou mi přesněji diagnostikovat problém.<br><br>' +
-      '<em>Např.: "Svítí kontrolka motoru", "Motorka špatně startuje"</em></div></div>';
+      '<em>Např.: "Svítí kontrolka motoru", "Jak přepnu jízdní mód?"</em></div></div>';
     var inp = document.getElementById('ai-agent-input');
     if (inp) inp.value = '';
     _updateAiAgentSosBtn(false);
