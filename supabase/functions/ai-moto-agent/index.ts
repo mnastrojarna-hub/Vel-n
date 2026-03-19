@@ -141,6 +141,7 @@ async function executeTool(
 ): Promise<unknown> {
   switch (toolName) {
     case 'get_active_booking': {
+      // Priority: status='active' first, then confirmed/reserved
       const { data, error } = await supabaseAdmin
         .from('bookings')
         .select(`
@@ -155,12 +156,17 @@ async function executeTool(
           )
         `)
         .eq('user_id', userId)
-        .in('status', ['active', 'reserved'])
+        .in('status', ['active', 'confirmed', 'reserved'])
         .order('start_date', { ascending: false })
-        .limit(1)
+        .limit(10)
 
       if (error) return { error: error.message }
       if (!data || data.length === 0) return { message: 'Zákazník nemá žádnou aktivní ani nadcházející rezervaci.' }
+      // Prioritize active booking
+      const active = data.find(b => b.status === 'active')
+      if (active) return active
+      // If multiple non-active, return all so AI can ask
+      if (data.length > 1) return { multiple_bookings: data, message: 'Zákazník má více rezervací. Zeptej se, o kterou motorku jde.' }
       return data[0]
     }
 
@@ -250,6 +256,61 @@ async function executeTool(
   }
 }
 
+// ─── Booking context formatters ───
+
+function formatBookingContext(b: Record<string, unknown>, otherBookings: Array<Record<string, unknown>> | null): string {
+  const m = b.motorcycles as Record<string, unknown> | null
+  if (!m) {
+    return `\n\n## KONTEXT REZERVACE:
+Zákazník má rezervaci #${(b.id as string).substring(0, 8).toUpperCase()} (stav: ${b.status}), ale detaily motorky se nepodařilo načíst. Použij nástroj get_active_booking pro zjištění detailů.`
+  }
+
+  let ctx = `\n\n## KONTEXT REZERVACE (reálná data z DB — toto je PRAVDA):
+- Rezervace #${(b.id as string).substring(0, 8).toUpperCase()}
+- Stav: ${b.status}
+- Motorka: ${m.brand || '?'} ${m.model || '?'}
+- SPZ: ${m.spz || '?'}
+- Kategorie: ${m.category || '?'}
+- Motor: ${m.engine_type || '?'} ${m.engine_cc || '?'}cc, ${m.power_kw || '?'}kW / ${m.power_hp || '?'}hp
+- Hmotnost: ${m.weight_kg || '?'}kg
+- ABS: ${m.has_abs ? 'ANO' : 'NE'}, ASC: ${m.has_asc ? 'ANO' : 'NE'}
+- Nádrž: ${m.fuel_tank_l || '?'}L, Výška sedla: ${m.seat_height_mm || '?'}mm
+- Barva: ${m.color || '?'}, Rok: ${m.year || '?'}
+- Popis: ${m.description || 'N/A'}
+- Ideální použití: ${m.ideal_usage || 'N/A'}
+- Funkce: ${m.features || 'N/A'}
+- Návod: ${m.manual_url || 'N/A'}
+- Nájezd: ${m.mileage || '?'}km
+- Období: ${b.start_date} – ${b.end_date}
+- Vyzvednutí: ${b.pickup_method || '?'} ${b.pickup_address ? '(' + b.pickup_address + ')' : ''}
+- Vrácení: ${b.return_method || '?'} ${b.return_address ? '(' + b.return_address + ')' : ''}
+- Pojištění: ${b.insurance_type || 'N/A'}
+
+DŮLEŽITÉ: Zákazník má AKTIVNÍ motorku "${m.brand} ${m.model}". Veškeré odpovědi MUSÍ být pro tento konkrétní model. NIKDY nezmiňuj jinou motorku.`
+
+  if (otherBookings && otherBookings.length > 0) {
+    ctx += `\n\nZákazník má také nadcházející rezervace:`
+    for (const ob of otherBookings) {
+      const om = ob.motorcycles as Record<string, unknown> | null
+      ctx += `\n- #${(ob.id as string).substring(0, 8).toUpperCase()}: ${om ? (om.brand + ' ' + om.model) : '?'} (${ob.status}, ${ob.start_date} – ${ob.end_date})`
+    }
+    ctx += `\nAle tyto rezervace NEJSOU aktivní — odpovídej pouze o aktuálně aktivní motorce.`
+  }
+
+  return ctx
+}
+
+function formatMultipleBookingsContext(bookings: Array<Record<string, unknown>>): string {
+  let ctx = `\n\n## KONTEXT REZERVACE — VÍCE REZERVACÍ:
+Zákazník má více rezervací, žádná zatím nemá stav "active". MUSÍŠ se nejdříve ZEPTAT, o kterou motorku/rezervaci jde:\n`
+  for (const b of bookings) {
+    const m = b.motorcycles as Record<string, unknown> | null
+    ctx += `- #${(b.id as string).substring(0, 8).toUpperCase()}: ${m ? (m.brand + ' ' + m.model) : '?'} (${b.status}, ${b.start_date} – ${b.end_date})\n`
+  }
+  ctx += `\nDŮLEŽITÉ: NIKDY nepředpokládej, o kterou motorku jde. Vždy se ZEPTEJ: "Vidím, že máte více rezervací: [seznam]. O kterou motorku se jedná?"`
+  return ctx
+}
+
 // ─── Main handler ───
 
 serve(async (req) => {
@@ -321,61 +382,58 @@ serve(async (req) => {
     // ─── Pre-fetch booking context (inject directly into system prompt) ───
     let bookingContext = ''
     try {
-      // Try specific booking_id first, then fall back to latest active/reserved
-      let bookingQuery = supabaseAdmin
-        .from('bookings')
-        .select(`
-          id, status, payment_status, start_date, end_date, pickup_time,
-          total_price, extras_price, pickup_method, return_method, pickup_address, return_address,
-          mileage_start, mileage_end, notes, insurance_type,
-          motorcycles(
-            id, model, brand, spz, engine_type, engine_cc, power_kw, power_hp,
-            weight_kg, has_abs, has_asc, features, manual_url, description,
-            ideal_usage, category, fuel_tank_l, seat_height_mm, color, mileage,
-            year, license_required, image_url
-          )
-        `)
-        .eq('user_id', user.id)
+      const bookingFields = `
+        id, status, payment_status, start_date, end_date, pickup_time,
+        total_price, extras_price, pickup_method, return_method, pickup_address, return_address,
+        mileage_start, mileage_end, notes, insurance_type,
+        motorcycles(
+          id, model, brand, spz, engine_type, engine_cc, power_kw, power_hp,
+          weight_kg, has_abs, has_asc, features, manual_url, description,
+          ideal_usage, category, fuel_tank_l, seat_height_mm, color, mileage,
+          year, license_required, image_url
+        )
+      `
 
       if (booking_id) {
-        bookingQuery = bookingQuery.eq('id', booking_id)
-      } else {
-        bookingQuery = bookingQuery.in('status', ['active', 'reserved']).order('start_date', { ascending: false })
-      }
+        // Specific booking requested
+        const { data, error } = await supabaseAdmin
+          .from('bookings')
+          .select(bookingFields)
+          .eq('user_id', user.id)
+          .eq('id', booking_id)
+          .limit(1)
 
-      const { data: bookingData, error: bookingErr } = await bookingQuery.limit(1)
-
-      if (!bookingErr && bookingData && bookingData.length > 0) {
-        const b = bookingData[0]
-        const m = b.motorcycles as Record<string, unknown> | null
-        if (m) {
-          bookingContext = `\n\n## KONTEXT REZERVACE (reálná data z DB — toto je PRAVDA):
-- Rezervace #${(b.id as string).substring(0, 8).toUpperCase()}
-- Stav: ${b.status}
-- Motorka: ${m.brand || '?'} ${m.model || '?'}
-- SPZ: ${m.spz || '?'}
-- Kategorie: ${m.category || '?'}
-- Motor: ${m.engine_type || '?'} ${m.engine_cc || '?'}cc, ${m.power_kw || '?'}kW / ${m.power_hp || '?'}hp
-- Hmotnost: ${m.weight_kg || '?'}kg
-- ABS: ${m.has_abs ? 'ANO' : 'NE'}, ASC: ${m.has_asc ? 'ANO' : 'NE'}
-- Nádrž: ${m.fuel_tank_l || '?'}L, Výška sedla: ${m.seat_height_mm || '?'}mm
-- Barva: ${m.color || '?'}, Rok: ${m.year || '?'}
-- Popis: ${m.description || 'N/A'}
-- Ideální použití: ${m.ideal_usage || 'N/A'}
-- Funkce: ${m.features || 'N/A'}
-- Návod: ${m.manual_url || 'N/A'}
-- Nájezd: ${m.mileage || '?'}km
-- Období: ${b.start_date} – ${b.end_date}
-- Vyzvednutí: ${b.pickup_method || '?'} ${b.pickup_address ? '(' + b.pickup_address + ')' : ''}
-- Vrácení: ${b.return_method || '?'} ${b.return_address ? '(' + b.return_address + ')' : ''}
-- Pojištění: ${b.insurance_type || 'N/A'}
-
-DŮLEŽITÉ: Zákazník má motorku "${m.brand} ${m.model}". Veškeré odpovědi MUSÍ být pro tento konkrétní model. NIKDY nezmiňuj jinou motorku.`
-        } else {
-          bookingContext = `\n\n## KONTEXT REZERVACE:
-Zákazník má rezervaci #${(b.id as string).substring(0, 8).toUpperCase()} (stav: ${b.status}), ale detaily motorky se nepodařilo načíst. Použij nástroj get_active_booking pro zjištění detailů.`
+        if (!error && data && data.length > 0) {
+          bookingContext = formatBookingContext(data[0], null)
         }
       } else {
+        // Fetch ALL active/reserved/confirmed bookings to find the right one
+        const { data: allBookings, error: allErr } = await supabaseAdmin
+          .from('bookings')
+          .select(bookingFields)
+          .eq('user_id', user.id)
+          .in('status', ['active', 'confirmed', 'reserved'])
+          .order('start_date', { ascending: false })
+          .limit(10)
+
+        if (!allErr && allBookings && allBookings.length > 0) {
+          const now = new Date()
+          // Prioritize: 1) status='active', 2) confirmed/reserved where start <= now <= end
+          const activeBooking = allBookings.find(b => b.status === 'active')
+          const otherBookings = allBookings.filter(b => b.status !== 'active')
+
+          if (activeBooking) {
+            bookingContext = formatBookingContext(activeBooking, otherBookings.length > 0 ? otherBookings : null)
+          } else if (otherBookings.length === 1) {
+            bookingContext = formatBookingContext(otherBookings[0], null)
+          } else if (otherBookings.length > 1) {
+            // Multiple non-active bookings — list all, let AI ask
+            bookingContext = formatMultipleBookingsContext(otherBookings)
+          }
+        }
+      }
+
+      if (!bookingContext) {
         bookingContext = `\n\n## KONTEXT REZERVACE:
 Zákazník nemá aktivní rezervaci nebo se nepodařilo načíst data. Při dotazech na konkrétní motorku použij nástroj get_active_booking. NIKDY si nevymýšlej, jakou motorku má zákazník.`
       }

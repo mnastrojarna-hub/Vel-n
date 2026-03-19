@@ -355,10 +355,16 @@ function _mapStatus(status, startDate, endDate, booking){
   if(status === 'completed') return 'dokoncene';
   // ended_by_sos = always completed regardless of dates
   if(booking && booking.ended_by_sos) return 'dokoncene';
-  var now = new Date(); now.setHours(0,0,0,0);
+  var nowFull = new Date();
+  var now = new Date(nowFull); now.setHours(0,0,0,0);
   var s = _parseDateSafe(startDate); s.setHours(0,0,0,0);
-  var e = _parseDateSafe(endDate); e.setHours(0,0,0,0);
+  var eFull = _parseDateSafe(endDate);
+  var e = new Date(eFull); e.setHours(0,0,0,0);
   if(now > e) return 'dokoncene';
+  // Delivery/svoz return: přesný čas end_date — když uplynul, je dokončené
+  if(booking && booking.return_method === 'delivery' && now.getTime() === e.getTime()){
+    if(nowFull >= eFull) return 'dokoncene';
+  }
   if(now >= s && now <= e) return 'aktivni';
   return 'nadchazejici';
 }
