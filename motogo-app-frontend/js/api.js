@@ -578,11 +578,25 @@ async function apiFetchShopInvoices(){
 }
 
 // ===== AKTIVNÍ VÝPŮJČKA =====
-// Logika konce výpůjčky závisí na return_method:
-//   'delivery' (svoz) → řídí se časem end_date (přesný čas)
-//   'store' (zákazník vrací na pobočku) → zákazník má do půlnoci posledního dne
+// Logika začátku a konce výpůjčky závisí na pickup/return_method:
+//   'delivery' (přistavení/svoz) → přesný čas start_date / end_date
+//   'store' (pobočka) → zákazník si vyzvedne od 00:00 / vrátí do 23:59 daného dne
+function _hasBookingStarted(booking){
+  if(!booking || !booking.start_date) return false;
+  var now = new Date();
+  var startDate = new Date(booking.start_date);
+  if(booking.pickup_method === 'store'){
+    // Vyzvednutí na pobočce → od začátku dne (00:00)
+    var dayStart = new Date(startDate);
+    dayStart.setHours(0,0,0,0);
+    return now >= dayStart;
+  }
+  // Přistavení → přesný čas
+  return now >= startDate;
+}
+
 function _isBookingStillActive(booking){
-  if(!booking || !booking.end_date) return true; // chybí data → raději ukaž
+  if(!booking || !booking.end_date) return true;
   var now = new Date();
   var endDate = new Date(booking.end_date);
   if(booking.return_method === 'store'){
@@ -591,7 +605,7 @@ function _isBookingStillActive(booking){
     midnight.setHours(23,59,59,999);
     return now <= midnight;
   }
-  // Svoz/přistavení → přesný čas
+  // Svoz → přesný čas
   return now <= endDate;
 }
 
@@ -615,20 +629,22 @@ async function apiGetActiveLoan(){
       b._pastEndTime = !_isBookingStillActive(b);
       return b;
     }
-    // 2) Fallback: reserved/confirmed v aktuálním časovém rozmezí
-    var now = new Date().toISOString();
+    // 2) Fallback: reserved/confirmed — zkontroluj s ohledem na pickup/return method
     r = await window.supabase.from('bookings')
       .select('*, motorcycles(model, image_url)')
       .eq('user_id', uid)
       .in('status', ['reserved', 'confirmed'])
       .eq('payment_status', 'paid')
-      .lte('start_date', now)
-      .gte('end_date', now)
       .order('start_date', {ascending: false})
-      .limit(1);
+      .limit(5);
     if(r.data && r.data.length > 0){
-      r.data[0].moto = r.data[0].motorcycles;
-      return r.data[0];
+      for(var i = 0; i < r.data.length; i++){
+        var b2 = r.data[i];
+        if(_hasBookingStarted(b2) && _isBookingStillActive(b2)){
+          b2.moto = b2.motorcycles;
+          return b2;
+        }
+      }
     }
     return null;
   } catch(e){ return null; }
