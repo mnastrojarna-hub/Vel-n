@@ -39,6 +39,12 @@
 
   // ===== HARDWARE BACK BUTTON =====
   AppPlugin.addListener('backButton', function() {
+    // Block back when Stripe checkout is open — prevent double payment
+    if(typeof _stripeCheckoutOpened!=='undefined' && _stripeCheckoutOpened && typeof cur!=='undefined' && (cur==='s-payment'||cur==='s-sos-payment')){
+      if(typeof showT==='function') showT('⚠️','Platba probíhá','Vyčkejte na dokončení platby');
+      if(typeof _checkPaymentAfterStripe==='function') _checkPaymentAfterStripe();
+      return;
+    }
     // Use existing histBack if there is navigation history
     if (typeof navStack !== 'undefined' && navStack.length > 1) {
       if (typeof histBack === 'function') histBack();
@@ -631,6 +637,10 @@
       _pollMessages();
       // Also re-check for pending fullscreen messages
       if(typeof updateMsgBadge === 'function') updateMsgBadge();
+      // Check Stripe payment status after returning from payment gateway
+      if(typeof _stripeCheckoutOpened!=='undefined' && _stripeCheckoutOpened && typeof _checkPaymentAfterStripe==='function'){
+        _checkPaymentAfterStripe();
+      }
     }
   });
 
