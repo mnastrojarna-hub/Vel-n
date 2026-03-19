@@ -647,15 +647,25 @@ async function apiGetActiveLoan(){
       .eq('user_id', uid)
       .in('status', ['reserved', 'confirmed'])
       .eq('payment_status', 'paid')
-      .order('start_date', {ascending: false})
-      .limit(5);
+      .order('start_date', {ascending: true})
+      .limit(10);
     if(r.data && r.data.length > 0){
+      var nextUpcoming = null;
       for(var i = 0; i < r.data.length; i++){
         var b2 = r.data[i];
+        b2.moto = b2.motorcycles;
         if(_hasBookingStarted(b2) && _isBookingStillActive(b2)){
-          b2.moto = b2.motorcycles;
-          return b2;
+          return b2; // Aktivní booking co začal a běží
         }
+        // Zapamatuj si první nadcházející (start v budoucnu)
+        if(!nextUpcoming && !_hasBookingStarted(b2)){
+          nextUpcoming = b2;
+        }
+      }
+      // Žádný aktivní → vrať nadcházející s příznakem
+      if(nextUpcoming){
+        nextUpcoming._isUpcoming = true;
+        return nextUpcoming;
       }
     }
     return null;
