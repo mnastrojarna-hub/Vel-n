@@ -578,20 +578,24 @@ async function apiFetchShopInvoices(){
 }
 
 // ===== AKTIVNÍ VÝPŮJČKA =====
-// Logika začátku a konce výpůjčky závisí na pickup/return_method:
-//   'delivery' (přistavení/svoz) → přesný čas start_date / end_date
-//   'store' (pobočka) → zákazník si vyzvedne od 00:00 / vrátí do 23:59 daného dne
+// Logika začátku výpůjčky:
+//   'delivery' (přistavení) → přesný čas start_date
+//   'store' (pobočka):
+//     - dnes → ihned aktivní (zákazník si může vyzvednout hned)
+//     - jiný den → přesný čas start_date
 function _hasBookingStarted(booking){
   if(!booking || !booking.start_date) return false;
   var now = new Date();
   var startDate = new Date(booking.start_date);
   if(booking.pickup_method === 'store'){
-    // Vyzvednutí na pobočce → od začátku dne (00:00)
-    var dayStart = new Date(startDate);
-    dayStart.setHours(0,0,0,0);
-    return now >= dayStart;
+    // Pobočka + start_date je dnes → ihned aktivní
+    var today = new Date();
+    today.setHours(0,0,0,0);
+    var startDay = new Date(startDate);
+    startDay.setHours(0,0,0,0);
+    if(startDay.getTime() === today.getTime()) return true;
+    // Pobočka + jiný den → přesný čas
   }
-  // Přistavení → přesný čas
   return now >= startDate;
 }
 
