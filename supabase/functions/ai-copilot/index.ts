@@ -25,28 +25,44 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
 const SYSTEM_PROMPT = `Jsi AI Copilot pro Velín — superadmin dashboard půjčovny motorek MotoGo24.
 Firma: Bc. Petra Semorádová, IČO: 21874263, Mezná 9, 393 01. Kontakt: +420 774 256 271, info@motogo24.cz
 
-Máš k dispozici nástroje pro přístup ke kompletní databázi v reálném čase.
-VŽDY si nejdřív sáhni pro data přes nástroj než odpovíš — nehádej, nevymýšlej čísla.
-Můžeš volat více nástrojů najednou (parallel tool use).
+Máš k dispozici 31 nástrojů pro přístup ke KOMPLETNÍ databázi v reálném čase. VŽDY si nejdřív sáhni pro data přes nástroj než odpovíš — nehádej, nevymýšlej. Můžeš volat více nástrojů najednou (parallel tool use).
 
-Tvoje oblasti:
-- Tržby a finance (měsíční přehledy, porovnání, fakturace)
-- Flotila motorek (stavy, nájezdy, servisy, pobočky)
-- Rezervace (aktivní, nadcházející, čekající, historie)
-- SOS incidenty (aktivní, závažnost, náhrady)
-- Pobočky (otevřené/zavřené, počty motorek, příslušenství)
-- Zákazníci (profily, historie rezervací, dokumenty)
-- E-shop a vouchery (objednávky, dárkové poukazy)
-- Promo kódy (aktivní, využití)
-- Fakturace (zálohové, konečné, proforma)
-- Servis a údržba (blížící se servisy, servisní objednávky)
-- Zprávy (konverzace se zákazníky, nepřečtené)
-- Denní statistiky (tržby, rezervace, trendy)
+PROVOZNÍ OBLASTI:
+- Rezervace (aktivní, nadcházející, historické, storna, platby)
+- Flotila motorek (stav, nájezd, servisy, STK, pojistky, ceník po dnech)
+- Pobočky (detail: motorky s kojemi, příslušenství s velikostmi, přístupové kódy, aktivní rezervace)
+- SOS incidenty (detail s timeline a workflow)
+- Zákazníci (profily, historie, dokumenty, recenze)
+- Sklady (položky, zásoby, pohyby příjem/výdej/korekce, dodavatelé)
+- Finance (tržby, faktury vydané/přijaté, platby)
+- E-shop (objednávky, produkty)
+- Vouchery a promo kódy
+- Servis a údržba (plány, objednávky)
+- Zprávy a komunikace se zákazníky
+- Dokumenty (smlouvy, šablony, vygenerované, odeslané e-maily)
+- CMS (feature flagy, proměnné, app nastavení)
+- Audit log (kdo co kdy udělal)
+- Státní správa (STK termíny, pojistky celé flotily)
+- Denní statistiky a trendy
 
-Odpovídej v češtině, stručně, s konkrétními čísly z dat. Pokud data nemáš, řekni to upřímně.`
+ANALYTICKÉ SCHOPNOSTI (Fleet Intelligence):
+- Výkon poboček (obrat, obsazenost, trend, profit/motorku)
+- Výkon motorek (ranking, avg Kč/den, brand performance score)
+- Poptávka kategorií (adventure vs naked vs A2...)
+- Optimální složení flotily (8 slotů, scoring)
+- Segmentace zákazníků (VIP/regular/occasional/inactive)
+- PREDIKCE: prognóza tržeb a obsazenosti na základě historických dat a sezónních vzorců
+
+Při analýze VŽDY:
+- Rozlišuj 📊 reálná data vs 📐 benchmark/odhad
+- Pokud < 3 měsíce dat, upozorni na předběžnost závěrů
+- Predikce označuj confidence level (high/medium/low)
+- Používej FLEET_CALC konstanty: marketing 15%, servis dle kategorie
+
+Odpovídej v češtině, stručně, s konkrétními čísly. Pokud data nemáš, řekni to.`
 
 // ---------------------------------------------------------------------------
-// TOOLS DEFINITION — 25 nástrojů pro Anthropic tool-use API
+// TOOLS DEFINITION — 31 nástrojů pro Anthropic tool-use API
 // ---------------------------------------------------------------------------
 
 const TOOLS_DEFINITION = [
@@ -1928,43 +1944,87 @@ serve(async (req) => {
       }
     }
 
-    // Build messages array — ensure alternating roles
-    const rawMessages = [
-      ...conversationMessages,
-      { role: 'user', content: message },
-    ]
+    // Build messages array
+    // deno-lint-ignore no-explicit-any
+    const rawMessages: Array<{role: string; content: string | Array<Record<string, unknown>>}> = []
 
-    // Merge consecutive same-role messages (Anthropic API requires alternating roles)
-    const apiMessages: Array<{ role: string; content: string }> = []
-    for (const m of rawMessages) {
-      if (apiMessages.length > 0 && apiMessages[apiMessages.length - 1].role === m.role) {
-        apiMessages[apiMessages.length - 1].content += '\n\n' + m.content
-      } else {
-        apiMessages.push({ ...m })
+    if (conversationMessages.length > 0) {
+      for (const m of conversationMessages) {
+        rawMessages.push({ role: m.role, content: m.content })
       }
     }
+    rawMessages.push({ role: 'user', content: message })
 
-    // Ensure first message is from user
-    if (apiMessages.length === 0 || apiMessages[0].role !== 'user') {
-      apiMessages.unshift({ role: 'user', content: message })
-    }
+    // deno-lint-ignore no-explicit-any
+    const apiMessages: Array<any> = rawMessages[0]?.role !== 'user'
+      ? [{ role: 'user' as const, content: '(kontext)' }, ...rawMessages]
+      : [...rawMessages]
 
     console.log('ai-copilot: messages count:', apiMessages.length)
 
-    // 4. TODO: Agentic loop — volání Anthropic API s tools, iterace dokud stop_reason !== 'end_turn'
-    //    - Poslat request s SYSTEM_PROMPT, apiMessages, TOOLS_DEFINITION
-    //    - Pokud stop_reason === 'tool_use', zavolat executeTool() pro každý tool_use block
-    //    - Přidat assistant response + tool results do messages
-    //    - Opakovat dokud AI neodpoví textem (stop_reason === 'end_turn')
-    //    - Max iterací: 10 (safety limit)
+    // 4. Agentic loop
+    const MAX_ITER = 8
+    const TIMEOUT = 25000
+    const t0 = Date.now()
 
-    // 5. TODO: Uložit konverzaci do ai_conversations
+    for (let i = 0; i < MAX_ITER; i++) {
+      if (Date.now() - t0 > TIMEOUT) {
+        console.warn('ai-copilot: timeout after', i, 'iterations')
+        return jsonResponse({ response: 'Zpracování trvá příliš dlouho. Zkuste jednodušší dotaz.' })
+      }
 
-    // Temporary response until agentic loop is implemented
-    void executeTool // suppress unused warning
-    void TOOLS_DEFINITION // suppress unused warning
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 4096,
+          system: SYSTEM_PROMPT,
+          messages: apiMessages,
+          tools: TOOLS_DEFINITION,
+        }),
+      })
 
-    return jsonResponse({ response: 'AI Copilot v2 — tools coming next' })
+      if (!res.ok) {
+        const err = await res.text()
+        console.error('Anthropic error:', res.status, err)
+        if (res.status === 429 && i === 0) { await new Promise(r => setTimeout(r, 2000)); continue }
+        if (res.status === 529 || res.status === 503) {
+          return jsonResponse({ response: 'AI služba je přetížená. Zkuste za minutu.', error_code: 'overloaded' })
+        }
+        return jsonResponse({ error: 'AI service error', status: res.status }, 502)
+      }
+
+      const ai = await res.json()
+
+      if (ai.stop_reason === 'end_turn') {
+        // deno-lint-ignore no-explicit-any
+        const text = (ai.content || []).filter((b: any) => b.type === 'text').map((b: any) => b.text).join('\n') || 'Odpověď nedostupná.'
+        console.log(`ai-copilot: done in ${i + 1} iters, ${Date.now() - t0}ms`)
+        return jsonResponse({ response: text })
+      }
+
+      if (ai.stop_reason === 'tool_use') {
+        apiMessages.push({ role: 'assistant', content: ai.content })
+        const results: Array<Record<string, unknown>> = []
+        // deno-lint-ignore no-explicit-any
+        for (const tc of ai.content.filter((b: any) => b.type === 'tool_use')) {
+          const data = await executeTool(tc.name, tc.input || {}, supabaseAdmin)
+          results.push({ type: 'tool_result', tool_use_id: tc.id, content: JSON.stringify(data) })
+        }
+        apiMessages.push({ role: 'user', content: results })
+        continue
+      }
+
+      console.warn('ai-copilot: unexpected stop_reason:', ai.stop_reason)
+      break
+    }
+
+    return jsonResponse({ response: 'Dotaz je příliš složitý. Zkuste ho zjednodušit.' })
 
   } catch (err) {
     console.error('ai-copilot error:', err)
