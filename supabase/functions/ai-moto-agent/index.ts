@@ -20,6 +20,11 @@ Zákazník ti popisuje problém s motorkou kterou si pronajal. Pomoz mu:
 Odpovídej stručně, srozumitelně, v češtině. Neptej se víc než 2 otázky najednou.
 Pokud máš info o konkrétní motorce (model, manuál), použij je.
 
+FOTKY KONTROLEK: Zákazník ti může poslat fotky budíků / přístrojové desky motorky.
+Když dostaneš fotku, pečlivě analyzuj viditelné kontrolky, varování a indikátory.
+Popiš co vidíš (které kontrolky svítí, jakou mají barvu) a vysvětli co znamenají.
+Pokud je na fotce špatná viditelnost, požádej o lepší fotku.
+
 DŮLEŽITÉ: Na konci každé odpovědi přidej JSON blok v tomto formátu (na samostatném řádku):
 ---JSON---
 {"is_rideable": true/false/null, "suggest_sos": true/false}
@@ -32,7 +37,7 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
   try {
-    const { message, booking_id, conversation_history } = await req.json()
+    const { message, booking_id, conversation_history, images } = await req.json()
 
     if (!message || typeof message !== 'string') {
       return new Response(JSON.stringify({ error: 'Missing message' }), {
@@ -76,8 +81,8 @@ serve(async (req) => {
       }
     }
 
-    // Build messages
-    const apiMessages: Array<{ role: string; content: string }> = []
+    // Build messages — supports multimodal content (text + images)
+    const apiMessages: Array<{ role: string; content: string | Array<Record<string, unknown>> }> = []
     if (motoContext) {
       apiMessages.push({ role: 'user', content: `[Kontext motorky] ${motoContext}` })
       apiMessages.push({ role: 'assistant', content: 'Rozumím, mám informace o motorce. Jak vám mohu pomoci?' })
@@ -89,7 +94,30 @@ serve(async (req) => {
         }
       }
     }
-    apiMessages.push({ role: 'user', content: message })
+
+    // Build current user message — with images if provided
+    const hasImages = Array.isArray(images) && images.length > 0
+    if (hasImages) {
+      const contentBlocks: Array<Record<string, unknown>> = []
+      // Add images first (max 3)
+      for (const img of images.slice(0, 3)) {
+        if (img.base64 && img.media_type) {
+          contentBlocks.push({
+            type: 'image',
+            source: {
+              type: 'base64',
+              media_type: img.media_type,
+              data: img.base64,
+            },
+          })
+        }
+      }
+      // Add text
+      contentBlocks.push({ type: 'text', text: message })
+      apiMessages.push({ role: 'user', content: contentBlocks })
+    } else {
+      apiMessages.push({ role: 'user', content: message })
+    }
 
     if (!ANTHROPIC_API_KEY) {
       return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured' }), {
