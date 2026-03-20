@@ -1,189 +1,512 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
-import { debugAction } from '../../lib/debugLog'
+import { debugAction, debugLog, debugError } from '../../lib/debugLog'
+import { useDebugMode } from '../../hooks/useDebugMode'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 
 const CHANNEL_LABELS = { sms: 'SMS', email: 'E-mail', whatsapp: 'WhatsApp' }
+const CHAR_LIMITS = { sms: 160, whatsapp: 1600 }
+
+// GSM 7-bit basic chars — if text contains anything outside this, it's UCS-2 (70 chars/segment)
+const GSM7 = /^[A-Za-z0-9 @£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&'()*+,\-./:;<=>?¡ÄÖÑÜ§¿äöñüà^{}\\[~\]|€]*$/
+
+function calcSmsSegments(text) {
+  if (!text) return { chars: 0, segments: 0, perSegment: 160, isUcs2: false }
+  const isUcs2 = !GSM7.test(text)
+  const perSegment = isUcs2 ? (text.length > 70 ? 67 : 70) : (text.length > 160 ? 153 : 160)
+  const segments = text.length === 0 ? 0 : Math.ceil(text.length / perSegment)
+  return { chars: text.length, segments, perSegment, isUcs2 }
+}
+
+function extractVariables(templateContent) {
+  if (!templateContent) return []
+  const matches = templateContent.match(/\{\{(\w+)\}\}/g)
+  if (!matches) return []
+  return [...new Set(matches.map(m => m.replace(/\{\{|\}\}/g, '')))]
+}
+
+function replaceVariables(templateContent, vars) {
+  if (!templateContent) return ''
+  let result = templateContent
+  Object.entries(vars).forEach(([key, val]) => {
+    result = result.replaceAll(`{{${key}}}`, val || `{{${key}}}`)
+  })
+  return result
+}
 
 export default function ManualSendTab({ channel }) {
-  const [customers, setCustomers] = useState([])
-  const [templates, setTemplates] = useState([])
+  const debugMode = useDebugMode()
+
+  // Customer search + selection
   const [customerSearch, setCustomerSearch] = useState('')
-  const [selectedCustomer, setSelectedCustomer] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [customers, setCustomers] = useState([])
+  const [loadingCustomers, setLoadingCustomers] = useState(false)
+  const [selectedCustomer, setSelectedCustomer] = useState(null)
+  const searchTimer = useRef(null)
+
+  // Mode: 'template' | 'custom'
+  const [mode, setMode] = useState('custom')
+
+  // Templates
+  const [templates, setTemplates] = useState([])
+  const [selectedTemplateId, setSelectedTemplateId] = useState('')
+  const [templateVars, setTemplateVars] = useState({})
+
+  // Custom text
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
+
+  // Send state
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState(null)
 
-  useEffect(() => { loadCustomers(); loadTemplates() }, [channel])
+  // Load templates on channel change
+  useEffect(() => {
+    loadTemplates()
+    resetForm()
+  }, [channel])
 
-  async function loadCustomers() {
-    const { data } = await debugAction('manualSend.loadCustomers', 'ManualSendTab', () =>
-      supabase.from('profiles').select('id, full_name, email, phone').order('full_name').limit(200)
-    )
-    setCustomers(data || [])
+  // Debounce customer search (300ms)
+  useEffect(() => {
+    clearTimeout(searchTimer.current)
+    if (!customerSearch.trim()) {
+      setDebouncedSearch('')
+      setCustomers([])
+      return
+    }
+    searchTimer.current = setTimeout(() => setDebouncedSearch(customerSearch), 300)
+    return () => clearTimeout(searchTimer.current)
+  }, [customerSearch])
+
+  // Fetch customers on debounced search
+  useEffect(() => {
+    if (debouncedSearch.trim()) searchCustomers(debouncedSearch)
+  }, [debouncedSearch])
+
+  async function searchCustomers(q) {
+    setLoadingCustomers(true)
+    try {
+      const { data, error } = await debugAction('manualSend.searchCustomers', 'ManualSendTab', () =>
+        supabase.from('profiles')
+          .select('id, full_name, email, phone')
+          .or(`full_name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%`)
+          .order('full_name')
+          .limit(20)
+      )
+      if (error) throw error
+      setCustomers(data || [])
+    } catch (e) {
+      debugError('ManualSendTab', 'searchCustomers', e)
+      setCustomers([])
+    }
+    setLoadingCustomers(false)
   }
 
   async function loadTemplates() {
-    const { data } = await debugAction('manualSend.loadTemplates', 'ManualSendTab', () =>
-      supabase.from('message_templates').select('*').order('name')
-    )
-    setTemplates(data || [])
-  }
-
-  function applyTemplate(tplId) {
-    const tpl = templates.find(t => t.id === tplId)
-    if (tpl) {
-      setBody(tpl.content || '')
-      if (tpl.subject) setSubject(tpl.subject)
+    try {
+      const { data } = await debugAction('manualSend.loadTemplates', 'ManualSendTab', () =>
+        supabase.from('message_templates')
+          .select('*')
+          .eq('channel', channel)
+          .eq('is_active', true)
+          .order('name')
+      )
+      setTemplates(data || [])
+    } catch (e) {
+      debugError('ManualSendTab', 'loadTemplates', e)
+      setTemplates([])
     }
   }
 
+  function resetForm() {
+    setSelectedCustomer(null)
+    setCustomerSearch('')
+    setCustomers([])
+    setMode('custom')
+    setSelectedTemplateId('')
+    setTemplateVars({})
+    setSubject('')
+    setBody('')
+    setResult(null)
+  }
+
+  function selectCustomer(c) {
+    setSelectedCustomer(c)
+    setCustomerSearch('')
+    setCustomers([])
+  }
+
+  function clearCustomer() {
+    setSelectedCustomer(null)
+    setCustomerSearch('')
+  }
+
+  // Selected template object
+  const selectedTemplate = templates.find(t => t.id === selectedTemplateId) || null
+
+  // Variables from selected template
+  const templateVariables = useMemo(
+    () => selectedTemplate ? extractVariables(selectedTemplate.content) : [],
+    [selectedTemplate]
+  )
+
+  // Live preview of template with variables filled in
+  const templatePreview = useMemo(
+    () => selectedTemplate ? replaceVariables(selectedTemplate.content, templateVars) : '',
+    [selectedTemplate, templateVars]
+  )
+
+  // Final message text
+  const finalText = mode === 'template' ? templatePreview : body
+
+  // SMS segment calculation
+  const smsInfo = channel === 'sms' ? calcSmsSegments(finalText) : null
+
+  // Validation
+  const recipientValid = selectedCustomer && (
+    channel === 'email' ? !!selectedCustomer.email : !!selectedCustomer.phone
+  )
+  const contentValid = mode === 'template'
+    ? !!selectedTemplate && templatePreview.trim().length > 0
+    : body.trim().length > 0
+  const emailSubjectValid = channel !== 'email' || subject.trim().length > 0
+  const canSend = recipientValid && contentValid && emailSubjectValid && !sending
+
+  // Recipient missing field warning
+  const recipientWarning = selectedCustomer && !recipientValid
+    ? (channel === 'email' ? 'Zákazník nemá e-mail' : 'Zákazník nemá telefonní číslo')
+    : null
+
   async function handleSend() {
-    if (!selectedCustomer || !body.trim()) return
+    if (!canSend) return
     setSending(true)
     setResult(null)
     try {
-      const customer = customers.find(c => c.id === selectedCustomer)
-      const logEntry = {
-        user_id: selectedCustomer,
+      const to = channel === 'email' ? selectedCustomer.email : selectedCustomer.phone
+      const payload = {
         channel,
-        type: 'manual',
-        subject: subject || null,
-        content: body.trim(),
-        recipient: channel === 'email' ? customer?.email : customer?.phone,
-        status: 'pending',
-        created_at: new Date().toISOString(),
+        to,
+        customer_id: selectedCustomer.id,
+        subject: channel === 'email' ? subject : undefined,
+        template_slug: mode === 'template' && selectedTemplate ? selectedTemplate.slug || selectedTemplate.name : undefined,
+        template_vars: mode === 'template' ? templateVars : undefined,
+        raw_body: mode === 'custom' ? body.trim() : undefined,
+        body: finalText,
       }
-      const { error } = await debugAction('manualSend.send', 'ManualSendTab', () =>
-        supabase.from('notification_log').insert(logEntry)
-      , logEntry)
+
+      debugLog('ManualSendTab', 'handleSend', payload)
+
+      const fnName = channel === 'email' ? 'send-email' : 'send-message'
+      const { data, error } = await debugAction('manualSend.invoke', 'ManualSendTab', () =>
+        supabase.functions.invoke(fnName, { body: payload })
+      , payload)
 
       if (error) throw error
-      setResult({ ok: true, msg: `${CHANNEL_LABELS[channel]} zpráva zařazena k odeslání` })
-      setBody('')
+      setResult({ ok: true, msg: 'Zpráva odeslána!' })
+
+      // Reset form after success
+      setSelectedCustomer(null)
+      setCustomerSearch('')
+      setMode('custom')
+      setSelectedTemplateId('')
+      setTemplateVars({})
       setSubject('')
-      setSelectedCustomer('')
+      setBody('')
     } catch (e) {
-      setResult({ ok: false, msg: `Chyba: ${e.message || 'Nepodařilo se odeslat'}` })
+      debugError('ManualSendTab', 'handleSend', e)
+      setResult({ ok: false, msg: e.message || 'Nepodařilo se odeslat zprávu' })
     }
     setSending(false)
   }
 
-  const filteredCustomers = customerSearch
-    ? customers.filter(c =>
-        (c.full_name || '').toLowerCase().includes(customerSearch.toLowerCase()) ||
-        (c.email || '').toLowerCase().includes(customerSearch.toLowerCase()) ||
-        (c.phone || '').includes(customerSearch)
-      )
-    : customers
-
   return (
     <Card>
-      <h2 className="text-sm font-extrabold uppercase tracking-wide mb-4" style={{ color: '#1a2e22' }}>
+      <h2 className="text-sm font-extrabold uppercase tracking-wide mb-5" style={{ color: '#1a2e22' }}>
         Ruční odeslání — {CHANNEL_LABELS[channel]}
       </h2>
 
-      <div className="space-y-4" style={{ maxWidth: 600 }}>
-        {/* Zákazník */}
-        <div>
-          <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>
-            Příjemce
-          </label>
-          <input
-            type="text"
-            placeholder="Hledat zákazníka…"
-            value={customerSearch}
-            onChange={e => setCustomerSearch(e.target.value)}
-            className="w-full rounded-btn text-sm outline-none mb-1"
-            style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}
-          />
-          <select
-            value={selectedCustomer}
-            onChange={e => setSelectedCustomer(e.target.value)}
-            className="w-full rounded-btn text-sm outline-none"
-            style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}
-            size={Math.min(filteredCustomers.length + 1, 6)}
-          >
-            <option value="">— Vyberte zákazníka —</option>
-            {filteredCustomers.map(c => (
-              <option key={c.id} value={c.id}>
-                {c.full_name || 'Bez jména'} ({channel === 'email' ? c.email : c.phone || c.email})
-              </option>
-            ))}
-          </select>
+      <div className="flex gap-6" style={{ flexWrap: 'wrap' }}>
+        {/* LEFT: Formulář */}
+        <div className="flex-1 space-y-4" style={{ minWidth: 340, maxWidth: 560 }}>
+
+          {/* 1. Příjemce */}
+          <div>
+            <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>
+              Příjemce
+            </label>
+
+            {selectedCustomer ? (
+              <div className="flex items-center gap-3 rounded-btn" style={{ padding: '10px 14px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+                <div className="flex-1">
+                  <div className="text-sm font-bold" style={{ color: '#0f1a14' }}>{selectedCustomer.full_name || 'Bez jména'}</div>
+                  <div className="flex gap-4 mt-0.5" style={{ fontSize: 12, color: '#1a2e22' }}>
+                    {selectedCustomer.phone && <span>📱 {selectedCustomer.phone}</span>}
+                    {selectedCustomer.email && <span>📧 {selectedCustomer.email}</span>}
+                  </div>
+                </div>
+                <button onClick={clearCustomer}
+                  className="cursor-pointer border-none rounded-btn text-sm font-bold"
+                  style={{ padding: '4px 10px', background: '#fee2e2', color: '#dc2626' }}>
+                  Změnit
+                </button>
+              </div>
+            ) : (
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Hledat jméno, email, telefon…"
+                  value={customerSearch}
+                  onChange={e => setCustomerSearch(e.target.value)}
+                  className="w-full rounded-btn text-sm outline-none"
+                  style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}
+                />
+                {/* Dropdown results */}
+                {(customers.length > 0 || loadingCustomers) && customerSearch.trim() && (
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-card shadow-card z-10"
+                    style={{ border: '1px solid #d4e8e0', maxHeight: 240, overflow: 'auto' }}>
+                    {loadingCustomers ? (
+                      <div className="flex justify-center py-3">
+                        <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-brand-gd" />
+                      </div>
+                    ) : (
+                      customers.map(c => (
+                        <div key={c.id} onClick={() => selectCustomer(c)}
+                          className="cursor-pointer transition-colors"
+                          style={{ padding: '8px 12px', borderBottom: '1px solid #f1faf7' }}
+                          onMouseEnter={e => e.currentTarget.style.background = '#f1faf7'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                          <div className="text-sm font-bold" style={{ color: '#0f1a14' }}>{c.full_name || 'Bez jména'}</div>
+                          <div style={{ fontSize: 11, color: '#1a2e22' }}>
+                            {c.phone && `📱 ${c.phone}`}{c.phone && c.email && ' · '}{c.email && `📧 ${c.email}`}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {recipientWarning && (
+              <div className="mt-1 text-sm font-bold" style={{ color: '#dc2626' }}>
+                ⚠ {recipientWarning}
+              </div>
+            )}
+          </div>
+
+          {/* 2. Způsob */}
+          <div>
+            <label className="block text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>
+              Způsob
+            </label>
+            <div className="flex gap-3">
+              <RadioOption
+                checked={mode === 'template'}
+                onChange={() => setMode('template')}
+                label="Použít šablonu"
+                disabled={templates.length === 0}
+              />
+              <RadioOption
+                checked={mode === 'custom'}
+                onChange={() => setMode('custom')}
+                label="Vlastní text"
+              />
+            </div>
+          </div>
+
+          {/* 2a. Template mode */}
+          {mode === 'template' && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>
+                  Šablona
+                </label>
+                <select
+                  value={selectedTemplateId}
+                  onChange={e => { setSelectedTemplateId(e.target.value); setTemplateVars({}) }}
+                  className="w-full rounded-btn text-sm outline-none cursor-pointer"
+                  style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}
+                >
+                  <option value="">— Vyberte šablonu —</option>
+                  {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              </div>
+
+              {/* Template variable fields */}
+              {templateVariables.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>
+                    Proměnné
+                  </div>
+                  {templateVariables.map(v => (
+                    <div key={v}>
+                      <label className="block text-sm font-bold mb-0.5" style={{ color: '#1a2e22' }}>
+                        {`{{${v}}}`}
+                      </label>
+                      <input
+                        type="text"
+                        value={templateVars[v] || ''}
+                        onChange={e => setTemplateVars(prev => ({ ...prev, [v]: e.target.value }))}
+                        placeholder={`Hodnota pro ${v}…`}
+                        className="w-full rounded-btn text-sm outline-none"
+                        style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0' }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 2b. Custom mode */}
+          {mode === 'custom' && (
+            <div className="space-y-3">
+              {channel === 'email' && (
+                <div>
+                  <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>
+                    Předmět
+                  </label>
+                  <input
+                    type="text"
+                    value={subject}
+                    onChange={e => setSubject(e.target.value)}
+                    placeholder="Předmět e-mailu…"
+                    className="w-full rounded-btn text-sm outline-none"
+                    style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>
+                  Zpráva
+                </label>
+                <textarea
+                  value={body}
+                  onChange={e => setBody(e.target.value)}
+                  placeholder={`Napište ${CHANNEL_LABELS[channel]} zprávu…`}
+                  className="w-full rounded-btn text-sm outline-none"
+                  style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', minHeight: 140, resize: 'vertical' }}
+                  maxLength={channel === 'email' ? undefined : CHAR_LIMITS[channel] || undefined}
+                />
+                {channel !== 'email' && (
+                  <div className="flex justify-between mt-1" style={{ fontSize: 11, color: '#1a2e22' }}>
+                    <span>{body.length} / {CHAR_LIMITS[channel]} znaků</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 3. Odeslat */}
+          <div className="flex items-center gap-3 pt-2">
+            <Button green onClick={handleSend} disabled={!canSend}>
+              {sending ? 'Odesílám…' : `Odeslat ${CHANNEL_LABELS[channel]}`}
+            </Button>
+            {result && (
+              <Badge
+                label={result.msg}
+                color={result.ok ? '#1a6a18' : '#991b1b'}
+                bg={result.ok ? '#dcfce7' : '#fee2e2'}
+              />
+            )}
+          </div>
         </div>
 
-        {/* Šablona */}
-        {templates.length > 0 && (
-          <div>
-            <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>
-              Šablona (volitelné)
-            </label>
-            <select
-              onChange={e => { if (e.target.value) applyTemplate(e.target.value) }}
-              value=""
-              className="w-full rounded-btn text-sm outline-none cursor-pointer"
-              style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}
-            >
-              <option value="">— Použít šablonu —</option>
-              {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
+        {/* RIGHT: Náhled */}
+        <div className="flex-shrink-0" style={{ width: 280, minWidth: 240 }}>
+          <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>
+            Náhled
           </div>
-        )}
 
-        {/* Předmět (jen pro email) */}
-        {channel === 'email' && (
-          <div>
-            <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>
-              Předmět
-            </label>
-            <input
-              type="text"
-              value={subject}
-              onChange={e => setSubject(e.target.value)}
-              placeholder="Předmět e-mailu…"
-              className="w-full rounded-btn text-sm outline-none"
-              style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}
-            />
-          </div>
-        )}
+          {finalText ? (
+            <div>
+              {/* SMS bubble preview */}
+              {channel === 'sms' && (
+                <div>
+                  <div className="rounded-card" style={{ padding: '14px 16px', background: '#dcfce7', color: '#0f1a14', fontSize: 13, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word', borderRadius: '16px 16px 4px 16px', maxHeight: 300, overflow: 'auto' }}>
+                    {finalText}
+                  </div>
+                  <div className="mt-2 space-y-0.5" style={{ fontSize: 11, color: '#1a2e22' }}>
+                    <div>{smsInfo.chars} znaků · {smsInfo.isUcs2 ? 'UCS-2 (diakritika)' : 'GSM 7-bit'}</div>
+                    <div>{smsInfo.segments} {smsInfo.segments === 1 ? 'segment' : smsInfo.segments < 5 ? 'segmenty' : 'segmentů'} ({smsInfo.perSegment} znaků/segment)</div>
+                    <div>Odhadovaná cena: ~{(smsInfo.segments * 0.5).toFixed(1)} Kč</div>
+                  </div>
+                </div>
+              )}
 
-        {/* Tělo zprávy */}
-        <div>
-          <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>
-            Zpráva
-          </label>
-          <textarea
-            value={body}
-            onChange={e => setBody(e.target.value)}
-            placeholder={`Napište ${CHANNEL_LABELS[channel]} zprávu…`}
-            className="w-full rounded-btn text-sm outline-none"
-            style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', minHeight: 120, resize: 'vertical' }}
-          />
-          {channel === 'sms' && (
-            <div className="mt-1" style={{ fontSize: 11, color: '#1a2e22' }}>
-              {body.length} znaků {body.length > 160 ? `(${Math.ceil(body.length / 153)} SMS)` : ''}
+              {/* WhatsApp bubble preview */}
+              {channel === 'whatsapp' && (
+                <div>
+                  <div className="rounded-card" style={{ padding: '10px 14px', background: '#e7feed', color: '#0f1a14', fontSize: 13, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word', borderRadius: '16px 16px 4px 16px', maxHeight: 300, overflow: 'auto' }}>
+                    {finalText}
+                  </div>
+                  <div className="mt-2" style={{ fontSize: 11, color: '#1a2e22' }}>
+                    {finalText.length} / {CHAR_LIMITS.whatsapp} znaků
+                  </div>
+                </div>
+              )}
+
+              {/* Email preview */}
+              {channel === 'email' && (
+                <div className="rounded-card" style={{ background: '#fff', border: '1px solid #d4e8e0', overflow: 'hidden' }}>
+                  {subject && (
+                    <div className="text-sm font-bold" style={{ padding: '8px 12px', borderBottom: '1px solid #d4e8e0', color: '#0f1a14' }}>
+                      {subject}
+                    </div>
+                  )}
+                  <div style={{ padding: '10px 12px', fontSize: 13, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: '#0f1a14', maxHeight: 300, overflow: 'auto' }}>
+                    {finalText}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-card flex items-center justify-center"
+              style={{ padding: 24, background: '#f1faf7', border: '1px dashed #d4e8e0', color: '#1a2e22', fontSize: 12, minHeight: 120 }}>
+              Začněte psát pro zobrazení náhledu
             </div>
           )}
         </div>
-
-        {/* Odeslat */}
-        <div className="flex items-center gap-3">
-          <Button green onClick={handleSend} disabled={sending || !selectedCustomer || !body.trim()}>
-            {sending ? 'Odesílám…' : `Odeslat ${CHANNEL_LABELS[channel]}`}
-          </Button>
-          {result && (
-            <Badge
-              label={result.msg}
-              color={result.ok ? '#1a6a18' : '#991b1b'}
-              bg={result.ok ? '#dcfce7' : '#fee2e2'}
-            />
-          )}
-        </div>
       </div>
+
+      {/* DIAGNOSTIKA */}
+      {debugMode && (
+        <div className="mt-4 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
+          <strong>DIAGNOSTIKA ManualSendTab ({channel})</strong><br/>
+          <div>customer: {selectedCustomer ? `${selectedCustomer.full_name} (${selectedCustomer.id?.slice(-8)})` : 'žádný'}</div>
+          <div>mode: {mode}, template: {selectedTemplateId || '—'}, vars: {JSON.stringify(templateVars)}</div>
+          <div>canSend: {String(canSend)}, recipientValid: {String(recipientValid)}, contentValid: {String(contentValid)}</div>
+        </div>
+      )}
     </Card>
+  )
+}
+
+function RadioOption({ checked, onChange, label, disabled = false }) {
+  return (
+    <label
+      className="flex items-center gap-2 cursor-pointer rounded-btn"
+      style={{
+        padding: '8px 14px',
+        background: checked ? '#e8fee7' : '#f1faf7',
+        border: checked ? '1px solid #74FB71' : '1px solid #d4e8e0',
+        opacity: disabled ? 0.5 : 1,
+        pointerEvents: disabled ? 'none' : 'auto',
+      }}
+    >
+      <input
+        type="radio"
+        checked={checked}
+        onChange={onChange}
+        disabled={disabled}
+        className="accent-[#1a8a18]"
+        style={{ width: 14, height: 14 }}
+      />
+      <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>{label}</span>
+    </label>
   )
 }
