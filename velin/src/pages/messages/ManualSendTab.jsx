@@ -9,6 +9,29 @@ import Badge from '../../components/ui/Badge'
 const CHANNEL_LABELS = { sms: 'SMS', email: 'E-mail', whatsapp: 'WhatsApp' }
 const CHAR_LIMITS = { sms: 160, whatsapp: 1600 }
 
+const BULK_SEGMENTS = [
+  { value: 'all', icon: '📋', label: 'Všichni zákazníci', desc: 'Všichni s kontaktními údaji' },
+  { value: 'vip', icon: '⭐', label: 'VIP zákazníci', desc: 'Reliability skóre > 80' },
+  { value: 'past_customers', icon: '🏍️', label: 'Minulí zákazníci', desc: 'Alespoň 1 dokončená rezervace' },
+  { value: 'new_no_booking', icon: '👋', label: 'Noví bez rezervace', desc: 'Registrovaní bez půjčení' },
+]
+
+const COUNTRY_OPTIONS = [
+  { value: '', label: 'Všechny země' },
+  { value: 'CZ', label: 'Česko' },
+  { value: 'SK', label: 'Slovensko' },
+  { value: 'DE', label: 'Německo' },
+  { value: 'AT', label: 'Rakousko' },
+  { value: 'PL', label: 'Polsko' },
+]
+
+const LANGUAGE_OPTIONS = [
+  { value: '', label: 'Všechny jazyky' },
+  { value: 'cs', label: 'Čeština' },
+  { value: 'en', label: 'English' },
+  { value: 'de', label: 'Deutsch' },
+]
+
 // GSM 7-bit basic chars — if text contains anything outside this, it's UCS-2 (70 chars/segment)
 const GSM7 = /^[A-Za-z0-9 @£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&'()*+,\-./:;<=>?¡ÄÖÑÜ§¿äöñüà^{}\\[~\]|€]*$/
 
@@ -39,13 +62,23 @@ function replaceVariables(templateContent, vars) {
 export default function ManualSendTab({ channel }) {
   const debugMode = useDebugMode()
 
-  // Customer search + selection
+  // Send type: 'single' | 'bulk'
+  const [sendType, setSendType] = useState('single')
+
+  // Customer search + selection (single mode)
   const [customerSearch, setCustomerSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [customers, setCustomers] = useState([])
   const [loadingCustomers, setLoadingCustomers] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState(null)
   const searchTimer = useRef(null)
+
+  // Bulk mode state
+  const [bulkSegment, setBulkSegment] = useState('all')
+  const [bulkCountry, setBulkCountry] = useState('')
+  const [bulkLanguage, setBulkLanguage] = useState('')
+  const [bulkRecipientCount, setBulkRecipientCount] = useState(0)
+  const [bulkCountLoading, setBulkCountLoading] = useState(false)
 
   // Mode: 'template' | 'custom'
   const [mode, setMode] = useState('custom')
@@ -68,6 +101,47 @@ export default function ManualSendTab({ channel }) {
     loadTemplates()
     resetForm()
   }, [channel])
+
+  // Count bulk recipients when segment/filters change
+  useEffect(() => {
+    if (sendType === 'bulk') countBulkRecipients()
+  }, [bulkSegment, bulkCountry, bulkLanguage, sendType, channel])
+
+  async function countBulkRecipients() {
+    setBulkCountLoading(true)
+    try {
+      const contactField = channel === 'email' ? 'email' : 'phone'
+      let query = supabase
+        .from('profiles')
+        .select('id', { count: 'exact', head: true })
+        .not(contactField, 'is', null)
+
+      if (bulkCountry) query = query.eq('country', bulkCountry)
+      if (bulkLanguage) query = query.eq('language', bulkLanguage)
+
+      if (bulkSegment === 'vip') {
+        query = query.or('reliability_score->>score.gt.80')
+      } else if (bulkSegment === 'past_customers') {
+        const { data: bookingUsers } = await supabase
+          .from('bookings').select('user_id').eq('status', 'completed')
+        const ids = [...new Set((bookingUsers || []).map(b => b.user_id))].filter(Boolean)
+        if (ids.length > 0) query = query.in('id', ids)
+        else { setBulkRecipientCount(0); setBulkCountLoading(false); return }
+      } else if (bulkSegment === 'new_no_booking') {
+        const { data: allBookingUsers } = await supabase
+          .from('bookings').select('user_id')
+        const ids = [...new Set((allBookingUsers || []).map(b => b.user_id))].filter(Boolean)
+        if (ids.length > 0) query = query.not('id', 'in', `(${ids.join(',')})`)
+      }
+
+      const { count } = await query
+      setBulkRecipientCount(count || 0)
+    } catch (e) {
+      debugError('ManualSendTab', 'countBulkRecipients', e)
+      setBulkRecipientCount(0)
+    }
+    setBulkCountLoading(false)
+  }
 
   // Debounce customer search (300ms)
   useEffect(() => {
@@ -122,9 +196,14 @@ export default function ManualSendTab({ channel }) {
   }
 
   function resetForm() {
+    setSendType('single')
     setSelectedCustomer(null)
     setCustomerSearch('')
     setCustomers([])
+    setBulkSegment('all')
+    setBulkCountry('')
+    setBulkLanguage('')
+    setBulkRecipientCount(0)
     setMode('custom')
     setSelectedTemplateId('')
     setTemplateVars({})
@@ -166,9 +245,9 @@ export default function ManualSendTab({ channel }) {
   const smsInfo = channel === 'sms' ? calcSmsSegments(finalText) : null
 
   // Validation
-  const recipientValid = selectedCustomer && (
-    channel === 'email' ? !!selectedCustomer.email : !!selectedCustomer.phone
-  )
+  const recipientValid = sendType === 'bulk'
+    ? bulkRecipientCount > 0
+    : selectedCustomer && (channel === 'email' ? !!selectedCustomer.email : !!selectedCustomer.phone)
   const contentValid = mode === 'template'
     ? !!selectedTemplate && templatePreview.trim().length > 0
     : body.trim().length > 0
@@ -176,36 +255,95 @@ export default function ManualSendTab({ channel }) {
   const canSend = recipientValid && contentValid && emailSubjectValid && !sending
 
   // Recipient missing field warning
-  const recipientWarning = selectedCustomer && !recipientValid
+  const recipientWarning = sendType === 'single' && selectedCustomer && !recipientValid
     ? (channel === 'email' ? 'Zákazník nemá e-mail' : 'Zákazník nemá telefonní číslo')
     : null
 
   async function handleSend() {
     if (!canSend) return
+
+    // Bulk: confirm before sending
+    if (sendType === 'bulk') {
+      const ok = window.confirm(`Opravdu odeslat ${CHANNEL_LABELS[channel]} zprávu ${bulkRecipientCount} příjemcům?`)
+      if (!ok) return
+    }
+
     setSending(true)
     setResult(null)
     try {
-      const to = channel === 'email' ? selectedCustomer.email : selectedCustomer.phone
-      const payload = {
-        channel,
-        to,
-        customer_id: selectedCustomer.id,
-        subject: channel === 'email' ? subject : undefined,
-        template_slug: mode === 'template' && selectedTemplate ? selectedTemplate.slug || selectedTemplate.name : undefined,
-        template_vars: mode === 'template' ? templateVars : undefined,
-        raw_body: mode === 'custom' ? body.trim() : undefined,
-        body: finalText,
+      if (sendType === 'bulk') {
+        // Bulk send: fetch all recipient IDs and invoke edge function
+        const contactField = channel === 'email' ? 'email' : 'phone'
+        let query = supabase
+          .from('profiles')
+          .select('id, full_name, email, phone')
+          .not(contactField, 'is', null)
+
+        if (bulkCountry) query = query.eq('country', bulkCountry)
+        if (bulkLanguage) query = query.eq('language', bulkLanguage)
+
+        if (bulkSegment === 'vip') {
+          query = query.or('reliability_score->>score.gt.80')
+        } else if (bulkSegment === 'past_customers') {
+          const { data: bookingUsers } = await supabase
+            .from('bookings').select('user_id').eq('status', 'completed')
+          const ids = [...new Set((bookingUsers || []).map(b => b.user_id))].filter(Boolean)
+          if (ids.length > 0) query = query.in('id', ids)
+        } else if (bulkSegment === 'new_no_booking') {
+          const { data: allBookingUsers } = await supabase
+            .from('bookings').select('user_id')
+          const ids = [...new Set((allBookingUsers || []).map(b => b.user_id))].filter(Boolean)
+          if (ids.length > 0) query = query.not('id', 'in', `(${ids.join(',')})`)
+        }
+
+        const { data: recipients } = await query
+        const fnName = channel === 'email' ? 'send-email' : 'send-message'
+        let sentOk = 0, sentFail = 0
+
+        for (const r of (recipients || [])) {
+          try {
+            const to = channel === 'email' ? r.email : r.phone
+            if (!to) { sentFail++; continue }
+            const payload = {
+              channel,
+              to,
+              customer_id: r.id,
+              subject: channel === 'email' ? subject : undefined,
+              template_slug: mode === 'template' && selectedTemplate ? selectedTemplate.slug || selectedTemplate.name : undefined,
+              template_vars: mode === 'template' ? templateVars : undefined,
+              raw_body: mode === 'custom' ? body.trim() : undefined,
+              body: finalText,
+            }
+            await supabase.functions.invoke(fnName, { body: payload })
+            sentOk++
+          } catch { sentFail++ }
+        }
+
+        setResult({ ok: true, msg: `Hromadně odesláno: ${sentOk} OK, ${sentFail} selhalo` })
+      } else {
+        // Single send
+        const to = channel === 'email' ? selectedCustomer.email : selectedCustomer.phone
+        const payload = {
+          channel,
+          to,
+          customer_id: selectedCustomer.id,
+          subject: channel === 'email' ? subject : undefined,
+          template_slug: mode === 'template' && selectedTemplate ? selectedTemplate.slug || selectedTemplate.name : undefined,
+          template_vars: mode === 'template' ? templateVars : undefined,
+          raw_body: mode === 'custom' ? body.trim() : undefined,
+          body: finalText,
+        }
+
+        debugLog('ManualSendTab', 'handleSend', payload)
+
+        const fnName = channel === 'email' ? 'send-email' : 'send-message'
+        const { data, error } = await debugAction('manualSend.invoke', 'ManualSendTab', () =>
+          supabase.functions.invoke(fnName, { body: payload })
+        , payload)
+
+        if (error) throw error
+        setResult({ ok: true, msg: 'Zpráva odeslána!' })
       }
-
-      debugLog('ManualSendTab', 'handleSend', payload)
-
-      const fnName = channel === 'email' ? 'send-email' : 'send-message'
-      const { data, error } = await debugAction('manualSend.invoke', 'ManualSendTab', () =>
-        supabase.functions.invoke(fnName, { body: payload })
-      , payload)
-
-      if (error) throw error
-      setResult({ ok: true, msg: 'Zpráva odeslána!' })
 
       // Reset form after success
       setSelectedCustomer(null)
@@ -232,7 +370,92 @@ export default function ManualSendTab({ channel }) {
         {/* LEFT: Formulář */}
         <div className="flex-1 space-y-4" style={{ minWidth: 340, maxWidth: 560 }}>
 
+          {/* 0. Typ odeslání: Jednotlivé / Hromadné */}
+          <div>
+            <label className="block text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>
+              Typ odeslání
+            </label>
+            <div className="flex gap-3">
+              <RadioOption
+                checked={sendType === 'single'}
+                onChange={() => setSendType('single')}
+                label="Jednotlivé"
+              />
+              <RadioOption
+                checked={sendType === 'bulk'}
+                onChange={() => setSendType('bulk')}
+                label="Hromadné"
+              />
+            </div>
+          </div>
+
           {/* 1. Příjemce */}
+          {sendType === 'bulk' ? (
+            <div className="space-y-3">
+              <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>
+                Skupina příjemců
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {BULK_SEGMENTS.map(s => (
+                  <div
+                    key={s.value}
+                    onClick={() => setBulkSegment(s.value)}
+                    className="cursor-pointer rounded-card"
+                    style={{
+                      padding: 10,
+                      border: bulkSegment === s.value ? '2px solid #74FB71' : '2px solid #d4e8e0',
+                      background: bulkSegment === s.value ? '#f0fdf0' : '#fff',
+                    }}
+                  >
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span style={{ fontSize: 16 }}>{s.icon}</span>
+                      <span className="text-sm font-bold" style={{ color: '#0f1a14' }}>{s.label}</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: '#6b7280' }}>{s.desc}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Filtry */}
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="block text-sm font-bold mb-1" style={{ color: '#1a2e22' }}>Země</label>
+                  <select
+                    value={bulkCountry}
+                    onChange={e => setBulkCountry(e.target.value)}
+                    className="w-full rounded-btn text-sm outline-none cursor-pointer"
+                    style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}
+                  >
+                    {COUNTRY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-bold mb-1" style={{ color: '#1a2e22' }}>Jazyk</label>
+                  <select
+                    value={bulkLanguage}
+                    onChange={e => setBulkLanguage(e.target.value)}
+                    className="w-full rounded-btn text-sm outline-none cursor-pointer"
+                    style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}
+                  >
+                    {LANGUAGE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* Počet příjemců */}
+              <div className="flex items-center gap-2">
+                {bulkCountLoading ? (
+                  <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-brand-gd" />
+                ) : (
+                  <>
+                    <span style={{ fontSize: 20 }}>👥</span>
+                    <span className="text-xl font-black" style={{ color: '#1a8a18' }}>{bulkRecipientCount}</span>
+                    <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>příjemců</span>
+                  </>
+                )}
+              </div>
+            </div>
+          ) : (
           <div>
             <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>
               Příjemce
@@ -296,6 +519,7 @@ export default function ManualSendTab({ channel }) {
               </div>
             )}
           </div>
+          )}
 
           {/* 2. Způsob */}
           <div>
@@ -404,7 +628,7 @@ export default function ManualSendTab({ channel }) {
           {/* 3. Odeslat */}
           <div className="flex items-center gap-3 pt-2">
             <Button green onClick={handleSend} disabled={!canSend}>
-              {sending ? 'Odesílám…' : `Odeslat ${CHANNEL_LABELS[channel]}`}
+              {sending ? 'Odesílám…' : sendType === 'bulk' ? `Hromadně odeslat (${bulkRecipientCount})` : `Odeslat ${CHANNEL_LABELS[channel]}`}
             </Button>
             {result && (
               <Badge

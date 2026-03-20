@@ -137,6 +137,20 @@ export default function MessageTemplatesTab({ channel }) {
     setConfirm(null)
   }
 
+  async function handleDelete(tpl) {
+    try {
+      const { error: err } = await debugAction('templates.delete', 'MessageTemplatesTab', () =>
+        supabase.from('message_templates').delete().eq('id', tpl.id)
+      )
+      if (err) throw err
+      load()
+    } catch (e) {
+      debugError('MessageTemplatesTab', 'delete', e)
+      window.alert('Chyba při mazání: ' + e.message)
+    }
+    setConfirm(null)
+  }
+
   // Filter by search
   const filtered = templates.filter(t => {
     if (!search) return true
@@ -192,6 +206,7 @@ export default function MessageTemplatesTab({ channel }) {
               <TH>Název</TH>
               <TH>Marketing</TH>
               <TH>Jazyk</TH>
+              <TH>Trigger</TH>
               <TH>Stav</TH>
               <TH>Akce</TH>
             </TRow>
@@ -211,6 +226,13 @@ export default function MessageTemplatesTab({ channel }) {
                   <span className="text-sm" style={{ color: '#1a2e22' }}>
                     {LANG_OPTIONS.find(l => l.value === tpl.language)?.label || tpl.language || 'cs'}
                   </span>
+                </TD>
+                <TD>
+                  {tpl.trigger_type ? (
+                    <Badge label={tpl.trigger_type} color="#b45309" bg="#fef3c7" />
+                  ) : (
+                    <span style={{ color: '#9ca3af', fontSize: 12 }}>Žádný</span>
+                  )}
                 </TD>
                 <TD>
                   <Badge
@@ -246,6 +268,13 @@ export default function MessageTemplatesTab({ channel }) {
                     >
                       {tpl.is_active ? 'Deaktivovat' : 'Aktivovat'}
                     </button>
+                    <button
+                      onClick={() => setConfirm({ tpl, action: 'delete' })}
+                      className="text-sm font-bold cursor-pointer border-none rounded-btn"
+                      style={{ padding: '4px 10px', background: '#fee2e2', color: '#dc2626' }}
+                    >
+                      Smazat
+                    </button>
                   </div>
                 </TD>
               </TRow>
@@ -267,13 +296,24 @@ export default function MessageTemplatesTab({ channel }) {
       {/* Confirm dialog */}
       <ConfirmDialog
         open={!!confirm}
-        title={confirm?.tpl?.is_active ? 'Deaktivovat šablonu?' : 'Aktivovat šablonu?'}
-        message={confirm?.tpl?.is_active
-          ? `Deaktivovat šablonu "${confirm?.tpl?.name}"? Nebude dostupná pro nové zprávy.`
-          : `Aktivovat šablonu "${confirm?.tpl?.name}"?`
+        title={
+          confirm?.action === 'delete' ? 'Smazat šablonu?'
+          : confirm?.tpl?.is_active ? 'Deaktivovat šablonu?'
+          : 'Aktivovat šablonu?'
         }
-        danger={confirm?.tpl?.is_active}
-        onConfirm={() => confirm && handleToggleActive(confirm.tpl)}
+        message={
+          confirm?.action === 'delete'
+            ? `Opravdu smazat šablonu "${confirm?.tpl?.name}"? Tuto akci nelze vrátit.`
+            : confirm?.tpl?.is_active
+              ? `Deaktivovat šablonu "${confirm?.tpl?.name}"? Nebude dostupná pro nové zprávy.`
+              : `Aktivovat šablonu "${confirm?.tpl?.name}"?`
+        }
+        danger={confirm?.action === 'delete' || confirm?.tpl?.is_active}
+        onConfirm={() => {
+          if (!confirm) return
+          if (confirm.action === 'delete') handleDelete(confirm.tpl)
+          else handleToggleActive(confirm.tpl)
+        }}
         onCancel={() => setConfirm(null)}
       />
     </div>
@@ -281,6 +321,22 @@ export default function MessageTemplatesTab({ channel }) {
 }
 
 /* ────────────────────── Template Edit Modal ────────────────────── */
+
+const TRIGGER_OPTIONS = [
+  { value: '', label: 'Žádný trigger (ruční/kampaňové)' },
+  { value: 'booking_reserved', label: 'Rezervace vytvořena' },
+  { value: 'booking_confirmed', label: 'Rezervace potvrzena' },
+  { value: 'booking_active', label: 'Rezervace aktivní (vyzvednutí)' },
+  { value: 'booking_completed', label: 'Rezervace dokončena' },
+  { value: 'booking_cancelled', label: 'Rezervace zrušena' },
+  { value: 'booking_reminder', label: 'Připomínka před rezervací' },
+  { value: 'post_return_review', label: 'Po vrácení — žádost o recenzi' },
+  { value: 'customer_welcome', label: 'Uvítání nového zákazníka' },
+  { value: 'customer_inactivity', label: 'Neaktivita zákazníka' },
+  { value: 'door_codes', label: 'Přístupové kódy' },
+  { value: 'voucher_purchased', label: 'Voucher zakoupen' },
+  { value: 'payment_receipt', label: 'Potvrzení platby' },
+]
 
 function TemplateEditModal({ channel, template, onClose, onSaved }) {
   const isNew = !template
@@ -291,6 +347,7 @@ function TemplateEditModal({ channel, template, onClose, onSaved }) {
   const [subjectTemplate, setSubjectTemplate] = useState(template?.subject_template || template?.subject || '')
   const [isMarketing, setIsMarketing] = useState(template?.is_marketing || false)
   const [isActive, setIsActive] = useState(template?.is_active ?? true)
+  const [triggerType, setTriggerType] = useState(template?.trigger_type || '')
   const [waTemplateId, setWaTemplateId] = useState(template?.wa_template_id || '')
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
@@ -345,6 +402,7 @@ function TemplateEditModal({ channel, template, onClose, onSaved }) {
         subject: channel === 'email' ? subjectTemplate || null : null,
         is_marketing: isMarketing,
         is_active: isActive,
+        trigger_type: triggerType || null,
         wa_template_id: channel === 'whatsapp' ? waTemplateId || null : null,
       }
 
@@ -498,6 +556,24 @@ function TemplateEditModal({ channel, template, onClose, onSaved }) {
               </div>
             </div>
           )}
+
+          {/* Trigger type */}
+          <div>
+            <Label>Trigger (automatické odeslání)</Label>
+            <select
+              value={triggerType}
+              onChange={e => setTriggerType(e.target.value)}
+              className="w-full rounded-btn text-sm outline-none cursor-pointer"
+              style={{ ...inputStyle, color: '#1a2e22' }}
+            >
+              {TRIGGER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+            {triggerType && (
+              <div className="mt-1" style={{ fontSize: 11, color: '#6b7280' }}>
+                Tato šablona se automaticky odešle při události: {TRIGGER_OPTIONS.find(o => o.value === triggerType)?.label}
+              </div>
+            )}
+          </div>
 
           {/* Checkboxes */}
           <div className="flex items-center gap-6 pt-1">

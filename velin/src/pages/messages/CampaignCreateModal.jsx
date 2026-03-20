@@ -43,11 +43,29 @@ function replaceVariables(templateContent, vars) {
   return result
 }
 
+const COUNTRY_OPTIONS = [
+  { value: '', label: 'Všechny země' },
+  { value: 'CZ', label: 'Česko' },
+  { value: 'SK', label: 'Slovensko' },
+  { value: 'DE', label: 'Německo' },
+  { value: 'AT', label: 'Rakousko' },
+  { value: 'PL', label: 'Polsko' },
+]
+
+const LANGUAGE_OPTIONS = [
+  { value: '', label: 'Všechny jazyky' },
+  { value: 'cs', label: 'Čeština' },
+  { value: 'en', label: 'English' },
+  { value: 'de', label: 'Deutsch' },
+]
+
 export default function CampaignCreateModal({ open, channel, onClose, onCreated }) {
   const [step, setStep] = useState(1)
   const [name, setName] = useState('')
   const [templateId, setTemplateId] = useState('')
   const [segment, setSegment] = useState('all')
+  const [filterCountry, setFilterCountry] = useState('')
+  const [filterLanguage, setFilterLanguage] = useState('')
   const [recipientCount, setRecipientCount] = useState(0)
   const [recipientCountLoading, setRecipientCountLoading] = useState(false)
   const [templateVars, setTemplateVars] = useState({})
@@ -70,11 +88,11 @@ export default function CampaignCreateModal({ open, channel, onClose, onCreated 
       .then(({ data }) => setTemplates(data || []))
   }, [channel, open])
 
-  // Count recipients on segment change
+  // Count recipients on segment/filter change
   useEffect(() => {
     if (!open) return
     countRecipients()
-  }, [segment, open, channel])
+  }, [segment, filterCountry, filterLanguage, open, channel])
 
   // Reset on open
   useEffect(() => {
@@ -83,6 +101,8 @@ export default function CampaignCreateModal({ open, channel, onClose, onCreated 
       setName('')
       setTemplateId('')
       setSegment('all')
+      setFilterCountry('')
+      setFilterLanguage('')
       setRecipientCount(0)
       setTemplateVars({})
       setScheduleMode('now')
@@ -99,6 +119,12 @@ export default function CampaignCreateModal({ open, channel, onClose, onCreated 
   const previewText = useMemo(() => replaceVariables(templateBody, templateVars), [templateBody, templateVars])
   const contactField = channel === 'email' ? 'email' : 'phone'
 
+  function applyFilters(query) {
+    if (filterCountry) query = query.eq('country', filterCountry)
+    if (filterLanguage) query = query.eq('language', filterLanguage)
+    return query
+  }
+
   async function countRecipients() {
     setRecipientCountLoading(true)
     try {
@@ -108,10 +134,11 @@ export default function CampaignCreateModal({ open, channel, onClose, onCreated 
         .eq('marketing_consent', true)
         .not(contactField, 'is', null)
 
+      query = applyFilters(query)
+
       if (segment === 'vip') {
         query = query.or('reliability_score->>score.gt.80')
       } else if (segment === 'past_customers') {
-        // Fetch IDs with completed bookings first
         const { data: bookingUsers } = await supabase
           .from('bookings')
           .select('user_id')
@@ -141,10 +168,12 @@ export default function CampaignCreateModal({ open, channel, onClose, onCreated 
       // Load sample recipients (first 5)
       let sampleQuery = supabase
         .from('profiles')
-        .select('id, full_name, email, phone')
+        .select('id, full_name, email, phone, country, language')
         .eq('marketing_consent', true)
         .not(contactField, 'is', null)
         .limit(5)
+
+      sampleQuery = applyFilters(sampleQuery)
 
       if (segment === 'past_customers') {
         const { data: bookingUsers } = await supabase
@@ -202,11 +231,16 @@ export default function CampaignCreateModal({ open, channel, onClose, onCreated 
   async function handleSubmit(asDraft = false) {
     setSending(true)
     try {
+      const segFilter = {}
+      if (filterCountry) segFilter.country = filterCountry
+      if (filterLanguage) segFilter.language = filterLanguage
+
       const payload = {
         name: name.trim(),
         channel,
         template_id: templateId,
         segment,
+        segment_filter: Object.keys(segFilter).length > 0 ? segFilter : null,
         template_vars: Object.keys(templateVars).length > 0 ? templateVars : null,
         total_recipients: recipientCount,
         sent_count: 0,
@@ -349,6 +383,50 @@ export default function CampaignCreateModal({ open, channel, onClose, onCreated 
             ))}
           </div>
 
+          {/* Filtry: země a jazyk */}
+          <div>
+            <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>
+              Filtrovat podle
+            </div>
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="block text-sm font-bold mb-1" style={{ color: '#1a2e22' }}>Země původu</label>
+                <select
+                  value={filterCountry}
+                  onChange={e => setFilterCountry(e.target.value)}
+                  className="w-full rounded-btn text-sm outline-none cursor-pointer"
+                  style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}
+                >
+                  {COUNTRY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-bold mb-1" style={{ color: '#1a2e22' }}>Jazyk aplikace</label>
+                <select
+                  value={filterLanguage}
+                  onChange={e => setFilterLanguage(e.target.value)}
+                  className="w-full rounded-btn text-sm outline-none cursor-pointer"
+                  style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}
+                >
+                  {LANGUAGE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+            </div>
+            {(filterCountry || filterLanguage) && (
+              <div className="flex items-center gap-2 mt-2">
+                <Badge label={filterCountry ? `Země: ${COUNTRY_OPTIONS.find(o => o.value === filterCountry)?.label}` : ''} color="#2563eb" bg="#dbeafe" />
+                {filterLanguage && <Badge label={`Jazyk: ${LANGUAGE_OPTIONS.find(o => o.value === filterLanguage)?.label}`} color="#7c3aed" bg="#ede9fe" />}
+                <button
+                  onClick={() => { setFilterCountry(''); setFilterLanguage('') }}
+                  className="text-sm font-bold cursor-pointer border-none rounded-btn"
+                  style={{ padding: '3px 8px', background: '#fee2e2', color: '#dc2626' }}
+                >
+                  Zrušit filtry
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Počet příjemců */}
           <div className="flex items-center gap-3 py-2">
             {recipientCountLoading ? (
@@ -439,6 +517,8 @@ export default function CampaignCreateModal({ open, channel, onClose, onCreated 
                   <TRow header>
                     <TH>Jméno</TH>
                     <TH>{channel === 'email' ? 'Email' : 'Telefon'}</TH>
+                    <TH>Země</TH>
+                    <TH>Jazyk</TH>
                   </TRow>
                 </thead>
                 <tbody>
@@ -446,6 +526,8 @@ export default function CampaignCreateModal({ open, channel, onClose, onCreated 
                     <TRow key={r.id}>
                       <TD>{r.full_name || '—'}</TD>
                       <TD mono>{channel === 'email' ? r.email : r.phone || '—'}</TD>
+                      <TD>{r.country || '—'}</TD>
+                      <TD>{r.language || '—'}</TD>
                     </TRow>
                   ))}
                 </tbody>
