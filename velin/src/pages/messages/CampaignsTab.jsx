@@ -11,6 +11,7 @@ import SearchInput from '../../components/ui/SearchInput'
 import Pagination from '../../components/ui/Pagination'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
+import CampaignCreateModal from './CampaignCreateModal'
 
 const PAGE_SIZE = 15
 const CHANNEL_LABELS = { sms: 'SMS', email: 'E-mail', whatsapp: 'WhatsApp' }
@@ -422,8 +423,7 @@ export default function CampaignsTab({ channel }) {
         onCancel={() => setConfirm(null)}
       />
 
-      {/* TODO: Prompt 7B */}
-      {/* <CampaignCreateModal open={showCreate} channel={channel} onClose={() => setShowCreate(false)} onCreated={load} /> */}
+      <CampaignCreateModal open={showCreate} channel={channel} onClose={() => setShowCreate(false)} onCreated={load} />
     </div>
   )
 }
