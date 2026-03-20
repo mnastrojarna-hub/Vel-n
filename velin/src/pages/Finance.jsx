@@ -10,6 +10,13 @@ import { Table, TRow, TH, TD } from '../components/ui/Table'
 import InvoicesTab from './accounting/InvoicesTab'
 import TaxTab from './accounting/TaxTab'
 import ReceivedInvoicesTab from './accounting/ReceivedInvoicesTab'
+import CashRegisterTab from './accounting/CashRegisterTab'
+import EmployeesTab from './accounting/EmployeesTab'
+import VATReturnsTab from './accounting/VATReturnsTab'
+import TaxReturnsTab from './accounting/TaxReturnsTab'
+import ShortTermAssetsTab from './accounting/ShortTermAssetsTab'
+import LongTermAssetsTab from './accounting/LongTermAssetsTab'
+import LiabilitiesTab from './accounting/LiabilitiesTab'
 import { classifyEntry } from '../lib/revenueUtils'
 
 const PERIODS = [
@@ -24,11 +31,21 @@ const TYPES = [
   { value: 'expense', label: 'Výdaje' },
 ]
 
-const FINANCE_TABS = ['Přehled', 'Faktury', 'Daňové podklady', 'Faktury přijaté']
+const FINANCE_TABS = ['Přehled', 'Faktury', 'Účetnictví', 'Faktury přijaté', 'Pokladna']
+
+const ACCOUNTING_SUBTABS = [
+  { id: 'employees', label: 'Zaměstnanci' },
+  { id: 'vat', label: 'Přiznání k DPH' },
+  { id: 'tax', label: 'Daňové přiznání' },
+  { id: 'short_assets', label: 'Krátkodobý majetek' },
+  { id: 'long_assets', label: 'Dlouhodobý majetek' },
+  { id: 'liabilities', label: 'Závazky' },
+]
 
 export default function Finance() {
   const debugMode = useDebugMode()
   const [activeTab, setActiveTab] = useState('Přehled')
+  const [accountingSubTab, setAccountingSubTab] = useState('employees')
   const [summary, setSummary] = useState({ revenue: 0, expense: 0, unpaid: 0 })
   const [transactions, setTransactions] = useState([])
   const [chartData, setChartData] = useState([])
@@ -211,8 +228,34 @@ export default function Finance() {
       </div>
 
       {activeTab === 'Faktury' && <InvoicesTab />}
-      {activeTab === 'Daňové podklady' && <TaxTab />}
       {activeTab === 'Faktury přijaté' && <ReceivedInvoicesTab />}
+      {activeTab === 'Pokladna' && <CashRegisterTab />}
+
+      {activeTab === 'Účetnictví' && (
+        <div>
+          <div className="flex gap-1 mb-4 flex-wrap">
+            {ACCOUNTING_SUBTABS.map(st => (
+              <button key={st.id} onClick={() => setAccountingSubTab(st.id)}
+                className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+                style={{
+                  padding: '6px 14px',
+                  background: accountingSubTab === st.id ? '#1a2e22' : '#f1faf7',
+                  color: accountingSubTab === st.id ? '#74FB71' : '#1a2e22',
+                  border: 'none',
+                  boxShadow: accountingSubTab === st.id ? '0 2px 8px rgba(26,46,34,.25)' : 'none',
+                }}>
+                {st.label}
+              </button>
+            ))}
+          </div>
+          {accountingSubTab === 'employees' && <EmployeesTab />}
+          {accountingSubTab === 'vat' && <VATReturnsTab />}
+          {accountingSubTab === 'tax' && <TaxReturnsTab />}
+          {accountingSubTab === 'short_assets' && <ShortTermAssetsTab />}
+          {accountingSubTab === 'long_assets' && <LongTermAssetsTab />}
+          {accountingSubTab === 'liabilities' && <LiabilitiesTab />}
+        </div>
+      )}
 
       {activeTab === 'Přehled' && <>
       <div className="flex flex-wrap items-center gap-3 mb-5">
