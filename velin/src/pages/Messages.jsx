@@ -6,6 +6,7 @@ import MessageLogTab from './messages/MessageLogTab'
 import ManualSendTab from './messages/ManualSendTab'
 import CampaignsTab from './messages/CampaignsTab'
 import MessageTemplatesTab from './messages/MessageTemplatesTab'
+import AutoMessagesTab from './messages/AutoMessagesTab'
 import Modal from '../components/ui/Modal'
 import Button from '../components/ui/Button'
 import { supabase } from '../lib/supabase'
@@ -19,7 +20,8 @@ const CHANNELS = [
 ]
 
 const SUB_TABS = [
-  { key: 'log', label: 'Automatické' },
+  { key: 'log', label: 'Log zpráv' },
+  { key: 'auto', label: 'Automatické' },
   { key: 'manual', label: 'Ruční' },
   { key: 'campaigns', label: 'Kampaně' },
   { key: 'templates', label: 'Šablony' },
@@ -103,6 +105,7 @@ export default function Messages() {
   function renderSubTab() {
     switch (subTab) {
       case 'log': return <MessageLogTab channel={channel} />
+      case 'auto': return <AutoMessagesTab channel={channel} />
       case 'manual': return <ManualSendTab channel={channel} />
       case 'campaigns': return <CampaignsTab channel={channel} />
       case 'templates': return <MessageTemplatesTab channel={channel} />
