@@ -65,22 +65,29 @@ async function sendSmsOrWa(
   templateVars?: Record<string, string>,
 ): Promise<boolean> {
   try {
-    // Internal call to send-message (if it exists as edge function) or directly log
-    // Since send-message may only exist in dashboard, we log directly
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-    await supabase.from('message_log').insert({
-      channel,
-      recipient_phone: to,
-      body,
-      status: 'sent',
-      direction: 'outbound',
-      is_marketing: true,
-      template_slug: templateSlug || null,
-      template_vars: templateVars || null,
-      metadata: { campaign_id: campaignId },
-      customer_id: customerId,
+    const sendMessageUrl = `${SUPABASE_URL}/functions/v1/send-message`
+    const res = await fetch(sendMessageUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        channel,
+        to,
+        raw_body: body,
+        customer_id: customerId,
+        template_slug: templateSlug || undefined,
+        template_vars: templateVars || undefined,
+      }),
     })
-    return true
+    if (res.ok) {
+      const data = await res.json()
+      return data.success === true
+    }
+    const errText = await res.text()
+    console.error(`send-message ${channel} to ${to} failed: ${res.status} ${errText}`)
+    return false
   } catch (e) {
     console.error(`${channel} to ${to} error:`, e)
     return false
