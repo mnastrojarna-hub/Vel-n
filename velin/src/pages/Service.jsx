@@ -286,7 +286,7 @@ function ActiveServiceTab({ onRefresh }) {
                           </div>
                           <div>
                             <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Km</div>
-                            <div className="text-sm font-mono" style={{ color: '#1a2e22' }}>{(l.mileage_at_service || l.km_at_service) ? (l.mileage_at_service || l.km_at_service).toLocaleString('cs-CZ') : '—'}</div>
+                            <div className="text-sm font-mono" style={{ color: '#1a2e22' }}>{(l.km_at_service || l.mileage_at_service) ? (l.km_at_service || l.mileage_at_service).toLocaleString('cs-CZ') : '—'}</div>
                           </div>
                           <div>
                             <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Technik</div>

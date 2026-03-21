@@ -76,7 +76,9 @@ export default function ServiceTab({ motoId, motoMileage, logAudit }) {
     const { data: newLog } = await supabase.from('maintenance_log').insert({
       moto_id: motoId, service_type: schedule.description,
       description: `Plánovaný servis: ${schedule.description}`,
-      mileage_at_service: Number(motoMileage) || 0,
+      km_at_service: Number(motoMileage) || 0,
+      scheduled_date: new Date().toISOString().slice(0, 10),
+      status: 'in_service',
     }).select().single()
 
     // Recalculate next_date based on interval_days
@@ -162,7 +164,7 @@ export default function ServiceTab({ motoId, motoMileage, logAudit }) {
               const fmtDate = d => d ? new Date(d).toLocaleDateString('cs-CZ') : null
               const startDate = fmtDate(l.scheduled_date) || fmtDate(l.created_at)
               const endDate = fmtDate(l.completed_date)
-              const km = l.mileage_at_service || l.km_at_service
+              const km = l.km_at_service || l.mileage_at_service
               const isCompleted = !!l.completed_date || l.status === 'completed'
               return (
                 <div key={l.id} className="p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>

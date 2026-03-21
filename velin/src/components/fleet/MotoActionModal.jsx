@@ -134,19 +134,35 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
     setShowServiceChecklist(false)
     setBusy(true); setError(null)
     try {
-      // Check truly active/future bookings (not historical)
+      // Check truly active bookings (currently rented out)
       const today = new Date().toISOString().slice(0, 10)
       const { data: activeBookings } = await supabase.from('bookings')
         .select('id, status, start_date, end_date')
         .eq('moto_id', moto.id)
-        .in('status', ['active', 'reserved'])
+        .eq('status', 'active')
         .gte('end_date', today)
       if (activeBookings?.length > 0) {
-        const ok = window.confirm(`Motorka má ${activeBookings.length} aktivní/ch rezervací. Při změně stavu budou stornovány. Pokračovat?`)
+        const ok = window.confirm(`Motorka má ${activeBookings.length} aktivní rezervaci (právě pronajatá). Stornovat a přesunout do servisu?`)
         if (!ok) { setBusy(false); return }
         for (const b of activeBookings) {
           await supabase.from('bookings').update({ status: 'cancelled', notes: `Motorka odeslána do servisu` }).eq('id', b.id)
         }
+      }
+
+      // Check future reserved bookings — just inform, don't block
+      const { data: reservedBookings } = await supabase.from('bookings')
+        .select('id, start_date, end_date')
+        .eq('moto_id', moto.id)
+        .eq('status', 'reserved')
+        .gte('end_date', today)
+        .order('start_date', { ascending: true })
+        .limit(5)
+      let nextReservationInfo = ''
+      if (reservedBookings?.length > 0) {
+        const fmtD = d => new Date(d).toLocaleDateString('cs-CZ')
+        const lines = reservedBookings.map(b => `  ${fmtD(b.start_date)} – ${fmtD(b.end_date)}`).join('\n')
+        nextReservationInfo = `\n\nBudoucí rezervace (${reservedBookings.length}):\n${lines}\n\nMotorka musí být ze servisu zpět včas.`
+        window.alert(`Upozornění: Motorka má budoucí rezervace:${nextReservationInfo}`)
       }
 
       const { error: err } = await supabase.from('motorcycles').update({ status: 'maintenance' }).eq('id', moto.id)
@@ -157,14 +173,15 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
         : selectedLabels.length > 1 ? `Servis (${selectedLabels.length} úkonů)`
         : 'Neplánovaný servis'
 
-      await supabase.from('maintenance_log').insert({
+      const { error: logErr } = await supabase.from('maintenance_log').insert({
         moto_id: moto.id,
         description: fullDescription,
         service_type: serviceType,
         scheduled_date: new Date().toISOString().slice(0, 10),
-        mileage_at_service: Number(moto.mileage) || null,
+        km_at_service: Number(moto.mileage) || null,
         status: 'in_service',
       })
+      if (logErr) console.error('[confirmSendToService] maintenance_log insert failed:', logErr)
 
       await logAudit('motorcycle_status_changed', {
         moto_id: moto.id, model: moto.model,
