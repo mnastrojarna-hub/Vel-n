@@ -119,7 +119,7 @@
 | `acc_short_term_assets` | Krátkodobý majetek (materiál, drobný majetek, zásoby, pohledávky, peníze) |
 | `acc_long_term_assets` | Dlouhodobý majetek (vozidla, stroje, stavby, odpisová skupina 1-6, metoda odpisu) |
 | `acc_depreciation_entries` | Odpisy DM (roční odpis, kumulativní, zůstatková hodnota, metoda, skupina) |
-| `acc_liabilities` | Závazky (dodavatelé, daně, SP, ZP, mzdy, úvěry, splatnost, stav úhrady) |
+| `acc_liabilities` | Závazky (dodavatelé, daně, SP, ZP, mzdy, úvěry, splatnost, stav úhrady, **financial_event_id** uuid FK→financial_events ON DELETE CASCADE) |
 | `flexi_reports` | Výkazy stažené z Abra Flexi (DPH přiznání, daňové přiznání, rozvaha, výsledovka, OSSZ, VZP) — status: draft/approved/submitted/rejected, schválení + odeslání datovkou |
 
 ### Nákupy a sklad

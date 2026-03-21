@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { supabase, supabaseUrl } from '../../lib/supabase'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Badge from '../../components/ui/Badge'
+import Button from '../../components/ui/Button'
+import Modal from '../../components/ui/Modal'
 import Pagination from '../../components/ui/Pagination'
 import EventEditModal from './EventEditModal'
 
@@ -61,7 +63,7 @@ export default function FinancialEventsTab() {
   const [resultMsg, setResultMsg] = useState(null)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [stats, setStats] = useState({ pending: 0, validated: 0, error: 0 })
+  const [stats, setStats] = useState({ pending: 0, validated: 0, approved: 0, error: 0 })
   const [statusFilter, setStatusFilter] = useState([])
   const [typeFilter, setTypeFilter] = useState('')
   const [sourceFilter, setSourceFilter] = useState('')
@@ -70,6 +72,8 @@ export default function FinancialEventsTab() {
   const [expandedId, setExpandedId] = useState(null)
   const [actionId, setActionId] = useState(null)
   const [editEvent, setEditEvent] = useState(null)
+  const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [bulkPushing, setBulkPushing] = useState(false)
 
   useEffect(() => { load() }, [page, statusFilter, typeFilter, sourceFilter, dateFrom, dateTo])
 
@@ -77,10 +81,11 @@ export default function FinancialEventsTab() {
     setLoading(true); setError(null)
     try {
       const { data: allEvents } = await supabase.from('financial_events').select('status')
-      const s = { pending: 0, validated: 0, error: 0 }
+      const s = { pending: 0, validated: 0, approved: 0, error: 0 }
       for (const e of (allEvents || [])) {
         if (e.status === 'pending' || e.status === 'enriched') s.pending++
         if (e.status === 'validated') s.validated++
+        if (e.status === 'approved') s.approved++
         if (e.status === 'error') s.error++
       }
       setStats(s)
@@ -127,10 +132,98 @@ export default function FinancialEventsTab() {
         .update({ status: nextStatus, updated_at: new Date().toISOString() })
         .eq('id', event.id)
       if (err) throw err
-      setResultMsg(nextStatus === 'validated' ? 'Schváleno — připraveno k exportu' : 'Událost schválena')
+
+      // When validated → create liability + ensure supplier
+      if (nextStatus === 'validated') {
+        await createLiabilityFromEvent(event)
+        await ensureSupplier(event)
+      }
+
+      // When approved → if cash payment, deduct from pokladna
+      if (nextStatus === 'approved') {
+        const meta = event.metadata || {}
+        if (meta.payment_method === 'cash') {
+          await supabase.from('cash_register').insert({
+            type: 'expense',
+            amount: event.amount_czk || 0,
+            description: `Hotovostní platba: ${meta.supplier_name || ''} ${meta.invoice_number || ''}`.trim(),
+            date: new Date().toISOString().slice(0, 10),
+          })
+        }
+      }
+
+      setResultMsg(nextStatus === 'validated' ? 'Schváleno — připraveno k exportu, závazek vytvořen' : 'Událost schválena' + ((event.metadata?.payment_method === 'cash' && nextStatus === 'approved') ? ' — odečteno z pokladny' : ''))
       await load()
     } catch (e) { setResultMsg(`Chyba: ${e.message}`) }
     finally { setActionId(null) }
+  }
+
+  async function createLiabilityFromEvent(event) {
+    const meta = event.metadata || {}
+    const ai = meta.ai_classification || {}
+    await supabase.from('acc_liabilities').insert({
+      counterparty: meta.supplier_name || 'Neznámý dodavatel',
+      type: 'supplier',
+      amount: event.amount_czk || 0,
+      paid_amount: 0,
+      due_date: meta.due_date || null,
+      description: ai.classification_note || meta.invoice_number || '',
+      variable_symbol: meta.variable_symbol || null,
+      invoice_number: meta.invoice_number || null,
+      status: 'pending',
+      financial_event_id: event.id,
+    })
+  }
+
+  async function ensureSupplier(event) {
+    const meta = event.metadata || {}
+    if (!meta.supplier_name) return
+    const normalized = meta.supplier_name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+    const { data: existing } = await supabase.from('suppliers')
+      .select('id').eq('normalized_name', normalized).limit(1)
+    if (existing && existing.length > 0) return
+    await supabase.from('suppliers').insert({
+      name: meta.supplier_name,
+      normalized_name: normalized,
+      ico: meta.supplier_ico || null,
+      bank_account: meta.supplier_bank_account || null,
+    })
+  }
+
+  async function deleteEvent(event) {
+    setActionId(event.id); setResultMsg(null)
+    try {
+      // CASCADE deletes linked liability
+      const { error: err } = await supabase.from('financial_events')
+        .delete().eq('id', event.id)
+      if (err) throw err
+      setResultMsg('Událost smazána (včetně závazku)')
+      setDeleteConfirm(null)
+      await load()
+    } catch (e) { setResultMsg(`Chyba: ${e.message}`) }
+    finally { setActionId(null) }
+  }
+
+  async function pushAllApprovedToFlexi() {
+    setBulkPushing(true); setResultMsg(null)
+    try {
+      const { data: approved } = await supabase.from('financial_events')
+        .select('id, event_type').eq('status', 'approved')
+      let ok = 0, fail = 0
+      for (const ev of (approved || [])) {
+        try {
+          const action = ev.event_type === 'expense' ? 'pushExpense'
+            : ev.event_type === 'asset' ? 'pushAsset' : 'pushInvoice'
+          const { data, error: err } = await supabase.functions.invoke('flexi-sync', {
+            body: { action, id: ev.id },
+          })
+          if (err || !data?.ok) fail++; else ok++
+        } catch { fail++ }
+      }
+      setResultMsg(`Export do Flexi: ${ok} úspěšně, ${fail} chyb z ${(approved || []).length}`)
+      await load()
+    } catch (e) { setResultMsg(`Chyba: ${e.message}`) }
+    finally { setBulkPushing(false) }
   }
 
   function toggleStatus(st) {
@@ -143,11 +236,20 @@ export default function FinancialEventsTab() {
 
   return (
     <div>
-      <div className="grid grid-cols-3 gap-3 mb-4">
+      <div className="grid grid-cols-4 gap-3 mb-4">
         <StatCard label="Čekající ke schválení" value={stats.pending} color="#b45309" />
         <StatCard label="Připraveno k exportu" value={stats.validated} color="#2563eb" />
+        <StatCard label="Schváleno" value={stats.approved} color="#1a8a18" />
         <StatCard label="Chyby" value={stats.error} color="#dc2626" />
       </div>
+
+      {stats.approved > 0 && (
+        <div className="mb-4">
+          <Button green onClick={pushAllApprovedToFlexi} disabled={bulkPushing}>
+            {bulkPushing ? 'Odesílám…' : `Poslat vše do Flexi (${stats.approved})`}
+          </Button>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="flex items-center gap-1 flex-wrap rounded-btn" style={{ padding: '4px 10px', background: statusFilter.length > 0 ? '#e8fde8' : '#f1faf7', border: '1px solid #d4e8e0' }}>
@@ -215,7 +317,7 @@ export default function FinancialEventsTab() {
                     supplierName={supplierName} isExpanded={isExpanded} isActing={isActing}
                     fmt={fmt} onExpand={() => setExpandedId(isExpanded ? null : ev.id)}
                     onApprove={() => approveEvent(ev)} onFlexi={() => pushToFlexi(ev)}
-                    onEdit={() => setEditEvent(ev)} />
+                    onEdit={() => setEditEvent(ev)} onDelete={() => setDeleteConfirm(ev)} />
                 )
               })}
               {events.length === 0 && <TRow><TD>Žádné finanční události</TD></TRow>}
@@ -232,16 +334,48 @@ export default function FinancialEventsTab() {
               .update({ ...updated, updated_at: new Date().toISOString() })
               .eq('id', editEvent.id)
             if (err) { setResultMsg(`Chyba: ${err.message}`); return }
-            setResultMsg('Událost aktualizována')
+            // Sync linked liability
+            const meta = updated.metadata || {}
+            await supabase.from('acc_liabilities')
+              .update({
+                counterparty: meta.supplier_name || null,
+                amount: updated.amount_czk || 0,
+                due_date: meta.due_date || null,
+                variable_symbol: meta.variable_symbol || null,
+                invoice_number: meta.invoice_number || null,
+              })
+              .eq('financial_event_id', editEvent.id)
+            setResultMsg('Událost aktualizována (včetně závazku)')
             setEditEvent(null)
             await load()
           }} />
+      )}
+
+      {deleteConfirm && (
+        <Modal open title="Smazat finanční událost?" onClose={() => setDeleteConfirm(null)}>
+          <p className="text-sm mb-4" style={{ color: '#1a2e22' }}>
+            Opravdu chcete smazat událost <strong>{deleteConfirm.metadata?.supplier_name || ''} {deleteConfirm.metadata?.invoice_number || ''}</strong> ({(deleteConfirm.amount_czk || 0).toLocaleString('cs-CZ')} Kč)?
+            <br />Smaže se i propojený závazek.
+          </p>
+          <div className="flex justify-end gap-3">
+            <button onClick={() => setDeleteConfirm(null)}
+              className="text-sm font-bold cursor-pointer rounded"
+              style={{ padding: '8px 20px', background: '#f3f4f6', border: '1px solid #d4d4d8', color: '#6b7280' }}>
+              Zrušit
+            </button>
+            <button onClick={() => deleteEvent(deleteConfirm)}
+              className="text-sm font-bold cursor-pointer rounded"
+              style={{ padding: '8px 20px', background: '#dc2626', border: 'none', color: '#fff' }}>
+              Smazat
+            </button>
+          </div>
+        </Modal>
       )}
     </div>
   )
 }
 
-function EvRow({ ev, st, tp, catLabel, supplierName, isExpanded, isActing, fmt, onExpand, onApprove, onFlexi, onEdit }) {
+function EvRow({ ev, st, tp, catLabel, supplierName, isExpanded, isActing, fmt, onExpand, onApprove, onFlexi, onEdit, onDelete }) {
   const canApprove = ev.status === 'enriched' || ev.status === 'exported'
   const canFlexi = ev.status === 'validated'
 
@@ -276,6 +410,11 @@ function EvRow({ ev, st, tp, catLabel, supplierName, isExpanded, isActing, fmt, 
               className="text-sm font-bold cursor-pointer rounded"
               style={{ color: '#b45309', background: '#fef3c7', border: '1px solid #fcd34d', padding: '4px 10px' }}>
               Upravit
+            </button>
+            <button onClick={onDelete}
+              className="text-sm font-bold cursor-pointer rounded"
+              style={{ color: '#dc2626', background: '#fee2e2', border: '1px solid #fca5a5', padding: '4px 10px' }}>
+              Smazat
             </button>
             <button onClick={onExpand}
               className="text-sm font-bold cursor-pointer"
