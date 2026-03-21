@@ -1,256 +1,221 @@
+/**
+ * Flexi Reports Tab — pulls reports from Abra Flexi
+ * DPH (prepared but inactive), Tax summary, Account balances, Depreciation
+ */
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { debugAction, debugLog, debugError } from '../../lib/debugLog'
+import {
+  isFlexiConfigured, getFlexiConfig, testFlexiConnection,
+  pullVATReport, pullTaxReport, pullDepreciationSchedule, pullAccountBalances,
+} from '../../lib/abraFlexi'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import Card from '../../components/ui/Card'
 import Modal from '../../components/ui/Modal'
-import { useDebugMode } from '../../hooks/useDebugMode'
 
-const QUARTERS = [1, 2, 3, 4]
-
-export default function VATReturnsTab() {
-  const debugMode = useDebugMode()
-  const [returns, setReturns] = useState([])
+export default function FlexiReportsTab() {
+  const [flexiOk, setFlexiOk] = useState(null)
+  const [flexiInfo, setFlexiInfo] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [generating, setGenerating] = useState(false)
-  const [detail, setDetail] = useState(null)
-  const [companyInfo, setCompanyInfo] = useState(null)
+  const [config, setConfig] = useState(null)
+  const [showConfig, setShowConfig] = useState(false)
+  const [syncLog, setSyncLog] = useState([])
+  const [vatStatus, setVatStatus] = useState(null)
 
-  useEffect(() => { load(); loadCompanyInfo() }, [])
-
-  async function loadCompanyInfo() {
-    const { data } = await supabase.from('app_settings').select('value').eq('key', 'company_info').maybeSingle()
-    if (data?.value) setCompanyInfo(data.value)
-  }
+  useEffect(() => { load() }, [])
 
   async function load() {
     setLoading(true)
-    setError(null)
     try {
-      const { data, error: err } = await debugAction('vat_returns.list', 'VATReturnsTab', () =>
-        supabase.from('acc_vat_returns').select('*')
-          .order('year', { ascending: false })
-          .order('quarter', { ascending: false })
-      )
-      if (err) throw err
-      setReturns(data || [])
-    } catch (e) {
-      debugError('VATReturnsTab', 'load', e)
-      setError(e.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function generateVATReturn(year, quarter) {
-    setGenerating(true)
-    setError(null)
-    try {
-      const existing = returns.find(r => r.year === year && r.quarter === quarter)
-      if (existing) { setError(`Priznani za Q${quarter}/${year} jiz existuje`); setGenerating(false); return }
-
-      const qStart = `${year}-${String((quarter - 1) * 3 + 1).padStart(2, '0')}-01`
-      const qEndMonth = quarter * 3
-      const qEnd = `${year}-${String(qEndMonth).padStart(2, '0')}-${new Date(year, qEndMonth, 0).getDate()}`
-
-      // Gather all invoices for the period
-      const [issuedRes, receivedRes] = await Promise.all([
-        supabase.from('invoices').select('total, tax_amount, type')
-          .gte('issue_date', qStart).lte('issue_date', qEnd)
-          .neq('type', 'received'),
-        supabase.from('invoices').select('total, tax_amount')
-          .gte('issue_date', qStart).lte('issue_date', qEnd)
-          .eq('type', 'received'),
+      const [configured, cfg] = await Promise.all([
+        isFlexiConfigured(),
+        getFlexiConfig(),
       ])
+      setFlexiOk(configured)
+      setConfig(cfg)
+      setVatStatus(cfg?.vat_payer ? 'active' : 'inactive')
 
-      const issuedInvoices = issuedRes.data || []
-      const receivedInvoices = receivedRes.data || []
+      if (configured) {
+        const conn = await testFlexiConnection()
+        setFlexiInfo(conn)
+      }
 
-      const outputVat = issuedInvoices.reduce((s, i) => s + (i.tax_amount || 0), 0)
-      const inputVat = receivedInvoices.reduce((s, i) => s + (i.tax_amount || 0), 0)
-      const taxableOutputs = issuedInvoices.reduce((s, i) => s + (i.total || 0), 0)
-      const taxableInputs = receivedInvoices.reduce((s, i) => s + (i.total || 0), 0)
-      const vatDifference = outputVat - inputVat
-
-      const { error: insertErr } = await supabase.from('acc_vat_returns').insert({
-        year, quarter,
-        period_from: qStart,
-        period_to: qEnd,
-        taxable_outputs: taxableOutputs,
-        output_vat: outputVat,
-        taxable_inputs: taxableInputs,
-        input_vat: inputVat,
-        vat_difference: vatDifference,
-        vat_to_pay: Math.max(vatDifference, 0),
-        vat_to_refund: Math.max(-vatDifference, 0),
-        total_invoices_issued: issuedInvoices.length,
-        total_invoices_received: receivedInvoices.length,
-        status: 'prepared',
-        details: {
-          issued_breakdown: issuedInvoices,
-          received_breakdown: receivedInvoices,
-          generated_at: new Date().toISOString(),
-        },
-      })
-      if (insertErr) throw insertErr
-
-      // Also create tax_records entry for compatibility
-      await supabase.from('tax_records').upsert({
-        type: 'vat_return',
-        period_from: qStart,
-        period_to: qEnd,
-        tax_base: taxableOutputs - taxableInputs,
-        vat_amount: vatDifference,
-        total: vatDifference,
-        status: 'prepared',
-      }, { onConflict: 'type,period_from' }).catch(() => {})
-
-      await load()
-    } catch (e) {
-      debugError('VATReturnsTab', 'generate', e)
-      setError('Chyba generovani: ' + e.message)
-    } finally {
-      setGenerating(false)
-    }
+      // Load recent sync log
+      const { data: logs } = await supabase.from('flexi_sync_log')
+        .select('*').order('created_at', { ascending: false }).limit(20)
+      setSyncLog(logs || [])
+    } catch (e) { setError(e.message) }
+    finally { setLoading(false) }
   }
 
-  async function markSubmitted(id) {
-    await supabase.from('acc_vat_returns').update({ status: 'submitted', submitted_at: new Date().toISOString() }).eq('id', id)
-    await load()
+  async function handleTestConnection() {
+    setError(null)
+    const result = await testFlexiConnection()
+    setFlexiInfo(result)
+    if (!result.ok) setError('Pripojeni selhalo: ' + result.error)
   }
 
-  function generateXml(ret) {
-    const ci = companyInfo || {}
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<Pisemnost nazevSW="MotoGo24 Velin" verzeSW="1.0">
-  <DPHDP3 verzePis="02.01">
-    <VetaD dic="${ci.dic || ''}" rok="${ret.year}" ctvrt="${ret.quarter}" />
-    <VetaA obrat23="${ret.taxable_outputs}" dan23="${ret.output_vat}" />
-    <VetaB pln23="${ret.taxable_inputs}" odp_tuz23="${ret.input_vat}" />
-    <VetaC dan_zocelk="${ret.vat_to_pay}" odp_zocelk="${ret.vat_to_refund}" />
-  </DPHDP3>
-</Pisemnost>`
-    const blob = new Blob([xml], { type: 'application/xml' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `DPH_Q${ret.quarter}_${ret.year}.xml`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  const fmt = (n) => (n || 0).toLocaleString('cs-CZ') + ' Kc'
   const now = new Date()
-  const currentQ = Math.ceil((now.getMonth() + 1) / 3)
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-4">
-        <Button green onClick={() => generateVATReturn(now.getFullYear(), currentQ)} disabled={generating}>
-          {generating ? 'Generuji...' : `Generovat DPH Q${currentQ}/${now.getFullYear()}`}
-        </Button>
-        <span className="text-sm" style={{ color: '#6b7280' }}>
-          {companyInfo?.vat_payer === false ? '(Firma neni platce DPH — podklady pro kontrolu)' : ''}
-        </span>
-      </div>
-
-      {error && <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
-
-      {/* Summary for current year */}
-      {returns.length > 0 && (
-        <div className="grid grid-cols-4 gap-3 mb-4">
-          <MiniStat label="Vydana DPH celkem" value={fmt(returns.filter(r => r.year === now.getFullYear()).reduce((s, r) => s + (r.output_vat || 0), 0))} color="#dc2626" />
-          <MiniStat label="Prijata DPH celkem" value={fmt(returns.filter(r => r.year === now.getFullYear()).reduce((s, r) => s + (r.input_vat || 0), 0))} color="#1a8a18" />
-          <MiniStat label="K uhrade" value={fmt(returns.filter(r => r.year === now.getFullYear()).reduce((s, r) => s + (r.vat_to_pay || 0), 0))} color="#b45309" />
-          <MiniStat label="K vraceni" value={fmt(returns.filter(r => r.year === now.getFullYear()).reduce((s, r) => s + (r.vat_to_refund || 0), 0))} color="#2563eb" />
+      {/* Connection status */}
+      <Card className="mb-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Abra Flexi</h3>
+            {flexiOk ? (
+              <div className="flex items-center gap-2 mt-1">
+                <span className="inline-block w-2 h-2 rounded-full" style={{ background: flexiInfo?.ok ? '#1a8a18' : '#dc2626' }} />
+                <span className="text-sm font-bold" style={{ color: flexiInfo?.ok ? '#1a8a18' : '#dc2626' }}>
+                  {flexiInfo?.ok ? `Pripojeno (${flexiInfo.company || config?.company})` : 'Odpojeno'}
+                </span>
+                {flexiInfo?.version && <span className="text-sm" style={{ color: '#6b7280' }}>v{flexiInfo.version}</span>}
+              </div>
+            ) : (
+              <p className="text-sm mt-1" style={{ color: '#b45309' }}>Abra Flexi neni nakonfigurovano</p>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={handleTestConnection}>Test pripojeni</Button>
+            <Button green onClick={() => setShowConfig(true)}>Nastaveni</Button>
+          </div>
         </div>
-      )}
+      </Card>
 
-      {loading ? (
-        <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
-      ) : returns.length === 0 ? (
-        <Card><p style={{ color: '#1a2e22', fontSize: 13 }}>Zadna DPH priznani</p></Card>
-      ) : (
-        <Table>
-          <thead>
-            <TRow header>
-              <TH>Obdobi</TH><TH>Zdanit. vystupy</TH><TH>DPH vystup</TH><TH>Zdanit. vstupy</TH>
-              <TH>DPH vstup</TH><TH>K uhrade/vraceni</TH><TH>Stav</TH><TH>Akce</TH>
-            </TRow>
-          </thead>
-          <tbody>
-            {returns.map(r => (
-              <TRow key={r.id}>
-                <TD bold>Q{r.quarter}/{r.year}</TD>
-                <TD>{fmt(r.taxable_outputs)}</TD>
-                <TD color="#dc2626">{fmt(r.output_vat)}</TD>
-                <TD>{fmt(r.taxable_inputs)}</TD>
-                <TD color="#1a8a18">{fmt(r.input_vat)}</TD>
-                <TD bold color={r.vat_difference >= 0 ? '#dc2626' : '#1a8a18'}>
-                  {r.vat_difference >= 0 ? `Uhradit ${fmt(r.vat_to_pay)}` : `Vraceni ${fmt(r.vat_to_refund)}`}
-                </TD>
-                <TD>
-                  <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
-                    style={{ padding: '4px 10px', background: r.status === 'submitted' ? '#dcfce7' : '#fef3c7', color: r.status === 'submitted' ? '#1a8a18' : '#b45309' }}>
-                    {r.status === 'submitted' ? 'Podano' : 'Pripraveno'}
-                  </span>
-                </TD>
-                <TD>
-                  <div className="flex gap-1">
-                    <button onClick={() => setDetail(r)} className="text-sm font-bold cursor-pointer bg-transparent border-none" style={{ color: '#2563eb' }}>Detail</button>
-                    <button onClick={() => generateXml(r)} className="text-sm font-bold cursor-pointer bg-transparent border-none" style={{ color: '#059669' }}>XML</button>
-                    {r.status !== 'submitted' && (
-                      <button onClick={() => markSubmitted(r.id)} className="text-sm font-bold cursor-pointer bg-transparent border-none" style={{ color: '#b45309' }}>Oznacit podano</button>
-                    )}
-                  </div>
-                </TD>
+      {/* DPH status */}
+      <Card className="mb-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>DPH</h3>
+            <p className="text-sm mt-1" style={{ color: '#6b7280' }}>
+              {vatStatus === 'inactive'
+                ? 'Firma neni platce DPH — struktura pripravena pro budouci registraci'
+                : 'Firma je platce DPH — data se tahaji z Abra Flexi'}
+            </p>
+          </div>
+          <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
+            style={{ padding: '6px 14px', background: vatStatus === 'inactive' ? '#fef3c7' : '#dcfce7', color: vatStatus === 'inactive' ? '#b45309' : '#1a8a18' }}>
+            {vatStatus === 'inactive' ? 'Neaktivni' : 'Aktivni'}
+          </span>
+        </div>
+      </Card>
+
+      {error && <div className="mb-3 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
+
+      {/* Sync log */}
+      <Card className="mb-4">
+        <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Posledni synchronizace</h3>
+        {syncLog.length === 0 ? (
+          <p className="text-sm" style={{ color: '#6b7280' }}>Zadne zaznamy</p>
+        ) : (
+          <Table>
+            <thead>
+              <TRow header>
+                <TH>Cas</TH><TH>Smer</TH><TH>Endpoint</TH><TH>Metoda</TH><TH>Status</TH><TH>Trvani</TH>
               </TRow>
-            ))}
-          </tbody>
-        </Table>
-      )}
+            </thead>
+            <tbody>
+              {syncLog.map(l => (
+                <TRow key={l.id}>
+                  <TD>{new Date(l.created_at).toLocaleString('cs-CZ')}</TD>
+                  <TD>
+                    <span className="text-sm font-bold" style={{ color: l.direction === 'push' ? '#2563eb' : '#059669' }}>
+                      {l.direction === 'push' ? 'PUSH' : 'PULL'}
+                    </span>
+                  </TD>
+                  <TD mono>{l.endpoint?.split('/').slice(-1)[0] || l.endpoint}</TD>
+                  <TD>{l.method}</TD>
+                  <TD>
+                    <span className="text-sm font-bold" style={{ color: (l.response_status >= 200 && l.response_status < 300) ? '#1a8a18' : '#dc2626' }}>
+                      {l.response_status || 'ERR'}
+                    </span>
+                    {l.error_message && <span className="text-sm ml-1" style={{ color: '#dc2626' }}>{l.error_message}</span>}
+                  </TD>
+                  <TD>{l.duration_ms ? `${l.duration_ms}ms` : '—'}</TD>
+                </TRow>
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </Card>
 
-      {detail && (
-        <Modal open title={`DPH Priznani Q${detail.quarter}/${detail.year}`} onClose={() => setDetail(null)}>
-          <div className="grid grid-cols-2 gap-4">
-            <DetailRow label="Obdobi" value={`${detail.period_from} — ${detail.period_to}`} />
-            <DetailRow label="Stav" value={detail.status === 'submitted' ? 'Podano' : 'Pripraveno'} />
-            <DetailRow label="Zdanitelne vystupy" value={fmt(detail.taxable_outputs)} />
-            <DetailRow label="DPH na vystupu" value={fmt(detail.output_vat)} />
-            <DetailRow label="Zdanitelne vstupy" value={fmt(detail.taxable_inputs)} />
-            <DetailRow label="DPH na vstupu" value={fmt(detail.input_vat)} />
-            <DetailRow label="Rozdil DPH" value={fmt(detail.vat_difference)} />
-            <DetailRow label="K uhrade" value={fmt(detail.vat_to_pay)} />
-            <DetailRow label="K vraceni" value={fmt(detail.vat_to_refund)} />
-            <DetailRow label="Pocet faktur vydanych" value={detail.total_invoices_issued} />
-            <DetailRow label="Pocet faktur prijatych" value={detail.total_invoices_received} />
-          </div>
-          <div className="flex justify-end gap-3 mt-5">
-            <Button onClick={() => generateXml(detail)}>Stahnout XML</Button>
-            <Button onClick={() => setDetail(null)}>Zavrit</Button>
-          </div>
-        </Modal>
-      )}
+      {/* Config modal */}
+      {showConfig && <FlexiConfigModal config={config} onClose={() => setShowConfig(false)} onSaved={() => { setShowConfig(false); load() }} />}
     </div>
   )
 }
 
-function DetailRow({ label, value }) {
+function FlexiConfigModal({ config, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    url: config?.url || '',
+    company: config?.company || 'motogo24',
+    username: config?.username || '',
+    api_token: config?.api_token || '',
+    auto_sync: config?.auto_sync ?? true,
+    confidence_threshold: config?.confidence_threshold || 0.85,
+    vat_payer: config?.vat_payer || false,
+    default_vat_rate: config?.default_vat_rate || 0,
+  })
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState(null)
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  async function handleSave() {
+    setSaving(true); setErr(null)
+    try {
+      const { error } = await supabase.from('app_settings').upsert({
+        key: 'flexi_config',
+        value: form,
+      }, { onConflict: 'key' })
+      if (error) throw error
+      onSaved()
+    } catch (e) { setErr(e.message) } finally { setSaving(false) }
+  }
+
   return (
-    <div>
-      <div className="text-sm font-extrabold uppercase tracking-wide mb-0.5" style={{ color: '#1a2e22' }}>{label}</div>
-      <div className="text-sm font-semibold" style={{ color: '#0f1a14' }}>{value ?? '—'}</div>
-    </div>
+    <Modal open title="Nastaveni Abra Flexi" onClose={onClose}>
+      <div className="space-y-3">
+        <div><Label>URL instance</Label>
+          <input type="text" value={form.url} onChange={e => set('url', e.target.value)} placeholder="https://demo.flexibee.eu" className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
+        </div>
+        <div><Label>Nazev firmy (company)</Label>
+          <input type="text" value={form.company} onChange={e => set('company', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
+        </div>
+        <div><Label>Uzivatelske jmeno</Label>
+          <input type="text" value={form.username} onChange={e => set('username', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
+        </div>
+        <div><Label>API Token</Label>
+          <input type="password" value={form.api_token} onChange={e => set('api_token', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
+        </div>
+        <div className="flex items-center gap-2">
+          <input type="checkbox" checked={form.auto_sync} onChange={e => set('auto_sync', e.target.checked)} />
+          <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>Automaticky synchronizovat do Flexi</span>
+        </div>
+        <div><Label>Prah duvery AI ({(form.confidence_threshold * 100).toFixed(0)}%)</Label>
+          <input type="range" min="0.5" max="1" step="0.05" value={form.confidence_threshold} onChange={e => set('confidence_threshold', Number(e.target.value))} className="w-full" />
+        </div>
+        <div className="p-3 rounded-lg" style={{ background: '#fef3c7', border: '1px solid #fbbf24' }}>
+          <div className="flex items-center gap-2">
+            <input type="checkbox" checked={form.vat_payer} onChange={e => { set('vat_payer', e.target.checked); if (e.target.checked) set('default_vat_rate', 21) }} />
+            <span className="text-sm font-bold" style={{ color: '#78350f' }}>Platce DPH</span>
+          </div>
+          <p className="text-sm mt-1" style={{ color: '#92400e' }}>
+            {form.vat_payer ? 'DPH bude aktivne pocitano' : 'DPH je neaktivni — pripraveno pro budouci registraci'}
+          </p>
+        </div>
+      </div>
+      {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}
+      <div className="flex justify-end gap-3 mt-5">
+        <Button onClick={onClose}>Zrusit</Button>
+        <Button green onClick={handleSave} disabled={saving}>{saving ? 'Ukladam...' : 'Ulozit'}</Button>
+      </div>
+    </Modal>
   )
 }
 
-function MiniStat({ label, value, color }) {
-  return (
-    <div className="p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-      <div className="text-[9px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</div>
-      <div className="text-sm font-extrabold" style={{ color }}>{value}</div>
-    </div>
-  )
+const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
+function Label({ children }) {
+  return <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{children}</label>
 }
