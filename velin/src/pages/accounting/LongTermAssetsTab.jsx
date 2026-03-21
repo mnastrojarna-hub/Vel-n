@@ -46,6 +46,8 @@ export default function LongTermAssetsTab() {
   const [detail, setDetail] = useState(null)
   const [subTab, setSubTab] = useState('assets')
   const [generating, setGenerating] = useState(false)
+  const [unlinkedMotos, setUnlinkedMotos] = useState([])
+  const [addingMotoId, setAddingMotoId] = useState(null)
 
   useEffect(() => { load() }, [page, subTab])
 
@@ -62,6 +64,9 @@ export default function LongTermAssetsTab() {
         if (err) throw err
         setAssets(data || [])
         setTotal(count || 0)
+
+        // Check for fleet motorcycles not in long-term assets
+        await checkUnlinkedMotorcycles()
       } else {
         const { data, count, error: err } = await debugAction('depreciations.list', 'LongTermAssetsTab', () =>
           supabase.from('acc_depreciation_entries').select('*, acc_long_term_assets(name)', { count: 'exact' })
@@ -77,6 +82,45 @@ export default function LongTermAssetsTab() {
       setError(e.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function checkUnlinkedMotorcycles() {
+    try {
+      const [motosRes, assetsRes] = await Promise.all([
+        supabase.from('motorcycles').select('id, model, spz, vin, acquired_at, status'),
+        supabase.from('acc_long_term_assets').select('motorcycle_id').not('motorcycle_id', 'is', null),
+      ])
+      const linkedIds = new Set((assetsRes.data || []).map(a => a.motorcycle_id))
+      const unlinked = (motosRes.data || []).filter(m => !linkedIds.has(m.id) && m.status !== 'retired')
+      setUnlinkedMotos(unlinked)
+    } catch (e) {
+      console.error('checkUnlinkedMotorcycles:', e)
+    }
+  }
+
+  async function addMotoToAssets(moto) {
+    setAddingMotoId(moto.id)
+    try {
+      const { error: err } = await supabase.from('acc_long_term_assets').insert({
+        name: `${moto.model} (${moto.spz || moto.vin || ''})`,
+        category: 'vehicles',
+        purchase_price: 0,
+        current_value: 0,
+        total_depreciated: 0,
+        acquired_date: moto.acquired_at || new Date().toISOString().slice(0, 10),
+        depreciation_group: 2, // Sk. 2 = 5 let (dopravní prostředky)
+        depreciation_method: 'accelerated',
+        status: 'active',
+        motorcycle_id: moto.id,
+        missing_purchase_doc: true,
+      })
+      if (err) throw err
+      await load()
+    } catch (e) {
+      setError('Chyba přidání motorky do majetku: ' + e.message)
+    } finally {
+      setAddingMotoId(null)
     }
   }
 
@@ -194,6 +238,29 @@ export default function LongTermAssetsTab() {
         )}
       </div>
 
+      {/* Warning: unlinked fleet motorcycles */}
+      {subTab === 'assets' && unlinkedMotos.length > 0 && (
+        <div className="mb-4 p-4 rounded-card" style={{ background: '#fef3c7', border: '1px solid #fcd34d' }}>
+          <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#b45309' }}>
+            Motorky ve flotile bez zaneseni do majetku ({unlinkedMotos.length})
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {unlinkedMotos.map(m => (
+              <div key={m.id} className="flex items-center gap-2 p-2 rounded-lg" style={{ background: '#fff', border: '1px solid #fcd34d' }}>
+                <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>{m.model}</span>
+                {m.spz && <span className="text-xs font-mono" style={{ color: '#6b7280' }}>{m.spz}</span>}
+                <button onClick={() => addMotoToAssets(m)}
+                  disabled={addingMotoId === m.id}
+                  className="text-xs font-bold cursor-pointer rounded"
+                  style={{ padding: '2px 8px', background: '#1a8a18', color: '#fff', border: 'none', opacity: addingMotoId === m.id ? 0.5 : 1 }}>
+                  {addingMotoId === m.id ? '...' : '+ Pridat'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {error && <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
 
       {subTab === 'assets' && assets.length > 0 && (
@@ -212,7 +279,7 @@ export default function LongTermAssetsTab() {
             <thead>
               <TRow header>
                 <TH>Nazev</TH><TH>Kategorie</TH><TH>Sk.</TH><TH>Metoda</TH>
-                <TH>Poriz. cena</TH><TH>Zust. hodnota</TH><TH>Odepsano</TH><TH>Stav</TH><TH>Akce</TH>
+                <TH>Poriz. cena</TH><TH>Zust. hodnota</TH><TH>Odepsano</TH><TH>Stav</TH><TH>Doklad</TH><TH>Akce</TH>
               </TRow>
             </thead>
             <tbody>
@@ -233,6 +300,15 @@ export default function LongTermAssetsTab() {
                         style={{ padding: '4px 10px', background: a.status === 'active' ? '#dcfce7' : a.status === 'fully_depreciated' ? '#e0e7ff' : '#fee2e2', color: a.status === 'active' ? '#1a8a18' : a.status === 'fully_depreciated' ? '#4338ca' : '#dc2626' }}>
                         {a.status === 'active' ? 'Aktivni' : a.status === 'fully_depreciated' ? 'Odepsano' : 'Vyrazeno'}
                       </span>
+                    </TD>
+                    <TD>
+                      {a.missing_purchase_doc ? (
+                        <span className="text-xs font-bold" style={{ color: '#dc2626' }}>Chybi doklad</span>
+                      ) : a.invoice_number ? (
+                        <span className="text-xs font-bold" style={{ color: '#1a8a18' }}>OK</span>
+                      ) : (
+                        <span className="text-xs" style={{ color: '#6b7280' }}>—</span>
+                      )}
                     </TD>
                     <TD>
                       <button onClick={() => setDetail(a)} className="text-sm font-bold cursor-pointer bg-transparent border-none" style={{ color: '#2563eb' }}>Detail</button>

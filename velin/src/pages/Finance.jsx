@@ -23,7 +23,9 @@ const TaxReturnsTab = lazy(() => import('./accounting/TaxReturnsTab'))
 const ShortTermAssetsTab = lazy(() => import('./accounting/ShortTermAssetsTab'))
 const LongTermAssetsTab = lazy(() => import('./accounting/LongTermAssetsTab'))
 const LiabilitiesTab = lazy(() => import('./accounting/LiabilitiesTab'))
+const SuppliersTab = lazy(() => import('./accounting/SuppliersTab'))
 const ReportsTab = lazy(() => import('./accounting/ReportsTab'))
+const InventoryTab = lazy(() => import('./Inventory'))
 
 const PERIODS = [
   { value: 'month', label: 'Měsíc' },
@@ -37,7 +39,7 @@ const TYPES = [
   { value: 'expense', label: 'Výdaje' },
 ]
 
-const FINANCE_TABS = ['Přehled', 'Faktury', 'Účetnictví', 'Faktury přijaté', 'Pokladna']
+const FINANCE_TABS = ['Přehled', 'Faktury', 'Účetnictví', 'Faktury přijaté', 'Pokladna', 'Sklad']
 
 const ACCOUNTING_SUBTABS = [
   { id: 'events', label: 'Finanční události' },
@@ -48,6 +50,7 @@ const ACCOUNTING_SUBTABS = [
   { id: 'short_assets', label: 'Krátkodobý majetek' },
   { id: 'long_assets', label: 'Dlouhodobý majetek' },
   { id: 'liabilities', label: 'Závazky' },
+  { id: 'suppliers', label: 'Dodavatelé' },
   { id: 'reports', label: 'Výkazy a přiznání' },
 ]
 
@@ -248,6 +251,7 @@ export default function Finance() {
       {activeTab === 'Faktury' && <ErrorBoundary><InvoicesTab /></ErrorBoundary>}
       {activeTab === 'Faktury přijaté' && <ErrorBoundary><ReceivedInvoicesTab /></ErrorBoundary>}
       {activeTab === 'Pokladna' && <ErrorBoundary><CashRegisterTab /></ErrorBoundary>}
+      {activeTab === 'Sklad' && <ErrorBoundary><InventoryTab /></ErrorBoundary>}
 
       {activeTab === 'Účetnictví' && (
         <div>
@@ -275,6 +279,7 @@ export default function Finance() {
           {accountingSubTab === 'short_assets' && <ShortTermAssetsTab />}
           {accountingSubTab === 'long_assets' && <LongTermAssetsTab />}
           {accountingSubTab === 'liabilities' && <LiabilitiesTab />}
+          {accountingSubTab === 'suppliers' && <SuppliersTab />}
           {accountingSubTab === 'reports' && <ReportsTab />}
           </ErrorBoundary>
         </div>

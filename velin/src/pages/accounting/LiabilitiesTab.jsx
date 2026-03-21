@@ -213,6 +213,8 @@ export default function LiabilitiesTab() {
             <DetailRow label="Stav" value={STATUS_OPTIONS.find(s => s.value === detail.status)?.label || detail.status} />
             {detail.description && <div className="col-span-2"><DetailRow label="Popis" value={detail.description} /></div>}
             {detail.invoice_number && <DetailRow label="Cislo faktury" value={detail.invoice_number} />}
+            {detail.paid_date && <DetailRow label="Datum uhrazeni" value={new Date(detail.paid_date).toLocaleDateString('cs-CZ')} />}
+            {detail.financial_event_id && <DetailRow label="Financni udalost" value={detail.financial_event_id.slice(0, 8)} />}
           </div>
           <div className="flex justify-end mt-5"><Button onClick={() => setDetail(null)}>Zavrit</Button></div>
         </Modal>

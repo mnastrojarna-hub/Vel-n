@@ -456,29 +456,167 @@ function AIDetail({ label, value, mono }) {
   )
 }
 
+const EXPENSE_CATEGORIES = [
+  { value: '', label: '— Vyberte typ nákladu —' },
+  { value: 'phm', label: 'PHM' },
+  { value: 'pojisteni', label: 'Pojištění' },
+  { value: 'servis_opravy', label: 'Servis / Opravy' },
+  { value: 'najem', label: 'Nájem' },
+  { value: 'energie', label: 'Energie' },
+  { value: 'telekomunikace', label: 'Telekomunikace' },
+  { value: 'marketing', label: 'Marketing' },
+  { value: 'kancelar', label: 'Kancelář' },
+  { value: 'mzdy', label: 'Mzdy' },
+  { value: 'dane_odvody', label: 'Daně / Odvody' },
+  { value: 'zbozi_eshop', label: 'Zboží (e-shop)' },
+  { value: 'material', label: 'Materiál' },
+  { value: 'ostatni_naklady', label: 'Ostatní náklady' },
+]
+
+const PAYMENT_OPTIONS = [
+  { value: '', label: '— Neurčeno —' },
+  { value: 'bank_transfer', label: 'Bankovní převod' },
+  { value: 'cash', label: 'Hotovost' },
+  { value: 'card', label: 'Karta' },
+]
+
+// AI auto-classification based on supplier name, notes, and business context
+function guessExpenseCategory(supplier, notes) {
+  const text = ((supplier || '') + ' ' + (notes || '')).toLowerCase()
+  const rules = [
+    { keywords: ['benzin', 'phm', 'nafta', 'cerpaci', 'shell', 'omv', 'mol', 'orlen', 'eni', 'palivo'], cat: 'phm' },
+    { keywords: ['pojist', 'generali', 'allianz', 'kooper', 'ceska_pojistovna', 'uniqa', 'csob poj'], cat: 'pojisteni' },
+    { keywords: ['servis', 'oprava', 'udrzba', 'pneu', 'olej', 'filtr', 'brzdov', 'retez', 'moto dil', 'nahradni', 'dily'], cat: 'servis_opravy' },
+    { keywords: ['najem', 'pronajem', 'rent', 'nebytov'], cat: 'najem' },
+    { keywords: ['elektr', 'plyn', 'voda', 'teplo', 'energie', 'cez', 'eon', 'pre', 'innogy'], cat: 'energie' },
+    { keywords: ['telefon', 'mobil', 'internet', 'hosting', 'domena', 'vodafone', 'o2', 't-mobile', 'server'], cat: 'telekomunikace' },
+    { keywords: ['reklam', 'market', 'propagac', 'inzer', 'google', 'facebook', 'meta', 'instagram', 'tisk', 'letak'], cat: 'marketing' },
+    { keywords: ['kancelar', 'papir', 'toner', 'tisk', 'kancelarsk'], cat: 'kancelar' },
+    { keywords: ['mzd', 'plat', 'odmena', 'dpp', 'dpc'], cat: 'mzdy' },
+    { keywords: ['dan', 'cssz', 'vzp', 'pojistn', 'finan.urad', 'fu '], cat: 'dane_odvody' },
+    { keywords: ['helma', 'rukavice', 'bunda', 'kalhoty', 'boty', 'kukla', 'obleceni', 'vystroj', 'prislusenstvi'], cat: 'zbozi_eshop' },
+    { keywords: ['material', 'sroub', 'podlozk', 'hadice'], cat: 'material' },
+  ]
+  for (const rule of rules) {
+    if (rule.keywords.some(k => text.includes(k))) return rule.cat
+  }
+  return 'ostatni_naklady'
+}
+
 function AddReceivedModal({ onClose, onSaved }) {
-  const [form, setForm] = useState({ number: '', supplier: '', total: '', due_date: '', notes: '' })
+  const [form, setForm] = useState({
+    number: '', supplier: '', supplier_ico: '', supplier_bank_account: '',
+    variable_symbol: '', total: '', due_date: '', issue_date: '',
+    category: '', payment_method: '', notes: '',
+  })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
+  const [supplierSuggestions, setSupplierSuggestions] = useState([])
+  const [aiSuggested, setAiSuggested] = useState(false)
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
+  // Auto-classify when supplier or notes change
+  function autoClassify(supplier, notes) {
+    const guess = guessExpenseCategory(supplier, notes)
+    if (guess) {
+      setForm(f => ({ ...f, category: guess }))
+      setAiSuggested(true)
+    }
+  }
+
+  async function searchSupplier(name) {
+    set('supplier', name)
+    if (name.length < 2) { setSupplierSuggestions([]); return }
+    const { data } = await supabase.from('suppliers')
+      .select('name, ico, bank_account, default_category')
+      .ilike('name', `%${name}%`).limit(5)
+    setSupplierSuggestions(data || [])
+    // Auto-classify based on supplier name
+    if (!data || data.length === 0) autoClassify(name, form.notes)
+  }
+
+  function selectSupplier(s) {
+    setForm(f => ({
+      ...f,
+      supplier: s.name,
+      supplier_ico: s.ico || f.supplier_ico,
+      supplier_bank_account: s.bank_account || f.supplier_bank_account,
+      category: s.default_category || guessExpenseCategory(s.name, f.notes),
+    }))
+    setAiSuggested(!s.default_category)
+    setSupplierSuggestions([])
+  }
+
   async function handleSave() {
     if (!form.number || !form.total) return setErr('Vyplňte číslo faktury a částku.')
+    if (!form.category) {
+      // Last resort auto-classify
+      const guess = guessExpenseCategory(form.supplier, form.notes)
+      if (guess) { set('category', guess); return setErr('AI navrhl kategorii — zkontrolujte a uložte znovu.') }
+      return setErr('Vyberte typ nákladu.')
+    }
     setSaving(true); setErr(null)
     try {
-      const { error } = await supabase.from('invoices').insert({
+      // 1. Create received invoice
+      const { data: inv, error: invErr } = await supabase.from('invoices').insert({
         number: form.number,
         type: 'received',
         total: Number(form.total) || 0,
         subtotal: Number(form.total) || 0,
         tax_amount: 0,
-        issue_date: new Date().toISOString().slice(0, 10),
+        issue_date: form.issue_date || new Date().toISOString().slice(0, 10),
         due_date: form.due_date || null,
+        variable_symbol: form.variable_symbol || null,
         notes: [form.supplier, form.notes].filter(Boolean).join('\n'),
         status: 'issued',
+        metadata: {
+          supplier_name: form.supplier,
+          supplier_ico: form.supplier_ico,
+          supplier_bank_account: form.supplier_bank_account,
+          expense_category: form.category,
+          payment_method: form.payment_method,
+        },
+      }).select().single()
+      if (invErr) throw invErr
+
+      // 2. Ensure supplier exists
+      if (form.supplier) {
+        const normalized = form.supplier.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+        const { data: existing } = await supabase.from('suppliers')
+          .select('id').eq('normalized_name', normalized).limit(1)
+        if (!existing || existing.length === 0) {
+          await supabase.from('suppliers').insert({
+            name: form.supplier,
+            normalized_name: normalized,
+            ico: form.supplier_ico || null,
+            bank_account: form.supplier_bank_account || null,
+            default_category: form.category || null,
+          })
+        }
+      }
+
+      // 3. Create financial event linked to invoice
+      await supabase.from('financial_events').insert({
+        event_type: 'expense',
+        source: 'manual',
+        amount_czk: Number(form.total) || 0,
+        duzp: form.issue_date || new Date().toISOString().slice(0, 10),
+        status: 'enriched',
+        linked_entity_type: 'invoice',
+        linked_entity_id: inv.id,
+        metadata: {
+          supplier_name: form.supplier,
+          supplier_ico: form.supplier_ico,
+          supplier_bank_account: form.supplier_bank_account,
+          invoice_number: form.number,
+          variable_symbol: form.variable_symbol,
+          due_date: form.due_date,
+          payment_method: form.payment_method,
+          ai_classification: { category: form.category },
+        },
       })
-      if (error) throw error
+
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({
         admin_id: user?.id, action: 'received_invoice_created', details: { number: form.number },
@@ -490,29 +628,74 @@ function AddReceivedModal({ onClose, onSaved }) {
   return (
     <Modal open title="Nová přijatá faktura" onClose={onClose}>
       <div className="space-y-3">
-        <div>
-          <Label>Číslo faktury *</Label>
-          <input value={form.number} onChange={e => set('number', e.target.value)}
-            className="w-full rounded-btn text-sm outline-none" style={inputStyle} placeholder="FV-2026-0001" />
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label>Číslo faktury *</Label>
+            <input value={form.number} onChange={e => set('number', e.target.value)}
+              className="w-full rounded-btn text-sm outline-none" style={inputStyle} placeholder="FV-2026-0001" />
+          </div>
+          <div>
+            <Label>Datum vystavení</Label>
+            <input type="date" value={form.issue_date} onChange={e => set('issue_date', e.target.value)}
+              className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
+          </div>
+        </div>
+        <div style={{ position: 'relative' }}>
+          <Label>Dodavatel *</Label>
+          <input value={form.supplier} onChange={e => searchSupplier(e.target.value)}
+            className="w-full rounded-btn text-sm outline-none" style={inputStyle} placeholder="Začněte psát název…" />
+          {supplierSuggestions.length > 0 && (
+            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, background: '#fff', border: '1px solid #d4e8e0', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+              {supplierSuggestions.map((s, i) => (
+                <div key={i} onClick={() => selectSupplier(s)}
+                  className="px-3 py-2 text-sm cursor-pointer hover:bg-[#f1faf7]"
+                  style={{ borderBottom: i < supplierSuggestions.length - 1 ? '1px solid #f0f0f0' : 'none' }}>
+                  <strong>{s.name}</strong>{s.ico ? ` (IČO: ${s.ico})` : ''}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div><Label>IČO dodavatele</Label><input value={form.supplier_ico} onChange={e => set('supplier_ico', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
+          <div><Label>Bankovní účet</Label><input value={form.supplier_bank_account} onChange={e => set('supplier_bank_account', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label>Částka (Kč) *</Label>
+            <input type="number" value={form.total} onChange={e => set('total', e.target.value)}
+              className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
+          </div>
+          <div>
+            <Label>Variabilní symbol</Label>
+            <input value={form.variable_symbol} onChange={e => set('variable_symbol', e.target.value)}
+              className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label>Splatnost</Label>
+            <input type="date" value={form.due_date} onChange={e => set('due_date', e.target.value)}
+              className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
+          </div>
+          <div>
+            <Label>Způsob platby</Label>
+            <select value={form.payment_method} onChange={e => set('payment_method', e.target.value)}
+              className="w-full rounded-btn text-sm outline-none" style={inputStyle}>
+              {PAYMENT_OPTIONS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+            </select>
+          </div>
         </div>
         <div>
-          <Label>Dodavatel</Label>
-          <input value={form.supplier} onChange={e => set('supplier', e.target.value)}
-            className="w-full rounded-btn text-sm outline-none" style={inputStyle} placeholder="Název dodavatele" />
-        </div>
-        <div>
-          <Label>Částka (Kč) *</Label>
-          <input type="number" value={form.total} onChange={e => set('total', e.target.value)}
-            className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
-        </div>
-        <div>
-          <Label>Splatnost</Label>
-          <input type="date" value={form.due_date} onChange={e => set('due_date', e.target.value)}
-            className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
+          <Label>Typ nákladu * {aiSuggested && <span style={{ color: '#7c3aed', fontWeight: 400, fontSize: 10 }}>(AI návrh)</span>}</Label>
+          <select value={form.category} onChange={e => { set('category', e.target.value); setAiSuggested(false) }}
+            className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, borderColor: aiSuggested ? '#7c3aed' : '#d4e8e0' }}>
+            {EXPENSE_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+          </select>
         </div>
         <div>
           <Label>Poznámka</Label>
-          <textarea value={form.notes} onChange={e => set('notes', e.target.value)}
+          <textarea value={form.notes} onChange={e => { set('notes', e.target.value); if (!form.category || aiSuggested) autoClassify(form.supplier, e.target.value) }}
             className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }}
             placeholder="Popis, za co je faktura…" />
         </div>
