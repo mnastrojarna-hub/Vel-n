@@ -9,13 +9,25 @@ import ConfirmDialog from '../components/ui/ConfirmDialog'
 import SearchInput from '../components/ui/SearchInput'
 
 // ─── Constants ────────────────────────────────────────────────────
-const ACCESSORY_TYPES = [
-  { key: 'boots', label: 'Boty', sizes: ['36','37','38','39','40','41','42','43','44','45','46'] },
-  { key: 'helmet', label: 'Helmy', sizes: ['XS','S','M','L','XL','XXL'] },
-  { key: 'balaclava', label: 'Kukly', sizes: ['UNI'] },
-  { key: 'gloves', label: 'Rukavice', sizes: ['XS','S','M','L','XL','XXL'] },
-  { key: 'pants', label: 'Kalhoty', sizes: ['XS','S','M','L','XL','XXL'] },
+// Typy příslušenství se načítají z DB tabulky accessory_types
+// Fallback pro případ, že tabulka ještě neexistuje
+const FALLBACK_ACCESSORY_TYPES = [
+  { key: 'boots', label: 'Boty', sizes: ['36','37','38','39','40','41','42','43','44','45','46'], is_consumable: false },
+  { key: 'helmet', label: 'Helmy', sizes: ['XS','S','M','L','XL','XXL'], is_consumable: false },
+  { key: 'balaclava', label: 'Kukly', sizes: ['UNI'], is_consumable: true },
+  { key: 'gloves', label: 'Rukavice', sizes: ['XS','S','M','L','XL','XXL'], is_consumable: false },
+  { key: 'pants', label: 'Kalhoty', sizes: ['XS','S','M','L','XL','XXL'], is_consumable: false },
 ]
+
+async function loadAccessoryTypes() {
+  const { data, error } = await supabase
+    .from('accessory_types')
+    .select('*')
+    .eq('is_active', true)
+    .order('sort_order')
+  if (error || !data || data.length === 0) return FALLBACK_ACCESSORY_TYPES
+  return data.map(t => ({ key: t.key, label: t.label, sizes: t.sizes || [], is_consumable: !!t.is_consumable, id: t.id }))
+}
 
 const MAX_MOTOS = 24
 const DETAIL_TABS = ['Info', 'Motorky & Koje', 'Příslušenství', 'Přístupové kódy']
@@ -820,26 +832,32 @@ function TabAccessories({ accessories, loading, branchId, branchName, onRefresh 
   const [editItem, setEditItem] = useState(null)
   const [saving, setSaving] = useState(false)
   const [showFillAll, setShowFillAll] = useState(false)
+  const [showManageTypes, setShowManageTypes] = useState(false)
+  const [accTypes, setAccTypes] = useState(FALLBACK_ACCESSORY_TYPES)
+
+  useEffect(() => { loadAccessoryTypes().then(setAccTypes) }, [])
 
   if (loading) return <Spinner />
 
   const grouped = {}
-  ACCESSORY_TYPES.forEach(at => { grouped[at.key] = [] })
+  accTypes.forEach(at => { grouped[at.key] = [] })
   accessories.forEach(a => { if (grouped[a.type]) grouped[a.type].push(a) })
+
+  const rentalTypes = accTypes.filter(t => !t.is_consumable)
+  const consumableTypes = accTypes.filter(t => t.is_consumable)
 
   async function handleSaveAccessory(item) {
     setSaving(true)
     try {
       const sku = accSku(item.type, item.size)
-      const oldQty = item.id
-        ? (accessories.find(a => a.id === item.id)?.quantity || 0)
-        : 0
+      const oldQty = item.id ? (accessories.find(a => a.id === item.id)?.quantity || 0) : 0
       const delta = item.quantity - oldQty
       if (delta > 0) {
         const ok = await deductFromWarehouse(sku, delta, branchName)
-        if (!ok) { alert(`Nedostatek na skladě pro ${item.type} ${item.size}. Zkontrolujte sklad.`); return }
+        if (!ok) { alert(`Nedostatek na skladě pro ${item.type} ${item.size}.`); return }
       } else if (delta < 0) {
-        await returnToWarehouse(sku, Math.abs(delta), branchName)
+        const typeInfo = accTypes.find(t => t.key === item.type)
+        if (!typeInfo?.is_consumable) await returnToWarehouse(sku, Math.abs(delta), branchName)
       }
       if (item.id) {
         const { error } = await supabase
@@ -859,9 +877,13 @@ function TabAccessories({ accessories, loading, branchId, branchName, onRefresh 
   async function handleDeleteAccessory(id) {
     const acc = accessories.find(a => a.id === id)
     if (!acc) return
-    if (!window.confirm('Smazat tuto položku? Množství se vrátí na sklad.')) return
+    const typeInfo = accTypes.find(t => t.key === acc.type)
+    const msg = typeInfo?.is_consumable
+      ? 'Smazat tuto spotřební položku?'
+      : 'Smazat tuto položku? Množství se vrátí na sklad.'
+    if (!window.confirm(msg)) return
     try {
-      if (acc.quantity > 0) {
+      if (acc.quantity > 0 && !typeInfo?.is_consumable) {
         await returnToWarehouse(accSku(acc.type, acc.size), acc.quantity, branchName)
       }
       await supabase.from('branch_accessories').delete().eq('id', id)
@@ -871,6 +893,42 @@ function TabAccessories({ accessories, loading, branchId, branchName, onRefresh 
 
   const totalItems = accessories.reduce((s, a) => s + (a.quantity || 0), 0)
 
+  function renderTypeGroup(at) {
+    const items = grouped[at.key] || []
+    if (items.length === 0 && accessories.length > 0) return null
+    return (
+      <div key={at.key} className="mb-3">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>
+            {at.label}
+          </span>
+          {at.is_consumable && (
+            <span className="text-xs font-bold rounded-btn" style={{ padding: '1px 6px', background: '#fef3c7', color: '#92400e' }}>
+              spotřební
+            </span>
+          )}
+        </div>
+        {items.length === 0 ? (
+          <div className="text-sm py-1" style={{ color: '#1a2e22', opacity: 0.5 }}>Žádné položky</div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {items.sort((a, b) => a.size.localeCompare(b.size, 'cs', { numeric: true })).map(item => (
+              <div key={item.id}
+                className="flex items-center gap-2 rounded-lg cursor-pointer"
+                style={{ padding: '4px 10px', background: item.quantity > 0 ? '#f1faf7' : '#fff5f5', border: '1px solid #d4e8e0' }}
+                onClick={() => setEditItem(item)}>
+                <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>{item.size}</span>
+                <span className="text-sm font-extrabold" style={{ color: item.quantity > 0 ? '#1a8a18' : '#dc2626' }}>
+                  {item.quantity} ks
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
@@ -878,6 +936,11 @@ function TabAccessories({ accessories, loading, branchId, branchName, onRefresh 
           <strong>{accessories.length}</strong> typů, <strong>{totalItems}</strong> kusů celkem
         </div>
         <div className="flex gap-2">
+          <button onClick={() => setShowManageTypes(true)}
+            className="rounded-btn text-sm font-bold cursor-pointer border-none"
+            style={{ padding: '5px 12px', background: '#f1faf7', color: '#1a2e22', border: '1px solid #d4e8e0' }}>
+            Správa typů
+          </button>
           <button onClick={() => setShowFillAll(true)} disabled={saving}
             className="rounded-btn text-sm font-bold cursor-pointer border-none"
             style={{ padding: '5px 12px', background: '#dbeafe', color: '#2563eb' }}>
@@ -891,40 +954,29 @@ function TabAccessories({ accessories, loading, branchId, branchName, onRefresh 
         </div>
       </div>
 
-      {ACCESSORY_TYPES.map(at => {
-        const items = grouped[at.key] || []
-        if (items.length === 0 && accessories.length > 0) return null
-        return (
-          <div key={at.key} className="mb-3">
-            <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>
-              {at.label}
-            </div>
-            {items.length === 0 ? (
-              <div className="text-sm py-1" style={{ color: '#1a2e22', opacity: 0.5 }}>Žádné položky</div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {items.sort((a, b) => a.size.localeCompare(b.size, 'cs', { numeric: true })).map(item => (
-                  <div key={item.id}
-                    className="flex items-center gap-2 rounded-lg cursor-pointer"
-                    style={{ padding: '4px 10px', background: item.quantity > 0 ? '#f1faf7' : '#fff5f5', border: '1px solid #d4e8e0' }}
-                    onClick={() => setEditItem(item)}>
-                    <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>{item.size}</span>
-                    <span className="text-sm font-extrabold" style={{ color: item.quantity > 0 ? '#1a8a18' : '#dc2626' }}>
-                      {item.quantity} ks
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
+      {rentalTypes.length > 0 && (
+        <div className="mb-2">
+          <div className="text-xs font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22', opacity: 0.5 }}>
+            Půjčované
           </div>
-        )
-      })}
+          {rentalTypes.map(renderTypeGroup)}
+        </div>
+      )}
+      {consumableTypes.length > 0 && (
+        <div>
+          <div className="text-xs font-extrabold uppercase tracking-wide mb-2" style={{ color: '#92400e', opacity: 0.7 }}>
+            Spotřební zboží
+          </div>
+          {consumableTypes.map(renderTypeGroup)}
+        </div>
+      )}
 
       {(showAdd || editItem) && (
         <AccessoryEditModal
           existing={editItem}
           branchId={branchId}
           branchName={branchName}
+          accTypes={accTypes}
           onSave={handleSaveAccessory}
           onDelete={editItem?.id ? () => handleDeleteAccessory(editItem.id) : null}
           onClose={() => { setShowAdd(false); setEditItem(null) }}
@@ -936,23 +988,31 @@ function TabAccessories({ accessories, loading, branchId, branchName, onRefresh 
           branchId={branchId}
           branchName={branchName}
           accessories={accessories}
+          accTypes={accTypes}
           onClose={() => setShowFillAll(false)}
           onDone={() => { setShowFillAll(false); onRefresh() }}
+        />
+      )}
+      {showManageTypes && (
+        <ManageTypesModal
+          onClose={() => setShowManageTypes(false)}
+          onSaved={() => { loadAccessoryTypes().then(setAccTypes); setShowManageTypes(false) }}
         />
       )}
     </div>
   )
 }
 
-function AccessoryEditModal({ existing, branchId, branchName, onSave, onDelete, onClose, saving }) {
+function AccessoryEditModal({ existing, branchId, branchName, accTypes, onSave, onDelete, onClose, saving }) {
   const [form, setForm] = useState({
-    type: existing?.type || 'boots',
+    type: existing?.type || (accTypes[0]?.key || 'boots'),
     size: existing?.size || '',
     quantity: existing?.quantity ?? 0,
   })
   const [warehouseStock, setWarehouseStock] = useState(null)
 
-  const typeConfig = ACCESSORY_TYPES.find(t => t.key === form.type)
+  const typeConfig = accTypes.find(t => t.key === form.type)
+  const isConsumable = !!typeConfig?.is_consumable
 
   useEffect(() => {
     if (!form.size) { setWarehouseStock(null); return }
@@ -971,6 +1031,11 @@ function AccessoryEditModal({ existing, branchId, branchName, onSave, onDelete, 
         <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>
           {existing ? 'Upravit příslušenství' : 'Přidat příslušenství'}
         </h3>
+        {isConsumable && (
+          <div className="text-xs font-bold rounded-btn mb-2" style={{ padding: '3px 8px', background: '#fef3c7', color: '#92400e', display: 'inline-block' }}>
+            Spotřební — při snížení se nevrací na sklad
+          </div>
+        )}
         <div className="space-y-3">
           <div>
             <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Typ</label>
@@ -978,8 +1043,8 @@ function AccessoryEditModal({ existing, branchId, branchName, onSave, onDelete, 
               disabled={!!existing}
               className="w-full rounded-btn text-sm outline-none"
               style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>
-              {ACCESSORY_TYPES.map(t => (
-                <option key={t.key} value={t.key}>{t.label}</option>
+              {accTypes.map(t => (
+                <option key={t.key} value={t.key}>{t.label}{t.is_consumable ? ' (spotřební)' : ''}</option>
               ))}
             </select>
           </div>
@@ -1047,7 +1112,7 @@ function AccessoryEditModal({ existing, branchId, branchName, onSave, onDelete, 
 }
 
 // ─── Fill All Modal ──────────────────────────────────────────────
-function FillAllModal({ branchId, branchName, accessories, onClose, onDone }) {
+function FillAllModal({ branchId, branchName, accessories, accTypes, onClose, onDone }) {
   const [invMap, setInvMap] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -1071,14 +1136,14 @@ function FillAllModal({ branchId, branchName, accessories, onClose, onDone }) {
 
   const lines = []
   let canFill = 0, missing = 0
-  ACCESSORY_TYPES.forEach(at => {
+  accTypes.forEach(at => {
     at.sizes.forEach(size => {
       const sku = accSku(at.key, size)
       const inv = invMap[sku]
       const stock = inv?.stock || 0
       const current = existingMap[`${at.key}-${size}`] || 0
       const toAdd = current === 0 ? Math.min(1, stock) : 0
-      lines.push({ type: at.key, size, label: at.label, stock, current, toAdd, sku })
+      lines.push({ type: at.key, size, label: at.label, stock, current, toAdd, sku, is_consumable: at.is_consumable })
       if (toAdd > 0) canFill++
       if (stock === 0 && current === 0) missing++
     })
@@ -1123,7 +1188,7 @@ function FillAllModal({ branchId, branchName, accessories, onClose, onDone }) {
             {fillLines.map(l => (
               <div key={`${l.type}-${l.size}`} className="flex items-center justify-between text-sm py-1"
                 style={{ borderBottom: '1px solid #d4e8e0' }}>
-                <span>{l.label} {l.size}</span>
+                <span>{l.label} {l.size}{l.is_consumable ? ' (spotřební)' : ''}</span>
                 <span style={{ color: '#1a8a18' }}>+{l.toAdd} ks (sklad: {l.stock})</span>
               </div>
             ))}
@@ -1169,6 +1234,172 @@ function FillAllModal({ branchId, branchName, accessories, onClose, onDone }) {
               {saving ? 'Přenáším...' : `Potvrdit (${canFill} položek)`}
             </button>
           )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Manage Accessory Types Modal ────────────────────────────────
+function ManageTypesModal({ onClose, onSaved }) {
+  const [types, setTypes] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [editForm, setEditForm] = useState(null)
+  const [err, setErr] = useState(null)
+
+  useEffect(() => { loadTypes() }, [])
+
+  async function loadTypes() {
+    setLoading(true)
+    const { data, error } = await supabase
+      .from('accessory_types').select('*').order('sort_order')
+    if (!error && data) setTypes(data)
+    else setTypes(FALLBACK_ACCESSORY_TYPES)
+    setLoading(false)
+  }
+
+  async function handleSave() {
+    setSaving(true); setErr(null)
+    try {
+      const f = editForm
+      const sizesArr = f.sizesText.split(',').map(s => s.trim()).filter(Boolean)
+      if (!f.key || !f.label || sizesArr.length === 0) { setErr('Vyplňte klíč, název a velikosti'); return }
+      const row = { key: f.key, label: f.label, sizes: sizesArr, is_consumable: f.is_consumable, sort_order: f.sort_order || 0 }
+      if (f.id) {
+        const { error } = await supabase.from('accessory_types').update(row).eq('id', f.id)
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from('accessory_types').insert(row)
+        if (error) throw error
+        // auto-create inventory items for new type
+        const invRows = sizesArr.map(size => ({
+          name: `${f.label} ${size}`, sku: accSku(f.key, size),
+          category: 'prislusenstvi', stock: 0, min_stock: f.is_consumable ? 5 : 2, unit_price: 0,
+        }))
+        await supabase.from('inventory').upsert(invRows, { onConflict: 'sku', ignoreDuplicates: true })
+      }
+      setEditForm(null); loadTypes()
+    } catch (e) { setErr(e.message) } finally { setSaving(false) }
+  }
+
+  async function handleToggleActive(t) {
+    await supabase.from('accessory_types').update({ is_active: !t.is_active }).eq('id', t.id)
+    loadTypes()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.3)' }}>
+      <div className="rounded-card" style={{ background: '#fff', padding: 24, minWidth: 420, maxWidth: 540, maxHeight: '80vh', overflow: 'auto' }}>
+        <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>
+          Správa typů příslušenství
+        </h3>
+
+        {loading ? <Spinner /> : (
+          <div className="space-y-2 mb-4">
+            {types.map(t => (
+              <div key={t.id || t.key} className="flex items-center justify-between rounded-lg"
+                style={{ padding: '6px 10px', background: t.is_active !== false ? '#f1faf7' : '#f5f5f5', border: '1px solid #d4e8e0' }}>
+                <div>
+                  <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>{t.label}</span>
+                  {t.is_consumable && (
+                    <span className="text-xs font-bold ml-2 rounded-btn" style={{ padding: '1px 6px', background: '#fef3c7', color: '#92400e' }}>
+                      spotřební
+                    </span>
+                  )}
+                  <div className="text-xs" style={{ color: '#1a2e22', opacity: 0.5 }}>
+                    {t.key} — {(t.sizes || []).join(', ')}
+                  </div>
+                </div>
+                <div className="flex gap-1">
+                  <button onClick={() => setEditForm({
+                    id: t.id, key: t.key, label: t.label,
+                    sizesText: (t.sizes || []).join(', '),
+                    is_consumable: !!t.is_consumable, sort_order: t.sort_order || 0,
+                  })}
+                    className="rounded-btn text-xs font-bold cursor-pointer border-none"
+                    style={{ padding: '3px 8px', background: '#dbeafe', color: '#2563eb' }}>
+                    Upravit
+                  </button>
+                  {t.id && (
+                    <button onClick={() => handleToggleActive(t)}
+                      className="rounded-btn text-xs font-bold cursor-pointer border-none"
+                      style={{ padding: '3px 8px', background: t.is_active !== false ? '#fee2e2' : '#dcfce7', color: t.is_active !== false ? '#dc2626' : '#1a8a18' }}>
+                      {t.is_active !== false ? 'Deaktivovat' : 'Aktivovat'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {editForm ? (
+          <div className="space-y-2 p-3 rounded-lg mb-3" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+            <div className="text-sm font-extrabold" style={{ color: '#1a2e22' }}>
+              {editForm.id ? 'Upravit typ' : 'Nový typ'}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs font-bold mb-1" style={{ color: '#1a2e22' }}>Klíč (slug)</label>
+                <input value={editForm.key} disabled={!!editForm.id}
+                  onChange={e => setEditForm(f => ({ ...f, key: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') }))}
+                  className="w-full rounded-btn text-sm outline-none"
+                  style={{ padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0' }} placeholder="ubrousky" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold mb-1" style={{ color: '#1a2e22' }}>Název</label>
+                <input value={editForm.label}
+                  onChange={e => setEditForm(f => ({ ...f, label: e.target.value }))}
+                  className="w-full rounded-btn text-sm outline-none"
+                  style={{ padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0' }} placeholder="Ubrousky" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-bold mb-1" style={{ color: '#1a2e22' }}>Velikosti (čárkou)</label>
+              <input value={editForm.sizesText}
+                onChange={e => setEditForm(f => ({ ...f, sizesText: e.target.value }))}
+                className="w-full rounded-btn text-sm outline-none"
+                style={{ padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0' }} placeholder="UNI nebo XS, S, M, L, XL, XXL" />
+            </div>
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-1 cursor-pointer">
+                <input type="checkbox" checked={editForm.is_consumable}
+                  onChange={e => setEditForm(f => ({ ...f, is_consumable: e.target.checked }))} />
+                <span className="text-sm font-bold" style={{ color: '#92400e' }}>Spotřební zboží</span>
+              </label>
+              <div>
+                <label className="text-xs font-bold mr-1" style={{ color: '#1a2e22' }}>Řazení:</label>
+                <input type="number" value={editForm.sort_order} style={{ width: 50, padding: '4px 6px', border: '1px solid #d4e8e0', borderRadius: 6 }}
+                  onChange={e => setEditForm(f => ({ ...f, sort_order: parseInt(e.target.value) || 0 }))} />
+              </div>
+            </div>
+            {err && <div className="text-sm" style={{ color: '#dc2626' }}>{err}</div>}
+            <div className="flex gap-2">
+              <button onClick={() => setEditForm(null)}
+                className="rounded-btn text-sm font-bold cursor-pointer border-none"
+                style={{ padding: '5px 12px', background: '#f1faf7', color: '#1a2e22' }}>Zrušit</button>
+              <button onClick={handleSave} disabled={saving}
+                className="rounded-btn text-sm font-bold cursor-pointer border-none"
+                style={{ padding: '5px 12px', background: '#1a2e22', color: '#74FB71' }}>
+                {saving ? 'Ukládám...' : 'Uložit'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button onClick={() => setEditForm({ key: '', label: '', sizesText: 'UNI', is_consumable: true, sort_order: types.length + 1 })}
+            className="rounded-btn text-sm font-bold cursor-pointer border-none mb-3"
+            style={{ padding: '6px 14px', background: '#1a2e22', color: '#74FB71' }}>
+            + Nový typ
+          </button>
+        )}
+
+        <div className="flex justify-end mt-3">
+          <button onClick={onSaved}
+            className="rounded-btn text-sm font-bold cursor-pointer border-none"
+            style={{ padding: '6px 14px', background: '#f1faf7', color: '#1a2e22' }}>
+            Zavřít
+          </button>
         </div>
       </div>
     </div>
