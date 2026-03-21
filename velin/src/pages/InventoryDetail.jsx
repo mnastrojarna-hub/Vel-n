@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
@@ -50,16 +50,20 @@ export default function InventoryDetail() {
     }
   }
 
-  async function handleSave() {
-    setSaving(true); setError(null)
-    const { name, sku, category, min_stock, unit_price } = item
-    await debugAction('handleSave', 'InventoryDetail', async () => {
-      const { error: err } = await supabase.from('inventory').update({ name, sku, category, min_stock, unit_price }).eq('id', id)
-      if (err) setError(err.message)
-      else await logAudit('inventory_updated', { item_id: id })
-    }, { name, sku, category, min_stock, unit_price })
-    setSaving(false)
-  }
+  const saveTimer = useRef(null)
+  const autoSave = useCallback((updated) => {
+    clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(async () => {
+      setSaving(true); setError(null)
+      const { name, sku, category, min_stock, unit_price } = updated
+      await debugAction('autoSave', 'InventoryDetail', async () => {
+        const { error: err } = await supabase.from('inventory').update({ name, sku, category, min_stock, unit_price }).eq('id', id)
+        if (err) setError(err.message)
+        else await logAudit('inventory_updated', { item_id: id })
+      }, { name, sku, category, min_stock, unit_price })
+      setSaving(false)
+    }, 800)
+  }, [id])
 
   async function handleDelete() {
     await debugAction('handleDelete', 'InventoryDetail', async () => {
@@ -100,7 +104,7 @@ export default function InventoryDetail() {
     } catch {}
   }
 
-  const set = (k, v) => setItem(i => ({ ...i, [k]: v }))
+  const set = (k, v) => setItem(i => { const updated = { ...i, [k]: v }; autoSave(updated); return updated })
   const fmt = (n) => (n || 0).toLocaleString('cs-CZ') + ' Kč'
 
   if (loading) return <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
@@ -135,17 +139,26 @@ export default function InventoryDetail() {
           <div className="grid grid-cols-2 gap-4">
             <Field label="Název" value={item.name} onChange={v => set('name', v)} />
             <Field label="SKU" value={item.sku} onChange={v => set('sku', v)} />
-            <Field label="Kategorie" value={item.category} onChange={v => set('category', v)} />
+            <div>
+              <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Kategorie</label>
+              <select value={item.category || ''} onChange={e => set('category', e.target.value)}
+                className="w-full rounded-btn text-sm outline-none"
+                style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>
+                <option value="material">Materiál</option>
+                <option value="inventory">Zboží</option>
+                <option value="supplies">Spotřební materiál</option>
+                <option value="prislusenstvi">Příslušenství</option>
+              </select>
+            </div>
             <Field label="Cena/ks (Kč)" value={item.unit_price} onChange={v => set('unit_price', v)} type="number" />
             <Field label="Minimum" value={item.min_stock} onChange={v => set('min_stock', v)} type="number" />
             <Field label="Dodavatel" value={item.suppliers?.name || '—'} disabled />
             <Field label="Aktuální stav" value={item.stock} disabled />
           </div>
           {error && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{error}</p>}
-          <div className="flex gap-3 mt-6">
-            <Button green onClick={handleSave} disabled={saving}>{saving ? 'Ukládám…' : 'Uložit'}</Button>
-            <Button onClick={() => setMoveModal('receipt')} style={{ background: '#dcfce7', color: '#1a8a18' }}>+ Příjem</Button>
-            <Button onClick={() => setMoveModal('issue')} style={{ background: '#fee2e2', color: '#dc2626' }}>− Výdej</Button>
+          <div className="flex items-center gap-3 mt-6">
+            {saving && <span className="text-sm" style={{ color: '#1a8a18' }}>Ukládám…</span>}
+            <div className="flex-1" />
             <Button onClick={() => setMoveModal('correction')}>Korekce</Button>
             <Button onClick={() => setConfirm('delete')} style={{ color: '#dc2626' }}>Smazat</Button>
           </div>
