@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import {
   isFlexiConfigured, getFlexiConfig, testFlexiConnection,
-  pullVATReport, pullTaxReport, pullDepreciationSchedule, pullAccountBalances,
+  pullVATReport, pullDepreciationSchedule, pullAccountBalances,
 } from '../../lib/abraFlexi'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
