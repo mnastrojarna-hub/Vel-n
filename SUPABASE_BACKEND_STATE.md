@@ -1,5 +1,5 @@
 # SUPABASE BACKEND STATE — MotoGo24
-> **Poslední aktualizace:** 2026-03-09 10:00 UTC
+> **Poslední aktualizace:** 2026-03-21 12:00 UTC
 > **Zdroj:** Reálný stav Supabase databáze (SQL dump z dashboardu) + Edge Functions
 > **Projekt:** `vnwnqteskbykeucanlhk.supabase.co`
 > **POZOR:** Tento soubor MUSÍ být aktualizován při každé SQL změně!
@@ -126,7 +126,7 @@
 |---------|-------|
 | `purchase_orders` | Nákupní objednávky |
 | `purchase_order_items` | Položky nákupních objednávek |
-| `suppliers` | Dodavatelé |
+| `suppliers` | Dodavatelé (name, normalized_name, ico, dic, address, bank_account, default_category, default_account, contact_email, notes, created_at, updated_at). Index na normalized_name a ico. Funkce normalize_supplier_name() pro matching bez diakritiky. Auto-upsert z OCR v receive-invoice. |
 | `inventory` | Skladové zásoby |
 | `inventory_movements` | Pohyby na skladě |
 
