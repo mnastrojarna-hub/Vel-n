@@ -133,10 +133,11 @@ export default function FinancialEventsTab() {
         .eq('id', event.id)
       if (err) throw err
 
-      // When validated → create liability + ensure supplier
+      // When validated → create liability + ensure supplier + create received invoice
       if (nextStatus === 'validated') {
         await createLiabilityFromEvent(event)
         await ensureSupplier(event)
+        await createReceivedInvoiceFromEvent(event)
       }
 
       // When approved → if cash payment, deduct from pokladna
@@ -152,7 +153,7 @@ export default function FinancialEventsTab() {
         }
       }
 
-      setResultMsg(nextStatus === 'validated' ? 'Schváleno — připraveno k exportu, závazek vytvořen' : 'Událost schválena' + ((event.metadata?.payment_method === 'cash' && nextStatus === 'approved') ? ' — odečteno z pokladny' : ''))
+      setResultMsg(nextStatus === 'validated' ? 'Schváleno — závazek + faktura přijatá vytvořeny' : 'Událost schválena' + ((event.metadata?.payment_method === 'cash' && nextStatus === 'approved') ? ' — odečteno z pokladny' : ''))
       await load()
     } catch (e) { setResultMsg(`Chyba: ${e.message}`) }
     finally { setActionId(null) }
@@ -190,15 +191,53 @@ export default function FinancialEventsTab() {
     })
   }
 
+  async function createReceivedInvoiceFromEvent(event) {
+    const meta = event.metadata || {}
+    // Check if received invoice already linked to this event
+    if (event.linked_entity_type === 'invoice' && event.linked_entity_id) return
+    const ai = meta.ai_classification || {}
+    const invNumber = meta.invoice_number || `FP-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${event.id.slice(0, 4)}`
+    const { data: inv } = await supabase.from('invoices').insert({
+      number: invNumber,
+      type: 'received',
+      total: event.amount_czk || 0,
+      subtotal: event.amount_czk || 0,
+      tax_amount: 0,
+      issue_date: event.duzp || new Date().toISOString().slice(0, 10),
+      due_date: meta.due_date || null,
+      variable_symbol: meta.variable_symbol || null,
+      notes: [meta.supplier_name, ai.classification_note].filter(Boolean).join('\n'),
+      status: 'issued',
+      metadata: {
+        supplier_name: meta.supplier_name,
+        supplier_ico: meta.supplier_ico,
+        supplier_bank_account: meta.supplier_bank_account,
+        expense_category: ai.category || meta.category,
+        payment_method: meta.payment_method,
+        financial_event_id: event.id,
+      },
+    }).select().single()
+    // Link event to invoice
+    if (inv) {
+      await supabase.from('financial_events').update({
+        linked_entity_type: 'invoice',
+        linked_entity_id: inv.id,
+      }).eq('id', event.id)
+    }
+  }
+
   async function deleteEvent(event) {
     setActionId(event.id); setResultMsg(null)
     try {
-      // Clean up related exceptions + CASCADE deletes linked liability
+      // Clean up related exceptions + linked received invoice + CASCADE deletes linked liability
       await supabase.from('accounting_exceptions').delete().eq('financial_event_id', event.id)
+      if (event.linked_entity_type === 'invoice' && event.linked_entity_id) {
+        await supabase.from('invoices').delete().eq('id', event.linked_entity_id)
+      }
       const { error: err } = await supabase.from('financial_events')
         .delete().eq('id', event.id)
       if (err) throw err
-      setResultMsg('Událost smazána (včetně závazku)')
+      setResultMsg('Událost smazána (včetně závazku a faktury)')
       setDeleteConfirm(null)
       await load()
     } catch (e) { setResultMsg(`Chyba: ${e.message}`) }
