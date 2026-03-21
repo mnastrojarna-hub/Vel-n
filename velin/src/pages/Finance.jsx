@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
 import { useDebugMode } from '../hooks/useDebugMode'
@@ -7,10 +7,23 @@ import Button from '../components/ui/Button'
 import Badge from '../components/ui/Badge'
 import Modal from '../components/ui/Modal'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
-import InvoicesTab from './accounting/InvoicesTab'
-import TaxTab from './accounting/TaxTab'
-import ReceivedInvoicesTab from './accounting/ReceivedInvoicesTab'
+import ErrorBoundary from '../components/ErrorBoundary'
 import { classifyEntry } from '../lib/revenueUtils'
+
+// Lazy-load accounting tabs to isolate crashes
+const InvoicesTab = lazy(() => import('./accounting/InvoicesTab'))
+const TaxTab = lazy(() => import('./accounting/TaxTab'))
+const ReceivedInvoicesTab = lazy(() => import('./accounting/ReceivedInvoicesTab'))
+const CashRegisterTab = lazy(() => import('./accounting/CashRegisterTab'))
+const FinancialEventsTab = lazy(() => import('./accounting/FinancialEventsTab'))
+const ExceptionsTab = lazy(() => import('./accounting/ExceptionsTab'))
+const EmployeesTab = lazy(() => import('./accounting/EmployeesTab'))
+const VATReturnsTab = lazy(() => import('./accounting/VATReturnsTab'))
+const TaxReturnsTab = lazy(() => import('./accounting/TaxReturnsTab'))
+const ShortTermAssetsTab = lazy(() => import('./accounting/ShortTermAssetsTab'))
+const LongTermAssetsTab = lazy(() => import('./accounting/LongTermAssetsTab'))
+const LiabilitiesTab = lazy(() => import('./accounting/LiabilitiesTab'))
+const ReportsTab = lazy(() => import('./accounting/ReportsTab'))
 
 const PERIODS = [
   { value: 'month', label: 'Měsíc' },
@@ -24,11 +37,24 @@ const TYPES = [
   { value: 'expense', label: 'Výdaje' },
 ]
 
-const FINANCE_TABS = ['Přehled', 'Faktury', 'Daňové podklady', 'Faktury přijaté']
+const FINANCE_TABS = ['Přehled', 'Faktury', 'Účetnictví', 'Faktury přijaté', 'Pokladna']
+
+const ACCOUNTING_SUBTABS = [
+  { id: 'events', label: 'Finanční události' },
+  { id: 'exceptions', label: 'Výjimky' },
+  { id: 'employees', label: 'Zaměstnanci' },
+  { id: 'vat', label: 'Přiznání k DPH' },
+  { id: 'tax', label: 'Daňové přiznání' },
+  { id: 'short_assets', label: 'Krátkodobý majetek' },
+  { id: 'long_assets', label: 'Dlouhodobý majetek' },
+  { id: 'liabilities', label: 'Závazky' },
+  { id: 'reports', label: 'Výkazy a přiznání' },
+]
 
 export default function Finance() {
   const debugMode = useDebugMode()
   const [activeTab, setActiveTab] = useState('Přehled')
+  const [accountingSubTab, setAccountingSubTab] = useState('events')
   const [summary, setSummary] = useState({ revenue: 0, expense: 0, unpaid: 0 })
   const [transactions, setTransactions] = useState([])
   const [chartData, setChartData] = useState([])
@@ -55,7 +81,9 @@ export default function Finance() {
     setLoading(true)
     setError(null)
     try {
-      await Promise.all([loadSummary(), loadTransactions(), loadChart(), loadRecentInvoices(), loadShopPayments(), loadInvoiceSums()])
+      const results = await Promise.allSettled([loadSummary(), loadTransactions(), loadChart(), loadRecentInvoices(), loadShopPayments(), loadInvoiceSums()])
+      const errors = results.filter(r => r.status === 'rejected').map(r => r.reason?.message || String(r.reason))
+      if (errors.length > 0) setError(errors.join('; '))
     } catch (e) {
       setError(e.message)
     } finally {
@@ -198,7 +226,12 @@ export default function Finance() {
   const fmt = (n) => (n || 0).toLocaleString('cs-CZ') + ' Kč'
   const profit = summary.revenue - summary.expense
 
+  const TabLoader = () => (
+    <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
+  )
+
   return (
+    <ErrorBoundary>
     <div>
       <div className="flex gap-2 mb-5">
         {FINANCE_TABS.map(t => (
@@ -210,9 +243,42 @@ export default function Finance() {
         ))}
       </div>
 
-      {activeTab === 'Faktury' && <InvoicesTab />}
-      {activeTab === 'Daňové podklady' && <TaxTab />}
-      {activeTab === 'Faktury přijaté' && <ReceivedInvoicesTab />}
+      <Suspense fallback={<TabLoader />}>
+      {activeTab === 'Faktury' && <ErrorBoundary><InvoicesTab /></ErrorBoundary>}
+      {activeTab === 'Faktury přijaté' && <ErrorBoundary><ReceivedInvoicesTab /></ErrorBoundary>}
+      {activeTab === 'Pokladna' && <ErrorBoundary><CashRegisterTab /></ErrorBoundary>}
+
+      {activeTab === 'Účetnictví' && (
+        <div>
+          <div className="flex gap-1 mb-4 flex-wrap">
+            {ACCOUNTING_SUBTABS.map(st => (
+              <button key={st.id} onClick={() => setAccountingSubTab(st.id)}
+                className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+                style={{
+                  padding: '6px 14px',
+                  background: accountingSubTab === st.id ? '#1a2e22' : '#f1faf7',
+                  color: accountingSubTab === st.id ? '#74FB71' : '#1a2e22',
+                  border: 'none',
+                  boxShadow: accountingSubTab === st.id ? '0 2px 8px rgba(26,46,34,.25)' : 'none',
+                }}>
+                {st.label}
+              </button>
+            ))}
+          </div>
+          <ErrorBoundary>
+          {accountingSubTab === 'events' && <FinancialEventsTab />}
+          {accountingSubTab === 'exceptions' && <ExceptionsTab />}
+          {accountingSubTab === 'employees' && <EmployeesTab />}
+          {accountingSubTab === 'vat' && <VATReturnsTab />}
+          {accountingSubTab === 'tax' && <TaxReturnsTab />}
+          {accountingSubTab === 'short_assets' && <ShortTermAssetsTab />}
+          {accountingSubTab === 'long_assets' && <LongTermAssetsTab />}
+          {accountingSubTab === 'liabilities' && <LiabilitiesTab />}
+          {accountingSubTab === 'reports' && <ReportsTab />}
+          </ErrorBoundary>
+        </div>
+      )}
+      </Suspense>
 
       {activeTab === 'Přehled' && <>
       <div className="flex flex-wrap items-center gap-3 mb-5">
@@ -426,6 +492,7 @@ export default function Finance() {
       )}
       </>}
     </div>
+    </ErrorBoundary>
   )
 }
 

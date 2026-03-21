@@ -1,0 +1,10 @@
+{
+  "appId": "cz.motogo24.docscanner",
+  "appName": "MotoGo Doklady",
+  "webDir": ".",
+  "plugins": {
+    "Camera": {
+      "saveToGallery": false
+    }
+  }
+}

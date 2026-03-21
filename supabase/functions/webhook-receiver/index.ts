@@ -96,6 +96,62 @@ Deno.serve(async (req: Request) => {
       } else if (paymentType === 'sos' && metadata.booking_id) {
         await confirmSosPayment(supabase, metadata.booking_id, metadata.incident_id, paymentIntent.id)
       }
+
+      // ── Financial event: revenue from Stripe payment ──
+      await ingestFinancialEvent(supabase, {
+        event_type: 'revenue',
+        source: 'stripe',
+        amount_czk: paymentIntent.amount / 100,
+        vat_rate: 0, // firma není plátce DPH
+        duzp: new Date(paymentIntent.created * 1000).toISOString().slice(0, 10),
+        linked_entity_type: paymentType || 'booking',
+        linked_entity_id: metadata.booking_id || metadata.order_id || null,
+        confidence_score: 1.0,
+        status: 'validated',
+        metadata: {
+          stripe_payment_intent_id: paymentIntent.id,
+          stripe_customer: paymentIntent.customer,
+          payment_type: paymentType,
+        },
+      })
+    } else if (event.type === 'charge.refunded') {
+      const charge = event.data.object as Stripe.Charge
+      const refundReason = charge.refunds?.data?.[0]?.reason || null
+
+      await ingestFinancialEvent(supabase, {
+        event_type: 'revenue',
+        source: 'stripe',
+        amount_czk: -(charge.amount_refunded / 100), // záporná hodnota
+        vat_rate: 0, // firma není plátce DPH
+        duzp: new Date().toISOString().slice(0, 10),
+        linked_entity_type: null,
+        linked_entity_id: null,
+        confidence_score: 1.0,
+        status: 'validated',
+        metadata: {
+          refund_reason: refundReason,
+          original_payment_intent: charge.payment_intent,
+          stripe_charge_id: charge.id,
+        },
+      })
+    } else if (event.type === 'payout.paid') {
+      const payout = event.data.object as Stripe.Payout
+
+      await ingestFinancialEvent(supabase, {
+        event_type: 'revenue',
+        source: 'stripe',
+        amount_czk: payout.amount / 100,
+        vat_rate: 0, // firma není plátce DPH
+        duzp: new Date((payout as any).arrival_date * 1000).toISOString().slice(0, 10),
+        linked_entity_type: null,
+        linked_entity_id: null,
+        confidence_score: 1.0,
+        status: 'validated',
+        metadata: {
+          stripe_payout_id: payout.id,
+          arrival_date: (payout as any).arrival_date,
+        },
+      })
     }
 
     return new Response(JSON.stringify({ received: true }), {
@@ -186,6 +242,65 @@ async function confirmSosPayment(
     }
   } catch (err) {
     console.error('confirmSosPayment error:', err)
+  }
+}
+
+/** Idempotent insert into financial_events (skips duplicates by stripe ID in metadata) */
+async function ingestFinancialEvent(
+  supabase: ReturnType<typeof createClient>,
+  eventData: {
+    event_type: string
+    source: string
+    amount_czk: number
+    vat_rate: number
+    duzp: string
+    linked_entity_type: string | null
+    linked_entity_id: string | null
+    confidence_score: number
+    status: string
+    metadata: Record<string, any>
+  }
+) {
+  try {
+    // Idempotence: check if this Stripe event was already ingested
+    const stripeId = eventData.metadata.stripe_payment_intent_id
+      || eventData.metadata.stripe_charge_id
+      || eventData.metadata.stripe_payout_id
+
+    if (stripeId) {
+      const idempotencyKey = eventData.metadata.stripe_payment_intent_id
+        ? 'stripe_payment_intent_id'
+        : eventData.metadata.stripe_charge_id
+          ? 'stripe_charge_id'
+          : 'stripe_payout_id'
+
+      const { data: existing } = await supabase
+        .from('financial_events')
+        .select('id')
+        .eq(`metadata->>${idempotencyKey}`, stripeId)
+        .maybeSingle()
+
+      if (existing) {
+        console.log(`Financial event already exists for ${idempotencyKey}=${stripeId}, skipping`)
+        return
+      }
+    }
+
+    const { error } = await supabase.from('financial_events').insert(eventData)
+
+    if (error) {
+      console.error('Failed to insert financial_event:', error.message)
+      await supabase.from('debug_log').insert({
+        source: 'webhook-receiver',
+        action: 'financial_event_insert_failed',
+        component: 'stripe',
+        status: 'error',
+        request_data: eventData,
+        error_message: error.message,
+      }).catch(() => {})
+    }
+  } catch (err) {
+    console.error('ingestFinancialEvent error:', err)
   }
 }
 
