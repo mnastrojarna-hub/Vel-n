@@ -76,7 +76,9 @@ export default function Finance() {
     setLoading(true)
     setError(null)
     try {
-      await Promise.all([loadSummary(), loadTransactions(), loadChart(), loadRecentInvoices(), loadShopPayments(), loadInvoiceSums()])
+      const results = await Promise.allSettled([loadSummary(), loadTransactions(), loadChart(), loadRecentInvoices(), loadShopPayments(), loadInvoiceSums()])
+      const errors = results.filter(r => r.status === 'rejected').map(r => r.reason?.message || String(r.reason))
+      if (errors.length > 0) setError(errors.join('; '))
     } catch (e) {
       setError(e.message)
     } finally {
