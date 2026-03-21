@@ -98,7 +98,8 @@ export default function Finance() {
       supabase.from('bookings').select('total_price').eq('status', 'completed').eq('payment_status', 'paid'),
       supabase.from('promo_code_usage').select('discount_amount'),
     ])
-    const invs = invRes.data || []
+    // Exclude cancelled/refunded invoices from sums
+    const invs = (invRes.data || []).filter(i => i.status !== 'cancelled' && i.status !== 'refunded')
     const zf = invs.filter(i => ['advance', 'proforma'].includes(i.type)).reduce((s, i) => s + (i.total || 0), 0)
     const dp = invs.filter(i => i.type === 'payment_receipt').reduce((s, i) => s + (i.total || 0), 0)
     const kf = invs.filter(i => i.type === 'final').reduce((s, i) => s + (i.total || 0), 0)
