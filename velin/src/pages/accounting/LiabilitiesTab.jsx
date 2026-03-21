@@ -123,6 +123,16 @@ export default function LiabilitiesTab() {
     }
   }
 
+  async function deleteLiability(id) {
+    try {
+      const { error: err } = await supabase.from('acc_liabilities').delete().eq('id', id)
+      if (err) throw err
+      await load()
+    } catch (e) {
+      setError('Chyba mazání: ' + e.message)
+    }
+  }
+
   async function markPaid(id, amount) {
     const liability = liabilities.find(l => l.id === id)
     if (!liability) return
@@ -224,6 +234,7 @@ export default function LiabilitiesTab() {
                         {l.status !== 'paid' && (
                           <button onClick={() => markPaid(l.id, remaining)} className="text-sm font-bold cursor-pointer bg-transparent border-none" style={{ color: '#1a8a18' }}>Uhradit</button>
                         )}
+                        <button onClick={() => deleteLiability(l.id)} className="text-sm font-bold cursor-pointer bg-transparent border-none" style={{ color: '#dc2626' }}>Smazat</button>
                       </div>
                     </TD>
                   </TRow>
