@@ -32,6 +32,7 @@ export default function ServiceLog() {
   useEffect(() => { localStorage.setItem('velin_servicelog_filters', JSON.stringify(filters)) }, [filters])
   const [showAdd, setShowAdd] = useState(false)
   const [editing, setEditing] = useState(null)
+  const [expandedLog, setExpandedLog] = useState(null)
 
   useEffect(() => { load() }, [page, filters])
 
@@ -94,23 +95,22 @@ export default function ServiceLog() {
           <Table>
             <thead>
               <TRow header>
-                <TH>Motorka</TH><TH>SPZ</TH><TH>Typ</TH><TH>Plán. datum</TH>
-                <TH>Skut. datum</TH><TH>Náklady</TH><TH>Stav</TH><TH>Technik</TH>
+                <TH>Motorka</TH><TH>SPZ</TH><TH>Typ</TH><TH>Do servisu</TH>
+                <TH>Ze servisu</TH><TH>Km</TH><TH>Náklady</TH><TH>Stav</TH><TH>Technik</TH>
               </TRow>
             </thead>
             <tbody>
-              {logs.map(l => (
-                <tr key={l.id} onClick={() => setEditing(l)} className="cursor-pointer hover:bg-[#f1faf7] transition-colors" style={{ borderBottom: '1px solid #d4e8e0' }}>
-                  <TD bold>{l.motorcycles?.model || '—'}</TD>
-                  <TD mono>{l.motorcycles?.spz || '—'}</TD>
-                  <TD>{TYPE_LABELS[l.type] || l.type || '—'}</TD>
-                  <TD>{l.created_at ? new Date(l.created_at).toLocaleDateString('cs-CZ') : '—'}</TD>
-                  <TD>{l.completed_date ? new Date(l.completed_date).toLocaleDateString('cs-CZ') : '—'}</TD>
-                  <TD bold>{fmt(l.cost)}</TD>
-                  <TD><StatusBadge status={l.status || 'pending'} /></TD>
-                  <TD>{l.performed_by || '—'}</TD>
-                </tr>
-              ))}
+              {logs.map(l => {
+                const km = l.mileage_at_service || l.km_at_service
+                const startDate = l.scheduled_date || l.created_at
+                const isExp = expandedLog === l.id
+                return (
+                  <LogRow key={l.id} log={l} km={km} startDate={startDate}
+                    isExpanded={isExp}
+                    onToggle={() => setExpandedLog(isExp ? null : l.id)}
+                    onEdit={() => setEditing(l)} fmt={fmt} />
+                )
+              })}
               {logs.length === 0 && <TRow><TD>Žádné servisní záznamy</TD></TRow>}
             </tbody>
           </Table>
@@ -129,13 +129,47 @@ export default function ServiceLog() {
   )
 }
 
+function LogRow({ log: l, km, startDate, isExpanded, onToggle, onEdit, fmt }) {
+  return (
+    <>
+      <tr onClick={onToggle} className="cursor-pointer hover:bg-[#f1faf7] transition-colors" style={{ borderBottom: isExpanded ? 'none' : '1px solid #d4e8e0' }}>
+        <TD bold>{l.motorcycles?.model || '—'}</TD>
+        <TD mono>{l.motorcycles?.spz || '—'}</TD>
+        <TD>{TYPE_LABELS[l.type] || l.service_type || l.type || '—'}</TD>
+        <TD>{startDate ? new Date(startDate).toLocaleDateString('cs-CZ') : '—'}</TD>
+        <TD>{l.completed_date ? new Date(l.completed_date).toLocaleDateString('cs-CZ') : '—'}</TD>
+        <TD mono>{km ? km.toLocaleString('cs-CZ') : '—'}</TD>
+        <TD bold>{fmt(l.cost)}</TD>
+        <TD><StatusBadge status={l.status || 'pending'} /></TD>
+        <TD>{l.performed_by || '—'}</TD>
+      </tr>
+      {isExpanded && (
+        <tr style={{ borderBottom: '1px solid #d4e8e0' }}>
+          <td colSpan={9} style={{ padding: '8px 12px', background: '#f1faf7' }}>
+            <div className="text-sm" style={{ color: '#0f1a14' }}>
+              <span className="font-extrabold">Servisní záznam: </span>
+              {l.description || <span style={{ color: '#9ca3af' }}>Bez popisu</span>}
+            </div>
+            <button onClick={e => { e.stopPropagation(); onEdit() }}
+              className="mt-2 rounded-btn text-sm font-bold cursor-pointer"
+              style={{ padding: '4px 12px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>
+              Upravit
+            </button>
+          </td>
+        </tr>
+      )}
+    </>
+  )
+}
+
 function ServiceModal({ entry, onClose, onSaved }) {
   const [motos, setMotos] = useState([])
   const [form, setForm] = useState(entry ? {
     moto_id: entry.moto_id || '', type: entry.type || '', scheduled_date: entry.scheduled_date || '',
     completed_date: entry.completed_date || '', description: entry.description || '',
     cost: entry.cost || '', performed_by: entry.performed_by || '', status: entry.status || 'pending',
-  } : { moto_id: '', type: '', scheduled_date: '', completed_date: '', description: '', cost: '', performed_by: '', status: 'pending' })
+    mileage_at_service: entry.mileage_at_service || entry.km_at_service || '',
+  } : { moto_id: '', type: '', scheduled_date: '', completed_date: '', description: '', cost: '', performed_by: '', status: 'pending', mileage_at_service: '' })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
 
@@ -150,7 +184,7 @@ function ServiceModal({ entry, onClose, onSaved }) {
     try {
       debugLog('ServiceLog', 'handleSave', { isEdit: !!entry, moto_id: form.moto_id })
       const { scheduled_date: _sd, ...rest } = form
-      const payload = { ...rest, cost: Number(rest.cost) || null }
+      const payload = { ...rest, cost: Number(rest.cost) || null, mileage_at_service: Number(rest.mileage_at_service) || null }
       if (entry) {
         const { error } = await debugAction('maintenance_log.update', 'ServiceLog', () =>
           supabase.from('maintenance_log').update(payload).eq('id', entry.id))
@@ -196,9 +230,13 @@ function ServiceModal({ entry, onClose, onSaved }) {
         </div>
         <div><Label>Plánované datum</Label><input type="date" value={form.scheduled_date} onChange={e => set('scheduled_date', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
         <div><Label>Skutečné datum</Label><input type="date" value={form.completed_date} onChange={e => set('completed_date', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
+        <div><Label>Km při servisu</Label><input type="number" value={form.mileage_at_service} onChange={e => set('mileage_at_service', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
         <div><Label>Náklady (Kč)</Label><input type="number" value={form.cost} onChange={e => set('cost', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
         <div><Label>Technik</Label><input type="text" value={form.performed_by} onChange={e => set('performed_by', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
-        <div className="col-span-2"><Label>Popis</Label><textarea value={form.description} onChange={e => set('description', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} /></div>
+        <div className="col-span-2">
+          <Label>Servisní záznam (olej, filtry, pneu, svíčky, řetězovka, rozvody…)</Label>
+          <textarea value={form.description} onChange={e => set('description', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }} placeholder="Popište co vše se opravovalo / vyměnilo…" />
+        </div>
       </div>
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}
       <div className="flex justify-end gap-3 mt-5">
