@@ -10,9 +10,7 @@ var AppConfig = {
 
 // Current state
 var AppState = {
-  currentPhoto: null,   // base64 string
-  isNative: false,      // true if running inside Capacitor native
-  hasCamera: false       // camera permission granted
+  currentPhoto: null   // base64 string
 };
 
 // ── Debug Logger ──────────────────────────────────────
@@ -77,36 +75,12 @@ var DebugLog = {
   }
 };
 
-// ── Platform detection ───────────────────────────────
-
-function detectPlatform() {
-  if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform &&
-      Capacitor.isNativePlatform()) {
-    AppState.isNative = true;
-    DebugLog.info('INIT', 'Platform: Capacitor Native (' + Capacitor.getPlatform() + ')');
-  } else if (typeof Capacitor !== 'undefined') {
-    AppState.isNative = false;
-    DebugLog.info('INIT', 'Platform: Capacitor Web (browser fallback)');
-  } else {
-    AppState.isNative = false;
-    DebugLog.info('INIT', 'Platform: Pure Web (no Capacitor)');
-  }
-}
-
 // ── Initialization ───────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', function() {
   DebugLog.info('INIT', 'App starting...');
-  detectPlatform();
-
-  // Request permissions early on native
-  if (AppState.isNative) {
-    DocCamera.requestPermissions();
-  } else {
-    DebugLog.info('INIT', 'Web mode - using file input fallback');
-    AppState.hasCamera = true;
-  }
-
+  DebugLog.info('INIT', 'Platform: ' + navigator.userAgent.substring(0, 80));
+  DebugLog.info('INIT', 'Edge URL: ' + AppConfig.EDGE_URL);
   DocUI.renderHistory();
   DebugLog.info('INIT', 'App ready');
 });
