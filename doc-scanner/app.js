@@ -4,7 +4,7 @@
 
 var AppConfig = {
   EDGE_URL: 'https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/receive-invoice',
-  API_KEY: 'a745cb2badbe46899e16447c092299fe9447ef520523a0f5b379605c8e884829',
+  API_KEY: '2dd9f888beb56e25abd79d64a21a896f8c4cadcc3406b678f7993e6c97552081',
   MAX_SIZE_MB: 4
 };
 
