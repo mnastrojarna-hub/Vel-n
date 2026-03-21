@@ -131,8 +131,9 @@
 | `purchase_order_items` | Položky nákupních objednávek |
 | `auto_order_rules` | Pravidla automatických objednávek (trigger_type: stock_low/interval/manual, threshold_quantity, interval_days, order_quantity, email_override, is_active) |
 | `suppliers` | Dodavatelé (name, normalized_name, ico, dic, address, bank_account, default_category, default_account, contact_email, notes, created_at, updated_at). Index na normalized_name a ico. Funkce normalize_supplier_name() pro matching bez diakritiky. Auto-upsert z OCR v receive-invoice. |
-| `inventory` | Skladové zásoby |
+| `inventory` | Skladové zásoby (category CHECK rozšířen o 'prislusenstvi') |
 | `inventory_movements` | Pohyby na skladě |
+| `accessory_types` | Dynamické typy příslušenství (key, label, sizes[], is_consumable, sort_order, is_active) — nahrazuje hardcoded ACCESSORY_TYPES |
 
 ### AI a automatizace
 
