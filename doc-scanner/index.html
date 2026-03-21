@@ -9,72 +9,89 @@
 <body>
   <div class="app">
 
-    <!-- ═══ MAIN SCREEN ═══ -->
+    <!-- MAIN SCREEN -->
     <div id="screen-main" class="screen">
       <div class="logo">Moto<span>Go24</span></div>
-      <div class="subtitle">Skener dokladů</div>
+      <div class="subtitle">Skener dokladu</div>
 
-      <button class="btn btn-primary" onclick="scanDocument('CAMERA')">📷 Vyfotit doklad</button>
-      <button class="btn btn-secondary" onclick="scanDocument('PHOTOS')">🖼 Vybrat z galerie</button>
+      <button class="btn btn-primary" id="btn-camera" onclick="DocCamera.scan('CAMERA')">
+        Vyfotit doklad
+      </button>
+      <button class="btn btn-secondary" id="btn-gallery" onclick="DocCamera.scan('PHOTOS')">
+        Vybrat z galerie
+      </button>
+
+      <!-- Hidden file input for web fallback -->
+      <input type="file" id="file-input" accept="image/*" hidden>
+      <input type="file" id="file-input-camera" accept="image/*" capture="environment" hidden>
 
       <div class="history" id="history-section">
-        <h3>Poslední odeslané</h3>
+        <h3>Posledni odeslane</h3>
         <div id="history-list"></div>
       </div>
     </div>
 
-    <!-- ═══ PREVIEW SCREEN ═══ -->
+    <!-- PREVIEW SCREEN -->
     <div id="screen-preview" class="screen" hidden>
-      <img id="preview-img" alt="Náhled dokladu">
-
+      <img id="preview-img" alt="Nahled dokladu">
       <div id="error-box" class="error-box" hidden></div>
-
       <div class="preview-actions">
-        <button class="btn btn-danger btn-small" onclick="resetToMain()">✗ Znovu</button>
-        <button class="btn btn-primary btn-small" id="btn-send" onclick="sendDocument()">✓ Odeslat</button>
+        <button class="btn btn-danger btn-small" onclick="DocUI.resetToMain()">Znovu</button>
+        <button class="btn btn-primary btn-small" id="btn-send" onclick="DocUpload.send()">Odeslat</button>
       </div>
     </div>
 
-    <!-- ═══ RESULT SCREEN ═══ -->
+    <!-- RESULT SCREEN -->
     <div id="screen-result" class="screen" hidden>
       <div class="result-icon" id="result-icon"></div>
       <div class="result-message" id="result-message"></div>
-
       <div id="review-banner" class="review-banner" hidden></div>
-
       <div class="result-box">
         <h3>Detail dokladu</h3>
         <div class="result-row">
           <span class="result-label">Typ</span>
-          <span class="result-value" id="result-type">—</span>
+          <span class="result-value" id="result-type">-</span>
         </div>
         <div class="result-row">
           <span class="result-label">Dodavatel</span>
-          <span class="result-value" id="result-supplier">—</span>
+          <span class="result-value" id="result-supplier">-</span>
         </div>
         <div class="result-row">
-          <span class="result-label">Částka</span>
-          <span class="result-value" id="result-amount">—</span>
+          <span class="result-label">Castka</span>
+          <span class="result-value" id="result-amount">-</span>
         </div>
         <div class="result-row">
           <span class="result-label">Datum</span>
-          <span class="result-value" id="result-date">—</span>
+          <span class="result-value" id="result-date">-</span>
         </div>
       </div>
-
-      <button class="btn btn-primary" onclick="resetToMain()">📷 Další doklad</button>
+      <button class="btn btn-primary" onclick="DocUI.resetToMain()">Dalsi doklad</button>
     </div>
 
-    <!-- ═══ LOADING OVERLAY ═══ -->
+    <!-- LOADING OVERLAY -->
     <div id="loading-overlay" class="loading-overlay" hidden>
       <div class="spinner"></div>
-      <div class="loading-text" id="loading-text">Analyzuji doklad…</div>
+      <div class="loading-text" id="loading-text">Analyzuji doklad...</div>
     </div>
+
+    <!-- DEBUG LOG PANEL -->
+    <div id="debug-panel" class="debug-panel" hidden>
+      <div class="debug-header">
+        <span>Debug Log</span>
+        <button onclick="DebugLog.clear()">Clear</button>
+        <button onclick="DebugLog.toggle()">X</button>
+      </div>
+      <div id="debug-log" class="debug-log"></div>
+    </div>
+
+    <!-- Debug toggle button -->
+    <button class="debug-toggle" onclick="DebugLog.toggle()" id="debug-toggle-btn">DBG</button>
 
   </div>
 
-  <script src="https://unpkg.com/@aspect-build/aspect-ratio-polyfill"></script>
-  <script src="https://unpkg.com/@capacitor/core@latest/dist/capacitor.js"></script>
   <script src="app.js"></script>
+  <script src="camera.js"></script>
+  <script src="upload.js"></script>
+  <script src="ui.js"></script>
 </body>
 </html>
