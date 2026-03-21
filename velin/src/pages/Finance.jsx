@@ -11,6 +11,8 @@ import InvoicesTab from './accounting/InvoicesTab'
 import TaxTab from './accounting/TaxTab'
 import ReceivedInvoicesTab from './accounting/ReceivedInvoicesTab'
 import CashRegisterTab from './accounting/CashRegisterTab'
+import FinancialEventsTab from './accounting/FinancialEventsTab'
+import ExceptionsTab from './accounting/ExceptionsTab'
 import EmployeesTab from './accounting/EmployeesTab'
 import VATReturnsTab from './accounting/VATReturnsTab'
 import TaxReturnsTab from './accounting/TaxReturnsTab'
@@ -34,6 +36,8 @@ const TYPES = [
 const FINANCE_TABS = ['Přehled', 'Faktury', 'Účetnictví', 'Faktury přijaté', 'Pokladna']
 
 const ACCOUNTING_SUBTABS = [
+  { id: 'events', label: 'Finanční události' },
+  { id: 'exceptions', label: 'Výjimky' },
   { id: 'employees', label: 'Zaměstnanci' },
   { id: 'vat', label: 'Přiznání k DPH' },
   { id: 'tax', label: 'Daňové přiznání' },
@@ -45,7 +49,7 @@ const ACCOUNTING_SUBTABS = [
 export default function Finance() {
   const debugMode = useDebugMode()
   const [activeTab, setActiveTab] = useState('Přehled')
-  const [accountingSubTab, setAccountingSubTab] = useState('employees')
+  const [accountingSubTab, setAccountingSubTab] = useState('events')
   const [summary, setSummary] = useState({ revenue: 0, expense: 0, unpaid: 0 })
   const [transactions, setTransactions] = useState([])
   const [chartData, setChartData] = useState([])
@@ -248,6 +252,8 @@ export default function Finance() {
               </button>
             ))}
           </div>
+          {accountingSubTab === 'events' && <FinancialEventsTab />}
+          {accountingSubTab === 'exceptions' && <ExceptionsTab />}
           {accountingSubTab === 'employees' && <EmployeesTab />}
           {accountingSubTab === 'vat' && <VATReturnsTab />}
           {accountingSubTab === 'tax' && <TaxReturnsTab />}
