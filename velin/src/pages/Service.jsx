@@ -267,22 +267,30 @@ function ActiveServiceTab({ onRefresh }) {
                   <div className="space-y-3">
                     {mLogs.map(l => (
                       <div key={l.id} className="p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-                        <div className="flex items-start gap-3 mb-2">
-                          <div className="flex-1">
-                            <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Popis</div>
-                            <div className="text-sm" style={{ color: '#0f1a14' }}>{l.description || '—'}</div>
-                          </div>
+                        <div className="flex items-start gap-3 mb-2 flex-wrap">
                           <div>
                             <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Typ</div>
                             <div className="text-sm" style={{ color: '#1a2e22' }}>{l.service_type || l.type || '—'}</div>
                           </div>
                           <div>
-                            <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Vytvořeno</div>
-                            <div className="text-sm" style={{ color: '#1a2e22' }}>{l.created_at ? new Date(l.created_at).toLocaleDateString('cs-CZ') : '—'}</div>
+                            <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Do servisu</div>
+                            <div className="text-sm" style={{ color: '#1a2e22' }}>{l.scheduled_date ? new Date(l.scheduled_date).toLocaleDateString('cs-CZ') : l.created_at ? new Date(l.created_at).toLocaleDateString('cs-CZ') : '—'}</div>
+                          </div>
+                          <div>
+                            <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Ze servisu</div>
+                            <div className="text-sm" style={{ color: '#1a2e22' }}>{l.completed_date ? new Date(l.completed_date).toLocaleDateString('cs-CZ') : '—'}</div>
+                          </div>
+                          <div>
+                            <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Km</div>
+                            <div className="text-sm font-mono" style={{ color: '#1a2e22' }}>{(l.mileage_at_service || l.km_at_service) ? (l.mileage_at_service || l.km_at_service).toLocaleString('cs-CZ') : '—'}</div>
                           </div>
                           <div>
                             <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Technik</div>
                             <div className="text-sm" style={{ color: '#1a2e22' }}>{l.performed_by || '—'}</div>
+                          </div>
+                          <div className="flex-1 min-w-[200px]">
+                            <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Servisní záznam</div>
+                            <div className="text-sm" style={{ color: '#0f1a14', whiteSpace: 'pre-wrap' }}>{l.description || '—'}</div>
                           </div>
                         </div>
                         {/* Edit description */}

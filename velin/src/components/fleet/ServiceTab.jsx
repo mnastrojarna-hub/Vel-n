@@ -157,17 +157,38 @@ export default function ServiceTab({ motoId, motoMileage, logAudit }) {
       <Card>
         <SectionTitle>Historie servisu</SectionTitle>
         {logs.length === 0 ? <p style={{ color: '#1a2e22', fontSize: 13 }}>Žádné servisní záznamy</p> : (
-          <div className="space-y-2">
-            {logs.map(l => (
-              <div key={l.id} className="flex items-center gap-4 p-3 rounded-lg" style={{ background: '#f1faf7' }}>
-                <div className="flex-1">
-                  <span className="font-bold text-sm">{l.service_type || 'Servis'}</span>
-                  <span className="text-sm ml-3" style={{ color: '#1a2e22' }}>{l.created_at?.slice(0, 10)}</span>
-                  {l.mileage_at_service && <span className="text-sm ml-2 font-mono" style={{ color: '#1a2e22' }}>{l.mileage_at_service.toLocaleString('cs-CZ')} km</span>}
+          <div className="space-y-3">
+            {logs.map(l => {
+              const fmtDate = d => d ? new Date(d).toLocaleDateString('cs-CZ') : null
+              const startDate = fmtDate(l.scheduled_date) || fmtDate(l.created_at)
+              const endDate = fmtDate(l.completed_date)
+              const km = l.mileage_at_service || l.km_at_service
+              const isCompleted = !!l.completed_date || l.status === 'completed'
+              return (
+                <div key={l.id} className="p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{l.service_type || l.type || 'Servis'}</span>
+                    <span className="text-sm font-bold" style={{
+                      padding: '2px 8px', borderRadius: 6,
+                      background: isCompleted ? '#dcfce7' : '#fef3c7',
+                      color: isCompleted ? '#166534' : '#b45309',
+                    }}>{isCompleted ? 'Dokončeno' : 'V servisu'}</span>
+                    {(l.cost || l.total_cost) && <span className="text-sm font-bold ml-auto">{(l.cost || l.total_cost).toLocaleString('cs-CZ')} Kč</span>}
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-sm mb-2" style={{ color: '#1a2e22' }}>
+                    <div><span className="font-bold">Do servisu:</span> {startDate || '—'}</div>
+                    <div><span className="font-bold">Ze servisu:</span> {endDate || '—'}</div>
+                    <div><span className="font-bold">Km:</span> {km ? km.toLocaleString('cs-CZ') : '—'}</div>
+                  </div>
+                  {l.performed_by && <div className="text-sm mb-1" style={{ color: '#1a2e22' }}><span className="font-bold">Technik:</span> {l.performed_by}</div>}
+                  {l.description && (
+                    <div className="text-sm p-2 rounded" style={{ background: '#e8f5e9', color: '#0f1a14', whiteSpace: 'pre-wrap' }}>
+                      <span className="font-bold">Servisní záznam:</span> {l.description}
+                    </div>
+                  )}
                 </div>
-                <span className="text-sm font-bold">{l.total_cost ? `${l.total_cost.toLocaleString('cs-CZ')} Kč` : ''}</span>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </Card>
