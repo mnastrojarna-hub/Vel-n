@@ -50,4 +50,5 @@
 | `bookings_auto_accounting` | bookings (AFTER UPDATE OF payment_status, WHEN paid) | auto_accounting_on_booking_paid() — EXCEPTION safe |
 | `maintenance_log_after_insert` | maintenance_log | update_moto_after_service() |
 | ~~`sos_auto_reply_on_create`~~ | ~~sos_incidents (INSERT)~~ | **DROPPED 2026-03-10** — crashoval INSERT bez error handleru |
+| `trg_accessory_types_updated` | accessory_types | update_updated_at() |
 | Různé `_updated_at` triggery | více tabulek | update_updated_at() |

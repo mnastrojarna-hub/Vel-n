@@ -133,12 +133,23 @@
 
 ### branch_accessories
 - id (UUID PK), branch_id (FK→branches ON DELETE CASCADE)
-- type (TEXT CHECK: boots/helmet/balaclava/gloves/pants)
-- size (TEXT) — velikost (36-46 pro boty, XS-XXL pro ostatní, UNI pro kukly)
+- type (TEXT) — CHECK constraint odstraněn, typy se řídí tabulkou `accessory_types`
+- size (TEXT) — velikost (36-46 pro boty, XS-XXL pro ostatní, UNI pro kukly/spotřební)
 - quantity (INTEGER DEFAULT 0)
 - created_at, updated_at
 - UNIQUE(branch_id, type, size)
 - RLS: Admin full access
+- **Propojení se skladem:** Při přidání/zvýšení množství se strhne z `inventory` (SKU: `prislusenstvi-{type}-{size}`). Při snížení půjčovaného zboží se vrátí na sklad. Spotřební zboží se nevrací.
+
+### accessory_types
+- id (UUID PK), key (TEXT UNIQUE) — slug typu (boots, helmet, ubrousky...)
+- label (TEXT) — zobrazovaný název
+- sizes (TEXT[]) — povolené velikosti
+- is_consumable (BOOLEAN DEFAULT false) — spotřební zboží (kukly, ubrousky) vs. půjčované (boty, helmy)
+- sort_order (INTEGER DEFAULT 0), is_active (BOOLEAN DEFAULT true)
+- created_at, updated_at
+- RLS: Admin full access, Public read
+- Trigger: trg_accessory_types_updated → update_updated_at()
 
 ### branch_door_codes
 - id (UUID PK), branch_id (FK→branches ON DELETE CASCADE)
