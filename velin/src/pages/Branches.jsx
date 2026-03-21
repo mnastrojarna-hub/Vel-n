@@ -554,7 +554,7 @@ function BranchDetailModal({ branch, stats: branchStats, bookings, onClose, onEd
         <TabMotorcycles motos={motos} loading={loadingMotos} statusLabels={MOTO_STATUS} branchId={branch.id} onRefresh={loadMotos} />
       )}
       {tab === 2 && (
-        <TabAccessories accessories={accessories} loading={loadingAccessories} branchId={branch.id} onRefresh={loadAccessories} />
+        <TabAccessories accessories={accessories} loading={loadingAccessories} branchId={branch.id} branchName={branch.name} onRefresh={loadAccessories} />
       )}
       {tab === 3 && (
         <TabDoorCodes
@@ -777,80 +777,96 @@ function TabMotorcycles({ motos, loading, statusLabels, branchId, onRefresh }) {
 }
 
 // ─── Tab: Accessories ─────────────────────────────────────────────
-function TabAccessories({ accessories, loading, branchId, onRefresh }) {
+// ─── Inventory helpers for branch accessories ───────────────────
+function accSku(type, size) { return `prislusenstvi-${type}-${size}` }
+
+async function fetchInventoryMap() {
+  const { data } = await supabase
+    .from('inventory')
+    .select('id, sku, stock, name')
+    .eq('category', 'prislusenstvi')
+  const map = {}
+  ;(data || []).forEach(i => { map[i.sku] = i })
+  return map
+}
+
+async function deductFromWarehouse(sku, qty, branchName) {
+  const { data: inv } = await supabase
+    .from('inventory').select('id, stock').eq('sku', sku).single()
+  if (!inv || inv.stock < qty) return false
+  const { data: { user } } = await supabase.auth.getUser()
+  await supabase.from('inventory_movements').insert({
+    item_id: inv.id, type: 'issue', quantity: qty,
+    note: `Výdej na pobočku ${branchName}`, performed_by: user?.id,
+  })
+  await supabase.from('inventory').update({ stock: inv.stock - qty }).eq('id', inv.id)
+  return true
+}
+
+async function returnToWarehouse(sku, qty, branchName) {
+  const { data: inv } = await supabase
+    .from('inventory').select('id, stock').eq('sku', sku).single()
+  if (!inv || qty <= 0) return
+  const { data: { user } } = await supabase.auth.getUser()
+  await supabase.from('inventory_movements').insert({
+    item_id: inv.id, type: 'receipt', quantity: qty,
+    note: `Vráceno z pobočky ${branchName}`, performed_by: user?.id,
+  })
+  await supabase.from('inventory').update({ stock: inv.stock + qty }).eq('id', inv.id)
+}
+
+function TabAccessories({ accessories, loading, branchId, branchName, onRefresh }) {
   const [showAdd, setShowAdd] = useState(false)
   const [editItem, setEditItem] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [showFillAll, setShowFillAll] = useState(false)
 
   if (loading) return <Spinner />
 
-  // Group by type
   const grouped = {}
   ACCESSORY_TYPES.forEach(at => { grouped[at.key] = [] })
-  accessories.forEach(a => {
-    if (grouped[a.type]) grouped[a.type].push(a)
-  })
+  accessories.forEach(a => { if (grouped[a.type]) grouped[a.type].push(a) })
 
   async function handleSaveAccessory(item) {
     setSaving(true)
     try {
+      const sku = accSku(item.type, item.size)
+      const oldQty = item.id
+        ? (accessories.find(a => a.id === item.id)?.quantity || 0)
+        : 0
+      const delta = item.quantity - oldQty
+      if (delta > 0) {
+        const ok = await deductFromWarehouse(sku, delta, branchName)
+        if (!ok) { alert(`Nedostatek na skladě pro ${item.type} ${item.size}. Zkontrolujte sklad.`); return }
+      } else if (delta < 0) {
+        await returnToWarehouse(sku, Math.abs(delta), branchName)
+      }
       if (item.id) {
         const { error } = await supabase
-          .from('branch_accessories')
-          .update({ quantity: item.quantity })
-          .eq('id', item.id)
+          .from('branch_accessories').update({ quantity: item.quantity }).eq('id', item.id)
         if (error) throw error
       } else {
         const { error } = await supabase
-          .from('branch_accessories')
-          .upsert({
-            branch_id: branchId,
-            type: item.type,
-            size: item.size,
-            quantity: item.quantity,
+          .from('branch_accessories').upsert({
+            branch_id: branchId, type: item.type, size: item.size, quantity: item.quantity,
           }, { onConflict: 'branch_id,type,size' })
         if (error) throw error
       }
-      setEditItem(null)
-      setShowAdd(false)
-      onRefresh()
-    } catch (e) {
-      alert('Chyba: ' + e.message)
-    } finally {
-      setSaving(false)
-    }
+      setEditItem(null); setShowAdd(false); onRefresh()
+    } catch (e) { alert('Chyba: ' + e.message) } finally { setSaving(false) }
   }
 
   async function handleDeleteAccessory(id) {
-    if (!window.confirm('Smazat tuto položku příslušenství?')) return
+    const acc = accessories.find(a => a.id === id)
+    if (!acc) return
+    if (!window.confirm('Smazat tuto položku? Množství se vrátí na sklad.')) return
     try {
+      if (acc.quantity > 0) {
+        await returnToWarehouse(accSku(acc.type, acc.size), acc.quantity, branchName)
+      }
       await supabase.from('branch_accessories').delete().eq('id', id)
       onRefresh()
-    } catch (e) {
-      alert('Chyba: ' + e.message)
-    }
-  }
-
-  async function seedAllAccessories() {
-    if (!window.confirm('Naplnit sklad všemi typy příslušenství (s nulovým počtem)?')) return
-    setSaving(true)
-    try {
-      const rows = []
-      ACCESSORY_TYPES.forEach(at => {
-        at.sizes.forEach(size => {
-          rows.push({ branch_id: branchId, type: at.key, size, quantity: 0 })
-        })
-      })
-      const { error } = await supabase
-        .from('branch_accessories')
-        .upsert(rows, { onConflict: 'branch_id,type,size' })
-      if (error) throw error
-      onRefresh()
-    } catch (e) {
-      alert('Chyba: ' + e.message)
-    } finally {
-      setSaving(false)
-    }
+    } catch (e) { alert('Chyba: ' + e.message) }
   }
 
   const totalItems = accessories.reduce((s, a) => s + (a.quantity || 0), 0)
@@ -862,13 +878,11 @@ function TabAccessories({ accessories, loading, branchId, onRefresh }) {
           <strong>{accessories.length}</strong> typů, <strong>{totalItems}</strong> kusů celkem
         </div>
         <div className="flex gap-2">
-          {accessories.length === 0 && (
-            <button onClick={seedAllAccessories} disabled={saving}
-              className="rounded-btn text-sm font-bold cursor-pointer border-none"
-              style={{ padding: '5px 12px', background: '#dbeafe', color: '#2563eb' }}>
-              Naplnit vše
-            </button>
-          )}
+          <button onClick={() => setShowFillAll(true)} disabled={saving}
+            className="rounded-btn text-sm font-bold cursor-pointer border-none"
+            style={{ padding: '5px 12px', background: '#dbeafe', color: '#2563eb' }}>
+            Naplnit vše
+          </button>
           <button onClick={() => setShowAdd(true)}
             className="rounded-btn text-sm font-bold cursor-pointer border-none"
             style={{ padding: '5px 12px', background: '#1a2e22', color: '#74FB71' }}>
@@ -910,24 +924,46 @@ function TabAccessories({ accessories, loading, branchId, onRefresh }) {
         <AccessoryEditModal
           existing={editItem}
           branchId={branchId}
+          branchName={branchName}
           onSave={handleSaveAccessory}
           onDelete={editItem?.id ? () => handleDeleteAccessory(editItem.id) : null}
           onClose={() => { setShowAdd(false); setEditItem(null) }}
           saving={saving}
         />
       )}
+      {showFillAll && (
+        <FillAllModal
+          branchId={branchId}
+          branchName={branchName}
+          accessories={accessories}
+          onClose={() => setShowFillAll(false)}
+          onDone={() => { setShowFillAll(false); onRefresh() }}
+        />
+      )}
     </div>
   )
 }
 
-function AccessoryEditModal({ existing, branchId, onSave, onDelete, onClose, saving }) {
+function AccessoryEditModal({ existing, branchId, branchName, onSave, onDelete, onClose, saving }) {
   const [form, setForm] = useState({
     type: existing?.type || 'boots',
     size: existing?.size || '',
     quantity: existing?.quantity ?? 0,
   })
+  const [warehouseStock, setWarehouseStock] = useState(null)
 
   const typeConfig = ACCESSORY_TYPES.find(t => t.key === form.type)
+
+  useEffect(() => {
+    if (!form.size) { setWarehouseStock(null); return }
+    supabase.from('inventory').select('stock')
+      .eq('sku', accSku(form.type, form.size)).single()
+      .then(({ data }) => setWarehouseStock(data?.stock ?? 0))
+  }, [form.type, form.size])
+
+  const oldQty = existing?.quantity || 0
+  const delta = form.quantity - oldQty
+  const canSave = form.size && (delta <= 0 || (warehouseStock !== null && warehouseStock >= delta))
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.3)' }}>
@@ -959,6 +995,14 @@ function AccessoryEditModal({ existing, branchId, onSave, onDelete, onClose, sav
               ))}
             </select>
           </div>
+          {form.size && warehouseStock !== null && (
+            <div className="text-sm rounded-btn" style={{ padding: '6px 10px',
+              background: warehouseStock > 0 ? '#dcfce7' : '#fee2e2',
+              color: warehouseStock > 0 ? '#1a8a18' : '#dc2626' }}>
+              Sklad: <strong>{warehouseStock} ks</strong>
+              {warehouseStock === 0 && ' — není na skladě'}
+            </div>
+          )}
           <div>
             <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Počet kusů</label>
             <input type="number" min="0" value={form.quantity}
@@ -966,6 +1010,11 @@ function AccessoryEditModal({ existing, branchId, onSave, onDelete, onClose, sav
               className="w-full rounded-btn text-sm outline-none"
               style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
           </div>
+          {delta > 0 && warehouseStock !== null && warehouseStock < delta && (
+            <div className="text-sm" style={{ color: '#dc2626' }}>
+              Potřeba {delta} ks, na skladě pouze {warehouseStock} ks
+            </div>
+          )}
         </div>
         <div className="flex justify-between mt-4">
           <div>
@@ -985,12 +1034,141 @@ function AccessoryEditModal({ existing, branchId, onSave, onDelete, onClose, sav
             </button>
             <button
               onClick={() => onSave({ id: existing?.id, type: form.type, size: form.size, quantity: form.quantity })}
-              disabled={saving || !form.size}
+              disabled={saving || !canSave}
               className="rounded-btn text-sm font-bold cursor-pointer border-none"
-              style={{ padding: '6px 14px', background: '#1a2e22', color: '#74FB71', opacity: saving || !form.size ? 0.5 : 1 }}>
+              style={{ padding: '6px 14px', background: '#1a2e22', color: '#74FB71', opacity: saving || !canSave ? 0.5 : 1 }}>
               {saving ? 'Ukládám...' : 'Uložit'}
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Fill All Modal ──────────────────────────────────────────────
+function FillAllModal({ branchId, branchName, accessories, onClose, onDone }) {
+  const [invMap, setInvMap] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    fetchInventoryMap().then(map => { setInvMap(map); setLoading(false) })
+  }, [])
+
+  if (loading || !invMap) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.3)' }}>
+        <div className="rounded-card" style={{ background: '#fff', padding: 24, minWidth: 360 }}>
+          <Spinner />
+        </div>
+      </div>
+    )
+  }
+
+  const existingMap = {}
+  accessories.forEach(a => { existingMap[`${a.type}-${a.size}`] = a.quantity || 0 })
+
+  const lines = []
+  let canFill = 0, missing = 0
+  ACCESSORY_TYPES.forEach(at => {
+    at.sizes.forEach(size => {
+      const sku = accSku(at.key, size)
+      const inv = invMap[sku]
+      const stock = inv?.stock || 0
+      const current = existingMap[`${at.key}-${size}`] || 0
+      const toAdd = current === 0 ? Math.min(1, stock) : 0
+      lines.push({ type: at.key, size, label: at.label, stock, current, toAdd, sku })
+      if (toAdd > 0) canFill++
+      if (stock === 0 && current === 0) missing++
+    })
+  })
+
+  async function handleConfirm() {
+    setSaving(true)
+    try {
+      const rows = []
+      for (const l of lines) {
+        if (l.toAdd > 0) {
+          const ok = await deductFromWarehouse(l.sku, l.toAdd, branchName)
+          if (!ok) continue
+        }
+        rows.push({ branch_id: branchId, type: l.type, size: l.size, quantity: l.current + l.toAdd })
+      }
+      if (rows.length > 0) {
+        const { error } = await supabase
+          .from('branch_accessories')
+          .upsert(rows, { onConflict: 'branch_id,type,size' })
+        if (error) throw error
+      }
+      onDone()
+    } catch (e) { alert('Chyba: ' + e.message) } finally { setSaving(false) }
+  }
+
+  const fillLines = lines.filter(l => l.toAdd > 0)
+  const missingLines = lines.filter(l => l.stock === 0 && l.current === 0)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.3)' }}>
+      <div className="rounded-card" style={{ background: '#fff', padding: 24, minWidth: 380, maxWidth: 500, maxHeight: '80vh', overflow: 'auto' }}>
+        <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>
+          Naplnit pobočku ze skladu
+        </h3>
+
+        {fillLines.length > 0 && (
+          <div className="mb-3">
+            <div className="text-sm font-bold mb-1" style={{ color: '#1a8a18' }}>
+              Doplní se ({fillLines.length}):
+            </div>
+            {fillLines.map(l => (
+              <div key={`${l.type}-${l.size}`} className="flex items-center justify-between text-sm py-1"
+                style={{ borderBottom: '1px solid #d4e8e0' }}>
+                <span>{l.label} {l.size}</span>
+                <span style={{ color: '#1a8a18' }}>+{l.toAdd} ks (sklad: {l.stock})</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {missingLines.length > 0 && (
+          <div className="mb-3">
+            <div className="text-sm font-bold mb-1" style={{ color: '#dc2626' }}>
+              Chybí na skladě ({missingLines.length}):
+            </div>
+            {missingLines.map(l => (
+              <div key={`${l.type}-${l.size}`} className="text-sm py-1"
+                style={{ color: '#dc2626', borderBottom: '1px solid #fee2e2' }}>
+                {l.label} {l.size} — 0 ks na skladě
+              </div>
+            ))}
+          </div>
+        )}
+
+        {fillLines.length === 0 && missingLines.length === 0 && (
+          <div className="text-sm py-2" style={{ color: '#1a2e22' }}>
+            Všechny položky jsou již na pobočce.
+          </div>
+        )}
+
+        {fillLines.length === 0 && missingLines.length > 0 && (
+          <div className="text-sm py-2 font-bold" style={{ color: '#dc2626' }}>
+            Sklad je prázdný — nelze naplnit. Doplňte sklad přes příjem zboží.
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2 mt-4">
+          <button onClick={onClose}
+            className="rounded-btn text-sm font-bold cursor-pointer border-none"
+            style={{ padding: '6px 14px', background: '#f1faf7', color: '#1a2e22' }}>
+            Zavřít
+          </button>
+          {fillLines.length > 0 && (
+            <button onClick={handleConfirm} disabled={saving}
+              className="rounded-btn text-sm font-bold cursor-pointer border-none"
+              style={{ padding: '6px 14px', background: '#1a2e22', color: '#74FB71', opacity: saving ? 0.5 : 1 }}>
+              {saving ? 'Přenáším...' : `Potvrdit (${canFill} položek)`}
+            </button>
+          )}
         </div>
       </div>
     </div>
