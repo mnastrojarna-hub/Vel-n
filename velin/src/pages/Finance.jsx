@@ -23,6 +23,7 @@ const TaxReturnsTab = lazy(() => import('./accounting/TaxReturnsTab'))
 const ShortTermAssetsTab = lazy(() => import('./accounting/ShortTermAssetsTab'))
 const LongTermAssetsTab = lazy(() => import('./accounting/LongTermAssetsTab'))
 const LiabilitiesTab = lazy(() => import('./accounting/LiabilitiesTab'))
+const ReportsTab = lazy(() => import('./accounting/ReportsTab'))
 
 const PERIODS = [
   { value: 'month', label: 'Měsíc' },
@@ -47,6 +48,7 @@ const ACCOUNTING_SUBTABS = [
   { id: 'short_assets', label: 'Krátkodobý majetek' },
   { id: 'long_assets', label: 'Dlouhodobý majetek' },
   { id: 'liabilities', label: 'Závazky' },
+  { id: 'reports', label: 'Výkazy a přiznání' },
 ]
 
 export default function Finance() {
@@ -272,6 +274,7 @@ export default function Finance() {
           {accountingSubTab === 'short_assets' && <ShortTermAssetsTab />}
           {accountingSubTab === 'long_assets' && <LongTermAssetsTab />}
           {accountingSubTab === 'liabilities' && <LiabilitiesTab />}
+          {accountingSubTab === 'reports' && <ReportsTab />}
           </ErrorBoundary>
         </div>
       )}

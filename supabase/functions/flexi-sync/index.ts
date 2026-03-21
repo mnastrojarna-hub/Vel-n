@@ -65,11 +65,13 @@ Deno.serve(async (req: Request) => {
 
     // ── POST: dispatch by action ──
     const body = await req.json()
-    const { action, id, period, year } = body as {
+    const { action, id, period, year, quarter, params } = body as {
       action: string
       id?: string
       period?: string
       year?: number
+      quarter?: number
+      params?: Record<string, unknown>
     }
 
     if (!action) {
@@ -103,6 +105,80 @@ Deno.serve(async (req: Request) => {
         if (!year) return jsonResponse({ error: 'Missing year' }, 400)
         result = await pullAccountingState(flexiBase, flexiAuth, year)
         break
+
+      // ─── PULL: Reports from Flexi → flexi_reports ──────────
+      case 'pullVatReturn': {
+        if (!year || !quarter) return jsonResponse({ error: 'Missing year or quarter' }, 400)
+        result = await pullReport(supabase, flexiBase, flexiAuth, 'vat_return', year, quarter,
+          `/dph-prizn.json?rok=${year}&ctvrtleti=${quarter}`)
+        break
+      }
+      case 'pullIncomeTax': {
+        if (!year) return jsonResponse({ error: 'Missing year' }, 400)
+        result = await pullReport(supabase, flexiBase, flexiAuth, 'income_tax', year, null,
+          `/danove-priznani.json?rok=${year}`)
+        break
+      }
+      case 'pullBalanceSheet': {
+        if (!year) return jsonResponse({ error: 'Missing year' }, 400)
+        result = await pullReport(supabase, flexiBase, flexiAuth, 'balance_sheet', year, null,
+          `/rozvaha.json?rok=${year}`)
+        break
+      }
+      case 'pullProfitLoss': {
+        if (!year) return jsonResponse({ error: 'Missing year' }, 400)
+        result = await pullReport(supabase, flexiBase, flexiAuth, 'profit_loss', year, null,
+          `/vysledovka.json?rok=${year}`)
+        break
+      }
+      case 'pullOSSZ': {
+        if (!year) return jsonResponse({ error: 'Missing year' }, 400)
+        result = await pullReport(supabase, flexiBase, flexiAuth, 'ossz', year, null,
+          `/prehled-ossz.json?rok=${year}`)
+        break
+      }
+      case 'pullVZP': {
+        if (!year) return jsonResponse({ error: 'Missing year' }, 400)
+        result = await pullReport(supabase, flexiBase, flexiAuth, 'vzp', year, null,
+          `/prehled-vzp.json?rok=${year}`)
+        break
+      }
+      case 'pullAll': {
+        if (!year) return jsonResponse({ error: 'Missing year' }, 400)
+        const results: Record<string, unknown> = {}
+        const pullActions = [
+          { type: 'balance_sheet', path: `/rozvaha.json?rok=${year}` },
+          { type: 'profit_loss', path: `/vysledovka.json?rok=${year}` },
+          { type: 'income_tax', path: `/danove-priznani.json?rok=${year}` },
+          { type: 'ossz', path: `/prehled-ossz.json?rok=${year}` },
+          { type: 'vzp', path: `/prehled-vzp.json?rok=${year}` },
+        ]
+        for (const pa of pullActions) {
+          try {
+            results[pa.type] = await pullReport(supabase, flexiBase, flexiAuth, pa.type, year, null, pa.path)
+          } catch (e) {
+            results[pa.type] = { ok: false, error: (e as Error).message }
+          }
+        }
+        // VAT returns for each quarter
+        for (let q = 1; q <= 4; q++) {
+          try {
+            results[`vat_return_Q${q}`] = await pullReport(supabase, flexiBase, flexiAuth, 'vat_return', year, q,
+              `/dph-prizn.json?rok=${year}&ctvrtleti=${q}`)
+          } catch (e) {
+            results[`vat_return_Q${q}`] = { ok: false, error: (e as Error).message }
+          }
+        }
+        result = { ok: true, year, results }
+        break
+      }
+      case 'exportXml': {
+        if (!id) return jsonResponse({ error: 'Missing id' }, 400)
+        const { data: report } = await supabase.from('flexi_reports').select('*').eq('id', id).single()
+        if (!report) return jsonResponse({ error: 'Report not found' }, 404)
+        result = { ok: true, xml: JSON.stringify(report.raw_data, null, 2), report_type: report.report_type }
+        break
+      }
 
       default:
         return jsonResponse({ error: `Unknown action: ${action}` }, 400)
@@ -373,6 +449,64 @@ async function flexiGet(
   } catch (err) {
     return { responseBody: null, responseCode: null, error: (err as Error).message }
   }
+}
+
+// ─── PULL REPORT: Generic Flexi → flexi_reports ─────────────────
+
+async function pullReport(
+  supabase: ReturnType<typeof createClient>,
+  flexiBase: string,
+  flexiAuth: string,
+  reportType: string,
+  year: number,
+  quarter: number | null,
+  flexiPath: string
+) {
+  const { responseBody, responseCode, error } = await flexiGet(
+    `${flexiBase}${flexiPath}`,
+    flexiAuth
+  )
+
+  if (error || !responseCode || responseCode >= 400) {
+    return { ok: false, error: error || `Flexi ${responseCode}`, report_type: reportType }
+  }
+
+  // Calculate period dates
+  const periodFrom = quarter
+    ? `${year}-${String((quarter - 1) * 3 + 1).padStart(2, '0')}-01`
+    : `${year}-01-01`
+  const periodTo = quarter
+    ? `${year}-${String(quarter * 3).padStart(2, '0')}-${quarter === 1 || quarter === 4 ? '31' : quarter === 2 ? '30' : '30'}`
+    : `${year}-12-31`
+
+  // Upsert — use report_type + year + quarter as conflict key
+  const record: Record<string, unknown> = {
+    report_type: reportType,
+    year,
+    quarter: quarter || null,
+    period_from: periodFrom,
+    period_to: periodTo,
+    raw_data: responseBody,
+    status: 'draft',
+  }
+
+  // For reports with quarter, use the quarter-specific unique index
+  // For reports without quarter, use the year-specific unique index
+  const { error: upsertErr } = quarter
+    ? await supabase.from('flexi_reports')
+        .upsert(record, { onConflict: 'report_type,year,quarter', ignoreDuplicates: false })
+    : await supabase.from('flexi_reports')
+        .upsert(record, { onConflict: 'report_type,year', ignoreDuplicates: false })
+
+  if (upsertErr) {
+    console.error('flexi_reports upsert failed:', upsertErr.message)
+    return { ok: false, error: upsertErr.message, report_type: reportType }
+  }
+
+  // Log the pull
+  await logSync(supabase, null as any, 'pull', reportType, { path: flexiPath }, responseCode, null, null)
+
+  return { ok: true, report_type: reportType, year, quarter }
 }
 
 // ─── DB HELPERS ──────────────────────────────────────────────────
