@@ -193,6 +193,16 @@ function OrderDetail({ order, onClose, onUpdated }) {
         const { data: inv } = await supabase.from('inventory').select('stock').eq('id', item.item_id).single()
         if (inv) await supabase.from('inventory').update({ stock: (inv.stock || 0) + item.quantity }).eq('id', item.item_id)
       }
+      // Also update e-shop product stock if SKU matches
+      if (item.sku && item.quantity) {
+        const { data: product } = await supabase.from('products')
+          .select('id, stock_quantity').eq('sku', item.sku).single()
+        if (product) {
+          await supabase.from('products')
+            .update({ stock_quantity: (product.stock_quantity || 0) + item.quantity })
+            .eq('id', product.id)
+        }
+      }
     }
     onUpdated()
   }

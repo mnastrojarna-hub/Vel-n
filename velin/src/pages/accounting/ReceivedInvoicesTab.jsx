@@ -468,6 +468,8 @@ const EXPENSE_CATEGORIES = [
   { value: 'kancelar', label: 'Kancelář' },
   { value: 'mzdy', label: 'Mzdy' },
   { value: 'dane_odvody', label: 'Daně / Odvody' },
+  { value: 'zbozi_eshop', label: 'Zboží (e-shop)' },
+  { value: 'material', label: 'Materiál' },
   { value: 'ostatni_naklady', label: 'Ostatní náklady' },
 ]
 
@@ -478,6 +480,29 @@ const PAYMENT_OPTIONS = [
   { value: 'card', label: 'Karta' },
 ]
 
+// AI auto-classification based on supplier name, notes, and business context
+function guessExpenseCategory(supplier, notes) {
+  const text = ((supplier || '') + ' ' + (notes || '')).toLowerCase()
+  const rules = [
+    { keywords: ['benzin', 'phm', 'nafta', 'cerpaci', 'shell', 'omv', 'mol', 'orlen', 'eni', 'palivo'], cat: 'phm' },
+    { keywords: ['pojist', 'generali', 'allianz', 'kooper', 'ceska_pojistovna', 'uniqa', 'csob poj'], cat: 'pojisteni' },
+    { keywords: ['servis', 'oprava', 'udrzba', 'pneu', 'olej', 'filtr', 'brzdov', 'retez', 'moto dil', 'nahradni', 'dily'], cat: 'servis_opravy' },
+    { keywords: ['najem', 'pronajem', 'rent', 'nebytov'], cat: 'najem' },
+    { keywords: ['elektr', 'plyn', 'voda', 'teplo', 'energie', 'cez', 'eon', 'pre', 'innogy'], cat: 'energie' },
+    { keywords: ['telefon', 'mobil', 'internet', 'hosting', 'domena', 'vodafone', 'o2', 't-mobile', 'server'], cat: 'telekomunikace' },
+    { keywords: ['reklam', 'market', 'propagac', 'inzer', 'google', 'facebook', 'meta', 'instagram', 'tisk', 'letak'], cat: 'marketing' },
+    { keywords: ['kancelar', 'papir', 'toner', 'tisk', 'kancelarsk'], cat: 'kancelar' },
+    { keywords: ['mzd', 'plat', 'odmena', 'dpp', 'dpc'], cat: 'mzdy' },
+    { keywords: ['dan', 'cssz', 'vzp', 'pojistn', 'finan.urad', 'fu '], cat: 'dane_odvody' },
+    { keywords: ['helma', 'rukavice', 'bunda', 'kalhoty', 'boty', 'kukla', 'obleceni', 'vystroj', 'prislusenstvi'], cat: 'zbozi_eshop' },
+    { keywords: ['material', 'sroub', 'podlozk', 'hadice'], cat: 'material' },
+  ]
+  for (const rule of rules) {
+    if (rule.keywords.some(k => text.includes(k))) return rule.cat
+  }
+  return 'ostatni_naklady'
+}
+
 function AddReceivedModal({ onClose, onSaved }) {
   const [form, setForm] = useState({
     number: '', supplier: '', supplier_ico: '', supplier_bank_account: '',
@@ -487,8 +512,18 @@ function AddReceivedModal({ onClose, onSaved }) {
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
   const [supplierSuggestions, setSupplierSuggestions] = useState([])
+  const [aiSuggested, setAiSuggested] = useState(false)
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  // Auto-classify when supplier or notes change
+  function autoClassify(supplier, notes) {
+    const guess = guessExpenseCategory(supplier, notes)
+    if (guess) {
+      setForm(f => ({ ...f, category: guess }))
+      setAiSuggested(true)
+    }
+  }
 
   async function searchSupplier(name) {
     set('supplier', name)
@@ -497,6 +532,8 @@ function AddReceivedModal({ onClose, onSaved }) {
       .select('name, ico, bank_account, default_category')
       .ilike('name', `%${name}%`).limit(5)
     setSupplierSuggestions(data || [])
+    // Auto-classify based on supplier name
+    if (!data || data.length === 0) autoClassify(name, form.notes)
   }
 
   function selectSupplier(s) {
@@ -505,14 +542,20 @@ function AddReceivedModal({ onClose, onSaved }) {
       supplier: s.name,
       supplier_ico: s.ico || f.supplier_ico,
       supplier_bank_account: s.bank_account || f.supplier_bank_account,
-      category: s.default_category || f.category,
+      category: s.default_category || guessExpenseCategory(s.name, f.notes),
     }))
+    setAiSuggested(!s.default_category)
     setSupplierSuggestions([])
   }
 
   async function handleSave() {
     if (!form.number || !form.total) return setErr('Vyplňte číslo faktury a částku.')
-    if (!form.category) return setErr('Vyberte typ nákladu.')
+    if (!form.category) {
+      // Last resort auto-classify
+      const guess = guessExpenseCategory(form.supplier, form.notes)
+      if (guess) { set('category', guess); return setErr('AI navrhl kategorii — zkontrolujte a uložte znovu.') }
+      return setErr('Vyberte typ nákladu.')
+    }
     setSaving(true); setErr(null)
     try {
       // 1. Create received invoice
@@ -644,15 +687,15 @@ function AddReceivedModal({ onClose, onSaved }) {
           </div>
         </div>
         <div>
-          <Label>Typ nákladu *</Label>
-          <select value={form.category} onChange={e => set('category', e.target.value)}
-            className="w-full rounded-btn text-sm outline-none" style={inputStyle}>
+          <Label>Typ nákladu * {aiSuggested && <span style={{ color: '#7c3aed', fontWeight: 400, fontSize: 10 }}>(AI návrh)</span>}</Label>
+          <select value={form.category} onChange={e => { set('category', e.target.value); setAiSuggested(false) }}
+            className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, borderColor: aiSuggested ? '#7c3aed' : '#d4e8e0' }}>
             {EXPENSE_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
           </select>
         </div>
         <div>
           <Label>Poznámka</Label>
-          <textarea value={form.notes} onChange={e => set('notes', e.target.value)}
+          <textarea value={form.notes} onChange={e => { set('notes', e.target.value); if (!form.category || aiSuggested) autoClassify(form.supplier, e.target.value) }}
             className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }}
             placeholder="Popis, za co je faktura…" />
         </div>

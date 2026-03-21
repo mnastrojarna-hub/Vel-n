@@ -46,10 +46,12 @@ export default function Fleet() {
   const [bookingCounts, setBookingCounts] = useState({})
   const [todayOccupied, setTodayOccupied] = useState(new Set())
   const [dateOccupied, setDateOccupied] = useState(new Set())
+  const [missingAssetDocs, setMissingAssetDocs] = useState(new Set())
 
   useEffect(() => {
     loadBranches()
     loadBookingStats()
+    loadAssetDocStatus()
   }, [])
 
   useEffect(() => {
@@ -85,6 +87,21 @@ export default function Fleet() {
       })
       setBookingCounts(counts)
       setTodayOccupied(todaySet)
+    } catch {}
+  }
+
+  async function loadAssetDocStatus() {
+    try {
+      const { data } = await supabase.from('acc_long_term_assets')
+        .select('motorcycle_id, missing_purchase_doc, invoice_number')
+        .not('motorcycle_id', 'is', null)
+      const missing = new Set()
+      for (const a of (data || [])) {
+        if (a.missing_purchase_doc || (!a.invoice_number && a.motorcycle_id)) {
+          missing.add(a.motorcycle_id)
+        }
+      }
+      setMissingAssetDocs(missing)
     } catch {}
   }
 
@@ -243,7 +260,12 @@ export default function Fleet() {
                       <div style={{ width: 48, height: 36, borderRadius: 6, background: '#f1faf7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: '#1a2e22' }}>🏍️</div>
                     )}
                   </TD>
-                  <TD bold>{m.model}</TD>
+                  <TD bold>
+                    <span>{m.model}</span>
+                    {missingAssetDocs.has(m.id) && (
+                      <span className="ml-1 text-xs font-bold" style={{ color: '#dc2626' }} title="Chybí doklad o nabytí v majetku">!</span>
+                    )}
+                  </TD>
                   <TD mono>{m.spz}</TD>
                   <TD>{CAT_LABELS[m.category] || m.category || '—'}</TD>
                   <TD>{m.branches?.name || '—'}</TD>

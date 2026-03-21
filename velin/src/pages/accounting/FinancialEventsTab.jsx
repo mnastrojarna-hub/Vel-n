@@ -193,7 +193,8 @@ export default function FinancialEventsTab() {
   async function deleteEvent(event) {
     setActionId(event.id); setResultMsg(null)
     try {
-      // CASCADE deletes linked liability
+      // Clean up related exceptions + CASCADE deletes linked liability
+      await supabase.from('accounting_exceptions').delete().eq('financial_event_id', event.id)
       const { error: err } = await supabase.from('financial_events')
         .delete().eq('id', event.id)
       if (err) throw err
@@ -411,9 +412,9 @@ function EvRow({ ev, st, tp, catLabel, supplierName, isExpanded, isActing, fmt, 
               style={{ color: '#b45309', background: '#fef3c7', border: '1px solid #fcd34d', padding: '4px 10px' }}>
               Upravit
             </button>
-            <button onClick={onDelete}
+            <button onClick={onDelete} disabled={isActing}
               className="text-sm font-bold cursor-pointer rounded"
-              style={{ color: '#dc2626', background: '#fee2e2', border: '1px solid #fca5a5', padding: '4px 10px' }}>
+              style={{ color: '#dc2626', background: '#fee2e2', border: '1px solid #fca5a5', padding: '4px 10px', opacity: isActing ? 0.5 : 1 }}>
               Smazat
             </button>
             <button onClick={onExpand}
