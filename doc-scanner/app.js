@@ -5,7 +5,7 @@
 
 const CONFIG = {
   EDGE_FUNCTION_URL: 'https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/receive-invoice',
-  API_KEY: 'INVOICE_API_KEY_SEM',
+  API_KEY: 'a745cb2badbe46899e16447c092299fe9447ef520523a0f5b379605c8e884829',
   MAX_IMAGE_SIZE_MB: 4
 }
 
