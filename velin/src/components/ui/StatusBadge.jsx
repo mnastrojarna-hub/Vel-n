@@ -29,8 +29,6 @@ export function getDisplayStatus(booking) {
     // end_date < today → expired, show as completed
     if (endLocal && endLocal < todayLocal) return 'completed'
     if (startLocal > todayLocal) return 'upcoming'
-    // start_date <= today <= end_date → active
-    if (booking.status === 'reserved' && startLocal <= todayLocal) return 'active'
   }
   return booking.status
 }

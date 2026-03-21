@@ -1226,7 +1226,7 @@ function Timeline({ booking }) {
   const steps = [
     { label: 'Vytvořeno', done: true, time: booking.created_at },
     { label: 'Rezervováno', done: ['reserved', 'active', 'completed'].includes(booking.status), time: booking.confirmed_at },
-    { label: 'Vydáno', done: ['active', 'completed'].includes(booking.status), time: booking.picked_up_at },
+    { label: 'Vydáno', done: ['active', 'completed'].includes(booking.status) && !!booking.picked_up_at, time: booking.picked_up_at },
     { label: 'Vráceno', done: booking.status === 'completed', time: booking.returned_at },
   ]
 
