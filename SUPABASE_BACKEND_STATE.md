@@ -1,5 +1,5 @@
 # SUPABASE BACKEND STATE — MotoGo24
-> **Poslední aktualizace:** 2026-03-21 12:00 UTC
+> **Poslední aktualizace:** 2026-03-21 12:30 UTC
 > **Zdroj:** Reálný stav Supabase databáze (SQL dump z dashboardu) + Edge Functions
 > **Projekt:** `vnwnqteskbykeucanlhk.supabase.co`
 > **POZOR:** Tento soubor MUSÍ být aktualizován při každé SQL změně!
@@ -63,6 +63,8 @@
 | `notification_log` | Log notifikací |
 | `notification_rules` | Pravidla notifikací |
 | `push_tokens` | Push tokeny zařízení |
+| `message_log` | Centrální log všech odeslaných zpráv (SMS, WhatsApp, email) — channel, recipient, template_slug, status, provider_response, metadata |
+| `message_templates_sms` | SMS/WhatsApp šablony (slug unikátní, body_template s {{placeholdery}}) |
 
 ### Dokumenty a faktury
 
@@ -306,6 +308,8 @@
 | `check_booking_overlap()` | Trigger funkce: kontrola překrytí rezervací |
 | `generate_shop_invoice()` | Trigger funkce: auto-faktura při zaplacení shop objednávky (type='shop_final', source='shop', SECURITY DEFINER) |
 | `auto_process_voucher_order()` | BEFORE UPDATE trigger na shop_orders: při payment_status→'paid' automaticky generuje voucher kódy, posílá in-app notifikaci, nastavuje status (delivered pro digitální, confirmed pro mixed). SECURITY DEFINER |
+| `send_message_via_edge(channel, recipient, slug, vars, customer_id, booking_id)` | Odešle zprávu přes Edge Function `send-message` pomocí pg_net. Loguje do `message_log`. SECURITY DEFINER |
+| `send_sms_and_wa(to, slug, vars, customer_id, booking_id)` | Helper: odešle SMS + WhatsApp přes `send_message_via_edge`. SECURITY DEFINER |
 | `mark_thread_messages_read(p_thread_id)` | RPC: označí admin zprávy ve vlákně jako přečtené (read_at=now). Ověřuje vlastnictví vlákna. SECURITY DEFINER |
 | `get_unread_thread_message_count(p_customer_id)` | RPC: vrací počet nepřečtených admin zpráv napříč všemi vlákny zákazníka. SECURITY DEFINER |
 | `auto_generate_door_codes()` | Trigger funkce: auto-generuje 2 přístupové kódy (motorcycle+accessories) při přechodu bookingu na 'active'. Kontroluje doklady zákazníka, posílá kódy jako admin_message. SECURITY DEFINER, EXCEPTION safe |
@@ -371,6 +375,11 @@
 | `trg_auto_generate_door_codes` | bookings (AFTER UPDATE OF status, WHEN →active) | auto_generate_door_codes() — SECURITY DEFINER, generuje 2 kódy (motorcycle+accessories), posílá admin_message. EXCEPTION safe |
 | `trg_auto_generate_door_codes_insert` | bookings (AFTER INSERT, WHEN status=active) | auto_generate_door_codes() — pro SOS replacement bookings vytvořené rovnou jako active |
 | `trg_auto_deactivate_door_codes` | bookings (AFTER UPDATE OF status, WHEN →completed/cancelled) | auto_deactivate_door_codes() — deaktivuje is_active=false. EXCEPTION safe |
+| `trg_notify_booking_confirmed` | bookings (AFTER INSERT/UPDATE OF status, WHEN reserved) | trg_notify_booking_confirmed() — SMS+WA potvrzení rezervace. Dedup přes message_log. SECURITY DEFINER |
+| `trg_notify_door_codes` | branch_door_codes (AFTER INSERT, WHEN motorcycle) | trg_notify_door_codes() — SMS+WA přístupové kódy. Dedup přes message_log. SECURITY DEFINER |
+| `trg_notify_booking_cancelled` | bookings (AFTER UPDATE OF status, WHEN →cancelled) | trg_notify_booking_cancelled() — SMS+WA storno. Dedup přes message_log. SECURITY DEFINER |
+| `trg_notify_ride_completed` | bookings (AFTER UPDATE OF status, WHEN →completed) | trg_notify_ride_completed() — SMS+WA dokončení jízdy + review link. Dedup přes message_log. SECURITY DEFINER |
+| `trg_notify_voucher_purchased` | vouchers (AFTER INSERT, WHEN active) | trg_notify_voucher_purchased() — SMS voucher info. Dedup přes message_log. SECURITY DEFINER |
 
 ### Další triggery v reálné DB
 | Trigger | Tabulka | Funkce |
@@ -445,6 +454,8 @@ Detailní politiky:
 | `process-payment` | Stripe platební brána (TEST mode). Podporuje booking i shop platby (parametr `type`). Vytváří Checkout Session (redirect) + PaymentIntent (Stripe Elements). Vrací `checkout_url`, `session_id`, `client_secret` |
 | `scan-document` | OCR skenování dokladů (OP, ŘP, pas) přes Mindee API. Přijímá base64 JPEG + document_type (id/dl/passport), vrací strukturovaná data (jméno, datum narození, adresa, číslo ŘP, kategorie atd.). Retry 3×, loguje do debug_log |
 | `webhook-receiver` | Příjem Stripe webhooků v repozitáři. Ověřuje signature, zpracovává checkout.session.completed a payment_intent.succeeded |
+| `send-message` | Centrální odesílání zpráv (SMS/WhatsApp přes Twilio, email přes Resend). Přijímá channel, recipient, template_slug, template_vars. Loguje do message_log |
+| `send-invoice-email` | Odesílání faktur emailem zákazníkům |
 
 ### Pouze v Supabase dashboardu (11 dalších)
 
@@ -492,6 +503,9 @@ Detailní politiky:
 | `STRIPE_WEBHOOK_SECRET` | webhook-receiver (ověření Stripe signature) |
 | `ADMIN_EMAIL` | SOS notifikace, cron alerty |
 | `ADMIN_PHONE` | SOS SMS notifikace |
+| `TWILIO_ACCOUNT_SID` | send-message (Twilio SMS/WhatsApp) |
+| `TWILIO_AUTH_TOKEN` | send-message (Twilio SMS/WhatsApp) |
+| `TWILIO_PHONE_NUMBER` | send-message (Twilio odesílací číslo) |
 
 ---
 
