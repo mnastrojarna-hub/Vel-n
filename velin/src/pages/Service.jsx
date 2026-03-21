@@ -144,10 +144,12 @@ function ActiveServiceTab({ onRefresh }) {
         }
       }
       const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('admin_audit_log').insert({
-        admin_id: user?.id, action: 'service_completed',
-        details: { log_id: logEntry.id, moto_id: logEntry.moto_id },
-      }).catch(() => {})
+      try {
+        await supabase.from('admin_audit_log').insert({
+          admin_id: user?.id, action: 'service_completed',
+          details: { log_id: logEntry.id, moto_id: logEntry.moto_id },
+        })
+      } catch {}
       await load()
       onRefresh?.()
     } catch (e) {
@@ -175,10 +177,12 @@ function ActiveServiceTab({ onRefresh }) {
       }).eq('moto_id', moto.id).is('completed_date', null)
 
       const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('admin_audit_log').insert({
-        admin_id: user?.id, action: 'service_ended_direct',
-        details: { moto_id: moto.id, model: moto.model },
-      }).catch(() => {})
+      try {
+        await supabase.from('admin_audit_log').insert({
+          admin_id: user?.id, action: 'service_ended_direct',
+          details: { moto_id: moto.id, model: moto.model },
+        })
+      } catch {}
       await load()
       onRefresh?.()
     } catch (e) {
