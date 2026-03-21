@@ -133,6 +133,19 @@ export default function FinancialEventsTab() {
     finally { setActionId(null) }
   }
 
+  async function deleteEvent(event) {
+    if (!window.confirm(`Opravdu smazat událost ${event.id.slice(0, 8)}… (${event.metadata?.supplier_name || '?'}, ${(event.amount_czk || 0).toLocaleString('cs-CZ')} Kč)?`)) return
+    setActionId(event.id); setResultMsg(null)
+    try {
+      await supabase.from('accounting_exceptions').delete().eq('financial_event_id', event.id)
+      const { error: err } = await supabase.from('financial_events').delete().eq('id', event.id)
+      if (err) throw err
+      setResultMsg('Událost smazána')
+      await load()
+    } catch (e) { setResultMsg(`Chyba: ${e.message}`) }
+    finally { setActionId(null) }
+  }
+
   function toggleStatus(st) {
     setPage(1)
     setStatusFilter(prev => prev.includes(st) ? prev.filter(s => s !== st) : [...prev, st])
@@ -215,7 +228,7 @@ export default function FinancialEventsTab() {
                     supplierName={supplierName} isExpanded={isExpanded} isActing={isActing}
                     fmt={fmt} onExpand={() => setExpandedId(isExpanded ? null : ev.id)}
                     onApprove={() => approveEvent(ev)} onFlexi={() => pushToFlexi(ev)}
-                    onEdit={() => setEditEvent(ev)} />
+                    onEdit={() => setEditEvent(ev)} onDelete={() => deleteEvent(ev)} />
                 )
               })}
               {events.length === 0 && <TRow><TD>Žádné finanční události</TD></TRow>}
@@ -241,7 +254,7 @@ export default function FinancialEventsTab() {
   )
 }
 
-function EvRow({ ev, st, tp, catLabel, supplierName, isExpanded, isActing, fmt, onExpand, onApprove, onFlexi, onEdit }) {
+function EvRow({ ev, st, tp, catLabel, supplierName, isExpanded, isActing, fmt, onExpand, onApprove, onFlexi, onEdit, onDelete }) {
   const canApprove = ev.status === 'enriched' || ev.status === 'exported'
   const canFlexi = ev.status === 'validated'
 
@@ -276,6 +289,11 @@ function EvRow({ ev, st, tp, catLabel, supplierName, isExpanded, isActing, fmt, 
               className="text-sm font-bold cursor-pointer rounded"
               style={{ color: '#b45309', background: '#fef3c7', border: '1px solid #fcd34d', padding: '4px 10px' }}>
               Upravit
+            </button>
+            <button onClick={onDelete} disabled={isActing}
+              className="text-sm font-bold cursor-pointer rounded"
+              style={{ color: '#dc2626', background: '#fee2e2', border: '1px solid #fca5a5', padding: '4px 10px', opacity: isActing ? 0.5 : 1 }}>
+              Smazat
             </button>
             <button onClick={onExpand}
               className="text-sm font-bold cursor-pointer"
