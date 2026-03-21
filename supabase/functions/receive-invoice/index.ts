@@ -21,11 +21,25 @@ Přečti dokument a vrať POUZE JSON, žádný markdown, žádný text navíc.
 {
   "document_type": "invoice|receipt|contract_purchase|contract_loan|contract_employment|contract_service|delivery_note|insurance|leasing|other",
   "supplier_name": null,
+  "supplier_ico": null,
+  "supplier_dic": null,
+  "supplier_address": null,
+  "supplier_bank_account": null,
   "invoice_number": null,
+  "variable_symbol": null,
   "amount_czk": null,
   "issue_date": null,
   "due_date": null,
+  "received_date": null,
+  "payment_method": "bank_transfer|cash|card|null",
   "line_items": [{ "description": null, "amount": null }],
+  "asset_classification": {
+    "type": "dlouhodoby_majetek|kratkodoby_majetek|zbozi|drobna_rezie|sluzba|material|null",
+    "depreciation_group": null,
+    "depreciation_years": null,
+    "depreciation_method": "accelerated|linear|null",
+    "asset_name": null
+  },
   "loan": {
     "provider": null,
     "contract_number": null,
@@ -73,9 +87,22 @@ Přečti dokument a vrať POUZE JSON, žádný markdown, žádný text navíc.
   },
   "notes": null
 }
+
+PRAVIDLA pro asset_classification:
+- dlouhodoby_majetek: pořizovací cena ≥ 80 000 Kč A životnost > 1 rok (motorky, auta, stroje, budovy). Urči odpisovou skupinu dle § 30 ZDP:
+  sk1 = 3 roky (počítače, telefony), sk2 = 5 let (vozidla, motorky, nábytek), sk3 = 10 let (stroje, turbíny), sk4 = 20 let (budovy dřevěné), sk5 = 30 let (budovy zděné), sk6 = 50 let (administrativní budovy). Pro motorky vždy sk2. Preferuj zrychlené odpisy (accelerated).
+- kratkodoby_majetek: cena < 80 000 Kč A životnost > 1 rok (drobný hmotný majetek — helmy, nářadí, drobná elektronika)
+- zbozi: zboží k dalšímu prodeji (merch, náhradní díly na prodej)
+- material: spotřební materiál (oleje, čistící prostředky, kancelářské potřeby)
+- drobna_rezie: drobné provozní náklady (poštovné, parkovné, dálniční známky, poplatky)
+- sluzba: služby (servis, účetnictví, právní služby, marketing, hosting, telekom)
+- null: nelze určit
+
 Pokud pole neexistuje nebo není čitelné: null.
 Částky vždy jako číslo bez mezer a měny.
-Data vždy jako YYYY-MM-DD.`
+Data vždy jako YYYY-MM-DD.
+Číslo účtu ve formátu "předčíslí-číslo/kód banky" nebo IBAN.
+Variabilní symbol = číslo faktury pokud není VS uveden zvlášť.`
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -206,8 +233,16 @@ Deno.serve(async (req: Request) => {
         metadata: {
           document_type: documentType,
           supplier_name: parsed.supplier_name,
+          supplier_ico: parsed.supplier_ico,
+          supplier_dic: parsed.supplier_dic,
+          supplier_address: parsed.supplier_address,
+          supplier_bank_account: parsed.supplier_bank_account,
           invoice_number: parsed.invoice_number,
+          variable_symbol: parsed.variable_symbol,
           due_date: parsed.due_date,
+          received_date: parsed.received_date || new Date().toISOString().slice(0, 10),
+          payment_method: parsed.payment_method,
+          asset_classification: parsed.asset_classification,
           line_items: parsed.line_items,
           storage_path: storagePath,
           source_app: 'mobile',
@@ -273,6 +308,7 @@ Deno.serve(async (req: Request) => {
           .map((li: any) => `${li.description}: ${li.amount} Kč`)
           .join(', ') || 'neuvedeno'
 
+        const assetInfo = parsed.asset_classification || {}
         const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
           headers: {
@@ -282,22 +318,37 @@ Deno.serve(async (req: Request) => {
           },
           body: JSON.stringify({
             model: 'claude-haiku-4-5-20251001',
-            max_tokens: 300,
+            max_tokens: 500,
             messages: [{
               role: 'user',
-              content: `Klasifikuj tento náklad pro malou českou firmu (neplátce DPH).
+              content: `Klasifikuj tento náklad pro malou českou firmu (půjčovna motorek, neplátce DPH).
 Dodavatel: ${parsed.supplier_name || 'neuvedeno'}
 Částka: ${amountCzk} Kč
 Typ dokumentu: ${documentType}
 Položky: ${lineItemsText}
+Typ majetku z OCR: ${assetInfo.type || 'neurčeno'}
+Odpisová skupina z OCR: ${assetInfo.depreciation_group || 'neurčeno'}
 
 Vrať POUZE JSON bez markdown:
 {
-  "category": "string (phm/pojisteni/servis_opravy/najem/energie/telekomunikace/marketing/kancelar/mzdy/dane_odvody/ostatni_naklady)",
-  "suggested_account": "string (číslo účtu dle české účtové osnovy, např. 501000)",
+  "category": "string (phm/pojisteni/servis_opravy/najem/energie/telekomunikace/marketing/kancelar/mzdy/dane_odvody/ostatni_naklady/dlouhodoby_majetek/kratkodoby_majetek/zbozi/drobna_rezie/material)",
+  "suggested_account": "string (číslo účtu dle české účtové osnovy: 022=stroje, 042=pořízení DM, 501=spotřeba materiálu, 518=služby, 501000=materiál, 132=zboží na skladě, 504=prodané zboží)",
   "is_recurring": false,
-  "classification_note": "string (krátké vysvětlení)"
-}`,
+  "classification_note": "string (krátké vysvětlení)",
+  "asset_type": "dlouhodoby_majetek|kratkodoby_majetek|zbozi|material|drobna_rezie|sluzba|null",
+  "depreciation_group": "sk1|sk2|sk3|sk4|sk5|sk6|null (pouze pro dlouhodobý majetek ≥ 80 000 Kč)",
+  "depreciation_years": "number|null (3/5/10/20/30/50 dle skupiny)",
+  "depreciation_method": "accelerated|linear|null (pro DM preferuj zrychlené)",
+  "asset_name": "string|null (název majetkové položky pro evidenci)"
+}
+
+Pravidla:
+- Motorky = vždy sk2 (5 let), zrychlené odpisy
+- DM: pořizovací cena ≥ 80 000 Kč a životnost > 1 rok
+- KM: cena < 80 000 Kč, životnost > 1 rok (helmy, nářadí)
+- Zboží: k dalšímu prodeji (merch)
+- Materiál: spotřební (oleje, čistidla)
+- Drobná režie: poštovné, poplatky, dálniční známky`,
             }],
           }),
         })
@@ -336,7 +387,13 @@ Vrať POUZE JSON bez markdown:
     const supplierId = await upsertSupplier(
       parsed.supplier_name,
       aiClassification,
-      supabase
+      supabase,
+      {
+        ico: parsed.supplier_ico,
+        dic: parsed.supplier_dic,
+        address: parsed.supplier_address,
+        bank_account: parsed.supplier_bank_account,
+      }
     )
     if (supplierId) {
       const { data: currentEvent } = await supabase
@@ -377,8 +434,16 @@ Vrať POUZE JSON bez markdown:
       needs_review: needsReview,
       extracted: {
         supplier: parsed.supplier_name,
+        supplier_ico: parsed.supplier_ico,
+        supplier_bank_account: parsed.supplier_bank_account,
         amount: amountCzk,
         date: parsed.issue_date || null,
+        due_date: parsed.due_date || null,
+        received_date: parsed.received_date || today,
+        variable_symbol: parsed.variable_symbol,
+        payment_method: parsed.payment_method,
+        invoice_number: parsed.invoice_number,
+        asset_classification: parsed.asset_classification,
       },
     })
   } catch (err) {
@@ -601,7 +666,8 @@ async function routeDocument(
 async function upsertSupplier(
   supplierName: string | null,
   aiClassification: Record<string, unknown> | null,
-  supabase: ReturnType<typeof createClient>
+  supabase: ReturnType<typeof createClient>,
+  extra?: { ico?: string; dic?: string; address?: string; bank_account?: string }
 ): Promise<string | null> {
   if (!supplierName) return null
 
@@ -612,20 +678,36 @@ async function upsertSupplier(
       .replace(/[\u0300-\u036f]/g, '')
       .trim()
 
-    // Search for existing supplier (fuzzy match via normalized_name prefix)
-    const { data: existing } = await supabase
-      .from('suppliers')
-      .select('id, name, default_category')
-      .ilike('normalized_name', '%' + normalized.substring(0, 10) + '%')
-      .maybeSingle()
+    // Search by ICO first (exact match), then by name prefix
+    let existing = null
+    if (extra?.ico) {
+      const { data } = await supabase
+        .from('suppliers')
+        .select('id, name, default_category, ico, bank_account')
+        .eq('ico', extra.ico)
+        .maybeSingle()
+      existing = data
+    }
+    if (!existing) {
+      const { data } = await supabase
+        .from('suppliers')
+        .select('id, name, default_category, ico, bank_account')
+        .ilike('normalized_name', '%' + normalized.substring(0, 10) + '%')
+        .maybeSingle()
+      existing = data
+    }
 
     if (existing) {
-      // Update default_category if missing
-      if (!existing.default_category && aiClassification?.category) {
-        await supabase
-          .from('suppliers')
-          .update({ default_category: aiClassification.category as string })
-          .eq('id', existing.id)
+      // Update missing fields
+      const updates: Record<string, string> = {}
+      if (!existing.default_category && aiClassification?.category)
+        updates.default_category = aiClassification.category as string
+      if (!existing.ico && extra?.ico) updates.ico = extra.ico
+      if (!existing.bank_account && extra?.bank_account) updates.bank_account = extra.bank_account
+      if (extra?.dic) updates.dic = extra.dic
+      if (extra?.address) updates.address = extra.address
+      if (Object.keys(updates).length > 0) {
+        await supabase.from('suppliers').update(updates).eq('id', existing.id)
       }
       return existing.id
     }
@@ -638,6 +720,10 @@ async function upsertSupplier(
         normalized_name: normalized,
         default_category: (aiClassification?.category as string) || null,
         default_account: (aiClassification?.suggested_account as string) || null,
+        ico: extra?.ico || null,
+        dic: extra?.dic || null,
+        address: extra?.address || null,
+        bank_account: extra?.bank_account || null,
         notes: 'Automaticky vytvořen z OCR dokladu',
       })
       .select('id')

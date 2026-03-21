@@ -66,24 +66,43 @@ var DocUI = {
 
     var icon = data.needs_review ? '!!' : 'OK';
     var docType = DOC_TYPES[data.document_type] || data.document_type;
-    var supplier = '-';
-    var amount = '-';
-    var date = '-';
-
-    if (data.extracted) {
-      supplier = data.extracted.supplier || '-';
-      amount = data.extracted.amount ? data.extracted.amount + ' Kc' : '-';
-      date = data.extracted.date || '-';
-    }
+    var ex = data.extracted || {};
+    var ai = data.ai_classification || {};
 
     document.getElementById('result-icon').textContent = icon;
     document.getElementById('result-message').textContent = data.needs_review
       ? 'Doklad odeslan - ke kontrole'
       : 'Doklad uspesne zpracovan';
     document.getElementById('result-type').textContent = docType;
-    document.getElementById('result-supplier').textContent = supplier;
-    document.getElementById('result-amount').textContent = amount;
-    document.getElementById('result-date').textContent = date;
+    document.getElementById('result-supplier').textContent = ex.supplier || '-';
+    document.getElementById('result-amount').textContent = ex.amount ? ex.amount + ' Kc' : '-';
+    document.getElementById('result-date').textContent = ex.date || '-';
+    document.getElementById('result-due').textContent = ex.due_date || '-';
+    document.getElementById('result-vs').textContent = ex.variable_symbol || '-';
+    document.getElementById('result-account').textContent = ex.supplier_bank_account || '-';
+
+    var payLabels = {bank_transfer:'Prevod',cash:'Hotovost',card:'Karta'};
+    document.getElementById('result-payment').textContent = payLabels[ex.payment_method] || ex.payment_method || '-';
+
+    var catLabels = {phm:'PHM',pojisteni:'Pojisteni',servis_opravy:'Servis',
+      najem:'Najem',dlouhodoby_majetek:'DM',kratkodoby_majetek:'KM',
+      zbozi:'Zbozi',drobna_rezie:'Rezie',material:'Material',sluzba:'Sluzba',
+      ostatni_naklady:'Ostatni'};
+    document.getElementById('result-category').textContent = catLabels[ai.category] || ai.category || '-';
+
+    var assetBox = document.getElementById('result-asset-box');
+    var assetType = ai.asset_type || (ex.asset_classification && ex.asset_classification.type);
+    if (assetType) {
+      assetBox.hidden = false;
+      var assetLabels = {dlouhodoby_majetek:'Dlouhodoby majetek',kratkodoby_majetek:'Kratkodoby majetek',
+        zbozi:'Zbozi',material:'Material',drobna_rezie:'Drobna rezie',sluzba:'Sluzba'};
+      var txt = assetLabels[assetType] || assetType;
+      if (ai.depreciation_group) txt += ' | ' + ai.depreciation_group + ' (' + (ai.depreciation_years||'?') + ' let)';
+      if (ai.depreciation_method === 'accelerated') txt += ' zrychlene';
+      document.getElementById('result-asset').textContent = txt;
+    } else {
+      assetBox.hidden = true;
+    }
 
     var banner = document.getElementById('review-banner');
     if (data.needs_review) {
