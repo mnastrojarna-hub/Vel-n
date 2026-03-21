@@ -1,0 +1,14 @@
+{
+  "name": "doc-scanner",
+  "version": "1.0.0",
+  "description": "MotoGo24 Document Scanner – scan invoices and send to Velín",
+  "dependencies": {
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/camera": "^6.0.0",
+    "@capacitor/network": "^6.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.0.0"
+  }
+}

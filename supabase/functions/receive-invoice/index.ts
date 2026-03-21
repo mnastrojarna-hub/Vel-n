@@ -330,6 +330,24 @@ Vrať POUZE JSON bez markdown:
     // ── 8. Route document to appropriate tables ──
     await routeDocument(parsed, financialEventId, supabase)
 
+    // ── 8b. Upsert supplier ──
+    const supplierId = await upsertSupplier(
+      parsed.supplier_name,
+      aiClassification,
+      supabase
+    )
+    if (supplierId) {
+      const { data: currentEvent } = await supabase
+        .from('financial_events')
+        .select('metadata')
+        .eq('id', financialEventId)
+        .single()
+
+      await supabase.from('financial_events').update({
+        metadata: { ...(currentEvent?.metadata || {}), supplier_id: supplierId },
+      }).eq('id', financialEventId)
+    }
+
     // ── 9. Low confidence → accounting_exceptions ──
     const needsReview = confidenceScore < 0.80
 
@@ -355,6 +373,11 @@ Vrať POUZE JSON bez markdown:
       ai_classification: aiClassification,
       confidence: parsed.confidence,
       needs_review: needsReview,
+      extracted: {
+        supplier: parsed.supplier_name,
+        amount: amountCzk,
+        date: parsed.issue_date || null,
+      },
     })
   } catch (err) {
     console.error('receive-invoice error:', err)
@@ -568,6 +591,60 @@ async function routeDocument(
   } catch (err) {
     console.error('routeDocument error:', err)
     // Non-fatal — document was still saved to financial_events
+  }
+}
+
+// ─── Supplier Upsert ──────────────────────────────────
+
+async function upsertSupplier(
+  supplierName: string | null,
+  aiClassification: Record<string, unknown> | null,
+  supabase: ReturnType<typeof createClient>
+): Promise<string | null> {
+  if (!supplierName) return null
+
+  try {
+    const normalized = supplierName
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+
+    // Search for existing supplier (fuzzy match via normalized_name prefix)
+    const { data: existing } = await supabase
+      .from('suppliers')
+      .select('id, name, default_category')
+      .ilike('normalized_name', '%' + normalized.substring(0, 10) + '%')
+      .maybeSingle()
+
+    if (existing) {
+      // Update default_category if missing
+      if (!existing.default_category && aiClassification?.category) {
+        await supabase
+          .from('suppliers')
+          .update({ default_category: aiClassification.category as string })
+          .eq('id', existing.id)
+      }
+      return existing.id
+    }
+
+    // Create new supplier
+    const { data: newSupplier } = await supabase
+      .from('suppliers')
+      .insert({
+        name: supplierName,
+        normalized_name: normalized,
+        default_category: (aiClassification?.category as string) || null,
+        default_account: (aiClassification?.suggested_account as string) || null,
+        notes: 'Automaticky vytvořen z OCR dokladu',
+      })
+      .select('id')
+      .single()
+
+    return newSupplier?.id || null
+  } catch (err) {
+    console.error('upsertSupplier error:', err)
+    return null
   }
 }
 
