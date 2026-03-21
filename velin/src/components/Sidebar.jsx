@@ -10,7 +10,6 @@ const NAV = [
   { id: 'customers', path: '/zakaznici', label: 'Zákazníci', icon: '👥' },
   { id: 'finance', path: '/finance', label: 'Finance', icon: '💰' },
   { id: 'documents', path: '/dokumenty', label: 'Dokumenty', icon: '📄' },
-  { id: 'inventory', path: '/sklady', label: 'Sklady', icon: '📦' },
   { id: 'branches', path: '/pobocky', label: 'Pobočky', icon: '🏢' },
   { id: 'service', path: '/servis', label: 'Servis', icon: '🔧' },
   { id: 'messages', path: '/zpravy', label: 'Zprávy', icon: '💬', badgeKey: 'messages' },

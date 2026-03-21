@@ -45,6 +45,43 @@ export default function LiabilitiesTab() {
     setLoading(true)
     setError(null)
     try {
+      // Clean up orphaned liabilities (linked event was deleted but CASCADE didn't work)
+      const { data: allLiabs } = await supabase.from('acc_liabilities')
+        .select('id, financial_event_id').not('financial_event_id', 'is', null)
+      if (allLiabs && allLiabs.length > 0) {
+        const feIds = allLiabs.map(l => l.financial_event_id)
+        const { data: existingEvents } = await supabase.from('financial_events')
+          .select('id').in('id', feIds)
+        const existingSet = new Set((existingEvents || []).map(e => e.id))
+        const orphaned = allLiabs.filter(l => !existingSet.has(l.financial_event_id))
+        for (const o of orphaned) {
+          await supabase.from('acc_liabilities').delete().eq('id', o.id)
+        }
+      }
+
+      // Sync liabilities with their linked financial events (update details)
+      const { data: linkedLiabs } = await supabase.from('acc_liabilities')
+        .select('id, financial_event_id').not('financial_event_id', 'is', null)
+      if (linkedLiabs && linkedLiabs.length > 0) {
+        const feIds2 = linkedLiabs.map(l => l.financial_event_id)
+        const { data: events } = await supabase.from('financial_events')
+          .select('id, amount_czk, metadata, status').in('id', feIds2)
+        const evMap = {}
+        for (const e of (events || [])) evMap[e.id] = e
+        for (const l of linkedLiabs) {
+          const ev = evMap[l.financial_event_id]
+          if (!ev) continue
+          const meta = ev.metadata || {}
+          await supabase.from('acc_liabilities').update({
+            counterparty: meta.supplier_name || null,
+            amount: ev.amount_czk || 0,
+            due_date: meta.due_date || null,
+            variable_symbol: meta.variable_symbol || null,
+            invoice_number: meta.invoice_number || null,
+          }).eq('id', l.id)
+        }
+      }
+
       let query = supabase.from('acc_liabilities').select('*', { count: 'exact' })
         .order('due_date', { ascending: true })
         .range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
