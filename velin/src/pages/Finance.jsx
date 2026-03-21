@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
 import { useDebugMode } from '../hooks/useDebugMode'
@@ -7,19 +7,22 @@ import Button from '../components/ui/Button'
 import Badge from '../components/ui/Badge'
 import Modal from '../components/ui/Modal'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
-import InvoicesTab from './accounting/InvoicesTab'
-import TaxTab from './accounting/TaxTab'
-import ReceivedInvoicesTab from './accounting/ReceivedInvoicesTab'
-import CashRegisterTab from './accounting/CashRegisterTab'
-import FinancialEventsTab from './accounting/FinancialEventsTab'
-import ExceptionsTab from './accounting/ExceptionsTab'
-import EmployeesTab from './accounting/EmployeesTab'
-import VATReturnsTab from './accounting/VATReturnsTab'
-import TaxReturnsTab from './accounting/TaxReturnsTab'
-import ShortTermAssetsTab from './accounting/ShortTermAssetsTab'
-import LongTermAssetsTab from './accounting/LongTermAssetsTab'
-import LiabilitiesTab from './accounting/LiabilitiesTab'
+import ErrorBoundary from '../components/ErrorBoundary'
 import { classifyEntry } from '../lib/revenueUtils'
+
+// Lazy-load accounting tabs to isolate crashes
+const InvoicesTab = lazy(() => import('./accounting/InvoicesTab'))
+const TaxTab = lazy(() => import('./accounting/TaxTab'))
+const ReceivedInvoicesTab = lazy(() => import('./accounting/ReceivedInvoicesTab'))
+const CashRegisterTab = lazy(() => import('./accounting/CashRegisterTab'))
+const FinancialEventsTab = lazy(() => import('./accounting/FinancialEventsTab'))
+const ExceptionsTab = lazy(() => import('./accounting/ExceptionsTab'))
+const EmployeesTab = lazy(() => import('./accounting/EmployeesTab'))
+const VATReturnsTab = lazy(() => import('./accounting/VATReturnsTab'))
+const TaxReturnsTab = lazy(() => import('./accounting/TaxReturnsTab'))
+const ShortTermAssetsTab = lazy(() => import('./accounting/ShortTermAssetsTab'))
+const LongTermAssetsTab = lazy(() => import('./accounting/LongTermAssetsTab'))
+const LiabilitiesTab = lazy(() => import('./accounting/LiabilitiesTab'))
 
 const PERIODS = [
   { value: 'month', label: 'Měsíc' },
@@ -221,7 +224,12 @@ export default function Finance() {
   const fmt = (n) => (n || 0).toLocaleString('cs-CZ') + ' Kč'
   const profit = summary.revenue - summary.expense
 
+  const TabLoader = () => (
+    <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
+  )
+
   return (
+    <ErrorBoundary>
     <div>
       <div className="flex gap-2 mb-5">
         {FINANCE_TABS.map(t => (
@@ -233,9 +241,10 @@ export default function Finance() {
         ))}
       </div>
 
-      {activeTab === 'Faktury' && <InvoicesTab />}
-      {activeTab === 'Faktury přijaté' && <ReceivedInvoicesTab />}
-      {activeTab === 'Pokladna' && <CashRegisterTab />}
+      <Suspense fallback={<TabLoader />}>
+      {activeTab === 'Faktury' && <ErrorBoundary><InvoicesTab /></ErrorBoundary>}
+      {activeTab === 'Faktury přijaté' && <ErrorBoundary><ReceivedInvoicesTab /></ErrorBoundary>}
+      {activeTab === 'Pokladna' && <ErrorBoundary><CashRegisterTab /></ErrorBoundary>}
 
       {activeTab === 'Účetnictví' && (
         <div>
@@ -254,6 +263,7 @@ export default function Finance() {
               </button>
             ))}
           </div>
+          <ErrorBoundary>
           {accountingSubTab === 'events' && <FinancialEventsTab />}
           {accountingSubTab === 'exceptions' && <ExceptionsTab />}
           {accountingSubTab === 'employees' && <EmployeesTab />}
@@ -262,8 +272,10 @@ export default function Finance() {
           {accountingSubTab === 'short_assets' && <ShortTermAssetsTab />}
           {accountingSubTab === 'long_assets' && <LongTermAssetsTab />}
           {accountingSubTab === 'liabilities' && <LiabilitiesTab />}
+          </ErrorBoundary>
         </div>
       )}
+      </Suspense>
 
       {activeTab === 'Přehled' && <>
       <div className="flex flex-wrap items-center gap-3 mb-5">
@@ -477,6 +489,7 @@ export default function Finance() {
       )}
       </>}
     </div>
+    </ErrorBoundary>
   )
 }
 
