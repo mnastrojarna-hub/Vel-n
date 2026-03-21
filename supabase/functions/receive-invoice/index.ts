@@ -1,7 +1,6 @@
 // ===== MotoGo24 – Edge Function: Receive Invoice =====
-// Public API for external mobile mini-app.
-// Workflow: Mobile → OCR → POST structured data here → financial_events + invoices
-// Admin reviews in Velín dashboard.
+// Mobile → image upload → Claude Vision OCR → financial_events + invoices + routing
+// Replaces Mindee with Claude Vision for document understanding.
 //
 // Auth: X-Invoice-Api-Key header (secret: INVOICE_API_KEY)
 // DPH: Firma NENÍ plátcem DPH. vat_rate = 0 vždy.
@@ -9,13 +8,74 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const CORS = {
-  'Access-Control-Allow-Origin': '*', // TODO: omezit na doménu mobilní appky v produkci
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'x-invoice-api-key, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-const RATE_LIMIT_MAX = 100 // max requests per hour per API key
+const RATE_LIMIT_MAX = 100
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>()
+
+const VISION_PROMPT = `Jsi účetní a právní asistent české malé firmy (půjčovna motorek, neplátce DPH).
+Přečti dokument a vrať POUZE JSON, žádný markdown, žádný text navíc.
+{
+  "document_type": "invoice|receipt|contract_purchase|contract_loan|contract_employment|contract_service|delivery_note|insurance|leasing|other",
+  "supplier_name": null,
+  "invoice_number": null,
+  "amount_czk": null,
+  "issue_date": null,
+  "due_date": null,
+  "line_items": [{ "description": null, "amount": null }],
+  "loan": {
+    "provider": null,
+    "contract_number": null,
+    "principal_czk": null,
+    "monthly_payment_czk": null,
+    "interest_rate_pct": null,
+    "total_to_pay_czk": null,
+    "first_payment_date": null,
+    "last_payment_date": null,
+    "collateral": null,
+    "purpose": null
+  },
+  "employment": {
+    "employee_name": null,
+    "employee_id": null,
+    "contract_type": null,
+    "position": null,
+    "start_date": null,
+    "end_date": null,
+    "gross_salary_czk": null,
+    "work_hours_weekly": null,
+    "workplace": null,
+    "trial_period_months": null
+  },
+  "insurance": {
+    "provider": null,
+    "contract_number": null,
+    "insured_item": null,
+    "annual_premium_czk": null,
+    "valid_from": null,
+    "valid_to": null,
+    "coverage_type": null
+  },
+  "purchase": {
+    "seller": null,
+    "item_description": null,
+    "amount_czk": null,
+    "payment_date": null,
+    "serial_number": null,
+    "warranty_months": null
+  },
+  "confidence": {
+    "overall": 0.0,
+    "critical_fields": 0.0
+  },
+  "notes": null
+}
+Pokud pole neexistuje nebo není čitelné: null.
+Částky vždy jako číslo bez mezer a měny.
+Data vždy jako YYYY-MM-DD.`
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -26,7 +86,7 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: 'Method not allowed' }, 405)
   }
 
-  // ── 1. Auth: validate API key ──
+  // ── 1. Auth ──
   const INVOICE_API_KEY = Deno.env.get('INVOICE_API_KEY') || ''
   const apiKey = req.headers.get('x-invoice-api-key') || ''
 
@@ -37,10 +97,7 @@ Deno.serve(async (req: Request) => {
   // ── Rate limiting ──
   const now = Date.now()
   const rl = rateLimitStore.get(apiKey) || { count: 0, resetAt: now + 3600_000 }
-  if (now > rl.resetAt) {
-    rl.count = 0
-    rl.resetAt = now + 3600_000
-  }
+  if (now > rl.resetAt) { rl.count = 0; rl.resetAt = now + 3600_000 }
   rl.count++
   rateLimitStore.set(apiKey, rl)
 
@@ -55,77 +112,108 @@ Deno.serve(async (req: Request) => {
 
   try {
     const payload = await req.json() as {
-      supplier_name: string
-      invoice_number: string
-      amount_czk: number
-      issue_date: string
-      due_date?: string
-      line_items?: Array<{ description: string; amount: number }>
-      confidence_score: number
-      image_base64?: string
+      image_base64: string
       file_name?: string
     }
 
-    // Basic validation
-    if (!payload.amount_czk || payload.amount_czk <= 0) {
-      return jsonResponse({ error: 'amount_czk must be positive' }, 400)
-    }
-    if (typeof payload.confidence_score !== 'number' || payload.confidence_score < 0 || payload.confidence_score > 1) {
-      return jsonResponse({ error: 'confidence_score must be 0.0-1.0' }, 400)
+    if (!payload.image_base64) {
+      return jsonResponse({ error: 'image_base64 is required' }, 400)
     }
 
-    // ── 2. Upload image to Storage (if provided) ──
+    // ── 2. Upload image to Storage ──
     let storagePath: string | null = null
+    const base64Clean = payload.image_base64.replace(/^data:image\/\w+;base64,/, '')
 
-    if (payload.image_base64) {
-      const imageDate = new Date()
-      const yyyy = imageDate.getFullYear()
-      const mm = String(imageDate.getMonth() + 1).padStart(2, '0')
-      const fileId = crypto.randomUUID()
-      storagePath = `${yyyy}/${mm}/${fileId}.jpg`
+    const imageDate = new Date()
+    const yyyy = imageDate.getFullYear()
+    const mm = String(imageDate.getMonth() + 1).padStart(2, '0')
+    const fileId = crypto.randomUUID()
+    storagePath = `${yyyy}/${mm}/${fileId}.jpg`
 
-      // Decode base64 (strip data URI prefix if present)
-      const base64Clean = payload.image_base64.replace(/^data:image\/\w+;base64,/, '')
-      const binaryStr = atob(base64Clean)
-      const bytes = new Uint8Array(binaryStr.length)
-      for (let i = 0; i < binaryStr.length; i++) {
-        bytes[i] = binaryStr.charCodeAt(i)
-      }
-
-      const { error: uploadErr } = await supabase.storage
-        .from('invoices-received')
-        .upload(storagePath, bytes, {
-          contentType: 'image/jpeg',
-          upsert: false,
-        })
-
-      if (uploadErr) {
-        console.error('Image upload failed:', uploadErr.message)
-        storagePath = null // continue without image
-      }
+    const binaryStr = atob(base64Clean)
+    const bytes = new Uint8Array(binaryStr.length)
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i)
     }
 
-    // ── 3. INSERT into financial_events ──
+    const { error: uploadErr } = await supabase.storage
+      .from('invoices-received')
+      .upload(storagePath, bytes, { contentType: 'image/jpeg', upsert: false })
+
+    if (uploadErr) {
+      console.error('Image upload failed:', uploadErr.message)
+      storagePath = null
+    }
+
+    // ── 3. Claude Vision OCR ──
+    const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') || ''
+    if (!ANTHROPIC_API_KEY) {
+      return jsonResponse({ error: 'ANTHROPIC_API_KEY not configured' }, 500)
+    }
+
+    // Detect media type from base64 prefix or default to jpeg
+    let mediaType = 'image/jpeg'
+    const dataUriMatch = payload.image_base64.match(/^data:(image\/\w+);base64,/)
+    if (dataUriMatch) mediaType = dataUriMatch[1]
+
+    const parsed = await callClaudeVision(ANTHROPIC_API_KEY, base64Clean, mediaType)
+
+    if (!parsed) {
+      // Store raw image for manual processing
+      await supabase.from('accounting_exceptions').insert({
+        reason: 'Claude Vision neparsoval dokument — ruční kontrola',
+        suggested_fix: { storage_path: storagePath, hint: 'Zkontrolujte obrázek ručně.' },
+        assigned_to: 'admin',
+      }).catch(() => {})
+      return jsonResponse({ error: 'Failed to parse document with Claude Vision' }, 500)
+    }
+
+    const confidenceScore = parsed.confidence?.overall ?? 0.5
+    const documentType = parsed.document_type || 'other'
+    const amountCzk = parsed.amount_czk || parsed.purchase?.amount_czk || 0
+
+    // ── 4. Determine event_type based on document_type ──
+    const eventTypeMap: Record<string, string> = {
+      'invoice': 'expense',
+      'receipt': 'expense',
+      'contract_purchase': 'asset',
+      'contract_loan': 'expense',
+      'contract_employment': 'expense',
+      'contract_service': 'expense',
+      'delivery_note': 'expense',
+      'insurance': 'expense',
+      'leasing': 'expense',
+      'other': 'expense',
+    }
+    const eventType = eventTypeMap[documentType] || 'expense'
+
+    // ── 5. INSERT into financial_events ──
     const today = new Date().toISOString().slice(0, 10)
-    const eventStatus = payload.confidence_score >= 0.80 ? 'enriched' : 'pending'
+    const eventStatus = confidenceScore >= 0.80 ? 'enriched' : 'pending'
 
     const { data: feData, error: feError } = await supabase
       .from('financial_events')
       .insert({
-        event_type: 'expense',
+        event_type: eventType,
         source: 'ocr',
-        amount_czk: payload.amount_czk,
-        vat_rate: 0, // firma není plátce DPH
-        duzp: payload.issue_date || today,
-        confidence_score: payload.confidence_score,
+        amount_czk: amountCzk,
+        vat_rate: 0,
+        duzp: parsed.issue_date || today,
+        confidence_score: confidenceScore,
         status: eventStatus,
         metadata: {
-          supplier_name: payload.supplier_name || null,
-          invoice_number: payload.invoice_number || null,
-          due_date: payload.due_date || null,
-          line_items: payload.line_items || null,
+          document_type: documentType,
+          supplier_name: parsed.supplier_name,
+          invoice_number: parsed.invoice_number,
+          due_date: parsed.due_date,
+          line_items: parsed.line_items,
           storage_path: storagePath,
           source_app: 'mobile',
+          loan: parsed.loan,
+          employment: parsed.employment,
+          insurance: parsed.insurance,
+          purchase: parsed.purchase,
+          notes: parsed.notes,
         },
       })
       .select('id')
@@ -138,53 +226,49 @@ Deno.serve(async (req: Request) => {
 
     const financialEventId = feData.id
 
-    // ── 4. INSERT into invoices (type='received') ──
-    const invoiceNumber = payload.invoice_number || `MOB-${Date.now()}`
+    // ── 6. INSERT into invoices (for invoice/receipt types) ──
+    let invoiceId: string | null = null
 
-    const { data: invData, error: invError } = await supabase
-      .from('invoices')
-      .insert({
-        number: invoiceNumber,
-        type: 'received',
-        total: payload.amount_czk,
-        subtotal: payload.amount_czk,
-        tax_amount: 0,
-        issue_date: payload.issue_date || today,
-        due_date: payload.due_date || null,
-        status: 'issued',
-        notes: payload.supplier_name || null,
-        metadata: {
-          financial_event_id: financialEventId,
-          source_app: 'mobile',
-          ocr_confidence: payload.confidence_score,
-        },
-      })
-      .select('id')
-      .single()
+    if (documentType === 'invoice' || documentType === 'receipt') {
+      const invoiceNumber = parsed.invoice_number || `MOB-${Date.now()}`
 
-    if (invError) {
-      console.error('invoices insert failed:', invError.message)
-      // Don't fail the whole request — financial_event was created
+      const { data: invData, error: invError } = await supabase
+        .from('invoices')
+        .insert({
+          number: invoiceNumber,
+          type: 'received',
+          total: amountCzk,
+          subtotal: amountCzk,
+          tax_amount: 0,
+          issue_date: parsed.issue_date || today,
+          due_date: parsed.due_date || null,
+          status: 'issued',
+          notes: parsed.supplier_name || null,
+          metadata: {
+            financial_event_id: financialEventId,
+            source_app: 'mobile',
+            ocr_confidence: confidenceScore,
+          },
+        })
+        .select('id')
+        .single()
+
+      if (!invError && invData) {
+        invoiceId = invData.id
+        await supabase.from('financial_events').update({
+          linked_entity_type: 'invoice',
+          linked_entity_id: invoiceId,
+        }).eq('id', financialEventId)
+      }
     }
 
-    const invoiceId = invData?.id || null
-
-    // Link invoice back to financial_event
-    if (invoiceId) {
-      await supabase.from('financial_events').update({
-        linked_entity_type: 'invoice',
-        linked_entity_id: invoiceId,
-      }).eq('id', financialEventId)
-    }
-
-    // ── 5. AI classification via Claude API ──
+    // ── 7. AI classification (Haiku for speed) ──
     let aiClassification: Record<string, unknown> | null = null
-    const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') || ''
-
-    if (ANTHROPIC_API_KEY) {
+    if (amountCzk > 0) {
       try {
-        const lineItemsText = (payload.line_items || [])
-          .map(li => `${li.description}: ${li.amount} Kč`)
+        const lineItemsText = (parsed.line_items || [])
+          .filter((li: any) => li?.description)
+          .map((li: any) => `${li.description}: ${li.amount} Kč`)
           .join(', ') || 'neuvedeno'
 
         const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
@@ -200,8 +284,9 @@ Deno.serve(async (req: Request) => {
             messages: [{
               role: 'user',
               content: `Klasifikuj tento náklad pro malou českou firmu (neplátce DPH).
-Dodavatel: ${payload.supplier_name || 'neuvedeno'}
-Částka: ${payload.amount_czk} Kč
+Dodavatel: ${parsed.supplier_name || 'neuvedeno'}
+Částka: ${amountCzk} Kč
+Typ dokumentu: ${documentType}
 Položky: ${lineItemsText}
 
 Vrať POUZE JSON bez markdown:
@@ -221,19 +306,14 @@ Vrať POUZE JSON bez markdown:
           try {
             aiClassification = JSON.parse(aiText)
           } catch {
-            // Try to extract JSON from response
             const jsonMatch = aiText.match(/\{[\s\S]*\}/)
-            if (jsonMatch) {
-              aiClassification = JSON.parse(jsonMatch[0])
-            }
+            if (jsonMatch) aiClassification = JSON.parse(jsonMatch[0])
           }
         }
       } catch (aiErr) {
         console.error('AI classification failed:', aiErr)
-        // Non-fatal — continue without AI classification
       }
 
-      // Save AI classification to financial_event metadata
       if (aiClassification) {
         const { data: currentEvent } = await supabase
           .from('financial_events')
@@ -242,38 +322,38 @@ Vrať POUZE JSON bez markdown:
           .single()
 
         await supabase.from('financial_events').update({
-          metadata: {
-            ...(currentEvent?.metadata || {}),
-            ai_classification: aiClassification,
-          },
+          metadata: { ...(currentEvent?.metadata || {}), ai_classification: aiClassification },
         }).eq('id', financialEventId)
       }
     }
 
-    // ── 6. Low confidence → accounting_exceptions ──
-    const needsReview = payload.confidence_score < 0.80
+    // ── 8. Route document to appropriate tables ──
+    await routeDocument(parsed, financialEventId, supabase)
+
+    // ── 9. Low confidence → accounting_exceptions ──
+    const needsReview = confidenceScore < 0.80
 
     if (needsReview) {
       await supabase.from('accounting_exceptions').insert({
         financial_event_id: financialEventId,
-        reason: `Nízká přesnost OCR z mobilní appky: ${(payload.confidence_score * 100).toFixed(0)}%`,
+        reason: `Nízká přesnost OCR: ${(confidenceScore * 100).toFixed(0)}% — ${documentType}`,
         suggested_fix: {
           fields_to_check: ['amount_czk', 'supplier_name', 'invoice_number'],
           hint: 'Zkontrolujte data ručně ve Velínu a potvrďte nebo opravte.',
         },
         assigned_to: 'admin',
-      }).catch(err => {
-        console.error('Failed to create exception:', err)
-      })
+      }).catch(err => console.error('Failed to create exception:', err))
     }
 
-    // ── 7. Response ──
+    // ── 10. Response ──
     return jsonResponse({
       success: true,
       financial_event_id: financialEventId,
       invoice_id: invoiceId,
+      document_type: documentType,
       status: eventStatus,
       ai_classification: aiClassification,
+      confidence: parsed.confidence,
       needs_review: needsReview,
     })
   } catch (err) {
@@ -281,6 +361,217 @@ Vrať POUZE JSON bez markdown:
     return jsonResponse({ error: (err as Error).message }, 500)
   }
 })
+
+// ─── Claude Vision OCR ─────────────────────────────────────────
+
+async function callClaudeVision(
+  apiKey: string,
+  imageBase64: string,
+  mediaType: string,
+  isRetry = false
+): Promise<Record<string, any> | null> {
+  const prompt = isRetry
+    ? 'Vrať pouze validní JSON, nic jiného. Žádný markdown.\n\n' + VISION_PROMPT
+    : VISION_PROMPT
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-4-5',
+        max_tokens: 2048,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: { type: 'base64', media_type: mediaType, data: imageBase64 },
+            },
+            { type: 'text', text: prompt },
+          ],
+        }],
+      }),
+    })
+
+    if (!response.ok) {
+      console.error('Claude Vision API error:', response.status, await response.text())
+      return null
+    }
+
+    const result = await response.json()
+    const text = result?.content?.[0]?.text || ''
+
+    try {
+      return JSON.parse(text)
+    } catch {
+      // Try to extract JSON from response
+      const jsonMatch = text.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        try { return JSON.parse(jsonMatch[0]) } catch { /* fall through */ }
+      }
+    }
+
+    // Retry once with stricter prompt
+    if (!isRetry) {
+      console.warn('Claude Vision returned non-JSON, retrying...')
+      return callClaudeVision(apiKey, imageBase64, mediaType, true)
+    }
+
+    return null
+  } catch (err) {
+    console.error('Claude Vision call failed:', err)
+    return null
+  }
+}
+
+// ─── Document Routing ──────────────────────────────────────────
+
+async function routeDocument(
+  parsed: Record<string, any>,
+  financialEventId: string,
+  supabase: ReturnType<typeof createClient>
+) {
+  try {
+    switch (parsed.document_type) {
+      case 'contract_purchase': {
+        // Try to match with fleet via VIN/serial_number
+        if (parsed.purchase?.serial_number) {
+          const { data: moto } = await supabase
+            .from('motorcycles')
+            .select('id')
+            .or(`vin.ilike.%${parsed.purchase.serial_number}%`)
+            .maybeSingle()
+
+          if (moto) {
+            await supabase.from('financial_events')
+              .update({ linked_entity_type: 'motorcycle', linked_entity_id: moto.id })
+              .eq('id', financialEventId)
+          }
+        }
+
+        // Long-term asset record
+        await supabase.from('acc_long_term_assets').insert({
+          name: parsed.purchase?.item_description || 'Neurčeno',
+          category: 'vehicles',
+          purchase_price: parsed.purchase?.amount_czk || 0,
+          current_value: parsed.purchase?.amount_czk || 0,
+          acquired_date: parsed.purchase?.payment_date || new Date().toISOString().slice(0, 10),
+          depreciation_group: 2,
+          depreciation_method: 'linear',
+          invoice_number: parsed.invoice_number,
+          supplier: parsed.purchase?.seller,
+          status: 'active',
+        })
+        break
+      }
+
+      case 'contract_loan':
+      case 'leasing': {
+        // Main liability
+        await supabase.from('acc_liabilities').insert({
+          counterparty: parsed.loan?.provider,
+          type: 'loan',
+          amount: parsed.loan?.total_to_pay_czk || parsed.loan?.principal_czk || 0,
+          variable_symbol: parsed.loan?.contract_number,
+          due_date: parsed.loan?.last_payment_date,
+          description: 'Úvěr/leasing: ' + (parsed.loan?.purpose || parsed.loan?.contract_number || ''),
+          status: 'pending',
+        })
+
+        // Monthly payments
+        if (parsed.loan?.first_payment_date && parsed.loan?.monthly_payment_czk) {
+          const payments: any[] = []
+          const current = new Date(parsed.loan.first_payment_date)
+          const end = new Date(parsed.loan.last_payment_date)
+
+          while (current <= end) {
+            payments.push({
+              counterparty: parsed.loan.provider,
+              type: 'loan',
+              amount: parsed.loan.monthly_payment_czk,
+              due_date: current.toISOString().slice(0, 10),
+              description: 'Splátka ' + current.toISOString().slice(0, 7),
+              status: 'pending',
+            })
+            current.setMonth(current.getMonth() + 1)
+          }
+          if (payments.length > 0) {
+            await supabase.from('acc_liabilities').insert(payments)
+          }
+        }
+        break
+      }
+
+      case 'contract_employment': {
+        const contractTypeMap = (raw: string | null) => {
+          if (!raw) return 'hpp'
+          const r = raw.toLowerCase()
+          if (r.includes('dpp')) return 'dpp'
+          if (r.includes('dpč') || r.includes('dpc')) return 'dpc'
+          if (r.includes('ičo') || r.includes('ico')) return 'ico'
+          return 'hpp'
+        }
+
+        await supabase.from('acc_employees').insert({
+          name: parsed.employment?.employee_name || 'Neurčeno',
+          contract_type: contractTypeMap(parsed.employment?.contract_type),
+          gross_salary: parsed.employment?.gross_salary_czk || 0,
+          start_date: parsed.employment?.start_date,
+          end_date: parsed.employment?.end_date,
+          active: false, // inactive until admin approves
+        })
+
+        await supabase.from('accounting_exceptions').insert({
+          financial_event_id: financialEventId,
+          reason: 'Nová pracovní smlouva ke schválení: ' + (parsed.employment?.employee_name || 'neuvedeno'),
+          suggested_fix: {
+            action: 'activate_employee',
+            data: parsed.employment,
+          },
+        })
+        break
+      }
+
+      case 'insurance': {
+        await supabase.from('acc_liabilities').insert({
+          counterparty: parsed.insurance?.provider,
+          type: 'other',
+          amount: parsed.insurance?.annual_premium_czk || 0,
+          due_date: parsed.insurance?.valid_from,
+          description: 'Pojistné: ' + (parsed.insurance?.coverage_type || '') + ' ' + (parsed.insurance?.contract_number || ''),
+          status: 'pending',
+        })
+
+        // Store valid_to in financial_event metadata
+        if (parsed.insurance?.valid_to) {
+          const { data: currentEvent } = await supabase
+            .from('financial_events')
+            .select('metadata')
+            .eq('id', financialEventId)
+            .single()
+
+          await supabase.from('financial_events').update({
+            metadata: {
+              ...(currentEvent?.metadata || {}),
+              insurance_valid_to: parsed.insurance.valid_to,
+            },
+          }).eq('id', financialEventId)
+        }
+        break
+      }
+    }
+  } catch (err) {
+    console.error('routeDocument error:', err)
+    // Non-fatal — document was still saved to financial_events
+  }
+}
+
+// ─── Helpers ───────────────────────────────────────────────────
 
 function jsonResponse(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
