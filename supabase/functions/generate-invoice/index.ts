@@ -1,47 +1,33 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { generateInvoiceHtml, generateEmailHtml } from './template.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'noreply@motogo24.cz'
 
-// Fallback firemních údajů — primární zdroj je app_settings (key: company_info)
 const COMPANY_FALLBACK = {
-  name: 'Bc. Petra Semorádová',
-  address: 'Mezná 9, 393 01 Mezná',
-  ico: '21874263',
-  dic: null,
-  vat_payer: false,
-  bank_account: '670100-2225851630/6210',
-  phone: '+420 774 256 271',
-  email: 'info@motogo24.cz',
-  web: 'www.motogo24.cz',
+  name: 'Bc. Petra Semorádová', address: 'Mezná 9, 393 01 Mezná',
+  ico: '21874263', dic: null, vat_payer: false,
+  bank_account: '670100-2225851630/6210', phone: '+420 774 256 271',
+  email: 'info@motogo24.cz', web: 'www.motogo24.cz',
 }
 
 async function loadCompanyInfo(supabase: any) {
   try {
-    const { data } = await supabase
-      .from('app_settings')
-      .select('value')
-      .eq('key', 'company_info')
-      .limit(1)
+    const { data } = await supabase.from('app_settings').select('value').eq('key', 'company_info').limit(1)
     const info = data?.[0]?.value
     if (info && info.name) {
       return {
-        name: info.name || COMPANY_FALLBACK.name,
-        address: info.address || COMPANY_FALLBACK.address,
-        ico: info.ico || COMPANY_FALLBACK.ico,
-        dic: info.dic || null,
-        vatPayer: info.vat_payer || false,
-        bank: 'mBank',
-        account: info.bank_account || COMPANY_FALLBACK.bank_account,
-        phone: info.phone || COMPANY_FALLBACK.phone,
-        email: info.email || COMPANY_FALLBACK.email,
+        name: info.name || COMPANY_FALLBACK.name, address: info.address || COMPANY_FALLBACK.address,
+        ico: info.ico || COMPANY_FALLBACK.ico, dic: info.dic || null, vatPayer: info.vat_payer || false,
+        bank: 'mBank', account: info.bank_account || COMPANY_FALLBACK.bank_account,
+        phone: info.phone || COMPANY_FALLBACK.phone, email: info.email || COMPANY_FALLBACK.email,
         web: info.web || COMPANY_FALLBACK.web,
       }
     }
-  } catch (e) { console.warn('Failed to load company_info from app_settings:', e) }
+  } catch (e) { console.warn('Failed to load company_info:', e) }
   return { ...COMPANY_FALLBACK, vatPayer: false, bank: 'mBank', account: COMPANY_FALLBACK.bank_account }
 }
 
@@ -49,8 +35,7 @@ const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '�
 const fmtPrice = (n: number) => (n || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2 })
 
 const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST',
+  'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
@@ -61,7 +46,6 @@ serve(async (req) => {
     const { type, booking_id, order_id, send_email, extra_items, voucher_codes: explicitVoucherCodes } = await req.json()
     if (!booking_id && !order_id) return new Response(JSON.stringify({ error: 'Missing booking_id or order_id' }), { status: 400 })
 
-    // voucher_codes can come from params or auto-fetched from DB
     let voucher_codes: string[] | undefined = explicitVoucherCodes
     let voucherValidUntil: string | null = null
     let doorCodes: any[] = []
@@ -81,11 +65,8 @@ serve(async (req) => {
     let customerId: string | null = null
 
     if (isShop && order_id) {
-      // ===== SHOP ORDER =====
       const { data: order, error: oErr } = await supabase
-        .from('shop_orders')
-        .select('*, shop_order_items(*)')
-        .eq('id', order_id).single()
+        .from('shop_orders').select('*, shop_order_items(*)').eq('id', order_id).single()
       if (oErr || !order) return new Response(JSON.stringify({ error: 'Order not found' }), { status: 404 })
 
       customerId = order.customer_id
@@ -100,242 +81,102 @@ serve(async (req) => {
       for (const it of (order.shop_order_items || [])) {
         items.push({ description: it.product_name, qty: it.quantity || 1, unit_price: it.unit_price || 0 })
       }
-      if (order.shipping_cost > 0) {
-        items.push({ description: 'Doprava', qty: 1, unit_price: Number(order.shipping_cost) })
-      }
-      if (order.discount > 0) {
-        items.push({ description: 'Sleva', qty: 1, unit_price: -Number(order.discount) })
-      }
+      if (order.shipping_cost > 0) items.push({ description: 'Doprava', qty: 1, unit_price: Number(order.shipping_cost) })
+      if (order.discount > 0) items.push({ description: 'Sleva', qty: 1, unit_price: -Number(order.discount) })
 
-      // Auto-fetch voucher codes + validity from DB if not explicitly provided
       if (!explicitVoucherCodes || explicitVoucherCodes.length === 0) {
-        const { data: orderVouchers } = await supabase
-          .from('vouchers')
-          .select('code, amount, valid_until')
-          .eq('order_id', order_id)
+        const { data: orderVouchers } = await supabase.from('vouchers').select('code, amount, valid_until').eq('order_id', order_id)
         if (orderVouchers && orderVouchers.length > 0) {
-          voucher_codes = orderVouchers.map((v: any) =>
-            `${v.code} — ${fmtPrice(v.amount)} Kč, platný do ${fmtDate(v.valid_until)}`)
+          voucher_codes = orderVouchers.map((v: any) => `${v.code} — ${fmtPrice(v.amount)} Kč, platný do ${fmtDate(v.valid_until)}`)
           voucherValidUntil = orderVouchers[0].valid_until
         }
       }
     } else {
-      // ===== BOOKING =====
       const { data: booking, error: bErr } = await supabase
-        .from('bookings')
-        .select('*, motorcycles(model, spz), profiles(id, full_name, email, phone, street, city, zip, country, ico, dic)')
+        .from('bookings').select('*, motorcycles(model, spz), profiles(id, full_name, email, phone, street, city, zip, country, ico, dic)')
         .eq('id', booking_id).single()
       if (bErr || !booking) return new Response(JSON.stringify({ error: 'Booking not found' }), { status: 404 })
 
       customer = booking.profiles || {}
       customerId = customer.id || booking.user_id
-
-      const startDate = fmtDate(booking.start_date)
-      const endDate = fmtDate(booking.end_date)
+      const startDate = fmtDate(booking.start_date); const endDate = fmtDate(booking.end_date)
       const days = Math.max(1, Math.ceil((new Date(booking.end_date).getTime() - new Date(booking.start_date).getTime()) / 86400000))
-      // Reconstruct base rental: total_price is final (base+extras+delivery-discount)
       const baseRental = (booking.total_price || 0) - (booking.extras_price || 0) - (booking.delivery_fee || 0) + (booking.discount_amount || 0)
-      const dailyRate = Math.round(baseRental / days)
-      items.push({ description: `Pronájem ${booking.motorcycles?.model || 'motorky'} (${booking.motorcycles?.spz || ''}) — ${startDate} – ${endDate}`, qty: days, unit_price: dailyRate })
-
-      if (booking.extras_price && Number(booking.extras_price) > 0) {
-        items.push({ description: 'Příslušenství a výbava', qty: 1, unit_price: Number(booking.extras_price) })
-      }
-      if (booking.extras) {
-        try {
-          const extras = typeof booking.extras === 'string' ? JSON.parse(booking.extras) : booking.extras
-          if (Array.isArray(extras)) {
-            extras.forEach((e: any) => items.push({ description: e.name || e, qty: 1, unit_price: e.price || 0 }))
-          }
-        } catch {}
-      }
-      if (extra_items && Array.isArray(extra_items)) {
-        extra_items.forEach((ei: any) => items.push({ description: ei.description || 'Položka', qty: ei.qty || 1, unit_price: ei.unit_price || 0 }))
-      }
-      if (booking.delivery_fee && Number(booking.delivery_fee) > 0) {
-        items.push({ description: 'Přistavení / odvoz motorky', qty: 1, unit_price: Number(booking.delivery_fee) })
-      }
-      if (booking.sos_replacement && !extra_items) {
-        items.push({ description: 'Záloha na poškození motorky', qty: 1, unit_price: 30000 })
-      }
-
-      // Voucher / discount deduction
+      items.push({ description: `Pronájem ${booking.motorcycles?.model || 'motorky'} (${booking.motorcycles?.spz || ''}) — ${startDate} – ${endDate}`, qty: days, unit_price: Math.round(baseRental / days) })
+      if (booking.extras_price && Number(booking.extras_price) > 0) items.push({ description: 'Příslušenství a výbava', qty: 1, unit_price: Number(booking.extras_price) })
+      if (extra_items && Array.isArray(extra_items)) extra_items.forEach((ei: any) => items.push({ description: ei.description || 'Položka', qty: ei.qty || 1, unit_price: ei.unit_price || 0 }))
+      if (booking.delivery_fee && Number(booking.delivery_fee) > 0) items.push({ description: 'Přistavení / odvoz motorky', qty: 1, unit_price: Number(booking.delivery_fee) })
+      if (booking.sos_replacement && !extra_items) items.push({ description: 'Záloha na poškození motorky', qty: 1, unit_price: 30000 })
       if (booking.discount_amount && Number(booking.discount_amount) > 0) {
-        const discLabel = booking.discount_code ? `Sleva (kód: ${booking.discount_code})` : 'Sleva / voucher'
-        items.push({ description: discLabel, qty: 1, unit_price: -Number(booking.discount_amount) })
+        items.push({ description: booking.discount_code ? `Sleva (kód: ${booking.discount_code})` : 'Sleva / voucher', qty: 1, unit_price: -Number(booking.discount_amount) })
       }
-
-      // Fetch door codes for payment receipts (DP)
       if (isPaymentReceipt) {
         try {
-          const { data: codes } = await supabase
-            .from('branch_door_codes')
-            .select('code_type, door_code, withheld_reason')
-            .eq('booking_id', booking_id)
+          const { data: codes } = await supabase.from('branch_door_codes').select('code_type, door_code, withheld_reason').eq('booking_id', booking_id)
           if (codes && codes.length > 0) doorCodes = codes
         } catch (e) { console.warn('Failed to fetch door codes:', e) }
       }
     }
 
     // Generate number
-    const { data: lastInv } = await supabase
-      .from('invoices').select('number')
-      .like('number', `${prefix}-${year}-%`)
-      .order('number', { ascending: false }).limit(1)
+    const { data: lastInv } = await supabase.from('invoices').select('number')
+      .like('number', `${prefix}-${year}-%`).order('number', { ascending: false }).limit(1)
     let seq = 1
-    if (lastInv?.length) {
-      const m = lastInv[0].number.match(/-(\d+)$/)
-      if (m) seq = parseInt(m[1], 10) + 1
-    }
+    if (lastInv?.length) { const m = lastInv[0].number.match(/-(\d+)$/); if (m) seq = parseInt(m[1], 10) + 1 }
     const number = `${prefix}-${year}-${String(seq).padStart(4, '0')}`
 
-    // Neplátce DPH — žádná daň
+    // Pro shop_final: odečti DP → konečná faktura za 0 Kč
+    let dpDeduction = 0; let dpNumber = ''
+    const isShopFinal = invoiceType === 'shop_final'
+    if (isShopFinal && order_id) {
+      const { data: dpInv } = await supabase.from('invoices').select('number, total')
+        .eq('order_id', order_id).eq('type', 'payment_receipt').order('created_at', { ascending: false }).limit(1)
+      if (dpInv?.length) { dpDeduction = dpInv[0].total || 0; dpNumber = dpInv[0].number || '' }
+      items.push({ description: `Odečet DP ${dpNumber} (již uhrazeno)`, qty: 1, unit_price: -dpDeduction })
+    }
+
     const subtotal = items.reduce((s, it) => s + it.unit_price * it.qty, 0)
-    const taxAmount = 0
-    const total = subtotal
-    const issueDate = new Date().toISOString().slice(0, 10)
+    const total = subtotal; const issueDate = new Date().toISOString().slice(0, 10)
     const dueDate = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10)
 
-    // Insert invoice
     const invoicePayload: any = {
-      number, type: invoiceType,
-      customer_id: customerId,
-      items, subtotal, tax_amount: taxAmount, total,
-      issue_date: issueDate, due_date: dueDate,
-      status: 'issued', variable_symbol: number,
+      number, type: invoiceType, customer_id: customerId,
+      items, subtotal, tax_amount: 0, total,
+      issue_date: issueDate, due_date: dueDate, status: 'issued', variable_symbol: number,
     }
     if (booking_id) invoicePayload.booking_id = booking_id
     if (order_id) invoicePayload.order_id = order_id
 
-    const { data: invoice, error: iErr } = await supabase
-      .from('invoices').insert(invoicePayload).select().single()
+    const { data: invoice, error: iErr } = await supabase.from('invoices').insert(invoicePayload).select().single()
     if (iErr) return new Response(JSON.stringify({ error: iErr.message }), { status: 500 })
 
-    // Generate HTML
-    const itemsHtml = items.map((it, i) => {
-      // Section headers (── Původní/Nová rezervace ──) — render as spanning header row
-      if (it.description && it.description.startsWith('──') && (it.unit_price || 0) === 0) {
-        const label = it.description.replace(/──/g, '').trim()
-        return `<tr><td colspan="5" style="padding:10px 10px 4px;font-weight:800;font-size:12px;border-bottom:2px solid ${accent};color:${accent}">${label}</td></tr>`
-      }
-      const priceColor = (it.unit_price || 0) < 0 ? 'color:#b91c1c;' : ''
-      return `
-      <tr>
-        <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px">${i + 1}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px">${it.description}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;text-align:center">${it.qty}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;text-align:right;${priceColor}">${fmtPrice(it.unit_price)} Kč</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;text-align:right;font-weight:600;${priceColor}">${fmtPrice(it.unit_price * it.qty)} Kč</td>
-      </tr>`
-    }).join('')
-
     const accent = isPaymentReceipt ? '#0891b2' : isProforma ? '#2563eb' : '#1a8a18'
-    const title = isPaymentReceipt ? 'DAŇOVÝ DOKLAD K PŘIJATÉ PLATBĚ' : isProforma ? 'ZÁLOHOVÁ FAKTURA' : 'FAKTURA'
-    const customerIcoLine = customer.ico ? `<p style="margin:2px 0;font-size:11px">IČO: ${customer.ico}${customer.dic ? ' | DIČ: ' + customer.dic : ''}</p>` : ''
+    const title = isPaymentReceipt ? 'DAŇOVÝ DOKLAD K PŘIJATÉ PLATBĚ' : isProforma ? 'ZÁLOHOVÁ FAKTURA' : isShopFinal ? 'KONEČNÁ FAKTURA' : 'FAKTURA'
 
-    const html = `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>${title} ${number}</title></head>
-<body style="margin:0;padding:0;font-family:'Segoe UI',Helvetica,Arial,sans-serif;color:#1a1a1a;background:#fff">
-<div style="max-width:780px;margin:0 auto;padding:32px 28px">
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;border-bottom:3px solid ${accent};padding-bottom:16px">
-    <div><h1 style="margin:0;font-size:22px;font-weight:800;color:${accent}">${title}</h1></div>
-    <div style="text-align:right">
-      <p style="margin:0;font-size:13px;font-weight:700">Číslo: ${number}</p>
-      <p style="margin:2px 0;font-size:11px;color:#666">Vystaveno: ${fmtDate(issueDate)}</p>
-      <p style="margin:2px 0;font-size:11px;color:#666">Splatnost: ${fmtDate(dueDate)}</p>
-    </div>
-  </div>
-  <div style="display:flex;gap:24px;margin-bottom:24px">
-    <div style="flex:1;padding:14px;background:#f8faf9;border-radius:8px">
-      <p style="margin:0 0 6px;font-size:10px;font-weight:700;text-transform:uppercase;color:#888">Dodavatel</p>
-      <p style="margin:0;font-size:13px;font-weight:700">${COMPANY.name}</p>
-      <p style="margin:2px 0;font-size:11px">${COMPANY.address}</p>
-      <p style="margin:2px 0;font-size:11px">IČO: ${COMPANY.ico}</p>
-      <p style="margin:2px 0;font-size:11px;color:#888">Neplátce DPH</p>
-    </div>
-    <div style="flex:1;padding:14px;background:#f8faf9;border-radius:8px">
-      <p style="margin:0 0 6px;font-size:10px;font-weight:700;text-transform:uppercase;color:#888">Odběratel</p>
-      <p style="margin:0;font-size:13px;font-weight:700">${customer.full_name || '—'}</p>
-      <p style="margin:2px 0;font-size:11px">${[customer.street, customer.city, customer.zip, customer.country].filter(Boolean).join(', ') || ''}</p>
-      ${customerIcoLine}
-      <p style="margin:2px 0;font-size:11px">${customer.email || ''}</p>
-    </div>
-  </div>
-  <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
-    <thead><tr style="background:${accent}">
-      <th style="padding:8px 10px;color:#fff;font-size:10px;text-align:left">#</th>
-      <th style="padding:8px 10px;color:#fff;font-size:10px;text-align:left">Popis</th>
-      <th style="padding:8px 10px;color:#fff;font-size:10px;text-align:center">Ks</th>
-      <th style="padding:8px 10px;color:#fff;font-size:10px;text-align:right">Cena/ks</th>
-      <th style="padding:8px 10px;color:#fff;font-size:10px;text-align:right">Celkem</th>
-    </tr></thead>
-    <tbody>${itemsHtml}</tbody>
-  </table>
-  <div style="display:flex;justify-content:flex-end;margin-bottom:24px">
-    <table style="border-collapse:collapse;min-width:280px">
-      <tr style="border-top:2px solid ${accent}"><td style="padding:8px 12px;font-size:15px;font-weight:800;color:${accent}">Celkem</td><td style="padding:8px 12px;font-size:15px;font-weight:800;text-align:right;color:${accent}">${fmtPrice(total)} Kč</td></tr>
-      <tr><td colspan="2" style="padding:2px 12px;font-size:10px;color:#888">Cena je konečná — dodavatel není plátce DPH</td></tr>
-    </table>
-  </div>
-  <div style="padding:14px;background:#f8faf9;border-radius:8px;margin-bottom:16px">
-    <p style="margin:0 0 6px;font-size:10px;font-weight:700;text-transform:uppercase;color:#888">Platební údaje</p>
-    <div style="font-size:12px"><span style="color:#888">Banka:</span> ${COMPANY.bank} | <span style="color:#888">Č. účtu:</span> ${COMPANY.account} | <span style="color:#888">VS:</span> ${number}</div>
-  </div>
-  ${voucher_codes && voucher_codes.length > 0 ? `
-  <div style="padding:14px;background:#dcfce7;border-radius:8px;margin-bottom:16px;border:1px solid #86efac">
-    <p style="margin:0 0 6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#166534">Dárkové poukazy</p>
-    ${voucher_codes.map((c: string) => `<p style="margin:4px 0;font-size:14px;font-weight:700;font-family:monospace;color:#166534">${c}</p>`).join('')}
-    ${voucherValidUntil ? `<p style="margin:8px 0 2px;font-size:11px;font-weight:600;color:#166534">Platnost poukazu: 3 roky (do ${fmtDate(voucherValidUntil)})</p>` : ''}
-    <p style="margin:4px 0 0;font-size:10px;color:#4a6357">Kód uplatníte při rezervaci motorky na motogo24.cz nebo v mobilní aplikaci MotoGo24 v sekci „Slevový kód".</p>
-  </div>` : ''}
-  ${doorCodes.length > 0 ? `
-  <div style="padding:14px;background:#e0f2fe;border-radius:8px;margin-bottom:16px;border:2px solid #0284c7">
-    <p style="margin:0 0 8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#0c4a6e">Přístupové kódy k pobočce</p>
-    ${doorCodes.filter((c: any) => !c.withheld_reason).map((dc: any) => `
-      <p style="margin:4px 0;font-size:14px;font-weight:700;font-family:'Courier New',monospace;color:#0c4a6e">
-        ${dc.code_type === 'motorcycle' ? 'Kód k motorce' : 'Kód k příslušenství'}: <span style="font-size:18px;letter-spacing:3px;color:#0369a1">${dc.door_code}</span>
-      </p>`).join('')}
-    ${doorCodes.some((c: any) => c.withheld_reason)
-      ? '<p style="margin:6px 0 0;font-size:12px;font-weight:600;color:#b45309">Kódy budou zaslány po ověření dokladů (OP/pas/ŘP).</p>'
-      : '<p style="margin:8px 0 0;font-size:11px;color:#164e63">Kódy jsou platné pouze po dobu trvání pronájmu. Po skončení pronájmu přestanou automaticky platit.</p>'
-    }
-  </div>` : ''}
-  ${isProforma ? '<div style="padding:10px 14px;background:#dbeafe;border-radius:8px;font-size:11px;color:#1e40af">Tento doklad není daňovým dokladem. Po přijetí platby Vám bude vystavena konečná faktura.</div>' : ''}
-  ${isPaymentReceipt ? '<div style="padding:10px 14px;background:#cffafe;border-radius:8px;font-size:11px;color:#0e7490">Tento doklad potvrzuje přijetí platby. Konečná faktura bude vystavena po dokončení služby.</div>' : ''}
-</div></body></html>`
+    const html = generateInvoiceHtml({
+      title, number, accent, issueDate, dueDate, total, company: COMPANY, customer, items,
+      voucher_codes, voucherValidUntil, doorCodes, isProforma, isPaymentReceipt, isShopFinal, dpNumber,
+    })
 
-    // Store HTML in storage
     const blob = new Blob([html], { type: 'text/html' })
     const path = `invoices/${invoice.id}.html`
     await supabase.storage.from('documents').upload(path, blob, { upsert: true, contentType: 'text/html' })
     await supabase.from('invoices').update({ pdf_path: path }).eq('id', invoice.id)
 
-    // Send email with invoice if requested and customer has email
     if (send_email !== false && customer.email) {
+      const emailSubject = `${isPaymentReceipt ? 'Doklad k přijaté platbě' : isProforma ? 'Zálohová faktura' : isShopFinal ? 'Konečná faktura' : 'Faktura'} č. ${number} — MOTO GO 24`
+      const emailHtml = generateEmailHtml({
+        customer, company: COMPANY, title, number, total, dueDate,
+        voucher_codes, voucherValidUntil, doorCodes, isPaymentReceipt, isProforma, isShopFinal,
+      })
       await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from: FROM_EMAIL, to: customer.email,
-          subject: `${isPaymentReceipt ? 'Doklad k přijaté platbě' : isProforma ? 'Zálohová faktura' : 'Faktura'} č. ${number} — MOTO GO 24`,
-          html: `<div style="font-family:sans-serif;padding:24px">
-            <h2 style="color:#1a2e22">Dobrý den${customer.full_name ? ` ${customer.full_name}` : ''},</h2>
-            <p>V příloze zasíláme ${isPaymentReceipt ? 'doklad k přijaté platbě' : isProforma ? 'zálohovou fakturu' : 'fakturu'} č. <strong>${number}</strong> na částku <strong>${fmtPrice(total)} Kč</strong>.</p>
-            <p>Splatnost: <strong>${fmtDate(dueDate)}</strong></p>
-            <p>Variabilní symbol: <strong>${number}</strong></p>
-            ${voucher_codes && voucher_codes.length > 0 ? `<div style="padding:12px;background:#dcfce7;border-radius:8px;margin:12px 0"><p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#166534">Dárkové poukazy:</p>${voucher_codes.map((c: string) => `<p style="margin:2px 0;font-size:16px;font-weight:700;font-family:monospace;color:#166534">${c}</p>`).join('')}${voucherValidUntil ? `<p style="margin:6px 0 0;font-size:11px;color:#166534">Platnost: 3 roky (do ${fmtDate(voucherValidUntil)}). Kód uplatníte při rezervaci v aplikaci MotoGo24.</p>` : ''}</div>` : ''}
-            ${doorCodes.length > 0 ? `<div style="padding:12px;background:#e0f2fe;border-radius:8px;margin:12px 0;border:2px solid #0284c7"><p style="margin:0 0 8px;font-size:11px;font-weight:700;color:#0c4a6e">PŘÍSTUPOVÉ KÓDY K POBOČCE:</p>${doorCodes.filter((c: any) => !c.withheld_reason).map((dc: any) => `<p style="margin:4px 0;font-size:18px;font-weight:700;font-family:monospace;letter-spacing:3px;color:#0369a1">${dc.code_type === 'motorcycle' ? 'Motorka' : 'Příslušenství'}: ${dc.door_code}</p>`).join('')}${doorCodes.some((c: any) => c.withheld_reason) ? '<p style="margin:6px 0 0;font-size:12px;color:#b45309">Kódy budou zaslány po ověření dokladů.</p>' : '<p style="margin:6px 0 0;font-size:11px;color:#164e63">Kódy jsou platné po dobu trvání pronájmu.</p>'}</div>` : ''}
-            <hr style="border:1px solid #e5e7eb">
-            <p style="font-size:12px;color:#888">${COMPANY.name} | ${COMPANY.email}</p>
-          </div>`,
-        }),
+        body: JSON.stringify({ from: FROM_EMAIL, to: customer.email, subject: emailSubject, html: emailHtml }),
       })
     }
 
-    // Audit log
-    await supabase.from('admin_audit_log').insert({
-      action: 'invoice_generated',
-      details: { invoice_id: invoice.id, number, type: invoiceType, booking_id },
-    })
+    await supabase.from('admin_audit_log').insert({ action: 'invoice_generated', details: { invoice_id: invoice.id, number, type: invoiceType, booking_id } })
 
     return new Response(JSON.stringify({ success: true, invoice_id: invoice.id, number }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },

@@ -1,5 +1,5 @@
 # SUPABASE BACKEND STATE — MotoGo24
-> **Poslední aktualizace:** 2026-03-21 12:30 UTC
+> **Poslední aktualizace:** 2026-03-21 18:00 UTC
 > **Zdroj:** Reálný stav Supabase databáze (SQL dump z dashboardu) + Edge Functions
 > **Projekt:** `vnwnqteskbykeucanlhk.supabase.co`
 > **POZOR:** Tento soubor MUSÍ být aktualizován při každé SQL změně!
@@ -359,7 +359,8 @@
 | `trg_shop_orders_updated` | shop_orders | update_updated_at() |
 | `trg_shop_order_number` | shop_orders (INSERT) | generate_shop_order_number() |
 | `trg_check_booking_overlap` | bookings (INSERT/UPDATE OF start_date, end_date, moto_id) | check_booking_overlap() |
-| `trg_generate_shop_invoice` | shop_orders (payment_status) | generate_shop_invoice() |
+| ~~`trg_generate_shop_invoice`~~ | ~~shop_orders (payment_status)~~ | **DROPPED 2026-03-21** — nahrazeno trg_generate_shop_final_on_ship |
+| `trg_generate_shop_final_on_ship` | shop_orders (AFTER UPDATE OF status, WHEN →shipped/delivered) | generate_shop_final_on_ship() — vytvoří shop_final invoice s odečtem DP (konečná za 0 Kč). SECURITY DEFINER |
 | `moto_day_prices_updated` | moto_day_prices | update_updated_at() |
 | `trg_ai_conversations_updated` | ai_conversations | update_updated_at() |
 | `trg_sos_notify_user` | sos_incidents (INSERT) | sos_notify_user_on_create() — SECURITY DEFINER, dedup 2min |
@@ -367,7 +368,7 @@
 | `trg_bridge_admin_message` | messages (INSERT) | bridge_admin_message_to_app() |
 | `trg_restore_vouchers_on_cancel` | bookings (UPDATE) | restore_vouchers_on_cancel() |
 | `trg_auto_process_voucher_order` | shop_orders (BEFORE UPDATE OF payment_status, WHEN paid) | auto_process_voucher_order() — auto voucher kódy + in-app notifikace + status update |
-| `trg_sync_invoice_to_documents` | invoices (INSERT) | sync_invoice_to_documents() |
+| `trg_sync_invoice_to_documents` | invoices (INSERT) | sync_invoice_to_documents() — opraveno: podpora order_id pro shop objednávky (bez booking_id), deduplikace přes file_path |
 | `trg_sync_invoice_pdf_update` | invoices (UPDATE pdf_path) | sync_invoice_pdf_update() |
 | `trg_sync_generated_doc_to_documents` | generated_documents (INSERT) | sync_generated_doc_to_documents() |
 | `trg_sync_moto_day_prices` | moto_day_prices (INSERT/UPDATE) | sync_moto_day_prices_to_motorcycles() |
@@ -447,7 +448,7 @@ Detailní politiky:
 | `ai-copilot` | AI Copilot pro Velín dashboard — Anthropic Claude API, system prompt CZ, načítá kontext z DB (bookings, tržby, servis, SOS), ukládá do ai_conversations |
 | `ai-moto-agent` | AI Servisní agent pro zákazníky — diagnostika závad motorek přes Claude API, vrací {reply, is_rideable, suggest_sos}, načítá kontext motorky z booking_id |
 | `send-booking-email` | Odesílá branded HTML emaily (booking_reserved, booking_completed, booking_modified, voucher_purchased). Retry 3× s exponential backoff. Při selhání loguje do debug_log |
-| `generate-invoice` | Generuje proforma/finální fakturu (ZF-/FV-YYYY-NNNN). Firemní údaje načítá z app_settings (company_info) |
+| `generate-invoice` | Generuje ZF (shop_proforma), DP (payment_receipt), FK (shop_final s odečtem DP → 0 Kč). Prefix: ZF-/DP-/FV-YYYY-NNNN. Template v template.ts. Triggery: ZF=vytvoření objednávky, DP=zaplacení, FK=odesláno/doručeno |
 | `generate-document` | Generuje dokumenty z šablon (rental_contract, handover_protocol). Firemní údaje načítá z app_settings (company_info) |
 | `send-cancellation-email` | Email o stornování rezervace s "obnovit" CTA. Retry 3× s exponential backoff. Při selhání loguje do debug_log |
 | `admin-reset-password` | Admin reset hesla zákazníka |
