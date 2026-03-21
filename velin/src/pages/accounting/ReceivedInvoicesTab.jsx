@@ -568,15 +568,16 @@ function AddReceivedModal({ onClose, onSaved }) {
         issue_date: form.issue_date || new Date().toISOString().slice(0, 10),
         due_date: form.due_date || null,
         variable_symbol: form.variable_symbol || null,
-        notes: [form.supplier, form.notes].filter(Boolean).join('\n'),
+        notes: [
+          form.supplier,
+          form.supplier_ico ? `IČO: ${form.supplier_ico}` : null,
+          form.supplier_bank_account ? `Účet: ${form.supplier_bank_account}` : null,
+          form.category ? `Kategorie: ${form.category}` : null,
+          form.payment_method ? `Platba: ${form.payment_method}` : null,
+          form.notes,
+        ].filter(Boolean).join('\n'),
         status: 'issued',
-        metadata: {
-          supplier_name: form.supplier,
-          supplier_ico: form.supplier_ico,
-          supplier_bank_account: form.supplier_bank_account,
-          expense_category: form.category,
-          payment_method: form.payment_method,
-        },
+        source: 'manual',
       }).select().single()
       if (invErr) throw invErr
 
