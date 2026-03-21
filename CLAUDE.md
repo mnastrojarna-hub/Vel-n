@@ -2,13 +2,18 @@
 
 ## POVINNÉ: Přečti backend state na začátku každé session
 
-**VŽDY na začátku KAŽDÉ konverzace / session přečti soubor:**
+**VŽDY na začátku KAŽDÉ konverzace / session přečti soubory:**
 
 ```
-/SUPABASE_BACKEND_STATE.md
+/SUPABASE_BACKEND_STATE_1.md  — Tabulky
+/SUPABASE_BACKEND_STATE_2.md  — Klíčové sloupce
+/SUPABASE_BACKEND_STATE_3.md  — RPC funkce
+/SUPABASE_BACKEND_STATE_4.md  — Triggery
+/SUPABASE_BACKEND_STATE_5.md  — RLS, Realtime, Edge, Storage, Secrets, Cron, FK
+/SUPABASE_BACKEND_STATE_6.md  — Changelog
 ```
 
-Tento soubor obsahuje kompletní stav Supabase backendu — všechny tabulky, sloupce, RLS politiky, edge funkce, secrets, triggery a RPC funkce. BEZ tohoto kontextu NESMÍŠ provádět žádné frontendové ani backendové změny.
+Tyto soubory obsahují kompletní stav Supabase backendu — všechny tabulky, sloupce, RLS politiky, edge funkce, secrets, triggery a RPC funkce. BEZ tohoto kontextu NESMÍŠ provádět žádné frontendové ani backendové změny.
 
 ## Architektura projektu
 
@@ -23,7 +28,7 @@ Toto je soustava propojených aplikací pro MotoGo24 (půjčovna motorek):
 1. **NIKDY neměň UX, UI ani flow** pokud to uživatel výslovně nepožaduje
 2. **VoltBuilder limit:** Maximálně 5000 tokenů na soubor v motogo-app-frontend
 3. **SQL změny:** Vždy dej SQL příkazy jako text do chatu, NIKDY rovnou do gitu. Až po implementaci a ověření commitni
-4. **SUPABASE_BACKEND_STATE.md:** Po každé SQL změně MUSÍŠ aktualizovat tento soubor
+4. **SUPABASE_BACKEND_STATE_*.md:** Po každé SQL změně MUSÍŠ aktualizovat příslušný soubor (1-6)
 5. **Backend first:** Před každou frontendovou změnou ověř, že backend (tabulky, RLS, funkce) podporuje požadovanou funkcionalitu
 
 ## Supabase kontext

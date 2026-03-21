@@ -25,6 +25,7 @@ const LongTermAssetsTab = lazy(() => import('./accounting/LongTermAssetsTab'))
 const LiabilitiesTab = lazy(() => import('./accounting/LiabilitiesTab'))
 const SuppliersTab = lazy(() => import('./accounting/SuppliersTab'))
 const ReportsTab = lazy(() => import('./accounting/ReportsTab'))
+const AutoOrdersTab = lazy(() => import('./accounting/AutoOrdersTab'))
 const InventoryTab = lazy(() => import('./Inventory'))
 
 const PERIODS = [
@@ -39,7 +40,7 @@ const TYPES = [
   { value: 'expense', label: 'Výdaje' },
 ]
 
-const FINANCE_TABS = ['Přehled', 'Faktury', 'Účetnictví', 'Faktury přijaté', 'Pokladna', 'Sklad']
+const FINANCE_TABS = ['Přehled', 'Faktury', 'Objednávky', 'Účetnictví', 'Faktury přijaté', 'Pokladna', 'Sklad']
 
 const ACCOUNTING_SUBTABS = [
   { id: 'events', label: 'Finanční události' },
@@ -249,6 +250,7 @@ export default function Finance() {
 
       <Suspense fallback={<TabLoader />}>
       {activeTab === 'Faktury' && <ErrorBoundary><InvoicesTab /></ErrorBoundary>}
+      {activeTab === 'Objednávky' && <ErrorBoundary><AutoOrdersTab /></ErrorBoundary>}
       {activeTab === 'Faktury přijaté' && <ErrorBoundary><ReceivedInvoicesTab /></ErrorBoundary>}
       {activeTab === 'Pokladna' && <ErrorBoundary><CashRegisterTab /></ErrorBoundary>}
       {activeTab === 'Sklad' && <ErrorBoundary><InventoryTab /></ErrorBoundary>}
