@@ -172,8 +172,15 @@ function CheckboxFilterGroup({ label, values, onChange, options }) {
   )
 }
 
+const INVENTORY_CATEGORIES = [
+  { value: 'material', label: 'Materiál' },
+  { value: 'inventory', label: 'Zboží' },
+  { value: 'supplies', label: 'Spotřební materiál' },
+  { value: 'prislusenstvi', label: 'Příslušenství' },
+]
+
 function AddItemModal({ onClose, onSaved }) {
-  const [form, setForm] = useState({ name: '', sku: '', category: '', stock: 0, min_stock: 0, unit_price: '' })
+  const [form, setForm] = useState({ name: '', sku: '', category: 'material', stock: 0, min_stock: 0, unit_price: '' })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
 
@@ -200,7 +207,14 @@ function AddItemModal({ onClose, onSaved }) {
       <div className="grid grid-cols-2 gap-3">
         <FormField label="Název" value={form.name} onChange={v => set('name', v)} />
         <FormField label="SKU" value={form.sku} onChange={v => set('sku', v)} />
-        <FormField label="Kategorie" value={form.category} onChange={v => set('category', v)} />
+        <div>
+          <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Kategorie</label>
+          <select value={form.category} onChange={e => set('category', e.target.value)}
+            className="w-full rounded-btn text-sm outline-none"
+            style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>
+            {INVENTORY_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+          </select>
+        </div>
         <FormField label="Cena/ks (Kč)" value={form.unit_price} onChange={v => set('unit_price', v)} type="number" />
         <FormField label="Počáteční stav" value={form.stock} onChange={v => set('stock', v)} type="number" />
         <FormField label="Minimum" value={form.min_stock} onChange={v => set('min_stock', v)} type="number" />
