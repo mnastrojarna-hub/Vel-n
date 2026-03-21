@@ -44,8 +44,10 @@ export default function ServiceLog() {
       let query = supabase
         .from('maintenance_log')
         .select('*, motorcycles(model, spz)', { count: 'exact' })
-      if (filters.types?.length > 0) query = query.in('type', filters.types)
-      else if (filters.type) query = query.eq('type', filters.type)
+      if (filters.types?.length > 0) {
+        const typeFilter = filters.types.map(t => `type.eq.${t},service_type.eq.${t}`).join(',')
+        query = query.or(typeFilter)
+      }
       if (filters.search) query = query.or(`motorcycles.model.ilike.%${filters.search}%,motorcycles.spz.ilike.%${filters.search}%`)
       query = query.order('created_at', { ascending: false }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       const { data, count, error: err } = await debugAction('maintenance_log.list', 'ServiceLog', () => query)
@@ -101,11 +103,10 @@ export default function ServiceLog() {
             </thead>
             <tbody>
               {logs.map(l => {
-                const km = l.mileage_at_service || l.km_at_service
                 const startDate = l.scheduled_date || l.created_at
                 const isExp = expandedLog === l.id
                 return (
-                  <LogRow key={l.id} log={l} km={km} startDate={startDate}
+                  <LogRow key={l.id} log={l} km={l.km_at_service || l.mileage_at_service} startDate={startDate}
                     isExpanded={isExp}
                     onToggle={() => setExpandedLog(isExp ? null : l.id)}
                     onEdit={() => setEditing(l)} fmt={fmt} />
@@ -183,8 +184,18 @@ function ServiceModal({ entry, onClose, onSaved }) {
     setSaving(true); setErr(null)
     try {
       debugLog('ServiceLog', 'handleSave', { isEdit: !!entry, moto_id: form.moto_id })
-      const { scheduled_date: _sd, ...rest } = form
-      const payload = { ...rest, cost: Number(rest.cost) || null, mileage_at_service: Number(rest.mileage_at_service) || null }
+      const payload = {
+        moto_id: form.moto_id,
+        type: form.type || null,
+        service_type: form.type || null,
+        description: form.description || null,
+        cost: Number(form.cost) || null,
+        km_at_service: Number(form.mileage_at_service) || null,
+        performed_by: form.performed_by || null,
+        status: form.status || 'pending',
+        scheduled_date: form.scheduled_date || null,
+        completed_date: form.completed_date || null,
+      }
       if (entry) {
         const { error } = await debugAction('maintenance_log.update', 'ServiceLog', () =>
           supabase.from('maintenance_log').update(payload).eq('id', entry.id))
