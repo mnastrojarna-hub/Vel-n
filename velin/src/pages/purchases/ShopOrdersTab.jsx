@@ -294,7 +294,8 @@ function ShopOrderDetail({ order, onClose, onUpdated }) {
     , updateData)
     if (result?.error) throw result.error
 
-    if (status === 'confirmed' || status === 'delivered') {
+    // FK (konečná faktura za 0 Kč s odečtem DP) — trigger: odesláno / doručeno
+    if (status === 'shipped' || status === 'delivered') {
       supabase.functions.invoke('generate-invoice', {
         body: { type: 'shop_final', order_id: order.id }
       }).catch(e => console.warn('[Final invoice]', e))
