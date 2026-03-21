@@ -197,6 +197,14 @@ export default function FinancialEventsTab() {
     if (event.linked_entity_type === 'invoice' && event.linked_entity_id) return
     const ai = meta.ai_classification || {}
     const invNumber = meta.invoice_number || `FP-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${event.id.slice(0, 4)}`
+    const noteParts = [
+      meta.supplier_name,
+      meta.supplier_ico ? `IČO: ${meta.supplier_ico}` : null,
+      ai.category ? `Kategorie: ${ai.category}` : null,
+      ai.classification_note,
+      meta.payment_method ? `Platba: ${meta.payment_method}` : null,
+      `FE: ${event.id.slice(0, 8)}`,
+    ]
     const { data: inv } = await supabase.from('invoices').insert({
       number: invNumber,
       type: 'received',
@@ -206,16 +214,9 @@ export default function FinancialEventsTab() {
       issue_date: event.duzp || new Date().toISOString().slice(0, 10),
       due_date: meta.due_date || null,
       variable_symbol: meta.variable_symbol || null,
-      notes: [meta.supplier_name, ai.classification_note].filter(Boolean).join('\n'),
+      notes: noteParts.filter(Boolean).join('\n'),
       status: 'issued',
-      metadata: {
-        supplier_name: meta.supplier_name,
-        supplier_ico: meta.supplier_ico,
-        supplier_bank_account: meta.supplier_bank_account,
-        expense_category: ai.category || meta.category,
-        payment_method: meta.payment_method,
-        financial_event_id: event.id,
-      },
+      source: 'system',
     }).select().single()
     // Link event to invoice
     if (inv) {
