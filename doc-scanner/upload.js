@@ -98,11 +98,16 @@ var DocUpload = {
       });
 
       DocUI.showResult(result.data);
+      var ex = result.data.extracted || {};
       DocUI.saveToHistory({
         document_type: result.data.document_type,
-        supplier: result.data.extracted && result.data.extracted.supplier,
-        amount: result.data.extracted && result.data.extracted.amount,
-        date: result.data.extracted && result.data.extracted.date,
+        supplier: ex.supplier,
+        amount: ex.amount,
+        date: ex.date,
+        due_date: ex.due_date,
+        variable_symbol: ex.variable_symbol,
+        payment_method: ex.payment_method,
+        category: result.data.ai_classification && result.data.ai_classification.category,
         timestamp: new Date().toISOString(),
         needs_review: result.data.needs_review
       });
