@@ -134,9 +134,13 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
     setShowServiceChecklist(false)
     setBusy(true); setError(null)
     try {
-      // Check active bookings
+      // Check truly active/future bookings (not historical)
+      const today = new Date().toISOString().slice(0, 10)
       const { data: activeBookings } = await supabase.from('bookings')
-        .select('id').eq('moto_id', moto.id).in('status', ['pending', 'active', 'reserved'])
+        .select('id, status, start_date, end_date')
+        .eq('moto_id', moto.id)
+        .in('status', ['active', 'reserved'])
+        .gte('end_date', today)
       if (activeBookings?.length > 0) {
         const ok = window.confirm(`Motorka má ${activeBookings.length} aktivní/ch rezervací. Při změně stavu budou stornovány. Pokračovat?`)
         if (!ok) { setBusy(false); return }
