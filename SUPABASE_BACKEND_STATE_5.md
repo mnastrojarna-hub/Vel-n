@@ -30,6 +30,9 @@ Detailní politiky:
 - **shop_orders:** admin ALL, customer SELECT/INSERT/UPDATE (customer_id=uid)
 - **shop_order_items:** admin ALL, customer SELECT/INSERT (order owned by user)
 - **booking_cancellations:** admin ALL, customer SELECT (cancelled_by=uid)
+- **maintenance_log:** admin ALL (is_admin), public SELECT
+- **maintenance_schedules:** admin ALL (is_admin), public SELECT
+- **service_orders:** admin ALL (is_admin)
 
 ---
 
