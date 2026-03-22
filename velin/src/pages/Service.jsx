@@ -97,6 +97,8 @@ function ActiveServiceTab({ onRefresh }) {
   const [newDesc, setNewDesc] = useState({})
   const [savingDesc, setSavingDesc] = useState({})
   const [endingService, setEndingService] = useState({})
+  const [itemStates, setItemStates] = useState({}) // { logId: [{label, done, note}] }
+  const [savingItems, setSavingItems] = useState({})
   const [actionMoto, setActionMoto] = useState(null)
 
   useEffect(() => { load() }, [])
@@ -148,10 +150,11 @@ function ActiveServiceTab({ onRefresh }) {
       }
       const { data: { user } } = await supabase.auth.getUser()
       try {
-        await supabase.from('admin_audit_log').insert({
+        const { error: auditErr } = await supabase.from('admin_audit_log').insert({
           admin_id: user?.id, action: 'service_completed',
           details: { log_id: logEntry.id, moto_id: logEntry.moto_id },
         })
+        if (auditErr) console.warn('[audit] failed:', auditErr.message)
       } catch {}
       await load()
       onRefresh?.()
@@ -181,10 +184,11 @@ function ActiveServiceTab({ onRefresh }) {
 
       const { data: { user } } = await supabase.auth.getUser()
       try {
-        await supabase.from('admin_audit_log').insert({
+        const { error: auditErr } = await supabase.from('admin_audit_log').insert({
           admin_id: user?.id, action: 'service_ended_direct',
           details: { moto_id: moto.id, model: moto.model },
         })
+        if (auditErr) console.warn('[audit] failed:', auditErr.message)
       } catch {}
       await load()
       onRefresh?.()
@@ -193,6 +197,51 @@ function ActiveServiceTab({ onRefresh }) {
       alert('Chyba při ukončení servisu: ' + e.message)
     } finally {
       setEndingService(s => ({ ...s, [moto.id]: false }))
+    }
+  }
+
+  // Parse checklist items from description (lines starting with "- ")
+  function getChecklistItems(log) {
+    // If items already stored in DB, use those
+    if (itemStates[log.id]) return itemStates[log.id]
+    if (log.items && Array.isArray(log.items) && log.items.length > 0) {
+      return log.items
+    }
+    // Parse from description
+    const lines = (log.description || '').split('\n')
+    const items = lines.filter(l => l.trim().startsWith('- ')).map(l => ({
+      label: l.trim().slice(2), done: false, note: '',
+    }))
+    return items
+  }
+
+  function updateItem(logId, idx, field, value) {
+    setItemStates(prev => {
+      const items = [...(prev[logId] || [])]
+      items[idx] = { ...items[idx], [field]: value }
+      return { ...prev, [logId]: items }
+    })
+  }
+
+  async function saveItems(logId) {
+    const items = itemStates[logId]
+    if (!items) return
+    setSavingItems(s => ({ ...s, [logId]: true }))
+    try {
+      const { error } = await supabase.from('maintenance_log').update({ items }).eq('id', logId)
+      if (error) console.error('[saveItems] failed:', error)
+    } finally {
+      setSavingItems(s => ({ ...s, [logId]: false }))
+    }
+  }
+
+  // Initialize items from log data
+  function initItems(log) {
+    if (!itemStates[log.id]) {
+      const items = getChecklistItems(log)
+      if (items.length > 0) {
+        setItemStates(prev => ({ ...prev, [log.id]: items }))
+      }
     }
   }
 
@@ -302,6 +351,47 @@ function ActiveServiceTab({ onRefresh }) {
                             <div className="text-sm" style={{ color: '#0f1a14', whiteSpace: 'pre-wrap' }}>{l.description || '—'}</div>
                           </div>
                         </div>
+                        {/* Checklist items with per-item notes and done checkbox */}
+                        {(() => { initItems(l); return null })()}
+                        {(itemStates[l.id] || getChecklistItems(l)).length > 0 && (
+                          <div className="mt-3 p-3 rounded-lg" style={{ background: '#fff', border: '1px solid #d4e8e0' }}>
+                            <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Servisní úkony</div>
+                            <div className="space-y-2">
+                              {(itemStates[l.id] || getChecklistItems(l)).map((item, idx) => (
+                                <div key={idx} className="flex items-start gap-2 p-2 rounded" style={{ background: item.done ? '#dcfce7' : '#f9fafb', border: '1px solid ' + (item.done ? '#86efac' : '#e5e7eb') }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={item.done || false}
+                                    onChange={e => updateItem(l.id, idx, 'done', e.target.checked)}
+                                    style={{ marginTop: 3, accentColor: '#16a34a', width: 18, height: 18, cursor: 'pointer' }}
+                                  />
+                                  <div className="flex-1">
+                                    <div className="text-sm font-bold" style={{ color: item.done ? '#16a34a' : '#1a2e22', textDecoration: item.done ? 'line-through' : 'none' }}>
+                                      {item.label}
+                                    </div>
+                                    <input
+                                      type="text"
+                                      value={item.note || ''}
+                                      onChange={e => updateItem(l.id, idx, 'note', e.target.value)}
+                                      placeholder="Poznámka technika…"
+                                      className="w-full rounded text-xs outline-none mt-1"
+                                      style={{ padding: '3px 6px', background: '#fff', border: '1px solid #e5e7eb', color: '#374151' }}
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="flex justify-end mt-2">
+                              <Button
+                                onClick={() => saveItems(l.id)}
+                                disabled={savingItems[l.id]}
+                                style={{ fontSize: 12, padding: '4px 10px' }}
+                              >
+                                {savingItems[l.id] ? 'Ukládám…' : 'Uložit úkony'}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                         {/* Edit description */}
                         <div className="flex gap-2 items-end mt-2">
                           <div className="flex-1">

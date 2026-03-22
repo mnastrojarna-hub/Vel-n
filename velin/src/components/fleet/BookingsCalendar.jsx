@@ -52,9 +52,9 @@ export default function BookingsCalendar({ motoId, onSwitchTab }) {
         .eq('moto_id', motoId)
         .gte('created_at', startStr).lte('created_at', endStr + 'T23:59:59'),
       supabase.from('service_orders')
-        .select('id, scheduled_date, type, status, description')
+        .select('id, created_at, type, status, notes')
         .eq('moto_id', motoId)
-        .gte('scheduled_date', startStr).lte('scheduled_date', endStr),
+        .gte('created_at', startStr).lte('created_at', endStr + 'T23:59:59'),
     ])
     setBookings(bRes.data || [])
     setMaintenance(mRes.data || [])
@@ -74,9 +74,9 @@ export default function BookingsCalendar({ motoId, onSwitchTab }) {
 
     // Service / maintenance check (red)
     const hasMaintenanceLog = maintenance.some(m => m.created_at?.slice(0, 10) === dateStr)
-    const serviceOrder = serviceOrders.find(s => s.scheduled_date?.slice(0, 10) === dateStr)
+    const serviceOrder = serviceOrders.find(s => s.created_at?.slice(0, 10) === dateStr)
     if (hasMaintenanceLog || serviceOrder) {
-      const serviceLabel = serviceOrder?.type || serviceOrder?.description || maintenance.find(m => m.created_at?.slice(0, 10) === dateStr)?.service_type || 'Servis'
+      const serviceLabel = serviceOrder?.type || serviceOrder?.notes || maintenance.find(m => m.created_at?.slice(0, 10) === dateStr)?.service_type || 'Servis'
       return { type: 'service', bg: '#dc2626', color: '#fff', label: serviceLabel, serviceId: serviceOrder?.id || maintenance.find(m => m.created_at?.slice(0, 10) === dateStr)?.id }
     }
 
@@ -518,14 +518,15 @@ function AddServiceFromCalendar({ motoId, onClose, onSaved }) {
       const { error } = await supabase.from('service_orders').insert({
         moto_id: motoId,
         type: form.type,
-        description: form.description,
-        estimated_cost: Number(form.cost) || 0,
-        scheduled_date: form.scheduled_date || null,
+        notes: form.description,
+        items: [],
         status: 'pending',
       })
       if (error) throw error
-      const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'service_order_created', details: { moto_id: motoId } })
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'service_order_created', details: { moto_id: motoId } })
+      } catch {}
       onSaved()
     } catch (e) { setErr(e.message) } finally { setSaving(false) }
   }
