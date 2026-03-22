@@ -173,15 +173,27 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
         : selectedLabels.length > 1 ? `Servis (${selectedLabels.length} úkonů)`
         : 'Neplánovaný servis'
 
-      const { error: logErr } = await supabase.from('maintenance_log').insert({
+      const logPayload = {
         moto_id: moto.id,
         description: fullDescription,
         service_type: serviceType,
         scheduled_date: new Date().toISOString().slice(0, 10),
         km_at_service: Number(moto.mileage) || null,
         status: 'in_service',
-      })
-      if (logErr) console.error('[confirmSendToService] maintenance_log insert failed:', logErr)
+      }
+      let { error: logErr } = await supabase.from('maintenance_log').insert(logPayload)
+      if (logErr) {
+        console.error('[confirmSendToService] full insert failed:', logErr, logPayload)
+        // Fallback: try minimal insert (only required columns)
+        const { error: logErr2 } = await supabase.from('maintenance_log').insert({
+          moto_id: moto.id,
+          description: fullDescription,
+        })
+        if (logErr2) {
+          console.error('[confirmSendToService] minimal insert also failed:', logErr2)
+          setError(`Servisní záznam se nepodařilo vytvořit: ${logErr2.message || logErr.message}`)
+        }
+      }
 
       await logAudit('motorcycle_status_changed', {
         moto_id: moto.id, model: moto.model,
