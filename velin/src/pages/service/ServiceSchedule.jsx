@@ -36,7 +36,7 @@ export default function ServiceSchedule() {
         supabase.from('bookings').select('moto_id, start_date, end_date')
           .in('status', ['pending', 'reserved', 'active']).gte('end_date', isoDate(new Date())),
         supabase.from('maintenance_log').select('moto_id, mileage_at_service, created_at').order('created_at', { ascending: true }),
-        supabase.from('motorcycles').select('id, model, spz, stk_valid_until').order('model'),
+        supabase.from('motorcycles').select('id, model, spz, stk_valid_until, license_required').order('model'),
       ])
       if (schedRes.error) throw schedRes.error
       setSchedules(schedRes.data || [])
@@ -104,10 +104,12 @@ export default function ServiceSchedule() {
       results.push({ id: `winter-${motoId}`, moto_id: motoId, motorcycles: ms?.motorcycles || { id: motoId, model: '—', spz: '—' },
         description: 'Velký zimní servis', schedule_type: 'winter_service', remaining: null, overdue: false, estDate: wd, autoDate: wd, isAutoEstimated: true, dailyKm: 0, mergedWithWinter: false, isWinterService: true })
     }
-    // Virtual STK entries
+    // Virtual STK entries — only for motos that require a license (go on public roads)
+    // license_required === 'N' means no license needed = off-road/kids = no STK
+    const stkMotos = allMotos.filter(m => m.license_required !== 'N')
     const stkYear = now.getMonth() >= 2 ? now.getFullYear() + 1 : now.getFullYear()
-    const stkA = scheduleStkDates(allMotos, bookings, stkYear)
-    for (const moto of allMotos) {
+    const stkA = scheduleStkDates(stkMotos, bookings, stkYear)
+    for (const moto of stkMotos) {
       const stkValid = moto.stk_valid_until ? new Date(moto.stk_valid_until) : null
       const md = schedules.find(s => (s.motorcycles?.id || s.moto_id) === moto.id)?.motorcycles || moto
       results.push({ id: `stk-${moto.id}`, moto_id: moto.id, motorcycles: md,

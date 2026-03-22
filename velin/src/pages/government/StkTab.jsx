@@ -19,7 +19,8 @@ export default function StkTab() {
       const { data, error } = await debugAction('motorcycles.stk', 'StkTab', () =>
         supabase
           .from('motorcycles')
-          .select('id, model, spz, stk_valid_until')
+          .select('id, model, spz, stk_valid_until, license_required')
+          .neq('license_required', 'N')
           .order('stk_valid_until')
       )
       if (error) throw error
