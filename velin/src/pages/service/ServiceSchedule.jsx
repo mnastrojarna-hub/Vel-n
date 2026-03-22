@@ -145,16 +145,17 @@ export default function ServiceSchedule() {
       // Manual override from DB
       const dbDate = s.next_due || s.next_date || null
 
-      // Auto-estimate date based on avg km/day
+      // Auto-estimate date only for regular planned services (with interval)
       let autoDate = null
       const motoId = s.motorcycles?.id || s.moto_id
       const dailyKm = avgKmPerDay[motoId]
+      const isRegularService = !!(s.interval_km || s.interval_days)
 
-      if (overdue) {
+      if (isRegularService && overdue) {
         // Already overdue — plan ASAP (nearest Tue/Wed)
         const motoBookings = bookings.filter(b => b.moto_id === motoId)
         autoDate = findFreeServiceDate(now, motoBookings)
-      } else if (dailyKm > 0 && remaining > 0) {
+      } else if (isRegularService && dailyKm > 0 && remaining > 0) {
         // Estimate days until service needed
         const daysUntil = Math.ceil(remaining / dailyKm)
         const estReachDate = new Date(now)
