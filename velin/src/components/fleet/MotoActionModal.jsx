@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import StatusBadge from '../ui/StatusBadge'
+import ReplacementMotoPicker from './ReplacementMotoPicker'
 
 const UNAVAILABLE_REASONS = [
   { value: 'cleaning', label: 'Čištění / mytí' },
@@ -68,6 +69,9 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
   const [checkedItems, setCheckedItems] = useState({})
   const [serviceDateFrom, setServiceDateFrom] = useState(() => new Date().toISOString().slice(0, 10))
   const [serviceDateTo, setServiceDateTo] = useState('')
+  const [isUrgent, setIsUrgent] = useState(false)
+  const [showReplacement, setShowReplacement] = useState(false)
+  const [pendingLogId, setPendingLogId] = useState(null)
 
   const [unavailableUntil, setUnavailableUntil] = useState('')
 
@@ -83,6 +87,9 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
       setSuccess(null)
       setShowServiceChecklist(false)
       setCheckedItems({})
+      setIsUrgent(false)
+      setShowReplacement(false)
+      setPendingLogId(null)
     }
   }, [open, moto?.id])
 
@@ -184,9 +191,10 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
         scheduled_date: serviceDateTo || serviceDateFrom || today,
         km_at_service: Number(moto.mileage) || null,
         status: 'in_service',
+        is_urgent: isUrgent,
         items: selectedLabels.map(label => ({ label, done: false, note: '' })),
       }
-      const { error: logErr } = await supabase.from('maintenance_log').insert(logPayload)
+      const { data: logData, error: logErr } = await supabase.from('maintenance_log').insert(logPayload).select('id').single()
       if (logErr) {
         console.error('[confirmSendToService] insert failed:', logErr, logPayload)
         setError(`Servisní záznam se nepodařilo vytvořit: ${logErr.message}`)
@@ -195,9 +203,21 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
       await logAudit('motorcycle_status_changed', {
         moto_id: moto.id, model: moto.model,
         from_status: moto.status, to_status: 'maintenance',
-        reason: fullDescription,
+        reason: fullDescription, is_urgent: isUrgent,
         checklist: selected,
       })
+
+      // Check if >3 days in season → prompt replacement
+      const serviceDays = serviceDateTo && serviceDateFrom
+        ? Math.ceil((new Date(serviceDateTo) - new Date(serviceDateFrom)) / 86400000) : 0
+      const month = new Date().getMonth()
+      const inSeason = month >= 3 && month <= 9
+      if (serviceDays > 3 && inSeason && moto.branch_id) {
+        setPendingLogId(logData?.id)
+        setShowReplacement(true)
+        setBusy(false)
+        return
+      }
 
       setSuccess('Motorka odeslána do servisu')
       onUpdated?.()
@@ -308,6 +328,13 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
                 </div>
               </div>
             ))}
+          </div>
+
+          <div className="mb-4">
+            <label className="flex items-center gap-2 cursor-pointer p-2 rounded" style={{ background: isUrgent ? '#fef2f2' : '#f1faf7', border: `1px solid ${isUrgent ? '#dc2626' : '#d4e8e0'}` }}>
+              <input type="checkbox" checked={isUrgent} onChange={e => setIsUrgent(e.target.checked)} style={{ accentColor: '#dc2626', width: 18, height: 18 }} />
+              <span className="text-sm font-bold" style={{ color: isUrgent ? '#dc2626' : '#1a2e22' }}>URGENT — Mimořádný/SOS servis</span>
+            </label>
           </div>
 
           <div className="grid grid-cols-2 gap-3 mb-4">
@@ -484,6 +511,28 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
             <Button onClick={onClose}>Zavřít</Button>
           </div>
         </>
+      )}
+
+      {/* Replacement picker after long service creation */}
+      {showReplacement && (
+        <div className="mt-4 p-3 rounded-lg" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
+          <div className="text-sm font-bold mb-2" style={{ color: '#b45309' }}>
+            Servis trvá více než 3 dny v sezóně — vyberte dočasnou náhradu na pobočku {moto.branches?.name || '—'}:
+          </div>
+          <ReplacementMotoPicker branchId={moto.branch_id} excludeMotoId={moto.id}
+            onSelect={async (replacement) => {
+              if (replacement?.id && moto.branch_id) {
+                await supabase.from('motorcycles').update({ branch_id: moto.branch_id, status: 'active' }).eq('id', replacement.id)
+                if (pendingLogId) await supabase.from('maintenance_log').update({ replacement_moto_id: replacement.id }).eq('id', pendingLogId)
+                await logAudit('moto_replaced_long_service', { moto_id: moto.id, replacement_id: replacement.id })
+              }
+              setShowReplacement(false)
+              setSuccess('Motorka v servisu, náhrada přiřazena')
+              onUpdated?.()
+            }}
+            onCancel={() => { setShowReplacement(false); setSuccess('Motorka v servisu (bez náhrady)'); onUpdated?.() }}
+          />
+        </div>
       )}
     </Modal>
   )

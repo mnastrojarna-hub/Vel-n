@@ -136,7 +136,7 @@ function LogRow({ log: l, km, startDate, isExpanded, onToggle, onEdit, fmt }) {
       <tr onClick={onToggle} className="cursor-pointer hover:bg-[#f1faf7] transition-colors" style={{ borderBottom: isExpanded ? 'none' : '1px solid #d4e8e0' }}>
         <TD bold>{l.motorcycles?.model || '—'}</TD>
         <TD mono>{l.motorcycles?.spz || '—'}</TD>
-        <TD>{TYPE_LABELS[l.type] || { regular: 'Pravidelný', extraordinary: 'Mimořádný', repair: 'Oprava' }[l.service_type] || l.type || '—'}</TD>
+        <TD><span>{TYPE_LABELS[l.type] || { regular: 'Pravidelný', extraordinary: 'Mimořádný', repair: 'Oprava' }[l.service_type] || l.type || '—'}</span>{l.is_urgent && <span className="ml-1 text-xs font-bold px-1 py-0.5 rounded" style={{ background: '#dc2626', color: '#fff' }}>URGENT</span>}</TD>
         <TD>{startDate ? new Date(startDate).toLocaleDateString('cs-CZ') : '—'}</TD>
         <TD>{l.completed_date ? new Date(l.completed_date).toLocaleDateString('cs-CZ') : '—'}</TD>
         <TD mono>{km ? km.toLocaleString('cs-CZ') : '—'}</TD>
