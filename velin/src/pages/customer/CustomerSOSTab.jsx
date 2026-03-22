@@ -33,10 +33,10 @@ export default function CustomerSOSTab({ userId }) {
   async function loadIncidents() {
     setLoading(true)
     try {
-      // Load with related booking + motorcycle data
+      // Load all incidents — first try user_id, then fallback via bookings
       let { data, error } = await supabase
         .from('sos_incidents')
-        .select('*, motorcycles(id, model, spz), bookings(id, start_date, end_date, status, ended_by_sos)')
+        .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
 
@@ -46,25 +46,36 @@ export default function CustomerSOSTab({ userId }) {
       if (!data || data.length === 0) {
         const { data: d2 } = await supabase
           .from('sos_incidents')
-          .select('*, motorcycles(id, model, spz), bookings!inner(id, user_id, start_date, end_date, status, ended_by_sos)')
+          .select('*, bookings!inner(user_id)')
           .eq('bookings.user_id', userId)
           .order('created_at', { ascending: false })
-        data = d2 || []
+        data = (d2 || [])
       }
 
-      // For incidents with replacement_booking_id, load replacement booking info
-      const replIds = data.filter(i => i.replacement_booking_id).map(i => i.replacement_booking_id)
-      let replMap = {}
-      if (replIds.length > 0) {
-        const { data: replBookings } = await supabase
-          .from('bookings')
-          .select('id, start_date, end_date, status, motorcycles(id, model, spz)')
-          .in('id', replIds)
-        if (replBookings) replMap = Object.fromEntries(replBookings.map(b => [b.id, b]))
-      }
+      if (!data || data.length === 0) { setIncidents([]); setLoading(false); return }
+
+      // Separate queries for related data to avoid FK ambiguity
+      const bookingIds = [...new Set(data.map(i => i.booking_id).filter(Boolean))]
+      const replIds = [...new Set(data.map(i => i.replacement_booking_id).filter(Boolean))]
+      const motoIds = [...new Set(data.map(i => i.moto_id).filter(Boolean))]
+      const allBookingIds = [...new Set([...bookingIds, ...replIds])]
+
+      const [bookingsRes, motosRes] = await Promise.all([
+        allBookingIds.length > 0
+          ? supabase.from('bookings').select('id, start_date, end_date, status, ended_by_sos, moto_id, motorcycles(id, model, spz)').in('id', allBookingIds)
+          : { data: [] },
+        motoIds.length > 0
+          ? supabase.from('motorcycles').select('id, model, spz').in('id', motoIds)
+          : { data: [] },
+      ])
+
+      const bookingMap = Object.fromEntries((bookingsRes.data || []).map(b => [b.id, b]))
+      const motoMap = Object.fromEntries((motosRes.data || []).map(m => [m.id, m]))
 
       data.forEach(i => {
-        i._replacementBooking = replMap[i.replacement_booking_id] || null
+        i._booking = bookingMap[i.booking_id] || null
+        i._replacementBooking = bookingMap[i.replacement_booking_id] || null
+        i._moto = motoMap[i.moto_id] || i._booking?.motorcycles || null
       })
 
       setIncidents(data)
@@ -107,8 +118,8 @@ export default function CustomerSOSTab({ userId }) {
         (TYPE_LABELS[i.type] || i.type || '').toLowerCase().includes(s) ||
         (i.description || '').toLowerCase().includes(s) ||
         (i.title || '').toLowerCase().includes(s) ||
-        (i.motorcycles?.model || '').toLowerCase().includes(s) ||
-        (i.motorcycles?.spz || '').toLowerCase().includes(s)
+        (i._moto?.model || '').toLowerCase().includes(s) ||
+        (i._moto?.spz || '').toLowerCase().includes(s)
       )
     }
     items.sort((a, b) => {
@@ -174,7 +185,7 @@ export default function CustomerSOSTab({ userId }) {
                     </div>
                     <div className="flex items-center gap-3 mt-1 text-sm" style={{ color: '#1a2e22' }}>
                       <span>{inc.created_at ? new Date(inc.created_at).toLocaleString('cs-CZ') : '—'}</span>
-                      {inc.motorcycles && <span>🏍 {inc.motorcycles.model} ({inc.motorcycles.spz})</span>}
+                      {inc._moto && <span>🏍 {inc._moto.model} ({inc._moto.spz})</span>}
                     </div>
                   </div>
                   <span style={{ fontSize: 14, color: '#1a2e22', transition: 'transform .2s', transform: isExpanded ? 'rotate(180deg)' : 'none' }}>▼</span>
@@ -233,12 +244,12 @@ export default function CustomerSOSTab({ userId }) {
                     <div>
                       <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Propojené rezervace</div>
                       <div className="space-y-2">
-                        {inc.bookings && (
+                        {inc._booking && (
                           <BookingLink
                             label="Původní rezervace"
-                            booking={inc.bookings}
-                            moto={inc.motorcycles}
-                            badge={inc.bookings.ended_by_sos ? { label: 'Ukončena SOS', color: '#dc2626', bg: '#fee2e2' } : null}
+                            booking={inc._booking}
+                            moto={inc._moto || inc._booking.motorcycles}
+                            badge={inc._booking.ended_by_sos ? { label: 'Ukončena SOS', color: '#dc2626', bg: '#fee2e2' } : null}
                             onClick={() => navigate(`/rezervace/${inc.booking_id}`)}
                           />
                         )}
@@ -251,7 +262,7 @@ export default function CustomerSOSTab({ userId }) {
                             onClick={() => navigate(`/rezervace/${inc.replacement_booking_id}`)}
                           />
                         )}
-                        {!inc.bookings && !inc._replacementBooking && (
+                        {!inc._booking && !inc._replacementBooking && (
                           <p className="text-sm" style={{ color: '#1a2e22' }}>Žádné propojené rezervace</p>
                         )}
                       </div>
