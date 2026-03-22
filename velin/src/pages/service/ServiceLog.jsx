@@ -136,7 +136,7 @@ function LogRow({ log: l, km, startDate, isExpanded, onToggle, onEdit, fmt }) {
       <tr onClick={onToggle} className="cursor-pointer hover:bg-[#f1faf7] transition-colors" style={{ borderBottom: isExpanded ? 'none' : '1px solid #d4e8e0' }}>
         <TD bold>{l.motorcycles?.model || '—'}</TD>
         <TD mono>{l.motorcycles?.spz || '—'}</TD>
-        <TD>{TYPE_LABELS[l.type] || l.service_type || l.type || '—'}</TD>
+        <TD>{TYPE_LABELS[l.type] || { regular: 'Pravidelný', extraordinary: 'Mimořádný', repair: 'Oprava' }[l.service_type] || l.type || '—'}</TD>
         <TD>{startDate ? new Date(startDate).toLocaleDateString('cs-CZ') : '—'}</TD>
         <TD>{l.completed_date ? new Date(l.completed_date).toLocaleDateString('cs-CZ') : '—'}</TD>
         <TD mono>{km ? km.toLocaleString('cs-CZ') : '—'}</TD>
@@ -184,10 +184,12 @@ function ServiceModal({ entry, onClose, onSaved }) {
     setSaving(true); setErr(null)
     try {
       debugLog('ServiceLog', 'handleSave', { isEdit: !!entry, moto_id: form.moto_id })
+      // Map type to allowed service_type: regular, extraordinary, repair
+      const TYPE_TO_SERVICE = { oil_change: 'regular', tire_change: 'regular', brake_check: 'regular', full_service: 'regular', inspection: 'regular', repair: 'repair' }
       const payload = {
         moto_id: form.moto_id,
         type: form.type || null,
-        service_type: form.type || null,
+        service_type: TYPE_TO_SERVICE[form.type] || 'repair',
         description: form.description || null,
         cost: Number(form.cost) || null,
         km_at_service: Number(form.mileage_at_service) || null,

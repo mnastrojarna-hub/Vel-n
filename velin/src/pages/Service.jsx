@@ -205,12 +205,13 @@ function ActiveServiceTab({ onRefresh }) {
         await supabase.from('maintenance_log').update({ description: desc.trim() }).eq('id', logId)
       } else {
         // Create a new maintenance_log entry for the moto
-        await supabase.from('maintenance_log').insert({
+        const { error: insErr } = await supabase.from('maintenance_log').insert({
           moto_id: motoId,
           description: desc.trim(),
-          service_type: 'Neplánovaný servis',
+          service_type: 'repair',
           service_date: new Date().toISOString().slice(0, 10),
         })
+        if (insErr) console.error('[saveDescription] insert failed:', insErr)
       }
       setNewDesc(d => ({ ...d, [logId || motoId]: '' }))
       load()
@@ -278,7 +279,7 @@ function ActiveServiceTab({ onRefresh }) {
                         <div className="flex items-start gap-3 mb-2 flex-wrap">
                           <div>
                             <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Typ</div>
-                            <div className="text-sm" style={{ color: '#1a2e22' }}>{l.service_type || l.type || '—'}</div>
+                            <div className="text-sm" style={{ color: '#1a2e22' }}>{{ regular: 'Pravidelný servis', extraordinary: 'Mimořádný servis', repair: 'Oprava' }[l.service_type] || l.type || '—'}</div>
                           </div>
                           <div>
                             <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Do servisu</div>

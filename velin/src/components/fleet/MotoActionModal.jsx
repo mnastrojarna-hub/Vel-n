@@ -168,10 +168,16 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
       const { error: err } = await supabase.from('motorcycles').update({ status: 'maintenance' }).eq('id', moto.id)
       if (err) throw err
 
-      // Always create maintenance_log entry
-      const serviceType = selectedLabels.length === 1 ? selectedLabels[0]
-        : selectedLabels.length > 1 ? `Servis (${selectedLabels.length} úkonů)`
-        : 'Neplánovaný servis'
+      // DB CHECK constraint: service_type IN ('regular', 'extraordinary', 'repair')
+      // Map checklist items: scheduled maintenance = regular, accident/damage = extraordinary, rest = repair
+      const EXTRAORDINARY_IDS = ['accident_repair', 'engine_noise', 'starter']
+      const REGULAR_IDS = ['oil_change', 'oil_filter', 'air_filter', 'spark_plugs', 'coolant',
+        'brake_pads_front', 'brake_pads_rear', 'brake_fluid', 'brake_discs',
+        'tire_front', 'tire_rear', 'tire_pressure', 'chain_adjust', 'chain_replace', 'chain_lube',
+        'stk', 'lights', 'battery']
+      const hasExtraordinary = selected.some(id => EXTRAORDINARY_IDS.includes(id))
+      const hasRegular = selected.some(id => REGULAR_IDS.includes(id))
+      const serviceType = hasExtraordinary ? 'extraordinary' : hasRegular ? 'regular' : 'repair'
 
       const logPayload = {
         moto_id: moto.id,
