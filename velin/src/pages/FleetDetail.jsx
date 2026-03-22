@@ -44,13 +44,13 @@ export default function FleetDetail() {
     setSaving(true); setError(null)
     const { model, spz, vin, category, branch_id, mileage, purchase_mileage, status, year, engine_cc, color, acquired_at,
       power_kw, torque_nm, weight_kg, fuel_tank_l, seat_height_mm, license_required,
-      has_abs, has_asc, description, ideal_usage, features, engine_type, brand, purchase_price, tracking_unit } = moto
+      has_abs, has_asc, description, ideal_usage, features, engine_type, brand, purchase_price, tracking_unit, stk_valid_until } = moto
     const updateData = { model, spz, vin, category, branch_id, mileage, purchase_mileage: purchase_mileage ? Number(purchase_mileage) : null,
       status, year, engine_cc, color, acquired_at,
       power_kw, torque_nm, weight_kg, fuel_tank_l, seat_height_mm, license_required: license_required || null,
       has_abs, has_asc, description, ideal_usage, features, engine_type,
       brand: brand?.trim() || null, purchase_price: purchase_price ? Number(purchase_price) : 0,
-      tracking_unit: tracking_unit || 'km' }
+      tracking_unit: tracking_unit || 'km', stk_valid_until: stk_valid_until || null }
     const result = await debugAction('fleet.save', 'FleetDetail', () =>
       supabase.from('motorcycles').update(updateData).eq('id', id)
     , updateData)
@@ -353,6 +353,21 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
           <Field label="Objem (cc)" value={moto.engine_cc} onChange={v => set('engine_cc', v)} type="number" />
           <Field label="Barva" value={moto.color} onChange={v => set('color', v)} />
           <Field label="Datum pořízení" value={moto.acquired_at || ''} onChange={v => set('acquired_at', v)} type="date" />
+          <div>
+            <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>STK platné do</label>
+            <div className="flex items-center gap-2">
+              <input type="date" value={moto.stk_valid_until || ''} onChange={e => set('stk_valid_until', e.target.value)}
+                className="flex-1 rounded-btn text-sm outline-none"
+                style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
+              {moto.stk_valid_until && (() => {
+                const days = Math.ceil((new Date(moto.stk_valid_until) - new Date()) / 86400000)
+                const color = days < 0 ? '#dc2626' : days < 30 ? '#dc2626' : days < 90 ? '#b45309' : '#1a8a18'
+                return <span className="text-sm font-bold whitespace-nowrap" style={{ color }}>
+                  {days < 0 ? `${Math.abs(days)} dní po` : `${days} dní`}
+                </span>
+              })()}
+            </div>
+          </div>
           <Field label={unit === 'mh' ? 'Nájezd (MH)' : 'Nájezd (km)'} value={moto.mileage} onChange={v => set('mileage', v)} type="number" />
           <Field label={unit === 'mh' ? 'Zakoupeno s MH' : 'Zakoupeno s KM'} value={moto.purchase_mileage} onChange={v => set('purchase_mileage', v)} type="number" placeholder={unit === 'mh' ? 'MH při zakoupení' : 'Km při zakoupení'} />
           <div>
