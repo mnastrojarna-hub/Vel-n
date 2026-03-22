@@ -69,6 +69,8 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
   const [serviceDateFrom, setServiceDateFrom] = useState(() => new Date().toISOString().slice(0, 10))
   const [serviceDateTo, setServiceDateTo] = useState('')
 
+  const [unavailableUntil, setUnavailableUntil] = useState('')
+
   useEffect(() => {
     if (open) {
       supabase.from('branches').select('id, name').eq('active', true).order('name')
@@ -215,21 +217,51 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
   async function handleStatusChange(newStatus) {
     setBusy(true); setError(null)
     try {
-      // Check active bookings before deactivating
+      const today = new Date().toISOString().slice(0, 10)
+
       if (newStatus !== 'active' && newStatus !== 'maintenance') {
+        // Only check truly ACTIVE bookings (currently rented out)
         const { data: activeBookings } = await supabase.from('bookings')
-          .select('id').eq('moto_id', moto.id).in('status', ['pending', 'active', 'reserved'])
+          .select('id, status, start_date, end_date')
+          .eq('moto_id', moto.id)
+          .eq('status', 'active')
+          .gte('end_date', today)
+
         if (activeBookings?.length > 0) {
-          const ok = window.confirm(`Motorka má ${activeBookings.length} aktivní/ch rezervací. Při změně stavu budou stornovány. Pokračovat?`)
+          const ok = window.confirm(`Motorka má ${activeBookings.length} právě probíhající pronájem. Stornovat a pokračovat?`)
           if (!ok) { setBusy(false); return }
           for (const b of activeBookings) {
             await supabase.from('bookings').update({ status: 'cancelled', notes: `Motorka dočasně nedostupná: ${reason || newStatus}` }).eq('id', b.id)
           }
         }
+
+        // Info about future reservations — don't block, just inform
+        const { data: futureBookings } = await supabase.from('bookings')
+          .select('id, start_date, end_date, pickup_time, profiles(full_name)')
+          .eq('moto_id', moto.id)
+          .in('status', ['pending', 'reserved'])
+          .gte('start_date', today)
+          .order('start_date', { ascending: true })
+          .limit(5)
+
+        if (futureBookings?.length > 0) {
+          const fmtD = d => new Date(d).toLocaleDateString('cs-CZ')
+          const lines = futureBookings.map(b =>
+            `  ${b.profiles?.full_name || '?'}: ${fmtD(b.start_date)} ${b.pickup_time || ''} – ${fmtD(b.end_date)}`
+          ).join('\n')
+          window.alert(`Upozornění — nadcházející rezervace (${futureBookings.length}):\n${lines}\n\nMotorka musí být zpět včas.`)
+        }
       }
 
       const updateData = { status: newStatus }
       if (newStatus === 'active') updateData.last_service_date = new Date().toISOString().slice(0, 10)
+      // Store unavailable_until for auto-reactivation
+      if (newStatus === 'out_of_service' && unavailableUntil) {
+        updateData.unavailable_until = unavailableUntil
+      }
+      if (newStatus === 'active') {
+        updateData.unavailable_until = null
+      }
 
       const { error: err } = await supabase.from('motorcycles').update(updateData).eq('id', moto.id)
       if (err) throw err
@@ -239,10 +271,11 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
         moto_id: moto.id, model: moto.model,
         from_status: moto.status, to_status: newStatus,
         reason: reasonText || note || null,
+        unavailable_until: unavailableUntil || null,
       })
 
       const labels = { active: 'Aktivní', maintenance: 'Servis', out_of_service: 'Vyřazeno', unavailable: 'Nedostupná', retired: 'Vyřazena trvale' }
-      setSuccess(`Stav změněn na: ${labels[newStatus] || newStatus}`)
+      setSuccess(`Stav změněn na: ${labels[newStatus] || newStatus}${unavailableUntil ? ` (do ${new Date(unavailableUntil).toLocaleDateString('cs-CZ')})` : ''}`)
       onUpdated?.()
     } catch (e) {
       setError(e.message)
@@ -435,6 +468,21 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
                     placeholder="Zadejte důvod…"
                     className="w-full mt-2 rounded-btn text-sm outline-none"
                     style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
+                )}
+                {reason && (
+                  <div className="mt-3">
+                    <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Nedostupná do (datum a čas automatického zařazení zpět)</label>
+                    <input type="datetime-local" value={unavailableUntil}
+                      onChange={e => setUnavailableUntil(e.target.value)}
+                      min={new Date().toISOString().slice(0, 16)}
+                      className="w-full rounded-btn text-sm outline-none"
+                      style={{ padding: '8px 12px', background: '#ede9fe', border: '1px solid #c4b5fd', color: '#0f1a14' }} />
+                    <div className="text-sm mt-1" style={{ color: '#7c3aed' }}>
+                      {unavailableUntil
+                        ? `Motorka bude automaticky zařazena zpět ${new Date(unavailableUntil).toLocaleString('cs-CZ')}`
+                        : 'Nastavte čas — motorka se po uplynutí automaticky vrátí do provozu'}
+                    </div>
+                  </div>
                 )}
               </div>
             )}
