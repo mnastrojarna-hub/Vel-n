@@ -351,9 +351,9 @@ function AddMotoModal({ branches, onClose, onSaved }) {
     model: '', spz: '', vin: '', category: '', branch_id: '',
     acquired_at: '', mileage: 0, status: 'active',
     brand: '', purchase_price: '',
-    oil_interval_km: '', oil_interval_days: '',
-    tire_interval_km: '', full_service_interval_km: '',
-    full_service_interval_days: '', stk_valid_until: '',
+    oil_interval_km: 10000, oil_interval_days: 365,
+    tire_interval_km: 25000, full_service_interval_km: 20000,
+    full_service_interval_days: 730, stk_valid_until: '',
   })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
@@ -364,15 +364,27 @@ function AddMotoModal({ branches, onClose, onSaved }) {
     setSaving(true)
     setErr(null)
     try {
+      const mileageVal = Number(form.mileage) || 0
+      const oilKm = Number(form.oil_interval_km) || 10000
+      const oilDays = Number(form.oil_interval_days) || 365
+      const tireKm = Number(form.tire_interval_km) || 25000
+      const fullKm = Number(form.full_service_interval_km) || 20000
+      const fullDays = Number(form.full_service_interval_days) || 730
       const motoData = {
         model: form.model, spz: form.spz, vin: form.vin,
         category: form.category, status: form.status,
         acquired_at: form.acquired_at || null,
-        mileage: Number(form.mileage) || 0,
+        mileage: mileageVal,
+        purchase_mileage: mileageVal,
         branch_id: form.branch_id || null,
         brand: form.brand?.trim() || null,
         purchase_price: form.purchase_price ? Number(form.purchase_price) : 0,
         stk_valid_until: form.stk_valid_until || null,
+        oil_interval_km: oilKm,
+        oil_interval_days: oilDays,
+        tire_interval_km: tireKm,
+        full_service_interval_km: fullKm,
+        full_service_interval_days: fullDays,
       }
       const result = await debugAction('fleet.create', 'AddMotoModal', () =>
         supabase.from('motorcycles').insert(motoData).select().single()
@@ -380,38 +392,41 @@ function AddMotoModal({ branches, onClose, onSaved }) {
       if (result?.error) throw result.error
       const newMoto = result?.data
 
-      // 2. Automaticky vytvoř servisní plány
-      if (newMoto && form.oil_interval_km) {
+      // 2. Vždy vytvoř servisní plány (s defaults pokud uživatel nezadal)
+      if (newMoto) {
         const schedules = [
           {
             moto_id: newMoto.id,
-            schedule_type: form.oil_interval_days ? 'both' : 'mileage',
-            interval_km: Number(form.oil_interval_km) || 10000,
-            interval_days: Number(form.oil_interval_days) || 365,
+            schedule_type: 'both',
+            interval_km: oilKm,
+            interval_days: oilDays,
             description: 'Výměna oleje',
             active: true,
           },
-        ]
-        if (form.tire_interval_km) {
-          schedules.push({
+          {
             moto_id: newMoto.id,
             schedule_type: 'mileage',
-            interval_km: Number(form.tire_interval_km) || 15000,
+            interval_km: tireKm,
             description: 'Výměna pneumatik',
             active: true,
-          })
-        }
-        if (form.full_service_interval_km) {
-          schedules.push({
+          },
+          {
             moto_id: newMoto.id,
-            schedule_type: form.full_service_interval_days ? 'both' : 'mileage',
-            interval_km: Number(form.full_service_interval_km) || 20000,
-            interval_days: Number(form.full_service_interval_days) || 730,
+            schedule_type: 'both',
+            interval_km: fullKm,
+            interval_days: fullDays,
             description: 'Kompletní servis',
             active: true,
-          })
-        }
+          },
+        ]
         await supabase.from('maintenance_schedules').insert(schedules)
+
+        // 2b. Vytvoř moto_day_prices (výchozí ceny 0 — admin nastaví později)
+        await supabase.from('moto_day_prices').insert({
+          moto_id: newMoto.id,
+          price_mon: 0, price_tue: 0, price_wed: 0, price_thu: 0,
+          price_fri: 0, price_sat: 0, price_sun: 0,
+        })
       }
 
       // 3. Audit log
