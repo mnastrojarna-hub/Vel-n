@@ -110,6 +110,9 @@ function ActiveServiceTab({ onRefresh }) {
         supabase.from('maintenance_log').select('*, motorcycles(model, spz)')
           .is('completed_date', null).order('created_at', { ascending: false }),
       ]))
+      if (motosRes.error) console.error('[ActiveServiceTab] motos query error:', motosRes.error)
+      if (logsRes.error) console.error('[ActiveServiceTab] logs query error:', logsRes.error)
+      console.log('[ActiveServiceTab] loaded', { motos: motosRes.data?.length, logs: logsRes.data?.length, logsError: logsRes.error })
       setMotos(motosRes.data || [])
       setLogs(logsRes.data || [])
     } catch (e) {

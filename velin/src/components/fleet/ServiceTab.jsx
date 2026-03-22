@@ -24,6 +24,9 @@ export default function ServiceTab({ motoId, motoMileage, logAudit }) {
       supabase.from('maintenance_log').select('*').eq('moto_id', motoId).order('created_at', { ascending: false }),
       supabase.from('maintenance_schedules').select('*').eq('moto_id', motoId).eq('active', true),
     ])
+    console.log('[ServiceTab] loadAll', { motoId, logs: logRes.data?.length, logsError: logRes.error, scheds: schedRes.data?.length, schedsError: schedRes.error })
+    if (logRes.error) console.error('[ServiceTab] logs query failed:', logRes.error)
+    if (schedRes.error) console.error('[ServiceTab] schedules query failed:', schedRes.error)
     setLogs(logRes.data || [])
     setSchedules(schedRes.data || [])
     setLoading(false)
