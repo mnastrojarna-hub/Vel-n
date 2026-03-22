@@ -1,5 +1,3 @@
-/* === API-BOOKINGS.JS — Booking CRUD, payment, status, availability === */
-
 // ===== REZERVACE =====
 async function apiFetchMyBookings(filter){
   _ensureSupabase();
@@ -433,3 +431,4 @@ async function apiCheckMotoAvailability(motoId, startISO, endISO, excludeBooking
     return {available:true};
   } catch(e){ console.error('[API] apiCheckMotoAvailability:', e); return {available:true}; }
 }
+

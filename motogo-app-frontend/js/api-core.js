@@ -1,4 +1,5 @@
-/* === API-CORE.JS — Realtime, auth, profile, motorcycles === */
+// ===== API.JS – Supabase API vrstva pro MotoGo24 =====
+// Všechny api* funkce volané z UI. Vyžaduje supabaseClient.js (window.supabase).
 
 // ===== REALTIME SINGLETON =====
 var _bannerChannel = null;
@@ -126,3 +127,4 @@ async function apiCheckPendingSosReplacement(){
     return null;
   } catch(e){ console.error('[API] apiCheckPendingSosReplacement:', e); return null; }
 }
+
