@@ -18,13 +18,10 @@ const CashRegisterTab = lazy(() => import('./accounting/CashRegisterTab'))
 const FinancialEventsTab = lazy(() => import('./accounting/FinancialEventsTab'))
 const ExceptionsTab = lazy(() => import('./accounting/ExceptionsTab'))
 // EmployeesTab presunut na /zamestnanci
-const VATReturnsTab = lazy(() => import('./accounting/VATReturnsTab'))
-const TaxReturnsTab = lazy(() => import('./accounting/TaxReturnsTab'))
 const ShortTermAssetsTab = lazy(() => import('./accounting/ShortTermAssetsTab'))
 const LongTermAssetsTab = lazy(() => import('./accounting/LongTermAssetsTab'))
 const LiabilitiesTab = lazy(() => import('./accounting/LiabilitiesTab'))
 const SuppliersTab = lazy(() => import('./accounting/SuppliersTab'))
-const ReportsTab = lazy(() => import('./accounting/ReportsTab'))
 const AutoOrdersTab = lazy(() => import('./accounting/AutoOrdersTab'))
 const InventoryTab = lazy(() => import('./Inventory'))
 
@@ -45,13 +42,10 @@ const FINANCE_TABS = ['Přehled', 'Faktury', 'Objednávky', 'Účetnictví', 'Fa
 const ACCOUNTING_SUBTABS = [
   { id: 'events', label: 'Finanční události' },
   { id: 'exceptions', label: 'Výjimky' },
-  { id: 'vat', label: 'Přiznání k DPH' },
-  { id: 'tax', label: 'Daňové přiznání' },
   { id: 'short_assets', label: 'Krátkodobý majetek' },
   { id: 'long_assets', label: 'Dlouhodobý majetek' },
   { id: 'liabilities', label: 'Závazky' },
   { id: 'suppliers', label: 'Dodavatelé' },
-  { id: 'reports', label: 'Výkazy a přiznání' },
 ]
 
 export default function Finance() {
@@ -274,13 +268,10 @@ export default function Finance() {
           <ErrorBoundary>
           {accountingSubTab === 'events' && <FinancialEventsTab />}
           {accountingSubTab === 'exceptions' && <ExceptionsTab />}
-          {accountingSubTab === 'vat' && <VATReturnsTab />}
-          {accountingSubTab === 'tax' && <TaxReturnsTab />}
           {accountingSubTab === 'short_assets' && <ShortTermAssetsTab />}
           {accountingSubTab === 'long_assets' && <LongTermAssetsTab />}
           {accountingSubTab === 'liabilities' && <LiabilitiesTab />}
           {accountingSubTab === 'suppliers' && <SuppliersTab />}
-          {accountingSubTab === 'reports' && <ReportsTab />}
           </ErrorBoundary>
         </div>
       )}
