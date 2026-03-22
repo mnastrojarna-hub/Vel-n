@@ -36,7 +36,7 @@ export default function DoporuceniLokaci() {
     setLoading(true); setError(null)
     try {
       const [lRes, bRes, mRes] = await Promise.all([
-        supabase.from('branches').select('id, name, city, type'),
+        supabase.from('branches').select('id, name, city, location, type'),
         supabase.from('bookings').select('id, moto_id, start_date, end_date, total_price, status, created_at'),
         supabase.from('motorcycles').select('id, branch_id, category, model, purchase_price, status'),
       ])
@@ -56,7 +56,7 @@ export default function DoporuceniLokaci() {
   const realUtilByType = {}
   const typeSourceNames = {} // track which branch name provides real data per type
   for (const loc of locations) {
-    const bt = loc.type || 'turistická'
+    const bt = loc.location || 'turistická'
     const locMotos = motorcycles.filter(m => m.branch_id === loc.id)
     const locCompleted = completed.filter(b => locMotos.some(m => m.id === b.moto_id))
     if (locCompleted.length === 0) continue
@@ -75,7 +75,7 @@ export default function DoporuceniLokaci() {
   // Per-branch economics using calcLocationEconomics
   const locStats = locations.map(loc => {
     const locMotos = motorcycles.filter(m => m.branch_id === loc.id)
-    const bt = loc.type || 'turistická'
+    const bt = loc.location || 'turistická'
     const econ = calcLocationEconomics(locMotos, completed, bt, null, realUtilByType)
     return { ...loc, ...econ, motoCount: locMotos.length }
   }).sort((a, b) => b.totalRevenue - a.totalRevenue)

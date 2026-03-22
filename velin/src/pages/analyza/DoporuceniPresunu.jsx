@@ -38,7 +38,7 @@ export default function DoporuceniPresunu() {
       const [mRes, bRes, lRes] = await Promise.all([
         supabase.from('motorcycles').select('id, model, brand, category, branch_id, purchase_price, status'),
         supabase.from('bookings').select('moto_id, start_date, end_date, total_price, status, created_at'),
-        supabase.from('branches').select('id, name, type'),
+        supabase.from('branches').select('id, name, location, type'),
       ])
       if (mRes.error) throw mRes.error
       if (bRes.error) throw bRes.error

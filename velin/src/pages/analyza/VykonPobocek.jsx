@@ -42,7 +42,7 @@ export default function VykonPobocek() {
       const [bRes, mRes, lRes] = await Promise.all([
         supabase.from('bookings').select('id, moto_id, start_date, end_date, total_price, status, created_at'),
         supabase.from('motorcycles').select('id, branch_id, model, category, brand, status'),
-        supabase.from('branches').select('id, name, city, type'),
+        supabase.from('branches').select('id, name, city, location, type'),
       ])
       if (bRes.error) throw bRes.error
       if (mRes.error) throw mRes.error
@@ -90,7 +90,7 @@ export default function VykonPobocek() {
         const mBookings = locCompleted.filter(b => b.moto_id === m.id)
         const econ = mBookings.length > 0
           ? calcBikeEconomicsReal(m, mBookings)
-          : calcBikeEconomicsBenchmark(m.category, loc.type || 'turistická')
+          : calcBikeEconomicsBenchmark(m.category, loc.location || 'turistická')
         if (econ) { profitSum += econ.annualProfit; profitCount++ }
       }
       if (profitCount > 0) avgProfitPerBike = profitSum / profitCount
@@ -132,7 +132,7 @@ export default function VykonPobocek() {
 
   const typeMap = {}
   for (const b of branchStats) {
-    const t = b.type || 'Neznámý'
+    const t = b.location || 'Neznámý'
     if (!typeMap[t]) typeMap[t] = { type: t, count: 0, totalRevenue: 0, totalUtilization: 0 }
     typeMap[t].count++
     typeMap[t].totalRevenue += b.revenue
@@ -176,7 +176,7 @@ export default function VykonPobocek() {
               <tr key={b.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
                 <td className="py-2 px-3 font-semibold">{b.name}</td>
                 <td className="py-2 px-3">
-                  <span style={{ background: '#f3f4f6', color: '#6b7280', borderRadius: 8, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{b.type || '—'}</span>
+                  <span style={{ background: '#f3f4f6', color: '#6b7280', borderRadius: 8, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>{b.location || '—'}</span>
                 </td>
                 <td className="py-2 px-3">{Math.round(b.revenue).toLocaleString('cs-CZ')} Kč</td>
                 <td className="py-2 px-3">{Math.round(b.revenuePerMoto).toLocaleString('cs-CZ')} Kč</td>
