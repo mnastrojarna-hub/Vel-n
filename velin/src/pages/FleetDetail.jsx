@@ -44,12 +44,13 @@ export default function FleetDetail() {
     setSaving(true); setError(null)
     const { model, spz, vin, category, branch_id, mileage, purchase_mileage, status, year, engine_cc, color, acquired_at,
       power_kw, torque_nm, weight_kg, fuel_tank_l, seat_height_mm, license_required,
-      has_abs, has_asc, description, ideal_usage, features, engine_type, brand, purchase_price } = moto
+      has_abs, has_asc, description, ideal_usage, features, engine_type, brand, purchase_price, tracking_unit } = moto
     const updateData = { model, spz, vin, category, branch_id, mileage, purchase_mileage: purchase_mileage ? Number(purchase_mileage) : null,
       status, year, engine_cc, color, acquired_at,
       power_kw, torque_nm, weight_kg, fuel_tank_l, seat_height_mm, license_required: license_required || null,
       has_abs, has_asc, description, ideal_usage, features, engine_type,
-      brand: brand?.trim() || null, purchase_price: purchase_price ? Number(purchase_price) : 0 }
+      brand: brand?.trim() || null, purchase_price: purchase_price ? Number(purchase_price) : 0,
+      tracking_unit: tracking_unit || 'km' }
     const result = await debugAction('fleet.save', 'FleetDetail', () =>
       supabase.from('motorcycles').update(updateData).eq('id', id)
     , updateData)
@@ -129,7 +130,7 @@ export default function FleetDetail() {
       <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
         <strong>DIAGNOSTIKA FleetDetail (#{id?.slice(-8)})</strong><br/>
         <div>moto: {moto.model} ({moto.spz}), status={moto.status}, category={moto.category || '—'}</div>
-        <div>branch: {moto.branches?.name || '—'}, mileage: {moto.mileage?.toLocaleString('cs-CZ') || 0} km</div>
+        <div>branch: {moto.branches?.name || '—'}, mileage: {moto.mileage?.toLocaleString('cs-CZ') || 0} {moto.tracking_unit === 'mh' ? 'MH' : 'km'}</div>
         <div>year: {moto.year || '—'}, engine: {moto.engine_cc || '—'}cc, power: {moto.power_kw || '—'}kW</div>
         <div>STK: {moto.stk_valid_until || '—'}, tab: {tab}</div>
         {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
@@ -245,6 +246,8 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
   const [manualUrl, setManualUrl] = useState(null)
   const [uploadingManual, setUploadingManual] = useState(false)
   const [sosIncidents, setSosIncidents] = useState([])
+  const unit = moto.tracking_unit || 'km'
+  const unitLabel = unit === 'mh' ? 'MH' : 'km'
 
   useEffect(() => {
     supabase.from('maintenance_schedules').select('*').eq('moto_id', moto.id).eq('active', true)
@@ -259,14 +262,25 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
     supabase.from('maintenance_log').select('mileage_at_service, created_at').eq('moto_id', moto.id).order('created_at', { ascending: true })
       .then(({ data }) => {
         if (data?.length >= 2) {
-          const diff = (data[data.length - 1].mileage_at_service || 0) - (data[0].mileage_at_service || 0)
-          const sDays = seasonDaysBetween(new Date(data[0].created_at), new Date(data[data.length - 1].created_at))
-          if (sDays > 0) { setAvgKm(Math.round((diff / sDays) * 30)); return }
+          const validEntries = data.filter(d => d.mileage_at_service != null && d.mileage_at_service > 0)
+          if (validEntries.length >= 2) {
+            const diff = validEntries[validEntries.length - 1].mileage_at_service - validEntries[0].mileage_at_service
+            const sDays = seasonDaysBetween(new Date(validEntries[0].created_at), new Date(validEntries[validEntries.length - 1].created_at))
+            if (sDays > 0 && diff > 0) { setAvgKm(Math.round((diff / sDays) * 30)); return }
+          }
         }
-        // Fallback: total km / season months since purchase year
-        if (moto.year && moto.mileage) {
+        // Fallback: (current - purchase) / season months since purchase
+        const currentVal = Number(moto.mileage) || 0
+        const purchaseVal = Number(moto.purchase_mileage) || 0
+        const driven = currentVal - purchaseVal
+        if (driven > 0 && moto.acquired_at) {
+          const acqDate = new Date(moto.acquired_at)
+          const sDays = seasonDaysBetween(acqDate, new Date())
+          if (sDays > 0) { setAvgKm(Math.round((driven / sDays) * 30)); return }
+        }
+        if (driven > 0 && moto.year) {
           const seasonMonths = Math.max(1, (new Date().getFullYear() - moto.year) * SEASON_MONTHS)
-          setAvgKm(Math.round(moto.mileage / seasonMonths))
+          setAvgKm(Math.round(driven / seasonMonths))
         }
       })
     supabase.from('branches').select('id, name').order('name').then(({ data }) => setBranches(data || []))
@@ -339,8 +353,23 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
           <Field label="Objem (cc)" value={moto.engine_cc} onChange={v => set('engine_cc', v)} type="number" />
           <Field label="Barva" value={moto.color} onChange={v => set('color', v)} />
           <Field label="Datum pořízení" value={moto.acquired_at || ''} onChange={v => set('acquired_at', v)} type="date" />
-          <Field label="Nájezd (km)" value={moto.mileage} onChange={v => set('mileage', v)} type="number" />
-          <Field label="Zakoupeno s KM" value={moto.purchase_mileage} onChange={v => set('purchase_mileage', v)} type="number" placeholder="Km při zakoupení" />
+          <Field label={unit === 'mh' ? 'Nájezd (MH)' : 'Nájezd (km)'} value={moto.mileage} onChange={v => set('mileage', v)} type="number" />
+          <Field label={unit === 'mh' ? 'Zakoupeno s MH' : 'Zakoupeno s KM'} value={moto.purchase_mileage} onChange={v => set('purchase_mileage', v)} type="number" placeholder={unit === 'mh' ? 'MH při zakoupení' : 'Km při zakoupení'} />
+          <div>
+            <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Sledování nájezdu</label>
+            <div className="flex rounded-btn overflow-hidden" style={{ border: '1px solid #d4e8e0' }}>
+              <button type="button" onClick={() => set('tracking_unit', 'km')}
+                className="flex-1 text-sm font-extrabold uppercase cursor-pointer"
+                style={{ padding: '8px 12px', background: unit === 'km' ? '#74FB71' : '#f1faf7', color: '#1a2e22', border: 'none' }}>
+                Kilometry
+              </button>
+              <button type="button" onClick={() => set('tracking_unit', 'mh')}
+                className="flex-1 text-sm font-extrabold uppercase cursor-pointer"
+                style={{ padding: '8px 12px', background: unit === 'mh' ? '#74FB71' : '#f1faf7', color: '#1a2e22', border: 'none', borderLeft: '1px solid #d4e8e0' }}>
+                Motohodiny
+              </button>
+            </div>
+          </div>
           <Field label="Typ motoru" value={moto.engine_type} onChange={v => set('engine_type', v)} placeholder="např. boxer, řadový 4V" />
           <Field label="Výkon (kW)" value={moto.power_kw} onChange={v => set('power_kw', v)} type="number" />
           <Field label="Točivý moment (Nm)" value={moto.torque_nm} onChange={v => set('torque_nm', v)} type="number" />
@@ -453,11 +482,11 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
         <div className="flex gap-6 mb-3">
           <div className="p-3 rounded-lg" style={{ background: '#f1faf7' }}>
             <div className="text-sm font-extrabold uppercase" style={{ color: '#1a2e22' }}>Měsíční průměr</div>
-            <div className="text-lg font-extrabold">{avgKm != null ? `${avgKm.toLocaleString('cs-CZ')} km` : '—'}</div>
+            <div className="text-lg font-extrabold">{avgKm != null ? `${avgKm.toLocaleString('cs-CZ')} ${unitLabel}` : '—'}</div>
           </div>
           <div className="p-3 rounded-lg" style={{ background: '#f1faf7' }}>
             <div className="text-sm font-extrabold uppercase" style={{ color: '#1a2e22' }}>Celkem</div>
-            <div className="text-lg font-extrabold">{moto.mileage ? `${Number(moto.mileage).toLocaleString('cs-CZ')} km` : '—'}</div>
+            <div className="text-lg font-extrabold">{moto.mileage ? `${Number(moto.mileage).toLocaleString('cs-CZ')} ${unitLabel}` : '—'}</div>
           </div>
         </div>
         {schedules.map(s => {
@@ -511,11 +540,11 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
             <div key={s.id} className="flex flex-col gap-1 p-2 rounded-lg mb-1" style={{ background: overdue ? '#fee2e2' : mergedWithWinter ? '#dbeafe' : '#f1faf7', fontSize: 12 }}>
               <div className="flex items-center gap-3">
                 <span className="font-bold">{s.description}</span>
-                <span style={{ color: '#1a2e22' }}>každých {s.interval_km?.toLocaleString('cs-CZ')} km</span>
+                <span style={{ color: '#1a2e22' }}>každých {s.interval_km?.toLocaleString('cs-CZ')} {unitLabel}</span>
                 <span className="ml-auto font-bold" style={{ color: overdue ? '#dc2626' : mergedWithWinter ? '#2563eb' : '#1a8a18' }}>
-                  {overdue ? `PO TERMÍNU ${Math.abs(rem).toLocaleString('cs-CZ')} km` : `za ${rem.toLocaleString('cs-CZ')} km`}
+                  {overdue ? `PO TERMÍNU ${Math.abs(rem).toLocaleString('cs-CZ')} ${unitLabel}` : `za ${rem.toLocaleString('cs-CZ')} ${unitLabel}`}
                   {mergedWithWinter && ' → zimní servis'}
-                  {!overdue && !mergedWithWinter && avgKm > 0 ? ` (~${Math.round((rem / avgKm) * 30)} dní jízdy)` : ''}
+                  {!overdue && !mergedWithWinter && avgKm > 0 ? ` (~${Math.round((rem / avgKm) * 30)} dní ${unit === 'mh' ? 'provozu' : 'jízdy'})` : ''}
                 </span>
               </div>
               {planDate && (
@@ -541,7 +570,7 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
               <div className="flex items-center gap-3">
                 <span className="font-bold" style={{ color: '#2563eb' }}>Velký zimní servis</span>
                 <span style={{ color: '#1a2e22' }}>leden–únor {winterYear}</span>
-                <span className="ml-auto font-bold" style={{ color: '#2563eb' }}>bez ohledu na km</span>
+                <span className="ml-auto font-bold" style={{ color: '#2563eb' }}>bez ohledu na {unitLabel}</span>
               </div>
               <div className="flex items-center gap-1" style={{ color: '#6b7280', fontSize: 11 }}>
                 <span>Plánovaný servis:</span>
