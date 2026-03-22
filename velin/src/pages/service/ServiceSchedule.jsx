@@ -280,14 +280,36 @@ export default function ServiceSchedule() {
     let items = enriched
 
     if (filter === 'Nejbližší') {
+      // 1) Nearest service per motorcycle
       const byMoto = {}
       for (const s of items) {
         const motoId = s.moto_id
-        if (!byMoto[motoId] || s.remaining < byMoto[motoId].remaining) {
+        if (!byMoto[motoId] || (s.remaining != null && (byMoto[motoId].remaining == null || s.remaining < byMoto[motoId].remaining))) {
           byMoto[motoId] = s
         }
       }
-      items = Object.values(byMoto)
+      const motoIds = new Set(Object.values(byMoto).map(s => s.id))
+      // 2) Nearest service per schedule_type (service interval)
+      const byType = {}
+      for (const s of items) {
+        const type = s.schedule_type
+        if (!type || s.isWinterService) continue
+        if (!byType[type] || (s.remaining != null && (byType[type].remaining == null || s.remaining < byType[type].remaining))) {
+          byType[type] = s
+        }
+      }
+      const typeIds = new Set(Object.values(byType).map(s => s.id))
+      // Merge both sets (deduplicate by id), tag each item
+      const merged = new Map()
+      for (const s of Object.values(byMoto)) merged.set(s.id, { ...s, _nearestMoto: true, _nearestType: typeIds.has(s.id) })
+      for (const s of Object.values(byType)) {
+        if (merged.has(s.id)) {
+          merged.get(s.id)._nearestType = true
+        } else {
+          merged.set(s.id, { ...s, _nearestMoto: false, _nearestType: true })
+        }
+      }
+      items = Array.from(merged.values())
     } else if (filter === 'Následující měsíc') {
       const now = new Date()
       const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate())
@@ -392,6 +414,8 @@ export default function ServiceSchedule() {
                 <TD mono>{s.motorcycles?.spz || '—'}</TD>
                 <TD>
                   {s.isWinterService ? <span style={{ color: '#2563eb', fontWeight: 700 }}>Velký zimní servis</span> : (s.description || TYPE_LABELS[s.schedule_type] || s.schedule_type || '—')}
+                  {filter === 'Nejbližší' && s._nearestMoto && <span className="ml-1" style={{ fontSize: 9, background: '#dcfce7', color: '#166534', borderRadius: 4, padding: '1px 4px', fontWeight: 600 }}>motorka</span>}
+                  {filter === 'Nejbližší' && s._nearestType && <span className="ml-1" style={{ fontSize: 9, background: '#dbeafe', color: '#1e40af', borderRadius: 4, padding: '1px 4px', fontWeight: 600 }}>{TYPE_LABELS[s.schedule_type] || s.schedule_type}</span>}
                 </TD>
                 <TD>
                   {s.isWinterService ? 'leden–únor' : ''}
@@ -450,6 +474,7 @@ export default function ServiceSchedule() {
 
       <div className="mt-3 text-xs" style={{ color: '#6b7280' }}>
         <span style={{ fontSize: 10 }}>~</span> = automatický odhad (Út/St bez rezervace, dle sezónního nájezdu) · <span style={{ color: '#2563eb' }}>→ zimní servis</span> = sloučeno se zimním servisem (říjen +25% tolerance) · Klikněte na datum pro ruční úpravu
+        {filter === 'Nejbližší' && <><br /><span style={{ background: '#dcfce7', color: '#166534', borderRadius: 4, padding: '1px 4px', fontSize: 9, fontWeight: 600 }}>motorka</span> = nejbližší servis dané motorky · <span style={{ background: '#dbeafe', color: '#1e40af', borderRadius: 4, padding: '1px 4px', fontSize: 9, fontWeight: 600 }}>typ</span> = nejbližší servis daného intervalu</>}
       </div>
     </div>
   )
