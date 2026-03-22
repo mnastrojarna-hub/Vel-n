@@ -78,7 +78,7 @@ export default function ServiceTab({ motoId, motoMileage, logAudit }) {
   async function handleConfirmService(schedule) {
     const today = new Date().toISOString().slice(0, 10)
     const { data: newLog } = await supabase.from('maintenance_log').insert({
-      moto_id: motoId, service_type: schedule.description,
+      moto_id: motoId, service_type: 'regular',
       description: `Plánovaný servis: ${schedule.description}`,
       km_at_service: Number(motoMileage) || 0,
       service_date: today,
