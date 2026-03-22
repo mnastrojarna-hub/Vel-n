@@ -11,8 +11,9 @@ import ConfirmDialog from '../components/ui/ConfirmDialog'
 import Modal from '../components/ui/Modal'
 import CustomerDocumentsTab from './customer/CustomerDocumentsTab'
 import CustomerSOSTab from './customer/CustomerSOSTab'
+import CustomerScoreWidget, { ScoreBadge } from './customer/CustomerScoreWidget'
 
-const TABS = ['Profil', 'Rezervace', 'Dokumenty', 'Hodnocení', 'SOS']
+const TABS = ['Profil', 'Skóre', 'Rezervace', 'Dokumenty', 'Hodnocení', 'SOS']
 
 export default function CustomerDetail() {
   const debugMode = useDebugMode()
@@ -125,41 +126,18 @@ export default function CustomerDetail() {
     setResetPwLoading(false)
   }
 
-  async function handleLoginAsCustomer() {
-    try {
-      const { data, error: fnError } = await supabase.functions.invoke('admin-reset-password', {
-        body: { user_id: id },
-      })
-      if (fnError) throw fnError
-      if (data.success && data.email) {
-        await logAudit('admin_login_as_customer', { customer_id: id, email: data.email })
-        setError(`Recovery link odeslán na ${data.email}. Pro impersonaci použijte tento link.`)
-      } else {
-        setError(data.error || 'Nepodařilo se')
-      }
-    } catch (e) {
-      setError(e.message)
-    }
-  }
-
   const set = (k, v) => setCustomer(c => ({ ...c, [k]: v }))
 
   if (loading) return <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
   if (error && !customer) return <div className="p-4 rounded-card" style={{ background: '#fee2e2', color: '#dc2626' }}>{error}</div>
   if (!customer) return <div className="p-4" style={{ color: '#1a2e22' }}>Zákazník nenalezen</div>
 
-  const score = customer.reliability_score
-
   return (
     <div>
       <div className="flex items-center gap-3 mb-5">
         <button onClick={() => navigate('/zakaznici')} className="cursor-pointer" style={{ background: 'none', border: 'none', fontSize: 18, color: '#1a2e22' }}>←</button>
         <h2 className="font-extrabold text-lg" style={{ color: '#0f1a14' }}>{customer.full_name || 'Zákazník'}</h2>
-        {score && (
-          <span className="rounded-btn text-sm font-extrabold uppercase tracking-wide" style={{ padding: '4px 12px', background: getScoreColor(score).bg, color: getScoreColor(score).color }}>
-            Skóre: {typeof score === 'object' ? score.total || '—' : score}
-          </span>
-        )}
+        <ScoreBadge userId={id} />
       </div>
 
       {/* Admin akce */}
@@ -170,13 +148,6 @@ export default function CustomerDetail() {
           style={{ padding: '8px 16px', background: '#fef3c7', color: '#b45309', border: 'none' }}
         >
           Resetovat heslo
-        </button>
-        <button
-          onClick={handleLoginAsCustomer}
-          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
-          style={{ padding: '8px 16px', background: '#dbeafe', color: '#1d4ed8', border: 'none' }}
-        >
-          Prihlasit jako zakaznik
         </button>
       </div>
 
@@ -211,6 +182,7 @@ export default function CustomerDetail() {
           onDelete={() => setConfirmDelete(true)}
         />
       )}
+      {tab === 'Skóre' && <CustomerScoreWidget userId={id} />}
       {tab === 'Rezervace' && <CustomerBookings userId={id} />}
       {tab === 'Dokumenty' && <CustomerDocumentsTab userId={id} />}
       {tab === 'Hodnocení' && <CustomerReviews userId={id} />}
@@ -289,13 +261,6 @@ export default function CustomerDetail() {
   )
 }
 
-function getScoreColor(score) {
-  const val = typeof score === 'object' ? score.total : Number(score)
-  if (val >= 80) return { color: '#1a8a18', bg: '#dcfce7' }
-  if (val >= 50) return { color: '#b45309', bg: '#fef3c7' }
-  return { color: '#dc2626', bg: '#fee2e2' }
-}
-
 function ProfileTab({ customer, set, error, saving, onSave, onDelete }) {
   return (
     <div className="space-y-5">
@@ -359,19 +324,15 @@ function ProfileTab({ customer, set, error, saving, onSave, onDelete }) {
         <GearSizes gearSizes={customer.gear_sizes} />
       </Card>
 
-      {/* Spolehlivost — READONLY admin info */}
+      {/* Poznámky admin */}
       <Card>
-        <SectionTitle>Spolehlivost</SectionTitle>
-        <div className="grid grid-cols-3 gap-4">
-          <Field label="Pozdní vrácení" value={customer.reliability_score?.late_returns} disabled />
-          <Field label="Nehody" value={customer.reliability_score?.accidents} disabled />
-          <div className="col-span-3">
-            <Field
-              label="Poznámky (admin)"
-              value={customer.reliability_score?.notes}
-              onChange={v => set('reliability_score', { ...customer.reliability_score, notes: v })}
-            />
-          </div>
+        <SectionTitle>Admin poznamky</SectionTitle>
+        <div>
+          <Field
+            label="Poznamky k zakaznikovi"
+            value={customer.reliability_score?.notes}
+            onChange={v => set('reliability_score', { ...customer.reliability_score, notes: v })}
+          />
         </div>
       </Card>
 
