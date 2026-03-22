@@ -75,12 +75,28 @@ export default function ServiceMotoActions({ moto, logs, onDone }) {
     return target.toISOString().slice(0, 10)
   }
 
+  async function handleReactivate() {
+    setBusy(true)
+    const today = new Date().toISOString().slice(0, 10)
+    await supabase.from('motorcycles').update({ status: 'active', last_service_date: today }).eq('id', moto.id)
+    // Close all open maintenance logs for this moto
+    await supabase.from('maintenance_log').update({ completed_date: today, status: 'completed' }).eq('moto_id', moto.id).is('completed_date', null)
+    await audit('moto_reactivated_from_service', { moto_id: moto.id })
+    setBusy(false)
+    onDone()
+  }
+
   return (
     <div className="p-3 rounded-lg" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
       <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#b45309' }}>Servisní akce</div>
 
       {!mode && (
         <div className="flex gap-2 flex-wrap">
+          <button onClick={handleReactivate} disabled={busy}
+            className="rounded-btn text-sm font-bold cursor-pointer"
+            style={{ padding: '6px 14px', background: '#dcfce7', color: '#1a8a18', border: 'none' }}>
+            {busy ? 'Aktivuji…' : 'Vrátit do provozu'}
+          </button>
           {isSamoobsluzna ? (
             <button onClick={() => setMode('deactivate')} className="rounded-btn text-sm font-bold cursor-pointer"
               style={{ padding: '6px 14px', background: '#ede9fe', color: '#7c3aed', border: 'none' }}>
