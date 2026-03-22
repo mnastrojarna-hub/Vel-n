@@ -20,17 +20,24 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
   const [pendingLogId, setPendingLogId] = useState(null)
   const [unavailableUntil, setUnavailableUntil] = useState('')
   const [showDeactReplace, setShowDeactReplace] = useState(false)
+  const [openLogs, setOpenLogs] = useState([])
 
   useEffect(() => {
-    if (open) {
-      supabase.from('branches').select('id, name').eq('active', true).order('name')
+    if (open && moto?.id) {
+      supabase.from('branches').select('id, name, type').eq('active', true).order('name')
         .then(({ data }) => setBranches(data || []))
+      // Check for open maintenance_log entries
+      supabase.from('maintenance_log').select('id, description, service_date, status')
+        .eq('moto_id', moto.id).is('completed_date', null)
+        .then(({ data }) => setOpenLogs(data || []))
       setSelectedBranch(''); setReason(''); setCustomReason(''); setError(null); setSuccess(null)
       setShowChecklist(false); setShowReplacement(false); setShowDeactReplace(false); setPendingLogId(null); setUnavailableUntil('')
     }
   }, [open, moto?.id])
 
   if (!open || !moto) return null
+
+  const isSamoobsluzna = moto.branches?.type === 'samoobslužná'
 
   async function logAudit(action, details) {
     try { const { data: { user } } = await supabase.auth.getUser()
@@ -54,19 +61,16 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
     setBusy(true); setError(null)
     try {
       const today = new Date().toISOString().slice(0, 10)
-      // Check active bookings
       const { data: active } = await supabase.from('bookings').select('id, status').eq('moto_id', moto.id).eq('status', 'active').gte('end_date', today)
       if (active?.length > 0) {
         if (!window.confirm(`Motorka má ${active.length} aktivní pronájem. Stornovat?`)) { setBusy(false); return }
         for (const b of active) await supabase.from('bookings').update({ status: 'cancelled', notes: 'Motorka do servisu' }).eq('id', b.id)
       }
-      // Info future reservations
       const { data: future } = await supabase.from('bookings').select('id, start_date, end_date').eq('moto_id', moto.id).eq('status', 'reserved').gte('end_date', today).order('start_date').limit(5)
       if (future?.length > 0) {
         const lines = future.map(b => `  ${new Date(b.start_date).toLocaleDateString('cs-CZ')} – ${new Date(b.end_date).toLocaleDateString('cs-CZ')}`).join('\n')
         window.alert(`Upozornění — budoucí rezervace (${future.length}):\n${lines}\nMotorka musí být ze servisu zpět včas.`)
       }
-
       await supabase.from('motorcycles').update({ status: 'maintenance' }).eq('id', moto.id)
       const { data: logData, error: logErr } = await supabase.from('maintenance_log').insert({
         moto_id: moto.id, description: fullDescription, service_type: 'extraordinary',
@@ -77,13 +81,25 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
       if (logErr) setError(`Záznam: ${logErr.message}`)
       await logAudit('motorcycle_status_changed', { moto_id: moto.id, to_status: 'maintenance', is_urgent: isUrgent, checklist: selected })
 
-      // >3 days in season on samoobslužná → replacement
       const days = serviceDateTo && serviceDateFrom ? Math.ceil((new Date(serviceDateTo) - new Date(serviceDateFrom)) / 86400000) : 0
       const month = new Date().getMonth()
-      if (days > 3 && month >= 3 && month <= 9 && moto.branch_id && moto.branches?.type === 'samoobslužná') {
+      if (days > 3 && month >= 3 && month <= 9 && moto.branch_id && isSamoobsluzna) {
         setPendingLogId(logData?.id); setShowReplacement(true); setShowChecklist(false); setBusy(false); return
       }
       setSuccess('Motorka odeslána do servisu'); onUpdated?.()
+    } catch (e) { setError(e.message) } finally { setBusy(false) }
+  }
+
+  // Close open maintenance logs + set status active
+  async function handleCloseServiceAndActivate() {
+    setBusy(true); setError(null)
+    try {
+      const today = new Date().toISOString().slice(0, 10)
+      await supabase.from('maintenance_log').update({ completed_date: today, status: 'completed' })
+        .eq('moto_id', moto.id).is('completed_date', null)
+      await supabase.from('motorcycles').update({ status: 'active', last_service_date: today }).eq('id', moto.id)
+      await logAudit('motorcycle_service_closed', { moto_id: moto.id, open_logs: openLogs.length })
+      setSuccess('Servis ukončen, motorka aktivní'); onUpdated?.()
     } catch (e) { setError(e.message) } finally { setBusy(false) }
   }
 
@@ -104,11 +120,16 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
         }
       }
       const upd = { status: newStatus }
-      if (newStatus === 'active') { upd.last_service_date = today; upd.unavailable_until = null }
+      if (newStatus === 'active') {
+        upd.last_service_date = today; upd.unavailable_until = null
+        // Also close any open maintenance logs when returning to active
+        await supabase.from('maintenance_log').update({ completed_date: today, status: 'completed' })
+          .eq('moto_id', moto.id).is('completed_date', null)
+      }
       if (newStatus === 'out_of_service' && unavailableUntil) upd.unavailable_until = unavailableUntil
       await supabase.from('motorcycles').update(upd).eq('id', moto.id)
       const reasonText = reason === 'other' ? customReason : UNAVAILABLE_REASONS.find(r => r.value === reason)?.label
-      await logAudit('motorcycle_status_changed', { moto_id: moto.id, from_status: moto.status, to_status: newStatus, reason: reasonText || null, unavailable_until: unavailableUntil || null })
+      await logAudit('motorcycle_status_changed', { moto_id: moto.id, from_status: moto.status, to_status: newStatus, reason: reasonText || null })
       const labels = { active: 'Aktivní', maintenance: 'Servis', out_of_service: 'Vyřazeno', retired: 'Vyřazena trvale' }
       setSuccess(`Stav: ${labels[newStatus] || newStatus}${unavailableUntil ? ` (do ${new Date(unavailableUntil).toLocaleString('cs-CZ')})` : ''}`)
       onUpdated?.()
@@ -125,9 +146,17 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
     setBusy(false); setSuccess('Deaktivováno, náhrada přiřazena'); onUpdated?.()
   }
 
+  async function handleDeactivateSimple() {
+    setBusy(true)
+    await supabase.from('motorcycles').update({ status: 'out_of_service' }).eq('id', moto.id)
+    await logAudit('moto_deactivated', { moto_id: moto.id })
+    setBusy(false); setSuccess('Motorka deaktivována'); onUpdated?.()
+  }
+
   const isActive = moto.status === 'active'
   const isMaintenance = moto.status === 'maintenance'
   const isOut = moto.status === 'out_of_service' || moto.status === 'unavailable'
+  const hasOpenLogs = openLogs.length > 0
 
   return (
     <Modal open={open} onClose={showChecklist ? () => setShowChecklist(false) : onClose}
@@ -160,6 +189,23 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
             {moto.branches?.name && <span className="text-sm ml-auto" style={{ color: '#1a2e22' }}>Pobočka: <b>{moto.branches.name}</b></span>}
           </div>
 
+          {/* Warning: open service logs on active moto */}
+          {isActive && hasOpenLogs && (
+            <div className="mb-4 p-3 rounded-lg" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
+              <div className="text-sm font-bold mb-1" style={{ color: '#b45309' }}>
+                Motorka je aktivní, ale má {openLogs.length} otevřený servisní záznam
+              </div>
+              <div className="text-xs mb-2" style={{ color: '#92400e' }}>
+                {openLogs.map(l => l.description || l.status).join(', ')}
+              </div>
+              <button onClick={handleCloseServiceAndActivate} disabled={busy}
+                className="rounded-btn text-sm font-bold cursor-pointer"
+                style={{ padding: '6px 14px', background: '#dcfce7', color: '#1a8a18', border: 'none' }}>
+                {busy ? 'Uzavírám…' : 'Uzavřít servisní záznamy'}
+              </button>
+            </div>
+          )}
+
           {/* Přesun */}
           <div className="mb-5">
             <h3 className="text-sm font-extrabold uppercase tracking-widest mb-3" style={{ color: '#1a2e22' }}>Přesunout na pobočku</h3>
@@ -178,18 +224,33 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
           <div>
             <h3 className="text-sm font-extrabold uppercase tracking-widest mb-3" style={{ color: '#1a2e22' }}>Změnit stav motorky</h3>
             <div className="grid grid-cols-2 gap-3">
-              {!isActive && <StatusBtn color="#1a8a18" bg="#dcfce7" onClick={() => handleStatusChange('active')} disabled={busy}
-                title="Vrátit do provozu" desc="Motorka bude opět k dispozici pro zákazníky" />}
+              {/* Vrátit do provozu — for maintenance/out_of_service/unavailable */}
+              {!isActive && (
+                <StatusBtn color="#1a8a18" bg="#dcfce7" onClick={() => handleStatusChange('active')} disabled={busy}
+                  title="Vrátit do provozu" desc={hasOpenLogs ? `Uzavře ${openLogs.length} servisní záznam(y) a aktivuje` : 'Motorka bude opět k dispozici'} />
+              )}
+              {/* Ukončit servis — for active moto with open logs (zaseklý stav) */}
+              {isActive && hasOpenLogs && (
+                <StatusBtn color="#1a8a18" bg="#dcfce7" onClick={handleCloseServiceAndActivate} disabled={busy}
+                  title="Ukončit servis" desc={`Uzavře ${openLogs.length} otevřený servisní záznam(y)`} />
+              )}
               {!isMaintenance && <StatusBtn color="#b45309" bg="#fef3c7" onClick={() => setShowChecklist(true)} disabled={busy}
                 title="Odeslat do servisu" desc="Otevře checklist závad a údržby" />}
               {!isOut && <StatusBtn color="#7c3aed" bg="#ede9fe" onClick={() => { if (reason) handleStatusChange('out_of_service') }} disabled={busy || !reason}
                 title="Dočasně vyřadit" desc="Čištění, tankování, přeprava — vyberte důvod níže" />}
               {moto.status !== 'retired' && <StatusBtn color="#1a2e22" bg="#f3f4f6" onClick={() => { if (window.confirm('Opravdu trvale vyřadit?')) handleStatusChange('retired') }} disabled={busy}
                 title="Trvale vyřadit" desc="Motorka bude označena jako vyřazena z flotily" />}
-              {moto.branch_id && <StatusBtn color="#7c3aed" bg="#ede9fe" onClick={() => setShowDeactReplace(true)} disabled={busy}
-                title="Deaktivovat + nahradit" desc="Vyřadit a přiřadit jinou motorku na pobočku" />}
+              {/* Deaktivovat + nahradit — ONLY for samoobslužná branches */}
+              {isSamoobsluzna && moto.branch_id && (
+                <StatusBtn color="#7c3aed" bg="#ede9fe" onClick={() => setShowDeactReplace(true)} disabled={busy}
+                  title="Deaktivovat + nahradit" desc="Vyřadit a přiřadit jinou motorku na pobočku" />
+              )}
+              {/* Simple deactivate — for obslužná branches */}
+              {!isSamoobsluzna && moto.branch_id && !isOut && (
+                <StatusBtn color="#7c3aed" bg="#ede9fe" onClick={handleDeactivateSimple} disabled={busy}
+                  title="Deaktivovat" desc="Dočasně vyřadit z provozu" />
+              )}
             </div>
-            {/* Důvod dočasného vyřazení */}
             {!isOut && <UnavailableReasonPicker reason={reason} setReason={setReason} customReason={customReason} setCustomReason={setCustomReason} unavailableUntil={unavailableUntil} setUnavailableUntil={setUnavailableUntil} />}
           </div>
           <div className="flex justify-end mt-5"><Button onClick={onClose}>Zavřít</Button></div>
