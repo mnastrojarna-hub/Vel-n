@@ -7,6 +7,7 @@
 
 | Datum | Změna |
 |-------|-------|
+| 2026-03-22 | motorcycles: přidán sloupec tracking_unit (TEXT DEFAULT 'km', CHECK km/mh) — podpora motohodin jako alternativy ke km |
 | 2026-03-22 | profiles: přidány sloupce is_blocked, blocked_at, blocked_reason, consent_gdpr, consent_vop, consent_email, consent_sms, consent_push, consent_data_processing, consent_photo |
 | 2026-03-08 | Prvotní vytvoření ze 32 migrací + 6 edge funkcí |
 | 2026-03-08 | Aktualizace: doplněny chybějící triggery, realtime tabulky, RLS detaily |
