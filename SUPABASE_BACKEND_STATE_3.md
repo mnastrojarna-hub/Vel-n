@@ -40,7 +40,7 @@
 | `auto_accounting_on_booking_paid()` | Auto účetní záznam při zaplacení bookingu |
 | `auto_reply_sos()` | Automatická odpověď na SOS |
 | `auto_schedule_services()` | Auto plánování servisů |
-| `auto_check_service_parts()` | Auto kontrola dílů pro blížící se servisy — zkontroluje sklad, vytvoří PO, seskupí dle dodavatele. Vrací jsonb {created_orders}. SECURITY DEFINER |
+| `auto_check_service_parts()` | Auto kontrola dílů pro blížící se servisy (~30 kalendářních dní) — zkontroluje sklad, dedup dle konkrétních dílů (nová PO jen pokud díl nemá otevřenou draft/sent objednávku), vytvoří PO seskupené dle dodavatele. Vrací jsonb {created_orders}. SECURITY DEFINER |
 | `calc_booking_price()` | Kalkulace ceny bookingu v1 |
 | `calc_booking_price_v2()` | Kalkulace ceny bookingu v2 |
 | `calculate_moto_roi()` | Výpočet ROI motorky |
