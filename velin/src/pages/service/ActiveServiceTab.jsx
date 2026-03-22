@@ -28,10 +28,23 @@ export default function ActiveServiceTab({ onRefresh }) {
     try {
       const [motosRes, logsRes] = await debugAction('activeService.load', 'ActiveServiceTab', () => Promise.all([
         supabase.from('motorcycles').select('*, branches(name, type)').eq('status', 'maintenance').order('model'),
-        supabase.from('maintenance_log').select('*, motorcycles!moto_id(model, spz)').is('completed_date', null).order('created_at', { ascending: false }),
+        supabase.from('maintenance_log').select('*, motorcycles!moto_id(id, model, spz, status, branch_id, mileage, branches(name, type))').is('completed_date', null).order('created_at', { ascending: false }),
       ]))
-      setMotos(motosRes.data || [])
-      setLogs(logsRes.data || [])
+      const maintenanceMotos = motosRes.data || []
+      const openLogs = logsRes.data || []
+
+      // Find motos with open logs but NOT in maintenance status (stuck state)
+      const maintenanceIds = new Set(maintenanceMotos.map(m => m.id))
+      const stuckMotoMap = {}
+      for (const l of openLogs) {
+        if (l.moto_id && !maintenanceIds.has(l.moto_id) && l.motorcycles) {
+          stuckMotoMap[l.moto_id] = { ...l.motorcycles, _stuck: true }
+        }
+      }
+      const stuckMotos = Object.values(stuckMotoMap)
+
+      setMotos([...maintenanceMotos, ...stuckMotos])
+      setLogs(openLogs)
     } catch (e) { debugError('activeService.load', 'ActiveServiceTab', e) }
     finally { setLoading(false) }
   }
@@ -98,8 +111,9 @@ export default function ActiveServiceTab({ onRefresh }) {
         const mLogs = logsByMoto[m.id] || []
         const isExp = expanded[m.id]
         const hasUrgent = mLogs.some(l => l.is_urgent)
+        const isStuck = m._stuck
         return (
-          <Card key={m.id}>
+          <Card key={m.id} style={isStuck ? { border: '2px solid #dc2626' } : undefined}>
             <div className="flex items-center gap-3 cursor-pointer select-none" onClick={() => setExpanded(e => ({ ...e, [m.id]: !e[m.id] }))}>
               <span style={{ fontSize: 14, fontWeight: 700, transition: 'transform .2s', transform: isExp ? 'rotate(90deg)' : 'rotate(0deg)', color: '#1a2e22' }}>▶</span>
               <div className="flex-1 flex items-center gap-2 flex-wrap">
@@ -107,8 +121,9 @@ export default function ActiveServiceTab({ onRefresh }) {
                 <span className="font-mono text-sm" style={{ color: '#1a2e22' }}>{m.spz}</span>
                 {m.branches?.name && <span className="text-sm" style={{ color: '#1a2e22' }}>{m.branches.name}</span>}
                 {hasUrgent && <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ background: '#dc2626', color: '#fff' }}>URGENT</span>}
+                {isStuck && <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ background: '#fef3c7', color: '#b45309' }}>Otevřený log — stav: {m.status}</span>}
               </div>
-              <StatusBadge status="maintenance" />
+              <StatusBadge status={isStuck ? m.status : 'maintenance'} />
               {mLogs.length > 0 && <span className="text-sm font-bold" style={{ color: '#b45309' }}>{mLogs.length} záznam{mLogs.length > 1 ? 'y' : ''}</span>}
               <button onClick={e => { e.stopPropagation(); setActionPanel(actionPanel === m.id ? null : m.id) }}
                 className="rounded-btn text-sm font-extrabold uppercase cursor-pointer"
