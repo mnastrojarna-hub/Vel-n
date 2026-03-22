@@ -8,8 +8,8 @@ import Button from '../components/ui/Button'
 import Badge from '../components/ui/Badge'
 import StatusBadge, { getDisplayStatus } from '../components/ui/StatusBadge'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
-
 import Modal from '../components/ui/Modal'
+import CustomerDocumentsTab from './customer/CustomerDocumentsTab'
 
 const TABS = ['Profil', 'Rezervace', 'Dokumenty', 'Hodnocení', 'SOS']
 
@@ -211,7 +211,7 @@ export default function CustomerDetail() {
         />
       )}
       {tab === 'Rezervace' && <CustomerBookings userId={id} />}
-      {tab === 'Dokumenty' && <CustomerDocuments userId={id} />}
+      {tab === 'Dokumenty' && <CustomerDocumentsTab userId={id} />}
       {tab === 'Hodnocení' && <CustomerReviews userId={id} />}
       {tab === 'SOS' && <CustomerSOS userId={id} />}
 
@@ -465,34 +465,6 @@ function CustomerBookings({ userId }) {
                   → Motorka
                 </button>
               )}
-            </div>
-          ))}
-        </div>
-      )}
-    </Card>
-  )
-}
-
-function CustomerDocuments({ userId }) {
-  const [docs, setDocs] = useState([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    supabase.from('documents').select('*').eq('user_id', userId).order('created_at', { ascending: false })
-      .then(({ data }) => { setDocs(data || []); setLoading(false) })
-      .catch(() => { setDocs([]); setLoading(false) })
-  }, [userId])
-
-  if (loading) return <LoadingSpinner />
-
-  return (
-    <Card>
-      {docs.length === 0 ? <EmptyState text="Žádné dokumenty" /> : (
-        <div className="space-y-3">
-          {docs.map(d => (
-            <div key={d.id} className="flex items-center gap-4 p-3 rounded-lg" style={{ background: '#f1faf7' }}>
-              <span className="font-bold text-sm">{d.name || d.type || 'Dokument'}</span>
-              <span className="text-sm" style={{ color: '#1a2e22' }}>{d.created_at?.slice(0, 10)}</span>
             </div>
           ))}
         </div>
