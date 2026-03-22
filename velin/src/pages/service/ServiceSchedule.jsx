@@ -565,11 +565,16 @@ export default function ServiceSchedule() {
                 </TD>
                 <TD style={s.overdue ? { color: '#dc2626', fontWeight: 700 } : s.mergedWithWinter ? { color: '#2563eb', fontWeight: 600 } : undefined}>
                   {s.isStkService ? (
-                    s.stkValidUntil ? (
-                      <span style={{ color: s.overdue ? '#dc2626' : '#b45309', fontWeight: 600 }}>
-                        STK do {s.stkValidUntil.toLocaleDateString('cs-CZ')}
+                    s.stkValidUntil ? (() => {
+                      const stkDays = Math.ceil((s.stkValidUntil - new Date()) / 86400000)
+                      const color = stkDays < 0 ? '#dc2626' : stkDays < 30 ? '#dc2626' : stkDays < 90 ? '#b45309' : '#1a8a18'
+                      return <span style={{ color, fontWeight: 700 }}>
+                        {stkDays < 0 ? `⚠ ${Math.abs(stkDays)} dní po` : `${stkDays} dní`}
+                        <span style={{ fontWeight: 400, color: '#6b7280', marginLeft: 6, fontSize: 11 }}>
+                          (do {s.stkValidUntil.toLocaleDateString('cs-CZ')})
+                        </span>
                       </span>
-                    ) : <span style={{ color: '#6b7280' }}>STK nenastaveno</span>
+                    })() : <span style={{ color: '#6b7280' }}>STK nenastaveno</span>
                   ) : s.isWinterService ? 'bez ohledu na km' : s.interval_km ? (s.overdue ? `⚠ ${Math.abs(s.remaining).toLocaleString('cs-CZ')} km po` : `${s.remaining.toLocaleString('cs-CZ')} km`) : '—'}
                   {s.mergedWithWinter && ' → zimní servis'}
                   {!s.isStkService && !(Number(s.motorcycles?.mileage) || 0) && s.interval_km ? ' (km nenastaven)' : ''}
