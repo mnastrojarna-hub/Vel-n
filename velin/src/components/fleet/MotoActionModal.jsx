@@ -212,7 +212,8 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
         ? Math.ceil((new Date(serviceDateTo) - new Date(serviceDateFrom)) / 86400000) : 0
       const month = new Date().getMonth()
       const inSeason = month >= 3 && month <= 9
-      if (serviceDays > 3 && inSeason && moto.branch_id) {
+      const isSamoobsluzna = moto.branches?.type === 'samoobslužná'
+      if (serviceDays > 3 && inSeason && moto.branch_id && isSamoobsluzna) {
         setPendingLogId(logData?.id)
         setShowReplacement(true)
         setBusy(false)

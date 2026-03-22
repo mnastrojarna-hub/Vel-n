@@ -4,8 +4,14 @@ import Button from '../../components/ui/Button'
 
 const TYPE_LABELS = { regular: 'Pravidelný', extraordinary: 'Mimořádný', repair: 'Oprava' }
 
+function parseItemsFromDesc(log) {
+  if (log.items && Array.isArray(log.items) && log.items.length > 0) return log.items
+  const lines = (log.description || '').split('\n')
+  return lines.filter(l => l.trim().startsWith('- ')).map(l => ({ label: l.trim().slice(2), done: false, note: '' }))
+}
+
 export default function ServiceLogCard({ log, moto, onReload }) {
-  const [items, setItems] = useState(log.items || [])
+  const [items, setItems] = useState(() => parseItemsFromDesc(log))
   const [desc, setDesc] = useState(log.description || '')
   const [defects, setDefects] = useState(log.defects || '')
   const [returnDate, setReturnDate] = useState(log.expected_return_date || '')
@@ -13,7 +19,7 @@ export default function ServiceLogCard({ log, moto, onReload }) {
   const [ending, setEnding] = useState(false)
 
   useEffect(() => {
-    if (log.items?.length) setItems(log.items)
+    setItems(parseItemsFromDesc(log))
     setDesc(log.description || '')
     setDefects(log.defects || '')
     setReturnDate(log.expected_return_date || '')

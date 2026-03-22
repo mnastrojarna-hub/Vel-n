@@ -24,7 +24,7 @@ export default function ActiveServiceTab({ onRefresh }) {
       const [motosRes, logsRes] = await debugAction('activeService.load', 'ActiveServiceTab', () => Promise.all([
         supabase.from('motorcycles').select('*, branches(name, type)')
           .eq('status', 'maintenance').order('model'),
-        supabase.from('maintenance_log').select('*, motorcycles(model, spz)')
+        supabase.from('maintenance_log').select('*, motorcycles!moto_id(model, spz)')
           .is('completed_date', null).order('created_at', { ascending: false }),
       ]))
       setMotos(motosRes.data || [])
