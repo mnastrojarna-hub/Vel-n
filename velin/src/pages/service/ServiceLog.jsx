@@ -43,12 +43,12 @@ export default function ServiceLog() {
       debugLog('ServiceLog', 'load', { page, filters })
       let query = supabase
         .from('maintenance_log')
-        .select('*, motorcycles(model, spz)', { count: 'exact' })
+        .select('*, motorcycles!moto_id(model, spz)', { count: 'exact' })
       if (filters.types?.length > 0) {
         const typeFilter = filters.types.map(t => `type.eq.${t},service_type.eq.${t}`).join(',')
         query = query.or(typeFilter)
       }
-      if (filters.search) query = query.or(`motorcycles.model.ilike.%${filters.search}%,motorcycles.spz.ilike.%${filters.search}%`)
+      if (filters.search) query = query.or(`motorcycles!moto_id.model.ilike.%${filters.search}%,motorcycles!moto_id.spz.ilike.%${filters.search}%`)
       query = query.order('created_at', { ascending: false }).range((page - 1) * PER_PAGE, page * PER_PAGE - 1)
       const { data, count, error: err } = await debugAction('maintenance_log.list', 'ServiceLog', () => query)
       if (err) throw err

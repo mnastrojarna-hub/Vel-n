@@ -14,6 +14,7 @@ export default function ServiceMotoActions({ moto, logs, onDone }) {
 
   const hasPlanned = logs.some(l => l.service_type === 'regular')
   const hasUrgent = logs.some(l => l.is_urgent)
+  const isSamoobsluzna = moto.branches?.type === 'samoobslužná'
 
   async function audit(action, details) {
     try { const { data: { user } } = await supabase.auth.getUser()
@@ -80,10 +81,18 @@ export default function ServiceMotoActions({ moto, logs, onDone }) {
 
       {!mode && (
         <div className="flex gap-2 flex-wrap">
-          <button onClick={() => setMode('deactivate')} className="rounded-btn text-sm font-bold cursor-pointer"
-            style={{ padding: '6px 14px', background: '#ede9fe', color: '#7c3aed', border: 'none' }}>
-            Deaktivovat + nahradit
-          </button>
+          {isSamoobsluzna ? (
+            <button onClick={() => setMode('deactivate')} className="rounded-btn text-sm font-bold cursor-pointer"
+              style={{ padding: '6px 14px', background: '#ede9fe', color: '#7c3aed', border: 'none' }}>
+              Deaktivovat + nahradit
+            </button>
+          ) : (
+            <button onClick={async () => { setBusy(true); await supabase.from('motorcycles').update({ status: 'out_of_service' }).eq('id', moto.id); await audit('moto_deactivated', { moto_id: moto.id }); setBusy(false); onDone() }}
+              className="rounded-btn text-sm font-bold cursor-pointer" disabled={busy}
+              style={{ padding: '6px 14px', background: '#ede9fe', color: '#7c3aed', border: 'none' }}>
+              {busy ? 'Deaktivuji…' : 'Deaktivovat'}
+            </button>
+          )}
           <button onClick={() => setMode('retire')} className="rounded-btn text-sm font-bold cursor-pointer"
             style={{ padding: '6px 14px', background: '#f3f4f6', color: '#6b7280', border: 'none' }}>
             Vyřadit z flotily
@@ -97,17 +106,12 @@ export default function ServiceMotoActions({ moto, logs, onDone }) {
         </div>
       )}
 
-      {/* Deactivate + Replace */}
+      {/* Deactivate + Replace (only samoobslužná) */}
       {mode === 'deactivate' && (
         <div>
-          <div className="text-sm mb-2" style={{ color: '#1a2e22' }}>
-            Motorka bude deaktivována. Vyberte náhradu na pobočku <b>{moto.branches?.name || '—'}</b>:
+          <div className="text-xs mb-2 p-2 rounded" style={{ background: '#fee2e2', color: '#dc2626' }}>
+            Samoobslužná pobočka <b>{moto.branches?.name || '—'}</b> musí být vždy obsazená — vyberte náhradu:
           </div>
-          {moto.branches?.type === 'samoobslužná' && (
-            <div className="text-xs mb-2 p-2 rounded" style={{ background: '#fee2e2', color: '#dc2626' }}>
-              Samoobslužná pobočka musí být vždy obsazená — vyberte náhradu.
-            </div>
-          )}
           <ReplacementMotoPicker branchId={moto.branch_id} excludeMotoId={moto.id}
             onSelect={handleReplace} onCancel={() => setMode(null)} />
         </div>
