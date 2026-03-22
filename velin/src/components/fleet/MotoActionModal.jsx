@@ -66,6 +66,8 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
   const [success, setSuccess] = useState(null)
   const [showServiceChecklist, setShowServiceChecklist] = useState(false)
   const [checkedItems, setCheckedItems] = useState({})
+  const [serviceDateFrom, setServiceDateFrom] = useState(() => new Date().toISOString().slice(0, 10))
+  const [serviceDateTo, setServiceDateTo] = useState('')
 
   useEffect(() => {
     if (open) {
@@ -184,10 +186,11 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
         moto_id: moto.id,
         description: fullDescription,
         service_type: serviceType,
-        service_date: today,
-        scheduled_date: today,
+        service_date: serviceDateFrom || today,
+        scheduled_date: serviceDateTo || serviceDateFrom || today,
         km_at_service: Number(moto.mileage) || null,
         status: 'in_service',
+        items: selectedLabels.map(label => ({ label, done: false, note: '' })),
       }
       const { error: logErr } = await supabase.from('maintenance_log').insert(logPayload)
       if (logErr) {
@@ -280,6 +283,24 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
                 </div>
               </div>
             ))}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div>
+              <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Servis od</label>
+              <input type="date" value={serviceDateFrom}
+                onChange={e => setServiceDateFrom(e.target.value)}
+                className="w-full rounded-btn text-sm outline-none"
+                style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
+            </div>
+            <div>
+              <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Plánované dokončení</label>
+              <input type="date" value={serviceDateTo}
+                onChange={e => setServiceDateTo(e.target.value)}
+                min={serviceDateFrom}
+                className="w-full rounded-btn text-sm outline-none"
+                style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
+            </div>
           </div>
 
           <div className="mb-4">

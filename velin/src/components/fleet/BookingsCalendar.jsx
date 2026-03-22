@@ -31,6 +31,7 @@ export default function BookingsCalendar({ motoId, onSwitchTab }) {
   const [showAddBooking, setShowAddBooking] = useState(false)
   const [showAddService, setShowAddService] = useState(false)
   const [selectedDay, setSelectedDay] = useState(null)
+  const [expandedLog, setExpandedLog] = useState(null)
 
   useEffect(() => { loadData() }, [motoId, month])
 
@@ -48,9 +49,10 @@ export default function BookingsCalendar({ motoId, onSwitchTab }) {
         .in('status', ['pending', 'active', 'reserved', 'completed'])
         .gte('end_date', startStr).lte('start_date', endStr),
       supabase.from('maintenance_log')
-        .select('id, created_at, type, service_type, description')
+        .select('id, created_at, type, service_type, description, service_date, scheduled_date, completed_date, km_at_service, performed_by, cost, status, items')
         .eq('moto_id', motoId)
-        .gte('created_at', startStr).lte('created_at', endStr + 'T23:59:59'),
+        .or(`service_date.gte.${startStr},created_at.gte.${startStr}`)
+        .or(`service_date.lte.${endStr},created_at.lte.${endStr}T23:59:59`),
       supabase.from('service_orders')
         .select('id, created_at, type, status, notes')
         .eq('moto_id', motoId)
@@ -72,12 +74,17 @@ export default function BookingsCalendar({ motoId, onSwitchTab }) {
     const dateStr = `${year}-${String(mon + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
     const isPast = dateStr < todayStr
 
-    // Service / maintenance check (red)
-    const hasMaintenanceLog = maintenance.some(m => m.created_at?.slice(0, 10) === dateStr)
+    // Service / maintenance check (red) — show on service_date range
+    const mLog = maintenance.find(m => {
+      const sd = (m.service_date || m.created_at)?.slice(0, 10)
+      const ed = m.scheduled_date?.slice(0, 10) || sd
+      return sd && dateStr >= sd && dateStr <= ed
+    })
     const serviceOrder = serviceOrders.find(s => s.created_at?.slice(0, 10) === dateStr)
-    if (hasMaintenanceLog || serviceOrder) {
-      const serviceLabel = serviceOrder?.type || serviceOrder?.notes || maintenance.find(m => m.created_at?.slice(0, 10) === dateStr)?.service_type || 'Servis'
-      return { type: 'service', bg: '#dc2626', color: '#fff', label: serviceLabel, serviceId: serviceOrder?.id || maintenance.find(m => m.created_at?.slice(0, 10) === dateStr)?.id }
+    if (mLog || serviceOrder) {
+      const sType = { regular: 'Pravidelný', extraordinary: 'Mimořádný', repair: 'Oprava' }
+      const serviceLabel = (mLog && (sType[mLog.service_type] || mLog.service_type)) || serviceOrder?.type || 'Servis'
+      return { type: 'service', bg: '#dc2626', color: '#fff', label: serviceLabel, log: mLog }
     }
 
     // Booking check
@@ -97,9 +104,10 @@ export default function BookingsCalendar({ motoId, onSwitchTab }) {
 
   function handleDayClick(day) {
     const info = getDayInfo(day)
-    if (info.type === 'service' && onSwitchTab) {
-      // Navigate to Servis tab
-      onSwitchTab('Servis')
+    if (info.type === 'service') {
+      if (info.log) {
+        setExpandedLog(prev => prev?.id === info.log.id ? null : info.log)
+      }
       return
     }
     if (info.type === 'free') {
@@ -173,6 +181,74 @@ export default function BookingsCalendar({ motoId, onSwitchTab }) {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Servisní historie */}
+        {maintenance.length > 0 && (
+          <div style={{ marginTop: 16 }}>
+            <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Servisní historie</div>
+            {maintenance.map(m => {
+              const isOpen = expandedLog?.id === m.id
+              const sType = { regular: 'Pravidelný', extraordinary: 'Mimořádný', repair: 'Oprava' }[m.service_type] || m.service_type || m.type || '—'
+              const dateFrom = m.service_date ? new Date(m.service_date).toLocaleDateString('cs-CZ') : m.created_at ? new Date(m.created_at).toLocaleDateString('cs-CZ') : '—'
+              const dateTo = m.scheduled_date ? new Date(m.scheduled_date).toLocaleDateString('cs-CZ') : ''
+              const items = Array.isArray(m.items) ? m.items : []
+              return (
+                <div key={m.id} style={{ marginBottom: 4 }}>
+                  <div
+                    onClick={() => setExpandedLog(isOpen ? null : m)}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: '#fef2f2', borderRadius: isOpen ? '10px 10px 0 0' : 10, cursor: 'pointer', fontSize: 12, border: '1px solid #fecaca' }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span style={{ fontWeight: 800, color: '#dc2626', transform: isOpen ? 'rotate(90deg)' : 'rotate(0)', transition: 'transform .2s', display: 'inline-block' }}>▶</span>
+                      <span style={{ fontWeight: 700, color: '#991b1b' }}>{sType}</span>
+                      <span style={{ color: '#7f1d1d' }}>{dateFrom}{dateTo && dateTo !== dateFrom ? ` → ${dateTo}` : ''}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {m.completed_date
+                        ? <span style={{ background: '#dcfce7', color: '#16a34a', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>Dokončeno</span>
+                        : <span style={{ background: '#fef3c7', color: '#b45309', padding: '2px 8px', borderRadius: 6, fontWeight: 700 }}>{m.status === 'in_service' ? 'V servisu' : 'Naplánováno'}</span>
+                      }
+                    </div>
+                  </div>
+                  {isOpen && (
+                    <div style={{ padding: '12px', background: '#fff', border: '1px solid #fecaca', borderTop: 'none', borderRadius: '0 0 10px 10px' }}>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-3" style={{ fontSize: 13 }}>
+                        <div><span style={{ fontWeight: 700, color: '#1a2e22' }}>Typ:</span> {sType}</div>
+                        <div><span style={{ fontWeight: 700, color: '#1a2e22' }}>Stav:</span> {m.completed_date ? 'Dokončeno' : m.status === 'in_service' ? 'V servisu' : 'Naplánováno'}</div>
+                        <div><span style={{ fontWeight: 700, color: '#1a2e22' }}>Servis od:</span> {dateFrom}</div>
+                        <div><span style={{ fontWeight: 700, color: '#1a2e22' }}>Plánované dokončení:</span> {dateTo || '—'}</div>
+                        <div><span style={{ fontWeight: 700, color: '#1a2e22' }}>Dokončeno:</span> {m.completed_date ? new Date(m.completed_date).toLocaleDateString('cs-CZ') : '—'}</div>
+                        <div><span style={{ fontWeight: 700, color: '#1a2e22' }}>Km:</span> {m.km_at_service ? Number(m.km_at_service).toLocaleString('cs-CZ') : '—'}</div>
+                        <div><span style={{ fontWeight: 700, color: '#1a2e22' }}>Technik:</span> {m.performed_by || '—'}</div>
+                        <div><span style={{ fontWeight: 700, color: '#1a2e22' }}>Cena:</span> {m.cost ? `${Number(m.cost).toLocaleString('cs-CZ')} Kč` : '—'}</div>
+                      </div>
+                      {m.description && (
+                        <div style={{ marginBottom: 8 }}>
+                          <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Popis</div>
+                          <div style={{ fontSize: 13, color: '#374151', whiteSpace: 'pre-wrap', background: '#f9fafb', padding: 8, borderRadius: 6 }}>{m.description}</div>
+                        </div>
+                      )}
+                      {items.length > 0 && (
+                        <div>
+                          <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Servisní úkony</div>
+                          <div className="space-y-1">
+                            {items.map((item, idx) => (
+                              <div key={idx} className="flex items-center gap-2 p-2 rounded" style={{ background: item.done ? '#dcfce7' : '#f9fafb', border: '1px solid ' + (item.done ? '#86efac' : '#e5e7eb'), fontSize: 13 }}>
+                                <span style={{ color: item.done ? '#16a34a' : '#9ca3af', fontWeight: 700 }}>{item.done ? '✓' : '○'}</span>
+                                <span style={{ color: item.done ? '#16a34a' : '#374151', textDecoration: item.done ? 'line-through' : 'none' }}>{item.label}</span>
+                                {item.note && <span style={{ color: '#6b7280', marginLeft: 8, fontStyle: 'italic' }}>— {item.note}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
       </Card>
@@ -505,8 +581,9 @@ function NewBookingFromCalendar({ motoId, defaultDate, onClose, onSaved }) {
 }
 
 function AddServiceFromCalendar({ motoId, onClose, onSaved }) {
+  const today = new Date().toISOString().slice(0, 10)
   const [form, setForm] = useState({
-    type: 'regular', description: '', cost: '', scheduled_date: '',
+    type: 'regular', description: '', cost: '', date_from: today, date_to: '',
   })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
@@ -515,17 +592,20 @@ function AddServiceFromCalendar({ motoId, onClose, onSaved }) {
   async function handleSave() {
     setSaving(true); setErr(null)
     try {
-      const { error } = await supabase.from('service_orders').insert({
+      // Create maintenance_log entry with date range
+      const { error: logErr } = await supabase.from('maintenance_log').insert({
         moto_id: motoId,
-        type: form.type,
-        notes: form.description,
-        items: [],
+        service_type: form.type === 'inspection' ? 'regular' : form.type === 'oil' || form.type === 'tires' ? 'regular' : form.type,
+        description: form.description,
+        service_date: form.date_from || today,
+        scheduled_date: form.date_to || form.date_from || today,
         status: 'pending',
+        items: [],
       })
-      if (error) throw error
+      if (logErr) throw logErr
       try {
         const { data: { user } } = await supabase.auth.getUser()
-        await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'service_order_created', details: { moto_id: motoId } })
+        await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'service_event_created', details: { moto_id: motoId } })
       } catch {}
       onSaved()
     } catch (e) { setErr(e.message) } finally { setSaving(false) }
@@ -545,8 +625,12 @@ function AddServiceFromCalendar({ motoId, onClose, onSaved }) {
           </select>
         </div>
         <div>
-          <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Datum</label>
-          <input type="date" value={form.scheduled_date} onChange={e => set('scheduled_date', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
+          <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Servis od</label>
+          <input type="date" value={form.date_from} onChange={e => set('date_from', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
+        </div>
+        <div>
+          <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Plánované dokončení</label>
+          <input type="date" value={form.date_to} onChange={e => set('date_to', e.target.value)} min={form.date_from} className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
         </div>
         <div className="col-span-2">
           <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Popis</label>
