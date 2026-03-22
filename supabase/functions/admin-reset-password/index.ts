@@ -34,25 +34,23 @@ serve(async (req: Request): Promise<Response> => {
     // Ověř volajícího admina
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
 
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    })
-    const { data: { user: caller }, error: authErr } = await userClient.auth.getUser()
+    const adminClient = createClient(supabaseUrl, serviceKey)
+
+    // Ověř JWT token volajícího přes service role
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user: caller }, error: authErr } = await adminClient.auth.getUser(token)
     if (authErr || !caller) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      return new Response(JSON.stringify({ error: 'Unauthorized', detail: authErr?.message }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
     // Zkontroluj admin oprávnění
-    const adminClient = createClient(supabaseUrl, serviceKey)
     const { data: adminUser } = await adminClient
       .from('admin_users')
       .select('id, role')
-      .eq('user_id', caller.id)
-      .eq('active', true)
+      .eq('id', caller.id)
       .single()
 
     if (!adminUser || !['superadmin', 'admin'].includes(adminUser.role)) {

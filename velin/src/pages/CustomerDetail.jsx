@@ -110,7 +110,14 @@ export default function CustomerDetail() {
         const { data, error } = await supabase.functions.invoke('admin-reset-password', {
           body: { user_id: id, ...(resetPwMode === 'manual' && newPassword ? { new_password: newPassword } : {}) },
         })
-        if (error) throw error
+        if (error) {
+          // FunctionsHttpError — přečti skutečnou chybovou zprávu z response body
+          if (error.context && typeof error.context.json === 'function') {
+            const body = await error.context.json()
+            return { data: body }
+          }
+          throw error
+        }
         return { data }
       }, reqData)
       const r = result?.data
