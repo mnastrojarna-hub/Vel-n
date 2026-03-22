@@ -51,4 +51,8 @@
 | `maintenance_log_after_insert` | maintenance_log | update_moto_after_service() |
 | ~~`sos_auto_reply_on_create`~~ | ~~sos_incidents (INSERT)~~ | **DROPPED 2026-03-10** — crashoval INSERT bez error handleru |
 | `trg_accessory_types_updated` | accessory_types | update_updated_at() |
+| `trg_emp_attendance_updated` | emp_attendance | update_updated_at() |
+| `trg_emp_vacations_updated` | emp_vacations | update_updated_at() |
+| `trg_emp_shifts_updated` | emp_shifts | update_updated_at() |
+| `trg_emp_documents_updated` | emp_documents | update_updated_at() |
 | Různé `_updated_at` triggery | více tabulek | update_updated_at() |

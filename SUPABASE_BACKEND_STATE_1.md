@@ -114,8 +114,12 @@
 | `daily_stats` | Denní statistiky |
 | `moto_performance` | Výkonnost motorek |
 | `branch_performance` | Výkonnost poboček |
-| `acc_employees` | Zaměstnanci (jméno, typ smlouvy, hrubá mzda, sleva na dani, bankovní účet) |
+| `acc_employees` | Zaměstnanci (jméno, typ smlouvy, hrubá mzda, sleva na dani, bankovní účet, **phone**, **email**, **position**, **vacation_days_total**, **vacation_days_used**) |
 | `acc_payrolls` | Výpočty mezd (hrubá, SP/ZP zaměstnanec i zaměstnavatel, záloha daně, čistá, celk. náklad) |
+| `emp_attendance` | Docházka zaměstnanců (employee_id, date, check_in, check_out, break_minutes, hours_worked, status: present/absent/sick/vacation/home_office/half_day, note) UNIQUE(employee_id, date) |
+| `emp_vacations` | Dovolená zaměstnanců (employee_id, start_date, end_date, days, type: vacation/sick/personal/unpaid/maternity/other, status: pending/approved/rejected/cancelled, approved_by, note) |
+| `emp_shifts` | Plánování směn (employee_id, date, shift_type: morning/afternoon/night/full_day/free, start_time, end_time, branch_id, note) UNIQUE(employee_id, date) |
+| `emp_documents` | Dokumenty zaměstnanců (employee_id, type: contract/amendment/termination/agreement/certificate/other, name, description, file_url, valid_from, valid_until) |
 | `acc_vat_returns` | Přiznání k DPH (čtvrtletní, zdanitelné vstupy/výstupy, DPH vstup/výstup, k úhradě/vrácení) |
 | `acc_tax_returns` | Daňové přiznání (roční, příjmy, výdaje, odpisy, mzdy, základ daně, daň 15%/23%, slevy) |
 | `acc_short_term_assets` | Krátkodobý majetek (materiál, drobný majetek, zásoby, pohledávky, peníze) |
