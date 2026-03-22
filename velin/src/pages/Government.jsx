@@ -1,10 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { debugLog } from '../lib/debugLog'
+import ErrorBoundary from '../components/ErrorBoundary'
 import InsuranceTab from './government/InsuranceTab'
 import DataBoxTab from './government/DataBoxTab'
 import CompanyTab from './government/CompanyTab'
 
-const TABS = ['Pojistky', 'Datová schránka', 'IČO / DIČ']
+const VATReturnsTab = lazy(() => import('./accounting/VATReturnsTab'))
+const TaxReturnsTab = lazy(() => import('./accounting/TaxReturnsTab'))
+const ReportsTab = lazy(() => import('./accounting/ReportsTab'))
+
+const TABS = ['Pojistky', 'Datová schránka', 'IČO / DIČ', 'Výkazy a přiznání', 'Daňové přiznání', 'Přiznání k DPH']
 
 export default function Government() {
   const [tab, setTab] = useState('Pojistky')
@@ -32,6 +37,13 @@ export default function Government() {
       {tab === 'Pojistky' && <InsuranceTab />}
       {tab === 'Datová schránka' && <DataBoxTab />}
       {tab === 'IČO / DIČ' && <CompanyTab />}
+      <Suspense fallback={<div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>}>
+        <ErrorBoundary>
+          {tab === 'Výkazy a přiznání' && <ReportsTab />}
+          {tab === 'Daňové přiznání' && <TaxReturnsTab />}
+          {tab === 'Přiznání k DPH' && <VATReturnsTab />}
+        </ErrorBoundary>
+      </Suspense>
     </div>
   )
 }

@@ -140,7 +140,7 @@ export default function DataBoxTab() {
             <div className="animate-spin rounded-full h-6 w-6 border-t-2" style={{ borderColor: '#74FB71' }} />
           </div>
         ) : reports.length === 0 ? (
-          <p className="text-sm py-2" style={{ color: '#6b7280' }}>Žádné schválené výkazy. Schvalte je nejdřív v záložce Finance → Účetnictví → Výkazy a přiznání.</p>
+          <p className="text-sm py-2" style={{ color: '#6b7280' }}>Žádné schválené výkazy. Schvalte je nejdřív v záložce Státní správa → Výkazy a přiznání.</p>
         ) : (
           <Table>
             <thead>
