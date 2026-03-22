@@ -134,6 +134,19 @@ export default function Fleet() {
       }, { page, filters })
       if (result?.error) throw result.error
       let data = result?.data || []
+      // Auto-reactivate motorcycles past unavailable_until
+      const now = new Date().toISOString()
+      const toReactivate = data.filter(m =>
+        (m.status === 'out_of_service' || m.status === 'unavailable') &&
+        m.unavailable_until && m.unavailable_until <= now
+      )
+      if (toReactivate.length > 0) {
+        for (const m of toReactivate) {
+          await supabase.from('motorcycles').update({ status: 'active', unavailable_until: null }).eq('id', m.id)
+          m.status = 'active'
+          m.unavailable_until = null
+        }
+      }
       if (filters.occupiedToday) data = data.filter(m => todayOccupied.has(m.id))
       if (filters.occupiedFrom && filters.occupiedTo) data = data.filter(m => dateOccupied.has(m.id))
       if (filters.sort === 'utilization') data.sort((a, b) => (bookingCounts[b.id] || 0) - (bookingCounts[a.id] || 0))

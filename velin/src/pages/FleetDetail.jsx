@@ -368,7 +368,18 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
           </div>
         </div>
         {schedules.map(s => {
-          const rem = ((s.last_service_km || 0) + (s.interval_km || 0)) - (Number(moto.mileage) || 0)
+          const currentKm = Number(moto.mileage) || 0
+          const baseMileage = Number(moto.purchase_mileage) || 0
+          const hasBeenServiced = !!s.last_service_km
+          let nextAt
+          if (!hasBeenServiced && s.first_service_km) {
+            nextAt = baseMileage + Number(s.first_service_km)
+          } else if (hasBeenServiced) {
+            nextAt = s.last_service_km + (s.interval_km || 0)
+          } else {
+            nextAt = baseMileage + (s.interval_km || 0)
+          }
+          const rem = nextAt - currentKm
           const overdue = rem <= 0
           return (
             <div key={s.id} className="flex items-center gap-3 p-2 rounded-lg mb-1" style={{ background: overdue ? '#fee2e2' : '#f1faf7', fontSize: 12 }}>
