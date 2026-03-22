@@ -5,6 +5,7 @@ import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import StatusBadge from '../../components/ui/StatusBadge'
 import MotoActionModal from '../../components/fleet/MotoActionModal'
+import ScheduleServiceModal from './ScheduleServiceModal'
 import ServiceLogCard from './ServiceLogCard'
 import ServiceMotoActions from './ServiceMotoActions'
 
@@ -16,6 +17,7 @@ export default function ActiveServiceTab({ onRefresh }) {
   const [actionMoto, setActionMoto] = useState(null) // for MotoActionModal
   const [actionPanel, setActionPanel] = useState(null)
   const [showPicker, setShowPicker] = useState(false) // top-level moto picker
+  const [showSchedule, setShowSchedule] = useState(false) // schedule modal
   const [allMotos, setAllMotos] = useState([])
   const [pickerSearch, setPickerSearch] = useState('')
 
@@ -55,10 +57,16 @@ export default function ActiveServiceTab({ onRefresh }) {
       {/* Top bar with Správa button */}
       <div className="flex items-center justify-between">
         <div className="text-sm font-bold" style={{ color: '#1a2e22' }}>{motos.length} motorek v servisu</div>
-        <button onClick={openPicker} className="rounded-btn text-sm font-extrabold uppercase cursor-pointer"
-          style={{ padding: '8px 16px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>
-          Správa motorky
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => setShowSchedule(true)} className="rounded-btn text-sm font-extrabold uppercase cursor-pointer"
+            style={{ padding: '8px 16px', background: '#fef3c7', color: '#b45309', border: 'none' }}>
+            Naplánovat servis
+          </button>
+          <button onClick={openPicker} className="rounded-btn text-sm font-extrabold uppercase cursor-pointer"
+            style={{ padding: '8px 16px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>
+            Správa motorky
+          </button>
+        </div>
       </div>
 
       {/* Moto picker overlay */}
@@ -123,6 +131,7 @@ export default function ActiveServiceTab({ onRefresh }) {
         )
       })}
       <MotoActionModal open={!!actionMoto} moto={actionMoto} onClose={() => setActionMoto(null)} onUpdated={() => { load(); onRefresh?.(); setActionMoto(null) }} />
+      <ScheduleServiceModal open={showSchedule} onClose={() => setShowSchedule(false)} onDone={() => { setShowSchedule(false); load(); onRefresh?.() }} />
     </div>
   )
 }

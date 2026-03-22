@@ -19,13 +19,14 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
   const [showReplacement, setShowReplacement] = useState(false)
   const [pendingLogId, setPendingLogId] = useState(null)
   const [unavailableUntil, setUnavailableUntil] = useState('')
+  const [showDeactReplace, setShowDeactReplace] = useState(false)
 
   useEffect(() => {
     if (open) {
       supabase.from('branches').select('id, name').eq('active', true).order('name')
         .then(({ data }) => setBranches(data || []))
       setSelectedBranch(''); setReason(''); setCustomReason(''); setError(null); setSuccess(null)
-      setShowChecklist(false); setShowReplacement(false); setPendingLogId(null); setUnavailableUntil('')
+      setShowChecklist(false); setShowReplacement(false); setShowDeactReplace(false); setPendingLogId(null); setUnavailableUntil('')
     }
   }, [open, moto?.id])
 
@@ -127,7 +128,6 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
   const isActive = moto.status === 'active'
   const isMaintenance = moto.status === 'maintenance'
   const isOut = moto.status === 'out_of_service' || moto.status === 'unavailable'
-  const [showDeactReplace, setShowDeactReplace] = useState(false)
 
   return (
     <Modal open={open} onClose={showChecklist ? () => setShowChecklist(false) : onClose}

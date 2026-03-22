@@ -9,7 +9,7 @@ import StatusBadge from '../../components/ui/StatusBadge'
 import SearchInput from '../../components/ui/SearchInput'
 import Pagination from '../../components/ui/Pagination'
 import Modal from '../../components/ui/Modal'
-import { TYPE_LABELS } from './ServiceSchedule'
+import { TYPE_LABELS } from './serviceScheduleUtils'
 
 const PER_PAGE = 25
 const TYPES = Object.keys(TYPE_LABELS)
