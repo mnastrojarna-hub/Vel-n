@@ -12,8 +12,9 @@ import Modal from '../components/ui/Modal'
 import CustomerDocumentsTab from './customer/CustomerDocumentsTab'
 import CustomerSOSTab from './customer/CustomerSOSTab'
 import CustomerScoreWidget, { ScoreBadge } from './customer/CustomerScoreWidget'
+import CustomerComplaintsTab from './customer/CustomerComplaintsTab'
 
-const TABS = ['Profil', 'Skóre', 'Rezervace', 'Dokumenty', 'Hodnocení', 'SOS']
+const TABS = ['Profil', 'Skóre', 'Rezervace', 'Dokumenty', 'Hodnocení', 'SOS', 'Reklamace']
 
 export default function CustomerDetail() {
   const debugMode = useDebugMode()
@@ -30,6 +31,8 @@ export default function CustomerDetail() {
   const [newPassword, setNewPassword] = useState('')
   const [resetPwLoading, setResetPwLoading] = useState(false)
   const [resetPwMsg, setResetPwMsg] = useState(null)
+  const [confirmBlock, setConfirmBlock] = useState(false)
+  const [blockReason, setBlockReason] = useState('')
 
   useEffect(() => { loadCustomer() }, [id])
 
@@ -54,12 +57,16 @@ export default function CustomerDetail() {
       full_name, phone, street, city, zip, country,
       date_of_birth, license_group, emergency_contact,
       emergency_phone, riding_experience, marketing_consent,
-      reliability_score,
+      reliability_score, is_blocked, blocked_at, blocked_reason,
+      consent_gdpr, consent_vop, consent_email, consent_sms,
+      consent_push, consent_data_processing, consent_photo,
     } = customer
     const updateData = { full_name, phone, street, city, zip, country,
       date_of_birth, license_group, emergency_contact,
       emergency_phone, riding_experience, marketing_consent,
-      reliability_score }
+      reliability_score, is_blocked, blocked_at, blocked_reason,
+      consent_gdpr, consent_vop, consent_email, consent_sms,
+      consent_push, consent_data_processing, consent_photo }
     const result = await debugAction('customer.save', 'CustomerDetail', () =>
       supabase.from('profiles').update(updateData).eq('id', id)
     , updateData)
@@ -126,6 +133,23 @@ export default function CustomerDetail() {
     setResetPwLoading(false)
   }
 
+  async function handleToggleBlock() {
+    const isBlocking = !customer.is_blocked
+    const updateData = {
+      is_blocked: isBlocking,
+      blocked_at: isBlocking ? new Date().toISOString() : null,
+      blocked_reason: isBlocking ? blockReason : null,
+    }
+    const result = await debugAction('customer.block', 'CustomerDetail', () =>
+      supabase.from('profiles').update(updateData).eq('id', id)
+    , updateData)
+    if (result?.error) { setError(result.error.message); setConfirmBlock(false); return }
+    setCustomer(c => ({ ...c, ...updateData }))
+    await logAudit(isBlocking ? 'customer_blocked' : 'customer_unblocked', { customer_id: id, reason: blockReason })
+    setConfirmBlock(false)
+    setBlockReason('')
+  }
+
   const set = (k, v) => setCustomer(c => ({ ...c, [k]: v }))
 
   if (loading) return <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
@@ -139,6 +163,24 @@ export default function CustomerDetail() {
         <h2 className="font-extrabold text-lg" style={{ color: '#0f1a14' }}>{customer.full_name || 'Zákazník'}</h2>
         <ScoreBadge userId={id} />
       </div>
+
+      {/* Blocked banner */}
+      {customer.is_blocked && (
+        <div className="p-3 rounded-card mb-4 flex items-center gap-3" style={{ background: '#fee2e2', border: '2px solid #dc2626' }}>
+          <span style={{ fontSize: 20 }}>🚫</span>
+          <div>
+            <div className="text-sm font-bold" style={{ color: '#dc2626' }}>Zakaznik je ZABLOKOVANY</div>
+            {customer.blocked_reason && <div className="text-sm" style={{ color: '#7f1d1d' }}>Duvod: {customer.blocked_reason}</div>}
+            {customer.blocked_at && <div className="text-sm" style={{ color: '#7f1d1d' }}>Od: {new Date(customer.blocked_at).toLocaleString('cs-CZ')}</div>}
+          </div>
+          <div className="flex-1" />
+          <button onClick={() => setConfirmBlock(true)}
+            className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+            style={{ padding: '6px 14px', background: '#dcfce7', color: '#1a8a18', border: 'none' }}>
+            Odblokovat
+          </button>
+        </div>
+      )}
 
       {/* Admin akce */}
       <div className="flex gap-2 mb-4">
@@ -180,6 +222,7 @@ export default function CustomerDetail() {
           saving={saving}
           onSave={handleSave}
           onDelete={() => setConfirmDelete(true)}
+          onBlock={() => { setConfirmBlock(true); setBlockReason('') }}
         />
       )}
       {tab === 'Skóre' && <CustomerScoreWidget userId={id} />}
@@ -187,6 +230,7 @@ export default function CustomerDetail() {
       {tab === 'Dokumenty' && <CustomerDocumentsTab userId={id} />}
       {tab === 'Hodnocení' && <CustomerReviews userId={id} />}
       {tab === 'SOS' && <CustomerSOSTab userId={id} />}
+      {tab === 'Reklamace' && <CustomerComplaintsTab userId={id} />}
 
       {/* Reset hesla modal */}
       {showResetPw && (
@@ -257,11 +301,36 @@ export default function CustomerDetail() {
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(false)}
       />
+
+      {/* Block modal */}
+      {confirmBlock && (
+        <Modal open title={customer.is_blocked ? 'Odblokovat zakaznika' : 'Zablokovat zakaznika'} onClose={() => setConfirmBlock(false)}>
+          <div className="space-y-3">
+            {!customer.is_blocked ? (
+              <>
+                <p className="text-sm" style={{ color: '#dc2626' }}>Zablokovany zakaznik si nemuze pujcit motorku.</p>
+                <div>
+                  <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Duvod blokovani</label>
+                  <input type="text" value={blockReason} onChange={e => setBlockReason(e.target.value)} placeholder="Duvod…" className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
+                </div>
+              </>
+            ) : (
+              <p className="text-sm" style={{ color: '#1a2e22' }}>Zakaznik bude odblokovany a bude si moci opet pujcit motorku.</p>
+            )}
+            <div className="flex justify-end gap-2 pt-2">
+              <Button onClick={() => setConfirmBlock(false)}>Zrusit</Button>
+              <Button green={customer.is_blocked} onClick={handleToggleBlock} style={!customer.is_blocked ? { background: '#dc2626', color: '#fff' } : {}}>
+                {customer.is_blocked ? 'Odblokovat' : 'Zablokovat'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }
 
-function ProfileTab({ customer, set, error, saving, onSave, onDelete }) {
+function ProfileTab({ customer, set, error, saving, onSave, onDelete, onBlock }) {
   return (
     <div className="space-y-5">
       {/* Osobní údaje */}
@@ -336,16 +405,18 @@ function ProfileTab({ customer, set, error, saving, onSave, onDelete }) {
         </div>
       </Card>
 
-      {/* Marketingový souhlas */}
+      {/* Souhlasy */}
       <Card>
-        <div className="flex items-center gap-3">
-          <input
-            type="checkbox"
-            checked={!!customer.marketing_consent}
-            onChange={e => set('marketing_consent', e.target.checked)}
-            className="w-4 h-4 cursor-pointer"
-          />
-          <label className="text-sm font-bold" style={{ color: '#0f1a14' }}>Marketingový souhlas</label>
+        <SectionTitle>Souhlasy</SectionTitle>
+        <div className="grid grid-cols-2 gap-3">
+          <ConsentRow label="Marketingovy souhlas" checked={!!customer.marketing_consent} onChange={v => set('marketing_consent', v)} />
+          <ConsentRow label="GDPR — zpracovani osobnich udaju" checked={!!customer.consent_gdpr} onChange={v => set('consent_gdpr', v)} />
+          <ConsentRow label="VOP — vseobecne obchodni podminky" checked={!!customer.consent_vop} onChange={v => set('consent_vop', v)} />
+          <ConsentRow label="Zpracovani dat pro provoz sluzby" checked={!!customer.consent_data_processing} onChange={v => set('consent_data_processing', v)} />
+          <ConsentRow label="Email komunikace" checked={!!customer.consent_email} onChange={v => set('consent_email', v)} />
+          <ConsentRow label="SMS komunikace" checked={!!customer.consent_sms} onChange={v => set('consent_sms', v)} />
+          <ConsentRow label="Push notifikace" checked={!!customer.consent_push} onChange={v => set('consent_push', v)} />
+          <ConsentRow label="Fotografovani dokladu a motorky" checked={!!customer.consent_photo} onChange={v => set('consent_photo', v)} />
         </div>
       </Card>
 
@@ -353,6 +424,11 @@ function ProfileTab({ customer, set, error, saving, onSave, onDelete }) {
       <div className="flex gap-3">
         <Button green onClick={onSave} disabled={saving}>{saving ? 'Ukládám…' : 'Uložit'}</Button>
         <Button onClick={onDelete} style={{ color: '#dc2626' }}>Smazat zákazníka</Button>
+        <button onClick={onBlock}
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+          style={{ padding: '8px 16px', background: customer.is_blocked ? '#dcfce7' : '#7f1d1d', color: customer.is_blocked ? '#1a8a18' : '#fff', border: 'none' }}>
+          {customer.is_blocked ? 'Odblokovat zákazníka' : 'Zablokovat zákazníka'}
+        </button>
       </div>
     </div>
   )
@@ -472,4 +548,14 @@ function LoadingSpinner() {
 
 function EmptyState({ text }) {
   return <p style={{ color: '#1a2e22', fontSize: 13 }}>{text}</p>
+}
+
+function ConsentRow({ label, checked, onChange }) {
+  return (
+    <div className="flex items-center gap-3 p-2 rounded-lg" style={{ background: '#f1faf7' }}>
+      <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} className="w-4 h-4 cursor-pointer" />
+      <span className="text-sm font-bold" style={{ color: '#0f1a14' }}>{label}</span>
+      <span className="text-xs ml-auto" style={{ color: checked ? '#1a8a18' : '#dc2626' }}>{checked ? 'Ano' : 'Ne'}</span>
+    </div>
+  )
 }

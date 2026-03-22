@@ -20,7 +20,13 @@ import Card from '../../components/ui/Card'
  *  10. Storna zákazníkem — eskalující: 1.=-5, 2.=-8, 3.=-11 (každé další horší)
  *  11. Reklamace — rejected -15, open -10, resolved -3
  *
- * Výsledné skóre: clamp(0, 100)
+ * NEGATIVNÍ faktory MAJÍ max limity (jako pozitivní):
+ *   SOS incidenty — max 40 bodů srážky
+ *   Pozdní vrácení — max 20 bodů
+ *   Storna — max 15 bodů
+ *   Reklamace — max 25 bodů
+ *
+ * Výsledné skóre: clamp(-100, 100)
  * Rank: S (90+), A (75+), B (55+), C (35+), D (20+), F (<20)
  */
 
@@ -31,6 +37,7 @@ const RANK_MAP = [
   { min: 35, rank: 'C', label: 'Průměrný', color: '#b45309', bg: '#fef3c7' },
   { min: 20, rank: 'D', label: 'Problémový', color: '#dc2626', bg: '#fee2e2' },
   { min: 0, rank: 'F', label: 'Rizikový', color: '#fff', bg: '#7f1d1d' },
+  { min: -100, rank: 'F', label: 'Rizikový', color: '#fff', bg: '#7f1d1d' },
 ]
 
 export function getRank(total) {
@@ -89,43 +96,46 @@ function computeScore(bookings, sosIncidents, reviews, complaints) {
   const avgRating = reviews.length > 0 ? reviews.reduce((s, r) => s + (r.rating || 0), 0) / reviews.length : 0
   const ratingScore = reviews.length > 0 ? (avgRating / 5) * 10 : 5 // Neutrální pokud bez recenzí
 
-  // === SRÁŽKY ===
+  // === SRÁŽKY (každá s max limitem) ===
 
-  // 7+8. SOS incidenty — tvrdé srážky, SOS je vážná věc
+  // 7+8. SOS incidenty — max 40 bodů srážky
   const sevPenalty = { low: 15, medium: 30, high: 50, critical: 80 }
-  let sosPenalty = 0
+  let sosPenaltyRaw = 0
   sosIncidents.forEach(inc => {
     const base = sevPenalty[inc.severity] || 30
-    sosPenalty += inc.is_customer_fault ? base * 3 : base
+    sosPenaltyRaw += inc.is_customer_fault ? base * 3 : base
   })
+  const sosPenalty = Math.min(40, sosPenaltyRaw)
 
-  // 9. Pozdní vrácení — progresivní penalizace (každý den horší)
-  let latePenalty = 0
+  // 9. Pozdní vrácení — max 20 bodů
+  let latePenaltyRaw = 0
   completed.forEach(b => {
     if (b.actual_return_date && b.end_date) {
       const lateDays = Math.ceil((new Date(b.actual_return_date) - new Date(b.end_date)) / 86400000)
       if (lateDays > 0) {
-        // 1 den = -8, 2 dny = -18, 3 dny = -30, progresivně
-        for (let d = 1; d <= lateDays; d++) latePenalty += 5 + d * 3
+        for (let d = 1; d <= lateDays; d++) latePenaltyRaw += 5 + d * 3
       }
     }
   })
+  const latePenalty = Math.min(20, latePenaltyRaw)
 
-  // 10. Storna — eskalující: každé další storno bolí víc
-  let cancelPenalty = 0
-  for (let i = 0; i < cancelled.length; i++) cancelPenalty += 5 + i * 3
+  // 10. Storna — max 15 bodů
+  let cancelPenaltyRaw = 0
+  for (let i = 0; i < cancelled.length; i++) cancelPenaltyRaw += 5 + i * 3
+  const cancelPenalty = Math.min(15, cancelPenaltyRaw)
 
-  // 11. Reklamace — resolved = mírná, open/rejected = tvrdá
-  let complaintPenalty = 0
+  // 11. Reklamace — max 25 bodů
+  let complaintPenaltyRaw = 0
   complaints.forEach(c => {
-    if (c.status === 'rejected') complaintPenalty += 15
-    else if (c.status === 'open' || c.status === 'in_progress') complaintPenalty += 10
-    else if (c.status === 'resolved') complaintPenalty += 3
+    if (c.status === 'rejected') complaintPenaltyRaw += 15
+    else if (c.status === 'open' || c.status === 'in_progress') complaintPenaltyRaw += 10
+    else if (c.status === 'resolved') complaintPenaltyRaw += 3
   })
+  const complaintPenalty = Math.min(25, complaintPenaltyRaw)
 
   const totalPositive = revenueScore + countScore + durationScore + priceScore + loyaltyScore + ratingScore
   const totalNegative = sosPenalty + latePenalty + cancelPenalty + complaintPenalty
-  const total = Math.max(0, Math.min(100, Math.round(totalPositive - totalNegative)))
+  const total = Math.max(-100, Math.min(100, Math.round(totalPositive - totalNegative)))
 
   return {
     total,
@@ -139,10 +149,10 @@ function computeScore(bookings, sosIncidents, reviews, complaints) {
       rating: { score: Math.round(ratingScore * 10) / 10, max: 10, value: Math.round(avgRating * 10) / 10 },
     },
     penalties: {
-      sos: { count: sosIncidents.length, penalty: Math.round(sosPenalty) },
-      late: { penalty: Math.round(latePenalty) },
-      cancellations: { count: cancelled.length, penalty: cancelPenalty },
-      complaints: { count: complaints.length, penalty: complaintPenalty },
+      sos: { count: sosIncidents.length, penalty: Math.round(sosPenalty), max: 40 },
+      late: { penalty: Math.round(latePenalty), max: 20 },
+      cancellations: { count: cancelled.length, penalty: cancelPenalty, max: 15 },
+      complaints: { count: complaints.length, penalty: complaintPenalty, max: 25 },
     },
     totalPositive: Math.round(totalPositive * 10) / 10,
     totalNegative: Math.round(totalNegative),
@@ -189,7 +199,7 @@ export default function CustomerScoreWidget({ userId }) {
             {rank.rank}
           </div>
           <div>
-            <div className="text-2xl font-extrabold" style={{ color: '#0f1a14' }}>{total} / 100</div>
+            <div className="text-2xl font-extrabold" style={{ color: '#0f1a14' }}>{total} <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>(-100 az 100)</span></div>
             <div className="text-sm font-bold" style={{ color: rank.color }}>{rank.label} zakaznik</div>
           </div>
           <div className="flex-1" />
@@ -198,9 +208,14 @@ export default function CustomerScoreWidget({ userId }) {
             <div className="text-sm" style={{ color: '#dc2626' }}>-{totalNegative}</div>
           </div>
         </div>
-        {/* Progress bar */}
-        <div className="mt-3 rounded-full overflow-hidden" style={{ height: 8, background: '#e5e7eb' }}>
-          <div className="rounded-full h-full transition-all" style={{ width: `${total}%`, background: rank.color }} />
+        {/* Progress bar — centered at 0, range -100 to 100 */}
+        <div className="mt-3 rounded-full overflow-hidden relative" style={{ height: 8, background: '#e5e7eb' }}>
+          {total >= 0 ? (
+            <div className="absolute rounded-r-full h-full transition-all" style={{ left: '50%', width: `${(total / 100) * 50}%`, background: rank.color }} />
+          ) : (
+            <div className="absolute rounded-l-full h-full transition-all" style={{ right: '50%', width: `${(Math.abs(total) / 100) * 50}%`, background: '#dc2626' }} />
+          )}
+          <div className="absolute h-full" style={{ left: '50%', width: 2, background: '#9ca3af' }} />
         </div>
       </Card>
 
@@ -221,10 +236,10 @@ export default function CustomerScoreWidget({ userId }) {
       <Card>
         <div className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#dc2626' }}>Srazky</div>
         <div className="space-y-2">
-          <PenaltyRow label="SOS incidenty" count={penalties.sos.count} penalty={penalties.sos.penalty} />
-          <PenaltyRow label="Pozdni vraceni" penalty={penalties.late.penalty} />
-          <PenaltyRow label="Storna zakaznikem" count={penalties.cancellations.count} penalty={penalties.cancellations.penalty} />
-          <PenaltyRow label="Reklamace" count={penalties.complaints.count} penalty={penalties.complaints.penalty} />
+          <PenaltyRow label="SOS incidenty" count={penalties.sos.count} penalty={penalties.sos.penalty} max={penalties.sos.max} />
+          <PenaltyRow label="Pozdni vraceni" penalty={penalties.late.penalty} max={penalties.late.max} />
+          <PenaltyRow label="Storna zakaznikem" count={penalties.cancellations.count} penalty={penalties.cancellations.penalty} max={penalties.cancellations.max} />
+          <PenaltyRow label="Reklamace" count={penalties.complaints.count} penalty={penalties.complaints.penalty} max={penalties.complaints.max} />
         </div>
         {totalNegative === 0 && <p className="text-sm mt-2" style={{ color: '#1a8a18' }}>Zadne srazky — cisty zaznam</p>}
       </Card>
@@ -271,17 +286,19 @@ function ScoreRow({ label, detail, score, max, color }) {
   )
 }
 
-function PenaltyRow({ label, count, penalty }) {
-  if (penalty === 0) return (
-    <div className="flex justify-between text-sm">
-      <span style={{ color: '#1a2e22' }}>{label}</span>
-      <span style={{ color: '#1a8a18' }}>0</span>
-    </div>
-  )
+function PenaltyRow({ label, count, penalty, max }) {
+  const pct = max > 0 ? (penalty / max) * 100 : 0
   return (
-    <div className="flex justify-between text-sm">
-      <span style={{ color: '#0f1a14' }}>{label}{count != null ? ` (${count}x)` : ''}</span>
-      <span className="font-bold" style={{ color: '#dc2626' }}>-{penalty}</span>
+    <div className="flex items-center gap-3">
+      <div className="flex-1 min-w-0">
+        <div className="flex justify-between text-sm">
+          <span style={{ color: '#0f1a14' }}>{label}{count != null ? ` (${count}x)` : ''}</span>
+        </div>
+        <div className="rounded-full overflow-hidden mt-1" style={{ height: 4, background: '#e5e7eb' }}>
+          <div className="rounded-full h-full" style={{ width: `${pct}%`, background: '#dc2626' }} />
+        </div>
+      </div>
+      <span className="text-sm font-bold" style={{ color: penalty > 0 ? '#dc2626' : '#1a8a18', minWidth: 50, textAlign: 'right' }}>-{penalty}/{max}</span>
     </div>
   )
 }
