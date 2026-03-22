@@ -7,6 +7,7 @@
 
 | Datum | Změna |
 |-------|-------|
+| 2026-03-22 | profiles: přidány sloupce is_blocked, blocked_at, blocked_reason, consent_gdpr, consent_vop, consent_email, consent_sms, consent_push, consent_data_processing, consent_photo |
 | 2026-03-08 | Prvotní vytvoření ze 32 migrací + 6 edge funkcí |
 | 2026-03-08 | Aktualizace: doplněny chybějící triggery, realtime tabulky, RLS detaily |
 | 2026-03-08 23:30 | **MAJOR UPDATE:** Kompletní přepis dle reálného stavu Supabase DB. Doplněno: ENUM typy, 14 dalších edge funkcí, 3 storage buckety, branch-based RLS, dodatečné sloupce (bookings, motorcycles, profiles, sos_incidents), 19+ dalších DB funkcí, foreign keys, 11 secrets, cron jobs |

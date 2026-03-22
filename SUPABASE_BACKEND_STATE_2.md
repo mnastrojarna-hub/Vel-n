@@ -58,6 +58,16 @@
 - **avatar_url** — URL avataru
 - **preferred_branch** — preferovaná pobočka
 - **language** — jazyk (cs/en/de)
+- **is_blocked** (boolean DEFAULT false) — zákazník zablokován
+- **blocked_at** (timestamptz) — datum blokace
+- **blocked_reason** (text) — důvod blokace
+- **consent_gdpr** (boolean DEFAULT false) — souhlas GDPR
+- **consent_vop** (boolean DEFAULT false) — souhlas VOP
+- **consent_email** (boolean DEFAULT false) — souhlas email komunikace
+- **consent_sms** (boolean DEFAULT false) — souhlas SMS komunikace
+- **consent_push** (boolean DEFAULT false) — souhlas push notifikace
+- **consent_data_processing** (boolean DEFAULT false) — souhlas zpracování dat
+- **consent_photo** (boolean DEFAULT false) — souhlas fotografování dokladů
 
 ### motorcycles
 - id, model, spz, vin, year, status (`moto_status` ENUM)
