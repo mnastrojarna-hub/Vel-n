@@ -134,6 +134,7 @@ function ActiveServiceTab({ onRefresh }) {
     try {
       const { error: logErr } = await supabase.from('maintenance_log').update({
         completed_date: new Date().toISOString().slice(0, 10),
+        status: 'completed',
       }).eq('id', logEntry.id)
       if (logErr) console.error('[markCompleted] log update failed:', logErr)
 
@@ -180,6 +181,7 @@ function ActiveServiceTab({ onRefresh }) {
       // Also complete any open maintenance_log entries for this moto
       await supabase.from('maintenance_log').update({
         completed_date: new Date().toISOString().slice(0, 10),
+        status: 'completed',
       }).eq('moto_id', moto.id).is('completed_date', null)
 
       const { data: { user } } = await supabase.auth.getUser()
