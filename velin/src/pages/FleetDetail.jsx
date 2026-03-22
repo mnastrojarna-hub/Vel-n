@@ -149,6 +149,42 @@ export default function FleetDetail() {
   )
 }
 
+// Season: April (3) – October (9), 7 months. Motos only ride during season.
+const SEASON_MONTHS = 7
+const SEASON_START = 3 // April (0-indexed)
+const SEASON_END = 9   // October (0-indexed)
+
+function isInSeason(date) {
+  const m = date.getMonth()
+  return m >= SEASON_START && m <= SEASON_END
+}
+
+// Count season days between two dates
+function seasonDaysBetween(from, to) {
+  let count = 0
+  const d = new Date(from)
+  d.setHours(0, 0, 0, 0)
+  const end = new Date(to)
+  end.setHours(0, 0, 0, 0)
+  while (d <= end) {
+    if (isInSeason(d)) count++
+    d.setDate(d.getDate() + 1)
+  }
+  return count
+}
+
+// Estimate future date adding N season-only days from now
+function addSeasonDays(from, seasonDays) {
+  const d = new Date(from)
+  d.setHours(0, 0, 0, 0)
+  let added = 0
+  while (added < seasonDays) {
+    d.setDate(d.getDate() + 1)
+    if (isInSeason(d)) added++
+  }
+  return d
+}
+
 // Find nearest Tue/Wed without an active booking for this moto
 function findFreeTueWed(baseDate, bookings) {
   const d = new Date(baseDate)
@@ -196,10 +232,14 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
       .then(({ data }) => {
         if (data?.length >= 2) {
           const diff = (data[data.length - 1].mileage_at_service || 0) - (data[0].mileage_at_service || 0)
-          const days = (new Date(data[data.length - 1].created_at) - new Date(data[0].created_at)) / 86400000
-          if (days > 0) { setAvgKm(Math.round((diff / days) * 30)); return }
+          const sDays = seasonDaysBetween(new Date(data[0].created_at), new Date(data[data.length - 1].created_at))
+          if (sDays > 0) { setAvgKm(Math.round((diff / sDays) * 30)); return }
         }
-        if (moto.year && moto.mileage) setAvgKm(Math.round(moto.mileage / Math.max(1, (new Date().getFullYear() - moto.year) * 12)))
+        // Fallback: total km / season months since purchase year
+        if (moto.year && moto.mileage) {
+          const seasonMonths = Math.max(1, (new Date().getFullYear() - moto.year) * SEASON_MONTHS)
+          setAvgKm(Math.round(moto.mileage / seasonMonths))
+        }
       })
     supabase.from('branches').select('id, name').order('name').then(({ data }) => setBranches(data || []))
     loadManual()
@@ -417,10 +457,10 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
             if (overdue) {
               planDate = findFreeTueWed(now, motoBookings)
             } else if (avgKm > 0 && rem > 0) {
+              // avgKm is per season-month (30 days of riding)
               const dailyKm = avgKm / 30
-              const daysUntil = Math.ceil(rem / dailyKm)
-              const est = new Date(now)
-              est.setDate(est.getDate() + daysUntil)
+              const seasonDaysUntil = Math.ceil(rem / dailyKm)
+              const est = addSeasonDays(now, seasonDaysUntil)
               planDate = findFreeTueWed(est, motoBookings)
             }
           }
@@ -432,7 +472,7 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
                 <span style={{ color: '#1a2e22' }}>každých {s.interval_km?.toLocaleString('cs-CZ')} km</span>
                 <span className="ml-auto font-bold" style={{ color: overdue ? '#dc2626' : '#1a8a18' }}>
                   {overdue ? `PO TERMÍNU ${Math.abs(rem).toLocaleString('cs-CZ')} km` : `za ${rem.toLocaleString('cs-CZ')} km`}
-                  {!overdue && avgKm > 0 ? ` (~${Math.round((rem / avgKm) * 30)} dní)` : ''}
+                  {!overdue && avgKm > 0 ? ` (~${Math.round((rem / avgKm) * 30)} dní jízdy)` : ''}
                 </span>
               </div>
               {planDate && (
