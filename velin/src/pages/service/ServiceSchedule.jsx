@@ -6,6 +6,31 @@ import { Table, TRow, TH, TD } from '../../components/ui/Table'
 
 const FILTERS = ['Vše', 'Nejbližší', 'Následující měsíc', 'Vlastní']
 
+// Season: April (3) – October (9), 7 months. Motos only ride during season.
+const SEASON_MONTHS = 7
+const SEASON_START = 3
+const SEASON_END = 9
+
+function isInSeason(date) {
+  const m = date.getMonth()
+  return m >= SEASON_START && m <= SEASON_END
+}
+
+function seasonDaysBetween(from, to) {
+  let count = 0
+  const d = new Date(from); d.setHours(0, 0, 0, 0)
+  const end = new Date(to); end.setHours(0, 0, 0, 0)
+  while (d <= end) { if (isInSeason(d)) count++; d.setDate(d.getDate() + 1) }
+  return count
+}
+
+function addSeasonDays(from, seasonDays) {
+  const d = new Date(from); d.setHours(0, 0, 0, 0)
+  let added = 0
+  while (added < seasonDays) { d.setDate(d.getDate() + 1); if (isInSeason(d)) added++ }
+  return d
+}
+
 function isoDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
@@ -99,19 +124,19 @@ export default function ServiceSchedule() {
         if (entries.length >= 2) {
           const first = entries[0], last = entries[entries.length - 1]
           const kmDiff = (last.mileage_at_service || 0) - (first.mileage_at_service || 0)
-          const daysDiff = (new Date(last.created_at) - new Date(first.created_at)) / 86400000
-          if (daysDiff > 0 && kmDiff > 0) {
-            avgMap[motoId] = kmDiff / daysDiff
+          const sDays = seasonDaysBetween(new Date(first.created_at), new Date(last.created_at))
+          if (sDays > 0 && kmDiff > 0) {
+            avgMap[motoId] = kmDiff / sDays // km per season-day
           }
         }
       }
 
-      // Fallback: use mileage / age for motos without enough logs
+      // Fallback: use mileage / season-months since purchase year
       for (const s of (schedRes.data || [])) {
         const moto = s.motorcycles
         if (moto && !avgMap[moto.id] && moto.mileage && moto.year) {
-          const months = Math.max(1, (new Date().getFullYear() - moto.year) * 12)
-          avgMap[moto.id] = moto.mileage / (months * 30)
+          const seasonMonths = Math.max(1, (new Date().getFullYear() - moto.year) * SEASON_MONTHS)
+          avgMap[moto.id] = moto.mileage / (seasonMonths * 30) // km per season-day
         }
       }
 
@@ -156,10 +181,9 @@ export default function ServiceSchedule() {
         const motoBookings = bookings.filter(b => b.moto_id === motoId)
         autoDate = findFreeServiceDate(now, motoBookings)
       } else if (isRegularService && dailyKm > 0 && remaining > 0) {
-        // Estimate days until service needed
-        const daysUntil = Math.ceil(remaining / dailyKm)
-        const estReachDate = new Date(now)
-        estReachDate.setDate(estReachDate.getDate() + daysUntil)
+        // dailyKm is per season-day, so estimate season-days until service
+        const seasonDaysUntil = Math.ceil(remaining / dailyKm)
+        const estReachDate = addSeasonDays(now, seasonDaysUntil)
         // Find free Tue/Wed near that date
         const motoBookings = bookings.filter(b => b.moto_id === motoId)
         autoDate = findFreeServiceDate(estReachDate, motoBookings)
