@@ -84,6 +84,7 @@
 - **last_service_date, next_service_date** — datum posledního/příštího servisu
 - **brand** (TEXT DEFAULT NULL) — značka motorky (Honda, Yamaha, BMW...)
 - **purchase_price** (NUMERIC DEFAULT 0) — pořizovací cena motorky v Kč
+- **purchase_mileage** (INTEGER DEFAULT NULL) — km při zakoupení, základ pro výpočet servisních intervalů
 
 ### sos_incidents
 - id, user_id, booking_id, moto_id, type, title, description

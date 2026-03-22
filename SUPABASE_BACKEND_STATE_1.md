@@ -99,7 +99,7 @@
 | Tabulka | Popis |
 |---------|-------|
 | `maintenance_log` | Log údržby (service_date NOT NULL, km_at_service, completed_date, scheduled_date, service_type, status, description, performed_by, cost) |
-| `maintenance_schedules` | Plány údržby (schedule_type, interval_km, interval_days) |
+| `maintenance_schedules` | Plány údržby (schedule_type, interval_km, interval_days, first_service_km, first_service_desc) |
 | `service_orders` | Servisní objednávky (status: pending/in_service/completed/cancelled) |
 | `moto_locations` | GPS pozice motorek (lat, lng, source: gps/manual/tracker) |
 
