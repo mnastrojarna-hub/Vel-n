@@ -599,7 +599,7 @@ function DetailTab({ booking, set, error, saving, actions, onAction, navigate, p
         </div>
         <InfoRow label="Model" value={booking.motorcycles?.model} />
         <InfoRow label="SPZ" value={booking.motorcycles?.spz} />
-        <InfoRow label="Stav" value={booking.motorcycles?.status} />
+        <InfoRow label="Stav" value={{ active: 'Dostupná', rented: 'Pronajatá', maintenance: 'V servisu', unavailable: 'Nedostupná', retired: 'Vyřazena' }[booking.motorcycles?.status] || booking.motorcycles?.status} />
         <InfoRow label="Pobočka" value={booking.motorcycles?.branches?.name} />
       </Card>
 
@@ -885,7 +885,7 @@ function DetailTab({ booking, set, error, saving, actions, onAction, navigate, p
 
 const CANCEL_SOURCE_LABELS = Object.fromEntries(CANCEL_REASONS.map(r => [r.value, r.label]))
 
-const STATUS_LABELS = { pending: 'Čeká na platbu', reserved: 'Nadcházející', active: 'Aktivní', completed: 'Dokončená', cancelled: 'Zrušená' }
+const STATUS_LABELS = { pending: 'Čeká na platbu', reserved: 'Nadcházející', active: 'Aktivní', completed: 'Dokončená', cancelled: 'Zrušená', upcoming: 'Nadcházející', completed_sos: 'Dokončeno SOS' }
 
 function fmtDT(iso) {
   if (!iso) return '—'
@@ -922,7 +922,7 @@ function BookingSummary({ booking, sosIncidents, bookingExtras, cancellation, pr
   return (
     <div className="space-y-1">
       <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Základní údaje</div>
-      <SumRow label="Stav" value={STATUS_LABELS[b.status] || b.status} color={b.status === 'cancelled' ? '#dc2626' : b.status === 'active' ? '#1a8a18' : undefined} />
+      <SumRow label="Stav" value={STATUS_LABELS[getDisplayStatus(b)] || b.status} color={getDisplayStatus(b) === 'cancelled' ? '#dc2626' : getDisplayStatus(b) === 'active' ? '#1a8a18' : getDisplayStatus(b) === 'upcoming' ? '#7c3aed' : undefined} />
       <SumRow label="ID" value={`#${b.id?.slice(-8).toUpperCase()}`} />
       <SumRow label="Motorka" value={`${b.motorcycles?.model || '—'}${b.motorcycles?.spz ? ` (${b.motorcycles.spz})` : ''}`} />
       <SumRow label="Pobočka" value={branchName} />
