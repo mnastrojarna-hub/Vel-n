@@ -8,8 +8,9 @@ import Button from '../components/ui/Button'
 import MotoActionModal from '../components/fleet/MotoActionModal'
 import ServiceSchedule from './service/ServiceSchedule'
 import ServiceLog from './service/ServiceLog'
+import StkTab from './government/StkTab'
 
-const TABS = ['Aktivní v servisu', 'Servisní log', 'Plánované']
+const TABS = ['Aktivní v servisu', 'Servisní log', 'Plánované', 'STK & Emise']
 
 export default function Service() {
   const debugMode = useDebugMode()
@@ -85,6 +86,7 @@ export default function Service() {
       {tab === 'Aktivní v servisu' && <ActiveServiceTab onRefresh={loadStats} />}
       {tab === 'Servisní log' && <ServiceLog />}
       {tab === 'Plánované' && <ServiceSchedule />}
+      {tab === 'STK & Emise' && <StkTab />}
     </div>
   )
 }
