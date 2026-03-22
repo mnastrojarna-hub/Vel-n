@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react'
 import { debugLog } from '../lib/debugLog'
-import StkTab from './government/StkTab'
 import InsuranceTab from './government/InsuranceTab'
 import DataBoxTab from './government/DataBoxTab'
 import CompanyTab from './government/CompanyTab'
 
-const TABS = ['STK & Emise', 'Pojistky', 'Datová schránka', 'IČO / DIČ']
+const TABS = ['Pojistky', 'Datová schránka', 'IČO / DIČ']
 
 export default function Government() {
-  const [tab, setTab] = useState('STK & Emise')
+  const [tab, setTab] = useState('Pojistky')
 
   useEffect(() => { debugLog('page.mount', 'Government') }, [])
 
@@ -30,7 +29,6 @@ export default function Government() {
         ))}
       </div>
 
-      {tab === 'STK & Emise' && <StkTab />}
       {tab === 'Pojistky' && <InsuranceTab />}
       {tab === 'Datová schránka' && <DataBoxTab />}
       {tab === 'IČO / DIČ' && <CompanyTab />}

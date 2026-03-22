@@ -55,6 +55,62 @@ function findWinterServiceDate(year, bookings) {
   return new Date(year, 0, 15)
 }
 
+// STK scheduling: distribute motorcycles across Dec-Feb weekdays, max 2 per day
+function scheduleStkDates(motos, bookings, year) {
+  // Collect all available weekdays (Mon-Fri) in Dec(prev year), Jan, Feb
+  const availableDays = []
+  // December of previous year
+  for (let d = new Date(year - 1, 11, 1); d.getMonth() === 11; d.setDate(d.getDate() + 1)) {
+    const day = d.getDay()
+    if (day >= 1 && day <= 5) availableDays.push(new Date(d))
+  }
+  // January
+  for (let d = new Date(year, 0, 1); d.getMonth() === 0; d.setDate(d.getDate() + 1)) {
+    const day = d.getDay()
+    if (day >= 1 && day <= 5) availableDays.push(new Date(d))
+  }
+  // February
+  for (let d = new Date(year, 1, 1); d.getMonth() === 1; d.setDate(d.getDate() + 1)) {
+    const day = d.getDay()
+    if (day >= 1 && day <= 5) availableDays.push(new Date(d))
+  }
+
+  // Assign motos to days: max 2 per day, evenly distributed
+  const assignments = {} // motoId -> Date
+  const dayUsage = {} // isoDate -> count
+  let dayIdx = 0
+
+  for (const moto of motos) {
+    const motoBookings = bookings.filter(b => b.moto_id === moto.id)
+    let assigned = false
+    // Try from current dayIdx onwards, wrap around
+    for (let attempt = 0; attempt < availableDays.length; attempt++) {
+      const idx = (dayIdx + attempt) % availableDays.length
+      const candidate = availableDays[idx]
+      const ds = isoDate(candidate)
+      const usage = dayUsage[ds] || 0
+      if (usage >= 2) continue
+      // Check no booking conflict
+      const hasBooking = motoBookings.some(b => {
+        const bs = (b.start_date || '').split('T')[0]
+        const be = (b.end_date || '').split('T')[0]
+        return ds >= bs && ds <= be
+      })
+      if (hasBooking) continue
+      assignments[moto.id] = new Date(candidate)
+      dayUsage[ds] = usage + 1
+      dayIdx = (idx + 1) % availableDays.length
+      assigned = true
+      break
+    }
+    if (!assigned) {
+      // Fallback: Jan 15
+      assignments[moto.id] = new Date(year, 0, 15)
+    }
+  }
+  return assignments
+}
+
 // Check if date falls in last 2 weeks of October (Oct 17-31)
 function isLateOctober(date) {
   if (!date) return false
@@ -103,6 +159,7 @@ export default function ServiceSchedule() {
   const [schedules, setSchedules] = useState([])
   const [bookings, setBookings] = useState([])  // all active bookings
   const [avgKmPerDay, setAvgKmPerDay] = useState({}) // moto_id -> km/day
+  const [allMotos, setAllMotos] = useState([]) // all motorcycles for STK
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('Vše')
   const [customFrom, setCustomFrom] = useState('')
@@ -117,7 +174,7 @@ export default function ServiceSchedule() {
     setLoading(true)
     try {
       debugLog('ServiceSchedule', 'load')
-      const [schedRes, bookRes, logRes] = await Promise.all([
+      const [schedRes, bookRes, logRes, motosRes] = await Promise.all([
         debugAction('maintenance_schedules.list', 'ServiceSchedule', () =>
           supabase
             .from('maintenance_schedules')
@@ -134,11 +191,16 @@ export default function ServiceSchedule() {
         supabase.from('maintenance_log')
           .select('moto_id, mileage_at_service, created_at')
           .order('created_at', { ascending: true }),
+        // Fetch all motorcycles for STK scheduling
+        supabase.from('motorcycles')
+          .select('id, model, spz, stk_valid_until')
+          .order('model'),
       ])
 
       if (schedRes.error) throw schedRes.error
       setSchedules(schedRes.data || [])
       setBookings(bookRes.data || [])
+      setAllMotos(motosRes.data || [])
 
       // Calculate avg km/day per motorcycle
       const logs = logRes.data || []
@@ -272,8 +334,38 @@ export default function ServiceSchedule() {
       })
     }
 
+    // Add virtual STK entries for ALL motorcycles (Dec-Feb, Mon-Fri, max 2/day)
+    const stkYear = now.getMonth() >= 2 ? now.getFullYear() + 1 : now.getFullYear() // next winter
+    const stkAssignments = scheduleStkDates(allMotos, bookings, stkYear)
+    for (const moto of allMotos) {
+      const stkDate = stkAssignments[moto.id]
+      const stkValid = moto.stk_valid_until ? new Date(moto.stk_valid_until) : null
+      // Find moto data from schedules if available, else use basic info
+      const motoSched = schedules.find(s => (s.motorcycles?.id || s.moto_id) === moto.id)
+      const motoData = motoSched?.motorcycles || { id: moto.id, model: moto.model, spz: moto.spz }
+      results.push({
+        id: `stk-${moto.id}`,
+        moto_id: moto.id,
+        motorcycles: motoData,
+        description: 'STK & Emise',
+        schedule_type: 'stk',
+        interval_km: null,
+        interval_days: null,
+        remaining: null,
+        overdue: stkValid ? stkValid < now : false,
+        nextAt: null,
+        estDate: stkDate,
+        autoDate: stkDate,
+        isAutoEstimated: true,
+        dailyKm: 0,
+        mergedWithWinter: false,
+        isStkService: true,
+        stkValidUntil: stkValid,
+      })
+    }
+
     return results
-  }, [schedules, avgKmPerDay, bookings])
+  }, [schedules, avgKmPerDay, bookings, allMotos])
 
   // Apply filters
   const filtered = useMemo(() => {
@@ -293,7 +385,7 @@ export default function ServiceSchedule() {
       const byType = {}
       for (const s of items) {
         const type = s.schedule_type
-        if (!type || s.isWinterService) continue
+        if (!type || s.isWinterService || s.isStkService) continue
         if (!byType[type] || (s.remaining != null && (byType[type].remaining == null || s.remaining < byType[type].remaining))) {
           byType[type] = s
         }
@@ -409,25 +501,36 @@ export default function ServiceSchedule() {
             const hasManualOverride = !!(s.next_due || s.next_date)
 
             return (
-              <TRow key={s.id} style={s.isWinterService ? { background: '#eff6ff' } : s.mergedWithWinter ? { background: '#eff6ff' } : undefined}>
+              <TRow key={s.id} style={s.isStkService ? { background: '#fef3c7' } : s.isWinterService ? { background: '#eff6ff' } : s.mergedWithWinter ? { background: '#eff6ff' } : undefined}>
                 <TD bold>{s.motorcycles?.model || '—'}</TD>
                 <TD mono>{s.motorcycles?.spz || '—'}</TD>
                 <TD>
-                  {s.isWinterService ? <span style={{ color: '#2563eb', fontWeight: 700 }}>Velký zimní servis</span> : (s.description || TYPE_LABELS[s.schedule_type] || s.schedule_type || '—')}
+                  {s.isStkService ? <span style={{ color: '#b45309', fontWeight: 700 }}>STK & Emise</span> : s.isWinterService ? <span style={{ color: '#2563eb', fontWeight: 700 }}>Velký zimní servis</span> : (s.description || TYPE_LABELS[s.schedule_type] || s.schedule_type || '—')}
                   {filter === 'Nejbližší' && s._nearestMoto && <span className="ml-1" style={{ fontSize: 9, background: '#dcfce7', color: '#166534', borderRadius: 4, padding: '1px 4px', fontWeight: 600 }}>motorka</span>}
                   {filter === 'Nejbližší' && s._nearestType && <span className="ml-1" style={{ fontSize: 9, background: '#dbeafe', color: '#1e40af', borderRadius: 4, padding: '1px 4px', fontWeight: 600 }}>{TYPE_LABELS[s.schedule_type] || s.schedule_type}</span>}
                 </TD>
                 <TD>
-                  {s.isWinterService ? 'leden–únor' : ''}
-                  {s.interval_km ? `${s.interval_km.toLocaleString('cs-CZ')} km` : ''}{s.interval_days ? ` / ${s.interval_days} dní` : ''}
+                  {s.isStkService ? 'prosinec–únor' : s.isWinterService ? 'leden–únor' : ''}
+                  {!s.isStkService && s.interval_km ? `${s.interval_km.toLocaleString('cs-CZ')} km` : ''}{!s.isStkService && s.interval_days ? ` / ${s.interval_days} dní` : ''}
                 </TD>
                 <TD style={s.overdue ? { color: '#dc2626', fontWeight: 700 } : s.mergedWithWinter ? { color: '#2563eb', fontWeight: 600 } : undefined}>
-                  {s.isWinterService ? 'bez ohledu na km' : s.interval_km ? (s.overdue ? `⚠ ${Math.abs(s.remaining).toLocaleString('cs-CZ')} km po` : `${s.remaining.toLocaleString('cs-CZ')} km`) : '—'}
+                  {s.isStkService ? (
+                    s.stkValidUntil ? (
+                      <span style={{ color: s.overdue ? '#dc2626' : '#b45309', fontWeight: 600 }}>
+                        STK do {s.stkValidUntil.toLocaleDateString('cs-CZ')}
+                      </span>
+                    ) : <span style={{ color: '#6b7280' }}>STK nenastaveno</span>
+                  ) : s.isWinterService ? 'bez ohledu na km' : s.interval_km ? (s.overdue ? `⚠ ${Math.abs(s.remaining).toLocaleString('cs-CZ')} km po` : `${s.remaining.toLocaleString('cs-CZ')} km`) : '—'}
                   {s.mergedWithWinter && ' → zimní servis'}
-                  {!(Number(s.motorcycles?.mileage) || 0) && s.interval_km ? ' (km nenastaven)' : ''}
+                  {!s.isStkService && !(Number(s.motorcycles?.mileage) || 0) && s.interval_km ? ' (km nenastaven)' : ''}
                 </TD>
                 <TD>
-                  {s.isWinterService ? (
+                  {s.isStkService ? (
+                    <span style={{ color: '#b45309', fontWeight: 600 }}>
+                      {s.estDate ? s.estDate.toLocaleDateString('cs-CZ') : '—'}
+                      <span className="ml-1" style={{ fontSize: 10 }} title="Automaticky (Po–Pá, max 2/den, prosinec–únor)">~</span>
+                    </span>
+                  ) : s.isWinterService ? (
                     <span style={{ color: '#2563eb', fontWeight: 600 }}>
                       {s.estDate ? s.estDate.toLocaleDateString('cs-CZ') : '—'}
                       <span className="ml-1" style={{ fontSize: 10 }} title="Automaticky (Po–Pá bez rezervace)">~</span>
@@ -473,7 +576,7 @@ export default function ServiceSchedule() {
       </Table>
 
       <div className="mt-3 text-xs" style={{ color: '#6b7280' }}>
-        <span style={{ fontSize: 10 }}>~</span> = automatický odhad (Út/St bez rezervace, dle sezónního nájezdu) · <span style={{ color: '#2563eb' }}>→ zimní servis</span> = sloučeno se zimním servisem (říjen +25% tolerance) · Klikněte na datum pro ruční úpravu
+        <span style={{ fontSize: 10 }}>~</span> = automatický odhad (Út/St bez rezervace, dle sezónního nájezdu) · <span style={{ color: '#2563eb' }}>→ zimní servis</span> = sloučeno se zimním servisem (říjen +25% tolerance) · <span style={{ color: '#b45309' }}>STK</span> = naplánováno prosinec–únor (Po–Pá, max 2/den) · Klikněte na datum pro ruční úpravu
         {filter === 'Nejbližší' && <><br /><span style={{ background: '#dcfce7', color: '#166534', borderRadius: 4, padding: '1px 4px', fontSize: 9, fontWeight: 600 }}>motorka</span> = nejbližší servis dané motorky · <span style={{ background: '#dbeafe', color: '#1e40af', borderRadius: 4, padding: '1px 4px', fontSize: 9, fontWeight: 600 }}>typ</span> = nejbližší servis daného intervalu</>}
       </div>
     </div>
@@ -487,5 +590,6 @@ export const TYPE_LABELS = {
   full_service: 'Kompletní servis',
   repair: 'Oprava',
   inspection: 'STK / Inspekce',
+  stk: 'STK & Emise',
   winter_service: 'Velký zimní servis',
 }
