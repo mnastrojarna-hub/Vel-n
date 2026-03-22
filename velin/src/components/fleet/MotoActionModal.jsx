@@ -87,8 +87,9 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
   async function logAudit(action, details) {
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action, details })
-    } catch {}
+      const { error } = await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action, details })
+      if (error) console.warn('[logAudit] failed:', error.message)
+    } catch (e) { console.warn('[logAudit] error:', e.message) }
   }
 
   async function handleMigrate() {
