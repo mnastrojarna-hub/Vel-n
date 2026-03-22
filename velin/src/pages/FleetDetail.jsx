@@ -42,11 +42,12 @@ export default function FleetDetail() {
 
   async function handleSave() {
     setSaving(true); setError(null)
-    const { model, spz, vin, category, branch_id, mileage, status, year, engine_cc, color, acquired_at,
-      power_kw, power_hp, torque_nm, weight_kg, fuel_tank_l, seat_height_mm, license_required,
+    const { model, spz, vin, category, branch_id, mileage, purchase_mileage, status, year, engine_cc, color, acquired_at,
+      power_kw, torque_nm, weight_kg, fuel_tank_l, seat_height_mm, license_required,
       has_abs, has_asc, description, ideal_usage, features, engine_type, brand, purchase_price } = moto
-    const updateData = { model, spz, vin, category, branch_id, mileage, status, year, engine_cc, color, acquired_at,
-      power_kw, power_hp, torque_nm, weight_kg, fuel_tank_l, seat_height_mm, license_required: license_required || null,
+    const updateData = { model, spz, vin, category, branch_id, mileage, purchase_mileage: purchase_mileage ? Number(purchase_mileage) : null,
+      status, year, engine_cc, color, acquired_at,
+      power_kw, torque_nm, weight_kg, fuel_tank_l, seat_height_mm, license_required: license_required || null,
       has_abs, has_asc, description, ideal_usage, features, engine_type,
       brand: brand?.trim() || null, purchase_price: purchase_price ? Number(purchase_price) : 0 }
     const result = await debugAction('fleet.save', 'FleetDetail', () =>
@@ -129,7 +130,7 @@ export default function FleetDetail() {
         <strong>DIAGNOSTIKA FleetDetail (#{id?.slice(-8)})</strong><br/>
         <div>moto: {moto.model} ({moto.spz}), status={moto.status}, category={moto.category || '—'}</div>
         <div>branch: {moto.branches?.name || '—'}, mileage: {moto.mileage?.toLocaleString('cs-CZ') || 0} km</div>
-        <div>year: {moto.year || '—'}, engine: {moto.engine_cc || '—'}cc, power: {moto.power_kw || '—'}kW/{moto.power_hp || '—'}HP</div>
+        <div>year: {moto.year || '—'}, engine: {moto.engine_cc || '—'}cc, power: {moto.power_kw || '—'}kW</div>
         <div>STK: {moto.stk_valid_until || '—'}, tab: {tab}</div>
         {error && <div style={{ color: '#dc2626' }}>ERROR: {error}</div>}
       </div>
@@ -138,7 +139,7 @@ export default function FleetDetail() {
       {tab === 'Info' && <InfoTab moto={moto} set={set} error={error} saving={saving} onSave={handleSave} onDeactivate={handleDeactivate} onDelete={() => setConfirm({ type: 'delete' })} onMotoReload={loadMoto} />}
       {tab === 'Rezervace' && <BookingsCalendar motoId={id} onSwitchTab={setTab} />}
       {tab === 'Ceník' && <PricingTab motoId={id} />}
-      {tab === 'Servis' && <ServiceTab motoId={id} motoMileage={moto.mileage} logAudit={logAudit} />}
+      {tab === 'Servis' && <ServiceTab motoId={id} motoMileage={moto.mileage} purchaseMileage={moto.purchase_mileage} logAudit={logAudit} />}
       {tab === 'Mapa' && <MotoMap singleMotoId={id} />}
       {tab === 'Výkon' && <PerformanceTab motoId={id} />}
       <ConfirmDialog open={confirm?.type === 'deactivate'} title={confirm?.title || ''} message={confirm?.message || ''} onConfirm={() => confirm?.action?.()} onCancel={() => setConfirm(null)} danger />
@@ -246,9 +247,9 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
           <Field label="Barva" value={moto.color} onChange={v => set('color', v)} />
           <Field label="Datum pořízení" value={moto.acquired_at || ''} onChange={v => set('acquired_at', v)} type="date" />
           <Field label="Nájezd (km)" value={moto.mileage} onChange={v => set('mileage', v)} type="number" />
+          <Field label="Zakoupeno s KM" value={moto.purchase_mileage} onChange={v => set('purchase_mileage', v)} type="number" placeholder="Km při zakoupení" />
           <Field label="Typ motoru" value={moto.engine_type} onChange={v => set('engine_type', v)} placeholder="např. boxer, řadový 4V" />
           <Field label="Výkon (kW)" value={moto.power_kw} onChange={v => set('power_kw', v)} type="number" />
-          <Field label="Výkon (HP)" value={moto.power_hp} onChange={v => set('power_hp', v)} type="number" />
           <Field label="Točivý moment (Nm)" value={moto.torque_nm} onChange={v => set('torque_nm', v)} type="number" />
           <Field label="Hmotnost (kg)" value={moto.weight_kg} onChange={v => set('weight_kg', v)} type="number" />
           <Field label="Nádrž (L)" value={moto.fuel_tank_l} onChange={v => set('fuel_tank_l', v)} type="number" />

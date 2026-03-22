@@ -7,7 +7,7 @@ import ConfirmDialog from '../ui/ConfirmDialog'
 import Modal from '../ui/Modal'
 
 /* ═══ SERVIS TAB — editovatelné intervaly + objednávky pro technika ═══ */
-export default function ServiceTab({ motoId, motoMileage, logAudit }) {
+export default function ServiceTab({ motoId, motoMileage, purchaseMileage, logAudit }) {
   const [logs, setLogs] = useState([])
   const [schedules, setSchedules] = useState([])
   const [loading, setLoading] = useState(true)
@@ -38,6 +38,8 @@ export default function ServiceTab({ motoId, motoMileage, logAudit }) {
       description: sched.description,
       interval_km: Number(sched.interval_km) || 0,
       interval_days: Number(sched.interval_days) || null,
+      first_service_km: Number(sched.first_service_km) || null,
+      first_service_desc: sched.first_service_desc || null,
     }).eq('id', sched.id)
     await logAudit('schedule_updated', { schedule_id: sched.id, moto_id: motoId })
     setEditing(null)
@@ -63,6 +65,8 @@ export default function ServiceTab({ motoId, motoMileage, logAudit }) {
       schedule_type: intervalDays ? 'both' : 'mileage',
       active: true,
       next_date: nextDate,
+      first_service_km: Number(form.first_service_km) || null,
+      first_service_desc: form.first_service_desc || null,
     })
     await logAudit('schedule_created', { moto_id: motoId })
     setSaving(false)
@@ -128,7 +132,19 @@ export default function ServiceTab({ motoId, motoMileage, logAudit }) {
           <div className="space-y-3">
             {schedules.map(s => {
               const currentKm = Number(motoMileage) || 0
-              const nextAt = (s.last_service_km || 0) + (s.interval_km || 0)
+              const baseMileage = Number(purchaseMileage) || 0
+              const hasBeenServiced = !!s.last_service_km
+              // 1. servis = od purchase_mileage + first_service_km (korekce)
+              // 2+ servis = od last_service_km + interval_km (pravidelný)
+              const isFirstService = !hasBeenServiced
+              let nextAt
+              if (isFirstService && s.first_service_km) {
+                nextAt = baseMileage + Number(s.first_service_km)
+              } else if (hasBeenServiced) {
+                nextAt = s.last_service_km + (s.interval_km || 0)
+              } else {
+                nextAt = baseMileage + (s.interval_km || 0)
+              }
               const remaining = nextAt - currentKm
               const overdue = remaining <= 0
               const isEditing = editing === s.id
@@ -142,10 +158,17 @@ export default function ServiceTab({ motoId, motoMileage, logAudit }) {
                 <div key={s.id} className="flex items-center gap-3 p-3 rounded-lg" style={{ background: overdue ? '#fee2e2' : '#f1faf7' }}>
                   <div className="flex-1">
                     <span className="font-bold text-sm">{s.description}</span>
-                    <span className="text-sm ml-3" style={{ color: '#1a2e22' }}>
-                      každých {s.interval_km?.toLocaleString('cs-CZ')} km
-                      {s.interval_days ? ` / ${s.interval_days} dní` : ''}
-                    </span>
+                    {isFirstService && s.first_service_km ? (
+                      <span className="text-sm ml-3" style={{ color: '#2563eb' }}>
+                        1. servis při {nextAt.toLocaleString('cs-CZ')} km
+                        {s.first_service_desc ? ` (${s.first_service_desc})` : ''}
+                      </span>
+                    ) : (
+                      <span className="text-sm ml-3" style={{ color: '#1a2e22' }}>
+                        každých {s.interval_km?.toLocaleString('cs-CZ')} km
+                        {s.interval_days ? ` / ${s.interval_days} dní` : ''}
+                      </span>
+                    )}
                     <span className="text-sm ml-2" style={{ color: overdue ? '#dc2626' : '#1a8a18', fontWeight: 700 }}>
                       {overdue ? `PO TERMÍNU ${Math.abs(remaining).toLocaleString('cs-CZ')} km` : `za ${remaining.toLocaleString('cs-CZ')} km`}
                     </span>
@@ -228,13 +251,20 @@ export default function ServiceTab({ motoId, motoMileage, logAudit }) {
 function ScheduleEditRow({ schedule, saving, onSave, onCancel }) {
   const [form, setForm] = useState({ ...schedule })
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const isFirstService = !schedule.last_service_km
   return (
     <div className="p-3 rounded-lg" style={{ background: '#f1faf7', border: '2px solid #74FB71' }}>
       <div className="grid grid-cols-3 gap-2 mb-2">
         <input value={form.description || ''} onChange={e => set('description', e.target.value)} placeholder="Popis" className="rounded-btn text-sm outline-none" style={{ padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0' }} />
-        <input type="number" value={form.interval_km || ''} onChange={e => set('interval_km', e.target.value)} placeholder="Interval km" className="rounded-btn text-sm outline-none" style={{ padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0' }} />
+        <input type="number" value={form.interval_km || ''} onChange={e => set('interval_km', e.target.value)} placeholder="Interval km (pravidelný)" className="rounded-btn text-sm outline-none" style={{ padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0' }} />
         <input type="number" value={form.interval_days || ''} onChange={e => set('interval_days', e.target.value)} placeholder="Interval dní" className="rounded-btn text-sm outline-none" style={{ padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0' }} />
       </div>
+      {isFirstService && (
+        <div className="grid grid-cols-2 gap-2 mb-2">
+          <input type="number" value={form.first_service_km || ''} onChange={e => set('first_service_km', e.target.value)} placeholder="1. servis za km (korekce)" className="rounded-btn text-sm outline-none" style={{ padding: '6px 10px', background: '#eff6ff', border: '1px solid #bfdbfe' }} />
+          <input value={form.first_service_desc || ''} onChange={e => set('first_service_desc', e.target.value)} placeholder="Co u 1. servisu" className="rounded-btn text-sm outline-none" style={{ padding: '6px 10px', background: '#eff6ff', border: '1px solid #bfdbfe' }} />
+        </div>
+      )}
       <div className="flex gap-2">
         <Button green onClick={() => onSave(form)} disabled={saving}>Uložit</Button>
         <Button onClick={onCancel}>Zrušit</Button>
@@ -245,15 +275,23 @@ function ScheduleEditRow({ schedule, saving, onSave, onCancel }) {
 
 function AddScheduleBtn({ onAdd, saving }) {
   const [open, setOpen] = useState(false)
-  const [form, setForm] = useState({ description: '', interval_km: '', interval_days: '' })
+  const [form, setForm] = useState({ description: '', interval_km: '', interval_days: '', first_service_km: '', first_service_desc: '' })
   if (!open) return <button onClick={() => setOpen(true)} className="text-sm font-bold cursor-pointer" style={{ color: '#1a8a18', background: 'none', border: 'none' }}>+ Přidat plán</button>
   return (
-    <div className="flex gap-2 items-center">
-      <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Popis" className="rounded-btn text-sm outline-none" style={{ padding: '5px 8px', background: '#f1faf7', border: '1px solid #d4e8e0', width: 120 }} />
-      <input type="number" value={form.interval_km} onChange={e => setForm(f => ({ ...f, interval_km: e.target.value }))} placeholder="km" className="rounded-btn text-sm outline-none" style={{ padding: '5px 8px', background: '#f1faf7', border: '1px solid #d4e8e0', width: 70 }} />
-      <input type="number" value={form.interval_days} onChange={e => setForm(f => ({ ...f, interval_days: e.target.value }))} placeholder="dní" className="rounded-btn text-sm outline-none" style={{ padding: '5px 8px', background: '#f1faf7', border: '1px solid #d4e8e0', width: 70 }} />
-      <Button green onClick={() => { onAdd(form); setOpen(false); setForm({ description: '', interval_km: '', interval_days: '' }) }} disabled={saving || !form.description}>OK</Button>
-      <Button onClick={() => setOpen(false)}>×</Button>
+    <div className="space-y-2" style={{ minWidth: 320 }}>
+      <div className="flex gap-2 items-center flex-wrap">
+        <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Popis (např. Výměna oleje)" className="rounded-btn text-sm outline-none" style={{ padding: '5px 8px', background: '#f1faf7', border: '1px solid #d4e8e0', width: 160 }} />
+        <input type="number" value={form.interval_km} onChange={e => setForm(f => ({ ...f, interval_km: e.target.value }))} placeholder="Interval km" className="rounded-btn text-sm outline-none" style={{ padding: '5px 8px', background: '#f1faf7', border: '1px solid #d4e8e0', width: 90 }} />
+        <input type="number" value={form.interval_days} onChange={e => setForm(f => ({ ...f, interval_days: e.target.value }))} placeholder="Interval dní" className="rounded-btn text-sm outline-none" style={{ padding: '5px 8px', background: '#f1faf7', border: '1px solid #d4e8e0', width: 90 }} />
+      </div>
+      <div className="flex gap-2 items-center">
+        <input type="number" value={form.first_service_km} onChange={e => setForm(f => ({ ...f, first_service_km: e.target.value }))} placeholder="1. servis za km (korekce)" className="rounded-btn text-sm outline-none" style={{ padding: '5px 8px', background: '#eff6ff', border: '1px solid #bfdbfe', width: 160 }} />
+        <input value={form.first_service_desc} onChange={e => setForm(f => ({ ...f, first_service_desc: e.target.value }))} placeholder="Co u 1. servisu" className="rounded-btn text-sm outline-none" style={{ padding: '5px 8px', background: '#eff6ff', border: '1px solid #bfdbfe', width: 140 }} />
+      </div>
+      <div className="flex gap-2">
+        <Button green onClick={() => { onAdd(form); setOpen(false); setForm({ description: '', interval_km: '', interval_days: '', first_service_km: '', first_service_desc: '' }) }} disabled={saving || !form.description}>Vytvořit plán</Button>
+        <Button onClick={() => setOpen(false)}>×</Button>
+      </div>
     </div>
   )
 }
