@@ -193,6 +193,7 @@ function ServiceModal({ entry, onClose, onSaved }) {
         km_at_service: Number(form.mileage_at_service) || null,
         performed_by: form.performed_by || null,
         status: form.status || 'pending',
+        service_date: form.scheduled_date || new Date().toISOString().slice(0, 10),
         scheduled_date: form.scheduled_date || null,
         completed_date: form.completed_date || null,
       }
