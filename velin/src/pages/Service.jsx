@@ -209,6 +209,7 @@ function ActiveServiceTab({ onRefresh }) {
           moto_id: motoId,
           description: desc.trim(),
           service_type: 'Neplánovaný servis',
+          service_date: new Date().toISOString().slice(0, 10),
         })
       }
       setNewDesc(d => ({ ...d, [logId || motoId]: '' }))
@@ -281,7 +282,7 @@ function ActiveServiceTab({ onRefresh }) {
                           </div>
                           <div>
                             <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Do servisu</div>
-                            <div className="text-sm" style={{ color: '#1a2e22' }}>{l.scheduled_date ? new Date(l.scheduled_date).toLocaleDateString('cs-CZ') : l.created_at ? new Date(l.created_at).toLocaleDateString('cs-CZ') : '—'}</div>
+                            <div className="text-sm" style={{ color: '#1a2e22' }}>{(l.service_date || l.scheduled_date) ? new Date(l.service_date || l.scheduled_date).toLocaleDateString('cs-CZ') : l.created_at ? new Date(l.created_at).toLocaleDateString('cs-CZ') : '—'}</div>
                           </div>
                           <div>
                             <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Ze servisu</div>
