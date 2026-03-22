@@ -8,9 +8,11 @@ import Stat from '../components/ui/Stat'
 import Badge from '../components/ui/Badge'
 import MiniChart from '../components/ui/MiniChart'
 import ExportBar from '../components/ui/ExportBar'
+import { getDisplayStatus } from '../components/ui/StatusBadge'
 
 const STATUS_MAP = {
   active: { label: 'Aktivní', color: '#1a8a18', bg: '#dcfce7' },
+  upcoming: { label: 'Nadcházející', color: '#7c3aed', bg: '#ede9fe' },
   maintenance: { label: 'V servisu', color: '#92400e', bg: '#fef3c7' },
   out_of_service: { label: 'Vyřazena', color: '#991b1b', bg: '#fee2e2' },
   pending: { label: 'Čekající', color: '#92400e', bg: '#fef3c7' },
@@ -274,7 +276,7 @@ export default function Dashboard() {
               </div>
               <div className="text-right">
                 {event.total_price && <div className="font-extrabold" style={{ color: '#3dba3a' }}>{Number(event.total_price).toLocaleString('cs-CZ')} Kč</div>}
-                {event.status && STATUS_MAP[event.status] && <Badge {...STATUS_MAP[event.status]} />}
+                {event.status && STATUS_MAP[getDisplayStatus(event)] && <Badge {...STATUS_MAP[getDisplayStatus(event)]} />}
               </div>
             </div>
           ))}
