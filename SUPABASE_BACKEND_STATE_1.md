@@ -100,6 +100,7 @@
 |---------|-------|
 | `maintenance_log` | Log údržby (service_date NOT NULL, km_at_service, completed_date, scheduled_date, service_type, status, description, performed_by, cost) |
 | `maintenance_schedules` | Plány údržby (schedule_type, interval_km, interval_days, first_service_km, first_service_desc) |
+| `service_parts` | Díly potřebné pro konkrétní servisní plán (schedule_id FK→maintenance_schedules, inventory_item_id FK→inventory, quantity, notes). UNIQUE(schedule_id, inventory_item_id) |
 | `service_orders` | Servisní objednávky (status: pending/in_service/completed/cancelled) |
 | `moto_locations` | GPS pozice motorek (lat, lng, source: gps/manual/tracker) |
 

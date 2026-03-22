@@ -32,6 +32,7 @@ Detailní politiky:
 - **booking_cancellations:** admin ALL, customer SELECT (cancelled_by=uid)
 - **maintenance_log:** admin ALL (is_admin), public SELECT
 - **maintenance_schedules:** admin ALL (is_admin), public SELECT
+- **service_parts:** admin ALL (is_admin), public SELECT
 - **service_orders:** admin ALL (is_admin)
 
 ---
@@ -72,6 +73,7 @@ Detailní politiky:
 | `send-message` | Centrální odesílání zpráv (SMS/WhatsApp přes Twilio, email přes Resend). Přijímá channel, recipient, template_slug, template_vars. Loguje do message_log |
 | `send-invoice-email` | Odesílání faktur emailem zákazníkům |
 | `send-order-email` | Odesílání objednávkových emailů dodavatelům. Branded HTML šablona s tabulkou položek. Retry 3×. Aktualizuje purchase_orders.status→sent a sent_at. Loguje do debug_log |
+| `auto-check-service-parts` | Automatická kontrola dílů pro blížící se servisy. Volá RPC auto_check_service_parts() → vytvoří PO → odešle email dodavateli přes send-order-email. Spouštěno denně cron jobem |
 
 ### Pouze v Supabase dashboardu (11 dalších)
 
@@ -174,6 +176,7 @@ https://search.google.com/local/writereview?placeid=PLACE_ID
 | `auto-cancel-pending-bookings` | každé 2 min (`*/2 * * * *`) | `SELECT auto_cancel_expired_pending()` — ruší pending+unpaid bookings: app=10min, web=4h |
 | `auto-complete-expired-bookings` | denně 00:01 (`1 0 * * *`) | `SELECT auto_complete_expired_bookings()` — active/reserved + end_date < today + paid → completed |
 | `auto-activate-reserved-bookings` | denně 00:01 (`1 0 * * *`) | `SELECT auto_activate_reserved_bookings()` — reserved + paid + start_date <= today → active |
+| `auto-check-service-parts` | denně 06:00 UTC (`0 6 * * *`) | Edge function `auto-check-service-parts` — kontrola dílů pro blížící se servisy, auto PO + email dodavateli |
 | Denní cron | denně | `cron-daily` edge function (snapshot_daily_stats, auto_schedule_services) |
 | Měsíční cron | 1. den měsíce | `cron-monthly` edge function (generate-tax, monthly reports) |
 
@@ -207,6 +210,8 @@ https://search.google.com/local/writereview?placeid=PLACE_ID
 - `promo_code_usage.promo_code_id` → `promo_codes.id`
 - `promo_code_usage.user_id` → `profiles.id`
 - `maintenance_log.moto_id` → `motorcycles.id`
+- `service_parts.schedule_id` → `maintenance_schedules.id` (ON DELETE CASCADE)
+- `service_parts.inventory_item_id` → `inventory.id` (ON DELETE CASCADE)
 - `service_orders.moto_id` → `motorcycles.id`
 - `branch_accessories.branch_id` → `branches.id`
 - `branch_door_codes.branch_id` → `branches.id`

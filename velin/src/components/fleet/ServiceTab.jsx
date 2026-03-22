@@ -6,7 +6,7 @@ import Badge from '../ui/Badge'
 import ConfirmDialog from '../ui/ConfirmDialog'
 import Modal from '../ui/Modal'
 
-/* ═══ SERVIS TAB — editovatelné intervaly + objednávky pro technika ═══ */
+/* ═══ SERVIS TAB — editovatelné intervaly + díly + objednávky pro technika ═══ */
 export default function ServiceTab({ motoId, motoMileage, purchaseMileage, logAudit }) {
   const [logs, setLogs] = useState([])
   const [schedules, setSchedules] = useState([])
@@ -15,21 +15,63 @@ export default function ServiceTab({ motoId, motoMileage, purchaseMileage, logAu
   const [showOrder, setShowOrder] = useState(null)
   const [editing, setEditing] = useState(null)
   const [saving, setSaving] = useState(false)
+  // Parts management
+  const [partsBySchedule, setPartsBySchedule] = useState({}) // schedule_id -> [{id, inventory_item_id, quantity, notes, inventory}]
+  const [inventoryItems, setInventoryItems] = useState([])
+  const [expandedParts, setExpandedParts] = useState(null) // schedule_id or null
 
   useEffect(() => { loadAll() }, [motoId])
 
   async function loadAll() {
     setLoading(true)
-    const [logRes, schedRes] = await Promise.all([
+    const [logRes, schedRes, invRes] = await Promise.all([
       supabase.from('maintenance_log').select('*').eq('moto_id', motoId).order('created_at', { ascending: false }),
       supabase.from('maintenance_schedules').select('*').eq('moto_id', motoId).eq('active', true),
+      supabase.from('inventory').select('id, name, sku, stock, unit_price, supplier_id'),
     ])
-    console.log('[ServiceTab] loadAll', { motoId, logs: logRes.data?.length, logsError: logRes.error, scheds: schedRes.data?.length, schedsError: schedRes.error })
     if (logRes.error) console.error('[ServiceTab] logs query failed:', logRes.error)
     if (schedRes.error) console.error('[ServiceTab] schedules query failed:', schedRes.error)
     setLogs(logRes.data || [])
     setSchedules(schedRes.data || [])
+    setInventoryItems(invRes.data || [])
+    // Load parts for all schedules
+    const schedIds = (schedRes.data || []).map(s => s.id)
+    if (schedIds.length) {
+      const { data: parts } = await supabase
+        .from('service_parts')
+        .select('*, inventory(name, sku, stock, unit_price)')
+        .in('schedule_id', schedIds)
+      const map = {}
+      for (const p of (parts || [])) {
+        if (!map[p.schedule_id]) map[p.schedule_id] = []
+        map[p.schedule_id].push(p)
+      }
+      setPartsBySchedule(map)
+    } else {
+      setPartsBySchedule({})
+    }
     setLoading(false)
+  }
+
+  async function addPart(scheduleId, itemId, qty) {
+    await supabase.from('service_parts').upsert({
+      schedule_id: scheduleId,
+      inventory_item_id: itemId,
+      quantity: Number(qty) || 1,
+    }, { onConflict: 'schedule_id,inventory_item_id' })
+    await logAudit('service_part_added', { schedule_id: scheduleId, item_id: itemId })
+    await loadAll()
+  }
+
+  async function removePart(partId, scheduleId) {
+    await supabase.from('service_parts').delete().eq('id', partId)
+    await logAudit('service_part_removed', { part_id: partId, schedule_id: scheduleId })
+    await loadAll()
+  }
+
+  async function updatePartQty(partId, qty) {
+    await supabase.from('service_parts').update({ quantity: Number(qty) || 1 }).eq('id', partId)
+    await loadAll()
   }
 
   async function handleSaveSchedule(sched) {
@@ -154,28 +196,48 @@ export default function ServiceTab({ motoId, motoMileage, purchaseMileage, logAu
                   onSave={handleSaveSchedule} onCancel={() => setEditing(null)} />
               )
 
+              const parts = partsBySchedule[s.id] || []
+              const isExpanded = expandedParts === s.id
+
               return (
-                <div key={s.id} className="flex items-center gap-3 p-3 rounded-lg" style={{ background: overdue ? '#fee2e2' : '#f1faf7' }}>
-                  <div className="flex-1">
-                    <span className="font-bold text-sm">{s.description}</span>
-                    {isFirstService && s.first_service_km ? (
-                      <span className="text-sm ml-3" style={{ color: '#2563eb' }}>
-                        1. servis při {nextAt.toLocaleString('cs-CZ')} km
-                        {s.first_service_desc ? ` (${s.first_service_desc})` : ''}
+                <div key={s.id}>
+                  <div className="flex items-center gap-3 p-3 rounded-lg" style={{ background: overdue ? '#fee2e2' : '#f1faf7' }}>
+                    <div className="flex-1">
+                      <span className="font-bold text-sm">{s.description}</span>
+                      {isFirstService && s.first_service_km ? (
+                        <span className="text-sm ml-3" style={{ color: '#2563eb' }}>
+                          1. servis při {nextAt.toLocaleString('cs-CZ')} km
+                          {s.first_service_desc ? ` (${s.first_service_desc})` : ''}
+                        </span>
+                      ) : (
+                        <span className="text-sm ml-3" style={{ color: '#1a2e22' }}>
+                          každých {s.interval_km?.toLocaleString('cs-CZ')} km
+                          {s.interval_days ? ` / ${s.interval_days} dní` : ''}
+                        </span>
+                      )}
+                      <span className="text-sm ml-2" style={{ color: overdue ? '#dc2626' : '#1a8a18', fontWeight: 700 }}>
+                        {overdue ? `PO TERMÍNU ${Math.abs(remaining).toLocaleString('cs-CZ')} km` : `za ${remaining.toLocaleString('cs-CZ')} km`}
                       </span>
-                    ) : (
-                      <span className="text-sm ml-3" style={{ color: '#1a2e22' }}>
-                        každých {s.interval_km?.toLocaleString('cs-CZ')} km
-                        {s.interval_days ? ` / ${s.interval_days} dní` : ''}
-                      </span>
-                    )}
-                    <span className="text-sm ml-2" style={{ color: overdue ? '#dc2626' : '#1a8a18', fontWeight: 700 }}>
-                      {overdue ? `PO TERMÍNU ${Math.abs(remaining).toLocaleString('cs-CZ')} km` : `za ${remaining.toLocaleString('cs-CZ')} km`}
-                    </span>
+                    </div>
+                    <button onClick={() => setExpandedParts(isExpanded ? null : s.id)}
+                      className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none' }}
+                      title="Díly pro servis">
+                      {parts.length ? `${parts.length} dílů` : 'Díly'}
+                    </button>
+                    <button onClick={() => setEditing(s.id)} className="text-sm font-bold cursor-pointer" style={{ color: '#1a2e22', background: 'none', border: 'none' }}>Upravit</button>
+                    <button onClick={() => handleDeleteSchedule(s.id)} className="text-sm font-bold cursor-pointer" style={{ color: '#dc2626', background: 'none', border: 'none' }}>×</button>
+                    <Button green onClick={() => setConfirmService(s)}>Potvrdit servis</Button>
                   </div>
-                  <button onClick={() => setEditing(s.id)} className="text-sm font-bold cursor-pointer" style={{ color: '#1a2e22', background: 'none', border: 'none' }}>Upravit</button>
-                  <button onClick={() => handleDeleteSchedule(s.id)} className="text-sm font-bold cursor-pointer" style={{ color: '#dc2626', background: 'none', border: 'none' }}>×</button>
-                  <Button green onClick={() => setConfirmService(s)}>Potvrdit servis</Button>
+                  {isExpanded && (
+                    <PartsPanel
+                      parts={parts}
+                      inventoryItems={inventoryItems}
+                      scheduleId={s.id}
+                      onAdd={addPart}
+                      onRemove={removePart}
+                      onUpdateQty={updatePartQty}
+                    />
+                  )}
                 </div>
               )
             })}
@@ -306,6 +368,55 @@ function getServiceItems(description) {
 
 function SectionTitle({ children }) {
   return <h3 className="text-sm font-extrabold uppercase tracking-widest mb-3" style={{ color: '#1a2e22' }}>{children}</h3>
+}
+
+function PartsPanel({ parts, inventoryItems, scheduleId, onAdd, onRemove, onUpdateQty }) {
+  const [adding, setAdding] = useState(false)
+  const [selItem, setSelItem] = useState('')
+  const [selQty, setSelQty] = useState(1)
+  const usedIds = new Set(parts.map(p => p.inventory_item_id))
+  const available = inventoryItems.filter(i => !usedIds.has(i.id))
+
+  return (
+    <div className="ml-4 mr-2 mb-2 p-3 rounded-lg" style={{ background: '#eff6ff', border: '1px solid #bfdbfe', fontSize: 12 }}>
+      <div className="font-bold text-xs uppercase tracking-wide mb-2" style={{ color: '#2563eb' }}>Díly pro tento servis</div>
+      {parts.length === 0 && !adding && (
+        <p style={{ color: '#6b7280', fontSize: 12 }}>Žádné díly — klikněte + Přidat díl</p>
+      )}
+      {parts.map(p => (
+        <div key={p.id} className="flex items-center gap-2 mb-1 p-2 rounded" style={{ background: '#fff' }}>
+          <span className="flex-1 font-bold">{p.inventory?.name || '—'}</span>
+          <span className="font-mono" style={{ color: '#6b7280' }}>{p.inventory?.sku || ''}</span>
+          <span style={{ color: (p.inventory?.stock || 0) < p.quantity ? '#dc2626' : '#1a8a18', fontWeight: 700 }}>
+            sklad: {p.inventory?.stock ?? '?'}
+          </span>
+          <span style={{ color: '#1a2e22' }}>×</span>
+          <input type="number" min={1} value={p.quantity}
+            onChange={e => onUpdateQty(p.id, e.target.value)}
+            className="rounded text-xs text-center outline-none" style={{ width: 40, padding: '2px 4px', border: '1px solid #d1d5db' }} />
+          <button onClick={() => onRemove(p.id, scheduleId)} className="text-xs font-bold cursor-pointer" style={{ color: '#dc2626', background: 'none', border: 'none' }}>×</button>
+        </div>
+      ))}
+      {adding ? (
+        <div className="flex items-center gap-2 mt-2">
+          <select value={selItem} onChange={e => setSelItem(e.target.value)}
+            className="rounded text-xs outline-none flex-1" style={{ padding: '4px 6px', border: '1px solid #d1d5db', background: '#fff' }}>
+            <option value="">— Vyberte díl —</option>
+            {available.map(i => (
+              <option key={i.id} value={i.id}>{i.name} ({i.sku || '—'}) — sklad: {i.stock}</option>
+            ))}
+          </select>
+          <input type="number" min={1} value={selQty} onChange={e => setSelQty(e.target.value)}
+            className="rounded text-xs text-center outline-none" style={{ width: 40, padding: '4px', border: '1px solid #d1d5db' }} />
+          <button onClick={() => { if (selItem) { onAdd(scheduleId, selItem, selQty); setAdding(false); setSelItem(''); setSelQty(1) } }}
+            disabled={!selItem} className="text-xs font-bold cursor-pointer" style={{ color: '#1a8a18', background: 'none', border: 'none' }}>Přidat</button>
+          <button onClick={() => setAdding(false)} className="text-xs cursor-pointer" style={{ color: '#6b7280', background: 'none', border: 'none' }}>Zrušit</button>
+        </div>
+      ) : (
+        <button onClick={() => setAdding(true)} className="text-xs font-bold cursor-pointer mt-1" style={{ color: '#2563eb', background: 'none', border: 'none' }}>+ Přidat díl</button>
+      )}
+    </div>
+  )
 }
 
 function Spinner() {
