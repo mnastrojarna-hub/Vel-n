@@ -34,6 +34,10 @@ Detailní politiky:
 - **maintenance_schedules:** admin ALL (is_admin), public SELECT
 - **service_parts:** admin ALL (is_admin), public SELECT
 - **service_orders:** admin ALL (is_admin)
+- **emp_attendance:** admin ALL (is_admin)
+- **emp_vacations:** admin ALL (is_admin)
+- **emp_shifts:** admin ALL (is_admin)
+- **emp_documents:** admin ALL (is_admin)
 
 ---
 

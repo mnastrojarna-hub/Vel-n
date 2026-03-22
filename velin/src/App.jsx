@@ -28,6 +28,7 @@ const Government = lazy(() => import('./pages/Government'))
 const AICopilot = lazy(() => import('./pages/AICopilot'))
 const SOSPanel = lazy(() => import('./pages/SOSPanel'))
 const Branches = lazy(() => import('./pages/Branches'))
+const Employees = lazy(() => import('./pages/Employees'))
 
 function PageLoader() {
   return (
@@ -78,6 +79,7 @@ export default function App() {
           <Route path="/slevove-kody" element={<DiscountCodes />} />
           <Route path="/pobocky" element={<Branches />} />
           <Route path="/sos" element={<SOSPanel />} />
+          <Route path="/zamestnanci" element={<Employees />} />
         </Route>
       </Routes>
     </Suspense>

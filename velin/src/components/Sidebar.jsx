@@ -20,6 +20,7 @@ const NAV = [
   { id: 'government', path: '/statni-sprava', label: 'Státní správa', icon: '🏛️' },
   { id: 'ai', path: '/ai-copilot', label: 'AI Copilot', icon: '🤖' },
   { id: 'sos', path: '/sos', label: 'SOS Panel', icon: '🚨', badgeKey: 'sos' },
+  { id: 'employees', path: '/zamestnanci', label: 'Zaměstnanci', icon: '👷' },
 ]
 
 const Logo = ({ size = 44 }) => (

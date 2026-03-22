@@ -17,7 +17,7 @@ const ReceivedInvoicesTab = lazy(() => import('./accounting/ReceivedInvoicesTab'
 const CashRegisterTab = lazy(() => import('./accounting/CashRegisterTab'))
 const FinancialEventsTab = lazy(() => import('./accounting/FinancialEventsTab'))
 const ExceptionsTab = lazy(() => import('./accounting/ExceptionsTab'))
-const EmployeesTab = lazy(() => import('./accounting/EmployeesTab'))
+// EmployeesTab presunut na /zamestnanci
 const VATReturnsTab = lazy(() => import('./accounting/VATReturnsTab'))
 const TaxReturnsTab = lazy(() => import('./accounting/TaxReturnsTab'))
 const ShortTermAssetsTab = lazy(() => import('./accounting/ShortTermAssetsTab'))
@@ -45,7 +45,6 @@ const FINANCE_TABS = ['Přehled', 'Faktury', 'Objednávky', 'Účetnictví', 'Fa
 const ACCOUNTING_SUBTABS = [
   { id: 'events', label: 'Finanční události' },
   { id: 'exceptions', label: 'Výjimky' },
-  { id: 'employees', label: 'Zaměstnanci' },
   { id: 'vat', label: 'Přiznání k DPH' },
   { id: 'tax', label: 'Daňové přiznání' },
   { id: 'short_assets', label: 'Krátkodobý majetek' },
@@ -275,7 +274,6 @@ export default function Finance() {
           <ErrorBoundary>
           {accountingSubTab === 'events' && <FinancialEventsTab />}
           {accountingSubTab === 'exceptions' && <ExceptionsTab />}
-          {accountingSubTab === 'employees' && <EmployeesTab />}
           {accountingSubTab === 'vat' && <VATReturnsTab />}
           {accountingSubTab === 'tax' && <TaxReturnsTab />}
           {accountingSubTab === 'short_assets' && <ShortTermAssetsTab />}
