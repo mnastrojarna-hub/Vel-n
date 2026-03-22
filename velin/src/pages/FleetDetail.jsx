@@ -185,6 +185,34 @@ function addSeasonDays(from, seasonDays) {
   return d
 }
 
+// Winter service: find free weekday (Mon-Fri) in Jan-Feb for a given year
+function findWinterServiceDate(year, bookings) {
+  for (let month = 0; month <= 1; month++) {
+    const d = new Date(year, month, 1)
+    d.setHours(0, 0, 0, 0)
+    while (d.getMonth() === month) {
+      const day = d.getDay()
+      if (day >= 1 && day <= 5) {
+        const ds = d.toISOString().slice(0, 10)
+        const busy = bookings.some(b => {
+          const bs = (b.start_date || '').split('T')[0]
+          const be = (b.end_date || '').split('T')[0]
+          return ds >= bs && ds <= be
+        })
+        if (!busy) return new Date(d)
+      }
+      d.setDate(d.getDate() + 1)
+    }
+  }
+  return new Date(year, 0, 15)
+}
+
+// Check if date falls in last 2 weeks of October (Oct 17-31)
+function isLateOctober(date) {
+  if (!date) return false
+  return date.getMonth() === 9 && date.getDate() >= 17
+}
+
 // Find nearest Tue/Wed without an active booking for this moto
 function findFreeTueWed(baseDate, bookings) {
   const d = new Date(baseDate)
@@ -449,44 +477,83 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
 
           // Estimate planned service date (Tue/Wed without booking)
           let planDate = null
+          let mergedWithWinter = false
           const dbDate = s.next_due || s.next_date
+          const now = new Date()
+          const winterYear = now.getMonth() >= 2 ? now.getFullYear() + 1 : now.getFullYear()
+
           if (dbDate) {
             planDate = new Date(dbDate)
           } else if (s.interval_km || s.interval_days) {
-            const now = new Date()
             if (overdue) {
               planDate = findFreeTueWed(now, motoBookings)
             } else if (avgKm > 0 && rem > 0) {
-              // avgKm is per season-month (30 days of riding)
               const dailyKm = avgKm / 30
               const seasonDaysUntil = Math.ceil(rem / dailyKm)
               const est = addSeasonDays(now, seasonDaysUntil)
-              planDate = findFreeTueWed(est, motoBookings)
+
+              // October merge: last 2 weeks of Oct + 25% tolerance
+              if (isLateOctober(est) && s.interval_km) {
+                const extendedRemaining = rem - (s.interval_km * 0.25)
+                if (extendedRemaining > 0) {
+                  planDate = findWinterServiceDate(winterYear, motoBookings)
+                  mergedWithWinter = true
+                } else {
+                  planDate = findFreeTueWed(est, motoBookings)
+                }
+              } else {
+                planDate = findFreeTueWed(est, motoBookings)
+              }
             }
           }
 
           return (
-            <div key={s.id} className="flex flex-col gap-1 p-2 rounded-lg mb-1" style={{ background: overdue ? '#fee2e2' : '#f1faf7', fontSize: 12 }}>
+            <div key={s.id} className="flex flex-col gap-1 p-2 rounded-lg mb-1" style={{ background: overdue ? '#fee2e2' : mergedWithWinter ? '#dbeafe' : '#f1faf7', fontSize: 12 }}>
               <div className="flex items-center gap-3">
                 <span className="font-bold">{s.description}</span>
                 <span style={{ color: '#1a2e22' }}>každých {s.interval_km?.toLocaleString('cs-CZ')} km</span>
-                <span className="ml-auto font-bold" style={{ color: overdue ? '#dc2626' : '#1a8a18' }}>
+                <span className="ml-auto font-bold" style={{ color: overdue ? '#dc2626' : mergedWithWinter ? '#2563eb' : '#1a8a18' }}>
                   {overdue ? `PO TERMÍNU ${Math.abs(rem).toLocaleString('cs-CZ')} km` : `za ${rem.toLocaleString('cs-CZ')} km`}
-                  {!overdue && avgKm > 0 ? ` (~${Math.round((rem / avgKm) * 30)} dní jízdy)` : ''}
+                  {mergedWithWinter && ' → zimní servis'}
+                  {!overdue && !mergedWithWinter && avgKm > 0 ? ` (~${Math.round((rem / avgKm) * 30)} dní jízdy)` : ''}
                 </span>
               </div>
               {planDate && (
                 <div className="flex items-center gap-1" style={{ color: '#6b7280', fontSize: 11 }}>
-                  <span>Plánovaný servis:</span>
-                  <span className="font-bold" style={{ color: overdue ? '#dc2626' : '#1a2e22' }}>
+                  <span>{mergedWithWinter ? 'Sloučeno se zimním servisem:' : 'Plánovaný servis:'}</span>
+                  <span className="font-bold" style={{ color: overdue ? '#dc2626' : mergedWithWinter ? '#2563eb' : '#1a2e22' }}>
                     {planDate.toLocaleDateString('cs-CZ', { weekday: 'short', day: 'numeric', month: 'numeric', year: 'numeric' })}
                   </span>
-                  {!dbDate && <span title="Automatický odhad (Út/St bez rezervace)">~</span>}
+                  {!dbDate && !mergedWithWinter && <span title="Automatický odhad (Út/St bez rezervace)">~</span>}
                 </div>
               )}
             </div>
           )
         })}
+
+        {/* Winter service entry */}
+        {(() => {
+          const now = new Date()
+          const winterYear = now.getMonth() >= 2 ? now.getFullYear() + 1 : now.getFullYear()
+          const winterDate = findWinterServiceDate(winterYear, motoBookings)
+          return (
+            <div className="flex flex-col gap-1 p-2 rounded-lg mb-1" style={{ background: '#dbeafe', fontSize: 12 }}>
+              <div className="flex items-center gap-3">
+                <span className="font-bold" style={{ color: '#2563eb' }}>Velký zimní servis</span>
+                <span style={{ color: '#1a2e22' }}>leden–únor {winterYear}</span>
+                <span className="ml-auto font-bold" style={{ color: '#2563eb' }}>bez ohledu na km</span>
+              </div>
+              <div className="flex items-center gap-1" style={{ color: '#6b7280', fontSize: 11 }}>
+                <span>Plánovaný servis:</span>
+                <span className="font-bold" style={{ color: '#2563eb' }}>
+                  {winterDate.toLocaleDateString('cs-CZ', { weekday: 'short', day: 'numeric', month: 'numeric', year: 'numeric' })}
+                </span>
+                <span title="Automatický odhad (Po–Pá bez rezervace)">~</span>
+              </div>
+            </div>
+          )
+        })()}
+
         {schedules.length === 0 && <p style={{ color: '#1a2e22', fontSize: 12 }}>Žádné plány — přidejte v záložce Servis</p>}
       </Card>
 
