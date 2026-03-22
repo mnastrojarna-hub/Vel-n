@@ -259,7 +259,7 @@ export default function ServiceTab({ motoId, motoMileage, purchaseMileage, logAu
               return (
                 <div key={l.id} className="p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
                   <div className="flex items-center gap-3 mb-2">
-                    <span className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{l.service_type || l.type || 'Servis'}</span>
+                    <span className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{{ regular: 'Pravidelný servis', extraordinary: 'Mimořádný servis', repair: 'Oprava' }[l.service_type] || l.type || 'Servis'}</span>
                     <span className="text-sm font-bold" style={{
                       padding: '2px 8px', borderRadius: 6,
                       background: isCompleted ? '#dcfce7' : '#fef3c7',

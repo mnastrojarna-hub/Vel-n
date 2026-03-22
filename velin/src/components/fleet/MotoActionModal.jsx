@@ -126,12 +126,10 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
       if (selected.includes(i.id)) selectedLabels.push(i.label)
     }))
 
-    const checklistText = selectedLabels.length > 0
-      ? selectedLabels.map(l => `- ${l}`).join('\n')
-      : ''
-    const fullDescription = [note.trim(), checklistText].filter(Boolean).join('\n\n')
+    // Description = only free text note (checklist items saved in `items` JSONB, no duplication)
+    const fullDescription = note.trim() || null
 
-    if (!fullDescription) {
+    if (!fullDescription && selectedLabels.length === 0) {
       setError('Vyplňte poznámku nebo zaškrtněte alespoň jednu položku')
       return
     }
@@ -174,15 +172,9 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
       if (err) throw err
 
       // DB CHECK constraint: service_type IN ('regular', 'extraordinary', 'repair')
-      // Map checklist items: scheduled maintenance = regular, accident/damage = extraordinary, rest = repair
-      const EXTRAORDINARY_IDS = ['accident_repair', 'engine_noise', 'starter']
-      const REGULAR_IDS = ['oil_change', 'oil_filter', 'air_filter', 'spark_plugs', 'coolant',
-        'brake_pads_front', 'brake_pads_rear', 'brake_fluid', 'brake_discs',
-        'tire_front', 'tire_rear', 'tire_pressure', 'chain_adjust', 'chain_replace', 'chain_lube',
-        'stk', 'lights', 'battery']
-      const hasExtraordinary = selected.some(id => EXTRAORDINARY_IDS.includes(id))
-      const hasRegular = selected.some(id => REGULAR_IDS.includes(id))
-      const serviceType = hasExtraordinary ? 'extraordinary' : hasRegular ? 'regular' : 'repair'
+      // Manual send to service from "Správa motorky" = always extraordinary
+      // (only auto_schedule_services / scheduled plans create 'regular')
+      const serviceType = 'extraordinary'
 
       const logPayload = {
         moto_id: moto.id,

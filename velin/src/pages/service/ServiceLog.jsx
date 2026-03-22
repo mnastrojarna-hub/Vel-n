@@ -262,13 +262,8 @@ function ServiceModal({ entry, onClose, onSaved }) {
       debugLog('ServiceLog', 'handleSave', { isEdit: !!entry, moto_id: form.moto_id })
       const TYPE_TO_SERVICE = { oil_change: 'regular', tire_change: 'regular', brake_check: 'regular', full_service: 'regular', inspection: 'regular', repair: 'repair' }
       const items = buildItems()
-      // Build description from checked items + free text
-      const checkedLabels = items.map(i => `- ${i.label}`)
-      const descParts = []
-      if (checkedLabels.length > 0) descParts.push(checkedLabels.join('\n'))
-      if (form.description?.trim()) descParts.push(form.description.trim())
-      if (form.extra_note?.trim()) descParts.push('Poznámka: ' + form.extra_note.trim())
-      const fullDescription = descParts.join('\n\n') || null
+      // Description = only free text (checklist items are in `items` JSONB, no duplication)
+      const fullDescription = form.description?.trim() || null
 
       const payload = {
         moto_id: form.moto_id,
