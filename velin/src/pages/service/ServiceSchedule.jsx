@@ -31,6 +31,36 @@ function addSeasonDays(from, seasonDays) {
   return d
 }
 
+// Winter service: find free weekday (Mon-Fri) in Jan-Feb for a given year
+function findWinterServiceDate(year, bookings) {
+  // Try January first, then February
+  for (let month = 0; month <= 1; month++) {
+    const d = new Date(year, month, 1)
+    d.setHours(0, 0, 0, 0)
+    while (d.getMonth() === month) {
+      const day = d.getDay()
+      if (day >= 1 && day <= 5) { // Mon-Fri
+        const ds = isoDate(d)
+        const hasBooking = bookings.some(b => {
+          const bs = (b.start_date || '').split('T')[0]
+          const be = (b.end_date || '').split('T')[0]
+          return ds >= bs && ds <= be
+        })
+        if (!hasBooking) return new Date(d)
+      }
+      d.setDate(d.getDate() + 1)
+    }
+  }
+  // Fallback: Jan 15
+  return new Date(year, 0, 15)
+}
+
+// Check if date falls in last 2 weeks of October (Oct 17-31)
+function isLateOctober(date) {
+  if (!date) return false
+  return date.getMonth() === 9 && date.getDate() >= 17
+}
+
 function isoDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
@@ -150,7 +180,10 @@ export default function ServiceSchedule() {
   // Enrich schedules with computed remaining km and auto-estimated date
   const enriched = useMemo(() => {
     const now = new Date()
-    return schedules.map(s => {
+    // Determine next winter service year (Jan-Feb)
+    const winterYear = now.getMonth() >= 2 ? now.getFullYear() + 1 : now.getFullYear()
+
+    const results = schedules.map(s => {
       const currentKm = Number(s.motorcycles?.mileage) || 0
       const baseMileage = Number(s.motorcycles?.purchase_mileage) || 0
       const hasBeenServiced = !!s.last_service_km
@@ -175,26 +208,71 @@ export default function ServiceSchedule() {
       const motoId = s.motorcycles?.id || s.moto_id
       const dailyKm = avgKmPerDay[motoId]
       const isRegularService = !!(s.interval_km || s.interval_days)
+      let mergedWithWinter = false
 
       if (isRegularService && overdue) {
-        // Already overdue — plan ASAP (nearest Tue/Wed)
         const motoBookings = bookings.filter(b => b.moto_id === motoId)
         autoDate = findFreeServiceDate(now, motoBookings)
       } else if (isRegularService && dailyKm > 0 && remaining > 0) {
-        // dailyKm is per season-day, so estimate season-days until service
         const seasonDaysUntil = Math.ceil(remaining / dailyKm)
         const estReachDate = addSeasonDays(now, seasonDaysUntil)
-        // Find free Tue/Wed near that date
         const motoBookings = bookings.filter(b => b.moto_id === motoId)
-        autoDate = findFreeServiceDate(estReachDate, motoBookings)
+
+        // October merge: if service falls in last 2 weeks of Oct and
+        // remaining km allows +25% tolerance, merge with winter service
+        if (isLateOctober(estReachDate) && s.interval_km) {
+          const extendedRemaining = remaining - (s.interval_km * 0.25)
+          if (extendedRemaining > 0) {
+            // Can safely extend — merge with winter service
+            autoDate = findWinterServiceDate(winterYear, motoBookings)
+            mergedWithWinter = true
+          } else {
+            // Too many km remaining even with tolerance — do service now
+            autoDate = findFreeServiceDate(estReachDate, motoBookings)
+          }
+        } else {
+          autoDate = findFreeServiceDate(estReachDate, motoBookings)
+        }
       }
 
-      // Priority: manual override (from DB next_due) > auto-estimated
       const estDate = dbDate ? new Date(dbDate) : autoDate
       const isAutoEstimated = !dbDate && !!autoDate
 
-      return { ...s, remaining, overdue, nextAt, estDate, autoDate, isAutoEstimated, dailyKm: dailyKm || 0 }
+      return { ...s, remaining, overdue, nextAt, estDate, autoDate, isAutoEstimated, dailyKm: dailyKm || 0, mergedWithWinter }
     })
+
+    // Add virtual winter service entries for each unique moto
+    const motoIds = new Set()
+    for (const s of schedules) {
+      const motoId = s.motorcycles?.id || s.moto_id
+      if (motoId) motoIds.add(motoId)
+    }
+    for (const motoId of motoIds) {
+      const motoSched = schedules.find(s => (s.motorcycles?.id || s.moto_id) === motoId)
+      const moto = motoSched?.motorcycles
+      const motoBookings = bookings.filter(b => b.moto_id === motoId)
+      const winterDate = findWinterServiceDate(winterYear, motoBookings)
+      results.push({
+        id: `winter-${motoId}`,
+        moto_id: motoId,
+        motorcycles: moto || { id: motoId, model: '—', spz: '—' },
+        description: 'Velký zimní servis',
+        schedule_type: 'winter_service',
+        interval_km: null,
+        interval_days: null,
+        remaining: null,
+        overdue: false,
+        nextAt: null,
+        estDate: winterDate,
+        autoDate: winterDate,
+        isAutoEstimated: true,
+        dailyKm: 0,
+        mergedWithWinter: false,
+        isWinterService: true,
+      })
+    }
+
+    return results
   }, [schedules, avgKmPerDay, bookings])
 
   // Apply filters
@@ -233,7 +311,11 @@ export default function ServiceSchedule() {
 
     return items.sort((a, b) => {
       if (a.overdue !== b.overdue) return a.overdue ? -1 : 1
-      return a.remaining - b.remaining
+      // Sort by estimated date, then by remaining km
+      if (a.estDate && b.estDate) return a.estDate - b.estDate
+      if (a.estDate) return -1
+      if (b.estDate) return 1
+      return (a.remaining ?? Infinity) - (b.remaining ?? Infinity)
     })
   }, [enriched, filter, customFrom, customTo])
 
@@ -305,17 +387,28 @@ export default function ServiceSchedule() {
             const hasManualOverride = !!(s.next_due || s.next_date)
 
             return (
-              <TRow key={s.id}>
+              <TRow key={s.id} style={s.isWinterService ? { background: '#eff6ff' } : s.mergedWithWinter ? { background: '#eff6ff' } : undefined}>
                 <TD bold>{s.motorcycles?.model || '—'}</TD>
                 <TD mono>{s.motorcycles?.spz || '—'}</TD>
-                <TD>{s.description || TYPE_LABELS[s.schedule_type] || s.schedule_type || '—'}</TD>
-                <TD>{s.interval_km ? `${s.interval_km.toLocaleString('cs-CZ')} km` : ''}{s.interval_days ? ` / ${s.interval_days} dní` : ''}</TD>
-                <TD style={s.overdue ? { color: '#dc2626', fontWeight: 700 } : undefined}>
-                  {s.interval_km ? (s.overdue ? `⚠ ${Math.abs(s.remaining).toLocaleString('cs-CZ')} km po` : `${s.remaining.toLocaleString('cs-CZ')} km`) : '—'}
+                <TD>
+                  {s.isWinterService ? <span style={{ color: '#2563eb', fontWeight: 700 }}>Velký zimní servis</span> : (s.description || TYPE_LABELS[s.schedule_type] || s.schedule_type || '—')}
+                </TD>
+                <TD>
+                  {s.isWinterService ? 'leden–únor' : ''}
+                  {s.interval_km ? `${s.interval_km.toLocaleString('cs-CZ')} km` : ''}{s.interval_days ? ` / ${s.interval_days} dní` : ''}
+                </TD>
+                <TD style={s.overdue ? { color: '#dc2626', fontWeight: 700 } : s.mergedWithWinter ? { color: '#2563eb', fontWeight: 600 } : undefined}>
+                  {s.isWinterService ? 'bez ohledu na km' : s.interval_km ? (s.overdue ? `⚠ ${Math.abs(s.remaining).toLocaleString('cs-CZ')} km po` : `${s.remaining.toLocaleString('cs-CZ')} km`) : '—'}
+                  {s.mergedWithWinter && ' → zimní servis'}
                   {!(Number(s.motorcycles?.mileage) || 0) && s.interval_km ? ' (km nenastaven)' : ''}
                 </TD>
                 <TD>
-                  {isEditing ? (
+                  {s.isWinterService ? (
+                    <span style={{ color: '#2563eb', fontWeight: 600 }}>
+                      {s.estDate ? s.estDate.toLocaleDateString('cs-CZ') : '—'}
+                      <span className="ml-1" style={{ fontSize: 10 }} title="Automaticky (Po–Pá bez rezervace)">~</span>
+                    </span>
+                  ) : isEditing ? (
                     <div className="flex items-center gap-1">
                       <input type="date" value={dateVal}
                         onChange={e => setManualDates(prev => ({ ...prev, [s.id]: e.target.value }))}
@@ -335,7 +428,8 @@ export default function ServiceSchedule() {
                         {s.estDate ? (
                           <>
                             {s.estDate.toLocaleDateString('cs-CZ')}
-                            {s.isAutoEstimated && <span className="ml-1" style={{ color: '#6b7280', fontSize: 10 }} title="Automatický odhad">~</span>}
+                            {s.mergedWithWinter && <span className="ml-1" style={{ color: '#2563eb', fontSize: 10 }}>→ zimní</span>}
+                            {s.isAutoEstimated && !s.mergedWithWinter && <span className="ml-1" style={{ color: '#6b7280', fontSize: 10 }} title="Automatický odhad">~</span>}
                           </>
                         ) : '—'}
                       </span>
@@ -355,7 +449,7 @@ export default function ServiceSchedule() {
       </Table>
 
       <div className="mt-3 text-xs" style={{ color: '#6b7280' }}>
-        <span style={{ fontSize: 10 }}>~</span> = automatický odhad (Út/St bez rezervace, dle průměrného nájezdu) · Klikněte na datum pro ruční úpravu
+        <span style={{ fontSize: 10 }}>~</span> = automatický odhad (Út/St bez rezervace, dle sezónního nájezdu) · <span style={{ color: '#2563eb' }}>→ zimní servis</span> = sloučeno se zimním servisem (říjen +25% tolerance) · Klikněte na datum pro ruční úpravu
       </div>
     </div>
   )
@@ -368,4 +462,5 @@ export const TYPE_LABELS = {
   full_service: 'Kompletní servis',
   repair: 'Oprava',
   inspection: 'STK / Inspekce',
+  winter_service: 'Velký zimní servis',
 }
