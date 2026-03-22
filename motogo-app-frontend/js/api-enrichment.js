@@ -11,7 +11,7 @@ async function enrichMOTOS(){
     // Načti VŠECHNY motorky z DB
     var r = await window.supabase
       .from('motorcycles')
-      .select('id, model, status, mileage, year, category, price_weekday, price_weekend, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, branch_id, image_url, images, stk_valid_until, engine_type, engine_cc, power_kw, power_hp, torque_nm, weight_kg, fuel_tank_l, seat_height_mm, license_required, has_abs, has_asc, description, ideal_usage, features, manual_url, branches(name, address, city, is_open)');
+      .select('id, model, status, mileage, year, category, price_weekday, price_weekend, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, branch_id, image_url, images, stk_valid_until, engine_type, engine_cc, power_kw, power_hp, torque_nm, weight_kg, fuel_tank_l, seat_height_mm, license_required, has_abs, has_asc, description, ideal_usage, features, manual_url, next_service_date, branches(name, address, city, is_open)');
     var dbMotos = (r.data || []);
 
     // Vytvoř mapu podle normalizovaného jména
@@ -46,6 +46,7 @@ async function enrichMOTOS(){
         image_url: db.image_url,
         images: db.images,
         stk_valid_until: db.stk_valid_until,
+        next_service_date: db.next_service_date,
       };
 
       // Fotky z Velínu (Supabase storage) mají přednost před statickými
@@ -150,6 +151,7 @@ async function enrichMOTOS(){
           image_url: db.image_url,
           images: db.images,
           stk_valid_until: db.stk_valid_until,
+          next_service_date: db.next_service_date,
         }
       };
       // Build specs

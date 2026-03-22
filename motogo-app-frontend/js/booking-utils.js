@@ -142,10 +142,68 @@ async function _initMotoAvailabilityAsync(){
       MOTO_OCC[m.id] = occ;
       MOTO_UNCONF[m.id] = unc;
     });
+    // Zablokuj servisní termíny (next_service_date do 7 dnů)
+    _blockServiceDates();
     if(typeof syncGlobalOcc === 'function') syncGlobalOcc();
   } catch(e){
     console.error('_initMotoAvailabilityAsync error:', e);
   }
+}
+
+// ===== SERVICE DATE BLOCKING =====
+// Pokud next_service_date <= 7 dní od teď, zablokuj tento den v kalendáři.
+// Pokud je den již obsazený (booking), posuň na nejbližší volný Po-Čt dopředu.
+function _blockServiceDates(){
+  if(typeof MOTOS === 'undefined') return;
+  var today = new Date(); today.setHours(0,0,0,0);
+  var limit = new Date(today); limit.setDate(limit.getDate() + 7);
+
+  MOTOS.forEach(function(m){
+    var nsd = m._db && m._db.next_service_date;
+    if(!nsd) return;
+    var svcDate = new Date(nsd); svcDate.setHours(0,0,0,0);
+    // Pouze pokud je servis v příštích 7 dnech (a ne v minulosti)
+    if(svcDate < today || svcDate > limit) return;
+
+    var occ = MOTO_OCC[m.id] || {};
+    // Najdi efektivní datum servisu (posun na volný Po-Čt pokud obsazeno)
+    var effectiveDate = _findServiceDate(svcDate, occ);
+    if(!effectiveDate) return;
+
+    // Přidej do MOTO_OCC
+    var month = effectiveDate.getMonth();
+    var day = effectiveDate.getDate();
+    if(!occ[month]) occ[month] = [];
+    if(occ[month].indexOf(day) === -1) occ[month].push(day);
+    MOTO_OCC[m.id] = occ;
+  });
+}
+
+// Najdi datum pro servis: pokud je plánovaný den volný, vrať ho.
+// Pokud je obsazený, hledej nejbližší volný Po-Čt dopředu (max 30 dní).
+function _findServiceDate(svcDate, occ){
+  var d = new Date(svcDate); d.setHours(0,0,0,0);
+  // Zkontroluj, zda je plánovaný den volný
+  if(_isDateFreeInOcc(d, occ)) return d;
+  // Plánovaný den je obsazený — hledej dopředu volný Po-Čt
+  var maxSearch = 30;
+  for(var i = 1; i <= maxSearch; i++){
+    var next = new Date(svcDate);
+    next.setDate(next.getDate() + i);
+    next.setHours(0,0,0,0);
+    var dow = next.getDay(); // 0=Ne,1=Po,2=Ut,3=St,4=Ct,5=Pa,6=So
+    // Jen Po-Čt (1-4)
+    if(dow < 1 || dow > 4) continue;
+    if(_isDateFreeInOcc(next, occ)) return next;
+  }
+  return null; // Nenalezeno v 30 dnech
+}
+
+function _isDateFreeInOcc(date, occ){
+  var month = date.getMonth();
+  var day = date.getDate();
+  var occDays = occ[month] || [];
+  return occDays.indexOf(day) === -1;
 }
 
 function _fillOccFromBookings(motoBookings, occ, unc){
