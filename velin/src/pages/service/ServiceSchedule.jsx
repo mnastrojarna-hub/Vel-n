@@ -11,6 +11,61 @@ const SEASON_MONTHS = 7
 const SEASON_START = 3
 const SEASON_END = 9
 
+// České státní svátky (měsíc 0-indexed, den)
+function getCzechHolidays(year) {
+  const fixed = [
+    [0, 1],   // Nový rok
+    [4, 1],   // Svátek práce
+    [4, 8],   // Den vítězství
+    [6, 5],   // Slovanští věrozvěstové
+    [6, 6],   // Mistr Jan Hus
+    [8, 28],  // Den české státnosti
+    [9, 28],  // Vznik Československa
+    [10, 17], // Den boje za svobodu
+    [11, 24], // Štědrý den
+    [11, 25], // 1. svátek vánoční
+    [11, 26], // 2. svátek vánoční
+  ]
+  const holidays = new Set(fixed.map(([m, d]) => `${year}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`))
+  // Velikonoční pondělí (pohyblivý svátek) — výpočet dle Gaussova algoritmu
+  const a = year % 19, b = Math.floor(year / 100), c = year % 100
+  const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25)
+  const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30
+  const i = Math.floor(c / 4), k = c % 4
+  const l = (32 + 2 * e + 2 * i - h - k) % 7
+  const m = Math.floor((a + 11 * h + 22 * l) / 451)
+  const month = Math.floor((h + l - 7 * m + 114) / 31) - 1
+  const day = ((h + l - 7 * m + 114) % 31) + 1
+  // Velikonoční neděle
+  const easter = new Date(year, month, day)
+  // Velký pátek (Easter - 2)
+  const goodFriday = new Date(easter); goodFriday.setDate(easter.getDate() - 2)
+  holidays.add(isoDate(goodFriday))
+  // Velikonoční pondělí (Easter + 1)
+  const easterMonday = new Date(easter); easterMonday.setDate(easter.getDate() + 1)
+  holidays.add(isoDate(easterMonday))
+  return holidays
+}
+
+// Blokovaný den = svátek NEBO v období 20.12–7.1 (vánoční pauza)
+function isBlockedDay(date) {
+  const m = date.getMonth() // 0-indexed
+  const d = date.getDate()
+  const y = date.getFullYear()
+  // Období 20.12–7.1 (přes roky)
+  if (m === 11 && d >= 20) return true // 20.-31. prosinec
+  if (m === 0 && d <= 7) return true   // 1.-7. leden
+  // Český státní svátek
+  const holidays = getCzechHolidays(y)
+  return holidays.has(isoDate(date))
+}
+
+// Pracovní den vhodný pro servis = Po-Pá + není blokovaný
+function isServiceDay(date) {
+  const day = date.getDay()
+  return day >= 1 && day <= 5 && !isBlockedDay(date)
+}
+
 function isInSeason(date) {
   const m = date.getMonth()
   return m >= SEASON_START && m <= SEASON_END
@@ -31,15 +86,13 @@ function addSeasonDays(from, seasonDays) {
   return d
 }
 
-// Winter service: find free weekday (Mon-Fri) in Jan-Feb for a given year
+// Winter service: find free service day (Mon-Fri, no holidays, no 20.12-7.1) in Jan-Feb
 function findWinterServiceDate(year, bookings) {
-  // Try January first, then February
   for (let month = 0; month <= 1; month++) {
     const d = new Date(year, month, 1)
     d.setHours(0, 0, 0, 0)
     while (d.getMonth() === month) {
-      const day = d.getDay()
-      if (day >= 1 && day <= 5) { // Mon-Fri
+      if (isServiceDay(d)) {
         const ds = isoDate(d)
         const hasBooking = bookings.some(b => {
           const bs = (b.start_date || '').split('T')[0]
@@ -51,28 +104,25 @@ function findWinterServiceDate(year, bookings) {
       d.setDate(d.getDate() + 1)
     }
   }
-  // Fallback: Jan 15
   return new Date(year, 0, 15)
 }
 
-// STK scheduling: distribute motorcycles across Dec-Feb weekdays, max 2 per day
+// STK scheduling: distribute motorcycles across Dec-Feb service days, max 2 per day
+// Vynechává 20.12–7.1 (Vánoce) a české státní svátky
 function scheduleStkDates(motos, bookings, year) {
-  // Collect all available weekdays (Mon-Fri) in Dec(prev year), Jan, Feb
+  // Collect all available service days (Mon-Fri, no holidays, no Christmas break) in Dec-Feb
   const availableDays = []
   // December of previous year
   for (let d = new Date(year - 1, 11, 1); d.getMonth() === 11; d.setDate(d.getDate() + 1)) {
-    const day = d.getDay()
-    if (day >= 1 && day <= 5) availableDays.push(new Date(d))
+    if (isServiceDay(d)) availableDays.push(new Date(d))
   }
   // January
   for (let d = new Date(year, 0, 1); d.getMonth() === 0; d.setDate(d.getDate() + 1)) {
-    const day = d.getDay()
-    if (day >= 1 && day <= 5) availableDays.push(new Date(d))
+    if (isServiceDay(d)) availableDays.push(new Date(d))
   }
   // February
   for (let d = new Date(year, 1, 1); d.getMonth() === 1; d.setDate(d.getDate() + 1)) {
-    const day = d.getDay()
-    if (day >= 1 && day <= 5) availableDays.push(new Date(d))
+    if (isServiceDay(d)) availableDays.push(new Date(d))
   }
 
   // Assign motos to days: max 2 per day, evenly distributed
@@ -121,26 +171,26 @@ function isoDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-// Find the nearest Tuesday (2) or Wednesday (3) on or after a given date
+// Find the nearest Tuesday (2) or Wednesday (3) on or after a given date, skipping blocked days
 function nearestTueWed(date) {
   const d = new Date(date)
   d.setHours(0, 0, 0, 0)
-  for (let i = 0; i < 14; i++) {
+  for (let i = 0; i < 30; i++) {
     const day = d.getDay()
-    if (day === 2 || day === 3) return new Date(d)
+    if ((day === 2 || day === 3) && !isBlockedDay(d)) return new Date(d)
     d.setDate(d.getDate() + 1)
   }
   return new Date(date) // fallback
 }
 
-// Find the nearest Tue/Wed that doesn't overlap with any booking for a moto
+// Find the nearest Tue/Wed that doesn't overlap with any booking and isn't blocked
 function findFreeServiceDate(baseDate, bookings) {
   const d = new Date(baseDate)
   d.setHours(0, 0, 0, 0)
-  // Search up to 60 days ahead
-  for (let i = 0; i < 60; i++) {
+  // Search up to 90 days ahead
+  for (let i = 0; i < 90; i++) {
     const day = d.getDay()
-    if (day === 2 || day === 3) {
+    if ((day === 2 || day === 3) && !isBlockedDay(d)) {
       const ds = isoDate(d)
       const hasBooking = bookings.some(b => {
         const bs = (b.start_date || '').split('T')[0]
