@@ -7,7 +7,8 @@ import ConfirmDialog from '../ui/ConfirmDialog'
 import Modal from '../ui/Modal'
 
 /* ═══ SERVIS TAB — editovatelné intervaly + díly + objednávky pro technika ═══ */
-export default function ServiceTab({ motoId, motoMileage, purchaseMileage, logAudit }) {
+export default function ServiceTab({ motoId, motoMileage, purchaseMileage, trackingUnit = 'km', logAudit }) {
+  const unitLabel = trackingUnit === 'mh' ? 'MH' : 'km'
   const [logs, setLogs] = useState([])
   const [schedules, setSchedules] = useState([])
   const [loading, setLoading] = useState(true)
@@ -168,7 +169,7 @@ export default function ServiceTab({ motoId, motoMileage, purchaseMileage, logAu
       <Card>
         <div className="flex items-center justify-between mb-4">
           <SectionTitle>Servisní intervaly</SectionTitle>
-          <AddScheduleBtn onAdd={handleAddSchedule} saving={saving} />
+          <AddScheduleBtn onAdd={handleAddSchedule} saving={saving} unitLabel={unitLabel} existingTypes={schedules.map(s => s.description)} />
         </div>
         {schedules.length === 0 ? <p style={{ color: '#1a2e22', fontSize: 13 }}>Žádné servisní plány</p> : (
           <div className="space-y-3">
@@ -192,7 +193,7 @@ export default function ServiceTab({ motoId, motoMileage, purchaseMileage, logAu
               const isEditing = editing === s.id
 
               if (isEditing) return (
-                <ScheduleEditRow key={s.id} schedule={s} saving={saving}
+                <ScheduleEditRow key={s.id} schedule={s} saving={saving} unitLabel={unitLabel}
                   onSave={handleSaveSchedule} onCancel={() => setEditing(null)} />
               )
 
@@ -206,17 +207,17 @@ export default function ServiceTab({ motoId, motoMileage, purchaseMileage, logAu
                       <span className="font-bold text-sm">{s.description}</span>
                       {isFirstService && s.first_service_km ? (
                         <span className="text-sm ml-3" style={{ color: '#2563eb' }}>
-                          1. servis při {nextAt.toLocaleString('cs-CZ')} km
+                          1. servis při {nextAt.toLocaleString('cs-CZ')} {unitLabel}
                           {s.first_service_desc ? ` (${s.first_service_desc})` : ''}
                         </span>
                       ) : (
                         <span className="text-sm ml-3" style={{ color: '#1a2e22' }}>
-                          každých {s.interval_km?.toLocaleString('cs-CZ')} km
+                          každých {s.interval_km?.toLocaleString('cs-CZ')} {unitLabel}
                           {s.interval_days ? ` / ${s.interval_days} dní` : ''}
                         </span>
                       )}
                       <span className="text-sm ml-2" style={{ color: overdue ? '#dc2626' : '#1a8a18', fontWeight: 700 }}>
-                        {overdue ? `PO TERMÍNU ${Math.abs(remaining).toLocaleString('cs-CZ')} km` : `za ${remaining.toLocaleString('cs-CZ')} km`}
+                        {overdue ? `PO TERMÍNU ${Math.abs(remaining).toLocaleString('cs-CZ')} ${unitLabel}` : `za ${remaining.toLocaleString('cs-CZ')} ${unitLabel}`}
                       </span>
                     </div>
                     <button onClick={() => setExpandedParts(isExpanded ? null : s.id)}
@@ -288,7 +289,7 @@ export default function ServiceTab({ motoId, motoMileage, purchaseMileage, logAu
       <ConfirmDialog
         open={!!confirmService}
         title={`Potvrdit servis: ${confirmService?.description || ''}`}
-        message={`Bude vytvořena objednávka pro technika. Tachometr: ${Number(motoMileage || 0).toLocaleString('cs-CZ')} km.`}
+        message={`Bude vytvořena objednávka pro technika. ${trackingUnit === 'mh' ? 'Motohodiny' : 'Tachometr'}: ${Number(motoMileage || 0).toLocaleString('cs-CZ')} ${unitLabel}.`}
         onConfirm={() => confirmService && handleConfirmService(confirmService)}
         onCancel={() => setConfirmService(null)}
       />
@@ -297,7 +298,7 @@ export default function ServiceTab({ motoId, motoMileage, purchaseMileage, logAu
         <Modal open title="Servisní objednávka" onClose={() => setShowOrder(null)}>
           <div className="p-4 rounded-lg mb-3" style={{ background: '#dcfce7' }}>
             <div className="text-sm font-bold mb-1" style={{ color: '#166534' }}>{showOrder.type}</div>
-            <div className="text-sm" style={{ color: '#1a2e22' }}>Km: {showOrder.km.toLocaleString('cs-CZ')} | {showOrder.created_at.slice(0, 10)}</div>
+            <div className="text-sm" style={{ color: '#1a2e22' }}>{unitLabel}: {showOrder.km.toLocaleString('cs-CZ')} | {showOrder.created_at.slice(0, 10)}</div>
           </div>
           <SectionTitle>Úkoly pro technika</SectionTitle>
           {showOrder.items.map((item, i) => (
@@ -310,7 +311,7 @@ export default function ServiceTab({ motoId, motoMileage, purchaseMileage, logAu
   )
 }
 
-function ScheduleEditRow({ schedule, saving, onSave, onCancel }) {
+function ScheduleEditRow({ schedule, saving, unitLabel = 'km', onSave, onCancel }) {
   const [form, setForm] = useState({ ...schedule })
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const isFirstService = !schedule.last_service_km
@@ -318,12 +319,12 @@ function ScheduleEditRow({ schedule, saving, onSave, onCancel }) {
     <div className="p-3 rounded-lg" style={{ background: '#f1faf7', border: '2px solid #74FB71' }}>
       <div className="grid grid-cols-3 gap-2 mb-2">
         <input value={form.description || ''} onChange={e => set('description', e.target.value)} placeholder="Popis" className="rounded-btn text-sm outline-none" style={{ padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0' }} />
-        <input type="number" value={form.interval_km || ''} onChange={e => set('interval_km', e.target.value)} placeholder="Interval km (pravidelný)" className="rounded-btn text-sm outline-none" style={{ padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0' }} />
+        <input type="number" value={form.interval_km || ''} onChange={e => set('interval_km', e.target.value)} placeholder={`Interval ${unitLabel}`} className="rounded-btn text-sm outline-none" style={{ padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0' }} />
         <input type="number" value={form.interval_days || ''} onChange={e => set('interval_days', e.target.value)} placeholder="Interval dní" className="rounded-btn text-sm outline-none" style={{ padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0' }} />
       </div>
       {isFirstService && (
         <div className="grid grid-cols-2 gap-2 mb-2">
-          <input type="number" value={form.first_service_km || ''} onChange={e => set('first_service_km', e.target.value)} placeholder="1. servis za km (korekce)" className="rounded-btn text-sm outline-none" style={{ padding: '6px 10px', background: '#eff6ff', border: '1px solid #bfdbfe' }} />
+          <input type="number" value={form.first_service_km || ''} onChange={e => set('first_service_km', e.target.value)} placeholder={`1. servis za ${unitLabel}`} className="rounded-btn text-sm outline-none" style={{ padding: '6px 10px', background: '#eff6ff', border: '1px solid #bfdbfe' }} />
           <input value={form.first_service_desc || ''} onChange={e => set('first_service_desc', e.target.value)} placeholder="Co u 1. servisu" className="rounded-btn text-sm outline-none" style={{ padding: '6px 10px', background: '#eff6ff', border: '1px solid #bfdbfe' }} />
         </div>
       )}
@@ -335,24 +336,199 @@ function ScheduleEditRow({ schedule, saving, onSave, onCancel }) {
   )
 }
 
-function AddScheduleBtn({ onAdd, saving }) {
+const SERVICE_PRESETS = [
+  { key: 'oil', label: 'Výměna oleje', icon: '🛢️', defaultKm: 5000, defaultDays: 365 },
+  { key: 'tires', label: 'Výměna pneumatik', icon: '🔘', defaultKm: 15000, defaultDays: null },
+  { key: 'brakes', label: 'Kontrola brzd', icon: '🛑', defaultKm: 10000, defaultDays: 365 },
+  { key: 'full', label: 'Kompletní servis', icon: '🔧', defaultKm: 20000, defaultDays: 365 },
+  { key: 'chain', label: 'Řetěz / rozvodový řemen', icon: '⛓️', defaultKm: 20000, defaultDays: null },
+  { key: 'coolant', label: 'Chladicí kapalina', icon: '💧', defaultKm: 30000, defaultDays: 730 },
+  { key: 'air_filter', label: 'Vzduchový filtr', icon: '🌬️', defaultKm: 15000, defaultDays: 365 },
+  { key: 'stk', label: 'STK / Inspekce', icon: '📋', defaultKm: null, defaultDays: 730 },
+  { key: 'custom', label: 'Vlastní...', icon: '✏️', defaultKm: 10000, defaultDays: null },
+]
+
+function AddScheduleBtn({ onAdd, saving, unitLabel = 'km', existingTypes = [] }) {
   const [open, setOpen] = useState(false)
+  const [step, setStep] = useState(1) // 1 = choose type, 2 = configure
+  const [selected, setSelected] = useState(null)
   const [form, setForm] = useState({ description: '', interval_km: '', interval_days: '', first_service_km: '', first_service_desc: '' })
-  if (!open) return <button onClick={() => setOpen(true)} className="text-sm font-bold cursor-pointer" style={{ color: '#1a8a18', background: 'none', border: 'none' }}>+ Přidat plán</button>
+  const [hasFirstService, setHasFirstService] = useState(false)
+
+  function reset() {
+    setOpen(false); setStep(1); setSelected(null); setHasFirstService(false)
+    setForm({ description: '', interval_km: '', interval_days: '', first_service_km: '', first_service_desc: '' })
+  }
+
+  function selectPreset(preset) {
+    setSelected(preset.key)
+    setForm({
+      description: preset.key === 'custom' ? '' : preset.label,
+      interval_km: preset.defaultKm || '',
+      interval_days: preset.defaultDays || '',
+      first_service_km: '',
+      first_service_desc: '',
+    })
+    setStep(2)
+  }
+
+  function handleSubmit() {
+    if (!form.description) return
+    const submitForm = { ...form }
+    if (!hasFirstService) { submitForm.first_service_km = ''; submitForm.first_service_desc = '' }
+    onAdd(submitForm)
+    reset()
+  }
+
+  if (!open) return (
+    <button onClick={() => setOpen(true)}
+      className="rounded-btn text-sm font-extrabold uppercase cursor-pointer"
+      style={{ padding: '6px 16px', background: '#74FB71', color: '#1a2e22', border: 'none' }}>
+      + Nový servisní plán
+    </button>
+  )
+
+  // Existing type names for "already added" badge
+  const existingLower = existingTypes.map(t => (t || '').toLowerCase())
+
   return (
-    <div className="space-y-2" style={{ minWidth: 320 }}>
-      <div className="flex gap-2 items-center flex-wrap">
-        <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Popis (např. Výměna oleje)" className="rounded-btn text-sm outline-none" style={{ padding: '5px 8px', background: '#f1faf7', border: '1px solid #d4e8e0', width: 160 }} />
-        <input type="number" value={form.interval_km} onChange={e => setForm(f => ({ ...f, interval_km: e.target.value }))} placeholder="Interval km" className="rounded-btn text-sm outline-none" style={{ padding: '5px 8px', background: '#f1faf7', border: '1px solid #d4e8e0', width: 90 }} />
-        <input type="number" value={form.interval_days} onChange={e => setForm(f => ({ ...f, interval_days: e.target.value }))} placeholder="Interval dní" className="rounded-btn text-sm outline-none" style={{ padding: '5px 8px', background: '#f1faf7', border: '1px solid #d4e8e0', width: 90 }} />
-      </div>
-      <div className="flex gap-2 items-center">
-        <input type="number" value={form.first_service_km} onChange={e => setForm(f => ({ ...f, first_service_km: e.target.value }))} placeholder="1. servis za km (korekce)" className="rounded-btn text-sm outline-none" style={{ padding: '5px 8px', background: '#eff6ff', border: '1px solid #bfdbfe', width: 160 }} />
-        <input value={form.first_service_desc} onChange={e => setForm(f => ({ ...f, first_service_desc: e.target.value }))} placeholder="Co u 1. servisu" className="rounded-btn text-sm outline-none" style={{ padding: '5px 8px', background: '#eff6ff', border: '1px solid #bfdbfe', width: 140 }} />
-      </div>
-      <div className="flex gap-2">
-        <Button green onClick={() => { onAdd(form); setOpen(false); setForm({ description: '', interval_km: '', interval_days: '', first_service_km: '', first_service_desc: '' }) }} disabled={saving || !form.description}>Vytvořit plán</Button>
-        <Button onClick={() => setOpen(false)}>×</Button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,.4)' }} onClick={e => { if (e.target === e.currentTarget) reset() }}>
+      <div className="rounded-card shadow-xl w-full max-w-lg" style={{ background: '#fff', maxHeight: '85vh', overflow: 'auto' }}>
+        {/* Header */}
+        <div className="flex items-center justify-between p-4" style={{ borderBottom: '1px solid #d4e8e0' }}>
+          <h3 className="font-extrabold text-base" style={{ color: '#0f1a14' }}>
+            {step === 1 ? 'Vyberte typ servisu' : 'Nastavení plánu'}
+          </h3>
+          <button onClick={reset} className="text-lg font-bold cursor-pointer" style={{ background: 'none', border: 'none', color: '#6b7280' }}>×</button>
+        </div>
+
+        {step === 1 && (
+          <div className="p-4">
+            <div className="grid grid-cols-2 gap-2">
+              {SERVICE_PRESETS.map(p => {
+                const alreadyExists = p.key !== 'custom' && existingLower.some(e => e.includes(p.label.toLowerCase().split(' ')[0]))
+                return (
+                  <button key={p.key} onClick={() => selectPreset(p)}
+                    className="flex items-center gap-3 p-3 rounded-lg text-left cursor-pointer transition-all"
+                    style={{
+                      background: alreadyExists ? '#f9fafb' : '#f1faf7',
+                      border: '2px solid transparent',
+                      opacity: alreadyExists ? 0.6 : 1,
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = '#74FB71'}
+                    onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}>
+                    <span style={{ fontSize: 22 }}>{p.icon}</span>
+                    <div>
+                      <div className="text-sm font-bold" style={{ color: '#0f1a14' }}>{p.label}</div>
+                      {p.defaultKm && <div className="text-xs" style={{ color: '#6b7280' }}>~{p.defaultKm.toLocaleString('cs-CZ')} {unitLabel}</div>}
+                      {p.defaultDays && !p.defaultKm && <div className="text-xs" style={{ color: '#6b7280' }}>~{p.defaultDays} dní</div>}
+                      {alreadyExists && <div className="text-xs font-bold" style={{ color: '#b45309' }}>Již přidáno</div>}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="p-4 space-y-4">
+            {/* Back button */}
+            <button onClick={() => setStep(1)} className="text-sm font-bold cursor-pointer" style={{ color: '#2563eb', background: 'none', border: 'none' }}>
+              ← Zpět na výběr typu
+            </button>
+
+            {/* Selected type badge */}
+            {selected && selected !== 'custom' && (
+              <div className="flex items-center gap-2 p-2 rounded-lg" style={{ background: '#dcfce7' }}>
+                <span style={{ fontSize: 18 }}>{SERVICE_PRESETS.find(p => p.key === selected)?.icon}</span>
+                <span className="font-bold text-sm" style={{ color: '#166534' }}>{form.description}</span>
+              </div>
+            )}
+
+            {/* Custom description */}
+            {selected === 'custom' && (
+              <div>
+                <label className="block text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Název servisu</label>
+                <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                  placeholder="např. Výměna svíček, Kontrola ventilů..."
+                  autoFocus
+                  className="w-full rounded-btn text-sm outline-none"
+                  style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
+              </div>
+            )}
+
+            {/* Interval settings */}
+            <div>
+              <label className="block text-xs font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Intervaly</label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs mb-1" style={{ color: '#6b7280' }}>Interval ({unitLabel})</label>
+                  <input type="number" value={form.interval_km}
+                    onChange={e => setForm(f => ({ ...f, interval_km: e.target.value }))}
+                    placeholder={`např. 10 000 ${unitLabel}`}
+                    className="w-full rounded-btn text-sm outline-none"
+                    style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
+                </div>
+                <div>
+                  <label className="block text-xs mb-1" style={{ color: '#6b7280' }}>Interval (dní)</label>
+                  <input type="number" value={form.interval_days}
+                    onChange={e => setForm(f => ({ ...f, interval_days: e.target.value }))}
+                    placeholder="např. 365"
+                    className="w-full rounded-btn text-sm outline-none"
+                    style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
+                </div>
+              </div>
+            </div>
+
+            {/* First service toggle */}
+            <div className="rounded-lg p-3" style={{ background: '#eff6ff', border: '1px solid #bfdbfe' }}>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" checked={hasFirstService}
+                  onChange={e => setHasFirstService(e.target.checked)}
+                  style={{ width: 18, height: 18, accentColor: '#2563eb' }} />
+                <div>
+                  <div className="text-sm font-bold" style={{ color: '#1e40af' }}>Jiný interval pro 1. servis</div>
+                  <div className="text-xs" style={{ color: '#6b7280' }}>Např. první výměna oleje po 1 000 {unitLabel}, pak každých 5 000 {unitLabel}</div>
+                </div>
+              </label>
+              {hasFirstService && (
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <div>
+                    <label className="block text-xs mb-1" style={{ color: '#6b7280' }}>1. servis za ({unitLabel})</label>
+                    <input type="number" value={form.first_service_km}
+                      onChange={e => setForm(f => ({ ...f, first_service_km: e.target.value }))}
+                      placeholder={`např. 1 000`}
+                      className="w-full rounded-btn text-sm outline-none"
+                      style={{ padding: '8px 12px', background: '#fff', border: '1px solid #bfdbfe' }} />
+                  </div>
+                  <div>
+                    <label className="block text-xs mb-1" style={{ color: '#6b7280' }}>Poznámka k 1. servisu</label>
+                    <input value={form.first_service_desc}
+                      onChange={e => setForm(f => ({ ...f, first_service_desc: e.target.value }))}
+                      placeholder="Záběhový servis"
+                      className="w-full rounded-btn text-sm outline-none"
+                      style={{ padding: '8px 12px', background: '#fff', border: '1px solid #bfdbfe' }} />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Submit */}
+            <div className="flex gap-3 pt-2">
+              <button onClick={handleSubmit} disabled={saving || !form.description}
+                className="flex-1 rounded-btn text-sm font-extrabold uppercase cursor-pointer"
+                style={{ padding: '10px 20px', background: !form.description ? '#d4e8e0' : '#74FB71', color: '#1a2e22', border: 'none', opacity: saving ? 0.6 : 1 }}>
+                {saving ? 'Vytvářím...' : 'Vytvořit servisní plán'}
+              </button>
+              <button onClick={reset}
+                className="rounded-btn text-sm font-extrabold uppercase cursor-pointer"
+                style={{ padding: '10px 20px', background: '#f1faf7', color: '#1a2e22', border: '1px solid #d4e8e0' }}>
+                Zrušit
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

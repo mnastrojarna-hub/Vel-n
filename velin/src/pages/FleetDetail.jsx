@@ -140,7 +140,7 @@ export default function FleetDetail() {
       {tab === 'Info' && <InfoTab moto={moto} set={set} error={error} saving={saving} onSave={handleSave} onDeactivate={handleDeactivate} onDelete={() => setConfirm({ type: 'delete' })} onMotoReload={loadMoto} />}
       {tab === 'Rezervace' && <BookingsCalendar motoId={id} onSwitchTab={setTab} />}
       {tab === 'Ceník' && <PricingTab motoId={id} />}
-      {tab === 'Servis' && <ServiceTab motoId={id} motoMileage={moto.mileage} purchaseMileage={moto.purchase_mileage} logAudit={logAudit} />}
+      {tab === 'Servis' && <ServiceTab motoId={id} motoMileage={moto.mileage} purchaseMileage={moto.purchase_mileage} trackingUnit={moto.tracking_unit || 'km'} logAudit={logAudit} />}
       {tab === 'Mapa' && <MotoMap singleMotoId={id} />}
       {tab === 'Výkon' && <PerformanceTab motoId={id} />}
       <ConfirmDialog open={confirm?.type === 'deactivate'} title={confirm?.title || ''} message={confirm?.message || ''} onConfirm={() => confirm?.action?.()} onCancel={() => setConfirm(null)} danger />
