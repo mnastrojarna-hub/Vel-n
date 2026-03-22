@@ -10,6 +10,7 @@ import StatusBadge, { getDisplayStatus } from '../components/ui/StatusBadge'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import Modal from '../components/ui/Modal'
 import CustomerDocumentsTab from './customer/CustomerDocumentsTab'
+import CustomerSOSTab from './customer/CustomerSOSTab'
 
 const TABS = ['Profil', 'Rezervace', 'Dokumenty', 'Hodnocení', 'SOS']
 
@@ -213,7 +214,7 @@ export default function CustomerDetail() {
       {tab === 'Rezervace' && <CustomerBookings userId={id} />}
       {tab === 'Dokumenty' && <CustomerDocumentsTab userId={id} />}
       {tab === 'Hodnocení' && <CustomerReviews userId={id} />}
-      {tab === 'SOS' && <CustomerSOS userId={id} />}
+      {tab === 'SOS' && <CustomerSOSTab userId={id} />}
 
       {/* Reset hesla modal */}
       {showResetPw && (
@@ -496,44 +497,6 @@ function CustomerReviews({ userId }) {
                 <span className="text-sm" style={{ color: '#1a2e22' }}>{r.created_at?.slice(0, 10)}</span>
               </div>
               <p className="text-sm" style={{ color: '#1a2e22' }}>{r.comment || '—'}</p>
-            </div>
-          ))}
-        </div>
-      )}
-    </Card>
-  )
-}
-
-function CustomerSOS({ userId }) {
-  const [incidents, setIncidents] = useState([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    supabase.from('sos_incidents').select('*').eq('user_id', userId).order('created_at', { ascending: false })
-      .then(({ data }) => {
-        if (data && data.length > 0) { setIncidents(data); setLoading(false); return }
-        // Fallback: hledej přes bookings pokud user_id na sos_incidents není
-        supabase.from('sos_incidents').select('*, bookings!inner(user_id)').eq('bookings.user_id', userId).order('created_at', { ascending: false })
-          .then(({ data: d2 }) => { setIncidents(d2 || []); setLoading(false) })
-          .catch(() => { setIncidents([]); setLoading(false) })
-      })
-      .catch(() => { setIncidents([]); setLoading(false) })
-  }, [userId])
-
-  if (loading) return <LoadingSpinner />
-
-  return (
-    <Card>
-      {incidents.length === 0 ? <EmptyState text="Žádné SOS incidenty" /> : (
-        <div className="space-y-3">
-          {incidents.map(s => (
-            <div key={s.id} className="flex items-center gap-4 p-3 rounded-lg" style={{ background: '#fee2e2' }}>
-              <div className="flex-1">
-                <span className="font-bold text-sm" style={{ color: '#dc2626' }}>{s.type || 'SOS'}</span>
-                <span className="text-sm ml-3" style={{ color: '#1a2e22' }}>{s.created_at?.slice(0, 16)}</span>
-              </div>
-              <span className="text-sm" style={{ color: '#1a2e22' }}>{s.description || '—'}</span>
-              <StatusBadge status={s.status || 'pending'} />
             </div>
           ))}
         </div>
