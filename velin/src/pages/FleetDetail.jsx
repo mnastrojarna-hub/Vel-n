@@ -149,9 +149,30 @@ export default function FleetDetail() {
   )
 }
 
+// Find nearest Tue/Wed without an active booking for this moto
+function findFreeTueWed(baseDate, bookings) {
+  const d = new Date(baseDate)
+  d.setHours(0, 0, 0, 0)
+  for (let i = 0; i < 60; i++) {
+    const day = d.getDay()
+    if (day === 2 || day === 3) {
+      const ds = d.toISOString().slice(0, 10)
+      const busy = bookings.some(b => {
+        const bs = (b.start_date || '').split('T')[0]
+        const be = (b.end_date || '').split('T')[0]
+        return ds >= bs && ds <= be
+      })
+      if (!busy) return new Date(d)
+    }
+    d.setDate(d.getDate() + 1)
+  }
+  return null
+}
+
 function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onMotoReload }) {
   const navigate = useNavigate()
   const [schedules, setSchedules] = useState([])
+  const [motoBookings, setMotoBookings] = useState([])
   const [avgKm, setAvgKm] = useState(null)
   const [branches, setBranches] = useState([])
   const [showMigrate, setShowMigrate] = useState(false)
@@ -164,6 +185,10 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
   useEffect(() => {
     supabase.from('maintenance_schedules').select('*').eq('moto_id', moto.id).eq('active', true)
       .then(({ data }) => setSchedules(data || []))
+    supabase.from('bookings').select('moto_id, start_date, end_date')
+      .eq('moto_id', moto.id).in('status', ['pending', 'reserved', 'active'])
+      .gte('end_date', new Date().toISOString().slice(0, 10))
+      .then(({ data }) => setMotoBookings(data || []))
     supabase.from('sos_incidents').select('id, type, status, severity, created_at, description, booking_id')
       .eq('moto_id', moto.id).order('created_at', { ascending: false }).limit(10)
       .then(({ data }) => setSosIncidents(data || []))
@@ -381,14 +406,44 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
           }
           const rem = nextAt - currentKm
           const overdue = rem <= 0
+
+          // Estimate planned service date (Tue/Wed without booking)
+          let planDate = null
+          const dbDate = s.next_due || s.next_date
+          if (dbDate) {
+            planDate = new Date(dbDate)
+          } else if (s.interval_km || s.interval_days) {
+            const now = new Date()
+            if (overdue) {
+              planDate = findFreeTueWed(now, motoBookings)
+            } else if (avgKm > 0 && rem > 0) {
+              const dailyKm = avgKm / 30
+              const daysUntil = Math.ceil(rem / dailyKm)
+              const est = new Date(now)
+              est.setDate(est.getDate() + daysUntil)
+              planDate = findFreeTueWed(est, motoBookings)
+            }
+          }
+
           return (
-            <div key={s.id} className="flex items-center gap-3 p-2 rounded-lg mb-1" style={{ background: overdue ? '#fee2e2' : '#f1faf7', fontSize: 12 }}>
-              <span className="font-bold">{s.description}</span>
-              <span style={{ color: '#1a2e22' }}>každých {s.interval_km?.toLocaleString('cs-CZ')} km</span>
-              <span className="ml-auto font-bold" style={{ color: overdue ? '#dc2626' : '#1a8a18' }}>
-                {overdue ? `PO TERMÍNU ${Math.abs(rem).toLocaleString('cs-CZ')} km` : `za ${rem.toLocaleString('cs-CZ')} km`}
-                {!overdue && avgKm > 0 ? ` (~${Math.round((rem / avgKm) * 30)} dní)` : ''}
-              </span>
+            <div key={s.id} className="flex flex-col gap-1 p-2 rounded-lg mb-1" style={{ background: overdue ? '#fee2e2' : '#f1faf7', fontSize: 12 }}>
+              <div className="flex items-center gap-3">
+                <span className="font-bold">{s.description}</span>
+                <span style={{ color: '#1a2e22' }}>každých {s.interval_km?.toLocaleString('cs-CZ')} km</span>
+                <span className="ml-auto font-bold" style={{ color: overdue ? '#dc2626' : '#1a8a18' }}>
+                  {overdue ? `PO TERMÍNU ${Math.abs(rem).toLocaleString('cs-CZ')} km` : `za ${rem.toLocaleString('cs-CZ')} km`}
+                  {!overdue && avgKm > 0 ? ` (~${Math.round((rem / avgKm) * 30)} dní)` : ''}
+                </span>
+              </div>
+              {planDate && (
+                <div className="flex items-center gap-1" style={{ color: '#6b7280', fontSize: 11 }}>
+                  <span>Plánovaný servis:</span>
+                  <span className="font-bold" style={{ color: overdue ? '#dc2626' : '#1a2e22' }}>
+                    {planDate.toLocaleDateString('cs-CZ', { weekday: 'short', day: 'numeric', month: 'numeric', year: 'numeric' })}
+                  </span>
+                  {!dbDate && <span title="Automatický odhad (Út/St bez rezervace)">~</span>}
+                </div>
+              )}
             </div>
           )
         })}
