@@ -1,18 +1,60 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
-import StatusBadge from '../../components/ui/StatusBadge'
 
 const FILTERS = ['Vše', 'Nejbližší', 'Následující měsíc', 'Vlastní']
 
+function isoDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// Find the nearest Tuesday (2) or Wednesday (3) on or after a given date
+function nearestTueWed(date) {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  for (let i = 0; i < 14; i++) {
+    const day = d.getDay()
+    if (day === 2 || day === 3) return new Date(d)
+    d.setDate(d.getDate() + 1)
+  }
+  return new Date(date) // fallback
+}
+
+// Find the nearest Tue/Wed that doesn't overlap with any booking for a moto
+function findFreeServiceDate(baseDate, bookings) {
+  const d = new Date(baseDate)
+  d.setHours(0, 0, 0, 0)
+  // Search up to 60 days ahead
+  for (let i = 0; i < 60; i++) {
+    const day = d.getDay()
+    if (day === 2 || day === 3) {
+      const ds = isoDate(d)
+      const hasBooking = bookings.some(b => {
+        const bs = (b.start_date || '').split('T')[0]
+        const be = (b.end_date || '').split('T')[0]
+        return ds >= bs && ds <= be
+      })
+      if (!hasBooking) return new Date(d)
+    }
+    d.setDate(d.getDate() + 1)
+  }
+  // Fallback: nearest Tue/Wed regardless of bookings
+  return nearestTueWed(baseDate)
+}
+
 export default function ServiceSchedule() {
   const [schedules, setSchedules] = useState([])
+  const [bookings, setBookings] = useState([])  // all active bookings
+  const [avgKmPerDay, setAvgKmPerDay] = useState({}) // moto_id -> km/day
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('Vše')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
+  const [manualDates, setManualDates] = useState({}) // schedule_id -> date string
+  const [editingDate, setEditingDate] = useState(null) // schedule_id being edited
+  const [savingDate, setSavingDate] = useState(null)
 
   useEffect(() => { load() }, [])
 
@@ -20,23 +62,69 @@ export default function ServiceSchedule() {
     setLoading(true)
     try {
       debugLog('ServiceSchedule', 'load')
-      const { data, error } = await debugAction('maintenance_schedules.list', 'ServiceSchedule', () =>
-        supabase
-          .from('maintenance_schedules')
-          .select('*, motorcycles(model, spz, mileage, purchase_mileage)')
-          .eq('active', true)
-          .order('next_due', { ascending: true, nullsFirst: false })
-      )
-      if (error) throw error
-      setSchedules(data || [])
+      const [schedRes, bookRes, logRes] = await Promise.all([
+        debugAction('maintenance_schedules.list', 'ServiceSchedule', () =>
+          supabase
+            .from('maintenance_schedules')
+            .select('*, motorcycles(id, model, spz, mileage, purchase_mileage, year)')
+            .eq('active', true)
+            .order('next_due', { ascending: true, nullsFirst: false })
+        ),
+        // Fetch active bookings (next 6 months) for availability checking
+        supabase.from('bookings')
+          .select('moto_id, start_date, end_date')
+          .in('status', ['pending', 'reserved', 'active'])
+          .gte('end_date', isoDate(new Date())),
+        // Fetch maintenance logs for avg km/day calculation
+        supabase.from('maintenance_log')
+          .select('moto_id, mileage_at_service, created_at')
+          .order('created_at', { ascending: true }),
+      ])
+
+      if (schedRes.error) throw schedRes.error
+      setSchedules(schedRes.data || [])
+      setBookings(bookRes.data || [])
+
+      // Calculate avg km/day per motorcycle
+      const logs = logRes.data || []
+      const byMoto = {}
+      for (const l of logs) {
+        if (!l.moto_id || !l.mileage_at_service) continue
+        if (!byMoto[l.moto_id]) byMoto[l.moto_id] = []
+        byMoto[l.moto_id].push(l)
+      }
+
+      const avgMap = {}
+      for (const [motoId, entries] of Object.entries(byMoto)) {
+        if (entries.length >= 2) {
+          const first = entries[0], last = entries[entries.length - 1]
+          const kmDiff = (last.mileage_at_service || 0) - (first.mileage_at_service || 0)
+          const daysDiff = (new Date(last.created_at) - new Date(first.created_at)) / 86400000
+          if (daysDiff > 0 && kmDiff > 0) {
+            avgMap[motoId] = kmDiff / daysDiff
+          }
+        }
+      }
+
+      // Fallback: use mileage / age for motos without enough logs
+      for (const s of (schedRes.data || [])) {
+        const moto = s.motorcycles
+        if (moto && !avgMap[moto.id] && moto.mileage && moto.year) {
+          const months = Math.max(1, (new Date().getFullYear() - moto.year) * 12)
+          avgMap[moto.id] = moto.mileage / (months * 30)
+        }
+      }
+
+      setAvgKmPerDay(avgMap)
     } catch (e) {
       debugError('ServiceSchedule', 'load', e)
     }
     setLoading(false)
   }
 
-  // Enrich schedules with computed remaining km and estimated date
+  // Enrich schedules with computed remaining km and auto-estimated date
   const enriched = useMemo(() => {
+    const now = new Date()
     return schedules.map(s => {
       const currentKm = Number(s.motorcycles?.mileage) || 0
       const baseMileage = Number(s.motorcycles?.purchase_mileage) || 0
@@ -54,19 +142,42 @@ export default function ServiceSchedule() {
       const remaining = nextAt - currentKm
       const overdue = s.interval_km ? remaining <= 0 : false
 
-      // Estimated next date: from next_due, or from next_date, or null
-      const estDate = s.next_due ? new Date(s.next_due) : s.next_date ? new Date(s.next_date) : null
+      // Manual override from DB
+      const dbDate = s.next_due || s.next_date || null
 
-      return { ...s, remaining, overdue, nextAt, estDate }
+      // Auto-estimate date only for regular planned services (with interval)
+      let autoDate = null
+      const motoId = s.motorcycles?.id || s.moto_id
+      const dailyKm = avgKmPerDay[motoId]
+      const isRegularService = !!(s.interval_km || s.interval_days)
+
+      if (isRegularService && overdue) {
+        // Already overdue — plan ASAP (nearest Tue/Wed)
+        const motoBookings = bookings.filter(b => b.moto_id === motoId)
+        autoDate = findFreeServiceDate(now, motoBookings)
+      } else if (isRegularService && dailyKm > 0 && remaining > 0) {
+        // Estimate days until service needed
+        const daysUntil = Math.ceil(remaining / dailyKm)
+        const estReachDate = new Date(now)
+        estReachDate.setDate(estReachDate.getDate() + daysUntil)
+        // Find free Tue/Wed near that date
+        const motoBookings = bookings.filter(b => b.moto_id === motoId)
+        autoDate = findFreeServiceDate(estReachDate, motoBookings)
+      }
+
+      // Priority: manual override (from DB next_due) > auto-estimated
+      const estDate = dbDate ? new Date(dbDate) : autoDate
+      const isAutoEstimated = !dbDate && !!autoDate
+
+      return { ...s, remaining, overdue, nextAt, estDate, autoDate, isAutoEstimated, dailyKm: dailyKm || 0 }
     })
-  }, [schedules])
+  }, [schedules, avgKmPerDay, bookings])
 
   // Apply filters
   const filtered = useMemo(() => {
     let items = enriched
 
     if (filter === 'Nejbližší') {
-      // Per motorcycle: only keep the schedule with smallest remaining km (most urgent)
       const byMoto = {}
       for (const s of items) {
         const motoId = s.moto_id
@@ -79,9 +190,7 @@ export default function ServiceSchedule() {
       const now = new Date()
       const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate())
       items = items.filter(s => {
-        // Include overdue (always urgent)
         if (s.overdue) return true
-        // Include if estimated date is within next month
         if (s.estDate && s.estDate <= nextMonth) return true
         return false
       })
@@ -98,12 +207,34 @@ export default function ServiceSchedule() {
       }
     }
 
-    // Sort: overdue first, then by remaining km ascending
     return items.sort((a, b) => {
       if (a.overdue !== b.overdue) return a.overdue ? -1 : 1
       return a.remaining - b.remaining
     })
   }, [enriched, filter, customFrom, customTo])
+
+  // Save manual date override to DB
+  async function saveDate(scheduleId, dateStr) {
+    setSavingDate(scheduleId)
+    try {
+      const { error } = await supabase.from('maintenance_schedules')
+        .update({ next_due: dateStr || null })
+        .eq('id', scheduleId)
+      if (error) throw error
+      // Update local state
+      setSchedules(prev => prev.map(s => s.id === scheduleId ? { ...s, next_due: dateStr || null } : s))
+      setEditingDate(null)
+      setManualDates(prev => { const n = { ...prev }; delete n[scheduleId]; return n })
+    } catch (e) {
+      debugError('ServiceSchedule', 'saveDate', e)
+    }
+    setSavingDate(null)
+  }
+
+  // Reset to auto-estimated date (clear manual override)
+  async function resetDate(scheduleId) {
+    await saveDate(scheduleId, null)
+  }
 
   if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
 
@@ -144,22 +275,64 @@ export default function ServiceSchedule() {
           </TRow>
         </thead>
         <tbody>
-          {filtered.map(s => (
-            <TRow key={s.id}>
-              <TD bold>{s.motorcycles?.model || '—'}</TD>
-              <TD mono>{s.motorcycles?.spz || '—'}</TD>
-              <TD>{s.description || TYPE_LABELS[s.schedule_type] || s.schedule_type || '—'}</TD>
-              <TD>{s.interval_km ? `${s.interval_km.toLocaleString('cs-CZ')} km` : ''}{s.interval_days ? ` / ${s.interval_days} dní` : ''}</TD>
-              <TD style={s.overdue ? { color: '#dc2626', fontWeight: 700 } : undefined}>
-                {s.interval_km ? (s.overdue ? `⚠ ${Math.abs(s.remaining).toLocaleString('cs-CZ')} km po` : `${s.remaining.toLocaleString('cs-CZ')} km`) : '—'}
-                {!(Number(s.motorcycles?.mileage) || 0) && s.interval_km ? ' (km nenastaven)' : ''}
-              </TD>
-              <TD>{s.estDate ? s.estDate.toLocaleDateString('cs-CZ') : '—'}</TD>
-            </TRow>
-          ))}
+          {filtered.map(s => {
+            const isEditing = editingDate === s.id
+            const dateVal = manualDates[s.id] ?? (s.estDate ? isoDate(s.estDate) : '')
+            const hasManualOverride = !!(s.next_due || s.next_date)
+
+            return (
+              <TRow key={s.id}>
+                <TD bold>{s.motorcycles?.model || '—'}</TD>
+                <TD mono>{s.motorcycles?.spz || '—'}</TD>
+                <TD>{s.description || TYPE_LABELS[s.schedule_type] || s.schedule_type || '—'}</TD>
+                <TD>{s.interval_km ? `${s.interval_km.toLocaleString('cs-CZ')} km` : ''}{s.interval_days ? ` / ${s.interval_days} dní` : ''}</TD>
+                <TD style={s.overdue ? { color: '#dc2626', fontWeight: 700 } : undefined}>
+                  {s.interval_km ? (s.overdue ? `⚠ ${Math.abs(s.remaining).toLocaleString('cs-CZ')} km po` : `${s.remaining.toLocaleString('cs-CZ')} km`) : '—'}
+                  {!(Number(s.motorcycles?.mileage) || 0) && s.interval_km ? ' (km nenastaven)' : ''}
+                </TD>
+                <TD>
+                  {isEditing ? (
+                    <div className="flex items-center gap-1">
+                      <input type="date" value={dateVal}
+                        onChange={e => setManualDates(prev => ({ ...prev, [s.id]: e.target.value }))}
+                        className="rounded text-xs px-1 py-0.5" style={{ border: '1px solid #d1d5db', width: 130 }} />
+                      <button onClick={() => saveDate(s.id, manualDates[s.id] || dateVal)}
+                        disabled={savingDate === s.id}
+                        className="text-xs font-bold cursor-pointer" style={{ color: '#1a8a18', background: 'none', border: 'none' }}>
+                        {savingDate === s.id ? '…' : '✓'}
+                      </button>
+                      <button onClick={() => { setEditingDate(null); setManualDates(prev => { const n = { ...prev }; delete n[s.id]; return n }) }}
+                        className="text-xs cursor-pointer" style={{ color: '#6b7280', background: 'none', border: 'none' }}>✕</button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1">
+                      <span className="cursor-pointer" onClick={() => setEditingDate(s.id)}
+                        title={s.isAutoEstimated ? `Odhad (~${Math.round(s.dailyKm)} km/den). Klikni pro ruční úpravu.` : 'Klikni pro úpravu'}>
+                        {s.estDate ? (
+                          <>
+                            {s.estDate.toLocaleDateString('cs-CZ')}
+                            {s.isAutoEstimated && <span className="ml-1" style={{ color: '#6b7280', fontSize: 10 }} title="Automatický odhad">~</span>}
+                          </>
+                        ) : '—'}
+                      </span>
+                      {hasManualOverride && (
+                        <button onClick={() => resetDate(s.id)}
+                          className="text-xs cursor-pointer ml-1" style={{ color: '#6b7280', background: 'none', border: 'none', fontSize: 10 }}
+                          title="Obnovit automatický odhad">↺</button>
+                      )}
+                    </div>
+                  )}
+                </TD>
+              </TRow>
+            )
+          })}
           {filtered.length === 0 && <TRow><TD colSpan={6}>Žádné servisní plány pro zvolený filtr.</TD></TRow>}
         </tbody>
       </Table>
+
+      <div className="mt-3 text-xs" style={{ color: '#6b7280' }}>
+        <span style={{ fontSize: 10 }}>~</span> = automatický odhad (Út/St bez rezervace, dle průměrného nájezdu) · Klikněte na datum pro ruční úpravu
+      </div>
     </div>
   )
 }
