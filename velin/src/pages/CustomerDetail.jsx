@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { supabase, supabaseUrl, supabaseAnonKey } from '../lib/supabase'
+import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
 import { useDebugMode } from '../hooks/useDebugMode'
 import Card from '../components/ui/Card'
@@ -105,15 +105,10 @@ export default function CustomerDetail() {
     try {
       const reqData = { user_id: id, mode: resetPwMode }
       const result = await debugAction('customer.resetPassword', 'CustomerDetail', async () => {
-        const { data: { session } } = await supabase.auth.getSession()
-        const token = session?.access_token
-        const baseUrl = supabaseUrl
-        const resp = await fetch(`${baseUrl}/functions/v1/admin-reset-password`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, 'apikey': supabaseAnonKey },
-          body: JSON.stringify({ user_id: id, ...(resetPwMode === 'manual' && newPassword ? { new_password: newPassword } : {}) }),
+        const { data, error } = await supabase.functions.invoke('admin-reset-password', {
+          body: { user_id: id, ...(resetPwMode === 'manual' && newPassword ? { new_password: newPassword } : {}) },
         })
-        const data = await resp.json()
+        if (error) throw error
         return { data }
       }, reqData)
       const r = result?.data
@@ -131,24 +126,15 @@ export default function CustomerDetail() {
 
   async function handleLoginAsCustomer() {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const token = session?.access_token
-      const baseUrl = supabaseUrl
-      const resp = await fetch(`${baseUrl}/functions/v1/admin-reset-password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'apikey': supabaseAnonKey,
-        },
-        body: JSON.stringify({ user_id: id }),
+      const { data, error: fnError } = await supabase.functions.invoke('admin-reset-password', {
+        body: { user_id: id },
       })
-      const result = await resp.json()
-      if (result.success && result.email) {
-        await logAudit('admin_login_as_customer', { customer_id: id, email: result.email })
-        setError(`Recovery link odeslán na ${result.email}. Pro impersonaci použijte tento link.`)
+      if (fnError) throw fnError
+      if (data.success && data.email) {
+        await logAudit('admin_login_as_customer', { customer_id: id, email: data.email })
+        setError(`Recovery link odeslán na ${data.email}. Pro impersonaci použijte tento link.`)
       } else {
-        setError(result.error || 'Nepodařilo se')
+        setError(data.error || 'Nepodařilo se')
       }
     } catch (e) {
       setError(e.message)
