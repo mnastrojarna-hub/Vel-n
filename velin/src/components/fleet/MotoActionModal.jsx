@@ -173,7 +173,6 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
         : selectedLabels.length > 1 ? `Servis (${selectedLabels.length} úkonů)`
         : 'Neplánovaný servis'
 
-      const today = new Date().toISOString().slice(0, 10)
       const logPayload = {
         moto_id: moto.id,
         description: fullDescription,
