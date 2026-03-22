@@ -13,12 +13,12 @@ import Card from '../../components/ui/Card'
  *   5. Stálost (měsíce od první rezervace × frekvence) — max 10 bodů
  *   6. Hodnocení (průměr review rating) — max 10 bodů
  *
- * NEGATIVNÍ faktory (srážky):
- *   7. SOS incidenty — -5 za low, -10 za medium, -20 za high, -35 za critical
- *   8. SOS s vinou zákazníka — dvojnásobná srážka
- *   9. Pozdní vrácení (actual_return_date > end_date) — -3 za každý den
- *  10. Storna zákazníkem — -2 za každé
- *  11. Reklamace (booking_complaints) — -5 za každou otevřenou/rejected
+ * NEGATIVNÍ faktory (tvrdé srážky):
+ *   7. SOS incidenty — -15 low, -30 medium, -50 high, -80 critical
+ *   8. SOS s vinou zákazníka — TROJNÁSOBNÁ srážka (1 critical s vinou = -240!)
+ *   9. Pozdní vrácení — progresivní: 1 den=-8, 2 dny=-18, 3 dny=-30 (strmě roste)
+ *  10. Storna zákazníkem — eskalující: 1.=-5, 2.=-8, 3.=-11 (každé další horší)
+ *  11. Reklamace — rejected -15, open -10, resolved -3
  *
  * Výsledné skóre: clamp(0, 100)
  * Rank: S (90+), A (75+), B (55+), C (35+), D (20+), F (<20)
@@ -91,28 +91,37 @@ function computeScore(bookings, sosIncidents, reviews, complaints) {
 
   // === SRÁŽKY ===
 
-  // 7+8. SOS incidenty
-  const sevPenalty = { low: 5, medium: 10, high: 20, critical: 35 }
+  // 7+8. SOS incidenty — tvrdé srážky, SOS je vážná věc
+  const sevPenalty = { low: 15, medium: 30, high: 50, critical: 80 }
   let sosPenalty = 0
   sosIncidents.forEach(inc => {
-    const base = sevPenalty[inc.severity] || 10
-    sosPenalty += inc.is_customer_fault ? base * 2 : base
+    const base = sevPenalty[inc.severity] || 30
+    sosPenalty += inc.is_customer_fault ? base * 3 : base
   })
 
-  // 9. Pozdní vrácení
+  // 9. Pozdní vrácení — progresivní penalizace (každý den horší)
   let latePenalty = 0
   completed.forEach(b => {
     if (b.actual_return_date && b.end_date) {
-      const lateDays = (new Date(b.actual_return_date) - new Date(b.end_date)) / 86400000
-      if (lateDays > 0) latePenalty += Math.ceil(lateDays) * 3
+      const lateDays = Math.ceil((new Date(b.actual_return_date) - new Date(b.end_date)) / 86400000)
+      if (lateDays > 0) {
+        // 1 den = -8, 2 dny = -18, 3 dny = -30, progresivně
+        for (let d = 1; d <= lateDays; d++) latePenalty += 5 + d * 3
+      }
     }
   })
 
-  // 10. Storna
-  const cancelPenalty = cancelled.length * 2
+  // 10. Storna — eskalující: každé další storno bolí víc
+  let cancelPenalty = 0
+  for (let i = 0; i < cancelled.length; i++) cancelPenalty += 5 + i * 3
 
-  // 11. Reklamace
-  const complaintPenalty = complaints.filter(c => ['open', 'rejected'].includes(c.status)).length * 5
+  // 11. Reklamace — resolved = mírná, open/rejected = tvrdá
+  let complaintPenalty = 0
+  complaints.forEach(c => {
+    if (c.status === 'rejected') complaintPenalty += 15
+    else if (c.status === 'open' || c.status === 'in_progress') complaintPenalty += 10
+    else if (c.status === 'resolved') complaintPenalty += 3
+  })
 
   const totalPositive = revenueScore + countScore + durationScore + priceScore + loyaltyScore + ratingScore
   const totalNegative = sosPenalty + latePenalty + cancelPenalty + complaintPenalty
