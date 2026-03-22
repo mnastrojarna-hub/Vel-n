@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { debugAction, debugLog, debugError } from '../../lib/debugLog'
+import { debugAction, debugError } from '../../lib/debugLog'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import StatusBadge from '../../components/ui/StatusBadge'
@@ -13,8 +13,11 @@ export default function ActiveServiceTab({ onRefresh }) {
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState({})
-  const [actionMoto, setActionMoto] = useState(null)
-  const [actionPanel, setActionPanel] = useState(null) // motoId for action panel
+  const [actionMoto, setActionMoto] = useState(null) // for MotoActionModal
+  const [actionPanel, setActionPanel] = useState(null)
+  const [showPicker, setShowPicker] = useState(false) // top-level moto picker
+  const [allMotos, setAllMotos] = useState([])
+  const [pickerSearch, setPickerSearch] = useState('')
 
   useEffect(() => { load() }, [])
 
@@ -22,28 +25,67 @@ export default function ActiveServiceTab({ onRefresh }) {
     setLoading(true)
     try {
       const [motosRes, logsRes] = await debugAction('activeService.load', 'ActiveServiceTab', () => Promise.all([
-        supabase.from('motorcycles').select('*, branches(name, type)')
-          .eq('status', 'maintenance').order('model'),
-        supabase.from('maintenance_log').select('*, motorcycles!moto_id(model, spz)')
-          .is('completed_date', null).order('created_at', { ascending: false }),
+        supabase.from('motorcycles').select('*, branches(name, type)').eq('status', 'maintenance').order('model'),
+        supabase.from('maintenance_log').select('*, motorcycles!moto_id(model, spz)').is('completed_date', null).order('created_at', { ascending: false }),
       ]))
       setMotos(motosRes.data || [])
       setLogs(logsRes.data || [])
-    } catch (e) {
-      debugError('activeService.load', 'ActiveServiceTab', e)
-    } finally { setLoading(false) }
+    } catch (e) { debugError('activeService.load', 'ActiveServiceTab', e) }
+    finally { setLoading(false) }
   }
 
+  async function openPicker() {
+    setShowPicker(true); setPickerSearch('')
+    const { data } = await supabase.from('motorcycles').select('id, model, spz, status, branch_id, mileage, branches(name, type)').order('model')
+    setAllMotos(data || [])
+  }
+
+  function selectMoto(m) { setShowPicker(false); setActionMoto(m) }
+  const filtered = allMotos.filter(m => !pickerSearch || m.model?.toLowerCase().includes(pickerSearch.toLowerCase()) || m.spz?.toLowerCase().includes(pickerSearch.toLowerCase()))
+  const statusLabel = { active: 'Aktivní', maintenance: 'Servis', out_of_service: 'Mimo provoz', retired: 'Vyřazena' }
+  const statusColor = { active: '#1a8a18', maintenance: '#b45309', out_of_service: '#7c3aed', retired: '#6b7280' }
+
   if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
-  if (motos.length === 0 && logs.length === 0) return (
-    <Card><div className="text-center py-8"><div className="text-sm font-bold" style={{ color: '#1a8a18' }}>Žádné motorky aktuálně v servisu</div></div></Card>
-  )
 
   const logsByMoto = {}
   logs.forEach(l => { if (!logsByMoto[l.moto_id]) logsByMoto[l.moto_id] = []; logsByMoto[l.moto_id].push(l) })
 
   return (
     <div className="space-y-4">
+      {/* Top bar with Správa button */}
+      <div className="flex items-center justify-between">
+        <div className="text-sm font-bold" style={{ color: '#1a2e22' }}>{motos.length} motorek v servisu</div>
+        <button onClick={openPicker} className="rounded-btn text-sm font-extrabold uppercase cursor-pointer"
+          style={{ padding: '8px 16px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>
+          Správa motorky
+        </button>
+      </div>
+
+      {/* Moto picker overlay */}
+      {showPicker && (
+        <Card>
+          <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Vyberte motorku</div>
+          <input value={pickerSearch} onChange={e => setPickerSearch(e.target.value)} placeholder="Hledat model / SPZ…"
+            className="w-full rounded-btn text-sm outline-none mb-3" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
+          <div style={{ maxHeight: 300, overflowY: 'auto' }} className="space-y-1">
+            {filtered.map(m => (
+              <div key={m.id} onClick={() => selectMoto(m)} className="flex items-center gap-3 p-2 rounded cursor-pointer" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
+                <span className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{m.model}</span>
+                <span className="font-mono text-sm" style={{ color: '#1a2e22' }}>{m.spz}</span>
+                <span className="text-xs font-bold" style={{ color: statusColor[m.status] || '#6b7280' }}>{statusLabel[m.status] || m.status}</span>
+                <span className="text-xs ml-auto" style={{ color: '#6b7280' }}>{m.branches?.name || 'Bez pobočky'}</span>
+              </div>
+            ))}
+            {filtered.length === 0 && <div className="text-sm py-4 text-center" style={{ color: '#6b7280' }}>Žádné motorky</div>}
+          </div>
+          <div className="flex justify-end mt-2"><Button onClick={() => setShowPicker(false)}>Zavřít</Button></div>
+        </Card>
+      )}
+
+      {motos.length === 0 && logs.length === 0 && (
+        <Card><div className="text-center py-8"><div className="text-sm font-bold" style={{ color: '#1a8a18' }}>Žádné motorky aktuálně v servisu</div></div></Card>
+      )}
+
       {motos.map(m => {
         const mLogs = logsByMoto[m.id] || []
         const isExp = expanded[m.id]
@@ -67,21 +109,14 @@ export default function ActiveServiceTab({ onRefresh }) {
                 className="rounded-btn text-sm font-extrabold uppercase cursor-pointer"
                 style={{ padding: '4px 10px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>Správa</button>
             </div>
-
-            {/* Service Actions Panel (deactivate, retire, replace) */}
             {actionPanel === m.id && (
-              <div className="mt-3">
-                <ServiceMotoActions moto={m} logs={mLogs} onDone={() => { setActionPanel(null); load(); onRefresh?.() }} />
-              </div>
+              <div className="mt-3"><ServiceMotoActions moto={m} logs={mLogs} onDone={() => { setActionPanel(null); load(); onRefresh?.() }} /></div>
             )}
-
             {isExp && (
               <div className="mt-4 space-y-3">
                 {mLogs.length > 0 ? mLogs.map(l => (
                   <ServiceLogCard key={l.id} log={l} moto={m} onReload={() => { load(); onRefresh?.() }} />
-                )) : (
-                  <NoLogCard motoId={m.id} onReload={() => { load(); onRefresh?.() }} />
-                )}
+                )) : <NoLogCard motoId={m.id} onReload={() => { load(); onRefresh?.() }} />}
               </div>
             )}
           </Card>
@@ -98,15 +133,15 @@ function NoLogCard({ motoId, onReload }) {
   const [ending, setEnding] = useState(false)
 
   async function create() {
-    if (!desc.trim()) return
-    setSaving(true)
+    if (!desc.trim()) return; setSaving(true)
     await supabase.from('maintenance_log').insert({ moto_id: motoId, description: desc.trim(), service_type: 'repair', service_date: new Date().toISOString().slice(0, 10) })
     setSaving(false); onReload()
   }
   async function endDirect() {
     setEnding(true)
-    await supabase.from('motorcycles').update({ status: 'active', last_service_date: new Date().toISOString().slice(0, 10) }).eq('id', motoId)
-    await supabase.from('maintenance_log').update({ completed_date: new Date().toISOString().slice(0, 10), status: 'completed' }).eq('moto_id', motoId).is('completed_date', null)
+    const today = new Date().toISOString().slice(0, 10)
+    await supabase.from('motorcycles').update({ status: 'active', last_service_date: today }).eq('id', motoId)
+    await supabase.from('maintenance_log').update({ completed_date: today, status: 'completed' }).eq('moto_id', motoId).is('completed_date', null)
     setEnding(false); onReload()
   }
 

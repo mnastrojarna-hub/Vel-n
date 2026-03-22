@@ -4,103 +4,37 @@ import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import StatusBadge from '../ui/StatusBadge'
 import ReplacementMotoPicker from './ReplacementMotoPicker'
-
-const UNAVAILABLE_REASONS = [
-  { value: 'cleaning', label: 'Čištění / mytí' },
-  { value: 'refueling', label: 'Tankování' },
-  { value: 'transport', label: 'Přeprava mezi pobočkami' },
-  { value: 'inspection', label: 'Kontrola / STK' },
-  { value: 'photo', label: 'Focení / marketing' },
-  { value: 'other', label: 'Jiný důvod' },
-]
-
-const SERVICE_CHECKLIST = [
-  { group: 'Motor & olej', items: [
-    { id: 'oil_change', label: 'Výměna oleje' },
-    { id: 'oil_filter', label: 'Výměna olejového filtru' },
-    { id: 'air_filter', label: 'Výměna vzduchového filtru' },
-    { id: 'spark_plugs', label: 'Výměna svíček' },
-    { id: 'coolant', label: 'Kontrola / výměna chladicí kapaliny' },
-    { id: 'engine_noise', label: 'Neobvyklý zvuk motoru' },
-  ]},
-  { group: 'Brzdy & podvozek', items: [
-    { id: 'brake_pads_front', label: 'Brzdové destičky přední' },
-    { id: 'brake_pads_rear', label: 'Brzdové destičky zadní' },
-    { id: 'brake_fluid', label: 'Výměna brzdové kapaliny' },
-    { id: 'brake_discs', label: 'Kontrola brzdových kotoučů' },
-    { id: 'suspension', label: 'Kontrola tlumičů / pružin' },
-  ]},
-  { group: 'Pneumatiky & kola', items: [
-    { id: 'tire_front', label: 'Výměna přední pneumatiky' },
-    { id: 'tire_rear', label: 'Výměna zadní pneumatiky' },
-    { id: 'tire_pressure', label: 'Kontrola tlaku pneumatik' },
-    { id: 'wheel_bearings', label: 'Kontrola ložisek kol' },
-  ]},
-  { group: 'Řetěz & převody', items: [
-    { id: 'chain_adjust', label: 'Seřízení řetězu' },
-    { id: 'chain_replace', label: 'Výměna řetězu + rozet' },
-    { id: 'chain_lube', label: 'Promazání řetězu' },
-  ]},
-  { group: 'Elektrika & světla', items: [
-    { id: 'battery', label: 'Kontrola / výměna baterie' },
-    { id: 'lights', label: 'Kontrola světel' },
-    { id: 'fuses', label: 'Kontrola pojistek' },
-    { id: 'starter', label: 'Problém se startérem' },
-  ]},
-  { group: 'Ostatní', items: [
-    { id: 'stk', label: 'Příprava na STK' },
-    { id: 'clutch', label: 'Kontrola / seřízení spojky' },
-    { id: 'cosmetic', label: 'Kosmetická oprava (lak, plasty)' },
-    { id: 'accident_repair', label: 'Oprava po nehodě' },
-    { id: 'other_repair', label: 'Jiná oprava' },
-  ]},
-]
+import ServiceChecklistView from './ServiceChecklistView'
+import { UNAVAILABLE_REASONS } from './motoActionConstants'
 
 export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
   const [branches, setBranches] = useState([])
   const [selectedBranch, setSelectedBranch] = useState('')
   const [reason, setReason] = useState('')
   const [customReason, setCustomReason] = useState('')
-  const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(null)
-  const [showServiceChecklist, setShowServiceChecklist] = useState(false)
-  const [checkedItems, setCheckedItems] = useState({})
-  const [serviceDateFrom, setServiceDateFrom] = useState(() => new Date().toISOString().slice(0, 10))
-  const [serviceDateTo, setServiceDateTo] = useState('')
-  const [isUrgent, setIsUrgent] = useState(false)
+  const [showChecklist, setShowChecklist] = useState(false)
   const [showReplacement, setShowReplacement] = useState(false)
   const [pendingLogId, setPendingLogId] = useState(null)
-
   const [unavailableUntil, setUnavailableUntil] = useState('')
 
   useEffect(() => {
     if (open) {
       supabase.from('branches').select('id, name').eq('active', true).order('name')
         .then(({ data }) => setBranches(data || []))
-      setSelectedBranch('')
-      setReason('')
-      setCustomReason('')
-      setNote('')
-      setError(null)
-      setSuccess(null)
-      setShowServiceChecklist(false)
-      setCheckedItems({})
-      setIsUrgent(false)
-      setShowReplacement(false)
-      setPendingLogId(null)
+      setSelectedBranch(''); setReason(''); setCustomReason(''); setError(null); setSuccess(null)
+      setShowChecklist(false); setShowReplacement(false); setPendingLogId(null); setUnavailableUntil('')
     }
   }, [open, moto?.id])
 
   if (!open || !moto) return null
 
   async function logAudit(action, details) {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      const { error } = await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action, details })
-      if (error) console.warn('[logAudit] failed:', error.message)
-    } catch (e) { console.warn('[logAudit] error:', e.message) }
+    try { const { data: { user } } = await supabase.auth.getUser()
+      await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action, details })
+    } catch {}
   }
 
   async function handleMigrate() {
@@ -108,433 +42,198 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
     setBusy(true); setError(null)
     try {
       const target = branches.find(b => b.id === selectedBranch)
-      const { error: err } = await supabase.from('motorcycles')
-        .update({ branch_id: selectedBranch }).eq('id', moto.id)
+      const { error: err } = await supabase.from('motorcycles').update({ branch_id: selectedBranch }).eq('id', moto.id)
       if (err) throw err
-      await logAudit('motorcycle_migrated', {
-        moto_id: moto.id, model: moto.model,
-        from_branch: moto.branches?.name || '—', to_branch: target?.name,
-      })
-      setSuccess(`Přesunuto na pobočku ${target?.name}`)
-      onUpdated?.()
-    } catch (e) {
-      setError(e.message)
-    } finally { setBusy(false) }
+      await logAudit('motorcycle_migrated', { moto_id: moto.id, from_branch: moto.branches?.name, to_branch: target?.name })
+      setSuccess(`Přesunuto na ${target?.name}`); onUpdated?.()
+    } catch (e) { setError(e.message) } finally { setBusy(false) }
   }
 
-  function openServiceChecklist() {
-    setShowServiceChecklist(true)
-  }
-
-  async function confirmSendToService() {
-    const selected = Object.entries(checkedItems).filter(([, v]) => v).map(([k]) => k)
-    const selectedLabels = []
-    SERVICE_CHECKLIST.forEach(g => g.items.forEach(i => {
-      if (selected.includes(i.id)) selectedLabels.push(i.label)
-    }))
-
-    // Description = only free text note (checklist items saved in `items` JSONB, no duplication)
-    const fullDescription = note.trim() || null
-
-    if (!fullDescription && selectedLabels.length === 0) {
-      setError('Vyplňte poznámku nebo zaškrtněte alespoň jednu položku')
-      return
-    }
-
-    setShowServiceChecklist(false)
+  async function handleSendToService({ selected, selectedLabels, fullDescription, isUrgent, serviceDateFrom, serviceDateTo }) {
     setBusy(true); setError(null)
     try {
-      // Check truly active bookings (currently rented out)
       const today = new Date().toISOString().slice(0, 10)
-      const { data: activeBookings } = await supabase.from('bookings')
-        .select('id, status, start_date, end_date')
-        .eq('moto_id', moto.id)
-        .eq('status', 'active')
-        .gte('end_date', today)
-      if (activeBookings?.length > 0) {
-        const ok = window.confirm(`Motorka má ${activeBookings.length} aktivní rezervaci (právě pronajatá). Stornovat a přesunout do servisu?`)
-        if (!ok) { setBusy(false); return }
-        for (const b of activeBookings) {
-          await supabase.from('bookings').update({ status: 'cancelled', notes: `Motorka odeslána do servisu` }).eq('id', b.id)
-        }
+      // Check active bookings
+      const { data: active } = await supabase.from('bookings').select('id, status').eq('moto_id', moto.id).eq('status', 'active').gte('end_date', today)
+      if (active?.length > 0) {
+        if (!window.confirm(`Motorka má ${active.length} aktivní pronájem. Stornovat?`)) { setBusy(false); return }
+        for (const b of active) await supabase.from('bookings').update({ status: 'cancelled', notes: 'Motorka do servisu' }).eq('id', b.id)
+      }
+      // Info future reservations
+      const { data: future } = await supabase.from('bookings').select('id, start_date, end_date').eq('moto_id', moto.id).eq('status', 'reserved').gte('end_date', today).order('start_date').limit(5)
+      if (future?.length > 0) {
+        const lines = future.map(b => `  ${new Date(b.start_date).toLocaleDateString('cs-CZ')} – ${new Date(b.end_date).toLocaleDateString('cs-CZ')}`).join('\n')
+        window.alert(`Upozornění — budoucí rezervace (${future.length}):\n${lines}\nMotorka musí být ze servisu zpět včas.`)
       }
 
-      // Check future reserved bookings — just inform, don't block
-      const { data: reservedBookings } = await supabase.from('bookings')
-        .select('id, start_date, end_date')
-        .eq('moto_id', moto.id)
-        .eq('status', 'reserved')
-        .gte('end_date', today)
-        .order('start_date', { ascending: true })
-        .limit(5)
-      let nextReservationInfo = ''
-      if (reservedBookings?.length > 0) {
-        const fmtD = d => new Date(d).toLocaleDateString('cs-CZ')
-        const lines = reservedBookings.map(b => `  ${fmtD(b.start_date)} – ${fmtD(b.end_date)}`).join('\n')
-        nextReservationInfo = `\n\nBudoucí rezervace (${reservedBookings.length}):\n${lines}\n\nMotorka musí být ze servisu zpět včas.`
-        window.alert(`Upozornění: Motorka má budoucí rezervace:${nextReservationInfo}`)
-      }
-
-      const { error: err } = await supabase.from('motorcycles').update({ status: 'maintenance' }).eq('id', moto.id)
-      if (err) throw err
-
-      // DB CHECK constraint: service_type IN ('regular', 'extraordinary', 'repair')
-      // Manual send to service from "Správa motorky" = always extraordinary
-      // (only auto_schedule_services / scheduled plans create 'regular')
-      const serviceType = 'extraordinary'
-
-      const logPayload = {
-        moto_id: moto.id,
-        description: fullDescription,
-        service_type: serviceType,
-        service_date: serviceDateFrom || today,
-        scheduled_date: serviceDateTo || serviceDateFrom || today,
-        km_at_service: Number(moto.mileage) || null,
-        status: 'in_service',
-        is_urgent: isUrgent,
+      await supabase.from('motorcycles').update({ status: 'maintenance' }).eq('id', moto.id)
+      const { data: logData, error: logErr } = await supabase.from('maintenance_log').insert({
+        moto_id: moto.id, description: fullDescription, service_type: 'extraordinary',
+        service_date: serviceDateFrom || today, scheduled_date: serviceDateTo || serviceDateFrom || today,
+        km_at_service: Number(moto.mileage) || null, status: 'in_service', is_urgent: isUrgent,
         items: selectedLabels.map(label => ({ label, done: false, note: '' })),
-      }
-      const { data: logData, error: logErr } = await supabase.from('maintenance_log').insert(logPayload).select('id').single()
-      if (logErr) {
-        console.error('[confirmSendToService] insert failed:', logErr, logPayload)
-        setError(`Servisní záznam se nepodařilo vytvořit: ${logErr.message}`)
-      }
+      }).select('id').single()
+      if (logErr) setError(`Záznam: ${logErr.message}`)
+      await logAudit('motorcycle_status_changed', { moto_id: moto.id, to_status: 'maintenance', is_urgent: isUrgent, checklist: selected })
 
-      await logAudit('motorcycle_status_changed', {
-        moto_id: moto.id, model: moto.model,
-        from_status: moto.status, to_status: 'maintenance',
-        reason: fullDescription, is_urgent: isUrgent,
-        checklist: selected,
-      })
-
-      // Check if >3 days in season → prompt replacement
-      const serviceDays = serviceDateTo && serviceDateFrom
-        ? Math.ceil((new Date(serviceDateTo) - new Date(serviceDateFrom)) / 86400000) : 0
+      // >3 days in season on samoobslužná → replacement
+      const days = serviceDateTo && serviceDateFrom ? Math.ceil((new Date(serviceDateTo) - new Date(serviceDateFrom)) / 86400000) : 0
       const month = new Date().getMonth()
-      const inSeason = month >= 3 && month <= 9
-      const isSamoobsluzna = moto.branches?.type === 'samoobslužná'
-      if (serviceDays > 3 && inSeason && moto.branch_id && isSamoobsluzna) {
-        setPendingLogId(logData?.id)
-        setShowReplacement(true)
-        setBusy(false)
-        return
+      if (days > 3 && month >= 3 && month <= 9 && moto.branch_id && moto.branches?.type === 'samoobslužná') {
+        setPendingLogId(logData?.id); setShowReplacement(true); setShowChecklist(false); setBusy(false); return
       }
-
-      setSuccess('Motorka odeslána do servisu')
-      onUpdated?.()
-    } catch (e) {
-      setError(e.message)
-    } finally { setBusy(false) }
+      setSuccess('Motorka odeslána do servisu'); onUpdated?.()
+    } catch (e) { setError(e.message) } finally { setBusy(false) }
   }
 
   async function handleStatusChange(newStatus) {
     setBusy(true); setError(null)
     try {
       const today = new Date().toISOString().slice(0, 10)
-
       if (newStatus !== 'active' && newStatus !== 'maintenance') {
-        // Only check truly ACTIVE bookings (currently rented out)
-        const { data: activeBookings } = await supabase.from('bookings')
-          .select('id, status, start_date, end_date')
-          .eq('moto_id', moto.id)
-          .eq('status', 'active')
-          .gte('end_date', today)
-
-        if (activeBookings?.length > 0) {
-          const ok = window.confirm(`Motorka má ${activeBookings.length} právě probíhající pronájem. Stornovat a pokračovat?`)
-          if (!ok) { setBusy(false); return }
-          for (const b of activeBookings) {
-            await supabase.from('bookings').update({ status: 'cancelled', notes: `Motorka dočasně nedostupná: ${reason || newStatus}` }).eq('id', b.id)
-          }
+        const { data: active } = await supabase.from('bookings').select('id').eq('moto_id', moto.id).eq('status', 'active').gte('end_date', today)
+        if (active?.length > 0) {
+          if (!window.confirm(`Motorka má ${active.length} pronájem. Stornovat?`)) { setBusy(false); return }
+          for (const b of active) await supabase.from('bookings').update({ status: 'cancelled', notes: `Nedostupná: ${reason || newStatus}` }).eq('id', b.id)
         }
-
-        // Info about future reservations — don't block, just inform
-        const { data: futureBookings } = await supabase.from('bookings')
-          .select('id, start_date, end_date, pickup_time, profiles(full_name)')
-          .eq('moto_id', moto.id)
-          .in('status', ['pending', 'reserved'])
-          .gte('start_date', today)
-          .order('start_date', { ascending: true })
-          .limit(5)
-
-        if (futureBookings?.length > 0) {
-          const fmtD = d => new Date(d).toLocaleDateString('cs-CZ')
-          const lines = futureBookings.map(b =>
-            `  ${b.profiles?.full_name || '?'}: ${fmtD(b.start_date)} ${b.pickup_time || ''} – ${fmtD(b.end_date)}`
-          ).join('\n')
-          window.alert(`Upozornění — nadcházející rezervace (${futureBookings.length}):\n${lines}\n\nMotorka musí být zpět včas.`)
+        const { data: future } = await supabase.from('bookings').select('id, start_date, end_date, profiles(full_name)').eq('moto_id', moto.id).in('status', ['pending', 'reserved']).gte('start_date', today).order('start_date').limit(5)
+        if (future?.length > 0) {
+          const lines = future.map(b => `  ${b.profiles?.full_name || '?'}: ${new Date(b.start_date).toLocaleDateString('cs-CZ')} – ${new Date(b.end_date).toLocaleDateString('cs-CZ')}`).join('\n')
+          window.alert(`Nadcházející rezervace (${future.length}):\n${lines}`)
         }
       }
-
-      const updateData = { status: newStatus }
-      if (newStatus === 'active') updateData.last_service_date = new Date().toISOString().slice(0, 10)
-      // Store unavailable_until for auto-reactivation
-      if (newStatus === 'out_of_service' && unavailableUntil) {
-        updateData.unavailable_until = unavailableUntil
-      }
-      if (newStatus === 'active') {
-        updateData.unavailable_until = null
-      }
-
-      const { error: err } = await supabase.from('motorcycles').update(updateData).eq('id', moto.id)
-      if (err) throw err
-
+      const upd = { status: newStatus }
+      if (newStatus === 'active') { upd.last_service_date = today; upd.unavailable_until = null }
+      if (newStatus === 'out_of_service' && unavailableUntil) upd.unavailable_until = unavailableUntil
+      await supabase.from('motorcycles').update(upd).eq('id', moto.id)
       const reasonText = reason === 'other' ? customReason : UNAVAILABLE_REASONS.find(r => r.value === reason)?.label
-      await logAudit('motorcycle_status_changed', {
-        moto_id: moto.id, model: moto.model,
-        from_status: moto.status, to_status: newStatus,
-        reason: reasonText || note || null,
-        unavailable_until: unavailableUntil || null,
-      })
-
-      const labels = { active: 'Aktivní', maintenance: 'Servis', out_of_service: 'Vyřazeno', unavailable: 'Nedostupná', retired: 'Vyřazena trvale' }
-      setSuccess(`Stav změněn na: ${labels[newStatus] || newStatus}${unavailableUntil ? ` (do ${new Date(unavailableUntil).toLocaleDateString('cs-CZ')})` : ''}`)
+      await logAudit('motorcycle_status_changed', { moto_id: moto.id, from_status: moto.status, to_status: newStatus, reason: reasonText || null, unavailable_until: unavailableUntil || null })
+      const labels = { active: 'Aktivní', maintenance: 'Servis', out_of_service: 'Vyřazeno', retired: 'Vyřazena trvale' }
+      setSuccess(`Stav: ${labels[newStatus] || newStatus}${unavailableUntil ? ` (do ${new Date(unavailableUntil).toLocaleString('cs-CZ')})` : ''}`)
       onUpdated?.()
-    } catch (e) {
-      setError(e.message)
-    } finally { setBusy(false) }
+    } catch (e) { setError(e.message) } finally { setBusy(false) }
+  }
+
+  async function handleDeactivateReplace(replacement) {
+    setBusy(true)
+    if (moto.branch_id && replacement?.id) {
+      await supabase.from('motorcycles').update({ branch_id: moto.branch_id, status: 'active' }).eq('id', replacement.id)
+    }
+    await supabase.from('motorcycles').update({ status: 'out_of_service' }).eq('id', moto.id)
+    await logAudit('moto_deactivated_replaced', { moto_id: moto.id, replacement_id: replacement?.id, branch_id: moto.branch_id })
+    setBusy(false); setSuccess('Deaktivováno, náhrada přiřazena'); onUpdated?.()
   }
 
   const isActive = moto.status === 'active'
   const isMaintenance = moto.status === 'maintenance'
-  const isOutOfService = moto.status === 'out_of_service' || moto.status === 'unavailable'
-
-  const checkedCount = Object.values(checkedItems).filter(Boolean).length
+  const isOut = moto.status === 'out_of_service' || moto.status === 'unavailable'
+  const [showDeactReplace, setShowDeactReplace] = useState(false)
 
   return (
-    <Modal open={open} onClose={showServiceChecklist ? () => setShowServiceChecklist(false) : onClose} title={showServiceChecklist ? `${moto.model} — Servisní checklist` : `${moto.model} — Správa`} wide>
-      {showServiceChecklist ? (
-        /* ═══ SERVISNÍ CHECKLIST ═══ */
-        <div>
-          <div className="mb-4 p-3 rounded-lg" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
-            <div className="text-sm font-bold" style={{ color: '#b45309' }}>
-              Zaškrtněte co je potřeba opravit / zkontrolovat. Můžete přidat i vlastní poznámku.
-            </div>
-          </div>
+    <Modal open={open} onClose={showChecklist ? () => setShowChecklist(false) : onClose}
+      title={showChecklist ? `${moto.model} — Servisní checklist` : `${moto.model} — Správa`} wide>
 
-          <div className="space-y-4 mb-4" style={{ maxHeight: 400, overflowY: 'auto' }}>
-            {SERVICE_CHECKLIST.map(group => (
-              <div key={group.group}>
-                <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>{group.group}</div>
-                <div className="grid grid-cols-2 gap-1">
-                  {group.items.map(item => (
-                    <label key={item.id} className="flex items-center gap-2 p-2 rounded cursor-pointer transition-colors"
-                      style={{ background: checkedItems[item.id] ? '#dcfce7' : '#f1faf7', border: `1px solid ${checkedItems[item.id] ? '#1a8a18' : '#d4e8e0'}` }}>
-                      <input type="checkbox" checked={!!checkedItems[item.id]}
-                        onChange={e => setCheckedItems(c => ({ ...c, [item.id]: e.target.checked }))}
-                        className="accent-[#1a8a18]" style={{ width: 16, height: 16 }} />
-                      <span className="text-sm" style={{ color: '#0f1a14', fontWeight: checkedItems[item.id] ? 700 : 400 }}>{item.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mb-4">
-            <label className="flex items-center gap-2 cursor-pointer p-2 rounded" style={{ background: isUrgent ? '#fef2f2' : '#f1faf7', border: `1px solid ${isUrgent ? '#dc2626' : '#d4e8e0'}` }}>
-              <input type="checkbox" checked={isUrgent} onChange={e => setIsUrgent(e.target.checked)} style={{ accentColor: '#dc2626', width: 18, height: 18 }} />
-              <span className="text-sm font-bold" style={{ color: isUrgent ? '#dc2626' : '#1a2e22' }}>URGENT — Mimořádný/SOS servis</span>
-            </label>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 mb-4">
-            <div>
-              <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Servis od</label>
-              <input type="date" value={serviceDateFrom}
-                onChange={e => setServiceDateFrom(e.target.value)}
-                className="w-full rounded-btn text-sm outline-none"
-                style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
-            </div>
-            <div>
-              <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Plánované dokončení</label>
-              <input type="date" value={serviceDateTo}
-                onChange={e => setServiceDateTo(e.target.value)}
-                min={serviceDateFrom}
-                className="w-full rounded-btn text-sm outline-none"
-                style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
-            </div>
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Doplňující poznámka</label>
-            <textarea value={note} onChange={e => setNote(e.target.value)}
-              placeholder="Popište závadu, okolnosti, další info pro technika…"
-              className="w-full rounded-btn text-sm outline-none"
-              rows={3}
-              style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14', resize: 'vertical' }} />
-          </div>
-
-          {error && <div className="mb-3 p-2 rounded text-sm" style={{ background: '#fee2e2', color: '#dc2626' }}>{error}</div>}
-
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>
-              {checkedCount > 0 ? `Zaškrtnuto: ${checkedCount} položek` : 'Nic nezaškrtnuto'}
-            </span>
-            <div className="flex gap-2">
-              <Button onClick={() => setShowServiceChecklist(false)}>Zpět</Button>
-              <Button green onClick={confirmSendToService} disabled={busy}>
-                {busy ? 'Odesílám…' : 'Odeslat do servisu'}
-              </Button>
-            </div>
-          </div>
+      {showChecklist ? (
+        <ServiceChecklistView moto={moto} onConfirm={handleSendToService} onBack={() => setShowChecklist(false)} busy={busy} error={error} />
+      ) : showReplacement ? (
+        <div className="p-3 rounded-lg" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
+          <div className="text-sm font-bold mb-2" style={{ color: '#b45309' }}>Servis &gt;3 dny v sezóně — vyberte náhradu na {moto.branches?.name || '—'}:</div>
+          <ReplacementMotoPicker branchId={moto.branch_id} excludeMotoId={moto.id}
+            onSelect={async (r) => { if (r?.id && moto.branch_id) { await supabase.from('motorcycles').update({ branch_id: moto.branch_id, status: 'active' }).eq('id', r.id); if (pendingLogId) await supabase.from('maintenance_log').update({ replacement_moto_id: r.id }).eq('id', pendingLogId); await logAudit('moto_replaced_long_service', { moto_id: moto.id, replacement_id: r.id }) }; setShowReplacement(false); setSuccess('Motorka v servisu, náhrada přiřazena'); onUpdated?.() }}
+            onCancel={() => { setShowReplacement(false); setSuccess('Motorka v servisu (bez náhrady)'); onUpdated?.() }} />
+        </div>
+      ) : showDeactReplace ? (
+        <div className="p-3 rounded-lg" style={{ background: '#ede9fe', border: '1px solid #c4b5fd' }}>
+          <div className="text-sm font-bold mb-2" style={{ color: '#7c3aed' }}>Deaktivovat {moto.model} — vyberte náhradu:</div>
+          <ReplacementMotoPicker branchId={moto.branch_id} excludeMotoId={moto.id}
+            onSelect={handleDeactivateReplace} onCancel={() => setShowDeactReplace(false)} />
         </div>
       ) : (
-        /* ═══ HLAVNÍ SPRÁVA ═══ */
         <>
-          {success && (
-            <div className="mb-4 p-3 rounded-card" style={{ background: '#dcfce7', color: '#1a8a18', fontSize: 13 }}>
-              {success}
-            </div>
-          )}
-          {error && (
-            <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>
-              {error}
-            </div>
-          )}
+          {success && <div className="mb-4 p-3 rounded-card" style={{ background: '#dcfce7', color: '#1a8a18', fontSize: 13 }}>{success}</div>}
+          {error && <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
 
           <div className="flex items-center gap-3 mb-5 p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
             <span className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{moto.model}</span>
             <span className="font-mono text-sm" style={{ color: '#1a2e22' }}>{moto.spz}</span>
             <StatusBadge status={moto.status} />
-            {moto.branches?.name && <span className="text-sm ml-auto" style={{ color: '#1a2e22' }}>Pobočka: <b style={{ color: '#0f1a14' }}>{moto.branches.name}</b></span>}
+            {moto.branches?.name && <span className="text-sm ml-auto" style={{ color: '#1a2e22' }}>Pobočka: <b>{moto.branches.name}</b></span>}
           </div>
 
-          {/* Section: Přesun na pobočku */}
+          {/* Přesun */}
           <div className="mb-5">
             <h3 className="text-sm font-extrabold uppercase tracking-widest mb-3" style={{ color: '#1a2e22' }}>Přesunout na pobočku</h3>
             <div className="flex items-center gap-2">
-              <select value={selectedBranch} onChange={e => setSelectedBranch(e.target.value)}
-                className="flex-1 rounded-btn text-sm outline-none"
-                style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>
+              <select value={selectedBranch} onChange={e => setSelectedBranch(e.target.value)} className="flex-1 rounded-btn text-sm outline-none"
+                style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
                 <option value="">— Vyberte cílovou pobočku —</option>
-                {branches.filter(b => b.id !== moto.branch_id).map(b => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
+                {branches.filter(b => b.id !== moto.branch_id).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
-              <Button green onClick={handleMigrate} disabled={!selectedBranch || busy}>
-                {busy ? 'Přesouvám…' : 'Přesunout'}
-              </Button>
+              <Button green onClick={handleMigrate} disabled={!selectedBranch || busy}>{busy ? 'Přesouvám…' : 'Přesunout'}</Button>
             </div>
           </div>
-
           <hr style={{ border: 'none', borderTop: '1px solid #d4e8e0', margin: '20px 0' }} />
 
-          {/* Section: Změna stavu */}
+          {/* Stavy */}
           <div>
             <h3 className="text-sm font-extrabold uppercase tracking-widest mb-3" style={{ color: '#1a2e22' }}>Změnit stav motorky</h3>
-
             <div className="grid grid-cols-2 gap-3">
-              {/* Vrátit do provozu */}
-              {!isActive && (
-                <button onClick={() => handleStatusChange('active')} disabled={busy}
-                  className="p-3 rounded-lg text-left cursor-pointer transition-colors"
-                  style={{ background: '#dcfce7', border: '2px solid #1a8a18', opacity: busy ? 0.5 : 1 }}>
-                  <div className="text-sm font-extrabold mb-1" style={{ color: '#1a8a18' }}>Vrátit do provozu</div>
-                  <div className="text-sm" style={{ color: '#1a2e22' }}>Motorka bude opět k dispozici pro zákazníky</div>
-                </button>
-              )}
-
-              {/* Do servisu — otevře checklist */}
-              {!isMaintenance && (
-                <button onClick={openServiceChecklist} disabled={busy}
-                  className="p-3 rounded-lg text-left cursor-pointer transition-colors"
-                  style={{ background: '#fef3c7', border: '2px solid #b45309', opacity: busy ? 0.5 : 1 }}>
-                  <div className="text-sm font-extrabold mb-1" style={{ color: '#b45309' }}>Odeslat do servisu</div>
-                  <div className="text-sm" style={{ color: '#1a2e22' }}>Otevře checklist závad a údržby</div>
-                </button>
-              )}
-
-              {/* Dočasně vyřadit */}
-              {!isOutOfService && (
-                <button onClick={() => { if (!reason) return; handleStatusChange('out_of_service') }} disabled={busy || !reason}
-                  className="p-3 rounded-lg text-left cursor-pointer transition-colors"
-                  style={{ background: '#ede9fe', border: '2px solid #7c3aed', opacity: (busy || !reason) ? 0.5 : 1 }}>
-                  <div className="text-sm font-extrabold mb-1" style={{ color: '#7c3aed' }}>Dočasně vyřadit</div>
-                  <div className="text-sm" style={{ color: '#1a2e22' }}>Čištění, tankování, přeprava — vyberte důvod níže</div>
-                </button>
-              )}
-
-              {/* Trvale vyřadit */}
-              {moto.status !== 'retired' && (
-                <button onClick={() => { if (window.confirm('Opravdu trvale vyřadit motorku?')) handleStatusChange('retired') }} disabled={busy}
-                  className="p-3 rounded-lg text-left cursor-pointer transition-colors"
-                  style={{ background: '#f3f4f6', border: '2px solid #6b7280', opacity: busy ? 0.5 : 1 }}>
-                  <div className="text-sm font-extrabold mb-1" style={{ color: '#1a2e22' }}>Trvale vyřadit</div>
-                  <div className="text-sm" style={{ color: '#1a2e22' }}>Motorka bude označena jako vyřazena z flotily</div>
-                </button>
-              )}
+              {!isActive && <StatusBtn color="#1a8a18" bg="#dcfce7" onClick={() => handleStatusChange('active')} disabled={busy}
+                title="Vrátit do provozu" desc="Motorka bude opět k dispozici pro zákazníky" />}
+              {!isMaintenance && <StatusBtn color="#b45309" bg="#fef3c7" onClick={() => setShowChecklist(true)} disabled={busy}
+                title="Odeslat do servisu" desc="Otevře checklist závad a údržby" />}
+              {!isOut && <StatusBtn color="#7c3aed" bg="#ede9fe" onClick={() => { if (reason) handleStatusChange('out_of_service') }} disabled={busy || !reason}
+                title="Dočasně vyřadit" desc="Čištění, tankování, přeprava — vyberte důvod níže" />}
+              {moto.status !== 'retired' && <StatusBtn color="#1a2e22" bg="#f3f4f6" onClick={() => { if (window.confirm('Opravdu trvale vyřadit?')) handleStatusChange('retired') }} disabled={busy}
+                title="Trvale vyřadit" desc="Motorka bude označena jako vyřazena z flotily" />}
+              {moto.branch_id && <StatusBtn color="#7c3aed" bg="#ede9fe" onClick={() => setShowDeactReplace(true)} disabled={busy}
+                title="Deaktivovat + nahradit" desc="Vyřadit a přiřadit jinou motorku na pobočku" />}
             </div>
-
             {/* Důvod dočasného vyřazení */}
-            {!isOutOfService && (
-              <div className="mt-4">
-                <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Důvod dočasného vyřazení</label>
-                <div className="flex flex-wrap gap-2">
-                  {UNAVAILABLE_REASONS.map(r => (
-                    <button key={r.value} onClick={() => setReason(r.value)}
-                      className="rounded-btn text-sm font-bold cursor-pointer"
-                      style={{
-                        padding: '6px 12px', border: 'none',
-                        background: reason === r.value ? '#7c3aed' : '#f1faf7',
-                        color: reason === r.value ? '#fff' : '#1a2e22',
-                      }}>
-                      {r.label}
-                    </button>
-                  ))}
-                </div>
-                {reason === 'other' && (
-                  <input value={customReason} onChange={e => setCustomReason(e.target.value)}
-                    placeholder="Zadejte důvod…"
-                    className="w-full mt-2 rounded-btn text-sm outline-none"
-                    style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
-                )}
-                {reason && (
-                  <div className="mt-3">
-                    <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Nedostupná do (datum a čas automatického zařazení zpět)</label>
-                    <input type="datetime-local" value={unavailableUntil}
-                      onChange={e => setUnavailableUntil(e.target.value)}
-                      min={new Date().toISOString().slice(0, 16)}
-                      className="w-full rounded-btn text-sm outline-none"
-                      style={{ padding: '8px 12px', background: '#ede9fe', border: '1px solid #c4b5fd', color: '#0f1a14' }} />
-                    <div className="text-sm mt-1" style={{ color: '#7c3aed' }}>
-                      {unavailableUntil
-                        ? `Motorka bude automaticky zařazena zpět ${new Date(unavailableUntil).toLocaleString('cs-CZ')}`
-                        : 'Nastavte čas — motorka se po uplynutí automaticky vrátí do provozu'}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+            {!isOut && <UnavailableReasonPicker reason={reason} setReason={setReason} customReason={customReason} setCustomReason={setCustomReason} unavailableUntil={unavailableUntil} setUnavailableUntil={setUnavailableUntil} />}
           </div>
-
-          <div className="flex justify-end mt-5">
-            <Button onClick={onClose}>Zavřít</Button>
-          </div>
+          <div className="flex justify-end mt-5"><Button onClick={onClose}>Zavřít</Button></div>
         </>
       )}
+    </Modal>
+  )
+}
 
-      {/* Replacement picker after long service creation */}
-      {showReplacement && (
-        <div className="mt-4 p-3 rounded-lg" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
-          <div className="text-sm font-bold mb-2" style={{ color: '#b45309' }}>
-            Servis trvá více než 3 dny v sezóně — vyberte dočasnou náhradu na pobočku {moto.branches?.name || '—'}:
+function StatusBtn({ color, bg, onClick, disabled, title, desc }) {
+  return (
+    <button onClick={onClick} disabled={disabled} className="p-3 rounded-lg text-left cursor-pointer"
+      style={{ background: bg, border: `2px solid ${color}`, opacity: disabled ? 0.5 : 1 }}>
+      <div className="text-sm font-extrabold mb-1" style={{ color }}>{title}</div>
+      <div className="text-sm" style={{ color: '#1a2e22' }}>{desc}</div>
+    </button>
+  )
+}
+
+function UnavailableReasonPicker({ reason, setReason, customReason, setCustomReason, unavailableUntil, setUnavailableUntil }) {
+  return (
+    <div className="mt-4">
+      <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Důvod dočasného vyřazení</label>
+      <div className="flex flex-wrap gap-2">
+        {UNAVAILABLE_REASONS.map(r => (
+          <button key={r.value} onClick={() => setReason(r.value)} className="rounded-btn text-sm font-bold cursor-pointer"
+            style={{ padding: '6px 12px', border: 'none', background: reason === r.value ? '#7c3aed' : '#f1faf7', color: reason === r.value ? '#fff' : '#1a2e22' }}>
+            {r.label}
+          </button>
+        ))}
+      </div>
+      {reason === 'other' && <input value={customReason} onChange={e => setCustomReason(e.target.value)} placeholder="Zadejte důvod…"
+        className="w-full mt-2 rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />}
+      {reason && (
+        <div className="mt-3">
+          <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Nedostupná do</label>
+          <input type="datetime-local" value={unavailableUntil} onChange={e => setUnavailableUntil(e.target.value)}
+            min={new Date().toISOString().slice(0, 16)} className="w-full rounded-btn text-sm outline-none"
+            style={{ padding: '8px 12px', background: '#ede9fe', border: '1px solid #c4b5fd' }} />
+          <div className="text-sm mt-1" style={{ color: '#7c3aed' }}>
+            {unavailableUntil ? `Auto-návrat ${new Date(unavailableUntil).toLocaleString('cs-CZ')}` : 'Nastavte čas auto-návratu do provozu'}
           </div>
-          <ReplacementMotoPicker branchId={moto.branch_id} excludeMotoId={moto.id}
-            onSelect={async (replacement) => {
-              if (replacement?.id && moto.branch_id) {
-                await supabase.from('motorcycles').update({ branch_id: moto.branch_id, status: 'active' }).eq('id', replacement.id)
-                if (pendingLogId) await supabase.from('maintenance_log').update({ replacement_moto_id: replacement.id }).eq('id', pendingLogId)
-                await logAudit('moto_replaced_long_service', { moto_id: moto.id, replacement_id: replacement.id })
-              }
-              setShowReplacement(false)
-              setSuccess('Motorka v servisu, náhrada přiřazena')
-              onUpdated?.()
-            }}
-            onCancel={() => { setShowReplacement(false); setSuccess('Motorka v servisu (bez náhrady)'); onUpdated?.() }}
-          />
         </div>
       )}
-    </Modal>
+    </div>
   )
 }
