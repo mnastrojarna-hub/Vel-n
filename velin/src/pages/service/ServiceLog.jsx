@@ -103,7 +103,7 @@ export default function ServiceLog() {
             </thead>
             <tbody>
               {logs.map(l => {
-                const startDate = l.scheduled_date || l.created_at
+                const startDate = l.service_date || l.created_at
                 const isExp = expandedLog === l.id
                 return (
                   <LogRow key={l.id} log={l} km={l.km_at_service || l.mileage_at_service} startDate={startDate}
@@ -327,7 +327,7 @@ function ServiceModal({ entry, onClose, onSaved }) {
         labor_hours: Number(form.labor_hours) || null,
         extra_cost: Number(form.extra_cost) || null,
         status: form.status || 'pending',
-        service_date: form.service_from || form.scheduled_date || today,
+        service_date: form.service_from || today,
         scheduled_date: form.scheduled_date || null,
         completed_date: form.completed_date || null,
         items: items.length > 0 ? items : null,
