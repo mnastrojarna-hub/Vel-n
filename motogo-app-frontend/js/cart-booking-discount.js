@@ -20,6 +20,8 @@ async function applyDiscount(){
       if(typeof calcTotalPrice==='function'&&bookingMoto&&bOd&&bDo){
         baseForDiscount=calcTotalPrice(bookingMoto,new Date(bOd.y,bOd.m,bOd.d),new Date(bDo.y,bDo.m,bDo.d));
       } else { baseForDiscount=2600*(bookingDays||1); }
+      // Sleva se aplikuje na celou cenu (pronájem + příslušenství + přistavení)
+      baseForDiscount += (typeof extraTotal!=='undefined'?extraTotal:0) + (typeof deliveryFee!=='undefined'?deliveryFee:0);
 
       var r = await window.supabase.rpc('validate_promo_code', { p_code: code });
       if(r.data && r.data.valid){
@@ -59,6 +61,7 @@ async function applyDiscount(){
     if(typeof calcTotalPrice==='function'&&bookingMoto&&bOd&&bDo){
       base2=calcTotalPrice(bookingMoto,new Date(bOd.y,bOd.m,bOd.d),new Date(bDo.y,bDo.m,bDo.d));
     } else { base2=2600*(bookingDays||1); }
+    base2 += (typeof extraTotal!=='undefined'?extraTotal:0) + (typeof deliveryFee!=='undefined'?deliveryFee:0);
     var disc2=Math.round(base2*pct/100);
     _appliedBookingCodes.push({code:code,type:'promo',id:null,discountAmt:disc2});
     discountAmt=_appliedBookingCodes.reduce(function(s,c){return s+c.discountAmt;},0);
