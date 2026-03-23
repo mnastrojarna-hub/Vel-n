@@ -27,7 +27,7 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
       supabase.from('branches').select('id, name, type, active').order('name')
         .then(({ data }) => setBranches(data || []))
       // Check for open maintenance_log entries
-      supabase.from('maintenance_log').select('id, description, service_date, status')
+      supabase.from('maintenance_log').select('id, description, service_date, scheduled_date, status, items, is_urgent')
         .eq('moto_id', moto.id).is('completed_date', null)
         .then(({ data }) => setOpenLogs(data || []))
       setSelectedBranch(''); setReason(''); setCustomReason(''); setError(null); setSuccess(null)
