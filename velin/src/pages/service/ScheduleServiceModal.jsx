@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
+import ServiceChecklistView from '../../components/fleet/ServiceChecklistView'
 import { SCHEDULE_TYPES, RECURRING_INTERVALS, INSPECTION_ITEMS, WEEKDAYS } from './scheduleConstants'
 
 export default function ScheduleServiceModal({ open, onClose, onDone }) {
@@ -51,53 +52,48 @@ export default function ScheduleServiceModal({ open, onClose, onDone }) {
 /* ═══ Jednorázový servis ═══ */
 function SingleServiceForm({ motos, onBack, onDone }) {
   const [motoId, setMotoId] = useState('')
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
-  const [desc, setDesc] = useState('')
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
 
   const filtered = motos.filter(m => !search || m.model?.toLowerCase().includes(search.toLowerCase()) || m.spz?.toLowerCase().includes(search.toLowerCase()))
   const selected = motos.find(m => m.id === motoId)
 
-  async function submit() {
-    if (!motoId || !date) return
-    setBusy(true)
-    await supabase.from('maintenance_log').insert({
-      moto_id: motoId, description: desc || 'Plánovaný servis',
-      service_type: 'regular', service_date: date, scheduled_date: date,
-      status: 'pending', km_at_service: Number(selected?.mileage) || null,
-    })
-    setBusy(false); onDone?.()
+  async function handleConfirm({ selectedLabels, fullDescription, isUrgent, serviceDateFrom, serviceDateTo }) {
+    if (!motoId) return
+    setBusy(true); setError(null)
+    try {
+      const today = new Date().toISOString().slice(0, 10)
+      await supabase.from('maintenance_log').insert({
+        moto_id: motoId, description: fullDescription || 'Plánovaný servis',
+        service_type: 'extraordinary',
+        service_date: serviceDateFrom || today,
+        scheduled_date: serviceDateTo || serviceDateFrom || today,
+        status: 'pending',
+        km_at_service: Number(selected?.mileage) || null,
+        is_urgent: isUrgent,
+        items: selectedLabels.map(label => ({ label, done: false, note: '' })),
+      })
+      setBusy(false); onDone?.()
+    } catch (e) { setError(e.message); setBusy(false) }
   }
 
   return (
     <div>
-      <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Jednorázový servis</h3>
       {!motoId ? (
-        <MotoPicker motos={filtered} search={search} setSearch={setSearch} onSelect={setMotoId} />
+        <div>
+          <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Vyberte motorku</h3>
+          <MotoPicker motos={filtered} search={search} setSearch={setSearch} onSelect={setMotoId} />
+          <div className="flex justify-end mt-3"><Button onClick={onBack}>Zpět</Button></div>
+        </div>
       ) : (
         <div>
           <div className="flex items-center gap-2 mb-3 p-2 rounded" style={{ background: '#dcfce7', border: '1px solid #1a8a18' }}>
             <span className="font-bold text-sm">{selected?.model}</span>
             <span className="font-mono text-sm">{selected?.spz}</span>
-            <button onClick={() => setMotoId('')} className="ml-auto text-xs cursor-pointer" style={{ color: '#6b7280', background: 'none', border: 'none' }}>Změnit</button>
+            <button onClick={() => setMotoId('')} className="ml-auto text-xs cursor-pointer" style={{ color: '#6b7280', background: 'none', border: 'none' }}>Změnit motorku</button>
           </div>
-          <div className="grid grid-cols-2 gap-3 mb-3">
-            <div>
-              <label className="block text-xs font-bold mb-1" style={{ color: '#1a2e22' }}>Datum servisu</label>
-              <input type="date" value={date} onChange={e => setDate(e.target.value)}
-                className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
-            </div>
-          </div>
-          <div className="mb-4">
-            <label className="block text-xs font-bold mb-1" style={{ color: '#1a2e22' }}>Popis / poznámka</label>
-            <textarea value={desc} onChange={e => setDesc(e.target.value)} placeholder="Co se bude dělat…" rows={2}
-              className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', resize: 'vertical' }} />
-          </div>
-          <div className="flex gap-2 justify-end">
-            <Button onClick={onBack}>Zpět</Button>
-            <Button green onClick={submit} disabled={busy}>{busy ? 'Ukládám…' : 'Naplánovat'}</Button>
-          </div>
+          <ServiceChecklistView moto={selected} onConfirm={handleConfirm} onBack={onBack} busy={busy} error={error} />
         </div>
       )}
     </div>
