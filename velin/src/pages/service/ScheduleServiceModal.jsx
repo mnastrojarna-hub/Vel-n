@@ -15,7 +15,7 @@ export default function ScheduleServiceModal({ open, onClose, onDone }) {
     if (open) {
       setType(null)
       Promise.all([
-        supabase.from('branches').select('id, name, type').eq('active', true).order('name'),
+        supabase.from('branches').select('id, name, type, active').order('name'),
         supabase.from('motorcycles').select('id, model, spz, status, branch_id, mileage, branches(name)').order('model'),
       ]).then(([b, m]) => { setBranches(b.data || []); setAllMotos(m.data || []) })
     }
@@ -43,7 +43,7 @@ export default function ScheduleServiceModal({ open, onClose, onDone }) {
       ) : type === 'inspection_branch' ? (
         <InspectionBranchForm branches={branches} motos={allMotos} onBack={() => setType(null)} onDone={onDone} />
       ) : type === 'recurring' ? (
-        <RecurringForm motos={allMotos} onBack={() => setType(null)} onDone={onDone} />
+        <RecurringForm motos={allMotos} branches={branches} onBack={() => setType(null)} onDone={onDone} />
       ) : null}
     </Modal>
   )
@@ -219,7 +219,7 @@ function InspectionBranchForm({ branches, motos, onBack, onDone }) {
         <select value={branchId} onChange={e => setBranchId(e.target.value)}
           className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
           <option value="">— Vyberte pobočku —</option>
-          {branches.map(b => <option key={b.id} value={b.id}>{b.name} ({b.type})</option>)}
+          {branches.map(b => <option key={b.id} value={b.id}>{b.name} ({b.type}){!b.active ? ' — neaktivní' : ''}</option>)}
         </select>
       </div>
 
@@ -262,7 +262,7 @@ function InspectionBranchForm({ branches, motos, onBack, onDone }) {
 }
 
 /* ═══ Pravidelný servis / kontrola ═══ */
-function RecurringForm({ motos, onBack, onDone }) {
+function RecurringForm({ motos, branches = [], onBack, onDone }) {
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [intervalType, setIntervalType] = useState('days')
   const [intervalValue, setIntervalValue] = useState('')
@@ -271,9 +271,21 @@ function RecurringForm({ motos, onBack, onDone }) {
   const [preferredDays, setPreferredDays] = useState(new Set([1, 2])) // Po, Út default
   const [busy, setBusy] = useState(false)
   const [search, setSearch] = useState('')
+  const [branchFilter, setBranchFilter] = useState('')
 
-  const filtered = motos.filter(m => !search || m.model?.toLowerCase().includes(search.toLowerCase()) || m.spz?.toLowerCase().includes(search.toLowerCase()))
+  const filtered = motos.filter(m => {
+    if (branchFilter && m.branch_id !== branchFilter) return false
+    if (search && !m.model?.toLowerCase().includes(search.toLowerCase()) && !m.spz?.toLowerCase().includes(search.toLowerCase())) return false
+    return true
+  })
   const toggle = id => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  function selectBranch(bId) {
+    setBranchFilter(bId)
+    if (bId) {
+      const branchMotoIds = motos.filter(m => m.branch_id === bId).map(m => m.id)
+      setSelectedIds(new Set(branchMotoIds))
+    }
+  }
   const toggleDay = d => setPreferredDays(prev => { const n = new Set(prev); n.has(d) ? n.delete(d) : n.add(d); return n })
   const interval = RECURRING_INTERVALS.find(i => i.value === intervalType)
 
@@ -305,6 +317,14 @@ function RecurringForm({ motos, onBack, onDone }) {
       <h3 className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Pravidelný servis / kontrola</h3>
       <div className="text-xs mb-3" style={{ color: '#6b7280' }}>Opakovaný plán — systém automaticky naplánuje servisy dle zvoleného intervalu.</div>
 
+      <div className="mb-2">
+        <label className="block text-xs font-bold mb-1" style={{ color: '#1a2e22' }}>Pobočka (vybrat = označí všechny motorky na pobočce)</label>
+        <select value={branchFilter} onChange={e => selectBranch(e.target.value)}
+          className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+          <option value="">— Všechny pobočky —</option>
+          {branches.map(b => <option key={b.id} value={b.id}>{b.name} ({b.type}){!b.active ? ' — neaktivní' : ''}</option>)}
+        </select>
+      </div>
       <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Hledat model / SPZ…"
         className="w-full rounded-btn text-sm outline-none mb-2" style={{ padding: '6px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
       <div style={{ maxHeight: 150, overflowY: 'auto' }} className="space-y-1 mb-3">
@@ -314,6 +334,7 @@ function RecurringForm({ motos, onBack, onDone }) {
             <input type="checkbox" checked={selectedIds.has(m.id)} onChange={() => toggle(m.id)} className="accent-[#1a8a18]" style={{ width: 16, height: 16 }} />
             <span className="font-bold text-sm">{m.model}</span>
             <span className="font-mono text-xs" style={{ color: '#6b7280' }}>{m.spz}</span>
+            <span className="text-xs ml-auto" style={{ color: '#6b7280' }}>{m.branches?.name || '—'}</span>
           </label>
         ))}
       </div>
