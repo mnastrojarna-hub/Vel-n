@@ -7,7 +7,6 @@ import StatusBadge from '../../components/ui/StatusBadge'
 import MotoActionModal from '../../components/fleet/MotoActionModal'
 import ScheduleServiceModal from './ScheduleServiceModal'
 import ServiceLogCard from './ServiceLogCard'
-import ServiceMotoActions from './ServiceMotoActions'
 
 export default function ActiveServiceTab({ onRefresh }) {
   const [motos, setMotos] = useState([])
@@ -15,7 +14,6 @@ export default function ActiveServiceTab({ onRefresh }) {
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState({})
   const [actionMoto, setActionMoto] = useState(null) // for MotoActionModal
-  const [actionPanel, setActionPanel] = useState(null)
   const [showPicker, setShowPicker] = useState(false) // top-level moto picker
   const [showSchedule, setShowSchedule] = useState(false) // schedule modal
   const [allMotos, setAllMotos] = useState([])
@@ -125,16 +123,10 @@ export default function ActiveServiceTab({ onRefresh }) {
               </div>
               <StatusBadge status={isStuck ? m.status : 'maintenance'} />
               {mLogs.length > 0 && <span className="text-sm font-bold" style={{ color: '#b45309' }}>{mLogs.length} záznam{mLogs.length > 1 ? 'y' : ''}</span>}
-              <button onClick={e => { e.stopPropagation(); setActionPanel(actionPanel === m.id ? null : m.id) }}
-                className="rounded-btn text-sm font-extrabold uppercase cursor-pointer"
-                style={{ padding: '4px 10px', background: '#fef3c7', color: '#b45309', border: 'none' }}>Akce</button>
               <button onClick={e => { e.stopPropagation(); setActionMoto(m) }}
                 className="rounded-btn text-sm font-extrabold uppercase cursor-pointer"
                 style={{ padding: '4px 10px', background: '#dbeafe', color: '#2563eb', border: 'none' }}>Správa</button>
             </div>
-            {actionPanel === m.id && (
-              <div className="mt-3"><ServiceMotoActions moto={m} logs={mLogs} onDone={() => { setActionPanel(null); load(); onRefresh?.() }} /></div>
-            )}
             {isExp && (
               <div className="mt-4 space-y-3">
                 {mLogs.length > 0 ? mLogs.map(l => (
