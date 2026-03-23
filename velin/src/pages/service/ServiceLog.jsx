@@ -168,10 +168,10 @@ function LogRow({ log: l, km, startDate, isExpanded, onToggle, onEdit, fmt }) {
               <span className="font-extrabold">Servisní záznam: </span>
               {l.description || <span style={{ color: '#9ca3af' }}>Bez popisu</span>}
             </div>
-            {l.planned_end && (
+            {l.scheduled_date && (
               <div className="text-sm mt-1" style={{ color: '#1a2e22' }}>
                 <span className="font-extrabold">Plánované dokončení: </span>
-                {new Date(l.planned_end).toLocaleDateString('cs-CZ')}
+                {new Date(l.scheduled_date).toLocaleDateString('cs-CZ')}
               </div>
             )}
             <button onClick={e => { e.stopPropagation(); onEdit() }}
@@ -215,19 +215,28 @@ const SERVICE_CHECKLIST = [
 
 function ServiceModal({ entry, onClose, onSaved }) {
   const [motos, setMotos] = useState([])
+  const [employees, setEmployees] = useState([])
   // Parse existing items from entry
   const existingChecked = new Set()
   if (entry?.items && Array.isArray(entry.items)) {
     entry.items.forEach(it => existingChecked.add(it.label))
   }
   const [form, setForm] = useState(entry ? {
-    moto_id: entry.moto_id || '', type: entry.type || '', scheduled_date: entry.scheduled_date || '',
+    moto_id: entry.moto_id || '', type: entry.type || '',
+    scheduled_date: entry.scheduled_date || '',
     completed_date: entry.completed_date || '', description: entry.description || '',
-    cost: entry.cost || '', performed_by: entry.performed_by || '', status: entry.status || 'pending',
+    cost: entry.cost || '', performed_by: entry.performed_by || '',
+    technician_id: entry.technician_id || '',
+    status: entry.status || 'pending',
     mileage_at_service: entry.mileage_at_service || entry.km_at_service || '',
-    service_from: entry.service_date || '', planned_end: entry.planned_end || '',
-    extra_note: entry.extra_note || '',
-  } : { moto_id: '', type: '', scheduled_date: '', completed_date: '', description: '', cost: '', performed_by: '', status: 'pending', mileage_at_service: '', service_from: '', planned_end: '', extra_note: '' })
+    service_from: entry.service_date || '',
+    labor_hours: entry.labor_hours || '',
+    extra_cost: entry.extra_cost || '',
+  } : {
+    moto_id: '', type: '', scheduled_date: '', completed_date: '', description: '',
+    cost: '', performed_by: '', technician_id: '', status: 'pending',
+    mileage_at_service: '', service_from: '', labor_hours: '', extra_cost: '',
+  })
   const [checkedItems, setCheckedItems] = useState(() => {
     const m = {}
     SERVICE_CHECKLIST.forEach(cat => cat.items.forEach(it => { m[it] = existingChecked.has(it) }))
@@ -237,11 +246,35 @@ function ServiceModal({ entry, onClose, onSaved }) {
   const [err, setErr] = useState(null)
 
   useEffect(() => {
-    supabase.from('motorcycles').select('id, model, spz').order('model').then(({ data }) => setMotos(data || []))
+    supabase.from('motorcycles').select('id, model, spz, tracking_unit, mileage').order('model').then(({ data }) => setMotos(data || []))
+    supabase.from('acc_employees').select('id, name, position, hourly_rate').order('name').then(({ data }) => setEmployees(data || []))
   }, [])
+
+  const selectedMoto = motos.find(m => m.id === form.moto_id)
+  const unitLabel = selectedMoto?.tracking_unit === 'mh' ? 'MH' : 'km'
+  const selectedEmployee = employees.find(e => e.id === form.technician_id)
+
+  // Auto-calculate cost
+  const laborCost = (Number(form.labor_hours) || 0) * (selectedEmployee?.hourly_rate || 500)
+  const extraCost = Number(form.extra_cost) || 0
+  const calculatedCost = laborCost + extraCost
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const toggleCheck = (label) => setCheckedItems(c => ({ ...c, [label]: !c[label] }))
+
+  function handleSelectTechnician(val) {
+    if (val === '__external__') {
+      set('technician_id', '')
+      set('performed_by', '')
+    } else if (val) {
+      const emp = employees.find(e => e.id === val)
+      set('technician_id', val)
+      set('performed_by', emp?.name || '')
+    } else {
+      set('technician_id', '')
+      set('performed_by', '')
+    }
+  }
 
   // Build items array from checked checkboxes
   function buildItems() {
@@ -262,24 +295,25 @@ function ServiceModal({ entry, onClose, onSaved }) {
       debugLog('ServiceLog', 'handleSave', { isEdit: !!entry, moto_id: form.moto_id })
       const TYPE_TO_SERVICE = { oil_change: 'regular', tire_change: 'regular', brake_check: 'regular', full_service: 'regular', inspection: 'regular', repair: 'repair' }
       const items = buildItems()
-      // Description = only free text (checklist items are in `items` JSONB, no duplication)
       const fullDescription = form.description?.trim() || null
+      const finalCost = Number(form.cost) || calculatedCost || null
 
       const payload = {
         moto_id: form.moto_id,
         type: form.type || null,
         service_type: TYPE_TO_SERVICE[form.type] || 'repair',
         description: fullDescription,
-        cost: Number(form.cost) || null,
+        cost: finalCost,
         km_at_service: Number(form.mileage_at_service) || null,
         performed_by: form.performed_by || null,
+        technician_id: form.technician_id || null,
+        labor_hours: Number(form.labor_hours) || null,
+        extra_cost: Number(form.extra_cost) || null,
         status: form.status || 'pending',
         service_date: form.service_from || form.scheduled_date || new Date().toISOString().slice(0, 10),
-        scheduled_date: form.scheduled_date || form.service_from || null,
+        scheduled_date: form.scheduled_date || null,
         completed_date: form.completed_date || null,
         items: items.length > 0 ? items : null,
-        planned_end: form.planned_end || null,
-        extra_note: form.extra_note || null,
       }
       if (entry) {
         const { error } = await debugAction('maintenance_log.update', 'ServiceLog', () =>
@@ -327,17 +361,67 @@ function ServiceModal({ entry, onClose, onSaved }) {
           </select>
         </div>
         <div><Label>Servis od</Label><input type="date" value={form.service_from} onChange={e => set('service_from', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
-        <div><Label>Plánované dokončení</Label><input type="date" value={form.planned_end} onChange={e => set('planned_end', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
-        <div><Label>Plánované datum</Label><input type="date" value={form.scheduled_date} onChange={e => set('scheduled_date', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
-        <div><Label>Skutečné datum</Label><input type="date" value={form.completed_date} onChange={e => set('completed_date', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
-        <div><Label>Km při servisu</Label><input type="number" value={form.mileage_at_service} onChange={e => set('mileage_at_service', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
-        <div><Label>Náklady (Kč)</Label><input type="number" value={form.cost} onChange={e => set('cost', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
-        <div className="col-span-2"><Label>Technik</Label><input type="text" value={form.performed_by} onChange={e => set('performed_by', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
+        <div><Label>Plánované dokončení</Label><input type="date" value={form.scheduled_date} onChange={e => set('scheduled_date', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
+        <div><Label>Skutečné dokončení</Label><input type="date" value={form.completed_date} onChange={e => set('completed_date', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
+        <div><Label>{unitLabel} při servisu</Label><input type="number" value={form.mileage_at_service} onChange={e => set('mileage_at_service', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} placeholder={selectedMoto ? String(selectedMoto.mileage || '') : ''} /></div>
+      </div>
+
+      {/* ═══ Technik ═══ */}
+      <div className="mt-4">
+        <Label>Technik</Label>
+        <div className="grid grid-cols-2 gap-3">
+          <select value={form.technician_id || (form.performed_by && !form.technician_id ? '__external__' : '')}
+            onChange={e => handleSelectTechnician(e.target.value)}
+            className="w-full rounded-btn text-sm outline-none" style={inputStyle}>
+            <option value="">— Vyberte technika —</option>
+            {employees.map(e => <option key={e.id} value={e.id}>{e.name}{e.position ? ` (${e.position})` : ''} — {e.hourly_rate || 500} Kč/h</option>)}
+            <option value="__external__">Externí technik</option>
+          </select>
+          {(form.technician_id === '' && form.performed_by !== '') || (!form.technician_id && form.performed_by) ? (
+            <input type="text" value={form.performed_by} onChange={e => set('performed_by', e.target.value)}
+              className="w-full rounded-btn text-sm outline-none" style={inputStyle} placeholder="Jméno externího technika…" />
+          ) : (
+            <div className="text-sm flex items-center" style={{ color: '#6b7280' }}>
+              {selectedEmployee ? `Sazba: ${selectedEmployee.hourly_rate || 500} Kč/h` : 'Vyberte technika'}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ═══ Náklady ═══ */}
+      <div className="mt-4">
+        <Label>Náklady</Label>
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <div className="text-xs font-bold mb-1" style={{ color: '#6b7280' }}>Hodiny práce</div>
+            <input type="number" step="0.5" min="0" value={form.labor_hours} onChange={e => set('labor_hours', e.target.value)}
+              className="w-full rounded-btn text-sm outline-none" style={inputStyle} placeholder="0" />
+          </div>
+          <div>
+            <div className="text-xs font-bold mb-1" style={{ color: '#6b7280' }}>Extra náklady (Kč)</div>
+            <input type="number" min="0" value={form.extra_cost} onChange={e => set('extra_cost', e.target.value)}
+              className="w-full rounded-btn text-sm outline-none" style={inputStyle} placeholder="0" />
+          </div>
+          <div>
+            <div className="text-xs font-bold mb-1" style={{ color: '#6b7280' }}>Celkem (Kč)</div>
+            <input type="number" min="0" value={form.cost} onChange={e => set('cost', e.target.value)}
+              className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, background: form.cost ? '#fff' : '#f1faf7' }}
+              placeholder={calculatedCost ? String(calculatedCost) : '0'} />
+            {calculatedCost > 0 && !form.cost && (
+              <div className="text-xs mt-1" style={{ color: '#1a8a18' }}>
+                Kalkulace: {laborCost > 0 ? `${Number(form.labor_hours)}h × ${selectedEmployee?.hourly_rate || 500} = ${laborCost} Kč` : ''}
+                {laborCost > 0 && extraCost > 0 ? ' + ' : ''}{extraCost > 0 ? `extra ${extraCost} Kč` : ''}
+                {calculatedCost > 0 ? ` = ${calculatedCost} Kč` : ''}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="text-xs mt-1" style={{ color: '#9ca3af' }}>Ponechte celkem prázdné pro automatický výpočet z hodin a extra nákladů. Vyplněním přepíšete kalkulaci.</div>
       </div>
 
       {/* ═══ Servisní checklist ═══ */}
       <div className="mt-4">
-        <Label>Škrtněte co je potřeba opravit / zkontrolovat {checkedCount > 0 && <span style={{ color: '#1a8a18' }}>({checkedCount} vybráno)</span>}</Label>
+        <Label>Zaškrtněte co je potřeba opravit / zkontrolovat {checkedCount > 0 && <span style={{ color: '#1a8a18' }}>({checkedCount} vybráno)</span>}</Label>
         <div className="grid grid-cols-2 gap-3 mt-2">
           {SERVICE_CHECKLIST.map(cat => (
             <div key={cat.category} className="p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
@@ -360,15 +444,9 @@ function ServiceModal({ entry, onClose, onSaved }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 mt-4">
-        <div>
-          <Label>Servisní záznam (volný text)</Label>
-          <textarea value={form.description} onChange={e => set('description', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} placeholder="Popište co vše se opravovalo / vyměnilo…" />
-        </div>
-        <div>
-          <Label>Doplňující poznámka</Label>
-          <textarea value={form.extra_note} onChange={e => set('extra_note', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 50, resize: 'vertical' }} placeholder="Vlastní poznámka k servisu…" />
-        </div>
+      <div className="mt-4">
+        <Label>Popis servisu</Label>
+        <textarea value={form.description} onChange={e => set('description', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} placeholder="Popište co vše se opravovalo / vyměnilo…" />
       </div>
 
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}

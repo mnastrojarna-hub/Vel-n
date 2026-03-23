@@ -4,7 +4,7 @@ const STATUS_MAP = {
   active: { label: 'Aktivní', color: '#1a8a18', bg: '#dcfce7' },
   upcoming: { label: 'Nadcházející', color: '#7c3aed', bg: '#ede9fe' },
   maintenance: { label: 'Servis', color: '#b45309', bg: '#fef3c7' },
-  out_of_service: { label: 'Vyřazeno', color: '#dc2626', bg: '#fee2e2' },
+  out_of_service: { label: 'Mimo provoz', color: '#7c3aed', bg: '#ede9fe' },
   unavailable: { label: 'Nedostupná', color: '#7c3aed', bg: '#ede9fe' },
   retired: { label: 'Vyřazena trvale', color: '#1a2e22', bg: '#f3f4f6' },
   pending: { label: 'Čekající', color: '#b45309', bg: '#fef3c7' },

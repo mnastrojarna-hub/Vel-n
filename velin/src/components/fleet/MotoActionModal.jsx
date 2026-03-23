@@ -150,7 +150,7 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
       await supabase.from('motorcycles').update(upd).eq('id', moto.id)
       const reasonText = reason === 'other' ? customReason : UNAVAILABLE_REASONS.find(r => r.value === reason)?.label
       await logAudit('motorcycle_status_changed', { moto_id: moto.id, from_status: moto.status, to_status: newStatus, reason: reasonText || null })
-      const labels = { active: 'Aktivní', maintenance: 'Servis', out_of_service: 'Vyřazeno', retired: 'Vyřazena trvale' }
+      const labels = { active: 'Aktivní', maintenance: 'Servis', out_of_service: 'Mimo provoz', retired: 'Vyřazena trvale' }
       setSuccess(`Stav: ${labels[newStatus] || newStatus}${unavailableUntil ? ` (do ${new Date(unavailableUntil).toLocaleString('cs-CZ')})` : ''}`)
       onUpdated?.()
     } catch (e) { setError(e.message) } finally { setBusy(false) }
@@ -257,6 +257,11 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
               {isActive && hasOpenLogs && (
                 <StatusBtn color="#1a8a18" bg="#dcfce7" onClick={handleCloseServiceAndActivate} disabled={busy}
                   title="Ukončit servis" desc={`Uzavře ${openLogs.length} otevřený servisní záznam(y)`} />
+              )}
+              {/* Vrátit do servisu — for out_of_service/retired motos */}
+              {(isOut || moto.status === 'retired') && (
+                <StatusBtn color="#b45309" bg="#fef3c7" onClick={() => handleStatusChange('maintenance')} disabled={busy}
+                  title="Vrátit do servisu" desc="Přesunout motorku zpět do servisu" />
               )}
               {/* Odeslat do servisu / Upravit servisní plán */}
               {hasOpenLogs ? (
