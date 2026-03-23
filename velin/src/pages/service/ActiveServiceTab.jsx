@@ -150,7 +150,9 @@ function NoLogCard({ motoId, onReload }) {
 
   async function create() {
     if (!desc.trim()) return; setSaving(true)
-    await supabase.from('maintenance_log').insert({ moto_id: motoId, description: desc.trim(), service_type: 'repair', service_date: new Date().toISOString().slice(0, 10) })
+    const today = new Date().toISOString().slice(0, 10)
+    await supabase.from('motorcycles').update({ status: 'maintenance' }).eq('id', motoId)
+    await supabase.from('maintenance_log').insert({ moto_id: motoId, description: desc.trim(), service_type: 'repair', service_date: today, status: 'in_service' })
     setSaving(false); onReload()
   }
   async function endDirect() {

@@ -64,12 +64,26 @@ function SingleServiceForm({ motos, onBack, onDone }) {
     setBusy(true); setError(null)
     try {
       const today = new Date().toISOString().slice(0, 10)
+      // Check active bookings
+      const { data: active } = await supabase.from('bookings').select('id, status, profiles(full_name)').eq('moto_id', motoId).eq('status', 'active').gte('end_date', today)
+      if (active?.length > 0) {
+        const names = active.map(b => b.profiles?.full_name || '?').join(', ')
+        if (!window.confirm(`Motorka má ${active.length} aktivní pronájem (${names}). Pokračovat? Zákazníkovi bude potřeba nabídnout náhradu.`)) { setBusy(false); return }
+      }
+      // Warn about future reservations
+      const { data: future } = await supabase.from('bookings').select('id, start_date, end_date, profiles(full_name)').eq('moto_id', motoId).in('status', ['pending', 'reserved']).gte('start_date', today).order('start_date').limit(5)
+      if (future?.length > 0) {
+        const lines = future.map(b => `  ${b.profiles?.full_name || '?'}: ${new Date(b.start_date).toLocaleDateString('cs-CZ')} – ${new Date(b.end_date).toLocaleDateString('cs-CZ')}`).join('\n')
+        window.alert(`Upozornění — nadcházející rezervace (${future.length}):\n${lines}\nMotorka musí být ze servisu zpět včas, nebo nabídněte náhradu.`)
+      }
+      // Set motorcycle to maintenance
+      await supabase.from('motorcycles').update({ status: 'maintenance' }).eq('id', motoId)
       await supabase.from('maintenance_log').insert({
         moto_id: motoId, description: fullDescription || 'Plánovaný servis',
         service_type: 'extraordinary',
         service_date: serviceDateFrom || today,
-        scheduled_date: serviceDateTo || serviceDateFrom || today,
-        status: 'pending',
+        scheduled_date: serviceDateTo || null,
+        status: 'in_service',
         km_at_service: Number(selected?.mileage) || null,
         is_urgent: isUrgent,
         items: selectedLabels.map(label => ({ label, done: false, note: '' })),

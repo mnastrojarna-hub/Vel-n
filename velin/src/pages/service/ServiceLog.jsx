@@ -297,6 +297,23 @@ function ServiceModal({ entry, onClose, onSaved }) {
       const items = buildItems()
       const fullDescription = form.description?.trim() || null
       const finalCost = Number(form.cost) || calculatedCost || null
+      const today = new Date().toISOString().slice(0, 10)
+      const isNewService = !entry
+      const shouldSetMaintenance = (form.status === 'in_service' || form.status === 'pending') && form.moto_id
+
+      // For new service or status change → check reservations
+      if (isNewService && shouldSetMaintenance) {
+        const { data: active } = await supabase.from('bookings').select('id, status, profiles(full_name)').eq('moto_id', form.moto_id).eq('status', 'active').gte('end_date', today)
+        if (active?.length > 0) {
+          const names = active.map(b => b.profiles?.full_name || '?').join(', ')
+          if (!window.confirm(`Motorka má ${active.length} aktivní pronájem (${names}). Pokračovat? Zákazníkovi bude potřeba nabídnout náhradu.`)) { setSaving(false); return }
+        }
+        const { data: future } = await supabase.from('bookings').select('id, start_date, end_date, profiles(full_name)').eq('moto_id', form.moto_id).in('status', ['pending', 'reserved']).gte('start_date', today).order('start_date').limit(5)
+        if (future?.length > 0) {
+          const lines = future.map(b => `  ${b.profiles?.full_name || '?'}: ${new Date(b.start_date).toLocaleDateString('cs-CZ')} – ${new Date(b.end_date).toLocaleDateString('cs-CZ')}`).join('\n')
+          window.alert(`Upozornění — nadcházející rezervace (${future.length}):\n${lines}\nMotorka musí být ze servisu zpět včas, nebo nabídněte náhradu.`)
+        }
+      }
 
       const payload = {
         moto_id: form.moto_id,
@@ -310,7 +327,7 @@ function ServiceModal({ entry, onClose, onSaved }) {
         labor_hours: Number(form.labor_hours) || null,
         extra_cost: Number(form.extra_cost) || null,
         status: form.status || 'pending',
-        service_date: form.service_from || form.scheduled_date || new Date().toISOString().slice(0, 10),
+        service_date: form.service_from || form.scheduled_date || today,
         scheduled_date: form.scheduled_date || null,
         completed_date: form.completed_date || null,
         items: items.length > 0 ? items : null,
@@ -324,8 +341,11 @@ function ServiceModal({ entry, onClose, onSaved }) {
           supabase.from('maintenance_log').insert(payload))
         if (error) throw error
       }
+      // Set motorcycle status based on service status
       if (form.status === 'completed' && form.moto_id) {
-        await supabase.from('motorcycles').update({ status: 'active', last_service_date: new Date().toISOString().slice(0, 10) }).eq('id', form.moto_id)
+        await supabase.from('motorcycles').update({ status: 'active', last_service_date: today }).eq('id', form.moto_id)
+      } else if (shouldSetMaintenance) {
+        await supabase.from('motorcycles').update({ status: 'maintenance' }).eq('id', form.moto_id)
       }
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: entry ? 'service_updated' : 'service_created', details: { moto_id: form.moto_id } })
