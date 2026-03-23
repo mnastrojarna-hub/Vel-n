@@ -68,6 +68,86 @@ async function renderProfile(){
   } catch(e){ console.error('renderProfile error:', e); }
 }
 
+// ===== POBOČKY =====
+var _branchesLoaded = false;
+async function loadBranches(){
+  if(_branchesLoaded) return;
+  _branchesLoaded = true;
+  renderBranches();
+}
+
+async function renderBranches(){
+  var wrap = document.getElementById('branches-list');
+  if(!wrap) return;
+  if(!window.supabase){
+    wrap.innerHTML = '<div style="padding:8px;font-size:12px;color:var(--g400);">Pobočky nejsou dostupné offline</div>';
+    return;
+  }
+  try {
+    var r = await window.supabase.from('branches').select('id, name, address, city, phone, email, opening_hours, gps_lat, gps_lng, is_open, type').eq('active', true).order('name');
+    if(!r.data || r.data.length === 0){
+      wrap.innerHTML = '<div style="padding:12px;text-align:center;font-size:12px;color:var(--g400);">Žádné pobočky</div>';
+      return;
+    }
+    var html = '';
+    r.data.forEach(function(b){
+      var statusColor = b.is_open ? '#16a34a' : '#b91c1c';
+      var statusText = b.is_open ? 'Otevřeno' : 'Zavřeno';
+      var typeLabel = b.type ? ' · ' + b.type : '';
+      var phoneHtml = b.phone ? '<a href="tel:'+b.phone+'" style="color:var(--gd);font-size:12px;font-weight:600;text-decoration:none;">'+b.phone+'</a>' : '';
+      var emailHtml = b.email ? '<a href="mailto:'+b.email+'" style="color:var(--gd);font-size:11px;text-decoration:none;">'+b.email+'</a>' : '';
+      var hoursHtml = '';
+      if(b.opening_hours){
+        var h = typeof b.opening_hours === 'string' ? b.opening_hours : _formatHours(b.opening_hours);
+        hoursHtml = '<div style="font-size:11px;color:var(--g400);margin-top:4px;">'+h+'</div>';
+      }
+      var hasGps = b.gps_lat && b.gps_lng;
+      var navBtn = hasGps ? '<button onclick="event.stopPropagation();navigateToBranch('+b.gps_lat+','+b.gps_lng+',\''+_escHtml(b.name)+'\')" style="background:var(--green);color:#fff;border:none;border-radius:50px;padding:8px 16px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;margin-top:8px;width:100%;">📍 Navigovat</button>' : '';
+      var addrBtn = '<button onclick="event.stopPropagation();navigateToAddress(\''+_escHtml((b.address||'')+', '+(b.city||''))+'\')" style="background:var(--gp);color:var(--gd);border:1px solid var(--green);border-radius:50px;padding:8px 16px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;margin-top:6px;width:100%;">🗺️ Otevřít v mapách</button>';
+      html += '<div style="background:#fff;border-radius:var(--rsm);padding:12px;margin-bottom:8px;border:1px solid var(--g200);">' +
+        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">' +
+        '<div style="font-size:24px;">🏪</div>' +
+        '<div style="flex:1;"><div style="font-size:14px;font-weight:800;color:var(--black);">'+b.name+'</div>' +
+        '<div style="font-size:11px;color:var(--g400);font-weight:500;">'+((b.address||'')+(b.city?', '+b.city:''))+typeLabel+'</div></div>' +
+        '<span style="font-size:10px;font-weight:800;color:'+statusColor+';background:'+(b.is_open?'#dcfce7':'#fee2e2')+';padding:3px 8px;border-radius:10px;">'+statusText+'</span></div>' +
+        (phoneHtml || emailHtml ? '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:4px;">'+phoneHtml+(emailHtml?' · '+emailHtml:'')+'</div>' : '') +
+        hoursHtml +
+        (hasGps ? navBtn : addrBtn) +
+        '</div>';
+    });
+    wrap.innerHTML = html;
+  } catch(e){ wrap.innerHTML = '<div style="padding:8px;font-size:12px;color:var(--red);">Chyba při načítání poboček</div>'; }
+}
+
+function _escHtml(s){ return (s||'').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+
+function _formatHours(h){
+  if(typeof h === 'string') return h;
+  if(!h || typeof h !== 'object') return '';
+  var days = {mo:'Po',tu:'Út',we:'St',th:'Čt',fr:'Pá',sa:'So',su:'Ne'};
+  var parts = [];
+  Object.keys(days).forEach(function(k){ if(h[k]) parts.push(days[k]+' '+h[k]); });
+  return parts.join(' · ') || '';
+}
+
+function navigateToBranch(lat, lng, name){
+  var url = 'https://www.google.com/maps/dir/?api=1&destination='+lat+','+lng;
+  if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser){
+    window.Capacitor.Plugins.Browser.open({ url: url });
+  } else {
+    window.open(url, '_blank');
+  }
+}
+
+function navigateToAddress(address){
+  var url = 'https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(address);
+  if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser){
+    window.Capacitor.Plugins.Browser.open({ url: url });
+  } else {
+    window.open(url, '_blank');
+  }
+}
+
 async function doSaveProfile(){
   try {
     // Parse Czech date "D. M. YYYY" back to ISO "YYYY-MM-DD"

@@ -46,6 +46,12 @@ Templates['s-profile'] = `  <div class="prof-hdr">
     <div class="mi" onclick="goTo('s-invoices')"><div class="mii">🧾</div><div class="mit" id="prof-lbl-invoices">Faktury a vyúčtování</div><div class="mia">›</div></div>
     <div class="mi" onclick="goTo('s-contracts')"><div class="mii">📄</div><div class="mit" id="prof-lbl-contracts">Dokumenty a smlouvy</div><div class="mia">›</div></div>
     <div id="profile-documents" style="display:none;"></div>
+    <div class="mi" onclick="toggleExpand('exp-pobocky','arr-pobocky');loadBranches()"><div class="mii" style="background:#e8f5e9;">📍</div><div class="mit" id="prof-lbl-branches">Pobočky</div><div class="mia" id="arr-pobocky">›</div></div>
+    <div class="mi-expand" id="exp-pobocky">
+      <div id="branches-list" style="margin-bottom:4px;">
+        <div style="text-align:center;padding:12px;color:var(--g400);font-size:12px;">Načítám pobočky...</div>
+      </div>
+    </div>
     <div class="mi" onclick="toggleExpand('exp-platba','arr-platba');loadPaymentMethods()"><div class="mii">💳</div><div class="mit" id="prof-lbl-pay">Platební metody</div><div class="mia" id="arr-platba">›</div></div>
     <div class="mi-expand" id="exp-platba">
       <div id="pm-cards-list" style="margin-bottom:8px;">
