@@ -1,13 +1,36 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Button from '../ui/Button'
 import { SERVICE_CHECKLIST } from './motoActionConstants'
 
-export default function ServiceChecklistView({ moto, onConfirm, onBack, busy, error }) {
-  const [checkedItems, setCheckedItems] = useState({})
-  const [isUrgent, setIsUrgent] = useState(false)
-  const [serviceDateFrom, setServiceDateFrom] = useState(() => new Date().toISOString().slice(0, 10))
-  const [serviceDateTo, setServiceDateTo] = useState('')
-  const [note, setNote] = useState('')
+// Build reverse map: label → id for pre-filling from existing log items
+const LABEL_TO_ID = {}
+SERVICE_CHECKLIST.forEach(g => g.items.forEach(i => { LABEL_TO_ID[i.label] = i.id }))
+
+export default function ServiceChecklistView({ moto, onConfirm, onBack, busy, error, initialData, editMode }) {
+  // Pre-fill from initialData (existing maintenance_log entry)
+  const defaults = useMemo(() => {
+    if (!initialData) return { checks: {}, urgent: false, from: new Date().toISOString().slice(0, 10), to: '', note: '' }
+    const checks = {}
+    if (initialData.items?.length > 0) {
+      for (const item of initialData.items) {
+        const id = LABEL_TO_ID[item.label]
+        if (id) checks[id] = true
+      }
+    }
+    return {
+      checks,
+      urgent: !!initialData.is_urgent,
+      from: initialData.service_date?.slice(0, 10) || new Date().toISOString().slice(0, 10),
+      to: initialData.scheduled_date?.slice(0, 10) || '',
+      note: initialData.description || '',
+    }
+  }, [initialData])
+
+  const [checkedItems, setCheckedItems] = useState(defaults.checks)
+  const [isUrgent, setIsUrgent] = useState(defaults.urgent)
+  const [serviceDateFrom, setServiceDateFrom] = useState(defaults.from)
+  const [serviceDateTo, setServiceDateTo] = useState(defaults.to)
+  const [note, setNote] = useState(defaults.note)
 
   const checkedCount = Object.values(checkedItems).filter(Boolean).length
 
@@ -24,9 +47,9 @@ export default function ServiceChecklistView({ moto, onConfirm, onBack, busy, er
 
   return (
     <div>
-      <div className="mb-4 p-3 rounded-lg" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
-        <div className="text-sm font-bold" style={{ color: '#b45309' }}>
-          Zaškrtněte co je potřeba opravit / zkontrolovat. Můžete přidat i vlastní poznámku.
+      <div className="mb-4 p-3 rounded-lg" style={{ background: editMode ? '#dbeafe' : '#fef3c7', border: `1px solid ${editMode ? '#93c5fd' : '#fde68a'}` }}>
+        <div className="text-sm font-bold" style={{ color: editMode ? '#2563eb' : '#b45309' }}>
+          {editMode ? 'Upravte servisní plán — zaškrtnuté položky a poznámka se aktualizují.' : 'Zaškrtněte co je potřeba opravit / zkontrolovat. Můžete přidat i vlastní poznámku.'}
         </div>
       </div>
 
@@ -88,7 +111,7 @@ export default function ServiceChecklistView({ moto, onConfirm, onBack, busy, er
         <div className="flex gap-2">
           <Button onClick={onBack}>Zpět</Button>
           <Button green onClick={handleConfirm} disabled={busy || (!note.trim() && checkedCount === 0)}>
-            {busy ? 'Odesílám…' : 'Odeslat do servisu'}
+            {busy ? (editMode ? 'Ukládám…' : 'Odesílám…') : (editMode ? 'Uložit změny' : 'Odeslat do servisu')}
           </Button>
         </div>
       </div>
