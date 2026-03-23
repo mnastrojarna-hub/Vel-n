@@ -4,6 +4,9 @@ export const UNAVAILABLE_REASONS = [
   { value: 'transport', label: 'Přeprava mezi pobočkami' },
   { value: 'inspection', label: 'Kontrola / STK' },
   { value: 'photo', label: 'Focení / marketing' },
+  { value: 'seasonal', label: 'Sezónní vyřazení' },
+  { value: 'damage_wait', label: 'Čekání na díly / pojistku' },
+  { value: 'long_term', label: 'Dlouhodobé vyřazení' },
   { value: 'other', label: 'Jiný důvod' },
 ]
 

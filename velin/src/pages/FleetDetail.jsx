@@ -67,7 +67,7 @@ export default function FleetDetail() {
     if (activeBookings?.length > 0) {
       setConfirm({ type: 'deactivate', title: `${activeBookings.length} aktivních rezervací`, message: 'Při deaktivaci budou stornovány. Pokračovat?',
         action: async () => {
-          const newStatus = moto.status === 'out_of_service' ? 'active' : 'out_of_service'
+          const newStatus = moto.status === 'unavailable' ? 'active' : 'unavailable'
           await debugAction('fleet.deactivate', 'FleetDetail', async () => {
             await supabase.from('motorcycles').update({ status: newStatus }).eq('id', id)
             if (newStatus !== 'active') {
@@ -81,7 +81,7 @@ export default function FleetDetail() {
       })
       return
     }
-    const newStatus = moto.status === 'out_of_service' ? 'active' : 'out_of_service'
+    const newStatus = moto.status === 'unavailable' ? 'active' : 'unavailable'
     await debugAction('fleet.toggleStatus', 'FleetDetail', () =>
       supabase.from('motorcycles').update({ status: newStatus }).eq('id', id)
     , { moto_id: id, newStatus })
@@ -488,7 +488,7 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
         {error && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{error}</p>}
         <div className="flex gap-3 mt-6">
           <Button green onClick={onSave} disabled={saving}>{saving ? 'Ukládám…' : 'Uložit'}</Button>
-          <Button outline onClick={onDeactivate}>{moto.status === 'out_of_service' ? 'Aktivovat' : 'Deaktivovat'}</Button>
+          <Button outline onClick={onDeactivate}>{moto.status === 'unavailable' ? 'Aktivovat' : 'Deaktivovat'}</Button>
           <Button onClick={onDelete} style={{ color: '#dc2626' }}>Smazat</Button>
         </div>
       </Card>

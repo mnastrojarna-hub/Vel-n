@@ -1,18 +1,22 @@
 import Badge from './Badge'
 
 const STATUS_MAP = {
+  // Moto statuses
   active: { label: 'Aktivní', color: '#1a8a18', bg: '#dcfce7' },
+  maintenance: { label: 'V servisu', color: '#b45309', bg: '#fef3c7' },
+  unavailable: { label: 'Dočasně vyřazena', color: '#7c3aed', bg: '#ede9fe' },
+  retired: { label: 'Trvale vyřazena', color: '#1a2e22', bg: '#f3f4f6' },
+  // Booking statuses
   upcoming: { label: 'Nadcházející', color: '#7c3aed', bg: '#ede9fe' },
-  maintenance: { label: 'Servis', color: '#b45309', bg: '#fef3c7' },
-  out_of_service: { label: 'Mimo provoz', color: '#7c3aed', bg: '#ede9fe' },
-  unavailable: { label: 'Nedostupná', color: '#7c3aed', bg: '#ede9fe' },
-  retired: { label: 'Vyřazena trvale', color: '#1a2e22', bg: '#f3f4f6' },
-  pending: { label: 'Čekající', color: '#b45309', bg: '#fef3c7' },
+  reserved: { label: 'Nadcházející', color: '#7c3aed', bg: '#ede9fe' },
   completed: { label: 'Dokončeno', color: '#1a2e22', bg: '#f3f4f6' },
   completed_sos: { label: 'Dokončeno SOS', color: '#b91c1c', bg: '#fee2e2' },
   cancelled: { label: 'Zrušeno', color: '#dc2626', bg: '#fee2e2' },
-  reserved: { label: 'Nadcházející', color: '#7c3aed', bg: '#ede9fe' },
+  // Service log statuses
+  pending: { label: 'Plánovaný', color: '#6366f1', bg: '#eef2ff' },
   in_service: { label: 'V servisu', color: '#2563eb', bg: '#dbeafe' },
+  // Legacy aliases
+  out_of_service: { label: 'Dočasně vyřazena', color: '#7c3aed', bg: '#ede9fe' },
 }
 
 export function getDisplayStatus(booking) {

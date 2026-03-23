@@ -76,14 +76,18 @@ function SingleServiceForm({ motos, onBack, onDone }) {
         const lines = future.map(b => `  ${b.profiles?.full_name || '?'}: ${new Date(b.start_date).toLocaleDateString('cs-CZ')} – ${new Date(b.end_date).toLocaleDateString('cs-CZ')}`).join('\n')
         window.alert(`Upozornění — nadcházející rezervace (${future.length}):\n${lines}\nMotorka musí být ze servisu zpět včas, nebo nabídněte náhradu.`)
       }
-      // Set motorcycle to maintenance
-      await supabase.from('motorcycles').update({ status: 'maintenance' }).eq('id', motoId)
+      // If service_date is in future → pending (moto stays active), otherwise → in_service (moto goes to maintenance)
+      const serviceStart = serviceDateFrom || today
+      const isFuture = serviceStart > today
+      if (!isFuture) {
+        await supabase.from('motorcycles').update({ status: 'maintenance' }).eq('id', motoId)
+      }
       await supabase.from('maintenance_log').insert({
         moto_id: motoId, description: fullDescription || 'Plánovaný servis',
         service_type: 'extraordinary',
-        service_date: serviceDateFrom || today,
+        service_date: serviceStart,
         scheduled_date: serviceDateTo || null,
-        status: 'in_service',
+        status: isFuture ? 'pending' : 'in_service',
         km_at_service: Number(selected?.mileage) || null,
         is_urgent: isUrgent,
         items: selectedLabels.map(label => ({ label, done: false, note: '' })),
@@ -433,8 +437,8 @@ function InspectionChecklist({ checks, setChecks }) {
 
 /* ═══ Moto picker (shared) ═══ */
 function MotoPicker({ motos, search, setSearch, onSelect }) {
-  const statusColor = { active: '#1a8a18', maintenance: '#b45309', out_of_service: '#7c3aed', retired: '#6b7280' }
-  const statusLabel = { active: 'Aktivní', maintenance: 'Servis', out_of_service: 'Mimo provoz', retired: 'Vyřazena' }
+  const statusColor = { active: '#1a8a18', maintenance: '#b45309', unavailable: '#7c3aed', retired: '#6b7280' }
+  const statusLabel = { active: 'Aktivní', maintenance: 'V servisu', unavailable: 'Dočasně vyřazena', retired: 'Trvale vyřazena' }
   return (
     <div>
       <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Hledat model / SPZ…"

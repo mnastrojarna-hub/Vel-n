@@ -299,7 +299,7 @@ function ServiceModal({ entry, onClose, onSaved }) {
       const finalCost = Number(form.cost) || calculatedCost || null
       const today = new Date().toISOString().slice(0, 10)
       const isNewService = !entry
-      const shouldSetMaintenance = (form.status === 'in_service' || form.status === 'pending') && form.moto_id
+      const shouldSetMaintenance = form.status === 'in_service' && form.moto_id
 
       // For new service or status change → check reservations
       if (isNewService && shouldSetMaintenance) {
@@ -375,7 +375,7 @@ function ServiceModal({ entry, onClose, onSaved }) {
         <div>
           <Label>Stav</Label>
           <select value={form.status} onChange={e => set('status', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle}>
-            <option value="pending">Čekající</option>
+            <option value="pending">Plánovaný</option>
             <option value="in_service">V servisu</option>
             <option value="completed">Dokončeno</option>
           </select>

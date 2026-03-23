@@ -137,14 +137,34 @@ export default function Fleet() {
       // Auto-reactivate motorcycles past unavailable_until
       const now = new Date().toISOString()
       const toReactivate = data.filter(m =>
-        (m.status === 'out_of_service' || m.status === 'unavailable') &&
-        m.unavailable_until && m.unavailable_until <= now
+        m.status === 'unavailable' && m.unavailable_until && m.unavailable_until <= now
       )
       if (toReactivate.length > 0) {
         for (const m of toReactivate) {
-          await supabase.from('motorcycles').update({ status: 'active', unavailable_until: null }).eq('id', m.id)
+          await supabase.from('motorcycles').update({ status: 'active', unavailable_until: null, unavailable_reason: null }).eq('id', m.id)
           m.status = 'active'
           m.unavailable_until = null
+        }
+      }
+      // Auto-activate pending services where service_date <= today
+      const pendingService = data.filter(m => m.status === 'active')
+      if (pendingService.length > 0) {
+        const today = new Date().toISOString().slice(0, 10)
+        const { data: pendingLogs } = await supabase.from('maintenance_log')
+          .select('id, moto_id')
+          .eq('status', 'pending')
+          .lte('service_date', today)
+          .is('completed_date', null)
+          .in('moto_id', pendingService.map(m => m.id))
+        if (pendingLogs?.length > 0) {
+          const motoIds = [...new Set(pendingLogs.map(l => l.moto_id))]
+          for (const mid of motoIds) {
+            await supabase.from('motorcycles').update({ status: 'maintenance' }).eq('id', mid)
+            const m = data.find(d => d.id === mid)
+            if (m) m.status = 'maintenance'
+          }
+          await supabase.from('maintenance_log').update({ status: 'in_service' })
+            .in('id', pendingLogs.map(l => l.id))
         }
       }
       if (filters.occupiedToday) data = data.filter(m => todayOccupied.has(m.id))
@@ -171,7 +191,7 @@ export default function Fleet() {
         />
         <CheckboxFilterGroup label="Stav" values={filters.statuses || []}
           onChange={v => { setPage(1); setFilters(f => ({ ...f, statuses: v })) }}
-          options={[{ value: 'active', label: 'Aktivní' }, { value: 'rented', label: 'Pronajato' }, { value: 'maintenance', label: 'Servis' }, { value: 'unavailable', label: 'Nedostupné' }, { value: 'retired', label: 'Vyřazeno' }]} />
+          options={[{ value: 'active', label: 'Aktivní' }, { value: 'maintenance', label: 'V servisu' }, { value: 'unavailable', label: 'Dočasně vyřazené' }, { value: 'retired', label: 'Trvale vyřazené' }]} />
         <FilterSelect
           value={filters.branch}
           onChange={v => { setPage(1); setFilters(f => ({ ...f, branch: v })) }}

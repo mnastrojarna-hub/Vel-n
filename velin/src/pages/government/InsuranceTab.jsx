@@ -45,8 +45,8 @@ export default function InsuranceTab() {
             <TD>
               <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase" style={{
                 padding: '4px 10px',
-                background: m.status === 'active' || m.status === 'rented' ? '#dcfce7' : '#fef3c7',
-                color: m.status === 'active' || m.status === 'rented' ? '#1a8a18' : '#b45309',
+                background: m.status === 'active' ? '#dcfce7' : '#fef3c7',
+                color: m.status === 'active' ? '#1a8a18' : '#b45309',
               }}>
                 {m.status || '—'}
               </span>

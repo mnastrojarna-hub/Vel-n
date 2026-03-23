@@ -91,7 +91,7 @@ export default function NewBookingModal({ onClose, onSaved }) {
       })
   }, [startDate, endDate])
 
-  const motos = useMemo(() => allMotos.filter(m => m.status === 'active' || m.status === 'rented'), [allMotos])
+  const motos = useMemo(() => allMotos.filter(m => m.status === 'active'), [allMotos])
   const occupiedMotoIds = useMemo(() => new Set(bookings.map(b => b.moto_id)), [bookings])
 
   const MOTO_DAY_MAP = { 0: 'price_sun', 1: 'price_mon', 2: 'price_tue', 3: 'price_wed', 4: 'price_thu', 5: 'price_fri', 6: 'price_sat' }
@@ -232,7 +232,7 @@ export default function NewBookingModal({ onClose, onSaved }) {
                   {!queryError && allMotos.length === 0 && <p className="text-xs mt-2" style={{ color: '#888' }}>Dotaz vrátil 0 motorek</p>}
                   {!queryError && allMotos.length > 0 && motos.length === 0 && (
                     <p className="text-xs mt-2" style={{ color: '#888' }}>
-                      Nalezeno {allMotos.length} motorek, ale žádná nemá status active/rented.
+                      Nalezeno {allMotos.length} motorek, ale žádná nemá status active.
                       Stavy: {Object.entries(statusCounts).map(([s, c]) => `${s}: ${c}`).join(', ')}
                     </p>
                   )}

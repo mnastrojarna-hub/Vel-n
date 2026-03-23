@@ -55,8 +55,8 @@ export default function ActiveServiceTab({ onRefresh }) {
 
   function selectMoto(m) { setShowPicker(false); setActionMoto(m) }
   const filtered = allMotos.filter(m => !pickerSearch || m.model?.toLowerCase().includes(pickerSearch.toLowerCase()) || m.spz?.toLowerCase().includes(pickerSearch.toLowerCase()))
-  const statusLabel = { active: 'Aktivní', maintenance: 'Servis', out_of_service: 'Mimo provoz', retired: 'Vyřazena' }
-  const statusColor = { active: '#1a8a18', maintenance: '#b45309', out_of_service: '#7c3aed', retired: '#6b7280' }
+  const statusLabel = { active: 'Aktivní', maintenance: 'V servisu', unavailable: 'Dočasně vyřazena', retired: 'Trvale vyřazena' }
+  const statusColor = { active: '#1a8a18', maintenance: '#b45309', unavailable: '#7c3aed', retired: '#6b7280' }
 
   if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
 

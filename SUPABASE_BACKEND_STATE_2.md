@@ -70,8 +70,9 @@
 - **consent_photo** (boolean DEFAULT false) — souhlas fotografování dokladů
 
 ### motorcycles
-- id, model, spz, vin, year, status (`moto_status` ENUM)
+- id, model, spz, vin, year, status (`moto_status` ENUM: active, maintenance, unavailable, retired)
 - stk_valid_until, acquired_at
+- **unavailable_reason** (TEXT DEFAULT NULL) — důvod dočasného vyřazení (cleaning, transport, inspection, seasonal, damage_wait, other)
 - power_kw, torque_nm, weight_kg, fuel_tank_l, seat_height_mm
 - license_required, has_abs, has_asc
 - description, ideal_usage, features, manual_url

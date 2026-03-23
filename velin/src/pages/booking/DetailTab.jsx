@@ -52,7 +52,7 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
         </div>
         <InfoRow label="Model" value={booking.motorcycles?.model} />
         <InfoRow label="SPZ" value={booking.motorcycles?.spz} />
-        <InfoRow label="Stav" value={{ active: 'Dostupná', rented: 'Pronajatá', maintenance: 'V servisu', unavailable: 'Nedostupná', retired: 'Vyřazena' }[booking.motorcycles?.status] || booking.motorcycles?.status} />
+        <InfoRow label="Stav" value={{ active: 'Aktivní', maintenance: 'V servisu', unavailable: 'Dočasně vyřazena', retired: 'Trvale vyřazena' }[booking.motorcycles?.status] || booking.motorcycles?.status} />
         <InfoRow label="Pobočka" value={booking.motorcycles?.branches?.name} />
       </Card>
 
