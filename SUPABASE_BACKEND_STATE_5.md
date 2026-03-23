@@ -71,7 +71,8 @@ Detailní politiky:
 | `generate-document` | Generuje dokumenty z šablon (rental_contract, handover_protocol). Firemní údaje načítá z app_settings (company_info) |
 | `send-cancellation-email` | Email o stornování rezervace s "obnovit" CTA. Retry 3× s exponential backoff. Při selhání loguje do debug_log |
 | `admin-reset-password` | Admin reset hesla zákazníka |
-| `process-payment` | Stripe platební brána (**LIVE mode**). Podporuje booking, shop, extension i SOS platby (parametr `type`). Vytváří Stripe Checkout Session (redirect). Vrací `checkout_url`, `session_id`. Locale: cs |
+| `process-payment` | Stripe platební brána (**LIVE mode**). Podporuje booking, shop, extension i SOS platby (parametr `type`). Vytváří Stripe Checkout Session (redirect). Vrací `checkout_url`, `session_id`. Locale: cs. **Automaticky vytváří/používá Stripe Customer** (ukládá `stripe_customer_id` do profiles). Karty se ukládají pro budoucí platby (`setup_future_usage: off_session`). Uložená karta se předvyplní na Stripe Checkout |
+| `manage-payment-methods` | Správa uložených platebních metod (Stripe). Akce: `list` (výpis karet), `delete` (odebrání), `set_default` (nastavení prioritní karty). Vyžaduje JWT auth |
 | `scan-document` | OCR skenování dokladů (OP, ŘP, pas) přes Mindee API. Přijímá base64 JPEG + document_type (id/dl/passport), vrací strukturovaná data. Retry 3×, loguje do debug_log |
 | `webhook-receiver` | Příjem Stripe webhooků (**LIVE mode**, signature povinná). Zpracovává checkout.session.completed, payment_intent.succeeded, charge.refunded, payout.paid. Auto-generuje dokumenty (ZF, smlouva) po úspěšné platbě. Ukládá stripe_payment_intent_id k bookings/shop_orders |
 | `process-refund` | Stripe refundy (LIVE). Částečné i plné vrácení peněz. Volá Stripe Refund API. Napojeno na storno + zkrácení rezervace |
@@ -119,7 +120,7 @@ Detailní politiky:
 | `SUPABASE_DB_URL` | Přímý DB přístup z edge funkcí |
 | `ANTHROPIC_API_KEY` | ai-copilot, ai-moto-agent (Anthropic Claude API) |
 | `MINDEE_API_KEY` | scan-document (OCR) |
-| `STRIPE_SECRET_KEY` | process-payment, webhook-receiver (**LIVE sk_live_...**) |
+| `STRIPE_SECRET_KEY` | process-payment, webhook-receiver, manage-payment-methods (**LIVE sk_live_...**) |
 | `STRIPE_WEBHOOK_SECRET` | webhook-receiver (**POVINNÉ** — ověření Stripe signature, whsec_...) |
 | `ADMIN_EMAIL` | SOS notifikace, cron alerty |
 | `ADMIN_PHONE` | SOS SMS notifikace |

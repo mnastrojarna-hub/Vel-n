@@ -38,6 +38,52 @@ const PRODUCT_NAMES: Record<PaymentType, string> = {
   sos: 'MotoGo24 — SOS náhradní motorka',
 }
 
+// Get or create Stripe Customer for the authenticated user
+async function getOrCreateStripeCustomer(
+  supabase: ReturnType<typeof createClient>,
+  req: Request
+): Promise<string | null> {
+  try {
+    // Get user from JWT
+    const authHeader = req.headers.get('authorization') || ''
+    const token = authHeader.replace('Bearer ', '')
+    if (!token) return null
+
+    const { data: { user } } = await supabase.auth.getUser(token)
+    if (!user) return null
+
+    // Check if profile already has stripe_customer_id
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('stripe_customer_id, full_name, email, phone')
+      .eq('id', user.id)
+      .single()
+
+    if (profile?.stripe_customer_id) {
+      return profile.stripe_customer_id
+    }
+
+    // Create new Stripe Customer
+    const customer = await stripe.customers.create({
+      email: user.email || profile?.email || undefined,
+      name: profile?.full_name || undefined,
+      phone: profile?.phone || undefined,
+      metadata: { supabase_user_id: user.id },
+    })
+
+    // Save stripe_customer_id to profile
+    await supabase
+      .from('profiles')
+      .update({ stripe_customer_id: customer.id })
+      .eq('id', user.id)
+
+    return customer.id
+  } catch (e) {
+    console.warn('getOrCreateStripeCustomer error:', e)
+    return null
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS })
@@ -73,6 +119,9 @@ Deno.serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
+    // Get or create Stripe Customer (enables saved cards + card prefill)
+    const customerId = await getOrCreateStripeCustomer(supabase, req)
+
     // Build reference ID and URLs based on payment type
     const referenceId = paymentType === 'shop' ? order_id! : booking_id!
     const productName = PRODUCT_NAMES[paymentType]
@@ -103,14 +152,14 @@ Deno.serve(async (req: Request) => {
     if (order_id) metadata.order_id = order_id
     if (incident_id) metadata.incident_id = incident_id
 
-    // Stripe Checkout Session (redirect flow) — production
-    const session = await stripe.checkout.sessions.create({
+    // Stripe Checkout Session with Customer (saves cards, prefills cardholder name)
+    const sessionParams: Record<string, unknown> = {
       payment_method_types: ['card'],
       line_items: [{
         price_data: {
           currency: currency || 'czk',
           product_data: { name: productName },
-          unit_amount: Math.round(amount * 100), // Stripe expects cents (haléře)
+          unit_amount: Math.round(amount * 100),
         },
         quantity: 1,
       }],
@@ -119,7 +168,18 @@ Deno.serve(async (req: Request) => {
       cancel_url: SITE_URL + cancelPath,
       metadata,
       locale: 'cs',
-    })
+      // Save card for future use
+      payment_intent_data: {
+        setup_future_usage: 'off_session',
+      },
+    }
+
+    // Attach customer — enables saved card selection in Stripe Checkout
+    if (customerId) {
+      sessionParams.customer = customerId
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams as Stripe.Checkout.SessionCreateParams)
 
     // Log to debug_log
     await supabase.from('debug_log').insert({

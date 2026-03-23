@@ -81,8 +81,9 @@ Templates['s-payment'] = `  <div class="topbar"><div class="back-row" onclick="h
         <span style="background:#1a1f36;color:#fff;border-radius:4px;padding:3px 8px;font-size:10px;font-weight:800;">VISA</span>
         <span style="background:#eb001b;color:#fff;border-radius:4px;padding:3px 8px;font-size:10px;font-weight:800;">MC</span>
       </div>
+      <div id="pay-saved-card" style="display:none;margin-bottom:10px;"></div>
       <div style="font-size:13px;color:var(--g400);line-height:1.7;margin-bottom:8px;">
-        Po kliknutí na <strong>Zaplatit</strong> budete přesměrováni na zabezpečenou platební stránku Stripe, kde zadáte údaje karty.
+        Po kliknutí na <strong>Zaplatit</strong> budete přesměrováni na Stripe. Máte-li uloženou kartu, bude předvyplněna. Jméno držitele, číslo, platnost i CVV vyplníte na Stripe.
       </div>
       <div id="pay-countdown" style="font-size:12px;font-weight:700;color:#b91c1c;margin-top:8px;"></div>
     </div>

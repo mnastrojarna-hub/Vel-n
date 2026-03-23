@@ -187,6 +187,58 @@ async function renderInvoices(){
   } catch(e){ console.error('renderInvoices error:', e); }
 }
 
+var _pmLoaded = false;
+async function loadPaymentMethods(){
+  if(_pmLoaded) return;
+  _pmLoaded = true;
+  renderPaymentMethods();
+}
+
+async function renderPaymentMethods(){
+  var wrap = document.getElementById('pm-cards-list');
+  if(!wrap) return;
+  if(typeof apiFetchPaymentMethods !== 'function'){
+    wrap.innerHTML = '<div style="padding:8px;font-size:12px;color:var(--g400);">Platební metody nejsou dostupné offline</div>';
+    return;
+  }
+  try {
+    var r = await apiFetchPaymentMethods();
+    if(!r.success || !r.methods || r.methods.length === 0){
+      wrap.innerHTML = '<div style="padding:12px;text-align:center;font-size:12px;color:var(--g400);">Žádné uložené karty</div>';
+      return;
+    }
+    var brandIcons = {visa:'VISA',mastercard:'MC',amex:'AMEX',discover:'DISC'};
+    var html = '';
+    r.methods.forEach(function(m){
+      var brandLabel = brandIcons[m.brand] || m.brand.toUpperCase();
+      var expStr = (m.exp_month < 10 ? '0' : '') + m.exp_month + '/' + String(m.exp_year).slice(-2);
+      var nameStr = m.holder_name ? '<div style="font-size:10px;color:var(--g400);margin-top:1px;">'+m.holder_name+'</div>' : '';
+      var defBadge = m.is_default ? '<span style="background:var(--green);color:#fff;font-size:9px;font-weight:800;padding:2px 6px;border-radius:10px;margin-left:6px;">PRIORITNÍ</span>' : '';
+      var defBtn = m.is_default ? '' : '<div onclick="event.stopPropagation();setDefaultCard(\''+m.id+'\')" style="font-size:10px;font-weight:700;color:var(--gd);cursor:pointer;margin-bottom:2px;">Nastavit prioritní</div>';
+      html += '<div style="display:flex;align-items:center;gap:10px;padding:10px;background:#fff;border-radius:var(--rsm);margin-bottom:6px;border:1px solid '+(m.is_default?'var(--green)':'var(--g200)')+';">' +
+        '<div style="font-size:20px;">💳</div>' +
+        '<div style="flex:1;"><div style="font-size:13px;font-weight:700;color:var(--black);">•••• '+m.last4+' <span style="font-size:10px;font-weight:800;color:var(--g400);">'+brandLabel+'</span>'+defBadge+'</div>' +
+        '<div style="font-size:11px;color:var(--g400);font-weight:500;">Platí do '+expStr+'</div>'+nameStr+'</div>' +
+        '<div style="text-align:right;">'+defBtn+
+        '<div onclick="event.stopPropagation();deleteCard(\''+m.id+'\')" style="font-size:10px;font-weight:700;color:var(--red);cursor:pointer;">Odebrat</div></div></div>';
+    });
+    wrap.innerHTML = html;
+  } catch(e){ wrap.innerHTML = '<div style="padding:8px;font-size:12px;color:var(--red);">Chyba při načítání karet</div>'; }
+}
+
+async function deleteCard(pmId){
+  if(!confirm('Opravdu odebrat tuto kartu?')) return;
+  var r = await apiDeletePaymentMethod(pmId);
+  if(r.success){ showT('✓','Karta odebrána',''); _pmLoaded = false; renderPaymentMethods(); }
+  else { showT('✗','Chyba',r.error || 'Nepodařilo se odebrat kartu'); }
+}
+
+async function setDefaultCard(pmId){
+  var r = await apiSetDefaultPaymentMethod(pmId);
+  if(r.success){ showT('✓','Prioritní karta nastavena',''); _pmLoaded = false; renderPaymentMethods(); }
+  else { showT('✗','Chyba',r.error || 'Nepodařilo se nastavit prioritní kartu'); }
+}
+
 async function downloadDoc(docId){
   showT('⬇️',_t('common').downloadDoc,_t('common').openPDF);
   // Simulate email send
