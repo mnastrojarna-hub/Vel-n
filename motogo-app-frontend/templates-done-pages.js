@@ -46,15 +46,12 @@ Templates['s-profile'] = `  <div class="prof-hdr">
     <div class="mi" onclick="goTo('s-invoices')"><div class="mii">🧾</div><div class="mit" id="prof-lbl-invoices">Faktury a vyúčtování</div><div class="mia">›</div></div>
     <div class="mi" onclick="goTo('s-contracts')"><div class="mii">📄</div><div class="mit" id="prof-lbl-contracts">Dokumenty a smlouvy</div><div class="mia">›</div></div>
     <div id="profile-documents" style="display:none;"></div>
-    <div class="mi" onclick="toggleExpand('exp-platba','arr-platba')"><div class="mii">💳</div><div class="mit" id="prof-lbl-pay">Platební metody</div><div class="mia" id="arr-platba">›</div></div>
+    <div class="mi" onclick="toggleExpand('exp-platba','arr-platba');loadPaymentMethods()"><div class="mii">💳</div><div class="mit" id="prof-lbl-pay">Platební metody</div><div class="mia" id="arr-platba">›</div></div>
     <div class="mi-expand" id="exp-platba">
-      <div style="display:flex;align-items:center;gap:10px;padding:10px;background:#fff;border-radius:var(--rsm);margin-bottom:8px;">
-        <div style="font-size:20px;">💳</div>
-        <div><div style="font-size:13px;font-weight:700;color:var(--black);">•••• •••• •••• 4242</div><div style="font-size:11px;color:var(--g400);font-weight:500;">Platí do 12/27</div></div>
-        <div style="margin-left:auto;font-size:11px;font-weight:700;color:var(--red);cursor:pointer;" onclick="showT('🗑️','Karta odebrána','')">Odebrat</div>
+      <div id="pm-cards-list" style="margin-bottom:8px;">
+        <div style="text-align:center;padding:12px;color:var(--g400);font-size:12px;">Načítám uložené karty...</div>
       </div>
-      <div class="edit-field"><label id="t-addNewCard">Přidat novou kartu</label><input type="text" placeholder="Číslo karty"></div>
-      <button class="save-btn" id="t-addCard" onclick="showT('✓','Karta přidána','Uloženo')">Přidat kartu</button>
+      <div style="font-size:11px;color:var(--g400);line-height:1.6;padding:4px 0 8px;">Novou kartu přidáte při další platbě přes Stripe. Karta se automaticky uloží.</div>
     </div>
   </div>
 

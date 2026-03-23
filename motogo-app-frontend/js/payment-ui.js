@@ -361,6 +361,8 @@ async function proceedToPayment(){
     _paymentDeadline = Date.now() + _PAYMENT_TIMEOUT_MS;
     _startPaymentCountdown();
     goTo('s-payment');
+    // Show saved card preview on payment screen (non-blocking)
+    _showSavedCardPreview();
   } catch(e){ console.error('proceedToPayment error:', e); showT('✗',_t('common').error||'Chyba',_t('pay').createFailed||'Nepodařilo se vytvořit rezervaci'); }
 }
 
@@ -417,6 +419,27 @@ function _fmtDatePayment(iso){
     if(!d || isNaN(d.getTime())) return '—';
     return d.getDate() + '. ' + (d.getMonth()+1) + '. ' + d.getFullYear();
   } catch(e){ return '—'; }
+}
+
+// Show saved card preview on payment screen
+async function _showSavedCardPreview(){
+  var el = document.getElementById('pay-saved-card');
+  if(!el || typeof apiFetchPaymentMethods !== 'function') return;
+  try {
+    var r = await apiFetchPaymentMethods();
+    if(!r.success || !r.methods || r.methods.length === 0) return;
+    var def = r.methods.find(function(m){ return m.is_default; }) || r.methods[0];
+    var brandIcons = {visa:'VISA',mastercard:'MC',amex:'AMEX'};
+    var brand = brandIcons[def.brand] || def.brand.toUpperCase();
+    var exp = (def.exp_month < 10 ? '0' : '') + def.exp_month + '/' + String(def.exp_year).slice(-2);
+    var name = def.holder_name ? ' · ' + def.holder_name : '';
+    el.style.display = 'block';
+    el.innerHTML = '<div style="background:var(--gp);border:2px solid var(--green);border-radius:var(--rsm);padding:10px 14px;text-align:left;display:flex;align-items:center;gap:10px;">' +
+      '<div style="font-size:22px;">💳</div>' +
+      '<div><div style="font-size:13px;font-weight:700;">•••• ' + def.last4 + ' <span style="font-size:10px;color:var(--g400);">' + brand + '</span></div>' +
+      '<div style="font-size:10px;color:var(--g400);">' + exp + name + '</div></div>' +
+      '<div style="margin-left:auto;font-size:10px;font-weight:700;color:var(--green);">Předvyplněno</div></div>';
+  } catch(e){}
 }
 
 var _paymentDeadline = 0;

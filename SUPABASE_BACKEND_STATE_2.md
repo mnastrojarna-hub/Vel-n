@@ -70,6 +70,7 @@
 - **consent_push** (boolean DEFAULT false) — souhlas push notifikace
 - **consent_data_processing** (boolean DEFAULT false) — souhlas zpracování dat
 - **consent_photo** (boolean DEFAULT false) — souhlas fotografování dokladů
+- **stripe_customer_id** (TEXT) — Stripe Customer ID pro uložené platební metody
 
 ### motorcycles
 - id, model, spz, vin, year, status (`moto_status` ENUM: active, maintenance, unavailable, retired)
