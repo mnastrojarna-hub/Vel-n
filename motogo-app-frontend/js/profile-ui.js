@@ -303,9 +303,41 @@ async function setDefaultCard(pmId){
   else { showT('✗','Chyba',r.error || 'Nepodařilo se nastavit prioritní kartu'); }
 }
 
+var _cardSetupOpened = false;
+async function addNewCard(){
+  if(typeof apiSetupNewCard !== 'function'){
+    showT('✗','Chyba','Funkce není dostupná offline');
+    return;
+  }
+  var btn = document.getElementById('add-card-btn');
+  if(btn){ btn.disabled = true; btn.textContent = '⏳ Připravuji...'; }
+  try {
+    var r = await apiSetupNewCard();
+    if(r.success && r.checkout_url){
+      _cardSetupOpened = true;
+      if(typeof _openExternalUrl === 'function') _openExternalUrl(r.checkout_url);
+      else window.open(r.checkout_url, '_blank');
+      showT('ℹ️','Přidání karty','Otevřena stránka Stripe pro zadání karty');
+    } else {
+      showT('✗','Chyba',r.error || 'Nepodařilo se otevřít Stripe');
+    }
+  } catch(e){
+    showT('✗','Chyba','Nepodařilo se připojit ke Stripe');
+  }
+  if(btn){ btn.disabled = false; btn.textContent = '+ Přidat novou kartu'; }
+}
+
+// Refresh cards after returning from Stripe setup
+document.addEventListener('visibilitychange', function(){
+  if(!document.hidden && _cardSetupOpened){
+    _cardSetupOpened = false;
+    _pmLoaded = false;
+    setTimeout(function(){ renderPaymentMethods(); }, 1500);
+  }
+});
+
 async function downloadDoc(docId){
   showT('⬇️',_t('common').downloadDoc,_t('common').openPDF);
-  // Simulate email send
   var result = await apiSendDocumentEmail(docId);
   if(result.success){
     setTimeout(function(){

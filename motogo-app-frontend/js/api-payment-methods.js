@@ -31,3 +31,7 @@ async function apiDeletePaymentMethod(pmId){
 async function apiSetDefaultPaymentMethod(pmId){
   return await _callPaymentMethodsAPI({action:'set_default', payment_method_id:pmId});
 }
+
+async function apiSetupNewCard(){
+  return await _callPaymentMethodsAPI({action:'setup'});
+}

@@ -1,7 +1,7 @@
 // ===== MotoGo24 – Edge Function: Manage Payment Methods (Stripe) =====
 // List, delete, and set default saved payment methods via Stripe Customer.
 // POST /functions/v1/manage-payment-methods
-// Body: { action: 'list' | 'delete' | 'set_default', payment_method_id? }
+// Body: { action: 'list' | 'delete' | 'set_default' | 'setup', payment_method_id? }
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe from 'https://esm.sh/stripe@14'
@@ -11,6 +11,8 @@ const CORS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
+
+const SITE_URL = Deno.env.get('SITE_URL') || 'https://motogo24.cz'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
   apiVersion: '2024-04-10',
@@ -49,20 +51,55 @@ Deno.serve(async (req: Request) => {
     // Get stripe_customer_id from profile
     const { data: profile } = await supabase
       .from('profiles')
-      .select('stripe_customer_id')
+      .select('stripe_customer_id, full_name, email, phone')
       .eq('id', user.id)
       .single()
 
     const customerId = profile?.stripe_customer_id
-    if (!customerId) {
+
+    const body = await req.json()
+    const { action, payment_method_id } = body
+
+    // SETUP — create a Stripe Checkout Session in setup mode to save a new card
+    if (action === 'setup') {
+      let custId = customerId
+      if (!custId) {
+        const customer = await stripe.customers.create({
+          email: user.email || (profile as any)?.email || undefined,
+          name: (profile as any)?.full_name || undefined,
+          phone: (profile as any)?.phone || undefined,
+          metadata: { supabase_user_id: user.id },
+        })
+        custId = customer.id
+        await supabase
+          .from('profiles')
+          .update({ stripe_customer_id: custId })
+          .eq('id', user.id)
+      }
+
+      const session = await stripe.checkout.sessions.create({
+        customer: custId,
+        mode: 'setup',
+        payment_method_types: ['card'],
+        success_url: SITE_URL + '/card-setup-success',
+        cancel_url: SITE_URL + '/card-setup-cancel',
+        locale: 'cs',
+        metadata: { source: 'motogo24', action: 'add_card', user_id: user.id },
+      } as Stripe.Checkout.SessionCreateParams)
+
       return new Response(
-        JSON.stringify({ success: true, action: 'list', methods: [] }),
+        JSON.stringify({ success: true, action: 'setup', checkout_url: session.url }),
         { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
       )
     }
 
-    const body = await req.json()
-    const { action, payment_method_id } = body
+    // For list/delete/set_default — need existing customer
+    if (!customerId) {
+      return new Response(
+        JSON.stringify({ success: true, action: action || 'list', methods: [] }),
+        { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+      )
+    }
 
     // LIST saved payment methods
     if (action === 'list' || !action) {

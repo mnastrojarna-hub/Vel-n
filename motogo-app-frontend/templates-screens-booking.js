@@ -74,18 +74,18 @@ Templates['s-detail'] = `  <div class="det-back" onclick="histBack()">←</div>
 
 Templates['s-payment'] = `  <div class="topbar"><div class="back-row" onclick="histBack()"><div class="bk-c">←</div><div class="bk-l" id="t-payBack">Zpět</div></div><h2 id="t-payTitle">Platba</h2><p id="t-paySSL">Bezpečná platba přes Stripe</p></div>
   <div class="bcard">
-    <div class="bcard-h"><div class="sdot">💳</div> <span id="t-payMethod">Způsob platby</span></div>
-    <div style="padding:16px;text-align:center;">
+    <div class="bcard-h"><div class="sdot">💳</div> <span id="t-payMethod">Platební karta</span></div>
+    <div style="padding:16px;">
       <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:14px;">
         <svg width="60" height="25" viewBox="0 0 60 25" fill="none"><rect width="60" height="25" rx="4" fill="#635BFF"/><text x="30" y="17" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="11" font-weight="700">stripe</text></svg>
         <span style="background:#1a1f36;color:#fff;border-radius:4px;padding:3px 8px;font-size:10px;font-weight:800;">VISA</span>
         <span style="background:#eb001b;color:#fff;border-radius:4px;padding:3px 8px;font-size:10px;font-weight:800;">MC</span>
       </div>
       <div id="pay-saved-card" style="display:none;margin-bottom:10px;"></div>
-      <div style="font-size:13px;color:var(--g400);line-height:1.7;margin-bottom:8px;">
-        Po kliknutí na <strong>Zaplatit</strong> budete přesměrováni na Stripe. Máte-li uloženou kartu, bude předvyplněna. Jméno držitele, číslo, platnost i CVV vyplníte na Stripe.
+      <div style="font-size:13px;color:var(--g400);line-height:1.7;margin-bottom:8px;text-align:center;">
+        Po kliknutí na <strong>Zaplatit</strong> se otevře zabezpečená platební stránka Stripe, kde zadáte číslo karty, platnost a CVV. Máte-li uloženou kartu, bude předvyplněna.
       </div>
-      <div id="pay-countdown" style="font-size:12px;font-weight:700;color:#b91c1c;margin-top:8px;"></div>
+      <div id="pay-countdown" style="font-size:12px;font-weight:700;color:#b91c1c;margin-top:8px;text-align:center;"></div>
     </div>
   </div>
   <div style="padding:10px 20px 100px;">

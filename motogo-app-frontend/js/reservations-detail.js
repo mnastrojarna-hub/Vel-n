@@ -50,6 +50,23 @@ async function openResDetailById(bookingId){
     var totalEl = document.getElementById('rd-total');
     if(totalEl) totalEl.textContent = (booking.total_price||0).toLocaleString('cs-CZ') + ' Kč';
 
+    // Payment method — show real card info if available
+    var pmEl = document.getElementById('rd-pay-method');
+    if(pmEl){
+      pmEl.textContent = booking.payment_method === 'card' ? 'Platební karta' : (booking.payment_method || 'Platební karta');
+      // Try to show actual card last4 from Stripe
+      if(typeof apiFetchPaymentMethods === 'function'){
+        apiFetchPaymentMethods().then(function(r){
+          if(r.success && r.methods && r.methods.length > 0){
+            var def = r.methods.find(function(m){ return m.is_default; }) || r.methods[0];
+            var brandIcons = {visa:'VISA',mastercard:'MC',amex:'AMEX'};
+            var brand = brandIcons[def.brand] || def.brand.toUpperCase();
+            pmEl.textContent = brand + ' ••••' + def.last4;
+          }
+        }).catch(function(){});
+      }
+    }
+
     // Pickup/return locations
     var branchName = (moto && moto.branches) ? (moto.branches.address || moto.branches.name) + ', ' + (moto.branches.city || '') : '—';
     var pickupLocEl = document.getElementById('rd-pickup-loc');
