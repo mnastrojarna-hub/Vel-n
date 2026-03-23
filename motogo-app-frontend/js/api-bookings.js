@@ -80,17 +80,23 @@ async function apiProcessPayment(bookingId, amount, method, opts){
   var orderId = (opts && opts.order_id) || null;
   var incidentId = (opts && opts.incident_id) || null;
 
-  // Získej auth token
+  // Získej auth token — vždy čerstvý
   var token = null;
   try {
     var sess = await window.supabase.auth.getSession();
     if(sess.data && sess.data.session) token = sess.data.session.access_token;
   } catch(e){}
   if(!token){
-    // Try refresh before giving up
+    // Token chybí — refresh + setSession pro propagaci
     try {
       var ref = await window.supabase.auth.refreshSession();
-      if(ref.data && ref.data.session) token = ref.data.session.access_token;
+      if(ref.data && ref.data.session){
+        await window.supabase.auth.setSession({
+          access_token: ref.data.session.access_token,
+          refresh_token: ref.data.session.refresh_token
+        });
+        token = ref.data.session.access_token;
+      }
     } catch(e){}
   }
   if(!token){

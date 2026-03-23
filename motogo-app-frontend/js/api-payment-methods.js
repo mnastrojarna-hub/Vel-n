@@ -11,10 +11,15 @@ async function _callPaymentMethodsAPI(body){
     if(sess.data && sess.data.session) token = sess.data.session.access_token;
   } catch(e){}
   if(!token){
-    // Try refresh before giving up
     try {
       var ref = await window.supabase.auth.refreshSession();
-      if(ref.data && ref.data.session) token = ref.data.session.access_token;
+      if(ref.data && ref.data.session){
+        await window.supabase.auth.setSession({
+          access_token: ref.data.session.access_token,
+          refresh_token: ref.data.session.refresh_token
+        });
+        token = ref.data.session.access_token;
+      }
     } catch(e){}
   }
   if(!token) return {success:false, error:'Nejste přihlášeni. Přihlaste se prosím znovu.'};
