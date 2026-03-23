@@ -31,6 +31,8 @@
 - **mileage_start, mileage_end** — nájezd km
 - **damage_report** — hlášení poškození
 - **promo_code** — promo kód (text)
+- **stripe_payment_intent_id** — Stripe Payment Intent ID (pro refundy)
+- **stripe_session_id** — Stripe Checkout Session ID
 - **rating, rated_at** — hodnocení zákazníkem
 - **boots_size, helmet_size, jacket_size** — velikosti výbavy
 - **original_start_date, original_end_date** — původní data rezervace (před prodloužením/zkrácením)
@@ -145,6 +147,8 @@
 - total_amount, currency, shipping_address, shipping_method
 - promo_code_id, notes
 - **confirmed_at** — datum potvrzení
+- **stripe_payment_intent_id** — Stripe Payment Intent ID (pro refundy)
+- **stripe_session_id** — Stripe Checkout Session ID
 - created_at, updated_at
 
 ### branches (nové sloupce)

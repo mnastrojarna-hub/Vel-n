@@ -84,13 +84,16 @@ Deno.serve(async (req: Request) => {
       const session = event.data.object as Stripe.Checkout.Session
       const metadata = session.metadata || {}
       const paymentType = metadata.type || 'booking'
+      const stripePaymentIntentId = typeof session.payment_intent === 'string'
+        ? session.payment_intent
+        : (session.payment_intent as any)?.id || null
 
       if ((paymentType === 'booking' || paymentType === 'extension') && metadata.booking_id) {
-        await confirmBookingPayment(supabase, metadata.booking_id, session.id)
+        await confirmBookingPayment(supabase, metadata.booking_id, session.id, stripePaymentIntentId)
       } else if (paymentType === 'shop' && metadata.order_id) {
-        await confirmShopPayment(supabase, metadata.order_id, session.id)
+        await confirmShopPayment(supabase, metadata.order_id, session.id, stripePaymentIntentId)
       } else if (paymentType === 'sos' && metadata.booking_id) {
-        await confirmSosPayment(supabase, metadata.booking_id, metadata.incident_id, session.id)
+        await confirmSosPayment(supabase, metadata.booking_id, metadata.incident_id, session.id, stripePaymentIntentId)
       }
     } else if (event.type === 'payment_intent.succeeded') {
       const paymentIntent = event.data.object as Stripe.PaymentIntent
@@ -187,7 +190,8 @@ Deno.serve(async (req: Request) => {
 async function confirmBookingPayment(
   supabase: ReturnType<typeof createClient>,
   bookingId: string,
-  transactionId: string
+  transactionId: string,
+  stripePaymentIntentId?: string | null
 ) {
   try {
     const { data, error } = await supabase.rpc('confirm_payment', {
@@ -211,6 +215,17 @@ async function confirmBookingPayment(
       await supabase.from('bookings')
         .update({ payment_status: 'paid', payment_method: 'card' })
         .eq('id', bookingId)
+    }
+
+    // Save Stripe IDs for future refunds
+    if (stripePaymentIntentId) {
+      await supabase.from('bookings')
+        .update({
+          stripe_payment_intent_id: stripePaymentIntentId,
+          stripe_session_id: transactionId,
+        })
+        .eq('id', bookingId)
+        .catch(() => {})
     }
 
     // Auto-generate documents (non-blocking, best-effort)
@@ -240,18 +255,24 @@ async function confirmSosPayment(
   supabase: ReturnType<typeof createClient>,
   bookingId: string,
   incidentId: string | undefined,
-  transactionId: string
+  transactionId: string,
+  stripePaymentIntentId?: string | null
 ) {
   try {
     // Mark SOS replacement booking as paid + active
+    const updateData: Record<string, any> = {
+      payment_status: 'paid',
+      payment_method: 'card',
+      status: 'active',
+      confirmed_at: new Date().toISOString(),
+      picked_up_at: new Date().toISOString(),
+    }
+    if (stripePaymentIntentId) {
+      updateData.stripe_payment_intent_id = stripePaymentIntentId
+      updateData.stripe_session_id = transactionId
+    }
     const { error } = await supabase.from('bookings')
-      .update({
-        payment_status: 'paid',
-        payment_method: 'card',
-        status: 'active',
-        confirmed_at: new Date().toISOString(),
-        picked_up_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', bookingId)
 
     await supabase.from('debug_log').insert({
@@ -334,7 +355,8 @@ async function ingestFinancialEvent(
 async function confirmShopPayment(
   supabase: ReturnType<typeof createClient>,
   orderId: string,
-  transactionId: string
+  transactionId: string,
+  stripePaymentIntentId?: string | null
 ) {
   try {
     const { data, error } = await supabase.rpc('confirm_shop_payment', {
@@ -358,6 +380,17 @@ async function confirmShopPayment(
       await supabase.from('shop_orders')
         .update({ payment_status: 'paid', payment_method: 'card' })
         .eq('id', orderId)
+    }
+
+    // Save Stripe IDs for future refunds
+    if (stripePaymentIntentId) {
+      await supabase.from('shop_orders')
+        .update({
+          stripe_payment_intent_id: stripePaymentIntentId,
+          stripe_session_id: transactionId,
+        })
+        .eq('id', orderId)
+        .catch(() => {})
     }
   } catch (err) {
     console.error('confirmShopPayment error:', err)
