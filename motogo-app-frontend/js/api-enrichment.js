@@ -176,8 +176,67 @@ async function enrichMOTOS(){
     for(var j = 0; j < fresh.length; j++) MOTOS.push(fresh[j]);
 
     window._enrichMOTOSDone = true;
+    // Naplň filtr poboček na domovské stránce
+    _populateBranchFilter();
   } catch(e){
     console.error('[API] enrichMOTOS chyba:', e);
+  }
+}
+
+// Dynamicky naplní dropdown poboček z MOTOS dat + DB
+async function _populateBranchFilter(){
+  var sel = document.getElementById('f-branch-home');
+  var selSearch = document.getElementById('f-branch');
+  // Sbírej unikátní pobočky z MOTOS
+  var branches = {};
+  MOTOS.forEach(function(m){
+    if(m._db && m._db.branch_id && m._db.branch_name){
+      branches[m._db.branch_id] = {name: m._db.branch_name, address: m._db.branch_address||'', is_open: m._db.branch_is_open};
+    }
+  });
+  // Doplň z DB všechny pobočky (i ty bez motorek)
+  if(window.supabase){
+    try {
+      var r = await window.supabase.from('branches').select('id, name, address, city, is_open').order('name');
+      if(r.data){
+        r.data.forEach(function(b){
+          if(!branches[b.id]) branches[b.id] = {name: b.name, address: b.address||'', city: b.city||'', is_open: b.is_open};
+          else { branches[b.id].is_open = b.is_open; branches[b.id].city = b.city||''; }
+        });
+      }
+    } catch(e){}
+  }
+  var ids = Object.keys(branches);
+  if(!ids.length) return;
+  // Home filter
+  if(sel){
+    var curVal = sel.value;
+    sel.innerHTML = '<option value="">🏪 Všechny pobočky</option>';
+    ids.forEach(function(id){
+      var b = branches[id];
+      var label = b.name + (b.city ? ', '+b.city : '') + (b.is_open===false ? ' (zavřená)' : '');
+      var opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = label;
+      if(!b.is_open) opt.disabled = true;
+      sel.appendChild(opt);
+    });
+    if(curVal) sel.value = curVal;
+  }
+  // Search filter
+  if(selSearch){
+    var curVal2 = selSearch.value;
+    selSearch.innerHTML = '<option value="">🏪 Všechny pobočky</option>';
+    ids.forEach(function(id){
+      var b = branches[id];
+      var label = b.name + (b.address ? ', '+b.address : '') + (b.is_open===false ? ' (zavřená)' : '');
+      var opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = label;
+      if(!b.is_open) opt.disabled = true;
+      selSearch.appendChild(opt);
+    });
+    if(curVal2) selSearch.value = curVal2;
   }
 }
 

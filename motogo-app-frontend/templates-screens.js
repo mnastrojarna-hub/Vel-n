@@ -64,6 +64,11 @@ Templates['s-home'] = `  <div class="hdr">
         <div class="hf-chip" id="hfr-A" onclick="setHF('rp','A',this)"><span id="t-hfA">A (plný)</span></div>
         <div class="hf-chip" id="hfr-N" onclick="setHF('rp','N',this)"><span id="t-hfN">N (bez ŘP)</span></div>
       </div>
+      <!-- Pobočka -->
+      <div id="t-branchLabel" style="font-size:10px;font-weight:800;color:var(--g400);text-transform:uppercase;letter-spacing:.6px;margin-bottom:7px;">Pobočka</div>
+      <select id="f-branch-home" onchange="applyHomeFilters()" style="width:100%;border:1.5px solid var(--g200);border-radius:var(--rsm);padding:9px 10px;font-size:12px;font-family:var(--font);background:var(--g100);outline:none;margin-bottom:14px;color:var(--black);font-weight:600;">
+        <option value="">🏪 Všechny pobočky</option>
+      </select>
       <!-- Výkon slider -->
       <div style="font-size:10px;font-weight:800;color:var(--g400);text-transform:uppercase;letter-spacing:.6px;margin-bottom:7px;"><span id="t-maxPower">Max. výkon</span>: <span id="hf-vykon-lbl" style="color:var(--gd);">vše</span></div>
       <input type="range" id="hf-vykon" min="5" max="120" value="120" step="5"

@@ -83,6 +83,7 @@ function resetHomeFilters(){
   const lbl=document.getElementById('hf-vykon-lbl');if(lbl)lbl.textContent='vše';
   const av=document.getElementById('hf-avail');if(av)av.checked=false;
   const so=document.getElementById('hf-sort');if(so)so.value='default';
+  const br=document.getElementById('f-branch-home');if(br)br.value='';
   applyHomeFilters();
 }
 function applyHomeFilters(){
@@ -101,7 +102,7 @@ function applyHomeFilters(){
   if(HF.vykon<120)list=list.filter(m=>m.vykon<=HF.vykon);
   if(HF.avail)list=list.filter(function(m){return isMotoFreeToday(m.id);});
   const brHome=document.getElementById('f-branch-home')?.value||'';
-  if(brHome)list=list.filter(m=>m.branch===brHome);
+  if(brHome)list=list.filter(m=>(m._db&&m._db.branch_id===brHome)||m.branch===brHome);
   if(HF.sort==='price-asc')list.sort((a,b)=>{const pa=a.price.replace(/[^0-9]/g,''),pb=b.price.replace(/[^0-9]/g,'');return parseInt(pa)-parseInt(pb);});
   if(HF.sort==='price-desc')list.sort((a,b)=>{const pa=a.price.replace(/[^0-9]/g,''),pb=b.price.replace(/[^0-9]/g,'');return parseInt(pb)-parseInt(pa);});
   if(HF.sort==='vykon-desc')list.sort((a,b)=>b.vykon-a.vykon);
