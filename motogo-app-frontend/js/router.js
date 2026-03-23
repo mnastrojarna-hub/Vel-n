@@ -132,6 +132,7 @@ function goTo(id){
     var shipCost=(typeof shipMode!=='undefined'&&shipMode==='post')?99:0;
     const t=typeof cart!=='undefined'?cart.reduce((s,c)=>s+c.price*c.qty,0):0;
     const el=document.getElementById('checkout-total');if(el)el.textContent=(t+shipCost).toLocaleString('cs-CZ')+' Kč';
+    if(typeof _showCheckoutSavedCard==='function')_showCheckoutSavedCard();
   }
   if(id==='s-booking'){
     // Require login for booking (check local session sync)

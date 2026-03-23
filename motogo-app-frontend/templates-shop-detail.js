@@ -54,16 +54,12 @@ Templates['s-checkout'] = `  <div class="topbar">
     </div>
     <div class="bcard" style="margin:0 0 12px;padding:14px;">
       <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--g400);letter-spacing:.5px;margin-bottom:10px;">💳 Způsob platby</div>
-      <div id="pm-card-ch" onclick="selCheckoutP('card')" class="pm sel" style="margin-bottom:8px;">
+      <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--gp);border:2px solid var(--green);border-radius:var(--rsm);margin-bottom:10px;">
         <div class="pmi" style="background:var(--green);">💳</div>
         <div style="flex:1;"><div style="font-size:13px;font-weight:700;">Platební karta</div><div style="font-size:11px;color:var(--g400);">Visa · Mastercard</div></div>
-        <div class="pmr on" id="pmr-card-ch"></div>
       </div>
-      <div id="pm-apple-ch" onclick="selCheckoutP('apple')" class="pm" style="margin-bottom:0;">
-        <div class="pmi">🍎</div>
-        <div style="flex:1;"><div style="font-size:13px;font-weight:700;">Apple Pay / Google Pay</div><div style="font-size:11px;color:var(--g400);">Rychlá platba</div></div>
-        <div class="pmr" id="pmr-apple-ch"></div>
-      </div>
+      <div id="checkout-saved-card" style="display:none;margin-bottom:10px;"></div>
+      <div style="font-size:11px;color:var(--g400);line-height:1.6;">Po kliknutí na <strong>Potvrdit a zaplatit</strong> budete přesměrováni na Stripe, kde vyplníte údaje karty. Máte-li uloženou kartu, bude předvyplněna.</div>
     </div>
     <div class="bcard" style="margin:0 0 12px;padding:14px;">
       <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--g400);letter-spacing:.5px;margin-bottom:10px;">🏷️ Slevový kód / Dárkový poukaz</div>

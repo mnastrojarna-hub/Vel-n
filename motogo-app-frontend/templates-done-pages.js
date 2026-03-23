@@ -57,7 +57,8 @@ Templates['s-profile'] = `  <div class="prof-hdr">
       <div id="pm-cards-list" style="margin-bottom:8px;">
         <div style="text-align:center;padding:12px;color:var(--g400);font-size:12px;">Načítám uložené karty...</div>
       </div>
-      <div style="font-size:11px;color:var(--g400);line-height:1.6;padding:4px 0 8px;">Novou kartu přidáte při další platbě přes Stripe. Karta se automaticky uloží.</div>
+      <button id="add-card-btn" onclick="addNewCard()" style="width:100%;background:var(--gp);color:var(--gd);border:2px solid var(--green);border-radius:var(--rsm);padding:12px;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;">+ Přidat novou kartu</button>
+      <div style="font-size:11px;color:var(--g400);line-height:1.6;padding:0 0 8px;">Budete přesměrováni na zabezpečenou stránku Stripe pro zadání údajů karty. Karta se uloží pro budoucí platby.</div>
     </div>
   </div>
 

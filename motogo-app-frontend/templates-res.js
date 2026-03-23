@@ -80,7 +80,7 @@ Templates['s-res-detail'] = `  <div class="rd-hdr">
     <div class="rd-section-t" id="t-rdPaySec">Platba</div>
     <div class="rd-row"><div class="rd-label" id="t-rdDeposit">Záloha</div><div class="rd-value" id="t-rdNoDeposit" style="color:var(--gd)">Neúčtujeme ✓</div></div>
     <div class="rd-row"><div class="rd-label" id="t-rdTotal">Celkem</div><div class="rd-value" id="rd-total" style="color:var(--gd);font-size:16px;">5 400 Kč</div></div>
-    <div class="rd-row"><div class="rd-label" id="t-rdPayMethod">Způsob platby</div><div class="rd-value">Platební karta ••••4242</div></div>
+    <div class="rd-row"><div class="rd-label" id="t-rdPayMethod">Způsob platby</div><div class="rd-value" id="rd-pay-method">Platební karta</div></div>
   </div>
   <div id="rd-detail-summary" class="rd-card" style="display:none;">
     <div class="rd-section-t">Kompletní přehled rezervace</div>

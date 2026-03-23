@@ -36,13 +36,24 @@ function selectShipping(mode){
   updateCheckoutTotal();
 }
 
-function selCheckoutP(t){
-  ['card','apple'].forEach(x=>{
-    document.getElementById('pm-'+x+'-ch')?.classList.remove('sel');
-    const r=document.getElementById('pmr-'+x+'-ch');if(r){r.classList.remove('on');}
-  });
-  document.getElementById('pm-'+t+'-ch')?.classList.add('sel');
-  const r=document.getElementById('pmr-'+t+'-ch');if(r)r.classList.add('on');
+// Show saved card preview in checkout screen
+async function _showCheckoutSavedCard(){
+  var el = document.getElementById('checkout-saved-card');
+  if(!el || typeof apiFetchPaymentMethods !== 'function') return;
+  try {
+    var r = await apiFetchPaymentMethods();
+    if(!r.success || !r.methods || r.methods.length === 0) return;
+    var def = r.methods.find(function(m){ return m.is_default; }) || r.methods[0];
+    var brandIcons = {visa:'VISA',mastercard:'MC',amex:'AMEX'};
+    var brand = brandIcons[def.brand] || def.brand.toUpperCase();
+    var exp = (def.exp_month < 10 ? '0' : '') + def.exp_month + '/' + String(def.exp_year).slice(-2);
+    el.style.display = 'block';
+    el.innerHTML = '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:#fff;border:1px solid var(--g200);border-radius:var(--rsm);">' +
+      '<div style="font-size:18px;">💳</div>' +
+      '<div style="flex:1;"><div style="font-size:12px;font-weight:700;">•••• ' + def.last4 + ' <span style="font-size:10px;color:var(--g400);">' + brand + '</span></div>' +
+      '<div style="font-size:10px;color:var(--g400);">' + exp + '</div></div>' +
+      '<div style="font-size:10px;font-weight:700;color:var(--green);">Předvyplněno</div></div>';
+  } catch(e){}
 }
 
 async function finalizeCheckout(){

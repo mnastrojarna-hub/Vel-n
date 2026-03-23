@@ -574,7 +574,7 @@ async function sosPaymentSubmit(){
           return;
         }
 
-        // PaymentIntent confirmed (Stripe Elements or test)
+        // Fallback: Stripe confirmed payment inline (no redirect needed)
         pd.replacementData.payment_status = 'paid';
         pd.replacementData.paid_at = new Date().toISOString();
 
