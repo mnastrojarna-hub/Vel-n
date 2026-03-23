@@ -115,6 +115,14 @@
 - **tow_requested** — požadavek na odtah (boolean)
 - type CHECK: theft/accident_minor/accident_major/breakdown_minor/breakdown_major/defect_question/location_share/other
 
+### maintenance_log (nové sloupce)
+- **technician_id** (UUID FK→acc_employees ON DELETE SET NULL) — technik ze seznamu zaměstnanců
+- **labor_hours** (NUMERIC DEFAULT 0) — odpracované hodiny technika
+- **extra_cost** (NUMERIC DEFAULT 0) — extra náklady (doprava, diagnostika, externí faktura)
+
+### acc_employees (nový sloupec)
+- **hourly_rate** (NUMERIC DEFAULT 500) — hodinová sazba technika v Kč
+
 ### invoices
 - id, number, type, customer_id, supplier_id, booking_id, order_id
 - issue_date, due_date, paid_date, issued_at
