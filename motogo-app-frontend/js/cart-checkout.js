@@ -4,7 +4,7 @@
 
 // ===== SHOP DISCOUNT STATE =====
 var shopDiscountAmt = 0;
-var shopAppliedCodes = [];  // [{code, type:'promo'|'voucher', id, value, discountAmt}]
+var shopAppliedCodes = [];  // [{code, type:'promo'|'voucher', id, value, discountAmt, discountType, discountValue}]
 var _pendingShopOrderId = null; // For post-Stripe payment check
 
 function updateCheckoutTotal(){

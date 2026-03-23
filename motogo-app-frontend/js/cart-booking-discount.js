@@ -10,7 +10,7 @@ async function applyDiscount(){
 
   for(var di=0;di<_appliedBookingCodes.length;di++){
     if(_appliedBookingCodes[di].code===code){
-      if(msg)msg.innerHTML='<span style="color:var(--red)">Tento kód je již uplatněn</span>';return;
+      if(msg)msg.innerHTML='<span style="color:var(--red)">Tento k\u00f3d je ji\u017e uplatn\u011bn</span>';return;
     }
   }
 
@@ -20,17 +20,22 @@ async function applyDiscount(){
       if(typeof calcTotalPrice==='function'&&bookingMoto&&bOd&&bDo){
         baseForDiscount=calcTotalPrice(bookingMoto,new Date(bOd.y,bOd.m,bOd.d),new Date(bDo.y,bDo.m,bDo.d));
       } else { baseForDiscount=2600*(bookingDays||1); }
-      // Sleva se aplikuje na celou cenu (pronájem + příslušenství + přistavení)
+      // Sleva se aplikuje na celou cenu (pron\u00e1jem + p\u0159\u00edslu\u0161enstv\u00ed + p\u0159istaven\u00ed)
       baseForDiscount += (typeof extraTotal!=='undefined'?extraTotal:0) + (typeof deliveryFee!=='undefined'?deliveryFee:0);
 
       var r = await window.supabase.rpc('validate_promo_code', { p_code: code });
       if(r.data && r.data.valid){
         var promoData = r.data;
+        // Prevent combining two percentage codes
+        if(promoData.type==='percent'){
+          var hasPercent=_appliedBookingCodes.some(function(c){return c.discountType==='percent';});
+          if(hasPercent){if(msg)msg.innerHTML='<span style="color:var(--red)">Nelze kombinovat dva procentu\u00e1ln\u00ed k\u00f3dy</span>';return;}
+        }
         var disc=promoData.type==='percent'?Math.round(baseForDiscount*promoData.value/100):promoData.value;
-        _appliedBookingCodes.push({code:code,type:'promo',id:promoData.id,discountAmt:disc});
+        _appliedBookingCodes.push({code:code,type:'promo',id:promoData.id,discountAmt:disc,discountType:promoData.type,discountValue:promoData.value});
         _appliedPromoId = promoData.id;appliedCode = code;
         discountAmt=_appliedBookingCodes.reduce(function(s,c){return s+c.discountAmt;},0);
-        var label=promoData.type==='percent'?promoData.value+'%':promoData.value+' Kč';
+        var label=promoData.type==='percent'?promoData.value+'%':promoData.value+' K\u010d';
         if(msg)msg.innerHTML='<span style="color:var(--gd)">\u2713 '+_t('cart').discount+' '+label+' '+_t('cart').applied+'</span>';
         showT('\ud83c\udff7\ufe0f',_t('cart').discount+' '+label,_t('cart').youSave+' '+disc+' K\u010d');
         if(inp)inp.value='';_renderBookingAppliedCodes();recalcTotal();
@@ -38,7 +43,7 @@ async function applyDiscount(){
         var vr = await window.supabase.rpc('validate_voucher_code', { p_code: code });
         if(vr.data && vr.data.valid){
           var vData = vr.data;
-          _appliedBookingCodes.push({code:code,type:'voucher',id:vData.id,discountAmt:vData.value});
+          _appliedBookingCodes.push({code:code,type:'voucher',id:vData.id,discountAmt:vData.value,discountType:'fixed',discountValue:vData.value});
           _appliedPromoId = vData.id;appliedCode = code;
           discountAmt=_appliedBookingCodes.reduce(function(s,c){return s+c.discountAmt;},0);
           if(msg)msg.innerHTML='<span style="color:var(--gd)">\u2713 '+(_t('cart').voucher||'Poukaz')+' '+vData.value+' K\u010d '+_t('cart').applied+'</span>';
@@ -63,7 +68,7 @@ async function applyDiscount(){
     } else { base2=2600*(bookingDays||1); }
     base2 += (typeof extraTotal!=='undefined'?extraTotal:0) + (typeof deliveryFee!=='undefined'?deliveryFee:0);
     var disc2=Math.round(base2*pct/100);
-    _appliedBookingCodes.push({code:code,type:'promo',id:null,discountAmt:disc2});
+    _appliedBookingCodes.push({code:code,type:'promo',id:null,discountAmt:disc2,discountType:'percent',discountValue:pct});
     discountAmt=_appliedBookingCodes.reduce(function(s,c){return s+c.discountAmt;},0);
     appliedCode = code;
     if(msg)msg.innerHTML='<span style="color:var(--gd)">\u2713 '+_t('cart').discount+' '+pct+'% '+_t('cart').applied+'</span>';

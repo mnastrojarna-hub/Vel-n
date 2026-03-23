@@ -11,6 +11,17 @@ async function openResDetailById(bookingId){
     if(!booking){ showT('✗',_t('common').error,_t('res').resNotFound); return; }
 
     var moto = booking.motorcycles || (booking.moto_id ? await _getMotoById(booking.moto_id) : null);
+    // Fetch promo code type info for display
+    if(booking.discount_code && booking.discount_amount > 0 && window.supabase){
+      try {
+        var _pu = await window.supabase.from('promo_code_usage').select('discount_applied, promo_codes(type, value)')
+          .eq('booking_id', bookingId).limit(1);
+        if(_pu.data && _pu.data.length > 0 && _pu.data[0].promo_codes){
+          booking._promoType = _pu.data[0].promo_codes.type;
+          booking._promoValue = _pu.data[0].promo_codes.value;
+        }
+      } catch(e2){}
+    }
     var st = _mapStatus(booking.status, booking.start_date, booking.end_date, booking);
     var s = _parseDateSafe(booking.start_date); s.setHours(0,0,0,0);
     var e = _parseDateSafe(booking.end_date); e.setHours(0,0,0,0);
@@ -69,8 +80,15 @@ async function openResDetailById(bookingId){
       if(booking.helmet_size) extrasHtml += '<div class="rd-row"><div class="rd-label">Helma</div><div class="rd-value">vel. ' + booking.helmet_size + '</div></div>';
       if(booking.jacket_size) extrasHtml += '<div class="rd-row"><div class="rd-label">Bunda</div><div class="rd-value">vel. ' + booking.jacket_size + '</div></div>';
       if(booking.delivery_fee > 0) extrasHtml += '<div class="rd-row"><div class="rd-label">Doručení</div><div class="rd-value">' + booking.delivery_fee.toLocaleString('cs-CZ') + ' Kč</div></div>';
-      if(booking.discount_amount > 0) extrasHtml += '<div class="rd-row"><div class="rd-label">Sleva / poukaz</div><div class="rd-value" style="color:var(--green);">-' + booking.discount_amount.toLocaleString('cs-CZ') + ' Kč</div></div>';
-      if(booking.discount_code) extrasHtml += '<div class="rd-row"><div class="rd-label">Kód poukazu</div><div class="rd-value">' + booking.discount_code + '</div></div>';
+      if(booking.discount_amount > 0){
+        var _discLabel = '-' + booking.discount_amount.toLocaleString('cs-CZ') + ' K\u010d';
+        // Try to show percentage info from promo_code_usage
+        if(booking._promoType === 'percent' && booking._promoValue){
+          _discLabel = 'sleva ' + booking._promoValue + '%';
+        }
+        extrasHtml += '<div class="rd-row"><div class="rd-label">Sleva / poukaz</div><div class="rd-value" style="color:var(--green);">' + _discLabel + '</div></div>';
+      }
+      if(booking.discount_code) extrasHtml += '<div class="rd-row"><div class="rd-label">Slevov\u00fd k\u00f3d</div><div class="rd-value">' + booking.discount_code + '</div></div>';
       extrasEl.innerHTML = extrasHtml;
       extrasEl.style.display = extrasHtml ? 'block' : 'none';
       // Load individual extras from booking_extras (async)

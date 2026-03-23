@@ -115,7 +115,7 @@ function _calcDeliveryFallback(type, addr, calcEl, kmTxt){
 }
 
 var _appliedPromoId = null;
-var _appliedBookingCodes = []; // [{code, type:'promo'|'voucher', id, discountAmt}]
+var _appliedBookingCodes = []; // [{code, type:'promo'|'voucher', id, discountAmt, discountType, discountValue}]
 
 function removeDiscount(){
   discountAmt=0;appliedCode=null;_appliedPromoId=null;_appliedBookingCodes=[];
@@ -136,9 +136,10 @@ function _renderBookingAppliedCodes(){
   }
   if(_appliedBookingCodes.length===0){wrap.innerHTML='';return;}
   wrap.innerHTML=_appliedBookingCodes.map(function(c){
+    var discLabel=c.discountType==='percent'?c.code+' (sleva '+c.discountValue+'%)':c.code+' (-'+c.discountAmt.toLocaleString('cs-CZ')+' K\u010d)';
     return '<div style="display:flex;align-items:center;gap:6px;padding:5px 10px;background:var(--gp);border:1px solid var(--green);border-radius:8px;margin-bottom:4px;font-size:11px;font-weight:700;color:var(--gd);">'+
-      '<span>'+c.code+' (-'+c.discountAmt.toLocaleString('cs-CZ')+' Kč)</span>'+
-      '<button onclick="removeOneDiscount(\''+c.code+'\')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:6px;width:20px;height:20px;font-size:11px;font-weight:800;cursor:pointer;margin-left:auto;padding:0;">✕</button>'+
+      '<span>'+discLabel+'</span>'+
+      '<button onclick="removeOneDiscount(\''+c.code+'\')" style="background:#fee2e2;color:#b91c1c;border:none;border-radius:6px;width:20px;height:20px;font-size:11px;font-weight:800;cursor:pointer;margin-left:auto;padding:0;">\u2715</button>'+
       '</div>';
   }).join('');
 }

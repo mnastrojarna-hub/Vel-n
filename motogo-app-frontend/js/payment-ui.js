@@ -90,8 +90,15 @@ async function _checkPaymentAfterStripe(){
       }
       // Normal booking payment
       if(_paymentTimeout){ clearTimeout(_paymentTimeout); _paymentTimeout = null; }
-      // Log promo code if used
-      if(typeof appliedCode !== 'undefined' && appliedCode && typeof apiUsePromoCode === 'function'){
+      // Log all applied promo codes
+      if(typeof _appliedBookingCodes !== 'undefined' && _appliedBookingCodes.length > 0 && typeof apiUsePromoCode === 'function'){
+        var _fullBase = _currentPaymentAmount + (typeof discountAmt !== 'undefined' ? discountAmt : 0);
+        for(var _pi=0;_pi<_appliedBookingCodes.length;_pi++){
+          if(_appliedBookingCodes[_pi].type==='promo' && _appliedBookingCodes[_pi].code){
+            try { apiUsePromoCode(_appliedBookingCodes[_pi].code, bkId, _fullBase); } catch(pe){}
+          }
+        }
+      } else if(typeof appliedCode !== 'undefined' && appliedCode && typeof apiUsePromoCode === 'function'){
         try { apiUsePromoCode(appliedCode, bkId, _currentPaymentAmount + (typeof discountAmt !== 'undefined' ? discountAmt : 0)); } catch(pe){}
       }
       // Auto-generate docs (non-blocking)
