@@ -74,12 +74,32 @@ async function apiFetchProfile(){
   if(!window.supabase) return null;
   try {
     var uid = await _getUserId();
+    if(!uid){
+      // Token expired — try refresh
+      try {
+        var ref = await window.supabase.auth.refreshSession();
+        if(ref.data && ref.data.session && ref.data.session.user){
+          uid = ref.data.session.user.id;
+        }
+      } catch(re){}
+    }
     if(!uid) return null;
     var r = await window.supabase.from('profiles').select('*').eq('id', uid).single();
+    if(r.error && (r.status === 406 || r.status === 401)){
+      // RLS blocked — session likely expired, try refresh once
+      try {
+        var ref2 = await window.supabase.auth.refreshSession();
+        if(ref2.data && ref2.data.session){
+          r = await window.supabase.from('profiles').select('*').eq('id', uid).single();
+        }
+      } catch(re2){}
+    }
     if(r.data){
       // Doplň email z auth
-      var u = await window.supabase.auth.getUser();
-      if(u.data && u.data.user) r.data.email = u.data.user.email;
+      try {
+        var u = await window.supabase.auth.getUser();
+        if(u.data && u.data.user) r.data.email = u.data.user.email;
+      } catch(ue){}
     }
     return r.data || null;
   } catch(e){ console.error('[API] apiFetchProfile:', e); return null; }

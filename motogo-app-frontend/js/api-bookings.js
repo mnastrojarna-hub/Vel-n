@@ -81,11 +81,21 @@ async function apiProcessPayment(bookingId, amount, method, opts){
   var incidentId = (opts && opts.incident_id) || null;
 
   // Získej auth token
-  var token = anonKey;
+  var token = null;
   try {
     var sess = await window.supabase.auth.getSession();
     if(sess.data && sess.data.session) token = sess.data.session.access_token;
   } catch(e){}
+  if(!token){
+    // Try refresh before giving up
+    try {
+      var ref = await window.supabase.auth.refreshSession();
+      if(ref.data && ref.data.session) token = ref.data.session.access_token;
+    } catch(e){}
+  }
+  if(!token){
+    return {success:false, error: 'Nejste přihlášeni. Přihlaste se prosím znovu.'};
+  }
 
   // Stripe Checkout — jediná platební metoda (LIVE)
   if(!baseUrl){

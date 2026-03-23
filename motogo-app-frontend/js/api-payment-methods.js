@@ -5,18 +5,30 @@ async function _callPaymentMethodsAPI(body){
   var baseUrl = cfg.SUPABASE_URL;
   var anonKey = cfg.SUPABASE_ANON_KEY;
   if(!baseUrl) return {success:false, error:'No config'};
-  var token = anonKey;
+  var token = null;
   try {
     var sess = await window.supabase.auth.getSession();
     if(sess.data && sess.data.session) token = sess.data.session.access_token;
   } catch(e){}
+  if(!token){
+    // Try refresh before giving up
+    try {
+      var ref = await window.supabase.auth.refreshSession();
+      if(ref.data && ref.data.session) token = ref.data.session.access_token;
+    } catch(e){}
+  }
+  if(!token) return {success:false, error:'Nejste přihlášeni. Přihlaste se prosím znovu.'};
   try {
     var resp = await fetch(baseUrl + '/functions/v1/manage-payment-methods', {
       method: 'POST',
       headers: {'Content-Type':'application/json','Authorization':'Bearer '+token,'apikey':anonKey||''},
       body: JSON.stringify(body)
     });
-    return await resp.json();
+    var result = await resp.json();
+    if(resp.status === 401){
+      return {success:false, error:'Platnost přihlášení vypršela. Přihlaste se znovu.'};
+    }
+    return result;
   } catch(e){ return {success:false, error:e.message}; }
 }
 

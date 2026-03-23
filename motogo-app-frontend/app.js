@@ -33,29 +33,17 @@ function _resolveSession(cb){
         }
       } catch(e){}
       // CRITICAL: getSession() returns CACHED data — verify JWT is valid server-side
+      // Try getUser first; if it fails, refresh session and retry
       supabase.auth.getUser().then(function(userResult){
         if(!userResult.data || !userResult.data.user){
-          // JWT expired or invalid — clean up and go to login
-          console.warn('[AUTH] Cached session invalid — forcing logout');
-          _forceCleanLogout();
-          cb(false);
-          return;
+          // Token might be expired — try refresh before giving up
+          return _tryRefreshAndVerify(result.data.session, cb);
         }
         // Session is truly valid
-        try {
-          var user = userResult.data.user;
-          if(typeof _syncLocalSession === 'function'){
-            _syncLocalSession(user.id, user.email);
-          }
-          if(typeof _storeBioUser === 'function' && localStorage.getItem('mg_bio_user')){
-            _storeBioUser(user.id, user.email, result.data.session.refresh_token);
-          }
-        } catch(e){}
-        cb(true);
+        _onSessionValid(userResult.data.user, result.data.session, cb);
       }).catch(function(){
-        console.warn('[AUTH] getUser() failed — forcing logout');
-        _forceCleanLogout();
-        cb(false);
+        console.warn('[AUTH] getUser() failed — trying refresh...');
+        _tryRefreshAndVerify(result.data.session, cb);
       });
     }).catch(function(err){
       if(err && err.code === 'refresh_token_not_found'){
@@ -69,6 +57,44 @@ function _resolveSession(cb){
 }
 
 // Force clean logout — clear ALL session data SYNCHRONOUSLY to prevent stale logins
+function _onSessionValid(user, session, cb){
+  try {
+    if(typeof _syncLocalSession === 'function'){
+      _syncLocalSession(user.id, user.email);
+    }
+    if(typeof _storeBioUser === 'function' && localStorage.getItem('mg_bio_user')){
+      _storeBioUser(user.id, user.email, session.refresh_token);
+    }
+  } catch(e){}
+  cb(true);
+}
+
+function _tryRefreshAndVerify(oldSession, cb){
+  if(typeof supabase === 'undefined' || !supabase){
+    _forceCleanLogout(); cb(false); return;
+  }
+  supabase.auth.refreshSession().then(function(ref){
+    if(!ref.data || !ref.data.session){
+      console.warn('[AUTH] refreshSession returned no session — forcing logout');
+      _forceCleanLogout(); cb(false); return;
+    }
+    // Refresh succeeded — verify with getUser
+    supabase.auth.getUser().then(function(ur){
+      if(ur.data && ur.data.user){
+        console.info('[AUTH] Session refreshed successfully');
+        _onSessionValid(ur.data.user, ref.data.session, cb);
+      } else {
+        _forceCleanLogout(); cb(false);
+      }
+    }).catch(function(){
+      _forceCleanLogout(); cb(false);
+    });
+  }).catch(function(){
+    console.warn('[AUTH] refreshSession failed — forcing logout');
+    _forceCleanLogout(); cb(false);
+  });
+}
+
 function _forceCleanLogout(){
   try {
     // Synchronní cleanup VŠECH session-related localStorage klíčů PŘED čímkoli jiným
