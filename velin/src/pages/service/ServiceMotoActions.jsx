@@ -30,7 +30,13 @@ export default function ServiceMotoActions({ moto, logs, onDone }) {
       await supabase.from('motorcycles').update({ branch_id: moto.branch_id, status: 'active' }).eq('id', replacementMoto.id)
     }
     // Deactivate original
-    await supabase.from('motorcycles').update({ status: 'out_of_service' }).eq('id', moto.id)
+    const now = new Date()
+    const maxYear = now.getMonth() <= 1 ? now.getFullYear() : now.getFullYear() + 1
+    await supabase.from('motorcycles').update({
+      status: 'unavailable',
+      unavailable_reason: 'Deaktivováno — náhrada přiřazena',
+      unavailable_until: `${maxYear}-02-28T23:59:59`,
+    }).eq('id', moto.id)
     // Link replacement in active logs
     for (const l of logs) {
       await supabase.from('maintenance_log').update({ replacement_moto_id: replacementMoto.id }).eq('id', l.id)
@@ -103,10 +109,21 @@ export default function ServiceMotoActions({ moto, logs, onDone }) {
               Deaktivovat + nahradit
             </button>
           ) : (
-            <button onClick={async () => { setBusy(true); await supabase.from('motorcycles').update({ status: 'out_of_service' }).eq('id', moto.id); await audit('moto_deactivated', { moto_id: moto.id }); setBusy(false); onDone() }}
+            <button onClick={async () => {
+                setBusy(true)
+                const now = new Date()
+                const maxYear = now.getMonth() <= 1 ? now.getFullYear() : now.getFullYear() + 1
+                await supabase.from('motorcycles').update({
+                  status: 'unavailable',
+                  unavailable_reason: 'Deaktivováno ze servisu',
+                  unavailable_until: `${maxYear}-02-28T23:59:59`,
+                }).eq('id', moto.id)
+                await audit('moto_deactivated', { moto_id: moto.id })
+                setBusy(false); onDone()
+              }}
               className="rounded-btn text-sm font-bold cursor-pointer" disabled={busy}
               style={{ padding: '6px 14px', background: '#ede9fe', color: '#7c3aed', border: 'none' }}>
-              {busy ? 'Deaktivuji…' : 'Deaktivovat'}
+              {busy ? 'Vyřazuji…' : 'Dočasně vyřadit'}
             </button>
           )}
           <button onClick={() => setMode('retire')} className="rounded-btn text-sm font-bold cursor-pointer"

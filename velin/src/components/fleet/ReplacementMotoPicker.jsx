@@ -15,7 +15,7 @@ export default function ReplacementMotoPicker({ branchId, excludeMotoId, onSelec
     setLoading(true)
     const [mRes, bRes] = await Promise.all([
       supabase.from('motorcycles').select('id, model, spz, status, branch_id, category, branches(name, type)')
-        .in('status', ['active', 'out_of_service', 'maintenance']).neq('id', excludeMotoId || ''),
+        .in('status', ['active', 'unavailable', 'maintenance']).neq('id', excludeMotoId || ''),
       supabase.from('branches').select('id, name, type').eq('active', true),
     ])
     setMotos(mRes.data || [])
@@ -23,9 +23,9 @@ export default function ReplacementMotoPicker({ branchId, excludeMotoId, onSelec
     setLoading(false)
   }
 
-  // Group: 1) deactivated/out_of_service motos, 2) from staffed branches with surplus, 3) without branch
+  // Group: 1) deactivated/unavailable motos, 2) from staffed branches with surplus, 3) without branch
   const grouped = {
-    deactivated: motos.filter(m => m.status === 'out_of_service' || m.status === 'maintenance'),
+    deactivated: motos.filter(m => m.status === 'unavailable' || m.status === 'maintenance'),
     staffed: motos.filter(m => m.status === 'active' && m.branches?.type === 'obslužná' && m.branch_id !== branchId),
     noBranch: motos.filter(m => m.status === 'active' && !m.branch_id),
   }
@@ -34,8 +34,8 @@ export default function ReplacementMotoPicker({ branchId, excludeMotoId, onSelec
     : filter === 'deactivated' ? grouped.deactivated
     : filter === 'staffed' ? grouped.staffed : grouped.noBranch
 
-  const statusLabel = { active: 'Aktivní', out_of_service: 'Mimo provoz', maintenance: 'V servisu' }
-  const statusColor = { active: '#1a8a18', out_of_service: '#7c3aed', maintenance: '#b45309' }
+  const statusLabel = { active: 'Aktivní', unavailable: 'Dočasně vyřazena', maintenance: 'V servisu' }
+  const statusColor = { active: '#1a8a18', unavailable: '#7c3aed', maintenance: '#b45309' }
 
   if (loading) return <div className="py-4 text-center text-sm" style={{ color: '#6b7280' }}>Načítám dostupné motorky…</div>
 

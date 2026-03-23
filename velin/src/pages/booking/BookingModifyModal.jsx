@@ -304,7 +304,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
 
   // Motorcycle list for changing
   const filteredMotos = useMemo(() => {
-    let list = allMotos.filter(m => m.status === 'active' || m.status === 'rented' || m.id === booking.moto_id)
+    let list = allMotos.filter(m => m.status === 'active' || m.id === booking.moto_id)
     if (branchFilter) list = list.filter(m => m.branch_id === branchFilter)
     return list
   }, [allMotos, branchFilter, booking.moto_id])

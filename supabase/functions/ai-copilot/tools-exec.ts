@@ -247,7 +247,7 @@ async function executeTool(
             ...b,
             total_motos: branchMotos.length,
             active_motos: branchMotos.filter((m: Record<string, unknown>) => m.status === 'active').length,
-            rented_motos: branchMotos.filter((m: Record<string, unknown>) => m.status === 'rented').length,
+            unavailable_motos: branchMotos.filter((m: Record<string, unknown>) => m.status === 'unavailable').length,
             maintenance_motos: branchMotos.filter((m: Record<string, unknown>) => m.status === 'maintenance').length,
           }
         })

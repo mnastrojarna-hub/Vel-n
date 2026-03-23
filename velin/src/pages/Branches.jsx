@@ -121,11 +121,11 @@ function Branches() {
         const s = {}
         ;(motos || []).forEach(m => {
           if (!m.branch_id) return
-          if (!s[m.branch_id]) s[m.branch_id] = { total: 0, active: 0, maintenance: 0, out_of_service: 0 }
+          if (!s[m.branch_id]) s[m.branch_id] = { total: 0, active: 0, maintenance: 0, unavailable: 0 }
           s[m.branch_id].total++
-          if (m.status === 'active' || m.status === 'rented') s[m.branch_id].active++
+          if (m.status === 'active') s[m.branch_id].active++
           if (m.status === 'maintenance') s[m.branch_id].maintenance++
-          if (m.status === 'unavailable' || m.status === 'retired') s[m.branch_id].out_of_service++
+          if (m.status === 'unavailable' || m.status === 'retired') s[m.branch_id].unavailable++
         })
         setStats(s)
       } catch (e) {
