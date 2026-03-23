@@ -7,6 +7,7 @@
 
 | Datum | Změna |
 |-------|-------|
+| 2026-03-23 | **MAJOR: Stripe LIVE platební brána:** 1) `process-payment` přepnut z TEST na LIVE mode, pouze Checkout Session (bez PaymentIntent), locale=cs. 2) `webhook-receiver` — povinná signature verifikace (STRIPE_WEBHOOK_SECRET), auto-generace dokumentů (ZF, smlouva) po platbě. 3) Frontend: odstraněn fake kartový formulář, všechny platby (booking, shop, edit, restore, SOS) jdou přes Stripe Checkout redirect. 4) Shop checkout přepojen ze simulované platby na Stripe. 5) SOS payment přepojen ze simulovaného formuláře na Stripe. 6) Stripe publishable key (pk_live_) přidán do MOTOGO_CONFIG. 7) RPC fallback pro platby odstraněn — Stripe je jediná platební metoda. |
 | 2026-03-22 | motorcycles: přidán sloupec tracking_unit (TEXT DEFAULT 'km', CHECK km/mh) — podpora motohodin jako alternativy ke km |
 | 2026-03-22 | profiles: přidány sloupce is_blocked, blocked_at, blocked_reason, consent_gdpr, consent_vop, consent_email, consent_sms, consent_push, consent_data_processing, consent_photo |
 | 2026-03-08 | Prvotní vytvoření ze 32 migrací + 6 edge funkcí |

@@ -71,9 +71,9 @@ Detailní politiky:
 | `generate-document` | Generuje dokumenty z šablon (rental_contract, handover_protocol). Firemní údaje načítá z app_settings (company_info) |
 | `send-cancellation-email` | Email o stornování rezervace s "obnovit" CTA. Retry 3× s exponential backoff. Při selhání loguje do debug_log |
 | `admin-reset-password` | Admin reset hesla zákazníka |
-| `process-payment` | Stripe platební brána (TEST mode). Podporuje booking i shop platby (parametr `type`). Vytváří Checkout Session (redirect) + PaymentIntent (Stripe Elements). Vrací `checkout_url`, `session_id`, `client_secret` |
+| `process-payment` | Stripe platební brána (**LIVE mode**). Podporuje booking, shop, extension i SOS platby (parametr `type`). Vytváří Stripe Checkout Session (redirect). Vrací `checkout_url`, `session_id`. Locale: cs |
 | `scan-document` | OCR skenování dokladů (OP, ŘP, pas) přes Mindee API. Přijímá base64 JPEG + document_type (id/dl/passport), vrací strukturovaná data. Retry 3×, loguje do debug_log |
-| `webhook-receiver` | Příjem Stripe webhooků v repozitáři. Ověřuje signature, zpracovává checkout.session.completed a payment_intent.succeeded |
+| `webhook-receiver` | Příjem Stripe webhooků (**LIVE mode**, signature povinná). Zpracovává checkout.session.completed, payment_intent.succeeded, charge.refunded, payout.paid. Auto-generuje dokumenty (ZF, smlouva) po úspěšné platbě |
 | `send-message` | Centrální odesílání zpráv (SMS/WhatsApp přes Twilio, email přes Resend). Přijímá channel, recipient, template_slug, template_vars. Loguje do message_log |
 | `send-invoice-email` | Odesílání faktur emailem zákazníkům |
 | `send-order-email` | Odesílání objednávkových emailů dodavatelům. Branded HTML šablona s tabulkou položek. Retry 3×. Aktualizuje purchase_orders.status→sent a sent_at. Loguje do debug_log |
@@ -108,26 +108,31 @@ Detailní politiky:
 
 ---
 
-## 10. SECRETS (9)
+## 10. SECRETS (16+)
 
 | Secret | Kde se používá |
 |--------|---------------|
 | `SUPABASE_URL` | Všechny edge funkce |
 | `SUPABASE_SERVICE_ROLE_KEY` | Všechny edge funkce |
-| `SUPABASE_ANON_KEY` | admin-reset-password, ai-copilot, ai-moto-agent |
+| `SUPABASE_ANON_KEY` | admin-reset-password, ai-copilot, ai-moto-agent, webhook-receiver (doc gen) |
 | `SUPABASE_DB_URL` | Přímý DB přístup z edge funkcí |
 | `ANTHROPIC_API_KEY` | ai-copilot, ai-moto-agent (Anthropic Claude API) |
-| `RESEND_API_KEY` | send-booking-email, generate-invoice, send-cancellation-email, send-email |
-| `FROM_EMAIL` | Email funkce (default: noreply@motogo24.cz) |
-| `SITE_URL` | send-booking-email, send-cancellation-email (default: https://motogo24.cz) |
 | `MINDEE_API_KEY` | scan-document (OCR) |
-| `STRIPE_SECRET_KEY` | webhook-receiver, process-payment |
-| `STRIPE_WEBHOOK_SECRET` | webhook-receiver (ověření Stripe signature) |
+| `STRIPE_SECRET_KEY` | process-payment, webhook-receiver (**LIVE sk_live_...**) |
+| `STRIPE_WEBHOOK_SECRET` | webhook-receiver (**POVINNÉ** — ověření Stripe signature, whsec_...) |
 | `ADMIN_EMAIL` | SOS notifikace, cron alerty |
 | `ADMIN_PHONE` | SOS SMS notifikace |
 | `TWILIO_ACCOUNT_SID` | send-message (Twilio SMS/WhatsApp) |
-| `TWILIO_AUTH_TOKEN` | send-message (Twilio SMS/WhatsApp) |
+| `TWILIO_API_KEY_SID` | send-message (Twilio API Key) |
+| `TWILIO_API_KEY_SECRET` | send-message (Twilio API Key Secret) |
 | `TWILIO_PHONE_NUMBER` | send-message (Twilio odesílací číslo) |
+| `TWILIO_WHATSAPP_NUMBER` | send-message (Twilio WhatsApp číslo) |
+| `INVOICE_API_KEY` | fakturace |
+
+**Frontend config (ne secret):**
+| Klíč | Hodnota |
+|------|---------|
+| `STRIPE_PUBLISHABLE_KEY` | `pk_live_51TBLTTRzZyj...` (v index.html MOTOGO_CONFIG) |
 
 ---
 

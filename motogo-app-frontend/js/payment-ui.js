@@ -53,6 +53,14 @@ async function _checkPaymentAfterStripe(){
       if(_isRestorePayment){
         _isRestorePayment = false;
         _currentBookingId = null;
+        // Confirm restore: set booking to active + paid
+        if(typeof apiConfirmRestoreBooking === 'function') apiConfirmRestoreBooking(bkId).catch(function(){});
+        // Auto-generate docs (non-blocking)
+        try {
+          if(typeof apiGenerateAdvanceInvoice === 'function') apiGenerateAdvanceInvoice(bkId, _currentPaymentAmount, 'restore').catch(function(){});
+          if(typeof apiGeneratePaymentReceipt === 'function') apiGeneratePaymentReceipt(bkId, _currentPaymentAmount, 'restore').catch(function(){});
+          if(typeof apiAutoGenerateBookingDocs === 'function') apiAutoGenerateBookingDocs(bkId).catch(function(){});
+        } catch(de){}
         showT('✓',_t('pay').paid||'Zaplaceno',_t('res').restored||'Rezervace obnovena');
         goTo('s-res');
         if(typeof renderMyReservations === 'function') renderMyReservations();
@@ -62,6 +70,18 @@ async function _checkPaymentAfterStripe(){
         _isEditPayment = false;
         _editPaymentBookingId = null;
         _cachedBookings = null;
+        // Apply pending edit changes after successful payment
+        var pendingChanges = window._pendingEditChanges || null;
+        if(pendingChanges && typeof apiModifyBooking === 'function'){
+          apiModifyBooking(bkId, pendingChanges).catch(function(e){ console.warn('[PAY] Edit apply err:', e); });
+          window._pendingEditChanges = null;
+        }
+        // Auto-generate docs (non-blocking)
+        try {
+          if(typeof apiGenerateAdvanceInvoice === 'function') apiGenerateAdvanceInvoice(bkId, _currentPaymentAmount, 'edit').catch(function(){});
+          if(typeof apiGeneratePaymentReceipt === 'function') apiGeneratePaymentReceipt(bkId, _currentPaymentAmount, 'edit').catch(function(){});
+          if(typeof apiAutoGenerateBookingDocs === 'function') apiAutoGenerateBookingDocs(bkId, true).catch(function(){});
+        } catch(de){}
         showT('✓',_t('pay').paid||'Zaplaceno',_t('res').changesSavedShort||'Změny uloženy');
         if(typeof renderMyReservations === 'function') renderMyReservations();
         if(typeof openResDetailById === 'function') openResDetailById(bkId);
@@ -70,6 +90,10 @@ async function _checkPaymentAfterStripe(){
       }
       // Normal booking payment
       if(_paymentTimeout){ clearTimeout(_paymentTimeout); _paymentTimeout = null; }
+      // Log promo code if used
+      if(typeof appliedCode !== 'undefined' && appliedCode && typeof apiUsePromoCode === 'function'){
+        try { apiUsePromoCode(appliedCode, bkId, _currentPaymentAmount + (typeof discountAmt !== 'undefined' ? discountAmt : 0)); } catch(pe){}
+      }
       // Auto-generate docs (non-blocking)
       try {
         if(typeof apiGenerateAdvanceInvoice === 'function') apiGenerateAdvanceInvoice(bkId, _currentPaymentAmount, 'booking').catch(function(){});
@@ -358,7 +382,7 @@ function doPayment(){
         payBtn.style.opacity = '1';
       }
 
-      // Stripe Checkout – otevři platební stránku
+      // Stripe Checkout – přesměruj na platební stránku
       if(result.success && result.checkout_url){
         _stripeCheckoutBookingId = _currentBookingId;
         _lockPaymentScreen('↗ Platební brána otevřena...');
@@ -367,82 +391,8 @@ function doPayment(){
         return;
       }
 
-      if(result.success){
-        // Payment succeeded – clear timeout and counter
-        _paymentAttempts = 0;
-        if(_paymentTimeout){ clearTimeout(_paymentTimeout); _paymentTimeout = null; }
-
-        // Verify booking status was actually updated (edge fn may silently fail)
-        if(_currentBookingId && window.supabase){
-          try {
-            var _vb = await window.supabase.from('bookings').select('status, payment_status').eq('id', _currentBookingId).single();
-            if(_vb.data && _vb.data.status === 'pending'){
-              console.warn('[PAY] Booking still pending after payment — forcing status update via RPC');
-              await window.supabase.rpc('confirm_payment', {p_booking_id: _currentBookingId, p_method: _currentPaymentMethod || 'card'});
-            }
-          } catch(ve){ console.warn('[PAY] Status verify err:', ve); }
-        }
-
-        // Zaloguj promo k\u00f3d pokud byl pou\u017eit
-        if(typeof appliedCode !== 'undefined' && appliedCode && typeof apiUsePromoCode === 'function'){
-          try {
-            apiUsePromoCode(appliedCode, _currentBookingId, _currentPaymentAmount + (typeof discountAmt !== 'undefined' ? discountAmt : 0));
-          } catch(pe){ console.warn('[PAY] Promo tracking:', pe); }
-        }
-
-        // AUTO-GENERATE: Advance invoice + Payment receipt + Contract + VOP
-        if(_currentBookingId){
-          try {
-            var _zfOk = false, _dpOk = false;
-            if(typeof apiGenerateAdvanceInvoice === 'function'){
-              var _zfRes = await apiGenerateAdvanceInvoice(_currentBookingId, _currentPaymentAmount, 'booking');
-              _zfOk = !_zfRes.error;
-              if(_zfRes.error) console.error('[PAY] ZF generation failed:', _zfRes.error);
-            }
-            if(typeof apiGeneratePaymentReceipt === 'function'){
-              var _dpRes = await apiGeneratePaymentReceipt(_currentBookingId, _currentPaymentAmount, 'booking');
-              _dpOk = !_dpRes.error;
-              if(_dpRes.error) console.error('[PAY] DP generation failed:', _dpRes.error);
-            }
-            if(!_zfOk || !_dpOk) console.warn('[PAY] Invoice auto-gen: ZF=' + _zfOk + ' DP=' + _dpOk);
-            if(typeof apiAutoGenerateBookingDocs === 'function'){
-              await apiAutoGenerateBookingDocs(_currentBookingId).catch(function(e){ console.warn('[PAY] Docs err:', e); });
-            }
-          } catch(de){ console.error('[PAY] Doc gen err:', de); }
-        }
-
-        // Update success screen
-        var sucResId = document.getElementById('suc-res-id');
-        if(sucResId && _currentBookingId) sucResId.textContent = '#' + _currentBookingId.substr(-8).toUpperCase();
-
-        var booking = null;
-        if(_isSupabaseReady()){
-          try {
-            var bResult = await supabase.from('bookings').select('*').eq('id',_currentBookingId).single();
-            booking = bResult.data;
-          } catch(e){}
-        }
-        if(booking){
-          var sucOd = document.getElementById('suc-od');
-          if(sucOd) sucOd.textContent = _fmtDatePayment(booking.start_date);
-          var sucDo = document.getElementById('suc-do');
-          if(sucDo) sucDo.textContent = _fmtDatePayment(booking.end_date);
-        }
-
-        var sucMoto = document.querySelector('#s-success .sbi-v');
-        if(sucMoto && bookingMoto) sucMoto.textContent = bookingMoto.name;
-
-        // Refresh availability after new booking
-        if(typeof initMotoAvailability === 'function') initMotoAvailability();
-        if(typeof syncGlobalOcc === 'function') syncGlobalOcc();
-        showT('✓',_t('pay').paid||'Zaplaceno',_t('pay').resConfirmed||'Rezervace potvrzena');
-        goTo('s-success');
-        // Prompt doc scan if not verified
-        if(typeof promptPostPaymentScan==='function'){
-          setTimeout(function(){ promptPostPaymentScan(); }, 1200);
-        }
-        // Uživatel klikne na tlačítko "Moje rezervace" ručně — žádný auto-redirect
-      } else {
+      // Stripe nevrátilo checkout URL — chyba
+      {
         _paymentAttempts++;
         if(_paymentAttempts >= _MAX_PAYMENT_ATTEMPTS){
           _autoCancelUnpaid(_currentBookingId, 'Zamítnuto po ' + _paymentAttempts + ' pokusech');

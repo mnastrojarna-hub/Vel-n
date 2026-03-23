@@ -480,11 +480,8 @@ function _sosInitPaymentFromRouter(){
   }
 }
 
-// Simulace platební brány (pro zaviněné nehody)
+// Stripe platební brána (pro zaviněné nehody)
 function _sosInitPaymentGateway(amount){
-    var cardNum = document.getElementById('sos-pay-card');
-    var expiry = document.getElementById('sos-pay-expiry');
-    var cvc = document.getElementById('sos-pay-cvc');
     var amountEl = document.getElementById('sos-pay-amount');
     var errorEl = document.getElementById('sos-pay-error');
 
@@ -506,9 +503,9 @@ function _sosInitPaymentGateway(amount){
       }
     }
     if(errorEl) errorEl.style.display = 'none';
-    if(cardNum) cardNum.value = '';
-    if(expiry) expiry.value = '';
-    if(cvc) cvc.value = '';
+    // Update button text with amount
+    var btn = document.getElementById('sos-pay-btn');
+    if(btn) btn.textContent = '💳 Zaplatit ' + amount.toLocaleString('cs-CZ') + ' Kč přes Stripe';
 }
 
 async function sosPaymentSubmit(){

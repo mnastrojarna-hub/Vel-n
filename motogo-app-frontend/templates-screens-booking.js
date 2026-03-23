@@ -72,21 +72,23 @@ Templates['s-detail'] = `  <div class="det-back" onclick="histBack()">←</div>
   </div>
   <div class="sticky-btn"><button class="btn-g" id="d-cta"></button></div>`;
 
-Templates['s-payment'] = `  <div class="topbar"><div class="back-row" onclick="histBack()"><div class="bk-c">←</div><div class="bk-l" id="t-payBack">Zpět</div></div><h2 id="t-payTitle">Platba</h2><p id="t-paySSL">Bezpečná platba – SSL šifrováno</p></div>
+Templates['s-payment'] = `  <div class="topbar"><div class="back-row" onclick="histBack()"><div class="bk-c">←</div><div class="bk-l" id="t-payBack">Zpět</div></div><h2 id="t-payTitle">Platba</h2><p id="t-paySSL">Bezpečná platba přes Stripe</p></div>
   <div class="bcard">
     <div class="bcard-h"><div class="sdot">💳</div> <span id="t-payMethod">Způsob platby</span></div>
-    <div class="pm sel" id="pm-card" onclick="selP('card')"><div class="pmi">💳</div><div style="flex:1;"><div class="pmn" id="t-creditCard">Platební karta</div><div class="pms">Visa, Mastercard</div></div><div class="pmr on" id="pmr-card"></div></div>
-    <div class="pm-detail open" id="pmd-card">
-      <div class="vc"><div class="vcl">💳</div><div class="vcn">4242 4242 4242 4242</div><div class="vcm"><div><div class="vcml" id="t-cardHolder">Držitel</div><div class="vcmv">JAN NOVÁK</div></div><div><div class="vcml" id="t-cardExpiry">Platnost</div><div class="vcmv">12/27</div></div><div><div class="vcml">CVV</div><div class="vcmv">•••</div></div></div></div>
-      <div class="ff"><label id="t-cardNumber">Číslo karty</label><input type="text" value="4242 4242 4242 4242" style="font-family:monospace;letter-spacing:1px;"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;"><div class="ff"><label id="t-cardExp2">Platnost</label><input type="text" value="12/27"></div><div class="ff"><label>CVV</label><input type="text" value="•••"></div></div>
+    <div style="padding:16px;text-align:center;">
+      <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:14px;">
+        <svg width="60" height="25" viewBox="0 0 60 25" fill="none"><rect width="60" height="25" rx="4" fill="#635BFF"/><text x="30" y="17" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="11" font-weight="700">stripe</text></svg>
+        <span style="background:#1a1f36;color:#fff;border-radius:4px;padding:3px 8px;font-size:10px;font-weight:800;">VISA</span>
+        <span style="background:#eb001b;color:#fff;border-radius:4px;padding:3px 8px;font-size:10px;font-weight:800;">MC</span>
+      </div>
+      <div style="font-size:13px;color:var(--g400);line-height:1.7;margin-bottom:8px;">
+        Po kliknutí na <strong>Zaplatit</strong> budete přesměrováni na zabezpečenou platební stránku Stripe, kde zadáte údaje karty.
+      </div>
+      <div id="pay-countdown" style="font-size:12px;font-weight:700;color:#b91c1c;margin-top:8px;"></div>
     </div>
-    <div class="pm" id="pm-apple" onclick="selP('apple')"><div class="pmi">📱</div><div style="flex:1;"><div class="pmn">Google Pay</div><div class="pms" id="t-biometric">Biometrické ověření · Android</div></div><div class="pmr" id="pmr-apple"></div></div>
-    <div class="pm-detail" id="pmd-apple"><div style="text-align:center;padding:14px 0 6px;"><div style="font-size:38px;margin-bottom:7px;">📱</div><div style="font-size:14px;font-weight:700;color:var(--black);">Google Pay</div><button style="margin-top:12px;background:#000;color:#fff;border:none;border-radius:50px;padding:12px 28px;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;" id="apple-pay-btn">📱 Google Pay 0 Kč</button></div></div>
-
   </div>
   <div style="padding:10px 20px 100px;">
-    <div id="t-encryptedPay" style="text-align:center;font-size:11px;color:var(--g400);font-weight:600;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:5px;">🔒 Šifrovaná platba · motogo24.vseproweb.com</div>
+    <div id="t-encryptedPay" style="text-align:center;font-size:11px;color:var(--g400);font-weight:600;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:5px;">🔒 Šifrovaná platba · Stripe PCI DSS Level 1</div>
     <button class="btn-g" id="pay-btn" onclick="doPayment()">Zaplatit 0 Kč →</button>
   </div>`;
 

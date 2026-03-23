@@ -87,67 +87,45 @@ async function apiProcessPayment(bookingId, amount, method, opts){
     if(sess.data && sess.data.session) token = sess.data.session.access_token;
   } catch(e){}
 
-  // 1) Zkus Edge Function (Stripe checkout pro karty, admin client pro cash)
-  if(baseUrl){
-    try {
-      var payload = {
-        booking_id: bookingId,
-        amount: amount,
-        method: payMethod,
-        type: payType
-      };
-      if(orderId) payload.order_id = orderId;
-      if(incidentId) payload.incident_id = incidentId;
-      var resp = await fetch(baseUrl + '/functions/v1/process-payment', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + token,
-          'apikey': anonKey || ''
-        },
-        body: JSON.stringify(payload)
-      });
-      if(resp.ok){
-        var result = await resp.json();
-        if(result.success){
-          if(result.checkout_url) return {success:true, checkout_url: result.checkout_url};
-          return {success:true, transaction_id: result.transaction_id};
-        }
-        console.warn('[API] Edge fn returned error:', result.error);
-      } else {
-        console.warn('[API] Edge fn HTTP '+resp.status+' – using RPC fallback');
-      }
-    } catch(e){
-      console.warn('[API] Edge fn unreachable:', e.message, '– using RPC fallback');
-    }
+  // Stripe Checkout — jediná platební metoda (LIVE)
+  if(!baseUrl){
+    return {success:false, error: 'Chyba konfigurace. Kontaktujte podporu: info@motogo24.cz'};
   }
 
-  // 2) Fallback: RPC funkce confirm_payment (SECURITY DEFINER, obchází RLS)
   try {
-    var rpcResult = await window.supabase.rpc('confirm_payment', {
-      p_booking_id: bookingId,
-      p_method: payMethod
+    var payload = {
+      booking_id: bookingId,
+      amount: amount,
+      method: payMethod,
+      type: payType
+    };
+    if(orderId) payload.order_id = orderId;
+    if(incidentId) payload.incident_id = incidentId;
+    var resp = await fetch(baseUrl + '/functions/v1/process-payment', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token,
+        'apikey': anonKey || ''
+      },
+      body: JSON.stringify(payload)
     });
-    var rpcData = rpcResult.data;
-    if(typeof rpcData === 'string'){
-      try { rpcData = JSON.parse(rpcData); } catch(pe){}
-    }
-    if(rpcData && (rpcData.success === true || rpcData === true)){
-      return {success:true, transaction_id: rpcData.transaction_id || null};
-    }
-    if(!rpcResult.error && rpcData !== null && rpcData !== undefined){
-      return {success:true};
-    }
-    if(rpcResult.error){
-      console.warn('[API] RPC confirm_payment error:', rpcResult.error.message);
+    if(resp.ok){
+      var result = await resp.json();
+      if(result.success && result.checkout_url){
+        return {success:true, checkout_url: result.checkout_url};
+      }
+      console.warn('[API] Stripe returned error:', result.error);
+    } else {
+      console.warn('[API] Stripe HTTP '+resp.status);
     }
   } catch(e){
-    console.warn('[API] RPC fallback failed:', e.message);
+    console.warn('[API] Stripe unreachable:', e.message);
   }
 
-  // Obě vrstvy selhaly — jasná chyba uživateli
-  console.error('[API] Payment failed (Edge Function + RPC)');
-  return {success:false, error: 'Platba se nepodařila. Kontaktujte podporu: info@motogo24.cz'};
+  // Stripe selhalo — jasná chyba uživateli
+  console.error('[API] Payment failed (Stripe)');
+  return {success:false, error: 'Platba se nepodařila. Zkuste to znovu nebo kontaktujte podporu: info@motogo24.cz'};
 }
 
 async function apiCancelBooking(bookingId, reason){

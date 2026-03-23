@@ -18,39 +18,15 @@ function doRestorePayment(bookingId){
 
       if(result.success && result.checkout_url){
         _stripeCheckoutBookingId = bookingId;
+        _isRestorePayment = true;
         _lockPaymentScreen('↗ Platební brána otevřena...');
         _openExternalUrl(result.checkout_url);
         showT('ℹ️',_t('pay').payBtn||'Platba','Otevřena platební brána');
         return;
       }
 
-      if(result.success){
-        // Confirm restore: set booking to active + paid
-        if(typeof apiConfirmRestoreBooking === 'function'){
-          await apiConfirmRestoreBooking(bookingId);
-        }
-
-        // Auto-generate advance invoice + payment receipt + docs for restored booking
-        try {
-          if(typeof apiGenerateAdvanceInvoice === 'function'){
-            var _zfR = await apiGenerateAdvanceInvoice(bookingId, _currentPaymentAmount, 'restore');
-            if(_zfR.error) console.error('[PAY] Restore ZF failed:', _zfR.error);
-          }
-          if(typeof apiGeneratePaymentReceipt === 'function'){
-            var _dpR = await apiGeneratePaymentReceipt(bookingId, _currentPaymentAmount, 'restore');
-            if(_dpR.error) console.error('[PAY] Restore DP failed:', _dpR.error);
-          }
-          if(typeof apiAutoGenerateBookingDocs === 'function'){
-            await apiAutoGenerateBookingDocs(bookingId).catch(function(e){ console.warn('[PAY] Docs err:', e); });
-          }
-        } catch(de){ console.error('[PAY] Restore doc gen err:', de); }
-
-        _isRestorePayment = false;
-        _currentBookingId = null;
-        showT('✓',_t('pay').paid||'Zaplaceno',_t('res').restored||'Rezervace obnovena');
-        goTo('s-res');
-        if(typeof renderMyReservations === 'function') renderMyReservations();
-      } else {
+      // Stripe nevrátilo checkout URL — chyba
+      {
         _paymentAttempts++;
         if(_paymentAttempts >= _MAX_PAYMENT_ATTEMPTS){
           _isRestorePayment = false;

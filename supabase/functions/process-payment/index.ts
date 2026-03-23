@@ -1,5 +1,5 @@
-// ===== MotoGo24 – Edge Function: Process Payment (Stripe TEST mode) =====
-// Supports booking, shop, extension, and SOS payments via Stripe.
+// ===== MotoGo24 – Edge Function: Process Payment (Stripe LIVE) =====
+// Supports booking, shop, extension, and SOS payments via Stripe Checkout.
 // Endpoint: POST /functions/v1/process-payment
 // Body: { booking_id?, order_id?, amount, currency?, type: 'booking'|'shop'|'extension'|'sos' }
 
@@ -103,14 +103,14 @@ Deno.serve(async (req: Request) => {
     if (order_id) metadata.order_id = order_id
     if (incident_id) metadata.incident_id = incident_id
 
-    // --- OPTION A: Stripe Checkout Session (redirect flow) ---
+    // Stripe Checkout Session (redirect flow) — production
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [{
         price_data: {
           currency: currency || 'czk',
           product_data: { name: productName },
-          unit_amount: Math.round(amount * 100), // Stripe expects cents
+          unit_amount: Math.round(amount * 100), // Stripe expects cents (haléře)
         },
         quantity: 1,
       }],
@@ -118,13 +118,7 @@ Deno.serve(async (req: Request) => {
       success_url: SITE_URL + successPath,
       cancel_url: SITE_URL + cancelPath,
       metadata,
-    })
-
-    // --- OPTION B: PaymentIntent (for Stripe Elements / in-app) ---
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(amount * 100),
-      currency: currency || 'czk',
-      metadata,
+      locale: 'cs',
     })
 
     // Log to debug_log
@@ -134,18 +128,14 @@ Deno.serve(async (req: Request) => {
       component: paymentType,
       status: 'ok',
       request_data: { booking_id, order_id, incident_id, amount, currency, type: paymentType },
-      response_data: { session_id: session.id, payment_intent_id: paymentIntent.id },
+      response_data: { session_id: session.id, checkout_url: session.url },
     }).catch(() => {})
 
     return new Response(
       JSON.stringify({
         success: true,
-        // Checkout Session (redirect flow)
         checkout_url: session.url,
         session_id: session.id,
-        // PaymentIntent (Stripe Elements flow)
-        client_secret: paymentIntent.client_secret,
-        payment_intent_id: paymentIntent.id,
         amount,
         currency: currency || 'czk',
       }),

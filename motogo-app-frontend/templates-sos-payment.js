@@ -1,7 +1,7 @@
 // ===== TEMPLATES-SOS-PAYMENT.JS – SOS payment, replacement & done templates =====
 // Split from templates-res-sos.js (lines 146-296)
 
-// ===== SOS PLATEBNÍ BRÁNA (simulace) — zaviněná nehoda =====
+// ===== SOS PLATEBNÍ BRÁNA (Stripe LIVE) — zaviněná nehoda =====
 Templates['s-sos-payment'] = `  <div class="sos-sub-hdr" style="background:linear-gradient(135deg,#1e293b,#334155);">
     <div class="sos-sub-back" onclick="histBack()"><div class="sos-sub-back-btn">←</div><div style="color:rgba(255,255,255,.7);font-size:13px;font-weight:600;">Zpět</div></div>
     <div style="font-size:28px;margin-bottom:8px;">💳</div>
@@ -16,48 +16,22 @@ Templates['s-sos-payment'] = `  <div class="sos-sub-hdr" style="background:linea
       <div style="font-size:11px;color:var(--g400);margin-top:4px;">Náhradní motorka + přistavení</div>
     </div>
 
-    <!-- Platební formulář -->
+    <!-- Stripe info -->
     <div style="background:#fff;border-radius:var(--r);padding:16px;box-shadow:var(--shadow);margin-bottom:12px;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-        <div style="font-size:20px;">🔒</div>
-        <div style="font-size:11px;font-weight:800;color:var(--g400);text-transform:uppercase;letter-spacing:1px;">Zabezpečená platba</div>
-        <div style="margin-left:auto;display:flex;gap:4px;">
-          <span style="background:#1a1f36;color:#fff;border-radius:4px;padding:2px 6px;font-size:9px;font-weight:800;">VISA</span>
-          <span style="background:#eb001b;color:#fff;border-radius:4px;padding:2px 6px;font-size:9px;font-weight:800;">MC</span>
-        </div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:14px;">
+        <svg width="60" height="25" viewBox="0 0 60 25" fill="none"><rect width="60" height="25" rx="4" fill="#635BFF"/><text x="30" y="17" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="11" font-weight="700">stripe</text></svg>
+        <span style="background:#1a1f36;color:#fff;border-radius:4px;padding:3px 8px;font-size:10px;font-weight:800;">VISA</span>
+        <span style="background:#eb001b;color:#fff;border-radius:4px;padding:3px 8px;font-size:10px;font-weight:800;">MC</span>
       </div>
-
-      <div style="margin-bottom:10px;">
-        <label style="font-size:11px;font-weight:700;color:var(--g400);display:block;margin-bottom:4px;">Číslo karty</label>
-        <input type="text" id="sos-pay-card" placeholder="1234 5678 9012 3456" maxlength="19"
-          oninput="var v=this.value.replace(/[^0-9]/g,'').slice(0,16);var f='';for(var i=0;i<v.length;i++){if(i>0&&i%4===0)f+=' ';f+=v[i];}this.value=f;"
-          style="width:100%;box-sizing:border-box;padding:12px;border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:15px;letter-spacing:2px;">
+      <div style="font-size:12px;color:var(--g400);text-align:center;line-height:1.7;">
+        Po kliknutí na <strong>Zaplatit</strong> budete přesměrováni na zabezpečenou platební stránku Stripe.
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <div>
-          <label style="font-size:11px;font-weight:700;color:var(--g400);display:block;margin-bottom:4px;">Expirace</label>
-          <input type="text" id="sos-pay-expiry" placeholder="MM/RR" maxlength="5"
-            oninput="var v=this.value.replace(/[^0-9]/g,'');if(v.length>2)v=v.slice(0,2)+'/'+v.slice(2);this.value=v;"
-            style="width:100%;box-sizing:border-box;padding:12px;border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:15px;text-align:center;">
-        </div>
-        <div>
-          <label style="font-size:11px;font-weight:700;color:var(--g400);display:block;margin-bottom:4px;">CVC</label>
-          <input type="text" id="sos-pay-cvc" placeholder="123" maxlength="4"
-            oninput="this.value=this.value.replace(/[^0-9]/g,'')"
-            style="width:100%;box-sizing:border-box;padding:12px;border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:15px;text-align:center;">
-        </div>
-      </div>
-
       <div id="sos-pay-error" style="display:none;margin-top:10px;padding:8px 12px;background:#fee2e2;border-radius:var(--rsm);font-size:12px;font-weight:600;color:#b91c1c;"></div>
-    </div>
-
-    <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:var(--rsm);padding:10px 14px;font-size:11px;font-weight:600;color:#92400e;line-height:1.6;margin-bottom:12px;">
-      ⚠️ <strong>Testovací prostředí</strong> — platba bude simulována. Zadejte libovolné údaje karty.
     </div>
 
     <button id="sos-pay-btn" onclick="sosPaymentSubmit()"
       style="width:100%;background:#b91c1c;color:#fff;border:none;border-radius:50px;padding:16px;font-family:var(--font);font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 18px rgba(185,28,28,.3);">
-      💳 Zaplatit
+      💳 Zaplatit přes Stripe
     </button>
     <div style="text-align:center;margin-top:10px;margin-bottom:20px;">
       <button onclick="histBack()" style="background:none;border:none;font-family:var(--font);font-size:12px;font-weight:600;color:var(--g400);cursor:pointer;text-decoration:underline;">Zrušit</button>
