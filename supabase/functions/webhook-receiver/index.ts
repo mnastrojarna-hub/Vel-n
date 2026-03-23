@@ -1,7 +1,7 @@
-// ===== MotoGo24 – Edge Function: Webhook Receiver (Stripe) =====
+// ===== MotoGo24 – Edge Function: Webhook Receiver (Stripe LIVE) =====
 // Receives Stripe webhook events and processes payment confirmations server-side.
 // Endpoint: POST /functions/v1/webhook-receiver
-// Stripe sends: checkout.session.completed, payment_intent.succeeded
+// Stripe sends: checkout.session.completed, payment_intent.succeeded, charge.refunded, payout.paid
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe from 'https://esm.sh/stripe@14'
@@ -35,31 +35,39 @@ Deno.serve(async (req: Request) => {
 
     let event: Stripe.Event
 
-    // Verify Stripe signature if webhook secret is configured
-    if (STRIPE_WEBHOOK_SECRET && signature) {
-      try {
-        event = await stripe.webhooks.constructEventAsync(
-          body,
-          signature,
-          STRIPE_WEBHOOK_SECRET
-        )
-      } catch (err) {
-        console.error('Webhook signature verification failed:', (err as Error).message)
-        await supabase.from('debug_log').insert({
-          source: 'webhook-receiver',
-          action: 'signature_verification_failed',
-          component: 'stripe',
-          status: 'error',
-          error_message: (err as Error).message,
-        }).catch(() => {})
-        return new Response(
-          JSON.stringify({ error: 'Invalid signature' }),
-          { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
-        )
-      }
-    } else {
-      // In test mode without webhook secret — parse event directly
-      event = JSON.parse(body) as Stripe.Event
+    // Verify Stripe signature — REQUIRED in production
+    if (!STRIPE_WEBHOOK_SECRET) {
+      console.error('STRIPE_WEBHOOK_SECRET not configured')
+      return new Response(
+        JSON.stringify({ error: 'Webhook secret not configured' }),
+        { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } }
+      )
+    }
+    if (!signature) {
+      return new Response(
+        JSON.stringify({ error: 'Missing stripe-signature header' }),
+        { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
+      )
+    }
+    try {
+      event = await stripe.webhooks.constructEventAsync(
+        body,
+        signature,
+        STRIPE_WEBHOOK_SECRET
+      )
+    } catch (err) {
+      console.error('Webhook signature verification failed:', (err as Error).message)
+      await supabase.from('debug_log').insert({
+        source: 'webhook-receiver',
+        action: 'signature_verification_failed',
+        component: 'stripe',
+        status: 'error',
+        error_message: (err as Error).message,
+      }).catch(() => {})
+      return new Response(
+        JSON.stringify({ error: 'Invalid signature' }),
+        { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
+      )
     }
 
     // Log incoming webhook
@@ -204,6 +212,24 @@ async function confirmBookingPayment(
         .update({ payment_status: 'paid', payment_method: 'card' })
         .eq('id', bookingId)
     }
+
+    // Auto-generate documents (non-blocking, best-effort)
+    try {
+      const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
+      const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+      // Generate advance invoice (ZF)
+      await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY },
+        body: JSON.stringify({ type: 'advance', booking_id: bookingId }),
+      }).catch(() => {})
+      // Generate contract + VOP
+      await fetch(`${SUPABASE_URL}/functions/v1/generate-document`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY },
+        body: JSON.stringify({ type: 'rental_contract', booking_id: bookingId }),
+      }).catch(() => {})
+    } catch (_) { /* doc gen is best-effort */ }
   } catch (err) {
     console.error('confirmBookingPayment error:', err)
   }

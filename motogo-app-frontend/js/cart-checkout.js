@@ -5,6 +5,7 @@
 // ===== SHOP DISCOUNT STATE =====
 var shopDiscountAmt = 0;
 var shopAppliedCodes = [];  // [{code, type:'promo'|'voucher', id, value, discountAmt}]
+var _pendingShopOrderId = null; // For post-Stripe payment check
 
 function updateCheckoutTotal(){
   var shipCost=shipMode==='post'?99:0;
@@ -116,25 +117,41 @@ async function finalizeCheckout(){
         }
       }
 
-      // SIMULOVANÁ PLATBA: označ objednávku jako zaplacenou
-      var payRes = await window.supabase.rpc('confirm_shop_payment', {
-        p_order_id: orderId, p_method: 'card'
-      });
-      if(payRes.error){
-        var fbRes = await window.supabase.from('shop_orders').update({
-          payment_status: 'paid', status: 'confirmed', confirmed_at: new Date().toISOString()
-        }).eq('id', orderId);
-        if(fbRes.error){
-          showT('\u26a0\ufe0f','Chyba platby','Objednávka vytvořena, ale platba selhala.');return;
+      // STRIPE PLATBA: přesměruj na Stripe Checkout
+      if(finalTotal > 0){
+        var payResult = await apiProcessPayment(null, finalTotal, 'card', {type: 'shop', order_id: orderId});
+        if(payResult.success && payResult.checkout_url){
+          // Save order ID for post-payment check
+          _pendingShopOrderId = orderId;
+          _stripeCheckoutBookingId = orderId; // reuse existing Stripe check mechanism
+          _stripeCheckoutOpened = true;
+          if(typeof _openExternalUrl === 'function') _openExternalUrl(payResult.checkout_url);
+          else window.open(payResult.checkout_url, '_blank');
+          showT('\u2139\ufe0f','Platba','Přesměrování na Stripe...');
+          return; // Payment confirmation handled by webhook + _checkShopPaymentAfterStripe
+        }
+        // Edge function failed — show error
+        showT('\u26a0\ufe0f','Chyba platby','Nepodařilo se otevřít platební bránu. Zkuste to znovu.');
+        return;
+      } else {
+        // 100% discount — confirm payment directly (no Stripe needed)
+        var payRes = await window.supabase.rpc('confirm_shop_payment', {
+          p_order_id: orderId, p_method: 'voucher'
+        });
+        if(payRes.error){
+          await window.supabase.from('shop_orders').update({
+            payment_status: 'paid', status: 'confirmed', confirmed_at: new Date().toISOString()
+          }).eq('id', orderId);
         }
       }
-      // DP (doklad k přijaté platbě) — trigger: zaplacení
-      try {
-        await window.supabase.functions.invoke('generate-invoice', {
-          body: { type: 'payment_receipt', order_id: orderId }
-        });
-      } catch(re){ console.warn('[SHOP] DP receipt err:', re); }
-      // FK se generuje automaticky při přechodu do stavu shipped/delivered
+      // DP (doklad k přijaté platbě) — trigger: zaplacení (jen pro 100% slevu, jinak řeší webhook)
+      if(finalTotal <= 0){
+        try {
+          await window.supabase.functions.invoke('generate-invoice', {
+            body: { type: 'payment_receipt', order_id: orderId }
+          });
+        } catch(re){ console.warn('[SHOP] DP receipt err:', re); }
+      }
 
       orderSuccess = true;
     } catch(e){
@@ -147,6 +164,35 @@ async function finalizeCheckout(){
 
   if(orderSuccess){ _showCheckoutSuccess(); }
 }
+
+// Check shop payment after returning from Stripe
+async function _checkShopPaymentAfterStripe(){
+  if(!_pendingShopOrderId || !window.supabase) return;
+  try {
+    var r = await window.supabase.from('shop_orders').select('status, payment_status').eq('id', _pendingShopOrderId).single();
+    if(!r.data) return;
+    if(r.data.payment_status === 'paid'){
+      _stripeCheckoutOpened = false;
+      _stripeCheckoutBookingId = null;
+      _pendingShopOrderId = null;
+      // DP — doklad k přijaté platbě (webhook potvrdil platbu)
+      try {
+        await window.supabase.functions.invoke('generate-invoice', {
+          body: { type: 'payment_receipt', order_id: r.data.id || _pendingShopOrderId }
+        });
+      } catch(re){}
+      _showCheckoutSuccess();
+      return;
+    }
+  } catch(e){ console.warn('[SHOP] _checkShopPaymentAfterStripe err:', e); }
+}
+
+// Listen for Stripe return (reuse visibility change event)
+document.addEventListener('visibilitychange', function(){
+  if(!document.hidden && _pendingShopOrderId && typeof _checkShopPaymentAfterStripe === 'function'){
+    _checkShopPaymentAfterStripe();
+  }
+});
 
 function _showCheckoutSuccess(){
   var hasVoucher = cart.some(function(c){ return c.id==='voucher' || (c.name||'').toLowerCase().indexOf('poukaz')!==-1 || (c.name||'').toLowerCase().indexOf('voucher')!==-1; });
