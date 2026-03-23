@@ -38,25 +38,51 @@ const PRODUCT_NAMES: Record<PaymentType, string> = {
   sos: 'MotoGo24 — SOS náhradní motorka',
 }
 
+// Decode JWT payload without verification (gateway already verified)
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')))
+    return payload
+  } catch { return null }
+}
+
 // Get or create Stripe Customer for the authenticated user
 async function getOrCreateStripeCustomer(
   supabase: ReturnType<typeof createClient>,
   req: Request
 ): Promise<string | null> {
   try {
-    // Get user from JWT
+    // Get user from JWT — decode directly (gateway already verified)
     const authHeader = req.headers.get('authorization') || ''
     const token = authHeader.replace('Bearer ', '')
     if (!token) return null
 
-    const { data: { user } } = await supabase.auth.getUser(token)
-    if (!user) return null
+    const jwtPayload = decodeJwtPayload(token)
+    let userId = jwtPayload?.sub as string | null
+    let userEmail = (jwtPayload?.email as string) || null
+
+    // Fallback: try getUser if JWT decode fails
+    if (!userId) {
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser(token)
+        if (authUser) {
+          userId = authUser.id
+          userEmail = authUser.email || null
+        }
+      } catch (e) {
+        console.warn('getUser fallback failed:', e)
+      }
+    }
+
+    if (!userId) return null
 
     // Check if profile already has stripe_customer_id
     const { data: profile } = await supabase
       .from('profiles')
       .select('stripe_customer_id, full_name, email, phone')
-      .eq('id', user.id)
+      .eq('id', userId)
       .single()
 
     if (profile?.stripe_customer_id) {
@@ -65,17 +91,17 @@ async function getOrCreateStripeCustomer(
 
     // Create new Stripe Customer
     const customer = await stripe.customers.create({
-      email: user.email || profile?.email || undefined,
+      email: userEmail || profile?.email || undefined,
       name: profile?.full_name || undefined,
       phone: profile?.phone || undefined,
-      metadata: { supabase_user_id: user.id },
+      metadata: { supabase_user_id: userId },
     })
 
     // Save stripe_customer_id to profile
     await supabase
       .from('profiles')
       .update({ stripe_customer_id: customer.id })
-      .eq('id', user.id)
+      .eq('id', userId)
 
     return customer.id
   } catch (e) {

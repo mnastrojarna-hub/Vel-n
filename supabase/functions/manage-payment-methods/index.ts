@@ -19,6 +19,16 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
   httpClient: Stripe.createFetchHttpClient(),
 })
 
+// Decode JWT payload without verification (gateway already verified)
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')))
+    return payload
+  } catch { return null }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS })
@@ -30,7 +40,7 @@ Deno.serve(async (req: Request) => {
   )
 
   try {
-    // Authenticate user
+    // Authenticate user — JWT already verified by Supabase gateway
     const authHeader = req.headers.get('authorization') || ''
     const token = authHeader.replace('Bearer ', '')
     if (!token) {
@@ -40,13 +50,32 @@ Deno.serve(async (req: Request) => {
       )
     }
 
-    const { data: { user } } = await supabase.auth.getUser(token)
-    if (!user) {
+    // Decode JWT directly (gateway already verified signature)
+    const jwtPayload = decodeJwtPayload(token)
+    let userId = jwtPayload?.sub as string | null
+    let userEmail = (jwtPayload?.email as string) || null
+
+    // Fallback: try getUser if JWT decode fails
+    if (!userId) {
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser(token)
+        if (authUser) {
+          userId = authUser.id
+          userEmail = authUser.email || null
+        }
+      } catch (e) {
+        console.warn('getUser fallback failed:', e)
+      }
+    }
+
+    if (!userId) {
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid token' }),
         { status: 401, headers: { ...CORS, 'Content-Type': 'application/json' } }
       )
     }
+
+    const user = { id: userId, email: userEmail }
 
     // Get stripe_customer_id from profile
     const { data: profile } = await supabase
