@@ -138,6 +138,12 @@ async function apiCancelBooking(bookingId, reason){
       p_reason: reason || null
     });
     if(rpc.data && rpc.data.success){
+      // Stripe refund — pokud je nárok na vrácení peněz
+      if(rpc.data.refund_amount > 0){
+        apiProcessRefund(bookingId, null, rpc.data.refund_amount, 'cancellation').catch(function(e){
+          console.warn('[API] Stripe refund failed (will be processed manually):', e);
+        });
+      }
       return {error:null, refund_percent: rpc.data.refund_percent, refund_amount: rpc.data.refund_amount};
     }
     if(rpc.data && rpc.data.error){
@@ -152,8 +158,56 @@ async function apiCancelBooking(bookingId, reason){
     var refundAmt = Math.round((b.total_price || 0) * refundPct / 100);
     var r = await window.supabase.from('bookings').update({status:'cancelled'}).eq('id', bookingId);
     if(r.error) return {error: r.error.message};
+    // Stripe refund
+    if(refundAmt > 0){
+      apiProcessRefund(bookingId, null, refundAmt, 'cancellation').catch(function(e){
+        console.warn('[API] Stripe refund failed (will be processed manually):', e);
+      });
+    }
     return {error:null, refund_percent: refundPct, refund_amount: refundAmt};
   } catch(e){ return {error:'Chyba při rušení rezervace'}; }
+}
+
+// Stripe refund — volá Edge Function process-refund
+async function apiProcessRefund(bookingId, orderId, amount, reason){
+  _ensureSupabase();
+  var cfg = window.MOTOGO_CONFIG || {};
+  var baseUrl = cfg.SUPABASE_URL;
+  var anonKey = cfg.SUPABASE_ANON_KEY;
+  if(!baseUrl) return {success:false, error:'No config'};
+
+  var token = anonKey;
+  try {
+    var sess = await window.supabase.auth.getSession();
+    if(sess.data && sess.data.session) token = sess.data.session.access_token;
+  } catch(e){}
+
+  try {
+    var payload = { reason: reason || 'requested_by_customer' };
+    if(bookingId) payload.booking_id = bookingId;
+    if(orderId) payload.order_id = orderId;
+    if(amount > 0) payload.amount = amount;
+
+    var resp = await fetch(baseUrl + '/functions/v1/process-refund', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token,
+        'apikey': anonKey || ''
+      },
+      body: JSON.stringify(payload)
+    });
+    var result = await resp.json();
+    if(result.success){
+      console.log('[API] Stripe refund OK:', result.refund_id, result.amount_refunded + ' CZK');
+    } else {
+      console.warn('[API] Stripe refund error:', result.error);
+    }
+    return result;
+  } catch(e){
+    console.error('[API] apiProcessRefund error:', e);
+    return {success:false, error: e.message};
+  }
 }
 
 // Generate cancellation receipt (storno doklad) — called after booking cancellation

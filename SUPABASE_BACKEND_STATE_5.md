@@ -73,7 +73,8 @@ Detailní politiky:
 | `admin-reset-password` | Admin reset hesla zákazníka |
 | `process-payment` | Stripe platební brána (**LIVE mode**). Podporuje booking, shop, extension i SOS platby (parametr `type`). Vytváří Stripe Checkout Session (redirect). Vrací `checkout_url`, `session_id`. Locale: cs |
 | `scan-document` | OCR skenování dokladů (OP, ŘP, pas) přes Mindee API. Přijímá base64 JPEG + document_type (id/dl/passport), vrací strukturovaná data. Retry 3×, loguje do debug_log |
-| `webhook-receiver` | Příjem Stripe webhooků (**LIVE mode**, signature povinná). Zpracovává checkout.session.completed, payment_intent.succeeded, charge.refunded, payout.paid. Auto-generuje dokumenty (ZF, smlouva) po úspěšné platbě |
+| `webhook-receiver` | Příjem Stripe webhooků (**LIVE mode**, signature povinná). Zpracovává checkout.session.completed, payment_intent.succeeded, charge.refunded, payout.paid. Auto-generuje dokumenty (ZF, smlouva) po úspěšné platbě. Ukládá stripe_payment_intent_id k bookings/shop_orders |
+| `process-refund` | Stripe refundy (LIVE). Částečné i plné vrácení peněz. Volá Stripe Refund API. Napojeno na storno + zkrácení rezervace |
 | `send-message` | Centrální odesílání zpráv (SMS/WhatsApp přes Twilio, email přes Resend). Přijímá channel, recipient, template_slug, template_vars. Loguje do message_log |
 | `send-invoice-email` | Odesílání faktur emailem zákazníkům |
 | `send-order-email` | Odesílání objednávkových emailů dodavatelům. Branded HTML šablona s tabulkou položek. Retry 3×. Aktualizuje purchase_orders.status→sent a sent_at. Loguje do debug_log |
