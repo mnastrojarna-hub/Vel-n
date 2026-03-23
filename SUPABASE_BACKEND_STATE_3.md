@@ -12,7 +12,7 @@
 | `is_superadmin()` | Vrací boolean — je aktuální user superadmin? |
 | `validate_promo_code(code)` | Validuje promo kód, vrací jsonb |
 | `use_promo_code(code, booking_id, base_amount)` | Použije promo kód atomicky |
-| `create_shop_order(items, shipping, address, payment, promo)` | Vytvoří e-shop objednávku |
+| `create_shop_order(items, shipping, address, payment, promo)` | Vytvoří e-shop objednávku. **Procentuální sleva se počítá z celkové ceny (subtotal + shipping)** |
 | `cancel_booking_tracked(booking_id, reason)` | Stornuje rezervaci s refund kalkulací |
 | `sos_swap_bookings(incident_id, replacement_moto_id, ...)` | SOS výměna motorky — atomický swap |
 | `expire_vouchers()` | Automatická expirace voucherů (pg_cron) |
