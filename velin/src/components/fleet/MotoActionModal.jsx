@@ -90,6 +90,26 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
     } catch (e) { setError(e.message) } finally { setBusy(false) }
   }
 
+  // Update existing maintenance_log entry (edit mode)
+  async function handleUpdateService({ selectedLabels, fullDescription, isUrgent, serviceDateFrom, serviceDateTo }) {
+    const logToUpdate = openLogs[0]
+    if (!logToUpdate) return
+    setBusy(true); setError(null)
+    try {
+      const today = new Date().toISOString().slice(0, 10)
+      await supabase.from('maintenance_log').update({
+        description: fullDescription,
+        service_date: serviceDateFrom || today,
+        scheduled_date: serviceDateTo || serviceDateFrom || today,
+        is_urgent: isUrgent,
+        items: selectedLabels.map(label => ({ label, done: false, note: '' })),
+      }).eq('id', logToUpdate.id)
+      await logAudit('maintenance_log_updated', { log_id: logToUpdate.id, moto_id: moto.id })
+      setShowChecklist(false)
+      setSuccess('Servisní plán aktualizován'); onUpdated?.()
+    } catch (e) { setError(e.message) } finally { setBusy(false) }
+  }
+
   // Close open maintenance logs + set status active
   async function handleCloseServiceAndActivate() {
     setBusy(true); setError(null)
@@ -160,10 +180,14 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
 
   return (
     <Modal open={open} onClose={showChecklist ? () => setShowChecklist(false) : onClose}
-      title={showChecklist ? `${moto.model} — Servisní checklist` : `${moto.model} — Správa`} wide>
+      title={showChecklist ? `${moto.model} — ${hasOpenLogs ? 'Upravit servisní plán' : 'Servisní checklist'}` : `${moto.model} — Správa`} wide>
 
       {showChecklist ? (
-        <ServiceChecklistView moto={moto} onConfirm={handleSendToService} onBack={() => setShowChecklist(false)} busy={busy} error={error} />
+        <ServiceChecklistView moto={moto}
+          onConfirm={hasOpenLogs ? handleUpdateService : handleSendToService}
+          onBack={() => setShowChecklist(false)} busy={busy} error={error}
+          initialData={hasOpenLogs ? openLogs[0] : null}
+          editMode={hasOpenLogs} />
       ) : showReplacement ? (
         <div className="p-3 rounded-lg" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
           <div className="text-sm font-bold mb-2" style={{ color: '#b45309' }}>Servis &gt;3 dny v sezóně — vyberte náhradu na {moto.branches?.name || '—'}:</div>
@@ -234,8 +258,14 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
                 <StatusBtn color="#1a8a18" bg="#dcfce7" onClick={handleCloseServiceAndActivate} disabled={busy}
                   title="Ukončit servis" desc={`Uzavře ${openLogs.length} otevřený servisní záznam(y)`} />
               )}
-              {!isMaintenance && <StatusBtn color="#b45309" bg="#fef3c7" onClick={() => setShowChecklist(true)} disabled={busy}
-                title="Odeslat do servisu" desc="Otevře checklist závad a údržby" />}
+              {/* Odeslat do servisu / Upravit servisní plán */}
+              {hasOpenLogs ? (
+                <StatusBtn color="#2563eb" bg="#dbeafe" onClick={() => setShowChecklist(true)} disabled={busy}
+                  title="Upravit servisní plán" desc={`Upravit checklist a údaje (${openLogs.length} otevřený záznam)`} />
+              ) : !isMaintenance ? (
+                <StatusBtn color="#b45309" bg="#fef3c7" onClick={() => setShowChecklist(true)} disabled={busy}
+                  title="Odeslat do servisu" desc="Otevře checklist závad a údržby" />
+              ) : null}
               {!isOut && <StatusBtn color="#7c3aed" bg="#ede9fe" onClick={() => { if (reason) handleStatusChange('out_of_service') }} disabled={busy || !reason}
                 title="Dočasně vyřadit" desc="Čištění, tankování, přeprava — vyberte důvod níže" />}
               {moto.status !== 'retired' && <StatusBtn color="#1a2e22" bg="#f3f4f6" onClick={() => { if (window.confirm('Opravdu trvale vyřadit?')) handleStatusChange('retired') }} disabled={busy}
