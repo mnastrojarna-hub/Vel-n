@@ -78,16 +78,34 @@ function _tryRefreshAndVerify(oldSession, cb){
       console.warn('[AUTH] refreshSession returned no session — forcing logout');
       _forceCleanLogout(); cb(false); return;
     }
-    // Refresh succeeded — verify with getUser
-    supabase.auth.getUser().then(function(ur){
-      if(ur.data && ur.data.user){
-        console.info('[AUTH] Session refreshed successfully');
-        _onSessionValid(ur.data.user, ref.data.session, cb);
-      } else {
+    // Force SDK to use the new token for all subsequent REST calls
+    supabase.auth.setSession({
+      access_token: ref.data.session.access_token,
+      refresh_token: ref.data.session.refresh_token
+    }).then(function(){
+      // Verify with getUser
+      supabase.auth.getUser().then(function(ur){
+        if(ur.data && ur.data.user){
+          console.info('[AUTH] Session refreshed + setSession OK');
+          _onSessionValid(ur.data.user, ref.data.session, cb);
+        } else {
+          _forceCleanLogout(); cb(false);
+        }
+      }).catch(function(){
         _forceCleanLogout(); cb(false);
-      }
+      });
     }).catch(function(){
-      _forceCleanLogout(); cb(false);
+      // setSession failed — try without it
+      supabase.auth.getUser().then(function(ur){
+        if(ur.data && ur.data.user){
+          console.info('[AUTH] Session refreshed successfully');
+          _onSessionValid(ur.data.user, ref.data.session, cb);
+        } else {
+          _forceCleanLogout(); cb(false);
+        }
+      }).catch(function(){
+        _forceCleanLogout(); cb(false);
+      });
     });
   }).catch(function(){
     console.warn('[AUTH] refreshSession failed — forcing logout');

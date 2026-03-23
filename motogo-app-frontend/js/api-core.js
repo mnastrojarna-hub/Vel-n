@@ -75,22 +75,30 @@ async function apiFetchProfile(){
   try {
     var uid = await _getUserId();
     if(!uid){
-      // Token expired — try refresh
+      // Token expired — try refresh + setSession to propagate new token
       try {
         var ref = await window.supabase.auth.refreshSession();
-        if(ref.data && ref.data.session && ref.data.session.user){
-          uid = ref.data.session.user.id;
+        if(ref.data && ref.data.session){
+          await window.supabase.auth.setSession({
+            access_token: ref.data.session.access_token,
+            refresh_token: ref.data.session.refresh_token
+          });
+          uid = ref.data.session.user ? ref.data.session.user.id : null;
         }
       } catch(re){}
     }
     if(!uid) return null;
-    var r = await window.supabase.from('profiles').select('*').eq('id', uid).single();
-    if(r.error && (r.status === 406 || r.status === 401)){
-      // RLS blocked — session likely expired, try refresh once
+    var r = await window.supabase.from('profiles').select('*').eq('id', uid).maybeSingle();
+    if((!r.data) && (r.status === 406 || r.status === 401 || r.status === 0)){
+      // RLS blocked — session likely stale, refresh + setSession + retry
       try {
         var ref2 = await window.supabase.auth.refreshSession();
         if(ref2.data && ref2.data.session){
-          r = await window.supabase.from('profiles').select('*').eq('id', uid).single();
+          await window.supabase.auth.setSession({
+            access_token: ref2.data.session.access_token,
+            refresh_token: ref2.data.session.refresh_token
+          });
+          r = await window.supabase.from('profiles').select('*').eq('id', uid).maybeSingle();
         }
       } catch(re2){}
     }
