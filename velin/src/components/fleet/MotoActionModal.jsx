@@ -24,7 +24,7 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
 
   useEffect(() => {
     if (open && moto?.id) {
-      supabase.from('branches').select('id, name, type').eq('active', true).order('name')
+      supabase.from('branches').select('id, name, type, active').order('name')
         .then(({ data }) => setBranches(data || []))
       // Check for open maintenance_log entries
       supabase.from('maintenance_log').select('id, description, service_date, status')
@@ -237,7 +237,7 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
               <select value={selectedBranch} onChange={e => setSelectedBranch(e.target.value)} className="flex-1 rounded-btn text-sm outline-none"
                 style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
                 <option value="">— Vyberte cílovou pobočku —</option>
-                {branches.filter(b => b.id !== moto.branch_id).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                {branches.filter(b => b.id !== moto.branch_id).map(b => <option key={b.id} value={b.id}>{b.name}{!b.active ? ' (neaktivní)' : ''}</option>)}
               </select>
               <Button green onClick={handleMigrate} disabled={!selectedBranch || busy}>{busy ? 'Přesouvám…' : 'Přesunout'}</Button>
             </div>
