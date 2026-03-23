@@ -231,17 +231,17 @@ async function confirmBookingPayment(
     // Auto-generate documents (non-blocking, best-effort)
     try {
       const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
-      const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+      const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       // Generate advance invoice (ZF)
       await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY },
         body: JSON.stringify({ type: 'advance', booking_id: bookingId }),
       }).catch(() => {})
       // Generate contract + VOP
       await fetch(`${SUPABASE_URL}/functions/v1/generate-document`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'apikey': SUPABASE_ANON_KEY },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY },
         body: JSON.stringify({ type: 'rental_contract', booking_id: bookingId }),
       }).catch(() => {})
     } catch (_) { /* doc gen is best-effort */ }
