@@ -67,7 +67,7 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
               {booking.discount_amount > 0 && <InfoRow label="Sleva" value={`-${Number(booking.discount_amount).toLocaleString('cs-CZ')} Kč`} />}
               {promoUsage && promoUsage.map((pu, i) => (
                 <div key={pu.id || i}>
-                  <InfoRow label={`Promo kód ${i + 1}`} value={`${pu.promo_codes?.code || '—'} (${pu.promo_codes?.type === 'percent' ? pu.promo_codes.value + '%' : pu.promo_codes?.value + ' Kč'}) → sleva ${Number(pu.discount_applied || 0).toLocaleString('cs-CZ')} Kč`} />
+                  <InfoRow label={`Promo kód ${i + 1}`} value={`${pu.promo_codes?.code || '—'} (${pu.promo_codes?.type === 'percent' ? pu.promo_codes.value + '%' : pu.promo_codes?.value + ' Kč'}) → sleva ${pu.promo_codes?.type === 'percent' ? pu.promo_codes.value + '%' : Number(pu.discount_applied || 0).toLocaleString('cs-CZ') + ' Kč'}`} />
                 </div>
               ))}
               {voucherUsed && <InfoRow label="Dárkový poukaz" value={`${voucherUsed.code} — ${Number(voucherUsed.amount).toLocaleString('cs-CZ')} ${voucherUsed.currency}`} />}

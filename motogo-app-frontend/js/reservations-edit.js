@@ -247,7 +247,10 @@ function _renderDetailSummary(b, moto, st, days, branchName, bookingId){
   h += li('Cena výpůjčky', (b.total_price||0).toLocaleString('cs-CZ')+' Kč');
   if(b.extras_price > 0) h += li('Příslušenství', b.extras_price.toLocaleString('cs-CZ')+' Kč');
   if(b.delivery_fee > 0) h += li('Doručení', b.delivery_fee.toLocaleString('cs-CZ')+' Kč');
-  if(b.discount_amount > 0) h += li('Sleva', '-'+b.discount_amount.toLocaleString('cs-CZ')+' Kč'+(b.discount_code?' (kód: '+b.discount_code+')':''));
+  if(b.discount_amount > 0){
+    var _dLabel = b._promoType==='percent' && b._promoValue ? 'sleva '+b._promoValue+'%' : '-'+b.discount_amount.toLocaleString('cs-CZ')+' K\u010d';
+    h += li('Sleva', _dLabel+(b.discount_code?' (k\u00f3d: '+b.discount_code+')':''));
+  }
   h += li('Platba', b.payment_status==='paid'?'Zaplaceno':'Nezaplaceno');
   if(b.payment_method) h += li('Způsob platby', b.payment_method);
 
