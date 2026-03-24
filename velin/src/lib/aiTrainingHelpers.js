@@ -1,6 +1,13 @@
 // Training Helpers — REAL Supabase API calls (same as motogo-app)
 // Creates real data in DB for agent training
-import { supabase } from './supabase'
+import { supabase, supabaseUrl, supabaseAnonKey } from './supabase'
+import { createClient } from '@supabase/supabase-js'
+
+// Isolated client for signUp — does NOT share session with main admin client
+// This prevents auth.signUp from switching the admin session to the new test user
+const signupClient = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: { persistSession: false, autoRefreshToken: false }
+})
 
 const TS = () => Date.now().toString(36).slice(-4)
 const PICK = (arr) => arr[Math.random() * arr.length | 0]
@@ -14,26 +21,33 @@ const futureDate = (days) => {
 
 // --- REAL API CALLS ---
 
-// 1. Create test customer — INSERT directly into profiles (no auth.signUp)
-// auth.signUp triggers admin lookups and 401/406 errors from anon key
-// Instead: create a profile directly with a fake UUID
+// 1. Create test customer via auth.signUp (creates auth.users + profile via trigger)
+// Note: signUp triggers admin_users lookup → 406/401 console noise — harmless, ignore
 export async function createTestCustomer() {
   const tag = TS(), fn = FIRST(), ln = LAST()
   const email = `test.sim.${tag}@motogo24.cz`
-  const userId = crypto.randomUUID()
+  const password = `SimTest${tag}!23`
 
-  const { data, error } = await supabase.from('profiles').insert({
-    id: userId,
-    full_name: `${fn} ${ln}`,
-    email,
-    phone: PHONE(),
-    license_group: PICK([['A'], ['A2'], ['A', 'B'], ['A2', 'B']]),
-    is_test_account: true,
-    city: PICK(['Praha', 'Brno', 'Ostrava', 'Plzeň', 'Mezná']),
-  }).select().single()
-
+  // Use isolated client so admin session is NOT replaced by new user
+  const { data, error } = await signupClient.auth.signUp({
+    email, password,
+    options: { data: { full_name: `${fn} ${ln}`, phone: PHONE(), is_test: true } }
+  })
   if (error) return { ok: false, error: error.message, email }
-  return { ok: true, userId: data?.id || userId, email, name: `${fn} ${ln}` }
+
+  const userId = data?.user?.id
+  if (userId) {
+    // Wait for handle_new_user trigger to create the profile row
+    await new Promise(r => setTimeout(r, 500))
+    // Mark profile as test + add details
+    await supabase.from('profiles').update({
+      full_name: `${fn} ${ln}`,
+      phone: PHONE(),
+      license_group: PICK([['A'], ['A2'], ['A', 'B'], ['A2', 'B']]),
+      is_test_account: true,
+    }).eq('id', userId)
+  }
+  return { ok: true, userId, email, name: `${fn} ${ln}` }
 }
 
 // 2. Fetch available motorcycles
