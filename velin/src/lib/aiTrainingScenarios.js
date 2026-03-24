@@ -1,122 +1,249 @@
-// AI Training Scenarios Part 1 — core customer journeys
-// Each scenario simulates real customer process step by step
-import { TS, NAME, SURNAME, BRANCH, MOTO, DAYS, EXTRAS } from './aiTrainingHelpers'
+// AI Training Scenarios Part 1 — PER-AGENT training programs
+// Each agent has required volume: min actions to reach "trained" state
+// Scenarios call REAL Supabase API (same as motogo-app)
+import * as API from './aiTrainingHelpers'
 
-export const SCENARIOS_CORE = [
-  {
-    id: 'happy_path', name: 'Kompletní rezervace', icon: '😊',
-    agents: ['customers','bookings','fleet','finance'],
-    generate: () => {
-      const fn = NAME(), ln = SURNAME(), tag = TS(), br = BRANCH(), moto = MOTO()
-      return [
-        { msg: `Vytvoř testovacího zákazníka: ${fn} ${ln}, email test.sim.${tag}@motogo24.cz, tel +420777${tag}111. Použij create_test_user.`, agent: 'customers', tool: 'create_test_user' },
-        { msg: `${fn} ${ln} si prohlíží motorky v pobočce ${br}. Ukaž flotilu přes get_fleet_overview.`, agent: 'fleet', tool: 'get_fleet_overview' },
-        { msg: `${fn} ${ln} chce rezervovat ${moto} v ${br} od ${DAYS(3)} do ${DAYS(6)}.`, agent: 'bookings', tool: 'create_booking' },
-        { msg: `${fn} si přidává extra: ${EXTRAS()}. Uprav detaily rezervace.`, agent: 'bookings', tool: 'update_booking_details' },
-        { msg: `${fn} ${ln} zaplatil zálohu. Potvrď platbu poslední rezervace.`, agent: 'bookings', tool: 'confirm_booking_payment' },
-        { msg: `Finanční přehled dnešního dne — rezervace, tržby.`, agent: 'finance', tool: 'get_financial_overview' },
-      ]
-    },
-  },
-  {
-    id: 'cancellation', name: 'Storno rezervace', icon: '❌',
-    agents: ['customers','bookings','finance'],
-    generate: () => {
-      const fn = NAME(), ln = SURNAME(), tag = TS()
-      return [
-        { msg: `Vytvoř testovacího zákazníka: ${fn} ${ln}, email test.sim.${tag}@motogo24.cz.`, agent: 'customers', tool: 'create_test_user' },
-        { msg: `${fn} ${ln} chce zarezervovat ${MOTO()} v ${BRANCH()} od ${DAYS(5)} do ${DAYS(8)}.`, agent: 'bookings', tool: 'create_booking' },
-        { msg: `${fn} ${ln} ruší rezervaci. Důvod: změna plánů. Zpracuj storno + poplatek.`, agent: 'bookings', tool: 'cancel_booking' },
-        { msg: `Stornované rezervace za dnešek. Storno rate?`, agent: 'analytics', tool: 'get_bookings_summary' },
-      ]
-    },
-  },
-  {
-    id: 'cancel_and_rebook', name: 'Storno + nová rezervace', icon: '🔄',
-    agents: ['bookings','customers','finance'],
-    generate: () => {
-      const fn = NAME(), ln = SURNAME(), tag = TS(), m1 = MOTO(), m2 = MOTO()
-      return [
-        { msg: `Vytvoř testovacího zákazníka ${fn} ${ln}, email test.sim.${tag}@motogo24.cz.`, agent: 'customers', tool: 'create_test_user' },
-        { msg: `${fn} ${ln} rezervuje ${m1} v ${BRANCH()} od ${DAYS(4)} do ${DAYS(7)}.`, agent: 'bookings', tool: 'create_booking' },
-        { msg: `${fn} ${ln} ruší ${m1} — chce jinou motorku.`, agent: 'bookings', tool: 'cancel_booking' },
-        { msg: `${fn} ${ln} místo toho chce ${m2} ve stejném termínu.`, agent: 'bookings', tool: 'create_booking' },
-        { msg: `Stav refundu za zrušenou + nová platba za ${m2}.`, agent: 'finance', tool: 'get_financial_overview' },
-      ]
-    },
-  },
-  {
-    id: 'extend_booking', name: 'Prodloužení výpůjčky', icon: '⏩',
-    agents: ['bookings','fleet','finance'],
-    generate: () => {
-      const fn = NAME(), ln = SURNAME(), tag = TS(), moto = MOTO(), br = BRANCH()
-      return [
-        { msg: `Vytvoř testovacího zákazníka ${fn} ${ln}, email test.sim.${tag}@motogo24.cz.`, agent: 'customers', tool: 'create_test_user' },
-        { msg: `${fn} ${ln} má rezervaci ${moto} v ${br} do ${DAYS(2)}. Chce prodloužit o 3 dny do ${DAYS(5)}. Zkontroluj dostupnost.`, agent: 'bookings', tool: 'update_booking_details' },
-        { msg: `Přepočítej cenu prodloužené rezervace — doplatek za 3 dny.`, agent: 'finance', tool: 'get_financial_overview' },
-        { msg: `Potvrď doplatek za prodloužení.`, agent: 'bookings', tool: 'confirm_booking_payment' },
-      ]
-    },
-  },
-  {
-    id: 'shorten_booking', name: 'Zkrácení + refund', icon: '⏪',
-    agents: ['bookings','finance'],
-    generate: () => {
-      const fn = NAME(), ln = SURNAME(), tag = TS(), moto = MOTO()
-      return [
-        { msg: `Vytvoř testovacího zákazníka ${fn} ${ln}, email test.sim.${tag}@motogo24.cz.`, agent: 'customers', tool: 'create_test_user' },
-        { msg: `${fn} ${ln} vrací ${moto} o 2 dny dříve. Uprav konec rezervace na dnes.`, agent: 'bookings', tool: 'update_booking_details' },
-        { msg: `Vypočítej refund za 2 nevyužité dny.`, agent: 'finance', tool: 'get_financial_overview' },
-      ]
-    },
-  },
-  {
-    id: 'multi_extend_shorten', name: '3× prodloužení + zkrácení', icon: '📏',
-    agents: ['bookings','finance','fleet'],
-    generate: () => {
-      const fn = NAME(), ln = SURNAME(), tag = TS(), moto = MOTO(), br = BRANCH()
-      return [
-        { msg: `Vytvoř testovacího zákazníka ${fn} ${ln}, email test.sim.${tag}@motogo24.cz.`, agent: 'customers', tool: 'create_test_user' },
-        { msg: `${fn} má rez. ${moto} v ${br} do ${DAYS(3)}. Prodlužuje o 1 den.`, agent: 'bookings', tool: 'update_booking_details' },
-        { msg: `${fn} znovu prodlužuje o 2 dny. Zkontroluj dostupnost.`, agent: 'bookings', tool: 'update_booking_details' },
-        { msg: `${fn} potřetí prodlužuje o 1 den. Je ${moto} volná?`, agent: 'fleet', tool: 'get_fleet_overview' },
-        { msg: `Uprav rezervaci ${fn} na nový konec.`, agent: 'bookings', tool: 'update_booking_details' },
-        { msg: `${fn} nakonec vrací dříve — zkrať o 2 dny. Refund?`, agent: 'bookings', tool: 'update_booking_details' },
-        { msg: `Kolik ${fn} celkem zaplatí po všech změnách?`, agent: 'finance', tool: 'get_financial_overview' },
-      ]
-    },
-  },
-  {
-    id: 'pickup_change', name: 'Změna místa přistavení', icon: '📍',
-    agents: ['bookings','fleet'],
-    generate: () => {
-      const fn = NAME(), ln = SURNAME(), tag = TS(), moto = MOTO()
-      return [
-        { msg: `Vytvoř testovacího zákazníka ${fn} ${ln}, email test.sim.${tag}@motogo24.cz.`, agent: 'customers', tool: 'create_test_user' },
-        { msg: `${fn} má rez. ${moto} vyzvednutí Mezná. Chce změnit na Brno.`, agent: 'bookings', tool: 'update_booking_details' },
-        { msg: `Ověř dostupnost ${moto} na pobočce Brno.`, agent: 'fleet', tool: 'get_fleet_overview' },
-        { msg: `Potvrď změnu přistavení. Informuj zákazníka.`, agent: 'bookings', tool: 'update_booking_details' },
-      ]
-    },
-  },
-  {
-    id: 'delivery_pickup', name: 'Přistavení zákazníkovi', icon: '🚚',
-    agents: ['bookings','fleet'],
-    generate: () => {
-      const fn = NAME(), ln = SURNAME(), tag = TS(), moto = MOTO()
-      return [
-        { msg: `Vytvoř testovacího zákazníka ${fn} ${ln}, email test.sim.${tag}@motogo24.cz.`, agent: 'customers', tool: 'create_test_user' },
-        { msg: `${fn} chce přistavení ${moto} na adresu Praha 2, Vinohradská 10. Zarezervuj s delivery.`, agent: 'bookings', tool: 'create_booking' },
-        { msg: `Přiřaď řidiče pro přistavení. Kdo je dnes k dispozici?`, agent: 'fleet', tool: 'get_fleet_overview' },
-        { msg: `Motorka přistavena. Aktualizuj stav na "picked_up".`, agent: 'bookings', tool: 'update_booking_status' },
-      ]
-    },
-  },
+// How many successful actions each agent needs to reach confidence
+export const AGENT_VOLUMES = {
+  bookings:  { min: 25, label: 'Rezervace (create, cancel, extend, shorten, pay)' },
+  fleet:     { min: 15, label: 'Flotila (dostupnost, stavy motorek)' },
+  customers: { min: 15, label: 'Zákazníci (registrace, profily, komunikace)' },
+  finance:   { min: 15, label: 'Finance (ceny, fakturace)' },
+  service:   { min: 15, label: 'Servis (zakázky, údržba, díly)' },
+  sos:       { min: 25, label: 'SOS (5× typ: porucha, defekt, nehoda_lehká, nehoda_těžká, krádež)' },
+  eshop:     { min: 10, label: 'E-shop (objednávky, promo kódy)' },
+  hr:        { min: 10, label: 'HR (směny, docházka)' },
+  analytics: { min: 10, label: 'Analytika (reporty, predikce)' },
+  cms:       { min: 8,  label: 'CMS (nastavení, šablony)' },
+  government:{ min: 5,  label: 'Státní správa (STK, pojistky)' },
+}
+
+// SOS types that must each have 5 incidents
+export const SOS_TYPES = [
+  { type: 'breakdown_minor', label: 'Porucha', desc: 'Motorka nechce nastartovat' },
+  { type: 'defect_question', label: 'Defekt pneu', desc: 'Píchlá zadní pneumatika' },
+  { type: 'accident_minor', label: 'Lehká nehoda', desc: 'Drobná kolize, škrábance' },
+  { type: 'accident_major', label: 'Těžká nehoda', desc: 'Vážná nehoda, motorka nepojízdná' },
+  { type: 'theft', label: 'Krádež', desc: 'Motorka odcizena z parkoviště' },
 ]
 
-// Import extra scenarios from part 2
-import { SCENARIOS_EXTRA } from './aiTrainingScenariosExtra'
+// === BOOKINGS AGENT TRAINING ===
+// Creates 5 full booking lifecycles + 3 cancellations + 2 extends + 2 shortens
+export async function trainBookingsAgent(onStep) {
+  const results = []
+  const motos = await API.fetchAvailableMotos()
+  if (!motos.ok || !motos.data.length) return [{ ok: false, error: 'Žádné motorky' }]
 
-export const SCENARIOS = [...SCENARIOS_CORE, ...SCENARIOS_EXTRA]
-export function getAllScenarios() { return SCENARIOS }
-export function getScenarioById(id) { return SCENARIOS.find(s => s.id === id) }
+  // 5× full booking: create → pay → complete
+  for (let i = 0; i < 5; i++) {
+    const moto = motos.data[i % motos.data.length]
+    const start = API.futureDate(3 + i * 4), end = API.futureDate(6 + i * 4)
+
+    onStep?.({ agent: 'bookings', action: `Registrace zákazníka #${i + 1}`, i, total: 12 })
+    const cust = await API.createTestCustomer()
+    results.push({ agent: 'customers', action: 'create_customer', ...cust })
+
+    onStep?.({ agent: 'bookings', action: `Kontrola dostupnosti ${moto.model}`, i })
+    const avail = await API.checkMotoAvailability(moto.id, start, end)
+    results.push({ agent: 'fleet', action: 'check_availability', ...avail })
+
+    onStep?.({ agent: 'bookings', action: `Kalkulace ceny ${moto.model}`, i })
+    const price = await API.calcBookingPrice(moto.id, start, end)
+    results.push({ agent: 'finance', action: 'calc_price', ...price })
+
+    onStep?.({ agent: 'bookings', action: `Vytvoření rezervace ${moto.model} ${start}→${end}`, i })
+    const booking = await API.createBooking(cust.userId, moto.id, start, end)
+    results.push({ agent: 'bookings', action: 'create_booking', ...booking })
+
+    if (booking.ok) {
+      onStep?.({ agent: 'bookings', action: `Potvrzení platby rez. #${i + 1}`, i })
+      const pay = await API.confirmBookingPayment(booking.bookingId)
+      results.push({ agent: 'bookings', action: 'confirm_payment', ...pay })
+    }
+  }
+
+  // 3× cancel: create → cancel
+  for (let i = 0; i < 3; i++) {
+    const moto = motos.data[(i + 5) % motos.data.length]
+    const start = API.futureDate(20 + i * 3), end = API.futureDate(23 + i * 3)
+
+    onStep?.({ agent: 'bookings', action: `Storno scénář #${i + 1}`, i: 5 + i, total: 12 })
+    const cust = await API.createTestCustomer()
+    results.push({ agent: 'customers', action: 'create_customer', ...cust })
+
+    const booking = await API.createBooking(cust.userId, moto.id, start, end)
+    results.push({ agent: 'bookings', action: 'create_booking', ...booking })
+
+    if (booking.ok) {
+      const cancel = await API.cancelBooking(booking.bookingId, API.PICK(['Změna plánů', 'Nemoc', 'Počasí']))
+      results.push({ agent: 'bookings', action: 'cancel_booking', ...cancel })
+    }
+  }
+
+  // 2× extend
+  for (let i = 0; i < 2; i++) {
+    const moto = motos.data[(i + 8) % motos.data.length]
+    const start = API.futureDate(35 + i * 5), end = API.futureDate(38 + i * 5)
+
+    onStep?.({ agent: 'bookings', action: `Prodloužení scénář #${i + 1}`, i: 8 + i, total: 12 })
+    const cust = await API.createTestCustomer()
+    const booking = await API.createBooking(cust.userId, moto.id, start, end)
+    results.push({ agent: 'bookings', action: 'create_booking', ...booking })
+
+    if (booking.ok) {
+      await API.confirmBookingPayment(booking.bookingId)
+      const ext = await API.extendBooking(booking.bookingId, API.futureDate(41 + i * 5))
+      results.push({ agent: 'bookings', action: 'extend_booking', ...ext })
+    }
+  }
+
+  // 2× shorten
+  for (let i = 0; i < 2; i++) {
+    const moto = motos.data[(i + 10) % motos.data.length]
+    const start = API.futureDate(50 + i * 5), end = API.futureDate(55 + i * 5)
+
+    onStep?.({ agent: 'bookings', action: `Zkrácení scénář #${i + 1}`, i: 10 + i, total: 12 })
+    const cust = await API.createTestCustomer()
+    const booking = await API.createBooking(cust.userId, moto.id, start, end)
+    results.push({ agent: 'bookings', action: 'create_booking', ...booking })
+
+    if (booking.ok) {
+      await API.confirmBookingPayment(booking.bookingId)
+      const sh = await API.shortenBooking(booking.bookingId, API.futureDate(52 + i * 5))
+      results.push({ agent: 'bookings', action: 'shorten_booking', ...sh })
+    }
+  }
+
+  return results
+}
+
+// === SOS AGENT TRAINING ===
+// 5× each SOS type = 25 incidents, each needs a booking first
+export async function trainSosAgent(onStep) {
+  const results = []
+  const motos = await API.fetchAvailableMotos()
+  if (!motos.ok) return [{ ok: false, error: 'Žádné motorky' }]
+
+  let stepIdx = 0
+  for (const sosType of SOS_TYPES) {
+    for (let i = 0; i < 5; i++) {
+      const moto = motos.data[(stepIdx) % motos.data.length]
+      const start = API.futureDate(1), end = API.futureDate(4)
+      stepIdx++
+
+      onStep?.({ agent: 'sos', action: `${sosType.label} #${i + 1}/5`, i: stepIdx, total: 25 })
+
+      // Create customer + booking (prerequisite)
+      const cust = await API.createTestCustomer()
+      results.push({ agent: 'customers', action: 'create_customer', ...cust })
+
+      const booking = await API.createBooking(cust.userId, moto.id, start, end)
+      results.push({ agent: 'bookings', action: 'create_booking', ...booking })
+
+      if (booking.ok && cust.ok) {
+        await API.confirmBookingPayment(booking.bookingId)
+
+        // Create SOS incident
+        const sos = await API.createSosIncident(
+          cust.userId, booking.bookingId, moto.id,
+          sosType.type, `SIM: ${sosType.desc} — test #${i + 1}`
+        )
+        results.push({ agent: 'sos', action: 'create_incident', type: sosType.type, ...sos })
+
+        if (sos.ok) {
+          // Progress: reported → investigating → resolved
+          await API.updateSosStatus(sos.incidentId, 'investigating', 'Přiřazen technik')
+          results.push({ agent: 'sos', action: 'assign_technician', ok: true })
+
+          await API.updateSosStatus(sos.incidentId, 'resolved', `Vyřešeno: ${sosType.label}`)
+          results.push({ agent: 'sos', action: 'resolve_incident', ok: true })
+
+          // If accident/theft → create service order + update moto
+          if (['accident_minor', 'accident_major', 'theft'].includes(sosType.type)) {
+            const svc = await API.createServiceOrder(moto.id, 'repair', `Oprava po ${sosType.label}`)
+            results.push({ agent: 'service', action: 'create_service_order', ...svc })
+
+            if (sosType.type === 'theft') {
+              await API.updateMotoStatus(moto.id, 'stolen')
+              results.push({ agent: 'fleet', action: 'update_moto_stolen', ok: true })
+              // Restore for next tests
+              await API.updateMotoStatus(moto.id, 'available')
+            } else if (sosType.type === 'accident_major') {
+              await API.updateMotoStatus(moto.id, 'maintenance')
+              results.push({ agent: 'fleet', action: 'update_moto_maintenance', ok: true })
+              await API.updateMotoStatus(moto.id, 'available')
+            }
+          }
+        }
+      }
+    }
+  }
+  return results
+}
+
+// === SERVICE AGENT TRAINING ===
+// 5× planned maintenance + 5× repair after SOS + 5× parts order
+export async function trainServiceAgent(onStep) {
+  const results = []
+  const motos = await API.fetchAvailableMotos()
+  if (!motos.ok) return [{ ok: false, error: 'Žádné motorky' }]
+
+  const serviceTypes = [
+    { type: 'oil_change', desc: 'Výměna oleje a filtrů', hours: 1.5 },
+    { type: 'brake_check', desc: 'Kontrola a výměna brzdových destiček', hours: 2 },
+    { type: 'tire_change', desc: 'Výměna pneumatik', hours: 1 },
+    { type: 'chain_adjust', desc: 'Seřízení a mazání řetězu', hours: 0.5 },
+    { type: 'full_inspection', desc: 'Kompletní technická prohlídka', hours: 3 },
+  ]
+
+  // 5× planned maintenance
+  for (let i = 0; i < 5; i++) {
+    const moto = motos.data[i % motos.data.length]
+    const sType = serviceTypes[i]
+
+    onStep?.({ agent: 'service', action: `Plánovaný servis: ${sType.desc}`, i, total: 15 })
+
+    await API.updateMotoStatus(moto.id, 'maintenance')
+    results.push({ agent: 'fleet', action: 'set_maintenance', ok: true })
+
+    const svc = await API.createServiceOrder(moto.id, sType.type, sType.desc)
+    results.push({ agent: 'service', action: 'create_service_order', ...svc })
+
+    if (svc.ok) {
+      const complete = await API.completeServiceOrder(svc.orderId, `Hotovo: ${sType.desc}`)
+      results.push({ agent: 'service', action: 'complete_service', ...complete })
+    }
+
+    const ml = await API.createMaintenanceLog(moto.id, sType.type, sType.desc, sType.hours)
+    results.push({ agent: 'service', action: 'create_maintenance_log', ...ml })
+
+    await API.updateMotoStatus(moto.id, 'available')
+    results.push({ agent: 'fleet', action: 'set_available', ok: true })
+  }
+
+  // 5× repair after incident
+  for (let i = 0; i < 5; i++) {
+    const moto = motos.data[(i + 5) % motos.data.length]
+    onStep?.({ agent: 'service', action: `Oprava po incidentu #${i + 1}`, i: 5 + i, total: 15 })
+
+    const svc = await API.createServiceOrder(moto.id, 'repair', `Oprava po nehodě — test #${i + 1}`)
+    results.push({ agent: 'service', action: 'create_repair_order', ...svc })
+
+    if (svc.ok) {
+      await API.completeServiceOrder(svc.orderId, 'Oprava dokončena')
+      results.push({ agent: 'service', action: 'complete_repair', ok: true })
+    }
+  }
+
+  // 5× maintenance log entries
+  for (let i = 0; i < 5; i++) {
+    const moto = motos.data[(i + 10) % motos.data.length]
+    onStep?.({ agent: 'service', action: `Zápis do maintenance logu #${i + 1}`, i: 10 + i, total: 15 })
+    const ml = await API.createMaintenanceLog(moto.id, 'general', `Pravidelná kontrola #${i + 1}`, 1)
+    results.push({ agent: 'service', action: 'maintenance_log', ...ml })
+  }
+
+  return results
+}
+
+export { API }
