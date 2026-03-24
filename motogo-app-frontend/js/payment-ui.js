@@ -319,6 +319,12 @@ async function proceedToPayment(){
       returnAddr = [rInp.value.trim(), rCity?rCity.value.trim():'', rZip?rZip.value.trim():''].filter(Boolean).join(', ');
     }
 
+    // Read GPS coords from address inputs (stored by selectAddr/useMyLocation)
+    var pickupLat = pInp && pInp.dataset.lat ? parseFloat(pInp.dataset.lat) : null;
+    var pickupLng = pInp && pInp.dataset.lng ? parseFloat(pInp.dataset.lng) : null;
+    var returnLat = rInp && rInp.dataset.lat ? parseFloat(rInp.dataset.lat) : null;
+    var returnLng = rInp && rInp.dataset.lng ? parseFloat(rInp.dataset.lng) : null;
+
     // Create booking (YYYY-MM-DD format to avoid timezone shift)
     var _toDateStr = function(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
     var result = await apiCreateBooking({
@@ -335,6 +341,10 @@ async function proceedToPayment(){
       pickup_address: pickupAddr || null,
       return_method: returnMethod,
       return_address: returnAddr || null,
+      pickup_lat: pickupLat,
+      pickup_lng: pickupLng,
+      return_lat: returnLat,
+      return_lng: returnLng,
     });
 
     if(result.error){

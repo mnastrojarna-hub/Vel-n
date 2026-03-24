@@ -14,7 +14,7 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
 
   useEffect(() => {
     if (!booking?.id) return
-    supabase.from('sos_incidents').select('id,type,title,status,severity,created_at,resolved_at,description,damage_severity,customer_fault,replacement_booking_id,original_booking_id,replacement_status,replacement_data,moto_id,original_moto_id,replacement_moto_id,customer_decision')
+    supabase.from('sos_incidents').select('id,type,title,status,severity,created_at,resolved_at,description,damage_severity,customer_fault,replacement_booking_id,original_booking_id,replacement_status,replacement_data,moto_id,original_moto_id,replacement_moto_id,customer_decision,latitude,longitude,address')
       .or(`booking_id.eq.${booking.id},original_booking_id.eq.${booking.id},replacement_booking_id.eq.${booking.id}`)
       .order('created_at', { ascending: false })
       .then(({ data }) => { if (data) setSosIncidents(data) }).catch(() => {})
@@ -216,10 +216,13 @@ function DatesAndPaymentSection({ booking, bookingExtras, onModify, error, actio
         <div><div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Celkem</div><div className="text-sm font-extrabold" style={{ color: '#1a8a18' }}>{Number(booking.total_price || 0).toLocaleString('cs-CZ')} Kč</div></div>
         <div><div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Dní</div><div className="text-sm font-bold" style={{ color: '#0f1a14' }}>{(() => { const d = Math.max(1, Math.round((new Date(booking.end_date) - new Date(booking.start_date)) / 86400000) + 1); return `${d} ${d === 1 ? 'den' : d < 5 ? 'dny' : 'dní'}` })()}</div></div>
       </div>
-      <div className="grid grid-cols-3 gap-4 mt-3 p-3 rounded-lg" style={{ background: '#f1faf7' }}>
-        <div><div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Přistavení</div><div className="text-sm">{booking.pickup_method === 'delivery' ? 'Přistavení na adresu' : 'Na pobočce'} — {booking.pickup_address || booking.motorcycles?.branches?.name || '—'}</div></div>
-        <div><div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Vrácení</div><div className="text-sm">{booking.return_method === 'delivery' ? 'Svoz z adresy' : 'Na pobočce'} — {booking.return_address || booking.motorcycles?.branches?.name || '—'}</div></div>
-        <div><div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Pojištění</div><div className="text-sm">{booking.insurance_type || '—'}</div></div>
+      <div className="mt-3 p-3 rounded-lg" style={{ background: '#f1faf7' }}>
+        <div className="grid grid-cols-3 gap-4">
+          <AddressBlock label="Přistavení" method={booking.pickup_method} address={booking.pickup_address} branchName={booking.motorcycles?.branches?.name} lat={booking.pickup_lat} lng={booking.pickup_lng} />
+          <AddressBlock label="Vrácení" method={booking.return_method} address={booking.return_address} branchName={booking.motorcycles?.branches?.name} lat={booking.return_lat} lng={booking.return_lng} />
+          <div><div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Pojištění</div><div className="text-sm">{booking.insurance_type || '—'}</div></div>
+        </div>
+        <LocationShareRow sosIncidents={sosIncidents} />
       </div>
       <div className="grid grid-cols-4 gap-4 mt-3 p-3 rounded-lg" style={{ background: '#f1faf7' }}>
         <div><div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Příslušenství</div><div className="text-sm font-bold">{booking.extras_price > 0 ? `${Number(booking.extras_price).toLocaleString('cs-CZ')} Kč` : '—'}</div>
@@ -244,5 +247,67 @@ function DatesAndPaymentSection({ booking, bookingExtras, onModify, error, actio
         ))}
       </div>
     </Card>
+  )
+}
+
+function mapUrl(address, lat, lng) {
+  if (lat && lng) return `https://maps.google.com/?q=${lat},${lng}`
+  if (address) return `https://maps.google.com/?q=${encodeURIComponent(address)}`
+  return null
+}
+
+function AddressBlock({ label, method, address, branchName, lat, lng }) {
+  const isDelivery = method === 'delivery'
+  const displayAddr = address || branchName || '—'
+  const link = isDelivery && (address || lat) ? mapUrl(address, lat, lng) : null
+
+  return (
+    <div>
+      <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</div>
+      <div className="text-sm font-bold" style={{ color: isDelivery ? '#2563eb' : '#1a2e22' }}>
+        {isDelivery ? '🚚 Přistavení na adresu' : '🏍️ Na pobočce'}
+      </div>
+      <div className="text-sm mt-1">{displayAddr}</div>
+      {lat && lng && (
+        <div className="text-xs mt-1" style={{ color: '#6b7280' }}>GPS: {Number(lat).toFixed(6)}, {Number(lng).toFixed(6)}</div>
+      )}
+      {link && (
+        <a href={link} target="_blank" rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 mt-1 text-xs font-bold" style={{ color: '#2563eb', textDecoration: 'none' }}>
+          📍 Zobrazit na mapě ↗
+        </a>
+      )}
+    </div>
+  )
+}
+
+function LocationShareRow({ sosIncidents }) {
+  const locShares = (sosIncidents || []).filter(i => i.type === 'location_share')
+  if (locShares.length === 0) return null
+
+  return (
+    <div className="mt-3 pt-3" style={{ borderTop: '1px solid #d4e8e0' }}>
+      {locShares.map(inc => {
+        const hasGps = inc.latitude && inc.longitude
+        const link = hasGps
+          ? `https://maps.google.com/?q=${inc.latitude},${inc.longitude}`
+          : inc.address ? `https://maps.google.com/?q=${encodeURIComponent(inc.address)}` : null
+
+        return (
+          <div key={inc.id} className="flex items-center flex-wrap gap-2 py-1" style={{ fontSize: 13 }}>
+            <span className="font-extrabold" style={{ color: '#2563eb' }}>📍 Zákazník sdílí polohu</span>
+            <span className="text-sm">{new Date(inc.created_at).toLocaleString('cs-CZ')}</span>
+            {inc.address && <span className="text-sm font-medium">— {inc.address}</span>}
+            {hasGps && <span className="text-xs" style={{ color: '#6b7280' }}>GPS: {Number(inc.latitude).toFixed(6)}, {Number(inc.longitude).toFixed(6)}</span>}
+            {link && (
+              <a href={link} target="_blank" rel="noopener noreferrer"
+                className="text-xs font-bold" style={{ color: '#2563eb', textDecoration: 'none' }}>
+                Mapa ↗
+              </a>
+            )}
+          </div>
+        )
+      })}
+    </div>
   )
 }
