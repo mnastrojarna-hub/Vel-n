@@ -37,7 +37,7 @@ async function apiFetchDocuments(){
       if(inv.type === 'shop_final') return;
       var b = inv.bookings;
       var iType = inv.type === 'payment_receipt' ? 'payment_receipt'
-        : (inv.type === 'proforma' || inv.type === 'advance') ? 'invoice_advance'
+        : (inv.type === 'proforma' || inv.type === 'advance' || inv.type === 'shop_proforma') ? 'invoice_advance'
         : 'invoice_final';
       // Dedup by invoice id or file_path (allow multiple invoices of same type per booking)
       var invFilePath = 'invoices/' + inv.id + '.html';
