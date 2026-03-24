@@ -58,46 +58,60 @@ Detailní politiky:
 
 ---
 
-## 8. EDGE FUNKCE (20 deployovaných)
+## 8. EDGE FUNKCE (26 aktivních po cleanup)
 
-### V repozitáři (11)
+### V repozitáři (22 — všechny deployované)
+
+| Funkce | JWT | Popis |
+|--------|-----|-------|
+| `admin-auth` | OFF | Autentizace a auto-provisioning admin uživatelů (ověření JWT + insert do admin_users přes service role) |
+| `admin-reset-password` | OFF | Admin reset hesla zákazníka |
+| `ai-copilot` | OFF | AI Copilot pro Velín dashboard — Anthropic Claude API, system prompt CZ, načítá kontext z DB (bookings, tržby, servis, SOS), ukládá do ai_conversations |
+| `ai-moto-agent` | OFF | AI Servisní agent pro zákazníky — diagnostika závad motorek přes Claude API, vrací {reply, is_rideable, suggest_sos}, načítá kontext motorky z booking_id |
+| `auto-check-service-parts` | OFF | Automatická kontrola dílů pro blížící se servisy. Volá RPC auto_check_service_parts() → vytvoří PO → odešle email dodavateli přes send-order-email. Spouštěno denně cron jobem |
+| `datova-schranka` | OFF | Podání schválených finančních reportů přes ISDS (datová schránka) |
+| `flexi-sync` | OFF | Synchronizace s Abra Flexi účetním softwarem |
+| `generate-document` | OFF | Generuje dokumenty z šablon (rental_contract, handover_protocol, vop). Firemní údaje načítá z app_settings (company_info) |
+| `generate-invoice` | OFF | Generuje proforma/finální fakturu (ZF-/FV-/DP-YYYY-NNNN). Firemní údaje načítá z app_settings (company_info). Deduplikace, odečet záloh |
+| `manage-payment-methods` | OFF | Správa uložených platebních metod (Stripe). Akce: list, delete, set_default, setup. Synchronizuje karty do tabulky payment_methods |
+| `process-payment` | OFF | Stripe platební brána (**LIVE mode**). Podporuje booking, shop, extension i SOS platby. Vytváří Stripe Checkout Session. Automaticky vytváří/používá Stripe Customer |
+| `process-refund` | OFF | Stripe refundy (LIVE). Částečné i plné vrácení peněz. Volá Stripe Refund API |
+| `receive-invoice` | OFF | OCR + AI zpracování přijatých faktur (Claude Vision). Extrakce dat, klasifikace, routing do účetních tabulek |
+| `scan-document` | OFF | OCR skenování dokladů (OP, ŘP, pas) přes Mindee API. Retry 3×, loguje do debug_log |
+| `send-booking-email` | OFF | Odesílá branded HTML emaily (booking_reserved, booking_completed, booking_modified, voucher_purchased). Retry 3× |
+| `send-broadcast` | OFF | Hromadné zasílání kampaní (email, SMS, WhatsApp). Rate-limited, failure threshold 20% |
+| `send-cancellation-email` | OFF | Email o stornování rezervace s "obnovit" CTA. Retry 3× |
+| `send-email` | OFF | Obecné odesílání emailů s podporou šablon |
+| `send-invoice-email` | OFF | Odesílání faktur emailem zákazníkům |
+| `send-message` | OFF | Centrální odesílání zpráv (SMS/WhatsApp přes Twilio, email přes Resend) |
+| `send-order-email` | OFF | Odesílání objednávkových emailů dodavatelům. Retry 3× |
+| `webhook-receiver` | OFF | Příjem Stripe webhooků (**LIVE mode**, signature povinná). Auto-generuje dokumenty po platbě. Synchronizuje karty do payment_methods |
+
+### Pouze v Supabase dashboardu (4 — bez kódu v repo)
 
 | Funkce | Popis |
 |--------|-------|
-| `admin-auth` | Autentizace a auto-provisioning admin uživatelů (ověření JWT + insert do admin_users přes service role) |
-| `ai-copilot` | AI Copilot pro Velín dashboard — Anthropic Claude API, system prompt CZ, načítá kontext z DB (bookings, tržby, servis, SOS), ukládá do ai_conversations |
-| `ai-moto-agent` | AI Servisní agent pro zákazníky — diagnostika závad motorek přes Claude API, vrací {reply, is_rideable, suggest_sos}, načítá kontext motorky z booking_id |
-| `send-booking-email` | Odesílá branded HTML emaily (booking_reserved, booking_completed, booking_modified, voucher_purchased). Retry 3× s exponential backoff. Při selhání loguje do debug_log |
-| `generate-invoice` | Generuje proforma/finální fakturu (ZF-/FV-YYYY-NNNN). Firemní údaje načítá z app_settings (company_info) |
-| `generate-document` | Generuje dokumenty z šablon (rental_contract, handover_protocol). Firemní údaje načítá z app_settings (company_info) |
-| `send-cancellation-email` | Email o stornování rezervace s "obnovit" CTA. Retry 3× s exponential backoff. Při selhání loguje do debug_log |
-| `admin-reset-password` | Admin reset hesla zákazníka |
-| `process-payment` | Stripe platební brána (**LIVE mode**). Podporuje booking, shop, extension i SOS platby (parametr `type`). Vytváří Stripe Checkout Session (redirect). Vrací `checkout_url`, `session_id`. Locale: cs. **Automaticky vytváří/používá Stripe Customer** (ukládá `stripe_customer_id` do profiles). Karty se ukládají pro budoucí platby (`setup_future_usage: off_session`). Uložená karta se předvyplní na Stripe Checkout |
-| `manage-payment-methods` | Správa uložených platebních metod (Stripe). Akce: `list` (výpis karet + sync do DB), `delete` (odebrání + sync), `set_default` (nastavení prioritní karty + sync), `setup` (přidání nové karty). Synchonizuje karty do tabulky `payment_methods`. Vyžaduje JWT auth |
-| `scan-document` | OCR skenování dokladů (OP, ŘP, pas) přes Mindee API. Přijímá base64 JPEG + document_type (id/dl/passport), vrací strukturovaná data. Retry 3×, loguje do debug_log |
-| `webhook-receiver` | Příjem Stripe webhooků (**LIVE mode**, signature povinná). Zpracovává checkout.session.completed, payment_intent.succeeded, charge.refunded, payout.paid. Auto-generuje dokumenty (ZF, smlouva) po úspěšné platbě. Ukládá stripe_payment_intent_id k bookings/shop_orders. **Synchonizuje platební karty do `payment_methods` tabulky** po každé platbě a po setup session (přidání karty) |
-| `process-refund` | Stripe refundy (LIVE). Částečné i plné vrácení peněz. Volá Stripe Refund API. Napojeno na storno + zkrácení rezervace |
-| `send-message` | Centrální odesílání zpráv (SMS/WhatsApp přes Twilio, email přes Resend). Přijímá channel, recipient, template_slug, template_vars. Loguje do message_log |
-| `send-invoice-email` | Odesílání faktur emailem zákazníkům |
-| `send-order-email` | Odesílání objednávkových emailů dodavatelům. Branded HTML šablona s tabulkou položek. Retry 3×. Aktualizuje purchase_orders.status→sent a sent_at. Loguje do debug_log |
-| `auto-check-service-parts` | Automatická kontrola dílů pro blížící se servisy. Volá RPC auto_check_service_parts() → vytvoří PO → odešle email dodavateli přes send-order-email. Spouštěno denně cron jobem |
+| `cron-daily` | Denní cron úlohy (snapshot_daily_stats, auto_schedule_services) |
+| `cron-monthly` | Měsíční cron úlohy (generate-tax, monthly reports) |
+| `export-data` | Export dat (CSV/XLSX) — voláno z Velín Finance + TaxTab |
+| `generate-report` | Generování reportů — voláno z Velín Statistics |
+| `generate-tax` | Generování daňových záznamů — voláno z Velín TaxTab |
 
-### Pouze v Supabase dashboardu (11 dalších)
+### SMAZANÉ duplicity/nepoužívané (cleanup 2026-03-24)
 
-| Funkce | Popis |
-|--------|-------|
-| `bright-endpoint` | Bright Data endpoint |
-| `cms-sync` | Synchronizace CMS obsahu |
-| `cron-daily` | Denní cron úlohy |
-| `cron-monthly` | Měsíční cron úlohy |
-| `export-data` | Export dat (CSV/XLSX) |
-| `generate-report` | Generování reportů |
-| `generate-tax` | Generování daňových záznamů |
-| `inventory-check` | Kontrola stavu skladu |
-| `prediction-engine` | Predikční engine (obsazenost, tržby) |
-| `send-email` | Obecné odesílání emailů (jiné než booking) |
-| `send-sos` | SOS notifikace |
-| `upload-handler` | Zpracování nahraných souborů |
+| Funkce | Důvod smazání |
+|--------|---------------|
+| `document-generator` | Duplikát generate-document |
+| `generate_document` | Duplikát generate-document (starší verze) |
+| `generate-html-document` | Duplikát generate-document (nejstarší, fiktivní IČO) |
+| `redeploy` | Duplikát generate-invoice |
+| `redeploy-invoice` | Duplikát generate-invoice (starší) |
+| `bright-endpoint` | Nepoužívané — Bright Data endpoint |
+| `cms-sync` | Nepoužívané — žádné CMS v projektu |
+| `prediction-engine` | Nepoužívané — nerealizovaná funkce |
+| `send-sos` | Nepoužívané — nahrazeno DB triggerem sos_notify_user_on_create() + send-message |
+| `upload-handler` | Nepoužívané — upload jde přímo přes Supabase Storage SDK |
+| `inventory-check` | Nepoužívané — nahrazeno auto-check-service-parts |
 
 ---
 
@@ -184,13 +198,12 @@ https://search.google.com/local/writereview?placeid=PLACE_ID
 
 | Job | Čas | Funkce |
 |-----|-----|--------|
-| `expire-vouchers` | denně 01:00 UTC | `SELECT expire_vouchers()` |
-| `auto-cancel-pending-bookings` | každé 2 min (`*/2 * * * *`) | `SELECT auto_cancel_expired_pending()` — ruší pending+unpaid bookings: app=10min, web=4h |
-| `auto-complete-expired-bookings` | denně 00:01 (`1 0 * * *`) | `SELECT auto_complete_expired_bookings()` — active/reserved + end_date < today + paid → completed |
-| `auto-activate-reserved-bookings` | denně 00:01 (`1 0 * * *`) | `SELECT auto_activate_reserved_bookings()` — reserved + paid + start_date <= today → active |
-| `auto-check-service-parts` | denně 06:00 UTC (`0 6 * * *`) | Edge function `auto-check-service-parts` — kontrola dílů pro blížící se servisy, auto PO + email dodavateli |
-| Denní cron | denně | `cron-daily` edge function (snapshot_daily_stats, auto_schedule_services) |
-| Měsíční cron | 1. den měsíce | `cron-monthly` edge function (generate-tax, monthly reports) |
+| `auto-cancel-pending-bookings` (1) | každé 2 min (`*/2 * * * *`) | `SELECT auto_cancel_expired_pending()` — ruší pending+unpaid bookings: app=10min, web=4h |
+| `auto-complete-expired-bookings` (4) | denně 00:01 (`1 0 * * *`) | `SELECT auto_complete_expired_bookings()` — active/reserved + end_date < today + paid → completed |
+| `expire-vouchers` (8) | denně 01:00 UTC (`0 1 * * *`) | `SELECT expire_vouchers()` |
+| `cron-daily` (9) | denně 02:00 UTC (`0 2 * * *`) | `SELECT snapshot_daily_stats(); SELECT auto_schedule_services();` |
+| `auto-check-service-parts` (10) | denně 06:00 UTC (`0 6 * * *`) | `SELECT auto_check_service_parts()` — kontrola dílů, auto PO + email dodavateli |
+| `auto-activate-reserved` (11) | denně 00:01 (`1 0 * * *`) | `SELECT auto_activate_reserved_bookings()` — reserved + paid + start_date <= today → active |
 
 ---
 
