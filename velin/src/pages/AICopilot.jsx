@@ -10,6 +10,7 @@ import AiActivityLog from '../components/ai/AiActivityLog'
 import { loadAgentConfig, saveAgentConfig, getEnabledTools, getAgentCorrections, AGENTS } from '../lib/aiAgents'
 import { buildAgentPromptsText } from '../lib/aiAgentPrompts'
 import { buildAllAgentMemory, autoExtractFlash } from '../lib/aiAgentMemory'
+import { recordOutcome } from '../lib/aiLearning'
 
 const QUICK_ACTIONS = [
   { cat: '📊 Přehledy', items: ['Kompletní denní přehled', 'Jak jsme na tom vs. minulý měsíc?', 'Týdenní statistiky'] },
@@ -153,6 +154,13 @@ export default function AICopilot() {
       const { data } = await supabase.functions.invoke('ai-copilot', {
         body: { mode: 'execute', actions: pendingActions },
       })
+      // Record learning outcomes
+      if (data?.executed_actions) {
+        for (const ea of data.executed_actions) {
+          const agent = AGENTS.find(a => a.tools.includes(ea.tool))
+          if (agent) recordOutcome(agent.id, ea.tool, {}, ea.result, ea.success)
+        }
+      }
       const resultMsg = { role: 'assistant', content: data?.response || 'Akce provedeny.', timestamp: new Date().toISOString() }
       const allMessages = [...messages, resultMsg]
       setMessages(allMessages)

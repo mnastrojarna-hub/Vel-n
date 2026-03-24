@@ -4,6 +4,7 @@ import { AGENTS, loadAgentConfig, getEnabledTools, getAgentCorrections } from '.
 import { loadAutonomyRules, saveAutonomyRules, SCHEDULES, RISK_AUTO } from '../lib/aiAutonomy'
 import Button from '../components/ui/Button'
 import AiConfirmDialog from '../components/ai/AiConfirmDialog'
+import AiAutonomyPanel from '../components/ai/AiAutonomyPanel'
 
 export default function AiOrchestrator() {
   const [briefing, setBriefing] = useState(null)
@@ -65,6 +66,7 @@ export default function AiOrchestrator() {
     { id: 'health', label: 'Zdraví agentů', icon: '💚' },
     { id: 'autonomy', label: 'Autonomie', icon: '🤖' },
     { id: 'tester', label: 'Systémový test', icon: '🧪' },
+    { id: 'learning', label: 'Učení & Autonomie', icon: '🎓' },
   ]
 
   return (
@@ -244,6 +246,10 @@ export default function AiOrchestrator() {
           )}
         </div>
       )}
+    </>
+
+      {/* Learning & Autonomy Tab */}
+      {tab === 'learning' && <AiAutonomyPanel />}
     </>
   )
 }
