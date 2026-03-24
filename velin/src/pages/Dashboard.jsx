@@ -4,6 +4,7 @@ import { debugAction, debugLog, debugError } from '../lib/debugLog'
 import { useDebugMode } from '../hooks/useDebugMode'
 import { isRevenueEntry } from '../lib/revenueUtils'
 import Card from '../components/ui/Card'
+import AiDashboardWidget from '../components/ai/AiDashboardWidget'
 import Stat from '../components/ui/Stat'
 import Badge from '../components/ui/Badge'
 import MiniChart from '../components/ui/MiniChart'
@@ -242,6 +243,9 @@ export default function Dashboard() {
 
   return (
     <div>
+      <div className="mb-4">
+        <AiDashboardWidget />
+      </div>
       <div className="mb-4">
         <BannerEditor />
       </div>

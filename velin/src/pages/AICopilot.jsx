@@ -6,9 +6,10 @@ import Button from '../components/ui/Button'
 import AiConfirmDialog from '../components/ai/AiConfirmDialog'
 import AiAgentPanel from '../components/ai/AiAgentPanel'
 import AiAgentConfig from '../components/ai/AiAgentConfig'
+import AiActivityLog from '../components/ai/AiActivityLog'
 import { loadAgentConfig, saveAgentConfig, getEnabledTools, getAgentCorrections, AGENTS } from '../lib/aiAgents'
 import { buildAgentPromptsText } from '../lib/aiAgentPrompts'
-import { buildAllAgentMemory, autoExtractFlash, getEnabledAgentIds } from '../lib/aiAgentMemory'
+import { buildAllAgentMemory, autoExtractFlash } from '../lib/aiAgentMemory'
 
 const QUICK_ACTIONS = [
   { cat: '📊 Přehledy', items: ['Kompletní denní přehled', 'Jak jsme na tom vs. minulý měsíc?', 'Týdenní statistiky'] },
@@ -42,7 +43,7 @@ export default function AICopilot() {
   const [openCats, setOpenCats] = useState({})
   const [pendingActions, setPendingActions] = useState(null)
   const [agentConfig, setAgentConfig] = useState(() => loadAgentConfig())
-  const [showAgents, setShowAgents] = useState(false)
+  const [sidebarTab, setSidebarTab] = useState('conversations') // conversations | agents | activity
   const [configAgentId, setConfigAgentId] = useState(null)
   const bottomRef = useRef(null)
 
@@ -125,6 +126,9 @@ export default function AICopilot() {
       const allMessages = [...newMessages, aiMsg]
       setMessages(allMessages)
 
+      // Auto-extract flash memory from all enabled agents
+      for (const aid of enabledIds) autoExtractFlash(aid, data?.response)
+
       // Check for pending actions
       if (data?.pending_actions && data.pending_actions.length > 0) {
         setPendingActions(data.pending_actions)
@@ -188,20 +192,29 @@ export default function AICopilot() {
             <Button green onClick={startNew} style={{ width: '100%', fontSize: 13, padding: '6px 12px' }}>+ Nová konverzace</Button>
           </div>
 
-          {/* Agent toggle button */}
-          <button onClick={() => setShowAgents(!showAgents)} style={{
-            padding: '8px 14px', background: showAgents ? '#f1faf7' : '#fff', border: 'none',
-            borderBottom: '1px solid #d4e8e0', cursor: 'pointer', textAlign: 'left',
-            display: 'flex', alignItems: 'center', gap: 6,
-          }}>
-            <span style={{ fontSize: 14 }}>🤖</span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#0f1a14' }}>Agenti ({enabledCount}/{AGENTS.length})</span>
-            <span style={{ fontSize: 10, marginLeft: 'auto', color: '#666' }}>{showAgents ? '▲' : '▼'}</span>
-          </button>
+          {/* Sidebar tabs */}
+          <div style={{ display: 'flex', borderBottom: '1px solid #d4e8e0' }}>
+            {[
+              { id: 'conversations', icon: '💬', label: 'Chat' },
+              { id: 'agents', icon: '🤖', label: `Agenti (${enabledCount})` },
+              { id: 'activity', icon: '📋', label: 'Log' },
+            ].map(t => (
+              <button key={t.id} onClick={() => setSidebarTab(t.id)} style={{
+                flex: 1, padding: '6px 4px', fontSize: 10, fontWeight: sidebarTab === t.id ? 700 : 400,
+                border: 'none', cursor: 'pointer', background: sidebarTab === t.id ? '#f1faf7' : '#fff',
+                color: sidebarTab === t.id ? '#0f1a14' : '#999',
+                borderBottom: sidebarTab === t.id ? '2px solid #74FB71' : 'none',
+              }}>{t.icon} {t.label}</button>
+            ))}
+          </div>
 
-          {showAgents ? (
+          {sidebarTab === 'agents' ? (
             <div className="flex-1 overflow-auto">
               <AiAgentPanel config={agentConfig} onChange={setAgentConfig} onConfigAgent={setConfigAgentId} />
+            </div>
+          ) : sidebarTab === 'activity' ? (
+            <div className="flex-1 overflow-auto p-2">
+              <AiActivityLog limit={30} />
             </div>
           ) : (
             <div className="flex-1 overflow-auto">

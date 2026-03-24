@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { loadAgentConfig, getEnabledTools, getAgentCorrections, AGENTS } from '../../lib/aiAgents'
+import { buildAgentPromptsText } from '../../lib/aiAgentPrompts'
+import { buildAllAgentMemory, autoExtractFlash } from '../../lib/aiAgentMemory'
 import { useAiContext, PAGE_QUICK_ACTIONS } from '../../hooks/useAiContext'
 import AiConfirmDialog from './AiConfirmDialog'
 
@@ -35,6 +37,20 @@ export default function FloatingAiPanel() {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
 
+  // Ctrl+K keyboard shortcut
+  useEffect(() => {
+    function handleKey(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault()
+        setOpen(o => !o)
+        setMinimized(false)
+      }
+      if (e.key === 'Escape' && open) { setOpen(false) }
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [open])
+
   // Don't show on AI Copilot page (has its own full UI)
   if (ctx.page === 'ai') return null
 
@@ -50,18 +66,24 @@ export default function FloatingAiPanel() {
     try {
       // Add page context to message
       const contextPrefix = `[Kontext: stránka "${ctx.label}"${ctx.entityId ? `, ID: ${ctx.entityId}` : ''}] `
+      const enabledIds = AGENTS.filter(a => config[a.id]?.enabled).map(a => a.id)
       const { data, error } = await supabase.functions.invoke('ai-copilot', {
         body: {
           message: contextPrefix + msg,
           conversation_history: newMsgs,
           enabled_tools: getEnabledTools(config),
           agent_corrections: getAgentCorrections(config),
+          agent_prompts: buildAgentPromptsText(enabledIds),
+          agent_memory: buildAllAgentMemory(enabledIds),
         },
       })
       if (error) throw error
 
       const aiMsg = { role: 'assistant', content: data?.response || 'Nedostupný', ts: new Date().toISOString() }
       setMessages([...newMsgs, aiMsg])
+
+      // Auto-extract flash memory from response
+      if (ctx.agent) autoExtractFlash(ctx.agent, data?.response)
 
       // Check for navigation commands
       const nav = parseNavCommand(data?.response || '')
