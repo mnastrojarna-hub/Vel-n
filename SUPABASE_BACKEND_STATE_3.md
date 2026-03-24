@@ -41,7 +41,6 @@
 | `auto_reply_sos()` | Automatická odpověď na SOS |
 | `auto_schedule_services()` | Auto plánování servisů |
 | `auto_check_service_parts()` | Auto kontrola dílů pro blížící se servisy (~30 kalendářních dní) — zkontroluje sklad, dedup dle konkrétních dílů (nová PO jen pokud díl nemá otevřenou draft/sent objednávku), vytvoří PO seskupené dle dodavatele. Vrací jsonb {created_orders}. SECURITY DEFINER |
-| `calc_booking_price()` | Kalkulace ceny bookingu v1 |
 | `calc_booking_price_v2()` | Kalkulace ceny bookingu v2 |
 | `calculate_moto_roi()` | Výpočet ROI motorky |
 | `check_admin_permission()` | Kontrola admin oprávnění |
@@ -54,6 +53,7 @@
 | `send_admin_message()` | Odeslání admin zprávy |
 | `snapshot_daily_stats()` | Snapshot denních statistik |
 | `sos_share_location()` | Sdílení lokace v SOS |
-| `trigger_sos_auto_reply()` | **REPLACED** safe no-op (SECURITY DEFINER) — původní funkce crashovala INSERT |
+| ~~`trigger_sos_auto_reply()`~~ | **SMAZÁNO 2026-03-24** — byl no-op, žádný trigger ho nevolal |
+| ~~`calc_booking_price()`~~ | **SMAZÁNO 2026-03-24** — nahrazeno calc_booking_price_v2 |
 | `update_moto_after_service()` | Aktualizace motorky po servisu |
 | `validate_voucher_code(p_code)` | Validace voucherového kódu (vrací {valid, id, type:'fixed', value, code}) |

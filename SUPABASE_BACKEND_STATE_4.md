@@ -35,8 +35,9 @@
 | `trg_sync_generated_doc_to_documents` | generated_documents (INSERT) | sync_generated_doc_to_documents() |
 | `trg_sync_moto_day_prices` | moto_day_prices (INSERT/UPDATE) | sync_moto_day_prices_to_motorcycles() |
 | `trg_generate_final_invoice` | bookings (AFTER UPDATE OF status, WHEN active→completed) | generate_final_invoice_on_complete() — SECURITY DEFINER, EXCEPTION safe |
-| `trg_auto_generate_door_codes` | bookings (AFTER UPDATE OF status, WHEN →active) | auto_generate_door_codes() — SECURITY DEFINER, generuje 2 kódy (motorcycle+accessories), posílá admin_message. EXCEPTION safe |
+| ~~`trg_auto_generate_door_codes`~~ | ~~bookings~~ | **SMAZÁN 2026-03-24** — nahrazen _insert + _update verzemi |
 | `trg_auto_generate_door_codes_insert` | bookings (AFTER INSERT, WHEN status=active) | auto_generate_door_codes() — pro SOS replacement bookings vytvořené rovnou jako active |
+| `trg_auto_generate_door_codes_update` | bookings (AFTER UPDATE OF status, WHEN →active) | auto_generate_door_codes() — SECURITY DEFINER, generuje 2 kódy (motorcycle+accessories), posílá admin_message. EXCEPTION safe |
 | `trg_auto_deactivate_door_codes` | bookings (AFTER UPDATE OF status, WHEN →completed/cancelled) | auto_deactivate_door_codes() — deaktivuje is_active=false. EXCEPTION safe |
 | `trg_notify_booking_confirmed` | bookings (AFTER INSERT/UPDATE OF status, WHEN reserved) | trg_notify_booking_confirmed() — SMS+WA potvrzení rezervace. Dedup přes message_log. SECURITY DEFINER |
 | `trg_notify_door_codes` | branch_door_codes (AFTER INSERT, WHEN motorcycle) | trg_notify_door_codes() — SMS+WA přístupové kódy. Dedup přes message_log. SECURITY DEFINER |
@@ -50,6 +51,8 @@
 | `bookings_auto_accounting` | bookings (AFTER UPDATE OF payment_status, WHEN paid) | auto_accounting_on_booking_paid() — EXCEPTION safe |
 | `maintenance_log_after_insert` | maintenance_log | update_moto_after_service() |
 | ~~`sos_auto_reply_on_create`~~ | ~~sos_incidents (INSERT)~~ | **DROPPED 2026-03-10** — crashoval INSERT bez error handleru |
+| ~~`admin_users_updated_at`~~ | ~~admin_users~~ | **SMAZÁN 2026-03-24** — duplicitní s trg_admin_users_updated |
+| ~~`ai_conversations_updated_at`~~ | ~~ai_conversations~~ | **SMAZÁN 2026-03-24** — duplicitní s trg_ai_conversations_updated |
 | `trg_accessory_types_updated` | accessory_types | update_updated_at() |
 | `trg_emp_attendance_updated` | emp_attendance | update_updated_at() |
 | `trg_emp_vacations_updated` | emp_vacations | update_updated_at() |
