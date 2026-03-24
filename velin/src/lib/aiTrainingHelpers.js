@@ -76,8 +76,7 @@ export async function createBooking(userId, motoId, startDate, endDate, extras =
     status: 'reserved',
     payment_status: 'unpaid',
     branch_id: moto?.branch_id,
-    extras_json: extras,
-    created_at: new Date().toISOString(),
+    booking_source: 'app',
     is_test: true,
   }).select().single()
   return { ok: !error, bookingId: data?.id, data, error: error?.message }
@@ -183,8 +182,9 @@ export async function completeServiceOrder(orderId, notes) {
 
 // 14. Create maintenance log
 export async function createMaintenanceLog(motoId, type, desc, hours) {
-  const { data, error } = await supabase.from('maintenance_logs').insert({
-    motorcycle_id: motoId, type, description: desc, hours_spent: hours, is_test: true
+  const { data, error } = await supabase.from('maintenance_log').insert({
+    motorcycle_id: motoId, service_type: type, description: desc, labor_hours: hours,
+    service_date: new Date().toISOString().split('T')[0], status: 'completed', is_test: true
   }).select().single()
   return { ok: !error, data, error: error?.message }
 }
@@ -246,7 +246,7 @@ export async function cleanupTestData() {
   const { count: p } = await supabase.from('promo_codes').delete({ count: 'exact' }).eq('is_test', true)
   results.push(`Promo: ${p || 0}`)
   // Delete test maintenance logs
-  const { count: ml } = await supabase.from('maintenance_logs').delete({ count: 'exact' }).eq('is_test', true)
+  const { count: ml } = await supabase.from('maintenance_log').delete({ count: 'exact' }).eq('is_test', true)
   results.push(`Maintenance: ${ml || 0}`)
   // Delete test profiles (profiles with is_test_account)
   const { data: testProfiles } = await supabase.from('profiles').select('id').eq('is_test_account', true)
