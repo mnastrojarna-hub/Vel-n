@@ -1,8 +1,9 @@
-// TOOLS_DEFINITION — 31 nástrojů pro Anthropic tool-use API
+// Combined tool definitions: 31 read + 26 write tools
+import { WRITE_TOOLS_DEFINITION } from './tools-def-write.ts'
 
 const T = 'object' as const
 
-export const TOOLS_DEFINITION = [
+const READ_TOOLS = [
   { name: 'get_bookings_summary', description: 'Počty rezervací podle stavu + tržby za aktuální a minulý měsíc', input_schema: { type: T, properties: {}, required: [] } },
   { name: 'get_bookings_detail', description: 'Seznam rezervací s filtrem', input_schema: { type: T, properties: { status: { type: 'string', description: 'Filtr dle stavu' }, limit: { type: 'number', description: 'Max počet (default 20)' }, date_from: { type: 'string', description: 'Od data (YYYY-MM-DD)' }, date_to: { type: 'string', description: 'Do data (YYYY-MM-DD)' } }, required: [] } },
   { name: 'get_fleet_overview', description: 'Všechny motorky se stavem, nájezdem, pobočkou', input_schema: { type: T, properties: { status: { type: 'string', description: 'Filtr dle stavu' }, branch_id: { type: 'string', description: 'Filtr dle ID pobočky' } }, required: [] } },
@@ -18,20 +19,28 @@ export const TOOLS_DEFINITION = [
   { name: 'get_service_status', description: 'Blížící se servisy + aktivní servisní objednávky', input_schema: { type: T, properties: { days_ahead: { type: 'number', description: 'Počet dní dopředu (default 30)' } }, required: [] } },
   { name: 'get_messages_overview', description: 'Přehled zpráv se zákazníky', input_schema: { type: T, properties: { unread_only: { type: 'boolean', description: 'Pouze nepřečtené' }, limit: { type: 'number', description: 'Max počet (default 20)' } }, required: [] } },
   { name: 'get_daily_stats', description: 'Denní statistiky za období', input_schema: { type: T, properties: { days: { type: 'number', description: 'Počet dní zpět (default 7)' } }, required: [] } },
-  { name: 'get_inventory', description: 'Sklady — položky, zásoby, nízké stavy, dodavatelé', input_schema: { type: T, properties: { search: { type: 'string', description: 'Hledání dle názvu/SKU' }, low_stock_only: { type: 'boolean', description: 'Pouze nízký stav' }, category: { type: 'string', description: 'Filtr dle kategorie' }, limit: { type: 'number', description: 'Max počet (default 50)' } }, required: [] } },
-  { name: 'get_inventory_movements', description: 'Pohyby skladu — příjmy, výdeje, korekce', input_schema: { type: T, properties: { item_id: { type: 'string', description: 'UUID položky' }, type: { type: 'string', description: 'Typ pohybu (receipt/issue/correction)' }, limit: { type: 'number', description: 'Max počet (default 30)' } }, required: [] } },
-  { name: 'get_branch_detail', description: 'Kompletní detail pobočky: motorky, příslušenství, přístupové kódy, aktivní rezervace', input_schema: { type: T, properties: { branch_id: { type: 'string', description: 'UUID pobočky' } }, required: ['branch_id'] } },
-  { name: 'get_documents', description: 'Dokumenty — smlouvy, šablony, vygenerované, e-maily', input_schema: { type: T, properties: { type: { type: 'string', description: 'Typ: contracts/templates/generated/emails' }, search: { type: 'string', description: 'Hledání' }, limit: { type: 'number', description: 'Max počet (default 20)' } }, required: [] } },
-  { name: 'get_reviews', description: 'Hodnocení zákazníků — recenze', input_schema: { type: T, properties: { moto_id: { type: 'string', description: 'UUID motorky' }, min_rating: { type: 'number', description: 'Min hodnocení (1-5)' }, limit: { type: 'number', description: 'Max počet (default 20)' } }, required: [] } },
-  { name: 'get_cms_settings', description: 'CMS nastavení — feature flagy, proměnné, app_settings', input_schema: { type: T, properties: { section: { type: 'string', description: 'Sekce: flags/variables/settings' } }, required: [] } },
-  { name: 'get_audit_log', description: 'Audit log — historie akcí adminů', input_schema: { type: T, properties: { admin_id: { type: 'string', description: 'UUID admina' }, action: { type: 'string', description: 'Filtr dle akce' }, limit: { type: 'number', description: 'Max počet (default 30)' } }, required: [] } },
+  { name: 'get_inventory', description: 'Sklady — položky, zásoby, nízké stavy, dodavatelé', input_schema: { type: T, properties: { search: { type: 'string' }, low_stock_only: { type: 'boolean' }, category: { type: 'string' }, limit: { type: 'number' } }, required: [] } },
+  { name: 'get_inventory_movements', description: 'Pohyby skladu', input_schema: { type: T, properties: { item_id: { type: 'string' }, type: { type: 'string' }, limit: { type: 'number' } }, required: [] } },
+  { name: 'get_branch_detail', description: 'Kompletní detail pobočky', input_schema: { type: T, properties: { branch_id: { type: 'string', description: 'UUID pobočky' } }, required: ['branch_id'] } },
+  { name: 'get_documents', description: 'Dokumenty — smlouvy, šablony, vygenerované, e-maily', input_schema: { type: T, properties: { type: { type: 'string' }, search: { type: 'string' }, limit: { type: 'number' } }, required: [] } },
+  { name: 'get_reviews', description: 'Hodnocení zákazníků', input_schema: { type: T, properties: { moto_id: { type: 'string' }, min_rating: { type: 'number' }, limit: { type: 'number' } }, required: [] } },
+  { name: 'get_cms_settings', description: 'CMS nastavení — feature flagy, proměnné, app_settings', input_schema: { type: T, properties: { section: { type: 'string' } }, required: [] } },
+  { name: 'get_audit_log', description: 'Audit log — historie akcí adminů', input_schema: { type: T, properties: { admin_id: { type: 'string' }, action: { type: 'string' }, limit: { type: 'number' } }, required: [] } },
   { name: 'get_government_overview', description: 'Státní správa — STK termíny, pojistky celé flotily', input_schema: { type: T, properties: {}, required: [] } },
-  { name: 'get_sos_detail', description: 'Detail SOS incidentu včetně timeline a workflow', input_schema: { type: T, properties: { incident_id: { type: 'string', description: 'UUID SOS incidentu' } }, required: ['incident_id'] } },
-  { name: 'get_pricing_overview', description: 'Ceník — denní ceny motorek po dnech v týdnu', input_schema: { type: T, properties: { motorcycle_id: { type: 'string', description: 'UUID motorky (volitelné)' } }, required: [] } },
-  { name: 'analyze_branch_performance', description: 'Analýza výkonnosti poboček — tržby, využití, trend, profit/motorku', input_schema: { type: T, properties: { period_months: { type: 'number', description: 'Období v měsících (default 6)' } }, required: [] } },
-  { name: 'analyze_motorcycle_performance', description: 'Analýza výkonnosti motorek — tržby, využití, denní sazba, srovnání značek', input_schema: { type: T, properties: { period_months: { type: 'number', description: 'Období v měsících (default 6)' } }, required: [] } },
-  { name: 'analyze_category_demand', description: 'Analýza poptávky dle kategorie motorek', input_schema: { type: T, properties: { period_months: { type: 'number', description: 'Období v měsících (default 6)' } }, required: [] } },
-  { name: 'analyze_optimal_fleet', description: 'Optimální složení flotily pro pobočku — doporučení rozložení kategorií na 8 slotů', input_schema: { type: T, properties: { branch_id: { type: 'string', description: 'UUID pobočky' }, period_months: { type: 'number', description: 'Období v měsících (default 6)' } }, required: ['branch_id'] } },
-  { name: 'analyze_customers', description: 'Analýza zákazníků — segmentace, top zákazníci, preference kategorií', input_schema: { type: T, properties: { period_months: { type: 'number', description: 'Období v měsících (default 12)' } }, required: [] } },
-  { name: 'forecast_predictions', description: 'Predikce tržeb a obsazenosti — lineární trend + sezónní koeficienty', input_schema: { type: T, properties: { months_ahead: { type: 'number', description: 'Měsíců dopředu (default 3)' }, branch_id: { type: 'string', description: 'UUID pobočky (volitelné)' } }, required: [] } },
+  { name: 'get_sos_detail', description: 'Detail SOS incidentu včetně timeline', input_schema: { type: T, properties: { incident_id: { type: 'string' } }, required: ['incident_id'] } },
+  { name: 'get_pricing_overview', description: 'Ceník — denní ceny motorek', input_schema: { type: T, properties: { motorcycle_id: { type: 'string' } }, required: [] } },
+  { name: 'analyze_branch_performance', description: 'Analýza výkonnosti poboček', input_schema: { type: T, properties: { period_months: { type: 'number' } }, required: [] } },
+  { name: 'analyze_motorcycle_performance', description: 'Analýza výkonnosti motorek', input_schema: { type: T, properties: { period_months: { type: 'number' } }, required: [] } },
+  { name: 'analyze_category_demand', description: 'Analýza poptávky dle kategorie', input_schema: { type: T, properties: { period_months: { type: 'number' } }, required: [] } },
+  { name: 'analyze_optimal_fleet', description: 'Optimální složení flotily', input_schema: { type: T, properties: { branch_id: { type: 'string' }, period_months: { type: 'number' } }, required: ['branch_id'] } },
+  { name: 'analyze_customers', description: 'Analýza zákazníků — segmentace', input_schema: { type: T, properties: { period_months: { type: 'number' } }, required: [] } },
+  { name: 'forecast_predictions', description: 'Predikce tržeb a obsazenosti', input_schema: { type: T, properties: { months_ahead: { type: 'number' }, branch_id: { type: 'string' } }, required: [] } },
 ]
+
+export const TOOLS_DEFINITION = [...READ_TOOLS, ...WRITE_TOOLS_DEFINITION]
+
+// Filter tools by enabled list
+export function filterToolsByEnabled(enabledTools?: string[]) {
+  if (!enabledTools || enabledTools.length === 0) return TOOLS_DEFINITION
+  return TOOLS_DEFINITION.filter(t => enabledTools.includes(t.name))
+}
