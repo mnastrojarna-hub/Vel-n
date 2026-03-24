@@ -45,10 +45,10 @@ Templates['s-checkout'] = `  <div class="topbar">
         <div id="ship-address" style="display:none;">
           <div class="ff" style="margin-bottom:8px;"><label>Jm\u00e9no a p\u0159\u00edjmen\u00ed</label><input type="text" id="ship-name" placeholder="Jan Nov\u00e1k"></div>
           <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-bottom:8px;">
-            <div class="ff" style="margin:0;position:relative;"><label>M\u011bsto</label><input type="text" id="ship-city" placeholder="Pelh\u0159imov" oninput="showCitySuggestionsFor(this,'ship')" autocomplete="off"><div id="ship-city-suggestions" class="addr-suggestions" style="display:none;"></div></div>
+            <div class="ff" style="margin:0;position:relative;"><label>Obec / m\u011bsto</label><input type="text" id="ship-city" placeholder="nap\u0159. Humpolec, Hojanivice" oninput="showCitySuggestionsFor(this,'ship')" autocomplete="off"><div id="ship-city-suggestions" class="addr-suggestions" style="display:none;"></div></div>
             <div class="ff" style="margin:0;"><label>PS\u010c</label><input type="text" id="ship-zip" placeholder="393 01" maxlength="6" list="cz-zip-list"></div>
           </div>
-          <div class="ff" style="margin-bottom:8px;position:relative;"><label>Ulice a \u010d\u00edslo popisn\u00e9</label><input type="text" id="ship-street" placeholder="P\u0159\u00edkladov\u00e1 123" oninput="showAddrSuggestions(this,'ship')" autocomplete="off"><div id="ship-addr-suggestions" class="addr-suggestions" style="display:none;"></div></div>
+          <div class="ff" style="margin-bottom:8px;position:relative;"><label>Ulice a \u010d.p. / \u010d.o.</label><input type="text" id="ship-street" placeholder="nap\u0159. Vodi\u010dkova 36, Mezn\u00e1 9" oninput="showAddrSuggestions(this,'ship')" autocomplete="off"><div id="ship-addr-suggestions" class="addr-suggestions" style="display:none;"></div></div>
         </div>
       </div>
     </div>

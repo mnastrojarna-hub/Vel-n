@@ -32,9 +32,9 @@ Templates['s-profile'] = `  <div class="prof-hdr">
       <div class="edit-field"><label>Jméno a příjmení</label><input id="profile-name" type="text" value=""></div>
       <div class="edit-field"><label id="t-pEmail">E-mail</label><input id="profile-email" type="email" value="" disabled></div>
       <div class="edit-field"><label id="t-pPhone">Telefon</label><input id="profile-phone" type="tel" value=""></div>
-      <div class="edit-field"><label id="t-pCity">Město</label><input id="profile-city" type="text" value=""></div>
+      <div class="edit-field"><label id="t-pCity">Obec / město</label><input id="profile-city" type="text" value=""></div>
       <div class="edit-field"><label id="t-pZip">PSČ</label><input id="profile-zip" type="text" value=""></div>
-      <div class="edit-field"><label id="t-pStreet">Ulice</label><input id="profile-street" type="text" value=""></div>
+      <div class="edit-field"><label id="t-pStreet">Ulice a č.p. / č.o.</label><input id="profile-street" type="text" value=""></div>
       <div class="edit-field"><label id="t-pDob">Datum narození</label><input id="profile-dob" type="text" readonly value="" placeholder="Vyberte datum" onclick="openDatePicker(this)" style="cursor:pointer;"></div>
       <div class="edit-field"><label id="t-pLicNum">Č. řidičského průkazu</label><input id="profile-license-num" type="text" value=""></div>
       <div class="edit-field"><label id="t-pLicExp">Platnost ŘP do</label><input id="profile-license-expiry" type="text" readonly value="" placeholder="Vyberte datum" onclick="openDatePicker(this)" style="cursor:pointer;"></div>
