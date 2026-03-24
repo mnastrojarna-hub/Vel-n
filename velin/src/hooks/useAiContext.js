@@ -18,6 +18,7 @@ const PAGE_CONTEXT = {
   '/e-shop': { page: 'eshop', agent: 'eshop', label: 'E-shop', desc: 'Objednávky a produkty' },
   '/statni-sprava': { page: 'government', agent: 'government', label: 'Státní správa', desc: 'STK, pojistky, daně' },
   '/ai-copilot': { page: 'ai', agent: null, label: 'AI Copilot', desc: 'AI asistent' },
+  '/orchestrator': { page: 'orchestrator', agent: 'orchestrator', label: 'AI Ředitel', desc: 'Centrální řízení, briefing, monitoring' },
   '/sos': { page: 'sos', agent: 'sos', label: 'SOS Panel', desc: 'Nouzové incidenty' },
   '/zamestnanci': { page: 'employees', agent: 'hr', label: 'Zaměstnanci', desc: 'Zaměstnanci, směny, docházka' },
   '/sklady': { page: 'inventory', agent: 'service', label: 'Sklady', desc: 'Skladové zásoby a pohyby' },

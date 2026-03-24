@@ -108,9 +108,18 @@ export const AGENTS = [
     name: 'Tester / Vývojář',
     icon: '🧪',
     desc: 'Testování flow, modelové situace, reporty chyb, návrhy zlepšení',
-    tools: ['generate_test_report', 'simulate_scenario', 'check_data_integrity'],
+    tools: ['generate_test_report', 'simulate_scenario', 'check_data_integrity', 'test_booking_flow', 'test_payment_flow', 'test_sos_flow', 'run_full_system_test'],
     readTools: ['get_audit_log'],
     defaultEnabled: false,
+  },
+  {
+    id: 'orchestrator',
+    name: 'Orchestrátor (Ředitel)',
+    icon: '👔',
+    desc: 'Denní briefing, KPI monitoring, prioritní fronta, eskalace, autonomní řízení',
+    tools: ['generate_daily_briefing', 'check_agent_health', 'get_priority_queue'],
+    readTools: ['get_bookings_summary', 'get_fleet_overview', 'get_financial_overview', 'get_sos_incidents', 'get_daily_stats'],
+    defaultEnabled: true,
   },
 ]
 
