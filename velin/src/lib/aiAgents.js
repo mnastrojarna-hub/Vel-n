@@ -108,7 +108,7 @@ export const AGENTS = [
     name: 'Tester / Vývojář',
     icon: '🧪',
     desc: 'Testování flow, modelové situace, reporty chyb, návrhy zlepšení',
-    tools: ['generate_test_report', 'simulate_scenario', 'check_data_integrity', 'test_booking_flow', 'test_payment_flow', 'test_sos_flow', 'run_full_system_test', 'simulate_customer_scenario', 'test_agent_response', 'analyze_agent_for_rewrite', 'generate_optimized_prompt'],
+    tools: ['generate_test_report', 'simulate_scenario', 'check_data_integrity', 'test_booking_flow', 'test_payment_flow', 'test_sos_flow', 'run_full_system_test', 'simulate_customer_scenario', 'test_agent_response', 'analyze_agent_for_rewrite', 'generate_optimized_prompt', 'create_test_user', 'create_test_promo', 'cleanup_test_data', 'check_edge_functions', 'verify_app_consistency', 'generate_e2e_report'],
     readTools: ['get_audit_log'],
     defaultEnabled: false,
   },

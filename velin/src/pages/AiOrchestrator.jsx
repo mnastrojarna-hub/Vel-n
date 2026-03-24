@@ -5,6 +5,7 @@ import { loadAutonomyRules, saveAutonomyRules, SCHEDULES, RISK_AUTO } from '../l
 import Button from '../components/ui/Button'
 import AiConfirmDialog from '../components/ai/AiConfirmDialog'
 import AiAutonomyPanel from '../components/ai/AiAutonomyPanel'
+import AiTestRunner from '../components/ai/AiTestRunner'
 
 export default function AiOrchestrator() {
   const [briefing, setBriefing] = useState(null)
@@ -210,40 +211,10 @@ export default function AiOrchestrator() {
         </div>
       )}
 
-      {/* Tester Tab */}
+      {/* Tester Tab — full E2E test runner */}
       {tab === 'tester' && (
         <div className="rounded-card bg-white p-4 shadow-card">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-bold" style={{ color: '#0f1a14' }}>Systémový test</span>
-            <div className="flex gap-2">
-              <Button onClick={runTest} disabled={!!loading} style={{ fontSize: 12, padding: '6px 14px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-                {loading ? 'Testuji...' : 'Spustit kompletní test'}
-              </Button>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-2 mb-3">
-            {[
-              { id: 'test_booking_flow', label: 'Booking flow', icon: '📅' },
-              { id: 'test_payment_flow', label: 'Payment flow', icon: '💳' },
-              { id: 'test_sos_flow', label: 'SOS flow', icon: '🚨' },
-              { id: 'run_full_system_test', label: 'Full system', icon: '🔬' },
-            ].map(t => (
-              <button key={t.id} onClick={() => callTool(t.id).then(d => setTestResults(d))} disabled={!!loading}
-                style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid #d4e8e0', background: '#f8fcfa', cursor: 'pointer', textAlign: 'left' }}>
-                <div className="text-sm font-bold" style={{ color: '#0f1a14' }}>{t.icon} {t.label}</div>
-                <div className="text-sm" style={{ color: '#666', fontSize: 11 }}>Testovat integritu a konzistenci</div>
-              </button>
-            ))}
-          </div>
-          {testResults ? (
-            <div className="text-sm" style={{ lineHeight: 1.7, color: '#1a2e22', whiteSpace: 'pre-wrap', background: '#f8fcfa', padding: 12, borderRadius: 8 }}>
-              {testResults.response || JSON.stringify(testResults, null, 2)}
-            </div>
-          ) : (
-            <div className="text-sm" style={{ color: '#999', textAlign: 'center', padding: 40 }}>
-              Spusťte test pro kontrolu integrity celého systému
-            </div>
-          )}
+          <AiTestRunner />
         </div>
       )}
     </>
