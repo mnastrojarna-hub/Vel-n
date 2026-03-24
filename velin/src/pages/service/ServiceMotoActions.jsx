@@ -82,6 +82,10 @@ export default function ServiceMotoActions({ moto, logs, onDone }) {
   }
 
   async function handleReactivate() {
+    if (logs.length > 0) {
+      const itemCount = logs.reduce((sum, l) => sum + (l.items?.length || 0), 0)
+      if (!window.confirm(`Motorka má ${logs.length} otevřený servisní záznam (${itemCount} úkonů). Vrácením do provozu se všechny záznamy uzavřou.\n\nPokračovat?`)) return
+    }
     setBusy(true)
     const today = new Date().toISOString().slice(0, 10)
     await supabase.from('motorcycles').update({ status: 'active', last_service_date: today }).eq('id', moto.id)
