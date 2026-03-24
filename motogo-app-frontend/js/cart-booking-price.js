@@ -7,7 +7,7 @@ function recalcTotal(){
   if(typeof calcTotalPrice==='function'&&bookingMoto&&bOd&&bDo){
     base=calcTotalPrice(bookingMoto,new Date(bOd.y,bOd.m,bOd.d),new Date(bDo.y,bDo.m,bDo.d));
   } else { base=2600*bookingDays; }
-  var total=base+extraTotal+deliveryFee-discountAmt;
+  var total=Math.max(0,base+extraTotal+deliveryFee-discountAmt);
   var baseEl=document.getElementById('pr-base');
   if(baseEl)baseEl.textContent=base.toLocaleString('cs-CZ')+' Kč';
   var lblEl=document.getElementById('pr-base-label');
@@ -167,7 +167,7 @@ function updateBookingPrice(){
     var calPrice=document.getElementById('b-cal-price');
     var calPriceVal=document.getElementById('b-cal-price-val');
     if(calPrice&&calPriceVal){
-      var total=base+extraTotal+deliveryFee-discountAmt;
+      var total=Math.max(0,base+extraTotal+deliveryFee-discountAmt);
       calPriceVal.textContent=total.toLocaleString('cs-CZ')+' Kč';
       calPrice.style.display='block';
     }
