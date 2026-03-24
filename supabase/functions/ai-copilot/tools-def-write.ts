@@ -52,6 +52,10 @@ export const WRITE_TOOLS_DEFINITION = [
   { name: 'generate_test_report', description: 'Vygenerování testovacího reportu', input_schema: { type: T, properties: { scope: { ...S, description: 'Oblast: bookings/fleet/finance/eshop/sos/all' }, depth: { ...S, description: 'quick/standard/deep' } }, required: ['scope'] } },
   { name: 'check_data_integrity', description: 'Kontrola integrity dat', input_schema: { type: T, properties: { table: { ...S, description: 'Název tabulky nebo all' } }, required: ['table'] } },
 
+  // === PROCUREMENT ===
+  { name: 'create_purchase_order', description: 'Vytvoření nákupní objednávky', input_schema: { type: T, properties: { supplier_id: S, items: { type: 'array' as const, description: 'Položky [{item_id, quantity, unit_price}]' }, notes: S }, required: [] } },
+  { name: 'create_inventory_movement', description: 'Pohyb na skladě (příjem/výdej/korekce)', input_schema: { type: T, properties: { item_id: { ...S, description: 'UUID skladové položky' }, type: { ...S, description: 'receipt/issue/correction' }, quantity: N, notes: S }, required: ['item_id', 'type', 'quantity'] } },
+
   // === ORCHESTRATOR ===
   { name: 'generate_daily_briefing', description: 'Denní briefing pro ředitele — KPIs, alerty, priority', input_schema: { type: T, properties: {}, required: [] } },
   { name: 'check_agent_health', description: 'Kontrola zdraví všech AI agentů — stav domén', input_schema: { type: T, properties: {}, required: [] } },
@@ -75,7 +79,7 @@ export const TOOL_RISK: Record<string, string> = {
   update_shop_order: 'medium', update_product: 'low', create_promo_code: 'medium',
   update_app_setting: 'high', update_feature_flag: 'high',
   update_sos_incident: 'medium',
-  generate_test_report: 'low', check_data_integrity: 'low',
+  generate_test_report: 'low', check_data_integrity: 'low', create_purchase_order: 'medium', create_inventory_movement: 'medium',
   generate_daily_briefing: 'low', check_agent_health: 'low', get_priority_queue: 'low',
   test_booking_flow: 'low', test_payment_flow: 'low', test_sos_flow: 'low', run_full_system_test: 'low',
 }

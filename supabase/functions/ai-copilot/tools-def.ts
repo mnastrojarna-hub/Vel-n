@@ -67,6 +67,8 @@ const READ_TOOLS = [
   { name: 'get_message_templates', description: 'Šablony SMS/email zpráv', input_schema: { type: T, properties: {}, required: [] } },
   { name: 'get_accessory_types', description: 'Typy příslušenství (dynamické)', input_schema: { type: T, properties: {}, required: [] } },
   { name: 'get_performance_stats', description: 'Výkonnostní statistiky motorek a poboček', input_schema: { type: T, properties: {}, required: [] } },
+  { name: 'get_suppliers', description: 'Seznam dodavatelů', input_schema: { type: T, properties: {}, required: [] } },
+  { name: 'get_delivery_notes', description: 'Dodací listy s párováním na faktury', input_schema: { type: T, properties: { unmatched_only: { type: 'boolean' }, limit: { type: 'number' } }, required: [] } },
 ]
 
 export const TOOLS_DEFINITION = [...READ_TOOLS, ...WRITE_TOOLS_DEFINITION]

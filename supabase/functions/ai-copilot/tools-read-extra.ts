@@ -94,6 +94,19 @@ export async function execReadExtra(name: string, input: R, sb: SB): Promise<unk
       return { types: data || [], count: (data || []).length }
     }
 
+    case 'get_suppliers': {
+      const { data } = await sb.from('suppliers').select('*').order('name')
+      return { suppliers: data || [], count: (data || []).length }
+    }
+
+    case 'get_delivery_notes': {
+      const limit = (input.limit as number) || 20
+      let q = sb.from('delivery_notes').select('*, invoices(number, total)').order('created_at', { ascending: false }).limit(limit)
+      if (input.unmatched_only) q = q.is('matched_invoice_id', null)
+      const { data } = await q
+      return { delivery_notes: data || [], count: (data || []).length }
+    }
+
     case 'get_performance_stats': {
       const [motoR, branchR] = await Promise.all([
         sb.from('moto_performance').select('*').order('updated_at', { ascending: false }).limit(30),

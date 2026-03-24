@@ -20,6 +20,7 @@ const WRITE_TOOLS = new Set([
   'create_service_order', 'update_service_order', 'create_maintenance_log',
   'create_attendance', 'manage_vacation', 'manage_shifts',
   'update_shop_order', 'update_product', 'create_promo_code',
+  'create_purchase_order', 'create_inventory_movement',
   'update_app_setting', 'update_feature_flag',
   'update_sos_incident',
   'generate_test_report', 'check_data_integrity',
