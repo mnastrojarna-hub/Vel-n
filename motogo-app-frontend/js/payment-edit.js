@@ -11,36 +11,48 @@ function doEditPayment(bookingId, amount, changes){
     setTimeout(async function(){
       var result = await apiProcessPayment(bookingId, amount, _currentPaymentMethod, {type: 'extension'});
 
-      if(payBtn){
-        payBtn.disabled = false;
-        payBtn.style.opacity = '1';
+      if(payBtn){ payBtn.disabled = false; payBtn.style.opacity = '1'; }
+
+      // Inline Payment Element
+      if(result.success && result.client_secret){
+        _stripeCheckoutBookingId = bookingId;
+        _isEditPayment = true;
+        _editPaymentBookingId = bookingId;
+        window._pendingEditChanges = changes;
+        showStripeInlinePayment(result.client_secret, amount, {
+          onSuccess: function(pi){ _onInlinePaymentSuccess(bookingId); },
+          onCancel: function(){
+            _isEditPayment = false;
+            _editPaymentBookingId = null;
+            window._pendingEditChanges = null;
+            _onInlinePaymentCancel();
+          }
+        });
+        if(payBtn) payBtn.textContent = (_t('pay').payBtn||'Zaplatit') + ' ' + amount.toLocaleString('cs-CZ') + ' Kč →';
+        return;
       }
 
+      // Fallback: Checkout redirect
       if(result.success && result.checkout_url){
         _stripeCheckoutBookingId = bookingId;
         _isEditPayment = true;
         _editPaymentBookingId = bookingId;
-        // Save edit changes for after payment return
         window._pendingEditChanges = changes;
         _lockPaymentScreen('↗ Platební brána otevřena...');
         _openExternalUrl(result.checkout_url);
-        showT('ℹ️',_t('pay').payBtn||'Platba','Otevřena platební brána');
         return;
       }
 
-      // Stripe nevrátilo checkout URL — chyba
-      {
-        _paymentAttempts++;
-        if(_paymentAttempts >= _MAX_PAYMENT_ATTEMPTS){
-          _isEditPayment = false;
-          showT('✗',_t('pay').declined||'Platba zamítnuta','Změny nebyly aplikovány.');
-          goTo('s-res');
-          return;
-        }
-        showT('✗',_t('pay').declined||'Platba zamítnuta',(_t('pay').retry||'Zkuste to znovu')+' ('+_paymentAttempts+'/'+_MAX_PAYMENT_ATTEMPTS+')');
-        if(payBtn) payBtn.textContent = (_t('pay').payBtn||'Zaplatit') + ' ' + amount.toLocaleString('cs-CZ') + ' Kč →';
+      _paymentAttempts++;
+      if(_paymentAttempts >= _MAX_PAYMENT_ATTEMPTS){
+        _isEditPayment = false;
+        showT('✗',_t('pay').declined||'Platba zamítnuta','Změny nebyly aplikovány.');
+        goTo('s-res');
+        return;
       }
-    }, 2000);
+      showT('✗',_t('pay').declined||'Platba zamítnuta',(_t('pay').retry||'Zkuste to znovu')+' ('+_paymentAttempts+'/'+_MAX_PAYMENT_ATTEMPTS+')');
+      if(payBtn) payBtn.textContent = (_t('pay').payBtn||'Zaplatit') + ' ' + amount.toLocaleString('cs-CZ') + ' Kč →';
+    }, 1500);
   } catch(e){ console.error('doEditPayment error:', e); }
 }
 

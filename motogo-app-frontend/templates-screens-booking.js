@@ -83,7 +83,7 @@ Templates['s-payment'] = `  <div class="topbar"><div class="back-row" onclick="h
       </div>
       <div id="pay-saved-card" style="display:none;margin-bottom:10px;"></div>
       <div style="font-size:13px;color:var(--g400);line-height:1.7;margin-bottom:8px;text-align:center;">
-        Po kliknutí na <strong>Zaplatit</strong> se otevře zabezpečená platební stránka Stripe, kde zadáte číslo karty, platnost a CVV. Máte-li uloženou kartu, bude předvyplněna.
+        Kliknutím na <strong>Zaplatit</strong> se zobrazí platební formulář přímo v aplikaci. Máte-li uloženou kartu, bude nabídnuta automaticky.
       </div>
       <div id="pay-countdown" style="font-size:12px;font-weight:700;color:#b91c1c;margin-top:8px;text-align:center;"></div>
     </div>

@@ -395,9 +395,9 @@ async function proceedToPayment(){
   } catch(e){ console.error('proceedToPayment error:', e); showT('✗',_t('common').error||'Chyba',_t('pay').createFailed||'Nepodařilo se vytvořit rezervaci'); }
 }
 
-// Process payment with 2s delay
+// Process payment — inline Stripe Payment Element (no redirect)
 function doPayment(){
-  if(_stripeCheckoutOpened) return; // already processing
+  if(_stripeCheckoutOpened || _inlinePaymentActive) return;
   try {
     var payBtn = document.getElementById('pay-btn');
     if(payBtn){
@@ -409,32 +409,112 @@ function doPayment(){
     setTimeout(async function(){
       var result = await apiProcessPayment(_currentBookingId, _currentPaymentAmount, _currentPaymentMethod);
 
-      if(payBtn){
-        payBtn.disabled = false;
-        payBtn.style.opacity = '1';
+      if(payBtn){ payBtn.disabled = false; payBtn.style.opacity = '1'; }
+
+      // Inline Payment Element — platba přímo v appce
+      if(result.success && result.client_secret){
+        _stripeCheckoutBookingId = _currentBookingId;
+        showStripeInlinePayment(result.client_secret, _currentPaymentAmount, {
+          onSuccess: function(pi){ _onInlinePaymentSuccess(_currentBookingId); },
+          onCancel: function(){ _onInlinePaymentCancel(); }
+        });
+        if(payBtn) payBtn.textContent = (_t('pay').payBtn||'Zaplatit') + ' ' + _currentPaymentAmount.toLocaleString('cs-CZ') + ' Kč →';
+        return;
       }
 
-      // Stripe Checkout – přesměruj na platební stránku
+      // Fallback: Stripe Checkout redirect
       if(result.success && result.checkout_url){
         _stripeCheckoutBookingId = _currentBookingId;
         _lockPaymentScreen('↗ Platební brána otevřena...');
         _openExternalUrl(result.checkout_url);
-        showT('ℹ️',_t('pay').payBtn||'Platba','Otevřena platební brána Stripe');
         return;
       }
 
-      // Stripe nevrátilo checkout URL — chyba
-      {
-        _paymentAttempts++;
-        if(_paymentAttempts >= _MAX_PAYMENT_ATTEMPTS){
-          _autoCancelUnpaid(_currentBookingId, 'Zamítnuto po ' + _paymentAttempts + ' pokusech');
-          return;
-        }
-        showT('✗',_t('pay').declined||'Platba zamítnuta',(_t('pay').retry||'Zkuste to znovu')+' ('+_paymentAttempts+'/'+_MAX_PAYMENT_ATTEMPTS+')');
-        if(payBtn) payBtn.textContent = (_t('pay').payBtn||'Zaplatit') + ' ' + _currentPaymentAmount.toLocaleString('cs-CZ') + ' Kč →';
+      _paymentAttempts++;
+      if(_paymentAttempts >= _MAX_PAYMENT_ATTEMPTS){
+        _autoCancelUnpaid(_currentBookingId, 'Zamítnuto po ' + _paymentAttempts + ' pokusech');
+        return;
       }
-    }, 2000);
+      showT('✗',_t('pay').declined||'Platba zamítnuta',(_t('pay').retry||'Zkuste to znovu')+' ('+_paymentAttempts+'/'+_MAX_PAYMENT_ATTEMPTS+')');
+      if(payBtn) payBtn.textContent = (_t('pay').payBtn||'Zaplatit') + ' ' + _currentPaymentAmount.toLocaleString('cs-CZ') + ' Kč →';
+    }, 1500);
   } catch(e){ console.error('doPayment error:', e); showT('✗',_t('common').error||'Chyba',_t('pay').processingError||'Chyba při zpracování platby'); }
+}
+
+// Handle inline payment success — same logic as _checkPaymentAfterStripe but immediate
+function _onInlinePaymentSuccess(bookingId){
+  _stripeCheckoutOpened = false;
+  _stripeCheckoutBookingId = null;
+  var bkId = bookingId || _currentBookingId;
+
+  if(_isRestorePayment){
+    _isRestorePayment = false;
+    _currentBookingId = null;
+    if(typeof apiConfirmRestoreBooking === 'function') apiConfirmRestoreBooking(bkId).catch(function(){});
+    try {
+      if(typeof apiGenerateAdvanceInvoice === 'function') apiGenerateAdvanceInvoice(bkId, _currentPaymentAmount, 'restore').catch(function(){});
+      if(typeof apiGeneratePaymentReceipt === 'function') apiGeneratePaymentReceipt(bkId, _currentPaymentAmount, 'restore').catch(function(){});
+      if(typeof apiAutoGenerateBookingDocs === 'function') apiAutoGenerateBookingDocs(bkId).catch(function(){});
+    } catch(de){}
+    showT('✓',_t('pay').paid||'Zaplaceno',_t('res').restored||'Rezervace obnovena');
+    goTo('s-res');
+    if(typeof renderMyReservations === 'function') renderMyReservations();
+    return;
+  }
+
+  if(_isEditPayment){
+    _isEditPayment = false;
+    _editPaymentBookingId = null;
+    _cachedBookings = null;
+    var pendingChanges = window._pendingEditChanges || null;
+    if(pendingChanges && typeof apiModifyBooking === 'function'){
+      apiModifyBooking(bkId, pendingChanges).catch(function(e){ console.warn('[PAY] Edit apply err:', e); });
+      window._pendingEditChanges = null;
+    }
+    try {
+      if(typeof apiGenerateAdvanceInvoice === 'function') apiGenerateAdvanceInvoice(bkId, _currentPaymentAmount, 'edit').catch(function(){});
+      if(typeof apiGeneratePaymentReceipt === 'function') apiGeneratePaymentReceipt(bkId, _currentPaymentAmount, 'edit').catch(function(){});
+      if(typeof apiAutoGenerateBookingDocs === 'function') apiAutoGenerateBookingDocs(bkId, true).catch(function(){});
+    } catch(de){}
+    showT('✓',_t('pay').paid||'Zaplaceno',_t('res').changesSavedShort||'Změny uloženy');
+    if(typeof renderMyReservations === 'function') renderMyReservations();
+    if(typeof openResDetailById === 'function') openResDetailById(bkId);
+    else goTo('s-res');
+    return;
+  }
+
+  // Normal booking payment
+  if(_paymentTimeout){ clearTimeout(_paymentTimeout); _paymentTimeout = null; }
+  if(typeof _appliedBookingCodes !== 'undefined' && _appliedBookingCodes.length > 0 && typeof apiUsePromoCode === 'function'){
+    var _fullBase = _currentPaymentAmount + (typeof discountAmt !== 'undefined' ? discountAmt : 0);
+    for(var _pi=0;_pi<_appliedBookingCodes.length;_pi++){
+      if(_appliedBookingCodes[_pi].type==='promo' && _appliedBookingCodes[_pi].code){
+        try { apiUsePromoCode(_appliedBookingCodes[_pi].code, bkId, _fullBase); } catch(pe){}
+      }
+    }
+  } else if(typeof appliedCode !== 'undefined' && appliedCode && typeof apiUsePromoCode === 'function'){
+    try { apiUsePromoCode(appliedCode, bkId, _currentPaymentAmount + (typeof discountAmt !== 'undefined' ? discountAmt : 0)); } catch(pe){}
+  }
+  try {
+    if(typeof apiGenerateAdvanceInvoice === 'function') apiGenerateAdvanceInvoice(bkId, _currentPaymentAmount, 'booking').catch(function(){});
+    if(typeof apiGeneratePaymentReceipt === 'function') apiGeneratePaymentReceipt(bkId, _currentPaymentAmount, 'booking').catch(function(){});
+    if(typeof apiAutoGenerateBookingDocs === 'function') apiAutoGenerateBookingDocs(bkId).catch(function(){});
+  } catch(de){}
+  var sucResId = document.getElementById('suc-res-id');
+  if(sucResId) sucResId.textContent = '#' + bkId.substr(-8).toUpperCase();
+  if(typeof initMotoAvailability === 'function') initMotoAvailability();
+  if(typeof syncGlobalOcc === 'function') syncGlobalOcc();
+  showT('✓',_t('pay').paid||'Zaplaceno',_t('pay').resConfirmed||'Rezervace potvrzena');
+  goTo('s-success');
+  if(typeof promptPostPaymentScan === 'function') setTimeout(function(){ promptPostPaymentScan(); }, 1200);
+}
+
+// Handle inline payment cancel — user closed the overlay, show FAB
+function _onInlinePaymentCancel(){
+  _stripeCheckoutOpened = false;
+  _stripeCheckoutBookingId = null;
+  // FAB already detects pending unpaid bookings — just navigate away
+  showT('ℹ️','Platba přerušena','Můžete pokračovat přes tlačítko dole');
 }
 
 function _parseDate(str){

@@ -1,7 +1,7 @@
 // ===== MotoGo24 – Edge Function: Process Payment (Stripe LIVE) =====
-// Supports booking, shop, extension, and SOS payments via Stripe Checkout.
+// Supports booking, shop, extension, and SOS payments via Stripe Checkout or inline PaymentIntent.
 // Endpoint: POST /functions/v1/process-payment
-// Body: { booking_id?, order_id?, amount, currency?, type: 'booking'|'shop'|'extension'|'sos' }
+// Body: { booking_id?, order_id?, amount, currency?, type, mode?: 'intent'|'checkout' }
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe from 'https://esm.sh/stripe@14'
@@ -29,6 +29,7 @@ interface PaymentRequest {
   currency?: string
   method?: string
   type?: PaymentType
+  mode?: 'intent' | 'checkout'
 }
 
 const PRODUCT_NAMES: Record<PaymentType, string> = {
@@ -117,8 +118,9 @@ Deno.serve(async (req: Request) => {
 
   try {
     const body: PaymentRequest = await req.json()
-    const { booking_id, order_id, incident_id, amount, currency, method, type } = body
+    const { booking_id, order_id, incident_id, amount, currency, method, type, mode } = body
     const paymentType: PaymentType = type || 'booking'
+    const paymentMode = mode || 'intent' // Default to inline PaymentIntent
 
     // Validate required fields
     if ((paymentType === 'booking' || paymentType === 'extension' || paymentType === 'sos') && !booking_id) {
@@ -166,10 +168,73 @@ Deno.serve(async (req: Request) => {
     // Get or create Stripe Customer (enables saved cards + card prefill)
     const customerId = await getOrCreateStripeCustomer(supabase, req)
 
-    // Build reference ID and URLs based on payment type
+    // Build reference ID based on payment type
     const referenceId = paymentType === 'shop' ? order_id! : booking_id!
     const productName = PRODUCT_NAMES[paymentType]
 
+    // Build metadata
+    const metadata: Record<string, string> = {
+      type: paymentType,
+      source: 'motogo24',
+    }
+    if (booking_id) metadata.booking_id = booking_id
+    if (order_id) metadata.order_id = order_id
+    if (incident_id) metadata.incident_id = incident_id
+
+    // ── MODE: INTENT — Create PaymentIntent for in-app Stripe Elements (no redirect) ──
+    if (paymentMode === 'intent') {
+      const intentParams: Record<string, unknown> = {
+        amount: Math.round(amount * 100),
+        currency: currency || 'czk',
+        metadata,
+        setup_future_usage: 'off_session',
+        automatic_payment_methods: { enabled: true },
+        description: productName,
+      }
+      if (customerId) {
+        intentParams.customer = customerId
+      }
+      const intent = await stripe.paymentIntents.create(intentParams as Stripe.PaymentIntentCreateParams)
+
+      // Store stripe_payment_intent_id on the booking/order
+      try {
+        if (booking_id) {
+          await supabase.from('bookings').update({
+            stripe_payment_intent_id: intent.id,
+          }).eq('id', booking_id)
+        }
+        if (order_id) {
+          await supabase.from('shop_orders').update({
+            stripe_payment_intent_id: intent.id,
+          }).eq('id', order_id)
+        }
+      } catch (_) { /* non-blocking */ }
+
+      // Log to debug_log
+      try {
+        await supabase.from('debug_log').insert({
+          source: 'process-payment',
+          action: 'stripe_intent_created',
+          component: paymentType,
+          status: 'ok',
+          request_data: { booking_id, order_id, incident_id, amount, currency, type: paymentType, mode: 'intent' },
+          response_data: { payment_intent_id: intent.id },
+        })
+      } catch (_) { /* ignore */ }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          client_secret: intent.client_secret,
+          payment_intent_id: intent.id,
+          amount,
+          currency: currency || 'czk',
+        }),
+        { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // ── MODE: CHECKOUT — Legacy Stripe Checkout Session (redirect) ──
     let successPath: string
     let cancelPath: string
 
@@ -186,15 +251,6 @@ Deno.serve(async (req: Request) => {
       successPath = `/payment-success?booking_id=${referenceId}`
       cancelPath = `/payment-cancel?booking_id=${referenceId}`
     }
-
-    // Build metadata
-    const metadata: Record<string, string> = {
-      type: paymentType,
-      source: 'motogo24',
-    }
-    if (booking_id) metadata.booking_id = booking_id
-    if (order_id) metadata.order_id = order_id
-    if (incident_id) metadata.incident_id = incident_id
 
     // Stripe Checkout Session with Customer (saves cards, prefills cardholder name)
     const sessionParams: Record<string, unknown> = {

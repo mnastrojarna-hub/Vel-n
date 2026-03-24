@@ -103,17 +103,20 @@ async function apiProcessPayment(bookingId, amount, method, opts){
     return {success:false, error: 'Nejste přihlášeni. Přihlaste se prosím znovu.'};
   }
 
-  // Stripe Checkout — jediná platební metoda (LIVE)
+  // Stripe — inline PaymentIntent (default) or fallback Checkout Session
   if(!baseUrl){
     return {success:false, error: 'Chyba konfigurace. Kontaktujte podporu: info@motogo24.cz'};
   }
+
+  var payMode = (opts && opts.mode) || 'intent';
 
   try {
     var payload = {
       booking_id: bookingId,
       amount: amount,
       method: payMethod,
-      type: payType
+      type: payType,
+      mode: payMode
     };
     if(orderId) payload.order_id = orderId;
     if(incidentId) payload.incident_id = incidentId;
@@ -128,10 +131,13 @@ async function apiProcessPayment(bookingId, amount, method, opts){
     });
     if(resp.ok){
       var result = await resp.json();
+      if(result.success && result.client_secret){
+        return {success:true, client_secret: result.client_secret, payment_intent_id: result.payment_intent_id};
+      }
       if(result.success && result.checkout_url){
         return {success:true, checkout_url: result.checkout_url};
       }
-      console.warn('[API] Stripe returned error:', result.error);
+      if(result.error) return {success:false, error: result.error};
     } else {
       console.warn('[API] Stripe HTTP '+resp.status);
     }
@@ -139,7 +145,6 @@ async function apiProcessPayment(bookingId, amount, method, opts){
     console.warn('[API] Stripe unreachable:', e.message);
   }
 
-  // Stripe selhalo — jasná chyba uživateli
   console.error('[API] Payment failed (Stripe)');
   return {success:false, error: 'Platba se nepodařila. Zkuste to znovu nebo kontaktujte podporu: info@motogo24.cz'};
 }
