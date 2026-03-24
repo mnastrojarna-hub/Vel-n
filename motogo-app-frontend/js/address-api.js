@@ -1,16 +1,15 @@
-// ===== ADDRESS-API.JS – Czech address autocomplete via Nominatim + OSRM =====
-// Uses OpenStreetMap Nominatim (free, no key) for Czech address search
+// ===== ADDRESS-API.JS – Czech address autocomplete via Mapy.cz REST API v1 =====
+// Uses Mapy.cz Suggest (excellent Czech address search, Revolut-level quality)
+// + Mapy.cz Routing for real road distance
 // Falls back to local ADDR_DB if offline or API fails
-// Flow: 1) suggestCities → user picks city, 2) suggestStreets(city) → streets+č.p., 3) PSČ auto-fills
+// API key: free tier at developer.mapy.cz
 
 var AddressAPI = (function(){
   'use strict';
 
-  // Nominatim API (free, no key, Czech addresses)
-  var NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
-
-  // OSRM public demo server for distance calculation
-  var OSRM_URL = 'https://router.project-osrm.org/route/v1/driving';
+  // Mapy.cz REST API v1 (free tier: 10 000 req/day)
+  var API_BASE = 'https://api.mapy.cz/v1';
+  var API_KEY = 'Ag9d2QJD0i8_fA07r6GDDaZ4qV9aZDGMhWn_HhQ_rFs';
 
   // Branch coordinates (Mezná 9, 393 01)
   var BRANCH_LAT = 49.4147;
@@ -23,122 +22,46 @@ var AddressAPI = (function(){
   // Separate debounce timers for city vs street
   var _cityDebounce = null;
   var _streetDebounce = null;
-  var _DEBOUNCE_MS = 300;
+  var _DEBOUNCE_MS = 200; // faster than Nominatim, Mapy.cz handles it
 
   // Geocode cache for distance calculations
   var _geoCache = {};
 
-  /**
-   * Suggest cities only (deduplicated)
-   * Uses structured Nominatim query for better Czech city results
-   */
+  // ===== SUGGEST CITIES =====
+
   function suggestCities(query, callback){
     if(!query || query.length < 2){ callback([]); return; }
-
     var cacheKey = 'city_' + query.toLowerCase().trim();
     if(_cache[cacheKey] && (Date.now() - _cache[cacheKey].ts < _CACHE_TTL)){
-      callback(_cache[cacheKey].data);
-      return;
+      callback(_cache[cacheKey].data); return;
     }
-
-    // Use structured query (city=X) for much better city results
-    var url = NOMINATIM_URL +
-      '?city=' + encodeURIComponent(query) +
-      '&format=json' +
-      '&addressdetails=1' +
-      '&countrycodes=cz' +
-      '&limit=16' +
-      '&accept-language=cs';
+    var url = API_BASE + '/suggest' +
+      '?query=' + encodeURIComponent(query) +
+      '&lang=cs&limit=8&type=regional.municipality&locality=cz' +
+      '&apikey=' + API_KEY;
 
     _fetchJSON(url, function(err, data){
-      if(err || !data || !Array.isArray(data)){
-        callback(_fallbackCities(query));
-        return;
+      if(err || !data || !data.items){
+        callback(_fallbackCities(query)); return;
       }
-      var q = query.toLowerCase();
-      var seen = {};
-      var cities = [];
-      data.forEach(function(item){
-        var addr = item.address || {};
-        var city = addr.city || addr.town || addr.village || addr.municipality || '';
-        if(!city || seen[city]) return;
-        // Only include cities that actually start with or contain the query
-        if(city.toLowerCase().indexOf(q) === -1) return;
-        seen[city] = true;
-        var zip = addr.postcode || '';
-        var district = addr.county || '';
-        cities.push({
+      var cities = data.items.map(function(item){
+        var city = item.name || '';
+        var zip = item.zip || '';
+        var district = _getRegion(item, 'regional.district') || _getRegion(item, 'regional.region') || '';
+        return {
           label: city,
           city: city,
           zip: zip,
           district: district,
-          lat: parseFloat(item.lat) || null,
-          lng: parseFloat(item.lon) || null
-        });
+          lat: item.position ? item.position.lat : null,
+          lng: item.position ? item.position.lon : null
+        };
       });
-      // Sort: cities starting with query first, then alphabetical
-      cities.sort(function(a, b){
-        var aStart = a.city.toLowerCase().indexOf(q) === 0 ? 0 : 1;
-        var bStart = b.city.toLowerCase().indexOf(q) === 0 ? 0 : 1;
-        if(aStart !== bStart) return aStart - bStart;
-        return a.city.localeCompare(b.city, 'cs');
-      });
-      cities = cities.slice(0, 8);
-      // If structured query returned nothing, fallback to free-text
-      if(cities.length === 0){
-        _suggestCitiesFreetext(query, q, cacheKey, callback);
-        return;
-      }
       _cache[cacheKey] = { data: cities, ts: Date.now() };
       callback(cities);
     });
   }
 
-  /**
-   * Fallback free-text city search (when structured query returns nothing)
-   */
-  function _suggestCitiesFreetext(query, q, cacheKey, callback){
-    var url = NOMINATIM_URL +
-      '?q=' + encodeURIComponent(query) +
-      '&format=json' +
-      '&addressdetails=1' +
-      '&countrycodes=cz' +
-      '&limit=16' +
-      '&accept-language=cs';
-
-    _fetchJSON(url, function(err, data){
-      if(err || !data || !Array.isArray(data)){
-        callback(_fallbackCities(query));
-        return;
-      }
-      var seen = {};
-      var cities = [];
-      data.forEach(function(item){
-        var addr = item.address || {};
-        var city = addr.city || addr.town || addr.village || addr.municipality || '';
-        if(!city || seen[city]) return;
-        // MUST match the query — prevents "Hum" → "Zlín"
-        if(city.toLowerCase().indexOf(q) === -1) return;
-        seen[city] = true;
-        cities.push({
-          label: city,
-          city: city,
-          zip: addr.postcode || '',
-          district: addr.county || '',
-          lat: parseFloat(item.lat) || null,
-          lng: parseFloat(item.lon) || null
-        });
-      });
-      cities = cities.slice(0, 8);
-      if(cities.length === 0){ cities = _fallbackCities(query); }
-      _cache[cacheKey] = { data: cities, ts: Date.now() };
-      callback(cities);
-    });
-  }
-
-  /**
-   * Suggest cities with debounce
-   */
   function suggestCitiesDebounced(query, callback){
     clearTimeout(_cityDebounce);
     _cityDebounce = setTimeout(function(){
@@ -146,160 +69,54 @@ var AddressAPI = (function(){
     }, _DEBOUNCE_MS);
   }
 
-  /**
-   * Suggest streets/addresses within a city (or general if no city)
-   * Czech addresses: ulice + č.p., OR místní část + ev.č. (malé obce bez ulic)
-   * Example: "Hněvkovice 9, 396 01 Humpolec" — Hněvkovice is a hamlet, not a street
-   */
+  // ===== SUGGEST STREETS / ADDRESSES =====
+
   function suggestStreets(query, city, callback){
     if(!query || query.length < 2){ callback([]); return; }
-
     var searchTerm = city ? (query + ', ' + city) : query;
     var cacheKey = 'street_' + searchTerm.toLowerCase().trim();
     if(_cache[cacheKey] && (Date.now() - _cache[cacheKey].ts < _CACHE_TTL)){
-      callback(_cache[cacheKey].data);
-      return;
+      callback(_cache[cacheKey].data); return;
     }
-
-    // Always use free-text query — structured ?street= fails for Czech hamlets/localities
-    var url = NOMINATIM_URL +
-      '?q=' + encodeURIComponent(searchTerm) +
-      '&format=json' +
-      '&addressdetails=1' +
-      '&countrycodes=cz' +
-      '&limit=15' +
-      '&accept-language=cs';
+    var url = API_BASE + '/suggest' +
+      '?query=' + encodeURIComponent(searchTerm) +
+      '&lang=cs&limit=8&type=regional.address&locality=cz' +
+      '&apikey=' + API_KEY;
 
     _fetchJSON(url, function(err, data){
-      if(err || !data || !Array.isArray(data)){
-        callback(_fallbackStreets(query, city));
+      if(err || !data || !data.items || data.items.length === 0){
+        // Fallback: try without type filter (catches hamlets, POIs)
+        _suggestStreetsFallback(searchTerm, cacheKey, query, city, callback);
         return;
       }
-      var results = _parseStreetResults(data, query, city);
-
-      // If too few results and city is set, also try query alone (might be a hamlet name)
-      if(results.length < 2 && city){
-        var url2 = NOMINATIM_URL +
-          '?q=' + encodeURIComponent(query + ' ' + city) +
-          '&format=json&addressdetails=1&countrycodes=cz&limit=10&accept-language=cs';
-        _fetchJSON(url2, function(err2, data2){
-          if(!err2 && data2 && Array.isArray(data2)){
-            var extra = _parseStreetResults(data2, query, city);
-            var seenKeys = {};
-            results.forEach(function(r){ seenKeys[r.label] = true; });
-            extra.forEach(function(r){
-              if(!seenKeys[r.label]){ results.push(r); seenKeys[r.label] = true; }
-            });
-          }
-          results = results.slice(0, 8);
-          if(results.length === 0){ results = _fallbackStreets(query, city); }
-          _cache[cacheKey] = { data: results, ts: Date.now() };
-          callback(results);
-        });
+      var results = _parseMapyczResults(data.items, city);
+      if(results.length === 0){
+        _suggestStreetsFallback(searchTerm, cacheKey, query, city, callback);
         return;
       }
+      _cache[cacheKey] = { data: results, ts: Date.now() };
+      callback(results);
+    });
+  }
 
-      results = results.slice(0, 8);
+  function _suggestStreetsFallback(searchTerm, cacheKey, query, city, callback){
+    // Try broader search without type restriction
+    var url = API_BASE + '/suggest' +
+      '?query=' + encodeURIComponent(searchTerm) +
+      '&lang=cs&limit=8&locality=cz' +
+      '&apikey=' + API_KEY;
+
+    _fetchJSON(url, function(err, data){
+      if(err || !data || !data.items){
+        callback(_fallbackStreets(query, city)); return;
+      }
+      var results = _parseMapyczResults(data.items, city);
       if(results.length === 0){ results = _fallbackStreets(query, city); }
       _cache[cacheKey] = { data: results, ts: Date.now() };
       callback(results);
     });
   }
 
-  /**
-   * Parse Nominatim results into street/address suggestions
-   * Handles: streets with house numbers, hamlets (místní části), ev.č. without street
-   */
-  function _parseStreetResults(data, query, city){
-    var results = [];
-    var seen = {};
-    var q = query.toLowerCase();
-
-    data.forEach(function(item){
-      var addr = item.address || {};
-      var itemCity = addr.city || addr.town || addr.village || addr.municipality || '';
-      var street = addr.road || '';
-      var houseNum = addr.house_number || '';
-      var zip = addr.postcode || '';
-      var hamlet = addr.hamlet || addr.suburb || addr.city_district || addr.quarter || '';
-      var neighbourhood = addr.neighbourhood || '';
-
-      // Build the best label for this result
-      var label = '';
-      var displayStreet = street;
-      var displayDistrict = hamlet;
-
-      if(street && houseNum){
-        // Classic: "Nádražní 42"
-        label = street + ' ' + houseNum;
-      } else if(street){
-        // Street without number: "Nádražní"
-        label = street;
-      } else if(hamlet && houseNum){
-        // Hamlet with ev.č.: "Hněvkovice 9"
-        label = hamlet + ' ' + houseNum;
-        displayStreet = hamlet;
-      } else if(hamlet){
-        // Just hamlet name: "Hněvkovice"
-        label = hamlet;
-        displayStreet = hamlet;
-      } else if(houseNum){
-        // Just house number (ev.č.)
-        label = houseNum;
-      } else if(neighbourhood && houseNum){
-        label = neighbourhood + ' ' + houseNum;
-        displayStreet = neighbourhood;
-      } else {
-        // Nothing useful
-        return;
-      }
-
-      // If city was specified, filter: must be same city or nearby
-      if(city && itemCity){
-        var cityLc = city.toLowerCase();
-        var itemCityLc = itemCity.toLowerCase();
-        // Accept if: exact match, one contains the other, or hamlet matches
-        var cityOk = (itemCityLc === cityLc) ||
-          (itemCityLc.indexOf(cityLc) !== -1) ||
-          (cityLc.indexOf(itemCityLc) !== -1);
-        if(!cityOk) return;
-      }
-
-      // Relevance: label or hamlet or street should relate to what user typed
-      var labelLc = label.toLowerCase();
-      var hamletLc = hamlet.toLowerCase();
-      var streetLc = street.toLowerCase();
-      var relevant = (labelLc.indexOf(q) !== -1) ||
-        (hamletLc.indexOf(q) !== -1) ||
-        (streetLc.indexOf(q) !== -1) ||
-        (q.indexOf(labelLc.split(' ')[0]) !== -1);
-      if(!relevant && city) {
-        // Still accept if this is a plausible address in the right city
-        relevant = true;
-      }
-      if(!relevant) return;
-
-      if(seen[label]) return;
-      seen[label] = true;
-
-      results.push({
-        label: label,
-        street: displayStreet,
-        houseNum: houseNum,
-        district: displayDistrict,
-        lat: parseFloat(item.lat) || null,
-        lng: parseFloat(item.lon) || null,
-        city: itemCity || city || '',
-        zip: zip
-      });
-    });
-
-    return results;
-  }
-
-  /**
-   * Suggest streets with debounce
-   */
   function suggestStreetsDebounced(query, city, callback){
     clearTimeout(_streetDebounce);
     _streetDebounce = setTimeout(function(){
@@ -307,75 +124,30 @@ var AddressAPI = (function(){
     }, _DEBOUNCE_MS);
   }
 
-  /**
-   * Legacy suggest (kept for compatibility) — now returns 8 results
-   */
+  // ===== LEGACY SUGGEST (combined) =====
+
   function suggest(query, callback){
     if(!query || query.length < 2){ callback([]); return; }
-
-    var cacheKey = query.toLowerCase().trim();
+    var cacheKey = 'q_' + query.toLowerCase().trim();
     if(_cache[cacheKey] && (Date.now() - _cache[cacheKey].ts < _CACHE_TTL)){
-      callback(_cache[cacheKey].data);
-      return;
+      callback(_cache[cacheKey].data); return;
     }
-
-    var url = NOMINATIM_URL +
-      '?q=' + encodeURIComponent(query) +
-      '&format=json' +
-      '&addressdetails=1' +
-      '&countrycodes=cz' +
-      '&limit=12' +
-      '&accept-language=cs';
+    var url = API_BASE + '/suggest' +
+      '?query=' + encodeURIComponent(query) +
+      '&lang=cs&limit=8&locality=cz' +
+      '&apikey=' + API_KEY;
 
     _fetchJSON(url, function(err, data){
-      if(err || !data || !Array.isArray(data)){
-        callback(_fallbackSearch(query));
-        return;
+      if(err || !data || !data.items){
+        callback(_fallbackSearch(query)); return;
       }
-      var results = data.map(function(item){
-        var addr = item.address || {};
-        var city = addr.city || addr.town || addr.village || addr.municipality || '';
-        var zip = addr.postcode || '';
-        var street = addr.road || '';
-        var houseNum = addr.house_number || '';
-        var hamlet = addr.hamlet || addr.suburb || addr.city_district || addr.quarter || '';
-        var label = '';
-        var displayStreet = street;
-        if(street){
-          label = street + (houseNum ? ' ' + houseNum : '') + ', ' + city;
-        } else if(hamlet && houseNum){
-          // Hamlet address: "Hněvkovice 9, Humpolec"
-          label = hamlet + ' ' + houseNum + ', ' + city;
-          displayStreet = hamlet;
-        } else if(hamlet){
-          label = hamlet + ', ' + city;
-          displayStreet = hamlet;
-        } else if(city){
-          label = city + (zip ? ', ' + zip : '');
-        } else {
-          label = item.display_name || '';
-        }
-        return {
-          label: label,
-          street: displayStreet,
-          houseNum: houseNum,
-          district: hamlet || '',
-          lat: parseFloat(item.lat) || null,
-          lng: parseFloat(item.lon) || null,
-          city: city,
-          zip: zip
-        };
-      }).filter(function(r){ return r.label; });
-
-      results = results.slice(0, 8);
+      var results = _parseMapyczResults(data.items, null);
+      if(results.length === 0){ results = _fallbackSearch(query); }
       _cache[cacheKey] = { data: results, ts: Date.now() };
       callback(results);
     });
   }
 
-  /**
-   * Search with debounce (for oninput handlers)
-   */
   function suggestDebounced(query, callback){
     clearTimeout(_streetDebounce);
     _streetDebounce = setTimeout(function(){
@@ -383,9 +155,91 @@ var AddressAPI = (function(){
     }, _DEBOUNCE_MS);
   }
 
-  /**
-   * Calculate driving distance from branch to address
-   */
+  // ===== PARSE MAPY.CZ RESULTS =====
+
+  function _parseMapyczResults(items, filterCity){
+    var results = [];
+    var seen = {};
+
+    items.forEach(function(item){
+      var name = item.name || '';
+      var label = item.label || name;
+      var zip = item.zip || '';
+      var cat = item.category || '';
+      var pos = item.position || {};
+      var lat = pos.lat || null;
+      var lon = pos.lon || null;
+
+      // Extract city and district from regionalStructure
+      var municipality = _getRegion(item, 'regional.municipality') || '';
+      var district = _getRegion(item, 'regional.municipality_part') ||
+                     _getRegion(item, 'regional.district') || '';
+
+      // Parse street and house number from name
+      var street = '', houseNum = '';
+      if(cat === 'regional.address'){
+        // Mapy.cz address format: "Ulice čp/čo" or "Obec čp"
+        var numMatch = name.match(/^(.+?)\s+(\d+\/?[\da-zA-Z]*)$/);
+        if(numMatch){
+          street = numMatch[1];
+          houseNum = numMatch[2];
+        } else {
+          street = name;
+        }
+      } else if(cat === 'regional.street'){
+        street = name;
+      } else if(cat === 'regional.municipality' || cat === 'regional.municipality_part'){
+        street = name;
+        municipality = municipality || name;
+      } else {
+        // POI or other — use name as-is
+        street = name;
+      }
+
+      // City: from municipality, or from label parsing
+      var city = municipality;
+      if(!city && label){
+        var labelParts = label.split(',');
+        if(labelParts.length > 1) city = labelParts[labelParts.length - 1].trim();
+      }
+
+      // Filter by city if needed
+      if(filterCity && city){
+        var fc = filterCity.toLowerCase();
+        var cc = city.toLowerCase();
+        var cityOk = (cc === fc) || cc.indexOf(fc) !== -1 || fc.indexOf(cc) !== -1;
+        if(!cityOk) return;
+      }
+
+      var key = (street + ' ' + houseNum + ' ' + city).trim();
+      if(seen[key]) return;
+      seen[key] = true;
+
+      results.push({
+        label: street + (houseNum ? ' ' + houseNum : ''),
+        street: street,
+        houseNum: houseNum,
+        district: district,
+        city: city,
+        zip: zip,
+        lat: lat,
+        lng: lon
+      });
+    });
+
+    return results.slice(0, 8);
+  }
+
+  function _getRegion(item, type){
+    if(!item.regionalStructure) return '';
+    for(var i = 0; i < item.regionalStructure.length; i++){
+      if(item.regionalStructure[i].type === type) return item.regionalStructure[i].name;
+    }
+    return '';
+  }
+
+  // ===== DISTANCE CALCULATION (Mapy.cz Routing) =====
+
   function calcDistance(addressOrCoords, callback){
     if(!addressOrCoords){ callback(null); return; }
 
@@ -406,13 +260,46 @@ var AddressAPI = (function(){
   }
 
   /**
-   * Route calculation from coordinates using OSRM
+   * Road routing via Mapy.cz Routing API
    */
   function _routeFromCoords(lat, lng, callback){
-    var url = OSRM_URL + '/' +
+    var url = API_BASE + '/routing/route' +
+      '?start=' + BRANCH_LNG + ',' + BRANCH_LAT +
+      '&end=' + lng + ',' + lat +
+      '&routeType=car_fast&lang=cs' +
+      '&apikey=' + API_KEY;
+
+    _fetchJSON(url, function(err, data){
+      if(err || !data){
+        // Fallback to OSRM
+        _routeOSRM(lat, lng, callback);
+        return;
+      }
+      // Mapy.cz returns { length: meters, duration: seconds, geometry: ... }
+      var routeLen = data.length || (data.route && data.route.length) || 0;
+      var routeDur = data.duration || (data.route && data.route.duration) || 0;
+      // Also handle array response: [{ length, duration }]
+      if(Array.isArray(data) && data[0]){
+        routeLen = data[0].length || 0;
+        routeDur = data[0].duration || 0;
+      }
+      if(!routeLen){
+        _routeOSRM(lat, lng, callback); return;
+      }
+      var km = Math.round(routeLen / 1000);
+      var fee = 1000 + km * 20;
+      var mins = Math.round(routeDur / 60);
+      callback({ km: km, fee: fee, duration: mins, approx: false });
+    });
+  }
+
+  /**
+   * Fallback routing via OSRM (if Mapy.cz routing fails)
+   */
+  function _routeOSRM(lat, lng, callback){
+    var url = 'https://router.project-osrm.org/route/v1/driving/' +
       BRANCH_LNG + ',' + BRANCH_LAT + ';' +
-      lng + ',' + lat +
-      '?overview=false';
+      lng + ',' + lat + '?overview=false';
 
     _fetchJSON(url, function(err, data){
       if(err || !data || !data.routes || !data.routes.length){
@@ -431,31 +318,95 @@ var AddressAPI = (function(){
   }
 
   /**
-   * Geocode address string via Nominatim
+   * Geocode via Mapy.cz Geocode API
    */
   function _geocode(addr, callback){
     var cacheKey = 'geo_' + addr.toLowerCase().trim();
     if(_geoCache[cacheKey]){
-      callback(_geoCache[cacheKey]);
-      return;
+      callback(_geoCache[cacheKey]); return;
     }
+    var url = API_BASE + '/geocode' +
+      '?query=' + encodeURIComponent(addr) +
+      '&lang=cs&limit=1&locality=cz' +
+      '&apikey=' + API_KEY;
 
-    var url = NOMINATIM_URL +
+    _fetchJSON(url, function(err, data){
+      if(err || !data || !data.items || !data.items.length){
+        // Fallback to Nominatim
+        _geocodeNominatim(addr, callback);
+        return;
+      }
+      var pos = data.items[0].position;
+      if(!pos || !pos.lat){ callback(null); return; }
+      var coords = { lat: pos.lat, lng: pos.lon };
+      _geoCache[cacheKey] = coords;
+      callback(coords);
+    });
+  }
+
+  function _geocodeNominatim(addr, callback){
+    var url = 'https://nominatim.openstreetmap.org/search' +
       '?q=' + encodeURIComponent(addr) +
       '&format=json&countrycodes=cz&limit=1&accept-language=cs';
 
     _fetchJSON(url, function(err, data){
-      if(err || !data || !data.length){
-        callback(null);
+      if(err || !data || !data.length){ callback(null); return; }
+      var coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+      if(isNaN(coords.lat)){ callback(null); return; }
+      _geoCache['geo_' + addr.toLowerCase().trim()] = coords;
+      callback(coords);
+    });
+  }
+
+  /**
+   * Reverse geocode via Mapy.cz
+   */
+  function reverseGeocode(lat, lng, callback){
+    var url = API_BASE + '/rgeocode' +
+      '?lat=' + lat + '&lon=' + lng +
+      '&lang=cs' +
+      '&apikey=' + API_KEY;
+
+    _fetchJSON(url, function(err, data){
+      if(err || !data || !data.items || !data.items.length){
+        // Fallback to Nominatim reverse
+        _reverseNominatim(lat, lng, callback);
         return;
       }
-      var coords = {
-        lat: parseFloat(data[0].lat),
-        lng: parseFloat(data[0].lon)
-      };
-      if(isNaN(coords.lat)){ callback(null); return; }
-      _geoCache[cacheKey] = coords;
-      callback(coords);
+      var item = data.items[0];
+      var name = item.name || '';
+      var numMatch = name.match(/^(.+?)\s+(\d+\/?[\da-zA-Z]*)$/);
+      var street = numMatch ? numMatch[1] : name;
+      var houseNum = numMatch ? numMatch[2] : '';
+      var city = _getRegion(item, 'regional.municipality') || '';
+      var zip = item.zip || '';
+      callback({
+        street: street,
+        houseNum: houseNum,
+        city: city,
+        zip: zip,
+        lat: lat,
+        lng: lng
+      });
+    });
+  }
+
+  function _reverseNominatim(lat, lng, callback){
+    var url = 'https://nominatim.openstreetmap.org/reverse' +
+      '?lat=' + lat + '&lon=' + lng +
+      '&format=json&addressdetails=1&accept-language=cs';
+
+    _fetchJSON(url, function(err, data){
+      if(err || !data || !data.address){ callback(null); return; }
+      var addr = data.address;
+      callback({
+        street: addr.road || '',
+        houseNum: addr.house_number || '',
+        city: addr.city || addr.town || addr.village || addr.municipality || '',
+        zip: addr.postcode || '',
+        lat: lat,
+        lng: lng
+      });
     });
   }
 
@@ -464,7 +415,7 @@ var AddressAPI = (function(){
   function _fetchJSON(url, callback){
     var xhr = new XMLHttpRequest();
     xhr.open('GET', url, true);
-    xhr.timeout = 8000;
+    xhr.timeout = 6000;
     xhr.onload = function(){
       if(xhr.status >= 200 && xhr.status < 300){
         try { callback(null, JSON.parse(xhr.responseText)); }
@@ -500,11 +451,9 @@ var AddressAPI = (function(){
     }).slice(0, 8).map(function(a){
       var zipMatch = a.addr.match(/(\d{3})\s?(\d{2})/);
       return {
-        label: a.city,
-        city: a.city,
+        label: a.city, city: a.city,
         zip: zipMatch ? zipMatch[1] + ' ' + zipMatch[2] : '',
-        district: '',
-        lat: null, lng: null
+        district: '', lat: null, lng: null
       };
     });
   }
@@ -512,7 +461,7 @@ var AddressAPI = (function(){
   function _fallbackStreets(query, city){
     if(typeof ADDR_DB === 'undefined') return [];
     var q = query.toLowerCase();
-    var results = ADDR_DB.filter(function(a){
+    return ADDR_DB.filter(function(a){
       if(city && a.city.toLowerCase() !== city.toLowerCase()) return false;
       return a.addr.toLowerCase().indexOf(q) !== -1;
     }).slice(0, 8).map(function(a){
@@ -524,13 +473,11 @@ var AddressAPI = (function(){
         label: street || a.addr,
         street: numMatch ? numMatch[1] : street,
         houseNum: numMatch ? numMatch[2] : '',
-        district: '',
-        city: a.city,
+        district: '', city: a.city,
         zip: zipMatch ? zipMatch[1] + ' ' + zipMatch[2] : '',
         lat: null, lng: null
       };
     });
-    return results;
   }
 
   function _fallbackSearch(query){
@@ -548,8 +495,7 @@ var AddressAPI = (function(){
         label: a.addr, lat: null, lng: null,
         street: numMatch ? numMatch[1] : street,
         houseNum: numMatch ? numMatch[2] : '',
-        district: '',
-        city: a.city,
+        district: '', city: a.city,
         zip: zipMatch ? zipMatch[1] + ' ' + zipMatch[2] : ''
       };
     });
@@ -563,31 +509,6 @@ var AddressAPI = (function(){
       }
     }
     return Math.round(20 + addr.length * 1.5);
-  }
-
-  /**
-   * Reverse geocode coordinates → address components
-   */
-  function reverseGeocode(lat, lng, callback){
-    var url = 'https://nominatim.openstreetmap.org/reverse' +
-      '?lat=' + lat + '&lon=' + lng +
-      '&format=json&addressdetails=1&accept-language=cs';
-
-    _fetchJSON(url, function(err, data){
-      if(err || !data || !data.address){
-        callback(null);
-        return;
-      }
-      var addr = data.address;
-      callback({
-        street: addr.road || '',
-        houseNum: addr.house_number || '',
-        city: addr.city || addr.town || addr.village || addr.municipality || '',
-        zip: addr.postcode || '',
-        lat: lat,
-        lng: lng
-      });
-    });
   }
 
   return {
