@@ -24,6 +24,8 @@ const LiabilitiesTab = lazy(() => import('./accounting/LiabilitiesTab'))
 const SuppliersTab = lazy(() => import('./accounting/SuppliersTab'))
 const AutoOrdersTab = lazy(() => import('./accounting/AutoOrdersTab'))
 const InventoryTab = lazy(() => import('./Inventory'))
+const DeliveryNotesTab = lazy(() => import('./accounting/DeliveryNotesTab'))
+const ContractsTab = lazy(() => import('./accounting/ContractsTab'))
 
 const PERIODS = [
   { value: 'month', label: 'Měsíc' },
@@ -37,7 +39,7 @@ const TYPES = [
   { value: 'expense', label: 'Výdaje' },
 ]
 
-const FINANCE_TABS = ['Přehled', 'Faktury', 'Objednávky', 'Účetnictví', 'Faktury přijaté', 'Pokladna', 'Sklad']
+const FINANCE_TABS = ['Přehled', 'Faktury', 'Dodací listy', 'Smlouvy', 'Objednávky', 'Účetnictví', 'Faktury přijaté', 'Pokladna', 'Sklad']
 
 const ACCOUNTING_SUBTABS = [
   { id: 'events', label: 'Finanční události' },
@@ -52,7 +54,7 @@ export default function Finance() {
   const debugMode = useDebugMode()
   const [activeTab, setActiveTab] = useState('Přehled')
   const [accountingSubTab, setAccountingSubTab] = useState('events')
-  const [summary, setSummary] = useState({ revenue: 0, expense: 0, unpaid: 0 })
+  const [summary, setSummary] = useState({ revenue: 0, expense: 0, unpaid: 0, unpaidCount: 0 })
   const [transactions, setTransactions] = useState([])
   const [chartData, setChartData] = useState([])
   const [loading, setLoading] = useState(true)
@@ -150,7 +152,7 @@ export default function Finance() {
       .select('total')
       .eq('status', 'issued')
     if (inv) {
-      setSummary(s => ({ ...s, unpaid: inv.reduce((sum, i) => sum + (i.total || 0), 0) }))
+      setSummary(s => ({ ...s, unpaid: inv.reduce((sum, i) => sum + (i.total || 0), 0), unpaidCount: inv.length }))
     }
   }
 
@@ -244,6 +246,8 @@ export default function Finance() {
       <Suspense fallback={<TabLoader />}>
       {activeTab === 'Faktury' && <ErrorBoundary><InvoicesTab /></ErrorBoundary>}
       {activeTab === 'Objednávky' && <ErrorBoundary><AutoOrdersTab /></ErrorBoundary>}
+      {activeTab === 'Dodací listy' && <ErrorBoundary><DeliveryNotesTab /></ErrorBoundary>}
+      {activeTab === 'Smlouvy' && <ErrorBoundary><ContractsTab /></ErrorBoundary>}
       {activeTab === 'Faktury přijaté' && <ErrorBoundary><ReceivedInvoicesTab /></ErrorBoundary>}
       {activeTab === 'Pokladna' && <ErrorBoundary><CashRegisterTab /></ErrorBoundary>}
       {activeTab === 'Sklad' && <ErrorBoundary><InventoryTab /></ErrorBoundary>}
@@ -330,7 +334,7 @@ export default function Finance() {
             <SummaryCard label="Měsíční tržby" value={fmt(summary.revenue)} color="#1a8a18" />
             <SummaryCard label="Měsíční náklady" value={fmt(summary.expense)} color="#dc2626" />
             <SummaryCard label="Zisk" value={fmt(profit)} color={profit >= 0 ? '#1a8a18' : '#dc2626'} />
-            <SummaryCard label="Neuhrazené faktury" value={fmt(summary.unpaid)} color="#b45309" />
+            <SummaryCard label="Neuhrazené zálohy" value={fmt(summary.unpaid)} count={summary.unpaidCount} color="#b45309" />
           </div>
 
           {chartData.length > 0 && (
@@ -502,10 +506,18 @@ function DetailRow({ label, value, mono }) {
   )
 }
 
-function SummaryCard({ label, value, color }) {
+function SummaryCard({ label, value, color, count }) {
   return (
     <Card>
-      <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>{label}</div>
+      <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>
+        {label}
+        {count != null && count > 0 && (
+          <span className="ml-2 inline-flex items-center justify-center rounded-full text-xs font-extrabold"
+            style={{ background: color + '20', color, minWidth: 22, height: 22, padding: '0 6px' }}>
+            {count}
+          </span>
+        )}
+      </div>
       <div className="text-xl font-extrabold" style={{ color }}>{value}</div>
     </Card>
   )
