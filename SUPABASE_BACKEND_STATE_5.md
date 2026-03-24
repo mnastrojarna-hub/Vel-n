@@ -39,6 +39,8 @@ Detailní politiky:
 - **emp_vacations:** admin ALL (is_admin)
 - **emp_shifts:** admin ALL (is_admin)
 - **emp_documents:** admin ALL (is_admin)
+- **delivery_notes:** admin ALL (is_admin)
+- **contracts:** admin ALL (is_admin)
 
 ---
 
@@ -243,3 +245,8 @@ https://search.google.com/local/writereview?placeid=PLACE_ID
 - `branch_door_codes.branch_id` → `branches.id`
 - `branch_door_codes.booking_id` → `bookings.id`
 - `branch_door_codes.moto_id` → `motorcycles.id`
+- `invoices.matched_delivery_note_id` → `delivery_notes.id` (ON DELETE SET NULL)
+- `delivery_notes.matched_invoice_id` → `invoices.id` (ON DELETE SET NULL)
+- `delivery_notes.financial_event_id` → `financial_events.id` (ON DELETE SET NULL)
+- `contracts.financial_event_id` → `financial_events.id` (ON DELETE SET NULL)
+- `contracts.employee_id` → `acc_employees.id` (ON DELETE SET NULL)

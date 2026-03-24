@@ -144,6 +144,24 @@
 - issue_date, due_date, paid_date, issued_at
 - subtotal, tax_amount, total, amount, currency, status, pdf_path
 - items (jsonb), notes, variable_symbol, source
+- **matched_delivery_note_id** (UUID FK→delivery_notes ON DELETE SET NULL) — napárovaný dodací list
+
+### delivery_notes
+- id (UUID PK), dl_number, supplier_name, supplier_ico
+- total_amount (NUMERIC), delivery_date (DATE), variable_symbol
+- items (JSONB), notes, photo_url, storage_path, extracted_data (JSONB)
+- source (TEXT DEFAULT 'manual'), financial_event_id (UUID FK→financial_events)
+- matched_invoice_id (UUID FK→invoices), match_method (TEXT: ai/manual), match_confidence (NUMERIC), matched_at
+- created_at, updated_at
+
+### contracts
+- id (UUID PK), contract_number, contract_type (TEXT: rental/lease/service/insurance/employment/employment_amendment/employment_termination/dpp/dpc/vacation_request/supply/nda/other)
+- title, counterparty, counterparty_ico, amount (NUMERIC), payment_frequency
+- valid_from (DATE), valid_until (DATE), status (TEXT: pending/active/expired/terminated/draft)
+- notes, storage_path, photo_url, extracted_data (JSONB)
+- source (TEXT DEFAULT 'manual'), financial_event_id (UUID FK→financial_events)
+- employee_id (UUID FK→acc_employees), employee_name
+- approved_at, terminated_at, created_at, updated_at
 
 ### vouchers
 - id, code, amount, currency, status (active/redeemed/expired/cancelled)
