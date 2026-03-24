@@ -20,7 +20,8 @@ function doEditPayment(bookingId, amount, changes){
         _editPaymentBookingId = bookingId;
         window._pendingEditChanges = changes;
         showStripeInlinePayment(result.client_secret, amount, {
-          onSuccess: function(pi){ _onInlinePaymentSuccess(bookingId); },
+          bookingId: bookingId,
+          onSuccess: function(){ _onInlinePaymentSuccess(bookingId); },
           onCancel: function(){
             _isEditPayment = false;
             _editPaymentBookingId = null;

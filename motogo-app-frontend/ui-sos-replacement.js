@@ -566,7 +566,8 @@ async function sosPaymentSubmit(){
         // Inline Payment Element — platba v appce
         if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '💳 Zaplatit ' + sosAmount.toLocaleString('cs-CZ') + ' Kč'; }
         showStripeInlinePayment(payResult.client_secret, sosAmount, {
-          onSuccess: function(pi){
+          bookingId: replBookingId,
+          onSuccess: function(){
             pd.replacementData.payment_status = 'paid';
             pd.replacementData.paid_at = new Date().toISOString();
             showT('✅','Platba přijata!', sosAmount.toLocaleString('cs-CZ') + ' Kč');

@@ -18,7 +18,8 @@ function doRestorePayment(bookingId){
         _stripeCheckoutBookingId = bookingId;
         _isRestorePayment = true;
         showStripeInlinePayment(result.client_secret, _currentPaymentAmount, {
-          onSuccess: function(pi){ _onInlinePaymentSuccess(bookingId); },
+          bookingId: bookingId,
+          onSuccess: function(){ _onInlinePaymentSuccess(bookingId); },
           onCancel: function(){
             _isRestorePayment = false;
             _onInlinePaymentCancel();

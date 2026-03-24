@@ -415,7 +415,8 @@ function doPayment(){
       if(result.success && result.client_secret){
         _stripeCheckoutBookingId = _currentBookingId;
         showStripeInlinePayment(result.client_secret, _currentPaymentAmount, {
-          onSuccess: function(pi){ _onInlinePaymentSuccess(_currentBookingId); },
+          bookingId: _currentBookingId,
+          onSuccess: function(){ _onInlinePaymentSuccess(_currentBookingId); },
           onCancel: function(){ _onInlinePaymentCancel(); }
         });
         if(payBtn) payBtn.textContent = (_t('pay').payBtn||'Zaplatit') + ' ' + _currentPaymentAmount.toLocaleString('cs-CZ') + ' Kč →';
