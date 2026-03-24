@@ -144,12 +144,6 @@ Deno.serve(async (req: Request) => {
           { status: 409, headers: { ...CORS, 'Content-Type': 'application/json' } }
         )
       }
-      if (bk?.status === 'cancelled') {
-        return new Response(
-          JSON.stringify({ success: false, error: 'Tato rezervace byla zrušena.' }),
-          { status: 409, headers: { ...CORS, 'Content-Type': 'application/json' } }
-        )
-      }
     }
     if (paymentType === 'shop' && !order_id) {
       return new Response(
