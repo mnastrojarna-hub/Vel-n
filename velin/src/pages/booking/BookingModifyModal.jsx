@@ -221,9 +221,9 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
         total_price: chargeCustomer ? newTotalPrice : origPaidPrice,
         notes: notes || null,
         pickup_method: pickupMethod,
-        pickup_address: pickupMethod === 'delivery' ? pickupAddress : null,
+        pickup_address: pickupAddress || null,
         return_method: returnMethod,
-        return_address: returnMethod === 'delivery' ? returnAddress : null,
+        return_address: returnAddress || null,
         delivery_fee: newDeliveryFee,
       }
 
@@ -486,8 +486,11 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
               </select>
               {pickupMethod === 'delivery' && (
                 <input value={pickupAddress} onChange={e => setPickupAddress(e.target.value)}
-                  placeholder="Adresa přistavení…" className="w-full mt-2 text-sm rounded-btn outline-none"
+                  placeholder="Obec, ulice a č.p. / č.o." className="w-full mt-2 text-sm rounded-btn outline-none"
                   style={{ padding: '7px 10px', background: '#fff', border: '1px solid #d4e8e0' }} />
+              )}
+              {pickupMethod === 'on_branch' && pickupAddress && (
+                <div className="mt-1 text-xs" style={{ color: '#6b7280' }}>Původní adresa: {pickupAddress}</div>
               )}
             </div>
             <div>
@@ -499,8 +502,11 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
               </select>
               {returnMethod === 'delivery' && (
                 <input value={returnAddress} onChange={e => setReturnAddress(e.target.value)}
-                  placeholder="Adresa svozu…" className="w-full mt-2 text-sm rounded-btn outline-none"
+                  placeholder="Obec, ulice a č.p. / č.o." className="w-full mt-2 text-sm rounded-btn outline-none"
                   style={{ padding: '7px 10px', background: '#fff', border: '1px solid #d4e8e0' }} />
+              )}
+              {returnMethod === 'on_branch' && returnAddress && (
+                <div className="mt-1 text-xs" style={{ color: '#6b7280' }}>Původní adresa: {returnAddress}</div>
               )}
             </div>
           </div>

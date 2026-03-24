@@ -46,8 +46,9 @@ export default function BookingSummary({ booking, sosIncidents, bookingExtras, c
       )}
 
       <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Vyzvednutí a vrácení</div>
-      <SumRow label="Přistavení" value={`${b.pickup_method === 'delivery' ? 'Přistavení na adresu' : 'Na pobočce'} — ${b.pickup_address || branchName}`} />
-      <SumRow label="Vrácení" value={`${b.return_method === 'delivery' ? 'Svoz z adresy' : 'Na pobočce'} — ${b.return_address || branchName}`} />
+      <SumAddressRow label="Přistavení" method={b.pickup_method} address={b.pickup_address} branchName={branchName} lat={b.pickup_lat} lng={b.pickup_lng} />
+      <SumAddressRow label="Vrácení" method={b.return_method} address={b.return_address} branchName={branchName} lat={b.return_lat} lng={b.return_lng} />
+      <SumLocationShares sosIncidents={sosIncidents} />
 
       {(b.boots_size || b.helmet_size || b.jacket_size) && (
         <>
@@ -165,4 +166,64 @@ export default function BookingSummary({ booking, sosIncidents, bookingExtras, c
       {b.complaint_status && <SumRow label="Reklamace" value={b.complaint_status} color="#b45309" />}
     </div>
   )
+}
+
+function SumAddressRow({ label, method, address, branchName, lat, lng }) {
+  const isDelivery = method === 'delivery'
+  const displayAddr = address || branchName || '—'
+  const methodLabel = isDelivery ? (label === 'Přistavení' ? 'Přistavení na adresu' : 'Svoz z adresy') : 'Na pobočce'
+  const mapLink = isDelivery && (lat && lng)
+    ? `https://maps.google.com/?q=${lat},${lng}`
+    : isDelivery && address ? `https://maps.google.com/?q=${encodeURIComponent(address)}` : null
+
+  return (
+    <div className="py-[3px]" style={{ borderBottom: '1px solid #f1faf7', fontSize: 12 }}>
+      <div className="flex gap-2">
+        <span className="font-bold" style={{ color: '#1a2e22', minWidth: 160, flexShrink: 0 }}>{label}</span>
+        <span className="font-medium" style={{ color: '#0f1a14' }}>{methodLabel} — {displayAddr}</span>
+      </div>
+      {isDelivery && (lat && lng) && (
+        <div className="ml-[168px]" style={{ fontSize: 11, color: '#6b7280' }}>GPS: {Number(lat).toFixed(6)}, {Number(lng).toFixed(6)}</div>
+      )}
+      {mapLink && (
+        <div className="ml-[168px]">
+          <a href={mapLink} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: '#2563eb', textDecoration: 'none', fontWeight: 700 }}>
+            📍 Zobrazit na mapě ↗
+          </a>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SumLocationShares({ sosIncidents }) {
+  const locShares = (sosIncidents || []).filter(i => i.type === 'location_share')
+  if (locShares.length === 0) return null
+
+  return locShares.map(inc => {
+    const hasGps = inc.latitude && inc.longitude
+    const link = hasGps
+      ? `https://maps.google.com/?q=${inc.latitude},${inc.longitude}`
+      : inc.address ? `https://maps.google.com/?q=${encodeURIComponent(inc.address)}` : null
+
+    return (
+      <div key={inc.id} className="py-[3px]" style={{ borderBottom: '1px solid #dbeafe', fontSize: 12 }}>
+        <div className="flex gap-2">
+          <span className="font-bold" style={{ color: '#2563eb', minWidth: 160, flexShrink: 0 }}>📍 Sdílení polohy</span>
+          <span className="font-medium" style={{ color: '#0f1a14' }}>
+            {new Date(inc.created_at).toLocaleString('cs-CZ')}
+            {inc.address ? ` — ${inc.address}` : ''}
+          </span>
+        </div>
+        {hasGps && <div className="ml-[168px]" style={{ fontSize: 11, color: '#6b7280' }}>GPS: {Number(inc.latitude).toFixed(6)}, {Number(inc.longitude).toFixed(6)}</div>}
+        {link && (
+          <div className="ml-[168px]">
+            <a href={link} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: '#2563eb', textDecoration: 'none', fontWeight: 700 }}>
+              📍 Zobrazit na mapě ↗
+            </a>
+          </div>
+        )}
+      </div>
+    )
+  })
 }

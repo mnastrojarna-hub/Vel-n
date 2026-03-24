@@ -22,7 +22,9 @@
 - pickup_date, return_date (timestamptz pro overlap check)
 - **actual_return_date** — skutečné datum vrácení
 - **pickup_method, pickup_address** — způsob vyzvednutí
+- **pickup_lat, pickup_lng** — GPS souřadnice místa vyzvednutí (DOUBLE PRECISION, nullable)
 - **return_method, return_address** — způsob vrácení
+- **return_lat, return_lng** — GPS souřadnice místa vrácení (DOUBLE PRECISION, nullable)
 - **extras_price** — cena příslušenství
 - **discount_amount, discount_code** — sleva
 - **contract_url** — URL smlouvy
