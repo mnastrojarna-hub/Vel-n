@@ -306,17 +306,20 @@ async function showInvoiceById(invoiceId){
     var invR=await supabase.from('invoices').select('*').eq('id',invoiceId).single();
     var dbInvoice=invR.data;
     if(!dbInvoice){showT('✗',t.error||'Chyba','Faktura nenalezena');return;}
-    // If we do have a booking_id after all, delegate to showInvoice
+    var isReceipt=dbInvoice.type==='payment_receipt';
+    var isAdvance=dbInvoice.type==='proforma'||dbInvoice.type==='advance'||dbInvoice.type==='shop_proforma';
+    // If we have a booking_id, try to show with full booking context
     if(dbInvoice.booking_id){
-      var invType=dbInvoice.type==='payment_receipt'?'payment_receipt':(dbInvoice.type==='proforma'||dbInvoice.type==='advance')?'advance':'final';
-      return showInvoice(dbInvoice.booking_id,invType,invoiceId);
+      var bkData=await _getBookingDataAsync(dbInvoice.booking_id);
+      if(bkData){
+        var invType=isReceipt?'payment_receipt':isAdvance?'advance':'final';
+        return showInvoice(dbInvoice.booking_id,invType,invoiceId);
+      }
     }
     var p=await apiFetchProfile();
     var pName=p?p.full_name:'—';
     var pAddr=p?[p.street,p.city,p.zip,p.country].filter(Boolean).join(', '):'—';
     var invNum=dbInvoice.number||invoiceId.substr(-8).toUpperCase();
-    var isReceipt=dbInvoice.type==='payment_receipt';
-    var isAdvance=dbInvoice.type==='proforma'||dbInvoice.type==='advance';
     var title=isReceipt?(t.paymentReceipt||'Doklad k platbě'):isAdvance?t.invoiceAdvance:t.invoiceFinal;
     var amt=Number(dbInvoice.total||0);
     var itemsHtml='';
