@@ -32,6 +32,8 @@ async function applyDiscount(){
           if(hasPercent){if(msg)msg.innerHTML='<span style="color:var(--red)">Nelze kombinovat dva procentu\u00e1ln\u00ed k\u00f3dy</span>';return;}
         }
         var disc=promoData.type==='percent'?Math.round(baseForDiscount*promoData.value/100):promoData.value;
+        var currentOtherDisc=_appliedBookingCodes.reduce(function(s,c){return s+c.discountAmt;},0);
+        disc=Math.min(disc,Math.max(0,baseForDiscount-currentOtherDisc));
         _appliedBookingCodes.push({code:code,type:'promo',id:promoData.id,discountAmt:disc,discountType:promoData.type,discountValue:promoData.value});
         _appliedPromoId = promoData.id;appliedCode = code;
         discountAmt=_appliedBookingCodes.reduce(function(s,c){return s+c.discountAmt;},0);
@@ -43,7 +45,10 @@ async function applyDiscount(){
         var vr = await window.supabase.rpc('validate_voucher_code', { p_code: code });
         if(vr.data && vr.data.valid){
           var vData = vr.data;
-          _appliedBookingCodes.push({code:code,type:'voucher',id:vData.id,discountAmt:vData.value,discountType:'fixed',discountValue:vData.value});
+          var currentDiscV=_appliedBookingCodes.reduce(function(s,c){return s+c.discountAmt;},0);
+          var vDisc=Math.min(vData.value,Math.max(0,baseForDiscount-currentDiscV));
+          if(vDisc<=0){if(msg)msg.innerHTML='<span style="color:var(--red)">Sleva ji\u017e pokr\u00fdv\u00e1 celou cenu</span>';return;}
+          _appliedBookingCodes.push({code:code,type:'voucher',id:vData.id,discountAmt:vDisc,discountType:'fixed',discountValue:vData.value});
           _appliedPromoId = vData.id;appliedCode = code;
           discountAmt=_appliedBookingCodes.reduce(function(s,c){return s+c.discountAmt;},0);
           if(msg)msg.innerHTML='<span style="color:var(--gd)">\u2713 '+(_t('cart').voucher||'Poukaz')+' '+vData.value+' K\u010d '+_t('cart').applied+'</span>';
@@ -68,6 +73,8 @@ async function applyDiscount(){
     } else { base2=2600*(bookingDays||1); }
     base2 += (typeof extraTotal!=='undefined'?extraTotal:0) + (typeof deliveryFee!=='undefined'?deliveryFee:0);
     var disc2=Math.round(base2*pct/100);
+    var curDisc2=_appliedBookingCodes.reduce(function(s,c){return s+c.discountAmt;},0);
+    disc2=Math.min(disc2,Math.max(0,base2-curDisc2));
     _appliedBookingCodes.push({code:code,type:'promo',id:null,discountAmt:disc2,discountType:'percent',discountValue:pct});
     discountAmt=_appliedBookingCodes.reduce(function(s,c){return s+c.discountAmt;},0);
     appliedCode = code;

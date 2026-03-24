@@ -293,7 +293,7 @@ async function proceedToPayment(){
     } else {
       basePrice = await apiCalcBookingPrice(motoId, startDate.toISOString(), endDate.toISOString());
     }
-    var totalPrice = basePrice + (extraTotal || 0) + (deliveryFee || 0) - (discountAmt || 0);
+    var totalPrice = Math.max(0, basePrice + (extraTotal || 0) + (deliveryFee || 0) - (discountAmt || 0));
 
     // Read selected pickup time from time picker
     var pickupTimeEl = document.getElementById('booking-time-hour');
