@@ -33,9 +33,7 @@ async function applyShopDiscount(){
       }
       // Percentage discount applies to full order total (cart + shipping)
       var disc=pd.type==='percent'?Math.round(orderTotal*pd.value/100):pd.value;
-      if(shopDiscountAmt+disc>=orderTotal){
-        if(msg)msg.innerHTML='<span style="color:var(--red)">Sleva p\u0159esahuje cenu objedn\u00e1vky</span>';return;
-      }
+      disc=Math.min(disc,Math.max(0,orderTotal-shopDiscountAmt));
       shopAppliedCodes.push({code:code,type:'promo',id:pd.id,value:pd.value,discountAmt:disc,discountType:pd.type,discountValue:pd.value});
       shopDiscountAmt+=disc;
       var label=pd.type==='percent'?'Sleva '+pd.value+'%':'Sleva '+pd.value+' K\u010d';
@@ -50,10 +48,7 @@ async function applyShopDiscount(){
     var vr=await window.supabase.rpc('validate_voucher_code',{p_code:code});
     if(vr.data&&vr.data.valid){
       var vd=vr.data;
-      var vDisc=Math.min(vd.value, orderTotal-shopDiscountAmt-1);
-      if(vDisc<=0){
-        if(msg)msg.innerHTML='<span style="color:var(--red)">Poukaz p\u0159esahuje cenu objedn\u00e1vky</span>';return;
-      }
+      var vDisc=Math.min(vd.value,Math.max(0,orderTotal-shopDiscountAmt));
       shopAppliedCodes.push({code:code,type:'voucher',id:vd.id,value:vd.value,discountAmt:vDisc,discountType:'fixed',discountValue:vd.value});
       shopDiscountAmt+=vDisc;
       if(msg)msg.innerHTML='<span style="color:var(--gd)">\u2713 Poukaz '+vd.value+' K\u010d uplatn\u011bn (sleva '+vDisc+' K\u010d)</span>';

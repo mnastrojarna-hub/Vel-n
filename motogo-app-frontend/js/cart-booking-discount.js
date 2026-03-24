@@ -47,7 +47,6 @@ async function applyDiscount(){
           var vData = vr.data;
           var currentDiscV=_appliedBookingCodes.reduce(function(s,c){return s+c.discountAmt;},0);
           var vDisc=Math.min(vData.value,Math.max(0,baseForDiscount-currentDiscV));
-          if(vDisc<=0){if(msg)msg.innerHTML='<span style="color:var(--red)">Sleva ji\u017e pokr\u00fdv\u00e1 celou cenu</span>';return;}
           _appliedBookingCodes.push({code:code,type:'voucher',id:vData.id,discountAmt:vDisc,discountType:'fixed',discountValue:vData.value});
           _appliedPromoId = vData.id;appliedCode = code;
           discountAmt=_appliedBookingCodes.reduce(function(s,c){return s+c.discountAmt;},0);
