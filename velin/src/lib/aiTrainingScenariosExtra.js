@@ -27,7 +27,7 @@ export async function trainFleetAgent(onStep) {
     onStep?.({ agent: 'fleet', action: `Status cyklus ${moto.model}`, i: 5 + i, total: 15 })
     const r1 = await API.updateMotoStatus(moto.id, 'maintenance')
     results.push({ agent: 'fleet', action: 'set_maintenance', ...r1 })
-    const r2 = await API.updateMotoStatus(moto.id, 'available')
+    const r2 = await API.updateMotoStatus(moto.id, 'active')
     results.push({ agent: 'fleet', action: 'set_available', ...r2 })
   }
 
@@ -70,10 +70,9 @@ export async function trainCustomersAgent(onStep) {
 
   for (let i = 0; i < Math.min(5, profiles?.length || 0); i++) {
     onStep?.({ agent: 'customers', action: `Zpráva zákazníkovi #${i + 1}`, i: 8 + i, total: 15 })
-    const msg = await API.sendAdminMessage(
+    const msg = await API.sendCustomerMessage(
       profiles[i].id,
-      API.PICK(['Informace k rezervaci', 'Připomínka dokladů', 'Potvrzení vrácení']),
-      'Toto je testovací zpráva z AI tréninku.'
+      API.PICK(['Informace k Vaší rezervaci.', 'Připomínka: nahrajte prosím doklady.', 'Potvrzení vrácení motorky.'])
     )
     results.push({ agent: 'customers', action: 'send_message', ...msg })
   }

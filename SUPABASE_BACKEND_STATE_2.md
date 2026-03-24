@@ -41,6 +41,7 @@
 - **modification_history** (jsonb, default '[]') — historie všech úprav termínu. Každý záznam: `{at, from_start, from_end, to_start, to_end, source}`
 - **complaint_status** — stav reklamace (open, in_progress, resolved, rejected, null)
 - **booking_source** — zdroj rezervace (text, default 'app') — 'app' nebo 'web'
+- **is_test** (boolean DEFAULT false) — testovací rezervace z AI tréninku
 
 ### booking_complaints
 - id (uuid PK), booking_id (refs bookings), customer_id (refs profiles)
@@ -62,6 +63,7 @@
 - **avatar_url** — URL avataru
 - **preferred_branch** — preferovaná pobočka
 - **language** — jazyk (cs/en/de)
+- **is_test_account** (boolean DEFAULT false) — testovací účet z AI tréninku
 - **is_blocked** (boolean DEFAULT false) — zákazník zablokován
 - **blocked_at** (timestamptz) — datum blokace
 - **blocked_reason** (text) — důvod blokace
@@ -130,6 +132,7 @@
 - **replacement_moto_id** — ID náhradní motorky
 - **tow_requested** — požadavek na odtah (boolean)
 - type CHECK: theft/accident_minor/accident_major/breakdown_minor/breakdown_major/defect_question/location_share/other
+- **is_test** (boolean DEFAULT false) — testovací incident z AI tréninku
 
 ### maintenance_log (nové sloupce)
 - **technician_id** (UUID FK→acc_employees ON DELETE SET NULL) — technik ze seznamu zaměstnanců

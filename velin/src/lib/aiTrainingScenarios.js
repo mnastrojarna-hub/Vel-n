@@ -167,11 +167,11 @@ export async function trainSosAgent(onStep) {
               await API.updateMotoStatus(moto.id, 'stolen')
               results.push({ agent: 'fleet', action: 'update_moto_stolen', ok: true })
               // Restore for next tests
-              await API.updateMotoStatus(moto.id, 'available')
+              await API.updateMotoStatus(moto.id, 'active')
             } else if (sosType.type === 'accident_major') {
               await API.updateMotoStatus(moto.id, 'maintenance')
               results.push({ agent: 'fleet', action: 'update_moto_maintenance', ok: true })
-              await API.updateMotoStatus(moto.id, 'available')
+              await API.updateMotoStatus(moto.id, 'active')
             }
           }
         }
@@ -217,7 +217,7 @@ export async function trainServiceAgent(onStep) {
     const ml = await API.createMaintenanceLog(moto.id, sType.type, sType.desc, sType.hours)
     results.push({ agent: 'service', action: 'create_maintenance_log', ...ml })
 
-    await API.updateMotoStatus(moto.id, 'available')
+    await API.updateMotoStatus(moto.id, 'active')
     results.push({ agent: 'fleet', action: 'set_available', ok: true })
   }
 

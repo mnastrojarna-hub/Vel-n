@@ -14,43 +14,39 @@ const futureDate = (days) => {
 
 // --- REAL API CALLS ---
 
-// 1. Create test customer in auth + profiles
+// 1. Create test customer — INSERT directly into profiles (no auth.signUp)
+// auth.signUp triggers admin lookups and 401/406 errors from anon key
+// Instead: create a profile directly with a fake UUID
 export async function createTestCustomer() {
   const tag = TS(), fn = FIRST(), ln = LAST()
   const email = `test.sim.${tag}@motogo24.cz`
-  const password = `SimTest${tag}!23`
+  const userId = crypto.randomUUID()
 
-  // Create via edge function (same as app registration)
-  const { data, error } = await supabase.auth.signUp({
-    email, password,
-    options: { data: { full_name: `${fn} ${ln}`, phone: PHONE(), is_test: true } }
-  })
+  const { data, error } = await supabase.from('profiles').insert({
+    id: userId,
+    full_name: `${fn} ${ln}`,
+    email,
+    phone: PHONE(),
+    license_group: PICK([['A'], ['A2'], ['A', 'B'], ['A2', 'B']]),
+    is_test_account: true,
+    city: PICK(['Praha', 'Brno', 'Ostrava', 'Plzeň', 'Mezná']),
+  }).select().single()
+
   if (error) return { ok: false, error: error.message, email }
-
-  const userId = data?.user?.id
-  if (userId) {
-    // Update profile (app does this after signup)
-    await supabase.from('profiles').update({
-      full_name: `${fn} ${ln}`,
-      phone: PHONE(),
-      license_group: PICK([['A'], ['A2'], ['A', 'B'], ['A2', 'B']]),
-      is_test_account: true,
-    }).eq('id', userId)
-  }
-  return { ok: true, userId, email, name: `${fn} ${ln}` }
+  return { ok: true, userId: data?.id || userId, email, name: `${fn} ${ln}` }
 }
 
-// 2. Fetch available motorcycles (same query as app)
+// 2. Fetch available motorcycles
 export async function fetchAvailableMotos() {
   const { data, error } = await supabase
     .from('motorcycles')
-    .select('id, model, brand, category, status, branch_id, price_per_day, license_required, branches(name, city)')
-    .eq('status', 'available')
+    .select('id, model, brand, category, status, branch_id, price_weekday, license_required, branches(name, city)')
+    .eq('status', 'active')
     .limit(20)
   return { ok: !error, data: data || [], error: error?.message }
 }
 
-// 3. Check motorcycle availability for date range (same as apiCheckMotoAvailability)
+// 3. Check motorcycle availability for date range
 export async function checkMotoAvailability(motoId, startISO, endISO) {
   const { data, error } = await supabase
     .from('bookings')
@@ -62,11 +58,10 @@ export async function checkMotoAvailability(motoId, startISO, endISO) {
   return { ok: !error, available: !data?.length, conflicts: data || [], error: error?.message }
 }
 
-// 4. Create booking (same as apiCreateBooking)
-export async function createBooking(userId, motoId, startDate, endDate, extras = {}) {
-  // First check branch is open
+// 4. Create booking
+export async function createBooking(userId, motoId, startDate, endDate) {
   const { data: moto } = await supabase
-    .from('motorcycles').select('branch_id, branches(is_open)').eq('id', motoId).single()
+    .from('motorcycles').select('branch_id').eq('id', motoId).single()
 
   const { data, error } = await supabase.from('bookings').insert({
     user_id: userId,
@@ -76,14 +71,13 @@ export async function createBooking(userId, motoId, startDate, endDate, extras =
     status: 'reserved',
     payment_status: 'unpaid',
     branch_id: moto?.branch_id,
-    extras_json: extras,
-    created_at: new Date().toISOString(),
+    booking_source: 'app',
     is_test: true,
   }).select().single()
   return { ok: !error, bookingId: data?.id, data, error: error?.message }
 }
 
-// 5. Calculate booking price (same RPC as app)
+// 5. Calculate booking price (RPC)
 export async function calcBookingPrice(motoId, startISO, endISO, promo = null) {
   const { data, error } = await supabase.rpc('calc_booking_price_v2', {
     p_moto_id: motoId, p_start: startISO, p_end: endISO, p_promo: promo
@@ -91,7 +85,7 @@ export async function calcBookingPrice(motoId, startISO, endISO, promo = null) {
   return { ok: !error, price: data, error: error?.message }
 }
 
-// 6. Confirm booking payment (simulate — same status update as webhook)
+// 6. Confirm booking payment (simulate webhook)
 export async function confirmBookingPayment(bookingId) {
   const { error } = await supabase.from('bookings').update({
     payment_status: 'paid', status: 'active'
@@ -99,7 +93,7 @@ export async function confirmBookingPayment(bookingId) {
   return { ok: !error, error: error?.message }
 }
 
-// 7. Cancel booking (same RPC as app)
+// 7. Cancel booking (RPC)
 export async function cancelBooking(bookingId, reason = 'Test simulace') {
   const { data, error } = await supabase.rpc('cancel_booking_tracked', {
     p_booking_id: bookingId, p_reason: reason
@@ -107,7 +101,7 @@ export async function cancelBooking(bookingId, reason = 'Test simulace') {
   return { ok: !error, data, error: error?.message }
 }
 
-// 8. Extend booking
+// 8. Extend booking (RPC)
 export async function extendBooking(bookingId, newEndDate) {
   const { data, error } = await supabase.rpc('extend_booking', {
     p_booking_id: bookingId, p_new_end_date: newEndDate
@@ -123,7 +117,7 @@ export async function shortenBooking(bookingId, newEndDate) {
   return { ok: !error, error: error?.message }
 }
 
-// 10. Create SOS incident (same as apiCreateSosIncident)
+// 10. Create SOS incident
 export async function createSosIncident(userId, bookingId, motoId, type, desc) {
   const lat = 49.5 + Math.random() * 1.5
   const lng = 14 + Math.random() * 3
@@ -139,7 +133,6 @@ export async function createSosIncident(userId, bookingId, motoId, type, desc) {
     is_test: true,
   }).select().single()
 
-  // Add timeline entry
   if (data?.id) {
     await supabase.from('sos_timeline').insert({
       incident_id: data.id, action: 'incident_created',
@@ -183,8 +176,9 @@ export async function completeServiceOrder(orderId, notes) {
 
 // 14. Create maintenance log
 export async function createMaintenanceLog(motoId, type, desc, hours) {
-  const { data, error } = await supabase.from('maintenance_logs').insert({
-    motorcycle_id: motoId, type, description: desc, hours_spent: hours, is_test: true
+  const { data, error } = await supabase.from('maintenance_log').insert({
+    motorcycle_id: motoId, service_type: type, description: desc, labor_hours: hours,
+    service_date: new Date().toISOString().split('T')[0], status: 'completed', is_test: true
   }).select().single()
   return { ok: !error, data, error: error?.message }
 }
@@ -195,36 +189,44 @@ export async function updateMotoStatus(motoId, status) {
   return { ok: !error, error: error?.message }
 }
 
-// 16. Create shop order
-export async function createShopOrder(userId, items) {
-  const { data, error } = await supabase.rpc('create_shop_order', {
-    p_items: items,
-    p_shipping_method: 'pickup',
-    p_shipping_address: JSON.stringify({ city: 'Praha', street: 'Testovací 1' }),
-    p_payment_method: 'card',
-    p_promo_code: null,
-  })
-  return { ok: !error, orderId: data, error: error?.message }
-}
-
-// 17. Create promo code
+// 16. Create promo code (correct columns: type, discount_percent)
 export async function createPromoCode(code, discountPct) {
   const { data, error } = await supabase.from('promo_codes').insert({
-    code, discount_percent: discountPct, valid_from: new Date().toISOString(),
-    valid_to: futureDate(30), max_uses: 10, is_test: true
+    code,
+    type: 'percent',
+    discount_percent: discountPct,
+    valid_from: new Date().toISOString(),
+    valid_to: new Date(Date.now() + 30 * 86400000).toISOString(),
+    max_uses: 10,
+    is_active: true,
+    is_test: true,
   }).select().single()
   return { ok: !error, data, error: error?.message }
 }
 
-// 18. Send admin message
-export async function sendAdminMessage(userId, subject, body) {
-  const { error } = await supabase.from('admin_messages').insert({
-    user_id: userId, subject, body, read: false
+// 17. Send message via message_threads + messages (not admin_messages)
+export async function sendCustomerMessage(userId, content) {
+  // Create or find thread
+  const { data: existing } = await supabase.from('message_threads')
+    .select('id').eq('customer_id', userId).limit(1).single()
+
+  let threadId = existing?.id
+  if (!threadId) {
+    const { data: thread } = await supabase.from('message_threads').insert({
+      customer_id: userId, status: 'open', channel: 'app'
+    }).select().single()
+    threadId = thread?.id
+  }
+  if (!threadId) return { ok: false, error: 'Nelze vytvořit vlákno' }
+
+  const { error } = await supabase.from('messages').insert({
+    thread_id: threadId, direction: 'admin', content,
+    sender_name: 'AI Simulátor'
   })
-  return { ok: !error, error: error?.message }
+  return { ok: !error, threadId, error: error?.message }
 }
 
-// 19. Update customer profile
+// 18. Update customer profile
 export async function updateProfile(userId, updates) {
   const { error } = await supabase.from('profiles').update(updates).eq('id', userId)
   return { ok: !error, error: error?.message }
@@ -233,12 +235,20 @@ export async function updateProfile(userId, updates) {
 // --- CLEANUP ---
 export async function cleanupTestData() {
   const results = []
+  // Order matters: delete dependents first
+  // Delete test SOS timeline entries for test incidents
+  const { data: testSos } = await supabase.from('sos_incidents').select('id').eq('is_test', true)
+  if (testSos?.length) {
+    for (const s of testSos) {
+      await supabase.from('sos_timeline').delete().eq('incident_id', s.id)
+    }
+  }
   // Delete test bookings
   const { count: b } = await supabase.from('bookings').delete({ count: 'exact' }).eq('is_test', true)
   results.push(`Bookings: ${b || 0}`)
   // Delete test SOS
-  const { count: s } = await supabase.from('sos_incidents').delete({ count: 'exact' }).eq('is_test', true)
-  results.push(`SOS: ${s || 0}`)
+  const { count: si } = await supabase.from('sos_incidents').delete({ count: 'exact' }).eq('is_test', true)
+  results.push(`SOS: ${si || 0}`)
   // Delete test service orders
   const { count: so } = await supabase.from('service_orders').delete({ count: 'exact' }).eq('is_test', true)
   results.push(`Service: ${so || 0}`)
@@ -246,14 +256,22 @@ export async function cleanupTestData() {
   const { count: p } = await supabase.from('promo_codes').delete({ count: 'exact' }).eq('is_test', true)
   results.push(`Promo: ${p || 0}`)
   // Delete test maintenance logs
-  const { count: ml } = await supabase.from('maintenance_logs').delete({ count: 'exact' }).eq('is_test', true)
+  const { count: ml } = await supabase.from('maintenance_log').delete({ count: 'exact' }).eq('is_test', true)
   results.push(`Maintenance: ${ml || 0}`)
-  // Delete test profiles (profiles with is_test_account)
+  // Delete test message threads + messages for test profiles
   const { data: testProfiles } = await supabase.from('profiles').select('id').eq('is_test_account', true)
-  for (const p of (testProfiles || [])) {
-    await supabase.auth.admin.deleteUser(p.id).catch(() => {})
+  if (testProfiles?.length) {
+    for (const pr of testProfiles) {
+      const { data: threads } = await supabase.from('message_threads').select('id').eq('customer_id', pr.id)
+      for (const t of (threads || [])) {
+        await supabase.from('messages').delete().eq('thread_id', t.id)
+      }
+      await supabase.from('message_threads').delete().eq('customer_id', pr.id)
+    }
   }
-  results.push(`Profiles: ${testProfiles?.length || 0}`)
+  // Delete test profiles
+  const { count: pr } = await supabase.from('profiles').delete({ count: 'exact' }).eq('is_test_account', true)
+  results.push(`Profiles: ${pr || 0}`)
   return results
 }
 
