@@ -118,6 +118,27 @@ serve(async (req) => {
       }
     }
 
+    // ── Dedup: prevent duplicate invoices of same type for same booking/order ──
+    if (booking_id && !isShop) {
+      const dedupTypes = isPaymentReceipt ? ['payment_receipt'] : isProforma ? ['advance', 'proforma'] : ['final', 'issued']
+      const { data: existing } = await supabase.from('invoices').select('id, number')
+        .eq('booking_id', booking_id).in('type', dedupTypes)
+        .neq('status', 'cancelled').limit(1)
+      // Allow edit/sos/restore ZFs and DPs (multiple per booking), block duplicate booking-source ones
+      const invoiceSource = type === 'payment_receipt' ? 'booking' : (type || 'booking')
+      if (existing?.length && invoiceSource === 'booking') {
+        // For booking source, check if this exact source already exists
+        const { data: sameSource } = await supabase.from('invoices').select('id, number')
+          .eq('booking_id', booking_id).in('type', dedupTypes)
+          .eq('source', 'booking').neq('status', 'cancelled').limit(1)
+        if (sameSource?.length) {
+          return new Response(JSON.stringify({
+            success: true, invoice_id: sameSource[0].id, number: sameSource[0].number, existing: true
+          }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
+        }
+      }
+    }
+
     // Generate number
     const { data: lastInv } = await supabase.from('invoices').select('number')
       .like('number', `${prefix}-${year}-%`).order('number', { ascending: false }).limit(1)

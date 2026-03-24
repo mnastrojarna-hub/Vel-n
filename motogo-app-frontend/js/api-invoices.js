@@ -206,6 +206,13 @@ async function apiGenerateAdvanceInvoice(bookingId, amount, source, editCtx){
   try {
     var uid = await _getUserId();
     if(!uid) return {error:'Nepřihlášen'};
+    // Dedup: check if a ZF with same source already exists for this booking
+    var existingZf = await window.supabase.from('invoices').select('id, number')
+      .eq('booking_id', bookingId).eq('type', 'advance').eq('source', source || 'booking')
+      .neq('status', 'cancelled').limit(1);
+    if(existingZf.data && existingZf.data.length > 0){
+      return {error: null, invoice_number: existingZf.data[0].number, existing: true};
+    }
     var br = await window.supabase.from('bookings')
       .select('*, motorcycles('+_MOTO_PRICE_COLS+')')
       .eq('id', bookingId).single();
@@ -337,6 +344,13 @@ async function apiGeneratePaymentReceipt(bookingId, amount, source, editCtx){
   try {
     var uid = await _getUserId();
     if(!uid) return {error:'Nepřihlášen'};
+    // Dedup: check if a DP with same source already exists for this booking
+    var existingDp = await window.supabase.from('invoices').select('id, number')
+      .eq('booking_id', bookingId).eq('type', 'payment_receipt').eq('source', source || 'booking')
+      .neq('status', 'cancelled').limit(1);
+    if(existingDp.data && existingDp.data.length > 0){
+      return {error: null, receipt_number: existingDp.data[0].number, existing: true};
+    }
     var br = await window.supabase.from('bookings')
       .select('*, motorcycles('+_MOTO_PRICE_COLS+')')
       .eq('id', bookingId).single();

@@ -253,6 +253,18 @@ async function proceedToPayment(){
       }
     }
 
+    // Check motorcycle availability (prevents same moto being booked twice for same dates)
+    if(typeof apiCheckMotoAvailability === 'function' && motoId){
+      var motoAvail = await apiCheckMotoAvailability(motoId, startDate.toISOString(), endDate.toISOString());
+      if(motoAvail.available === false){
+        showT('\u26a0\ufe0f',
+          _t('pay').overlapTitle||'Motorka není dostupná',
+          'Tato motorka je v daném termínu již rezervována. Zvolte jiný termín nebo jinou motorku.'
+        );
+        return;
+      }
+    }
+
     // Získej UUID z _db (enrichMOTOS), nebo fallback lookup v Supabase
     var motoId = null;
     if(bookingMoto._db && bookingMoto._db.id){
@@ -385,6 +397,7 @@ async function proceedToPayment(){
 
 // Process payment with 2s delay
 function doPayment(){
+  if(_stripeCheckoutOpened) return; // already processing
   try {
     var payBtn = document.getElementById('pay-btn');
     if(payBtn){

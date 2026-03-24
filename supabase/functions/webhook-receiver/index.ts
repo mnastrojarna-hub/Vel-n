@@ -232,12 +232,17 @@ async function confirmBookingPayment(
     try {
       const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
       const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-      // Generate advance invoice (ZF)
-      await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY },
-        body: JSON.stringify({ type: 'advance', booking_id: bookingId }),
-      }).catch(() => {})
+      // Generate advance invoice (ZF) — skip if one already exists
+      const { data: existingZf } = await supabase.from('invoices')
+        .select('id').eq('booking_id', bookingId)
+        .in('type', ['advance', 'proforma']).limit(1)
+      if (!existingZf?.length) {
+        await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY },
+          body: JSON.stringify({ type: 'advance', booking_id: bookingId }),
+        }).catch(() => {})
+      }
       // Generate contract + VOP
       await fetch(`${SUPABASE_URL}/functions/v1/generate-document`, {
         method: 'POST',
