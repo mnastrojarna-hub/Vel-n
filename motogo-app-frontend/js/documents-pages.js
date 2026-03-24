@@ -117,7 +117,8 @@ async function renderInvoicesPage(){
       var amt=d.amount?d.amount.toLocaleString('cs-CZ')+' Kč':'';
       var itemName=isShop?(d.shop_items||'Shop'):(d.moto_name||'');
       var invId = (inv && inv.id) ? inv.id : d.id;
-      var onclick=isShop?'showShopOrderDetail(\''+d.id+'\')':'showInvoice(\''+d.booking_id+'\',\''+invType+'\',\''+(invId||'')+'\')';
+      var onclick=isShop?'showShopOrderDetail(\''+d.id+'\')':
+        (d.booking_id?'showInvoice(\''+d.booking_id+'\',\''+invType+'\',\''+(invId||'')+'\')':'showInvoiceById(\''+(invId||d.id)+'\')');
       html+='<div class="inv-item" onclick="'+onclick+'">'+
         '<div class="inv-icon">'+icon+'</div>'+
         '<div class="inv-info"><div class="inv-name">'+itemName+' · '+label+'</div>'+

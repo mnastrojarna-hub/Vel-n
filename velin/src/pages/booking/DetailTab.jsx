@@ -76,7 +76,7 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
         </Card>
       )}
 
-      <DatesAndPaymentSection booking={booking} bookingExtras={bookingExtras} onModify={onModify} error={error} actions={actions} onAction={onAction} />
+      <DatesAndPaymentSection booking={booking} bookingExtras={bookingExtras} sosIncidents={sosIncidents} onModify={onModify} error={error} actions={actions} onAction={onAction} />
 
       {booking.status === 'cancelled' && (
         <Card className="col-span-2">
@@ -173,7 +173,7 @@ function SOSSection({ booking, sosIncidents, navigate }) {
   )
 }
 
-function DatesAndPaymentSection({ booking, bookingExtras, onModify, error, actions, onAction }) {
+function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, onModify, error, actions, onAction }) {
   const _ld = d => d ? new Date(d).toLocaleDateString('sv-SE') : ''
   const hasModification = booking.original_start_date && booking.original_end_date &&
     (_ld(booking.start_date) !== _ld(booking.original_start_date) || _ld(booking.end_date) !== _ld(booking.original_end_date))
