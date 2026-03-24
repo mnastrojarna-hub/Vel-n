@@ -6,6 +6,7 @@ import Button from '../components/ui/Button'
 import AiConfirmDialog from '../components/ai/AiConfirmDialog'
 import AiAutonomyPanel from '../components/ai/AiAutonomyPanel'
 import AiTestRunner from '../components/ai/AiTestRunner'
+import AiTrainingPanel from '../components/ai/AiTrainingPanel'
 
 export default function AiOrchestrator() {
   const [briefing, setBriefing] = useState(null)
@@ -66,6 +67,7 @@ export default function AiOrchestrator() {
     { id: 'priorities', label: 'Priority', icon: '🔥' },
     { id: 'health', label: 'Zdraví agentů', icon: '💚' },
     { id: 'autonomy', label: 'Autonomie', icon: '🤖' },
+    { id: 'training', label: 'Trénink', icon: '🏋️' },
     { id: 'tester', label: 'Systémový test', icon: '🧪' },
     { id: 'learning', label: 'Učení & Autonomie', icon: '🎓' },
   ]
@@ -208,6 +210,13 @@ export default function AiOrchestrator() {
               )
             })}
           </div>
+        </div>
+      )}
+
+      {/* Training Tab — simulator */}
+      {tab === 'training' && (
+        <div className="rounded-card bg-white p-4 shadow-card">
+          <AiTrainingPanel />
         </div>
       )}
 
