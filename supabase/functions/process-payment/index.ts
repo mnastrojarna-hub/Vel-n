@@ -208,14 +208,16 @@ Deno.serve(async (req: Request) => {
     const session = await stripe.checkout.sessions.create(sessionParams as Stripe.Checkout.SessionCreateParams)
 
     // Log to debug_log
-    await supabase.from('debug_log').insert({
-      source: 'process-payment',
-      action: 'stripe_session_created',
-      component: paymentType,
-      status: 'ok',
-      request_data: { booking_id, order_id, incident_id, amount, currency, type: paymentType },
-      response_data: { session_id: session.id, checkout_url: session.url },
-    }).catch(() => {})
+    try {
+      await supabase.from('debug_log').insert({
+        source: 'process-payment',
+        action: 'stripe_session_created',
+        component: paymentType,
+        status: 'ok',
+        request_data: { booking_id, order_id, incident_id, amount, currency, type: paymentType },
+        response_data: { session_id: session.id, checkout_url: session.url },
+      })
+    } catch (_) { /* ignore logging errors */ }
 
     return new Response(
       JSON.stringify({
