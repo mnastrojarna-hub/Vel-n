@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { AGENTS, loadAgentConfig, saveAgentConfig } from '../../lib/aiAgents'
 
-export default function AiAgentPanel({ config, onChange }) {
+export default function AiAgentPanel({ config, onChange, onConfigAgent }) {
   const [editingId, setEditingId] = useState(null)
   const [corrText, setCorrText] = useState('')
 
@@ -81,6 +81,15 @@ export default function AiAgentPanel({ config, onChange }) {
 
             {isOn && (
               <div style={{ marginTop: 6, paddingLeft: 28 }}>
+                {/* Config button */}
+                {onConfigAgent && (
+                  <button onClick={() => onConfigAgent(agent.id)} style={{
+                    fontSize: 11, color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe',
+                    borderRadius: 4, padding: '2px 8px', cursor: 'pointer', marginBottom: 4, display: 'block',
+                  }}>
+                    📝 Zadání + Paměť
+                  </button>
+                )}
                 {/* Auto-confirm toggle */}
                 <label style={{ fontSize: 11, color: '#666', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
                   <input type="checkbox" checked={cfg.autoConfirm || false} onChange={() => toggleAutoConfirm(agent.id)} style={{ width: 12, height: 12 }} />

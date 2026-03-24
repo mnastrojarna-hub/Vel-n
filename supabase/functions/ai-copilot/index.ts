@@ -60,7 +60,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json()
-    const { message, conversation_id, conversation_history, mode, actions, enabled_tools, agent_corrections } = body
+    const { message, conversation_id, conversation_history, mode, actions, enabled_tools, agent_corrections, agent_prompts, agent_memory } = body
 
     if (!ANTHROPIC_API_KEY) return jsonResponse({ error: 'ANTHROPIC_API_KEY not configured' }, 500)
 
@@ -112,7 +112,10 @@ serve(async (req) => {
 
     // Filter tools by enabled agents
     const tools = filterToolsByEnabled(enabled_tools)
-    const systemPrompt = buildSystemPrompt(agent_corrections)
+    let systemPrompt = buildSystemPrompt(agent_corrections)
+    // Inject agent-specific prompts and memory from frontend
+    if (agent_prompts && typeof agent_prompts === 'string') systemPrompt += agent_prompts
+    if (agent_memory && typeof agent_memory === 'string') systemPrompt += agent_memory
 
     // Agentic loop
     const MAX_ITER = 10, TIMEOUT = 30000, t0 = Date.now()
