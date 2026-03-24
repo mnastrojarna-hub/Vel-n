@@ -51,6 +51,17 @@ export const WRITE_TOOLS_DEFINITION = [
   // === TESTER AGENT ===
   { name: 'generate_test_report', description: 'Vygenerování testovacího reportu', input_schema: { type: T, properties: { scope: { ...S, description: 'Oblast: bookings/fleet/finance/eshop/sos/all' }, depth: { ...S, description: 'quick/standard/deep' } }, required: ['scope'] } },
   { name: 'check_data_integrity', description: 'Kontrola integrity dat', input_schema: { type: T, properties: { table: { ...S, description: 'Název tabulky nebo all' } }, required: ['table'] } },
+
+  // === ORCHESTRATOR ===
+  { name: 'generate_daily_briefing', description: 'Denní briefing pro ředitele — KPIs, alerty, priority', input_schema: { type: T, properties: {}, required: [] } },
+  { name: 'check_agent_health', description: 'Kontrola zdraví všech AI agentů — stav domén', input_schema: { type: T, properties: {}, required: [] } },
+  { name: 'get_priority_queue', description: 'Fronta priorit — co vyžaduje okamžitou pozornost', input_schema: { type: T, properties: {}, required: [] } },
+
+  // === TESTER — FLOW TESTY ===
+  { name: 'test_booking_flow', description: 'Test integrity booking flow — lifecycle, platby, konzistence', input_schema: { type: T, properties: {}, required: [] } },
+  { name: 'test_payment_flow', description: 'Test platebního flow — platby vs faktury vs stavy', input_schema: { type: T, properties: {}, required: [] } },
+  { name: 'test_sos_flow', description: 'Test SOS flow — response time, timeline, řešení', input_schema: { type: T, properties: {}, required: [] } },
+  { name: 'run_full_system_test', description: 'Kompletní systémový test — DB, integrita, pricing, bezpečnost', input_schema: { type: T, properties: { depth: { ...S, description: 'quick/standard/deep' } }, required: [] } },
 ]
 
 // Tool risk levels for confirmation dialog
@@ -65,4 +76,6 @@ export const TOOL_RISK: Record<string, string> = {
   update_app_setting: 'high', update_feature_flag: 'high',
   update_sos_incident: 'medium',
   generate_test_report: 'low', check_data_integrity: 'low',
+  generate_daily_briefing: 'low', check_agent_health: 'low', get_priority_queue: 'low',
+  test_booking_flow: 'low', test_payment_flow: 'low', test_sos_flow: 'low', run_full_system_test: 'low',
 }

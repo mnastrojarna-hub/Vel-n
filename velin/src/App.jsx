@@ -29,6 +29,7 @@ const AICopilot = lazy(() => import('./pages/AICopilot'))
 const SOSPanel = lazy(() => import('./pages/SOSPanel'))
 const Branches = lazy(() => import('./pages/Branches'))
 const Employees = lazy(() => import('./pages/Employees'))
+const AiOrchestrator = lazy(() => import('./pages/AiOrchestrator'))
 
 function PageLoader() {
   return (
@@ -80,6 +81,7 @@ export default function App() {
           <Route path="/pobocky" element={<Branches />} />
           <Route path="/sos" element={<SOSPanel />} />
           <Route path="/zamestnanci" element={<Employees />} />
+          <Route path="/orchestrator" element={<AiOrchestrator />} />
         </Route>
       </Routes>
     </Suspense>

@@ -19,6 +19,7 @@ const NAV = [
   { id: 'eshop', path: '/e-shop', label: 'E-shop', icon: '🛒' },
   { id: 'government', path: '/statni-sprava', label: 'Státní správa', icon: '🏛️' },
   { id: 'ai', path: '/ai-copilot', label: 'AI Copilot', icon: '🤖' },
+  { id: 'orchestrator', path: '/orchestrator', label: 'AI Ředitel', icon: '👔' },
   { id: 'sos', path: '/sos', label: 'SOS Panel', icon: '🚨', badgeKey: 'sos' },
   { id: 'employees', path: '/zamestnanci', label: 'Zaměstnanci', icon: '👷' },
 ]
