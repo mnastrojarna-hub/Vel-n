@@ -337,7 +337,7 @@ export default function Dashboard() {
               <div className="text-lg font-extrabold" style={{ color: financeData.profit >= 0 ? '#1a8a18' : '#dc2626' }}>{formatCurrency(financeData.profit)}</div>
             </div>
             <div className="rounded-lg" style={{ padding: '10px 14px', background: '#fef3c7' }}>
-              <div className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Neuhrazené</div>
+              <div className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Neuhrazené zálohy</div>
               <div className="text-lg font-extrabold" style={{ color: '#b45309' }}>{formatCurrency(financeData.unpaid)}</div>
             </div>
           </div>

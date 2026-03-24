@@ -26,7 +26,35 @@ const TYPE_MAP = {
   payroll: { label: 'Mzdy',    color: '#b45309', bg: '#fef3c7' },
 }
 
-const SOURCE_LABELS = { stripe: 'Stripe', ocr: 'OCR', system: 'Systém', manual: 'Ručně' }
+const SOURCE_LABELS = { stripe: 'Stripe', ocr: 'OCR', system: 'Systém', manual: 'Ručně', scanner: 'Skener' }
+
+const DOC_TYPE_MAP = {
+  faktura_prijata: { label: 'Faktura přijatá', color: '#2563eb', bg: '#dbeafe', route: 'Faktury přijaté' },
+  dodaci_list: { label: 'Dodací list', color: '#0891b2', bg: '#cffafe', route: 'Dodací listy' },
+  zaloha: { label: 'Zálohová FA', color: '#7c3aed', bg: '#ede9fe', route: 'Faktury' },
+  doklad_platby: { label: 'Doklad k platbě', color: '#059669', bg: '#d1fae5', route: 'Faktury' },
+  smlouva: { label: 'Smlouva', color: '#b45309', bg: '#fef3c7', route: 'Smlouvy' },
+  pracovni_smlouva: { label: 'Pracovní smlouva', color: '#92400e', bg: '#fef3c7', route: 'Smlouvy' },
+  zadost_dovolena: { label: 'Žádost o dovolenou', color: '#0284c7', bg: '#e0f2fe', route: 'Zaměstnanci' },
+  objednavka: { label: 'Objednávka', color: '#1a8a18', bg: '#dcfce7', route: 'Objednávky' },
+  skladovy_doklad: { label: 'Skladový doklad', color: '#6d28d9', bg: '#ede9fe', route: 'Sklad' },
+  pokladni_doklad: { label: 'Pokladní doklad', color: '#dc2626', bg: '#fee2e2', route: 'Pokladna' },
+  other: { label: 'Nerozpoznáno', color: '#6b7280', bg: '#f3f4f6', route: null },
+}
+
+const STORAGE_FOLDERS = {
+  faktura_prijata: 'faktury-prijate',
+  dodaci_list: 'dodaci-listy',
+  zaloha: 'faktury-prijate',
+  doklad_platby: 'faktury-prijate',
+  smlouva: 'smlouvy',
+  pracovni_smlouva: 'zamestnanecke',
+  zadost_dovolena: 'zamestnanecke',
+  objednavka: 'objednavky',
+  skladovy_doklad: 'sklad',
+  pokladni_doklad: 'pokladna',
+  other: 'ostatni',
+}
 
 const CATEGORY_LABELS = {
   phm: 'PHM', pojisteni: 'Pojištění', servis_opravy: 'Servis', najem: 'Nájem',
@@ -54,7 +82,8 @@ const PAYMENT_LABELS = {
 
 const ALL_STATUSES = ['pending', 'enriched', 'validated', 'exported', 'approved', 'submitted', 'error']
 const ALL_TYPES = ['revenue', 'expense', 'asset', 'payroll']
-const ALL_SOURCES = ['stripe', 'ocr', 'system', 'manual']
+const ALL_SOURCES = ['stripe', 'ocr', 'system', 'manual', 'scanner']
+const ALL_DOC_TYPES = Object.keys(DOC_TYPE_MAP)
 
 export default function FinancialEventsTab() {
   const [events, setEvents] = useState([])
@@ -67,6 +96,7 @@ export default function FinancialEventsTab() {
   const [statusFilter, setStatusFilter] = useState([])
   const [typeFilter, setTypeFilter] = useState('')
   const [sourceFilter, setSourceFilter] = useState('')
+  const [docTypeFilter, setDocTypeFilter] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [expandedId, setExpandedId] = useState(null)
@@ -75,7 +105,7 @@ export default function FinancialEventsTab() {
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [bulkPushing, setBulkPushing] = useState(false)
 
-  useEffect(() => { load() }, [page, statusFilter, typeFilter, sourceFilter, dateFrom, dateTo])
+  useEffect(() => { load() }, [page, statusFilter, typeFilter, sourceFilter, docTypeFilter, dateFrom, dateTo])
 
   async function load() {
     setLoading(true); setError(null)
@@ -98,6 +128,7 @@ export default function FinancialEventsTab() {
       if (statusFilter.length > 0) query = query.in('status', statusFilter)
       if (typeFilter) query = query.eq('event_type', typeFilter)
       if (sourceFilter) query = query.eq('source', sourceFilter)
+      if (docTypeFilter) query = query.eq('document_type', docTypeFilter)
       if (dateFrom) query = query.gte('duzp', dateFrom)
       if (dateTo) query = query.lte('duzp', dateTo)
 
@@ -133,11 +164,21 @@ export default function FinancialEventsTab() {
         .eq('id', event.id)
       if (err) throw err
 
-      // When validated → create liability + ensure supplier + create received invoice
+      // When validated → route based on document_type + create liability + ensure supplier
       if (nextStatus === 'validated') {
-        await createLiabilityFromEvent(event)
+        const docType = event.document_type || event.metadata?.document_type || null
+        await backupPhotoToFolder(event, docType)
+
+        if (docType === 'dodaci_list') {
+          await createDeliveryNoteFromEvent(event)
+        } else if (['smlouva', 'pracovni_smlouva', 'zadost_dovolena'].includes(docType)) {
+          await createContractFromEvent(event, docType)
+        } else {
+          // Default: create received invoice + liability
+          await createLiabilityFromEvent(event)
+          await createReceivedInvoiceFromEvent(event)
+        }
         await ensureSupplier(event)
-        await createReceivedInvoiceFromEvent(event)
       }
 
       // When approved → if cash payment, deduct from pokladna
@@ -189,6 +230,87 @@ export default function FinancialEventsTab() {
       ico: meta.supplier_ico || null,
       bank_account: meta.supplier_bank_account || null,
     })
+  }
+
+  async function backupPhotoToFolder(event, docType) {
+    const meta = event.metadata || {}
+    const sourcePath = meta.storage_path
+    if (!sourcePath) return
+    const folder = STORAGE_FOLDERS[docType] || STORAGE_FOLDERS.other
+    const fileName = `${new Date().toISOString().slice(0, 10)}_${event.id.slice(0, 8)}_${sourcePath.split('/').pop()}`
+    const targetPath = `${folder}/${fileName}`
+    try {
+      // Copy photo to sorted folder
+      const { data: fileData } = await supabase.storage.from('invoices-received').download(sourcePath)
+      if (fileData) {
+        await supabase.storage.from('documents').upload(targetPath, fileData, { upsert: true })
+        // Update event metadata with backup path
+        await supabase.from('financial_events').update({
+          metadata: { ...meta, backup_path: targetPath, backup_bucket: 'documents' },
+        }).eq('id', event.id)
+      }
+    } catch (e) {
+      console.error('[FE] Photo backup failed:', e.message)
+    }
+  }
+
+  async function createDeliveryNoteFromEvent(event) {
+    const meta = event.metadata || {}
+    if (event.linked_entity_type === 'delivery_note' && event.linked_entity_id) return
+    const { data: dl } = await supabase.from('delivery_notes').insert({
+      dl_number: meta.invoice_number || meta.dl_number || `DL-${event.id.slice(0, 8)}`,
+      supplier_name: meta.supplier_name || null,
+      supplier_ico: meta.supplier_ico || null,
+      total_amount: event.amount_czk || 0,
+      delivery_date: event.duzp || new Date().toISOString().slice(0, 10),
+      variable_symbol: meta.variable_symbol || null,
+      items: meta.items || null,
+      notes: meta.notes || [meta.supplier_name, meta.invoice_number].filter(Boolean).join('\n'),
+      photo_url: meta.backup_path ? null : null, // Will be set via signed URL when needed
+      storage_path: meta.backup_path || meta.storage_path || null,
+      extracted_data: meta.ai_classification || meta,
+      source: 'financial_event',
+      financial_event_id: event.id,
+    }).select().single()
+    if (dl) {
+      await supabase.from('financial_events').update({
+        linked_entity_type: 'delivery_note',
+        linked_entity_id: dl.id,
+      }).eq('id', event.id)
+    }
+  }
+
+  async function createContractFromEvent(event, docType) {
+    const meta = event.metadata || {}
+    if (event.linked_entity_type === 'contract' && event.linked_entity_id) return
+    const contractTypeMap = {
+      smlouva: meta.contract_subtype || 'other',
+      pracovni_smlouva: 'employment',
+      zadost_dovolena: 'vacation_request',
+    }
+    const { data: contract } = await supabase.from('contracts').insert({
+      contract_number: meta.invoice_number || meta.contract_number || `SM-${event.id.slice(0, 8)}`,
+      contract_type: contractTypeMap[docType] || 'other',
+      title: meta.title || meta.supplier_name || `Smlouva ze skeneru`,
+      counterparty: meta.supplier_name || null,
+      counterparty_ico: meta.supplier_ico || null,
+      amount: event.amount_czk || null,
+      valid_from: event.duzp || new Date().toISOString().slice(0, 10),
+      valid_until: meta.due_date || null,
+      status: 'pending',
+      notes: meta.notes || [meta.supplier_name, meta.invoice_number].filter(Boolean).join('\n'),
+      storage_path: meta.backup_path || meta.storage_path || null,
+      extracted_data: meta.ai_classification || meta,
+      source: 'financial_event',
+      financial_event_id: event.id,
+      employee_id: meta.employee_id || null,
+    }).select().single()
+    if (contract) {
+      await supabase.from('financial_events').update({
+        linked_entity_type: 'contract',
+        linked_entity_id: contract.id,
+      }).eq('id', event.id)
+    }
   }
 
   async function createReceivedInvoiceFromEvent(event) {
@@ -315,13 +437,18 @@ export default function FinancialEventsTab() {
           <option value="">Všechny zdroje</option>
           {ALL_SOURCES.map(s => <option key={s} value={s}>{SOURCE_LABELS[s]}</option>)}
         </select>
+        <select value={docTypeFilter} onChange={e => { setPage(1); setDocTypeFilter(e.target.value) }}
+          className="rounded-btn text-sm outline-none" style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+          <option value="">Všechny doklady</option>
+          {ALL_DOC_TYPES.map(dt => <option key={dt} value={dt}>{DOC_TYPE_MAP[dt].label}</option>)}
+        </select>
         <input type="date" value={dateFrom} onChange={e => { setPage(1); setDateFrom(e.target.value) }}
           className="rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
         <span className="text-sm font-bold" style={{ color: '#6b7280' }}>–</span>
         <input type="date" value={dateTo} onChange={e => { setPage(1); setDateTo(e.target.value) }}
           className="rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
-        {(statusFilter.length > 0 || typeFilter || sourceFilter || dateFrom || dateTo) && (
-          <button onClick={() => { setPage(1); setStatusFilter([]); setTypeFilter(''); setSourceFilter(''); setDateFrom(''); setDateTo('') }}
+        {(statusFilter.length > 0 || typeFilter || sourceFilter || docTypeFilter || dateFrom || dateTo) && (
+          <button onClick={() => { setPage(1); setStatusFilter([]); setTypeFilter(''); setSourceFilter(''); setDocTypeFilter(''); setDateFrom(''); setDateTo('') }}
             className="text-sm font-bold cursor-pointer rounded-btn"
             style={{ padding: '8px 14px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626' }}>
             Reset
@@ -339,7 +466,7 @@ export default function FinancialEventsTab() {
           <Table>
             <thead>
               <TRow header>
-                <TH>Datum</TH><TH>Typ</TH><TH>Dodavatel</TH><TH>Částka</TH>
+                <TH>Datum</TH><TH>Typ</TH><TH>Doklad</TH><TH>Dodavatel</TH><TH>Částka</TH>
                 <TH>AI kategorie</TH><TH>Status</TH><TH>Akce</TH>
               </TRow>
             </thead>
@@ -353,8 +480,11 @@ export default function FinancialEventsTab() {
                 const isActing = actionId === ev.id
                 const supplierName = ev.metadata?.supplier_name || '—'
 
+                const docType = ev.document_type || ev.metadata?.document_type || null
+                const dt = docType ? (DOC_TYPE_MAP[docType] || DOC_TYPE_MAP.other) : null
+
                 return (
-                  <EvRow key={ev.id} ev={ev} st={st} tp={tp} catLabel={catLabel}
+                  <EvRow key={ev.id} ev={ev} st={st} tp={tp} dt={dt} catLabel={catLabel}
                     supplierName={supplierName} isExpanded={isExpanded} isActing={isActing}
                     fmt={fmt} onExpand={() => setExpandedId(isExpanded ? null : ev.id)}
                     onApprove={() => approveEvent(ev)} onFlexi={() => pushToFlexi(ev)}
@@ -416,7 +546,7 @@ export default function FinancialEventsTab() {
   )
 }
 
-function EvRow({ ev, st, tp, catLabel, supplierName, isExpanded, isActing, fmt, onExpand, onApprove, onFlexi, onEdit, onDelete }) {
+function EvRow({ ev, st, tp, dt, catLabel, supplierName, isExpanded, isActing, fmt, onExpand, onApprove, onFlexi, onEdit, onDelete }) {
   const canApprove = ev.status === 'enriched' || ev.status === 'exported'
   const canFlexi = ev.status === 'validated'
 
@@ -425,6 +555,10 @@ function EvRow({ ev, st, tp, catLabel, supplierName, isExpanded, isActing, fmt, 
       <TRow>
         <TD>{ev.duzp ? new Date(ev.duzp).toLocaleDateString('cs-CZ') : '—'}</TD>
         <TD><Badge label={tp.label} color={tp.color} bg={tp.bg} /></TD>
+        <TD>
+          {dt ? <Badge label={dt.label} color={dt.color} bg={dt.bg} /> : <span style={{ color: '#d4d4d8' }}>—</span>}
+          {dt?.route && <div className="text-[8px] font-bold mt-0.5" style={{ color: '#6b7280' }}>→ {dt.route}</div>}
+        </TD>
         <TD><span className="text-sm font-bold" style={{ color: '#1a2e22' }}>{supplierName}</span></TD>
         <TD bold color={ev.event_type === 'revenue' ? '#1a8a18' : '#dc2626'}>{fmt(ev.amount_czk)}</TD>
         <TD>
@@ -467,7 +601,7 @@ function EvRow({ ev, st, tp, catLabel, supplierName, isExpanded, isActing, fmt, 
       </TRow>
       {isExpanded && (
         <tr style={{ background: '#f9fafb', borderBottom: '1px solid #d4e8e0' }}>
-          <td colSpan={7} style={{ padding: '12px 16px' }}>
+          <td colSpan={8} style={{ padding: '12px 16px' }}>
             <EventDetail event={ev} />
           </td>
         </tr>
@@ -566,6 +700,18 @@ function EventDetail({ event }) {
                 </span>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Document type + routing */}
+      {(event.document_type || event.metadata?.document_type) && (
+        <div>
+          <div className="text-[9px] font-extrabold uppercase tracking-wide mb-2" style={{ color: '#0891b2' }}>Typ dokladu & směrování</div>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+            <MiniLabel label="Typ dokladu" value={(DOC_TYPE_MAP[event.document_type || event.metadata?.document_type] || DOC_TYPE_MAP.other).label} />
+            <MiniLabel label="Směrováno do" value={(DOC_TYPE_MAP[event.document_type || event.metadata?.document_type] || DOC_TYPE_MAP.other).route || '—'} />
+            {event.metadata?.backup_path && <MiniLabel label="Záloha foto" value={event.metadata.backup_path} mono />}
           </div>
         </div>
       )}
