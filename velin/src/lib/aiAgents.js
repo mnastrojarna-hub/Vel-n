@@ -45,8 +45,8 @@ export const AGENTS = [
     name: 'Servisní manažer',
     icon: '🔧',
     desc: 'Plánování servisů, objednávky dílů, přidělování techniků, GPS lokace',
-    tools: ['create_service_order', 'update_service_order', 'complete_service', 'create_maintenance_log'],
-    readTools: ['get_service_status', 'get_inventory', 'get_inventory_movements', 'get_service_parts', 'get_moto_locations', 'get_purchase_orders', 'get_auto_order_rules'],
+    tools: ['create_service_order', 'update_service_order', 'complete_service', 'create_maintenance_log', 'create_purchase_order', 'create_inventory_movement'],
+    readTools: ['get_service_status', 'get_inventory', 'get_inventory_movements', 'get_service_parts', 'get_moto_locations', 'get_purchase_orders', 'get_auto_order_rules', 'get_suppliers', 'get_delivery_notes'],
     defaultEnabled: true,
   },
   {

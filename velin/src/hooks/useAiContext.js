@@ -161,4 +161,14 @@ export const PAGE_QUICK_ACTIONS = {
     'Nízké zásoby',
     'Pohyby na skladě',
   ],
+  orchestrator: [
+    'Vygeneruj denní briefing',
+    'Zobraz prioritní frontu',
+    'Zkontroluj zdraví agentů',
+    'Spusť kompletní systémový test',
+  ],
+  inventory_detail: [
+    'Pohyby na skladě pro tuto položku',
+    'Pravidla automatického objednávání',
+  ],
 }

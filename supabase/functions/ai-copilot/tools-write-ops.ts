@@ -104,6 +104,17 @@ export async function execWriteOps(name: string, input: R, sb: SB, dryRun: boole
         if (error) return { error: error.message }
         return { status: 'executed', summary }
       }
+      if (action === 'approve' || action === 'reject') {
+        const vacId = input.vacation_id as string
+        if (!vacId) return { error: 'vacation_id je povinný pro approve/reject' }
+        const { data: vac } = await sb.from('emp_vacations').select('id, status, employee_id').eq('id', vacId).single()
+        if (!vac) return { error: 'Dovolená nenalezena' }
+        const summary = `${action === 'approve' ? 'Schválení' : 'Zamítnutí'} dovolené #${vacId.slice(-6)}`
+        if (dryRun) return { status: 'preview', summary, current: vac }
+        const { error } = await sb.from('emp_vacations').update({ status: action === 'approve' ? 'approved' : 'rejected' }).eq('id', vacId)
+        if (error) return { error: error.message }
+        return { status: 'executed', summary }
+      }
       return { error: `Nepodporovaná akce: ${action}` }
     }
 
@@ -148,6 +159,33 @@ export async function execWriteOps(name: string, input: R, sb: SB, dryRun: boole
       if (dryRun) return { status: 'preview', summary, data: input }
       const { error } = await sb.from('promo_codes').insert({ code, type: pType, discount_value, max_uses: max_uses || 100, valid_to, is_active: true })
       if (error) return { error: error.message }
+      return { status: 'executed', summary }
+    }
+
+    // === PROCUREMENT ===
+    case 'create_purchase_order': {
+      const { supplier_id, items, notes } = input
+      const { data: supplier } = supplier_id ? await sb.from('suppliers').select('id, name').eq('id', supplier_id).single() : { data: null }
+      const summary = `Vytvoření nákupní objednávky${supplier ? ` pro ${supplier.name}` : ''}`
+      if (dryRun) return { status: 'preview', summary, supplier, items }
+      const { data: po, error } = await sb.from('purchase_orders').insert({ supplier_id, notes, status: 'draft', created_at: new Date().toISOString() }).select().single()
+      if (error) return { error: error.message }
+      if (items && Array.isArray(items)) {
+        for (const item of items) await sb.from('purchase_order_items').insert({ order_id: po.id, ...item })
+      }
+      return { status: 'executed', summary, order_id: po.id }
+    }
+
+    case 'create_inventory_movement': {
+      const { item_id, type: mType, quantity, notes } = input
+      const { data: item } = await sb.from('inventory').select('id, name, stock').eq('id', item_id).single()
+      if (!item) return { error: 'Skladová položka nenalezena' }
+      const summary = `Pohyb skladu: ${mType} ${quantity}× "${item.name}" (aktuální: ${item.stock})`
+      if (dryRun) return { status: 'preview', summary, current: item }
+      const { error } = await sb.from('inventory_movements').insert({ item_id, type: mType, quantity, notes, created_at: new Date().toISOString() })
+      if (error) return { error: error.message }
+      const newStock = mType === 'receipt' ? item.stock + quantity : item.stock - quantity
+      await sb.from('inventory').update({ stock: newStock }).eq('id', item_id)
       return { status: 'executed', summary }
     }
 
