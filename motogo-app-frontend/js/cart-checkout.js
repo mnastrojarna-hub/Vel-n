@@ -128,20 +128,40 @@ async function finalizeCheckout(){
         }
       }
 
-      // STRIPE PLATBA: přesměruj na Stripe Checkout
+      // STRIPE PLATBA: inline Payment Element nebo fallback Checkout
       if(finalTotal > 0){
         var payResult = await apiProcessPayment(null, finalTotal, 'card', {type: 'shop', order_id: orderId});
-        if(payResult.success && payResult.checkout_url){
-          // Save order ID for post-payment check
+        // Inline Payment Element
+        if(payResult.success && payResult.client_secret){
           _pendingShopOrderId = orderId;
-          _stripeCheckoutBookingId = orderId; // reuse existing Stripe check mechanism
+          showStripeInlinePayment(payResult.client_secret, finalTotal, {
+            onSuccess: function(pi){
+              _stripeCheckoutOpened = false;
+              _stripeCheckoutBookingId = null;
+              _pendingShopOrderId = null;
+              try {
+                window.supabase.functions.invoke('generate-invoice', {
+                  body: { type: 'payment_receipt', order_id: orderId }
+                }).catch(function(){});
+              } catch(re){}
+              _showCheckoutSuccess();
+            },
+            onCancel: function(){
+              _pendingShopOrderId = null;
+              showT('\u2139\ufe0f','Platba přerušena','Objednávka čeká na zaplacení');
+            }
+          });
+          return;
+        }
+        // Fallback: Checkout redirect
+        if(payResult.success && payResult.checkout_url){
+          _pendingShopOrderId = orderId;
+          _stripeCheckoutBookingId = orderId;
           _stripeCheckoutOpened = true;
           if(typeof _openExternalUrl === 'function') _openExternalUrl(payResult.checkout_url);
           else window.open(payResult.checkout_url, '_blank');
-          showT('\u2139\ufe0f','Platba','Přesměrování na Stripe...');
-          return; // Payment confirmation handled by webhook + _checkShopPaymentAfterStripe
+          return;
         }
-        // Edge function failed — show error
         showT('\u26a0\ufe0f','Chyba platby','Nepodařilo se otevřít platební bránu. Zkuste to znovu.');
         return;
       } else {

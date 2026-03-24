@@ -59,7 +59,7 @@ Templates['s-checkout'] = `  <div class="topbar">
         <div style="flex:1;"><div style="font-size:13px;font-weight:700;">Platební karta</div><div style="font-size:11px;color:var(--g400);">Visa · Mastercard</div></div>
       </div>
       <div id="checkout-saved-card" style="display:none;margin-bottom:10px;"></div>
-      <div style="font-size:11px;color:var(--g400);line-height:1.6;">Po kliknutí na <strong>Potvrdit a zaplatit</strong> budete přesměrováni na Stripe, kde vyplníte údaje karty. Máte-li uloženou kartu, bude předvyplněna.</div>
+      <div style="font-size:11px;color:var(--g400);line-height:1.6;">Po kliknutí na <strong>Potvrdit a zaplatit</strong> se zobrazí platební formulář přímo v aplikaci. Máte-li uloženou kartu, bude nabídnuta automaticky.</div>
     </div>
     <div class="bcard" style="margin:0 0 12px;padding:14px;">
       <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--g400);letter-spacing:.5px;margin-bottom:10px;">🏷️ Slevový kód / Dárkový poukaz</div>

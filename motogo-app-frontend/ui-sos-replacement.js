@@ -505,7 +505,7 @@ function _sosInitPaymentGateway(amount){
     if(errorEl) errorEl.style.display = 'none';
     // Update button text with amount
     var btn = document.getElementById('sos-pay-btn');
-    if(btn) btn.textContent = '💳 Zaplatit ' + amount.toLocaleString('cs-CZ') + ' Kč přes Stripe';
+    if(btn) btn.textContent = '💳 Zaplatit ' + amount.toLocaleString('cs-CZ') + ' Kč';
 }
 
 async function sosPaymentSubmit(){
@@ -559,48 +559,43 @@ async function sosPaymentSubmit(){
         return;
       }
 
-      // Process payment via Stripe
+      // Process payment via Stripe (inline Payment Element)
       var payResult = await apiProcessPayment(replBookingId, sosAmount, 'card', {type: 'sos', incident_id: pd.incId});
 
-      if(payResult.success){
-        // Stripe checkout redirect
-        if(payResult.checkout_url){
-          _stripeCheckoutBookingId = replBookingId;
-          if(typeof _lockPaymentScreen==='function') _lockPaymentScreen('↗ Platební brána otevřena...');
-          if(btn){ btn.textContent = '↗ Přesměrování na platbu...'; btn.disabled = true; btn.style.opacity = '0.6'; }
-          showT('✅','Přesměrování', 'Budete přesměrováni na platební bránu Stripe...');
-          if(typeof _openExternalUrl==='function') _openExternalUrl(payResult.checkout_url);
-          else window.location.href = payResult.checkout_url;
-          return;
-        }
-
-        // Fallback: Stripe confirmed payment inline (no redirect needed)
-        pd.replacementData.payment_status = 'paid';
-        pd.replacementData.paid_at = new Date().toISOString();
-
-        if(btn){ btn.textContent = '✅ Platba přijata!'; btn.style.background = '#1a8a18'; }
-        showT('✅','Platba přijata!', sosAmount.toLocaleString('cs-CZ') + ' Kč');
-
-        await new Promise(function(r){ setTimeout(r, 1500); });
-
-        // Generate ZF + DP
-        try {
-          if(typeof apiGenerateAdvanceInvoice === 'function'){
-            var _zfSos = await apiGenerateAdvanceInvoice(replBookingId, sosAmount, 'sos');
-            if(_zfSos.error) console.error('[SOS] ZF generation failed:', _zfSos.error);
-            else console.log('[SOS] ZF generated:', _zfSos.invoice_number);
+      if(payResult.success && payResult.client_secret){
+        // Inline Payment Element — platba v appce
+        if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '💳 Zaplatit ' + sosAmount.toLocaleString('cs-CZ') + ' Kč'; }
+        showStripeInlinePayment(payResult.client_secret, sosAmount, {
+          onSuccess: function(pi){
+            pd.replacementData.payment_status = 'paid';
+            pd.replacementData.paid_at = new Date().toISOString();
+            showT('✅','Platba přijata!', sosAmount.toLocaleString('cs-CZ') + ' Kč');
+            try {
+              if(typeof apiGenerateAdvanceInvoice === 'function') apiGenerateAdvanceInvoice(replBookingId, sosAmount, 'sos').catch(function(){});
+              if(typeof apiGeneratePaymentReceipt === 'function') apiGeneratePaymentReceipt(replBookingId, sosAmount, 'sos').catch(function(){});
+            } catch(e){}
+            goTo('s-reservations');
+            if(typeof loadMyReservations === 'function') loadMyReservations();
+          },
+          onCancel: function(){
+            showT('ℹ️','Platba přerušena','Můžete zaplatit později');
+            if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '💳 Zaplatit'; btn.style.background = '#b91c1c'; }
           }
-          if(typeof apiGeneratePaymentReceipt === 'function'){
-            var _dpSos = await apiGeneratePaymentReceipt(replBookingId, sosAmount, 'sos');
-            if(_dpSos.error) console.error('[SOS] DP generation failed:', _dpSos.error);
-            else console.log('[SOS] DP generated:', _dpSos.receipt_number);
-          }
-        } catch(e){ console.error('[SOS] ZF/DP generation failed:', e); }
+        });
+        return;
+      }
 
-        // Navigate back
-        goTo('s-reservations');
-        await loadMyReservations();
-      } else {
+      if(payResult.success && payResult.checkout_url){
+        // Fallback: Checkout redirect
+        _stripeCheckoutBookingId = replBookingId;
+        if(typeof _lockPaymentScreen==='function') _lockPaymentScreen('↗ Platební brána otevřena...');
+        if(btn){ btn.textContent = '↗ Přesměrování na platbu...'; btn.disabled = true; btn.style.opacity = '0.6'; }
+        if(typeof _openExternalUrl==='function') _openExternalUrl(payResult.checkout_url);
+        else window.location.href = payResult.checkout_url;
+        return;
+      }
+
+      if(!payResult.success){
         showT('❌','Platba selhala', payResult.error || 'Zkuste to znovu');
         if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '💳 Zaplatit'; btn.style.background = '#b91c1c'; }
       }

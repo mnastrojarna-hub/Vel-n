@@ -24,14 +24,14 @@ Templates['s-sos-payment'] = `  <div class="sos-sub-hdr" style="background:linea
         <span style="background:#eb001b;color:#fff;border-radius:4px;padding:3px 8px;font-size:10px;font-weight:800;">MC</span>
       </div>
       <div style="font-size:12px;color:var(--g400);text-align:center;line-height:1.7;">
-        Po kliknutí na <strong>Zaplatit</strong> budete přesměrováni na zabezpečenou platební stránku Stripe.
+        Kliknutím na <strong>Zaplatit</strong> se zobrazí platební formulář přímo v aplikaci.
       </div>
       <div id="sos-pay-error" style="display:none;margin-top:10px;padding:8px 12px;background:#fee2e2;border-radius:var(--rsm);font-size:12px;font-weight:600;color:#b91c1c;"></div>
     </div>
 
     <button id="sos-pay-btn" onclick="sosPaymentSubmit()"
       style="width:100%;background:#b91c1c;color:#fff;border:none;border-radius:50px;padding:16px;font-family:var(--font);font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 18px rgba(185,28,28,.3);">
-      💳 Zaplatit přes Stripe
+      💳 Zaplatit
     </button>
     <div style="text-align:center;margin-top:10px;margin-bottom:20px;">
       <button onclick="histBack()" style="background:none;border:none;font-family:var(--font);font-size:12px;font-weight:600;color:var(--g400);cursor:pointer;text-decoration:underline;">Zrušit</button>
