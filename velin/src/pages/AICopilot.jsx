@@ -5,7 +5,10 @@ import { useDebugMode } from '../hooks/useDebugMode'
 import Button from '../components/ui/Button'
 import AiConfirmDialog from '../components/ai/AiConfirmDialog'
 import AiAgentPanel from '../components/ai/AiAgentPanel'
+import AiAgentConfig from '../components/ai/AiAgentConfig'
 import { loadAgentConfig, saveAgentConfig, getEnabledTools, getAgentCorrections, AGENTS } from '../lib/aiAgents'
+import { buildAgentPromptsText } from '../lib/aiAgentPrompts'
+import { buildAllAgentMemory, autoExtractFlash, getEnabledAgentIds } from '../lib/aiAgentMemory'
 
 const QUICK_ACTIONS = [
   { cat: '📊 Přehledy', items: ['Kompletní denní přehled', 'Jak jsme na tom vs. minulý měsíc?', 'Týdenní statistiky'] },
@@ -40,6 +43,7 @@ export default function AICopilot() {
   const [pendingActions, setPendingActions] = useState(null)
   const [agentConfig, setAgentConfig] = useState(() => loadAgentConfig())
   const [showAgents, setShowAgents] = useState(false)
+  const [configAgentId, setConfigAgentId] = useState(null)
   const bottomRef = useRef(null)
 
   useEffect(() => { loadConversations() }, [])
@@ -97,12 +101,15 @@ export default function AICopilot() {
         setConversations(c => [data, ...c])
       }
 
+      const enabledIds = AGENTS.filter(a => agentConfig[a.id]?.enabled).map(a => a.id)
       const { data, error: fnError } = await debugAction('handleSend:invoke', 'AICopilot', () =>
         supabase.functions.invoke('ai-copilot', {
           body: {
             message: msg, conversation_id: convId, conversation_history: newMessages,
             enabled_tools: getEnabledTools(agentConfig),
             agent_corrections: getAgentCorrections(agentConfig),
+            agent_prompts: buildAgentPromptsText(enabledIds),
+            agent_memory: buildAllAgentMemory(enabledIds),
           },
         }), { message: msg, conversation_id: convId })
 
@@ -164,6 +171,7 @@ export default function AICopilot() {
   return (
     <>
       {pendingActions && <AiConfirmDialog actions={pendingActions} onConfirm={handleConfirm} onReject={handleReject} onEdit={handleEdit} />}
+      {configAgentId && <AiAgentConfig agentId={configAgentId} onClose={() => setConfigAgentId(null)} />}
 
       {debugMode && (
         <div className="mb-3 p-3 rounded-card" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}>
@@ -193,7 +201,7 @@ export default function AICopilot() {
 
           {showAgents ? (
             <div className="flex-1 overflow-auto">
-              <AiAgentPanel config={agentConfig} onChange={setAgentConfig} />
+              <AiAgentPanel config={agentConfig} onChange={setAgentConfig} onConfigAgent={setConfigAgentId} />
             </div>
           ) : (
             <div className="flex-1 overflow-auto">
