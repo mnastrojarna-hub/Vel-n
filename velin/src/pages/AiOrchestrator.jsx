@@ -217,7 +217,6 @@ export default function AiOrchestrator() {
           <AiTestRunner />
         </div>
       )}
-    </>
 
       {/* Learning & Autonomy Tab */}
       {tab === 'learning' && <AiAutonomyPanel />}
