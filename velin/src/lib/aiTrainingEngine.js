@@ -1,119 +1,122 @@
-// AI Training Engine — runs scenarios step by step, records agent outcomes
-import { supabase } from './supabase'
-import { loadAgentConfig, getEnabledTools, getAgentCorrections, AGENTS, getAgentForTool } from './aiAgents'
-import { buildAgentPromptsText } from './aiAgentPrompts'
-import { buildAllAgentMemory } from './aiAgentMemory'
+// AI Training Engine — runs per-agent training, records outcomes
 import { recordOutcome } from './aiLearning'
+import { trainBookingsAgent, trainSosAgent, trainServiceAgent } from './aiTrainingScenarios'
+import { trainFleetAgent, trainCustomersAgent, trainFinanceAgent, trainEshopAgent, trainEdgeCases, TRAINING_PROGRAMS } from './aiTrainingScenariosExtra'
+import { AGENT_VOLUMES } from './aiTrainingScenarios'
+import { cleanupTestData } from './aiTrainingHelpers'
 
-const STORAGE_KEY = 'motogo_ai_training_state'
+const STATE_KEY = 'motogo_ai_training_state'
+
+// Training function registry
+const TRAINERS = {
+  bookings: trainBookingsAgent,
+  sos: trainSosAgent,
+  service: trainServiceAgent,
+  fleet: trainFleetAgent,
+  customers: trainCustomersAgent,
+  finance: trainFinanceAgent,
+  eshop: trainEshopAgent,
+  edge: trainEdgeCases,
+}
 
 export function getTrainingState() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {} } catch { return {} }
+  try { return JSON.parse(localStorage.getItem(STATE_KEY)) || {} } catch { return {} }
 }
 
 function saveState(state) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+  localStorage.setItem(STATE_KEY, JSON.stringify(state))
 }
 
-// Run a single step — calls AI Copilot, records outcome for target agent
-async function runStep(step, scenarioId, stepIndex) {
-  const config = loadAgentConfig()
-  const enabledIds = AGENTS.filter(a => config[a.id]?.enabled).map(a => a.id)
+// Run training for a SINGLE agent
+export async function runAgentTraining(agentId, onProgress) {
+  const trainer = TRAINERS[agentId]
+  if (!trainer) return { agentId, error: 'Neznámý agent', results: [] }
 
-  try {
-    const { data, error } = await supabase.functions.invoke('ai-copilot', {
-      body: {
-        message: step.msg,
-        enabled_tools: getEnabledTools(config),
-        agent_corrections: getAgentCorrections(config),
-        agent_prompts: buildAgentPromptsText(enabledIds),
-        agent_memory: buildAllAgentMemory(enabledIds),
-      },
-    })
+  const startTime = Date.now()
+  onProgress?.({ phase: 'start', agentId })
 
-    if (error) throw error
-    if (data?.error_code === 'overloaded') throw new Error('AI overloaded')
+  const results = await trainer((step) => {
+    onProgress?.({ phase: 'step', agentId, ...step })
+  })
 
-    const success = !!(data?.response && !data?.response.includes('Chyba') && !data?.response.includes('nedostupn'))
-
-    // Record outcome for the target agent
-    recordOutcome(step.agent, step.tool || scenarioId, { scenario: scenarioId, step: stepIndex }, {
-      summary: data?.response?.slice(0, 200) || 'ok',
-    }, success)
-
-    // Also record for any other agents whose tools were used
-    if (data?.tool_calls) {
-      for (const tc of data.tool_calls) {
-        const agent = getAgentForTool(tc.name)
-        if (agent && agent.id !== step.agent) {
-          recordOutcome(agent.id, tc.name, { scenario: scenarioId }, { summary: 'ok' }, tc.success !== false)
-        }
-      }
-    }
-
-    return { success, response: data?.response?.slice(0, 300), step: stepIndex }
-  } catch (e) {
-    recordOutcome(step.agent, step.tool || scenarioId, { scenario: scenarioId, step: stepIndex }, { error: e.message }, false)
-    return { success: false, error: e.message, step: stepIndex }
-  }
-}
-
-// Run entire scenario — step by step with callbacks
-export async function runScenario(scenario, onProgress) {
-  const steps = scenario.generate()
-  const results = []
-
-  for (let i = 0; i < steps.length; i++) {
-    onProgress?.({ phase: 'running', scenarioId: scenario.id, step: i, total: steps.length, msg: steps[i].msg })
-    const result = await runStep(steps[i], scenario.id, i)
-    results.push(result)
-    onProgress?.({ phase: 'step_done', scenarioId: scenario.id, step: i, total: steps.length, result })
-
-    // Small delay between steps to avoid rate limiting
-    if (i < steps.length - 1) await new Promise(r => setTimeout(r, 2000))
+  // Record outcomes for each result
+  let passed = 0, failed = 0
+  for (const r of results) {
+    const success = r.ok !== false
+    if (success) passed++; else failed++
+    recordOutcome(
+      r.agent || agentId,
+      r.action || 'unknown',
+      { training: true, agentId },
+      { summary: r.error || 'ok' },
+      success
+    )
   }
 
-  const passed = results.filter(r => r.success).length
+  // Update training state
   const state = getTrainingState()
-  if (!state[scenario.id]) state[scenario.id] = { runs: 0, totalPassed: 0, totalSteps: 0 }
-  state[scenario.id].runs++
-  state[scenario.id].totalPassed += passed
-  state[scenario.id].totalSteps += steps.length
-  state[scenario.id].lastRun = new Date().toISOString()
+  if (!state[agentId]) state[agentId] = { runs: 0, totalPassed: 0, totalFailed: 0, totalSteps: 0 }
+  state[agentId].runs++
+  state[agentId].totalPassed += passed
+  state[agentId].totalFailed += failed
+  state[agentId].totalSteps += results.length
+  state[agentId].lastRun = new Date().toISOString()
+  state[agentId].durationMs = Date.now() - startTime
   saveState(state)
 
-  return { scenarioId: scenario.id, results, passed, total: steps.length }
+  onProgress?.({ phase: 'done', agentId, passed, failed, total: results.length })
+  return { agentId, results, passed, failed, total: results.length, durationMs: Date.now() - startTime }
 }
 
-// Run ALL scenarios sequentially
-export async function runAllScenarios(scenarios, onProgress) {
+// Run ALL agent trainings sequentially
+export async function runAllTraining(onProgress) {
+  const agentOrder = ['customers', 'fleet', 'bookings', 'finance', 'sos', 'service', 'eshop', 'edge']
   const allResults = []
-  for (let i = 0; i < scenarios.length; i++) {
-    onProgress?.({ phase: 'scenario_start', index: i, total: scenarios.length, scenario: scenarios[i] })
-    const result = await runScenario(scenarios[i], onProgress)
+
+  for (let i = 0; i < agentOrder.length; i++) {
+    const agentId = agentOrder[i]
+    onProgress?.({ phase: 'agent_start', agentId, index: i, total: agentOrder.length })
+
+    const result = await runAgentTraining(agentId, (step) => {
+      onProgress?.({ ...step, globalIndex: i, globalTotal: agentOrder.length })
+    })
     allResults.push(result)
-    onProgress?.({ phase: 'scenario_done', index: i, total: scenarios.length, result })
-    if (i < scenarios.length - 1) await new Promise(r => setTimeout(r, 3000))
+
+    onProgress?.({ phase: 'agent_done', agentId, index: i, total: agentOrder.length, result })
+
+    // Pause between agents
+    if (i < agentOrder.length - 1) await new Promise(r => setTimeout(r, 1000))
   }
+
   return allResults
 }
 
-// Cleanup all test data created by simulator
-export async function cleanupSimData() {
-  try {
-    const { data } = await supabase.functions.invoke('ai-copilot', {
-      body: {
-        message: 'Smaž všechna testovací data: uživatele s emailem test.sim.*, promo kódy SIMTEST*, a související rezervace. Použij cleanup_test_data.',
-        enabled_tools: ['cleanup_test_data'],
-      },
-    })
-    return { success: true, response: data?.response }
-  } catch (e) {
-    return { success: false, error: e.message }
+// Get volume status per agent
+export function getAgentVolumeStatus() {
+  const state = getTrainingState()
+  const status = {}
+  for (const [agentId, vol] of Object.entries(AGENT_VOLUMES)) {
+    const s = state[agentId]
+    status[agentId] = {
+      ...vol,
+      current: s?.totalPassed || 0,
+      runs: s?.runs || 0,
+      pct: s ? Math.min(100, Math.round((s.totalPassed / vol.min) * 100)) : 0,
+      trained: s ? s.totalPassed >= vol.min : false,
+      lastRun: s?.lastRun,
+    }
   }
+  return status
 }
 
-// Reset training state
-export function resetTrainingState() {
-  localStorage.removeItem(STORAGE_KEY)
+// Cleanup
+export async function cleanupAllTestData() {
+  return await cleanupTestData()
 }
+
+// Reset
+export function resetTrainingState() {
+  localStorage.removeItem(STATE_KEY)
+}
+
+export { TRAINING_PROGRAMS, AGENT_VOLUMES }

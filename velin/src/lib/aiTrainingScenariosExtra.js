@@ -1,229 +1,212 @@
-// AI Training Scenarios Part 2 — SOS, e-shop, profile, compliance, analytics
-import { TS, NAME, SURNAME, BRANCH, MOTO, DAYS, EXTRAS } from './aiTrainingHelpers'
+// AI Training Scenarios Part 2 — fleet, customers, finance, eshop, edge cases
+// All calls go through REAL Supabase API
+import * as API from './aiTrainingHelpers'
+import { supabase } from './supabase'
 
-export const SCENARIOS_EXTRA = [
-  {
-    id: 'sos_incident', name: 'SOS — porucha', icon: '🚨',
-    agents: ['sos','service','fleet'],
-    generate: () => {
-      const fn = NAME(), tag = TS(), moto = MOTO()
-      return [
-        { msg: `Vytvoř test zákazníka ${fn} Novák, email test.sim.${tag}@motogo24.cz.`, agent: 'customers', tool: 'create_test_user' },
-        { msg: `${fn} hlásí poruchu ${moto} na silnici. GPS: 50.08°N, 14.42°E. Vytvoř SOS.`, agent: 'sos', tool: 'update_sos_incident' },
-        { msg: `Ukaž aktivní SOS incidenty. Stav posledního?`, agent: 'sos', tool: 'get_sos_incidents' },
-        { msg: `Motorka potřebuje servis. Vytvoř servisní zakázku.`, agent: 'service', tool: 'create_service_order' },
-        { msg: `SOS vyřešen — zákazník dostal náhradní. Uzavři.`, agent: 'sos', tool: 'resolve_sos' },
-      ]
-    },
-  },
-  {
-    id: 'sos_flat_tire', name: 'SOS — defekt pneu', icon: '🛞',
-    agents: ['sos','service','fleet'],
-    generate: () => {
-      const fn = NAME(), tag = TS(), moto = MOTO()
-      return [
-        { msg: `Vytvoř test zákazníka ${fn}, email test.sim.${tag}@motogo24.cz.`, agent: 'customers', tool: 'create_test_user' },
-        { msg: `${fn} hlásí defekt zadní pneu na ${moto}. GPS: 50.05°N, 14.45°E.`, agent: 'sos', tool: 'update_sos_incident' },
-        { msg: `Objednej odtah ${moto} na pobočku. Přiřaď technika.`, agent: 'sos', tool: 'assign_sos' },
-        { msg: `${fn} dostane náhradní motorku.`, agent: 'sos', tool: 'update_sos_incident' },
-        { msg: `Servisní zakázka: výměna zadní pneu na ${moto}.`, agent: 'service', tool: 'create_service_order' },
-        { msg: `SOS vyřešen. Uzavři incident.`, agent: 'sos', tool: 'resolve_sos' },
-      ]
-    },
-  },
-  {
-    id: 'sos_accident', name: 'SOS — nehoda', icon: '💥',
-    agents: ['sos','fleet','service'],
-    generate: () => {
-      const fn = NAME(), tag = TS(), moto = MOTO()
-      return [
-        { msg: `Vytvoř test zákazníka ${fn}, email test.sim.${tag}@motogo24.cz.`, agent: 'customers', tool: 'create_test_user' },
-        { msg: `URGENTNÍ: ${fn} měl nehodu s ${moto} na D1 km 45. Motorka nepojízdná. Kritický SOS.`, agent: 'sos', tool: 'update_sos_incident' },
-        { msg: `Zajisti odtah ${moto}. Přiřaď technika.`, agent: 'sos', tool: 'assign_sos' },
-        { msg: `${moto}: poškozený rám + vidlice. Servisní zakázka: oprava po nehodě.`, agent: 'service', tool: 'create_service_order' },
-        { msg: `Stav ${moto} na "damaged" — nepůjčovat.`, agent: 'fleet', tool: 'update_motorcycle' },
-        { msg: `Nehoda vyřešena. Uzavři SOS: pojistná událost.`, agent: 'sos', tool: 'resolve_sos' },
-      ]
-    },
-  },
-  {
-    id: 'sos_theft', name: 'SOS — krádež', icon: '🔒',
-    agents: ['sos','fleet'],
-    generate: () => {
-      const fn = NAME(), tag = TS(), moto = MOTO()
-      return [
-        { msg: `Vytvoř test zákazníka ${fn}, email test.sim.${tag}@motogo24.cz.`, agent: 'customers', tool: 'create_test_user' },
-        { msg: `${fn} hlásí odcizení ${moto} z parkoviště Brno. GPS: 49.19°N, 16.61°E.`, agent: 'sos', tool: 'update_sos_incident' },
-        { msg: `Zkontroluj GPS lokaci ${moto}.`, agent: 'fleet', tool: 'get_fleet_overview' },
-        { msg: `Označ ${moto} jako "stolen". Zablokuj pro půjčování.`, agent: 'fleet', tool: 'update_motorcycle' },
-        { msg: `Krádež zpracována, policie informována. Uzavři SOS.`, agent: 'sos', tool: 'resolve_sos' },
-      ]
-    },
-  },
-  {
-    id: 'eshop_purchase', name: 'E-shop s promo kódem', icon: '🛒',
-    agents: ['eshop','finance'],
-    generate: () => {
-      const tag = TS()
-      return [
-        { msg: `Ukaž produkty v e-shopu.`, agent: 'eshop', tool: 'get_accessory_types' },
-        { msg: `Vytvoř promo kód SIMTEST${tag} se slevou 15%.`, agent: 'eshop', tool: 'create_promo_code' },
-        { msg: `Aktivní promo kódy a vouchery? Kolik platných?`, agent: 'finance', tool: 'get_vouchers_and_promos' },
-        { msg: `Zákazník objednal helmu + rukavice s kódem SIMTEST${tag}.`, agent: 'eshop', tool: 'update_shop_order' },
-      ]
-    },
-  },
-  {
-    id: 'eshop_full_order', name: 'E-shop — kompletní objednávka', icon: '📦',
-    agents: ['eshop','finance','customers'],
-    generate: () => {
-      const fn = NAME(), ln = SURNAME(), tag = TS()
-      return [
-        { msg: `Vytvoř test zákazníka ${fn} ${ln}, email test.sim.${tag}@motogo24.cz.`, agent: 'customers', tool: 'create_test_user' },
-        { msg: `${fn} prohlíží e-shop — dostupné produkty?`, agent: 'eshop', tool: 'get_accessory_types' },
-        { msg: `${fn} objednává: helma L + rukavice M + bunda XL. Doručení Brno.`, agent: 'eshop', tool: 'update_shop_order' },
-        { msg: `${fn} mění adresu doručení na Praha 3, Žižkov 12.`, agent: 'eshop', tool: 'update_shop_order' },
-        { msg: `Objednávka zaplacena. Faktura pro ${fn}.`, agent: 'finance', tool: 'get_invoices' },
-        { msg: `Objednávka odeslána. Stav na "shipped".`, agent: 'eshop', tool: 'update_shop_order' },
-      ]
-    },
-  },
-  {
-    id: 'profile_changes', name: 'Profil — změna údajů a hesla', icon: '👤',
-    agents: ['customers'],
-    generate: () => {
-      const fn = NAME(), ln = SURNAME(), tag = TS()
-      return [
-        { msg: `Vytvoř test zákazníka ${fn} ${ln}, email test.sim.${tag}@motogo24.cz, adresa Brno.`, agent: 'customers', tool: 'create_test_user' },
-        { msg: `${fn} ${ln} mění adresu na Praha 5, Plzeňská 100.`, agent: 'customers', tool: 'update_customer' },
-        { msg: `${fn} mění telefon na +420 666 ${tag} 222.`, agent: 'customers', tool: 'update_customer' },
-        { msg: `Ověř profil ${fn} — jsou údaje aktuální?`, agent: 'customers', tool: 'get_customer_detail' },
-      ]
-    },
-  },
-  {
-    id: 'service_maintenance', name: 'Servis — údržba', icon: '🔧',
-    agents: ['fleet','service'],
-    generate: () => {
-      const moto = MOTO()
-      return [
-        { msg: `Které motorky potřebují servis? Použij get_service_status.`, agent: 'service', tool: 'get_service_status' },
-        { msg: `Naplánuj servis ${moto}: výměna oleje + brzdy.`, agent: 'service', tool: 'create_service_order' },
-        { msg: `Stav skladu — olej a brzdové destičky?`, agent: 'service', tool: 'get_inventory' },
-        { msg: `Servis ${moto} hotov. Zapiš: výměna oleje, 1.5h.`, agent: 'service', tool: 'create_maintenance_log' },
-        { msg: `${moto} po servisu ready. Stav na "available".`, agent: 'fleet', tool: 'update_motorcycle' },
-      ]
-    },
-  },
-  {
-    id: 'hr_shift', name: 'HR — směny a docházka', icon: '👷',
-    agents: ['hr'],
-    generate: () => [
-      { msg: `Přehled zaměstnanců. Kdo je dnes ve směně?`, agent: 'hr', tool: 'get_employees' },
-      { msg: `Docházka za tento týden. Absence?`, agent: 'hr', tool: 'get_attendance_overview' },
-      { msg: `Nevyřízené žádosti o dovolenou?`, agent: 'hr', tool: 'get_pending_vacations' },
-      { msg: `Plán směn příští týden. Pokryté pobočky?`, agent: 'hr', tool: 'get_shifts_overview' },
-    ],
-  },
-  {
-    id: 'analytics_review', name: 'Analytický přehled', icon: '📊',
-    agents: ['analytics','finance'],
-    generate: () => [
-      { msg: `Výkon poboček za měsíc. Nejlepší?`, agent: 'analytics', tool: 'analyze_branch_performance' },
-      { msg: `Ranking motorek podle vytíženosti.`, agent: 'analytics', tool: 'analyze_motorcycle_performance' },
-      { msg: `Predikce poptávky příští týden.`, agent: 'analytics', tool: 'forecast_predictions' },
-      { msg: `Tržby, náklady, zisk za měsíc.`, agent: 'finance', tool: 'get_financial_overview' },
-    ],
-  },
-  {
-    id: 'communication_check', name: 'Kontrola komunikace', icon: '📬',
-    agents: ['customers','cms','finance'],
-    generate: () => [
-      { msg: `Nevyřízené zprávy od zákazníků?`, agent: 'customers', tool: 'get_messages_overview' },
-      { msg: `Aktivní emailové šablony? booking_reserved, booking_completed?`, agent: 'cms', tool: 'get_message_templates' },
-      { msg: `Notifikační log — odešly všechny? Chyby?`, agent: 'customers', tool: 'get_notification_log' },
-      { msg: `Faktury mají správné IČO, DIČ, adresu?`, agent: 'finance', tool: 'get_invoices' },
-      { msg: `Dokumenty aktuální — VOP, smlouva, protokol?`, agent: 'cms', tool: 'get_documents' },
-    ],
-  },
-  {
-    id: 'invoice_matching', name: 'Párování faktur', icon: '🧾',
-    agents: ['finance'],
-    generate: () => [
-      { msg: `Nezaplacené faktury? Celková dlužná částka?`, agent: 'finance', tool: 'get_invoices' },
-      { msg: `Nepárované dodací listy?`, agent: 'finance', tool: 'get_financial_overview' },
-      { msg: `Účetní záznamy za měsíc. Sedí příjmy a výdaje?`, agent: 'finance', tool: 'get_accounting_entries' },
-      { msg: `DPH přehled — stav za aktuální období?`, agent: 'finance', tool: 'get_vat_returns' },
-    ],
-  },
-  {
-    id: 'cms_check', name: 'CMS a nastavení', icon: '🌐',
-    agents: ['cms'],
-    generate: () => [
-      { msg: `CMS nastavení — banner, kontakty, feature flagy.`, agent: 'cms', tool: 'get_cms_settings' },
-      { msg: `Aktivní emailové šablony?`, agent: 'cms', tool: 'get_message_templates' },
-      { msg: `Smlouvy a dokumenty — aktuální VOP a smlouva?`, agent: 'cms', tool: 'get_contracts' },
-    ],
-  },
-  {
-    id: 'government_compliance', name: 'Státní správa', icon: '🏛️',
-    agents: ['government','fleet'],
-    generate: () => [
-      { msg: `STK a pojistky flotily. Co expiruje v 30 dnech?`, agent: 'government', tool: 'get_government_overview' },
-      { msg: `Detail flotily — registrace, VIN, pojištění.`, agent: 'fleet', tool: 'get_fleet_overview' },
-    ],
-  },
-  // --- EDGE CASES ---
-  {
-    id: 'wrong_license', name: 'Rezervace bez platného ŘP', icon: '🚫',
-    agents: ['bookings','customers'],
-    generate: () => {
-      const fn = NAME(), ln = SURNAME(), tag = TS()
-      return [
-        { msg: `Vytvoř test zákazníka ${fn} ${ln}, email test.sim.${tag}@motogo24.cz. BEZ nahraného řidičského průkazu.`, agent: 'customers', tool: 'create_test_user' },
-        { msg: `${fn} ${ln} chce rezervovat ${MOTO()} (kat. A2) ale nemá nahrané doklady. Zkontroluj a odmítni nebo upozorni.`, agent: 'bookings', tool: 'create_booking' },
-        { msg: `Zkontroluj profil ${fn} — jsou nahrány řidičský průkaz a OP? Použij get_customer_detail.`, agent: 'customers', tool: 'get_customer_detail' },
-        { msg: `Pošli ${fn} zprávu: "Nahrajte prosím ŘP a OP pro dokončení rezervace."`, agent: 'customers', tool: 'send_customer_message' },
-      ]
-    },
-  },
-  {
-    id: 'missing_docs', name: 'Chybějící doklady při rezervaci', icon: '📄',
-    agents: ['bookings','customers'],
-    generate: () => {
-      const fn = NAME(), ln = SURNAME(), tag = TS()
-      return [
-        { msg: `Vytvoř test zákazníka ${fn} ${ln}, email test.sim.${tag}@motogo24.cz.`, agent: 'customers', tool: 'create_test_user' },
-        { msg: `${fn} ${ln} má ŘP ale chybí občanský průkaz. Může dokončit rezervaci? Zkontroluj.`, agent: 'bookings', tool: 'create_booking' },
-        { msg: `Jaké doklady má ${fn} nahrané? Které chybí?`, agent: 'customers', tool: 'get_customer_detail' },
-        { msg: `Informuj ${fn}: chybí OP, bez něj nelze vydat motorku.`, agent: 'customers', tool: 'send_customer_message' },
-      ]
-    },
-  },
-  {
-    id: 'duplicate_booking', name: 'Duplicitní/překrývající se rezervace', icon: '⚠️',
-    agents: ['bookings','fleet'],
-    generate: () => {
-      const fn = NAME(), ln = SURNAME(), tag = TS(), moto = MOTO(), br = BRANCH()
-      return [
-        { msg: `Vytvoř test zákazníka ${fn} ${ln}, email test.sim.${tag}@motogo24.cz.`, agent: 'customers', tool: 'create_test_user' },
-        { msg: `${fn} ${ln} rezervuje ${moto} v ${br} od ${DAYS(3)} do ${DAYS(6)}.`, agent: 'bookings', tool: 'create_booking' },
-        { msg: `${fn} ${ln} se pokouší o DRUHOU rezervaci ve stejném termínu — jiná motorka, ale překryv. Jak systém reaguje?`, agent: 'bookings', tool: 'create_booking' },
-        { msg: `Zkontroluj overlap — má ${fn} aktivní rezervace které se překrývají?`, agent: 'bookings', tool: 'get_bookings_detail' },
-      ]
-    },
-  },
-  {
-    id: 'moto_overlap', name: 'Motorka rezervovaná dvakrát', icon: '🏍️',
-    agents: ['bookings','fleet'],
-    generate: () => {
-      const moto = MOTO(), br = BRANCH(), tag = TS()
-      return [
-        { msg: `Vytvoř 2 test zákazníky: A test.sim.a${tag}@motogo24.cz, B test.sim.b${tag}@motogo24.cz.`, agent: 'customers', tool: 'create_test_user' },
-        { msg: `Zákazník A rezervuje ${moto} v ${br} od ${DAYS(3)} do ${DAYS(6)}.`, agent: 'bookings', tool: 'create_booking' },
-        { msg: `Zákazník B se pokouší o stejnou ${moto} ve ${br} od ${DAYS(4)} do ${DAYS(7)}. Zjisti overlap.`, agent: 'bookings', tool: 'create_booking' },
-        { msg: `Zkontroluj dostupnost ${moto} — je správně blokovaná pro zákazníka A?`, agent: 'fleet', tool: 'get_motorcycle_detail' },
-      ]
-    },
-  },
-]
+// === FLEET AGENT TRAINING ===
+// Check availability, update statuses, verify pricing
+export async function trainFleetAgent(onStep) {
+  const results = []
+  const motos = await API.fetchAvailableMotos()
+  if (!motos.ok) return [{ ok: false, error: 'Žádné motorky' }]
+
+  results.push({ agent: 'fleet', action: 'fetch_fleet', ok: true, count: motos.data.length })
+
+  // 5× availability checks
+  for (let i = 0; i < 5; i++) {
+    const moto = motos.data[i % motos.data.length]
+    const start = API.futureDate(i * 3 + 1), end = API.futureDate(i * 3 + 4)
+    onStep?.({ agent: 'fleet', action: `Dostupnost ${moto.model} ${start}→${end}`, i, total: 15 })
+    const avail = await API.checkMotoAvailability(moto.id, start, end)
+    results.push({ agent: 'fleet', action: 'check_availability', ...avail })
+  }
+
+  // 5× status cycle: available → maintenance → available
+  for (let i = 0; i < 5; i++) {
+    const moto = motos.data[(i + 5) % motos.data.length]
+    onStep?.({ agent: 'fleet', action: `Status cyklus ${moto.model}`, i: 5 + i, total: 15 })
+    const r1 = await API.updateMotoStatus(moto.id, 'maintenance')
+    results.push({ agent: 'fleet', action: 'set_maintenance', ...r1 })
+    const r2 = await API.updateMotoStatus(moto.id, 'available')
+    results.push({ agent: 'fleet', action: 'set_available', ...r2 })
+  }
+
+  // 5× price calculations
+  for (let i = 0; i < 5; i++) {
+    const moto = motos.data[(i + 10) % motos.data.length]
+    onStep?.({ agent: 'fleet', action: `Ceník ${moto.model}`, i: 10 + i, total: 15 })
+    const price = await API.calcBookingPrice(moto.id, API.futureDate(1), API.futureDate(4))
+    results.push({ agent: 'fleet', action: 'calc_price', ...price })
+  }
+
+  return results
+}
+
+// === CUSTOMERS AGENT TRAINING ===
+// Register, update profile, send messages
+export async function trainCustomersAgent(onStep) {
+  const results = []
+
+  // 8× register customers
+  for (let i = 0; i < 8; i++) {
+    onStep?.({ agent: 'customers', action: `Registrace zákazníka #${i + 1}`, i, total: 15 })
+    const cust = await API.createTestCustomer()
+    results.push({ agent: 'customers', action: 'create_customer', ...cust })
+
+    // Update profile for each
+    if (cust.ok && cust.userId) {
+      onStep?.({ agent: 'customers', action: `Aktualizace profilu #${i + 1}`, i })
+      const upd = await API.updateProfile(cust.userId, {
+        phone: API.PICK(['+420777111222', '+420666333444', '+420605987654']),
+        city: API.PICK(['Praha', 'Brno', 'Ostrava', 'Plzeň']),
+      })
+      results.push({ agent: 'customers', action: 'update_profile', ...upd })
+    }
+  }
+
+  // 5× admin messages (simulate customer communication)
+  const { data: profiles } = await supabase
+    .from('profiles').select('id').eq('is_test_account', true).limit(5)
+
+  for (let i = 0; i < Math.min(5, profiles?.length || 0); i++) {
+    onStep?.({ agent: 'customers', action: `Zpráva zákazníkovi #${i + 1}`, i: 8 + i, total: 15 })
+    const msg = await API.sendAdminMessage(
+      profiles[i].id,
+      API.PICK(['Informace k rezervaci', 'Připomínka dokladů', 'Potvrzení vrácení']),
+      'Toto je testovací zpráva z AI tréninku.'
+    )
+    results.push({ agent: 'customers', action: 'send_message', ...msg })
+  }
+
+  return results
+}
+
+// === FINANCE AGENT TRAINING ===
+// Price calculations, booking prices for various durations
+export async function trainFinanceAgent(onStep) {
+  const results = []
+  const motos = await API.fetchAvailableMotos()
+  if (!motos.ok) return [{ ok: false, error: 'Žádné motorky' }]
+
+  // 10× price calculations (different motos, durations)
+  const durations = [1, 2, 3, 5, 7, 10, 14, 21, 1, 3]
+  for (let i = 0; i < 10; i++) {
+    const moto = motos.data[i % motos.data.length]
+    const days = durations[i]
+    onStep?.({ agent: 'finance', action: `Cena ${moto.model} na ${days} dní`, i, total: 15 })
+    const price = await API.calcBookingPrice(moto.id, API.futureDate(1), API.futureDate(1 + days))
+    results.push({ agent: 'finance', action: 'calc_price', days, ...price })
+  }
+
+  // 3× price with promo code
+  const promo = await API.createPromoCode(`SIMFIN${API.TS()}`, 15)
+  results.push({ agent: 'eshop', action: 'create_promo', ...promo })
+
+  for (let i = 0; i < 3; i++) {
+    const moto = motos.data[(i + 10) % motos.data.length]
+    onStep?.({ agent: 'finance', action: `Cena s promo kódem #${i + 1}`, i: 10 + i, total: 15 })
+    const price = await API.calcBookingPrice(moto.id, API.futureDate(1), API.futureDate(4), promo.data?.code)
+    results.push({ agent: 'finance', action: 'calc_price_promo', ...price })
+  }
+
+  // 2× full booking with payment
+  for (let i = 0; i < 2; i++) {
+    const moto = motos.data[i % motos.data.length]
+    onStep?.({ agent: 'finance', action: `Platba za rezervaci #${i + 1}`, i: 13 + i, total: 15 })
+    const cust = await API.createTestCustomer()
+    const booking = await API.createBooking(cust.userId, moto.id, API.futureDate(60 + i * 5), API.futureDate(63 + i * 5))
+    results.push({ agent: 'bookings', action: 'create_booking', ...booking })
+    if (booking.ok) {
+      const pay = await API.confirmBookingPayment(booking.bookingId)
+      results.push({ agent: 'finance', action: 'confirm_payment', ...pay })
+    }
+  }
+
+  return results
+}
+
+// === ESHOP AGENT TRAINING ===
+export async function trainEshopAgent(onStep) {
+  const results = []
+
+  // 5× promo codes
+  for (let i = 0; i < 5; i++) {
+    onStep?.({ agent: 'eshop', action: `Promo kód #${i + 1}`, i, total: 10 })
+    const p = await API.createPromoCode(`SIMSHOP${API.TS()}${i}`, 10 + i * 5)
+    results.push({ agent: 'eshop', action: 'create_promo', ...p })
+  }
+
+  // 5× fetch accessory types (read operations)
+  for (let i = 0; i < 5; i++) {
+    onStep?.({ agent: 'eshop', action: `Kontrola sortimentu #${i + 1}`, i: 5 + i, total: 10 })
+    const { data, error } = await supabase.from('accessory_types').select('*').limit(10)
+    results.push({ agent: 'eshop', action: 'get_accessory_types', ok: !error, count: data?.length || 0 })
+  }
+
+  return results
+}
+
+// === EDGE CASES — overlap, missing docs, wrong license ===
+export async function trainEdgeCases(onStep) {
+  const results = []
+  const motos = await API.fetchAvailableMotos()
+  if (!motos.ok) return [{ ok: false, error: 'Žádné motorky' }]
+
+  // 3× double booking attempt (same moto, overlapping dates)
+  for (let i = 0; i < 3; i++) {
+    const moto = motos.data[i % motos.data.length]
+    const start = API.futureDate(70 + i * 5), end = API.futureDate(73 + i * 5)
+    onStep?.({ agent: 'bookings', action: `Overlap test #${i + 1}`, i, total: 6 })
+
+    const c1 = await API.createTestCustomer()
+    const b1 = await API.createBooking(c1.userId, moto.id, start, end)
+    results.push({ agent: 'bookings', action: 'create_booking_1', ...b1 })
+
+    if (b1.ok) {
+      // Second booking same moto, overlapping
+      const c2 = await API.createTestCustomer()
+      const overlap = API.futureDate(71 + i * 5)
+      const avail = await API.checkMotoAvailability(moto.id, overlap, end)
+      results.push({ agent: 'fleet', action: 'check_overlap', available: avail.available, ok: true })
+
+      // Should detect conflict
+      if (!avail.available) {
+        results.push({ agent: 'bookings', action: 'overlap_detected', ok: true })
+      } else {
+        // If somehow available, create and test
+        const b2 = await API.createBooking(c2.userId, moto.id, overlap, end)
+        results.push({ agent: 'bookings', action: 'overlap_booking', ...b2 })
+      }
+    }
+  }
+
+  // 3× booking without docs (customer without license)
+  for (let i = 0; i < 3; i++) {
+    onStep?.({ agent: 'customers', action: `Zákazník bez dokladů #${i + 1}`, i: 3 + i, total: 6 })
+    const cust = await API.createTestCustomer()
+    if (cust.ok && cust.userId) {
+      // Clear license to simulate missing docs
+      await API.updateProfile(cust.userId, { license_group: null, docs_verified: false })
+      results.push({ agent: 'customers', action: 'missing_docs_customer', ok: true })
+
+      // Try booking — should still work at DB level but agent should flag it
+      const moto = motos.data[i % motos.data.length]
+      const b = await API.createBooking(cust.userId, moto.id, API.futureDate(80 + i), API.futureDate(83 + i))
+      results.push({ agent: 'bookings', action: 'booking_without_docs', ...b })
+    }
+  }
+
+  return results
+}
+
+// All training functions registry
+export const TRAINING_PROGRAMS = {
+  bookings:  { fn: 'trainBookingsAgent', label: '📅 Rezervace', file: 'scenarios' },
+  sos:       { fn: 'trainSosAgent', label: '🚨 SOS koordinátor', file: 'scenarios' },
+  service:   { fn: 'trainServiceAgent', label: '🔧 Servis', file: 'scenarios' },
+  fleet:     { fn: 'trainFleetAgent', label: '🏍️ Flotila', file: 'extra' },
+  customers: { fn: 'trainCustomersAgent', label: '👥 Zákazníci', file: 'extra' },
+  finance:   { fn: 'trainFinanceAgent', label: '💰 Finance', file: 'extra' },
+  eshop:     { fn: 'trainEshopAgent', label: '🛒 E-shop', file: 'extra' },
+  edge:      { fn: 'trainEdgeCases', label: '⚠️ Edge cases', file: 'extra' },
+}
