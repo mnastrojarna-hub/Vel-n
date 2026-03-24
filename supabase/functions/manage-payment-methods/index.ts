@@ -130,6 +130,79 @@ Deno.serve(async (req: Request) => {
     const body = await req.json()
     const { action, payment_method_id } = body
 
+    // Helper: ensure Stripe Customer exists
+    async function ensureCustomer(): Promise<string> {
+      if (customerId) return customerId
+      const customer = await stripe.customers.create({
+        email: user.email || (profile as any)?.email || undefined,
+        name: (profile as any)?.full_name || undefined,
+        phone: (profile as any)?.phone || undefined,
+        metadata: { supabase_user_id: user.id },
+      })
+      await supabase
+        .from('profiles')
+        .update({ stripe_customer_id: customer.id })
+        .eq('id', user.id)
+      return customer.id
+    }
+
+    // ATTACH — attach a payment method (from Stripe.js) to the customer and save to DB
+    if (action === 'attach') {
+      if (!payment_method_id) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Missing payment_method_id' }),
+          { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      const custId = await ensureCustomer()
+
+      // Attach PM to customer
+      await stripe.paymentMethods.attach(payment_method_id, { customer: custId })
+
+      // Get card details
+      const pm = await stripe.paymentMethods.retrieve(payment_method_id)
+
+      // Check if this is the first card — make it default
+      const existingMethods = await stripe.paymentMethods.list({ customer: custId, type: 'card' })
+      const isFirst = existingMethods.data.length <= 1
+
+      if (isFirst) {
+        await stripe.customers.update(custId, {
+          invoice_settings: { default_payment_method: payment_method_id },
+        })
+      }
+
+      // Save to Supabase payment_methods table
+      await supabase.from('payment_methods').upsert({
+        user_id: user.id,
+        stripe_payment_method_id: pm.id,
+        brand: pm.card?.brand || 'unknown',
+        last4: pm.card?.last4 || '****',
+        exp_month: pm.card?.exp_month || null,
+        exp_year: pm.card?.exp_year || null,
+        holder_name: pm.billing_details?.name || null,
+        is_default: isFirst,
+      }, { onConflict: 'stripe_payment_method_id' })
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          action: 'attach',
+          card: {
+            id: pm.id,
+            brand: pm.card?.brand || 'unknown',
+            last4: pm.card?.last4 || '****',
+            exp_month: pm.card?.exp_month,
+            exp_year: pm.card?.exp_year,
+            holder_name: pm.billing_details?.name || null,
+            is_default: isFirst,
+          },
+        }),
+        { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // SETUP — create a Stripe Checkout Session in setup mode to save a new card
     if (action === 'setup') {
       let custId = customerId
