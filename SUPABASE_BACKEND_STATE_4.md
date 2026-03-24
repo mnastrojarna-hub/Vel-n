@@ -58,4 +58,6 @@
 | `trg_emp_vacations_updated` | emp_vacations | update_updated_at() |
 | `trg_emp_shifts_updated` | emp_shifts | update_updated_at() |
 | `trg_emp_documents_updated` | emp_documents | update_updated_at() |
+| `trg_delivery_notes_updated` | delivery_notes | update_updated_at() |
+| `trg_contracts_updated` | contracts | update_updated_at() |
 | Různé `_updated_at` triggery | více tabulek | update_updated_at() |

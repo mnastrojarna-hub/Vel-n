@@ -127,6 +127,8 @@
 | `acc_depreciation_entries` | Odpisy DM (roční odpis, kumulativní, zůstatková hodnota, metoda, skupina) |
 | `acc_liabilities` | Závazky (dodavatelé, daně, SP, ZP, mzdy, úvěry, splatnost, stav úhrady, **financial_event_id** uuid FK→financial_events ON DELETE CASCADE) |
 | `flexi_reports` | Výkazy stažené z Abra Flexi (DPH přiznání, daňové přiznání, rozvaha, výsledovka, OSSZ, VZP) — status: draft/approved/submitted/rejected, schválení + odeslání datovkou |
+| `delivery_notes` | Dodací listy (dl_number, supplier_name/ico, total_amount, delivery_date, items jsonb, AI matching s fakturami: matched_invoice_id, match_method ai/manual, match_confidence, storage_path, extracted_data jsonb, financial_event_id FK→financial_events) |
+| `contracts` | Smlouvy obecné + zaměstnanecké (contract_number, contract_type: rental/lease/service/insurance/employment/employment_amendment/employment_termination/dpp/dpc/vacation_request/supply/nda/other, title, counterparty/ico, amount, payment_frequency, valid_from/until, status: pending/active/expired/terminated/draft, employee_id FK→acc_employees, storage_path, extracted_data jsonb, financial_event_id FK→financial_events) |
 
 ### Nákupy a sklad
 
