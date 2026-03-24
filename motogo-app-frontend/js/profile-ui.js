@@ -84,7 +84,7 @@ async function renderBranches(){
     return;
   }
   try {
-    var r = await window.supabase.from('branches').select('id, name, address, city, gps_lat, gps_lng, is_open, type').eq('active', true).order('name');
+    var r = await window.supabase.from('branches').select('id, name, address, city, gps_lat, gps_lng, is_open, type').order('name');
     if(!r.data || r.data.length === 0){
       wrap.innerHTML = '<div style="padding:12px;text-align:center;font-size:12px;color:var(--g400);">Žádné pobočky</div>';
       return;
