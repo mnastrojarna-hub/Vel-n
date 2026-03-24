@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 import DebugPanel from './DebugPanel'
+import FloatingAiPanel from './ai/FloatingAiPanel'
 
 export default function Layout({ admin, onSignOut }) {
   return (
@@ -14,6 +15,7 @@ export default function Layout({ admin, onSignOut }) {
         </div>
       </div>
       <DebugPanel />
+      <FloatingAiPanel />
     </div>
   )
 }

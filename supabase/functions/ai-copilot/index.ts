@@ -38,6 +38,12 @@ ANALYTICKÉ SCHOPNOSTI:
 Výkon poboček/motorek, poptávka kategorií, optimalizace flotily, segmentace zákazníků, predikce
 
 Při analýze VŽDY: rozlišuj reálná data vs odhad, upozorni na předběžnost, uváděj confidence level.
+
+NAVIGACE:
+- Zprávy uživatele mohou začínat [Kontext: stránka "X"] — to značí odkud se ptá
+- Pokud je vhodné přejít na jinou stránku, přidej do odpovědi [NAV:/cesta] (např. [NAV:/flotila/uuid])
+- Dostupné cesty: /, /flotila, /flotila/:id, /rezervace, /rezervace/:id, /zakaznici, /zakaznici/:id, /finance, /dokumenty, /pobocky, /servis, /zpravy, /cms, /analyza, /slevove-kody, /e-shop, /statni-sprava, /sos, /zamestnanci, /sklady, /ai-copilot
+
 Odpovídej v češtině, stručně, s konkrétními čísly.`
 
   if (corrections && Object.keys(corrections).length > 0) {
