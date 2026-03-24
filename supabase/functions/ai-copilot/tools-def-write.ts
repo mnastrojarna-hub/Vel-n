@@ -66,6 +66,20 @@ export const WRITE_TOOLS_DEFINITION = [
   { name: 'test_payment_flow', description: 'Test platebního flow — platby vs faktury vs stavy', input_schema: { type: T, properties: {}, required: [] } },
   { name: 'test_sos_flow', description: 'Test SOS flow — response time, timeline, řešení', input_schema: { type: T, properties: {}, required: [] } },
   { name: 'run_full_system_test', description: 'Kompletní systémový test — DB, integrita, pricing, bezpečnost', input_schema: { type: T, properties: { depth: { ...S, description: 'quick/standard/deep' } }, required: [] } },
+
+  // === SIMULATION & AGENT TESTING ===
+  { name: 'simulate_customer_scenario', description: 'Simulace zákaznického scénáře (new_booking, cancel_booking, sos_incident, shop_purchase, service_flow)', input_schema: { type: T, properties: { scenario: { ...S, description: 'Název scénáře' } }, required: ['scenario'] } },
+  { name: 'test_agent_response', description: 'Test odpovědi agenta — vytvoří test case pro ověření', input_schema: { type: T, properties: { agent_id: S, test_prompt: { ...S, description: 'Prompt k otestování' }, expected_behavior: { ...S, description: 'Očekávané chování' } }, required: ['agent_id', 'test_prompt', 'expected_behavior'] } },
+  { name: 'analyze_agent_for_rewrite', description: 'Analýza agenta na základě reálných dat — navrhne úpravy promptu', input_schema: { type: T, properties: { agent_id: { ...S, description: 'ID agenta nebo "all"' } }, required: ['agent_id'] } },
+  { name: 'generate_optimized_prompt', description: 'Generování optimalizovaného promptu na základě analýzy', input_schema: { type: T, properties: { agent_id: S, current_prompt: S, issues: { type: 'array' as const, description: 'Seznam problémů k řešení' } }, required: ['agent_id'] } },
+
+  // === E2E TESTY ZÁKAZNICKÉ APLIKACE ===
+  { name: 'create_test_user', description: 'Vytvoří testovací uživatelský účet v MotoGo24 app', input_schema: { type: T, properties: {}, required: [] } },
+  { name: 'create_test_promo', description: 'Vytvoří 100% testovací promo kód pro simulaci platby', input_schema: { type: T, properties: {}, required: [] } },
+  { name: 'cleanup_test_data', description: 'Smaže všechna testovací data (uživatele, promo, bookings)', input_schema: { type: T, properties: {}, required: [] } },
+  { name: 'check_edge_functions', description: 'Ověří zdraví všech Edge Functions', input_schema: { type: T, properties: {}, required: [] } },
+  { name: 'verify_app_consistency', description: 'Kontrola konzistence dat zákaznické app (ceny, fotky, šablony)', input_schema: { type: T, properties: {}, required: [] } },
+  { name: 'generate_e2e_report', description: 'Kompletní E2E report zákaznické app — motorky, promo, pobočky, e-shop', input_schema: { type: T, properties: {}, required: [] } },
 ]
 
 // Tool risk levels for confirmation dialog
@@ -80,6 +94,8 @@ export const TOOL_RISK: Record<string, string> = {
   update_app_setting: 'high', update_feature_flag: 'high',
   update_sos_incident: 'medium',
   generate_test_report: 'low', check_data_integrity: 'low', create_purchase_order: 'medium', create_inventory_movement: 'medium',
+  simulate_customer_scenario: 'low', test_agent_response: 'low', analyze_agent_for_rewrite: 'low', generate_optimized_prompt: 'low',
+  create_test_user: 'medium', create_test_promo: 'low', cleanup_test_data: 'high', check_edge_functions: 'low', verify_app_consistency: 'low', generate_e2e_report: 'low',
   generate_daily_briefing: 'low', check_agent_health: 'low', get_priority_queue: 'low',
   test_booking_flow: 'low', test_payment_flow: 'low', test_sos_flow: 'low', run_full_system_test: 'low',
 }

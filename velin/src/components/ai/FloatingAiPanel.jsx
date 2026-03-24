@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { loadAgentConfig, getEnabledTools, getAgentCorrections, AGENTS } from '../../lib/aiAgents'
 import { buildAgentPromptsText } from '../../lib/aiAgentPrompts'
 import { buildAllAgentMemory, autoExtractFlash } from '../../lib/aiAgentMemory'
+import { recordOutcome } from '../../lib/aiLearning'
 import { useAiContext, PAGE_QUICK_ACTIONS } from '../../hooks/useAiContext'
 import AiConfirmDialog from './AiConfirmDialog'
 
@@ -101,6 +102,14 @@ export default function FloatingAiPanel() {
     setSending(true)
     try {
       const { data } = await supabase.functions.invoke('ai-copilot', { body: { mode: 'execute', actions: pending } })
+      // Record learning
+      if (data?.executed_actions) {
+        const { AGENTS: AG } = await import('../../lib/aiAgents')
+        for (const ea of data.executed_actions) {
+          const agent = AG.find(a => a.tools.includes(ea.tool))
+          if (agent) recordOutcome(agent.id, ea.tool, {}, ea.result, ea.success)
+        }
+      }
       setMessages(m => [...m, { role: 'assistant', content: data?.response || 'Provedeno.', ts: new Date().toISOString() }])
     } catch (e) {
       setMessages(m => [...m, { role: 'assistant', content: `Chyba: ${e.message}`, ts: new Date().toISOString(), err: true }])

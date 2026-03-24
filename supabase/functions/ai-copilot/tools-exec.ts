@@ -10,6 +10,8 @@ import { execAnalytics } from './tools-analytics.ts'
 import { execWriteCore } from './tools-write-core.ts'
 import { execWriteOps } from './tools-write-ops.ts'
 import { execOrchestrator } from './tools-orchestrator.ts'
+import { execSimulation } from './tools-simulation.ts'
+import { execE2ETest } from './tools-e2e-test.ts'
 
 // Write tools that require confirmation
 const WRITE_TOOLS = new Set([
@@ -50,6 +52,8 @@ export async function executeTool(
       () => execWriteCore(toolName, toolInput, supabaseAdmin, dryRun),
       () => execWriteOps(toolName, toolInput, supabaseAdmin, dryRun),
       () => execOrchestrator(toolName, toolInput, supabaseAdmin),
+      () => execSimulation(toolName, toolInput, supabaseAdmin),
+      () => execE2ETest(toolName, toolInput, supabaseAdmin),
     ]
     for (const mod of modules) {
       result = await mod()
