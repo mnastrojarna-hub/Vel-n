@@ -140,9 +140,21 @@ export default function Fleet() {
         m.status === 'unavailable' && m.unavailable_until && m.unavailable_until <= now
       )
       if (toReactivate.length > 0) {
+        // Check which motos have open maintenance_log entries (were in service before deactivation)
+        const reactivateIds = toReactivate.map(m => m.id)
+        const { data: openServiceLogs } = await supabase.from('maintenance_log')
+          .select('moto_id').is('completed_date', null).in('status', ['in_service', 'pending'])
+          .in('moto_id', reactivateIds)
+        const motosWithOpenService = new Set((openServiceLogs || []).map(l => l.moto_id))
         for (const m of toReactivate) {
-          await supabase.from('motorcycles').update({ status: 'active', unavailable_until: null, unavailable_reason: null }).eq('id', m.id)
-          m.status = 'active'
+          if (motosWithOpenService.has(m.id)) {
+            // Has open service logs → return to maintenance, not active
+            await supabase.from('motorcycles').update({ status: 'maintenance', unavailable_until: null, unavailable_reason: null }).eq('id', m.id)
+            m.status = 'maintenance'
+          } else {
+            await supabase.from('motorcycles').update({ status: 'active', unavailable_until: null, unavailable_reason: null }).eq('id', m.id)
+            m.status = 'active'
+          }
           m.unavailable_until = null
         }
       }

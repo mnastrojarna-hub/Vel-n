@@ -142,9 +142,22 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
       const upd = { status: newStatus }
       if (newStatus === 'active') {
         upd.last_service_date = today; upd.unavailable_until = null; upd.unavailable_reason = null
-        // Also close any open maintenance logs when returning to active
+        // Check for open maintenance logs — warn before closing them
+        const { data: openSvcLogs } = await supabase.from('maintenance_log').select('id, description, items')
+          .eq('moto_id', moto.id).is('completed_date', null)
+        if (openSvcLogs?.length > 0) {
+          const itemCount = openSvcLogs.reduce((sum, l) => sum + (l.items?.length || 0), 0)
+          if (!window.confirm(`Motorka má ${openSvcLogs.length} otevřený servisní záznam (${itemCount} úkonů). Vrácením do provozu se všechny záznamy uzavřou.\n\nPokud chcete zachovat servisní záznamy, použijte „Vrátit do servisu".\n\nPokračovat a uzavřít záznamy?`)) {
+            setBusy(false); return
+          }
+        }
+        // Close open maintenance logs
         await supabase.from('maintenance_log').update({ completed_date: today, status: 'completed' })
           .eq('moto_id', moto.id).is('completed_date', null)
+      }
+      if (newStatus === 'maintenance') {
+        upd.unavailable_until = null; upd.unavailable_reason = null
+        // Preserve existing maintenance_log entries — do NOT modify them
       }
       if (newStatus === 'unavailable') {
         const reasonText = reason === 'other' ? customReason : UNAVAILABLE_REASONS.find(r => r.value === reason)?.label
@@ -273,20 +286,25 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
           <div>
             <h3 className="text-sm font-extrabold uppercase tracking-widest mb-3" style={{ color: '#1a2e22' }}>Změnit stav motorky</h3>
             <div className="grid grid-cols-2 gap-3">
-              {/* Vrátit do provozu — for maintenance/unavailable/unavailable */}
+              {/* Vrátit do servisu — PRIMARY for unavailable/retired motos WITH open service logs */}
+              {(isOut || moto.status === 'retired') && hasOpenLogs && (
+                <StatusBtn color="#1a8a18" bg="#dcfce7" onClick={() => handleStatusChange('maintenance')} disabled={busy}
+                  title="Vrátit do servisu" desc={`Obnoví ${openLogs.length} servisní záznam(y) — původní checklist zůstane zachován`} />
+              )}
+              {/* Vrátit do servisu — for unavailable/retired motos WITHOUT open logs */}
+              {(isOut || moto.status === 'retired') && !hasOpenLogs && (
+                <StatusBtn color="#b45309" bg="#fef3c7" onClick={() => handleStatusChange('maintenance')} disabled={busy}
+                  title="Vrátit do servisu" desc="Přesunout motorku zpět do servisu" />
+              )}
+              {/* Vrátit do provozu — for maintenance/unavailable */}
               {!isActive && (
-                <StatusBtn color="#1a8a18" bg="#dcfce7" onClick={() => handleStatusChange('active')} disabled={busy}
-                  title="Vrátit do provozu" desc={hasOpenLogs ? `Uzavře ${openLogs.length} servisní záznam(y) a aktivuje` : 'Motorka bude opět k dispozici'} />
+                <StatusBtn color={hasOpenLogs ? '#dc2626' : '#1a8a18'} bg={hasOpenLogs ? '#fee2e2' : '#dcfce7'} onClick={() => handleStatusChange('active')} disabled={busy}
+                  title="Vrátit do provozu" desc={hasOpenLogs ? `⚠ Uzavře ${openLogs.length} servisní záznam(y) a aktivuje` : 'Motorka bude opět k dispozici'} />
               )}
               {/* Ukončit servis — for active moto with open logs (zaseklý stav) */}
               {isActive && hasOpenLogs && (
                 <StatusBtn color="#1a8a18" bg="#dcfce7" onClick={handleCloseServiceAndActivate} disabled={busy}
                   title="Ukončit servis" desc={`Uzavře ${openLogs.length} otevřený servisní záznam(y)`} />
-              )}
-              {/* Vrátit do servisu — for unavailable/retired motos */}
-              {(isOut || moto.status === 'retired') && (
-                <StatusBtn color="#b45309" bg="#fef3c7" onClick={() => handleStatusChange('maintenance')} disabled={busy}
-                  title="Vrátit do servisu" desc="Přesunout motorku zpět do servisu" />
               )}
               {/* Odeslat do servisu / Upravit servisní plán */}
               {hasOpenLogs ? (
