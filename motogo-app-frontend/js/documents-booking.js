@@ -161,9 +161,16 @@ async function showDigitalProtocol(bookingId){
 // ===== INVOICE GENERATION (Czech accounting standards) =====
 // invoiceId (optional 3rd param): show specific invoice by ID (for multiple ZFs/DPs per booking)
 async function showInvoice(bookingId,type,invoiceId){
+  if(!bookingId||bookingId==='null'||bookingId==='undefined'){
+    if(invoiceId&&invoiceId!=='null'&&invoiceId!=='undefined') return showInvoiceById(invoiceId);
+    showT('✗',_t('common').error,_t('common').noData);return;
+  }
   var data=await _getBookingDataAsync(bookingId);
   if(!data) data=_getBookingData(bookingId);
-  if(!data){showT('✗',_t('common').error,_t('common').noData);return;}
+  if(!data){
+    if(invoiceId&&invoiceId!=='null'&&invoiceId!=='undefined') return showInvoiceById(invoiceId);
+    showT('✗',_t('common').error,_t('common').noData);return;
+  }
   var t=_t('doc');var b=data.b,p=data.p,mn=data.motoName,rn=data.resNum;
 
   // Load real invoice from DB — by ID or filter by type
@@ -289,6 +296,59 @@ async function showInvoice(bookingId,type,invoiceId){
     '<button class="btn-g" onclick="_downloadInvoiceHtml(\''+bookingId+'\',\''+invNum+'\')">⬇️ '+t.downloadPDF+'</button>'+
     '</div></div></div>';
   _openDocOverlay(html);
+}
+
+// Show invoice by ID only (no booking_id available — e.g. orphaned ZF from incomplete reservation)
+async function showInvoiceById(invoiceId){
+  if(!_isSupabaseReady()){showT('✗',_t('common').error,'Offline');return;}
+  var t=_t('doc');
+  try {
+    var invR=await supabase.from('invoices').select('*').eq('id',invoiceId).single();
+    var dbInvoice=invR.data;
+    if(!dbInvoice){showT('✗',t.error||'Chyba','Faktura nenalezena');return;}
+    // If we do have a booking_id after all, delegate to showInvoice
+    if(dbInvoice.booking_id){
+      var invType=dbInvoice.type==='payment_receipt'?'payment_receipt':(dbInvoice.type==='proforma'||dbInvoice.type==='advance')?'advance':'final';
+      return showInvoice(dbInvoice.booking_id,invType,invoiceId);
+    }
+    var p=await apiFetchProfile();
+    var pName=p?p.full_name:'—';
+    var pAddr=p?[p.street,p.city,p.zip,p.country].filter(Boolean).join(', '):'—';
+    var invNum=dbInvoice.number||invoiceId.substr(-8).toUpperCase();
+    var isReceipt=dbInvoice.type==='payment_receipt';
+    var isAdvance=dbInvoice.type==='proforma'||dbInvoice.type==='advance';
+    var title=isReceipt?(t.paymentReceipt||'Doklad k platbě'):isAdvance?t.invoiceAdvance:t.invoiceFinal;
+    var amt=Number(dbInvoice.total||0);
+    var itemsHtml='';
+    if(dbInvoice.items&&Array.isArray(dbInvoice.items)){
+      dbInvoice.items.forEach(function(it){
+        if(it.description&&it.description.indexOf('──')===0&&(it.unit_price||0)===0){
+          itemsHtml+='<tr><td colspan="4" style="font-weight:800;font-size:12px;padding:10px 0 4px;border-bottom:2px solid var(--green,#1a8a18);">'+it.description.replace(/──/g,'').trim()+'</td></tr>';
+          return;
+        }
+        itemsHtml+='<tr><td>'+(it.description||'')+'</td><td>'+(it.qty||1)+' ks</td>'+
+          '<td>'+(it.unit_price||0).toLocaleString('cs-CZ')+' Kč</td>'+
+          '<td>'+((it.unit_price||0)*(it.qty||1)).toLocaleString('cs-CZ')+' Kč</td></tr>';
+      });
+    }
+    var html='<div class="doc-view"><div class="doc-view-hdr"><div class="back-row" onclick="closeDocView()">'+
+      '<div class="bk-c">←</div><div class="bk-l">'+t.back+'</div></div>'+
+      '<h2>'+title+'</h2><p>'+invNum+'</p></div><div class="doc-view-body">'+
+      '<div class="inv-doc-header"><strong>'+title+'</strong> '+invNum+'</div>'+
+      '<div class="doc-parties"><div class="doc-party"><strong>'+t.supplier+':</strong><br>'+
+      COMPANY.name+'<br>'+COMPANY.sidlo+'<br>IČ: '+COMPANY.ic+'</div>'+
+      '<div class="doc-party"><strong>'+t.customer+':</strong><br>'+pName+'<br>'+pAddr+'</div></div>'+
+      '<div class="inv-meta">'+
+      '<div class="doc-field"><span class="doc-lbl">'+t.issueDate+':</span> '+(dbInvoice.issue_date?_docDate(dbInvoice.issue_date):'—')+'</div>'+
+      '<div class="doc-field"><span class="doc-lbl">'+t.dueDate+':</span> '+(dbInvoice.due_date?_docDate(dbInvoice.due_date):'—')+'</div>'+
+      (dbInvoice.variable_symbol?'<div class="doc-field"><span class="doc-lbl">VS:</span> '+dbInvoice.variable_symbol+'</div>':'')+
+      '</div>';
+    if(itemsHtml) html+='<table class="inv-table"><thead><tr><th>'+t.item+'</th><th>'+t.qty+'</th><th>'+t.unitPrice+'</th><th>'+t.total+'</th></tr></thead><tbody>'+itemsHtml+'</tbody></table>';
+    html+='<div class="inv-total"><span>'+t.totalToPay+':</span> <strong>'+amt.toLocaleString('cs-CZ')+' Kč</strong></div>'+
+      '<p style="font-size:10px;color:var(--g400);margin-top:8px;">'+COMPANY.note+'</p>'+
+      '</div></div>';
+    _openDocOverlay(html);
+  } catch(e){console.error('showInvoiceById:',e);showT('✗',_t('common').error,'Chyba');}
 }
 
 // Download invoice as HTML file generated from current view

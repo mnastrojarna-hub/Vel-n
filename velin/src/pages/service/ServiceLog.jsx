@@ -141,7 +141,7 @@ function LogRow({ log: l, km, startDate, isExpanded, onToggle, onEdit, fmt }) {
         <TD>{l.completed_date ? new Date(l.completed_date).toLocaleDateString('cs-CZ') : '—'}</TD>
         <TD mono>{km ? km.toLocaleString('cs-CZ') : '—'}</TD>
         <TD bold>{fmt(l.cost)}</TD>
-        <TD><StatusBadge status={l.completed_date && l.status !== 'completed' ? 'completed' : (l.status || 'pending')} /></TD>
+        <TD><StatusBadge status={l.completed_date && l.status !== 'completed' ? 'completed' : (l.status === 'pending' ? 'pending_service' : (l.status || 'pending_service'))} /></TD>
         <TD>{l.performed_by || '—'}</TD>
       </tr>
       {isExpanded && (
