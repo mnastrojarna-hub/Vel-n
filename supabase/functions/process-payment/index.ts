@@ -127,6 +127,24 @@ Deno.serve(async (req: Request) => {
         { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
       )
     }
+
+    // ── Duplicate payment guard: refuse if booking is already paid ──
+    if (paymentType === 'booking' && booking_id) {
+      const tmpSupabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      )
+      const { data: bk } = await tmpSupabase.from('bookings')
+        .select('payment_status, status')
+        .eq('id', booking_id)
+        .single()
+      if (bk?.payment_status === 'paid') {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Tato rezervace je již zaplacena.' }),
+          { status: 409, headers: { ...CORS, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
     if (paymentType === 'shop' && !order_id) {
       return new Response(
         JSON.stringify({ success: false, error: 'Missing order_id for shop payment' }),
