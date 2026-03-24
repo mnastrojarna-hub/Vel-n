@@ -1,5 +1,6 @@
 // ===== MotoGo24 – Edge Function: Manage Payment Methods (Stripe) =====
 // List, delete, and set default saved payment methods via Stripe Customer.
+// Also syncs card details to Supabase `payment_methods` table.
 // POST /functions/v1/manage-payment-methods
 // Body: { action: 'list' | 'delete' | 'set_default' | 'setup', payment_method_id? }
 
@@ -27,6 +28,46 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
     const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')))
     return payload
   } catch { return null }
+}
+
+/** Sync all Stripe payment methods for a customer to the Supabase payment_methods table */
+async function syncCardsToSupabase(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  customerId: string
+) {
+  try {
+    const customer = await stripe.customers.retrieve(customerId) as Stripe.Customer
+    const methods = await stripe.paymentMethods.list({
+      customer: customerId,
+      type: 'card',
+    })
+
+    const defaultPmId = (customer.invoice_settings?.default_payment_method as string) || null
+
+    const cards = methods.data.map((pm) => ({
+      user_id: userId,
+      stripe_payment_method_id: pm.id,
+      brand: pm.card?.brand || 'unknown',
+      last4: pm.card?.last4 || '****',
+      exp_month: pm.card?.exp_month || null,
+      exp_year: pm.card?.exp_year || null,
+      holder_name: pm.billing_details?.name || null,
+      is_default: pm.id === defaultPmId,
+    }))
+
+    // Remove old cards for this user and insert fresh data
+    await supabase.from('payment_methods').delete().eq('user_id', userId)
+
+    if (cards.length > 0) {
+      await supabase.from('payment_methods').insert(cards)
+    }
+
+    return cards
+  } catch (e) {
+    console.warn('syncCardsToSupabase error:', e)
+    return null
+  }
 }
 
 Deno.serve(async (req: Request) => {
@@ -130,7 +171,7 @@ Deno.serve(async (req: Request) => {
       )
     }
 
-    // LIST saved payment methods
+    // LIST saved payment methods — fetch from Stripe + sync to Supabase
     if (action === 'list' || !action) {
       const customer = await stripe.customers.retrieve(customerId) as Stripe.Customer
       const methods = await stripe.paymentMethods.list({
@@ -149,6 +190,9 @@ Deno.serve(async (req: Request) => {
         holder_name: pm.billing_details?.name || null,
         is_default: pm.id === defaultPmId,
       }))
+
+      // Sync to Supabase table (non-blocking)
+      syncCardsToSupabase(supabase, user.id, customerId).catch(() => {})
 
       return new Response(
         JSON.stringify({ success: true, action: 'list', methods: cards }),
@@ -173,6 +217,13 @@ Deno.serve(async (req: Request) => {
         )
       }
       await stripe.paymentMethods.detach(payment_method_id)
+
+      // Remove from Supabase table
+      await supabase.from('payment_methods')
+        .delete()
+        .eq('stripe_payment_method_id', payment_method_id)
+        .catch(() => {})
+
       return new Response(
         JSON.stringify({ success: true, action: 'delete' }),
         { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
@@ -190,6 +241,17 @@ Deno.serve(async (req: Request) => {
       await stripe.customers.update(customerId, {
         invoice_settings: { default_payment_method: payment_method_id },
       })
+
+      // Update default flag in Supabase table
+      await supabase.from('payment_methods')
+        .update({ is_default: false })
+        .eq('user_id', user.id)
+        .catch(() => {})
+      await supabase.from('payment_methods')
+        .update({ is_default: true })
+        .eq('stripe_payment_method_id', payment_method_id)
+        .catch(() => {})
+
       return new Response(
         JSON.stringify({ success: true, action: 'set_default' }),
         { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }

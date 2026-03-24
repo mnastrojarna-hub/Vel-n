@@ -266,6 +266,7 @@ async function renderPaymentMethods(){
     return;
   }
   try {
+    wrap.innerHTML = '<div style="text-align:center;padding:12px;color:var(--g400);font-size:12px;">Načítám uložené karty...</div>';
     var r = await apiFetchPaymentMethods();
     if(!r.success || !r.methods || r.methods.length === 0){
       wrap.innerHTML = '<div style="padding:12px;text-align:center;font-size:12px;color:var(--g400);">Žádné uložené karty</div>';
@@ -328,11 +329,17 @@ async function addNewCard(){
 }
 
 // Refresh cards after returning from Stripe setup
+// Webhook saves card to Supabase — retry a few times to catch the sync
 document.addEventListener('visibilitychange', function(){
   if(!document.hidden && _cardSetupOpened){
     _cardSetupOpened = false;
     _pmLoaded = false;
+    // First check after 1.5s (webhook may have already synced)
     setTimeout(function(){ renderPaymentMethods(); }, 1500);
+    // Retry after 4s in case webhook was slow
+    setTimeout(function(){ _pmLoaded = false; renderPaymentMethods(); }, 4000);
+    // Final retry after 8s
+    setTimeout(function(){ _pmLoaded = false; renderPaymentMethods(); }, 8000);
   }
 });
 

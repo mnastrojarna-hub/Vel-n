@@ -88,12 +88,25 @@ Deno.serve(async (req: Request) => {
         ? session.payment_intent
         : (session.payment_intent as any)?.id || null
 
-      if ((paymentType === 'booking' || paymentType === 'extension') && metadata.booking_id) {
+      // Handle setup mode sessions (add card without payment)
+      if (session.mode === 'setup' && metadata.action === 'add_card') {
+        await syncCardFromSetupSession(supabase, session)
+      } else if ((paymentType === 'booking' || paymentType === 'extension') && metadata.booking_id) {
         await confirmBookingPayment(supabase, metadata.booking_id, session.id, stripePaymentIntentId)
+        // Sync cards after payment (card was saved via setup_future_usage)
+        if (session.customer) {
+          await syncCardsForCustomer(supabase, session.customer as string)
+        }
       } else if (paymentType === 'shop' && metadata.order_id) {
         await confirmShopPayment(supabase, metadata.order_id, session.id, stripePaymentIntentId)
+        if (session.customer) {
+          await syncCardsForCustomer(supabase, session.customer as string)
+        }
       } else if (paymentType === 'sos' && metadata.booking_id) {
         await confirmSosPayment(supabase, metadata.booking_id, metadata.incident_id, session.id, stripePaymentIntentId)
+        if (session.customer) {
+          await syncCardsForCustomer(supabase, session.customer as string)
+        }
       }
     } else if (event.type === 'payment_intent.succeeded') {
       const paymentIntent = event.data.object as Stripe.PaymentIntent
@@ -394,5 +407,96 @@ async function confirmShopPayment(
     }
   } catch (err) {
     console.error('confirmShopPayment error:', err)
+  }
+}
+
+/** Sync card details from a setup session (add card flow) to Supabase */
+async function syncCardFromSetupSession(
+  supabase: ReturnType<typeof createClient>,
+  session: Stripe.Checkout.Session
+) {
+  try {
+    const customerId = session.customer as string
+    const userId = session.metadata?.user_id
+    if (!customerId || !userId) return
+
+    // Get the SetupIntent to find the payment method
+    const setupIntentId = typeof session.setup_intent === 'string'
+      ? session.setup_intent
+      : (session.setup_intent as any)?.id
+    if (!setupIntentId) return
+
+    const setupIntent = await stripe.setupIntents.retrieve(setupIntentId)
+    const pmId = typeof setupIntent.payment_method === 'string'
+      ? setupIntent.payment_method
+      : (setupIntent.payment_method as any)?.id
+    if (!pmId) return
+
+    const pm = await stripe.paymentMethods.retrieve(pmId)
+
+    // Upsert card into payment_methods table
+    await supabase.from('payment_methods').upsert({
+      user_id: userId,
+      stripe_payment_method_id: pm.id,
+      brand: pm.card?.brand || 'unknown',
+      last4: pm.card?.last4 || '****',
+      exp_month: pm.card?.exp_month || null,
+      exp_year: pm.card?.exp_year || null,
+      holder_name: pm.billing_details?.name || null,
+      is_default: false,
+    }, { onConflict: 'stripe_payment_method_id' })
+
+    await supabase.from('debug_log').insert({
+      source: 'webhook-receiver',
+      action: 'card_saved_from_setup',
+      component: 'stripe',
+      status: 'ok',
+      request_data: { user_id: userId, pm_id: pm.id, brand: pm.card?.brand, last4: pm.card?.last4 },
+    }).catch(() => {})
+  } catch (e) {
+    console.error('syncCardFromSetupSession error:', e)
+  }
+}
+
+/** Sync all cards for a Stripe customer to Supabase payment_methods table */
+async function syncCardsForCustomer(
+  supabase: ReturnType<typeof createClient>,
+  customerId: string
+) {
+  try {
+    // Find user_id from profiles
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('stripe_customer_id', customerId)
+      .maybeSingle()
+    if (!profile) return
+
+    const customer = await stripe.customers.retrieve(customerId) as Stripe.Customer
+    const methods = await stripe.paymentMethods.list({
+      customer: customerId,
+      type: 'card',
+    })
+
+    const defaultPmId = (customer.invoice_settings?.default_payment_method as string) || null
+
+    // Remove old cards and insert fresh
+    await supabase.from('payment_methods').delete().eq('user_id', profile.id)
+
+    if (methods.data.length > 0) {
+      const cards = methods.data.map((pm) => ({
+        user_id: profile.id,
+        stripe_payment_method_id: pm.id,
+        brand: pm.card?.brand || 'unknown',
+        last4: pm.card?.last4 || '****',
+        exp_month: pm.card?.exp_month || null,
+        exp_year: pm.card?.exp_year || null,
+        holder_name: pm.billing_details?.name || null,
+        is_default: pm.id === defaultPmId,
+      }))
+      await supabase.from('payment_methods').insert(cards)
+    }
+  } catch (e) {
+    console.error('syncCardsForCustomer error:', e)
   }
 }

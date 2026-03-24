@@ -74,6 +74,16 @@
 - **consent_photo** (boolean DEFAULT false) — souhlas fotografování dokladů
 - **stripe_customer_id** (TEXT) — Stripe Customer ID pro uložené platební metody
 
+### payment_methods
+- id (UUID PK), user_id (UUID FK→profiles ON DELETE CASCADE)
+- stripe_payment_method_id (TEXT UNIQUE) — Stripe PM ID
+- brand (TEXT DEFAULT 'unknown') — visa, mastercard, amex...
+- last4 (TEXT DEFAULT '****') — poslední 4 čísla karty
+- exp_month (INTEGER), exp_year (INTEGER) — expirace
+- holder_name (TEXT) — jméno držitele karty
+- is_default (BOOLEAN DEFAULT false) — prioritní karta
+- created_at, updated_at
+
 ### motorcycles
 - id, model, spz, vin, year, status (`moto_status` ENUM: active, maintenance, unavailable, retired)
 - stk_valid_until, acquired_at

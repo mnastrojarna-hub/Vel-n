@@ -150,6 +150,12 @@
 | `automation_rules` | Automatizační pravidla |
 | `predictions` | Predikce |
 
+### Platby
+
+| Tabulka | Popis |
+|---------|-------|
+| `payment_methods` | Uložené platební karty (Stripe sync) — brand, last4, exp_month/year, holder_name, is_default, stripe_payment_method_id |
+
 ### CMS a nastavení
 
 | Tabulka | Popis |
