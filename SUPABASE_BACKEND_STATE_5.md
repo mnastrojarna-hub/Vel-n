@@ -29,6 +29,7 @@ Detailní politiky:
 - **products:** public SELECT (is_active), admin ALL
 - **shop_orders:** admin ALL, customer SELECT/INSERT/UPDATE (customer_id=uid)
 - **shop_order_items:** admin ALL, customer SELECT/INSERT (order owned by user)
+- **payment_methods:** admin ALL, customer SELECT/INSERT/UPDATE/DELETE (user_id=uid)
 - **booking_cancellations:** admin ALL, customer SELECT (cancelled_by=uid)
 - **maintenance_log:** admin ALL (is_admin), public SELECT
 - **maintenance_schedules:** admin ALL (is_admin), public SELECT
@@ -72,9 +73,9 @@ Detailní politiky:
 | `send-cancellation-email` | Email o stornování rezervace s "obnovit" CTA. Retry 3× s exponential backoff. Při selhání loguje do debug_log |
 | `admin-reset-password` | Admin reset hesla zákazníka |
 | `process-payment` | Stripe platební brána (**LIVE mode**). Podporuje booking, shop, extension i SOS platby (parametr `type`). Vytváří Stripe Checkout Session (redirect). Vrací `checkout_url`, `session_id`. Locale: cs. **Automaticky vytváří/používá Stripe Customer** (ukládá `stripe_customer_id` do profiles). Karty se ukládají pro budoucí platby (`setup_future_usage: off_session`). Uložená karta se předvyplní na Stripe Checkout |
-| `manage-payment-methods` | Správa uložených platebních metod (Stripe). Akce: `list` (výpis karet), `delete` (odebrání), `set_default` (nastavení prioritní karty). Vyžaduje JWT auth |
+| `manage-payment-methods` | Správa uložených platebních metod (Stripe). Akce: `list` (výpis karet + sync do DB), `delete` (odebrání + sync), `set_default` (nastavení prioritní karty + sync), `setup` (přidání nové karty). Synchonizuje karty do tabulky `payment_methods`. Vyžaduje JWT auth |
 | `scan-document` | OCR skenování dokladů (OP, ŘP, pas) přes Mindee API. Přijímá base64 JPEG + document_type (id/dl/passport), vrací strukturovaná data. Retry 3×, loguje do debug_log |
-| `webhook-receiver` | Příjem Stripe webhooků (**LIVE mode**, signature povinná). Zpracovává checkout.session.completed, payment_intent.succeeded, charge.refunded, payout.paid. Auto-generuje dokumenty (ZF, smlouva) po úspěšné platbě. Ukládá stripe_payment_intent_id k bookings/shop_orders |
+| `webhook-receiver` | Příjem Stripe webhooků (**LIVE mode**, signature povinná). Zpracovává checkout.session.completed, payment_intent.succeeded, charge.refunded, payout.paid. Auto-generuje dokumenty (ZF, smlouva) po úspěšné platbě. Ukládá stripe_payment_intent_id k bookings/shop_orders. **Synchonizuje platební karty do `payment_methods` tabulky** po každé platbě a po setup session (přidání karty) |
 | `process-refund` | Stripe refundy (LIVE). Částečné i plné vrácení peněz. Volá Stripe Refund API. Napojeno na storno + zkrácení rezervace |
 | `send-message` | Centrální odesílání zpráv (SMS/WhatsApp přes Twilio, email přes Resend). Přijímá channel, recipient, template_slug, template_vars. Loguje do message_log |
 | `send-invoice-email` | Odesílání faktur emailem zákazníkům |
@@ -225,6 +226,7 @@ https://search.google.com/local/writereview?placeid=PLACE_ID
 - `service_parts.inventory_item_id` → `inventory.id` (ON DELETE CASCADE)
 - `service_orders.moto_id` → `motorcycles.id`
 - `branch_accessories.branch_id` → `branches.id`
+- `payment_methods.user_id` → `profiles.id` (ON DELETE CASCADE)
 - `branch_door_codes.branch_id` → `branches.id`
 - `branch_door_codes.booking_id` → `bookings.id`
 - `branch_door_codes.moto_id` → `motorcycles.id`
