@@ -57,8 +57,21 @@ Templates['s-profile'] = `  <div class="prof-hdr">
       <div id="pm-cards-list" style="margin-bottom:8px;">
         <div style="text-align:center;padding:12px;color:var(--g400);font-size:12px;">Načítám uložené karty...</div>
       </div>
+      <div id="pm-add-card-form" style="display:none;background:#fff;border-radius:var(--rsm);padding:14px;margin-bottom:8px;border:2px solid var(--green);">
+        <div style="font-size:13px;font-weight:700;color:var(--black);margin-bottom:10px;">Nová platební karta</div>
+        <div style="margin-bottom:10px;">
+          <label style="font-size:11px;font-weight:600;color:var(--g400);display:block;margin-bottom:4px;">Jméno držitele</label>
+          <input id="card-holder-name" type="text" placeholder="Jan Novák" autocomplete="cc-name" style="width:100%;padding:10px 12px;border:1px solid var(--g200);border-radius:8px;font-family:var(--font);font-size:14px;font-weight:500;color:var(--black);background:#fafafa;box-sizing:border-box;">
+        </div>
+        <div style="margin-bottom:10px;">
+          <label style="font-size:11px;font-weight:600;color:var(--g400);display:block;margin-bottom:4px;">Údaje karty</label>
+          <div id="stripe-card-element" style="padding:10px 12px;border:1px solid var(--g200);border-radius:8px;background:#fafafa;min-height:20px;"></div>
+        </div>
+        <div id="card-form-error" style="font-size:11px;color:var(--red);margin-bottom:8px;min-height:14px;"></div>
+        <button id="save-card-btn" onclick="submitNewCard()" style="width:100%;background:var(--green);color:#fff;border:none;border-radius:var(--rsm);padding:12px;font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer;">Uložit kartu</button>
+        <div style="font-size:10px;color:var(--g400);text-align:center;margin-top:6px;line-height:1.4;">Údaje karty jsou zabezpečeny přes Stripe. MotoGo24 nikdy neukládá číslo karty.</div>
+      </div>
       <button id="add-card-btn" onclick="addNewCard()" style="width:100%;background:var(--gp);color:var(--gd);border:2px solid var(--green);border-radius:var(--rsm);padding:12px;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;">+ Přidat novou kartu</button>
-      <div style="font-size:11px;color:var(--g400);line-height:1.6;padding:0 0 8px;">Budete přesměrováni na zabezpečenou stránku Stripe pro zadání údajů karty. Karta se uloží pro budoucí platby.</div>
     </div>
   </div>
 

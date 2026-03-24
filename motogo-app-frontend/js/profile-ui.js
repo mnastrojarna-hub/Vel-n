@@ -304,44 +304,66 @@ async function setDefaultCard(pmId){
   else { showT('✗','Chyba',r.error || 'Nepodařilo se nastavit prioritní kartu'); }
 }
 
-var _cardSetupOpened = false;
-async function addNewCard(){
-  if(typeof apiSetupNewCard !== 'function'){
-    showT('✗','Chyba','Funkce není dostupná offline');
+// ── In-app card form (Stripe Elements) ──
+var _addCardFormVisible = false;
+
+function showAddCardForm(){
+  var formWrap = document.getElementById('pm-add-card-form');
+  if(!formWrap) return;
+  if(_addCardFormVisible){
+    hideAddCardForm();
     return;
   }
+  _addCardFormVisible = true;
+  formWrap.style.display = 'block';
+  // Init Stripe Elements card field
+  if(typeof _initCardElement === 'function') _initCardElement('stripe-card-element');
+  var nameInput = document.getElementById('card-holder-name');
+  if(nameInput) nameInput.value = '';
+  var errEl = document.getElementById('card-form-error');
+  if(errEl) errEl.textContent = '';
   var btn = document.getElementById('add-card-btn');
-  if(btn){ btn.disabled = true; btn.textContent = '⏳ Připravuji...'; }
-  try {
-    var r = await apiSetupNewCard();
-    if(r.success && r.checkout_url){
-      _cardSetupOpened = true;
-      if(typeof _openExternalUrl === 'function') _openExternalUrl(r.checkout_url);
-      else window.open(r.checkout_url, '_blank');
-      showT('ℹ️','Přidání karty','Otevřena stránka Stripe pro zadání karty');
-    } else {
-      showT('✗','Chyba',r.error || 'Nepodařilo se otevřít Stripe');
-    }
-  } catch(e){
-    showT('✗','Chyba','Nepodařilo se připojit ke Stripe');
-  }
-  if(btn){ btn.disabled = false; btn.textContent = '+ Přidat novou kartu'; }
+  if(btn) btn.textContent = '✕ Zrušit';
 }
 
-// Refresh cards after returning from Stripe setup
-// Webhook saves card to Supabase — retry a few times to catch the sync
-document.addEventListener('visibilitychange', function(){
-  if(!document.hidden && _cardSetupOpened){
-    _cardSetupOpened = false;
-    _pmLoaded = false;
-    // First check after 1.5s (webhook may have already synced)
-    setTimeout(function(){ renderPaymentMethods(); }, 1500);
-    // Retry after 4s in case webhook was slow
-    setTimeout(function(){ _pmLoaded = false; renderPaymentMethods(); }, 4000);
-    // Final retry after 8s
-    setTimeout(function(){ _pmLoaded = false; renderPaymentMethods(); }, 8000);
+function hideAddCardForm(){
+  _addCardFormVisible = false;
+  var formWrap = document.getElementById('pm-add-card-form');
+  if(formWrap) formWrap.style.display = 'none';
+  if(typeof _destroyCardElement === 'function') _destroyCardElement();
+  var btn = document.getElementById('add-card-btn');
+  if(btn) btn.textContent = '+ Přidat novou kartu';
+}
+
+async function submitNewCard(){
+  var errEl = document.getElementById('card-form-error');
+  var saveBtn = document.getElementById('save-card-btn');
+  if(errEl) errEl.textContent = '';
+  if(saveBtn){ saveBtn.disabled = true; saveBtn.textContent = 'Ukládám...'; }
+  try {
+    var holderName = (document.getElementById('card-holder-name') || {}).value || '';
+    if(typeof apiCreatePaymentMethod !== 'function'){
+      if(errEl) errEl.textContent = 'Funkce není dostupná';
+      return;
+    }
+    var r = await apiCreatePaymentMethod(holderName);
+    if(r.success){
+      showT('✓','Karta uložena','Karta byla úspěšně přidána');
+      hideAddCardForm();
+      _pmLoaded = false;
+      renderPaymentMethods();
+    } else {
+      if(errEl) errEl.textContent = r.error || 'Nepodařilo se uložit kartu';
+    }
+  } catch(e){
+    if(errEl) errEl.textContent = 'Chyba: ' + e.message;
   }
-});
+  if(saveBtn){ saveBtn.disabled = false; saveBtn.textContent = 'Uložit kartu'; }
+}
+
+function addNewCard(){
+  showAddCardForm();
+}
 
 async function downloadDoc(docId){
   showT('⬇️',_t('common').downloadDoc,_t('common').openPDF);
