@@ -35,6 +35,38 @@ const READ_TOOLS = [
   { name: 'analyze_optimal_fleet', description: 'Optimální složení flotily', input_schema: { type: T, properties: { branch_id: { type: 'string' }, period_months: { type: 'number' } }, required: ['branch_id'] } },
   { name: 'analyze_customers', description: 'Analýza zákazníků — segmentace', input_schema: { type: T, properties: { period_months: { type: 'number' } }, required: [] } },
   { name: 'forecast_predictions', description: 'Predikce tržeb a obsazenosti', input_schema: { type: T, properties: { months_ahead: { type: 'number' }, branch_id: { type: 'string' } }, required: [] } },
+  // HR tools
+  { name: 'get_employees', description: 'Seznam zaměstnanců s pozicemi a mzdami', input_schema: { type: T, properties: {}, required: [] } },
+  { name: 'get_employee_detail', description: 'Detail zaměstnance — docházka, dovolená, směny, dokumenty, mzdy', input_schema: { type: T, properties: { employee_id: { type: 'string' } }, required: ['employee_id'] } },
+  { name: 'get_attendance_overview', description: 'Přehled docházky za období', input_schema: { type: T, properties: { days: { type: 'number', description: 'Počet dní zpět (default 7)' } }, required: [] } },
+  { name: 'get_pending_vacations', description: 'Nevyřízené žádosti o dovolenou', input_schema: { type: T, properties: {}, required: [] } },
+  { name: 'get_shifts_overview', description: 'Přehled směn', input_schema: { type: T, properties: { days_ahead: { type: 'number' } }, required: [] } },
+  { name: 'get_payrolls', description: 'Přehled výplatních pásek', input_schema: { type: T, properties: { limit: { type: 'number' } }, required: [] } },
+  // Accounting tools
+  { name: 'get_accounting_entries', description: 'Účetní záznamy', input_schema: { type: T, properties: { type: { type: 'string' }, limit: { type: 'number' } }, required: [] } },
+  { name: 'get_cash_register', description: 'Pokladna — záznamy a zůstatek', input_schema: { type: T, properties: { limit: { type: 'number' } }, required: [] } },
+  { name: 'get_long_term_assets', description: 'Dlouhodobý majetek — vozidla, stroje, odpisy', input_schema: { type: T, properties: {}, required: [] } },
+  { name: 'get_short_term_assets', description: 'Krátkodobý majetek — materiál, zásoby, pohledávky', input_schema: { type: T, properties: {}, required: [] } },
+  { name: 'get_depreciation', description: 'Odpisy dlouhodobého majetku za rok', input_schema: { type: T, properties: { year: { type: 'number' } }, required: [] } },
+  { name: 'get_liabilities', description: 'Závazky — dodavatelé, daně, SP, ZP, mzdy', input_schema: { type: T, properties: { unpaid_only: { type: 'boolean' } }, required: [] } },
+  { name: 'get_vat_returns', description: 'DPH přiznání — čtvrtletní přehledy', input_schema: { type: T, properties: {}, required: [] } },
+  { name: 'get_tax_returns', description: 'Daňová přiznání', input_schema: { type: T, properties: {}, required: [] } },
+  { name: 'get_tax_records', description: 'Daňové záznamy', input_schema: { type: T, properties: { limit: { type: 'number' } }, required: [] } },
+  { name: 'get_flexi_reports', description: 'Výkazy z Abra Flexi — DPH, daně, rozvaha, výsledovka', input_schema: { type: T, properties: {}, required: [] } },
+  // Extra tools
+  { name: 'get_contracts', description: 'Smlouvy — nájemní, servisní, zaměstnanecké', input_schema: { type: T, properties: { status: { type: 'string' }, contract_type: { type: 'string' }, limit: { type: 'number' } }, required: [] } },
+  { name: 'get_purchase_orders', description: 'Nákupní objednávky s položkami', input_schema: { type: T, properties: { status: { type: 'string' }, limit: { type: 'number' } }, required: [] } },
+  { name: 'get_booking_extras', description: 'Příslušenství k rezervaci + katalog', input_schema: { type: T, properties: { booking_id: { type: 'string' } }, required: ['booking_id'] } },
+  { name: 'get_booking_complaints', description: 'Reklamace zákazníků', input_schema: { type: T, properties: { status: { type: 'string' }, limit: { type: 'number' } }, required: [] } },
+  { name: 'get_booking_cancellations', description: 'Storna rezervací s refundy', input_schema: { type: T, properties: { limit: { type: 'number' } }, required: [] } },
+  { name: 'get_payment_methods', description: 'Uložené platební karty zákazníků', input_schema: { type: T, properties: { user_id: { type: 'string' } }, required: [] } },
+  { name: 'get_service_parts', description: 'Díly potřebné pro servisní plány', input_schema: { type: T, properties: { schedule_id: { type: 'string' } }, required: [] } },
+  { name: 'get_moto_locations', description: 'GPS pozice motorek', input_schema: { type: T, properties: {}, required: [] } },
+  { name: 'get_auto_order_rules', description: 'Pravidla automatických objednávek', input_schema: { type: T, properties: {}, required: [] } },
+  { name: 'get_notification_log', description: 'Log odeslaných notifikací', input_schema: { type: T, properties: { limit: { type: 'number' } }, required: [] } },
+  { name: 'get_message_templates', description: 'Šablony SMS/email zpráv', input_schema: { type: T, properties: {}, required: [] } },
+  { name: 'get_accessory_types', description: 'Typy příslušenství (dynamické)', input_schema: { type: T, properties: {}, required: [] } },
+  { name: 'get_performance_stats', description: 'Výkonnostní statistiky motorek a poboček', input_schema: { type: T, properties: {}, required: [] } },
 ]
 
 export const TOOLS_DEFINITION = [...READ_TOOLS, ...WRITE_TOOLS_DEFINITION]

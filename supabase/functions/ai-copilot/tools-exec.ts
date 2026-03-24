@@ -3,6 +3,9 @@ import type { SB } from './tools-constants.ts'
 import { execReadCore } from './tools-read-core.ts'
 import { execReadFinance } from './tools-read-finance.ts'
 import { execReadMisc } from './tools-read-misc.ts'
+import { execReadHR } from './tools-read-hr.ts'
+import { execReadAccounting } from './tools-read-accounting.ts'
+import { execReadExtra } from './tools-read-extra.ts'
 import { execAnalytics } from './tools-analytics.ts'
 import { execWriteCore } from './tools-write-core.ts'
 import { execWriteOps } from './tools-write-ops.ts'
@@ -33,32 +36,24 @@ export async function executeTool(
   dryRun = false,
 ): Promise<unknown> {
   const startTime = Date.now()
-
   try {
-    // Try each module in order
     let result: unknown
-
-    result = await execReadCore(toolName, toolInput, supabaseAdmin)
-    if (result !== null) { logTool(toolName, startTime); return result }
-
-    result = await execReadFinance(toolName, toolInput, supabaseAdmin)
-    if (result !== null) { logTool(toolName, startTime); return result }
-
-    result = await execReadMisc(toolName, toolInput, supabaseAdmin)
-    if (result !== null) { logTool(toolName, startTime); return result }
-
-    result = await execAnalytics(toolName, toolInput, supabaseAdmin)
-    if (result !== null) { logTool(toolName, startTime); return result }
-
-    result = await execWriteCore(toolName, toolInput, supabaseAdmin, dryRun)
-    if (result !== null) { logTool(toolName, startTime); return result }
-
-    result = await execWriteOps(toolName, toolInput, supabaseAdmin, dryRun)
-    if (result !== null) { logTool(toolName, startTime); return result }
-
-    result = await execOrchestrator(toolName, toolInput, supabaseAdmin)
-    if (result !== null) { logTool(toolName, startTime); return result }
-
+    const modules = [
+      () => execReadCore(toolName, toolInput, supabaseAdmin),
+      () => execReadFinance(toolName, toolInput, supabaseAdmin),
+      () => execReadMisc(toolName, toolInput, supabaseAdmin),
+      () => execReadHR(toolName, toolInput, supabaseAdmin),
+      () => execReadAccounting(toolName, toolInput, supabaseAdmin),
+      () => execReadExtra(toolName, toolInput, supabaseAdmin),
+      () => execAnalytics(toolName, toolInput, supabaseAdmin),
+      () => execWriteCore(toolName, toolInput, supabaseAdmin, dryRun),
+      () => execWriteOps(toolName, toolInput, supabaseAdmin, dryRun),
+      () => execOrchestrator(toolName, toolInput, supabaseAdmin),
+    ]
+    for (const mod of modules) {
+      result = await mod()
+      if (result !== null) { logTool(toolName, startTime); return result }
+    }
     return { error: `Unknown tool: ${toolName}` }
   } catch (err) {
     console.error(`ai-copilot tool error: ${toolName}`, err)
