@@ -30,8 +30,7 @@ async function enrichMOTOS(){
 
       // Motorka není v DB nebo není active → přeskoč
       if(!db || db.status !== 'active') continue;
-      // Pobočka je zavřená → přeskoč
-      if(db.branches && db.branches.is_open === false) continue;
+      // Zobrazujeme všechny pobočky včetně zavřených
 
       // Přiřaď _db objekt
       m._db = {
@@ -218,7 +217,6 @@ async function _populateBranchFilter(){
       var opt = document.createElement('option');
       opt.value = id;
       opt.textContent = label;
-      if(!b.is_open) opt.disabled = true;
       sel.appendChild(opt);
     });
     if(curVal) sel.value = curVal;
@@ -233,7 +231,6 @@ async function _populateBranchFilter(){
       var opt = document.createElement('option');
       opt.value = id;
       opt.textContent = label;
-      if(!b.is_open) opt.disabled = true;
       selSearch.appendChild(opt);
     });
     if(curVal2) selSearch.value = curVal2;
