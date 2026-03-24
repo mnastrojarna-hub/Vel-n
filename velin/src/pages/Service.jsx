@@ -24,11 +24,13 @@ export default function Service() {
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
       const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10)
 
-      const [planned, inService, costs] = await debugAction('service.loadStats', 'Service', () => Promise.all([
+      const [planned, inService, openLogs, costs] = await debugAction('service.loadStats', 'Service', () => Promise.all([
         supabase.from('maintenance_schedules').select('id', { count: 'exact', head: true })
           .eq('active', true),
         supabase.from('motorcycles').select('id', { count: 'exact', head: true })
           .eq('status', 'maintenance'),
+        supabase.from('maintenance_log').select('id', { count: 'exact', head: true })
+          .is('completed_date', null),
         supabase.from('maintenance_log').select('cost').not('cost', 'is', null),
       ]))
 
@@ -38,6 +40,7 @@ export default function Service() {
       setStats({
         planned: planned.count || 0,
         inService: inService.count || 0,
+        openLogs: openLogs.count || 0,
         avgCost: Math.round(avg),
       })
     } catch (err) {
@@ -57,6 +60,9 @@ export default function Service() {
         <Card>
           <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Motorky v servisu</div>
           <div className="text-xl font-extrabold" style={{ color: '#b45309' }}>{fmt(stats.inService)}</div>
+          {stats.openLogs > stats.inService && (
+            <div className="text-xs mt-1" style={{ color: '#7c3aed' }}>{fmt(stats.openLogs)} otevřených záznamů</div>
+          )}
         </Card>
         <Card>
           <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Ø náklady/servis</div>
