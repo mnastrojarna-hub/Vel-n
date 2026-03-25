@@ -2,6 +2,7 @@
 // Simulates real customer behavior: browse→reserve→pay→pickup→ride→return→review
 // Random behaviors: cancel, extend, shorten, complain, forget to pay, SOS during ride
 import * as API from './aiTrainingHelpers'
+import { supabase } from './supabase'
 
 export const AGENT_VOLUMES = {
   bookings:    { min: 25, label: 'Rezervace (lifecycle, edge cases, cross-check)' },
@@ -36,7 +37,16 @@ const BEHAVIORS = [
   { id: 'extender', label: 'Prodlužuje', flow: ['reserve', 'pay', 'pickup', 'ride', 'extend', 'return'] },
   { id: 'shortener', label: 'Zkracuje', flow: ['reserve', 'pay', 'pickup', 'shorten', 'return'] },
   { id: 'complainer', label: 'Reklamuje', flow: ['reserve', 'pay', 'pickup', 'ride', 'return', 'review1', 'complain'] },
-  { id: 'sos_rider', label: 'SOS během jízdy', flow: ['reserve', 'pay', 'pickup', 'ride', 'sos', 'return'] },
+  { id: 'sos_rider', label: 'SOS během jízdy', flow: ['reserve', 'pay', 'pickup', 'ride', 'sos_light', 'return'] },
+  // EXTRÉMNÍ multi-event scénáře
+  { id: 'chaos', label: 'Chaos zákazník',
+    flow: ['reserve', 'pay', 'change_pickup', 'pickup', 'extend', 'change_return', 'extend', 'sos_light', 'shorten', 'sos_heavy', 'return'] },
+  { id: 'indecisive', label: 'Nerozhodný',
+    flow: ['reserve', 'pay', 'change_pickup', 'pickup', 'shorten', 'extend', 'shorten', 'return', 'review3'] },
+  { id: 'vip_demanding', label: 'Náročný VIP',
+    flow: ['reserve', 'pay', 'change_pickup', 'pickup', 'extend', 'complain_during', 'extend', 'change_return', 'return', 'review2', 'complain'] },
+  { id: 'sos_chain', label: 'Řetěz SOS',
+    flow: ['reserve', 'pay', 'pickup', 'sos_light', 'ride', 'sos_light', 'ride', 'sos_heavy', 'return'] },
 ]
 
 async function createCustomerPool(count, onStep) {
@@ -60,14 +70,14 @@ export async function trainBookingsAgent(onStep) {
   if (!pool.length) return [{ ok: false, error: 'Rate limit' }]
   results.push({ agent: 'customers', action: 'pool_created', ok: true, count: pool.length })
 
-  // Simulate 8 different customer behaviors
-  for (let i = 0; i < 8; i++) {
+  // Simulate all customer behaviors (8 basic + 4 extreme)
+  for (let i = 0; i < BEHAVIORS.length; i++) {
     const behavior = BEHAVIORS[i % BEHAVIORS.length]
     const moto = motos.data[i % motos.data.length]
     const cust = pool[i % pool.length]
     const start = API.futureDate(i * 7 + 3)
     const end = API.futureDate(i * 7 + 6)
-    onStep?.({ agent: 'bookings', action: `${behavior.label} #${i + 1}`, i, total: 12 })
+    onStep?.({ agent: 'bookings', action: `${behavior.label} #${i + 1}`, i, total: BEHAVIORS.length + 4 })
 
     // Step 1: always create booking
     const booking = await API.createBooking(cust.userId, moto.id, start, end)
@@ -127,13 +137,54 @@ export async function trainBookingsAgent(onStep) {
           await API.sendCustomerMessage(cust.userId, 'Reklamace: motorka měla poškrábaný lak a nefungovala blinkry.')
           results.push({ agent: 'customers', action: 'customer_complains', ok: true })
           break
-        case 'sos': {
-          const sosType = API.PICK(SOS_TYPES)
-          const sos = await API.createSosIncident(cust.userId, booking.bookingId, moto.id, sosType.type, sosType.desc)
-          results.push({ agent: 'sos', action: 'sos_during_ride', type: sosType.type, ...sos })
-          if (sos.ok) {
-            await API.updateSosStatus(sos.incidentId, 'in_progress', 'Technik na cestě')
-            await API.updateSosStatus(sos.incidentId, 'resolved', 'Vyřešeno na místě')
+        case 'change_pickup': {
+          const addr = API.PICK(['Praha 1, Národní 10', 'Brno, Masarykova 5', 'Hotel Pyramida, Praha 6'])
+          const { error: cpErr } = await supabase.from('bookings').update({
+            pickup_method: 'delivery', pickup_address: addr,
+            pickup_lat: 49.8 + Math.random() * 0.5, pickup_lng: 14.3 + Math.random() * 0.5,
+          }).eq('id', booking.bookingId)
+          results.push({ agent: 'bookings', action: 'change_pickup_location', ok: !cpErr, addr })
+          break
+        }
+        case 'change_return': {
+          const addr = API.PICK(['Praha 5, Anděl', 'Brno, Lužánky', 'Ostrava, centrum'])
+          const { error: crErr } = await supabase.from('bookings').update({
+            return_method: 'delivery', return_address: addr,
+            return_lat: 49.7 + Math.random() * 0.5, return_lng: 14.2 + Math.random() * 0.5,
+          }).eq('id', booking.bookingId)
+          results.push({ agent: 'bookings', action: 'change_return_location', ok: !crErr, addr })
+          break
+        }
+        case 'complain_during':
+          await API.sendCustomerMessage(cust.userId, API.PICK([
+            'Motorka dělá divný zvuk při brzdění!', 'Blinkr nefunguje, je to nebezpečné.',
+            'Řetěz je příliš volný, bojím se jet dál.', 'Sedlo je poškozené, sedí se špatně.',
+          ]))
+          results.push({ agent: 'customers', action: 'complaint_during_ride', ok: true })
+          break
+        case 'review3': case 'review2':
+          await API.rateBooking(booking.bookingId, step === 'review3' ? 3 : 2)
+          results.push({ agent: 'customers', action: `customer_rates_${step.slice(-1)}`, ok: true })
+          break
+        case 'sos_light': {
+          const lt = API.PICK([SOS_TYPES[0], SOS_TYPES[1]]) // breakdown_minor or defect
+          const sosL = await API.createSosIncident(cust.userId, booking.bookingId, moto.id, lt.type, lt.desc)
+          results.push({ agent: 'sos', action: 'sos_light', type: lt.type, ...sosL })
+          if (sosL.ok) {
+            await API.updateSosStatus(sosL.incidentId, 'in_progress', 'Řešíme')
+            await API.updateSosStatus(sosL.incidentId, 'resolved', 'Vyřešeno')
+          }
+          break
+        }
+        case 'sos_heavy': {
+          const ht = API.PICK([SOS_TYPES[2], SOS_TYPES[3], SOS_TYPES[4]]) // accident/theft
+          const sosH = await API.createSosIncident(cust.userId, booking.bookingId, moto.id, ht.type, ht.desc)
+          results.push({ agent: 'sos', action: 'sos_heavy', type: ht.type, ...sosH })
+          if (sosH.ok) {
+            await API.updateSosStatus(sosH.incidentId, 'in_progress', 'Záchranná služba na cestě')
+            const svc = await API.createServiceOrder(moto.id, 'repair', `Oprava po ${ht.label}`)
+            results.push({ agent: 'service', action: 'sos_triggered_repair', ...svc })
+            await API.updateSosStatus(sosH.incidentId, 'resolved', 'Vyřešeno, motorka v servisu')
           }
           break
         }
@@ -143,7 +194,7 @@ export async function trainBookingsAgent(onStep) {
 
   // Phase 2: Watchdog checks — verify consistency
   for (let i = 0; i < 4; i++) {
-    onStep?.({ agent: 'bookings', action: `Watchdog kontrola #${i + 1}`, i: 8 + i, total: 12 })
+    onStep?.({ agent: 'bookings', action: `Watchdog kontrola #${i + 1}`, i: BEHAVIORS.length + i, total: BEHAVIORS.length + 4 })
     const moto = motos.data[i % motos.data.length]
     const avail = await API.checkMotoAvailability(moto.id, API.futureDate(1), API.futureDate(100))
     results.push({ agent: 'bookings', action: 'watchdog_availability', ...avail })

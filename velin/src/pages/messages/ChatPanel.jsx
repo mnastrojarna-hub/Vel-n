@@ -3,6 +3,8 @@ import { supabase } from '../../lib/supabase'
 import { debugAction } from '../../lib/debugLog'
 
 import Button from '../../components/ui/Button'
+import { loadAgentConfig, getEnabledTools } from '../../lib/aiAgents'
+import { buildAgentPromptsText } from '../../lib/aiAgentPrompts'
 
 export default function ChatPanel({ thread, onThreadUpdate }) {
   const [messages, setMessages] = useState([])
@@ -11,6 +13,7 @@ export default function ChatPanel({ thread, onThreadUpdate }) {
   const [loading, setLoading] = useState(true)
   const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
+  const [aiLoading, setAiLoading] = useState(false)
   const bottomRef = useRef(null)
 
   useEffect(() => {
@@ -120,6 +123,30 @@ export default function ChatPanel({ thread, onThreadUpdate }) {
     setReply(tpl.content || '')
   }
 
+  async function aiSuggestReply() {
+    if (messages.length === 0) return
+    setAiLoading(true)
+    try {
+      const config = loadAgentConfig()
+      const enabledIds = ['customers', 'bookings', 'fleet']
+      const lastMsgs = messages.slice(-5).map(m =>
+        `[${m.direction === 'customer' ? 'Zákazník' : 'Admin'}]: ${m.content}`
+      ).join('\n')
+      const customerName = thread?.profiles?.full_name || 'zákazník'
+      const customerEmail = thread?.profiles?.email || ''
+
+      const { data } = await supabase.functions.invoke('ai-copilot', {
+        body: {
+          message: `Jsi customer agent MotoGo24. Zákazník "${customerName}" (${customerEmail}) píše v chatu. Navrhni profesionální odpověď v češtině, slušně, s oslovením. POUZE text odpovědi, nic jiného.\n\nHistorie konverzace:\n${lastMsgs}`,
+          enabled_tools: getEnabledTools(config),
+          agent_prompts: buildAgentPromptsText(enabledIds),
+        },
+      })
+      if (data?.response) setReply(data.response.replace(/^["']|["']$/g, '').trim())
+    } catch (e) { console.error('[AI suggest]', e) }
+    setAiLoading(false)
+  }
+
   if (!thread) {
     return (
       <div className="flex items-center justify-center h-full" style={{ color: '#1a2e22', fontSize: 13 }}>
@@ -205,6 +232,13 @@ export default function ChatPanel({ thread, onThreadUpdate }) {
             </select>
           </div>
         )}
+        <div className="flex gap-2 mb-2">
+          <button onClick={aiSuggestReply} disabled={aiLoading || messages.length === 0}
+            className="text-sm font-bold cursor-pointer border-none rounded-btn"
+            style={{ padding: '4px 12px', background: aiLoading ? '#e5e7eb' : '#eff6ff', color: '#2563eb' }}>
+            {aiLoading ? 'AI přemýšlí…' : '🤖 AI návrh odpovědi'}
+          </button>
+        </div>
         <div className="flex gap-2">
           <textarea
             value={reply}

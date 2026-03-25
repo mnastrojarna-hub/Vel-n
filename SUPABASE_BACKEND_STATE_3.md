@@ -57,3 +57,6 @@
 | ~~`calc_booking_price()`~~ | **SMAZÁNO 2026-03-24** — nahrazeno calc_booking_price_v2 |
 | `update_moto_after_service()` | Aktualizace motorky po servisu |
 | `validate_voucher_code(p_code)` | Validace voucherového kódu (vrací {valid, id, type:'fixed', value, code}) |
+| `create_test_booking(p_user_id, p_moto_id, p_start, p_end)` | Vytvoření testovací rezervace (SECURITY DEFINER, bypass RLS). Vrací uuid. |
+| `update_test_booking_status(p_booking_id, p_status, p_payment_status?)` | Změna stavu testovací rezervace (SECURITY DEFINER). Triggery se spouští normálně (KF, SMS, door codes). |
+| `create_test_service_order(p_moto_id, p_type, p_notes)` | Vytvoření testovací servisní zakázky (SECURITY DEFINER, bypass RLS). Vrací uuid. |
