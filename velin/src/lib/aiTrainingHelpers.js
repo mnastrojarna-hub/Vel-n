@@ -83,20 +83,20 @@ export async function checkMotoAvailability(motoId, startISO, endISO) {
   return { ok: !error, available: !data?.length, conflicts: data || [], error: error?.message }
 }
 
-// 4. Create booking
+// 4. Create booking (via RPC to bypass RLS — admin inserting for another user)
 export async function createBooking(userId, motoId, startDate, endDate) {
-  const payload = {
-    user_id: userId,
-    moto_id: motoId,
-    start_date: startDate,
-    end_date: endDate,
-    status: 'reserved',
-    payment_status: 'unpaid',
-    booking_source: 'app',
-    is_test: true,
-  }
-  const { data, error } = await supabase.from('bookings').insert(payload).select('id').single()
-  if (error) console.error('[createBooking] FAIL:', error.message, error.code, error.details, error.hint, 'payload:', JSON.stringify(payload))
+  // Try RPC first (SECURITY DEFINER, bypasses RLS)
+  const { data: rpcId, error: rpcErr } = await supabase.rpc('create_test_booking', {
+    p_user_id: userId, p_moto_id: motoId, p_start: startDate, p_end: endDate
+  })
+  if (!rpcErr && rpcId) return { ok: true, bookingId: rpcId, data: { id: rpcId }, error: null }
+
+  // Fallback: direct insert (works if admin RLS allows it)
+  const { data, error } = await supabase.from('bookings').insert({
+    user_id: userId, moto_id: motoId, start_date: startDate, end_date: endDate,
+    status: 'reserved', payment_status: 'unpaid', booking_source: 'app', is_test: true,
+  }).select('id').single()
+  if (error) console.error('[createBooking] FAIL:', error.message, error.code, error.details)
   return { ok: !error, bookingId: data?.id, data, error: error?.message }
 }
 
