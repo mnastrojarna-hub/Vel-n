@@ -164,7 +164,7 @@ export async function trainSosAgent(onStep) {
             results.push({ agent: 'service', action: 'create_service_order', ...svc })
 
             if (sosType.type === 'theft') {
-              await API.updateMotoStatus(moto.id, 'stolen')
+              await API.updateMotoStatus(moto.id, 'unavailable')
               results.push({ agent: 'fleet', action: 'update_moto_stolen', ok: true })
               // Restore for next tests
               await API.updateMotoStatus(moto.id, 'active')

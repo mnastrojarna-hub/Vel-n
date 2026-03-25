@@ -1,12 +1,10 @@
-// Training Helpers — REAL Supabase API calls (same as motogo-app)
-// Creates real data in DB for agent training
+// Training Helpers — REAL Supabase API calls for agent training
 import { supabase, supabaseUrl, supabaseAnonKey } from './supabase'
 import { createClient } from '@supabase/supabase-js'
 
 // Isolated client for signUp — does NOT share session with main admin client
-// This prevents auth.signUp from switching the admin session to the new test user
 const signupClient = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: { persistSession: false, autoRefreshToken: false }
+  auth: { persistSession: false, autoRefreshToken: false, storageKey: 'sb-signup-tmp' }
 })
 
 const TS = () => Date.now().toString(36).slice(-4)
@@ -19,16 +17,17 @@ const futureDate = (days) => {
   return d.toISOString().split('T')[0]
 }
 
+// Delay helper to avoid rate limits
+const delay = (ms) => new Promise(r => setTimeout(r, ms))
+
 // --- REAL API CALLS ---
 
-// 1. Create test customer via auth.signUp (creates auth.users + profile via trigger)
-// Note: signUp triggers admin_users lookup → 406/401 console noise — harmless, ignore
+// 1. Create test customer via auth.signUp
 export async function createTestCustomer() {
   const tag = TS(), fn = FIRST(), ln = LAST()
   const email = `test.sim.${tag}@motogo24.cz`
   const password = `SimTest${tag}!23`
 
-  // Use isolated client so admin session is NOT replaced by new user
   const { data, error } = await signupClient.auth.signUp({
     email, password,
     options: { data: { full_name: `${fn} ${ln}`, phone: PHONE(), is_test: true } }
@@ -38,8 +37,7 @@ export async function createTestCustomer() {
   const userId = data?.user?.id
   if (userId) {
     // Wait for handle_new_user trigger to create the profile row
-    await new Promise(r => setTimeout(r, 500))
-    // Mark profile as test + add details
+    await delay(800)
     await supabase.from('profiles').update({
       full_name: `${fn} ${ln}`,
       phone: PHONE(),
@@ -47,6 +45,8 @@ export async function createTestCustomer() {
       is_test_account: true,
     }).eq('id', userId)
   }
+  // Throttle to avoid 429 rate limit on signUp
+  await delay(1200)
   return { ok: true, userId, email, name: `${fn} ${ln}` }
 }
 
@@ -65,7 +65,7 @@ export async function checkMotoAvailability(motoId, startISO, endISO) {
   const { data, error } = await supabase
     .from('bookings')
     .select('id, start_date, end_date, status')
-    .eq('motorcycle_id', motoId)
+    .eq('moto_id', motoId)
     .in('status', ['pending', 'reserved', 'active'])
     .lte('start_date', endISO)
     .gte('end_date', startISO)
@@ -74,20 +74,16 @@ export async function checkMotoAvailability(motoId, startISO, endISO) {
 
 // 4. Create booking
 export async function createBooking(userId, motoId, startDate, endDate) {
-  const { data: moto } = await supabase
-    .from('motorcycles').select('branch_id').eq('id', motoId).single()
-
   const { data, error } = await supabase.from('bookings').insert({
     user_id: userId,
-    motorcycle_id: motoId,
+    moto_id: motoId,
     start_date: startDate,
     end_date: endDate,
     status: 'reserved',
     payment_status: 'unpaid',
-    branch_id: moto?.branch_id,
     booking_source: 'app',
     is_test: true,
-  }).select().single()
+  }).select('id').single()
   return { ok: !error, bookingId: data?.id, data, error: error?.message }
 }
 
@@ -145,7 +141,7 @@ export async function createSosIncident(userId, bookingId, motoId, type, desc) {
     latitude: lat,
     longitude: lng,
     is_test: true,
-  }).select().single()
+  }).select('id').single()
 
   if (data?.id) {
     await supabase.from('sos_timeline').insert({
@@ -168,15 +164,18 @@ export async function updateSosStatus(incidentId, status, notes = '') {
   return { ok: !error, error: error?.message }
 }
 
-// 12. Create service order
+// 12. Create service order (columns: moto_id, type, notes, status)
 export async function createServiceOrder(motoId, type, desc) {
-  const { data, error } = await supabase.from('service_orders').insert({
-    motorcycle_id: motoId,
-    type,
-    description: desc,
-    status: 'pending',
-    is_test: true,
-  }).select().single()
+  // Try with is_test first, fallback without it if column doesn't exist
+  let result = await supabase.from('service_orders').insert({
+    moto_id: motoId, type, notes: desc, status: 'pending', is_test: true,
+  }).select('id').single()
+  if (result.error?.message?.includes('is_test')) {
+    result = await supabase.from('service_orders').insert({
+      moto_id: motoId, type, notes: desc, status: 'pending',
+    }).select('id').single()
+  }
+  const { data, error } = result
   return { ok: !error, orderId: data?.id, data, error: error?.message }
 }
 
@@ -188,12 +187,18 @@ export async function completeServiceOrder(orderId, notes) {
   return { ok: !error, error: error?.message }
 }
 
-// 14. Create maintenance log
+// 14. Create maintenance log (columns: moto_id, service_type, description, etc.)
 export async function createMaintenanceLog(motoId, type, desc, hours) {
-  const { data, error } = await supabase.from('maintenance_log').insert({
-    motorcycle_id: motoId, service_type: type, description: desc, labor_hours: hours,
+  const row = {
+    moto_id: motoId, service_type: type, description: desc, labor_hours: hours,
     service_date: new Date().toISOString().split('T')[0], status: 'completed', is_test: true
-  }).select().single()
+  }
+  let result = await supabase.from('maintenance_log').insert(row).select('id').single()
+  if (result.error?.message?.includes('is_test')) {
+    delete row.is_test
+    result = await supabase.from('maintenance_log').insert(row).select('id').single()
+  }
+  const { data, error } = result
   return { ok: !error, data, error: error?.message }
 }
 
@@ -203,32 +208,34 @@ export async function updateMotoStatus(motoId, status) {
   return { ok: !error, error: error?.message }
 }
 
-// 16. Create promo code (correct columns: type, discount_percent)
+// 16. Create promo code (columns: code, type, value, active)
 export async function createPromoCode(code, discountPct) {
-  const { data, error } = await supabase.from('promo_codes').insert({
-    code,
-    type: 'percent',
-    discount_percent: discountPct,
-    valid_from: new Date().toISOString(),
-    valid_to: new Date(Date.now() + 30 * 86400000).toISOString(),
-    max_uses: 10,
-    is_active: true,
-    is_test: true,
-  }).select().single()
+  const row = {
+    code, type: 'percent', value: discountPct,
+    valid_from: new Date().toISOString().split('T')[0],
+    valid_to: futureDate(30),
+    max_uses: 10, active: true, is_test: true,
+  }
+  let result = await supabase.from('promo_codes').insert(row).select('id, code').single()
+  if (result.error?.message?.includes('is_test')) {
+    delete row.is_test
+    result = await supabase.from('promo_codes').insert(row).select('id, code').single()
+  }
+  const { data, error } = result
   return { ok: !error, data, error: error?.message }
 }
 
-// 17. Send message via message_threads + messages (not admin_messages)
+// 17. Send message via message_threads + messages
 export async function sendCustomerMessage(userId, content) {
-  // Create or find thread
+  // Find existing thread (maybeSingle to avoid 406 when 0 rows)
   const { data: existing } = await supabase.from('message_threads')
-    .select('id').eq('customer_id', userId).limit(1).single()
+    .select('id').eq('customer_id', userId).limit(1).maybeSingle()
 
   let threadId = existing?.id
   if (!threadId) {
     const { data: thread } = await supabase.from('message_threads').insert({
       customer_id: userId, status: 'open', channel: 'app'
-    }).select().single()
+    }).select('id').single()
     threadId = thread?.id
   }
   if (!threadId) return { ok: false, error: 'Nelze vytvořit vlákno' }
@@ -249,30 +256,24 @@ export async function updateProfile(userId, updates) {
 // --- CLEANUP ---
 export async function cleanupTestData() {
   const results = []
-  // Order matters: delete dependents first
-  // Delete test SOS timeline entries for test incidents
+  // Delete test SOS timeline entries
   const { data: testSos } = await supabase.from('sos_incidents').select('id').eq('is_test', true)
   if (testSos?.length) {
     for (const s of testSos) {
       await supabase.from('sos_timeline').delete().eq('incident_id', s.id)
     }
   }
-  // Delete test bookings
   const { count: b } = await supabase.from('bookings').delete({ count: 'exact' }).eq('is_test', true)
   results.push(`Bookings: ${b || 0}`)
-  // Delete test SOS
   const { count: si } = await supabase.from('sos_incidents').delete({ count: 'exact' }).eq('is_test', true)
   results.push(`SOS: ${si || 0}`)
-  // Delete test service orders
   const { count: so } = await supabase.from('service_orders').delete({ count: 'exact' }).eq('is_test', true)
   results.push(`Service: ${so || 0}`)
-  // Delete test promos
   const { count: p } = await supabase.from('promo_codes').delete({ count: 'exact' }).eq('is_test', true)
   results.push(`Promo: ${p || 0}`)
-  // Delete test maintenance logs
   const { count: ml } = await supabase.from('maintenance_log').delete({ count: 'exact' }).eq('is_test', true)
   results.push(`Maintenance: ${ml || 0}`)
-  // Delete test message threads + messages for test profiles
+  // Delete test message threads
   const { data: testProfiles } = await supabase.from('profiles').select('id').eq('is_test_account', true)
   if (testProfiles?.length) {
     for (const pr of testProfiles) {
@@ -283,7 +284,6 @@ export async function cleanupTestData() {
       await supabase.from('message_threads').delete().eq('customer_id', pr.id)
     }
   }
-  // Delete test profiles
   const { count: pr } = await supabase.from('profiles').delete({ count: 'exact' }).eq('is_test_account', true)
   results.push(`Profiles: ${pr || 0}`)
   return results
