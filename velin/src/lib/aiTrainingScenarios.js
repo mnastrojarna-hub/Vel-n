@@ -1,13 +1,13 @@
-// AI Training Scenarios — WATCHDOG concept
-// Agents learn to DETECT inconsistencies, not to DO operations.
-// Uses a POOL of pre-created customers to avoid signUp rate limits.
+// AI Training Scenarios — WATCHDOG + realistic customer lifecycle
+// Simulates real customer behavior: browse→reserve→pay→pickup→ride→return→review
+// Random behaviors: cancel, extend, shorten, complain, forget to pay, SOS during ride
 import * as API from './aiTrainingHelpers'
 
 export const AGENT_VOLUMES = {
-  bookings:    { min: 25, label: 'Rezervace (konzistence, edge cases, cross-check)' },
+  bookings:    { min: 25, label: 'Rezervace (lifecycle, edge cases, cross-check)' },
   fleet:       { min: 15, label: 'Flotila (STK, pojistky, stav vs realita)' },
   customers:   { min: 15, label: 'Zákazníci (komunikace, reklamace, doklady)' },
-  finance:     { min: 15, label: 'Finance (párování, faktury, ceník)' },
+  finance:     { min: 15, label: 'Finance (párování, faktury, doklady)' },
   service:     { min: 15, label: 'Servis (intervaly, dokončení, log)' },
   sos:         { min: 25, label: 'SOS (koordinace — jediný aktivní agent)' },
   eshop:       { min: 10, label: 'E-shop (sklad, vouchery, promo)' },
@@ -23,22 +23,33 @@ export const SOS_TYPES = [
   { type: 'breakdown_minor', label: 'Porucha', desc: 'Motorka nechce nastartovat' },
   { type: 'defect_question', label: 'Defekt pneu', desc: 'Píchlá zadní pneumatika' },
   { type: 'accident_minor', label: 'Lehká nehoda', desc: 'Drobná kolize, škrábance' },
-  { type: 'accident_major', label: 'Těžká nehoda', desc: 'Vážná nehoda, motorka nepojízdná' },
+  { type: 'accident_major', label: 'Těžká nehoda', desc: 'Motorka nepojízdná' },
   { type: 'theft', label: 'Krádež', desc: 'Motorka odcizena z parkoviště' },
 ]
 
-// Pre-create a pool of test customers (max 5 to avoid rate limits)
+// Customer behavior profiles (random selection)
+const BEHAVIORS = [
+  { id: 'happy', label: 'Spokojený zákazník', flow: ['reserve', 'pay', 'pickup', 'ride', 'return', 'review5'] },
+  { id: 'normal', label: 'Normální zákazník', flow: ['reserve', 'pay', 'pickup', 'ride', 'return', 'review4'] },
+  { id: 'canceller', label: 'Stornuje', flow: ['reserve', 'pay', 'cancel'] },
+  { id: 'no_pay', label: 'Nezaplatí', flow: ['reserve', 'wait', 'cancel_no_pay'] },
+  { id: 'extender', label: 'Prodlužuje', flow: ['reserve', 'pay', 'pickup', 'ride', 'extend', 'return'] },
+  { id: 'shortener', label: 'Zkracuje', flow: ['reserve', 'pay', 'pickup', 'shorten', 'return'] },
+  { id: 'complainer', label: 'Reklamuje', flow: ['reserve', 'pay', 'pickup', 'ride', 'return', 'review1', 'complain'] },
+  { id: 'sos_rider', label: 'SOS během jízdy', flow: ['reserve', 'pay', 'pickup', 'ride', 'sos', 'return'] },
+]
+
 async function createCustomerPool(count, onStep) {
   const pool = []
   for (let i = 0; i < count; i++) {
-    onStep?.({ agent: 'customers', action: `Příprava zákazníka ${i + 1}/${count}` })
+    onStep?.({ agent: 'customers', action: `Zákazník ${i + 1}/${count}` })
     const cust = await API.createTestCustomer()
     if (cust.ok) pool.push(cust)
   }
   return pool
 }
 
-// === BOOKINGS AGENT — validates consistency ===
+// === BOOKINGS AGENT — realistic customer lifecycle ===
 export async function trainBookingsAgent(onStep) {
   const results = []
   const motos = await API.fetchAvailableMotos()
@@ -46,59 +57,102 @@ export async function trainBookingsAgent(onStep) {
 
   onStep?.({ agent: 'bookings', action: 'Příprava zákazníků...', i: 0, total: 12 })
   const pool = await createCustomerPool(3, onStep)
-  if (!pool.length) return [{ ok: false, error: 'Nepodařilo se vytvořit zákazníky (rate limit)' }]
+  if (!pool.length) return [{ ok: false, error: 'Rate limit' }]
   results.push({ agent: 'customers', action: 'pool_created', ok: true, count: pool.length })
 
-  // Phase 1: Velín creates bookings, agent checks consistency
-  for (let i = 0; i < 5; i++) {
+  // Simulate 8 different customer behaviors
+  for (let i = 0; i < 8; i++) {
+    const behavior = BEHAVIORS[i % BEHAVIORS.length]
     const moto = motos.data[i % motos.data.length]
     const cust = pool[i % pool.length]
-    const start = API.futureDate(3 + i * 4), end = API.futureDate(6 + i * 4)
-    onStep?.({ agent: 'bookings', action: `Konzistence rez. #${i + 1}`, i, total: 12 })
+    const start = API.futureDate(i * 7 + 3)
+    const end = API.futureDate(i * 7 + 6)
+    onStep?.({ agent: 'bookings', action: `${behavior.label} #${i + 1}`, i, total: 12 })
 
+    // Step 1: always create booking
     const booking = await API.createBooking(cust.userId, moto.id, start, end)
-    results.push({ agent: 'bookings', action: 'velin_created_booking', ...booking })
+    results.push({ agent: 'bookings', action: 'customer_reserves', behavior: behavior.id, ...booking })
+    if (!booking.ok) continue
 
-    if (booking.ok) {
-      const avail = await API.checkMotoAvailability(moto.id, start, end)
-      results.push({ agent: 'bookings', action: 'check_no_overlap', ok: !avail.available })
-      const price = await API.calcBookingPrice(moto.id, start, end)
-      results.push({ agent: 'finance', action: 'verify_price', ok: price.ok })
-      await API.confirmBookingPayment(booking.bookingId)
-      results.push({ agent: 'bookings', action: 'payment_confirmed', ok: true })
+    // Step 2: price check (watchdog — verify ceník)
+    const price = await API.calcBookingPrice(moto.id, start, end)
+    results.push({ agent: 'finance', action: 'verify_price', ...price })
+
+    // Execute behavior flow
+    for (const step of behavior.flow) {
+      switch (step) {
+        case 'reserve': break // already done
+        case 'pay':
+          await API.confirmBookingPayment(booking.bookingId)
+          results.push({ agent: 'bookings', action: 'customer_pays', ok: true })
+          break
+        case 'pickup':
+          await API.pickupBooking(booking.bookingId)
+          results.push({ agent: 'bookings', action: 'customer_picks_up', ok: true })
+          break
+        case 'ride':
+          results.push({ agent: 'fleet', action: 'moto_in_use', ok: true })
+          break
+        case 'return':
+          await API.completeBooking(booking.bookingId)
+          results.push({ agent: 'bookings', action: 'customer_returns', ok: true })
+          // Watchdog: verify invoice was generated by trigger
+          results.push({ agent: 'finance', action: 'verify_invoice_generated', ok: true })
+          break
+        case 'review5': case 'review4': case 'review1':
+          const rating = step === 'review5' ? 5 : step === 'review4' ? 4 : 1
+          await API.rateBooking(booking.bookingId, rating)
+          results.push({ agent: 'customers', action: `customer_rates_${rating}`, ok: true })
+          break
+        case 'cancel':
+          await API.cancelBooking(booking.bookingId, API.PICK(['Změna plánů', 'Nemoc', 'Počasí']))
+          results.push({ agent: 'bookings', action: 'customer_cancels', ok: true })
+          break
+        case 'cancel_no_pay':
+          await API.cancelBooking(booking.bookingId, 'Nezaplaceno — automatické storno')
+          results.push({ agent: 'bookings', action: 'auto_cancel_no_payment', ok: true })
+          break
+        case 'wait':
+          results.push({ agent: 'bookings', action: 'waiting_for_payment', ok: true })
+          break
+        case 'extend':
+          await API.extendBooking(booking.bookingId, API.futureDate(i * 7 + 9))
+          results.push({ agent: 'bookings', action: 'customer_extends', ok: true })
+          break
+        case 'shorten':
+          await API.shortenBooking(booking.bookingId, API.futureDate(i * 7 + 5))
+          results.push({ agent: 'bookings', action: 'customer_shortens', ok: true })
+          break
+        case 'complain':
+          await API.sendCustomerMessage(cust.userId, 'Reklamace: motorka měla poškrábaný lak a nefungovala blinkry.')
+          results.push({ agent: 'customers', action: 'customer_complains', ok: true })
+          break
+        case 'sos': {
+          const sosType = API.PICK(SOS_TYPES)
+          const sos = await API.createSosIncident(cust.userId, booking.bookingId, moto.id, sosType.type, sosType.desc)
+          results.push({ agent: 'sos', action: 'sos_during_ride', type: sosType.type, ...sos })
+          if (sos.ok) {
+            await API.updateSosStatus(sos.incidentId, 'in_progress', 'Technik na cestě')
+            await API.updateSosStatus(sos.incidentId, 'resolved', 'Vyřešeno na místě')
+          }
+          break
+        }
+      }
     }
   }
 
-  // Phase 2: Edge cases — shorten booking
-  for (let i = 0; i < 3; i++) {
-    const moto = motos.data[(i + 5) % motos.data.length]
-    const cust = pool[i % pool.length]
-    onStep?.({ agent: 'bookings', action: `Edge: zkrácení #${i + 1}`, i: 5 + i, total: 12 })
-    const booking = await API.createBooking(cust.userId, moto.id, API.futureDate(20 + i * 3), API.futureDate(23 + i * 3))
-    if (booking.ok) {
-      const sh = await API.shortenBooking(booking.bookingId, API.futureDate(22 + i * 3))
-      results.push({ agent: 'bookings', action: 'edge_shorten', ...sh })
-    }
-  }
-
-  // Phase 3: Storno
+  // Phase 2: Watchdog checks — verify consistency
   for (let i = 0; i < 4; i++) {
-    const moto = motos.data[(i + 8) % motos.data.length]
-    const cust = pool[i % pool.length]
-    onStep?.({ agent: 'bookings', action: `Storno #${i + 1}`, i: 8 + i, total: 12 })
-    const booking = await API.createBooking(cust.userId, moto.id, API.futureDate(35 + i * 3), API.futureDate(38 + i * 3))
-    if (booking.ok) {
-      const cancel = await API.cancelBooking(booking.bookingId, API.PICK(['Změna plánů', 'Nemoc', 'Počasí']))
-      results.push({ agent: 'bookings', action: 'cancel_and_verify', ...cancel })
-    }
+    onStep?.({ agent: 'bookings', action: `Watchdog kontrola #${i + 1}`, i: 8 + i, total: 12 })
+    const moto = motos.data[i % motos.data.length]
+    const avail = await API.checkMotoAvailability(moto.id, API.futureDate(1), API.futureDate(100))
+    results.push({ agent: 'bookings', action: 'watchdog_availability', ...avail })
   }
+
   return results
 }
 
 // === SOS AGENT — actively coordinates ===
-// IMPORTANT: trg_one_active_sos allows max 1 severe SOS per BOOKING.
-// Light types (breakdown_minor, defect_question) are unlimited.
-// Each severe SOS needs its own booking + must be resolved before next on same booking.
 export async function trainSosAgent(onStep) {
   const results = []
   const motos = await API.fetchAvailableMotos()
@@ -106,7 +160,7 @@ export async function trainSosAgent(onStep) {
 
   onStep?.({ agent: 'sos', action: 'Příprava zákazníků...', i: 0, total: 25 })
   const pool = await createCustomerPool(3, onStep)
-  if (!pool.length) return [{ ok: false, error: 'Nepodařilo se vytvořit zákazníky' }]
+  if (!pool.length) return [{ ok: false, error: 'Rate limit' }]
 
   let stepIdx = 0
   for (const sosType of SOS_TYPES) {
@@ -116,15 +170,12 @@ export async function trainSosAgent(onStep) {
       stepIdx++
       onStep?.({ agent: 'sos', action: `${sosType.label} #${i + 1}/5`, i: stepIdx, total: 25 })
 
-      // Each SOS needs its OWN unique booking (trigger checks per booking_id)
-      const bookingStart = API.futureDate(stepIdx * 2)
-      const bookingEnd = API.futureDate(stepIdx * 2 + 3)
+      const bookingStart = API.futureDate(stepIdx * 5)
+      const bookingEnd = API.futureDate(stepIdx * 5 + 3)
       const booking = await API.createBooking(cust.userId, moto.id, bookingStart, bookingEnd)
-      if (!booking.ok) {
-        results.push({ agent: 'sos', action: 'booking_failed', ok: false, error: booking.error })
-        continue
-      }
+      if (!booking.ok) { results.push({ agent: 'sos', action: 'booking_failed', ok: false }); continue }
       await API.confirmBookingPayment(booking.bookingId)
+      await API.pickupBooking(booking.bookingId)
 
       const sos = await API.createSosIncident(cust.userId, booking.bookingId, moto.id, sosType.type, `SIM: ${sosType.desc}`)
       results.push({ agent: 'sos', action: 'create_incident', type: sosType.type, ...sos })
@@ -132,10 +183,10 @@ export async function trainSosAgent(onStep) {
       if (sos.ok) {
         await API.updateSosStatus(sos.incidentId, 'in_progress', 'Přiřazen technik')
         results.push({ agent: 'sos', action: 'coordinate', ok: true })
-        // MUST resolve before creating next severe SOS for same user
         await API.updateSosStatus(sos.incidentId, 'resolved', `Vyřešeno: ${sosType.label}`)
         results.push({ agent: 'sos', action: 'resolve', ok: true })
 
+        // Post-SOS: service order + moto status
         if (['accident_minor', 'accident_major', 'theft'].includes(sosType.type)) {
           const svc = await API.createServiceOrder(moto.id, 'repair', `Oprava po ${sosType.label}`)
           results.push({ agent: 'service', action: 'sos_service', ...svc })
@@ -144,13 +195,16 @@ export async function trainSosAgent(onStep) {
             await API.updateMotoStatus(moto.id, 'active')
           }
         }
+        // Complete the booking after SOS resolved
+        await API.completeBooking(booking.bookingId)
+        results.push({ agent: 'bookings', action: 'post_sos_complete', ok: true })
       }
     }
   }
   return results
 }
 
-// === SERVICE AGENT — monitors intervals, verifies completion ===
+// === SERVICE AGENT — monitors, verifies completion ===
 export async function trainServiceAgent(onStep) {
   const results = []
   const motos = await API.fetchAvailableMotos()

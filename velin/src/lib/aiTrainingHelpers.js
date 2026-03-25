@@ -140,6 +140,32 @@ export async function shortenBooking(bookingId, newEndDate) {
   return { ok: !error, error: error?.message }
 }
 
+// 9b. Complete booking (triggers: KF invoice, door code deactivation, SMS)
+export async function completeBooking(bookingId) {
+  const { error } = await supabase.from('bookings').update({
+    status: 'completed', returned_at: new Date().toISOString(),
+    mileage_end: 100 + Math.floor(Math.random() * 500),
+  }).eq('id', bookingId)
+  return { ok: !error, error: error?.message }
+}
+
+// 9c. Pickup booking (mark as picked up with mileage)
+export async function pickupBooking(bookingId) {
+  const { error } = await supabase.from('bookings').update({
+    picked_up_at: new Date().toISOString(),
+    mileage_start: Math.floor(Math.random() * 30000),
+  }).eq('id', bookingId)
+  return { ok: !error, error: error?.message }
+}
+
+// 9d. Rate booking (customer review after completion)
+export async function rateBooking(bookingId, rating) {
+  const { error } = await supabase.from('bookings').update({
+    rating, rated_at: new Date().toISOString(),
+  }).eq('id', bookingId)
+  return { ok: !error, error: error?.message }
+}
+
 // 10. Create SOS incident
 export async function createSosIncident(userId, bookingId, motoId, type, desc) {
   const lat = 49.5 + Math.random() * 1.5
