@@ -60,13 +60,15 @@ export default function CustomerDetail() {
       reliability_score, is_blocked, blocked_at, blocked_reason,
       consent_gdpr, consent_vop, consent_email, consent_sms,
       consent_push, consent_data_processing, consent_photo,
+      consent_whatsapp, consent_contract,
     } = customer
     const updateData = { full_name, phone, street, city, zip, country,
       date_of_birth, license_group, emergency_contact,
       emergency_phone, riding_experience, marketing_consent,
       reliability_score, is_blocked, blocked_at, blocked_reason,
       consent_gdpr, consent_vop, consent_email, consent_sms,
-      consent_push, consent_data_processing, consent_photo }
+      consent_push, consent_data_processing, consent_photo,
+      consent_whatsapp, consent_contract }
     const result = await debugAction('customer.save', 'CustomerDetail', () =>
       supabase.from('profiles').update(updateData).eq('id', id)
     , updateData)
@@ -431,8 +433,10 @@ function ProfileTab({ customer, set, error, saving, onSave, onDelete, onBlock })
           <ConsentRow label="GDPR — zpracovani osobnich udaju" checked={!!customer.consent_gdpr} onChange={v => set('consent_gdpr', v)} />
           <ConsentRow label="VOP — vseobecne obchodni podminky" checked={!!customer.consent_vop} onChange={v => set('consent_vop', v)} />
           <ConsentRow label="Zpracovani dat pro provoz sluzby" checked={!!customer.consent_data_processing} onChange={v => set('consent_data_processing', v)} />
+          <ConsentRow label="Navrh smlouvy na motogo24.cz" checked={!!customer.consent_contract} onChange={v => set('consent_contract', v)} />
           <ConsentRow label="Email komunikace" checked={!!customer.consent_email} onChange={v => set('consent_email', v)} />
           <ConsentRow label="SMS komunikace" checked={!!customer.consent_sms} onChange={v => set('consent_sms', v)} />
+          <ConsentRow label="WhatsApp komunikace" checked={!!customer.consent_whatsapp} onChange={v => set('consent_whatsapp', v)} />
           <ConsentRow label="Push notifikace" checked={!!customer.consent_push} onChange={v => set('consent_push', v)} />
           <ConsentRow label="Fotografovani dokladu a motorky" checked={!!customer.consent_photo} onChange={v => set('consent_photo', v)} />
         </div>

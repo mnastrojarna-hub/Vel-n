@@ -84,10 +84,12 @@ function _collectRegFields(){
 }
 
 // Registration success handler
-function _regSuccess(userId, email, session){
+function _regSuccess(userId, email, session, password){
   _syncLocalSession(userId, email);
   var refreshToken = (session && session.refresh_token) || null;
-  _storeBioUser(userId, email, refreshToken);
+  _storeBioUser(userId, email, refreshToken, password);
+  // Auto-enable biometric
+  localStorage.setItem('mg_bio_enabled','1');
   showT('✓',_t('auth').regDone,_t('auth').regWelcome);
   _regResetForm();
   renderUserData();
@@ -95,7 +97,7 @@ function _regSuccess(userId, email, session){
 }
 
 function doRegister(){
-  // Validate consents
+  // Validate required consents
   var terms = document.getElementById('reg-terms');
   var gdpr = document.getElementById('reg-gdpr');
   if(!terms || !terms.checked || !gdpr || !gdpr.checked){
@@ -117,6 +119,20 @@ function doRegister(){
     license_group: f.licenseGroup
   };
 
+  // Collect all consent values
+  var consents = {
+    marketing_consent: _regCheckbox('reg-marketing'),
+    consent_gdpr: _regCheckbox('reg-gdpr'),
+    consent_vop: _regCheckbox('reg-terms'),
+    consent_data_processing: _regCheckbox('reg-data-processing'),
+    consent_email: _regCheckbox('reg-email-comm'),
+    consent_sms: _regCheckbox('reg-sms-comm'),
+    consent_push: _regCheckbox('reg-push-comm'),
+    consent_whatsapp: _regCheckbox('reg-wa-comm'),
+    consent_photo: _regCheckbox('reg-photos'),
+    consent_contract: _regCheckbox('reg-contract')
+  };
+
   // Supabase je jediný backend
   if(_isSupabaseReady()){
     authSignUp(f.email, f.pass, metadata).then(function(result){
@@ -127,7 +143,9 @@ function doRegister(){
       }
       var userId = (result.user && result.user.id) ? result.user.id : null;
       if(userId){
-        _regSuccess(userId, f.email, result.session);
+        // Save consents to profiles table
+        window.supabase.from('profiles').update(consents).eq('id', userId).then(function(){});
+        _regSuccess(userId, f.email, result.session, f.pass);
       } else {
         showT('✗',_t('auth').regErr,'Registrace se nezdařila. Zkuste to znovu.');
       }
@@ -140,4 +158,9 @@ function doRegister(){
 
   // Supabase není dostupný — zobraz offline hlášku
   OfflineGuard.check();
+}
+
+function _regCheckbox(id){
+  var el = document.getElementById(id);
+  return el ? !!el.checked : false;
 }

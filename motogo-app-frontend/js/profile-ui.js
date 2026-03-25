@@ -374,3 +374,93 @@ async function downloadDoc(docId){
     }, 1500);
   }
 }
+
+// ===== CONSENT / NOTIFICATION MANAGEMENT (DB-backed) =====
+var _consentsLoaded = false;
+var _consentData = {};
+
+async function loadProfileConsents(section){
+  if(_consentsLoaded){
+    _fillConsentCheckboxes();
+    return;
+  }
+  try {
+    var profile = await apiFetchProfile();
+    if(!profile) return;
+    _consentData = {
+      consent_push: !!profile.consent_push,
+      consent_email: !!profile.consent_email,
+      consent_sms: !!profile.consent_sms,
+      consent_whatsapp: !!profile.consent_whatsapp,
+      marketing_consent: !!profile.marketing_consent,
+      consent_vop: !!profile.consent_vop,
+      consent_gdpr: !!profile.consent_gdpr,
+      consent_data_processing: !!profile.consent_data_processing,
+      consent_contract: !!profile.consent_contract,
+      consent_photo: !!profile.consent_photo
+    };
+    _consentsLoaded = true;
+    _fillConsentCheckboxes();
+  } catch(e){ console.error('loadProfileConsents:', e); }
+}
+
+function _fillConsentCheckboxes(){
+  var map = {
+    'pref-push': 'consent_push',
+    'pref-email': 'consent_email',
+    'pref-sms': 'consent_sms',
+    'pref-wa': 'consent_whatsapp',
+    'pref-marketing': 'marketing_consent',
+    'pref-vop': 'consent_vop',
+    'pref-gdpr': 'consent_gdpr',
+    'pref-data': 'consent_data_processing',
+    'pref-contract': 'consent_contract',
+    'pref-photo': 'consent_photo'
+  };
+  for(var id in map){
+    var el = document.getElementById(id);
+    if(el) el.checked = !!_consentData[map[id]];
+  }
+  // Bio toggle
+  var bioEl = document.getElementById('pref-bio-toggle');
+  if(bioEl) bioEl.checked = !!localStorage.getItem('mg_bio_enabled');
+}
+
+async function saveProfileConsents(section){
+  try {
+    var data = {};
+    if(section === 'notif'){
+      data.consent_push = !!document.getElementById('pref-push').checked;
+      data.consent_email = !!document.getElementById('pref-email').checked;
+      data.consent_sms = !!document.getElementById('pref-sms').checked;
+      data.consent_whatsapp = !!document.getElementById('pref-wa').checked;
+      data.marketing_consent = !!document.getElementById('pref-marketing').checked;
+    } else {
+      data.consent_vop = !!document.getElementById('pref-vop').checked;
+      data.consent_gdpr = !!document.getElementById('pref-gdpr').checked;
+      data.consent_data_processing = !!document.getElementById('pref-data').checked;
+      data.consent_contract = !!document.getElementById('pref-contract').checked;
+      data.consent_photo = !!document.getElementById('pref-photo').checked;
+    }
+    var result = await apiUpdateProfile(data);
+    if(result.error){
+      showT('✗','Chyba',result.error);
+      return;
+    }
+    // Update local cache
+    for(var k in data) _consentData[k] = data[k];
+    showT('✓','Uloženo','Nastavení bylo uloženo');
+  } catch(e){ showT('✗','Chyba','Nepodařilo se uložit'); }
+}
+
+function toggleBiometricSetting(){
+  var el = document.getElementById('pref-bio-toggle');
+  if(!el) return;
+  if(el.checked){
+    localStorage.setItem('mg_bio_enabled','1');
+    showT('✓','Biometrika zapnuta','Příští přihlášení bude biometrické');
+  } else {
+    localStorage.removeItem('mg_bio_enabled');
+    showT('✓','Biometrika vypnuta','');
+  }
+}
