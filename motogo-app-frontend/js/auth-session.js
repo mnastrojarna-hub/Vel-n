@@ -100,6 +100,8 @@ function renderUserData(){
 }
 
 function _renderUserDataAsync(){
+  // Restore doc verification from DB (persistent, survives logout)
+  if(typeof apiCheckDocsVerified === 'function') apiCheckDocsVerified().catch(function(){});
   return Promise.resolve(apiFetchProfile()).then(function(profile){
     if(!profile){
       // Profile fetch failed — session is invalid, force redirect to login

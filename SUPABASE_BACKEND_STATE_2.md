@@ -76,6 +76,12 @@
 - **consent_photo** (boolean DEFAULT false) — souhlas fotografování dokladů
 - **stripe_customer_id** (TEXT) — Stripe Customer ID pro uložené platební metody
 - **id_number** (TEXT DEFAULT NULL) — číslo dokladu totožnosti (OP nebo pas) z Mindee OCR
+- **id_verified_at** (TIMESTAMPTZ) — datum ověření OP přes Mindee OCR
+- **id_verified_until** (DATE) — platnost OP — do tohoto data je ověření platné
+- **license_verified_at** (TIMESTAMPTZ) — datum ověření ŘP přes Mindee OCR
+- **license_verified_until** (DATE) — platnost ŘP — do tohoto data je ověření platné
+- **passport_verified_at** (TIMESTAMPTZ) — datum ověření pasu přes Mindee OCR
+- **passport_verified_until** (DATE) — platnost pasu — do tohoto data je ověření platné
 
 ### payment_methods
 - id (UUID PK), user_id (UUID FK→profiles ON DELETE CASCADE)
