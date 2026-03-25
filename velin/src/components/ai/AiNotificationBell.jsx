@@ -74,12 +74,12 @@ export default function AiNotificationBell() {
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
             <span style={{ fontWeight: 800, fontSize: 13, color: '#0f1a14' }}>
-              Upozorneni od agentu ({unread} neprectenych)
+              Upozornění od agentů ({unread} nepřečtených)
             </span>
             {unread > 0 && (
               <button onClick={handleMarkAll} style={{
                 fontSize: 10, color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer',
-              }}>Oznacit vse</button>
+              }}>Označit vše</button>
             )}
           </div>
 
@@ -87,7 +87,7 @@ export default function AiNotificationBell() {
           <div style={{ flex: 1, overflow: 'auto', maxHeight: 420 }}>
             {notifs.length === 0 ? (
               <div style={{ textAlign: 'center', padding: 30, color: '#999', fontSize: 12 }}>
-                Zadna upozorneni
+                Žádná upozornění
               </div>
             ) : notifs.slice(0, 50).map(n => {
               const sev = NOTIF_SEVERITY[n.severity] || NOTIF_SEVERITY.info
@@ -113,7 +113,7 @@ export default function AiNotificationBell() {
                     </span>
                     {n.link && (
                       <span style={{ fontSize: 9, color: '#2563eb' }}>
-                        Otevrit: {n.link.label}
+                        Otevřít: {n.link.label}
                       </span>
                     )}
                   </div>
@@ -126,7 +126,7 @@ export default function AiNotificationBell() {
           <div style={{ padding: '8px 14px', borderTop: '1px solid #d4e8e0', textAlign: 'center' }}>
             <button onClick={() => { setOpen(false); navigate('/orchestrator') }} style={{
               fontSize: 11, color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer',
-            }}>Vsechny nalezy v AI Rediteli</button>
+            }}>Všechny nálezy v AI Řediteli</button>
           </div>
         </div>
       )}
