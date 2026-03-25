@@ -86,13 +86,24 @@ export default function CustomerDetail() {
       return
     }
 
+    // Delete profile + auth.users atomically via RPC (SECURITY DEFINER)
     const result = await debugAction('customer.delete', 'CustomerDetail', () =>
-      supabase.from('profiles').delete().eq('id', id)
+      supabase.rpc('delete_customer_account', { p_user_id: id })
     , { customer_id: id })
     if (result?.error) {
-      setError(result.error.message)
-      setConfirmDelete(false)
-      return
+      // Fallback: try profile-only delete if RPC doesn't exist yet
+      if (result.error.message?.includes('does not exist') || result.error.code === '42883') {
+        const fallback = await supabase.from('profiles').delete().eq('id', id)
+        if (fallback?.error) {
+          setError(fallback.error.message)
+          setConfirmDelete(false)
+          return
+        }
+      } else {
+        setError(result.error.message)
+        setConfirmDelete(false)
+        return
+      }
     }
 
     await logAudit('customer_deleted', { customer_id: id })
