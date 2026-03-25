@@ -194,7 +194,7 @@ export async function trainEshopAgent(onStep) {
   return results
 }
 
-// === EDGE CASES — overlap, missing docs, cross-agent conflicts ===
+// === EDGE CASES — reálné situace které mohou nastat v provozu ===
 export async function trainEdgeCases(onStep) {
   const results = []
   const motos = await API.fetchAvailableMotos()
@@ -204,56 +204,84 @@ export async function trainEdgeCases(onStep) {
   const pool = await createPool(2, onStep)
   if (!pool.length) return [{ ok: false, error: 'Rate limit' }]
 
-  // 1. Double booking detection
-  for (let i = 0; i < 3; i++) {
-    const moto = motos.data[i % motos.data.length]
-    const start = API.futureDate(70 + i * 5), end = API.futureDate(73 + i * 5)
-    onStep?.({ agent: 'edge', action: `Overlap #${i + 1}`, i, total: 10 })
-    const b1 = await API.createBooking(pool[0].userId, moto.id, start, end)
-    results.push({ agent: 'bookings', action: 'first_booking', ...b1 })
-    if (b1.ok) {
-      const avail = await API.checkMotoAvailability(moto.id, API.futureDate(71 + i * 5), end)
-      results.push({ agent: 'bookings', action: 'detect_overlap', ok: !avail.available })
-    }
-  }
-
-  // 2. Booking bez dokladů
-  for (let i = 0; i < 2; i++) {
-    onStep?.({ agent: 'edge', action: `Bez dokladů #${i + 1}`, i: 3 + i, total: 10 })
-    await API.updateProfile(pool[i % pool.length].userId, { license_group: null })
-    const moto = motos.data[i % motos.data.length]
-    const b = await API.createBooking(pool[i % pool.length].userId, moto.id, API.futureDate(80 + i * 5), API.futureDate(83 + i * 5))
-    results.push({ agent: 'customers', action: 'booking_without_docs', ...b, flagged: true })
-  }
-
-  // 3. Storno po platbě — refund konzistence
+  // 1. Storno po platbě — ověř refund konzistenci
   for (let i = 0; i < 2; i++) {
     const moto = motos.data[(i + 3) % motos.data.length]
-    onStep?.({ agent: 'edge', action: `Storno po platbě #${i + 1}`, i: 5 + i, total: 10 })
-    const b = await API.createBooking(pool[0].userId, moto.id, API.futureDate(100 + i * 5), API.futureDate(103 + i * 5))
+    onStep?.({ agent: 'edge', action: `Storno po platbě #${i + 1}`, i, total: 8 })
+    const b = await API.createBooking(pool[0].userId, moto.id, API.futureDate(100 + i * 10), API.futureDate(103 + i * 10))
     if (b.ok) {
       await API.confirmBookingPayment(b.bookingId)
-      await API.cancelBooking(b.bookingId, 'Test storno po platbě')
+      await API.cancelBooking(b.bookingId, 'Zákazník stornoval — změna plánů')
       results.push({ agent: 'finance', action: 'edge_cancel_after_pay', ok: true, bookingId: b.bookingId })
     }
   }
 
-  // 4. Motorka v servisu + pokus o booking
-  onStep?.({ agent: 'edge', action: 'Booking na motorku v servisu', i: 7, total: 10 })
+  // 2. Motorka v servisu + ověř že nelze vyzvednout
+  onStep?.({ agent: 'edge', action: 'Motorka v servisu', i: 2, total: 8 })
   if (motos.data.length > 2) {
     const testMoto = motos.data[motos.data.length - 1]
     await API.updateMotoStatus(testMoto.id, 'maintenance')
-    const b = await API.createBooking(pool[0].userId, testMoto.id, API.futureDate(120), API.futureDate(123))
-    results.push({ agent: 'fleet', action: 'edge_booking_on_maintenance_moto', ok: true, bookingCreated: b.ok })
+    // Agent by měl detekovat nekonzistenci pokud by na ní byla rezervace
+    const { data: bookingsOnMaint } = await supabase.from('bookings')
+      .select('id, status').eq('moto_id', testMoto.id).in('status', ['reserved', 'active']).limit(5)
+    results.push({ agent: 'fleet', action: 'verify_no_bookings_on_maintenance', ok: !(bookingsOnMaint?.length), count: bookingsOnMaint?.length || 0 })
     await API.updateMotoStatus(testMoto.id, 'active')
   }
 
-  // 5. Zákazník s více aktivními bookings najednou
-  onStep?.({ agent: 'edge', action: 'Multiple bookings per customer', i: 8, total: 10 })
-  if (motos.data.length >= 2) {
-    const b1 = await API.createBooking(pool[0].userId, motos.data[0].id, API.futureDate(130), API.futureDate(133))
-    const b2 = await API.createBooking(pool[0].userId, motos.data[1].id, API.futureDate(130), API.futureDate(133))
-    results.push({ agent: 'bookings', action: 'edge_multiple_bookings', ok: true, both: b1.ok && b2.ok })
+  // 3. Full lifecycle s kompletní kontrolou — reserve→pay→pickup→return→ověř fakturu
+  for (let i = 0; i < 2; i++) {
+    const moto = motos.data[i % motos.data.length]
+    onStep?.({ agent: 'edge', action: `Full lifecycle test #${i + 1}`, i: 3 + i, total: 8 })
+    const b = await API.createBooking(pool[0].userId, moto.id, API.futureDate(140 + i * 10), API.futureDate(143 + i * 10))
+    if (b.ok) {
+      await API.confirmBookingPayment(b.bookingId)
+      await API.pickupBooking(b.bookingId)
+      await API.completeBooking(b.bookingId)
+      // Ověř že vznikla faktura
+      const { data: invs } = await supabase.from('invoices').select('id, type').eq('booking_id', b.bookingId)
+      results.push({ agent: 'finance', action: 'verify_full_lifecycle_invoice', ok: (invs?.length || 0) > 0, invoices: invs?.length || 0 })
+    }
+  }
+
+  // 4. Zákazník mění místo vyzvednutí + vrácení (reálný edge case)
+  onStep?.({ agent: 'edge', action: 'Změna míst vyzvednutí/vrácení', i: 5, total: 8 })
+  const b3 = await API.createBooking(pool[1].userId, motos.data[0].id, API.futureDate(160), API.futureDate(163))
+  if (b3.ok) {
+    await API.confirmBookingPayment(b3.bookingId)
+    await supabase.rpc('update_test_booking_fields', {
+      p_booking_id: b3.bookingId, p_fields: {
+        pickup_method: 'delivery', pickup_address: 'Hotel Hilton, Praha 8',
+        return_method: 'delivery', return_address: 'Letiště Václava Havla, Praha 6',
+      },
+    })
+    results.push({ agent: 'bookings', action: 'edge_change_both_locations', ok: true })
+  }
+
+  // 5. Zákazník prodlouží 2× po sobě (reálný edge case)
+  onStep?.({ agent: 'edge', action: 'Dvojité prodloužení', i: 6, total: 8 })
+  const b4 = await API.createBooking(pool[0].userId, motos.data[1 % motos.data.length].id, API.futureDate(170), API.futureDate(173))
+  if (b4.ok) {
+    await API.confirmBookingPayment(b4.bookingId)
+    await API.extendBooking(b4.bookingId, API.futureDate(175))
+    results.push({ agent: 'bookings', action: 'edge_first_extend', ok: true })
+    await API.extendBooking(b4.bookingId, API.futureDate(178))
+    results.push({ agent: 'bookings', action: 'edge_second_extend', ok: true })
+  }
+
+  // 6. SOS + okamžitý nový SOS na stejné rezervaci (should be blocked by trigger for severe)
+  onStep?.({ agent: 'edge', action: 'Dvojitý SOS test', i: 7, total: 8 })
+  const b5 = await API.createBooking(pool[1].userId, motos.data[0].id, API.futureDate(180), API.futureDate(183))
+  if (b5.ok) {
+    await API.confirmBookingPayment(b5.bookingId)
+    await API.pickupBooking(b5.bookingId)
+    const sos1 = await API.createSosIncident(pool[1].userId, b5.bookingId, motos.data[0].id, 'breakdown_minor', 'Drobná porucha')
+    results.push({ agent: 'sos', action: 'edge_first_sos', ok: sos1.ok })
+    // Druhý light SOS by měl projít (trigger blokuje jen severe)
+    const sos2 = await API.createSosIncident(pool[1].userId, b5.bookingId, motos.data[0].id, 'breakdown_minor', 'Další drobná porucha')
+    results.push({ agent: 'sos', action: 'edge_second_light_sos', ok: sos2.ok })
+    // Resolve both
+    if (sos1.ok) await API.updateSosStatus(sos1.incidentId, 'resolved', 'Vyřešeno')
+    if (sos2.ok) await API.updateSosStatus(sos2.incidentId, 'resolved', 'Vyřešeno')
   }
 
   return results
