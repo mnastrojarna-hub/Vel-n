@@ -180,14 +180,13 @@ async function debugLog(action: string, component: string, status: string, reque
 // 1. POST /inferences/enqueue → job info with polling_url
 // 2. GET  /jobs/{id} (polling_url) → wait for status=Completed, get result_url
 // 3. GET  /inferences/{id} (result_url) → final inference result
-async function pollForResult(jobId: string, pollingUrl?: string, maxAttempts: number = 20): Promise<any> {
-  // Use polling_url from enqueue response (always /v2/jobs/{id})
+async function pollForResult(jobId: string, pollingUrl?: string, maxAttempts: number = 30): Promise<any> {
   const pollUrl = pollingUrl || `https://api-v2.mindee.net/v2/jobs/${jobId}`
   console.log(`[scan-document] pollForResult: pollUrl=${pollUrl}`)
 
   for (let i = 0; i < maxAttempts; i++) {
-    // Mindee docs say wait 3 seconds before first poll, then 2s intervals
-    await new Promise(r => setTimeout(r, i === 0 ? 3000 : 2500))
+    // Wait 2s before first poll, then 1.5s intervals (stay within edge function timeout)
+    await new Promise(r => setTimeout(r, i === 0 ? 2000 : 1500))
 
     console.log(`[scan-document] Poll ${i + 1}/${maxAttempts}: GET ${pollUrl}`)
 
@@ -206,19 +205,20 @@ async function pollForResult(jobId: string, pollingUrl?: string, maxAttempts: nu
       const errBody = await resp.text()
       console.warn(`[scan-document] Poll ${i + 1} failed: HTTP ${resp.status}: ${errBody}`)
       if (resp.status === 401 || resp.status === 403) throw new Error(`Auth error: ${errBody}`)
-      // 404 early on may mean job isn't ready yet — keep polling
       if (resp.status === 404 && i < 5) continue
       if (resp.status === 404) throw new Error(`Job not found after ${i + 1} attempts: ${errBody}`)
       continue
     }
 
     const data = await resp.json()
-    const status = (data.status || data.job?.status || '').toLowerCase()
-    console.log(`[scan-document] Poll ${i + 1}: status=${status}, keys=${JSON.stringify(Object.keys(data))}`)
+    // Job status is in data.status (top-level) or data.job.status
+    const jobData = data.job || data
+    const status = (jobData.status || '').toLowerCase()
+    console.log(`[scan-document] Poll ${i + 1}: status=${status}, result_url=${jobData.result_url || 'null'}`)
 
     if (status === 'completed' || status === 'succeeded' || status === 'processed') {
-      // Step 3: Fetch result from result_url (usually /v2/inferences/{id})
-      const resultUrl = data.result_url || data.job?.result_url
+      // Fetch result from result_url
+      const resultUrl = jobData.result_url
       if (resultUrl) {
         console.log(`[scan-document] Fetching result from: ${resultUrl}`)
         const resultResp = await fetch(resultUrl, {
@@ -227,19 +227,19 @@ async function pollForResult(jobId: string, pollingUrl?: string, maxAttempts: nu
         })
         if (!resultResp.ok) {
           const errBody = await resultResp.text()
-          throw new Error(`Failed to fetch result from ${resultUrl}: HTTP ${resultResp.status}: ${errBody}`)
+          throw new Error(`Failed to fetch result: HTTP ${resultResp.status}: ${errBody}`)
         }
         return await resultResp.json()
       }
-      // No result_url — data itself contains the result
+      // No result_url — return job data itself
       return data
     }
     if (status === 'failed' || status === 'error') {
-      throw new Error('Mindee inference failed: ' + JSON.stringify(data.error || data))
+      throw new Error('Mindee inference failed: ' + JSON.stringify(jobData.error || data))
     }
-    // Still processing/waiting — continue polling
+    // Still processing/waiting — continue
   }
-  throw new Error('Mindee polling timeout after ' + maxAttempts + ' attempts (~50s)')
+  throw new Error('Mindee polling timeout after ' + maxAttempts + ' attempts')
 }
 
 serve(async (req) => {
