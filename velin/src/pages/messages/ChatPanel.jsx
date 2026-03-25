@@ -99,8 +99,53 @@ export default function ChatPanel({ thread, onThreadUpdate }) {
         { thread_id: thread.id }
       )
 
-      // admin_messages is handled by bridge trigger (trg_bridge_admin_message)
-      // on messages table insert — no direct insert needed here
+      // Detekce technické stížnosti → automaticky vytvořit servisní zakázku
+      const techKeywords = ['zvuk', 'brzdění', 'brzdy', 'blinkr', 'blikr', 'motor', 'řetěz', 'pneu', 'poškráb', 'nefunguje', 'rozbité', 'porucha', 'závada', 'olej', 'únik', 'vibrac']
+      const allCustomerMsgs = messages.filter(m => m.direction === 'customer').map(m => m.content?.toLowerCase() || '').join(' ')
+      const isTechComplaint = techKeywords.some(kw => allCustomerMsgs.includes(kw))
+
+      if (isTechComplaint && thread?.customer_id) {
+        // Najdi poslední booking zákazníka → motorku
+        const { data: lastBooking } = await supabase.from('bookings')
+          .select('id, moto_id, motorcycles(model)')
+          .eq('user_id', thread.customer_id)
+          .order('created_at', { ascending: false }).limit(1).maybeSingle()
+
+        if (lastBooking?.moto_id) {
+          // Najdi volný den pro servis (den kdy motorka nemá rezervaci)
+          const today = new Date()
+          let serviceDate = null
+          for (let d = 1; d <= 14; d++) {
+            const checkDate = new Date(today.getTime() + d * 86400000)
+            const iso = checkDate.toISOString().split('T')[0]
+            const { data: conflicts } = await supabase.from('bookings')
+              .select('id').eq('moto_id', lastBooking.moto_id)
+              .in('status', ['reserved', 'active'])
+              .lte('start_date', iso).gte('end_date', iso).limit(1)
+            if (!conflicts?.length) { serviceDate = iso; break }
+          }
+
+          const motoName = lastBooking.motorcycles?.model || 'motorka'
+          const desc = `Reklamace zákazníka: ${allCustomerMsgs.slice(0, 200)}. Naplánováno na ${serviceDate || 'co nejdříve'}.`
+
+          // Vytvoř servisní zakázku
+          const { error: svcErr } = await supabase.from('service_orders').insert({
+            moto_id: lastBooking.moto_id,
+            type: 'repair',
+            notes: desc,
+            status: 'pending',
+          })
+
+          if (!svcErr) {
+            // Informuj admina v chatu systémovou zprávou
+            await supabase.from('messages').insert({
+              thread_id: thread.id, direction: 'system',
+              content: `Servisní zakázka vytvořena pro ${motoName}. Plánovaný servis: ${serviceDate || 'nutno naplánovat ručně'}. Typ: oprava na základě reklamace zákazníka.`,
+              sender_name: 'Systém',
+            })
+          }
+        }
+      }
 
       setReply('')
       await loadMessages()
@@ -143,7 +188,23 @@ export default function ChatPanel({ thread, onThreadUpdate }) {
 
       const { data } = await supabase.functions.invoke('ai-copilot', {
         body: {
-          message: `Jsi customer agent MotoGo24. Zákazník "${customerName}" (${customerEmail}) píše v chatu. Navrhni profesionální odpověď v češtině, slušně, s oslovením. POUZE text odpovědi, nic jiného.\n\nHistorie konverzace:\n${lastMsgs}`,
+          message: `Jsi zákaznická podpora MotoGo24 — skutečný člověk, NE robot.
+
+PRAVIDLA:
+- Piš ROVNOU odpověď zákazníkovi. ŽÁDNÝ úvod typu "Na základě informací vidím..." nebo "Připravím odpověď...".
+- Začni přímo oslovením (Dobrý den, pane/paní...).
+- Piš krátce, lidsky, vstřícně. Max 5-6 vět.
+- Nikdy nepiš "jako AI agent" nebo "předávám booking agentovi" — zákazník nesmí vědět o agentech.
+- Pokud zákazník hlásí technický problém s motorkou (zvuk, blinkr, brzdy, poškrábání): napiš že to prověříme a naplánujeme opravu PŘED dalším nasazením motorky.
+- Pokud zákazník chce změnu rezervace: napiš že to zařídíme a ozveme se s potvrzením.
+- Vždy uveď kontakt +420 774 256 271.
+
+Zákazník: "${customerName}" (${customerEmail})
+
+Konverzace:
+${lastMsgs}
+
+Napiš POUZE text odpovědi — nic jiného.`,
           enabled_tools: getEnabledTools(config),
           agent_prompts: buildAgentPromptsText(enabledIds),
         },
