@@ -7,6 +7,7 @@ import AiConfirmDialog from '../components/ai/AiConfirmDialog'
 import AiAutonomyPanel from '../components/ai/AiAutonomyPanel'
 import AiTestRunner from '../components/ai/AiTestRunner'
 import AiTrainingPanel from '../components/ai/AiTrainingPanel'
+import AiAgentSettingsPanel from '../components/ai/AiAgentSettingsPanel'
 
 export default function AiOrchestrator() {
   const [briefing, setBriefing] = useState(null)
@@ -16,7 +17,7 @@ export default function AiOrchestrator() {
   const [loading, setLoading] = useState('')
   const [rules, setRules] = useState(() => loadAutonomyRules())
   const [pending, setPending] = useState(null)
-  const [tab, setTab] = useState('briefing')
+  const [tab, setTab] = useState('agents')
 
   const config = loadAgentConfig()
   const enabledAgents = AGENTS.filter(a => config[a.id]?.enabled)
@@ -63,6 +64,7 @@ export default function AiOrchestrator() {
   }
 
   const tabs = [
+    { id: 'agents', label: 'Nastavení agentů', icon: '⚙️' },
     { id: 'briefing', label: 'Denní briefing', icon: '📋' },
     { id: 'priorities', label: 'Priority', icon: '🔥' },
     { id: 'health', label: 'Zdraví agentů', icon: '💚' },
@@ -96,6 +98,13 @@ export default function AiOrchestrator() {
           </button>
         ))}
       </div>
+
+      {/* Agent Settings Tab */}
+      {tab === 'agents' && (
+        <div className="rounded-card bg-white p-4 shadow-card">
+          <AiAgentSettingsPanel />
+        </div>
+      )}
 
       {/* Briefing Tab */}
       {tab === 'briefing' && (
