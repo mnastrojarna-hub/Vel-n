@@ -36,8 +36,12 @@ export async function createTestCustomer() {
 
   const userId = data?.user?.id
   if (userId) {
-    // Wait for handle_new_user trigger to create the profile row
-    await delay(800)
+    // Wait for handle_new_user trigger, then verify profile exists (FK requirement)
+    for (let retry = 0; retry < 5; retry++) {
+      await delay(1000)
+      const { data: profile } = await supabase.from('profiles').select('id').eq('id', userId).maybeSingle()
+      if (profile) break
+    }
     await supabase.from('profiles').update({
       full_name: `${fn} ${ln}`,
       phone: PHONE(),
@@ -46,7 +50,7 @@ export async function createTestCustomer() {
     }).eq('id', userId)
   }
   // Throttle to avoid 429 rate limit on signUp (free tier = ~1/3s)
-  await delay(3500)
+  await delay(3000)
   return { ok: true, userId, email, name: `${fn} ${ln}` }
 }
 
