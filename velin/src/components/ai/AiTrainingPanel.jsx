@@ -189,15 +189,22 @@ export default function AiTrainingPanel() {
         </div>
       )}
 
-      {/* Reset */}
-      <div className="mt-3 flex justify-between items-center">
+      {/* Akce */}
+      <div className="mt-3 flex justify-between items-center gap-3">
         <div style={{ fontSize: 10, color: '#999' }}>
-          Data se vytváří reálně v Supabase (is_test=true). Po tréninku smazat tlačítkem.
+          Data se vytváří reálně v Supabase (is_test=true).
         </div>
-        <button onClick={() => { resetTrainingState(); window.location.reload() }}
-          style={{ fontSize: 10, color: '#999', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
-          Reset statistik
-        </button>
+        <div className="flex gap-2">
+          <button onClick={async () => { setCleaning(true); await cleanupAllTestData(); setCleaning(false); addLog('Testovací data smazána', 'ok') }}
+            disabled={cleaning}
+            style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, border: '1px solid #d4e8e0', background: '#f8fcfa', cursor: 'pointer', color: '#666' }}>
+            {cleaning ? 'Mažu...' : 'Smazat test data z DB'}
+          </button>
+          <button onClick={() => { resetTrainingState(); window.location.reload() }}
+            style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, border: '1px solid #fecaca', background: '#fef2f2', cursor: 'pointer', color: '#dc2626', fontWeight: 700 }}>
+            Smazat naučená data
+          </button>
+        </div>
       </div>
     </div>
   )
