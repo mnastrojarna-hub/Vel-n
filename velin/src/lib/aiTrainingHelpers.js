@@ -47,13 +47,23 @@ export async function createTestCustomer() {
       const { data: profile } = await supabase.from('profiles').select('id').eq('id', userId).maybeSingle()
       if (profile) { profileFound = true; break }
     }
-    if (!profileFound) console.error('[createTestCustomer] Profile NOT created after 5s for', userId)
-    // Update profile — skip license_group (PostgreSQL array cast issue via PostgREST)
-    await supabase.from('profiles').update({
-      full_name: `${fn} ${ln}`,
-      phone: PHONE(),
-      is_test_account: true,
-    }).eq('id', userId)
+    if (!profileFound) {
+      // Profile doesn't exist (cleanup deleted it but auth.users remained)
+      // Create profile directly via RPC
+      console.warn('[createTestCustomer] Profile missing, creating directly for', userId)
+      await supabase.rpc('update_test_profile', {
+        p_user_id: userId, p_data: { full_name: `${fn} ${ln}`, phone: PHONE(), is_test_account: true }
+      }).catch(() => {})
+      // Fallback: insert profile directly
+      await supabase.from('profiles').upsert({
+        id: userId, full_name: `${fn} ${ln}`, phone: PHONE(),
+        email, is_test_account: true,
+      }, { onConflict: 'id' }).catch(() => {})
+    } else {
+      await supabase.from('profiles').update({
+        full_name: `${fn} ${ln}`, phone: PHONE(), is_test_account: true,
+      }).eq('id', userId)
+    }
   }
   // Throttle to avoid 429 rate limit on signUp (free tier = ~1/3s)
   await delay(3000)

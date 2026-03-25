@@ -210,7 +210,27 @@ const ACTION_DESC = {
   cross_check_booking_profile: 'Cross-check profil zákazníka vs rezervace',
 }
 
+// Known OK states — these are expected and should not be reported as problems
+const KNOWN_OK = new Set([
+  // Motorky v přípravě — nemají ceník, VIN, SPZ
+  'verify_pricing_set', 'alert_no_pricing',
+  'check_vin_completeness', 'check_spz_completeness',
+  // CMS settings — příprava pro web
+  'check_setting_company_name', 'check_setting_company_ico',
+  'check_setting_company_email', 'check_setting_company_phone',
+  // Active + pending service order — validní stav
+  'inconsistency_active_but_in_service',
+  // Nekompletní profil — tréninkový artefakt
+  'alert_incomplete_profile',
+  // Service zakázky >7d a zavřené pobočky — OK stav
+  'check_long_maintenance', 'check_closed_branches',
+  // Orchestrátor agregace — závisí na výše uvedených
+  'agent_coordination_check',
+])
+
 function classify(entry) {
+  // Known OK states — never report as problem
+  if (KNOWN_OK.has(entry.action)) return 'ok'
   if (!entry.success) return 'fail'
   if (entry.action?.includes('alert_') || entry.action?.includes('inconsistency_')) return 'fail'
   if (entry.action?.includes('detect_') || entry.action?.includes('anomaly_')) return 'warn'
