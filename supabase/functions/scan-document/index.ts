@@ -2,9 +2,21 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const MINDEE_API_KEY = Deno.env.get('MINDEE_API_KEY') || ''
-const MINDEE_MODEL_ID = Deno.env.get('MINDEE_MODEL_ID') || ''
+// 3 separate model IDs for each document type (matching Supabase secret names)
+const MINDEE_MODEL_ID_ID = Deno.env.get('MINDEE_MODEL_ID') || ''
+const MINDEE_MODEL_ID_DL = Deno.env.get('MINDEE_MODEL_DRIVERS_LICENSE') || ''
+const MINDEE_MODEL_ID_PASSPORT = Deno.env.get('MINDEE_MODEL_PASSPORT') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+
+// Map document_type to correct model ID
+function getModelId(docType: string): string {
+  switch (docType) {
+    case 'dl': return MINDEE_MODEL_ID_DL
+    case 'passport': return MINDEE_MODEL_ID_PASSPORT
+    case 'id': default: return MINDEE_MODEL_ID_ID
+  }
+}
 
 // Mindee v2 API endpoints
 const MINDEE_ENQUEUE_URL = 'https://api-v2.mindee.net/v2/inferences/enqueue'
@@ -225,15 +237,17 @@ serve(async (req) => {
     console.log('[scan-document] Invoked: document_type=' + (document_type || 'id') +
       ' user_id=' + (user_id || 'anon') +
       ' image_len=' + (image_base64 ? image_base64.length : 0) +
-      ' MINDEE_KEY_SET=' + (!!MINDEE_API_KEY) +
-      ' MODEL_ID_SET=' + (!!MINDEE_MODEL_ID))
+      ' MINDEE_KEY_SET=' + (!!MINDEE_API_KEY))
 
-    await debugLog('invoke', document_type || 'id', 'started', {
-      document_type: document_type || 'id',
+    const docType = document_type || 'id'
+    const modelId = getModelId(docType)
+
+    await debugLog('invoke', docType, 'started', {
+      document_type: docType,
       user_id: user_id || null,
       image_length: image_base64 ? image_base64.length : 0,
       mindee_key_set: !!MINDEE_API_KEY,
-      model_id_set: !!MINDEE_MODEL_ID,
+      model_id: modelId ? '***' + modelId.slice(-4) : 'MISSING',
       api_version: 'v2',
     }, null)
 
@@ -251,14 +265,12 @@ serve(async (req) => {
       })
     }
 
-    if (!MINDEE_MODEL_ID) {
-      await debugLog('invoke', document_type || 'id', 'error', null, null, 'MINDEE_MODEL_ID not configured')
-      return new Response(JSON.stringify({ success: false, error: 'MINDEE_MODEL_ID not configured — set in Supabase Secrets' }), {
+    if (!modelId) {
+      await debugLog('invoke', docType, 'error', null, null, `MINDEE_MODEL_ID_${docType.toUpperCase()} not configured`)
+      return new Response(JSON.stringify({ success: false, error: `Model ID not configured for type '${docType}' — set MINDEE_MODEL_ID_ID, MINDEE_MODEL_ID_DL, MINDEE_MODEL_ID_PASSPORT in Supabase Secrets` }), {
         status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
       })
     }
-
-    const docType = document_type || 'id'
 
     // Strip data URI prefix if present
     let cleanBase64 = image_base64
@@ -275,7 +287,7 @@ serve(async (req) => {
     // ═══════════════════════════════════════════════
     const formData = new FormData()
     formData.append('file', blob, 'document.jpg')
-    formData.append('model_id', MINDEE_MODEL_ID)
+    formData.append('model_id', modelId)
     formData.append('rag', 'false')
 
     let enqueueResult: any = null
@@ -313,7 +325,7 @@ serve(async (req) => {
 
     if (!enqueueResult) {
       await debugLog('mindee_enqueue', docType, 'error',
-        { document_type: docType, user_id: user_id || null, model_id: MINDEE_MODEL_ID },
+        { document_type: docType, user_id: user_id || null, model_id: modelId },
         null, 'Mindee v2 enqueue failed: ' + lastError)
       return new Response(JSON.stringify({
         success: false,

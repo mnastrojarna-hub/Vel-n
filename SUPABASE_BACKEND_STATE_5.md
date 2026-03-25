@@ -137,7 +137,9 @@ Detailní politiky:
 | `SUPABASE_DB_URL` | Přímý DB přístup z edge funkcí |
 | `ANTHROPIC_API_KEY` | ai-copilot, ai-moto-agent (Anthropic Claude API) |
 | `MINDEE_API_KEY` | scan-document (OCR) — Mindee v2 API key |
-| `MINDEE_MODEL_ID` | scan-document — Mindee v2 model ID pro International ID (OP/pas/ŘP) |
+| `MINDEE_MODEL_ID` | scan-document — Mindee v2 model ID pro National ID / OP (`2e169fdb...`) |
+| `MINDEE_MODEL_DRIVERS_LICENSE` | scan-document — Mindee v2 model ID pro Driver's Licence / ŘP (`c9797f99...`) |
+| `MINDEE_MODEL_PASSPORT` | scan-document — Mindee v2 model ID pro Passport / pas |
 | `STRIPE_SECRET_KEY` | process-payment, webhook-receiver, manage-payment-methods (**LIVE sk_live_...**) |
 | `STRIPE_WEBHOOK_SECRET` | webhook-receiver (**POVINNÉ** — ověření Stripe signature, whsec_...) |
 | `ADMIN_EMAIL` | SOS notifikace, cron alerty |
