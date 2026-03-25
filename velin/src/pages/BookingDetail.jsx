@@ -90,6 +90,20 @@ export default function BookingDetail() {
 
   async function changeStatus(newStatus) {
     setSaving(true)
+
+    // Kontrola dokladů před aktivací
+    if (newStatus === 'active' && booking?.user_id) {
+      const { data: prof } = await supabase.from('profiles')
+        .select('license_group, docs_verified_at, docs_verification_status')
+        .eq('id', booking.user_id).single()
+      const docsOk = prof?.license_group?.length > 0 && (prof?.docs_verified_at || prof?.docs_verification_status === 'verified')
+      if (!docsOk) {
+        if (!window.confirm('POZOR: Zákazník nemá ověřené doklady! Opravdu chcete aktivovat rezervaci bez dokladů?')) {
+          setSaving(false); return
+        }
+      }
+    }
+
     const now = new Date().toISOString()
     const update = { status: newStatus }
     if (newStatus === 'reserved') update.confirmed_at = now

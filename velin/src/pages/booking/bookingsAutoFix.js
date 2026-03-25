@@ -24,14 +24,46 @@ export async function autoCancelStale() {
 export async function autoActivateReserved() {
   try {
     const today = localIso(new Date())
-    const { data: ready } = await supabase.from('bookings').select('id')
+    const { data: ready } = await supabase.from('bookings').select('id, user_id')
       .eq('status', 'reserved').eq('payment_status', 'paid')
       .lte('start_date', today)
-    if (ready && ready.length > 0) {
-      await supabase.from('bookings')
-        .update({ status: 'active', picked_up_at: new Date().toISOString() })
-        .in('id', ready.map(b => b.id))
-      console.log('[AutoActivate]', ready.length, 'bookings activated')
+    if (!ready || !ready.length) return
+
+    for (const b of ready) {
+      // Kontrola dokladů — zákazník MUSÍ mít nahrané doklady před aktivací
+      const { data: prof } = await supabase.from('profiles')
+        .select('license_group, docs_verified_at, docs_verification_status')
+        .eq('id', b.user_id).single()
+
+      const docsOk = prof?.license_group?.length > 0 && (prof?.docs_verified_at || prof?.docs_verification_status === 'verified')
+
+      if (docsOk) {
+        // Doklady OK → aktivovat
+        await supabase.from('bookings')
+          .update({ status: 'active', picked_up_at: new Date().toISOString() })
+          .eq('id', b.id)
+        console.log('[AutoActivate] Booking activated:', b.id)
+      } else {
+        // Doklady CHYBÍ → zůstává reserved, odeslat výzvu
+        console.warn('[AutoActivate] Booking', b.id, '— doklady chybí, odesílám výzvu')
+        // Zalogovat do notification_log pro velín
+        await supabase.from('notification_log').insert({
+          user_id: b.user_id,
+          booking_id: b.id,
+          type: 'docs_missing_reminder',
+          channel: 'system',
+          message: 'Rezervace nemůže být aktivována — chybí doklady (řidičský průkaz). Nahrajte prosím doklady v aplikaci MotoGo24.',
+        }).catch(() => {})
+        // Trigger edge function pro WA/SMS/email (pokud existuje)
+        supabase.functions.invoke('send-notification', {
+          body: {
+            user_id: b.user_id,
+            booking_id: b.id,
+            template: 'docs_missing_reminder',
+            channels: ['sms', 'email', 'whatsapp', 'push'],
+          },
+        }).catch(() => {}) // fire and forget
+      }
     }
   } catch (e) { console.error('[AutoActivate]', e) }
 }

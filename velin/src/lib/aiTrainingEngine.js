@@ -4,6 +4,8 @@ import { trainBookingsAgent, trainSosAgent, trainServiceAgent } from './aiTraini
 import { trainFleetAgent, trainCustomersAgent, trainFinanceAgent, trainEshopAgent, trainEdgeCases, trainHrAgent, trainAnalyticsAgent, trainGovernmentAgent, trainCmsAgent, trainTesterAgent, trainOrchestratorAgent, TRAINING_PROGRAMS } from './aiTrainingScenariosExtra'
 import { AGENT_VOLUMES } from './aiTrainingScenarios'
 import { cleanupTestData } from './aiTrainingHelpers'
+import { processTrainingResults } from './aiNotifications'
+import { AGENTS } from './aiAgents'
 
 const STATE_KEY = 'motogo_ai_training_state'
 
@@ -69,6 +71,9 @@ export async function runAgentTraining(agentId, onProgress) {
   state[agentId].lastRun = new Date().toISOString()
   state[agentId].durationMs = Date.now() - startTime
   saveState(state)
+
+  // Generate notifications for problems found
+  processTrainingResults(results, AGENTS)
 
   onProgress?.({ phase: 'done', agentId, passed, failed, total: results.length })
   return { agentId, results, passed, failed, total: results.length, durationMs: Date.now() - startTime }
