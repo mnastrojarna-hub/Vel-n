@@ -24,15 +24,16 @@ const delay = (ms) => new Promise(r => setTimeout(r, ms))
 
 // --- REAL API CALLS ---
 
-// 1. Create test customer via auth.signUp
+// 1. Create test customer via auth.signUp + RPC profile fix
 export async function createTestCustomer() {
   const tag = TS(), fn = FIRST(), ln = LAST()
   const email = `test.sim.${tag}@motogo24.cz`
   const password = `SimTest${tag}!23`
+  const phone = PHONE()
 
   const { data, error } = await signupClient.auth.signUp({
     email, password,
-    options: { data: { full_name: `${fn} ${ln}`, phone: PHONE(), is_test: true } }
+    options: { data: { full_name: `${fn} ${ln}`, phone, is_test: true } }
   })
   if (error) {
     console.error('[createTestCustomer] signUp FAIL:', error.message)
@@ -41,31 +42,19 @@ export async function createTestCustomer() {
 
   const userId = data?.user?.id
   if (userId) {
-    let profileFound = false
-    for (let retry = 0; retry < 5; retry++) {
-      await delay(1000)
-      const { data: profile } = await supabase.from('profiles').select('id').eq('id', userId).maybeSingle()
-      if (profile) { profileFound = true; break }
-    }
-    if (!profileFound) {
-      // Profile doesn't exist (cleanup deleted it but auth.users remained)
-      // Create profile directly via RPC
-      console.warn('[createTestCustomer] Profile missing, creating directly for', userId)
-      await supabase.rpc('update_test_profile', {
-        p_user_id: userId, p_data: { full_name: `${fn} ${ln}`, phone: PHONE(), is_test_account: true }
-      }).catch(() => {})
-      // Fallback: insert profile directly
-      await supabase.from('profiles').upsert({
-        id: userId, full_name: `${fn} ${ln}`, phone: PHONE(),
-        email, is_test_account: true,
-      }, { onConflict: 'id' }).catch(() => {})
-    } else {
+    // Wait for handle_new_user trigger
+    await delay(2000)
+    // Fix profile via SECURITY DEFINER RPC (handles: missing profile, stale auth.users)
+    const { data: fixedId } = await supabase.rpc('create_test_customer', {
+      p_email: email, p_full_name: `${fn} ${ln}`, p_phone: phone,
+    })
+    if (!fixedId) {
+      console.warn('[createTestCustomer] RPC returned null, trying direct update')
       await supabase.from('profiles').update({
-        full_name: `${fn} ${ln}`, phone: PHONE(), is_test_account: true,
+        full_name: `${fn} ${ln}`, phone, is_test_account: true,
       }).eq('id', userId)
     }
   }
-  // Throttle to avoid 429 rate limit on signUp (free tier = ~1/3s)
   await delay(3000)
   return { ok: true, userId, email, name: `${fn} ${ln}` }
 }
