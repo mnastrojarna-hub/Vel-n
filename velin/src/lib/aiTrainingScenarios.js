@@ -109,7 +109,7 @@ export async function trainSosAgent(onStep) {
         results.push({ agent: 'sos', action: 'create_incident', type: sosType.type, ...sos })
 
         if (sos.ok) {
-          await API.updateSosStatus(sos.incidentId, 'investigating', 'Přiřazen technik')
+          await API.updateSosStatus(sos.incidentId, 'in_progress', 'Přiřazen technik')
           results.push({ agent: 'sos', action: 'coordinate_technician', ok: true })
           await API.updateSosStatus(sos.incidentId, 'resolved', `Vyřešeno: ${sosType.label}`)
           results.push({ agent: 'sos', action: 'resolve_incident', ok: true })
