@@ -4,14 +4,19 @@
 import * as API from './aiTrainingHelpers'
 
 export const AGENT_VOLUMES = {
-  bookings:  { min: 25, label: 'Rezervace (konzistence, edge cases, cross-check)' },
-  fleet:     { min: 15, label: 'Flotila (STK, pojistky, stav vs realita)' },
-  customers: { min: 15, label: 'Zákazníci (komunikace, reklamace, doklady)' },
-  finance:   { min: 15, label: 'Finance (párování, faktury, ceník)' },
-  service:   { min: 15, label: 'Servis (intervaly, dokončení, log)' },
-  sos:       { min: 25, label: 'SOS (koordinace — jediný aktivní agent)' },
-  eshop:     { min: 10, label: 'E-shop (sklad, vouchery, promo)' },
-  edge:      { min: 10, label: 'Edge cases (overlap, missing docs)' },
+  bookings:    { min: 25, label: 'Rezervace (konzistence, edge cases, cross-check)' },
+  fleet:       { min: 15, label: 'Flotila (STK, pojistky, stav vs realita)' },
+  customers:   { min: 15, label: 'Zákazníci (komunikace, reklamace, doklady)' },
+  finance:     { min: 15, label: 'Finance (párování, faktury, ceník)' },
+  service:     { min: 15, label: 'Servis (intervaly, dokončení, log)' },
+  sos:         { min: 25, label: 'SOS (koordinace — jediný aktivní agent)' },
+  eshop:       { min: 10, label: 'E-shop (sklad, vouchery, promo)' },
+  hr:          { min: 10, label: 'HR (směny, docházka, zákonnost)' },
+  analytics:   { min: 10, label: 'Analytika (reporty, metriky, trendy)' },
+  government:  { min: 5,  label: 'Státní správa (STK, pojistky, termíny)' },
+  cms:         { min: 8,  label: 'CMS (nastavení, šablony, pravidla)' },
+  tester:      { min: 10, label: 'Tester (audit tabulek, integrita dat)' },
+  edge:        { min: 10, label: 'Edge cases (overlap, missing docs)' },
 }
 
 export const SOS_TYPES = [

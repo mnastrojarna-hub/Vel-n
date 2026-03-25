@@ -1,7 +1,7 @@
 // AI Training Engine — runs per-agent training, records outcomes
 import { recordOutcome } from './aiLearning'
 import { trainBookingsAgent, trainSosAgent, trainServiceAgent } from './aiTrainingScenarios'
-import { trainFleetAgent, trainCustomersAgent, trainFinanceAgent, trainEshopAgent, trainEdgeCases, TRAINING_PROGRAMS } from './aiTrainingScenariosExtra'
+import { trainFleetAgent, trainCustomersAgent, trainFinanceAgent, trainEshopAgent, trainEdgeCases, trainHrAgent, trainAnalyticsAgent, trainGovernmentAgent, trainCmsAgent, trainTesterAgent, TRAINING_PROGRAMS } from './aiTrainingScenariosExtra'
 import { AGENT_VOLUMES } from './aiTrainingScenarios'
 import { cleanupTestData } from './aiTrainingHelpers'
 
@@ -16,6 +16,11 @@ const TRAINERS = {
   customers: trainCustomersAgent,
   finance: trainFinanceAgent,
   eshop: trainEshopAgent,
+  hr: trainHrAgent,
+  analytics: trainAnalyticsAgent,
+  government: trainGovernmentAgent,
+  cms: trainCmsAgent,
+  tester: trainTesterAgent,
   edge: trainEdgeCases,
 }
 
@@ -75,7 +80,7 @@ export async function runAllTraining(onProgress) {
   try { await cleanupTestData() } catch (e) { console.warn('[training] cleanup failed:', e) }
   resetTrainingState()
 
-  const agentOrder = ['customers', 'fleet', 'bookings', 'finance', 'sos', 'service', 'eshop', 'edge']
+  const agentOrder = ['customers', 'fleet', 'bookings', 'finance', 'sos', 'service', 'eshop', 'hr', 'analytics', 'government', 'cms', 'tester', 'edge']
   const allResults = []
 
   for (let i = 0; i < agentOrder.length; i++) {
