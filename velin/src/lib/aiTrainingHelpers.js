@@ -226,18 +226,17 @@ export async function updateSosStatus(incidentId, status, notes = '') {
   return { ok: !error, error: error?.message }
 }
 
-// 12. Create service order (columns: moto_id, type, notes, status)
+// 12. Create service order (RPC bypass RLS)
 export async function createServiceOrder(motoId, type, desc) {
-  // Try with is_test first, fallback without it if column doesn't exist
-  let result = await supabase.from('service_orders').insert({
+  // Try RPC first
+  const { data: rpcId, error: rpcErr } = await supabase.rpc('create_test_service_order', {
+    p_moto_id: motoId, p_type: type, p_notes: desc
+  })
+  if (!rpcErr && rpcId) return { ok: true, orderId: rpcId, data: { id: rpcId }, error: null }
+  // Fallback direct insert
+  const { data, error } = await supabase.from('service_orders').insert({
     moto_id: motoId, type, notes: desc, status: 'pending', is_test: true,
   }).select('id').single()
-  if (result.error?.message?.includes('is_test')) {
-    result = await supabase.from('service_orders').insert({
-      moto_id: motoId, type, notes: desc, status: 'pending',
-    }).select('id').single()
-  }
-  const { data, error } = result
   return { ok: !error, orderId: data?.id, data, error: error?.message }
 }
 
