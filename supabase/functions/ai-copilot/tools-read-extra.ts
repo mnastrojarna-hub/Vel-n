@@ -59,7 +59,7 @@ export async function execReadExtra(name: string, input: R, sb: SB): Promise<unk
 
     case 'get_service_parts': {
       const scheduleId = input.schedule_id as string
-      let q = sb.from('service_parts').select('*, inventory(name, sku, stock, min_stock), maintenance_schedules(schedule_type, motorcycle_id)')
+      let q = sb.from('service_parts').select('*, inventory(name, sku, stock, min_stock), maintenance_schedules(schedule_type)')
       if (scheduleId) q = q.eq('schedule_id', scheduleId)
       const { data } = await q
       return { parts: data || [], count: (data || []).length }
