@@ -32,16 +32,21 @@ export async function createTestCustomer() {
     email, password,
     options: { data: { full_name: `${fn} ${ln}`, phone: PHONE(), is_test: true } }
   })
-  if (error) return { ok: false, error: error.message, email }
+  if (error) {
+    console.error('[createTestCustomer] signUp FAIL:', error.message)
+    return { ok: false, error: error.message, email }
+  }
 
   const userId = data?.user?.id
   if (userId) {
     // Wait for handle_new_user trigger, then verify profile exists (FK requirement)
+    let profileFound = false
     for (let retry = 0; retry < 5; retry++) {
       await delay(1000)
       const { data: profile } = await supabase.from('profiles').select('id').eq('id', userId).maybeSingle()
-      if (profile) break
+      if (profile) { profileFound = true; break }
     }
+    if (!profileFound) console.error('[createTestCustomer] Profile NOT created after 5s for', userId)
     await supabase.from('profiles').update({
       full_name: `${fn} ${ln}`,
       phone: PHONE(),
@@ -78,7 +83,7 @@ export async function checkMotoAvailability(motoId, startISO, endISO) {
 
 // 4. Create booking
 export async function createBooking(userId, motoId, startDate, endDate) {
-  const { data, error } = await supabase.from('bookings').insert({
+  const payload = {
     user_id: userId,
     moto_id: motoId,
     start_date: startDate,
@@ -87,7 +92,9 @@ export async function createBooking(userId, motoId, startDate, endDate) {
     payment_status: 'unpaid',
     booking_source: 'app',
     is_test: true,
-  }).select('id').single()
+  }
+  const { data, error } = await supabase.from('bookings').insert(payload).select('id').single()
+  if (error) console.error('[createBooking] FAIL:', error.message, error.code, error.details, error.hint, 'payload:', JSON.stringify(payload))
   return { ok: !error, bookingId: data?.id, data, error: error?.message }
 }
 
