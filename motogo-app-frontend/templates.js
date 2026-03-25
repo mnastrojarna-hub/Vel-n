@@ -105,7 +105,7 @@ Templates['s-register'] = `  <div class="reg-hdr">
   </div>`;
 
 Templates['s-docs'] = `  <div class="docs-hdr">
-    <div class="back-row" onclick="histBack()"><div class="bk-c">←</div><div class="bk-l">Zpět</div></div>
+    <div class="back-row" onclick="goTo('s-profile')"><div class="bk-c">←</div><div class="bk-l">Zpět</div></div>
     <h2>Moje doklady 📋</h2><p>Před první rezervací – stačí jednou</p>
   </div>
   <div style="margin:12px 20px 0;background:rgba(249,115,22,.1);border:2px solid rgba(249,115,22,.3);border-radius:var(--r);padding:13px;display:flex;gap:11px;">
