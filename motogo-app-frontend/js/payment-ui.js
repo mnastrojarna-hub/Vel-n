@@ -193,14 +193,6 @@ async function _saveBookingExtras(bookingId){
 // Called from booking form "Pokračovat k platbě"
 async function proceedToPayment(){
   try {
-    // Validate consents
-    var vop = document.getElementById('consent-vop');
-    var gdpr = document.getElementById('consent-gdpr');
-    if(!vop || !vop.checked || !gdpr || !gdpr.checked){
-      showT('⚠️',_t('pay').consents||'Souhlasy',_t('pay').checkVOP||'Zaškrtněte souhlas s VOP a GDPR');
-      return;
-    }
-
     // Check login
     var session = await _getSession();
     if(!session){
@@ -209,8 +201,14 @@ async function proceedToPayment(){
       return;
     }
 
-    // Validate profile completeness before payment
+    // Validate profile consents (VOP, GDPR, contract must be agreed in profile)
     var profile = typeof apiFetchProfile === 'function' ? await apiFetchProfile() : null;
+    if(profile && (!profile.consent_gdpr || !profile.consent_vop)){
+      showT('⚠️','Souhlasy','Pro rezervaci musíte mít odsouhlasené VOP a GDPR v Profilu → Soukromí a souhlasy');
+      return;
+    }
+
+    // Validate profile completeness before payment
     if(profile){
       var isKidsBike = bookingMoto && bookingMoto.cat === 'detske';
       var missing = [];

@@ -18,12 +18,25 @@ function _syncLocalSession(userId, email){
   } catch(e){}
 }
 
-// Store biometric user data + refresh token – call after every successful auth
-function _storeBioUser(userId, email, refreshToken){
+// Store biometric user data + refresh token + encrypted password – call after every successful auth
+function _storeBioUser(userId, email, refreshToken, password){
   try {
     var data = {user_id: userId, email: email};
     if(refreshToken) data.refresh_token = refreshToken;
+    if(password) data.pwd = btoa(unescape(encodeURIComponent(password)));
     localStorage.setItem('mg_bio_user', JSON.stringify(data));
+    localStorage.setItem('mg_saved_email', email);
+  } catch(e){}
+}
+
+// Pre-fill login email from saved credentials
+function _prefillLoginEmail(){
+  try {
+    var saved = localStorage.getItem('mg_saved_email');
+    if(saved){
+      var el = document.getElementById('login-email');
+      if(el && !el.value) el.value = saved;
+    }
   } catch(e){}
 }
 
@@ -87,7 +100,9 @@ function doLogin(){
   function _loginSuccess(userId, email, session){
     _syncLocalSession(userId, email);
     var refreshToken = (session && session.refresh_token) || null;
-    _storeBioUser(userId, email, refreshToken);
+    _storeBioUser(userId, email, refreshToken, pass);
+    // Auto-enable biometric after successful login
+    localStorage.setItem('mg_bio_enabled','1');
     showT('✓',_t('auth').loginTitle,_t('auth').welcome);
     renderUserData();
     setTimeout(function(){ goTo('s-home'); }, 700);
@@ -191,7 +206,6 @@ function _bioRestoreSession(bioUser){
   // 1. Check if Supabase already has a valid session
   return window.supabase.auth.getSession().then(function(r){
     if(r.data && r.data.session && r.data.session.user){
-      // Update stored refresh token
       _storeBioUser(r.data.session.user.id, r.data.session.user.email, r.data.session.refresh_token);
       return true;
     }
@@ -202,15 +216,38 @@ function _bioRestoreSession(bioUser){
           _storeBioUser(ref.data.session.user.id, ref.data.session.user.email, ref.data.session.refresh_token);
           return true;
         }
-        return false;
-      }).catch(function(){ return false; });
+        // 3. Fallback: sign in with stored credentials
+        return _bioSignInWithCredentials(bioUser);
+      }).catch(function(){ return _bioSignInWithCredentials(bioUser); });
     }
-    return false;
-  }).catch(function(){ return false; });
+    // 3. Fallback: sign in with stored credentials
+    return _bioSignInWithCredentials(bioUser);
+  }).catch(function(){ return _bioSignInWithCredentials(bioUser); });
 }
 
-// Clear biometric data when session can't be restored
+// Try to sign in using stored email/password (biometric-protected)
+function _bioSignInWithCredentials(bioUser){
+  if(!bioUser.email || !bioUser.pwd) return Promise.resolve(false);
+  try {
+    var pwd = decodeURIComponent(escape(atob(bioUser.pwd)));
+    return authSignIn(bioUser.email, pwd).then(function(result){
+      if(result.error || !result.user) return false;
+      var s = result.session;
+      _storeBioUser(result.user.id, bioUser.email, s ? s.refresh_token : null, pwd);
+      return true;
+    }).catch(function(){ return false; });
+  } catch(e){ return Promise.resolve(false); }
+}
+
+// Clear biometric session data when session can't be restored (keep email for pre-fill)
 function _clearBioData(){
+  try {
+    var raw = localStorage.getItem('mg_bio_user');
+    if(raw){
+      var bio = JSON.parse(raw);
+      if(bio && bio.email) localStorage.setItem('mg_saved_email', bio.email);
+    }
+  } catch(e){}
   try { localStorage.removeItem('mg_bio_user'); } catch(e){}
   try { localStorage.removeItem('mg_bio_enabled'); } catch(e){}
 }

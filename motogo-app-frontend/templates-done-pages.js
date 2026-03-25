@@ -46,12 +46,6 @@ Templates['s-profile'] = `  <div class="prof-hdr">
     <div class="mi" onclick="goTo('s-invoices')"><div class="mii">🧾</div><div class="mit" id="prof-lbl-invoices">Faktury a vyúčtování</div><div class="mia">›</div></div>
     <div class="mi" onclick="goTo('s-contracts')"><div class="mii">📄</div><div class="mit" id="prof-lbl-contracts">Dokumenty a smlouvy</div><div class="mia">›</div></div>
     <div id="profile-documents" style="display:none;"></div>
-    <div class="mi" onclick="toggleExpand('exp-pobocky','arr-pobocky');loadBranches()"><div class="mii" style="background:#e8f5e9;">📍</div><div class="mit" id="prof-lbl-branches">Pobočky</div><div class="mia" id="arr-pobocky">›</div></div>
-    <div class="mi-expand" id="exp-pobocky">
-      <div id="branches-list" style="margin-bottom:4px;">
-        <div style="text-align:center;padding:12px;color:var(--g400);font-size:12px;">Načítám pobočky...</div>
-      </div>
-    </div>
     <div class="mi" onclick="toggleExpand('exp-platba','arr-platba');loadPaymentMethods()"><div class="mii">💳</div><div class="mit" id="prof-lbl-pay">Platební metody</div><div class="mia" id="arr-platba">›</div></div>
     <div class="mi-expand" id="exp-platba">
       <div id="pm-cards-list" style="margin-bottom:8px;">
@@ -77,32 +71,34 @@ Templates['s-profile'] = `  <div class="prof-hdr">
 
   <div class="msec">
     <div class="msec-t" id="prof-sec-settings">Nastavení</div>
-    <div class="mi" onclick="toggleExpand('exp-notif','arr-notif')"><div class="mii">🔔</div><div class="mit" id="prof-lbl-notif">Notifikace</div><div class="mia" id="arr-notif">›</div></div>
+    <div class="mi" onclick="toggleExpand('exp-notif','arr-notif');loadProfileConsents('notif')"><div class="mii">🔔</div><div class="mit" id="prof-lbl-notif">Notifikace</div><div class="mia" id="arr-notif">›</div></div>
     <div class="mi-expand" id="exp-notif">
       <div style="display:flex;flex-direction:column;gap:10px;">
-        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span id="t-pushNotif">Push notifikace</span> <input type="checkbox" checked style="accent-color:var(--green);width:16px;height:16px;"></label>
-        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span id="t-emailNews">E-mailové novinky</span> <input type="checkbox" style="accent-color:var(--green);width:16px;height:16px;"></label>
-        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span id="t-smsReminders">SMS připomínky</span> <input type="checkbox" checked style="accent-color:var(--green);width:16px;height:16px;"></label>
-        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span id="t-specialOffers">Speciální nabídky</span> <input type="checkbox" checked style="accent-color:var(--green);width:16px;height:16px;"></label>
+        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>Push notifikace</span> <input type="checkbox" id="pref-push" style="accent-color:var(--green);width:16px;height:16px;"></label>
+        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>Email komunikace</span> <input type="checkbox" id="pref-email" style="accent-color:var(--green);width:16px;height:16px;"></label>
+        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>SMS komunikace</span> <input type="checkbox" id="pref-sms" style="accent-color:var(--green);width:16px;height:16px;"></label>
+        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>WhatsApp komunikace</span> <input type="checkbox" id="pref-wa" style="accent-color:var(--green);width:16px;height:16px;"></label>
+        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>Marketingový souhlas</span> <input type="checkbox" id="pref-marketing" style="accent-color:var(--green);width:16px;height:16px;"></label>
       </div>
-      <button class="save-btn" id="t-settingsSaved" onclick="showT('✓','Nastavení uloženo','')">Uložit</button>
+      <button class="save-btn" onclick="saveProfileConsents('notif')">Uložit</button>
     </div>
     <div class="mi" onclick="toggleExpand('exp-bio-set','arr-bio-set')"><div class="mii">🔐</div><div class="mit" id="prof-lbl-bio">Biometrické přihlášení</div><div class="mia" id="arr-bio-set">›</div></div>
     <div class="mi-expand" id="exp-bio-set">
       <div style="display:flex;flex-direction:column;gap:10px;">
-        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span id="t-pFingerprint">Otisk prstu</span> <input type="checkbox" checked style="accent-color:var(--green);width:16px;height:16px;"></label>
+        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>Otisk prstu / Face ID</span> <input type="checkbox" id="pref-bio-toggle" style="accent-color:var(--green);width:16px;height:16px;"></label>
       </div>
-      <button class="save-btn" id="t-bioSet" onclick="showT('✓','Biometrika nastavena','')">Uložit</button>
+      <button class="save-btn" onclick="toggleBiometricSetting()">Uložit</button>
     </div>
-    <div class="mi" onclick="toggleExpand('exp-priv','arr-priv')"><div class="mii">🔒</div><div class="mit" id="prof-lbl-priv">Soukromí & Oprávnění</div><div class="mia" id="arr-priv">›</div></div>
+    <div class="mi" onclick="toggleExpand('exp-priv','arr-priv');loadProfileConsents('priv')"><div class="mii">🔒</div><div class="mit" id="prof-lbl-priv">Soukromí a souhlasy</div><div class="mia" id="arr-priv">›</div></div>
     <div class="mi-expand" id="exp-priv">
       <div style="display:flex;flex-direction:column;gap:10px;">
-        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span id="prof-priv-loc">Sdílení polohy</span> <input type="checkbox" checked style="accent-color:var(--green);width:16px;height:16px;"></label>
-        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span id="prof-priv-cam">Fotoaparát</span> <input type="checkbox" checked style="accent-color:var(--green);width:16px;height:16px;"></label>
-        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span id="prof-priv-mic">Mikrofon</span> <input type="checkbox" checked style="accent-color:var(--green);width:16px;height:16px;"></label>
-        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span id="prof-priv-anal">Anonymní analytika</span> <input type="checkbox" style="accent-color:var(--green);width:16px;height:16px;"></label>
+        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>VOP — všeobecné obchodní podmínky</span> <input type="checkbox" id="pref-vop" style="accent-color:var(--green);width:16px;height:16px;"></label>
+        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>GDPR — zpracování osobních údajů</span> <input type="checkbox" id="pref-gdpr" style="accent-color:var(--green);width:16px;height:16px;"></label>
+        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>Zpracování dat pro provoz služby</span> <input type="checkbox" id="pref-data" style="accent-color:var(--green);width:16px;height:16px;"></label>
+        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>Četl/a jsem návrh smlouvy na motogo24.cz a souhlasím</span> <input type="checkbox" id="pref-contract" style="accent-color:var(--green);width:16px;height:16px;"></label>
+        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>Fotografování dokladů a motorky</span> <input type="checkbox" id="pref-photo" style="accent-color:var(--green);width:16px;height:16px;"></label>
       </div>
-      <button class="save-btn" id="t-permSaved" onclick="showT('✓','Oprávnění uložena','')">Uložit</button>
+      <button class="save-btn" onclick="saveProfileConsents('priv')">Uložit</button>
     </div>
     <div class="mi" onclick="toggleExpand('exp-jazyk','arr-jazyk')"><div class="mii">🌐</div><div class="mit" id="prof-lbl-lang">Jazyk aplikace</div><div class="mia" id="arr-jazyk">›</div></div>
     <div class="mi-expand" id="exp-jazyk">
@@ -124,8 +120,14 @@ Templates['s-profile'] = `  <div class="prof-hdr">
   <div class="msec">
     <div class="msec-t" id="prof-sec-help">Pomoc & Podpora</div>
     <div class="mi" onclick="showT('❓','Nápověda','Otevírám FAQ...')"><div class="mii">❓</div><div class="mit" id="t-helpFAQ">Nápověda & FAQ</div><div class="mia">›</div></div>
-    <div class="mi" onclick="openExternalLink('https://motogo24.vseproweb.com')"><div class="mii">🌐</div><div class="mit">motogo24.vseproweb.com</div><div class="mia">›</div></div>
-    <div class="mi" onclick="openExternalLink('https://motogo24.vseproweb.com/blog')"><div class="mii">📝</div><div class="mit">Blog MotoGo24</div><div class="mia">›</div></div>
+    <div class="mi" onclick="openExternalLink('https://www.motogo24.cz')"><div class="mii">🌐</div><div class="mit">www.motogo24.cz</div><div class="mia">›</div></div>
+    <div class="mi" onclick="openExternalLink('https://www.motogo24.cz/blog')"><div class="mii">📝</div><div class="mit">Blog MotoGo24</div><div class="mia">›</div></div>
+    <div class="mi" onclick="toggleExpand('exp-pobocky','arr-pobocky');loadBranches()"><div class="mii" style="background:#e8f5e9;">📍</div><div class="mit" id="prof-lbl-branches">Pobočky</div><div class="mia" id="arr-pobocky">›</div></div>
+    <div class="mi-expand" id="exp-pobocky">
+      <div id="branches-list" style="margin-bottom:4px;">
+        <div style="text-align:center;padding:12px;color:var(--g400);font-size:12px;">Načítám pobočky...</div>
+      </div>
+    </div>
   </div>
   <div class="msec">
     <div class="msec-t" id="prof-sec-other">Ostatní</div>

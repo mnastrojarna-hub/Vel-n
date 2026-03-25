@@ -74,6 +74,8 @@
 - **consent_push** (boolean DEFAULT false) — souhlas push notifikace
 - **consent_data_processing** (boolean DEFAULT false) — souhlas zpracování dat
 - **consent_photo** (boolean DEFAULT false) — souhlas fotografování dokladů
+- **consent_whatsapp** (boolean DEFAULT false) — souhlas WhatsApp komunikace
+- **consent_contract** (boolean DEFAULT false) — souhlas s návrhem smlouvy na motogo24.cz
 - **stripe_customer_id** (TEXT) — Stripe Customer ID pro uložené platební metody
 - **id_number** (TEXT DEFAULT NULL) — číslo dokladu totožnosti (OP nebo pas) z Mindee OCR
 - **id_verified_at** (TIMESTAMPTZ) — datum ověření OP přes Mindee OCR

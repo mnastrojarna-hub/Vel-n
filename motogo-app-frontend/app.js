@@ -164,6 +164,7 @@ function _continueInit(hasSession){
 
   // Initialize UI components
   if(typeof setupBioButton==='function') setupBioButton();
+  if(typeof _prefillLoginEmail==='function') _prefillLoginEmail();
   // Language selection (first launch) – must run before permissions
   if(typeof initLangSelect==='function') initLangSelect();
   if(typeof initPerms==='function') initPerms();

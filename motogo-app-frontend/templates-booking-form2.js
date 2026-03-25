@@ -109,11 +109,11 @@ var _BOOKING_FORM_PART2 = `
       <div id="discount-msg" style="font-size:11px;margin-top:6px;font-weight:600;min-height:16px;"></div>
     </div>
   </div>
-  <div class="bcard">
-    <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;color:var(--g600);font-weight:500;">
-      <label id="t-bkAgreeVOP" style="display:flex;align-items:flex-start;gap:7px;cursor:pointer;"><input type="checkbox" id="consent-vop" style="accent-color:var(--green);width:14px;height:14px;flex-shrink:0;margin-top:1px;"> Souhlasím s <span onclick="event.stopPropagation();showContractPreview()" style="color:var(--gd);text-decoration:underline;cursor:pointer;">návrhem smlouvy</span> a <span onclick="event.stopPropagation();showVOP()" style="color:var(--gd);text-decoration:underline;cursor:pointer;">VOP</span> (vč. podmínek odpovědnosti za škodu)</label>
-      <label id="t-bkAgreeGDPR" style="display:flex;align-items:flex-start;gap:7px;cursor:pointer;"><input type="checkbox" id="consent-gdpr" style="accent-color:var(--green);width:14px;height:14px;flex-shrink:0;margin-top:1px;"> Souhlasím se <span onclick="event.stopPropagation();showGDPR()" style="color:var(--gd);text-decoration:underline;cursor:pointer;">zpracováním osobních údajů</span></label>
-      <div id="kids-consent-wrap" style="display:none;"><label id="t-bkAgreeKids" style="display:flex;align-items:flex-start;gap:7px;cursor:pointer;"><input type="checkbox" id="consent-kids" style="accent-color:var(--green);width:14px;height:14px;flex-shrink:0;margin-top:1px;"> Potvrzuji, že jsem zákonný zástupce a dětský motocykl bude provozován pouze v uzavřeném prostoru pod mým dohledem.</label></div>
+  <div id="kids-consent-wrap" style="display:none;">
+    <div class="bcard">
+      <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;color:var(--g600);font-weight:500;">
+        <label id="t-bkAgreeKids" style="display:flex;align-items:flex-start;gap:7px;cursor:pointer;"><input type="checkbox" id="consent-kids" style="accent-color:var(--green);width:14px;height:14px;flex-shrink:0;margin-top:1px;"> Potvrzuji, že jsem zákonný zástupce a dětský motocykl bude provozován pouze v uzavřeném prostoru pod mým dohledem.</label>
+      </div>
     </div>
   </div>
   <div style="padding:12px 20px 100px;"><button id="t-bkProceed" class="btn-g" onclick="proceedToPayment()">Pokračovat k platbě →</button></div>`;
