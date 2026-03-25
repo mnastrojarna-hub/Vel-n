@@ -11,6 +11,10 @@ function resetBookingState(){
   // Reset extras/delivery/discount
   extraTotal = 0; deliveryFee = 0; discountAmt = 0;
   pickupDelivFee = 0; returnDelivFee = 0;
+  // Reset promo code state — so re-entering same code works
+  if(typeof appliedCode !== 'undefined') appliedCode = null;
+  if(typeof _appliedPromoId !== 'undefined') _appliedPromoId = null;
+  if(typeof _appliedBookingCodes !== 'undefined') _appliedBookingCodes = [];
   if(typeof bookingDays !== 'undefined') bookingDays = 2;
   // Edit calendar
   if(typeof eStep !== 'undefined'){ eStep = 1; }
