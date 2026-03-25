@@ -251,7 +251,7 @@ function _updateBookingFabVisibility(){
   var fab = document.getElementById('booking-fab');
   if(!fab) return;
   // Hide on payment flow screens (user is already paying) and auth
-  var hideOn = ['s-login','s-register','s-docs','s-booking','s-payment','s-success'];
+  var hideOn = ['s-login','s-register','s-doc-scan','s-payment','s-success'];
   if(hideOn.indexOf(cur) !== -1){ fab.style.display = 'none'; return; }
   // Re-check on ANY screen outside hideOn — FAB must be visible everywhere
   _checkAndShowBookingFab();

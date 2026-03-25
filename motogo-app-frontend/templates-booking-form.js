@@ -51,6 +51,7 @@ Templates['s-booking'] = `  <div class="topbar"><div class="back-row" onclick="h
       </div>
       <div id="contact-arrow" style="font-size:18px;color:var(--gd);transition:transform .25s;">›</div>
     </div>
+    <div id="b-license-info" style="margin-top:8px;padding:8px 11px;background:var(--gp);border-radius:var(--rsm);display:none;"></div>
     <div id="contact-expanded" style="display:none;margin-top:10px;">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;">
         <div class="ff" style="margin:0;"><label id="t-bkName">Jméno a příjmení</label><input type="text" id="b-contact-name" value=""></div>

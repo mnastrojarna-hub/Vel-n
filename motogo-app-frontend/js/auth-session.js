@@ -134,6 +134,22 @@ function _renderUserDataAsync(){
     var bPhone = document.getElementById('b-contact-phone');
     if(bPhone) bPhone.value = profile.phone || '';
 
+    // License info in booking form (readonly display)
+    var bLicenseInfo = document.getElementById('b-license-info');
+    if(bLicenseInfo){
+      if(profile.license_number){
+        var licGroups = (profile.license_group && profile.license_group.length) ? profile.license_group.join(', ') : '';
+        var licExpiry = profile.license_expiry || '';
+        bLicenseInfo.innerHTML = '<div style="font-size:13px;color:var(--gd);font-weight:600;">ŘP: ' +
+          profile.license_number + (licGroups ? ' · Sk. ' + licGroups : '') +
+          (licExpiry ? ' · Platnost do ' + licExpiry : '') + '</div>';
+        bLicenseInfo.style.display = '';
+      } else {
+        bLicenseInfo.innerHTML = '<div style="font-size:13px;color:#b91c1c;font-weight:600;">⚠️ Chybí údaje o ŘP — <a href="#" onclick="goTo(\'s-profile\');return false;" style="color:#2563eb;">doplnit v profilu</a></div>';
+        bLicenseInfo.style.display = '';
+      }
+    }
+
     // Update contact collapsed preview
     var contactInitials = document.getElementById('contact-initials-box');
     var contactNamePrev = document.getElementById('contact-name-preview');

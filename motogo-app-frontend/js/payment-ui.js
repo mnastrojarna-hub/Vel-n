@@ -39,12 +39,36 @@ function _lockPaymentScreen(msg){
 }
 
 // Check payment status after returning from Stripe — called on app resume
-async function _checkPaymentAfterStripe(){
+// Retries up to 5x with 2s intervals to wait for webhook confirmation
+async function _checkPaymentAfterStripe(attempt){
   if(!_stripeCheckoutOpened || !_stripeCheckoutBookingId) return;
   if(!window.supabase) return;
+  attempt = attempt || 0;
   try {
     var r = await window.supabase.from('bookings').select('status, payment_status').eq('id', _stripeCheckoutBookingId).single();
-    if(!r.data) return;
+    if(!r.data){
+      // No data — force unblock after retries
+      if(attempt >= 4){
+        _stripeCheckoutOpened = false;
+        goTo('s-res');
+      }
+      return;
+    }
+    // Still unpaid — webhook hasn't arrived yet, retry
+    if(r.data.payment_status !== 'paid' && r.data.status !== 'cancelled' && attempt < 5){
+      _lockPaymentScreen('⏳ Ověřuji platbu... (' + (attempt + 1) + '/5)');
+      setTimeout(function(){ _checkPaymentAfterStripe(attempt + 1); }, 2000);
+      return;
+    }
+    // Timeout — force navigate to reservations (prevent black screen)
+    if(r.data.payment_status !== 'paid' && r.data.status !== 'cancelled' && attempt >= 5){
+      _stripeCheckoutOpened = false;
+      _stripeCheckoutBookingId = null;
+      showT('ℹ️','Platba se ověřuje','Stav platby bude aktualizován. Zkontrolujte v Moje rezervace.');
+      goTo('s-res');
+      if(typeof renderMyReservations === 'function') renderMyReservations();
+      return;
+    }
     if(r.data.payment_status === 'paid'){
       // Platba potvrzena webhookem
       var bkId = _stripeCheckoutBookingId;
@@ -199,8 +223,8 @@ async function proceedToPayment(){
         if(!profile.license_number || !profile.license_number.trim()) missing.push('Číslo ŘP');
       }
       if(missing.length > 0){
-        showT('⚠️','Vyplňte osobní údaje','Chybí: ' + missing.join(', '));
-        goTo('s-profile');
+        showT('⚠️','Vyplňte osobní údaje','Chybí: ' + missing.join(', ') + '. Doplňte v profilu a vraťte se.');
+        // Don't redirect — stay on booking, FAB will be visible
         return;
       }
     }
