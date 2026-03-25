@@ -48,10 +48,13 @@ export async function createTestCustomer() {
       if (profile) { profileFound = true; break }
     }
     if (!profileFound) console.error('[createTestCustomer] Profile NOT created after 5s for', userId)
-    await supabase.rpc('update_test_profile', {
-      p_user_id: userId,
-      p_data: { full_name: `${fn} ${ln}`, phone: PHONE(), license_group: PICK([['A'], ['A2'], ['A', 'B'], ['A2', 'B']]), is_test_account: true },
-    })
+    // Update profile via direct UPDATE (RPC has jsonb cast issues)
+    await supabase.from('profiles').update({
+      full_name: `${fn} ${ln}`,
+      phone: PHONE(),
+      license_group: PICK([['A'], ['A2'], ['A', 'B'], ['A2', 'B']]),
+      is_test_account: true,
+    }).eq('id', userId)
   }
   // Throttle to avoid 429 rate limit on signUp (free tier = ~1/3s)
   await delay(3000)
@@ -308,12 +311,15 @@ export async function sendCustomerMessage(userId, content) {
   return { ok: !error, threadId, error: error?.message }
 }
 
-// 18. Update customer profile (RPC bypass RLS)
+// 18. Update customer profile (direct UPDATE — RPC has jsonb issues)
 export async function updateProfile(userId, updates) {
-  const { error } = await supabase.rpc('update_test_profile', {
-    p_user_id: userId, p_data: updates,
-  })
-  return { ok: !error, error: error?.message }
+  const { error } = await supabase.from('profiles').update(updates).eq('id', userId)
+  if (error) {
+    // Fallback: try RPC
+    const { error: rpcErr } = await supabase.rpc('update_test_profile', { p_user_id: userId, p_data: updates })
+    return { ok: !rpcErr, error: rpcErr?.message }
+  }
+  return { ok: true, error: null }
 }
 
 // --- CLEANUP (via SECURITY DEFINER RPC) ---
