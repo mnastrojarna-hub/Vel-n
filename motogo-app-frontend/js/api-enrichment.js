@@ -385,11 +385,15 @@ async function apiUploadDocPhoto(base64Data, docType){
     }
 
     // Store reference in documents table
+    // Types must match Velín verification: drivers_license, id_card, passport
+    var docTypeMap = {
+      'id_front': 'id_card', 'id_back': 'id_card',
+      'dl_front': 'drivers_license', 'dl_back': 'drivers_license',
+      'passport_front': 'passport'
+    };
     await window.supabase.from('documents').insert({
       user_id: uid,
-      type: docType === 'id_front' || docType === 'id_back' ? 'id_photo' :
-            docType === 'dl_front' || docType === 'dl_back' ? 'license_photo' :
-            docType === 'passport_front' ? 'id_photo' : 'document',
+      type: docTypeMap[docType] || 'document',
       file_path: filePath,
       file_name: docType + '.jpg'
     });
@@ -447,6 +451,21 @@ async function apiCheckLicenseForMoto(motoId, endDate){
     if(!required || required === 'N') return {allowed:true};
     var profile = await apiFetchProfile();
     if(!profile || !profile.license_group) return {allowed:false, reason:'Nemáte vyplněný řidičský průkaz'};
+
+    // Check license expiry vs booking end date
+    if(profile.license_expiry && endDate){
+      var expiry = new Date(profile.license_expiry);
+      var bookingEnd = new Date(endDate);
+      expiry.setHours(0,0,0,0);
+      bookingEnd.setHours(0,0,0,0);
+      if(expiry < bookingEnd){
+        return {allowed:false, reason:'Platnost řidičského průkazu vyprší ' +
+          expiry.toLocaleDateString('cs-CZ') + ' — před koncem rezervace'};
+      }
+    } else if(!profile.license_expiry){
+      return {allowed:false, reason:'Nemáte vyplněnou platnost řidičského průkazu'};
+    }
+
     var groups = profile.license_group;
     for(var i = 0; i < groups.length; i++){
       var covers = LICENSE_COVERS[groups[i]];

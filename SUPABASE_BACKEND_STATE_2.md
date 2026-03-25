@@ -75,6 +75,7 @@
 - **consent_data_processing** (boolean DEFAULT false) — souhlas zpracování dat
 - **consent_photo** (boolean DEFAULT false) — souhlas fotografování dokladů
 - **stripe_customer_id** (TEXT) — Stripe Customer ID pro uložené platební metody
+- **id_number** (TEXT DEFAULT NULL) — číslo dokladu totožnosti (OP nebo pas) z Mindee OCR
 
 ### payment_methods
 - id (UUID PK), user_id (UUID FK→profiles ON DELETE CASCADE)
