@@ -98,6 +98,39 @@ export function getDeeplink(action) {
   return DEEPLINKS[action] || null
 }
 
+// Czech translations for notification titles
+const CZ_TITLES = {
+  alert_stk_expiring: 'STK brzy vyprší', alert_stk_expired: 'STK prošlá!', alert_stk_missing: 'STK chybí',
+  alert_no_pricing: 'Motorka bez ceníku', alert_missing_kf: 'Chybí konečná faktura',
+  alert_zero_price: 'Nulová cena v ceníku', alert_incomplete_profile: 'Nekompletní profil zákazníka',
+  alert_missing_checkout: 'Chybí odchod v docházce', alert_pending_vacations: 'Neschválené dovolené',
+  alert_overtime: 'Přesčas zaměstnance', alert_empty_template: 'Prázdná emailová šablona',
+  alert_missing_contract_template: 'Chybí šablona smlouvy', alert_missing_vop_template: 'Chybí šablona VOP',
+  alert_expired_active_promos: 'Promo kódy po expiraci', alert_overused_promos: 'Překročený limit promo',
+  alert_expired_vouchers: 'Vouchery po expiraci', alert_stale_pending_orders: 'Objednávky čekají >24h',
+  alert_paid_not_shipped: 'Zaplaceno ale neodesláno', alert_employee_without_docs: 'Zaměstnanec bez dokumentů',
+  alert_duplicate_shifts: 'Duplicitní směny', alert_no_hourly_rate: 'Zaměstnanec bez sazby',
+  alert_employee_no_contact: 'Zaměstnanec bez kontaktu', alert_too_many_on_vacation: 'Moc lidí na dovolené',
+  alert_inactive_accessories: 'Neaktivní příslušenství', alert_zero_value_voucher: 'Voucher s nulovou hodnotou',
+  alert_invalid_promo_value: 'Neplatná hodnota promo',
+  inconsistency_active_but_in_service: 'Motorka active ale v servisu',
+  inconsistency_vacation_vs_shift: 'Dovolená vs směna konflikt',
+  inconsistency_expired_stk_active: 'Prošlá STK ale motorka active',
+  check_unassigned_sos: 'SOS bez řešitele', check_old_unpaid: 'Nezaplacené rezervace >24h',
+  check_long_maintenance: 'Servis otevřený >7 dní', check_closed_branches: 'Zavřené pobočky',
+  check_unanswered_messages: 'Nezodpovězené zprávy', agent_coordination_check: 'Problémy koordinace agentů',
+  check_vin_completeness: 'Motorky bez VIN', check_spz_completeness: 'Motorky bez SPZ',
+  check_setting_company_name: 'Chybí nastavení: název firmy', check_setting_company_ico: 'Chybí nastavení: IČO',
+  check_setting_company_email: 'Chybí nastavení: email firmy', check_setting_company_phone: 'Chybí nastavení: telefon firmy',
+  verify_pricing_set: 'Ceník není nastaven', verify_promo_discount: 'Sleva promo nefunguje',
+  customer_complains: 'Reklamace zákazníka', complaint_during_ride: 'Stížnost během jízdy',
+  booking_failed: 'Rezervace selhala', detect_overlap: 'Kolize termínů',
+}
+
+function czTitle(action) {
+  return CZ_TITLES[action] || action?.replace(/_/g, ' ')?.replace(/^[a-z]/, c => c.toUpperCase()) || 'Problém'
+}
+
 // Process training results → generate notifications for problems
 export function processTrainingResults(results, agents) {
   let count = 0
@@ -110,7 +143,7 @@ export function processTrainingResults(results, agents) {
         agentName: agent.name,
         agentIcon: agent.icon,
         severity: r.action?.includes('inconsistency_') || r.action?.includes('alert_missing') ? 'critical' : 'warning',
-        title: r.action?.replace(/_/g, ' ') || 'Problém',
+        title: czTitle(r.action),
         detail: r.result_summary || r.error || '',
         link,
       })
