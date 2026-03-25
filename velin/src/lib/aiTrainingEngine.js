@@ -114,9 +114,19 @@ export async function cleanupAllTestData() {
   return await cleanupTestData()
 }
 
-// Reset
+// Reset ALL learned data — training state + learning logs + metrics + memory
 export function resetTrainingState() {
+  // Training state
   localStorage.removeItem(STATE_KEY)
+  // Metrics (confidence, success rates)
+  localStorage.removeItem('motogo_ai_metrics')
+  // Learning logs + long-term memory per agent
+  const agentIds = ['bookings', 'sos', 'service', 'fleet', 'customers', 'finance', 'eshop', 'edge', 'hr', 'analytics', 'cms', 'government']
+  for (const id of agentIds) {
+    localStorage.removeItem('motogo_ai_learning_' + id)
+    localStorage.removeItem('motogo_ai_memory_' + id)
+    sessionStorage.removeItem('motogo_ai_flash_' + id)
+  }
 }
 
 export { TRAINING_PROGRAMS, AGENT_VOLUMES }
