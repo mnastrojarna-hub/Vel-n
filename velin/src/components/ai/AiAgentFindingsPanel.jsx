@@ -117,6 +117,13 @@ const ACTION_DESC = {
   vacation_shift_ok: 'Dovolená vs směny — v pořádku',
   check_overtime_ok: 'Přesčasy v normě',
   fetch_employee_docs: 'Načtení dokumentů zaměstnanců',
+  alert_employee_without_docs: 'Zaměstnanec bez dokumentů (smlouva, BOZP)',
+  alert_duplicate_shifts: 'Zaměstnanec má 2 směny v jeden den!',
+  check_no_duplicate_shifts: 'Žádné duplicitní směny',
+  alert_no_hourly_rate: 'Zaměstnanec bez hodinové sazby',
+  alert_employee_no_contact: 'Zaměstnanec bez kontaktu (email/telefon)',
+  alert_too_many_on_vacation: 'Příliš mnoho zaměstnanců na dovolené najednou!',
+  hr_summary: 'Celkový HR souhrn',
   // Analytics
   anomaly_no_price: 'Aktivní motorky bez nastaveného ceníku',
   fetch_fleet_data: 'Načtení dat flotily',
@@ -187,6 +194,20 @@ const ACTION_DESC = {
   fetch_orders: 'Načtení objednávek',
   pending_orders: 'Nevyřízené objednávky',
   verify_stock: 'Kontrola skladu',
+  alert_inactive_accessories: 'Neaktivní příslušenství stále v nabídce',
+  alert_zero_value_voucher: 'Voucher s nulovou hodnotou ale stále aktivní!',
+  alert_stale_pending_orders: 'Objednávky čekající déle než 24 hodin!',
+  alert_paid_not_shipped: 'Zaplacená objednávka ale nebyla odeslána!',
+  alert_invalid_promo_value: 'Promo kód s neplatnou hodnotou (>100%)',
+  // Edge
+  verify_no_bookings_on_maintenance: 'Kontrola: žádné rezervace na motorce v servisu',
+  verify_full_lifecycle_invoice: 'Kontrola faktury po kompletním lifecycle',
+  edge_change_both_locations: 'Změna vyzvednutí i vrácení',
+  edge_first_extend: 'První prodloužení',
+  edge_second_extend: 'Druhé prodloužení po sobě',
+  edge_first_sos: 'První SOS na rezervaci',
+  edge_second_light_sos: 'Druhý lehký SOS na stejné rezervaci',
+  cross_check_booking_profile: 'Cross-check profil zákazníka vs rezervace',
 }
 
 function classify(entry) {

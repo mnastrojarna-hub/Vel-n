@@ -149,19 +149,19 @@ export async function trainTesterAgent(onStep) {
   return results
 }
 
-// === ESHOP AGENT — sklad, promo kódy, vouchery, objednávky ===
+// === ESHOP AGENT — sklad, promo kódy, vouchery, objednávky + edge cases ===
 export async function trainEshopAgent(onStep) {
   const results = []
 
   // 1. Promo kódy — vytvoření + kontrola max_uses
   for (let i = 0; i < 3; i++) {
-    onStep?.({ agent: 'eshop', action: `Promo kód #${i + 1}`, i, total: 12 })
+    onStep?.({ agent: 'eshop', action: `Promo kód #${i + 1}`, i, total: 15 })
     const p = await API.createPromoCode(`SIMSHOP${API.TS()}${i}`, 10 + i * 5)
     results.push({ agent: 'eshop', action: 'create_promo', ...p })
   }
 
   // 2. Kontrola existujících promo kódů — expired, overused
-  onStep?.({ agent: 'eshop', action: 'Kontrola promo kódů', i: 3, total: 12 })
+  onStep?.({ agent: 'eshop', action: 'Kontrola promo kódů', i: 3, total: 15 })
   const { data: promos } = await supabase.from('promo_codes')
     .select('id, code, value, active, max_uses, used_count, valid_to').limit(20)
   const expired = (promos || []).filter(p => p.valid_to && new Date(p.valid_to) < new Date() && p.active)
@@ -171,25 +171,45 @@ export async function trainEshopAgent(onStep) {
   results.push({ agent: 'eshop', action: 'promo_audit', ok: true, total: promos?.length || 0, expired: expired.length, overused: overused.length })
 
   // 3. Příslušenství — kontrola skladových zásob
-  onStep?.({ agent: 'eshop', action: 'Sklad příslušenství', i: 5, total: 12 })
+  onStep?.({ agent: 'eshop', action: 'Sklad příslušenství', i: 5, total: 15 })
   const { data: acc } = await supabase.from('accessory_types').select('id, key, label, is_active').limit(20)
   results.push({ agent: 'eshop', action: 'fetch_accessory_types', ok: true, count: acc?.length || 0 })
+  // Edge: neaktivní příslušenství ale stále v nabídce
+  const inactive = (acc || []).filter(a => !a.is_active)
+  if (inactive.length) results.push({ agent: 'eshop', action: 'alert_inactive_accessories', ok: false, count: inactive.length })
 
   // 4. Vouchery — aktivní, expirované
-  onStep?.({ agent: 'eshop', action: 'Kontrola voucherů', i: 7, total: 12 })
+  onStep?.({ agent: 'eshop', action: 'Kontrola voucherů', i: 7, total: 15 })
   const { data: vouchers } = await supabase.from('vouchers')
     .select('id, code, status, amount, valid_until').limit(20)
   const activeVouchers = (vouchers || []).filter(v => v.status === 'active')
   const expiredVouchers = (vouchers || []).filter(v => v.valid_until && new Date(v.valid_until) < new Date() && v.status === 'active')
   results.push({ agent: 'eshop', action: 'voucher_audit', ok: true, total: vouchers?.length || 0, active: activeVouchers.length, expired: expiredVouchers.length })
   if (expiredVouchers.length) results.push({ agent: 'eshop', action: 'alert_expired_vouchers', ok: false, count: expiredVouchers.length })
+  // Edge: voucher s nulovou hodnotou ale active
+  const zeroVouchers = activeVouchers.filter(v => !v.amount || v.amount <= 0)
+  if (zeroVouchers.length) results.push({ agent: 'eshop', action: 'alert_zero_value_voucher', ok: false, count: zeroVouchers.length })
 
-  // 5. Shop orders
-  onStep?.({ agent: 'eshop', action: 'Kontrola objednávek', i: 9, total: 12 })
-  const { data: orders } = await supabase.from('shop_orders').select('id, status, payment_status, total').limit(20)
+  // 5. Shop orders — kontrola stavů
+  onStep?.({ agent: 'eshop', action: 'Kontrola objednávek', i: 9, total: 15 })
+  const { data: orders } = await supabase.from('shop_orders').select('id, status, payment_status, total, created_at').limit(20)
   results.push({ agent: 'eshop', action: 'fetch_orders', ok: true, count: orders?.length || 0 })
   const pendingOrders = (orders || []).filter(o => o.status === 'pending')
   if (pendingOrders.length) results.push({ agent: 'eshop', action: 'pending_orders', ok: true, count: pendingOrders.length })
+  // Edge: objednávka pending déle než 24h
+  const dayAgo = new Date(Date.now() - 86400000).toISOString()
+  const staleOrders = pendingOrders.filter(o => o.created_at < dayAgo)
+  if (staleOrders.length) results.push({ agent: 'eshop', action: 'alert_stale_pending_orders', ok: false, count: staleOrders.length })
+
+  // 6. Edge: objednávka paid ale status není 'completed' nebo 'shipped'
+  onStep?.({ agent: 'eshop', action: 'Kontrola zaplacených objednávek', i: 11, total: 15 })
+  const paidNotDone = (orders || []).filter(o => o.payment_status === 'paid' && !['completed', 'shipped', 'processing'].includes(o.status))
+  if (paidNotDone.length) results.push({ agent: 'eshop', action: 'alert_paid_not_shipped', ok: false, count: paidNotDone.length })
+
+  // 7. Edge: promo kód s hodnotou > 100% (neplatná sleva)
+  onStep?.({ agent: 'eshop', action: 'Kontrola neplatných slev', i: 13, total: 15 })
+  const invalidPromos = (promos || []).filter(p => p.type === 'percent' && p.value > 100)
+  if (invalidPromos.length) results.push({ agent: 'eshop', action: 'alert_invalid_promo_value', ok: false, count: invalidPromos.length })
 
   return results
 }
