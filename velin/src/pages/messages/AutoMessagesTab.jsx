@@ -8,17 +8,20 @@ import Modal from '../../components/ui/Modal'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 
+// automation_rules columns: id, name, event, conditions (jsonb), actions (jsonb), enabled, created_at
+// We store channel, trigger config etc. inside conditions/actions JSON
+
 const CHANNEL_LABELS = { sms: 'SMS', email: 'E-mail', whatsapp: 'WhatsApp' }
 
 const TRIGGER_TYPES = [
   { value: 'booking_status_change', label: 'Změna stavu rezervace', icon: '🔄', desc: 'Při přechodu rezervace na konkrétní stav' },
   { value: 'booking_reminder', label: 'Připomínka rezervace', icon: '⏰', desc: 'X dní/hodin před začátkem/koncem rezervace' },
   { value: 'customer_inactivity', label: 'Neaktivita zákazníka', icon: '💤', desc: 'Zákazník si nic nepůjčil X dní' },
-  { value: 'post_return', label: 'Po vrácení', icon: '✅', desc: 'X dní po dokončení rezervace (review, nabídka)' },
+  { value: 'post_return', label: 'Po vrácení', icon: '✅', desc: 'X dní po dokončení rezervace' },
   { value: 'birthday', label: 'Narozeniny', icon: '🎂', desc: 'V den narozenin zákazníka' },
   { value: 'registration_welcome', label: 'Uvítací zpráva', icon: '👋', desc: 'Po registraci nového zákazníka' },
   { value: 'abandoned_booking', label: 'Opuštěná rezervace', icon: '🚪', desc: 'Neplatená rezervace po X min/hodinách' },
-  { value: 'seasonal', label: 'Sezónní', icon: '📅', desc: 'Začátek/konec sezóny, speciální dny' },
+  { value: 'seasonal', label: 'Sezónní', icon: '📅', desc: 'Začátek/konec sezóny' },
 ]
 
 const BOOKING_STATUSES = [
@@ -34,6 +37,32 @@ const TIME_UNITS = [
   { value: 'hours', label: 'hodin' },
   { value: 'days', label: 'dní' },
 ]
+
+// Helpers to map DB row ↔ UI model
+function dbToUi(row) {
+  const cond = row.conditions || {}
+  const act = row.actions || {}
+  return {
+    ...row,
+    channel: cond.channel || 'sms',
+    trigger_type: row.event || '',
+    trigger_config: cond.trigger_config || {},
+    template_id: act.template_id || null,
+    template_slug: act.template_slug || null,
+    custom_body: act.custom_body || '',
+    is_active: row.enabled ?? true,
+  }
+}
+
+function uiToDb({ name, channel, trigger_type, trigger_config, template_id, template_slug, custom_body, is_active }) {
+  return {
+    name,
+    event: trigger_type,
+    conditions: { channel, trigger_config },
+    actions: { template_id, template_slug, custom_body },
+    enabled: is_active,
+  }
+}
 
 export default function AutoMessagesTab({ channel }) {
   const [rules, setRules] = useState([])
@@ -51,10 +80,11 @@ export default function AutoMessagesTab({ channel }) {
       const { data } = await debugAction('autoMessages.load', 'AutoMessagesTab', () =>
         supabase.from('automation_rules')
           .select('*')
-          .eq('channel', channel)
           .order('created_at', { ascending: false })
       )
-      setRules(data || [])
+      // Filter by channel stored in conditions JSON
+      const all = (data || []).map(dbToUi)
+      setRules(all.filter(r => r.channel === channel))
     } catch (e) {
       debugError('AutoMessagesTab', 'load', e)
       setRules([])
@@ -66,7 +96,6 @@ export default function AutoMessagesTab({ channel }) {
     try {
       const { data } = await supabase.from('message_templates')
         .select('id, slug, name, body_template, content')
-        .eq('channel', channel)
         .eq('is_active', true)
         .order('name')
       setTemplates(data || [])
@@ -76,12 +105,10 @@ export default function AutoMessagesTab({ channel }) {
   async function handleToggle(rule) {
     try {
       await supabase.from('automation_rules')
-        .update({ is_active: !rule.is_active })
+        .update({ enabled: !rule.is_active })
         .eq('id', rule.id)
       load()
-    } catch (e) {
-      debugError('AutoMessagesTab', 'toggle', e)
-    }
+    } catch (e) { debugError('AutoMessagesTab', 'toggle', e) }
     setConfirm(null)
   }
 
@@ -101,21 +128,11 @@ export default function AutoMessagesTab({ channel }) {
 
   function formatTriggerConfig(rule) {
     const c = rule.trigger_config || {}
-    if (rule.trigger_type === 'booking_status_change') {
-      return `Stav: ${c.from_status || '*'} → ${c.to_status || '*'}`
-    }
-    if (rule.trigger_type === 'booking_reminder') {
-      return `${c.amount || '?'} ${c.unit || 'dní'} před ${c.reference === 'end' ? 'koncem' : 'začátkem'}`
-    }
-    if (rule.trigger_type === 'customer_inactivity') {
-      return `Neaktivní ${c.days || '?'} dní`
-    }
-    if (rule.trigger_type === 'post_return') {
-      return `${c.days || '?'} dní po vrácení`
-    }
-    if (rule.trigger_type === 'abandoned_booking') {
-      return `${c.amount || '?'} ${c.unit || 'min'} po vytvoření`
-    }
+    if (rule.trigger_type === 'booking_status_change') return `Stav: ${c.from_status || '*'} → ${c.to_status || '*'}`
+    if (rule.trigger_type === 'booking_reminder') return `${c.amount || '?'} ${c.unit || 'dní'} před ${c.reference === 'end' ? 'koncem' : 'začátkem'}`
+    if (rule.trigger_type === 'customer_inactivity') return `Neaktivní ${c.days || '?'} dní`
+    if (rule.trigger_type === 'post_return') return `${c.days || '?'} dní po vrácení`
+    if (rule.trigger_type === 'abandoned_booking') return `${c.amount || '?'} ${c.unit || 'min'} po vytvoření`
     if (rule.trigger_type === 'birthday') return 'V den narozenin'
     if (rule.trigger_type === 'registration_welcome') return 'Ihned po registraci'
     if (rule.trigger_type === 'seasonal') return c.description || 'Sezónní trigger'
@@ -152,63 +169,22 @@ export default function AutoMessagesTab({ channel }) {
         <Table>
           <thead>
             <TRow header>
-              <TH>Název</TH>
-              <TH>Trigger</TH>
-              <TH>Podmínka</TH>
-              <TH>Šablona</TH>
-              <TH>Stav</TH>
-              <TH>Akce</TH>
+              <TH>Název</TH><TH>Trigger</TH><TH>Podmínka</TH><TH>Šablona</TH><TH>Stav</TH><TH>Akce</TH>
             </TRow>
           </thead>
           <tbody>
             {rules.map(rule => (
               <TRow key={rule.id}>
                 <TD bold>{rule.name || '—'}</TD>
-                <TD>
-                  <span style={{ marginRight: 4 }}>{triggerIcon(rule.trigger_type)}</span>
-                  {triggerLabel(rule.trigger_type)}
-                </TD>
+                <TD><span style={{ marginRight: 4 }}>{triggerIcon(rule.trigger_type)}</span>{triggerLabel(rule.trigger_type)}</TD>
                 <TD><span style={{ fontSize: 12, color: '#1a2e22' }}>{formatTriggerConfig(rule)}</span></TD>
-                <TD>
-                  {rule.template_slug
-                    ? <Badge label={rule.template_slug} color="#1a2e22" bg="#f1faf7" />
-                    : <span style={{ color: '#6b7280', fontSize: 12 }}>Vlastní text</span>
-                  }
-                </TD>
-                <TD>
-                  <Badge
-                    label={rule.is_active ? 'Aktivní' : 'Neaktivní'}
-                    color={rule.is_active ? '#1a8a18' : '#6b7280'}
-                    bg={rule.is_active ? '#dcfce7' : '#f3f4f6'}
-                  />
-                </TD>
+                <TD>{rule.template_slug ? <Badge label={rule.template_slug} color="#1a2e22" bg="#f1faf7" /> : <span style={{ color: '#6b7280', fontSize: 12 }}>Vlastní</span>}</TD>
+                <TD><Badge label={rule.is_active ? 'Aktivní' : 'Neaktivní'} color={rule.is_active ? '#1a8a18' : '#6b7280'} bg={rule.is_active ? '#dcfce7' : '#f3f4f6'} /></TD>
                 <TD>
                   <div className="flex gap-1.5">
-                    <button
-                      onClick={() => { setEditing(rule); setShowCreate(true) }}
-                      className="text-sm font-bold cursor-pointer border-none rounded-btn"
-                      style={{ padding: '4px 10px', background: '#f1faf7', color: '#1a2e22' }}
-                    >
-                      Upravit
-                    </button>
-                    <button
-                      onClick={() => setConfirm({ rule, action: 'toggle' })}
-                      className="text-sm font-bold cursor-pointer border-none rounded-btn"
-                      style={{
-                        padding: '4px 10px',
-                        background: rule.is_active ? '#fee2e2' : '#dcfce7',
-                        color: rule.is_active ? '#dc2626' : '#1a8a18',
-                      }}
-                    >
-                      {rule.is_active ? 'Vypnout' : 'Zapnout'}
-                    </button>
-                    <button
-                      onClick={() => setConfirm({ rule, action: 'delete' })}
-                      className="text-sm font-bold cursor-pointer border-none rounded-btn"
-                      style={{ padding: '4px 10px', background: '#fee2e2', color: '#dc2626' }}
-                    >
-                      Smazat
-                    </button>
+                    <button onClick={() => { setEditing(rule); setShowCreate(true) }} className="text-sm font-bold cursor-pointer border-none rounded-btn" style={{ padding: '4px 10px', background: '#f1faf7', color: '#1a2e22' }}>Upravit</button>
+                    <button onClick={() => setConfirm({ rule, action: 'toggle' })} className="text-sm font-bold cursor-pointer border-none rounded-btn" style={{ padding: '4px 10px', background: rule.is_active ? '#fee2e2' : '#dcfce7', color: rule.is_active ? '#dc2626' : '#1a8a18' }}>{rule.is_active ? 'Vypnout' : 'Zapnout'}</button>
+                    <button onClick={() => setConfirm({ rule, action: 'delete' })} className="text-sm font-bold cursor-pointer border-none rounded-btn" style={{ padding: '4px 10px', background: '#fee2e2', color: '#dc2626' }}>Smazat</button>
                   </div>
                 </TD>
               </TRow>
@@ -217,40 +193,19 @@ export default function AutoMessagesTab({ channel }) {
         </Table>
       )}
 
-      {/* Create / Edit modal */}
-      {showCreate && (
-        <AutoRuleModal
-          channel={channel}
-          rule={editing}
-          templates={templates}
-          onClose={() => setShowCreate(false)}
-          onSaved={() => { setShowCreate(false); load() }}
-        />
-      )}
+      {showCreate && <AutoRuleModal channel={channel} rule={editing} templates={templates} onClose={() => setShowCreate(false)} onSaved={() => { setShowCreate(false); load() }} />}
 
-      {/* Confirm dialog */}
       <ConfirmDialog
         open={!!confirm}
-        title={confirm?.action === 'delete' ? 'Smazat pravidlo?' : (confirm?.rule?.is_active ? 'Vypnout pravidlo?' : 'Zapnout pravidlo?')}
-        message={confirm?.action === 'delete'
-          ? `Opravdu smazat pravidlo "${confirm?.rule?.name}"? Tuto akci nelze vrátit.`
-          : confirm?.rule?.is_active
-            ? `Vypnout automatickou zprávu "${confirm?.rule?.name}"?`
-            : `Zapnout automatickou zprávu "${confirm?.rule?.name}"?`
-        }
+        title={confirm?.action === 'delete' ? 'Smazat pravidlo?' : (confirm?.rule?.is_active ? 'Vypnout?' : 'Zapnout?')}
+        message={confirm?.action === 'delete' ? `Smazat "${confirm?.rule?.name}"?` : `${confirm?.rule?.is_active ? 'Vypnout' : 'Zapnout'} "${confirm?.rule?.name}"?`}
         danger={confirm?.action === 'delete' || confirm?.rule?.is_active}
-        onConfirm={() => {
-          if (!confirm) return
-          if (confirm.action === 'delete') handleDelete(confirm.rule)
-          else handleToggle(confirm.rule)
-        }}
+        onConfirm={() => { if (!confirm) return; confirm.action === 'delete' ? handleDelete(confirm.rule) : handleToggle(confirm.rule) }}
         onCancel={() => setConfirm(null)}
       />
     </div>
   )
 }
-
-/* ────────────────── Auto Rule Create/Edit Modal ────────────────── */
 
 function AutoRuleModal({ channel, rule, templates, onClose, onSaved }) {
   const isNew = !rule
@@ -263,42 +218,26 @@ function AutoRuleModal({ channel, rule, templates, onClose, onSaved }) {
   const [isActive, setIsActive] = useState(rule?.is_active ?? true)
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
-
-  function updateConfig(key, val) {
-    setTriggerConfig(prev => ({ ...prev, [key]: val }))
-  }
-
+  const updateConfig = (k, v) => setTriggerConfig(p => ({ ...p, [k]: v }))
   const selectedTemplate = templates.find(t => t.id === templateId)
 
   async function handleSave() {
     if (!name.trim() || !triggerType) return
-    setSaving(true)
-    setErr(null)
+    setSaving(true); setErr(null)
     try {
-      const payload = {
-        name: name.trim(),
-        channel,
-        trigger_type: triggerType,
-        trigger_config: triggerConfig,
+      const payload = uiToDb({
+        name: name.trim(), channel, trigger_type: triggerType, trigger_config: triggerConfig,
         template_id: useTemplate && templateId ? templateId : null,
         template_slug: useTemplate && selectedTemplate ? selectedTemplate.slug : null,
         custom_body: !useTemplate ? customBody : null,
         is_active: isActive,
-      }
-
-      if (isNew) {
-        const { error } = await supabase.from('automation_rules').insert(payload)
-        if (error) throw error
-      } else {
-        const { error } = await supabase.from('automation_rules').update(payload).eq('id', rule.id)
-        if (error) throw error
-      }
-
+      })
+      const { error } = isNew
+        ? await supabase.from('automation_rules').insert(payload)
+        : await supabase.from('automation_rules').update(payload).eq('id', rule.id)
+      if (error) throw error
       onSaved()
-    } catch (e) {
-      debugError('AutoRuleModal', 'save', e)
-      setErr(e.message || 'Nepodařilo se uložit')
-    }
+    } catch (e) { debugError('AutoRuleModal', 'save', e); setErr(e.message || 'Chyba') }
     setSaving(false)
   }
 
@@ -307,34 +246,16 @@ function AutoRuleModal({ channel, rule, templates, onClose, onSaved }) {
   return (
     <Modal open title={isNew ? 'Nová automatická zpráva' : `Upravit: ${rule.name}`} onClose={onClose} wide>
       <div className="space-y-4">
-        {/* Název */}
         <div>
           <Label>Název pravidla *</Label>
-          <input
-            type="text"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            placeholder="Např. Připomínka den před půjčením"
-            className="w-full rounded-btn text-sm outline-none"
-            style={inputStyle}
-          />
+          <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Např. Připomínka den před" className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
         </div>
-
-        {/* Trigger type */}
         <div>
-          <Label>Trigger (spouštěč) *</Label>
+          <Label>Trigger *</Label>
           <div className="grid grid-cols-2 gap-2">
             {TRIGGER_TYPES.map(t => (
-              <div
-                key={t.value}
-                onClick={() => { setTriggerType(t.value); setTriggerConfig({}) }}
-                className="cursor-pointer rounded-card"
-                style={{
-                  padding: 10,
-                  border: triggerType === t.value ? '2px solid #74FB71' : '2px solid #d4e8e0',
-                  background: triggerType === t.value ? '#f0fdf0' : '#fff',
-                }}
-              >
+              <div key={t.value} onClick={() => { setTriggerType(t.value); setTriggerConfig({}) }} className="cursor-pointer rounded-card"
+                style={{ padding: 10, border: triggerType === t.value ? '2px solid #74FB71' : '2px solid #d4e8e0', background: triggerType === t.value ? '#f0fdf0' : '#fff' }}>
                 <div className="flex items-center gap-2 mb-0.5">
                   <span style={{ fontSize: 16 }}>{t.icon}</span>
                   <span className="text-sm font-bold" style={{ color: '#0f1a14' }}>{t.label}</span>
@@ -345,158 +266,55 @@ function AutoRuleModal({ channel, rule, templates, onClose, onSaved }) {
           </div>
         </div>
 
-        {/* Trigger config — context-sensitive */}
         {triggerType === 'booking_status_change' && (
           <div className="flex gap-3">
-            <div className="flex-1">
-              <Label>Ze stavu</Label>
-              <select value={triggerConfig.from_status || ''} onChange={e => updateConfig('from_status', e.target.value)}
-                className="w-full rounded-btn text-sm outline-none cursor-pointer" style={{ ...inputStyle, color: '#1a2e22' }}>
-                <option value="">Jakýkoliv</option>
-                {BOOKING_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </select>
-            </div>
+            <div className="flex-1"><Label>Ze stavu</Label><select value={triggerConfig.from_status || ''} onChange={e => updateConfig('from_status', e.target.value)} className="w-full rounded-btn text-sm outline-none cursor-pointer" style={{ ...inputStyle, color: '#1a2e22' }}><option value="">Jakýkoliv</option>{BOOKING_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}</select></div>
             <div className="flex items-end pb-2 text-lg font-bold" style={{ color: '#1a2e22' }}>→</div>
-            <div className="flex-1">
-              <Label>Na stav *</Label>
-              <select value={triggerConfig.to_status || ''} onChange={e => updateConfig('to_status', e.target.value)}
-                className="w-full rounded-btn text-sm outline-none cursor-pointer" style={{ ...inputStyle, color: '#1a2e22' }}>
-                <option value="">— Vyberte —</option>
-                {BOOKING_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </select>
-            </div>
+            <div className="flex-1"><Label>Na stav *</Label><select value={triggerConfig.to_status || ''} onChange={e => updateConfig('to_status', e.target.value)} className="w-full rounded-btn text-sm outline-none cursor-pointer" style={{ ...inputStyle, color: '#1a2e22' }}><option value="">—</option>{BOOKING_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}</select></div>
           </div>
         )}
-
         {triggerType === 'booking_reminder' && (
           <div className="flex gap-3 items-end">
-            <div>
-              <Label>Kolik</Label>
-              <input type="number" min="1" value={triggerConfig.amount || ''} onChange={e => updateConfig('amount', Number(e.target.value))}
-                className="rounded-btn text-sm outline-none" style={{ ...inputStyle, width: 80 }} />
-            </div>
-            <div>
-              <Label>Jednotka</Label>
-              <select value={triggerConfig.unit || 'days'} onChange={e => updateConfig('unit', e.target.value)}
-                className="rounded-btn text-sm outline-none cursor-pointer" style={{ ...inputStyle, color: '#1a2e22' }}>
-                {TIME_UNITS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <Label>Před</Label>
-              <select value={triggerConfig.reference || 'start'} onChange={e => updateConfig('reference', e.target.value)}
-                className="rounded-btn text-sm outline-none cursor-pointer" style={{ ...inputStyle, color: '#1a2e22' }}>
-                <option value="start">začátkem</option>
-                <option value="end">koncem</option>
-              </select>
-            </div>
+            <div><Label>Kolik</Label><input type="number" min="1" value={triggerConfig.amount || ''} onChange={e => updateConfig('amount', Number(e.target.value))} className="rounded-btn text-sm outline-none" style={{ ...inputStyle, width: 80 }} /></div>
+            <div><Label>Jednotka</Label><select value={triggerConfig.unit || 'days'} onChange={e => updateConfig('unit', e.target.value)} className="rounded-btn text-sm outline-none cursor-pointer" style={{ ...inputStyle, color: '#1a2e22' }}>{TIME_UNITS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}</select></div>
+            <div><Label>Před</Label><select value={triggerConfig.reference || 'start'} onChange={e => updateConfig('reference', e.target.value)} className="rounded-btn text-sm outline-none cursor-pointer" style={{ ...inputStyle, color: '#1a2e22' }}><option value="start">začátkem</option><option value="end">koncem</option></select></div>
           </div>
         )}
-
         {triggerType === 'customer_inactivity' && (
-          <div className="flex gap-3 items-end">
-            <div>
-              <Label>Neaktivní po</Label>
-              <input type="number" min="1" value={triggerConfig.days || ''} onChange={e => updateConfig('days', Number(e.target.value))}
-                className="rounded-btn text-sm outline-none" style={{ ...inputStyle, width: 80 }} placeholder="30" />
-            </div>
-            <span className="text-sm font-bold pb-2" style={{ color: '#1a2e22' }}>dní od poslední rezervace</span>
-          </div>
+          <div className="flex gap-3 items-end"><div><Label>Neaktivní po</Label><input type="number" min="1" value={triggerConfig.days || ''} onChange={e => updateConfig('days', Number(e.target.value))} className="rounded-btn text-sm outline-none" style={{ ...inputStyle, width: 80 }} placeholder="30" /></div><span className="text-sm font-bold pb-2" style={{ color: '#1a2e22' }}>dní</span></div>
         )}
-
         {triggerType === 'post_return' && (
-          <div className="flex gap-3 items-end">
-            <div>
-              <Label>Odeslat po</Label>
-              <input type="number" min="1" value={triggerConfig.days || ''} onChange={e => updateConfig('days', Number(e.target.value))}
-                className="rounded-btn text-sm outline-none" style={{ ...inputStyle, width: 80 }} placeholder="3" />
-            </div>
-            <span className="text-sm font-bold pb-2" style={{ color: '#1a2e22' }}>dnech po vrácení motorky</span>
-          </div>
+          <div className="flex gap-3 items-end"><div><Label>Odeslat po</Label><input type="number" min="1" value={triggerConfig.days || ''} onChange={e => updateConfig('days', Number(e.target.value))} className="rounded-btn text-sm outline-none" style={{ ...inputStyle, width: 80 }} placeholder="3" /></div><span className="text-sm font-bold pb-2" style={{ color: '#1a2e22' }}>dnech po vrácení</span></div>
         )}
-
         {triggerType === 'abandoned_booking' && (
-          <div className="flex gap-3 items-end">
-            <div>
-              <Label>Po</Label>
-              <input type="number" min="1" value={triggerConfig.amount || ''} onChange={e => updateConfig('amount', Number(e.target.value))}
-                className="rounded-btn text-sm outline-none" style={{ ...inputStyle, width: 80 }} placeholder="30" />
-            </div>
-            <div>
-              <select value={triggerConfig.unit || 'minutes'} onChange={e => updateConfig('unit', e.target.value)}
-                className="rounded-btn text-sm outline-none cursor-pointer" style={{ ...inputStyle, color: '#1a2e22' }}>
-                {TIME_UNITS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
-              </select>
-            </div>
-            <span className="text-sm font-bold pb-2" style={{ color: '#1a2e22' }}>bez platby</span>
-          </div>
+          <div className="flex gap-3 items-end"><div><Label>Po</Label><input type="number" min="1" value={triggerConfig.amount || ''} onChange={e => updateConfig('amount', Number(e.target.value))} className="rounded-btn text-sm outline-none" style={{ ...inputStyle, width: 80 }} /></div><div><select value={triggerConfig.unit || 'minutes'} onChange={e => updateConfig('unit', e.target.value)} className="rounded-btn text-sm outline-none cursor-pointer" style={{ ...inputStyle, color: '#1a2e22' }}>{TIME_UNITS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}</select></div><span className="text-sm font-bold pb-2" style={{ color: '#1a2e22' }}>bez platby</span></div>
         )}
-
         {triggerType === 'seasonal' && (
-          <div>
-            <Label>Popis (kdy se má spustit)</Label>
-            <input type="text" value={triggerConfig.description || ''} onChange={e => updateConfig('description', e.target.value)}
-              placeholder="Např. Začátek sezóny - 1. dubna"
-              className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
-          </div>
+          <div><Label>Popis</Label><input type="text" value={triggerConfig.description || ''} onChange={e => updateConfig('description', e.target.value)} placeholder="Např. Začátek sezóny" className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
         )}
 
-        {/* Zpráva: ze šablony nebo vlastní */}
         <div>
           <Label>Obsah zprávy</Label>
           <div className="flex gap-3 mb-3">
-            <label className="flex items-center gap-2 cursor-pointer rounded-btn"
-              style={{ padding: '6px 12px', background: useTemplate ? '#e8fee7' : '#f1faf7', border: useTemplate ? '1px solid #74FB71' : '1px solid #d4e8e0' }}>
-              <input type="radio" checked={useTemplate} onChange={() => setUseTemplate(true)} className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} />
-              <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>Ze šablony</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer rounded-btn"
-              style={{ padding: '6px 12px', background: !useTemplate ? '#e8fee7' : '#f1faf7', border: !useTemplate ? '1px solid #74FB71' : '1px solid #d4e8e0' }}>
-              <input type="radio" checked={!useTemplate} onChange={() => setUseTemplate(false)} className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} />
-              <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>Vlastní text</span>
-            </label>
+            <label className="flex items-center gap-2 cursor-pointer rounded-btn" style={{ padding: '6px 12px', background: useTemplate ? '#e8fee7' : '#f1faf7', border: useTemplate ? '1px solid #74FB71' : '1px solid #d4e8e0' }}><input type="radio" checked={useTemplate} onChange={() => setUseTemplate(true)} className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} /><span className="text-sm font-bold" style={{ color: '#1a2e22' }}>Ze šablony</span></label>
+            <label className="flex items-center gap-2 cursor-pointer rounded-btn" style={{ padding: '6px 12px', background: !useTemplate ? '#e8fee7' : '#f1faf7', border: !useTemplate ? '1px solid #74FB71' : '1px solid #d4e8e0' }}><input type="radio" checked={!useTemplate} onChange={() => setUseTemplate(false)} className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} /><span className="text-sm font-bold" style={{ color: '#1a2e22' }}>Vlastní</span></label>
           </div>
-
           {useTemplate ? (
             <div>
-              <select value={templateId} onChange={e => setTemplateId(e.target.value)}
-                className="w-full rounded-btn text-sm outline-none cursor-pointer"
-                style={{ ...inputStyle, color: '#1a2e22' }}>
-                <option value="">— Vyberte šablonu —</option>
-                {templates.map(t => <option key={t.id} value={t.id}>{t.name} ({t.slug})</option>)}
-              </select>
-              {selectedTemplate && (
-                <div className="mt-2 rounded-card" style={{ padding: 10, background: '#f8fcfa', border: '1px solid #d4e8e0', fontSize: 12, whiteSpace: 'pre-wrap', maxHeight: 120, overflow: 'auto', color: '#1a2e22' }}>
-                  {selectedTemplate.body_template || selectedTemplate.content || '(prázdná)'}
-                </div>
-              )}
+              <select value={templateId} onChange={e => setTemplateId(e.target.value)} className="w-full rounded-btn text-sm outline-none cursor-pointer" style={{ ...inputStyle, color: '#1a2e22' }}><option value="">— Šablona —</option>{templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
+              {selectedTemplate && <div className="mt-2 rounded-card" style={{ padding: 10, background: '#f8fcfa', border: '1px solid #d4e8e0', fontSize: 12, whiteSpace: 'pre-wrap', maxHeight: 120, overflow: 'auto' }}>{selectedTemplate.body_template || selectedTemplate.content || '(prázdná)'}</div>}
             </div>
           ) : (
-            <textarea
-              value={customBody}
-              onChange={e => setCustomBody(e.target.value)}
-              placeholder="Text automatické zprávy… Použijte {{customer_name}}, {{motorcycle}}, atd."
-              className="w-full rounded-btn text-sm outline-none"
-              style={{ ...inputStyle, minHeight: 100, resize: 'vertical' }}
-            />
+            <textarea value={customBody} onChange={e => setCustomBody(e.target.value)} placeholder="Text… {{customer_name}}, {{motorcycle}}" className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 100, resize: 'vertical' }} />
           )}
         </div>
 
-        {/* Aktivní */}
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)}
-            className="accent-[#1a8a18]" style={{ width: 16, height: 16 }} />
-          <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>Aktivní (pravidlo bude zpracováváno)</span>
-        </label>
-
+        <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} className="accent-[#1a8a18]" style={{ width: 16, height: 16 }} /><span className="text-sm font-bold" style={{ color: '#1a2e22' }}>Aktivní</span></label>
         {err && <div className="p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{err}</div>}
       </div>
-
       <div className="flex justify-end gap-2 mt-5 pt-4" style={{ borderTop: '1px solid #e5e7eb' }}>
         <Button onClick={onClose}>Zrušit</Button>
-        <Button green onClick={handleSave} disabled={!canSave}>
-          {saving ? 'Ukládám…' : isNew ? 'Vytvořit' : 'Uložit'}
-        </Button>
+        <Button green onClick={handleSave} disabled={!canSave}>{saving ? 'Ukládám…' : isNew ? 'Vytvořit' : 'Uložit'}</Button>
       </div>
     </Modal>
   )
