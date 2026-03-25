@@ -21,23 +21,23 @@ export async function trainHrAgent(onStep) {
   // 2. Směny — ověř 11h odpočinek mezi směnami
   onStep?.({ agent: 'hr', action: 'Kontrola směn — odpočinek', i: 1, total: 12 })
   const { data: shifts } = await supabase.from('emp_shifts')
-    .select('id, employee_id, shift_date, start_time, end_time')
-    .order('shift_date', { ascending: false }).limit(20)
+    .select('id, employee_id, date, start_time, end_time')
+    .order('date', { ascending: false }).limit(20)
   results.push({ agent: 'hr', action: 'fetch_shifts', ok: true, count: shifts?.length || 0 })
   // Kontrola mezer mezi směnami (11h odpočinek)
   if (shifts?.length >= 2) {
     const byEmployee = {}
     shifts.forEach(s => { (byEmployee[s.employee_id] = byEmployee[s.employee_id] || []).push(s) })
     for (const [empId, empShifts] of Object.entries(byEmployee)) {
-      const sorted = empShifts.sort((a, b) => a.shift_date?.localeCompare(b.shift_date))
+      const sorted = empShifts.sort((a, b) => a.date?.localeCompare(b.date))
       for (let i = 1; i < sorted.length; i++) {
         const prev = sorted[i - 1], curr = sorted[i]
-        if (prev.shift_date === curr.shift_date) continue // same day, skip
+        if (prev.date === curr.date) continue // same day, skip
         // Simplistic check: consecutive days = could violate 11h rest
-        const d1 = new Date(prev.shift_date), d2 = new Date(curr.shift_date)
+        const d1 = new Date(prev.date), d2 = new Date(curr.date)
         const dayDiff = (d2 - d1) / 86400000
         if (dayDiff === 1) {
-          results.push({ agent: 'hr', action: 'check_11h_rest', ok: true, empId, detail: `${prev.shift_date}→${curr.shift_date}: po sobě jdoucí dny — ověřit časy` })
+          results.push({ agent: 'hr', action: 'check_11h_rest', ok: true, empId, detail: `${prev.date}→${curr.date}: po sobě jdoucí dny — ověřit časy` })
         }
       }
     }
@@ -71,7 +71,7 @@ export async function trainHrAgent(onStep) {
   for (const v of (vac || []).filter(v => v.status === 'approved').slice(0, 3)) {
     const { data: conflictShifts } = await supabase.from('emp_shifts')
       .select('id').eq('employee_id', v.employee_id)
-      .gte('shift_date', v.start_date).lte('shift_date', v.end_date)
+      .gte('date', v.start_date).lte('date', v.end_date)
     if (conflictShifts?.length) {
       results.push({ agent: 'hr', action: 'inconsistency_vacation_vs_shift', ok: false, empId: v.employee_id, conflictCount: conflictShifts.length })
     } else {
@@ -83,7 +83,7 @@ export async function trainHrAgent(onStep) {
   onStep?.({ agent: 'hr', action: 'Kontrola přesčasů', i: 9, total: 12 })
   if (emps?.length && shifts?.length) {
     const thisWeekShifts = shifts.filter(s => {
-      const d = new Date(s.shift_date)
+      const d = new Date(s.date)
       const now = new Date()
       return (now - d) / 86400000 < 7
     })
