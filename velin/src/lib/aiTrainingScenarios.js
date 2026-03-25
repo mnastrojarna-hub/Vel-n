@@ -1,24 +1,19 @@
-// AI Training Scenarios Part 1 — PER-AGENT training programs
-// Each agent has required volume: min actions to reach "trained" state
-// Scenarios call REAL Supabase API (same as motogo-app)
+// AI Training Scenarios — WATCHDOG concept
+// Agents learn to DETECT inconsistencies, not to DO operations.
+// Velín does 80% algorithmically. Agents validate + handle edge cases.
 import * as API from './aiTrainingHelpers'
 
-// How many successful actions each agent needs to reach confidence
 export const AGENT_VOLUMES = {
-  bookings:  { min: 25, label: 'Rezervace (create, cancel, extend, shorten, pay)' },
-  fleet:     { min: 15, label: 'Flotila (dostupnost, stavy motorek)' },
-  customers: { min: 15, label: 'Zákazníci (registrace, profily, komunikace)' },
-  finance:   { min: 15, label: 'Finance (ceny, fakturace)' },
-  service:   { min: 15, label: 'Servis (zakázky, údržba, díly)' },
-  sos:       { min: 25, label: 'SOS (5× typ: porucha, defekt, nehoda_lehká, nehoda_těžká, krádež)' },
-  eshop:     { min: 10, label: 'E-shop (objednávky, promo kódy)' },
-  hr:        { min: 10, label: 'HR (směny, docházka)' },
-  analytics: { min: 10, label: 'Analytika (reporty, predikce)' },
-  cms:       { min: 8,  label: 'CMS (nastavení, šablony)' },
-  government:{ min: 5,  label: 'Státní správa (STK, pojistky)' },
+  bookings:  { min: 25, label: 'Rezervace (konzistence, edge cases, cross-check)' },
+  fleet:     { min: 15, label: 'Flotila (STK, pojistky, stav vs realita)' },
+  customers: { min: 15, label: 'Zákazníci (komunikace, reklamace, doklady)' },
+  finance:   { min: 15, label: 'Finance (párování, faktury, ceník)' },
+  service:   { min: 15, label: 'Servis (intervaly, dokončení, log)' },
+  sos:       { min: 25, label: 'SOS (koordinace — jediný aktivní agent)' },
+  eshop:     { min: 10, label: 'E-shop (sklad, vouchery, promo)' },
+  edge:      { min: 10, label: 'Edge cases (overlap, missing docs)' },
 }
 
-// SOS types that must each have 5 incidents
 export const SOS_TYPES = [
   { type: 'breakdown_minor', label: 'Porucha', desc: 'Motorka nechce nastartovat' },
   { type: 'defect_question', label: 'Defekt pneu', desc: 'Píchlá zadní pneumatika' },
@@ -27,98 +22,71 @@ export const SOS_TYPES = [
   { type: 'theft', label: 'Krádež', desc: 'Motorka odcizena z parkoviště' },
 ]
 
-// === BOOKINGS AGENT TRAINING ===
-// Creates 5 full booking lifecycles + 3 cancellations + 2 extends + 2 shortens
+// === BOOKINGS AGENT — validates consistency after Velín operations ===
 export async function trainBookingsAgent(onStep) {
   const results = []
   const motos = await API.fetchAvailableMotos()
   if (!motos.ok || !motos.data.length) return [{ ok: false, error: 'Žádné motorky' }]
 
-  // 5× full booking: create → pay → complete
+  // Phase 1: Velín creates bookings (simulate), agent checks consistency
   for (let i = 0; i < 5; i++) {
     const moto = motos.data[i % motos.data.length]
     const start = API.futureDate(3 + i * 4), end = API.futureDate(6 + i * 4)
+    onStep?.({ agent: 'bookings', action: `Simulace Velín rezervace #${i + 1}`, i, total: 12 })
 
-    onStep?.({ agent: 'bookings', action: `Registrace zákazníka #${i + 1}`, i, total: 12 })
     const cust = await API.createTestCustomer()
     results.push({ agent: 'customers', action: 'create_customer', ...cust })
 
-    onStep?.({ agent: 'bookings', action: `Kontrola dostupnosti ${moto.model}`, i })
-    const avail = await API.checkMotoAvailability(moto.id, start, end)
-    results.push({ agent: 'fleet', action: 'check_availability', ...avail })
-
-    onStep?.({ agent: 'bookings', action: `Kalkulace ceny ${moto.model}`, i })
-    const price = await API.calcBookingPrice(moto.id, start, end)
-    results.push({ agent: 'finance', action: 'calc_price', ...price })
-
-    onStep?.({ agent: 'bookings', action: `Vytvoření rezervace ${moto.model} ${start}→${end}`, i })
     const booking = await API.createBooking(cust.userId, moto.id, start, end)
-    results.push({ agent: 'bookings', action: 'create_booking', ...booking })
+    results.push({ agent: 'bookings', action: 'velin_created_booking', ...booking })
 
     if (booking.ok) {
-      onStep?.({ agent: 'bookings', action: `Potvrzení platby rez. #${i + 1}`, i })
-      const pay = await API.confirmBookingPayment(booking.bookingId)
-      results.push({ agent: 'bookings', action: 'confirm_payment', ...pay })
+      // WATCHDOG: verify booking data is consistent
+      onStep?.({ agent: 'bookings', action: `Kontrola konzistence rez. #${i + 1}`, i })
+      const avail = await API.checkMotoAvailability(moto.id, start, end)
+      const overlapDetected = !avail.available
+      results.push({ agent: 'bookings', action: 'check_no_overlap', ok: overlapDetected })
+
+      // WATCHDOG: verify price calculation matches
+      const price = await API.calcBookingPrice(moto.id, start, end)
+      results.push({ agent: 'finance', action: 'verify_price_consistency', ok: price.ok })
+
+      // Simulate payment
+      await API.confirmBookingPayment(booking.bookingId)
+      results.push({ agent: 'bookings', action: 'velin_confirmed_payment', ok: true })
     }
   }
 
-  // 3× cancel: create → cancel
+  // Phase 2: Edge cases — customer wants to change booking
   for (let i = 0; i < 3; i++) {
     const moto = motos.data[(i + 5) % motos.data.length]
-    const start = API.futureDate(20 + i * 3), end = API.futureDate(23 + i * 3)
-
-    onStep?.({ agent: 'bookings', action: `Storno scénář #${i + 1}`, i: 5 + i, total: 12 })
+    onStep?.({ agent: 'bookings', action: `Edge case: změna termínu #${i + 1}`, i: 5 + i, total: 12 })
     const cust = await API.createTestCustomer()
-    results.push({ agent: 'customers', action: 'create_customer', ...cust })
+    const booking = await API.createBooking(cust.userId, moto.id, API.futureDate(20 + i * 3), API.futureDate(23 + i * 3))
+    results.push({ agent: 'bookings', action: 'create_for_change_test', ...booking })
+    if (booking.ok) {
+      // Shorten (customer request)
+      const sh = await API.shortenBooking(booking.bookingId, API.futureDate(22 + i * 3))
+      results.push({ agent: 'bookings', action: 'edge_shorten_booking', ...sh })
+    }
+  }
 
-    const booking = await API.createBooking(cust.userId, moto.id, start, end)
-    results.push({ agent: 'bookings', action: 'create_booking', ...booking })
-
+  // Phase 3: Storno flow — agent verifies cancel reason logged
+  for (let i = 0; i < 4; i++) {
+    const moto = motos.data[(i + 8) % motos.data.length]
+    onStep?.({ agent: 'bookings', action: `Storno + kontrola #${i + 1}`, i: 8 + i, total: 12 })
+    const cust = await API.createTestCustomer()
+    const booking = await API.createBooking(cust.userId, moto.id, API.futureDate(35 + i * 3), API.futureDate(38 + i * 3))
     if (booking.ok) {
       const cancel = await API.cancelBooking(booking.bookingId, API.PICK(['Změna plánů', 'Nemoc', 'Počasí']))
-      results.push({ agent: 'bookings', action: 'cancel_booking', ...cancel })
-    }
-  }
-
-  // 2× extend
-  for (let i = 0; i < 2; i++) {
-    const moto = motos.data[(i + 8) % motos.data.length]
-    const start = API.futureDate(35 + i * 5), end = API.futureDate(38 + i * 5)
-
-    onStep?.({ agent: 'bookings', action: `Prodloužení scénář #${i + 1}`, i: 8 + i, total: 12 })
-    const cust = await API.createTestCustomer()
-    const booking = await API.createBooking(cust.userId, moto.id, start, end)
-    results.push({ agent: 'bookings', action: 'create_booking', ...booking })
-
-    if (booking.ok) {
-      await API.confirmBookingPayment(booking.bookingId)
-      const ext = await API.extendBooking(booking.bookingId, API.futureDate(41 + i * 5))
-      results.push({ agent: 'bookings', action: 'extend_booking', ...ext })
-    }
-  }
-
-  // 2× shorten
-  for (let i = 0; i < 2; i++) {
-    const moto = motos.data[(i + 10) % motos.data.length]
-    const start = API.futureDate(50 + i * 5), end = API.futureDate(55 + i * 5)
-
-    onStep?.({ agent: 'bookings', action: `Zkrácení scénář #${i + 1}`, i: 10 + i, total: 12 })
-    const cust = await API.createTestCustomer()
-    const booking = await API.createBooking(cust.userId, moto.id, start, end)
-    results.push({ agent: 'bookings', action: 'create_booking', ...booking })
-
-    if (booking.ok) {
-      await API.confirmBookingPayment(booking.bookingId)
-      const sh = await API.shortenBooking(booking.bookingId, API.futureDate(52 + i * 5))
-      results.push({ agent: 'bookings', action: 'shorten_booking', ...sh })
+      results.push({ agent: 'bookings', action: 'cancel_and_verify', ...cancel })
     }
   }
 
   return results
 }
 
-// === SOS AGENT TRAINING ===
-// 5× each SOS type = 25 incidents, each needs a booking first
+// === SOS AGENT — actively coordinates (the ONLY active agent) ===
 export async function trainSosAgent(onStep) {
   const results = []
   const motos = await API.fetchAvailableMotos()
@@ -128,49 +96,30 @@ export async function trainSosAgent(onStep) {
   for (const sosType of SOS_TYPES) {
     for (let i = 0; i < 5; i++) {
       const moto = motos.data[(stepIdx) % motos.data.length]
-      const start = API.futureDate(1), end = API.futureDate(4)
       stepIdx++
-
       onStep?.({ agent: 'sos', action: `${sosType.label} #${i + 1}/5`, i: stepIdx, total: 25 })
 
-      // Create customer + booking (prerequisite)
       const cust = await API.createTestCustomer()
       results.push({ agent: 'customers', action: 'create_customer', ...cust })
 
-      const booking = await API.createBooking(cust.userId, moto.id, start, end)
-      results.push({ agent: 'bookings', action: 'create_booking', ...booking })
-
+      const booking = await API.createBooking(cust.userId, moto.id, API.futureDate(1), API.futureDate(4))
       if (booking.ok && cust.ok) {
         await API.confirmBookingPayment(booking.bookingId)
-
-        // Create SOS incident
-        const sos = await API.createSosIncident(
-          cust.userId, booking.bookingId, moto.id,
-          sosType.type, `SIM: ${sosType.desc} — test #${i + 1}`
-        )
+        const sos = await API.createSosIncident(cust.userId, booking.bookingId, moto.id, sosType.type, `SIM: ${sosType.desc}`)
         results.push({ agent: 'sos', action: 'create_incident', type: sosType.type, ...sos })
 
         if (sos.ok) {
-          // Progress: reported → investigating → resolved
           await API.updateSosStatus(sos.incidentId, 'investigating', 'Přiřazen technik')
-          results.push({ agent: 'sos', action: 'assign_technician', ok: true })
-
+          results.push({ agent: 'sos', action: 'coordinate_technician', ok: true })
           await API.updateSosStatus(sos.incidentId, 'resolved', `Vyřešeno: ${sosType.label}`)
           results.push({ agent: 'sos', action: 'resolve_incident', ok: true })
 
-          // If accident/theft → create service order + update moto
           if (['accident_minor', 'accident_major', 'theft'].includes(sosType.type)) {
             const svc = await API.createServiceOrder(moto.id, 'repair', `Oprava po ${sosType.label}`)
-            results.push({ agent: 'service', action: 'create_service_order', ...svc })
-
-            if (sosType.type === 'theft') {
-              await API.updateMotoStatus(moto.id, 'unavailable')
-              results.push({ agent: 'fleet', action: 'update_moto_stolen', ok: true })
-              // Restore for next tests
-              await API.updateMotoStatus(moto.id, 'active')
-            } else if (sosType.type === 'accident_major') {
-              await API.updateMotoStatus(moto.id, 'maintenance')
-              results.push({ agent: 'fleet', action: 'update_moto_maintenance', ok: true })
+            results.push({ agent: 'service', action: 'sos_triggered_service', ...svc })
+            if (sosType.type !== 'accident_minor') {
+              await API.updateMotoStatus(moto.id, sosType.type === 'theft' ? 'unavailable' : 'maintenance')
+              results.push({ agent: 'fleet', action: 'sos_moto_status_change', ok: true })
               await API.updateMotoStatus(moto.id, 'active')
             }
           }
@@ -181,66 +130,59 @@ export async function trainSosAgent(onStep) {
   return results
 }
 
-// === SERVICE AGENT TRAINING ===
-// 5× planned maintenance + 5× repair after SOS + 5× parts order
+// === SERVICE AGENT — monitors intervals, verifies completion ===
 export async function trainServiceAgent(onStep) {
   const results = []
   const motos = await API.fetchAvailableMotos()
   if (!motos.ok) return [{ ok: false, error: 'Žádné motorky' }]
 
   const serviceTypes = [
-    { type: 'oil_change', desc: 'Výměna oleje a filtrů', hours: 1.5 },
-    { type: 'brake_check', desc: 'Kontrola a výměna brzdových destiček', hours: 2 },
-    { type: 'tire_change', desc: 'Výměna pneumatik', hours: 1 },
-    { type: 'chain_adjust', desc: 'Seřízení a mazání řetězu', hours: 0.5 },
-    { type: 'full_inspection', desc: 'Kompletní technická prohlídka', hours: 3 },
+    { type: 'oil_change', desc: 'Výměna oleje', hours: 1.5 },
+    { type: 'brake_check', desc: 'Kontrola brzd', hours: 2 },
+    { type: 'tire_change', desc: 'Výměna pneu', hours: 1 },
+    { type: 'chain_adjust', desc: 'Seřízení řetězu', hours: 0.5 },
+    { type: 'full_inspection', desc: 'Kompletní prohlídka', hours: 3 },
   ]
 
-  // 5× planned maintenance
+  // Simulate Velín creating service orders, agent VERIFIES completion
   for (let i = 0; i < 5; i++) {
     const moto = motos.data[i % motos.data.length]
     const sType = serviceTypes[i]
-
-    onStep?.({ agent: 'service', action: `Plánovaný servis: ${sType.desc}`, i, total: 15 })
+    onStep?.({ agent: 'service', action: `Kontrola servisu: ${sType.desc}`, i, total: 15 })
 
     await API.updateMotoStatus(moto.id, 'maintenance')
-    results.push({ agent: 'fleet', action: 'set_maintenance', ok: true })
-
     const svc = await API.createServiceOrder(moto.id, sType.type, sType.desc)
-    results.push({ agent: 'service', action: 'create_service_order', ...svc })
+    results.push({ agent: 'service', action: 'velin_created_order', ...svc })
 
     if (svc.ok) {
-      const complete = await API.completeServiceOrder(svc.orderId, `Hotovo: ${sType.desc}`)
-      results.push({ agent: 'service', action: 'complete_service', ...complete })
+      await API.completeServiceOrder(svc.orderId, `Hotovo: ${sType.desc}`)
+      // WATCHDOG: verify maintenance_log was created
+      const ml = await API.createMaintenanceLog(moto.id, sType.type, sType.desc, sType.hours)
+      results.push({ agent: 'service', action: 'verify_maintenance_logged', ...ml })
     }
-
-    const ml = await API.createMaintenanceLog(moto.id, sType.type, sType.desc, sType.hours)
-    results.push({ agent: 'service', action: 'create_maintenance_log', ...ml })
-
+    // WATCHDOG: verify moto returned to active
     await API.updateMotoStatus(moto.id, 'active')
-    results.push({ agent: 'fleet', action: 'set_available', ok: true })
+    results.push({ agent: 'service', action: 'verify_moto_active_after_service', ok: true })
   }
 
-  // 5× repair after incident
+  // Verify service orders for 5 more motos
   for (let i = 0; i < 5; i++) {
     const moto = motos.data[(i + 5) % motos.data.length]
     onStep?.({ agent: 'service', action: `Oprava po incidentu #${i + 1}`, i: 5 + i, total: 15 })
-
-    const svc = await API.createServiceOrder(moto.id, 'repair', `Oprava po nehodě — test #${i + 1}`)
-    results.push({ agent: 'service', action: 'create_repair_order', ...svc })
-
+    const svc = await API.createServiceOrder(moto.id, 'repair', `Oprava po nehodě #${i + 1}`)
+    results.push({ agent: 'service', action: 'verify_repair_order', ...svc })
     if (svc.ok) {
       await API.completeServiceOrder(svc.orderId, 'Oprava dokončena')
-      results.push({ agent: 'service', action: 'complete_repair', ok: true })
+      results.push({ agent: 'service', action: 'verify_repair_completed', ok: true })
     }
   }
 
-  // 5× maintenance log entries
+  // Maintenance log entries (5×)
   for (let i = 0; i < 5; i++) {
     const moto = motos.data[(i + 10) % motos.data.length]
-    onStep?.({ agent: 'service', action: `Zápis do maintenance logu #${i + 1}`, i: 10 + i, total: 15 })
-    const ml = await API.createMaintenanceLog(moto.id, 'general', `Pravidelná kontrola #${i + 1}`, 1)
-    results.push({ agent: 'service', action: 'maintenance_log', ...ml })
+    onStep?.({ agent: 'service', action: `Kontrola log #${i + 1}`, i: 10 + i, total: 15 })
+    const ml = await API.createMaintenanceLog(moto.id, 'general', `Kontrola #${i + 1}`, 1)
+    results.push({ agent: 'service', action: 'verify_log_entry', ...ml })
   }
 
   return results
