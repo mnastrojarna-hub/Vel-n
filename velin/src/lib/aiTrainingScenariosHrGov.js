@@ -95,10 +95,68 @@ export async function trainHrAgent(onStep) {
     }
   }
 
-  // 7. Dokumenty zaměstnanců
-  onStep?.({ agent: 'hr', action: 'Kontrola dokumentů', i: 11, total: 12 })
-  const { data: empDocs } = await supabase.from('emp_documents').select('id, employee_id, type').limit(20)
+  // 7. Dokumenty zaměstnanců — kontrola kompletnosti
+  onStep?.({ agent: 'hr', action: 'Kontrola dokumentů', i: 9, total: 15 })
+  const { data: empDocs } = await supabase.from('emp_documents').select('id, employee_id, type').limit(50)
   results.push({ agent: 'hr', action: 'fetch_employee_docs', ok: true, count: empDocs?.length || 0 })
+  // Edge: zaměstnanec bez dokumentů (smlouva, BOZP)
+  if (emps?.length) {
+    const empIds = emps.map(e => e.id)
+    const empWithDocs = new Set((empDocs || []).map(d => d.employee_id))
+    const empWithoutDocs = empIds.filter(id => !empWithDocs.has(id))
+    if (empWithoutDocs.length) {
+      results.push({ agent: 'hr', action: 'alert_employee_without_docs', ok: false, count: empWithoutDocs.length })
+    }
+  }
+
+  // 8. Edge: 2 směny v jeden den pro jednoho zaměstnance
+  onStep?.({ agent: 'hr', action: 'Duplicitní směny', i: 10, total: 15 })
+  if (shifts?.length) {
+    const shiftMap = {}
+    shifts.forEach(s => {
+      const key = `${s.employee_id}_${s.date}`
+      shiftMap[key] = (shiftMap[key] || 0) + 1
+    })
+    const duplicateShifts = Object.entries(shiftMap).filter(([, count]) => count > 1)
+    if (duplicateShifts.length) {
+      results.push({ agent: 'hr', action: 'alert_duplicate_shifts', ok: false, count: duplicateShifts.length })
+    } else {
+      results.push({ agent: 'hr', action: 'check_no_duplicate_shifts', ok: true })
+    }
+  }
+
+  // 9. Edge: zaměstnanec bez hodinové sazby
+  onStep?.({ agent: 'hr', action: 'Zaměstnanci bez sazby', i: 11, total: 15 })
+  const noRate = (emps || []).filter(e => !e.hourly_rate || e.hourly_rate <= 0)
+  if (noRate.length) {
+    results.push({ agent: 'hr', action: 'alert_no_hourly_rate', ok: false, count: noRate.length, names: noRate.map(e => e.name) })
+  }
+
+  // 10. Edge: zaměstnanec bez emailu nebo telefonu
+  onStep?.({ agent: 'hr', action: 'Kontakty zaměstnanců', i: 12, total: 15 })
+  const noContact = (emps || []).filter(e => !e.email && !e.phone)
+  if (noContact.length) {
+    results.push({ agent: 'hr', action: 'alert_employee_no_contact', ok: false, count: noContact.length })
+  }
+
+  // 11. Edge: schválená dovolená pokrývá víkend (kontrola pokrytí)
+  onStep?.({ agent: 'hr', action: 'Dovolená pokrytí', i: 13, total: 15 })
+  const approvedVac = (vac || []).filter(v => v.status === 'approved')
+  if (approvedVac.length && emps?.length) {
+    // Jednoduché: pokud je více lidí na dovolené než polovina týmu
+    const vacNow = approvedVac.filter(v => {
+      const today = new Date().toISOString().split('T')[0]
+      return v.start_date <= today && v.end_date >= today
+    })
+    if (vacNow.length > emps.length / 2) {
+      results.push({ agent: 'hr', action: 'alert_too_many_on_vacation', ok: false, onVacation: vacNow.length, totalEmployees: emps.length })
+    }
+  }
+
+  // 12. Celkový HR souhrn
+  onStep?.({ agent: 'hr', action: 'HR souhrn', i: 14, total: 15 })
+  const hrIssues = results.filter(r => !r.ok).length
+  results.push({ agent: 'hr', action: 'hr_summary', ok: hrIssues === 0, issues: hrIssues, employees: emps?.length || 0 })
 
   return results
 }
