@@ -60,3 +60,8 @@
 | `create_test_booking(p_user_id, p_moto_id, p_start, p_end)` | Vytvoření testovací rezervace (SECURITY DEFINER, bypass RLS). Vrací uuid. |
 | `update_test_booking_status(p_booking_id, p_status, p_payment_status?)` | Změna stavu testovací rezervace (SECURITY DEFINER). Triggery se spouští normálně (KF, SMS, door codes). |
 | `create_test_service_order(p_moto_id, p_type, p_notes)` | Vytvoření testovací servisní zakázky (SECURITY DEFINER, bypass RLS). Vrací uuid. |
+| `update_test_booking_fields(p_booking_id, p_fields jsonb)` | Universální update booking polí (end_date, picked_up_at, mileage, rating, pickup/return address+GPS). SECURITY DEFINER. |
+| `create_test_sos_timeline(p_incident_id, p_action, p_data)` | Zápis do SOS timeline (SECURITY DEFINER). |
+| `update_test_sos_status(p_incident_id, p_status, p_notes)` | Změna stavu SOS incidentu (SECURITY DEFINER). |
+| `update_test_profile(p_user_id, p_data jsonb)` | Update profilu zákazníka (full_name, phone, city, license_group). SECURITY DEFINER. |
+| `cleanup_all_test_data()` | Smaže vše testovací: bookings, SOS, service, profiles + auth.users. SECURITY DEFINER. Vrací jsonb. |

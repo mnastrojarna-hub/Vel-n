@@ -14,10 +14,30 @@ const PROMPTS_KEY = 'motogo_ai_prompts'
 import { AGENT_PROMPTS_DATA } from './aiAgentPromptsData'
 export const DEFAULT_PROMPTS = AGENT_PROMPTS_DATA
 
+// Version key — bump when defaults change significantly to force refresh
+const PROMPTS_VERSION = '2026-03-25-v2'
+const VERSION_KEY = 'motogo_ai_prompts_version'
+
 export function loadAgentPrompts() {
   try {
+    const savedVersion = localStorage.getItem(VERSION_KEY)
+    if (savedVersion !== PROMPTS_VERSION) {
+      // Defaults changed — clear old prompts, use new defaults
+      localStorage.removeItem(PROMPTS_KEY)
+      localStorage.setItem(VERSION_KEY, PROMPTS_VERSION)
+      return { ...DEFAULT_PROMPTS }
+    }
     const raw = localStorage.getItem(PROMPTS_KEY)
-    if (raw) return { ...DEFAULT_PROMPTS, ...JSON.parse(raw) }
+    if (raw) {
+      // Deep merge: per-agent, default fields fill in missing but user edits preserved
+      const saved = JSON.parse(raw)
+      const merged = { ...DEFAULT_PROMPTS }
+      for (const [id, data] of Object.entries(saved)) {
+        if (merged[id]) merged[id] = { ...merged[id], ...data }
+        else merged[id] = data
+      }
+      return merged
+    }
   } catch { /* ignore */ }
   return { ...DEFAULT_PROMPTS }
 }
