@@ -8,7 +8,7 @@ const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 
 // Mindee v2 API endpoints
 const MINDEE_ENQUEUE_URL = 'https://api-v2.mindee.net/v2/inferences/enqueue'
-const MINDEE_POLL_URL = 'https://api-v2.mindee.net/v2/inferences'
+const MINDEE_JOBS_URL = 'https://api-v2.mindee.net/v2/jobs'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -163,13 +163,15 @@ async function debugLog(action: string, component: string, status: string, reque
   }
 }
 
-// Poll for Mindee v2 inference result
-async function pollForResult(jobId: string, maxAttempts: number = 15): Promise<any> {
+// Poll for Mindee v2 job result (3-step: enqueue → poll job → fetch result)
+async function pollForResult(jobId: string, pollingUrl?: string, maxAttempts: number = 15): Promise<any> {
+  const pollUrl = pollingUrl || `${MINDEE_JOBS_URL}/${jobId}`
+
   for (let i = 0; i < maxAttempts; i++) {
     // Wait before polling (1s first, then 2s intervals)
     await new Promise(r => setTimeout(r, i === 0 ? 1000 : 2000))
 
-    const resp = await fetch(`${MINDEE_POLL_URL}/${jobId}`, {
+    const resp = await fetch(pollUrl, {
       method: 'GET',
       headers: { 'Authorization': MINDEE_API_KEY },
     })
@@ -182,17 +184,31 @@ async function pollForResult(jobId: string, maxAttempts: number = 15): Promise<a
     }
 
     const data = await resp.json()
-    const status = data.status || data.job?.status || ''
+    const status = (data.status || data.job?.status || '').toLowerCase()
 
     console.log(`[scan-document] Poll ${i + 1}: status=${status}`)
 
-    if (status === 'completed' || status === 'succeeded') {
+    if (status === 'completed' || status === 'succeeded' || status === 'processed') {
+      // If response has result_url, fetch the actual result
+      const resultUrl = data.result_url || data.job?.result_url
+      if (resultUrl) {
+        console.log(`[scan-document] Fetching result from: ${resultUrl}`)
+        const resultResp = await fetch(resultUrl, {
+          method: 'GET',
+          headers: { 'Authorization': MINDEE_API_KEY },
+        })
+        if (!resultResp.ok) {
+          throw new Error(`Failed to fetch result: HTTP ${resultResp.status}`)
+        }
+        return await resultResp.json()
+      }
+      // No result_url — the data itself contains the result
       return data
     }
     if (status === 'failed' || status === 'error') {
       throw new Error('Mindee inference failed: ' + JSON.stringify(data.error || data))
     }
-    // Still processing — continue polling
+    // Still processing (waiting/processing) — continue polling
   }
   throw new Error('Mindee polling timeout after ' + maxAttempts + ' attempts')
 }
@@ -310,7 +326,8 @@ serve(async (req) => {
     // ═══════════════════════════════════════════════
     // Step 2: Extract job ID and poll for result
     // ═══════════════════════════════════════════════
-    const jobId = enqueueResult.job?.id || enqueueResult.id || enqueueResult.inference_id
+    const jobId = enqueueResult.job?.id || enqueueResult.id || enqueueResult.inference_id || enqueueResult.job_id
+    const pollingUrl = enqueueResult.job?.polling_url || null
     if (!jobId) {
       await debugLog('mindee_enqueue', docType, 'error',
         { document_type: docType },
@@ -325,11 +342,11 @@ serve(async (req) => {
       })
     }
 
-    console.log(`[scan-document] Job ID: ${jobId}, polling for result...`)
+    console.log(`[scan-document] Job ID: ${jobId}, polling_url: ${pollingUrl || 'default'}, polling for result...`)
 
     let mindeeResult: any
     try {
-      mindeeResult = await pollForResult(jobId)
+      mindeeResult = await pollForResult(jobId, pollingUrl)
     } catch (e) {
       const errMsg = String(e)
       await debugLog('mindee_poll', docType, 'error',
@@ -348,7 +365,7 @@ serve(async (req) => {
     // ═══════════════════════════════════════════════
     // v2 response structure may vary — try multiple paths
     const inference = mindeeResult.inference || mindeeResult.result || mindeeResult
-    const prediction = inference?.prediction || inference?.fields || inference?.document?.inference?.prediction || inference
+    const prediction = inference?.result?.fields || inference?.prediction || inference?.fields || inference?.document?.inference?.prediction || inference
 
     if (!prediction || (typeof prediction === 'object' && Object.keys(prediction).length === 0)) {
       await debugLog('mindee_parse', docType, 'error',
