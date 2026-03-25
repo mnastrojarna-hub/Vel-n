@@ -12,8 +12,10 @@ const PICK = (arr) => arr[Math.random() * arr.length | 0]
 const PHONE = () => `+420${600 + Math.random() * 99 | 0}${(100000 + Math.random() * 899999 | 0)}`
 const FIRST = () => PICK(['Jan','Petra','Tomáš','Eva','Martin','Lucie','Pavel','Alena','Karel','Dana','Jiří','Monika'])
 const LAST = () => PICK(['Novák','Černá','Horák','Dvořák','Svoboda','Malá','Veselý','Krejčí','Šťastný','Procházka'])
+// Random offset to avoid overlap with previous training runs
+const _dateOffset = Math.floor(Math.random() * 200) + 30
 const futureDate = (days) => {
-  const d = new Date(); d.setDate(d.getDate() + days)
+  const d = new Date(); d.setDate(d.getDate() + _dateOffset + days)
   return d.toISOString().split('T')[0]
 }
 

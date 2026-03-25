@@ -70,6 +70,10 @@ export async function runAgentTraining(agentId, onProgress) {
 
 // Run ALL agent trainings sequentially
 export async function runAllTraining(onProgress) {
+  // Auto-cleanup old test data to avoid overlap triggers blocking new bookings
+  onProgress?.({ phase: 'cleanup', agentId: 'system' })
+  try { await cleanupTestData() } catch (e) { console.warn('[training] cleanup failed:', e) }
+
   const agentOrder = ['customers', 'fleet', 'bookings', 'finance', 'sos', 'service', 'eshop', 'edge']
   const allResults = []
 
