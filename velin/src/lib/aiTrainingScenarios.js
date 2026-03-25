@@ -91,6 +91,9 @@ export async function trainBookingsAgent(onStep) {
 }
 
 // === SOS AGENT — actively coordinates ===
+// IMPORTANT: trg_one_active_sos allows max 1 severe SOS per BOOKING.
+// Light types (breakdown_minor, defect_question) are unlimited.
+// Each severe SOS needs its own booking + must be resolved before next on same booking.
 export async function trainSosAgent(onStep) {
   const results = []
   const motos = await API.fetchAvailableMotos()
@@ -108,25 +111,32 @@ export async function trainSosAgent(onStep) {
       stepIdx++
       onStep?.({ agent: 'sos', action: `${sosType.label} #${i + 1}/5`, i: stepIdx, total: 25 })
 
-      const booking = await API.createBooking(cust.userId, moto.id, API.futureDate(stepIdx), API.futureDate(stepIdx + 3))
-      if (booking.ok) {
-        await API.confirmBookingPayment(booking.bookingId)
-        const sos = await API.createSosIncident(cust.userId, booking.bookingId, moto.id, sosType.type, `SIM: ${sosType.desc}`)
-        results.push({ agent: 'sos', action: 'create_incident', type: sosType.type, ...sos })
+      // Each SOS needs its OWN unique booking (trigger checks per booking_id)
+      const bookingStart = API.futureDate(stepIdx * 2)
+      const bookingEnd = API.futureDate(stepIdx * 2 + 3)
+      const booking = await API.createBooking(cust.userId, moto.id, bookingStart, bookingEnd)
+      if (!booking.ok) {
+        results.push({ agent: 'sos', action: 'booking_failed', ok: false, error: booking.error })
+        continue
+      }
+      await API.confirmBookingPayment(booking.bookingId)
 
-        if (sos.ok) {
-          await API.updateSosStatus(sos.incidentId, 'in_progress', 'Přiřazen technik')
-          results.push({ agent: 'sos', action: 'coordinate', ok: true })
-          await API.updateSosStatus(sos.incidentId, 'resolved', `Vyřešeno: ${sosType.label}`)
-          results.push({ agent: 'sos', action: 'resolve', ok: true })
+      const sos = await API.createSosIncident(cust.userId, booking.bookingId, moto.id, sosType.type, `SIM: ${sosType.desc}`)
+      results.push({ agent: 'sos', action: 'create_incident', type: sosType.type, ...sos })
 
-          if (['accident_minor', 'accident_major', 'theft'].includes(sosType.type)) {
-            const svc = await API.createServiceOrder(moto.id, 'repair', `Oprava po ${sosType.label}`)
-            results.push({ agent: 'service', action: 'sos_service', ...svc })
-            if (sosType.type !== 'accident_minor') {
-              await API.updateMotoStatus(moto.id, sosType.type === 'theft' ? 'unavailable' : 'maintenance')
-              await API.updateMotoStatus(moto.id, 'active')
-            }
+      if (sos.ok) {
+        await API.updateSosStatus(sos.incidentId, 'in_progress', 'Přiřazen technik')
+        results.push({ agent: 'sos', action: 'coordinate', ok: true })
+        // MUST resolve before creating next severe SOS for same user
+        await API.updateSosStatus(sos.incidentId, 'resolved', `Vyřešeno: ${sosType.label}`)
+        results.push({ agent: 'sos', action: 'resolve', ok: true })
+
+        if (['accident_minor', 'accident_major', 'theft'].includes(sosType.type)) {
+          const svc = await API.createServiceOrder(moto.id, 'repair', `Oprava po ${sosType.label}`)
+          results.push({ agent: 'service', action: 'sos_service', ...svc })
+          if (sosType.type !== 'accident_minor') {
+            await API.updateMotoStatus(moto.id, sosType.type === 'theft' ? 'unavailable' : 'maintenance')
+            await API.updateMotoStatus(moto.id, 'active')
           }
         }
       }
