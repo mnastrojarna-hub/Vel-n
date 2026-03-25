@@ -18,9 +18,11 @@ function getModelId(docType: string): string {
   }
 }
 
-// Mindee v2 API endpoints
-const MINDEE_ENQUEUE_URL = 'https://api-v2.mindee.net/v2/inferences/enqueue'
-const MINDEE_INFERENCES_URL = 'https://api-v2.mindee.net/v2/inferences'
+// Mindee v2 API endpoints (matching official SDK: /v2/products/extraction/)
+const MINDEE_BASE = 'https://api-v2.mindee.net'
+const MINDEE_ENQUEUE_URL = `${MINDEE_BASE}/v2/products/extraction/enqueue`
+const MINDEE_JOBS_URL = `${MINDEE_BASE}/v2/jobs`
+const MINDEE_RESULTS_URL = `${MINDEE_BASE}/v2/products/extraction/results`
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -175,81 +177,81 @@ async function debugLog(action: string, component: string, status: string, reque
   }
 }
 
-// Mindee v2 polling: try both /jobs/ and /inferences/ endpoints
-// Some jobs complete instantly and are only available via /inferences/
-async function pollForResult(jobId: string, pollingUrl?: string, maxAttempts: number = 20): Promise<any> {
-  const jobsUrl = pollingUrl || `https://api-v2.mindee.net/v2/jobs/${jobId}`
-  const inferenceUrl = `https://api-v2.mindee.net/v2/inferences/${jobId}`
-  console.log(`[scan-document] pollForResult: jobsUrl=${jobsUrl}, inferenceUrl=${inferenceUrl}`)
+// Mindee v2 polling (matching SDK: /v2/jobs/{id} → /v2/products/extraction/results/{id})
+async function pollForResult(jobId: string, pollingUrl?: string, maxAttempts: number = 25): Promise<any> {
+  const pollUrl = pollingUrl || `${MINDEE_JOBS_URL}/${jobId}`
+  console.log(`[scan-document] pollForResult: pollUrl=${pollUrl}`)
 
   for (let i = 0; i < maxAttempts; i++) {
-    await new Promise(r => setTimeout(r, i === 0 ? 1500 : 2000))
+    // SDK uses initial delay then intervals
+    await new Promise(r => setTimeout(r, i === 0 ? 2000 : 1500))
 
-    // Try /inferences/ endpoint first (has the actual result if job is done)
+    console.log(`[scan-document] Poll ${i + 1}/${maxAttempts}: GET ${pollUrl}`)
+
+    let resp: Response
     try {
-      console.log(`[scan-document] Poll ${i + 1}/${maxAttempts}: trying /inferences/`)
-      const infResp = await fetch(inferenceUrl, {
+      resp = await fetch(pollUrl, {
         method: 'GET',
         headers: { 'Authorization': MINDEE_API_KEY },
       })
-
-      if (infResp.ok) {
-        const infData = await infResp.json()
-        const infStatus = (infData.status || infData.inference?.status || '').toLowerCase()
-        console.log(`[scan-document] /inferences/ responded OK, status=${infStatus}, keys=${JSON.stringify(Object.keys(infData))}`)
-        // If we got actual inference data, return it
-        if (infData.inference || infData.result || infData.fields || infData.prediction) {
-          console.log('[scan-document] Got inference result from /inferences/ endpoint')
-          return infData
-        }
-        if (infStatus === 'completed' || infStatus === 'processed' || infStatus === 'succeeded') {
-          return infData
-        }
-      } else {
-        const infErr = await infResp.text()
-        console.log(`[scan-document] /inferences/ ${infResp.status}: ${infErr.substring(0, 100)}`)
-      }
     } catch (e) {
-      console.warn(`[scan-document] /inferences/ error:`, e)
+      console.warn(`[scan-document] Poll ${i + 1} network error:`, e)
+      continue
     }
 
-    // Fallback: try /jobs/ endpoint for status
-    try {
-      console.log(`[scan-document] Poll ${i + 1}/${maxAttempts}: trying /jobs/`)
-      const jobResp = await fetch(jobsUrl, {
+    // Handle 302 redirect — SDK docs say "completed" returns 302 to result
+    if (resp.status === 302) {
+      const location = resp.headers.get('Location')
+      if (location) {
+        console.log(`[scan-document] 302 redirect to: ${location}`)
+        const resultResp = await fetch(location, {
+          method: 'GET',
+          headers: { 'Authorization': MINDEE_API_KEY },
+        })
+        if (resultResp.ok) return await resultResp.json()
+      }
+    }
+
+    if (!resp.ok) {
+      const errBody = await resp.text()
+      console.warn(`[scan-document] Poll ${i + 1}: HTTP ${resp.status}: ${errBody.substring(0, 150)}`)
+      if (resp.status === 401 || resp.status === 403) throw new Error(`Auth error: ${errBody}`)
+      // 404 = job not found yet, keep trying
+      if (resp.status === 404 && i < 8) continue
+      if (resp.status === 404) throw new Error(`Job not found: ${errBody}`)
+      continue
+    }
+
+    const data = await resp.json()
+    const job = data.job || data
+    const status = (job.status || '').toLowerCase()
+    console.log(`[scan-document] Poll ${i + 1}: status=${status}, keys=${JSON.stringify(Object.keys(data))}`)
+
+    if (status === 'completed' || status === 'succeeded' || status === 'processed') {
+      // Try result_url from job first
+      if (job.result_url) {
+        console.log(`[scan-document] Fetching result from result_url: ${job.result_url}`)
+        const resultResp = await fetch(job.result_url, {
+          method: 'GET',
+          headers: { 'Authorization': MINDEE_API_KEY },
+        })
+        if (resultResp.ok) return await resultResp.json()
+        console.warn(`[scan-document] result_url failed: ${resultResp.status}`)
+      }
+      // Fallback: construct results URL (SDK pattern)
+      const inferenceId = job.inference_id || job.id || jobId
+      const resultsUrl = `${MINDEE_RESULTS_URL}/${inferenceId}`
+      console.log(`[scan-document] Fetching result from constructed URL: ${resultsUrl}`)
+      const resultResp2 = await fetch(resultsUrl, {
         method: 'GET',
         headers: { 'Authorization': MINDEE_API_KEY },
       })
-
-      if (jobResp.ok) {
-        const jobData = await jobResp.json()
-        const job = jobData.job || jobData
-        const status = (job.status || '').toLowerCase()
-        console.log(`[scan-document] /jobs/ status=${status}, result_url=${job.result_url || 'null'}`)
-
-        if (status === 'completed' || status === 'succeeded' || status === 'processed') {
-          if (job.result_url) {
-            console.log(`[scan-document] Fetching result from: ${job.result_url}`)
-            const resultResp = await fetch(job.result_url, {
-              method: 'GET',
-              headers: { 'Authorization': MINDEE_API_KEY },
-            })
-            if (resultResp.ok) return await resultResp.json()
-            console.warn(`[scan-document] result_url fetch failed: ${resultResp.status}`)
-          }
-          return jobData
-        }
-        if (status === 'failed' || status === 'error') {
-          throw new Error('Mindee inference failed: ' + JSON.stringify(job.error || jobData))
-        }
-        // Still processing — continue
-      } else {
-        const jobErr = await jobResp.text()
-        console.log(`[scan-document] /jobs/ ${jobResp.status}: ${jobErr.substring(0, 100)}`)
-      }
-    } catch (e) {
-      if (String(e).includes('inference failed')) throw e
-      console.warn(`[scan-document] /jobs/ error:`, e)
+      if (resultResp2.ok) return await resultResp2.json()
+      // Last fallback: return job data itself
+      return data
+    }
+    if (status === 'failed' || status === 'error') {
+      throw new Error('Mindee inference failed: ' + JSON.stringify(job.error || data))
     }
   }
   throw new Error('Mindee polling timeout after ' + maxAttempts + ' attempts')
