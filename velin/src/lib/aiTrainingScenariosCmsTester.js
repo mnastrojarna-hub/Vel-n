@@ -259,6 +259,73 @@ export async function trainEdgeCases(onStep) {
   return results
 }
 
+// === ORCHESTRÁTOR — cross-agent koordinace, eskalace, zdraví systému ===
+export async function trainOrchestratorAgent(onStep) {
+  const results = []
+
+  // 1. Zdraví všech tabulek (ředitel musí mít přehled)
+  const criticalTables = ['bookings', 'motorcycles', 'profiles', 'sos_incidents', 'invoices', 'branches']
+  for (let i = 0; i < criticalTables.length; i++) {
+    onStep?.({ agent: 'orchestrator', action: `Zdraví: ${criticalTables[i]}`, i, total: 15 })
+    const { count, error } = await supabase.from(criticalTables[i]).select('id', { count: 'exact', head: true })
+    results.push({ agent: 'orchestrator', action: `system_health_${criticalTables[i]}`, ok: !error, count: count || 0 })
+  }
+
+  // 2. Cross-check: otevřené SOS bez přiřazeného řešitele
+  onStep?.({ agent: 'orchestrator', action: 'Neřešené SOS', i: 6, total: 15 })
+  const { data: openSos } = await supabase.from('sos_incidents')
+    .select('id, type, status, assigned_to').in('status', ['reported', 'acknowledged', 'in_progress'])
+  const unassigned = (openSos || []).filter(s => !s.assigned_to)
+  results.push({ agent: 'orchestrator', action: 'check_unassigned_sos', ok: unassigned.length === 0, unassigned: unassigned.length, total: openSos?.length || 0 })
+
+  // 3. Cross-check: unpaid bookings starší 24h
+  onStep?.({ agent: 'orchestrator', action: 'Nezaplacené bookings', i: 7, total: 15 })
+  const yesterday = new Date(Date.now() - 86400000).toISOString()
+  const { data: oldUnpaid } = await supabase.from('bookings')
+    .select('id, created_at, status, payment_status')
+    .eq('payment_status', 'unpaid').in('status', ['pending', 'reserved'])
+    .lt('created_at', yesterday).limit(10)
+  results.push({ agent: 'orchestrator', action: 'check_old_unpaid', ok: !(oldUnpaid?.length), count: oldUnpaid?.length || 0 })
+
+  // 4. Cross-check: motorky v maintenance déle než 7 dní
+  onStep?.({ agent: 'orchestrator', action: 'Dlouhodobý maintenance', i: 8, total: 15 })
+  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString()
+  const { data: longMaint } = await supabase.from('service_orders')
+    .select('id, moto_id, created_at, status').in('status', ['pending', 'in_service'])
+    .lt('created_at', weekAgo).limit(10)
+  results.push({ agent: 'orchestrator', action: 'check_long_maintenance', ok: !(longMaint?.length), count: longMaint?.length || 0 })
+
+  // 5. Pobočky — všechny otevřené?
+  onStep?.({ agent: 'orchestrator', action: 'Pobočky status', i: 9, total: 15 })
+  const { data: closedBranches } = await supabase.from('branches')
+    .select('id, name').eq('is_open', false)
+  results.push({ agent: 'orchestrator', action: 'check_closed_branches', ok: !(closedBranches?.length), closed: closedBranches?.length || 0 })
+
+  // 6. Admin users aktivní
+  onStep?.({ agent: 'orchestrator', action: 'Admin users', i: 10, total: 15 })
+  const { count: adminCount } = await supabase.from('admin_users').select('id', { count: 'exact', head: true })
+  results.push({ agent: 'orchestrator', action: 'check_admin_users', ok: (adminCount || 0) > 0, count: adminCount || 0 })
+
+  // 7. Nezodpovězené zprávy zákazníků
+  onStep?.({ agent: 'orchestrator', action: 'Nezodpovězené zprávy', i: 11, total: 15 })
+  const { data: unanswered } = await supabase.from('message_threads')
+    .select('id, status').eq('status', 'open').limit(20)
+  results.push({ agent: 'orchestrator', action: 'check_unanswered_messages', ok: true, openThreads: unanswered?.length || 0 })
+
+  // 8. Celkové KPI
+  onStep?.({ agent: 'orchestrator', action: 'KPI souhrn', i: 12, total: 15 })
+  const { count: activeBookings } = await supabase.from('bookings').select('id', { count: 'exact', head: true }).eq('status', 'active')
+  const { count: totalCustomers } = await supabase.from('profiles').select('id', { count: 'exact', head: true })
+  results.push({ agent: 'orchestrator', action: 'kpi_summary', ok: true, activeBookings: activeBookings || 0, customers: totalCustomers || 0 })
+
+  // 9. Integrity: fail count z ostatních agentů
+  onStep?.({ agent: 'orchestrator', action: 'Agent health check', i: 13, total: 15 })
+  const failSummary = results.filter(r => !r.ok)
+  results.push({ agent: 'orchestrator', action: 'agent_coordination_check', ok: failSummary.length === 0, issues: failSummary.length })
+
+  return results
+}
+
 export const TRAINING_PROGRAMS = {
   bookings:    { fn: 'trainBookingsAgent', label: 'Kontrolor rezervací' },
   sos:         { fn: 'trainSosAgent', label: 'SOS koordinátor' },
@@ -272,5 +339,6 @@ export const TRAINING_PROGRAMS = {
   government:  { fn: 'trainGovernmentAgent', label: 'Státní správa' },
   cms:         { fn: 'trainCmsAgent', label: 'CMS kontrolor' },
   tester:      { fn: 'trainTesterAgent', label: 'Tester / Auditor' },
+  orchestrator:{ fn: 'trainOrchestratorAgent', label: 'Orchestrátor (Ředitel)' },
   edge:        { fn: 'trainEdgeCases', label: 'Edge cases' },
 }

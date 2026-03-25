@@ -17,6 +17,7 @@ export const AGENT_VOLUMES = {
   government:  { min: 5,  label: 'Státní správa (STK, pojistky, termíny)' },
   cms:         { min: 8,  label: 'CMS (nastavení, šablony, pravidla)' },
   tester:      { min: 10, label: 'Tester (audit tabulek, integrita dat)' },
+  orchestrator:{ min: 10, label: 'Orchestrátor (koordinace, eskalace, KPI)' },
   edge:        { min: 10, label: 'Edge cases (overlap, missing docs)' },
 }
 
@@ -140,19 +141,23 @@ export async function trainBookingsAgent(onStep) {
           break
         case 'change_pickup': {
           const addr = API.PICK(['Praha 1, Národní 10', 'Brno, Masarykova 5', 'Hotel Pyramida, Praha 6'])
-          const { error: cpErr } = await supabase.from('bookings').update({
-            pickup_method: 'delivery', pickup_address: addr,
-            pickup_lat: 49.8 + Math.random() * 0.5, pickup_lng: 14.3 + Math.random() * 0.5,
-          }).eq('id', booking.bookingId)
+          const { error: cpErr } = await supabase.rpc('update_test_booking_fields', {
+            p_booking_id: booking.bookingId, p_fields: {
+              pickup_method: 'delivery', pickup_address: addr,
+              pickup_lat: String(49.8 + Math.random() * 0.5), pickup_lng: String(14.3 + Math.random() * 0.5),
+            },
+          })
           results.push({ agent: 'bookings', action: 'change_pickup_location', ok: !cpErr, addr })
           break
         }
         case 'change_return': {
           const addr = API.PICK(['Praha 5, Anděl', 'Brno, Lužánky', 'Ostrava, centrum'])
-          const { error: crErr } = await supabase.from('bookings').update({
-            return_method: 'delivery', return_address: addr,
-            return_lat: 49.7 + Math.random() * 0.5, return_lng: 14.2 + Math.random() * 0.5,
-          }).eq('id', booking.bookingId)
+          const { error: crErr } = await supabase.rpc('update_test_booking_fields', {
+            p_booking_id: booking.bookingId, p_fields: {
+              return_method: 'delivery', return_address: addr,
+              return_lat: String(49.7 + Math.random() * 0.5), return_lng: String(14.2 + Math.random() * 0.5),
+            },
+          })
           results.push({ agent: 'bookings', action: 'change_return_location', ok: !crErr, addr })
           break
         }

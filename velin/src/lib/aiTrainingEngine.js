@@ -1,7 +1,7 @@
 // AI Training Engine — runs per-agent training, records outcomes
 import { recordOutcome } from './aiLearning'
 import { trainBookingsAgent, trainSosAgent, trainServiceAgent } from './aiTrainingScenarios'
-import { trainFleetAgent, trainCustomersAgent, trainFinanceAgent, trainEshopAgent, trainEdgeCases, trainHrAgent, trainAnalyticsAgent, trainGovernmentAgent, trainCmsAgent, trainTesterAgent, TRAINING_PROGRAMS } from './aiTrainingScenariosExtra'
+import { trainFleetAgent, trainCustomersAgent, trainFinanceAgent, trainEshopAgent, trainEdgeCases, trainHrAgent, trainAnalyticsAgent, trainGovernmentAgent, trainCmsAgent, trainTesterAgent, trainOrchestratorAgent, TRAINING_PROGRAMS } from './aiTrainingScenariosExtra'
 import { AGENT_VOLUMES } from './aiTrainingScenarios'
 import { cleanupTestData } from './aiTrainingHelpers'
 
@@ -21,6 +21,7 @@ const TRAINERS = {
   government: trainGovernmentAgent,
   cms: trainCmsAgent,
   tester: trainTesterAgent,
+  orchestrator: trainOrchestratorAgent,
   edge: trainEdgeCases,
 }
 
@@ -80,7 +81,7 @@ export async function runAllTraining(onProgress) {
   try { await cleanupTestData() } catch (e) { console.warn('[training] cleanup failed:', e) }
   resetTrainingState()
 
-  const agentOrder = ['customers', 'fleet', 'bookings', 'finance', 'sos', 'service', 'eshop', 'hr', 'analytics', 'government', 'cms', 'tester', 'edge']
+  const agentOrder = ['customers', 'fleet', 'bookings', 'finance', 'sos', 'service', 'eshop', 'hr', 'analytics', 'government', 'cms', 'tester', 'orchestrator', 'edge']
   const allResults = []
 
   for (let i = 0; i < agentOrder.length; i++) {
@@ -131,7 +132,7 @@ export function resetTrainingState() {
   // Metrics (confidence, success rates)
   localStorage.removeItem('motogo_ai_metrics')
   // Learning logs + long-term memory per agent
-  const agentIds = ['bookings', 'sos', 'service', 'fleet', 'customers', 'finance', 'eshop', 'edge', 'hr', 'analytics', 'cms', 'government']
+  const agentIds = ['bookings', 'sos', 'service', 'fleet', 'customers', 'finance', 'eshop', 'edge', 'hr', 'analytics', 'cms', 'government', 'tester', 'orchestrator']
   for (const id of agentIds) {
     localStorage.removeItem('motogo_ai_learning_' + id)
     localStorage.removeItem('motogo_ai_memory_' + id)

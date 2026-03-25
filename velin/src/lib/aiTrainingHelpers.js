@@ -151,21 +151,23 @@ export async function extendBooking(bookingId, newEndDate) {
   return { ok: !updErr, error: updErr?.message }
 }
 
-// 9. Shorten booking
+// 9. Shorten booking (RPC bypass RLS)
 export async function shortenBooking(bookingId, newEndDate) {
-  const { error } = await supabase.from('bookings').update({
-    end_date: newEndDate
-  }).eq('id', bookingId)
+  const { error } = await supabase.rpc('update_test_booking_fields', {
+    p_booking_id: bookingId, p_fields: { end_date: newEndDate },
+  })
   return { ok: !error, error: error?.message }
 }
 
 // 9b. Complete booking (triggers: KF invoice, door code deactivation, SMS)
 export async function completeBooking(bookingId) {
-  // Set mileage first (separate update, not status change)
-  await supabase.from('bookings').update({
-    returned_at: new Date().toISOString(),
-    mileage_end: 100 + Math.floor(Math.random() * 500),
-  }).eq('id', bookingId)
+  // Set mileage first via RPC (separate update, not status change)
+  await supabase.rpc('update_test_booking_fields', {
+    p_booking_id: bookingId, p_fields: {
+      returned_at: new Date().toISOString(),
+      mileage_end: String(100 + Math.floor(Math.random() * 500)),
+    },
+  })
   // Then status change via RPC (triggers fire: KF invoice, SMS, door codes)
   const { error: rpcErr } = await supabase.rpc('update_test_booking_status', {
     p_booking_id: bookingId, p_status: 'completed'
@@ -176,20 +178,24 @@ export async function completeBooking(bookingId) {
   return { ok: !error, error: error?.message }
 }
 
-// 9c. Pickup booking (mark as picked up with mileage)
+// 9c. Pickup booking (RPC bypass RLS)
 export async function pickupBooking(bookingId) {
-  const { error } = await supabase.from('bookings').update({
-    picked_up_at: new Date().toISOString(),
-    mileage_start: Math.floor(Math.random() * 30000),
-  }).eq('id', bookingId)
+  const { error } = await supabase.rpc('update_test_booking_fields', {
+    p_booking_id: bookingId, p_fields: {
+      picked_up_at: new Date().toISOString(),
+      mileage_start: String(Math.floor(Math.random() * 30000)),
+    },
+  })
   return { ok: !error, error: error?.message }
 }
 
-// 9d. Rate booking (customer review after completion)
+// 9d. Rate booking (RPC bypass RLS)
 export async function rateBooking(bookingId, rating) {
-  const { error } = await supabase.from('bookings').update({
-    rating, rated_at: new Date().toISOString(),
-  }).eq('id', bookingId)
+  const { error } = await supabase.rpc('update_test_booking_fields', {
+    p_booking_id: bookingId, p_fields: {
+      rating: String(rating), rated_at: new Date().toISOString(),
+    },
+  })
   return { ok: !error, error: error?.message }
 }
 
@@ -210,14 +216,13 @@ export async function createSosIncident(userId, bookingId, motoId, type, desc) {
   return { ok: !error, incidentId: data?.id, data, error: error?.message }
 }
 
-// 11. Update SOS incident status
+// 11. Update SOS incident status (RPC bypass RLS)
 export async function updateSosStatus(incidentId, status, notes = '') {
-  const { error } = await supabase.from('sos_incidents').update({
-    status, admin_notes: notes
-  }).eq('id', incidentId)
-
-  await supabase.from('sos_timeline').insert({
-    incident_id: incidentId, action: `status_${status}`, data: JSON.stringify({ notes })
+  const { error } = await supabase.rpc('update_test_sos_status', {
+    p_incident_id: incidentId, p_status: status, p_notes: notes,
+  })
+  await supabase.rpc('create_test_sos_timeline', {
+    p_incident_id: incidentId, p_action: `status_${status}`, p_data: { notes },
   })
   return { ok: !error, error: error?.message }
 }
