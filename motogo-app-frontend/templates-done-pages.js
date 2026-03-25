@@ -74,29 +74,29 @@ Templates['s-profile'] = `  <div class="prof-hdr">
     <div class="mi" onclick="toggleExpand('exp-notif','arr-notif');loadProfileConsents('notif')"><div class="mii">🔔</div><div class="mit" id="prof-lbl-notif">Notifikace</div><div class="mia" id="arr-notif">›</div></div>
     <div class="mi-expand" id="exp-notif">
       <div style="display:flex;flex-direction:column;gap:10px;">
-        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>Push notifikace</span> <input type="checkbox" id="pref-push" style="accent-color:var(--green);width:16px;height:16px;"></label>
-        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>Email komunikace</span> <input type="checkbox" id="pref-email" style="accent-color:var(--green);width:16px;height:16px;"></label>
-        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>SMS komunikace</span> <input type="checkbox" id="pref-sms" style="accent-color:var(--green);width:16px;height:16px;"></label>
-        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>WhatsApp komunikace</span> <input type="checkbox" id="pref-wa" style="accent-color:var(--green);width:16px;height:16px;"></label>
-        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>Marketingový souhlas</span> <input type="checkbox" id="pref-marketing" style="accent-color:var(--green);width:16px;height:16px;"></label>
+        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>Push notifikace</span> <input type="checkbox" id="pref-push" checked style="accent-color:var(--green);width:16px;height:16px;"></label>
+        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>Email komunikace</span> <input type="checkbox" id="pref-email" checked style="accent-color:var(--green);width:16px;height:16px;"></label>
+        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>SMS komunikace</span> <input type="checkbox" id="pref-sms" checked style="accent-color:var(--green);width:16px;height:16px;"></label>
+        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>WhatsApp komunikace</span> <input type="checkbox" id="pref-wa" checked style="accent-color:var(--green);width:16px;height:16px;"></label>
+        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>Marketingový souhlas</span> <input type="checkbox" id="pref-marketing" checked style="accent-color:var(--green);width:16px;height:16px;"></label>
       </div>
       <button class="save-btn" onclick="saveProfileConsents('notif')">Uložit</button>
     </div>
     <div class="mi" onclick="toggleExpand('exp-bio-set','arr-bio-set')"><div class="mii">🔐</div><div class="mit" id="prof-lbl-bio">Biometrické přihlášení</div><div class="mia" id="arr-bio-set">›</div></div>
     <div class="mi-expand" id="exp-bio-set">
       <div style="display:flex;flex-direction:column;gap:10px;">
-        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>Otisk prstu / Face ID</span> <input type="checkbox" id="pref-bio-toggle" style="accent-color:var(--green);width:16px;height:16px;"></label>
+        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>Otisk prstu / Face ID</span> <input type="checkbox" id="pref-bio-toggle" checked style="accent-color:var(--green);width:16px;height:16px;"></label>
       </div>
       <button class="save-btn" onclick="toggleBiometricSetting()">Uložit</button>
     </div>
     <div class="mi" onclick="toggleExpand('exp-priv','arr-priv');loadProfileConsents('priv')"><div class="mii">🔒</div><div class="mit" id="prof-lbl-priv">Soukromí a souhlasy</div><div class="mia" id="arr-priv">›</div></div>
     <div class="mi-expand" id="exp-priv">
       <div style="display:flex;flex-direction:column;gap:10px;">
-        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>VOP — všeobecné obchodní podmínky</span> <input type="checkbox" id="pref-vop" style="accent-color:var(--green);width:16px;height:16px;"></label>
-        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>GDPR — zpracování osobních údajů</span> <input type="checkbox" id="pref-gdpr" style="accent-color:var(--green);width:16px;height:16px;"></label>
-        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>Zpracování dat pro provoz služby</span> <input type="checkbox" id="pref-data" style="accent-color:var(--green);width:16px;height:16px;"></label>
-        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>Četl/a jsem návrh smlouvy na motogo24.cz a souhlasím</span> <input type="checkbox" id="pref-contract" style="accent-color:var(--green);width:16px;height:16px;"></label>
-        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>Fotografování dokladů a motorky</span> <input type="checkbox" id="pref-photo" style="accent-color:var(--green);width:16px;height:16px;"></label>
+        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>VOP — všeobecné obchodní podmínky</span> <input type="checkbox" id="pref-vop" checked style="accent-color:var(--green);width:16px;height:16px;"></label>
+        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>GDPR — zpracování osobních údajů</span> <input type="checkbox" id="pref-gdpr" checked style="accent-color:var(--green);width:16px;height:16px;"></label>
+        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>Zpracování dat pro provoz služby</span> <input type="checkbox" id="pref-data" checked style="accent-color:var(--green);width:16px;height:16px;"></label>
+        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>Četl/a jsem návrh smlouvy na motogo24.cz a souhlasím</span> <input type="checkbox" id="pref-contract" checked style="accent-color:var(--green);width:16px;height:16px;"></label>
+        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600;color:var(--black);"><span>Fotografování dokladů a motorky</span> <input type="checkbox" id="pref-photo" checked style="accent-color:var(--green);width:16px;height:16px;"></label>
       </div>
       <button class="save-btn" onclick="saveProfileConsents('priv')">Uložit</button>
     </div>
