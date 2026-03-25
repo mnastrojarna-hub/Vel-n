@@ -41,7 +41,6 @@ export async function createTestCustomer() {
 
   const userId = data?.user?.id
   if (userId) {
-    // Wait for handle_new_user trigger, then verify profile exists (FK requirement)
     let profileFound = false
     for (let retry = 0; retry < 5; retry++) {
       await delay(1000)
@@ -49,12 +48,10 @@ export async function createTestCustomer() {
       if (profile) { profileFound = true; break }
     }
     if (!profileFound) console.error('[createTestCustomer] Profile NOT created after 5s for', userId)
-    await supabase.from('profiles').update({
-      full_name: `${fn} ${ln}`,
-      phone: PHONE(),
-      license_group: PICK([['A'], ['A2'], ['A', 'B'], ['A2', 'B']]),
-      is_test_account: true,
-    }).eq('id', userId)
+    await supabase.rpc('update_test_profile', {
+      p_user_id: userId,
+      p_data: { full_name: `${fn} ${ln}`, phone: PHONE(), license_group: PICK([['A'], ['A2'], ['A', 'B'], ['A2', 'B']]), is_test_account: true },
+    })
   }
   // Throttle to avoid 429 rate limit on signUp (free tier = ~1/3s)
   await delay(3000)
@@ -189,28 +186,20 @@ export async function rateBooking(bookingId, rating) {
   return { ok: !error, error: error?.message }
 }
 
-// 10. Create SOS incident
+// 10. Create SOS incident (RPC bypass RLS)
 export async function createSosIncident(userId, bookingId, motoId, type, desc) {
   const lat = 49.5 + Math.random() * 1.5
   const lng = 14 + Math.random() * 3
+  const { data: rpcId, error: rpcErr } = await supabase.rpc('create_test_sos_incident', {
+    p_user_id: userId, p_booking_id: bookingId, p_moto_id: motoId,
+    p_type: type, p_description: desc, p_lat: lat, p_lng: lng,
+  })
+  if (!rpcErr && rpcId) return { ok: true, incidentId: rpcId, data: { id: rpcId }, error: null }
+  // Fallback
   const { data, error } = await supabase.from('sos_incidents').insert({
-    user_id: userId,
-    booking_id: bookingId,
-    moto_id: motoId,
-    type,
-    description: desc,
-    status: 'reported',
-    latitude: lat,
-    longitude: lng,
-    is_test: true,
+    user_id: userId, booking_id: bookingId, moto_id: motoId, type,
+    description: desc, status: 'reported', latitude: lat, longitude: lng, is_test: true,
   }).select('id').single()
-
-  if (data?.id) {
-    await supabase.from('sos_timeline').insert({
-      incident_id: data.id, action: 'incident_created',
-      data: JSON.stringify({ type, desc })
-    })
-  }
   return { ok: !error, incidentId: data?.id, data, error: error?.message }
 }
 
@@ -248,18 +237,17 @@ export async function completeServiceOrder(orderId, notes) {
   return { ok: !error, error: error?.message }
 }
 
-// 14. Create maintenance log (columns: moto_id, service_type, description, etc.)
+// 14. Create maintenance log (RPC bypass RLS)
 export async function createMaintenanceLog(motoId, type, desc, hours) {
-  const row = {
+  const { data: rpcId, error: rpcErr } = await supabase.rpc('create_test_maintenance_log', {
+    p_moto_id: motoId, p_service_type: type, p_description: desc, p_labor_hours: hours,
+  })
+  if (!rpcErr && rpcId) return { ok: true, data: { id: rpcId }, error: null }
+  // Fallback
+  const { data, error } = await supabase.from('maintenance_log').insert({
     moto_id: motoId, service_type: type, description: desc, labor_hours: hours,
-    service_date: new Date().toISOString().split('T')[0], status: 'completed', is_test: true
-  }
-  let result = await supabase.from('maintenance_log').insert(row).select('id').single()
-  if (result.error?.message?.includes('is_test')) {
-    delete row.is_test
-    result = await supabase.from('maintenance_log').insert(row).select('id').single()
-  }
-  const { data, error } = result
+    service_date: new Date().toISOString().split('T')[0], status: 'completed', is_test: true,
+  }).select('id').single()
   return { ok: !error, data, error: error?.message }
 }
 
@@ -308,46 +296,19 @@ export async function sendCustomerMessage(userId, content) {
   return { ok: !error, threadId, error: error?.message }
 }
 
-// 18. Update customer profile
+// 18. Update customer profile (RPC bypass RLS)
 export async function updateProfile(userId, updates) {
-  const { error } = await supabase.from('profiles').update(updates).eq('id', userId)
+  const { error } = await supabase.rpc('update_test_profile', {
+    p_user_id: userId, p_data: updates,
+  })
   return { ok: !error, error: error?.message }
 }
 
-// --- CLEANUP ---
+// --- CLEANUP (via SECURITY DEFINER RPC) ---
 export async function cleanupTestData() {
-  const results = []
-  // Delete test SOS timeline entries
-  const { data: testSos } = await supabase.from('sos_incidents').select('id').eq('is_test', true)
-  if (testSos?.length) {
-    for (const s of testSos) {
-      await supabase.from('sos_timeline').delete().eq('incident_id', s.id)
-    }
-  }
-  const { count: b } = await supabase.from('bookings').delete({ count: 'exact' }).eq('is_test', true)
-  results.push(`Bookings: ${b || 0}`)
-  const { count: si } = await supabase.from('sos_incidents').delete({ count: 'exact' }).eq('is_test', true)
-  results.push(`SOS: ${si || 0}`)
-  const { count: so } = await supabase.from('service_orders').delete({ count: 'exact' }).eq('is_test', true)
-  results.push(`Service: ${so || 0}`)
-  const { count: p } = await supabase.from('promo_codes').delete({ count: 'exact' }).eq('is_test', true)
-  results.push(`Promo: ${p || 0}`)
-  const { count: ml } = await supabase.from('maintenance_log').delete({ count: 'exact' }).eq('is_test', true)
-  results.push(`Maintenance: ${ml || 0}`)
-  // Delete test message threads
-  const { data: testProfiles } = await supabase.from('profiles').select('id').eq('is_test_account', true)
-  if (testProfiles?.length) {
-    for (const pr of testProfiles) {
-      const { data: threads } = await supabase.from('message_threads').select('id').eq('customer_id', pr.id)
-      for (const t of (threads || [])) {
-        await supabase.from('messages').delete().eq('thread_id', t.id)
-      }
-      await supabase.from('message_threads').delete().eq('customer_id', pr.id)
-    }
-  }
-  const { count: pr } = await supabase.from('profiles').delete({ count: 'exact' }).eq('is_test_account', true)
-  results.push(`Profiles: ${pr || 0}`)
-  return results
+  const { data, error } = await supabase.rpc('cleanup_all_test_data')
+  if (error) console.error('[cleanup]', error.message)
+  return [error ? `Error: ${error.message}` : 'Cleanup OK']
 }
 
 export { TS, FIRST, LAST, PICK, futureDate }
