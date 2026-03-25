@@ -5,6 +5,7 @@ import { buildAgentPromptsText } from '../../lib/aiAgentPrompts'
 import { buildAllAgentMemory } from '../../lib/aiAgentMemory'
 import { recordOutcome } from '../../lib/aiLearning'
 import { auditAllPages, getAuditLog, exportAuditMarkdown, analyzeMissingFeatures, VELIN_PAGES } from '../../lib/aiVelinAuditor'
+import { runAppFlowTest, exportAppFlowMarkdown, APP_FLOW_STEPS } from '../../lib/aiAppFlowTest'
 import Button from '../ui/Button'
 
 const APP_URL = 'https://motogo24.cz'
@@ -41,6 +42,19 @@ export default function AiTestRunner() {
   const [auditFilter, setAuditFilter] = useState('all')
   const [suggestions, setSuggestions] = useState([])
   const logRef = useRef(null)
+  // App flow state
+  const [appFlowResults, setAppFlowResults] = useState(null)
+  const [appFlowRunning, setAppFlowRunning] = useState(false)
+  const [appFlowProgress, setAppFlowProgress] = useState(null)
+
+  // --- App Flow Test ---
+  async function runAppFlow() {
+    setAppFlowRunning(true)
+    const results = await runAppFlowTest((p) => setAppFlowProgress(p))
+    setAppFlowResults(results)
+    setAppFlowRunning(false)
+    setAppFlowProgress(null)
+  }
 
   // --- E2E Tests (existing) ---
   async function runStep(step) {
@@ -127,6 +141,7 @@ export default function AiTestRunner() {
       {/* View tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
         {[
+          { id: 'appflow', label: 'App flow', icon: '📱' },
           { id: 'audit', label: 'Audit velínu', icon: '🔍' },
           { id: 'e2e', label: 'E2E testy', icon: '🧪' },
           { id: 'log', label: 'Návrhy oprav', icon: '💡' },
@@ -137,6 +152,69 @@ export default function AiTestRunner() {
           }}>{v.icon} {v.label}</button>
         ))}
       </div>
+
+      {/* ===================== APP FLOW VIEW ===================== */}
+      {view === 'appflow' && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <div className="text-sm font-extrabold" style={{ color: '#0f1a14' }}>Test MotoGo24 App Flow</div>
+              <div style={{ fontSize: 11, color: '#666' }}>
+                {APP_FLOW_STEPS.length} kontrol: Auth, Katalog, Rezervace, Platby, Dokumenty, Zprávy, SOS, Edge
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {appFlowResults && (
+                <button onClick={() => { navigator.clipboard.writeText(exportAppFlowMarkdown(appFlowResults)); alert('Zkopírováno') }}
+                  style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, border: '1px solid #d4e8e0', background: '#f8fcfa', cursor: 'pointer' }}>
+                  Kopírovat MD
+                </button>
+              )}
+              <Button green onClick={runAppFlow} disabled={appFlowRunning} style={{ fontSize: 12, padding: '6px 14px' }}>
+                {appFlowRunning ? `Testuji… ${appFlowProgress?.label || ''}` : 'Spustit test'}
+              </Button>
+            </div>
+          </div>
+
+          {appFlowResults && (() => {
+            const pass = appFlowResults.filter(r => r.ok).length
+            const fail = appFlowResults.filter(r => !r.ok).length
+            return (
+              <div style={{ padding: '8px 12px', borderRadius: 8, marginBottom: 10,
+                background: fail ? '#fef2f2' : '#dcfce7', border: `1px solid ${fail ? '#ef4444' : '#22c55e'}` }}>
+                <span style={{ fontWeight: 700, fontSize: 13 }}>{pass} OK | {fail} FAIL | {appFlowResults.length} celkem</span>
+              </div>
+            )
+          })()}
+
+          {appFlowResults ? (() => {
+            let lastPhase = ''
+            return appFlowResults.map((r, i) => {
+              const showPhase = r.phase !== lastPhase
+              lastPhase = r.phase
+              return (
+                <div key={i}>
+                  {showPhase && <div style={{ fontWeight: 800, fontSize: 12, color: '#0f1a14', marginTop: 8, marginBottom: 4 }}>{r.phase}</div>}
+                  <div style={{
+                    display: 'flex', gap: 8, padding: '5px 10px', marginBottom: 2, borderRadius: 6, fontSize: 11,
+                    background: r.ok ? '#f0fdf4' : '#fef2f2', border: `1px solid ${r.ok ? '#d4e8e0' : '#fecaca'}`,
+                  }}>
+                    <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 4, fontWeight: 700, minWidth: 30, textAlign: 'center',
+                      background: r.ok ? '#22c55e' : '#ef4444', color: '#fff' }}>{r.ok ? 'OK' : 'FAIL'}</span>
+                    <span style={{ fontWeight: 600, color: '#0f1a14', minWidth: 180 }}>{r.label}</span>
+                    <span style={{ color: r.ok ? '#666' : '#dc2626', flex: 1 }}>{r.detail}</span>
+                  </div>
+                </div>
+              )
+            })
+          })() : (
+            <div style={{ textAlign: 'center', padding: 30, color: '#999', fontSize: 12 }}>
+              Test ověří celý zákaznický flow: přihlášení → katalog → ceník → dostupnost → platby → dokumenty → SOS → edge funkce.<br />
+              Klikni "Spustit test" pro zahájení.
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ===================== AUDIT VIEW ===================== */}
       {view === 'audit' && (

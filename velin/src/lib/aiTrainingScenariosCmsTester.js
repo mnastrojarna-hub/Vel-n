@@ -21,12 +21,12 @@ export async function trainCmsAgent(onStep) {
   // 2. Email šablony — kontrola kompletnosti (slug, subject, obsah)
   onStep?.({ agent: 'cms', action: 'Email šablony audit', i: 2, total: 10 })
   const { data: emails } = await supabase.from('email_templates')
-    .select('id, slug, subject, is_active, body_template').limit(30)
+    .select('id, slug, subject, active, body_html').limit(30)
   results.push({ agent: 'cms', action: 'fetch_email_templates', ok: true, count: emails?.length || 0 })
   for (const tpl of (emails || []).slice(0, 5)) {
     const hasSubject = !!tpl.subject
-    const hasBody = !!(tpl.body_template?.length > 10)
-    results.push({ agent: 'cms', action: 'verify_email_template', ok: hasSubject && hasBody, slug: tpl.slug, hasSubject, hasBody, active: tpl.is_active })
+    const hasBody = !!(tpl.body_html?.length > 10)
+    results.push({ agent: 'cms', action: 'verify_email_template', ok: hasSubject && hasBody, slug: tpl.slug, hasSubject, hasBody, active: tpl.active })
     if (!hasBody) results.push({ agent: 'cms', action: 'alert_empty_template', ok: false, slug: tpl.slug })
   }
 
@@ -172,15 +172,15 @@ export async function trainEshopAgent(onStep) {
 
   // 3. Příslušenství — kontrola skladových zásob
   onStep?.({ agent: 'eshop', action: 'Sklad příslušenství', i: 5, total: 12 })
-  const { data: acc } = await supabase.from('accessory_types').select('id, name, category').limit(20)
+  const { data: acc } = await supabase.from('accessory_types').select('id, key, label, is_active').limit(20)
   results.push({ agent: 'eshop', action: 'fetch_accessory_types', ok: true, count: acc?.length || 0 })
 
   // 4. Vouchery — aktivní, expirované
   onStep?.({ agent: 'eshop', action: 'Kontrola voucherů', i: 7, total: 12 })
   const { data: vouchers } = await supabase.from('vouchers')
-    .select('id, code, status, amount, expires_at').limit(20)
+    .select('id, code, status, amount, valid_until').limit(20)
   const activeVouchers = (vouchers || []).filter(v => v.status === 'active')
-  const expiredVouchers = (vouchers || []).filter(v => v.expires_at && new Date(v.expires_at) < new Date() && v.status === 'active')
+  const expiredVouchers = (vouchers || []).filter(v => v.valid_until && new Date(v.valid_until) < new Date() && v.status === 'active')
   results.push({ agent: 'eshop', action: 'voucher_audit', ok: true, total: vouchers?.length || 0, active: activeVouchers.length, expired: expiredVouchers.length })
   if (expiredVouchers.length) results.push({ agent: 'eshop', action: 'alert_expired_vouchers', ok: false, count: expiredVouchers.length })
 

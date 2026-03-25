@@ -70,13 +70,14 @@ export async function trainBookingsAgent(onStep) {
   if (!pool.length) return [{ ok: false, error: 'Rate limit' }]
   results.push({ agent: 'customers', action: 'pool_created', ok: true, count: pool.length })
 
-  // Simulate all customer behaviors (8 basic + 4 extreme)
+  // Simulate all customer behaviors — each gets unique date range (no overlap)
+  // Spacing: 10 days per scenario, start offset 5 to avoid collisions
   for (let i = 0; i < BEHAVIORS.length; i++) {
     const behavior = BEHAVIORS[i % BEHAVIORS.length]
     const moto = motos.data[i % motos.data.length]
     const cust = pool[i % pool.length]
-    const start = API.futureDate(i * 7 + 3)
-    const end = API.futureDate(i * 7 + 6)
+    const start = API.futureDate(i * 10 + 5)
+    const end = API.futureDate(i * 10 + 8)
     onStep?.({ agent: 'bookings', action: `${behavior.label} #${i + 1}`, i, total: BEHAVIORS.length + 4 })
 
     // Step 1: always create booking
@@ -126,11 +127,11 @@ export async function trainBookingsAgent(onStep) {
           results.push({ agent: 'bookings', action: 'waiting_for_payment', ok: true })
           break
         case 'extend':
-          await API.extendBooking(booking.bookingId, API.futureDate(i * 7 + 9))
+          await API.extendBooking(booking.bookingId, API.futureDate(i * 10 + 9))
           results.push({ agent: 'bookings', action: 'customer_extends', ok: true })
           break
         case 'shorten':
-          await API.shortenBooking(booking.bookingId, API.futureDate(i * 7 + 5))
+          await API.shortenBooking(booking.bookingId, API.futureDate(i * 10 + 7))
           results.push({ agent: 'bookings', action: 'customer_shortens', ok: true })
           break
         case 'complain':
@@ -221,8 +222,9 @@ export async function trainSosAgent(onStep) {
       stepIdx++
       onStep?.({ agent: 'sos', action: `${sosType.label} #${i + 1}/5`, i: stepIdx, total: 25 })
 
-      const bookingStart = API.futureDate(stepIdx * 5)
-      const bookingEnd = API.futureDate(stepIdx * 5 + 3)
+      // Each SOS gets unique dates (10 day spacing to avoid overlap with bookings agent)
+      const bookingStart = API.futureDate(200 + stepIdx * 10)
+      const bookingEnd = API.futureDate(200 + stepIdx * 10 + 3)
       const booking = await API.createBooking(cust.userId, moto.id, bookingStart, bookingEnd)
       if (!booking.ok) { results.push({ agent: 'sos', action: 'booking_failed', ok: false }); continue }
       await API.confirmBookingPayment(booking.bookingId)
