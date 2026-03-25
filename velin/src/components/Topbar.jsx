@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import AiNotificationBell from './ai/AiNotificationBell'
 
 
 const ROUTE_LABELS = {
@@ -108,7 +109,10 @@ export default function Topbar() {
           {time.toLocaleTimeString('cs-CZ')}
         </div>
 
-        {/* Notification bell */}
+        {/* AI Agent notifications */}
+        <AiNotificationBell />
+
+        {/* System notification bell */}
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setDropdownOpen(!dropdownOpen)}
