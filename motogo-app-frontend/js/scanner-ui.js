@@ -333,6 +333,11 @@ var ScannerUI = (function(){
         }
         if(vResult.status === 'verified'){
           localStorage.setItem('mg_docs_verified','1');
+          // Persist verification to DB (survives logout)
+          if(typeof apiSaveDocVerification === 'function'){
+            var scannedTypes = Object.keys(DocScanner._allMindeeData || {});
+            apiSaveDocVerification(saveData, scannedTypes).catch(function(){});
+          }
           _showVerificationResult(true, [], vResult.warnings || []);
         } else {
           localStorage.removeItem('mg_docs_verified');

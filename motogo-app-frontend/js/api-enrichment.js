@@ -474,3 +474,80 @@ async function apiCheckLicenseForMoto(motoId, endDate){
     return {allowed:false, reason:'Pro tuto motorku potřebujete skupinu ' + required};
   } catch(e){ return {allowed:false, reason:'Chyba kontroly oprávnění'}; }
 }
+
+// ===== Persistent doc verification — save to DB (not just localStorage) =====
+// Called after successful Mindee scan + verify. Stores verification dates in profiles.
+async function apiSaveDocVerification(ocrData, scannedTypes){
+  _ensureSupabase();
+  if(!window.supabase) return;
+  try {
+    var uid = await _getUserId();
+    if(!uid) return;
+
+    function czToIso(v){
+      if(!v) return null; v = v.trim();
+      if(/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+      var m = v.match(/^(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})$/);
+      if(m) return m[3]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[1]).slice(-2);
+      return null;
+    }
+
+    var update = {};
+    var now = new Date().toISOString();
+    var types = scannedTypes || [];
+
+    // OP verified
+    if(types.indexOf('id_front') !== -1 || types.indexOf('id_back') !== -1){
+      update.id_verified_at = now;
+      if(ocrData.expiryDate || ocrData.licenseExpiry){
+        var exp = czToIso(ocrData.expiryDate) || czToIso(ocrData.licenseExpiry);
+        if(exp) update.id_verified_until = exp;
+      }
+    }
+    // Passport verified
+    if(types.indexOf('passport_front') !== -1){
+      update.passport_verified_at = now;
+      if(ocrData.expiryDate){
+        var pExp = czToIso(ocrData.expiryDate);
+        if(pExp) update.passport_verified_until = pExp;
+      }
+    }
+    // ŘP verified
+    if(types.indexOf('dl_front') !== -1 || types.indexOf('dl_back') !== -1){
+      update.license_verified_at = now;
+      if(ocrData.licenseExpiry || ocrData.expiryDate){
+        var lExp = czToIso(ocrData.licenseExpiry) || czToIso(ocrData.expiryDate);
+        if(lExp) update.license_verified_until = lExp;
+      }
+    }
+
+    if(Object.keys(update).length > 0){
+      console.log('[API] apiSaveDocVerification:', Object.keys(update));
+      await window.supabase.from('profiles').update(update).eq('id', uid);
+    }
+  } catch(e){ console.warn('[API] apiSaveDocVerification error:', e); }
+}
+
+// Check if docs are verified from DB (persistent, survives logout)
+async function apiCheckDocsVerified(){
+  _ensureSupabase();
+  if(!window.supabase) return false;
+  try {
+    var uid = await _getUserId();
+    if(!uid) return false;
+    var r = await window.supabase.from('profiles')
+      .select('id_verified_at, id_verified_until, license_verified_at, license_verified_until, passport_verified_at, passport_verified_until')
+      .eq('id', uid).single();
+    if(!r.data) return false;
+    var p = r.data;
+    var today = new Date().toISOString().slice(0,10);
+    var hasId = p.id_verified_at && (!p.id_verified_until || p.id_verified_until >= today);
+    var hasPassport = p.passport_verified_at && (!p.passport_verified_until || p.passport_verified_until >= today);
+    var hasLicense = p.license_verified_at && (!p.license_verified_until || p.license_verified_until >= today);
+    var verified = (hasId || hasPassport) && hasLicense;
+    // Sync to localStorage for offline/quick checks
+    if(verified) localStorage.setItem('mg_docs_verified','1');
+    else localStorage.removeItem('mg_docs_verified');
+    return verified;
+  } catch(e){ return false; }
+}
