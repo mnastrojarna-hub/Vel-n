@@ -48,11 +48,10 @@ export async function createTestCustomer() {
       if (profile) { profileFound = true; break }
     }
     if (!profileFound) console.error('[createTestCustomer] Profile NOT created after 5s for', userId)
-    // Update profile via direct UPDATE (RPC has jsonb cast issues)
+    // Update profile — skip license_group (PostgreSQL array cast issue via PostgREST)
     await supabase.from('profiles').update({
       full_name: `${fn} ${ln}`,
       phone: PHONE(),
-      license_group: PICK([['A'], ['A2'], ['A', 'B'], ['A2', 'B']]),
       is_test_account: true,
     }).eq('id', userId)
   }
