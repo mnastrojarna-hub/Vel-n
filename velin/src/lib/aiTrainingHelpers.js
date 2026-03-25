@@ -45,8 +45,8 @@ export async function createTestCustomer() {
       is_test_account: true,
     }).eq('id', userId)
   }
-  // Throttle to avoid 429 rate limit on signUp
-  await delay(1200)
+  // Throttle to avoid 429 rate limit on signUp (free tier = ~1/3s)
+  await delay(3500)
   return { ok: true, userId, email, name: `${fn} ${ln}` }
 }
 
@@ -146,7 +146,7 @@ export async function createSosIncident(userId, bookingId, motoId, type, desc) {
   if (data?.id) {
     await supabase.from('sos_timeline').insert({
       incident_id: data.id, action: 'incident_created',
-      details: JSON.stringify({ type, desc })
+      data: JSON.stringify({ type, desc })
     })
   }
   return { ok: !error, incidentId: data?.id, data, error: error?.message }
@@ -159,7 +159,7 @@ export async function updateSosStatus(incidentId, status, notes = '') {
   }).eq('id', incidentId)
 
   await supabase.from('sos_timeline').insert({
-    incident_id: incidentId, action: `status_${status}`, details: notes
+    incident_id: incidentId, action: `status_${status}`, data: JSON.stringify({ notes })
   })
   return { ok: !error, error: error?.message }
 }
