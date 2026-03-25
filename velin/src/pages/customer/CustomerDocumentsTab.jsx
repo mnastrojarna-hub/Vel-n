@@ -86,7 +86,7 @@ export default function CustomerDocumentsTab({ userId }) {
         }
       }
 
-      const VERIFICATION_TYPES = ['drivers_license', 'id_card', 'passport']
+      const VERIFICATION_TYPES = ['drivers_license', 'id_card', 'passport', 'id_photo', 'license_photo']
       const INVOICE_SYNCED_TYPES = ['invoice_advance', 'payment_receipt', 'invoice_final', 'invoice_shop']
       const allDocs = docsRes.data || []
       setDocs(allDocs.filter(d => !VERIFICATION_TYPES.includes(d.type) && !INVOICE_SYNCED_TYPES.includes(d.type)))
@@ -221,8 +221,8 @@ export default function CustomerDocumentsTab({ userId }) {
   }
 
   function getVerificationStatus() {
-    const hasLicense = verificationDocs.some(d => d.type === 'drivers_license')
-    const hasIdCard = verificationDocs.some(d => d.type === 'id_card')
+    const hasLicense = verificationDocs.some(d => d.type === 'drivers_license' || d.type === 'license_photo')
+    const hasIdCard = verificationDocs.some(d => d.type === 'id_card' || d.type === 'id_photo')
     const hasPassport = verificationDocs.some(d => d.type === 'passport')
     const hasIdentity = hasIdCard || hasPassport
     const licenseValid = profile?.license_expiry ? new Date(profile.license_expiry) > new Date() : false

@@ -11,6 +11,7 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
   const [sosIncidents, setSosIncidents] = useState([])
   const [bookingExtras, setBookingExtras] = useState([])
   const [cancellation, setCancellation] = useState(null)
+  const [doorCodes, setDoorCodes] = useState([])
 
   useEffect(() => {
     if (!booking?.id) return
@@ -21,6 +22,10 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
     supabase.from('booking_extras').select('*, extras_catalog(name, price)')
       .eq('booking_id', booking.id)
       .then(({ data }) => { if (data) setBookingExtras(data) }).catch(() => {})
+    supabase.from('branch_door_codes').select('*')
+      .eq('booking_id', booking.id)
+      .order('code_type')
+      .then(({ data }) => { if (data) setDoorCodes(data) }).catch(() => {})
     if (booking.status === 'cancelled') {
       supabase.from('booking_cancellations').select('*')
         .eq('booking_id', booking.id).limit(1).single()
@@ -75,6 +80,8 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
           </div>
         </Card>
       )}
+
+      {doorCodes.length > 0 && <DoorCodesSection doorCodes={doorCodes} />}
 
       <DatesAndPaymentSection booking={booking} bookingExtras={bookingExtras} sosIncidents={sosIncidents} onModify={onModify} error={error} actions={actions} onAction={onAction} />
 
@@ -278,6 +285,39 @@ function AddressBlock({ label, method, address, branchName, lat, lng }) {
         </a>
       )}
     </div>
+  )
+}
+
+function DoorCodesSection({ doorCodes }) {
+  const motoCode = doorCodes.find(c => c.code_type === 'motorcycle')
+  const gearCode = doorCodes.find(c => c.code_type === 'accessories')
+  const allSent = doorCodes.every(c => c.sent_to_customer)
+  const anyWithheld = doorCodes.some(c => c.withheld_reason)
+
+  return (
+    <Card className="col-span-2">
+      <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Pristupove kody k pobocce</h3>
+      <div className="p-4 rounded-lg" style={{ background: allSent ? '#dcfce7' : anyWithheld ? '#fef3c7' : '#f1faf7', border: `1px solid ${allSent ? '#86efac' : anyWithheld ? '#fcd34d' : '#d4e8e0'}` }}>
+        <div className="grid grid-cols-2 gap-4 mb-3">
+          <div>
+            <div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Kod k motorce</div>
+            <div className="text-lg font-black tracking-widest" style={{ color: '#0f1a14', fontFamily: 'monospace' }}>{motoCode?.door_code || '—'}</div>
+          </div>
+          <div>
+            <div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Kod k prislusenstvi</div>
+            <div className="text-lg font-black tracking-widest" style={{ color: '#0f1a14', fontFamily: 'monospace' }}>{gearCode?.door_code || '—'}</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: allSent ? '#dcfce7' : '#fee2e2', color: allSent ? '#1a8a18' : '#dc2626' }}>
+            {allSent ? 'Odeslano zakaznikovi' : 'Neodeslano'}
+          </span>
+          {motoCode?.is_active && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#dbeafe', color: '#2563eb' }}>Aktivni</span>}
+          {motoCode && !motoCode.is_active && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#f3f4f6', color: '#6b7280' }}>Neaktivni</span>}
+          {anyWithheld && <span className="inline-block rounded-btn text-xs font-bold" style={{ padding: '3px 10px', background: '#fef3c7', color: '#b45309' }}>Zadrzeno: {motoCode?.withheld_reason || gearCode?.withheld_reason}</span>}
+        </div>
+      </div>
+    </Card>
   )
 }
 

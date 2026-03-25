@@ -31,7 +31,8 @@
 | `send_sms_and_wa(to, slug, vars, customer_id, booking_id)` | Helper: odešle SMS + WhatsApp přes `send_message_via_edge`. SECURITY DEFINER |
 | `mark_thread_messages_read(p_thread_id)` | RPC: označí admin zprávy ve vlákně jako přečtené (read_at=now). Ověřuje vlastnictví vlákna. SECURITY DEFINER |
 | `get_unread_thread_message_count(p_customer_id)` | RPC: vrací počet nepřečtených admin zpráv napříč všemi vlákny zákazníka. SECURITY DEFINER |
-| `auto_generate_door_codes()` | Trigger funkce: auto-generuje 2 přístupové kódy (motorcycle+accessories) při přechodu bookingu na 'active'. Kontroluje doklady zákazníka, posílá kódy jako admin_message. SECURITY DEFINER, EXCEPTION safe |
+| `auto_generate_door_codes()` | Trigger funkce: auto-generuje 2 přístupové kódy (motorcycle+accessories) při přechodu bookingu na 'active'. Kontroluje doklady zákazníka (id_card/passport + drivers_license, fallback na license_number+id_number v profilu). Posílá kódy jako admin_message jen pokud má doklady. SECURITY DEFINER, EXCEPTION safe |
+| `verify_customer_docs(p_ocr_name, p_ocr_dob, p_ocr_id_number, p_ocr_license_number, p_ocr_license_category, p_ocr_license_expiry, p_rental_end)` | Verifikace naskenovaných dokladů proti profilu. Kontroluje jméno, datum narození, číslo ŘP, platnost ŘP (i proti datu konce rezervace), skupiny ŘP. Vrací jsonb {success, status, mismatches, warnings}. SECURITY DEFINER |
 | `auto_deactivate_door_codes()` | Trigger funkce: deaktivuje všechny aktivní kódy (is_active=false) při přechodu bookingu na 'completed' nebo 'cancelled'. SECURITY DEFINER, EXCEPTION safe |
 
 ### Další funkce v reálné DB (ne v migracích)
