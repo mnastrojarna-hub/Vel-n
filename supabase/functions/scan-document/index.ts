@@ -2,20 +2,18 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const MINDEE_API_KEY = Deno.env.get('MINDEE_API_KEY') || ''
+const MINDEE_MODEL_ID = Deno.env.get('MINDEE_MODEL_ID') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+
+// Mindee v2 API endpoints
+const MINDEE_ENQUEUE_URL = 'https://api-v2.mindee.net/v2/inferences/enqueue'
+const MINDEE_JOBS_URL = 'https://api-v2.mindee.net/v2/jobs'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-// Mindee API endpoints per document type
-const MINDEE_ENDPOINTS: Record<string, string> = {
-  id: 'https://api.mindee.net/v1/products/mindee/international_id/v2/predict',
-  dl: 'https://api.mindee.net/v1/products/mindee/international_id/v2/predict',
-  passport: 'https://api.mindee.net/v1/products/mindee/passport/v1/predict',
 }
 
 interface MindeeField {
@@ -31,92 +29,121 @@ function extractField(field: MindeeField | undefined): string {
 function extractDate(field: MindeeField | undefined): string {
   const val = extractField(field)
   if (!val) return ''
-  // Already ISO format YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val
-  // Try DD/MM/YYYY or DD.MM.YYYY
   const m = val.match(/(\d{2})[./](\d{2})[./](\d{4})/)
   if (m) return `${m[3]}-${m[2]}-${m[1]}`
   return val
 }
 
-// Parse Mindee international_id response
-function parseInternationalId(prediction: Record<string, any>): Record<string, string> {
-  const result: Record<string, string> = {}
+// Parse fields from Mindee v2 inference result
+// v2 returns a unified structure — fields may be in result.fields or result.prediction
+function parseV2Result(result: Record<string, any>, docType: string): Record<string, string> {
+  const data: Record<string, string> = {}
 
-  // Names
-  const surnames = prediction.surnames || []
-  const givenNames = prediction.given_names || []
-  if (surnames.length > 0) result.lastName = surnames.map((s: MindeeField) => extractField(s)).join(' ')
-  if (givenNames.length > 0) result.firstName = givenNames.map((g: MindeeField) => extractField(g)).join(' ')
+  // v2 may nest fields differently — try multiple paths
+  const fields = result.fields || result.prediction || result
+
+  // Helper to get field value from various formats
+  function getVal(key: string): string {
+    const f = fields[key]
+    if (!f) return ''
+    if (typeof f === 'string') return f.trim()
+    if (typeof f === 'object' && f.value !== undefined && f.value !== null) return String(f.value).trim()
+    return ''
+  }
+
+  function getDateVal(key: string): string {
+    const v = getVal(key)
+    if (!v) return ''
+    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v
+    const m = v.match(/(\d{2})[./](\d{2})[./](\d{4})/)
+    if (m) return `${m[3]}-${m[2]}-${m[1]}`
+    return v
+  }
+
+  // Names — try various field name conventions
+  const surnames = fields.surnames || fields.surname || fields.last_name || fields.family_name
+  const givenNames = fields.given_names || fields.given_name || fields.first_name
+
+  if (surnames) {
+    if (Array.isArray(surnames)) {
+      data.lastName = surnames.map((s: any) => typeof s === 'string' ? s : extractField(s)).join(' ')
+    } else {
+      data.lastName = typeof surnames === 'string' ? surnames : extractField(surnames)
+    }
+  }
+  if (givenNames) {
+    if (Array.isArray(givenNames)) {
+      data.firstName = givenNames.map((g: any) => typeof g === 'string' ? g : extractField(g)).join(' ')
+    } else {
+      data.firstName = typeof givenNames === 'string' ? givenNames : extractField(givenNames)
+    }
+  }
 
   // Date of birth
-  if (prediction.birth_date) result.dob = extractDate(prediction.birth_date)
+  const dob = getDateVal('birth_date') || getDateVal('date_of_birth')
+  if (dob) data.dob = dob
 
   // Document number
-  if (prediction.document_number) result.idNumber = extractField(prediction.document_number)
+  const docNum = getVal('document_number') || getVal('id_number') || getVal('number')
+  if (docNum) data.idNumber = docNum
 
   // Address
-  if (prediction.address) result.address = extractField(prediction.address)
-  // Some docs return birth_place instead
-  if (!result.address && prediction.birth_place) result.birthPlace = extractField(prediction.birth_place)
+  const addr = getVal('address') || getVal('birth_place')
+  if (addr) {
+    if (getVal('address')) data.address = addr
+    else data.birthPlace = addr
+  }
 
-  // Sex
-  if (prediction.sex) result.sex = extractField(prediction.sex)
+  // Sex / Gender
+  const sex = getVal('sex') || getVal('gender')
+  if (sex) data.sex = sex
 
   // Nationality
-  if (prediction.nationality) result.nationality = extractField(prediction.nationality)
+  const nat = getVal('nationality') || getVal('country')
+  if (nat) data.nationality = nat
 
-  // Expiry & issue dates
-  if (prediction.expiry_date) result.expiryDate = extractDate(prediction.expiry_date)
-  if (prediction.issue_date) result.issuedDate = extractDate(prediction.issue_date)
+  // Dates
+  const expiry = getDateVal('expiry_date') || getDateVal('expiration_date')
+  if (expiry) data.expiryDate = expiry
+  const issued = getDateVal('issue_date') || getDateVal('issuance_date')
+  if (issued) data.issuedDate = issued
 
-  // MRZ (Machine Readable Zone)
-  if (prediction.mrz1) result.mrz1 = extractField(prediction.mrz1)
-  if (prediction.mrz2) result.mrz2 = extractField(prediction.mrz2)
-  if (prediction.mrz3) result.mrz3 = extractField(prediction.mrz3)
+  // MRZ
+  const mrz1 = getVal('mrz1') || getVal('mrz_line1')
+  const mrz2 = getVal('mrz2') || getVal('mrz_line2')
+  const mrz3 = getVal('mrz3') || getVal('mrz_line3')
+  if (mrz1) data.mrz1 = mrz1
+  if (mrz2) data.mrz2 = mrz2
+  if (mrz3) data.mrz3 = mrz3
 
-  // Document type (for DL: extract license category)
-  if (prediction.document_type) result.documentType = extractField(prediction.document_type)
+  // Document type (for classification: IDENTIFICATION_CARD, PASSPORT, DRIVER_LICENCE, etc.)
+  const dt = getVal('document_type') || getVal('classification')
+  if (dt) data.documentType = dt
 
-  return result
-}
-
-// Parse Mindee passport response
-function parsePassport(prediction: Record<string, any>): Record<string, string> {
-  const result: Record<string, string> = {}
-
-  if (prediction.surname) result.lastName = extractField(prediction.surname)
-  if (prediction.given_names && prediction.given_names.length > 0) {
-    result.firstName = prediction.given_names.map((g: MindeeField) => extractField(g)).join(' ')
+  // License categories for DL
+  if (docType === 'dl') {
+    const cats = getVal('license_categories') || getVal('categories') || getVal('vehicle_categories')
+    if (cats) data.licenseCategory = cats
+    if (data.idNumber) data.licenseNumber = data.idNumber
   }
-  if (prediction.birth_date) result.dob = extractDate(prediction.birth_date)
-  if (prediction.id_number) result.idNumber = extractField(prediction.id_number)
-  if (prediction.gender) result.sex = extractField(prediction.gender)
-  if (prediction.nationality) result.nationality = extractField(prediction.nationality)
-  if (prediction.expiry_date) result.expiryDate = extractDate(prediction.expiry_date)
-  if (prediction.issuance_date) result.issuedDate = extractDate(prediction.issuance_date)
-  if (prediction.birth_place) result.birthPlace = extractField(prediction.birth_place)
 
-  return result
+  return data
 }
 
-// Extract license categories from DL scan (from raw text or document_type)
+// Extract license categories from raw text
 function extractLicenseCategory(data: Record<string, string>, rawText: string): string {
-  // Common Czech/EU license categories
   const categories = ['AM', 'A1', 'A2', 'A', 'B1', 'B', 'C1', 'C', 'D1', 'D', 'BE', 'CE', 'DE', 'T']
   const found: string[] = []
-
-  const searchText = (data.documentType || '') + ' ' + rawText
+  const searchText = (data.documentType || '') + ' ' + (data.licenseCategory || '') + ' ' + rawText
   for (const cat of categories) {
-    // Match standalone category (not part of another word)
     const regex = new RegExp('\\b' + cat + '\\b', 'i')
     if (regex.test(searchText)) found.push(cat)
   }
-
   return found.length > 0 ? found.join(', ') : ''
 }
 
-// Helper: log to debug_log (best-effort, non-blocking)
+// Helper: log to debug_log
 async function debugLog(action: string, component: string, status: string, requestData: any, responseData: any, errorMessage?: string) {
   try {
     if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) return
@@ -136,6 +163,56 @@ async function debugLog(action: string, component: string, status: string, reque
   }
 }
 
+// Poll for Mindee v2 job result (3-step: enqueue → poll job → fetch result)
+async function pollForResult(jobId: string, pollingUrl?: string, maxAttempts: number = 15): Promise<any> {
+  const pollUrl = pollingUrl || `${MINDEE_JOBS_URL}/${jobId}`
+
+  for (let i = 0; i < maxAttempts; i++) {
+    // Wait before polling (1s first, then 2s intervals)
+    await new Promise(r => setTimeout(r, i === 0 ? 1000 : 2000))
+
+    const resp = await fetch(pollUrl, {
+      method: 'GET',
+      headers: { 'Authorization': MINDEE_API_KEY },
+    })
+
+    if (!resp.ok) {
+      const errBody = await resp.text()
+      console.warn(`[scan-document] Poll attempt ${i + 1} failed: HTTP ${resp.status}: ${errBody}`)
+      if (resp.status === 401 || resp.status === 403) throw new Error(`Auth error: ${errBody}`)
+      continue
+    }
+
+    const data = await resp.json()
+    const status = (data.status || data.job?.status || '').toLowerCase()
+
+    console.log(`[scan-document] Poll ${i + 1}: status=${status}`)
+
+    if (status === 'completed' || status === 'succeeded' || status === 'processed') {
+      // If response has result_url, fetch the actual result
+      const resultUrl = data.result_url || data.job?.result_url
+      if (resultUrl) {
+        console.log(`[scan-document] Fetching result from: ${resultUrl}`)
+        const resultResp = await fetch(resultUrl, {
+          method: 'GET',
+          headers: { 'Authorization': MINDEE_API_KEY },
+        })
+        if (!resultResp.ok) {
+          throw new Error(`Failed to fetch result: HTTP ${resultResp.status}`)
+        }
+        return await resultResp.json()
+      }
+      // No result_url — the data itself contains the result
+      return data
+    }
+    if (status === 'failed' || status === 'error') {
+      throw new Error('Mindee inference failed: ' + JSON.stringify(data.error || data))
+    }
+    // Still processing (waiting/processing) — continue polling
+  }
+  throw new Error('Mindee polling timeout after ' + maxAttempts + ' attempts')
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
@@ -148,14 +225,16 @@ serve(async (req) => {
     console.log('[scan-document] Invoked: document_type=' + (document_type || 'id') +
       ' user_id=' + (user_id || 'anon') +
       ' image_len=' + (image_base64 ? image_base64.length : 0) +
-      ' MINDEE_KEY_SET=' + (!!MINDEE_API_KEY))
+      ' MINDEE_KEY_SET=' + (!!MINDEE_API_KEY) +
+      ' MODEL_ID_SET=' + (!!MINDEE_MODEL_ID))
 
-    // Log entry — so we can see the function WAS called even if it fails later
     await debugLog('invoke', document_type || 'id', 'started', {
       document_type: document_type || 'id',
       user_id: user_id || null,
       image_length: image_base64 ? image_base64.length : 0,
       mindee_key_set: !!MINDEE_API_KEY,
+      model_id_set: !!MINDEE_MODEL_ID,
+      api_version: 'v2',
     }, null)
 
     if (!image_base64) {
@@ -172,8 +251,14 @@ serve(async (req) => {
       })
     }
 
+    if (!MINDEE_MODEL_ID) {
+      await debugLog('invoke', document_type || 'id', 'error', null, null, 'MINDEE_MODEL_ID not configured')
+      return new Response(JSON.stringify({ success: false, error: 'MINDEE_MODEL_ID not configured — set in Supabase Secrets' }), {
+        status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
+
     const docType = document_type || 'id'
-    const endpoint = MINDEE_ENDPOINTS[docType] || MINDEE_ENDPOINTS.id
 
     // Strip data URI prefix if present
     let cleanBase64 = image_base64
@@ -185,100 +270,140 @@ serve(async (req) => {
     const binaryData = Uint8Array.from(atob(cleanBase64), (c) => c.charCodeAt(0))
     const blob = new Blob([binaryData], { type: 'image/jpeg' })
 
-    // Build multipart form data
+    // ═══════════════════════════════════════════════
+    // Step 1: Enqueue document to Mindee v2 API
+    // ═══════════════════════════════════════════════
     const formData = new FormData()
-    formData.append('document', blob, 'document.jpg')
+    formData.append('file', blob, 'document.jpg')
+    formData.append('model_id', MINDEE_MODEL_ID)
+    formData.append('rag', 'false')
 
-    // Call Mindee API with retry
-    let mindeeResult: any = null
+    let enqueueResult: any = null
     let lastError = ''
 
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const resp = await fetch(endpoint, {
+        console.log(`[scan-document] Enqueue attempt ${attempt + 1}/3 to ${MINDEE_ENQUEUE_URL}`)
+
+        const resp = await fetch(MINDEE_ENQUEUE_URL, {
           method: 'POST',
           headers: {
-            'Authorization': `Token ${MINDEE_API_KEY}`,
+            'Authorization': MINDEE_API_KEY,
           },
           body: formData,
         })
 
         if (resp.ok) {
-          mindeeResult = await resp.json()
+          enqueueResult = await resp.json()
+          console.log('[scan-document] Enqueue OK:', JSON.stringify(enqueueResult).substring(0, 200))
           break
         } else {
           const errBody = await resp.text()
           lastError = `HTTP ${resp.status}: ${errBody}`
-          console.error(`[scan-document] Mindee attempt ${attempt + 1} failed:`, lastError)
-
-          // Don't retry on auth errors
+          console.error(`[scan-document] Enqueue attempt ${attempt + 1} failed:`, lastError)
           if (resp.status === 401 || resp.status === 403) break
-
-          // Wait before retry
           if (attempt < 2) await new Promise(r => setTimeout(r, 1000 * (attempt + 1)))
         }
       } catch (e) {
         lastError = String(e)
-        console.error(`[scan-document] Mindee network error attempt ${attempt + 1}:`, e)
+        console.error(`[scan-document] Enqueue network error attempt ${attempt + 1}:`, e)
         if (attempt < 2) await new Promise(r => setTimeout(r, 1000 * (attempt + 1)))
       }
     }
 
-    if (!mindeeResult) {
-      await debugLog('mindee_call', docType, 'error',
-        { document_type: docType, user_id: user_id || null, endpoint },
-        null, 'Mindee API failed: ' + lastError)
+    if (!enqueueResult) {
+      await debugLog('mindee_enqueue', docType, 'error',
+        { document_type: docType, user_id: user_id || null, model_id: MINDEE_MODEL_ID },
+        null, 'Mindee v2 enqueue failed: ' + lastError)
       return new Response(JSON.stringify({
         success: false,
-        error: 'Mindee API failed: ' + lastError,
+        error: 'Mindee API enqueue failed: ' + lastError,
       }), {
         status: 502, headers: { ...CORS, 'Content-Type': 'application/json' },
       })
     }
 
-    // Extract prediction from Mindee response
-    const prediction = mindeeResult?.document?.inference?.prediction
-    if (!prediction) {
-      await debugLog('mindee_parse', docType, 'error',
-        { document_type: docType, user_id: user_id || null },
-        { raw_keys: Object.keys(mindeeResult || {}) },
-        'No prediction in Mindee response')
+    // ═══════════════════════════════════════════════
+    // Step 2: Extract job ID and poll for result
+    // ═══════════════════════════════════════════════
+    const jobId = enqueueResult.job?.id || enqueueResult.id || enqueueResult.inference_id || enqueueResult.job_id
+    const pollingUrl = enqueueResult.job?.polling_url || null
+    if (!jobId) {
+      await debugLog('mindee_enqueue', docType, 'error',
+        { document_type: docType },
+        { raw: enqueueResult },
+        'No job ID in Mindee enqueue response')
       return new Response(JSON.stringify({
         success: false,
-        error: 'No prediction in Mindee response',
-        raw: mindeeResult,
+        error: 'No job ID in Mindee response',
+        raw: enqueueResult,
       }), {
         status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
       })
     }
 
-    // Parse based on document type
-    let data: Record<string, string>
-    if (docType === 'passport') {
-      data = parsePassport(prediction)
-    } else {
-      data = parseInternationalId(prediction)
+    console.log(`[scan-document] Job ID: ${jobId}, polling_url: ${pollingUrl || 'default'}, polling for result...`)
+
+    let mindeeResult: any
+    try {
+      mindeeResult = await pollForResult(jobId, pollingUrl)
+    } catch (e) {
+      const errMsg = String(e)
+      await debugLog('mindee_poll', docType, 'error',
+        { document_type: docType, job_id: jobId },
+        null, errMsg)
+      return new Response(JSON.stringify({
+        success: false,
+        error: errMsg,
+      }), {
+        status: 502, headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
     }
 
-    // Extract license category for DL scans
-    if (docType === 'dl') {
-      const rawPages = mindeeResult?.document?.inference?.pages || []
+    // ═══════════════════════════════════════════════
+    // Step 3: Parse the inference result
+    // ═══════════════════════════════════════════════
+    // v2 response structure may vary — try multiple paths
+    const inference = mindeeResult.inference || mindeeResult.result || mindeeResult
+    const prediction = inference?.result?.fields || inference?.prediction || inference?.fields || inference?.document?.inference?.prediction || inference
+
+    if (!prediction || (typeof prediction === 'object' && Object.keys(prediction).length === 0)) {
+      await debugLog('mindee_parse', docType, 'error',
+        { document_type: docType, job_id: jobId },
+        { raw_keys: Object.keys(mindeeResult || {}) },
+        'No prediction in Mindee v2 response')
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'No prediction in Mindee v2 response',
+        raw_keys: Object.keys(mindeeResult || {}),
+      }), {
+        status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Parse using unified v2 parser
+    const data = parseV2Result(prediction, docType)
+
+    // Extract license category for DL scans from raw text if not already found
+    if (docType === 'dl' && !data.licenseCategory) {
+      // Try to get raw text from v2 response
       let rawText = ''
-      for (const page of rawPages) {
-        const extras = page?.extras?.full_text_ocr?.content
+      const pages = inference?.pages || mindeeResult?.pages || []
+      for (const page of pages) {
+        const extras = page?.extras?.full_text_ocr?.content || page?.raw_text || ''
         if (extras) rawText += ' ' + extras
       }
+      // Also search in the full JSON for category patterns
+      rawText += ' ' + JSON.stringify(prediction)
       const category = extractLicenseCategory(data, rawText)
       if (category) data.licenseCategory = category
-
-      // For DL, the document number is the license number
-      if (data.idNumber) data.licenseNumber = data.idNumber
+      if (data.idNumber && !data.licenseNumber) data.licenseNumber = data.idNumber
     }
 
-    // Log success to debug_log
+    // Log success
     const durationMs = Date.now() - startTime
     await debugLog('mindee_ocr', docType, 'success',
-      { document_type: docType, user_id: user_id || null },
+      { document_type: docType, user_id: user_id || null, job_id: jobId, api_version: 'v2' },
       { fields_found: Object.keys(data).length, fields: Object.keys(data), duration_ms: durationMs })
 
     return new Response(JSON.stringify({

@@ -79,7 +79,7 @@ Detailní politiky:
 | `process-payment` | OFF | Stripe platební brána (**LIVE mode**). Podporuje booking, shop, extension i SOS platby. Vytváří Stripe Checkout Session. Automaticky vytváří/používá Stripe Customer |
 | `process-refund` | OFF | Stripe refundy (LIVE). Částečné i plné vrácení peněz. Volá Stripe Refund API |
 | `receive-invoice` | OFF | OCR + AI zpracování přijatých faktur (Claude Vision). Extrakce dat, klasifikace, routing do účetních tabulek |
-| `scan-document` | OFF | OCR skenování dokladů (OP, ŘP, pas) přes Mindee API. Retry 3×, loguje do debug_log |
+| `scan-document` | OFF | OCR skenování dokladů (OP, ŘP, pas) přes Mindee v2 API (enqueue+poll). Model ID z MINDEE_MODEL_ID secret. Retry 3×, loguje do debug_log |
 | `send-booking-email` | OFF | Odesílá branded HTML emaily (booking_reserved, booking_completed, booking_modified, voucher_purchased). Retry 3× |
 | `send-broadcast` | OFF | Hromadné zasílání kampaní (email, SMS, WhatsApp). Rate-limited, failure threshold 20% |
 | `send-cancellation-email` | OFF | Email o stornování rezervace s "obnovit" CTA. Retry 3× |
@@ -136,7 +136,8 @@ Detailní politiky:
 | `SUPABASE_ANON_KEY` | admin-reset-password, ai-copilot, ai-moto-agent, webhook-receiver (doc gen) |
 | `SUPABASE_DB_URL` | Přímý DB přístup z edge funkcí |
 | `ANTHROPIC_API_KEY` | ai-copilot, ai-moto-agent (Anthropic Claude API) |
-| `MINDEE_API_KEY` | scan-document (OCR) |
+| `MINDEE_API_KEY` | scan-document (OCR) — Mindee v2 API key |
+| `MINDEE_MODEL_ID` | scan-document — Mindee v2 model ID pro International ID (OP/pas/ŘP) |
 | `STRIPE_SECRET_KEY` | process-payment, webhook-receiver, manage-payment-methods (**LIVE sk_live_...**) |
 | `STRIPE_WEBHOOK_SECRET` | webhook-receiver (**POVINNÉ** — ověření Stripe signature, whsec_...) |
 | `ADMIN_EMAIL` | SOS notifikace, cron alerty |
