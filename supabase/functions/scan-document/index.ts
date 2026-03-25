@@ -307,7 +307,12 @@ serve(async (req) => {
 
         if (resp.ok) {
           enqueueResult = await resp.json()
-          console.log('[scan-document] Enqueue OK:', JSON.stringify(enqueueResult).substring(0, 200))
+          // Log FULL enqueue response for debugging
+          const fullJson = JSON.stringify(enqueueResult)
+          console.log('[scan-document] Enqueue OK (full):', fullJson.substring(0, 500))
+          await debugLog('mindee_enqueue', docType, 'success',
+            { document_type: docType, model_id: modelId },
+            { enqueue_response: enqueueResult, response_keys: Object.keys(enqueueResult) })
           break
         } else {
           const errBody = await resp.text()
@@ -338,23 +343,55 @@ serve(async (req) => {
     // ═══════════════════════════════════════════════
     // Step 2: Extract job ID and poll for result
     // ═══════════════════════════════════════════════
-    const jobId = enqueueResult.job?.id || enqueueResult.id || enqueueResult.inference_id || enqueueResult.job_id
-    const pollingUrl = enqueueResult.job?.polling_url || null
-    if (!jobId) {
+    // Try all known response formats for job ID and polling URL
+    const jobId = enqueueResult.job?.id || enqueueResult.id || enqueueResult.inference_id || enqueueResult.job_id || enqueueResult.inference?.id
+    // Polling URL: prefer explicit from response, fallback to constructed URL
+    const pollingUrl = enqueueResult.job?.polling_url || enqueueResult.polling_url || enqueueResult.status_url || null
+
+    console.log(`[scan-document] Enqueue response keys: ${JSON.stringify(Object.keys(enqueueResult))}`)
+    if (enqueueResult.job) console.log(`[scan-document] job keys: ${JSON.stringify(Object.keys(enqueueResult.job))}`)
+    if (enqueueResult.inference) console.log(`[scan-document] inference keys: ${JSON.stringify(Object.keys(enqueueResult.inference))}`)
+
+    if (!jobId && !pollingUrl) {
+      // Maybe the response already contains the result (synchronous mode?)
+      const maybeResult = enqueueResult.inference?.result || enqueueResult.result || enqueueResult.inference
+      if (maybeResult && typeof maybeResult === 'object' && Object.keys(maybeResult).length > 0) {
+        console.log('[scan-document] Enqueue returned immediate result — skipping polling')
+        // Jump directly to parsing
+        const inference = enqueueResult.inference || enqueueResult
+        const prediction = inference?.result?.fields || inference?.prediction || inference?.fields || inference?.document?.inference?.prediction || inference
+        if (prediction && typeof prediction === 'object' && Object.keys(prediction).length > 0) {
+          const data = parseV2Result(prediction, docType)
+          if (docType === 'dl' && !data.licenseCategory) {
+            const rawText = JSON.stringify(prediction)
+            const category = extractLicenseCategory(data, rawText)
+            if (category) data.licenseCategory = category
+            if (data.idNumber && !data.licenseNumber) data.licenseNumber = data.idNumber
+          }
+          const durationMs = Date.now() - startTime
+          await debugLog('mindee_ocr', docType, 'success',
+            { document_type: docType, user_id: user_id || null, api_version: 'v2', mode: 'immediate' },
+            { fields_found: Object.keys(data).length, fields: Object.keys(data), duration_ms: durationMs })
+          return new Response(JSON.stringify({ success: true, data, fields_count: Object.keys(data).filter(k => !!data[k]).length }), {
+            status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
+          })
+        }
+      }
+
       await debugLog('mindee_enqueue', docType, 'error',
         { document_type: docType },
-        { raw: enqueueResult },
-        'No job ID in Mindee enqueue response')
+        { raw: enqueueResult, raw_keys: Object.keys(enqueueResult) },
+        'No job ID or polling URL in Mindee enqueue response')
       return new Response(JSON.stringify({
         success: false,
         error: 'No job ID in Mindee response',
-        raw: enqueueResult,
+        raw_keys: Object.keys(enqueueResult),
       }), {
         status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
       })
     }
 
-    console.log(`[scan-document] Job ID: ${jobId}, polling_url: ${pollingUrl || 'default'}, polling for result...`)
+    console.log(`[scan-document] Job ID: ${jobId || 'none'}, polling_url: ${pollingUrl || 'default'}, polling for result...`)
 
     let mindeeResult: any
     try {
