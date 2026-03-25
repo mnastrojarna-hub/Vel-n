@@ -110,18 +110,33 @@ export async function calcBookingPrice(motoId, startISO, endISO, promo = null) {
 
 // 6. Confirm booking payment (simulate webhook)
 export async function confirmBookingPayment(bookingId) {
+  // Try RPC first (SECURITY DEFINER, triggers fire)
+  const { error: rpcErr } = await supabase.rpc('update_test_booking_status', {
+    p_booking_id: bookingId, p_status: 'active', p_payment_status: 'paid'
+  })
+  if (!rpcErr) return { ok: true, error: null }
+  // Fallback
   const { error } = await supabase.from('bookings').update({
     payment_status: 'paid', status: 'active'
   }).eq('id', bookingId)
   return { ok: !error, error: error?.message }
 }
 
-// 7. Cancel booking (RPC)
+// 7. Cancel booking (RPC — cancel_booking_tracked or fallback)
 export async function cancelBooking(bookingId, reason = 'Test simulace') {
   const { data, error } = await supabase.rpc('cancel_booking_tracked', {
     p_booking_id: bookingId, p_reason: reason
   })
-  return { ok: !error, data, error: error?.message }
+  if (!error) return { ok: true, data, error: null }
+  // Fallback via status update RPC
+  const { error: rpcErr } = await supabase.rpc('update_test_booking_status', {
+    p_booking_id: bookingId, p_status: 'cancelled'
+  })
+  if (!rpcErr) {
+    await supabase.from('bookings').update({ cancellation_reason: reason, cancelled_at: new Date().toISOString() }).eq('id', bookingId)
+    return { ok: true, error: null }
+  }
+  return { ok: false, error: error?.message || rpcErr?.message }
 }
 
 // 8. Extend booking (RPC)
@@ -142,10 +157,18 @@ export async function shortenBooking(bookingId, newEndDate) {
 
 // 9b. Complete booking (triggers: KF invoice, door code deactivation, SMS)
 export async function completeBooking(bookingId) {
-  const { error } = await supabase.from('bookings').update({
-    status: 'completed', returned_at: new Date().toISOString(),
+  // Set mileage first (separate update, not status change)
+  await supabase.from('bookings').update({
+    returned_at: new Date().toISOString(),
     mileage_end: 100 + Math.floor(Math.random() * 500),
   }).eq('id', bookingId)
+  // Then status change via RPC (triggers fire: KF invoice, SMS, door codes)
+  const { error: rpcErr } = await supabase.rpc('update_test_booking_status', {
+    p_booking_id: bookingId, p_status: 'completed'
+  })
+  if (!rpcErr) return { ok: true, error: null }
+  // Fallback
+  const { error } = await supabase.from('bookings').update({ status: 'completed' }).eq('id', bookingId)
   return { ok: !error, error: error?.message }
 }
 
