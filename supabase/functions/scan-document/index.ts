@@ -176,32 +176,48 @@ async function debugLog(action: string, component: string, status: string, reque
 }
 
 // Poll for Mindee v2 job result (3-step: enqueue → poll job → fetch result)
-async function pollForResult(jobId: string, pollingUrl?: string, maxAttempts: number = 15): Promise<any> {
-  const pollUrl = pollingUrl || `${MINDEE_INFERENCES_URL}/${jobId}`
+// Mindee v2 flow:
+// 1. POST /inferences/enqueue → job info with polling_url
+// 2. GET  /jobs/{id} (polling_url) → wait for status=Completed, get result_url
+// 3. GET  /inferences/{id} (result_url) → final inference result
+async function pollForResult(jobId: string, pollingUrl?: string, maxAttempts: number = 20): Promise<any> {
+  // Use polling_url from enqueue response (always /v2/jobs/{id})
+  const pollUrl = pollingUrl || `https://api-v2.mindee.net/v2/jobs/${jobId}`
+  console.log(`[scan-document] pollForResult: pollUrl=${pollUrl}`)
 
   for (let i = 0; i < maxAttempts; i++) {
-    // Wait before polling (1s first, then 2s intervals)
-    await new Promise(r => setTimeout(r, i === 0 ? 1000 : 2000))
+    // Mindee docs say wait 3 seconds before first poll, then 2s intervals
+    await new Promise(r => setTimeout(r, i === 0 ? 3000 : 2500))
 
-    const resp = await fetch(pollUrl, {
-      method: 'GET',
-      headers: { 'Authorization': MINDEE_API_KEY },
-    })
+    console.log(`[scan-document] Poll ${i + 1}/${maxAttempts}: GET ${pollUrl}`)
+
+    let resp: Response
+    try {
+      resp = await fetch(pollUrl, {
+        method: 'GET',
+        headers: { 'Authorization': MINDEE_API_KEY },
+      })
+    } catch (e) {
+      console.warn(`[scan-document] Poll ${i + 1} network error:`, e)
+      continue
+    }
 
     if (!resp.ok) {
       const errBody = await resp.text()
-      console.warn(`[scan-document] Poll attempt ${i + 1} failed: HTTP ${resp.status}: ${errBody}`)
+      console.warn(`[scan-document] Poll ${i + 1} failed: HTTP ${resp.status}: ${errBody}`)
       if (resp.status === 401 || resp.status === 403) throw new Error(`Auth error: ${errBody}`)
+      // 404 early on may mean job isn't ready yet — keep polling
+      if (resp.status === 404 && i < 5) continue
+      if (resp.status === 404) throw new Error(`Job not found after ${i + 1} attempts: ${errBody}`)
       continue
     }
 
     const data = await resp.json()
     const status = (data.status || data.job?.status || '').toLowerCase()
-
-    console.log(`[scan-document] Poll ${i + 1}: status=${status}`)
+    console.log(`[scan-document] Poll ${i + 1}: status=${status}, keys=${JSON.stringify(Object.keys(data))}`)
 
     if (status === 'completed' || status === 'succeeded' || status === 'processed') {
-      // If response has result_url, fetch the actual result
+      // Step 3: Fetch result from result_url (usually /v2/inferences/{id})
       const resultUrl = data.result_url || data.job?.result_url
       if (resultUrl) {
         console.log(`[scan-document] Fetching result from: ${resultUrl}`)
@@ -210,19 +226,20 @@ async function pollForResult(jobId: string, pollingUrl?: string, maxAttempts: nu
           headers: { 'Authorization': MINDEE_API_KEY },
         })
         if (!resultResp.ok) {
-          throw new Error(`Failed to fetch result: HTTP ${resultResp.status}`)
+          const errBody = await resultResp.text()
+          throw new Error(`Failed to fetch result from ${resultUrl}: HTTP ${resultResp.status}: ${errBody}`)
         }
         return await resultResp.json()
       }
-      // No result_url — the data itself contains the result
+      // No result_url — data itself contains the result
       return data
     }
     if (status === 'failed' || status === 'error') {
       throw new Error('Mindee inference failed: ' + JSON.stringify(data.error || data))
     }
-    // Still processing (waiting/processing) — continue polling
+    // Still processing/waiting — continue polling
   }
-  throw new Error('Mindee polling timeout after ' + maxAttempts + ' attempts')
+  throw new Error('Mindee polling timeout after ' + maxAttempts + ' attempts (~50s)')
 }
 
 serve(async (req) => {
