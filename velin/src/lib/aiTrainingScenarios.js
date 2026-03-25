@@ -22,10 +22,10 @@ export const AGENT_VOLUMES = {
 }
 
 export const SOS_TYPES = [
-  { type: 'breakdown_minor', label: 'Porucha', desc: 'Motorka nechce nastartovat' },
-  { type: 'defect_question', label: 'Defekt pneu', desc: 'Píchlá zadní pneumatika' },
+  { type: 'breakdown_minor', label: 'Drobná porucha', desc: 'Motorka nechce nastartovat' },
+  { type: 'breakdown_major', label: 'Vážná porucha', desc: 'Motorka nepojízdná, potřeba odtahu' },
   { type: 'accident_minor', label: 'Lehká nehoda', desc: 'Drobná kolize, škrábance' },
-  { type: 'accident_major', label: 'Těžká nehoda', desc: 'Motorka nepojízdná' },
+  { type: 'accident_major', label: 'Těžká nehoda', desc: 'Motorka nepojízdná, možné zranění' },
   { type: 'theft', label: 'Krádež', desc: 'Motorka odcizena z parkoviště' },
 ]
 
@@ -173,7 +173,7 @@ export async function trainBookingsAgent(onStep) {
           results.push({ agent: 'customers', action: `customer_rates_${step.slice(-1)}`, ok: true })
           break
         case 'sos_light': {
-          const lt = API.PICK([SOS_TYPES[0], SOS_TYPES[1]]) // breakdown_minor or defect
+          const lt = SOS_TYPES[0] // breakdown_minor
           const sosL = await API.createSosIncident(cust.userId, booking.bookingId, moto.id, lt.type, lt.desc)
           results.push({ agent: 'sos', action: 'sos_light', type: lt.type, ...sosL })
           if (sosL.ok) {
@@ -268,12 +268,13 @@ export async function trainServiceAgent(onStep) {
   const motos = await API.fetchAvailableMotos()
   if (!motos.ok) return [{ ok: false, error: 'Žádné motorky' }]
 
+  // service_type CHECK: regular, extraordinary, repair
   const types = [
-    { type: 'oil_change', desc: 'Výměna oleje', hours: 1.5 },
-    { type: 'brake_check', desc: 'Kontrola brzd', hours: 2 },
-    { type: 'tire_change', desc: 'Výměna pneu', hours: 1 },
-    { type: 'chain_adjust', desc: 'Řetěz', hours: 0.5 },
-    { type: 'full_inspection', desc: 'Kompletní prohlídka', hours: 3 },
+    { type: 'regular', desc: 'Pravidelný servis — olej, filtry', hours: 1.5 },
+    { type: 'regular', desc: 'Pravidelný servis — brzdy, pneu', hours: 2 },
+    { type: 'extraordinary', desc: 'Mimořádná kontrola — po stížnosti', hours: 1 },
+    { type: 'extraordinary', desc: 'Mimořádný servis — řetěz, seřízení', hours: 0.5 },
+    { type: 'repair', desc: 'Oprava — kompletní prohlídka po nehodě', hours: 3 },
   ]
 
   for (let i = 0; i < 5; i++) {
@@ -303,7 +304,7 @@ export async function trainServiceAgent(onStep) {
   for (let i = 0; i < 5; i++) {
     const moto = motos.data[(i + 10) % motos.data.length]
     onStep?.({ agent: 'service', action: `Log #${i + 1}`, i: 10 + i, total: 15 })
-    const ml = await API.createMaintenanceLog(moto.id, 'general', `Kontrola #${i + 1}`, 1)
+    const ml = await API.createMaintenanceLog(moto.id, 'regular', `Pravidelná kontrola #${i + 1}`, 1)
     results.push({ agent: 'service', action: 'verify_log_entry', ...ml })
   }
   return results
