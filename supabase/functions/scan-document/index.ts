@@ -2,10 +2,10 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const MINDEE_API_KEY = Deno.env.get('MINDEE_API_KEY') || ''
-// 3 separate model IDs for each document type
-const MINDEE_MODEL_ID_ID = Deno.env.get('MINDEE_MODEL_ID_ID') || Deno.env.get('MINDEE_MODEL_ID') || ''
-const MINDEE_MODEL_ID_DL = Deno.env.get('MINDEE_MODEL_ID_DL') || Deno.env.get('MINDEE_MODEL_ID') || ''
-const MINDEE_MODEL_ID_PASSPORT = Deno.env.get('MINDEE_MODEL_ID_PASSPORT') || Deno.env.get('MINDEE_MODEL_ID') || ''
+// 3 separate model IDs for each document type (matching Supabase secret names)
+const MINDEE_MODEL_ID_ID = Deno.env.get('MINDEE_MODEL_ID') || ''
+const MINDEE_MODEL_ID_DL = Deno.env.get('MINDEE_MODEL_DRIVERS_LICENSE') || ''
+const MINDEE_MODEL_ID_PASSPORT = Deno.env.get('MINDEE_MODEL_PASSPORT') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 
