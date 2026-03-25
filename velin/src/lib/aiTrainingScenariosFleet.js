@@ -170,13 +170,15 @@ export async function trainFinanceAgent(onStep) {
       const moto = motos.data[i % motos.data.length]
       onStep?.({ agent: 'finance', action: `Promo sleva #${i + 1}`, i: 8 + i, total: 20 })
       const full = await API.calcBookingPrice(moto.id, API.futureDate(1), API.futureDate(4))
-      if (!full.ok || !full.price || full.price <= 0) {
+      const fullPrice = typeof full.price === 'object' ? full.price?.total_price : full.price
+      if (!full.ok || !fullPrice || fullPrice <= 0) {
         results.push({ agent: 'finance', action: 'verify_promo_discount', ok: true, detail: 'Motorka bez ceníku — přeskočeno' })
         continue
       }
       const disc = await API.calcBookingPrice(moto.id, API.futureDate(1), API.futureDate(4), promo.data?.code)
-      const discountApplied = disc.ok && disc.price < full.price
-      results.push({ agent: 'finance', action: 'verify_promo_discount', ok: discountApplied, full: full.price, discounted: disc.price })
+      const discPrice = typeof disc.price === 'object' ? disc.price?.total_price : disc.price
+      const discountApplied = disc.ok && discPrice < fullPrice
+      results.push({ agent: 'finance', action: 'verify_promo_discount', ok: discountApplied, full: fullPrice, discounted: discPrice })
     }
   }
 

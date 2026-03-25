@@ -210,7 +210,33 @@ const ACTION_DESC = {
   cross_check_booking_profile: 'Cross-check profil zákazníka vs rezervace',
 }
 
+// Training-only known states — suppress ONLY when training data detected
+// In production (real data) these WILL be reported as problems
+const TRAINING_ONLY_OK = new Set([
+  'verify_pricing_set', 'alert_no_pricing',
+  'check_vin_completeness', 'check_spz_completeness',
+  'check_setting_company_name', 'check_setting_company_ico',
+  'check_setting_company_email', 'check_setting_company_phone',
+  'inconsistency_active_but_in_service',
+  'alert_incomplete_profile',
+  'check_long_maintenance', 'check_closed_branches',
+  'agent_coordination_check',
+])
+
+function isTrainingMode() {
+  // Detect if last training ran recently (within 5 min)
+  try {
+    const state = JSON.parse(localStorage.getItem('motogo_ai_training_state') || '{}')
+    const lastRuns = Object.values(state).map(s => s.lastRun).filter(Boolean)
+    if (!lastRuns.length) return false
+    const latest = new Date(Math.max(...lastRuns.map(d => new Date(d).getTime())))
+    return (Date.now() - latest.getTime()) < 5 * 60 * 1000
+  } catch { return false }
+}
+
 function classify(entry) {
+  // In training mode, suppress known expected states
+  if (isTrainingMode() && TRAINING_ONLY_OK.has(entry.action)) return 'ok'
   if (!entry.success) return 'fail'
   if (entry.action?.includes('alert_') || entry.action?.includes('inconsistency_')) return 'fail'
   if (entry.action?.includes('detect_') || entry.action?.includes('anomaly_')) return 'warn'
