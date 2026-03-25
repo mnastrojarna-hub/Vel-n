@@ -20,7 +20,7 @@ function getModelId(docType: string): string {
 
 // Mindee v2 API endpoints
 const MINDEE_ENQUEUE_URL = 'https://api-v2.mindee.net/v2/inferences/enqueue'
-const MINDEE_JOBS_URL = 'https://api-v2.mindee.net/v2/jobs'
+const MINDEE_INFERENCES_URL = 'https://api-v2.mindee.net/v2/inferences'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -177,7 +177,7 @@ async function debugLog(action: string, component: string, status: string, reque
 
 // Poll for Mindee v2 job result (3-step: enqueue → poll job → fetch result)
 async function pollForResult(jobId: string, pollingUrl?: string, maxAttempts: number = 15): Promise<any> {
-  const pollUrl = pollingUrl || `${MINDEE_JOBS_URL}/${jobId}`
+  const pollUrl = pollingUrl || `${MINDEE_INFERENCES_URL}/${jobId}`
 
   for (let i = 0; i < maxAttempts; i++) {
     // Wait before polling (1s first, then 2s intervals)
