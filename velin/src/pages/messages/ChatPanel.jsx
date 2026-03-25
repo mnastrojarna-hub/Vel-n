@@ -62,8 +62,14 @@ export default function ChatPanel({ thread, onThreadUpdate }) {
   }
 
   async function loadTemplates() {
-    const { data } = await supabase.from('message_templates').select('*').order('name')
-    setTemplates(data || [])
+    const { data } = await supabase.from('message_templates').select('*').eq('is_active', true).order('name')
+    // Deduplicate by slug (SMS+email versions have same slug)
+    const seen = new Set()
+    const unique = (data || []).filter(t => {
+      if (seen.has(t.slug)) return false
+      seen.add(t.slug); return true
+    })
+    setTemplates(unique)
   }
 
   async function loadAdmins() {
