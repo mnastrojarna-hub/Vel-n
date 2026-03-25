@@ -177,46 +177,49 @@ async function debugLog(action: string, component: string, status: string, reque
   }
 }
 
-// Mindee v2 polling (matching SDK: /v2/jobs/{id} → /v2/products/extraction/results/{id})
+// Mindee v2 polling per OpenAPI spec:
+// GET /v2/jobs/{id}?redirect=false → always 200 with job status
+// Status: "Processing" | "Failed" | "Processed" (capital P!)
+// When "Processed": result_url is filled → GET result_url for inference data
 async function pollForResult(jobId: string, pollingUrl?: string, maxAttempts: number = 25): Promise<any> {
-  const pollUrl = pollingUrl || `${MINDEE_JOBS_URL}/${jobId}`
+  // CRITICAL: ?redirect=false prevents 302 which loses auth header on redirect
+  let pollUrl = pollingUrl || `${MINDEE_JOBS_URL}/${jobId}`
+  if (!pollUrl.includes('redirect=')) pollUrl += (pollUrl.includes('?') ? '&' : '?') + 'redirect=false'
   console.log(`[scan-document] pollForResult: pollUrl=${pollUrl}`)
 
   for (let i = 0; i < maxAttempts; i++) {
-    // SDK uses initial delay then intervals
     await new Promise(r => setTimeout(r, i === 0 ? 2000 : 1500))
 
-    console.log(`[scan-document] Poll ${i + 1}/${maxAttempts}: GET ${pollUrl}`)
+    console.log(`[scan-document] Poll ${i + 1}/${maxAttempts}`)
 
     let resp: Response
     try {
       resp = await fetch(pollUrl, {
         method: 'GET',
         headers: { 'Authorization': MINDEE_API_KEY },
+        redirect: 'manual', // Don't auto-follow 302 (loses auth header)
       })
     } catch (e) {
       console.warn(`[scan-document] Poll ${i + 1} network error:`, e)
       continue
     }
 
-    // Handle 302 redirect — SDK docs say "completed" returns 302 to result
+    // Handle 302 manually (in case redirect=false didn't work)
     if (resp.status === 302) {
-      const location = resp.headers.get('Location')
+      const location = resp.headers.get('Location') || resp.headers.get('location')
+      console.log(`[scan-document] 302 → ${location}`)
       if (location) {
-        console.log(`[scan-document] 302 redirect to: ${location}`)
-        const resultResp = await fetch(location, {
-          method: 'GET',
-          headers: { 'Authorization': MINDEE_API_KEY },
-        })
-        if (resultResp.ok) return await resultResp.json()
+        const rr = await fetch(location, { method: 'GET', headers: { 'Authorization': MINDEE_API_KEY } })
+        if (rr.ok) return await rr.json()
+        console.warn(`[scan-document] Redirect fetch: ${rr.status}`)
       }
+      continue
     }
 
     if (!resp.ok) {
       const errBody = await resp.text()
-      console.warn(`[scan-document] Poll ${i + 1}: HTTP ${resp.status}: ${errBody.substring(0, 150)}`)
+      console.warn(`[scan-document] Poll ${i + 1}: HTTP ${resp.status}: ${errBody.substring(0, 200)}`)
       if (resp.status === 401 || resp.status === 403) throw new Error(`Auth error: ${errBody}`)
-      // 404 = job not found yet, keep trying
       if (resp.status === 404 && i < 8) continue
       if (resp.status === 404) throw new Error(`Job not found: ${errBody}`)
       continue
@@ -224,10 +227,11 @@ async function pollForResult(jobId: string, pollingUrl?: string, maxAttempts: nu
 
     const data = await resp.json()
     const job = data.job || data
-    const status = (job.status || '').toLowerCase()
-    console.log(`[scan-document] Poll ${i + 1}: status=${status}, keys=${JSON.stringify(Object.keys(data))}`)
+    const status = job.status || ''
+    console.log(`[scan-document] Poll ${i + 1}: status="${status}", result_url=${job.result_url || 'null'}`)
 
-    if (status === 'completed' || status === 'succeeded' || status === 'processed') {
+    // OpenAPI Status enum: "Processing", "Failed", "Processed"
+    if (status === 'Processed' || status === 'processed' || status === 'completed' || status === 'succeeded') {
       // Try result_url from job first
       if (job.result_url) {
         console.log(`[scan-document] Fetching result from result_url: ${job.result_url}`)
@@ -250,9 +254,10 @@ async function pollForResult(jobId: string, pollingUrl?: string, maxAttempts: nu
       // Last fallback: return job data itself
       return data
     }
-    if (status === 'failed' || status === 'error') {
+    if (status === 'Failed' || status === 'failed') {
       throw new Error('Mindee inference failed: ' + JSON.stringify(job.error || data))
     }
+    // "Processing" — continue polling
   }
   throw new Error('Mindee polling timeout after ' + maxAttempts + ' attempts')
 }
