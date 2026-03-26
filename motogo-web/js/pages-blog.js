@@ -19,9 +19,13 @@ MG.route('/blog', async function(app){
   var tagsEl = document.getElementById('blog-tags');
   if(!gridEl) return;
 
-  if(!posts.length){
-    gridEl.innerHTML = '<p>Zatím nemáme žádné články.</p>';
-    return;
+  // Fallback sample articles if CMS is empty
+  if(!posts || !posts.length){
+    posts = [
+      {slug:'nove-motorky-v-nabidce', title:'Nové motorky v nabídce', excerpt:'Představujeme nové motorky na pronájem na Vysočině v naší půjčovně Motogo24. Objevte sportovní a cestovní modely pro vaše dobrodružství.', tags:['Novinky půjčovny'], image_url:'', images:[]},
+      {slug:'top-motorkarske-trasy', title:'Top motorkářské trasy', excerpt:'Projeďte motorkářské trasy v ČR, jako je Český ráj nebo Krušné hory, s našimi motorkami k zapůjčení.', tags:['Motorkářské trasy'], image_url:'', images:[]},
+      {slug:'tipy-pro-bezpecnou-jizdu', title:'Tipy pro bezpečnou jízdu', excerpt:'Zjistěte, jak si půjčit motorku na Vysočině a užít bezpečnou jízdu. Praktické rady pro začátečníky i zkušené jezdce.', tags:['Rady a tipy'], image_url:'', images:[]}
+    ];
   }
 
   // Extract unique tags
