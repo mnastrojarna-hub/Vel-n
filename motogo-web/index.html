@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="cs" dir="ltr" prefix="og: https://ogp.me/ns#">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Půjčovna motorek Vysočina – silniční, sportovní, enduro i dětské. Nonstop pronájem bez kauce, online rezervace a motorkářská výbava zdarma.">
+  <meta name="keywords" content="půjčovna motorek Vysočina, pronájem motorek Vysočina, půjčovna motorek Pelhřimov, půjčovna motorek bez kauce, nonstop půjčovna motorek, rezervace motorky online, motorky k pronájmu Vysočina, motorbike rental Czech Republic">
+  <meta name="robots" content="index,follow">
+  <meta name="author" content="MotoGo24">
+  <meta property="og:url" content="https://motogo24.cz/">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="cs_CZ">
+  <meta property="og:title" content="Půjčovna motorek Vysočina Motogo24">
+  <meta property="og:site_name" content="Půjčovna motorek Vysočina">
+  <meta property="og:description" content="Půjčovna motorek Vysočina – silniční, sportovní, enduro i dětské. Nonstop pronájem bez kauce, online rezervace a motorkářská výbava zdarma.">
+  <link rel="canonical" href="https://motogo24.cz/">
+  <link type="image/png" rel="icon" href="favicon.ico">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <title>Půjčovna motorek Vysočina Motogo24</title>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "name": "Motogo24 – půjčovna motorek Vysočina",
+    "url": "https://motogo24.cz",
+    "logo": "https://motogo24.cz/gfx/logo.svg",
+    "image": "https://motogo24.cz/gfx/logo.svg",
+    "email": "info@motogo24.cz",
+    "telephone": "+420 774 256 271",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "Mezná 9",
+      "addressLocality": "Pelhřimov",
+      "postalCode": "393 01",
+      "addressCountry": "CZ"
+    }
+  }
+  </script>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Jost:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <!-- App shell: Header + #app + Footer rendered by JS -->
+  <div id="shell"></div>
+
+  <!-- Supabase SDK (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+  <!-- Config -->
+  <script>
+    window.MOTOGO_CONFIG = {
+      SUPABASE_URL: 'https://vnwnqteskbykeucanlhk.supabase.co',
+      SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZud25xdGVza2J5a2V1Y2FubGhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE4Njg4MzcsImV4cCI6MjA1NzQ0NDgzN30.mVhTNtauSl8yjnYCqC2XMKRaYn7FjDjNJMjcSioRRkA'
+    };
+  </script>
+
+  <!-- Core -->
+  <script src="js/supabase-init.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/router.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/components.js"></script>
+
+  <!-- Pages -->
+  <script src="js/pages-home.js"></script>
+  <script src="js/pages-katalog.js"></script>
+  <script src="js/pages-pujcovna.js"></script>
+  <script src="js/pages-jak-pujcit.js"></script>
+  <script src="js/pages-jak-pujcit2.js"></script>
+  <script src="js/pages-faq.js"></script>
+  <script src="js/pages-poukazy.js"></script>
+  <script src="js/pages-kontakt.js"></script>
+  <script src="js/pages-blog.js"></script>
+  <script src="js/pages-cms.js"></script>
+  <script src="js/pages-rezervace.js"></script>
+
+  <!-- Init -->
+  <script>
+    (function(){
+      var shell = document.getElementById('shell');
+      shell.innerHTML = MG.renderHeader() + '<div id="app"></div>' + MG.renderFooter();
+      MG.initScrollTop();
+      MG.initSubmenus();
+      MG.initRouter();
+    })();
+  </script>
+</body>
+</html>
