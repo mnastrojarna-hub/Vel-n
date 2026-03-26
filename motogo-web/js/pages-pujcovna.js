@@ -25,7 +25,7 @@ MG.route('/pujcovna-motorek', function(app){
     '<a class="btn btndark" href="#/katalog">Zobrazit motorky k pronájmu</a> ' +
     '<a class="btn btngreen pulse" href="#/rezervace">REZERVOVAT</a></p></section>';
 
-  var steps = '<section><h2>Jak probíhá půjčení motorky na Vysočině</h2><div class="gr4">' +
+  var steps = '<section aria-labelledby="process"><h2>Jak probíhá půjčení motorky na Vysočině</h2><div class="gr4">' +
     MG.renderWbox('gfx/ico-step1.svg','1. Vyber motorku','Prohlédni si naši nabídku, vyber si typ, který ti vyhovuje.') +
     MG.renderWbox('gfx/ico-step2.svg','2. Zvol jezdce','Jednoduše zaškrtni, kolik vás pojede. Zobrazí se ti jen vhodné motorky.') +
     MG.renderWbox('gfx/ico-step3.svg','3. Rezervuj online','Uskutečni rezervaci podle data nebo podle konkrétní motorky.') +
