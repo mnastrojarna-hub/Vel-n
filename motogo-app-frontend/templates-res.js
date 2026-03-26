@@ -23,6 +23,7 @@ Templates['s-res'] = `  <div class="res-hdr">
     <div class="chip" id="t-resActive" onclick="filterRes(this,'aktivni')">Aktivní</div>
     <div class="chip" id="t-resUpcoming" onclick="filterRes(this,'nadchazejici')">Nadcházející</div>
     <div class="chip" id="t-resDone" onclick="filterRes(this,'dokoncene')">Dokončené</div>
+    <div class="chip" id="t-resCancelled" onclick="filterRes(this,'cancelled')">Zrušené</div>
   </div>
   <div style="padding:4px 20px 0;display:flex;gap:8px;align-items:center;">
     <div style="flex:1;position:relative;">
