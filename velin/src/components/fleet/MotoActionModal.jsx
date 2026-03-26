@@ -79,6 +79,10 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
         items: selectedLabels.map(label => ({ label, done: false, note: '' })),
       }).select('id').single()
       if (logErr) setError(`Záznam: ${logErr.message}`)
+      await supabase.from('service_orders').insert({
+        moto_id: moto.id, type: fullDescription, notes: selectedLabels.join(', '),
+        status: 'in_service', maintenance_log_id: logData?.id,
+      })
       await logAudit('motorcycle_status_changed', { moto_id: moto.id, to_status: 'maintenance', is_urgent: isUrgent, checklist: selected })
 
       const days = serviceDateTo && serviceDateFrom ? Math.ceil((new Date(serviceDateTo) - new Date(serviceDateFrom)) / 86400000) : 0
