@@ -106,22 +106,32 @@ MG.routes['/'] = function(app){
 
 MG._loadHomeMotos = async function(){
   var el = document.getElementById('home-motos');
-  if(!el) return;
-  var motos = await MG.fetchMotos();
-  if(!motos.length){ el.innerHTML = '<p>Momentálně nemáme žádné motorky v nabídce.</p>'; return; }
-  var html = '';
-  motos.slice(0, 4).forEach(function(m){
-    html += '<section aria-labelledby="catalogue">' + MG.renderMotoCard(m) + '</section>';
-  });
-  el.innerHTML = html;
+  if(!el){ console.warn('[HOME] #home-motos not found'); return; }
+  try {
+    var motos = await MG.fetchMotos();
+    // Re-check element (might have navigated away)
+    el = document.getElementById('home-motos');
+    if(!el) return;
+    if(!motos.length){ el.innerHTML = '<p>Momentálně nemáme žádné motorky v nabídce.</p>'; return; }
+    var html = '';
+    motos.slice(0, 4).forEach(function(m){
+      html += '<section aria-labelledby="catalogue">' + MG.renderMotoCard(m) + '</section>';
+    });
+    el.innerHTML = html;
+    console.log('[HOME] Rendered', motos.slice(0,4).length, 'motos');
+  } catch(e){ console.error('[HOME] loadMotos error:', e); }
 };
 
 MG._loadHomeBlog = async function(){
   var el = document.getElementById('home-blog');
   if(!el) return;
-  var posts = await MG.fetchCmsPages();
-  if(!posts.length){ el.innerHTML = '<p>Zatím nemáme žádné články.</p>'; return; }
-  var html = '';
-  posts.slice(0, 3).forEach(function(p){ html += MG.renderBlogCard(p); });
-  el.innerHTML = html;
+  try {
+    var posts = await MG.fetchCmsPages();
+    el = document.getElementById('home-blog');
+    if(!el) return;
+    if(!posts.length){ el.innerHTML = '<p>Zatím nemáme žádné články.</p>'; return; }
+    var html = '';
+    posts.slice(0, 3).forEach(function(p){ html += MG.renderBlogCard(p); });
+    el.innerHTML = html;
+  } catch(e){ console.error('[HOME] loadBlog error:', e); }
 };

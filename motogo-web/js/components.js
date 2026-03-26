@@ -129,6 +129,7 @@ MG._renderCalMonth = function(containerId){
   var firstDay = new Date(y, m, 1);
   var lastDay = new Date(y, m + 1, 0);
   var startDow = (firstDay.getDay() + 6) % 7;
+  var todayStr = new Date().toISOString().split('T')[0];
 
   var html = '<div class="cal-nav">' +
     '<button onclick="MG._calPrev(\'' + containerId + '\')">&larr;</button>' +
@@ -139,16 +140,18 @@ MG._renderCalMonth = function(containerId){
 
   for(var i = 0; i < startDow; i++) html += '<div class="cal-day empty"></div>';
 
-  var today = new Date().toISOString().split('T')[0];
   for(var d = 1; d <= lastDay.getDate(); d++){
-    var dateStr = y + '-' + String(m+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
-    var status = state.bookedDays[dateStr] || (dateStr < today ? 'past' : 'available');
-    var cls = 'cal-day';
-    if(status === 'occupied') cls += ' occupied';
-    else if(status === 'unconfirmed') cls += ' unconfirmed';
-    else if(status === 'past') cls += ' occupied';
-    else cls += ' available';
-    html += '<div class="' + cls + '">' + d + '</div>';
+    var ds = y + '-' + String(m+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+    var booked = state.bookedDays[ds];
+    var isPast = ds < todayStr;
+    var isToday = ds === todayStr;
+    var bg, color, cursor;
+    if(isPast){ bg='#333'; color='#666'; cursor='not-allowed'; }
+    else if(booked === 'occupied'){ bg='#333'; color='#666'; cursor='not-allowed'; }
+    else if(booked === 'unconfirmed'){ bg='#f0ad4e'; color='#000'; cursor='default'; }
+    else if(isToday){ bg='#74FB71'; color='#000'; cursor='pointer'; }
+    else { bg='#1a3a2a'; color='#ccc'; cursor='pointer'; }
+    html += '<div class="cal-day" style="background:'+bg+';color:'+color+';cursor:'+cursor+'">'+d+'</div>';
   }
   html += '</div>';
   el.innerHTML = html;
