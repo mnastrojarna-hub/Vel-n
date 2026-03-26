@@ -55,7 +55,19 @@ MG.route('/katalog/:id', async function(app, params){
   app.innerHTML = '<main id="content"><div class="container"><div class="loading-overlay"><span class="spinner"></span> Načítám detail motorky...</div></div></main>';
 
   var motos = await MG._getMotos();
+  console.log('[DETAIL] Looking for moto id:', params.id, 'in', motos.length, 'motos');
   var moto = motos.find(function(m){ return m.id === params.id; });
+
+  // If not found in cache, try direct fetch
+  if(!moto && window.sb){
+    console.log('[DETAIL] Not in cache, trying direct fetch...');
+    try {
+      var r = await window.sb.from('motorcycles').select('*, branches(name, address, city, is_open)').eq('id', params.id).single();
+      if(r.data) moto = r.data;
+      console.log('[DETAIL] Direct fetch result:', moto ? moto.model : 'not found');
+    } catch(e){ console.error('[DETAIL] Direct fetch error:', e); }
+  }
+
   if(!moto){
     app.innerHTML = '<main id="content"><div class="container">' +
       MG.renderBreadcrumb([{label:'Domů',href:'/'},{label:'Katalog',href:'/katalog'},'Motorka nenalezena']) +
