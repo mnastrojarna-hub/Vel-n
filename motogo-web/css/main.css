@@ -52,9 +52,9 @@ table{width:100%;border-collapse:collapse}
 
 /* ===== HEADER ===== */
 .header{background:#0b0b0b;padding:.75rem 0;position:sticky;top:0;z-index:100;border-bottom:1px solid #222}
-.header-logo img{height:48px;width:auto}
+.header-logo img{height:44px;width:auto}
 .header-phone p{margin:0;display:flex;align-items:center;gap:.4rem}
-.header-phone img{width:22px;height:22px;filter:brightness(0) saturate(100%) invert(83%) sepia(38%) saturate(1000%) hue-rotate(80deg)}
+.header-phone img{width:24px;height:24px;background:rgba(116,251,113,.15);border-radius:50%;padding:2px}
 .header-phone a{color:#74FB71;font-weight:600;font-size:.95rem}
 
 /* --- Main Menu --- */
@@ -119,12 +119,12 @@ main{background:#fff;min-height:60vh}
 .gbox p{font-size:.9rem;color:#666;margin-bottom:.5rem}
 
 /* ===== MOTO CARD ===== */
-.moto-wrapper{display:flex;flex-direction:column;background:#fff;border:1px solid #e0e0e0;border-radius:10px;overflow:hidden;transition:border-color .2s,transform .2s,box-shadow .2s;text-decoration:none;color:#333;height:100%}
+.moto-wrapper{display:flex;flex-direction:column;background:#fff;border:1px solid #e0e0e0;border-radius:10px;overflow:hidden;transition:border-color .2s,transform .2s,box-shadow .2s;text-decoration:none;color:#333;height:100%;position:relative}
 .moto-wrapper:hover{border-color:#74FB71;transform:translateY(-3px);box-shadow:0 6px 20px rgba(0,0,0,.1);color:#333}
-.moto-title{position:relative;z-index:2;background:linear-gradient(180deg,rgba(11,11,11,.75) 0%,rgba(11,11,11,.4) 100%);padding:.75rem 1rem;margin-bottom:-3rem}
-.moto-title h2{font-size:1.05rem;margin:0;color:#fff;font-weight:700}
-.moto-img{display:flex;align-items:center;justify-content:center;min-height:180px}
-.moto-img .imgres{width:100%;height:200px;object-fit:cover}
+.moto-title{position:absolute;top:0;left:0;z-index:2;background:rgba(11,11,11,.8);padding:.6rem .9rem;border-radius:0 0 10px 0;max-width:75%}
+.moto-title h2{font-size:1rem;margin:0;color:#fff;font-weight:700}
+.moto-img{position:relative;min-height:200px;overflow:hidden}
+.moto-img .imgres{width:100%;height:200px;object-fit:cover;border-radius:0}
 .moto-desc{padding:.75rem 1rem;flex:1}
 .moto-desc ul{list-style:none;padding:0;margin:0}
 .moto-desc li{color:#555;font-size:.85rem;padding:.15rem 0;padding-left:.8rem;position:relative}
