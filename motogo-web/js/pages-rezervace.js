@@ -20,7 +20,7 @@ MG.route('/rezervace', async function(app){
     '<div id="rez-calendar"></div>' +
     '<div id="rez-date-banner" style="display:none"></div>' +
     '<div id="rez-avail-select" style="display:none"></div>' +
-    '<div id="rez-form" style="display:none"></div>' +
+    '<div id="rez-form"></div>' +
     '</div></section></main>';
 
   MG._rez = { startDate: null, endDate: null, motos: [], motoId: mp, allBookings: {} };
@@ -40,7 +40,8 @@ MG.route('/rezervace', async function(app){
       MG._rezLoadCalendar();
     });
   }
-  MG._rezLoadCalendar();
+  await MG._rezLoadCalendar();
+  MG._rezShowForm();
 });
 
 // ===== RESET DATE SELECTION =====
@@ -48,7 +49,7 @@ MG._rezResetDates = function(){
   MG._rez.startDate = null; MG._rez.endDate = null;
   var b = document.getElementById('rez-date-banner'); if(b) b.style.display = 'none';
   var a = document.getElementById('rez-avail-select'); if(a){ a.style.display = 'none'; a.innerHTML = ''; }
-  var f = document.getElementById('rez-form'); if(f){ f.style.display = 'none'; f.innerHTML = ''; }
+  MG._rezShowForm();
 };
 
 // ===== LOAD CALENDAR =====
@@ -164,13 +165,13 @@ MG._rezUpdateBanner = function(){
   var form = document.getElementById('rez-form');
   if(!ban) return;
 
-  if(!r.startDate){ ban.style.display='none'; if(avail){avail.style.display='none';avail.innerHTML='';} if(form){form.style.display='none';form.innerHTML='';} return; }
+  if(!r.startDate){ ban.style.display='none'; if(avail){avail.style.display='none';avail.innerHTML='';} MG._rezShowForm(); return; }
   if(!r.endDate){
     ban.style.display='block';
     ban.innerHTML = '<div style="background:#1a8c1a;color:#fff;padding:12px 16px;border-radius:25px;margin:12px 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">' +
       '<span>Vybrán začátek: <strong>'+MG.formatDate(r.startDate)+'</strong> — klikněte na koncové datum</span>' +
       '<span class="btn btngreen-small" style="background:#74FB71;color:#0b0b0b;cursor:pointer" onclick="MG._rezResetDates();MG._rezRenderCal()">&#x2715; ZRUŠIT VÝBĚR</span></div>';
-    if(avail){avail.style.display='none';avail.innerHTML='';} if(form){form.style.display='none';form.innerHTML='';}
+    if(avail){avail.style.display='none';avail.innerHTML='';} MG._rezShowForm();
     return;
   }
 
@@ -179,7 +180,8 @@ MG._rezUpdateBanner = function(){
     '<span>MÁTE VYBRANÝ TERMÍN: <strong>'+MG.formatDate(r.startDate)+' - '+MG.formatDate(r.endDate)+'</strong></span>' +
     '<span class="btn btngreen-small" style="background:#74FB71;color:#0b0b0b;cursor:pointer" onclick="MG._rezResetDates();MG._rezRenderCal()">&#x2715; ZRUŠIT VÝBĚR</span></div>';
 
-  if(!r.motoId) MG._rezShowAvailMotos(); else MG._rezShowForm();
+  if(!r.motoId) MG._rezShowAvailMotos();
+  MG._rezShowForm();
 };
 
 // ===== AVAILABLE MOTOS DROPDOWN (libovolná mode) =====
@@ -195,7 +197,6 @@ MG._rezShowAvailMotos = function(){
   if(!free.length){
     el.style.display='block';
     el.innerHTML='<p style="color:#f66;margin:12px 0">V tomto termínu bohužel není dostupná žádná motorka.</p>';
-    var f=document.getElementById('rez-form'); if(f){f.style.display='none';f.innerHTML='';}
     return;
   }
   var h = '<form class="form-product-select gr2" style="margin:12px 0"><div>Dostupné motorky:</div><select id="rez-avail-dropdown">' +
@@ -205,7 +206,7 @@ MG._rezShowAvailMotos = function(){
   el.style.display='block'; el.innerHTML = h;
   document.getElementById('rez-avail-dropdown').addEventListener('change', function(){
     MG._rez.selectedMotoId = this.value;
-    if(this.value) MG._rezShowForm(); else { var f=document.getElementById('rez-form'); if(f){f.style.display='none';f.innerHTML='';} }
+    MG._rezShowForm();
   });
 };
 
@@ -215,9 +216,7 @@ MG._rezShowForm = function(){
   var mId = r.motoId || r.selectedMotoId;
   var moto = r.motos.find(function(m){ return m.id === mId; });
   var prodLabel = moto ? moto.model : 'Libovolná motorka';
-  var price = moto ? MG.calcPrice(moto, r.startDate, r.endDate) : 0;
-
-  f.style.display = 'block';
+  var price = (moto && r.startDate && r.endDate) ? MG.calcPrice(moto, r.startDate, r.endDate) : 0;
   f.innerHTML = '<p>&nbsp;</p>' +
     '<input type="text" id="rez-name" placeholder="* Jméno a příjmení" required>' +
     '<div class="gr2"><input type="text" id="rez-street" placeholder="* Ulice, č.p." required>' +
@@ -270,13 +269,14 @@ MG._rezShowForm = function(){
 MG._rezUpdatePrice = function(){
   var r = MG._rez, mId = r.motoId || r.selectedMotoId;
   var moto = r.motos.find(function(m){ return m.id === mId; });
-  var base = moto ? MG.calcPrice(moto, r.startDate, r.endDate) : 0;
+  var base = (moto && r.startDate && r.endDate) ? MG.calcPrice(moto, r.startDate, r.endDate) : 0;
   var extras = 0;
   if(document.getElementById('rez-eq-passenger') && document.getElementById('rez-eq-passenger').checked) extras += 690;
   if(document.getElementById('rez-eq-boots-rider') && document.getElementById('rez-eq-boots-rider').checked) extras += 290;
   if(document.getElementById('rez-eq-boots-passenger') && document.getElementById('rez-eq-boots-passenger').checked) extras += 290;
+  var total = base + extras;
   var el = document.getElementById('rez-price-preview');
-  if(el) el.innerHTML = 'Celková cena: <strong>'+MG.formatPrice(base + extras)+'</strong>';
+  if(el) el.innerHTML = total > 0 ? 'Celková cena: <strong>'+MG.formatPrice(total)+'</strong>' : '';
 };
 
 // ===== VOUCHER FIELD =====
