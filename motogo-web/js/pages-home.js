@@ -11,15 +11,6 @@ MG.route('/', function(app){
 });
 
 MG._homeShell = function(){
-  // Hero banner
-  var banner = '<div class="banner">' +
-    '<img fetchpriority="high" alt="Půjčovna motorek Vysočina Motogo24" src="gfx/hero-banner.jpg">' +
-    '<div class="banner-wrapper"><div class="container"><div class="banner-caption">' +
-      '<p><strong>Půjčovna motorek</strong> na Vysočině</p><p>&nbsp;</p>' +
-      '<p>Půjč si motorku na Vysočině snadno online.<br>Vyber si z <strong>cestovních, sportovních i enduro</strong> modelů.<br>Rezervace s <strong>platbou kartou</strong> a <strong>rychlým převzetím</strong>.</p><p>&nbsp;</p>' +
-      '<p><a class="btn btngreen" href="#/katalog">VYBER SI MOTORKU</a> <a class="btn btndark" href="#/jak-pujcit">JAK TO FUNGUJE</a></p>' +
-    '</div></div></div></div>';
-
   // Signpost (6 cards)
   var signposts = [
     {icon:'gfx/ico-katalog.svg', title:'<strong>Katalog</strong> motorek', text:'Prohlédněte si naši nabídku <strong>motorek na pronájem</strong> – od sportovních po cestovní modely.', btn:'KATALOG MOTOREK', href:'/katalog'},
@@ -80,7 +71,7 @@ MG._homeShell = function(){
     '<div id="home-blog" class="gr3"><div class="loading-overlay"><span class="spinner"></span> Načítám články...</div></div>' +
     '<p>&nbsp;</p><p class="text-center"><a class="btn btngreen" href="#/blog">ČÍST VÍCE V BLOGU</a></p></section>';
 
-  return '<main id="content"><h1 class="sr-only">Půjčovna motorek Vysočina Motogo24 – bez kauce a nonstop</h1><div class="container">' +
+  return '<main id="content"><div class="container"><h1>Půjčovna motorek Vysočina Motogo24 – bez kauce a nonstop</h1>' +
     signHtml + motosSection + processHtml + faqHtml + ctaHtml + blogHtml +
     '</div></main>';
 };
@@ -94,7 +85,7 @@ MG.routes['/'] = function(app){
   if(main){
     var bannerDiv = document.createElement('div');
     bannerDiv.innerHTML = '<div class="banner">' +
-      '<img fetchpriority="high" alt="Půjčovna motorek Vysočina" src="gfx/hero-banner.jpg">' +
+      '<img fetchpriority="high" alt="Půjčovna motorek Vysočina" src="gfx/hero-banner.svg">' +
       '<div class="banner-wrapper"><div class="container"><div class="banner-caption">' +
         '<p><strong>Půjčovna motorek</strong> na Vysočině</p><p>&nbsp;</p>' +
         '<p>Půjč si motorku na Vysočině snadno online.<br>Vyber si z <strong>cestovních, sportovních i enduro</strong> modelů.<br>Rezervace s <strong>platbou kartou</strong> a <strong>rychlým převzetím</strong>.</p><p>&nbsp;</p>' +

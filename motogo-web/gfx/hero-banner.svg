@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 480" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0d2e1a"/>
+      <stop offset="50%" stop-color="#1a4a2a"/>
+      <stop offset="100%" stop-color="#0d2e1a"/>
+    </linearGradient>
+    <linearGradient id="road" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#2a2a2a"/>
+      <stop offset="50%" stop-color="#3a3a3a"/>
+      <stop offset="100%" stop-color="#2a2a2a"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="480" fill="url(#bg)"/>
+  <!-- Road -->
+  <path d="M0 350 Q480 320 960 340 Q1440 360 1920 330 L1920 420 Q1440 400 960 410 Q480 420 0 400Z" fill="url(#road)" opacity=".6"/>
+  <!-- Road line -->
+  <path d="M200 380 Q600 365 1000 375 Q1400 385 1700 370" fill="none" stroke="#eee" stroke-width="2" stroke-dasharray="30 20" opacity=".4"/>
+  <!-- Trees silhouette -->
+  <path d="M0 280 Q50 200 100 280 Q150 180 200 280 Q250 210 300 280 Q350 190 400 280 Q450 220 500 280 Q550 200 600 280 Q650 210 700 280 Q750 190 800 280 Q850 220 900 280 Q950 200 1000 280 Q1050 210 1100 280 Q1150 190 1200 280 Q1250 220 1300 280 Q1350 200 1400 280 Q1450 210 1500 280 Q1550 190 1600 280 Q1650 220 1700 280 Q1750 200 1800 280 Q1850 210 1920 280 L1920 350 Q1440 330 960 340 Q480 350 0 340Z" fill="#0a1f10" opacity=".5"/>
+  <!-- Motorcycle silhouette -->
+  <g transform="translate(1200,290) scale(1.2)" opacity=".7">
+    <ellipse cx="0" cy="30" rx="18" ry="18" fill="none" stroke="#74FB71" stroke-width="2.5"/>
+    <ellipse cx="80" cy="30" rx="18" ry="18" fill="none" stroke="#74FB71" stroke-width="2.5"/>
+    <path d="M10 25 L25 5 L50 0 L65 5 L75 25" fill="none" stroke="#74FB71" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M25 5 L35 -10 L45 -8 L50 0" fill="none" stroke="#74FB71" stroke-width="2" stroke-linecap="round"/>
+    <path d="M60 5 L70 -5 L75 -5" fill="none" stroke="#74FB71" stroke-width="2" stroke-linecap="round"/>
+  </g>
+</svg>
