@@ -75,7 +75,6 @@ export async function execE2ETest(name: string, input: R, sb: SB): Promise<unkno
             await sb.from('invoices').delete().in('booking_id', bookingIds)
             await sb.from('promo_code_usage').delete().in('booking_id', bookingIds)
             await sb.from('accounting_entries').delete().in('booking_id', bookingIds)
-            await sb.from('service_orders').delete().in('booking_id', bookingIds)
             await sb.from('bookings').delete().eq('user_id', p.id)
             results.bookings += bookingIds.length
           }
@@ -93,7 +92,6 @@ export async function execE2ETest(name: string, input: R, sb: SB): Promise<unkno
           await sb.from('message_threads').delete().eq('customer_id', p.id)
           await sb.from('push_tokens').delete().eq('user_id', p.id)
           await sb.from('payment_methods').delete().eq('user_id', p.id)
-          await sb.from('notification_log').delete().eq('user_id', p.id)
           await sb.from('reviews').delete().eq('user_id', p.id)
           await sb.from('sent_emails').delete().eq('customer_id', p.id)
           // Delete profile
