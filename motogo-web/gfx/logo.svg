@@ -1,26 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 50">
-  <defs>
-    <clipPath id="circleClip">
-      <path d="M5,25 A20,20 0 1,1 25,45 L25,45 A20,20 0 0,1 5,25 Z"/>
-    </clipPath>
-  </defs>
-  <g transform="translate(2,2)">
-    <!-- MG Monogram Icon -->
-    <g transform="scale(0.95)">
-      <!-- Open circle (C shape) -->
-      <path d="M24,47 A22,22 0 1,1 40,10" fill="none" stroke="#74FB71" stroke-width="6" stroke-linecap="round"/>
-      <!-- Checkmark / V shape forming top of M -->
-      <path d="M14,22 L24,12 L34,22" fill="none" stroke="#74FB71" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-      <!-- M legs going down -->
-      <path d="M14,22 L14,36" fill="none" stroke="#74FB71" stroke-width="6" stroke-linecap="round"/>
-      <path d="M34,22 L34,36" fill="none" stroke="#74FB71" stroke-width="6" stroke-linecap="round"/>
-      <!-- G horizontal bar -->
-      <path d="M34,30 L44,30" fill="none" stroke="#74FB71" stroke-width="6" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 50">
+  <!-- MG Icon -->
+  <g transform="translate(2,1) scale(0.0105,-0.0105)" fill="#74FB71" stroke="none">
+    <g transform="translate(0,4500)">
+      <path d="M1498 4484 c-448 -80 -810 -304 -1058 -653 -149 -210 -248 -450
+-296 -721 -26 -145 -26 -475 0 -620 79 -443 291 -801 631 -1065 167 -130 384
+-237 605 -299 145 -40 252 -56 430 -63 404 -15 771 103 1085 349 72 57 225
+210 225 226 0 4 -162 167 -360 362 l-360 355 -68 -62 c-233 -210 -509 -303
+-802 -270 -302 34 -556 201 -710 466 -82 142 -120 282 -127 471 -10 282 67
+497 244 681 195 203 440 319 708 334 195 11 370 -29 530 -121 l90 -52 362
+358 362 358 -48 37 c-253 196 -571 340 -882 399 -145 28 -418 36 -561 16z"/>
+      <path d="M2690 3370 l0 -1110 -325 0 -325 0 0 -430 0 -430 755 0 755 0 0
+1540 0 1540 -430 0 -430 0 0 -1110z"/>
+      <path d="M1590 2260 l0 -430 325 0 325 0 0 -430 0 -430 430 0 430 0 0 860
+0 860 -755 0 -755 0 0 -430z"/>
     </g>
-    <!-- Text -->
-    <text x="56" y="28" font-family="Jost,sans-serif" font-weight="800" font-size="24" fill="#fff" letter-spacing="1.5">MOTO</text>
-    <text x="56" y="28" font-family="Jost,sans-serif" font-weight="800" font-size="24" fill="#fff" letter-spacing="1.5" dx="68"> GO 2</text>
-    <text x="198" y="28" font-family="Jost,sans-serif" font-weight="800" font-size="24" fill="#74FB71">4</text>
-    <text x="56" y="43" font-family="Jost,sans-serif" font-weight="500" font-size="9.5" fill="#999" letter-spacing="3.5">PŮJČOVNA MOTOREK</text>
   </g>
+  <!-- Text: MOTO GO 24 -->
+  <text x="55" y="26" font-family="'Montserrat','Jost',sans-serif" font-weight="800" font-size="22" fill="#fff" letter-spacing="1.5">MOTO GO 2</text>
+  <text x="235" y="26" font-family="'Montserrat','Jost',sans-serif" font-weight="800" font-size="22" fill="#74FB71">4</text>
+  <text x="55" y="42" font-family="'Montserrat','Jost',sans-serif" font-weight="600" font-size="9" fill="#999" letter-spacing="3">PŮJČOVNA MOTOREK</text>
 </svg>
