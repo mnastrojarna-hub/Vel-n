@@ -73,12 +73,12 @@ MG.route('/jak-pujcit/faq', function(app){
   });
   panesHtml += '</div>';
 
-  app.innerHTML = '<main id="content"><section class="container">' + bc +
+  app.innerHTML = '<main id="content"><div class="container">' + bc +
     '<div class="ccontent"><h1>Často kladené dotazy – půjčovna motorek Motogo24</h1>' +
     tabsHtml + panesHtml +
     '<p>&nbsp;</p><p>Naše <strong>půjčovna motorek Vysočina</strong> je tu pro všechny, kdo chtějí zažít <strong>nezapomenutelnou jízdu</strong> bez zbytečných komplikací.</p>' +
     '<p>&nbsp;</p><p><a class="btn btngreen" href="#/rezervace">Rezervovat motorku online</a></p>' +
-    '</div></section></main>';
+    '</div></div></main>';
 
   // Tab switching
   setTimeout(function(){

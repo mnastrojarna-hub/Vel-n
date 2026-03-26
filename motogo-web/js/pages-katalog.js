@@ -22,11 +22,11 @@ MG._renderKatalog = async function(app, category, title){
   if(category) bc.push(title);
   else bc[1] = title;
 
-  app.innerHTML = '<main id="content"><section class="container">' +
+  app.innerHTML = '<main id="content"><div class="container">' +
     MG.renderBreadcrumb(bc) +
     '<div class="ccontent"><h1>' + title + '</h1>' +
     '<div id="katalog-grid" class="gr4"><div class="loading-overlay"><span class="spinner"></span> Načítám motorky...</div></div>' +
-    '</div></section></main>';
+    '</div></div></main>';
 
   var motos = await MG._getMotos();
   var filtered = motos;

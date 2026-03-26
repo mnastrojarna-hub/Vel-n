@@ -10,8 +10,8 @@ MG.route('/rezervace', async function(app){
   var mp = ''; var mm = hash.match(/[?&]moto=([^&]+)/);
   if(mm) mp = decodeURIComponent(mm[1]);
 
-  app.innerHTML = '<main id="content"><section class="container">' + bc +
-    '<div class="pcontent"><h1>Rezervace motorky</h1>' +
+  app.innerHTML = '<main id="content"><div class="container">' + bc +
+    '<div class="ccontent pcontent"><h1>Rezervace motorky</h1>' +
     '<h3>Jak rezervace funguje?</h3><p>&nbsp;</p>' +
     '<p>Pokud si chcete <strong>půjčit motorku v konkrétním termínu</strong>, vyberte „libovolná dostupná motorka" a v kalendáři termín vyznačte.</p><p>&nbsp;</p>' +
     '<p>V případě, že si chcete <strong>vyzkoušet konkrétní motorku</strong>, vyberte ji ze seznamu a v kalendáři se vám zobrazí dostupné termíny.</p><p>&nbsp;</p>' +
@@ -21,7 +21,7 @@ MG.route('/rezervace', async function(app){
     '<div id="rez-date-banner" style="display:none"></div>' +
     '<div id="rez-avail-select" style="display:none"></div>' +
     '<div id="rez-form"></div>' +
-    '</div></section></main>';
+    '</div></div></main>';
 
   MG._rez = { startDate: null, endDate: null, motos: [], motoId: mp, allBookings: {} };
   var motos = await MG._getMotos();
