@@ -1,9 +1,6 @@
 // ===== TEMPLATES-RES-SOS2.JS – SOS screens part 2 (s-sos-porucha, s-sos-nepojizda-porucha, s-sos-servis, s-sos-kradez) =====
 Templates['s-sos-porucha'] = `  <div class="sos-sub-hdr warn">
-    <div class="sos-sub-back" onclick="histBack()"><div class="sos-sub-back-btn">←</div><div style="color:rgba(255,255,255,.7);font-size:13px;font-weight:600;">Zpět</div></div>
-    <div style="font-size:28px;margin-bottom:8px;">🔧</div>
-    <h2 style="color:#fff;font-size:22px;font-weight:900;" id="t-breakdownTitle">Porucha motorky</h2>
-    <p style="color:rgba(255,255,255,.7);font-size:12px;margin-top:4px;" id="t-breakdownSub">Vyberte situaci, která nejlépe popisuje váš problém</p>
+    <div style="display:flex;align-items:center;gap:10px"><div class="sos-sub-back-btn" onclick="histBack()" style="flex-shrink:0">←</div><div><h2 style="color:#fff;font-size:16px;font-weight:900;margin:0;" id="t-breakdownTitle">⚠️ Porucha za jízdy</h2><p style="color:rgba(255,255,255,.7);font-size:12px;margin-top:2px;" id="t-breakdownSub">Motorka jede, ale má problém</p></div></div>
   </div>
 
   <div style="padding:14px 20px 0;">
@@ -39,10 +36,7 @@ Templates['s-sos-porucha'] = `  <div class="sos-sub-hdr warn">
   </div>`;
 
 Templates['s-sos-nepojizda-porucha'] = `  <div class="sos-sub-hdr warn">
-    <div class="sos-sub-back" onclick="histBack()"><div class="sos-sub-back-btn">←</div><div style="color:rgba(255,255,255,.7);font-size:13px;font-weight:600;">Zpět</div></div>
-    <div style="font-size:28px;margin-bottom:8px;">🚫</div>
-    <h2 style="color:#fff;font-size:22px;font-weight:900;" id="t-wontStartTitle">Motorka nejede</h2>
-    <p style="color:rgba(255,255,255,.7);font-size:12px;margin-top:4px;" id="t-wontStartSub">Vážná porucha – jak chcete pokračovat?</p>
+    <div style="display:flex;align-items:center;gap:10px"><div class="sos-sub-back-btn" onclick="histBack()" style="flex-shrink:0">←</div><div><h2 style="color:#fff;font-size:16px;font-weight:900;margin:0;" id="t-wontStartTitle">🔧 Nepojízdná – porucha</h2><p style="color:rgba(255,255,255,.7);font-size:12px;margin-top:2px;" id="t-wontStartSub">Technická závada</p></div></div>
   </div>
   <div style="padding:14px 20px 0;">
     <div class="sos-option" onclick="_sosActiveIncidentId=null;sosRequestReplacement()" style="border-color:#86efac;">
@@ -69,10 +63,7 @@ Templates['s-sos-nepojizda-porucha'] = `  <div class="sos-sub-hdr warn">
   </div>`;
 
 Templates['s-sos-servis'] = `  <div class="sos-sub-hdr" style="background:linear-gradient(135deg,#1e3a5f,#2563eb);">
-    <div class="sos-sub-back" onclick="histBack()"><div class="sos-sub-back-btn">←</div><div style="color:rgba(255,255,255,.7);font-size:13px;font-weight:600;">Zpět</div></div>
-    <div style="font-size:36px;margin-bottom:8px;">🔧</div>
-    <h2 style="color:#fff;font-size:22px;font-weight:900;" id="t-selfServiceTitle">Servis na vlastní pěst</h2>
-    <p style="color:rgba(255,255,255,.7);font-size:12px;margin-top:4px;" id="t-selfServiceSub">MotoGo24 náklady zpětně proplatí</p>
+    <div style="display:flex;align-items:center;gap:10px"><div class="sos-sub-back-btn" onclick="histBack()" style="flex-shrink:0">←</div><div><h2 style="color:#fff;font-size:16px;font-weight:900;margin:0;" id="t-selfServiceTitle">🔧 Servisní požadavek</h2><p style="color:rgba(255,255,255,.7);font-size:12px;margin-top:2px;" id="t-selfServiceSub">Plánovaná údržba</p></div></div>
   </div>
   <div style="padding:14px 20px 0;">
     <div style="background:#fff;border-radius:var(--r);padding:16px;box-shadow:var(--shadow);margin-bottom:12px;">
@@ -94,10 +85,7 @@ Templates['s-sos-servis'] = `  <div class="sos-sub-hdr" style="background:linear
   </div>`;
 
 Templates['s-sos-kradez'] = `  <div class="sos-sub-hdr" style="background:linear-gradient(135deg,#991b1b,#b91c1c);">
-    <div class="sos-sub-back" onclick="histBack()"><div class="sos-sub-back-btn">←</div><div style="color:rgba(255,255,255,.7);font-size:13px;font-weight:600;">Zpět</div></div>
-    <div style="font-size:36px;margin-bottom:8px;">🔓</div>
-    <h2 style="color:#fff;font-size:22px;font-weight:900;" id="t-stolenTitle">Motorka odcizena</h2>
-    <p style="color:rgba(255,255,255,.7);font-size:12px;margin-top:4px;" id="t-stolenSub">Postupujte přesně dle pokynů níže</p>
+    <div style="display:flex;align-items:center;gap:10px"><div class="sos-sub-back-btn" onclick="histBack()" style="flex-shrink:0">←</div><div><h2 style="color:#fff;font-size:16px;font-weight:900;margin:0;" id="t-stolenTitle">🚨 Krádež motorky</h2><p style="color:rgba(255,255,255,.7);font-size:12px;margin-top:2px;" id="t-stolenSub">Okamžitě nahlaste</p></div></div>
   </div>
   <div style="padding:14px 20px 0;">
     <div style="background:#fff;border-radius:var(--r);padding:16px;box-shadow:var(--shadow);margin-bottom:12px;">

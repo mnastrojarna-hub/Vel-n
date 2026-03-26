@@ -1,4 +1,4 @@
-Templates['s-contracts'] = `  <div class="topbar"><div class="back-row" onclick="histBack()"><div class="bk-c">←</div><div class="bk-l">Zpět</div></div><h2 id="t-docsTitle">📄 Dokumenty a smlouvy</h2><p id="t-docsSubtitle">Archiv smluvní dokumentace</p></div>
+Templates['s-contracts'] = `  <div class="topbar"><div style="display:flex;align-items:center;gap:10px"><div class="bk-c" onclick="histBack()" style="flex-shrink:0">←</div><div><h2 id="t-docsTitle">📄 Dokumenty a smlouvy</h2><p id="t-docsSubtitle">Archiv smluvní dokumentace</p></div></div></div>
   <div style="display:flex;gap:6px;margin:10px 20px 0;">
     <select id="con-sort" onchange="renderContractsPage()" class="filter-sel">
       <option value="date_desc">Datum: nejnovější</option>
@@ -15,14 +15,24 @@ Templates['s-contracts'] = `  <div class="topbar"><div class="back-row" onclick=
   <div style="text-align:center;padding:40px 20px;color:var(--g400);font-size:12px;" id="contracts-loading">⏳ Načítám dokumenty...</div>`;
 
 Templates['s-profile'] = `  <div class="prof-hdr">
-    <div class="back-row" onclick="histBack()" style="position:relative;z-index:2;"><div class="bk-c">\u2190</div><div class="bk-l">Zp\u011bt</div></div>
-    <div style="display:flex;align-items:center;justify-content:center;gap:10px;">
-      <img src="${IMG_BASE64_0}" style="width:56px;height:56px;border-radius:14px;object-fit:cover;background:var(--green);" alt="MotoGo24">
-      <div><div style="font-size:24px;font-weight:900;color:#fff;letter-spacing:-.5px;line-height:1;">MOTO GO 24</div><div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.4);letter-spacing:2.5px;text-transform:uppercase;margin-top:3px;">Půjčovna motorek</div></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="bk-c" onclick="histBack()" style="flex-shrink:0;width:30px;height:30px;background:var(--green);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:900;cursor:pointer;">\u2190</div>
+        <img src="${IMG_BASE64_0}" style="width:36px;height:36px;border-radius:10px;object-fit:cover;background:var(--green);" alt="MotoGo24">
+        <div>
+          <div style="font-size:16px;font-weight:900;color:#fff;letter-spacing:-.5px;line-height:1;">MOTO GO 24</div>
+          <div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.4);letter-spacing:2.5px;text-transform:uppercase;margin-top:2px;">P\u016fj\u010dovna motorek</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--green);"></div>
+        <div class="h-av" onclick="goTo('s-profile')" title="Profil" style="width:34px;height:34px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:7px;cursor:pointer;"><div style="width:16px;height:2px;background:#fff;border-radius:2px;"></div><div style="width:12px;height:2px;background:#fff;border-radius:2px;"></div><div style="width:16px;height:2px;background:#fff;border-radius:2px;"></div></div>
+      </div>
     </div>
-    <div class="prof-pilot-lbl" id="t-loggedPilot">Přihlášený pilot</div>
-    <div class="prof-pilot-name" id="profile-header-name"></div>
-    <div class="prof-email" id="profile-header-email"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
+      <div style="flex-shrink:0;display:flex;align-items:center;gap:5px;background:rgba(116,251,113,.12);border-radius:8px;padding:7px 10px"><div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.3px">Pilot:</div><div style="font-size:13px;font-weight:800;color:#fff" id="profile-header-name"></div></div>
+      <div style="font-size:12px;color:rgba(255,255,255,.4);text-align:right;" id="profile-header-email"></div>
+    </div>
   </div>
 
   <div class="msec">
@@ -139,9 +149,7 @@ Templates['s-profile'] = `  <div class="prof-hdr">
   <div style="height:14px;"></div>`;
 
 Templates['s-messages'] = `  <div class="topbar">
-    <div class="back-row" onclick="histBack()"><div class="bk-c">\u2190</div><div class="bk-l">Zp\u011bt na profil</div></div>
-    <h2>Zpr\u00e1vy</h2>
-    <p>Komunikace s MotoGo24</p>
+    <div style="display:flex;align-items:center;gap:10px"><div class="bk-c" onclick="histBack()" style="flex-shrink:0">\u2190</div><div><h2>📩 Zpr\u00e1vy</h2><p>Komunikace s MotoGo24</p></div></div>
   </div>
   <div style="margin:0 20px;">
     <div id="msg-tabs" style="display:flex;gap:4px;margin-bottom:12px;">
@@ -173,16 +181,12 @@ Templates['s-messages'] = `  <div class="topbar">
   <div style="height:20px;"></div>`;
 
 Templates['s-messages-thread'] = `  <div class="topbar">
-    <div class="back-row" onclick="histBack();msgSwitchTab('chat')"><div class="bk-c">\u2190</div><div class="bk-l">Zp\u011bt</div></div>
-    <h2 id="thread-title">Konverzace</h2>
-    <p id="thread-status" style="font-size:11px;"></p>
+    <div style="display:flex;align-items:center;gap:10px"><div class="bk-c" onclick="histBack();msgSwitchTab('chat')" style="flex-shrink:0">\u2190</div><div><h2 id="thread-title">Vl\u00e1kno zpr\u00e1v</h2><p id="thread-status" style="font-size:11px;"></p></div></div>
   </div>
   <div id="thread-messages" style="margin:0 20px;padding-bottom:80px;"></div>`;
 
 Templates['s-invoices'] = `  <div class="topbar">
-    <div class="back-row" onclick="histBack()"><div class="bk-c">←</div><div class="bk-l" id="t-backToProfile">Zpět na profil</div></div>
-    <h2 id="t-invoicesTitle">Faktury a vyúčtování</h2>
-    <p id="t-autoGenerated">Automaticky generované dokumenty</p>
+    <div style="display:flex;align-items:center;gap:10px"><div class="bk-c" onclick="histBack()" style="flex-shrink:0">←</div><div><h2 id="t-invoicesTitle">🧾 Faktury a vyúčtování</h2><p id="t-autoGenerated">Automaticky generované dokumenty</p></div></div>
   </div>
   <div style="display:flex;gap:6px;margin:10px 20px 0;">
     <select id="inv-sort" onchange="renderInvoicesPage()" class="filter-sel">

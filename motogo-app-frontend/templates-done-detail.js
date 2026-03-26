@@ -1,7 +1,5 @@
 Templates['s-done-detail'] = `  <div class="done-hdr">
-    <div class="back-row" onclick="histBack()"><div class="bk-c" >←</div><div class="bk-l" id="t-doneBack">Zpět na rezervace</div></div>
-    <h2 id="t-doneTitle">Detail proběhlé jízdy</h2>
-    <p id="done-sub">#RES-2025-0018</p>
+    <div style="display:flex;align-items:center;gap:10px"><div class="bk-c" onclick="histBack()" style="flex-shrink:0">←</div><div><h2 id="t-doneTitle">Dokončená rezervace</h2><p id="done-sub">#RES-2025-0018</p></div></div>
   </div>
   <div class="rd-card" style="margin-top:10px;">
     <img id="done-img" class="rd-moto-img" src="https://images.unsplash.com/photo-1547549082-6bc09f2049ae?w=800&q=80" alt="">

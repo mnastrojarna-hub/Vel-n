@@ -34,9 +34,8 @@ Templates['s-login'] = `  <div class="lt">
   </div>`;
 
 Templates['s-register'] = `  <div class="reg-hdr">
-    <div class="back-row" onclick="regBack()"><div class="bk-c">←</div><div class="bk-l" id="reg-back-label">Zpět na přihlášení</div></div>
-    <h2 id="t-regTitle">Registrace pilota 🏍️</h2>
-    <div class="reg-progress">
+    <div style="display:flex;align-items:center;gap:10px"><div class="bk-c" onclick="regBack()" style="flex-shrink:0">←</div><h2 id="t-regTitle" style="font-size:16px;font-weight:900;color:#fff;margin:0;">Registrace pilota 🏍️</h2></div>
+    <div class="reg-progress" style="margin-top:8px;">
       <div class="reg-prog-step cur" id="rp1"></div>
       <div class="reg-prog-step" id="rp2"></div>
       <div class="reg-prog-step" id="rp3"></div>
@@ -86,8 +85,7 @@ Templates['s-register'] = `  <div class="reg-hdr">
   </div>`;
 
 Templates['s-docs'] = `  <div class="docs-hdr">
-    <div class="back-row" onclick="goTo('s-profile')"><div class="bk-c">←</div><div class="bk-l">Zpět</div></div>
-    <h2>Moje doklady 📋</h2><p>Před první rezervací – stačí jednou</p>
+    <div style="display:flex;align-items:center;gap:10px"><div class="bk-c" onclick="goTo('s-profile')" style="flex-shrink:0">←</div><div><h2>Moje doklady 📋</h2><p>Před první rezervací – stačí jednou</p></div></div>
   </div>
   <div style="margin:12px 20px 0;background:rgba(249,115,22,.1);border:2px solid rgba(249,115,22,.3);border-radius:var(--r);padding:13px;display:flex;gap:11px;">
     <div style="font-size:21px;flex-shrink:0;">⚠️</div>

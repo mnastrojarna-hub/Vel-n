@@ -3,8 +3,7 @@
 // s-contracts template moved to templates-done.js (dynamic renderContractsPage)
 
 Templates['s-sos'] = `  <div class="sos-hdr">
-    <div class="back-row" onclick="histBack()" style="margin-bottom:10px;"><div class="bk-c">←</div><div class="bk-l">Zpět</div></div>
-    <h2 id="t-sosTitle">🆘 Pomoc na cestě</h2><p id="t-sosSub">Co se stalo? Vybereme nejlepší pomoc.</p>
+    <div style="display:flex;align-items:center;gap:10px"><div class="bk-c" onclick="histBack()" style="flex-shrink:0">←</div><div><h2 id="t-sosTitle" style="font-size:16px;font-weight:900;color:#fff;margin:0;">🆘 Pomoc na cestě</h2><p id="t-sosSub" style="font-size:12px;color:rgba(255,255,255,.7);font-weight:500;margin-top:2px;">Co se stalo? Vybereme nejlepší pomoc.</p></div></div>
   </div>
   <div style="padding:14px 20px 0;">
     <!-- AI Diagnostika — featured card -->
@@ -62,10 +61,7 @@ Templates['s-sos'] = `  <div class="sos-hdr">
   </div>`;
 
 Templates['s-sos-nehoda'] = `  <div class="sos-sub-hdr">
-    <div class="sos-sub-back" onclick="histBack()"><div class="sos-sub-back-btn">←</div><div style="color:rgba(255,255,255,.7);font-size:13px;font-weight:600;">Zpět</div></div>
-    <div style="font-size:28px;margin-bottom:8px;">💥</div>
-    <h2 id="t-accTitle" style="color:#fff;font-size:22px;font-weight:900;">Nehoda</h2>
-    <p id="t-accSub" style="color:rgba(255,255,255,.7);font-size:12px;margin-top:4px;">Nahlaste situaci MotoGo24</p>
+    <div style="display:flex;align-items:center;gap:10px"><div class="sos-sub-back-btn" onclick="histBack()" style="flex-shrink:0">←</div><div><h2 id="t-accTitle" style="color:#fff;font-size:16px;font-weight:900;margin:0;">💥 Hlášení nehody</h2><p id="t-accSub" style="color:rgba(255,255,255,.7);font-size:12px;margin-top:2px;">Zdokumentujte nehodu</p></div></div>
   </div>
   <div style="padding:14px 20px 0;">
     <div class="sos-option" onclick="sosReportAccident('lehka')" style="border-color:#fde68a;">
@@ -105,10 +101,7 @@ Templates['s-sos-nehoda'] = `  <div class="sos-sub-hdr">
   </div>`;
 
 Templates['s-sos-nepojizda'] = `  <div class="sos-sub-hdr">
-    <div class="sos-sub-back" onclick="histBack()"><div class="sos-sub-back-btn">←</div><div style="color:rgba(255,255,255,.7);font-size:13px;font-weight:600;">Zpět</div></div>
-    <div style="font-size:28px;margin-bottom:8px;">🚨</div>
-    <h2 id="t-immobTitle" style="color:#fff;font-size:22px;font-weight:900;">Motorka je nepojízdná</h2>
-    <p style="color:rgba(255,255,255,.7);font-size:12px;margin-top:4px;">Nejdříve upřesněte situaci</p>
+    <div style="display:flex;align-items:center;gap:10px"><div class="sos-sub-back-btn" onclick="histBack()" style="flex-shrink:0">←</div><div><h2 id="t-immobTitle" style="color:#fff;font-size:16px;font-weight:900;margin:0;">🚫 Motorka nepojízdná</h2><p style="color:rgba(255,255,255,.7);font-size:12px;margin-top:2px;">Nelze pokračovat v jízdě</p></div></div>
   </div>
   <div style="padding:10px 20px 0;display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px;">
     <button onclick="setNepojizda(false)" id="btn-nepoj-nevinik" style="background:var(--green);color:#fff;border:none;border-radius:var(--r);padding:14px 8px;font-family:var(--font);font-size:13px;font-weight:800;cursor:pointer;line-height:1.4;">

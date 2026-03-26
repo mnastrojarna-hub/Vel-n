@@ -3,7 +3,7 @@
 
 /* SOS */
 #s-sos,#s-sos-nehoda,#s-sos-porucha{background:var(--bg);}
-.sos-sub-hdr{background:linear-gradient(135deg,#991b1b,#dc2626);padding:36px 20px 24px;border-radius:0 0 24px 24px;position:sticky;top:0;z-index:50;}
+.sos-sub-hdr{background:linear-gradient(135deg,#991b1b,#dc2626);padding:10px 20px 12px;border-radius:0 0 24px 24px;position:sticky;top:0;z-index:50;}
 .sos-sub-hdr.warn{background:linear-gradient(135deg,#92400e,#d97706);}
 .sos-sub-hdr.blue{background:linear-gradient(135deg,#1e40af,#3b82f6);}
 .sos-sub-back{display:flex;align-items:center;gap:10px;margin-bottom:14px;cursor:pointer;}
@@ -26,8 +26,8 @@
 .ai-chat-input input{flex:1;border:2px solid var(--g200);border-radius:var(--rsm);padding:10px 12px;font-size:13px;font-family:var(--font);outline:none;background:var(--g100);}
 .ai-chat-input input:focus{border-color:var(--green);}
 .ai-chat-input button{background:var(--green);color:#fff;border:none;border-radius:var(--rsm);padding:10px 14px;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;}
-.sos-hdr{background:linear-gradient(135deg,#991b1b,#dc2626);padding:36px 20px 26px;border-radius:0 0 28px 28px;position:sticky;top:0;z-index:50;}
-.sos-hdr h2{font-size:24px;font-weight:900;color:#fff;margin-bottom:3px;}.sos-hdr p{font-size:12px;color:rgba(255,255,255,.7);font-weight:500;}
+.sos-hdr{background:linear-gradient(135deg,#991b1b,#dc2626);padding:10px 20px 12px;border-radius:0 0 28px 28px;position:sticky;top:0;z-index:50;}
+.sos-hdr h2{font-size:16px;font-weight:900;color:#fff;margin-bottom:0;}.sos-hdr p{font-size:12px;color:rgba(255,255,255,.7);font-weight:500;margin-top:2px;}
 .sos-card{background:#fff;border-radius:var(--r);padding:16px;margin:12px 20px 0;box-shadow:var(--shadow);}
 .sos-card h3{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;color:var(--black);}
 .tel-big{background:var(--green);color:#fff;border:none;border-radius:var(--r);padding:16px 18px;width:100%;display:flex;align-items:center;gap:13px;cursor:pointer;font-family:var(--font);box-shadow:0 4px 18px rgba(116,251,113,.4);text-decoration:none;}

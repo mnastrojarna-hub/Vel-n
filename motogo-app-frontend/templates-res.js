@@ -1,13 +1,23 @@
 // ===== TEMPLATES-RES.JS – Reservation list (s-res) & Reservation detail (s-res-detail) =====
-Templates['s-res'] = `  <div class="res-hdr" style="position:relative;"><div class="h-av" onclick="goTo('s-profile')" title="Profil" style="position:absolute;right:20px;top:54px;width:36px;height:36px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:7px;cursor:pointer;z-index:20;"><div style="width:16px;height:2px;background:#fff;border-radius:2px;"></div><div style="width:12px;height:2px;background:#fff;border-radius:2px;"></div><div style="width:16px;height:2px;background:#fff;border-radius:2px;"></div></div>
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
-      <img src="${IMG_BASE64_0}" style="width:96px;height:96px;border-radius:22px;object-fit:cover;background:var(--green);" alt="MotoGo24">
-      <div>
-        <div style="font-size:24px;font-weight:900;color:#fff;letter-spacing:-.5px;line-height:1;">MOTO GO 24</div>
-        <div id="t-resRentalTag" style="font-size:10px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:3px;text-transform:uppercase;margin-top:4px;">P\u016fj\u010dovna motorek</div>
+Templates['s-res'] = `  <div class="res-hdr">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <img src="${IMG_BASE64_0}" style="width:36px;height:36px;border-radius:10px;object-fit:cover;background:var(--green);" alt="MotoGo24">
+        <div>
+          <div style="font-size:16px;font-weight:900;color:#fff;letter-spacing:-.5px;line-height:1;">MOTO GO 24</div>
+          <div id="t-resRentalTag" style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:3px;text-transform:uppercase;margin-top:2px;">P\u016fj\u010dovna motorek</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--green);"></div>
+        <div class="h-av" onclick="goTo('s-profile')" title="Profil" style="width:34px;height:34px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:7px;cursor:pointer;"><div style="width:16px;height:2px;background:#fff;border-radius:2px;"></div><div style="width:12px;height:2px;background:#fff;border-radius:2px;"></div><div style="width:16px;height:2px;background:#fff;border-radius:2px;"></div></div>
       </div>
     </div>
-    <h2 id="t-myRes">Moje rezervace</h2><p id="t-resMgmt">Spr\u00e1va v\u0161ech rezervac\u00ed</p></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
+      <div style="flex-shrink:0;display:flex;align-items:center;gap:5px;background:rgba(116,251,113,.12);border-radius:8px;padding:7px 10px"><div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.3px" id="t-pilot-res">Pilot:</div><div style="font-size:13px;font-weight:800;color:#fff" id="res-user-name"></div></div>
+      <h2 id="t-myRes" style="font-size:16px;font-weight:900;color:#fff;text-align:right;margin:0;">Moje rezervace</h2>
+    </div>
+  </div>
   <div style="padding:9px 20px 4px;display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;">
     <div class="chip active" id="t-resAll" onclick="filterRes(this,'all')">Vše</div>
     <div class="chip" id="t-resActive" onclick="filterRes(this,'aktivni')">Aktivní</div>
@@ -53,9 +63,7 @@ Templates['s-res'] = `  <div class="res-hdr" style="position:relative;"><div cla
   <!-- Dynamic reservation cards rendered by reservations-ui.js -->`;
 
 Templates['s-res-detail'] = `  <div class="rd-hdr">
-    <div class="back-row" onclick="histBack()"><div class="bk-c" >←</div><div class="bk-l" id="t-rdBack">Zpět na rezervace</div></div>
-    <h2 id="rd-title">Detail rezervace</h2>
-    <p id="rd-subtitle">#RES-2026-0043</p>
+    <div style="display:flex;align-items:center;gap:10px"><div class="bk-c" onclick="histBack()" style="flex-shrink:0">←</div><div><h2 id="rd-title">Detail rezervace</h2><p id="rd-subtitle">#RES-2026-0043</p></div></div>
   </div>
   <div id="rd-banner" class="rd-info-banner rd-banner-info" style="display:none;"></div>
   <div class="rd-card" style="margin-top:10px;">
