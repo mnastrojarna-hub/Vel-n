@@ -298,12 +298,17 @@ MG._addVoucherField = function(){
   c.appendChild(d);
 };
 
-// ===== SUBMIT =====
-MG._submitReservation = function(){
+// ===== SUBMIT — create booking + redirect to Stripe =====
+MG._submitReservation = async function(){
   var name = document.getElementById('rez-name');
   var email = document.getElementById('rez-email');
   var phone = document.getElementById('rez-phone');
+  var street = document.getElementById('rez-street');
+  var city = document.getElementById('rez-city');
+  var zip = document.getElementById('rez-zip');
+  var country = document.getElementById('rez-country');
   var agree = document.getElementById('rez-agree-vop');
+
   if(!name || !name.value || !email || !email.value || !phone || !phone.value){
     alert('Vyplňte prosím všechna povinná pole.'); return;
   }
@@ -314,5 +319,84 @@ MG._submitReservation = function(){
   if(!r.startDate || !r.endDate){ alert('Vyberte prosím termín v kalendáři.'); return; }
   var mId = r.motoId || r.selectedMotoId;
   if(!mId){ alert('Vyberte prosím motorku.'); return; }
-  alert('Děkujeme za rezervaci! Tato funkce bude brzy plně propojená.\n\nKontaktujte nás: '+MG.PHONE);
+
+  // Build extras array
+  var extras = [];
+  if(document.getElementById('rez-eq-passenger') && document.getElementById('rez-eq-passenger').checked)
+    extras.push({name:'Výbava spolujezdce', price:690});
+  if(document.getElementById('rez-eq-boots-rider') && document.getElementById('rez-eq-boots-rider').checked)
+    extras.push({name:'Boty řidič', price:290});
+  if(document.getElementById('rez-eq-boots-passenger') && document.getElementById('rez-eq-boots-passenger').checked)
+    extras.push({name:'Boty spolujezdce', price:290});
+
+  var note = (document.getElementById('rez-note') || {}).value || '';
+  var pickupTime = (document.getElementById('rez-pickup-time') || {}).value || null;
+  var deliveryAddr = null, returnAddr = null;
+  if(document.getElementById('rez-delivery') && document.getElementById('rez-delivery').checked)
+    deliveryAddr = (document.getElementById('rez-delivery-address') || {}).value || null;
+  var retOther = document.getElementById('rez-return-other');
+  if(retOther && retOther.checked)
+    returnAddr = (document.getElementById('rez-pickup-address') || {}).value || null;
+
+  // Disable button
+  var btn = document.querySelector('#rez-form .btn.btngreen');
+  if(btn){ btn.disabled = true; btn.textContent = 'Zpracovávám...'; }
+
+  try {
+    // 1. Create booking via RPC
+    var res = await window.sb.rpc('create_web_booking', {
+      p_moto_id: mId,
+      p_start_date: r.startDate,
+      p_end_date: r.endDate,
+      p_name: name.value,
+      p_email: email.value,
+      p_phone: phone.value,
+      p_street: (street && street.value) || '',
+      p_city: (city && city.value) || '',
+      p_zip: (zip && zip.value) || '',
+      p_country: (country && country.value) || 'CZ',
+      p_note: note,
+      p_pickup_time: pickupTime,
+      p_delivery_address: deliveryAddr,
+      p_return_address: returnAddr,
+      p_extras: extras
+    });
+
+    if(res.error){ alert('Chyba: ' + res.error.message); if(btn){btn.disabled=false;btn.textContent='Pokračovat v rezervaci';} return; }
+    var data = res.data;
+    if(data.error){ alert(data.error); if(btn){btn.disabled=false;btn.textContent='Pokračovat v rezervaci';} return; }
+
+    var bookingId = data.booking_id;
+    var amount = data.amount;
+
+    // 2. Call process-payment edge function for Stripe Checkout
+    var payRes = await fetch(window.MOTOGO_CONFIG.SUPABASE_URL + '/functions/v1/process-payment', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': window.MOTOGO_CONFIG.SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({
+        booking_id: bookingId,
+        amount: amount,
+        type: 'booking',
+        source: 'web',
+        mode: 'checkout'
+      })
+    });
+
+    var payData = await payRes.json();
+    if(payData.error){ alert('Chyba platby: ' + payData.error); if(btn){btn.disabled=false;btn.textContent='Pokračovat v rezervaci';} return; }
+
+    // 3. Redirect to Stripe Checkout
+    if(payData.checkout_url){
+      window.location.href = payData.checkout_url;
+    } else {
+      alert('Nepodařilo se vytvořit platební relaci.'); if(btn){btn.disabled=false;btn.textContent='Pokračovat v rezervaci';}
+    }
+  } catch(e){
+    console.error('[REZ] Submit error:', e);
+    alert('Došlo k chybě. Zkuste to prosím znovu.');
+    if(btn){btn.disabled=false;btn.textContent='Pokračovat v rezervaci';}
+  }
 };
