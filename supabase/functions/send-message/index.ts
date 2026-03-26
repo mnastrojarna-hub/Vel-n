@@ -4,7 +4,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 const TWILIO_SID = Deno.env.get('TWILIO_ACCOUNT_SID') || ''
-const TWILIO_TOKEN = Deno.env.get('TWILIO_AUTH_TOKEN') || ''
+const TWILIO_API_KEY = Deno.env.get('TWILIO_API_KEY_SID') || ''
+const TWILIO_API_SECRET = Deno.env.get('TWILIO_API_KEY_SECRET') || ''
 const TWILIO_PHONE = Deno.env.get('TWILIO_PHONE_NUMBER') || ''
 const TWILIO_WA = Deno.env.get('TWILIO_WHATSAPP_NUMBER') || ''
 
@@ -41,8 +42,8 @@ async function sendViaTwilio(
   waTemplateId?: string | null,
   waTemplateVars?: Record<string, string> | null,
 ): Promise<{ success: boolean; sid?: string; error?: string }> {
-  if (!TWILIO_SID || !TWILIO_TOKEN) {
-    return { success: false, error: 'TWILIO_ACCOUNT_SID or TWILIO_AUTH_TOKEN not configured' }
+  if (!TWILIO_SID || !TWILIO_API_KEY || !TWILIO_API_SECRET) {
+    return { success: false, error: 'TWILIO_ACCOUNT_SID, TWILIO_API_KEY_SID or TWILIO_API_KEY_SECRET not configured' }
   }
 
   const fromNumber = channel === 'whatsapp' ? TWILIO_WA : TWILIO_PHONE
@@ -51,7 +52,7 @@ async function sendViaTwilio(
   }
 
   const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`
-  const auth = btoa(`${TWILIO_SID}:${TWILIO_TOKEN}`)
+  const auth = btoa(`${TWILIO_API_KEY}:${TWILIO_API_SECRET}`)
 
   const toFormatted = channel === 'whatsapp' ? `whatsapp:${to}` : to
   const fromFormatted = channel === 'whatsapp' ? `whatsapp:${fromNumber}` : fromNumber
