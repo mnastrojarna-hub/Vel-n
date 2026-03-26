@@ -5,21 +5,17 @@ window.MG = MG;
 
 // ===== MOTO CARD =====
 MG.renderMotoCard = function(m){
-  var img = m.image_url || (m.images && m.images[0]) || '';
-  var desc = m.ideal_usage || m.description || '';
+  var img = m.image_url || (m.images && m.images.length ? m.images[0] : '') || '';
+  var desc = m.ideal_usage || '';
   var cat = m.category || '';
   var kw = m.power_kw ? (m.power_kw + ' kW') : '';
-  var price = Math.min(
-    m.price_mon||9999, m.price_tue||9999, m.price_wed||9999,
-    m.price_thu||9999, m.price_fri||9999, m.price_sat||9999, m.price_sun||9999,
-    m.price_weekday||9999
-  );
+  var price = MG.getMinPrice(m);
   var license = m.license_required || '';
 
   var features = [];
   if(cat) features.push(cat);
+  if(license && license !== 'N') features.push(license);
   if(kw) features.push(kw);
-  if(license && license !== 'N') features.push('skupina ' + license);
   if(desc){
     desc.split(',').forEach(function(f){
       var t = f.trim();
@@ -31,7 +27,7 @@ MG.renderMotoCard = function(m){
   features.forEach(function(f){ featHtml += '<li>' + f + '</li>'; });
   featHtml += '</ul>';
 
-  var priceText = price < 9999 ? ('Cena: od ' + MG.formatPrice(price) + '/den') : '';
+  var priceText = price > 0 ? ('Cena: od ' + MG.formatPrice(price) + '/den') : '';
 
   return '<a class="moto-wrapper" href="#/katalog/' + m.id + '" aria-label="' + m.model + '">' +
     '<div class="moto-title"><h2>' + m.model + '</h2></div>' +

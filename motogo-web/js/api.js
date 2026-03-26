@@ -6,14 +6,16 @@ window.MG = MG;
 
 // ===== MOTORKY =====
 MG.fetchMotos = async function(){
-  if(!window.sb) return [];
+  if(!window.sb){ console.warn('[API] sb not ready'); return []; }
   try {
     var r = await window.sb.from('motorcycles')
       .select('*, branches(name, address, city, is_open)')
       .eq('status','active')
       .order('model');
+    if(r.error){ console.error('[API] fetchMotos error:', r.error); return []; }
+    console.log('[API] fetchMotos:', (r.data||[]).length, 'motorek');
     return r.data || [];
-  } catch(e){ console.error('[API] fetchMotos:', e); return []; }
+  } catch(e){ console.error('[API] fetchMotos exception:', e); return []; }
 };
 
 // ===== DENNÍ CENY =====
@@ -28,16 +30,22 @@ MG.fetchMotoPrices = async function(motoId){
 };
 
 // ===== DOSTUPNOST (bookings overlap check) =====
+// Note: bookings table has RLS - anon can't read. We use RPC or public view.
 MG.fetchMotoBookings = async function(motoId){
   if(!window.sb) return [];
   try {
     var today = new Date().toISOString().split('T')[0];
+    // Try direct query first (may fail due to RLS)
     var r = await window.sb.from('bookings')
       .select('start_date,end_date,status')
       .eq('moto_id', motoId)
       .in('status', ['pending','reserved','active'])
       .gte('end_date', today)
       .order('start_date');
+    if(r.error){
+      console.warn('[API] fetchMotoBookings RLS blocked, returning empty');
+      return [];
+    }
     return r.data || [];
   } catch(e){ return []; }
 };
@@ -58,8 +66,7 @@ MG.fetchSetting = async function(key){
 MG.fetchBranches = async function(){
   if(!window.sb) return [];
   try {
-    var r = await window.sb.from('branches')
-      .select('*').order('name');
+    var r = await window.sb.from('branches').select('*').order('name');
     return r.data || [];
   } catch(e){ return []; }
 };
@@ -70,6 +77,7 @@ MG.fetchCmsPage = async function(slug){
   try {
     var r = await window.sb.from('cms_pages')
       .select('*').eq('slug', slug).maybeSingle();
+    if(r.error){ console.warn('[API] fetchCmsPage error:', r.error); return null; }
     return r.data || null;
   } catch(e){ return null; }
 };
@@ -80,6 +88,7 @@ MG.fetchCmsPages = async function(tag){
     var q = window.sb.from('cms_pages').select('*').order('created_at',{ascending:false});
     if(tag) q = q.contains('tags', [tag]);
     var r = await q;
+    if(r.error){ console.warn('[API] fetchCmsPages error:', r.error); return []; }
     return r.data || [];
   } catch(e){ return []; }
 };
@@ -94,22 +103,11 @@ MG.fetchProducts = async function(){
   } catch(e){ return []; }
 };
 
-// ===== RECENZE =====
-MG.fetchReviews = async function(){
-  if(!window.sb) return [];
-  try {
-    var r = await window.sb.from('reviews')
-      .select('*').order('created_at',{ascending:false}).limit(10);
-    return r.data || [];
-  } catch(e){ return []; }
-};
-
 // ===== EXTRAS CATALOG =====
 MG.fetchExtras = async function(){
   if(!window.sb) return [];
   try {
-    var r = await window.sb.from('extras_catalog')
-      .select('*').order('name');
+    var r = await window.sb.from('extras_catalog').select('*').order('name');
     return r.data || [];
   } catch(e){ return []; }
 };
@@ -142,4 +140,10 @@ MG.formatDate = function(iso){
 MG.formatPrice = function(n){
   if(!n && n !== 0) return '';
   return Number(n).toLocaleString('cs-CZ') + ' Kč';
+};
+
+// ===== MIN PRICE HELPER =====
+MG.getMinPrice = function(m){
+  var prices = [m.price_mon,m.price_tue,m.price_wed,m.price_thu,m.price_fri,m.price_sat,m.price_sun,m.price_weekday].filter(function(p){ return p && p > 0; });
+  return prices.length ? Math.min.apply(null, prices) : 0;
 };

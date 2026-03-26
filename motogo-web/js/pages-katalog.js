@@ -6,9 +6,10 @@ window.MG = MG;
 // Cached motos
 MG._motosCache = null;
 MG._getMotos = async function(){
-  if(MG._motosCache) return MG._motosCache;
+  if(MG._motosCache && MG._motosCache.length) return MG._motosCache;
   MG._motosCache = await MG.fetchMotos();
-  return MG._motosCache;
+  console.log('[KATALOG] Loaded', (MG._motosCache||[]).length, 'motos');
+  return MG._motosCache || [];
 };
 
 // ===== KATALOG LISTING =====
@@ -32,8 +33,9 @@ MG._renderKatalog = async function(app, category, title){
   if(category){
     filtered = motos.filter(function(m){
       var cat = (m.category || '').toLowerCase();
-      if(category === 'cestovni') return cat.indexOf('cestov') !== -1 || cat.indexOf('adventure') !== -1 || cat.indexOf('enduro') !== -1;
-      if(category === 'detske') return cat.indexOf('dets') !== -1 || cat.indexOf('dět') !== -1 || cat.indexOf('mini') !== -1 || m.license_required === 'N';
+      var model = (m.model || '').toLowerCase();
+      if(category === 'cestovni') return cat.indexOf('cestov') !== -1 || cat.indexOf('adventure') !== -1 || cat.indexOf('enduro') !== -1 || cat.indexOf('touring') !== -1;
+      if(category === 'detske') return cat.indexOf('dets') !== -1 || cat.indexOf('dět') !== -1 || cat.indexOf('mini') !== -1 || cat.indexOf('child') !== -1 || (m.license_required && m.license_required.toUpperCase() === 'N');
       return true;
     });
   }
