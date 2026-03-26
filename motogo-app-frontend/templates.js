@@ -40,12 +40,11 @@ Templates['s-register'] = `  <div class="reg-hdr">
       <div class="reg-prog-step cur" id="rp1"></div>
       <div class="reg-prog-step" id="rp2"></div>
       <div class="reg-prog-step" id="rp3"></div>
-      <div class="reg-prog-step" id="rp4"></div>
     </div>
   </div>
   <div class="bcard" style="margin-top:14px;">
     <div class="reg-step active" id="reg-step-1">
-      <div class="reg-step-title" id="t-s1t">👤 Krok 1 / 4 – Základní údaje</div>
+      <div class="reg-step-title" id="t-s1t">👤 Krok 1 / 3 – Základní údaje</div>
       <div class="reg-step-sub" id="t-s1s">Vyplňte své osobní informace</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;">
         <div class="ff" style="margin:0;"><label id="t-firstName">Jméno</label><input id="reg-fname" type="text" placeholder="Jan"></div>
@@ -58,7 +57,7 @@ Templates['s-register'] = `  <div class="reg-hdr">
       <div style="text-align:right;margin-top:6px;"><a href="#" id="t-regForgot" onclick="event.preventDefault();showForgotPassword()" style="font-size:12px;color:var(--green);font-weight:600;text-decoration:none;">Zapomněli jste heslo?</a></div>
     </div>
     <div class="reg-step" id="reg-step-2">
-      <div class="reg-step-title" id="t-s2t">🏠 Krok 2 / 4 – Adresa bydliště</div>
+      <div class="reg-step-title" id="t-s2t">🏠 Krok 2 / 3 – Adresa bydliště</div>
       <div class="reg-step-sub" id="t-s2s">Potřebujeme vaši kontaktní adresu</div>
       <div style="display:grid;grid-template-columns:2fr 1fr;gap:9px;">
         <div class="ff" style="margin:0;"><label id="t-city">Obec / město</label><input id="reg-city" type="text" placeholder="např. Praha, Hojanivice"></div>
@@ -70,7 +69,7 @@ Templates['s-register'] = `  <div class="reg-hdr">
       </div>
     </div>
     <div class="reg-step" id="reg-step-3">
-      <div class="reg-step-title" id="t-s3t">🏍️ Krok 3 / 4 – Řidičský průkaz</div>
+      <div class="reg-step-title" id="t-s3t">🏍️ Krok 3 / 3 – Řidičský průkaz</div>
       <div class="reg-step-sub" id="t-s3s">Informace o vašem řidičském oprávnění</div>
       <div class="ff"><label id="t-licNum">Číslo řidičského průkazu</label><input id="reg-license-num" type="text" placeholder="AB 123456"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;">
@@ -79,42 +78,6 @@ Templates['s-register'] = `  <div class="reg-hdr">
       </div>
       <div class="ff" style="margin-top:9px;margin-bottom:0;"><label id="t-licCat">Kategorie ŘP</label>
         <select id="reg-license-group"><option value="A2" id="t-catA2">A2 – do 35 kW</option><option value="A" id="t-catA">A – bez omezení výkonu</option></select>
-      </div>
-    </div>
-    <div class="reg-step" id="reg-step-4">
-      <div class="reg-step-title" id="t-s4t">✅ Krok 4 / 4 – Souhlasy</div>
-      <div class="reg-step-sub" id="t-s4s">Přečtěte si a odsouhlaste podmínky</div>
-      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:4px;">
-        <label style="display:flex;align-items:flex-start;gap:9px;font-size:13px;font-weight:500;cursor:pointer;color:var(--g600);">
-          <input id="reg-terms" type="checkbox" checked style="width:18px;height:18px;accent-color:var(--green);flex-shrink:0;margin-top:2px;"> <span>VOP — všeobecné obchodní podmínky</span>
-        </label>
-        <label style="display:flex;align-items:flex-start;gap:9px;font-size:13px;font-weight:500;cursor:pointer;color:var(--g600);">
-          <input id="reg-gdpr" type="checkbox" checked style="width:18px;height:18px;accent-color:var(--green);flex-shrink:0;margin-top:2px;"> <span>GDPR — zpracování osobních údajů</span>
-        </label>
-        <label style="display:flex;align-items:flex-start;gap:9px;font-size:13px;font-weight:500;cursor:pointer;color:var(--g600);">
-          <input id="reg-data-processing" type="checkbox" checked style="width:18px;height:18px;accent-color:var(--green);flex-shrink:0;margin-top:2px;"> <span>Zpracování dat pro provoz služby</span>
-        </label>
-        <label style="display:flex;align-items:flex-start;gap:9px;font-size:13px;font-weight:500;cursor:pointer;color:var(--g600);">
-          <input id="reg-contract" type="checkbox" checked style="width:18px;height:18px;accent-color:var(--green);flex-shrink:0;margin-top:2px;"> <span>Četl/a jsem návrh smlouvy na stránkách motogo24.cz a souhlasím</span>
-        </label>
-        <label style="display:flex;align-items:flex-start;gap:9px;font-size:13px;font-weight:500;cursor:pointer;color:var(--g600);">
-          <input id="reg-marketing" type="checkbox" checked style="width:18px;height:18px;accent-color:var(--green);flex-shrink:0;margin-top:2px;"> <span>Marketingový souhlas</span>
-        </label>
-        <label style="display:flex;align-items:flex-start;gap:9px;font-size:13px;font-weight:500;cursor:pointer;color:var(--g600);">
-          <input id="reg-email-comm" type="checkbox" checked style="width:18px;height:18px;accent-color:var(--green);flex-shrink:0;margin-top:2px;"> <span>Email komunikace</span>
-        </label>
-        <label style="display:flex;align-items:flex-start;gap:9px;font-size:13px;font-weight:500;cursor:pointer;color:var(--g600);">
-          <input id="reg-sms-comm" type="checkbox" checked style="width:18px;height:18px;accent-color:var(--green);flex-shrink:0;margin-top:2px;"> <span>SMS komunikace</span>
-        </label>
-        <label style="display:flex;align-items:flex-start;gap:9px;font-size:13px;font-weight:500;cursor:pointer;color:var(--g600);">
-          <input id="reg-wa-comm" type="checkbox" checked style="width:18px;height:18px;accent-color:var(--green);flex-shrink:0;margin-top:2px;"> <span>WhatsApp komunikace</span>
-        </label>
-        <label style="display:flex;align-items:flex-start;gap:9px;font-size:13px;font-weight:500;cursor:pointer;color:var(--g600);">
-          <input id="reg-push-comm" type="checkbox" checked style="width:18px;height:18px;accent-color:var(--green);flex-shrink:0;margin-top:2px;"> <span>Push notifikace</span>
-        </label>
-        <label style="display:flex;align-items:flex-start;gap:9px;font-size:13px;font-weight:500;cursor:pointer;color:var(--g600);">
-          <input id="reg-photos" type="checkbox" checked style="width:18px;height:18px;accent-color:var(--green);flex-shrink:0;margin-top:2px;"> <span>Fotografování dokladů a motorky</span>
-        </label>
       </div>
     </div>
   </div>

@@ -39,14 +39,14 @@ function regNext(){
       }
     }
 
-    if(regStep < 4){
+    if(regStep < 3){
       document.getElementById('reg-step-'+regStep).classList.remove('active');
       document.getElementById('rp'+regStep).classList.remove('cur');
       document.getElementById('rp'+regStep).classList.add('done');
       regStep++;
       document.getElementById('reg-step-'+regStep).classList.add('active');
       document.getElementById('rp'+regStep).classList.add('cur');
-      if(regStep === 4) document.getElementById('reg-next-btn').textContent=_t('auth').finish;
+      if(regStep === 3) document.getElementById('reg-next-btn').textContent=_t('auth').finish;
     } else {
       // Final step – validate consents and register
       doRegister();
@@ -56,7 +56,7 @@ function regNext(){
 
 function _regResetForm(){
   regStep = 1;
-  for(var i=1; i<=4; i++){
+  for(var i=1; i<=3; i++){
     var step = document.getElementById('reg-step-'+i);
     if(step) step.classList.toggle('active', i===1);
     var p = document.getElementById('rp'+i);
@@ -97,14 +97,6 @@ function _regSuccess(userId, email, session, password){
 }
 
 function doRegister(){
-  // Validate required consents
-  var terms = document.getElementById('reg-terms');
-  var gdpr = document.getElementById('reg-gdpr');
-  if(!terms || !terms.checked || !gdpr || !gdpr.checked){
-    showT('⚠️',_t('auth').consents,_t('auth').checkConsent);
-    return;
-  }
-
   var f = _collectRegFields();
   var metadata = {
     full_name: f.fname + ' ' + f.lname,
@@ -119,18 +111,18 @@ function doRegister(){
     license_group: f.licenseGroup
   };
 
-  // Collect all consent values
+  // All consents default to true (managed in profile)
   var consents = {
-    marketing_consent: _regCheckbox('reg-marketing'),
-    consent_gdpr: _regCheckbox('reg-gdpr'),
-    consent_vop: _regCheckbox('reg-terms'),
-    consent_data_processing: _regCheckbox('reg-data-processing'),
-    consent_email: _regCheckbox('reg-email-comm'),
-    consent_sms: _regCheckbox('reg-sms-comm'),
-    consent_push: _regCheckbox('reg-push-comm'),
-    consent_whatsapp: _regCheckbox('reg-wa-comm'),
-    consent_photo: _regCheckbox('reg-photos'),
-    consent_contract: _regCheckbox('reg-contract')
+    marketing_consent: true,
+    consent_gdpr: true,
+    consent_vop: true,
+    consent_data_processing: true,
+    consent_email: true,
+    consent_sms: true,
+    consent_push: true,
+    consent_whatsapp: true,
+    consent_photo: true,
+    consent_contract: true
   };
 
   // Supabase je jediný backend
@@ -160,7 +152,3 @@ function doRegister(){
   OfflineGuard.check();
 }
 
-function _regCheckbox(id){
-  var el = document.getElementById(id);
-  return el ? !!el.checked : false;
-}
