@@ -146,12 +146,13 @@ MG._renderCalMonth = function(containerId){
     var isPast = ds < todayStr;
     var isToday = ds === todayStr;
     var bg, color, cursor;
-    if(isPast){ bg='#333'; color='#666'; cursor='not-allowed'; }
-    else if(booked === 'occupied'){ bg='#333'; color='#666'; cursor='not-allowed'; }
-    else if(booked === 'unconfirmed'){ bg='#f0ad4e'; color='#000'; cursor='default'; }
-    else if(isToday){ bg='#74FB71'; color='#000'; cursor='pointer'; }
-    else { bg='#1a3a2a'; color='#ccc'; cursor='pointer'; }
-    html += '<div class="cal-day" style="background:'+bg+';color:'+color+';cursor:'+cursor+'">'+d+'</div>';
+    if(isPast){ bg='#444'; color='#fff'; cursor='not-allowed'; }
+    else if(booked === 'occupied'){ bg='#444'; color='#fff'; cursor='not-allowed'; }
+    else if(booked === 'unconfirmed'){ bg='transparent'; color='#333'; cursor='default'; border='2px solid #ccc'; }
+    else if(isToday){ bg='#74FB71'; color='#0b0b0b'; cursor='pointer'; }
+    else { bg='#74FB71'; color='#0b0b0b'; cursor='pointer'; }
+    var extraStyle = booked === 'unconfirmed' ? 'border:2px solid #ccc;' : '';
+    html += '<div class="cal-day" style="background:'+bg+';color:'+color+';cursor:'+cursor+';border-radius:20px;'+extraStyle+'">'+d+'</div>';
   }
   html += '</div>';
   el.innerHTML = html;

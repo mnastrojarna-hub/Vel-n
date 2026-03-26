@@ -124,21 +124,21 @@ MG._rezRenderCal = function(){
     var isStart = sd && ds === sd;
     var isEnd = ed && ds === ed;
 
-    var bg, color = '#fff', cursor = 'default', border = 'none';
-    if(isPast || !avail){ bg = '#333'; color = '#666'; cursor = 'not-allowed'; }
-    else if(isToday && !sd){ bg = '#74FB71'; color = '#000'; cursor = 'pointer'; }
-    else if(isStart || isEnd){ bg = '#74FB71'; color = '#000'; cursor = 'pointer'; border = '2px solid #fff'; }
-    else if(inRange){ bg = '#3a7a4a'; color = '#fff'; cursor = 'pointer'; }
-    else { bg = '#1a3a2a'; color = '#ccc'; cursor = 'pointer'; }
+    var bg, color, cursor = 'default', border = 'none';
+    if(isPast || !avail){ bg = '#444'; color = '#fff'; cursor = 'not-allowed'; }
+    else if(isStart || isEnd){ bg = '#1a8c1a'; color = '#fff'; cursor = 'pointer'; border = '2px solid #fff'; }
+    else if(inRange){ bg = '#1a8c1a'; color = '#fff'; cursor = 'pointer'; }
+    else if(isToday){ bg = '#74FB71'; color = '#0b0b0b'; cursor = 'pointer'; }
+    else { bg = '#74FB71'; color = '#0b0b0b'; cursor = 'pointer'; }
 
-    var style = 'background:'+bg+';color:'+color+';cursor:'+cursor+';border:'+border+';';
+    var style = 'background:'+bg+';color:'+color+';cursor:'+cursor+';border:'+border+';border-radius:20px;';
     var click = (isPast || !avail) ? '' : ' onclick="MG._rezPickDate(\''+ds+'\')"';
     h += '<div class="cal-day" style="'+style+'"'+click+'>'+d+'</div>';
   }
   h += '</div>';
-  h += '<div class="calendar-icons gr3"><div><span style="display:inline-block;width:14px;height:14px;background:#1a3a2a;border-radius:2px;vertical-align:middle">&nbsp;</span> Volné</div>' +
-    '<div><span style="display:inline-block;width:14px;height:14px;background:#74FB71;border-radius:2px;vertical-align:middle">&nbsp;</span> Dnes / vybrané</div>' +
-    '<div><span style="display:inline-block;width:14px;height:14px;background:#333;border-radius:2px;vertical-align:middle">&nbsp;</span> Obsazené / minulé</div></div>';
+  h += '<div class="calendar-icons gr3"><div><span class="cicon loosely">&nbsp;</span> Volné</div>' +
+    '<div><span class="cicon occupied">&nbsp;</span> Obsazené</div>' +
+    '<div><span class="cicon unconfirmed">&nbsp;</span> Nepotvrzené</div></div>';
   cal.innerHTML = h;
 };
 
@@ -167,17 +167,17 @@ MG._rezUpdateBanner = function(){
   if(!r.startDate){ ban.style.display='none'; if(avail){avail.style.display='none';avail.innerHTML='';} if(form){form.style.display='none';form.innerHTML='';} return; }
   if(!r.endDate){
     ban.style.display='block';
-    ban.innerHTML = '<div style="background:#222;color:#fff;padding:12px 16px;border-radius:8px;margin:12px 0;display:flex;justify-content:space-between;align-items:center">' +
+    ban.innerHTML = '<div style="background:#1a8c1a;color:#fff;padding:12px 16px;border-radius:25px;margin:12px 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">' +
       '<span>Vybrán začátek: <strong>'+MG.formatDate(r.startDate)+'</strong> — klikněte na koncové datum</span>' +
-      '<span style="color:#74FB71;cursor:pointer" onclick="MG._rezResetDates();MG._rezRenderCal()">&#x2715; ZRUŠIT VÝBĚR</span></div>';
+      '<span class="btn btngreen-small" style="background:#74FB71;color:#0b0b0b;cursor:pointer" onclick="MG._rezResetDates();MG._rezRenderCal()">&#x2715; ZRUŠIT VÝBĚR</span></div>';
     if(avail){avail.style.display='none';avail.innerHTML='';} if(form){form.style.display='none';form.innerHTML='';}
     return;
   }
 
   ban.style.display='block';
-  ban.innerHTML = '<div style="background:#222;color:#fff;padding:12px 16px;border-radius:8px;margin:12px 0;display:flex;justify-content:space-between;align-items:center">' +
-    '<span>MÁTE VYBRANÝ TERMÍN: <strong>'+MG.formatDate(r.startDate)+' — '+MG.formatDate(r.endDate)+'</strong></span>' +
-    '<span style="color:#74FB71;cursor:pointer" onclick="MG._rezResetDates();MG._rezRenderCal()">&#x2715; ZRUŠIT VÝBĚR</span></div>';
+  ban.innerHTML = '<div style="background:#1a8c1a;color:#fff;padding:12px 16px;border-radius:25px;margin:12px 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">' +
+    '<span>MÁTE VYBRANÝ TERMÍN: <strong>'+MG.formatDate(r.startDate)+' - '+MG.formatDate(r.endDate)+'</strong></span>' +
+    '<span class="btn btngreen-small" style="background:#74FB71;color:#0b0b0b;cursor:pointer" onclick="MG._rezResetDates();MG._rezRenderCal()">&#x2715; ZRUŠIT VÝBĚR</span></div>';
 
   if(!r.motoId) MG._rezShowAvailMotos(); else MG._rezShowForm();
 };
@@ -229,26 +229,35 @@ MG._rezShowForm = function(){
     '<div class="gr2 voucher-code"><input type="text" id="rez-voucher" placeholder="Slevový kód" maxlength="255">' +
     '<div><span class="btn btngreen-small" onclick="MG._addVoucherField()">DALŠÍ KÓD</span></div></div>' +
     '<div id="rez-extra-vouchers"></div>' +
-    '<div class="dfc pickup"><div>Čas převzetí motorky</div><input type="time" id="rez-pickup-time"></div>' +
+    '<div class="dfc pickup"><div>Čas převzetí motorky nebo přistavení</div><input type="time" id="rez-pickup-time"></div>' +
     '<div class="checkboxes">' +
-    '<div><input type="checkbox" id="rez-delivery"><label for="rez-delivery">Přistavení motorky jinam než na adresu motopůjčovny</label></div>' +
-    '<div id="rez-delivery-panel" style="display:none"><input type="text" id="rez-delivery-address" placeholder="Adresa přistavení"></div>' +
-    '<div><input type="checkbox" id="rez-eq-passenger"><label for="rez-eq-passenger">Základní výbava spolujezdce - 690,- Kč</label></div>' +
-    '<div><input type="checkbox" id="rez-eq-boots-rider"><label for="rez-eq-boots-rider">Zapůjčení bot pro řidiče - 290,- Kč</label></div>' +
-    '<div><input type="checkbox" id="rez-eq-boots-passenger"><label for="rez-eq-boots-passenger">Zapůjčení bot pro spolujezdce - 290,- Kč</label></div></div>' +
-    '<textarea id="rez-note" placeholder="Poznámka (velikosti výbavy apod.)"></textarea>' +
-    '<div id="rez-product-name" class="form-product-name">Produkt: '+prodLabel+'</div>' +
+    '<div><input type="checkbox" id="rez-delivery"><label for="rez-delivery">Přistavení motorky jinam, než na adresu motopůjčovny <span class="ctooltip">&#9432;<span class="ctooltiptext">Motorku vám dovezeme na domluvené místo. Do ceny za přistavení motorky se promítá: nakládka 500 Kč, vykládka 500 Kč a náklady na dopravu (20 Kč/1 km).</span></span></label></div>' +
+    '<div id="rez-delivery-panel" style="display:none;margin:0 0 .75rem 1.5rem;padding:.75rem;background:#f9f9f9;border:1px solid #e0e0e0;border-radius:6px"><input type="text" id="rez-delivery-address" placeholder="Zadejte adresu"></div>' +
+    '<div><input type="radio" id="rez-return-same" name="rez-return" value="same" checked><label for="rez-return-same">Vrátit na stejném místě, kde bylo vyzvednuto</label></div>' +
+    '<div><input type="radio" id="rez-return-other" name="rez-return" value="other"><label for="rez-return-other">Vrácení motorky jinde než na adrese motopůjčovny</label></div>' +
+    '<div id="rez-pickup-panel" style="display:none;margin:0 0 .75rem 1.5rem;padding:.75rem;background:#f9f9f9;border:1px solid #e0e0e0;border-radius:6px"><input type="text" id="rez-pickup-address" placeholder="Zadejte adresu vrácení">' +
+    '<div class="dfc" style="margin-top:.5rem"><div>Čas vrácení</div><input type="time" id="rez-return-time" style="max-width:200px"></div></div>' +
+    '<div><input type="checkbox" id="rez-eq-passenger"><label for="rez-eq-passenger">Základní výbava spolujezdce - 690,- Kč <span class="ctooltip">&#9432;<span class="ctooltiptext">Příslušné velikosti, prosím, uveďte do pole POZNÁMKA. Pokud si nejste jisti velikostí, výbavu je možné vyzkoušet na místě.</span></span></label></div>' +
+    '<div><input type="checkbox" id="rez-eq-boots-rider"><label for="rez-eq-boots-rider">Zapůjčení bot pro řidiče - 290,- Kč <span class="ctooltip">&#9432;<span class="ctooltiptext">Půjčujeme ve velikostech 39-46 a u dětí v rozmezí 29-35. Příslušnou velikost, prosím, zapište do pole POZNÁMKA.</span></span></label></div>' +
+    '<div><input type="checkbox" id="rez-eq-boots-passenger"><label for="rez-eq-boots-passenger">Zapůjčení bot pro spolujezdce - 290,- Kč <span class="ctooltip">&#9432;<span class="ctooltiptext">Půjčujeme ve velikostech 39-46. Příslušnou velikost, prosím, zapište do pole POZNÁMKA.</span></span></label></div></div>' +
+    '<textarea id="rez-note" placeholder="Poznámka"></textarea>' +
     '<div class="checkboxes">' +
     '<div class="agreement gr2"><input type="checkbox" id="rez-agree-vop" required><div>* Souhlasím s <a href="#/obchodni-podminky">obchodními podmínkami</a></div></div>' +
     '<div class="agreement gr2"><input type="checkbox" id="rez-agree-gdpr"><div>Souhlasím se <a href="#/gdpr">zpracováním osobních údajů</a></div></div>' +
     '<div class="agreement gr2"><input type="checkbox" id="rez-agree-marketing"><div>Souhlasím se zasíláním marketingových sdělení</div></div>' +
     '<div class="agreement gr2"><input type="checkbox" id="rez-agree-photo"><div>Souhlasím s využitím fotografií pro marketingové účely</div></div></div>' +
-    '<div class="dfcs"><div><div id="rez-price-preview">'+(price ? 'Cena pronájmu: <strong>'+MG.formatPrice(price)+'</strong>' : '')+'</div></div>' +
+    '<div class="dfcs" style="flex-wrap:wrap;gap:1rem;margin-top:1rem"><div><div id="rez-price-preview">'+(price ? 'Celková cena: <strong>'+MG.formatPrice(price)+'</strong>' : '')+'</div></div>' +
     '<div><div class="text-right"><button class="btn btngreen" onclick="MG._submitReservation()">Pokračovat v rezervaci</button></div></div></div>';
 
   // Delivery toggle
   var dc = document.getElementById('rez-delivery');
   if(dc) dc.addEventListener('change',function(){ var p=document.getElementById('rez-delivery-panel'); if(p) p.style.display=this.checked?'block':'none'; });
+
+  // Return location toggle
+  var retOther = document.getElementById('rez-return-other');
+  var retSame = document.getElementById('rez-return-same');
+  if(retOther) retOther.addEventListener('change',function(){ var p=document.getElementById('rez-pickup-panel'); if(p) p.style.display=this.checked?'block':'none'; });
+  if(retSame) retSame.addEventListener('change',function(){ var p=document.getElementById('rez-pickup-panel'); if(p) p.style.display='none'; });
 
   // Live price recalc on extras
   ['rez-eq-passenger','rez-eq-boots-rider','rez-eq-boots-passenger'].forEach(function(id){
@@ -267,7 +276,7 @@ MG._rezUpdatePrice = function(){
   if(document.getElementById('rez-eq-boots-rider') && document.getElementById('rez-eq-boots-rider').checked) extras += 290;
   if(document.getElementById('rez-eq-boots-passenger') && document.getElementById('rez-eq-boots-passenger').checked) extras += 290;
   var el = document.getElementById('rez-price-preview');
-  if(el) el.innerHTML = 'Cena pronájmu: <strong>'+MG.formatPrice(base + extras)+'</strong>';
+  if(el) el.innerHTML = 'Celková cena: <strong>'+MG.formatPrice(base + extras)+'</strong>';
 };
 
 // ===== VOUCHER FIELD =====
