@@ -13,7 +13,7 @@ const CORS = {
 
 const MAX_ITERATIONS = 5
 
-const SYSTEM_PROMPT = `Jsi AI servisní technik MotoGo24 — půjčovny motorek.
+const FALLBACK_SYSTEM_PROMPT = `Jsi AI servisní technik MotoGo24 — půjčovny motorek.
 
 ## KRITICKÁ PRAVIDLA (NIKDY neporušuj):
 1. NIKDY si nevymýšlej informace. NIKDY nehalucinuj názvy motorek, parametry ani postupy.
@@ -53,6 +53,99 @@ Na konci každé odpovědi přidej JSON blok:
 suggest_sos: true pokud je závada vážná a zákazník by měl kontaktovat SOS.
 
 Odpovídej v češtině, stručně a konkrétně pro daný model motorky.`
+
+const TONE_MAP: Record<string, string> = {
+  friendly: 'Komunikuj přátelsky a neformálně, buď vlídný a vstřícný.',
+  professional: 'Komunikuj profesionálně a formálně, buď věcný a stručný.',
+  concise: 'Odpovídej maximálně stručně — krátké, jasné věty bez zbytečností.',
+  detailed: 'Poskytuj podrobná vysvětlení s kontextem a pozadím problému.',
+}
+
+interface AgentConfig {
+  persona_name?: string
+  system_prompt?: string
+  situations?: string[]
+  forbidden?: string[]
+  mustDo?: string[]
+  tone?: string
+  max_tokens?: number
+  enabled?: boolean
+}
+
+async function loadAgentConfig(supabaseAdmin: SupabaseClient): Promise<AgentConfig | null> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'ai_moto_agent_config')
+      .single()
+
+    if (error || !data?.value) return null
+    return data.value as AgentConfig
+  } catch {
+    return null
+  }
+}
+
+function buildSystemPrompt(config: AgentConfig | null): string {
+  if (!config || !config.enabled) return FALLBACK_SYSTEM_PROMPT
+
+  let prompt = ''
+
+  // Persona header
+  if (config.persona_name) {
+    prompt += `Jsi ${config.persona_name} pro MotoGo24 — půjčovnu motorek.\n\n`
+  }
+
+  // Main system prompt from admin
+  if (config.system_prompt) {
+    prompt += config.system_prompt
+  } else {
+    prompt += FALLBACK_SYSTEM_PROMPT
+  }
+
+  // Tone
+  if (config.tone && TONE_MAP[config.tone]) {
+    prompt += `\n\n## TÓN KOMUNIKACE:\n${TONE_MAP[config.tone]}`
+  }
+
+  // Situation rules
+  if (config.situations && config.situations.length > 0) {
+    prompt += '\n\n## SITUAČNÍ PRAVIDLA:'
+    for (const s of config.situations) prompt += `\n- ${s}`
+  }
+
+  // Must do
+  if (config.mustDo && config.mustDo.length > 0) {
+    prompt += '\n\n## VŽDY MUSÍ UDĚLAT:'
+    for (const m of config.mustDo) prompt += `\n- ✅ ${m}`
+  }
+
+  // Forbidden
+  if (config.forbidden && config.forbidden.length > 0) {
+    prompt += '\n\n## ZAKÁZÁNO:'
+    for (const f of config.forbidden) prompt += `\n- ❌ ${f}`
+  }
+
+  // Always append critical safety rules & response format
+  prompt += `
+
+## KRITICKÁ BEZPEČNOSTNÍ PRAVIDLA (platí vždy):
+1. NIKDY si nevymýšlej informace — pracuj výhradně s reálnými daty.
+2. NIKDY neuváděj jinou motorku než tu z rezervace zákazníka.
+3. Pokud nemáš dostatek dat, řekni to přímo.
+
+## Formát odpovědi:
+Na konci každé odpovědi přidej JSON blok:
+---JSON---
+{"suggest_sos": true/false}
+---END---
+suggest_sos: true pokud je závada vážná a zákazník by měl kontaktovat SOS.
+
+Odpovídej v češtině.`
+
+  return prompt
+}
 
 // ─── Tool definitions (Anthropic tool_use format) ───
 
@@ -349,6 +442,11 @@ serve(async (req) => {
       })
     }
 
+    // ─── Load agent config from app_settings ───
+    const agentConfig = await loadAgentConfig(supabaseAdmin)
+    const dynamicSystemPrompt = buildSystemPrompt(agentConfig)
+    const maxTokens = agentConfig?.max_tokens || 2048
+
     // ─── Build messages from conversation history ───
     const apiMessages: Array<{ role: string; content: unknown }> = []
 
@@ -442,7 +540,7 @@ Zákazník nemá aktivní rezervaci nebo se nepodařilo načíst data. Při dota
       bookingContext = '\n\nNepodařilo se předem načíst rezervaci. Použij get_active_booking.'
     }
 
-    const systemPrompt = SYSTEM_PROMPT + bookingContext
+    const systemPrompt = dynamicSystemPrompt + bookingContext
 
     // ─── Agentic loop ───
     let finalText = ''
@@ -456,7 +554,7 @@ Zákazník nemá aktivní rezervaci nebo se nepodařilo načíst data. Při dota
         },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
-          max_tokens: 2048,
+          max_tokens: maxTokens,
           system: systemPrompt,
           tools: TOOLS,
           messages: apiMessages,

@@ -9,6 +9,7 @@ import AiTestRunner from '../components/ai/AiTestRunner'
 import AiTrainingPanel from '../components/ai/AiTrainingPanel'
 import AiAgentSettingsPanel from '../components/ai/AiAgentSettingsPanel'
 import AiAgentFindingsPanel from '../components/ai/AiAgentFindingsPanel'
+import AppAgentSettingsPanel from '../components/ai/AppAgentSettingsPanel'
 
 export default function AiOrchestrator() {
   const [briefing, setBriefing] = useState(null)
@@ -74,6 +75,7 @@ export default function AiOrchestrator() {
     { id: 'training', label: 'Trénink', icon: '🏋️' },
     { id: 'tester', label: 'Systémový test', icon: '🧪' },
     { id: 'learning', label: 'Učení & Autonomie', icon: '🎓' },
+    { id: 'app-agent', label: 'App Agent', icon: '📱' },
   ]
 
   return (
@@ -247,6 +249,13 @@ export default function AiOrchestrator() {
 
       {/* Learning & Autonomy Tab */}
       {tab === 'learning' && <AiAutonomyPanel />}
+
+      {/* App Agent Settings Tab */}
+      {tab === 'app-agent' && (
+        <div className="rounded-card bg-white p-4 shadow-card">
+          <AppAgentSettingsPanel />
+        </div>
+      )}
     </>
   )
 }
