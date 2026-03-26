@@ -58,7 +58,7 @@ MG.renderHeader = function(){
         '<nav id="mobile-menu" class="mobile-menu-overlay">' +
           '<button class="mobile-menu-close" aria-label="Zavřít" onclick="MG.toggleMobile()">✕</button>' +
           '<ul id="main-menu" class="main-menu df">' + nav +
-            '<li><a class="btn btngreen-small pulse" data-route="/rezervace" href="#/rezervace">REZERVACE</a></li>' +
+            '<li class="menu-rez"><a class="btn btngreen-small pulse" data-route="/rezervace" href="#/rezervace">REZERVACE</a></li>' +
           '</ul>' +
         '</nav>' +
       '</div>' +

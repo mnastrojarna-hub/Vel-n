@@ -16,9 +16,14 @@ MG.renderMotoCard = function(m){
   if(cat) features.push(cat);
   if(license && license !== 'N') features.push(license);
   if(kw) features.push(kw);
-  if(desc){
+  if(desc && typeof desc === 'string'){
     desc.split(',').forEach(function(f){
       var t = f.trim();
+      if(t && features.length < 6) features.push(t);
+    });
+  } else if(Array.isArray(desc)){
+    desc.forEach(function(f){
+      var t = (typeof f === 'string') ? f.trim() : String(f);
       if(t && features.length < 6) features.push(t);
     });
   }
