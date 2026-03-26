@@ -6,20 +6,40 @@ const SETTINGS_KEY = 'ai_moto_agent_config'
 
 const DEFAULT_CONFIG = {
   persona_name: 'AI Servisni technik',
-  system_prompt: `Jsi AI servisni technik MotoGo24 — pujcovny motorek.
-Pomahas zakaznikum s diagnostikou zavad, radis s obsluhou motorky a odpovidas na dotazy k rezervacim.
-Odpovidej v cestine, strucne a konkretne pro dany model motorky.`,
+  system_prompt: `Jsi AI servisni technik MotoGo24 — pujcovny motorek. Zakaznici te kontaktuji pres SOS sekci v aplikaci kdyz maji problem s motorkou na ceste.
+
+Tve hlavni ukoly:
+- Diagnostika zavad na zaklade popisu nebo fotek (kontrolky, zvuky, chovani motorky)
+- Navod na obsluhu konkretni motorky zakaznika (tu kterou ma v rezervaci)
+- Posouzeni zda je motorka pojizdna nebo ne
+- Doporuceni SOS (odtah, nahradni motorka) pokud je zavada vazna
+
+Diagnosticky postup:
+1. Upresni problem — ptej se na detaily (ktere svetlo, kdy to zacalo, jaky zvuk)
+2. Pozadej o fotku palubni desky / problemu pokud zakaznik neposlal
+3. Az mas dost informaci, dej konkretni radu pro dany model motorky
+4. Pokud je zavada vazna (motor nejede, unik oleje, prehrati) — doporuc SOS
+
+Nikdy nedavej dlouhy seznam moznych pricin na vagni popis. Misto toho se PTEJ.
+
+Kontakt na SOS: +420 774 256 271 (24/7)`,
   situations: [
-    'Kdyz zakaznik posle fotku kontrolky, analyzuj ji a dej konkretni radu',
-    'Kdyz zakaznik popisuje vaznou zavadu (unik oleje, prehrati), doporuc SOS',
+    'Kdyz zakaznik posle fotku kontrolky, analyzuj ji a dej konkretni radu pro jeho model',
+    'Kdyz zakaznik popisuje vaznou zavadu (unik oleje, prehrati, motor nejede), doporuc SOS a nastav suggest_sos=true',
+    'Kdyz zakaznik nevi jak ovladat motorku (svetla, startovani, rezim jizdy), najdi info pres get_motorcycle_manual',
+    'Kdyz zakaznik rika ze motorka nejede, proved diagnostiku: neutral, spojka, kill switch, stojan, palivo',
   ],
   forbidden: [
     'Nikdy si nevymyslej nazvy motorek, parametry ani postupy',
     'Nikdy neuvarej jinou motorku nez tu, kterou ma zakaznik v rezervaci',
+    'Nikdy nerad zakaznikovi aby sam opravoval motorku (neni jeho majetek)',
+    'Nikdy nedoporucuj pokracovat v jizde pokud je motorka nepojizdna',
   ],
   mustDo: [
     'Vzdy se zeptej na detaily problemu nez das radu',
     'Vzdy pozadej o fotku pokud zakaznik neposlal',
+    'Pri vazne zavade vzdy doporuc SOS a nastav suggest_sos=true',
+    'Vzdy odpovidej pro konkretni model motorky zakaznika (z rezervace)',
   ],
   tone: 'friendly',
   max_tokens: 2048,
@@ -150,10 +170,10 @@ export default function AppAgentSettingsPanel() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div>
           <div style={{ fontSize: 15, fontWeight: 800, color: '#0f1a14' }}>
-            Nastaveni AI asistenta v aplikaci
+            AI Servisni technik — SOS v aplikaci
           </div>
           <div style={{ fontSize: 11, color: '#666', marginTop: 2 }}>
-            Konfigurace AI agenta, ktery komunikuje se zakazniky v mobilni appce MotoGo24
+            Konfigurace AI agenta v SOS sekci mobilni appky — diagnostika zavad, pomoc na ceste, doporuceni SOS
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -308,11 +328,18 @@ export default function AppAgentSettingsPanel() {
         </div>
       </div>
 
+      {/* SOS flow info */}
+      <div style={{ padding: '10px 14px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', fontSize: 11, color: '#991b1b', lineHeight: 1.5, marginBottom: 12 }}>
+        <strong>SOS flow v appce:</strong> Zakaznik otevre SOS sekci &rarr; klikne na "AI Asistent" kartu &rarr;
+        popisuje problem / posila fotky &rarr; agent diagnostikuje a radi &rarr;
+        pri vazne zavade doporuci SOS (cervene tlacitko pro volani +420 774 256 271).
+      </div>
+
       {/* Info box */}
       <div style={{ padding: '10px 14px', borderRadius: 8, background: '#eff6ff', border: '1px solid #bfdbfe', fontSize: 11, color: '#1e40af', lineHeight: 1.5 }}>
-        <strong>Jak to funguje:</strong> Toto nastaveni se uklada do tabulky <code>app_settings</code> v Supabase.
+        <strong>Jak to funguje:</strong> Nastaveni se uklada do <code>app_settings</code> v Supabase.
         Edge funkce <code>ai-moto-agent</code> si pri kazdem dotazu zakaznika nacte tuto konfiguraci a pouzije ji jako systemovy prompt.
-        Zmeny se projevi okamzite pri dalsim dotazu zakaznika v appce.
+        Zmeny se projevi okamzite. Bezpecnostni pravidla (nevymyslet data, format odpovedi, SOS JSON blok) jsou vzdy pridana automaticky.
       </div>
     </div>
   )

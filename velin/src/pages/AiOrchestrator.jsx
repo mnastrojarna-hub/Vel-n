@@ -75,7 +75,7 @@ export default function AiOrchestrator() {
     { id: 'training', label: 'Trénink', icon: '🏋️' },
     { id: 'tester', label: 'Systémový test', icon: '🧪' },
     { id: 'learning', label: 'Učení & Autonomie', icon: '🎓' },
-    { id: 'app-agent', label: 'App Agent', icon: '📱' },
+    { id: 'app-agent', label: 'SOS Agent', icon: '🆘' },
   ]
 
   return (
