@@ -1,8 +1,6 @@
 // ===== TEMPLATES-RES-SOS3.JS – Handover protocol (s-protocol) =====
 Templates['s-protocol'] = `  <div class="topbar">
-    <div class="back-row" onclick="histBack()"><div class="bk-c">←</div><div class="bk-l">Zpět</div></div>
-    <h2 id="t-protoTitle">📋 Předávací protokol</h2>
-    <p id="t-protoSub">Přečtěte a potvrďte digitálním podpisem</p>
+    <div style="display:flex;align-items:center;gap:10px"><div class="bk-c" onclick="histBack()" style="flex-shrink:0">←</div><div><h2 id="t-protoTitle">📋 Předávací protokol</h2></div></div>
   </div>
   <div class="bcard">
     <div class="bcard-h"><div class="sdot">1</div> <span id="t-protoIdent">Identifikace</span></div>

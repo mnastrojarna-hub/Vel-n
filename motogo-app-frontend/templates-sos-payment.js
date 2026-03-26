@@ -3,10 +3,7 @@
 
 // ===== SOS PLATEBNÍ BRÁNA (Stripe LIVE) — zaviněná nehoda =====
 Templates['s-sos-payment'] = `  <div class="sos-sub-hdr" style="background:linear-gradient(135deg,#1e293b,#334155);">
-    <div class="sos-sub-back" onclick="histBack()"><div class="sos-sub-back-btn">←</div><div style="color:rgba(255,255,255,.7);font-size:13px;font-weight:600;">Zpět</div></div>
-    <div style="font-size:28px;margin-bottom:8px;">💳</div>
-    <h2 style="color:#fff;font-size:20px;font-weight:900;">Platba za náhradní motorku</h2>
-    <p style="color:rgba(255,255,255,.7);font-size:12px;margin-top:4px;">Zaviněná nehoda — přistavení za poplatek</p>
+    <div style="display:flex;align-items:center;gap:10px"><div class="sos-sub-back-btn" onclick="histBack()" style="flex-shrink:0">←</div><div><h2 style="color:#fff;font-size:16px;font-weight:900;margin:0;">💳 SOS Platba</h2><p style="color:rgba(255,255,255,.7);font-size:12px;margin-top:2px;">Doplatek za incident</p></div></div>
   </div>
   <div style="padding:14px 20px 0;">
     <!-- Částka -->
@@ -40,10 +37,7 @@ Templates['s-sos-payment'] = `  <div class="sos-sub-hdr" style="background:linea
 
 // ===== OBJEDNÁVKA NÁHRADNÍ MOTORKY — výběr moto, adresa, platba =====
 Templates['s-sos-replacement'] = `  <div class="sos-sub-hdr" id="sos-repl-hdr" style="background:linear-gradient(135deg,#1a2e22,#2d5a3c);">
-    <div class="sos-sub-back" onclick="histBack()"><div class="sos-sub-back-btn">←</div><div style="color:rgba(255,255,255,.7);font-size:13px;font-weight:600;">Zpět</div></div>
-    <div style="font-size:28px;margin-bottom:8px;">🏍️</div>
-    <h2 style="color:#fff;font-size:20px;font-weight:900;">Náhradní motorka</h2>
-    <p style="color:rgba(255,255,255,.8);font-size:12px;margin-top:4px;" id="sos-repl-subtitle">Vyberte motorku a zadejte adresu přistavení</p>
+    <div style="display:flex;align-items:center;gap:10px"><div class="sos-sub-back-btn" onclick="histBack()" style="flex-shrink:0">←</div><div><h2 style="color:#fff;font-size:16px;font-weight:900;margin:0;">🔄 Náhradní motorka</h2><p style="color:rgba(255,255,255,.8);font-size:12px;margin-top:2px;" id="sos-repl-subtitle">Výběr náhrady</p></div></div>
   </div>
   <div style="padding:14px 20px 0;">
     <!-- Info banner -->
@@ -91,9 +85,7 @@ Templates['s-sos-replacement'] = `  <div class="sos-sub-hdr" id="sos-repl-hdr" s
 
 // ===== SOS DONE — potvrzení po nahlášení =====
 Templates['s-sos-done'] = `  <div class="sos-sub-hdr" style="background:linear-gradient(135deg,#1a8a18,#22c55e);">
-    <div style="font-size:48px;margin-bottom:8px;margin-top:20px;">✅</div>
-    <h2 style="color:#fff;font-size:22px;font-weight:900;">Incident nahlášen</h2>
-    <p style="color:rgba(255,255,255,.8);font-size:13px;margin-top:6px;" id="sos-done-subtitle">MotoGo24 přijala vaše hlášení</p>
+    <div style="display:flex;align-items:center;gap:10px"><div style="font-size:24px;flex-shrink:0;">✅</div><div><h2 style="color:#fff;font-size:16px;font-weight:900;margin:0;">Incident vyřešen</h2><p style="color:rgba(255,255,255,.8);font-size:12px;margin-top:2px;" id="sos-done-subtitle">Vše je v pořádku</p></div></div>
   </div>
   <div style="padding:14px 20px 0;">
     <div id="sos-done-detail" style="background:#fff;border-radius:var(--r);padding:16px;box-shadow:var(--shadow);margin-bottom:12px;"></div>

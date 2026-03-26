@@ -1,9 +1,7 @@
 // ===== TEMPLATES-SHOP-DETAIL.JS – Cart, Checkout, Merch Detail, Voucher =====
 
 Templates['s-cart'] = `  <div class="topbar">
-    <div class="back-row" onclick="histBack()"><div class="bk-c">←</div><div class="bk-l">Zpět</div></div>
-    <h2 id="t-sdCartTitle">🛒 Košík</h2>
-    <p id="t-sdCartSub">Souhrn objednávky</p>
+    <div style="display:flex;align-items:center;gap:10px"><div class="bk-c" onclick="histBack()" style="flex-shrink:0">←</div><div><h2 id="t-sdCartTitle">🛒 Košík</h2><p id="t-sdCartSub">Souhrn objednávky</p></div></div>
   </div>
   <div id="cart-items-list" style="padding:12px 20px 0;"></div>
   <div style="padding:16px 20px;">
@@ -18,9 +16,7 @@ Templates['s-cart'] = `  <div class="topbar">
   </div>`;
 
 Templates['s-checkout'] = `  <div class="topbar">
-    <div class="back-row" onclick="histBack()"><div class="bk-c">←</div><div class="bk-l" id="t-sdBackCart">Zpět do košíku</div></div>
-    <h2 id="t-sdPayTitle">💳 Platba</h2>
-    <p id="t-sdLastStep">Posledni krok před odesláním</p>
+    <div style="display:flex;align-items:center;gap:10px"><div class="bk-c" onclick="histBack()" style="flex-shrink:0">←</div><div><h2 id="t-sdPayTitle">Pokladna</h2><p id="t-sdLastStep">Dokončete objednávku</p></div></div>
   </div>
   <div style="padding:14px 20px 0;">
     <div class="bcard" style="margin:0 0 12px;padding:14px;">
@@ -86,9 +82,7 @@ Templates['s-checkout'] = `  <div class="topbar">
   </div>`;
 
 Templates['s-merch-detail'] = `  <div class="topbar">
-    <div class="back-row" onclick="histBack()"><div class="bk-c">←</div><div class="bk-l">Zpět do shopu</div></div>
-    <h2 id="md-title">Detail produktu</h2>
-    <p>MotoGo24 Shop</p>
+    <div style="display:flex;align-items:center;gap:10px"><div class="bk-c" onclick="histBack()" style="flex-shrink:0">←</div><div><h2 id="md-title">Detail produktu</h2></div></div>
   </div>
   <div style="padding:14px 20px 100px;">
     <div id="md-images" style="display:flex;gap:10px;margin-bottom:14px;overflow-x:auto;scrollbar-width:none;">

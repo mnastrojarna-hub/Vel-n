@@ -3,7 +3,7 @@
 
 /* Profile */
 #s-profile{background:var(--bg);}
-.prof-hdr{background:var(--dark);padding:36px 20px 24px;text-align:center;position:sticky;top:0;z-index:50;}
+.prof-hdr{background:var(--dark);padding:10px 20px 10px;text-align:left;position:sticky;top:0;z-index:50;}
 .prof-pilot-lbl{font-size:10px;font-weight:700;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.5px;margin-top:12px;}
 .prof-pilot-name{font-size:18px;font-weight:900;color:#fff;margin-top:3px;}
 .prof-email{font-size:12px;color:rgba(255,255,255,.4);margin-top:3px;font-weight:500;}
@@ -44,8 +44,8 @@
 
 /* Docs */
 #s-docs{background:var(--bg);}
-.docs-hdr{background:var(--dark);padding:36px 20px 20px;border-radius:0 0 24px 24px;position:sticky;top:0;z-index:50;}
-.docs-hdr h2{font-size:22px;font-weight:900;color:#fff;margin-bottom:3px;}.docs-hdr p{font-size:12px;color:rgba(255,255,255,.6);font-weight:500;}
+.docs-hdr{background:var(--dark);padding:10px 20px 12px;border-radius:0 0 24px 24px;position:sticky;top:0;z-index:50;}
+.docs-hdr h2{font-size:16px;font-weight:900;color:#fff;margin-bottom:0;}.docs-hdr p{font-size:12px;color:rgba(255,255,255,.6);font-weight:500;margin-top:2px;}
 .dtabs{display:flex;gap:6px;padding:12px 20px 0;}
 .dtab{flex:1;padding:10px 7px;border:2px solid var(--g200);background:#fff;color:var(--g600);font-family:var(--font);font-size:12px;font-weight:700;border-radius:50px;cursor:pointer;text-align:center;transition:all .2s;}
 .dtab.on{background:var(--green);color:#fff;border-color:var(--green);}

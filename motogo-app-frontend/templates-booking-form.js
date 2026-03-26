@@ -1,7 +1,7 @@
 // ===== TEMPLATES-BOOKING-FORM.JS – Booking form (s-booking) steps 1-4 =====
 // Steps 5-7, price summary, consents → templates-booking-form2.js
 
-Templates['s-booking'] = `  <div class="topbar"><div class="back-row" onclick="histBack()"><div class="bk-c">←</div><div class="bk-l">Zpět</div></div><h2 id="t-bkTitle">Rezervace motorky</h2><p id="t-bkSub">Vyplňte formulář pro rezervaci</p></div>
+Templates['s-booking'] = `  <div class="topbar"><div style="display:flex;align-items:center;gap:10px"><div class="bk-c" onclick="histBack()" style="flex-shrink:0">←</div><div><h2 id="t-bkTitle">Rezervace motorky</h2><p id="t-bkSub">Vyplňte formulář pro rezervaci</p></div></div></div>
   <div class="bcard">
     <div class="bcard-h"><div class="sdot">1</div> <span id="t-bkStep1">Motorka</span></div>
     <div class="sel-m"><div class="sel-img"><img id="b-img" src=""></div><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:800;color:var(--black);" id="b-name"></div><div style="font-size:11px;color:var(--g400);font-weight:600;margin-top:2px;">od 2 600 Kč/den · záloha neúčtována</div><div style="font-size:11px;color:var(--gd);font-weight:600;margin-top:3px;" id="b-branch-info"></div></div><div class="chng" id="t-bkChange" onclick="goTo('s-search')">Změnit</div></div>

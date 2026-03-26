@@ -1,9 +1,6 @@
-// ===== TEMPLATES-RES-EDIT.JS – Edit reservation (s-edit-res) & Done detail (s-done-detail) =====
 Templates['s-edit-res'] = `
   <div class="topbar">
-    <div class="back-row" onclick="histBack()"><div class="bk-c">\u2190</div><div class="bk-l">Zp\u011bt</div></div>
-    <h2 id="t-editTitle">Upravit rezervaci</h2>
-    <p id="edit-subtitle">Motorka \u00b7 #ID</p>
+    <div style="display:flex;align-items:center;gap:10px"><div class="bk-c" onclick="histBack()" style="flex-shrink:0">\u2190</div><div><h2 id="t-editTitle">Upravit rezervaci</h2><p id="edit-subtitle">Motorka \u00b7 #ID</p></div></div>
     <div id="edit-res-dates" style="margin-top:8px;font-size:13px;color:#fff;font-weight:800;background:var(--green);display:inline-block;padding:6px 14px;border-radius:10px;"></div>
     <div id="edit-res-duration" style="margin-top:6px;font-size:12px;color:rgba(255,255,255,.7);font-weight:600;"></div>
   </div>

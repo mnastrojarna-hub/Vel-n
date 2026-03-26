@@ -3,25 +3,25 @@
 // Booking flow templates (s-detail, s-booking, s-payment, s-success) → templates-screens-booking.js
 
 Templates['s-home'] = `  <div class="hdr">
-    <div class="hdr-top">
-      <div style="display:flex;align-items:center;gap:12px;">
-        <img src="${IMG_BASE64_0}" style="width:96px;height:96px;border-radius:22px;object-fit:cover;background:var(--green);" alt="MotoGo24">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <img src="${IMG_BASE64_0}" style="width:36px;height:36px;border-radius:10px;object-fit:cover;background:var(--green);" alt="MotoGo24">
         <div>
-          <div style="font-size:24px;font-weight:900;color:#fff;letter-spacing:-.5px;line-height:1;">MOTO GO 24</div>
-          <div id="t-rentalTagline" style="font-size:10px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:3px;text-transform:uppercase;margin-top:4px;">Půjčovna motorek</div>
+          <div style="font-size:16px;font-weight:900;color:#fff;letter-spacing:-.5px;line-height:1;">MOTO GO 24</div>
+          <div id="t-rentalTagline" style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:3px;text-transform:uppercase;margin-top:2px;">Půjčovna motorek</div>
         </div>
       </div>
-      <!-- Avatar with online status dot -->
-      <div class="h-av-wrap">
-        <div class="h-av" onclick="goTo('s-profile')" title="Menu / Profil" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:7px;"><div style="width:16px;height:2px;background:#fff;border-radius:2px;"></div><div style="width:12px;height:2px;background:#fff;border-radius:2px;"></div><div style="width:16px;height:2px;background:#fff;border-radius:2px;"></div></div>
-        <div class="h-av-dot" id="online-dot" title="Online – synchronizováno"></div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div id="online-dot" style="width:8px;height:8px;border-radius:50%;background:var(--green);" title="Online – synchronizováno"></div>
+        <div class="h-av" onclick="goTo('s-profile')" title="Menu / Profil" style="width:34px;height:34px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:7px;cursor:pointer;"><div style="width:16px;height:2px;background:#fff;border-radius:2px;"></div><div style="width:12px;height:2px;background:#fff;border-radius:2px;"></div><div style="width:16px;height:2px;background:#fff;border-radius:2px;"></div></div>
       </div>
     </div>
-    <div class="h-pilot" id="t-pilot">Pilot:</div>
-    <div class="h-name" id="home-user-name"></div>
-    <div class="h-search" onclick="goTo('s-search')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      <span id="t-whenRide">Kdy jedete? Vyberte termín...</span>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;gap:10px;">
+      <div style="flex-shrink:0;display:flex;align-items:center;gap:5px;background:rgba(116,251,113,.12);border-radius:8px;padding:7px 10px"><div style="font-size:9px;font-weight:700;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.3px" id="t-pilot">Pilot:</div><div style="font-size:13px;font-weight:800;color:#fff" id="home-user-name"></div></div>
+      <div class="h-search" onclick="goTo('s-search')" style="flex:1;padding:7px 10px;margin-top:0;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <span id="t-whenRide">Kdy jedete?...</span>
+      </div>
     </div>
   </div>
   <div class="sec-hdr" style="padding-top:14px;"><div class="sec-t" id="t-activeRes">Aktivní rezervace</div><div class="sec-l" id="t-viewAll" onclick="goTo('s-res')">Vše</div></div>
@@ -97,11 +97,12 @@ Templates['s-home'] = `  <div class="hdr">
   <div class="mg-grid" id="home-motos"></div>
   <div style="height:10px;"></div>`;
 
-Templates['s-search'] = `  <div class="search-hdr" style="position:relative;">
-    <div class="back-row" onclick="histBack()"><div class="bk-c">\u2190</div><div class="bk-l" id="t-srchBack">Zp\u011bt</div></div>
-    <div class="h-av" onclick="goTo('s-profile')" title="Profil" style="position:absolute;right:20px;top:54px;width:36px;height:36px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:7px;cursor:pointer;z-index:20;"><div style="width:16px;height:2px;background:#fff;border-radius:2px;"></div><div style="width:12px;height:2px;background:#fff;border-radius:2px;"></div><div style="width:16px;height:2px;background:#fff;border-radius:2px;"></div></div>
-    <h2 id="t-searchTitle">Vyhled\u00e1v\u00e1n\u00ed</h2>
-    <div class="date-row">
+Templates['s-search'] = `  <div class="search-hdr">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:10px"><div class="bk-c" onclick="histBack()" style="flex-shrink:0">\u2190</div><h2 id="t-searchTitle" style="font-size:16px;font-weight:900;color:#fff;margin:0;">Vyhled\u00e1v\u00e1n\u00ed</h2></div>
+      <div class="h-av" onclick="goTo('s-profile')" title="Profil" style="width:34px;height:34px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:7px;cursor:pointer;"><div style="width:16px;height:2px;background:#fff;border-radius:2px;"></div><div style="width:12px;height:2px;background:#fff;border-radius:2px;"></div><div style="width:16px;height:2px;background:#fff;border-radius:2px;"></div></div>
+    </div>
+    <div class="date-row" style="margin-top:8px;">
       <div class="dbox focus" id="db-od">
         <div class="dbox-l" id="t-srchPickup">Vyzvednutí</div>
         <div class="dbox-v ph" id="dbv-od" onclick="openSearchDP('od')">Vyberte datum</div>

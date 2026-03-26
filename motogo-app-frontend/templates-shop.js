@@ -68,17 +68,12 @@ function _renderProductGrid(grid) {
       '</div></div>';
   }).join('');
 }
-Templates['s-merch'] = `  <div style="background:var(--dark);padding:50px 20px 20px;border-radius:0 0 28px 28px;position:relative;overflow:hidden;">
-    <div class="h-av" onclick="goTo('s-profile')" title="Profil" style="position:absolute;right:20px;top:54px;width:36px;height:36px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:7px;cursor:pointer;z-index:20;"><div style="width:16px;height:2px;background:#fff;border-radius:2px;"></div><div style="width:12px;height:2px;background:#fff;border-radius:2px;"></div><div style="width:16px;height:2px;background:#fff;border-radius:2px;"></div></div>
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
-      <img src="${IMG_BASE64_0}" style="width:96px;height:96px;border-radius:22px;object-fit:cover;background:#000;" alt="MotoGo24">
-      <div>
-        <div style="font-size:24px;font-weight:900;color:#fff;letter-spacing:-.5px;line-height:1;">MOTO GO 24</div>
-        <div id="t-rental2" style="font-size:10px;font-weight:700;color:rgba(255,255,255,.45);letter-spacing:3px;text-transform:uppercase;margin-top:4px;">Půjčovna motorek</div>
-      </div>
+Templates['s-merch'] = `  <div style="background:var(--dark);padding:10px 20px 12px;border-radius:0 0 28px 28px;position:relative;overflow:hidden;">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="bk-c" onclick="histBack()" style="flex-shrink:0">←</div>
+      <div style="flex:1;"><h2 id="t-shopTitle" style="color:#fff;font-size:16px;font-weight:900;margin:0;">🛍️ MotoGo Shop</h2><p id="t-merchTitle" style="color:rgba(255,255,255,.5);font-size:12px;font-weight:600;margin:2px 0 0;">Oblečení, doplňky & vybavení</p></div>
+      <div class="h-av" onclick="goTo('s-profile')" title="Profil" style="width:34px;height:34px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:7px;cursor:pointer;"><div style="width:16px;height:2px;background:#fff;border-radius:2px;"></div><div style="width:12px;height:2px;background:#fff;border-radius:2px;"></div><div style="width:16px;height:2px;background:#fff;border-radius:2px;"></div></div>
     </div>
-    <h2 id="t-shopTitle" style="color:#fff;font-size:22px;font-weight:900;margin-bottom:4px;">MotoGo24 Shop</h2>
-    <p id="t-merchTitle" style="color:rgba(255,255,255,.5);font-size:12px;font-weight:600;margin-bottom:16px;">Merch & dárkové poukazy</p>
   </div>
 
   <!-- DÁRKOVÝ POUKAZ – featured -->
@@ -127,9 +122,7 @@ Templates['s-merch'] = `  <div style="background:var(--dark);padding:50px 20px 2
 // Cart, Checkout, Merch Detail → templates-shop-detail.js
 
 Templates['s-voucher'] = `  <div class="topbar">
-    <div class="back-row" onclick="histBack()"><div class="bk-c">←</div><div id="t-voucherBack" class="bk-l">Zpět</div></div>
-    <h2 id="t-voucherTitle2">🎁 Dárkový poukaz</h2>
-    <p id="t-perfectGift">Perfektní dárek pro každého motorkáře</p>
+    <div style="display:flex;align-items:center;gap:10px"><div class="bk-c" onclick="histBack()" style="flex-shrink:0">←</div><div><h2 id="t-voucherTitle2">🎁 Dárkový poukaz</h2></div></div>
   </div>
   <div style="padding:16px 20px;">
     <img src="${IMG_BASE64_1}" style="width:100%;border-radius:var(--r);box-shadow:var(--shadow);display:block;margin-bottom:16px;" alt="Dárkový poukaz">

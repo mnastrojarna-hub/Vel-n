@@ -72,7 +72,7 @@ Templates['s-detail'] = `  <div class="det-back" onclick="histBack()">←</div>
   </div>
   <div class="sticky-btn"><button class="btn-g" id="d-cta"></button></div>`;
 
-Templates['s-payment'] = `  <div class="topbar"><div class="back-row" onclick="histBack()"><div class="bk-c">←</div><div class="bk-l" id="t-payBack">Zpět</div></div><h2 id="t-payTitle">Platba</h2><p id="t-paySSL">Bezpečná platba přes Stripe</p></div>
+Templates['s-payment'] = `  <div class="topbar"><div style="display:flex;align-items:center;gap:10px"><div class="bk-c" onclick="histBack()" style="flex-shrink:0">←</div><div><h2 id="t-payTitle">Platba</h2><p id="t-paySSL">Bezpečná platba přes Stripe</p></div></div></div>
   <div class="bcard">
     <div class="bcard-h"><div class="sdot">💳</div> <span id="t-payMethod">Platební karta</span></div>
     <div style="padding:16px;">
