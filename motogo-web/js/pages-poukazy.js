@@ -13,7 +13,7 @@ MG.route('/poukazy', function(app){
     '<p>Vyber hodnotu poukazu nebo konkrétní motorku a daruj svobodu na dvou kolech.</p><p>&nbsp;</p>' +
     '<p><a class="btn btngreen" href="#/kontakt">OBJEDNAT DÁRKOVÝ POUKAZ</a></p>' +
     '</div><div>' +
-    '<img alt="Dárkový poukaz" class="imgres" loading="lazy" src="gfx/darkovy-poukaz.webp">' +
+    '<img alt="Dárkový poukaz" class="imgres" loading="lazy" src="gfx/darkovy-poukaz.jpg">' +
     '</div></div></section>';
 
   var steps = '<section><div class="gr3">' +
