@@ -76,7 +76,7 @@ MG.route('/katalog/:id', async function(app, params){
   navHtml += '</nav>';
 
   // Header
-  var headerHtml = '<div class="gr2"><div><h1>' + moto.model + '</h1></div><div>' +
+  var headerHtml = '<div class="moto-detail-header"><div><h1>' + moto.model + '</h1></div><div>' +
     '<a class="btn btngreen" href="#/rezervace?moto=' + moto.id + '">REZERVOVAT ONLINE</a></div></div>';
 
   // Short desc + gallery

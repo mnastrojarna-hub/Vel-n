@@ -35,7 +35,7 @@ MG.renderHeader = function(){
   var nav = '';
   MG.menuItems.forEach(function(item){
     var hasSub = item.children && item.children.length;
-    var arrow = hasSub ? ' <img src="gfx/arrow-down.svg" alt="" loading="lazy" style="width:12px;height:12px;filter:invert(1)">' : '';
+    var arrow = hasSub ? ' <img src="gfx/arrow-down.svg" alt="" loading="lazy" class="menu-arrow">' : '';
     nav += '<li' + (hasSub ? ' class="has-sub"' : '') + '>';
     nav += '<a data-route="' + item.route + '" href="#' + item.route + '">' + item.label + arrow + '</a>';
     if(hasSub){
@@ -92,7 +92,7 @@ MG.renderFooter = function(){
   '</div></div>' +
   '<div class="copyright"><div class="container">' +
     '<p>© Půjčovna motorek Vysočina Motogo24 - všechna práva vyhrazena</p>' +
-    '<p><a href="#/gdpr">GDPR</a><a href="#/obchodni-podminky">Obchodní podmínky</a><a href="#/smlouva">Smlouva o pronájmu</a></p>' +
+    '<p><a href="#/mapa-stranek">Mapa stránek</a><a href="#">Cookies</a><a href="#/gdpr">GDPR</a><a href="#/obchodni-podminky">Obchodní podmínky</a><a href="#/smlouva">Smlouva o pronájmu</a></p>' +
   '</div></div>' +
   '</footer>' +
   '<a id="Up" href="#" aria-label="NAHORU" onclick="window.scrollTo({top:0,behavior:\'smooth\'});return false"><img src="gfx/arrow-top.svg" alt="NAHORU"></a>';
