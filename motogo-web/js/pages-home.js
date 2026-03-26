@@ -80,7 +80,7 @@ MG._homeShell = function(){
     '<div id="home-blog" class="gr3"><div class="loading-overlay"><span class="spinner"></span> Načítám články...</div></div>' +
     '<p>&nbsp;</p><p class="text-center"><a class="btn btngreen" href="#/blog">ČÍST VÍCE V BLOGU</a></p></section>';
 
-  return '<main id="content"><h1>Půjčovna motorek Vysočina Motogo24 – bez kauce a nonstop</h1><div class="container">' +
+  return '<main id="content"><h1 class="sr-only">Půjčovna motorek Vysočina Motogo24 – bez kauce a nonstop</h1><div class="container">' +
     signHtml + motosSection + processHtml + faqHtml + ctaHtml + blogHtml +
     '</div></main>';
 };
