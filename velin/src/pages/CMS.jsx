@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import { debugLog } from '../lib/debugLog'
-import VariablesTab from './cms/VariablesTab'
+import WebTextsTab from './cms/WebTextsTab'
 import PagesTab from './cms/PagesTab'
+import VariablesTab from './cms/VariablesTab'
 import FeatureFlagsTab from './cms/FeatureFlagsTab'
 
-const TABS = ['Proměnné', 'Stránky', 'Feature flags']
+const TABS = ['Texty webu', 'Stránky CMS', 'Proměnné', 'Feature flags']
 
 export default function CMS() {
-  const [tab, setTab] = useState('Proměnné')
+  const [tab, setTab] = useState('Texty webu')
 
   useEffect(() => { debugLog('page.mount', 'CMS') }, [])
 
@@ -32,8 +33,9 @@ export default function CMS() {
         ))}
       </div>
 
+      {tab === 'Texty webu' && <WebTextsTab />}
+      {tab === 'Stránky CMS' && <PagesTab />}
       {tab === 'Proměnné' && <VariablesTab />}
-      {tab === 'Stránky' && <PagesTab />}
       {tab === 'Feature flags' && <FeatureFlagsTab />}
     </div>
   )
