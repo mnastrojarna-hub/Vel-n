@@ -21,10 +21,10 @@ table{width:100%;border-collapse:collapse}
 .container{max-width:1200px;margin:0 auto;padding:0 1.25rem}
 
 /* --- Buttons --- */
-.btn{display:inline-block;padding:.75rem 1.5rem;border-radius:6px;font-weight:600;font-size:.95rem;text-align:center;cursor:pointer;transition:all .25s;border:none;text-decoration:none}
+.btn{display:inline-block;padding:.75rem 1.5rem;border-radius:25px;font-weight:600;font-size:.95rem;text-align:center;cursor:pointer;transition:all .25s;border:none;text-decoration:none}
 .btngreen{background:#74FB71;color:#0b0b0b}.btngreen:hover{background:#5edc5a;color:#0b0b0b}
-.btngreen-small{background:#74FB71;color:#0b0b0b;padding:.5rem 1rem;font-size:.85rem;border-radius:5px;display:inline-block;font-weight:600;transition:all .25s}.btngreen-small:hover{background:#5edc5a}
-.btndark{background:#1a1a1a;color:#fff;border:1px solid #333}.btndark:hover{background:#333;color:#fff}
+.btngreen-small{background:#74FB71;color:#0b0b0b;padding:.5rem 1rem;font-size:.85rem;border-radius:20px;display:inline-block;font-weight:600;transition:all .25s}.btngreen-small:hover{background:#5edc5a}
+.btndark{background:#1a1a1a;color:#fff;border:1px solid #333;border-radius:25px}.btndark:hover{background:#333;color:#fff}
 .pulse{animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(116,251,113,.4)}50%{box-shadow:0 0 0 12px rgba(116,251,113,0)}}
 .text-center{text-align:center}
@@ -216,21 +216,21 @@ main{background:#fff;min-height:60vh}
 .calendar-icons>div{display:flex;align-items:center;gap:.3rem;font-size:.85rem;color:#666}
 .calendar-icons .cicon{display:inline-block;width:16px;height:16px;border-radius:50%}
 .cicon.loosely{background:#74FB71}
-.cicon.occupied{background:#555}
-.cicon.unconfirmed{background:#f0ad4e}
+.cicon.occupied{background:#444}
+.cicon.unconfirmed{border:2px solid #ccc;background:transparent}
 .calendar-info{font-size:.85rem;color:#999;margin-top:.5rem}
 
-/* Calendar grid — rounded rectangles like original */
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin:1rem 0;padding:1.25rem;background:#f0f5f0;border:1px solid #dde8dd;border-radius:12px}
+/* Calendar grid — light green theme matching original */
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin:1rem 0;padding:1.25rem;background:#fff;border:1px solid #e0e0e0;border-radius:12px}
 .cal-header{text-align:center;font-weight:700;color:#333;font-size:.85rem;padding:.5rem .3rem}
-.cal-day{text-align:center;padding:.6rem .3rem;border-radius:8px;font-size:.9rem;font-weight:600;cursor:default;transition:all .15s;display:flex;align-items:center;justify-content:center}
-.cal-day.available{background:#1a3a2a;color:#ccc;cursor:pointer}
-.cal-day.available:hover{background:#2a5a3a;color:#fff}
-.cal-day.occupied{background:#333;color:#666;cursor:not-allowed}
-.cal-day.unconfirmed{background:#f0ad4e;color:#0b0b0b}
-.cal-day.today{background:#74FB71;color:#0b0b0b}
-.cal-day.selected{background:#74FB71;color:#0b0b0b;box-shadow:0 0 0 2px #fff}
-.cal-day.in-range{background:#3a7a4a;color:#fff}
+.cal-day{text-align:center;padding:.6rem .3rem;border-radius:20px;font-size:.9rem;font-weight:600;cursor:default;transition:all .15s;display:flex;align-items:center;justify-content:center;min-height:38px}
+.cal-day.available{background:#74FB71;color:#0b0b0b;cursor:pointer}
+.cal-day.available:hover{background:#5edc5a;color:#0b0b0b}
+.cal-day.occupied{background:#444;color:#fff;cursor:not-allowed}
+.cal-day.unconfirmed{background:transparent;color:#333;border:2px solid #ccc;cursor:not-allowed}
+.cal-day.today{background:#74FB71;color:#0b0b0b;box-shadow:0 0 0 3px rgba(116,251,113,.4)}
+.cal-day.selected{background:#1a8c1a;color:#fff;box-shadow:0 0 0 2px #fff}
+.cal-day.in-range{background:#1a8c1a;color:#fff}
 .cal-day.empty{visibility:hidden}
 .cal-nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;padding:0 .5rem}
 .cal-nav button{background:#74FB71;border:none;color:#0b0b0b;width:32px;height:32px;border-radius:50%;cursor:pointer;font-family:'Jost',sans-serif;font-size:1.1rem;font-weight:700;display:flex;align-items:center;justify-content:center;transition:background .2s}
@@ -238,10 +238,11 @@ main{background:#fff;min-height:60vh}
 .cal-nav span{color:#111;font-weight:600;font-size:1.05rem}
 
 /* ===== RESERVATION FORM ===== */
-.pcontent input[type=text],.pcontent input[type=email],.pcontent input[type=tel],.pcontent input[type=search],.pcontent input[type=time],.pcontent input[type=date],.pcontent select,.pcontent textarea{width:100%;padding:.7rem 1rem;background:#fff;border:1px solid #ccc;border-radius:6px;color:#333;font-family:'Jost',sans-serif;font-size:.9rem;transition:border-color .2s;margin-bottom:.75rem}
+.pcontent input[type=text],.pcontent input[type=email],.pcontent input[type=tel],.pcontent input[type=search],.pcontent input[type=time],.pcontent input[type=date],.pcontent select,.pcontent textarea{width:100%;padding:.7rem 1rem;background:#fff;border:1px solid #ccc;border-radius:25px;color:#333;font-family:'Jost',sans-serif;font-size:.9rem;transition:border-color .2s;margin-bottom:.75rem}
+.pcontent textarea{border-radius:12px}
 .pcontent input:focus,.pcontent select:focus,.pcontent textarea:focus{border-color:#74FB71;outline:none;box-shadow:0 0 0 3px rgba(116,251,113,.15)}
 .pcontent textarea{min-height:100px;resize:vertical}
-.pcontent select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23666' stroke-width='2' fill='none'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 1rem center;background-color:#fff}
+.pcontent select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23666' stroke-width='2' fill='none'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 1rem center;background-color:#fff;border-radius:25px}
 .form-product-select{margin-bottom:1.5rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
 .form-product-select>div{font-weight:600;color:#111;white-space:nowrap}
 .form-product-select select{flex:1;min-width:250px}
