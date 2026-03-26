@@ -22,8 +22,8 @@ export async function execE2ETest(name: string, input: R, sb: SB): Promise<unkno
         user_metadata: { full_name: `AI Tester ${suffix}`, phone: '+420000000000' },
       })
       if (authErr) return { error: `Auth: ${authErr.message}` }
-      // Profile should be auto-created by handle_new_user trigger
-      // Wait a moment and verify
+      // Profile is auto-created by handle_new_user trigger — mark as test account
+      await sb.from('profiles').update({ is_test_account: true }).eq('id', authUser.user.id)
       const { data: profile } = await sb.from('profiles').select('*').eq('id', authUser.user.id).single()
       return {
         status: 'created',
@@ -50,29 +50,60 @@ export async function execE2ETest(name: string, input: R, sb: SB): Promise<unkno
 
     // === CLEANUP TEST DATA ===
     case 'cleanup_test_data': {
-      const results: R = { users: 0, promos: 0, bookings: 0 }
+      const results: R = { users: 0, promos: 0, bookings: 0, sos: 0 }
       // Delete test promo codes
       const { data: promos } = await sb.from('promo_codes').select('id, code').ilike('code', `${TEST_PROMO_PREFIX}%`)
       if (promos && promos.length > 0) {
+        await sb.from('promo_code_usage').delete().in('promo_code_id', promos.map(p => p.id))
         await sb.from('promo_codes').delete().ilike('code', `${TEST_PROMO_PREFIX}%`)
         results.promos = promos.length
       }
-      // Find test users
-      const { data: testProfiles } = await sb.from('profiles').select('id, email').ilike('email', `${TEST_EMAIL_PREFIX}%`)
+      // Find test users — by is_test_account flag OR email pattern
+      const { data: testProfiles } = await sb.from('profiles').select('id, email').or(`is_test_account.eq.true,email.ilike.${TEST_EMAIL_PREFIX}%`)
       if (testProfiles && testProfiles.length > 0) {
         for (const p of testProfiles) {
-          // Delete bookings
-          const { count } = await sb.from('bookings').select('id', { count: 'exact', head: true }).eq('user_id', p.id)
-          if ((count || 0) > 0) {
+          // Get booking IDs for this user
+          const { data: userBookings } = await sb.from('bookings').select('id').eq('user_id', p.id)
+          const bookingIds = (userBookings || []).map(b => b.id)
+          if (bookingIds.length > 0) {
+            // Delete booking-related data
+            await sb.from('booking_extras').delete().in('booking_id', bookingIds)
+            await sb.from('booking_cancellations').delete().in('booking_id', bookingIds)
+            await sb.from('branch_door_codes').delete().in('booking_id', bookingIds)
+            await sb.from('documents').delete().in('booking_id', bookingIds)
+            await sb.from('generated_documents').delete().in('booking_id', bookingIds)
+            await sb.from('invoices').delete().in('booking_id', bookingIds)
+            await sb.from('promo_code_usage').delete().in('booking_id', bookingIds)
+            await sb.from('accounting_entries').delete().in('booking_id', bookingIds)
             await sb.from('bookings').delete().eq('user_id', p.id)
-            results.bookings += count || 0
+            results.bookings += bookingIds.length
           }
+          // Delete SOS data
+          const { data: sosIncidents } = await sb.from('sos_incidents').select('id').eq('user_id', p.id)
+          if (sosIncidents && sosIncidents.length > 0) {
+            await sb.from('sos_timeline').delete().in('incident_id', sosIncidents.map(s => s.id))
+            await sb.from('sos_incidents').delete().eq('user_id', p.id)
+            results.sos += sosIncidents.length
+          }
+          // Delete customer-related data
+          await sb.from('booking_complaints').delete().eq('customer_id', p.id)
+          await sb.from('messages').delete().in('thread_id',
+            ((await sb.from('message_threads').select('id').eq('customer_id', p.id)).data || []).map(t => t.id))
+          await sb.from('message_threads').delete().eq('customer_id', p.id)
+          await sb.from('push_tokens').delete().eq('user_id', p.id)
+          await sb.from('payment_methods').delete().eq('user_id', p.id)
+          await sb.from('reviews').delete().eq('user_id', p.id)
+          // Delete profile
+          await sb.from('profiles').delete().eq('id', p.id)
           // Delete auth user
           await sb.auth.admin.deleteUser(p.id)
           results.users++
         }
       }
-      return { status: 'cleaned', ...results, summary: `Smazáno: ${results.users} testovacích uživatelů, ${results.promos} promo kódů, ${results.bookings} bookings` }
+      // Orphaned test bookings/SOS
+      await sb.from('bookings').delete().eq('is_test', true)
+      await sb.from('sos_incidents').delete().eq('is_test', true)
+      return { status: 'cleaned', ...results, summary: `Smazáno: ${results.users} uživatelů, ${results.bookings} bookings, ${results.sos} SOS, ${results.promos} promo kódů` }
     }
 
     // === CHECK EDGE FUNCTIONS HEALTH ===
