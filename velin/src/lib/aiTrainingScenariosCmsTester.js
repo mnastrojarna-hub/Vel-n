@@ -7,15 +7,17 @@ import { createPool } from './aiTrainingScenariosFleet'
 export async function trainCmsAgent(onStep) {
   const results = []
 
-  // 1. App settings — kontrola klíčových nastavení
+  // 1. App settings — kontrola klíčových nastavení (company_info je JSON objekt)
   onStep?.({ agent: 'cms', action: 'App settings audit', i: 0, total: 10 })
   const { data: settings } = await supabase.from('app_settings').select('key, value').limit(50)
   results.push({ agent: 'cms', action: 'fetch_settings', ok: true, count: settings?.length || 0 })
-  // Ověř že klíčová nastavení existují
-  const requiredKeys = ['company_name', 'company_ico', 'company_email', 'company_phone']
-  for (const key of requiredKeys) {
-    const found = (settings || []).find(s => s.key === key)
-    results.push({ agent: 'cms', action: `check_setting_${key}`, ok: !!found, value: found?.value?.slice?.(0, 30) })
+  // company_info je uložen jako jeden JSON objekt pod klíčem 'company_info'
+  const companyRow = (settings || []).find(s => s.key === 'company_info')
+  const companyInfo = typeof companyRow?.value === 'string' ? JSON.parse(companyRow.value) : companyRow?.value
+  const fieldMap = { company_name: 'name', company_ico: 'ico', company_email: 'email', company_phone: 'phone' }
+  for (const [key, field] of Object.entries(fieldMap)) {
+    const val = companyInfo?.[field]
+    results.push({ agent: 'cms', action: `check_setting_${key}`, ok: !!val, value: typeof val === 'string' ? val.slice(0, 30) : '' })
   }
 
   // 2. Email šablony — kontrola kompletnosti (slug, subject, obsah)

@@ -54,8 +54,27 @@ export async function createTestCustomer() {
         full_name: `${fn} ${ln}`, phone, is_test_account: true,
       }).eq('id', userId)
     }
+    // Verify profile actually exists before returning (prevents FK errors in bookings)
+    await delay(2000)
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { data: prof } = await supabase.from('profiles').select('id').eq('id', userId).maybeSingle()
+      if (prof) break
+      console.warn(`[createTestCustomer] Profile not found, retry ${attempt + 1}/3`)
+      if (attempt < 2) {
+        await delay(2000)
+        // Re-try upsert on last attempt
+        if (attempt === 1) {
+          await supabase.from('profiles').upsert({
+            id: userId, full_name: `${fn} ${ln}`, email, phone, is_test_account: true,
+          }, { onConflict: 'id' })
+        }
+      } else {
+        console.error('[createTestCustomer] Profile STILL missing after 3 retries — booking will fail FK')
+        return { ok: false, error: 'Profile not created', userId, email }
+      }
+    }
   }
-  await delay(3000)
+  await delay(1000)
   return { ok: true, userId, email, name: `${fn} ${ln}` }
 }
 
