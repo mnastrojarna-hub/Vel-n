@@ -93,7 +93,6 @@ export async function execE2ETest(name: string, input: R, sb: SB): Promise<unkno
           await sb.from('push_tokens').delete().eq('user_id', p.id)
           await sb.from('payment_methods').delete().eq('user_id', p.id)
           await sb.from('reviews').delete().eq('user_id', p.id)
-          await sb.from('sent_emails').delete().eq('customer_id', p.id)
           // Delete profile
           await sb.from('profiles').delete().eq('id', p.id)
           // Delete auth user
