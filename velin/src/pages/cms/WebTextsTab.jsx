@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import WebTextSection from './WebTextSection'
+import BlogSection from './BlogSection'
 import { WEB_PAGES } from './webTextsPages'
 
 // Celkový počet textů
@@ -117,11 +118,36 @@ export default function WebTextsTab() {
               </button>
             )
           })}
+
+          {/* Blog sekce - oddělená */}
+          <div className="text-xs font-extrabold uppercase mt-4 mb-2" style={{ color: '#6b8f7b', letterSpacing: 1 }}>
+            Dynamický obsah
+          </div>
+          <button
+            onClick={() => setActivePage('blog')}
+            className="w-full text-left mb-px cursor-pointer"
+            style={{
+              padding: '8px 12px', border: 'none', borderRadius: 10,
+              background: activePage === 'blog' ? '#1a2e22' : 'transparent',
+              color: activePage === 'blog' ? '#74FB71' : '#1a2e22',
+              fontSize: 13, fontWeight: activePage === 'blog' ? 800 : 600,
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <span>📰</span>
+              <span className="flex-1">Blog & články</span>
+            </div>
+            <div className="text-xs mt-0.5" style={{ color: activePage === 'blog' ? 'rgba(255,255,255,.4)' : '#9ab3a5' }}>
+              články z cms_pages
+            </div>
+          </button>
         </div>
 
-        {/* Pravý panel - obsah stránky */}
+        {/* Pravý panel - obsah stránky nebo blog */}
         <div className="flex-1 min-w-0">
-          {page && (
+          {activePage === 'blog' ? (
+            <BlogSection />
+          ) : page && (
             <>
               <div className="mb-4">
                 <div className="flex items-center gap-3">
