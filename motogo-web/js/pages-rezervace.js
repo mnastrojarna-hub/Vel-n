@@ -14,13 +14,13 @@ MG.route('/rezervace', async function(app){
     '<div class="ccontent pcontent"><h1>Rezervace motorky</h1>' +
     '<h3>Jak rezervace funguje?</h3><p>&nbsp;</p>' +
     '<p>Pokud si chcete <strong>půjčit motorku v konkrétním termínu</strong>, vyberte „libovolná dostupná motorka" a v kalendáři termín vyznačte.</p><p>&nbsp;</p>' +
-    '<p>V případě, že si chcete <strong>vyzkoušet konkrétní motorku</strong>, vyberte ji ze seznamu a v kalendáři se vám zobrazí dostupné termíny.</p><p>&nbsp;</p>' +
+    '<p>V případě, že si chcete <strong>vyzkoušet konkrétní motorku</strong>, vyberte ji ze seznamu.</p><p>&nbsp;</p>' +
     '<p><strong>Půjčujeme bez kauce. Základní výbavu pro řidiče poskytujeme zdarma.</strong></p><p>&nbsp;</p>' +
     '<div id="rez-moto-select"></div>' +
     '<div id="rez-calendar"></div>' +
     '<div id="rez-date-banner" style="display:none"></div>' +
     '<div id="rez-avail-select" style="display:none"></div>' +
-    '<div id="rez-form"></div>' +
+    MG._rezFormHtml() +
     '</div></div></main>';
 
   MG._rez = { startDate: null, endDate: null, motos: [], motoId: mp, allBookings: {} };
@@ -40,16 +40,65 @@ MG.route('/rezervace', async function(app){
       MG._rezLoadCalendar();
     });
   }
+  MG._rezInitFormEvents();
   await MG._rezLoadCalendar();
-  MG._rezShowForm();
 });
+
+// ===== STATIC FORM HTML =====
+MG._rezFormHtml = function(){
+  return '<div id="rez-form"><p>&nbsp;</p>' +
+    '<input type="text" id="rez-name" placeholder="* Jméno a příjmení" required>' +
+    '<div class="gr2"><input type="text" id="rez-street" placeholder="* Ulice, č.p." required>' +
+    '<input type="text" id="rez-zip" placeholder="* PSČ" required></div>' +
+    '<div class="gr2"><input type="text" id="rez-city" placeholder="* Město" required>' +
+    '<input type="text" id="rez-country" placeholder="* Stát" value="Česká republika" required></div>' +
+    '<div class="gr2"><input type="email" id="rez-email" placeholder="* E-mail" required>' +
+    '<input type="tel" id="rez-phone" placeholder="* Telefon (+420XXXXXXXXX)" required pattern="^\\+\\d{12,15}$"></div>' +
+    '<div class="gr2 voucher-code"><input type="text" id="rez-voucher" placeholder="Slevový kód" maxlength="255">' +
+    '<div><span class="btn btngreen-small" onclick="MG._addVoucherField()">DALŠÍ KÓD</span></div></div>' +
+    '<div id="rez-extra-vouchers"></div>' +
+    '<div class="dfc pickup"><div>Čas převzetí motorky nebo přistavení</div><input type="time" id="rez-pickup-time"></div>' +
+    '<div class="checkboxes">' +
+    '<div><input type="checkbox" id="rez-delivery"><label for="rez-delivery">Přistavení motorky jinam, než na adresu motopůjčovny <span class="ctooltip">&#9432;<span class="ctooltiptext">Motorku vám dovezeme na domluvené místo. Nakládka 500 Kč, vykládka 500 Kč + 20 Kč/km.</span></span></label></div>' +
+    '<div id="rez-delivery-panel" style="display:none;margin:0 0 .75rem 1.5rem;padding:.75rem;background:#f9f9f9;border:1px solid #e0e0e0;border-radius:6px"><input type="text" id="rez-delivery-address" placeholder="Zadejte adresu"></div>' +
+    '<div><input type="radio" id="rez-return-same" name="rez-return" value="same" checked><label for="rez-return-same">Vrátit na stejném místě, kde bylo vyzvednuto</label></div>' +
+    '<div><input type="radio" id="rez-return-other" name="rez-return" value="other"><label for="rez-return-other">Vrácení motorky jinde než na adrese motopůjčovny</label></div>' +
+    '<div id="rez-pickup-panel" style="display:none;margin:0 0 .75rem 1.5rem;padding:.75rem;background:#f9f9f9;border:1px solid #e0e0e0;border-radius:6px"><input type="text" id="rez-pickup-address" placeholder="Zadejte adresu vrácení">' +
+    '<div class="dfc" style="margin-top:.5rem"><div>Čas vrácení</div><input type="time" id="rez-return-time" style="max-width:200px"></div></div>' +
+    '<div><input type="checkbox" id="rez-eq-passenger"><label for="rez-eq-passenger">Základní výbava spolujezdce - 690,- Kč</label></div>' +
+    '<div><input type="checkbox" id="rez-eq-boots-rider"><label for="rez-eq-boots-rider">Zapůjčení bot pro řidiče - 290,- Kč</label></div>' +
+    '<div><input type="checkbox" id="rez-eq-boots-passenger"><label for="rez-eq-boots-passenger">Zapůjčení bot pro spolujezdce - 290,- Kč</label></div></div>' +
+    '<textarea id="rez-note" placeholder="Poznámka"></textarea>' +
+    '<div class="checkboxes">' +
+    '<div class="agreement gr2"><input type="checkbox" id="rez-agree-vop" required><div>* Souhlasím s <a href="#/obchodni-podminky">obchodními podmínkami</a></div></div>' +
+    '<div class="agreement gr2"><input type="checkbox" id="rez-agree-gdpr"><div>Souhlasím se <a href="#/gdpr">zpracováním osobních údajů</a></div></div>' +
+    '<div class="agreement gr2"><input type="checkbox" id="rez-agree-marketing"><div>Souhlasím se zasíláním marketingových sdělení</div></div>' +
+    '<div class="agreement gr2"><input type="checkbox" id="rez-agree-photo"><div>Souhlasím s využitím fotografií pro marketingové účely</div></div></div>' +
+    '<div class="dfcs" style="flex-wrap:wrap;gap:1rem;margin-top:1rem"><div><div id="rez-price-preview"></div></div>' +
+    '<div><div class="text-right"><button class="btn btngreen" onclick="MG._submitReservation()">Pokračovat v rezervaci</button></div></div></div>' +
+    '</div>';
+};
+
+// ===== INIT FORM EVENTS (called once) =====
+MG._rezInitFormEvents = function(){
+  var dc = document.getElementById('rez-delivery');
+  if(dc) dc.addEventListener('change',function(){ var p=document.getElementById('rez-delivery-panel'); if(p) p.style.display=this.checked?'block':'none'; });
+  var retO = document.getElementById('rez-return-other');
+  var retS = document.getElementById('rez-return-same');
+  if(retO) retO.addEventListener('change',function(){ var p=document.getElementById('rez-pickup-panel'); if(p) p.style.display=this.checked?'block':'none'; });
+  if(retS) retS.addEventListener('change',function(){ var p=document.getElementById('rez-pickup-panel'); if(p) p.style.display='none'; });
+  ['rez-eq-passenger','rez-eq-boots-rider','rez-eq-boots-passenger'].forEach(function(id){
+    var cb = document.getElementById(id);
+    if(cb) cb.addEventListener('change', function(){ MG._rezUpdatePrice(); });
+  });
+};
 
 // ===== RESET DATE SELECTION =====
 MG._rezResetDates = function(){
   MG._rez.startDate = null; MG._rez.endDate = null;
   var b = document.getElementById('rez-date-banner'); if(b) b.style.display = 'none';
-  var a = document.getElementById('rez-avail-select'); if(a){ a.style.display = 'none'; a.innerHTML = ''; }
-  MG._rezShowForm();
+  var a = document.getElementById('rez-avail-select'); if(a){ a.style.display='none'; a.innerHTML=''; }
+  MG._rezUpdatePrice();
 };
 
 // ===== LOAD CALENDAR =====
@@ -57,7 +106,6 @@ MG._rezLoadCalendar = async function(){
   var cal = document.getElementById('rez-calendar'); if(!cal) return;
   var motoId = MG._rez.motoId;
   MG._rez.allBookings = {};
-
   if(motoId){
     var bookings = await MG.fetchMotoBookings(motoId);
     MG._rez.allBookings[motoId] = MG._rezBookedMap(bookings);
@@ -68,18 +116,22 @@ MG._rezLoadCalendar = async function(){
       MG._rez.allBookings[motos[i].id] = MG._rezBookedMap(bk);
     }
   }
-
   var now = new Date();
   MG._rez.calYear = now.getFullYear(); MG._rez.calMonth = now.getMonth();
   MG._rezRenderCal();
 };
 
-// ===== BUILD BOOKED-DAYS MAP =====
+// ===== BUILD BOOKED-DAYS MAP (with pending status for <4h) =====
 MG._rezBookedMap = function(bookings){
   var map = {};
+  var now = new Date();
   bookings.forEach(function(b){
     var s = new Date(b.start_date), e = new Date(b.end_date), d = new Date(s);
-    while(d <= e){ map[d.toISOString().split('T')[0]] = true; d.setDate(d.getDate()+1); }
+    var isPending = b.status === 'pending';
+    var createdAt = b.created_at ? new Date(b.created_at) : null;
+    var isRecent = createdAt && (now - createdAt) < 4 * 60 * 60 * 1000;
+    var status = (isPending && isRecent) ? 'unconfirmed' : 'occupied';
+    while(d <= e){ map[d.toISOString().split('T')[0]] = status; d.setDate(d.getDate()+1); }
   });
   return map;
 };
@@ -91,13 +143,29 @@ MG._rezDateAvail = function(dateStr){
     var map = MG._rez.allBookings[motoId] || {};
     return !map[dateStr];
   }
-  // "any moto" mode: available if at least one moto is free
   var motos = MG._rez.motos;
   for(var i = 0; i < motos.length; i++){
     var m = MG._rez.allBookings[motos[i].id] || {};
     if(!m[dateStr]) return true;
   }
   return false;
+};
+
+// ===== GET DATE STATUS (for calendar coloring) =====
+MG._rezDateStatus = function(dateStr){
+  var motoId = MG._rez.motoId;
+  if(motoId){
+    return (MG._rez.allBookings[motoId] || {})[dateStr] || 'free';
+  }
+  var motos = MG._rez.motos, hasFree = false, hasUnconf = false;
+  for(var i = 0; i < motos.length; i++){
+    var s = (MG._rez.allBookings[motos[i].id] || {})[dateStr];
+    if(!s) hasFree = true;
+    else if(s === 'unconfirmed') hasUnconf = true;
+  }
+  if(hasFree) return 'free';
+  if(hasUnconf) return 'unconfirmed';
+  return 'occupied';
 };
 
 // ===== RENDER CALENDAR =====
@@ -119,21 +187,21 @@ MG._rezRenderCal = function(){
   for(var d=1;d<=last.getDate();d++){
     var ds = y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
     var isPast = ds < todayStr;
-    var avail = !isPast && MG._rezDateAvail(ds);
-    var isToday = ds === todayStr;
+    var status = isPast ? 'past' : MG._rezDateStatus(ds);
     var inRange = sd && ed && ds >= sd && ds <= ed;
     var isStart = sd && ds === sd;
     var isEnd = ed && ds === ed;
 
     var bg, color, cursor = 'default', border = 'none';
-    if(isPast || !avail){ bg = '#444'; color = '#fff'; cursor = 'not-allowed'; }
+    if(isPast || status === 'occupied'){ bg = '#444'; color = '#fff'; cursor = 'not-allowed'; }
+    else if(status === 'unconfirmed'){ bg = '#fff'; color = '#333'; cursor = 'not-allowed'; border = '2px solid #ccc'; }
     else if(isStart || isEnd){ bg = '#1a8c1a'; color = '#fff'; cursor = 'pointer'; border = '2px solid #fff'; }
     else if(inRange){ bg = '#1a8c1a'; color = '#fff'; cursor = 'pointer'; }
-    else if(isToday){ bg = '#74FB71'; color = '#0b0b0b'; cursor = 'pointer'; }
     else { bg = '#74FB71'; color = '#0b0b0b'; cursor = 'pointer'; }
 
+    var canClick = !isPast && status === 'free';
     var style = 'background:'+bg+';color:'+color+';cursor:'+cursor+';border:'+border+';border-radius:20px;';
-    var click = (isPast || !avail) ? '' : ' onclick="MG._rezPickDate(\''+ds+'\')"';
+    var click = canClick ? ' onclick="MG._rezPickDate(\''+ds+'\')"' : '';
     h += '<div class="cal-day" style="'+style+'"'+click+'>'+d+'</div>';
   }
   h += '</div>';
@@ -155,6 +223,7 @@ MG._rezPickDate = function(ds){
   else { r.endDate = ds; }
   MG._rezRenderCal();
   MG._rezUpdateBanner();
+  MG._rezUpdatePrice();
 };
 
 // ===== DATE BANNER =====
@@ -162,16 +231,15 @@ MG._rezUpdateBanner = function(){
   var r = MG._rez;
   var ban = document.getElementById('rez-date-banner');
   var avail = document.getElementById('rez-avail-select');
-  var form = document.getElementById('rez-form');
   if(!ban) return;
 
-  if(!r.startDate){ ban.style.display='none'; if(avail){avail.style.display='none';avail.innerHTML='';} MG._rezShowForm(); return; }
+  if(!r.startDate){ ban.style.display='none'; if(avail){avail.style.display='none';avail.innerHTML='';} return; }
   if(!r.endDate){
     ban.style.display='block';
     ban.innerHTML = '<div style="background:#1a8c1a;color:#fff;padding:12px 16px;border-radius:25px;margin:12px 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">' +
       '<span>Vybrán začátek: <strong>'+MG.formatDate(r.startDate)+'</strong> — klikněte na koncové datum</span>' +
       '<span class="btn btngreen-small" style="background:#74FB71;color:#0b0b0b;cursor:pointer" onclick="MG._rezResetDates();MG._rezRenderCal()">&#x2715; ZRUŠIT VÝBĚR</span></div>';
-    if(avail){avail.style.display='none';avail.innerHTML='';} MG._rezShowForm();
+    if(avail){avail.style.display='none';avail.innerHTML='';}
     return;
   }
 
@@ -181,16 +249,14 @@ MG._rezUpdateBanner = function(){
     '<span class="btn btngreen-small" style="background:#74FB71;color:#0b0b0b;cursor:pointer" onclick="MG._rezResetDates();MG._rezRenderCal()">&#x2715; ZRUŠIT VÝBĚR</span></div>';
 
   if(!r.motoId) MG._rezShowAvailMotos();
-  MG._rezShowForm();
 };
 
-// ===== AVAILABLE MOTOS DROPDOWN (libovolná mode) =====
+// ===== AVAILABLE MOTOS DROPDOWN =====
 MG._rezShowAvailMotos = function(){
   var r = MG._rez, el = document.getElementById('rez-avail-select'); if(!el) return;
   var free = r.motos.filter(function(m){
     var map = r.allBookings[m.id] || {};
-    var d = new Date(r.startDate);
-    var end = new Date(r.endDate);
+    var d = new Date(r.startDate), end = new Date(r.endDate);
     while(d <= end){ if(map[d.toISOString().split('T')[0]]) return false; d.setDate(d.getDate()+1); }
     return true;
   });
@@ -206,66 +272,11 @@ MG._rezShowAvailMotos = function(){
   el.style.display='block'; el.innerHTML = h;
   document.getElementById('rez-avail-dropdown').addEventListener('change', function(){
     MG._rez.selectedMotoId = this.value;
-    MG._rezShowForm();
+    MG._rezUpdatePrice();
   });
 };
 
-// ===== SHOW BOOKING FORM =====
-MG._rezShowForm = function(){
-  var r = MG._rez, f = document.getElementById('rez-form'); if(!f) return;
-  var mId = r.motoId || r.selectedMotoId;
-  var moto = r.motos.find(function(m){ return m.id === mId; });
-  var prodLabel = moto ? moto.model : 'Libovolná motorka';
-  var price = (moto && r.startDate && r.endDate) ? MG.calcPrice(moto, r.startDate, r.endDate) : 0;
-  f.innerHTML = '<p>&nbsp;</p>' +
-    '<input type="text" id="rez-name" placeholder="* Jméno a příjmení" required>' +
-    '<div class="gr2"><input type="text" id="rez-street" placeholder="* Ulice, č.p." required>' +
-    '<input type="text" id="rez-zip" placeholder="* PSČ" required></div>' +
-    '<div class="gr2"><input type="text" id="rez-city" placeholder="* Město" required>' +
-    '<input type="text" id="rez-country" placeholder="* Stát" value="Česká republika" required></div>' +
-    '<div class="gr2"><input type="email" id="rez-email" placeholder="* E-mail" required>' +
-    '<input type="tel" id="rez-phone" placeholder="* Telefon (+420XXXXXXXXX)" required pattern="^\\+\\d{12,15}$"></div>' +
-    '<div class="gr2 voucher-code"><input type="text" id="rez-voucher" placeholder="Slevový kód" maxlength="255">' +
-    '<div><span class="btn btngreen-small" onclick="MG._addVoucherField()">DALŠÍ KÓD</span></div></div>' +
-    '<div id="rez-extra-vouchers"></div>' +
-    '<div class="dfc pickup"><div>Čas převzetí motorky nebo přistavení</div><input type="time" id="rez-pickup-time"></div>' +
-    '<div class="checkboxes">' +
-    '<div><input type="checkbox" id="rez-delivery"><label for="rez-delivery">Přistavení motorky jinam, než na adresu motopůjčovny <span class="ctooltip">&#9432;<span class="ctooltiptext">Motorku vám dovezeme na domluvené místo. Do ceny za přistavení motorky se promítá: nakládka 500 Kč, vykládka 500 Kč a náklady na dopravu (20 Kč/1 km).</span></span></label></div>' +
-    '<div id="rez-delivery-panel" style="display:none;margin:0 0 .75rem 1.5rem;padding:.75rem;background:#f9f9f9;border:1px solid #e0e0e0;border-radius:6px"><input type="text" id="rez-delivery-address" placeholder="Zadejte adresu"></div>' +
-    '<div><input type="radio" id="rez-return-same" name="rez-return" value="same" checked><label for="rez-return-same">Vrátit na stejném místě, kde bylo vyzvednuto</label></div>' +
-    '<div><input type="radio" id="rez-return-other" name="rez-return" value="other"><label for="rez-return-other">Vrácení motorky jinde než na adrese motopůjčovny</label></div>' +
-    '<div id="rez-pickup-panel" style="display:none;margin:0 0 .75rem 1.5rem;padding:.75rem;background:#f9f9f9;border:1px solid #e0e0e0;border-radius:6px"><input type="text" id="rez-pickup-address" placeholder="Zadejte adresu vrácení">' +
-    '<div class="dfc" style="margin-top:.5rem"><div>Čas vrácení</div><input type="time" id="rez-return-time" style="max-width:200px"></div></div>' +
-    '<div><input type="checkbox" id="rez-eq-passenger"><label for="rez-eq-passenger">Základní výbava spolujezdce - 690,- Kč <span class="ctooltip">&#9432;<span class="ctooltiptext">Příslušné velikosti, prosím, uveďte do pole POZNÁMKA. Pokud si nejste jisti velikostí, výbavu je možné vyzkoušet na místě.</span></span></label></div>' +
-    '<div><input type="checkbox" id="rez-eq-boots-rider"><label for="rez-eq-boots-rider">Zapůjčení bot pro řidiče - 290,- Kč <span class="ctooltip">&#9432;<span class="ctooltiptext">Půjčujeme ve velikostech 39-46 a u dětí v rozmezí 29-35. Příslušnou velikost, prosím, zapište do pole POZNÁMKA.</span></span></label></div>' +
-    '<div><input type="checkbox" id="rez-eq-boots-passenger"><label for="rez-eq-boots-passenger">Zapůjčení bot pro spolujezdce - 290,- Kč <span class="ctooltip">&#9432;<span class="ctooltiptext">Půjčujeme ve velikostech 39-46. Příslušnou velikost, prosím, zapište do pole POZNÁMKA.</span></span></label></div></div>' +
-    '<textarea id="rez-note" placeholder="Poznámka"></textarea>' +
-    '<div class="checkboxes">' +
-    '<div class="agreement gr2"><input type="checkbox" id="rez-agree-vop" required><div>* Souhlasím s <a href="#/obchodni-podminky">obchodními podmínkami</a></div></div>' +
-    '<div class="agreement gr2"><input type="checkbox" id="rez-agree-gdpr"><div>Souhlasím se <a href="#/gdpr">zpracováním osobních údajů</a></div></div>' +
-    '<div class="agreement gr2"><input type="checkbox" id="rez-agree-marketing"><div>Souhlasím se zasíláním marketingových sdělení</div></div>' +
-    '<div class="agreement gr2"><input type="checkbox" id="rez-agree-photo"><div>Souhlasím s využitím fotografií pro marketingové účely</div></div></div>' +
-    '<div class="dfcs" style="flex-wrap:wrap;gap:1rem;margin-top:1rem"><div><div id="rez-price-preview">'+(price ? 'Celková cena: <strong>'+MG.formatPrice(price)+'</strong>' : '')+'</div></div>' +
-    '<div><div class="text-right"><button class="btn btngreen" onclick="MG._submitReservation()">Pokračovat v rezervaci</button></div></div></div>';
-
-  // Delivery toggle
-  var dc = document.getElementById('rez-delivery');
-  if(dc) dc.addEventListener('change',function(){ var p=document.getElementById('rez-delivery-panel'); if(p) p.style.display=this.checked?'block':'none'; });
-
-  // Return location toggle
-  var retOther = document.getElementById('rez-return-other');
-  var retSame = document.getElementById('rez-return-same');
-  if(retOther) retOther.addEventListener('change',function(){ var p=document.getElementById('rez-pickup-panel'); if(p) p.style.display=this.checked?'block':'none'; });
-  if(retSame) retSame.addEventListener('change',function(){ var p=document.getElementById('rez-pickup-panel'); if(p) p.style.display='none'; });
-
-  // Live price recalc on extras
-  ['rez-eq-passenger','rez-eq-boots-rider','rez-eq-boots-passenger'].forEach(function(id){
-    var cb = document.getElementById(id);
-    if(cb) cb.addEventListener('change', function(){ MG._rezUpdatePrice(); });
-  });
-};
-
-// ===== PRICE UPDATE =====
+// ===== PRICE UPDATE (in-place, no form rebuild) =====
 MG._rezUpdatePrice = function(){
   var r = MG._rez, mId = r.motoId || r.selectedMotoId;
   var moto = r.motos.find(function(m){ return m.id === mId; });
@@ -303,6 +314,5 @@ MG._submitReservation = function(){
   if(!r.startDate || !r.endDate){ alert('Vyberte prosím termín v kalendáři.'); return; }
   var mId = r.motoId || r.selectedMotoId;
   if(!mId){ alert('Vyberte prosím motorku.'); return; }
-
-  alert('Děkujeme za rezervaci! Tato funkce bude brzy plně propojená s rezervačním systémem.\n\nPro rezervaci nás prosím kontaktujte na '+MG.PHONE+' nebo '+MG.EMAIL_USER+'@'+MG.EMAIL_DOMAIN);
+  alert('Děkujeme za rezervaci! Tato funkce bude brzy plně propojená.\n\nKontaktujte nás: '+MG.PHONE);
 };
