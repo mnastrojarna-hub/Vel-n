@@ -80,8 +80,8 @@ MG.renderFooter = function(){
     '</div>' +
     '<div><h3>Půjčovna motorek</h3><ul>' + menuHtml + '</ul></div>' +
     '<div><h3>Půjčovna motorek na sítích</h3>' +
-      '<p class="dfc"><a href="' + MG.FB_URL + '" title="Facebook"><img alt="Facebook" src="gfx/facebook.svg" style="width:24px;height:24px;display:inline-block;filter:brightness(0) invert(1)"></a>&nbsp;<a href="' + MG.FB_URL + '">facebook</a></p><p>&nbsp;</p>' +
-      '<p class="dfc"><a href="' + MG.IG_URL + '" title="Instagram"><img alt="Instagram" src="gfx/instagram.svg" style="width:24px;height:24px;display:inline-block;filter:brightness(0) invert(1)"></a>&nbsp;<a href="' + MG.IG_URL + '">instagram</a></p>' +
+      '<p class="dfc"><span class="footer-social-icon"><img alt="Facebook" src="gfx/facebook.svg"></span>&nbsp;<a href="' + MG.FB_URL + '">facebook</a></p><p>&nbsp;</p>' +
+      '<p class="dfc"><span class="footer-social-icon"><img alt="Instagram" src="gfx/instagram.svg"></span>&nbsp;<a href="' + MG.IG_URL + '">instagram</a></p>' +
     '</div>' +
     '<div class="footer-contact"><h3>Potřebujete poradit?</h3>' +
       '<div class="footer-phone dfc"><div class="img-icon dfcc"><img src="gfx/telefon.svg" alt="Telefon" class="icon-small" loading="lazy"></div><div><p>ZAVOLEJTE NÁM<br><strong><a href="' + MG.PHONE_LINK + '">' + MG.PHONE + '</a></strong></p></div></div>' +
