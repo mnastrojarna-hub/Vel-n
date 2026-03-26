@@ -429,6 +429,7 @@ function NoLogCard({ motoId, onReload }) {
     const today = new Date().toISOString().slice(0, 10)
     await supabase.from('motorcycles').update({ status: 'active', last_service_date: today }).eq('id', motoId)
     await supabase.from('maintenance_log').update({ completed_date: today, status: 'completed' }).eq('moto_id', motoId).is('completed_date', null)
+    await supabase.from('service_orders').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('moto_id', motoId).in('status', ['pending', 'in_service'])
     setEnding(false); onReload()
   }
 

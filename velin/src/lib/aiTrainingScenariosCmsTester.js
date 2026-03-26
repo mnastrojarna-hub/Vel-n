@@ -337,12 +337,13 @@ export async function trainOrchestratorAgent(onStep) {
     .lt('created_at', yesterday).limit(10)
   results.push({ agent: 'orchestrator', action: 'check_old_unpaid', ok: !(oldUnpaid?.length), count: oldUnpaid?.length || 0 })
 
-  // 4. Cross-check: motorky v maintenance déle než 7 dní
+  // 4. Cross-check: motorky v servisu (maintenance_log in_service) déle než 7 dní
   onStep?.({ agent: 'orchestrator', action: 'Dlouhodobý maintenance', i: 8, total: 15 })
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString()
-  const { data: longMaint } = await supabase.from('service_orders')
-    .select('id, moto_id, created_at, status').in('status', ['pending', 'in_service'])
-    .lt('created_at', weekAgo).limit(10)
+  const { data: longMaint } = await supabase.from('maintenance_log')
+    .select('id, moto_id, service_date, status, description')
+    .eq('status', 'in_service').is('completed_date', null)
+    .lt('service_date', weekAgo.slice(0, 10)).limit(10)
   results.push({ agent: 'orchestrator', action: 'check_long_maintenance', ok: !(longMaint?.length), count: longMaint?.length || 0 })
 
   // 5. Pobočky — všechny otevřené?
