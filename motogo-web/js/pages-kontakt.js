@@ -6,12 +6,12 @@ window.MG = MG;
 MG.route('/kontakt', function(app){
   var bc = MG.renderBreadcrumb([{label:'Domů',href:'/'},'Kontakt']);
 
-  var quickContact = '<section><div class="gr3">' +
-    '<div class="wbox dfc"><div class="img-icon dfcc"><img src="gfx/telefon.svg" alt="Telefon" class="icon-small" loading="lazy"></div><div>' +
-    '<p>ZAVOLEJTE NÁM<br><strong><a href="' + MG.PHONE_LINK + '">' + MG.PHONE + '</a></strong></p></div></div>' +
-    '<div class="wbox dfc"><div class="img-icon dfcc"><img src="gfx/email.svg" alt="E-mail" class="icon-small" loading="lazy"></div><div>' +
-    '<p>NAPIŠTE NÁM<br><strong>' + MG.EMAIL_USER + '@' + MG.EMAIL_DOMAIN + '</strong></p></div></div>' +
-    '<div class="wbox dfc"><p>DATOVÁ SCHRÁNKA<br><strong>iuw3vnb</strong></p></div>' +
+  var quickContact = '<section><div class="contact-quick-boxes">' +
+    '<div class="contact-quick-box dfc"><div class="img-icon dfcc"><img src="gfx/telefon.svg" alt="Telefon" class="icon-small" loading="lazy"></div><div>' +
+    '<p><small>ZAVOLEJTE NÁM</small><br><strong><a href="' + MG.PHONE_LINK + '">' + MG.PHONE + '</a></strong></p></div></div>' +
+    '<div class="contact-quick-box dfc"><div class="img-icon dfcc"><img src="gfx/email.svg" alt="E-mail" class="icon-small" loading="lazy"></div><div>' +
+    '<p><small>NAPIŠTE NÁM</small><br><strong>' + MG.EMAIL_USER + '@' + MG.EMAIL_DOMAIN + '</strong></p></div></div>' +
+    '<div class="contact-quick-box dfc"><div><p><small>DATOVÁ SCHRÁNKA</small><br><strong>iuw3vnb</strong></p></div></div>' +
     '</div></section>';
 
   var infoSection = '<div class="gr2 contact-info"><section>' +
@@ -24,10 +24,10 @@ MG.route('/kontakt', function(app){
     '<p>Společnost byla zapsána dne 31. 7. 2024 u Městského úřadu v Pelhřimově.</p>' +
     '</section><div>' +
     '<section><h2>Sledujte nás</h2>' +
-    '<p><a href="' + MG.FB_URL + '" title="Facebook"><img alt="Facebook" src="gfx/facebook.svg"></a>&nbsp;<a href="' + MG.FB_URL + '">facebook</a></p><p>&nbsp;</p>' +
-    '<p><a href="' + MG.IG_URL + '" title="Instagram"><img alt="Instagram" src="gfx/instagram.svg"></a>&nbsp;<a href="' + MG.IG_URL + '">instagram</a></p></section>' +
-    '<section><h2>Chcete si domluvit rezervaci?</h2>' +
-    '<p>Rezervujte si motorku online během pár minut.</p><p>&nbsp;</p>' +
+    '<p class="dfc"><span class="social-icon"><img alt="Facebook" src="gfx/facebook.svg"></span>&nbsp;<a href="' + MG.FB_URL + '">facebook</a></p><p>&nbsp;</p>' +
+    '<p class="dfc"><span class="social-icon"><img alt="Instagram" src="gfx/instagram.svg"></span>&nbsp;<a href="' + MG.IG_URL + '">instagram</a></p></section>' +
+    '<section class="cta-green-box"><h2>Chcete si domluvit rezervaci?</h2>' +
+    '<p>Rezervujte si motorku online během pár minut a vyražte za dobrodružstvím.</p><p>&nbsp;</p>' +
     '<p><a class="btn btndark" href="#/rezervace">REZERVOVAT ONLINE</a></p></section>' +
     '</div></div>';
 
