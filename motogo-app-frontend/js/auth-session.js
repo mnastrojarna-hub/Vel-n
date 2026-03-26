@@ -122,6 +122,10 @@ function _renderUserDataAsync(){
     var homeNameEl = document.getElementById('home-user-name');
     if(homeNameEl) homeNameEl.textContent = profile.full_name || 'Pilot';
 
+    // Res screen pilot name
+    var resNameEl = document.getElementById('res-user-name');
+    if(resNameEl) resNameEl.textContent = profile.full_name || 'Pilot';
+
     // Booking form contact details
     var bName = document.getElementById('b-contact-name');
     if(bName) bName.value = profile.full_name || '';
