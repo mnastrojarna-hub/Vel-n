@@ -33,7 +33,7 @@ MG.route('/jak-pujcit/postup', function(app){
   var intro = '<h1>Postup půjčení motorky</h1>' +
     '<p>V <strong>Motogo24 – půjčovna motorek na Vysočině</strong> je půjčení jednoduché, rychlé a férové. <strong>Bez kauce, s výbavou v ceně a nonstop provozem</strong>.</p>';
 
-  var steps = '<section><h2>Jak probíhá pronájem krok za krokem</h2><div class="gr4">' +
+  var steps = '<section aria-labelledby="process"><h2>Jak probíhá pronájem krok za krokem</h2><div class="gr4">' +
     MG.renderWbox('gfx/ico-step1.svg','1. Vyber motorku','Prohlédni si naši nabídku <strong>cestovních, sportovních, enduro i dětských motorek</strong> a vyber si tu pravou.') +
     MG.renderWbox('gfx/ico-step2.svg','2. Počet jezdců','Zvol, jestli pojedeš sám, nebo se spolujezdcem. Nabídneme ti vhodné stroje a výbavu.') +
     MG.renderWbox('gfx/ico-step3.svg','3. Rezervace online','Jednoduše si zarezervuj motorku podle data. Platbu proveď předem <strong>online</strong>.') +
@@ -80,10 +80,10 @@ MG.route('/jak-pujcit/pristaveni', function(app){
     '<p>&nbsp;</p><p><a class="btn btngreen" href="#/rezervace">REZERVOVAT PŘISTAVENÍ</a></p>' +
 
     '<section><h2>Proč využít přistavení motorky</h2><div class="gr5">' +
-    MG.renderWbox('gfx/ico-nonstop.svg','Pohodlí a čas','motorku přivezeme, kam potřebuješ') +
-    MG.renderWbox('gfx/ico-pristaveni.svg','Flexibilita','vyzvednutí i vrácení lze řešit mimo provozovnu') +
+    MG.renderWbox('gfx/ico-pohodli.svg','Pohodlí a čas','motorku přivezeme, kam potřebuješ') +
+    MG.renderWbox('gfx/ico-flexibilita.svg','Flexibilita','vyzvednutí i vrácení lze řešit mimo provozovnu.') +
     MG.renderWbox('gfx/ico-nonstop.svg','Nonstop provoz','přistavení/vrácení v den výpůjčky i večer') +
-    MG.renderWbox('gfx/ico-bez-kauce.svg','Bez kauce','férové a jasné podmínky') +
+    MG.renderWbox('gfx/ico-bez-kauce.svg','Bez kauce','férové a jasné podmínky půjčovny Motogo24') +
     MG.renderWbox('gfx/ico-vybava.svg','Výbava v ceně','pro řidiče') +
     '</div></section>' +
 
@@ -91,11 +91,11 @@ MG.route('/jak-pujcit/pristaveni', function(app){
     '<p>Výchozí bod: <strong>Pelhřimov (Vysočina)</strong>. Obousměrnou dopravu účtujeme jako dvojnásobek.</p><p>&nbsp;</p>' +
     pricingTable + '</section>' +
 
-    '<section><h2>Jak přistavení probíhá</h2><div class="gr4">' +
-    MG.renderWbox('','Vyber motorku a termín','v online rezervaci') +
-    MG.renderWbox('','Zadej adresu','přistavení/vrácení (hotel, nádraží, adresa)') +
-    MG.renderWbox('','Potvrď cenu','za dopravu dle vzdálenosti') +
-    MG.renderWbox('','Převzetí na místě','předáme klíče, výbavu a dokumenty') +
+    '<section aria-labelledby="process"><h2>Jak přistavení probíhá</h2><div class="gr4">' +
+    MG.renderWbox('gfx/ico-step1.svg','Vyber motorku a termín','v online rezervaci') +
+    MG.renderWbox('gfx/ico-step3.svg','Zadej adresu','přistavení/vrácení (hotel, nádraží, adresa)') +
+    MG.renderWbox('gfx/ico-step5.svg','Potvrď cenu','za dopravu dle vzdálenosti') +
+    MG.renderWbox('gfx/ico-step6.svg','Převzetí na místě','předáme klíče, výbavu a dokumenty') +
     '</div></section>' +
 
     MG.renderCta('Přistavení motorky – půjčovna motorek Vysočina',

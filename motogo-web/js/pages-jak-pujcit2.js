@@ -69,12 +69,12 @@ MG.route('/jak-pujcit/co-v-cene', function(app){
     '<ul><li><strong>Výbava pro spolujezdce</strong></li><li><strong>Páteřák</strong> pro maximální ochranu</li><li><strong>Chrániče hrudi</strong> (pro enduro/cross)</li><li><strong>Motorkářské boty</strong></li><li><strong>Bluetooth komunikátor</strong></li><li><strong>Kufry</strong> a zavazadlový systém</li></ul>' +
     '</div></div></section>' +
 
-    '<section><h2>Další výhody v ceně</h2><div class="gr6">' +
+    '<section><h2>Další výhody v ceně</h2><div class="gr5">' +
     MG.renderWbox('gfx/ico-nonstop.svg','Nonstop provoz','vyzvednutí i vrácení kdykoli') +
-    MG.renderWbox('gfx/ico-bez-kauce.svg','Bez kauce','žádná záloha při půjčení') +
-    MG.renderWbox('gfx/ico-vybava.svg','Pojištění','součástí pronájmu') +
-    MG.renderWbox('gfx/ico-spolecne.svg','Bezkontaktní předání','na vyžádání') +
-    MG.renderWbox('gfx/ico-rezervace.svg','Jasné podmínky','bez skrytých poplatků') +
+    MG.renderWbox('gfx/ico-bez-kauce.svg','Bez kauce','žádná záloha při pronájmu') +
+    MG.renderWbox('gfx/ico-pojisteni.svg','Pojištění','součástí pronájmu') +
+    MG.renderWbox('gfx/ico-bezkontaktni.svg','Bezkontaktní předání','na vyžádání') +
+    MG.renderWbox('gfx/ico-jasna-pravidla.svg','Jasné podmínky','bez skrytých poplatků') +
     '</div></section>' +
 
     MG.renderCta('Výbava v ceně – půjčovna motorek Vysočina',
@@ -106,11 +106,11 @@ MG.route('/jak-pujcit/dokumenty', function(app){
 
     '<section><h2>Shrnutí hlavních bodů</h2><div class="gr6">' +
     MG.renderWbox('gfx/ico-bez-kauce.svg','Bez kauce / zálohy','motorku půjčujeme bez blokace peněz') +
-    MG.renderWbox('gfx/ico-vybava.svg','Pojištění','v ceně (povinné ručení)') +
+    MG.renderWbox('gfx/ico-pojisteni.svg','Pojištění','v ceně (povinné ručení; havarijní dle konkrétního modelu a podmínek)') +
     MG.renderWbox('gfx/ico-vybava.svg','Výbava pro řidiče','v ceně (helma, bunda, kalhoty, rukavice)') +
-    MG.renderWbox('gfx/ico-nonstop.svg','Nonstop provoz','převzetí a vrácení kdykoli') +
-    MG.renderWbox('gfx/ico-spolecne.svg','Jasná pravidla užívání','doma i v zahraničí') +
-    MG.renderWbox('gfx/ico-rezervace.svg','Žádné skryté poplatky','vše ve smlouvě') +
+    MG.renderWbox('gfx/ico-nonstop.svg','Nonstop provoz','převzetí a vrácení kdykoli v den výpůjčky') +
+    MG.renderWbox('gfx/ico-jasna-pravidla.svg','Jasná pravidla užívání','doma i v zahraničí (podle zelené karty)') +
+    MG.renderWbox('gfx/ico-bezskryte.svg','Žádné skryté poplatky','vše je uvedeno níže a ve smlouvě') +
     '</div></section>' +
 
     '<section><h2>Co potřebujete k uzavření smlouvy</h2><ul>' +
