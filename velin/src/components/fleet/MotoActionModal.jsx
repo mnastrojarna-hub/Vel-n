@@ -117,6 +117,8 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
       const today = new Date().toISOString().slice(0, 10)
       await supabase.from('maintenance_log').update({ completed_date: today, status: 'completed' })
         .eq('moto_id', moto.id).is('completed_date', null)
+      await supabase.from('service_orders').update({ status: 'completed', completed_at: new Date().toISOString() })
+        .eq('moto_id', moto.id).in('status', ['pending', 'in_service'])
       await supabase.from('motorcycles').update({ status: 'active', last_service_date: today }).eq('id', moto.id)
       await logAudit('motorcycle_service_closed', { moto_id: moto.id, open_logs: openLogs.length })
       setSuccess('Servis ukončen, motorka aktivní'); onUpdated?.()
@@ -151,9 +153,11 @@ export default function MotoActionModal({ open, onClose, moto, onUpdated }) {
             setBusy(false); return
           }
         }
-        // Close open maintenance logs
+        // Close open maintenance logs + service orders
         await supabase.from('maintenance_log').update({ completed_date: today, status: 'completed' })
           .eq('moto_id', moto.id).is('completed_date', null)
+        await supabase.from('service_orders').update({ status: 'completed', completed_at: new Date().toISOString() })
+          .eq('moto_id', moto.id).in('status', ['pending', 'in_service'])
       }
       if (newStatus === 'maintenance') {
         upd.unavailable_until = null; upd.unavailable_reason = null
