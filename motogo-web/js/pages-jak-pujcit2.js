@@ -69,13 +69,16 @@ MG.route('/jak-pujcit/co-v-cene', function(app){
     '<ul><li><strong>Výbava pro spolujezdce</strong></li><li><strong>Páteřák</strong> pro maximální ochranu</li><li><strong>Chrániče hrudi</strong> (pro enduro/cross)</li><li><strong>Motorkářské boty</strong></li><li><strong>Bluetooth komunikátor</strong></li><li><strong>Kufry</strong> a zavazadlový systém</li></ul>' +
     '</div></div></section>' +
 
-    '<section><h2>Další výhody v ceně</h2><div class="gr5">' +
+    '<section aria-labelledby="benefits"><h2>Další výhody v ceně</h2><div class="gr6">' +
     MG.renderWbox('gfx/ico-nonstop.svg','Nonstop provoz','vyzvednutí i vrácení kdykoli') +
-    MG.renderWbox('gfx/ico-bez-kauce.svg','Bez kauce','žádná záloha při pronájmu') +
+    MG.renderWbox('gfx/ico-bez-kauce.svg','Bez kauce','žádná záloha při půjčení') +
     MG.renderWbox('gfx/ico-pojisteni.svg','Pojištění','součástí pronájmu') +
     MG.renderWbox('gfx/ico-bezkontaktni.svg','Bezkontaktní předání','na vyžádání') +
     MG.renderWbox('gfx/ico-jasna-pravidla.svg','Jasné podmínky','bez skrytých poplatků') +
     '</div></section>' +
+
+    '<section><h2>Rezervuj si motorku s výbavou v ceně</h2>' +
+    '<p>Vyber si z nabídky <strong>cestovních, sportovních, enduro i dětských motorek</strong> a vyraž na cestu bez starostí. Vše potřebné máš zahrnuto v půjčovném.</p></section>' +
 
     MG.renderCta('Výbava v ceně – půjčovna motorek Vysočina',
       'Motogo24 je moderní <strong>půjčovna motorek na Vysočině</strong>. U nás dostaneš <strong>výbavu v ceně</strong>, půjčení <strong>bez kauce</strong>, <strong>online rezervaci</strong> a <strong>nonstop provoz</strong>.',

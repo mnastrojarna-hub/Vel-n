@@ -31,16 +31,18 @@ MG.route('/jak-pujcit', function(app){
 MG.route('/jak-pujcit/postup', function(app){
   var bc = MG.renderBreadcrumb([{label:'Domů',href:'/'},{label:'Jak si půjčit',href:'/jak-pujcit'},'Postup půjčení motorky']);
   var intro = '<h1>Postup půjčení motorky</h1>' +
-    '<p>V <strong>Motogo24 – půjčovna motorek na Vysočině</strong> je půjčení jednoduché, rychlé a férové. <strong>Bez kauce, s výbavou v ceně a nonstop provozem</strong>.</p>';
+    '<p>V <strong>Motogo24 – půjčovna motorek na Vysočině</strong> je půjčení jednoduché, rychlé a férové. <strong>Bez kauce, s výbavou v ceně a nonstop provozem</strong>. Podívej se, jak snadno to funguje.</p>' +
+    '<p>&nbsp;</p><h2>Jak si půjčit motorku – půjčovna Motogo24 Vysočina</h2>' +
+    '<p>V <strong>půjčovně motorek Motogo24</strong> je <strong>postup půjčení motorky</strong> jednoduchý: <strong>online rezervace</strong>, <strong>výbava v ceně</strong>, <strong>bez kauce</strong>, <strong>nonstop provoz</strong> a možnost <strong>přistavení motorky</strong>. Ať hledáš <strong>cestovní motorku</strong> na víkend, <strong>sportovní motorku</strong> pro adrenalin nebo <strong>enduro</strong> do terénu, u nás najdeš ideální řešení.</p>';
 
   var steps = '<section aria-labelledby="process"><h2>Jak probíhá pronájem krok za krokem</h2><div class="gr4">' +
     MG.renderWbox('gfx/ico-step1.svg','1. Vyber motorku','Prohlédni si naši nabídku <strong>cestovních, sportovních, enduro i dětských motorek</strong> a vyber si tu pravou.') +
     MG.renderWbox('gfx/ico-step2.svg','2. Počet jezdců','Zvol, jestli pojedeš sám, nebo se spolujezdcem. Nabídneme ti vhodné stroje a výbavu.') +
     MG.renderWbox('gfx/ico-step3.svg','3. Rezervace online','Jednoduše si zarezervuj motorku podle data. Platbu proveď předem <strong>online</strong>.') +
-    MG.renderWbox('gfx/ico-step4.svg','4. Výbava v ceně','Automaticky, jako řidič, dostaneš helmu, bundu, kalhoty a rukavice.') +
+    MG.renderWbox('gfx/ico-step4.svg','4. Výbava v ceně','Automaticky, jako řidič, dostaneš helmu, bundu, kalhoty a rukavice. Velikost si vybereš při rezervaci.') +
     MG.renderWbox('gfx/ico-step5.svg','5. Potvrzení a platba','Rezervace je závazná po potvrzení. Platbu provedeš online.') +
     MG.renderWbox('gfx/ico-step6.svg','6. Převzetí motorky','Převezmeš motorku osobně v Pelhřimově nebo využiješ <strong>přistavení</strong> na domluvené místo.') +
-    MG.renderWbox('gfx/ico-step7.svg','7. Užij si jízdu','Vyraz na cestu – <strong>bez kauce, bez stresu</strong>, s jasnými podmínkami.') +
+    MG.renderWbox('gfx/ico-step7.svg','7. Užij si jízdu','Vyraz na cestu – <strong>bez kauce, bez stresu</strong>, s jasnými podmínkami a pojištěním v ceně.') +
     MG.renderWbox('gfx/ico-step8.svg','8. Vrácení motorky','Motorku vrátíš kdykoli během posledního dne výpůjčky. Nemusíš tankovat ani mýt.') +
     '</div></section>';
 
