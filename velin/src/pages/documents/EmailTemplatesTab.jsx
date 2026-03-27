@@ -8,17 +8,25 @@ import Badge from '../../components/ui/Badge'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 
 const SAMPLE_VARS = {
-  booking_number: '#RES-2026-0099',
+  booking_number: 'A1B2C3D4',
   customer_name: 'Jan Novák',
   moto_model: 'BMW R 1200 GS Adventure',
+  motorcycle: 'BMW R 1200 GS Adventure',
   start_date: '15. 6. 2026',
   end_date: '18. 6. 2026',
-  total_price: '7 800 Kč',
+  total_price: '7 800',
   pickup_location: 'Mezná 9, 393 01 Mezná',
-  resume_link: 'https://motogo24.cz/booking/resume/abc123',
+  resume_link: 'https://motogo24.cz/#/rezervace?resume=abc123',
   voucher_code: 'GIFT-ABC123',
-  voucher_amount: '3 000 Kč',
-  business_card: '<div style="border-top:2px solid #74FB71;margin-top:24px;padding-top:16px;"><strong>MotoGo24</strong><br>+420 774 256 271</div>',
+  voucher_amount: '3 000',
+  voucher_value: '3 000',
+  voucher_expiry: '15. 6. 2029',
+  order_number: 'OBJ-2026-01001',
+  discount_code: 'DIKY200',
+  google_review_url: 'https://search.google.com/local/writereview?placeid=PLACE_ID',
+  facebook_review_url: 'https://facebook.com/MotoGo24/reviews',
+  site_url: 'https://motogo24.cz',
+  business_card: '<div style="border-top:2px solid #74FB71;margin-top:24px;padding-top:16px;font-size:13px"><strong>MOTO GO 24</strong> | +420 774 256 271 | info@motogo24.cz</div>',
 }
 
 const EMAIL_STATUS = {
