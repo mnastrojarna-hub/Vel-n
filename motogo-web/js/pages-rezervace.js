@@ -370,8 +370,21 @@ MG._rezUpdatePrice = function(){
   var retSameAsDel = document.getElementById('rez-return-same-as-delivery');
   if(retOther && retOther.checked) extras += 1000;
   else if(retSameAsDel && retSameAsDel.checked && isDel) extras += 1000;
-  MG._rez.discountAmt = MG._rez.appliedCodes ? MG._rez.appliedCodes.reduce(function(s,c){return s+c.discountAmt;},0) : 0;
-  var total = Math.max(0, base + extras - MG._rez.discountAmt);
+  MG._rez.discountAmt = 0;
+  var fullPrice = base + extras;
+  if(MG._rez.appliedCodes && MG._rez.appliedCodes.length){
+    MG._rez.appliedCodes.forEach(function(c){
+      if(c.discountType === 'percent'){
+        c.discountAmt = Math.round(fullPrice * c.discountValue / 100);
+      } else {
+        c.discountAmt = c.discountValue;
+      }
+    });
+    var totalDisc = MG._rez.appliedCodes.reduce(function(s,c){return s+c.discountAmt;},0);
+    MG._rez.discountAmt = Math.min(totalDisc, fullPrice);
+  }
+  var total = Math.max(0, fullPrice - MG._rez.discountAmt);
+  MG._renderAppliedCodes();
   var el = document.getElementById('rez-price-preview');
   if(el){
     if(total > 0 || MG._rez.discountAmt > 0){
