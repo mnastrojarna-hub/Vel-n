@@ -143,6 +143,7 @@ serve(async (req) => {
       discount_code,
       google_review_url,
       facebook_review_url,
+      manual_url,
     } = body
 
     if (!type || !customer_email) {
@@ -170,6 +171,7 @@ serve(async (req) => {
       discount_code: discount_code || '',
       google_review_url: google_review_url || '',
       facebook_review_url: facebook_review_url || '',
+      manual_url: manual_url || '',
       business_card: getBusinessCard(),
     }
 
