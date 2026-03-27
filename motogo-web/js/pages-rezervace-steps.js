@@ -29,17 +29,17 @@ MG._submitReservation = async function(){
     var isDel=document.getElementById('rez-delivery')&&document.getElementById('rez-delivery').checked;
     alert(isDel?'Při přistavení je nejdříve možný čas aktuální čas + 6 hodin.':'Nejdříve možný čas převzetí je aktuální čas + 1 hodina.');return;}
   var extras=[];
-  if(document.getElementById('rez-eq-passenger')&&document.getElementById('rez-eq-passenger').checked) extras.push({item:'Výbava spolujezdce',price:690});
-  if(document.getElementById('rez-eq-boots-rider')&&document.getElementById('rez-eq-boots-rider').checked) extras.push({item:'Boty řidič',price:290});
-  if(document.getElementById('rez-eq-boots-passenger')&&document.getElementById('rez-eq-boots-passenger').checked) extras.push({item:'Boty spolujezdce',price:290});
+  if(document.getElementById('rez-eq-passenger')&&document.getElementById('rez-eq-passenger').checked) extras.push({name:'Výbava spolujezdce',unit_price:690});
+  if(document.getElementById('rez-eq-boots-rider')&&document.getElementById('rez-eq-boots-rider').checked) extras.push({name:'Boty řidič',unit_price:290});
+  if(document.getElementById('rez-eq-boots-passenger')&&document.getElementById('rez-eq-boots-passenger').checked) extras.push({name:'Boty spolujezdce',unit_price:290});
   var deliveryAddr=null,returnAddr=null;
   if(document.getElementById('rez-delivery')&&document.getElementById('rez-delivery').checked)
     deliveryAddr=(document.getElementById('rez-delivery-address')||{}).value||null;
   var retO=document.getElementById('rez-return-other'),retS=document.getElementById('rez-return-same-as-delivery');
   if(retO&&retO.checked) returnAddr=(document.getElementById('rez-return-address')||{}).value||null;
   else if(retS&&retS.checked&&deliveryAddr) returnAddr=deliveryAddr;
-  if(deliveryAddr) extras.push({item:'Přistavení motorky (nakládka+vykládka+doprava)',price:1000});
-  if(returnAddr) extras.push({item:'Vrácení motorky (nakládka+vykládka+doprava)',price:1000});
+  if(deliveryAddr) extras.push({name:'Přistavení motorky (nakládka+vykládka+doprava)',unit_price:1000});
+  if(returnAddr) extras.push({name:'Vrácení motorky (nakládka+vykládka+doprava)',unit_price:1000});
 
   MG._rez.formData={motoId:mId,name:name.value,email:email.value,phone:phone.value,
     street:street.value,city:city.value,zip:zip.value,country:(country&&country.value)||'Česká republika',
@@ -137,13 +137,13 @@ MG._rezShowStep2 = function(){
       '<td style="padding:5px 0;border-bottom:1px solid #eee;text-align:right">'+MG.formatPrice(total)+'</td></tr>';
   } else {
     base=(moto&&r.startDate&&r.endDate)?MG.calcPrice(moto,r.startDate,r.endDate):0;
-    d.extras.forEach(function(e){extT+=e.price;});
+    d.extras.forEach(function(e){extT+=e.unit_price;});
     disc=d.discountAmt||0;
     total=Math.max(0,base+extT-disc);
     rows='<tr><td style="padding:5px 0;border-bottom:1px solid #eee">Pronájem: '+motoName+'</td>'+
       '<td style="padding:5px 0;border-bottom:1px solid #eee;text-align:right">'+MG.formatPrice(base)+'</td></tr>';
-    d.extras.forEach(function(e){rows+='<tr><td style="padding:5px 0;border-bottom:1px solid #eee">'+(e.item||e.name)+'</td>'+
-      '<td style="padding:5px 0;border-bottom:1px solid #eee;text-align:right">'+MG.formatPrice(e.price)+'</td></tr>';});
+    d.extras.forEach(function(e){rows+='<tr><td style="padding:5px 0;border-bottom:1px solid #eee">'+e.name+'</td>'+
+      '<td style="padding:5px 0;border-bottom:1px solid #eee;text-align:right">'+MG.formatPrice(e.unit_price)+'</td></tr>';});
     if(disc>0){var cl=(d.appliedCodes||[]).map(function(c){return c.code;}).join('+');
       rows+='<tr><td style="padding:5px 0;border-bottom:1px solid #eee;color:#1a8c1a">Sleva ('+cl+')</td>'+
       '<td style="padding:5px 0;border-bottom:1px solid #eee;text-align:right;color:#1a8c1a">−'+MG.formatPrice(disc)+'</td></tr>';}
