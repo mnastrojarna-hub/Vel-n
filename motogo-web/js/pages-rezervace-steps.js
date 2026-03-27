@@ -49,7 +49,7 @@ MG._submitReservation = async function(){
       p_country: (country&&country.value)||'CZ', p_note: MG._rez.formData.note||'',
       p_pickup_time: ptEl.value||null,
       p_delivery_address: deliveryAddr, p_return_address: returnAddr,
-      p_extras: JSON.stringify(extras)
+      p_extras: extras
     };
     console.log('[REZ] create_web_booking params:', rpcParams);
     var regRes = await window.sb.rpc('create_web_booking', rpcParams);
