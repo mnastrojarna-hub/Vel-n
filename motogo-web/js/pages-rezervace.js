@@ -66,8 +66,9 @@ MG._rezFormHtml = function(){
     '<div class="gr2"><input type="email" id="rez-email" placeholder="* E-mail" required title="Toto pole je povinné">' +
     '<input type="tel" id="rez-phone" placeholder="* Telefon (+420XXXXXXXXX)" required title="Toto pole je povinné" pattern="^\\+\\d{12,15}$"></div>' +
     '<div class="gr2 voucher-code"><input type="text" id="rez-voucher" placeholder="Slevový kód" maxlength="255">' +
-    '<div><span class="btn btngreen-small" onclick="MG._addVoucherField()">DALŠÍ KÓD</span></div></div>' +
-    '<div id="rez-extra-vouchers"></div>' +
+    '<div><span class="btn btngreen-small" onclick="MG._applyVoucher()">UPLATNIT</span></div></div>' +
+    '<div id="rez-applied-codes"></div>' +
+    '<div id="rez-voucher-msg" style="font-size:.85rem;margin:-.5rem 0 .75rem"></div>' +
     '<div class="dfc pickup"><div>* Čas převzetí nebo přistavení motorky'+MG._reqTip()+'</div><input type="time" id="rez-pickup-time" required title="Toto pole je povinné"></div>' +
     '<div class="checkboxes">' +
     // Výbava spolujezdce
@@ -358,14 +359,14 @@ MG._rezUpdatePrice = function(){
   var retSameAsDel = document.getElementById('rez-return-same-as-delivery');
   if(retOther && retOther.checked) extras += 1000;
   else if(retSameAsDel && retSameAsDel.checked && isDel) extras += 1000;
-  var total = base + extras;
+  MG._rez.discountAmt = MG._rez.appliedCodes ? MG._rez.appliedCodes.reduce(function(s,c){return s+c.discountAmt;},0) : 0;
+  var total = Math.max(0, base + extras - MG._rez.discountAmt);
   var el = document.getElementById('rez-price-preview');
   if(el){
-    if(total > 0){
-      el.innerHTML = '<div style="background:#74FB71;color:#0b0b0b;padding:.75rem 1.5rem;border-radius:25px;font-size:1.15rem;font-weight:800;text-align:center;display:inline-block;margin:1rem 0">Celková cena: '+MG.formatPrice(total)+'</div>';
-    } else {
-      el.innerHTML = '';
-    }
+    if(total > 0 || MG._rez.discountAmt > 0){
+      var discTxt = MG._rez.discountAmt > 0 ? '<div style="font-size:.85rem;color:#1a8c1a;margin-top:.3rem">Sleva: −'+MG.formatPrice(MG._rez.discountAmt)+'</div>' : '';
+      el.innerHTML = '<div style="background:#74FB71;color:#0b0b0b;padding:.75rem 1.5rem;border-radius:25px;font-size:1.15rem;font-weight:800;text-align:center;display:inline-block;margin:1rem 0">Celková cena: '+MG.formatPrice(total)+discTxt+'</div>';
+    } else { el.innerHTML = ''; }
   }
 };
 
@@ -393,12 +394,69 @@ MG._rezValidatePickupTime = function(){
   return pt.value >= min;
 };
 
-// ===== VOUCHER FIELD =====
-MG._addVoucherField = function(){
-  var c = document.getElementById('rez-extra-vouchers'); if(!c) return;
-  var d = document.createElement('div'); d.className = 'gr2 voucher-code';
-  d.innerHTML = '<input type="text" placeholder="Slevový kód" maxlength="255">';
-  c.appendChild(d);
+// ===== VOUCHER / PROMO CODE VALIDATION =====
+MG._rez.appliedCodes = []; // [{code, type:'promo'|'voucher', id, discountAmt, discountType, discountValue}]
+MG._rez.discountAmt = 0;
+
+MG._applyVoucher = async function(){
+  var inp = document.getElementById('rez-voucher');
+  var msg = document.getElementById('rez-voucher-msg');
+  if(!inp || !inp.value.trim()){ if(msg) msg.innerHTML='<span style="color:#c00">Zadejte kód</span>'; return; }
+  var code = inp.value.trim().toUpperCase();
+  // Check duplicate
+  for(var i=0;i<MG._rez.appliedCodes.length;i++){
+    if(MG._rez.appliedCodes[i].code===code){ if(msg) msg.innerHTML='<span style="color:#c00">Kód již uplatněn</span>'; return; }
+  }
+  if(msg) msg.innerHTML='<span style="color:#999">Ověřuji...</span>';
+  // Calculate base for discount
+  var r=MG._rez, mId=r.motoId||r.selectedMotoId;
+  var moto=r.motos.find(function(m){return m.id===mId;});
+  var base=(moto&&r.startDate&&r.endDate)?MG.calcPrice(moto,r.startDate,r.endDate):0;
+
+  // Try promo code first
+  var pr = await window.sb.rpc('validate_promo_code',{p_code:code});
+  if(pr.data && pr.data.valid){
+    var pd=pr.data;
+    if(pd.type==='percent' && MG._rez.appliedCodes.some(function(c){return c.discountType==='percent';})){
+      if(msg) msg.innerHTML='<span style="color:#c00">Nelze kombinovat dva procentuální kódy</span>'; return;
+    }
+    var disc=pd.type==='percent'?Math.round(base*pd.value/100):pd.value;
+    var curDisc=MG._rez.appliedCodes.reduce(function(s,c){return s+c.discountAmt;},0);
+    disc=Math.min(disc,Math.max(0,base-curDisc));
+    MG._rez.appliedCodes.push({code:code,type:'promo',id:pd.id,discountAmt:disc,discountType:pd.type,discountValue:pd.value});
+    var lbl=pd.type==='percent'?pd.value+'%':pd.value+' Kč';
+    if(msg) msg.innerHTML='<span style="color:#1a8c1a">✓ Sleva '+lbl+' uplatněna (−'+MG.formatPrice(disc)+')</span>';
+    inp.value=''; MG._renderAppliedCodes(); MG._rezUpdatePrice(); return;
+  }
+  // Try voucher
+  var vr = await window.sb.rpc('validate_voucher_code',{p_code:code});
+  if(vr.data && vr.data.valid){
+    var vd=vr.data;
+    var curDiscV=MG._rez.appliedCodes.reduce(function(s,c){return s+c.discountAmt;},0);
+    var vDisc=Math.min(vd.value,Math.max(0,base-curDiscV));
+    MG._rez.appliedCodes.push({code:code,type:'voucher',id:vd.id,discountAmt:vDisc,discountType:'fixed',discountValue:vd.value});
+    if(msg) msg.innerHTML='<span style="color:#1a8c1a">✓ Poukaz '+MG.formatPrice(vd.value)+' uplatněn</span>';
+    inp.value=''; MG._renderAppliedCodes(); MG._rezUpdatePrice(); return;
+  }
+  if(msg) msg.innerHTML='<span style="color:#c00">✗ Neplatný kód</span>';
+};
+
+MG._renderAppliedCodes = function(){
+  var el=document.getElementById('rez-applied-codes'); if(!el) return;
+  if(!MG._rez.appliedCodes.length){ el.innerHTML=''; return; }
+  var h='';
+  MG._rez.appliedCodes.forEach(function(c,i){
+    h+='<div style="display:inline-flex;align-items:center;gap:.4rem;background:#dcfce7;padding:.3rem .7rem;border-radius:20px;margin:0 .5rem .5rem 0;font-size:.85rem">' +
+      '<strong>'+c.code+'</strong> −'+MG.formatPrice(c.discountAmt) +
+      ' <span style="cursor:pointer;color:#c00" onclick="MG._removeCode('+i+')">✕</span></div>';
+  });
+  el.innerHTML=h;
+};
+
+MG._removeCode = function(idx){
+  MG._rez.appliedCodes.splice(idx,1);
+  MG._rez.discountAmt=MG._rez.appliedCodes.reduce(function(s,c){return s+c.discountAmt;},0);
+  MG._renderAppliedCodes(); MG._rezUpdatePrice();
 };
 
 // ===== STEP 1: SUBMIT FORM → show identity verification =====
@@ -462,7 +520,9 @@ MG._submitReservation = function(){
     note: (document.getElementById('rez-note') || {}).value || '',
     pickupTime: ptEl.value,
     deliveryAddr: deliveryAddr, returnAddr: returnAddr,
-    extras: extras
+    extras: extras,
+    appliedCodes: MG._rez.appliedCodes || [],
+    discountAmt: MG._rez.discountAmt || 0
   };
 
   // Show Step 2: Identity verification
@@ -543,7 +603,8 @@ MG._rezShowStep3 = function(){
   var base = (moto && r.startDate && r.endDate) ? MG.calcPrice(moto, r.startDate, r.endDate) : 0;
   var extrasTotal = 0;
   d.extras.forEach(function(e){ extrasTotal += e.price; });
-  var total = base + extrasTotal;
+  var discAmt = d.discountAmt || 0;
+  var total = Math.max(0, base + extrasTotal - discAmt);
 
   var rows = '<tr><td style="padding:6px 0;border-bottom:1px solid #eee">Pronájem motocyklu '+motoName+'</td>' +
     '<td style="padding:6px 0;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">'+MG.formatPrice(base)+'</td></tr>';
@@ -551,6 +612,11 @@ MG._rezShowStep3 = function(){
     rows += '<tr><td style="padding:6px 0;border-bottom:1px solid #eee">'+e.name+'</td>' +
       '<td style="padding:6px 0;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">'+MG.formatPrice(e.price)+'</td></tr>';
   });
+  if(discAmt > 0){
+    var codeLabels = d.appliedCodes.map(function(c){return c.code;}).join(' + ');
+    rows += '<tr><td style="padding:6px 0;border-bottom:1px solid #eee;color:#1a8c1a">Sleva ('+codeLabels+')</td>' +
+      '<td style="padding:6px 0;border-bottom:1px solid #eee;text-align:right;color:#1a8c1a;white-space:nowrap">−'+MG.formatPrice(discAmt)+'</td></tr>';
+  }
 
   form.innerHTML =
     '<h2 style="margin-top:1rem">Náhled zálohové faktury</h2>' +
