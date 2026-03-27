@@ -11,7 +11,7 @@ MG.route('/poukazy', function(app){
     '<p>Hledáš originální dárek pro partnera, kamaráda nebo tátu?</p><p>&nbsp;</p>' +
     '<p>Naše <strong>dárkové poukazy na pronájem motorky</strong> od Motogo24 – <strong>půjčovna motorek Vysočina</strong> – potěší začátečníky i zkušené jezdce.</p><p>&nbsp;</p>' +
     '<p>Vyber hodnotu poukazu nebo konkrétní motorku a daruj svobodu na dvou kolech.</p><p>&nbsp;</p>' +
-    '<p><a class="btn btngreen" href="#poukaz-order">OBJEDNAT DÁRKOVÝ POUKAZ</a></p>' +
+    '<p><a class="btn btngreen" onclick="var e=document.getElementById(\'poukaz-order\');if(e)e.scrollIntoView({behavior:\'smooth\'})">OBJEDNAT DÁRKOVÝ POUKAZ</a></p>' +
     '</div><div>' +
     '<img alt="Dárkový poukaz" style="width:100%;max-width:500px;border-radius:10px" loading="lazy" src="gfx/darkovy-poukaz.jpg">' +
     '</div></div></section>';
@@ -83,7 +83,7 @@ MG.route('/poukazy', function(app){
     faqHtml + '</div></div></div></section>' +
     MG.renderCta('Dárkový poukaz na pronájem motorky – Vysočina',
       'Motogo24 je <strong>půjčovna motorek na Vysočině</strong> s <strong>nonstop provozem</strong>, <strong>bez kauce</strong> a <strong>výbavou v ceně</strong>.',
-      [{label:'OBJEDNAT POUKAZ',href:'#poukaz-order',cls:'btndark pulse'}]) +
+      [{label:'OBJEDNAT POUKAZ',href:'/poukazy',cls:'btndark pulse'}]) +
     '</div></div></main>';
 
   // Live price update
