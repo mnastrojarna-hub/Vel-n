@@ -19,7 +19,7 @@ export default function DetailTab({ booking, set, error, saving, actions, onActi
       .or(`booking_id.eq.${booking.id},original_booking_id.eq.${booking.id},replacement_booking_id.eq.${booking.id}`)
       .order('created_at', { ascending: false })
       .then(({ data }) => { if (data) setSosIncidents(data) }).catch(() => {})
-    supabase.from('booking_extras').select('*, extras_catalog(name, price)')
+    supabase.from('booking_extras').select('*, extras_catalog(name, price_per_day)')
       .eq('booking_id', booking.id)
       .then(({ data }) => { if (data) setBookingExtras(data) }).catch(() => {})
     supabase.from('branch_door_codes').select('*')
@@ -241,7 +241,7 @@ function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, onModify
       </div>
       <div className="grid grid-cols-4 gap-4 mt-3 p-3 rounded-lg" style={{ background: '#f1faf7' }}>
         <div><div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Příslušenství</div><div className="text-sm font-bold">{booking.extras_price > 0 ? `${Number(booking.extras_price).toLocaleString('cs-CZ')} Kč` : '—'}</div>
-          {bookingExtras.length > 0 && bookingExtras.map((ex, i) => <div key={i} className="text-sm" style={{ color: '#1a2e22' }}>{ex.extras_catalog?.name || `Extra ${i + 1}`}: {Number(ex.extras_catalog?.price || 0).toLocaleString('cs-CZ')} Kč</div>)}</div>
+          {bookingExtras.length > 0 && bookingExtras.map((ex, i) => <div key={i} className="text-sm" style={{ color: '#1a2e22' }}>{ex.name || ex.extras_catalog?.name || `Extra ${i + 1}`}: {Number(ex.unit_price || ex.extras_catalog?.price_per_day || 0).toLocaleString('cs-CZ')} Kč{ex.quantity > 1 ? ` × ${ex.quantity}` : ''}</div>)}</div>
         <div><div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Doručení</div><div className="text-sm font-bold">{booking.delivery_fee > 0 ? `${Number(booking.delivery_fee).toLocaleString('cs-CZ')} Kč` : '—'}</div></div>
         <div><div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Sleva</div><div className="text-sm font-bold" style={{ color: booking.discount_amount > 0 ? '#1a8a18' : undefined }}>{booking.discount_amount > 0 ? `-${Number(booking.discount_amount).toLocaleString('cs-CZ')} Kč` : '—'}{booking.discount_code ? ` (${booking.discount_code})` : ''}</div></div>
         <div><div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Kauce</div><div className="text-sm font-bold">{booking.deposit > 0 ? `${Number(booking.deposit).toLocaleString('cs-CZ')} Kč` : '—'}</div></div>

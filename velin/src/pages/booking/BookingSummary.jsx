@@ -66,7 +66,7 @@ export default function BookingSummary({ booking, sosIncidents, bookingExtras, c
         <>
           <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Příslušenství</div>
           {bookingExtras.map((ex, i) => (
-            <SumRow key={i} label={ex.extras_catalog?.name || `Extra ${i + 1}`} value={`${Number(ex.extras_catalog?.price || 0).toLocaleString('cs-CZ')} Kč`} />
+            <SumRow key={i} label={ex.name || ex.extras_catalog?.name || `Extra ${i + 1}`} value={`${Number(ex.unit_price || ex.extras_catalog?.price_per_day || 0).toLocaleString('cs-CZ')} Kč${ex.quantity > 1 ? ` × ${ex.quantity}` : ''}`} />
           ))}
         </>
       )}
