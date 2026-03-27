@@ -296,6 +296,7 @@ async function confirmBookingPayment(
             end_date: booking.end_date,
             total_price: booking.total_price,
             source: source,
+            manual_url: moto?.manual_url || '',
           }),
         }).catch(() => {})
       }
