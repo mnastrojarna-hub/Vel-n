@@ -3,9 +3,18 @@
 var MG = window.MG || {};
 window.MG = MG;
 
+// ===== IMAGE URL HELPER =====
+// Handles relative paths from DB (e.g. "photos/yamaha.jpg") by prepending Supabase storage URL
+MG.imgUrl = function(src){
+  if(!src) return '';
+  if(src.startsWith('http://') || src.startsWith('https://') || src.startsWith('data:')) return src;
+  var base = (window.MOTOGO_CONFIG || {}).SUPABASE_URL || '';
+  return base + '/storage/v1/object/public/media/' + src;
+};
+
 // ===== MOTO CARD =====
 MG.renderMotoCard = function(m){
-  var img = m.image_url || (m.images && m.images.length ? m.images[0] : '') || '';
+  var img = MG.imgUrl(m.image_url || (m.images && m.images.length ? m.images[0] : ''));
   var desc = m.ideal_usage || '';
   var cat = m.category || '';
   var kw = m.power_kw ? (m.power_kw + ' kW') : '';
