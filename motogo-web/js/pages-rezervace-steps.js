@@ -179,6 +179,12 @@ MG._rezShowStep2 = function(){
     '<input type="text" id="rez-doc-number" placeholder="* Číslo dokladu" required autocomplete="off"'+(MG._rez._docNumber?' value="'+MG._rez._docNumber+'"':'')+'>'+
     '<h3 style="margin-top:1rem">Řidičský průkaz</h3>'+
     '<input type="text" id="rez-license-number" placeholder="* Číslo řidičského průkazu" required autocomplete="off"'+(MG._rez._licenseNumber?' value="'+MG._rez._licenseNumber+'"':'')+'>'+
+    '<div style="display:flex;gap:.75rem;margin-top:.5rem">'+
+    '<div style="flex:1"><label style="font-size:.85rem;font-weight:600;color:#374151">* Skupina ŘP</label>'+
+    '<select id="rez-license-group" required style="width:100%;padding:.55rem .75rem;border:1px solid #d1d5db;border-radius:8px;font-size:.9rem;margin-top:.25rem">'+
+    '<option value="">— Vyberte —</option><option value="A1">A1</option><option value="A2">A2</option><option value="A">A</option></select></div>'+
+    '<div style="flex:1"><label style="font-size:.85rem;font-weight:600;color:#374151">* Platnost ŘP do</label>'+
+    '<input type="date" id="rez-license-expiry" required style="width:100%;padding:.55rem .75rem;border:1px solid #d1d5db;border-radius:8px;font-size:.9rem;margin-top:.25rem"></div></div>'+
     '<div class="checkboxes" style="margin:1rem 0"><div class="agreement gr2"><input type="checkbox" id="rez-license-confirm" required'+(MG._rez._docsValidated?' checked':'')+'>'+
     '<div>* Potvrzuji, že jsem držitelem platného řidičského oprávnění a splňuji zákonné podmínky k řízení rezervovaného motocyklu.</div></div></div>'+
     qrSection+
@@ -227,9 +233,14 @@ MG._rezShowMindeeStep = async function(){
   if(!MG._rez._docsValidated){
     var docNum=document.getElementById('rez-doc-number');
     var licNum=document.getElementById('rez-license-number');
+    var licGroup=document.getElementById('rez-license-group');
+    var licExpiry=document.getElementById('rez-license-expiry');
     var licConf=document.getElementById('rez-license-confirm');
     if(!docNum||!docNum.value){alert('Vyplňte číslo dokladu totožnosti.');return;}
     if(!licNum||!licNum.value){alert('Vyplňte číslo řidičského průkazu.');return;}
+    if(!licGroup||!licGroup.value){alert('Vyberte skupinu řidičského oprávnění.');return;}
+    if(!licExpiry||!licExpiry.value){alert('Vyplňte platnost řidičského průkazu.');return;}
+    if(new Date(licExpiry.value)<new Date()){alert('Řidičský průkaz je prošlý. Zkontrolujte datum platnosti.');return;}
     if(!licConf||!licConf.checked){alert('Potvrďte prosím držení platného řidičského oprávnění.');return;}
 
     MG._rez._docNumber=docNum.value;
@@ -239,7 +250,8 @@ MG._rezShowMindeeStep = async function(){
     // Save to profile
     if(MG._rez.userId){
       try{await window.sb.from('profiles').update({
-        id_number:docNum.value, license_number:licNum.value
+        id_number:docNum.value, license_number:licNum.value,
+        license_group:[licGroup.value], license_expiry:licExpiry.value
       }).eq('id',MG._rez.userId);}catch(e){}
     }
   }
@@ -369,14 +381,20 @@ MG._rezSubmitPayment = async function(){
   if(!MG._rez._docsValidated){
     var docNum=document.getElementById('rez-doc-number');
     var licNum=document.getElementById('rez-license-number');
+    var licGroup=document.getElementById('rez-license-group');
+    var licExpiry=document.getElementById('rez-license-expiry');
     var licConf=document.getElementById('rez-license-confirm');
     if(!docNum||!docNum.value){alert('Vyplňte číslo dokladu totožnosti.');return;}
     if(!licNum||!licNum.value){alert('Vyplňte číslo řidičského průkazu.');return;}
+    if(!licGroup||!licGroup.value){alert('Vyberte skupinu řidičského oprávnění.');return;}
+    if(!licExpiry||!licExpiry.value){alert('Vyplňte platnost řidičského průkazu.');return;}
+    if(new Date(licExpiry.value)<new Date()){alert('Řidičský průkaz je prošlý. Zkontrolujte datum platnosti.');return;}
     if(!licConf||!licConf.checked){alert('Potvrďte prosím držení platného řidičského oprávnění.');return;}
 
     if(MG._rez.userId){
       try{await window.sb.from('profiles').update({
-        id_number:docNum.value, license_number:licNum.value
+        id_number:docNum.value, license_number:licNum.value,
+        license_group:[licGroup.value], license_expiry:licExpiry.value
       }).eq('id',MG._rez.userId);}catch(e){}
     }
   }
