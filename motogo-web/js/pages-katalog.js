@@ -17,31 +17,71 @@ MG.route('/katalog', function(app){ MG._renderKatalog(app, null, 'Katalog motore
 MG.route('/katalog/cestovni', function(app){ MG._renderKatalog(app, 'cestovni', 'Cestovní motorky'); });
 MG.route('/katalog/detske', function(app){ MG._renderKatalog(app, 'detske', 'Dětské motorky'); });
 
+MG._katalogFilter = { category: '', license: '', type: '' };
+
 MG._renderKatalog = async function(app, category, title){
   var bc = [{label:'Domů', href:'/'}, {label:'Katalog motorek', href:'/katalog'}];
   if(category) bc.push(title);
   else bc[1] = title;
 
+  MG._katalogFilter = { category: category || '', license: '', type: '' };
+
   app.innerHTML = '<main id="content"><div class="container">' +
     MG.renderBreadcrumb(bc) +
     '<div class="ccontent"><h1>' + title + '</h1>' +
+    '<div id="katalog-filters"></div>' +
     '<div id="katalog-grid" class="gr4"><div class="loading-overlay"><span class="spinner"></span> Načítám motorky...</div></div>' +
     '</div></div></main>';
 
   var motos = await MG._getMotos();
-  var filtered = motos;
-  if(category){
-    filtered = motos.filter(function(m){
-      var cat = (m.category || '').toLowerCase();
-      var model = (m.model || '').toLowerCase();
-      if(category === 'cestovni') return cat.indexOf('cestov') !== -1 || cat.indexOf('adventure') !== -1 || cat.indexOf('enduro') !== -1 || cat.indexOf('touring') !== -1;
-      if(category === 'detske') return cat.indexOf('dets') !== -1 || cat.indexOf('dět') !== -1 || cat.indexOf('mini') !== -1 || cat.indexOf('child') !== -1 || (m.license_required && m.license_required.toUpperCase() === 'N');
-      return true;
-    });
-  }
+  MG._renderKatalogFilters(motos);
+  MG._applyKatalogFilter();
+};
 
-  var el = document.getElementById('katalog-grid');
-  if(!el) return;
+MG._renderKatalogFilters = function(motos){
+  var el = document.getElementById('katalog-filters'); if(!el) return;
+  // Collect unique categories, licenses, types
+  var cats = {}, lics = {};
+  motos.forEach(function(m){
+    if(m.category) cats[m.category] = true;
+    if(m.license_required) lics[m.license_required] = true;
+  });
+  var catKeys = Object.keys(cats).sort();
+  var licKeys = Object.keys(lics).sort();
+
+  var h = '<div style="display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1.5rem">';
+  // Category filter
+  h += '<select id="flt-cat" style="padding:.4rem .8rem;border-radius:20px;border:1px solid #ccc;font-size:.85rem;cursor:pointer">' +
+    '<option value="">Všechny kategorie</option>';
+  catKeys.forEach(function(c){ h += '<option value="'+c+'"'+(MG._katalogFilter.category===c?' selected':'')+'>'+c+'</option>'; });
+  h += '</select>';
+  // License filter
+  h += '<select id="flt-lic" style="padding:.4rem .8rem;border-radius:20px;border:1px solid #ccc;font-size:.85rem;cursor:pointer">' +
+    '<option value="">Všechny ŘP</option>';
+  licKeys.forEach(function(l){ h += '<option value="'+l+'">Skupina '+l+'</option>'; });
+  h += '</select>';
+  h += '</div>';
+  el.innerHTML = h;
+
+  document.getElementById('flt-cat').addEventListener('change', function(){ MG._katalogFilter.category = this.value; MG._applyKatalogFilter(); });
+  document.getElementById('flt-lic').addEventListener('change', function(){ MG._katalogFilter.license = this.value; MG._applyKatalogFilter(); });
+};
+
+MG._applyKatalogFilter = function(){
+  var motos = MG._motosCache || [];
+  var f = MG._katalogFilter;
+  var filtered = motos.filter(function(m){
+    if(f.category){
+      var cat = (m.category || '').toLowerCase(), fc = f.category.toLowerCase();
+      if(fc === 'cestovni'){ if(cat.indexOf('cestov')===-1 && cat.indexOf('adventure')===-1 && cat.indexOf('touring')===-1) return false; }
+      else if(fc === 'detske'){ if(cat.indexOf('dets')===-1 && cat.indexOf('dět')===-1 && !(m.license_required && m.license_required.toUpperCase()==='N')) return false; }
+      else { if(cat !== fc) return false; }
+    }
+    if(f.license && m.license_required !== f.license) return false;
+    return true;
+  });
+
+  var el = document.getElementById('katalog-grid'); if(!el) return;
   if(!filtered.length){ el.innerHTML = '<p>V této kategorii nemáme momentálně žádné motorky.</p>'; return; }
   var html = '';
   filtered.forEach(function(m){
@@ -178,12 +218,24 @@ MG.route('/katalog/:id', async function(app, params){
     '<div class="reservation-btn"><a class="btn btngreen" href="#/rezervace?moto=' + moto.id + '">PŘEJÍT NA REZERVACE</a></div>' +
   '</div></section>';
 
-  // Related motos
-  var sameCat = motos.filter(function(m){ return m.id !== moto.id && m.category === moto.category; }).slice(0, 4);
+  // Related motos — filter by license group AND category, exclude self
+  var related = motos.filter(function(m){
+    if(m.id === moto.id) return false;
+    var sameLP = m.license_required === moto.license_required;
+    var sameCat = m.category === moto.category;
+    return sameLP || sameCat;
+  });
+  // Sort: same category+license first, then same license, then same category
+  related.sort(function(a,b){
+    var aScore = (a.category===moto.category?2:0) + (a.license_required===moto.license_required?1:0);
+    var bScore = (b.category===moto.category?2:0) + (b.license_required===moto.license_required?1:0);
+    return bScore - aScore;
+  });
+  related = related.slice(0, 4);
   var relatedHtml = '';
-  if(sameCat.length){
+  if(related.length){
     relatedHtml = '<section class="moto-related"><h2>Podobné motorky k zapůjčení</h2><div class="gr4">';
-    sameCat.forEach(function(m){
+    related.forEach(function(m){
       relatedHtml += '<section aria-label="katalog motorek">' + MG.renderMotoCard(m) + '</section>';
     });
     relatedHtml += '</div></section>';
