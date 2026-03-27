@@ -101,11 +101,12 @@ MG.renderCta = function(title, text, buttons){
   return html;
 };
 
-// ===== CALENDAR COMPONENT =====
+// ===== CALENDAR COMPONENT (interactive with date selection) =====
 MG.renderCalendar = function(containerId, motoId){
   setTimeout(function(){ MG._buildCalendar(containerId, motoId); }, 100);
   return '<div id="' + containerId + '" class="calendar-placeholder"><div class="loading-overlay"><span class="spinner"></span> Načítám dostupnost...</div></div>' +
-    '<div class="calendar-icons gr3"><div><span class="cicon loosely">&nbsp;</span> Volné</div><div><span class="cicon occupied">&nbsp;</span> Obsazené</div><div><span class="cicon unconfirmed">&nbsp;</span> Nepotvrzené</div></div>';
+    '<div class="calendar-icons gr3"><div><span class="cicon loosely">&nbsp;</span> Volné</div><div><span class="cicon occupied">&nbsp;</span> Obsazené</div><div><span class="cicon unconfirmed">&nbsp;</span> Nepotvrzené</div></div>' +
+    '<div id="' + containerId + '-banner" style="display:none"></div>';
 };
 
 MG._calState = {};
@@ -116,19 +117,23 @@ MG._buildCalendar = async function(containerId, motoId){
 
   var bookings = await MG.fetchMotoBookings(motoId);
   var bookedDays = {};
+  var now = new Date();
   bookings.forEach(function(b){
     var s = new Date(b.start_date);
     var e = new Date(b.end_date);
     var d = new Date(s);
+    var isPending = b.status === 'pending';
+    var createdAt = b.created_at ? new Date(b.created_at) : null;
+    var isRecent = createdAt && (now - createdAt) < 4 * 60 * 60 * 1000;
+    var status = (isPending && isRecent) ? 'unconfirmed' : 'occupied';
     while(d <= e){
       var key = d.toISOString().split('T')[0];
-      bookedDays[key] = b.status === 'pending' ? 'unconfirmed' : 'occupied';
+      bookedDays[key] = status;
       d.setDate(d.getDate() + 1);
     }
   });
 
-  var now = new Date();
-  var state = {year: now.getFullYear(), month: now.getMonth(), bookedDays: bookedDays};
+  var state = {year: now.getFullYear(), month: now.getMonth(), bookedDays: bookedDays, motoId: motoId, startDate: null, endDate: null};
   MG._calState[containerId] = state;
   MG._renderCalMonth(containerId);
 };
@@ -140,10 +145,12 @@ MG._renderCalMonth = function(containerId){
   var y = state.year, m = state.month;
   var months = ['Leden','Únor','Březen','Duben','Květen','Červen','Červenec','Srpen','Září','Říjen','Listopad','Prosinec'];
   var dayNames = ['Po','Út','St','Čt','Pá','So','Ne'];
+  var dayFull = ['Ne','Po','Út','St','Čt','Pá','So'];
   var firstDay = new Date(y, m, 1);
   var lastDay = new Date(y, m + 1, 0);
   var startDow = (firstDay.getDay() + 6) % 7;
   var todayStr = new Date().toISOString().split('T')[0];
+  var sd = state.startDate, ed = state.endDate;
 
   var html = '<div class="cal-nav">' +
     '<button onclick="MG._calPrev(\'' + containerId + '\')">&larr;</button>' +
@@ -158,18 +165,80 @@ MG._renderCalMonth = function(containerId){
     var ds = y + '-' + String(m+1).padStart(2,'0') + '-' + String(d).padStart(2,'0');
     var booked = state.bookedDays[ds];
     var isPast = ds < todayStr;
-    var isToday = ds === todayStr;
-    var bg, color, cursor;
-    if(isPast){ bg='#444'; color='#fff'; cursor='not-allowed'; }
-    else if(booked === 'occupied'){ bg='#444'; color='#fff'; cursor='not-allowed'; }
-    else if(booked === 'unconfirmed'){ bg='transparent'; color='#333'; cursor='default'; border='2px solid #ccc'; }
-    else if(isToday){ bg='#74FB71'; color='#0b0b0b'; cursor='pointer'; }
+    var inRange = sd && ed && ds >= sd && ds <= ed;
+    var isStart = sd && ds === sd;
+    var isEnd = ed && ds === ed;
+    var dayOfWeek = dayFull[new Date(y,m,d).getDay()];
+
+    var bg, color, cursor = 'default', border = 'none';
+    if(isPast || booked === 'occupied'){ bg='#444'; color='#fff'; cursor='not-allowed'; }
+    else if(booked === 'unconfirmed'){ bg='#fff'; color='#333'; cursor='not-allowed'; border='2px solid #ccc'; }
+    else if(isStart || isEnd){ bg='#1a8c1a'; color='#fff'; cursor='pointer'; border='2px solid #fff'; }
+    else if(inRange){ bg='#1a8c1a'; color='#fff'; cursor='pointer'; }
     else { bg='#74FB71'; color='#0b0b0b'; cursor='pointer'; }
-    var extraStyle = booked === 'unconfirmed' ? 'border:2px solid #ccc;' : '';
-    html += '<div class="cal-day" style="background:'+bg+';color:'+color+';cursor:'+cursor+';border-radius:20px;'+extraStyle+'">'+d+'</div>';
+
+    var canClick = !isPast && !booked;
+    var style = 'background:'+bg+';color:'+color+';cursor:'+cursor+';border:'+border+';border-radius:12px;';
+    var click = canClick ? ' onclick="MG._calPickDate(\''+containerId+'\',\''+ds+'\')"' : '';
+    html += '<div class="cal-day" style="'+style+'"'+click+'>' +
+      '<span style="font-size:.65rem;opacity:.7;display:block;line-height:1">'+dayOfWeek+'</span>' +
+      '<span style="font-weight:700">'+d+'</span></div>';
   }
   html += '</div>';
   el.innerHTML = html;
+};
+
+// ===== CALENDAR DATE PICK LOGIC =====
+MG._calPickDate = function(containerId, ds){
+  var state = MG._calState[containerId];
+  if(!state) return;
+  if(!state.startDate || state.endDate){ state.startDate = ds; state.endDate = null; }
+  else if(ds < state.startDate){ state.startDate = ds; state.endDate = null; }
+  else if(ds === state.startDate){ state.startDate = null; state.endDate = null; }
+  else { state.endDate = ds; }
+  MG._renderCalMonth(containerId);
+  MG._calUpdateBanner(containerId);
+  MG._calUpdateReserveBtn(containerId);
+};
+
+// ===== CALENDAR BANNER (shows selected dates) =====
+MG._calUpdateBanner = function(containerId){
+  var ban = document.getElementById(containerId + '-banner');
+  if(!ban) return;
+  var state = MG._calState[containerId];
+  if(!state.startDate){ ban.style.display='none'; return; }
+  if(!state.endDate){
+    ban.style.display='block';
+    ban.innerHTML = '<div style="background:#74FB71;color:#0b0b0b;padding:12px 16px;border-radius:25px;margin:12px 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">' +
+      '<span>Vybrán začátek: <strong>'+MG.formatDate(state.startDate)+'</strong> — klikněte na koncové datum</span>' +
+      '<span class="btn" style="background:#0b0b0b;color:#74FB71;padding:6px 14px;font-size:.85rem;cursor:pointer;border-radius:20px" onclick="MG._calResetDates(\''+containerId+'\')">&#x2715; ZRUŠIT VÝBĚR</span></div>';
+    return;
+  }
+  ban.style.display='block';
+  ban.innerHTML = '<div style="background:#74FB71;color:#0b0b0b;padding:14px 18px;border-radius:25px;margin:12px 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">' +
+    '<span style="font-size:1.05rem"><strong>VYBRANÝ TERMÍN: '+MG.formatDate(state.startDate)+' – '+MG.formatDate(state.endDate)+'</strong></span>' +
+    '<span class="btn" style="background:#0b0b0b;color:#74FB71;padding:6px 14px;font-size:.85rem;cursor:pointer;border-radius:20px" onclick="MG._calResetDates(\''+containerId+'\')">&#x2715; ZRUŠIT VÝBĚR</span></div>';
+};
+
+// ===== CALENDAR RESET DATES =====
+MG._calResetDates = function(containerId){
+  var state = MG._calState[containerId];
+  if(state){ state.startDate = null; state.endDate = null; }
+  MG._renderCalMonth(containerId);
+  MG._calUpdateBanner(containerId);
+  MG._calUpdateReserveBtn(containerId);
+};
+
+// ===== UPDATE RESERVE BUTTON with selected dates =====
+MG._calUpdateReserveBtn = function(containerId){
+  var state = MG._calState[containerId];
+  if(!state) return;
+  var btn = document.getElementById(containerId + '-reserve-btn');
+  if(!btn) return;
+  var href = '#/rezervace?moto=' + state.motoId;
+  if(state.startDate) href += '&start=' + state.startDate;
+  if(state.endDate) href += '&end=' + state.endDate;
+  btn.href = href;
 };
 
 MG._calPrev = function(id){

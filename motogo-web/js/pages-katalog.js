@@ -212,11 +212,12 @@ MG.route('/katalog/:id', async function(app, params){
     '<p>Cena půjčení se liší podle dne v týdnu:</p>';
   if(priceRows.length) pricesHtml += MG.renderTable(['Den','Cena za den'], priceRows);
   pricesHtml += '<p><strong>V ceně je zahrnuta výbava:</strong> helma, bunda, kalhoty a rukavice.</p></div>';
+  var calId = 'detail-cal-' + moto.id;
   pricesHtml += '<div class="moto-reservation"><h2>Dostupnost</h2>' +
-    '<p>Zkontroluj volné termíny a zarezervuj si motorku snadno online.</p>' +
-    MG.renderCalendar('detail-cal-' + moto.id, moto.id) +
+    '<p>Vyberte si volný termín přímo v kalendáři a přejděte na rezervaci.</p>' +
+    MG.renderCalendar(calId, moto.id) +
     '<p class="calendar-info">* Vyberte si prosím minimálně 3 souvislé dny.</p>' +
-    '<div class="reservation-btn"><a class="btn btngreen" href="#/rezervace?moto=' + moto.id + '">PŘEJÍT NA REZERVACE</a></div>' +
+    '<div class="reservation-btn"><a id="' + calId + '-reserve-btn" class="btn btngreen" href="#/rezervace?moto=' + moto.id + '">PŘEJÍT NA REZERVACE</a></div>' +
   '</div></section>';
 
   // Related motos — filter by license group AND category, exclude self
