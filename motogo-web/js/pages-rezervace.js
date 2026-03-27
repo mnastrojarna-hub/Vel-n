@@ -445,11 +445,11 @@ MG._submitReservation = function(){
   // Save form data to state
   var extras = [];
   if(document.getElementById('rez-eq-passenger') && document.getElementById('rez-eq-passenger').checked)
-    extras.push({name:'Výbava spolujezdce', price:690});
+    extras.push({item:'Výbava spolujezdce', price:690});
   if(document.getElementById('rez-eq-boots-rider') && document.getElementById('rez-eq-boots-rider').checked)
-    extras.push({name:'Boty řidič', price:290});
+    extras.push({item:'Boty řidič', price:290});
   if(document.getElementById('rez-eq-boots-passenger') && document.getElementById('rez-eq-boots-passenger').checked)
-    extras.push({name:'Boty spolujezdce', price:290});
+    extras.push({item:'Boty spolujezdce', price:290});
 
   var deliveryAddr = null, returnAddr = null;
   if(document.getElementById('rez-delivery') && document.getElementById('rez-delivery').checked)
@@ -462,8 +462,8 @@ MG._submitReservation = function(){
     returnAddr = deliveryAddr;
 
   // Add delivery/return fees as extras (nakládka 500 + vykládka 500 = 1000 base per direction)
-  if(deliveryAddr) extras.push({name:'Přistavení motorky (nakládka + vykládka + doprava)', price:1000});
-  if(returnAddr) extras.push({name:'Vrácení motorky (nakládka + vykládka + doprava)', price:1000});
+  if(deliveryAddr) extras.push({item:'Přistavení motorky (nakládka + vykládka + doprava)', price:1000});
+  if(returnAddr) extras.push({item:'Vrácení motorky (nakládka + vykládka + doprava)', price:1000});
 
   MG._rez.formData = {
     motoId: mId,
@@ -559,7 +559,7 @@ MG._rezShowStep3 = function(){
   var rows = '<tr><td style="padding:6px 0;border-bottom:1px solid #eee">Pronájem motocyklu '+motoName+'</td>' +
     '<td style="padding:6px 0;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">'+MG.formatPrice(base)+'</td></tr>';
   d.extras.forEach(function(e){
-    rows += '<tr><td style="padding:6px 0;border-bottom:1px solid #eee">'+e.name+'</td>' +
+    rows += '<tr><td style="padding:6px 0;border-bottom:1px solid #eee">'+e.item+'</td>' +
       '<td style="padding:6px 0;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">'+MG.formatPrice(e.price)+'</td></tr>';
   });
 
