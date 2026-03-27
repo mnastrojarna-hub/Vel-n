@@ -351,10 +351,13 @@ MG._rezUpdatePrice = function(){
   if(document.getElementById('rez-eq-passenger') && document.getElementById('rez-eq-passenger').checked) extras += 690;
   if(document.getElementById('rez-eq-boots-rider') && document.getElementById('rez-eq-boots-rider').checked) extras += 290;
   if(document.getElementById('rez-eq-boots-passenger') && document.getElementById('rez-eq-boots-passenger').checked) extras += 290;
-  // Delivery/return return-same-as-delivery doubles delivery fee
-  var rSame = document.getElementById('rez-return-same-as-delivery');
+  // Delivery/return fees (nakládka 500 + vykládka 500 = 1000 base per direction, + km calculated later)
   var isDel = document.getElementById('rez-delivery') && document.getElementById('rez-delivery').checked;
-  var isRetSame = rSame && rSame.checked && isDel;
+  if(isDel) extras += 1000;
+  var retOther = document.getElementById('rez-return-other');
+  var retSameAsDel = document.getElementById('rez-return-same-as-delivery');
+  if(retOther && retOther.checked) extras += 1000;
+  else if(retSameAsDel && retSameAsDel.checked && isDel) extras += 1000;
   var total = base + extras;
   var el = document.getElementById('rez-price-preview');
   if(el){
@@ -446,6 +449,10 @@ MG._submitReservation = function(){
     returnAddr = (document.getElementById('rez-return-address') || {}).value || null;
   else if(retSameAsDel && retSameAsDel.checked && deliveryAddr)
     returnAddr = deliveryAddr;
+
+  // Add delivery/return fees as extras (nakládka 500 + vykládka 500 = 1000 base per direction)
+  if(deliveryAddr) extras.push({name:'Přistavení motorky (nakládka + vykládka + doprava)', price:1000});
+  if(returnAddr) extras.push({name:'Vrácení motorky (nakládka + vykládka + doprava)', price:1000});
 
   MG._rez.formData = {
     motoId: mId,

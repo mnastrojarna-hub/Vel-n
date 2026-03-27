@@ -159,7 +159,7 @@ MG.route('/katalog/:id', async function(app, params){
   descHtml += '</div>';
 
   // Gallery
-  var mainImg = moto.image_url || (moto.images && moto.images[0]) || '';
+  var mainImg = MG.imgUrl(moto.image_url || (moto.images && moto.images[0]) || '');
   var galleryHtml = '<div class="moto-gallery">';
   if(mainImg){
     galleryHtml += '<div class="moto-photo"><a href="' + mainImg + '" target="_blank"><div class="gallery-img"><img src="' + mainImg + '" alt="' + moto.model + '" loading="lazy"></div></a></div>';
@@ -167,7 +167,8 @@ MG.route('/katalog/:id', async function(app, params){
   if(moto.images && moto.images.length > 1){
     galleryHtml += '<div class="gr3">';
     moto.images.slice(1, 4).forEach(function(img){
-      galleryHtml += '<div><a href="' + img + '" target="_blank"><div class="gallery-img"><img src="' + img + '" alt="' + moto.model + '" loading="lazy"></div></a></div>';
+      var u = MG.imgUrl(img);
+      galleryHtml += '<div><a href="' + u + '" target="_blank"><div class="gallery-img"><img src="' + u + '" alt="' + moto.model + '" loading="lazy"></div></a></div>';
     });
     galleryHtml += '</div>';
   }
