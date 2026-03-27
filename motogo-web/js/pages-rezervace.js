@@ -2,7 +2,7 @@
 var MG = window.MG || {};
 window.MG = MG;
 
-MG._rez = { startDate: null, endDate: null, motos: [], motoId: '', allBookings: {} };
+MG._rez = { startDate: null, endDate: null, motos: [], motoId: '', allBookings: {}, appliedCodes: [], discountAmt: 0 };
 
 MG.route('/rezervace', async function(app){
   var bc = MG.renderBreadcrumb([{label:'Domů',href:'/'},'REZERVACE']);
