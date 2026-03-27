@@ -426,6 +426,10 @@ MG._applyVoucher = async function(){
 
   // Try promo code first
   var pr = await window.sb.rpc('validate_promo_code',{p_code:code});
+  if(pr.error){
+    console.error('[VOUCHER] validate_promo_code error:', pr.error.message);
+    if(msg) msg.innerHTML='<span style="color:#c00">Chyba ověření kódu: '+pr.error.message+'</span>'; return;
+  }
   if(pr.data && pr.data.valid){
     var pd=pr.data;
     if(pd.type==='percent' && MG._rez.appliedCodes.some(function(c){return c.discountType==='percent';})){
@@ -441,6 +445,10 @@ MG._applyVoucher = async function(){
   }
   // Try voucher
   var vr = await window.sb.rpc('validate_voucher_code',{p_code:code});
+  if(vr.error){
+    console.error('[VOUCHER] validate_voucher_code error:', vr.error.message);
+    if(msg) msg.innerHTML='<span style="color:#c00">Chyba ověření kódu: '+vr.error.message+'</span>'; return;
+  }
   if(vr.data && vr.data.valid){
     var vd=vr.data;
     var curDiscV=MG._rez.appliedCodes.reduce(function(s,c){return s+c.discountAmt;},0);
@@ -449,7 +457,9 @@ MG._applyVoucher = async function(){
     if(msg) msg.innerHTML='<span style="color:#1a8c1a">✓ Poukaz '+MG.formatPrice(vd.value)+' uplatněn</span>';
     inp.value=''; MG._renderAppliedCodes(); MG._rezUpdatePrice(); return;
   }
-  if(msg) msg.innerHTML='<span style="color:#c00">✗ Neplatný kód</span>';
+  // Show specific error from promo validation if available
+  var errDetail = (pr.data && pr.data.error) ? pr.data.error : 'Kód nebyl nalezen nebo není platný';
+  if(msg) msg.innerHTML='<span style="color:#c00">✗ '+errDetail+'</span>';
 };
 
 MG._renderAppliedCodes = function(){
