@@ -406,8 +406,8 @@ MG._rezValidatePickupTime = function(){
 };
 
 // ===== VOUCHER / PROMO CODE VALIDATION =====
-MG._rez.appliedCodes = []; // [{code, type:'promo'|'voucher', id, discountAmt, discountType, discountValue}]
-MG._rez.discountAmt = 0;
+if(!MG._rez.appliedCodes) MG._rez.appliedCodes = [];
+if(!MG._rez.discountAmt) MG._rez.discountAmt = 0;
 
 MG._applyVoucher = async function(){
   var inp = document.getElementById('rez-voucher');
