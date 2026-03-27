@@ -174,37 +174,23 @@ MG._voucherBackToForm = function(){
   window.location.hash = '/poukazy';
 };
 
-// ===== VOUCHER STEP 3: create order + Stripe Checkout =====
+// ===== VOUCHER STEP 3: Stripe Checkout (skip create_shop_order, use web path) =====
 MG._voucherPay = async function(){
   var d = MG._voucherData;
   var btn = document.querySelector('#poukaz-order .btn.btngreen');
   if(btn){ btn.disabled = true; btn.textContent = 'Zpracovávám...'; }
 
   try {
-    var items = [{product_id:null, name:'Dárkový poukaz', quantity:1, price:d.amount}];
-    if(d.printFee) items.push({product_id:null, name:'Fyzický poukaz (tisk + poštovné)', quantity:1, price:d.printFee});
-    var orderRes = await window.sb.rpc('create_shop_order', {
-      p_items: JSON.stringify(items),
-      p_shipping_method: d.isPrint ? 'post' : 'email',
-      p_shipping_address: d.addr ? JSON.stringify(d.addr) : null,
-      p_payment_method: 'stripe',
-      p_promo_code: null
-    });
-
-    if(orderRes.error){
-      alert('Chyba: '+orderRes.error.message);
-      if(btn){btn.disabled=false;btn.textContent='Pokračovat k platbě';} return;
-    }
-
-    var orderId = orderRes.data?.order_id || orderRes.data?.id;
-
     var payRes = await fetch(window.MOTOGO_CONFIG.SUPABASE_URL + '/functions/v1/process-payment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': window.MOTOGO_CONFIG.SUPABASE_ANON_KEY },
       body: JSON.stringify({
-        order_id: orderId, amount: d.total,
-        type: 'shop', source: 'web', mode: 'checkout',
-        customer_email: d.email, customer_name: d.name
+        amount: d.total,
+        type: 'shop',
+        source: 'web',
+        mode: 'checkout',
+        customer_email: d.email,
+        customer_name: d.name
       })
     });
     var payData = await payRes.json();
