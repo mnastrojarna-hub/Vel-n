@@ -66,5 +66,6 @@
 | `update_test_sos_status(p_incident_id, p_status, p_notes)` | Změna stavu SOS incidentu (SECURITY DEFINER). |
 | `update_test_profile(p_user_id, p_data jsonb)` | Update profilu zákazníka (full_name, phone, city, license_group). SECURITY DEFINER. |
 | `cleanup_all_test_data()` | Smaže vše testovací: bookings, SOS, service, profiles + auth.users. SECURITY DEFINER. Vrací jsonb. |
+| `get_moto_booked_dates(p_moto_id)` | Veřejná RPC: vrací obsazené date ranges pro kalendář (start_date, end_date, status, created_at). SECURITY DEFINER, STABLE. Bez citlivých dat — bezpečné pro anon. |
 | `create_web_booking(p_moto_id, p_start_date, p_end_date, p_name, p_email, p_phone, ...)` | Vytvoří web rezervaci: najde/vytvoří auth usera + profil, zkontroluje dostupnost, vypočte cenu, vytvoří booking (source='web'). Vrací {booking_id, amount, user_id}. SECURITY DEFINER |
 | `notify_web_booking_abandoned()` | Trigger funkce: při auto-cancel web bookingu (pending→cancelled, source=web, unpaid) odešle abandoned email přes send-booking-email. SECURITY DEFINER, EXCEPTION safe |

@@ -29,25 +29,17 @@ MG.fetchMotoPrices = async function(motoId){
   } catch(e){ return null; }
 };
 
-// ===== DOSTUPNOST (bookings overlap check) =====
-// Note: bookings table has RLS - anon can't read. We use RPC or public view.
+// ===== DOSTUPNOST (bookings via RPC — bypasses RLS safely) =====
 MG.fetchMotoBookings = async function(motoId){
   if(!window.sb) return [];
   try {
-    var today = new Date().toISOString().split('T')[0];
-    // Try direct query first (may fail due to RLS)
-    var r = await window.sb.from('bookings')
-      .select('start_date,end_date,status')
-      .eq('moto_id', motoId)
-      .in('status', ['pending','reserved','active'])
-      .gte('end_date', today)
-      .order('start_date');
+    var r = await window.sb.rpc('get_moto_booked_dates', { p_moto_id: motoId });
     if(r.error){
-      console.warn('[API] fetchMotoBookings RLS blocked, returning empty');
+      console.warn('[API] get_moto_booked_dates error:', r.error.message);
       return [];
     }
     return r.data || [];
-  } catch(e){ return []; }
+  } catch(e){ console.error('[API] fetchMotoBookings exception:', e); return []; }
 };
 
 // ===== APP SETTINGS =====
