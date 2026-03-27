@@ -30,6 +30,7 @@ interface PaymentRequest {
   method?: string
   type?: PaymentType
   mode?: 'intent' | 'checkout'
+  source?: string
 }
 
 const PRODUCT_NAMES: Record<PaymentType, string> = {
@@ -118,6 +119,75 @@ Deno.serve(async (req: Request) => {
 
   try {
     const body: PaymentRequest = await req.json()
+
+    // --- Web anonymous checkout (no auth required) ---
+    if (body.source === 'web' && body.booking_id) {
+      // Use service role client for DB access
+      const supabaseAdmin = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      )
+
+      const { data: booking, error: bErr } = await supabaseAdmin
+        .from('bookings')
+        .select('*')
+        .eq('id', body.booking_id)
+        .eq('source', 'web')
+        .eq('payment_status', 'unpaid')
+        .single()
+
+      if (bErr || !booking) {
+        return new Response(JSON.stringify({ error: 'Booking not found or already paid' }), {
+          status: 400, headers: { ...CORS, 'Content-Type': 'application/json' }
+        })
+      }
+
+      const amount = Math.round((booking.total_price || body.amount) * 100)
+      const currency = body.currency || 'czk'
+
+      // Create or get Stripe customer by email
+      const customers = await stripe.customers.list({ email: booking.customer_email, limit: 1 })
+      let customerId = customers.data.length > 0 ? customers.data[0].id : null
+      if (!customerId) {
+        const newCust = await stripe.customers.create({
+          email: booking.customer_email,
+          name: booking.customer_name,
+          metadata: { source: 'web', booking_id: body.booking_id }
+        })
+        customerId = newCust.id
+      }
+
+      // Store stripe_customer_id on booking
+      await supabaseAdmin.from('bookings').update({ stripe_customer_id: customerId }).eq('id', body.booking_id)
+
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        mode: 'payment',
+        payment_method_types: ['card'],
+        line_items: [{
+          price_data: {
+            currency,
+            unit_amount: amount,
+            product_data: { name: PRODUCT_NAMES.booking, description: `Rezervace #${body.booking_id.slice(0,8)}` }
+          },
+          quantity: 1
+        }],
+        metadata: { booking_id: body.booking_id, type: 'booking', source: 'web' },
+        success_url: `${SITE_URL}/#/potvrzeni?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${SITE_URL}/#/rezervace`,
+      })
+
+      // Store session ID
+      await supabaseAdmin.from('bookings').update({
+        stripe_session_id: session.id,
+        stripe_payment_intent_id: session.payment_intent as string
+      }).eq('id', body.booking_id)
+
+      return new Response(JSON.stringify({ checkout_url: session.url, session_id: session.id }), {
+        headers: { ...CORS, 'Content-Type': 'application/json' }
+      })
+    }
+
     const { booking_id, order_id, incident_id, amount, currency, method, type, mode } = body
     const paymentType: PaymentType = type || 'booking'
     const paymentMode = mode || 'intent' // Default to inline PaymentIntent
