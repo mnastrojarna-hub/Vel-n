@@ -174,11 +174,12 @@ MG._rezRenderCal = function(){
   var y = MG._rez.calYear, m = MG._rez.calMonth;
   var months = ['Leden','Únor','Březen','Duben','Květen','Červen','Červenec','Srpen','Září','Říjen','Listopad','Prosinec'];
   var dayN = ['Po','Út','St','Čt','Pá','So','Ne'];
+  var dayFull = ['Ne','Po','Út','St','Čt','Pá','So'];
   var first = new Date(y,m,1), last = new Date(y,m+1,0);
   var dow = (first.getDay()+6)%7;
   var todayStr = new Date().toISOString().split('T')[0];
 
-  var h = '<div class="cal-nav"><button onclick="MG._rezCalPrev()">&larr;</button><span>'+months[m]+' '+y+'</span><button onclick="MG._rezCalNext()">&rarr;</button></div>';
+  var h = '<div class="cal-nav"><button onclick="MG._rezCalPrev()">&larr;</button><span style="font-weight:800;font-size:1.2rem">'+months[m]+' '+y+'</span><button onclick="MG._rezCalNext()">&rarr;</button></div>';
   h += '<div class="cal-grid">';
   dayN.forEach(function(d){ h += '<div class="cal-header">'+d+'</div>'; });
   for(var i=0;i<dow;i++) h += '<div class="cal-day empty"></div>';
@@ -191,6 +192,7 @@ MG._rezRenderCal = function(){
     var inRange = sd && ed && ds >= sd && ds <= ed;
     var isStart = sd && ds === sd;
     var isEnd = ed && ds === ed;
+    var dayOfWeek = dayFull[new Date(y,m,d).getDay()];
 
     var bg, color, cursor = 'default', border = 'none';
     if(isPast || status === 'occupied'){ bg = '#444'; color = '#fff'; cursor = 'not-allowed'; }
@@ -200,9 +202,11 @@ MG._rezRenderCal = function(){
     else { bg = '#74FB71'; color = '#0b0b0b'; cursor = 'pointer'; }
 
     var canClick = !isPast && status === 'free';
-    var style = 'background:'+bg+';color:'+color+';cursor:'+cursor+';border:'+border+';border-radius:20px;';
+    var style = 'background:'+bg+';color:'+color+';cursor:'+cursor+';border:'+border+';border-radius:12px;';
     var click = canClick ? ' onclick="MG._rezPickDate(\''+ds+'\')"' : '';
-    h += '<div class="cal-day" style="'+style+'"'+click+'>'+d+'</div>';
+    h += '<div class="cal-day" style="'+style+'"'+click+'>' +
+      '<span style="font-size:.65rem;opacity:.7;display:block;line-height:1">'+dayOfWeek+'</span>' +
+      '<span style="font-weight:700">'+d+'</span></div>';
   }
   h += '</div>';
   h += '<div class="calendar-icons gr3"><div><span class="cicon loosely">&nbsp;</span> Volné</div>' +
@@ -236,17 +240,17 @@ MG._rezUpdateBanner = function(){
   if(!r.startDate){ ban.style.display='none'; if(avail){avail.style.display='none';avail.innerHTML='';} return; }
   if(!r.endDate){
     ban.style.display='block';
-    ban.innerHTML = '<div style="background:#1a8c1a;color:#fff;padding:12px 16px;border-radius:25px;margin:12px 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">' +
+    ban.innerHTML = '<div style="background:#74FB71;color:#0b0b0b;padding:12px 16px;border-radius:25px;margin:12px 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">' +
       '<span>Vybrán začátek: <strong>'+MG.formatDate(r.startDate)+'</strong> — klikněte na koncové datum</span>' +
-      '<span class="btn btngreen-small" style="background:#74FB71;color:#0b0b0b;cursor:pointer" onclick="MG._rezResetDates();MG._rezRenderCal()">&#x2715; ZRUŠIT VÝBĚR</span></div>';
+      '<span class="btn" style="background:#0b0b0b;color:#74FB71;padding:6px 14px;font-size:.85rem;cursor:pointer;border-radius:20px" onclick="MG._rezResetDates();MG._rezRenderCal()">&#x2715; ZRUŠIT VÝBĚR</span></div>';
     if(avail){avail.style.display='none';avail.innerHTML='';}
     return;
   }
 
   ban.style.display='block';
-  ban.innerHTML = '<div style="background:#1a8c1a;color:#fff;padding:12px 16px;border-radius:25px;margin:12px 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">' +
-    '<span>MÁTE VYBRANÝ TERMÍN: <strong>'+MG.formatDate(r.startDate)+' - '+MG.formatDate(r.endDate)+'</strong></span>' +
-    '<span class="btn btngreen-small" style="background:#74FB71;color:#0b0b0b;cursor:pointer" onclick="MG._rezResetDates();MG._rezRenderCal()">&#x2715; ZRUŠIT VÝBĚR</span></div>';
+  ban.innerHTML = '<div style="background:#74FB71;color:#0b0b0b;padding:14px 18px;border-radius:25px;margin:12px 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">' +
+    '<span style="font-size:1.05rem"><strong>MÁTE VYBRANÝ TERMÍN: '+MG.formatDate(r.startDate)+' – '+MG.formatDate(r.endDate)+'</strong></span>' +
+    '<span class="btn" style="background:#0b0b0b;color:#74FB71;padding:6px 14px;font-size:.85rem;cursor:pointer;border-radius:20px" onclick="MG._rezResetDates();MG._rezRenderCal()">&#x2715; ZRUŠIT VÝBĚR</span></div>';
 
   if(!r.motoId) MG._rezShowAvailMotos();
 };
@@ -290,6 +294,30 @@ MG._rezUpdatePrice = function(){
   if(el) el.innerHTML = total > 0 ? 'Celková cena: <strong>'+MG.formatPrice(total)+'</strong>' : '';
 };
 
+// ===== PICKUP TIME VALIDATION =====
+// Returns min allowed time as HH:MM string; null if any time is ok (future date)
+MG._rezMinPickupTime = function(){
+  var r = MG._rez;
+  if(!r.startDate) return null;
+  var today = new Date().toISOString().split('T')[0];
+  if(r.startDate > today) return null; // future date, any time
+  var isDelivery = document.getElementById('rez-delivery') && document.getElementById('rez-delivery').checked;
+  var now = new Date();
+  var offsetH = isDelivery ? 6 : 1;
+  now.setHours(now.getHours() + offsetH);
+  var hh = String(now.getHours()).padStart(2,'0');
+  var mm = String(now.getMinutes()).padStart(2,'0');
+  return hh + ':' + mm;
+};
+
+MG._rezValidatePickupTime = function(){
+  var pt = document.getElementById('rez-pickup-time');
+  if(!pt || !pt.value) return false;
+  var min = MG._rezMinPickupTime();
+  if(!min) return true;
+  return pt.value >= min;
+};
+
 // ===== VOUCHER FIELD =====
 MG._addVoucherField = function(){
   var c = document.getElementById('rez-extra-vouchers'); if(!c) return;
@@ -309,7 +337,8 @@ MG._submitReservation = async function(){
   var country = document.getElementById('rez-country');
   var agree = document.getElementById('rez-agree-vop');
 
-  if(!name || !name.value || !email || !email.value || !phone || !phone.value){
+  if(!name || !name.value || !email || !email.value || !phone || !phone.value ||
+     !(street && street.value) || !(city && city.value) || !(zip && zip.value)){
     alert('Vyplňte prosím všechna povinná pole.'); return;
   }
   if(!agree || !agree.checked){
@@ -319,6 +348,16 @@ MG._submitReservation = async function(){
   if(!r.startDate || !r.endDate){ alert('Vyberte prosím termín v kalendáři.'); return; }
   var mId = r.motoId || r.selectedMotoId;
   if(!mId){ alert('Vyberte prosím motorku.'); return; }
+  // Pickup time required
+  var ptEl = document.getElementById('rez-pickup-time');
+  if(!ptEl || !ptEl.value){
+    alert('Vyplňte prosím čas převzetí nebo přistavení motorky.'); return;
+  }
+  if(!MG._rezValidatePickupTime()){
+    var isDel = document.getElementById('rez-delivery') && document.getElementById('rez-delivery').checked;
+    alert(isDel ? 'Při přistavení motorky je nejdříve možný čas aktuální čas + 6 hodin.' : 'Nejdříve možný čas převzetí je aktuální čas + 1 hodina.');
+    return;
+  }
 
   // Build extras array
   var extras = [];
