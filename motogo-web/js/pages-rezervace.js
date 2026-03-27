@@ -68,13 +68,13 @@ MG._reqTip = function(){ return ' <span class="ctooltip" style="color:#c00;font-
 // ===== STATIC FORM HTML =====
 MG._rezFormHtml = function(){
   return '<div id="rez-form"><p>&nbsp;</p>' +
-    '<input type="text" id="rez-name" placeholder="* Jméno a příjmení" required title="Toto pole je povinné">' +
-    '<div class="gr2"><input type="text" id="rez-street" placeholder="* Ulice, č.p." required title="Toto pole je povinné">' +
-    '<input type="text" id="rez-zip" placeholder="* PSČ" required title="Toto pole je povinné"></div>' +
-    '<div class="gr2"><input type="text" id="rez-city" placeholder="* Město" required title="Toto pole je povinné">' +
-    '<input type="text" id="rez-country" placeholder="* Stát" value="Česká republika" required title="Toto pole je povinné"></div>' +
-    '<div class="gr2"><input type="email" id="rez-email" placeholder="* E-mail" required title="Toto pole je povinné">' +
-    '<input type="tel" id="rez-phone" placeholder="* Telefon (+420XXXXXXXXX)" required title="Toto pole je povinné" pattern="^\\+\\d{12,15}$"></div>' +
+    '<input type="text" id="rez-name" placeholder="* Jméno a příjmení" required title="Toto pole je povinné" autocomplete="name">' +
+    '<div class="gr2"><input type="text" id="rez-street" placeholder="* Ulice, č.p." required autocomplete="street-address">' +
+    '<input type="text" id="rez-zip" placeholder="* PSČ" required autocomplete="postal-code"></div>' +
+    '<div class="gr2"><input type="text" id="rez-city" placeholder="* Město" required autocomplete="address-level2">' +
+    '<input type="text" id="rez-country" placeholder="* Stát" value="Česká republika" required autocomplete="country-name"></div>' +
+    '<div class="gr2"><input type="email" id="rez-email" placeholder="* E-mail" required autocomplete="email">' +
+    '<input type="tel" id="rez-phone" placeholder="* Telefon (+420XXXXXXXXX)" required autocomplete="tel" pattern="^\\+\\d{12,15}$"></div>' +
     '<div class="gr2 voucher-code"><input type="text" id="rez-voucher" placeholder="Slevový kód" maxlength="255">' +
     '<div><span class="btn btngreen-small" onclick="MG._applyVoucher()">UPLATNIT</span></div></div>' +
     '<div id="rez-applied-codes"></div>' +

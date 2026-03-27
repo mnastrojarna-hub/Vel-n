@@ -97,9 +97,9 @@ MG._rezShowStep2 = function(){
     '<h3>Doklad totožnosti</h3><div class="checkboxes" style="margin:.5rem 0">'+
     '<div><input type="radio" id="rez-doc-op" name="rez-doc-type" value="op" checked><label for="rez-doc-op">Občanský průkaz</label></div>'+
     '<div><input type="radio" id="rez-doc-pas" name="rez-doc-type" value="pas"><label for="rez-doc-pas">Cestovní pas</label></div></div>'+
-    '<input type="text" id="rez-doc-number" placeholder="* Číslo dokladu" required>'+
+    '<input type="text" id="rez-doc-number" placeholder="* Číslo dokladu" required autocomplete="off">'+
     '<h3 style="margin-top:1rem">Řidičský průkaz</h3>'+
-    '<input type="text" id="rez-license-number" placeholder="* Číslo řidičského průkazu" required>'+
+    '<input type="text" id="rez-license-number" placeholder="* Číslo řidičského průkazu" required autocomplete="off">'+
     '<div class="checkboxes" style="margin:1rem 0"><div class="agreement gr2"><input type="checkbox" id="rez-license-confirm" required>'+
     '<div>* Potvrzuji, že jsem držitelem platného řidičského oprávnění a splňuji zákonné podmínky k řízení rezervovaného motocyklu.</div></div></div>'+
     '<hr style="border:none;border-top:2px solid #74FB71;margin:1.5rem 0">'+
