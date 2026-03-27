@@ -4,7 +4,7 @@ import type { SB } from './tools-constants.ts'
 // deno-lint-ignore no-explicit-any
 type R = Record<string, any>
 
-const TEST_EMAIL_PREFIX = 'test.ai.tester+'
+const TEST_EMAIL_PREFIXES = ['test.ai.tester+', 'test.sim.']
 const TEST_PROMO_PREFIX = 'AITEST_'
 
 export async function execE2ETest(name: string, input: R, sb: SB): Promise<unknown> {
@@ -14,7 +14,7 @@ export async function execE2ETest(name: string, input: R, sb: SB): Promise<unkno
     // === CREATE TEST USER ===
     case 'create_test_user': {
       const suffix = Date.now().toString(36)
-      const email = `${TEST_EMAIL_PREFIX}${suffix}@motogo24.cz`
+      const email = `${TEST_EMAIL_PREFIXES[0]}${suffix}@motogo24.cz`
       const password = `Test${suffix}!2024`
       // Create auth user
       const { data: authUser, error: authErr } = await sb.auth.admin.createUser({
@@ -58,8 +58,9 @@ export async function execE2ETest(name: string, input: R, sb: SB): Promise<unkno
         await sb.from('promo_codes').delete().ilike('code', `${TEST_PROMO_PREFIX}%`)
         results.promos = promos.length
       }
-      // Find test users — by is_test_account flag OR email pattern
-      const { data: testProfiles } = await sb.from('profiles').select('id, email').or(`is_test_account.eq.true,email.ilike.${TEST_EMAIL_PREFIX}%`)
+      // Find test users — by is_test_account flag OR any test email pattern
+      const emailFilters = TEST_EMAIL_PREFIXES.map(p => `email.ilike.${p}%`).join(',')
+      const { data: testProfiles } = await sb.from('profiles').select('id, email').or(`is_test_account.eq.true,${emailFilters}`)
       if (testProfiles && testProfiles.length > 0) {
         for (const p of testProfiles) {
           // Get booking IDs for this user
