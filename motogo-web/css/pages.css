@@ -139,8 +139,8 @@
 .ctooltiptext{display:none;position:absolute;left:0;top:1.5rem;background:#fff;color:#444;padding:.75rem;border-radius:6px;font-size:.82rem;width:320px;z-index:50;line-height:1.5;border:1px solid #ccc;box-shadow:0 4px 12px rgba(0,0,0,.1)}
 .ctooltip:hover .ctooltiptext{display:block}
 
-/* Price preview */
-#rez-price-preview{background:#74FB71;color:#0b0b0b;padding:.75rem 1.5rem;border-radius:25px;font-size:1.1rem;font-weight:700;text-align:center;display:inline-block;margin:1rem 0}
+/* Price preview — styled inline in JS for green bubble */
+#rez-price-preview{text-align:center}
 
 /* ===== CONTACT ===== */
 .contact .contacts{padding-bottom:2rem}
