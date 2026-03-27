@@ -46,8 +46,9 @@ MG._submitReservation = async function(){
       p_moto_id: mId, p_start_date: r.startDate, p_end_date: r.endDate,
       p_name: name.value, p_email: email.value, p_phone: phone.value,
       p_street: street.value||'', p_city: city.value||'', p_zip: zip.value||'',
-      p_country: (country&&country.value)||'CZ', p_note: MG._rez.formData.note||'',
-      p_pickup_time: ptEl.value||null,
+      p_country: (country&&country.value)||'CZ',
+      p_note: (MG._rez.formData.note||'') + (ptEl.value ? '\nČas převzetí: '+ptEl.value : ''),
+      p_pickup_time: ptEl.value ? ptEl.value+':00' : null,
       p_delivery_address: deliveryAddr, p_return_address: returnAddr,
       p_extras: extras
     };
