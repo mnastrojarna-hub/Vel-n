@@ -2,7 +2,7 @@
 var MG = window.MG || {};
 window.MG = MG;
 
-MG._rez = { startDate: null, endDate: null, motos: [], motoId: '', allBookings: {} };
+MG._rez = { startDate: null, endDate: null, motos: [], motoId: '', allBookings: {}, appliedCodes: [], discountAmt: 0 };
 
 MG.route('/rezervace', async function(app){
   var bc = MG.renderBreadcrumb([{label:'Domů',href:'/'},'REZERVACE']);
@@ -14,6 +14,69 @@ MG.route('/rezervace', async function(app){
   if(ms) preStart = decodeURIComponent(ms[1]);
   var preEnd = ''; var me = hash.match(/[?&]end=([^&]+)/);
   if(me) preEnd = decodeURIComponent(me[1]);
+
+  // ===== RESUME FLOW: ?resume=BOOKING_ID (from QR code or abandoned email) =====
+  var resumeId = ''; var mResume = hash.match(/[?&]resume=([^&]+)/);
+  if(mResume) resumeId = decodeURIComponent(mResume[1]);
+
+  if(resumeId){
+    app.innerHTML = '<main id="content"><div class="container">' + bc +
+      '<div class="ccontent pcontent"><h1>Dokončení rezervace</h1>' +
+      '<div id="rez-form"><div class="loading-overlay"><span class="spinner"></span> Načítám rezervaci...</div></div>' +
+      '</div></div></main>';
+
+    try {
+      var resumeRes = await window.sb.rpc('get_web_booking_resume', { p_booking_id: resumeId });
+      if(resumeRes.error || (resumeRes.data && resumeRes.data.error)){
+        document.getElementById('rez-form').innerHTML =
+          '<div style="text-align:center;padding:2rem 0">' +
+          '<div style="font-size:3rem;margin-bottom:1rem">&#9888;</div>' +
+          '<h2>Rezervace nenalezena</h2>' +
+          '<p>' + (resumeRes.data && resumeRes.data.error ? resumeRes.data.error : 'Rezervace již byla dokončena nebo zrušena.') + '</p>' +
+          '<p style="margin-top:1rem"><a class="btn btngreen" href="#/rezervace">Vytvořit novou rezervaci</a></p></div>';
+        return;
+      }
+
+      var bd = resumeRes.data;
+      MG._rez = {
+        startDate: bd.start_date ? bd.start_date.split('T')[0] : null,
+        endDate: bd.end_date ? bd.end_date.split('T')[0] : null,
+        motos: [{ id: bd.moto_id, model: bd.moto_model }],
+        motoId: bd.moto_id,
+        allBookings: {},
+        appliedCodes: [],
+        discountAmt: 0,
+        bookingId: bd.booking_id,
+        userId: bd.user_id,
+        bookingAmount: bd.total_price,
+        _isResume: true,
+        _docsValidated: bd.has_id_number && bd.has_license_number,
+        _docNumber: bd.has_id_number ? '(vyplněno)' : '',
+        _licenseNumber: bd.has_license_number ? '(vyplněno)' : '',
+        formData: {
+          motoId: bd.moto_id, name: bd.customer_name || '', email: bd.customer_email || '',
+          phone: bd.customer_phone || '', street: '', city: '', zip: '', country: 'Česká republika',
+          extras: [], appliedCodes: [], discountAmt: 0, deliveryAddr: null, returnAddr: null
+        }
+      };
+
+      // Mobile + docs already provided → go straight to Mindee step
+      if(MG._isMobile() && MG._rez._docsValidated){
+        MG._rezShowMindeeStep();
+      } else {
+        // Desktop or docs missing → show step 2 (docs + QR + invoice)
+        MG._rezShowStep2();
+      }
+    } catch(e){
+      console.error('[REZ] resume error', e);
+      document.getElementById('rez-form').innerHTML =
+        '<div style="text-align:center;padding:2rem 0">' +
+        '<h2>Chyba při načítání rezervace</h2>' +
+        '<p>Zkuste to prosím znovu nebo nás kontaktujte.</p>' +
+        '<p style="margin-top:1rem"><a class="btn btngreen" href="#/rezervace">Vytvořit novou rezervaci</a></p></div>';
+    }
+    return;
+  }
 
   app.innerHTML = '<main id="content"><div class="container">' + bc +
     '<div class="ccontent pcontent"><h1>Rezervace motorky</h1>' +
@@ -28,7 +91,7 @@ MG.route('/rezervace', async function(app){
     MG._rezFormHtml() +
     '</div></div></main>';
 
-  MG._rez = { startDate: preStart || null, endDate: preEnd || null, motos: [], motoId: mp, allBookings: {} };
+  MG._rez = { startDate: preStart || null, endDate: preEnd || null, motos: [], motoId: mp, allBookings: {}, appliedCodes: [], discountAmt: 0 };
   var motos = await MG._getMotos();
   MG._rez.motos = motos;
 
@@ -68,16 +131,17 @@ MG._reqTip = function(){ return ' <span class="ctooltip" style="color:#c00;font-
 // ===== STATIC FORM HTML =====
 MG._rezFormHtml = function(){
   return '<div id="rez-form"><p>&nbsp;</p>' +
-    '<input type="text" id="rez-name" placeholder="* Jméno a příjmení" required title="Toto pole je povinné">' +
-    '<div class="gr2"><input type="text" id="rez-street" placeholder="* Ulice, č.p." required title="Toto pole je povinné">' +
-    '<input type="text" id="rez-zip" placeholder="* PSČ" required title="Toto pole je povinné"></div>' +
-    '<div class="gr2"><input type="text" id="rez-city" placeholder="* Město" required title="Toto pole je povinné">' +
-    '<input type="text" id="rez-country" placeholder="* Stát" value="Česká republika" required title="Toto pole je povinné"></div>' +
-    '<div class="gr2"><input type="email" id="rez-email" placeholder="* E-mail" required title="Toto pole je povinné">' +
-    '<input type="tel" id="rez-phone" placeholder="* Telefon (+420XXXXXXXXX)" required title="Toto pole je povinné" pattern="^\\+\\d{12,15}$"></div>' +
+    '<input type="text" id="rez-name" placeholder="* Jméno a příjmení" required title="Toto pole je povinné" autocomplete="name">' +
+    '<div class="gr2"><input type="text" id="rez-street" placeholder="* Ulice, č.p." required autocomplete="street-address">' +
+    '<input type="text" id="rez-zip" placeholder="* PSČ" required autocomplete="postal-code"></div>' +
+    '<div class="gr2"><input type="text" id="rez-city" placeholder="* Město" required autocomplete="address-level2">' +
+    '<input type="text" id="rez-country" placeholder="* Stát" value="Česká republika" required autocomplete="country-name"></div>' +
+    '<div class="gr2"><input type="email" id="rez-email" placeholder="* E-mail" required autocomplete="email">' +
+    '<input type="tel" id="rez-phone" placeholder="* Telefon (+420XXXXXXXXX)" required autocomplete="tel" pattern="^\\+\\d{12,15}$"></div>' +
     '<div class="gr2 voucher-code"><input type="text" id="rez-voucher" placeholder="Slevový kód" maxlength="255">' +
-    '<div><span class="btn btngreen-small" onclick="MG._addVoucherField()">DALŠÍ KÓD</span></div></div>' +
-    '<div id="rez-extra-vouchers"></div>' +
+    '<div><span class="btn btngreen-small" onclick="MG._applyVoucher()">UPLATNIT</span></div></div>' +
+    '<div id="rez-applied-codes"></div>' +
+    '<div id="rez-voucher-msg" style="font-size:.85rem;margin:-.5rem 0 .75rem"></div>' +
     '<div class="dfc pickup"><div>* Čas převzetí nebo přistavení motorky'+MG._reqTip()+'</div><input type="time" id="rez-pickup-time" required title="Toto pole je povinné"></div>' +
     '<div class="checkboxes">' +
     // Výbava spolujezdce
@@ -369,14 +433,27 @@ MG._rezUpdatePrice = function(){
   var retSameAsDel = document.getElementById('rez-return-same-as-delivery');
   if(retOther && retOther.checked) extras += 1000;
   else if(retSameAsDel && retSameAsDel.checked && isDel) extras += 1000;
-  var total = base + extras;
+  MG._rez.discountAmt = 0;
+  var fullPrice = base + extras;
+  if(MG._rez.appliedCodes && MG._rez.appliedCodes.length){
+    MG._rez.appliedCodes.forEach(function(c){
+      if(c.discountType === 'percent'){
+        c.discountAmt = Math.round(fullPrice * c.discountValue / 100);
+      } else {
+        c.discountAmt = c.discountValue;
+      }
+    });
+    var totalDisc = MG._rez.appliedCodes.reduce(function(s,c){return s+c.discountAmt;},0);
+    MG._rez.discountAmt = Math.min(totalDisc, fullPrice);
+  }
+  var total = Math.max(0, fullPrice - MG._rez.discountAmt);
+  MG._renderAppliedCodes();
   var el = document.getElementById('rez-price-preview');
   if(el){
-    if(total > 0){
-      el.innerHTML = '<div style="background:#74FB71;color:#0b0b0b;padding:.75rem 1.5rem;border-radius:25px;font-size:1.15rem;font-weight:800;text-align:center;display:inline-block;margin:1rem 0">Celková cena: '+MG.formatPrice(total)+'</div>';
-    } else {
-      el.innerHTML = '';
-    }
+    if(total > 0 || MG._rez.discountAmt > 0){
+      var discTxt = MG._rez.discountAmt > 0 ? '<div style="font-size:.85rem;color:#1a8c1a;margin-top:.3rem">Sleva: −'+MG.formatPrice(MG._rez.discountAmt)+'</div>' : '';
+      el.innerHTML = '<div style="background:#74FB71;color:#0b0b0b;padding:.75rem 1.5rem;border-radius:25px;font-size:1.15rem;font-weight:800;text-align:center;display:inline-block;margin:1rem 0">Celková cena: '+MG.formatPrice(total)+discTxt+'</div>';
+    } else { el.innerHTML = ''; }
   }
 };
 
@@ -404,251 +481,78 @@ MG._rezValidatePickupTime = function(){
   return pt.value >= min;
 };
 
-// ===== VOUCHER FIELD =====
-MG._addVoucherField = function(){
-  var c = document.getElementById('rez-extra-vouchers'); if(!c) return;
-  var d = document.createElement('div'); d.className = 'gr2 voucher-code';
-  d.innerHTML = '<input type="text" placeholder="Slevový kód" maxlength="255">';
-  c.appendChild(d);
-};
+// ===== VOUCHER / PROMO CODE VALIDATION =====
+if(!MG._rez.appliedCodes) MG._rez.appliedCodes = [];
+if(!MG._rez.discountAmt) MG._rez.discountAmt = 0;
 
-// ===== STEP 1: SUBMIT FORM → show identity verification =====
-MG._submitReservation = function(){
-  var name = document.getElementById('rez-name');
-  var email = document.getElementById('rez-email');
-  var phone = document.getElementById('rez-phone');
-  var street = document.getElementById('rez-street');
-  var city = document.getElementById('rez-city');
-  var zip = document.getElementById('rez-zip');
-  var country = document.getElementById('rez-country');
-  var agree = document.getElementById('rez-agree-vop');
-
-  if(!name || !name.value || !email || !email.value || !phone || !phone.value ||
-     !(street && street.value) || !(city && city.value) || !(zip && zip.value)){
-    alert('Vyplňte prosím všechna povinná pole.'); return;
+MG._applyVoucher = async function(){
+  var inp = document.getElementById('rez-voucher');
+  var msg = document.getElementById('rez-voucher-msg');
+  if(!inp || !inp.value.trim()){ if(msg) msg.innerHTML='<span style="color:#c00">Zadejte kód</span>'; return; }
+  var code = inp.value.trim().toUpperCase();
+  // Check duplicate
+  for(var i=0;i<MG._rez.appliedCodes.length;i++){
+    if(MG._rez.appliedCodes[i].code===code){ if(msg) msg.innerHTML='<span style="color:#c00">Kód již uplatněn</span>'; return; }
   }
-  if(!agree || !agree.checked){
-    alert('Pro pokračování musíte souhlasit s obchodními podmínkami.'); return;
+  if(msg) msg.innerHTML='<span style="color:#999">Ověřuji...</span>';
+  // Calculate base for discount
+  var r=MG._rez, mId=r.motoId||r.selectedMotoId;
+  var moto=r.motos.find(function(m){return m.id===mId;});
+  var base=(moto&&r.startDate&&r.endDate)?MG.calcPrice(moto,r.startDate,r.endDate):0;
+
+  // Try promo code first
+  var pr = await window.sb.rpc('validate_promo_code',{p_code:code});
+  if(pr.error){
+    console.error('[VOUCHER] validate_promo_code error:', pr.error.message);
+    if(msg) msg.innerHTML='<span style="color:#c00">Chyba ověření kódu: '+pr.error.message+'</span>'; return;
   }
-  var r = MG._rez;
-  if(!r.startDate || !r.endDate){ alert('Vyberte prosím termín v kalendáři.'); return; }
-  var mId = r.motoId || r.selectedMotoId;
-  if(!mId){ alert('Vyberte prosím motorku.'); return; }
-  var ptEl = document.getElementById('rez-pickup-time');
-  if(!ptEl || !ptEl.value){ alert('Vyplňte prosím čas převzetí nebo přistavení motorky.'); return; }
-  if(!MG._rezValidatePickupTime()){
-    var isDel = document.getElementById('rez-delivery') && document.getElementById('rez-delivery').checked;
-    alert(isDel ? 'Při přistavení je nejdříve možný čas aktuální čas + 6 hodin.' : 'Nejdříve možný čas převzetí je aktuální čas + 1 hodina.');
-    return;
+  if(pr.data && pr.data.valid){
+    var pd=pr.data;
+    if(pd.type==='percent' && MG._rez.appliedCodes.some(function(c){return c.discountType==='percent';})){
+      if(msg) msg.innerHTML='<span style="color:#c00">Nelze kombinovat dva procentuální kódy</span>'; return;
+    }
+    var disc=pd.type==='percent'?Math.round(base*pd.value/100):pd.value;
+    var curDisc=MG._rez.appliedCodes.reduce(function(s,c){return s+c.discountAmt;},0);
+    disc=Math.min(disc,Math.max(0,base-curDisc));
+    MG._rez.appliedCodes.push({code:code,type:'promo',id:pd.id,discountAmt:disc,discountType:pd.type,discountValue:pd.value});
+    var lbl=pd.type==='percent'?pd.value+'%':pd.value+' Kč';
+    if(msg) msg.innerHTML='<span style="color:#1a8c1a">✓ Sleva '+lbl+' uplatněna (−'+MG.formatPrice(disc)+')</span>';
+    inp.value=''; MG._renderAppliedCodes(); MG._rezUpdatePrice(); return;
   }
-
-  // Save form data to state
-  var extras = [];
-  if(document.getElementById('rez-eq-passenger') && document.getElementById('rez-eq-passenger').checked)
-    extras.push({item:'Výbava spolujezdce', price:690});
-  if(document.getElementById('rez-eq-boots-rider') && document.getElementById('rez-eq-boots-rider').checked)
-    extras.push({item:'Boty řidič', price:290});
-  if(document.getElementById('rez-eq-boots-passenger') && document.getElementById('rez-eq-boots-passenger').checked)
-    extras.push({item:'Boty spolujezdce', price:290});
-
-  var deliveryAddr = null, returnAddr = null;
-  if(document.getElementById('rez-delivery') && document.getElementById('rez-delivery').checked)
-    deliveryAddr = (document.getElementById('rez-delivery-address') || {}).value || null;
-  var retOther = document.getElementById('rez-return-other');
-  var retSameAsDel = document.getElementById('rez-return-same-as-delivery');
-  if(retOther && retOther.checked)
-    returnAddr = (document.getElementById('rez-return-address') || {}).value || null;
-  else if(retSameAsDel && retSameAsDel.checked && deliveryAddr)
-    returnAddr = deliveryAddr;
-
-  // Add delivery/return fees as extras (nakládka 500 + vykládka 500 = 1000 base per direction)
-  if(deliveryAddr) extras.push({item:'Přistavení motorky (nakládka + vykládka + doprava)', price:1000});
-  if(returnAddr) extras.push({item:'Vrácení motorky (nakládka + vykládka + doprava)', price:1000});
-
-  MG._rez.formData = {
-    motoId: mId,
-    name: name.value, email: email.value, phone: phone.value,
-    street: street.value, city: city.value, zip: zip.value,
-    country: (country && country.value) || 'Česká republika',
-    note: (document.getElementById('rez-note') || {}).value || '',
-    pickupTime: ptEl.value,
-    deliveryAddr: deliveryAddr, returnAddr: returnAddr,
-    extras: extras
-  };
-
-  // Show Step 2: Identity verification
-  MG._rezShowStep2();
-};
-
-// ===== STEP 2 HTML: Ověření totožnosti a ŘP =====
-MG._rezShowStep2 = function(){
-  var form = document.getElementById('rez-form');
-  if(!form) return;
-  form.innerHTML =
-    '<h2 style="margin-top:1rem">Ověření totožnosti a řidičského oprávnění</h2>' +
-    '<p style="color:#555;line-height:1.6;margin-bottom:1.5rem">Pro přípravu nájemní smlouvy a urychlení předání motocyklu prosíme o vyplnění údajů z dokladu totožnosti a řidičského průkazu. Originály dokladů budou zkontrolovány při osobním převzetí motocyklu.</p>' +
-    '<h3>Doklad totožnosti</h3>' +
-    '<div class="checkboxes" style="margin:.75rem 0">' +
-    '<div><input type="radio" id="rez-doc-op" name="rez-doc-type" value="op" checked><label for="rez-doc-op">Občanský průkaz</label></div>' +
-    '<div><input type="radio" id="rez-doc-pas" name="rez-doc-type" value="pas"><label for="rez-doc-pas">Cestovní pas</label></div>' +
-    '</div>' +
-    '<input type="text" id="rez-doc-number" placeholder="* Číslo dokladu" required title="Toto pole je povinné">' +
-    '<h3 style="margin-top:1.5rem">Řidičský průkaz</h3>' +
-    '<input type="text" id="rez-license-number" placeholder="* Číslo řidičského průkazu" required title="Toto pole je povinné">' +
-    '<div class="checkboxes" style="margin:1.5rem 0">' +
-    '<div class="agreement gr2"><input type="checkbox" id="rez-license-confirm" required>' +
-    '<div>* Potvrzuji, že jsem držitelem platného řidičského oprávnění a splňuji zákonné podmínky k řízení rezervovaného motocyklu.</div></div>' +
-    '</div>' +
-    '<div class="dfcs" style="flex-wrap:wrap;gap:1rem;margin-top:1rem">' +
-    '<button class="btn btndark" onclick="MG._rezBackToStep1()">← Zpět</button>' +
-    '<button class="btn btngreen" onclick="MG._rezSubmitStep2()">Pokračovat v rezervaci</button>' +
-    '</div>';
-  window.scrollTo({top: form.offsetTop - 80, behavior:'smooth'});
-};
-
-// ===== STEP 2 SUBMIT → show invoice preview =====
-MG._rezSubmitStep2 = function(){
-  var docNum = document.getElementById('rez-doc-number');
-  var licNum = document.getElementById('rez-license-number');
-  var licConf = document.getElementById('rez-license-confirm');
-  if(!docNum || !docNum.value){ alert('Vyplňte číslo dokladu totožnosti.'); return; }
-  if(!licNum || !licNum.value){ alert('Vyplňte číslo řidičského průkazu.'); return; }
-  if(!licConf || !licConf.checked){ alert('Potvrďte prosím držení platného řidičského oprávnění.'); return; }
-
-  var docType = document.querySelector('input[name="rez-doc-type"]:checked');
-  MG._rez.identity = {
-    docType: docType ? docType.value : 'op',
-    docNumber: docNum.value,
-    licenseNumber: licNum.value
-  };
-
-  // Show Step 3: Invoice preview
-  MG._rezShowStep3();
-};
-
-// ===== BACK TO STEP 1 =====
-MG._rezBackToStep1 = function(){
-  var form = document.getElementById('rez-form');
-  if(!form) return;
-  // Re-render the form HTML and re-init events
-  form.outerHTML = MG._rezFormHtml();
-  MG._rezInitFormEvents();
-  // Restore saved data
-  var d = MG._rez.formData;
-  if(d){
-    var f = function(id,v){ var e=document.getElementById(id); if(e&&v) e.value=v; };
-    f('rez-name',d.name); f('rez-email',d.email); f('rez-phone',d.phone);
-    f('rez-street',d.street); f('rez-city',d.city); f('rez-zip',d.zip);
-    f('rez-country',d.country); f('rez-note',d.note); f('rez-pickup-time',d.pickupTime);
+  // Try voucher
+  var vr = await window.sb.rpc('validate_voucher_code',{p_code:code});
+  if(vr.error){
+    console.error('[VOUCHER] validate_voucher_code error:', vr.error.message);
+    if(msg) msg.innerHTML='<span style="color:#c00">Chyba ověření kódu: '+vr.error.message+'</span>'; return;
   }
-  MG._rezUpdatePrice();
+  if(vr.data && vr.data.valid){
+    var vd=vr.data;
+    var curDiscV=MG._rez.appliedCodes.reduce(function(s,c){return s+c.discountAmt;},0);
+    var vDisc=Math.min(vd.value,Math.max(0,base-curDiscV));
+    MG._rez.appliedCodes.push({code:code,type:'voucher',id:vd.id,discountAmt:vDisc,discountType:'fixed',discountValue:vd.value});
+    if(msg) msg.innerHTML='<span style="color:#1a8c1a">✓ Poukaz '+MG.formatPrice(vd.value)+' uplatněn</span>';
+    inp.value=''; MG._renderAppliedCodes(); MG._rezUpdatePrice(); return;
+  }
+  // Show specific error from promo validation if available
+  var errDetail = (pr.data && pr.data.error) ? pr.data.error : 'Kód nebyl nalezen nebo není platný';
+  if(msg) msg.innerHTML='<span style="color:#c00">✗ '+errDetail+'</span>';
 };
 
-// ===== STEP 3 HTML: Náhled zálohové faktury =====
-MG._rezShowStep3 = function(){
-  var form = document.getElementById('rez-form');
-  if(!form) return;
-  var d = MG._rez.formData, r = MG._rez;
-  var moto = r.motos.find(function(m){ return m.id === d.motoId; });
-  var motoName = moto ? moto.model : '—';
-  var base = (moto && r.startDate && r.endDate) ? MG.calcPrice(moto, r.startDate, r.endDate) : 0;
-  var extrasTotal = 0;
-  d.extras.forEach(function(e){ extrasTotal += e.price; });
-  var total = base + extrasTotal;
-
-  var rows = '<tr><td style="padding:6px 0;border-bottom:1px solid #eee">Pronájem motocyklu '+motoName+'</td>' +
-    '<td style="padding:6px 0;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">'+MG.formatPrice(base)+'</td></tr>';
-  d.extras.forEach(function(e){
-    rows += '<tr><td style="padding:6px 0;border-bottom:1px solid #eee">'+e.item+'</td>' +
-      '<td style="padding:6px 0;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">'+MG.formatPrice(e.price)+'</td></tr>';
+MG._renderAppliedCodes = function(){
+  var el=document.getElementById('rez-applied-codes'); if(!el) return;
+  if(!MG._rez.appliedCodes.length){ el.innerHTML=''; return; }
+  var h='';
+  MG._rez.appliedCodes.forEach(function(c,i){
+    h+='<div style="display:inline-flex;align-items:center;gap:.4rem;background:#dcfce7;padding:.3rem .7rem;border-radius:20px;margin:0 .5rem .5rem 0;font-size:.85rem">' +
+      '<strong>'+c.code+'</strong> −'+MG.formatPrice(c.discountAmt) +
+      ' <span style="cursor:pointer;color:#c00" onclick="MG._removeCode('+i+')">✕</span></div>';
   });
-
-  form.innerHTML =
-    '<h2 style="margin-top:1rem">Náhled zálohové faktury</h2>' +
-    '<p style="color:#555;margin-bottom:1rem">Zkontrolujte prosím údaje před pokračováním k platbě.</p>' +
-    '<div style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:10px;padding:1.25rem;margin-bottom:1.5rem">' +
-    '<table style="width:100%;border-collapse:collapse;font-size:.9rem;color:#333">' +
-    '<tr><td style="padding:6px 0;font-weight:700;border-bottom:1px solid #ccc">Položka</td>' +
-    '<td style="padding:6px 0;font-weight:700;border-bottom:1px solid #ccc;text-align:right">Cena</td></tr>' +
-    rows +
-    '</table>' +
-    '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:2px solid #1a8c1a">' +
-    '<strong style="font-size:1.1rem">Celkem k úhradě</strong>' +
-    '<strong style="font-size:1.1rem;color:#1a8c1a">'+MG.formatPrice(total)+'</strong></div>' +
-    '</div>' +
-    '<div style="background:#f1faf7;border:1px solid #d4e8e0;border-radius:10px;padding:1rem;margin-bottom:1.5rem;font-size:.88rem;color:#374151">' +
-    '<strong>Odběratel:</strong> '+d.name+'<br>' +
-    d.street+', '+d.zip+' '+d.city+'<br>' +
-    d.email+' | '+d.phone+'<br>' +
-    '<strong>Motorka:</strong> '+motoName+'<br>' +
-    '<strong>Termín:</strong> '+MG.formatDate(r.startDate)+' – '+MG.formatDate(r.endDate)+'<br>' +
-    '<strong>Čas převzetí:</strong> '+d.pickupTime +
-    (d.deliveryAddr ? '<br><strong>Přistavení na:</strong> '+d.deliveryAddr : '') +
-    (d.returnAddr ? '<br><strong>Vrácení na:</strong> '+d.returnAddr : '') +
-    '</div>' +
-    '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-top:1rem">' +
-    '<button class="btn btndark" onclick="MG._rezShowStep2()">← Zpět</button>' +
-    '<div style="display:flex;align-items:center;gap:1rem"><div style="background:#74FB71;color:#0b0b0b;padding:.6rem 1.2rem;border-radius:25px;font-weight:800;font-size:1.05rem">'+MG.formatPrice(total)+'</div>' +
-    '<button class="btn btngreen" onclick="MG._rezSubmitPayment()">Pokračovat k platbě</button></div>' +
-    '</div>';
-  window.scrollTo({top: form.offsetTop - 80, behavior:'smooth'});
+  el.innerHTML=h;
 };
 
-// ===== STEP 3 SUBMIT → create booking + Stripe Checkout =====
-MG._rezSubmitPayment = async function(){
-  var d = MG._rez.formData, r = MG._rez, id = MG._rez.identity;
-  var btn = document.querySelector('#rez-form .btn.btngreen');
-  if(btn){ btn.disabled = true; btn.textContent = 'Zpracovávám...'; }
-
-  try {
-    var res = await window.sb.rpc('create_web_booking', {
-      p_moto_id: d.motoId,
-      p_start_date: r.startDate, p_end_date: r.endDate,
-      p_name: d.name, p_email: d.email, p_phone: d.phone,
-      p_street: d.street, p_city: d.city, p_zip: d.zip,
-      p_country: d.country, p_note: d.note,
-      p_pickup_time: d.pickupTime,
-      p_delivery_address: d.deliveryAddr,
-      p_return_address: d.returnAddr,
-      p_extras: d.extras
-    });
-
-    if(res.error){ alert('Chyba: '+res.error.message); if(btn){btn.disabled=false;btn.textContent='Pokračovat k platbě';} return; }
-    var data = res.data;
-    if(data.error){ alert(data.error); if(btn){btn.disabled=false;btn.textContent='Pokračovat k platbě';} return; }
-
-    var bookingId = data.booking_id;
-
-    // Save identity docs to profile (best effort)
-    if(data.user_id && id){
-      window.sb.from('profiles').update({
-        id_number: id.docNumber,
-        license_number: id.licenseNumber
-      }).eq('id', data.user_id).then(function(){});
-    }
-
-    // Call Stripe Checkout
-    var payRes = await fetch(window.MOTOGO_CONFIG.SUPABASE_URL + '/functions/v1/process-payment', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': window.MOTOGO_CONFIG.SUPABASE_ANON_KEY },
-      body: JSON.stringify({
-        booking_id: bookingId, amount: data.amount,
-        type: 'booking', source: 'web', mode: 'checkout'
-      })
-    });
-
-    var payData = await payRes.json();
-    if(payData.error){ alert('Chyba platby: '+payData.error); if(btn){btn.disabled=false;btn.textContent='Pokračovat k platbě';} return; }
-
-    if(payData.checkout_url){
-      window.location.href = payData.checkout_url;
-    } else {
-      alert('Nepodařilo se vytvořit platební relaci.');
-      if(btn){btn.disabled=false;btn.textContent='Pokračovat k platbě';}
-    }
-  } catch(e){
-    console.error('[REZ] Payment error:', e);
-    alert('Došlo k chybě. Zkuste to prosím znovu.');
-    if(btn){btn.disabled=false;btn.textContent='Pokračovat k platbě';}
-  }
+MG._removeCode = function(idx){
+  MG._rez.appliedCodes.splice(idx,1);
+  MG._rez.discountAmt=MG._rez.appliedCodes.reduce(function(s,c){return s+c.discountAmt;},0);
+  MG._renderAppliedCodes(); MG._rezUpdatePrice();
 };
+// Steps 1-3 + Stripe → pages-rezervace-steps.js

@@ -22,9 +22,9 @@ export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTota
           return (
             <tr key={b.id} onClick={() => navigate(`/rezervace/${b.id}`)}
               className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
-              style={{ borderBottom: '1px solid #d4e8e0', background: b.source === 'web' ? '#eff6ff' : undefined }}>
+              style={{ borderBottom: '1px solid #d4e8e0', background: b.booking_source === 'web' ? '#eff6ff' : b.booking_source === 'app' ? '#f0fff0' : undefined }}>
               <TD mono>{b.id?.slice(-8).toUpperCase()}</TD>
-              <TD bold>{b.customer_name || b.profiles?.full_name || '—'}{b.source === 'web' && <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#dbeafe', color: '#2563eb' }}>WEB</span>}</TD>
+              <TD bold>{b.customer_name || b.profiles?.full_name || '—'}{b.booking_source === 'web' ? <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#dbeafe', color: '#2563eb' }}>WEB</span> : b.booking_source === 'app' ? <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#dcfce7', color: '#16a34a' }}>APP</span> : null}</TD>
               <TD>{b.motorcycles?.model || '—'} <span className="text-sm font-mono" style={{ color: '#1a2e22' }}>{b.motorcycles?.spz}</span></TD>
               <TD>{fmtDateRange(b.start_date)}</TD>
               <TD>{fmtDateRange(b.end_date)}</TD>

@@ -196,6 +196,85 @@ Deno.serve(async (req: Request) => {
       })
     }
 
+    // --- Web anonymous SHOP checkout (voucher purchase, no auth required) ---
+    if (body.source === 'web' && (body as Record<string, unknown>).customer_email && body.type === 'shop') {
+      const webBody = body as Record<string, unknown>
+      const customerEmail = webBody.customer_email as string
+      const customerName = (webBody.customer_name as string) || ''
+      const amountCzk = body.amount
+      const amountCents = Math.round(amountCzk * 100)
+      const currency = body.currency || 'czk'
+
+      // Create or get Stripe customer by email
+      const customers = await stripe.customers.list({ email: customerEmail, limit: 1 })
+      let custId = customers.data.length > 0 ? customers.data[0].id : null
+      if (!custId) {
+        const newCust = await stripe.customers.create({
+          email: customerEmail,
+          name: customerName,
+          metadata: { source: 'web_shop' }
+        })
+        custId = newCust.id
+      }
+
+      const supabaseAdmin = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      )
+
+      // Create shop_order directly via service role (bypass RLS)
+      const orderId = body.order_id || crypto.randomUUID()
+      if (!body.order_id) {
+        await supabaseAdmin.from('shop_orders').insert({
+          id: orderId,
+          customer_name: customerName,
+          customer_email: customerEmail,
+          status: 'new',
+          payment_status: 'pending',
+          payment_method: 'stripe',
+          total: amountCzk,
+          subtotal: amountCzk,
+          shipping_cost: 0,
+          discount: 0,
+          currency: 'CZK',
+        })
+        await supabaseAdmin.from('shop_order_items').insert({
+          order_id: orderId,
+          product_name: 'Dárkový poukaz',
+          quantity: 1,
+          unit_price: amountCzk,
+          total_price: amountCzk,
+        })
+      }
+
+      const session = await stripe.checkout.sessions.create({
+        customer: custId,
+        mode: 'payment',
+        payment_method_types: ['card'],
+        line_items: [{
+          price_data: {
+            currency,
+            unit_amount: amountCents,
+            product_data: { name: 'MotoGo24 — Dárkový poukaz' }
+          },
+          quantity: 1
+        }],
+        metadata: { order_id: orderId, type: 'shop', source: 'web' },
+        success_url: `${SITE_URL}/#/potvrzeni?order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${SITE_URL}/#/poukazy`,
+        locale: 'cs',
+      })
+
+      await supabaseAdmin.from('shop_orders').update({
+        stripe_session_id: session.id,
+        stripe_payment_intent_id: session.payment_intent as string,
+      }).eq('id', orderId)
+
+      return new Response(JSON.stringify({ checkout_url: session.url, session_id: session.id, order_id: orderId }), {
+        headers: { ...CORS, 'Content-Type': 'application/json' }
+      })
+    }
+
     const { booking_id, order_id, incident_id, amount, currency, method, type, mode } = body
     const paymentType: PaymentType = type || 'booking'
     const paymentMode = mode || 'intent' // Default to inline PaymentIntent
