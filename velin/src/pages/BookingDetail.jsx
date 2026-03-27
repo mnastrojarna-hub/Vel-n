@@ -277,6 +277,12 @@ export default function BookingDetail() {
         <h2 className="font-extrabold text-lg" style={{ color: '#0f1a14' }}>Rezervace</h2>
         <span className="text-sm font-mono" style={{ color: '#1a2e22' }}>#{id?.slice(-8).toUpperCase()}</span>
         <StatusBadge status={getDisplayStatus(booking)} />
+        {booking.booking_source && (
+          <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
+            style={{ padding: '3px 8px', background: booking.booking_source === 'web' ? '#dbeafe' : '#bfdbfe', color: booking.booking_source === 'web' ? '#2563eb' : '#1d4ed8' }}>
+            {booking.booking_source === 'web' ? 'WEB' : 'APP'}
+          </span>
+        )}
         {booking.payment_status && (
           <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
             style={{ padding: '3px 8px', background: booking.payment_status === 'paid' ? '#dcfce7' : '#fee2e2', color: booking.payment_status === 'paid' ? '#1a8a18' : '#dc2626' }}>
