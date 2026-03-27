@@ -94,8 +94,8 @@ MG.route('/poukazy', function(app){
   if(di) di.addEventListener('change', function(){ var p=document.getElementById('poukaz-print-addr'); if(p) p.style.display='none'; });
 });
 
-// ===== VOUCHER ORDER SUBMIT =====
-MG._submitVoucherOrder = async function(){
+// ===== VOUCHER STEP 1: validate + show summary =====
+MG._submitVoucherOrder = function(){
   var amount = document.getElementById('poukaz-amount');
   var bName = document.getElementById('poukaz-buyer-name');
   var bEmail = document.getElementById('poukaz-buyer-email');
@@ -117,20 +117,71 @@ MG._submitVoucherOrder = async function(){
     }
   }
 
+  // Save data
+  MG._voucherData = {
+    amount: Number(amount.value),
+    name: bName.value, email: bEmail.value, phone: bPhone.value,
+    isPrint: isPrint,
+    addr: isPrint ? {
+      name: document.getElementById('poukaz-addr-name').value,
+      street: document.getElementById('poukaz-addr-street').value,
+      zip: document.getElementById('poukaz-addr-zip').value,
+      city: document.getElementById('poukaz-addr-city').value
+    } : null
+  };
+
+  // Show summary
+  MG._showVoucherSummary();
+};
+
+// ===== VOUCHER STEP 2: summary before Stripe =====
+MG._showVoucherSummary = function(){
+  var el = document.getElementById('poukaz-order');
+  if(!el) return;
+  var d = MG._voucherData;
+  var typeLabel = d.isPrint ? 'Tištěný poukaz (doručení poštou)' : 'Elektronický poukaz (doručení e-mailem)';
+
+  el.innerHTML = '<h2>Shrnutí objednávky</h2>' +
+    '<div style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:10px;padding:1.25rem;margin-bottom:1.5rem">' +
+    '<table style="width:100%;border-collapse:collapse;font-size:.9rem;color:#333">' +
+    '<tr><td style="padding:6px 0;border-bottom:1px solid #eee">Dárkový poukaz</td>' +
+    '<td style="padding:6px 0;border-bottom:1px solid #eee;text-align:right;font-weight:700">'+MG.formatPrice(d.amount)+'</td></tr>' +
+    '<tr><td style="padding:6px 0;border-bottom:1px solid #eee">Typ doručení</td>' +
+    '<td style="padding:6px 0;border-bottom:1px solid #eee;text-align:right">'+typeLabel+'</td></tr>' +
+    '</table>' +
+    '<div style="display:flex;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:2px solid #1a8c1a">' +
+    '<strong style="font-size:1.1rem">Celkem k úhradě</strong>' +
+    '<strong style="font-size:1.1rem;color:#1a8c1a">'+MG.formatPrice(d.amount)+'</strong></div>' +
+    '</div>' +
+    '<div style="background:#f1faf7;border:1px solid #d4e8e0;border-radius:10px;padding:1rem;margin-bottom:1.5rem;font-size:.88rem;color:#374151">' +
+    '<strong>Kupující:</strong> '+d.name+'<br>' +
+    d.email+' | '+d.phone +
+    (d.addr ? '<br><strong>Doručovací adresa:</strong> '+d.addr.name+', '+d.addr.street+', '+d.addr.zip+' '+d.addr.city : '') +
+    '</div>' +
+    '<div class="dfcs" style="flex-wrap:wrap;gap:1rem">' +
+    '<button class="btn btndark" onclick="MG._voucherBackToForm()">← Zpět</button>' +
+    '<button class="btn btngreen" onclick="MG._voucherPay()">Pokračovat k platbě</button>' +
+    '</div>';
+  window.scrollTo({top: el.offsetTop - 80, behavior:'smooth'});
+};
+
+// ===== VOUCHER: back to form =====
+MG._voucherBackToForm = function(){
+  // Re-navigate to trigger full re-render
+  window.location.hash = '/poukazy';
+};
+
+// ===== VOUCHER STEP 3: create order + Stripe Checkout =====
+MG._voucherPay = async function(){
+  var d = MG._voucherData;
   var btn = document.querySelector('#poukaz-order .btn.btngreen');
   if(btn){ btn.disabled = true; btn.textContent = 'Zpracovávám...'; }
 
   try {
-    // Create shop order for voucher
     var orderRes = await window.sb.rpc('create_shop_order', {
-      p_items: JSON.stringify([{product_id:null, name:'Dárkový poukaz', quantity:1, price:Number(amount.value)}]),
-      p_shipping_method: isPrint ? 'post' : 'email',
-      p_shipping_address: isPrint ? JSON.stringify({
-        name: document.getElementById('poukaz-addr-name').value,
-        street: document.getElementById('poukaz-addr-street').value,
-        zip: document.getElementById('poukaz-addr-zip').value,
-        city: document.getElementById('poukaz-addr-city').value
-      }) : null,
+      p_items: JSON.stringify([{product_id:null, name:'Dárkový poukaz', quantity:1, price:d.amount}]),
+      p_shipping_method: d.isPrint ? 'post' : 'email',
+      p_shipping_address: d.addr ? JSON.stringify(d.addr) : null,
       p_payment_method: 'stripe',
       p_promo_code: null
     });
@@ -141,16 +192,14 @@ MG._submitVoucherOrder = async function(){
     }
 
     var orderId = orderRes.data?.order_id || orderRes.data?.id;
-    var totalAmount = Number(amount.value);
 
-    // Redirect to Stripe
     var payRes = await fetch(window.MOTOGO_CONFIG.SUPABASE_URL + '/functions/v1/process-payment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': window.MOTOGO_CONFIG.SUPABASE_ANON_KEY },
       body: JSON.stringify({
-        order_id: orderId, amount: totalAmount,
+        order_id: orderId, amount: d.amount,
         type: 'shop', source: 'web', mode: 'checkout',
-        customer_email: bEmail.value, customer_name: bName.value
+        customer_email: d.email, customer_name: d.name
       })
     });
     var payData = await payRes.json();
