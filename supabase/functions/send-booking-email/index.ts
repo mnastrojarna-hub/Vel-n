@@ -166,6 +166,7 @@ serve(async (req) => {
       site_url: SITE_URL,
       order_number: order_number || (booking_id || '').slice(0, 8).toUpperCase(),
       resume_link: resume_link || '',
+      resume_qr_url: resume_link ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(resume_link)}` : '',
       discount_code: discount_code || '',
       google_review_url: google_review_url || '',
       facebook_review_url: facebook_review_url || '',
@@ -201,9 +202,20 @@ serve(async (req) => {
       subject = fallbackFn ? fallbackFn(vars) : `Ozn\u00e1men\u00ed \u2014 MOTO GO 24`
     }
 
-    // If no template body in DB, use a minimal fallback
+    // If no template body in DB, use type-specific fallback
     if (!templateHtml) {
-      templateHtml = `<p>Dobr\u00fd den,</p><p>toto je automatick\u00e9 ozn\u00e1men\u00ed od MotoGo24 t\u00fdkaj\u00edc\u00ed se va\u0161\u00ed rezervace \u010d. <strong>${vars.booking_number}</strong>.</p>`
+      if (type === 'booking_abandoned' && vars.resume_link) {
+        templateHtml = `<p>Dobr\u00fd den${vars.customer_name ? ', <strong>' + vars.customer_name + '</strong>' : ''},</p>
+<p>Va\u0161e rezervace \u010d. <strong>${vars.booking_number}</strong>${vars.motorcycle ? ' motocyklu <strong>' + vars.motorcycle + '</strong>' : ''} \u010dek\u00e1 na dokon\u010den\u00ed.</p>
+<p>M\u00e1te <strong>4 hodiny</strong> na dokon\u010den\u00ed platby, ne\u017e bude rezervace automaticky zru\u0161ena.</p>
+<div style="text-align:center;margin:24px 0">
+  <a href="${vars.resume_link}" style="background:#74FB71;color:#1a2e22;padding:14px 28px;border-radius:25px;text-decoration:none;font-weight:800;font-size:15px;display:inline-block">Dokon\u010dit rezervaci</a>
+</div>
+${vars.resume_qr_url ? '<div style="text-align:center;margin:20px 0"><p style="color:#6b7280;font-size:13px;margin-bottom:8px">Nebo naskenujte QR k\u00f3d telefonem pro platbu p\u0159es Apple\u00a0Pay\u00a0/\u00a0Google\u00a0Pay:</p><img src="' + vars.resume_qr_url + '" alt="QR k\u00f3d" width="160" height="160" style="border-radius:8px;border:1px solid #e5e7eb" /></div>' : ''}
+<p style="color:#6b7280;font-size:12px">Pokud jste rezervaci \u00famysln\u011b nedokon\u010dili, tento e-mail ignorujte.</p>`
+      } else {
+        templateHtml = `<p>Dobr\u00fd den,</p><p>toto je automatick\u00e9 ozn\u00e1men\u00ed od MotoGo24 t\u00fdkaj\u00edc\u00ed se va\u0161\u00ed rezervace \u010d. <strong>${vars.booking_number}</strong>.</p>`
+      }
     }
 
     const html = wrapInBrandedLayout(templateHtml)

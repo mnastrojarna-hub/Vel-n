@@ -15,6 +15,69 @@ MG.route('/rezervace', async function(app){
   var preEnd = ''; var me = hash.match(/[?&]end=([^&]+)/);
   if(me) preEnd = decodeURIComponent(me[1]);
 
+  // ===== RESUME FLOW: ?resume=BOOKING_ID (from QR code or abandoned email) =====
+  var resumeId = ''; var mResume = hash.match(/[?&]resume=([^&]+)/);
+  if(mResume) resumeId = decodeURIComponent(mResume[1]);
+
+  if(resumeId){
+    app.innerHTML = '<main id="content"><div class="container">' + bc +
+      '<div class="ccontent pcontent"><h1>Dokončení rezervace</h1>' +
+      '<div id="rez-form"><div class="loading-overlay"><span class="spinner"></span> Načítám rezervaci...</div></div>' +
+      '</div></div></main>';
+
+    try {
+      var resumeRes = await window.sb.rpc('get_web_booking_resume', { p_booking_id: resumeId });
+      if(resumeRes.error || (resumeRes.data && resumeRes.data.error)){
+        document.getElementById('rez-form').innerHTML =
+          '<div style="text-align:center;padding:2rem 0">' +
+          '<div style="font-size:3rem;margin-bottom:1rem">&#9888;</div>' +
+          '<h2>Rezervace nenalezena</h2>' +
+          '<p>' + (resumeRes.data && resumeRes.data.error ? resumeRes.data.error : 'Rezervace již byla dokončena nebo zrušena.') + '</p>' +
+          '<p style="margin-top:1rem"><a class="btn btngreen" href="#/rezervace">Vytvořit novou rezervaci</a></p></div>';
+        return;
+      }
+
+      var bd = resumeRes.data;
+      MG._rez = {
+        startDate: bd.start_date ? bd.start_date.split('T')[0] : null,
+        endDate: bd.end_date ? bd.end_date.split('T')[0] : null,
+        motos: [{ id: bd.moto_id, model: bd.moto_model }],
+        motoId: bd.moto_id,
+        allBookings: {},
+        appliedCodes: [],
+        discountAmt: 0,
+        bookingId: bd.booking_id,
+        userId: bd.user_id,
+        bookingAmount: bd.total_price,
+        _isResume: true,
+        _docsValidated: bd.has_id_number && bd.has_license_number,
+        _docNumber: bd.has_id_number ? '(vyplněno)' : '',
+        _licenseNumber: bd.has_license_number ? '(vyplněno)' : '',
+        formData: {
+          motoId: bd.moto_id, name: bd.customer_name || '', email: bd.customer_email || '',
+          phone: bd.customer_phone || '', street: '', city: '', zip: '', country: 'Česká republika',
+          extras: [], appliedCodes: [], discountAmt: 0, deliveryAddr: null, returnAddr: null
+        }
+      };
+
+      // Mobile + docs already provided → go straight to Mindee step
+      if(MG._isMobile() && MG._rez._docsValidated){
+        MG._rezShowMindeeStep();
+      } else {
+        // Desktop or docs missing → show step 2 (docs + QR + invoice)
+        MG._rezShowStep2();
+      }
+    } catch(e){
+      console.error('[REZ] resume error', e);
+      document.getElementById('rez-form').innerHTML =
+        '<div style="text-align:center;padding:2rem 0">' +
+        '<h2>Chyba při načítání rezervace</h2>' +
+        '<p>Zkuste to prosím znovu nebo nás kontaktujte.</p>' +
+        '<p style="margin-top:1rem"><a class="btn btngreen" href="#/rezervace">Vytvořit novou rezervaci</a></p></div>';
+    }
+    return;
+  }
+
   app.innerHTML = '<main id="content"><div class="container">' + bc +
     '<div class="ccontent pcontent"><h1>Rezervace motorky</h1>' +
     '<h3>Jak rezervace funguje?</h3><p>&nbsp;</p>' +
