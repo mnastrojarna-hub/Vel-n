@@ -24,7 +24,7 @@ MG.route('/rezervace', async function(app){
     MG._rezFormHtml() +
     '</div></div></main>';
 
-  MG._rez = { startDate: null, endDate: null, motos: [], motoId: mp, allBookings: {} };
+  MG._rez = { startDate: null, endDate: null, motos: [], motoId: mp, allBookings: {}, appliedCodes: [], discountAmt: 0 };
   var motos = await MG._getMotos();
   MG._rez.motos = motos;
 
