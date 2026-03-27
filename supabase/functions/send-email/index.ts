@@ -5,6 +5,8 @@ const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'noreply@motogo24.cz'
+const REPLY_TO = 'info@motogo24.cz'
+const SITE_URL = Deno.env.get('SITE_URL') || 'https://motogo24.cz'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -30,12 +32,36 @@ function renderTemplate(template: string, vars: Record<string, string>): string 
   return result
 }
 
-/** Wrap body HTML in branded MotoGo24 email layout */
+/** MotoGo24 business card HTML for email footer */
+function getBusinessCard(): string {
+  return `
+  <div style="border-top:2px solid #74FB71;margin-top:32px;padding-top:20px">
+    <table style="width:100%;border-collapse:collapse" cellpadding="0" cellspacing="0">
+      <tr>
+        <td style="vertical-align:top;width:50%;padding-right:16px">
+          <img src="${SITE_URL}/gfx/logo-icon.svg" alt="MotoGo24" width="60" height="60" style="display:block;margin-bottom:8px" />
+          <div style="font-family:Montserrat,'Arial Black',sans-serif;font-weight:800;font-size:16px;color:#1a2e22;letter-spacing:2px">MOTO GO 24</div>
+          <div style="font-family:Montserrat,Arial,sans-serif;font-size:10px;color:#6b7280;letter-spacing:3px;margin-top:2px">PŮJČOVNA MOTOREK</div>
+          <img src="${SITE_URL}/gfx/qr-motogo24.png" alt="QR" width="80" height="80" style="display:block;margin-top:12px" />
+        </td>
+        <td style="vertical-align:top;width:50%;border-left:2px solid #74FB71;padding-left:16px">
+          <table style="border-collapse:collapse;font-size:13px;color:#374151;line-height:2" cellpadding="0" cellspacing="0">
+            <tr><td style="padding-right:8px;vertical-align:middle">☎</td><td>+420 774 256 271</td></tr>
+            <tr><td style="padding-right:8px;vertical-align:middle">✉</td><td><a href="mailto:info@motogo24.cz" style="color:#2563eb;text-decoration:none">info@motogo24.cz</a></td></tr>
+            <tr><td style="padding-right:8px;vertical-align:middle">📷</td><td><a href="https://instagram.com/moto.go24" style="color:#2563eb;text-decoration:none">moto.go24</a></td></tr>
+            <tr><td style="padding-right:8px;vertical-align:middle">👍</td><td><a href="https://facebook.com/MotoGo24" style="color:#2563eb;text-decoration:none">MotoGo24</a></td></tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </div>`
+}
+
+/** Wrap body HTML in branded MotoGo24 email layout with vizitka */
 function wrapInBrandedLayout(bodyHtml: string): string {
-  const header = `<div style="background:#1a2e22;padding:28px 32px;text-align:center"><h1 style="margin:0;color:#74FB71;font-size:22px;font-weight:900">MOTO GO 24</h1></div>`
+  const header = `<div style="background:#1a2e22;padding:28px 32px;text-align:center"><h1 style="margin:0;color:#74FB71;font-size:22px;font-weight:900;letter-spacing:2px">MOTO GO 24</h1></div>`
   const footer = `<div style="background:#f9fafb;padding:16px 32px;text-align:center;border-top:1px solid #e5e7eb">
-    <p style="color:#9ca3af;font-size:11px;margin:0 0 8px 0">MOTO GO 24 — Pronájem motorek po celé ČR</p>
-    <p style="color:#9ca3af;font-size:13px;margin:0">Máte dotaz? Napište nám na <a href="mailto:info@motogo24.cz" style="color:#2563eb">info@motogo24.cz</a></p>
+    <p style="color:#9ca3af;font-size:11px;margin:0">MOTO GO 24 — Pronájem motorek po celé ČR</p>
   </div>`
 
   return `<!DOCTYPE html><html lang="cs"><head><meta charset="UTF-8"></head>
@@ -44,6 +70,7 @@ function wrapInBrandedLayout(bodyHtml: string): string {
     ${header}
     <div style="padding:32px">
       <div style="color:#374151;font-size:14px;line-height:1.7">${bodyHtml}</div>
+      ${getBusinessCard()}
     </div>
     ${footer}
   </div>
@@ -170,7 +197,7 @@ serve(async (req) => {
     }
 
     // Send via Resend
-    const result = await sendWithRetry({ from: FROM_EMAIL, to, subject, html })
+    const result = await sendWithRetry({ from: FROM_EMAIL, reply_to: REPLY_TO, to, subject, html })
 
     // Log to message_log (channel=email)
     await supabase.from('message_log').insert({
@@ -295,7 +322,7 @@ async function handleInvoiceEmail(
     return jsonResponse({ success: false, error: 'RESEND_API_KEY not configured' }, 500)
   }
 
-  const result = await sendWithRetry({ from: FROM_EMAIL, to: profile.email, subject, html })
+  const result = await sendWithRetry({ from: FROM_EMAIL, reply_to: REPLY_TO, to: profile.email, subject, html })
 
   // Log
   await supabase.from('message_log').insert({

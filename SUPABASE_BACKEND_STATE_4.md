@@ -44,6 +44,7 @@
 | `trg_notify_booking_cancelled` | bookings (AFTER UPDATE OF status, WHEN →cancelled) | trg_notify_booking_cancelled() — SMS+WA storno. Dedup přes message_log. SECURITY DEFINER |
 | `trg_notify_ride_completed` | bookings (AFTER UPDATE OF status, WHEN →completed) | trg_notify_ride_completed() — SMS+WA dokončení jízdy + review link. Dedup přes message_log. SECURITY DEFINER |
 | `trg_notify_voucher_purchased` | vouchers (AFTER INSERT, WHEN active) | trg_notify_voucher_purchased() — SMS voucher info. Dedup přes message_log. SECURITY DEFINER |
+| `trg_notify_web_booking_abandoned` | bookings (AFTER UPDATE OF status, WHEN pending→cancelled) | notify_web_booking_abandoned() — odešle abandoned email pro web bookings. SECURITY DEFINER, EXCEPTION safe |
 
 ### Další triggery v reálné DB
 | Trigger | Tabulka | Funkce |
