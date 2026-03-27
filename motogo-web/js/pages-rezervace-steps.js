@@ -84,6 +84,30 @@ MG._submitReservation = async function(){
     }
   } catch(e){ alert('Chyba při ukládání: '+e.message); return; }
 
+  // Schedule abandoned email after 5 minutes if payment not completed
+  if(MG._rez.bookingId && MG._rez.formData){
+    MG._rez._abandonedTimer = setTimeout(function(){
+      // Check if still pending (not yet paid)
+      if(!MG._rez._paymentDone){
+        var d = MG._rez.formData;
+        var moto = MG._rez.motos.find(function(m){return m.id===d.motoId;});
+        fetch(window.MOTOGO_CONFIG.SUPABASE_URL+'/functions/v1/send-booking-email',{
+          method:'POST',
+          headers:{'Content-Type':'application/json','apikey':window.MOTOGO_CONFIG.SUPABASE_ANON_KEY},
+          body:JSON.stringify({
+            type:'booking_abandoned',
+            booking_id:MG._rez.bookingId,
+            customer_email:d.email,
+            customer_name:d.name,
+            motorcycle:moto?moto.model:'',
+            source:'web',
+            resume_link:'https://motogo24.cz/#/rezervace?resume='+MG._rez.bookingId
+          })
+        }).catch(function(){});
+      }
+    }, 5*60*1000); // 5 minut
+  }
+
   MG._rezShowStep2();
 };
 
@@ -190,7 +214,12 @@ MG._rezSubmitPayment = async function(){
       body:JSON.stringify({booking_id:bookingId,amount:amount,type:'booking',source:'web',mode:'checkout'})});
     var payData=await payRes.json();
     if(payData.error){alert('Chyba platby: '+payData.error);if(btn){btn.disabled=false;btn.textContent='Pokračovat k platbě';}return;}
-    if(payData.checkout_url){window.location.href=payData.checkout_url;}
+    if(payData.checkout_url){
+      // Payment initiated — cancel abandoned email timer
+      MG._rez._paymentDone = true;
+      if(MG._rez._abandonedTimer) clearTimeout(MG._rez._abandonedTimer);
+      window.location.href=payData.checkout_url;
+    }
     else{alert('Nepodařilo se vytvořit platbu.');if(btn){btn.disabled=false;btn.textContent='Pokračovat k platbě';}}
   }catch(e){console.error('[REZ]',e);alert('Došlo k chybě.');if(btn){btn.disabled=false;btn.textContent='Pokračovat k platbě';}}
 };
