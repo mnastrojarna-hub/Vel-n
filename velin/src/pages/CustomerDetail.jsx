@@ -379,6 +379,9 @@ function ProfileTab({ customer, set, error, saving, onSave, onDelete, onBlock })
         </div>
       </Card>
 
+      {/* Platforma */}
+      <PlatformSection userId={customer.id} />
+
       {/* Řidičák a zkušenosti */}
       <Card>
         <SectionTitle>Řidičák a zkušenosti</SectionTitle>
@@ -453,6 +456,45 @@ function ProfileTab({ customer, set, error, saving, onSave, onDelete, onBlock })
         </button>
       </div>
     </div>
+  )
+}
+
+function PlatformSection({ userId }) {
+  const [sources, setSources] = useState(null)
+  useEffect(() => {
+    if (!userId) return
+    supabase.from('bookings').select('booking_source').eq('user_id', userId)
+      .then(({ data }) => {
+        if (!data) return
+        const s = new Set(data.map(b => b.booking_source).filter(Boolean))
+        setSources(s)
+      }).catch(() => {})
+  }, [userId])
+
+  if (!sources || sources.size === 0) return null
+  const hasApp = sources.has('app'), hasWeb = sources.has('web')
+
+  return (
+    <Card>
+      <SectionTitle>Platforma</SectionTitle>
+      <div className="flex items-center gap-3">
+        {hasApp && (
+          <span className="inline-flex items-center gap-1.5 rounded-btn text-sm font-extrabold uppercase tracking-wide"
+            style={{ padding: '6px 14px', background: '#dcfce7', color: '#16a34a' }}>
+            APP
+          </span>
+        )}
+        {hasWeb && (
+          <span className="inline-flex items-center gap-1.5 rounded-btn text-sm font-extrabold uppercase tracking-wide"
+            style={{ padding: '6px 14px', background: '#dbeafe', color: '#2563eb' }}>
+            WEB
+          </span>
+        )}
+        <span className="text-sm" style={{ color: '#6b7280' }}>
+          {hasApp && hasWeb ? 'Zákazník používá aplikaci i web' : hasApp ? 'Zákazník používá mobilní aplikaci' : 'Zákazník používá web'}
+        </span>
+      </div>
+    </Card>
   )
 }
 
