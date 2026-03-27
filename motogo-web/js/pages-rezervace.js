@@ -10,6 +10,10 @@ MG.route('/rezervace', async function(app){
   var mp = ''; var mm = hash.match(/[?&]moto=([^&]+)/);
   if(mm) mp = decodeURIComponent(mm[1]);
   var preDelivery = /[?&]delivery=1/.test(hash);
+  var preStart = ''; var ms = hash.match(/[?&]start=([^&]+)/);
+  if(ms) preStart = decodeURIComponent(ms[1]);
+  var preEnd = ''; var me = hash.match(/[?&]end=([^&]+)/);
+  if(me) preEnd = decodeURIComponent(me[1]);
 
   app.innerHTML = '<main id="content"><div class="container">' + bc +
     '<div class="ccontent pcontent"><h1>Rezervace motorky</h1>' +
@@ -24,7 +28,7 @@ MG.route('/rezervace', async function(app){
     MG._rezFormHtml() +
     '</div></div></main>';
 
-  MG._rez = { startDate: null, endDate: null, motos: [], motoId: mp, allBookings: {} };
+  MG._rez = { startDate: preStart || null, endDate: preEnd || null, motos: [], motoId: mp, allBookings: {} };
   var motos = await MG._getMotos();
   MG._rez.motos = motos;
 
@@ -43,6 +47,12 @@ MG.route('/rezervace', async function(app){
   }
   MG._rezInitFormEvents();
   await MG._rezLoadCalendar();
+
+  // If dates were pre-filled from URL, show banner and update price
+  if(preStart && preEnd){
+    MG._rezUpdateBanner();
+    MG._rezUpdatePrice();
+  }
 
   // Pre-fill delivery if ?delivery=1
   if(preDelivery){
@@ -100,10 +110,10 @@ MG._rezFormHtml = function(){
     '</div>' +
     '<textarea id="rez-note" placeholder="Poznámka – uveďte preferovanou velikost výbavy (helma, bunda, rukavice, kalhoty)"></textarea>' +
     '<div class="checkboxes">' +
-    '<div class="agreement gr2"><input type="checkbox" id="rez-agree-vop" required><div>* Souhlasím s <a href="#/obchodni-podminky">obchodními podmínkami</a></div></div>' +
-    '<div class="agreement gr2"><input type="checkbox" id="rez-agree-gdpr"><div>Souhlasím se <a href="#/gdpr">zpracováním osobních údajů</a></div></div>' +
-    '<div class="agreement gr2"><input type="checkbox" id="rez-agree-marketing"><div>Souhlasím se zasíláním marketingových sdělení</div></div>' +
-    '<div class="agreement gr2"><input type="checkbox" id="rez-agree-photo"><div>Souhlasím s využitím fotografií pro marketingové účely</div></div></div>' +
+    '<div class="agreement gr2"><input type="checkbox" id="rez-agree-vop" required checked><div>* Souhlasím s <a href="#/obchodni-podminky">obchodními podmínkami</a></div></div>' +
+    '<div class="agreement gr2"><input type="checkbox" id="rez-agree-gdpr" checked><div>Souhlasím se <a href="#/gdpr">zpracováním osobních údajů</a></div></div>' +
+    '<div class="agreement gr2"><input type="checkbox" id="rez-agree-marketing" checked><div>Souhlasím se zasíláním marketingových sdělení</div></div>' +
+    '<div class="agreement gr2"><input type="checkbox" id="rez-agree-photo" checked><div>Souhlasím s využitím fotografií pro marketingové účely</div></div></div>' +
     '<div id="rez-price-preview"></div>' +
     '<div class="text-center" style="margin-top:1rem"><button class="btn btngreen" onclick="MG._submitReservation()">Pokračovat v rezervaci</button></div>' +
     '</div>';
@@ -178,8 +188,9 @@ MG._rezLoadCalendar = async function(){
       MG._rez.allBookings[motos[i].id] = MG._rezBookedMap(bk);
     }
   }
-  var now = new Date();
-  MG._rez.calYear = now.getFullYear(); MG._rez.calMonth = now.getMonth();
+  // If start date is pre-filled, show that month; otherwise show current month
+  var calDate = MG._rez.startDate ? new Date(MG._rez.startDate) : new Date();
+  MG._rez.calYear = calDate.getFullYear(); MG._rez.calMonth = calDate.getMonth();
   MG._rezRenderCal();
 };
 
