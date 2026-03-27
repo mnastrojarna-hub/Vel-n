@@ -85,17 +85,18 @@ export default function Customers() {
       const ids = custs.map(c => c.id)
       if (!ids.length) { setStats({}); return }
       const { data: bks } = await supabase.from('bookings')
-        .select('user_id, total_price, start_date, end_date, status, moto_id, motorcycles(model, branches(name))')
+        .select('user_id, total_price, start_date, end_date, status, booking_source, moto_id, motorcycles(model, branches(name))')
         .in('user_id', ids.slice(0, 50))
       if (!bks) return
       const map = {}
       bks.forEach(b => {
-        if (!map[b.user_id]) map[b.user_id] = { total: 0, sum: 0, days: 0, motos: {}, branches: {}, incidents: 0 }
+        if (!map[b.user_id]) map[b.user_id] = { total: 0, sum: 0, days: 0, motos: {}, branches: {}, incidents: 0, sources: new Set() }
         const s = map[b.user_id]
         s.total++
         s.sum += b.total_price || 0
         const d = Math.max(1, Math.ceil((new Date(b.end_date) - new Date(b.start_date)) / 86400000))
         s.days += d
+        if (b.booking_source) s.sources.add(b.booking_source)
         if (b.motorcycles?.model) s.motos[b.motorcycles.model] = (s.motos[b.motorcycles.model] || 0) + 1
         if (b.motorcycles?.branches?.name) s.branches[b.motorcycles.branches.name] = (s.branches[b.motorcycles.branches.name] || 0) + 1
         if (b.status === 'incident') s.incidents++
@@ -214,7 +215,11 @@ export default function Customers() {
                 <tr key={c.id} onClick={() => navigate(`/zakaznici/${c.id}`)}
                   className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
                   style={{ borderBottom: '1px solid #d4e8e0' }}>
-                  <TD bold>{c.full_name || '—'}</TD>
+                  <TD bold>{c.full_name || '—'}{(() => {
+                    const s = stats[c.id]; if (!s || !s.sources?.size) return null;
+                    const hasApp = s.sources.has('app'), hasWeb = s.sources.has('web');
+                    return <>{hasApp && <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#dcfce7', color: '#16a34a' }}>APP</span>}{hasWeb && <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#dbeafe', color: '#2563eb' }}>WEB</span>}</>
+                  })()}</TD>
                   <TD>{c.email || '—'}</TD>
                   <TD mono>{c.phone || '—'}</TD>
                   <TD>
