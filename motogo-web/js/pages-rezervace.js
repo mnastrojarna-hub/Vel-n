@@ -561,7 +561,7 @@ MG._rezShowStep3 = function(){
     '<td style="padding:6px 0;font-weight:700;border-bottom:1px solid #ccc;text-align:right">Cena</td></tr>' +
     rows +
     '</table>' +
-    '<div style="display:flex;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:2px solid #1a8c1a">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:2px solid #1a8c1a">' +
     '<strong style="font-size:1.1rem">Celkem k úhradě</strong>' +
     '<strong style="font-size:1.1rem;color:#1a8c1a">'+MG.formatPrice(total)+'</strong></div>' +
     '</div>' +
@@ -575,9 +575,10 @@ MG._rezShowStep3 = function(){
     (d.deliveryAddr ? '<br><strong>Přistavení na:</strong> '+d.deliveryAddr : '') +
     (d.returnAddr ? '<br><strong>Vrácení na:</strong> '+d.returnAddr : '') +
     '</div>' +
-    '<div class="dfcs" style="flex-wrap:wrap;gap:1rem;margin-top:1rem">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-top:1rem">' +
     '<button class="btn btndark" onclick="MG._rezShowStep2()">← Zpět</button>' +
-    '<button class="btn btngreen" onclick="MG._rezSubmitPayment()">Pokračovat k platbě</button>' +
+    '<div style="display:flex;align-items:center;gap:1rem"><div style="background:#74FB71;color:#0b0b0b;padding:.6rem 1.2rem;border-radius:25px;font-weight:800;font-size:1.05rem">'+MG.formatPrice(total)+'</div>' +
+    '<button class="btn btngreen" onclick="MG._rezSubmitPayment()">Pokračovat k platbě</button></div>' +
     '</div>';
   window.scrollTo({top: form.offsetTop - 80, behavior:'smooth'});
 };

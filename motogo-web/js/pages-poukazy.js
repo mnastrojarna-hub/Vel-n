@@ -58,24 +58,23 @@ MG.route('/poukazy', function(app){
   faqItems.forEach(function(faq){ faqHtml += MG.renderFaqItem(faq.q, faq.a); });
 
   var orderForm = '<section id="poukaz-order"><h2>Objednat dárkový poukaz</h2>' +
-    '<div style="max-width:600px">' +
-    '<label style="font-weight:600;color:#111;display:block;margin-bottom:.4rem">Hodnota poukazu (Kč)</label>' +
-    '<input type="number" id="poukaz-amount" placeholder="Zadejte libovolnou částku v Kč" min="500" step="100" style="margin-bottom:1rem">' +
-    '<div class="checkboxes" style="margin:.75rem 0">' +
-    '<div><input type="radio" id="poukaz-digital" name="poukaz-type" value="digital" checked><label for="poukaz-digital">Elektronický poukaz (okamžité doručení e-mailem)</label></div>' +
-    '<div><input type="radio" id="poukaz-print" name="poukaz-type" value="print"><label for="poukaz-print">Tištěný poukaz (doručení poštou)</label></div>' +
-    '</div>' +
-    '<div id="poukaz-print-addr" style="display:none;margin-bottom:1rem">' +
-    '<input type="text" id="poukaz-addr-name" placeholder="* Jméno a příjmení příjemce">' +
-    '<input type="text" id="poukaz-addr-street" placeholder="* Ulice a č.p.">' +
-    '<div class="gr2"><input type="text" id="poukaz-addr-zip" placeholder="* PSČ">' +
-    '<input type="text" id="poukaz-addr-city" placeholder="* Město"></div>' +
-    '</div>' +
-    '<input type="text" id="poukaz-buyer-name" placeholder="* Vaše jméno a příjmení" style="margin-bottom:.5rem">' +
-    '<input type="email" id="poukaz-buyer-email" placeholder="* Váš e-mail" style="margin-bottom:.5rem">' +
-    '<input type="tel" id="poukaz-buyer-phone" placeholder="* Váš telefon (+420...)" style="margin-bottom:1rem">' +
-    '<div class="text-center"><button class="btn btngreen" onclick="MG._submitVoucherOrder()">Pokračovat k platbě</button></div>' +
-    '</div></section>';
+    '<div class="pcontent">' +
+    '<input type="text" id="poukaz-buyer-name" placeholder="* Jméno a příjmení">' +
+    '<div class="gr2"><input type="text" id="poukaz-addr-street" placeholder="* Ulice, č.p.">' +
+    '<input type="text" id="poukaz-addr-zip" placeholder="* PSČ"></div>' +
+    '<div class="gr2"><input type="text" id="poukaz-addr-city" placeholder="* Město">' +
+    '<input type="text" id="poukaz-addr-country" placeholder="* Stát" value="Česká republika"></div>' +
+    '<div class="gr2"><input type="email" id="poukaz-buyer-email" placeholder="* E-mail">' +
+    '<input type="tel" id="poukaz-buyer-phone" placeholder="* Telefon (+420XXXXXXXXX)"></div>' +
+    '<div class="gr2" style="align-items:start;margin:1rem 0"><div class="checkboxes" style="margin:0">' +
+    '<div><input type="checkbox" id="poukaz-print"><label for="poukaz-print">Fyzický poukaz <strong>(+180 Kč)</strong></label></div>' +
+    '<div><input type="checkbox" id="poukaz-digital" checked><label for="poukaz-digital">Elektronický poukaz</label></div>' +
+    '</div><div><label style="font-weight:700;color:#111">* Hodnota poukazu:</label>' +
+    '<input type="number" id="poukaz-amount" placeholder="Částka v Kč" min="500" step="100"></div></div>' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-top:1rem">' +
+    '<div id="poukaz-price" style="background:#74FB71;color:#0b0b0b;padding:.6rem 1.2rem;border-radius:25px;font-weight:800;border:2px solid #1a8c1a;min-width:150px">Cena:</div>' +
+    '<button class="btn btngreen" onclick="MG._submitVoucherOrder()">Pokračovat k platbě</button>' +
+    '</div></div></section>';
 
   app.innerHTML = '<main id="content"><div class="container">' + bc +
     '<div class="ccontent">' + intro + steps + orderForm +
@@ -87,11 +86,21 @@ MG.route('/poukazy', function(app){
       [{label:'OBJEDNAT POUKAZ',href:'#poukaz-order',cls:'btndark pulse'}]) +
     '</div></div></main>';
 
-  // Toggle print address
-  var pr = document.getElementById('poukaz-print');
-  var di = document.getElementById('poukaz-digital');
-  if(pr) pr.addEventListener('change', function(){ var p=document.getElementById('poukaz-print-addr'); if(p) p.style.display='block'; });
-  if(di) di.addEventListener('change', function(){ var p=document.getElementById('poukaz-print-addr'); if(p) p.style.display='none'; });
+  // Live price update
+  function updateVoucherPrice(){
+    var a = document.getElementById('poukaz-amount');
+    var pr = document.getElementById('poukaz-print');
+    var el = document.getElementById('poukaz-price');
+    if(!el) return;
+    var val = a && a.value ? Number(a.value) : 0;
+    var printFee = pr && pr.checked ? 180 : 0;
+    var total = val + printFee;
+    el.textContent = total > 0 ? 'Cena: ' + MG.formatPrice(total) : 'Cena:';
+  }
+  var amt = document.getElementById('poukaz-amount');
+  var prCb = document.getElementById('poukaz-print');
+  if(amt) amt.addEventListener('input', updateVoucherPrice);
+  if(prCb) prCb.addEventListener('change', updateVoucherPrice);
 });
 
 // ===== VOUCHER STEP 1: validate + show summary =====
@@ -100,37 +109,28 @@ MG._submitVoucherOrder = function(){
   var bName = document.getElementById('poukaz-buyer-name');
   var bEmail = document.getElementById('poukaz-buyer-email');
   var bPhone = document.getElementById('poukaz-buyer-phone');
+  var aSt = document.getElementById('poukaz-addr-street');
+  var aZip = document.getElementById('poukaz-addr-zip');
+  var aCity = document.getElementById('poukaz-addr-city');
   if(!amount || !amount.value || Number(amount.value) < 500){
-    alert('Zadejte prosím částku poukazu (min. 500 Kč).'); return;
+    alert('Zadejte prosím hodnotu poukazu (min. 500 Kč).'); return;
   }
   if(!bName || !bName.value || !bEmail || !bEmail.value || !bPhone || !bPhone.value){
     alert('Vyplňte prosím všechna povinná pole.'); return;
   }
-  var isPrint = document.getElementById('poukaz-print') && document.getElementById('poukaz-print').checked;
-  if(isPrint){
-    var aName = document.getElementById('poukaz-addr-name');
-    var aSt = document.getElementById('poukaz-addr-street');
-    var aZip = document.getElementById('poukaz-addr-zip');
-    var aCity = document.getElementById('poukaz-addr-city');
-    if(!aName || !aName.value || !aSt || !aSt.value || !aZip || !aZip.value || !aCity || !aCity.value){
-      alert('Vyplňte prosím doručovací adresu pro tištěný poukaz.'); return;
-    }
+  if(!aSt || !aSt.value || !aZip || !aZip.value || !aCity || !aCity.value){
+    alert('Vyplňte prosím adresu.'); return;
   }
+  var isPrint = document.getElementById('poukaz-print') && document.getElementById('poukaz-print').checked;
+  var printFee = isPrint ? 180 : 0;
 
-  // Save data
   MG._voucherData = {
-    amount: Number(amount.value),
+    amount: Number(amount.value), printFee: printFee,
+    total: Number(amount.value) + printFee,
     name: bName.value, email: bEmail.value, phone: bPhone.value,
     isPrint: isPrint,
-    addr: isPrint ? {
-      name: document.getElementById('poukaz-addr-name').value,
-      street: document.getElementById('poukaz-addr-street').value,
-      zip: document.getElementById('poukaz-addr-zip').value,
-      city: document.getElementById('poukaz-addr-city').value
-    } : null
+    addr: { street: aSt.value, zip: aZip.value, city: aCity.value }
   };
-
-  // Show summary
   MG._showVoucherSummary();
 };
 
@@ -141,26 +141,29 @@ MG._showVoucherSummary = function(){
   var d = MG._voucherData;
   var typeLabel = d.isPrint ? 'Tištěný poukaz (doručení poštou)' : 'Elektronický poukaz (doručení e-mailem)';
 
+  var rows = '<tr><td style="padding:6px 0;border-bottom:1px solid #eee">Dárkový poukaz (hodnota)</td>' +
+    '<td style="padding:6px 0;border-bottom:1px solid #eee;text-align:right">'+MG.formatPrice(d.amount)+'</td></tr>';
+  if(d.printFee) rows += '<tr><td style="padding:6px 0;border-bottom:1px solid #eee">Fyzický poukaz (tisk + poštovné)</td>' +
+    '<td style="padding:6px 0;border-bottom:1px solid #eee;text-align:right">'+MG.formatPrice(d.printFee)+'</td></tr>';
+  rows += '<tr><td style="padding:6px 0;border-bottom:1px solid #eee">Typ</td>' +
+    '<td style="padding:6px 0;border-bottom:1px solid #eee;text-align:right">'+typeLabel+'</td></tr>';
+
   el.innerHTML = '<h2>Shrnutí objednávky</h2>' +
     '<div style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:10px;padding:1.25rem;margin-bottom:1.5rem">' +
-    '<table style="width:100%;border-collapse:collapse;font-size:.9rem;color:#333">' +
-    '<tr><td style="padding:6px 0;border-bottom:1px solid #eee">Dárkový poukaz</td>' +
-    '<td style="padding:6px 0;border-bottom:1px solid #eee;text-align:right;font-weight:700">'+MG.formatPrice(d.amount)+'</td></tr>' +
-    '<tr><td style="padding:6px 0;border-bottom:1px solid #eee">Typ doručení</td>' +
-    '<td style="padding:6px 0;border-bottom:1px solid #eee;text-align:right">'+typeLabel+'</td></tr>' +
-    '</table>' +
-    '<div style="display:flex;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:2px solid #1a8c1a">' +
+    '<table style="width:100%;border-collapse:collapse;font-size:.9rem;color:#333">' + rows + '</table>' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:2px solid #1a8c1a">' +
     '<strong style="font-size:1.1rem">Celkem k úhradě</strong>' +
-    '<strong style="font-size:1.1rem;color:#1a8c1a">'+MG.formatPrice(d.amount)+'</strong></div>' +
+    '<strong style="font-size:1.1rem;color:#1a8c1a">'+MG.formatPrice(d.total)+'</strong></div>' +
     '</div>' +
     '<div style="background:#f1faf7;border:1px solid #d4e8e0;border-radius:10px;padding:1rem;margin-bottom:1.5rem;font-size:.88rem;color:#374151">' +
     '<strong>Kupující:</strong> '+d.name+'<br>' +
+    d.addr.street+', '+d.addr.zip+' '+d.addr.city+'<br>' +
     d.email+' | '+d.phone +
-    (d.addr ? '<br><strong>Doručovací adresa:</strong> '+d.addr.name+', '+d.addr.street+', '+d.addr.zip+' '+d.addr.city : '') +
     '</div>' +
-    '<div class="dfcs" style="flex-wrap:wrap;gap:1rem">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem">' +
     '<button class="btn btndark" onclick="MG._voucherBackToForm()">← Zpět</button>' +
-    '<button class="btn btngreen" onclick="MG._voucherPay()">Pokračovat k platbě</button>' +
+    '<div style="display:flex;align-items:center;gap:1rem"><div style="background:#74FB71;color:#0b0b0b;padding:.6rem 1.2rem;border-radius:25px;font-weight:800">'+MG.formatPrice(d.total)+'</div>' +
+    '<button class="btn btngreen" onclick="MG._voucherPay()">Pokračovat k platbě</button></div>' +
     '</div>';
   window.scrollTo({top: el.offsetTop - 80, behavior:'smooth'});
 };
@@ -178,8 +181,10 @@ MG._voucherPay = async function(){
   if(btn){ btn.disabled = true; btn.textContent = 'Zpracovávám...'; }
 
   try {
+    var items = [{product_id:null, name:'Dárkový poukaz', quantity:1, price:d.amount}];
+    if(d.printFee) items.push({product_id:null, name:'Fyzický poukaz (tisk + poštovné)', quantity:1, price:d.printFee});
     var orderRes = await window.sb.rpc('create_shop_order', {
-      p_items: JSON.stringify([{product_id:null, name:'Dárkový poukaz', quantity:1, price:d.amount}]),
+      p_items: JSON.stringify(items),
       p_shipping_method: d.isPrint ? 'post' : 'email',
       p_shipping_address: d.addr ? JSON.stringify(d.addr) : null,
       p_payment_method: 'stripe',
@@ -197,7 +202,7 @@ MG._voucherPay = async function(){
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': window.MOTOGO_CONFIG.SUPABASE_ANON_KEY },
       body: JSON.stringify({
-        order_id: orderId, amount: d.amount,
+        order_id: orderId, amount: d.total,
         type: 'shop', source: 'web', mode: 'checkout',
         customer_email: d.email, customer_name: d.name
       })
