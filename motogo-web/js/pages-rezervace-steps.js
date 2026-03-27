@@ -42,15 +42,18 @@ MG._submitReservation = async function(){
 
   // Save customer to DB immediately (even if they don't finish payment)
   try {
-    var regRes = await window.sb.rpc('create_web_booking', {
+    var rpcParams = {
       p_moto_id: mId, p_start_date: r.startDate, p_end_date: r.endDate,
       p_name: name.value, p_email: email.value, p_phone: phone.value,
-      p_street: street.value, p_city: city.value, p_zip: zip.value,
-      p_country: (country&&country.value)||'CZ', p_note: MG._rez.formData.note,
-      p_pickup_time: ptEl.value,
-      p_delivery_address: deliveryAddr, p_return_address: returnAddr, p_extras: extras
-    });
-    if(regRes.error){ alert('Chyba: '+regRes.error.message); return; }
+      p_street: street.value||'', p_city: city.value||'', p_zip: zip.value||'',
+      p_country: (country&&country.value)||'CZ', p_note: MG._rez.formData.note||'',
+      p_pickup_time: ptEl.value||null,
+      p_delivery_address: deliveryAddr, p_return_address: returnAddr,
+      p_extras: JSON.stringify(extras)
+    };
+    console.log('[REZ] create_web_booking params:', rpcParams);
+    var regRes = await window.sb.rpc('create_web_booking', rpcParams);
+    if(regRes.error){ console.error('[REZ] create_web_booking error:', regRes.error); alert('Chyba: '+regRes.error.message); return; }
     var regData = regRes.data;
     if(regData && regData.error){ alert(regData.error); return; }
     if(regData){
