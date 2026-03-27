@@ -79,7 +79,7 @@ MG.route('/jak-pujcit/pristaveni', function(app){
     '<div class="ccontent">' +
     '<h1>Přistavení motocyklu – doručení až k tobě</h1>' +
     '<p>Chceš vyrazit bez zbytečného přesunu do půjčovny? Zajistíme <strong>přistavení motorky</strong> na <strong>domluvené místo</strong>.</p>' +
-    '<p>&nbsp;</p><p><a class="btn btngreen" href="#/rezervace">REZERVOVAT PŘISTAVENÍ</a></p>' +
+    '<p>&nbsp;</p><p><a class="btn btngreen" href="#/rezervace?delivery=1">REZERVOVAT S PŘISTAVENÍM</a></p>' +
 
     '<section><h2>Proč využít přistavení motorky</h2><div class="gr5">' +
     MG.renderWbox('gfx/ico-pohodli.svg','Pohodlí a čas','motorku přivezeme, kam potřebuješ') +
@@ -102,6 +102,6 @@ MG.route('/jak-pujcit/pristaveni', function(app){
 
     MG.renderCta('Přistavení motorky – půjčovna motorek Vysočina',
       'Motogo24 nabízí <strong>přistavení motocyklu</strong> po regionu i mimo něj. <strong>Nonstop provoz, bez kauce, výbava v ceně</strong>.',
-      [{label:'REZERVOVAT DORUČENÍ',href:'/rezervace',cls:'btndark pulse'}]) +
+      [{label:'REZERVOVAT S PŘISTAVENÍM',href:'/rezervace?delivery=1',cls:'btndark pulse'}]) +
     '</div></div></main>';
 });

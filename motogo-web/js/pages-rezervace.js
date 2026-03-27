@@ -9,6 +9,7 @@ MG.route('/rezervace', async function(app){
   var hash = window.location.hash || '';
   var mp = ''; var mm = hash.match(/[?&]moto=([^&]+)/);
   if(mm) mp = decodeURIComponent(mm[1]);
+  var preDelivery = /[?&]delivery=1/.test(hash);
 
   app.innerHTML = '<main id="content"><div class="container">' + bc +
     '<div class="ccontent pcontent"><h1>Rezervace motorky</h1>' +
@@ -42,6 +43,12 @@ MG.route('/rezervace', async function(app){
   }
   MG._rezInitFormEvents();
   await MG._rezLoadCalendar();
+
+  // Pre-fill delivery if ?delivery=1
+  if(preDelivery){
+    var dc = document.getElementById('rez-delivery');
+    if(dc){ dc.checked = true; dc.dispatchEvent(new Event('change')); }
+  }
 });
 
 // ===== TOOLTIP HELPER =====
