@@ -192,7 +192,7 @@ function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, onModify
           <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Termín a platba</h3>
           {booking.booking_source && (
             <span className="inline-block rounded-btn text-xs font-extrabold uppercase tracking-wide"
-              style={{ padding: '2px 8px', background: booking.booking_source === 'web' ? '#dbeafe' : '#bfdbfe', color: booking.booking_source === 'web' ? '#2563eb' : '#1d4ed8' }}>
+              style={{ padding: '2px 8px', background: booking.booking_source === 'web' ? '#dbeafe' : '#dcfce7', color: booking.booking_source === 'web' ? '#2563eb' : '#16a34a' }}>
               {booking.booking_source === 'web' ? 'Rezervace z webu' : 'Rezervace z aplikace'}
             </span>
           )}

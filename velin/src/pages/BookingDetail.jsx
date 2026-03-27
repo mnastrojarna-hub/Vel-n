@@ -279,7 +279,7 @@ export default function BookingDetail() {
         <StatusBadge status={getDisplayStatus(booking)} />
         {booking.booking_source && (
           <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
-            style={{ padding: '3px 8px', background: booking.booking_source === 'web' ? '#dbeafe' : '#bfdbfe', color: booking.booking_source === 'web' ? '#2563eb' : '#1d4ed8' }}>
+            style={{ padding: '3px 8px', background: booking.booking_source === 'web' ? '#dbeafe' : '#dcfce7', color: booking.booking_source === 'web' ? '#2563eb' : '#16a34a' }}>
             {booking.booking_source === 'web' ? 'WEB' : 'APP'}
           </span>
         )}
