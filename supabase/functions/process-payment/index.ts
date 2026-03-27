@@ -130,13 +130,14 @@ Deno.serve(async (req: Request) => {
 
       const { data: booking, error: bErr } = await supabaseAdmin
         .from('bookings')
-        .select('*')
+        .select('*, profiles:user_id(full_name, email, phone, stripe_customer_id)')
         .eq('id', body.booking_id)
-        .eq('source', 'web')
-        .eq('payment_status', 'unpaid')
+        .eq('booking_source', 'web')
+        .in('payment_status', ['pending', 'unpaid'])
         .single()
 
       if (bErr || !booking) {
+        console.error('Web booking lookup failed:', bErr?.message, 'booking_id:', body.booking_id)
         return new Response(JSON.stringify({ error: 'Booking not found or already paid' }), {
           status: 400, headers: { ...CORS, 'Content-Type': 'application/json' }
         })
@@ -144,21 +145,28 @@ Deno.serve(async (req: Request) => {
 
       const amount = Math.round((booking.total_price || body.amount) * 100)
       const currency = body.currency || 'czk'
+      const profile = booking.profiles as { full_name?: string; email?: string; phone?: string; stripe_customer_id?: string } | null
+      const customerEmail = profile?.email || ''
+      const customerName = profile?.full_name || ''
 
       // Create or get Stripe customer by email
-      const customers = await stripe.customers.list({ email: booking.customer_email, limit: 1 })
-      let customerId = customers.data.length > 0 ? customers.data[0].id : null
+      let customerId = profile?.stripe_customer_id || null
+      if (!customerId && customerEmail) {
+        const customers = await stripe.customers.list({ email: customerEmail, limit: 1 })
+        customerId = customers.data.length > 0 ? customers.data[0].id : null
+      }
       if (!customerId) {
         const newCust = await stripe.customers.create({
-          email: booking.customer_email,
-          name: booking.customer_name,
+          email: customerEmail || undefined,
+          name: customerName || undefined,
           metadata: { source: 'web', booking_id: body.booking_id }
         })
         customerId = newCust.id
+        // Save stripe_customer_id to profile
+        if (booking.user_id) {
+          await supabaseAdmin.from('profiles').update({ stripe_customer_id: customerId }).eq('id', booking.user_id)
+        }
       }
-
-      // Store stripe_customer_id on booking
-      await supabaseAdmin.from('bookings').update({ stripe_customer_id: customerId }).eq('id', body.booking_id)
 
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
