@@ -397,6 +397,36 @@ async function proceedToPayment(){
     // Save individual extras to booking_extras table (non-blocking)
     _saveBookingExtras(result.booking.id).catch(function(e){ console.warn('[PAY] Extras save err:', e); });
 
+    // === 100% SLEVA — přeskočit Stripe, potvrdit rovnou ===
+    if(totalPrice <= 0){
+      try {
+        var confirmRes = await window.supabase.rpc('confirm_payment', {
+          p_booking_id: result.booking.id,
+          p_method: 'free'
+        });
+        if(confirmRes.error){
+          // Fallback: přímý update
+          await window.supabase.from('bookings').update({
+            payment_status: 'paid',
+            status: startDate <= new Date() ? 'active' : 'reserved',
+            confirmed_at: new Date().toISOString()
+          }).eq('id', result.booking.id);
+        }
+      } catch(e){
+        await window.supabase.from('bookings').update({
+          payment_status: 'paid',
+          status: 'reserved',
+          confirmed_at: new Date().toISOString()
+        }).eq('id', result.booking.id);
+      }
+      // Reset discount state
+      _resetBookingDiscount();
+      showT('✅','Rezervace potvrzena','100% sleva — platba není potřeba');
+      goTo('s-res');
+      if(typeof renderMyReservations === 'function') renderMyReservations();
+      return;
+    }
+
     // Update payment screen
     var payBtn = document.getElementById('pay-btn');
     if(payBtn){
