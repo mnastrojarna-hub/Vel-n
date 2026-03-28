@@ -4,9 +4,9 @@ import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import Card from '../../components/ui/Card'
-import Modal from '../../components/ui/Modal'
 import Pagination from '../../components/ui/Pagination'
 import { useDebugMode } from '../../hooks/useDebugMode'
+import { AddAssetModal, AssetDetailModal } from './LongTermAssetsModals'
 
 const PER_PAGE = 25
 
@@ -355,7 +355,9 @@ export default function LongTermAssetsTab() {
   )
 }
 
-function AddAssetModal({ onClose, onSaved }) {
+// AddAssetModal and AssetDetailModal moved to ./LongTermAssetsModals.jsx
+
+function _AddAssetModal_REMOVED({ onClose, onSaved }) {
   const [form, setForm] = useState({
     name: '', category: 'vehicles', purchase_price: '', acquired_date: new Date().toISOString().slice(0, 10),
     depreciation_group: 2, depreciation_method: 'linear', description: '', invoice_number: '', supplier: '',

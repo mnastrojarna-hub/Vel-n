@@ -6,58 +6,11 @@ import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 
-const CHANNEL_LABELS = { sms: 'SMS', email: 'E-mail', whatsapp: 'WhatsApp' }
-const CHAR_LIMITS = { sms: 160, whatsapp: 1600 }
-
-const BULK_SEGMENTS = [
-  { value: 'all', icon: '📋', label: 'Všichni zákazníci', desc: 'Všichni s kontaktními údaji' },
-  { value: 'vip', icon: '⭐', label: 'VIP zákazníci', desc: 'Reliability skóre > 80' },
-  { value: 'past_customers', icon: '🏍️', label: 'Minulí zákazníci', desc: 'Alespoň 1 dokončená rezervace' },
-  { value: 'new_no_booking', icon: '👋', label: 'Noví bez rezervace', desc: 'Registrovaní bez půjčení' },
-]
-
-const COUNTRY_OPTIONS = [
-  { value: '', label: 'Všechny země' },
-  { value: 'CZ', label: 'Česko' },
-  { value: 'SK', label: 'Slovensko' },
-  { value: 'DE', label: 'Německo' },
-  { value: 'AT', label: 'Rakousko' },
-  { value: 'PL', label: 'Polsko' },
-]
-
-const LANGUAGE_OPTIONS = [
-  { value: '', label: 'Všechny jazyky' },
-  { value: 'cs', label: 'Čeština' },
-  { value: 'en', label: 'English' },
-  { value: 'de', label: 'Deutsch' },
-]
-
-// GSM 7-bit basic chars — if text contains anything outside this, it's UCS-2 (70 chars/segment)
-const GSM7 = /^[A-Za-z0-9 @£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&'()*+,\-./:;<=>?¡ÄÖÑÜ§¿äöñüà^{}\\[~\]|€]*$/
-
-function calcSmsSegments(text) {
-  if (!text) return { chars: 0, segments: 0, perSegment: 160, isUcs2: false }
-  const isUcs2 = !GSM7.test(text)
-  const perSegment = isUcs2 ? (text.length > 70 ? 67 : 70) : (text.length > 160 ? 153 : 160)
-  const segments = text.length === 0 ? 0 : Math.ceil(text.length / perSegment)
-  return { chars: text.length, segments, perSegment, isUcs2 }
-}
-
-function extractVariables(templateContent) {
-  if (!templateContent) return []
-  const matches = templateContent.match(/\{\{(\w+)\}\}/g)
-  if (!matches) return []
-  return [...new Set(matches.map(m => m.replace(/\{\{|\}\}/g, '')))]
-}
-
-function replaceVariables(templateContent, vars) {
-  if (!templateContent) return ''
-  let result = templateContent
-  Object.entries(vars).forEach(([key, val]) => {
-    result = result.replaceAll(`{{${key}}}`, val || `{{${key}}}`)
-  })
-  return result
-}
+import RadioOption from './RadioOption'
+import {
+  CHANNEL_LABELS, CHAR_LIMITS, BULK_SEGMENTS, COUNTRY_OPTIONS, LANGUAGE_OPTIONS,
+  calcSmsSegments, extractVariables, replaceVariables,
+} from './messageHelpers'
 
 export default function ManualSendTab({ channel }) {
   const debugMode = useDebugMode()
@@ -710,27 +663,3 @@ export default function ManualSendTab({ channel }) {
   )
 }
 
-function RadioOption({ checked, onChange, label, disabled = false }) {
-  return (
-    <label
-      className="flex items-center gap-2 cursor-pointer rounded-btn"
-      style={{
-        padding: '8px 14px',
-        background: checked ? '#e8fee7' : '#f1faf7',
-        border: checked ? '1px solid #74FB71' : '1px solid #d4e8e0',
-        opacity: disabled ? 0.5 : 1,
-        pointerEvents: disabled ? 'none' : 'auto',
-      }}
-    >
-      <input
-        type="radio"
-        checked={checked}
-        onChange={onChange}
-        disabled={disabled}
-        className="accent-[#1a8a18]"
-        style={{ width: 14, height: 14 }}
-      />
-      <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>{label}</span>
-    </label>
-  )
-}

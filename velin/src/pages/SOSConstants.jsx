@@ -56,12 +56,12 @@ export const STATUS_COLORS = {
   closed: { bg: '#f3f4f6', color: '#1a2e22', label: 'Uzavřeno' },
 }
 
-const LIGHT_AUTO_ACK = ['breakdown_minor', 'defect_question', 'location_share', 'other']
+export const LIGHT_AUTO_ACK = ['breakdown_minor', 'defect_question', 'location_share', 'other']
 
 export const HEAVY_TYPES = ['theft', 'accident_minor', 'accident_major', 'breakdown_major', 'accident', 'breakdown']
 export const LIGHT_TYPES = ['breakdown_minor', 'defect_question', 'location_share', 'other']
 
-  const TYPE_FILTERS = [
+export const TYPE_FILTERS = [
     { key: 'all_type', label: 'Vše', icon: '' },
     { key: 'nehody', label: 'Nehody', icon: '💥', types: ['accident_minor','accident_major','accident'] },
     { key: 'poruchy', label: 'Poruchy', icon: '🔧', types: ['breakdown_minor','breakdown_major','breakdown'] },
@@ -70,7 +70,7 @@ export const LIGHT_TYPES = ['breakdown_minor', 'defect_question', 'location_shar
   ]
 
   // Sub-filtry pro nehody a poruchy
-  const SUB_FILTERS = {
+export const SUB_FILTERS = {
     nehody: [
       { key: 'all', label: 'Všechny nehody' },
       { key: 'lehke', label: 'Lehké', types: ['accident_minor'] },

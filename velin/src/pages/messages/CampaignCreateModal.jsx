@@ -7,56 +7,17 @@ import Badge from '../../components/ui/Badge'
 import Card from '../../components/ui/Card'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 
-const CHANNEL_LABELS = { sms: 'SMS', email: 'E-mail', whatsapp: 'WhatsApp' }
-const STEP_LABELS = ['Základní info', 'Příjemci', 'Náhled', 'Odeslání']
+import {
+  CHANNEL_LABELS, COUNTRY_OPTIONS, LANGUAGE_OPTIONS,
+  calcSmsSegments, extractVariables, replaceVariables,
+} from './messageHelpers'
 
+const STEP_LABELS = ['Zakladni info', 'Prijemci', 'Nahled', 'Odeslani']
 const SEGMENTS = [
-  { value: 'all', icon: '📋', label: 'Všichni zákazníci', desc: 'Zákazníci se souhlasem s marketingem' },
-  { value: 'vip', icon: '⭐', label: 'VIP zákazníci', desc: 'Reliability skóre > 80 nebo VIP tag' },
-  { value: 'past_customers', icon: '🏍️', label: 'Minulí zákazníci', desc: 'Alespoň 1 dokončená rezervace' },
-  { value: 'new_no_booking', icon: '👋', label: 'Noví bez rezervace', desc: 'Registrovaní, ale dosud si nepůjčili' },
-]
-
-// SMS pricing helpers (same as ManualSendTab)
-const GSM7 = /^[A-Za-z0-9 @£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&'()*+,\-./:;<=>?¡ÄÖÑÜ§¿äöñüà^{}\\[~\]|€]*$/
-
-function calcSmsSegments(text) {
-  if (!text) return { segments: 0 }
-  const isUcs2 = !GSM7.test(text)
-  const perSegment = isUcs2 ? (text.length > 70 ? 67 : 70) : (text.length > 160 ? 153 : 160)
-  return { segments: Math.ceil(text.length / perSegment) }
-}
-
-function extractVariables(templateContent) {
-  if (!templateContent) return []
-  const matches = templateContent.match(/\{\{(\w+)\}\}/g)
-  if (!matches) return []
-  return [...new Set(matches.map(m => m.replace(/\{\{|\}\}/g, '')))]
-}
-
-function replaceVariables(templateContent, vars) {
-  if (!templateContent) return ''
-  let result = templateContent
-  Object.entries(vars).forEach(([key, val]) => {
-    result = result.replaceAll(`{{${key}}}`, val || `{{${key}}}`)
-  })
-  return result
-}
-
-const COUNTRY_OPTIONS = [
-  { value: '', label: 'Všechny země' },
-  { value: 'CZ', label: 'Česko' },
-  { value: 'SK', label: 'Slovensko' },
-  { value: 'DE', label: 'Německo' },
-  { value: 'AT', label: 'Rakousko' },
-  { value: 'PL', label: 'Polsko' },
-]
-
-const LANGUAGE_OPTIONS = [
-  { value: '', label: 'Všechny jazyky' },
-  { value: 'cs', label: 'Čeština' },
-  { value: 'en', label: 'English' },
-  { value: 'de', label: 'Deutsch' },
+  { value: 'all', icon: '\ud83d\udccb', label: 'Vsichni zakaznici', desc: 'Zakaznici se souhlasem s marketingem' },
+  { value: 'vip', icon: '\u2b50', label: 'VIP zakaznici', desc: 'Reliability skore > 80 nebo VIP tag' },
+  { value: 'past_customers', icon: '\ud83c\udfcd\ufe0f', label: 'Minuli zakaznici', desc: 'Alespon 1 dokoncena rezervace' },
+  { value: 'new_no_booking', icon: '\ud83d\udc4b', label: 'Novi bez rezervace', desc: 'Registrovani, ale dosud si nepujcili' },
 ]
 
 export default function CampaignCreateModal({ open, channel, onClose, onCreated }) {
