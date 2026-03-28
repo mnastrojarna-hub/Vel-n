@@ -33,6 +33,7 @@ export default function Customers() {
   const defaultFilters = {
     search: '', city: '', country: '', licenseGroups: [],
     regFrom: '', regTo: '', minBookings: '', maxBookings: '',
+    registrationSource: '',
     sortBy: 'full_name', sortDir: 'asc'
   }
   const [filters, setFilters] = useState(() => {
@@ -59,6 +60,7 @@ export default function Customers() {
         if (filters.country) query = query.eq('country', filters.country)
         if (filters.licenseGroups?.length > 0) query = query.overlaps('license_group', filters.licenseGroups)
         else if (filters.licenseGroup) query = query.contains('license_group', [filters.licenseGroup])
+        if (filters.registrationSource) query = query.eq('registration_source', filters.registrationSource)
         if (filters.regFrom) query = query.gte('created_at', filters.regFrom)
         if (filters.regTo) query = query.lte('created_at', filters.regTo + 'T23:59:59')
         return query.order(filters.sortBy, { ascending: filters.sortDir === 'asc' })
@@ -167,6 +169,11 @@ export default function Customers() {
               <FSelect value={filters.licenseGroup} onChange={v => setF('licenseGroup', v)}
                 options={[{ value: '', label: 'Všechny' }, ...LICENSE_GROUPS.map(g => ({ value: g, label: g }))]} />
             </div>
+            <div>
+              <FLabel>Zdroj registrace</FLabel>
+              <FSelect value={filters.registrationSource} onChange={v => setF('registrationSource', v)}
+                options={[{ value: '', label: 'Všechny' }, { value: 'app', label: 'Aplikace' }, { value: 'web', label: 'Web' }]} />
+            </div>
             <FilterField label="Registrace od" value={filters.regFrom} onChange={v => setF('regFrom', v)} type="date" />
             <FilterField label="Registrace do" value={filters.regTo} onChange={v => setF('regTo', v)} type="date" />
             <FilterField label="Min. rezervací" value={filters.minBookings} onChange={v => setF('minBookings', v)} type="number" />
@@ -206,7 +213,7 @@ export default function Customers() {
             <thead>
               <TRow header>
                 <TH>Jméno</TH><TH>Email</TH><TH>Telefon</TH>
-                <TH>Skupiny</TH><TH>Město</TH><TH>Země</TH><TH>Registrace</TH><TH>Rezervací</TH>
+                <TH>Skupiny</TH><TH>Město</TH><TH>Země</TH><TH>Zdroj</TH><TH>Registrace</TH><TH>Rezervací</TH>
                 <TH>Ø částka</TH><TH>Ø délka</TH><TH>Top motorka</TH><TH>Top pobočka</TH>
               </TRow>
             </thead>
@@ -215,11 +222,7 @@ export default function Customers() {
                 <tr key={c.id} onClick={() => navigate(`/zakaznici/${c.id}`)}
                   className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
                   style={{ borderBottom: '1px solid #d4e8e0' }}>
-                  <TD bold>{c.full_name || '—'}{(() => {
-                    const s = stats[c.id]; if (!s || !s.sources?.size) return null;
-                    const hasApp = s.sources.has('app'), hasWeb = s.sources.has('web');
-                    return <>{hasApp && <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#dcfce7', color: '#16a34a' }}>APP</span>}{hasWeb && <span className="ml-1 text-[9px] font-extrabold px-1.5 py-0.5 rounded-btn" style={{ background: '#dbeafe', color: '#2563eb' }}>WEB</span>}</>
-                  })()}</TD>
+                  <TD bold>{c.full_name || '—'}</TD>
                   <TD>{c.email || '—'}</TD>
                   <TD mono>{c.phone || '—'}</TD>
                   <TD>
@@ -230,6 +233,11 @@ export default function Customers() {
                   </TD>
                   <TD>{c.city || '—'}</TD>
                   <TD>{c.country || '—'}</TD>
+                  <TD>{c.registration_source === 'app'
+                    ? <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-btn" style={{ background: '#dcfce7', color: '#16a34a' }}>APP</span>
+                    : c.registration_source === 'web'
+                    ? <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-btn" style={{ background: '#dbeafe', color: '#2563eb' }}>WEB</span>
+                    : '—'}</TD>
                   <TD>{c.created_at?.slice(0, 10) || '—'}</TD>
                   <TD bold>{c.bookings?.[0]?.count ?? 0}</TD>
                   <TD>{avgPrice(c.id)}</TD>

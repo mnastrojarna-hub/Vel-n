@@ -89,6 +89,10 @@ MG._submitReservation = async function(){
       MG._rez.bookingId = regData.booking_id;
       MG._rez.userId = regData.user_id;
       MG._rez.bookingAmount = regData.amount;
+      // Mark registration source as web
+      if(regData.user_id){
+        window.sb.from('profiles').update({registration_source:'web'}).eq('id',regData.user_id).then(function(){});
+      }
     }
   } catch(e){ alert('Chyba při ukládání: '+e.message); return; }
 
