@@ -152,25 +152,29 @@ serve(async (req) => {
     } catch (emailErr) {
       console.error('Email send failed after retries:', emailErr)
       // Log failure to debug_log
-      await supabase.from('debug_log').insert({
-        source: 'send-booking-email',
-        action: 'email_send_failed',
-        component: 'resend',
-        status: 'error',
-        error_message: (emailErr as Error).message,
-        request_data: { type, customer_email, booking_id },
-      }).catch(() => {})
+      try {
+        await supabase.from('debug_log').insert({
+          source: 'send-booking-email',
+          action: 'email_send_failed',
+          component: 'resend',
+          status: 'error',
+          error_message: (emailErr as Error).message,
+          request_data: { type, customer_email, booking_id },
+        })
+      } catch (_) { /* ignore */ }
       return new Response(JSON.stringify({ error: 'Email send failed', details: (emailErr as Error).message }), { status: 500 })
     }
 
     // Log email
-    await supabase.from('email_log').insert({
-      template_slug: type,
-      recipient: customer_email,
-      subject,
-      status: 'sent',
-      booking_id: booking_id || null,
-    }).catch(() => {}) // email_log may not exist yet
+    try {
+      await supabase.from('email_log').insert({
+        template_slug: type,
+        recipient: customer_email,
+        subject,
+        status: 'sent',
+        booking_id: booking_id || null,
+      })
+    } catch (_) { /* ignore — email_log may not exist yet */ }
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },

@@ -146,14 +146,16 @@ serve(async (req) => {
     } catch (emailErr) {
       console.error('Email send failed after retries:', emailErr)
       // Log failure to debug_log
-      await supabase.from('debug_log').insert({
-        source: 'send-cancellation-email',
-        action: 'email_send_failed',
-        component: 'resend',
-        status: 'error',
-        error_message: (emailErr as Error).message,
-        request_data: { booking_id, customer_email },
-      }).catch(() => {})
+      try {
+        await supabase.from('debug_log').insert({
+          source: 'send-cancellation-email',
+          action: 'email_send_failed',
+          component: 'resend',
+          status: 'error',
+          error_message: (emailErr as Error).message,
+          request_data: { booking_id, customer_email },
+        })
+      } catch (_) { /* ignore */ }
       return new Response(JSON.stringify({ error: 'Email send failed', details: (emailErr as Error).message }), { status: 500 })
     }
 

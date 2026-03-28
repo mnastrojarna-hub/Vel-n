@@ -189,11 +189,13 @@ Deno.serve(async (req: Request) => {
 
     if (!parsed) {
       // Store raw image for manual processing
-      await supabase.from('accounting_exceptions').insert({
-        reason: 'Claude Vision neparsoval dokument — ruční kontrola',
-        suggested_fix: { storage_path: storagePath, hint: 'Zkontrolujte obrázek ručně.' },
-        assigned_to: 'admin',
-      }).catch(() => {})
+      try {
+        await supabase.from('accounting_exceptions').insert({
+          reason: 'Claude Vision neparsoval dokument — ruční kontrola',
+          suggested_fix: { storage_path: storagePath, hint: 'Zkontrolujte obrázek ručně.' },
+          assigned_to: 'admin',
+        })
+      } catch (_) { /* ignore */ }
       return jsonResponse({ error: 'Failed to parse document with Claude Vision' }, 500)
     }
 

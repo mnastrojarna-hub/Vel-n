@@ -223,14 +223,16 @@ serve(async (req) => {
 
     if (!result.success) {
       // Log to debug_log
-      await supabase.from('debug_log').insert({
-        source: 'send-message',
-        action: 'twilio_send_failed',
-        component: 'edge-function',
-        status: 'error',
-        error_message: result.error,
-        request_data: { channel, to, template_slug, booking_id },
-      }).catch(() => {})
+      try {
+        await supabase.from('debug_log').insert({
+          source: 'send-message',
+          action: 'twilio_send_failed',
+          component: 'edge-function',
+          status: 'error',
+          error_message: result.error,
+          request_data: { channel, to, template_slug, booking_id },
+        })
+      } catch (_) { /* ignore */ }
 
       return jsonResponse({
         success: false,
@@ -247,13 +249,15 @@ serve(async (req) => {
   } catch (err) {
     console.error('send-message error:', err)
 
-    await supabase.from('debug_log').insert({
-      source: 'send-message',
-      action: 'unhandled_error',
-      component: 'edge-function',
-      status: 'error',
-      error_message: (err as Error).message,
-    }).catch(() => {})
+    try {
+      await supabase.from('debug_log').insert({
+        source: 'send-message',
+        action: 'unhandled_error',
+        component: 'edge-function',
+        status: 'error',
+        error_message: (err as Error).message,
+      })
+    } catch (_) { /* ignore */ }
 
     return jsonResponse({ error: (err as Error).message }, 500)
   }

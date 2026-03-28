@@ -141,10 +141,12 @@ serve(async (req) => {
     }
 
     // Audit log
-    await supabase.from('admin_audit_log').insert({
-      action: 'document_generated',
-      details: { document_id: docId, template_slug, booking_id },
-    }).catch(() => {})
+    try {
+      await supabase.from('admin_audit_log').insert({
+        action: 'document_generated',
+        details: { document_id: docId, template_slug, booking_id },
+      })
+    } catch (_) { /* ignore */ }
 
     return new Response(JSON.stringify({ success: true, document_id: docId, path }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },
