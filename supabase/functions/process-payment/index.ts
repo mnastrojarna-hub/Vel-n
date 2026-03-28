@@ -133,7 +133,7 @@ Deno.serve(async (req: Request) => {
         .select('*, profiles:user_id(full_name, email, phone, stripe_customer_id)')
         .eq('id', body.booking_id)
         .eq('booking_source', 'web')
-        .in('payment_status', ['pending', 'unpaid'])
+        .eq('payment_status', 'unpaid')
         .single()
 
       if (bErr || !booking) {
