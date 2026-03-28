@@ -8,6 +8,7 @@ import Modal from '../../components/ui/Modal'
 import SearchInput from '../../components/ui/SearchInput'
 import Pagination from '../../components/ui/Pagination'
 import { useDebugMode } from '../../hooks/useDebugMode'
+import AddReceivedModal from './AddReceivedModal'
 
 const PER_PAGE = 25
 const LS_KEY = 'velin_received_invoices_filters'
