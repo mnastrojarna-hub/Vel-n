@@ -45,7 +45,7 @@
 | `calc_booking_price_v2()` | Kalkulace ceny bookingu v2 |
 | `calculate_moto_roi()` | Výpočet ROI motorky |
 | `check_admin_permission()` | Kontrola admin oprávnění |
-| `check_moto_availability()` | Kontrola dostupnosti motorky |
+| `check_moto_availability()` | Kontrola dostupnosti motorky (status: pending/reserved/active) |
 | `create_sos_incident()` | Vytvoření SOS incidentu |
 | `extend_booking()` | Prodloužení bookingu |
 | `generate_invoice_number()` | Generování čísla faktury |
