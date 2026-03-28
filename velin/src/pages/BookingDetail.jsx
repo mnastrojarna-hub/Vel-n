@@ -283,12 +283,15 @@ export default function BookingDetail() {
             {booking.booking_source === 'web' ? 'WEB' : 'APP'}
           </span>
         )}
-        {booking.payment_status && (
-          <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
-            style={{ padding: '3px 8px', background: booking.payment_status === 'paid' ? '#dcfce7' : '#fee2e2', color: booking.payment_status === 'paid' ? '#1a8a18' : '#dc2626' }}>
-            {booking.payment_status === 'paid' ? 'Zaplaceno' : 'Nezaplaceno'}
-          </span>
-        )}
+        {booking.payment_status && (() => {
+          const isPaid = booking.payment_status === 'paid' && booking.status !== 'pending'
+          return (
+            <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
+              style={{ padding: '3px 8px', background: isPaid ? '#dcfce7' : '#fee2e2', color: isPaid ? '#1a8a18' : '#dc2626' }}>
+              {isPaid ? 'Zaplaceno' : 'Nezaplaceno'}
+            </span>
+          )
+        })()}
         <span className="text-sm" style={{ color: '#1a2e22' }}>Vytvořena: {booking.created_at ? new Date(booking.created_at).toLocaleString('cs-CZ') : '—'}</span>
       </div>
       <div className="flex gap-2 mb-5 flex-wrap">
