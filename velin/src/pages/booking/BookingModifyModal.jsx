@@ -49,6 +49,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
   const [returnMethod, setReturnMethod] = useState(booking.return_method || 'on_branch')
   const [returnAddress, setReturnAddress] = useState(booking.return_address || '')
   const [deliveryFee, setDeliveryFee] = useState(Number(booking.delivery_fee) || 0)
+  const [showMapPicker, setShowMapPicker] = useState(null) // 'pickup' | 'return' | null
 
   // Payment
   const [chargeCustomer, setChargeCustomer] = useState(true)
@@ -318,7 +319,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
     return bd.reduce((s, d) => s + d.price, 0)
   }
 
-  return (
+  return (<>
     <Modal open title={`Upravit rezervaci #${booking.id?.slice(-8).toUpperCase()}`} onClose={onClose} wide>
       <div style={{ maxHeight: 'calc(100vh - 160px)', overflowY: 'auto' }}>
         {error && <div className="p-3 rounded-lg mb-4" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13, fontWeight: 600 }}>{error}</div>}
@@ -484,11 +485,16 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
                 <option value="on_branch">Na pobočce</option>
                 <option value="delivery">Přistavení na adresu</option>
               </select>
-              {pickupMethod === 'delivery' && (
+              {pickupMethod === 'delivery' && (<>
                 <input value={pickupAddress} onChange={e => setPickupAddress(e.target.value)}
                   placeholder="Obec, ulice a č.p. / č.o." className="w-full mt-2 text-sm rounded-btn outline-none"
                   style={{ padding: '7px 10px', background: '#fff', border: '1px solid #d4e8e0' }} />
-              )}
+                <button type="button" onClick={() => setShowMapPicker('pickup')}
+                  className="mt-1 text-xs font-bold cursor-pointer"
+                  style={{ padding: '4px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 6, color: '#1a2e22' }}>
+                  🗺️ Vybrat na mapě
+                </button>
+              </>)}
               {pickupMethod === 'on_branch' && pickupAddress && (
                 <div className="mt-1 text-xs" style={{ color: '#6b7280' }}>Původní adresa: {pickupAddress}</div>
               )}
@@ -500,11 +506,16 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
                 <option value="on_branch">Na pobočce</option>
                 <option value="delivery">Svoz z adresy</option>
               </select>
-              {returnMethod === 'delivery' && (
+              {returnMethod === 'delivery' && (<>
                 <input value={returnAddress} onChange={e => setReturnAddress(e.target.value)}
                   placeholder="Obec, ulice a č.p. / č.o." className="w-full mt-2 text-sm rounded-btn outline-none"
                   style={{ padding: '7px 10px', background: '#fff', border: '1px solid #d4e8e0' }} />
-              )}
+                <button type="button" onClick={() => setShowMapPicker('return')}
+                  className="mt-1 text-xs font-bold cursor-pointer"
+                  style={{ padding: '4px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 6, color: '#1a2e22' }}>
+                  🗺️ Vybrat na mapě
+                </button>
+              </>)}
               {returnMethod === 'on_branch' && returnAddress && (
                 <div className="mt-1 text-xs" style={{ color: '#6b7280' }}>Původní adresa: {returnAddress}</div>
               )}
@@ -634,5 +645,46 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
         </div>
       </div>
     </Modal>
-  )
+
+      {showMapPicker && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: '#fff', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', background: '#fff', borderBottom: '1px solid #e5e7eb', zIndex: 1 }}>
+            <button onClick={() => setShowMapPicker(null)} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer' }}>✕</button>
+            <span style={{ fontSize: 15, fontWeight: 700 }}>Vyberte místo na mapě</span>
+            <button onClick={() => {
+              const iframe = document.getElementById('velin-map-iframe')
+              if (iframe && iframe.contentWindow && iframe.contentWindow._getCenter) {
+                const c = iframe.contentWindow._getCenter()
+                fetch(`https://nominatim.openstreetmap.org/reverse?lat=${c.lat}&lon=${c.lng}&format=json&addressdetails=1&accept-language=cs`)
+                  .then(r => r.json())
+                  .then(data => {
+                    if (data && data.address) {
+                      const addr = data.address
+                      const street = (addr.road || '') + (addr.house_number ? ' ' + addr.house_number : '')
+                      const city = addr.city || addr.town || addr.village || addr.municipality || ''
+                      const full = [street, city].filter(Boolean).join(', ')
+                      if (showMapPicker === 'pickup') setPickupAddress(full)
+                      else setReturnAddress(full)
+                    }
+                    setShowMapPicker(null)
+                  }).catch(() => setShowMapPicker(null))
+              } else { setShowMapPicker(null) }
+            }} style={{ background: '#1a8a18', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 18px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Potvrdit</button>
+          </div>
+          <div style={{ flex: 1, position: 'relative' }}>
+            <iframe id="velin-map-iframe" style={{ width: '100%', height: '100%', border: 'none' }}
+              srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
+<style>html,body{margin:0;padding:0;height:100%;width:100%}#m{height:100%;width:100%}</style></head>
+<body><div id="m"></div><script>
+var map=L.map("m",{zoomControl:true}).setView([49.4147,15.2953],10);
+L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",{maxZoom:19,subdomains:"abcd"}).addTo(map);
+window._getCenter=function(){var c=map.getCenter();return{lat:c.lat,lng:c.lng};};
+<\/script></body></html>`} />
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 10, pointerEvents: 'none', fontSize: 36, textShadow: '0 2px 6px rgba(0,0,0,.3)' }}>📍</div>
+          </div>
+        </div>
+      )}
+  </>)
 }

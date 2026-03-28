@@ -251,12 +251,19 @@ var AddressAPI = (function(){
     _geocode(addressOrCoords, function(coords){
       if(!coords){
         var km = _fallbackKm(addressOrCoords);
-        var fee = 1000 + km * 20;
+        var fee = _calcDeliveryFee(km);
         callback({ km: km, fee: fee, duration: null, approx: true });
         return;
       }
       _routeFromCoords(coords.lat, coords.lng, callback);
     });
+  }
+
+  /**
+   * Delivery fee formula: 1000 Kč (nakládka/vykládka) + km × 2 (tam+zpět) × 20 Kč/km
+   */
+  function _calcDeliveryFee(km){
+    return 1000 + km * 2 * 20;
   }
 
   /**
@@ -287,7 +294,7 @@ var AddressAPI = (function(){
         _routeOSRM(lat, lng, callback); return;
       }
       var km = Math.round(routeLen / 1000);
-      var fee = 1000 + km * 20;
+      var fee = _calcDeliveryFee(km);
       var mins = Math.round(routeDur / 60);
       callback({ km: km, fee: fee, duration: mins, approx: false });
     });
@@ -305,13 +312,13 @@ var AddressAPI = (function(){
       if(err || !data || !data.routes || !data.routes.length){
         var dist = _haversine(BRANCH_LAT, BRANCH_LNG, lat, lng);
         var km = Math.round(dist * 1.3);
-        var fee = 1000 + km * 20;
+        var fee = _calcDeliveryFee(km);
         callback({ km: km, fee: fee, duration: null, approx: true });
         return;
       }
       var route = data.routes[0];
       var km = Math.round(route.distance / 1000);
-      var fee = 1000 + km * 20;
+      var fee = _calcDeliveryFee(km);
       var mins = Math.round(route.duration / 60);
       callback({ km: km, fee: fee, duration: mins, approx: false });
     });
@@ -519,6 +526,7 @@ var AddressAPI = (function(){
     suggestStreets: suggestStreets,
     suggestStreetsDebounced: suggestStreetsDebounced,
     calcDistance: calcDistance,
+    calcDeliveryFee: _calcDeliveryFee,
     reverseGeocode: reverseGeocode,
     BRANCH_LAT: BRANCH_LAT,
     BRANCH_LNG: BRANCH_LNG

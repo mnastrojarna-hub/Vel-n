@@ -13,7 +13,7 @@ const NAV = [
   { id: 'branches', path: '/pobocky', label: 'Pobočky', icon: '🏢' },
   { id: 'service', path: '/servis', label: 'Servis', icon: '🔧' },
   { id: 'messages', path: '/zpravy', label: 'Zprávy', icon: '💬', badgeKey: 'messages' },
-  { id: 'cms', path: '/cms', label: 'Web CMS', icon: '🌐' },
+  { id: 'cms', path: '/cms', label: 'Texty webu', icon: '🌐' },
   { id: 'analyza', path: '/analyza', label: 'Analýza', icon: '🧠' },
   { id: 'discount-codes', path: '/slevove-kody', label: 'Slevové kódy', icon: '🏷️' },
   { id: 'eshop', path: '/e-shop', label: 'E-shop', icon: '🛒' },

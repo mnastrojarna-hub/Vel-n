@@ -32,15 +32,16 @@ export async function trainFleetAgent(onStep) {
     if (stkExpiring) results.push({ agent: 'fleet', action: 'alert_stk_expiring', ok: true, moto: detail?.model })
   }
 
-  // 2. Cross-check: motorka active ale má servisní zakázku pending/in_service
+  // 2. Cross-check: motorka active ale má servisní zakázku IN_SERVICE (= právě v servisu)
+  // Poznámka: pending servisní zakázky = plánovaný budoucí servis, to NENÍ nekonzistence
   for (let i = 0; i < Math.min(5, motos.data.length); i++) {
     const moto = motos.data[i]
     onStep?.({ agent: 'fleet', action: `Cross-check servis ${moto.model}`, i: 5 + i, total: 20 })
     const { data: openSvc } = await supabase.from('service_orders')
       .select('id, type, status').eq('moto_id', moto.id)
-      .in('status', ['pending', 'in_service']).limit(5)
-    const hasOpenService = (openSvc?.length || 0) > 0
-    if (hasOpenService && moto.status === 'active') {
+      .eq('status', 'in_service').limit(5)
+    const hasActiveService = (openSvc?.length || 0) > 0
+    if (hasActiveService && moto.status === 'active') {
       results.push({ agent: 'fleet', action: 'inconsistency_active_but_in_service', ok: false, moto: moto.model, serviceOrders: openSvc?.length })
     } else {
       results.push({ agent: 'fleet', action: 'cross_check_service_ok', ok: true, moto: moto.model })
@@ -90,14 +91,14 @@ export async function trainCustomersAgent(onStep) {
   const pool = await createPool(3, onStep)
   results.push({ agent: 'customers', action: 'pool_created', ok: true, count: pool.length })
 
-  // 1. Profil kompletnost — různé typy zákazníků
-  const profileTypes = [
+  // 1. Profil kompletnost — watchdog kontrola na reálných profilech (ne záměrně rozbité)
+  const profileUpdates = [
     { phone: '+420777111222', city: 'Praha', license_group: ['A', 'B'], label: 'Kompletní' },
     { phone: '+420666333444', city: 'Brno', license_group: ['A2'], label: 'Jen A2' },
-    { phone: null, city: null, license_group: null, label: 'Nekompletní' },
+    { phone: '+420555222333', city: 'Ostrava', license_group: ['A1'], label: 'Kompletní A1' },
   ]
   for (let i = 0; i < Math.min(3, pool.length); i++) {
-    const pt = profileTypes[i]
+    const pt = profileUpdates[i]
     onStep?.({ agent: 'customers', action: `Profil: ${pt.label}`, i, total: 15 })
     await API.updateProfile(pool[i].userId, pt)
     // Watchdog: ověř kompletnost
@@ -106,7 +107,15 @@ export async function trainCustomersAgent(onStep) {
       .eq('id', pool[i].userId).single()
     const complete = !!(prof?.full_name && prof?.phone && prof?.license_group?.length)
     results.push({ agent: 'customers', action: 'verify_profile_completeness', ok: true, complete, type: pt.label })
-    if (!complete) results.push({ agent: 'customers', action: 'alert_incomplete_profile', ok: false, missing: !prof?.phone ? 'phone' : !prof?.license_group ? 'license' : 'name' })
+  }
+  // Watchdog: scan reálných nekompletních profilů v DB (ne testovacích)
+  const { data: incompleteProfiles } = await supabase.from('profiles')
+    .select('id, full_name, phone, license_group')
+    .is('is_test_account', false)
+    .or('phone.is.null,full_name.is.null')
+    .limit(10)
+  if (incompleteProfiles?.length) {
+    results.push({ agent: 'customers', action: 'alert_incomplete_profile', ok: false, missing: 'phone/name', count: incompleteProfiles.length })
   }
 
   // 2. Živá komunikace — různé typy zpráv od zákazníků

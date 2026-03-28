@@ -7,15 +7,17 @@ import { createPool } from './aiTrainingScenariosFleet'
 export async function trainCmsAgent(onStep) {
   const results = []
 
-  // 1. App settings — kontrola klíčových nastavení
+  // 1. App settings — kontrola klíčových nastavení (company_info je JSON objekt)
   onStep?.({ agent: 'cms', action: 'App settings audit', i: 0, total: 10 })
   const { data: settings } = await supabase.from('app_settings').select('key, value').limit(50)
   results.push({ agent: 'cms', action: 'fetch_settings', ok: true, count: settings?.length || 0 })
-  // Ověř že klíčová nastavení existují
-  const requiredKeys = ['company_name', 'company_ico', 'company_email', 'company_phone']
-  for (const key of requiredKeys) {
-    const found = (settings || []).find(s => s.key === key)
-    results.push({ agent: 'cms', action: `check_setting_${key}`, ok: !!found, value: found?.value?.slice?.(0, 30) })
+  // company_info je uložen jako jeden JSON objekt pod klíčem 'company_info'
+  const companyRow = (settings || []).find(s => s.key === 'company_info')
+  const companyInfo = typeof companyRow?.value === 'string' ? JSON.parse(companyRow.value) : companyRow?.value
+  const fieldMap = { company_name: 'name', company_ico: 'ico', company_email: 'email', company_phone: 'phone' }
+  for (const [key, field] of Object.entries(fieldMap)) {
+    const val = companyInfo?.[field]
+    results.push({ agent: 'cms', action: `check_setting_${key}`, ok: !!val, value: typeof val === 'string' ? val.slice(0, 30) : '' })
   }
 
   // 2. Email šablony — kontrola kompletnosti (slug, subject, obsah)
@@ -335,12 +337,13 @@ export async function trainOrchestratorAgent(onStep) {
     .lt('created_at', yesterday).limit(10)
   results.push({ agent: 'orchestrator', action: 'check_old_unpaid', ok: !(oldUnpaid?.length), count: oldUnpaid?.length || 0 })
 
-  // 4. Cross-check: motorky v maintenance déle než 7 dní
+  // 4. Cross-check: motorky v servisu (maintenance_log in_service) déle než 7 dní
   onStep?.({ agent: 'orchestrator', action: 'Dlouhodobý maintenance', i: 8, total: 15 })
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString()
-  const { data: longMaint } = await supabase.from('service_orders')
-    .select('id, moto_id, created_at, status').in('status', ['pending', 'in_service'])
-    .lt('created_at', weekAgo).limit(10)
+  const { data: longMaint } = await supabase.from('maintenance_log')
+    .select('id, moto_id, service_date, status, description')
+    .eq('status', 'in_service').is('completed_date', null)
+    .lt('service_date', weekAgo.slice(0, 10)).limit(10)
   results.push({ agent: 'orchestrator', action: 'check_long_maintenance', ok: !(longMaint?.length), count: longMaint?.length || 0 })
 
   // 5. Pobočky — všechny otevřené?

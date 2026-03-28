@@ -27,7 +27,7 @@ const ACTION_DESC = {
   verify_returned_active: 'Motorka vrácena do stavu "aktivní"',
   detect_maintenance: 'Detekce přechodu do servisu',
   verify_active: 'Kontrola návratu motorky do stavu "aktivní" po servisu',
-  verify_pricing_set: 'Ceník je nastaven',
+  verify_pricing_set: 'Kontrola ceníku motorky',
   verify_pricing: 'Kontrola ceníku',
   // Customers
   alert_incomplete_profile: 'Zákazník má nekompletní profil (chybí telefon/doklady)',

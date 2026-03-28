@@ -106,7 +106,7 @@ function _calcDeliveryFallback(type, addr, calcEl, kmTxt){
     if(addr.toLowerCase().indexOf(city.toLowerCase())!==-1){km=KM_ESTIMATES[city];break;}
   }
   if(!km){km=Math.round(20+addr.length*1.5);if(km>200)km=200;}
-  var fee=1000+km*20;
+  var fee=1000+km*2*20;
   if(type==='pickup'){pickupDelivFee=fee;}else{returnDelivFee=fee;}
   deliveryFee=pickupDelivFee+returnDelivFee;
   if(calcEl)calcEl.style.display='block';

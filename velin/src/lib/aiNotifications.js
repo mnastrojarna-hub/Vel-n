@@ -122,7 +122,7 @@ const CZ_TITLES = {
   check_vin_completeness: 'Motorky bez VIN', check_spz_completeness: 'Motorky bez SPZ',
   check_setting_company_name: 'Chybí nastavení: název firmy', check_setting_company_ico: 'Chybí nastavení: IČO',
   check_setting_company_email: 'Chybí nastavení: email firmy', check_setting_company_phone: 'Chybí nastavení: telefon firmy',
-  verify_pricing_set: 'Ceník není nastaven', verify_promo_discount: 'Sleva promo nefunguje',
+  verify_pricing_set: 'Kontrola ceníku motorky', verify_promo_discount: 'Kontrola slevy promo kódu',
   customer_complains: 'Reklamace zákazníka', complaint_during_ride: 'Stížnost během jízdy',
   booking_failed: 'Rezervace selhala', detect_overlap: 'Kolize termínů',
 }

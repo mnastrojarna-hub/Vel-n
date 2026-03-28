@@ -174,19 +174,19 @@ async function _saveBookingExtras(bookingId){
     }
   });
   if(!checked.length) return;
-  // Find or create extras_catalog entries, then insert booking_extras
+  // Insert booking_extras with name and unit_price
   for(var i = 0; i < checked.length; i++){
     var ext = checked[i];
-    var cat = await window.supabase.from('extras_catalog').select('id').eq('name', ext.name).limit(1).single();
     var catId = null;
-    if(cat.data) { catId = cat.data.id; }
-    else {
-      var ins = await window.supabase.from('extras_catalog').insert({name: ext.name, price: ext.price}).select('id').single();
-      if(ins.data) catId = ins.data.id;
-    }
-    if(catId){
-      await window.supabase.from('booking_extras').insert({booking_id: bookingId, extra_id: catId});
-    }
+    var cat = await window.supabase.from('extras_catalog').select('id').eq('name', ext.name).limit(1).maybeSingle();
+    if(cat && cat.data) catId = cat.data.id;
+    await window.supabase.from('booking_extras').insert({
+      booking_id: bookingId,
+      extra_id: catId,
+      name: ext.name,
+      unit_price: ext.price,
+      quantity: 1
+    });
   }
 }
 

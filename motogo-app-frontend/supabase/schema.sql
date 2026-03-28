@@ -197,7 +197,7 @@ BEGIN
     SELECT COUNT(*) INTO conflict_count
     FROM bookings
     WHERE moto_id = p_moto_id
-      AND status IN ('pending', 'active')
+      AND status IN ('pending', 'reserved', 'active')
       AND id IS DISTINCT FROM p_exclude_booking_id
       AND start_date < p_end
       AND end_date > p_start;

@@ -58,7 +58,7 @@ Templates['s-edit-res'] = `
       </label>
       <label style="display:flex;align-items:center;gap:9px;padding:11px;background:var(--g100);border-radius:var(--rsm);border:2px solid var(--g200);cursor:pointer;" id="edit-pickup-delivery-label">
         <input type="radio" name="edit-pickup" value="other" style="accent-color:var(--green);" onchange="setEditPickup('other')">
-        <div style="flex:1;"><div style="font-size:13px;font-weight:700;" id="t-editToAddr1">\ud83d\udccd P\u0159istaven\u00ed na va\u0161i adresu</div><div style="font-size:11px;color:var(--g400);">1 000 K\u010d + 20 K\u010d/km</div></div>
+        <div style="flex:1;"><div style="font-size:13px;font-weight:700;" id="t-editToAddr1">\ud83d\udccd P\u0159istaven\u00ed na va\u0161i adresu</div><div style="font-size:11px;color:var(--g400);">1 000 K\u010d + 40 K\u010d/km</div></div>
         <div style="font-size:12px;font-weight:700;color:var(--red);">od 1 000 K\u010d</div>
       </label>
     </div>
@@ -68,10 +68,16 @@ Templates['s-edit-res'] = `
         <div class="ff" style="margin:0;"><label>PS\u010c</label><input type="text" id="edit-pickup-zip" placeholder="PS\u010c" maxlength="6"></div>
       </div>
       <div class="ff" style="margin:0;margin-top:8px;position:relative;"><label id="t-editDelAddr">Ulice a \u010d.p. / \u010d.o.</label><input type="text" id="edit-pickup-address" placeholder="nap\u0159. Vodi\u010dkova 36, Mezn\u00e1 9" oninput="showAddrSuggestions(this,'edit-pickup');if(typeof _sosCalcPickupDelivery==='function')_sosCalcPickupDelivery();" autocomplete="off"><div id="edit-pickup-addr-suggestions" class="addr-suggestions" style="display:none;"></div></div>
-      <div style="margin-top:8px;"><button type="button" onclick="useMyLocation('edit-pickup')" style="display:flex;align-items:center;gap:6px;width:100%;padding:10px 12px;background:var(--g100);border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:12px;font-weight:700;color:var(--gd);cursor:pointer;">\ud83d\udccd Pou\u017e\u00edt moji polohu</button></div>
+      <div style="display:flex;gap:6px;margin-top:8px;">
+        <button type="button" onclick="useMyLocation('edit-pickup')" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 12px;background:var(--g100);border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:12px;font-weight:700;color:var(--gd);cursor:pointer;">\ud83d\udccd Poloha</button>
+        <button type="button" onclick="openMapPicker('edit-pickup')" style="display:flex;align-items:center;justify-content:center;gap:4px;padding:10px 12px;background:var(--g100);border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:12px;font-weight:700;color:var(--gd);cursor:pointer;">\ud83d\uddfa\ufe0f Mapa</button>
+      </div>
       <div id="edit-pickup-calc" style="display:none;margin-top:8px;background:var(--gp);border-radius:var(--rsm);padding:10px 12px;font-size:12px;color:var(--gd);">
         <span id="edit-pickup-km-txt">\ud83d\udccd Zadejte adresu</span>
       </div>
+      <label id="edit-pickup-confirm-label" style="display:none;margin-top:8px;align-items:center;gap:8px;padding:9px 12px;background:var(--gp);border:2px solid var(--green);border-radius:var(--rsm);cursor:pointer;font-size:12px;font-weight:700;color:var(--gd);">
+        <input type="checkbox" id="edit-pickup-addr-confirmed" style="accent-color:var(--green);width:16px;height:16px;" onchange="onAddrConfirmed('edit-pickup',this.checked)"> \u2705 Potvrdit adresu p\u0159istaven\u00ed
+      </label>
     </div>
     <div style="margin-top:10px;border-top:1px solid var(--g200);padding-top:10px;">
       <div style="font-size:10px;font-weight:700;color:var(--g400);text-transform:uppercase;margin-bottom:6px;" id="t-editDelTime">\ud83d\udd52 \u010cas p\u0159istaven\u00ed</div>
@@ -89,7 +95,7 @@ Templates['s-edit-res'] = `
       </label>
       <label style="display:flex;align-items:center;gap:9px;padding:11px;background:var(--g100);border-radius:var(--rsm);border:2px solid var(--g200);cursor:pointer;" id="edit-return-delivery-label">
         <input type="radio" name="edit-return" value="other" style="accent-color:var(--green);" onchange="setEditReturn('other')">
-        <div style="flex:1;"><div style="font-size:13px;font-weight:700;" id="t-editFromAddr">\ud83d\udccd Odvoz z va\u0161\u00ed adresy</div><div style="font-size:11px;color:var(--g400);">1 000 K\u010d + 20 K\u010d/km</div></div>
+        <div style="flex:1;"><div style="font-size:13px;font-weight:700;" id="t-editFromAddr">\ud83d\udccd Odvoz z va\u0161\u00ed adresy</div><div style="font-size:11px;color:var(--g400);">1 000 K\u010d + 40 K\u010d/km</div></div>
         <div style="font-size:12px;font-weight:700;color:var(--red);">od 1 000 K\u010d</div>
       </label>
     </div>
@@ -99,10 +105,16 @@ Templates['s-edit-res'] = `
         <div class="ff" style="margin:0;"><label>PS\u010c</label><input type="text" id="edit-return-zip" placeholder="PS\u010c" maxlength="6"></div>
       </div>
       <div class="ff" style="margin:0;margin-top:8px;position:relative;"><label id="t-editReturnAddr">Ulice a \u010d.p. / \u010d.o.</label><input type="text" id="edit-return-address" placeholder="nap\u0159. Vodi\u010dkova 36, Mezn\u00e1 9" oninput="calcEditDelivery();showAddrSuggestions(this,'edit-return')" autocomplete="off"><div id="edit-return-addr-suggestions" class="addr-suggestions" style="display:none;"></div></div>
-      <div style="margin-top:8px;"><button type="button" onclick="useMyLocation('edit-return')" style="display:flex;align-items:center;gap:6px;width:100%;padding:10px 12px;background:var(--g100);border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:12px;font-weight:700;color:var(--gd);cursor:pointer;">\ud83d\udccd Pou\u017e\u00edt moji polohu</button></div>
+      <div style="display:flex;gap:6px;margin-top:8px;">
+        <button type="button" onclick="useMyLocation('edit-return')" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 12px;background:var(--g100);border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:12px;font-weight:700;color:var(--gd);cursor:pointer;">\ud83d\udccd Poloha</button>
+        <button type="button" onclick="openMapPicker('edit-return')" style="display:flex;align-items:center;justify-content:center;gap:4px;padding:10px 12px;background:var(--g100);border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:12px;font-weight:700;color:var(--gd);cursor:pointer;">\ud83d\uddfa\ufe0f Mapa</button>
+      </div>
       <div id="edit-return-calc" style="margin-top:8px;background:var(--gp);border-radius:var(--rsm);padding:10px 12px;font-size:12px;color:var(--gd);display:none;">
         <span id="edit-return-km-txt">\ud83d\udccd Zadejte adresu</span>
       </div>
+      <label id="edit-return-confirm-label" style="display:none;margin-top:8px;align-items:center;gap:8px;padding:9px 12px;background:var(--gp);border:2px solid var(--green);border-radius:var(--rsm);cursor:pointer;font-size:12px;font-weight:700;color:var(--gd);">
+        <input type="checkbox" id="edit-return-addr-confirmed" style="accent-color:var(--green);width:16px;height:16px;" onchange="onAddrConfirmed('edit-return',this.checked)"> \u2705 Potvrdit adresu vr\u00e1cen\u00ed
+      </label>
     </div>
     <div style="margin-top:10px;border-top:1px solid var(--g200);padding-top:10px;">
       <div style="font-size:10px;font-weight:700;color:var(--g400);text-transform:uppercase;margin-bottom:6px;" id="t-editReturnTime">\ud83d\udd52 \u010cas vr\u00e1cen\u00ed</div>

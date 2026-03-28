@@ -82,7 +82,7 @@ function SingleServiceForm({ motos, onBack, onDone }) {
       if (!isFuture) {
         await supabase.from('motorcycles').update({ status: 'maintenance' }).eq('id', motoId)
       }
-      await supabase.from('maintenance_log').insert({
+      const { data: newLog } = await supabase.from('maintenance_log').insert({
         moto_id: motoId, description: fullDescription || 'Plánovaný servis',
         service_type: 'extraordinary',
         service_date: serviceStart,
@@ -91,6 +91,12 @@ function SingleServiceForm({ motos, onBack, onDone }) {
         km_at_service: Number(selected?.mileage) || null,
         is_urgent: isUrgent,
         items: selectedLabels.map(label => ({ label, done: false, note: '' })),
+      }).select('id').single()
+      await supabase.from('service_orders').insert({
+        moto_id: motoId, type: fullDescription || 'Mimořádný servis',
+        notes: selectedLabels.join(', '),
+        status: isFuture ? 'pending' : 'in_service',
+        maintenance_log_id: newLog?.id,
       })
       setBusy(false); onDone?.()
     } catch (e) { setError(e.message); setBusy(false) }

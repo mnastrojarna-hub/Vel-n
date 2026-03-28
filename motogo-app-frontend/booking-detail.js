@@ -251,7 +251,7 @@ function renderDetail(){
             var _brFull=_brAddr+', '+_brCity;
             var bkBr=document.getElementById('t-bkBranch');if(bkBr)bkBr.innerHTML='🏪 Pobočka: <strong>'+_brFull+'</strong>';
             var bkPS=document.getElementById('t-bkPickupStoreNote');if(bkPS)bkPS.textContent=_brFull+' – ve vámi zvolenou dobu';
-            var bkDN=document.getElementById('t-bkDeliveryNote');if(bkDN)bkDN.textContent='1 000 Kč + 20 Kč/km od provozovny ('+_brFull+')';
+            var bkDN=document.getElementById('t-bkDeliveryNote');if(bkDN)bkDN.textContent='1 000 Kč + 40 Kč/km od provozovny ('+_brFull+')';
             var bkRS=document.getElementById('t-bkReturnStoreNote');if(bkRS)bkRS.textContent=_brFull+' – nejpozději do 24:00 posledního dne';
             if(localDOd && localDDo){
               bOd={d:localDOd.d,y:localDOd.y,m:localDOd.m};bDo={d:localDDo.d,y:localDDo.y,m:localDDo.m};bStep=1;

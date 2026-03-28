@@ -346,14 +346,19 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
       const sosType = incident?.type || 'other'
       const sosDesc = TYPE_LABELS[sosType] || sosType
       try {
-        await supabase.from('maintenance_log').insert({
+        const logDesc = `SOS incident: ${sosDesc}${incident?.description ? ' — ' + incident.description.slice(0, 200) : ''}`
+        const { data: newLog } = await supabase.from('maintenance_log').insert({
           moto_id: motoId,
           type: 'repair',
           service_type: `SOS: ${sosDesc}`,
-          description: `SOS incident: ${sosDesc}${incident?.description ? ' — ' + incident.description.slice(0, 200) : ''}`,
+          description: logDesc,
           scheduled_date: new Date().toISOString().slice(0, 10),
           status: 'in_service',
           performed_by: user?.email || 'Admin',
+        }).select('id').single()
+        await supabase.from('service_orders').insert({
+          moto_id: motoId, type: `SOS: ${sosDesc}`, notes: logDesc,
+          status: 'in_service', maintenance_log_id: newLog?.id,
         })
       } catch {}
       // Get moto model for timeline

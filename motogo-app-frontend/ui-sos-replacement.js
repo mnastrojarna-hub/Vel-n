@@ -29,7 +29,7 @@ function sosRequestReplacement() {
           var bk = await window.supabase.from('bookings')
             .select('moto_id')
             .eq('user_id', uid)
-            .in('status', ['active', 'confirmed', 'pending', 'reserved'])
+            .in('status', ['active', 'pending', 'reserved'])
             .lte('start_date', new Date().toISOString())
             .gte('end_date', new Date().toISOString())
             .limit(1);
@@ -135,7 +135,7 @@ async function sosReplLoadMotos(){
         var bkR = await window.supabase.from('bookings')
           .select('moto_id, start_date, end_date')
           .eq('user_id', uid)
-          .in('status', ['active', 'confirmed', 'pending', 'reserved'])
+          .in('status', ['active', 'pending', 'reserved'])
           .lte('start_date', new Date().toISOString())
           .gte('end_date', new Date().toISOString())
           .limit(1);
@@ -331,11 +331,12 @@ function sosReplFillGPS(){
           var addrEl = document.getElementById('sos-repl-address');
           var cityEl = document.getElementById('sos-repl-city');
           var zipEl = document.getElementById('sos-repl-zip');
-          if(addrEl) addrEl.value = street;
+          if(addrEl){ addrEl.value = street; addrEl.dataset.lat = pos.coords.latitude; addrEl.dataset.lng = pos.coords.longitude; }
           if(cityEl) cityEl.value = city;
           if(zipEl) zipEl.value = zip;
           showT('📍','Adresa doplněna', street + ', ' + city);
           sosReplCalcDelivery();
+          if(typeof _showAddrConfirm === 'function') _showAddrConfirm('sos-repl');
         })
         .catch(function(){ showT('📍','GPS OK, adresu vyplňte ručně',''); });
     }
@@ -350,7 +351,7 @@ function sosReplFillGPS(){
     {enableHighAccuracy:true, timeout:30000});
 }
 
-// Výpočet ceny přistavení pro SOS replacement (1000 Kč + 20 Kč/km)
+// Výpočet ceny přistavení pro SOS replacement (1000 Kč + 40 Kč/km, tam+zpět)
 var _sosReplDelivTimer = null;
 function sosReplCalcDelivery(){
     clearTimeout(_sosReplDelivTimer);
@@ -405,7 +406,7 @@ function _sosReplCalcFallback(city){
     var km = 50;
     var KM_EST = {praha:160,brno:60,jihlava:40,tabor:35,tábor:35,ceske:90,české:90,plzen:200,plzeň:200,ostrava:280,olomouc:180,liberec:130,hradec:110,pardubice:90,budejovice:70,budějovice:70,mezna:0,mezná:0,humpolec:31,pelhřimov:18,pelhrimov:18};
     for(var c in KM_EST){ if(city.indexOf(c) !== -1){ km = KM_EST[c]; break; } }
-    var fee = 1000 + km * 20;
+    var fee = 1000 + km * 2 * 20;
     _sosReplacementData.deliveryFee = fee;
     _sosReplacementData._deliveryKm = km;
     var calcEl = document.getElementById('sos-repl-delivery-calc');
@@ -652,7 +653,7 @@ async function _sosSwapBookingsAndConfirm(incId, replacementData, isPaid, addres
           var bkR = await window.supabase.from('bookings')
             .select('id, moto_id, end_date, original_end_date, status, ended_by_sos')
             .eq('user_id', uid)
-            .in('status', ['active','confirmed','reserved'])
+            .in('status', ['active','reserved'])
             .eq('payment_status', 'paid')
             .lte('start_date', todayISO)
             .gte('end_date', todayISO)

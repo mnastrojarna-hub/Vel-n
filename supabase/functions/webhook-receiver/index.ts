@@ -254,6 +254,8 @@ async function confirmBookingPayment(
     try {
       const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
       const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY }
+
       // Generate advance invoice (ZF) — skip if one already exists
       const { data: existingZf } = await supabase.from('invoices')
         .select('id').eq('booking_id', bookingId)
@@ -261,20 +263,62 @@ async function confirmBookingPayment(
       if (!existingZf?.length) {
         try {
           await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY },
+            method: 'POST', headers,
             body: JSON.stringify({ type: 'advance', booking_id: bookingId }),
           })
         } catch (_) { /* ignore */ }
       }
+
+      // Generate payment receipt (DP)
+      try {
+        await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
+          method: 'POST', headers,
+          body: JSON.stringify({ type: 'payment_receipt', booking_id: bookingId }),
+        })
+      } catch (_) { /* ignore */ }
+
       // Generate contract + VOP
       try {
         await fetch(`${SUPABASE_URL}/functions/v1/generate-document`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY },
+          method: 'POST', headers,
           body: JSON.stringify({ type: 'rental_contract', booking_id: bookingId }),
         })
       } catch (_) { /* ignore */ }
+      try {
+        await fetch(`${SUPABASE_URL}/functions/v1/generate-document`, {
+          method: 'POST', headers,
+          body: JSON.stringify({ type: 'vop', booking_id: bookingId }),
+        })
+      } catch (_) { /* ignore */ }
+
+      // Send confirmation email (with source detection for web-specific template)
+      const { data: booking } = await supabase.from('bookings')
+        .select('booking_source, user_id, moto_id, start_date, end_date, total_price, motorcycles(model, manual_url), profiles(full_name, email)')
+        .eq('id', bookingId).single()
+
+      if (booking?.profiles?.email) {
+        const source = booking.booking_source || 'app'
+        const moto = booking.motorcycles as { model?: string; manual_url?: string } | null
+        const profile = booking.profiles as { full_name?: string; email?: string }
+
+        try {
+          await fetch(`${SUPABASE_URL}/functions/v1/send-booking-email`, {
+            method: 'POST', headers,
+            body: JSON.stringify({
+              type: 'booking_reserved',
+              booking_id: bookingId,
+              customer_email: profile.email,
+              customer_name: profile.full_name || '',
+              motorcycle: moto?.model || '',
+              start_date: booking.start_date,
+              end_date: booking.end_date,
+              total_price: booking.total_price,
+              source: source,
+              manual_url: moto?.manual_url || '',
+            }),
+          })
+        } catch (_) { /* ignore */ }
+      }
     } catch (_) { /* doc gen is best-effort */ }
   } catch (err) {
     console.error('confirmBookingPayment error:', err)
