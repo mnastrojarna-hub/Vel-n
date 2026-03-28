@@ -87,6 +87,8 @@ Templates['s-register'] = `  <div class="reg-hdr">
 Templates['s-docs'] = `  <div class="docs-hdr">
     <div style="display:flex;align-items:center;gap:10px"><div class="bk-c" onclick="goTo('s-profile')" style="flex-shrink:0">←</div><div><h2>Moje doklady 📋</h2><p>Před první rezervací – stačí jednou</p></div></div>
   </div>
+  <div id="docs-verified-banner" style="display:none;"></div>
+  <div id="docs-unverified-section">
   <div style="margin:12px 20px 0;background:rgba(249,115,22,.1);border:2px solid rgba(249,115,22,.3);border-radius:var(--r);padding:13px;display:flex;gap:11px;">
     <div style="font-size:21px;flex-shrink:0;">⚠️</div>
     <div style="font-size:13px;color:#9a3412;font-weight:600;line-height:1.5;">Pro rezervaci motorky jsou nutné oba doklady. Data z dokladů se automaticky uloží do vašeho profilu.</div>
@@ -98,6 +100,7 @@ Templates['s-docs'] = `  <div class="docs-hdr">
   <div style="padding:14px 20px 0;">
     <button class="btn-g" onclick="openDocsProfileScan()">📷 Naskenovat doklady kamerou</button>
     <div style="margin-top:10px;"><button class="btn-out" onclick="handleDocUp()">📁 Nahrát z galerie</button></div>
+  </div>
   </div>
   <div class="doc-area" id="doc-area-wrap" style="display:none;">
     <div class="doc-prev" id="doc-prev"></div>

@@ -184,6 +184,10 @@ function goTo(id){
   if(id==='s-messages-thread'){
     if(typeof renderThreadChat==='function') renderThreadChat();
   }
+  if(id==='s-docs'){
+    if(typeof renderDocsScreenStatus==='function') renderDocsScreenStatus();
+    if(typeof renderDocs==='function') renderDocs();
+  }
   if(id==='s-invoices'){
     if(typeof _invResetCache==='function') _invResetCache();
     if(typeof renderInvoicesPage==='function') renderInvoicesPage();
