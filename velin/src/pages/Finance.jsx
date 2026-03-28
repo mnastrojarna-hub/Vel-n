@@ -2,14 +2,10 @@ import { useState, useEffect, lazy, Suspense } from 'react'
 import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
 import { useDebugMode } from '../hooks/useDebugMode'
-import Card from '../components/ui/Card'
-import Button from '../components/ui/Button'
-import Badge from '../components/ui/Badge'
-import Modal from '../components/ui/Modal'
-import { Table, TRow, TH, TD } from '../components/ui/Table'
 import ErrorBoundary from '../components/ErrorBoundary'
 import { classifyEntry } from '../lib/revenueUtils'
 import FinanceOverview from './FinanceOverview'
+import FinancePrehledTab from './FinancePrehledTab'
 
 // Lazy-load accounting tabs to isolate crashes
 const InvoicesTab = lazy(() => import('./accounting/InvoicesTab'))
@@ -27,18 +23,6 @@ const AutoOrdersTab = lazy(() => import('./accounting/AutoOrdersTab'))
 const InventoryTab = lazy(() => import('./Inventory'))
 const DeliveryNotesTab = lazy(() => import('./accounting/DeliveryNotesTab'))
 const ContractsTab = lazy(() => import('./accounting/ContractsTab'))
-
-const PERIODS = [
-  { value: 'month', label: 'Měsíc' },
-  { value: 'quarter', label: 'Kvartál' },
-  { value: 'year', label: 'Rok' },
-]
-
-const TYPES = [
-  { value: '', label: 'Vše' },
-  { value: 'revenue', label: 'Příjmy' },
-  { value: 'expense', label: 'Výdaje' },
-]
 
 const FINANCE_TABS = ['Přehled', 'Faktury', 'Dodací listy', 'Smlouvy', 'Objednávky', 'Účetnictví', 'Faktury přijaté', 'Pokladna', 'Sklad']
 
@@ -98,7 +82,6 @@ export default function Finance() {
       supabase.from('bookings').select('total_price').eq('status', 'completed').eq('payment_status', 'paid'),
       supabase.from('promo_code_usage').select('discount_amount'),
     ])
-    // Exclude cancelled/refunded invoices from sums
     const invs = (invRes.data || []).filter(i => i.status !== 'cancelled' && i.status !== 'refunded')
     const zf = invs.filter(i => ['advance', 'proforma'].includes(i.type)).reduce((s, i) => s + (i.total || 0), 0)
     const dp = invs.filter(i => i.type === 'payment_receipt').reduce((s, i) => s + (i.total || 0), 0)
@@ -169,10 +152,8 @@ export default function Finance() {
     const { data, error: err } = await query
     if (err) throw err
     let results = data || []
-    // Collect unique categories
     const cats = [...new Set(results.map(r => r.category).filter(Boolean))].sort()
     setCategories(cats)
-    // Apply classification and filter
     results = results.map(r => ({ ...r, _classified: classifyEntry(r) }))
     if (filters.types?.length > 0) {
       results = results.filter(r => filters.types.includes(r._classified))
@@ -225,7 +206,6 @@ export default function Finance() {
   }
 
   const fmt = (n) => (n || 0).toLocaleString('cs-CZ') + ' Kč'
-  const profit = summary.revenue - summary.expense
 
   const TabLoader = () => (
     <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
@@ -282,9 +262,16 @@ export default function Finance() {
       )}
       </Suspense>
 
-      {activeTab === 'Přehled' && <>
-        <FinanceOverview filters={filters} setFilters={setFilters} defaultFilters={defaultFilters} categories={categories} summary={summary} chartData={chartData} transactions={transactions} recentInvoices={recentInvoices} shopPayments={shopPayments} invoiceSums={invoiceSums} loading={loading} error={error} detailTx={detailTx} setDetailTx={setDetailTx} fmt={fmt} handleExport={handleExport} debugMode={debugMode} />
-      </>}
+      {activeTab === 'Přehled' && (
+        <FinancePrehledTab
+          filters={filters} setFilters={setFilters} categories={categories}
+          summary={summary} chartData={chartData} recentInvoices={recentInvoices}
+          shopPayments={shopPayments} invoiceSums={invoiceSums}
+          transactions={transactions} detailTx={detailTx} setDetailTx={setDetailTx}
+          handleExport={handleExport} error={error} loading={loading}
+          debugMode={debugMode} fmt={fmt}
+        />
+      )}
     </div>
     </ErrorBoundary>
   )

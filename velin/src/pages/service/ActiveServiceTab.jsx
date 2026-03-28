@@ -7,6 +7,7 @@ import StatusBadge from '../../components/ui/StatusBadge'
 import MotoActionModal from '../../components/fleet/MotoActionModal'
 import ScheduleServiceModal from './ScheduleServiceModal'
 import ServiceLogCard from './ServiceLogCard'
+import { Section, MotoCard, UnavailableMotoCard, NoLogCard } from './ActiveServiceCards'
 
 const TIME_FILTERS = [
   { key: 'today', label: 'Dnes' },
@@ -312,21 +313,7 @@ export default function ActiveServiceTab({ onRefresh }) {
   )
 }
 
-/* ═══ Section wrapper ═══ */
-function Section({ title, color, bg, border, count, subtitle, children }) {
-  return (
-    <div>
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-sm font-extrabold uppercase tracking-widest" style={{ color }}>{title}</span>
-        <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: bg, color, border: `1px solid ${border}` }}>{count}</span>
-        {subtitle && <span className="text-xs" style={{ color: '#6b7280' }}>{subtitle}</span>}
-      </div>
-      <div className="space-y-3">
-        {children}
-      </div>
-    </div>
-  )
-}
+/* Section, MotoCard, UnavailableMotoCard, NoLogCard extracted to ./ActiveServiceCards.jsx */
 
 /* ═══ Standard MotoCard (maintenance / stuck) ═══ */
 function MotoCard({ m, logs: mLogs, expanded, setExpanded, onAction, onReload, upcoming }) {
