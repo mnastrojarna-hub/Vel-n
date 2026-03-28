@@ -7,6 +7,8 @@ import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 
 import RadioOption from './RadioOption'
+import ManualSendPreview from './ManualSendPreview'
+import { BulkSegmentSelector, SingleCustomerField } from './CustomerSearchField'
 import {
   CHANNEL_LABELS, CHAR_LIMITS, BULK_SEGMENTS, COUNTRY_OPTIONS, LANGUAGE_OPTIONS,
   calcSmsSegments, extractVariables, replaceVariables,
@@ -342,136 +344,10 @@ export default function ManualSendTab({ channel }) {
             </div>
           </div>
 
-          {/* 1. Příjemce */}
           {sendType === 'bulk' ? (
-            <div className="space-y-3">
-              <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>
-                Skupina příjemců
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                {BULK_SEGMENTS.map(s => (
-                  <div
-                    key={s.value}
-                    onClick={() => setBulkSegment(s.value)}
-                    className="cursor-pointer rounded-card"
-                    style={{
-                      padding: 10,
-                      border: bulkSegment === s.value ? '2px solid #74FB71' : '2px solid #d4e8e0',
-                      background: bulkSegment === s.value ? '#f0fdf0' : '#fff',
-                    }}
-                  >
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span style={{ fontSize: 16 }}>{s.icon}</span>
-                      <span className="text-sm font-bold" style={{ color: '#0f1a14' }}>{s.label}</span>
-                    </div>
-                    <div style={{ fontSize: 11, color: '#6b7280' }}>{s.desc}</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Filtry */}
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <label className="block text-sm font-bold mb-1" style={{ color: '#1a2e22' }}>Země</label>
-                  <select
-                    value={bulkCountry}
-                    onChange={e => setBulkCountry(e.target.value)}
-                    className="w-full rounded-btn text-sm outline-none cursor-pointer"
-                    style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}
-                  >
-                    {COUNTRY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                </div>
-                <div className="flex-1">
-                  <label className="block text-sm font-bold mb-1" style={{ color: '#1a2e22' }}>Jazyk</label>
-                  <select
-                    value={bulkLanguage}
-                    onChange={e => setBulkLanguage(e.target.value)}
-                    className="w-full rounded-btn text-sm outline-none cursor-pointer"
-                    style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}
-                  >
-                    {LANGUAGE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              {/* Počet příjemců */}
-              <div className="flex items-center gap-2">
-                {bulkCountLoading ? (
-                  <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-brand-gd" />
-                ) : (
-                  <>
-                    <span style={{ fontSize: 20 }}>👥</span>
-                    <span className="text-xl font-black" style={{ color: '#1a8a18' }}>{bulkRecipientCount}</span>
-                    <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>příjemců</span>
-                  </>
-                )}
-              </div>
-            </div>
+            <BulkSegmentSelector bulkSegment={bulkSegment} setBulkSegment={setBulkSegment} bulkCountry={bulkCountry} setBulkCountry={setBulkCountry} bulkLanguage={bulkLanguage} setBulkLanguage={setBulkLanguage} bulkCountLoading={bulkCountLoading} bulkRecipientCount={bulkRecipientCount} />
           ) : (
-          <div>
-            <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>
-              Příjemce
-            </label>
-
-            {selectedCustomer ? (
-              <div className="flex items-center gap-3 rounded-btn" style={{ padding: '10px 14px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-                <div className="flex-1">
-                  <div className="text-sm font-bold" style={{ color: '#0f1a14' }}>{selectedCustomer.full_name || 'Bez jména'}</div>
-                  <div className="flex gap-4 mt-0.5" style={{ fontSize: 12, color: '#1a2e22' }}>
-                    {selectedCustomer.phone && <span>📱 {selectedCustomer.phone}</span>}
-                    {selectedCustomer.email && <span>📧 {selectedCustomer.email}</span>}
-                  </div>
-                </div>
-                <button onClick={clearCustomer}
-                  className="cursor-pointer border-none rounded-btn text-sm font-bold"
-                  style={{ padding: '4px 10px', background: '#fee2e2', color: '#dc2626' }}>
-                  Změnit
-                </button>
-              </div>
-            ) : (
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Hledat jméno, email, telefon…"
-                  value={customerSearch}
-                  onChange={e => setCustomerSearch(e.target.value)}
-                  className="w-full rounded-btn text-sm outline-none"
-                  style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}
-                />
-                {/* Dropdown results */}
-                {(customers.length > 0 || loadingCustomers) && customerSearch.trim() && (
-                  <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-card shadow-card z-10"
-                    style={{ border: '1px solid #d4e8e0', maxHeight: 240, overflow: 'auto' }}>
-                    {loadingCustomers ? (
-                      <div className="flex justify-center py-3">
-                        <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-brand-gd" />
-                      </div>
-                    ) : (
-                      customers.map(c => (
-                        <div key={c.id} onClick={() => selectCustomer(c)}
-                          className="cursor-pointer transition-colors"
-                          style={{ padding: '8px 12px', borderBottom: '1px solid #f1faf7' }}
-                          onMouseEnter={e => e.currentTarget.style.background = '#f1faf7'}
-                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                          <div className="text-sm font-bold" style={{ color: '#0f1a14' }}>{c.full_name || 'Bez jména'}</div>
-                          <div style={{ fontSize: 11, color: '#1a2e22' }}>
-                            {c.phone && `📱 ${c.phone}`}{c.phone && c.email && ' · '}{c.email && `📧 ${c.email}`}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {recipientWarning && (
-              <div className="mt-1 text-sm font-bold" style={{ color: '#dc2626' }}>
-                ⚠ {recipientWarning}
-              </div>
-            )}
-          </div>
+            <SingleCustomerField selectedCustomer={selectedCustomer} clearCustomer={clearCustomer} customerSearch={customerSearch} setCustomerSearch={setCustomerSearch} customers={customers} loadingCustomers={loadingCustomers} selectCustomer={selectCustomer} recipientWarning={recipientWarning} />
           )}
 
           {/* 2. Způsob */}
@@ -599,54 +475,7 @@ export default function ManualSendTab({ channel }) {
             Náhled
           </div>
 
-          {finalText ? (
-            <div>
-              {/* SMS bubble preview */}
-              {channel === 'sms' && (
-                <div>
-                  <div className="rounded-card" style={{ padding: '14px 16px', background: '#dcfce7', color: '#0f1a14', fontSize: 13, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word', borderRadius: '16px 16px 4px 16px', maxHeight: 300, overflow: 'auto' }}>
-                    {finalText}
-                  </div>
-                  <div className="mt-2 space-y-0.5" style={{ fontSize: 11, color: '#1a2e22' }}>
-                    <div>{smsInfo.chars} znaků · {smsInfo.isUcs2 ? 'UCS-2 (diakritika)' : 'GSM 7-bit'}</div>
-                    <div>{smsInfo.segments} {smsInfo.segments === 1 ? 'segment' : smsInfo.segments < 5 ? 'segmenty' : 'segmentů'} ({smsInfo.perSegment} znaků/segment)</div>
-                    <div>Odhadovaná cena: ~{(smsInfo.segments * 0.5).toFixed(1)} Kč</div>
-                  </div>
-                </div>
-              )}
-
-              {/* WhatsApp bubble preview */}
-              {channel === 'whatsapp' && (
-                <div>
-                  <div className="rounded-card" style={{ padding: '10px 14px', background: '#e7feed', color: '#0f1a14', fontSize: 13, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word', borderRadius: '16px 16px 4px 16px', maxHeight: 300, overflow: 'auto' }}>
-                    {finalText}
-                  </div>
-                  <div className="mt-2" style={{ fontSize: 11, color: '#1a2e22' }}>
-                    {finalText.length} / {CHAR_LIMITS.whatsapp} znaků
-                  </div>
-                </div>
-              )}
-
-              {/* Email preview */}
-              {channel === 'email' && (
-                <div className="rounded-card" style={{ background: '#fff', border: '1px solid #d4e8e0', overflow: 'hidden' }}>
-                  {subject && (
-                    <div className="text-sm font-bold" style={{ padding: '8px 12px', borderBottom: '1px solid #d4e8e0', color: '#0f1a14' }}>
-                      {subject}
-                    </div>
-                  )}
-                  <div style={{ padding: '10px 12px', fontSize: 13, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: '#0f1a14', maxHeight: 300, overflow: 'auto' }}>
-                    {finalText}
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="rounded-card flex items-center justify-center"
-              style={{ padding: 24, background: '#f1faf7', border: '1px dashed #d4e8e0', color: '#1a2e22', fontSize: 12, minHeight: 120 }}>
-              Začněte psát pro zobrazení náhledu
-            </div>
-          )}
+          <ManualSendPreview channel={channel} finalText={finalText} subject={subject} smsInfo={smsInfo} />
         </div>
       </div>
 

@@ -6,6 +6,7 @@ import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 import Card from '../../components/ui/Card'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
+import { CampaignStep2, CampaignStep3, CampaignStep4 } from './CampaignSteps'
 
 import {
   CHANNEL_LABELS, COUNTRY_OPTIONS, LANGUAGE_OPTIONS,
@@ -320,45 +321,8 @@ export default function CampaignCreateModal({ open, channel, onClose, onCreated 
         </div>
       )}
 
-      {/* Step 2 — Segment příjemců */}
       {step === 2 && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            {SEGMENTS.map(s => (
-              <div
-                key={s.value}
-                onClick={() => setSegment(s.value)}
-                className="cursor-pointer rounded-card"
-                style={{
-                  padding: 12,
-                  border: segment === s.value ? '2px solid #74FB71' : '2px solid #d4e8e0',
-                  background: segment === s.value ? '#f0fdf0' : '#fff',
-                }}
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <span style={{ fontSize: 20 }}>{s.icon}</span>
-                  <span className="text-sm font-extrabold" style={{ color: '#0f1a14' }}>{s.label}</span>
-                </div>
-                <div style={{ fontSize: 12, color: '#6b7280' }}>{s.desc}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Filtry: země a jazyk */}
-          <div>
-            <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>
-              Filtrovat podle
-            </div>
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <label className="block text-sm font-bold mb-1" style={{ color: '#1a2e22' }}>Země původu</label>
-                <select
-                  value={filterCountry}
-                  onChange={e => setFilterCountry(e.target.value)}
-                  className="w-full rounded-btn text-sm outline-none cursor-pointer"
-                  style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}
-                >
-                  {COUNTRY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        <CampaignStep2 segment={segment} setSegment={setSegment} segments={SEGMENTS} filterCountry={filterCountry} setFilterCountry={setFilterCountry} filterLanguage={filterLanguage} setFilterLanguage={setFilterLanguage} recipientCountLoading={recipientCountLoading} recipientCount={recipientCount} channel={channel} />
                 </select>
               </div>
               <div className="flex-1">
@@ -423,199 +387,12 @@ export default function CampaignCreateModal({ open, channel, onClose, onCreated 
         </div>
       )}
 
-      {/* Step 3 — Náhled a proměnné */}
       {step === 3 && (
-        <div className="space-y-4">
-          {/* Template variables */}
-          {variables.length > 0 && (
-            <div>
-              <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>
-                Proměnné šablony
-              </div>
-              <div className="space-y-2">
-                {variables.map(v => (
-                  <div key={v}>
-                    <label className="block text-sm font-bold mb-0.5" style={{ color: '#1a2e22' }}>
-                      {`{{${v}}}`}
-                    </label>
-                    <input
-                      type="text"
-                      value={templateVars[v] || ''}
-                      onChange={e => setTemplateVars(prev => ({ ...prev, [v]: e.target.value }))}
-                      placeholder={`Hodnota pro ${v}…`}
-                      className="w-full rounded-btn text-sm outline-none"
-                      style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0' }}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Message preview (dark card) */}
-          <div>
-            <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>
-              Náhled zprávy
-            </div>
-            <div className="rounded-card" style={{ padding: 16, background: '#1a2e22', color: '#74FB71', fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap', fontFamily: 'monospace', maxHeight: 200, overflow: 'auto' }}>
-              {previewText || '(prázdná šablona)'}
-            </div>
-          </div>
-
-          {/* Price estimate */}
-          <div className="text-sm font-bold" style={{ color: '#1a8a18' }}>
-            {estimatePrice()}
-          </div>
-
-          {/* Sample recipients */}
-          {sampleRecipients.length > 0 && (
-            <div>
-              <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>
-                Ukázka příjemců
-              </div>
-              <Table>
-                <thead>
-                  <TRow header>
-                    <TH>Jméno</TH>
-                    <TH>{channel === 'email' ? 'Email' : 'Telefon'}</TH>
-                    <TH>Země</TH>
-                    <TH>Jazyk</TH>
-                  </TRow>
-                </thead>
-                <tbody>
-                  {sampleRecipients.map(r => (
-                    <TRow key={r.id}>
-                      <TD>{r.full_name || '—'}</TD>
-                      <TD mono>{channel === 'email' ? r.email : r.phone || '—'}</TD>
-                      <TD>{r.country || '—'}</TD>
-                      <TD>{r.language || '—'}</TD>
-                    </TRow>
-                  ))}
-                </tbody>
-              </Table>
-              {recipientCount > 5 && (
-                <div className="text-center mt-1" style={{ fontSize: 12, color: '#6b7280' }}>
-                  …a dalších {recipientCount - 5} příjemců
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        <CampaignStep3 variables={variables} templateVars={templateVars} setTemplateVars={setTemplateVars} previewText={previewText} estimatePrice={estimatePrice} sampleRecipients={sampleRecipients} recipientCount={recipientCount} channel={channel} />
       )}
 
-      {/* Step 4 — Odeslání */}
       {step === 4 && (
-        <div className="space-y-4">
-          {/* Rekapitulace */}
-          <Card>
-            <div className="space-y-2" style={{ fontSize: 13 }}>
-              <div className="flex gap-2">
-                <span className="font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22', minWidth: 100 }}>Kampaň:</span>
-                <span className="font-bold" style={{ color: '#0f1a14' }}>{name}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22', minWidth: 100 }}>Kanál:</span>
-                <Badge label={CHANNEL_LABELS[channel]} color="#2563eb" bg="#dbeafe" />
-              </div>
-              <div className="flex gap-2">
-                <span className="font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22', minWidth: 100 }}>Šablona:</span>
-                <span style={{ color: '#0f1a14' }}>{selectedTemplate?.name || '—'}</span>
-              </div>
-              <div className="flex gap-2">
-                <span className="font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22', minWidth: 100 }}>Příjemci:</span>
-                <span className="font-bold" style={{ color: '#1a8a18' }}>{recipientCount}</span>
-              </div>
-              <div className="flex gap-2">
-                <span className="font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22', minWidth: 100 }}>Odhad ceny:</span>
-                <span className="font-bold" style={{ color: '#1a8a18' }}>{estimatePrice()}</span>
-              </div>
-            </div>
-          </Card>
-
-          {/* Způsob odeslání */}
-          <div>
-            <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>
-              Způsob odeslání
-            </div>
-            <div className="flex gap-3">
-              <div
-                onClick={() => setScheduleMode('now')}
-                className="cursor-pointer rounded-card flex-1"
-                style={{
-                  padding: 12,
-                  border: scheduleMode === 'now' ? '2px solid #74FB71' : '2px solid #d4e8e0',
-                  background: scheduleMode === 'now' ? '#f0fdf0' : '#fff',
-                }}
-              >
-                <div className="flex items-center gap-2">
-                  <span style={{ fontSize: 18 }}>🚀</span>
-                  <span className="text-sm font-extrabold" style={{ color: '#0f1a14' }}>Odeslat ihned</span>
-                </div>
-              </div>
-              <div
-                onClick={() => setScheduleMode('scheduled')}
-                className="cursor-pointer rounded-card flex-1"
-                style={{
-                  padding: 12,
-                  border: scheduleMode === 'scheduled' ? '2px solid #74FB71' : '2px solid #d4e8e0',
-                  background: scheduleMode === 'scheduled' ? '#f0fdf0' : '#fff',
-                }}
-              >
-                <div className="flex items-center gap-2">
-                  <span style={{ fontSize: 18 }}>📅</span>
-                  <span className="text-sm font-extrabold" style={{ color: '#0f1a14' }}>Naplánovat</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Date/time pickers for scheduled */}
-          {scheduleMode === 'scheduled' && (
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Datum</label>
-                <input
-                  type="date"
-                  value={scheduledAt ? scheduledAt.split('T')[0] : ''}
-                  onChange={e => {
-                    const time = scheduledAt ? scheduledAt.split('T')[1] || '09:00' : '09:00'
-                    setScheduledAt(e.target.value + 'T' + time)
-                  }}
-                  className="w-full rounded-btn text-sm outline-none"
-                  style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}
-                />
-              </div>
-              <div className="flex-1">
-                <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Čas</label>
-                <input
-                  type="time"
-                  value={scheduledAt ? scheduledAt.split('T')[1] || '09:00' : '09:00'}
-                  onChange={e => {
-                    const date = scheduledAt ? scheduledAt.split('T')[0] : new Date().toISOString().split('T')[0]
-                    setScheduledAt(date + 'T' + e.target.value)
-                  }}
-                  className="w-full rounded-btn text-sm outline-none"
-                  style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Confirmation checkbox */}
-          <label className="flex items-start gap-3 cursor-pointer rounded-card" style={{ padding: 12, background: confirmed ? '#f0fdf0' : '#f8fcfa', border: confirmed ? '2px solid #74FB71' : '2px solid #d4e8e0' }}>
-            <input
-              type="checkbox"
-              checked={confirmed}
-              onChange={e => setConfirmed(e.target.checked)}
-              className="accent-[#1a8a18] mt-0.5"
-              style={{ width: 18, height: 18 }}
-            />
-            <span className="text-sm" style={{ color: '#1a2e22', lineHeight: 1.5 }}>
-              ✅ Rozumím, že odesílám <strong>{recipientCount}</strong> marketingových zpráv přes <strong>{CHANNEL_LABELS[channel]}</strong>.
-              Tuto akci nelze vrátit zpět.
-            </span>
-          </label>
-        </div>
+        <CampaignStep4 name={name} channel={channel} selectedTemplate={selectedTemplate} recipientCount={recipientCount} estimatePrice={estimatePrice} scheduleMode={scheduleMode} setScheduleMode={setScheduleMode} scheduledAt={scheduledAt} setScheduledAt={setScheduledAt} confirmed={confirmed} setConfirmed={setConfirmed} />
       )}
 
       {/* Footer buttons */}
