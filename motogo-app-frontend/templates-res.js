@@ -18,12 +18,12 @@ Templates['s-res'] = `  <div class="res-hdr">
       <h2 id="t-myRes" style="font-size:16px;font-weight:900;color:#fff;text-align:right;margin:0;">Moje rezervace</h2>
     </div>
   </div>
-  <div style="padding:9px 20px 4px;display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;">
-    <div class="chip active" id="t-resAll" onclick="filterRes(this,'all')">Vše</div>
-    <div class="chip" id="t-resActive" onclick="filterRes(this,'aktivni')">Aktivní</div>
-    <div class="chip" id="t-resUpcoming" onclick="filterRes(this,'nadchazejici')">Nadcházející</div>
-    <div class="chip" id="t-resDone" onclick="filterRes(this,'dokoncene')">Dokončené</div>
-    <div class="chip" id="t-resCancelled" onclick="filterRes(this,'cancelled')">Zrušené</div>
+  <div style="padding:9px 20px 4px;display:flex;gap:6px;flex-wrap:wrap;">
+    <div class="chip active" id="t-resAll" onclick="filterRes(this,'all')" style="padding:6px 11px;font-size:11px;">Vše</div>
+    <div class="chip" id="t-resActive" onclick="filterRes(this,'aktivni')" style="padding:6px 11px;font-size:11px;">Aktivní</div>
+    <div class="chip" id="t-resUpcoming" onclick="filterRes(this,'nadchazejici')" style="padding:6px 11px;font-size:11px;">Nadcházející</div>
+    <div class="chip" id="t-resDone" onclick="filterRes(this,'dokoncene')" style="padding:6px 11px;font-size:11px;">Dokončené</div>
+    <div class="chip" id="t-resCancelled" onclick="filterRes(this,'cancelled')" style="padding:6px 11px;font-size:11px;">Zrušené</div>
   </div>
   <div style="padding:4px 20px 0;display:flex;gap:8px;align-items:center;">
     <div style="flex:1;position:relative;">
