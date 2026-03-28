@@ -76,7 +76,7 @@ export default function BookingSummary({ booking, sosIncidents, bookingExtras, c
       {b.extras_price > 0 && <SumRow label="Příslušenství" value={`${b.extras_price.toLocaleString('cs-CZ')} Kč`} />}
       {b.delivery_fee > 0 && <SumRow label="Doručení" value={`${b.delivery_fee.toLocaleString('cs-CZ')} Kč`} />}
       {b.discount_amount > 0 && <SumRow label="Sleva" value={`-${Number(b.discount_amount).toLocaleString('cs-CZ')} Kč${b.discount_code ? ` (${b.discount_code})` : ''}`} color="#1a8a18" />}
-      <SumRow label="Stav platby" value={b.payment_status === 'paid' ? 'Zaplaceno' : 'Nezaplaceno'} color={b.payment_status === 'paid' ? '#1a8a18' : '#dc2626'} />
+      <SumRow label="Stav platby" value={b.payment_status === 'paid' && b.status !== 'pending' ? 'Zaplaceno' : 'Nezaplaceno'} color={b.payment_status === 'paid' && b.status !== 'pending' ? '#1a8a18' : '#dc2626'} />
       {b.payment_method && <SumRow label="Způsob platby" value={b.payment_method} />}
       {b.deposit > 0 && <SumRow label="Kauce" value={`${Number(b.deposit).toLocaleString('cs-CZ')} Kč`} />}
 

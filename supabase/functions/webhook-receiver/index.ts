@@ -232,9 +232,24 @@ async function confirmBookingPayment(
 
     if (error) {
       console.error('confirm_payment RPC failed:', error.message)
-      // Fallback: direct update
+      // Fallback: direct update — replicate confirm_payment RPC logic
+      // start_date <= today → active (+picked_up_at), start_date > today → reserved (+confirmed_at)
+      const { data: bk } = await supabase.from('bookings')
+        .select('start_date')
+        .eq('id', bookingId)
+        .single()
+      const today = new Date().toISOString().slice(0, 10)
+      const startDate = bk?.start_date || today
+      const isToday = startDate <= today
       await supabase.from('bookings')
-        .update({ payment_status: 'paid', payment_method: 'card' })
+        .update({
+          payment_status: 'paid',
+          payment_method: 'card',
+          status: isToday ? 'active' : 'reserved',
+          ...(isToday
+            ? { picked_up_at: new Date().toISOString() }
+            : { confirmed_at: new Date().toISOString() }),
+        })
         .eq('id', bookingId)
     }
 
