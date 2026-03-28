@@ -57,13 +57,15 @@ Deno.serve(async (req: Request) => {
       )
     } catch (err) {
       console.error('Webhook signature verification failed:', (err as Error).message)
-      await supabase.from('debug_log').insert({
-        source: 'webhook-receiver',
-        action: 'signature_verification_failed',
-        component: 'stripe',
-        status: 'error',
-        error_message: (err as Error).message,
-      }).catch(() => {})
+      try {
+        await supabase.from('debug_log').insert({
+          source: 'webhook-receiver',
+          action: 'signature_verification_failed',
+          component: 'stripe',
+          status: 'error',
+          error_message: (err as Error).message,
+        })
+      } catch (_) { /* ignore */ }
       return new Response(
         JSON.stringify({ error: 'Invalid signature' }),
         { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
@@ -71,13 +73,15 @@ Deno.serve(async (req: Request) => {
     }
 
     // Log incoming webhook
-    await supabase.from('debug_log').insert({
-      source: 'webhook-receiver',
-      action: 'webhook_received',
-      component: 'stripe',
-      status: 'ok',
-      request_data: { event_type: event.type, event_id: event.id },
-    }).catch(() => {})
+    try {
+      await supabase.from('debug_log').insert({
+        source: 'webhook-receiver',
+        action: 'webhook_received',
+        component: 'stripe',
+        status: 'ok',
+        request_data: { event_type: event.type, event_id: event.id },
+      })
+    } catch (_) { /* ignore */ }
 
     // Handle events
     if (event.type === 'checkout.session.completed') {
@@ -184,13 +188,15 @@ Deno.serve(async (req: Request) => {
     })
   } catch (err) {
     console.error('Webhook error:', err)
-    await supabase.from('debug_log').insert({
-      source: 'webhook-receiver',
-      action: 'webhook_error',
-      component: 'stripe',
-      status: 'error',
-      error_message: (err as Error).message,
-    }).catch(() => {})
+    try {
+      await supabase.from('debug_log').insert({
+        source: 'webhook-receiver',
+        action: 'webhook_error',
+        component: 'stripe',
+        status: 'error',
+        error_message: (err as Error).message,
+      })
+    } catch (_) { /* ignore */ }
 
     return new Response(
       JSON.stringify({ error: 'Webhook processing failed' }),
@@ -212,15 +218,17 @@ async function confirmBookingPayment(
       p_method: 'card',
     })
 
-    await supabase.from('debug_log').insert({
-      source: 'webhook-receiver',
-      action: 'confirm_booking_payment',
-      component: 'stripe',
-      status: error ? 'error' : 'ok',
-      request_data: { booking_id: bookingId, transaction_id: transactionId },
-      response_data: data,
-      error_message: error?.message || null,
-    }).catch(() => {})
+    try {
+      await supabase.from('debug_log').insert({
+        source: 'webhook-receiver',
+        action: 'confirm_booking_payment',
+        component: 'stripe',
+        status: error ? 'error' : 'ok',
+        request_data: { booking_id: bookingId, transaction_id: transactionId },
+        response_data: data,
+        error_message: error?.message || null,
+      })
+    } catch (_) { /* ignore */ }
 
     if (error) {
       console.error('confirm_payment RPC failed:', error.message)
@@ -232,13 +240,14 @@ async function confirmBookingPayment(
 
     // Save Stripe IDs for future refunds
     if (stripePaymentIntentId) {
-      await supabase.from('bookings')
-        .update({
-          stripe_payment_intent_id: stripePaymentIntentId,
-          stripe_session_id: transactionId,
-        })
-        .eq('id', bookingId)
-        .catch(() => {})
+      try {
+        await supabase.from('bookings')
+          .update({
+            stripe_payment_intent_id: stripePaymentIntentId,
+            stripe_session_id: transactionId,
+          })
+          .eq('id', bookingId)
+      } catch (_) { /* ignore */ }
     }
 
     // Auto-generate documents (non-blocking, best-effort)
@@ -250,18 +259,22 @@ async function confirmBookingPayment(
         .select('id').eq('booking_id', bookingId)
         .in('type', ['advance', 'proforma']).limit(1)
       if (!existingZf?.length) {
-        await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY },
-          body: JSON.stringify({ type: 'advance', booking_id: bookingId }),
-        }).catch(() => {})
+        try {
+          await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY },
+            body: JSON.stringify({ type: 'advance', booking_id: bookingId }),
+          })
+        } catch (_) { /* ignore */ }
       }
       // Generate contract + VOP
-      await fetch(`${SUPABASE_URL}/functions/v1/generate-document`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY },
-        body: JSON.stringify({ type: 'rental_contract', booking_id: bookingId }),
-      }).catch(() => {})
+      try {
+        await fetch(`${SUPABASE_URL}/functions/v1/generate-document`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY },
+          body: JSON.stringify({ type: 'rental_contract', booking_id: bookingId }),
+        })
+      } catch (_) { /* ignore */ }
     } catch (_) { /* doc gen is best-effort */ }
   } catch (err) {
     console.error('confirmBookingPayment error:', err)
@@ -293,14 +306,16 @@ async function confirmSosPayment(
       .update(updateData)
       .eq('id', bookingId)
 
-    await supabase.from('debug_log').insert({
-      source: 'webhook-receiver',
-      action: 'confirm_sos_payment',
-      component: 'stripe',
-      status: error ? 'error' : 'ok',
-      request_data: { booking_id: bookingId, incident_id: incidentId, transaction_id: transactionId },
-      error_message: error?.message || null,
-    }).catch(() => {})
+    try {
+      await supabase.from('debug_log').insert({
+        source: 'webhook-receiver',
+        action: 'confirm_sos_payment',
+        component: 'stripe',
+        status: error ? 'error' : 'ok',
+        request_data: { booking_id: bookingId, incident_id: incidentId, transaction_id: transactionId },
+        error_message: error?.message || null,
+      })
+    } catch (_) { /* ignore */ }
 
     if (error) {
       console.error('SOS booking update failed:', error.message)
@@ -355,14 +370,16 @@ async function ingestFinancialEvent(
 
     if (error) {
       console.error('Failed to insert financial_event:', error.message)
-      await supabase.from('debug_log').insert({
-        source: 'webhook-receiver',
-        action: 'financial_event_insert_failed',
-        component: 'stripe',
-        status: 'error',
-        request_data: eventData,
-        error_message: error.message,
-      }).catch(() => {})
+      try {
+        await supabase.from('debug_log').insert({
+          source: 'webhook-receiver',
+          action: 'financial_event_insert_failed',
+          component: 'stripe',
+          status: 'error',
+          request_data: eventData,
+          error_message: error.message,
+        })
+      } catch (_) { /* ignore */ }
     }
   } catch (err) {
     console.error('ingestFinancialEvent error:', err)
@@ -382,15 +399,17 @@ async function confirmShopPayment(
       p_method: 'card',
     })
 
-    await supabase.from('debug_log').insert({
-      source: 'webhook-receiver',
-      action: 'confirm_shop_payment',
-      component: 'stripe',
-      status: error ? 'error' : 'ok',
-      request_data: { order_id: orderId, transaction_id: transactionId },
-      response_data: data,
-      error_message: error?.message || null,
-    }).catch(() => {})
+    try {
+      await supabase.from('debug_log').insert({
+        source: 'webhook-receiver',
+        action: 'confirm_shop_payment',
+        component: 'stripe',
+        status: error ? 'error' : 'ok',
+        request_data: { order_id: orderId, transaction_id: transactionId },
+        response_data: data,
+        error_message: error?.message || null,
+      })
+    } catch (_) { /* ignore */ }
 
     if (error) {
       console.error('confirm_shop_payment RPC failed:', error.message)
@@ -402,13 +421,14 @@ async function confirmShopPayment(
 
     // Save Stripe IDs for future refunds
     if (stripePaymentIntentId) {
-      await supabase.from('shop_orders')
-        .update({
-          stripe_payment_intent_id: stripePaymentIntentId,
-          stripe_session_id: transactionId,
-        })
-        .eq('id', orderId)
-        .catch(() => {})
+      try {
+        await supabase.from('shop_orders')
+          .update({
+            stripe_payment_intent_id: stripePaymentIntentId,
+            stripe_session_id: transactionId,
+          })
+          .eq('id', orderId)
+      } catch (_) { /* ignore */ }
     }
   } catch (err) {
     console.error('confirmShopPayment error:', err)
@@ -451,13 +471,15 @@ async function syncCardFromSetupSession(
       is_default: false,
     }, { onConflict: 'stripe_payment_method_id' })
 
-    await supabase.from('debug_log').insert({
-      source: 'webhook-receiver',
-      action: 'card_saved_from_setup',
-      component: 'stripe',
-      status: 'ok',
-      request_data: { user_id: userId, pm_id: pm.id, brand: pm.card?.brand, last4: pm.card?.last4 },
-    }).catch(() => {})
+    try {
+      await supabase.from('debug_log').insert({
+        source: 'webhook-receiver',
+        action: 'card_saved_from_setup',
+        component: 'stripe',
+        status: 'ok',
+        request_data: { user_id: userId, pm_id: pm.id, brand: pm.card?.brand, last4: pm.card?.last4 },
+      })
+    } catch (_) { /* ignore */ }
   } catch (e) {
     console.error('syncCardFromSetupSession error:', e)
   }

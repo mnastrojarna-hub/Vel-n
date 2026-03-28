@@ -265,7 +265,9 @@ Deno.serve(async (req: Request) => {
       }))
 
       // Sync to Supabase table (non-blocking)
-      syncCardsToSupabase(supabase, user.id, customerId).catch(() => {})
+      try {
+        await syncCardsToSupabase(supabase, user.id, customerId)
+      } catch (_) { /* ignore */ }
 
       return new Response(
         JSON.stringify({ success: true, action: 'list', methods: cards }),
@@ -292,10 +294,11 @@ Deno.serve(async (req: Request) => {
       await stripe.paymentMethods.detach(payment_method_id)
 
       // Remove from Supabase table
-      await supabase.from('payment_methods')
-        .delete()
-        .eq('stripe_payment_method_id', payment_method_id)
-        .catch(() => {})
+      try {
+        await supabase.from('payment_methods')
+          .delete()
+          .eq('stripe_payment_method_id', payment_method_id)
+      } catch (_) { /* ignore */ }
 
       return new Response(
         JSON.stringify({ success: true, action: 'delete' }),
@@ -316,14 +319,16 @@ Deno.serve(async (req: Request) => {
       })
 
       // Update default flag in Supabase table
-      await supabase.from('payment_methods')
-        .update({ is_default: false })
-        .eq('user_id', user.id)
-        .catch(() => {})
-      await supabase.from('payment_methods')
-        .update({ is_default: true })
-        .eq('stripe_payment_method_id', payment_method_id)
-        .catch(() => {})
+      try {
+        await supabase.from('payment_methods')
+          .update({ is_default: false })
+          .eq('user_id', user.id)
+      } catch (_) { /* ignore */ }
+      try {
+        await supabase.from('payment_methods')
+          .update({ is_default: true })
+          .eq('stripe_payment_method_id', payment_method_id)
+      } catch (_) { /* ignore */ }
 
       return new Response(
         JSON.stringify({ success: true, action: 'set_default' }),
