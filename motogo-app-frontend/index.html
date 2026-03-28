@@ -276,6 +276,12 @@ window.MOTOGO_CONFIG = {
 <script src="js/scanner-ui.js?v=1"></script>
 <script src="js/scan-flow.js?v=1"></script>
 <!-- AI Agent (servisní technik) -->
+<!-- SOS core (defines _sosCurrentBookingId + functions) — must load before ai-agent -->
+<script src="ui-sos-core.js?v=1"></script>
+<script src="ui-sos-completion.js?v=1"></script>
+<script src="ui-sos-replacement.js?v=1"></script>
+<script src="templates-sos-payment.js?v=1"></script>
+
 <script src="js/ai-agent-ui.js?v=1"></script>
 <script src="js/ai-agent-photos.js?v=1"></script>
 <script src="js/ai-agent-send.js?v=1"></script>
