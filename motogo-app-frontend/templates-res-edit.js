@@ -75,6 +75,9 @@ Templates['s-edit-res'] = `
       <div id="edit-pickup-calc" style="display:none;margin-top:8px;background:var(--gp);border-radius:var(--rsm);padding:10px 12px;font-size:12px;color:var(--gd);">
         <span id="edit-pickup-km-txt">\ud83d\udccd Zadejte adresu</span>
       </div>
+      <label id="edit-pickup-confirm-label" style="display:none;margin-top:8px;align-items:center;gap:8px;padding:9px 12px;background:var(--gp);border:2px solid var(--green);border-radius:var(--rsm);cursor:pointer;font-size:12px;font-weight:700;color:var(--gd);">
+        <input type="checkbox" id="edit-pickup-addr-confirmed" style="accent-color:var(--green);width:16px;height:16px;" onchange="onAddrConfirmed('edit-pickup',this.checked)"> \u2705 Potvrdit adresu p\u0159istaven\u00ed
+      </label>
     </div>
     <div style="margin-top:10px;border-top:1px solid var(--g200);padding-top:10px;">
       <div style="font-size:10px;font-weight:700;color:var(--g400);text-transform:uppercase;margin-bottom:6px;" id="t-editDelTime">\ud83d\udd52 \u010cas p\u0159istaven\u00ed</div>
@@ -109,6 +112,9 @@ Templates['s-edit-res'] = `
       <div id="edit-return-calc" style="margin-top:8px;background:var(--gp);border-radius:var(--rsm);padding:10px 12px;font-size:12px;color:var(--gd);display:none;">
         <span id="edit-return-km-txt">\ud83d\udccd Zadejte adresu</span>
       </div>
+      <label id="edit-return-confirm-label" style="display:none;margin-top:8px;align-items:center;gap:8px;padding:9px 12px;background:var(--gp);border:2px solid var(--green);border-radius:var(--rsm);cursor:pointer;font-size:12px;font-weight:700;color:var(--gd);">
+        <input type="checkbox" id="edit-return-addr-confirmed" style="accent-color:var(--green);width:16px;height:16px;" onchange="onAddrConfirmed('edit-return',this.checked)"> \u2705 Potvrdit adresu vr\u00e1cen\u00ed
+      </label>
     </div>
     <div style="margin-top:10px;border-top:1px solid var(--g200);padding-top:10px;">
       <div style="font-size:10px;font-weight:700;color:var(--g400);text-transform:uppercase;margin-bottom:6px;" id="t-editReturnTime">\ud83d\udd52 \u010cas vr\u00e1cen\u00ed</div>

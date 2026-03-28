@@ -331,11 +331,12 @@ function sosReplFillGPS(){
           var addrEl = document.getElementById('sos-repl-address');
           var cityEl = document.getElementById('sos-repl-city');
           var zipEl = document.getElementById('sos-repl-zip');
-          if(addrEl) addrEl.value = street;
+          if(addrEl){ addrEl.value = street; addrEl.dataset.lat = pos.coords.latitude; addrEl.dataset.lng = pos.coords.longitude; }
           if(cityEl) cityEl.value = city;
           if(zipEl) zipEl.value = zip;
           showT('📍','Adresa doplněna', street + ', ' + city);
           sosReplCalcDelivery();
+          if(typeof _showAddrConfirm === 'function') _showAddrConfirm('sos-repl');
         })
         .catch(function(){ showT('📍','GPS OK, adresu vyplňte ručně',''); });
     }

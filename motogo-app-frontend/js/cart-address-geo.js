@@ -23,10 +23,11 @@ function useMyLocation(type){
       if(result.houseNum) street+=(street?' ':'')+result.houseNum;
       addrEl.value=street;addrEl.dataset.lat=lat;addrEl.dataset.lng=lng;
     }
-    if(type==='pickup'||type==='return'){calcDelivery(type);_showAddrConfirm(type);}
+    if(type==='pickup'||type==='return'){calcDelivery(type);}
     if(type==='edit-pickup'&&typeof _sosCalcPickupDelivery==='function'){_sosCalcPickupDelivery();}
     if(type==='edit-return'&&typeof calcEditDelivery==='function'){calcEditDelivery();}
     if(type==='sos-repl'&&typeof sosReplCalcDelivery==='function'){sosReplCalcDelivery();}
+    _showAddrConfirm(type);
   }
 
   function _geocodePos(pos){
@@ -59,7 +60,22 @@ var _mapPickerCenter = null;
 function openMapPicker(type){
   _mapPickerType = type;
   var overlay = document.getElementById('map-picker-overlay');
-  if(!overlay) return;
+  // Dynamically create overlay if not in DOM (e.g. SOS, edit screens)
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'map-picker-overlay';
+    overlay.style.cssText = 'display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#fff;';
+    overlay.innerHTML =
+      '<div style="position:absolute;top:0;left:0;right:0;z-index:10001;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(255,255,255,.95);box-shadow:0 2px 8px rgba(0,0,0,.1);">' +
+        '<button type="button" onclick="closeMapPicker()" style="background:none;border:none;font-size:24px;cursor:pointer;padding:4px 8px;color:var(--gd);">\u2715</button>' +
+        '<span style="font-size:14px;font-weight:700;color:var(--gd);">Vyberte m\u00edsto na map\u011b</span>' +
+        '<button type="button" onclick="confirmMapPicker()" style="background:var(--green);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;">Potvrdit</button>' +
+      '</div>' +
+      '<iframe id="map-picker-iframe" style="width:100%;height:100%;border:none;" src=""></iframe>' +
+      '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10000;pointer-events:none;font-size:32px;text-shadow:0 2px 4px rgba(0,0,0,.3);">\ud83d\udccd</div>' +
+      '<div id="map-picker-addr" style="position:absolute;bottom:60px;left:16px;right:16px;z-index:10001;background:rgba(255,255,255,.95);border-radius:10px;padding:12px 16px;font-size:13px;font-weight:600;color:var(--gd);text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.1);display:none;"></div>';
+    document.body.appendChild(overlay);
+  }
   var iframe = document.getElementById('map-picker-iframe');
   // Get current address coords if available
   var addrEl = document.getElementById(type+'-addr-input') || document.getElementById(type+'-address');
@@ -174,8 +190,9 @@ function selectAddr(type,addr,city,lat,lng){
   }
   var sugEl=document.getElementById(type+'-addr-suggestions');
   if(sugEl)sugEl.style.display='none';
-  if(type==='pickup'||type==='return'){calcDelivery(type);_showAddrConfirm(type);}
+  if(type==='pickup'||type==='return'){calcDelivery(type);}
   if(type==='edit-pickup'&&typeof _sosCalcPickupDelivery==='function'){_sosCalcPickupDelivery();}
   if(type==='edit-return'&&typeof calcEditDelivery==='function'){calcEditDelivery();}
   if(type==='sos-repl'&&typeof sosReplCalcDelivery==='function'){sosReplCalcDelivery();}
+  _showAddrConfirm(type);
 }
