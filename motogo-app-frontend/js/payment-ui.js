@@ -399,7 +399,33 @@ async function proceedToPayment(){
 
     // Update payment screen
     var payBtn = document.getElementById('pay-btn');
-    if(payBtn){
+    if(totalPrice <= 0){
+      // === 100% SLEVA — zobrazit platební obrazovku s potvrzením zdarma ===
+      if(payBtn){
+        payBtn.textContent = '✅ Potvrdit rezervaci zdarma →';
+        payBtn.onclick = function(){ _confirmFreeBooking(result.booking.id, startDate); };
+      }
+      // Hide card-related elements on payment screen
+      setTimeout(function(){
+        var cardWrap = document.getElementById('stripe-card-element');
+        if(cardWrap) cardWrap.style.display = 'none';
+        var cardLabel = document.getElementById('pay-card-label');
+        if(cardLabel) cardLabel.style.display = 'none';
+        var appleBtn = document.getElementById('apple-pay-btn');
+        if(appleBtn) appleBtn.style.display = 'none';
+        var savedCard = document.getElementById('pay-saved-card');
+        if(savedCard) savedCard.style.display = 'none';
+        var freeNote = document.getElementById('pay-free-note');
+        if(!freeNote){
+          freeNote = document.createElement('div');
+          freeNote.id = 'pay-free-note';
+          freeNote.style.cssText = 'text-align:center;padding:20px;font-size:14px;font-weight:700;color:var(--gd);background:var(--gp);border:2px solid var(--green);border-radius:var(--rsm);margin:12px 20px;';
+          freeNote.textContent = '🎉 100% sleva — platba kartou není potřeba. Klikněte na tlačítko pro potvrzení.';
+          var payScreen = document.getElementById('s-payment');
+          if(payScreen) payScreen.insertBefore(freeNote, payBtn.parentNode);
+        }
+      }, 100);
+    } else if(payBtn){
       payBtn.textContent = (_t('pay').payBtn||'Zaplatit') + ' ' + totalPrice.toLocaleString('cs-CZ') + ' Kč →';
       payBtn.onclick = function(){ doPayment(); };
     }
@@ -429,9 +455,22 @@ function doPayment(){
     }
 
     setTimeout(async function(){
+      console.log('[PAY] doPayment:', {bookingId: _currentBookingId, amount: _currentPaymentAmount, method: _currentPaymentMethod});
       var result = await apiProcessPayment(_currentBookingId, _currentPaymentAmount, _currentPaymentMethod);
+      console.log('[PAY] doPayment result:', result);
 
       if(payBtn){ payBtn.disabled = false; payBtn.style.opacity = '1'; }
+
+      // 100% sleva — potvrzeno na serveru bez Stripe
+      if(result.success && result.free){
+        if(typeof _resetBookingDiscount === 'function') _resetBookingDiscount();
+        var freeNote = document.getElementById('pay-free-note');
+        if(freeNote) freeNote.remove();
+        showT('✅','Rezervace potvrzena','100% sleva — platba není potřeba');
+        goTo('s-res');
+        if(typeof renderMyReservations === 'function') renderMyReservations();
+        return;
+      }
 
       // Inline Payment Element — platba přímo v appce
       if(result.success && result.client_secret){
@@ -454,14 +493,50 @@ function doPayment(){
       }
 
       _paymentAttempts++;
+      var errDetail = (result && result.error) ? result.error : '';
       if(_paymentAttempts >= _MAX_PAYMENT_ATTEMPTS){
         _autoCancelUnpaid(_currentBookingId, 'Zamítnuto po ' + _paymentAttempts + ' pokusech');
         return;
       }
-      showT('✗',_t('pay').declined||'Platba zamítnuta',(_t('pay').retry||'Zkuste to znovu')+' ('+_paymentAttempts+'/'+_MAX_PAYMENT_ATTEMPTS+')');
+      showT('✗',_t('pay').declined||'Platba zamítnuta', errDetail || ((_t('pay').retry||'Zkuste to znovu')+' ('+_paymentAttempts+'/'+_MAX_PAYMENT_ATTEMPTS+')'));
       if(payBtn) payBtn.textContent = (_t('pay').payBtn||'Zaplatit') + ' ' + _currentPaymentAmount.toLocaleString('cs-CZ') + ' Kč →';
     }, 1500);
   } catch(e){ console.error('doPayment error:', e); showT('✗',_t('common').error||'Chyba',_t('pay').processingError||'Chyba při zpracování platby'); }
+}
+
+// === 100% SLEVA — potvrzení bez Stripe ===
+async function _confirmFreeBooking(bookingId, startDate){
+  var btn = document.getElementById('pay-btn');
+  if(btn){ btn.disabled = true; btn.textContent = '⏳ Potvrzuji...'; btn.style.opacity = '0.6'; }
+  try {
+    var confirmRes = await window.supabase.rpc('confirm_payment', {
+      p_booking_id: bookingId,
+      p_method: 'free'
+    });
+    if(confirmRes.error){
+      // Fallback: přímý update
+      await window.supabase.from('bookings').update({
+        payment_status: 'paid',
+        status: (startDate && startDate <= new Date()) ? 'active' : 'reserved',
+        confirmed_at: new Date().toISOString()
+      }).eq('id', bookingId);
+    }
+    // Generate documents (non-blocking)
+    try {
+      if(typeof apiAutoGenerateBookingDocs === 'function') apiAutoGenerateBookingDocs(bookingId).catch(function(){});
+    } catch(e){}
+    if(typeof _resetBookingDiscount === 'function') _resetBookingDiscount();
+    // Cleanup free note
+    var freeNote = document.getElementById('pay-free-note');
+    if(freeNote) freeNote.remove();
+    showT('✅','Rezervace potvrzena','100% sleva — platba není potřeba');
+    goTo('s-res');
+    if(typeof renderMyReservations === 'function') renderMyReservations();
+  } catch(e){
+    console.error('[PAY] _confirmFreeBooking error:', e);
+    if(btn){ btn.disabled = false; btn.textContent = '✅ Potvrdit rezervaci zdarma →'; btn.style.opacity = '1'; }
+    showT('✗','Chyba','Nepodařilo se potvrdit rezervaci: ' + (e.message || ''));
+  }
 }
 
 // Handle inline payment success — same logic as _checkPaymentAfterStripe but immediate

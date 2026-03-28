@@ -537,8 +537,8 @@ async function apiCheckDocsVerified(){
     if(!uid) return false;
     var r = await window.supabase.from('profiles')
       .select('id_verified_at, id_verified_until, license_verified_at, license_verified_until, passport_verified_at, passport_verified_until')
-      .eq('id', uid).single();
-    if(!r.data) return false;
+      .eq('id', uid).maybeSingle();
+    if(!r || !r.data) return false;
     var p = r.data;
     var today = new Date().toISOString().slice(0,10);
     var hasId = p.id_verified_at && (!p.id_verified_until || p.id_verified_until >= today);

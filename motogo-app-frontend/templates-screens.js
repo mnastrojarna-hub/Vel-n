@@ -13,7 +13,7 @@ Templates['s-home'] = `  <div class="hdr">
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
         <div id="online-dot" style="width:8px;height:8px;border-radius:50%;background:var(--green);" title="Online – synchronizováno"></div>
-        <div class="h-av" onclick="goTo('s-profile')" title="Menu / Profil" style="width:34px;height:34px;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:7px;cursor:pointer;"><div style="width:16px;height:2px;background:#fff;border-radius:2px;"></div><div style="width:12px;height:2px;background:#fff;border-radius:2px;"></div><div style="width:16px;height:2px;background:#fff;border-radius:2px;"></div></div>
+        <div class="h-av" onclick="goTo('s-profile')" title="Menu / Profil" style="width:40px;height:40px;border-radius:12px;background:rgba(116,251,113,.2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:7px;cursor:pointer;position:relative;z-index:60;"><div style="width:16px;height:2px;background:#fff;border-radius:2px;"></div><div style="width:12px;height:2px;background:#fff;border-radius:2px;"></div><div style="width:16px;height:2px;background:#fff;border-radius:2px;"></div></div>
       </div>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;gap:10px;">

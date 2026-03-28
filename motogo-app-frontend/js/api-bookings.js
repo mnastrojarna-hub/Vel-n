@@ -149,7 +149,13 @@ async function apiProcessPayment(bookingId, amount, method, opts){
       }
       if(result.error) return {success:false, error: result.error};
     } else {
-      console.warn('[API] Stripe HTTP '+resp.status);
+      // Read error body for diagnostics
+      var errBody = null;
+      try { errBody = await resp.json(); } catch(e){}
+      var errMsg = (errBody && errBody.error) ? errBody.error : 'Platba selhala (HTTP ' + resp.status + ')';
+      console.error('[API] Stripe HTTP ' + resp.status, errBody);
+      if(resp.status === 409) return {success:false, error: errMsg};
+      return {success:false, error: errMsg};
     }
   } catch(e){
     console.warn('[API] Stripe unreachable:', e.message);

@@ -117,6 +117,16 @@ function _calcDeliveryFallback(type, addr, calcEl, kmTxt){
 var _appliedPromoId = null;
 var _appliedBookingCodes = []; // [{code, type:'promo'|'voucher', id, discountAmt, discountType, discountValue}]
 
+// Reset all discount state — called when opening new booking or cancelling
+function _resetBookingDiscount(){
+  discountAmt=0;appliedCode=null;_appliedPromoId=null;_appliedBookingCodes=[];
+  pickupDelivFee=0;returnDelivFee=0;deliveryFee=0;extraTotal=0;
+  var inp=document.getElementById('discount-input');
+  if(inp){inp.value='';inp.style.borderColor='var(--g200)';}
+  var msg=document.getElementById('discount-msg');if(msg)msg.innerHTML='';
+  var wrap=document.getElementById('booking-applied-codes');if(wrap)wrap.innerHTML='';
+}
+
 function removeDiscount(){
   discountAmt=0;appliedCode=null;_appliedPromoId=null;_appliedBookingCodes=[];
   var inp=document.getElementById('discount-input');

@@ -65,6 +65,7 @@ function goTo(id){
   // Full reset when going home or to search – clean start
   if(id==='s-home'||id==='s-search'){
     if(typeof resetBookingState==='function') resetBookingState();
+    if(typeof _resetBookingDiscount==='function') _resetBookingDiscount();
     bookingMoto=null;
     if(typeof dOd!=='undefined') dOd=null;
     if(typeof dDo!=='undefined') dDo=null;
