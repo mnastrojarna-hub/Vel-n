@@ -247,7 +247,7 @@ ${vars.resume_qr_url ? '<div style="text-align:center;margin:20px 0"><p style="c
           subject: `[Kopie] ${subject}`,
           html,
         })
-      } catch (_) { /* ignore */ }
+      } catch (e) { /* ignore */ }
     }
 
     // Log to message_log
@@ -264,7 +264,7 @@ ${vars.resume_qr_url ? '<div style="text-align:center;margin:20px 0"><p style="c
         status: result.success ? 'sent' : 'failed',
         error_message: result.error || null,
       })
-    } catch (_) { /* ignore */ }
+    } catch (e) { /* ignore */ }
 
     // Log to sent_emails
     try {
@@ -278,7 +278,7 @@ ${vars.resume_qr_url ? '<div style="text-align:center;margin:20px 0"><p style="c
         error_message: result.error || null,
         provider_id: result.provider_id || null,
       })
-    } catch (_) { /* ignore */ }
+    } catch (e) { /* ignore */ }
 
     if (!result.success) {
       try {
@@ -290,7 +290,7 @@ ${vars.resume_qr_url ? '<div style="text-align:center;margin:20px 0"><p style="c
           error_message: result.error,
           request_data: { type, customer_email, booking_id, source },
         })
-      } catch (_) { /* ignore */ }
+      } catch (e) { /* ignore */ }
 
       return new Response(JSON.stringify({ error: 'Email send failed', details: result.error }), {
         status: 502,

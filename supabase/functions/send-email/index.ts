@@ -216,7 +216,7 @@ serve(async (req) => {
         is_marketing: isMarketing,
         template_vars: Object.keys(template_vars).length > 0 ? template_vars : null,
       })
-    } catch (_) { /* ignore logging errors */ }
+    } catch (e) { /* ignore logging errors */ }
 
     // Also log to sent_emails for backwards compatibility
     try {
@@ -231,7 +231,7 @@ serve(async (req) => {
         error_message: result.error || null,
         provider_id: result.provider_id || null,
       })
-    } catch (_) { /* ignore logging errors */ }
+    } catch (e) { /* ignore logging errors */ }
 
     if (!result.success) {
       try {
@@ -243,7 +243,7 @@ serve(async (req) => {
           error_message: result.error,
           request_data: { to, template_slug, booking_id },
         })
-      } catch (_) { /* ignore */ }
+      } catch (e) { /* ignore */ }
 
       return jsonResponse({ success: false, error: result.error }, 502)
     }
@@ -263,7 +263,7 @@ serve(async (req) => {
         status: 'error',
         error_message: (err as Error).message,
       })
-    } catch (_) { /* ignore */ }
+    } catch (e) { /* ignore */ }
 
     return jsonResponse({ error: (err as Error).message }, 500)
   }
@@ -348,7 +348,7 @@ async function handleInvoiceEmail(
       error_message: result.error || null,
       is_marketing: false,
     })
-  } catch (_) { /* ignore */ }
+  } catch (e) { /* ignore */ }
 
   try {
     await supabase.from('sent_emails').insert({
@@ -362,7 +362,7 @@ async function handleInvoiceEmail(
       error_message: result.error || null,
       provider_id: result.provider_id || null,
     })
-  } catch (_) { /* ignore */ }
+  } catch (e) { /* ignore */ }
 
   if (!result.success) {
     try {
@@ -374,7 +374,7 @@ async function handleInvoiceEmail(
         error_message: result.error,
         request_data: { invoice_id: invoiceId },
       })
-    } catch (_) { /* ignore */ }
+    } catch (e) { /* ignore */ }
     return jsonResponse({ success: false, error: result.error }, 502)
   }
 
@@ -384,7 +384,7 @@ async function handleInvoiceEmail(
       await supabase.from('invoices')
         .update({ status: 'sent' })
         .eq('id', invoiceId)
-    } catch (_) { /* ignore */ }
+    } catch (e) { /* ignore */ }
   }
 
   return jsonResponse({ success: true, provider_id: result.provider_id })

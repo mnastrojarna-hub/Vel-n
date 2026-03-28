@@ -372,7 +372,7 @@ Deno.serve(async (req: Request) => {
             stripe_payment_intent_id: intent.id,
           }).eq('id', order_id)
         }
-      } catch (_) { /* non-blocking */ }
+      } catch (e) { /* non-blocking */ }
 
       // Log to debug_log
       try {
@@ -384,7 +384,7 @@ Deno.serve(async (req: Request) => {
           request_data: { booking_id, order_id, incident_id, amount, currency, type: paymentType, mode: 'intent' },
           response_data: { payment_intent_id: intent.id },
         })
-      } catch (_) { /* ignore */ }
+      } catch (e) { /* ignore */ }
 
       return new Response(
         JSON.stringify({
@@ -455,7 +455,7 @@ Deno.serve(async (req: Request) => {
         request_data: { booking_id, order_id, incident_id, amount, currency, type: paymentType },
         response_data: { session_id: session.id, checkout_url: session.url },
       })
-    } catch (_) { /* ignore logging errors */ }
+    } catch (e) { /* ignore logging errors */ }
 
     return new Response(
       JSON.stringify({
@@ -483,7 +483,7 @@ Deno.serve(async (req: Request) => {
         status: 'error',
         error_message: (err as Error).message,
       })
-    } catch (_) { /* ignore logging errors */ }
+    } catch (e) { /* ignore logging errors */ }
 
     return new Response(
       JSON.stringify({ success: false, error: 'Payment processing failed: ' + (err as Error).message }),

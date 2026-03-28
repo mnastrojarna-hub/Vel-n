@@ -249,7 +249,7 @@ serve(async (req) => {
             metadata: { campaign_id },
             customer_id: recipient.id,
           })
-        } catch (_) { /* ignore */ }
+        } catch (e) { /* ignore */ }
       } else {
         // SMS or WhatsApp
         success = await sendSmsOrWa(
@@ -295,7 +295,7 @@ serve(async (req) => {
             type: 'info',
             content: `Kampaň "${campaign.name}" zastavena — ${failedCount}/${processed} zpráv selhalo (${(failedCount / processed * 100).toFixed(0)}%). Odesláno: ${sentCount}, Selhalo: ${failedCount}.`,
           })
-        } catch (_) { /* ignore */ }
+        } catch (e) { /* ignore */ }
 
         return new Response(JSON.stringify({
           success: false,
@@ -325,7 +325,7 @@ serve(async (req) => {
         type: 'info',
         content: `Kampaň "${campaign.name}" dokončena. Odesláno: ${sentCount}/${totalCount}, Selhalo: ${failedCount}.`,
       })
-    } catch (_) { /* ignore */ }
+    } catch (e) { /* ignore */ }
 
     return new Response(JSON.stringify({
       success: true,
@@ -347,7 +347,7 @@ serve(async (req) => {
         status: 'error',
         error_message: (err as Error).message,
       })
-    } catch (_) { /* ignore */ }
+    } catch (e) { /* ignore */ }
 
     return new Response(JSON.stringify({ error: (err as Error).message }), {
       status: 500,
