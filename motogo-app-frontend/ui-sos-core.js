@@ -60,7 +60,7 @@ function _sosPreFetchIds(){
       var bk = await window.supabase.from('bookings')
         .select('id, moto_id')
         .eq('user_id', uid)
-        .in('status', ['active', 'confirmed', 'pending', 'reserved'])
+        .in('status', ['active', 'pending', 'reserved'])
         .lte('start_date', new Date().toISOString())
         .gte('end_date', new Date().toISOString())
         .limit(1);
@@ -204,7 +204,7 @@ function _sosEnsureIncident(type, desc){
               var bk = await window.supabase.from('bookings')
                 .select('id, moto_id')
                 .eq('user_id', uid2)
-                .in('status', ['active', 'confirmed', 'pending', 'reserved'])
+                .in('status', ['active', 'pending', 'reserved'])
                 .lte('start_date', new Date().toISOString())
                 .gte('end_date', new Date().toISOString())
                 .limit(1);
@@ -291,7 +291,7 @@ async function _sosEndBooking(incidentId){
     }
     if(!bk || !bk.data){
       var bkR = await window.supabase.from('bookings').select('id, moto_id, end_date')
-        .eq('user_id', uid).in('status', ['active','confirmed','reserved'])
+        .eq('user_id', uid).in('status', ['active','reserved'])
         .eq('payment_status', 'paid')
         .order('start_date', {ascending: false}).limit(1);
       if(bkR.data && bkR.data.length > 0) bk = {data: bkR.data[0]};

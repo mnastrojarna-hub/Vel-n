@@ -178,8 +178,8 @@ async function _saveBookingExtras(bookingId){
   for(var i = 0; i < checked.length; i++){
     var ext = checked[i];
     var catId = null;
-    var cat = await window.supabase.from('extras_catalog').select('id').eq('name', ext.name).limit(1).single();
-    if(cat.data) catId = cat.data.id;
+    var cat = await window.supabase.from('extras_catalog').select('id').eq('name', ext.name).limit(1).maybeSingle();
+    if(cat && cat.data) catId = cat.data.id;
     await window.supabase.from('booking_extras').insert({
       booking_id: bookingId,
       extra_id: catId,

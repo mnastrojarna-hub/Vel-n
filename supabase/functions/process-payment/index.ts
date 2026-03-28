@@ -230,7 +230,7 @@ Deno.serve(async (req: Request) => {
           customer_name: customerName,
           customer_email: customerEmail,
           status: 'new',
-          payment_status: 'pending',
+          payment_status: 'unpaid',
           payment_method: 'stripe',
           total: amountCzk,
           subtotal: amountCzk,
@@ -340,12 +340,19 @@ Deno.serve(async (req: Request) => {
 
     // ── MODE: INTENT — Create PaymentIntent for in-app Stripe Elements (no redirect) ──
     if (paymentMode === 'intent') {
+      const amountCents = Math.round(amount * 100)
+      if (amountCents < 1) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Neplatná částka' }),
+          { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
+        )
+      }
       const intentParams: Record<string, unknown> = {
-        amount: Math.round(amount * 100),
+        amount: amountCents,
         currency: currency || 'czk',
         metadata,
+        payment_method_types: ['card'],
         setup_future_usage: 'off_session',
-        automatic_payment_methods: { enabled: true },
         description: productName,
       }
       if (customerId) {
