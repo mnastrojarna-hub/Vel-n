@@ -84,6 +84,7 @@
 - **license_verified_until** (DATE) — platnost ŘP — do tohoto data je ověření platné
 - **passport_verified_at** (TIMESTAMPTZ) — datum ověření pasu přes Mindee OCR
 - **passport_verified_until** (DATE) — platnost pasu — do tohoto data je ověření platné
+- **registration_source** (TEXT DEFAULT NULL) — zdroj registrace: 'app' nebo 'web'
 
 ### payment_methods
 - id (UUID PK), user_id (UUID FK→profiles ON DELETE CASCADE)

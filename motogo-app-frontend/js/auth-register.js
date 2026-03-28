@@ -135,7 +135,8 @@ function doRegister(){
       }
       var userId = (result.user && result.user.id) ? result.user.id : null;
       if(userId){
-        // Save consents to profiles table
+        // Save consents + registration source to profiles table
+        consents.registration_source = 'app';
         window.supabase.from('profiles').update(consents).eq('id', userId).then(function(){});
         _regSuccess(userId, f.email, result.session, f.pass);
       } else {
