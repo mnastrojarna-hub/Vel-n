@@ -679,7 +679,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
 <style>html,body{margin:0;padding:0;height:100%;width:100%}#m{height:100%;width:100%}</style></head>
 <body><div id="m"></div><script>
 var map=L.map("m",{zoomControl:true}).setView([49.4147,15.2953],10);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19}).addTo(map);
+L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",{maxZoom:19,subdomains:"abcd"}).addTo(map);
 window._getCenter=function(){var c=map.getCenter();return{lat:c.lat,lng:c.lng};};
 <\/script></body></html>`} />
             <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 10, pointerEvents: 'none', fontSize: 36, textShadow: '0 2px 6px rgba(0,0,0,.3)' }}>📍</div>

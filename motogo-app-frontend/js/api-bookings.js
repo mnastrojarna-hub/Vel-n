@@ -49,7 +49,17 @@ async function apiCreateBooking(data){
     data.status = 'pending';
     data.payment_status = 'unpaid';
     var r = await window.supabase.from('bookings').insert(data).select().single();
-    if(r.error) return {error: r.error.message, booking:null};
+    if(r.error){
+      var msg = r.error.message || '';
+      // Translate DB trigger errors to user-friendly Czech
+      if(msg.indexOf('Booking overlap') !== -1){
+        return {error:'Tuto motorku právě rezervoval jiný zákazník ve stejném termínu. Zvolte prosím jiný termín nebo jinou motorku.', booking:null};
+      }
+      if(msg.indexOf('overlapping booking') !== -1){
+        return {error:'V tomto termínu již máte jinou aktivní rezervaci. Upravte stávající rezervaci nebo zvolte jiný termín.', booking:null};
+      }
+      return {error: msg, booking:null};
+    }
     return {error:null, booking: r.data};
   } catch(e){ return {error:'Chyba při vytváření rezervace', booking:null}; }
 }
