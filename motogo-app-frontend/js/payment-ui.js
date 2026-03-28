@@ -429,7 +429,9 @@ function doPayment(){
     }
 
     setTimeout(async function(){
+      console.log('[PAY] doPayment:', {bookingId: _currentBookingId, amount: _currentPaymentAmount, method: _currentPaymentMethod});
       var result = await apiProcessPayment(_currentBookingId, _currentPaymentAmount, _currentPaymentMethod);
+      console.log('[PAY] doPayment result:', result);
 
       if(payBtn){ payBtn.disabled = false; payBtn.style.opacity = '1'; }
 
@@ -454,11 +456,12 @@ function doPayment(){
       }
 
       _paymentAttempts++;
+      var errDetail = (result && result.error) ? result.error : '';
       if(_paymentAttempts >= _MAX_PAYMENT_ATTEMPTS){
         _autoCancelUnpaid(_currentBookingId, 'Zamítnuto po ' + _paymentAttempts + ' pokusech');
         return;
       }
-      showT('✗',_t('pay').declined||'Platba zamítnuta',(_t('pay').retry||'Zkuste to znovu')+' ('+_paymentAttempts+'/'+_MAX_PAYMENT_ATTEMPTS+')');
+      showT('✗',_t('pay').declined||'Platba zamítnuta', errDetail || ((_t('pay').retry||'Zkuste to znovu')+' ('+_paymentAttempts+'/'+_MAX_PAYMENT_ATTEMPTS+')'));
       if(payBtn) payBtn.textContent = (_t('pay').payBtn||'Zaplatit') + ' ' + _currentPaymentAmount.toLocaleString('cs-CZ') + ' Kč →';
     }, 1500);
   } catch(e){ console.error('doPayment error:', e); showT('✗',_t('common').error||'Chyba',_t('pay').processingError||'Chyba při zpracování platby'); }
