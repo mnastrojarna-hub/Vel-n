@@ -74,7 +74,15 @@ MG._submitReservation = async function(){
     };
     console.log('[REZ] create_web_booking params:', rpcParams);
     var regRes = await window.sb.rpc('create_web_booking', rpcParams);
-    if(regRes.error){ console.error('[REZ] create_web_booking error:', regRes.error); alert('Chyba: '+regRes.error.message); return; }
+    if(regRes.error){
+      console.error('[REZ] create_web_booking error:', regRes.error);
+      var emsg = regRes.error.message || '';
+      if(emsg.indexOf('Booking overlap') !== -1) alert('Tuto motorku pr\u00e1v\u011b rezervoval jin\u00fd z\u00e1kazn\u00edk ve stejn\u00e9m term\u00ednu. Zvolte pros\u00edm jin\u00fd term\u00edn nebo jinou motorku.');
+      else if(emsg.indexOf('overlapping booking') !== -1) alert('V tomto term\u00ednu ji\u017e m\u00e1te jinou aktivn\u00ed rezervaci.');
+      else alert('Chyba: '+emsg);
+      if(btn){btn.disabled=false;btn.textContent='Pokra\u010dovat k platb\u011b';}
+      return;
+    }
     var regData = regRes.data;
     if(regData && regData.error){ alert(regData.error); return; }
     if(regData){

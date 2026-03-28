@@ -78,17 +78,6 @@ var _BOOKING_FORM_PART2 = `
     </div>
   </div>
 
-  <div id="map-picker-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#fff;">
-    <div style="position:absolute;top:0;left:0;right:0;z-index:10001;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(255,255,255,.95);box-shadow:0 2px 8px rgba(0,0,0,.1);">
-      <button type="button" onclick="closeMapPicker()" style="background:none;border:none;font-size:24px;cursor:pointer;padding:4px 8px;color:var(--gd);">✕</button>
-      <span style="font-size:14px;font-weight:700;color:var(--gd);">Vyberte místo na mapě</span>
-      <button type="button" onclick="confirmMapPicker()" style="background:var(--green);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;">Potvrdit</button>
-    </div>
-    <iframe id="map-picker-iframe" style="width:100%;height:100%;border:none;" src=""></iframe>
-    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10000;pointer-events:none;font-size:32px;text-shadow:0 2px 4px rgba(0,0,0,.3);">📍</div>
-    <div id="map-picker-addr" style="position:absolute;bottom:60px;left:16px;right:16px;z-index:10001;background:rgba(255,255,255,.95);border-radius:10px;padding:12px 16px;font-size:13px;font-weight:600;color:var(--gd);text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.1);display:none;"></div>
-  </div>
-
   <div class="bcard">
     <div class="bcard-h"><div class="sdot">7</div> <span id="t-bkStep7">Výbava a doplňky</span></div>
     <div style="display:flex;align-items:center;gap:10px;padding:11px;background:var(--gp);border-radius:var(--rsm);border:2px solid var(--green);margin-bottom:10px;">

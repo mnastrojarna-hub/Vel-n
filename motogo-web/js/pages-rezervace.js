@@ -601,7 +601,7 @@ MG._initWebMap = function(){
   var lat = 49.4147, lng = 15.2953, zoom = 10;
   MG._webMapCenter = {lat:lat, lng:lng};
   var map = L.map(container, {zoomControl:true}).setView([lat, lng], zoom);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19}).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {maxZoom:19, subdomains:'abcd'}).addTo(map);
   MG._webMap = map;
   map.on('moveend', function(){
     var c = map.getCenter();
