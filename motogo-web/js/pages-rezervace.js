@@ -79,11 +79,11 @@ MG.route('/rezervace', async function(app){
   }
 
   app.innerHTML = '<main id="content"><div class="container">' + bc +
-    '<div class="ccontent pcontent"><h1>Rezervace motorky</h1>' +
+    '<div class="ccontent pcontent"><div id="rez-intro"><h1>Rezervace motorky</h1>' +
     '<h3>Jak rezervace funguje?</h3><p>&nbsp;</p>' +
     '<p>Pokud si chcete <strong>půjčit motorku v konkrétním termínu</strong>, vyberte „libovolná dostupná motorka" a v kalendáři termín vyznačte.</p><p>&nbsp;</p>' +
     '<p>V případě, že si chcete <strong>vyzkoušet konkrétní motorku</strong>, vyberte ji ze seznamu.</p><p>&nbsp;</p>' +
-    '<p><strong>Půjčujeme bez kauce. Základní výbavu pro řidiče poskytujeme zdarma.</strong></p><p>&nbsp;</p>' +
+    '<p><strong>Půjčujeme bez kauce. Základní výbavu pro řidiče poskytujeme zdarma.</strong></p><p>&nbsp;</p></div>' +
     '<div id="rez-moto-select"></div>' +
     '<div id="rez-calendar"></div>' +
     '<div id="rez-date-banner" style="display:none"></div>' +
