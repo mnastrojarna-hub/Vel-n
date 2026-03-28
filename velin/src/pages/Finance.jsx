@@ -9,7 +9,7 @@ import Modal from '../components/ui/Modal'
 import { Table, TRow, TH, TD } from '../components/ui/Table'
 import ErrorBoundary from '../components/ErrorBoundary'
 import { classifyEntry } from '../lib/revenueUtils'
-import { DetailRow, SummaryCard, MiniStat, CheckboxFilterGroup, TypeBadge } from './financeHelpers'
+import FinanceOverview from './FinanceOverview'
 
 // Lazy-load accounting tabs to isolate crashes
 const InvoicesTab = lazy(() => import('./accounting/InvoicesTab'))
@@ -283,7 +283,13 @@ export default function Finance() {
       </Suspense>
 
       {activeTab === 'Přehled' && <>
-      <div className="flex flex-wrap items-center gap-3 mb-5">
+        <FinanceOverview filters={filters} setFilters={setFilters} defaultFilters={defaultFilters} categories={categories} summary={summary} chartData={chartData} transactions={transactions} recentInvoices={recentInvoices} shopPayments={shopPayments} invoiceSums={invoiceSums} loading={loading} error={error} detailTx={detailTx} setDetailTx={setDetailTx} fmt={fmt} handleExport={handleExport} debugMode={debugMode} />
+      </>}
+    </div>
+    </ErrorBoundary>
+  )
+}
+
         {PERIODS.map(p => (
           <button key={p.value} onClick={() => setFilters(f => ({ ...f, period: p.value }))}
             className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
