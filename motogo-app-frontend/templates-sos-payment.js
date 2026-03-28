@@ -59,8 +59,14 @@ Templates['s-sos-replacement'] = `  <div class="sos-sub-hdr" id="sos-repl-hdr" s
         <div><label style="font-size:11px;font-weight:600;color:var(--g400);margin-bottom:2px;display:block;">PSČ</label><input type="text" id="sos-repl-zip" placeholder="PSČ" style="width:100%;box-sizing:border-box;padding:10px 12px;border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:13px;"></div>
       </div>
       <div style="position:relative;"><label style="font-size:11px;font-weight:600;color:var(--g400);margin-bottom:2px;display:block;">Ulice a č.p. / č.o.</label><input type="text" id="sos-repl-address" placeholder="např. Vodičkova 36, Mezná 9" oninput="showAddrSuggestions(this,'sos-repl')" autocomplete="off" style="width:100%;box-sizing:border-box;padding:10px 12px;border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:13px;"><div id="sos-repl-addr-suggestions" class="addr-suggestions" style="display:none;"></div></div>
-      <button onclick="sosReplFillGPS()" style="margin-top:8px;background:var(--gp);color:var(--gd);border:1px solid var(--green);border-radius:50px;padding:8px 16px;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;">📍 Použít mou aktuální polohu</button>
+      <div style="display:flex;gap:6px;margin-top:8px;">
+        <button onclick="sosReplFillGPS()" style="flex:1;background:var(--gp);color:var(--gd);border:1px solid var(--green);border-radius:50px;padding:8px 16px;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;">📍 Použít polohu</button>
+        <button onclick="openMapPicker('sos-repl')" style="background:var(--gp);color:var(--gd);border:1px solid var(--green);border-radius:50px;padding:8px 16px;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;">🗺️ Mapa</button>
+      </div>
       <div id="sos-repl-delivery-calc" style="display:none;font-size:11px;color:var(--g400);margin-top:6px;font-weight:600;"></div>
+      <label id="sos-repl-confirm-label" style="display:none;margin-top:8px;align-items:center;gap:8px;padding:9px 12px;background:var(--gp);border:2px solid var(--green);border-radius:var(--rsm);cursor:pointer;font-size:12px;font-weight:700;color:var(--gd);">
+        <input type="checkbox" id="sos-repl-addr-confirmed" style="accent-color:var(--green);width:16px;height:16px;" onchange="onAddrConfirmed('sos-repl',this.checked)"> ✅ Potvrdit adresu přistavení
+      </label>
       <textarea id="sos-repl-note" placeholder="Poznámka pro řidiče (volitelné)" rows="2" style="width:100%;box-sizing:border-box;padding:10px 12px;border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:13px;margin-top:8px;resize:vertical;"></textarea>
     </div>
 
