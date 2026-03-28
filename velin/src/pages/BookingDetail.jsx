@@ -15,6 +15,8 @@ import BookingModifyModal from './booking/BookingModifyModal'
 import DetailTab from './booking/DetailTab'
 import ComplaintsTab from './booking/ComplaintsTab'
 import { TABS, ACTIONS, CANCEL_REASONS } from './booking/bookingConstants'
+import { sendBookingMessage, logAudit } from './booking/bookingMessageHelpers'
+import BookingCancelModal from './booking/BookingCancelModal'
 
 export default function BookingDetail() {
   const debugMode = useDebugMode()
@@ -168,27 +170,6 @@ export default function BookingDetail() {
     setConfirm(null); setSaving(false)
   }
 
-  const MSG_TEMPLATES = {
-    reserved: (b) => `Vaše rezervace motorky ${b.motorcycles?.model || ''} (${new Date(b.start_date).toLocaleDateString('cs-CZ')} – ${new Date(b.end_date).toLocaleDateString('cs-CZ')}) byla potvrzena. Smlouvu a fakturu najdete v sekci Dokumenty.`,
-    active: (b) => `Motorka ${b.motorcycles?.model || ''} byla vydána. Přejeme příjemnou jízdu! V případě problému nás kontaktujte nebo použijte SOS tlačítko.`,
-    completed: (b) => `Vaše jízda na ${b.motorcycles?.model || ''} byla dokončena. Děkujeme a těšíme se na příště! Konečnou fakturu najdete v sekci Dokumenty.`,
-  }
-
-  async function sendBookingMessage(status, bk) {
-    const template = MSG_TEMPLATES[status]
-    if (!template || !bk.user_id) return
-    try {
-      let { data: thread } = await supabase.from('message_threads').select('id').eq('customer_id', bk.user_id).limit(1).single()
-      if (!thread) {
-        const { data: newThread } = await supabase.from('message_threads').insert({ customer_id: bk.user_id, subject: 'Rezervace', channel: 'app' }).select('id').single()
-        thread = newThread
-      }
-      if (!thread) return
-      await supabase.from('messages').insert({ thread_id: thread.id, direction: 'admin', sender_name: 'MotoGo', content: template(bk) })
-      await supabase.from('message_threads').update({ last_message_at: new Date().toISOString() }).eq('id', thread.id)
-    } catch {}
-  }
-
   async function handleCancel() {
     setSaving(true)
     const reasonObj = CANCEL_REASONS.find(r => r.value === cancelReason)
@@ -254,10 +235,6 @@ export default function BookingDetail() {
     setSaving(false)
   }
 
-  async function logAudit(action, details) {
-    try { const { data: { user } } = await supabase.auth.getUser(); await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action, details }) } catch {}
-  }
-
   const set = (k, v) => setBooking(b => ({ ...b, [k]: v }))
   function handleAction(action) {
     if (action.status === 'cancelled') setShowCancelModal(true)
@@ -318,27 +295,7 @@ export default function BookingDetail() {
       {tab === 'Platby' && <BookingPaymentsTab bookingId={id} />}
       {tab === 'Reklamace' && <ComplaintsTab bookingId={id} booking={booking} setBooking={setBooking} />}
       {confirm && <ConfirmDialog open title={`${confirm.label}?`} message={`Změnit stav na "${confirm.label}"?`} danger={confirm.danger} onConfirm={() => changeStatus(confirm.status)} onCancel={() => setConfirm(null)} />}
-      {showCancelModal && (
-        <Modal open title="Zrušit rezervaci" onClose={() => setShowCancelModal(false)}>
-          <p className="text-sm mb-4" style={{ color: '#1a2e22' }}>Zákazník bude informován emailem. Vyberte důvod zrušení:</p>
-          <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Důvod zrušení</label>
-          <select value={cancelReason} onChange={e => setCancelReason(e.target.value)} className="w-full rounded-btn text-sm outline-none mb-3" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-            <option value="">— Vyberte důvod —</option>
-            {CANCEL_REASONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-          </select>
-          {cancelReason === 'admin' && (
-            <>
-              <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Vlastní důvod</label>
-              <textarea value={cancelReasonCustom} onChange={e => setCancelReasonCustom(e.target.value)} rows={3} className="w-full rounded-btn text-sm outline-none mb-3" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', resize: 'vertical' }} placeholder="Popište důvod zrušení…" />
-            </>
-          )}
-          {error && <p className="text-sm mb-3" style={{ color: '#dc2626' }}>{error}</p>}
-          <div className="flex justify-end gap-3 mt-2">
-            <Button onClick={() => setShowCancelModal(false)}>Zpět</Button>
-            <Button onClick={handleCancel} disabled={saving || !cancelReason || (cancelReason === 'admin' && !cancelReasonCustom)} style={{ background: '#dc2626', color: '#fff', boxShadow: '0 4px 16px rgba(220,38,38,.25)' }}>{saving ? 'Ruším…' : 'Zrušit rezervaci'}</Button>
-          </div>
-        </Modal>
-      )}
+      <BookingCancelModal open={showCancelModal} onClose={() => setShowCancelModal(false)} cancelReason={cancelReason} setCancelReason={setCancelReason} cancelReasonCustom={cancelReasonCustom} setCancelReasonCustom={setCancelReasonCustom} onCancel={handleCancel} saving={saving} error={error} />
     </div>
   )
 }

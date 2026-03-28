@@ -8,16 +8,7 @@ import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 import Modal from '../../components/ui/Modal'
 import { getClientTemplate, buildDocVars, fillTemplate, rebuildFromFilledData } from './bookingDocTemplates'
-
-const DOC_ICONS = { contract: '\ud83d\udccb', rental_contract: '\ud83d\udccb', protocol: '\ud83d\udcdd', handover_protocol: '\ud83d\udcdd', terms: '\ud83d\udcdc', invoice: '\ud83e\uddfe' }
-const INV_TYPE_MAP = {
-  proforma: { label: 'Zalohova faktura (ZF)', color: '#2563eb', bg: '#dbeafe' },
-  advance: { label: 'Zalohova faktura (ZF)', color: '#2563eb', bg: '#dbeafe' },
-  payment_receipt: { label: 'Danovy doklad (DP)', color: '#0891b2', bg: '#cffafe' },
-  final: { label: 'Konecna faktura (KF)', color: '#1a8a18', bg: '#dcfce7' },
-  shop_proforma: { label: 'Shop zalohova', color: '#8b5cf6', bg: '#ede9fe' },
-  shop_final: { label: 'Shop konecna', color: '#059669', bg: '#d1fae5' },
-}
+import { DOC_ICONS, INV_TYPE_MAP } from './bookingDocConstants'
 
 export default function BookingDocumentsTab({ bookingId }) {
   const [docs, setDocs] = useState([])
@@ -108,9 +99,9 @@ export default function BookingDocumentsTab({ bookingId }) {
     } catch (e) { setError(`Stazeni selhalo: ${e.message}`) }
   }
 
-  function downloadBlob(html, filename) { const blob = new Blob([html], { type: 'text/html' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url) }
+  function downloadBlob(html, filename) { const b = new Blob([html], { type: 'text/html' }); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = filename; a.click(); URL.revokeObjectURL(u) }
 
-  async function generateInvoiceHtmlForDoc(inv) { try { const fullInv = await loadInvoiceData(inv.id); return generateInvoiceHtml({ ...fullInv, customer: fullInv.profiles || {}, items: fullInv.items || [] }) } catch { return null } }
+  async function generateInvoiceHtmlForDoc(inv) { try { const f = await loadInvoiceData(inv.id); return generateInvoiceHtml({ ...f, customer: f.profiles || {}, items: f.items || [] }) } catch { return null } }
 
   async function handleViewGeneratedDoc(doc) {
     if ((doc.document_templates?.content_html || doc.document_templates?.html_content) && doc.filled_data) {
@@ -174,8 +165,8 @@ export default function BookingDocumentsTab({ bookingId }) {
   }
 
   async function handleStoreInvoice(inv) {
-    try { const fullInv = await loadInvoiceData(inv.id); const html = generateInvoiceHtml({ ...fullInv, customer: fullInv.profiles || {}, items: fullInv.items || [] }); try { await storeInvoicePdf(inv.id, html) } catch {}; await loadAll() }
-    catch (e) { setError(`Ulozeni selhalo: ${e.message}`) }
+    try { const f = await loadInvoiceData(inv.id); const h = generateInvoiceHtml({ ...f, customer: f.profiles || {}, items: f.items || [] }); try { await storeInvoicePdf(inv.id, h) } catch {}; await loadAll() }
+    catch (e) { setError(`Ulozeni: ${e.message}`) }
   }
 
   if (loading) return <div className="py-8 text-center"><div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
@@ -183,7 +174,7 @@ export default function BookingDocumentsTab({ bookingId }) {
   return (
     <div className="space-y-5">
       {error && <div className="p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
-      {debug && <div className="p-3 rounded-card mb-3" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}><strong>DIAGNOSTIKA (booking: ...{bookingId?.slice(-8)})</strong><br/>{debug.errors.length > 0 && <div style={{ color: '#dc2626' }}>CHYBY: {debug.errors.join(' | ')}</div>}<div>documents tabulka: {debug.docsRaw || 0} zaznamu (zobrazeno {debug.docsFiltered || 0})</div><div>generated_documents: {debug.gen?.length || 0} zaznamu</div><div>invoices: {debug.inv?.length || 0} zaznamu</div></div>}
+      {debug && <div className="p-3 rounded-card mb-3" style={{ background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, fontFamily: 'monospace', color: '#78350f' }}><strong>DIAG ...{bookingId?.slice(-8)}</strong>{debug.errors.length > 0 && <span style={{ color: '#dc2626' }}> ERR: {debug.errors.join('|')}</span>} docs:{debug.docsFiltered||0} gen:{debug.gen?.length||0} inv:{debug.inv?.length||0}</div>}
       <div className="flex gap-3 flex-wrap">
         <Button green onClick={() => handleGenerate('rental_contract')} disabled={generating === 'rental_contract'}>{generating === 'rental_contract' ? 'Generuji...' : 'Vygenerovat smlouvu'}</Button>
         <Button green onClick={() => handleGenerate('handover_protocol')} disabled={generating === 'handover_protocol'}>{generating === 'handover_protocol' ? 'Generuji...' : 'Vygenerovat protokol'}</Button>
