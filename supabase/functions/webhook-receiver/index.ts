@@ -65,7 +65,7 @@ Deno.serve(async (req: Request) => {
           status: 'error',
           error_message: (err as Error).message,
         })
-      } catch (_) { /* ignore */ }
+      } catch (e) { /* ignore */ }
       return new Response(
         JSON.stringify({ error: 'Invalid signature' }),
         { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
@@ -81,7 +81,7 @@ Deno.serve(async (req: Request) => {
         status: 'ok',
         request_data: { event_type: event.type, event_id: event.id },
       })
-    } catch (_) { /* ignore */ }
+    } catch (e) { /* ignore */ }
 
     // Handle events
     if (event.type === 'checkout.session.completed') {
@@ -196,7 +196,7 @@ Deno.serve(async (req: Request) => {
         status: 'error',
         error_message: (err as Error).message,
       })
-    } catch (_) { /* ignore */ }
+    } catch (e) { /* ignore */ }
 
     return new Response(
       JSON.stringify({ error: 'Webhook processing failed' }),
@@ -228,7 +228,7 @@ async function confirmBookingPayment(
         response_data: data,
         error_message: error?.message || null,
       })
-    } catch (_) { /* ignore */ }
+    } catch (e) { /* ignore */ }
 
     if (error) {
       console.error('confirm_payment RPC failed:', error.message)
@@ -262,7 +262,7 @@ async function confirmBookingPayment(
             stripe_session_id: transactionId,
           })
           .eq('id', bookingId)
-      } catch (_) { /* ignore */ }
+      } catch (e) { /* ignore */ }
     }
 
     // Auto-generate documents (non-blocking, best-effort)
@@ -281,7 +281,7 @@ async function confirmBookingPayment(
             method: 'POST', headers,
             body: JSON.stringify({ type: 'advance', booking_id: bookingId }),
           })
-        } catch (_) { /* ignore */ }
+        } catch (e) { /* ignore */ }
       }
 
       // Generate payment receipt (DP)
@@ -290,7 +290,7 @@ async function confirmBookingPayment(
           method: 'POST', headers,
           body: JSON.stringify({ type: 'payment_receipt', booking_id: bookingId }),
         })
-      } catch (_) { /* ignore */ }
+      } catch (e) { /* ignore */ }
 
       // Generate contract + VOP
       try {
@@ -298,13 +298,13 @@ async function confirmBookingPayment(
           method: 'POST', headers,
           body: JSON.stringify({ type: 'rental_contract', booking_id: bookingId }),
         })
-      } catch (_) { /* ignore */ }
+      } catch (e) { /* ignore */ }
       try {
         await fetch(`${SUPABASE_URL}/functions/v1/generate-document`, {
           method: 'POST', headers,
           body: JSON.stringify({ type: 'vop', booking_id: bookingId }),
         })
-      } catch (_) { /* ignore */ }
+      } catch (e) { /* ignore */ }
 
       // Send confirmation email (with source detection for web-specific template)
       const { data: booking } = await supabase.from('bookings')
@@ -332,9 +332,9 @@ async function confirmBookingPayment(
               manual_url: moto?.manual_url || '',
             }),
           })
-        } catch (_) { /* ignore */ }
+        } catch (e) { /* ignore */ }
       }
-    } catch (_) { /* doc gen is best-effort */ }
+    } catch (e) { /* doc gen is best-effort */ }
   } catch (err) {
     console.error('confirmBookingPayment error:', err)
   }
@@ -374,7 +374,7 @@ async function confirmSosPayment(
         request_data: { booking_id: bookingId, incident_id: incidentId, transaction_id: transactionId },
         error_message: error?.message || null,
       })
-    } catch (_) { /* ignore */ }
+    } catch (e) { /* ignore */ }
 
     if (error) {
       console.error('SOS booking update failed:', error.message)
@@ -438,7 +438,7 @@ async function ingestFinancialEvent(
           request_data: eventData,
           error_message: error.message,
         })
-      } catch (_) { /* ignore */ }
+      } catch (e) { /* ignore */ }
     }
   } catch (err) {
     console.error('ingestFinancialEvent error:', err)
@@ -468,7 +468,7 @@ async function confirmShopPayment(
         response_data: data,
         error_message: error?.message || null,
       })
-    } catch (_) { /* ignore */ }
+    } catch (e) { /* ignore */ }
 
     if (error) {
       console.error('confirm_shop_payment RPC failed:', error.message)
@@ -487,7 +487,7 @@ async function confirmShopPayment(
             stripe_session_id: transactionId,
           })
           .eq('id', orderId)
-      } catch (_) { /* ignore */ }
+      } catch (e) { /* ignore */ }
     }
   } catch (err) {
     console.error('confirmShopPayment error:', err)
@@ -538,7 +538,7 @@ async function syncCardFromSetupSession(
         status: 'ok',
         request_data: { user_id: userId, pm_id: pm.id, brand: pm.card?.brand, last4: pm.card?.last4 },
       })
-    } catch (_) { /* ignore */ }
+    } catch (e) { /* ignore */ }
   } catch (e) {
     console.error('syncCardFromSetupSession error:', e)
   }

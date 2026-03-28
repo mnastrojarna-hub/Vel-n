@@ -195,7 +195,7 @@ Deno.serve(async (req: Request) => {
           suggested_fix: { storage_path: storagePath, hint: 'Zkontrolujte obrázek ručně.' },
           assigned_to: 'admin',
         })
-      } catch (_) { /* ignore */ }
+      } catch (e) { /* ignore */ }
       return jsonResponse({ error: 'Failed to parse document with Claude Vision' }, 500)
     }
 

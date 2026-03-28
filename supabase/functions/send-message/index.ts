@@ -232,7 +232,7 @@ serve(async (req) => {
           error_message: result.error,
           request_data: { channel, to, template_slug, booking_id },
         })
-      } catch (_) { /* ignore */ }
+      } catch (e) { /* ignore */ }
 
       return jsonResponse({
         success: false,
@@ -257,7 +257,7 @@ serve(async (req) => {
         status: 'error',
         error_message: (err as Error).message,
       })
-    } catch (_) { /* ignore */ }
+    } catch (e) { /* ignore */ }
 
     return jsonResponse({ error: (err as Error).message }, 500)
   }

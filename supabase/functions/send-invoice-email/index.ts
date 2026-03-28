@@ -113,7 +113,7 @@ serve(async (req) => {
           error_message: result.error || null,
           provider_id: result.provider_id || null,
         })
-      } catch (_) { /* ignore */ }
+      } catch (e) { /* ignore */ }
 
       try {
         await supabase.from('message_log').insert({
@@ -128,7 +128,7 @@ serve(async (req) => {
           error_message: result.error || null,
           is_marketing: false,
         })
-      } catch (_) { /* ignore */ }
+      } catch (e) { /* ignore */ }
 
       if (!result.success) {
         return jsonResponse({ success: false, error: result.error }, 502)
@@ -207,7 +207,7 @@ serve(async (req) => {
         error_message: result.error || null,
         is_marketing: false,
       })
-    } catch (_) { /* ignore */ }
+    } catch (e) { /* ignore */ }
 
     try {
       await supabase.from('sent_emails').insert({
@@ -221,7 +221,7 @@ serve(async (req) => {
         error_message: result.error || null,
         provider_id: result.provider_id || null,
       })
-    } catch (_) { /* ignore */ }
+    } catch (e) { /* ignore */ }
 
     if (!result.success) {
       try {
@@ -233,7 +233,7 @@ serve(async (req) => {
           error_message: result.error,
           request_data: { invoice_id },
         })
-      } catch (_) { /* ignore */ }
+      } catch (e) { /* ignore */ }
       return jsonResponse({ success: false, error: result.error }, 502)
     }
 
@@ -243,7 +243,7 @@ serve(async (req) => {
         await supabase.from('invoices')
           .update({ status: 'sent' })
           .eq('id', invoice_id)
-      } catch (_) { /* ignore */ }
+      } catch (e) { /* ignore */ }
     }
 
     return jsonResponse({ success: true, provider_id: result.provider_id })
@@ -258,7 +258,7 @@ serve(async (req) => {
         status: 'error',
         error_message: (err as Error).message,
       })
-    } catch (_) { /* ignore */ }
+    } catch (e) { /* ignore */ }
 
     return jsonResponse({ error: (err as Error).message }, 500)
   }
