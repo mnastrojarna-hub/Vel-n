@@ -411,7 +411,20 @@ MG._rezSubmitPayment = async function(){
       headers:{'Content-Type':'application/json','apikey':window.MOTOGO_CONFIG.SUPABASE_ANON_KEY},
       body:JSON.stringify({booking_id:bookingId,amount:amount,type:'booking',source:'web',mode:'checkout'})});
     var payData=await payRes.json();
-    if(payData.error){alert('Chyba platby: '+payData.error);if(btn){btn.disabled=false;btn.textContent='Pokračovat k platbě';}return;}
+    if(payData.error){
+      var emsg = payData.error || '';
+      if(emsg.indexOf('Booking overlap') !== -1) alert('Tuto motorku pr\u00e1v\u011b rezervoval jin\u00fd z\u00e1kazn\u00edk ve stejn\u00e9m term\u00ednu. Zvolte pros\u00edm jin\u00fd term\u00edn nebo jinou motorku.');
+      else if(emsg.indexOf('overlapping booking') !== -1) alert('V tomto term\u00ednu ji\u017e m\u00e1te jinou aktivn\u00ed rezervaci.');
+      else alert('Chyba platby: '+emsg);
+      if(btn){btn.disabled=false;btn.textContent='Pokra\u010dovat k platb\u011b';}return;
+    }
+    // 100% sleva — potvrzeno bez Stripe
+    if(payData.success && payData.free){
+      MG._rez._paymentDone=true;
+      alert('Rezervace potvrzena! 100% sleva \u2014 platba nen\u00ed pot\u0159eba.');
+      window.location.hash='#/potvrzeni?booking_id='+bookingId;
+      return;
+    }
     if(payData.checkout_url){
       MG._rez._paymentDone=true;
       if(MG._rez._abandonedTimer) clearTimeout(MG._rez._abandonedTimer);

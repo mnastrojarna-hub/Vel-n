@@ -143,8 +143,24 @@ Deno.serve(async (req: Request) => {
         })
       }
 
-      const amount = Math.round((booking.total_price || body.amount) * 100)
+      const amountCzk = booking.total_price || body.amount || 0
+      const amount = Math.round(amountCzk * 100)
       const currency = body.currency || 'czk'
+
+      // 100% sleva pro web — potvrdit bez Stripe
+      if (amount < 1) {
+        try {
+          await supabaseAdmin.rpc('confirm_payment', { p_booking_id: body.booking_id, p_method: 'free' })
+        } catch {
+          await supabaseAdmin.from('bookings').update({
+            payment_status: 'paid', status: 'reserved', confirmed_at: new Date().toISOString()
+          }).eq('id', body.booking_id)
+        }
+        return new Response(JSON.stringify({ success: true, free: true, booking_id: body.booking_id }), {
+          headers: { ...CORS, 'Content-Type': 'application/json' }
+        })
+      }
+
       const profile = booking.profiles as { full_name?: string; email?: string; phone?: string; stripe_customer_id?: string } | null
       const customerEmail = profile?.email || ''
       const customerName = profile?.full_name || ''
@@ -338,15 +354,41 @@ Deno.serve(async (req: Request) => {
     if (order_id) metadata.order_id = order_id
     if (incident_id) metadata.incident_id = incident_id
 
+    // ── FREE BOOKING (100% discount, amount = 0) — confirm directly without Stripe ──
+    if (amount <= 0 && booking_id) {
+      try {
+        await supabase.rpc('confirm_payment', {
+          p_booking_id: booking_id,
+          p_method: 'free'
+        })
+      } catch {
+        // Fallback: direct update
+        await supabase.from('bookings').update({
+          payment_status: 'paid',
+          status: 'reserved',
+          confirmed_at: new Date().toISOString()
+        }).eq('id', booking_id)
+      }
+
+      try {
+        await supabase.from('debug_log').insert({
+          source: 'process-payment',
+          action: 'free_booking_confirmed',
+          component: paymentType,
+          status: 'ok',
+          request_data: { booking_id, amount, type: paymentType },
+        })
+      } catch { /* ignore */ }
+
+      return new Response(
+        JSON.stringify({ success: true, free: true, booking_id }),
+        { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // ── MODE: INTENT — Create PaymentIntent for in-app Stripe Elements (no redirect) ──
     if (paymentMode === 'intent') {
       const amountCents = Math.round(amount * 100)
-      if (amountCents < 1) {
-        return new Response(
-          JSON.stringify({ success: false, error: 'Neplatná částka' }),
-          { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
-        )
-      }
       const intentParams: Record<string, unknown> = {
         amount: amountCents,
         currency: currency || 'czk',
