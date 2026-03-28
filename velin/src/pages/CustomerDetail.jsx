@@ -13,6 +13,8 @@ import CustomerDocumentsTab from './customer/CustomerDocumentsTab'
 import CustomerSOSTab from './customer/CustomerSOSTab'
 import CustomerScoreWidget, { ScoreBadge } from './customer/CustomerScoreWidget'
 import CustomerComplaintsTab from './customer/CustomerComplaintsTab'
+import ProfileTab from './CustomerProfileTab'
+import { CustomerBookings, CustomerReviews } from './CustomerSubTabs'
 
 const TABS = ['Profil', 'Skóre', 'Rezervace', 'Dokumenty', 'Hodnocení', 'SOS', 'Reklamace']
 
@@ -350,21 +352,7 @@ export default function CustomerDetail() {
   )
 }
 
-function ProfileTab({ customer, set, error, saving, onSave, onDelete, onBlock }) {
-  return (
-    <div className="space-y-5">
-      {/* Osobní údaje */}
-      <Card>
-        <SectionTitle>Osobní údaje</SectionTitle>
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Jméno" value={customer.full_name} onChange={v => set('full_name', v)} />
-          <Field label="Email" value={customer.email} disabled />
-          <Field label="Telefon" value={customer.phone} onChange={v => set('phone', v)} />
-          <Field label="Datum narození" value={customer.date_of_birth} onChange={v => set('date_of_birth', v)} type="date" />
-          <Field label="Jazyk" value={customer.language} disabled />
-          <Field label="Registrace" value={customer.created_at?.slice(0, 10)} disabled />
-        </div>
-      </Card>
+/* ProfileTab, CustomerBookings, CustomerReviews and helpers extracted to separate files */
 
       {/* Adresa */}
       <Card>
