@@ -1,4 +1,4 @@
-// SOS shared constants - exported from here, re-exported by SOSPanel for backwards compatibility
+// SOS shared constants
 
 export const TYPE_LABELS = {
   theft: 'Krádež motorky',
@@ -56,3 +56,31 @@ export const STATUS_COLORS = {
   closed: { bg: '#f3f4f6', color: '#1a2e22', label: 'Uzavřeno' },
 }
 
+const LIGHT_AUTO_ACK = ['breakdown_minor', 'defect_question', 'location_share', 'other']
+
+export const HEAVY_TYPES = ['theft', 'accident_minor', 'accident_major', 'breakdown_major', 'accident', 'breakdown']
+export const LIGHT_TYPES = ['breakdown_minor', 'defect_question', 'location_share', 'other']
+
+  const TYPE_FILTERS = [
+    { key: 'all_type', label: 'Vše', icon: '' },
+    { key: 'nehody', label: 'Nehody', icon: '💥', types: ['accident_minor','accident_major','accident'] },
+    { key: 'poruchy', label: 'Poruchy', icon: '🔧', types: ['breakdown_minor','breakdown_major','breakdown'] },
+    { key: 'kradeze', label: 'Krádeže', icon: '🔒', types: ['theft'] },
+    { key: 'ostatni', label: 'Ostatní', icon: '📞', types: ['defect_question','location_share','other'] },
+  ]
+
+  // Sub-filtry pro nehody a poruchy
+  const SUB_FILTERS = {
+    nehody: [
+      { key: 'all', label: 'Všechny nehody' },
+      { key: 'lehke', label: 'Lehké', types: ['accident_minor'] },
+      { key: 'tezke', label: 'Těžké', types: ['accident_major', 'accident'] },
+      { key: 'zavinene', label: 'Zaviněné', filterFn: i => i.customer_fault === true },
+      { key: 'nezavinene', label: 'Bez zavinění', filterFn: i => i.customer_fault === false },
+    ],
+    poruchy: [
+      { key: 'all', label: 'Všechny poruchy' },
+      { key: 'lehke', label: 'Lehké', types: ['breakdown_minor'] },
+      { key: 'tezke', label: 'Těžké', types: ['breakdown_major', 'breakdown'] },
+    ],
+  }
