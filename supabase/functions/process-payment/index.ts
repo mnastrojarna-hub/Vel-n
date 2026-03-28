@@ -149,12 +149,12 @@ Deno.serve(async (req: Request) => {
 
       // 100% sleva pro web — potvrdit bez Stripe
       if (amount < 1) {
-        try {
-          await supabaseAdmin.rpc('confirm_payment', { p_booking_id: body.booking_id, p_method: 'free' })
-        } catch {
-          await supabaseAdmin.from('bookings').update({
-            payment_status: 'paid', status: 'reserved', confirmed_at: new Date().toISOString()
-          }).eq('id', body.booking_id)
+        const { error: rpcErr } = await supabaseAdmin.rpc('confirm_payment', { p_booking_id: body.booking_id, p_method: 'free' })
+        if (rpcErr) {
+          console.error('confirm_payment RPC failed for free web booking:', rpcErr.message)
+          return new Response(JSON.stringify({ error: 'Potvrzení rezervace selhalo.' }), {
+            status: 500, headers: { ...CORS, 'Content-Type': 'application/json' }
+          })
         }
         return new Response(JSON.stringify({ success: true, free: true, booking_id: body.booking_id }), {
           headers: { ...CORS, 'Content-Type': 'application/json' }
@@ -355,19 +355,40 @@ Deno.serve(async (req: Request) => {
     if (incident_id) metadata.incident_id = incident_id
 
     // ── FREE BOOKING (100% discount, amount = 0) — confirm directly without Stripe ──
+    // Safety: verify that booking's total_price in DB is actually 0 before confirming for free
     if (amount <= 0 && booking_id) {
-      try {
-        await supabase.rpc('confirm_payment', {
-          p_booking_id: booking_id,
-          p_method: 'free'
-        })
-      } catch {
-        // Fallback: direct update
-        await supabase.from('bookings').update({
-          payment_status: 'paid',
-          status: 'reserved',
-          confirmed_at: new Date().toISOString()
-        }).eq('id', booking_id)
+      const { data: dbBooking } = await supabase.from('bookings')
+        .select('total_price, payment_status')
+        .eq('id', booking_id)
+        .single()
+
+      if (dbBooking?.payment_status === 'paid') {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Tato rezervace je již zaplacena.' }),
+          { status: 409, headers: { ...CORS, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // Only allow free confirmation if DB total_price is also 0
+      if (dbBooking && dbBooking.total_price > 0) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Částka neodpovídá ceně rezervace (' + dbBooking.total_price + ' Kč). Obnovte stránku a zkuste znovu.' }),
+          { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      const { error: rpcError } = await supabase.rpc('confirm_payment', {
+        p_booking_id: booking_id,
+        p_method: 'free'
+      })
+
+      if (rpcError) {
+        console.error('confirm_payment RPC failed for free booking:', rpcError.message)
+        // Do NOT fallback to direct update — if RPC fails, payment is NOT confirmed
+        return new Response(
+          JSON.stringify({ success: false, error: 'Potvrzení rezervace selhalo. Zkuste to znovu.' }),
+          { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } }
+        )
       }
 
       try {
