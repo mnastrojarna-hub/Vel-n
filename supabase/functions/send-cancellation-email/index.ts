@@ -197,13 +197,15 @@ serve(async (req) => {
 
     // Send copy to info@
     if (result.success) {
-      await sendWithRetry({
-        from: FROM_EMAIL,
-        to: REPLY_TO,
-        subject: `[Kopie] ${subject}`,
-        html,
-      })
-    } catch (_) { /* ignore copy send */ }
+      try {
+        await sendWithRetry({
+          from: FROM_EMAIL,
+          to: REPLY_TO,
+          subject: `[Kopie] ${subject}`,
+          html,
+        })
+      } catch (e) { /* ignore copy send */ }
+    }
 
     // Mark booking as notified
     if (booking_id) {
@@ -224,7 +226,7 @@ serve(async (req) => {
         status: result.success ? 'sent' : 'failed',
         error_message: result.error || null,
       })
-    } catch (_) { /* ignore */ }
+    } catch (e) { /* ignore */ }
 
     // Log to sent_emails
     try {
@@ -238,7 +240,7 @@ serve(async (req) => {
         error_message: result.error || null,
         provider_id: result.provider_id || null,
       })
-    } catch (_) { /* ignore */ }
+    } catch (e) { /* ignore */ }
 
     if (!result.success) {
       try {
@@ -250,7 +252,7 @@ serve(async (req) => {
           error_message: result.error,
           request_data: { booking_id, customer_email },
         })
-      } catch (_) { /* ignore */ }
+      } catch (e) { /* ignore */ }
       return new Response(JSON.stringify({ error: 'Email send failed', details: result.error }), {
         status: 502,
         headers: { ...CORS, 'Content-Type': 'application/json' },
