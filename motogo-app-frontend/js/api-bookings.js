@@ -141,6 +141,10 @@ async function apiProcessPayment(bookingId, amount, method, opts){
     });
     if(resp.ok){
       var result = await resp.json();
+      // 100% sleva — potvrzeno na serveru bez Stripe
+      if(result.success && result.free){
+        return {success:true, free:true, booking_id: result.booking_id};
+      }
       if(result.success && result.client_secret){
         return {success:true, client_secret: result.client_secret, payment_intent_id: result.payment_intent_id};
       }
