@@ -184,3 +184,18 @@ async function authResetPassword(email) {
         return { error: 'Chyba při odesílání emailu pro reset hesla.' };
     }
 }
+
+/**
+ * Change password for logged-in user.
+ */
+async function authChangePassword(newPassword) {
+    try {
+        _ensureSupabase();
+        if (!supabase) return { error: 'Supabase není připojen.' };
+        var result = await supabase.auth.updateUser({ password: newPassword });
+        return { error: result.error ? result.error.message : null };
+    } catch (e) {
+        console.error('[MotoGo24] authChangePassword error:', e);
+        return { error: 'Chyba při změně hesla.' };
+    }
+}

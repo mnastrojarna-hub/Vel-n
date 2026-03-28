@@ -167,6 +167,54 @@ async function doSaveProfile(){
   } catch(e){ console.error('doSaveProfile error:', e); showT('✗',_t('common').error,_t('common').saveFailed); }
 }
 
+// ===== DOCS SCREEN — show verification status from DB =====
+async function renderDocsScreenStatus(){
+  var banner=document.getElementById('docs-verified-banner');
+  var unverified=document.getElementById('docs-unverified-section');
+  if(!banner||!unverified) return;
+  if(!_isSupabaseReady()){banner.style.display='none';unverified.style.display='';return;}
+  try {
+    var uid=await _getUserId();if(!uid)return;
+    var r=await window.supabase.from('profiles')
+      .select('id_verified_at,id_verified_until,license_verified_at,license_verified_until,passport_verified_at,passport_verified_until,license_expiry,license_number')
+      .eq('id',uid).maybeSingle();
+    if(!r||!r.data){banner.style.display='none';unverified.style.display='';return;}
+    var p=r.data,today=new Date().toISOString().slice(0,10);
+    var hasId=p.id_verified_at&&(!p.id_verified_until||p.id_verified_until>=today);
+    var hasPas=p.passport_verified_at&&(!p.passport_verified_until||p.passport_verified_until>=today);
+    var hasLic=p.license_verified_at&&(!p.license_verified_until||p.license_verified_until>=today);
+    var idOk=hasId||hasPas;
+    var allOk=idOk&&hasLic;
+    if(allOk){
+      // Format dates
+      function fmtD(d){if(!d)return'—';var p=d.split('-');return parseInt(p[2])+'.'+parseInt(p[1])+'.'+p[0];}
+      var licUntil=p.license_verified_until||p.license_expiry||'—';
+      var idUntil=hasId?p.id_verified_until:p.passport_verified_until;
+      banner.style.display='block';
+      banner.innerHTML='<div style="margin:12px 20px 0;background:#ecfdf5;border:2px solid #6ee7b7;border-radius:var(--r);padding:16px;text-align:center;">'+
+        '<div style="font-size:36px;margin-bottom:6px;">✅</div>'+
+        '<div style="font-size:16px;font-weight:900;color:#065f46;margin-bottom:4px;">Doklady ověřeny</div>'+
+        '<div style="font-size:12px;color:#047857;line-height:1.7;">'+
+        (hasId?'🪪 OP ověřen':'📕 Pas ověřen')+(idUntil?' — platnost do <strong>'+fmtD(idUntil)+'</strong>':'')+'<br>'+
+        '🏍️ ŘP ověřen — platnost do <strong>'+fmtD(licUntil)+'</strong></div>'+
+        '<div style="font-size:11px;color:#059669;margin-top:8px;line-height:1.5;">Vaše doklady jsou evidovány v systému.<br>Po reinstalaci ani aktualizaci aplikace je nemusíte znovu nahrávat.</div>'+
+        '</div>';
+      unverified.style.display='none';
+      localStorage.setItem('mg_docs_verified','1');
+    } else {
+      banner.style.display='none';
+      unverified.style.display='';
+      // Show partial status if some docs are verified
+      if(idOk||hasLic){
+        var partial='<div style="margin:12px 20px 0;background:#fefce8;border:1px solid #fde047;border-radius:var(--rsm);padding:11px 13px;">'+
+          '<div style="font-size:13px;font-weight:700;color:#854d0e;margin-bottom:3px;">📋 Částečně ověřeno</div>'+
+          '<div style="font-size:12px;color:#a16207;line-height:1.6;">'+(idOk?'✅ Doklad totožnosti OK':'❌ Chybí doklad totožnosti')+' · '+(hasLic?'✅ ŘP OK':'❌ Chybí řidičský průkaz')+'</div></div>';
+        banner.style.display='block';banner.innerHTML=partial;
+      }
+    }
+  }catch(e){console.warn('[DOCS] renderDocsScreenStatus:',e);}
+}
+
 async function renderDocuments(){
   try {
     var docsWrap = document.getElementById('profile-documents');

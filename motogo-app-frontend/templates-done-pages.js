@@ -110,6 +110,13 @@ Templates['s-profile'] = `  <div class="prof-hdr">
       </div>
       <button class="save-btn" onclick="saveProfileConsents('priv')">Uložit</button>
     </div>
+    <div class="mi" onclick="toggleExpand('exp-heslo','arr-heslo')"><div class="mii">🔑</div><div class="mit">Změna hesla</div><div class="mia" id="arr-heslo">›</div></div>
+    <div class="mi-expand" id="exp-heslo">
+      <div class="edit-field"><label>Současné heslo</label><input id="chp-old" type="password" placeholder="••••••••"></div>
+      <div class="edit-field"><label>Nové heslo (min. 8 znaků)</label><input id="chp-new1" type="password" placeholder="••••••••"></div>
+      <div class="edit-field"><label>Nové heslo znovu</label><input id="chp-new2" type="password" placeholder="••••••••"></div>
+      <button class="save-btn" onclick="doChangePassword()">Změnit heslo</button>
+    </div>
     <div class="mi" onclick="toggleExpand('exp-jazyk','arr-jazyk')"><div class="mii">🌐</div><div class="mit" id="prof-lbl-lang">Jazyk aplikace</div><div class="mia" id="arr-jazyk">›</div></div>
     <div class="mi-expand" id="exp-jazyk">
       <div class="edit-field">
@@ -146,7 +153,7 @@ Templates['s-profile'] = `  <div class="prof-hdr">
     <div style="text-align:center;padding:16px 14px 4px;">
       <span onclick="doDeleteAccount()" style="font-size:11px;color:var(--g400);cursor:pointer;text-decoration:underline;" id="prof-lbl-delete">Smazat účet a všechna data</span>
     </div>
-  <div style="height:14px;"></div>`;
+  <div style="text-align:center;padding:6px 14px 14px;font-size:10px;color:var(--g400);font-weight:600;letter-spacing:.5px;">MotoGo24 v5.5.4</div>`;
 
 Templates['s-messages'] = `  <div class="topbar">
     <div style="display:flex;align-items:center;gap:10px"><div class="bk-c" onclick="histBack()" style="flex-shrink:0">\u2190</div><div><h2>📩 Zpr\u00e1vy</h2><p>Komunikace s MotoGo24</p></div></div>

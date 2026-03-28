@@ -3,10 +3,19 @@
 
 var _pendingBookingAction = null;
 
-// Check if documents have been scanned and verified
+// Check if documents have been scanned and verified (localStorage cache, DB-backed)
 function isDocsVerified(){
   try{ return localStorage.getItem('mg_docs_verified')==='1'; }
   catch(e){ return false; }
+}
+
+// Async DB-backed check — authoritative, survives reinstall
+async function isDocsVerifiedFromDB(){
+  if(typeof apiCheckDocsVerified==='function'){
+    var v=await apiCheckDocsVerified();
+    return v;
+  }
+  return isDocsVerified();
 }
 
 // Quick check whether camera is likely to work (no actual permission prompt)
@@ -61,8 +70,11 @@ function continuePendingBooking(){
 }
 
 // Post-payment: prompt scan if docs not yet verified
-function promptPostPaymentScan(){
+async function promptPostPaymentScan(){
   if(isDocsVerified()) return;
+  // Double-check from DB (survives reinstall/update)
+  var dbVerified=await isDocsVerifiedFromDB();
+  if(dbVerified) return;
   var ov = document.getElementById('post-pay-scan-overlay');
   if(!ov){
     ov = document.createElement('div');
