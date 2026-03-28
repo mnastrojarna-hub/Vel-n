@@ -118,7 +118,7 @@ export const PAGE_REZERVACE = {
       id: 'form', label: 'Formulář', location: 'Rezervační formulář pod kalendářem',
       fields: [
         { key: 'web.rez.delivery.label', label: 'Přistavení label', default: 'Přistavení motorky jinam, než na adresu motopůjčovny' },
-        { key: 'web.rez.delivery.tooltip', label: 'Přistavení tooltip', type: 'textarea', default: 'Motorku vám dovezeme na domluvené místo. Do ceny za přistavení motorky se promítá: nakládka 500 Kč, vykládka 500 Kč a náklady na dopravu (20 Kč/1 km).' },
+        { key: 'web.rez.delivery.tooltip', label: 'Přistavení tooltip', type: 'textarea', default: 'Motorku vám dovezeme na domluvené místo. Do ceny za přistavení motorky se promítá: nakládka 500 Kč, vykládka 500 Kč a náklady na dopravu (20 Kč/km × 2 cesty = 40 Kč/km).' },
         { key: 'web.rez.passenger.label', label: 'Výbava spolujezdce', default: 'Základní výbava spolujezdce - 690,- Kč' },
         { key: 'web.rez.boots.rider', label: 'Boty řidič', default: 'Zapůjčení bot pro řidiče - 290,- Kč' },
         { key: 'web.rez.boots.passenger', label: 'Boty spolujezdec', default: 'Zapůjčení bot pro spolujezdce - 290,- Kč' },

@@ -362,7 +362,7 @@ function _sosCalcPickupFallback(addr, calc, kmTxt){
     var KM_EST = {praha:160,brno:60,jihlava:40,tabor:35,ceske:90,plzen:200,ostrava:280};
     for(var c2 in KM_EST){ if(val.indexOf(c2) !== -1){ km = KM_EST[c2]; break; } }
   }
-  var fee = 1000 + km * 20;
+  var fee = 1000 + km * 2 * 20;
   editReturnFee = fee;
   if(calc) calc.style.display = 'block';
   if(kmTxt) kmTxt.textContent = '📍 ~' + km + ' km · ' + fee.toLocaleString('cs-CZ') + ' Kč (odhad)';

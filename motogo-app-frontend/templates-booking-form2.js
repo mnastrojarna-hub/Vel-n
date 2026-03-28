@@ -15,7 +15,7 @@ var _BOOKING_FORM_PART2 = `
       </label>
       <label style="display:flex;align-items:center;gap:9px;padding:11px;background:var(--g100);border-radius:var(--rsm);border:2px solid var(--g200);cursor:pointer;" id="pickup-delivery-label">
         <input type="radio" name="pickup" value="delivery" style="accent-color:var(--green);" onchange="setPickup('delivery')">
-        <div style="flex:1;"><div id="t-bkDelivery" style="font-size:13px;font-weight:700;">🚚 Přistavení na vaši adresu</div><div id="t-bkDeliveryNote" style="font-size:11px;color:var(--g400);">1 000 Kč + 20 Kč/km od provozovny (Mezná 9, 393 01 Mezná)</div></div>
+        <div style="flex:1;"><div id="t-bkDelivery" style="font-size:13px;font-weight:700;">🚚 Přistavení na vaši adresu</div><div id="t-bkDeliveryNote" style="font-size:11px;color:var(--g400);">1 000 Kč + 40 Kč/km od provozovny (Mezná 9, 393 01 Mezná)</div></div>
         <div id="t-bkFromPrice1" style="font-size:12px;font-weight:700;color:var(--red);">od 1 000 Kč</div>
       </label>
     </div>
@@ -27,10 +27,16 @@ var _BOOKING_FORM_PART2 = `
       <div style="display:grid;grid-template-columns:1fr;gap:8px;margin-top:8px;">
         <div class="ff" style="margin:0;position:relative;"><label id="t-bkDelivAddr">Ulice a č.p. / č.o.</label><input type="text" id="pickup-addr-input" placeholder="např. Vodičkova 36, Mezná 9" oninput="calcDelivery('pickup');showAddrSuggestions(this,'pickup')" autocomplete="off"><div id="pickup-addr-suggestions" class="addr-suggestions" style="display:none;"></div></div>
       </div>
-      <div style="margin-top:8px;"><button type="button" onclick="useMyLocation('pickup')" style="display:flex;align-items:center;gap:6px;width:100%;padding:10px 12px;background:var(--g100);border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:12px;font-weight:700;color:var(--gd);cursor:pointer;">📍 Použít moji polohu</button></div>
+      <div style="display:flex;gap:6px;margin-top:8px;">
+        <button type="button" onclick="useMyLocation('pickup')" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 12px;background:var(--g100);border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:12px;font-weight:700;color:var(--gd);cursor:pointer;">📍 Použít moji polohu</button>
+        <button type="button" onclick="openMapPicker('pickup')" style="display:flex;align-items:center;justify-content:center;gap:4px;padding:10px 12px;background:var(--g100);border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:12px;font-weight:700;color:var(--gd);cursor:pointer;white-space:nowrap;">🗺️ Mapa</button>
+      </div>
       <div id="pickup-price-calc" style="margin-top:8px;background:var(--gp);border-radius:var(--rsm);padding:10px 12px;font-size:12px;color:var(--gd);display:none;">
         <span id="pickup-km-txt">📍 Zadejte adresu pro výpočet</span>
       </div>
+      <label id="pickup-confirm-label" style="display:none;margin-top:8px;align-items:center;gap:8px;padding:9px 12px;background:var(--gp);border:2px solid var(--green);border-radius:var(--rsm);cursor:pointer;font-size:12px;font-weight:700;color:var(--gd);">
+        <input type="checkbox" id="pickup-addr-confirmed" style="accent-color:var(--green);width:16px;height:16px;" onchange="onAddrConfirmed('pickup',this.checked)"> ✅ Potvrdit adresu vyzvednutí
+      </label>
     </div>
   </div>
 
@@ -44,7 +50,7 @@ var _BOOKING_FORM_PART2 = `
       </label>
       <label style="display:flex;align-items:center;gap:9px;padding:11px;background:var(--g100);border-radius:var(--rsm);border:2px solid var(--g200);cursor:pointer;" id="return-delivery-label">
         <input type="radio" name="return" value="other" style="accent-color:var(--green);" onchange="setReturn('other')">
-        <div style="flex:1;"><div id="t-bkPickupFromHome" style="font-size:13px;font-weight:700;">📍 Odvoz z vaší adresy</div><div id="t-bkPickupNote" style="font-size:11px;color:var(--g400);">Uveďte čas vyzvednutí · 1 000 Kč + 20 Kč/km od provozovny</div></div>
+        <div style="flex:1;"><div id="t-bkPickupFromHome" style="font-size:13px;font-weight:700;">📍 Odvoz z vaší adresy</div><div id="t-bkPickupNote" style="font-size:11px;color:var(--g400);">Uveďte čas vyzvednutí · 1 000 Kč + 40 Kč/km od provozovny</div></div>
         <div id="t-bkFromPrice2" style="font-size:12px;font-weight:700;color:var(--red);">od 1 000 Kč</div>
       </label>
     </div>
@@ -56,14 +62,31 @@ var _BOOKING_FORM_PART2 = `
       <div style="display:grid;grid-template-columns:1fr;gap:8px;margin-top:8px;">
         <div class="ff" style="margin:0;position:relative;"><label id="t-bkReturnAddr">Ulice a č.p. / č.o.</label><input type="text" id="return-addr-input" placeholder="např. Vodičkova 36, Mezná 9" oninput="calcDelivery('return');showAddrSuggestions(this,'return')" autocomplete="off"><div id="return-addr-suggestions" class="addr-suggestions" style="display:none;"></div></div>
       </div>
-      <div style="margin-top:8px;"><button type="button" onclick="useMyLocation('return')" style="display:flex;align-items:center;gap:6px;width:100%;padding:10px 12px;background:var(--g100);border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:12px;font-weight:700;color:var(--gd);cursor:pointer;">📍 Použít moji polohu</button></div>
+      <div style="display:flex;gap:6px;margin-top:8px;">
+        <button type="button" onclick="useMyLocation('return')" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 12px;background:var(--g100);border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:12px;font-weight:700;color:var(--gd);cursor:pointer;">📍 Použít moji polohu</button>
+        <button type="button" onclick="openMapPicker('return')" style="display:flex;align-items:center;justify-content:center;gap:4px;padding:10px 12px;background:var(--g100);border:2px solid var(--g200);border-radius:var(--rsm);font-family:var(--font);font-size:12px;font-weight:700;color:var(--gd);cursor:pointer;white-space:nowrap;">🗺️ Mapa</button>
+      </div>
       <div class="ff" style="margin:0;margin-top:8px;"><label id="t-bkReturnTime">Čas vrácení</label>
         <div id="return-time-picker"></div>
       </div>
       <div id="return-price-calc" style="margin-top:8px;background:var(--gp);border-radius:var(--rsm);padding:10px 12px;font-size:12px;color:var(--gd);display:none;">
         <span id="return-km-txt">📍 Zadejte adresu pro výpočet</span>
       </div>
+      <label id="return-confirm-label" style="display:none;margin-top:8px;align-items:center;gap:8px;padding:9px 12px;background:var(--gp);border:2px solid var(--green);border-radius:var(--rsm);cursor:pointer;font-size:12px;font-weight:700;color:var(--gd);">
+        <input type="checkbox" id="return-addr-confirmed" style="accent-color:var(--green);width:16px;height:16px;" onchange="onAddrConfirmed('return',this.checked)"> ✅ Potvrdit adresu vrácení
+      </label>
     </div>
+  </div>
+
+  <div id="map-picker-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#fff;">
+    <div style="position:absolute;top:0;left:0;right:0;z-index:10001;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(255,255,255,.95);box-shadow:0 2px 8px rgba(0,0,0,.1);">
+      <button type="button" onclick="closeMapPicker()" style="background:none;border:none;font-size:24px;cursor:pointer;padding:4px 8px;color:var(--gd);">✕</button>
+      <span style="font-size:14px;font-weight:700;color:var(--gd);">Vyberte místo na mapě</span>
+      <button type="button" onclick="confirmMapPicker()" style="background:var(--green);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;">Potvrdit</button>
+    </div>
+    <iframe id="map-picker-iframe" style="width:100%;height:100%;border:none;" src=""></iframe>
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10000;pointer-events:none;font-size:32px;text-shadow:0 2px 4px rgba(0,0,0,.3);">📍</div>
+    <div id="map-picker-addr" style="position:absolute;bottom:60px;left:16px;right:16px;z-index:10001;background:rgba(255,255,255,.95);border-radius:10px;padding:12px 16px;font-size:13px;font-weight:600;color:var(--gd);text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.1);display:none;"></div>
   </div>
 
   <div class="bcard">

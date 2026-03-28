@@ -156,19 +156,23 @@ MG._rezFormHtml = function(){
     '<div><input type="checkbox" id="rez-eq-boots-passenger"><label for="rez-eq-boots-passenger">Zapůjčení bot pro spolujezdce <strong>+ 290 Kč</strong></label></div>' +
     // Přistavení motorky
     '<div><input type="checkbox" id="rez-delivery"><label for="rez-delivery">Přistavení motorky jinam <span id="rez-delivery-price"></span>' +
-    MG._tip('Motorku vám dovezeme na domluvené místo. Do ceny za přistavení motorky se promítá: nakládka 500 Kč, vykládka 500 Kč a náklady na dopravu (20 Kč/1 km).') +
+    MG._tip('Motorku vám dovezeme na domluvené místo. Do ceny za přistavení motorky se promítá: nakládka 500 Kč, vykládka 500 Kč a náklady na dopravu (40 Kč/km, tam i zpět).') +
     '</label></div>' +
     '<div id="rez-delivery-panel" style="display:none;margin:0 0 .75rem 1.5rem;padding:.75rem;background:#f9f9f9;border:1px solid #e0e0e0;border-radius:6px">' +
     '<input type="text" id="rez-delivery-address" placeholder="Zadejte adresu přistavení">' +
+    '<div style="display:flex;gap:6px;margin-top:.5rem"><button type="button" onclick="MG._openWebMapPicker(\'delivery\')" style="padding:6px 12px;background:#fff;border:1px solid #ccc;border-radius:6px;font-size:.85rem;cursor:pointer">🗺️ Vybrat na mapě</button></div>' +
+    '<div id="rez-delivery-confirm" style="display:none;margin-top:.5rem"><input type="checkbox" id="rez-delivery-confirmed"><label for="rez-delivery-confirmed" style="font-size:.85rem;font-weight:600;color:#1a8c1a"> ✅ Potvrdit adresu přistavení</label></div>' +
     '<div style="margin-top:.5rem"><input type="checkbox" id="rez-return-same-as-delivery" checked><label for="rez-return-same-as-delivery" style="font-size:.85rem"> Vrátit motorku na stejné adrese</label></div>' +
     '<div><input type="checkbox" id="rez-own-gear"><label for="rez-own-gear" style="font-size:.85rem"> Mám vlastní výbavu</label></div>' +
     '</div>' +
     // Vrácení motorky jinde
     '<div><input type="checkbox" id="rez-return-other"><label for="rez-return-other">Vrácení motorky na jiné adrese <span id="rez-return-price"></span>' +
-    MG._tip('Motorku nemusíte vracet zpět v místě motopůjčovny, rádi si ji u vás vyzvedneme. Do ceny za vrácení motorky jinde se promítá: nakládka 500 Kč, vykládka 500 Kč a náklady na dopravu (20 Kč/1 km).') +
+    MG._tip('Motorku nemusíte vracet zpět v místě motopůjčovny, rádi si ji u vás vyzvedneme. Do ceny za vrácení motorky jinde se promítá: nakládka 500 Kč, vykládka 500 Kč a náklady na dopravu (40 Kč/km, tam i zpět).') +
     '</label></div>' +
     '<div id="rez-return-panel" style="display:none;margin:0 0 .75rem 1.5rem;padding:.75rem;background:#f9f9f9;border:1px solid #e0e0e0;border-radius:6px">' +
     '<input type="text" id="rez-return-address" placeholder="Zadejte adresu vrácení">' +
+    '<div style="display:flex;gap:6px;margin-top:.5rem"><button type="button" onclick="MG._openWebMapPicker(\'return\')" style="padding:6px 12px;background:#fff;border:1px solid #ccc;border-radius:6px;font-size:.85rem;cursor:pointer">🗺️ Vybrat na mapě</button></div>' +
+    '<div id="rez-return-confirm" style="display:none;margin-top:.5rem"><input type="checkbox" id="rez-return-confirmed"><label for="rez-return-confirmed" style="font-size:.85rem;font-weight:600;color:#1a8c1a"> ✅ Potvrdit adresu vrácení</label></div>' +
     '<div class="dfc" style="margin-top:.5rem"><div>Čas vrácení</div><input type="time" id="rez-return-time" style="max-width:200px"></div>' +
     '</div>' +
     '</div>' +
@@ -555,4 +559,97 @@ MG._removeCode = function(idx){
   MG._rez.discountAmt=MG._rez.appliedCodes.reduce(function(s,c){return s+c.discountAmt;},0);
   MG._renderAppliedCodes(); MG._rezUpdatePrice();
 };
+// ===== WEB MAP PICKER (fullscreen Leaflet overlay) =====
+MG._webMapPickerType = null;
+MG._webMapCenter = null;
+
+MG._openWebMapPicker = function(type){
+  MG._webMapPickerType = type;
+  // Remove old overlay if any
+  var old = document.getElementById('web-map-picker-overlay');
+  if(old) old.remove();
+  // Create overlay
+  var overlay = document.createElement('div');
+  overlay.id = 'web-map-picker-overlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;background:#fff;';
+  overlay.innerHTML =
+    '<div style="position:absolute;top:0;left:0;right:0;z-index:100001;display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:rgba(255,255,255,.95);box-shadow:0 2px 8px rgba(0,0,0,.1);">' +
+      '<button onclick="MG._closeWebMapPicker()" style="background:none;border:none;font-size:22px;cursor:pointer;padding:4px 8px;">✕</button>' +
+      '<span style="font-size:15px;font-weight:700;">Vyberte místo na mapě</span>' +
+      '<button onclick="MG._confirmWebMapPicker()" style="background:#1a8c1a;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:14px;font-weight:700;cursor:pointer;">Potvrdit</button>' +
+    '</div>' +
+    '<div id="web-map-container" style="width:100%;height:100%;"></div>' +
+    '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:100000;pointer-events:none;font-size:36px;text-shadow:0 2px 6px rgba(0,0,0,.3);">📍</div>' +
+    '<div id="web-map-addr-preview" style="position:absolute;bottom:30px;left:20px;right:20px;z-index:100001;background:rgba(255,255,255,.95);border-radius:10px;padding:12px 16px;font-size:14px;font-weight:600;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.1);display:none;"></div>';
+  document.body.appendChild(overlay);
+  document.body.style.overflow = 'hidden';
+  // Load Leaflet if not already loaded
+  if(!window.L){
+    var css = document.createElement('link'); css.rel='stylesheet'; css.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    document.head.appendChild(css);
+    var scr = document.createElement('script'); scr.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    scr.onload = function(){ MG._initWebMap(); };
+    document.head.appendChild(scr);
+  } else {
+    setTimeout(function(){ MG._initWebMap(); }, 50);
+  }
+};
+
+MG._initWebMap = function(){
+  var container = document.getElementById('web-map-container');
+  if(!container || !window.L) return;
+  var lat = 49.4147, lng = 15.2953, zoom = 10;
+  MG._webMapCenter = {lat:lat, lng:lng};
+  var map = L.map(container, {zoomControl:true}).setView([lat, lng], zoom);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19}).addTo(map);
+  MG._webMap = map;
+  map.on('moveend', function(){
+    var c = map.getCenter();
+    MG._webMapCenter = {lat:c.lat, lng:c.lng};
+    // Reverse geocode for preview
+    MG._reverseGeocodePreview(c.lat, c.lng);
+  });
+};
+
+MG._reverseGeocodePreview = function(lat, lng){
+  var el = document.getElementById('web-map-addr-preview');
+  fetch('https://nominatim.openstreetmap.org/reverse?lat='+lat+'&lon='+lng+'&format=json&addressdetails=1&accept-language=cs')
+    .then(function(r){return r.json();})
+    .then(function(data){
+      if(data && data.display_name && el){
+        el.textContent = data.display_name.split(',').slice(0,3).join(',');
+        el.style.display = 'block';
+      }
+    }).catch(function(){});
+};
+
+MG._closeWebMapPicker = function(){
+  var overlay = document.getElementById('web-map-picker-overlay');
+  if(overlay) overlay.remove();
+  document.body.style.overflow = '';
+  if(MG._webMap){ MG._webMap.remove(); MG._webMap=null; }
+};
+
+MG._confirmWebMapPicker = function(){
+  var center = MG._webMapCenter;
+  var type = MG._webMapPickerType;
+  MG._closeWebMapPicker();
+  if(!center) return;
+  // Reverse geocode and fill address field
+  fetch('https://nominatim.openstreetmap.org/reverse?lat='+center.lat+'&lon='+center.lng+'&format=json&addressdetails=1&accept-language=cs')
+    .then(function(r){return r.json();})
+    .then(function(data){
+      if(!data || !data.address) return;
+      var addr = data.address;
+      var street = (addr.road||'') + (addr.house_number ? ' ' + addr.house_number : '');
+      var city = addr.city||addr.town||addr.village||addr.municipality||'';
+      var inputId = type === 'delivery' ? 'rez-delivery-address' : 'rez-return-address';
+      var inp = document.getElementById(inputId);
+      if(inp) inp.value = [street, city].filter(Boolean).join(', ');
+      // Show confirm checkbox
+      var confirmEl = document.getElementById('rez-'+type+'-confirm');
+      if(confirmEl) confirmEl.style.display = 'block';
+    }).catch(function(){});
+};
+
 // Steps 1-3 + Stripe → pages-rezervace-steps.js

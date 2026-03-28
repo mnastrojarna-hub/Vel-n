@@ -81,7 +81,7 @@ async function apiGetActiveLoan(){
     r = await window.supabase.from('bookings')
       .select('*, motorcycles(model, image_url)')
       .eq('user_id', uid)
-      .in('status', ['reserved', 'confirmed'])
+      .in('status', ['reserved', 'active'])
       .eq('payment_status', 'paid')
       .order('start_date', {ascending: true})
       .limit(10);
