@@ -50,6 +50,14 @@ MG._submitReservation = async function(){
 
   // Save customer to DB immediately (even if they don't finish payment)
   try {
+    // Prepare discount params
+    var codes = MG._rez.formData.appliedCodes || [];
+    var discAmt = MG._rez.formData.discountAmt || 0;
+    var promoCode = null, voucherId = null;
+    for(var ci=0;ci<codes.length;ci++){
+      if(codes[ci].type==='promo') promoCode = codes[ci].code;
+      if(codes[ci].type==='voucher') voucherId = codes[ci].id;
+    }
     var rpcParams = {
       p_moto_id: mId, p_start_date: r.startDate, p_end_date: r.endDate,
       p_name: name.value, p_email: email.value, p_phone: phone.value,
@@ -58,7 +66,11 @@ MG._submitReservation = async function(){
       p_note: MG._rez.formData.note||'',
       p_pickup_time: ptEl.value ? ptEl.value+':00' : null,
       p_delivery_address: deliveryAddr, p_return_address: returnAddr,
-      p_extras: extras
+      p_extras: extras,
+      p_discount_amount: discAmt||0,
+      p_discount_code: codes.length?codes.map(function(c){return c.code;}).join(', '):null,
+      p_promo_code: promoCode,
+      p_voucher_id: voucherId
     };
     console.log('[REZ] create_web_booking params:', rpcParams);
     var regRes = await window.sb.rpc('create_web_booking', rpcParams);
@@ -69,26 +81,6 @@ MG._submitReservation = async function(){
       MG._rez.bookingId = regData.booking_id;
       MG._rez.userId = regData.user_id;
       MG._rez.bookingAmount = regData.amount;
-
-      // Apply discount to booking if codes were used
-      var codes = MG._rez.formData.appliedCodes || [];
-      var discAmt = MG._rez.formData.discountAmt || 0;
-      if(discAmt > 0 && MG._rez.bookingId){
-        var promoCode = null, voucherId = null;
-        for(var ci=0;ci<codes.length;ci++){
-          if(codes[ci].type==='promo') promoCode = codes[ci].code;
-          if(codes[ci].type==='voucher') voucherId = codes[ci].id;
-        }
-        var finalAmount = Math.max(0, regData.amount - discAmt);
-        await window.sb.from('bookings').update({
-          discount_amount: discAmt,
-          discount_code: codes.map(function(c){return c.code;}).join(', '),
-          total_price: finalAmount,
-          promo_code: promoCode,
-          voucher_id: voucherId
-        }).eq('id', MG._rez.bookingId);
-        MG._rez.bookingAmount = finalAmount;
-      }
     }
   } catch(e){ alert('Chyba při ukládání: '+e.message); return; }
 
