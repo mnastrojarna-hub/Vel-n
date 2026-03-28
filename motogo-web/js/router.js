@@ -26,7 +26,9 @@ MG.initRouter = function(){
 };
 
 MG._resolve = function(){
-  var path = MG.getHash();
+  var fullPath = MG.getHash();
+  // Strip query string for route matching (query params stay in hash for pages to read)
+  var path = fullPath.split('?')[0];
   var app = document.getElementById('app');
   if(!app) return;
 
