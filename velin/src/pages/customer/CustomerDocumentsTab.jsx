@@ -9,6 +9,7 @@ import Badge from '../../components/ui/Badge'
 import SearchInput from '../../components/ui/SearchInput'
 import Pagination from '../../components/ui/Pagination'
 import Modal from '../../components/ui/Modal'
+import CustomerVerificationSection from './CustomerVerificationSection'
 
 const DOC_ICONS = {
   contract: '📋', rental_contract: '📋', protocol: '📝', handover_protocol: '📝',
