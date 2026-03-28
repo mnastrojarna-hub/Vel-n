@@ -132,7 +132,7 @@ Deno.serve(async (req: Request) => {
         request_data: { booking_id, order_id, amount, reason },
         response_data: { refund_id: refund.id, status: refund.status, amount_refunded: refund.amount / 100 },
       })
-    } catch (_) { /* ignore */ }
+    } catch (e) { /* ignore */ }
 
     return new Response(
       JSON.stringify({
@@ -155,7 +155,7 @@ Deno.serve(async (req: Request) => {
         status: 'error',
         error_message: (err as Error).message,
       })
-    } catch (_) { /* ignore */ }
+    } catch (e) { /* ignore */ }
 
     return new Response(
       JSON.stringify({ success: false, error: 'Refund failed: ' + (err as Error).message }),

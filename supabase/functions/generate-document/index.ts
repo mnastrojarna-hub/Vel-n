@@ -146,7 +146,7 @@ serve(async (req) => {
         action: 'document_generated',
         details: { document_id: docId, template_slug, booking_id },
       })
-    } catch (_) { /* ignore */ }
+    } catch (e) { /* ignore */ }
 
     return new Response(JSON.stringify({ success: true, document_id: docId, path }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },

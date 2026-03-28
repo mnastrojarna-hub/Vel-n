@@ -77,7 +77,7 @@ serve(async (req) => {
           action: 'admin_auto_provisioned',
           details: { email: user.email },
         })
-      } catch (_) { /* ignore */ }
+      } catch (e) { /* ignore */ }
 
       return new Response(JSON.stringify({ success: true, admin: created }), {
         headers: { ...CORS, 'Content-Type': 'application/json' },
