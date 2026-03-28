@@ -240,49 +240,57 @@ ${vars.resume_qr_url ? '<div style="text-align:center;margin:20px 0"><p style="c
 
     // Also send copy to info@motogo24.cz (duplicate for internal records)
     if (result.success) {
-      await sendWithRetry({
-        from: FROM_EMAIL,
-        to: REPLY_TO,
-        subject: `[Kopie] ${subject}`,
-        html,
-      }).catch(() => {})
+      try {
+        await sendWithRetry({
+          from: FROM_EMAIL,
+          to: REPLY_TO,
+          subject: `[Kopie] ${subject}`,
+          html,
+        })
+      } catch (_) { /* ignore */ }
     }
 
     // Log to message_log
-    await supabase.from('message_log').insert({
-      channel: 'email',
-      direction: 'outbound',
-      recipient_email: customer_email,
-      booking_id: booking_id || null,
-      template_slug: slug,
-      content_preview: subject.slice(0, 160),
-      body: html,
-      external_id: result.provider_id || null,
-      status: result.success ? 'sent' : 'failed',
-      error_message: result.error || null,
-    }).catch(() => {})
+    try {
+      await supabase.from('message_log').insert({
+        channel: 'email',
+        direction: 'outbound',
+        recipient_email: customer_email,
+        booking_id: booking_id || null,
+        template_slug: slug,
+        content_preview: subject.slice(0, 160),
+        body: html,
+        external_id: result.provider_id || null,
+        status: result.success ? 'sent' : 'failed',
+        error_message: result.error || null,
+      })
+    } catch (_) { /* ignore */ }
 
     // Log to sent_emails
-    await supabase.from('sent_emails').insert({
-      template_slug: slug,
-      recipient_email: customer_email,
-      booking_id: booking_id || null,
-      subject,
-      body_html: html,
-      status: result.success ? 'sent' : 'failed',
-      error_message: result.error || null,
-      provider_id: result.provider_id || null,
-    }).catch(() => {})
+    try {
+      await supabase.from('sent_emails').insert({
+        template_slug: slug,
+        recipient_email: customer_email,
+        booking_id: booking_id || null,
+        subject,
+        body_html: html,
+        status: result.success ? 'sent' : 'failed',
+        error_message: result.error || null,
+        provider_id: result.provider_id || null,
+      })
+    } catch (_) { /* ignore */ }
 
     if (!result.success) {
-      await supabase.from('debug_log').insert({
-        source: 'send-booking-email',
-        action: 'email_send_failed',
-        component: 'resend',
-        status: 'error',
-        error_message: result.error,
-        request_data: { type, customer_email, booking_id, source },
-      }).catch(() => {})
+      try {
+        await supabase.from('debug_log').insert({
+          source: 'send-booking-email',
+          action: 'email_send_failed',
+          component: 'resend',
+          status: 'error',
+          error_message: result.error,
+          request_data: { type, customer_email, booking_id, source },
+        })
+      } catch (_) { /* ignore */ }
 
       return new Response(JSON.stringify({ error: 'Email send failed', details: result.error }), {
         status: 502,

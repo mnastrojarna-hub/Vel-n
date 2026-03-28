@@ -103,28 +103,32 @@ serve(async (req) => {
 
       const result = await sendWithRetry({ from: FROM_EMAIL, to: customer_email, subject, html })
 
-      await supabase.from('sent_emails').insert({
-        template_slug: 'invoice',
-        recipient_email: customer_email,
-        subject,
-        body_html: html,
-        status: result.success ? 'sent' : 'failed',
-        error_message: result.error || null,
-        provider_id: result.provider_id || null,
-      }).catch(() => {})
+      try {
+        await supabase.from('sent_emails').insert({
+          template_slug: 'invoice',
+          recipient_email: customer_email,
+          subject,
+          body_html: html,
+          status: result.success ? 'sent' : 'failed',
+          error_message: result.error || null,
+          provider_id: result.provider_id || null,
+        })
+      } catch (_) { /* ignore */ }
 
-      await supabase.from('message_log').insert({
-        channel: 'email',
-        direction: 'outbound',
-        recipient_email: customer_email,
-        template_slug: 'invoice',
-        content_preview: subject.slice(0, 160),
-        body: html,
-        external_id: result.provider_id || null,
-        status: result.success ? 'sent' : 'failed',
-        error_message: result.error || null,
-        is_marketing: false,
-      }).catch(() => {})
+      try {
+        await supabase.from('message_log').insert({
+          channel: 'email',
+          direction: 'outbound',
+          recipient_email: customer_email,
+          template_slug: 'invoice',
+          content_preview: subject.slice(0, 160),
+          body: html,
+          external_id: result.provider_id || null,
+          status: result.success ? 'sent' : 'failed',
+          error_message: result.error || null,
+          is_marketing: false,
+        })
+      } catch (_) { /* ignore */ }
 
       if (!result.success) {
         return jsonResponse({ success: false, error: result.error }, 502)
@@ -188,64 +192,73 @@ serve(async (req) => {
     const result = await sendWithRetry({ from: FROM_EMAIL, to: recipientEmail, subject, html })
 
     // Log to both tables
-    await supabase.from('message_log').insert({
-      channel: 'email',
-      direction: 'outbound',
-      recipient_email: recipientEmail,
-      customer_id: invoice.customer_id || null,
-      booking_id: invoice.booking_id || null,
-      template_slug: 'invoice',
-      content_preview: subject.slice(0, 160),
-      body: html,
-      external_id: result.provider_id || null,
-      status: result.success ? 'sent' : 'failed',
-      error_message: result.error || null,
-      is_marketing: false,
-    }).catch(() => {})
+    try {
+      await supabase.from('message_log').insert({
+        channel: 'email',
+        direction: 'outbound',
+        recipient_email: recipientEmail,
+        customer_id: invoice.customer_id || null,
+        booking_id: invoice.booking_id || null,
+        template_slug: 'invoice',
+        content_preview: subject.slice(0, 160),
+        body: html,
+        external_id: result.provider_id || null,
+        status: result.success ? 'sent' : 'failed',
+        error_message: result.error || null,
+        is_marketing: false,
+      })
+    } catch (_) { /* ignore */ }
 
-    await supabase.from('sent_emails').insert({
-      template_slug: 'invoice',
-      recipient_email: recipientEmail,
-      recipient_id: invoice.customer_id || null,
-      booking_id: invoice.booking_id || null,
-      subject,
-      body_html: html,
-      status: result.success ? 'sent' : 'failed',
-      error_message: result.error || null,
-      provider_id: result.provider_id || null,
-    }).catch(() => {})
+    try {
+      await supabase.from('sent_emails').insert({
+        template_slug: 'invoice',
+        recipient_email: recipientEmail,
+        recipient_id: invoice.customer_id || null,
+        booking_id: invoice.booking_id || null,
+        subject,
+        body_html: html,
+        status: result.success ? 'sent' : 'failed',
+        error_message: result.error || null,
+        provider_id: result.provider_id || null,
+      })
+    } catch (_) { /* ignore */ }
 
     if (!result.success) {
-      await supabase.from('debug_log').insert({
-        source: 'send-invoice-email',
-        action: 'invoice_email_failed',
-        component: 'edge-function',
-        status: 'error',
-        error_message: result.error,
-        request_data: { invoice_id },
-      }).catch(() => {})
+      try {
+        await supabase.from('debug_log').insert({
+          source: 'send-invoice-email',
+          action: 'invoice_email_failed',
+          component: 'edge-function',
+          status: 'error',
+          error_message: result.error,
+          request_data: { invoice_id },
+        })
+      } catch (_) { /* ignore */ }
       return jsonResponse({ success: false, error: result.error }, 502)
     }
 
     // Update invoice status
     if (['issued', 'draft'].includes(invoice.status)) {
-      await supabase.from('invoices')
-        .update({ status: 'sent' })
-        .eq('id', invoice_id)
-        .catch(() => {})
+      try {
+        await supabase.from('invoices')
+          .update({ status: 'sent' })
+          .eq('id', invoice_id)
+      } catch (_) { /* ignore */ }
     }
 
     return jsonResponse({ success: true, provider_id: result.provider_id })
   } catch (err) {
     console.error('send-invoice-email error:', err)
 
-    await supabase.from('debug_log').insert({
-      source: 'send-invoice-email',
-      action: 'unhandled_error',
-      component: 'edge-function',
-      status: 'error',
-      error_message: (err as Error).message,
-    }).catch(() => {})
+    try {
+      await supabase.from('debug_log').insert({
+        source: 'send-invoice-email',
+        action: 'unhandled_error',
+        component: 'edge-function',
+        status: 'error',
+        error_message: (err as Error).message,
+      })
+    } catch (_) { /* ignore */ }
 
     return jsonResponse({ error: (err as Error).message }, 500)
   }

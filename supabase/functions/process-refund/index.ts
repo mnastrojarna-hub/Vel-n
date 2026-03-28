@@ -123,14 +123,16 @@ Deno.serve(async (req: Request) => {
     }
 
     // Log to debug_log
-    await supabase.from('debug_log').insert({
-      source: 'process-refund',
-      action: 'stripe_refund_created',
-      component: entityType,
-      status: 'ok',
-      request_data: { booking_id, order_id, amount, reason },
-      response_data: { refund_id: refund.id, status: refund.status, amount_refunded: refund.amount / 100 },
-    }).catch(() => {})
+    try {
+      await supabase.from('debug_log').insert({
+        source: 'process-refund',
+        action: 'stripe_refund_created',
+        component: entityType,
+        status: 'ok',
+        request_data: { booking_id, order_id, amount, reason },
+        response_data: { refund_id: refund.id, status: refund.status, amount_refunded: refund.amount / 100 },
+      })
+    } catch (_) { /* ignore */ }
 
     return new Response(
       JSON.stringify({
@@ -145,13 +147,15 @@ Deno.serve(async (req: Request) => {
   } catch (err) {
     console.error('Refund error:', err)
 
-    await supabase.from('debug_log').insert({
-      source: 'process-refund',
-      action: 'stripe_refund_error',
-      component: 'stripe',
-      status: 'error',
-      error_message: (err as Error).message,
-    }).catch(() => {})
+    try {
+      await supabase.from('debug_log').insert({
+        source: 'process-refund',
+        action: 'stripe_refund_error',
+        component: 'stripe',
+        status: 'error',
+        error_message: (err as Error).message,
+      })
+    } catch (_) { /* ignore */ }
 
     return new Response(
       JSON.stringify({ success: false, error: 'Refund failed: ' + (err as Error).message }),

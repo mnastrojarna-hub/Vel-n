@@ -189,11 +189,13 @@ Deno.serve(async (req: Request) => {
 
     if (!parsed) {
       // Store raw image for manual processing
-      await supabase.from('accounting_exceptions').insert({
-        reason: 'Claude Vision neparsoval dokument — ruční kontrola',
-        suggested_fix: { storage_path: storagePath, hint: 'Zkontrolujte obrázek ručně.' },
-        assigned_to: 'admin',
-      }).catch(() => {})
+      try {
+        await supabase.from('accounting_exceptions').insert({
+          reason: 'Claude Vision neparsoval dokument — ruční kontrola',
+          suggested_fix: { storage_path: storagePath, hint: 'Zkontrolujte obrázek ručně.' },
+          assigned_to: 'admin',
+        })
+      } catch (_) { /* ignore */ }
       return jsonResponse({ error: 'Failed to parse document with Claude Vision' }, 500)
     }
 
@@ -411,15 +413,17 @@ Pravidla:
     const needsReview = confidenceScore < 0.80
 
     if (needsReview) {
-      await supabase.from('accounting_exceptions').insert({
-        financial_event_id: financialEventId,
-        reason: `Nízká přesnost OCR: ${(confidenceScore * 100).toFixed(0)}% — ${documentType}`,
-        suggested_fix: {
-          fields_to_check: ['amount_czk', 'supplier_name', 'invoice_number'],
-          hint: 'Zkontrolujte data ručně ve Velínu a potvrďte nebo opravte.',
-        },
-        assigned_to: 'admin',
-      }).catch(err => console.error('Failed to create exception:', err))
+      try {
+        await supabase.from('accounting_exceptions').insert({
+          financial_event_id: financialEventId,
+          reason: `Nízká přesnost OCR: ${(confidenceScore * 100).toFixed(0)}% — ${documentType}`,
+          suggested_fix: {
+            fields_to_check: ['amount_czk', 'supplier_name', 'invoice_number'],
+            hint: 'Zkontrolujte data ručně ve Velínu a potvrďte nebo opravte.',
+          },
+          assigned_to: 'admin',
+        })
+      } catch (err) { console.error('Failed to create exception:', err) }
     }
 
     // ── 10. Response ──

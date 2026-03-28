@@ -237,17 +237,19 @@ serve(async (req) => {
         success = await sendEmail(recipient.email, renderedSubject, html)
 
         // Log to message_log
-        await supabase.from('message_log').insert({
-          channel: 'email',
-          recipient_email: recipient.email,
-          body: renderedBody,
-          status: success ? 'sent' : 'failed',
-          direction: 'outbound',
-          is_marketing: true,
-          template_slug: templateSlug,
-          metadata: { campaign_id },
-          customer_id: recipient.id,
-        }).catch(() => {})
+        try {
+          await supabase.from('message_log').insert({
+            channel: 'email',
+            recipient_email: recipient.email,
+            body: renderedBody,
+            status: success ? 'sent' : 'failed',
+            direction: 'outbound',
+            is_marketing: true,
+            template_slug: templateSlug,
+            metadata: { campaign_id },
+            customer_id: recipient.id,
+          })
+        } catch (_) { /* ignore */ }
       } else {
         // SMS or WhatsApp
         success = await sendSmsOrWa(
@@ -288,10 +290,12 @@ serve(async (req) => {
         }).eq('id', campaign_id)
 
         // Notify admin
-        await supabase.from('admin_messages').insert({
-          type: 'info',
-          content: `Kampaň "${campaign.name}" zastavena — ${failedCount}/${processed} zpráv selhalo (${(failedCount / processed * 100).toFixed(0)}%). Odesláno: ${sentCount}, Selhalo: ${failedCount}.`,
-        }).catch(() => {})
+        try {
+          await supabase.from('admin_messages').insert({
+            type: 'info',
+            content: `Kampaň "${campaign.name}" zastavena — ${failedCount}/${processed} zpráv selhalo (${(failedCount / processed * 100).toFixed(0)}%). Odesláno: ${sentCount}, Selhalo: ${failedCount}.`,
+          })
+        } catch (_) { /* ignore */ }
 
         return new Response(JSON.stringify({
           success: false,
@@ -316,10 +320,12 @@ serve(async (req) => {
     }).eq('id', campaign_id)
 
     // Notify admin
-    await supabase.from('admin_messages').insert({
-      type: 'info',
-      content: `Kampaň "${campaign.name}" dokončena. Odesláno: ${sentCount}/${totalCount}, Selhalo: ${failedCount}.`,
-    }).catch(() => {})
+    try {
+      await supabase.from('admin_messages').insert({
+        type: 'info',
+        content: `Kampaň "${campaign.name}" dokončena. Odesláno: ${sentCount}/${totalCount}, Selhalo: ${failedCount}.`,
+      })
+    } catch (_) { /* ignore */ }
 
     return new Response(JSON.stringify({
       success: true,
@@ -333,13 +339,15 @@ serve(async (req) => {
     console.error('send-broadcast error:', err)
 
     // Log to debug_log
-    await supabase.from('debug_log').insert({
-      source: 'send-broadcast',
-      action: 'broadcast_error',
-      component: 'edge-function',
-      status: 'error',
-      error_message: (err as Error).message,
-    }).catch(() => {})
+    try {
+      await supabase.from('debug_log').insert({
+        source: 'send-broadcast',
+        action: 'broadcast_error',
+        component: 'edge-function',
+        status: 'error',
+        error_message: (err as Error).message,
+      })
+    } catch (_) { /* ignore */ }
 
     return new Response(JSON.stringify({ error: (err as Error).message }), {
       status: 500,

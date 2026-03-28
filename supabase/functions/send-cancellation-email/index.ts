@@ -202,8 +202,8 @@ serve(async (req) => {
         to: REPLY_TO,
         subject: `[Kopie] ${subject}`,
         html,
-      }).catch(() => {})
-    }
+      })
+    } catch (_) { /* ignore copy send */ }
 
     // Mark booking as notified
     if (booking_id) {
@@ -211,40 +211,46 @@ serve(async (req) => {
     }
 
     // Log to message_log
-    await supabase.from('message_log').insert({
-      channel: 'email',
-      direction: 'outbound',
-      recipient_email: customer_email,
-      booking_id: booking_id || null,
-      template_slug: 'booking_cancelled',
-      content_preview: subject.slice(0, 160),
-      body: html,
-      external_id: result.provider_id || null,
-      status: result.success ? 'sent' : 'failed',
-      error_message: result.error || null,
-    }).catch(() => {})
+    try {
+      await supabase.from('message_log').insert({
+        channel: 'email',
+        direction: 'outbound',
+        recipient_email: customer_email,
+        booking_id: booking_id || null,
+        template_slug: 'booking_cancelled',
+        content_preview: subject.slice(0, 160),
+        body: html,
+        external_id: result.provider_id || null,
+        status: result.success ? 'sent' : 'failed',
+        error_message: result.error || null,
+      })
+    } catch (_) { /* ignore */ }
 
     // Log to sent_emails
-    await supabase.from('sent_emails').insert({
-      template_slug: 'booking_cancelled',
-      recipient_email: customer_email,
-      booking_id: booking_id || null,
-      subject,
-      body_html: html,
-      status: result.success ? 'sent' : 'failed',
-      error_message: result.error || null,
-      provider_id: result.provider_id || null,
-    }).catch(() => {})
+    try {
+      await supabase.from('sent_emails').insert({
+        template_slug: 'booking_cancelled',
+        recipient_email: customer_email,
+        booking_id: booking_id || null,
+        subject,
+        body_html: html,
+        status: result.success ? 'sent' : 'failed',
+        error_message: result.error || null,
+        provider_id: result.provider_id || null,
+      })
+    } catch (_) { /* ignore */ }
 
     if (!result.success) {
-      await supabase.from('debug_log').insert({
-        source: 'send-cancellation-email',
-        action: 'email_send_failed',
-        component: 'resend',
-        status: 'error',
-        error_message: result.error,
-        request_data: { booking_id, customer_email },
-      }).catch(() => {})
+      try {
+        await supabase.from('debug_log').insert({
+          source: 'send-cancellation-email',
+          action: 'email_send_failed',
+          component: 'resend',
+          status: 'error',
+          error_message: result.error,
+          request_data: { booking_id, customer_email },
+        })
+      } catch (_) { /* ignore */ }
       return new Response(JSON.stringify({ error: 'Email send failed', details: result.error }), {
         status: 502,
         headers: { ...CORS, 'Content-Type': 'application/json' },

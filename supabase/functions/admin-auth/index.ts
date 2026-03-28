@@ -71,11 +71,13 @@ serve(async (req) => {
       }
 
       // Audit log
-      await supabaseAdmin.from('admin_audit_log').insert({
-        admin_id: user.id,
-        action: 'admin_auto_provisioned',
-        details: { email: user.email },
-      }).catch(() => {})
+      try {
+        await supabaseAdmin.from('admin_audit_log').insert({
+          admin_id: user.id,
+          action: 'admin_auto_provisioned',
+          details: { email: user.email },
+        })
+      } catch (_) { /* ignore */ }
 
       return new Response(JSON.stringify({ success: true, admin: created }), {
         headers: { ...CORS, 'Content-Type': 'application/json' },
