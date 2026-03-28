@@ -364,7 +364,6 @@ MG._rezPickDate = function(ds){
   var r = MG._rez;
   if(!r.startDate || r.endDate){ r.startDate = ds; r.endDate = null; }
   else if(ds < r.startDate){ r.startDate = ds; r.endDate = null; }
-  else if(ds === r.startDate){ r.startDate = null; r.endDate = null; }
   else { r.endDate = ds; }
   MG._rezRenderCal();
   MG._rezUpdateBanner();
