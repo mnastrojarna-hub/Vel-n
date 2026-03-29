@@ -176,8 +176,7 @@ Deno.serve(async (req: Request) => {
         amount: amountCents,
         currency: currency || 'czk',
         metadata,
-        payment_method_types: ['card'],
-        setup_future_usage: 'off_session',
+        automatic_payment_methods: { enabled: true },
         description: productName,
       }
       if (customerId) {
@@ -231,7 +230,6 @@ Deno.serve(async (req: Request) => {
     }
 
     const sessionParams: Record<string, unknown> = {
-      payment_method_types: ['card'],
       line_items: [{
         price_data: {
           currency: currency || 'czk',
@@ -245,7 +243,6 @@ Deno.serve(async (req: Request) => {
       cancel_url: SITE_URL + cancelPath,
       metadata,
       locale: 'cs',
-      payment_intent_data: { setup_future_usage: 'off_session' },
     }
 
     if (customerId) {

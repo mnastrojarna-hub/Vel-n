@@ -137,24 +137,13 @@ async function apiCreatePaymentMethod(holderName){
 // ── Delete card ──
 async function apiDeletePaymentMethod(pmId){
   var result = await _callPaymentMethodsAPI({action:'delete', payment_method_id:pmId});
-  if(result.success && window.supabase && window.supabase.from){
-    try { await window.supabase.from('payment_methods').delete().eq('stripe_payment_method_id', pmId); } catch(e){}
-  }
+  // Edge function handles both Stripe + Supabase cleanup; no local fallback needed
   return result;
 }
 
 // ── Set default card ──
 async function apiSetDefaultPaymentMethod(pmId){
   var result = await _callPaymentMethodsAPI({action:'set_default', payment_method_id:pmId});
-  if(result.success && window.supabase && window.supabase.from){
-    try {
-      var sess = await window.supabase.auth.getSession();
-      var userId = sess && sess.data && sess.data.session ? sess.data.session.user.id : null;
-      if(userId){
-        await window.supabase.from('payment_methods').update({is_default:false}).eq('user_id', userId);
-        await window.supabase.from('payment_methods').update({is_default:true}).eq('stripe_payment_method_id', pmId);
-      }
-    } catch(e){}
-  }
+  // Edge function handles both Stripe + Supabase update; no local fallback needed
   return result;
 }
