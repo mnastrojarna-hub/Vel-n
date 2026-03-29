@@ -106,7 +106,6 @@ export function MotoSelectorCard({ incident, isActive, isMajor, showMotoSelector
 export function ReplacementOrderCard({ incident, replacementMoto, showRejectForm, setShowRejectForm, rejectReason, setRejectReason, approveReplacement, rejectReplacement, updateReplacementStatus, retriggerSosFab, ensureBookingSwap, onRefresh }) {
   if (!incident.replacement_data) return null
   return (
-      {incident.replacement_data && (
         <Card>
           <div className="flex items-center justify-between mb-3">
             <h4 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#dc2626' }}>
