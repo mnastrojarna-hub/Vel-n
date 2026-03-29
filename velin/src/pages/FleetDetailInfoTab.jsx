@@ -262,6 +262,7 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
           <Button outline onClick={onDeactivate}>{moto.status === 'unavailable' ? 'Aktivovat' : 'Deaktivovat'}</Button>
           <Button onClick={onDelete} style={{ color: '#dc2626' }}>Smazat</Button>
         </div>
+      </Card>
       <ServiceScheduleCard moto={moto} schedules={schedules} avgKm={avgKm} unitLabel={unitLabel} unit={unit} motoBookings={motoBookings} />
       <SOSIncidentsCard sosIncidents={sosIncidents} motoId={moto.id} />
     </div>

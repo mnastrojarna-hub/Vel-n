@@ -177,6 +177,7 @@ function TabAccessories({ accessories, loading, branchId, branchName, onRefresh 
       )}
     </div>
   )
+}
 
 function AccessoryEditModal({ existing, branchId, branchName, accTypes, onSave, onDelete, onClose, saving }) {
   const [form, setForm] = useState({
@@ -284,5 +285,6 @@ function AccessoryEditModal({ existing, branchId, branchName, accTypes, onSave, 
       </div>
     </div>
   )
+}
 
 export { TabAccessories }

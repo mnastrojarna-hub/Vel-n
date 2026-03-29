@@ -54,7 +54,7 @@ export default function FinanceOverview({ filters, setFilters, defaultFilters, c
 
       {shopPayments.length > 0 && <Card className="mb-5"><h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Platby z e-shopu</h3>
         <Table><thead><TRow header><TH>Objednavka</TH><TH>Zakaznik</TH><TH>Castka</TH><TH>Zpusob</TH><TH>Datum</TH></TRow></thead>
-          <tbody>{shopPayments.map(o => (<TRow key={o.id}><TD mono bold>{o.order_number || o.id?.slice(-8).toUpperCase() || '\u2014'}</TD><TD>{o.profiles?.full_name || '\u2014'}</TD><TD bold color="#1a8a18">{fmt(o.total_amount)}</TD><TD>{o.payment_method || '\u2014'}</TD><TD>{o.created_at ? new Date(o.created_at).toLocaleDateString('cs-CZ') : '\u2014'}</TD></TRow>)}</tbody></Table>
+          <tbody>{shopPayments.map(o => (<TRow key={o.id}><TD mono bold>{o.order_number || o.id?.slice(-8).toUpperCase() || '\u2014'}</TD><TD>{o.profiles?.full_name || '\u2014'}</TD><TD bold color="#1a8a18">{fmt(o.total_amount)}</TD><TD>{o.payment_method || '\u2014'}</TD><TD>{o.created_at ? new Date(o.created_at).toLocaleDateString('cs-CZ') : '\u2014'}</TD></TRow>))}</tbody></Table>
       </Card>}
 
       <Card className="mb-5"><h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Ucetni zaznamy</h3>
