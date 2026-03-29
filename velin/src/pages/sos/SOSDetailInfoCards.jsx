@@ -6,6 +6,7 @@ import { DAMAGE_LABELS, InfoRow, TYPE_LABELS, TYPE_ICONS } from './SOSDetailCons
 export function DamageCard({ incident, isAccident }) {
   if (!isAccident || !incident.damage_severity) return null
   return (
+        <Card>
           <h4 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Poškození motorky</h4>
           <span className="inline-block rounded-btn text-sm font-extrabold" style={{
             padding: '5px 12px', background: '#1a2e22', color: '#74FB71',
@@ -18,7 +19,6 @@ export function DamageCard({ incident, isAccident }) {
             </div>
           )}
         </Card>
-      )}
   )
 }
 
@@ -39,7 +39,6 @@ export function NearestServiceCard({ incident, saveField }) {
               className="rounded-btn text-sm outline-none" style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
           </div>
         </Card>
-      )}
   )
 }
 
@@ -70,7 +69,6 @@ export function MotoCard({ moto }) {
             <InfoRow label="Km" value={moto.mileage?.toLocaleString('cs-CZ')} />
           </div>
         </Card>
-      )}
   )
 }
 
@@ -87,7 +85,6 @@ export function BookingCard({ booking }) {
             <InfoRow label="Částka" value={booking.total_price ? `${Number(booking.total_price).toLocaleString('cs-CZ')} Kč` : '—'} />
           </div>
         </Card>
-      )}
   )
 }
 
@@ -125,7 +122,6 @@ export function MapCard({ incident }) {
             </a>
           </div>
         </Card>
-      )}
   )
 }
 
@@ -160,7 +156,6 @@ export function ResolutionCard({ incident, resolution, setResolution, saveField 
             </div>
           )}
         </Card>
-      )}
   )
 }
 
@@ -254,7 +249,6 @@ export function PhotosCard({ incident, isPhotoOnly, relatedIncidents, showLinkPh
             </div>
           )}
         </Card>
-      )}
   )
 }
 
