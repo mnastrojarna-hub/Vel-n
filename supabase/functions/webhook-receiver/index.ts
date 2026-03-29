@@ -119,6 +119,22 @@ Deno.serve(async (req: Request) => {
         await confirmSosPayment(supabase, metadata.booking_id, metadata.incident_id, paymentIntent.id)
       }
 
+      // Auto-save card: attach PM to customer and sync to Supabase
+      if (paymentIntent.customer && paymentIntent.payment_method) {
+        const custId = typeof paymentIntent.customer === 'string'
+          ? paymentIntent.customer : (paymentIntent.customer as any)?.id
+        const pmId = typeof paymentIntent.payment_method === 'string'
+          ? paymentIntent.payment_method : (paymentIntent.payment_method as any)?.id
+        if (custId && pmId) {
+          try {
+            await stripe.paymentMethods.attach(pmId, { customer: custId })
+          } catch (e) {
+            // Already attached — ignore
+          }
+          await syncCardsForCustomer(supabase, custId)
+        }
+      }
+
       await ingestFinancialEvent(supabase, {
         event_type: 'revenue', source: 'stripe',
         amount_czk: paymentIntent.amount / 100, vat_rate: 0,

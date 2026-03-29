@@ -238,6 +238,12 @@ Deno.serve(async (req: Request) => {
 
     // For list/delete/set_default — need existing customer
     if (!customerId) {
+      if (action === 'delete' || action === 'set_default') {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Nemáte žádné uložené karty. Přidejte nejdříve kartu.' }),
+          { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
+        )
+      }
       return new Response(
         JSON.stringify({ success: true, action: action || 'list', methods: [] }),
         { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
@@ -283,22 +289,31 @@ Deno.serve(async (req: Request) => {
           { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
         )
       }
-      // Verify the PM belongs to this customer
-      const pm = await stripe.paymentMethods.retrieve(payment_method_id)
-      if (pm.customer !== customerId) {
+      // Verify ownership via Supabase (authoritative source)
+      const { data: ownedCard } = await supabase.from('payment_methods')
+        .select('id')
+        .eq('stripe_payment_method_id', payment_method_id)
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (!ownedCard) {
         return new Response(
-          JSON.stringify({ success: false, error: 'Payment method does not belong to this customer' }),
+          JSON.stringify({ success: false, error: 'Karta nebyla nalezena nebo vám nepatří.' }),
           { status: 403, headers: { ...CORS, 'Content-Type': 'application/json' } }
         )
       }
-      await stripe.paymentMethods.detach(payment_method_id)
+
+      // Detach from Stripe (best-effort — always clean up Supabase)
+      try {
+        await stripe.paymentMethods.detach(payment_method_id)
+      } catch (e) {
+        console.warn('Stripe detach failed (cleaning up locally):', (e as Error).message)
+      }
 
       // Remove from Supabase table
-      try {
-        await supabase.from('payment_methods')
-          .delete()
-          .eq('stripe_payment_method_id', payment_method_id)
-      } catch (e) { /* ignore */ }
+      await supabase.from('payment_methods')
+        .delete()
+        .eq('stripe_payment_method_id', payment_method_id)
+        .eq('user_id', user.id)
 
       return new Response(
         JSON.stringify({ success: true, action: 'delete' }),
@@ -314,21 +329,35 @@ Deno.serve(async (req: Request) => {
           { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
         )
       }
-      await stripe.customers.update(customerId, {
-        invoice_settings: { default_payment_method: payment_method_id },
-      })
+      // Verify ownership via Supabase
+      const { data: ownedPm } = await supabase.from('payment_methods')
+        .select('id')
+        .eq('stripe_payment_method_id', payment_method_id)
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (!ownedPm) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Karta nebyla nalezena nebo vám nepatří.' }),
+          { status: 403, headers: { ...CORS, 'Content-Type': 'application/json' } }
+        )
+      }
 
-      // Update default flag in Supabase table
+      // Update Stripe default (best-effort)
       try {
-        await supabase.from('payment_methods')
-          .update({ is_default: false })
-          .eq('user_id', user.id)
-      } catch (e) { /* ignore */ }
-      try {
-        await supabase.from('payment_methods')
-          .update({ is_default: true })
-          .eq('stripe_payment_method_id', payment_method_id)
-      } catch (e) { /* ignore */ }
+        await stripe.customers.update(customerId, {
+          invoice_settings: { default_payment_method: payment_method_id },
+        })
+      } catch (e) {
+        console.warn('Stripe set_default failed (updating locally):', (e as Error).message)
+      }
+
+      // Update default flag in Supabase table (authoritative)
+      await supabase.from('payment_methods')
+        .update({ is_default: false })
+        .eq('user_id', user.id)
+      await supabase.from('payment_methods')
+        .update({ is_default: true })
+        .eq('stripe_payment_method_id', payment_method_id)
 
       return new Response(
         JSON.stringify({ success: true, action: 'set_default' }),

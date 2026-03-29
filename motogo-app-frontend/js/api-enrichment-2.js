@@ -346,6 +346,7 @@ async function apiSaveDocVerification(ocrData, scannedTypes){
 }
 
 // Check if docs are verified from DB (persistent, survives logout)
+// Checks BOTH OCR-verified profile fields AND uploaded documents in documents table
 async function apiCheckDocsVerified(){
   _ensureSupabase();
   if(!window.supabase) return false;
@@ -353,7 +354,7 @@ async function apiCheckDocsVerified(){
     var uid = await _getUserId();
     if(!uid) return false;
     var r = await window.supabase.from('profiles')
-      .select('id_verified_at, id_verified_until, license_verified_at, license_verified_until, passport_verified_at, passport_verified_until')
+      .select('id_verified_at, id_verified_until, license_verified_at, license_verified_until, passport_verified_at, passport_verified_until, id_number, license_number')
       .eq('id', uid).maybeSingle();
     if(!r || !r.data) return false;
     var p = r.data;
@@ -362,6 +363,21 @@ async function apiCheckDocsVerified(){
     var hasPassport = p.passport_verified_at && (!p.passport_verified_until || p.passport_verified_until >= today);
     var hasLicense = p.license_verified_at && (!p.license_verified_until || p.license_verified_until >= today);
     var verified = (hasId || hasPassport) && hasLicense;
+    // Fallback: check uploaded documents in documents table (covers manual uploads without OCR)
+    if(!verified){
+      var dr = await window.supabase.from('documents')
+        .select('type')
+        .eq('user_id', uid)
+        .in('type', ['id_card','id_photo','passport','passport_front','drivers_license','license_photo']);
+      if(dr.data && dr.data.length > 0){
+        var docTypes = dr.data.map(function(d){ return d.type; });
+        var hasIdDoc = docTypes.indexOf('id_card')!==-1 || docTypes.indexOf('id_photo')!==-1 || docTypes.indexOf('passport')!==-1 || docTypes.indexOf('passport_front')!==-1;
+        var hasLicDoc = docTypes.indexOf('drivers_license')!==-1 || docTypes.indexOf('license_photo')!==-1;
+        if(hasIdDoc && hasLicDoc) verified = true;
+        // Also accept if profile has id_number + license_number (manual entry)
+        if(!verified && (hasIdDoc || p.id_number) && (hasLicDoc || p.license_number)) verified = true;
+      }
+    }
     // Sync to localStorage for offline/quick checks
     if(verified) localStorage.setItem('mg_docs_verified','1');
     else localStorage.removeItem('mg_docs_verified');
