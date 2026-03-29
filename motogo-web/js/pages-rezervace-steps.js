@@ -70,7 +70,8 @@ MG._submitReservation = async function(){
       p_discount_amount: discAmt||0,
       p_discount_code: codes.length?codes.map(function(c){return c.code;}).join(', '):null,
       p_promo_code: promoCode,
-      p_voucher_id: voucherId
+      p_voucher_id: voucherId,
+      p_license_group: (document.getElementById('rez-license-group')||{}).value||null
     };
     console.log('[REZ] create_web_booking params:', rpcParams);
     var regRes = await window.sb.rpc('create_web_booking', rpcParams);
@@ -84,15 +85,16 @@ MG._submitReservation = async function(){
       return;
     }
     var regData = regRes.data;
-    if(regData && regData.error){ alert(regData.error); return; }
+    if(regData && regData.error){
+      alert(regData.error);
+      if(btn){btn.disabled=false;btn.textContent='Pokra\u010dovat k platb\u011b';}
+      return;
+    }
     if(regData){
       MG._rez.bookingId = regData.booking_id;
       MG._rez.userId = regData.user_id;
       MG._rez.bookingAmount = regData.amount;
-      // Mark registration source as web
-      if(regData.user_id){
-        window.sb.from('profiles').update({registration_source:'web'}).eq('id',regData.user_id).then(function(){});
-      }
+      // registration_source is set by create_web_booking RPC
     }
   } catch(e){ alert('Chyba při ukládání: '+e.message); return; }
 
@@ -186,7 +188,7 @@ MG._rezShowStep2 = function(){
     '<div style="display:flex;gap:.75rem;margin-top:.5rem">'+
     '<div style="flex:1"><label style="font-size:.85rem;font-weight:600;color:#374151">* Skupina ŘP</label>'+
     '<select id="rez-license-group" required style="width:100%;padding:.55rem .75rem;border:1px solid #d1d5db;border-radius:8px;font-size:.9rem;margin-top:.25rem">'+
-    '<option value="">— Vyberte —</option><option value="A1">A1</option><option value="A2">A2</option><option value="A">A</option></select></div>'+
+    '<option value="">— Vyberte —</option><option value="AM">AM</option><option value="A1">A1</option><option value="A2">A2</option><option value="A">A</option><option value="B">B</option></select></div>'+
     '<div style="flex:1"><label style="font-size:.85rem;font-weight:600;color:#374151">* Platnost ŘP do</label>'+
     '<input type="date" id="rez-license-expiry" required style="width:100%;padding:.55rem .75rem;border:1px solid #d1d5db;border-radius:8px;font-size:.9rem;margin-top:.25rem"></div></div>'+
     '<div class="checkboxes" style="margin:1rem 0"><div class="agreement gr2"><input type="checkbox" id="rez-license-confirm" required'+(MG._rez._docsValidated?' checked':'')+'>'+
