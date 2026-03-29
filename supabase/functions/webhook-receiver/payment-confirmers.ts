@@ -259,6 +259,67 @@ export async function confirmSosPayment(
     if (error) {
       console.error('SOS booking update failed:', error.message)
     }
+
+    // Auto-generate documents + send SOS confirmation email
+    try {
+      const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
+      const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY }
+      const sosAttachments: { content: string; filename: string }[] = []
+
+      // 1. Generate ZF
+      try {
+        const zfRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
+          method: 'POST', headers,
+          body: JSON.stringify({ type: 'advance', booking_id: bookingId, send_email: false }),
+        })
+        const zfData = await zfRes.json().catch(() => ({}))
+        if (zfData.success && zfData.invoice_id) {
+          const b64 = await downloadAsBase64(supabase, `invoices/${zfData.invoice_id}.html`)
+          if (b64) sosAttachments.push({ content: b64, filename: `Zalohova-faktura-${zfData.number || 'ZF'}.html` })
+        }
+      } catch { /* ignore */ }
+
+      // 2. Generate DP
+      try {
+        const dpRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
+          method: 'POST', headers,
+          body: JSON.stringify({ type: 'payment_receipt', booking_id: bookingId, send_email: false }),
+        })
+        const dpData = await dpRes.json().catch(() => ({}))
+        if (dpData.success && dpData.invoice_id) {
+          const b64 = await downloadAsBase64(supabase, `invoices/${dpData.invoice_id}.html`)
+          if (b64) sosAttachments.push({ content: b64, filename: `Doklad-platby-${dpData.number || 'DP'}.html` })
+        }
+      } catch { /* ignore */ }
+
+      // 3. Send SOS booking confirmation email
+      const { data: booking } = await supabase.from('bookings')
+        .select('booking_source, start_date, end_date, total_price, motorcycles(model), profiles(full_name, email)')
+        .eq('id', bookingId).single()
+
+      if (booking?.profiles?.email) {
+        const profile = booking.profiles as { full_name?: string; email?: string }
+        const moto = booking.motorcycles as { model?: string } | null
+        try {
+          await fetch(`${SUPABASE_URL}/functions/v1/send-booking-email`, {
+            method: 'POST', headers,
+            body: JSON.stringify({
+              type: 'booking_reserved',
+              booking_id: bookingId,
+              customer_email: profile.email,
+              customer_name: profile.full_name || '',
+              motorcycle: moto?.model || '',
+              start_date: booking.start_date,
+              end_date: booking.end_date,
+              total_price: booking.total_price,
+              source: booking.booking_source || 'app',
+              attachments: sosAttachments,
+            }),
+          })
+        } catch { /* ignore */ }
+      }
+    } catch (e) { console.warn('[confirmSosPayment] doc gen failed:', e) }
   } catch (err) {
     console.error('confirmSosPayment error:', err)
   }
@@ -380,27 +441,47 @@ export async function confirmShopPayment(
         } catch { /* ignore */ }
       }
 
-      // 6. Send voucher_purchased email with ALL attachments
-      if (order?.customer_email && vouchers && vouchers.length > 0) {
-        const firstVoucher = vouchers[0]
-        const allCodes = vouchers.map((v: { code: string; amount: number }) => `${v.code} (${v.amount} Kč)`).join(', ')
+      // 6. Send email with ALL attachments
+      if (order?.customer_email) {
+        const orderNum = order.order_number || orderId.slice(0, 8).toUpperCase()
 
-        try {
-          await fetch(`${SUPABASE_URL}/functions/v1/send-booking-email`, {
-            method: 'POST', headers,
-            body: JSON.stringify({
-              type: 'voucher_purchased',
-              customer_email: order.customer_email,
-              customer_name: order.customer_name || '',
-              voucher_code: allCodes,
-              voucher_value: String(firstVoucher.amount),
-              voucher_expiry: firstVoucher.valid_until,
-              order_number: order.order_number || orderId.slice(0, 8).toUpperCase(),
-              source: 'web',
-              attachments: shopAttachments,
-            }),
-          })
-        } catch (e) { console.warn('[confirmShopPayment] voucher email failed:', e) }
+        if (vouchers && vouchers.length > 0) {
+          // Voucher order — send voucher_purchased email
+          const firstVoucher = vouchers[0]
+          const allCodes = vouchers.map((v: { code: string; amount: number }) => `${v.code} (${v.amount} Kč)`).join(', ')
+          try {
+            await fetch(`${SUPABASE_URL}/functions/v1/send-booking-email`, {
+              method: 'POST', headers,
+              body: JSON.stringify({
+                type: 'voucher_purchased',
+                customer_email: order.customer_email,
+                customer_name: order.customer_name || '',
+                voucher_code: allCodes,
+                voucher_value: String(firstVoucher.amount),
+                voucher_expiry: firstVoucher.valid_until,
+                order_number: orderNum,
+                source: 'web',
+                attachments: shopAttachments,
+              }),
+            })
+          } catch (e) { console.warn('[confirmShopPayment] voucher email failed:', e) }
+        } else {
+          // Non-voucher shop order — send order confirmation with ZF+DP
+          try {
+            await fetch(`${SUPABASE_URL}/functions/v1/send-booking-email`, {
+              method: 'POST', headers,
+              body: JSON.stringify({
+                type: 'voucher_purchased',
+                customer_email: order.customer_email,
+                customer_name: order.customer_name || '',
+                order_number: orderNum,
+                total_price: order.total_amount,
+                source: 'web',
+                attachments: shopAttachments,
+              }),
+            })
+          } catch (e) { console.warn('[confirmShopPayment] shop email failed:', e) }
+        }
       }
 
     } catch (e) { console.warn('[confirmShopPayment] post-payment processing failed:', e) }
