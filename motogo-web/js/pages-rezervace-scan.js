@@ -166,6 +166,18 @@ MG._rezSubmitPayment = async function(){
     if(!MG._isLicenseExpiryValid(licExpiry.value)){alert('Řidičský průkaz musí být platný min. 14 dní od dnes.');return;}
     if(!licConf||!licConf.checked){alert('Potvrďte prosím držení platného řidičského oprávnění.');return;}
 
+    // Kontrola ŘP skupiny vs. motorka
+    var _moto = MG._rez.motos ? MG._rez.motos.find(function(m){return m.id===(MG._rez.formData||{}).motoId;}) : null;
+    if(_moto && _moto.license_required && _moto.license_required !== 'N'){
+      var _lg = licGroup.value.toUpperCase();
+      var _allowed = {A:['A','A2','A1','AM'],A2:['A2','A1','AM'],A1:['A1','AM'],AM:['AM'],B:['B','AM']};
+      var _ok = _allowed[_lg] || [];
+      if(_ok.indexOf(_moto.license_required) === -1){
+        alert('Pro tuto motorku potřebujete ŘP skupiny ' + _moto.license_required + '. Vaše skupina: ' + _lg);
+        return;
+      }
+    }
+
     if(MG._rez.userId){
       try{await window.sb.from('profiles').update({
         id_number:docNum.value, license_number:licNum.value,

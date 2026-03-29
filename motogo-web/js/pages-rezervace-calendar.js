@@ -131,8 +131,9 @@ MG._rezCalNext = function(){ MG._rez.calMonth++; if(MG._rez.calMonth>11){MG._rez
 // ===== DATE PICK LOGIC =====
 MG._rezPickDate = function(ds){
   var r = MG._rez;
-  if(!r.startDate || r.endDate){ r.startDate = ds; r.endDate = null; }
+  if(!r.startDate || r.endDate){ r.startDate = ds; r.endDate = ds; }
   else if(ds < r.startDate){ r.startDate = ds; r.endDate = null; }
+  else if(ds === r.startDate){ r.endDate = ds; }
   else { r.endDate = ds; }
   MG._rezRenderCal();
   MG._rezUpdateBanner();

@@ -31,6 +31,7 @@ MG._isLicenseExpiryValid = function(dateStr){
 
 // ===== STEP 1 SUBMIT: validate form → save customer → show step 2 =====
 MG._submitReservation = async function(){
+  var btn=document.querySelector('#rez-form .btn.btngreen');
   var name=document.getElementById('rez-name'),email=document.getElementById('rez-email'),
     phone=document.getElementById('rez-phone'),street=document.getElementById('rez-street'),
     city=document.getElementById('rez-city'),zip=document.getElementById('rez-zip'),
