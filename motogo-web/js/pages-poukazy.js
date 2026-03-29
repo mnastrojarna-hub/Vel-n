@@ -186,11 +186,15 @@ MG._voucherPay = async function(){
       headers: { 'Content-Type': 'application/json', 'apikey': window.MOTOGO_CONFIG.SUPABASE_ANON_KEY },
       body: JSON.stringify({
         amount: d.total,
+        voucher_amount: d.amount,
         type: 'shop',
         source: 'web',
         mode: 'checkout',
         customer_email: d.email,
-        customer_name: d.name
+        customer_name: d.name,
+        customer_phone: d.phone,
+        is_print: d.isPrint,
+        shipping_address: d.isPrint ? (d.addr.street + ', ' + d.addr.zip + ' ' + d.addr.city) : null
       })
     });
     var payData = await payRes.json();

@@ -76,7 +76,7 @@ Detailní politiky:
 | `generate-document` | OFF | Generuje dokumenty z šablon (rental_contract, handover_protocol, vop). Firemní údaje načítá z app_settings (company_info) |
 | `generate-invoice` | OFF | Generuje proforma/finální fakturu (ZF-/FV-/DP-YYYY-NNNN). Firemní údaje načítá z app_settings (company_info). Deduplikace, odečet záloh |
 | `manage-payment-methods` | OFF | Správa uložených platebních metod (Stripe). Akce: list, delete, set_default, setup. Synchronizuje karty do tabulky payment_methods |
-| `process-payment` | OFF | Stripe platební brána (**LIVE mode**). Podporuje booking, shop, extension i SOS platby. Vytváří Stripe Checkout Session. Automaticky vytváří/používá Stripe Customer |
+| `process-payment` | OFF | Stripe platební brána (**LIVE mode**). Podporuje booking, shop, extension i SOS platby. Vytváří Stripe Checkout Session. Automaticky vytváří/používá Stripe Customer. **Web shop:** ukládá kompletní data (telefon, adresa, oddělené položky), generuje ZF (proforma) + odesílá email se shrnutím |
 | `process-refund` | OFF | Stripe refundy (LIVE). Částečné i plné vrácení peněz. Volá Stripe Refund API |
 | `receive-invoice` | OFF | OCR + AI zpracování přijatých faktur (Claude Vision). Extrakce dat, klasifikace, routing do účetních tabulek |
 | `scan-document` | OFF | OCR skenování dokladů (OP, ŘP, pas) přes Mindee v2 API (enqueue+poll). Model ID z MINDEE_MODEL_ID secret. Retry 3×, loguje do debug_log |
@@ -87,7 +87,7 @@ Detailní politiky:
 | `send-invoice-email` | OFF | Odesílání faktur emailem zákazníkům |
 | `send-message` | OFF | Centrální odesílání zpráv (SMS/WhatsApp přes Twilio, email přes Resend) |
 | `send-order-email` | OFF | Odesílání objednávkových emailů dodavatelům. Retry 3× |
-| `webhook-receiver` | OFF | Příjem Stripe webhooků (**LIVE mode**, signature povinná). Auto-generuje dokumenty po platbě. Synchronizuje karty do payment_methods |
+| `webhook-receiver` | OFF | Příjem Stripe webhooků (**LIVE mode**, signature povinná). Auto-generuje dokumenty po platbě. Synchronizuje karty do payment_methods. **Shop platby:** auto-generuje DP + odesílá voucher_purchased email s kódy poukazů |
 
 ### Pouze v Supabase dashboardu (4 — bez kódu v repo)
 

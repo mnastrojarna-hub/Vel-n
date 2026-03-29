@@ -217,6 +217,58 @@ export async function confirmShopPayment(
           .eq('id', orderId)
       } catch (e) { /* ignore */ }
     }
+
+    // --- Auto-generate documents + send emails after shop payment ---
+    try {
+      const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
+      const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY }
+
+      // 1. Generate DP (payment receipt) + send email
+      try {
+        await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
+          method: 'POST', headers,
+          body: JSON.stringify({ type: 'payment_receipt', order_id: orderId, send_email: true }),
+        })
+      } catch (e) { console.warn('[confirmShopPayment] DP generation failed:', e) }
+
+      // 2. Fetch order + generated voucher codes (created by auto_process_voucher_order trigger)
+      const { data: order } = await supabase.from('shop_orders')
+        .select('customer_name, customer_email, customer_phone, order_number, status, total, notes')
+        .eq('id', orderId).single()
+
+      const { data: vouchers } = await supabase.from('vouchers')
+        .select('code, amount, valid_until')
+        .eq('order_id', orderId)
+
+      // 3. Send voucher_purchased email if vouchers were generated
+      if (order?.customer_email && vouchers && vouchers.length > 0) {
+        const firstVoucher = vouchers[0]
+        const allCodes = vouchers.map((v: { code: string; amount: number }) => `${v.code} (${v.amount} Kč)`).join(', ')
+        const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
+
+        try {
+          await fetch(`${SUPABASE_URL}/functions/v1/send-booking-email`, {
+            method: 'POST', headers,
+            body: JSON.stringify({
+              type: 'voucher_purchased',
+              customer_email: order.customer_email,
+              customer_name: order.customer_name || '',
+              voucher_code: allCodes,
+              voucher_value: String(firstVoucher.amount),
+              voucher_expiry: firstVoucher.valid_until,
+              order_number: order.order_number || orderId.slice(0, 8).toUpperCase(),
+              source: 'web',
+            }),
+          })
+        } catch (e) { console.warn('[confirmShopPayment] voucher email failed:', e) }
+      }
+
+      // 4. FV for electronic-only orders is handled by DB trigger generate_shop_final_on_ship
+      //    (fires when status='delivered' which auto_process_voucher_order sets for digital orders)
+      //    FV for physical items is generated from velín when admin marks as shipped
+
+    } catch (e) { console.warn('[confirmShopPayment] post-payment processing failed:', e) }
   } catch (err) {
     console.error('confirmShopPayment error:', err)
   }

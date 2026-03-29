@@ -19,6 +19,29 @@ function regBack(){
   }
 }
 
+// --- Registration validation helpers ---
+function _regIsNameValid(v){
+  if(!v||v.length<2)return false;
+  // Only unicode letters, spaces, hyphens, apostrophes
+  if(!/^[\p{Letter}\s'\-]+$/u.test(v))return false;
+  // Block gibberish: 3+ identical chars in a row (aaa, xxx)
+  if(/(.)\1{2,}/i.test(v))return false;
+  return true;
+}
+function _regIsPhoneValid(v){
+  if(!v)return false;
+  var digits=v.replace(/[\s\-()]/g,'');
+  // Must start with +, 9-15 digits total
+  if(!/^\+\d{8,14}$/.test(digits))return false;
+  return true;
+}
+function _regParseCzDate(v){
+  if(!v)return null;
+  var m=v.trim().match(/^(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})$/);
+  if(m)return new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]));
+  return null;
+}
+
 function regNext(){
   try {
     // Validate current step before proceeding
@@ -28,14 +51,48 @@ function regNext(){
       var email = document.getElementById('reg-email');
       var phone = document.getElementById('reg-phone');
       var pass = document.getElementById('reg-pass');
+      var dob = document.getElementById('reg-dob');
 
-      if(!fname || !fname.value.trim()){ showT('⚠️',_t('auth').fillName,''); return; }
-      if(!lname || !lname.value.trim()){ showT('⚠️',_t('auth').fillSurname,''); return; }
+      if(!_regIsNameValid((fname||{}).value)){
+        showT('⚠️','Jméno','Zadejte platné jméno (min. 2 písmena, bez číslic)'); return;
+      }
+      if(!_regIsNameValid((lname||{}).value)){
+        showT('⚠️','Příjmení','Zadejte platné příjmení (min. 2 písmena, bez číslic)'); return;
+      }
       if(!email || !email.value.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim())){
         showT('⚠️',_t('auth').badEmail,_t('auth').validEmail); return;
       }
+      if(!_regIsPhoneValid((phone||{}).value)){
+        showT('⚠️','Telefon','Zadejte telefon v mezinárodním formátu (např. +420 777 000 000)'); return;
+      }
+      // DOB: required, 18-99 years
+      var dobDate=_regParseCzDate((dob||{}).value);
+      if(!dobDate){
+        showT('⚠️','Datum narození','Vyberte datum narození'); return;
+      }
+      var today=new Date();today.setHours(0,0,0,0);
+      var age=today.getFullYear()-dobDate.getFullYear();
+      var mDiff=today.getMonth()-dobDate.getMonth();
+      if(mDiff<0||(mDiff===0&&today.getDate()<dobDate.getDate()))age--;
+      if(age<18){
+        showT('⚠️','Věk','Pro registraci musíte být starší 18 let'); return;
+      }
+      if(age>99||dobDate>today){
+        showT('⚠️','Datum narození','Zadejte platné datum narození'); return;
+      }
       if(!pass || pass.value.length < 8){
         showT('⚠️',_t('auth').shortPass,_t('auth').minPass); return;
+      }
+    }
+
+    if(regStep === 2){
+      var city = document.getElementById('reg-city');
+      var street = document.getElementById('reg-street');
+      if(!city||!city.value.trim()||city.value.trim().length<2){
+        showT('⚠️','Město','Zadejte město (min. 2 znaky)'); return;
+      }
+      if(!street||!street.value.trim()||street.value.trim().length<3){
+        showT('⚠️','Ulice','Zadejte ulici a číslo popisné (min. 3 znaky)'); return;
       }
     }
 
@@ -98,6 +155,19 @@ function _regSuccess(userId, email, session, password){
 
 function doRegister(){
   var f = _collectRegFields();
+
+  // Step 3 validation — ŘP
+  if(!f.licenseNum||f.licenseNum.length<4){
+    showT('⚠️','Řidičský průkaz','Číslo ŘP musí mít alespoň 4 znaky'); return;
+  }
+  var licExpDate=_regParseCzDate(f.licenseExpiry);
+  if(!licExpDate){
+    showT('⚠️','Platnost ŘP','Vyberte datum platnosti řidičského průkazu'); return;
+  }
+  var minExpiry=new Date();minExpiry.setHours(0,0,0,0);minExpiry.setDate(minExpiry.getDate()+14);
+  if(licExpDate<minExpiry){
+    showT('⚠️','Platnost ŘP','Řidičský průkaz musí být platný min. 14 dní od dnes'); return;
+  }
   var metadata = {
     full_name: f.fname + ' ' + f.lname,
     phone: f.phone,

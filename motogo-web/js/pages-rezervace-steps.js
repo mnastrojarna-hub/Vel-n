@@ -10,14 +10,45 @@ MG._qrCodeUrl = function(data){
   return 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent(data);
 };
 
+// ===== VALIDATION HELPERS =====
+MG._isNameValid = function(v){
+  if(!v||v.trim().length<2) return false;
+  if(!/^[\p{Letter}\s'\-]+$/u.test(v.trim())) return false;
+  if(/(.)\1{2,}/i.test(v.trim())) return false;
+  return true;
+};
+MG._isPhoneValid = function(v){
+  if(!v) return false;
+  var digits=v.replace(/[\s\-()]/g,'');
+  return /^\+\d{8,14}$/.test(digits);
+};
+MG._isLicenseExpiryValid = function(dateStr){
+  if(!dateStr) return false;
+  var d=new Date(dateStr);
+  var min=new Date();min.setHours(0,0,0,0);min.setDate(min.getDate()+14);
+  return d>=min;
+};
+
 // ===== STEP 1 SUBMIT: validate form → save customer → show step 2 =====
 MG._submitReservation = async function(){
   var name=document.getElementById('rez-name'),email=document.getElementById('rez-email'),
     phone=document.getElementById('rez-phone'),street=document.getElementById('rez-street'),
     city=document.getElementById('rez-city'),zip=document.getElementById('rez-zip'),
     country=document.getElementById('rez-country'),agree=document.getElementById('rez-agree-vop');
-  if(!name||!name.value||!email||!email.value||!phone||!phone.value||!(street&&street.value)||!(city&&city.value)||!(zip&&zip.value)){
-    alert('Vyplňte prosím všechna povinná pole.');return;}
+
+  // Enhanced validation
+  if(!name||!MG._isNameValid(name.value)){
+    alert('Zadejte platné jméno a příjmení (min. 2 písmena, bez číslic).');return;}
+  if(!street||!street.value||street.value.trim().length<3){
+    alert('Zadejte ulici a číslo popisné (min. 3 znaky).');return;}
+  if(!city||!city.value||city.value.trim().length<2){
+    alert('Zadejte město (min. 2 znaky).');return;}
+  if(!zip||!zip.value){
+    alert('Vyplňte prosím PSČ.');return;}
+  if(!email||!email.value||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim())){
+    alert('Zadejte platnou e-mailovou adresu.');return;}
+  if(!phone||!MG._isPhoneValid(phone.value)){
+    alert('Zadejte telefon v mezinárodním formátu (např. +420 777 000 000).');return;}
   if(!agree||!agree.checked){alert('Pro pokračování musíte souhlasit s obchodními podmínkami.');return;}
   var r=MG._rez;
   if(!r.startDate||!r.endDate){alert('Vyberte prosím termín v kalendáři.');return;}
