@@ -165,6 +165,61 @@ async function autoGenerateAttachments(type: string, booking_id: string, supabas
     } catch { /* ignore */ }
   }
 
+  if (type === 'booking_modified') {
+    // Regenerate all booking documents with updated data
+    // 1. New ZF (advance invoice)
+    try {
+      const zfRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ type: 'advance', booking_id, send_email: false }),
+      })
+      const zfData = await zfRes.json().catch(() => ({}))
+      if (zfData.success && zfData.invoice_id) {
+        const b64 = await downloadAsBase64(supabase, `invoices/${zfData.invoice_id}.html`)
+        if (b64) atts.push({ content: b64, filename: `Zalohova-faktura-${zfData.number || 'ZF'}.html` })
+      }
+    } catch { /* ignore */ }
+
+    // 2. New DP (payment receipt)
+    try {
+      const dpRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ type: 'payment_receipt', booking_id, send_email: false }),
+      })
+      const dpData = await dpRes.json().catch(() => ({}))
+      if (dpData.success && dpData.invoice_id) {
+        const b64 = await downloadAsBase64(supabase, `invoices/${dpData.invoice_id}.html`)
+        if (b64) atts.push({ content: b64, filename: `Doklad-platby-${dpData.number || 'DP'}.html` })
+      }
+    } catch { /* ignore */ }
+
+    // 3. Updated rental contract
+    try {
+      const cRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-document`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ template_slug: 'rental_contract', booking_id }),
+      })
+      const cData = await cRes.json().catch(() => ({}))
+      if (cData.success && cData.path) {
+        const b64 = await downloadAsBase64(supabase, cData.path)
+        if (b64) atts.push({ content: b64, filename: `Najemni-smlouva-${booking_id.slice(0, 8).toUpperCase()}.html` })
+      }
+    } catch { /* ignore */ }
+
+    // 4. VOP
+    try {
+      const vRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-document`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ template_slug: 'vop', booking_id }),
+      })
+      const vData = await vRes.json().catch(() => ({}))
+      if (vData.success && vData.path) {
+        const b64 = await downloadAsBase64(supabase, vData.path)
+        if (b64) atts.push({ content: b64, filename: `VOP-${booking_id.slice(0, 8).toUpperCase()}.html` })
+      }
+    } catch { /* ignore */ }
+  }
+
   return atts
 }
 
@@ -319,9 +374,9 @@ ${vars.discount_code ? `<div style="background:#dcfce7;border-radius:12px;paddin
       })
     }
 
-    // Auto-generate attachments for abandoned (ZF) and completed (KF) emails
+    // Auto-generate attachments for abandoned (ZF), completed (KF), modified (all docs)
     let finalAttachments = attachments && Array.isArray(attachments) ? [...attachments] : []
-    if (booking_id && (type === 'booking_abandoned' || type === 'booking_completed')) {
+    if (booking_id && (type === 'booking_abandoned' || type === 'booking_completed' || type === 'booking_modified')) {
       try {
         const autoAtts = await autoGenerateAttachments(type, booking_id, supabase)
         finalAttachments = [...finalAttachments, ...autoAtts]

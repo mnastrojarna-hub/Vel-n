@@ -170,6 +170,8 @@ async function saveEditReservation(){
         if(typeof apiAutoGenerateBookingDocs === 'function'){
           apiAutoGenerateBookingDocs(bookingId, true).catch(function(e){ console.warn('[EDIT] docs err:', e); });
         }
+        // Send modification email with dobropis
+        _sendModifiedEmail(bookingId, diff);
       }
     } else if(diff > 0){
       // For extensions that require payment: calculate new price, but DON'T save yet.
@@ -186,6 +188,8 @@ async function saveEditReservation(){
       if(typeof apiAutoGenerateBookingDocs === 'function'){
         apiAutoGenerateBookingDocs(bookingId, true).catch(function(e){ console.warn('[EDIT] docs err:', e); });
       }
+      // Send modification email (no price change)
+      _sendModifiedEmail(bookingId, 0);
     }
     if(typeof initMotoAvailability === 'function') initMotoAvailability();
   }
@@ -239,4 +243,27 @@ async function saveEditReservation(){
       setTimeout(function(){histBack();},1500);
     } else {histBack();}
   }
+}
+
+// Send booking_modified email after app-side edit
+async function _sendModifiedEmail(bookingId, priceDiff){
+  if(!_isSupabaseReady()) return;
+  try {
+    var b = await supabase.from('bookings')
+      .select('start_date, end_date, total_price, booking_source, profiles(full_name, email), motorcycles(model)')
+      .eq('id', bookingId).single();
+    if(!b.data || !b.data.profiles || !b.data.profiles.email) return;
+    var p = b.data.profiles, m = b.data.motorcycles;
+    await supabase.functions.invoke('send-booking-email', {
+      body: {
+        type: 'booking_modified', booking_id: bookingId,
+        customer_email: p.email, customer_name: p.full_name || '',
+        motorcycle: (m && m.model) || '',
+        start_date: b.data.start_date, end_date: b.data.end_date,
+        total_price: b.data.total_price,
+        price_difference: priceDiff || 0,
+        source: b.data.booking_source || 'app'
+      }
+    });
+  } catch(e){ console.warn('[EDIT] email err:', e); }
 }
