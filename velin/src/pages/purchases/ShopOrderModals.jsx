@@ -106,7 +106,17 @@ export function ShopOrderDetail({ order, onClose, onUpdated }) {
     const updateData = { status, ...extra }
     const result = await debugAction('shopOrder.updateStatus', 'ShopOrderDetail', () => supabase.from('shop_orders').update(updateData).eq('id', order.id), updateData)
     if (result?.error) throw result.error
-    if (status === 'shipped' || status === 'delivered') { supabase.functions.invoke('generate-invoice', { body: { type: 'shop_final', order_id: order.id } }).catch(e => console.warn('[Final invoice]', e)) }
+    if (status === 'shipped' || status === 'delivered') {
+      try {
+        const fvResult = await supabase.functions.invoke('generate-invoice', { body: { type: 'shop_final', order_id: order.id, send_email: false } })
+        // Send email with FV to customer
+        if (order.customer_email) {
+          await supabase.functions.invoke('send-invoice-email', {
+            body: { invoice_id: fvResult?.data?.invoice_id, customer_email: order.customer_email, customer_name: order.customer_name, invoice_number: fvResult?.data?.number }
+          }).catch(e => console.warn('[FV email]', e))
+        }
+      } catch (e) { console.warn('[Final invoice]', e) }
+    }
     if (status === 'delivered' && items.length > 0) {
       for (const item of items) { if (item.product_id) { const { data: product } = await supabase.from('products').select('stock_quantity').eq('id', item.product_id).single(); if (product) { const newQty = Math.max(0, (product.stock_quantity || 0) - (item.quantity || 1)); await supabase.from('products').update({ stock_quantity: newQty }).eq('id', item.product_id) } } }
     }
