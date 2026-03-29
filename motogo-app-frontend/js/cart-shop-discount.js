@@ -17,7 +17,8 @@ async function applyShopDiscount(){
   if(!window.supabase){if(msg)msg.innerHTML='<span style="color:var(--red)">Offline</span>';return;}
 
   var cartTotal=cart.reduce(function(s,c){return s+c.price*c.qty;},0);
-  var shipCost=shipMode==='post'?99:0;
+  var digitalOnly=typeof _isCartOnlyDigitalVouchers==='function'&&_isCartOnlyDigitalVouchers();
+  var shipCost=digitalOnly?0:(shipMode==='post'?99:0);
   var orderTotal=cartTotal+shipCost;
 
   // 1. Try promo code
@@ -93,7 +94,9 @@ function _renderShopAppliedCodes(){
 
 function initCheckout(){
   shopDiscountAmt=0;shopAppliedCodes=[];
-  renderCart();selectShipping(shipMode);autofillCheckout();updateCheckoutTotal();
+  var digitalOnly=typeof _isCartOnlyDigitalVouchers==='function'&&_isCartOnlyDigitalVouchers();
+  if(digitalOnly) shipMode='digital';
+  renderCart();selectShipping(digitalOnly?'digital':shipMode);autofillCheckout();updateCheckoutTotal();
 }
 async function autofillCheckout(){
   try {
