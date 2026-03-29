@@ -98,13 +98,24 @@ const CORS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+/** Download file from Supabase Storage and return as base64 */
+async function downloadAsBase64(supabase: any, path: string): Promise<string | null> {
+  try {
+    const { data } = await supabase.storage.from('documents').download(path)
+    if (!data) return null
+    const bytes = new Uint8Array(await data.arrayBuffer())
+    return btoa(Array.from(bytes, (b: number) => String.fromCharCode(b)).join(''))
+  } catch { return null }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
   try {
-    const {
+    const reqBody = await req.json()
+    let {
       booking_id,
       customer_email,
       customer_name,
@@ -116,13 +127,75 @@ serve(async (req) => {
       refund_amount,
       refund_percent,
       source = 'app',
-    } = await req.json()
+    } = reqBody
 
     if (!customer_email) {
       return new Response(JSON.stringify({ error: 'No customer email' }), {
         status: 400,
         headers: { ...CORS, 'Content-Type': 'application/json' },
       })
+    }
+
+    // ── Auto Stripe refund + dobropis ──
+    const attachments: { content: string; filename: string }[] = []
+
+    if (booking_id) {
+      try {
+        // Load booking data for refund calculation
+        const { data: booking } = await supabase.from('bookings')
+          .select('start_date, total_price, payment_status, stripe_payment_intent_id, booking_source')
+          .eq('id', booking_id).single()
+
+        if (booking) {
+          if (!start_date) start_date = booking.start_date
+          if (!source && booking.booking_source) source = booking.booking_source
+
+          // Calculate refund based on storno policy if not provided
+          if (booking.payment_status === 'paid' && booking.total_price > 0 && !refund_amount) {
+            const hoursUntilStart = (new Date(booking.start_date).getTime() - Date.now()) / 3600000
+            if (hoursUntilStart > 7 * 24) { refund_percent = 100 }
+            else if (hoursUntilStart > 48) { refund_percent = 50 }
+            else { refund_percent = 0 }
+            refund_amount = Math.round(booking.total_price * (refund_percent || 0) / 100)
+          }
+
+          // Auto Stripe refund if applicable
+          if (booking.stripe_payment_intent_id && refund_amount > 0 && booking.payment_status === 'paid') {
+            try {
+              const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
+              const refundRes = await fetch(`${SUPABASE_URL}/functions/v1/process-refund`, {
+                method: 'POST', headers,
+                body: JSON.stringify({ booking_id, amount: refund_amount, reason: 'cancellation' }),
+              })
+              const refundData = await refundRes.json().catch(() => ({}))
+              if (refundData.success) {
+                console.log(`Stripe refund processed: ${refund_amount} CZK (${refund_percent}%)`)
+              }
+            } catch (e) { console.warn('Auto Stripe refund failed:', e) }
+          }
+
+          // Generate dobropis (credit note) if refund > 0
+          if (refund_amount > 0) {
+            try {
+              const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
+              const dpRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
+                method: 'POST', headers,
+                body: JSON.stringify({
+                  type: 'payment_receipt',
+                  booking_id,
+                  send_email: false,
+                  extra_items: [{ description: `Dobropis — storno rezervace (${refund_percent || 100}%)`, qty: 1, unit_price: -refund_amount }],
+                }),
+              })
+              const dpData = await dpRes.json().catch(() => ({}))
+              if (dpData.success && dpData.invoice_id) {
+                const b64 = await downloadAsBase64(supabase, `invoices/${dpData.invoice_id}.html`)
+                if (b64) attachments.push({ content: b64, filename: `Dobropis-${dpData.number || 'DB'}.html` })
+              }
+            } catch { /* ignore */ }
+          }
+        }
+      } catch (e) { console.warn('Auto-refund lookup failed:', e) }
     }
 
     const vars: Record<string, string> = {
@@ -135,7 +208,9 @@ serve(async (req) => {
       refund_amount: refund_amount ? Number(refund_amount).toLocaleString('cs-CZ') : '',
       refund_percent: refund_percent ? String(refund_percent) : '100',
       site_url: SITE_URL,
-      business_card: getBusinessCard(),
+      refund_amount: refund_amount ? Number(refund_amount).toLocaleString('cs-CZ') : '',
+      refund_percent: refund_percent ? String(refund_percent) : '',
+      // business_card se nevkládá — vizitku přidává wrapInBrandedLayout()
     }
 
     // Try web-specific template first if source=web
@@ -186,14 +261,18 @@ serve(async (req) => {
       })
     }
 
-    // Send via Resend with Reply-To
-    const result = await sendWithRetry({
+    // Send via Resend with Reply-To + dobropis attachment
+    const emailPayload: Record<string, unknown> = {
       from: FROM_EMAIL,
       reply_to: REPLY_TO,
       to: customer_email,
       subject,
       html,
-    })
+    }
+    if (attachments.length > 0) {
+      emailPayload.attachments = attachments
+    }
+    const result = await sendWithRetry(emailPayload)
 
     // Send copy to info@
     if (result.success) {
