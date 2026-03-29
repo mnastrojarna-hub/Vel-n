@@ -111,7 +111,7 @@ export function generateEmailHtml(p: {
   const dc = p.doorCodes || []
   return `<div style="font-family:sans-serif;padding:24px">
     <h2 style="color:#1a2e22">Dobrý den${p.customer.full_name ? ` ${p.customer.full_name}` : ''},</h2>
-    <p>V příloze zasíláme ${docLabel} č. <strong>${p.number}</strong> na částku <strong>${fmtPrice(p.total)} Kč</strong>.</p>
+    <p>Zasíláme vám ${docLabel} č. <strong>${p.number}</strong> na částku <strong>${fmtPrice(p.total)} Kč</strong>.</p>
     <p>Splatnost: <strong>${fmtDate(p.dueDate)}</strong></p>
     <p>Variabilní symbol: <strong>${p.number}</strong></p>
     ${vc.length > 0 ? `<div style="padding:12px;background:#dcfce7;border-radius:8px;margin:12px 0"><p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#166534">Dárkové poukazy:</p>${vc.map((c: string) => `<p style="margin:2px 0;font-size:16px;font-weight:700;font-family:monospace;color:#166534">${c}</p>`).join('')}${p.voucherValidUntil ? `<p style="margin:6px 0 0;font-size:11px;color:#166534">Platnost: 3 roky (do ${fmtDate(p.voucherValidUntil)}). Kód uplatníte při rezervaci v aplikaci MotoGo24.</p>` : ''}</div>` : ''}
