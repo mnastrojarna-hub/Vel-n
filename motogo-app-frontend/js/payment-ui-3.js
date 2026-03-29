@@ -22,7 +22,7 @@ function doPayment(){
         if(typeof _resetBookingDiscount === 'function') _resetBookingDiscount();
         var freeNote = document.getElementById('pay-free-note');
         if(freeNote) freeNote.remove();
-        showT('✅','Rezervace potvrzena','100% sleva — platba není potřeba');
+        showT('✅','Rezervace potvrzena','Sleva pokrývá celou cenu — platba není potřeba');
         goTo('s-res');
         if(typeof renderMyReservations === 'function') renderMyReservations();
         return;
@@ -85,7 +85,7 @@ async function _confirmFreeBooking(bookingId, startDate){
     // Cleanup free note
     var freeNote = document.getElementById('pay-free-note');
     if(freeNote) freeNote.remove();
-    showT('✅','Rezervace potvrzena','100% sleva — platba není potřeba');
+    showT('✅','Rezervace potvrzena','Sleva pokrývá celou cenu — platba není potřeba');
     goTo('s-res');
     if(typeof renderMyReservations === 'function') renderMyReservations();
   } catch(e){

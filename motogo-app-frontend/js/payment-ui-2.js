@@ -135,7 +135,12 @@ async function proceedToPayment(){
     } else {
       basePrice = await apiCalcBookingPrice(motoId, startDate.toISOString(), endDate.toISOString());
     }
-    var totalPrice = Math.max(0, basePrice + (extraTotal || 0) + (deliveryFee || 0) - (discountAmt || 0));
+    // Recalculate discounts at payment time (fixed first, then % on remaining)
+    var fullBase = basePrice + (extraTotal || 0) + (deliveryFee || 0);
+    if(typeof _recalcBookingDiscounts === 'function'){
+      discountAmt = _recalcBookingDiscounts(fullBase);
+    }
+    var totalPrice = Math.max(0, fullBase - (discountAmt || 0));
 
     // Read selected pickup time from time picker
     var pickupTimeEl = document.getElementById('booking-time-hour');
@@ -228,7 +233,7 @@ async function proceedToPayment(){
           freeNote = document.createElement('div');
           freeNote.id = 'pay-free-note';
           freeNote.style.cssText = 'text-align:center;padding:20px;font-size:14px;font-weight:700;color:var(--gd);background:var(--gp);border:2px solid var(--green);border-radius:var(--rsm);margin:12px 20px;';
-          freeNote.textContent = '🎉 100% sleva — platba kartou není potřeba. Klikněte na tlačítko pro potvrzení.';
+          freeNote.textContent = '🎉 Sleva pokrývá celou cenu — platba kartou není potřeba. Klikněte na tlačítko pro potvrzení.';
           var payScreen = document.getElementById('s-payment');
           if(payScreen) payScreen.insertBefore(freeNote, payBtn.parentNode);
         }

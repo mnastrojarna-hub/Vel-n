@@ -31,12 +31,12 @@ async function applyDiscount(){
           var hasPercent=_appliedBookingCodes.some(function(c){return c.discountType==='percent';});
           if(hasPercent){if(msg)msg.innerHTML='<span style="color:var(--red)">Nelze kombinovat dva procentu\u00e1ln\u00ed k\u00f3dy</span>';return;}
         }
-        var disc=promoData.type==='percent'?Math.round(baseForDiscount*promoData.value/100):promoData.value;
-        var currentOtherDisc=_appliedBookingCodes.reduce(function(s,c){return s+c.discountAmt;},0);
-        disc=Math.min(disc,Math.max(0,baseForDiscount-currentOtherDisc));
-        _appliedBookingCodes.push({code:code,type:'promo',id:promoData.id,discountAmt:disc,discountType:promoData.type,discountValue:promoData.value});
+        _appliedBookingCodes.push({code:code,type:'promo',id:promoData.id,discountAmt:0,discountType:promoData.type,discountValue:promoData.value});
         _appliedPromoId = promoData.id;appliedCode = code;
-        discountAmt=_appliedBookingCodes.reduce(function(s,c){return s+c.discountAmt;},0);
+        // Recalculate all discounts with correct ordering (fixed first, then %)
+        discountAmt=typeof _recalcBookingDiscounts==='function'?_recalcBookingDiscounts(baseForDiscount):_appliedBookingCodes.reduce(function(s,c){return s+c.discountAmt;},0);
+        var newCode=_appliedBookingCodes[_appliedBookingCodes.length-1];
+        var disc=newCode.discountAmt;
         var label=promoData.type==='percent'?promoData.value+'%':promoData.value+' K\u010d';
         if(msg)msg.innerHTML='<span style="color:var(--gd)">\u2713 '+_t('cart').discount+' '+label+' '+_t('cart').applied+'</span>';
         showT('\ud83c\udff7\ufe0f',_t('cart').discount+' '+label,_t('cart').youSave+' '+disc+' K\u010d');
@@ -45,11 +45,9 @@ async function applyDiscount(){
         var vr = await window.supabase.rpc('validate_voucher_code', { p_code: code });
         if(vr.data && vr.data.valid){
           var vData = vr.data;
-          var currentDiscV=_appliedBookingCodes.reduce(function(s,c){return s+c.discountAmt;},0);
-          var vDisc=Math.min(vData.value,Math.max(0,baseForDiscount-currentDiscV));
-          _appliedBookingCodes.push({code:code,type:'voucher',id:vData.id,discountAmt:vDisc,discountType:'fixed',discountValue:vData.value});
+          _appliedBookingCodes.push({code:code,type:'voucher',id:vData.id,discountAmt:0,discountType:'fixed',discountValue:vData.value});
           _appliedPromoId = vData.id;appliedCode = code;
-          discountAmt=_appliedBookingCodes.reduce(function(s,c){return s+c.discountAmt;},0);
+          discountAmt=typeof _recalcBookingDiscounts==='function'?_recalcBookingDiscounts(baseForDiscount):_appliedBookingCodes.reduce(function(s,c){return s+c.discountAmt;},0);
           if(msg)msg.innerHTML='<span style="color:var(--gd)">\u2713 '+(_t('cart').voucher||'Poukaz')+' '+vData.value+' K\u010d '+_t('cart').applied+'</span>';
           showT('\ud83c\udf81',(_t('cart').voucher||'Poukaz')+' '+vData.value+' K\u010d','');
           if(inp)inp.value='';_renderBookingAppliedCodes();recalcTotal();
@@ -71,11 +69,9 @@ async function applyDiscount(){
       base2=calcTotalPrice(bookingMoto,new Date(bOd.y,bOd.m,bOd.d),new Date(bDo.y,bDo.m,bDo.d));
     } else { base2=2600*(bookingDays||1); }
     base2 += (typeof extraTotal!=='undefined'?extraTotal:0) + (typeof deliveryFee!=='undefined'?deliveryFee:0);
-    var disc2=Math.round(base2*pct/100);
-    var curDisc2=_appliedBookingCodes.reduce(function(s,c){return s+c.discountAmt;},0);
-    disc2=Math.min(disc2,Math.max(0,base2-curDisc2));
-    _appliedBookingCodes.push({code:code,type:'promo',id:null,discountAmt:disc2,discountType:'percent',discountValue:pct});
-    discountAmt=_appliedBookingCodes.reduce(function(s,c){return s+c.discountAmt;},0);
+    _appliedBookingCodes.push({code:code,type:'promo',id:null,discountAmt:0,discountType:'percent',discountValue:pct});
+    discountAmt=typeof _recalcBookingDiscounts==='function'?_recalcBookingDiscounts(base2):_appliedBookingCodes.reduce(function(s,c){return s+c.discountAmt;},0);
+    var disc2=_appliedBookingCodes[_appliedBookingCodes.length-1].discountAmt;
     appliedCode = code;
     if(msg)msg.innerHTML='<span style="color:var(--gd)">\u2713 '+_t('cart').discount+' '+pct+'% '+_t('cart').applied+'</span>';
     if(inp)inp.value='';_renderBookingAppliedCodes();recalcTotal();

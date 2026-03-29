@@ -65,7 +65,7 @@ async function finalizeCheckout(){
   }
   var shipCost=shipMode==='post'?99:0;
   var finalTotal=Math.max(0, subtotal+shipCost-shopDiscountAmt);
-  if(finalTotal===0 && shopDiscountAmt>0){showT('\u2139\ufe0f','100% sleva','Objednávka je plně pokryta slevou');}
+  if(finalTotal===0 && shopDiscountAmt>0){showT('\u2139\ufe0f','Sleva','Objednávka je plně pokryta slevou');}
   else if(finalTotal<=0){showT('\u26a0\ufe0f','Chyba','Celková cena musí být vyšší než 0 Kč');return;}
   // Validate stock before checkout
   if(window.supabase){

@@ -2,12 +2,38 @@
 // Depends on globals: bookingDays, bookingMoto, bOd, bDo, extraTotal,
 // deliveryFee, discountAmt, appliedCode, pickupDelivFee, returnDelivFee
 
+// Recalculate all discounts with correct ordering: fixed first, then % on remaining
+function _recalcBookingDiscounts(fullBase){
+  if(typeof _appliedBookingCodes==='undefined'||_appliedBookingCodes.length===0)return 0;
+  var remaining=fullBase;
+  // 1) Fixed-amount discounts first
+  for(var i=0;i<_appliedBookingCodes.length;i++){
+    if(_appliedBookingCodes[i].discountType!=='percent'){
+      var d=Math.min(_appliedBookingCodes[i].discountValue,Math.max(0,remaining));
+      _appliedBookingCodes[i].discountAmt=d;
+      remaining-=d;
+    }
+  }
+  // 2) Percentage discounts on remaining amount
+  for(var i=0;i<_appliedBookingCodes.length;i++){
+    if(_appliedBookingCodes[i].discountType==='percent'){
+      var r=Math.max(0,remaining);
+      var d=Math.min(Math.round(r*_appliedBookingCodes[i].discountValue/100),r);
+      _appliedBookingCodes[i].discountAmt=d;
+      remaining-=d;
+    }
+  }
+  return fullBase-Math.max(0,remaining);
+}
+
 function recalcTotal(){
   var base=0;
   if(typeof calcTotalPrice==='function'&&bookingMoto&&bOd&&bDo){
     base=calcTotalPrice(bookingMoto,new Date(bOd.y,bOd.m,bOd.d),new Date(bDo.y,bDo.m,bDo.d));
   } else { base=2600*bookingDays; }
-  var total=Math.max(0,base+extraTotal+deliveryFee-discountAmt);
+  var fullBase=base+extraTotal+deliveryFee;
+  discountAmt=_recalcBookingDiscounts(fullBase);
+  var total=Math.max(0,fullBase-discountAmt);
   var baseEl=document.getElementById('pr-base');
   if(baseEl)baseEl.textContent=base.toLocaleString('cs-CZ')+' Kč';
   var lblEl=document.getElementById('pr-base-label');
@@ -156,7 +182,6 @@ function _renderBookingAppliedCodes(){
 
 function removeOneDiscount(code){
   _appliedBookingCodes=_appliedBookingCodes.filter(function(c){return c.code!==code;});
-  discountAmt=_appliedBookingCodes.reduce(function(s,c){return s+c.discountAmt;},0);
   appliedCode=_appliedBookingCodes.length>0?_appliedBookingCodes[_appliedBookingCodes.length-1].code:null;
   _appliedPromoId=_appliedBookingCodes.length>0?_appliedBookingCodes[_appliedBookingCodes.length-1].id:null;
   _renderBookingAppliedCodes();
