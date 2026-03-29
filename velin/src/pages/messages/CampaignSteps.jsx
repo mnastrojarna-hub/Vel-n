@@ -1,7 +1,7 @@
 import Badge from '../../components/ui/Badge'
 import Card from '../../components/ui/Card'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
-import { CHANNEL_LABELS, COUNTRY_OPTIONS, LANGUAGE_OPTIONS } from './messageHelpers'
+import { CHANNEL_LABELS, COUNTRY_OPTIONS, LANGUAGE_OPTIONS, calcSmsSegments } from './messageHelpers'
 
 const SEGMENTS = [
   { value: 'all', icon: '\ud83d\udccb', label: 'Vsichni zakaznici', desc: 'Zakaznici se souhlasem s marketingem' },
@@ -106,6 +106,72 @@ export function CampaignStep2({ segment, setSegment, filterCountry, setFilterCou
         <div className="rounded-card" style={{ padding: 12, background: '#dbeafe', border: '1px solid #93c5fd', fontSize: 13, color: '#1e40af' }}>
           ℹ️ WhatsApp marketingové zprávy vyžadují šablonu schválenou Metou.
           Pokud šablona nemá wa_template_id, zprávy nebudou doručeny.
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function CampaignStep3({ variables, templateVars, setTemplateVars, previewText, estimatePrice, sampleRecipients, recipientCount, channel }) {
+  return (
+    <div className="space-y-4">
+      {variables.length > 0 && (
+        <div>
+          <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>
+            Proměnné v šabloně
+          </div>
+          <div className="space-y-2">
+            {variables.map(v => (
+              <div key={v}>
+                <label className="block text-sm font-bold mb-1" style={{ color: '#1a2e22' }}>{`{{${v}}}`}</label>
+                <input
+                  type="text"
+                  value={templateVars[v] || ''}
+                  onChange={e => setTemplateVars(prev => ({ ...prev, [v]: e.target.value }))}
+                  placeholder={`Hodnota pro ${v}`}
+                  className="w-full rounded-btn text-sm outline-none"
+                  style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div>
+        <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>
+          Náhled zprávy
+        </div>
+        <div className="rounded-card" style={{ padding: 12, background: '#f8fcfa', border: '1px solid #d4e8e0', fontFamily: 'monospace', fontSize: 12, whiteSpace: 'pre-wrap', maxHeight: 200, overflow: 'auto', color: '#1a2e22' }}>
+          {previewText || '(prázdná zpráva)'}
+        </div>
+        {channel === 'sms' && (
+          <div className="text-sm mt-1" style={{ color: '#6b7280' }}>
+            {calcSmsSegments(previewText).chars} znaků · {calcSmsSegments(previewText).segments} SMS segment(ů)
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-card" style={{ padding: 12, background: '#f0fdf0', border: '1px solid #86efac', fontSize: 13, color: '#166534' }}>
+        {estimatePrice()}
+      </div>
+
+      {sampleRecipients.length > 0 && (
+        <div>
+          <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>
+            Ukázka příjemců ({recipientCount} celkem)
+          </div>
+          <Table>
+            <thead><TRow header><TH>Jméno</TH><TH>{channel === 'email' ? 'Email' : 'Telefon'}</TH></TRow></thead>
+            <tbody>
+              {sampleRecipients.map(r => (
+                <TRow key={r.id}>
+                  <TD>{r.full_name || '—'}</TD>
+                  <TD mono>{channel === 'email' ? r.email : r.phone}</TD>
+                </TRow>
+              ))}
+            </tbody>
+          </Table>
         </div>
       )}
     </div>

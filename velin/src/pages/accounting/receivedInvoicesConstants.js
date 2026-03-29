@@ -30,3 +30,5 @@ export const CATEGORY_LABELS = {
   marketing: 'Marketing', kancelar: 'Kancelář', mzdy: 'Mzdy',
   dane_odvody: 'Daně/Odvody', ostatni_naklady: 'Ostatní',
 }
+
+export { AIDetail, CheckboxFilterGroup } from './receivedInvoicesConstants.jsx'

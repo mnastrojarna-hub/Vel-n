@@ -323,68 +323,6 @@ export default function CampaignCreateModal({ open, channel, onClose, onCreated 
 
       {step === 2 && (
         <CampaignStep2 segment={segment} setSegment={setSegment} segments={SEGMENTS} filterCountry={filterCountry} setFilterCountry={setFilterCountry} filterLanguage={filterLanguage} setFilterLanguage={setFilterLanguage} recipientCountLoading={recipientCountLoading} recipientCount={recipientCount} channel={channel} />
-                </select>
-              </div>
-              <div className="flex-1">
-                <label className="block text-sm font-bold mb-1" style={{ color: '#1a2e22' }}>Jazyk aplikace</label>
-                <select
-                  value={filterLanguage}
-                  onChange={e => setFilterLanguage(e.target.value)}
-                  className="w-full rounded-btn text-sm outline-none cursor-pointer"
-                  style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}
-                >
-                  {LANGUAGE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
-              </div>
-            </div>
-            {(filterCountry || filterLanguage) && (
-              <div className="flex items-center gap-2 mt-2">
-                <Badge label={filterCountry ? `Země: ${COUNTRY_OPTIONS.find(o => o.value === filterCountry)?.label}` : ''} color="#2563eb" bg="#dbeafe" />
-                {filterLanguage && <Badge label={`Jazyk: ${LANGUAGE_OPTIONS.find(o => o.value === filterLanguage)?.label}`} color="#7c3aed" bg="#ede9fe" />}
-                <button
-                  onClick={() => { setFilterCountry(''); setFilterLanguage('') }}
-                  className="text-sm font-bold cursor-pointer border-none rounded-btn"
-                  style={{ padding: '3px 8px', background: '#fee2e2', color: '#dc2626' }}
-                >
-                  Zrušit filtry
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Počet příjemců */}
-          <div className="flex items-center gap-3 py-2">
-            {recipientCountLoading ? (
-              <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-brand-gd" />
-            ) : (
-              <div className="flex items-center gap-2">
-                <span style={{ fontSize: 24 }}>👥</span>
-                <span className="text-2xl font-black" style={{ color: '#1a8a18' }}>{recipientCount}</span>
-                <span className="text-sm font-bold" style={{ color: '#1a2e22' }}>příjemců</span>
-              </div>
-            )}
-          </div>
-
-          {recipientCount === 0 && !recipientCountLoading && (
-            <div className="rounded-card" style={{ padding: 12, background: '#fee2e2', border: '1px solid #fca5a5', fontSize: 13, color: '#dc2626' }}>
-              Žádní příjemci v tomto segmentu. Zvolte jiný segment.
-            </div>
-          )}
-
-          {/* GDPR */}
-          <div className="rounded-card" style={{ padding: 12, background: '#fffbeb', border: '1px solid #fbbf24', fontSize: 13, color: '#78350f' }}>
-            ⚠️ Kampaň bude odeslána pouze zákazníkům s aktivním marketingovým souhlasem.
-            Zákazníci bez souhlasu (marketing_consent=false) jsou automaticky vyloučeni.
-          </div>
-
-          {/* WhatsApp info */}
-          {channel === 'whatsapp' && (
-            <div className="rounded-card" style={{ padding: 12, background: '#dbeafe', border: '1px solid #93c5fd', fontSize: 13, color: '#1e40af' }}>
-              ℹ️ WhatsApp marketingové zprávy vyžadují šablonu schválenou Metou.
-              Pokud šablona nemá wa_template_id, zprávy nebudou doručeny.
-            </div>
-          )}
-        </div>
       )}
 
       {step === 3 && (

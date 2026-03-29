@@ -249,7 +249,7 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
       </Card>
     </div>
   )
-
+}
 
 function ActionBtn({ label, color, bg, onClick }) {
   return (

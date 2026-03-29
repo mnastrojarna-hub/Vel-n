@@ -90,11 +90,11 @@ export async function handleUpdateIncidentStatus(incident, newStatus, onRefresh)
       performed_by: user?.email || 'Admin', admin_id: user?.id,
     })
     onRefresh?.()
-  }
 }
 
 export async function handleSetMotoToService(incident, moto, booking, onRefresh, setMotoInService, loadTimelineActions) {
   let motoId = moto?.id || incident?.moto_id || booking?.moto_id || incident?.bookings?.moto_id || incident?.original_moto_id || incident?.replacement_data?.original_moto_id
+    if (!motoId) {
       const bId = incident.original_booking_id || incident.booking_id
       const { data: bk } = await supabase.from('bookings').select('moto_id').eq('id', bId).single()
       if (bk?.moto_id) motoId = bk.moto_id
@@ -191,7 +191,6 @@ export async function handleEnsureBookingSwap(incident) {
       alert('❌ Swap výjimka: ' + e.message)
     }
     return rd
-  }
 }
 
 export async function handleLoadAvailableMotos(moto, incident, setAvailableMotos, setShowMotoSelector) {
@@ -201,7 +200,6 @@ export async function handleLoadAvailableMotos(moto, incident, setAvailableMotos
     const currentMotoId = moto?.id || incident?.moto_id
     setAvailableMotos((data || []).filter(m => m.id !== currentMotoId))
     setShowMotoSelector(true)
-  setShowMotoSelector(true)
 }
 
 export async function handleAdminInitiateReplacement(selectedMoto, incident, setSwapping, setShowMotoSelector, onRefresh) {
@@ -263,7 +261,6 @@ export async function handleAdminInitiateReplacement(selectedMoto, incident, set
     }
     setSwapping(false)
     onRefresh?.()
-  onRefresh?.()
 }
 
 export async function handleUpdateReplacementStatus(incident, newStatus, ensureBookingSwap, loadTimelineActions, onRefresh) {
@@ -315,7 +312,6 @@ export async function handleUpdateReplacementStatus(incident, newStatus, ensureB
     })
     await loadTimelineActions()
     onRefresh?.()
-  onRefresh?.()
 }
 
 export async function handleRetriggerSosFab(incident, onRefresh) {
@@ -329,7 +325,6 @@ export async function handleRetriggerSosFab(incident, onRefresh) {
       performed_by: user?.email || 'Admin', admin_id: user?.id,
     })
     onRefresh?.()
-  onRefresh?.()
 }
 
 export async function handleApproveReplacement(incident, ensureBookingSwap, onRefresh) {
@@ -378,7 +373,6 @@ export async function handleApproveReplacement(incident, ensureBookingSwap, onRe
       performed_by: user?.email || 'Admin', admin_id: user?.id,
     })
     onRefresh?.()
-  }
 }
 
 export async function handleRejectReplacement(incident, reason, onRefresh) {
@@ -405,5 +399,4 @@ export async function handleRejectReplacement(incident, reason, onRefresh) {
       performed_by: user?.email || 'Admin', admin_id: user?.id,
     })
     onRefresh?.()
-  }
 }
