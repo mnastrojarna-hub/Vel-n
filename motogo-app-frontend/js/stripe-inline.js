@@ -131,10 +131,10 @@ async function _submitInlinePayment(){
   }
 }
 
-// Poll DB every 1.5s for up to 30s — wait for webhook to set payment_status='paid'
+// Poll DB every 1s for up to 8s — Stripe already confirmed, just wait for webhook
 function _waitForWebhookConfirmation(){
   var attempts = 0;
-  var maxAttempts = 20; // 20 × 1.5s = 30s
+  var maxAttempts = 8; // 8 × 1s = 8s max
   if(_inlinePollTimer) clearInterval(_inlinePollTimer);
 
   _inlinePollTimer = setInterval(async function(){
@@ -171,7 +171,7 @@ function _waitForWebhookConfirmation(){
       _closeInlineOverlay();
       if(_inlineOnSuccess) _inlineOnSuccess();
     }
-  }, 1500);
+  }, 1000);
 }
 
 // Cancel — close overlay, call onCancel (triggers FAB)
