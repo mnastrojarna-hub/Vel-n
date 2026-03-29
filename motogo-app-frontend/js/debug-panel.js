@@ -1,7 +1,7 @@
 // ===== DEBUG-PANEL.JS – Global diagnostics overlay for every screen =====
 // Shows relevant data for the current screen. Toggle with 3-finger tap or _toggleDebug().
 
-var _debugEnabled = true; // set to false to disable
+var _debugEnabled = false; // PRODUCTION: debug panel disabled
 
 function _debugPanel(screenId){
   if(!_debugEnabled) return;
