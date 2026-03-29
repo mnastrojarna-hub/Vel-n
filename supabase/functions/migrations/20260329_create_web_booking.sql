@@ -45,6 +45,9 @@ DECLARE
   v_allowed_groups text[];
   v_moto_license text;
   v_promo_id uuid := NULL;
+  v_promo_type text;
+  v_promo_value numeric;
+  v_voucher_amount numeric;
 BEGIN
   -- ===== 1) VALIDACE VSTUPŮ =====
   IF p_email IS NULL OR trim(p_email) = '' THEN
@@ -182,15 +185,35 @@ BEGIN
   END IF;
   v_total := v_total + v_extras_total;
 
-  -- Sleva
-  IF p_discount_amount IS NOT NULL AND p_discount_amount > 0 THEN
-    v_total := GREATEST(0, v_total - p_discount_amount);
+  -- Promo code → najdi ID + typ + hodnotu a VYPOČÍTEJ slevu na serveru
+  p_discount_amount := 0; -- IGNORUJ frontend hodnotu, vždy počítej server-side
+  IF p_promo_code IS NOT NULL AND p_promo_code != '' THEN
+    SELECT id, type, value INTO v_promo_id, v_promo_type, v_promo_value
+      FROM promo_codes
+      WHERE code = p_promo_code AND active = true LIMIT 1;
+
+    IF v_promo_id IS NOT NULL THEN
+      IF v_promo_type = 'percent' THEN
+        p_discount_amount := ROUND(v_total * v_promo_value / 100);
+      ELSE
+        p_discount_amount := LEAST(v_promo_value, v_total);
+      END IF;
+    END IF;
   END IF;
 
-  -- Promo code → najdi ID
-  IF p_promo_code IS NOT NULL AND p_promo_code != '' THEN
-    SELECT id INTO v_promo_id FROM promo_codes
-      WHERE code = p_promo_code AND active = true LIMIT 1;
+  -- Voucher — přidej k slevě z promo kódu
+  IF p_voucher_id IS NOT NULL THEN
+    SELECT amount INTO v_voucher_amount FROM vouchers
+      WHERE id = p_voucher_id AND status = 'active';
+    IF v_voucher_amount IS NOT NULL THEN
+      p_discount_amount := p_discount_amount
+        + LEAST(v_voucher_amount, GREATEST(0, v_total - p_discount_amount));
+    END IF;
+  END IF;
+
+  -- Sleva — aplikuj server-side vypočtenou hodnotu
+  IF p_discount_amount > 0 THEN
+    v_total := GREATEST(0, v_total - p_discount_amount);
   END IF;
 
   -- ===== 6) VYTVOŘENÍ BOOKINGU =====

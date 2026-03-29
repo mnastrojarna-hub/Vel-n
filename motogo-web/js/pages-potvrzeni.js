@@ -9,8 +9,11 @@ MG.route('/potvrzeni', async function(app){
   if(sm) sid = decodeURIComponent(sm[1]);
   var oid = ''; var om = hash.match(/[?&]order_id=([^&]+)/);
   if(om) oid = decodeURIComponent(om[1]);
+  var bid = ''; var bm = hash.match(/[?&]booking_id=([^&]+)/);
+  if(bm) bid = decodeURIComponent(bm[1]);
 
   var isShop = !!oid;
+  var isFreeBooking = !!bid && !sid;
   var bc = MG.renderBreadcrumb([{label:'Domů',href:'/'}, isShop ? 'Potvrzení objednávky' : 'Potvrzení rezervace']);
 
   app.innerHTML = '<main id="content"><div class="container">' + bc +
@@ -21,8 +24,36 @@ MG.route('/potvrzeni', async function(app){
   var el = document.getElementById('confirm-content');
   if(!el) return;
 
-  if(!sid && !oid){
+  if(!sid && !oid && !bid){
     el.innerHTML = MG._confirmError('Chybí identifikátor platby.');
+    return;
+  }
+
+  // --- FREE BOOKING (100% discount, confirmed without Stripe) ---
+  if(isFreeBooking){
+    var found = false;
+    for(var i = 0; i < 6; i++){
+      try {
+        var r = await window.sb.from('bookings')
+          .select('id,customer_name,customer_email,moto_id,start_date,end_date,total_price,payment_status,status')
+          .eq('id', bid)
+          .maybeSingle();
+        if(r.data && r.data.payment_status === 'paid'){
+          el.innerHTML = MG._confirmSuccess(r.data);
+          found = true; break;
+        }
+        if(r.data && r.data.payment_status === 'unpaid' && i < 5){
+          await new Promise(function(ok){ setTimeout(ok, 1500); });
+          continue;
+        }
+        if(r.data){
+          el.innerHTML = MG._confirmPending(r.data);
+          found = true; break;
+        }
+      } catch(e){ console.warn('[CONFIRM] free booking poll error', e); }
+      await new Promise(function(ok){ setTimeout(ok, 1500); });
+    }
+    if(!found) el.innerHTML = MG._confirmPending(null);
     return;
   }
 
