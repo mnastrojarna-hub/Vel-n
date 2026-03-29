@@ -53,7 +53,7 @@ BEGIN
   IF p_moto_id IS NULL THEN
     RETURN jsonb_build_object('error', 'Motorka není vybrána');
   END IF;
-  IF p_start_date IS NULL OR p_end_date IS NULL OR p_end_date <= p_start_date THEN
+  IF p_start_date IS NULL OR p_end_date IS NULL OR p_end_date < p_start_date THEN
     RETURN jsonb_build_object('error', 'Neplatný termín rezervace');
   END IF;
 
