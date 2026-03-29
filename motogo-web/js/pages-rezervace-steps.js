@@ -126,7 +126,16 @@ MG._submitReservation = async function(){
       MG._rez.bookingId = regData.booking_id;
       MG._rez.userId = regData.user_id;
       MG._rez.bookingAmount = regData.amount;
-      // registration_source is set by create_web_booking RPC
+      // Uložit stav formuláře do sessionStorage (přežije navigaci zpět)
+      try { sessionStorage.setItem('mg_rez_form', JSON.stringify({
+        formData: MG._rez.formData, bookingId: MG._rez.bookingId,
+        userId: MG._rez.userId, bookingAmount: MG._rez.bookingAmount,
+        startDate: MG._rez.startDate, endDate: MG._rez.endDate,
+        motoId: MG._rez.motoId, appliedCodes: MG._rez.appliedCodes,
+        discountAmt: MG._rez.discountAmt,
+        _docNumber: MG._rez._docNumber, _licenseNumber: MG._rez._licenseNumber,
+        _docsValidated: MG._rez._docsValidated
+      })); } catch(e2){}
     }
   } catch(e){ alert('Chyba při ukládání: '+e.message); return; }
 

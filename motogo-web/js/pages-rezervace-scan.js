@@ -208,12 +208,14 @@ MG._rezSubmitPayment = async function(){
     // 100% sleva — potvrzeno bez Stripe
     if(payData.success && payData.free){
       MG._rez._paymentDone=true;
+      try{sessionStorage.removeItem('mg_rez_form');}catch(e){}
       alert('Rezervace potvrzena! 100% sleva \u2014 platba nen\u00ed pot\u0159eba.');
       window.location.hash='#/potvrzeni?booking_id='+bookingId;
       return;
     }
     if(payData.checkout_url){
       MG._rez._paymentDone=true;
+      try{sessionStorage.removeItem('mg_rez_form');}catch(e){}
       if(MG._rez._abandonedTimer) clearTimeout(MG._rez._abandonedTimer);
       window.location.href=payData.checkout_url;
     }

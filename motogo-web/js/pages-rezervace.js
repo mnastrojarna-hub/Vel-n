@@ -92,6 +92,28 @@ MG.route('/rezervace', async function(app){
     '</div></div></main>';
 
   MG._rez = { startDate: preStart || null, endDate: preEnd || null, motos: [], motoId: mp, allBookings: {}, appliedCodes: [], discountAmt: 0 };
+
+  // Obnovit formData ze sessionStorage (přežije navigaci zpět)
+  try {
+    var saved = sessionStorage.getItem('mg_rez_form');
+    if(saved){
+      var sd = JSON.parse(saved);
+      if(sd.formData) MG._rez.formData = sd.formData;
+      if(sd.bookingId) MG._rez.bookingId = sd.bookingId;
+      if(sd.userId) MG._rez.userId = sd.userId;
+      if(sd.bookingAmount) MG._rez.bookingAmount = sd.bookingAmount;
+      if(sd._docNumber) MG._rez._docNumber = sd._docNumber;
+      if(sd._licenseNumber) MG._rez._licenseNumber = sd._licenseNumber;
+      if(sd._docsValidated) MG._rez._docsValidated = sd._docsValidated;
+      // Obnovit datum a motorku z formData pokud nejsou z URL
+      if(!preStart && sd.startDate) MG._rez.startDate = sd.startDate;
+      if(!preEnd && sd.endDate) MG._rez.endDate = sd.endDate;
+      if(!mp && sd.motoId) MG._rez.motoId = sd.motoId;
+      if(sd.appliedCodes) MG._rez.appliedCodes = sd.appliedCodes;
+      if(sd.discountAmt) MG._rez.discountAmt = sd.discountAmt;
+    }
+  } catch(e){}
+
   var motos = await MG._getMotos();
   MG._rez.motos = motos;
 
@@ -109,12 +131,28 @@ MG.route('/rezervace', async function(app){
     });
   }
   MG._rezInitFormEvents();
+
+  // Pre-fill moto dropdown z obnovené session
+  if(MG._rez.motoId && !mp){
+    var dd = document.getElementById('rez-moto-dropdown');
+    if(dd) dd.value = MG._rez.motoId;
+  }
+
   await MG._rezLoadCalendar();
 
-  // If dates were pre-filled from URL, show banner and update price
-  if(preStart && preEnd){
+  // If dates were pre-filled from URL or session, show banner and update price
+  if(MG._rez.startDate && MG._rez.endDate){
     MG._rezUpdateBanner();
     MG._rezUpdatePrice();
+  }
+
+  // Pre-fill formulář z obnovené session
+  if(MG._rez.formData){
+    var _f = function(id, v){ var e = document.getElementById(id); if(e && v) e.value = v; };
+    var d = MG._rez.formData;
+    _f('rez-name', d.name); _f('rez-email', d.email); _f('rez-phone', d.phone);
+    _f('rez-street', d.street); _f('rez-city', d.city); _f('rez-zip', d.zip);
+    _f('rez-country', d.country); _f('rez-note', d.note); _f('rez-pickup-time', d.pickupTime);
   }
 
   // Pre-fill delivery if ?delivery=1
