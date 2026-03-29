@@ -43,7 +43,7 @@ export async function fetchInventoryMap() {
   return map
 }
 
-async function deductFromWarehouse(sku, qty, branchName) {
+export async function deductFromWarehouse(sku, qty, branchName) {
   const { data: inv } = await supabase
     .from('inventory').select('id, stock').eq('sku', sku).single()
   if (!inv || inv.stock < qty) return false
@@ -56,7 +56,7 @@ async function deductFromWarehouse(sku, qty, branchName) {
   return true
 }
 
-async function returnToWarehouse(sku, qty, branchName) {
+export async function returnToWarehouse(sku, qty, branchName) {
   const { data: inv } = await supabase
     .from('inventory').select('id, stock').eq('sku', sku).single()
   if (!inv || qty <= 0) return

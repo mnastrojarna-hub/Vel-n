@@ -5,25 +5,9 @@ import Button from '../../components/ui/Button'
 import BookingCalendar from './BookingCalendar'
 import BookingMotoSelector from './BookingMotoSelector'
 import BookingMapPicker from './BookingMapPicker'
-
-const DAY_KEYS_JS = { 0: 'price_sunday', 1: 'price_monday', 2: 'price_tuesday', 3: 'price_wednesday', 4: 'price_thursday', 5: 'price_friday', 6: 'price_saturday' }
-const DAY_KEYS_MOTO = { 0: 'price_sun', 1: 'price_mon', 2: 'price_tue', 3: 'price_wed', 4: 'price_thu', 5: 'price_fri', 6: 'price_sat' }
-const DOW_LABELS = ['Ne', 'Po', 'Ut', 'St', 'Ct', 'Pa', 'So']
-
-function isoDate(d) {
-  if (!d) return ''
-  if (typeof d === 'string') return d.slice(0, 10)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-function toDate(s) { if (!s) return null; const d = new Date(s); d.setHours(0, 0, 0, 0); return d }
-function fmtDate(d) { return d ? (typeof d === 'string' ? new Date(d + 'T00:00:00') : d).toLocaleDateString('cs-CZ') : '\u2014' }
-function fmtCZK(n) { return Number(n || 0).toLocaleString('cs-CZ') }
-function countDays(start, end) {
-  if (!start || !end) return 0
-  const s = toDate(typeof start === 'string' ? start : isoDate(start))
-  const e = toDate(typeof end === 'string' ? end : isoDate(end))
-  return Math.max(1, Math.round((e - s) / 86400000) + 1)
-}
+import BookingPriceCalc from './BookingPriceCalc'
+import BookingDeliverySection from './BookingDeliverySection'
+import { isoDate, toDate, fmtDate, fmtCZK, countDays, calcDayBreakdown } from './bookingModifyHelpers'
 
 export default function BookingModifyModal({ booking, onClose, onSaved }) {
   const origStart = toDate(booking.start_date)
@@ -84,24 +68,8 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
 
   const occupiedMotoIds = useMemo(() => new Set(overlappingBookings.map(b => b.moto_id)), [overlappingBookings])
 
-  function calcDayBreakdown(motoId, start, end) {
-    if (!motoId || !start || !end) return []
-    const dp = motoPrices[motoId]
-    const moto = allMotos.find(m => m.id === motoId)
-    const days = []
-    const cur = new Date(start)
-    const endD = new Date(end)
-    while (cur <= endD) {
-      const dow = cur.getDay()
-      const price = (dp && Number(dp[DAY_KEYS_JS[dow]])) || (moto && Number(moto[DAY_KEYS_MOTO[dow]])) || 0
-      days.push({ date: new Date(cur), dow, dowLabel: DOW_LABELS[dow], price })
-      cur.setDate(cur.getDate() + 1)
-    }
-    return days
-  }
-
-  const origBreakdown = useMemo(() => calcDayBreakdown(booking.moto_id, origStart, origEnd), [motoPrices, allMotos])
-  const newBreakdown = useMemo(() => calcDayBreakdown(selectedMotoId, startDate, endDate), [selectedMotoId, startDate, endDate, motoPrices, allMotos])
+  const origBreakdown = useMemo(() => calcDayBreakdown(booking.moto_id, origStart, origEnd, motoPrices, allMotos), [motoPrices, allMotos])
+  const newBreakdown = useMemo(() => calcDayBreakdown(selectedMotoId, startDate, endDate, motoPrices, allMotos), [selectedMotoId, startDate, endDate, motoPrices, allMotos])
 
   const origCalcPrice = origBreakdown.reduce((s, d) => s + d.price, 0)
   const newCalcPrice = newBreakdown.reduce((s, d) => s + d.price, 0)
@@ -188,7 +156,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
 
   function calcMotoPrice(motoId) {
     if (!startDate || !endDate) return null
-    return calcDayBreakdown(motoId, startDate, endDate).reduce((s, d) => s + d.price, 0)
+    return calcDayBreakdown(motoId, startDate, endDate, motoPrices, allMotos).reduce((s, d) => s + d.price, 0)
   }
 
   return (<>
@@ -238,91 +206,10 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
         <BookingMotoSelector changingMoto={changingMoto} setChangingMoto={setChangingMoto} branchFilter={branchFilter} setBranchFilter={setBranchFilter} branches={branches} availableMotos={availableMotos} unavailableMotos={unavailableMotos} loadingMotos={loadingMotos} selectedMotoId={selectedMotoId} setSelectedMotoId={setSelectedMotoId} booking={booking} motoChanged={motoChanged} selectedMoto={selectedMoto} calcMotoPrice={calcMotoPrice} newDeliveryFee={newDeliveryFee} origPaidPrice={origPaidPrice} fmtCZK={fmtCZK} />
 
         {/* PICKUP & RETURN */}
-        <div className="mb-5">
-          <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Pristaveni a vraceni</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold uppercase mb-1" style={{ color: '#1a2e22' }}>Vyzvednuti</label>
-              <select value={pickupMethod} onChange={e => setPickupMethod(e.target.value)} className="w-full text-sm font-bold cursor-pointer" style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid #d4e8e0', background: '#f1faf7', color: '#1a2e22' }}>
-                <option value="on_branch">Na pobocce</option><option value="delivery">Pristaveni na adresu</option>
-              </select>
-              {pickupMethod === 'delivery' && (<>
-                <input value={pickupAddress} onChange={e => setPickupAddress(e.target.value)} placeholder="Obec, ulice a c.p. / c.o." className="w-full mt-2 text-sm rounded-btn outline-none" style={{ padding: '7px 10px', background: '#fff', border: '1px solid #d4e8e0' }} />
-                <button type="button" onClick={() => setShowMapPicker('pickup')} className="mt-1 text-xs font-bold cursor-pointer" style={{ padding: '4px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 6, color: '#1a2e22' }}>{'\ud83d\uddfa\ufe0f'} Vybrat na mape</button>
-              </>)}
-              {pickupMethod === 'on_branch' && pickupAddress && <div className="mt-1 text-xs" style={{ color: '#6b7280' }}>Puvodni adresa: {pickupAddress}</div>}
-            </div>
-            <div>
-              <label className="block text-xs font-bold uppercase mb-1" style={{ color: '#1a2e22' }}>Vraceni</label>
-              <select value={returnMethod} onChange={e => setReturnMethod(e.target.value)} className="w-full text-sm font-bold cursor-pointer" style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid #d4e8e0', background: '#f1faf7', color: '#1a2e22' }}>
-                <option value="on_branch">Na pobocce</option><option value="delivery">Svoz z adresy</option>
-              </select>
-              {returnMethod === 'delivery' && (<>
-                <input value={returnAddress} onChange={e => setReturnAddress(e.target.value)} placeholder="Obec, ulice a c.p. / c.o." className="w-full mt-2 text-sm rounded-btn outline-none" style={{ padding: '7px 10px', background: '#fff', border: '1px solid #d4e8e0' }} />
-                <button type="button" onClick={() => setShowMapPicker('return')} className="mt-1 text-xs font-bold cursor-pointer" style={{ padding: '4px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 6, color: '#1a2e22' }}>{'\ud83d\uddfa\ufe0f'} Vybrat na mape</button>
-              </>)}
-              {returnMethod === 'on_branch' && returnAddress && <div className="mt-1 text-xs" style={{ color: '#6b7280' }}>Puvodni adresa: {returnAddress}</div>}
-            </div>
-          </div>
-          {(pickupMethod === 'delivery' || returnMethod === 'delivery') && (
-            <div className="mt-3">
-              <label className="block text-xs font-bold uppercase mb-1" style={{ color: '#1a2e22' }}>Poplatek za doruceni (Kc)</label>
-              <input type="number" value={deliveryFee} onChange={e => setDeliveryFee(Number(e.target.value) || 0)} className="text-sm rounded-btn outline-none" style={{ padding: '7px 10px', width: 140, background: '#f1faf7', border: '1px solid #d4e8e0' }} />
-            </div>
-          )}
-        </div>
+        <BookingDeliverySection pickupMethod={pickupMethod} setPickupMethod={setPickupMethod} pickupAddress={pickupAddress} setPickupAddress={setPickupAddress} returnMethod={returnMethod} setReturnMethod={setReturnMethod} returnAddress={returnAddress} setReturnAddress={setReturnAddress} deliveryFee={deliveryFee} setDeliveryFee={setDeliveryFee} setShowMapPicker={setShowMapPicker} />
 
         {/* PRICE CALCULATION */}
-        <div className="mb-5">
-          <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Kalkulace ceny</h3>
-          {newBreakdown.length > 0 && (
-            <div className="mb-3 p-3 rounded-lg" style={{ background: '#f8faf9', border: '1px solid #e5e7eb' }}>
-              <div className="text-xs font-bold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>Rozpad po dnech \u2014 {selectedMoto?.model || booking.motorcycles?.model}</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 4 }}>
-                {newBreakdown.map((d, i) => (
-                  <div key={i} className="flex items-center justify-between text-xs px-2 py-1 rounded" style={{ background: d.dow === 0 || d.dow === 6 ? '#fef3c7' : '#fff', border: '1px solid #f3f4f6' }}>
-                    <span style={{ color: '#1a2e22' }}>{d.dowLabel} {d.date.getDate()}.{d.date.getMonth() + 1}.</span>
-                    <span className="font-extrabold" style={{ color: '#0f1a14' }}>{fmtCZK(d.price)} Kc</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          <div className="p-4 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm"><span style={{ color: '#1a2e22' }}>Puvodni cena (zaplaceno)</span><span className="font-bold" style={{ color: '#0f1a14' }}>{fmtCZK(origPaidPrice)} Kc</span></div>
-              {origCalcPrice > 0 && origCalcPrice !== origPaidPrice && <div className="flex justify-between text-xs"><span style={{ color: '#9ca3af' }}>Dle ceniku (puvodni motorka x {origDays}d)</span><span style={{ color: '#9ca3af' }}>{fmtCZK(origCalcPrice)} Kc</span></div>}
-              <div className="flex justify-between text-sm"><span style={{ color: '#1a2e22' }}>Nova cena dle ceniku ({days}d)</span><span className="font-bold" style={{ color: '#0f1a14' }}>{fmtCZK(newCalcPrice)} Kc</span></div>
-              {newDeliveryFee > 0 && <div className="flex justify-between text-sm"><span style={{ color: '#1a2e22' }}>Doruceni</span><span className="font-bold">{fmtCZK(newDeliveryFee)} Kc</span></div>}
-              <div style={{ borderTop: '2px solid #d4e8e0', paddingTop: 8, marginTop: 4 }}><div className="flex justify-between text-sm font-extrabold"><span style={{ color: '#1a2e22' }}>Nova celkova cena</span><span style={{ color: '#0f1a14' }}>{fmtCZK(newTotalPrice)} Kc</span></div></div>
-              {priceDiff !== 0 && (
-                <div className="flex justify-between text-sm font-extrabold mt-1 p-2 rounded" style={{ background: priceDiff > 0 ? '#fee2e2' : '#dcfce7', border: `1px solid ${priceDiff > 0 ? '#fca5a5' : '#86efac'}` }}>
-                  <span style={{ color: priceDiff > 0 ? '#dc2626' : '#1a8a18' }}>{priceDiff > 0 ? 'Doplatek' : 'Preplatek'}</span>
-                  <span style={{ color: priceDiff > 0 ? '#dc2626' : '#1a8a18' }}>{priceDiff > 0 ? '+' : ''}{fmtCZK(priceDiff)} Kc</span>
-                </div>
-              )}
-            </div>
-            {priceDiff !== 0 && (
-              <div className="mt-4 space-y-2">
-                <div className="text-xs font-bold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Reseni cenoveho rozdilu</div>
-                <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg" style={{ background: chargeCustomer ? '#eafbe9' : '#fff', border: `1px solid ${chargeCustomer ? '#74FB71' : '#e5e7eb'}` }}>
-                  <input type="radio" checked={chargeCustomer} onChange={() => setChargeCustomer(true)} style={{ accentColor: '#1a8a18' }} />
-                  <div>
-                    <div className="text-sm font-bold" style={{ color: '#0f1a14' }}>{priceDiff > 0 ? `Zakaznik doplati (+${fmtCZK(priceDiff)} Kc)` : `Vratit zakaznikovi (${fmtCZK(Math.abs(priceDiff))} Kc)`}</div>
-                    <div className="text-xs" style={{ color: '#1a2e22' }}>Celkem bude {fmtCZK(newTotalPrice)} Kc</div>
-                  </div>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg" style={{ background: !chargeCustomer ? '#eafbe9' : '#fff', border: `1px solid ${!chargeCustomer ? '#74FB71' : '#e5e7eb'}` }}>
-                  <input type="radio" checked={!chargeCustomer} onChange={() => setChargeCustomer(false)} style={{ accentColor: '#1a8a18' }} />
-                  <div>
-                    <div className="text-sm font-bold" style={{ color: '#0f1a14' }}>Zdarma (bez doplatku)</div>
-                    <div className="text-xs" style={{ color: '#1a2e22' }}>Cena zustane {fmtCZK(origPaidPrice)} Kc</div>
-                  </div>
-                </label>
-              </div>
-            )}
-          </div>
-        </div>
+        <BookingPriceCalc newBreakdown={newBreakdown} selectedMoto={selectedMoto} booking={booking} origCalcPrice={origCalcPrice} origPaidPrice={origPaidPrice} origDays={origDays} newCalcPrice={newCalcPrice} newDeliveryFee={newDeliveryFee} newTotalPrice={newTotalPrice} priceDiff={priceDiff} days={days} chargeCustomer={chargeCustomer} setChargeCustomer={setChargeCustomer} />
 
         {/* NOTES */}
         <div className="mb-5">
