@@ -129,6 +129,20 @@ serve(async (req) => {
       source = 'app',
     } = reqBody
 
+    // If no email provided but booking_id exists, look up from profile
+    if (!customer_email && booking_id) {
+      try {
+        const { data: bk } = await supabase.from('bookings')
+          .select('user_id, profiles(full_name, email), motorcycles(model)')
+          .eq('id', booking_id).single()
+        if (bk?.profiles) {
+          customer_email = (bk.profiles as any).email
+          if (!customer_name) customer_name = (bk.profiles as any).full_name
+          if (!motorcycle) motorcycle = (bk.motorcycles as any)?.model
+        }
+      } catch { /* ignore */ }
+    }
+
     if (!customer_email) {
       return new Response(JSON.stringify({ error: 'No customer email' }), {
         status: 400,
@@ -143,15 +157,20 @@ serve(async (req) => {
       try {
         // Load booking data for refund calculation
         const { data: booking } = await supabase.from('bookings')
-          .select('start_date, total_price, payment_status, stripe_payment_intent_id, booking_source')
+          .select('start_date, end_date, total_price, payment_status, stripe_payment_intent_id, booking_source, motorcycles(model)')
           .eq('id', booking_id).single()
 
         if (booking) {
           if (!start_date) start_date = booking.start_date
+          if (!end_date) end_date = booking.end_date
+          if (!motorcycle) motorcycle = (booking.motorcycles as any)?.model || ''
           if (!source && booking.booking_source) source = booking.booking_source
 
+          const wasPaid = booking.payment_status === 'paid'
+          const alreadyRefunded = booking.payment_status === 'refunded' || booking.payment_status === 'partial_refund'
+
           // Calculate refund based on storno policy if not provided
-          if (booking.payment_status === 'paid' && booking.total_price > 0 && !refund_amount) {
+          if ((wasPaid || alreadyRefunded) && booking.total_price > 0 && refund_percent == null) {
             const hoursUntilStart = (new Date(booking.start_date).getTime() - Date.now()) / 3600000
             if (hoursUntilStart > 7 * 24) { refund_percent = 100 }
             else if (hoursUntilStart > 48) { refund_percent = 50 }
@@ -159,12 +178,12 @@ serve(async (req) => {
             refund_amount = Math.round(booking.total_price * (refund_percent || 0) / 100)
           }
 
-          // Auto Stripe refund if applicable
-          if (booking.stripe_payment_intent_id && refund_amount > 0 && booking.payment_status === 'paid') {
+          // Auto Stripe refund ONLY if not already refunded
+          if (!alreadyRefunded && wasPaid && booking.stripe_payment_intent_id && refund_amount > 0) {
             try {
-              const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
+              const hdrs = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
               const refundRes = await fetch(`${SUPABASE_URL}/functions/v1/process-refund`, {
-                method: 'POST', headers,
+                method: 'POST', headers: hdrs,
                 body: JSON.stringify({ booking_id, amount: refund_amount, reason: 'cancellation' }),
               })
               const refundData = await refundRes.json().catch(() => ({}))
@@ -174,17 +193,41 @@ serve(async (req) => {
             } catch (e) { console.warn('Auto Stripe refund failed:', e) }
           }
 
-          // Generate dobropis (credit note) if refund > 0
-          if (refund_amount > 0) {
+          // Fetch existing storno doklad OR generate dobropis
+          let foundExistingReceipt = false
+          try {
+            const { data: existingReceipts } = await supabase.from('invoices')
+              .select('id, number, pdf_path')
+              .eq('booking_id', booking_id)
+              .eq('type', 'payment_receipt')
+              .eq('source', 'cancellation')
+              .neq('status', 'cancelled')
+              .order('created_at', { ascending: false }).limit(1)
+            if (existingReceipts?.length && existingReceipts[0].pdf_path) {
+              const b64 = await downloadAsBase64(supabase, existingReceipts[0].pdf_path)
+              if (b64) {
+                attachments.push({ content: b64, filename: `Dobropis-${existingReceipts[0].number || 'DB'}.html` })
+                foundExistingReceipt = true
+              }
+            }
+          } catch { /* ignore */ }
+
+          // If no existing receipt found, generate dobropis
+          if (!foundExistingReceipt && (refund_amount > 0 || refund_percent === 0)) {
             try {
-              const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
+              const hdrs = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
+              const stornoLabel = refund_percent === 0
+                ? 'Storno poplatek (méně než 2 dny — bez vrácení)'
+                : refund_percent === 50
+                  ? `Dobropis — storno rezervace (vrácení 50 %, tj. ${refund_amount} Kč)`
+                  : `Dobropis — storno rezervace (vrácení 100 %, tj. ${refund_amount} Kč)`
               const dpRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
-                method: 'POST', headers,
+                method: 'POST', headers: hdrs,
                 body: JSON.stringify({
                   type: 'payment_receipt',
                   booking_id,
                   send_email: false,
-                  extra_items: [{ description: `Dobropis — storno rezervace (${refund_percent || 100}%)`, qty: 1, unit_price: -refund_amount }],
+                  extra_items: [{ description: stornoLabel, qty: 1, unit_price: -(refund_amount || 0) }],
                 }),
               })
               const dpData = await dpRes.json().catch(() => ({}))
