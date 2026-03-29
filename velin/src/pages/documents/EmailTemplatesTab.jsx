@@ -8,25 +8,16 @@ import Badge from '../../components/ui/Badge'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 
 const SAMPLE_VARS = {
-  booking_number: 'A1B2C3D4',
-  customer_name: 'Jan Novák',
-  moto_model: 'BMW R 1200 GS Adventure',
-  motorcycle: 'BMW R 1200 GS Adventure',
-  start_date: '15. 6. 2026',
-  end_date: '18. 6. 2026',
-  total_price: '7 800',
-  pickup_location: 'Mezná 9, 393 01 Mezná',
+  booking_number: 'A1B2C3D4', customer_name: ' Jan Novák', moto_model: 'BMW R 1200 GS Adventure',
+  motorcycle: 'BMW R 1200 GS Adventure', start_date: '15. 6. 2026', end_date: '18. 6. 2026',
+  total_price: '7 800', pickup_location: 'Mezná 9, 393 01 Mezná',
   resume_link: 'https://motogo24.cz/#/rezervace?resume=abc123',
-  voucher_code: 'GIFT-ABC123',
-  voucher_amount: '3 000',
-  voucher_value: '3 000',
-  voucher_expiry: '15. 6. 2029',
-  order_number: 'OBJ-2026-01001',
-  discount_code: 'DIKY200',
-  google_review_url: 'https://search.google.com/local/writereview?placeid=PLACE_ID',
-  facebook_review_url: 'https://facebook.com/MotoGo24/reviews',
-  site_url: 'https://motogo24.cz',
-  business_card: '<div style="border-top:2px solid #74FB71;margin-top:24px;padding-top:16px;font-size:13px"><strong>MOTO GO 24</strong> | +420 774 256 271 | info@motogo24.cz</div>',
+  voucher_code: 'MGABC123 (3 000 Kč)', voucher_amount: '3 000', voucher_value: '3 000',
+  voucher_expiry: '15. 6. 2029', order_number: 'OBJ-2026-01001', discount_code: 'DIKY200',
+  google_review_url: 'https://g.page/MotoGo24/review', facebook_review_url: 'https://facebook.com/MotoGo24/reviews',
+  site_url: 'https://motogo24.cz', price_difference: '-1 200',
+  invoice_number: 'ZF-2026-0001', invoice_type: 'Zálohová faktura',
+  issue_date: '15. 6. 2026', due_date: '29. 6. 2026', variable_symbol: 'ZF-2026-0001',
 }
 
 const EMAIL_STATUS = {
@@ -36,13 +27,101 @@ const EMAIL_STATUS = {
   bounced: { label: 'Nedoručeno', color: '#1a2e22', bg: '#f3f4f6' },
 }
 
+/** Metadata pro každý slug — kategorie, trigger, přílohy, popis */
+const TEMPLATE_META = {
+  booking_reserved: {
+    category: 'reservation', categoryLabel: 'Rezervace',
+    trigger: 'Stripe webhook po platbě',
+    attachments: 'ZF, DP, Smlouva, VOP',
+    info: 'Odesílá se automaticky zákazníkovi po úspěšné platbě rezervace (web i app). Obsahuje informace k převzetí motorky.',
+  },
+  booking_abandoned: {
+    category: 'reservation', categoryLabel: 'Rezervace',
+    trigger: 'Auto-cancel po 4h (web)',
+    attachments: 'ZF',
+    info: 'Odesílá se automaticky když zákazník na webu nedokončí platbu do 4 hodin. Obsahuje CTA tlačítko pro dokončení.',
+  },
+  booking_cancelled: {
+    category: 'storno', categoryLabel: 'Storno',
+    trigger: 'Změna stavu na cancelled (app/web/velín)',
+    attachments: 'Dobropis',
+    info: 'Odesílá se automaticky při stornování rezervace z jakéhokoliv zdroje. Auto Stripe refund dle storno podmínek (7+ dní=100%, 2-7=50%, <2=0%).',
+  },
+  booking_completed: {
+    category: 'reservation', categoryLabel: 'Rezervace',
+    trigger: 'Změna stavu active → completed',
+    attachments: 'KF (konečná faktura)',
+    info: 'Odesílá se automaticky po dokončení pronájmu (vrácení motorky). Obsahuje žádost o recenzi a slevový kód na příští rezervaci.',
+  },
+  booking_modified: {
+    category: 'reservation', categoryLabel: 'Rezervace',
+    trigger: 'Úprava termínu/motorky (velín nebo app)',
+    attachments: 'ZF, DP, Smlouva, VOP',
+    info: 'Odesílá se při jakékoliv změně rezervace — zkrácení, prodloužení, změna motorky, změna místa přistavení. Dokumenty se regenerují s novými daty.',
+  },
+  voucher_purchased: {
+    category: 'shop', categoryLabel: 'E-shop',
+    trigger: 'Stripe webhook po platbě objednávky',
+    attachments: 'ZF, DP, Voucher HTML, FV (elektronický)',
+    info: 'Odesílá se po zakoupení dárkového poukazu nebo e-shop objednávky. Pro elektronické poukazy obsahuje i konečnou fakturu.',
+  },
+  sos_incident: {
+    category: 'other', categoryLabel: 'Ostatní',
+    trigger: 'Vytvoření SOS incidentu (app)',
+    attachments: 'Žádné',
+    info: 'Odesílá se automaticky zákazníkovi při nahlášení SOS incidentu. Obsahuje omluvu a kontakt na linku pomoci.',
+  },
+  invoice_advance: {
+    category: 'invoice', categoryLabel: 'Faktura',
+    trigger: 'Ruční odeslání z Velínu / automaticky',
+    attachments: 'Faktura HTML v příloze',
+    info: 'E-mail se zálohovou fakturou (ZF/proforma). Odesílá se s fakturou v příloze.',
+  },
+  invoice_payment_receipt: {
+    category: 'invoice', categoryLabel: 'Faktura',
+    trigger: 'Ruční odeslání z Velínu / automaticky',
+    attachments: 'Doklad HTML v příloze',
+    info: 'E-mail s dokladem o přijaté platbě (DP). Odesílá se s dokladem v příloze.',
+  },
+  invoice_final: {
+    category: 'invoice', categoryLabel: 'Faktura',
+    trigger: 'Dokončení pronájmu / ruční odeslání',
+    attachments: 'Faktura HTML v příloze',
+    info: 'E-mail s konečnou fakturou (FV/KF). Odesílá se po dokončení pronájmu nebo ručně z Velínu.',
+  },
+  invoice_shop_final: {
+    category: 'invoice', categoryLabel: 'Faktura',
+    trigger: 'Odeslání zboží z Velínu (shipped/delivered)',
+    attachments: 'Faktura HTML v příloze',
+    info: 'E-mail s konečnou fakturou za e-shop objednávku. Odesílá se při expedici fyzického zboží nebo poukazu z Velínu.',
+  },
+  // Web varianty
+  web_booking_reserved: { category: 'reservation', categoryLabel: 'Rezervace', trigger: 'Web platba', attachments: 'ZF, DP, Smlouva, VOP', info: 'Web varianta potvrzení rezervace. Pokud neexistuje, použije se booking_reserved.' },
+  web_booking_abandoned: { category: 'reservation', categoryLabel: 'Rezervace', trigger: 'Auto-cancel web 4h', attachments: 'ZF', info: 'Web varianta nedokončené rezervace. Pokud neexistuje, použije se booking_abandoned.' },
+  web_booking_cancelled: { category: 'storno', categoryLabel: 'Storno', trigger: 'Storno web rezervace', attachments: 'Dobropis', info: 'Web varianta storna. Pokud neexistuje, použije se booking_cancelled.' },
+  web_booking_completed: { category: 'reservation', categoryLabel: 'Rezervace', trigger: 'Dokončení web pronájmu', attachments: 'KF', info: 'Web varianta dokončení. Pokud neexistuje, použije se booking_completed.' },
+  web_voucher_purchased: { category: 'shop', categoryLabel: 'E-shop', trigger: 'Web nákup poukazu', attachments: 'ZF, DP, Voucher, FV', info: 'Web varianta nákupu poukazu. Pokud neexistuje, použije se voucher_purchased.' },
+}
+
+const CATEGORIES = [
+  { value: 'reservation', label: 'Rezervace', color: '#2563eb', bg: '#dbeafe' },
+  { value: 'storno', label: 'Storno', color: '#dc2626', bg: '#fee2e2' },
+  { value: 'invoice', label: 'Faktura', color: '#b45309', bg: '#fef3c7' },
+  { value: 'shop', label: 'E-shop', color: '#7c3aed', bg: '#ede9fe' },
+  { value: 'other', label: 'Ostatní', color: '#1a2e22', bg: '#f3f4f6' },
+]
+
+function getTemplateMeta(slug) {
+  return TEMPLATE_META[slug] || { category: 'other', categoryLabel: 'Ostatní', trigger: '—', attachments: '—', info: '' }
+}
+
 export default function EmailTemplatesTab() {
   const [templates, setTemplates] = useState([])
   const [sentEmails, setSentEmails] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [editing, setEditing] = useState(null)
-  const defaultFilters = { search: '', statuses: [] }
+  const defaultFilters = { search: '', statuses: [], categories: [] }
   const [filters, setFilters] = useState(() => {
     try {
       const saved = localStorage.getItem('velin_emailtemplates_filters')
@@ -66,7 +145,7 @@ export default function EmailTemplatesTab() {
 
   async function loadSent() {
     try {
-      const { data } = await supabase.from('sent_emails').select('*').order('created_at', { ascending: false }).limit(20)
+      const { data } = await supabase.from('sent_emails').select('*').order('created_at', { ascending: false }).limit(30)
       setSentEmails(data || [])
     } catch {}
   }
@@ -75,9 +154,13 @@ export default function EmailTemplatesTab() {
   if (error) return <div className="mb-4 p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>
 
   const filteredTemplates = templates.filter(t => {
-    if (!filters.search) return true
-    const s = filters.search.toLowerCase()
-    return (t.name || '').toLowerCase().includes(s) || (t.slug || '').toLowerCase().includes(s) || (t.description || '').toLowerCase().includes(s)
+    const meta = getTemplateMeta(t.slug)
+    if (filters.categories?.length > 0 && !filters.categories.includes(meta.category)) return false
+    if (filters.search) {
+      const s = filters.search.toLowerCase()
+      if (!(t.name || '').toLowerCase().includes(s) && !(t.slug || '').toLowerCase().includes(s) && !(t.description || '').toLowerCase().includes(s) && !(meta.info || '').toLowerCase().includes(s)) return false
+    }
+    return true
   })
 
   const filteredEmails = sentEmails.filter(e => {
@@ -89,17 +172,28 @@ export default function EmailTemplatesTab() {
     return true
   })
 
+  // Group templates by category
+  const grouped = {}
+  filteredTemplates.forEach(t => {
+    const meta = getTemplateMeta(t.slug)
+    if (!grouped[meta.category]) grouped[meta.category] = []
+    grouped[meta.category].push(t)
+  })
+
   return (
     <div>
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
         <input type="text" value={filters.search} onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
           placeholder="Hledat šablonu, e-mail…"
           className="rounded-btn text-sm outline-none"
           style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22', minWidth: 200 }} />
+        <CheckboxFilterGroup label="Kategorie" values={filters.categories || []}
+          onChange={v => setFilters(f => ({ ...f, categories: v }))}
+          options={CATEGORIES.map(c => ({ value: c.value, label: c.label }))} />
         <CheckboxFilterGroup label="Stav" values={filters.statuses || []}
           onChange={v => setFilters(f => ({ ...f, statuses: v }))}
           options={[{ value: 'sent', label: 'Odesláno' }, { value: 'failed', label: 'Chyba' }, { value: 'queued', label: 'Ve frontě' }]} />
-        {(filters.search || (filters.statuses?.length > 0)) && (
+        {(filters.search || filters.statuses?.length > 0 || filters.categories?.length > 0) && (
           <button onClick={() => { setFilters({ ...defaultFilters }); localStorage.removeItem('velin_emailtemplates_filters') }}
             className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
             style={{ padding: '8px 14px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626' }}>
@@ -109,16 +203,25 @@ export default function EmailTemplatesTab() {
       </div>
 
       {filteredTemplates.length === 0 ? (
-        <Card><p style={{ color: '#1a2e22', fontSize: 13 }}>Žádné e-mailové šablony</p></Card>
+        <Card><p style={{ color: '#1a2e22', fontSize: 13 }}>Žádné e-mailové šablony odpovídající filtru</p></Card>
       ) : (
-        <div className="grid grid-cols-2 gap-4 mb-8">
-          {filteredTemplates.map(t => (
-            <TemplateCard key={t.id} template={t} onEdit={() => setEditing(t)} />
-          ))}
-        </div>
+        CATEGORIES.filter(c => grouped[c.value]?.length > 0).map(cat => (
+          <div key={cat.value} className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="inline-block rounded-btn text-xs font-extrabold uppercase tracking-wide"
+                style={{ padding: '4px 10px', background: cat.bg, color: cat.color }}>{cat.label}</span>
+              <span className="text-sm" style={{ color: '#6b7280' }}>{grouped[cat.value].length} {grouped[cat.value].length === 1 ? 'šablona' : grouped[cat.value].length < 5 ? 'šablony' : 'šablon'}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {grouped[cat.value].map(t => (
+                <TemplateCard key={t.id} template={t} onEdit={() => setEditing(t)} />
+              ))}
+            </div>
+          </div>
+        ))
       )}
 
-      <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Poslední odeslané e-maily</h3>
+      <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3 mt-8" style={{ color: '#1a2e22' }}>Poslední odeslané e-maily</h3>
       <SentEmailsTable emails={filteredEmails} />
 
       {editing && (
@@ -134,16 +237,31 @@ export default function EmailTemplatesTab() {
 
 function TemplateCard({ template, onEdit }) {
   const vars = template.variables || extractVars(template.body_html)
+  const meta = getTemplateMeta(template.slug)
+  const catDef = CATEGORIES.find(c => c.value === meta.category) || CATEGORIES[4]
+
   return (
     <Card>
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-1">
         <h4 className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{template.name}</h4>
-        <Badge label={template.active ? 'Aktivní' : 'Neaktivní'} color={template.active ? '#1a8a18' : '#6b7280'} bg={template.active ? '#dcfce7' : '#f3f4f6'} />
+        <div className="flex items-center gap-1">
+          <Badge label={catDef.label} color={catDef.color} bg={catDef.bg} />
+          <Badge label={template.active ? 'Aktivní' : 'Neaktivní'} color={template.active ? '#1a8a18' : '#6b7280'} bg={template.active ? '#dcfce7' : '#f3f4f6'} />
+        </div>
       </div>
-      <div className="text-sm font-mono mb-2" style={{ color: '#1a2e22' }}>{template.slug}</div>
-      <p className="text-sm mb-3" style={{ color: '#1a2e22', lineHeight: 1.5 }}>{template.description || 'Bez popisu'}</p>
+      <div className="text-xs font-mono mb-2" style={{ color: '#6b7280' }}>{template.slug}</div>
+
+      {/* Info box */}
+      <div className="rounded-btn text-xs mb-2" style={{ padding: '8px 10px', background: '#f8faf9', border: '1px solid #e5e7eb', lineHeight: 1.6, color: '#374151' }}>
+        {meta.info && <div className="mb-1">{meta.info}</div>}
+        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1" style={{ fontSize: 11 }}>
+          <span><strong style={{ color: '#1a2e22' }}>Trigger:</strong> {meta.trigger}</span>
+          <span><strong style={{ color: '#1a2e22' }}>Přílohy:</strong> {meta.attachments}</span>
+        </div>
+      </div>
+
       {vars.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-3">
+        <div className="flex flex-wrap gap-1 mb-2">
           {vars.map(v => (
             <span key={v} className="inline-block rounded-btn text-[9px] font-mono font-bold"
               style={{ padding: '2px 6px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
@@ -174,7 +292,7 @@ function SentEmailsTable({ emails }) {
           return (
             <TRow key={e.id}>
               <TD>{e.recipient_email || '—'}</TD>
-              <TD><span className="font-mono text-sm">{e.template_slug || '—'}</span></TD>
+              <TD><span className="font-mono text-xs">{e.template_slug || '—'}</span></TD>
               <TD>{e.subject || '—'}</TD>
               <TD><Badge label={st.label} color={st.color} bg={st.bg} /></TD>
               <TD>{e.created_at ? new Date(e.created_at).toLocaleString('cs-CZ') : '—'}</TD>
@@ -198,6 +316,7 @@ function EditEmailTemplateModal({ template, onClose, onSaved }) {
   const [dragOver, setDragOver] = useState(false)
   const textareaRef = useRef(null)
   const fileInputRef = useRef(null)
+  const meta = getTemplateMeta(template.slug)
 
   const vars = template.variables || extractVars(bodyHtml)
 
@@ -218,9 +337,7 @@ function EditEmailTemplateModal({ template, onClose, onSaved }) {
       const reader = new FileReader()
       reader.onload = (ev) => setBodyHtml(ev.target.result)
       reader.readAsText(file)
-    } else {
-      setErr('Podporované formáty: .html, .htm')
-    }
+    } else { setErr('Podporované formáty: .html, .htm') }
   }, [])
 
   function getPreviewHtml() {
@@ -256,39 +373,30 @@ function EditEmailTemplateModal({ template, onClose, onSaved }) {
 
   return (
     <Modal open title={`Upravit: ${template.name}`} onClose={onClose} wide>
-      <div className="space-y-3">
-        <div>
-          <Label>Název</Label>
-          <input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
+      {/* Info panel */}
+      <div className="rounded-btn mb-4" style={{ padding: '12px 14px', background: '#f8faf9', border: '1px solid #d4e8e0' }}>
+        <div className="text-sm mb-1" style={{ color: '#374151', lineHeight: 1.6 }}>{meta.info}</div>
+        <div className="flex flex-wrap gap-x-4 gap-y-1" style={{ fontSize: 12 }}>
+          <span><strong style={{ color: '#1a2e22' }}>Trigger:</strong> {meta.trigger}</span>
+          <span><strong style={{ color: '#1a2e22' }}>Přílohy:</strong> {meta.attachments}</span>
+          <span><strong style={{ color: '#1a2e22' }}>Slug:</strong> <code style={{ background: '#e5e7eb', padding: '1px 4px', borderRadius: 4 }}>{template.slug}</code></span>
         </div>
-        <div>
-          <Label>Předmět</Label>
-          <input type="text" value={subject} onChange={e => setSubject(e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
-        </div>
+      </div>
 
-        {/* Drag & drop upload zone */}
-        <div
-          className="rounded-lg text-center cursor-pointer transition-colors"
-          style={{
-            padding: '16px',
-            border: `2px dashed ${dragOver ? '#74FB71' : '#d4e8e0'}`,
-            background: dragOver ? '#f0fff4' : '#f9fdfb',
-          }}
-          onDragOver={e => { e.preventDefault(); setDragOver(true) }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={handleFileDrop}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <div className="text-2xl mb-1">{dragOver ? '📥' : '📄'}</div>
-          <div className="text-sm font-bold" style={{ color: '#1a2e22' }}>
-            Přetáhněte HTML soubor sem nebo klikněte pro výběr
-          </div>
-          <div className="text-sm mt-1" style={{ color: '#1a2e22' }}>Podporované formáty: .html, .htm</div>
+      <div className="space-y-3">
+        <div><Label>Název</Label><input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
+        <div><Label>Předmět</Label><input type="text" value={subject} onChange={e => setSubject(e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
+
+        <div className="rounded-lg text-center cursor-pointer transition-colors"
+          style={{ padding: '16px', border: `2px dashed ${dragOver ? '#74FB71' : '#d4e8e0'}`, background: dragOver ? '#f0fff4' : '#f9fdfb' }}
+          onDragOver={e => { e.preventDefault(); setDragOver(true) }} onDragLeave={() => setDragOver(false)}
+          onDrop={handleFileDrop} onClick={() => fileInputRef.current?.click()}>
+          <div className="text-sm font-bold" style={{ color: '#1a2e22' }}>Přetáhněte HTML soubor sem nebo klikněte pro výběr</div>
+          <div className="text-xs mt-1" style={{ color: '#6b7280' }}>Podporované formáty: .html, .htm</div>
           <input ref={fileInputRef} type="file" accept=".html,.htm" onChange={handleFileDrop} className="hidden" />
         </div>
 
-        <div>
-          <Label>HTML tělo</Label>
+        <div><Label>HTML tělo</Label>
           <textarea ref={textareaRef} value={bodyHtml} onChange={e => setBodyHtml(e.target.value)}
             className="w-full rounded-btn text-sm outline-none font-mono"
             style={{ ...inputStyle, minHeight: 300, resize: 'vertical' }} />
