@@ -114,7 +114,7 @@ async function finalizeCheckout(){
       // ZF (zálohová faktura) — trigger: vytvoření objednávky (před platbou)
       try {
         await window.supabase.functions.invoke('generate-invoice', {
-          body: { type: 'shop_proforma', order_id: orderId }
+          body: { type: 'shop_proforma', order_id: orderId, send_email: false }
         });
       } catch(ie){ console.warn('[SHOP] ZF generation:', ie); }
 
@@ -142,7 +142,7 @@ async function finalizeCheckout(){
               _pendingShopOrderId = null;
               try {
                 window.supabase.functions.invoke('generate-invoice', {
-                  body: { type: 'payment_receipt', order_id: orderId }
+                  body: { type: 'payment_receipt', order_id: orderId, send_email: false }
                 }).catch(function(){});
               } catch(re){}
               _showCheckoutSuccess();
@@ -180,7 +180,7 @@ async function finalizeCheckout(){
       if(finalTotal <= 0){
         try {
           await window.supabase.functions.invoke('generate-invoice', {
-            body: { type: 'payment_receipt', order_id: orderId }
+            body: { type: 'payment_receipt', order_id: orderId, send_email: false }
           });
         } catch(re){ console.warn('[SHOP] DP receipt err:', re); }
       }
