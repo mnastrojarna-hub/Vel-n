@@ -208,6 +208,10 @@ function _renderUserDataAsync(){
         activeLoan._isUpcoming = true;
       }
 
+      // SOS tlačítko na home — zobrazit jen při aktivní rezervaci
+      var homeSosBtn = document.getElementById('home-sos-btn');
+      if(homeSosBtn) homeSosBtn.style.display = (activeLoan && !activeLoan._isUpcoming) ? '' : 'none';
+
       if(activeLoan && !activeLoan._isUpcoming){
         var motoName = activeLoan.moto ? activeLoan.moto.model : 'Motorka';
         var isPast = activeLoan._pastEndTime;

@@ -129,7 +129,7 @@ var ScannerUI = (function(){
       hint = 'Kamera není dostupná. Zkontrolujte oprávnění v Nastavení → Aplikace → MotoGo24 → Oprávnění → Fotoaparát';
     }
     _setStatus('error', hint);
-    _showCameraFallback(hint + '\n\n[DEBUG] ' + code);
+    _showCameraFallback(hint);
   }
 
   function _showCameraFallback(hint){

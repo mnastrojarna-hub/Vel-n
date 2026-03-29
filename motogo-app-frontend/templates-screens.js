@@ -32,11 +32,13 @@ Templates['s-home'] = `  <div class="hdr">
       <div class="ares-tag" id="home-ares-tag">–</div>
     </div>
   </div>
+  <div id="home-sos-btn" style="display:none;">
   <button class="sos-btn sos-btn-sm" onclick="goTo('s-sos')">
     <div class="sos-icon" style="width:28px;height:28px;border-radius:8px;font-size:14px;">🆘</div>
     <div style="text-align:left;"><div id="t-sosEmergency" style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;">Nehoda, krádež, porucha</div><div id="t-sosHelp24" style="font-size:10px;opacity:.8;margin-top:1px;font-weight:500;">Okamžitá pomoc 24/7</div></div>
     <div style="margin-left:auto;font-size:16px;opacity:.7;">›</div>
   </button>
+  </div>
   <!-- ROZŠÍŘENÝ FILTR -->
   <div style="margin:14px 20px 0;background:#fff;border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;">
     <div style="padding:14px 16px;border-bottom:1px solid var(--g100);display:flex;align-items:center;justify-content:space-between;">
