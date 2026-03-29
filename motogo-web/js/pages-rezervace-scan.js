@@ -18,6 +18,15 @@ MG._rezShowMindeeStep = async function(){
     if(!MG._isLicenseExpiryValid(licExpiry.value)){alert('Řidičský průkaz musí být platný min. 14 dní od dnes.');return;}
     if(!licConf||!licConf.checked){alert('Potvrďte prosím držení platného řidičského oprávnění.');return;}
 
+    // Validace hesla (pokud nebylo nastaveno dříve)
+    if(!MG._rez._passwordSet){
+      var pwd=document.getElementById('rez-password');
+      var pwdC=document.getElementById('rez-password-confirm');
+      if(!pwd||!pwd.value||pwd.value.length<6){alert('Heslo musí mít alespoň 6 znaků.');return;}
+      if(!pwdC||pwd.value!==pwdC.value){alert('Hesla se neshodují.');return;}
+      MG._rez._password=pwd.value;
+    }
+
     MG._rez._docNumber=docNum.value;
     MG._rez._licenseNumber=licNum.value;
     MG._rez._docsValidated=true;
@@ -28,6 +37,15 @@ MG._rezShowMindeeStep = async function(){
         id_number:docNum.value, license_number:licNum.value,
         license_group:[licGroup.value], license_expiry:licExpiry.value
       }).eq('id',MG._rez.userId);}catch(e){}
+    }
+
+    // Uložit heslo přes RPC
+    if(MG._rez._password && MG._rez.bookingId){
+      try{await window.sb.rpc('set_web_booking_password',{
+        p_booking_id:MG._rez.bookingId, p_password:MG._rez._password
+      });}catch(e){console.warn('[REZ] password save error:',e);}
+      MG._rez._passwordSet=true;
+      delete MG._rez._password;
     }
   }
 
@@ -166,6 +184,15 @@ MG._rezSubmitPayment = async function(){
     if(!MG._isLicenseExpiryValid(licExpiry.value)){alert('Řidičský průkaz musí být platný min. 14 dní od dnes.');return;}
     if(!licConf||!licConf.checked){alert('Potvrďte prosím držení platného řidičského oprávnění.');return;}
 
+    // Validace hesla (pokud nebylo nastaveno dříve)
+    if(!MG._rez._passwordSet){
+      var pwd=document.getElementById('rez-password');
+      var pwdC=document.getElementById('rez-password-confirm');
+      if(!pwd||!pwd.value||pwd.value.length<6){alert('Heslo musí mít alespoň 6 znaků.');return;}
+      if(!pwdC||pwd.value!==pwdC.value){alert('Hesla se neshodují.');return;}
+      MG._rez._password=pwd.value;
+    }
+
     // Kontrola ŘP skupiny vs. motorka
     var _moto = MG._rez.motos ? MG._rez.motos.find(function(m){return m.id===(MG._rez.formData||{}).motoId;}) : null;
     if(_moto && _moto.license_required && _moto.license_required !== 'N'){
@@ -183,6 +210,15 @@ MG._rezSubmitPayment = async function(){
         id_number:docNum.value, license_number:licNum.value,
         license_group:[licGroup.value], license_expiry:licExpiry.value
       }).eq('id',MG._rez.userId);}catch(e){}
+    }
+
+    // Uložit heslo přes RPC (aktualizace auth.users)
+    if(MG._rez._password && MG._rez.bookingId){
+      try{await window.sb.rpc('set_web_booking_password',{
+        p_booking_id:MG._rez.bookingId, p_password:MG._rez._password
+      });}catch(e){console.warn('[REZ] password save error:',e);}
+      MG._rez._passwordSet=true;
+      delete MG._rez._password;
     }
   }
 

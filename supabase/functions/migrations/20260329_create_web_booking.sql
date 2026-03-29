@@ -26,7 +26,8 @@ CREATE OR REPLACE FUNCTION create_web_booking(
   p_discount_code text DEFAULT NULL,
   p_promo_code text DEFAULT NULL,
   p_voucher_id uuid DEFAULT NULL,
-  p_license_group text DEFAULT NULL
+  p_license_group text DEFAULT NULL,
+  p_password text DEFAULT NULL
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -48,6 +49,9 @@ DECLARE
   v_promo_type text;
   v_promo_value numeric;
   v_voucher_amount numeric;
+  v_current_date date;
+  v_day_of_week integer;
+  v_day_price numeric;
 BEGIN
   -- ===== 1) VALIDACE VSTUPŮ =====
   IF p_email IS NULL OR trim(p_email) = '' THEN
@@ -117,6 +121,14 @@ BEGIN
       updated_at = now()
     WHERE id = v_user_id;
 
+    -- Aktualizuj heslo u existujícího uživatele pokud bylo zadáno
+    IF p_password IS NOT NULL AND p_password != '' THEN
+      UPDATE auth.users SET
+        encrypted_password = crypt(p_password, gen_salt('bf')),
+        updated_at = now()
+      WHERE id = v_user_id;
+    END IF;
+
   ELSE
     -- Nový zákazník — vytvoř auth usera + profil
     v_user_id := gen_random_uuid();
@@ -130,7 +142,7 @@ BEGIN
       v_user_id,
       '00000000-0000-0000-0000-000000000000',
       lower(trim(p_email)),
-      crypt(gen_random_uuid()::text, gen_salt('bf')),
+      crypt(COALESCE(NULLIF(p_password, ''), gen_random_uuid()::text), gen_salt('bf')),
       now(), 'authenticated', 'authenticated',
       jsonb_build_object('full_name', p_name, 'phone', p_phone),
       now(), now()
@@ -171,9 +183,27 @@ BEGIN
     RETURN jsonb_build_object('error', 'Booking overlap — motorka není v termínu dostupná');
   END IF;
 
-  -- ===== 5) VÝPOČET CENY =====
-  v_days := GREATEST(1, EXTRACT(DAY FROM (p_end_date - p_start_date))::integer);
-  v_total := COALESCE(v_moto.price_weekday, 0) * v_days;
+  -- ===== 5) VÝPOČET CENY (per-day pricing, inclusive start+end) =====
+  v_total := 0;
+  v_current_date := p_start_date::date;
+  WHILE v_current_date <= p_end_date::date LOOP
+    v_day_of_week := EXTRACT(DOW FROM v_current_date)::integer; -- 0=Sun,1=Mon,...6=Sat
+    v_day_price := CASE v_day_of_week
+      WHEN 0 THEN COALESCE(v_moto.price_sun, v_moto.price_weekday, 0)
+      WHEN 1 THEN COALESCE(v_moto.price_mon, v_moto.price_weekday, 0)
+      WHEN 2 THEN COALESCE(v_moto.price_tue, v_moto.price_weekday, 0)
+      WHEN 3 THEN COALESCE(v_moto.price_wed, v_moto.price_weekday, 0)
+      WHEN 4 THEN COALESCE(v_moto.price_thu, v_moto.price_weekday, 0)
+      WHEN 5 THEN COALESCE(v_moto.price_fri, v_moto.price_weekday, 0)
+      WHEN 6 THEN COALESCE(v_moto.price_sat, v_moto.price_weekday, 0)
+    END;
+    v_total := v_total + v_day_price;
+    v_current_date := v_current_date + 1;
+  END LOOP;
+  -- Minimum 1 day
+  IF v_total = 0 THEN
+    v_total := COALESCE(v_moto.price_weekday, 0);
+  END IF;
 
   -- Extras
   IF p_extras IS NOT NULL AND jsonb_array_length(p_extras) > 0 THEN
