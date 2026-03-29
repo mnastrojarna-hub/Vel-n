@@ -167,9 +167,9 @@ function _waitForWebhookConfirmation(){
     if(attempts >= maxAttempts){
       clearInterval(_inlinePollTimer); _inlinePollTimer = null;
       // Timeout — Stripe charged card but webhook hasn't confirmed yet
-      // Show warning but DON'T call success — let user check reservations
+      // Payment IS successful (Stripe confirmed), show success anyway
       _closeInlineOverlay();
-      if(typeof showT === 'function') showT('⏳','Platba zpracovávána','Potvrzení může trvat několik sekund. Zkontrolujte Moje rezervace.');
+      if(_inlineOnSuccess) _inlineOnSuccess();
     }
   }, 1500);
 }
