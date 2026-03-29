@@ -9,14 +9,30 @@ function localIso(d) {
 export async function autoCancelStale() {
   try {
     const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString()
-    const { data: stale } = await supabase
+    const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()
+
+    // App bookings: cancel after 10 minutes
+    const { data: staleApp } = await supabase
       .from('bookings').select('id')
       .eq('status', 'pending').eq('payment_status', 'unpaid')
+      .neq('booking_source', 'web')
       .lt('created_at', tenMinAgo)
-    if (stale && stale.length > 0) {
+    if (staleApp && staleApp.length > 0) {
       await supabase.from('bookings')
         .update({ status: 'cancelled', cancellation_reason: 'Automaticky zrušeno — nezaplaceno do 10 minut' })
-        .in('id', stale.map(b => b.id))
+        .in('id', staleApp.map(b => b.id))
+    }
+
+    // Web bookings: cancel after 4 hours
+    const { data: staleWeb } = await supabase
+      .from('bookings').select('id')
+      .eq('status', 'pending').eq('payment_status', 'unpaid')
+      .eq('booking_source', 'web')
+      .lt('created_at', fourHoursAgo)
+    if (staleWeb && staleWeb.length > 0) {
+      await supabase.from('bookings')
+        .update({ status: 'cancelled', cancellation_reason: 'Automaticky zrušeno — nezaplaceno do 4 hodin' })
+        .in('id', staleWeb.map(b => b.id))
     }
   } catch (e) { console.error('[AutoCancel]', e) }
 }
