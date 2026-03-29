@@ -87,10 +87,25 @@ function isoToDateObj(iso){
   return { d: dt.getDate(), m: dt.getMonth(), y: dt.getFullYear() };
 }
 
-// ===== Save / load reservations in localStorage (ISO format) =====
+// ===== Save / load reservations in localStorage (ISO format, 3-day TTL) =====
+var MG_RES_TTL_MS = 3 * 24 * 60 * 60 * 1000; // 3 dny
+
+function _pruneOldReservations(all){
+  var now = Date.now();
+  var pruned = {};
+  for(var k in all){
+    if(all.hasOwnProperty(k)){
+      var upd = all[k].updatedAt ? new Date(all[k].updatedAt).getTime() : 0;
+      if(now - upd < MG_RES_TTL_MS) pruned[k] = all[k];
+    }
+  }
+  return pruned;
+}
+
 function saveReservation(resId, data){
   try {
     var all = JSON.parse(localStorage.getItem('mg_reservations') || '{}');
+    all = _pruneOldReservations(all);
     data.updatedAt = AppTime.now().toISOString();
     if(data.startDate && !(typeof data.startDate === 'string'))
       data.startDate = data.startDate.toISOString();
@@ -110,7 +125,13 @@ function loadReservation(resId){
 
 function loadAllReservations(){
   try {
-    return JSON.parse(localStorage.getItem('mg_reservations') || '{}');
+    var all = JSON.parse(localStorage.getItem('mg_reservations') || '{}');
+    var pruned = _pruneOldReservations(all);
+    // Persist pruned version
+    if(Object.keys(pruned).length !== Object.keys(all).length){
+      localStorage.setItem('mg_reservations', JSON.stringify(pruned));
+    }
+    return pruned;
   } catch(e){ return {}; }
 }
 

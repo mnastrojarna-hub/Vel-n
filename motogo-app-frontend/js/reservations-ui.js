@@ -106,7 +106,18 @@ function _checkAndShowSosFab(){
       if(pending){
         // Check if dismissed for this incident
         var dismissed = {};
-        try { dismissed = JSON.parse(localStorage.getItem('mg_sos_fab_dismissed') || '{}'); } catch(e){}
+        try {
+          dismissed = JSON.parse(localStorage.getItem('mg_sos_fab_dismissed') || '{}');
+          // Prune entries older than 7 days
+          var _now = Date.now(), _7d = 7*24*60*60*1000, _changed = false;
+          for(var _dk in dismissed){
+            if(dismissed.hasOwnProperty(_dk)){
+              var _ts = dismissed[_dk];
+              if(_ts === true || (typeof _ts==='number' && _now - _ts > _7d)){ delete dismissed[_dk]; _changed=true; }
+            }
+          }
+          if(_changed) localStorage.setItem('mg_sos_fab_dismissed', JSON.stringify(dismissed));
+        } catch(e){}
         if(dismissed[pending.id]){
           fab.style.display = 'none'; return;
         }
@@ -135,7 +146,7 @@ function dismissSosFab(){
   if(window._sosFabIncidentId){
     try {
       var d = JSON.parse(localStorage.getItem('mg_sos_fab_dismissed') || '{}');
-      d[window._sosFabIncidentId] = true;
+      d[window._sosFabIncidentId] = Date.now();
       localStorage.setItem('mg_sos_fab_dismissed', JSON.stringify(d));
     } catch(e){}
   }

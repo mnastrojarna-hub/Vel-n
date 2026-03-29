@@ -125,19 +125,14 @@ function handleDocUp(e){
 }
 function renderDocs(){
   const labels={op:'🪪 Občanský průkaz',pas:'📕 Cestovní pas',rp:'🏍️ Řidičský průkaz'};
-  var scanMap={op:'mg_doc_id_front',pas:'mg_doc_passport_front',rp:'mg_doc_dl_front'};
-  for(var sk in scanMap){
-    if(!docCaps[sk]){
-      try{ var sv=localStorage.getItem(scanMap[sk]); if(sv) docCaps[sk]=sv; }catch(e){}
-    }
-  }
+  // docCaps se plní pouze z in-memory dat (scan/upload), NE z localStorage
   var docCount = Object.values(docCaps).filter(function(v){return !!v;}).length;
   var html='';
   if(docCount > 0){
     html += '<div style="background:#ecfdf5;border:1px solid #6ee7b7;border-radius:12px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;gap:10px;">' +
       '<span style="font-size:22px;">✅</span>' +
       '<div><div style="font-size:14px;font-weight:700;color:#065f46;">Doklady nahrány ('+docCount+')</div>' +
-      '<div style="font-size:12px;color:#047857;">Uloženo v zařízení</div></div></div>';
+      '<div style="font-size:12px;color:#047857;">Uloženo v cloudu</div></div></div>';
   }
   html += Object.entries(docCaps).filter(([,v])=>v).map(([k,v])=>
     `<div class="dprev"><img src="${v}"><div class="dprev-lbl">${labels[k]}</div><button class="dprev-del" onclick="docCaps['${k}']=null;renderDocs()">✕</button></div>`

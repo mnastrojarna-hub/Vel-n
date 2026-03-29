@@ -175,12 +175,8 @@ var ScannerUI = (function(){
       var docType = DocScanner.getDocType();
       var dataUri = canvas.toDataURL('image/jpeg',0.85);
 
-      // 1) localStorage jako zálohu (pro renderDocs)
-      try {
-        localStorage.setItem('mg_doc_'+docType, dataUri);
-      } catch(e){}
-
-      // 2) Upload do Supabase storage (async, non-blocking)
+      // Upload do Supabase storage (async, non-blocking)
+      // Base64 se NEUKLÁDÁ do localStorage — šetříme místo na zařízení
       if(typeof apiUploadDocPhoto === 'function'){
         apiUploadDocPhoto(dataUri, docType).then(function(res){
           if(res.error) console.warn('[DocScanner] Cloud upload failed:', res.error);
