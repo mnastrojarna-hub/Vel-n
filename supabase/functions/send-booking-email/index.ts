@@ -144,6 +144,7 @@ serve(async (req) => {
       google_review_url,
       facebook_review_url,
       manual_url,
+      attachments,
     } = body
 
     if (!type || !customer_email) {
@@ -229,16 +230,20 @@ ${vars.resume_qr_url ? '<div style="text-align:center;margin:20px 0"><p style="c
       })
     }
 
-    // Send via Resend with Reply-To: info@motogo24.cz
-    const result = await sendWithRetry({
+    // Send via Resend with Reply-To: info@motogo24.cz + optional attachments
+    const emailPayload: Record<string, unknown> = {
       from: FROM_EMAIL,
       reply_to: REPLY_TO,
       to: customer_email,
       subject,
       html,
-    })
+    }
+    if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+      emailPayload.attachments = attachments
+    }
+    const result = await sendWithRetry(emailPayload)
 
-    // Also send copy to info@motogo24.cz (duplicate for internal records)
+    // Also send copy to info@motogo24.cz (without attachments to save bandwidth)
     if (result.success) {
       try {
         await sendWithRetry({

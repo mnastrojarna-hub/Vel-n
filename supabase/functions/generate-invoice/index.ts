@@ -55,7 +55,7 @@ serve(async (req) => {
 
     const invoiceType = type || 'proforma'
     const isShop = invoiceType === 'shop_proforma' || invoiceType === 'shop_final' || (order_id && !booking_id)
-    const isProforma = invoiceType === 'proforma' || invoiceType === 'shop_proforma'
+    const isProforma = invoiceType === 'proforma' || invoiceType === 'shop_proforma' || invoiceType === 'advance'
     const isPaymentReceipt = invoiceType === 'payment_receipt'
     const prefix = isPaymentReceipt ? 'DP' : isProforma ? 'ZF' : 'FV'
     const year = new Date().getFullYear()
