@@ -3,7 +3,7 @@ import Button from '../../components/ui/Button'
 import SOSWorkflowStepper, { WORKFLOWS } from './SOSWorkflowStepper'
 import { DECISION_LABELS, REPLACEMENT_STATUS_LABELS, REPLACEMENT_STATUS_COLORS, InfoRow, STATUS_COLORS, SEVERITY_MAP, TYPE_LABELS, TYPE_ICONS } from './SOSDetailConstants'
 
-export function HeaderCard({ incident, sev, sc, displayTitle, isActive, admins, assignAdmin, updateIncidentStatus, timelineActions, motoInService, moto }) {
+export function HeaderCard({ incident, sev, sc, displayTitle, isActive, admins, assignAdmin, updateIncidentStatus, timelineActions, motoInService, moto, onClose, customer, setMotoToService }) {
   const workflow = WORKFLOWS[incident?.type]
   let allPreResolveComplete = true
   if (workflow) {

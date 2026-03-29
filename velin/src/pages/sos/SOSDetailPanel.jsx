@@ -339,7 +339,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
 
   return (
     <div className="space-y-4">
-      <HeaderCard incident={incident} sev={sev} sc={sc} displayTitle={displayTitle} isActive={isActive} admins={admins} assignAdmin={assignAdmin} updateIncidentStatus={updateIncidentStatus} timelineActions={timelineActions} motoInService={motoInService} moto={moto} />
+      <HeaderCard incident={incident} sev={sev} sc={sc} displayTitle={displayTitle} isActive={isActive} admins={admins} assignAdmin={assignAdmin} updateIncidentStatus={updateIncidentStatus} timelineActions={timelineActions} motoInService={motoInService} moto={moto} onClose={onClose} customer={customer} setMotoToService={setMotoToService} />
       <NotesCard incidentNotes={incidentNotes} noteText={noteText} setNoteText={setNoteText} addNote={addNote} savingNote={savingNote} />
       <WorkflowStepperCard incident={incident} timelineActions={timelineActions} motoInService={motoInService} moto={moto} />
       <ActionsCard incident={incident} isActive={isActive} isAccident={isAccident} isMajor={isMajor} motoInService={motoInService} moto={moto} timelineActions={timelineActions} loadTimelineActions={loadTimelineActions} setMotoToService={setMotoToService} onRefresh={onRefresh} policeNumber={policeNumber} setPoliceNumber={setPoliceNumber} saveField={saveField} />
