@@ -71,10 +71,7 @@ Templates['s-register'] = `  <div class="reg-hdr">
       <div class="reg-step-title" id="t-s3t">🏍️ Krok 3 / 3 – Řidičský průkaz</div>
       <div class="reg-step-sub" id="t-s3s">Informace o vašem řidičském oprávnění</div>
       <div class="ff"><label id="t-licNum">Číslo řidičského průkazu</label><input id="reg-license-num" type="text" placeholder="AB 123456"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;">
-        <div class="ff" style="margin:0;"><label id="t-licFrom">Vydán dne</label><input id="reg-license-from" type="text" readonly placeholder="Vyberte datum" onclick="openDatePicker(this)" style="cursor:pointer;"></div>
-        <div class="ff" style="margin:0;"><label id="t-licTo">Platí do</label><input id="reg-license-to" type="text" readonly placeholder="Vyberte datum" onclick="openDatePicker(this)" style="cursor:pointer;"></div>
-      </div>
+      <div class="ff"><label id="t-licTo">Platí do</label><input id="reg-license-to" type="text" readonly placeholder="Vyberte datum" onclick="openDatePicker(this)" style="cursor:pointer;"></div>
       <div class="ff" style="margin-top:9px;margin-bottom:0;"><label id="t-licCat">Kategorie ŘP</label>
         <select id="reg-license-group"><option value="A2" id="t-catA2">A2 – do 35 kW</option><option value="A" id="t-catA">A – bez omezení výkonu</option></select>
       </div>
