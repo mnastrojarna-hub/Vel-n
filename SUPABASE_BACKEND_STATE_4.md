@@ -22,7 +22,8 @@
 | `trg_shop_orders_updated` | shop_orders | update_updated_at() |
 | `trg_shop_order_number` | shop_orders (INSERT) | generate_shop_order_number() |
 | `trg_check_booking_overlap` | bookings (INSERT/UPDATE OF start_date, end_date, moto_id) | check_booking_overlap() |
-| `trg_generate_shop_invoice` | shop_orders (payment_status) | generate_shop_invoice() |
+| ~~`trg_generate_shop_invoice`~~ | ~~shop_orders (payment_status)~~ | **NAHRAZENO** `trg_generate_shop_final_on_ship` (2026-03-21) |
+| `trg_generate_shop_final_on_ship` | shop_orders (AFTER UPDATE OF status, payment_status, WHEN shipped/delivered + status changed + paid) | generate_shop_final_on_ship() — FV konečná faktura, odečet DP. Elektronické poukazy: FV okamžitě (status='delivered' z auto_process_voucher_order). Fyzické: FV při odeslání z velínu |
 | `moto_day_prices_updated` | moto_day_prices | update_updated_at() |
 | `trg_ai_conversations_updated` | ai_conversations | update_updated_at() |
 | `trg_sos_notify_user` | sos_incidents (INSERT) | sos_notify_user_on_create() — SECURITY DEFINER, dedup 2min |

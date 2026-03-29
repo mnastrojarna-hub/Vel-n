@@ -98,6 +98,11 @@ export async function handleWebShopCheckout(
   const webBody = body as Record<string, unknown>
   const customerEmail = webBody.customer_email as string
   const customerName = (webBody.customer_name as string) || ''
+  const customerPhone = (webBody.customer_phone as string) || ''
+  const isPrint = !!(webBody.is_print)
+  const voucherAmount = (webBody.voucher_amount as number) || body.amount
+  const printFee = isPrint ? 180 : 0
+  const shippingAddress = (webBody.shipping_address as string) || ''
   const amountCzk = body.amount
   const amountCents = Math.round(amountCzk * 100)
   const currency = body.currency || 'czk'
@@ -124,21 +129,59 @@ export async function handleWebShopCheckout(
       id: orderId,
       customer_name: customerName,
       customer_email: customerEmail,
+      customer_phone: customerPhone,
+      shipping_address: shippingAddress || null,
       status: 'new',
       payment_status: 'unpaid',
       payment_method: 'stripe',
       total: amountCzk,
-      subtotal: amountCzk,
-      shipping_cost: 0,
+      subtotal: voucherAmount,
+      shipping_cost: printFee,
       discount: 0,
       currency: 'CZK',
+      notes: isPrint ? 'Fyzický poukaz (tisk + poštovné)' : 'Elektronický poukaz',
     })
-    await supabaseAdmin.from('shop_order_items').insert({
+
+    // Hlavní položka: dárkový poukaz
+    const orderItems: Record<string, unknown>[] = [{
       order_id: orderId,
       product_name: 'Dárkový poukaz',
       quantity: 1,
-      unit_price: amountCzk,
-      total_price: amountCzk,
+      unit_price: voucherAmount,
+      total_price: voucherAmount,
+    }]
+
+    // Fyzický tisk + poštovné (název BEZ "poukaz" aby trigger negeneroval voucher)
+    if (isPrint) {
+      orderItems.push({
+        order_id: orderId,
+        product_name: 'Tisk a poštovné',
+        quantity: 1,
+        unit_price: printFee,
+        total_price: printFee,
+      })
+    }
+
+    await supabaseAdmin.from('shop_order_items').insert(orderItems)
+  }
+
+  // Stripe line items (separate for clarity on Stripe receipt)
+  const lineItems: Record<string, unknown>[] = [{
+    price_data: {
+      currency,
+      unit_amount: Math.round(voucherAmount * 100),
+      product_data: { name: 'MotoGo24 — Dárkový poukaz' }
+    },
+    quantity: 1
+  }]
+  if (isPrint) {
+    lineItems.push({
+      price_data: {
+        currency,
+        unit_amount: Math.round(printFee * 100),
+        product_data: { name: 'Tisk a poštovné' }
+      },
+      quantity: 1
     })
   }
 
@@ -146,14 +189,7 @@ export async function handleWebShopCheckout(
     customer: custId,
     mode: 'payment',
     payment_method_types: ['card'],
-    line_items: [{
-      price_data: {
-        currency,
-        unit_amount: amountCents,
-        product_data: { name: 'MotoGo24 — Dárkový poukaz' }
-      },
-      quantity: 1
-    }],
+    line_items: lineItems as Stripe.Checkout.SessionCreateParams.LineItem[],
     metadata: { order_id: orderId, type: 'shop', source: 'web' },
     success_url: `${SITE_URL}/#/potvrzeni?order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${SITE_URL}/#/poukazy`,
@@ -164,6 +200,18 @@ export async function handleWebShopCheckout(
     stripe_session_id: session.id,
     stripe_payment_intent_id: session.payment_intent as string,
   }).eq('id', orderId)
+
+  // Generate ZF (proforma) + send email with order summary (best-effort, non-blocking)
+  try {
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
+    const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY }
+
+    await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
+      method: 'POST', headers,
+      body: JSON.stringify({ type: 'shop_proforma', order_id: orderId, send_email: true }),
+    })
+  } catch (e) { console.warn('[WebShopCheckout] ZF generation failed:', e) }
 
   return new Response(JSON.stringify({ checkout_url: session.url, session_id: session.id, order_id: orderId }), {
     headers: { ...CORS, 'Content-Type': 'application/json' }
