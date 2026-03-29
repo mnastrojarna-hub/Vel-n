@@ -54,7 +54,7 @@ function getBusinessCard(): string {
     <table style="width:100%;border-collapse:collapse" cellpadding="0" cellspacing="0">
       <tr>
         <td style="vertical-align:top;width:50%;padding-right:16px">
-          <img src="${SITE_URL}/gfx/logo-icon.svg" alt="MotoGo24" width="60" height="60" style="display:block;margin-bottom:8px" />
+          <img src="${SITE_URL}/gfx/logo-icon.png" alt="MotoGo24" width="60" height="60" style="display:block;margin-bottom:8px" />
           <div style="font-family:Montserrat,'Arial Black',sans-serif;font-weight:800;font-size:16px;color:#1a2e22;letter-spacing:2px">MOTO GO 24</div>
           <div style="font-family:Montserrat,Arial,sans-serif;font-size:10px;color:#6b7280;letter-spacing:3px;margin-top:2px">P\u016eJ\u010cOVNA MOTOREK</div>
           <img src="${SITE_URL}/gfx/qr-motogo24.png" alt="QR" width="80" height="80" style="display:block;margin-top:12px" />
@@ -74,7 +74,7 @@ function getBusinessCard(): string {
 
 /** Wrap body HTML in branded MotoGo24 email layout with vizitka */
 function wrapInBrandedLayout(bodyHtml: string): string {
-  const header = `<div style="background:#1a2e22;padding:28px 32px;text-align:center"><h1 style="margin:0;color:#74FB71;font-size:22px;font-weight:900;letter-spacing:2px">MOTO GO 24</h1></div>`
+  const header = `<div style="background:#1a2e22;padding:28px 32px;text-align:center"><img src="${SITE_URL}/gfx/logo-icon.png" alt="MotoGo24" width="48" height="48" style="display:inline-block;vertical-align:middle;margin-right:12px" /><h1 style="margin:0;color:#74FB71;font-size:22px;font-weight:900;letter-spacing:2px;display:inline-block;vertical-align:middle">MOTO GO 24</h1></div>`
   const footer = `<div style="background:#f9fafb;padding:16px 32px;text-align:center;border-top:1px solid #e5e7eb">
     <p style="color:#9ca3af;font-size:11px;margin:0">MOTO GO 24 \u2014 Pron\u00e1jem motorek po cel\u00e9 \u010cR</p>
   </div>`
