@@ -263,12 +263,22 @@ export async function confirmShopPayment(
       const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY }
 
-      // 1. Generate DP (payment receipt) + send email
+      // 1. Generate DP (payment receipt) — send_email:false, bude jako příloha
+      const shopAttachments: { content: string; filename: string }[] = []
       try {
-        await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
+        const dpRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
           method: 'POST', headers,
-          body: JSON.stringify({ type: 'payment_receipt', order_id: orderId, send_email: true }),
+          body: JSON.stringify({ type: 'payment_receipt', order_id: orderId, send_email: false }),
         })
+        const dpData = await dpRes.json().catch(() => ({}))
+        if (dpData.success && dpData.invoice_id) {
+          const { data: blob } = await supabase.storage.from('documents').download(`invoices/${dpData.invoice_id}.html`)
+          if (blob) {
+            const bytes = new Uint8Array(await blob.arrayBuffer())
+            const b64 = btoa(Array.from(bytes, (b: number) => String.fromCharCode(b)).join(''))
+            shopAttachments.push({ content: b64, filename: `Doklad-platby-${dpData.number || 'DP'}.html` })
+          }
+        }
       } catch (e) { console.warn('[confirmShopPayment] DP generation failed:', e) }
 
       // 2. Fetch order + generated voucher codes (created by auto_process_voucher_order trigger)
@@ -280,11 +290,10 @@ export async function confirmShopPayment(
         .select('code, amount, valid_until')
         .eq('order_id', orderId)
 
-      // 3. Send voucher_purchased email if vouchers were generated
+      // 3. Send voucher_purchased email with DP attachment
       if (order?.customer_email && vouchers && vouchers.length > 0) {
         const firstVoucher = vouchers[0]
         const allCodes = vouchers.map((v: { code: string; amount: number }) => `${v.code} (${v.amount} Kč)`).join(', ')
-        const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
 
         try {
           await fetch(`${SUPABASE_URL}/functions/v1/send-booking-email`, {
@@ -298,6 +307,7 @@ export async function confirmShopPayment(
               voucher_expiry: firstVoucher.valid_until,
               order_number: order.order_number || orderId.slice(0, 8).toUpperCase(),
               source: 'web',
+              attachments: shopAttachments,
             }),
           })
         } catch (e) { console.warn('[confirmShopPayment] voucher email failed:', e) }

@@ -117,6 +117,57 @@ const FALLBACK_SUBJECTS: Record<string, (vars: Record<string, string>) => string
   booking_cancelled: (v) => `Va\u0161e rezervace \u010d. ${v.booking_number} motocyklu u MotoGo24 byla \u00fasp\u011b\u0161n\u011b stornov\u00e1na`,
 }
 
+/** Download file from Supabase Storage and return as base64 */
+async function downloadAsBase64(supabase: any, path: string): Promise<string | null> {
+  try {
+    const { data } = await supabase.storage.from('documents').download(path)
+    if (!data) return null
+    const bytes = new Uint8Array(await data.arrayBuffer())
+    return btoa(Array.from(bytes, (b: number) => String.fromCharCode(b)).join(''))
+  } catch { return null }
+}
+
+/** Auto-generate attachments based on email type */
+async function autoGenerateAttachments(type: string, booking_id: string, supabase: any): Promise<{ content: string; filename: string }[]> {
+  if (!booking_id) return []
+  const atts: { content: string; filename: string }[] = []
+  const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
+
+  if (type === 'booking_abandoned') {
+    // Generate ZF (proforma) for abandoned bookings — shows what needs to be paid
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ type: 'advance', booking_id, send_email: false }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (data.success && data.invoice_id) {
+        const b64 = await downloadAsBase64(supabase, `invoices/${data.invoice_id}.html`)
+        if (b64) atts.push({ content: b64, filename: `Zalohova-faktura-${data.number || 'ZF'}.html` })
+      }
+    } catch { /* ignore */ }
+  }
+
+  if (type === 'booking_completed') {
+    // Fetch KF (konečná faktura) from invoices table
+    try {
+      const { data: invoices } = await supabase.from('invoices')
+        .select('id, number, pdf_path')
+        .eq('booking_id', booking_id)
+        .in('type', ['final'])
+        .neq('status', 'cancelled')
+        .order('created_at', { ascending: false })
+        .limit(1)
+      if (invoices?.length && invoices[0].pdf_path) {
+        const b64 = await downloadAsBase64(supabase, invoices[0].pdf_path)
+        if (b64) atts.push({ content: b64, filename: `Konecna-faktura-${invoices[0].number || 'KF'}.html` })
+      }
+    } catch { /* ignore */ }
+  }
+
+  return atts
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
@@ -207,15 +258,53 @@ serve(async (req) => {
 
     // If no template body in DB, use type-specific fallback
     if (!templateHtml) {
-      if (type === 'booking_abandoned' && vars.resume_link) {
-        templateHtml = `<p>Dobr\u00fd den${vars.customer_name ? ', <strong>' + vars.customer_name + '</strong>' : ''},</p>
-<p>Va\u0161e rezervace \u010d. <strong>${vars.booking_number}</strong>${vars.motorcycle ? ' motocyklu <strong>' + vars.motorcycle + '</strong>' : ''} \u010dek\u00e1 na dokon\u010den\u00ed.</p>
-<p>M\u00e1te <strong>4 hodiny</strong> na dokon\u010den\u00ed platby, ne\u017e bude rezervace automaticky zru\u0161ena.</p>
-<div style="text-align:center;margin:24px 0">
-  <a href="${vars.resume_link}" style="background:#74FB71;color:#1a2e22;padding:14px 28px;border-radius:25px;text-decoration:none;font-weight:800;font-size:15px;display:inline-block">Dokon\u010dit rezervaci</a>
-</div>
-${vars.resume_qr_url ? '<div style="text-align:center;margin:20px 0"><p style="color:#6b7280;font-size:13px;margin-bottom:8px">Nebo naskenujte QR k\u00f3d telefonem pro platbu p\u0159es Apple\u00a0Pay\u00a0/\u00a0Google\u00a0Pay:</p><img src="' + vars.resume_qr_url + '" alt="QR k\u00f3d" width="160" height="160" style="border-radius:8px;border:1px solid #e5e7eb" /></div>' : ''}
-<p style="color:#6b7280;font-size:12px">Pokud jste rezervaci \u00famysln\u011b nedokon\u010dili, tento e-mail ignorujte.</p>`
+      if (type === 'booking_abandoned') {
+        templateHtml = `<p>Dobr\u00fd den,</p>
+<p>velice v\u00e1m d\u011bkujeme za v\u00e1\u0161 z\u00e1jem o na\u0161i motop\u016fj\u010dovnu.</p>
+<p>Vypad\u00e1 to, \u017ee jste nedokon\u010dili svou rezervaci \u010d. <strong>${vars.booking_number}</strong> motocyklu.</p>
+<p>Pro snadn\u00e9 dokon\u010den\u00ed rezervace sta\u010d\u00ed kliknout na n\u00e1sleduj\u00edc\u00ed odkaz:</p>
+${vars.resume_link ? `<div style="text-align:center;margin:24px 0"><a href="${vars.resume_link}" style="background:#74FB71;color:#1a2e22;padding:14px 28px;border-radius:25px;text-decoration:none;font-weight:800;font-size:15px;display:inline-block">Dokon\u010dit rezervaci</a></div>` : ''}
+<p style="color:#dc2626;font-weight:700;font-style:italic">Pozor: odkaz je platn\u00fd pouze 4 hodiny. Po uplynut\u00ed t\u00e9to doby se motocykl uvoln\u00ed pro dal\u0161\u00ed z\u00e1kazn\u00edky.</p>
+<p>D\u011bkujeme a t\u011b\u0161\u00edme se na v\u00e1s.</p>
+<p>T\u00fdm MotoGo24</p>`
+      } else if (type === 'booking_reserved') {
+        templateHtml = `<p>Dobr\u00fd den,</p>
+<p>d\u011bkujeme za va\u0161i d\u016fv\u011bru a za rezervaci \u010d. <strong>${vars.booking_number}</strong> motocyklu u MotoGo24.</p>
+<p>Va\u0161e rezervace byla \u00fasp\u011b\u0161n\u011b p\u0159ijata a uhrazena.</p>
+<p>Kompletn\u00ed p\u0159ehled rezervovan\u00fdch slu\u017eeb a v\u00fdbavy naleznete v p\u0159ilo\u017een\u00e9 N\u00e1jemn\u00ed smlouv\u011b a z\u00e1lohov\u00e9 faktu\u0159e.</p>
+<h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Informace k p\u0159evzet\u00ed motocyklu</h3>
+<p>Pros\u00edme, pro bezprobl\u00e9mov\u00e9 p\u0159evzet\u00ed si p\u0159ipravte:</p>
+<ul><li>platn\u00fd doklad toto\u017enosti (kter\u00fd jste uvedli v rezerva\u010dn\u00edm formul\u00e1\u0159i),</li><li>platn\u00fd \u0159idi\u010dsk\u00fd pr\u016fkaz.</li></ul>
+<p>Na m\u00edst\u011b spole\u010dn\u011b provedeme kontrolu doklad\u016f, p\u0159ed\u00e1n\u00ed motocyklu i p\u0159\u00edpadn\u00e9 zap\u016fj\u010den\u00e9 v\u00fdbavy (kterou si budete moci vyzkou\u0161et) a podep\u00ed\u0161eme P\u0159ed\u00e1vac\u00ed protokol. V\u0161e v\u00e1m r\u00e1di vysv\u011btl\u00edme \u2013 p\u0159ed\u00e1n\u00ed je rychl\u00e9 a zabere jen p\u00e1r minut.</p>
+<p>Pokud s sebou budete m\u00edt osobn\u00ed v\u011bci, kter\u00e9 nechcete br\u00e1t na cestu, m\u016f\u017eete je u n\u00e1s zdarma ulo\u017eit do uzamykateln\u00e9 sk\u0159\u00ed\u0148ky.</p>
+<p>Doporu\u010dujeme, abyste se p\u0159ed j\u00edzdou sezn\u00e1mili s u\u017eivatelsk\u00fdmi informacemi k motocyklu, kter\u00e9 najdete v odkazu na na\u0161ich webov\u00fdch str\u00e1nk\u00e1ch <a href="https://www.motogo24.cz" style="color:#2563eb">www.motogo24.cz</a>.</p>
+<p>Pokud budete m\u00edt jak\u00fdkoliv dotaz, jsme v\u00e1m k dispozici.</p>
+<p>T\u011b\u0161\u00edme se na v\u00e1s a p\u0159ejeme kr\u00e1sn\u00fd z\u00e1\u017eitek z j\u00edzdy.</p>
+<p>T\u00fdm MotoGo24</p>`
+      } else if (type === 'booking_completed') {
+        templateHtml = `<p>Dobr\u00fd den,</p>
+<p>d\u011bkujeme, \u017ee jste vyu\u017eili slu\u017eeb MotoGo24.</p>
+<p>Proto\u017ee je pro n\u00e1s zp\u011btn\u00e1 vazba velmi d\u016fle\u017eit\u00e1, budeme r\u00e1di, pokud n\u00e1m zanech\u00e1te recenzi na <a href="${vars.google_review_url || '#'}" style="color:#2563eb">Googlu</a> nebo na <a href="${vars.facebook_review_url || '#'}" style="color:#2563eb">Facebooku</a>.</p>
+<p>Pokud m\u00e1te n\u011bjak\u00e9 zaj\u00edmav\u00e9 fotografie nebo videa z va\u0161\u00ed cesty, kter\u00e9 byste s n\u00e1mi cht\u011bli sd\u00edlet, za\u0161lete n\u00e1m je, pros\u00edm, na e-mail: <a href="mailto:info@motogo24.cz" style="color:#2563eb">info@motogo24.cz</a>. R\u00e1di je p\u0159\u00edpadn\u011b zve\u0159ejn\u00edme na na\u0161em webu nebo soci\u00e1ln\u00edch s\u00edt\u00edch.</p>
+${vars.discount_code ? `<div style="background:#dcfce7;border-radius:12px;padding:16px;margin:20px 0;border:1px solid #86efac"><p style="margin:0;font-size:14px;color:#166534">Jako mal\u00e9 pod\u011bkov\u00e1n\u00ed za poskytnutou d\u016fv\u011bru p\u0159ikl\u00e1d\u00e1me slevov\u00fd k\u00f3d <strong>200 K\u010d</strong> na va\u0161i p\u0159\u00ed\u0161t\u00ed rezervaci: <strong style="font-family:monospace;font-size:16px;letter-spacing:2px">${vars.discount_code}</strong></p></div>` : ''}
+<p>V p\u0159\u00edloze naleznete kone\u010dnou fakturu za va\u0161i rezervaci.</p>
+<p>T\u011b\u0161\u00edme se na v\u00e1s p\u0159i dal\u0161\u00edm dobrodru\u017estv\u00ed!</p>
+<p>S pozdravem,<br>T\u00fdm MotoGo24</p>`
+      } else if (type === 'voucher_purchased') {
+        templateHtml = `<p>Dobr\u00fd den,</p>
+<p>d\u011bkujeme, \u017ee jste si pro sv\u016fj d\u00e1rek vybrali pr\u00e1v\u011b MotoGo24.</p>
+<p>Va\u0161i objedn\u00e1vku \u010d. <strong>${vars.order_number}</strong> jsme \u00fasp\u011b\u0161n\u011b p\u0159ijali a platba byla zpracov\u00e1na.</p>
+<p>V p\u0159\u00edloze tohoto e-mailu najdete:</p>
+<ul><li>d\u00e1rkov\u00fd poukaz,</li><li>doklad o p\u0159ijet\u00ed platby za n\u00e1kup d\u00e1rkov\u00e9ho poukazu.</li></ul>
+<p>Pokud jste si objednali ti\u0161t\u011bnou verzi poukazu, pr\u00e1v\u011b ji pro V\u00e1s p\u0159ipravujeme. V nejbli\u017e\u0161\u00edch dnech ji m\u016f\u017eete o\u010dek\u00e1vat ve sv\u00e9 po\u0161tovn\u00ed schr\u00e1nce.</p>
+<h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Informace k uplatn\u011bn\u00ed d\u00e1rkov\u00e9ho poukazu</h3>
+<p>D\u00e1rkov\u00fd poukaz m\u00e1 platnost 3 roky od data vystaven\u00ed a je mo\u017en\u00e9 jej uplatnit na zap\u016fj\u010den\u00ed motocyklu dle vlastn\u00edho v\u00fdb\u011bru. Obdarovan\u00fd si jednodu\u0161e rezervuje term\u00edn j\u00edzdy p\u0159edem podle aktu\u00e1ln\u00ed dostupnosti motorek prost\u0159ednictv\u00edm formul\u00e1\u0159e na webov\u00fdch str\u00e1nk\u00e1ch <a href="https://www.motogo24.cz" style="color:#2563eb">www.motogo24.cz</a>.</p>
+<p>P\u0159i rezervaci zad\u00e1 do kolonky Slevov\u00fd k\u00f3d jedine\u010dn\u00fd k\u00f3d uveden\u00fd na d\u00e1rkov\u00e9m poukazu. Jeho hodnota se automaticky ode\u010dte z ceny zap\u016fj\u010den\u00ed ji\u017e b\u011bhem rezervace. Pokud je v\u00fdsledn\u00e1 \u010d\u00e1stka vy\u0161\u0161\u00ed ne\u017e hodnota poukazu, rozd\u00edl lze pohodln\u011b uhradit online prost\u0159ednictv\u00edm platebn\u00ed br\u00e1ny.</p>
+<p>D\u00e1rkov\u00e9 poukazy je mo\u017en\u00e9 kombinovat a uplatnit v\u00edce k\u00f3d\u016f sou\u010dasn\u011b. D\u00e1rkov\u00fd poukaz je nutn\u00e9 vy\u010derpat jednor\u00e1zov\u011b v r\u00e1mci jedn\u00e9 rezervace.</p>
+<p>Doporu\u010dujeme rezervovat term\u00edn s dostate\u010dn\u00fdm p\u0159edstihem, zejm\u00e9na v hlavn\u00ed sez\u00f3n\u011b.</p>
+<p>Kdybyste m\u011bli jak\u00fdkoliv dotaz, r\u00e1di V\u00e1m na n\u011bj odpov\u00edme.</p>
+<p>D\u011bkujeme za d\u016fv\u011bru a p\u0159ejeme mnoho radosti z darovan\u00e9ho z\u00e1\u017eitku.</p>
+<p>T\u00fdm MotoGo24</p>`
       } else {
         templateHtml = `<p>Dobr\u00fd den,</p><p>toto je automatick\u00e9 ozn\u00e1men\u00ed od MotoGo24 t\u00fdkaj\u00edc\u00ed se va\u0161\u00ed rezervace \u010d. <strong>${vars.booking_number}</strong>.</p>`
       }
@@ -230,7 +319,16 @@ ${vars.resume_qr_url ? '<div style="text-align:center;margin:20px 0"><p style="c
       })
     }
 
-    // Send via Resend with Reply-To: info@motogo24.cz + optional attachments
+    // Auto-generate attachments for abandoned (ZF) and completed (KF) emails
+    let finalAttachments = attachments && Array.isArray(attachments) ? [...attachments] : []
+    if (booking_id && (type === 'booking_abandoned' || type === 'booking_completed')) {
+      try {
+        const autoAtts = await autoGenerateAttachments(type, booking_id, supabase)
+        finalAttachments = [...finalAttachments, ...autoAtts]
+      } catch { /* ignore */ }
+    }
+
+    // Send via Resend with Reply-To: info@motogo24.cz + attachments
     const emailPayload: Record<string, unknown> = {
       from: FROM_EMAIL,
       reply_to: REPLY_TO,
@@ -238,8 +336,8 @@ ${vars.resume_qr_url ? '<div style="text-align:center;margin:20px 0"><p style="c
       subject,
       html,
     }
-    if (attachments && Array.isArray(attachments) && attachments.length > 0) {
-      emailPayload.attachments = attachments
+    if (finalAttachments.length > 0) {
+      emailPayload.attachments = finalAttachments
     }
     const result = await sendWithRetry(emailPayload)
 
