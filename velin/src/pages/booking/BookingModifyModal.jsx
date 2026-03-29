@@ -136,7 +136,7 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
       if (['reserved', 'active'].includes(booking.status) && booking.profiles?.email) {
         try {
           await supabase.functions.invoke('send-booking-email', {
-            body: { type: 'booking_modified', booking_id: booking.id, customer_email: booking.profiles.email, customer_name: booking.profiles.full_name, motorcycle: motoChanged ? selectedMoto?.model : booking.motorcycles?.model, start_date: isoDate(startDate), end_date: isoDate(endDate), total_price: chargeCustomer ? newTotalPrice : origPaidPrice },
+            body: { type: 'booking_modified', booking_id: booking.id, customer_email: booking.profiles.email, customer_name: booking.profiles.full_name, motorcycle: motoChanged ? selectedMoto?.model : booking.motorcycles?.model, start_date: isoDate(startDate), end_date: isoDate(endDate), total_price: chargeCustomer ? newTotalPrice : origPaidPrice, price_difference: priceDiff, source: booking.booking_source || 'app' },
           })
         } catch {}
       }
