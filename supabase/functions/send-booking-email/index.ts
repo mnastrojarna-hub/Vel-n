@@ -115,6 +115,7 @@ const FALLBACK_SUBJECTS: Record<string, (vars: Record<string, string>) => string
   voucher_purchased: (v) => `V\u00e1\u0161 d\u00e1rkov\u00fd poukaz od MotoGo24`,
   booking_abandoned: (v) => `Dokon\u010dete svou rezervaci \u010d. ${v.booking_number} motocyklu u MotoGo24`,
   booking_cancelled: (v) => `Va\u0161e rezervace \u010d. ${v.booking_number} motocyklu u MotoGo24 byla \u00fasp\u011b\u0161n\u011b stornov\u00e1na`,
+  sos_incident: () => `SOS \u2014 MotoGo24 je na cest\u011b`,
 }
 
 /** Download file from Supabase Storage and return as base64 */
@@ -359,6 +360,12 @@ ${vars.discount_code ? `<div style="background:#dcfce7;border-radius:12px;paddin
 <p>Doporu\u010dujeme rezervovat term\u00edn s dostate\u010dn\u00fdm p\u0159edstihem, zejm\u00e9na v hlavn\u00ed sez\u00f3n\u011b.</p>
 <p>Kdybyste m\u011bli jak\u00fdkoliv dotaz, r\u00e1di V\u00e1m na n\u011bj odpov\u00edme.</p>
 <p>D\u011bkujeme za d\u016fv\u011bru a p\u0159ejeme mnoho radosti z darovan\u00e9ho z\u00e1\u017eitku.</p>
+<p>T\u00fdm MotoGo24</p>`
+      } else if (type === 'sos_incident') {
+        templateHtml = `<p>Dobr\u00fd den,</p>
+<p>p\u0159ijali jsme va\u0161e SOS hl\u00e1\u0161en\u00ed k rezervaci \u010d. <strong>${vars.booking_number}</strong>.</p>
+<p><strong>Omlouv\u00e1me se za nep\u0159\u00edjemnosti a jsme na cest\u011b.</strong></p>
+<p>N\u00e1\u0161 t\u00fdm se v\u00e1m ozve v nejbli\u017e\u0161\u00edch minut\u00e1ch. Pokud pot\u0159ebujete okam\u017eitou pomoc, volejte na <a href="tel:+420774256271" style="color:#2563eb;font-weight:700">+420 774 256 271</a>.</p>
 <p>T\u00fdm MotoGo24</p>`
       } else {
         templateHtml = `<p>Dobr\u00fd den,</p><p>toto je automatick\u00e9 ozn\u00e1men\u00ed od MotoGo24 t\u00fdkaj\u00edc\u00ed se va\u0161\u00ed rezervace \u010d. <strong>${vars.booking_number}</strong>.</p>`
