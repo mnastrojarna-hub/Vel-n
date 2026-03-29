@@ -61,6 +61,18 @@ export async function confirmBookingPayment(
   stripePaymentIntentId?: string | null
 ) {
   try {
+    // ── Dedup: skip if already processed (Stripe sends both checkout.session.completed + payment_intent.succeeded) ──
+    const { data: existingBooking } = await supabase.from('bookings')
+      .select('payment_status').eq('id', bookingId).single()
+    if (existingBooking?.payment_status === 'paid') {
+      console.log(`[confirmBookingPayment] Booking ${bookingId} already paid — skipping duplicate`)
+      // Still save Stripe IDs if missing
+      if (stripePaymentIntentId) {
+        try { await supabase.from('bookings').update({ stripe_payment_intent_id: stripePaymentIntentId, stripe_session_id: transactionId }).eq('id', bookingId).is('stripe_payment_intent_id', null) } catch {}
+      }
+      return
+    }
+
     const { data, error } = await supabase.rpc('confirm_payment', {
       p_booking_id: bookingId,
       p_method: 'card',
@@ -230,6 +242,17 @@ export async function confirmSosPayment(
   stripePaymentIntentId?: string | null
 ) {
   try {
+    // Dedup: skip if already paid
+    const { data: existingSos } = await supabase.from('bookings')
+      .select('payment_status').eq('id', bookingId).single()
+    if (existingSos?.payment_status === 'paid') {
+      console.log(`[confirmSosPayment] Booking ${bookingId} already paid — skipping duplicate`)
+      if (stripePaymentIntentId) {
+        try { await supabase.from('bookings').update({ stripe_payment_intent_id: stripePaymentIntentId, stripe_session_id: transactionId }).eq('id', bookingId).is('stripe_payment_intent_id', null) } catch {}
+      }
+      return
+    }
+
     const updateData: Record<string, any> = {
       payment_status: 'paid',
       payment_method: 'card',
@@ -333,6 +356,17 @@ export async function confirmShopPayment(
   stripePaymentIntentId?: string | null
 ) {
   try {
+    // Dedup: skip if already paid
+    const { data: existingOrder } = await supabase.from('shop_orders')
+      .select('payment_status').eq('id', orderId).single()
+    if (existingOrder?.payment_status === 'paid') {
+      console.log(`[confirmShopPayment] Order ${orderId} already paid — skipping duplicate`)
+      if (stripePaymentIntentId) {
+        try { await supabase.from('shop_orders').update({ stripe_payment_intent_id: stripePaymentIntentId, stripe_session_id: transactionId }).eq('id', orderId).is('stripe_payment_intent_id', null) } catch {}
+      }
+      return
+    }
+
     const { data, error } = await supabase.rpc('confirm_shop_payment', {
       p_order_id: orderId,
       p_method: 'card',
