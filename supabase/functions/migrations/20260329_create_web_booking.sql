@@ -66,11 +66,8 @@ BEGIN
   v_moto_license := COALESCE(v_moto.license_required, 'A');
 
   -- Motorky s license_required = 'N' může jet kdokoliv (bez ŘP)
-  IF v_moto_license != 'N' THEN
-    IF p_license_group IS NULL OR p_license_group = '' THEN
-      RETURN jsonb_build_object('error', 'Pro tuto motorku je nutné zadat skupinu ŘP');
-    END IF;
-
+  -- Pokud p_license_group je NULL, kontrola se přeskočí (ŘP se zadává až v step 2)
+  IF v_moto_license != 'N' AND p_license_group IS NOT NULL AND p_license_group != '' THEN
     -- Hierarchie ŘP skupin: A > A2 > A1 > AM, B = AM
     CASE upper(p_license_group)
       WHEN 'A'  THEN v_allowed_groups := ARRAY['A','A2','A1','AM'];
@@ -111,7 +108,7 @@ BEGIN
       license_group = CASE
         WHEN p_license_group IS NOT NULL AND p_license_group != ''
              AND (license_group IS NULL OR array_length(license_group, 1) IS NULL)
-        THEN ARRAY[upper(p_license_group)]
+        THEN ARRAY[upper(p_license_group)::license_group]
         ELSE license_group
       END,
       updated_at = now()
@@ -142,7 +139,7 @@ BEGIN
       v_user_id, p_name, lower(trim(p_email)), p_phone,
       p_street, p_city, p_zip, p_country, 'web',
       CASE WHEN p_license_group IS NOT NULL AND p_license_group != ''
-           THEN ARRAY[upper(p_license_group)] ELSE NULL END
+           THEN ARRAY[upper(p_license_group)::license_group] ELSE NULL END
     )
     ON CONFLICT (id) DO UPDATE SET
       full_name = COALESCE(NULLIF(profiles.full_name, ''), EXCLUDED.full_name),
