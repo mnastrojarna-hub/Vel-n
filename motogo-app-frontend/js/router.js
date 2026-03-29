@@ -130,7 +130,8 @@ function goTo(id){
   if(id==='s-cart'&&typeof renderCart==='function')renderCart();
   if(id==='s-checkout'){
     if(typeof initCheckout==='function')initCheckout();
-    var shipCost=(typeof shipMode!=='undefined'&&shipMode==='post')?99:0;
+    var _digOnly=typeof _isCartOnlyDigitalVouchers==='function'&&_isCartOnlyDigitalVouchers();
+    var shipCost=_digOnly?0:((typeof shipMode!=='undefined'&&shipMode==='post')?99:0);
     const t=typeof cart!=='undefined'?cart.reduce((s,c)=>s+c.price*c.qty,0):0;
     const el=document.getElementById('checkout-total');if(el)el.textContent=(t+shipCost).toLocaleString('cs-CZ')+' Kč';
     if(typeof _showCheckoutSavedCard==='function')_showCheckoutSavedCard();

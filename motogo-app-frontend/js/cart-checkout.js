@@ -6,9 +6,22 @@
 var shopDiscountAmt = 0;
 var shopAppliedCodes = [];  // [{code, type:'promo'|'voucher', id, value, discountAmt, discountType, discountValue}]
 var _pendingShopOrderId = null; // For post-Stripe payment check
+var _selectedSavedCardId = null; // Selected saved card PM ID for checkout
+
+// Detect if cart contains ONLY digital vouchers (no shipping needed)
+function _isCartOnlyDigitalVouchers(){
+  if(!cart || cart.length===0) return false;
+  return cart.every(function(c){
+    var nm=(c.name||'').toLowerCase();
+    var isVoucher=c.id==='voucher'||nm.indexOf('poukaz')!==-1||nm.indexOf('voucher')!==-1;
+    var isPrinted=nm.indexOf('tišt')!==-1||nm.indexOf('printed')!==-1;
+    return isVoucher && !isPrinted;
+  });
+}
 
 function updateCheckoutTotal(){
-  var shipCost=shipMode==='post'?99:0;
+  var digitalOnly=_isCartOnlyDigitalVouchers();
+  var shipCost=digitalOnly?0:(shipMode==='post'?99:0);
   var cartTotal=typeof cart!=='undefined'?cart.reduce(function(s,c){return s+c.price*c.qty;},0):0;
   var finalTotal=Math.max(0, cartTotal+shipCost-shopDiscountAmt);
   var el=document.getElementById('checkout-total');
@@ -27,43 +40,69 @@ function updateCheckoutTotal(){
 
 function selectShipping(mode){
   shipMode=mode;
-  document.getElementById('ship-post').style.borderColor=mode==='post'?'var(--green)':'var(--g200)';
-  document.getElementById('ship-post').style.background=mode==='post'?'var(--gp)':'#fff';
-  document.getElementById('ship-pickup').style.borderColor=mode==='pickup'?'var(--green)':'var(--g200)';
-  document.getElementById('ship-pickup').style.background=mode==='pickup'?'var(--gp)':'#fff';
+  var postEl=document.getElementById('ship-post');
+  var pickupEl=document.getElementById('ship-pickup');
+  if(postEl){postEl.style.borderColor=mode==='post'?'var(--green)':'var(--g200)';postEl.style.background=mode==='post'?'var(--gp)':'#fff';}
+  if(pickupEl){pickupEl.style.borderColor=mode==='pickup'?'var(--green)':'var(--g200)';pickupEl.style.background=mode==='pickup'?'var(--gp)':'#fff';}
   var shipWrap = document.getElementById('ship-section-wrap');
   if(shipWrap) shipWrap.style.display = mode==='post' ? 'block' : 'none';
+  // Hide entire delivery section for digital-only vouchers
+  var deliveryCard = postEl ? postEl.closest('.bcard') : null;
+  if(deliveryCard) deliveryCard.style.display = _isCartOnlyDigitalVouchers() ? 'none' : '';
   updateCheckoutTotal();
 }
 
-// Show saved card preview in checkout screen
+// Show saved cards as selectable options in checkout screen
 async function _showCheckoutSavedCard(){
   var el = document.getElementById('checkout-saved-card');
   if(!el || typeof apiFetchPaymentMethods !== 'function') return;
+  _selectedSavedCardId = null;
   try {
     var r = await apiFetchPaymentMethods();
     if(!r.success || !r.methods || r.methods.length === 0) return;
-    var def = r.methods.find(function(m){ return m.is_default; }) || r.methods[0];
     var brandIcons = {visa:'VISA',mastercard:'MC',amex:'AMEX'};
-    var brand = brandIcons[def.brand] || def.brand.toUpperCase();
-    var exp = (def.exp_month < 10 ? '0' : '') + def.exp_month + '/' + String(def.exp_year).slice(-2);
     el.style.display = 'block';
-    el.innerHTML = '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:#fff;border:1px solid var(--g200);border-radius:var(--rsm);">' +
-      '<div style="font-size:18px;">💳</div>' +
-      '<div style="flex:1;"><div style="font-size:12px;font-weight:700;">•••• ' + def.last4 + ' <span style="font-size:10px;color:var(--g400);">' + brand + '</span></div>' +
-      '<div style="font-size:10px;color:var(--g400);">' + exp + '</div></div>' +
-      '<div style="font-size:10px;font-weight:700;color:var(--green);">Předvyplněno</div></div>';
+    el.innerHTML = '<div style="font-size:11px;font-weight:700;color:var(--g400);margin-bottom:6px;">Uložené karty:</div>' +
+      r.methods.map(function(m){
+        var brand = brandIcons[m.brand] || (m.brand||'').toUpperCase();
+        var exp = (m.exp_month < 10 ? '0' : '') + m.exp_month + '/' + String(m.exp_year).slice(-2);
+        var isDefault = m.is_default;
+        return '<div onclick="_selectSavedCard(\''+m.id+'\')" id="saved-card-'+m.id+'" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:'+(isDefault?'var(--gp)':'#fff')+';border:2px solid '+(isDefault?'var(--green)':'var(--g200)')+';border-radius:var(--rsm);cursor:pointer;margin-bottom:6px;transition:border-color .15s,background .15s;">' +
+          '<div style="font-size:18px;">💳</div>' +
+          '<div style="flex:1;"><div style="font-size:13px;font-weight:700;">•••• ' + m.last4 + ' <span style="font-size:10px;color:var(--g400);">' + brand + '</span></div>' +
+          '<div style="font-size:10px;color:var(--g400);">' + exp + (m.holder_name?' · '+m.holder_name:'') + '</div></div>' +
+          '<div id="saved-card-check-'+m.id+'" style="font-size:10px;font-weight:700;color:var(--green);display:'+(isDefault?'block':'none')+';">✓ Vybráno</div></div>';
+      }).join('');
+    // Auto-select default card
+    var def = r.methods.find(function(m){ return m.is_default; }) || r.methods[0];
+    if(def) _selectSavedCard(def.id);
   } catch(e){}
+}
+
+function _selectSavedCard(pmId){
+  _selectedSavedCardId = pmId;
+  var wrap = document.getElementById('checkout-saved-card');
+  if(!wrap) return;
+  var cards = wrap.querySelectorAll('[id^="saved-card-"]');
+  cards.forEach(function(c){
+    if(c.id.indexOf('saved-card-check-')===0) return;
+    var isSelected = c.id === 'saved-card-'+pmId;
+    c.style.borderColor = isSelected ? 'var(--green)' : 'var(--g200)';
+    c.style.background = isSelected ? 'var(--gp)' : '#fff';
+    var check = document.getElementById('saved-card-check-'+c.id.replace('saved-card-',''));
+    if(check) check.style.display = isSelected ? 'block' : 'none';
+  });
 }
 
 async function finalizeCheckout(){
   var subtotal=cart.reduce(function(s,c){return s+c.price*c.qty;},0);
   if(subtotal===0){showT('\u26a0\ufe0f',_t('cart').cart,_t('cart').cartEmpty);return;}
-  if(shipMode==='post'){
+  var digitalOnly=_isCartOnlyDigitalVouchers();
+  if(!digitalOnly && shipMode==='post'){
     var nm=(document.getElementById('ship-name')||{}).value;
     if(!nm){showT('\u26a0\ufe0f',_t('cart').address,_t('cart').fillAddress);return;}
   }
-  var shipCost=shipMode==='post'?99:0;
+  var shipCost=digitalOnly?0:(shipMode==='post'?99:0);
   var finalTotal=Math.max(0, subtotal+shipCost-shopDiscountAmt);
   if(finalTotal===0 && shopDiscountAmt>0){showT('\u2139\ufe0f','Sleva','Objednávka je plně pokryta slevou');}
   else if(finalTotal<=0){showT('\u26a0\ufe0f','Chyba','Celková cena musí být vyšší než 0 Kč');return;}
@@ -89,7 +128,7 @@ async function finalizeCheckout(){
     try {
       var items = cart.map(function(c){ return {id:c.id, name:c.name, price:c.price, qty:c.qty}; });
       var shipAddr = null;
-      if(shipMode==='post'){
+      if(!digitalOnly && shipMode==='post'){
         shipAddr = {
           name: (document.getElementById('ship-name')||{}).value || '',
           street: (document.getElementById('ship-street')||{}).value || '',
@@ -102,7 +141,7 @@ async function finalizeCheckout(){
         if(shopAppliedCodes[i].type==='promo'){promoCode=shopAppliedCodes[i].code;break;}
       }
       var r = await window.supabase.rpc('create_shop_order', {
-        p_items: items, p_shipping_method: shipMode,
+        p_items: items, p_shipping_method: digitalOnly ? 'digital' : shipMode,
         p_shipping_address: shipAddr, p_payment_method: 'card', p_promo_code: promoCode
       });
       if(r.data && r.data.error){showT('\u26a0\ufe0f','Chyba objednávky', r.data.error);return;}
