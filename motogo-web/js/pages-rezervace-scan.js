@@ -12,10 +12,10 @@ MG._rezShowMindeeStep = async function(){
     var licExpiry=document.getElementById('rez-license-expiry');
     var licConf=document.getElementById('rez-license-confirm');
     if(!docNum||!docNum.value){alert('Vyplňte číslo dokladu totožnosti.');return;}
-    if(!licNum||!licNum.value){alert('Vyplňte číslo řidičského průkazu.');return;}
+    if(!licNum||!licNum.value||licNum.value.trim().length<4){alert('Číslo řidičského průkazu musí mít alespoň 4 znaky.');return;}
     if(!licGroup||!licGroup.value){alert('Vyberte skupinu řidičského oprávnění.');return;}
     if(!licExpiry||!licExpiry.value){alert('Vyplňte platnost řidičského průkazu.');return;}
-    if(new Date(licExpiry.value)<new Date()){alert('Řidičský průkaz je prošlý. Zkontrolujte datum platnosti.');return;}
+    if(!MG._isLicenseExpiryValid(licExpiry.value)){alert('Řidičský průkaz musí být platný min. 14 dní od dnes.');return;}
     if(!licConf||!licConf.checked){alert('Potvrďte prosím držení platného řidičského oprávnění.');return;}
 
     MG._rez._docNumber=docNum.value;
@@ -160,10 +160,10 @@ MG._rezSubmitPayment = async function(){
     var licExpiry=document.getElementById('rez-license-expiry');
     var licConf=document.getElementById('rez-license-confirm');
     if(!docNum||!docNum.value){alert('Vyplňte číslo dokladu totožnosti.');return;}
-    if(!licNum||!licNum.value){alert('Vyplňte číslo řidičského průkazu.');return;}
+    if(!licNum||!licNum.value||licNum.value.trim().length<4){alert('Číslo řidičského průkazu musí mít alespoň 4 znaky.');return;}
     if(!licGroup||!licGroup.value){alert('Vyberte skupinu řidičského oprávnění.');return;}
     if(!licExpiry||!licExpiry.value){alert('Vyplňte platnost řidičského průkazu.');return;}
-    if(new Date(licExpiry.value)<new Date()){alert('Řidičský průkaz je prošlý. Zkontrolujte datum platnosti.');return;}
+    if(!MG._isLicenseExpiryValid(licExpiry.value)){alert('Řidičský průkaz musí být platný min. 14 dní od dnes.');return;}
     if(!licConf||!licConf.checked){alert('Potvrďte prosím držení platného řidičského oprávnění.');return;}
 
     if(MG._rez.userId){
