@@ -88,10 +88,10 @@ Deno.serve(async (req: Request) => {
     if (order_id) metadata.order_id = order_id
     if (incident_id) metadata.incident_id = incident_id
 
-    // -- FREE BOOKING (100% discount) --
+    // -- FREE BOOKING (100% discount) — POUZE pokud je sleva skutečně 100% --
     if (amount <= 0 && booking_id) {
       const { data: dbBooking } = await supabase.from('bookings')
-        .select('total_price, payment_status')
+        .select('total_price, payment_status, promo_code_id, voucher_id, discount_amount')
         .eq('id', booking_id)
         .single()
 
@@ -105,6 +105,39 @@ Deno.serve(async (req: Request) => {
       if (dbBooking && dbBooking.total_price > 0) {
         return new Response(
           JSON.stringify({ success: false, error: 'Částka neodpovídá ceně rezervace (' + dbBooking.total_price + ' Kč). Obnovte stránku a zkuste znovu.' }),
+          { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // Ověření, že sleva je skutečně 100%
+      let isTrue100 = false
+      if (dbBooking?.promo_code_id) {
+        const { data: promo } = await supabase.from('promo_codes')
+          .select('type, value')
+          .eq('id', dbBooking.promo_code_id)
+          .single()
+        if (promo && promo.type === 'percent' && promo.value >= 100) {
+          isTrue100 = true
+        }
+      }
+      if (!isTrue100 && dbBooking?.voucher_id) {
+        const { data: voucher } = await supabase.from('vouchers')
+          .select('amount')
+          .eq('id', dbBooking.voucher_id)
+          .single()
+        const originalPrice = (dbBooking.total_price || 0) + (dbBooking.discount_amount || 0)
+        if (voucher && voucher.amount >= originalPrice && originalPrice > 0) {
+          isTrue100 = true
+        }
+      }
+
+      if (!isTrue100) {
+        console.error('Free booking rejected — discount is not truly 100%:', {
+          booking_id, total_price: dbBooking?.total_price,
+          discount_amount: dbBooking?.discount_amount, promo_code_id: dbBooking?.promo_code_id
+        })
+        return new Response(
+          JSON.stringify({ success: false, error: 'Chyba kalkulace ceny. Sleva není 100%. Obnovte stránku a zkuste znovu.' }),
           { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
         )
       }

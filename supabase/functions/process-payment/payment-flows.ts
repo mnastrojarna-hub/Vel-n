@@ -29,8 +29,45 @@ export async function handleWebBookingCheckout(
   const amount = Math.round(amountCzk * 100)
   const currency = body.currency || 'czk'
 
-  // 100% sleva pro web — potvrdit bez Stripe
+  // 100% sleva pro web — potvrdit bez Stripe, ALE POUZE pokud je sleva opravdu 100%
   if (amount < 1) {
+    let isTrue100 = false
+
+    // Ověření promo kódu — musí být type=percent, value=100
+    if (booking.promo_code_id) {
+      const { data: promo } = await supabaseAdmin.from('promo_codes')
+        .select('type, value')
+        .eq('id', booking.promo_code_id)
+        .single()
+      if (promo && promo.type === 'percent' && promo.value >= 100) {
+        isTrue100 = true
+      }
+    }
+
+    // Ověření voucheru — musí pokrýt celou původní cenu
+    if (!isTrue100 && booking.voucher_id) {
+      const { data: voucher } = await supabaseAdmin.from('vouchers')
+        .select('amount')
+        .eq('id', booking.voucher_id)
+        .single()
+      const originalPrice = (booking.total_price || 0) + (booking.discount_amount || 0)
+      if (voucher && voucher.amount >= originalPrice && originalPrice > 0) {
+        isTrue100 = true
+      }
+    }
+
+    if (!isTrue100) {
+      console.error('Free booking rejected — discount is not truly 100%:', {
+        booking_id: body.booking_id, total_price: booking.total_price,
+        discount_amount: booking.discount_amount, promo_code_id: booking.promo_code_id
+      })
+      return new Response(JSON.stringify({
+        error: 'Chyba kalkulace ceny. Sleva není 100%. Obnovte stránku a zkuste znovu.'
+      }), {
+        status: 400, headers: { ...CORS, 'Content-Type': 'application/json' }
+      })
+    }
+
     const { error: rpcErr } = await supabaseAdmin.rpc('confirm_payment', { p_booking_id: body.booking_id, p_method: 'free' })
     if (rpcErr) {
       console.error('confirm_payment RPC failed for free web booking:', rpcErr.message)

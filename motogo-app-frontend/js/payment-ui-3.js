@@ -60,34 +60,28 @@ function doPayment(){
   } catch(e){ console.error('doPayment error:', e); showT('✗',_t('common').error||'Chyba',_t('pay').processingError||'Chyba při zpracování platby'); }
 }
 
-// === 100% SLEVA — potvrzení bez Stripe ===
+// === 100% SLEVA — potvrzení přes process-payment (server validuje 100%) ===
 async function _confirmFreeBooking(bookingId, startDate){
   var btn = document.getElementById('pay-btn');
   if(btn){ btn.disabled = true; btn.textContent = '⏳ Potvrzuji...'; btn.style.opacity = '0.6'; }
   try {
-    var confirmRes = await window.supabase.rpc('confirm_payment', {
-      p_booking_id: bookingId,
-      p_method: 'free'
-    });
-    if(confirmRes.error){
-      // Fallback: přímý update
-      await window.supabase.from('bookings').update({
-        payment_status: 'paid',
-        status: (startDate && startDate <= new Date()) ? 'active' : 'reserved',
-        confirmed_at: new Date().toISOString()
-      }).eq('id', bookingId);
+    var result = await apiProcessPayment(bookingId, 0, 'free');
+    if(result.success && result.free){
+      // Generate documents (non-blocking)
+      try {
+        if(typeof apiAutoGenerateBookingDocs === 'function') apiAutoGenerateBookingDocs(bookingId).catch(function(){});
+      } catch(e){}
+      if(typeof _resetBookingDiscount === 'function') _resetBookingDiscount();
+      var freeNote = document.getElementById('pay-free-note');
+      if(freeNote) freeNote.remove();
+      showT('✅','Rezervace potvrzena','Sleva pokrývá celou cenu — platba není potřeba');
+      goTo('s-res');
+      if(typeof renderMyReservations === 'function') renderMyReservations();
+    } else {
+      var errMsg = (result && result.error) ? result.error : 'Sleva není 100%. Platba kartou je vyžadována.';
+      showT('✗','Chyba',errMsg);
+      if(btn){ btn.disabled = false; btn.textContent = '✅ Potvrdit rezervaci zdarma →'; btn.style.opacity = '1'; }
     }
-    // Generate documents (non-blocking)
-    try {
-      if(typeof apiAutoGenerateBookingDocs === 'function') apiAutoGenerateBookingDocs(bookingId).catch(function(){});
-    } catch(e){}
-    if(typeof _resetBookingDiscount === 'function') _resetBookingDiscount();
-    // Cleanup free note
-    var freeNote = document.getElementById('pay-free-note');
-    if(freeNote) freeNote.remove();
-    showT('✅','Rezervace potvrzena','Sleva pokrývá celou cenu — platba není potřeba');
-    goTo('s-res');
-    if(typeof renderMyReservations === 'function') renderMyReservations();
   } catch(e){
     console.error('[PAY] _confirmFreeBooking error:', e);
     if(btn){ btn.disabled = false; btn.textContent = '✅ Potvrdit rezervaci zdarma →'; btn.style.opacity = '1'; }
