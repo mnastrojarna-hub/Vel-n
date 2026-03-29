@@ -102,6 +102,11 @@ function doLogout(){
       authSignOut().catch(function(e){ console.error('doLogout supabase:', e); });
     }
     try { localStorage.removeItem('mg_current_session'); } catch(e){}
+    // Clear cached doc photos, reservations, SOS dismissals
+    try {
+      var docKeys = ['mg_doc_id_front','mg_doc_id_back','mg_doc_passport_front','mg_doc_dl_front','mg_doc_dl_back','mg_reservations','mg_sos_fab_dismissed','mg_scan_token','mg_docs_verified'];
+      for(var i=0;i<docKeys.length;i++) localStorage.removeItem(docKeys[i]);
+    } catch(e){}
     // Clear cart & shop state
     if(typeof clearCart==='function') clearCart(true);
     // Cleanup realtime subscriptions

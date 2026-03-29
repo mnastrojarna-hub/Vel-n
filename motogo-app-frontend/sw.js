@@ -1,5 +1,5 @@
 // ===== SERVICE WORKER – MotoGo24 PWA offline cache =====
-var CACHE = 'motogo24-v50';
+var CACHE = 'motogo24-v51';
 var ASSETS = [
   './',
   './index.html',
@@ -90,16 +90,8 @@ self.addEventListener('fetch', function(e) {
   e.respondWith(
     caches.match(e.request).then(function(cached) {
       if (cached) return cached;
-      return fetch(e.request).then(function(response) {
-        // Cache successful same-origin responses
-        if (response.ok && e.request.url.startsWith(self.location.origin)) {
-          var copy = response.clone();
-          caches.open(CACHE).then(function(cache) {
-            cache.put(e.request, copy);
-          });
-        }
-        return response;
-      });
+      // Network fetch — NO dynamic caching (prevents unbounded storage growth)
+      return fetch(e.request);
     }).catch(function() {
       // Offline fallback – return cached index for navigation
       if (e.request.mode === 'navigate') {

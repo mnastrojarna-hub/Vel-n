@@ -118,7 +118,9 @@ function _forceCleanLogout(){
     // Synchronní cleanup VŠECH session-related localStorage klíčů PŘED čímkoli jiným
     var keysToRemove = [
       'mg_current_session', 'mg_user_id', 'mg_bio_enabled', 'mg_bio_user',
-      'mg_docs_verified', 'mg_scan_token', 'mg_reservations', 'mg_sos_fab_dismissed'
+      'mg_docs_verified', 'mg_scan_token', 'mg_reservations', 'mg_sos_fab_dismissed',
+      'mg_doc_id_front', 'mg_doc_id_back', 'mg_doc_passport_front',
+      'mg_doc_dl_front', 'mg_doc_dl_back'
     ];
     for(var i = 0; i < keysToRemove.length; i++){
       try { localStorage.removeItem(keysToRemove[i]); } catch(e2){}
