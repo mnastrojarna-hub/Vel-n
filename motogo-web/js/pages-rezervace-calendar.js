@@ -128,13 +128,35 @@ MG._rezRenderCal = function(){
 MG._rezCalPrev = function(){ MG._rez.calMonth--; if(MG._rez.calMonth<0){MG._rez.calMonth=11;MG._rez.calYear--;} MG._rezRenderCal(); };
 MG._rezCalNext = function(){ MG._rez.calMonth++; if(MG._rez.calMonth>11){MG._rez.calMonth=0;MG._rez.calYear++;} MG._rezRenderCal(); };
 
-// ===== DATE PICK LOGIC =====
+// ===== DATE PICK LOGIC (2-step: 1. start, 2. end — same as app) =====
 MG._rezPickDate = function(ds){
   var r = MG._rez;
-  if(!r.startDate || r.endDate){ r.startDate = ds; r.endDate = ds; }
-  else if(ds < r.startDate){ r.startDate = ds; r.endDate = null; }
-  else if(ds === r.startDate){ r.endDate = ds; }
-  else { r.endDate = ds; }
+  if(!r.startDate || (r.startDate && r.endDate)){
+    // Krok 1: vybrat začátek (nebo reset pokud už je vybrán rozsah)
+    r.startDate = ds; r.endDate = null;
+  } else {
+    // Krok 2: vybrat konec
+    if(ds < r.startDate){
+      // Klikl před začátek → nový začátek
+      r.startDate = ds; r.endDate = null;
+    } else {
+      // Klikl na začátek nebo po něm → konec (jednodenní i vícedenní)
+      // Ověřit, že celý rozsah je volný
+      var allFree = true;
+      var check = new Date(r.startDate);
+      var end = new Date(ds);
+      while(check <= end){
+        var cs = check.toISOString().split('T')[0];
+        if(cs !== r.startDate && cs !== ds && !MG._rezDateAvail(cs)){ allFree = false; break; }
+        check.setDate(check.getDate() + 1);
+      }
+      if(!allFree){
+        alert('V tomto rozsahu jsou obsazené dny. Vyberte jiný termín.');
+        return;
+      }
+      r.endDate = ds;
+    }
+  }
   MG._rezRenderCal();
   MG._rezUpdateBanner();
   MG._rezUpdatePrice();
