@@ -20,8 +20,8 @@ BEGIN
   IF p_booking_id IS NULL THEN
     RETURN jsonb_build_object('error', 'Booking ID je povinné');
   END IF;
-  IF p_password IS NULL OR length(p_password) < 6 THEN
-    RETURN jsonb_build_object('error', 'Heslo musí mít alespoň 6 znaků');
+  IF p_password IS NULL OR length(p_password) < 8 THEN
+    RETURN jsonb_build_object('error', 'Heslo musí mít alespoň 8 znaků');
   END IF;
 
   SELECT user_id, booking_source INTO v_user_id, v_source

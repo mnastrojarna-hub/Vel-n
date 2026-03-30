@@ -22,7 +22,7 @@ MG._rezShowMindeeStep = async function(){
     if(!MG._rez._passwordSet){
       var pwd=document.getElementById('rez-password');
       var pwdC=document.getElementById('rez-password-confirm');
-      if(!pwd||!pwd.value||pwd.value.length<6){alert('Heslo musí mít alespoň 6 znaků.');return;}
+      if(!pwd||!pwd.value||pwd.value.length<8){alert('Heslo musí mít alespoň 8 znaků.');return;}
       if(!pwdC||pwd.value!==pwdC.value){alert('Hesla se neshodují.');return;}
       MG._rez._password=pwd.value;
     }
@@ -188,7 +188,7 @@ MG._rezSubmitPayment = async function(){
     if(!MG._rez._passwordSet){
       var pwd=document.getElementById('rez-password');
       var pwdC=document.getElementById('rez-password-confirm');
-      if(!pwd||!pwd.value||pwd.value.length<6){alert('Heslo musí mít alespoň 6 znaků.');return;}
+      if(!pwd||!pwd.value||pwd.value.length<8){alert('Heslo musí mít alespoň 8 znaků.');return;}
       if(!pwdC||pwd.value!==pwdC.value){alert('Hesla se neshodují.');return;}
       MG._rez._password=pwd.value;
     }
