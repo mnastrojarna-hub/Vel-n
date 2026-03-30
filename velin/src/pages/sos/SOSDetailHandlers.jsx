@@ -93,7 +93,7 @@ export async function handleUpdateIncidentStatus(incident, newStatus, onRefresh)
     onRefresh?.()
 }
 
-export async function handleSetMotoToService(incident, moto, booking, onRefresh, setMotoInService, loadTimelineActions) {
+export async function handleSetMotoToService(incident, moto, booking, onRefresh, setMotoInService, loadTimelineActions, setSosServiceLogId) {
   let motoId = moto?.id || incident?.moto_id || booking?.moto_id || incident?.bookings?.moto_id || incident?.original_moto_id || incident?.replacement_data?.original_moto_id
     if (!motoId) {
       const bId = incident.original_booking_id || incident.booking_id
@@ -101,31 +101,35 @@ export async function handleSetMotoToService(incident, moto, booking, onRefresh,
       if (bk?.moto_id) motoId = bk.moto_id
     }
     if (!motoId) { alert('Chyba: Nelze určit ID motorky. Zkuste obnovit stránku.'); return }
-    if (!window.confirm('Přesunout motorku do servisu (maintenance)?\n\nMotorka bude nedostupná pro nové rezervace.')) return
+    if (!window.confirm('Přesunout motorku do servisu (URGENT)?\n\nMotorka bude nedostupná pro nové rezervace.\nServisní detaily můžete doplnit dodatečně.')) return
     try {
       const { error } = await supabase.from('motorcycles').update({ status: 'maintenance' }).eq('id', motoId)
       if (error) { alert('Chyba: ' + error.message); return }
       const { data: { user } } = await supabase.auth.getUser()
-      // Create maintenance_log entry (ignore errors — some columns may not exist)
       const sosType = incident?.type || 'other'
       const sosDesc = TYPE_LABELS[sosType] || sosType
       try {
         const logDesc = `SOS incident: ${sosDesc}${incident?.description ? ' — ' + incident.description.slice(0, 200) : ''}`
+        const today = new Date().toISOString().slice(0, 10)
         const { data: newLog } = await supabase.from('maintenance_log').insert({
           moto_id: motoId,
           type: 'repair',
           service_type: `SOS: ${sosDesc}`,
           description: logDesc,
-          scheduled_date: new Date().toISOString().slice(0, 10),
+          service_date: today,
+          scheduled_date: today,
           status: 'in_service',
           performed_by: user?.email || 'Admin',
+          is_urgent: true,
+          sos_incident_id: incident.id,
+          km_at_service: Number(moto?.mileage) || null,
         }).select('id').single()
         await supabase.from('service_orders').insert({
           moto_id: motoId, type: `SOS: ${sosDesc}`, notes: logDesc,
           status: 'in_service', maintenance_log_id: newLog?.id,
         })
+        setSosServiceLogId?.(newLog?.id || null)
       } catch {}
-      // Get moto model for timeline
       let motoModel = moto?.model
       if (!motoModel) {
         const { data: motoData } = await supabase.from('motorcycles').select('model').eq('id', motoId).single()
@@ -133,7 +137,7 @@ export async function handleSetMotoToService(incident, moto, booking, onRefresh,
       }
       await supabase.from('sos_timeline').insert({
         incident_id: incident.id,
-        action: `Motorka ${motoModel} přesunuta do servisu`,
+        action: `Motorka ${motoModel} přesunuta do servisu (URGENT)`,
         performed_by: user?.email || 'Admin', admin_id: user?.id,
       })
       setMotoInService(true)
@@ -143,6 +147,24 @@ export async function handleSetMotoToService(incident, moto, booking, onRefresh,
       console.error('[SOS] setMotoToService error:', e)
       alert('Chyba při přesunu do servisu: ' + e.message)
     }
+}
+
+export async function handleUpdateSosServiceLog(logId, { selectedLabels, fullDescription, isUrgent, serviceDateFrom, serviceDateTo }, onRefresh) {
+  try {
+    const today = new Date().toISOString().slice(0, 10)
+    await supabase.from('maintenance_log').update({
+      description: fullDescription,
+      service_date: serviceDateFrom || today,
+      scheduled_date: serviceDateTo || serviceDateFrom || today,
+      is_urgent: isUrgent,
+      items: selectedLabels.map(label => ({ label, done: false, note: '' })),
+    }).eq('id', logId)
+    onRefresh?.()
+    return { success: true }
+  } catch (e) {
+    console.error('[SOS] updateSosServiceLog error:', e)
+    return { success: false, error: e.message }
+  }
 }
 
 export async function handleEnsureBookingSwap(incident) {
