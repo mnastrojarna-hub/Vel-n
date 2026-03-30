@@ -223,6 +223,7 @@ async function saveEditReservation(){
     _paymentAttempts = 0;
 
     goTo('s-payment');
+    if(typeof _showSavedCardPreview === 'function') _showSavedCardPreview();
     setTimeout(function(){
       var payBtn=document.getElementById('pay-btn');
       if(payBtn){
