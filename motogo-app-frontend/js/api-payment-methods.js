@@ -2,8 +2,21 @@
 // In-app card form via Stripe Elements (PCI-compliant, no redirect).
 // Cards stored in Supabase `payment_methods` + Stripe Customer.
 
-// ── Stripe.js instance (lazy init) ──
+// ── Stripe.js lazy loader + instance ──
 var _stripeInstance = null;
+var _stripeLoading = null;
+function _loadStripeSDK(){
+  if(typeof Stripe === 'function') return Promise.resolve();
+  if(_stripeLoading) return _stripeLoading;
+  _stripeLoading = new Promise(function(resolve){
+    var s = document.createElement('script');
+    s.src = 'https://js.stripe.com/v3/';
+    s.onload = function(){ resolve(); };
+    s.onerror = function(){ _stripeLoading = null; resolve(); };
+    document.head.appendChild(s);
+  });
+  return _stripeLoading;
+}
 function _getStripe(){
   if(_stripeInstance) return _stripeInstance;
   var cfg = window.MOTOGO_CONFIG || {};

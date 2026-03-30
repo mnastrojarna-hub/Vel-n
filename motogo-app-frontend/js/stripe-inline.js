@@ -18,6 +18,11 @@ var _inlinePollTimer = null;
 // opts: { onSuccess, onCancel, bookingId, orderId }
 function showStripeInlinePayment(clientSecret, amount, opts){
   if(_inlinePaymentActive) return;
+  // Lazy-load Stripe SDK if not yet loaded
+  if(typeof Stripe !== 'function'){
+    _loadStripeSDK().then(function(){ showStripeInlinePayment(clientSecret, amount, opts); });
+    return;
+  }
   _inlinePaymentActive = true;
   _inlineClientSecret = clientSecret;
   _inlineOnSuccess = (opts && opts.onSuccess) || null;
