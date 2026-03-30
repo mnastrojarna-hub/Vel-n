@@ -135,16 +135,12 @@ function _forceCleanLogout(){
 }
 
 function _continueInit(hasSession){
-  if(hasSession){
-    cur='s-home';
-    navStack=['s-home'];
-    var bnav = document.getElementById('bnav');
-    if(bnav) bnav.style.display = 'flex';
-    if(typeof renderUserData === 'function') renderUserData();
-  } else {
-    cur='s-login';
-    navStack=['s-login'];
-  }
+  // Always show login screen on cold start — require biometric or password re-auth
+  // Session stays alive in background so biometric can use it instantly
+  cur='s-login';
+  navStack=['s-login'];
+  // Pre-render user data so it's ready after bio/password login
+  if(hasSession && typeof renderUserData === 'function') renderUserData();
 
   // Show the current screen, hide others
   document.querySelectorAll('.screen').forEach(function(s){
@@ -167,6 +163,10 @@ function _continueInit(hasSession){
   // Initialize UI components
   if(typeof setupBioButton==='function') setupBioButton();
   if(typeof _prefillLoginEmail==='function') _prefillLoginEmail();
+  // Auto-trigger biometric login on cold start if session exists and bio data available
+  if(hasSession && localStorage.getItem('mg_bio_user') && localStorage.getItem('mg_bio_enabled')){
+    setTimeout(function(){ if(typeof bioLogin==='function') bioLogin(); }, 600);
+  }
   // Language selection (first launch) – must run before permissions
   if(typeof initLangSelect==='function') initLangSelect();
   if(typeof initPerms==='function') initPerms();
