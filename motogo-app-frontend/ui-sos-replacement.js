@@ -254,8 +254,10 @@ async function sosReplLoadMotos(){
           + '<div style="font-size:10px;color:var(--g400);margin-top:1px;">' + branch + (endDate ? ' · do ' + new Date(endDate).toLocaleDateString('cs-CZ') : '') + '</div>'
           + '</div>'
           + '<div style="text-align:right;">'
-          + '<div style="font-size:12px;font-weight:800;color:var(--black);">' + price.toLocaleString('cs-CZ') + ' Kč/den</div>'
-          + (isFault ? '<div style="font-size:10px;color:var(--g400);">' + remainingDays + ' ' + (remainingDays === 1 ? 'den' : remainingDays < 5 ? 'dny' : 'dní') + ' = ' + (price * remainingDays).toLocaleString('cs-CZ') + ' Kč</div>' : '')
+          + (isFault
+            ? '<div style="font-size:12px;font-weight:800;color:var(--black);">' + price.toLocaleString('cs-CZ') + ' Kč/den</div>'
+              + '<div style="font-size:10px;color:var(--g400);">' + remainingDays + ' ' + (remainingDays === 1 ? 'den' : remainingDays < 5 ? 'dny' : 'dní') + ' = ' + (price * remainingDays).toLocaleString('cs-CZ') + ' Kč</div>'
+            : '<div style="font-size:12px;font-weight:800;color:var(--green);">zdarma</div>')
           + '</div>'
           + '</div>';
       });
