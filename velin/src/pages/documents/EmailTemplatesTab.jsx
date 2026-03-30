@@ -8,6 +8,7 @@ import Badge from '../../components/ui/Badge'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 
 const SAMPLE_VARS = {
+  // Booking email vars
   booking_number: 'A1B2C3D4', customer_name: ' Jan Novák', moto_model: 'BMW R 1200 GS Adventure',
   motorcycle: 'BMW R 1200 GS Adventure', start_date: '15. 6. 2026', end_date: '18. 6. 2026',
   total_price: '7 800', pickup_location: 'Mezná 9, 393 01 Mezná',
@@ -16,8 +17,32 @@ const SAMPLE_VARS = {
   voucher_expiry: '15. 6. 2029', order_number: 'OBJ-2026-01001', discount_code: 'DIKY200',
   google_review_url: 'https://g.page/MotoGo24/review', facebook_review_url: 'https://facebook.com/MotoGo24/reviews',
   site_url: 'https://motogo24.cz', price_difference: '-1 200',
+  // Invoice email vars
   invoice_number: 'ZF-2026-0001', invoice_type: 'Zálohová faktura',
   issue_date: '15. 6. 2026', due_date: '29. 6. 2026', variable_symbol: 'ZF-2026-0001',
+  // Document template vars (smlouva, VOP)
+  customer_email: 'jan.novak@email.cz', customer_phone: '+420 777 123 456',
+  customer_address: 'Hlavní 123, 110 00 Praha 1', customer_street: 'Hlavní 123',
+  customer_city: 'Praha 1', customer_zip: '110 00', customer_country: 'Česká republika',
+  customer_ico: '12345678', customer_dic: 'CZ12345678',
+  customer_license: 'EA123456', customer_license_expiry: '15. 6. 2030',
+  customer_license_group: 'A2', customer_dob: '15. 3. 1990', customer_id_number: '123456789',
+  moto_brand: 'BMW', moto_spz: '1A2 3456', moto_vin: 'WB10408C07ZE12345', moto_year: '2024',
+  moto_category: 'Cestovní', moto_engine: '1170 ccm', moto_power: '92 kW', moto_color: 'Černá',
+  days: '3', daily_rate: '2 600,00', rental_price: '7 800,00',
+  extras_price: '500,00', extras_list: 'Helma L ×1 — 200,00 Kč, Rukavice M ×1 — 100,00 Kč',
+  delivery_fee: '1 500,00', discount_amount: '200,00', deposit: '10 000,00',
+  insurance: '500,00', insurance_type: 'Základní', pickup_time: '10:00',
+  pickup_method: 'Přistavení', pickup_address: 'Hlavní 123, Praha 1',
+  return_method: 'Na pobočce', return_address: 'Mezná 9, 393 01 Mezná',
+  branch_name: 'Pobočka Mezná', branch_address: 'Mezná 9, 393 01 Mezná',
+  today: '30. 3. 2026',
+  company_name: 'Bc. Petra Semorádová', company_address: 'Mezná 9, 393 01 Mezná',
+  company_ico: '21874263', company_dic: '',
+  company_phone: '+420 774 256 271', company_email: 'info@motogo24.cz',
+  company_web: 'www.motogo24.cz', company_bank: 'mBank', company_account: '670100-2225851630/6210',
+  // Cancellation vars
+  cancellation_reason: 'Změna plánů', refund_amount: '7 800', refund_percent: '100',
 }
 
 const EMAIL_STATUS = {
