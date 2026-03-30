@@ -83,6 +83,8 @@ html.pwa .screen{position:fixed;top:env(safe-area-inset-top,0px);left:0;right:0;
 html.pwa .bnav{position:fixed;bottom:0;left:0;right:0;padding-bottom:max(18px,env(safe-area-inset-bottom));}
 html.pwa .toast{bottom:250px;}
 html.pwa .scroll-top{bottom:150px;}
+html.pwa #s-login{bottom:0;padding-bottom:env(safe-area-inset-bottom,0px);}
+html.pwa #s-register{bottom:0;padding-bottom:env(safe-area-inset-bottom,0px);}
 html.pwa #thread-reply-bar{position:fixed;bottom:calc(120px + env(safe-area-inset-bottom,0px));}
 
 /* Small mobile screens – improve registration text readability */
