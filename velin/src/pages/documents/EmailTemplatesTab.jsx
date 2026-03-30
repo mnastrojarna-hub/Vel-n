@@ -41,6 +41,10 @@ const SAMPLE_VARS = {
   company_ico: '21874263', company_dic: '',
   company_phone: '+420 774 256 271', company_email: 'info@motogo24.cz',
   company_web: 'www.motogo24.cz', company_bank: 'mBank', company_account: '670100-2225851630/6210',
+  // Time & period
+  start_time: '10:00', end_time: '10:00', rental_period: '3 dny',
+  total_price_words: 'sedm tisíc osm set korun českých',
+  pickup_location: 'Mezná 9, 393 01 Mezná', return_location: 'Mezná 9, 393 01 Mezná',
   // Cancellation vars
   cancellation_reason: 'Změna plánů', refund_amount: '7 800', refund_percent: '100',
 }
