@@ -235,6 +235,29 @@ MG._rezShowStep2 = function(){
     '<input type="date" id="rez-license-expiry" required style="width:100%;padding:.55rem .75rem;border:1px solid #d1d5db;border-radius:8px;font-size:.9rem;margin-top:.25rem"></div></div>'+
     '<div class="checkboxes" style="margin:1rem 0"><div class="agreement gr2"><input type="checkbox" id="rez-license-confirm" required'+(MG._rez._docsValidated?' checked':'')+'>'+
     '<div>* Potvrzuji, že jsem držitelem platného řidičského oprávnění a splňuji zákonné podmínky k řízení rezervovaného motocyklu.</div></div></div>'+
+
+    // Optional document upload section (web)
+    (!isMob?
+    '<div style="background:#f0faf5;border:1px solid #d4e8e0;border-radius:10px;padding:1rem;margin:1.5rem 0">'+
+    '<h3 style="margin:0 0 .5rem">Nahrání dokladů <span style="font-size:.8rem;color:#888;font-weight:400">(nepovinné)</span></h3>'+
+    '<p style="color:#555;font-size:.85rem;line-height:1.5;margin-bottom:.75rem">Můžete nahrát fotografie dokladů pro rychlejší odbavení. Snímky budou automaticky rozpoznány a údaje doplněny do formuláře.</p>'+
+
+    '<div style="display:flex;gap:1rem;flex-wrap:wrap">'+
+    '<div style="flex:1;min-width:240px;background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:.75rem">'+
+    '<div style="font-weight:600;margin-bottom:.5rem">&#128196; Doklad totožnosti</div>'+
+    '<div id="webdoc-id-status"></div>'+
+    '<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem">'+
+    '<button class="btn btngreen-small" onclick="MG._rezUploadDoc(\'id\')" style="font-size:.8rem">Nahrát soubor</button>'+
+    '<button class="btn btngreen-small" onclick="MG._rezCaptureDoc(\'id\')" style="font-size:.8rem">Vyfotit</button></div></div>'+
+
+    '<div style="flex:1;min-width:240px;background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:.75rem">'+
+    '<div style="font-weight:600;margin-bottom:.5rem">&#128179; Řidičský průkaz</div>'+
+    '<div id="webdoc-dl-status"></div>'+
+    '<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem">'+
+    '<button class="btn btngreen-small" onclick="MG._rezUploadDoc(\'dl\')" style="font-size:.8rem">Nahrát soubor</button>'+
+    '<button class="btn btngreen-small" onclick="MG._rezCaptureDoc(\'dl\')" style="font-size:.8rem">Vyfotit</button></div></div>'+
+    '</div></div>':'')+
+
     '<hr style="border:none;border-top:1px solid #e0e0e0;margin:1.5rem 0">'+
     '<h3>Heslo pro správu rezervace</h3>'+
     '<p style="color:#555;font-size:.88rem;line-height:1.5;margin-bottom:.75rem">Zvolte si heslo, které budete potřebovat pro úpravu rezervace. Pokud si v budoucnu stáhnete aplikaci MotoGo24, přihlásíte se stejným e-mailem a tímto heslem.</p>'+
