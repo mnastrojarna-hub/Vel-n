@@ -229,7 +229,7 @@ function _startPaymentCountdown(){
     }
     var min = Math.floor(remaining / 60000);
     var sec = Math.floor((remaining % 60000) / 1000);
-    if(el) el.textContent = (_t('hc').timeRemaining||'{min}:{sec} remaining to pay').replace('{min}',min).replace('{sec}',String(sec).padStart(2,'0'));
+    if(el) el.textContent = (_t('hc').timeRemaining||'{t} remaining to pay').replace('{t}',min+':'+String(sec).padStart(2,'0'));
   }, 1000);
 }
 
