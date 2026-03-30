@@ -131,6 +131,7 @@ Templates['s-profile'] = `  <div class="prof-hdr">
         </select>
       </div>
     </div>
+    <div class="mi" onclick="showStorageDiag()"><div class="mii">💾</div><div class="mit">Úložiště a cache</div><div class="mia">›</div></div>
 
   </div>
 

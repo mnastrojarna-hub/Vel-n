@@ -32,6 +32,7 @@ var ASSETS = [
   './templates-done.js',
   './js/router.js',
   './js/storage.js',
+  './js/storage-diag.js',
   './js/booking-utils.js',
   './js/cart-engine.js',
   './js/cart-checkout.js',
