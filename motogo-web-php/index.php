@@ -1,63 +1,142 @@
 <?php
-// ===== MotoGo24 Web PHP — Router =====
+// ===== MotoGo24 Web PHP — Hlavní router + entry point =====
 
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/supabase.php';
 require_once __DIR__ . '/components.php';
 require_once __DIR__ . '/layout.php';
 
-$requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-$requestUri = rtrim($requestUri, '/') ?: '/';
+// Získání cesty z REQUEST_URI (bez query stringu)
+$requestUri = $_SERVER['REQUEST_URI'] ?? '/';
+$path = parse_url($requestUri, PHP_URL_PATH);
 
-// Simple cache for Supabase data (within single request)
-$sb = new SupabaseClient();
+// Odstraň trailing slash (kromě /)
+if ($path !== '/' && substr($path, -1) === '/') {
+    $path = rtrim($path, '/');
+}
 
-// Route matching
-$routes = [
-    '/' => 'pages/home.php',
-    '/katalog' => 'pages/katalog.php',
-    '/katalog/cestovni' => 'pages/katalog.php',
-    '/katalog/detske' => 'pages/katalog.php',
-    '/pujcovna-motorek' => 'pages/pujcovna.php',
-    '/jak-pujcit' => 'pages/jak-pujcit.php',
-    '/jak-pujcit/postup' => 'pages/jak-pujcit-postup.php',
-    '/jak-pujcit/pristaveni' => 'pages/jak-pujcit-pristaveni.php',
-    '/jak-pujcit/vyzvednuti' => 'pages/jak-pujcit-vyzvednuti.php',
-    '/jak-pujcit/co-v-cene' => 'pages/jak-pujcit-cena.php',
-    '/jak-pujcit/dokumenty' => 'pages/jak-pujcit-dokumenty.php',
-    '/jak-pujcit/faq' => 'pages/faq.php',
-    '/poukazy' => 'pages/poukazy.php',
-    '/blog' => 'pages/blog.php',
-    '/kontakt' => 'pages/kontakt.php',
-    '/obchodni-podminky' => 'pages/cms.php',
-    '/gdpr' => 'pages/cms.php',
-    '/smlouva' => 'pages/cms.php',
-    '/mapa-stranek' => 'pages/sitemap-page.php',
-    '/rezervace' => 'pages/rezervace.php',
-    '/potvrzeni' => 'pages/potvrzeni.php',
-    '/sitemap.xml' => 'pages/sitemap-xml.php',
-    '/robots.txt' => 'pages/robots.php',
-];
-
-// Exact match
-if (isset($routes[$requestUri])) {
-    require __DIR__ . '/' . $routes[$requestUri];
+// Sitemap.xml (dynamický)
+if ($path === '/sitemap.xml') {
+    require __DIR__ . '/sitemap.php';
     exit;
 }
 
-// Parametric routes
-if (preg_match('#^/katalog/([a-f0-9\-]+)$#', $requestUri, $m) && $m[1] !== 'cestovni' && $m[1] !== 'detske') {
-    $motoId = $m[1];
-    require __DIR__ . '/pages/katalog-detail.php';
-    exit;
-}
+// Routování
+switch (true) {
+    // Domovská stránka
+    case $path === '/' || $path === '':
+        require __DIR__ . '/pages/home.php';
+        break;
 
-if (preg_match('#^/blog/([a-z0-9\-]+)$#', $requestUri, $m)) {
-    $blogSlug = $m[1];
-    require __DIR__ . '/pages/blog-detail.php';
-    exit;
-}
+    // Katalog
+    case $path === '/katalog':
+        require __DIR__ . '/pages/katalog.php';
+        break;
 
-// 404
-http_response_code(404);
-require __DIR__ . '/pages/404.php';
+    case $path === '/katalog/cestovni':
+        require __DIR__ . '/pages/katalog.php';
+        break;
+
+    case $path === '/katalog/detske':
+        require __DIR__ . '/pages/katalog.php';
+        break;
+
+    case preg_match('#^/katalog/([a-f0-9\-]+)$#', $path, $matches) === 1:
+        $_GET['id'] = $matches[1];
+        require __DIR__ . '/pages/katalog-detail.php';
+        break;
+
+    // Půjčovna
+    case $path === '/pujcovna-motorek':
+        require __DIR__ . '/pages/pujcovna.php';
+        break;
+
+    // Jak si půjčit
+    case $path === '/jak-pujcit':
+        require __DIR__ . '/pages/jak-pujcit.php';
+        break;
+
+    case $path === '/jak-pujcit/postup':
+        require __DIR__ . '/pages/jak-pujcit-postup.php';
+        break;
+
+    case $path === '/jak-pujcit/pristaveni':
+        require __DIR__ . '/pages/jak-pujcit-pristaveni.php';
+        break;
+
+    case $path === '/jak-pujcit/vyzvednuti':
+        require __DIR__ . '/pages/jak-pujcit-vyzvednuti.php';
+        break;
+
+    case $path === '/jak-pujcit/co-v-cene':
+        require __DIR__ . '/pages/jak-pujcit-cena.php';
+        break;
+
+    case $path === '/jak-pujcit/dokumenty':
+        require __DIR__ . '/pages/jak-pujcit-dokumenty.php';
+        break;
+
+    case $path === '/jak-pujcit/faq':
+        require __DIR__ . '/pages/faq.php';
+        break;
+
+    // Poukazy
+    case $path === '/poukazy':
+        require __DIR__ . '/pages/poukazy.php';
+        break;
+
+    // Blog
+    case $path === '/blog':
+        require __DIR__ . '/pages/blog.php';
+        break;
+
+    case preg_match('#^/blog/([a-z0-9\-]+)$#', $path, $matches) === 1:
+        $_GET['slug'] = $matches[1];
+        require __DIR__ . '/pages/blog-detail.php';
+        break;
+
+    // Kontakt
+    case $path === '/kontakt':
+        require __DIR__ . '/pages/kontakt.php';
+        break;
+
+    // CMS stránky
+    case $path === '/obchodni-podminky':
+        $_GET['cms_slug'] = 'obchodni-podminky';
+        $_GET['cms_title'] = 'Obchodní podmínky';
+        require __DIR__ . '/pages/cms.php';
+        break;
+
+    case $path === '/gdpr':
+        $_GET['cms_slug'] = 'gdpr';
+        $_GET['cms_title'] = 'Zásady ochrany osobních údajů';
+        require __DIR__ . '/pages/cms.php';
+        break;
+
+    case $path === '/smlouva':
+        $_GET['cms_slug'] = 'smlouva-o-pronajmu';
+        $_GET['cms_title'] = 'Smlouva o pronájmu';
+        require __DIR__ . '/pages/cms.php';
+        break;
+
+    // Mapa stránek
+    case $path === '/mapa-stranek':
+        require __DIR__ . '/pages/sitemap-page.php';
+        break;
+
+    // Rezervace
+    case $path === '/rezervace':
+        require __DIR__ . '/pages/rezervace.php';
+        break;
+
+    // Potvrzení
+    case $path === '/potvrzeni':
+        require __DIR__ . '/pages/potvrzeni.php';
+        break;
+
+    // 404
+    default:
+        http_response_code(404);
+        require __DIR__ . '/pages/404.php';
+        break;
+}

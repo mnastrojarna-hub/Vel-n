@@ -37,7 +37,7 @@ function goTo(id){
   if(id===cur){const el=document.getElementById(id);if(el)el.scrollTo({top:0,behavior:'smooth'});return;}
   // Block leaving payment screen when Stripe checkout is open (except to success/res which are valid post-payment destinations)
   if(typeof _stripeCheckoutOpened!=='undefined' && _stripeCheckoutOpened && (cur==='s-payment'||cur==='s-sos-payment') && id!=='s-success' && id!=='s-res' && id!=='s-res-detail' && id!=='s-sos-done'){
-    showT('⚠️','Platba probíhá','Vyčkejte na dokončení platby');
+    showT('⚠️',_t('hc').paymentInProgress,_t('hc').waitForPayment);
     if(typeof _checkPaymentAfterStripe==='function') _checkPaymentAfterStripe();
     return;
   }
@@ -46,7 +46,7 @@ function goTo(id){
     var _sess=null;
     try{var _r=localStorage.getItem('mg_current_session');if(_r)_sess=JSON.parse(_r);}catch(e){}
     if(!_sess || !_sess.user_id){
-      if(typeof showT==='function') showT('⚠️','Přihlášení','Pro pokračování se musíte přihlásit');
+      if(typeof showT==='function') showT('⚠️',_t('hc').loginRequired,_t('hc').loginToContinue);
       id='s-login';
     }
   }
@@ -140,7 +140,7 @@ function goTo(id){
     // Require login for booking (check local session sync)
     var _bsLocal=null;
     try { var _raw=localStorage.getItem('mg_current_session'); if(_raw) _bsLocal=JSON.parse(_raw); } catch(e){}
-    if(!_bsLocal){showT('⚠️','Přihlášení','Pro rezervaci se musíte přihlásit');goTo('s-login');return;}
+    if(!_bsLocal){showT('⚠️',_t('hc').loginRequired,_t('hc').loginToBook);goTo('s-login');return;}
     // Preserve booking state - only reset extras, not core data
     extraTotal=0; discountAmt=0;
     // Reset extra checkboxes
@@ -219,7 +219,7 @@ function goTo(id){
 function histBack(){
   // Block back when Stripe checkout is open — prevent double payment
   if(typeof _stripeCheckoutOpened!=='undefined' && _stripeCheckoutOpened && (cur==='s-payment'||cur==='s-sos-payment')){
-    showT('⚠️','Platba probíhá','Vyčkejte na dokončení platby');
+    showT('⚠️',_t('hc').paymentInProgress,_t('hc').waitForPayment);
     if(typeof _checkPaymentAfterStripe==='function') _checkPaymentAfterStripe();
     return;
   }

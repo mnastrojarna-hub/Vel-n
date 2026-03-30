@@ -45,13 +45,13 @@ function showStripeInlinePayment(clientSecret, amount, opts){
   _inlineOverlay.innerHTML =
     '<div style="background:linear-gradient(135deg,#1a2e22,#2d5a3c);padding:env(safe-area-inset-top,20px) 20px 18px;text-align:center;">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
-        '<button id="sip-back" onclick="_cancelInlinePayment()" style="background:rgba(255,255,255,.15);border:none;border-radius:12px;padding:8px 14px;color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;">← Zpět</button>' +
+        '<button id="sip-back" onclick="_cancelInlinePayment()" style="background:rgba(255,255,255,.15);border:none;border-radius:12px;padding:8px 14px;color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;">\u2190 '+(_t('hc').backBtn||'Back')+'</button>' +
         '<div style="display:flex;align-items:center;gap:6px;">' +
           '<svg width="42" height="18" viewBox="0 0 60 25" fill="none"><rect width="60" height="25" rx="4" fill="#635BFF"/><text x="30" y="17" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="11" font-weight="700">stripe</text></svg>' +
           '<span style="font-size:10px;color:rgba(255,255,255,.6);">PCI DSS</span>' +
         '</div>' +
       '</div>' +
-      '<div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:1px;">K úhradě</div>' +
+      '<div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:1px;">'+(_t('hc').toPay||'Amount due')+'</div>' +
       '<div style="font-size:32px;font-weight:900;color:#fff;margin-top:4px;">' + amtFmt + ' Kč</div>' +
     '</div>' +
     '<div style="flex:1;padding:16px 20px 20px;">' +
@@ -65,19 +65,19 @@ function showStripeInlinePayment(clientSecret, amount, opts){
       '</div>' +
       '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">' +
         '<div style="flex:1;height:1px;background:#e5e7eb;"></div>' +
-        '<span style="font-size:11px;font-weight:700;color:#9ca3af;">nebo kartou</span>' +
+        '<span style="font-size:11px;font-weight:700;color:#9ca3af;">'+(_t('hc').orByCard||'or by card')+'</span>' +
         '<div style="flex:1;height:1px;background:#e5e7eb;"></div>' +
       '</div>' +
       '<div style="background:#fff;border-radius:16px;padding:18px 16px;box-shadow:0 2px 12px rgba(0,0,0,.06);margin-bottom:14px;">' +
-        '<div style="font-size:11px;font-weight:800;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">Platební údaje</div>' +
+        '<div style="font-size:11px;font-weight:800;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">'+(_t('hc').paymentDetails||'Payment details')+'</div>' +
         '<div id="sip-element" style="min-height:120px;"></div>' +
         '<div id="sip-error" style="display:none;margin-top:10px;padding:8px 12px;background:#fee2e2;border-radius:8px;font-size:12px;font-weight:600;color:#b91c1c;"></div>' +
       '</div>' +
       '<button id="sip-pay-btn" onclick="_submitInlinePayment()" style="width:100%;background:var(--green,#22c55e);color:#fff;border:none;border-radius:50px;padding:16px;font-family:var(--font,Montserrat,sans-serif);font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 4px 18px rgba(34,197,94,.3);">' +
-        'Zaplatit kartou ' + amtFmt + ' Kč' +
+        (_t('hc').payByCard||'Pay by card {amt} CZK').replace('{amt}',amtFmt) +
       '</button>' +
       '<div style="text-align:center;margin-top:12px;">' +
-        '<div style="font-size:11px;color:#9ca3af;display:flex;align-items:center;justify-content:center;gap:4px;">🔒 Šifrovaná platba · Stripe</div>' +
+        '<div style="font-size:11px;color:#9ca3af;display:flex;align-items:center;justify-content:center;gap:4px;">\ud83d\udd12 '+(_t('hc').encryptedPayment||'Encrypted payment \u00b7 Stripe')+'</div>' +
       '</div>' +
     '</div>';
 
@@ -118,7 +118,7 @@ async function _submitInlinePayment(){
   var btn = document.getElementById('sip-pay-btn');
   var errEl = document.getElementById('sip-error');
   var backBtn = document.getElementById('sip-back');
-  if(btn){ btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '⏳ Zpracovávám platbu...'; }
+  if(btn){ btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '\u23f3 '+(_t('hc').processingPayment||'Processing...'); }
   if(backBtn){ backBtn.style.display = 'none'; }
   if(errEl) errEl.style.display = 'none';
 
@@ -130,8 +130,8 @@ async function _submitInlinePayment(){
     });
 
     if(result.error){
-      if(errEl){ errEl.textContent = result.error.message || 'Platba se nezdařila'; errEl.style.display = 'block'; }
-      if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = 'Zaplatit'; }
+      if(errEl){ errEl.textContent = result.error.message || (_t('hc').paymentFailed||'Payment failed'); errEl.style.display = 'block'; }
+      if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = (_t('pay').payBtn||'Pay'); }
       if(backBtn){ backBtn.style.display = ''; }
       return;
     }
@@ -139,21 +139,21 @@ async function _submitInlinePayment(){
     // Stripe confirmed card charge — now wait for webhook to confirm in DB
     // NEVER show success until DB has payment_status='paid'
     if(result.paymentIntent && (result.paymentIntent.status === 'succeeded' || result.paymentIntent.status === 'processing')){
-      if(btn) btn.textContent = '⏳ Ověřuji platbu...';
+      if(btn) btn.textContent = '\u23f3 '+(_t('hc').verifyingPayment||'Verifying payment...');
       _waitForWebhookConfirmation();
     } else if(result.paymentIntent && result.paymentIntent.status === 'requires_action'){
-      if(btn) btn.textContent = '🔐 Ověření karty...';
+      if(btn) btn.textContent = '\ud83d\udd10 '+(_t('hc').cardVerification||'Card verification...');
       // 3DS popup handled by Stripe — will re-trigger or fail
     } else {
       // Unknown status — do NOT call success, show error
-      if(errEl){ errEl.textContent = 'Platba nebyla dokončena. Zkuste to znovu.'; errEl.style.display = 'block'; }
-      if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = 'Zaplatit'; }
+      if(errEl){ errEl.textContent = (_t('hc').paymentIncomplete||'Payment was not completed. Try again.'); errEl.style.display = 'block'; }
+      if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = (_t('pay').payBtn||'Pay'); }
       if(backBtn){ backBtn.style.display = ''; }
     }
   } catch(e){
     console.error('[STRIPE-INLINE] confirmPayment error:', e);
-    if(errEl){ errEl.textContent = 'Chyba platby: ' + (e.message || 'Neznámá chyba'); errEl.style.display = 'block'; }
-    if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = 'Zaplatit'; }
+    if(errEl){ errEl.textContent = (_t('hc').paymentError||'Payment error') + ': ' + (e.message || (_t('hc').unknownError||'Unknown error')); errEl.style.display = 'block'; }
+    if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = (_t('pay').payBtn||'Pay'); }
     if(backBtn){ backBtn.style.display = ''; }
   }
 }
@@ -226,12 +226,12 @@ async function _walletCheckout(wallet){
       if(typeof _openExternalUrl === 'function') _openExternalUrl(result.checkout_url);
       else window.open(result.checkout_url, '_blank');
     } else {
-      if(typeof showT === 'function') showT('✗','Chyba',result.error || 'Nepodařilo se otevřít platební bránu');
+      if(typeof showT === 'function') showT('\u2717',_t('common').error,result.error || (_t('hc').gatewayOpenFailed||'Failed to open payment gateway'));
       if(onCancel) onCancel();
     }
   } catch(e){
     console.error('[STRIPE-INLINE] walletCheckout error:', e);
-    if(typeof showT === 'function') showT('✗','Chyba','Nepodařilo se otevřít platební bránu');
+    if(typeof showT === 'function') showT('\u2717',_t('common').error,_t('hc').gatewayOpenFailed||'Failed to open payment gateway');
     if(onCancel) onCancel();
   }
 }

@@ -45,46 +45,46 @@ if(location.protocol==='http:'||location.protocol==='https:'){
 </div>
 <div class="perm-overlay" id="perm-overlay" style="display:none;">
   <div class="perm-sheet">
-    <div class="perm-title">🏍️ Vítejte v MotoGo24</div>
-    <div class="perm-sub">Pro plnou funkčnost potřebujeme váš souhlas</div>
+    <div class="perm-title" id="t-permTitle">🏍️ Vítejte v MotoGo24</div>
+    <div class="perm-sub" id="t-permSub">Pro plnou funkčnost potřebujeme váš souhlas</div>
     <div class="perm-item">
       <div class="perm-icon">🔐</div>
       <div class="perm-info">
-        <div class="perm-info-t">Biometrické ověření</div>
-        <div class="perm-info-s">Rychlé přihlášení pomocí otisku prstu</div>
+        <div class="perm-info-t" id="t-permBio">Biometrické ověření</div>
+        <div class="perm-info-s" id="t-permBioDesc">Rychlé přihlášení pomocí otisku prstu</div>
       </div>
     </div>
     <div class="perm-item">
       <div class="perm-icon">📍</div>
       <div class="perm-info">
-        <div class="perm-info-t">Poloha</div>
-        <div class="perm-info-s">Navigace k půjčovně, sdílení pozice při poruše</div>
+        <div class="perm-info-t" id="t-permLoc">Poloha</div>
+        <div class="perm-info-s" id="t-permLocDesc">Navigace k půjčovně, sdílení pozice při poruše</div>
       </div>
     </div>
     <div class="perm-item">
       <div class="perm-icon">📷</div>
       <div class="perm-info">
-        <div class="perm-info-t">Fotoaparát</div>
-        <div class="perm-info-s">Scanování dokladů, dokumentace škod</div>
+        <div class="perm-info-t" id="t-permCam">Fotoaparát</div>
+        <div class="perm-info-s" id="t-permCamDesc">Skenování dokladů, dokumentace škod</div>
       </div>
     </div>
     <div class="perm-item">
       <div class="perm-icon">🎤</div>
       <div class="perm-info">
-        <div class="perm-info-t">Mikrofon</div>
-        <div class="perm-info-s">Hlasové dotazy pro AI asistenta</div>
+        <div class="perm-info-t" id="t-permMic">Mikrofon</div>
+        <div class="perm-info-s" id="t-permMicDesc">Hlasové dotazy pro AI asistenta</div>
       </div>
     </div>
     <div class="perm-item">
       <div class="perm-icon">🔔</div>
       <div class="perm-info">
-        <div class="perm-info-t">Oznámení</div>
-        <div class="perm-info-s">SOS aktualizace, zprávy z MotoGo24, stav rezervací</div>
+        <div class="perm-info-t" id="t-permNotif">Oznámení</div>
+        <div class="perm-info-s" id="t-permNotifDesc">SOS aktualizace, zprávy z MotoGo24, stav rezervací</div>
       </div>
     </div>
     <div class="perm-actions">
-      <button class="perm-allow" onclick="grantPerms()">Povolit vše a pokračovat →</button>
-      <button class="perm-skip" onclick="skipPerms()">Přeskočit – nastavím později</button>
+      <button class="perm-allow" id="t-permAllow" onclick="grantPerms()">Povolit vše a pokračovat →</button>
+      <button class="perm-skip" id="t-permSkip" onclick="skipPerms()">Přeskočit – nastavím později</button>
     </div>
   </div>
 </div>
@@ -275,12 +275,15 @@ window.MOTOGO_CONFIG = {
 <script src="js/i18n.js?v=1"></script>
 <script src="js/i18n-2.js?v=1"></script>
 <script src="js/i18n-auth.js?v=1"></script>
+<script src="js/i18n-auth-2.js?v=1"></script>
 <script src="js/i18n-ui.js?v=1"></script>
 <script src="js/i18n-ui-2.js?v=1"></script>
 <script src="js/i18n-ui-3.js?v=1"></script>
 <script src="js/i18n-shop.js?v=1"></script>
 <script src="js/i18n-res.js?v=1"></script>
+<script src="js/i18n-res-2.js?v=1"></script>
 <script src="js/i18n-booking.js?v=1"></script>
+<script src="js/i18n-booking-2.js?v=1"></script>
 <script src="js/i18n-sos2.js?v=1"></script>
 <script src="js/i18n-sos2-2.js?v=1"></script>
 <script src="js/i18n-sos2-3.js?v=1"></script>
@@ -290,6 +293,9 @@ window.MOTOGO_CONFIG = {
 <script src="js/i18n-moto2.js?v=1"></script>
 <script src="js/i18n-moto2-2.js?v=1"></script>
 <script src="js/i18n-moto3.js?v=1"></script>
+<script src="js/i18n-perm.js?v=1"></script>
+<script src="js/i18n-misc.js?v=1"></script>
+<script src="js/i18n-misc-2.js?v=1"></script>
 <script src="js/i18n-aliases.js?v=1"></script>
 <script src="js/i18n-dom.js?v=1"></script>
 <script src="js/documents.js?v=1"></script>

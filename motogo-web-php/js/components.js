@@ -235,7 +235,7 @@ MG._calUpdateReserveBtn = function(containerId){
   if(!state) return;
   var btn = document.getElementById(containerId + '-reserve-btn');
   if(!btn) return;
-  var href = '/rezervace?moto=' + state.motoId;
+  var href = '#/rezervace?moto=' + state.motoId;
   if(state.startDate) href += '&start=' + state.startDate;
   if(state.endDate) href += '&end=' + state.endDate;
   btn.href = href;

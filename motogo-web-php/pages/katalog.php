@@ -1,130 +1,120 @@
 <?php
-// ===== MotoGo24 Web PHP — Katalog motorek (listing) =====
+// ===== MotoGo24 Web PHP — Katalog motorek =====
+// Odpovídá pages-katalog.js (listing)
+// ZMĚNA: Filtry fungují přes GET parametry (?kategorie=X&ridicak=Y) + JS fallback
 
-// Detect category from URL
-$categoryMap = [
-    '/katalog/cestovni' => 'cestovní',
-    '/katalog/detske' => 'dětské',
-];
-
-$activeCategory = '';
-$activeLicense = '';
-
-if (isset($categoryMap[$requestUri])) {
-    $activeCategory = $categoryMap[$requestUri];
-} elseif (!empty($_GET['category'])) {
-    $activeCategory = $_GET['category'];
-}
-
-if (!empty($_GET['license'])) {
-    $activeLicense = $_GET['license'];
-}
-
-// Page titles per category
-$titleMap = [
-    'cestovní' => 'Cestovní motorky k pronájmu',
-    'dětské' => 'Dětské motorky k pronájmu',
-];
-
-$pageTitle = $titleMap[$activeCategory] ?? 'Katalog motorek k pronájmu';
-$pageDesc = 'Prohlédněte si nabídku motorek k pronájmu z naší půjčovny motorek na Vysočině. Cestovní, sportovní, enduro i dětské motorky.';
-
-echo renderHead($pageTitle . ' – Motogo24', $pageDesc);
-echo renderHeader();
-
-// Breadcrumb
-$bcItems = [['href'=>'/', 'label'=>'Domů']];
-if ($activeCategory && isset($titleMap[$activeCategory])) {
-    $bcItems[] = ['href'=>'/katalog', 'label'=>'Katalog motorek'];
-    $bcItems[] = $titleMap[$activeCategory];
-} else {
-    $bcItems[] = 'Katalog motorek';
-}
-$bc = renderBreadcrumb($bcItems);
-
-// Fetch motos
+$sb = new SupabaseClient();
 $motos = $sb->fetchMotos();
 
-// Collect available categories and licenses for filters
-$categories = [];
-$licenses = [];
-foreach ($motos as $m) {
-    $cat = $m['category'] ?? '';
-    $lic = $m['license_required'] ?? '';
-    if ($cat && !in_array($cat, $categories)) $categories[] = $cat;
-    if ($lic && $lic !== 'N' && !in_array($lic, $licenses)) $licenses[] = $lic;
-}
-sort($categories);
-sort($licenses);
+// Zjistíme kategorii z URL path NEBO GET parametru
+$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$category = null;
+$title = 'Katalog motorek';
 
-// Filter motos
-$filtered = $motos;
-if ($activeCategory) {
-    $filtered = array_filter($filtered, function($m) use ($activeCategory) {
-        return mb_strtolower($m['category'] ?? '') === mb_strtolower($activeCategory);
-    });
-}
-if ($activeLicense) {
-    $filtered = array_filter($filtered, function($m) use ($activeLicense) {
-        return ($m['license_required'] ?? '') === $activeLicense;
-    });
-}
-$filtered = array_values($filtered);
-
-// Build filter dropdowns
-$filterBase = $requestUri;
-if (isset($categoryMap[$requestUri])) {
-    $filterBase = '/katalog';
+if ($path === '/katalog/cestovni') {
+    $category = 'cestovni';
+    $title = 'Cestovní motorky';
+} elseif ($path === '/katalog/detske') {
+    $category = 'detske';
+    $title = 'Dětské motorky';
 }
 
-$filterHtml = '<div class="filters dfc" style="gap:12px;flex-wrap:wrap;margin-bottom:24px">';
+// GET parametry (přepisují URL path)
+$getCat = $_GET['kategorie'] ?? '';
+$getLic = $_GET['ridicak'] ?? '';
+if ($getCat) $category = $getCat;
 
-// Category dropdown
-$filterHtml .= '<select onchange="window.location.href=this.value" aria-label="Filtr kategorie">';
-$filterHtml .= '<option value="' . $filterBase . ($activeLicense ? '?license=' . e($activeLicense) : '') . '"' . (!$activeCategory ? ' selected' : '') . '>Všechny kategorie</option>';
-foreach ($categories as $cat) {
-    $catParam = $activeLicense ? '?category=' . urlencode($cat) . '&license=' . urlencode($activeLicense) : '?category=' . urlencode($cat);
-    $sel = (mb_strtolower($cat) === mb_strtolower($activeCategory)) ? ' selected' : '';
-    $filterHtml .= '<option value="' . $filterBase . $catParam . '"' . $sel . '>' . e($cat) . '</option>';
-}
-$filterHtml .= '</select>';
-
-// License dropdown
-$filterHtml .= '<select onchange="window.location.href=this.value" aria-label="Filtr řidičáku">';
-$catParam = $activeCategory ? '?category=' . urlencode($activeCategory) : '';
-$filterHtml .= '<option value="' . $filterBase . $catParam . '"' . (!$activeLicense ? ' selected' : '') . '>Všechny řidičáky</option>';
-foreach ($licenses as $lic) {
-    $licParam = $activeCategory ? '?category=' . urlencode($activeCategory) . '&license=' . urlencode($lic) : '?license=' . urlencode($lic);
-    $sel = ($lic === $activeLicense) ? ' selected' : '';
-    $filterHtml .= '<option value="' . $filterBase . $licParam . '"' . $sel . '>' . e($lic) . '</option>';
-}
-$filterHtml .= '</select>';
-
-$filterHtml .= '</div>';
-
-// Render cards
-$cardsHtml = '';
-if (!empty($filtered)) {
-    $cardsHtml .= '<div class="gr4">';
-    foreach ($filtered as $m) {
-        $cardsHtml .= '<section aria-labelledby="catalogue">' . renderMotoCard($m) . '</section>';
-    }
-    $cardsHtml .= '</div>';
+// Breadcrumb
+$bc = [['label' => 'Domů', 'href' => '/'], ['label' => 'Katalog motorek', 'href' => '/katalog']];
+if ($category) {
+    $bc[] = $title;
 } else {
-    $cardsHtml .= '<p>Pro zvolený filtr nebyly nalezeny žádné motorky.</p>';
+    $bc[1] = $title;
 }
 
-echo '<main id="content"><div class="container">' . $bc .
-    '<div class="ccontent"><h1>' . e($pageTitle) . '</h1>' .
-    '<p>Prohlédněte si nabídku <strong>motorek k pronájmu</strong> z naší <strong>půjčovny motorek na Vysočině</strong>.</p>' .
-    '<p>&nbsp;</p>' .
-    $filterHtml .
-    $cardsHtml .
-    '<p>&nbsp;</p>' .
-    renderCta('Rezervuj svou motorku online',
-        'Naše <strong>půjčovna motorek Vysočina</strong> je otevřená <strong>nonstop</strong>. Stačí pár kliků a tvoje jízda začíná.',
-        [['label'=>'REZERVOVAT MOTORKU','href'=>'/rezervace','cls'=>'btndark pulse']]) .
-    '</div></div></main>';
+// Filtrování dle kategorie a ŘP skupiny (server-side)
+$filtered = $motos;
+if ($category) {
+    $filtered = array_filter($motos, function($m) use ($category) {
+        $cat = strtolower($m['category'] ?? '');
+        $fc = strtolower($category);
+        if ($fc === 'cestovni') {
+            return strpos($cat, 'cestov') !== false || strpos($cat, 'adventure') !== false || strpos($cat, 'touring') !== false;
+        } elseif ($fc === 'detske') {
+            return strpos($cat, 'dets') !== false || strpos($cat, 'dět') !== false || (isset($m['license_required']) && strtoupper($m['license_required']) === 'N');
+        }
+        return $cat === $fc;
+    });
+}
+if ($getLic) {
+    $filtered = array_filter($filtered, function($m) use ($getLic) {
+        return ($m['license_required'] ?? '') === $getLic;
+    });
+}
 
-echo renderFooter();
-echo renderPageEnd();
+// Sestavení seznamu karet
+$gridHtml = '';
+if (empty($filtered)) {
+    $gridHtml = '<p>V této kategorii nemáme momentálně žádné motorky.</p>';
+} else {
+    foreach ($filtered as $m) {
+        $gridHtml .= '<section aria-label="katalog motorek">' . renderMotoCard($m) . '</section>';
+    }
+}
+
+// Filtry — kategorie a ŘP skupiny
+$cats = [];
+$lics = [];
+foreach ($motos as $m) {
+    if (!empty($m['category'])) $cats[$m['category']] = true;
+    if (!empty($m['license_required'])) $lics[$m['license_required']] = true;
+}
+ksort($cats);
+ksort($lics);
+
+// Aktuální hodnoty filtrů pro selected stav
+$activeCat = $category ?: '';
+$activeLic = $getLic ?: '';
+
+$filterHtml = '<div id="katalog-filters"><div style="display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1.5rem">';
+$filterHtml .= '<select id="flt-cat" onchange="filterKatalog()" style="padding:.4rem .8rem;border-radius:20px;border:1px solid #ccc;font-size:.85rem;cursor:pointer">';
+$filterHtml .= '<option value="">Všechny kategorie</option>';
+foreach (array_keys($cats) as $c) {
+    $sel = (strtolower($activeCat) === strtolower($c)) ? ' selected' : '';
+    $filterHtml .= '<option value="' . htmlspecialchars($c) . '"' . $sel . '>' . htmlspecialchars($c) . '</option>';
+}
+$filterHtml .= '</select>';
+$filterHtml .= '<select id="flt-lic" onchange="filterKatalog()" style="padding:.4rem .8rem;border-radius:20px;border:1px solid #ccc;font-size:.85rem;cursor:pointer">';
+$filterHtml .= '<option value="">Všechny ŘP</option>';
+foreach (array_keys($lics) as $l) {
+    $sel = ($activeLic === $l) ? ' selected' : '';
+    $filterHtml .= '<option value="' . htmlspecialchars($l) . '"' . $sel . '>Skupina ' . htmlspecialchars($l) . '</option>';
+}
+$filterHtml .= '</select>';
+$filterHtml .= '</div></div>';
+
+// JS pro filtr: přesměruje na GET parametry (server-side filtrování)
+$filterJs = '<script>
+function filterKatalog(){
+  var cat = document.getElementById("flt-cat").value;
+  var lic = document.getElementById("flt-lic").value;
+  var params = [];
+  if(cat) params.push("kategorie=" + encodeURIComponent(cat));
+  if(lic) params.push("ridicak=" + encodeURIComponent(lic));
+  var url = "' . BASE_URL . '/katalog" + (params.length ? "?" + params.join("&") : "");
+  window.location.href = url;
+}
+</script>';
+
+$content = '<main id="content"><div class="container">' .
+    renderBreadcrumb($bc) .
+    '<div class="ccontent"><h1>' . $title . '</h1>' .
+    $filterHtml .
+    '<div id="katalog-grid" class="gr4">' . $gridHtml . '</div>' .
+    '</div></div></main>' . $filterJs;
+
+renderPage($title . ' | MotoGo24', $content, $path, [
+    'description' => 'Katalog motorek k pronájmu na Vysočině. Cestovní, sportovní, enduro a dětské motorky. Vyberte si a zarezervujte online.',
+    'keywords' => 'katalog motorek, motorky k pronájmu, cestovní motorky, sportovní motorky, enduro, dětské motorky',
+    'breadcrumbs' => [['name' => 'Domů', 'url' => 'https://motogo24.cz/'], ['name' => 'Katalog motorek', 'url' => 'https://motogo24.cz/katalog']],
+]);

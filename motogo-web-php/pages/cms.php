@@ -1,42 +1,27 @@
 <?php
-// ===== MotoGo24 Web PHP — CMS stránky (OP, GDPR, Smlouva) =====
+// ===== MotoGo24 Web PHP — CMS stránky (VOP, GDPR, Smlouva) =====
+// Odpovídá pages-cms.js
 
-$slugMap = [
-    '/obchodni-podminky' => 'obchodni-podminky',
-    '/gdpr' => 'gdpr',
-    '/smlouva' => 'smlouva-o-pronajmu',
-];
+$sb = new SupabaseClient();
+$slug = $_GET['cms_slug'] ?? '';
+$title = $_GET['cms_title'] ?? 'Stránka';
 
-$slug = $slugMap[$requestUri] ?? '';
-
-if (!$slug) {
-    http_response_code(404);
-    require __DIR__ . '/404.php';
-    return;
-}
+$bcLabel = $title;
+$bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], $bcLabel]);
 
 $page = $sb->fetchCmsPage($slug);
-
-if (!$page) {
-    http_response_code(404);
-    require __DIR__ . '/404.php';
-    return;
+$pageContent = '';
+if ($page && !empty($page['content'])) {
+    $pageContent = $page['content'];
+} else {
+    $pageContent = '<p>Obsah se připravuje. Kontaktujte nás pro více informací.</p>' .
+        '<p>&nbsp;</p><p><a class="btn btngreen" href="' . BASE_URL . '/kontakt">KONTAKTOVAT NÁS</a></p>';
 }
 
-$title = e($page['title'] ?? 'Stránka');
-$content = $page['content'] ?? '';
-$description = e($page['excerpt'] ?? $page['description'] ?? '');
+$content = '<main id="content"><div class="container">' . $bc .
+    '<div class="ccontent"><h1>' . htmlspecialchars($title) . '</h1>' . $pageContent . '</div></div></main>';
 
-echo renderHead($title . ' – Motogo24', $description);
-echo renderHeader();
-
-$bc = renderBreadcrumb([['href'=>'/', 'label'=>'Domů'], $title]);
-
-echo '<main id="content"><div class="container">' . $bc .
-    '<div class="ccontent">' .
-    '<h1>' . $title . '</h1>' .
-    '<div class="cms-content">' . $content . '</div>' .
-    '</div></div></main>';
-
-echo renderFooter();
-echo renderPageEnd();
+$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+renderPage($title . ' | MotoGo24', $content, $path, [
+    'description' => $page['excerpt'] ?? ($title . ' – půjčovna motorek Motogo24'),
+]);

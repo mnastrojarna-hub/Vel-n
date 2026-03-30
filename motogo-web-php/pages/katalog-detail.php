@@ -1,204 +1,280 @@
 <?php
 // ===== MotoGo24 Web PHP — Detail motorky =====
+// Odpovídá pages-katalog.js (detail route)
 
+$sb = new SupabaseClient();
+$motoId = $_GET['id'] ?? '';
 $motos = $sb->fetchMotos();
 
-// Find current moto
+// Najdi motorku
 $moto = null;
-$motoIndex = null;
+$idx = -1;
 foreach ($motos as $i => $m) {
-    if (($m['id'] ?? '') === $motoId) {
+    if ($m['id'] === $motoId) {
         $moto = $m;
-        $motoIndex = $i;
+        $idx = $i;
         break;
     }
 }
 
 if (!$moto) {
-    http_response_code(404);
-    require __DIR__ . '/404.php';
+    $content = '<main id="content"><div class="container">' .
+        renderBreadcrumb([['label' => 'Domů', 'href' => '/'], ['label' => 'Katalog', 'href' => '/katalog'], 'Motorka nenalezena']) .
+        '<div class="ccontent"><h1>Motorka nenalezena</h1><p><a class="btn btngreen" href="' . BASE_URL . '/katalog">Zpět na katalog</a></p></div></div></main>';
+    renderPage('Motorka nenalezena – Motogo24', $content, '/katalog/' . $motoId);
     return;
 }
 
-$model = e($moto['model'] ?? '');
-$cat = e($moto['category'] ?? '');
-$desc = $moto['description'] ?? '';
+$model = htmlspecialchars($moto['model'] ?? '');
+$prev = $idx > 0 ? $motos[$idx - 1] : null;
+$next = $idx < count($motos) - 1 ? $motos[$idx + 1] : null;
+
+$bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], ['label' => 'Katalog motorek', 'href' => '/katalog'], $model]);
+
+// Navigace prev/next
+$navHtml = '<nav class="moto-nav">';
+$navHtml .= $prev ? '<a class="moto-nav-prev" href="' . BASE_URL . '/katalog/' . htmlspecialchars($prev['id']) . '">&larr; ' . htmlspecialchars($prev['model']) . '</a>' : '<span class="moto-nav-prev moto-nav-disabled"></span>';
+$navHtml .= '<a class="moto-nav-back" href="' . BASE_URL . '/katalog">&#8801; Katalog motorek</a>';
+$navHtml .= $next ? '<a class="moto-nav-next" href="' . BASE_URL . '/katalog/' . htmlspecialchars($next['id']) . '">' . htmlspecialchars($next['model']) . ' &rarr;</a>' : '<span class="moto-nav-next moto-nav-disabled"></span>';
+$navHtml .= '</nav>';
+
+// Header
+$headerHtml = '<div class="moto-detail-header"><div><h1>' . $model . '</h1></div><div>' .
+    '<a class="btn btngreen" href="' . BASE_URL . '/rezervace?moto=' . htmlspecialchars($moto['id']) . '">REZERVOVAT ONLINE</a></div></div>';
+
+// Short desc + features
+$descHtml = '<div class="moto-shortdesc">';
+if (!empty($moto['description'])) {
+    $descHtml .= '<div class="wbox"><p>' . htmlspecialchars($moto['description']) . '</p></div><p>&nbsp;</p>';
+}
+$features = [];
+if (!empty($moto['power_kw'])) $features[] = '<strong>Výkon:</strong> ' . htmlspecialchars($moto['power_kw']) . ' kW';
+if (!empty($moto['category'])) $features[] = '<strong>Typ:</strong> ' . htmlspecialchars($moto['category']);
+if (!empty($moto['engine_cc'])) $features[] = '<strong>Motor:</strong> ' . htmlspecialchars($moto['engine_cc']) . ' ccm';
+if (!empty($moto['engine_type'])) $features[] = '<strong>Motor typ:</strong> ' . htmlspecialchars($moto['engine_type']);
+if (!empty($moto['ideal_usage'])) $features[] = '<strong>Vhodná pro:</strong> ' . htmlspecialchars($moto['ideal_usage']);
+if ($features) {
+    $descHtml .= '<h2>Krátký popis</h2><ul>';
+    foreach ($features as $f) { $descHtml .= '<li>' . $f . '</li>'; }
+    $descHtml .= '</ul><p>&nbsp;</p>';
+}
+if (!empty($moto['features'])) {
+    $descHtml .= '<h3>Výbava a výhody</h3><ul>';
+    $featArr = is_string($moto['features']) ? explode(',', $moto['features']) : ($moto['features'] ?? []);
+    foreach ($featArr as $f) { if (trim($f)) $descHtml .= '<li>' . htmlspecialchars(trim($f)) . '</li>'; }
+    $descHtml .= '</ul>';
+}
+$descHtml .= '</div>';
+
+// Gallery
 $images = $moto['images'] ?? [];
-$mainImg = imgUrl($moto['image_url'] ?? ($images[0] ?? ''));
-$license = e($moto['license_required'] ?? '');
-$engineCc = $moto['engine_cc'] ?? '';
-$powerKw = $moto['power_kw'] ?? '';
-$weight = $moto['weight_kg'] ?? '';
-$seatHeight = $moto['seat_height_mm'] ?? '';
-$idealUsage = $moto['ideal_usage'] ?? '';
-$branch = $moto['branches'] ?? null;
-$minPrice = getMinPrice($moto);
-
-$pageTitle = $model . ' – pronájem motorky | Motogo24';
-$pageDesc = 'Pronájem motorky ' . $model . ' v půjčovně motorek Motogo24 na Vysočině. ' . ($cat ? 'Kategorie: ' . $cat . '. ' : '') . ($minPrice > 0 ? 'Cena od ' . formatPrice($minPrice) . '/den.' : '');
-
-echo renderHead($pageTitle, $pageDesc, '', $mainImg);
-echo renderHeader();
-
-// Prev / Next navigation
-$prevMoto = ($motoIndex > 0) ? $motos[$motoIndex - 1] : null;
-$nextMoto = ($motoIndex < count($motos) - 1) ? $motos[$motoIndex + 1] : null;
-
-// Breadcrumb
-$bc = renderBreadcrumb([
-    ['href'=>'/', 'label'=>'Domů'],
-    ['href'=>'/katalog', 'label'=>'Katalog motorek'],
-    $model
-]);
-
-// Prev/Next nav
-$prevNextHtml = '<div class="prev-next-nav dfjs" style="margin-bottom:24px">';
-if ($prevMoto) {
-    $prevNextHtml .= '<a class="btn btndark" href="/katalog/' . e($prevMoto['id']) . '">&larr; ' . e($prevMoto['model']) . '</a>';
-} else {
-    $prevNextHtml .= '<span></span>';
+$mainImg = imgUrl($moto['image_url'] ?? (!empty($images) ? $images[0] : ''));
+$galleryHtml = '<div class="moto-gallery">';
+if ($mainImg) {
+    $galleryHtml .= '<div class="moto-photo"><a href="' . htmlspecialchars($mainImg) . '" target="_blank"><div class="gallery-img"><img src="' . htmlspecialchars($mainImg) . '" alt="' . $model . '" loading="lazy"></div></a></div>';
 }
-if ($nextMoto) {
-    $prevNextHtml .= '<a class="btn btndark" href="/katalog/' . e($nextMoto['id']) . '">' . e($nextMoto['model']) . ' &rarr;</a>';
-} else {
-    $prevNextHtml .= '<span></span>';
+if (!empty($moto['images']) && count($moto['images']) > 1) {
+    $galleryHtml .= '<div class="gr3">';
+    foreach (array_slice($moto['images'], 1, 3) as $img) {
+        $u = imgUrl($img);
+        $galleryHtml .= '<div><a href="' . htmlspecialchars($u) . '" target="_blank"><div class="gallery-img"><img src="' . htmlspecialchars($u) . '" alt="' . $model . '" loading="lazy"></div></a></div>';
+    }
+    $galleryHtml .= '</div>';
 }
-$prevNextHtml .= '</div>';
+$galleryHtml .= '</div>';
 
-// Header section with image and basic info
-$headerHtml = '<div class="gr2">';
-$headerHtml .= '<div>' . ($mainImg ? '<img src="' . e($mainImg) . '" alt="' . $model . '" class="imgres" loading="lazy">' : '') . '</div>';
-$headerHtml .= '<div>';
-$headerHtml .= '<h1>' . $model . '</h1>';
-if ($cat) $headerHtml .= '<p><strong>Kategorie:</strong> ' . $cat . '</p>';
-if ($license && $license !== 'N') $headerHtml .= '<p><strong>Řidičský průkaz:</strong> ' . $license . '</p>';
-if ($minPrice > 0) $headerHtml .= '<p class="moto-price" style="font-size:1.3rem"><strong>Cena od ' . formatPrice($minPrice) . '/den</strong></p>';
-$headerHtml .= '<p>&nbsp;</p>';
-$headerHtml .= '<p><a class="btn btngreen pulse" id="moto-cal-reserve-btn" href="/rezervace?moto=' . e($motoId) . '">REZERVOVAT MOTORKU</a></p>';
-$headerHtml .= '</div></div>';
-
-// Description
-$descHtml = '';
-if ($desc) {
-    $descHtml = '<section><h2>Popis motorky</h2><div class="cms-content">' . $desc . '</div></section>';
-}
+$infoHtml = '<section class="moto-info gr2">' . $descHtml . $galleryHtml . '</section>';
 
 // Specs table
 $specsRows = [];
-if ($cat) $specsRows[] = ['Kategorie', $cat];
-if ($license && $license !== 'N') $specsRows[] = ['Řidičský průkaz', $license];
-if ($engineCc) $specsRows[] = ['Objem motoru', $engineCc . ' ccm'];
-if ($powerKw) $specsRows[] = ['Výkon', $powerKw . ' kW'];
-if ($weight) $specsRows[] = ['Hmotnost', $weight . ' kg'];
-if ($seatHeight) $specsRows[] = ['Výška sedla', $seatHeight . ' mm'];
-if ($idealUsage) {
-    $usageText = is_array($idealUsage) ? implode(', ', $idealUsage) : $idealUsage;
-    $specsRows[] = ['Ideální využití', e($usageText)];
-}
-if ($branch) {
-    $branchText = e($branch['name'] ?? '') . ', ' . e($branch['address'] ?? '') . ' ' . e($branch['city'] ?? '');
-    $specsRows[] = ['Pobočka', trim($branchText, ', ')];
-}
+if (!empty($moto['engine_cc'])) $specsRows[] = ['Objem motoru', $moto['engine_cc'] . ' ccm'];
+if (!empty($moto['power_kw'])) $specsRows[] = ['Výkon', $moto['power_kw'] . ' kW'];
+if (!empty($moto['engine_type'])) $specsRows[] = ['Typ motoru', $moto['engine_type']];
+if (!empty($moto['weight_kg'])) $specsRows[] = ['Hmotnost', $moto['weight_kg'] . ' kg'];
+if (!empty($moto['seat_height_mm'])) $specsRows[] = ['Výška sedla', $moto['seat_height_mm'] . ' mm'];
+if (!empty($moto['fuel_tank_l'])) $specsRows[] = ['Nádrž', $moto['fuel_tank_l'] . ' l'];
+if (!empty($moto['has_abs'])) $specsRows[] = ['ABS', 'Ano'];
+if (!empty($moto['license_required'])) $specsRows[] = ['Řidičák', 'Skupina ' . $moto['license_required']];
+if (!empty($moto['ideal_usage'])) $specsRows[] = ['Ideální pro', $moto['ideal_usage']];
 
-$specsHtml = '';
-if (!empty($specsRows)) {
-    $specsHtml = '<section><h2>Technické parametry</h2>' .
-        renderTable(['Parametr', 'Hodnota'], $specsRows) .
-        '</section>';
+$descSpecsHtml = '<section class="gr2"><div>';
+$descSpecsHtml .= '<h2>Popis motorky</h2><p>' . htmlspecialchars($moto['description'] ?? $moto['model']) . '</p>';
+if (!empty($moto['manual_url'])) {
+    $descSpecsHtml .= '<p>&nbsp;</p><p><a class="btn btngreen" href="' . htmlspecialchars($moto['manual_url']) . '" target="_blank" rel="noopener">Uživatelský manuál</a></p>';
 }
-
-// Gallery
-$galleryHtml = '';
-if (count($images) > 1) {
-    $galleryHtml = '<section><h2>Galerie</h2><div class="gallery gr3">';
-    foreach ($images as $img) {
-        $src = imgUrl($img);
-        $galleryHtml .= '<div class="gallery-item"><img src="' . e($src) . '" alt="' . $model . '" class="imgres" loading="lazy"></div>';
-    }
-    $galleryHtml .= '</div></section>';
+$descSpecsHtml .= '</div><div><h2>Technická specifikace</h2>';
+if ($specsRows) {
+    $descSpecsHtml .= renderTable(['Parametr', 'Hodnota'], $specsRows);
 }
+$descSpecsHtml .= '</div></section>';
 
 // Pricing table
-$pricingHtml = '<section><h2>Ceník pronájmu</h2>';
-$dayNames = ['Pondělí'=>'price_mon','Úterý'=>'price_tue','Středa'=>'price_wed','Čtvrtek'=>'price_thu','Pátek'=>'price_fri','Sobota'=>'price_sat','Neděle'=>'price_sun'];
+$days = ['Pondělí', 'Úterý', 'Středa', 'Čtvrtek', 'Pátek', 'Sobota', 'Neděle'];
+$priceKeys = ['price_mon', 'price_tue', 'price_wed', 'price_thu', 'price_fri', 'price_sat', 'price_sun'];
 $priceRows = [];
-foreach ($dayNames as $label => $key) {
-    $val = $moto[$key] ?? 0;
-    if ($val > 0) {
-        $priceRows[] = [$label, formatPrice($val)];
-    }
+foreach ($days as $i => $day) {
+    $p = $moto[$priceKeys[$i]] ?? 0;
+    if ($p) $priceRows[] = [$day, formatPrice($p)];
 }
-if (!empty($priceRows)) {
-    $pricingHtml .= renderTable(['Den', 'Cena / den'], $priceRows);
-} else {
-    $pricingHtml .= '<p>Ceník bude doplněn.</p>';
-}
-$pricingHtml .= '</section>';
 
-// Calendar section (interactive JS)
-$calendarHtml = '<section><h2>Dostupnost a kalendář</h2>' .
-    '<div id="moto-calendar"></div>' .
+$pricesHtml = '<section class="moto-prices gr2"><div><h2>Ceník půjčovného</h2>' .
+    '<p>Cena půjčení se liší podle dne v týdnu:</p>';
+if ($priceRows) $pricesHtml .= renderTable(['Den', 'Cena za den'], $priceRows);
+$pricesHtml .= '<p><strong>V ceně je zahrnuta výbava:</strong> helma, bunda, kalhoty a rukavice.</p></div>';
+
+// Kalendář — zůstane jako JS (interaktivní komponenta)
+$calId = 'detail-cal-' . $moto['id'];
+$pricesHtml .= '<div class="moto-reservation"><h2>Dostupnost</h2>' .
+    '<p>Vyberte si volný termín přímo v kalendáři a přejděte na rezervaci.</p>' .
+    '<div id="' . $calId . '" class="calendar-placeholder"><div class="loading-overlay"><span class="spinner"></span> Načítám dostupnost...</div></div>' .
     '<div class="calendar-icons gr3"><div><span class="cicon loosely">&nbsp;</span> Volné</div><div><span class="cicon occupied">&nbsp;</span> Obsazené</div><div><span class="cicon unconfirmed">&nbsp;</span> Nepotvrzené</div></div>' .
-    '<div id="moto-calendar-banner" style="display:none"></div>' .
-    '</section>';
+    '<div id="' . $calId . '-banner" style="display:none"></div>' .
+    '<p class="calendar-info">* Vyberte si prosím minimálně 3 souvislé dny.</p>' .
+    '<div class="reservation-btn"><a id="' . $calId . '-reserve-btn" class="btn btngreen" href="' . BASE_URL . '/rezervace?moto=' . htmlspecialchars($moto['id']) . '">PŘEJÍT NA REZERVACE</a></div>' .
+'</div></section>';
 
-// Related motos (same category, max 4)
-$relatedHtml = '';
-$related = array_filter($motos, function($m) use ($motoId, $moto) {
-    return ($m['id'] ?? '') !== $motoId && ($m['category'] ?? '') === ($moto['category'] ?? '');
+// Podobné motorky
+$related = array_filter($motos, function($m) use ($moto) {
+    if ($m['id'] === $moto['id']) return false;
+    $sameLP = ($m['license_required'] ?? '') === ($moto['license_required'] ?? '');
+    $sameCat = ($m['category'] ?? '') === ($moto['category'] ?? '');
+    return $sameLP || $sameCat;
 });
-$related = array_slice(array_values($related), 0, 4);
-if (!empty($related)) {
-    $relatedHtml = '<section><h2>Další motorky v kategorii</h2><div class="gr4">';
-    foreach ($related as $r) {
-        $relatedHtml .= renderMotoCard($r);
+usort($related, function($a, $b) use ($moto) {
+    $aScore = (($a['category'] ?? '') === ($moto['category'] ?? '') ? 2 : 0) + (($a['license_required'] ?? '') === ($moto['license_required'] ?? '') ? 1 : 0);
+    $bScore = (($b['category'] ?? '') === ($moto['category'] ?? '') ? 2 : 0) + (($b['license_required'] ?? '') === ($moto['license_required'] ?? '') ? 1 : 0);
+    return $bScore - $aScore;
+});
+$related = array_slice($related, 0, 4);
+
+$relatedHtml = '';
+if ($related) {
+    $relatedHtml = '<section class="moto-related"><h2>Podobné motorky k zapůjčení</h2><div class="gr4">';
+    foreach ($related as $m) {
+        $relatedHtml .= '<section aria-label="katalog motorek">' . renderMotoCard($m) . '</section>';
     }
     $relatedHtml .= '</div></section>';
 }
 
-echo '<main id="content"><div class="container">' . $bc .
-    '<div class="ccontent">' .
-    $prevNextHtml .
-    $headerHtml .
-    '<p>&nbsp;</p>' .
-    $descHtml .
-    $specsHtml .
-    $galleryHtml .
-    $pricingHtml .
-    $calendarHtml .
-    '<p>&nbsp;</p>' .
-    $prevNextHtml .
-    $relatedHtml .
-    '</div></div></main>';
+// Inline JS pro kalendář (interaktivní komponenta — zůstává v JS)
+$calendarJs = '<script>
+var SUPABASE_URL = ' . json_encode(SUPABASE_URL) . ';
+var SUPABASE_ANON_KEY = ' . json_encode(SUPABASE_ANON_KEY) . ';
+var MOTO_ID = ' . json_encode($moto['id']) . ';
+var CAL_ID = ' . json_encode($calId) . ';
 
-echo renderFooter();
-
-// Calendar JS init
-$needsSupabase = true;
-?>
-<script>
-document.addEventListener('DOMContentLoaded', function(){
-  // Wait for Supabase SDK and components to load
-  var checkReady = setInterval(function(){
-    if(typeof MG !== 'undefined' && typeof MG._buildCalendar === 'function'){
-      clearInterval(checkReady);
-      MG._buildCalendar('moto-calendar', '<?php echo e($motoId); ?>');
-
-      // Override reserve button updater for clean URLs
-      var origUpdate = MG._calUpdateReserveBtn;
-      MG._calUpdateReserveBtn = function(containerId){
-        var state = MG._calState[containerId];
-        if(!state) return;
-        var btn = document.getElementById('moto-cal-reserve-btn');
-        if(!btn) return;
-        var href = '/rezervace?moto=' + state.motoId;
-        if(state.startDate) href += '&start=' + state.startDate;
-        if(state.endDate) href += '&end=' + state.endDate;
-        btn.href = href;
-      };
+(function(){
+  var _calState = {};
+  function formatDateCal(iso){
+    if(!iso) return "";
+    var d = new Date(iso);
+    return d.getDate()+"."+(d.getMonth()+1)+"."+d.getFullYear();
+  }
+  async function fetchBookings(motoId){
+    try {
+      var r = await fetch(SUPABASE_URL+"/rest/v1/rpc/get_moto_booked_dates",{
+        method:"POST",headers:{"apikey":SUPABASE_ANON_KEY,"Authorization":"Bearer "+SUPABASE_ANON_KEY,"Content-Type":"application/json"},
+        body:JSON.stringify({p_moto_id:motoId})
+      });
+      return await r.json();
+    } catch(e){ return []; }
+  }
+  async function buildCalendar(){
+    var el = document.getElementById(CAL_ID); if(!el) return;
+    var bookings = await fetchBookings(MOTO_ID);
+    var bookedDays = {}, now = new Date();
+    (bookings||[]).forEach(function(b){
+      var s=new Date(b.start_date),e=new Date(b.end_date),d=new Date(s);
+      var isPending=b.status==="pending",createdAt=b.created_at?new Date(b.created_at):null;
+      var isRecent=createdAt&&(now-createdAt)<4*60*60*1000;
+      var status=(isPending&&isRecent)?"unconfirmed":"occupied";
+      while(d<=e){var key=d.toISOString().split("T")[0];bookedDays[key]=status;d.setDate(d.getDate()+1);}
+    });
+    _calState={year:now.getFullYear(),month:now.getMonth(),bookedDays:bookedDays,motoId:MOTO_ID,startDate:null,endDate:null};
+    renderMonth();
+  }
+  function renderMonth(){
+    var el=document.getElementById(CAL_ID);if(!el)return;
+    var s=_calState,y=s.year,m=s.month;
+    var months=["Leden","Únor","Březen","Duben","Květen","Červen","Červenec","Srpen","Září","Říjen","Listopad","Prosinec"];
+    var dayNames=["Po","Út","St","Čt","Pá","So","Ne"],dayFull=["Ne","Po","Út","St","Čt","Pá","So"];
+    var firstDay=new Date(y,m,1),lastDay=new Date(y,m+1,0);
+    var startDow=(firstDay.getDay()+6)%7,todayStr=new Date().toISOString().split("T")[0];
+    var sd=s.startDate,ed=s.endDate;
+    var html=\'<div class="cal-nav"><button onclick="calPrev()">&larr;</button><span>\'+months[m]+" "+y+\'</span><button onclick="calNext()">&rarr;</button></div>\';
+    html+=\'<div class="cal-grid">\';
+    dayNames.forEach(function(d){html+=\'<div class="cal-header">\'+d+"</div>";});
+    for(var i=0;i<startDow;i++)html+=\'<div class="cal-day empty"></div>\';
+    for(var d=1;d<=lastDay.getDate();d++){
+      var ds=y+"-"+String(m+1).padStart(2,"0")+"-"+String(d).padStart(2,"0");
+      var booked=s.bookedDays[ds],isPast=ds<todayStr;
+      var inRange=sd&&ed&&ds>=sd&&ds<=ed,isStart=sd&&ds===sd,isEnd=ed&&ds===ed;
+      var dayOfWeek=dayFull[new Date(y,m,d).getDay()];
+      var bg,color,cursor="default",border="none";
+      if(isPast||booked==="occupied"){bg="#444";color="#fff";cursor="not-allowed";}
+      else if(booked==="unconfirmed"){bg="#fff";color="#333";cursor="not-allowed";border="2px solid #ccc";}
+      else if(isStart||isEnd){bg="#1a8c1a";color="#fff";cursor="pointer";border="2px solid #fff";}
+      else if(inRange){bg="#1a8c1a";color="#fff";cursor="pointer";}
+      else{bg="#74FB71";color="#0b0b0b";cursor="pointer";}
+      var canClick=!isPast&&!booked;
+      var style="background:"+bg+";color:"+color+";cursor:"+cursor+";border:"+border+";border-radius:12px;";
+      var click=canClick?" onclick=\"calPick(\'"+ds+"\')\"":"";
+      html+=\'<div class="cal-day" style="\'+style+\'"\'+click+\'><span style="font-size:.65rem;opacity:.7;display:block;line-height:1">\'+dayOfWeek+"</span><span style=\"font-weight:700\">"+d+"</span></div>";
     }
-  }, 100);
-});
-</script>
-<?php
-echo renderPageEnd($needsSupabase);
+    html+="</div>";el.innerHTML=html;
+  }
+  window.calPick=function(ds){
+    var s=_calState;
+    if(!s.startDate||s.endDate){s.startDate=ds;s.endDate=null;}
+    else if(ds<s.startDate){s.startDate=ds;s.endDate=null;}
+    else if(ds===s.startDate){s.startDate=null;s.endDate=null;}
+    else{s.endDate=ds;}
+    renderMonth();updateBanner();updateBtn();
+  };
+  function updateBanner(){
+    var ban=document.getElementById(CAL_ID+"-banner");if(!ban)return;
+    var s=_calState;
+    if(!s.startDate){ban.style.display="none";return;}
+    if(!s.endDate){
+      ban.style.display="block";
+      ban.innerHTML=\'<div style="background:#74FB71;color:#0b0b0b;padding:12px 16px;border-radius:25px;margin:12px 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span>Vybrán začátek: <strong>\'+formatDateCal(s.startDate)+\'</strong> — klikněte na koncové datum</span><span class="btn" style="background:#0b0b0b;color:#74FB71;padding:6px 14px;font-size:.85rem;cursor:pointer;border-radius:20px" onclick="calReset()">&#x2715; ZRUŠIT VÝBĚR</span></div>\';
+      return;
+    }
+    ban.style.display="block";
+    ban.innerHTML=\'<div style="background:#74FB71;color:#0b0b0b;padding:14px 18px;border-radius:25px;margin:12px 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span style="font-size:1.05rem"><strong>VYBRANÝ TERMÍN: \'+formatDateCal(s.startDate)+" – "+formatDateCal(s.endDate)+\'</strong></span><span class="btn" style="background:#0b0b0b;color:#74FB71;padding:6px 14px;font-size:.85rem;cursor:pointer;border-radius:20px" onclick="calReset()">&#x2715; ZRUŠIT VÝBĚR</span></div>\';
+  }
+  function updateBtn(){
+    var s=_calState;var btn=document.getElementById(CAL_ID+"-reserve-btn");if(!btn)return;
+    var href="' . BASE_URL . '/rezervace?moto="+s.motoId;
+    if(s.startDate)href+="&start="+s.startDate;
+    if(s.endDate)href+="&end="+s.endDate;
+    btn.href=href;
+  }
+  window.calReset=function(){_calState.startDate=null;_calState.endDate=null;renderMonth();updateBanner();updateBtn();};
+  window.calPrev=function(){_calState.month--;if(_calState.month<0){_calState.month=11;_calState.year--;}renderMonth();};
+  window.calNext=function(){_calState.month++;if(_calState.month>11){_calState.month=0;_calState.year++;}renderMonth();};
+  buildCalendar();
+})();
+</script>';
+
+$content = '<main id="content"><div class="container">' . $bc .
+    '<article class="moto-detail ccontent" itemscope itemtype="https://schema.org/Product">' .
+        '<header>' . $navHtml . $headerHtml . '</header>' .
+        $infoHtml . $descSpecsHtml . $pricesHtml . $relatedHtml .
+    '</article></div></main>' . $calendarJs;
+
+// Product schema
+$minPrice = getMinPrice($moto);
+$productSchema = '
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"Product","name":' . json_encode($moto['model'], JSON_UNESCAPED_UNICODE) . ',"description":' . json_encode($moto['description'] ?? $moto['model'], JSON_UNESCAPED_UNICODE) . ',"image":' . json_encode($mainImg ?: 'https://motogo24.cz/gfx/logo.svg') . ',"brand":{"@type":"Brand","name":' . json_encode($moto['brand'] ?? '', JSON_UNESCAPED_UNICODE) . '},"offers":{"@type":"Offer","priceCurrency":"CZK","price":' . json_encode($minPrice) . ',"availability":"https://schema.org/InStock","url":"https://motogo24.cz/katalog/' . $motoId . '"}}
+  </script>';
+
+renderPage($model . ' | Půjčovna MotoGo24', $content, '/katalog/' . $motoId, [
+    'description' => htmlspecialchars($moto['description'] ?? ('Pronájem motorky ' . $moto['model'] . ' na Vysočině. Bez kauce, výbava v ceně.')),
+    'keywords' => 'pronájem ' . $moto['model'] . ', půjčit ' . $moto['model'] . ', motorka k pronájmu',
+    'og_image' => $mainImg ?: 'https://motogo24.cz/gfx/hero-banner.png',
+    'og_type' => 'product',
+    'schema' => $productSchema,
+    'breadcrumbs' => [['name' => 'Domů', 'url' => 'https://motogo24.cz/'], ['name' => 'Katalog', 'url' => 'https://motogo24.cz/katalog'], ['name' => $moto['model'], 'url' => 'https://motogo24.cz/katalog/' . $motoId]],
+]);

@@ -1,75 +1,49 @@
 <?php
 // ===== MotoGo24 Web PHP — Kontakt =====
+// Odpovídá pages-kontakt.js
 
-echo renderHead('Kontakt – půjčovna motorek Motogo24', 'Kontaktujte půjčovnu motorek Motogo24 v Pelhřimově. Telefon, e-mail, adresa, mapa a sociální sítě.');
-echo renderHeader();
+$bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], 'Kontakt']);
 
-$bc = renderBreadcrumb([['href'=>'/', 'label'=>'Domů'], 'Kontakt']);
+$quickContact = '<section><div class="contact-quick-boxes">' .
+    '<div class="contact-quick-box dfc"><div class="img-icon dfcc"><img src="gfx/telefon.svg" alt="Telefon" class="icon-small" loading="lazy"></div><div>' .
+    '<p><small>ZAVOLEJTE NÁM</small><br><strong><a href="' . PHONE_LINK . '">' . PHONE . '</a></strong></p></div></div>' .
+    '<div class="contact-quick-box dfc"><div class="img-icon dfcc"><img src="gfx/email.svg" alt="E-mail" class="icon-small" loading="lazy"></div><div>' .
+    '<p><small>NAPIŠTE NÁM</small><br><strong>' . EMAIL_USER . '@' . EMAIL_DOMAIN . '</strong></p></div></div>' .
+    '<div class="contact-quick-box dfc"><div><p><small>DATOVÁ SCHRÁNKA</small><br><strong>iuw3vnb</strong></p></div></div>' .
+    '</div></section>';
 
-$email = EMAIL_USER . '@' . EMAIL_DOMAIN;
+$infoSection = '<div class="gr2 contact-info"><section>' .
+    '<h2>Provozovna</h2>' .
+    '<p><strong>Adresa:</strong><br>' . ADDRESS . '</p><p>&nbsp;</p>' .
+    '<p><strong>Provozní doba:</strong><br>PO – NE: 00:00 – 24:00 (nonstop)<br>Včetně víkendů a svátků</p><p>&nbsp;</p>' .
+    '<h2>Fakturační údaje</h2>' .
+    '<p><strong>' . COMPANY_NAME . '</strong><br>' . COMPANY_ADDRESS . '</p><p>&nbsp;</p>' .
+    '<p>IČO: ' . COMPANY_ICO . '<br>Nejsem plátce DPH</p><p>&nbsp;</p>' .
+    '<p>Společnost byla zapsána dne 31. 7. 2024 u Městského úřadu v Pelhřimově.</p>' .
+    '</section><div>' .
+    '<section><h2>Sledujte nás</h2>' .
+    '<p class="dfc"><span class="social-icon"><img alt="Facebook" src="gfx/facebook.svg"></span>&nbsp;<a href="' . FB_URL . '">facebook</a></p><p>&nbsp;</p>' .
+    '<p class="dfc"><span class="social-icon"><img alt="Instagram" src="gfx/instagram.svg"></span>&nbsp;<a href="' . IG_URL . '">instagram</a></p></section>' .
+    '<section class="cta-green-box"><h2>Chcete si domluvit rezervaci?</h2>' .
+    '<p>Rezervujte si motorku online během pár minut a vyražte za dobrodružstvím.</p><p>&nbsp;</p>' .
+    '<p><a class="btn btndark" href="' . BASE_URL . '/rezervace">REZERVOVAT ONLINE</a></p></section>' .
+    '</div></div>';
 
-// Quick contact boxes
-$quickBoxes = '<div class="gr4">' .
-    '<div class="wbox"><div class="wbox-img"><img src="gfx/telefon.svg" class="icon" alt="Telefon" loading="lazy"></div>' .
-        '<h3><p>Zavolejte nám</p></h3>' .
-        '<p><a href="' . PHONE_LINK . '">' . PHONE . '</a></p></div>' .
-    '<div class="wbox"><div class="wbox-img"><img src="gfx/email.svg" class="icon" alt="E-mail" loading="lazy"></div>' .
-        '<h3><p>Napište nám</p></h3>' .
-        '<p><a href="mailto:' . $email . '">' . $email . '</a></p></div>' .
-    '<div class="wbox"><div class="wbox-img"><img src="gfx/adresa.svg" class="icon" alt="Adresa" loading="lazy"></div>' .
-        '<h3><p>Navštivte nás</p></h3>' .
-        '<p>' . ADDRESS . '</p></div>' .
-    '<div class="wbox"><div class="wbox-img"><img src="gfx/provozni-doba.svg" class="icon" alt="Provozní doba" loading="lazy"></div>' .
-        '<h3><p>Provozní doba</p></h3>' .
-        '<p><strong>PO – NE</strong> 00:00 – 24:00 (nonstop)</p></div>' .
-'</div>';
-
-// Info section
-$info = '<section>' .
-    '<h2>Informace o firmě</h2>' .
-    '<p><strong>Bc. Petra Semorádová</strong></p>' .
-    '<p>IČO: 21874263</p>' .
-    '<p>Sídlo: ' . ADDRESS . '</p>' .
-    '<p>&nbsp;</p>' .
-    '<p>Kontaktní telefon: <a href="' . PHONE_LINK . '">' . PHONE . '</a></p>' .
-    '<p>E-mail: <a href="mailto:' . $email . '">' . $email . '</a></p>' .
-'</section>';
-
-// Google Maps
-$map = '<section>' .
+$mapSection = '<section>' .
     '<h2>Kde nás najdete</h2>' .
-    '<div class="map-wrapper">' .
-        '<iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2588.0!2d15.2256!3d49.4314!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x470d1a!2sMezn%C3%A1%209%2C%20393%2001%20Pelh%C5%99imov!5e0!3m2!1scs!2scz!4v1" ' .
-            'width="100%" height="450" style="border:0;border-radius:12px" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Mapa – půjčovna motorek Motogo24"></iframe>' .
-    '</div>' .
-'</section>';
+    '<p><iframe aria-label="Mapa kde nás najdete" class="map" loading="lazy" src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d60685.769400224744!2d15.153296724864992!3d49.356399196882506!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x470ce75bf69a97b3%3A0xe75f9d3fadf02b5b!2zTWV6bsOhIDksIDM5MyAwMSBNZXpuw6E!5e0!3m2!1scs!2scz!4v1762106938627!5m2!1scs!2scz"></iframe></p></section>';
 
-// Social links
-$social = '<section>' .
-    '<h2>Sledujte nás</h2>' .
-    '<div class="gr2">' .
-        '<div class="wbox"><div class="dfc">' .
-            '<span class="footer-social-icon"><img alt="Facebook" src="gfx/facebook.svg"></span>&nbsp;' .
-            '<a href="' . FB_URL . '" target="_blank" rel="noopener">Facebook</a>' .
-        '</div></div>' .
-        '<div class="wbox"><div class="dfc">' .
-            '<span class="footer-social-icon"><img alt="Instagram" src="gfx/instagram.svg"></span>&nbsp;' .
-            '<a href="' . IG_URL . '" target="_blank" rel="noopener">Instagram</a>' .
-        '</div></div>' .
-    '</div>' .
-'</section>';
+$seoText = '<h2>Kontakty – půjčovna motorek Vysočina (Pelhřimov)</h2>' .
+    '<p>Motogo24 je&nbsp;<strong>moderní půjčovna motorek na Vysočině</strong>. Sídlíme v&nbsp;<strong>Pelhřimově</strong>, jsme otevřeni&nbsp;<strong>nonstop</strong>&nbsp;a půjčujeme&nbsp;<strong>bez kauce</strong>, s kompletní&nbsp;<strong>výbavou v ceně</strong>.</p>';
 
-$cta = renderCta('Máte zájem o pronájem motorky?',
-    'Neváhejte a <strong>zarezervujte si motorku online</strong>. Jsme tu pro vás <strong>nonstop</strong>.',
-    [
-        ['label'=>'REZERVOVAT MOTORKU', 'href'=>'/rezervace', 'cls'=>'btndark pulse'],
-        ['label'=>'KATALOG MOTOREK', 'href'=>'/katalog', 'cls'=>'btndark'],
-    ]);
-
-echo '<main id="content"><div class="container">' . $bc .
-    '<div class="ccontent"><h1>Kontakt – půjčovna motorek Motogo24</h1>' .
-    $quickBoxes . $info . $map . $social . $cta .
+$content = '<main id="content"><div class="container contact">' . $bc .
+    '<div class="ccontent contacts">' .
+    '<h1>Kontakty půjčovna motorek Motogo24</h1>' .
+    '<p>Máte dotaz k <strong>půjčení motorky</strong>, chcete si objednat <strong>dárkový poukaz</strong>, poradit s výběrem nebo si rovnou <strong>domluvit rezervaci</strong>? Jsme tu pro vás každý den, <strong>nonstop</strong>.</p><p>&nbsp;</p>' .
+    $quickContact . $infoSection . $mapSection . $seoText .
     '</div></div></main>';
 
-echo renderFooter();
-echo renderPageEnd();
+renderPage('Kontakt | MotoGo24 – půjčovna motorek Vysočina', $content, '/kontakt', [
+    'description' => 'Kontakty na půjčovnu motorek Motogo24 v Pelhřimově. Telefon +420 774 256 271, e-mail info@motogo24.cz. Nonstop provoz, adresa Mezná 9.',
+    'keywords' => 'kontakt Motogo24, půjčovna motorek Pelhřimov, telefon, adresa, provozní doba, nonstop',
+]);
