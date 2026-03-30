@@ -168,20 +168,39 @@ function onAuthStateChange(callback) {
 }
 
 /**
- * Reset password (send email).
+ * Reset password (send email with OTP code).
  */
 async function authResetPassword(email) {
     try {
         _ensureSupabase();
         if (!supabase) return { error: 'Supabase není připojen.' };
 
-        var result = await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: window.location.origin + '/reset-password'
-        });
+        var result = await supabase.auth.resetPasswordForEmail(email);
         return { error: result.error ? result.error.message : null };
     } catch (e) {
         console.error('[MotoGo24] authResetPassword error:', e);
         return { error: 'Chyba při odesílání emailu pro reset hesla.' };
+    }
+}
+
+/**
+ * Verify OTP recovery code and get session.
+ */
+async function authVerifyRecoveryOtp(email, token) {
+    try {
+        _ensureSupabase();
+        if (!supabase) return { error: 'Supabase není připojen.', session: null };
+
+        var result = await supabase.auth.verifyOtp({
+            email: email,
+            token: token,
+            type: 'recovery'
+        });
+        if (result.error) return { error: result.error.message, session: null };
+        return { error: null, session: result.data.session };
+    } catch (e) {
+        console.error('[MotoGo24] authVerifyRecoveryOtp error:', e);
+        return { error: 'Chyba při ověřování kódu.', session: null };
     }
 }
 

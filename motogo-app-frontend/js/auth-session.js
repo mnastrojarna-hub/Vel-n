@@ -3,24 +3,25 @@
 
 // ===== FORGOT PASSWORD FLOW =====
 var _fpStep=1;
+var _fpEmail='';
 function showForgotPassword(){
-  _fpStep=1;
+  _fpStep=1;_fpEmail='';
   var html='<div class="reg-hdr"><div class="back-row" onclick="closeForgotPassword()"><div class="bk-c">←</div><div class="bk-l">'+_t('auth').backLogin+'</div></div>'+
     '<h2>'+_t('auth').passRecovery+'</h2></div>'+
     '<div class="bcard" style="margin:14px 20px;">'+
     '<div id="fp-step-1" class="reg-step active"><div class="reg-step-title">'+_t('auth').fpStep1Title+'</div>'+
     '<div class="reg-step-sub">'+_t('auth').fpStep1Sub+'</div>'+
     '<div class="ff"><label>'+_t('auth').email+'</label><input id="fp-email" type="email" placeholder="jan@email.cz"></div>'+
-    '<button class="btn-g" onclick="fpNext()">'+_t('auth').fpSendCode+'</button></div>'+
+    '<button class="btn-g" id="fp-btn-1" onclick="fpNext()">'+_t('auth').fpSendCode+'</button></div>'+
     '<div id="fp-step-2" class="reg-step"><div class="reg-step-title">'+_t('auth').fpStep2Title+'</div>'+
     '<div class="reg-step-sub">'+_t('auth').fpStep2Sub+'</div>'+
-    '<div class="ff"><label>'+_t('auth').fpCodeLabel+'</label><input id="fp-code" type="text" placeholder="123456" maxlength="6" style="letter-spacing:4px;text-align:center;font-size:20px;"></div>'+
-    '<button class="btn-g" onclick="fpNext()">'+_t('auth').fpVerifyCode+'</button></div>'+
+    '<div class="ff"><label>'+_t('auth').fpCodeLabel+'</label><input id="fp-code" type="text" inputmode="numeric" placeholder="123456" maxlength="6" style="letter-spacing:4px;text-align:center;font-size:20px;"></div>'+
+    '<button class="btn-g" id="fp-btn-2" onclick="fpNext()">'+_t('auth').fpVerifyCode+'</button></div>'+
     '<div id="fp-step-3" class="reg-step"><div class="reg-step-title">'+_t('auth').fpStep3Title+'</div>'+
     '<div class="reg-step-sub">'+_t('auth').fpStep3Sub+'</div>'+
     '<div class="ff"><label>'+_t('auth').fpNewPass+'</label><input id="fp-pass1" type="password" placeholder="••••••••"></div>'+
     '<div class="ff"><label>'+_t('auth').fpRepeatPass+'</label><input id="fp-pass2" type="password" placeholder="••••••••"></div>'+
-    '<button class="btn-g" onclick="fpNext()">'+_t('auth').fpSetPass+'</button></div>'+
+    '<button class="btn-g" id="fp-btn-3" onclick="fpNext()">'+_t('auth').fpSetPass+'</button></div>'+
     '</div>';
   var ov=document.getElementById('fp-overlay');
   if(!ov){ov=document.createElement('div');ov.id='fp-overlay';ov.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#f8f8f8;overflow-y:auto;';document.querySelector('.phone').appendChild(ov);}
@@ -34,40 +35,54 @@ function closeForgotPassword(){
   }
   var ov=document.getElementById('fp-overlay');if(ov)ov.style.display='none';
 }
+function _fpGoStep(n){
+  document.getElementById('fp-step-'+_fpStep).classList.remove('active');
+  _fpStep=n;
+  document.getElementById('fp-step-'+_fpStep).classList.add('active');
+}
 function fpNext(){
   if(_fpStep===1){
     var em=document.getElementById('fp-email');
     if(!em||!em.value.trim()||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em.value.trim())){showT('⚠️',_t('auth').email,_t('auth').validEmail);return;}
-    if(_isSupabaseReady()){
-      authResetPassword(em.value.trim()).then(function(r){
-        if(r.error){showT('✗',_t('auth').error,r.error);return;}
-        showT('📧',_t('auth').codeSent,_t('auth').checkMail);
-        document.getElementById('fp-step-'+_fpStep).classList.remove('active');
-        _fpStep++;
-        document.getElementById('fp-step-'+_fpStep).classList.add('active');
-      });
-      return;
-    }
-    showT('📧',_t('auth').codeSent,_t('auth').checkMail);
+    _fpEmail=em.value.trim();
+    if(!_isSupabaseReady()){showT('✗',_t('auth').error,'Offline');return;}
+    var btn=document.getElementById('fp-btn-1');
+    if(btn){btn.disabled=true;btn.textContent='⏳';}
+    authResetPassword(_fpEmail).then(function(r){
+      if(btn){btn.disabled=false;btn.textContent=_t('auth').fpSendCode;}
+      if(r.error){showT('✗',_t('auth').error,r.error);return;}
+      showT('📧',_t('auth').codeSent,_t('auth').checkMail);
+      _fpGoStep(2);
+    });
   } else if(_fpStep===2){
     var code=document.getElementById('fp-code');
-    if(!code||code.value.trim().length<4){showT('⚠️',_t('auth').code,_t('auth').enterCode);return;}
-    showT('✓',_t('auth').codeOk,_t('auth').enterNew);
+    if(!code||code.value.trim().length<6){showT('⚠️',_t('auth').code,_t('auth').enterCode);return;}
+    if(!_isSupabaseReady()){showT('✗',_t('auth').error,'Offline');return;}
+    var btn2=document.getElementById('fp-btn-2');
+    if(btn2){btn2.disabled=true;btn2.textContent='⏳';}
+    authVerifyRecoveryOtp(_fpEmail, code.value.trim()).then(function(r){
+      if(btn2){btn2.disabled=false;btn2.textContent=_t('auth').fpVerifyCode;}
+      if(r.error){showT('✗',_t('auth').error,r.error);return;}
+      showT('✓',_t('auth').codeOk,_t('auth').enterNew);
+      _fpGoStep(3);
+    });
   } else if(_fpStep===3){
     var p1=document.getElementById('fp-pass1'),p2=document.getElementById('fp-pass2');
     if(!p1||p1.value.length<8){showT('⚠️',_t('auth').passTitle,_t('auth').minPass);return;}
     if(p1.value!==p2.value){showT('⚠️',_t('auth').passTitle,_t('auth').passMismatch);return;}
-    if(_isSupabaseReady()){
-      // Supabase handles password reset via email link (step 1 already sent it)
-      // The new password is set via the reset link, not here
-    }
-    showT('✓',_t('auth').passChanged,_t('auth').loginNow);
-    var ov=document.getElementById('fp-overlay');if(ov)ov.style.display='none';
-    _fpStep=1;return;
+    if(!_isSupabaseReady()){showT('✗',_t('auth').error,'Offline');return;}
+    var btn3=document.getElementById('fp-btn-3');
+    if(btn3){btn3.disabled=true;btn3.textContent='⏳';}
+    authChangePassword(p1.value).then(function(r){
+      if(btn3){btn3.disabled=false;btn3.textContent=_t('auth').fpSetPass;}
+      if(r.error){showT('✗',_t('auth').error,r.error);return;}
+      // Odhlásit recovery session — uživatel se přihlásí s novým heslem
+      authSignOut();
+      showT('✓',_t('auth').passChanged,_t('auth').loginNow);
+      var ov=document.getElementById('fp-overlay');if(ov)ov.style.display='none';
+      _fpStep=1;_fpEmail='';
+    });
   }
-  document.getElementById('fp-step-'+_fpStep).classList.remove('active');
-  _fpStep++;
-  document.getElementById('fp-step-'+_fpStep).classList.add('active');
 }
 
 // ===== CHANGE PASSWORD =====
