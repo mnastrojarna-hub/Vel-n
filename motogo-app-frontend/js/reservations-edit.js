@@ -149,6 +149,7 @@ async function restoreBooking(bookingId){
     if(applePayBtn) applePayBtn.textContent = '🍎 Pay ' + _currentPaymentAmount.toLocaleString('cs-CZ') + ' Kč';
 
     goTo('s-payment');
+    if(typeof _showSavedCardPreview === 'function') _showSavedCardPreview();
   } catch(e){ console.error('restoreBooking error:', e); showT('✗',_t('common').error,_t('res').restoreFailed); }
 }
 
