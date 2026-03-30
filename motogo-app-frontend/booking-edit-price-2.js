@@ -160,17 +160,20 @@ async function saveEditReservation(){
           var ecRes = await apiModifyBooking(bookingId, extraChanges);
           if(ecRes && ecRes.error) console.warn('[EDIT] Extra changes err:', ecRes.error);
         }
-        // Generate ZF + DP with itemized breakdown + contract + VOP
-        if(typeof apiGenerateAdvanceInvoice === 'function'){
-          apiGenerateAdvanceInvoice(bookingId, diff, 'edit', editCtxShort).catch(function(e){ console.warn('[EDIT] ZF err:', e); });
-        }
-        if(typeof apiGeneratePaymentReceipt === 'function'){
-          apiGeneratePaymentReceipt(bookingId, diff, 'edit', editCtxShort).catch(function(e){ console.warn('[EDIT] DP err:', e); });
+        // Generate ZF + DP ONLY when there is actual money movement (diff != 0)
+        // For free modifications (diff === 0), only regenerate contract + VOP
+        if(diff !== 0){
+          if(typeof apiGenerateAdvanceInvoice === 'function'){
+            apiGenerateAdvanceInvoice(bookingId, diff, 'edit', editCtxShort).catch(function(e){ console.warn('[EDIT] ZF err:', e); });
+          }
+          if(typeof apiGeneratePaymentReceipt === 'function'){
+            apiGeneratePaymentReceipt(bookingId, diff, 'edit', editCtxShort).catch(function(e){ console.warn('[EDIT] DP err:', e); });
+          }
         }
         if(typeof apiAutoGenerateBookingDocs === 'function'){
           apiAutoGenerateBookingDocs(bookingId, true).catch(function(e){ console.warn('[EDIT] docs err:', e); });
         }
-        // Send modification email with dobropis
+        // Send modification email
         _sendModifiedEmail(bookingId, diff);
       }
     } else if(diff > 0){

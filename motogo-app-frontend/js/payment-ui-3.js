@@ -100,8 +100,11 @@ function _onInlinePaymentSuccess(bookingId){
     _currentBookingId = null;
     if(typeof apiConfirmRestoreBooking === 'function') apiConfirmRestoreBooking(bkId).catch(function(){});
     try {
-      if(typeof apiGenerateAdvanceInvoice === 'function') apiGenerateAdvanceInvoice(bkId, _currentPaymentAmount, 'restore').catch(function(){});
-      if(typeof apiGeneratePaymentReceipt === 'function') apiGeneratePaymentReceipt(bkId, _currentPaymentAmount, 'restore').catch(function(){});
+      // Generate ZF + DP only when there is actual payment (amount > 0)
+      if(_currentPaymentAmount > 0){
+        if(typeof apiGenerateAdvanceInvoice === 'function') apiGenerateAdvanceInvoice(bkId, _currentPaymentAmount, 'restore').catch(function(){});
+        if(typeof apiGeneratePaymentReceipt === 'function') apiGeneratePaymentReceipt(bkId, _currentPaymentAmount, 'restore').catch(function(){});
+      }
       if(typeof apiAutoGenerateBookingDocs === 'function') apiAutoGenerateBookingDocs(bkId).catch(function(){});
     } catch(de){}
     showT('✓',_t('pay').paid||'Zaplaceno',_t('res').restored||'Rezervace obnovena');
@@ -120,8 +123,11 @@ function _onInlinePaymentSuccess(bookingId){
       window._pendingEditChanges = null;
     }
     try {
-      if(typeof apiGenerateAdvanceInvoice === 'function') apiGenerateAdvanceInvoice(bkId, _currentPaymentAmount, 'edit').catch(function(){});
-      if(typeof apiGeneratePaymentReceipt === 'function') apiGeneratePaymentReceipt(bkId, _currentPaymentAmount, 'edit').catch(function(){});
+      // Generate ZF + DP only when there is actual payment (amount > 0)
+      if(_currentPaymentAmount > 0){
+        if(typeof apiGenerateAdvanceInvoice === 'function') apiGenerateAdvanceInvoice(bkId, _currentPaymentAmount, 'edit').catch(function(){});
+        if(typeof apiGeneratePaymentReceipt === 'function') apiGeneratePaymentReceipt(bkId, _currentPaymentAmount, 'edit').catch(function(){});
+      }
       if(typeof apiAutoGenerateBookingDocs === 'function') apiAutoGenerateBookingDocs(bkId, true).catch(function(){});
     } catch(de){}
     showT('✓',_t('pay').paid||'Zaplaceno',_t('res').changesSavedShort||'Změny uloženy');
@@ -144,8 +150,11 @@ function _onInlinePaymentSuccess(bookingId){
     try { apiUsePromoCode(appliedCode, bkId, _currentPaymentAmount + (typeof discountAmt !== 'undefined' ? discountAmt : 0)); } catch(pe){}
   }
   try {
-    if(typeof apiGenerateAdvanceInvoice === 'function') apiGenerateAdvanceInvoice(bkId, _currentPaymentAmount, 'booking').catch(function(){});
-    if(typeof apiGeneratePaymentReceipt === 'function') apiGeneratePaymentReceipt(bkId, _currentPaymentAmount, 'booking').catch(function(){});
+    // Generate ZF + DP only when there is actual payment (amount > 0)
+    if(_currentPaymentAmount > 0){
+      if(typeof apiGenerateAdvanceInvoice === 'function') apiGenerateAdvanceInvoice(bkId, _currentPaymentAmount, 'booking').catch(function(){});
+      if(typeof apiGeneratePaymentReceipt === 'function') apiGeneratePaymentReceipt(bkId, _currentPaymentAmount, 'booking').catch(function(){});
+    }
     if(typeof apiAutoGenerateBookingDocs === 'function') apiAutoGenerateBookingDocs(bkId).catch(function(){});
   } catch(de){}
   var sucResId = document.getElementById('suc-res-id');
