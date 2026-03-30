@@ -254,6 +254,19 @@ function initApp(){
   });
 }
 
+// Cleanup stale caches on startup (keep only current SW version)
+try {
+  if('caches' in window){
+    caches.keys().then(function(names){
+      names.forEach(function(n){
+        if(n.indexOf('motogo24-') === 0 && n !== 'motogo24-v52'){
+          caches.delete(n);
+        }
+      });
+    });
+  }
+} catch(e){}
+
 // Run init when DOM is ready
 if(document.readyState==='loading'){
   document.addEventListener('DOMContentLoaded',initApp);

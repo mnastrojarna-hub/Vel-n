@@ -1,17 +1,14 @@
 // ===== SERVICE WORKER – MotoGo24 PWA offline cache =====
-var CACHE = 'motogo24-v51';
+var CACHE = 'motogo24-v52';
 var ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './icons/icon-192.png',
-  './icons/icon-512.png',
   './css/main.css',
   './css/elements.css',
   './css/screens.css',
   './css/screens-extra.css',
-  './data/assets.js',
-  './data/assets-img1.js',
   './data/assets-data.js',
   './data/motos.js',
   './data/motos-extra.js',
