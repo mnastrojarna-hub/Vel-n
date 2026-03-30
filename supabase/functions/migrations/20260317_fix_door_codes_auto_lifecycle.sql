@@ -80,7 +80,7 @@ BEGIN
   -- Pokud má zákazník doklady, pošli mu kódy jako in-app zprávu
   IF v_has_docs THEN
     BEGIN
-      INSERT INTO admin_messages (user_id, title, content, type)
+      INSERT INTO admin_messages (user_id, title, message, type)
       VALUES (
         NEW.user_id,
         'Přístupové kódy k pobočce',

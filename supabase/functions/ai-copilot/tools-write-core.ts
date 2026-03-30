@@ -112,7 +112,7 @@ export async function execWriteCore(name: string, input: R, sb: SB, dryRun: bool
       const ch = channel || 'in_app'
       const summary = `Odeslání zprávy zákazníkovi "${profile.full_name}" přes ${ch}`
       if (dryRun) return { status: 'preview', summary, recipient: profile, channel: ch, content_preview: content.slice(0, 100) }
-      const { error } = await sb.from('admin_messages').insert({ user_id: customer_id, type: 'info', content, created_at: new Date().toISOString() })
+      const { error } = await sb.from('admin_messages').insert({ user_id: customer_id, type: 'info', message: content, created_at: new Date().toISOString() })
       if (error) return { error: error.message }
       return { status: 'executed', summary, customer_id }
     }
