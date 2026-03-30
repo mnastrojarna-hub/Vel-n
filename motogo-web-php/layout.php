@@ -36,9 +36,9 @@ function renderHeader($currentPath = '/') {
     foreach ($menuItems as $item) {
         $hasSub = !empty($item['children']);
         $arrow = $hasSub ? ' <img src="gfx/arrow-down.svg" alt="" loading="lazy" class="menu-arrow">' : '';
-        $activeClass = (strpos($currentPath, $item['route']) === 0) ? ' active' : '';
+        $isActive = ($currentPath !== '/' && strpos($currentPath, $item['route']) === 0);
         $nav .= '<li' . ($hasSub ? ' class="has-sub"' : '') . '>';
-        $nav .= '<a class="' . $activeClass . '" data-route="' . $item['route'] . '" href="' . BASE_URL . $item['route'] . '">' . $item['label'] . $arrow . '</a>';
+        $nav .= '<a' . ($isActive ? ' class="active"' : '') . ' data-route="' . $item['route'] . '" href="' . BASE_URL . $item['route'] . '">' . $item['label'] . $arrow . '</a>';
         if ($hasSub) {
             $nav .= '<ul class="submenu bs">';
             foreach ($item['children'] as $ch) {
