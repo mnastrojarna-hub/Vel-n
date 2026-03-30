@@ -104,7 +104,7 @@ export async function handleWebBookingCheckout(
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
     mode: 'payment',
-    payment_method_types: ['card'],
+    payment_method_types: ['card', 'link'],
     line_items: [{
       price_data: {
         currency,
@@ -226,7 +226,7 @@ export async function handleWebShopCheckout(
   const session = await stripe.checkout.sessions.create({
     customer: custId,
     mode: 'payment',
-    payment_method_types: ['card'],
+    payment_method_types: ['card', 'link'],
     line_items: lineItems as Stripe.Checkout.SessionCreateParams.LineItem[],
     metadata: { order_id: orderId, type: 'shop', source: 'web' },
     success_url: `${SITE_URL}/#/potvrzeni?order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`,

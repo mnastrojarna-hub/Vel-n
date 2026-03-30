@@ -82,7 +82,12 @@ function showStripeInlinePayment(clientSecret, amount, opts){
     }
   });
   _inlinePaymentElement = _inlineElements.create('payment', {
-    layout: { type: 'tabs', defaultCollapsed: false }
+    layout: { type: 'tabs', defaultCollapsed: false },
+    wallets: {
+      googlePay: 'auto',
+      applePay: 'auto'
+    },
+    paymentMethodOrder: ['google_pay', 'apple_pay', 'link', 'card']
   });
   _inlinePaymentElement.mount('#sip-element');
 }
