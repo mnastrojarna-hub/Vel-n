@@ -1,0 +1,54 @@
+<?php
+// ===== MotoGo24 Web PHP — Vyzvednutí motocyklu =====
+
+echo renderHead('Vyzvednutí motocyklu | MotoGo24', 'Vyzvednutí motorky v půjčovně Motogo24 na Vysočině. Nonstop provoz, bez kauce, výbava v ceně.');
+echo renderHeader();
+
+$bc = renderBreadcrumb([['href'=>'/', 'label'=>'Domů'], ['href'=>'/jak-pujcit', 'label'=>'Jak si půjčit'], 'Vyzvednutí motocyklu']);
+
+$mapIframe = '<iframe class="map" loading="lazy" src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d53928.274636159236!2d15.154130970132716!3d49.35168867371007!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x470ce75bf69a97b3%3A0xe75f9d3fadf02b5b!2zTWV6bsOhIDksIDM5MyAwMSBNZXpuw6E!5e0!3m2!1scs!2scz!4v1759860051295!5m2!1scs!2scz" title="Jak se k nám dostanete"></iframe>';
+
+$faqItems = [
+    ['q'=>'Musím platit kauci při vyzvednutí?', 'a'=>'Ne, <strong>půjčujeme bez kauce</strong>. Podmínky jsou jasně dané a férové.'],
+    ['q'=>'Je možný kontakt bez osobního setkání?', 'a'=>'Ano, nabízíme <strong>bezkontaktní předání</strong> po domluvě.'],
+    ['q'=>'Co když nestíhám domluvený čas?', 'a'=>'Dej nám vědět telefonicky – přizpůsobíme čas, nebo nabídneme <strong>přistavení</strong>.'],
+    ['q'=>'Je v ceně i výbava pro spolujezdce?', 'a'=>'Výbava pro řidiče je v ceně vždy. Výbavu pro spolujezdce lze přiobjednat jako <strong>nadstandard</strong>.'],
+];
+
+echo '<main id="content"><div class="container">' . $bc .
+    '<div class="ccontent">' .
+    '<section><h1>Vyzvednutí motocyklu – rychle, jednoduše a nonstop</h1>' .
+    '<p>V <strong>Motogo24 – půjčovna motorek Vysočina</strong> je <strong>vyzvednutí motorky</strong> otázkou pár minut. Půjčujeme <strong>bez kauce</strong>, s <strong>výbavou v ceně</strong> a <strong>nonstop provozem</strong>.</p>' .
+    '<p>&nbsp;</p><p><a class="btn btngreen" href="/rezervace">REZERVOVAT ONLINE</a></p></section>' .
+
+    '<section><div class="gr2"><div>' .
+    '<h2>Kde probíhá vyzvednutí</h2>' .
+    '<p><strong>Provozovna:</strong> Mezná 9, 393 01 <strong>Pelhřimov</strong> (Vysočina)</p>' .
+    '<p><strong>Provozní doba:</strong> <em>nonstop</em></p>' .
+    '<p><strong>Telefon:</strong> <a href="tel:+420774256271">+420 774 256 271</a></p>' .
+    '<p>&nbsp;</p><h2>Vrácení motorky – bez stresu</h2>' .
+    '<p>Motorku můžeš vrátit <strong>kdykoli během posledního dne výpůjčky</strong>. Nevyžadujeme vrácení s plnou nádrží ani mytí.</p>' .
+    '</div><div><p>' . $mapIframe . '</p></div></div></section>' .
+
+    '<section><h2>Jak probíhá vyzvednutí krok za krokem</h2><div class="gr5">' .
+    renderWbox('gfx/ico-step1.svg','Přijď v domluvený čas','na naši adresu nebo vyčkej na přistavení') .
+    renderWbox('gfx/ico-step2.svg','Ověříme doklady','OP/pas + řidičský průkaz odpovídající skupiny') .
+    renderWbox('gfx/ico-step3.svg','Předáme motorku a výbavu','helma, bunda, kalhoty, rukavice') .
+    renderWbox('gfx/ico-step4.svg','Krátké seznámení se strojem','ovládání, tipy, doporučení k trase') .
+    renderWbox('gfx/ico-step5.svg','Podepíšeme předávací protokol','a můžeš vyrazit') .
+    '</div></section>' .
+
+    '<section><h2>Co si vzít s sebou</h2><ul>' .
+    '<li><strong>Občanský průkaz / pas</strong></li>' .
+    '<li><strong>Řidičský průkaz</strong> odpovídající skupiny (A/A2 podle motorky)</li>' .
+    '<li><strong>Vhodnou obuv</strong> (moto boty lze půjčit jako nadstandard)</li>' .
+    '</ul><p>&nbsp;</p><p><a class="btn btngreen" href="/rezervace">ZAREZERVOVAT TERMÍN</a></p></section>' .
+
+    renderFaqSection('Časté dotazy k vyzvednutí', $faqItems) .
+    renderCta('Vyzvednutí motorky – půjčovna motorek Vysočina',
+        'Motogo24 je <strong>půjčovna motorek na Vysočině</strong> s <strong>nonstop vyzvednutím i vrácením</strong>, <strong>bez kauce</strong> a s <strong>výbavou v ceně</strong>.',
+        [['label'=>'REZERVOVAT ONLINE','href'=>'/rezervace','cls'=>'btndark pulse']]) .
+    '</div></div></main>';
+
+echo renderFooter();
+echo renderPageEnd();
