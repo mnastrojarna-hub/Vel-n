@@ -453,3 +453,41 @@ function initAdminMessageSubscription(){
   // Initial badge update
   updateMsgBadge();
 }
+
+// ===== SOS STATUS CHANGE NOTIFICATIONS =====
+var _sosNotifShown = {}; // dedup: incidentId+status -> true
+var _sosStatusLabels = {
+  acknowledged: 'Potvrzeno',
+  in_progress: 'Řešíme',
+  resolved: 'Vyřešeno',
+  closed: 'Uzavřeno'
+};
+var _sosStatusMessages = {
+  acknowledged: 'Váš SOS požadavek byl potvrzen. Pracujeme na řešení.',
+  in_progress: 'Váš SOS případ je právě řešen naším týmem.',
+  resolved: 'Váš SOS případ byl úspěšně vyřešen.',
+  closed: 'Váš SOS případ byl uzavřen.'
+};
+
+window._showSosStatusNotification = function(incident){
+  if(!incident || !incident.id || !incident.status) return;
+  var key = incident.id + '_' + incident.status;
+  if(_sosNotifShown[key]) return;
+  _sosNotifShown[key] = true;
+
+  var statusLabel = _sosStatusLabels[incident.status] || incident.status;
+  var statusMsg = _sosStatusMessages[incident.status];
+  if(!statusMsg) return; // don't notify for 'reported' (user created it)
+
+  var title = 'SOS: ' + statusLabel;
+  var body = statusMsg;
+  if(incident.title) body = incident.title + ' — ' + body;
+
+  if(typeof showMsgNotification === 'function'){
+    showMsgNotification({
+      title: title,
+      message: body,
+      type: 'sos_response'
+    });
+  }
+};

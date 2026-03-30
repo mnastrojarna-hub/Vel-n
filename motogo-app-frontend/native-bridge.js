@@ -251,6 +251,18 @@
         .catch(function() { denied.push('mikrofon'); })
     );
 
+    // Notifications (Capacitor LocalNotifications)
+    if(LocalNotif){
+      promises.push(
+        LocalNotif.requestPermissions()
+          .then(function(r){
+            if(r && r.display === 'denied') denied.push('oznámení');
+            return r;
+          })
+          .catch(function(){ return null; })
+      );
+    }
+
     Promise.all(promises).then(function() {
       try { localStorage.setItem('mg_perms', 'granted'); } catch (e) {}
       var ov = document.getElementById('perm-overlay');
@@ -258,7 +270,7 @@
       if(denied.length > 0){
         _showPermDeniedDialog('Následující oprávnění nebyla povolena: ' + denied.join(', ') + '. Pro plnou funkčnost je povolte v nastavení.');
       } else {
-        showT('\u2713', 'Oprávnění povolena', 'Biometrika, poloha, fotoaparát, mikrofon');
+        showT('\u2713', 'Oprávnění povolena', 'Biometrika, poloha, fotoaparát, mikrofon, oznámení');
       }
     });
   };
@@ -300,18 +312,28 @@
       } catch(e){}
       if(typeof updateMsgBadge === 'function') updateMsgBadge();
     };
-    // Request permission
-    try { LocalNotif.requestPermissions().catch(function(){}); } catch(e){}
+    // Request permission (shown again if not granted during initial permissions flow)
+    try {
+      LocalNotif.checkPermissions().then(function(r){
+        if(r && r.display !== 'granted'){
+          LocalNotif.requestPermissions().catch(function(){});
+        }
+      }).catch(function(){ LocalNotif.requestPermissions().catch(function(){}); });
+    } catch(e){}
   }
 
   // ===== MESSAGE POLLING (Supabase realtime unreliable in native background) =====
   var _lastMsgTs = null;
+  var _lastSosTs = null;
+  var _lastThreadMsgTs = null;
   var _msgPollTimer = null;
   function _pollMessages(){
     if(!window.supabase) return;
     var uid = null;
     try { uid = localStorage.getItem('mg_user_id'); } catch(e){}
     if(!uid) return;
+
+    // 1. Poll admin_messages (notifications)
     var q = window.supabase.from('admin_messages').select('*')
       .eq('user_id', uid).eq('read', false)
       .order('created_at', {ascending:false}).limit(5);
@@ -326,6 +348,46 @@
         }
       });
     }).catch(function(){});
+
+    // 2. Poll SOS incidents for status changes
+    window.supabase.from('sos_incidents').select('id,status,type,title,updated_at')
+      .eq('user_id', uid)
+      .in('status', ['acknowledged','in_progress','resolved'])
+      .order('updated_at', {ascending:false}).limit(3)
+      .then(function(r){
+        if(!r.data || r.data.length === 0) return;
+        r.data.forEach(function(s){
+          var ts = s.updated_at || '';
+          if(_lastSosTs && ts <= _lastSosTs) return;
+          _lastSosTs = ts;
+          if(typeof window._showSosStatusNotification === 'function'){
+            window._showSosStatusNotification(s);
+          }
+        });
+      }).catch(function(){});
+
+    // 3. Poll thread messages (new admin replies in chat)
+    window.supabase.from('message_threads').select('id,subject,messages(id,content,direction,read_at,created_at)')
+      .eq('customer_id', uid)
+      .order('last_message_at', {ascending:false}).limit(5)
+      .then(function(r){
+        if(!r.data) return;
+        r.data.forEach(function(t){
+          var msgs = (t.messages || []).filter(function(m){ return m.direction === 'admin' && !m.read_at; });
+          msgs.forEach(function(m){
+            var ts = m.created_at || '';
+            if(_lastThreadMsgTs && ts <= _lastThreadMsgTs) return;
+            _lastThreadMsgTs = ts;
+            if(typeof window.showMsgNotification === 'function'){
+              window.showMsgNotification({
+                title: t.subject || 'Zpráva z MotoGo24',
+                message: m.content || '',
+                type: (t.subject && t.subject.indexOf('SOS:') === 0) ? 'sos_response' : 'info'
+              });
+            }
+          });
+        });
+      }).catch(function(){});
   }
   function _startMsgPolling(){
     if(_msgPollTimer) clearInterval(_msgPollTimer);

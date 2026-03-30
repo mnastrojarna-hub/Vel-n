@@ -214,6 +214,47 @@ function apiSubscribeRealtimeUpdates(){
       event: '*', schema: 'public', table: 'sos_incidents'
     }, function(payload){
       _scheduleRealtimeRefresh('sos');
+      // Show notification for SOS status changes
+      if(payload.new && payload.old && payload.new.status !== payload.old.status){
+        _getUserId().then(function(uid){
+          if(uid && payload.new.user_id === uid){
+            if(typeof window._showSosStatusNotification === 'function'){
+              window._showSosStatusNotification(payload.new);
+            }
+          }
+        });
+      }
+    })
+    .on('postgres_changes', {
+      event: 'INSERT', schema: 'public', table: 'messages'
+    }, function(payload){
+      // Show notification for new admin messages in threads
+      if(payload.new && payload.new.direction === 'admin'){
+        _getUserId().then(function(uid){
+          if(!uid) return;
+          // Fetch thread to verify ownership and get subject
+          window.supabase.from('message_threads')
+            .select('customer_id,subject')
+            .eq('id', payload.new.thread_id)
+            .maybeSingle()
+            .then(function(r){
+              if(r.data && r.data.customer_id === uid){
+                var isSOS = r.data.subject && r.data.subject.indexOf('SOS:') === 0;
+                if(typeof window.showMsgNotification === 'function'){
+                  window.showMsgNotification({
+                    title: r.data.subject || 'Zpráva z MotoGo24',
+                    message: payload.new.content || '',
+                    type: isSOS ? 'sos_response' : 'info'
+                  });
+                }
+                // Refresh thread chat if currently viewing it
+                if(typeof _currentThreadId !== 'undefined' && _currentThreadId === payload.new.thread_id){
+                  if(typeof renderThreadChat === 'function') renderThreadChat();
+                }
+              }
+            });
+        });
+      }
     })
     .subscribe();
 }
