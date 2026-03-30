@@ -60,7 +60,8 @@ export async function handleUpdateIncidentStatus(incident, newStatus, onRefresh)
       }
 
       // 4. If no replacement but incident has a booking, complete it with SOS flag
-      if (!replBookingId && incident?.booking_id) {
+      //    ONLY if customer is NOT continuing to ride (e.g. end_ride, immobile motorcycle)
+      if (!replBookingId && incident?.booking_id && incident?.customer_decision !== 'continue') {
         await supabase.from('bookings').update({
           status: 'completed',
           ended_by_sos: true,
