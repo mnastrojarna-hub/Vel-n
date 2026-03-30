@@ -5,9 +5,9 @@
 $bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], 'Kontakt']);
 
 $quickContact = '<section><div class="contact-quick-boxes">' .
-    '<div class="contact-quick-box dfc"><div class="img-icon dfcc"><img src="gfx/telefon.svg" alt="Telefon" class="icon-small" loading="lazy"></div><div>' .
+    '<div class="contact-quick-box dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/telefon.svg" alt="Telefon" class="icon-small" loading="lazy"></div><div>' .
     '<p><small>ZAVOLEJTE NÁM</small><br><strong><a href="' . PHONE_LINK . '">' . PHONE . '</a></strong></p></div></div>' .
-    '<div class="contact-quick-box dfc"><div class="img-icon dfcc"><img src="gfx/email.svg" alt="E-mail" class="icon-small" loading="lazy"></div><div>' .
+    '<div class="contact-quick-box dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/email.svg" alt="E-mail" class="icon-small" loading="lazy"></div><div>' .
     '<p><small>NAPIŠTE NÁM</small><br><strong>' . EMAIL_USER . '@' . EMAIL_DOMAIN . '</strong></p></div></div>' .
     '<div class="contact-quick-box dfc"><div><p><small>DATOVÁ SCHRÁNKA</small><br><strong>iuw3vnb</strong></p></div></div>' .
     '</div></section>';
@@ -22,8 +22,8 @@ $infoSection = '<div class="gr2 contact-info"><section>' .
     '<p>Společnost byla zapsána dne 31. 7. 2024 u Městského úřadu v Pelhřimově.</p>' .
     '</section><div>' .
     '<section><h2>Sledujte nás</h2>' .
-    '<p class="dfc"><span class="social-icon"><img alt="Facebook" src="gfx/facebook.svg"></span>&nbsp;<a href="' . FB_URL . '">facebook</a></p><p>&nbsp;</p>' .
-    '<p class="dfc"><span class="social-icon"><img alt="Instagram" src="gfx/instagram.svg"></span>&nbsp;<a href="' . IG_URL . '">instagram</a></p></section>' .
+    '<p class="dfc"><span class="social-icon"><img alt="Facebook" src="' . BASE_URL . '/gfx/facebook.svg"></span>&nbsp;<a href="' . FB_URL . '">facebook</a></p><p>&nbsp;</p>' .
+    '<p class="dfc"><span class="social-icon"><img alt="Instagram" src="' . BASE_URL . '/gfx/instagram.svg"></span>&nbsp;<a href="' . IG_URL . '">instagram</a></p></section>' .
     '<section class="cta-green-box"><h2>Chcete si domluvit rezervaci?</h2>' .
     '<p>Rezervujte si motorku online během pár minut a vyražte za dobrodružstvím.</p><p>&nbsp;</p>' .
     '<p><a class="btn btndark" href="' . BASE_URL . '/rezervace">REZERVOVAT ONLINE</a></p></section>' .

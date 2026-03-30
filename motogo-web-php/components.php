@@ -86,8 +86,9 @@ function renderBlogCard($post) {
  * Ikona box — odpovídá MG.renderWbox() v components.js.
  */
 function renderWbox($icon, $title, $text) {
+    $iconSrc = $icon ? BASE_URL . '/' . ltrim($icon, '/') : '';
     return '<div class="wbox">' .
-        ($icon ? '<div class="wbox-img"><img src="' . htmlspecialchars($icon) . '" class="icon" alt="' . strip_tags($title) . '" loading="lazy"></div>' : '') .
+        ($icon ? '<div class="wbox-img"><img src="' . htmlspecialchars($iconSrc) . '" class="icon" alt="' . strip_tags($title) . '" loading="lazy"></div>' : '') .
         '<h3><p>' . $title . '</p></h3>' .
         '<p>' . $text . '</p></div>';
 }

@@ -11,7 +11,7 @@ $intro = '<section><h1>Kup dárkový poukaz – daruj zážitek na dvou kolech!<
     '<p>Vyber hodnotu poukazu nebo konkrétní motorku a daruj svobodu na dvou kolech.</p><p>&nbsp;</p>' .
     '<p><a class="btn btngreen" onclick="var e=document.getElementById(\'poukaz-order\');if(e)e.scrollIntoView({behavior:\'smooth\'})">OBJEDNAT DÁRKOVÝ POUKAZ</a></p>' .
     '</div><div>' .
-    '<img alt="Dárkový poukaz" style="width:100%;max-width:500px;border-radius:10px" loading="lazy" src="gfx/darkovy-poukaz.jpg">' .
+    '<img alt="Dárkový poukaz" style="width:100%;max-width:500px;border-radius:10px" loading="lazy" src="' . BASE_URL . '/gfx/darkovy-poukaz.jpg">' .
     '</div></div></section>';
 
 $steps = '<section><div class="gr3">' .
