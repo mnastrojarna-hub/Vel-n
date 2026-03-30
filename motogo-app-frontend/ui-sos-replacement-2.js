@@ -120,7 +120,7 @@ function _doSosReplCalcDelivery(){
         var coords = (addrEl && addrEl.dataset.lat && addrEl.dataset.lng)
             ? {lat: parseFloat(addrEl.dataset.lat), lng: parseFloat(addrEl.dataset.lng)}
             : fullAddr;
-        if(calcEl){ calcEl.textContent = 'Vypočítávám vzdálenost...'; calcEl.style.display = 'block'; }
+        if(calcEl){ calcEl.textContent = _t('hc').calcDistanceShort; calcEl.style.display = 'block'; }
         AddressAPI.calcDistance(coords, function(result){
             if(!result){ _sosReplCalcFallback(city.toLowerCase()); return; }
             var km = result.km;
@@ -175,7 +175,7 @@ async function sosConfirmReplacement(){
 
     sosLoading();
     var btn = document.getElementById('sos-repl-btn');
-    if(btn){ btn.textContent = '⏳ Zpracovávám...'; btn.disabled = true; btn.style.opacity = '0.6'; }
+    if(btn){ btn.textContent = '⏳ ' + _t('hc').processing; btn.disabled = true; btn.style.opacity = '0.6'; }
 
     var replacementData = {
       replacement_moto_id: _sosReplacementData.selectedMotoId,

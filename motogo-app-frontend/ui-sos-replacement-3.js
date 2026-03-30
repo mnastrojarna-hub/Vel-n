@@ -43,7 +43,7 @@ async function sosPaymentSubmit(){
 
     if(errorEl) errorEl.style.display = 'none';
     sosLoading();
-    if(btn){ btn.textContent = '⏳ Zpracovávám platbu...'; btn.disabled = true; btn.style.opacity = '0.6'; }
+    if(btn){ btn.textContent = '⏳ ' + _t('hc').processingPaymentShort; btn.disabled = true; btn.style.opacity = '0.6'; }
 
     try {
       var pd = _sosReplacementPaymentData;
@@ -122,7 +122,7 @@ async function sosPaymentSubmit(){
         // Fallback: Checkout redirect
         _stripeCheckoutBookingId = replBookingId;
         if(typeof _lockPaymentScreen==='function') _lockPaymentScreen('↗ Platební brána otevřena...');
-        if(btn){ btn.textContent = '↗ Přesměrování na platbu...'; btn.disabled = true; btn.style.opacity = '0.6'; }
+        if(btn){ btn.textContent = '↗ ' + _t('hc').redirectingPayment; btn.disabled = true; btn.style.opacity = '0.6'; }
         if(typeof _openExternalUrl==='function') _openExternalUrl(payResult.checkout_url);
         else window.location.href = payResult.checkout_url;
         return;

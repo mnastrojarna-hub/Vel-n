@@ -124,7 +124,7 @@ function _checkAndShowSosFab(){
         window._pendingSosIncident = pending;
         window._sosFabIncidentId = pending.id;
         var label = document.getElementById('sos-repl-fab-text');
-        if(label) label.textContent = 'SOS dokončit';
+        if(label) label.textContent = _t('hc').sosComplete;
         fab.style.display = 'flex';
       } else {
         fab.style.display = 'none';
@@ -212,7 +212,7 @@ function _startBookingFabCountdown(createdTs){
     var min = Math.floor(remaining / 60000);
     var sec = Math.floor((remaining % 60000) / 1000);
     var timeStr = min + ':' + (sec < 10 ? '0' : '') + sec;
-    if(label) label.textContent = 'Dokončit rezervaci · ' + timeStr;
+    if(label) label.textContent = _t('hc').completeRes + ' · ' + timeStr;
   }
   update();
   _bookingFabTimer = setInterval(update, 1000);
