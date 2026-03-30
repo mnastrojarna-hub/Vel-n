@@ -238,8 +238,8 @@ MG._rezShowStep2 = function(){
     '<hr style="border:none;border-top:1px solid #e0e0e0;margin:1.5rem 0">'+
     '<h3>Heslo pro správu rezervace</h3>'+
     '<p style="color:#555;font-size:.88rem;line-height:1.5;margin-bottom:.75rem">Zvolte si heslo, které budete potřebovat pro úpravu rezervace. Pokud si v budoucnu stáhnete aplikaci MotoGo24, přihlásíte se stejným e-mailem a tímto heslem.</p>'+
-    '<div class="gr2"><input type="password" id="rez-password" name="new-password" placeholder="* Heslo (min. 6 znaků)" required autocomplete="new-password" minlength="6"'+(MG._rez._passwordSet?' value="********" disabled':'')+'>'+
-    '<input type="password" id="rez-password-confirm" name="new-password" placeholder="* Potvrzení hesla" required autocomplete="new-password" minlength="6"'+(MG._rez._passwordSet?' value="********" disabled':'')+'></div>'+
+    '<div class="gr2"><input type="password" id="rez-password" name="new-password" placeholder="* Heslo (min. 8 znaků)" required autocomplete="new-password" minlength="8"'+(MG._rez._passwordSet?' value="********" disabled':'')+'>'+
+    '<input type="password" id="rez-password-confirm" name="new-password" placeholder="* Potvrzení hesla" required autocomplete="new-password" minlength="8"'+(MG._rez._passwordSet?' value="********" disabled':'')+'></div>'+
     qrSection+
     '<hr style="border:none;border-top:2px solid #74FB71;margin:1.5rem 0">'+
     '<h2>Náhled zálohové faktury</h2>'+
