@@ -43,4 +43,7 @@ $content = '<main id="content"><div class="container contact">' . $bc .
     $quickContact . $infoSection . $mapSection . $seoText .
     '</div></div></main>';
 
-renderPage('Kontakt – Motogo24', $content, '/kontakt');
+renderPage('Kontakt | MotoGo24 – půjčovna motorek Vysočina', $content, '/kontakt', [
+    'description' => 'Kontakty na půjčovnu motorek Motogo24 v Pelhřimově. Telefon +420 774 256 271, e-mail info@motogo24.cz. Nonstop provoz, adresa Mezná 9.',
+    'keywords' => 'kontakt Motogo24, půjčovna motorek Pelhřimov, telefon, adresa, provozní doba, nonstop',
+]);

@@ -35,4 +35,4 @@ $html .= '</ul>';
 $content = '<main id="content"><div class="container">' . $bc .
     '<div class="ccontent"><h1>Mapa stránek</h1>' . $html . '</div></div></main>';
 
-renderPage('Mapa stránek – Motogo24', $content, '/mapa-stranek');
+renderPage('Mapa stránek | MotoGo24', $content, '/mapa-stranek');

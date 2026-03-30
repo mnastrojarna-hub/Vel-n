@@ -15,6 +15,12 @@ if ($path !== '/' && substr($path, -1) === '/') {
     $path = rtrim($path, '/');
 }
 
+// Sitemap.xml (dynamický)
+if ($path === '/sitemap.xml') {
+    require __DIR__ . '/sitemap.php';
+    exit;
+}
+
 // Routování
 switch (true) {
     // Domovská stránka

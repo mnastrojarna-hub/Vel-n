@@ -6,10 +6,38 @@ require_once __DIR__ . '/config.php';
 class SupabaseClient {
     private $url;
     private $key;
+    private $cacheDir;
+    private $cacheTtl = 300; // 5 minut
 
     public function __construct() {
         $this->url = SUPABASE_URL;
         $this->key = SUPABASE_ANON_KEY;
+        $this->cacheDir = sys_get_temp_dir() . '/motogo_cache';
+        if (!is_dir($this->cacheDir)) {
+            @mkdir($this->cacheDir, 0755, true);
+        }
+    }
+
+    /**
+     * Čte z file cache. Vrací null pokud cache neexistuje nebo expiroval.
+     */
+    private function cacheGet($key) {
+        $file = $this->cacheDir . '/' . md5($key) . '.json';
+        if (!file_exists($file)) return null;
+        if (filemtime($file) < time() - $this->cacheTtl) {
+            @unlink($file);
+            return null;
+        }
+        $data = @file_get_contents($file);
+        return $data !== false ? json_decode($data, true) : null;
+    }
+
+    /**
+     * Zapíše do file cache.
+     */
+    private function cacheSet($key, $data) {
+        $file = $this->cacheDir . '/' . md5($key) . '.json';
+        @file_put_contents($file, json_encode($data), LOCK_EX);
     }
 
     /**
@@ -102,12 +130,16 @@ class SupabaseClient {
 
     // ===== MOTORKY =====
     public function fetchMotos() {
-        return $this->query(
+        $cached = $this->cacheGet('motos');
+        if ($cached !== null) return $cached;
+        $data = $this->query(
             'motorcycles',
             '*,branches(name,address,city,is_open)',
             ['status=eq.active'],
             'model.asc'
         );
+        $this->cacheSet('motos', $data);
+        return $data;
     }
 
     // ===== DENNÍ CENY =====
@@ -139,21 +171,35 @@ class SupabaseClient {
 
     // ===== POBOČKY =====
     public function fetchBranches() {
-        return $this->query('branches', '*', [], 'name.asc');
+        $cached = $this->cacheGet('branches');
+        if ($cached !== null) return $cached;
+        $data = $this->query('branches', '*', [], 'name.asc');
+        $this->cacheSet('branches', $data);
+        return $data;
     }
 
     // ===== CMS PAGES =====
     public function fetchCmsPage($slug) {
+        $cacheKey = 'cms_' . $slug;
+        $cached = $this->cacheGet($cacheKey);
+        if ($cached !== null) return $cached;
         $result = $this->query('cms_pages', '*', ['slug=eq.' . $slug]);
-        return $result ? ($result[0] ?? null) : null;
+        $data = $result ? ($result[0] ?? null) : null;
+        if ($data) $this->cacheSet($cacheKey, $data);
+        return $data;
     }
 
     public function fetchCmsPages($tag = null) {
+        $cacheKey = 'cms_pages' . ($tag ? '_' . $tag : '');
+        $cached = $this->cacheGet($cacheKey);
+        if ($cached !== null) return $cached;
         $filters = [];
         if ($tag) {
             $filters[] = 'tags=cs.{' . $tag . '}';
         }
-        return $this->query('cms_pages', '*', $filters, 'created_at.desc');
+        $data = $this->query('cms_pages', '*', $filters, 'created_at.desc');
+        $this->cacheSet($cacheKey, $data);
+        return $data;
     }
 
     // ===== PRODUKTY =====

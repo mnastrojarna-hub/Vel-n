@@ -22,4 +22,7 @@ $content = '<main id="content"><div class="container">' . $bc .
     '<p>&nbsp;</p>' . $linksHtml .
     '</div></div></main>';
 
-renderPage('Jak si půjčit motorku – Motogo24', $content, '/jak-pujcit');
+renderPage('Jak si půjčit motorku | MotoGo24', $content, '/jak-pujcit', [
+    'description' => 'Jak si půjčit motorku v Motogo24. Jednoduchý postup: výběr, rezervace, převzetí. Bez kauce, výbava v ceně, nonstop provoz.',
+    'breadcrumbs' => [['name' => 'Domů', 'url' => 'https://motogo24.cz/'], ['name' => 'Jak si půjčit', 'url' => 'https://motogo24.cz/jak-pujcit']],
+]);

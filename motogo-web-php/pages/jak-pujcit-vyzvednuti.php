@@ -47,4 +47,7 @@ $content = '<main id="content"><div class="container">' . $bc .
         [['label' => 'REZERVOVAT ONLINE', 'href' => '/rezervace', 'cls' => 'btndark pulse']]) .
     '</div></div></main>';
 
-renderPage('Vyzvednutí motocyklu – Motogo24', $content, '/jak-pujcit/vyzvednuti');
+renderPage('Vyzvednutí motocyklu | MotoGo24', $content, '/jak-pujcit/vyzvednuti', [
+    'description' => 'Vyzvednutí motorky v Pelhřimově. Nonstop provoz, bez kauce, výbava v ceně. Co si vzít s sebou a jak probíhá předání.',
+    'breadcrumbs' => [['name' => 'Domů', 'url' => 'https://motogo24.cz/'], ['name' => 'Jak si půjčit', 'url' => 'https://motogo24.cz/jak-pujcit'], ['name' => 'Vyzvednutí', 'url' => 'https://motogo24.cz/jak-pujcit/vyzvednuti']],
+]);

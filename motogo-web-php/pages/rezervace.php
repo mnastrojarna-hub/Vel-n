@@ -56,6 +56,8 @@ window.REZERVACE_PARAMS = {
 })();
 </script>';
 
-renderPage('Online rezervace motorky – Motogo24', $content . $rezervaceJs, '/rezervace', [
+renderPage('Online rezervace motorky | MotoGo24', $content . $rezervaceJs, '/rezervace', [
     'description' => 'Online rezervace motorky na Vysočině. Bez kauce, s výbavou v ceně a nonstop provozem. Vyberte motorku, termín a zaplaťte online.',
+    'keywords' => 'rezervace motorky online, půjčit motorku, pronájem motorky Vysočina, online booking',
+    'robots' => 'noindex,follow',
 ]);

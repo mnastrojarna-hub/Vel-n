@@ -28,4 +28,6 @@ window.MOTOGO_CONFIG = {
 <script src="' . BASE_URL . '/js/api.js"></script>
 <script src="' . BASE_URL . '/js/pages-potvrzeni.js"></script>';
 
-renderPage($bcLabel . ' – Motogo24', $content . $potvrzeniJs, '/potvrzeni');
+renderPage($bcLabel . ' | MotoGo24', $content . $potvrzeniJs, '/potvrzeni', [
+    'robots' => 'noindex,nofollow',
+]);

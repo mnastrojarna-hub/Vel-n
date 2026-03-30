@@ -94,4 +94,7 @@ $content = $bannerHtml .
     $signHtml . $motosHtml . $processHtml . $faqHtml . $ctaHtml . $blogHtml .
     '</div></main>';
 
-renderPage('Půjčovna motorek Vysočina Motogo24', $content, '/');
+renderPage('Půjčovna motorek na Vysočině | MotoGo24', $content, '/', [
+    'description' => 'Půjčte si motorku na Vysočině. Bez kauce, výbava v ceně, nonstop provoz. Cestovní, sportovní, enduro i dětské motorky. Online rezervace.',
+    'keywords' => 'půjčovna motorek Vysočina, pronájem motorek Pelhřimov, půjčovna motorek bez kauce, nonstop půjčovna, motorky k pronájmu, online rezervace motorky',
+]);

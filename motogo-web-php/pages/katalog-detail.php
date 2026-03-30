@@ -263,4 +263,18 @@ $content = '<main id="content"><div class="container">' . $bc .
         $infoHtml . $descSpecsHtml . $pricesHtml . $relatedHtml .
     '</article></div></main>' . $calendarJs;
 
-renderPage($model . ' – Motogo24', $content, '/katalog/' . $motoId);
+// Product schema
+$minPrice = getMinPrice($moto);
+$productSchema = '
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"Product","name":' . json_encode($moto['model'], JSON_UNESCAPED_UNICODE) . ',"description":' . json_encode($moto['description'] ?? $moto['model'], JSON_UNESCAPED_UNICODE) . ',"image":' . json_encode($mainImg ?: 'https://motogo24.cz/gfx/logo.svg') . ',"brand":{"@type":"Brand","name":' . json_encode($moto['brand'] ?? '', JSON_UNESCAPED_UNICODE) . '},"offers":{"@type":"Offer","priceCurrency":"CZK","price":' . json_encode($minPrice) . ',"availability":"https://schema.org/InStock","url":"https://motogo24.cz/katalog/' . $motoId . '"}}
+  </script>';
+
+renderPage($model . ' | Půjčovna MotoGo24', $content, '/katalog/' . $motoId, [
+    'description' => htmlspecialchars($moto['description'] ?? ('Pronájem motorky ' . $moto['model'] . ' na Vysočině. Bez kauce, výbava v ceně.')),
+    'keywords' => 'pronájem ' . $moto['model'] . ', půjčit ' . $moto['model'] . ', motorka k pronájmu',
+    'og_image' => $mainImg ?: 'https://motogo24.cz/gfx/hero-banner.png',
+    'og_type' => 'product',
+    'schema' => $productSchema,
+    'breadcrumbs' => [['name' => 'Domů', 'url' => 'https://motogo24.cz/'], ['name' => 'Katalog', 'url' => 'https://motogo24.cz/katalog'], ['name' => $moto['model'], 'url' => 'https://motogo24.cz/katalog/' . $motoId]],
+]);

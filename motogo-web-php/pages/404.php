@@ -7,4 +7,6 @@ $content = '<main id="content"><div class="container">' . $bc .
     '<div class="ccontent"><h1>Stránka nenalezena</h1><p>Hledaná stránka neexistuje.</p>' .
     '<p><a class="btn btngreen" href="' . BASE_URL . '/">Zpět na úvodní stránku</a></p></div></div></main>';
 
-renderPage('Stránka nenalezena – Motogo24', $content, '/404');
+renderPage('Stránka nenalezena | MotoGo24', $content, '/404', [
+    'robots' => 'noindex,follow',
+]);

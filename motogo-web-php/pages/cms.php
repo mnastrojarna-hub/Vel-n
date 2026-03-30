@@ -22,4 +22,6 @@ $content = '<main id="content"><div class="container">' . $bc .
     '<div class="ccontent"><h1>' . htmlspecialchars($title) . '</h1>' . $pageContent . '</div></div></main>';
 
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-renderPage($title . ' – Motogo24', $content, $path);
+renderPage($title . ' | MotoGo24', $content, $path, [
+    'description' => $page['excerpt'] ?? ($title . ' – půjčovna motorek Motogo24'),
+]);

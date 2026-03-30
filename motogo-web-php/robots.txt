@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+Sitemap: https://motogo24.cz/sitemap.xml

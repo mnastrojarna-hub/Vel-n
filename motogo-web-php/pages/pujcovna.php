@@ -49,4 +49,7 @@ $ctaHtml = renderCta('Rezervuj svou motorku online',
 $content = '<main id="content"><div class="container">' . $bc .
     '<div class="ccontent">' . $intro . $benefits . $steps . $faqHtml . $ctaHtml . '</div></div></main>';
 
-renderPage('Půjčovna motorek Vysočina Motogo24', $content, '/pujcovna-motorek');
+renderPage('O půjčovně motorek | MotoGo24', $content, '/pujcovna-motorek', [
+    'description' => 'Půjčovna motorek Motogo24 na Vysočině. Bez kauce, s online rezervací a výbavou v ceně. Cestovní, sportovní, enduro i dětské motorky. Nonstop provoz.',
+    'keywords' => 'půjčovna motorek, pronájem motorek Vysočina, motorky bez kauce, nonstop půjčovna, výbava v ceně',
+]);

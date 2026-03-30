@@ -44,4 +44,16 @@ $content = '<main id="content"><div class="container">' . $bc .
     $galleryHtml .
     '</div></div></main>';
 
-renderPage($title . ' – Motogo24', $content, '/blog/' . $slug);
+// Article schema
+$articleSchema = '
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"Article","headline":' . json_encode($post['title'] ?? '', JSON_UNESCAPED_UNICODE) . ',"author":{"@type":"Organization","name":"MotoGo24"},"publisher":{"@type":"Organization","name":"MotoGo24","logo":{"@type":"ImageObject","url":"https://motogo24.cz/gfx/logo.svg"}}' . (!empty($post['created_at']) ? ',"datePublished":' . json_encode($post['created_at']) : '') . '}
+  </script>';
+
+renderPage($title . ' | Blog MotoGo24', $content, '/blog/' . $slug, [
+    'description' => $excerpt ?: ('Článek na blogu Motogo24 – ' . ($post['title'] ?? '')),
+    'og_type' => 'article',
+    'og_image' => !empty($post['images'][0]) ? $post['images'][0] : (!empty($post['image_url']) ? $post['image_url'] : 'https://motogo24.cz/gfx/hero-banner.png'),
+    'schema' => $articleSchema,
+    'breadcrumbs' => [['name' => 'Domů', 'url' => 'https://motogo24.cz/'], ['name' => 'Blog', 'url' => 'https://motogo24.cz/blog'], ['name' => $post['title'] ?? '', 'url' => 'https://motogo24.cz/blog/' . $slug]],
+]);

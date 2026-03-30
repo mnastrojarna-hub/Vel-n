@@ -94,4 +94,19 @@ $content = '<main id="content"><div class="container">' . $bc .
     '<p>&nbsp;</p><p><a class="btn btngreen" href="' . BASE_URL . '/rezervace">Rezervovat motorku online</a></p>' .
     '</div></div></main>' . $tabJs;
 
-renderPage('Často kladené dotazy – Motogo24', $content, '/jak-pujcit/faq');
+// FAQPage schema
+$faqSchemaItems = [];
+foreach ($allItems as $faq) {
+    $faqSchemaItems[] = '{"@type":"Question","name":' . json_encode(strip_tags($faq['q']), JSON_UNESCAPED_UNICODE) . ',"acceptedAnswer":{"@type":"Answer","text":' . json_encode(strip_tags($faq['a']), JSON_UNESCAPED_UNICODE) . '}}';
+}
+$faqSchema = '
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[' . implode(',', $faqSchemaItems) . ']}
+  </script>';
+
+renderPage('Často kladené dotazy | MotoGo24', $content, '/jak-pujcit/faq', [
+    'description' => 'Často kladené dotazy k pronájmu motorky. Rezervace, vyzvednutí, vrácení, podmínky, přistavení, cestování do zahraničí, dárkové poukazy.',
+    'keywords' => 'FAQ půjčovna motorek, otázky pronájem motorky, podmínky půjčení, kauce, výbava',
+    'schema' => $faqSchema,
+    'breadcrumbs' => [['name' => 'Domů', 'url' => 'https://motogo24.cz/'], ['name' => 'Jak si půjčit', 'url' => 'https://motogo24.cz/jak-pujcit'], ['name' => 'FAQ', 'url' => 'https://motogo24.cz/jak-pujcit/faq']],
+]);

@@ -58,4 +58,7 @@ $content = '<main id="content"><div class="container">' . $bc .
     '<div id="blog-grid" class="gr3">' . $gridHtml . '</div>' .
     '</div></div></section></div></main>';
 
-renderPage('Blog – Motogo24', $content, '/blog');
+renderPage('Blog a tipy pro motorkáře | MotoGo24', $content, '/blog', [
+    'description' => 'Blog Motogo24 – tipy na motorkářské trasy, novinky z půjčovny a rady pro bezpečnou jízdu na motorce.',
+    'keywords' => 'motorkářský blog, trasy na motorku, tipy pro motorkáře, novinky půjčovna motorek',
+]);

@@ -32,4 +32,7 @@ $content = '<main id="content"><div class="container">' . $bc .
         [['label' => 'REZERVOVAT ONLINE', 'href' => '/rezervace', 'cls' => 'btndark pulse']]) .
     '</div></div></main>';
 
-renderPage('Co je v ceně pronájmu motorky – Motogo24', $content, '/jak-pujcit/co-v-cene');
+renderPage('Co je v ceně pronájmu motorky | MotoGo24', $content, '/jak-pujcit/co-v-cene', [
+    'description' => 'Co je v ceně pronájmu motorky. Helma, bunda, kalhoty, rukavice zdarma. Pojištění, nonstop provoz, bez kauce.',
+    'breadcrumbs' => [['name' => 'Domů', 'url' => 'https://motogo24.cz/'], ['name' => 'Jak si půjčit', 'url' => 'https://motogo24.cz/jak-pujcit'], ['name' => 'Co je v ceně', 'url' => 'https://motogo24.cz/jak-pujcit/co-v-cene']],
+]);
