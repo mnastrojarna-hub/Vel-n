@@ -1,64 +1,19 @@
-// ===== SERVICE WORKER – MotoGo24 PWA offline cache =====
-var CACHE = 'motogo24-v52';
+// ===== SERVICE WORKER – MotoGo24 (network-first) =====
+// Network-first strategy: always serve fresh local files from Capacitor.
+// Cache is ONLY used as offline fallback, never served first.
+var CACHE = 'motogo24-v53';
 var ASSETS = [
   './',
   './index.html',
   './manifest.json',
-  './icons/icon-192.png',
   './css/main.css',
   './css/elements.css',
   './css/screens.css',
-  './css/screens-extra.css',
-  './data/assets-data.js',
-  './data/motos.js',
-  './data/motos-extra.js',
-  './data/legal-texts.js',
-  './src/services/supabase-sdk.js',
-  './src/services/supabaseClient.js',
-  './src/services/auth.js',
-  './js/offline-guard.js',
-  './templates.js',
-  './templates-screens.js',
-  './templates-screens-booking.js',
-  './templates-booking-form2.js',
-  './templates-booking-form.js',
-  './templates-res.js',
-  './templates-res-edit.js',
-  './templates-res-sos.js',
-  './templates-res-sos2.js',
-  './templates-res-sos3.js',
-  './templates-shop.js',
-  './templates-shop-detail.js',
-  './templates-done.js',
-  './js/router.js',
-  './js/storage.js',
-  './js/storage-diag.js',
-  './js/booking-utils.js',
-  './js/cart-engine.js',
-  './js/cart-checkout.js',
-  './js/cart-shop-discount.js',
-  './js/cart-booking-price.js',
-  './js/cart-booking-discount.js',
-  './js/cart-address-data.js',
-  './js/cart-address.js',
-  './js/cart-address-geo.js',
-  './ui-controller.js',
-  './booking-logic.js',
-  './booking-detail.js',
-  './booking-detail-cal.js',
-  './booking-calendar.js',
-  './booking-edit.js',
-  './js/auth-ui.js',
-  './js/profile-ui.js',
-  './js/reservations-ui.js',
-  './js/payment-ui.js',
-  './js/i18n.js',
-  './js/documents.js',
-  './native-bridge.js',
-  './app.js'
+  './css/screens-extra.css'
 ];
 
 self.addEventListener('install', function(e) {
+  // Pre-cache minimal set for offline fallback only
   e.waitUntil(
     caches.open(CACHE).then(function(cache) {
       return cache.addAll(ASSETS);
@@ -69,6 +24,7 @@ self.addEventListener('install', function(e) {
 });
 
 self.addEventListener('activate', function(e) {
+  // Delete ALL old caches (including motogo24-v52 with 55 files)
   e.waitUntil(
     caches.keys().then(function(names) {
       return Promise.all(
@@ -82,19 +38,22 @@ self.addEventListener('activate', function(e) {
 });
 
 self.addEventListener('fetch', function(e) {
-  // Only handle same-origin GET requests
   if (e.request.method !== 'GET') return;
 
+  // Skip Supabase API calls — never cache/intercept
+  var url = e.request.url;
+  if (url.indexOf('supabase.co') !== -1 || url.indexOf('stripe.com') !== -1) return;
+
+  // NETWORK-FIRST: always try fresh file, cache only as fallback
   e.respondWith(
-    caches.match(e.request).then(function(cached) {
-      if (cached) return cached;
-      // Network fetch — NO dynamic caching (prevents unbounded storage growth)
-      return fetch(e.request);
-    }).catch(function() {
-      // Offline fallback – return cached index for navigation
-      if (e.request.mode === 'navigate') {
-        return caches.match('./index.html');
-      }
+    fetch(e.request).catch(function() {
+      return caches.match(e.request).then(function(cached) {
+        if (cached) return cached;
+        // Offline navigation fallback
+        if (e.request.mode === 'navigate') {
+          return caches.match('./index.html');
+        }
+      });
     })
   );
 });
