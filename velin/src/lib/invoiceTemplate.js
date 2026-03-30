@@ -39,9 +39,10 @@ function buildItems(items) {
 export function generateInvoiceHtml(data) {
   const isProforma = data.type === 'proforma' || data.type === 'shop_proforma' || data.type === 'advance'
   const isPaymentReceipt = data.type === 'payment_receipt'
-  const title = isPaymentReceipt ? 'DAŇOVÝ DOKLAD K PŘIJATÉ PLATBĚ' : isProforma ? 'ZÁLOHOVÁ FAKTURA' : 'FAKTURA'
-  const subtitle = isPaymentReceipt ? 'Payment receipt' : isProforma ? 'Proforma invoice' : 'Invoice'
-  const accent = isPaymentReceipt ? '#0891b2' : isProforma ? '#2563eb' : '#1a8a18'
+  const isCreditNote = data.type === 'credit_note'
+  const title = isCreditNote ? 'DOBROPIS' : isPaymentReceipt ? 'DAŇOVÝ DOKLAD K PŘIJATÉ PLATBĚ' : isProforma ? 'ZÁLOHOVÁ FAKTURA' : 'FAKTURA'
+  const subtitle = isCreditNote ? 'Credit note' : isPaymentReceipt ? 'Payment receipt' : isProforma ? 'Proforma invoice' : 'Invoice'
+  const accent = isCreditNote ? '#dc2626' : isPaymentReceipt ? '#0891b2' : isProforma ? '#2563eb' : '#1a8a18'
 
   const supplier = data.supplier || COMPANY
   const customer = data.customer || {}
@@ -134,9 +135,10 @@ export function generateInvoiceHtml(data) {
             '<td style="padding:8px 12px;font-size:15px;font-weight:800;color:' + accent + '">K doplatku</td>' +
             '<td style="padding:8px 12px;font-size:15px;font-weight:800;text-align:right;color:' + accent + '">' + fmtPrice(toPay) + ' Kč</td></tr>'
         }
+        const totalLabel = isCreditNote ? 'Celkem k vrácení' : 'Celkem k úhradě'
         return '<tr style="border-top:2px solid ' + accent + '">' +
-          '<td style="padding:8px 12px;font-size:15px;font-weight:800;color:' + accent + '">Celkem k úhradě</td>' +
-          '<td style="padding:8px 12px;font-size:15px;font-weight:800;text-align:right;color:' + accent + '">' + fmtPrice(total) + ' Kč</td></tr>'
+          '<td style="padding:8px 12px;font-size:15px;font-weight:800;color:' + accent + '">' + totalLabel + '</td>' +
+          '<td style="padding:8px 12px;font-size:15px;font-weight:800;text-align:right;color:' + accent + '">' + fmtPrice(Math.abs(total)) + ' Kč</td></tr>'
       })()}
       <tr><td colspan="2" style="padding:2px 12px;font-size:10px;color:#888">Cena je konečná — dodavatel není plátce DPH</td></tr>
     </table>
@@ -176,6 +178,7 @@ export function generateInvoiceHtml(data) {
 
   ${isProforma ? `<div style="padding:10px 14px;background:#dbeafe;border-radius:8px;font-size:11px;color:#1e40af;margin-bottom:16px">Tento doklad není daňovým dokladem. Po přijetí platby Vám bude vystavena konečná faktura.</div>` : ''}
   ${isPaymentReceipt ? `<div style="padding:10px 14px;background:#cffafe;border-radius:8px;font-size:11px;color:#0e7490;margin-bottom:16px">Daňový doklad k přijaté platbě dle zákona č. 235/2004 Sb., o dani z přidané hodnoty.</div>` : ''}
+  ${isCreditNote ? `<div style="padding:10px 14px;background:#fee2e2;border-radius:8px;font-size:11px;color:#991b1b;margin-bottom:16px;border:1px solid #fca5a5"><strong>DOBROPIS</strong> — Tento doklad je opravným daňovým dokladem. Částka bude vrácena na platební kartu zákazníka prostřednictvím Stripe.</div>` : ''}
 
   <!-- Footer -->
   <div style="text-align:center;margin-top:24px;padding-top:12px;border-top:1px solid #e5e7eb">

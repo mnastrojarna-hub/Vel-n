@@ -17,6 +17,7 @@ const TYPE_MAP = {
   payment_receipt: { label: 'Doklad k platbě (DP)', color: '#0891b2', bg: '#cffafe' },
   shop_proforma: { label: 'Shop zálohová', color: '#8b5cf6', bg: '#ede9fe' },
   shop_final: { label: 'Shop konečná', color: '#059669', bg: '#d1fae5' },
+  credit_note: { label: 'Dobropis (DB)', color: '#dc2626', bg: '#fee2e2' },
 }
 
 const STATUS_MAP = {
@@ -106,12 +107,13 @@ export default function BookingPaymentsTab({ bookingId }) {
           invoices.map(inv => {
             const tp = TYPE_MAP[inv.type] || { label: inv.type || 'Neznámý', color: '#1a2e22', bg: '#f3f4f6' }
             const st = STATUS_MAP[inv.status] || STATUS_MAP.draft
+            const isCreditNote = inv.type === 'credit_note'
             return (
-              <div key={inv.id} className="flex items-center gap-4 p-3 rounded-lg mb-2" style={{ background: '#f1faf7' }}>
-                <span className="text-sm font-bold font-mono">{inv.number || '—'}</span>
+              <div key={inv.id} className="flex items-center gap-4 p-3 rounded-lg mb-2" style={{ background: isCreditNote ? '#fef2f2' : '#f1faf7', border: isCreditNote ? '1px solid #fca5a5' : 'none' }}>
+                <span className="text-sm font-bold font-mono" style={isCreditNote ? { color: '#dc2626' } : {}}>{inv.number || '—'}</span>
                 <Badge label={tp.label} color={tp.color} bg={tp.bg} />
-                <span className="text-sm font-bold" style={{ color: inv.status === 'paid' ? '#1a8a18' : '#0f1a14' }}>
-                  {(inv.total || 0).toLocaleString('cs-CZ')} Kč
+                <span className="text-sm font-bold" style={{ color: isCreditNote ? '#dc2626' : inv.status === 'paid' ? '#1a8a18' : '#0f1a14' }}>
+                  {isCreditNote ? '−' : ''}{Math.abs(inv.total || 0).toLocaleString('cs-CZ')} Kč
                 </span>
                 <Badge label={st.label} color={st.color} bg={st.bg} />
                 <span className="text-sm" style={{ color: '#1a2e22' }}>{inv.issue_date || '—'}</span>

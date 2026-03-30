@@ -111,8 +111,9 @@ Deno.serve(async (req: Request) => {
     const refund = await stripe.refunds.create(refundParams)
 
     // Update payment_status in DB
+    const refundedAmountCZK = refund.amount / 100
     if (booking_id) {
-      const newStatus = (!amount || refund.status === 'succeeded') ? 'refunded' : 'paid'
+      const newStatus = (!amount || refund.status === 'succeeded') ? 'refunded' : 'partial_refund'
       await supabase.from('bookings')
         .update({ payment_status: newStatus })
         .eq('id', booking_id)
@@ -120,6 +121,88 @@ Deno.serve(async (req: Request) => {
       await supabase.from('shop_orders')
         .update({ payment_status: 'refunded' })
         .eq('id', order_id)
+    }
+
+    // Auto-generate credit note (dobropis) for booking refunds
+    let creditNoteId: string | null = null
+    if (booking_id) {
+      try {
+        // Fetch booking data for the credit note
+        const { data: bk } = await supabase.from('bookings')
+          .select('user_id, total_price, start_date, end_date, motorcycles(model)')
+          .eq('id', booking_id).single()
+        if (bk) {
+          const refundPercent = amount ? Math.round((amount / Number(bk.total_price || 1)) * 100) : 100
+          const reasonText = reason === 'cancellation' ? 'Storno rezervace'
+            : reason === 'shortening' ? 'Zkrácení rezervace'
+            : reason === 'duplicate' ? 'Duplicitní platba'
+            : 'Vrácení platby zákazníkovi'
+
+          // Find original invoice to reference
+          const { data: origInvs } = await supabase.from('invoices')
+            .select('id, type, number')
+            .eq('booking_id', booking_id)
+            .neq('status', 'cancelled')
+            .in('type', ['final', 'payment_receipt', 'advance', 'proforma'])
+            .order('issue_date', { ascending: false })
+            .limit(1)
+          const originalInvoiceId = origInvs?.[0]?.id || null
+
+          // Generate credit note number (DB-YYYY-NNNN)
+          const year = new Date().getFullYear()
+          const { data: lastCN } = await supabase.from('invoices')
+            .select('number')
+            .like('number', `DB-${year}-%`)
+            .order('number', { ascending: false })
+            .limit(1)
+          let seq = 1
+          if (lastCN?.length) {
+            const m = lastCN[0].number.match(/-(\d+)$/)
+            if (m) seq = parseInt(m[1], 10) + 1
+          }
+          const cnNumber = `DB-${year}-${String(seq).padStart(4, '0')}`
+
+          const issueDate = new Date().toISOString().slice(0, 10)
+          const motoModel = (bk as any).motorcycles?.model || 'motorky'
+          const { data: cnInv } = await supabase.from('invoices').insert({
+            number: cnNumber,
+            type: 'credit_note',
+            customer_id: bk.user_id,
+            booking_id,
+            items: [{
+              description: `Dobropis – ${reasonText} (${motoModel})`,
+              qty: 1,
+              unit_price: -refundedAmountCZK,
+            }],
+            subtotal: -refundedAmountCZK,
+            tax_amount: 0,
+            total: -refundedAmountCZK,
+            notes: `Dobropis k rezervaci. ${refundPercent < 100 ? `Částečný refund ${refundPercent}%.` : 'Plný refund.'} ${reasonText}`,
+            issue_date: issueDate,
+            due_date: issueDate,
+            status: 'issued',
+            source: 'refund',
+            variable_symbol: cnNumber,
+            original_invoice_id: originalInvoiceId,
+            stripe_refund_id: refund.id,
+          }).select('id').single()
+
+          creditNoteId = cnInv?.id || null
+
+          // Create negative accounting entry
+          await supabase.from('accounting_entries').insert({
+            type: 'expense',
+            amount: -refundedAmountCZK,
+            description: `Dobropis ${cnNumber} – ${reasonText}`,
+            category: 'refund',
+            date: issueDate,
+            booking_id,
+          })
+        }
+      } catch (cnErr) {
+        console.error('Credit note generation failed:', (cnErr as Error).message)
+        // Non-blocking — refund was already processed
+      }
     }
 
     // Log to debug_log
@@ -130,7 +213,7 @@ Deno.serve(async (req: Request) => {
         component: entityType,
         status: 'ok',
         request_data: { booking_id, order_id, amount, reason },
-        response_data: { refund_id: refund.id, status: refund.status, amount_refunded: refund.amount / 100 },
+        response_data: { refund_id: refund.id, status: refund.status, amount_refunded: refundedAmountCZK, credit_note_id: creditNoteId },
       })
     } catch (e) { /* ignore */ }
 
@@ -139,8 +222,9 @@ Deno.serve(async (req: Request) => {
         success: true,
         refund_id: refund.id,
         status: refund.status,
-        amount_refunded: refund.amount / 100, // haléře → CZK
+        amount_refunded: refundedAmountCZK,
         currency: refund.currency,
+        credit_note_id: creditNoteId,
       }),
       { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
     )

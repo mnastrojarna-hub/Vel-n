@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
 import { useDebugMode } from '../hooks/useDebugMode'
-import { generateAdvanceInvoice, generatePaymentReceipt, generateFinalInvoice } from '../lib/invoiceUtils'
+import { generateAdvanceInvoice, generatePaymentReceipt, generateFinalInvoice, generateCreditNote } from '../lib/invoiceUtils'
 import Button from '../components/ui/Button'
 import StatusBadge, { getDisplayStatus } from '../components/ui/StatusBadge'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
@@ -34,6 +34,7 @@ export default function BookingDetail() {
   const [showModifyModal, setShowModifyModal] = useState(false)
   const [promoUsage, setPromoUsage] = useState([])
   const [voucherUsed, setVoucherUsed] = useState(null)
+  const [hasCreditNote, setHasCreditNote] = useState(false)
 
   useEffect(() => { loadBooking() }, [id])
 
@@ -88,6 +89,8 @@ export default function BookingDetail() {
       .then(({ data }) => { if (data) setPromoUsage(data) }).catch(() => {})
     supabase.from('vouchers').select('code, amount, currency, status').eq('booking_id', id).limit(1)
       .then(({ data }) => { if (data && data.length) setVoucherUsed(data[0]) }).catch(() => {})
+    supabase.from('invoices').select('id').eq('booking_id', id).eq('type', 'credit_note').limit(1)
+      .then(({ data }) => { setHasCreditNote(data && data.length > 0) }).catch(() => {})
   }
 
   async function changeStatus(newStatus) {
@@ -191,6 +194,27 @@ export default function BookingDetail() {
 
     if (wasPaid && booking.total_price) {
       try { await supabase.from('booking_cancellations').insert({ booking_id: id, cancelled_by: user?.id || null, reason, refund_amount: booking.total_price, refund_percent: 100 }) } catch {}
+
+      // Stripe refund + credit note generation
+      let stripeRefundId = null
+      if (booking.stripe_payment_intent_id) {
+        try {
+          const { data: refundResult } = await supabase.functions.invoke('process-refund', {
+            body: { booking_id: id, reason: 'cancellation' },
+          })
+          if (refundResult?.success) stripeRefundId = refundResult.refund_id
+        } catch (e) { console.error('[Stripe refund]', e.message) }
+      }
+
+      // Generate credit note (dobropis)
+      try {
+        await generateCreditNote(id, {
+          refundAmount: booking.total_price,
+          refundPercent: 100,
+          reason,
+          stripeRefundId,
+        })
+      } catch (e) { console.error('[Credit note]', e.message) }
     }
     await logAudit('booking_cancelled', { booking_id: id, reason, source: cancelReason, refund: wasPaid ? '100%' : 'n/a' })
 
@@ -262,13 +286,20 @@ export default function BookingDetail() {
         )}
         {booking.payment_status && (() => {
           const isPaid = booking.payment_status === 'paid' && booking.status !== 'pending'
+          const isRefunded = booking.payment_status === 'refunded'
           return (
             <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
-              style={{ padding: '3px 8px', background: isPaid ? '#dcfce7' : '#fee2e2', color: isPaid ? '#1a8a18' : '#dc2626' }}>
-              {isPaid ? 'Zaplaceno' : 'Nezaplaceno'}
+              style={{ padding: '3px 8px', background: isPaid ? '#dcfce7' : isRefunded ? '#fee2e2' : '#fee2e2', color: isPaid ? '#1a8a18' : '#dc2626' }}>
+              {isPaid ? 'Zaplaceno' : isRefunded ? 'Refundováno' : 'Nezaplaceno'}
             </span>
           )
         })()}
+        {hasCreditNote && (
+          <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
+            style={{ padding: '3px 8px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5' }}>
+            DOBROPIS
+          </span>
+        )}
         <span className="text-sm" style={{ color: '#1a2e22' }}>Vytvořena: {booking.created_at ? new Date(booking.created_at).toLocaleString('cs-CZ') : '—'}</span>
       </div>
       <div className="flex gap-2 mb-5 flex-wrap">

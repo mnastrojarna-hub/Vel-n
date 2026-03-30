@@ -144,20 +144,28 @@ function InvoiceSumsOverview({ invoiceSums, fmt }) {
         <MiniStat label="Konecne (KF)" value={fmt(invoiceSums.kf)} color="#1a8a18" />
         <MiniStat label="Pronajem (dokonceno)" value={fmt(invoiceSums.rental)} color="#059669" />
       </div>
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-4 gap-3 mb-3">
         <MiniStat label="E-shop prodeje" value={fmt(invoiceSums.eshop)} color="#8b5cf6" />
         <MiniStat label="Shop ZF" value={fmt(invoiceSums.shopZf)} color="#7c3aed" />
         <MiniStat label="Shop KF" value={fmt(invoiceSums.shopKf)} color="#059669" />
         <MiniStat label="Poukazy (slevy)" value={fmt(invoiceSums.vouchers)} color="#b45309" />
       </div>
+      {(invoiceSums.creditNotes > 0 || invoiceSums.creditNotesCount > 0) && (
+        <div className="grid grid-cols-4 gap-3">
+          <div className="col-span-2 p-2 rounded-lg" style={{ background: '#fef2f2', border: '1px solid #fecaca' }}>
+            <div className="text-[9px] font-extrabold uppercase tracking-wide mb-1" style={{ color: '#991b1b' }}>Dobropisy (DB) — vrácené platby</div>
+            <div className="text-sm font-extrabold" style={{ color: '#dc2626' }}>−{fmt(invoiceSums.creditNotes)} ({invoiceSums.creditNotesCount}×)</div>
+          </div>
+        </div>
+      )}
     </Card>
   )
 }
 
 function InvoicesTable({ recentInvoices, fmt }) {
-  const typeLabels = { advance: 'ZF', proforma: 'ZF', payment_receipt: 'DP', final: 'KF', shop_proforma: 'Shop ZF', shop_final: 'Shop KF' }
-  const typeColors = { advance: '#2563eb', proforma: '#2563eb', payment_receipt: '#0891b2', final: '#1a8a18', shop_proforma: '#8b5cf6', shop_final: '#059669' }
-  const typeBgs = { advance: '#dbeafe', proforma: '#dbeafe', payment_receipt: '#cffafe', final: '#dcfce7', shop_proforma: '#ede9fe', shop_final: '#d1fae5' }
+  const typeLabels = { advance: 'ZF', proforma: 'ZF', payment_receipt: 'DP', final: 'KF', shop_proforma: 'Shop ZF', shop_final: 'Shop KF', credit_note: 'DB' }
+  const typeColors = { advance: '#2563eb', proforma: '#2563eb', payment_receipt: '#0891b2', final: '#1a8a18', shop_proforma: '#8b5cf6', shop_final: '#059669', credit_note: '#dc2626' }
+  const typeBgs = { advance: '#dbeafe', proforma: '#dbeafe', payment_receipt: '#cffafe', final: '#dcfce7', shop_proforma: '#ede9fe', shop_final: '#d1fae5', credit_note: '#fee2e2' }
   const statusLabels = { draft: 'Koncept', issued: 'Vystavena', paid: 'Zaplacena', cancelled: 'Storno', refunded: 'Refund' }
   const statusColors = { draft: '#6b7280', issued: '#b45309', paid: '#1a8a18', cancelled: '#dc2626', refunded: '#6b7280' }
 
@@ -174,16 +182,18 @@ function InvoicesTable({ recentInvoices, fmt }) {
             </TRow>
           </thead>
           <tbody>
-            {recentInvoices.map(inv => (
+            {recentInvoices.map(inv => {
+              const isCN = inv.type === 'credit_note'
+              return (
               <TRow key={inv.id}>
-                <TD mono bold>{inv.number || '\u2014'}</TD>
+                <TD mono bold style={isCN ? { color: '#dc2626' } : {}}>{inv.number || '\u2014'}</TD>
                 <TD><Badge label={typeLabels[inv.type] || inv.type} color={typeColors[inv.type] || '#6b7280'} bg={typeBgs[inv.type] || '#f3f4f6'} /></TD>
                 <TD>{inv.profiles?.full_name || '\u2014'}</TD>
-                <TD bold>{fmt(inv.total)}</TD>
+                <TD bold style={isCN ? { color: '#dc2626' } : {}}>{isCN ? `\u2212${fmt(Math.abs(inv.total))}` : fmt(inv.total)}</TD>
                 <TD><span className="text-sm font-bold" style={{ color: statusColors[inv.status] || '#6b7280' }}>{statusLabels[inv.status] || inv.status}</span></TD>
                 <TD>{inv.issue_date ? new Date(inv.issue_date).toLocaleDateString('cs-CZ') : '\u2014'}</TD>
               </TRow>
-            ))}
+            )})}
           </tbody>
         </Table>
       )}

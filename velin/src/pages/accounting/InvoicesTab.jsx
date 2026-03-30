@@ -21,6 +21,7 @@ const TYPE_LABELS = {
   payment_receipt: 'Doklad k platbě (DP)',
   shop_proforma: 'Shop zálohová',
   shop_final: 'Shop konečná',
+  credit_note: 'Dobropis (DB)',
 }
 
 const TYPE_OPTIONS = [
@@ -28,6 +29,7 @@ const TYPE_OPTIONS = [
   { value: 'advance', label: 'Zálohové (ZF)' },
   { value: 'payment_receipt', label: 'Doklady k platbě (DP)' },
   { value: 'final', label: 'Konečné (KF)' },
+  { value: 'credit_note', label: 'Dobropisy (DB)' },
   { value: 'shop_proforma', label: 'Shop zálohové' },
   { value: 'shop_final', label: 'Shop konečné' },
 ]
@@ -197,11 +199,11 @@ export default function InvoicesTab() {
                     </div>
                   </TD>
                   <TD><span className="text-sm font-bold uppercase px-1.5 py-0.5 rounded" style={{
-                    background: inv.type === 'payment_receipt' ? '#cffafe' : inv.type === 'final' ? '#dcfce7' : '#dbeafe',
-                    color: inv.type === 'payment_receipt' ? '#0891b2' : inv.type === 'final' ? '#1a8a18' : '#2563eb'
+                    background: inv.type === 'credit_note' ? '#fee2e2' : inv.type === 'payment_receipt' ? '#cffafe' : inv.type === 'final' ? '#dcfce7' : '#dbeafe',
+                    color: inv.type === 'credit_note' ? '#dc2626' : inv.type === 'payment_receipt' ? '#0891b2' : inv.type === 'final' ? '#1a8a18' : '#2563eb'
                   }}>{TYPE_LABELS[inv.type] || inv.type}</span></TD>
                   <TD>{inv.profiles?.full_name || '—'}</TD>
-                  <TD bold>{fmt(inv.total)}</TD>
+                  <TD bold style={inv.type === 'credit_note' ? { color: '#dc2626' } : {}}>{inv.type === 'credit_note' ? `−${fmt(Math.abs(inv.total))}` : fmt(inv.total)}</TD>
                   <TD>{fmt(inv.tax_amount)}</TD>
                   <TD>{inv.issue_date ? new Date(inv.issue_date).toLocaleDateString('cs-CZ') : '—'}</TD>
                   <TD>{inv.due_date ? new Date(inv.due_date).toLocaleDateString('cs-CZ') : '—'}</TD>

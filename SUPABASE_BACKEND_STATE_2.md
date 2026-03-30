@@ -157,7 +157,9 @@
 - issue_date, due_date, paid_date, issued_at
 - subtotal, tax_amount, total, amount, currency, status, pdf_path
 - items (jsonb), notes, variable_symbol, source
-- **matched_delivery_note_id** (UUID FK→delivery_notes ON DELETE SET NULL) — napárovaný dodací list
+- **matched_delivery_note_id** (UUID FK→delivery_notes ON DELETE SET NULL)
+- **original_invoice_id** (UUID FK→invoices ON DELETE SET NULL) — vazba dobropisu na původní fakturu
+- **stripe_refund_id** (TEXT) — ID Stripe refundu pro dobropisy — napárovaný dodací list
 
 ### delivery_notes
 - id (UUID PK), dl_number, supplier_name, supplier_ico
