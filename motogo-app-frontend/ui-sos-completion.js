@@ -2,6 +2,7 @@
 
 function sosEndRide() {
     showT('🚛', 'Objednávám odtah...', '');
+    sosLoading();
     // Keep _sosActiveIncidentId — reuse existing incident from sosReportAccident
     var faultDesc = _sosFault === true ? 'Nehoda byla moje chyba' : _sosFault === false ? 'Nehoda nebyla moje chyba' : '';
     var desc = 'Motorka nepojízdná – ukončuji jízdu, žádám odtah. ' + faultDesc;
@@ -19,6 +20,7 @@ function sosEndRide() {
           incident_id: incId,
           action: 'Zákazník ukončuje jízdu — žádá odtah' + (_sosFault === true ? ' (zavinil zákazník)' : _sosFault === false ? ' (cizí zavinění — zdarma)' : ''),
         }).then(function(){});
+        sosLoadingHide();
         _sosShowDone('Odtah objednán', 'MotoGo24 zařídí odtah motorky. Asistent vás bude kontaktovat.',
           '<button onclick="goTo(\'s-res\')" style="width:100%;background:var(--green);color:#fff;border:none;border-radius:50px;padding:14px;font-family:var(--font);font-size:14px;font-weight:800;cursor:pointer;">📋 Zobrazit moje rezervace</button>');
       });
@@ -27,6 +29,7 @@ function sosEndRide() {
 
 function sosEndRideFree() {
     // Keep _sosActiveIncidentId — reuse existing incident
+    sosLoading();
     var desc = 'Porucha – motorka nepojízdná. Ukončuji jízdu, zařídím se sám.';
     _sosEnsureIncident('breakdown_major', desc).then(function(incId){
       if(incId){
@@ -40,6 +43,7 @@ function sosEndRideFree() {
           action: 'Zákazník ukončuje jízdu — porucha (nezaviněná) — pronájem zdarma, odtah objednán',
         }).then(function(){});
       }
+      sosLoadingHide();
       _sosShowDone('Pronájem zdarma', 'Vracíme plnou částku. Odtah zajistíme.',
         '<button onclick="goTo(\'s-res\')" style="width:100%;background:var(--green);color:#fff;border:none;border-radius:50px;padding:14px;font-family:var(--font);font-size:14px;font-weight:800;cursor:pointer;">📋 Zobrazit moje rezervace</button>');
     });
@@ -90,11 +94,13 @@ function sosShareLocation() {
 function sosDrobnaZavada() {
     if(_sosSubmitting) return;
     _sosSubmitting = true;
+    sosLoading();
     showT('🔩', 'Hlásím závadu...', '');
     _sosActiveIncidentId = null;
     _sosFault = null;
     _sosEnsureIncident('breakdown_minor', 'Drobná závada – motorka pojízdná, pokračuji v jízdě').then(function(incId){
       _sosSubmitting = false;
+      sosLoadingHide();
       if(incId){
         _sosUpdateIncident(incId, { moto_rideable: true, customer_fault: false, customer_decision: 'continue' });
         // Upload SOS photos if any
@@ -107,7 +113,7 @@ function sosDrobnaZavada() {
         }).then(function(){});
       }
       _sosShowDone('Drobná závada', 'Děkujeme za nahlášení. Šťastnou cestu!');
-    }).catch(function(){ _sosSubmitting = false; });
+    }).catch(function(){ _sosSubmitting = false; sosLoadingHide(); });
 }
 
 // ===== SOS PHOTO-ONLY SUBMIT — informativní fotodokumentace =====
@@ -118,6 +124,7 @@ function sosSubmitPhotosOnly() {
     }
     if(_sosSubmitting) return;
     _sosSubmitting = true;
+    sosLoading();
     var btn = document.getElementById('sos-photo-submit-btn');
     if(btn){ btn.textContent = '⏳ Odesílám...'; btn.disabled = true; }
     // Get active booking for linking
@@ -140,6 +147,7 @@ function sosSubmitPhotosOnly() {
           if(urls.length) saveSOSPhotoUrls(incId, urls);
           _sosResetPhotos();
           _sosSubmitting = false;
+          sosLoadingHide();
           // Timeline entry
           window.supabase.from('sos_timeline').insert({
             incident_id: incId,
@@ -154,6 +162,7 @@ function sosSubmitPhotosOnly() {
       }).catch(function(e){
         console.error('[SOS] sosSubmitPhotosOnly error:', e);
         _sosSubmitting = false;
+        sosLoadingHide();
         if(btn){ btn.textContent = '📤 Odeslat fotodokumentaci do MotoGo24'; btn.disabled = false; }
         showT('❌', 'Chyba', 'Nepodařilo se odeslat fotky');
       });

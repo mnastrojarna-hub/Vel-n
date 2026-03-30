@@ -170,6 +170,7 @@ async function sosConfirmReplacement(){
     var damageDeposit = isFault ? 30000 : 0;
     var total = isFault ? (motoTotal + delivery + damageDeposit) : 0;
 
+    sosLoading();
     var btn = document.getElementById('sos-repl-btn');
     if(btn){ btn.textContent = '⏳ Zpracovávám...'; btn.disabled = true; btn.style.opacity = '0.6'; }
 
@@ -199,9 +200,11 @@ async function sosConfirmReplacement(){
       goTo('s-sos-payment');
       // Wait for DOM to render after page transition before initializing payment form
       setTimeout(function(){ _sosInitPaymentGateway(total); }, 150);
+      sosLoadingHide();
       if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = 'Potvrdit objednávku'; }
     } else {
       // Porucha / nezaviněná → rovnou swap bookings + do admin_review
       await _sosSwapBookingsAndConfirm(incId, replacementData, false, address, city);
+      sosLoadingHide();
     }
 }

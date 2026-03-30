@@ -42,6 +42,7 @@ async function sosPaymentSubmit(){
     var btn = document.getElementById('sos-pay-btn');
 
     if(errorEl) errorEl.style.display = 'none';
+    sosLoading();
     if(btn){ btn.textContent = '⏳ Zpracovávám platbu...'; btn.disabled = true; btn.style.opacity = '0.6'; }
 
     try {
@@ -93,6 +94,7 @@ async function sosPaymentSubmit(){
 
       if(payResult.success && payResult.client_secret){
         // Inline Payment Element — platba v appce
+        sosLoadingHide();
         if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '💳 Zaplatit ' + sosAmount.toLocaleString('cs-CZ') + ' Kč'; }
         showStripeInlinePayment(payResult.client_secret, sosAmount, {
           bookingId: replBookingId,
@@ -126,11 +128,13 @@ async function sosPaymentSubmit(){
       }
 
       if(!payResult.success){
+        sosLoadingHide();
         showT('❌','Platba selhala', payResult.error || 'Zkuste to znovu');
         if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '💳 Zaplatit'; btn.style.background = '#b91c1c'; }
       }
     } catch(e){
       console.error('[SOS] Payment processing error:', e);
+      sosLoadingHide();
       showT('❌','Chyba při zpracování','Zkuste to znovu');
       if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '💳 Zaplatit'; btn.style.background = '#b91c1c'; }
     }
