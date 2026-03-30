@@ -4,11 +4,11 @@
    Reservations, SOS, Profile, Invoices, Docs, Legal styles === */
 
 /* Login */
-#s-login{background:var(--dark);padding-bottom:0;}
+#s-login{background:var(--dark);padding-bottom:0;display:flex;flex-direction:column;}
 .lt{min-height:280px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;overflow:hidden;padding:56px 32px 18px;}
 .lt::before{content:'';position:absolute;top:-80px;left:-80px;width:280px;height:280px;background:radial-gradient(circle,rgba(116,251,113,.12),transparent 70%);border-radius:50%;}
 .lt-tagline{font-size:12px;font-weight:600;color:rgba(255,255,255,.45);font-style:italic;margin-top:14px;letter-spacing:.5px;}
-.ls{background:#fff;border-radius:32px 32px 0 0;padding:24px 24px 34px;}
+.ls{background:#fff;border-radius:32px 32px 0 0;padding:24px 24px 34px;flex:1;}
 .ls-head{font-size:20px;font-weight:900;color:var(--black);margin-bottom:4px;}
 .ls-sub{font-size:13px;color:var(--g400);margin-bottom:18px;font-weight:500;}
 .bio-single{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:14px 10px;background:var(--g100);border:2px solid var(--g200);border-radius:var(--r);cursor:pointer;transition:all .2s;font-family:var(--font);width:100%;margin-top:10px;}
