@@ -115,7 +115,8 @@ export async function handleWebBookingCheckout(
     }],
     metadata: { booking_id: body.booking_id!, type: 'booking', source: 'web' },
     success_url: `${SITE_URL}/#/potvrzeni?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${SITE_URL}/#/rezervace`,
+    cancel_url: `${SITE_URL}/#/rezervace?resume=${body.booking_id}`,
+    locale: 'cs',
   })
 
   await supabaseAdmin.from('bookings').update({

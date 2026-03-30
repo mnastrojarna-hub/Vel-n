@@ -50,6 +50,7 @@ MG.route('/rezervace', async function(app){
         userId: bd.user_id,
         bookingAmount: bd.total_price,
         _isResume: true,
+        _passwordSet: true,
         _docsValidated: bd.has_id_number && bd.has_license_number,
         _docNumber: bd.has_id_number ? '(vyplněno)' : '',
         _licenseNumber: bd.has_license_number ? '(vyplněno)' : '',
@@ -105,6 +106,7 @@ MG.route('/rezervace', async function(app){
       if(sd._docNumber) MG._rez._docNumber = sd._docNumber;
       if(sd._licenseNumber) MG._rez._licenseNumber = sd._licenseNumber;
       if(sd._docsValidated) MG._rez._docsValidated = sd._docsValidated;
+      if(sd._passwordSet) MG._rez._passwordSet = sd._passwordSet;
       // Obnovit datum a motorku z formData pokud nejsou z URL
       if(!preStart && sd.startDate) MG._rez.startDate = sd.startDate;
       if(!preEnd && sd.endDate) MG._rez.endDate = sd.endDate;
@@ -169,13 +171,13 @@ MG._reqTip = function(){ return ' <span class="ctooltip" style="color:#c00;font-
 // ===== STATIC FORM HTML =====
 MG._rezFormHtml = function(){
   return '<div id="rez-form"><p>&nbsp;</p>' +
-    '<input type="text" id="rez-name" placeholder="* Jméno a příjmení" required title="Toto pole je povinné" autocomplete="name">' +
-    '<div class="gr2"><input type="text" id="rez-street" placeholder="* Ulice, č.p." required autocomplete="street-address">' +
-    '<input type="text" id="rez-zip" placeholder="* PSČ" required autocomplete="postal-code"></div>' +
-    '<div class="gr2"><input type="text" id="rez-city" placeholder="* Město" required autocomplete="address-level2">' +
-    '<input type="text" id="rez-country" placeholder="* Stát" value="Česká republika" required autocomplete="country-name"></div>' +
-    '<div class="gr2"><input type="email" id="rez-email" placeholder="* E-mail" required autocomplete="email">' +
-    '<input type="tel" id="rez-phone" placeholder="* Telefon (+420XXXXXXXXX)" required autocomplete="tel" pattern="^\\+\\d{12,15}$"></div>' +
+    '<input type="text" id="rez-name" name="name" placeholder="* Jméno a příjmení" required title="Toto pole je povinné" autocomplete="name">' +
+    '<div class="gr2"><input type="text" id="rez-street" name="street-address" placeholder="* Ulice, č.p." required autocomplete="street-address">' +
+    '<input type="text" id="rez-zip" name="postal-code" placeholder="* PSČ" required autocomplete="postal-code"></div>' +
+    '<div class="gr2"><input type="text" id="rez-city" name="address-level2" placeholder="* Město" required autocomplete="address-level2">' +
+    '<input type="text" id="rez-country" name="country-name" placeholder="* Stát" value="Česká republika" required autocomplete="country-name"></div>' +
+    '<div class="gr2"><input type="email" id="rez-email" name="email" placeholder="* E-mail" required autocomplete="email">' +
+    '<input type="tel" id="rez-phone" name="tel" placeholder="* Telefon (+420XXXXXXXXX)" required autocomplete="tel" pattern="^\\+\\d{12,15}$"></div>' +
     '<div class="gr2 voucher-code"><input type="text" id="rez-voucher" placeholder="Slevový kód" maxlength="255">' +
     '<div><span class="btn btngreen-small" onclick="MG._applyVoucher()">UPLATNIT</span></div></div>' +
     '<div id="rez-applied-codes"></div>' +

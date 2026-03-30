@@ -134,7 +134,8 @@ MG._submitReservation = async function(){
         motoId: MG._rez.motoId, appliedCodes: MG._rez.appliedCodes,
         discountAmt: MG._rez.discountAmt,
         _docNumber: MG._rez._docNumber, _licenseNumber: MG._rez._licenseNumber,
-        _docsValidated: MG._rez._docsValidated
+        _docsValidated: MG._rez._docsValidated,
+        _passwordSet: MG._rez._passwordSet||false
       })); } catch(e2){}
     }
   } catch(e){ alert('Chyba při ukládání: '+e.message); return; }
@@ -234,6 +235,11 @@ MG._rezShowStep2 = function(){
     '<input type="date" id="rez-license-expiry" required style="width:100%;padding:.55rem .75rem;border:1px solid #d1d5db;border-radius:8px;font-size:.9rem;margin-top:.25rem"></div></div>'+
     '<div class="checkboxes" style="margin:1rem 0"><div class="agreement gr2"><input type="checkbox" id="rez-license-confirm" required'+(MG._rez._docsValidated?' checked':'')+'>'+
     '<div>* Potvrzuji, že jsem držitelem platného řidičského oprávnění a splňuji zákonné podmínky k řízení rezervovaného motocyklu.</div></div></div>'+
+    '<hr style="border:none;border-top:1px solid #e0e0e0;margin:1.5rem 0">'+
+    '<h3>Heslo pro správu rezervace</h3>'+
+    '<p style="color:#555;font-size:.88rem;line-height:1.5;margin-bottom:.75rem">Zvolte si heslo, které budete potřebovat pro úpravu rezervace. Pokud si v budoucnu stáhnete aplikaci MotoGo24, přihlásíte se stejným e-mailem a tímto heslem.</p>'+
+    '<div class="gr2"><input type="password" id="rez-password" name="new-password" placeholder="* Heslo (min. 6 znaků)" required autocomplete="new-password" minlength="6"'+(MG._rez._passwordSet?' value="********" disabled':'')+'>'+
+    '<input type="password" id="rez-password-confirm" name="new-password" placeholder="* Potvrzení hesla" required autocomplete="new-password" minlength="6"'+(MG._rez._passwordSet?' value="********" disabled':'')+'></div>'+
     qrSection+
     '<hr style="border:none;border-top:2px solid #74FB71;margin:1.5rem 0">'+
     '<h2>Náhled zálohové faktury</h2>'+
