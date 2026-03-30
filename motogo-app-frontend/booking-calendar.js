@@ -57,27 +57,28 @@ function showBookingCal(){
   buildBCal();
 }
 function pickB(el,d,y,m){
+  var h=_t('hc');
   var motoId=bookingMoto?bookingMoto.id:null;
   if(bStep===1){
     // Block past dates
     var today=AppTime.today();
     var clickDate=new Date(y,m,d);clickDate.setHours(0,0,0,0);
-    if(clickDate<today){showT('⚠️',_t('res').date,_t('res').cannotSelectPast||'Nelze vybrat datum v minulosti');return;}
+    if(clickDate<today){showT('⚠️',_t('res').date,_t('res').cannotSelectPast||h.cannotSelectPast);return;}
     document.querySelectorAll('#b-cal .cd').forEach(c=>{c.classList.remove('sel-od','sel-do','in-range');if(!c.disabled&&!c.classList.contains('empty')&&!c.classList.contains('unconfirmed'))c.classList.add('free');});
     el.classList.remove('free');el.classList.add('sel-od');
     bOd={d,y,m};bDo=null;bStep=2;
     document.getElementById('b-od-txt').textContent=d+'. '+(m+1)+'. '+y;
-    document.getElementById('b-do-txt').textContent=_t('res').selectReturnDate||'Vyberte';
+    document.getElementById('b-do-txt').textContent=_t('res').selectReturnDate||h.selectReturnDate;
     filterTimeChips();
     updateBookingPrice();
   } else {
     var returnDate=new Date(y,m,d);returnDate.setHours(0,0,0,0);
     var startDate=new Date(bOd.y,bOd.m,bOd.d);startDate.setHours(0,0,0,0);
-    if(returnDate<startDate){showT('⚠️',_t('res').returnDate,_t('res').returnMustBeSameOrLater||'Musí být stejné nebo pozdější');return;}
+    if(returnDate<startDate){showT('⚠️',_t('res').returnDate,_t('res').returnMustBeSameOrLater||h.returnMustBeLater);return;}
     // Validate entire range is free for this specific moto
     if(motoId&&typeof isMotoFreeForRange==='function'){
       if(!isMotoFreeForRange(motoId,startDate,returnDate)){
-        showT('⚠️',_t('res').occupied||'Obsazeno',_t('res').motoNotFreeRange||'Motorka není v celém zvoleném období volná');return;
+        showT('⚠️',_t('res').occupied||'Obsazeno',_t('res').motoNotFreeRange||h.motoNotFree);return;
       }
     }
     el.classList.remove('free');el.classList.add('sel-do');
@@ -105,6 +106,7 @@ function getEditResRange(){
   return {start:origResStart,end:origResEnd};
 }
 function pickE(el,d,y,m){
+  var h=_t('hc');
   var range=getEditResRange();
   var resEnd=range.end;
   var resStart=range.start;
@@ -116,19 +118,19 @@ function pickE(el,d,y,m){
   // ===== SHORTEN MODE =====
   if(editMode==='zkratit'){
     var inRes=(clickedDate>=origStartDate&&clickedDate<=origEndDate);
-    if(!inRes){showT('⚠️','Zkrácení','Vyberte den uvnitř stávající rezervace');return;}
+    if(!inRes){showT('⚠️',_t('edit').tabShorten,h.calSelectInside);return;}
     document.querySelectorAll('#e-cal .cd').forEach(function(c){c.classList.remove('sel-od','sel-do','in-range');c.style.textDecoration='';if(!c.disabled&&!c.classList.contains('empty')&&!c.classList.contains('unconfirmed'))c.classList.add('free');});
     if(editIsActive){
       // Active: only shorten end, min 1 day from today
-      if(clickedDate>=origEndDate){showT('⚠️','Zkrácení','Datum musí být dříve než '+resEnd.d+'.'+(resEnd.m+1)+'.');return;}
-      if(clickedDate<now){showT('⚠️','Zkrácení','Nelze v minulosti');return;}
+      if(clickedDate>=origEndDate){showT('⚠️',_t('edit').tabShorten,h.calDateMustBeBefore.replace('{d}',resEnd.d+'.'+(resEnd.m+1)+'.'));return;}
+      if(clickedDate<now){showT('⚠️',_t('edit').tabShorten,h.calNotInPast);return;}
       eOd={d:now.getDate(),y:now.getFullYear(),m:now.getMonth()};
       eDo={d:d,y:y,m:m};
     } else {
       // Upcoming: shorten from start or end
       var totalDays=Math.round((origEndDate-origStartDate)/86400000)+1;
       var daysFromStart=Math.round((clickedDate-origStartDate)/86400000);
-      if(totalDays<=1){showT('⚠️','Zkrácení','Rezervace je již na minimální délce (1 den)');return;}
+      if(totalDays<=1){showT('⚠️',_t('edit').tabShorten,h.calMinLength);return;}
 
       // Determine direction: use user-chosen direction if set, otherwise auto-detect
       var dir=editShortenDir;
@@ -168,7 +170,7 @@ function pickE(el,d,y,m){
       else if(inOrig&&inNew){c.style.background='var(--green)';c.style.color='#fff';c.style.fontWeight='800';}
     });
     var newDays=Math.max(1,Math.round((new Date(eDo.y,eDo.m,eDo.d)-new Date(eOd.y,eOd.m,eOd.d))/86400000)+1);
-    showT('✓','Zkráceno','Nová délka: '+newDays+(newDays===1?' den':newDays<5?' dny':' dní'));
+    showT('✓',h.calShortened,h.calNewLength.replace('{n}',newDays+(newDays===1?' '+h.day1:newDays<5?' '+h.days24:' '+h.days5)));
     updateEditPriceSummary();
     return;
   }
@@ -176,25 +178,25 @@ function pickE(el,d,y,m){
   // ===== EXTEND MODE =====
   // Upcoming: extend start earlier
   if(!editIsActive&&clickedDate<origStartDate){
-    if(clickedDate<now){showT('⚠️','Prodloužení','Nelze do minulosti');return;}
+    if(clickedDate<now){showT('⚠️',_t('edit').tabExtend,h.calCannotPast);return;}
     var chk=new Date(clickedDate);var ok=true;
     while(chk<origStartDate){if(!isDateFree(chk.getDate(),chk.getMonth())){ok=false;break;}chk.setDate(chk.getDate()+1);}
-    if(!ok){showT('⚠️','Prodloužení','Nelze – některé dny jsou obsazené');return;}
+    if(!ok){showT('⚠️',_t('edit').tabExtend,h.calDaysOccupied);return;}
     document.querySelectorAll('#e-cal .cd').forEach(function(c){c.classList.remove('sel-od','sel-do','in-range');});
     eOd={d:d,y:y,m:m};eDo={d:resEnd.d,y:resEnd.y,m:resEnd.m};
     el.classList.remove('free');el.classList.add('sel-od');
     var extra=Math.round((origStartDate-clickedDate)/86400000);
-    showT('✓','+ '+extra+(extra===1?' den':extra<5?' dny':' dní'),'Nový začátek: '+d+'.'+(m+1)+'.'+y);
+    showT('✓','+ '+extra+(extra===1?' '+h.day1:extra<5?' '+h.days24:' '+h.days5),h.calNewStart.replace('{d}',d+'.'+(m+1)+'.'+y));
     updateEditPriceSummary();highlightEditResDates();return;
   }
   // Block clicks inside reservation
   if(clickedDate>=origStartDate&&clickedDate<=origEndDate){
-    showT('⚠️','Prodloužení',editIsActive?'Vyberte den PO '+resEnd.d+'.'+(resEnd.m+1)+'.':'Vyberte den MIMO stávající rezervaci');return;
+    showT('⚠️',_t('edit').tabExtend,editIsActive?h.calSelectAfter.replace('{d}',resEnd.d+'.'+(resEnd.m+1)+'.'):h.calSelectOutside);return;
   }
   // Extend end (active + upcoming)
   var chk2=new Date(origEndDate);chk2.setDate(chk2.getDate()+1);var ok2=true;
   while(chk2<=clickedDate){if(!isDateFree(chk2.getDate(),chk2.getMonth())){ok2=false;break;}chk2.setDate(chk2.getDate()+1);}
-  if(!ok2){showT('⚠️','Prodloužení','Nelze – některé dny jsou obsazené');return;}
+  if(!ok2){showT('⚠️',_t('edit').tabExtend,h.calDaysOccupied);return;}
   document.querySelectorAll('#e-cal .cd').forEach(function(c){
     c.classList.remove('sel-do','in-range');var cd2=parseInt(c.textContent);
     if(!isNaN(cd2)&&!c.disabled&&!c.classList.contains('empty')&&!c.classList.contains('occupied')&&!c.classList.contains('unconfirmed')){
@@ -208,7 +210,7 @@ function pickE(el,d,y,m){
     if(new Date(y,m,cd)>origEndDate&&new Date(y,m,cd)<clickedDate){c.classList.remove('free');c.classList.add('in-range');}
   });
   var extra2=Math.round((clickedDate-origEndDate)/86400000);
-  showT('✓','+ '+extra2+(extra2===1?' den':extra2<5?' dny':' dní'),'Nový konec: '+d+'.'+(m+1)+'.'+y);
+  showT('✓','+ '+extra2+(extra2===1?' '+h.day1:extra2<5?' '+h.days24:' '+h.days5),h.calNewEnd.replace('{d}',d+'.'+(m+1)+'.'+y));
   updateEditPriceSummary();highlightEditResDates();
 }
 
@@ -240,14 +242,16 @@ function _updateShortenDirUI(){
   }
   var hint=document.getElementById('edit-cal-instruction');
   if(hint){
-    if(editShortenDir==='start')hint.textContent='Klikněte na nový první den rezervace';
-    else if(editShortenDir==='end')hint.textContent='Klikněte na nový poslední den rezervace';
-    else hint.textContent='Vyberte směr zkrácení a poté klikněte na datum';
+    var h=_t('hc');
+    if(editShortenDir==='start')hint.textContent=h.calClickNewStart;
+    else if(editShortenDir==='end')hint.textContent=h.calClickNewEnd;
+    else hint.textContent=h.calChooseDir;
   }
 }
 
 // ===== EDIT DATE FROM INPUT =====
 function setEditDateFromInput(type,val){
+  var h=_t('hc');
   if(!val)return;
   var parts=val.split('-');
   var y=parseInt(parts[0]),m=parseInt(parts[1])-1,d=parseInt(parts[2]);
@@ -262,7 +266,7 @@ function setEditDateFromInput(type,val){
       var newEnd=new Date(y,m,d);
       var resEndDate=new Date(range.end.y,range.end.m,range.end.d);
       if(newEnd<=resEndDate){
-        showT('⚠️','Prodloužení','Datum musí být po '+range.end.d+'.'+(range.end.m+1)+'.');return;
+        showT('⚠️',_t('edit').tabExtend,h.calDateMustBeAfter.replace('{d}',range.end.d+'.'+(range.end.m+1)+'.'));return;
       }
       eOd={d:range.start.d,m:range.start.m,y:range.start.y};
     }
@@ -272,7 +276,7 @@ function setEditDateFromInput(type,val){
   }
   if(eOd&&eDo){
     var days=calcRentalDays(new Date(eOd.y,eOd.m,eOd.d),new Date(eDo.y,eDo.m,eDo.d));
-    showT('📅','Termín zadán',days+(days===1?' den':' dní'));
+    showT('📅',h.calDateEntered,days+(days===1?' '+h.day1:' '+h.days5));
     updateEditPriceSummary();
   }
 }
@@ -306,7 +310,8 @@ function applyFilters(){
   drop.style.display='block';
   const termText=sOd&&sDo?` · ${sOd.d}.${sOd.m+1}.–${sDo.d}.${sDo.m+1}.`:'';
   const branchText=branch?' · '+({mezna:'Mezná'}[branch]||branch):'';
-  document.getElementById('avail-count-txt').textContent=list.length+' volných motorek'+termText+branchText;
+  var h=_t('hc');
+  document.getElementById('avail-count-txt').textContent=list.length+' '+h.availMotos+termText+branchText;
   document.getElementById('drop-body').innerHTML=`<div class="mg-grid" style="padding:0;">${list.map(m=>mCard(m)).join('')}</div>`;
   document.getElementById('drop-arr').classList.add('open');
   document.getElementById('drop-body').classList.add('open');
@@ -365,18 +370,19 @@ function switchEditTab(tab){
   // Update calendar instruction text
   var calInstruction=document.getElementById('edit-cal-instruction');
   if(calInstruction){
+    var h=_t('hc');
     if(tab==='prodlouzit'){
       var range=getEditResRange();
       if(editIsActive){
-        calInstruction.textContent='Klikněte na den PO '+range.end.d+'.'+(range.end.m+1)+'. pro prodloužení';
+        calInstruction.textContent=h.calClickAfter.replace('{d}',range.end.d+'.'+(range.end.m+1)+'.');
       } else {
-        calInstruction.textContent='Klikněte na den PŘED '+range.start.d+'.'+(range.start.m+1)+'. nebo PO '+range.end.d+'.'+(range.end.m+1)+'. pro prodloužení';
+        calInstruction.textContent=h.calClickBeforeOrAfter.replace('{d1}',range.start.d+'.'+(range.start.m+1)+'.').replace('{d2}',range.end.d+'.'+(range.end.m+1)+'.');
       }
     } else if(tab==='zkratit'){
       if(editIsActive){
-        calInstruction.textContent='Klikněte na nové datum vrácení (dříve než '+getEditResRange().end.d+'.'+(getEditResRange().end.m+1)+'.)';
+        calInstruction.textContent=h.calClickNewReturn.replace('{d}',getEditResRange().end.d+'.'+(getEditResRange().end.m+1)+'.');
       } else {
-        calInstruction.textContent='Vyberte směr zkrácení a poté klikněte na datum';
+        calInstruction.textContent=h.calChooseDir;
       }
     }
   }

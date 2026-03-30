@@ -22,7 +22,7 @@ function doPayment(){
         if(typeof _resetBookingDiscount === 'function') _resetBookingDiscount();
         var freeNote = document.getElementById('pay-free-note');
         if(freeNote) freeNote.remove();
-        showT('✅','Rezervace potvrzena','Sleva pokrývá celou cenu — platba není potřeba');
+        showT('\u2705',_t('hc').reservationConfirmed,_t('hc').discountCoversAll);
         goTo('s-res');
         if(typeof renderMyReservations === 'function') renderMyReservations();
         return;
@@ -64,7 +64,7 @@ function doPayment(){
 // === 100% SLEVA — potvrzení přes process-payment (server validuje 100%) ===
 async function _confirmFreeBooking(bookingId, startDate){
   var btn = document.getElementById('pay-btn');
-  if(btn){ btn.disabled = true; btn.textContent = '⏳ Potvrzuji...'; btn.style.opacity = '0.6'; }
+  if(btn){ btn.disabled = true; btn.textContent = '\u23f3 '+(_t('hc').confirming||'Confirming...'); btn.style.opacity = '0.6'; }
   try {
     var result = await apiProcessPayment(bookingId, 0, 'free');
     if(result.success && result.free){
@@ -75,18 +75,18 @@ async function _confirmFreeBooking(bookingId, startDate){
       if(typeof _resetBookingDiscount === 'function') _resetBookingDiscount();
       var freeNote = document.getElementById('pay-free-note');
       if(freeNote) freeNote.remove();
-      showT('✅','Rezervace potvrzena','Sleva pokrývá celou cenu — platba není potřeba');
+      showT('\u2705',_t('hc').reservationConfirmed,_t('hc').discountCoversAll);
       goTo('s-res');
       if(typeof renderMyReservations === 'function') renderMyReservations();
     } else {
-      var errMsg = (result && result.error) ? result.error : 'Sleva není 100%. Platba kartou je vyžadována.';
-      showT('✗','Chyba',errMsg);
-      if(btn){ btn.disabled = false; btn.textContent = '✅ Potvrdit rezervaci zdarma →'; btn.style.opacity = '1'; }
+      var errMsg = (result && result.error) ? result.error : (_t('hc').discountNot100||'Discount is not 100%. Card payment is required.');
+      showT('\u2717',_t('common').error,errMsg);
+      if(btn){ btn.disabled = false; btn.textContent = '\u2705 '+(_t('hc').confirmFreeBtn||'Confirm free reservation \u2192'); btn.style.opacity = '1'; }
     }
   } catch(e){
     console.error('[PAY] _confirmFreeBooking error:', e);
-    if(btn){ btn.disabled = false; btn.textContent = '✅ Potvrdit rezervaci zdarma →'; btn.style.opacity = '1'; }
-    showT('✗','Chyba','Nepodařilo se potvrdit rezervaci: ' + (e.message || ''));
+    if(btn){ btn.disabled = false; btn.textContent = '\u2705 '+(_t('hc').confirmFreeBtn||'Confirm free reservation \u2192'); btn.style.opacity = '1'; }
+    showT('\u2717',_t('common').error,(_t('hc').confirmFailed||'Failed to confirm reservation')+': ' + (e.message || ''));
   }
 }
 
@@ -172,7 +172,7 @@ function _onInlinePaymentCancel(){
   _stripeCheckoutOpened = false;
   _stripeCheckoutBookingId = null;
   // FAB already detects pending unpaid bookings — just navigate away
-  showT('ℹ️','Platba přerušena','Můžete pokračovat přes tlačítko dole');
+  showT('\u2139\ufe0f',_t('hc').paymentInterrupted,_t('hc').continueViaButton);
 }
 
 function _parseDate(str){
@@ -206,7 +206,7 @@ async function _showSavedCardPreview(){
       '<div style="font-size:22px;">💳</div>' +
       '<div><div style="font-size:13px;font-weight:700;">•••• ' + def.last4 + ' <span style="font-size:10px;color:var(--g400);">' + brand + '</span></div>' +
       '<div style="font-size:10px;color:var(--g400);">' + exp + name + '</div></div>' +
-      '<div style="margin-left:auto;font-size:10px;font-weight:700;color:var(--green);">Předvyplněno</div></div>';
+      '<div style="margin-left:auto;font-size:10px;font-weight:700;color:var(--green);">'+(_t('hc').prefilled||'Prefilled')+'</div></div>';
   } catch(e){}
 }
 
@@ -222,14 +222,14 @@ function _startPaymentCountdown(){
     if(remaining <= 0){
       clearInterval(_countdownInterval);
       _countdownInterval = null;
-      if(el) el.textContent = 'Čas na zaplacení vypršel';
+      if(el) el.textContent = _t('hc').timeExpired;
       // Refreshni stav z DB — backend cron už mohl booking zrušit
       _refreshBookingStatus();
       return;
     }
     var min = Math.floor(remaining / 60000);
     var sec = Math.floor((remaining % 60000) / 1000);
-    if(el) el.textContent = 'Zbývá ' + min + ':' + String(sec).padStart(2,'0') + ' na zaplacení';
+    if(el) el.textContent = (_t('hc').timeRemaining||'{t} remaining to pay').replace('{t}',min+':'+String(sec).padStart(2,'0'));
   }, 1000);
 }
 
@@ -247,7 +247,7 @@ async function _refreshBookingStatus(){
       discountAmt = 0;
       _currentBookingId = null;
       _paymentAttempts = 0;
-      showT('✗', _t('pay').declined||'Rezervace zrušena', 'Rezervace byla automaticky zrušena pro nezaplacení');
+      showT('\u2717', _t('pay').declined||'Reservation cancelled', _t('hc').autoCancelled||'Reservation was automatically cancelled due to non-payment');
       goTo('s-res');
       if(typeof renderMyReservations === 'function') renderMyReservations();
     }

@@ -1,14 +1,14 @@
 /* === UI-SOS-COMPLETION.JS — SOS end ride, AI chat, photos & voice === */
 
 function sosEndRide() {
-    showT('🚛', 'Objednávám odtah...', '');
+    var h=_t('hc');showT('🚛',h.orderingTow,'');
     sosLoading();
     // Keep _sosActiveIncidentId — reuse existing incident from sosReportAccident
     var faultDesc = _sosFault === true ? 'Nehoda byla moje chyba' : _sosFault === false ? 'Nehoda nebyla moje chyba' : '';
     var desc = 'Motorka nepojízdná – ukončuji jízdu, žádám odtah. ' + faultDesc;
     var type = _sosFault !== null ? 'accident_major' : 'breakdown_major';
     _sosEnsureIncident(type, desc).then(function(incId){
-      if(!incId){ showT('❌','Chyba','Nepodařilo se nahlásit incident'); return; }
+      if(!incId){ showT('❌',_t('common').error,h.createFailed.replace(': ','')); return; }
       var upd = {customer_decision:'end_ride', moto_rideable:false};
       if(_sosFault !== null) upd.customer_fault = _sosFault;
       _sosUpdateIncident(incId, upd);
@@ -50,21 +50,21 @@ function sosEndRideFree() {
 }
 
 function sosShareLocation() {
-    if (!navigator.geolocation) { showT('❌', 'GPS nedostupné', 'Váš prohlížeč nepodporuje GPS'); return; }
-    showT('📍', 'Zjišťuji polohu...', 'Čekejte prosím');
+    if (!navigator.geolocation) { showT('❌',_t('sos').gpsUnavailable,_t('sos').browserNoGPS); return; }
+    showT('📍',_t('sos').locating,_t('sos').pleaseWait);
 
     function _sendLocation(lat, lng) {
         apiGetMySosIncidents().then(function(incidents) {
             var latest = incidents && incidents.length ? incidents[0] : null;
             if (latest) {
                 apiSosShareLocation(latest.id, lat, lng).then(function() {
-                    showT('📍', 'Poloha sdílena MotoGo24', lat.toFixed(5) + ', ' + lng.toFixed(5));
+                    showT('📍',_t('sos').locationShared, lat.toFixed(5) + ', ' + lng.toFixed(5));
                 });
             } else {
                 apiGetActiveLoan().then(function(loan) {
                     var loanId = loan ? loan.id : null;
                     apiCreateSosIncident('location_share', loanId, lat, lng, null, null).then(function() {
-                        showT('📍', 'Poloha sdílena MotoGo24', lat.toFixed(5) + ', ' + lng.toFixed(5));
+                        showT('📍',_t('sos').locationShared, lat.toFixed(5) + ', ' + lng.toFixed(5));
                     });
                 });
             }
@@ -75,14 +75,14 @@ function sosShareLocation() {
     navigator.geolocation.getCurrentPosition(
         function(pos) { _sendLocation(pos.coords.latitude, pos.coords.longitude); },
         function(err) {
-            if (err.code === 1) { showT('❌', 'Přístup odepřen', 'Povolte polohu v nastavení'); return; }
-            showT('📍', 'Hledám polohu...', 'Zkouším alternativní metodu');
+            if (err.code === 1) { showT('❌',_t('sos').accessDenied,_t('sos').allowLocation); return; }
+            showT('📍',_t('sos').locating,_t('sos').tryingAlt||'Trying alternative method');
             navigator.geolocation.getCurrentPosition(
                 function(pos) { _sendLocation(pos.coords.latitude, pos.coords.longitude); },
                 function(err2) {
-                    if (err2.code === 1) showT('❌', 'Přístup odepřen', 'Povolte polohu v nastavení');
-                    else if (err2.code === 2) showT('❌', 'GPS nedostupné', 'Zkuste to venku nebo povolte polohu');
-                    else showT('❌', 'Časový limit', 'GPS neodpovědělo – zkuste to venku');
+                    if (err2.code === 1) showT('❌',_t('sos').accessDenied,_t('sos').allowLocation);
+                    else if (err2.code === 2) showT('❌',_t('sos').gpsUnavailable,_t('sos').tryOutside||'Try outside or allow location');
+                    else showT('❌',_t('sos').timeout||'Timeout',_t('sos').gpsNoResponse||'GPS did not respond – try outside');
                 },
                 { enableHighAccuracy: false, timeout: 30000, maximumAge: 60000 }
             );
@@ -95,7 +95,7 @@ function sosDrobnaZavada() {
     if(_sosSubmitting) return;
     _sosSubmitting = true;
     sosLoading();
-    showT('🔩', 'Hlásím závadu...', '');
+    var h=_t('hc');showT('🔩',h.reportingFault,'');
     _sosActiveIncidentId = null;
     _sosFault = null;
     _sosEnsureIncident('breakdown_minor', 'Drobná závada – motorka pojízdná, pokračuji v jízdě').then(function(incId){
@@ -119,14 +119,15 @@ function sosDrobnaZavada() {
 // ===== SOS PHOTO-ONLY SUBMIT — informativní fotodokumentace =====
 function sosSubmitPhotosOnly() {
     if(typeof _sosPhotos==='undefined' || _sosPhotos.length === 0) {
-      showT('⚠️', 'Žádné fotky', 'Nejdříve přidejte alespoň jednu fotku');
+      var h=_t('hc');showT('⚠️',h.noPhotos,h.addPhotosFirst);
       return;
     }
     if(_sosSubmitting) return;
     _sosSubmitting = true;
     sosLoading();
     var btn = document.getElementById('sos-photo-submit-btn');
-    if(btn){ btn.textContent = '⏳ Odesílám...'; btn.disabled = true; }
+    var h=_t('hc');
+    if(btn){ btn.textContent = '⏳ '+h.sending; btn.disabled = true; }
     // Get active booking for linking
     _sosPreFetchIds();
     setTimeout(function(){
@@ -138,8 +139,8 @@ function sosSubmitPhotosOnly() {
       }).then(function(incId){
         if(!incId){
           _sosSubmitting = false;
-          if(btn){ btn.textContent = '📤 Odeslat fotodokumentaci do MotoGo24'; btn.disabled = false; }
-          showT('❌', 'Chyba', 'Nepodařilo se odeslat. Zkuste znovu.');
+          if(btn){ btn.textContent = '📤 '+h.sendPhotosBtn; btn.disabled = false; }
+          showT('❌',_t('common').error,h.sendFailed);
           return;
         }
         // Upload photos
@@ -153,18 +154,18 @@ function sosSubmitPhotosOnly() {
             incident_id: incId,
             action: 'Zákazník odeslal informativní fotodokumentaci (' + urls.length + ' fotek)',
           }).then(function(){});
-          showT('✅', 'Fotodokumentace odeslána', 'MotoGo24 obdržela vaše fotky');
-          if(btn){ btn.textContent = '✅ Odesláno'; btn.style.background = '#1a8a18'; btn.style.opacity = '0.8'; }
+          showT('✅',h.photosSent,h.photosReceived);
+          if(btn){ btn.textContent = '✅ '+h.sent; btn.style.background = '#1a8a18'; btn.style.opacity = '0.8'; }
           setTimeout(function(){
-            if(btn){ btn.textContent = '📤 Odeslat fotodokumentaci do MotoGo24'; btn.disabled = false; btn.style.background = 'var(--green)'; btn.style.opacity = '1'; btn.style.display = 'none'; }
+            if(btn){ btn.textContent = '📤 '+h.sendPhotosBtn; btn.disabled = false; btn.style.background = 'var(--green)'; btn.style.opacity = '1'; btn.style.display = 'none'; }
           }, 3000);
         });
       }).catch(function(e){
         console.error('[SOS] sosSubmitPhotosOnly error:', e);
         _sosSubmitting = false;
         sosLoadingHide();
-        if(btn){ btn.textContent = '📤 Odeslat fotodokumentaci do MotoGo24'; btn.disabled = false; }
-        showT('❌', 'Chyba', 'Nepodařilo se odeslat fotky');
+        if(btn){ btn.textContent = '📤 '+h.sendPhotosBtn; btn.disabled = false; }
+        showT('❌',_t('common').error,h.sendPhotosFailed);
       });
     }, 300);
 }

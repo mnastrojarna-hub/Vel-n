@@ -90,23 +90,24 @@ async function doChangePassword(){
   var oldP=document.getElementById('chp-old');
   var p1=document.getElementById('chp-new1');
   var p2=document.getElementById('chp-new2');
-  if(!oldP||!oldP.value){showT('⚠️','Heslo','Zadejte současné heslo');return;}
-  if(!p1||p1.value.length<8){showT('⚠️','Heslo','Nové heslo musí mít alespoň 8 znaků');return;}
-  if(p1.value!==p2.value){showT('⚠️','Heslo','Hesla se neshodují');return;}
+  var h=_t('hc');
+  if(!oldP||!oldP.value){showT('⚠️',_t('auth').passTitle,h.enterCurrentPass);return;}
+  if(!p1||p1.value.length<8){showT('⚠️',_t('auth').passTitle,h.newPassMin8);return;}
+  if(p1.value!==p2.value){showT('⚠️',_t('auth').passTitle,h.passNoMatch);return;}
   // Re-authenticate with current password to verify identity
   if(_isSupabaseReady()){
     try {
       var profile=await apiFetchProfile();
       var email=profile?profile.email:'';
-      if(!email){showT('✗','Chyba','Email nenalezen');return;}
+      if(!email){showT('✗',_t('common').error,h.emailNotFound);return;}
       var signIn=await supabase.auth.signInWithPassword({email:email,password:oldP.value});
-      if(signIn.error){showT('✗','Chyba','Současné heslo je nesprávné');return;}
+      if(signIn.error){showT('✗',_t('common').error,h.wrongCurrentPass);return;}
       var r=await authChangePassword(p1.value);
-      if(r.error){showT('✗','Chyba',r.error);return;}
-      showT('✓','Heslo změněno','Nové heslo bylo uloženo');
+      if(r.error){showT('✗',_t('common').error,r.error);return;}
+      showT('✓',h.passChanged,h.passChangedMsg);
       oldP.value='';p1.value='';p2.value='';
       toggleExpand('exp-heslo','arr-heslo');
-    } catch(e){showT('✗','Chyba','Nepodařilo se změnit heslo');}
+    } catch(e){showT('✗',_t('common').error,h.passChangeFailed);}
   }
 }
 

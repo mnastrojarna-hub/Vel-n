@@ -74,14 +74,14 @@ async function renderPaymentMethods(){
   var wrap = document.getElementById('pm-cards-list');
   if(!wrap) return;
   if(typeof apiFetchPaymentMethods !== 'function'){
-    wrap.innerHTML = '<div style="padding:8px;font-size:12px;color:var(--g400);">Platebn\u00ed metody nejsou dostupn\u00e9 offline</div>';
+    wrap.innerHTML = '<div style="padding:8px;font-size:12px;color:var(--g400);">'+_t('hc').noCardsOffline+'</div>';
     return;
   }
   try {
-    wrap.innerHTML = '<div style="text-align:center;padding:12px;color:var(--g400);font-size:12px;">Na\u010d\u00edt\u00e1m ulo\u017een\u00e9 karty...</div>';
+    wrap.innerHTML = '<div style="text-align:center;padding:12px;color:var(--g400);font-size:12px;">'+_t('hc').loadingCards+'</div>';
     var r = await apiFetchPaymentMethods();
     if(!r.success || !r.methods || r.methods.length === 0){
-      wrap.innerHTML = '<div style="padding:12px;text-align:center;font-size:12px;color:var(--g400);">\u017d\u00e1dn\u00e9 ulo\u017een\u00e9 karty</div>';
+      wrap.innerHTML = '<div style="padding:12px;text-align:center;font-size:12px;color:var(--g400);">'+_t('hc').noCards+'</div>';
       return;
     }
     var brandIcons = {visa:'VISA',mastercard:'MC',amex:'AMEX',discover:'DISC'};
@@ -90,30 +90,30 @@ async function renderPaymentMethods(){
       var brandLabel = brandIcons[m.brand] || m.brand.toUpperCase();
       var expStr = (m.exp_month < 10 ? '0' : '') + m.exp_month + '/' + String(m.exp_year).slice(-2);
       var nameStr = m.holder_name ? '<div style="font-size:10px;color:var(--g400);margin-top:1px;">'+m.holder_name+'</div>' : '';
-      var defBadge = m.is_default ? '<span style="background:var(--green);color:#fff;font-size:9px;font-weight:800;padding:2px 6px;border-radius:10px;margin-left:6px;">PRIORITN\u00cd</span>' : '';
-      var defBtn = m.is_default ? '' : '<div onclick="event.stopPropagation();setDefaultCard(\''+m.id+'\')" style="font-size:10px;font-weight:700;color:var(--gd);cursor:pointer;margin-bottom:2px;">Nastavit prioritn\u00ed</div>';
+      var defBadge = m.is_default ? '<span style="background:var(--green);color:#fff;font-size:9px;font-weight:800;padding:2px 6px;border-radius:10px;margin-left:6px;">'+_t('hc').priority+'</span>' : '';
+      var defBtn = m.is_default ? '' : '<div onclick="event.stopPropagation();setDefaultCard(\''+m.id+'\')" style="font-size:10px;font-weight:700;color:var(--gd);cursor:pointer;margin-bottom:2px;">'+_t('hc').setPriority+'</div>';
       html += '<div style="display:flex;align-items:center;gap:10px;padding:10px;background:#fff;border-radius:var(--rsm);margin-bottom:6px;border:1px solid '+(m.is_default?'var(--green)':'var(--g200)')+';">' +
         '<div style="font-size:20px;">\ud83d\udcb3</div>' +
         '<div style="flex:1;"><div style="font-size:13px;font-weight:700;color:var(--black);">\u2022\u2022\u2022\u2022 '+m.last4+' <span style="font-size:10px;font-weight:800;color:var(--g400);">'+brandLabel+'</span>'+defBadge+'</div>' +
-        '<div style="font-size:11px;color:var(--g400);font-weight:500;">Plat\u00ed do '+expStr+'</div>'+nameStr+'</div>' +
+        '<div style="font-size:11px;color:var(--g400);font-weight:500;">'+_t('hc').validUntil+' '+expStr+'</div>'+nameStr+'</div>' +
         '<div style="text-align:right;">'+defBtn+
-        '<div onclick="event.stopPropagation();deleteCard(\''+m.id+'\')" style="font-size:10px;font-weight:700;color:var(--red);cursor:pointer;">Odebrat</div></div></div>';
+        '<div onclick="event.stopPropagation();deleteCard(\''+m.id+'\')" style="font-size:10px;font-weight:700;color:var(--red);cursor:pointer;">'+_t('hc').removeBtn+'</div></div></div>';
     });
     wrap.innerHTML = html;
-  } catch(e){ wrap.innerHTML = '<div style="padding:8px;font-size:12px;color:var(--red);">Chyba p\u0159i na\u010d\u00edt\u00e1n\u00ed karet</div>'; }
+  } catch(e){ wrap.innerHTML = '<div style="padding:8px;font-size:12px;color:var(--red);">'+_t('hc').loadCardsError+'</div>'; }
 }
 
 async function deleteCard(pmId){
-  if(!confirm('Opravdu odebrat tuto kartu?')) return;
+  if(!confirm(_t('hc').removeCard)) return;
   var r = await apiDeletePaymentMethod(pmId);
-  if(r.success){ showT('\u2713','Karta odebr\u00e1na',''); _pmLoaded = false; renderPaymentMethods(); }
-  else { showT('\u2717','Chyba',r.error || 'Nepoda\u0159ilo se odebrat kartu'); }
+  if(r.success){ showT('\u2713',_t('hc').cardRemoved,''); _pmLoaded = false; renderPaymentMethods(); }
+  else { showT('\u2717',_t('common').error,r.error || _t('hc').cardRemoveFailed); }
 }
 
 async function setDefaultCard(pmId){
   var r = await apiSetDefaultPaymentMethod(pmId);
-  if(r.success){ showT('\u2713','Prioritn\u00ed karta nastavena',''); _pmLoaded = false; renderPaymentMethods(); }
-  else { showT('\u2717','Chyba',r.error || 'Nepoda\u0159ilo se nastavit prioritn\u00ed kartu'); }
+  if(r.success){ showT('\u2713',_t('hc').priorityCardSet,''); _pmLoaded = false; renderPaymentMethods(); }
+  else { showT('\u2717',_t('common').error,r.error || _t('hc').priorityCardFailed); }
 }
 
 // -- In-app card form (Stripe Elements) --
@@ -135,7 +135,7 @@ function showAddCardForm(){
   var errEl = document.getElementById('card-form-error');
   if(errEl) errEl.textContent = '';
   var btn = document.getElementById('add-card-btn');
-  if(btn) btn.textContent = '\u2715 Zru\u0161it';
+  if(btn) btn.textContent='\u2715 '+_t('hc').cancelBtn;
 }
 
 function hideAddCardForm(){
@@ -144,33 +144,33 @@ function hideAddCardForm(){
   if(formWrap) formWrap.style.display = 'none';
   if(typeof _destroyCardElement === 'function') _destroyCardElement();
   var btn = document.getElementById('add-card-btn');
-  if(btn) btn.textContent = '+ P\u0159idat novou kartu';
+  if(btn) btn.textContent='+ '+_t('hc').addNewCard;
 }
 
 async function submitNewCard(){
   var errEl = document.getElementById('card-form-error');
   var saveBtn = document.getElementById('save-card-btn');
   if(errEl) errEl.textContent = '';
-  if(saveBtn){ saveBtn.disabled = true; saveBtn.textContent = 'Ukl\u00e1d\u00e1m...'; }
+  if(saveBtn){ saveBtn.disabled = true; saveBtn.textContent=_t('hc').saving; }
   try {
     var holderName = (document.getElementById('card-holder-name') || {}).value || '';
     if(typeof apiCreatePaymentMethod !== 'function'){
-      if(errEl) errEl.textContent = 'Funkce nen\u00ed dostupn\u00e1';
+      if(errEl) errEl.textContent = _t('hc').funcNotAvailable||'Function not available';
       return;
     }
     var r = await apiCreatePaymentMethod(holderName);
     if(r.success){
-      showT('\u2713','Karta ulo\u017eena','Karta byla \u00fasp\u011b\u0161n\u011b p\u0159id\u00e1na');
+      showT('\u2713',_t('hc').cardSaved,_t('hc').cardSavedMsg);
       hideAddCardForm();
       _pmLoaded = false;
       renderPaymentMethods();
     } else {
-      if(errEl) errEl.textContent = r.error || 'Nepoda\u0159ilo se ulo\u017eit kartu';
+      if(errEl) errEl.textContent = r.error || _t('hc').cardSaveFailed;
     }
   } catch(e){
-    if(errEl) errEl.textContent = 'Chyba: ' + e.message;
+    if(errEl) errEl.textContent = (_t('common').error||'Error') + ': ' + e.message;
   }
-  if(saveBtn){ saveBtn.disabled = false; saveBtn.textContent = 'Ulo\u017eit kartu'; }
+  if(saveBtn){ saveBtn.disabled = false; saveBtn.textContent=_t('hc').saveCard; }
 }
 
 function addNewCard(){
@@ -256,13 +256,13 @@ async function saveProfileConsents(section){
     }
     var result = await apiUpdateProfile(data);
     if(result.error){
-      showT('\u2717','Chyba',result.error);
+      showT('\u2717',_t('common').error,result.error);
       return;
     }
     // Update local cache
     for(var k in data) _consentData[k] = data[k];
-    showT('\u2713','Ulo\u017eeno','Nastaven\u00ed bylo ulo\u017eeno');
-  } catch(e){ showT('\u2717','Chyba','Nepoda\u0159ilo se ulo\u017eit'); }
+    showT('\u2713',_t('hc').saved,_t('hc').settingsSaved);
+  } catch(e){ showT('\u2717',_t('common').error,_t('hc').saveFailed||'Save failed'); }
 }
 
 function toggleBiometricSetting(){
@@ -270,9 +270,9 @@ function toggleBiometricSetting(){
   if(!el) return;
   if(el.checked){
     localStorage.setItem('mg_bio_enabled','1');
-    showT('\u2713','Biometrika zapnuta','P\u0159\u00ed\u0161t\u00ed p\u0159ihl\u00e1\u0161en\u00ed bude biometrick\u00e9');
+    showT('\u2713',_t('hc').bioOn,_t('hc').bioOnMsg);
   } else {
     localStorage.removeItem('mg_bio_enabled');
-    showT('\u2713','Biometrika vypnuta','');
+    showT('\u2713',_t('hc').bioOff,'');
   }
 }

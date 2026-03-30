@@ -47,14 +47,16 @@ function sosReplUpdateSummary(){
     // Update button text with total
     var btn = document.getElementById('sos-repl-btn');
     if(btn){
-      if(isFault) btn.textContent = '💳 Zaplatit ' + total.toLocaleString('cs-CZ') + ' Kč a objednat';
-      else btn.textContent = '✅ Potvrdit objednávku (zdarma)';
+      var h=_t('hc');
+      if(isFault) btn.textContent = '💳 '+h.payAndOrderMoto+' '+total.toLocaleString('cs-CZ')+' Kč';
+      else btn.textContent = '✅ '+h.confirmOrderFreeShort;
     }
 }
 
 function sosReplFillGPS(){
-    if(!navigator.geolocation){ showT('❌','GPS nedostupné',''); return; }
-    showT('📍','Zjišťuji polohu...','');
+    var h=_t('hc');
+    if(!navigator.geolocation){ showT('❌',h.gpsUnavailable,''); return; }
+    showT('📍',h.locating,'');
     function _fillAddr(pos){
       fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat='+pos.coords.latitude+'&lon='+pos.coords.longitude+'&zoom=18&addressdetails=1')
         .then(function(r){ return r.json(); })
@@ -69,18 +71,18 @@ function sosReplFillGPS(){
           if(addrEl){ addrEl.value = street; addrEl.dataset.lat = pos.coords.latitude; addrEl.dataset.lng = pos.coords.longitude; }
           if(cityEl) cityEl.value = city;
           if(zipEl) zipEl.value = zip;
-          showT('📍','Adresa doplněna', street + ', ' + city);
+          showT('📍',h.addressFilled, street + ', ' + city);
           sosReplCalcDelivery();
           if(typeof _showAddrConfirm === 'function') _showAddrConfirm('sos-repl');
         })
-        .catch(function(){ showT('📍','GPS OK, adresu vyplňte ručně',''); });
+        .catch(function(){ showT('📍',h.gpsOkManual,''); });
     }
     navigator.geolocation.getCurrentPosition(_fillAddr,
     function(err){
-      if(err.code===1){ showT('❌','Přístup k poloze zamítnut','Povolte v nastavení'); return; }
-      showT('📍','Hledám polohu...','Zkouším alternativní metodu');
+      if(err.code===1){ showT('❌',h.locationDenied,h.allowInSettings); return; }
+      showT('📍',h.tryingAlt,h.tryingAltMethod);
       navigator.geolocation.getCurrentPosition(_fillAddr,
-        function(){ showT('❌','Poloha nedostupná','Vyplňte adresu ručně'); },
+        function(){ showT('❌',h.locationUnavailable,h.fillManually); },
         {enableHighAccuracy:false, timeout:30000, maximumAge:60000});
     },
     {enableHighAccuracy:true, timeout:30000});
@@ -151,15 +153,16 @@ function _sosReplCalcFallback(city){
 
 async function sosConfirmReplacement(){
     var incId = _sosPendingIncidentId;
-    if(!incId){ showT('❌','Chyba','Žádný incident'); return; }
-    if(!_sosReplacementData.selectedMotoId){ showT('⚠️','Vyberte motorku','Klikněte na jednu z nabídek'); return; }
+    var h=_t('hc');
+    if(!incId){ showT('❌',_t('common').error,h.noIncident); return; }
+    if(!_sosReplacementData.selectedMotoId){ showT('⚠️',_t('book').motorcycle||'Motorcycle',h.selectOneMoto); return; }
 
     var address = (document.getElementById('sos-repl-address')||{}).value || '';
     var city = (document.getElementById('sos-repl-city')||{}).value || '';
     var zip = (document.getElementById('sos-repl-zip')||{}).value || '';
     var note = (document.getElementById('sos-repl-note')||{}).value || '';
 
-    if(!address.trim() || !city.trim()){ showT('⚠️','Vyplňte adresu','Zadejte ulici a město pro přistavení'); return; }
+    if(!address.trim() || !city.trim()){ showT('⚠️',_t('edit').enterAddr||'Address',h.fillStreetCity); return; }
 
     // Use snapshot as fallback — protects against _sosFault being reset by async ops
     var isFault = _sosFault === true || _sosFaultSnapshot === true;
@@ -201,7 +204,7 @@ async function sosConfirmReplacement(){
       // Wait for DOM to render after page transition before initializing payment form
       setTimeout(function(){ _sosInitPaymentGateway(total); }, 150);
       sosLoadingHide();
-      if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = 'Potvrdit objednávku'; }
+      if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = h.confirmOrder; }
     } else {
       // Porucha / nezaviněná → rovnou swap bookings + do admin_review
       await _sosSwapBookingsAndConfirm(incId, replacementData, false, address, city);
