@@ -61,7 +61,7 @@ serve(async (req) => {
     // Load booking with relations (separate profile query to avoid FK ambiguity)
     const { data: booking, error: bErr } = await supabase
       .from('bookings')
-      .select('*, motorcycles(model, spz, vin, year)')
+      .select('*, motorcycles(model, spz, vin, year, brand, category, engine_cc, power_kw, color, deposit_amount, insurance_price, image_url)')
       .eq('id', booking_id).single()
     if (bErr || !booking) {
       console.error('Booking query error:', bErr?.message, 'booking_id:', booking_id)
@@ -71,41 +71,107 @@ serve(async (req) => {
     let customer: Record<string, unknown> = {}
     if (booking.user_id) {
       const { data: prof } = await supabase.from('profiles')
-        .select('id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry')
+        .select('id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry, license_group, date_of_birth, id_number')
         .eq('id', booking.user_id).single()
       if (prof) customer = prof
     }
 
-    // customer is already loaded above via separate query
-    const moto = booking.motorcycles || {}
-    const days = Math.max(1, Math.ceil((new Date(booking.end_date).getTime() - new Date(booking.start_date).getTime()) / 86400000))
+    // Load booking extras
+    let extrasHtml = ''
+    try {
+      const { data: extras } = await supabase.from('booking_extras')
+        .select('name, quantity, unit_price').eq('booking_id', booking_id)
+      if (extras?.length) {
+        extrasHtml = extras.map((e: any) => `${e.name}${e.quantity > 1 ? ' ×' + e.quantity : ''} — ${fmtPrice(e.unit_price)} Kč`).join(', ')
+      }
+    } catch { /* ignore */ }
 
-    // Variable substitution map
+    // Load branch info
+    let branchName = ''
+    let branchAddress = ''
+    if (booking.pickup_address) {
+      branchAddress = booking.pickup_address
+    } else {
+      try {
+        const { data: motoWithBranch } = await supabase.from('motorcycles')
+          .select('branch_id, branches(name, address, city)').eq('id', booking.moto_id).single()
+        if (motoWithBranch?.branches) {
+          const br = motoWithBranch.branches as any
+          branchName = br.name || ''
+          branchAddress = [br.address, br.city].filter(Boolean).join(', ')
+        }
+      } catch { /* ignore */ }
+    }
+
+    const moto = booking.motorcycles || {} as any
+    const days = Math.max(1, Math.ceil((new Date(booking.end_date).getTime() - new Date(booking.start_date).getTime()) / 86400000))
+    const baseRental = (booking.total_price || 0) - (booking.extras_price || 0) - (booking.delivery_fee || 0) + (booking.discount_amount || 0)
+
+    // Complete variable substitution map
     const vars: Record<string, string> = {
-      customer_name: customer.full_name || '—',
-      customer_email: customer.email || '',
-      customer_phone: customer.phone || '',
+      // Customer
+      customer_name: (customer.full_name as string) || '—',
+      customer_email: (customer.email as string) || '',
+      customer_phone: (customer.phone as string) || '',
       customer_address: [customer.street, customer.city, customer.zip, customer.country].filter(Boolean).join(', ') || '',
-      customer_ico: customer.ico || '',
-      customer_dic: customer.dic || '',
-      customer_license: customer.license_number || '',
-      customer_license_expiry: fmtDate(customer.license_expiry),
+      customer_street: (customer.street as string) || '',
+      customer_city: (customer.city as string) || '',
+      customer_zip: (customer.zip as string) || '',
+      customer_country: (customer.country as string) || 'Česká republika',
+      customer_ico: (customer.ico as string) || '',
+      customer_dic: (customer.dic as string) || '',
+      customer_license: (customer.license_number as string) || '',
+      customer_license_expiry: fmtDate(customer.license_expiry as string),
+      customer_license_group: Array.isArray(customer.license_group) ? (customer.license_group as string[]).join(', ') : (customer.license_group as string) || '',
+      customer_dob: fmtDate(customer.date_of_birth as string),
+      customer_id_number: (customer.id_number as string) || '',
+      // Motorcycle
       moto_model: moto.model || '—',
+      moto_brand: moto.brand || '',
       moto_spz: moto.spz || '',
       moto_vin: moto.vin || '',
       moto_year: String(moto.year || ''),
+      moto_category: moto.category || '',
+      moto_engine: moto.engine_cc ? `${moto.engine_cc} ccm` : '',
+      moto_power: moto.power_kw ? `${moto.power_kw} kW` : '',
+      moto_color: moto.color || '',
+      // Booking
       start_date: fmtDate(booking.start_date),
       end_date: fmtDate(booking.end_date),
+      pickup_time: booking.pickup_time || '',
       days: String(days),
       total_price: fmtPrice(booking.total_price || 0),
-      daily_rate: fmtPrice(Math.round((booking.total_price || 0) / days)),
+      daily_rate: fmtPrice(days > 0 ? Math.round(baseRental / days) : 0),
+      rental_price: fmtPrice(baseRental),
+      extras_price: fmtPrice(booking.extras_price || 0),
+      extras_list: extrasHtml || 'Žádné',
+      delivery_fee: fmtPrice(booking.delivery_fee || 0),
+      discount_amount: fmtPrice(booking.discount_amount || 0),
+      discount_code: booking.discount_code || '',
+      deposit: fmtPrice(moto.deposit_amount || booking.deposit || 0),
+      insurance: fmtPrice(moto.insurance_price || 0),
+      insurance_type: booking.insurance_type || 'Základní',
+      // Pickup / Return
+      pickup_method: booking.pickup_method === 'delivery' ? 'Přistavení' : 'Na pobočce',
+      pickup_address: booking.pickup_address || branchAddress || '',
+      return_method: booking.return_method === 'delivery' ? 'Odvoz' : 'Na pobočce',
+      return_address: booking.return_address || branchAddress || '',
+      branch_name: branchName,
+      branch_address: branchAddress,
+      // Booking IDs
       booking_id: booking_id.slice(0, 8),
       booking_number: booking_id.slice(0, 8).toUpperCase(),
       today: fmtDate(new Date().toISOString()),
+      // Company
       company_name: companyInfo.name,
       company_address: companyInfo.address,
       company_ico: companyInfo.ico,
       company_dic: companyInfo.dic,
+      company_phone: '+420 774 256 271',
+      company_email: 'info@motogo24.cz',
+      company_web: 'www.motogo24.cz',
+      company_bank: 'mBank',
+      company_account: '670100-2225851630/6210',
     }
 
     // Substitute variables in template HTML

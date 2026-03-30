@@ -121,20 +121,30 @@ serve(async (req) => {
     // ── Dedup: prevent duplicate invoices of same type for same booking/order ──
     if (booking_id && !isShop) {
       const dedupTypes = isPaymentReceipt ? ['payment_receipt'] : isProforma ? ['advance', 'proforma'] : ['final', 'issued']
-      const { data: existing } = await supabase.from('invoices').select('id, number')
+      const { data: existing } = await supabase.from('invoices').select('id, number, pdf_path')
         .eq('booking_id', booking_id).in('type', dedupTypes)
         .neq('status', 'cancelled').limit(1)
-      // Allow edit/sos/restore ZFs and DPs (multiple per booking), block duplicate booking-source ones
       const invoiceSource = type === 'payment_receipt' ? 'booking' : (type || 'booking')
       if (existing?.length && invoiceSource === 'booking') {
-        // For booking source, check if this exact source already exists
-        const { data: sameSource } = await supabase.from('invoices').select('id, number')
+        const { data: sameSource } = await supabase.from('invoices').select('id, number, pdf_path')
           .eq('booking_id', booking_id).in('type', dedupTypes)
           .eq('source', 'booking').neq('status', 'cancelled').limit(1)
         if (sameSource?.length) {
-          return new Response(JSON.stringify({
-            success: true, invoice_id: sameSource[0].id, number: sameSource[0].number, existing: true
-          }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
+          // Check if HTML file exists in Storage — if not, regenerate it
+          let htmlExists = false
+          if (sameSource[0].pdf_path) {
+            try {
+              const { data: blob } = await supabase.storage.from('documents').download(sameSource[0].pdf_path)
+              if (blob && blob.size > 0) htmlExists = true
+            } catch { /* file missing */ }
+          }
+          if (htmlExists) {
+            return new Response(JSON.stringify({
+              success: true, invoice_id: sameSource[0].id, number: sameSource[0].number, existing: true
+            }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
+          }
+          // HTML missing — continue to regenerate for existing invoice
+          console.log(`Invoice ${sameSource[0].number} exists but HTML missing — regenerating`)
         }
       }
     }
