@@ -9,6 +9,7 @@ var _sosCurrentMotoId = null; // ID aktuální (rozbité) motorky zákazníka
 function sosRequestReplacement() {
     if(_sosReplacementLoading) return; // guard against double-click
     _sosReplacementLoading = true;
+    sosLoading();
     showT('⏳','Načítám...','Připravuji náhradní motorky');
 
     // Persist fault state so it survives async operations
@@ -42,6 +43,7 @@ function sosRequestReplacement() {
     // Teprve po načtení moto_id vytvoř/reuse incident
     var incId = await _sosEnsureIncident(type, desc);
       _sosReplacementLoading = false;
+      sosLoadingHide();
       if(!incId){ showT('❌','Chyba','Nepodařilo se nahlásit incident'); return; }
       _sosPendingIncidentId = incId;
       var upd = {customer_decision:'replacement_moto', moto_rideable:false, replacement_status: 'selecting'};
@@ -54,7 +56,7 @@ function sosRequestReplacement() {
       _sosReplacementMode = true;
       // Přejdi na dedicated SOS replacement screen
       goTo('s-sos-replacement');
-    })().catch(function(e){ console.error('[SOS] sosRequestReplacement:', e); _sosReplacementLoading = false; });
+    })().catch(function(e){ console.error('[SOS] sosRequestReplacement:', e); _sosReplacementLoading = false; sosLoadingHide(); });
 }
 
 function sosReplInit(){
@@ -122,6 +124,7 @@ function sosReplInit(){
 async function sosReplLoadMotos(){
     var container = document.getElementById('sos-repl-motos');
     if(!container) return;
+    sosLoading();
     container.innerHTML = '<div style="text-align:center;padding:15px;color:var(--g400);font-size:12px;">⏳ Načítám dostupné motorky...</div>';
 
     try {
@@ -257,7 +260,9 @@ async function sosReplLoadMotos(){
           + '</div>';
       });
       container.innerHTML = html;
+      sosLoadingHide();
     } catch(e){
+      sosLoadingHide();
       container.innerHTML = '<div style="text-align:center;padding:15px;color:#b91c1c;font-size:12px;font-weight:600;">Chyba při načítání motorek.</div>';
       console.error('[SOS] loadMotos:', e);
     }

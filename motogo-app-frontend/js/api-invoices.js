@@ -49,6 +49,21 @@ function _isBookingStillActive(booking){
   return now <= endDate;
 }
 
+// Vrací true pokud do konce výpůjčky zbývá 30 min nebo méně
+function _isNearReturnTime(booking){
+  if(!booking || !booking.end_date) return false;
+  var now = new Date();
+  var endDate = new Date(booking.end_date);
+  if(booking.return_method === 'store'){
+    var midnight = new Date(endDate);
+    midnight.setHours(23,59,59,999);
+    var diff = midnight.getTime() - now.getTime();
+    return diff >= 0 && diff <= 30 * 60 * 1000;
+  }
+  var diff = endDate.getTime() - now.getTime();
+  return diff >= 0 && diff <= 30 * 60 * 1000;
+}
+
 async function apiGetActiveLoan(){
   _ensureSupabase();
   if(!window.supabase) return null;
@@ -70,6 +85,7 @@ async function apiGetActiveLoan(){
         bk.moto = bk.motorcycles;
         if(_hasBookingStarted(bk)){
           bk._pastEndTime = !_isBookingStillActive(bk);
+          bk._nearReturnTime = _isNearReturnTime(bk);
           if(!best) best = bk;
           // Preferuj ten co ještě běží (není past end)
           if(!bk._pastEndTime){ best = bk; break; }

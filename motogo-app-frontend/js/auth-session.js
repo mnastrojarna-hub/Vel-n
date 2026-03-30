@@ -214,10 +214,10 @@ function _renderUserDataAsync(){
 
       if(activeLoan && !activeLoan._isUpcoming){
         var motoName = activeLoan.moto ? activeLoan.moto.model : 'Motorka';
-        var isPast = activeLoan._pastEndTime;
-        var icon = isPast ? '\u23f0' : '\ud83c\udfcd\ufe0f';
-        var label = isPast ? 'K vr\u00e1cen\u00ed' : _t('auth').active;
-        var tagStyle = isPast ? 'background:rgba(239,68,68,.15);color:#b91c1c;' : '';
+        var showReturn = activeLoan._pastEndTime || activeLoan._nearReturnTime;
+        var icon = showReturn ? '\u23f0' : '\ud83c\udfcd\ufe0f';
+        var label = showReturn ? 'K vr\u00e1cen\u00ed' : _t('auth').active;
+        var tagStyle = showReturn ? 'background:rgba(239,68,68,.15);color:#b91c1c;' : '';
         homeActiveRes.innerHTML = '<div class="ares" onclick="openResDetailById(\''+activeLoan.id+'\')">' +
           '<div style="font-size:24px;">'+icon+'</div>' +
           '<div><div class="ares-n">'+motoName+'</div><div class="ares-s">#'+activeLoan.id.substr(-8).toUpperCase()+' \u00b7 '+label+'</div></div>' +

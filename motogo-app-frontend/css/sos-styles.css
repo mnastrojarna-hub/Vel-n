@@ -1,6 +1,12 @@
 /* === SOS-STYLES.CSS — SOS screen styles ===
    Split from screens-extra.css */
 
+/* SOS Loading Bar */
+.sos-load-bar{position:fixed;top:0;left:0;width:100%;height:3px;z-index:9999;pointer-events:none;opacity:0;transition:opacity .2s;}
+.sos-load-bar.active{opacity:1;}
+.sos-load-bar.active::after{content:'';display:block;height:100%;width:35%;background:linear-gradient(90deg,transparent,var(--green),transparent);border-radius:2px;animation:sosLoadSlide 1.2s ease-in-out infinite;}
+@keyframes sosLoadSlide{0%{transform:translateX(-100%);}100%{transform:translateX(350%);}}
+
 /* SOS */
 #s-sos,#s-sos-nehoda,#s-sos-porucha{background:var(--bg);}
 .sos-sub-hdr{background:linear-gradient(135deg,#991b1b,#dc2626);padding:10px 20px 12px;border-radius:0 0 24px 24px;position:sticky;top:0;z-index:50;}

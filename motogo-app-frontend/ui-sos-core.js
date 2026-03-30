@@ -2,6 +2,21 @@
 
 // ===== SOS FUNCTIONS (PRODUCTION) =====
 
+// SOS loading bar — zobrazí se po 500ms čekání
+var _sosLoadTimer = null;
+function sosLoading(){
+  clearTimeout(_sosLoadTimer);
+  _sosLoadTimer = setTimeout(function(){
+    var el = document.getElementById('sos-loading-bar');
+    if(el) el.classList.add('active');
+  }, 500);
+}
+function sosLoadingHide(){
+  clearTimeout(_sosLoadTimer);
+  var el = document.getElementById('sos-loading-bar');
+  if(el) el.classList.remove('active');
+}
+
 // Global SOS state — tracks user selections across SOS screens
 var _sosFault = null;
 var _sosFaultSnapshot = null;      // Persisted fault state (survives async operations)
@@ -328,6 +343,7 @@ function _sosUpdateIncident(incidentId, data){
 function sosReportAccident(type) {
     if(_sosSubmitting) return;
     _sosSubmitting = true;
+    sosLoading();
     var sosType = type === 'lehka' ? 'accident_minor' : 'accident_major';
     _sosActiveIncidentId = null;
     _sosFault = null;
@@ -336,6 +352,7 @@ function sosReportAccident(type) {
     _sosEnsureIncident(sosType, desc)
       .then(function(incId){
         _sosSubmitting = false;
+        sosLoadingHide();
         if(!incId){
           _sosShowDone(typeLabel, '❌ Nepodařilo se vytvořit incident. Zkontrolujte připojení a zkuste znovu.',
             '<button onclick="goTo(\'s-sos\')" style="width:100%;background:#b91c1c;color:#fff;border:none;border-radius:50px;padding:14px;font-family:var(--font);font-size:14px;font-weight:800;cursor:pointer;">↩ Zkusit znovu</button>');
@@ -359,17 +376,19 @@ function sosReportAccident(type) {
           // Těžká nehoda → rovnou přesměruj na výběr motorky (nepojízdná)
           goTo('s-sos-nepojizda');
         }
-      }).catch(function(){ _sosSubmitting = false; });
+      }).catch(function(){ _sosSubmitting = false; sosLoadingHide(); });
 }
 
 function sosReportTheft() {
     if(_sosSubmitting) return;
     _sosSubmitting = true;
+    sosLoading();
     _sosActiveIncidentId = null;
     _sosFault = null;
     _sosEnsureIncident('theft', 'Krádež motorky – zákazník informován o postupu (policie 158)')
       .then(function(incId){
         _sosSubmitting = false;
+        sosLoadingHide();
         if(!incId) return; // User cancelled confirmation
         _sosUpdateIncident(incId, { moto_rideable: false });
         // Upload SOS photos if any
@@ -389,5 +408,5 @@ function sosReportTheft() {
           btn.style.opacity = '0.8';
         }
         showT('✅','Krádež nahlášena','MotoGo24 byla informována o krádeži');
-      }).catch(function(){ _sosSubmitting = false; });
+      }).catch(function(){ _sosSubmitting = false; sosLoadingHide(); });
 }
