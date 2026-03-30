@@ -1,9 +1,9 @@
 <?php
 // ===== MotoGo24 Web PHP — Rezervace =====
-// Interaktivní stránka — JS zůstává pro kalendář, formulář a Stripe platby.
-// PHP renderuje jen shell + header/footer, JS se načítá ze souborů.
+// PHP renderuje HTML shell + header/footer, JS zajišťuje interaktivitu
+// (kalendář, ceník, mapa, OCR, Stripe platby)
 
-$bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], 'Rezervace']);
+$bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], 'REZERVACE']);
 
 // Předvyplnění z query stringu
 $motoId = $_GET['moto'] ?? '';
@@ -13,14 +13,14 @@ $delivery = $_GET['delivery'] ?? '';
 $resume = $_GET['resume'] ?? '';
 
 $content = '<main id="content"><div class="container">' . $bc .
-    '<div class="ccontent">' .
+    '<div class="ccontent pcontent">' .
     '<h1>Online rezervace motorky</h1>' .
     '<p>Zarezervujte si <strong>motorku na pronájem</strong> přes náš jednoduchý systém. <strong>Bez kauce</strong>, s <strong>výbavou v ceně</strong> a <strong>nonstop provozem</strong>.</p>' .
     '<p>&nbsp;</p>' .
     '<div id="rezervace-app"><div class="loading-overlay"><span class="spinner"></span> Načítám rezervační systém...</div></div>' .
     '</div></div></main>';
 
-// Inline JS — rezervační systém se načte z původních JS souborů
+// Supabase SDK + konfigurace + JS moduly pro rezervaci
 $rezervaceJs = '<script>
 window.MOTOGO_CONFIG = {
   SUPABASE_URL: ' . json_encode(SUPABASE_URL) . ',
@@ -34,14 +34,28 @@ window.REZERVACE_PARAMS = {
   resume: ' . json_encode($resume) . '
 };
 </script>
-<script src="js/supabase-sdk.js"></script>
-<script src="js/supabase-init.js"></script>
-<script src="js/api.js"></script>
-<script src="js/components.js"></script>
-<script src="js/pages-rezervace-calendar.js"></script>
-<script src="js/pages-rezervace-pricing.js"></script>
-<script src="js/pages-rezervace-steps.js"></script>
-<script src="js/pages-rezervace-scan.js"></script>
-<script src="js/pages-rezervace.js"></script>';
+<script src="' . BASE_URL . '/js/supabase-sdk.js"></script>
+<script src="' . BASE_URL . '/js/supabase-init.js"></script>
+<script src="' . BASE_URL . '/js/api.js"></script>
+<script src="' . BASE_URL . '/js/components.js"></script>
+<script src="' . BASE_URL . '/js/pages-rezervace-calendar.js"></script>
+<script src="' . BASE_URL . '/js/pages-rezervace-pricing.js"></script>
+<script src="' . BASE_URL . '/js/pages-rezervace-steps.js"></script>
+<script src="' . BASE_URL . '/js/pages-rezervace-scan.js"></script>
+<script src="' . BASE_URL . '/js/pages-rezervace.js"></script>
+<script>
+// Spustit inicializaci po načtení všech JS souborů
+(function(){
+  function tryInit(){
+    if(window.sb && MG._rezInit){ MG._rezInit(); }
+    else { setTimeout(tryInit, 100); }
+  }
+  if(document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", function(){ setTimeout(tryInit, 100); });
+  } else { setTimeout(tryInit, 100); }
+})();
+</script>';
 
-renderPage('Online rezervace motorky – Motogo24', $content . $rezervaceJs, '/rezervace');
+renderPage('Online rezervace motorky – Motogo24', $content . $rezervaceJs, '/rezervace', [
+    'description' => 'Online rezervace motorky na Vysočině. Bez kauce, s výbavou v ceně a nonstop provozem. Vyberte motorku, termín a zaplaťte online.',
+]);

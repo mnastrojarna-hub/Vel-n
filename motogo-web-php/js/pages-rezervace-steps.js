@@ -157,7 +157,7 @@ MG._submitReservation = async function(){
             customer_name:d.name,
             motorcycle:moto?moto.model:'',
             source:'web',
-            resume_link:'https://motogo24.cz/#/rezervace?resume='+MG._rez.bookingId
+            resume_link:'https://motogo24.cz/rezervace?resume='+MG._rez.bookingId
           })
         }).catch(function(){});
       }
@@ -198,7 +198,7 @@ MG._rezShowStep2 = function(){
   }
 
   var isMob=MG._isMobile();
-  var resumeLink=MG._rez.bookingId?'https://motogo24.cz/#/rezervace?resume='+MG._rez.bookingId:'';
+  var resumeLink=MG._rez.bookingId?'https://motogo24.cz/rezervace?resume='+MG._rez.bookingId:'';
 
   // QR code section (desktop only) — allows customer to continue on mobile
   var qrSection='';
@@ -279,7 +279,7 @@ MG._rezShowStep2 = function(){
     (d.deliveryAddr?'<br><strong>Přistavení:</strong> '+d.deliveryAddr:'')+
     (d.returnAddr?'<br><strong>Vrácení:</strong> '+d.returnAddr:'')+'</div>'+
     '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-top:1rem">'+
-    (MG._rez._isResume?'<a class="btn btndark" href="#/rezervace">&#8592; Nová rezervace</a>':
+    (MG._rez._isResume?'<a class="btn btndark" href="/rezervace">&#8592; Nová rezervace</a>':
     '<button class="btn btndark" onclick="MG._rezBackToStep1()">&#8592; Zpět</button>')+
     '<div style="display:flex;align-items:center;gap:1rem">'+
     '<div style="background:#74FB71;color:#0b0b0b;padding:.6rem 1.2rem;border-radius:25px;font-weight:800;font-size:1.05rem">'+MG.formatPrice(total)+'</div>'+
