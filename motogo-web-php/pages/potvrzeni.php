@@ -1,25 +1,31 @@
 <?php
 // ===== MotoGo24 Web PHP — Potvrzení rezervace/objednávky =====
-// Interaktivní stránka — JS zůstává pro polling stavu platby.
+// PHP renderuje HTML shell, JS polluje stav platby přes Supabase
 
-$bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], 'Potvrzení']);
+// Zjistíme typ potvrzení z query parametru
+$sessionId = $_GET['session_id'] ?? '';
+$orderId = $_GET['order_id'] ?? '';
+$bookingId = $_GET['booking_id'] ?? '';
+$isShop = !empty($orderId);
+
+$bcLabel = $isShop ? 'Potvrzení objednávky' : 'Potvrzení rezervace';
+$bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], $bcLabel]);
 
 $content = '<main id="content"><div class="container">' . $bc .
-    '<div class="ccontent">' .
-    '<div id="potvrzeni-app"><div class="loading-overlay"><span class="spinner"></span> Načítám stav objednávky...</div></div>' .
-    '</div></div></main>';
+    '<div class="ccontent"><div id="confirm-content">' .
+    '<div class="loading-overlay"><span class="spinner"></span> Ověřujeme platbu...</div>' .
+    '</div></div></div></main>';
 
-// Inline JS — potvrzovací stránka
+// Supabase SDK + JS pro polling
 $potvrzeniJs = '<script>
 window.MOTOGO_CONFIG = {
   SUPABASE_URL: ' . json_encode(SUPABASE_URL) . ',
   SUPABASE_ANON_KEY: ' . json_encode(SUPABASE_ANON_KEY) . '
 };
 </script>
-<script src="js/supabase-sdk.js"></script>
-<script src="js/supabase-init.js"></script>
-<script src="js/api.js"></script>
-<script src="js/components.js"></script>
-<script src="js/pages-potvrzeni.js"></script>';
+<script src="' . BASE_URL . '/js/supabase-sdk.js"></script>
+<script src="' . BASE_URL . '/js/supabase-init.js"></script>
+<script src="' . BASE_URL . '/js/api.js"></script>
+<script src="' . BASE_URL . '/js/pages-potvrzeni.js"></script>';
 
-renderPage('Potvrzení – Motogo24', $content . $potvrzeniJs, '/potvrzeni');
+renderPage($bcLabel . ' – Motogo24', $content . $potvrzeniJs, '/potvrzeni');
