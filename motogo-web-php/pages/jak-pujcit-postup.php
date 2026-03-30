@@ -31,4 +31,7 @@ $content = '<main id="content"><div class="container">' . $bc .
     renderCta('Připraven na jízdu?', 'Rezervuj si motorku online ještě dnes a užij si <strong>svobodu na dvou kolech</strong>.', [['label' => 'REZERVOVAT ONLINE', 'href' => '/rezervace', 'cls' => 'btndark pulse']]) .
     '</div></div></main>';
 
-renderPage('Postup půjčení motorky – Motogo24', $content, '/jak-pujcit/postup');
+renderPage('Postup půjčení motorky | MotoGo24', $content, '/jak-pujcit/postup', [
+    'description' => 'Postup půjčení motorky v Motogo24 krok za krokem. Online rezervace, výbava v ceně, bez kauce, nonstop provoz a možnost přistavení.',
+    'breadcrumbs' => [['name' => 'Domů', 'url' => 'https://motogo24.cz/'], ['name' => 'Jak si půjčit', 'url' => 'https://motogo24.cz/jak-pujcit'], ['name' => 'Postup půjčení', 'url' => 'https://motogo24.cz/jak-pujcit/postup']],
+]);

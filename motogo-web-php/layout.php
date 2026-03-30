@@ -1,10 +1,9 @@
 <?php
-// ===== MotoGo24 Web PHP — Shared Layout (Header + Footer) =====
-// IDENTICKÝ HTML výstup jako layout.js — odkazy z hash (#/) na čisté URL (/)
+// ===== MotoGo24 Web PHP — Shared Layout (Header + Footer + SEO) =====
 
 require_once __DIR__ . '/config.php';
 
-// Menu struktura — stejná jako MG.menuItems v layout.js
+// Menu struktura
 function getMenuItems() {
     return [
         ['label' => 'Půjčovna motorek', 'route' => '/pujcovna-motorek'],
@@ -26,10 +25,6 @@ function getMenuItems() {
     ];
 }
 
-/**
- * Render hlavičky — PŘESNĚ stejný HTML jako MG.renderHeader() v layout.js.
- * ZMĚNA: href z #/route na /route (čisté URL)
- */
 function renderHeader($currentPath = '/') {
     $menuItems = getMenuItems();
     $nav = '';
@@ -67,10 +62,6 @@ function renderHeader($currentPath = '/') {
     '</header>';
 }
 
-/**
- * Render patičky — PŘESNĚ stejný HTML jako MG.renderFooter() v layout.js.
- * ZMĚNA: href z #/route na /route (čisté URL)
- */
 function renderFooter() {
     $menuItems = getMenuItems();
     $menuHtml = '';
@@ -104,13 +95,13 @@ function renderFooter() {
     '<a id="Up" href="#" aria-label="NAHORU" onclick="window.scrollTo({top:0,behavior:\'smooth\'});return false"><img src="gfx/arrow-top.svg" alt="NAHORU"></a>';
 }
 
-/**
- * Inline JS pro scroll-to-top a submenu toggle.
- * Zůstává jako JS v inline <script> tagu.
- */
 function renderInlineJs() {
     return '<script>
 (function(){
+  // Hash URL redirect (staré záložky #/katalog → /katalog)
+  if(window.location.hash && window.location.hash.indexOf("#/")===0){
+    window.location.replace(window.location.hash.substring(1));
+  }
   // Scroll to top button
   var btn = document.getElementById("Up");
   if(btn){ window.addEventListener("scroll", function(){ btn.classList.toggle("visible", window.scrollY > 400); }); }
@@ -130,11 +121,40 @@ function renderInlineJs() {
 }
 
 /**
- * Vykreslí kompletní HTML stránku.
+ * Vykreslí kompletní HTML stránku s SEO.
+ *
+ * $meta klíče:
+ *   description  — meta description
+ *   keywords     — meta keywords (přepíše default)
+ *   canonical    — canonical URL (default https://motogo24.cz{path})
+ *   og_image     — OG image URL
+ *   og_type      — OG type (default website)
+ *   robots       — robots directive (default index,follow)
+ *   schema       — extra JSON-LD schema string (přidá se vedle LocalBusiness)
+ *   breadcrumbs  — pole pro BreadcrumbList schema [['name'=>'X','url'=>'Y'], ...]
  */
 function renderPage($title, $content, $currentPath = '/', $meta = []) {
     $description = $meta['description'] ?? 'Půjčovna motorek Vysočina – silniční, sportovní, enduro i dětské. Nonstop pronájem bez kauce, online rezervace a motorkářská výbava zdarma.';
+    $keywords = $meta['keywords'] ?? 'půjčovna motorek Vysočina, pronájem motorek Vysočina, půjčovna motorek Pelhřimov, půjčovna motorek bez kauce, nonstop půjčovna motorek, rezervace motorky online, motorky k pronájmu Vysočina, motorbike rental Czech Republic';
     $canonical = $meta['canonical'] ?? ('https://motogo24.cz' . $currentPath);
+    $ogImage = $meta['og_image'] ?? 'https://motogo24.cz/gfx/hero-banner.png';
+    $ogType = $meta['og_type'] ?? 'website';
+    $robots = $meta['robots'] ?? 'index,follow';
+    $extraSchema = $meta['schema'] ?? '';
+    $breadcrumbs = $meta['breadcrumbs'] ?? [];
+
+    // BreadcrumbList schema
+    $breadcrumbSchema = '';
+    if (!empty($breadcrumbs)) {
+        $items = [];
+        foreach ($breadcrumbs as $i => $bc) {
+            $items[] = '{"@type":"ListItem","position":' . ($i + 1) . ',"name":' . json_encode($bc['name'], JSON_UNESCAPED_UNICODE) . ',"item":' . json_encode($bc['url'], JSON_UNESCAPED_UNICODE) . '}';
+        }
+        $breadcrumbSchema = '
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[' . implode(',', $items) . ']}
+  </script>';
+    }
 
     echo '<!DOCTYPE html>
 <html lang="cs" dir="ltr" prefix="og: https://ogp.me/ns#">
@@ -142,15 +162,16 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="' . htmlspecialchars($description) . '">
-  <meta name="keywords" content="půjčovna motorek Vysočina, pronájem motorek Vysočina, půjčovna motorek Pelhřimov, půjčovna motorek bez kauce, nonstop půjčovna motorek, rezervace motorky online, motorky k pronájmu Vysočina, motorbike rental Czech Republic">
-  <meta name="robots" content="index,follow">
+  <meta name="keywords" content="' . htmlspecialchars($keywords) . '">
+  <meta name="robots" content="' . htmlspecialchars($robots) . '">
   <meta name="author" content="MotoGo24">
   <meta property="og:url" content="' . htmlspecialchars($canonical) . '">
-  <meta property="og:type" content="website">
+  <meta property="og:type" content="' . htmlspecialchars($ogType) . '">
   <meta property="og:locale" content="cs_CZ">
   <meta property="og:title" content="' . htmlspecialchars($title) . '">
-  <meta property="og:site_name" content="Půjčovna motorek Vysočina">
+  <meta property="og:site_name" content="Půjčovna motorek Vysočina MotoGo24">
   <meta property="og:description" content="' . htmlspecialchars($description) . '">
+  <meta property="og:image" content="' . htmlspecialchars($ogImage) . '">
   <link rel="canonical" href="' . htmlspecialchars($canonical) . '">
   <link rel="icon" type="image/svg+xml" href="' . BASE_URL . '/favicon.svg">
   <link rel="apple-touch-icon" href="' . BASE_URL . '/apple-touch-icon.png">
@@ -163,18 +184,16 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
     "name": "Motogo24 – půjčovna motorek Vysočina",
     "url": "https://motogo24.cz",
     "logo": "https://motogo24.cz/gfx/logo.svg",
-    "image": "https://motogo24.cz/gfx/logo.svg",
+    "image": "https://motogo24.cz/gfx/hero-banner.png",
     "email": "info@motogo24.cz",
     "telephone": "+420 774 256 271",
-    "address": {
-      "@type": "PostalAddress",
-      "streetAddress": "Mezná 9",
-      "addressLocality": "Pelhřimov",
-      "postalCode": "393 01",
-      "addressCountry": "CZ"
-    }
+    "priceRange": "od 990 Kč/den",
+    "openingHoursSpecification": {"@type": "OpeningHoursSpecification","dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],"opens": "00:00","closes": "23:59"},
+    "address": {"@type": "PostalAddress","streetAddress": "Mezná 9","addressLocality": "Pelhřimov","postalCode": "393 01","addressRegion": "Vysočina","addressCountry": "CZ"},
+    "geo": {"@type": "GeoCoordinates","latitude": 49.4147,"longitude": 15.2953},
+    "sameAs": ["' . FB_URL . '","' . IG_URL . '"]
   }
-  </script>
+  </script>' . $breadcrumbSchema . ($extraSchema ? "\n" . $extraSchema : '') . '
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">

@@ -113,4 +113,8 @@ $content = '<main id="content"><div class="container">' .
     '<div id="katalog-grid" class="gr4">' . $gridHtml . '</div>' .
     '</div></div></main>' . $filterJs;
 
-renderPage($title . ' – Motogo24', $content, $path);
+renderPage($title . ' | MotoGo24', $content, $path, [
+    'description' => 'Katalog motorek k pronájmu na Vysočině. Cestovní, sportovní, enduro a dětské motorky. Vyberte si a zarezervujte online.',
+    'keywords' => 'katalog motorek, motorky k pronájmu, cestovní motorky, sportovní motorky, enduro, dětské motorky',
+    'breadcrumbs' => [['name' => 'Domů', 'url' => 'https://motogo24.cz/'], ['name' => 'Katalog motorek', 'url' => 'https://motogo24.cz/katalog']],
+]);

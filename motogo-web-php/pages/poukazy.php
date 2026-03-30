@@ -145,4 +145,8 @@ async function voucherPay(){
 }
 </script>';
 
-renderPage('Dárkové poukazy – Motogo24', $content . $voucherJs, '/poukazy');
+renderPage('Dárkové poukazy na pronájem motorky | MotoGo24', $content . $voucherJs, '/poukazy', [
+    'description' => 'Kupte dárkový poukaz na pronájem motorky. Platnost 3 roky, bez kauce, výbava v ceně. Elektronický i tištěný poukaz. Online objednávka.',
+    'keywords' => 'dárkový poukaz motorka, voucher pronájem motorky, dárek pro motorkáře, poukaz Motogo24',
+    'og_image' => 'https://motogo24.cz/gfx/darkovy-poukaz.jpg',
+]);

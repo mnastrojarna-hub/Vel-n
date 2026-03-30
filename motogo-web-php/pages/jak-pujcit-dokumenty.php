@@ -50,4 +50,7 @@ $content = '<main id="content"><div class="container">' . $bc .
         [['label' => 'REZERVOVAT ONLINE', 'href' => '/rezervace', 'cls' => 'btndark pulse']]) .
     '</div></div></main>';
 
-renderPage('Dokumenty a návody – Motogo24', $content, '/jak-pujcit/dokumenty');
+renderPage('Dokumenty a návody | MotoGo24', $content, '/jak-pujcit/dokumenty', [
+    'description' => 'Nájemní smlouva, dokumenty a podmínky pronájmu motorky. Bez kauce, jasná pravidla, pojištění v ceně. Potřebné doklady pro půjčení.',
+    'breadcrumbs' => [['name' => 'Domů', 'url' => 'https://motogo24.cz/'], ['name' => 'Jak si půjčit', 'url' => 'https://motogo24.cz/jak-pujcit'], ['name' => 'Dokumenty', 'url' => 'https://motogo24.cz/jak-pujcit/dokumenty']],
+]);

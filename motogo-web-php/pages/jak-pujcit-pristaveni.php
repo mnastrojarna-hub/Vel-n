@@ -44,4 +44,7 @@ $content = '<main id="content"><div class="container">' . $bc .
         [['label' => 'REZERVOVAT S PŘISTAVENÍM', 'href' => '/rezervace?delivery=1', 'cls' => 'btndark pulse']]) .
     '</div></div></main>';
 
-renderPage('Přistavení motocyklu – Motogo24', $content, '/jak-pujcit/pristaveni');
+renderPage('Přistavení motorky | MotoGo24', $content, '/jak-pujcit/pristaveni', [
+    'description' => 'Přistavení motorky až k vám. Dovezeme motorku na hotel, nádraží nebo jinou adresu. Ceník přistavení od 290 Kč. Nonstop provoz.',
+    'breadcrumbs' => [['name' => 'Domů', 'url' => 'https://motogo24.cz/'], ['name' => 'Jak si půjčit', 'url' => 'https://motogo24.cz/jak-pujcit'], ['name' => 'Přistavení', 'url' => 'https://motogo24.cz/jak-pujcit/pristaveni']],
+]);
