@@ -73,6 +73,8 @@ async function apiGenerateFinalInvoice(bookingId){
 async function apiGeneratePaymentReceipt(bookingId, amount, source, editCtx){
   _ensureSupabase();
   if(!window.supabase) return {error:'Offline'};
+  // Skip DP generation for zero-amount operations (free modifications, SOS without payment)
+  if(source === 'edit' && amount === 0) return {error: null, skipped: true};
   try {
     var uid = await _getUserId();
     if(!uid) return {error:'Nepřihlášen'};

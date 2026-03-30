@@ -185,7 +185,22 @@ export default function BookingDocumentsTab({ bookingId }) {
         <h3 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Faktury a danove doklady</h3>
         {invoices.length === 0 ? (
           <div><p style={{ color: '#1a2e22', fontSize: 13, marginBottom: 8 }}>Zadne faktury k teto rezervaci</p>
-            <Button green onClick={async () => { setGenerating('invoices'); setError(null); try { await generateAdvanceInvoice(bookingId, 'booking'); await generatePaymentReceipt(bookingId, 'booking'); await loadAll() } catch (e) { setError(`Generovani faktur selhalo: ${e.message}`) }; setGenerating(null) }} disabled={generating === 'invoices'}>{generating === 'invoices' ? 'Generuji...' : 'Vygenerovat ZF + DP'}</Button></div>
+            <Button green onClick={async () => {
+              setGenerating('invoices'); setError(null)
+              try {
+                // Check if booking has actual paid amount > 0 before generating ZF + DP
+                const { data: bk } = await supabase.from('bookings').select('total_price, payment_status').eq('id', bookingId).single()
+                if (!bk || Number(bk.total_price || 0) <= 0) {
+                  setError('ZF + DP nelze vygenerovat — rezervace má nulovou částku. Pouze smlouva a VOP jsou relevantní.')
+                  setGenerating(null)
+                  return
+                }
+                await generateAdvanceInvoice(bookingId, 'booking')
+                await generatePaymentReceipt(bookingId, 'booking')
+                await loadAll()
+              } catch (e) { setError(`Generovani faktur selhalo: ${e.message}`) }
+              setGenerating(null)
+            }} disabled={generating === 'invoices'}>{generating === 'invoices' ? 'Generuji...' : 'Vygenerovat ZF + DP'}</Button></div>
         ) : invoices.map(inv => { const tp = INV_TYPE_MAP[inv.type] || { label: inv.type || 'Faktura', color: '#1a2e22', bg: '#f3f4f6' }; return (
           <div key={inv.id} className="flex items-center gap-4 p-3 rounded-lg mb-2 cursor-pointer hover:shadow-sm transition-shadow" style={{ background: '#f1faf7' }} onClick={() => handleViewInvoice(inv)}>
             <span style={{ fontSize: 16 }}>{'\ud83e\uddfe'}</span><span className="text-sm font-bold font-mono">{inv.number || '\u2014'}</span><Badge label={tp.label} color={tp.color} bg={tp.bg} /><span className="text-sm font-bold" style={{ color: '#0f1a14' }}>{(inv.total || 0).toLocaleString('cs-CZ')} Kc</span><span className="text-sm" style={{ color: '#1a2e22' }}>{inv.issue_date || '\u2014'}</span>

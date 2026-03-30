@@ -203,6 +203,8 @@ function _buildEditItems(editCtx, newBooking, newMoto){
 async function apiGenerateAdvanceInvoice(bookingId, amount, source, editCtx){
   _ensureSupabase();
   if(!window.supabase) return {error:'Offline'};
+  // Skip ZF generation for zero-amount operations (free modifications, SOS without payment)
+  if(source === 'edit' && amount === 0) return {error: null, skipped: true};
   try {
     var uid = await _getUserId();
     if(!uid) return {error:'Nepřihlášen'};

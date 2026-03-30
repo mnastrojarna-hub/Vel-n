@@ -118,6 +118,16 @@ serve(async (req) => {
       }
     }
 
+    // ── Guard: skip ZF/DP generation for zero-amount bookings (free modifications, SOS without payment) ──
+    if (booking_id && !isShop && (isProforma || isPaymentReceipt)) {
+      const { data: bkCheck } = await supabase.from('bookings').select('total_price').eq('id', booking_id).single()
+      if (bkCheck && Number(bkCheck.total_price || 0) <= 0) {
+        return new Response(JSON.stringify({
+          success: false, error: 'Booking has zero amount — ZF/DP not generated', skipped: true
+        }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
+      }
+    }
+
     // ── Dedup: prevent duplicate invoices of same type for same booking/order ──
     if (booking_id && !isShop) {
       const dedupTypes = isPaymentReceipt ? ['payment_receipt'] : isProforma ? ['advance', 'proforma'] : ['final', 'issued']
