@@ -203,11 +203,12 @@ function SumAddressRow({ label, method, address, branchName, lat, lng }) {
 }
 
 function SumLocationShares({ sosIncidents }) {
-  const locShares = (sosIncidents || []).filter(i => i.type === 'location_share')
-  if (locShares.length === 0) return null
+  const withLocation = (sosIncidents || []).filter(i => i.type === 'location_share' || (i.latitude && i.longitude))
+  if (withLocation.length === 0) return null
 
-  return locShares.map(inc => {
+  return withLocation.map(inc => {
     const hasGps = inc.latitude && inc.longitude
+    const isLocShare = inc.type === 'location_share'
     const link = hasGps
       ? `https://maps.google.com/?q=${inc.latitude},${inc.longitude}`
       : inc.address ? `https://maps.google.com/?q=${encodeURIComponent(inc.address)}` : null
@@ -215,7 +216,7 @@ function SumLocationShares({ sosIncidents }) {
     return (
       <div key={inc.id} className="py-[3px]" style={{ borderBottom: '1px solid #dbeafe', fontSize: 12 }}>
         <div className="flex gap-2">
-          <span className="font-bold" style={{ color: '#2563eb', minWidth: 160, flexShrink: 0 }}>📍 Sdílení polohy</span>
+          <span className="font-bold" style={{ color: '#2563eb', minWidth: 160, flexShrink: 0 }}>{isLocShare ? '📍 Sdílení polohy' : '📍 Poloha při SOS'}</span>
           <span className="font-medium" style={{ color: '#0f1a14' }}>
             {new Date(inc.created_at).toLocaleString('cs-CZ')}
             {inc.address ? ` — ${inc.address}` : ''}

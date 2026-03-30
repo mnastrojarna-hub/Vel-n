@@ -43,6 +43,27 @@ export function SOSSection({ booking, sosIncidents, navigate }) {
             {inc.resolved_at && <InfoRow label="Vyřešeno" value={new Date(inc.resolved_at).toLocaleString('cs-CZ')} />}
             {inc.damage_severity && <InfoRow label="Poškození" value={{ none: 'Žádné', cosmetic: 'Kosmetické', functional: 'Funkční', totaled: 'Totální škoda' }[inc.damage_severity] || inc.damage_severity} />}
             {inc.description && <div className="col-span-2"><InfoRow label="Popis" value={inc.description} /></div>}
+            {inc.latitude && inc.longitude && (
+              <div className="col-span-2">
+                <InfoRow label="Poloha zákazníka" value={
+                  <span className="inline-flex items-center flex-wrap gap-2">
+                    <span className="text-xs font-mono" style={{ color: '#6b7280' }}>GPS: {Number(inc.latitude).toFixed(6)}, {Number(inc.longitude).toFixed(6)}</span>
+                    <a href={`https://www.google.com/maps?q=${inc.latitude},${inc.longitude}`} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-btn" style={{ background: '#dbeafe', color: '#2563eb', textDecoration: 'none' }}>
+                      📍 Google Maps ↗
+                    </a>
+                    <a href={`https://mapy.cz/zakladni?q=${inc.latitude},${inc.longitude}`} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-btn" style={{ background: '#dbeafe', color: '#2563eb', textDecoration: 'none' }}>
+                      Mapy.cz ↗
+                    </a>
+                    <a href={`https://www.google.com/maps/dir/?api=1&destination=${inc.latitude},${inc.longitude}`} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-btn" style={{ background: '#dcfce7', color: '#1a8a18', textDecoration: 'none' }}>
+                      Navigovat ↗
+                    </a>
+                  </span>
+                } />
+              </div>
+            )}
           </div>
         )}
         {(rd.replacement_model || rd.payment_amount) && (
@@ -125,18 +146,19 @@ export function DoorCodesSection({ doorCodes }) {
 }
 
 export function LocationShareRow({ sosIncidents }) {
-  const locShares = (sosIncidents || []).filter(i => i.type === 'location_share')
-  if (locShares.length === 0) return null
+  const withLocation = (sosIncidents || []).filter(i => i.type === 'location_share' || (i.latitude && i.longitude))
+  if (withLocation.length === 0) return null
 
   return (
     <div className="mt-3 pt-3" style={{ borderTop: '1px solid #d4e8e0' }}>
-      {locShares.map(inc => {
+      {withLocation.map(inc => {
         const hasGps = inc.latitude && inc.longitude
+        const isLocShare = inc.type === 'location_share'
         const link = hasGps ? `https://maps.google.com/?q=${inc.latitude},${inc.longitude}` : inc.address ? `https://maps.google.com/?q=${encodeURIComponent(inc.address)}` : null
 
         return (
           <div key={inc.id} className="flex items-center flex-wrap gap-2 py-1" style={{ fontSize: 13 }}>
-            <span className="font-extrabold" style={{ color: '#2563eb' }}>📍 Zákazník sdílí polohu</span>
+            <span className="font-extrabold" style={{ color: '#2563eb' }}>{isLocShare ? '📍 Zákazník sdílí polohu' : '📍 Poloha při SOS'}</span>
             <span className="text-sm">{new Date(inc.created_at).toLocaleString('cs-CZ')}</span>
             {inc.address && <span className="text-sm font-medium">— {inc.address}</span>}
             {hasGps && <span className="text-xs" style={{ color: '#6b7280' }}>GPS: {Number(inc.latitude).toFixed(6)}, {Number(inc.longitude).toFixed(6)}</span>}
