@@ -13,6 +13,38 @@ const CORS = {
 const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
 const fmtPrice = (n: number) => (n || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2 })
 
+/** Convert number to Czech words (e.g. 7800 → "sedm tisíc osm set") */
+function numberToWordsCZ(n: number): string {
+  if (n === 0) return 'nula'
+  const ones = ['', 'jedna', 'dvě', 'tři', 'čtyři', 'pět', 'šest', 'sedm', 'osm', 'devět']
+  const teens = ['deset', 'jedenáct', 'dvanáct', 'třináct', 'čtrnáct', 'patnáct', 'šestnáct', 'sedmnáct', 'osmnáct', 'devatenáct']
+  const tens = ['', 'deset', 'dvacet', 'třicet', 'čtyřicet', 'padesát', 'šedesát', 'sedmdesát', 'osmdesát', 'devadesát']
+  const hundreds = ['', 'sto', 'dvě stě', 'tři sta', 'čtyři sta', 'pět set', 'šest set', 'sedm set', 'osm set', 'devět set']
+
+  const parts: string[] = []
+  const abs = Math.abs(Math.floor(n))
+  if (abs >= 1000000) { const m = Math.floor(abs / 1000000); parts.push(m === 1 ? 'milion' : m < 5 ? m + ' miliony' : m + ' milionů'); }
+  const thousands = Math.floor((abs % 1000000) / 1000)
+  if (thousands > 0) {
+    if (thousands === 1) parts.push('tisíc')
+    else if (thousands < 5) parts.push(numberToWordsCZ(thousands).replace('dvě', 'dva') + ' tisíce')
+    else parts.push(numberToWordsCZ(thousands).replace('dvě', 'dva') + ' tisíc')
+  }
+  const rest = abs % 1000
+  if (rest > 0) {
+    const h = Math.floor(rest / 100)
+    const t = Math.floor((rest % 100) / 10)
+    const o = rest % 10
+    if (h > 0) parts.push(hundreds[h])
+    if (rest % 100 >= 10 && rest % 100 < 20) { parts.push(teens[rest % 100 - 10]) }
+    else { if (t > 0) parts.push(tens[t]); if (o > 0) parts.push(ones[o]) }
+  }
+  const result = parts.join(' ').trim()
+  const dec = Math.round((Math.abs(n) - abs) * 100)
+  if (dec > 0) return `${n < 0 ? 'mínus ' : ''}${result} korun českých a ${dec}/100`
+  return `${n < 0 ? 'mínus ' : ''}${result} korun českých`
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
@@ -172,6 +204,15 @@ serve(async (req) => {
       company_web: 'www.motogo24.cz',
       company_bank: 'mBank',
       company_account: '670100-2225851630/6210',
+      // Time & period
+      start_time: booking.pickup_time || '10:00',
+      end_time: booking.pickup_time || '10:00',
+      rental_period: days === 1 ? '1 den' : days < 5 ? `${days} dny` : `${days} dní`,
+      // Price in words
+      total_price_words: numberToWordsCZ(booking.total_price || 0),
+      // Location aliases (templates may use either name)
+      pickup_location: booking.pickup_address || branchAddress || '',
+      return_location: booking.return_address || branchAddress || '',
     }
 
     // Substitute variables in template HTML
