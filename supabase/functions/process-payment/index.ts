@@ -239,6 +239,7 @@ Deno.serve(async (req: Request) => {
         quantity: 1,
       }],
       mode: 'payment',
+      payment_method_types: ['card', 'link'],
       success_url: SITE_URL + successPath,
       cancel_url: SITE_URL + cancelPath,
       metadata,
