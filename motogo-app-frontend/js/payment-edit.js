@@ -21,6 +21,7 @@ function doEditPayment(bookingId, amount, changes){
         window._pendingEditChanges = changes;
         showStripeInlinePayment(result.client_secret, amount, {
           bookingId: bookingId,
+          paymentType: 'extension',
           onSuccess: function(){ _onInlinePaymentSuccess(bookingId); },
           onCancel: function(){
             _isEditPayment = false;

@@ -33,6 +33,7 @@ function doPayment(){
         _stripeCheckoutBookingId = _currentBookingId;
         showStripeInlinePayment(result.client_secret, _currentPaymentAmount, {
           bookingId: _currentBookingId,
+          paymentType: 'booking',
           onSuccess: function(){ _onInlinePaymentSuccess(_currentBookingId); },
           onCancel: function(){ _onInlinePaymentCancel(); }
         });

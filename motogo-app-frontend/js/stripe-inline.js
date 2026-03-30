@@ -13,6 +13,8 @@ var _inlineOverlay = null;
 var _inlineBookingId = null;
 var _inlineOrderId = null;
 var _inlinePollTimer = null;
+var _inlineAmount = 0;
+var _inlinePaymentType = 'booking';
 
 // Show inline payment overlay with Stripe Payment Element
 // opts: { onSuccess, onCancel, bookingId, orderId }
@@ -29,6 +31,8 @@ function showStripeInlinePayment(clientSecret, amount, opts){
   _inlineOnCancel = (opts && opts.onCancel) || null;
   _inlineBookingId = (opts && opts.bookingId) || null;
   _inlineOrderId = (opts && opts.orderId) || null;
+  _inlineAmount = amount || 0;
+  _inlinePaymentType = (opts && opts.paymentType) || 'booking';
 
   var s = _getStripe();
   if(!s){ _inlinePaymentActive = false; return; }
@@ -51,13 +55,26 @@ function showStripeInlinePayment(clientSecret, amount, opts){
       '<div style="font-size:32px;font-weight:900;color:#fff;margin-top:4px;">' + amtFmt + ' Kč</div>' +
     '</div>' +
     '<div style="flex:1;padding:16px 20px 20px;">' +
+      '<div style="display:flex;gap:8px;margin-bottom:12px;">' +
+        '<button onclick="_walletCheckout(\'google_pay\')" style="flex:1;background:#000;color:#fff;border:none;border-radius:12px;padding:14px 10px;font-family:var(--font,Montserrat,sans-serif);font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">' +
+          '<svg width="20" height="20" viewBox="0 0 24 24"><path d="M12.24 10.285V14.4h6.806c-.275 1.765-2.056 5.174-6.806 5.174-4.095 0-7.439-3.389-7.439-7.574s3.345-7.574 7.439-7.574c2.33 0 3.891.989 4.785 1.849l3.254-3.138C18.189 1.186 15.479 0 12.24 0c-6.635 0-12 5.365-12 12s5.365 12 12 12c6.926 0 11.52-4.869 11.52-11.726 0-.788-.085-1.39-.189-1.989H12.24z" fill="#fff"/></svg>' +
+          'Google Pay</button>' +
+        '<button onclick="_walletCheckout(\'apple_pay\')" style="flex:1;background:#000;color:#fff;border:none;border-radius:12px;padding:14px 10px;font-family:var(--font,Montserrat,sans-serif);font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">' +
+          '<svg width="20" height="20" viewBox="0 0 24 24"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" fill="#fff"/></svg>' +
+          'Apple Pay</button>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">' +
+        '<div style="flex:1;height:1px;background:#e5e7eb;"></div>' +
+        '<span style="font-size:11px;font-weight:700;color:#9ca3af;">nebo kartou</span>' +
+        '<div style="flex:1;height:1px;background:#e5e7eb;"></div>' +
+      '</div>' +
       '<div style="background:#fff;border-radius:16px;padding:18px 16px;box-shadow:0 2px 12px rgba(0,0,0,.06);margin-bottom:14px;">' +
         '<div style="font-size:11px;font-weight:800;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">Platební údaje</div>' +
         '<div id="sip-element" style="min-height:120px;"></div>' +
         '<div id="sip-error" style="display:none;margin-top:10px;padding:8px 12px;background:#fee2e2;border-radius:8px;font-size:12px;font-weight:600;color:#b91c1c;"></div>' +
       '</div>' +
       '<button id="sip-pay-btn" onclick="_submitInlinePayment()" style="width:100%;background:var(--green,#22c55e);color:#fff;border:none;border-radius:50px;padding:16px;font-family:var(--font,Montserrat,sans-serif);font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 4px 18px rgba(34,197,94,.3);">' +
-        'Zaplatit ' + amtFmt + ' Kč' +
+        'Zaplatit kartou ' + amtFmt + ' Kč' +
       '</button>' +
       '<div style="text-align:center;margin-top:12px;">' +
         '<div style="font-size:11px;color:#9ca3af;display:flex;align-items:center;justify-content:center;gap:4px;">🔒 Šifrovaná platba · Stripe</div>' +
@@ -184,6 +201,41 @@ function _waitForWebhookConfirmation(){
   }, 1000);
 }
 
+// Wallet checkout — redirect to Stripe Checkout in system browser (Google Pay / Apple Pay)
+async function _walletCheckout(wallet){
+  var bookingId = _inlineBookingId;
+  var orderId = _inlineOrderId;
+  var amount = _inlineAmount;
+  var payType = _inlinePaymentType;
+  var onSuccess = _inlineOnSuccess;
+  var onCancel = _inlineOnCancel;
+
+  // Close inline overlay first
+  _closeInlineOverlay();
+  _inlinePaymentActive = false;
+
+  if(typeof apiProcessPayment !== 'function') return;
+  try {
+    var opts = { type: payType, mode: 'checkout' };
+    if(orderId) opts.order_id = orderId;
+    var result = await apiProcessPayment(bookingId, amount, 'card', opts);
+    if(result.success && result.checkout_url){
+      _stripeCheckoutOpened = true;
+      _stripeCheckoutBookingId = bookingId;
+      if(typeof _lockPaymentScreen === 'function') _lockPaymentScreen('↗ ' + (wallet === 'apple_pay' ? 'Apple Pay' : 'Google Pay') + '...');
+      if(typeof _openExternalUrl === 'function') _openExternalUrl(result.checkout_url);
+      else window.open(result.checkout_url, '_blank');
+    } else {
+      if(typeof showT === 'function') showT('✗','Chyba',result.error || 'Nepodařilo se otevřít platební bránu');
+      if(onCancel) onCancel();
+    }
+  } catch(e){
+    console.error('[STRIPE-INLINE] walletCheckout error:', e);
+    if(typeof showT === 'function') showT('✗','Chyba','Nepodařilo se otevřít platební bránu');
+    if(onCancel) onCancel();
+  }
+}
+
 // Cancel — close overlay, call onCancel (triggers FAB)
 function _cancelInlinePayment(){
   if(_inlinePollTimer){ clearInterval(_inlinePollTimer); _inlinePollTimer = null; }
@@ -198,6 +250,8 @@ function _closeInlineOverlay(){
   _inlineClientSecret = null;
   _inlineBookingId = null;
   _inlineOrderId = null;
+  _inlineAmount = 0;
+  _inlinePaymentType = 'booking';
   if(_inlineOverlay && _inlineOverlay.parentNode){
     _inlineOverlay.parentNode.removeChild(_inlineOverlay);
   }
