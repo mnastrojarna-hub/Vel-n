@@ -8,6 +8,7 @@ const PREFIX_MAP = {
   payment_receipt: 'DP',
   final: 'KF',
   shop_final: 'FV',
+  credit_note: 'DB',
 }
 
 const DAY_NAMES_CS = ['ne', 'po', 'út', 'st', 'čt', 'pá', 'so']
@@ -334,6 +335,81 @@ export async function storeInvoicePdf(invoiceId, html) {
     .eq('id', invoiceId)
 
   return path
+}
+
+/**
+ * Generate credit note (DB - dobropis) for a booking refund
+ * Links to original invoice, records Stripe refund ID
+ */
+export async function generateCreditNote(bookingId, { refundAmount, refundPercent, reason, stripeRefundId, originalInvoiceId } = {}) {
+  const { data: booking, error: bErr } = await supabase
+    .from('bookings')
+    .select(`*, motorcycles(${MOTO_SELECT}), profiles:user_id(id, full_name, email)`)
+    .eq('id', bookingId).single()
+  if (bErr || !booking) throw new Error(bErr?.message || 'Booking not found')
+
+  const amount = refundAmount || Number(booking.total_price || 0)
+  const percent = refundPercent || 100
+
+  // Find original invoice to link (prefer KF, then DP, then ZF)
+  let origInvId = originalInvoiceId || null
+  if (!origInvId) {
+    const { data: origInvs } = await supabase
+      .from('invoices').select('id, type, number')
+      .eq('booking_id', bookingId)
+      .neq('status', 'cancelled')
+      .in('type', ['final', 'payment_receipt', 'advance', 'proforma'])
+      .order('issue_date', { ascending: false })
+    if (origInvs?.length) {
+      const kf = origInvs.find(i => i.type === 'final')
+      const dp = origInvs.find(i => i.type === 'payment_receipt')
+      origInvId = (kf || dp || origInvs[0]).id
+    }
+  }
+
+  const reasonText = reason || 'Storno rezervace'
+  const moto = booking.motorcycles || {}
+  const items = [
+    {
+      description: `Dobropis – ${reasonText} (${moto.model || 'motorka'}, ${fmtDateCS(booking.start_date)} – ${fmtDateCS(booking.end_date)})`,
+      qty: 1,
+      unit_price: -amount,
+    },
+  ]
+
+  const payload = {
+    type: 'credit_note',
+    customer_id: booking.profiles?.id || booking.user_id,
+    booking_id: bookingId,
+    items,
+    notes: `Dobropis k rezervaci #${bookingId.slice(-8).toUpperCase()}. ${percent < 100 ? `Částečný refund ${percent}%.` : 'Plný refund.'} ${reasonText}`,
+    source: 'refund',
+    status: 'issued',
+  }
+
+  const invoice = await createInvoice(payload)
+
+  // Update with extra fields (original_invoice_id, stripe_refund_id)
+  const extraUpdate = {}
+  if (origInvId) extraUpdate.original_invoice_id = origInvId
+  if (stripeRefundId) extraUpdate.stripe_refund_id = stripeRefundId
+  if (Object.keys(extraUpdate).length > 0) {
+    await supabase.from('invoices').update(extraUpdate).eq('id', invoice.id).catch(() => {})
+  }
+
+  // Create negative accounting entry for the refund
+  try {
+    await supabase.from('accounting_entries').insert({
+      type: 'expense',
+      amount: -amount,
+      description: `Dobropis ${invoice.number} – ${reasonText}`,
+      category: 'refund',
+      date: new Date().toISOString().slice(0, 10),
+      booking_id: bookingId,
+    })
+  } catch {} // non-blocking
+
+  return invoice
 }
 
 /**

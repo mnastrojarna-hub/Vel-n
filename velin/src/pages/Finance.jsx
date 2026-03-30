@@ -23,8 +23,9 @@ const AutoOrdersTab = lazy(() => import('./accounting/AutoOrdersTab'))
 const InventoryTab = lazy(() => import('./Inventory'))
 const DeliveryNotesTab = lazy(() => import('./accounting/DeliveryNotesTab'))
 const ContractsTab = lazy(() => import('./accounting/ContractsTab'))
+const CreditNotesTab = lazy(() => import('./accounting/CreditNotesTab'))
 
-const FINANCE_TABS = ['Přehled', 'Faktury', 'Dodací listy', 'Smlouvy', 'Objednávky', 'Účetnictví', 'Faktury přijaté', 'Pokladna', 'Sklad']
+const FINANCE_TABS = ['Přehled', 'Faktury', 'Dobropisy', 'Dodací listy', 'Smlouvy', 'Objednávky', 'Účetnictví', 'Faktury přijaté', 'Pokladna', 'Sklad']
 
 const ACCOUNTING_SUBTABS = [
   { id: 'events', label: 'Finanční události' },
@@ -57,7 +58,7 @@ export default function Finance() {
   const [detailTx, setDetailTx] = useState(null)
   const [recentInvoices, setRecentInvoices] = useState([])
   const [shopPayments, setShopPayments] = useState([])
-  const [invoiceSums, setInvoiceSums] = useState({ zf: 0, dp: 0, kf: 0, shopZf: 0, shopKf: 0, rental: 0, eshop: 0, vouchers: 0 })
+  const [invoiceSums, setInvoiceSums] = useState({ zf: 0, dp: 0, kf: 0, shopZf: 0, shopKf: 0, rental: 0, eshop: 0, vouchers: 0, creditNotes: 0, creditNotesCount: 0 })
 
   useEffect(() => { loadData() }, [filters])
 
@@ -91,7 +92,10 @@ export default function Finance() {
     const eshop = (shopRes.data || []).reduce((s, o) => s + (o.total || 0), 0)
     const rental = (rentalRes.data || []).reduce((s, b) => s + (b.total_price || 0), 0)
     const vouchers = (voucherRes.data || []).reduce((s, v) => s + (v.discount_amount || 0), 0)
-    setInvoiceSums({ zf, dp, kf, shopZf, shopKf, rental, eshop, vouchers })
+    const creditNotesArr = invs.filter(i => i.type === 'credit_note')
+    const creditNotes = creditNotesArr.reduce((s, i) => s + Math.abs(i.total || 0), 0)
+    const creditNotesCount = creditNotesArr.length
+    setInvoiceSums({ zf, dp, kf, shopZf, shopKf, rental, eshop, vouchers, creditNotes, creditNotesCount })
   }
 
   async function loadRecentInvoices() {
@@ -226,6 +230,7 @@ export default function Finance() {
 
       <Suspense fallback={<TabLoader />}>
       {activeTab === 'Faktury' && <ErrorBoundary><InvoicesTab /></ErrorBoundary>}
+      {activeTab === 'Dobropisy' && <ErrorBoundary><CreditNotesTab /></ErrorBoundary>}
       {activeTab === 'Objednávky' && <ErrorBoundary><AutoOrdersTab /></ErrorBoundary>}
       {activeTab === 'Dodací listy' && <ErrorBoundary><DeliveryNotesTab /></ErrorBoundary>}
       {activeTab === 'Smlouvy' && <ErrorBoundary><ContractsTab /></ErrorBoundary>}

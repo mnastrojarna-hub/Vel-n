@@ -135,6 +135,56 @@ Deno.serve(async (req: Request) => {
         }
       }
 
+      // Enrich financial event with booking/order details
+      const feMetadata: Record<string, any> = {
+        stripe_payment_intent_id: paymentIntent.id,
+        stripe_customer: paymentIntent.customer,
+        payment_type: paymentType,
+        payment_method: 'card',
+        received_date: new Date(paymentIntent.created * 1000).toISOString().slice(0, 10),
+      }
+
+      // Auto-fill supplier (= our company) and document details
+      feMetadata.supplier_name = 'Bc. Petra Semorádová'
+      feMetadata.supplier_ico = '21874263'
+      feMetadata.supplier_bank_account = '670100-2225851630/6210'
+
+      if ((paymentType === 'booking' || paymentType === 'extension') && metadata.booking_id) {
+        try {
+          const { data: bk } = await supabase.from('bookings')
+            .select('id, start_date, end_date, total_price, user_id, motorcycles(model, spz), profiles:user_id(full_name, email)')
+            .eq('id', metadata.booking_id).single()
+          if (bk) {
+            const { data: inv } = await supabase.from('invoices')
+              .select('number, variable_symbol')
+              .eq('booking_id', metadata.booking_id)
+              .in('type', ['payment_receipt', 'advance', 'proforma'])
+              .order('issue_date', { ascending: false })
+              .limit(1)
+            feMetadata.invoice_number = inv?.[0]?.number || `RES-${metadata.booking_id.slice(-8).toUpperCase()}`
+            feMetadata.variable_symbol = inv?.[0]?.variable_symbol || inv?.[0]?.number || ''
+            feMetadata.customer_name = (bk as any).profiles?.full_name || ''
+            feMetadata.customer_email = (bk as any).profiles?.email || ''
+            feMetadata.booking_model = (bk as any).motorcycles?.model || ''
+            feMetadata.booking_spz = (bk as any).motorcycles?.spz || ''
+            feMetadata.booking_dates = `${bk.start_date} – ${bk.end_date}`
+            feMetadata.due_date = new Date(paymentIntent.created * 1000).toISOString().slice(0, 10)
+          }
+        } catch (e) { /* ignore enrichment errors */ }
+      } else if (paymentType === 'shop' && metadata.order_id) {
+        try {
+          const { data: ord } = await supabase.from('shop_orders')
+            .select('order_number, total_amount, profiles:customer_id(full_name, email)')
+            .eq('id', metadata.order_id).single()
+          if (ord) {
+            feMetadata.invoice_number = ord.order_number || `OBJ-${metadata.order_id.slice(-8).toUpperCase()}`
+            feMetadata.variable_symbol = ord.order_number || ''
+            feMetadata.customer_name = (ord as any).profiles?.full_name || ''
+            feMetadata.due_date = new Date(paymentIntent.created * 1000).toISOString().slice(0, 10)
+          }
+        } catch (e) { /* ignore */ }
+      }
+
       await ingestFinancialEvent(supabase, {
         event_type: 'revenue', source: 'stripe',
         amount_czk: paymentIntent.amount / 100, vat_rate: 0,
@@ -142,27 +192,52 @@ Deno.serve(async (req: Request) => {
         linked_entity_type: paymentType || 'booking',
         linked_entity_id: metadata.booking_id || metadata.order_id || null,
         confidence_score: 1.0, status: 'validated',
-        metadata: {
-          stripe_payment_intent_id: paymentIntent.id,
-          stripe_customer: paymentIntent.customer,
-          payment_type: paymentType,
-        },
+        metadata: feMetadata,
       })
     } else if (event.type === 'charge.refunded') {
       const charge = event.data.object as Stripe.Charge
       const refundReason = charge.refunds?.data?.[0]?.reason || null
+      const chargeMeta = charge.metadata || {}
+
+      // Enrich refund with booking details
+      const refundFeMeta: Record<string, any> = {
+        refund_reason: refundReason,
+        original_payment_intent: charge.payment_intent,
+        stripe_charge_id: charge.id,
+        payment_method: 'card',
+        supplier_name: 'Bc. Petra Semorádová',
+        supplier_ico: '21874263',
+        received_date: new Date().toISOString().slice(0, 10),
+      }
+      let linkedId: string | null = null
+      let linkedType: string | null = null
+
+      // Try to find linked booking via payment_intent
+      if (charge.payment_intent) {
+        try {
+          const piId = typeof charge.payment_intent === 'string' ? charge.payment_intent : (charge.payment_intent as any)?.id
+          if (piId) {
+            const { data: bk } = await supabase.from('bookings')
+              .select('id, motorcycles(model), profiles:user_id(full_name)')
+              .eq('stripe_payment_intent_id', piId).single()
+            if (bk) {
+              linkedId = bk.id
+              linkedType = 'booking'
+              refundFeMeta.customer_name = (bk as any).profiles?.full_name || ''
+              refundFeMeta.booking_model = (bk as any).motorcycles?.model || ''
+              refundFeMeta.invoice_number = `Refund RES-${bk.id.slice(-8).toUpperCase()}`
+            }
+          }
+        } catch (e) { /* ignore */ }
+      }
 
       await ingestFinancialEvent(supabase, {
         event_type: 'revenue', source: 'stripe',
         amount_czk: -(charge.amount_refunded / 100), vat_rate: 0,
         duzp: new Date().toISOString().slice(0, 10),
-        linked_entity_type: null, linked_entity_id: null,
+        linked_entity_type: linkedType, linked_entity_id: linkedId,
         confidence_score: 1.0, status: 'validated',
-        metadata: {
-          refund_reason: refundReason,
-          original_payment_intent: charge.payment_intent,
-          stripe_charge_id: charge.id,
-        },
+        metadata: refundFeMeta,
       })
     } else if (event.type === 'payout.paid') {
       const payout = event.data.object as Stripe.Payout

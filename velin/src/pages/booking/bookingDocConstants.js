@@ -7,4 +7,5 @@ export const INV_TYPE_MAP = {
   final: { label: 'Konecna faktura (KF)', color: '#1a8a18', bg: '#dcfce7' },
   shop_proforma: { label: 'Shop zalohova', color: '#8b5cf6', bg: '#ede9fe' },
   shop_final: { label: 'Shop konecna', color: '#059669', bg: '#d1fae5' },
+  credit_note: { label: 'Dobropis (DB)', color: '#dc2626', bg: '#fee2e2' },
 }
