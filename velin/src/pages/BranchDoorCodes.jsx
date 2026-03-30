@@ -110,7 +110,7 @@ function TabDoorCodes({ doorCodes, loading, branchId, motos, activeBookings, onR
         await supabase.from('admin_messages').insert({
           user_id: code.bookings.user_id,
           title: 'Přístupový kód k pobočce',
-          content: `Váš kód k ${code.code_type === 'motorcycle' ? 'motorce' : 'příslušenství'}: ${code.door_code}`,
+          message: `Váš kód k ${code.code_type === 'motorcycle' ? 'motorce' : 'příslušenství'}: ${code.door_code}`,
           type: 'info',
         }).catch(() => {})
       }
