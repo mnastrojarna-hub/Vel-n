@@ -96,6 +96,7 @@ async function sosPaymentSubmit(){
         if(btn){ btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '💳 Zaplatit ' + sosAmount.toLocaleString('cs-CZ') + ' Kč'; }
         showStripeInlinePayment(payResult.client_secret, sosAmount, {
           bookingId: replBookingId,
+          paymentType: 'sos',
           onSuccess: function(){
             pd.replacementData.payment_status = 'paid';
             pd.replacementData.paid_at = new Date().toISOString();

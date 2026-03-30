@@ -175,6 +175,7 @@ async function finalizeCheckout(){
           _pendingShopOrderId = orderId;
           showStripeInlinePayment(payResult.client_secret, finalTotal, {
             orderId: orderId,
+            paymentType: 'shop',
             onSuccess: function(){
               _stripeCheckoutOpened = false;
               _stripeCheckoutBookingId = null;
