@@ -4,7 +4,7 @@
 function grantPerms(){
   try{localStorage.setItem('mg_perms','granted');}catch(e){}
   document.getElementById('perm-overlay').style.display='none';
-  showT('✓','Oprávnění povolena','Biometrika, poloha, fotoaparát, mikrofon');
+  showT('✓','Oprávnění povolena','Biometrika, poloha, fotoaparát, mikrofon, oznámení');
 }
 
 function skipPerms(){
