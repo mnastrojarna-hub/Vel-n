@@ -71,7 +71,20 @@ export function SOSSection({ booking, sosIncidents, navigate }) {
             <div className="col-span-2 text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Náhradní motorka</div>
             {rd.replacement_model && <InfoRow label="Model" value={rd.replacement_model} />}
             {rd.daily_price > 0 && <InfoRow label="Denní cena" value={`${Number(rd.daily_price).toLocaleString('cs-CZ')} Kč`} />}
-            {rd.remaining_days && <InfoRow label="Zbývající dny" value={`${rd.remaining_days} ${rd.remaining_days === 1 ? 'den' : rd.remaining_days < 5 ? 'dny' : 'dní'}`} />}
+            {(rd.original_end_date || rd.remaining_days) && (() => {
+              const endDate = rd.original_end_date ? new Date(rd.original_end_date + (rd.original_end_date.includes('T') ? '' : 'T23:59:59')) : null
+              if (endDate && !isNaN(endDate)) {
+                const now = new Date()
+                const remainMs = endDate - now
+                if (remainMs <= 0) return <InfoRow label="Zbývající čas" value="Vypršelo" />
+                const remainH = Math.floor(remainMs / 3600000)
+                if (remainH < 24) return <InfoRow label="Zbývající čas" value={`${remainH} h ${Math.floor((remainMs % 3600000) / 60000)} min`} />
+                const d = Math.ceil(remainMs / 86400000)
+                return <InfoRow label="Zbývající dny" value={`${d} ${d === 1 ? 'den' : d < 5 ? 'dny' : 'dní'}`} />
+              }
+              const d = rd.remaining_days
+              return d ? <InfoRow label="Zbývající dny" value={`${d} ${d === 1 ? 'den' : d < 5 ? 'dny' : 'dní'}`} /> : null
+            })()}
             {rd.payment_amount > 0 && <InfoRow label="Zaplaceno celkem" value={<span style={{ fontWeight: 800, color: '#1a8a18' }}>{Number(rd.payment_amount).toLocaleString('cs-CZ')} Kč</span>} />}
           </div>
         )}

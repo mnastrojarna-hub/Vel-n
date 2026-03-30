@@ -188,9 +188,20 @@ export function ReplacementOrderCard({ incident, replacementMoto, showRejectForm
                 {incident.replacement_data.original_end_date && (
                   <InfoRow label="Pův. konec" value={new Date(incident.replacement_data.original_end_date).toLocaleDateString('cs-CZ')} />
                 )}
-                {incident.replacement_data.remaining_days && (
-                  <InfoRow label="Zbývá dní" value={`${incident.replacement_data.remaining_days}`} />
-                )}
+                {(incident.replacement_data.original_end_date || incident.replacement_data.remaining_days) && (() => {
+                  const endDate = incident.replacement_data.original_end_date ? new Date(incident.replacement_data.original_end_date + (incident.replacement_data.original_end_date.includes('T') ? '' : 'T23:59:59')) : null
+                  if (endDate && !isNaN(endDate)) {
+                    const now = new Date()
+                    const remainMs = endDate - now
+                    if (remainMs <= 0) return <InfoRow label="Zbývající čas" value="Vypršelo" />
+                    const remainH = Math.floor(remainMs / 3600000)
+                    if (remainH < 24) return <InfoRow label="Zbývající čas" value={`${remainH} h ${Math.floor((remainMs % 3600000) / 60000)} min`} />
+                    const d = Math.ceil(remainMs / 86400000)
+                    return <InfoRow label="Zbývá dní" value={`${d} ${d === 1 ? 'den' : d < 5 ? 'dny' : 'dní'}`} />
+                  }
+                  const d = incident.replacement_data.remaining_days
+                  return d ? <InfoRow label="Zbývá dní" value={`${d}`} /> : null
+                })()}
               </div>
               <div className="text-sm mt-1" style={{ color: '#166534' }}>
                 ✅ Původní rezervace ukončena ke dni incidentu. Nová rezervace s náhradní motorkou aktivní do konce původního termínu.
