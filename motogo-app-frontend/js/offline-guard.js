@@ -33,12 +33,12 @@ var OfflineGuard = (function(){
             'align-items:center;justify-content:center;padding:32px;text-align:center;';
         div.innerHTML = '<div style="font-size:48px;margin-bottom:16px;">📡</div>' +
             '<div style="color:#fff;font-size:18px;font-weight:800;margin-bottom:8px;">' +
-            'Žádné připojení k internetu</div>' +
+            (typeof _t==='function'?(_t('offline').title||'No internet connection'):'No internet connection')+'</div>' +
             '<div style="color:#8aab99;font-size:14px;margin-bottom:24px;">' +
-            'Pro používání MotoGo24 je potřeba internetové připojení.<br>Zkontrolujte Wi-Fi nebo mobilní data.</div>' +
+            (typeof _t==='function'?(_t('offline').sub||'Internet connection is required to use MotoGo24.'):'Internet connection is required to use MotoGo24.')+'<br>'+(typeof _t==='function'?(_t('offline').hint||'Check your Wi-Fi or mobile data.'):'Check your Wi-Fi or mobile data.')+'</div>' +
             '<button onclick="OfflineGuard.retry()" style="background:#74FB71;color:#0f1a14;' +
             'border:none;border-radius:50px;padding:14px 32px;font-size:14px;font-weight:800;' +
-            'cursor:pointer;text-transform:uppercase;letter-spacing:0.5px;">Zkusit znovu</button>';
+            'cursor:pointer;text-transform:uppercase;letter-spacing:0.5px;">'+(typeof _t==='function'?(_t('offline').retryBtn||'Retry'):'Retry')+'</button>';
         document.body.appendChild(div);
     }
 
@@ -67,8 +67,8 @@ var OfflineGuard = (function(){
                 // Stále offline — overlay zůstane
                 var btn = document.querySelector('#' + _overlayId + ' button');
                 if (btn) {
-                    btn.textContent = 'Stále bez připojení…';
-                    setTimeout(function(){ btn.textContent = 'Zkusit znovu'; }, 2000);
+                    btn.textContent = (typeof _t==='function'?(_t('offline').stillOffline||'Still offline\u2026'):'Still offline\u2026');
+                    setTimeout(function(){ btn.textContent = (typeof _t==='function'?(_t('offline').retryBtn||'Retry'):'Retry'); }, 2000);
                 }
             });
         }

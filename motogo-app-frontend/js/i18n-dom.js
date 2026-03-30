@@ -285,6 +285,16 @@ function _translateTemplates(){
   _s('t-sdPayTitle','\ud83d\udcb3 '+sd.payment);_s('t-sdLastStep',sd.lastStep);
   _s('t-sdConfirmPay',sd.confirmPay);
 
+  // === PERMISSION OVERLAY ===
+  var pm=_t('perm');
+  _s('t-permTitle','\ud83c\udfcd\ufe0f '+pm.title);_s('t-permSub',pm.sub);
+  _s('t-permBio',pm.biometric);_s('t-permBioDesc',pm.biometricDesc);
+  _s('t-permLoc',pm.location);_s('t-permLocDesc',pm.locationDesc);
+  _s('t-permCam',pm.camera);_s('t-permCamDesc',pm.cameraDesc);
+  _s('t-permMic',pm.microphone);_s('t-permMicDesc',pm.microphoneDesc);
+  _s('t-permNotif',pm.notifications);_s('t-permNotifDesc',pm.notificationsDesc);
+  _s('t-permAllow',pm.allowAll);_s('t-permSkip',pm.skip);
+
   // Re-render dynamic screens
   if(typeof cur!=='undefined'){
     if(cur==='s-res'&&typeof renderMyReservations==='function')renderMyReservations();

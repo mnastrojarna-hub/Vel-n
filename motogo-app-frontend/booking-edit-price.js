@@ -106,18 +106,18 @@ async function updateEditPriceSummary(){
   if(shrAmt) shrAmt.textContent = '-' + refundAmt.toLocaleString('cs-CZ') + ' K\u010d';
 
   // Update the label to show storno percentage
+  var h=_t('hc');
   var shrLabel = document.getElementById('t-editShortening');
   if(shrLabel && isShortening){
-    shrLabel.textContent = 'Zkr\u00e1cen\u00ed (vr\u00e1cen\u00ed ' + appliedStornoPct + ' %)';
+    shrLabel.textContent = h.shortenReturn.replace('{pct}',appliedStornoPct);
   }
 
   var shortenNote = document.getElementById('edit-shorten-note');
   if(shortenNote){
     if(isShortening){
       var activePct = appliedStornoPct >= 0 ? appliedStornoPct : 0;
-      shortenNote.innerHTML = '\u26a0\ufe0f Storno podm\u00ednky: <strong>7+ dn\u00ed = 100 %</strong> \u00b7 <strong>2\u20137 dn\u00ed = 50 %</strong> \u00b7 <strong>m\u00e9n\u011b ne\u017e 2 dny = bez vr\u00e1cen\u00ed</strong>.' +
-        '<br>\u27a4 Aktu\u00e1ln\u011b plat\u00ed: <strong>' + activePct + ' % vr\u00e1cen\u00ed</strong>' +
-        (activePct < 100 && rawRefundTotal > 0 ? ' (z ' + rawRefundTotal.toLocaleString('cs-CZ') + ' K\u010d)' : '');
+      shortenNote.innerHTML = '\u26a0\ufe0f ' + h.stornoNote + '<br>\u27a4 ' + h.stornoApplied.replace('{pct}',activePct) +
+        (activePct < 100 && rawRefundTotal > 0 ? h.stornoFrom.replace('{amt}',rawRefundTotal.toLocaleString('cs-CZ')) : '');
       shortenNote.style.display = 'block';
     } else {
       shortenNote.style.display = 'none';
@@ -153,9 +153,9 @@ async function updateEditPriceSummary(){
 
   var saveBtn = document.getElementById('edit-save-btn');
   if(saveBtn){
-    if(diff > 0) saveBtn.textContent = 'Pokra\u010dovat k platb\u011b (+' + diff.toLocaleString('cs-CZ') + ' K\u010d) \u2192';
-    else if(diff < 0) saveBtn.textContent = 'Ulo\u017eit a vr\u00e1tit ' + Math.abs(diff).toLocaleString('cs-CZ') + ' K\u010d \u2192';
-    else saveBtn.textContent = 'Ulo\u017eit zm\u011bny \u2192';
+    if(diff > 0) saveBtn.textContent = h.payAndContinue.replace('{amt}',diff.toLocaleString('cs-CZ'));
+    else if(diff < 0) saveBtn.textContent = h.saveAndRefund.replace('{amt}',Math.abs(diff).toLocaleString('cs-CZ'));
+    else saveBtn.textContent = h.saveChanges;
   }
 
   priceSum.style.display = (extendPrice > 0 || isShortening || editReturnFee > 0 || editExtrasTotal > 0 || editMotoDiffPrice !== 0) ? 'block' : 'none';

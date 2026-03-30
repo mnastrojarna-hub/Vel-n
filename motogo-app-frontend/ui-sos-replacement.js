@@ -10,7 +10,7 @@ function sosRequestReplacement() {
     if(_sosReplacementLoading) return; // guard against double-click
     _sosReplacementLoading = true;
     sosLoading();
-    showT('⏳','Načítám...','Připravuji náhradní motorky');
+    var h=_t('hc');showT('⏳',h.loadingMotos,h.preparingMotos);
 
     // Persist fault state so it survives async operations
     _sosFaultSnapshot = _sosFault;
@@ -44,7 +44,7 @@ function sosRequestReplacement() {
     var incId = await _sosEnsureIncident(type, desc);
       _sosReplacementLoading = false;
       sosLoadingHide();
-      if(!incId){ showT('❌','Chyba','Nepodařilo se nahlásit incident'); return; }
+      if(!incId){ showT('❌',_t('common').error,h.createFailed.replace(': ','')); return; }
       _sosPendingIncidentId = incId;
       var upd = {customer_decision:'replacement_moto', moto_rideable:false, replacement_status: 'selecting'};
       if(_sosFault !== null) upd.customer_fault = _sosFault;
@@ -89,31 +89,33 @@ function sosReplInit(){
 
     if(isFault){
       if(hdr) hdr.style.background = 'linear-gradient(135deg,#7f1d1d,#b91c1c)';
-      if(sub) sub.textContent = 'Zaviněná nehoda — náhradní motorka za poplatek';
+      var h=_t('hc');
+      if(sub) sub.textContent = h.faultAccident;
       if(banner){
         banner.style.background = '#fee2e2';
         banner.style.border = '1px solid #fca5a5';
         banner.style.color = '#b91c1c';
-        banner.innerHTML = '⚠️ Nehoda zaviněná zákazníkem — motorka a přistavení jsou <strong>za poplatek</strong>. Po zaplacení bude motorka ihned přistavena.';
+        banner.innerHTML = '⚠️ '+h.faultBanner;
       }
       if(btn){
         btn.style.background = '#b91c1c';
-        btn.textContent = '💳 Zaplatit a objednat motorku';
+        btn.textContent = '💳 '+h.payAndOrderMoto;
       }
     } else {
+      var h=_t('hc');
       if(hdr) hdr.style.background = 'linear-gradient(135deg,#1a2e22,#2d5a3c)';
-      if(sub) sub.textContent = 'Porucha / nezaviněná nehoda — přistavení zdarma';
+      if(sub) sub.textContent = h.freeAccident;
       if(banner){
         banner.style.background = 'var(--gp)';
         banner.style.border = '1px solid var(--green)';
         banner.style.color = 'var(--gd)';
-        banner.innerHTML = '💚 Náhradní motorka i přistavení jsou <strong>zdarma</strong> (porucha / nezaviněná nehoda).';
+        banner.innerHTML = '💚 '+h.freeBanner;
       }
       if(totalEl){ totalEl.textContent = '0 Kč'; totalEl.style.color = 'var(--green)'; }
       if(totalLabel) totalLabel.style.color = 'var(--green)';
       if(btn){
         btn.style.background = 'var(--green)';
-        btn.textContent = '✅ Potvrdit objednávku (zdarma)';
+        btn.textContent = '✅ '+h.confirmOrderFreeShort;
       }
     }
 
@@ -125,7 +127,8 @@ async function sosReplLoadMotos(){
     var container = document.getElementById('sos-repl-motos');
     if(!container) return;
     sosLoading();
-    container.innerHTML = '<div style="text-align:center;padding:15px;color:var(--g400);font-size:12px;">⏳ Načítám dostupné motorky...</div>';
+    var h=_t('hc');
+    container.innerHTML = '<div style="text-align:center;padding:15px;color:var(--g400);font-size:12px;">⏳ '+h.loadingMotosMsg+'</div>';
 
     try {
       // Zjisti uživatele
@@ -225,7 +228,7 @@ async function sosReplLoadMotos(){
         return canRide;
       });
       if(motos.length === 0){
-        container.innerHTML = '<div style="text-align:center;padding:15px;color:#b91c1c;font-size:12px;font-weight:600;">Žádné motorky momentálně nejsou dostupné. Kontaktujte MotoGo24.</div>';
+        container.innerHTML = '<div style="text-align:center;padding:15px;color:#b91c1c;font-size:12px;font-weight:600;">'+h.noMotosAvailable+'</div>';
         return;
       }
 
@@ -265,7 +268,7 @@ async function sosReplLoadMotos(){
       sosLoadingHide();
     } catch(e){
       sosLoadingHide();
-      container.innerHTML = '<div style="text-align:center;padding:15px;color:#b91c1c;font-size:12px;font-weight:600;">Chyba při načítání motorek.</div>';
+      container.innerHTML = '<div style="text-align:center;padding:15px;color:#b91c1c;font-size:12px;font-weight:600;">'+h.loadMotosError+'</div>';
       console.error('[SOS] loadMotos:', e);
     }
 }

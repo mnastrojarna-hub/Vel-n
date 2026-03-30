@@ -53,32 +53,33 @@ function regNext(){
       var pass = document.getElementById('reg-pass');
       var dob = document.getElementById('reg-dob');
 
+      var h=_t('hc');
       if(!_regIsNameValid((fname||{}).value)){
-        showT('⚠️','Jméno','Zadejte platné jméno (min. 2 písmena, bez číslic)'); return;
+        showT('⚠️',_t('auth').firstName,h.nameInvalid); return;
       }
       if(!_regIsNameValid((lname||{}).value)){
-        showT('⚠️','Příjmení','Zadejte platné příjmení (min. 2 písmena, bez číslic)'); return;
+        showT('⚠️',_t('auth').lastName,h.surnameInvalid); return;
       }
       if(!email || !email.value.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim())){
         showT('⚠️',_t('auth').badEmail,_t('auth').validEmail); return;
       }
       if(!_regIsPhoneValid((phone||{}).value)){
-        showT('⚠️','Telefon','Zadejte telefon v mezinárodním formátu (např. +420 777 000 000)'); return;
+        showT('⚠️',_t('auth').phone,h.phoneInvalid); return;
       }
       // DOB: required, 18-99 years
       var dobDate=_regParseCzDate((dob||{}).value);
       if(!dobDate){
-        showT('⚠️','Datum narození','Vyberte datum narození'); return;
+        showT('⚠️',_t('auth').dob,h.dobRequired); return;
       }
       var today=new Date();today.setHours(0,0,0,0);
       var age=today.getFullYear()-dobDate.getFullYear();
       var mDiff=today.getMonth()-dobDate.getMonth();
       if(mDiff<0||(mDiff===0&&today.getDate()<dobDate.getDate()))age--;
       if(age<18){
-        showT('⚠️','Věk','Pro registraci musíte být starší 18 let'); return;
+        showT('⚠️',_t('auth').dob,h.ageMin18); return;
       }
       if(age>99||dobDate>today){
-        showT('⚠️','Datum narození','Zadejte platné datum narození'); return;
+        showT('⚠️',_t('auth').dob,h.dobInvalid); return;
       }
       if(!pass || pass.value.length < 8){
         showT('⚠️',_t('auth').shortPass,_t('auth').minPass); return;
@@ -88,11 +89,12 @@ function regNext(){
     if(regStep === 2){
       var city = document.getElementById('reg-city');
       var street = document.getElementById('reg-street');
+      var h2=_t('hc');
       if(!city||!city.value.trim()||city.value.trim().length<2){
-        showT('⚠️','Město','Zadejte město (min. 2 znaky)'); return;
+        showT('⚠️',_t('auth').city,h2.cityMin); return;
       }
       if(!street||!street.value.trim()||street.value.trim().length<3){
-        showT('⚠️','Ulice','Zadejte ulici a číslo popisné (min. 3 znaky)'); return;
+        showT('⚠️',_t('auth').street,h2.streetMin); return;
       }
     }
 
@@ -157,16 +159,17 @@ function doRegister(){
   var f = _collectRegFields();
 
   // Step 3 validation — ŘP
+  var h3=_t('hc');
   if(!f.licenseNum||f.licenseNum.length<4){
-    showT('⚠️','Řidičský průkaz','Číslo ŘP musí mít alespoň 4 znaky'); return;
+    showT('⚠️',_t('auth').licCat,h3.licenseMin); return;
   }
   var licExpDate=_regParseCzDate(f.licenseExpiry);
   if(!licExpDate){
-    showT('⚠️','Platnost ŘP','Vyberte datum platnosti řidičského průkazu'); return;
+    showT('⚠️',_t('auth').licTo,h3.licenseExpiryReq); return;
   }
   var minExpiry=new Date();minExpiry.setHours(0,0,0,0);minExpiry.setDate(minExpiry.getDate()+14);
   if(licExpDate<minExpiry){
-    showT('⚠️','Platnost ŘP','Řidičský průkaz musí být platný min. 14 dní od dnes'); return;
+    showT('⚠️',_t('auth').licTo,h3.licenseExpiry14); return;
   }
   var metadata = {
     full_name: f.fname + ' ' + f.lname,
@@ -210,11 +213,11 @@ function doRegister(){
         window.supabase.from('profiles').update(consents).eq('id', userId).then(function(){});
         _regSuccess(userId, f.email, result.session, f.pass);
       } else {
-        showT('✗',_t('auth').regErr,'Registrace se nezdařila. Zkuste to znovu.');
+        showT('✗',_t('auth').regErr,_t('hc').regFailed);
       }
     }).catch(function(e){
       console.error('doRegister supabase error:', e);
-      showT('✗',_t('auth').error,'Registrace selhala. Zkontrolujte připojení.');
+      showT('✗',_t('auth').error,_t('hc').regOffline);
     });
     return;
   }
