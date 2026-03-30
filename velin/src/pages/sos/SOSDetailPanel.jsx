@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { debugAction } from '../../lib/debugLog'
 import { DECISION_LABELS, SEVERITY_MAP, STATUS_COLORS, TYPE_LABELS, TYPE_ICONS } from './SOSDetailConstants'
-import { handleUpdateIncidentStatus, handleSetMotoToService, handleEnsureBookingSwap, handleLoadAvailableMotos, handleAdminInitiateReplacement, handleUpdateReplacementStatus, handleRetriggerSosFab, handleApproveReplacement, handleRejectReplacement } from './SOSDetailHandlers'
+import { handleUpdateIncidentStatus, handleSetMotoToService, handleUpdateSosServiceLog, handleEnsureBookingSwap, handleLoadAvailableMotos, handleAdminInitiateReplacement, handleUpdateReplacementStatus, handleRetriggerSosFab, handleApproveReplacement, handleRejectReplacement } from './SOSDetailHandlers'
 import { HeaderCard, NotesCard, WorkflowStepperCard } from './SOSDetailHeaderCard'
 import { ActionsCard } from './SOSDetailActionsCard'
 import { DecisionCard, MotoSelectorCard, ReplacementOrderCard } from './SOSDetailReplacementCard'
 import { DamageCard, NearestServiceCard, CustomerCard, MotoCard, BookingCard, MapCard, AdminNotesCard, ResolutionCard, MessageCard, PhotosCard, TimelineCard } from './SOSDetailInfoCards'
+import SOSServiceCard from './SOSServiceCard'
 
 export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
   const [booking, setBooking] = useState(null)
@@ -33,6 +34,9 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
   const [relatedIncidents, setRelatedIncidents] = useState([])
   const [showLinkPhotos, setShowLinkPhotos] = useState(false)
   const [linkingPhotos, setLinkingPhotos] = useState(false)
+  const [sosServiceLogId, setSosServiceLogId] = useState(null)
+  const [sosServiceLog, setSosServiceLog] = useState(null)
+  const [serviceLogBusy, setServiceLogBusy] = useState(false)
 
 
   useEffect(() => {
@@ -50,6 +54,7 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
     loadIncidentNotes()
     loadTimelineActions()
     loadRelatedIncidents()
+    loadSosServiceLog()
     setAdminNotes(incident.admin_notes || '')
     setResolution(incident.resolution || '')
     setPoliceNumber(incident.police_report_number || '')
@@ -75,6 +80,22 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
       .neq('id', incident.id)
       .order('created_at', { ascending: false })
     setRelatedIncidents(data || [])
+  }
+
+  async function loadSosServiceLog() {
+    setSosServiceLog(null)
+    setSosServiceLogId(null)
+    const { data } = await supabase.from('maintenance_log')
+      .select('id, description, service_date, scheduled_date, status, items, is_urgent, service_type')
+      .eq('sos_incident_id', incident.id)
+      .is('completed_date', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+    if (data) {
+      setSosServiceLog(data)
+      setSosServiceLogId(data.id)
+    }
   }
 
   async function linkPhotosToIncident(targetIncidentId) {
@@ -209,7 +230,8 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
   }
 
   async function setMotoToService() {
-    await handleSetMotoToService(incident, moto, booking, onRefresh, setMotoInService, loadTimelineActions)
+    await handleSetMotoToService(incident, moto, booking, onRefresh, setMotoInService, loadTimelineActions, setSosServiceLogId)
+    await loadSosServiceLog()
   }
 
   async function updateDecision(decision) {
@@ -343,6 +365,16 @@ export default function SOSDetailPanel({ incident, onClose, onRefresh }) {
       <NotesCard incidentNotes={incidentNotes} noteText={noteText} setNoteText={setNoteText} addNote={addNote} savingNote={savingNote} />
       <WorkflowStepperCard incident={incident} timelineActions={timelineActions} motoInService={motoInService} moto={moto} />
       <ActionsCard incident={incident} isActive={isActive} isAccident={isAccident} isMajor={isMajor} motoInService={motoInService} moto={moto} timelineActions={timelineActions} loadTimelineActions={loadTimelineActions} setMotoToService={setMotoToService} onRefresh={onRefresh} policeNumber={policeNumber} setPoliceNumber={setPoliceNumber} saveField={saveField} />
+      {(motoInService || moto?.status === 'maintenance') && sosServiceLogId && (
+        <SOSServiceCard incident={incident} serviceLog={sosServiceLog} busy={serviceLogBusy}
+          onUpdate={async (data) => {
+            setServiceLogBusy(true)
+            const result = await handleUpdateSosServiceLog(sosServiceLogId, data, onRefresh)
+            if (result.success) await loadSosServiceLog()
+            setServiceLogBusy(false)
+            return result
+          }} />
+      )}
       <DecisionCard incident={incident} isActive={isActive} isMajor={isMajor} isAccident={isAccident} updateDecision={updateDecision} updateFault={updateFault} />
       <MotoSelectorCard incident={incident} isActive={isActive} isMajor={isMajor} showMotoSelector={showMotoSelector} availableMotos={availableMotos} swapping={swapping} loadAvailableMotos={loadAvailableMotos} adminInitiateReplacement={adminInitiateReplacement} setShowMotoSelector={setShowMotoSelector} />
       <ReplacementOrderCard incident={incident} replacementMoto={replacementMoto} showRejectForm={showRejectForm} setShowRejectForm={setShowRejectForm} rejectReason={rejectReason} setRejectReason={setRejectReason} approveReplacement={approveReplacement} rejectReplacement={rejectReplacement} updateReplacementStatus={updateReplacementStatus} retriggerSosFab={retriggerSosFab} ensureBookingSwap={ensureBookingSwap} onRefresh={onRefresh} />

@@ -148,6 +148,7 @@
 - **technician_id** (UUID FK→acc_employees ON DELETE SET NULL) — technik ze seznamu zaměstnanců
 - **labor_hours** (NUMERIC DEFAULT 0) — odpracované hodiny technika
 - **extra_cost** (NUMERIC DEFAULT 0) — extra náklady (doprava, diagnostika, externí faktura)
+- **sos_incident_id** (UUID FK→sos_incidents ON DELETE SET NULL) — vazba na SOS incident pro urgent servisní záznamy
 
 ### acc_employees (nový sloupec)
 - **hourly_rate** (NUMERIC DEFAULT 500) — hodinová sazba technika v Kč
