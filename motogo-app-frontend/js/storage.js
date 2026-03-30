@@ -29,7 +29,7 @@ function savePersonalData(){
 }
 
 function deleteAccount(){
-  if(confirm('Opravdu smazat účet? Tato akce je nevratná.')){
+  if(confirm(_t('hc').deleteAccountConfirm)){
     try{localStorage.clear();}catch(e){}
     showT('🗑️','Účet smazán','Přesměrovávám...');
     setTimeout(()=>goTo('s-login'),1400);

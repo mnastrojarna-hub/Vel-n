@@ -30,13 +30,13 @@ function openResDetail(type){
         var endDate=new Date(ACT_END.y,ACT_END.m,ACT_END.d);
         var remaining=Math.max(0,Math.round((endDate-now)/86400000))+1;
         durEl.textContent=_t('res').activeRemaining+' '+remaining+(remaining===1?' '+_t('res').day1:remaining<5?' '+_t('res').days2:' '+_t('res').days5);
-        if(dateRangeEl)dateRangeEl.textContent='Rezervováno '+fmtDateShort(ACT_START.d,ACT_START.m)+' – '+fmtDate(ACT_END.d,ACT_END.m,ACT_END.y);
+        if(dateRangeEl)dateRangeEl.textContent=_t('hc').reserved+' '+fmtDateShort(ACT_START.d,ACT_START.m)+' – '+fmtDate(ACT_END.d,ACT_END.m,ACT_END.y);
       } else {
         var startDate=new Date(UPC_START.y,UPC_START.m,UPC_START.d);
         var daysTo=Math.max(0,Math.round((startDate-now)/86400000));
         var upcLen=Math.round((new Date(UPC_END.y,UPC_END.m,UPC_END.d)-startDate)/86400000)+1;
         durEl.textContent=_t('res').upcomingIn+' '+daysTo+(daysTo===1?' '+_t('res').day1:daysTo<5?' '+_t('res').days2:' '+_t('res').days5)+' · '+(_t('res').rentalDuration||'délka')+' '+upcLen+(upcLen===1?' '+_t('res').day1:upcLen<5?' '+_t('res').days2:' '+_t('res').days5);
-        if(dateRangeEl)dateRangeEl.textContent='Rezervováno '+fmtDateShort(UPC_START.d,UPC_START.m)+' – '+fmtDate(UPC_END.d,UPC_END.m,UPC_END.y);
+        if(dateRangeEl)dateRangeEl.textContent=_t('hc').reserved+' '+fmtDateShort(UPC_START.d,UPC_START.m)+' – '+fmtDate(UPC_END.d,UPC_END.m,UPC_END.y);
       }
     }
     buildECal();

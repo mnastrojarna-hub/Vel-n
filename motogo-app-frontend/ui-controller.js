@@ -328,7 +328,7 @@ function finalizeSignature(){
   if(signed) signed.style.display='block';
   const time=document.getElementById('proto-signed-time');
   var _signerName=(document.getElementById('home-user-name')&&document.getElementById('home-user-name').textContent)||'';
-  if(time) time.textContent='Podepsáno: '+now+(_signerName?' · '+_signerName:'');
+  if(time) time.textContent=_t('hc').signed+': '+now+(_signerName?' · '+_signerName:'');
   showT('✅',_t('sos').sigConfirmed,_t('sos').protocolSigned);
 }
 function submitProtocol(){

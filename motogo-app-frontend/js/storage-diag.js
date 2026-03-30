@@ -128,7 +128,7 @@ async function showStorageDiag(){
 }
 
 async function _clearAppCache(){
-  if(!confirm('Smazat Service Worker cache? Aplikace se příště načte ze sítě.')) return;
+  if(!confirm(_t('hc').deleteSwConfirm)) return;
   try{
     if(window.caches){
       var names=await caches.keys();
@@ -144,7 +144,7 @@ async function _clearAppCache(){
 }
 
 function _clearLocalStorage(){
-  if(!confirm('Smazat localStorage? Přihlášení zůstane zachováno.')) return;
+  if(!confirm(_t('hc').deleteLsConfirm)) return;
   try{
     var keep=['mg_current_session','mg_bio_user','mg_bio_enabled','mg_saved_email','mg_lang','mg_perms'];
     var saved={};
