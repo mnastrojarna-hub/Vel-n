@@ -67,7 +67,8 @@ if (!empty($moto['features'])) {
 $descHtml .= '</div>';
 
 // Gallery
-$mainImg = imgUrl($moto['image_url'] ?? ($moto['images'][0] ?? ''));
+$images = $moto['images'] ?? [];
+$mainImg = imgUrl($moto['image_url'] ?? (!empty($images) ? $images[0] : ''));
 $galleryHtml = '<div class="moto-gallery">';
 if ($mainImg) {
     $galleryHtml .= '<div class="moto-photo"><a href="' . htmlspecialchars($mainImg) . '" target="_blank"><div class="gallery-img"><img src="' . htmlspecialchars($mainImg) . '" alt="' . $model . '" loading="lazy"></div></a></div>';

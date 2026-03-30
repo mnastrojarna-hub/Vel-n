@@ -28,7 +28,7 @@ $signHtml .= '</div></section>';
 // Motorky sekce
 $motosHtml = '<section aria-labelledby="catalogue"><h2>Naše motorky k pronájmu na Vysočině</h2>' .
     '<p>Prohlédněte si nabídku cestovních, sportovních a enduro z naší <strong>půjčovny motorek na Vysočině</strong>.</p><p>&nbsp;</p>' .
-    '<div class="gr4">';
+    '<div id="home-motos" class="gr4">';
 if (!empty($motos)) {
     foreach (array_slice($motos, 0, 4) as $m) {
         $motosHtml .= '<section aria-labelledby="catalogue">' . renderMotoCard($m) . '</section>';
@@ -70,7 +70,7 @@ $ctaHtml = renderCta('Rezervuj svou motorku online',
     ]);
 
 // Blog
-$blogHtml = '<section aria-labelledby="blog"><h2>Blog a tipy</h2><div class="gr3">';
+$blogHtml = '<section aria-labelledby="blog"><h2>Blog a tipy</h2><div id="home-blog" class="gr3">';
 if (!empty($posts)) {
     foreach (array_slice($posts, 0, 3) as $p) {
         $blogHtml .= renderBlogCard($p);

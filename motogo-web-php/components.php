@@ -66,8 +66,10 @@ function renderMotoCard($m) {
  * ZMĚNA: href z #/blog/{slug} na /blog/{slug}
  */
 function renderBlogCard($post) {
-    $img = ($post['images'][0] ?? '') ?: ($post['image_url'] ?? '');
-    $tag = $post['tags'][0] ?? '';
+    $images = $post['images'] ?? [];
+    $img = (!empty($images) ? $images[0] : '') ?: ($post['image_url'] ?? '');
+    $tags = $post['tags'] ?? [];
+    $tag = !empty($tags) ? $tags[0] : '';
     $excerpt = $post['excerpt'] ?? ($post['description'] ?? '');
     $title = htmlspecialchars($post['title'] ?? '');
     $slug = htmlspecialchars($post['slug'] ?? '');
