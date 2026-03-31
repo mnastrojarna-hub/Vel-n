@@ -18,6 +18,9 @@ import '../features/reservations/reservations_screen.dart';
 import '../features/reservations/reservation_detail_screen.dart';
 import '../features/documents/documents_screen.dart';
 import '../features/documents/document_scanner_screen.dart';
+import '../features/messages/messages_screen.dart';
+import '../features/messages/thread_detail_screen.dart';
+import '../features/messages/ai_agent_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/shop/shop_screen.dart';
 import '../features/shop/product_detail_screen.dart';
@@ -197,13 +200,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: Routes.messages,
-            builder: (context, state) =>
-                const PlaceholderScreen(title: 'Zprávy', icon: '📩'),
+            builder: (context, state) => const MessagesScreen(),
           ),
           GoRoute(
             path: '/messages/:id',
             builder: (context, state) =>
-                const PlaceholderScreen(title: 'Vlákno', icon: '💬'),
+                ThreadDetailScreen(threadId: state.pathParameters['id']!),
           ),
           GoRoute(
             path: Routes.invoices,
@@ -251,8 +253,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: Routes.aiAgent,
-            builder: (context, state) =>
-                const PlaceholderScreen(title: 'AI Agent', icon: '🤖'),
+            builder: (context, state) => const AiAgentScreen(),
           ),
           GoRoute(
             path: Routes.protocol,
