@@ -16,6 +16,9 @@ import '../features/payment/payment_confirmation_screen.dart';
 import '../features/payment/payment_methods_screen.dart';
 import '../features/reservations/reservations_screen.dart';
 import '../features/reservations/reservation_detail_screen.dart';
+import '../features/documents/documents_screen.dart';
+import '../features/documents/document_scanner_screen.dart';
+import '../features/profile/profile_screen.dart';
 import '../features/shop/shop_screen.dart';
 import '../features/shop/product_detail_screen.dart';
 import '../features/shop/cart_screen.dart';
@@ -128,13 +131,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.docs,
-        builder: (context, state) =>
-            const PlaceholderScreen(title: 'Doklady', icon: '📋'),
+        builder: (context, state) => const DocumentsScreen(),
       ),
       GoRoute(
         path: Routes.docScan,
-        builder: (context, state) =>
-            const PlaceholderScreen(title: 'Sken dokladu', icon: '📷'),
+        builder: (context, state) => const DocumentScannerScreen(),
       ),
 
       // Main app with bottom nav shell
@@ -167,7 +168,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.profile,
             pageBuilder: (context, state) => const NoTransitionPage(
-              child: PlaceholderScreen(title: 'Profil', icon: '👤'),
+              child: ProfileScreen(),
             ),
           ),
           // Sub-routes inside shell
