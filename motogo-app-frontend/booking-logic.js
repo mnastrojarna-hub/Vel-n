@@ -80,7 +80,7 @@ function resetHomeFilters(){
   const allC=document.getElementById('hfc-all');if(allC)allC.classList.add('on');
   const allR=document.getElementById('hfr-all');if(allR)allR.classList.add('on');
   const sl=document.getElementById('hf-vykon');if(sl)sl.value=120;
-  const lbl=document.getElementById('hf-vykon-lbl');if(lbl)lbl.textContent='vše';
+  const lbl=document.getElementById('hf-vykon-lbl');if(lbl)lbl.textContent=_t('hc').all;
   const av=document.getElementById('hf-avail');if(av)av.checked=false;
   const so=document.getElementById('hf-sort');if(so)so.value='default';
   const br=document.getElementById('f-branch-home');if(br)br.value='';

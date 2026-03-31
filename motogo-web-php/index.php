@@ -91,6 +91,10 @@ switch (true) {
         require __DIR__ . '/pages/poukazy.php';
         break;
 
+    case $path === '/koupit-darkovy-poukaz':
+        require __DIR__ . '/pages/poukazy-objednat.php';
+        break;
+
     // Blog
     case $path === '/blog':
         require __DIR__ . '/pages/blog.php';

@@ -106,7 +106,7 @@ function _doCalcEditDelivery(){
     var coords = (addr.dataset.lat && addr.dataset.lng)
       ? {lat: parseFloat(addr.dataset.lat), lng: parseFloat(addr.dataset.lng)}
       : fullAddr;
-    if(kmTxt) kmTxt.textContent = 'Vypočítávám vzdálenost...';
+    if(kmTxt) kmTxt.textContent = _t('hc').calcDistanceShort;
     if(calc) calc.style.display = 'block';
     AddressAPI.calcDistance(coords, function(result){
       if(!result){ _calcEditDelivFallback(addr, calc, kmTxt); return; }

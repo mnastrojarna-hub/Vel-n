@@ -233,7 +233,7 @@ async function proceedToPayment(){
           freeNote = document.createElement('div');
           freeNote.id = 'pay-free-note';
           freeNote.style.cssText = 'text-align:center;padding:20px;font-size:14px;font-weight:700;color:var(--gd);background:var(--gp);border:2px solid var(--green);border-radius:var(--rsm);margin:12px 20px;';
-          freeNote.textContent = '🎉 Sleva pokrývá celou cenu — platba kartou není potřeba. Klikněte na tlačítko pro potvrzení.';
+          freeNote.textContent = _t('hc').discountFreeNote;
           var payScreen = document.getElementById('s-payment');
           if(payScreen) payScreen.insertBefore(freeNote, payBtn.parentNode);
         }
