@@ -169,3 +169,32 @@
 .boxwhitey:hover{border-color:#74FB71}
 .boxwhitey .icon-big{width:48px;height:48px}
 .boxwhitey h3{font-size:.95rem;margin:0}
+
+/* ===== GIFT VOUCHER ORDER FORM ===== */
+.gift-voucher-order{max-width:700px}
+.gift-voucher-order h2{margin-bottom:.5rem}
+.gift-voucher-order h3{margin-top:1.25rem;margin-bottom:.5rem;font-size:1rem}
+.gift-voucher-order p{margin-bottom:.75rem;color:#555;font-size:.92rem}
+.gv-values{display:flex;flex-wrap:wrap;gap:.5rem;margin:1rem 0}
+.gv-value-btn{display:inline-flex;align-items:center;gap:.4rem;padding:.5rem 1rem;border:2px solid #e0e0e0;border-radius:25px;cursor:pointer;font-size:.9rem;font-weight:600;transition:all .2s;color:#333;background:#fff}
+.gv-value-btn:hover{border-color:#74FB71}
+.gv-value-btn input[type=radio]{accent-color:#1a8c1a;width:16px;height:16px}
+.gv-value-btn:has(input:checked){border-color:#1a8c1a;background:#e8fce8;color:#1a8c1a}
+.gv-custom-value{margin:.75rem 0;display:flex;align-items:center;gap:.5rem}
+.gv-custom-value label{font-weight:600;font-size:.9rem;display:flex;align-items:center;gap:.5rem}
+.gv-custom-value input{width:150px;padding:.5rem .75rem;border:1px solid #ccc;border-radius:25px;font-size:.9rem}
+.gv-equipments{margin:.75rem 0}
+.gv-equipment-btn{display:flex;align-items:center;gap:1rem;padding:.75rem 1rem;border:1px solid #e0e0e0;border-radius:10px;cursor:pointer;transition:border-color .2s;background:#fff}
+.gv-equipment-btn:hover{border-color:#74FB71}
+.gv-equipment-btn input[type=checkbox]{accent-color:#1a8c1a;width:18px;height:18px}
+.gv-equipment-btn div{flex:1}
+.gv-equipment-btn strong{font-size:.95rem}
+.gv-equipment-btn small{color:#888;font-size:.82rem}
+.gv-eq-price{font-weight:700;color:#1a8c1a;font-size:.95rem;white-space:nowrap}
+.gv-price-preview{margin:1.25rem 0;padding:.75rem 1.25rem;font-size:1.05rem;font-weight:700;color:#0b0b0b}
+
+/* ===== RESERVATION STEP 2 — compact layout ===== */
+#rez-form h2{margin-top:.75rem;margin-bottom:.4rem}
+#rez-form h3{margin-top:.5rem;margin-bottom:.3rem;font-size:.95rem}
+#rez-form hr{margin:.75rem 0}
+#rez-form p{margin-bottom:.4rem}
