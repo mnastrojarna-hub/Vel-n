@@ -203,11 +203,11 @@ MG._rezShowStep2 = function(){
   // QR code section (desktop only) — allows customer to continue on mobile
   var qrSection='';
   if(!isMob && resumeLink){
-    qrSection='<div style="background:#f0faf5;border:2px dashed #74FB71;border-radius:12px;padding:1.5rem;margin:1.5rem 0;text-align:center">'+
-      '<h3 style="margin:0 0 .5rem;color:#1a2e22">Dokončete pohodlně na mobilu</h3>'+
-      '<p style="color:#555;font-size:.9rem;margin-bottom:.75rem">Naskenujte QR kód fotoaparátem telefonu:</p>'+
-      '<div style="margin:.5rem 0"><img src="'+MG._qrCodeUrl(resumeLink)+'" alt="QR kód pro dokončení na mobilu" style="width:180px;height:180px;border-radius:8px;border:1px solid #e0e0e0"></div>'+
-      '<div style="font-size:.85rem;color:#374151;text-align:left;display:inline-block;margin:.5rem 0">'+
+    qrSection='<div style="background:#f0faf5;border:2px dashed #74FB71;border-radius:10px;padding:1rem;margin:.75rem 0;text-align:center">'+
+      '<h3 style="margin:0 0 .3rem;color:#1a2e22;font-size:.95rem">Dokončete pohodlně na mobilu</h3>'+
+      '<p style="color:#555;font-size:.82rem;margin-bottom:.4rem">Naskenujte QR kód fotoaparátem telefonu:</p>'+
+      '<div style="margin:.3rem 0"><img src="'+MG._qrCodeUrl(resumeLink)+'" alt="QR kód" style="width:140px;height:140px;border-radius:8px;border:1px solid #e0e0e0"></div>'+
+      '<div style="font-size:.78rem;color:#374151;text-align:left;display:inline-block;margin:.3rem 0">'+
       '<div style="margin:.2rem 0">&#10003; Platba přes Apple Pay / Google Pay</div>'+
       '<div style="margin:.2rem 0">&#10003; Sken dokladů fotoaparátem (rychlejší odbavení)</div>'+
       '<div style="margin:.2rem 0">&#10003; Možnost využít autonomní pobočku</div></div>'+
@@ -219,13 +219,13 @@ MG._rezShowStep2 = function(){
   var payBtnAction=isMob?'MG._rezShowMindeeStep()':'MG._rezSubmitPayment()';
 
   form.innerHTML=
-    '<h2 style="margin-top:1rem">Ověření totožnosti a řidičského oprávnění</h2>'+
-    '<p style="color:#555;line-height:1.6;margin-bottom:1rem">Pro přípravu nájemní smlouvy prosíme o vyplnění údajů z dokladu totožnosti a řidičského průkazu. Originály budou zkontrolovány při převzetí motocyklu.</p>'+
-    '<h3>Doklad totožnosti</h3><div class="checkboxes" style="margin:.5rem 0">'+
+    '<h2 style="margin-top:.5rem;margin-bottom:.3rem">Ověření totožnosti a řidičského oprávnění</h2>'+
+    '<p style="color:#555;line-height:1.5;margin-bottom:.5rem;font-size:.9rem">Pro přípravu nájemní smlouvy vyplňte údaje z dokladu totožnosti a řidičského průkazu.</p>'+
+    '<h3 style="margin-bottom:.2rem">Doklad totožnosti</h3><div class="checkboxes" style="margin:.3rem 0">'+
     '<div><input type="radio" id="rez-doc-op" name="rez-doc-type" value="op" checked><label for="rez-doc-op">Občanský průkaz</label></div>'+
     '<div><input type="radio" id="rez-doc-pas" name="rez-doc-type" value="pas"><label for="rez-doc-pas">Cestovní pas</label></div></div>'+
     '<input type="text" id="rez-doc-number" placeholder="* Číslo dokladu" required autocomplete="off"'+(MG._rez._docNumber?' value="'+MG._rez._docNumber+'"':'')+'>'+
-    '<h3 style="margin-top:1rem">Řidičský průkaz</h3>'+
+    '<h3 style="margin-top:.5rem;margin-bottom:.2rem">Řidičský průkaz</h3>'+
     '<input type="text" id="rez-license-number" placeholder="* Číslo řidičského průkazu" required autocomplete="off"'+(MG._rez._licenseNumber?' value="'+MG._rez._licenseNumber+'"':'')+'>'+
     '<div style="display:flex;gap:.75rem;margin-top:.5rem">'+
     '<div style="flex:1"><label style="font-size:.85rem;font-weight:600;color:#374151">* Skupina ŘP</label>'+
@@ -258,14 +258,14 @@ MG._rezShowStep2 = function(){
     '<button class="btn btngreen-small" onclick="MG._rezCaptureDoc(\'dl\')" style="font-size:.8rem">Vyfotit</button></div></div>'+
     '</div></div>':'')+
 
-    '<hr style="border:none;border-top:1px solid #e0e0e0;margin:1.5rem 0">'+
-    '<h3>Heslo pro správu rezervace</h3>'+
-    '<p style="color:#555;font-size:.88rem;line-height:1.5;margin-bottom:.75rem">Zvolte si heslo, které budete potřebovat pro úpravu rezervace. Pokud si v budoucnu stáhnete aplikaci MotoGo24, přihlásíte se stejným e-mailem a tímto heslem.</p>'+
+    '<hr style="border:none;border-top:1px solid #e0e0e0;margin:.75rem 0">'+
+    '<h3 style="margin-bottom:.2rem">Heslo pro správu rezervace</h3>'+
+    '<p style="color:#555;font-size:.82rem;line-height:1.4;margin-bottom:.4rem">Heslo pro úpravu rezervace a přihlášení do aplikace MotoGo24.</p>'+
     '<div class="gr2"><input type="password" id="rez-password" name="new-password" placeholder="* Heslo (min. 8 znaků)" required autocomplete="new-password" minlength="8"'+(MG._rez._passwordSet?' value="********" disabled':'')+'>'+
     '<input type="password" id="rez-password-confirm" name="new-password" placeholder="* Potvrzení hesla" required autocomplete="new-password" minlength="8"'+(MG._rez._passwordSet?' value="********" disabled':'')+'></div>'+
     qrSection+
-    '<hr style="border:none;border-top:2px solid #74FB71;margin:1.5rem 0">'+
-    '<h2>Náhled zálohové faktury</h2>'+
+    '<hr style="border:none;border-top:2px solid #74FB71;margin:.75rem 0">'+
+    '<h2 style="margin-bottom:.3rem">Náhled zálohové faktury</h2>'+
     '<div style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:10px;padding:1rem;margin-bottom:1rem">'+
     '<table style="width:100%;border-collapse:collapse;font-size:.88rem;color:#333">'+
     '<tr><td style="padding:5px 0;font-weight:700;border-bottom:1px solid #ccc">Položka</td>'+
