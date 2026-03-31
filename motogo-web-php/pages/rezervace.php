@@ -33,16 +33,20 @@ window.REZERVACE_PARAMS = {
   delivery: ' . json_encode($delivery) . ',
   resume: ' . json_encode($resume) . '
 };
+// Pre-init MG namespace a _rez state PRED nacitanim JS modulu
+var MG = window.MG || {};
+window.MG = MG;
+MG._rez = { startDate: null, endDate: null, motos: [], motoId: "", allBookings: {}, appliedCodes: [], discountAmt: 0 };
 </script>
 <script src="' . BASE_URL . '/js/supabase-sdk.js"></script>
 <script src="' . BASE_URL . '/js/supabase-init.js"></script>
 <script src="' . BASE_URL . '/js/api.js"></script>
 <script src="' . BASE_URL . '/js/components.js"></script>
+<script src="' . BASE_URL . '/js/pages-rezervace.js"></script>
 <script src="' . BASE_URL . '/js/pages-rezervace-calendar.js"></script>
 <script src="' . BASE_URL . '/js/pages-rezervace-pricing.js"></script>
 <script src="' . BASE_URL . '/js/pages-rezervace-steps.js"></script>
 <script src="' . BASE_URL . '/js/pages-rezervace-scan.js"></script>
-<script src="' . BASE_URL . '/js/pages-rezervace.js"></script>
 <script>
 // Spustit inicializaci po načtení všech JS souborů
 (function(){
