@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 
 /// GPS service — mirrors native-gps.js + _sosGetGPS from ui-sos-core.js.
 /// Provides location with high-accuracy first, low-accuracy fallback.
@@ -61,20 +63,28 @@ class GpsService {
     double lng,
   ) async {
     try {
-      // Use http package — already in dependencies
       final uri = Uri.parse(
         'https://nominatim.openstreetmap.org/reverse'
         '?format=json&lat=$lat&lon=$lng&zoom=18&addressdetails=1',
       );
-      final response = await Uri.https('nominatim.openstreetmap.org', '/reverse', {
-        'format': 'json',
-        'lat': '$lat',
-        'lon': '$lng',
-        'zoom': '18',
-        'addressdetails': '1',
-      }).toString();
-      // Simplified — full implementation uses http.get
-      return null;
+      final response = await http.get(uri, headers: {
+        'User-Agent': 'MotoGo24-App/1.0',
+      }).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode != 200) return null;
+
+      final data = jsonDecode(response.body);
+      final addr = data['address'] as Map<String, dynamic>?;
+      if (addr == null) return null;
+
+      return GeoAddress(
+        street: addr['road'] as String?,
+        houseNum: addr['house_number'] as String?,
+        city: (addr['city'] ?? addr['town'] ?? addr['village']) as String?,
+        zip: addr['postcode'] as String?,
+        lat: lat,
+        lng: lng,
+      );
     } catch (_) {
       return null;
     }

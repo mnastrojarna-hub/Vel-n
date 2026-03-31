@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/theme.dart';
 
 /// MotoGo24 toast notification — mirrors showT() from ui-toast-helpers.js.
 /// Shows a styled snackbar with icon, title, and message.
+/// Includes haptic feedback — mirrors Haptics.impact({style:'LIGHT'}) from native-bridge.js.
 void showMotoGoToast(
   BuildContext context, {
   required String icon,
@@ -10,6 +12,9 @@ void showMotoGoToast(
   String message = '',
   Duration duration = const Duration(seconds: 3),
 }) {
+  // Haptic feedback — matches Capacitor Haptics.impact({style: 'LIGHT'})
+  HapticFeedback.lightImpact();
+
   ScaffoldMessenger.of(context).hideCurrentSnackBar();
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
