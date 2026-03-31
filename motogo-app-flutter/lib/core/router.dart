@@ -14,6 +14,8 @@ import '../features/home/home_screen.dart';
 import '../features/payment/payment_screen.dart';
 import '../features/payment/payment_confirmation_screen.dart';
 import '../features/payment/payment_methods_screen.dart';
+import '../features/reservations/reservations_screen.dart';
+import '../features/reservations/reservation_detail_screen.dart';
 import 'placeholder_screen.dart';
 
 /// All route paths — mirrors router.js screen IDs.
@@ -146,7 +148,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.reservations,
             pageBuilder: (context, state) => const NoTransitionPage(
-              child: PlaceholderScreen(title: 'Rezervace', icon: '✅'),
+              child: ReservationsScreen(),
             ),
           ),
           GoRoute(
@@ -178,7 +180,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/reservations/:id',
             builder: (context, state) =>
-                const PlaceholderScreen(title: 'Detail rezervace', icon: '📋'),
+                ReservationDetailScreen(bookingId: state.pathParameters['id']!),
           ),
           GoRoute(
             path: '/reservations/:id/edit',
