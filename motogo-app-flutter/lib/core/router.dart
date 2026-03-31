@@ -16,6 +16,9 @@ import '../features/payment/payment_confirmation_screen.dart';
 import '../features/payment/payment_methods_screen.dart';
 import '../features/reservations/reservations_screen.dart';
 import '../features/reservations/reservation_detail_screen.dart';
+import '../features/sos/sos_report_screen.dart';
+import '../features/sos/sos_detail_screen.dart';
+import '../features/sos/sos_replacement_screen.dart';
 import 'placeholder_screen.dart';
 
 /// All route paths — mirrors router.js screen IDs.
@@ -229,23 +232,19 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: Routes.sos,
-            builder: (context, state) =>
-                const PlaceholderScreen(title: 'SOS', icon: '🆘'),
+            builder: (context, state) => const SosReportScreen(),
           ),
           GoRoute(
             path: Routes.sosReplacement,
-            builder: (context, state) =>
-                const PlaceholderScreen(title: 'Náhrada', icon: '🏍️'),
+            builder: (context, state) => const SosReplacementScreen(),
           ),
           GoRoute(
             path: Routes.sosPayment,
-            builder: (context, state) =>
-                const PlaceholderScreen(title: 'SOS Platba', icon: '💳'),
+            builder: (context, state) => const PaymentScreen(),
           ),
           GoRoute(
             path: Routes.sosDone,
-            builder: (context, state) =>
-                const PlaceholderScreen(title: 'SOS hotovo', icon: '✅'),
+            builder: (context, state) => const SosDetailScreen(),
           ),
           GoRoute(
             path: Routes.aiAgent,
