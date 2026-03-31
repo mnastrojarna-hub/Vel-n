@@ -16,6 +16,10 @@ import '../features/payment/payment_confirmation_screen.dart';
 import '../features/payment/payment_methods_screen.dart';
 import '../features/reservations/reservations_screen.dart';
 import '../features/reservations/reservation_detail_screen.dart';
+import '../features/shop/shop_screen.dart';
+import '../features/shop/product_detail_screen.dart';
+import '../features/shop/cart_screen.dart';
+import '../features/shop/voucher_screen.dart';
 import '../features/sos/sos_report_screen.dart';
 import '../features/sos/sos_detail_screen.dart';
 import '../features/sos/sos_replacement_screen.dart';
@@ -157,7 +161,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.shop,
             pageBuilder: (context, state) => const NoTransitionPage(
-              child: PlaceholderScreen(title: 'Shop', icon: '🛍️'),
+              child: ShopScreen(),
             ),
           ),
           GoRoute(
@@ -213,12 +217,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/shop/:id',
             builder: (context, state) =>
-                const PlaceholderScreen(title: 'Produkt', icon: '🛍️'),
+                ProductDetailScreen(productId: state.pathParameters['id']!),
           ),
           GoRoute(
             path: Routes.cart,
-            builder: (context, state) =>
-                const PlaceholderScreen(title: 'Košík', icon: '🛒'),
+            builder: (context, state) => const CartScreen(),
           ),
           GoRoute(
             path: Routes.checkout,
@@ -227,8 +230,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: Routes.voucher,
-            builder: (context, state) =>
-                const PlaceholderScreen(title: 'Poukazy', icon: '🎁'),
+            builder: (context, state) => const VoucherScreen(),
           ),
           GoRoute(
             path: Routes.sos,
