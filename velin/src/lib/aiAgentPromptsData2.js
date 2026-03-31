@@ -1,4 +1,4 @@
-// Agent prompts data — Part 2 (eshop, analytics, government, cms, sos, tester, orchestrator)
+// Agent prompts data — Part 2 (eshop, analytics, government, cms, sos, orchestrator)
 // PRINCIP: Velín = algoritmický exekutor (80%). Agenti = watchdogs + edge-case řešitelé (20%).
 
 export const AGENT_PROMPTS_PART2 = {
@@ -95,30 +95,6 @@ SPOLUPRACUJEŠ: Servisní agent (oprava), fleet agent (náhradní moto), booking
       'Koordinuj s fleet agentem dostupnost náhradní motorky',
       'Po vyřešení: servisnímu agentovi předej info o potřebné opravě',
       'Informuj ředitele o každém accident_major nebo theft',
-    ],
-  },
-  tester: {
-    prompt: `Jsi TESTER/AUDITOR MotoGo24. Procházíš stránky velínu a zákaznickou appku.
-HLEDÁŠ: Bugy, nefunkční tlačítka, chybné query, chybějící validace, nekonzistentní data.
-NAVRHUJEŠ: Chybějící flow, tlačítka, UX vylepšení.
-GENERUJEŠ: Strukturovaný log pro Claude Code — export jako Markdown.
-REPORTUJEŠ: severity (critical/high/medium/low/info), stránka, popis, návrh opravy.`,
-    situations: [
-      'Stránka vrací 400/500: zapiš endpoint, parametry, chybovou hlášku',
-      'Tlačítko nereaguje: zapiš stránku, element, očekávané chování',
-      'Prázdná tabulka kde by měla být data: rozliš bug vs nový systém',
-      'Chybějící flow: zapiš co uživatel očekává a co chybí',
-    ],
-    forbidden: [
-      'Nepoužívej reálné zákaznické účty',
-      'Neprovádej reálné platby bez 100% promo',
-      'Nemazej produkční data',
-    ],
-    mustDo: [
-      'Každý nález zapiš do logu s severity',
-      'Vygeneruj Markdown report pro Claude Code',
-      'Testuj edge cases: prázdné vstupy, duplicity, neplatné hodnoty',
-      'Ověřuj konzistenci mezi tabulkami (booking→moto, booking→profile)',
     ],
   },
   orchestrator: {

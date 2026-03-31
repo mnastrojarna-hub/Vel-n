@@ -71,12 +71,6 @@ export const DEFAULT_RULES = {
     escalateOn: ['critical_incident', 'unresolved_12h', 'multiple_incidents'],
     autoConfirmRisk: 'none',
   },
-  tester: {
-    schedule: 'manual',
-    autoTasks: ['integrity_check_all', 'flow_test_booking', 'flow_test_payment', 'orphan_detection'],
-    escalateOn: ['integrity_failure', 'flow_broken'],
-    autoConfirmRisk: 'none',
-  },
 }
 
 export const SCHEDULES = {

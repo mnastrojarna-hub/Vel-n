@@ -1,12 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { AGENTS, loadAgentConfig, getEnabledTools, getAgentCorrections } from '../lib/aiAgents'
 import { loadAutonomyRules, saveAutonomyRules, SCHEDULES, RISK_AUTO } from '../lib/aiAutonomy'
 import Button from '../components/ui/Button'
 import AiConfirmDialog from '../components/ai/AiConfirmDialog'
 import AiAutonomyPanel from '../components/ai/AiAutonomyPanel'
-import AiTestRunner from '../components/ai/AiTestRunner'
-import AiTrainingPanel from '../components/ai/AiTrainingPanel'
 import AiAgentSettingsPanel from '../components/ai/AiAgentSettingsPanel'
 import AiAgentFindingsPanel from '../components/ai/AiAgentFindingsPanel'
 import AppAgentSettingsPanel from '../components/ai/AppAgentSettingsPanel'
@@ -15,7 +13,6 @@ export default function AiOrchestrator() {
   const [briefing, setBriefing] = useState(null)
   const [priorities, setPriorities] = useState(null)
   const [health, setHealth] = useState(null)
-  const [testResults, setTestResults] = useState(null)
   const [loading, setLoading] = useState('')
   const [rules, setRules] = useState(() => loadAutonomyRules())
   const [pending, setPending] = useState(null)
@@ -30,7 +27,7 @@ export default function AiOrchestrator() {
       const { data } = await supabase.functions.invoke('ai-copilot', {
         body: {
           message: `Zavolej nástroj ${toolName} a výsledky prezentuj strukturovaně v češtině. Pokud jsou problémy, navrhni řešení.`,
-          enabled_tools: [...getEnabledTools(config), 'generate_daily_briefing', 'check_agent_health', 'get_priority_queue', 'test_booking_flow', 'test_payment_flow', 'test_sos_flow', 'run_full_system_test'],
+          enabled_tools: [...getEnabledTools(config), 'generate_daily_briefing', 'check_agent_health', 'get_priority_queue'],
           agent_corrections: getAgentCorrections(config),
         },
       })
@@ -54,11 +51,6 @@ export default function AiOrchestrator() {
     setHealth(data)
   }
 
-  async function runTest() {
-    const data = await callTool('run_full_system_test')
-    setTestResults(data)
-  }
-
   function updateRule(agentId, field, value) {
     const next = { ...rules, [agentId]: { ...rules[agentId], [field]: value } }
     setRules(next)
@@ -72,8 +64,6 @@ export default function AiOrchestrator() {
     { id: 'priorities', label: 'Priority', icon: '🔥' },
     { id: 'health', label: 'Zdraví agentů', icon: '💚' },
     { id: 'autonomy', label: 'Autonomie', icon: '🤖' },
-    { id: 'training', label: 'Trénink', icon: '🏋️' },
-    { id: 'tester', label: 'Systémový test', icon: '🧪' },
     { id: 'learning', label: 'Učení & Autonomie', icon: '🎓' },
     { id: 'app-agent', label: 'SOS Agent', icon: '🆘' },
   ]
@@ -230,20 +220,6 @@ export default function AiOrchestrator() {
               )
             })}
           </div>
-        </div>
-      )}
-
-      {/* Training Tab — simulator */}
-      {tab === 'training' && (
-        <div className="rounded-card bg-white p-4 shadow-card">
-          <AiTrainingPanel />
-        </div>
-      )}
-
-      {/* Tester Tab — full E2E test runner */}
-      {tab === 'tester' && (
-        <div className="rounded-card bg-white p-4 shadow-card">
-          <AiTestRunner />
         </div>
       )}
 

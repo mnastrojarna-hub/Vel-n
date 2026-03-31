@@ -29,7 +29,6 @@ export const ACTION_DESC = {
   detect_duplicate_profiles: 'Nalezeny duplicitní profily (stejný email)',
   detect_incomplete_profile: 'Nekompletní profil zákazníka',
   detect_no_docs: 'Zákazník bez dokladů',
-  pool_created: 'Testovací zákazníci vytvořeni',
   verify_profile: 'Kontrola profilu zákazníka',
   verify_profile_completeness: 'Kontrola kompletnosti profilu',
   handle_live_message: 'Zpracování živé zprávy od zákazníka',
@@ -75,7 +74,6 @@ export const ACTION_DESC = {
   verify_document_chain: 'Kontrola kompletní dokladové řady (ZF→DL→KF)',
   verify_price_calculation: 'Kontrola výpočtu ceny',
   verify_promo_discount: 'Kontrola slevy promo kódu',
-  create_test_promo: 'Vytvoření testovacího promo kódu',
   verify_payment: 'Kontrola platby',
   verify_promo: 'Kontrola promo kódu',
   verify_log: 'Kontrola zápisu do servisního logu',
@@ -190,30 +188,7 @@ export const ACTION_DESC = {
   cross_check_booking_profile: 'Cross-check profil zákazníka vs rezervace',
 }
 
-// Training-only known states
-export const TRAINING_ONLY_OK = new Set([
-  'verify_pricing_set', 'alert_no_pricing',
-  'check_vin_completeness', 'check_spz_completeness',
-  'check_setting_company_name', 'check_setting_company_ico',
-  'check_setting_company_email', 'check_setting_company_phone',
-  'inconsistency_active_but_in_service',
-  'alert_incomplete_profile',
-  'check_long_maintenance', 'check_closed_branches',
-  'agent_coordination_check',
-])
-
-export function isTrainingMode() {
-  try {
-    const state = JSON.parse(localStorage.getItem('motogo_ai_training_state') || '{}')
-    const lastRuns = Object.values(state).map(s => s.lastRun).filter(Boolean)
-    if (!lastRuns.length) return false
-    const latest = new Date(Math.max(...lastRuns.map(d => new Date(d).getTime())))
-    return (Date.now() - latest.getTime()) < 5 * 60 * 1000
-  } catch { return false }
-}
-
 export function classify(entry) {
-  if (isTrainingMode() && TRAINING_ONLY_OK.has(entry.action)) return 'ok'
   if (!entry.success) return 'fail'
   if (entry.action?.includes('alert_') || entry.action?.includes('inconsistency_')) return 'fail'
   if (entry.action?.includes('detect_') || entry.action?.includes('anomaly_')) return 'warn'

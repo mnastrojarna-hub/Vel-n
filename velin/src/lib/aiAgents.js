@@ -1,4 +1,4 @@
-// AI Agent Registry — 12 specialized agents for MotoGo24 Velín
+// AI Agent Registry — 11 specialized agents for MotoGo24 Velín
 // Each agent can be independently toggled on/off and corrected
 
 const STORAGE_KEY = 'motogo_ai_agents'
@@ -101,15 +101,6 @@ export const AGENTS = [
     desc: 'Řešení SOS incidentů, koordinace odtahu, náhradní motorky',
     tools: ['update_sos_incident', 'assign_sos', 'resolve_sos'],
     readTools: ['get_sos_incidents', 'get_sos_detail'],
-    defaultEnabled: false,
-  },
-  {
-    id: 'tester',
-    name: 'Tester / Vývojář',
-    icon: '🧪',
-    desc: 'Testování flow, modelové situace, reporty chyb, návrhy zlepšení',
-    tools: ['generate_test_report', 'simulate_scenario', 'check_data_integrity', 'test_booking_flow', 'test_payment_flow', 'test_sos_flow', 'run_full_system_test', 'simulate_customer_scenario', 'test_agent_response', 'analyze_agent_for_rewrite', 'generate_optimized_prompt', 'create_test_user', 'create_test_promo', 'cleanup_test_data', 'check_edge_functions', 'verify_app_consistency', 'generate_e2e_report'],
-    readTools: ['get_audit_log'],
     defaultEnabled: false,
   },
   {

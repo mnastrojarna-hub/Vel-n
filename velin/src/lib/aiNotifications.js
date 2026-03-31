@@ -131,24 +131,3 @@ function czTitle(action) {
   return CZ_TITLES[action] || action?.replace(/_/g, ' ')?.replace(/^[a-z]/, c => c.toUpperCase()) || 'Problém'
 }
 
-// Process training results → generate notifications for problems
-export function processTrainingResults(results, agents) {
-  let count = 0
-  for (const r of results) {
-    if (r.ok === false || r.action?.includes('alert_') || r.action?.includes('inconsistency_')) {
-      const agent = agents.find(a => a.id === r.agent) || { name: r.agent, icon: '🤖' }
-      const link = getDeeplink(r.action)
-      createAgentNotification({
-        agentId: r.agent,
-        agentName: agent.name,
-        agentIcon: agent.icon,
-        severity: r.action?.includes('inconsistency_') || r.action?.includes('alert_missing') ? 'critical' : 'warning',
-        title: czTitle(r.action),
-        detail: r.result_summary || r.error || '',
-        link,
-      })
-      count++
-    }
-  }
-  return count
-}
