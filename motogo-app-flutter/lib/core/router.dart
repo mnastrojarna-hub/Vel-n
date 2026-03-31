@@ -18,10 +18,15 @@ import '../features/reservations/reservations_screen.dart';
 import '../features/reservations/reservation_detail_screen.dart';
 import '../features/documents/documents_screen.dart';
 import '../features/documents/document_scanner_screen.dart';
+import '../features/documents/invoices_screen.dart';
+import '../features/documents/contracts_screen.dart';
 import '../features/messages/messages_screen.dart';
 import '../features/messages/thread_detail_screen.dart';
 import '../features/messages/ai_agent_screen.dart';
 import '../features/profile/profile_screen.dart';
+import '../features/reservations/reservation_edit_screen.dart';
+import '../features/reservations/protocol_screen.dart';
+import '../features/shop/shop_checkout_screen.dart';
 import '../features/shop/shop_screen.dart';
 import '../features/shop/product_detail_screen.dart';
 import '../features/shop/cart_screen.dart';
@@ -29,7 +34,6 @@ import '../features/shop/voucher_screen.dart';
 import '../features/sos/sos_report_screen.dart';
 import '../features/sos/sos_detail_screen.dart';
 import '../features/sos/sos_replacement_screen.dart';
-import 'placeholder_screen.dart';
 
 /// All route paths — mirrors router.js screen IDs.
 class Routes {
@@ -196,7 +200,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/reservations/:id/edit',
             builder: (context, state) =>
-                const PlaceholderScreen(title: 'Editace', icon: '✏️'),
+                ReservationEditScreen(bookingId: state.pathParameters['id']!),
           ),
           GoRoute(
             path: Routes.messages,
@@ -209,13 +213,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: Routes.invoices,
-            builder: (context, state) =>
-                const PlaceholderScreen(title: 'Faktury', icon: '🧾'),
+            builder: (context, state) => const InvoicesScreen(),
           ),
           GoRoute(
             path: Routes.contracts,
-            builder: (context, state) =>
-                const PlaceholderScreen(title: 'Dokumenty', icon: '📄'),
+            builder: (context, state) => const ContractsScreen(),
           ),
           GoRoute(
             path: '/shop/:id',
@@ -228,8 +230,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: Routes.checkout,
-            builder: (context, state) =>
-                const PlaceholderScreen(title: 'Pokladna', icon: '💳'),
+            builder: (context, state) => const ShopCheckoutScreen(),
           ),
           GoRoute(
             path: Routes.voucher,
@@ -257,8 +258,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: Routes.protocol,
-            builder: (context, state) =>
-                const PlaceholderScreen(title: 'Protokol', icon: '📝'),
+            builder: (context, state) => const ProtocolScreen(),
           ),
         ],
       ),
