@@ -14,9 +14,6 @@ $resume = $_GET['resume'] ?? '';
 
 $content = '<main id="content"><div class="container">' . $bc .
     '<div class="ccontent pcontent">' .
-    '<h1>Online rezervace motorky</h1>' .
-    '<p>Zarezervujte si <strong>motorku na pronájem</strong> přes náš jednoduchý systém. <strong>Bez kauce</strong>, s <strong>výbavou v ceně</strong> a <strong>nonstop provozem</strong>.</p>' .
-    '<p>&nbsp;</p>' .
     '<div id="rezervace-app"><div class="loading-overlay"><span class="spinner"></span> Načítám rezervační systém...</div></div>' .
     '</div></div></main>';
 
