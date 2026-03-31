@@ -203,15 +203,15 @@ MG._rezShowStep2 = function(){
   // QR code section (desktop only) — allows customer to continue on mobile
   var qrSection='';
   if(!isMob && resumeLink){
-    qrSection='<div style="background:#f0faf5;border:2px dashed #74FB71;border-radius:10px;padding:1rem;margin:.75rem 0;text-align:center">'+
-      '<h3 style="margin:0 0 .3rem;color:#1a2e22;font-size:.95rem">Dokončete pohodlně na mobilu</h3>'+
-      '<p style="color:#555;font-size:.82rem;margin-bottom:.4rem">Naskenujte QR kód fotoaparátem telefonu:</p>'+
-      '<div style="margin:.3rem 0"><img src="'+MG._qrCodeUrl(resumeLink)+'" alt="QR kód" style="width:140px;height:140px;border-radius:8px;border:1px solid #e0e0e0"></div>'+
-      '<div style="font-size:.78rem;color:#374151;text-align:left;display:inline-block;margin:.3rem 0">'+
-      '<div style="margin:.2rem 0">&#10003; Platba přes Apple Pay / Google Pay</div>'+
-      '<div style="margin:.2rem 0">&#10003; Sken dokladů fotoaparátem (rychlejší odbavení)</div>'+
-      '<div style="margin:.2rem 0">&#10003; Možnost využít autonomní pobočku</div></div>'+
-      '<p style="color:#9ca3af;font-size:.8rem;margin-top:.5rem">Rezervace zůstane aktivní 4 hodiny</p></div>';
+    qrSection='<div style="background:#f0faf5;border:2px dashed #74FB71;border-radius:10px;padding:.75rem 1rem;margin:.75rem 0;display:flex;align-items:center;gap:1rem;flex-wrap:wrap">'+
+      '<div style="flex-shrink:0"><img src="'+MG._qrCodeUrl(resumeLink)+'" alt="QR kód" style="width:100px;height:100px;border-radius:8px;border:1px solid #e0e0e0"></div>'+
+      '<div style="flex:1;min-width:200px">'+
+      '<h3 style="margin:0 0 .2rem;color:#1a2e22;font-size:.9rem">Dokončete na mobilu</h3>'+
+      '<div style="font-size:.78rem;color:#374151;line-height:1.5">'+
+      '<div>&#10003; Apple Pay / Google Pay</div>'+
+      '<div>&#10003; Sken dokladů fotoaparátem</div>'+
+      '<div>&#10003; Autonomní pobočka</div></div>'+
+      '<p style="color:#9ca3af;font-size:.75rem;margin:.3rem 0 0">QR platný 4 hodiny</p></div></div>';
   }
 
   // Mobile: button goes to Mindee step; Desktop: button goes to Stripe payment
@@ -258,11 +258,11 @@ MG._rezShowStep2 = function(){
     '<button class="btn btngreen-small" onclick="MG._rezCaptureDoc(\'dl\')" style="font-size:.8rem">Vyfotit</button></div></div>'+
     '</div></div>':'')+
 
-    '<hr style="border:none;border-top:1px solid #e0e0e0;margin:.75rem 0">'+
-    '<h3 style="margin-bottom:.2rem">Heslo pro správu rezervace</h3>'+
-    '<p style="color:#555;font-size:.82rem;line-height:1.4;margin-bottom:.4rem">Heslo pro úpravu rezervace a přihlášení do aplikace MotoGo24.</p>'+
-    '<div class="gr2"><input type="password" id="rez-password" name="new-password" placeholder="* Heslo (min. 8 znaků)" required autocomplete="new-password" minlength="8"'+(MG._rez._passwordSet?' value="********" disabled':'')+'>'+
-    '<input type="password" id="rez-password-confirm" name="new-password" placeholder="* Potvrzení hesla" required autocomplete="new-password" minlength="8"'+(MG._rez._passwordSet?' value="********" disabled':'')+'></div>'+
+    '<div style="background:#f0faf5;border:1px solid #74FB71;border-radius:10px;padding:.75rem 1rem;margin:.75rem 0">'+
+    '<h3 style="margin:0 0 .3rem;font-size:.9rem;color:#1a3a2a">Heslo pro správu rezervace</h3>'+
+    '<p style="color:#555;font-size:.82rem;margin:0 0 .5rem">Pro úpravu rezervace a přihlášení do aplikace MotoGo24.</p>'+
+    '<div class="gr2" style="margin:0"><input type="password" id="rez-password" name="new-password" placeholder="* Heslo (min. 8 znaků)" required autocomplete="new-password" minlength="8" style="border-color:#74FB71"'+(MG._rez._passwordSet?' value="********" disabled':'')+'>'+
+    '<input type="password" id="rez-password-confirm" name="new-password" placeholder="* Potvrzení hesla" required autocomplete="new-password" minlength="8" style="border-color:#74FB71"'+(MG._rez._passwordSet?' value="********" disabled':'')+'></div></div>'+
     qrSection+
     '<hr style="border:none;border-top:2px solid #74FB71;margin:.75rem 0">'+
     '<h2 style="margin-bottom:.3rem">Náhled zálohové faktury</h2>'+

@@ -154,7 +154,12 @@ MG._rezInit = async function(){
   var rezApp = document.getElementById('rezervace-app');
   if(rezApp){
     rezApp.innerHTML = '<div id="rez-intro"><h1>Rezervace motorky</h1>' +
-      '<p>Vyberte motorku nebo zvolte „libovolná dostupná" a v kalendáři označte termín. <strong>Půjčujeme bez kauce, výbava pro řidiče je v ceně.</strong></p></div>' +
+      '<div style="background:#f0faf5;border:1px solid #d4e8e0;border-radius:10px;padding:.75rem 1rem;margin-bottom:1rem">' +
+      '<p style="margin:0 0 .4rem;font-size:.9rem"><strong>Jak rezervace funguje?</strong></p>' +
+      '<p style="margin:0 0 .3rem;font-size:.85rem;color:#555">Chcete <strong>konkrétní termín</strong>? Vyberte „libovolná dostupná motorka" a v kalendáři vyznačte datum — zobrazí se všechny volné motorky.</p>' +
+      '<p style="margin:0 0 .3rem;font-size:.85rem;color:#555">Chcete <strong>konkrétní motorku</strong>? Vyberte ji ze seznamu — kalendář ukáže její dostupné termíny.</p>' +
+      '<p style="margin:0;font-size:.85rem;color:#1a8c1a"><strong>Bez kauce · výbava pro řidiče zdarma · velikost si vyberete v motopůjčovně</strong></p>' +
+      '</div></div>' +
       '<div id="rez-moto-select"></div>' +
       '<div id="rez-calendar"></div>' +
       '<div id="rez-date-banner" style="display:none"></div>' +
