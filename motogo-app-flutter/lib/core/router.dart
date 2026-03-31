@@ -9,6 +9,7 @@ import '../features/auth/register_screen.dart';
 import '../features/catalog/catalog_screen.dart';
 import '../features/catalog/moto_detail_screen.dart';
 import '../features/catalog/moto_search_screen.dart';
+import '../features/booking/booking_form_screen.dart';
 import '../features/home/home_screen.dart';
 import 'placeholder_screen.dart';
 
@@ -166,8 +167,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: Routes.booking,
-            builder: (context, state) =>
-                const PlaceholderScreen(title: 'Rezervace', icon: '📋'),
+            builder: (context, state) => const BookingFormScreen(),
           ),
           GoRoute(
             path: Routes.payment,
