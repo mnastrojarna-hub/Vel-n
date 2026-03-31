@@ -31,7 +31,7 @@ dependencies:
   flutter_svg: ^2.0.9
 
   # i18n
-  intl: ^0.19.0
+  intl: ^0.20.2
 
   # Biometric auth
   local_auth: ^2.1.8
@@ -49,7 +49,7 @@ dependencies:
   image_picker: ^1.0.5
 
   # GPS
-  geolocator: ^11.0.0
+  geolocator: ^10.0.0
 
   # Maps
   flutter_map: ^6.1.0
