@@ -36,6 +36,9 @@ dependencies:
   # Biometric auth
   local_auth: ^2.1.8
 
+  # HTTP client
+  http: ^1.2.0
+
   # Network / connectivity
   connectivity_plus: ^5.0.2
 

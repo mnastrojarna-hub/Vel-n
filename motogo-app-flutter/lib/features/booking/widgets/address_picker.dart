@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../core/theme.dart';
+import '../../../core/native/gps_service.dart';
 import '../price_calculator.dart';
+import 'map_picker.dart';
 
 /// Address picker with geocoding — mirrors cart-address.js + address-api.js.
 /// Uses Mapy.cz API for autocomplete and distance calculation.
@@ -123,6 +125,47 @@ class _AddressPickerWidgetState extends State<AddressPickerWidget> {
     return r * 2 * atan2(sqrt(a), sqrt(1 - a));
   }
 
+  /// Fill address from GPS — mirrors useMyLocation() from cart-address-geo.js.
+  Future<void> _useGps() async {
+    final pos = await GpsService.getCurrentPosition();
+    if (pos == null) return;
+    _lat = pos.latitude;
+    _lng = pos.longitude;
+    // Reverse geocode via Nominatim
+    try {
+      final uri = Uri.parse(
+        'https://nominatim.openstreetmap.org/reverse'
+        '?format=json&lat=${pos.latitude}&lon=${pos.longitude}'
+        '&zoom=18&addressdetails=1',
+      );
+      final res = await http.get(uri, headers: {'User-Agent': 'MotoGo24/1.0'})
+          .timeout(const Duration(seconds: 5));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final addr = data['address'] as Map<String, dynamic>?;
+        if (addr != null) {
+          final street = (addr['road'] ?? '') + (addr['house_number'] != null ? ' ${addr["house_number"]}' : '');
+          _streetCtrl.text = street;
+          _cityCtrl.text = addr['city'] ?? addr['town'] ?? addr['village'] ?? '';
+          _zipCtrl.text = addr['postcode'] ?? '';
+        }
+      }
+    } catch (_) {}
+    _calcDistance();
+  }
+
+  /// Open map picker — mirrors openMapPicker() from cart-address-geo.js.
+  Future<void> _openMap(BuildContext context) async {
+    final result = await MapPickerScreen.show(context, lat: _lat, lng: _lng);
+    if (result == null) return;
+    _lat = result.lat;
+    _lng = result.lng;
+    _streetCtrl.text = result.street;
+    _cityCtrl.text = result.city;
+    _zipCtrl.text = result.zip;
+    _calcDistance();
+  }
+
   @override
   void dispose() {
     _streetCtrl.dispose();
@@ -190,6 +233,29 @@ class _AddressPickerWidgetState extends State<AddressPickerWidget> {
               controller: _streetCtrl,
               decoration: const InputDecoration(labelText: 'Ulice a č.p.'),
               onChanged: (_) => _calcDistance(),
+            ),
+            const SizedBox(height: 8),
+            // GPS + Map buttons — mirrors "📍 Použít moji polohu" + "🗺️ Mapa"
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _useGps,
+                    icon: const Text('📍', style: TextStyle(fontSize: 14)),
+                    label: const Text('Moje poloha', style: TextStyle(fontSize: 11)),
+                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _openMap(context),
+                    icon: const Text('🗺️', style: TextStyle(fontSize: 14)),
+                    label: const Text('Mapa', style: TextStyle(fontSize: 11)),
+                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 8)),
+                  ),
+                ),
+              ],
             ),
             // Distance display
             if (_distanceKm != null && _deliveryFee != null)
