@@ -11,6 +11,9 @@ import '../features/catalog/moto_detail_screen.dart';
 import '../features/catalog/moto_search_screen.dart';
 import '../features/booking/booking_form_screen.dart';
 import '../features/home/home_screen.dart';
+import '../features/payment/payment_screen.dart';
+import '../features/payment/payment_confirmation_screen.dart';
+import '../features/payment/payment_methods_screen.dart';
 import 'placeholder_screen.dart';
 
 /// All route paths — mirrors router.js screen IDs.
@@ -112,8 +115,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.success,
-        builder: (context, state) =>
-            const PlaceholderScreen(title: 'Potvrzení', icon: '✅'),
+        builder: (context, state) => const PaymentConfirmationScreen(),
       ),
       GoRoute(
         path: Routes.docs,
@@ -171,8 +173,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: Routes.payment,
-            builder: (context, state) =>
-                const PlaceholderScreen(title: 'Platba', icon: '💳'),
+            builder: (context, state) => const PaymentScreen(),
           ),
           GoRoute(
             path: '/reservations/:id',
