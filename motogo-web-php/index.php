@@ -10,6 +10,12 @@ require_once __DIR__ . '/layout.php';
 $requestUri = $_SERVER['REQUEST_URI'] ?? '/';
 $path = parse_url($requestUri, PHP_URL_PATH);
 
+// Odstraň BASE_URL prefix z cesty
+if (BASE_URL !== '' && strpos($path, BASE_URL) === 0) {
+    $path = substr($path, strlen(BASE_URL));
+}
+if ($path === '' || $path === false) $path = '/';
+
 // Odstraň trailing slash (kromě /)
 if ($path !== '/' && substr($path, -1) === '/') {
     $path = rtrim($path, '/');

@@ -30,7 +30,7 @@ function renderHeader($currentPath = '/') {
     $nav = '';
     foreach ($menuItems as $item) {
         $hasSub = !empty($item['children']);
-        $arrow = $hasSub ? ' <img src="gfx/arrow-down.svg" alt="" loading="lazy" class="menu-arrow">' : '';
+        $arrow = $hasSub ? ' <img src="' . BASE_URL . '/gfx/arrow-down.svg" alt="" loading="lazy" class="menu-arrow">' : '';
         $isActive = ($currentPath !== '/' && strpos($currentPath, $item['route']) === 0);
         $nav .= '<li' . ($hasSub ? ' class="has-sub"' : '') . '>';
         $nav .= '<a' . ($isActive ? ' class="active"' : '') . ' data-route="' . $item['route'] . '" href="' . BASE_URL . $item['route'] . '">' . $item['label'] . $arrow . '</a>';
@@ -47,8 +47,8 @@ function renderHeader($currentPath = '/') {
     return '<header>' .
         '<ul class="focus"><li><a href="#main-menu">PŘEJDI NA HLAVNÍ MENU</a></li><li><a href="#content">PŘEJDI NA OBSAH</a></li><li><a href="#footer">PŘEJDI NA KONTAKT</a></li></ul>' .
         '<div class="header"><div class="container dfcs">' .
-            '<div class="header-logo"><a href="' . BASE_URL . '/" aria-label="Motogo24"><img src="' . LOGO_SVG . '" alt="Půjčovna motorek Vysočina Motogo24" loading="lazy"></a></div>' .
-            '<div class="header-phone"><p><a href="' . PHONE_LINK . '" aria-label="Zavolejte nám"><img alt="Zavolejte" src="gfx/telefon-header.svg" loading="lazy"></a>&nbsp;<a href="' . PHONE_LINK . '">' . PHONE . '</a></p></div>' .
+            '<div class="header-logo"><a href="' . BASE_URL . '/" aria-label="Motogo24"><img src="' . BASE_URL . '/' . LOGO_SVG . '" alt="Půjčovna motorek Vysočina Motogo24" loading="lazy"></a></div>' .
+            '<div class="header-phone"><p><a href="' . PHONE_LINK . '" aria-label="Zavolejte nám"><img alt="Zavolejte" src="' . BASE_URL . '/gfx/telefon-header.svg" loading="lazy"></a>&nbsp;<a href="' . PHONE_LINK . '">' . PHONE . '</a></p></div>' .
             '<div class="header-menu dfje">' .
                 '<button class="nav-toggle" aria-label="Menu" onclick="document.getElementById(\'mobile-menu\').classList.toggle(\'open\')">MENU ☰</button>' .
                 '<nav id="mobile-menu" class="mobile-menu-overlay">' .
@@ -72,19 +72,19 @@ function renderFooter() {
 
     return '<footer id="footer"><div class="container"><div class="gr4">' .
         '<div>' .
-            '<p><a href="' . BASE_URL . '/" aria-label="Motogo24"><img src="' . LOGO_SVG . '" alt="Motogo24" loading="lazy"></a></p><p>&nbsp;</p>' .
+            '<p><a href="' . BASE_URL . '/" aria-label="Motogo24"><img src="' . BASE_URL . '/' . LOGO_SVG . '" alt="Motogo24" loading="lazy"></a></p><p>&nbsp;</p>' .
             '<p>Vítejte u Motogo24, vaší <strong>půjčovny motorek v Pelhřimově</strong>! Nabízíme <strong>pronájem motorek</strong> pro místní i turisty. Vyberte si z nabídky sportovních nebo enduro motorek a rezervujte online ve třech krocích.</p>' .
         '</div>' .
         '<div><h3>Půjčovna motorek</h3><ul>' . $menuHtml . '</ul></div>' .
         '<div><h3>Půjčovna motorek na sítích</h3>' .
-            '<p class="dfc"><span class="footer-social-icon"><img alt="Facebook" src="gfx/facebook.svg"></span>&nbsp;<a href="' . FB_URL . '">facebook</a></p><p>&nbsp;</p>' .
-            '<p class="dfc"><span class="footer-social-icon"><img alt="Instagram" src="gfx/instagram.svg"></span>&nbsp;<a href="' . IG_URL . '">instagram</a></p>' .
+            '<p class="dfc"><span class="footer-social-icon"><img alt="Facebook" src="' . BASE_URL . '/gfx/facebook.svg"></span>&nbsp;<a href="' . FB_URL . '">facebook</a></p><p>&nbsp;</p>' .
+            '<p class="dfc"><span class="footer-social-icon"><img alt="Instagram" src="' . BASE_URL . '/gfx/instagram.svg"></span>&nbsp;<a href="' . IG_URL . '">instagram</a></p>' .
         '</div>' .
         '<div class="footer-contact"><h3>Potřebujete poradit?</h3>' .
-            '<div class="footer-phone dfc"><div class="img-icon dfcc"><img src="gfx/telefon.svg" alt="Telefon" class="icon-small" loading="lazy"></div><div><p>ZAVOLEJTE NÁM<br><strong><a href="' . PHONE_LINK . '">' . PHONE . '</a></strong></p></div></div>' .
-            '<div class="dfc"><div class="img-icon dfcc"><img src="gfx/email.svg" alt="E-mail" class="icon-small" loading="lazy"></div><div><p>' . EMAIL_USER . '@' . EMAIL_DOMAIN . '</p></div></div>' .
-            '<div class="dfc"><div class="img-icon dfcc"><img src="gfx/adresa.svg" alt="Adresa" class="icon-small" loading="lazy"></div><div><p><strong>Půjčovna motorek Motogo24</strong><br>' . ADDRESS . '</p></div></div>' .
-            '<div class="dfc"><div class="img-icon dfcc"><img src="gfx/provozni-doba.svg" alt="Provozní doba" class="icon-small" loading="lazy"></div><div><p><strong>PO - NE</strong> 00:00 – 24:00&nbsp;(nonstop)</p></div></div>' .
+            '<div class="footer-phone dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/telefon.svg" alt="Telefon" class="icon-small" loading="lazy"></div><div><p>ZAVOLEJTE NÁM<br><strong><a href="' . PHONE_LINK . '">' . PHONE . '</a></strong></p></div></div>' .
+            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/email.svg" alt="E-mail" class="icon-small" loading="lazy"></div><div><p>' . EMAIL_USER . '@' . EMAIL_DOMAIN . '</p></div></div>' .
+            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/adresa.svg" alt="Adresa" class="icon-small" loading="lazy"></div><div><p><strong>Půjčovna motorek Motogo24</strong><br>' . ADDRESS . '</p></div></div>' .
+            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/provozni-doba.svg" alt="Provozní doba" class="icon-small" loading="lazy"></div><div><p><strong>PO - NE</strong> 00:00 – 24:00&nbsp;(nonstop)</p></div></div>' .
         '</div>' .
     '</div></div>' .
     '<div class="copyright"><div class="container">' .
@@ -92,7 +92,7 @@ function renderFooter() {
         '<p><a href="' . BASE_URL . '/mapa-stranek">Mapa stránek</a><a href="#">Cookies</a><a href="' . BASE_URL . '/gdpr">GDPR</a><a href="' . BASE_URL . '/obchodni-podminky">Obchodní podmínky</a><a href="' . BASE_URL . '/smlouva">Smlouva o pronájmu</a></p>' .
     '</div></div>' .
     '</footer>' .
-    '<a id="Up" href="#" aria-label="NAHORU" onclick="window.scrollTo({top:0,behavior:\'smooth\'});return false"><img src="gfx/arrow-top.svg" alt="NAHORU"></a>';
+    '<a id="Up" href="#" aria-label="NAHORU" onclick="window.scrollTo({top:0,behavior:\'smooth\'});return false"><img src="' . BASE_URL . '/gfx/arrow-top.svg" alt="NAHORU"></a>';
 }
 
 function renderInlineJs() {

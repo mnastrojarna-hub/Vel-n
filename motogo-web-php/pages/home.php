@@ -82,7 +82,7 @@ $blogHtml .= '</div><p>&nbsp;</p><p class="text-center"><a class="btn btngreen" 
 
 // Banner (homepage only)
 $bannerHtml = '<div class="banner">' .
-    '<img fetchpriority="high" alt="Půjčovna motorek Vysočina" src="gfx/hero-banner.png">' .
+    '<img fetchpriority="high" alt="Půjčovna motorek Vysočina" src="' . BASE_URL . '/gfx/hero-banner.png">' .
     '<div class="banner-wrapper"><div class="container"><div class="banner-caption">' .
         '<p><strong>Půjčovna motorek</strong> na Vysočině</p><p>&nbsp;</p>' .
         '<p>Půjč si motorku na Vysočině snadno online.<br>Vyber si z <strong>cestovních, sportovních i enduro</strong> modelů.<br>Rezervace s <strong>platbou kartou</strong> a <strong>rychlým převzetím</strong>.</p><p>&nbsp;</p>' .

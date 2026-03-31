@@ -11,7 +11,7 @@ $intro = '<section aria-labelledby="title"><h1>Kup dárkový poukaz – daruj z�
     '<p class="cta"><a aria-label="Objednat dárkový poukaz na pronájem motorky v půjčovně Motogo24" class="btn btngreen" href="' . BASE_URL . '/koupit-darkovy-poukaz">OBJEDNAT DÁRKOVÝ POUKAZ</a></p>' .
     '<p>&nbsp;</p>' .
     '</div><div>' .
-    '<img alt="Dárkový poukaz" class="imgres" loading="lazy" src="gfx/darkovy-poukaz.jpg">' .
+    '<img alt="Dárkový poukaz" class="imgres" loading="lazy" src="' . BASE_URL . '/gfx/darkovy-poukaz.jpg">' .
     '</div></div></section>';
 
 $steps = '<section aria-labelledby="content"><div class="gr3">' .
