@@ -6,6 +6,9 @@ import 'app_shell.dart';
 import '../features/auth/auth_provider.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/register_screen.dart';
+import '../features/catalog/catalog_screen.dart';
+import '../features/catalog/moto_detail_screen.dart';
+import '../features/catalog/moto_search_screen.dart';
 import '../features/home/home_screen.dart';
 import 'placeholder_screen.dart';
 
@@ -134,7 +137,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: Routes.search,
             pageBuilder: (context, state) => const NoTransitionPage(
-              child: PlaceholderScreen(title: 'Rezervovat', icon: '📅'),
+              child: MotoSearchScreen(),
             ),
           ),
           GoRoute(
@@ -159,7 +162,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/moto/:id',
             builder: (context, state) =>
-                PlaceholderScreen(title: 'Motorka ${state.pathParameters["id"]}', icon: '🏍️'),
+                MotoDetailScreen(motoId: state.pathParameters['id']!),
           ),
           GoRoute(
             path: Routes.booking,
