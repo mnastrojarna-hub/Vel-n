@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 /// GPS service — mirrors native-gps.js + _sosGetGPS from ui-sos-core.js.
 /// Provides location with high-accuracy first, low-accuracy fallback.
+/// Uses geolocator 10.x API (desiredAccuracy parameter).
 class GpsService {
   GpsService._();
 
@@ -23,26 +24,22 @@ class GpsService {
   /// Get current position with fallback.
   /// Mirrors _cordovaGetPosition from native-fingerprint.js:
   /// 1. High accuracy (30s timeout)
-  /// 2. Low accuracy fallback (30s timeout, 60s cache)
+  /// 2. Low accuracy fallback (30s timeout)
   static Future<Position?> getCurrentPosition() async {
     final hasPermission = await ensurePermission();
     if (!hasPermission) return null;
 
     try {
       return await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 30),
-        ),
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 30),
       );
     } catch (_) {
       // Fallback: low accuracy
       try {
         return await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.low,
-            timeLimit: Duration(seconds: 30),
-          ),
+          desiredAccuracy: LocationAccuracy.low,
+          timeLimit: const Duration(seconds: 30),
         );
       } catch (_) {
         return null;

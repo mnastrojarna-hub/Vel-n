@@ -8,6 +8,7 @@ plugins {
 android {
     namespace "cz.motogo24.app"
     compileSdk 34
+    ndkVersion flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
@@ -29,8 +30,6 @@ android {
     buildTypes {
         release {
             signingConfig signingConfigs.debug
-            minifyEnabled true
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
         }
     }
 }
