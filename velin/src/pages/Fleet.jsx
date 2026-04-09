@@ -286,7 +286,7 @@ export default function Fleet() {
             <thead>
               <TRow header>
                 <TH>Foto</TH><TH>Model</TH><TH>SPZ</TH><TH>Kategorie</TH><TH>Pobočka</TH>
-                <TH>Status</TH><TH>Km</TH><TH>Pořízeno</TH><TH>Další servis</TH><TH>Akce</TH>
+                <TH>Status</TH><TH>Cena/den</TH><TH>Km</TH><TH>Pořízeno</TH><TH>Další servis</TH><TH>Akce</TH>
               </TRow>
             </thead>
             <tbody>
@@ -316,6 +316,14 @@ export default function Fleet() {
                   <TD>{CAT_LABELS[m.category] || m.category || '—'}</TD>
                   <TD>{m.branches?.name || '—'}</TD>
                   <TD><StatusBadge status={m.status} /></TD>
+                  <TD mono>{(() => {
+                    const days = [m.price_mon, m.price_tue, m.price_wed, m.price_thu, m.price_fri, m.price_sat, m.price_sun].map(Number).filter(v => v > 0)
+                    if (!days.length) return <span style={{ color: '#9ca3af' }}>—</span>
+                    const min = Math.min(...days), max = Math.max(...days)
+                    return min === max
+                      ? `${min.toLocaleString('cs-CZ')} Kč`
+                      : `${min.toLocaleString('cs-CZ')}–${max.toLocaleString('cs-CZ')} Kč`
+                  })()}</TD>
                   <TD mono>{m.mileage?.toLocaleString('cs-CZ') || '—'}</TD>
                   <TD>{m.acquired_at ? new Date(m.acquired_at).toLocaleDateString('cs-CZ') : '—'}</TD>
                   <TD>{m.next_service_date || '—'}</TD>
