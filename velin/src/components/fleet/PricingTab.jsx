@@ -22,8 +22,22 @@ export default function PricingTab({ motoId }) {
     if (data) {
       setPrices(data)
     } else {
+      // Fallback: load day prices from motorcycles table (price_mon..price_sun)
+      const { data: moto } = await supabase.from('motorcycles')
+        .select('price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun')
+        .eq('id', motoId).single()
       const defaults = { moto_id: motoId }
-      DAY_KEYS.forEach(k => { defaults[`price_${k}`] = 0 })
+      if (moto) {
+        defaults.price_monday = Number(moto.price_mon) || 0
+        defaults.price_tuesday = Number(moto.price_tue) || 0
+        defaults.price_wednesday = Number(moto.price_wed) || 0
+        defaults.price_thursday = Number(moto.price_thu) || 0
+        defaults.price_friday = Number(moto.price_fri) || 0
+        defaults.price_saturday = Number(moto.price_sat) || 0
+        defaults.price_sunday = Number(moto.price_sun) || 0
+      } else {
+        DAY_KEYS.forEach(k => { defaults[`price_${k}`] = 0 })
+      }
       setPrices(defaults)
     }
     setLoading(false)
