@@ -19,14 +19,14 @@ Tyto soubory obsahují kompletní stav Supabase backendu — všechny tabulky, s
 
 Toto je soustava propojených aplikací pro MotoGo24 (půjčovna motorek):
 
-- **motogo-app-frontend/** — Mobilní appka pro zákazníky (Capacitor/Android, vanilla JS, VoltBuilder)
+- **motogo-app-flutter/** — Mobilní appka pro zákazníky (codemagic build)
 - **velin/** — Velín = superadmin dashboard (React 18 + Vite + TailwindCSS)
 - **supabase/** — Backend: Edge Functions + SQL migrace
 
 ## Pravidla
 
 1. **NIKDY neměň UX, UI ani flow** pokud to uživatel výslovně nepožaduje
-2. **VoltBuilder limit:** Maximálně 5000 tokenů na soubor v motogo-app-frontend
+2. **pro celý repozitář:** Maximálně 5000 tokenů na soubor pokud je to technicky možné a neomezí to funkčnost.
 3. **SQL změny:** Vždy dej SQL příkazy jako text do chatu, NIKDY rovnou do gitu. Až po implementaci a ověření commitni
 4. **SUPABASE_BACKEND_STATE_*.md:** Po každé SQL změně MUSÍŠ aktualizovat příslušný soubor (1-6)
 5. **Backend first:** Před každou frontendovou změnou ověř, že backend (tabulky, RLS, funkce) podporuje požadovanou funkcionalitu
@@ -36,7 +36,7 @@ Toto je soustava propojených aplikací pro MotoGo24 (půjčovna motorek):
 - Projekt: MotoGo24
 - Region: (ověřit v dashboardu)
 - Email služba: Resend (noreply@motogo24.cz)
-- Platby: Simulovaná brána (dev), budoucí integrace reálné brány
+- Platby: real stripe funkční
 - Firma: Bc. Petra Semorádová, IČO: 21874263
 - Kontakt: +420 774 256 271, info@motogo24.cz
 
