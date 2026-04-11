@@ -22,6 +22,7 @@ Toto je soustava propojených aplikací pro MotoGo24 (půjčovna motorek):
 - **motogo-app-flutter/** — Mobilní appka pro zákazníky (codemagic build)
 - **velin/** — Velín = superadmin dashboard (React 18 + Vite + TailwindCSS)
 - **supabase/** — Backend: Edge Functions + SQL migrace
+- **doc-scanner/** - Mobilní capacitor vstup pro účetní přijaté dokumenty všeho druhu do velínu
 
 ## Pravidla
 
