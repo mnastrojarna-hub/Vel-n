@@ -36,7 +36,7 @@
 - **stripe_payment_intent_id** — Stripe Payment Intent ID (pro refundy)
 - **stripe_session_id** — Stripe Checkout Session ID
 - **rating, rated_at** — hodnocení zákazníkem
-- **boots_size, helmet_size, jacket_size** — velikosti výbavy
+- **helmet_size, jacket_size, pants_size, boots_size, gloves_size** — velikosti výbavy (helma, bunda, kalhoty, boty, rukavice)
 - **original_start_date, original_end_date** — původní data rezervace (před prodloužením/zkrácením)
 - **modification_history** (jsonb, default '[]') — historie všech úprav termínu. Každý záznam: `{at, from_start, from_end, to_start, to_end, source}`
 - **complaint_status** — stav reklamace (open, in_progress, resolved, rejected, null)

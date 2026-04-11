@@ -51,12 +51,14 @@ export default function BookingSummary({ booking, sosIncidents, bookingExtras, c
       <SumAddressRow label="Vrácení" method={b.return_method} address={b.return_address} branchName={branchName} lat={b.return_lat} lng={b.return_lng} />
       <SumLocationShares sosIncidents={sosIncidents} />
 
-      {(b.boots_size || b.helmet_size || b.jacket_size) && (
+      {(b.boots_size || b.helmet_size || b.jacket_size || b.pants_size || b.gloves_size) && (
         <>
           <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Výbava</div>
-          <SumRow label="Boty" value={b.boots_size ? `vel. ${b.boots_size}` : null} />
           <SumRow label="Helma" value={b.helmet_size ? `vel. ${b.helmet_size}` : null} />
           <SumRow label="Bunda" value={b.jacket_size ? `vel. ${b.jacket_size}` : null} />
+          <SumRow label="Kalhoty" value={b.pants_size ? `vel. ${b.pants_size}` : null} />
+          <SumRow label="Boty" value={b.boots_size ? `vel. ${b.boots_size}` : null} />
+          <SumRow label="Rukavice" value={b.gloves_size ? `vel. ${b.gloves_size}` : null} />
         </>
       )}
 
