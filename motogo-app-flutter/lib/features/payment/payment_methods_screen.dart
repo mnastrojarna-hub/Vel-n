@@ -41,12 +41,12 @@ class PaymentMethodsScreen extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       children: [
         if (cards.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 40),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 40),
             child: Column(
               children: [
-                Text('💳', style: TextStyle(fontSize: 48)),
-                SizedBox(height: 12),
+                const Text('💳', style: TextStyle(fontSize: 48)),
+                const SizedBox(height: 12),
                 Text(
                   t(context).tr('noSavedCards'),
                   style: TextStyle(
@@ -55,7 +55,7 @@ class PaymentMethodsScreen extends ConsumerWidget {
                     color: MotoGoColors.black,
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
                   t(context).tr('addCardForFaster'),
                   style: TextStyle(fontSize: 12, color: MotoGoColors.g400),
