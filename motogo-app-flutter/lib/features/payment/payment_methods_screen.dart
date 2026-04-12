@@ -173,9 +173,9 @@ class PaymentMethodsScreen extends ConsumerWidget {
               Navigator.pop(ctx, true);
             },
             style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-            child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(Icons.save, size: 18),
-              SizedBox(width: 8),
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              const Icon(Icons.save, size: 18),
+              const SizedBox(width: 8),
               Text(t(context).tr('saveCard')),
             ]),
           ),
