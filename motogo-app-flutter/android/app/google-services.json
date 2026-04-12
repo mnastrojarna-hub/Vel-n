@@ -1,0 +1,15 @@
+{
+  "project_info": {
+    "project_number": "000000000000",
+    "project_id": "motogo24-placeholder",
+    "storage_bucket": "motogo24-placeholder.appspot.com"
+  },
+  "client": [{
+    "client_info": {
+      "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
+      "android_client_info": { "package_name": "cz.motogo24.app" }
+    },
+    "api_key": [{ "current_key": "placeholder" }]
+  }],
+  "configuration_version": "1"
+}
