@@ -361,7 +361,6 @@ const translationsCsPl = <String, Map<String, String>>{
     'calcDistancePrice': 'Spočítat vzdálenost a cenu',
     'enterAddress': 'Zadejte adresu...',
     'applyCode': 'UPLATNIT',
-    'enterCode': 'Zadejte kód...',
     'confirmAddressBtn': 'POTVRDIT ADRESU',
     // SOS
     'theftTitle': 'Krádež motorky',
@@ -990,7 +989,6 @@ const translationsCsPl = <String, Map<String, String>>{
     'calcDistancePrice': 'Oblicz odległość i cenę',
     'enterAddress': 'Wpisz adres...',
     'applyCode': 'ZASTOSUJ',
-    'enterCode': 'Wpisz kod...',
     'confirmAddressBtn': 'POTWIERDŹ ADRES',
     // SOS
     'theftTitle': 'Kradzież motocykla', 'theftReported': 'Kradzież zgłoszona',
