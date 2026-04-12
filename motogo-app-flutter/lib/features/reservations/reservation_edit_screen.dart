@@ -319,9 +319,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
           // === PŘISTAVENÍ MOTORKY (only for upcoming) ===
           if (!_isActive)
             EditCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Row(children: [
-                Icon(Icons.motorcycle, size: 16, color: MotoGoColors.greenDark),
-                SizedBox(width: 6),
+              Row(children: [
+                const Icon(Icons.motorcycle, size: 16, color: MotoGoColors.greenDark),
+                const SizedBox(width: 6),
                 Text(t(context).tr('pickupMotorcycle'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
               ]),
               const SizedBox(height: 8),
@@ -336,9 +336,9 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
 
           // === VRÁCENÍ MOTORKY ===
           EditCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Row(children: [
-              Icon(Icons.assignment_return, size: 16, color: MotoGoColors.greenDark),
-              SizedBox(width: 6),
+            Row(children: [
+              const Icon(Icons.assignment_return, size: 16, color: MotoGoColors.greenDark),
+              const SizedBox(width: 6),
               Text(t(context).tr('returnMotorcycle'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
             ]),
             const SizedBox(height: 8),

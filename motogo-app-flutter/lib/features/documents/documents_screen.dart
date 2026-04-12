@@ -307,9 +307,9 @@ class _DocStatus extends StatelessWidget {
                 color: MotoGoColors.red.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.delete_outline, size: 14, color: MotoGoColors.red),
-                SizedBox(width: 2),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.delete_outline, size: 14, color: MotoGoColors.red),
+                const SizedBox(width: 2),
                 Text(t(context).tr('deleteDoc'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: MotoGoColors.red)),
               ]),
             ),

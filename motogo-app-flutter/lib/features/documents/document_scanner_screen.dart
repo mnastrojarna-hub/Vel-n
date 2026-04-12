@@ -332,10 +332,10 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen> {
         if (_scanning)
           Container(
             color: Colors.black.withValues(alpha: 0.6),
-            child: const Center(child: Column(
+            child: Center(child: Column(
                 mainAxisSize: MainAxisSize.min, children: [
-              CircularProgressIndicator(color: MotoGoColors.green),
-              SizedBox(height: 12),
+              const CircularProgressIndicator(color: MotoGoColors.green),
+              const SizedBox(height: 12),
               Text(t(context).tr('processing'), style: const TextStyle(
                   fontSize: 14, color: Colors.white)),
             ])),
