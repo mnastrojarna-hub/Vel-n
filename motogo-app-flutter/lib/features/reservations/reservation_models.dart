@@ -181,8 +181,14 @@ class Reservation {
 
   /// Compute display status — mirrors _mapStatus() from reservations-ui.js.
   /// A reservation can only be "aktivní" when Stripe payment is confirmed.
+  /// Stale pending+unpaid bookings (>10 min) are treated as cancelled
+  /// because the server auto-cancels them — avoids ghost reservations in UI.
   ResStatus get displayStatus {
     if (status == 'cancelled') return ResStatus.cancelled;
+    if (status == 'pending' && paymentStatus == 'unpaid') {
+      final age = DateTime.now().difference(createdAt);
+      if (age.inMinutes >= 10) return ResStatus.cancelled;
+    }
     if (status == 'completed' || endedBySos) return ResStatus.dokoncene;
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -190,7 +196,6 @@ class Reservation {
     final e = DateTime(endDate.year, endDate.month, endDate.day);
     if (today.isAfter(e)) return ResStatus.dokoncene;
     if (!today.isBefore(s) && !today.isAfter(e)) {
-      // Unpaid reservation must never show as active
       if (paymentStatus != 'paid') return ResStatus.nadchazejici;
       return ResStatus.aktivni;
     }
