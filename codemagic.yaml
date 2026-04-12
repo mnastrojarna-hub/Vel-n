@@ -9,15 +9,11 @@ workflows:
       java: 17
     scripts:
       - name: Get Flutter packages
-        script: |
-          cd $CM_BUILD_DIR/motogo-app-flutter
-          flutter pub get
+        script: flutter pub get
       - name: Build APK (debug)
-        script: |
-          cd $CM_BUILD_DIR/motogo-app-flutter
-          flutter build apk --debug
+        script: flutter build apk --debug
     artifacts:
-      - motogo-app-flutter/build/**/outputs/**/*.apk
+      - build/**/outputs/**/*.apk
     publishing:
       email:
         recipients:
