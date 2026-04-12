@@ -15,7 +15,7 @@ export async function autoCancelStale() {
     const { data: staleApp } = await supabase
       .from('bookings').select('id')
       .eq('status', 'pending').eq('payment_status', 'unpaid')
-      .neq('booking_source', 'web')
+      .eq('booking_source', 'app')
       .lt('created_at', tenMinAgo)
     if (staleApp && staleApp.length > 0) {
       await supabase.from('bookings')

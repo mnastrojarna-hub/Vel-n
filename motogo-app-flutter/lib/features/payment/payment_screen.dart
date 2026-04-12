@@ -162,6 +162,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                   d.type == DiscountType.fixed)
               .map((d) => d.code)
               .firstOrNull,
+          'p_booking_source': 'app',
         },
       );
       if (res is Map && res['booking_id'] != null) {
