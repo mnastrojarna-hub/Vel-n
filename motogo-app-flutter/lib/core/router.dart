@@ -718,6 +718,7 @@ class _BDWState extends ConsumerState<_BookingDebugWrapper> {
           final selExtra = sel
               ? draft.extras.firstWhere((e) => e.id == item.id)
               : null;
+          final needSize = sel && item.sizes.isNotEmpty && selExtra?.size == null;
           final isDelivery = draft.pickupMethod == 'delivery';
           final isSpolujezdec = item.id == 'extra-spolujezdec';
           return GestureDetector(
