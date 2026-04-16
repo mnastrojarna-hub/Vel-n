@@ -155,6 +155,9 @@ BEGIN
     EXCEPTION WHEN OTHERS THEN
       RAISE WARNING 'release_withheld_door_codes: SMS/WA send failed: %', SQLERRM;
     END;
+
+    -- Pošli email s kódy
+    PERFORM send_door_codes_email(v_booking.booking_id, v_booking.user_id);
   END LOOP;
 
   RETURN NEW;
@@ -302,6 +305,15 @@ BEGIN
     EXCEPTION WHEN OTHERS THEN
       RAISE WARNING 'regen_door_codes_on_moto_change: SMS/WA send failed: %', SQLERRM;
     END;
+
+    -- Pošli email s novými kódy (dedup přes message_log by ho mohl blokovat, takže mažeme log pro tento booking)
+    BEGIN
+      DELETE FROM message_log
+      WHERE booking_id = NEW.id
+        AND template_slug IN ('door_codes', 'web_door_codes')
+        AND channel = 'email';
+    EXCEPTION WHEN OTHERS THEN NULL; END;
+    PERFORM send_door_codes_email(NEW.id, NEW.user_id);
   END IF;
 
   RETURN NEW;
@@ -364,6 +376,77 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 COMMENT ON FUNCTION send_push_via_edge IS 'Odešle FCM push notifikaci přes Edge Function send-push.';
+
+
+-- ═══════════════════════════════════════════════════════
+-- 3b. FUNKCE: send_door_codes_email
+-- Pošle email s kódy přes Edge Function send-booking-email
+-- ═══════════════════════════════════════════════════════
+
+CREATE OR REPLACE FUNCTION send_door_codes_email(
+  p_booking_id uuid,
+  p_user_id uuid
+) RETURNS void AS $$
+DECLARE
+  v_url text;
+  v_key text;
+  v_email text;
+  v_name text;
+  v_source text;
+  v_moto text;
+  v_start date;
+  v_end date;
+  v_already_sent boolean;
+BEGIN
+  v_url := coalesce(current_setting('app.settings.supabase_url', true), '');
+  v_key := coalesce(current_setting('app.settings.service_role_key', true), '');
+  IF v_url = '' OR v_key = '' THEN RETURN; END IF;
+
+  -- Dedup: už jsme pro tento booking poslali door_codes email?
+  SELECT EXISTS(
+    SELECT 1 FROM message_log
+    WHERE booking_id = p_booking_id
+      AND template_slug IN ('door_codes', 'web_door_codes')
+      AND channel = 'email'
+      AND status = 'sent'
+    LIMIT 1
+  ) INTO v_already_sent;
+  IF v_already_sent THEN RETURN; END IF;
+
+  -- Načti data pro email
+  SELECT p.email, p.full_name, COALESCE(b.booking_source, 'app'),
+         m.model, b.start_date::date, b.end_date::date
+    INTO v_email, v_name, v_source, v_moto, v_start, v_end
+  FROM bookings b
+  LEFT JOIN profiles p ON p.id = b.user_id
+  LEFT JOIN motorcycles m ON m.id = b.moto_id
+  WHERE b.id = p_booking_id;
+
+  IF v_email IS NULL OR v_email = '' THEN RETURN; END IF;
+
+  PERFORM net.http_post(
+    url := v_url || '/functions/v1/send-booking-email',
+    headers := jsonb_build_object(
+      'Authorization', 'Bearer ' || v_key,
+      'Content-Type', 'application/json'
+    ),
+    body := jsonb_build_object(
+      'type', 'door_codes',
+      'booking_id', p_booking_id,
+      'customer_email', v_email,
+      'customer_name', COALESCE(v_name, ''),
+      'motorcycle', COALESCE(v_moto, ''),
+      'start_date', v_start,
+      'end_date', v_end,
+      'source', v_source
+    )
+  );
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING 'send_door_codes_email failed for booking %: %', p_booking_id, SQLERRM;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+COMMENT ON FUNCTION send_door_codes_email IS 'Pošle email s přístupovými kódy přes Edge Function send-booking-email (type=door_codes). Dedup přes message_log.';
 
 
 -- ═══════════════════════════════════════════════════════
@@ -497,6 +580,9 @@ BEGIN
     EXCEPTION WHEN OTHERS THEN
       RAISE WARNING 'auto_generate_door_codes: admin_message insert failed: %', SQLERRM;
     END;
+
+    -- Pošli email s kódy
+    PERFORM send_door_codes_email(NEW.id, NEW.user_id);
   END IF;
 
   RETURN NEW;
@@ -637,6 +723,9 @@ BEGIN
   EXCEPTION WHEN OTHERS THEN
     RAISE WARNING 'release_my_door_codes: SMS/WA failed: %', SQLERRM;
   END;
+
+  -- Email s kódy
+  PERFORM send_door_codes_email(p_booking_id, v_uid);
 
   RETURN jsonb_build_object('success', true, 'released', v_released);
 

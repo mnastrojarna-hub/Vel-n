@@ -116,6 +116,7 @@ const FALLBACK_SUBJECTS: Record<string, (vars: Record<string, string>) => string
   booking_abandoned: (v) => `Dokon\u010dete svou rezervaci \u010d. ${v.booking_number} motocyklu u MotoGo24`,
   booking_cancelled: (v) => `Va\u0161e rezervace \u010d. ${v.booking_number} motocyklu u MotoGo24 byla \u00fasp\u011b\u0161n\u011b stornov\u00e1na`,
   sos_incident: () => `SOS \u2014 MotoGo24 je na cest\u011b`,
+  door_codes: (v) => `P\u0159\u00edstupov\u00e9 k\u00f3dy k pobo\u010dce \u2014 rezervace \u010d. ${v.booking_number}`,
 }
 
 /** Download file from Supabase Storage and return as base64 */
@@ -280,7 +281,37 @@ serve(async (req) => {
       google_review_url: google_review_url || '',
       facebook_review_url: facebook_review_url || '',
       manual_url: manual_url || '',
+      door_code_moto: '',
+      door_code_gear: '',
+      door_codes_block: '',
       // business_card se nevkládá do vars — vizitku přidává wrapInBrandedLayout() automaticky
+    }
+
+    // Load active door codes for this booking (if released to customer)
+    if (booking_id) {
+      try {
+        const { data: codes } = await supabase
+          .from('branch_door_codes')
+          .select('code_type, door_code, sent_to_customer, withheld_reason, is_active')
+          .eq('booking_id', booking_id)
+          .eq('is_active', true)
+        if (codes?.length) {
+          const released = codes.filter((c: any) => c.sent_to_customer === true && !c.withheld_reason)
+          const moto = released.find((c: any) => c.code_type === 'motorcycle')?.door_code || ''
+          const gear = released.find((c: any) => c.code_type === 'accessories')?.door_code || ''
+          vars.door_code_moto = moto
+          vars.door_code_gear = gear
+          if (moto || gear) {
+            vars.door_codes_block = `
+<div style="background:#e0f2fe;border-radius:12px;padding:16px 20px;margin:20px 0;border:1px solid #7dd3fc">
+  <h3 style="margin:0 0 12px 0;color:#0c4a6e;font-size:15px">Přístupové kódy k pobočce</h3>
+  <p style="margin:4px 0;font-size:14px;font-weight:700;font-family:'Courier New',monospace;color:#0c4a6e">Kód k motorce: <span style="font-size:18px;letter-spacing:3px;color:#0369a1">${moto || '—'}</span></p>
+  <p style="margin:4px 0;font-size:14px;font-weight:700;font-family:'Courier New',monospace;color:#0c4a6e">Kód k příslušenství: <span style="font-size:18px;letter-spacing:3px;color:#0369a1">${gear || '—'}</span></p>
+  <p style="margin:8px 0 0 0;font-size:12px;color:#075985">Kódy jsou platné po dobu trvání pronájmu.</p>
+</div>`
+          }
+        }
+      } catch { /* ignore */ }
     }
 
     // Try to load template from DB (first web-specific, then generic)
@@ -328,6 +359,7 @@ ${vars.resume_link ? `<div style="text-align:center;margin:24px 0"><a href="${va
 <p>d\u011bkujeme za va\u0161i d\u016fv\u011bru a za rezervaci \u010d. <strong>${vars.booking_number}</strong> motocyklu u MotoGo24.</p>
 <p>Va\u0161e rezervace byla \u00fasp\u011b\u0161n\u011b p\u0159ijata a uhrazena.</p>
 <p>Kompletn\u00ed p\u0159ehled rezervovan\u00fdch slu\u017eeb a v\u00fdbavy naleznete v p\u0159ilo\u017een\u00e9 N\u00e1jemn\u00ed smlouv\u011b a z\u00e1lohov\u00e9 faktu\u0159e.</p>
+${vars.door_codes_block}
 <h3 style="color:#1a2e22;font-size:15px;margin-top:24px">Informace k p\u0159evzet\u00ed motocyklu</h3>
 <p>Pros\u00edme, pro bezprobl\u00e9mov\u00e9 p\u0159evzet\u00ed si p\u0159ipravte:</p>
 <ul><li>platn\u00fd doklad toto\u017enosti (kter\u00fd jste uvedli v rezerva\u010dn\u00edm formul\u00e1\u0159i),</li><li>platn\u00fd \u0159idi\u010dsk\u00fd pr\u016fkaz.</li></ul>
@@ -344,6 +376,7 @@ ${vars.resume_link ? `<div style="text-align:center;margin:24px 0"><a href="${va
 <p>Pokud m\u00e1te n\u011bjak\u00e9 zaj\u00edmav\u00e9 fotografie nebo videa z va\u0161\u00ed cesty, kter\u00e9 byste s n\u00e1mi cht\u011bli sd\u00edlet, za\u0161lete n\u00e1m je, pros\u00edm, na e-mail: <a href="mailto:info@motogo24.cz" style="color:#2563eb">info@motogo24.cz</a>. R\u00e1di je p\u0159\u00edpadn\u011b zve\u0159ejn\u00edme na na\u0161em webu nebo soci\u00e1ln\u00edch s\u00edt\u00edch.</p>
 ${vars.discount_code ? `<div style="background:#dcfce7;border-radius:12px;padding:16px;margin:20px 0;border:1px solid #86efac"><p style="margin:0;font-size:14px;color:#166534">Jako mal\u00e9 pod\u011bkov\u00e1n\u00ed za poskytnutou d\u016fv\u011bru p\u0159ikl\u00e1d\u00e1me slevov\u00fd k\u00f3d <strong>200 K\u010d</strong> na va\u0161i p\u0159\u00ed\u0161t\u00ed rezervaci: <strong style="font-family:monospace;font-size:16px;letter-spacing:2px">${vars.discount_code}</strong></p></div>` : ''}
 <p>V p\u0159\u00edloze naleznete kone\u010dnou fakturu za va\u0161i rezervaci.</p>
+${vars.door_codes_block}
 <p>T\u011b\u0161\u00edme se na v\u00e1s p\u0159i dal\u0161\u00edm dobrodru\u017estv\u00ed!</p>
 <p>S pozdravem,<br>T\u00fdm MotoGo24</p>`
       } else if (type === 'voucher_purchased') {
@@ -360,6 +393,13 @@ ${vars.discount_code ? `<div style="background:#dcfce7;border-radius:12px;paddin
 <p>Doporu\u010dujeme rezervovat term\u00edn s dostate\u010dn\u00fdm p\u0159edstihem, zejm\u00e9na v hlavn\u00ed sez\u00f3n\u011b.</p>
 <p>Kdybyste m\u011bli jak\u00fdkoliv dotaz, r\u00e1di V\u00e1m na n\u011bj odpov\u00edme.</p>
 <p>D\u011bkujeme za d\u016fv\u011bru a p\u0159ejeme mnoho radosti z darovan\u00e9ho z\u00e1\u017eitku.</p>
+<p>T\u00fdm MotoGo24</p>`
+      } else if (type === 'door_codes') {
+        templateHtml = `<p>Dobr\u00fd den,</p>
+<p>k va\u0161\u00ed rezervaci \u010d. <strong>${vars.booking_number}</strong> jsou nyn\u00ed k dispozici p\u0159\u00edstupov\u00e9 k\u00f3dy k pobo\u010dce.</p>
+${vars.door_codes_block || `<p style="color:#dc2626">K\u00f3dy se zobraz\u00ed po ov\u011b\u0159en\u00ed doklad\u016f.</p>`}
+<p>K\u00f3dy najdete tak\u00e9 v appce MotoGo24 v detailu rezervace a v sekci Zpr\u00e1vy.</p>
+<p>T\u011b\u0161\u00edme se na v\u00e1s.</p>
 <p>T\u00fdm MotoGo24</p>`
       } else if (type === 'sos_incident') {
         templateHtml = `<p>Dobr\u00fd den,</p>
