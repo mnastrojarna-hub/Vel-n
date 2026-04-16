@@ -1,0 +1,436 @@
+// ===== MotoGo24 – Edge Function: Manage Payment Methods (Stripe) =====
+// List, delete, and set default saved payment methods via Stripe Customer.
+// Also syncs card details to Supabase `payment_methods` table.
+// POST /functions/v1/manage-payment-methods
+// Body: { action: 'list' | 'delete' | 'set_default' | 'setup' | 'attach', payment_method_id? }
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import Stripe from 'https://esm.sh/stripe@14'
+
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
+const SITE_URL = Deno.env.get('SITE_URL') || 'https://motogo24.cz'
+
+const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
+  apiVersion: '2024-04-10',
+  httpClient: Stripe.createFetchHttpClient(),
+})
+
+// Decode JWT payload without verification (gateway already verified)
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')))
+    return payload
+  } catch { return null }
+}
+
+/** Sync all Stripe payment methods for a customer to the Supabase payment_methods table */
+async function syncCardsToSupabase(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  customerId: string
+) {
+  try {
+    const customer = await stripe.customers.retrieve(customerId) as Stripe.Customer
+    if ((customer as any).deleted) return null
+
+    const methods = await stripe.paymentMethods.list({
+      customer: customerId,
+      type: 'card',
+    })
+
+    const defaultPmId = (customer.invoice_settings?.default_payment_method as string) || null
+
+    const cards = methods.data.map((pm) => ({
+      user_id: userId,
+      stripe_payment_method_id: pm.id,
+      brand: pm.card?.brand || 'unknown',
+      last4: pm.card?.last4 || '****',
+      exp_month: pm.card?.exp_month || null,
+      exp_year: pm.card?.exp_year || null,
+      holder_name: pm.billing_details?.name || null,
+      is_default: pm.id === defaultPmId,
+    }))
+
+    // Remove old cards for this user and insert fresh data
+    await supabase.from('payment_methods').delete().eq('user_id', userId)
+
+    if (cards.length > 0) {
+      await supabase.from('payment_methods').insert(cards)
+    }
+
+    return cards
+  } catch (e) {
+    console.warn('syncCardsToSupabase error:', e)
+    return null
+  }
+}
+
+Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: CORS })
+  }
+
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  )
+
+  try {
+    // Authenticate user — JWT already verified by Supabase gateway
+    const authHeader = req.headers.get('authorization') || ''
+    const token = authHeader.replace('Bearer ', '')
+    if (!token) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Unauthorized' }),
+        { status: 401, headers: { ...CORS, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Decode JWT directly (gateway already verified signature)
+    const jwtPayload = decodeJwtPayload(token)
+    let userId = jwtPayload?.sub as string | null
+    let userEmail = (jwtPayload?.email as string) || null
+
+    // Fallback: try getUser if JWT decode fails
+    if (!userId) {
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser(token)
+        if (authUser) {
+          userId = authUser.id
+          userEmail = authUser.email || null
+        }
+      } catch (e) {
+        console.warn('getUser fallback failed:', e)
+      }
+    }
+
+    if (!userId) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid token' }),
+        { status: 401, headers: { ...CORS, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const user = { id: userId, email: userEmail }
+
+    // Get stripe_customer_id from profile
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('stripe_customer_id, full_name, email, phone')
+      .eq('id', user.id)
+      .single()
+
+    const customerId = profile?.stripe_customer_id
+
+    const body = await req.json()
+    const { action, payment_method_id } = body
+
+    // Helper: ensure Stripe Customer exists
+    async function ensureCustomer(): Promise<string> {
+      if (customerId) return customerId
+      const customer = await stripe.customers.create({
+        email: user.email || (profile as any)?.email || undefined,
+        name: (profile as any)?.full_name || undefined,
+        phone: (profile as any)?.phone || undefined,
+        metadata: { supabase_user_id: user.id },
+      })
+      await supabase
+        .from('profiles')
+        .update({ stripe_customer_id: customer.id })
+        .eq('id', user.id)
+      return customer.id
+    }
+
+    // ATTACH — attach a payment method (from Stripe.js) to the customer and save to DB
+    if (action === 'attach') {
+      if (!payment_method_id) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Missing payment_method_id' }),
+          { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      const custId = await ensureCustomer()
+
+      // Attach PM to customer
+      await stripe.paymentMethods.attach(payment_method_id, { customer: custId })
+
+      // Get card details
+      const pm = await stripe.paymentMethods.retrieve(payment_method_id)
+
+      // Check if this is the first card — make it default
+      const existingMethods = await stripe.paymentMethods.list({ customer: custId, type: 'card' })
+      const isFirst = existingMethods.data.length <= 1
+
+      if (isFirst) {
+        await stripe.customers.update(custId, {
+          invoice_settings: { default_payment_method: payment_method_id },
+        })
+      }
+
+      // Save to Supabase payment_methods table
+      await supabase.from('payment_methods').upsert({
+        user_id: user.id,
+        stripe_payment_method_id: pm.id,
+        brand: pm.card?.brand || 'unknown',
+        last4: pm.card?.last4 || '****',
+        exp_month: pm.card?.exp_month || null,
+        exp_year: pm.card?.exp_year || null,
+        holder_name: pm.billing_details?.name || null,
+        is_default: isFirst,
+      }, { onConflict: 'stripe_payment_method_id' })
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          action: 'attach',
+          card: {
+            id: pm.id,
+            brand: pm.card?.brand || 'unknown',
+            last4: pm.card?.last4 || '****',
+            exp_month: pm.card?.exp_month,
+            exp_year: pm.card?.exp_year,
+            holder_name: pm.billing_details?.name || null,
+            is_default: isFirst,
+          },
+        }),
+        { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // SETUP — create a Stripe Checkout Session in setup mode to save a new card
+    if (action === 'setup') {
+      let custId = customerId
+      if (!custId) {
+        const customer = await stripe.customers.create({
+          email: user.email || (profile as any)?.email || undefined,
+          name: (profile as any)?.full_name || undefined,
+          phone: (profile as any)?.phone || undefined,
+          metadata: { supabase_user_id: user.id },
+        })
+        custId = customer.id
+        await supabase
+          .from('profiles')
+          .update({ stripe_customer_id: custId })
+          .eq('id', user.id)
+      }
+
+      const session = await stripe.checkout.sessions.create({
+        customer: custId,
+        mode: 'setup',
+        payment_method_types: ['card'],
+        success_url: SITE_URL + '/card-setup-success',
+        cancel_url: SITE_URL + '/card-setup-cancel',
+        locale: 'cs',
+        metadata: { source: 'motogo24', action: 'add_card', user_id: user.id },
+      } as Stripe.Checkout.SessionCreateParams)
+
+      return new Response(
+        JSON.stringify({ success: true, action: 'setup', checkout_url: session.url }),
+        { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // DELETE — remove a payment method (works even without Stripe Customer)
+    if (action === 'delete') {
+      if (!payment_method_id) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Missing payment_method_id' }),
+          { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
+        )
+      }
+      // Verify ownership via Supabase (authoritative source)
+      const { data: ownedCard, error: ownerErr } = await supabase.from('payment_methods')
+        .select('id')
+        .eq('stripe_payment_method_id', payment_method_id)
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (ownerErr || !ownedCard) {
+        // Card not in DB — still try Stripe cleanup and return success
+        try { await stripe.paymentMethods.detach(payment_method_id) } catch { /* ignore */ }
+        return new Response(
+          JSON.stringify({ success: true, action: 'delete' }),
+          { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // Detach from Stripe (best-effort — always clean up Supabase)
+      try {
+        await stripe.paymentMethods.detach(payment_method_id)
+      } catch (e) {
+        console.warn('Stripe detach failed (cleaning up locally):', (e as Error).message)
+      }
+
+      // Remove from Supabase table
+      try {
+        await supabase.from('payment_methods')
+          .delete()
+          .eq('stripe_payment_method_id', payment_method_id)
+          .eq('user_id', user.id)
+      } catch (e) {
+        console.warn('Supabase delete failed:', (e as Error).message)
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, action: 'delete' }),
+        { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // SET DEFAULT — update default card (works even without Stripe Customer)
+    if (action === 'set_default') {
+      if (!payment_method_id) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Missing payment_method_id' }),
+          { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
+        )
+      }
+      // Verify ownership via Supabase
+      const { data: ownedPm } = await supabase.from('payment_methods')
+        .select('id')
+        .eq('stripe_payment_method_id', payment_method_id)
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (!ownedPm) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Karta nebyla nalezena nebo vám nepatří.' }),
+          { status: 403, headers: { ...CORS, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // Update Stripe default (best-effort — only if customer exists)
+      if (customerId) {
+        try {
+          await stripe.customers.update(customerId, {
+            invoice_settings: { default_payment_method: payment_method_id },
+          })
+        } catch (e) {
+          console.warn('Stripe set_default failed (updating locally):', (e as Error).message)
+        }
+      }
+
+      // Update default flag in Supabase table (authoritative)
+      await supabase.from('payment_methods')
+        .update({ is_default: false })
+        .eq('user_id', user.id)
+      await supabase.from('payment_methods')
+        .update({ is_default: true })
+        .eq('stripe_payment_method_id', payment_method_id)
+
+      return new Response(
+        JSON.stringify({ success: true, action: 'set_default' }),
+        { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // LIST — need existing customer for Stripe; fall back to Supabase only
+    if (!customerId) {
+      // No Stripe customer — return cards from Supabase table if any
+      const { data: localCards } = await supabase.from('payment_methods')
+        .select('stripe_payment_method_id, brand, last4, exp_month, exp_year, holder_name, is_default')
+        .eq('user_id', user.id)
+        .order('is_default', { ascending: false })
+
+      const methods = (localCards || []).map((m) => ({
+        id: m.stripe_payment_method_id,
+        brand: m.brand || 'unknown',
+        last4: m.last4 || '****',
+        exp_month: m.exp_month,
+        exp_year: m.exp_year,
+        holder_name: m.holder_name,
+        is_default: m.is_default,
+      }))
+
+      return new Response(
+        JSON.stringify({ success: true, action: action || 'list', methods }),
+        { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // LIST saved payment methods — fetch from Stripe + sync to Supabase
+    if (action === 'list' || !action) {
+      let cards: Array<Record<string, unknown>> = []
+
+      try {
+        const customer = await stripe.customers.retrieve(customerId) as Stripe.Customer
+        if ((customer as any).deleted) {
+          // Customer deleted in Stripe — clear stale ID and return local cards
+          await supabase.from('profiles').update({ stripe_customer_id: null }).eq('id', user.id)
+          const { data: localCards } = await supabase.from('payment_methods')
+            .select('stripe_payment_method_id, brand, last4, exp_month, exp_year, holder_name, is_default')
+            .eq('user_id', user.id)
+            .order('is_default', { ascending: false })
+          const methods = (localCards || []).map((m) => ({
+            id: m.stripe_payment_method_id, brand: m.brand || 'unknown',
+            last4: m.last4 || '****', exp_month: m.exp_month, exp_year: m.exp_year,
+            holder_name: m.holder_name, is_default: m.is_default,
+          }))
+          return new Response(
+            JSON.stringify({ success: true, action: 'list', methods }),
+            { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        const methods = await stripe.paymentMethods.list({
+          customer: customerId,
+          type: 'card',
+        })
+
+        const defaultPmId = (customer.invoice_settings?.default_payment_method as string) || null
+
+        cards = methods.data.map((pm) => ({
+          id: pm.id,
+          brand: pm.card?.brand || 'unknown',
+          last4: pm.card?.last4 || '****',
+          exp_month: pm.card?.exp_month,
+          exp_year: pm.card?.exp_year,
+          holder_name: pm.billing_details?.name || null,
+          is_default: pm.id === defaultPmId,
+        }))
+
+        // Sync to Supabase table (non-blocking)
+        try {
+          await syncCardsToSupabase(supabase, user.id, customerId)
+        } catch { /* ignore */ }
+      } catch (e) {
+        console.warn('Stripe customer retrieve failed, returning local cards:', (e as Error).message)
+        // Stripe failed — clear stale customer ID and fall back to Supabase
+        try {
+          await supabase.from('profiles').update({ stripe_customer_id: null }).eq('id', user.id)
+        } catch { /* ignore */ }
+        const { data: localCards } = await supabase.from('payment_methods')
+          .select('stripe_payment_method_id, brand, last4, exp_month, exp_year, holder_name, is_default')
+          .eq('user_id', user.id)
+          .order('is_default', { ascending: false })
+        cards = (localCards || []).map((m) => ({
+          id: m.stripe_payment_method_id, brand: m.brand || 'unknown',
+          last4: m.last4 || '****', exp_month: m.exp_month, exp_year: m.exp_year,
+          holder_name: m.holder_name, is_default: m.is_default,
+        }))
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, action: 'list', methods: cards }),
+        { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    return new Response(
+      JSON.stringify({ success: false, error: 'Unknown action: ' + action }),
+      { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
+    )
+  } catch (err) {
+    console.error('manage-payment-methods error:', err)
+    return new Response(
+      JSON.stringify({ success: false, error: (err as Error).message }),
+      { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } }
+    )
+  }
+})
