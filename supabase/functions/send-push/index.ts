@@ -129,7 +129,7 @@ async function sendFCM(
           android: {
             priority: 'high',
             notification: {
-              channel_id: 'motogo_door_codes',
+              channel_id: 'motogo_notifications',
               sound: 'default',
               priority: 'HIGH',
             },
