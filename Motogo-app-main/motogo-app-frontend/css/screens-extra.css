@@ -1,0 +1,12 @@
+/* === SCREENS-EXTRA.CSS — Screen-specific styles (Part 2) ===
+   Contains: Booking, Payment, Success, Reservations, Reservation Detail,
+   Edit Reservation, Done Detail, SOS/Protocol, Profile, Invoices, Docs,
+   VOP & GDPR (Legal) styles.
+   See also: screens.css for Login, Register, Home, Search, Detail
+   === SPLIT into sub-files: booking-payment.css, reservations.css,
+       sos-styles.css, profile-docs.css === */
+
+@import url('booking-payment.css');
+@import url('reservations.css');
+@import url('sos-styles.css');
+@import url('profile-docs.css');

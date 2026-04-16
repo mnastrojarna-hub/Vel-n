@@ -1,0 +1,264 @@
+// ===== AUTH-SESSION.JS – Forgot password, Logout & Render user data =====
+// Split from auth-ui.js. Depends on: auth-ui.js (helpers)
+
+// ===== FORGOT PASSWORD FLOW =====
+var _fpStep=1;
+var _fpEmail='';
+function showForgotPassword(){
+  _fpStep=1;_fpEmail='';
+  var html='<div class="reg-hdr"><div class="back-row" onclick="closeForgotPassword()"><div class="bk-c">←</div><div class="bk-l">'+_t('auth').backLogin+'</div></div>'+
+    '<h2>'+_t('auth').passRecovery+'</h2></div>'+
+    '<div class="bcard" style="margin:14px 20px;">'+
+    '<div id="fp-step-1" class="reg-step active"><div class="reg-step-title">'+_t('auth').fpStep1Title+'</div>'+
+    '<div class="reg-step-sub">'+_t('auth').fpStep1Sub+'</div>'+
+    '<div class="ff"><label>'+_t('auth').email+'</label><input id="fp-email" type="email" placeholder="jan@email.cz"></div>'+
+    '<button class="btn-g" id="fp-btn-1" onclick="fpNext()">'+_t('auth').fpSendCode+'</button></div>'+
+    '<div id="fp-step-2" class="reg-step"><div class="reg-step-title">'+_t('auth').fpStep2Title+'</div>'+
+    '<div class="reg-step-sub">'+_t('auth').fpStep2Sub+'</div>'+
+    '<div class="ff"><label>'+_t('auth').fpCodeLabel+'</label><input id="fp-code" type="text" inputmode="numeric" placeholder="123456" maxlength="6" style="letter-spacing:4px;text-align:center;font-size:20px;"></div>'+
+    '<button class="btn-g" id="fp-btn-2" onclick="fpNext()">'+_t('auth').fpVerifyCode+'</button></div>'+
+    '<div id="fp-step-3" class="reg-step"><div class="reg-step-title">'+_t('auth').fpStep3Title+'</div>'+
+    '<div class="reg-step-sub">'+_t('auth').fpStep3Sub+'</div>'+
+    '<div class="ff"><label>'+_t('auth').fpNewPass+'</label><input id="fp-pass1" type="password" placeholder="••••••••"></div>'+
+    '<div class="ff"><label>'+_t('auth').fpRepeatPass+'</label><input id="fp-pass2" type="password" placeholder="••••••••"></div>'+
+    '<button class="btn-g" id="fp-btn-3" onclick="fpNext()">'+_t('auth').fpSetPass+'</button></div>'+
+    '</div>';
+  var ov=document.getElementById('fp-overlay');
+  if(!ov){ov=document.createElement('div');ov.id='fp-overlay';ov.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#f8f8f8;overflow-y:auto;';document.querySelector('.phone').appendChild(ov);}
+  ov.innerHTML=html;ov.style.display='block';
+}
+function closeForgotPassword(){
+  if(_fpStep>1){_fpStep--;
+    document.getElementById('fp-step-'+(_fpStep+1)).classList.remove('active');
+    document.getElementById('fp-step-'+_fpStep).classList.add('active');
+    return;
+  }
+  var ov=document.getElementById('fp-overlay');if(ov)ov.style.display='none';
+}
+function _fpGoStep(n){
+  document.getElementById('fp-step-'+_fpStep).classList.remove('active');
+  _fpStep=n;
+  document.getElementById('fp-step-'+_fpStep).classList.add('active');
+}
+function fpNext(){
+  if(_fpStep===1){
+    var em=document.getElementById('fp-email');
+    if(!em||!em.value.trim()||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em.value.trim())){showT('⚠️',_t('auth').email,_t('auth').validEmail);return;}
+    _fpEmail=em.value.trim();
+    if(!_isSupabaseReady()){showT('✗',_t('auth').error,'Offline');return;}
+    var btn=document.getElementById('fp-btn-1');
+    if(btn){btn.disabled=true;btn.textContent='⏳';}
+    authResetPassword(_fpEmail).then(function(r){
+      if(btn){btn.disabled=false;btn.textContent=_t('auth').fpSendCode;}
+      if(r.error){showT('✗',_t('auth').error,r.error);return;}
+      showT('📧',_t('auth').codeSent,_t('auth').checkMail);
+      _fpGoStep(2);
+    });
+  } else if(_fpStep===2){
+    var code=document.getElementById('fp-code');
+    if(!code||code.value.trim().length<6){showT('⚠️',_t('auth').code,_t('auth').enterCode);return;}
+    if(!_isSupabaseReady()){showT('✗',_t('auth').error,'Offline');return;}
+    var btn2=document.getElementById('fp-btn-2');
+    if(btn2){btn2.disabled=true;btn2.textContent='⏳';}
+    authVerifyRecoveryOtp(_fpEmail, code.value.trim()).then(function(r){
+      if(btn2){btn2.disabled=false;btn2.textContent=_t('auth').fpVerifyCode;}
+      if(r.error){showT('✗',_t('auth').error,r.error);return;}
+      showT('✓',_t('auth').codeOk,_t('auth').enterNew);
+      _fpGoStep(3);
+    });
+  } else if(_fpStep===3){
+    var p1=document.getElementById('fp-pass1'),p2=document.getElementById('fp-pass2');
+    if(!p1||p1.value.length<8){showT('⚠️',_t('auth').passTitle,_t('auth').minPass);return;}
+    if(p1.value!==p2.value){showT('⚠️',_t('auth').passTitle,_t('auth').passMismatch);return;}
+    if(!_isSupabaseReady()){showT('✗',_t('auth').error,'Offline');return;}
+    var btn3=document.getElementById('fp-btn-3');
+    if(btn3){btn3.disabled=true;btn3.textContent='⏳';}
+    authChangePassword(p1.value).then(function(r){
+      if(btn3){btn3.disabled=false;btn3.textContent=_t('auth').fpSetPass;}
+      if(r.error){showT('✗',_t('auth').error,r.error);return;}
+      // Odhlásit recovery session — uživatel se přihlásí s novým heslem
+      authSignOut();
+      showT('✓',_t('auth').passChanged,_t('auth').loginNow);
+      var ov=document.getElementById('fp-overlay');if(ov)ov.style.display='none';
+      _fpStep=1;_fpEmail='';
+    });
+  }
+}
+
+// ===== CHANGE PASSWORD =====
+async function doChangePassword(){
+  var oldP=document.getElementById('chp-old');
+  var p1=document.getElementById('chp-new1');
+  var p2=document.getElementById('chp-new2');
+  var h=_t('hc');
+  if(!oldP||!oldP.value){showT('⚠️',_t('auth').passTitle,h.enterCurrentPass);return;}
+  if(!p1||p1.value.length<8){showT('⚠️',_t('auth').passTitle,h.newPassMin8);return;}
+  if(p1.value!==p2.value){showT('⚠️',_t('auth').passTitle,h.passNoMatch);return;}
+  // Re-authenticate with current password to verify identity
+  if(_isSupabaseReady()){
+    try {
+      var profile=await apiFetchProfile();
+      var email=profile?profile.email:'';
+      if(!email){showT('✗',_t('common').error,h.emailNotFound);return;}
+      var signIn=await supabase.auth.signInWithPassword({email:email,password:oldP.value});
+      if(signIn.error){showT('✗',_t('common').error,h.wrongCurrentPass);return;}
+      var r=await authChangePassword(p1.value);
+      if(r.error){showT('✗',_t('common').error,r.error);return;}
+      showT('✓',h.passChanged,h.passChangedMsg);
+      oldP.value='';p1.value='';p2.value='';
+      toggleExpand('exp-heslo','arr-heslo');
+    } catch(e){showT('✗',_t('common').error,h.passChangeFailed);}
+  }
+}
+
+// ===== LOGOUT =====
+function doLogout(){
+  try {
+    if(_isSupabaseReady()){
+      authSignOut().catch(function(e){ console.error('doLogout supabase:', e); });
+    }
+    try { localStorage.removeItem('mg_current_session'); } catch(e){}
+    // Clear cached doc photos, reservations, SOS dismissals
+    try {
+      var docKeys = ['mg_doc_id_front','mg_doc_id_back','mg_doc_passport_front','mg_doc_dl_front','mg_doc_dl_back','mg_reservations','mg_sos_fab_dismissed','mg_scan_token','mg_docs_verified'];
+      for(var i=0;i<docKeys.length;i++) localStorage.removeItem(docKeys[i]);
+    } catch(e){}
+    // Clear cart & shop state
+    if(typeof clearCart==='function') clearCart(true);
+    // Cleanup realtime subscriptions
+    if(typeof cleanupRealtimeChannels==='function') cleanupRealtimeChannels();
+    // Clear stale DOM data to prevent ghost profile after bio login
+    var homeNameEl = document.getElementById('home-user-name');
+    if(homeNameEl) homeNameEl.textContent = '';
+    var har = document.getElementById('home-active-res');
+    if(har) har.innerHTML = '';
+    showT('✓',_t('auth').logoutTitle,_t('auth').logoutMsg);
+    setTimeout(function(){
+      goTo('s-login');
+      if(typeof setupBioButton==='function') setupBioButton();
+    }, 700);
+  } catch(e){ console.error('doLogout error:', e); }
+}
+
+// ===== RENDER USER DATA =====
+function renderUserData(){
+  _renderUserDataAsync().catch(function(e){ console.error('renderUserData error:', e); });
+}
+
+function _renderUserDataAsync(){
+  // Restore doc verification from DB (persistent, survives logout)
+  if(typeof apiCheckDocsVerified === 'function') apiCheckDocsVerified().catch(function(){});
+  return Promise.resolve(apiFetchProfile()).then(function(profile){
+    if(!profile){
+      // Profile fetch failed — session is invalid, force redirect to login
+      console.warn('[AUTH] Profile fetch failed — redirecting to login');
+      try { localStorage.removeItem('mg_current_session'); } catch(e){}
+      try { if(window.supabase) window.supabase.auth.signOut().catch(function(){}); } catch(e){}
+      // Clear stale name from DOM
+      var homeNameEl = document.getElementById('home-user-name');
+      if(homeNameEl) homeNameEl.textContent = '';
+      // Hide bottom nav and go to login
+      var bnav = document.getElementById('bnav');
+      if(bnav) bnav.style.display = 'none';
+      if(typeof goTo === 'function') goTo('s-login');
+      return;
+    }
+
+    // Home screen greeting
+    var homeNameEl = document.getElementById('home-user-name');
+    if(homeNameEl) homeNameEl.textContent = profile.full_name || 'Pilot';
+
+    // Res screen pilot name
+    var resNameEl = document.getElementById('res-user-name');
+    if(resNameEl) resNameEl.textContent = profile.full_name || 'Pilot';
+
+    // Booking form contact details
+    var bName = document.getElementById('b-contact-name');
+    if(bName) bName.value = profile.full_name || '';
+    var bStreet = document.getElementById('b-contact-street');
+    if(bStreet) bStreet.value = profile.street || '';
+    var bZip = document.getElementById('b-contact-zip');
+    if(bZip) bZip.value = profile.zip || '';
+    var bCity = document.getElementById('b-contact-city');
+    if(bCity) bCity.value = profile.city || '';
+    var bEmail = document.getElementById('b-contact-email');
+    if(bEmail) bEmail.value = profile.email || '';
+    var bPhone = document.getElementById('b-contact-phone');
+    if(bPhone) bPhone.value = profile.phone || '';
+
+    // License info in booking form (readonly display)
+    var bLicenseInfo = document.getElementById('b-license-info');
+    if(bLicenseInfo){
+      if(profile.license_number){
+        var licGroups = (profile.license_group && profile.license_group.length) ? profile.license_group.join(', ') : '';
+        var licExpiry = profile.license_expiry || '';
+        bLicenseInfo.innerHTML = '<div style="font-size:13px;color:var(--gd);font-weight:600;">ŘP: ' +
+          profile.license_number + (licGroups ? ' · Sk. ' + licGroups : '') +
+          (licExpiry ? ' · Platnost do ' + licExpiry : '') + '</div>';
+        bLicenseInfo.style.display = '';
+      } else {
+        bLicenseInfo.innerHTML = '<div style="font-size:13px;color:#b91c1c;font-weight:600;">⚠️ Chybí údaje o ŘP — <a href="#" onclick="goTo(\'s-profile\');return false;" style="color:#2563eb;">doplnit v profilu</a></div>';
+        bLicenseInfo.style.display = '';
+      }
+    }
+
+    // Update contact collapsed preview
+    var contactInitials = document.getElementById('contact-initials-box');
+    var contactNamePrev = document.getElementById('contact-name-preview');
+    if(contactInitials && profile.full_name){
+      var parts = profile.full_name.split(' ');
+      contactInitials.textContent = parts.map(function(n){return n.charAt(0).toUpperCase();}).join('');
+    }
+    if(contactNamePrev && profile.full_name){
+      contactNamePrev.textContent = profile.full_name;
+    }
+
+    // Active loan banner on home
+    return Promise.resolve(apiGetActiveLoan()).then(function(activeLoan){
+      var homeActiveRes = document.getElementById('home-active-res');
+      if(!homeActiveRes) return;
+
+      // Safeguard: ověř že booking reálně začal (ochrana proti špatnému statusu v DB)
+      if(activeLoan && typeof _hasBookingStarted==='function' && !_hasBookingStarted(activeLoan)){
+        console.warn('[HOME] apiGetActiveLoan vrátil booking co ještě nezačal:', activeLoan.id, 'start_date:', activeLoan.start_date);
+        activeLoan._isUpcoming = true;
+      }
+
+      // SOS tlačítko na home — zobrazit jen při aktivní rezervaci
+      var homeSosBtn = document.getElementById('home-sos-btn');
+      if(homeSosBtn) homeSosBtn.style.display = (activeLoan && !activeLoan._isUpcoming) ? '' : 'none';
+
+      if(activeLoan && !activeLoan._isUpcoming){
+        var motoName = activeLoan.moto ? activeLoan.moto.model : 'Motorka';
+        var showReturn = activeLoan._pastEndTime || activeLoan._nearReturnTime;
+        var icon = showReturn ? '\u23f0' : '\ud83c\udfcd\ufe0f';
+        var label = showReturn ? 'K vr\u00e1cen\u00ed' : _t('auth').active;
+        var tagStyle = showReturn ? 'background:rgba(239,68,68,.15);color:#b91c1c;' : '';
+        homeActiveRes.innerHTML = '<div class="ares" onclick="openResDetailById(\''+activeLoan.id+'\')">' +
+          '<div style="font-size:24px;">'+icon+'</div>' +
+          '<div><div class="ares-n">'+motoName+'</div><div class="ares-s">#'+activeLoan.id.substr(-8).toUpperCase()+' \u00b7 '+label+'</div></div>' +
+          '<div class="ares-tag" style="'+tagStyle+'">'+label+'</div></div>';
+      } else {
+        // Pokud apiGetActiveLoan vrátil upcoming booking, použij ho; jinak fetch pending
+        var upcomingPromise = (activeLoan && activeLoan._isUpcoming)
+          ? Promise.resolve([activeLoan])
+          : Promise.resolve(apiFetchMyBookings('pending'));
+        return upcomingPromise.then(function(upcoming){
+          if(upcoming && upcoming.length > 0){
+            var nextBooking = (upcoming.length === 1 && upcoming[0]._isUpcoming) ? upcoming[0] : upcoming[upcoming.length-1];
+            var nextName = nextBooking.moto_name || (nextBooking.moto ? nextBooking.moto.model : 'Motorka');
+            homeActiveRes.innerHTML = '<div class="ares" onclick="openResDetailById(\''+nextBooking.id+'\')">' +
+              '<div style="font-size:24px;">\ud83d\udcc5</div>' +
+              '<div><div class="ares-n">'+nextName+'</div><div class="ares-s">#'+nextBooking.id.substr(-8).toUpperCase()+' \u00b7 '+_t('auth').upcoming+'</div></div>' +
+              '<div class="ares-tag" style="background:rgba(59,130,246,.15);color:#1d4ed8;">'+_t('auth').ready+'</div></div>';
+          } else {
+            homeActiveRes.innerHTML = '<div class="ares" onclick="goTo(\'s-search\')" style="cursor:pointer;">' +
+              '<div style="font-size:24px;">\ud83c\udfcd\ufe0f</div>' +
+              '<div><div class="ares-n">'+_t('auth').noRes+'</div><div class="ares-s">'+_t('auth').newRes+'</div></div>' +
+              '<div style="font-size:18px;color:var(--g400);">\u203a</div></div>';
+          }
+        });
+      }
+    });
+  });
+}

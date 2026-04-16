@@ -1,0 +1,88 @@
+name: motogo_app
+description: MotoGo24 — Motorcycle rental app
+publish_to: 'none'
+version: 2.3.2+54
+
+environment:
+  sdk: '>=3.6.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # Supabase
+  supabase_flutter: ^2.3.0
+
+  # State management
+  flutter_riverpod: ^2.4.9
+
+  # Routing
+  go_router: ^13.0.0
+
+  # Storage
+  shared_preferences: ^2.2.2
+  flutter_secure_storage: ^9.0.0
+
+  # UI
+  google_fonts: ^6.1.0
+  cached_network_image: ^3.3.1
+  flutter_svg: ^2.0.9
+
+  # i18n
+  intl: ^0.20.2
+
+  # Biometric auth
+  local_auth: ^2.1.8
+
+  # HTTP client
+  http: ^1.2.0
+
+  # Network / connectivity
+  connectivity_plus: ^5.0.2
+
+  # URL launcher (Stripe checkout)
+  url_launcher: ^6.2.2
+
+  # Stripe native Payment Sheet (in-app payments)
+  flutter_stripe: ^11.3.0
+
+  # WebView (invoices, contracts display in-app)
+  webview_flutter: ^4.10.0
+
+  # Image picker (document scanning, SOS photos)
+  image_picker: ^1.0.5
+
+  # Image processing (resize for OCR — matches Capacitor's _resizeForOCR)
+  image: ^4.3.0
+
+  # Camera (custom camera with document overlay)
+  camera: ^0.11.0+2
+
+  # Permissions (centralized request at startup)
+  permission_handler: ^11.3.0
+
+  # GPS
+  geolocator: ^10.0.0
+
+  # Maps
+  flutter_map: ^6.1.0
+  latlong2: ^0.9.0
+
+  # Firebase messaging (push)
+  firebase_messaging: ^14.7.6
+  firebase_core: ^2.24.2
+
+  # App version info (runtime access to pubspec version)
+  package_info_plus: ^8.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/
