@@ -60,9 +60,9 @@ Detailní politiky:
 
 ---
 
-## 8. EDGE FUNKCE (26 aktivních po cleanup)
+## 8. EDGE FUNKCE (27 aktivních po cleanup)
 
-### V repozitáři (22 — všechny deployované)
+### V repozitáři (23 — všechny deployované)
 
 | Funkce | JWT | Popis |
 |--------|-----|-------|
@@ -87,6 +87,7 @@ Detailní politiky:
 | `send-invoice-email` | OFF | Odesílání faktur emailem zákazníkům |
 | `send-message` | OFF | Centrální odesílání zpráv (SMS/WhatsApp přes Twilio, email přes Resend) |
 | `send-order-email` | OFF | Odesílání objednávkových emailů dodavatelům. Retry 3× |
+| `send-push` | OFF | FCM v1 push notifikace na zákaznická zařízení. Volá se ze SQL přes `send_push_via_edge()` (pouze service_role). Načítá `push_tokens.active=true`, podepisuje JWT pro Google OAuth2, posílá FCM message s Android channel `motogo_door_codes` + APNS payload. Auto-deaktivuje invalid tokeny (NOT_FOUND/UNREGISTERED). |
 | `webhook-receiver` | OFF | Příjem Stripe webhooků (**LIVE mode**, signature povinná). Auto-generuje dokumenty po platbě. Synchronizuje karty do payment_methods. **Shop platby:** auto-generuje DP + odesílá voucher_purchased email s kódy poukazů |
 
 ### Pouze v Supabase dashboardu (4 — bez kódu v repo)
@@ -150,6 +151,14 @@ Detailní politiky:
 | `TWILIO_PHONE_NUMBER` | send-message (Twilio odesílací číslo) |
 | `TWILIO_WHATSAPP_NUMBER` | send-message (Twilio WhatsApp číslo) |
 | `INVOICE_API_KEY` | fakturace |
+| `FCM_PROJECT_ID` | send-push (Firebase project ID) |
+| `FCM_SERVICE_ACCOUNT_JSON` | send-push (Firebase service account JSON, base64 encoded) |
+
+**App settings (DB) pro pg_net push:**
+| Klíč | Účel |
+|------|------|
+| `app.settings.supabase_url` | URL pro `send_push_via_edge()` SQL helper |
+| `app.settings.service_role_key` | Service role key pro autorizaci `send-push` z DB triggerů |
 
 **Frontend config (ne secret):**
 | Klíč | Hodnota |

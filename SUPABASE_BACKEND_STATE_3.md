@@ -35,6 +35,11 @@
 | `auto_generate_door_codes()` | Trigger funkce: auto-generuje 2 přístupové kódy (motorcycle+accessories) při přechodu bookingu na 'active'. Kontroluje doklady zákazníka (id_card/passport + drivers_license, fallback na license_number+id_number v profilu). Posílá kódy jako admin_message jen pokud má doklady. SECURITY DEFINER, EXCEPTION safe |
 | `verify_customer_docs(p_ocr_name, p_ocr_dob, p_ocr_id_number, p_ocr_license_number, p_ocr_license_category, p_ocr_license_expiry, p_rental_end)` | Verifikace naskenovaných dokladů proti profilu. Kontroluje jméno, datum narození, číslo ŘP, platnost ŘP (i proti datu konce rezervace), skupiny ŘP. Vrací jsonb {success, status, mismatches, warnings}. SECURITY DEFINER |
 | `auto_deactivate_door_codes()` | Trigger funkce: deaktivuje všechny aktivní kódy (is_active=false) při přechodu bookingu na 'completed' nebo 'cancelled'. SECURITY DEFINER, EXCEPTION safe |
+| `release_withheld_door_codes()` | Trigger funkce na `documents` (AFTER INSERT, type IN id_card/passport/drivers_license/id_photo/license_photo): při nahrání dokladů uvolní zadržené door codes pro všechny aktivní bookings uživatele, posílá `door_codes` admin_message + SMS/WA. SECURITY DEFINER, EXCEPTION safe |
+| `regen_door_codes_on_moto_change()` | Trigger funkce na `bookings` (AFTER UPDATE OF moto_id, status IN active/reserved): deaktivuje staré kódy a vygeneruje 2 nové pro novou motorku. Pokud má doklady → admin_message + SMS/WA. SECURITY DEFINER, EXCEPTION safe |
+| `send_push_via_edge(user_id, title, body, data jsonb)` | Helper: pošle FCM push notifikaci přes Edge Function `send-push` (pg_net). Čte `app.settings.supabase_url` + `service_role_key`. SECURITY DEFINER, EXCEPTION safe |
+| `trg_push_on_admin_message()` | Trigger funkce na `admin_messages` (AFTER INSERT): volá `send_push_via_edge()` s deep-link payloadem (`type: door_codes` nebo `message`, `id`). SECURITY DEFINER, EXCEPTION safe |
+| `release_my_door_codes(p_booking_id)` | RPC pro authenticated zákazníka: ověří doklady (Mindee + fallback) a uvolní zadržené door codes pro vlastní booking. Posílá `door_codes` admin_message + SMS/WA. Vrací jsonb {success, released, error?}. SECURITY DEFINER. GRANT EXECUTE TO authenticated. Volá appka po platbě. |
 
 ### Další funkce v reálné DB (ne v migracích)
 | Funkce | Popis |
