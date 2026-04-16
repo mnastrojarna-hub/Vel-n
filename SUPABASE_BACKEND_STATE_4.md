@@ -49,6 +49,7 @@
 | `trg_release_codes_on_doc_upload` | documents (AFTER INSERT, WHEN type IN id_card/passport/drivers_license/id_photo/license_photo) | release_withheld_door_codes() — uvolní zadržené door codes po nahrání dokladů. SECURITY DEFINER, EXCEPTION safe |
 | `trg_regen_codes_on_moto_change` | bookings (AFTER UPDATE OF moto_id, WHEN moto_id změněn + status IN active/reserved) | regen_door_codes_on_moto_change() — deaktivuje staré kódy a vygeneruje nové pro novou motorku. SECURITY DEFINER, EXCEPTION safe |
 | `trg_push_on_admin_message` | admin_messages (AFTER INSERT) | trg_push_on_admin_message() — pošle FCM push přes `send-push` edge function. SECURITY DEFINER, EXCEPTION safe |
+| `trg_send_booking_completed_email` | invoices (AFTER INSERT, WHEN type='final') | trg_send_booking_completed_email() — po vložení KF odešle `booking_completed` e-mail přes `send-booking-email` (poděkování + KF v příloze). Dedup přes message_log. SECURITY DEFINER, EXCEPTION safe |
 
 ### Další triggery v reálné DB
 | Trigger | Tabulka | Funkce |

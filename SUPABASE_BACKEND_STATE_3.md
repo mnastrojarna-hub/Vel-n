@@ -19,7 +19,8 @@
 | `expire_vouchers_and_promos()` | Expirace voucherů + deaktivace promo kódů po valid_to |
 | `auto_cancel_expired_pending()` | Auto-cancel pending+unpaid bookings (app: 10min, web: 4h). SECURITY DEFINER. **IMPLEMENTOVÁNO 2026-04-12** — pg_cron každé 2 min |
 | `auto_complete_expired_bookings()` | Auto-complete: active/reserved + end_date < today + paid → completed (BEZ fakturace — KF generuje trigger). SECURITY DEFINER |
-| `generate_final_invoice_on_complete()` | Trigger funkce: generuje KF (konečnou fakturu) při přechodu active→completed. SECURITY DEFINER |
+| `generate_final_invoice_on_complete()` | Trigger funkce: generuje KF (konečnou fakturu) při přechodu active→completed. Rozpis položek: Pronájem (brutto = total_price + discount_amount − extras − delivery), Příslušenství, Přistavení, Sleva (záporná), Odpočty DP. SECURITY DEFINER |
+| `trg_send_booking_completed_email()` | Trigger funkce: po vložení KF (invoices.type='final') zavolá send-booking-email (type='booking_completed') přes pg_net — pošle zákazníkovi poděkování s KF v příloze. Dedup přes message_log. SECURITY DEFINER |
 | `auto_activate_reserved_bookings()` | Auto-activate: reserved + paid + start_date <= today → active (+picked_up_at). SECURITY DEFINER |
 | `check_user_booking_overlap()` | Trigger: per-user overlap check — zákazník nesmí mít 2 překrývající se rezervace. Výjimka: dětské motorky (license_required=N). SECURITY DEFINER |
 | `confirm_payment(booking_id, method)` | RPC: označí booking jako zaplacený. start_date<=dnes → pending→**active** (+picked_up_at), start_date>dnes → pending→**reserved** (+confirmed_at). SECURITY DEFINER |
