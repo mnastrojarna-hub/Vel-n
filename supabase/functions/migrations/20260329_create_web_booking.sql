@@ -27,7 +27,12 @@ CREATE OR REPLACE FUNCTION create_web_booking(
   p_promo_code text DEFAULT NULL,
   p_voucher_id uuid DEFAULT NULL,
   p_license_group text DEFAULT NULL,
-  p_password text DEFAULT NULL
+  p_password text DEFAULT NULL,
+  p_helmet_size text DEFAULT NULL,
+  p_jacket_size text DEFAULT NULL,
+  p_pants_size text DEFAULT NULL,
+  p_boots_size text DEFAULT NULL,
+  p_gloves_size text DEFAULT NULL
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -254,7 +259,8 @@ BEGIN
     pickup_address, return_address,
     discount_amount, discount_code,
     promo_code_id, voucher_id,
-    notes
+    notes,
+    helmet_size, jacket_size, pants_size, boots_size, gloves_size
   ) VALUES (
     v_user_id, p_moto_id, p_start_date, p_end_date,
     'pending', 'unpaid', v_total, v_extras_total,
@@ -262,7 +268,8 @@ BEGIN
     p_delivery_address, p_return_address,
     p_discount_amount, p_discount_code,
     v_promo_id, p_voucher_id,
-    p_note
+    p_note,
+    p_helmet_size, p_jacket_size, p_pants_size, p_boots_size, p_gloves_size
   )
   RETURNING id INTO v_booking_id;
 

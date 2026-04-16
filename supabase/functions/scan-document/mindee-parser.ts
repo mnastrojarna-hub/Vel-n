@@ -96,7 +96,15 @@ export function parseV2Result(result: Record<string, any>, docType: string): Rec
   if (docType === 'dl') {
     const cats = getVal('license_categories') || getVal('categories') || getVal('vehicle_categories')
     if (cats) data.licenseCategory = cats
-    if (data.idNumber) data.licenseNumber = data.idNumber
+
+    // Try multiple field names for the DL number (Czech ŘP, EU formats)
+    const dlNum = getVal('license_number') || getVal('permit_number') ||
+      getVal('card_number') || getVal('dl_number') ||
+      getVal('driving_license_number') || getVal('licence_number') ||
+      data.idNumber || ''
+    if (dlNum) {
+      data.licenseNumber = dlNum
+    }
   }
 
   return data

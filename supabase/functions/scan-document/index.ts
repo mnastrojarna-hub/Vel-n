@@ -137,11 +137,16 @@ serve(async (req) => {
         const prediction = inference?.result?.fields || inference?.prediction || inference?.fields || inference?.document?.inference?.prediction || inference
         if (prediction && typeof prediction === 'object' && Object.keys(prediction).length > 0) {
           const data = parseV2Result(prediction, docType)
-          if (docType === 'dl' && !data.licenseCategory) {
+          if (docType === 'dl') {
             const rawText = JSON.stringify(prediction)
-            const category = extractLicenseCategory(data, rawText)
-            if (category) data.licenseCategory = category
-            if (data.idNumber && !data.licenseNumber) data.licenseNumber = data.idNumber
+            if (!data.licenseCategory) {
+              const category = extractLicenseCategory(data, rawText)
+              if (category) data.licenseCategory = category
+            }
+            if (!data.licenseNumber) {
+              const dlMatch = rawText.match(/\b([A-Z]{2})\s*(\d{6})\b/)
+              if (dlMatch) data.licenseNumber = dlMatch[1] + ' ' + dlMatch[2]
+            }
           }
           const durationMs = Date.now() - startTime
           await debugLog('mindee_ocr', docType, 'success',
@@ -194,7 +199,7 @@ serve(async (req) => {
 
     const data = parseV2Result(prediction, docType)
 
-    if (docType === 'dl' && !data.licenseCategory) {
+    if (docType === 'dl') {
       let rawText = ''
       const pages = inference?.pages || mindeeResult?.pages || []
       for (const page of pages) {
@@ -202,9 +207,26 @@ serve(async (req) => {
         if (extras) rawText += ' ' + extras
       }
       rawText += ' ' + JSON.stringify(prediction)
-      const category = extractLicenseCategory(data, rawText)
-      if (category) data.licenseCategory = category
-      if (data.idNumber && !data.licenseNumber) data.licenseNumber = data.idNumber
+
+      // Extract license category from raw text if not found in structured fields
+      if (!data.licenseCategory) {
+        const category = extractLicenseCategory(data, rawText)
+        if (category) data.licenseCategory = category
+      }
+
+      // Try to extract license number from raw text if not found
+      if (!data.licenseNumber) {
+        // Czech ŘP number format: 2 letters + space + 6 digits (e.g. "EK 123456")
+        const dlMatch = rawText.match(/\b([A-Z]{2})\s*(\d{6})\b/)
+        if (dlMatch) {
+          data.licenseNumber = dlMatch[1] + ' ' + dlMatch[2]
+          console.log('[scan-document] Extracted DL number from raw text: ' + data.licenseNumber)
+        }
+      }
+
+      console.log('[scan-document] DL fields: licenseNumber=' + (data.licenseNumber || 'null') +
+        ', licenseCategory=' + (data.licenseCategory || 'null') +
+        ', idNumber=' + (data.idNumber || 'null'))
     }
 
     const durationMs = Date.now() - startTime

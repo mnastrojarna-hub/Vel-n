@@ -184,6 +184,18 @@ Deno.serve(async (req: Request) => {
       }
       const intent = await stripe.paymentIntents.create(intentParams as Stripe.PaymentIntentCreateParams)
 
+      // Create ephemeral key for Payment Sheet (saved cards support)
+      let ephemeralKey: string | null = null
+      if (customerId) {
+        try {
+          const ek = await stripe.ephemeralKeys.create(
+            { customer: customerId },
+            { apiVersion: '2024-04-10' }
+          )
+          ephemeralKey = ek.secret ?? null
+        } catch (e) { /* non-blocking — Payment Sheet works without it */ }
+      }
+
       try {
         if (booking_id) {
           await supabase.from('bookings').update({ stripe_payment_intent_id: intent.id }).eq('id', booking_id)
@@ -206,6 +218,9 @@ Deno.serve(async (req: Request) => {
         JSON.stringify({
           success: true, client_secret: intent.client_secret,
           payment_intent_id: intent.id, amount, currency: currency || 'czk',
+          // Payment Sheet support — Flutter uses these for saved cards
+          customer_id: customerId || null,
+          ephemeral_key: ephemeralKey,
         }),
         { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
       )
