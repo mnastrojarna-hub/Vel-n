@@ -46,6 +46,9 @@
 | `trg_notify_ride_completed` | bookings (AFTER UPDATE OF status, WHEN →completed) | trg_notify_ride_completed() — SMS+WA dokončení jízdy + review link. Dedup přes message_log. SECURITY DEFINER |
 | `trg_notify_voucher_purchased` | vouchers (AFTER INSERT, WHEN active) | trg_notify_voucher_purchased() — SMS voucher info. Dedup přes message_log. SECURITY DEFINER |
 | `trg_notify_web_booking_abandoned` | bookings (AFTER UPDATE OF status, WHEN pending→cancelled) | notify_web_booking_abandoned() — odešle abandoned email pro web bookings. SECURITY DEFINER, EXCEPTION safe |
+| `trg_release_codes_on_doc_upload` | documents (AFTER INSERT, WHEN type IN id_card/passport/drivers_license/id_photo/license_photo) | release_withheld_door_codes() — uvolní zadržené door codes po nahrání dokladů. SECURITY DEFINER, EXCEPTION safe |
+| `trg_regen_codes_on_moto_change` | bookings (AFTER UPDATE OF moto_id, WHEN moto_id změněn + status IN active/reserved) | regen_door_codes_on_moto_change() — deaktivuje staré kódy a vygeneruje nové pro novou motorku. SECURITY DEFINER, EXCEPTION safe |
+| `trg_push_on_admin_message` | admin_messages (AFTER INSERT) | trg_push_on_admin_message() — pošle FCM push přes `send-push` edge function. SECURITY DEFINER, EXCEPTION safe |
 
 ### Další triggery v reálné DB
 | Trigger | Tabulka | Funkce |

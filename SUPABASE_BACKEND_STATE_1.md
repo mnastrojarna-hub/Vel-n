@@ -1,5 +1,5 @@
 # SUPABASE BACKEND STATE — MotoGo24 (Část 1: Tabulky)
-> **Poslední aktualizace:** 2026-03-21 12:30 UTC
+> **Poslední aktualizace:** 2026-04-14 (door codes release + regen + FCM push)
 > **Zdroj:** Reálný stav Supabase databáze (SQL dump z dashboardu) + Edge Functions
 > **Projekt:** `vnwnqteskbykeucanlhk.supabase.co`
 > **POZOR:** Tento soubor MUSÍ být aktualizován při každé SQL změně!
@@ -60,7 +60,7 @@
 | `message_threads` | Vlákna zpráv (channel, status, assigned_admin) |
 | `messages` | Jednotlivé zprávy (direction, content, ai_suggested_reply) |
 | `message_templates` | Šablony pro rychlé odpovědi |
-| `admin_messages` | Admin zprávy (type CHECK: sos_response, accident_response, replacement, tow, info, thanks, voucher) |
+| `admin_messages` | Admin zprávy (type CHECK: sos_response, accident_response, replacement, tow, info, thanks, voucher, **door_codes**) |
 | `notification_log` | Log notifikací |
 | `notification_rules` | Pravidla notifikací |
 | `push_tokens` | Push tokeny zařízení |
