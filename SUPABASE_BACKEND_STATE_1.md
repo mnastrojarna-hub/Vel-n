@@ -60,7 +60,7 @@
 | `message_threads` | Vlákna zpráv (channel, status, assigned_admin) |
 | `messages` | Jednotlivé zprávy (direction, content, ai_suggested_reply) |
 | `message_templates` | Šablony pro rychlé odpovědi |
-| `admin_messages` | Admin zprávy (type CHECK: sos_response, accident_response, replacement, tow, info, thanks, voucher, **door_codes**) |
+| `admin_messages` | Admin zprávy (type TEXT, bez CHECK constraintu — používané hodnoty: sos_response, accident_response, replacement, tow, info, thanks, voucher, door_codes) |
 | `notification_log` | Log notifikací |
 | `notification_rules` | Pravidla notifikací |
 | `push_tokens` | Push tokeny zařízení |
