@@ -80,7 +80,7 @@ Detailní politiky:
 | `process-refund` | OFF | Stripe refundy (LIVE). Částečné i plné vrácení peněz. Volá Stripe Refund API |
 | `receive-invoice` | OFF | OCR + AI zpracování přijatých faktur (Claude Vision). Extrakce dat, klasifikace, routing do účetních tabulek |
 | `scan-document` | OFF | OCR skenování dokladů (OP, ŘP, pas) přes Mindee v2 API (enqueue+poll). Model ID z MINDEE_MODEL_ID secret. Retry 3×, loguje do debug_log |
-| `send-booking-email` | OFF | Odesílá branded HTML emaily (booking_reserved, booking_completed, booking_modified, voucher_purchased). Retry 3× |
+| `send-booking-email` | OFF | Odesílá branded HTML emaily (booking_reserved, booking_completed, booking_modified, voucher_purchased, **door_codes**, sos_incident, booking_abandoned, booking_cancelled). Retry 3×. Automaticky načítá aktivní uvolněné přístupové kódy z `branch_door_codes` a vystavuje je jako `{{door_code_moto}}`, `{{door_code_gear}}`, `{{door_codes_block}}` template vars. |
 | `send-broadcast` | OFF | Hromadné zasílání kampaní (email, SMS, WhatsApp). Rate-limited, failure threshold 20% |
 | `send-cancellation-email` | OFF | Email o stornování rezervace s "obnovit" CTA. Retry 3× |
 | `send-email` | OFF | Obecné odesílání emailů s podporou šablon |
