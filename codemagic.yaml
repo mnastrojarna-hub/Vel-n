@@ -7,6 +7,8 @@ workflows:
     environment:
       flutter: stable
       java: 17
+      groups:
+        - supabase_upload
     cache:
       cache_paths:
         - $HOME/.gradle/caches
@@ -21,22 +23,35 @@ workflows:
       - name: Build APK (debug)
         script: |
           flutter build apk --debug
-      - name: Generate QR code for APK download
+      - name: Upload APK to Supabase + generate QR
         script: |
           brew install qrencode
-          APK_PATH=$(find build -name "*.apk" | head -1)
-          if [ -n "$APK_PATH" ]; then
-            BUILD_URL="https://codemagic.io/app/${CM_PROJECT_ID}/build/${CM_BUILD_ID}"
-            qrencode -t UTF8 "$BUILD_URL"
-            qrencode -o qr_download.png -s 10 "$BUILD_URL"
-            echo ""
-            echo "========================================="
-            echo "Scan QR above or open: $BUILD_URL"
-            echo "========================================="
+          APK_PATH=$(find build -name "app-debug.apk" | head -1)
+          if [ -z "$APK_PATH" ]; then
+            echo "No APK found"; exit 1
           fi
+          TS=$(date +%Y%m%d-%H%M%S)
+          OBJECT_PATH="builds/motogo24-debug-${TS}.apk"
+          echo "Uploading $APK_PATH to Supabase Storage: $OBJECT_PATH"
+          curl -sS -X POST "$SUPABASE_URL/storage/v1/object/media/$OBJECT_PATH" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/vnd.android.package-archive" \
+            -H "x-upsert: true" \
+            --data-binary "@$APK_PATH" > /tmp/upload_result.json
+          cat /tmp/upload_result.json
+          DOWNLOAD_URL="$SUPABASE_URL/storage/v1/object/public/media/$OBJECT_PATH"
+          echo "$DOWNLOAD_URL" > $CM_BUILD_DIR/download_url.txt
+          qrencode -t UTF8 "$DOWNLOAD_URL"
+          qrencode -o $CM_BUILD_DIR/qr_download.png -s 10 "$DOWNLOAD_URL"
+          echo ""
+          echo "========================================="
+          echo "APK download: $DOWNLOAD_URL"
+          echo "Scan QR above — link works without login."
+          echo "========================================="
     artifacts:
       - Motogo-app-main/motogo-app-flutter/build/**/outputs/**/*.apk
-      - Motogo-app-main/motogo-app-flutter/qr_download.png
+      - qr_download.png
+      - download_url.txt
     publishing:
       email:
         recipients:
@@ -55,6 +70,7 @@ workflows:
       java: 17
       groups:
         - android_signing
+        - supabase_upload
     cache:
       cache_paths:
         - $HOME/.gradle/caches
@@ -72,23 +88,36 @@ workflows:
       - name: Build release AAB (Play Store)
         script: |
           flutter build appbundle --release
-      - name: Generate QR code for APK download
+      - name: Upload APK to Supabase + generate QR
         script: |
           brew install qrencode
-          APK_PATH=$(find build -name "*.apk" | head -1)
-          if [ -n "$APK_PATH" ]; then
-            BUILD_URL="https://codemagic.io/app/${CM_PROJECT_ID}/build/${CM_BUILD_ID}"
-            qrencode -t UTF8 "$BUILD_URL"
-            qrencode -o qr_download.png -s 10 "$BUILD_URL"
-            echo ""
-            echo "========================================="
-            echo "Scan QR above or open: $BUILD_URL"
-            echo "========================================="
+          APK_PATH=$(find build -name "app-release.apk" | head -1)
+          if [ -z "$APK_PATH" ]; then
+            echo "No APK found"; exit 1
           fi
+          TS=$(date +%Y%m%d-%H%M%S)
+          OBJECT_PATH="builds/motogo24-release-${TS}.apk"
+          echo "Uploading $APK_PATH to Supabase Storage: $OBJECT_PATH"
+          curl -sS -X POST "$SUPABASE_URL/storage/v1/object/media/$OBJECT_PATH" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/vnd.android.package-archive" \
+            -H "x-upsert: true" \
+            --data-binary "@$APK_PATH" > /tmp/upload_result.json
+          cat /tmp/upload_result.json
+          DOWNLOAD_URL="$SUPABASE_URL/storage/v1/object/public/media/$OBJECT_PATH"
+          echo "$DOWNLOAD_URL" > $CM_BUILD_DIR/download_url.txt
+          qrencode -t UTF8 "$DOWNLOAD_URL"
+          qrencode -o $CM_BUILD_DIR/qr_download.png -s 10 "$DOWNLOAD_URL"
+          echo ""
+          echo "========================================="
+          echo "APK download: $DOWNLOAD_URL"
+          echo "Scan QR above — link works without login."
+          echo "========================================="
     artifacts:
       - Motogo-app-main/motogo-app-flutter/build/**/outputs/**/*.apk
       - Motogo-app-main/motogo-app-flutter/build/**/outputs/**/*.aab
-      - Motogo-app-main/motogo-app-flutter/qr_download.png
+      - qr_download.png
+      - download_url.txt
     publishing:
       email:
         recipients:
