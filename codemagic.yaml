@@ -1,89 +1,52 @@
 workflows:
   motogo-android-debug:
-    name: MotoGo24 Android Build
-    max_build_duration: 30
+    name: MotoGo24 Android Debug
+    max_build_duration: 60
     instance_type: mac_mini_m2
     working_directory: Motogo-app-main/motogo-app-flutter
     environment:
       flutter: stable
       java: 17
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: '*'
+          include: true
     cache:
       cache_paths:
         - $HOME/.gradle/caches
         - $HOME/.gradle/wrapper
+        - $HOME/.pub-cache
     scripts:
-      - name: Accept Android licenses
+      - name: Show environment
         script: |
-          yes | flutter doctor --android-licenses || true
+          echo "Working dir: $(pwd)"
+          echo "Flutter version:"
+          flutter --version
+          ls -la
       - name: Get Flutter packages
         script: |
           flutter pub get
+      - name: Accept Android licenses
+        script: |
+          yes | flutter doctor --android-licenses || true
       - name: Build APK (debug)
         script: |
           flutter build apk --debug
-      - name: Generate QR code for build page
+      - name: Generate QR for build page
         script: |
-          brew install qrencode
+          brew install qrencode || true
           BUILD_URL="https://codemagic.io/app/${CM_PROJECT_ID}/build/${CM_BUILD_ID}"
-          qrencode -t UTF8 "$BUILD_URL"
-          qrencode -o $CM_BUILD_DIR/qr_download.png -s 10 "$BUILD_URL"
+          qrencode -t UTF8 "$BUILD_URL" || echo "QR generation failed"
+          qrencode -o $CM_BUILD_DIR/qr_download.png -s 10 "$BUILD_URL" || echo "QR PNG failed"
           echo ""
           echo "========================================="
           echo "Build URL: $BUILD_URL"
-          echo "APK je připojen v emailu a také v artifacts této build stránky."
+          echo "APK v emailu a v artifacts této stránky."
           echo "========================================="
     artifacts:
       - Motogo-app-main/motogo-app-flutter/build/**/outputs/**/*.apk
-      - qr_download.png
-    publishing:
-      email:
-        recipients:
-          - mnastrojarna@gmail.com
-        notify:
-          success: true
-          failure: true
-
-  motogo-android-release:
-    name: MotoGo24 Android Release
-    max_build_duration: 30
-    instance_type: mac_mini_m2
-    working_directory: Motogo-app-main/motogo-app-flutter
-    environment:
-      flutter: stable
-      java: 17
-      groups:
-        - android_signing
-    cache:
-      cache_paths:
-        - $HOME/.gradle/caches
-        - $HOME/.gradle/wrapper
-    scripts:
-      - name: Accept Android licenses
-        script: |
-          yes | flutter doctor --android-licenses || true
-      - name: Get Flutter packages
-        script: |
-          flutter pub get
-      - name: Build release APK
-        script: |
-          flutter build apk --release
-      - name: Build release AAB (Play Store)
-        script: |
-          flutter build appbundle --release
-      - name: Generate QR code for build page
-        script: |
-          brew install qrencode
-          BUILD_URL="https://codemagic.io/app/${CM_PROJECT_ID}/build/${CM_BUILD_ID}"
-          qrencode -t UTF8 "$BUILD_URL"
-          qrencode -o $CM_BUILD_DIR/qr_download.png -s 10 "$BUILD_URL"
-          echo ""
-          echo "========================================="
-          echo "Build URL: $BUILD_URL"
-          echo "APK/AAB je připojen v emailu a také v artifacts této build stránky."
-          echo "========================================="
-    artifacts:
-      - Motogo-app-main/motogo-app-flutter/build/**/outputs/**/*.apk
-      - Motogo-app-main/motogo-app-flutter/build/**/outputs/**/*.aab
       - qr_download.png
     publishing:
       email:
