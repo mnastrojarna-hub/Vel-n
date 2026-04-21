@@ -366,47 +366,16 @@ class _VoucherState extends ConsumerState<VoucherScreen>
   }
 
   Widget _buildVoucherCard(AppTranslations tr) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [MotoGoColors.dark, Color(0xFF2D4A35)],
-          begin: Alignment.topLeft, end: Alignment.bottomRight,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(MotoGoTheme.radiusLg),
+      child: Container(
+        decoration: BoxDecoration(
+          boxShadow: [BoxShadow(color: MotoGoColors.dark.withValues(alpha: 0.4), blurRadius: 20, offset: const Offset(0, 8))],
         ),
-        borderRadius: BorderRadius.circular(MotoGoTheme.radiusLg),
-        boxShadow: [BoxShadow(color: MotoGoColors.dark.withValues(alpha: 0.4), blurRadius: 20, offset: const Offset(0, 8))],
-      ),
-      child: Stack(
-        children: [
-          Positioned(right: 16, bottom: 16, child: Icon(Icons.motorcycle, size: 80, color: MotoGoColors.green.withValues(alpha: 0.08))),
-          Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(children: [
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                const Text('🏍️ MOTO GO 24', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -0.5)),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(color: MotoGoColors.green, borderRadius: BorderRadius.circular(4)),
-                  child: Text(tr.tr('giftVoucher').toUpperCase(), style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.black, letterSpacing: 1)),
-                ),
-              ]),
-              const SizedBox(height: 6),
-              Text(tr.tr('giftVoucherTitle').toUpperCase(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 2)),
-              const Divider(color: Colors.white24, height: 24),
-              Text(tr.tr('voucherValueOf').toUpperCase(), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: MotoGoColors.green, letterSpacing: 3)),
-              const SizedBox(height: 8),
-              Text('${_amount.toStringAsFixed(0)} Kč', style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w900, color: MotoGoColors.green)),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(50)),
-                child: Text(
-                  _printed ? '📦 ${tr.tr('printedVoucher')}' : '📧 ${tr.tr('electronicVoucher')}',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.7)),
-                ),
-              ),
-            ]),
-          ),
-        ],
+        child: Image.asset(
+          'assets/darkovy-poukaz.jpg',
+          fit: BoxFit.cover,
+        ),
       ),
     );
   }
