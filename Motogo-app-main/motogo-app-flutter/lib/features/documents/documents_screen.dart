@@ -271,14 +271,22 @@ class DocumentsScreen extends ConsumerWidget {
     if (photo == null) return;
     if (!context.mounted) return;
     showMotoGoToast(context, icon: '⏳', title: t(context).tr('uploading'), message: t(context).tr('processingDoc'));
-    await uploadDocPhoto(photo, ScanDocType.idCard);
+    final upload = await uploadDocPhoto(photo, ScanDocType.idCard);
     final result = await scanDocument(photo, ScanDocType.idCard);
     if (result != null) {
-      await saveOcrToProfile(result);
+      await saveOcrToProfile(result, docType: ScanDocType.idCard);
     }
     if (!context.mounted) return;
     ref.invalidate(docsVerifiedProvider);
-    showMotoGoToast(context, icon: '✅', title: t(context).tr('uploaded'), message: t(context).tr('docProcessed'));
+    if (upload.ok && result != null) {
+      showMotoGoToast(context, icon: '✅', title: t(context).tr('uploaded'), message: t(context).tr('docProcessed'));
+    } else {
+      // Upload nebo OCR selhaly — doveď uživatele na skener s kamerou,
+      // kde má full retry + contact fallback flow.
+      showMotoGoToast(context, icon: '⚠️',
+          title: t(context).tr('scanFailed'),
+          message: 'Zkuste prosím naskenovat doklad kamerou.');
+    }
   }
 }
 

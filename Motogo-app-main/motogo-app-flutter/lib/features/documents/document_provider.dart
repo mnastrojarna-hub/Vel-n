@@ -329,14 +329,26 @@ Future<OcrResult?> scanDocument(XFile photo, ScanDocType docType) async {
   return r.data;
 }
 
+/// Result of a verification record insert — carries success/failure info
+/// so the UI can react to DB failures instead of swallowing them.
+class DocUploadResult {
+  final String? markerPath;
+  final String? errorDetail;
+  const DocUploadResult({this.markerPath, this.errorDetail});
+  bool get ok => markerPath != null && errorDetail == null;
+}
+
 /// Record Mindee-verified document in Supabase documents table.
 /// Photos are NOT uploaded to storage (GDPR) — only a verification
 /// record is inserted so admin/door-code logic can confirm docs exist.
-Future<String?> uploadDocPhoto(XFile photo, ScanDocType docType) async {
+///
+/// Uses UPSERT on (user_id, type) to avoid duplicate records when the
+/// user re-scans the same side/type.
+Future<DocUploadResult> uploadDocPhoto(XFile photo, ScanDocType docType) async {
   final user = MotoGoSupabase.currentUser;
   if (user == null) {
     debugPrint('[DocUpload] ✗ No authenticated user');
-    return null;
+    return const DocUploadResult(errorDetail: 'not_authenticated');
   }
 
   try {
@@ -348,10 +360,10 @@ Future<String?> uploadDocPhoto(XFile photo, ScanDocType docType) async {
       'file_path': marker,
     });
     debugPrint('[DocUpload] ✓ Verification record inserted: ${docType.storageType}');
-    return marker;
+    return DocUploadResult(markerPath: marker);
   } catch (e) {
     debugPrint('[DocUpload] ✗ Document insert FAILED: $e');
-    return null;
+    return DocUploadResult(errorDetail: '$e');
   }
 }
 
@@ -434,13 +446,14 @@ Future<String?> saveOcrToProfile(OcrResult result, {ScanDocType? docType}) async
       updates['license_verified_until'] = isoExp;
     }
   }
-  // Always set license_verified_at when scanning DL — photo is uploaded
-  // regardless of which fields OCR extracted
-  if (docType == ScanDocType.driversLicense) {
-    updates['license_verified_at'] = DateTime.now().toIso8601String();
-  }
-  // Also set it when licenseNumber found from any doc type (e.g. OP back)
-  if (result.licenseNumber != null && !updates.containsKey('license_verified_at')) {
+  // license_verified_at se nastavuje POUZE když OCR opravdu vrátil něco
+  // z ŘP (číslo nebo datum platnosti). Pouhý fakt, že user vyfotil DL,
+  // nestačí — jinak se v profilu objeví "ověřeno" i u čitelně prošlých
+  // nebo nečitelných skenů. Door-code logika pak vydá kódy bez validace.
+  final hasLicenseData = (result.licenseNumber != null && result.licenseNumber!.isNotEmpty)
+      || (result.expiryDate != null && result.expiryDate!.isNotEmpty)
+      || (result.licenseCategory != null && result.licenseCategory!.isNotEmpty);
+  if (hasLicenseData) {
     updates['license_verified_at'] = DateTime.now().toIso8601String();
   }
 

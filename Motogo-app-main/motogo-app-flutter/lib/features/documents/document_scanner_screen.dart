@@ -2,6 +2,7 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme.dart';
 import '../../core/router.dart';
@@ -11,6 +12,13 @@ import 'document_camera_screen.dart';
 import 'document_models.dart';
 import 'document_provider.dart';
 import '../auth/auth_provider.dart';
+
+// Kontakt z CLAUDE.md — firma Bc. Petra Semorádová.
+const String _kSupportPhone = '+420 774 256 271';
+const String _kSupportEmail = 'info@motogo24.cz';
+
+// Počet povolených neúspěšných pokusů na jedné straně dokladu.
+const int _kMaxAttemptsPerStep = 3;
 
 /// Document scanner — 4-step flow matching Capacitor scanner-ui.js.
 /// Camera stays open during all 4 captures (ID front+back, DL front+back).
@@ -26,7 +34,7 @@ class DocumentScannerScreen extends ConsumerStatefulWidget {
   ConsumerState<DocumentScannerScreen> createState() => _ScannerState();
 }
 
-enum _ResultKind { none, success, error }
+enum _ResultKind { none, success, error, contactFallback }
 
 class _ScannerState extends ConsumerState<DocumentScannerScreen> {
   String? _idType;
@@ -34,6 +42,9 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen> {
   bool _scanning = false;
   bool _isCapturing = false;
   final Map<String, bool> _completed = {};
+  // Počet nezdařených pokusů na daný krok (step.key).
+  // Resetuje se při úspěchu daného kroku.
+  final Map<String, int> _attempts = {};
 
   // Camera — initialized once, reused for all 4 steps
   CameraController? _cam;
@@ -44,6 +55,8 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen> {
   _ResultKind _resultKind = _ResultKind.none;
   String _resultTitle = '';
   String _resultMsg = '';
+  String _resultGuidance = '';
+  int _resultAttempt = 0;
 
   List<_ScanStep> get _sequence {
     final front = t(context).tr('frontSide');
@@ -129,58 +142,70 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen> {
       debugPrint('[DocScan] Step ${_stepIdx + 1}/${_sequence.length}: '
           '${step.key} (${step.docType.apiType})');
 
-      // Upload photo + OCR run in parallel for speed,
-      // but we await BOTH to ensure DB record is created.
+      // Upload + OCR souběžně — oba awaitneme.
       final uploadFuture = uploadDocPhoto(photo, step.docType);
-
-      // OCR with retry (3 attempts, exponential backoff)
       final scanResult = await scanDocumentWithRetry(photo, step.docType);
-
-      // Ensure upload completed — the DB record in documents table
-      // is critical for admin verification + door code release.
-      final uploadPath = await uploadFuture;
-      if (uploadPath == null) {
-        debugPrint('[DocScan] ⚠ Document upload failed for ${step.key}');
-      }
+      final uploadResult = await uploadFuture;
 
       if (!mounted) return;
       setState(() => _scanning = false);
 
-      if (scanResult.ok && _hasAnyFields(scanResult.data!)) {
-        // Save whatever we got — even partial data
-        // saveOcrToProfile NEVER crashes the scan flow
+      // Podmínky úspěchu:
+      //   (a) OCR vrátil data
+      //   (b) Pro daný krok jsou načtena ALESPOŇ očekávaná pole
+      //       (ŘP → číslo nebo platnost; OP/pas přední → jméno nebo číslo;
+      //        OP/pas zadní → adresa)
+      //   (c) DB záznam se úspěšně zapsal — bez toho se door_codes
+      //       nikdy neuvolní a admin nepozná, že doklad existuje.
+      final ocrOk = scanResult.ok
+          && scanResult.data != null
+          && _hasRequiredFieldsForStep(scanResult.data!, step);
+      final uploadOk = uploadResult.ok;
+
+      if (ocrOk && uploadOk) {
+        // Uložení do profilu (může selhat částečně — nekrashujeme flow)
         final saveWarning = await saveOcrToProfile(
             scanResult.data!, docType: step.docType);
         if (!mounted) return;
 
-        // Build summary of extracted fields for success overlay
         final summary = _buildFieldsSummary(scanResult.data!, step.docType);
-
         setState(() {
           _completed[step.key] = true;
+          _attempts.remove(step.key); // reset — krok dokončen
           _resultKind = _ResultKind.success;
           _resultTitle = '${step.title} – ${step.side}';
-          if (saveWarning != null) {
-            _resultMsg = '$summary\n\n${t(context).tr('saveWarning')}';
-          } else {
-            _resultMsg = summary;
-          }
-        });
-      } else if (scanResult.ok) {
-        // OCR returned data but no useful fields — still count as success
-        // (photo is uploaded, just couldn't parse content)
-        setState(() {
-          _completed[step.key] = true;
-          _resultKind = _ResultKind.success;
-          _resultTitle = '${step.title} – ${step.side}';
-          _resultMsg = t(context).tr('docUploadedNoFields');
+          _resultMsg = saveWarning != null
+              ? '$summary\n\n${t(context).tr('saveWarning')}'
+              : summary;
+          _resultGuidance = '';
+          _resultAttempt = 0;
         });
       } else {
-        // Build specific error message based on failure type
+        // Selhal jeden z kroků — zvýš counter pokusu a rozhodni:
+        final attempt = (_attempts[step.key] ?? 0) + 1;
+        _attempts[step.key] = attempt;
+
+        final reason = _buildFailureReason(
+          scanResult: scanResult,
+          uploadResult: uploadResult,
+          step: step,
+          ocrOk: ocrOk,
+          uploadOk: uploadOk,
+        );
+        final guidance = _guidanceForStep(step);
+
         setState(() {
-          _resultKind = _ResultKind.error;
           _resultTitle = '${step.title} – ${step.side}';
-          _resultMsg = _buildErrorMsg(scanResult, step);
+          _resultAttempt = attempt;
+          if (attempt >= _kMaxAttemptsPerStep) {
+            _resultKind = _ResultKind.contactFallback;
+            _resultMsg = reason;
+            _resultGuidance = guidance;
+          } else {
+            _resultKind = _ResultKind.error;
+            _resultMsg = reason;
+            _resultGuidance = guidance;
+          }
         });
       }
     } catch (e) {
@@ -196,14 +221,92 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen> {
       } else {
         msg = '${t(context).tr('errUnknown')}\n\n$e';
       }
+      final attempt = (_attempts[step.key] ?? 0) + 1;
+      _attempts[step.key] = attempt;
       setState(() {
         _isCapturing = false;
         _scanning = false;
-        _resultKind = _ResultKind.error;
         _resultTitle = '${step.title} – ${step.side}';
         _resultMsg = msg;
+        _resultGuidance = _guidanceForStep(step);
+        _resultAttempt = attempt;
+        _resultKind = attempt >= _kMaxAttemptsPerStep
+            ? _ResultKind.contactFallback
+            : _ResultKind.error;
       });
     }
+  }
+
+  /// Sestaví konkrétní text důvodu selhání — rozlišuje upload, OCR
+  /// a chybějící povinná pole, aby uživatel věděl proč zopakovat.
+  String _buildFailureReason({
+    required ScanResult scanResult,
+    required DocUploadResult uploadResult,
+    required _ScanStep step,
+    required bool ocrOk,
+    required bool uploadOk,
+  }) {
+    // DB zápis selhal — příčina je technická, ne fotografická.
+    if (!uploadOk) {
+      return 'Záznam o dokladu se nepodařilo uložit na server.'
+          '\n\nZkuste to prosím znovu. Pokud problém přetrvává, '
+          'kontaktujte nás.'
+          '\n\n[${step.docType.apiType} | upload_failed'
+          '${uploadResult.errorDetail != null && uploadResult.errorDetail!.length < 80
+              ? '\n${uploadResult.errorDetail}' : ''}]';
+    }
+
+    // OCR selhal technicky (server/timeout/network)
+    if (!scanResult.ok) {
+      return _buildErrorMsg(scanResult, step);
+    }
+
+    // OCR prošel ale pole nejsou — to je typicky kvalita fotky.
+    return _missingFieldsReason(step);
+  }
+
+  /// Specifická výzva čeho dosáhnout pro úspěšný scan dané strany.
+  String _guidanceForStep(_ScanStep step) {
+    switch (step.key) {
+      case 'id_front':
+        return 'Nafoťte znovu PŘEDNÍ stranu OP. Musí být vidět '
+            'jméno, příjmení, rodné číslo a fotografie. Doklad dejte '
+            'na tmavý podklad, bez odlesků a ořezů.';
+      case 'id_back':
+        return 'Nafoťte znovu ZADNÍ stranu OP. Musí být čitelná '
+            'celá adresa trvalého bydliště a číslo dokladu. '
+            'Dbejte na ostrost a dostatek světla.';
+      case 'passport_front':
+        return 'Nafoťte znovu stránku pasu s fotografií a MRZ kódem '
+            '(dvouřádkový kód dole). Číslo pasu musí být čitelné.';
+      case 'passport_back':
+        return 'Nafoťte znovu stránku pasu s adresou. Text musí '
+            'být čitelný a celý v rámečku.';
+      case 'dl_front':
+        return 'Nafoťte znovu PŘEDNÍ stranu ŘP. Musí být čitelné '
+            'číslo ŘP (políčko vlevo nahoře) a datum platnosti '
+            '(bod 4b). Doklad rovně, bez odlesků.';
+      case 'dl_back':
+        return 'Nafoťte znovu ZADNÍ stranu ŘP. Musí být čitelná '
+            'tabulka skupin (A, B, A1 ...) včetně dat platnosti '
+            'jednotlivých skupin.';
+      default:
+        return 'Zkuste prosím doklad vyfotit znovu v lepším '
+            'světle a bez odlesků.';
+    }
+  }
+
+  /// Lidsky srozumitelný důvod proč OCR nenašel potřebná pole.
+  String _missingFieldsReason(_ScanStep step) {
+    final isBack = step.key.endsWith('_back');
+    if (step.docType == ScanDocType.driversLicense) {
+      return 'Na fotce ŘP nebylo rozpoznáno číslo průkazu ani datum '
+          'platnosti. Bez těchto údajů nelze doklad ověřit.';
+    }
+    if (isBack) {
+      return 'Na zadní straně nebyla rozpoznána adresa ani číslo dokladu.';
+    }
+    return 'Na přední straně nebylo rozpoznáno jméno ani číslo dokladu.';
   }
 
   /// Build user-friendly error message with diagnostics.
@@ -328,6 +431,28 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen> {
     return _notEmpty(result.idNumber) ||
         _notEmpty(result.firstName) ||
         _notEmpty(result.lastName);
+  }
+
+  /// Per-step validace — přísnější, protože jedna strana ≠ druhá strana.
+  /// ŘP: nutné číslo NEBO platnost (bez toho nelze ověřit).
+  /// OP/pas přední: nutné jméno/příjmení nebo číslo dokladu.
+  /// OP/pas zadní: nutná adresa (alespoň ulice nebo město).
+  bool _hasRequiredFieldsForStep(OcrResult r, _ScanStep step) {
+    if (step.docType == ScanDocType.driversLicense) {
+      // ŘP — stejná pole pro front i back. Stačí, když jedna ze stran
+      // vrátí kritické údaje (číslo nebo platnost). Druhá strana typicky
+      // dodá skupiny, ale ty také stačí jako důkaz čtení.
+      return _notEmpty(r.licenseNumber)
+          || _notEmpty(r.expiryDate)
+          || _notEmpty(r.licenseCategory);
+    }
+    final isBack = step.key.endsWith('_back');
+    if (isBack) {
+      return _notEmpty(r.street) || _notEmpty(r.city)
+          || _notEmpty(r.zip) || _notEmpty(r.address);
+    }
+    return _notEmpty(r.firstName) || _notEmpty(r.lastName)
+        || _notEmpty(r.idNumber);
   }
 
   static bool _notEmpty(String? s) => s != null && s.isNotEmpty;
@@ -580,11 +705,15 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen> {
   // ═══════════════════════════════════════════
 
   Widget _resultOverlay() {
+    if (_resultKind == _ResultKind.contactFallback) {
+      return _contactFallbackOverlay();
+    }
     final ok = _resultKind == _ResultKind.success;
+    final remaining = _kMaxAttemptsPerStep - _resultAttempt;
     return Container(
       color: Colors.black.withValues(alpha: 0.85),
-      child: Center(child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
+      child: Center(child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Text(ok ? '✅' : '⚠️', style: const TextStyle(fontSize: 48)),
           const SizedBox(height: 16),
@@ -599,7 +728,27 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen> {
           Text(_resultMsg, textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 13,
                   color: Colors.white70, height: 1.5)),
-          const SizedBox(height: 32),
+          if (!ok && _resultGuidance.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+              ),
+              child: Text(_resultGuidance, textAlign: TextAlign.left,
+                style: const TextStyle(fontSize: 12,
+                  color: Colors.white, height: 1.5, fontWeight: FontWeight.w600)),
+            ),
+          ],
+          if (!ok && remaining > 0) ...[
+            const SizedBox(height: 10),
+            Text('Zbývá pokusů: $remaining',
+              style: const TextStyle(fontSize: 12,
+                color: Color(0xFFFBBF24), fontWeight: FontWeight.w700)),
+          ],
+          const SizedBox(height: 24),
           GestureDetector(
             onTap: ok ? _onContinue : _onRetry,
             child: Container(
@@ -625,6 +774,122 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen> {
         ]),
       )),
     );
+  }
+
+  // Zobrazí se po _kMaxAttemptsPerStep nezdařených pokusech na jednom kroku.
+  // Nabídne volání a email s předvyplněným subjektem.
+  Widget _contactFallbackOverlay() {
+    return Container(
+      color: Colors.black.withValues(alpha: 0.92),
+      child: Center(child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('📞', style: TextStyle(fontSize: 48)),
+          const SizedBox(height: 16),
+          const Text('Pomůžeme vám osobně',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900,
+              color: Colors.white)),
+          const SizedBox(height: 8),
+          Text(_resultTitle, textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 13,
+              fontWeight: FontWeight.w700, color: Colors.white70)),
+          const SizedBox(height: 14),
+          Text(
+            'Sken dokladu se nepodařil po $_kMaxAttemptsPerStep pokusech. '
+            'Zavolejte nám nebo napište — dokončíme ověření ručně a '
+            'vaše rezervace bude připravena.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 13,
+              color: Colors.white70, height: 1.5),
+          ),
+          if (_resultGuidance.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+              ),
+              child: Text(_resultGuidance,
+                style: const TextStyle(fontSize: 12,
+                  color: Colors.white, height: 1.5, fontWeight: FontWeight.w600)),
+            ),
+          ],
+          const SizedBox(height: 22),
+          _contactBtn(
+            icon: '📞',
+            label: 'Zavolat $_kSupportPhone',
+            onTap: () => _launchExternal(
+              'tel:${_kSupportPhone.replaceAll(' ', '')}'),
+            primary: true,
+          ),
+          const SizedBox(height: 10),
+          _contactBtn(
+            icon: '✉️',
+            label: 'Napsat $_kSupportEmail',
+            onTap: () => _launchExternal(
+              'mailto:$_kSupportEmail?subject='
+              '${Uri.encodeComponent('Ověření dokladů — $_resultTitle')}'),
+            primary: false,
+          ),
+          const SizedBox(height: 18),
+          // Možnost znovu — třeba zákazník chce po konzultaci zkusit znovu
+          TextButton(
+            onPressed: () => setState(() {
+              _attempts[_sequence[_stepIdx].key] = 0;
+              _resultAttempt = 0;
+              _resultKind = _ResultKind.none;
+            }),
+            child: const Text('Zkusit přesto ještě jednou',
+              style: TextStyle(color: Colors.white54, fontSize: 13)),
+          ),
+          TextButton(
+            onPressed: () async {
+              await _disposeCamera();
+              if (mounted) context.pop();
+            },
+            child: const Text('Zavřít skener',
+              style: TextStyle(color: Colors.white38, fontSize: 13)),
+          ),
+        ]),
+      )),
+    );
+  }
+
+  Widget _contactBtn({required String icon, required String label,
+    required VoidCallback onTap, required bool primary}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
+        decoration: BoxDecoration(
+          color: primary ? MotoGoColors.green : Colors.white,
+          borderRadius: BorderRadius.circular(50),
+        ),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Text(icon, style: const TextStyle(fontSize: 18)),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Text(label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14,
+                fontWeight: FontWeight.w800, color: Colors.black)),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Future<void> _launchExternal(String url) async {
+    try {
+      final uri = Uri.parse(url);
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      debugPrint('[DocScan] launchUrl failed: $e');
+    }
   }
 
   // ═══════════════════════════════════════════
