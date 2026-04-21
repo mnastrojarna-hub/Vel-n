@@ -35,7 +35,7 @@ class AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
   bool _open = false;
   bool _loading = false;
 
-  static const _key = 'Ag9d2QJD0i8_fA07r6GDDaZ4qV9aZDGMhWn_HhQ_rFs';
+  static const _key = 'whg1ilj203oYhmsqkBHVtUqpk-tYr0E-HFTx4lGdue0';
   static const _base = 'https://api.mapy.cz/v1';
   static const _headers = {
     'Accept': 'application/json',

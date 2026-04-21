@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import 'widgets/map_picker.dart';
 import 'price_calculator.dart';
 
-const _mapyKey = 'Ag9d2QJD0i8_fA07r6GDDaZ4qV9aZDGMhWn_HhQ_rFs';
+const _mapyKey = 'whg1ilj203oYhmsqkBHVtUqpk-tYr0E-HFTx4lGdue0';
 const _mapyHeaders = <String, String>{
   'Accept': 'application/json',
   'X-Mapy-Api-Key': _mapyKey,

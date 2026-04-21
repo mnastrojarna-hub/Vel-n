@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { debugAction, debugLog, debugError } from '../../lib/debugLog'
+import { mapyLinkUrl } from '../../lib/mapyCz'
 
 
 export default function SOSTimeline({ incidentId }) {
@@ -48,7 +49,7 @@ export default function SOSTimeline({ incidentId }) {
             <div className="text-sm font-bold" style={{ color: '#0f1a14' }}>{e.action || e.description || '—'}</div>
             {e.data?.note && <div className="text-sm" style={{ color: '#1a2e22' }}>{e.data.note}</div>}
             {e.data?.latitude && e.data?.longitude && (
-              <a href={`https://www.google.com/maps?q=${e.data.latitude},${e.data.longitude}`}
+              <a href={mapyLinkUrl(e.data.latitude, e.data.longitude)}
                 target="_blank" rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-sm font-bold px-1.5 py-0.5 rounded-btn mt-0.5"
                 style={{ background: '#dbeafe', color: '#2563eb', textDecoration: 'none' }}>

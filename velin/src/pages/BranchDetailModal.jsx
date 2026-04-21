@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
+import { mapyLinkUrl } from '../lib/mapyCz'
 import { DETAIL_TABS, MAX_MOTOS, Spinner, EmptyState, DRow } from './BranchHelpers'
 import { TabAccessories } from './BranchAccessories'
 import { TabDoorCodes } from './BranchDoorCodes'
@@ -192,11 +193,11 @@ function TabInfo({ branch, branchStats, bookings }) {
         {branch.gps_lat && branch.gps_lng && (
           <div className="col-span-2">
             <DRow label="GPS" value={`${branch.gps_lat}, ${branch.gps_lng}`} mono />
-            <a href={`https://www.google.com/maps?q=${branch.gps_lat},${branch.gps_lng}`}
+            <a href={mapyLinkUrl(branch.gps_lat, branch.gps_lng)}
               target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-sm font-bold px-2 py-0.5 rounded-btn mt-1"
               style={{ background: '#dbeafe', color: '#2563eb', textDecoration: 'none' }}>
-              Otevřít v mapách
+              Otevřít v Mapy.cz
             </a>
           </div>
         )}

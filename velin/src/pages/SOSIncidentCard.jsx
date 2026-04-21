@@ -1,4 +1,5 @@
 import Card from '../components/ui/Card'
+import { MAPY_CZ_API_KEY, mapyLinkUrl, mapyNavigateUrl } from '../lib/mapyCz'
 import { TYPE_LABELS, TYPE_ICONS, SEVERITY_MAP, STATUS_COLORS } from './SOSConstants'
 
 const DECISION_LABELS = {
@@ -191,19 +192,19 @@ function IncidentCard({ incident: inc, selected, onSelect, onUpdateStatus, onAdd
                   <span style={{ color: '#1a2e22' }}>Poloha: </span>
                   <b style={{ color: '#1a8a18' }}>{inc.address || `${Number(inc.latitude).toFixed(4)}, ${Number(inc.longitude).toFixed(4)}`}</b>
                   {inc.latitude && inc.longitude && (
-                    <a href={`https://www.google.com/maps?q=${inc.latitude},${inc.longitude}`}
+                    <a href={mapyLinkUrl(inc.latitude, inc.longitude)}
                       target="_blank" rel="noopener noreferrer"
                       onClick={e => e.stopPropagation()}
                       className="inline-flex items-center gap-1 ml-2 text-sm font-bold px-2 py-0.5 rounded-btn"
                       style={{ background: '#dbeafe', color: '#2563eb', textDecoration: 'none' }}>
-                      Otevřít mapu
+                      Mapy.cz ↗
                     </a>
                   )}
                 </div>
               )}
               {inc.latitude && inc.longitude && !inc.address && (
                 <div className="col-span-2">
-                  <a href={`https://mapy.cz/zakladni?q=${inc.latitude},${inc.longitude}`}
+                  <a href={mapyLinkUrl(inc.latitude, inc.longitude)}
                     target="_blank" rel="noopener noreferrer"
                     onClick={e => e.stopPropagation()}
                     className="inline-flex items-center gap-1 text-sm font-bold px-2 py-0.5 rounded-btn"
@@ -264,17 +265,34 @@ function SOSMap({ incidents, onSelect }) {
   const withGps = incidents.filter(i => i.latitude && i.longitude)
   if (withGps.length === 0) return null
 
-  // Calculate bounding box for all markers
+  // Bounding box for all markers
   const lats = withGps.map(i => Number(i.latitude))
   const lngs = withGps.map(i => Number(i.longitude))
   const minLat = Math.min(...lats), maxLat = Math.max(...lats)
   const minLng = Math.min(...lngs), maxLng = Math.max(...lngs)
-  const padLat = Math.max((maxLat - minLat) * 0.3, 0.005)
-  const padLng = Math.max((maxLng - minLng) * 0.3, 0.005)
   const centerLat = (minLat + maxLat) / 2
   const centerLng = (minLng + maxLng) / 2
 
-  const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${minLng - padLng},${minLat - padLat},${maxLng + padLng},${maxLat + padLat}&layer=mapnik&marker=${centerLat},${centerLng}`
+  const tileUrl = `https://api.mapy.cz/v1/maptiles/basic/256/{z}/{x}/{y}?apikey=${MAPY_CZ_API_KEY}`
+  const markersJson = JSON.stringify(withGps.map(i => ({
+    lat: Number(i.latitude), lng: Number(i.longitude),
+    label: (TYPE_ICONS[i.type] || '📍') + ' ' + (i.profiles?.full_name || 'Zákazník'),
+  })))
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>html,body{margin:0;padding:0;height:100%;width:100%}#m{height:100%;width:100%}.lg-credit{position:absolute;left:8px;bottom:4px;z-index:500}.lg-credit img{width:70px}</style></head>
+<body><div id="m"></div>
+<a class="lg-credit" href="https://mapy.cz/" target="_blank"><img src="https://api.mapy.cz/img/api/logo.svg" alt="Mapy.cz"/></a>
+<script>
+var markers = ${markersJson};
+var map = L.map("m", { zoomControl: true }).setView([${centerLat}, ${centerLng}], 9);
+L.tileLayer(${JSON.stringify(tileUrl)}, { minZoom: 0, maxZoom: 19, attribution: '<a href="https://api.mapy.cz/copyright" target="_blank">Mapy.cz &amp; Seznam.cz a.s.</a>' }).addTo(map);
+var group = L.featureGroup();
+markers.forEach(function(m) { L.marker([m.lat, m.lng]).bindPopup(m.label).addTo(group); });
+group.addTo(map);
+if (markers.length > 1) { map.fitBounds([[${minLat}, ${minLng}], [${maxLat}, ${maxLng}]], { padding: [30, 30] }); }
+</script></body></html>`
 
   return (
     <Card>
@@ -287,7 +305,7 @@ function SOSMap({ incidents, onSelect }) {
         </span>
       </div>
       <div className="rounded-lg overflow-hidden relative" style={{ height: 280, background: '#e8f5e9' }}>
-        <iframe title="SOS Mapa" width="100%" height="100%" style={{ border: 'none' }} src={mapUrl} />
+        <iframe title="SOS Mapa" width="100%" height="100%" style={{ border: 'none' }} srcDoc={html} />
       </div>
       <div className="flex flex-wrap gap-2 mt-3">
         {withGps.map(inc => {

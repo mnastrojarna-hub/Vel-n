@@ -38,7 +38,7 @@ class _MapPickerState extends State<MapPickerScreen> {
   // Branch location — Mezná 9, 393 01 Mezná
   static const _branchLat = 49.4147;
   static const _branchLng = 15.2953;
-  static const _mapyKey = 'Ag9d2QJD0i8_fA07r6GDDaZ4qV9aZDGMhWn_HhQ_rFs';
+  static const _mapyKey = 'whg1ilj203oYhmsqkBHVtUqpk-tYr0E-HFTx4lGdue0';
   static const _mapyHeaders = <String, String>{
     'Accept': 'application/json',
     'X-Mapy-Api-Key': _mapyKey,

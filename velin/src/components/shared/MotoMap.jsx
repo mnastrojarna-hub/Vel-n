@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { MAPY_CZ_API_KEY, mapyLinkUrl } from '../../lib/mapyCz'
 import Card from '../ui/Card'
 
 /* Mapa motorek — zobrazuje sdílené polohy z tabulky moto_locations */
@@ -41,12 +42,12 @@ export default function MotoMap({ singleMotoId = null }) {
 
       {hasCoords ? (
         <div className="relative rounded-lg overflow-hidden" style={{ height: 320, background: '#e8f5e9' }}>
-          {/* OpenStreetMap embed */}
+          {/* Mapy.cz dlazdice + markery */}
           <iframe
             title="Mapa motorek"
             width="100%" height="100%"
             style={{ border: 'none' }}
-            src={getMapUrl(locations)}
+            srcDoc={buildMotoMapHtml(locations)}
           />
           {/* Overlay s polohy */}
           <div className="absolute bottom-0 left-0 right-0 p-3" style={{ background: 'linear-gradient(transparent, rgba(15,26,20,.85))' }}>
@@ -72,7 +73,7 @@ export default function MotoMap({ singleMotoId = null }) {
               </div>
               <div className="text-sm" style={{ color: '#1a2e22' }}>
                 {l.lat && l.lng ? (
-                  <a href={`https://maps.google.com/?q=${l.lat},${l.lng}`} target="_blank" rel="noreferrer"
+                  <a href={mapyLinkUrl(l.lat, l.lng)} target="_blank" rel="noreferrer"
                     className="underline" style={{ color: '#2563eb' }}>
                     {Number(l.lat).toFixed(5)}, {Number(l.lng).toFixed(5)}
                   </a>
@@ -95,10 +96,10 @@ export default function MotoMap({ singleMotoId = null }) {
           <div className="text-sm" style={{ color: '#1a2e22' }}>
             Aktualizace: {selected.updated_at?.slice(0, 16) || '—'}
           </div>
-          <a href={`https://maps.google.com/?q=${selected.lat},${selected.lng}`} target="_blank" rel="noreferrer"
+          <a href={mapyLinkUrl(selected.lat, selected.lng)} target="_blank" rel="noreferrer"
             className="inline-block mt-2 rounded-btn text-sm font-bold"
             style={{ padding: '6px 14px', background: '#74FB71', color: '#1a2e22', textDecoration: 'none' }}>
-            Otevřít v Google Maps
+            Otevřít v Mapy.cz
           </a>
         </div>
       )}
@@ -106,12 +107,32 @@ export default function MotoMap({ singleMotoId = null }) {
   )
 }
 
-function getMapUrl(locations) {
-  const valid = locations.filter(l => l.lat && l.lng)
+function buildMotoMapHtml(locations) {
+  const valid = locations.filter(l => l.lat && l.lng).map(l => ({
+    lat: Number(l.lat), lng: Number(l.lng),
+    label: [l.motorcycles?.model, l.motorcycles?.spz].filter(Boolean).join(' • '),
+  }))
   if (valid.length === 0) return ''
   const center = valid[0]
-  // OpenStreetMap embed s markerem
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${Number(center.lng) - 0.05},${Number(center.lat) - 0.03},${Number(center.lng) + 0.05},${Number(center.lat) + 0.03}&layer=mapnik&marker=${center.lat},${center.lng}`
+  const lats = valid.map(v => v.lat), lngs = valid.map(v => v.lng)
+  const minLat = Math.min(...lats), maxLat = Math.max(...lats)
+  const minLng = Math.min(...lngs), maxLng = Math.max(...lngs)
+  const tileUrl = `https://api.mapy.cz/v1/maptiles/basic/256/{z}/{x}/{y}?apikey=${MAPY_CZ_API_KEY}`
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>html,body{margin:0;padding:0;height:100%;width:100%}#m{height:100%;width:100%}.lg-credit{position:absolute;left:8px;bottom:4px;z-index:500}.lg-credit img{width:80px}</style></head>
+<body><div id="m"></div>
+<a class="lg-credit" href="https://mapy.cz/" target="_blank"><img src="https://api.mapy.cz/img/api/logo.svg" alt="Mapy.cz"/></a>
+<script>
+var markers = ${JSON.stringify(valid)};
+var map = L.map("m", { zoomControl: true }).setView([${center.lat}, ${center.lng}], 10);
+L.tileLayer(${JSON.stringify(tileUrl)}, { minZoom: 0, maxZoom: 19, attribution: '<a href="https://api.mapy.cz/copyright" target="_blank">Mapy.cz &amp; Seznam.cz a.s.</a>' }).addTo(map);
+var group = L.featureGroup();
+markers.forEach(function(m) { L.marker([m.lat, m.lng]).bindPopup(m.label || '').addTo(group); });
+group.addTo(map);
+if (markers.length > 1) { map.fitBounds([[${minLat}, ${minLng}], [${maxLat}, ${maxLng}]], { padding: [30, 30] }); }
+</script></body></html>`
 }
 
 function timeSince(dateStr) {

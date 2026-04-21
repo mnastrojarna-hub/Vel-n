@@ -42,7 +42,7 @@ class _AddressPickerWidgetState extends State<AddressPickerWidget> {
   double? _deliveryFee;
   bool _confirmed = false;
 
-  static const _apiKey = 'Ag9d2QJD0i8_fA07r6GDDaZ4qV9aZDGMhWn_HhQ_rFs';
+  static const _apiKey = 'whg1ilj203oYhmsqkBHVtUqpk-tYr0E-HFTx4lGdue0';
   static const _apiBase = 'https://api.mapy.cz/v1';
 
   @override

@@ -2,6 +2,7 @@ import Card from '../../components/ui/Card'
 import { InfoRow } from './BookingUIHelpers'
 import { CANCEL_REASONS, describeModification } from './bookingConstants'
 import Button from '../../components/ui/Button'
+import { mapyLinkUrl, mapyNavigateUrl } from '../../lib/mapyCz'
 
 export function SOSSection({ booking, sosIncidents, navigate }) {
   if (!booking.sos_replacement && !booking.ended_by_sos && sosIncidents.length === 0) return null
@@ -48,15 +49,11 @@ export function SOSSection({ booking, sosIncidents, navigate }) {
                 <InfoRow label="Poloha zákazníka" value={
                   <span className="inline-flex items-center flex-wrap gap-2">
                     <span className="text-xs font-mono" style={{ color: '#6b7280' }}>GPS: {Number(inc.latitude).toFixed(6)}, {Number(inc.longitude).toFixed(6)}</span>
-                    <a href={`https://www.google.com/maps?q=${inc.latitude},${inc.longitude}`} target="_blank" rel="noopener noreferrer"
+                    <a href={mapyLinkUrl(inc.latitude, inc.longitude)} target="_blank" rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-btn" style={{ background: '#dbeafe', color: '#2563eb', textDecoration: 'none' }}>
-                      📍 Google Maps ↗
+                      📍 Mapy.cz ↗
                     </a>
-                    <a href={`https://mapy.cz/zakladni?q=${inc.latitude},${inc.longitude}`} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-btn" style={{ background: '#dbeafe', color: '#2563eb', textDecoration: 'none' }}>
-                      Mapy.cz ↗
-                    </a>
-                    <a href={`https://www.google.com/maps/dir/?api=1&destination=${inc.latitude},${inc.longitude}`} target="_blank" rel="noopener noreferrer"
+                    <a href={mapyNavigateUrl(inc.latitude, inc.longitude)} target="_blank" rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-btn" style={{ background: '#dcfce7', color: '#1a8a18', textDecoration: 'none' }}>
                       Navigovat ↗
                     </a>
@@ -106,8 +103,8 @@ export function SOSSection({ booking, sosIncidents, navigate }) {
 }
 
 function mapUrl(address, lat, lng) {
-  if (lat && lng) return `https://maps.google.com/?q=${lat},${lng}`
-  if (address) return `https://maps.google.com/?q=${encodeURIComponent(address)}`
+  if (lat && lng) return mapyLinkUrl(lat, lng)
+  if (address) return `https://mapy.cz/zakladni?q=${encodeURIComponent(address)}`
   return null
 }
 
@@ -167,7 +164,7 @@ export function LocationShareRow({ sosIncidents }) {
       {withLocation.map(inc => {
         const hasGps = inc.latitude && inc.longitude
         const isLocShare = inc.type === 'location_share'
-        const link = hasGps ? `https://maps.google.com/?q=${inc.latitude},${inc.longitude}` : inc.address ? `https://maps.google.com/?q=${encodeURIComponent(inc.address)}` : null
+        const link = hasGps ? mapyLinkUrl(inc.latitude, inc.longitude) : inc.address ? `https://mapy.cz/zakladni?q=${encodeURIComponent(inc.address)}` : null
 
         return (
           <div key={inc.id} className="flex items-center flex-wrap gap-2 py-1" style={{ fontSize: 13 }}>

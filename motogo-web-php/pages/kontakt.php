@@ -31,7 +31,7 @@ $infoSection = '<div class="gr2 contact-info"><section>' .
 
 $mapSection = '<section>' .
     '<h2>Kde nás najdete</h2>' .
-    '<p><iframe aria-label="Mapa kde nás najdete" class="map" loading="lazy" src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d60685.769400224744!2d15.153296724864992!3d49.356399196882506!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x470ce75bf69a97b3%3A0xe75f9d3fadf02b5b!2zTWV6bsOhIDksIDM5MyAwMSBNZXpuw6E!5e0!3m2!1scs!2scz!4v1762106938627!5m2!1scs!2scz"></iframe></p></section>';
+    '<p><iframe aria-label="Mapa kde nás najdete" class="map" loading="lazy" src="https://frame.mapy.cz/s/?x=15.15413&y=49.35169&z=14&source=coor&id=15.15413%2C49.35169"></iframe></p></section>';
 
 $seoText = '<h2>Kontakty – půjčovna motorek Vysočina (Pelhřimov)</h2>' .
     '<p>Motogo24 je&nbsp;<strong>moderní půjčovna motorek na Vysočině</strong>. Sídlíme v&nbsp;<strong>Pelhřimově</strong>, jsme otevřeni&nbsp;<strong>nonstop</strong>&nbsp;a půjčujeme&nbsp;<strong>bez kauce</strong>, s kompletní&nbsp;<strong>výbavou v ceně</strong>.</p>';
