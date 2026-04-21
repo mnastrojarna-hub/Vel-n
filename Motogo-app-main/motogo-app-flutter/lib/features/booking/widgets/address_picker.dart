@@ -45,6 +45,26 @@ class _AddressPickerWidgetState extends State<AddressPickerWidget> {
   static const _apiKey = 'Ag9d2QJD0i8_fA07r6GDDaZ4qV9aZDGMhWn_HhQ_rFs';
   static const _apiBase = 'https://api.mapy.cz/v1';
 
+  @override
+  void didUpdateWidget(AddressPickerWidget old) {
+    super.didUpdateWidget(old);
+    if (old.method == 'delivery' && widget.method != 'delivery') {
+      _street = '';
+      _city = '';
+      _zip = '';
+      _lat = null;
+      _lng = null;
+      _addrKey.currentState?.clear();
+      setState(() {
+        _distanceKm = null;
+        _deliveryFee = null;
+        _confirmed = false;
+      });
+      widget.onDeliveryFeeChanged(0);
+      widget.onAddressChanged(const AddressResult(street: '', city: '', zip: ''));
+    }
+  }
+
   void _onAddressSelected(AddressSuggestion s) {
     _street = s.street;
     _city = s.city;
