@@ -191,8 +191,8 @@ serve(async (req) => {
       branch_name: branchName,
       branch_address: branchAddress,
       // Booking IDs
-      booking_id: booking_id.slice(0, 8),
-      booking_number: booking_id.slice(0, 8).toUpperCase(),
+      booking_id: booking_id.slice(-8),
+      booking_number: booking_id.slice(-8).toUpperCase(),
       today: fmtDate(new Date().toISOString()),
       // Company
       company_name: companyInfo.name,

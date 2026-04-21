@@ -85,7 +85,7 @@ export default function InvoiceCreateModal({ onClose, onSaved, prefillBooking })
 
   // Find contract number from selected booking
   const selectedBooking = bookings.find(x => x.id === form.booking_id)
-  const contractNumber = selectedBooking?.contract_url ? selectedBooking.id.slice(0, 8).toUpperCase() : null
+  const contractNumber = selectedBooking?.contract_url ? selectedBooking.id.slice(-8).toUpperCase() : null
 
   async function handleSave() {
     if (!form.customer_id) return setErr('Vyberte zákazníka.')

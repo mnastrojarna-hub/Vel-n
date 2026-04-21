@@ -14,6 +14,7 @@ interface TemplateParams {
   doorCodes?: any[]
   isProforma: boolean; isPaymentReceipt: boolean; isShopFinal: boolean
   dpNumber?: string
+  bookingNumber?: string
 }
 
 export function generateInvoiceHtml(p: TemplateParams): string {
@@ -44,6 +45,7 @@ export function generateInvoiceHtml(p: TemplateParams): string {
     <div><h1 style="margin:0;font-size:22px;font-weight:800;color:${p.accent}">${p.title}</h1></div>
     <div style="text-align:right">
       <p style="margin:0;font-size:13px;font-weight:700">Číslo: ${p.number}</p>
+      ${p.bookingNumber ? `<p style="margin:2px 0;font-size:11px;color:#666">Rezervace: #${p.bookingNumber}</p>` : ''}
       <p style="margin:2px 0;font-size:11px;color:#666">Vystaveno: ${fmtDate(p.issueDate)}</p>
       <p style="margin:2px 0;font-size:11px;color:#666">Splatnost: ${fmtDate(p.dueDate)}</p>
     </div>
@@ -105,6 +107,7 @@ export function generateEmailHtml(p: {
   customer: any; company: any; title: string; number: string; total: number
   dueDate: string; voucher_codes?: string[]; voucherValidUntil?: string | null
   doorCodes?: any[]; isPaymentReceipt: boolean; isProforma: boolean; isShopFinal: boolean
+  bookingNumber?: string
 }): string {
   const docLabel = p.isPaymentReceipt ? 'doklad k přijaté platbě' : p.isProforma ? 'zálohovou fakturu' : p.isShopFinal ? 'konečnou fakturu' : 'fakturu'
   const vc = p.voucher_codes || []
@@ -112,6 +115,7 @@ export function generateEmailHtml(p: {
   return `<div style="font-family:sans-serif;padding:24px">
     <h2 style="color:#1a2e22">Dobrý den${p.customer.full_name ? ` ${p.customer.full_name}` : ''},</h2>
     <p>Zasíláme vám ${docLabel} č. <strong>${p.number}</strong> na částku <strong>${fmtPrice(p.total)} Kč</strong>.</p>
+    ${p.bookingNumber ? `<p>Rezervace: <strong>#${p.bookingNumber}</strong></p>` : ''}
     <p>Splatnost: <strong>${fmtDate(p.dueDate)}</strong></p>
     <p>Variabilní symbol: <strong>${p.number}</strong></p>
     ${vc.length > 0 ? `<div style="padding:12px;background:#dcfce7;border-radius:8px;margin:12px 0"><p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#166534">Dárkové poukazy:</p>${vc.map((c: string) => `<p style="margin:2px 0;font-size:16px;font-weight:700;font-family:monospace;color:#166534">${c}</p>`).join('')}${p.voucherValidUntil ? `<p style="margin:6px 0 0;font-size:11px;color:#166534">Platnost: 3 roky (do ${fmtDate(p.voucherValidUntil)}). Kód uplatníte při rezervaci v aplikaci MotoGo24.</p>` : ''}</div>` : ''}

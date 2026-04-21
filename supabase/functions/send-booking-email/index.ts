@@ -204,7 +204,7 @@ async function autoGenerateAttachments(type: string, booking_id: string, supabas
       const cData = await cRes.json().catch(() => ({}))
       if (cData.success && cData.path) {
         const b64 = await downloadAsBase64(supabase, cData.path)
-        if (b64) atts.push({ content: b64, filename: `Najemni-smlouva-${booking_id.slice(0, 8).toUpperCase()}.html` })
+        if (b64) atts.push({ content: b64, filename: `Najemni-smlouva-${booking_id.slice(-8).toUpperCase()}.html` })
       }
     } catch { /* ignore */ }
 
@@ -217,7 +217,7 @@ async function autoGenerateAttachments(type: string, booking_id: string, supabas
       const vData = await vRes.json().catch(() => ({}))
       if (vData.success && vData.path) {
         const b64 = await downloadAsBase64(supabase, vData.path)
-        if (b64) atts.push({ content: b64, filename: `VOP-${booking_id.slice(0, 8).toUpperCase()}.html` })
+        if (b64) atts.push({ content: b64, filename: `VOP-${booking_id.slice(-8).toUpperCase()}.html` })
       }
     } catch { /* ignore */ }
   }
@@ -264,7 +264,7 @@ serve(async (req) => {
 
     const vars: Record<string, string> = {
       customer_name: customer_name || '',
-      booking_number: (booking_id || '').slice(0, 8).toUpperCase(),
+      booking_number: (booking_id || '').slice(-8).toUpperCase(),
       motorcycle: motorcycle || '',
       start_date: fmtDate(start_date),
       end_date: fmtDate(end_date),
@@ -274,7 +274,7 @@ serve(async (req) => {
       voucher_value: voucher_value ? fmtPrice(voucher_value) : '',
       voucher_expiry: fmtDate(voucher_expiry),
       site_url: SITE_URL,
-      order_number: order_number || (booking_id || '').slice(0, 8).toUpperCase(),
+      order_number: order_number || (booking_id || '').slice(-8).toUpperCase(),
       resume_link: resume_link || '',
       resume_qr_url: resume_link ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(resume_link)}` : '',
       discount_code: discount_code || '',

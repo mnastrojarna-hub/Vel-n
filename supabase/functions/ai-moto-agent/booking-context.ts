@@ -134,11 +134,11 @@ export function formatBookingContext(b: Record<string, unknown>, otherBookings: 
   const m = b.motorcycles as Record<string, unknown> | null
   if (!m) {
     return `\n\n## KONTEXT REZERVACE:
-Zákazník má rezervaci #${(b.id as string).substring(0, 8).toUpperCase()} (stav: ${b.status}), ale detaily motorky se nepodařilo načíst. Použij nástroj get_active_booking pro zjištění detailů.`
+Zákazník má rezervaci #${(b.id as string).slice(-8).toUpperCase()} (stav: ${b.status}), ale detaily motorky se nepodařilo načíst. Použij nástroj get_active_booking pro zjištění detailů.`
   }
 
   let ctx = `\n\n## KONTEXT REZERVACE (reálná data z DB — toto je PRAVDA):
-- Rezervace #${(b.id as string).substring(0, 8).toUpperCase()}
+- Rezervace #${(b.id as string).slice(-8).toUpperCase()}
 - Stav: ${b.status}
 - Motorka: ${m.brand || '?'} ${m.model || '?'}
 - SPZ: ${m.spz || '?'}
@@ -164,7 +164,7 @@ DŮLEŽITÉ: Zákazník má AKTIVNÍ motorku "${m.brand} ${m.model}". Veškeré 
     ctx += `\n\nZákazník má také nadcházející rezervace:`
     for (const ob of otherBookings) {
       const om = ob.motorcycles as Record<string, unknown> | null
-      ctx += `\n- #${(ob.id as string).substring(0, 8).toUpperCase()}: ${om ? (om.brand + ' ' + om.model) : '?'} (${ob.status}, ${ob.start_date} – ${ob.end_date})`
+      ctx += `\n- #${(ob.id as string).slice(-8).toUpperCase()}: ${om ? (om.brand + ' ' + om.model) : '?'} (${ob.status}, ${ob.start_date} – ${ob.end_date})`
     }
     ctx += `\nAle tyto rezervace NEJSOU aktivní — odpovídej pouze o aktuálně aktivní motorce.`
   }
@@ -177,7 +177,7 @@ export function formatMultipleBookingsContext(bookings: Array<Record<string, unk
 Zákazník má více rezervací, žádná zatím nemá stav "active". MUSÍŠ se nejdříve ZEPTAT, o kterou motorku/rezervaci jde:\n`
   for (const b of bookings) {
     const m = b.motorcycles as Record<string, unknown> | null
-    ctx += `- #${(b.id as string).substring(0, 8).toUpperCase()}: ${m ? (m.brand + ' ' + m.model) : '?'} (${b.status}, ${b.start_date} – ${b.end_date})\n`
+    ctx += `- #${(b.id as string).slice(-8).toUpperCase()}: ${m ? (m.brand + ' ' + m.model) : '?'} (${b.status}, ${b.start_date} – ${b.end_date})\n`
   }
   ctx += `\nDŮLEŽITÉ: NIKDY nepředpokládej, o kterou motorku jde. Vždy se ZEPTEJ: "Vidím, že máte více rezervací: [seznam]. O kterou motorku se jedná?"`
   return ctx

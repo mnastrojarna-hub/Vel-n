@@ -243,7 +243,7 @@ serve(async (req) => {
 
     const vars: Record<string, string> = {
       customer_name: customer_name || '',
-      booking_number: (booking_id || '').slice(0, 8).toUpperCase(),
+      booking_number: (booking_id || '').slice(-8).toUpperCase(),
       motorcycle: motorcycle || '',
       start_date: start_date || '',
       end_date: end_date || '',

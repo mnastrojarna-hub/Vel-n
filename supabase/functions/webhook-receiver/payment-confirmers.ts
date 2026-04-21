@@ -169,7 +169,7 @@ export async function confirmBookingPayment(
         })
         const contractData = await contractRes.json().catch(() => ({}))
         if (contractData.success && contractData.path) {
-          attachmentFiles.push({ path: contractData.path, filename: `Najemni-smlouva-${bookingId.slice(0, 8).toUpperCase()}.html` })
+          attachmentFiles.push({ path: contractData.path, filename: `Najemni-smlouva-${bookingId.slice(-8).toUpperCase()}.html` })
         }
       } catch (e) { /* ignore */ }
 
@@ -181,7 +181,7 @@ export async function confirmBookingPayment(
         })
         const vopData = await vopRes.json().catch(() => ({}))
         if (vopData.success && vopData.path) {
-          attachmentFiles.push({ path: vopData.path, filename: `VOP-${bookingId.slice(0, 8).toUpperCase()}.html` })
+          attachmentFiles.push({ path: vopData.path, filename: `VOP-${bookingId.slice(-8).toUpperCase()}.html` })
         }
       } catch (e) { /* ignore */ }
 
@@ -477,7 +477,7 @@ export async function confirmShopPayment(
 
       // 6. Send email with ALL attachments
       if (order?.customer_email) {
-        const orderNum = order.order_number || orderId.slice(0, 8).toUpperCase()
+        const orderNum = order.order_number || orderId.slice(-8).toUpperCase()
 
         if (vouchers && vouchers.length > 0) {
           // Voucher order — send voucher_purchased email

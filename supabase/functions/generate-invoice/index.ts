@@ -193,10 +193,11 @@ serve(async (req) => {
 
     const accent = isPaymentReceipt ? '#0891b2' : isProforma ? '#2563eb' : '#1a8a18'
     const title = isPaymentReceipt ? 'DAŇOVÝ DOKLAD K PŘIJATÉ PLATBĚ' : isProforma ? 'ZÁLOHOVÁ FAKTURA' : isShopFinal ? 'KONEČNÁ FAKTURA' : 'FAKTURA'
+    const bookingNumber = booking_id ? booking_id.slice(-8).toUpperCase() : ''
 
     const html = generateInvoiceHtml({
       title, number, accent, issueDate, dueDate, total, company: COMPANY, customer, items,
-      voucher_codes, voucherValidUntil, doorCodes, isProforma, isPaymentReceipt, isShopFinal, dpNumber,
+      voucher_codes, voucherValidUntil, doorCodes, isProforma, isPaymentReceipt, isShopFinal, dpNumber, bookingNumber,
     })
 
     const blob = new Blob([html], { type: 'text/html' })
@@ -208,7 +209,7 @@ serve(async (req) => {
       const emailSubject = `${isPaymentReceipt ? 'Doklad k přijaté platbě' : isProforma ? 'Zálohová faktura' : isShopFinal ? 'Konečná faktura' : 'Faktura'} č. ${number} — MOTO GO 24`
       const emailHtml = generateEmailHtml({
         customer, company: COMPANY, title, number, total, dueDate,
-        voucher_codes, voucherValidUntil, doorCodes, isPaymentReceipt, isProforma, isShopFinal,
+        voucher_codes, voucherValidUntil, doorCodes, isPaymentReceipt, isProforma, isShopFinal, bookingNumber,
       })
       await fetch('https://api.resend.com/emails', {
         method: 'POST',

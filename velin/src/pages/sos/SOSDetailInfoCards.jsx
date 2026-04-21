@@ -78,7 +78,7 @@ export function BookingCard({ booking }) {
         <Card>
           <h4 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Rezervace</h4>
           <div className="grid grid-cols-2 gap-2 text-sm">
-            <InfoRow label="ID" value={booking.id?.slice(0, 8)} mono />
+            <InfoRow label="ID" value={booking.id?.slice(-8).toUpperCase()} mono />
             <InfoRow label="Stav" value={booking.status} />
             <InfoRow label="Od" value={booking.start_date} />
             <InfoRow label="Do" value={booking.end_date} />
