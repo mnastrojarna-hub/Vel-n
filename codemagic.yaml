@@ -1,68 +1,89 @@
 workflows:
   motogo-android-debug:
-    name: MotoGo24 Android Debug
-    max_build_duration: 60
+    name: MotoGo24 Android Build
+    max_build_duration: 30
     instance_type: mac_mini_m2
-    working_directory: Motogo-app-main/motogo-app-flutter
     environment:
       flutter: stable
       java: 17
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: '*'
-          include: true
     scripts:
-      - name: Show environment
-        script: |
-          echo "Working dir: $(pwd)"
-          flutter --version
-      - name: Get Flutter packages
-        script: |
-          flutter pub get
       - name: Accept Android licenses
         script: |
           yes | flutter doctor --android-licenses || true
+      - name: Get Flutter packages
+        script: |
+          cd $CM_BUILD_DIR/Motogo-app-main/motogo-app-flutter
+          flutter pub get
       - name: Build APK (debug)
         script: |
+          cd $CM_BUILD_DIR/Motogo-app-main/motogo-app-flutter
           flutter build apk --debug
-      - name: Upload APK to transfer.sh + QR
+      - name: Generate QR code for APK download
         script: |
-          brew install qrencode || true
-          APK_PATH=$(find build -name "app-debug.apk" | head -1)
-          if [ -z "$APK_PATH" ]; then
-            echo "ERROR: No APK found"; exit 1
+          brew install qrencode
+          APK_PATH=$(find $CM_BUILD_DIR/Motogo-app-main/motogo-app-flutter/build -name "*.apk" | head -1)
+          if [ -n "$APK_PATH" ]; then
+            BUILD_URL="https://codemagic.io/app/${CM_PROJECT_ID}/build/${CM_BUILD_ID}"
+            qrencode -t UTF8 "$BUILD_URL"
+            qrencode -o $CM_BUILD_DIR/qr_download.png -s 10 "$BUILD_URL"
+            echo ""
+            echo "========================================="
+            echo "Scan QR above or open: $BUILD_URL"
+            echo "========================================="
           fi
-          echo "Found APK: $APK_PATH ($(du -h $APK_PATH | cut -f1))"
-
-          # Upload to transfer.sh (URL valid 14 days, no auth, no account)
-          DOWNLOAD_URL=$(curl -sS --upload-file "$APK_PATH" "https://transfer.sh/motogo24-debug.apk" || echo "")
-
-          # Fallback to 0x0.st if transfer.sh fails
-          if [ -z "$DOWNLOAD_URL" ] || ! echo "$DOWNLOAD_URL" | grep -q "^http"; then
-            echo "transfer.sh failed, trying 0x0.st..."
-            DOWNLOAD_URL=$(curl -sS -F "file=@$APK_PATH" "https://0x0.st" || echo "")
-          fi
-
-          if [ -z "$DOWNLOAD_URL" ] || ! echo "$DOWNLOAD_URL" | grep -q "^http"; then
-            echo "WARNING: Public upload failed, falling back to Codemagic build URL (needs login)"
-            DOWNLOAD_URL="https://codemagic.io/app/${CM_PROJECT_ID}/build/${CM_BUILD_ID}"
-          fi
-
-          echo "$DOWNLOAD_URL" > $CM_BUILD_DIR/download_url.txt
-          qrencode -t UTF8 "$DOWNLOAD_URL"
-          qrencode -o $CM_BUILD_DIR/qr_download.png -s 10 "$DOWNLOAD_URL"
-          echo ""
-          echo "========================================="
-          echo "APK download URL (public, no login):"
-          echo "$DOWNLOAD_URL"
-          echo "Scan QR above on your phone."
-          echo "========================================="
     artifacts:
       - Motogo-app-main/motogo-app-flutter/build/**/outputs/**/*.apk
       - qr_download.png
-      - download_url.txt
+    publishing:
+      email:
+        recipients:
+          - mnastrojarna@gmail.com
+        notify:
+          success: true
+          failure: true
+
+  motogo-android-release:
+    name: MotoGo24 Android Release
+    max_build_duration: 30
+    instance_type: mac_mini_m2
+    environment:
+      flutter: stable
+      java: 17
+      groups:
+        - android_signing
+    scripts:
+      - name: Accept Android licenses
+        script: |
+          yes | flutter doctor --android-licenses || true
+      - name: Get Flutter packages
+        script: |
+          cd $CM_BUILD_DIR/Motogo-app-main/motogo-app-flutter
+          flutter pub get
+      - name: Build release APK
+        script: |
+          cd $CM_BUILD_DIR/Motogo-app-main/motogo-app-flutter
+          flutter build apk --release
+      - name: Build release AAB (Play Store)
+        script: |
+          cd $CM_BUILD_DIR/Motogo-app-main/motogo-app-flutter
+          flutter build appbundle --release
+      - name: Generate QR code for APK download
+        script: |
+          brew install qrencode
+          APK_PATH=$(find $CM_BUILD_DIR/Motogo-app-main/motogo-app-flutter/build -name "*.apk" | head -1)
+          if [ -n "$APK_PATH" ]; then
+            BUILD_URL="https://codemagic.io/app/${CM_PROJECT_ID}/build/${CM_BUILD_ID}"
+            qrencode -t UTF8 "$BUILD_URL"
+            qrencode -o $CM_BUILD_DIR/qr_download.png -s 10 "$BUILD_URL"
+            echo ""
+            echo "========================================="
+            echo "Scan QR above or open: $BUILD_URL"
+            echo "========================================="
+          fi
+    artifacts:
+      - Motogo-app-main/motogo-app-flutter/build/**/outputs/**/*.apk
+      - Motogo-app-main/motogo-app-flutter/build/**/outputs/**/*.aab
+      - qr_download.png
     publishing:
       email:
         recipients:
