@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { getDisplayStatus } from '../../components/ui/StatusBadge'
 import { SumRow } from './BookingUIHelpers'
 import { STATUS_LABELS, CANCEL_SOURCE_LABELS, describeModification, fmtDT } from './bookingConstants'
+import { mapyLinkUrl } from '../../lib/mapyCz'
 
 export default function BookingSummary({ booking, sosIncidents, bookingExtras, cancellation, promoUsage, voucherUsed }) {
   const navigate = useNavigate()
@@ -196,8 +197,8 @@ function SumAddressRow({ label, method, address, branchName, lat, lng }) {
   const displayAddr = address || branchName || '—'
   const methodLabel = isDelivery ? (label === 'Přistavení' ? 'Přistavení na adresu' : 'Svoz z adresy') : 'Na pobočce'
   const mapLink = isDelivery && (lat && lng)
-    ? `https://maps.google.com/?q=${lat},${lng}`
-    : isDelivery && address ? `https://maps.google.com/?q=${encodeURIComponent(address)}` : null
+    ? mapyLinkUrl(lat, lng)
+    : isDelivery && address ? `https://mapy.cz/zakladni?q=${encodeURIComponent(address)}` : null
 
   return (
     <div className="py-[3px]" style={{ borderBottom: '1px solid #f1faf7', fontSize: 12 }}>
@@ -227,8 +228,8 @@ function SumLocationShares({ sosIncidents }) {
     const hasGps = inc.latitude && inc.longitude
     const isLocShare = inc.type === 'location_share'
     const link = hasGps
-      ? `https://maps.google.com/?q=${inc.latitude},${inc.longitude}`
-      : inc.address ? `https://maps.google.com/?q=${encodeURIComponent(inc.address)}` : null
+      ? mapyLinkUrl(inc.latitude, inc.longitude)
+      : inc.address ? `https://mapy.cz/zakladni?q=${encodeURIComponent(inc.address)}` : null
 
     return (
       <div key={inc.id} className="py-[3px]" style={{ borderBottom: '1px solid #dbeafe', fontSize: 12 }}>

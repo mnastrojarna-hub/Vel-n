@@ -1,3 +1,5 @@
+import MapyAddressAutocomplete from '../../components/shared/MapyAddressAutocomplete'
+
 export default function BookingDeliverySection({
   pickupMethod, setPickupMethod, pickupAddress, setPickupAddress,
   returnMethod, setReturnMethod, returnAddress, setReturnAddress,
@@ -12,10 +14,16 @@ export default function BookingDeliverySection({
           <select value={pickupMethod} onChange={e => setPickupMethod(e.target.value)} className="w-full text-sm font-bold cursor-pointer" style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid #d4e8e0', background: '#f1faf7', color: '#1a2e22' }}>
             <option value="on_branch">Na pobocce</option><option value="delivery">Pristaveni na adresu</option>
           </select>
-          {pickupMethod === 'delivery' && (<>
-            <input value={pickupAddress} onChange={e => setPickupAddress(e.target.value)} placeholder="Obec, ulice a c.p. / c.o." className="w-full mt-2 text-sm rounded-btn outline-none" style={{ padding: '7px 10px', background: '#fff', border: '1px solid #d4e8e0' }} />
-            <button type="button" onClick={() => setShowMapPicker('pickup')} className="mt-1 text-xs font-bold cursor-pointer" style={{ padding: '4px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 6, color: '#1a2e22' }}>{'\ud83d\uddfa\ufe0f'} Vybrat na mape</button>
-          </>)}
+          {pickupMethod === 'delivery' && (
+            <div className="mt-2">
+              <MapyAddressAutocomplete
+                value={pickupAddress}
+                onChange={setPickupAddress}
+                placeholder="Obec, ulice a c.p. / c.o."
+                openMapPicker={() => setShowMapPicker('pickup')}
+              />
+            </div>
+          )}
           {pickupMethod === 'on_branch' && pickupAddress && <div className="mt-1 text-xs" style={{ color: '#6b7280' }}>Puvodni adresa: {pickupAddress}</div>}
         </div>
         <div>
@@ -23,10 +31,16 @@ export default function BookingDeliverySection({
           <select value={returnMethod} onChange={e => setReturnMethod(e.target.value)} className="w-full text-sm font-bold cursor-pointer" style={{ padding: '7px 10px', borderRadius: 8, border: '1px solid #d4e8e0', background: '#f1faf7', color: '#1a2e22' }}>
             <option value="on_branch">Na pobocce</option><option value="delivery">Svoz z adresy</option>
           </select>
-          {returnMethod === 'delivery' && (<>
-            <input value={returnAddress} onChange={e => setReturnAddress(e.target.value)} placeholder="Obec, ulice a c.p. / c.o." className="w-full mt-2 text-sm rounded-btn outline-none" style={{ padding: '7px 10px', background: '#fff', border: '1px solid #d4e8e0' }} />
-            <button type="button" onClick={() => setShowMapPicker('return')} className="mt-1 text-xs font-bold cursor-pointer" style={{ padding: '4px 10px', background: '#f1faf7', border: '1px solid #d4e8e0', borderRadius: 6, color: '#1a2e22' }}>{'\ud83d\uddfa\ufe0f'} Vybrat na mape</button>
-          </>)}
+          {returnMethod === 'delivery' && (
+            <div className="mt-2">
+              <MapyAddressAutocomplete
+                value={returnAddress}
+                onChange={setReturnAddress}
+                placeholder="Obec, ulice a c.p. / c.o."
+                openMapPicker={() => setShowMapPicker('return')}
+              />
+            </div>
+          )}
           {returnMethod === 'on_branch' && returnAddress && <div className="mt-1 text-xs" style={{ color: '#6b7280' }}>Puvodni adresa: {returnAddress}</div>}
         </div>
       </div>

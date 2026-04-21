@@ -141,31 +141,160 @@ MG._removeCode = function(idx){
   MG._renderAppliedCodes(); MG._rezUpdatePrice();
 };
 
-// ===== WEB MAP PICKER (fullscreen Leaflet overlay) =====
+// ===== MAPY.CZ API (web reservation) =====
+MG.MAPY_CZ_KEY = 'whg1ilj203oYhmsqkBHVtUqpk-tYr0E-HFTx4lGdue0';
+MG.MAPY_CZ_BASE = 'https://api.mapy.cz/v1';
+
+// Reverse geocode pres Mapy.cz -> objekt s adresou
+MG._mapyRgeocode = function(lat, lng){
+  var url = MG.MAPY_CZ_BASE + '/rgeocode?lat=' + lat + '&lon=' + lng + '&lang=cs&apikey=' + MG.MAPY_CZ_KEY;
+  return fetch(url, { headers: { 'X-Mapy-Api-Key': MG.MAPY_CZ_KEY } })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      var it = (data && data.items || [])[0];
+      if(!it) return null;
+      var addr = it.regionalStructure || [];
+      function byT(t){ var x = addr.find(function(a){ return a.type === t; }); return x ? x.name : ''; }
+      var street = byT('regional.street') || byT('regional.address') || '';
+      var hn = (it.name && /\d/.test(it.name)) ? (it.name.match(/\d+[a-zA-Z]?(?:\/\d+[a-zA-Z]?)?/) || [''])[0] : '';
+      var city = byT('regional.municipality') || byT('regional.municipality_part') || byT('regional.region') || '';
+      var zip = it.zip || '';
+      var line = [street, hn].filter(Boolean).join(' ').trim() || it.name || '';
+      var full = [line, [zip, city].filter(Boolean).join(' ').trim()].filter(Boolean).join(', ');
+      return { full: full, street: street, hn: hn, city: city, zip: zip, label: it.label || it.name || '' };
+    })
+    .catch(function(){ return null; });
+};
+
+// Suggest (autocomplete) pres Mapy.cz
+MG._mapySuggest = function(query, limit){
+  if(!query || query.trim().length < 2) return Promise.resolve([]);
+  var url = MG.MAPY_CZ_BASE + '/suggest?query=' + encodeURIComponent(query.trim()) +
+    '&limit=' + (limit || 8) + '&lang=cs&apikey=' + MG.MAPY_CZ_KEY;
+  return fetch(url, { headers: { 'X-Mapy-Api-Key': MG.MAPY_CZ_KEY } })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      return (data && data.items || []).map(function(it){
+        var p = it.position || {};
+        return {
+          label: it.name || '',
+          description: it.location || '',
+          full: [it.name, it.location].filter(Boolean).join(', '),
+          lat: p.lat,
+          lng: p.lon,
+          zip: it.zip || '',
+        };
+      });
+    })
+    .catch(function(){ return []; });
+};
+
+// Pripoji autocomplete k input poli
+MG._attachMapyAutocomplete = function(inputId){
+  var inp = document.getElementById(inputId);
+  if(!inp || inp.dataset.mapyAttached === '1') return;
+  inp.dataset.mapyAttached = '1';
+  inp.autocomplete = 'off';
+
+  var wrap = document.createElement('div');
+  wrap.style.cssText = 'position:relative;width:100%';
+  inp.parentNode.insertBefore(wrap, inp);
+  wrap.appendChild(inp);
+  inp.style.width = '100%';
+
+  var list = document.createElement('div');
+  list.style.cssText = 'position:absolute;top:100%;left:0;right:0;z-index:10000;background:#fff;border:1px solid #e0e0e0;border-radius:6px;margin-top:4px;max-height:240px;overflow-y:auto;box-shadow:0 4px 14px rgba(0,0,0,.12);display:none';
+  wrap.appendChild(list);
+
+  var timer = null, items = [], active = -1;
+
+  function render(){
+    if(!items.length){ list.style.display = 'none'; list.innerHTML = ''; return; }
+    list.innerHTML = items.map(function(it, i){
+      var bg = i === active ? '#f1faf7' : '#fff';
+      var bt = i === 0 ? 'none' : '1px solid #eef5f1';
+      return '<div data-i="'+i+'" style="padding:7px 10px;cursor:pointer;background:'+bg+';border-top:'+bt+';font-size:13px">' +
+        '<div style="font-weight:700;color:#0f1a14">'+ (it.label || '') +'</div>' +
+        (it.description ? '<div style="font-size:11px;color:#6b7280">'+ it.description +'</div>' : '') +
+        '</div>';
+    }).join('');
+    list.style.display = 'block';
+    Array.from(list.children).forEach(function(el){
+      el.addEventListener('mousedown', function(e){
+        e.preventDefault();
+        var i = parseInt(el.getAttribute('data-i'), 10);
+        pick(items[i]);
+      });
+    });
+  }
+
+  function pick(it){
+    inp.value = it.full || it.label || '';
+    items = []; active = -1; render();
+    inp.dispatchEvent(new Event('input', { bubbles: true }));
+    inp.dispatchEvent(new Event('change', { bubbles: true }));
+    // Show confirm checkbox
+    var t = inputId === 'rez-delivery-address' ? 'delivery' : 'return';
+    var confirmEl = document.getElementById('rez-'+t+'-confirm');
+    if(confirmEl) confirmEl.style.display = 'block';
+  }
+
+  inp.addEventListener('input', function(){
+    var q = inp.value;
+    clearTimeout(timer);
+    if(!q || q.length < 2){ items = []; render(); return; }
+    timer = setTimeout(function(){
+      MG._mapySuggest(q, 8).then(function(arr){ items = arr; active = -1; render(); });
+    }, 220);
+  });
+  inp.addEventListener('keydown', function(e){
+    if(!items.length) return;
+    if(e.key === 'ArrowDown'){ e.preventDefault(); active = Math.min(items.length - 1, active + 1); render(); }
+    else if(e.key === 'ArrowUp'){ e.preventDefault(); active = Math.max(0, active - 1); render(); }
+    else if(e.key === 'Enter' && active >= 0){ e.preventDefault(); pick(items[active]); }
+    else if(e.key === 'Escape'){ items = []; render(); }
+  });
+  document.addEventListener('mousedown', function(e){
+    if(!wrap.contains(e.target)){ items = []; render(); }
+  });
+};
+
+// Automaticky pripoj autocomplete na obe pole jakmile jsou v DOM
+MG._initMapyAutocomplete = function(){
+  ['rez-delivery-address','rez-return-address'].forEach(function(id){
+    MG._attachMapyAutocomplete(id);
+  });
+};
+document.addEventListener('DOMContentLoaded', function(){ setTimeout(MG._initMapyAutocomplete, 300); });
+// A i pri dynamickem vytvareni formulare
+if(window.MutationObserver){
+  var mo = new MutationObserver(function(){ MG._initMapyAutocomplete(); });
+  try { mo.observe(document.body, { childList: true, subtree: true }); } catch(e){}
+}
+
+// ===== WEB MAP PICKER (fullscreen Leaflet + Mapy.cz tiles) =====
 MG._webMapPickerType = null;
 MG._webMapCenter = null;
 
 MG._openWebMapPicker = function(type){
   MG._webMapPickerType = type;
-  // Remove old overlay if any
   var old = document.getElementById('web-map-picker-overlay');
   if(old) old.remove();
-  // Create overlay
   var overlay = document.createElement('div');
   overlay.id = 'web-map-picker-overlay';
   overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;background:#fff;';
   overlay.innerHTML =
     '<div style="position:absolute;top:0;left:0;right:0;z-index:100001;display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:rgba(255,255,255,.95);box-shadow:0 2px 8px rgba(0,0,0,.1);">' +
       '<button onclick="MG._closeWebMapPicker()" style="background:none;border:none;font-size:22px;cursor:pointer;padding:4px 8px;">✕</button>' +
-      '<span style="font-size:15px;font-weight:700;">Vyberte místo na mapě</span>' +
+      '<span style="font-size:15px;font-weight:700;">Vyberte místo na mapě (Mapy.cz)</span>' +
       '<button onclick="MG._confirmWebMapPicker()" style="background:#1a8c1a;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:14px;font-weight:700;cursor:pointer;">Potvrdit</button>' +
     '</div>' +
     '<div id="web-map-container" style="width:100%;height:100%;"></div>' +
     '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:100000;pointer-events:none;font-size:36px;text-shadow:0 2px 6px rgba(0,0,0,.3);">📍</div>' +
-    '<div id="web-map-addr-preview" style="position:absolute;bottom:30px;left:20px;right:20px;z-index:100001;background:rgba(255,255,255,.95);border-radius:10px;padding:12px 16px;font-size:14px;font-weight:600;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.1);display:none;"></div>';
+    '<a href="https://mapy.cz/" target="_blank" style="position:absolute;left:12px;bottom:8px;z-index:100001"><img src="https://api.mapy.cz/img/api/logo.svg" style="width:90px" alt="Mapy.cz"/></a>' +
+    '<div id="web-map-addr-preview" style="position:absolute;bottom:40px;left:20px;right:20px;z-index:100001;background:rgba(255,255,255,.95);border-radius:10px;padding:12px 16px;font-size:14px;font-weight:600;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.1);display:none;"></div>';
   document.body.appendChild(overlay);
   document.body.style.overflow = 'hidden';
-  // Load Leaflet if not already loaded
   if(!window.L){
     var css = document.createElement('link'); css.rel='stylesheet'; css.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
     document.head.appendChild(css);
@@ -180,29 +309,24 @@ MG._openWebMapPicker = function(type){
 MG._initWebMap = function(){
   var container = document.getElementById('web-map-container');
   if(!container || !window.L) return;
-  var lat = 49.4147, lng = 15.2953, zoom = 10;
+  var lat = 49.8175, lng = 15.473, zoom = 7;
   MG._webMapCenter = {lat:lat, lng:lng};
   var map = L.map(container, {zoomControl:true}).setView([lat, lng], zoom);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {maxZoom:19, subdomains:'abcd'}).addTo(map);
+  var tileUrl = MG.MAPY_CZ_BASE + '/maptiles/basic/256/{z}/{x}/{y}?apikey=' + MG.MAPY_CZ_KEY;
+  L.tileLayer(tileUrl, { minZoom: 0, maxZoom: 19, attribution: '<a href="https://api.mapy.cz/copyright" target="_blank">Mapy.cz &amp; Seznam.cz a.s.</a>' }).addTo(map);
   MG._webMap = map;
   map.on('moveend', function(){
     var c = map.getCenter();
     MG._webMapCenter = {lat:c.lat, lng:c.lng};
-    // Reverse geocode for preview
     MG._reverseGeocodePreview(c.lat, c.lng);
   });
 };
 
 MG._reverseGeocodePreview = function(lat, lng){
   var el = document.getElementById('web-map-addr-preview');
-  fetch('https://nominatim.openstreetmap.org/reverse?lat='+lat+'&lon='+lng+'&format=json&addressdetails=1&accept-language=cs')
-    .then(function(r){return r.json();})
-    .then(function(data){
-      if(data && data.display_name && el){
-        el.textContent = data.display_name.split(',').slice(0,3).join(',');
-        el.style.display = 'block';
-      }
-    }).catch(function(){});
+  MG._mapyRgeocode(lat, lng).then(function(r){
+    if(r && r.full && el){ el.textContent = r.full; el.style.display = 'block'; }
+  });
 };
 
 MG._closeWebMapPicker = function(){
@@ -217,19 +341,12 @@ MG._confirmWebMapPicker = function(){
   var type = MG._webMapPickerType;
   MG._closeWebMapPicker();
   if(!center) return;
-  // Reverse geocode and fill address field
-  fetch('https://nominatim.openstreetmap.org/reverse?lat='+center.lat+'&lon='+center.lng+'&format=json&addressdetails=1&accept-language=cs')
-    .then(function(r){return r.json();})
-    .then(function(data){
-      if(!data || !data.address) return;
-      var addr = data.address;
-      var street = (addr.road||'') + (addr.house_number ? ' ' + addr.house_number : '');
-      var city = addr.city||addr.town||addr.village||addr.municipality||'';
-      var inputId = type === 'delivery' ? 'rez-delivery-address' : 'rez-return-address';
-      var inp = document.getElementById(inputId);
-      if(inp) inp.value = [street, city].filter(Boolean).join(', ');
-      // Show confirm checkbox
-      var confirmEl = document.getElementById('rez-'+type+'-confirm');
-      if(confirmEl) confirmEl.style.display = 'block';
-    }).catch(function(){});
+  MG._mapyRgeocode(center.lat, center.lng).then(function(r){
+    if(!r) return;
+    var inputId = type === 'delivery' ? 'rez-delivery-address' : 'rez-return-address';
+    var inp = document.getElementById(inputId);
+    if(inp){ inp.value = r.full; inp.dispatchEvent(new Event('input', { bubbles: true })); }
+    var confirmEl = document.getElementById('rez-'+type+'-confirm');
+    if(confirmEl) confirmEl.style.display = 'block';
+  });
 };

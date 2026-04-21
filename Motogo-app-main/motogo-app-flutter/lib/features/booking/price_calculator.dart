@@ -10,7 +10,7 @@ import 'booking_models.dart';
 const branchLat = 49.4147;
 const branchLng = 15.2953;
 
-const _mapyKey = 'Ag9d2QJD0i8_fA07r6GDDaZ4qV9aZDGMhWn_HhQ_rFs';
+const _mapyKey = 'whg1ilj203oYhmsqkBHVtUqpk-tYr0E-HFTx4lGdue0';
 const _mapyHeaders = <String, String>{
   'Accept': 'application/json',
   'X-Mapy-Api-Key': _mapyKey,

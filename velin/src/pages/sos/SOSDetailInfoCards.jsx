@@ -1,6 +1,8 @@
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import SOSTimeline from './SOSTimeline'
+import MapyAddressAutocomplete from '../../components/shared/MapyAddressAutocomplete'
+import { MAPY_CZ_API_KEY, mapyLinkUrl, mapyNavigateUrl } from '../../lib/mapyCz'
 import { DAMAGE_LABELS, InfoRow, TYPE_LABELS, TYPE_ICONS } from './SOSDetailConstants'
 
 export function DamageCard({ incident, isAccident }) {
@@ -31,9 +33,12 @@ export function NearestServiceCard({ incident, saveField }) {
             <input type="text" placeholder="Název servisu" defaultValue={incident.nearest_service_name || ''}
               onBlur={e => saveField('nearest_service_name', e.target.value)}
               className="rounded-btn text-sm outline-none" style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
-            <input type="text" placeholder="Adresa servisu" defaultValue={incident.nearest_service_address || ''}
-              onBlur={e => saveField('nearest_service_address', e.target.value)}
-              className="rounded-btn text-sm outline-none" style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
+            <MapyAddressAutocomplete
+              value={incident.nearest_service_address || ''}
+              onChange={v => { incident.nearest_service_address = v }}
+              onSelect={sel => saveField('nearest_service_address', sel.full)}
+              placeholder="Adresa servisu (Mapy.cz)"
+            />
             <input type="text" placeholder="Telefon servisu" defaultValue={incident.nearest_service_phone || ''}
               onBlur={e => saveField('nearest_service_phone', e.target.value)}
               className="rounded-btn text-sm outline-none" style={{ padding: '6px 10px', background: '#f1faf7', border: '1px solid #d4e8e0' }} />
@@ -90,6 +95,18 @@ export function BookingCard({ booking }) {
 
 export function MapCard({ incident }) {
   if (!incident.latitude || !incident.longitude) return null
+  const tileUrl = `https://api.mapy.cz/v1/maptiles/basic/256/{z}/{x}/{y}?apikey=${MAPY_CZ_API_KEY}`
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>html,body{margin:0;padding:0;height:100%;width:100%}#m{height:100%;width:100%}.lg-credit{position:absolute;left:8px;bottom:4px;z-index:500}.lg-credit img{width:70px}</style></head>
+<body><div id="m"></div>
+<a class="lg-credit" href="https://mapy.cz/" target="_blank"><img src="https://api.mapy.cz/img/api/logo.svg" alt="Mapy.cz"/></a>
+<script>
+var map=L.map("m",{zoomControl:true}).setView([${incident.latitude}, ${incident.longitude}], 15);
+L.tileLayer(${JSON.stringify(tileUrl)},{minZoom:0,maxZoom:19,attribution:'<a href="https://api.mapy.cz/copyright" target="_blank">Mapy.cz &amp; Seznam.cz a.s.</a>'}).addTo(map);
+L.marker([${incident.latitude}, ${incident.longitude}]).addTo(map);
+</script></body></html>`
   return (
         <Card>
           <h4 className="text-sm font-extrabold uppercase tracking-wide mb-3" style={{ color: '#1a2e22' }}>Poloha zákazníka</h4>
@@ -97,25 +114,18 @@ export function MapCard({ incident }) {
             <div className="text-sm font-bold mb-2" style={{ color: '#0f1a14' }}>{incident.address}</div>
           )}
           <div className="rounded-lg overflow-hidden" style={{ height: 200 }}>
-            <iframe title="Poloha" width="100%" height="200" frameBorder="0" style={{ border: 0 }}
-              src={`https://www.openstreetmap.org/export/embed.html?bbox=${incident.longitude - 0.01},${incident.latitude - 0.01},${incident.longitude + 0.01},${incident.latitude + 0.01}&layer=mapnik&marker=${incident.latitude},${incident.longitude}`}
-            />
+            <iframe title="Poloha" width="100%" height="200" frameBorder="0" style={{ border: 0 }} srcDoc={html} />
           </div>
-          <div className="flex items-center gap-2 mt-2">
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
             <span className="text-sm font-mono" style={{ color: '#1a2e22' }}>
               {Number(incident.latitude).toFixed(6)}, {Number(incident.longitude).toFixed(6)}
             </span>
-            <a href={`https://www.google.com/maps?q=${incident.latitude},${incident.longitude}`}
-              target="_blank" rel="noopener noreferrer"
-              className="text-sm font-bold underline" style={{ color: '#1a8a18' }}>
-              Google Maps
-            </a>
-            <a href={`https://mapy.cz/zakladni?q=${incident.latitude},${incident.longitude}`}
+            <a href={mapyLinkUrl(incident.latitude, incident.longitude)}
               target="_blank" rel="noopener noreferrer"
               className="text-sm font-bold underline" style={{ color: '#2563eb' }}>
               Mapy.cz
             </a>
-            <a href={`https://www.google.com/maps/dir/?api=1&destination=${incident.latitude},${incident.longitude}`}
+            <a href={mapyNavigateUrl(incident.latitude, incident.longitude)}
               target="_blank" rel="noopener noreferrer"
               className="text-sm font-bold underline" style={{ color: '#b45309' }}>
               Navigovat
