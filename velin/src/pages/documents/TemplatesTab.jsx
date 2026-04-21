@@ -273,7 +273,7 @@ function RegenerateModal({ template, onClose }) {
         start_date: booking.start_date ? new Date(booking.start_date).toLocaleDateString('cs-CZ') : '',
         end_date: booking.end_date ? new Date(booking.end_date).toLocaleDateString('cs-CZ') : '',
         total_price: (booking.total_price || 0).toLocaleString('cs-CZ') + ' Kč',
-        booking_number: booking.id?.slice(0, 8) || '',
+        booking_number: booking.id?.slice(-8).toUpperCase() || '',
         contract_date: new Date().toLocaleDateString('cs-CZ'),
         company_name: 'MotoGo24 s.r.o.',
         company_ico: '12345678',

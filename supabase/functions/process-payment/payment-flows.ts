@@ -109,7 +109,7 @@ export async function handleWebBookingCheckout(
       price_data: {
         currency,
         unit_amount: amount,
-        product_data: { name: PRODUCT_NAMES.booking, description: `Rezervace #${body.booking_id!.slice(0,8)}` }
+        product_data: { name: PRODUCT_NAMES.booking, description: `Rezervace #${body.booking_id!.slice(-8).toUpperCase()}` }
       },
       quantity: 1
     }],

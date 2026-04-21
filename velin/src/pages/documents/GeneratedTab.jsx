@@ -203,7 +203,7 @@ export default function GeneratedTab() {
                     </TD>
                     <TD>{d.profiles?.full_name || '—'}</TD>
                     <TD>{d.bookings?.motorcycles?.model || '—'}</TD>
-                    <TD mono>{d.bookings?.id ? d.bookings.id.slice(0, 8) : '—'}</TD>
+                    <TD mono>{d.bookings?.id ? d.bookings.id.slice(-8).toUpperCase() : '—'}</TD>
                     <TD>{d.created_at ? new Date(d.created_at).toLocaleDateString('cs-CZ') : '—'}</TD>
                     <TD>
                       <div className="flex gap-1">
@@ -298,7 +298,7 @@ function GenerateDocModal({ onClose, onGenerated }) {
         start_date: booking.start_date ? new Date(booking.start_date).toLocaleDateString('cs-CZ') : '',
         end_date: booking.end_date ? new Date(booking.end_date).toLocaleDateString('cs-CZ') : '',
         total_price: (booking.total_price || 0).toLocaleString('cs-CZ') + ' Kč',
-        booking_number: booking.id?.slice(0, 8).toUpperCase() || '',
+        booking_number: booking.id?.slice(-8).toUpperCase() || '',
         contract_date: new Date().toLocaleDateString('cs-CZ'),
         company_name: 'Bc. Petra Semorádová',
         company_ico: '21874263',
