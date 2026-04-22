@@ -6,13 +6,10 @@ import '../../core/theme.dart';
 import '../../core/router.dart';
 import '../../core/i18n/i18n_provider.dart';
 import '../auth/widgets/toast_helper.dart';
-import '../booking/booking_provider.dart';
-import '../booking/booking_models.dart';
 import 'shop_models.dart';
 import 'shop_provider.dart';
 
-/// Gift voucher screen — purchase + redeem.
-/// Mirrors s-voucher from templates-shop.js + checkout redemption.
+/// Gift voucher screen — purchase only.
 class VoucherScreen extends ConsumerStatefulWidget {
   const VoucherScreen({super.key});
 
@@ -20,77 +17,18 @@ class VoucherScreen extends ConsumerStatefulWidget {
   ConsumerState<VoucherScreen> createState() => _VoucherState();
 }
 
-class _VoucherState extends ConsumerState<VoucherScreen>
-    with SingleTickerProviderStateMixin {
-  // Purchase state
+class _VoucherState extends ConsumerState<VoucherScreen> {
   int _amount = 1000;
   bool _printed = false;
   final _customCtrl = TextEditingController();
   bool _customMode = false;
 
-  // Redeem state
-  final _redeemCtrl = TextEditingController();
-  bool _redeemLoading = false;
-  String? _redeemMsg;
-  bool? _redeemOk;
-  final List<AppliedDiscount> _redeemedCodes = [];
-
-  // Tab
-  late TabController _tabCtrl;
-
   double get _total => _amount + (_printed ? printedVoucherShipping : 0);
-
-  @override
-  void initState() {
-    super.initState();
-    _tabCtrl = TabController(length: 2, vsync: this);
-  }
 
   @override
   void dispose() {
     _customCtrl.dispose();
-    _redeemCtrl.dispose();
-    _tabCtrl.dispose();
     super.dispose();
-  }
-
-  /// Validate and apply voucher code for redemption.
-  Future<void> _redeemVoucher() async {
-    final code = _redeemCtrl.text.trim();
-    if (code.isEmpty) return;
-
-    // Already applied?
-    if (_redeemedCodes.any((d) => d.code == code.toUpperCase())) {
-      setState(() {
-        _redeemMsg = t(context).tr('promoAlreadyUsed').replaceAll('{code}', code.toUpperCase());
-        _redeemOk = false;
-      });
-      return;
-    }
-
-    setState(() { _redeemLoading = true; _redeemMsg = null; });
-
-    final result = await validateAndApplyCode(code);
-    if (!mounted) return;
-    setState(() => _redeemLoading = false);
-
-    if (result.success && result.discount != null) {
-      _redeemCtrl.clear();
-      setState(() {
-        _redeemedCodes.add(result.discount!);
-        _redeemMsg = result.message(t(context).tr);
-        _redeemOk = true;
-      });
-    } else {
-      setState(() { _redeemMsg = result.message(t(context).tr); _redeemOk = false; });
-    }
-  }
-
-  void _removeRedeemed(String code) {
-    setState(() {
-      _redeemedCodes.removeWhere((d) => d.code == code);
-      _redeemMsg = null;
-    });
   }
 
   @override
@@ -111,26 +49,8 @@ class _VoucherState extends ConsumerState<VoucherScreen>
         ),
         title: Text('🎁 ${tr.tr('giftVoucher')}'),
         backgroundColor: MotoGoColors.dark,
-        bottom: TabBar(
-          controller: _tabCtrl,
-          indicatorColor: MotoGoColors.green,
-          indicatorWeight: 3,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white54,
-          labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
-          tabs: [
-            Tab(text: tr.tr('buyVoucherBtn')),
-            Tab(text: tr.tr('redeemVoucher')),
-          ],
-        ),
       ),
-      body: TabBarView(
-        controller: _tabCtrl,
-        children: [
-          _buildPurchaseTab(tr),
-          _buildRedeemTab(tr),
-        ],
-      ),
+      body: _buildPurchaseTab(tr),
     );
   }
 
@@ -234,137 +154,6 @@ class _VoucherState extends ConsumerState<VoucherScreen>
     );
   }
 
-  /// Redeem tab — enter existing voucher code.
-  Widget _buildRedeemTab(AppTranslations tr) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: 8),
-          // Instruction
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(MotoGoTheme.radiusLg),
-              boxShadow: [BoxShadow(color: MotoGoColors.black.withValues(alpha: 0.1), blurRadius: 20)],
-            ),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('🎁 ${tr.tr('redeemVoucher')}',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
-              const SizedBox(height: 8),
-              Text(tr.tr('redeemVoucherDesc'),
-                  style: const TextStyle(fontSize: 13, color: MotoGoColors.g400)),
-              const SizedBox(height: 16),
-
-              // Code input
-              Row(children: [
-                Expanded(
-                  child: TextField(
-                    controller: _redeemCtrl,
-                    textCapitalization: TextCapitalization.characters,
-                    onSubmitted: (_) => _redeemVoucher(),
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: MotoGoColors.black, letterSpacing: 2),
-                    decoration: InputDecoration(
-                      hintText: tr.tr('enterCodeHint'),
-                      hintStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: MotoGoColors.g400, letterSpacing: 0),
-                      prefixIcon: const Icon(Icons.confirmation_number_outlined, color: MotoGoColors.g400),
-                      filled: false,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: MotoGoColors.g200, width: 2)),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: MotoGoColors.green, width: 2)),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                SizedBox(
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: _redeemLoading ? null : _redeemVoucher,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: MotoGoColors.dark,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(90, 52),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: _redeemLoading
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : Text(tr.tr('apply').toUpperCase(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
-                  ),
-                ),
-              ]),
-
-              // Result message
-              if (_redeemMsg != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 10),
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: _redeemOk == true ? MotoGoColors.greenPale : MotoGoColors.red.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(children: [
-                      Text(_redeemOk == true ? '✓' : '✗',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900,
-                              color: _redeemOk == true ? MotoGoColors.greenDarker : MotoGoColors.red)),
-                      const SizedBox(width: 8),
-                      Expanded(child: Text(_redeemMsg!,
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-                              color: _redeemOk == true ? MotoGoColors.greenDarker : MotoGoColors.red))),
-                    ]),
-                  ),
-                ),
-            ]),
-          ),
-
-          // Applied vouchers list
-          if (_redeemedCodes.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            Text(tr.tr('appliedVouchers').toUpperCase(),
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: MotoGoColors.g400, letterSpacing: 0.5)),
-            const SizedBox(height: 8),
-            for (final d in _redeemedCodes)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: MotoGoColors.greenPale,
-                    borderRadius: BorderRadius.circular(MotoGoTheme.radiusSm),
-                    border: Border.all(color: MotoGoColors.green.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(children: [
-                    const Text('🎁', style: TextStyle(fontSize: 18)),
-                    const SizedBox(width: 10),
-                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(d.code, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: MotoGoColors.greenDarker, letterSpacing: 1)),
-                      Text('−${d.value.toStringAsFixed(0)} Kč',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: MotoGoColors.greenDarker)),
-                    ])),
-                    GestureDetector(
-                      onTap: () => _removeRedeemed(d.code),
-                      child: const Text('✕', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: MotoGoColors.red)),
-                    ),
-                  ]),
-                ),
-              ),
-          ],
-
-          const SizedBox(height: 24),
-          // How it works
-          _buildRedeemInfoCard(tr),
-        ],
-      ),
-    );
-  }
-
   Widget _buildVoucherCard(AppTranslations tr) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(MotoGoTheme.radiusLg),
@@ -394,26 +183,7 @@ class _VoucherState extends ConsumerState<VoucherScreen>
         _infoRow('✅', tr.tr('voucherInfo1')),
         _infoRow('🗓️', tr.tr('voucherInfo2')),
         _infoRow('📧', tr.tr('voucherInfo3')),
-        _infoRow('🏍️', tr.tr('voucherInfo4')),
         _infoRow('💚', tr.tr('voucherInfo5')),
-      ]),
-    );
-  }
-
-  Widget _buildRedeemInfoCard(AppTranslations tr) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(MotoGoTheme.radiusLg),
-        boxShadow: [BoxShadow(color: MotoGoColors.black.withValues(alpha: 0.06), blurRadius: 16)],
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(tr.tr('howToRedeem'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: MotoGoColors.black)),
-        const SizedBox(height: 8),
-        _infoRow('1️⃣', tr.tr('redeemStep1')),
-        _infoRow('2️⃣', tr.tr('redeemStep2')),
-        _infoRow('3️⃣', tr.tr('redeemStep3')),
       ]),
     );
   }
