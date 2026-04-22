@@ -211,30 +211,22 @@ class _MotoGoAppState extends ConsumerState<MotoGoApp>
     }
   }
 
-  /// Global listener: when the session expires or token refresh fails,
-  /// force sign-out so the router redirects to login.
+  /// Global listener: only force sign-out when Supabase itself reports that
+  /// the refresh flow has failed. An expired access token on its own is NOT a
+  /// reason to log the user out — the Supabase SDK refreshes it transparently
+  /// via the refresh token (which lives far longer than the access token).
   void _listenAuthExpiration() {
     _authSub = MotoGoSupabase.client.auth.onAuthStateChange.listen((data) {
       final event = data.event;
       final session = data.session;
 
-      // Session gone (expired / revoked) → ensure clean sign-out
       if (event == AuthChangeEvent.signedOut) return; // already handled
 
-      // If we get a token-refreshed event but the session is null or expired,
-      // force sign-out.
-      if (session == null && event == AuthChangeEvent.tokenRefreshed) {
+      // Token refresh attempt produced no session → refresh token is invalid
+      // or revoked. This is the one case where we must force sign-out so the
+      // router can redirect to login.
+      if (event == AuthChangeEvent.tokenRefreshed && session == null) {
         MotoGoSupabase.client.auth.signOut();
-      }
-
-      // Check if the current session's access token is already expired.
-      if (session != null && session.expiresAt != null) {
-        final expiresAt = DateTime.fromMillisecondsSinceEpoch(
-          session.expiresAt! * 1000,
-        );
-        if (DateTime.now().isAfter(expiresAt)) {
-          MotoGoSupabase.client.auth.signOut();
-        }
       }
     });
   }

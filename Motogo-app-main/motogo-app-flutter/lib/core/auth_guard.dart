@@ -3,6 +3,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'supabase_client.dart';
 
 /// Patterns in error messages that indicate an expired / invalid token.
+///
+/// IMPORTANT: keep this list tight — anything matched here triggers a forced
+/// sign-out. Transport-level errors from Supabase Realtime (ChannelError,
+/// RealtimeSubscribeException) are NOT auth errors and must not be listed
+/// here, otherwise a transient network blip right after login will kick the
+/// user back to the login screen.
 const _authErrorPatterns = [
   'jwt expired',
   'jwt_expired',
@@ -14,10 +20,6 @@ const _authErrorPatterns = [
   'refresh_token_not_found',
   'invalid refresh token',
   'not_authenticated',
-  'unauthorized',
-  '401',
-  'channelerror',
-  'realtimesubscribeexception',
 ];
 
 /// Returns `true` when [error] looks like an authentication / token error.

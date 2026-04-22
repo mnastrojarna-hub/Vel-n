@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
 
 import '../../core/auth_guard.dart';
 import '../../core/supabase_client.dart';
@@ -58,7 +59,7 @@ class StripeService {
       ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 401) {
-        await handleAuthError(Exception('401'));
+        await handleAuthError(AuthException('401 from process-payment'));
         return PaymentResult.error(
           'Vaše přihlášení vypršelo. Pro dokončení platby '
           'se prosím znovu přihlaste.',

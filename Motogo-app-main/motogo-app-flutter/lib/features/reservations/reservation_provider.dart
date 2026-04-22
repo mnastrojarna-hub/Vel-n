@@ -22,7 +22,10 @@ final reservationsProvider =
   final initial = await _fetchBookings(user.id);
   yield initial;
 
-  // Realtime subscription — bookings table changes for this user
+  // Realtime subscription — bookings table changes for this user.
+  // Transport errors (lost connection, channel restart) must NOT bubble up
+  // as an AsyncError — the initial fetch above already produced valid data
+  // and we don't want a network blip to wipe the UI or trigger a logout.
   try {
     await for (final _ in MotoGoSupabase.client
         .from('bookings')
@@ -32,7 +35,9 @@ final reservationsProvider =
     }
   } catch (e) {
     if (await handleAuthError(e)) return;
-    rethrow;
+    // Non-auth failure (ChannelError, network, etc.) — stop live updates
+    // silently; user keeps seeing the last fetched list.
+    return;
   }
 });
 
@@ -73,7 +78,8 @@ final doorCodesProvider =
   // Initial fetch
   yield await _fetchDoorCodes(bookingId);
 
-  // Realtime subscription
+  // Realtime subscription — same resilience as reservationsProvider: swallow
+  // transport errors so a flaky channel doesn't blow away the door codes UI.
   try {
     await for (final _ in MotoGoSupabase.client
         .from('branch_door_codes')
@@ -83,7 +89,7 @@ final doorCodesProvider =
     }
   } catch (e) {
     if (await handleAuthError(e)) return;
-    rethrow;
+    return;
   }
 });
 
