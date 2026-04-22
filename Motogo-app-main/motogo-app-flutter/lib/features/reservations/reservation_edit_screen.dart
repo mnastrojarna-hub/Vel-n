@@ -44,7 +44,7 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
   String _pickupMethod = 'store';
   String _returnMethod = 'store';
   String _pickupTime = '09:00';
-  String _returnTime = '09:00';
+  String _returnTime = '19:00';
   double _pickupDelivFee = 0;
   double _returnDelivFee = 0;
   final Set<String> _selectedExtras = {};
@@ -77,6 +77,8 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         _newEnd = res.endDate;
         _pickupMethod = res.pickupMethod;
         _returnMethod = res.returnMethod;
+        _pickupTime = res.pickupTime ?? '09:00';
+        _returnTime = res.returnTime ?? '19:00';
         _helmetSize = res.helmetSize;
         _jacketSize = res.jacketSize;
         _pantsSize = res.pantsSize;
@@ -115,6 +117,8 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
       selectedExtras: _selectedExtras,
       pickupMethod: _pickupMethod,
       returnMethod: _returnMethod,
+      pickupTime: _pickupTime,
+      returnTime: _returnTime,
       helmetSize: _helmetSize, jacketSize: _jacketSize, pantsSize: _pantsSize,
       bootsSize: _bootsSize, glovesSize: _glovesSize,
       passengerHelmetSize: _passengerHelmetSize,
@@ -227,6 +231,8 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         'end_date': _newEnd!.toIso8601String().substring(0, 10),
         'pickup_method': _pickupMethod,
         'return_method': _returnMethod,
+        'pickup_time': _pickupTime,
+        'return_time': _returnTime,
       };
       if (!_isActive) changes['start_date'] = _newStart!.toIso8601String().substring(0, 10);
       if (_newMotoId != null && _newMotoId != _booking!.motoId) changes['moto_id'] = _newMotoId;
