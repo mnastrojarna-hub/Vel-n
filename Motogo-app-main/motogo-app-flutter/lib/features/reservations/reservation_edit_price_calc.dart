@@ -15,6 +15,8 @@ class EditPriceCalc {
   final Set<String> selectedExtras;
   final String pickupMethod;
   final String returnMethod;
+  final String pickupTime;
+  final String returnTime;
   final String? helmetSize, jacketSize, pantsSize, bootsSize, glovesSize;
   final String? passengerHelmetSize, passengerJacketSize, passengerPantsSize;
 
@@ -30,6 +32,8 @@ class EditPriceCalc {
     required this.selectedExtras,
     required this.pickupMethod,
     required this.returnMethod,
+    required this.pickupTime,
+    required this.returnTime,
     this.helmetSize, this.jacketSize, this.pantsSize,
     this.bootsSize, this.glovesSize,
     this.passengerHelmetSize, this.passengerJacketSize, this.passengerPantsSize,
@@ -94,6 +98,8 @@ class EditPriceCalc {
       (newMotoId != null && newMotoId != booking.motoId) ||
       pickupMethod != booking.pickupMethod ||
       returnMethod != booking.returnMethod ||
+      pickupTime != (booking.pickupTime ?? '09:00') ||
+      returnTime != (booking.returnTime ?? '19:00') ||
       extrasTotal > 0 ||
       pickupDelivFee > 0 ||
       returnDelivFee > 0 ||

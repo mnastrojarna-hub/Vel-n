@@ -11,7 +11,7 @@
 - last_login_at, created_at, updated_at
 
 ### bookings
-- id, user_id, moto_id, start_date, end_date, pickup_time
+- id, user_id, moto_id, start_date, end_date, pickup_time, **return_time** (TEXT DEFAULT NULL — čas vrácení motorky HH:MM, default UI 19:00)
 - status (`booking_status` ENUM)
 - payment_status (`payment_status` ENUM)
 - payment_method, total_price, delivery_fee, deposit

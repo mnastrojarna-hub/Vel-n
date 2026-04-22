@@ -21,6 +21,7 @@ class Reservation {
   final DateTime startDate;
   final DateTime endDate;
   final String? pickupTime;
+  final String? returnTime;
   final String pickupMethod;
   final String? pickupAddress;
   final String returnMethod;
@@ -82,6 +83,7 @@ class Reservation {
     required this.startDate,
     required this.endDate,
     this.pickupTime,
+    this.returnTime,
     this.pickupMethod = 'branch',
     this.pickupAddress,
     this.returnMethod = 'branch',
@@ -152,6 +154,7 @@ class Reservation {
       startDate: DateTime.parse(json['start_date'] as String),
       endDate: DateTime.parse(json['end_date'] as String),
       pickupTime: json['pickup_time'] as String?,
+      returnTime: json['return_time'] as String?,
       pickupMethod: json['pickup_method'] as String? ?? 'branch',
       pickupAddress: json['pickup_address'] as String?,
       returnMethod: json['return_method'] as String? ?? 'branch',
