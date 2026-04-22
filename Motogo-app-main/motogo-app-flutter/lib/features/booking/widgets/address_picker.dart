@@ -55,13 +55,19 @@ class _AddressPickerWidgetState extends State<AddressPickerWidget> {
       _lat = null;
       _lng = null;
       _addrKey.currentState?.clear();
-      setState(() {
-        _distanceKm = null;
-        _deliveryFee = null;
-        _confirmed = false;
+      _distanceKm = null;
+      _deliveryFee = null;
+      _confirmed = false;
+      // Parent callbacks would call setState on the parent; doing that
+      // synchronously inside didUpdateWidget (while the element tree is
+      // being updated) triggers "setState() called during build" and Flutter
+      // swaps in the ErrorWidget ("Restartujte aplikaci"). Defer to next frame.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {});
+        widget.onDeliveryFeeChanged(0);
+        widget.onAddressChanged(const AddressResult(street: '', city: '', zip: ''));
       });
-      widget.onDeliveryFeeChanged(0);
-      widget.onAddressChanged(const AddressResult(street: '', city: '', zip: ''));
     }
   }
 
