@@ -36,6 +36,33 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
     ref.read(bookingDraftProvider.notifier).state = fn(d);
   }
 
+  /// Gear sizes that must be filled before proceeding when the motorcycle
+  /// is delivered (přistavení). Returns a human-readable list of missing
+  /// items — empty list means OK to continue.
+  List<String> _missingGearSizes(BookingDraft d) {
+    if (d.pickupMethod != 'delivery') return const [];
+    final missing = <String>[];
+    if (d.helmetSize == null) missing.add('helma – řidič');
+    if (d.glovesSize == null) missing.add('rukavice – řidič');
+    if (d.jacketSize == null) missing.add('bunda – řidič');
+    if (d.pantsSize == null) missing.add('kalhoty – řidič');
+    SelectedExtra? findExtra(String id) =>
+        d.extras.where((e) => e.id == id).firstOrNull;
+    final botyRidic = findExtra('extra-boty-ridic');
+    if (botyRidic != null && (botyRidic.size == null || botyRidic.size!.isEmpty)) {
+      missing.add('boty – řidič');
+    }
+    final spolujezdec = findExtra('extra-spolujezdec');
+    if (spolujezdec != null && (spolujezdec.size == null || spolujezdec.size!.isEmpty)) {
+      missing.add('výbava – spolujezdec');
+    }
+    final botySpolu = findExtra('extra-boty-spolu');
+    if (botySpolu != null && (botySpolu.size == null || botySpolu.size!.isEmpty)) {
+      missing.add('boty – spolujezdec');
+    }
+    return missing;
+  }
+
   // ─── Date section (stateful — owns _calOpen) ─────────────────────
 
   Widget _buildDateSection(BookingDraft draft, PriceBreakdown bd,
@@ -212,6 +239,7 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
     final hasDates = draft.startDate != null && draft.endDate != null;
     final dc = hasDates ? draft.dayCount : 0;
     final isKids = moto.licenseRequired == 'N';
+    final missingSizes = _missingGearSizes(draft);
     String f(DateTime d) => '${d.day}.${d.month}.${d.year}';
 
     return Material(
@@ -246,17 +274,71 @@ class _BDWState extends ConsumerState<BookingDebugWrapper> {
                       (v) => _upd((d) => d.copyWith(consentKids: v)),
                     ),
                   ),
-                // CTA — always enabled
+                // WARNING — chybějící velikosti výbavy při přistavení
+                if (missingSizes.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF9E6),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: const Color(0xFFFFD54F),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.warning_amber_rounded,
+                              size: 18, color: Color(0xFF92400E)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Při přistavení vyplňte velikosti výbavy',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF92400E),
+                                    decoration: TextDecoration.none,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Chybí: ${missingSizes.join(', ')}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF92400E),
+                                    decoration: TextDecoration.none,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                // CTA — disabled when sizes are missing (přistavení)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                   child: SizedBox(
                     height: 52,
                     child: ElevatedButton(
-                      onPressed: () =>
-                          GoRouter.of(context).push('/payment'),
+                      onPressed: missingSizes.isEmpty
+                          ? () => GoRouter.of(context).push('/payment')
+                          : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF74FB71),
                         foregroundColor: Colors.black,
+                        disabledBackgroundColor: const Color(0xFFD4E8E0),
+                        disabledForegroundColor: const Color(0xFF8AAB99),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(50),
                         ),

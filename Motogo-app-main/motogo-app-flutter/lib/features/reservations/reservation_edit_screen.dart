@@ -197,6 +197,28 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
     }
   }
 
+  /// Gear sizes required when the motorcycle is delivered (přistavení).
+  /// Returns list of missing items — empty means OK.
+  List<String> _missingGearSizes() {
+    if (_pickupMethod != 'delivery' && _returnMethod != 'delivery') {
+      return const [];
+    }
+    final missing = <String>[];
+    if (_helmetSize == null) missing.add('helma – řidič');
+    if (_glovesSize == null) missing.add('rukavice – řidič');
+    if (_jacketSize == null) missing.add('bunda – řidič');
+    if (_pantsSize == null) missing.add('kalhoty – řidič');
+    if (_selectedExtras.contains('boty_ridic') && _bootsSize == null) {
+      missing.add('boty – řidič');
+    }
+    if (_selectedExtras.contains('spolujezdec')) {
+      if (_passengerHelmetSize == null) missing.add('helma – spolujezdec');
+      if (_passengerJacketSize == null) missing.add('bunda – spolujezdec');
+      if (_passengerPantsSize == null) missing.add('kalhoty – spolujezdec');
+    }
+    return missing;
+  }
+
   Future<void> _save() async {
     if (_booking == null || _newStart == null || _newEnd == null) return;
     final calc = _calc;
@@ -211,6 +233,14 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
         showMotoGoToast(context, icon: '⚠️', title: t(context).error, message: t(context).tr('cannotChangePickupActive'));
         return;
       }
+    }
+    final missingSizes = _missingGearSizes();
+    if (missingSizes.isNotEmpty) {
+      showMotoGoToast(context,
+        icon: '⚠️',
+        title: 'Chybí velikosti výbavy',
+        message: 'Při přistavení doplňte: ${missingSizes.join(', ')}');
+      return;
     }
 
     setState(() => _saving = true);
@@ -523,10 +553,30 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
                     style: const TextStyle(fontSize: 10, color: MotoGoColors.g400))),
             ])),
 
+          // === MISSING SIZES WARNING (přistavení) ===
+          if (_missingGearSizes().isNotEmpty)
+            Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Container(padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF9E6),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFFFD54F))),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Icon(Icons.warning_amber_rounded, size: 18, color: Color(0xFF92400E)),
+                  const SizedBox(width: 8),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('Při přistavení vyplňte velikosti výbavy',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF92400E))),
+                    const SizedBox(height: 2),
+                    Text('Chybí: ${_missingGearSizes().join(', ')}',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF92400E))),
+                  ])),
+                ]))),
+
           // === CTA BUTTON ===
           Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: SizedBox(height: 52, child: ElevatedButton(
-              onPressed: (!_saving && calc.hasChanges) ? _save : null,
+              onPressed: (!_saving && calc.hasChanges && _missingGearSizes().isEmpty) ? _save : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: MotoGoColors.green, foregroundColor: Colors.black,
                 disabledBackgroundColor: MotoGoColors.g200,
