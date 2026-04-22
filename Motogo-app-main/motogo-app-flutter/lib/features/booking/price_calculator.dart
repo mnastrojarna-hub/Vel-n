@@ -64,11 +64,18 @@ Future<double> routeKmFromBranch(double lat, double lng) async {
           km = rawLength.toDouble(); // treat as km directly
           debugPrint('[ROUTING] 1) ⚠ too small vs Haversine → treating as km: ${km.toStringAsFixed(1)}km');
         }
-        // Second sanity: if still unreasonably small (< 50% Haversine) or
-        // unreasonably large (> 5x Haversine), skip to fallback
-        if (haversineKm > 2 && (km < haversineKm * 0.5 || km > haversineKm * 5)) {
-          debugPrint('[ROUTING] 1) ⚠ Mapy.cz result ${km.toStringAsFixed(1)}km '
-              'vs Haversine ${haversineKm.toStringAsFixed(1)}km — skipping');
+        // Plausibility window — applies for ALL distances, including
+        // same-village addresses (Haversine ~ 0 km) where a stray
+        // routing result like 14 km used to leak through.
+        final maxReasonable = haversineKm > 2
+            ? haversineKm * 5
+            : haversineKm + 3; // allow up to 3 km detour in/near village
+        final minReasonable = haversineKm > 2 ? haversineKm * 0.5 : 0.0;
+        if (km < minReasonable || km > maxReasonable) {
+          debugPrint('[ROUTING] 1) ⚠ Mapy.cz ${km.toStringAsFixed(1)}km '
+              'outside plausible window '
+              '(${minReasonable.toStringAsFixed(1)}–${maxReasonable.toStringAsFixed(1)}km, '
+              'Haversine ${haversineKm.toStringAsFixed(1)}km) — skipping');
         } else {
           debugPrint('[ROUTING] ✓ Mapy.cz: ${km.toStringAsFixed(1)}km');
           return km;
@@ -101,10 +108,16 @@ Future<double> routeKmFromBranch(double lat, double lng) async {
         if (dist > 0) {
           final km = dist / 1000; // OSRM always returns meters
           debugPrint('[ROUTING] 2) OSRM: ${dist.toStringAsFixed(0)}m = ${km.toStringAsFixed(1)}km');
-          // Sanity check
-          if (haversineKm > 2 && (km < haversineKm * 0.5 || km > haversineKm * 5)) {
+          // Same plausibility window as Mapy.cz branch above
+          final maxReasonable = haversineKm > 2
+              ? haversineKm * 5
+              : haversineKm + 3;
+          final minReasonable = haversineKm > 2 ? haversineKm * 0.5 : 0.0;
+          if (km < minReasonable || km > maxReasonable) {
             debugPrint('[ROUTING] 2) ⚠ OSRM ${km.toStringAsFixed(1)}km '
-                'vs Haversine ${haversineKm.toStringAsFixed(1)}km — skipping');
+                'outside plausible window '
+                '(${minReasonable.toStringAsFixed(1)}–${maxReasonable.toStringAsFixed(1)}km, '
+                'Haversine ${haversineKm.toStringAsFixed(1)}km) — skipping');
           } else {
             debugPrint('[ROUTING] ✓ OSRM: ${km.toStringAsFixed(1)}km');
             return km;
