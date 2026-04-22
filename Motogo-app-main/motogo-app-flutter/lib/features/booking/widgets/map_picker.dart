@@ -198,9 +198,10 @@ class _MapPickerState extends State<MapPickerScreen> {
             ),
             children: [
               TileLayer(
-                urlTemplate: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-                subdomains: const ['a', 'b', 'c', 'd'],
+                urlTemplate:
+                    'https://api.mapy.cz/v1/maptiles/basic/256/{z}/{x}/{y}?apikey=$_mapyKey',
                 userAgentPackageName: 'cz.motogo24.app',
+                maxZoom: 19,
               ),
             ],
           ),
