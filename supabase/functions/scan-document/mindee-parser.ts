@@ -66,10 +66,30 @@ export function parseV2Result(result: Record<string, any>, docType: string): Rec
   const docNum = getVal('document_number') || getVal('id_number') || getVal('number')
   if (docNum) data.idNumber = docNum
 
+  // Address — try structured components first, fall back to flat string.
+  // Czech OP back side: Mindee may return either "address" as one string
+  // (e.g. "Rokycanova 123/45, 130 00 Praha 3") or separate fields.
+  const rawStreet = getVal('street') || getVal('address_line_1') || getVal('street_name')
+  const rawCity = getVal('city') || getVal('locality') || getVal('municipality')
+  const rawZip = getVal('postal_code') || getVal('zip') || getVal('zip_code') || getVal('post_code')
+  if (rawStreet) data.street = rawStreet
+  if (rawCity) data.city = rawCity
+  if (rawZip) data.zip = rawZip
+
   const addr = getVal('address') || getVal('birth_place')
   if (addr) {
-    if (getVal('address')) data.address = addr
-    else data.birthPlace = addr
+    if (getVal('address')) {
+      data.address = addr
+      // If structured components are missing, parse flat address
+      if (!data.street || !data.city || !data.zip) {
+        const parsed = parseCzechAddress(addr)
+        if (parsed.street && !data.street) data.street = parsed.street
+        if (parsed.city && !data.city) data.city = parsed.city
+        if (parsed.zip && !data.zip) data.zip = parsed.zip
+      }
+    } else {
+      data.birthPlace = addr
+    }
   }
 
   const sex = getVal('sex') || getVal('gender')
@@ -78,9 +98,14 @@ export function parseV2Result(result: Record<string, any>, docType: string): Rec
   const nat = getVal('nationality') || getVal('country')
   if (nat) data.nationality = nat
 
+  // Expiry — try all common naming variants across Mindee models
+  // (National ID, Driver's License, Passport have different schemas).
   const expiry = getDateVal('expiry_date') || getDateVal('expiration_date')
+    || getDateVal('date_of_expiry') || getDateVal('valid_until')
+    || getDateVal('validity_end') || getDateVal('end_of_validity')
   if (expiry) data.expiryDate = expiry
   const issued = getDateVal('issue_date') || getDateVal('issuance_date')
+    || getDateVal('date_of_issue') || getDateVal('valid_from')
   if (issued) data.issuedDate = issued
 
   const mrz1 = getVal('mrz1') || getVal('mrz_line1')
@@ -108,6 +133,47 @@ export function parseV2Result(result: Record<string, any>, docType: string): Rec
   }
 
   return data
+}
+
+// Parse Czech address string ("Ulice 123/45, 130 00 Praha 3") into
+// { street, city, zip } components. Tolerant to missing commas.
+export function parseCzechAddress(raw: string): { street?: string; city?: string; zip?: string } {
+  const out: { street?: string; city?: string; zip?: string } = {}
+  const trimmed = raw.trim()
+  if (!trimmed) return out
+
+  const zipMatch = trimmed.match(/(\d{3})\s?(\d{2})/)
+  let zip: string | undefined
+  let withoutZip = trimmed
+  if (zipMatch) {
+    zip = `${zipMatch[1]} ${zipMatch[2]}`
+    withoutZip = trimmed.slice(0, zipMatch.index!) + '|' +
+      trimmed.slice(zipMatch.index! + zipMatch[0].length)
+  }
+
+  if (withoutZip.includes(',')) {
+    const parts = withoutZip.split(',').map(p => p.trim())
+    if (parts.length >= 2) {
+      out.street = parts[0].replace(/\|/g, '').trim() || undefined
+      const cityRaw = parts.slice(1).join(' ').replace(/\|/g, '').trim()
+      if (cityRaw) out.city = cityRaw
+    } else {
+      out.street = withoutZip.replace(/\|/g, '').trim() || undefined
+    }
+  } else if (zip) {
+    const parts = withoutZip.split('|').map(p => p.trim())
+    if (parts.length === 2) {
+      if (parts[0]) out.street = parts[0]
+      if (parts[1]) out.city = parts[1]
+    } else if (parts.length === 1 && parts[0]) {
+      out.street = parts[0]
+    }
+  } else {
+    out.street = trimmed
+  }
+
+  if (zip) out.zip = zip
+  return out
 }
 
 export function extractLicenseCategory(data: Record<string, string>, rawText: string): string {

@@ -165,7 +165,7 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen> {
       if (ocrOk && uploadOk) {
         // Uložení do profilu (může selhat částečně — nekrashujeme flow)
         final saveWarning = await saveOcrToProfile(
-            scanResult.data!, docType: step.docType);
+            scanResult.data!, docType: step.docType, stepKey: step.key);
         if (!mounted) return;
 
         final summary = _buildFieldsSummary(scanResult.data!, step.docType);
@@ -174,8 +174,11 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen> {
           _attempts.remove(step.key); // reset — krok dokončen
           _resultKind = _ResultKind.success;
           _resultTitle = '${step.title} – ${step.side}';
+          // saveWarning může být (a) specifická zpráva (např. neshoda čísla ŘP)
+          // nebo (b) technická chyba DB. V obou případech ji chceme uživateli
+          // ukázat přímo, ne schovávat za generickou i18n klíč.
           _resultMsg = saveWarning != null
-              ? '$summary\n\n${t(context).tr('saveWarning')}'
+              ? '$summary\n\n⚠️ $saveWarning'
               : summary;
           _resultGuidance = '';
           _resultAttempt = 0;
@@ -270,12 +273,11 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen> {
     switch (step.key) {
       case 'id_front':
         return 'Nafoťte znovu PŘEDNÍ stranu OP. Musí být vidět '
-            'jméno, příjmení, rodné číslo a fotografie. Doklad dejte '
-            'na tmavý podklad, bez odlesků a ořezů.';
+            'jméno, příjmení, fotografie, číslo dokladu a platnost. '
+            'Doklad dejte na tmavý podklad, bez odlesků a ořezů.';
       case 'id_back':
-        return 'Nafoťte znovu ZADNÍ stranu OP. Musí být čitelná '
-            'celá adresa trvalého bydliště a číslo dokladu. '
-            'Dbejte na ostrost a dostatek světla.';
+        return 'Nafoťte znovu ZADNÍ stranu OP. Stačí aby byla čitelná '
+            'adresa trvalého bydliště. Dbejte na ostrost a dostatek světla.';
       case 'passport_front':
         return 'Nafoťte znovu stránku pasu s fotografií a MRZ kódem '
             '(dvouřádkový kód dole). Číslo pasu musí být čitelné.';
@@ -284,12 +286,12 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen> {
             'být čitelný a celý v rámečku.';
       case 'dl_front':
         return 'Nafoťte znovu PŘEDNÍ stranu ŘP. Musí být čitelné '
-            'číslo ŘP (políčko vlevo nahoře) a datum platnosti '
-            '(bod 4b). Doklad rovně, bez odlesků.';
+            'číslo ŘP (bod 5) a datum platnosti (bod 4b). '
+            'Doklad rovně, bez odlesků.';
       case 'dl_back':
-        return 'Nafoťte znovu ZADNÍ stranu ŘP. Musí být čitelná '
-            'tabulka skupin (A, B, A1 ...) včetně dat platnosti '
-            'jednotlivých skupin.';
+        return 'Nafoťte znovu ZADNÍ stranu ŘP. Stačí aby byla čitelná '
+            'tabulka skupin (A, B, A1 ...) — slouží jen k potvrzení '
+            'skupin z přední strany.';
       default:
         return 'Zkuste prosím doklad vyfotit znovu v lepším '
             'světle a bez odlesků.';
@@ -300,13 +302,18 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen> {
   String _missingFieldsReason(_ScanStep step) {
     final isBack = step.key.endsWith('_back');
     if (step.docType == ScanDocType.driversLicense) {
-      return 'Na fotce ŘP nebylo rozpoznáno číslo průkazu ani datum '
+      if (isBack) {
+        return 'Na zadní straně ŘP nebyla rozpoznána tabulka skupin. '
+            'Stačí zaostřit na tabulku skupin (A, B, A1 ...).';
+      }
+      return 'Na přední straně ŘP nebylo rozpoznáno číslo ani datum '
           'platnosti. Bez těchto údajů nelze doklad ověřit.';
     }
     if (isBack) {
-      return 'Na zadní straně nebyla rozpoznána adresa ani číslo dokladu.';
+      return 'Na zadní straně nebyla rozpoznána adresa trvalého bydliště.';
     }
-    return 'Na přední straně nebylo rozpoznáno jméno ani číslo dokladu.';
+    return 'Na přední straně nebylo rozpoznáno jméno, číslo dokladu '
+        'ani datum platnosti.';
   }
 
   /// Build user-friendly error message with diagnostics.
@@ -433,26 +440,45 @@ class _ScannerState extends ConsumerState<DocumentScannerScreen> {
         _notEmpty(result.lastName);
   }
 
-  /// Per-step validace — přísnější, protože jedna strana ≠ druhá strana.
-  /// ŘP: nutné číslo NEBO platnost (bez toho nelze ověřit).
-  /// OP/pas přední: nutné jméno/příjmení nebo číslo dokladu.
-  /// OP/pas zadní: nutná adresa (alespoň ulice nebo město).
+  /// Per-step validace — co je potřeba, aby scan té strany měl smysl.
+  ///
+  /// ŘP přední: číslo NEBO platnost NEBO skupiny (alespoň jedno, bez
+  ///            toho nelze ověřit).
+  /// ŘP zadní:  stačí skupiny NEBO číslo (zadní strana hlavně dodává
+  ///            tabulku skupin a slouží jako kontrola čísla).
+  /// OP/pas přední: jméno/příjmení NEBO číslo dokladu NEBO platnost.
+  /// OP/pas zadní:  adresa (ulice/město/PSČ/address string). Pokud OCR
+  ///                vrátí alespoň MRZ nebo jméno, také stačí — není to
+  ///                výpad, user jen naskenoval zadní stranu. Záloha v DB
+  ///                pak ukládá jen ty pole, která mají hodnotu.
   bool _hasRequiredFieldsForStep(OcrResult r, _ScanStep step) {
+    final isBack = step.key.endsWith('_back');
     if (step.docType == ScanDocType.driversLicense) {
-      // ŘP — stejná pole pro front i back. Stačí, když jedna ze stran
-      // vrátí kritické údaje (číslo nebo platnost). Druhá strana typicky
-      // dodá skupiny, ale ty také stačí jako důkaz čtení.
+      if (isBack) {
+        // Zadní ŘP: hlavně skupiny; číslo je bonus pro cross-check.
+        return _notEmpty(r.licenseCategory)
+            || _notEmpty(r.licenseNumber)
+            || _notEmpty(r.idNumber);
+      }
       return _notEmpty(r.licenseNumber)
           || _notEmpty(r.expiryDate)
           || _notEmpty(r.licenseCategory);
     }
-    final isBack = step.key.endsWith('_back');
     if (isBack) {
-      return _notEmpty(r.street) || _notEmpty(r.city)
-          || _notEmpty(r.zip) || _notEmpty(r.address);
+      // Zadní OP/pas: hlavně adresa. Povolíme i MRZ nebo jméno jako
+      // důkaz, že Mindee zadní stranu přečetl — jinak by user nemohl
+      // pokračovat v případě, kdy model adresu nerozpozná.
+      return _notEmpty(r.street)
+          || _notEmpty(r.city)
+          || _notEmpty(r.zip)
+          || _notEmpty(r.address)
+          || _notEmpty(r.firstName)
+          || _notEmpty(r.lastName);
     }
-    return _notEmpty(r.firstName) || _notEmpty(r.lastName)
-        || _notEmpty(r.idNumber);
+    return _notEmpty(r.firstName)
+        || _notEmpty(r.lastName)
+        || _notEmpty(r.idNumber)
+        || _notEmpty(r.expiryDate);
   }
 
   static bool _notEmpty(String? s) => s != null && s.isNotEmpty;
