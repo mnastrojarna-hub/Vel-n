@@ -93,40 +93,12 @@ class ShopScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Visual header with motorcycle icon
-                      Container(
-                        height: 100,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [MotoGoColors.dark, const Color(0xFF1A3A22).withValues(alpha: 0.9)],
-                            begin: Alignment.centerLeft, end: Alignment.centerRight,
-                          ),
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(MotoGoTheme.radiusLg)),
-                        ),
-                        child: Stack(
-                          children: [
-                            Positioned(right: 16, top: 12, child: Icon(Icons.motorcycle, size: 60, color: MotoGoColors.green.withValues(alpha: 0.15))),
-                            Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Row(children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(color: MotoGoColors.green, borderRadius: BorderRadius.circular(4)),
-                                      child: Text(t(context).tr('giftVoucher').toUpperCase(), style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.black, letterSpacing: 1)),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text('MOTO GO 24', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white.withValues(alpha: 0.5), letterSpacing: 2)),
-                                  ]),
-                                  const SizedBox(height: 8),
-                                  Text(t(context).tr('giftVoucherTitle'), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -0.5)),
-                                ],
-                              ),
-                            ),
-                          ],
+                      // Voucher image from web (motogo24.cz)
+                      ClipRRect(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(MotoGoTheme.radiusLg)),
+                        child: Image.asset(
+                          'assets/darkovy-poukaz.jpg',
+                          fit: BoxFit.cover,
                         ),
                       ),
                       // Info row
