@@ -6,8 +6,8 @@ import 'package:http/http.dart' as http;
 import '../theme.dart';
 
 /// Single-line address autocomplete using Mapy.cz Suggest API.
-/// Phase 1: user types → city suggestions.
-/// Phase 2: after city selected → user types street → address suggestions.
+/// Shows ranked suggestions (address > street > municipality > POI) with
+/// primary title + subtitle. No type restriction — user's text decides.
 class AddressAutocompleteField extends StatefulWidget {
   final ValueChanged<AddressSuggestion> onSelected;
   final VoidCallback? onCleared;
@@ -17,7 +17,7 @@ class AddressAutocompleteField extends StatefulWidget {
     super.key,
     required this.onSelected,
     this.onCleared,
-    this.hint = 'Zadejte město…',
+    this.hint = 'Zadejte adresu, obec nebo ulici…',
   });
 
   @override
@@ -30,8 +30,6 @@ class AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
   final _focus = FocusNode();
   Timer? _debounce;
   List<_Sug> _items = [];
-  String? _city;
-  String? _zip;
   bool _open = false;
   bool _loading = false;
 
@@ -49,8 +47,6 @@ class AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
   }
 
   void _onFocusChange() {
-    // TextFieldTapRegion prevents focus loss when tapping suggestions,
-    // so this only fires when user taps truly outside → safe to hide.
     if (!_focus.hasFocus && mounted) {
       setState(() => _open = false);
     }
@@ -58,16 +54,17 @@ class AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
 
   /// Set address externally (GPS / map picker).
   void setAddress(String street, String city, String zip) {
-    _city = city;
-    _zip = zip;
-    _ctrl.text = street.isNotEmpty ? '$street, $city' : city;
-    setState(() => _open = false);
+    _ctrl.text = [street, [zip, city].where((s) => s.isNotEmpty).join(' ')]
+        .where((s) => s.isNotEmpty)
+        .join(', ');
+    setState(() {
+      _items = [];
+      _open = false;
+    });
   }
 
   void clear() {
     _ctrl.clear();
-    _city = null;
-    _zip = null;
     setState(() {
       _items = [];
       _open = false;
@@ -87,18 +84,12 @@ class AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
 
   void _onChange(String v) {
     if (v.isEmpty) {
-      _city = null;
-      _zip = null;
       setState(() {
         _items = [];
         _open = false;
       });
       widget.onCleared?.call();
       return;
-    }
-    if (_city != null && !v.startsWith(_city!)) {
-      _city = null;
-      _zip = null;
     }
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 250), () => _fetch(v));
@@ -110,22 +101,26 @@ class AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
 
     var sugs = <_Sug>[];
 
-    // 1) Try Mapy.cz Suggest
+    // 1) Mapy.cz Suggest — single pass, no type restriction
     try {
-      final url = _city == null ? _cityUrl(q) : _streetUrl(q);
-      if (url != null) {
-        final res = await http
-            .get(Uri.parse(url), headers: _headers)
-            .timeout(const Duration(seconds: 5));
-        if (!mounted) return;
-        if (res.statusCode == 200) {
-          final items = (jsonDecode(res.body)['items'] as List?) ?? [];
-          for (final it in items) {
-            try { sugs.add(_parseSuggestion(it)); } catch (_) {}
-          }
-        } else {
-          debugPrint('[Autocomplete] Mapy.cz ${res.statusCode}');
+      final url = '$_base/suggest'
+          '?query=${Uri.encodeComponent(q)}'
+          '&lang=cs&limit=8&locality=cz&apikey=$_key';
+      final res = await http
+          .get(Uri.parse(url), headers: _headers)
+          .timeout(const Duration(seconds: 5));
+      if (!mounted) return;
+      if (res.statusCode == 200) {
+        final items = (jsonDecode(res.body)['items'] as List?) ?? [];
+        for (final it in items) {
+          try {
+            final sug = _parseSuggestion(it);
+            if (sug != null) sugs.add(sug);
+          } catch (_) {}
         }
+        debugPrint('[Autocomplete] Mapy.cz ✓ ${sugs.length} results for "$q"');
+      } else {
+        debugPrint('[Autocomplete] Mapy.cz ${res.statusCode}');
       }
     } catch (e) {
       debugPrint('[Autocomplete] Mapy.cz error: $e');
@@ -134,17 +129,10 @@ class AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
     // 2) Fallback: Nominatim (free, no API key)
     if (sugs.isEmpty && mounted) {
       try {
-        final searchQ = _city != null
-            ? '${q.substring(_city!.length).replaceFirst(RegExp(r'^,?\s*'), '')}, $_city'
-            : q;
-        if (searchQ.trim().length < 2) {
-          if (mounted) setState(() => _loading = false);
-          return;
-        }
         final nUrl = 'https://nominatim.openstreetmap.org/search'
-          '?q=${Uri.encodeComponent(searchQ)}'
-          '&format=json&countrycodes=cz&limit=6'
-          '&addressdetails=1&accept-language=cs';
+            '?q=${Uri.encodeComponent(q)}'
+            '&format=json&countrycodes=cz&limit=6'
+            '&addressdetails=1&accept-language=cs';
         final nRes = await http.get(Uri.parse(nUrl), headers: {
           'User-Agent': 'MotoGo24-App/1.0',
         }).timeout(const Duration(seconds: 6));
@@ -160,18 +148,24 @@ class AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
             final lat = double.tryParse('${n['lat']}');
             final lng = double.tryParse('${n['lon']}');
             final street = road.isNotEmpty
-                ? '$road${house.isNotEmpty ? " $house" : ""}' : '';
-            if (_city == null) {
-              // Phase 1: city suggestions
-              final label = '$city${zip.isNotEmpty ? "  $zip" : ""}';
-              sugs.add(_Sug(city, label, null, city, zip, lat, lng, true));
-            } else {
-              // Phase 2: street suggestions
-              final label = street.isNotEmpty
-                  ? '$street, $city' : '${n['display_name'] ?? city}';
-              sugs.add(_Sug(street.isNotEmpty ? street : city, label,
-                  street.isNotEmpty ? street : null, city, zip, lat, lng, false));
-            }
+                ? '$road${house.isNotEmpty ? " $house" : ""}'
+                : '';
+            final primary =
+                street.isNotEmpty ? street : (city.isNotEmpty ? city : '${n['display_name']}');
+            final secondary =
+                [if (zip.isNotEmpty) zip, if (street.isNotEmpty) city]
+                    .where((s) => s != null && s.toString().isNotEmpty)
+                    .join(' ');
+            sugs.add(_Sug(
+              primary: primary,
+              secondary: secondary,
+              street: street,
+              city: city,
+              zip: zip,
+              lat: lat,
+              lng: lng,
+              icon: street.isNotEmpty ? Icons.place : Icons.location_city,
+            ));
           }
           debugPrint('[Autocomplete] Nominatim ✓ ${sugs.length} results');
         }
@@ -189,43 +183,89 @@ class AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
     }
   }
 
-  String _cityUrl(String q) =>
-      '$_base/suggest?query=${Uri.encodeComponent(q)}'
-      '&lang=cs&limit=6&type=regional.municipality'
-      '&locality=cz&apikey=$_key';
-
-  String? _streetUrl(String q) {
-    final street =
-        q.substring(_city!.length).replaceFirst(RegExp(r'^,?\s*'), '');
-    if (street.length < 2) return null;
-    return '$_base/suggest'
-        '?query=${Uri.encodeComponent('$street, $_city')}'
-        '&lang=cs&limit=6&type=regional.address'
-        '&locality=cz&apikey=$_key';
-  }
-
-  _Sug _parseSuggestion(dynamic it) {
-    final name = (it['name'] as String?) ?? '';
+  /// Parse single Mapy.cz Suggest item into a UI-friendly row.
+  /// Returns null for items that have no usable name.
+  _Sug? _parseSuggestion(dynamic it) {
+    final name = (it['name'] as String?)?.trim() ?? '';
+    final label = (it['label'] as String?)?.trim() ?? '';
+    final location = (it['location'] as String?)?.trim() ?? '';
+    final zip = (it['zip'] as String?)?.trim() ?? '';
+    final type = (it['type'] as String?) ?? '';
     final pos = it['position'] as Map<String, dynamic>?;
-    final zip = (it['zip'] as String?) ?? '';
     final rs = (it['regionalStructure'] as List?) ?? [];
     final lat = (pos?['lat'] as num?)?.toDouble();
     final lng = (pos?['lon'] as num?)?.toDouble();
 
-    if (_city == null) {
-      final district = _region(rs, 'regional.district') ??
-          _region(rs, 'regional.region') ??
-          '';
-      final label = '$name${zip.isNotEmpty ? '  $zip' : ''}'
-          '${district.isNotEmpty ? ' · $district' : ''}';
-      return _Sug(name, label, null, name, zip, lat, lng, true);
-    } else {
-      final label = (it['label'] as String?) ?? name;
-      final city = _region(rs, 'regional.municipality') ?? _city!;
-      return _Sug(
-          name, label, name, city,
-          zip.isNotEmpty ? zip : (_zip ?? ''),
-          lat, lng, false);
+    // Skip degenerate items (no name AND no label)
+    if (name.isEmpty && label.isEmpty) return null;
+
+    final primary = name.isNotEmpty ? name : label;
+    // Subtitle: prefer explicit "location" from API, else combined zip+region
+    final region = _region(rs, 'regional.region') ??
+        _region(rs, 'regional.country') ?? '';
+    final secondary = location.isNotEmpty
+        ? (zip.isNotEmpty ? '$zip · $location' : location)
+        : [if (zip.isNotEmpty) zip, if (region.isNotEmpty) region].join(' · ');
+
+    // Structured parts for the selection callback
+    String street = '';
+    String city = '';
+    switch (type) {
+      case 'regional.address':
+        street = name;
+        city = _region(rs, 'regional.municipality') ??
+            _region(rs, 'regional.municipality_part') ?? '';
+        break;
+      case 'regional.street':
+        street = name;
+        city = _region(rs, 'regional.municipality') ?? '';
+        break;
+      case 'regional.municipality':
+      case 'regional.municipality_part':
+        street = '';
+        city = name;
+        break;
+      case 'poi':
+        // Pokud POI, vezmeme lokalitu jako city
+        street = name;
+        city = _region(rs, 'regional.municipality') ?? '';
+        break;
+      default:
+        // Unknown — pokus o nejlepší odhad
+        final maybeCity = _region(rs, 'regional.municipality');
+        if (maybeCity != null && maybeCity != name) {
+          street = name;
+          city = maybeCity;
+        } else {
+          city = name;
+        }
+    }
+
+    return _Sug(
+      primary: primary,
+      secondary: secondary,
+      street: street,
+      city: city,
+      zip: zip,
+      lat: lat,
+      lng: lng,
+      icon: _iconForType(type),
+    );
+  }
+
+  static IconData _iconForType(String type) {
+    switch (type) {
+      case 'regional.address':
+        return Icons.home_outlined;
+      case 'regional.street':
+        return Icons.signpost_outlined;
+      case 'regional.municipality':
+      case 'regional.municipality_part':
+        return Icons.location_city;
+      case 'poi':
+        return Icons.place_outlined;
+      default:
+        return Icons.place;
     }
   }
 
@@ -237,33 +277,25 @@ class AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
   }
 
   void _tap(_Sug s) {
-    if (s.isCity) {
-      _city = s.city;
-      _zip = s.zip;
-      _ctrl.text = '${s.city}, ';
-      _ctrl.selection =
-          TextSelection.collapsed(offset: _ctrl.text.length);
-      setState(() {
-        _items = [];
-        _open = false;
-      });
-      _focus.requestFocus();
-    } else {
-      _ctrl.text = '${s.street ?? s.name}, ${s.city}';
-      _city = s.city;
-      _zip = s.zip;
-      setState(() {
-        _items = [];
-        _open = false;
-      });
-      widget.onSelected(AddressSuggestion(
-        street: s.street ?? s.name,
-        city: s.city,
-        zip: s.zip,
-        lat: s.lat,
-        lng: s.lng,
-      ));
-    }
+    final display = [
+      if (s.street.isNotEmpty) s.street,
+      [if (s.zip.isNotEmpty) s.zip, if (s.city.isNotEmpty) s.city].join(' '),
+    ].where((x) => x.isNotEmpty).join(', ');
+
+    _ctrl.text = display.isNotEmpty ? display : s.primary;
+    _ctrl.selection = TextSelection.collapsed(offset: _ctrl.text.length);
+    setState(() {
+      _items = [];
+      _open = false;
+    });
+    _focus.unfocus();
+    widget.onSelected(AddressSuggestion(
+      street: s.street,
+      city: s.city,
+      zip: s.zip,
+      lat: s.lat,
+      lng: s.lng,
+    ));
   }
 
   @override
@@ -280,7 +312,7 @@ class AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
           onChanged: _onChange,
           style: const TextStyle(fontSize: 13, color: MotoGoColors.black),
           decoration: InputDecoration(
-            hintText: _city != null ? 'Ulice a č.p.…' : widget.hint,
+            hintText: widget.hint,
             hintStyle:
                 const TextStyle(fontSize: 12, color: MotoGoColors.g400),
             prefixIcon: _loading
@@ -312,12 +344,10 @@ class AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
         ),
       ),
       if (_open && _items.isNotEmpty)
-        // TextFieldTapRegion prevents focus loss when tapping
-        // suggestion items — so onTap always fires correctly.
         TextFieldTapRegion(
           child: Container(
             margin: const EdgeInsets.only(top: 4),
-            constraints: const BoxConstraints(maxHeight: 220),
+            constraints: const BoxConstraints(maxHeight: 280),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(10),
@@ -343,23 +373,42 @@ class AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 10),
-                    child: Row(children: [
-                      Icon(
-                          s.isCity
-                              ? Icons.location_city
-                              : Icons.place,
-                          size: 16,
-                          color: MotoGoColors.greenDarker),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(s.label,
-                            style: const TextStyle(
-                                fontSize: 12,
-                                color: MotoGoColors.black),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis),
-                      ),
-                    ]),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Icon(s.icon,
+                              size: 16,
+                              color: MotoGoColors.greenDarker),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(s.primary,
+                                  style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: MotoGoColors.black),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                              if (s.secondary.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Text(s.secondary,
+                                      style: const TextStyle(
+                                          fontSize: 11,
+                                          color: MotoGoColors.g400),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 );
               },
@@ -371,13 +420,23 @@ class AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
 }
 
 class _Sug {
-  final String name, label;
-  final String? street;
-  final String city, zip;
+  final String primary;
+  final String secondary;
+  final String street;
+  final String city;
+  final String zip;
   final double? lat, lng;
-  final bool isCity;
-  const _Sug(this.name, this.label, this.street, this.city, this.zip,
-      this.lat, this.lng, this.isCity);
+  final IconData icon;
+  const _Sug({
+    required this.primary,
+    required this.secondary,
+    required this.street,
+    required this.city,
+    required this.zip,
+    required this.lat,
+    required this.lng,
+    required this.icon,
+  });
 }
 
 class AddressSuggestion {
