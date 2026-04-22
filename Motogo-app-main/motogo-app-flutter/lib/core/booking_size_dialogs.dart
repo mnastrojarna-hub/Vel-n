@@ -9,7 +9,9 @@ import '../features/booking/booking_provider.dart';
 // Extracted from booking_form_widget.dart to keep file sizes manageable.
 // ═══════════════════════════════════════════════════════════════════
 
-/// Passenger gear picker — helma, rukavice, bunda, kalhoty, boty.
+/// Passenger gear picker — helma, rukavice, bunda, kalhoty.
+/// Boots are NOT selected here — they are a separate paid extra
+/// ("Boty spolujezdce") to avoid asking for passenger boot size twice.
 /// Calls [onExtrasUpdated] with the updated extras list after confirm.
 void showPassengerGearSheet(
   BuildContext ctx,
@@ -18,10 +20,8 @@ void showPassengerGearSheet(
   void Function(List<SelectedExtra>) onExtrasUpdated,
 ) {
   final sizes = <String, String?>{
-    'Helma': null, 'Rukavice': null, 'Bunda': null,
-    'Kalhoty': null, 'Boty': null,
+    'Helma': null, 'Rukavice': null, 'Bunda': null, 'Kalhoty': null,
   };
-  final bootSizes = ['36','37','38','39','40','41','42','43','44','45','46'];
   showModalBottomSheet(
     context: ctx,
     isScrollControlled: true,
@@ -29,75 +29,81 @@ void showPassengerGearSheet(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
     builder: (c) => StatefulBuilder(
-      builder: (c, ss) => Padding(
-        padding: EdgeInsets.fromLTRB(20, 16, 20,
-          MediaQuery.of(c).padding.bottom + 16),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Container(width: 40, height: 4, decoration: BoxDecoration(
-            color: const Color(0xFFD4E8E0),
-            borderRadius: BorderRadius.circular(2))),
-          const SizedBox(height: 14),
-          Text('Velikosti – ${item.name}',
-            style: const TextStyle(fontSize: 15,
-              fontWeight: FontWeight.w800)),
-          const SizedBox(height: 14),
-          ...sizes.entries.map((e) {
-            final isBoot = e.key == 'Boty';
-            final opts = isBoot ? bootSizes : gearSizes;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                Text(e.key, style: const TextStyle(fontSize: 12,
-                  fontWeight: FontWeight.w700)),
-                const SizedBox(height: 4),
-                Wrap(spacing: 6, runSpacing: 6,
-                  children: opts.map((s) {
-                    final a = sizes[e.key] == s;
-                    return GestureDetector(
-                      onTap: () => ss(() =>
-                        sizes[e.key] = a ? null : s),
-                      child: Container(
-                        width: isBoot ? 42 : 40, height: 32,
-                        decoration: BoxDecoration(
-                          color: a ? const Color(0xFF1A8A18)
-                              : const Color(0xFFE8FFE8),
-                          borderRadius: BorderRadius.circular(6)),
-                        child: Center(child: Text(s,
-                          style: TextStyle(fontSize: 11,
-                            fontWeight: a ? FontWeight.w900
-                                : FontWeight.w600,
-                            color: a ? Colors.black
-                                : const Color(0xFF0F1A14))))));
-                  }).toList()),
-              ]));
-          }),
-          const SizedBox(height: 10),
-          SizedBox(width: double.infinity, height: 48,
-            child: ElevatedButton(
-              onPressed: () {
-                final sizeStr = sizes.entries
-                    .where((e) => e.value != null)
-                    .map((e) => '${e.key}: ${e.value}')
-                    .join(', ');
-                final ne = List<SelectedExtra>.from(
-                  ref.read(bookingDraftProvider).extras);
-                ne.removeWhere((e) => e.id == item.id);
-                ne.add(SelectedExtra(id: item.id,
-                  name: item.name, price: item.price,
-                  size: sizeStr.isNotEmpty ? sizeStr : null));
-                onExtrasUpdated(ne);
-                Navigator.pop(c);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF74FB71),
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(50))),
-              child: const Text('POTVRDIT',
-                style: TextStyle(fontWeight: FontWeight.w800)))),
-        ]))),
+      builder: (c, ss) {
+        final allSelected = sizes.values.every((v) => v != null);
+        return Padding(
+          padding: EdgeInsets.fromLTRB(20, 16, 20,
+            MediaQuery.of(c).padding.bottom + 16),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(width: 40, height: 4, decoration: BoxDecoration(
+              color: const Color(0xFFD4E8E0),
+              borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 14),
+            Text('Velikosti – ${item.name}',
+              style: const TextStyle(fontSize: 15,
+                fontWeight: FontWeight.w800)),
+            const SizedBox(height: 4),
+            const Text('Boty spolujezdce se vybírají samostatně.',
+              style: TextStyle(fontSize: 11, color: Color(0xFF8AAB99))),
+            const SizedBox(height: 14),
+            ...sizes.entries.map((e) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                  Text(e.key, style: const TextStyle(fontSize: 12,
+                    fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 4),
+                  Wrap(spacing: 6, runSpacing: 6,
+                    children: gearSizes.map((s) {
+                      final a = sizes[e.key] == s;
+                      return GestureDetector(
+                        onTap: () => ss(() =>
+                          sizes[e.key] = a ? null : s),
+                        child: Container(
+                          width: 40, height: 32,
+                          decoration: BoxDecoration(
+                            color: a ? const Color(0xFF1A8A18)
+                                : const Color(0xFFE8FFE8),
+                            borderRadius: BorderRadius.circular(6)),
+                          child: Center(child: Text(s,
+                            style: TextStyle(fontSize: 11,
+                              fontWeight: a ? FontWeight.w900
+                                  : FontWeight.w600,
+                              color: a ? Colors.black
+                                  : const Color(0xFF0F1A14))))));
+                    }).toList()),
+                ]));
+            }),
+            const SizedBox(height: 10),
+            SizedBox(width: double.infinity, height: 48,
+              child: ElevatedButton(
+                onPressed: allSelected ? () {
+                  final sizeStr = sizes.entries
+                      .map((e) => '${e.key}: ${e.value}')
+                      .join(', ');
+                  final ne = List<SelectedExtra>.from(
+                    ref.read(bookingDraftProvider).extras);
+                  ne.removeWhere((e) => e.id == item.id);
+                  ne.add(SelectedExtra(id: item.id,
+                    name: item.name, price: item.price,
+                    size: sizeStr));
+                  onExtrasUpdated(ne);
+                  Navigator.pop(c);
+                } : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF74FB71),
+                  foregroundColor: Colors.black,
+                  disabledBackgroundColor: const Color(0xFFD4E8E0),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(50))),
+                child: Text(allSelected
+                    ? 'POTVRDIT'
+                    : 'VYBERTE VŠECHNY VELIKOSTI',
+                  style: const TextStyle(fontWeight: FontWeight.w800)))),
+          ]));
+      })),
   );
 }
 
