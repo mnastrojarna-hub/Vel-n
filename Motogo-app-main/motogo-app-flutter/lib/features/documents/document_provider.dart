@@ -386,88 +386,254 @@ String? _czDateToIso(String? v) {
 /// Matches schema.sql: CREATE TYPE license_group AS ENUM ('A','A1','A2','AM','B').
 const _validLicenseGroups = {'A', 'A1', 'A2', 'AM', 'B'};
 
-/// Save OCR data to profile — mirrors apiSaveOcrToProfile from
-/// api-enrichment-2.js. Saves all extracted fields including address
-/// components (street, city, zip) from OP back side.
-/// [docType] ensures verification flag is set even when specific fields
-/// were not extracted by OCR (e.g. DL without license number).
+/// Save OCR data to profile — per-side logic tak, aby se data z jedné
+/// strany dokladu NEPŘEPISOVALA z druhé strany.
 ///
-/// Returns null on success, or a warning message if save partially failed.
-Future<String?> saveOcrToProfile(OcrResult result, {ScanDocType? docType}) async {
+/// Mapování polí podle [stepKey]:
+/// - `id_front`       → id_number, id_verified_until (platnost OP), jméno, DOB
+/// - `id_back`        → pouze street/city/zip (adresa)
+/// - `passport_front` → id_number (pas), passport_verified_until, jméno, DOB
+/// - `passport_back`  → pouze adresa (pokud je)
+/// - `dl_front`       → license_number, license_expiry, license_verified_until,
+///                       license_group, license_verified_at
+/// - `dl_back`        → pouze license_group (průnik se stávajícími skupinami),
+///                       porovná license_number s předem uloženým — vrátí
+///                       varování pokud se liší. NEPŘEPISUJE platnost ani číslo.
+///
+/// Returns null on success, nebo textovou hlášku pokud je třeba uživatele
+/// upozornit (např. neshoda čísla ŘP, chyba uložení).
+Future<String?> saveOcrToProfile(
+  OcrResult result, {
+  ScanDocType? docType,
+  String? stepKey,
+}) async {
   final user = MotoGoSupabase.currentUser;
   if (user == null) return null;
 
+  final isDl = docType == ScanDocType.driversLicense;
+  final isPassport = docType == ScanDocType.passport;
+  final isBack = stepKey != null && stepKey.endsWith('_back');
+
   final updates = <String, dynamic>{};
+  String? warning;
+
+  // Jméno a DOB ukládáme kdykoli (když jsou vyplněné) — pomáhá s matchingem
+  // a nepřepisuje, pokud OCR nic nevrátí.
   if (result.fullName.isNotEmpty) updates['full_name'] = result.fullName;
   if (result.dob != null) {
     final isoDob = _czDateToIso(result.dob);
     if (isoDob != null) updates['date_of_birth'] = isoDob;
   }
 
-  final isDl = docType == ScanDocType.driversLicense;
+  if (isDl) {
+    // ─── ŘIDIČSKÝ PRŮKAZ ─────────────────────────────────────────
+    if (isBack) {
+      // ZADNÍ STRANA ŘP: jen kontrola čísla + potvrzení/redukce skupin.
+      // NEPŘEPISUJE license_expiry ani license_number — ta jsou na přední
+      // straně a přední strana už je uložila.
+      Map<String, dynamic>? current;
+      try {
+        current = await MotoGoSupabase.client
+            .from('profiles')
+            .select('license_number, license_group')
+            .eq('id', user.id)
+            .maybeSingle();
+      } catch (e) {
+        debugPrint('[DocScan] ⚠ failed to fetch current license data: $e');
+      }
 
-  if (!isDl) {
-    // Address components from OP back — mirrors Capacitor apiSaveOcrToProfile
-    if (result.street != null) updates['street'] = result.street;
-    if (result.city != null) updates['city'] = result.city;
-    if (result.zip != null) updates['zip'] = result.zip;
-    // id_number + id_verified_at only from OP/passport, NOT from DL
-    if (result.idNumber != null) {
-      updates['id_number'] = result.idNumber;
-      updates['id_verified_at'] = DateTime.now().toIso8601String();
+      // Porovnání čísla ŘP zadní vs. přední strana
+      final backNum = result.licenseNumber ?? result.idNumber;
+      final frontNum = current?['license_number'] as String?;
+      if (backNum != null && backNum.isNotEmpty &&
+          frontNum != null && frontNum.isNotEmpty) {
+        if (_normalizeDocNum(backNum) != _normalizeDocNum(frontNum)) {
+          warning = 'Číslo ŘP na zadní straně ($backNum) neodpovídá '
+              'přední straně ($frontNum). Zkuste prosím obě strany '
+              'vyfotit znovu, aby se shodovaly.';
+          debugPrint('[DocScan] DL number mismatch: front=$frontNum back=$backNum');
+        }
+      }
+
+      // Skupiny: průnik s těmi z přední strany (zadní obvykle upřesňuje/redukuje)
+      if (result.licenseCategory != null) {
+        final backGroups = _parseLicenseGroups(result.licenseCategory!);
+        final frontGroups = ((current?['license_group'] as List?) ?? [])
+            .map((e) => e.toString().toUpperCase())
+            .toList();
+        if (backGroups.isNotEmpty) {
+          if (frontGroups.isNotEmpty) {
+            final intersect = frontGroups
+                .where((g) => backGroups.contains(g))
+                .toList();
+            if (intersect.isNotEmpty &&
+                intersect.length < frontGroups.length) {
+              // Zadní strana redukovala — uložíme průnik
+              updates['license_group'] = intersect;
+              debugPrint('[DocScan] License groups reduced: '
+                  '$frontGroups ∩ $backGroups = $intersect');
+            }
+            // Pokud průnik = přední, nic neměníme (potvrzení)
+          } else {
+            // Přední strana skupiny nenašla — použijeme zadní
+            updates['license_group'] = backGroups;
+          }
+        }
+      }
+
+      // verified_at posuneme, protože zadní strana potvrdila ŘP
+      if (updates.isNotEmpty || warning != null ||
+          result.licenseCategory != null) {
+        updates['license_verified_at'] = DateTime.now().toIso8601String();
+      }
+    } else {
+      // PŘEDNÍ STRANA ŘP: číslo, platnost, skupiny
+      if (result.licenseNumber != null) {
+        updates['license_number'] = result.licenseNumber;
+      } else if (result.idNumber != null) {
+        updates['license_number'] = result.idNumber;
+      }
+      if (result.licenseCategory != null) {
+        final valid = _parseLicenseGroups(result.licenseCategory!);
+        if (valid.isNotEmpty) updates['license_group'] = valid;
+      }
+      if (result.expiryDate != null) {
+        final isoExp = _czDateToIso(result.expiryDate);
+        if (isoExp != null) {
+          updates['license_expiry'] = isoExp;
+          updates['license_verified_until'] = isoExp;
+        }
+      }
+      final hasLicenseData = _notEmpty(result.licenseNumber) ||
+          _notEmpty(result.expiryDate) ||
+          _notEmpty(result.licenseCategory);
+      if (hasLicenseData) {
+        updates['license_verified_at'] = DateTime.now().toIso8601String();
+      }
+    }
+  } else {
+    // ─── OBČANKA / PAS ───────────────────────────────────────────
+    if (isBack) {
+      // ZADNÍ STRANA OP/PAS: jen adresa (trvalé bydliště je na zadní
+      // straně českého OP). NEPŘEPISUJEME číslo dokladu ani platnost.
+      if (result.street != null) updates['street'] = result.street;
+      if (result.city != null) updates['city'] = result.city;
+      if (result.zip != null) updates['zip'] = result.zip;
+      // Fallback: pokud parser nevrátil rozložené komponenty,
+      // ale celý address string, rozparsujeme ho lokálně.
+      if ((result.street == null || result.city == null || result.zip == null) &&
+          _notEmpty(result.address)) {
+        final parsed = _parseCzechAddress(result.address!);
+        if (parsed['street'] != null && result.street == null) {
+          updates['street'] = parsed['street'];
+        }
+        if (parsed['city'] != null && result.city == null) {
+          updates['city'] = parsed['city'];
+        }
+        if (parsed['zip'] != null && result.zip == null) {
+          updates['zip'] = parsed['zip'];
+        }
+      }
+    } else {
+      // PŘEDNÍ STRANA OP/PAS: číslo dokladu + platnost
+      // (U českého OP je číslo dokladu vytištěno i na přední straně,
+      // platnost je v horní části dokladu.)
+      if (result.idNumber != null) {
+        updates['id_number'] = result.idNumber;
+        updates['id_verified_at'] = DateTime.now().toIso8601String();
+      }
+      if (result.expiryDate != null) {
+        final isoExp = _czDateToIso(result.expiryDate);
+        if (isoExp != null) {
+          if (isPassport) {
+            updates['passport_verified_until'] = isoExp;
+            updates['passport_verified_at'] =
+                DateTime.now().toIso8601String();
+          } else {
+            updates['id_verified_until'] = isoExp;
+          }
+        }
+      }
+      // Ujistíme se, že verified_at se nastaví i když chybí platnost
+      if (isPassport && _notEmpty(result.idNumber)) {
+        updates['passport_verified_at'] ??=
+            DateTime.now().toIso8601String();
+      }
     }
   }
 
-  // License number — from licenseNumber field, or from idNumber when scanning DL
-  // (edge function sets licenseNumber=idNumber for DL, but just in case)
-  if (result.licenseNumber != null) {
-    updates['license_number'] = result.licenseNumber;
-  } else if (isDl && result.idNumber != null) {
-    updates['license_number'] = result.idNumber;
-  }
-  if (result.licenseCategory != null) {
-    final raw = result.licenseCategory!.split(RegExp(r'[,\s]+'))
-        .map((s) => s.trim().toUpperCase())
-        .where((s) => s.isNotEmpty)
-        .toList();
-    // Filter to valid DB enum values only
-    final valid = raw.where((c) => _validLicenseGroups.contains(c)).toList();
-    final rejected = raw.where((c) => !_validLicenseGroups.contains(c)).toList();
-    if (rejected.isNotEmpty) {
-      debugPrint('[DocScan] Filtered out invalid license categories: $rejected '
-          '(valid: $valid, allowed: $_validLicenseGroups)');
-    }
-    if (valid.isNotEmpty) updates['license_group'] = valid;
-  }
-  if (result.expiryDate != null) {
-    final isoExp = _czDateToIso(result.expiryDate);
-    if (isoExp != null) {
-      updates['license_expiry'] = isoExp;
-      updates['license_verified_until'] = isoExp;
-    }
-  }
-  // license_verified_at se nastavuje POUZE když OCR opravdu vrátil něco
-  // z ŘP (číslo nebo datum platnosti). Pouhý fakt, že user vyfotil DL,
-  // nestačí — jinak se v profilu objeví "ověřeno" i u čitelně prošlých
-  // nebo nečitelných skenů. Door-code logika pak vydá kódy bez validace.
-  final hasLicenseData = (result.licenseNumber != null && result.licenseNumber!.isNotEmpty)
-      || (result.expiryDate != null && result.expiryDate!.isNotEmpty)
-      || (result.licenseCategory != null && result.licenseCategory!.isNotEmpty);
-  if (hasLicenseData) {
-    updates['license_verified_at'] = DateTime.now().toIso8601String();
-  }
-
-  if (updates.isEmpty) return null;
+  if (updates.isEmpty) return warning;
 
   try {
     await MotoGoSupabase.client.from('profiles').update(updates).eq('id', user.id);
-    debugPrint('[DocScan] Profile updated: ${updates.keys.toList()}');
-    return null;
+    debugPrint('[DocScan] Profile updated ($stepKey): ${updates.keys.toList()}');
+    return warning;
   } catch (e) {
     debugPrint('[DocScan] ⚠ Profile update failed: $e');
     // Return warning message but don't crash — photo is already saved
     return e.toString();
   }
+}
+
+/// Normalizace čísla dokladu pro porovnání (velká písmena, bez mezer).
+String _normalizeDocNum(String s) =>
+    s.toUpperCase().replaceAll(RegExp(r'\s+'), '');
+
+/// Helper — parse license category string ("A, B, A1") do validních skupin.
+List<String> _parseLicenseGroups(String raw) {
+  final list = raw
+      .split(RegExp(r'[,\s]+'))
+      .map((s) => s.trim().toUpperCase())
+      .where((s) => s.isNotEmpty)
+      .toList();
+  return list.where((c) => _validLicenseGroups.contains(c)).toList();
+}
+
+bool _notEmpty(String? s) => s != null && s.isNotEmpty;
+
+/// Parse česká adresa "Ulice 123/45, 130 00 Praha 3" → {street, zip, city}.
+/// Funguje i pro jednořádkové adresy bez čárky.
+Map<String, String?> _parseCzechAddress(String raw) {
+  final result = <String, String?>{'street': null, 'city': null, 'zip': null};
+  final trimmed = raw.trim();
+  if (trimmed.isEmpty) return result;
+
+  // Nejdřív najdeme PSČ (3 čísla + mezera + 2 čísla, nebo 5 číslic)
+  final zipMatch = RegExp(r'(\d{3})\s?(\d{2})').firstMatch(trimmed);
+  String? zip;
+  String withoutZip = trimmed;
+  if (zipMatch != null) {
+    zip = '${zipMatch.group(1)} ${zipMatch.group(2)}';
+    withoutZip = trimmed.replaceRange(zipMatch.start, zipMatch.end, '|');
+  }
+
+  // Pokud adresa obsahuje čárku, rozdělíme podle ní
+  if (withoutZip.contains(',')) {
+    final parts = withoutZip.split(',').map((p) => p.trim()).toList();
+    if (parts.length >= 2) {
+      result['street'] = parts[0].replaceAll('|', '').trim();
+      // Zbytek je město — odstraníme placeholder pro PSČ
+      final cityRaw = parts.sublist(1).join(' ').replaceAll('|', '').trim();
+      result['city'] = cityRaw.isEmpty ? null : cityRaw;
+    } else {
+      result['street'] = withoutZip.replaceAll('|', '').trim();
+    }
+  } else if (zip != null) {
+    // Bez čárky: před PSČ = ulice, za PSČ = město
+    final parts = withoutZip.split('|').map((p) => p.trim()).toList();
+    if (parts.length == 2) {
+      if (parts[0].isNotEmpty) result['street'] = parts[0];
+      if (parts[1].isNotEmpty) result['city'] = parts[1];
+    } else if (parts.length == 1 && parts[0].isNotEmpty) {
+      result['street'] = parts[0];
+    }
+  } else {
+    // Žádné PSČ ani čárka — bereme vše jako ulici
+    result['street'] = trimmed;
+  }
+
+  if (zip != null) result['zip'] = zip;
+  return result;
 }
 
 /// Reset verification and delete documents for a given doc type.
