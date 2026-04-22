@@ -1,17 +1,13 @@
-import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 
 import '../../../core/theme.dart';
-import '../../../core/i18n/i18n_provider.dart';
-import '../../../core/native/gps_service.dart';
-import '../../../core/widgets/address_autocomplete_field.dart';
-import '../price_calculator.dart';
-import 'map_picker.dart';
+import '../booking_ui_helpers.dart' show showAddrBottomSheet;
+import '../map_launcher.dart' show launchMapPicker;
 
-/// Address picker with geocoding — mirrors cart-address.js + address-api.js.
-/// Uses single-line autocomplete (city → street) via Mapy.cz Suggest.
+/// Address picker with geocoding.
+/// Delegates address entry to [showAddrBottomSheet] — the same modal used in
+/// the new-booking flow. Inline autocomplete used to collide with the keyboard
+/// in the reservation-edit ListView (field scrolled to top, rest empty).
 class AddressPickerWidget extends StatefulWidget {
   final String label;
   final String method;
@@ -33,17 +29,12 @@ class AddressPickerWidget extends StatefulWidget {
 }
 
 class _AddressPickerWidgetState extends State<AddressPickerWidget> {
-  final _addrKey = GlobalKey<AddressAutocompleteFieldState>();
   String _street = '';
   String _city = '';
   String _zip = '';
   double? _lat, _lng;
   double? _distanceKm;
   double? _deliveryFee;
-  bool _confirmed = false;
-
-  static const _apiKey = 'whg1ilj203oYhmsqkBHVtUqpk-tYr0E-HFTx4lGdue0';
-  static const _apiBase = 'https://api.mapy.cz/v1';
 
   @override
   void didUpdateWidget(AddressPickerWidget old) {
@@ -54,14 +45,9 @@ class _AddressPickerWidgetState extends State<AddressPickerWidget> {
       _zip = '';
       _lat = null;
       _lng = null;
-      _addrKey.currentState?.clear();
       _distanceKm = null;
       _deliveryFee = null;
-      _confirmed = false;
-      // Parent callbacks would call setState on the parent; doing that
-      // synchronously inside didUpdateWidget (while the element tree is
-      // being updated) triggers "setState() called during build" and Flutter
-      // swaps in the ErrorWidget ("Restartujte aplikaci"). Defer to next frame.
+      // Defer parent setState — see note on "Restartujte aplikaci" crash fix.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         setState(() {});
@@ -71,171 +57,52 @@ class _AddressPickerWidgetState extends State<AddressPickerWidget> {
     }
   }
 
-  void _onAddressSelected(AddressSuggestion s) {
-    _street = s.street;
-    _city = s.city;
-    _zip = s.zip;
-    _lat = s.lat;
-    _lng = s.lng;
-    _calcDistance();
-  }
-
-  void _onCleared() {
-    _street = '';
-    _city = '';
-    _zip = '';
-    _lat = null;
-    _lng = null;
-    setState(() {
-      _distanceKm = null;
-      _deliveryFee = null;
-    });
-  }
-
-  Future<void> _calcDistance() async {
-    if (_street.isEmpty && _city.isEmpty) return;
-    final address = '$_street, $_city $_zip'.trim();
-
-    double km;
-    if (_lat != null && _lng != null) {
-      km = await routeKmFromBranch(_lat!, _lng!);
-    } else {
-      final coords = await _geocode(address);
-      if (coords != null) {
-        _lat = coords.$1;
-        _lng = coords.$2;
-        km = await routeKmFromBranch(coords.$1, coords.$2);
-      } else {
-        km = estimateKm(address).toDouble();
-      }
-    }
-
-    final fee = PriceCalculator.calcDeliveryFee(km);
-    if (mounted) {
-      setState(() {
-        _distanceKm = km;
-        _deliveryFee = fee;
-      });
-      widget.onDeliveryFeeChanged(fee);
-      widget.onAddressChanged(AddressResult(
-          street: _street,
-          city: _city,
-          zip: _zip,
-          lat: _lat,
-          lng: _lng));
-    }
-  }
-
-  Future<(double, double)?> _geocode(String address) async {
-    try {
-      final uri = Uri.parse(
-          '$_apiBase/geocode?query=${Uri.encodeComponent(address)}&apikey=$_apiKey');
-      final res = await http.get(uri).timeout(const Duration(seconds: 5));
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        final items = data['items'] as List?;
-        if (items != null && items.isNotEmpty) {
-          final pos = items[0]['position'];
-          return (pos['lat'] as double, pos['lon'] as double);
-        }
-      }
-    } catch (_) {}
-    return null;
-  }
-
-  Future<void> _useGps() async {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Zjišťuji polohu...'),
-          duration: Duration(seconds: 2)));
-    }
-    final pos = await GpsService.getCurrentPosition();
-    if (pos == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('GPS není dostupné — vyberte adresu ručně nebo z mapy'),
-            duration: Duration(seconds: 3)));
-      }
-      return;
-    }
-    _lat = pos.latitude;
-    _lng = pos.longitude;
-    // Reverse geocode — Mapy.cz primary (precise for CZ), Nominatim fallback
-    bool filled = false;
-    try {
-      final mUri = Uri.parse(
-          '$_apiBase/rgeocode?lat=${pos.latitude}&lon=${pos.longitude}'
-          '&lang=cs&apikey=$_apiKey');
-      final mRes = await http.get(mUri, headers: {
-        'Accept': 'application/json',
-        'X-Mapy-Api-Key': _apiKey,
-      }).timeout(const Duration(seconds: 5));
-      if (mRes.statusCode == 200) {
-        final data = jsonDecode(mRes.body);
-        final items = (data['items'] as List?) ?? [];
-        if (items.isNotEmpty) {
-          final item = items[0];
-          final name = item['name'] as String? ?? '';
-          final numMatch = RegExp(r'^(.+?)\s+(\d+\/?[\da-zA-Z]*)$').firstMatch(name);
-          _street = numMatch != null
-              ? '${numMatch.group(1)} ${numMatch.group(2)}' : name;
-          final rs = (item['regionalStructure'] as List?) ?? [];
-          for (final r in rs) {
-            if (r['type'] == 'regional.municipality') {
-              _city = r['name'] as String? ?? '';
-              break;
-            }
-          }
-          _zip = item['zip'] as String? ?? '';
-          _addrKey.currentState?.setAddress(_street, _city, _zip);
-          filled = true;
-          if (mounted) setState(() {});
-        }
-      }
-    } catch (_) {}
-    if (!filled) {
-      try {
-        final uri = Uri.parse(
-            'https://nominatim.openstreetmap.org/reverse?format=json'
-            '&lat=${pos.latitude}&lon=${pos.longitude}&zoom=18&addressdetails=1');
-        final res = await http
-            .get(uri, headers: {'User-Agent': 'MotoGo24/1.0'})
-            .timeout(const Duration(seconds: 5));
-        if (res.statusCode == 200) {
-          final addr =
-              (jsonDecode(res.body)['address'] as Map<String, dynamic>?) ?? {};
-          _fillFromAddr(addr);
-          if (mounted) setState(() {});
-        }
-      } catch (_) {}
-    }
-    _calcDistance();
-  }
-
-  Future<void> _openMap(BuildContext context) async {
-    final result = await MapPickerScreen.show(context, lat: _lat, lng: _lng);
-    if (result == null) return;
-    _lat = result.lat;
-    _lng = result.lng;
-    // Map picker already uses Mapy.cz rgeocode — use its parsed result
-    _street = result.street;
-    _city = result.city;
-    _zip = result.zip;
-    _addrKey.currentState?.setAddress(result.street, result.city, result.zip);
-    if (mounted) setState(() {});
-    _calcDistance();
-  }
-
-  void _fillFromAddr(Map<String, dynamic> addr) {
-    final road = addr['road'] as String? ?? '';
-    final house = addr['house_number'] as String? ?? '';
-    _street = road.isNotEmpty
-        ? '$road${house.isNotEmpty ? " $house" : ""}'
-        : '';
-    _city =
-        (addr['city'] ?? addr['town'] ?? addr['village'] ?? '') as String;
-    _zip = (addr['postcode'] ?? '') as String;
-    _addrKey.currentState?.setAddress(_street, _city, _zip);
+  void _openAddressSheet() {
+    showAddrBottomSheet(
+      context,
+      widget.label == 'Vyzvednutí'
+          ? 'Přistavení na vaši adresu'
+          : 'Odvoz z vaší adresy',
+      _city,
+      _street,
+      (city, addr) {
+        setState(() {
+          _city = city;
+          _street = addr;
+        });
+        widget.onAddressChanged(AddressResult(
+            street: _street,
+            city: _city,
+            zip: _zip,
+            lat: _lat,
+            lng: _lng));
+      },
+      onDistCalc: (km, fee) {
+        if (!mounted) return;
+        setState(() {
+          _distanceKm = km;
+          _deliveryFee = fee;
+        });
+        widget.onDeliveryFeeChanged(fee);
+      },
+      onMapTap: (ctx) async {
+        final r = await launchMapPicker(ctx);
+        if (r == null || !mounted) return;
+        setState(() {
+          _city = r.city;
+          _street = r.address;
+          _distanceKm = r.km;
+          _deliveryFee = r.fee;
+        });
+        widget.onAddressChanged(AddressResult(
+            street: _street,
+            city: _city,
+            zip: _zip,
+            lat: _lat,
+            lng: _lng));
+        widget.onDeliveryFeeChanged(r.fee);
+      },
+    );
   }
 
   @override
@@ -262,28 +129,33 @@ class _AddressPickerWidgetState extends State<AddressPickerWidget> {
         ),
         if (widget.method == 'delivery') ...[
           const SizedBox(height: 10),
-          // Single-line autocomplete (city → street)
-          AddressAutocompleteField(
-            key: _addrKey,
-            onSelected: _onAddressSelected,
-            onCleared: _onCleared,
-            hint: 'Zadejte město…',
+          GestureDetector(
+            onTap: _openAddressSheet,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                  color: const Color(0xFFF1FAF7),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFD4E8E0))),
+              child: Row(children: [
+                const Icon(Icons.location_on,
+                    size: 16, color: Color(0xFF8AAB99)),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: Text(
+                        _city.isNotEmpty
+                            ? '${_street.isNotEmpty ? '$_street, ' : ''}$_city'
+                            : 'Klikněte pro zadání adresy',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: _city.isNotEmpty
+                                ? const Color(0xFF0F1A14)
+                                : const Color(0xFF8AAB99)))),
+                const Icon(Icons.edit,
+                    size: 14, color: Color(0xFF8AAB99)),
+              ]),
+            ),
           ),
-          const SizedBox(height: 8),
-          // GPS + Map buttons
-          Row(children: [
-            Expanded(
-                child: _ActionBtn(
-                    icon: Icons.my_location,
-                    label: 'Poloha',
-                    onTap: _useGps)),
-            const SizedBox(width: 8),
-            Expanded(
-                child: _ActionBtn(
-                    icon: Icons.map_outlined,
-                    label: 'Mapa',
-                    onTap: () => _openMap(context))),
-          ]),
           if (_distanceKm != null && _deliveryFee != null)
             Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -298,48 +170,14 @@ class _AddressPickerWidgetState extends State<AddressPickerWidget> {
                           const Icon(Icons.route,
                               size: 14, color: MotoGoColors.greenDarker),
                           const SizedBox(width: 6),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                  '~${_distanceKm!.toStringAsFixed(0)} km · '
-                                  '${_deliveryFee!.toStringAsFixed(0)} Kč',
-                                  style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      color: MotoGoColors.greenDarker)),
-                              Text(t(context).tr('deliveryFeeExplain'),
-                                  style: const TextStyle(fontSize: 9, color: MotoGoColors.g400)),
-                            ],
-                          ),
+                          Text(
+                              '~${_distanceKm!.toStringAsFixed(0)} km · '
+                              '${_deliveryFee!.toStringAsFixed(0)} Kč',
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: MotoGoColors.greenDarker)),
                         ]))),
-          Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: GestureDetector(
-                  onTap: () => setState(() => _confirmed = !_confirmed),
-                  child: Row(children: [
-                    Container(
-                        width: 18,
-                        height: 18,
-                        decoration: BoxDecoration(
-                            color: _confirmed
-                                ? MotoGoColors.green
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(
-                                color: _confirmed
-                                    ? MotoGoColors.green
-                                    : MotoGoColors.g200,
-                                width: 2)),
-                        child: _confirmed
-                            ? const Icon(Icons.check,
-                                size: 12, color: Colors.black)
-                            : null),
-                    const SizedBox(width: 8),
-                    const Text('Potvrzuji adresu',
-                        style: TextStyle(
-                            fontSize: 11, color: MotoGoColors.g600)),
-                  ]))),
         ],
       ],
     );
@@ -407,32 +245,6 @@ class _RadioOption extends StatelessWidget {
                     color: selected
                         ? MotoGoColors.greenDarker
                         : MotoGoColors.g400)),
-          ])));
-}
-
-class _ActionBtn extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  const _ActionBtn(
-      {required this.icon, required this.label, required this.onTap});
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-      onTap: onTap,
-      child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-              color: MotoGoColors.greenPale,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: MotoGoColors.green, width: 1.5)),
-          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(icon, size: 16, color: MotoGoColors.greenDarker),
-            const SizedBox(width: 6),
-            Text(label,
-                style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: MotoGoColors.greenDarker)),
           ])));
 }
 
