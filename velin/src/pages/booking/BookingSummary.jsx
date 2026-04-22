@@ -4,6 +4,39 @@ import { SumRow } from './BookingUIHelpers'
 import { STATUS_LABELS, CANCEL_SOURCE_LABELS, describeModification, fmtDT } from './bookingConstants'
 import { mapyLinkUrl } from '../../lib/mapyCz'
 
+// Spáruje booking_extras.name s velikostí z bookings.*_size (driver/passenger)
+function matchExtraSize(name, b) {
+  const n = (name || '').toLowerCase()
+  const passenger = n.includes('spolujez') || n.includes('passenger')
+  const pick = (driver, pas) => passenger ? (b[pas] || null) : (b[driver] || null)
+  if (n.includes('boty') || n.includes('boots')) return pick('boots_size', 'passenger_boots_size')
+  if (n.includes('helma') || n.includes('helmet')) return pick('helmet_size', 'passenger_helmet_size')
+  if (n.includes('bunda') || n.includes('jacket')) return pick('jacket_size', 'passenger_jacket_size')
+  if (n.includes('kalhoty') || n.includes('pants')) return pick('pants_size', 'passenger_pants_size')
+  if (n.includes('rukavice') || n.includes('gloves')) return pick('gloves_size', 'passenger_gloves_size')
+  if (n.includes('výbava') || n.includes('vybava') || n.includes('set')) {
+    if (passenger) {
+      const parts = [
+        b.passenger_helmet_size && `helma ${b.passenger_helmet_size}`,
+        b.passenger_jacket_size && `bunda/vesta ${b.passenger_jacket_size}`,
+        b.passenger_pants_size && `kalhoty ${b.passenger_pants_size}`,
+        b.passenger_boots_size && `boty ${b.passenger_boots_size}`,
+        b.passenger_gloves_size && `rukavice ${b.passenger_gloves_size}`,
+      ].filter(Boolean)
+      return parts.length ? parts.join(', ') : null
+    }
+    const parts = [
+      b.helmet_size && `helma ${b.helmet_size}`,
+      b.jacket_size && `bunda ${b.jacket_size}`,
+      b.pants_size && `kalhoty ${b.pants_size}`,
+      b.boots_size && `boty ${b.boots_size}`,
+      b.gloves_size && `rukavice ${b.gloves_size}`,
+    ].filter(Boolean)
+    return parts.length ? parts.join(', ') : null
+  }
+  return null
+}
+
 export default function BookingSummary({ booking, sosIncidents, bookingExtras, cancellation, promoUsage, voucherUsed }) {
   const navigate = useNavigate()
   const b = booking
@@ -83,15 +116,34 @@ export default function BookingSummary({ booking, sosIncidents, bookingExtras, c
       {bookingExtras.length > 0 && (
         <>
           <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Příslušenství</div>
-          {bookingExtras.map((ex, i) => (
-            <SumRow key={i} label={ex.name || ex.extras_catalog?.name || `Extra ${i + 1}`} value={`${Number(ex.unit_price || ex.extras_catalog?.price_per_day || 0).toLocaleString('cs-CZ')} Kč${ex.quantity > 1 ? ` × ${ex.quantity}` : ''}`} />
-          ))}
+          {bookingExtras.map((ex, i) => {
+            const name = ex.name || ex.extras_catalog?.name || `Extra ${i + 1}`
+            const size = matchExtraSize(name, b)
+            const labeled = size ? `${name} (${size})` : name
+            return <SumRow key={i} label={labeled} value={`${Number(ex.unit_price || ex.extras_catalog?.price_per_day || 0).toLocaleString('cs-CZ')} Kč${ex.quantity > 1 ? ` × ${ex.quantity}` : ''}`} />
+          })}
         </>
       )}
 
       <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Platba</div>
       <SumRow label="Celkem" value={`${Number(b.total_price || 0).toLocaleString('cs-CZ')} Kč`} />
       {b.extras_price > 0 && <SumRow label="Příslušenství" value={`${b.extras_price.toLocaleString('cs-CZ')} Kč`} />}
+      {bookingExtras.length > 0 && (
+        <div className="pl-4" style={{ fontSize: 12, color: '#4a5a52' }}>
+          {bookingExtras.map((ex, i) => {
+            const name = ex.name || ex.extras_catalog?.name || `Extra ${i + 1}`
+            const size = matchExtraSize(name, b)
+            const qty = Number(ex.quantity || 1)
+            const price = Number(ex.unit_price || ex.extras_catalog?.price_per_day || 0)
+            return (
+              <div key={i} className="py-[2px] flex justify-between" style={{ borderBottom: '1px dashed #e5e7eb' }}>
+                <span>— {name}{size ? ` (${size})` : ''}{qty > 1 ? ` × ${qty}` : ''}</span>
+                <span style={{ color: '#1a2e22', fontWeight: 600 }}>{(price * qty).toLocaleString('cs-CZ')} Kč</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
       {b.delivery_fee > 0 && <SumRow label="Doručení" value={`${b.delivery_fee.toLocaleString('cs-CZ')} Kč`} />}
       {b.discount_amount > 0 && <SumRow label="Sleva" value={`-${Number(b.discount_amount).toLocaleString('cs-CZ')} Kč${b.discount_code ? ` (${b.discount_code})` : ''}`} color="#1a8a18" />}
       <SumRow label="Stav platby" value={b.payment_status === 'paid' && b.status !== 'pending' ? 'Zaplaceno' : 'Nezaplaceno'} color={b.payment_status === 'paid' && b.status !== 'pending' ? '#1a8a18' : '#dc2626'} />

@@ -111,7 +111,12 @@ function resolveSlug(type: string, source: string): string {
 const FALLBACK_SUBJECTS: Record<string, (vars: Record<string, string>) => string> = {
   booking_reserved: (v) => `Va\u0161e rezervace \u010d. ${v.booking_number} motocyklu u MotoGo24 je potvrzena`,
   booking_completed: (v) => `D\u011bkujeme za vyu\u017eit\u00ed slu\u017eeb MotoGo24`,
-  booking_modified: (v) => `Zm\u011bna rezervace \u010d. ${v.booking_number} \u2014 MOTO GO 24`,
+  booking_modified: (v) => {
+    const pd = Number((v.price_difference || '0').toString().replace(/\s/g, '').replace(',', '.')) || 0
+    if (pd > 0) return `\u00daprava rezervace \u010d. ${v.booking_number} \u2014 doplatek ${v.price_difference} K\u010d \u2014 MOTO GO 24`
+    if (pd < 0) return `\u00daprava rezervace \u010d. ${v.booking_number} \u2014 vr\u00e1cen\u00ed platby \u2014 MOTO GO 24`
+    return `Zm\u011bna rezervace \u010d. ${v.booking_number} \u2014 MOTO GO 24`
+  },
   voucher_purchased: (v) => `V\u00e1\u0161 d\u00e1rkov\u00fd poukaz od MotoGo24`,
   booking_abandoned: (v) => `Dokon\u010dete svou rezervaci \u010d. ${v.booking_number} motocyklu u MotoGo24`,
   booking_cancelled: (v) => `Va\u0161e rezervace \u010d. ${v.booking_number} motocyklu u MotoGo24 byla \u00fasp\u011b\u0161n\u011b stornov\u00e1na`,
@@ -130,7 +135,12 @@ async function downloadAsBase64(supabase: any, path: string): Promise<string | n
 }
 
 /** Auto-generate attachments based on email type */
-async function autoGenerateAttachments(type: string, booking_id: string, supabase: any): Promise<{ content: string; filename: string }[]> {
+async function autoGenerateAttachments(
+  type: string,
+  booking_id: string,
+  supabase: any,
+  opts: { priceDifference?: number } = {}
+): Promise<{ content: string; filename: string }[]> {
   if (!booking_id) return []
   const atts: { content: string; filename: string }[] = []
   const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
@@ -168,32 +178,51 @@ async function autoGenerateAttachments(type: string, booking_id: string, supabas
   }
 
   if (type === 'booking_modified') {
-    // Regenerate all booking documents with updated data
-    // 1. New ZF (advance invoice)
-    try {
-      const zfRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
-        method: 'POST', headers,
-        body: JSON.stringify({ type: 'advance', booking_id, send_email: false }),
-      })
-      const zfData = await zfRes.json().catch(() => ({}))
-      if (zfData.success && zfData.invoice_id) {
-        const b64 = await downloadAsBase64(supabase, `invoices/${zfData.invoice_id}.html`)
-        if (b64) atts.push({ content: b64, filename: `Zalohova-faktura-${zfData.number || 'ZF'}.html` })
-      }
-    } catch { /* ignore */ }
+    const priceDifference = Number(opts.priceDifference || 0)
 
-    // 2. New DP (payment receipt)
-    try {
-      const dpRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
-        method: 'POST', headers,
-        body: JSON.stringify({ type: 'payment_receipt', booking_id, send_email: false }),
-      })
-      const dpData = await dpRes.json().catch(() => ({}))
-      if (dpData.success && dpData.invoice_id) {
-        const b64 = await downloadAsBase64(supabase, `invoices/${dpData.invoice_id}.html`)
-        if (b64) atts.push({ content: b64, filename: `Doklad-platby-${dpData.number || 'DP'}.html` })
-      }
-    } catch { /* ignore */ }
+    if (priceDifference > 0) {
+      // Prodloužení / navýšení ceny → nová rozdílová ZF + DP (source='edit')
+      try {
+        const zfRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
+          method: 'POST', headers,
+          body: JSON.stringify({ type: 'advance', booking_id, source: 'edit', send_email: false }),
+        })
+        const zfData = await zfRes.json().catch(() => ({}))
+        if (zfData.success && zfData.invoice_id) {
+          const b64 = await downloadAsBase64(supabase, `invoices/${zfData.invoice_id}.html`)
+          if (b64) atts.push({ content: b64, filename: `Zalohova-faktura-uprava-${zfData.number || 'ZF'}.html` })
+        }
+      } catch { /* ignore */ }
+
+      try {
+        const dpRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
+          method: 'POST', headers,
+          body: JSON.stringify({ type: 'payment_receipt', booking_id, source: 'edit', send_email: false }),
+        })
+        const dpData = await dpRes.json().catch(() => ({}))
+        if (dpData.success && dpData.invoice_id) {
+          const b64 = await downloadAsBase64(supabase, `invoices/${dpData.invoice_id}.html`)
+          if (b64) atts.push({ content: b64, filename: `Doklad-platby-uprava-${dpData.number || 'DP'}.html` })
+        }
+      } catch { /* ignore */ }
+    } else if (priceDifference < 0) {
+      // Zkrácení → dobropis + refund se řeší přes process-refund (volá ho velin modal),
+      // zde pouze přiložíme již vystavený dobropis (credit_note s source='refund') pokud existuje.
+      try {
+        const { data: cn } = await supabase.from('invoices')
+          .select('id, number, pdf_path')
+          .eq('booking_id', booking_id)
+          .eq('type', 'credit_note')
+          .neq('status', 'cancelled')
+          .order('created_at', { ascending: false })
+          .limit(1)
+        if (cn?.length && cn[0].pdf_path) {
+          const b64 = await downloadAsBase64(supabase, cn[0].pdf_path)
+          if (b64) atts.push({ content: b64, filename: `Dobropis-${cn[0].number || 'DB'}.html` })
+        }
+      } catch { /* ignore */ }
+    }
+    // priceDifference === 0 → žádná nová faktura, jen aktualizovaná smlouva/VOP níže
 
     // 3. Updated rental contract
     try {
@@ -425,7 +454,9 @@ ${vars.door_codes_block || `<p style="color:#dc2626">K\u00f3dy se zobraz\u00ed p
     let finalAttachments = attachments && Array.isArray(attachments) ? [...attachments] : []
     if (booking_id && (type === 'booking_abandoned' || type === 'booking_completed' || type === 'booking_modified')) {
       try {
-        const autoAtts = await autoGenerateAttachments(type, booking_id, supabase)
+        const autoAtts = await autoGenerateAttachments(type, booking_id, supabase, {
+          priceDifference: Number(price_difference || 0),
+        })
         finalAttachments = [...finalAttachments, ...autoAtts]
       } catch { /* ignore */ }
     }

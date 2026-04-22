@@ -133,10 +133,22 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
           details: { booking_id: booking.id, dates_changed: datesChanged, moto_changed: motoChanged, delivery_changed: deliveryChanged, price_diff: priceDiff, charged: chargeCustomer, new_total: chargeCustomer ? newTotalPrice : origPaidPrice }
         })
       } catch {}
+      // Při zkrácení rezervace (záporný rozdíl) + placeno kartou → automatický Stripe refund + dobropis
+      // Proběhne jen pokud admin označil "naúčtovat zákazníkovi" (jinak je zkrácení bez vratky).
+      if (chargeCustomer && priceDiff < 0 && booking.stripe_payment_intent_id) {
+        try {
+          await supabase.functions.invoke('process-refund', {
+            body: { booking_id: booking.id, amount: Math.abs(priceDiff), reason: 'shortening' },
+          })
+        } catch (refundErr) {
+          console.warn('[BookingModify] refund failed:', refundErr?.message)
+        }
+      }
+
       if (['reserved', 'active'].includes(booking.status) && booking.profiles?.email) {
         try {
           await supabase.functions.invoke('send-booking-email', {
-            body: { type: 'booking_modified', booking_id: booking.id, customer_email: booking.profiles.email, customer_name: booking.profiles.full_name, motorcycle: motoChanged ? selectedMoto?.model : booking.motorcycles?.model, start_date: isoDate(startDate), end_date: isoDate(endDate), total_price: chargeCustomer ? newTotalPrice : origPaidPrice, price_difference: priceDiff, source: booking.booking_source || 'app' },
+            body: { type: 'booking_modified', booking_id: booking.id, customer_email: booking.profiles.email, customer_name: booking.profiles.full_name, motorcycle: motoChanged ? selectedMoto?.model : booking.motorcycles?.model, start_date: isoDate(startDate), end_date: isoDate(endDate), total_price: chargeCustomer ? newTotalPrice : origPaidPrice, price_difference: chargeCustomer ? priceDiff : 0, source: booking.booking_source || 'app' },
           })
         } catch {}
       }
