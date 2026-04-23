@@ -1,3 +1,6 @@
 node_modules/
 package-lock.json
 package.json
+
+# motogo-web-php runtime artefakty
+motogo-web-php/.cache/
