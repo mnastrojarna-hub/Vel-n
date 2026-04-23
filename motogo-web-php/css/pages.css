@@ -1,5 +1,28 @@
 /* ===== MotoGo24 Web — Pages CSS (detail, blog, forms, calendar) ===== */
 
+/* ===== KATALOG FILTRY ===== */
+.katalog-filters{background:#fff;border:1px solid #d4e8e0;border-radius:12px;padding:1rem 1.25rem;margin:1rem 0 1.5rem}
+.filter-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.75rem;margin-bottom:.75rem}
+.filter-row:last-child{margin-bottom:0}
+.filter-field{display:flex;flex-direction:column;gap:.25rem}
+.filter-field label{font-size:.78rem;color:#4a6b5a;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+.filter-field input[type=search],.filter-field select{width:100%;padding:.55rem .85rem;border:1px solid #b8d4c6;border-radius:20px;background:#fff;color:#1a2e22;font-family:'Montserrat',sans-serif;font-size:.88rem;cursor:pointer;transition:border-color .15s}
+.filter-field input[type=search]:focus,.filter-field select:focus{outline:none;border-color:#74FB71;box-shadow:0 0 0 3px rgba(116,251,113,.15)}
+.filter-row-checks{display:flex;flex-wrap:wrap;gap:.75rem 1.25rem;align-items:center;padding-top:.5rem;border-top:1px dashed #d4e8e0}
+.filter-check{display:inline-flex;align-items:center;gap:.4rem;font-size:.9rem;color:#1a2e22;cursor:pointer}
+.filter-check input{accent-color:#1a8c1a;width:16px;height:16px}
+.filter-row-checks .btn{margin-left:auto}
+.filter-row-checks .btn+.btn{margin-left:.5rem}
+.katalog-count{font-size:.88rem;color:#4a6b5a;margin:.5rem 0 1rem}
+.katalog-count strong{color:#1a2e22}
+.katalog-empty{padding:2rem;text-align:center;background:#fff;border:1px dashed #d4e8e0;border-radius:12px}
+@media(max-width:600px){
+  .filter-row-checks{flex-direction:column;align-items:stretch}
+  .filter-row-checks .btn{margin-left:0;width:100%}
+  .filter-row-checks .btn+.btn{margin-left:0;margin-top:.25rem}
+}
+
+
 /* ===== MOTO DETAIL ===== */
 .moto-detail{padding-bottom:2rem}
 .moto-nav{display:flex;justify-content:space-between;align-items:center;padding:.75rem 0;margin-bottom:1rem;border-bottom:1px solid #e0e0e0}
