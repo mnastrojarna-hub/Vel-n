@@ -15,6 +15,9 @@ interface TemplateParams {
   isProforma: boolean; isPaymentReceipt: boolean; isShopFinal: boolean
   dpNumber?: string
   bookingNumber?: string
+  paymentMethodLabel?: string
+  cardInfo?: { brand: string; last4: string } | null
+  isEdit?: boolean
 }
 
 export function generateInvoiceHtml(p: TemplateParams): string {
@@ -84,7 +87,8 @@ export function generateInvoiceHtml(p: TemplateParams): string {
   </div>
   <div style="padding:14px;background:#f8faf9;border-radius:8px;margin-bottom:16px">
     <p style="margin:0 0 6px;font-size:10px;font-weight:700;text-transform:uppercase;color:#888">Platební údaje</p>
-    <div style="font-size:12px"><span style="color:#888">Banka:</span> ${p.company.bank} | <span style="color:#888">Č. účtu:</span> ${p.company.account} | <span style="color:#888">VS:</span> ${p.number}</div>
+    ${p.cardInfo ? `<div style="font-size:12px"><span style="color:#888">Způsob platby:</span> <strong>${(p.cardInfo.brand || 'card').toUpperCase()} **** ${p.cardInfo.last4 || '****'}</strong> | <span style="color:#888">Uhrazeno online přes Stripe</span></div>
+    <div style="font-size:11px;color:#888;margin-top:4px">VS: ${p.number}</div>` : `<div style="font-size:12px"><span style="color:#888">Banka:</span> ${p.company.bank} | <span style="color:#888">Č. účtu:</span> ${p.company.account} | <span style="color:#888">VS:</span> ${p.number}</div>`}
   </div>
   ${vc.length > 0 ? `<div style="padding:14px;background:#dcfce7;border-radius:8px;margin-bottom:16px;border:1px solid #86efac">
     <p style="margin:0 0 6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#166534">Dárkové poukazy</p>
@@ -108,15 +112,17 @@ export function generateEmailHtml(p: {
   dueDate: string; voucher_codes?: string[]; voucherValidUntil?: string | null
   doorCodes?: any[]; isPaymentReceipt: boolean; isProforma: boolean; isShopFinal: boolean
   bookingNumber?: string
+  paymentMethodLabel?: string
+  isEdit?: boolean
 }): string {
   const docLabel = p.isPaymentReceipt ? 'doklad k přijaté platbě' : p.isProforma ? 'zálohovou fakturu' : p.isShopFinal ? 'konečnou fakturu' : 'fakturu'
   const vc = p.voucher_codes || []
   const dc = p.doorCodes || []
   return `<div style="font-family:sans-serif;padding:24px">
     <h2 style="color:#1a2e22">Dobrý den${p.customer.full_name ? ` ${p.customer.full_name}` : ''},</h2>
-    <p>Zasíláme vám ${docLabel} č. <strong>${p.number}</strong> na částku <strong>${fmtPrice(p.total)} Kč</strong>.</p>
+    <p>Zasíláme vám ${docLabel} č. <strong>${p.number}</strong>${p.isEdit ? ' <span style="color:#b45309">(úprava rezervace)</span>' : ''} na částku <strong>${fmtPrice(p.total)} Kč</strong>.</p>
     ${p.bookingNumber ? `<p>Rezervace: <strong>#${p.bookingNumber}</strong></p>` : ''}
-    <p>Splatnost: <strong>${fmtDate(p.dueDate)}</strong></p>
+    ${p.paymentMethodLabel ? `<p>Platba: <strong>${p.paymentMethodLabel}</strong></p>` : `<p>Splatnost: <strong>${fmtDate(p.dueDate)}</strong></p>`}
     <p>Variabilní symbol: <strong>${p.number}</strong></p>
     ${vc.length > 0 ? `<div style="padding:12px;background:#dcfce7;border-radius:8px;margin:12px 0"><p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#166534">Dárkové poukazy:</p>${vc.map((c: string) => `<p style="margin:2px 0;font-size:16px;font-weight:700;font-family:monospace;color:#166534">${c}</p>`).join('')}${p.voucherValidUntil ? `<p style="margin:6px 0 0;font-size:11px;color:#166534">Platnost: 3 roky (do ${fmtDate(p.voucherValidUntil)}). Kód uplatníte při rezervaci v aplikaci MotoGo24.</p>` : ''}</div>` : ''}
     ${dc.length > 0 ? `<div style="padding:12px;background:#e0f2fe;border-radius:8px;margin:12px 0;border:2px solid #0284c7"><p style="margin:0 0 8px;font-size:11px;font-weight:700;color:#0c4a6e">PŘÍSTUPOVÉ KÓDY K POBOČCE:</p>${dc.filter((c: any) => !c.withheld_reason).map((d: any) => `<p style="margin:4px 0;font-size:18px;font-weight:700;font-family:monospace;letter-spacing:3px;color:#0369a1">${d.code_type === 'motorcycle' ? 'Motorka' : 'Příslušenství'}: ${d.door_code}</p>`).join('')}${dc.some((c: any) => c.withheld_reason) ? '<p style="margin:6px 0 0;font-size:12px;color:#b45309">Kódy budou zaslány po ověření dokladů.</p>' : '<p style="margin:6px 0 0;font-size:11px;color:#164e63">Kódy jsou platné po dobu trvání pronájmu.</p>'}</div>` : ''}

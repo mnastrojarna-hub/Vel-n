@@ -39,11 +39,63 @@ const CORS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Map booking_extras.name → size column on bookings row
+function matchExtraSize(name: string, b: any): string | null {
+  const n = (name || '').toLowerCase()
+  const passenger = n.includes('spolujez') || n.includes('passenger')
+  const pick = (driver: string, pas: string) => passenger ? (b[pas] || null) : (b[driver] || null)
+  if (n.includes('boty') || n.includes('boots')) return pick('boots_size', 'passenger_boots_size')
+  if (n.includes('helma') || n.includes('helmet')) return pick('helmet_size', 'passenger_helmet_size')
+  if (n.includes('bunda') || n.includes('jacket')) return pick('jacket_size', 'passenger_jacket_size')
+  if (n.includes('kalhoty') || n.includes('pants')) return pick('pants_size', 'passenger_pants_size')
+  if (n.includes('rukavice') || n.includes('gloves')) return pick('gloves_size', 'passenger_gloves_size')
+  if (n.includes('výbava') || n.includes('vybava') || n.includes('set')) {
+    if (passenger) {
+      const parts = [b.passenger_helmet_size && `helma ${b.passenger_helmet_size}`, b.passenger_jacket_size && `bunda/vesta ${b.passenger_jacket_size}`, b.passenger_pants_size && `kalhoty ${b.passenger_pants_size}`, b.passenger_boots_size && `boty ${b.passenger_boots_size}`, b.passenger_gloves_size && `rukavice ${b.passenger_gloves_size}`].filter(Boolean)
+      return parts.length ? parts.join(', ') : null
+    }
+    const parts = [b.helmet_size && `helma ${b.helmet_size}`, b.jacket_size && `bunda ${b.jacket_size}`, b.pants_size && `kalhoty ${b.pants_size}`, b.boots_size && `boty ${b.boots_size}`, b.gloves_size && `rukavice ${b.gloves_size}`].filter(Boolean)
+    return parts.length ? parts.join(', ') : null
+  }
+  return null
+}
+
+// Load primary card info for a booking paid via Stripe (brand + last4)
+async function loadPaymentCardInfo(supabase: any, booking: any): Promise<{ brand: string; last4: string; wallet?: string } | null> {
+  if (!booking?.stripe_payment_intent_id) return null
+  const userId = booking.user_id || booking.profiles?.id
+  if (!userId) return null
+  try {
+    const { data: pms } = await supabase.from('payment_methods')
+      .select('brand, last4, is_default, created_at')
+      .eq('user_id', userId)
+      .order('is_default', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(1)
+    if (pms?.length) {
+      return { brand: pms[0].brand || 'card', last4: pms[0].last4 || '****' }
+    }
+  } catch { /* ignore */ }
+  return { brand: 'card', last4: '****' }
+}
+
+// Build label for an extra row (name + size if applicable)
+function extraLabel(name: string, booking: any): string {
+  const size = matchExtraSize(name, booking)
+  if (!size) return name
+  // If size is a composite (contains comma) show it on a second segment
+  return `${name} (${size})`
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
   try {
-    const { type, booking_id, order_id, send_email, extra_items, voucher_codes: explicitVoucherCodes } = await req.json()
+    const {
+      type, booking_id, order_id, send_email,
+      extra_items, voucher_codes: explicitVoucherCodes,
+      source: reqSource,
+    } = await req.json()
     if (!booking_id && !order_id) return new Response(JSON.stringify({ error: 'Missing booking_id or order_id' }), { status: 400 })
 
     let voucher_codes: string[] | undefined = explicitVoucherCodes
@@ -60,9 +112,16 @@ serve(async (req) => {
     const prefix = isPaymentReceipt ? 'DP' : isProforma ? 'ZF' : 'FV'
     const year = new Date().getFullYear()
 
+    // Source defaults to 'booking' for standard flow; 'edit' marks per-modification invoices
+    const invoiceSource: string = reqSource || 'booking'
+    const isEdit = invoiceSource === 'edit' && !isShop
+
     let customer: any = {}
     let items: { description: string; qty: number; unit_price: number }[] = []
     let customerId: string | null = null
+    let cardInfo: { brand: string; last4: string } | null = null
+    let editLabel = '' // e.g. "ÚPRAVA — +2 dny"
+    let paymentMethodLabel = '' // "Bankovní převod" / "Platba kartou Visa **** 4242"
 
     if (isShop && order_id) {
       const { data: order, error: oErr } = await supabase
@@ -99,17 +158,88 @@ serve(async (req) => {
 
       customer = booking.profiles || {}
       customerId = customer.id || booking.user_id
-      const startDate = fmtDate(booking.start_date); const endDate = fmtDate(booking.end_date)
-      const days = Math.max(1, Math.ceil((new Date(booking.end_date).getTime() - new Date(booking.start_date).getTime()) / 86400000))
-      const baseRental = (booking.total_price || 0) - (booking.extras_price || 0) - (booking.delivery_fee || 0) + (booking.discount_amount || 0)
-      items.push({ description: `Pronájem ${booking.motorcycles?.model || 'motorky'} (${booking.motorcycles?.spz || ''}) — ${startDate} – ${endDate}`, qty: days, unit_price: Math.round(baseRental / days) })
-      if (booking.extras_price && Number(booking.extras_price) > 0) items.push({ description: 'Příslušenství a výbava', qty: 1, unit_price: Number(booking.extras_price) })
-      if (extra_items && Array.isArray(extra_items)) extra_items.forEach((ei: any) => items.push({ description: ei.description || 'Položka', qty: ei.qty || 1, unit_price: ei.unit_price || 0 }))
-      if (booking.delivery_fee && Number(booking.delivery_fee) > 0) items.push({ description: 'Přistavení / odvoz motorky', qty: 1, unit_price: Number(booking.delivery_fee) })
-      if (booking.sos_replacement && !extra_items) items.push({ description: 'Záloha na poškození motorky', qty: 1, unit_price: 30000 })
-      if (booking.discount_amount && Number(booking.discount_amount) > 0) {
-        items.push({ description: booking.discount_code ? `Sleva (kód: ${booking.discount_code})` : 'Sleva / voucher', qty: 1, unit_price: -Number(booking.discount_amount) })
+
+      // Load per-booking extras with proper names (sizes derived from booking columns)
+      const { data: bookExtras } = await supabase.from('booking_extras')
+        .select('name, unit_price, quantity')
+        .eq('booking_id', booking_id)
+      const extras = bookExtras || []
+
+      // Identify card info for payment method display
+      cardInfo = await loadPaymentCardInfo(supabase, booking)
+      paymentMethodLabel = cardInfo
+        ? `Platba kartou ${cardInfo.brand?.toUpperCase() || 'CARD'} **** ${cardInfo.last4 || '****'}`
+        : 'Bankovní převod'
+
+      if (isEdit) {
+        // ===== EDIT: generate delta-items based on last modification_history entry =====
+        const history = Array.isArray(booking.modification_history) ? booking.modification_history : []
+        const last = history[history.length - 1]
+        if (!last) {
+          return new Response(JSON.stringify({ error: 'No modification_history entry for edit invoice' }), {
+            status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
+          })
+        }
+        const priceDiff = Number(last.price_diff || 0)
+        if (priceDiff <= 0) {
+          return new Response(JSON.stringify({
+            success: false, skipped: true,
+            error: 'Edit price_diff <= 0 — use process-refund for shortening'
+          }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
+        }
+
+        // Compute delta days (to_end - from_end for prodloužení)
+        const fromEnd = last.from_end ? new Date(last.from_end).getTime() : 0
+        const toEnd = last.to_end ? new Date(last.to_end).getTime() : 0
+        const fromStart = last.from_start ? new Date(last.from_start).getTime() : 0
+        const toStart = last.to_start ? new Date(last.to_start).getTime() : 0
+        const deltaDays = Math.round(((toEnd - fromEnd) - (toStart - fromStart)) / 86400000)
+        const motoLabel = `${booking.motorcycles?.model || 'motorky'}${booking.motorcycles?.spz ? ' (' + booking.motorcycles.spz + ')' : ''}`
+        const fmtD = (s: string) => s ? new Date(s).toLocaleDateString('cs-CZ') : '—'
+
+        editLabel = deltaDays > 0
+          ? `ÚPRAVA — prodloužení o ${deltaDays} ${deltaDays === 1 ? 'den' : deltaDays < 5 ? 'dny' : 'dní'}`
+          : `ÚPRAVA — změna termínu`
+
+        items.push({
+          description: `Úprava rezervace: ${motoLabel} — nový termín ${fmtD(last.to_start)} – ${fmtD(last.to_end)} (původně ${fmtD(last.from_start)} – ${fmtD(last.from_end)})`,
+          qty: 1,
+          unit_price: priceDiff,
+        })
+
+        // Booking-level ref in title; exposed via bookingNumber below
+      } else {
+        // ===== STANDARD: full invoice for the booking =====
+        const startDate = fmtDate(booking.start_date); const endDate = fmtDate(booking.end_date)
+        const days = Math.max(1, Math.ceil((new Date(booking.end_date).getTime() - new Date(booking.start_date).getTime()) / 86400000))
+        const extrasTotal = extras.reduce((s, e) => s + Number(e.unit_price || 0) * Number(e.quantity || 1), 0)
+        const baseRental = (booking.total_price || 0) - extrasTotal - (booking.delivery_fee || 0) + (booking.discount_amount || 0)
+
+        items.push({
+          description: `Pronájem ${booking.motorcycles?.model || 'motorky'} (${booking.motorcycles?.spz || ''}) — ${startDate} – ${endDate}`,
+          qty: days,
+          unit_price: Math.round(baseRental / days),
+        })
+
+        // Itemize accessories with sizes from booking gear columns
+        for (const ex of extras) {
+          items.push({
+            description: extraLabel(ex.name || 'Příslušenství', booking),
+            qty: Number(ex.quantity || 1),
+            unit_price: Number(ex.unit_price || 0),
+          })
+        }
+
+        if (extra_items && Array.isArray(extra_items)) {
+          extra_items.forEach((ei: any) => items.push({ description: ei.description || 'Položka', qty: ei.qty || 1, unit_price: ei.unit_price || 0 }))
+        }
+        if (booking.delivery_fee && Number(booking.delivery_fee) > 0) items.push({ description: 'Přistavení / odvoz motorky', qty: 1, unit_price: Number(booking.delivery_fee) })
+        if (booking.sos_replacement && !extra_items) items.push({ description: 'Záloha na poškození motorky', qty: 1, unit_price: 30000 })
+        if (booking.discount_amount && Number(booking.discount_amount) > 0) {
+          items.push({ description: booking.discount_code ? `Sleva (kód: ${booking.discount_code})` : 'Sleva / voucher', qty: 1, unit_price: -Number(booking.discount_amount) })
+        }
       }
+
       if (isPaymentReceipt) {
         try {
           const { data: codes } = await supabase.from('branch_door_codes').select('code_type, door_code, withheld_reason').eq('booking_id', booking_id)
@@ -119,7 +249,7 @@ serve(async (req) => {
     }
 
     // ── Guard: skip ZF/DP generation for zero-amount bookings (free modifications, SOS without payment) ──
-    if (booking_id && !isShop && (isProforma || isPaymentReceipt)) {
+    if (booking_id && !isShop && (isProforma || isPaymentReceipt) && !isEdit) {
       const { data: bkCheck } = await supabase.from('bookings').select('total_price').eq('id', booking_id).single()
       if (bkCheck && Number(bkCheck.total_price || 0) <= 0) {
         return new Response(JSON.stringify({
@@ -128,34 +258,26 @@ serve(async (req) => {
       }
     }
 
-    // ── Dedup: prevent duplicate invoices of same type for same booking/order ──
-    if (booking_id && !isShop) {
+    // ── Dedup: only for source='booking' (the original invoice pair). Edits always create new invoice. ──
+    if (booking_id && !isShop && !isEdit) {
       const dedupTypes = isPaymentReceipt ? ['payment_receipt'] : isProforma ? ['advance', 'proforma'] : ['final', 'issued']
-      const { data: existing } = await supabase.from('invoices').select('id, number, pdf_path')
+      const { data: sameSource } = await supabase.from('invoices').select('id, number, pdf_path')
         .eq('booking_id', booking_id).in('type', dedupTypes)
-        .neq('status', 'cancelled').limit(1)
-      const invoiceSource = type === 'payment_receipt' ? 'booking' : (type || 'booking')
-      if (existing?.length && invoiceSource === 'booking') {
-        const { data: sameSource } = await supabase.from('invoices').select('id, number, pdf_path')
-          .eq('booking_id', booking_id).in('type', dedupTypes)
-          .eq('source', 'booking').neq('status', 'cancelled').limit(1)
-        if (sameSource?.length) {
-          // Check if HTML file exists in Storage — if not, regenerate it
-          let htmlExists = false
-          if (sameSource[0].pdf_path) {
-            try {
-              const { data: blob } = await supabase.storage.from('documents').download(sameSource[0].pdf_path)
-              if (blob && blob.size > 0) htmlExists = true
-            } catch { /* file missing */ }
-          }
-          if (htmlExists) {
-            return new Response(JSON.stringify({
-              success: true, invoice_id: sameSource[0].id, number: sameSource[0].number, existing: true
-            }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
-          }
-          // HTML missing — continue to regenerate for existing invoice
-          console.log(`Invoice ${sameSource[0].number} exists but HTML missing — regenerating`)
+        .eq('source', 'booking').neq('status', 'cancelled').limit(1)
+      if (sameSource?.length) {
+        let htmlExists = false
+        if (sameSource[0].pdf_path) {
+          try {
+            const { data: blob } = await supabase.storage.from('documents').download(sameSource[0].pdf_path)
+            if (blob && blob.size > 0) htmlExists = true
+          } catch { /* file missing */ }
         }
+        if (htmlExists) {
+          return new Response(JSON.stringify({
+            success: true, invoice_id: sameSource[0].id, number: sameSource[0].number, existing: true
+          }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
+        }
+        console.log(`Invoice ${sameSource[0].number} exists but HTML missing — regenerating`)
       }
     }
 
@@ -177,13 +299,16 @@ serve(async (req) => {
     }
 
     const subtotal = items.reduce((s, it) => s + it.unit_price * it.qty, 0)
-    const total = subtotal; const issueDate = new Date().toISOString().slice(0, 10)
-    const dueDate = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10)
+    const total = subtotal
+    const issueDate = new Date().toISOString().slice(0, 10)
+    // Splatnost ihned pro ZF i DP (kartová platba je okamžitá)
+    const dueDate = issueDate
 
     const invoicePayload: any = {
       number, type: invoiceType, customer_id: customerId,
       items, subtotal, tax_amount: 0, total,
       issue_date: issueDate, due_date: dueDate, status: 'issued', variable_symbol: number,
+      source: invoiceSource,
     }
     if (booking_id) invoicePayload.booking_id = booking_id
     if (order_id) invoicePayload.order_id = order_id
@@ -192,12 +317,14 @@ serve(async (req) => {
     if (iErr) return new Response(JSON.stringify({ error: iErr.message }), { status: 500 })
 
     const accent = isPaymentReceipt ? '#0891b2' : isProforma ? '#2563eb' : '#1a8a18'
-    const title = isPaymentReceipt ? 'DAŇOVÝ DOKLAD K PŘIJATÉ PLATBĚ' : isProforma ? 'ZÁLOHOVÁ FAKTURA' : isShopFinal ? 'KONEČNÁ FAKTURA' : 'FAKTURA'
+    const baseTitle = isPaymentReceipt ? 'DAŇOVÝ DOKLAD K PŘIJATÉ PLATBĚ' : isProforma ? 'ZÁLOHOVÁ FAKTURA' : isShopFinal ? 'KONEČNÁ FAKTURA' : 'FAKTURA'
+    const title = isEdit ? `${baseTitle} — ${editLabel}` : baseTitle
     const bookingNumber = booking_id ? booking_id.slice(-8).toUpperCase() : ''
 
     const html = generateInvoiceHtml({
       title, number, accent, issueDate, dueDate, total, company: COMPANY, customer, items,
       voucher_codes, voucherValidUntil, doorCodes, isProforma, isPaymentReceipt, isShopFinal, dpNumber, bookingNumber,
+      paymentMethodLabel, cardInfo, isEdit,
     })
 
     const blob = new Blob([html], { type: 'text/html' })
@@ -206,10 +333,13 @@ serve(async (req) => {
     await supabase.from('invoices').update({ pdf_path: path }).eq('id', invoice.id)
 
     if (send_email !== false && customer.email) {
-      const emailSubject = `${isPaymentReceipt ? 'Doklad k přijaté platbě' : isProforma ? 'Zálohová faktura' : isShopFinal ? 'Konečná faktura' : 'Faktura'} č. ${number} — MOTO GO 24`
+      const docLabel = isPaymentReceipt ? 'Doklad k přijaté platbě' : isProforma ? 'Zálohová faktura' : isShopFinal ? 'Konečná faktura' : 'Faktura'
+      const editSuffix = isEdit ? ` (úprava rezervace #${bookingNumber})` : ''
+      const emailSubject = `${docLabel} č. ${number}${editSuffix} — MOTO GO 24`
       const emailHtml = generateEmailHtml({
         customer, company: COMPANY, title, number, total, dueDate,
         voucher_codes, voucherValidUntil, doorCodes, isPaymentReceipt, isProforma, isShopFinal, bookingNumber,
+        paymentMethodLabel, isEdit,
       })
       await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -218,7 +348,7 @@ serve(async (req) => {
       })
     }
 
-    await supabase.from('admin_audit_log').insert({ action: 'invoice_generated', details: { invoice_id: invoice.id, number, type: invoiceType, booking_id } })
+    await supabase.from('admin_audit_log').insert({ action: 'invoice_generated', details: { invoice_id: invoice.id, number, type: invoiceType, booking_id, source: invoiceSource } })
 
     return new Response(JSON.stringify({ success: true, invoice_id: invoice.id, number }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },
