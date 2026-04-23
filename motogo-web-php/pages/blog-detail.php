@@ -33,7 +33,7 @@ if (!empty($post['images']) && count($post['images']) > 0) {
         '<img src="' . htmlspecialchars($post['image_url']) . '" alt="' . $title . '" loading="lazy"></div></div></a></div></div></section>';
 }
 
-$postContent = $post['content'] ?? ($post['description'] ?? '');
+$postContent = sanitizeHtml($post['content'] ?? ($post['description'] ?? ''));
 $excerpt = $post['excerpt'] ?? ($post['description'] ?? '');
 
 $content = '<main id="content"><div class="container">' . $bc .

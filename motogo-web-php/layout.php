@@ -142,6 +142,16 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
     $robots = $meta['robots'] ?? 'index,follow';
     $extraSchema = $meta['schema'] ?? '';
     $breadcrumbs = $meta['breadcrumbs'] ?? [];
+    $preload = $meta['preload'] ?? [];
+    // Automatický preload hero banneru na homepage (LCP optimalizace)
+    if ($currentPath === '/' && empty($preload)) {
+        $preload[] = [
+            'href' => BASE_URL . '/gfx/hero-banner.png',
+            'as' => 'image',
+            'type' => 'image/png',
+            'fetchpriority' => 'high',
+        ];
+    }
 
     // BreadcrumbList schema
     $breadcrumbSchema = '';
@@ -198,7 +208,19 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Jost:ital,wght@0,100..900;1,100..900&family=Montserrat:wght@600;800&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="' . SUPABASE_URL . '" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Jost:ital,wght@0,100..900;1,100..900&family=Montserrat:wght@600;800&display=swap" rel="stylesheet">';
+
+    foreach ($preload as $p) {
+        $attrs = '';
+        foreach (['href', 'as', 'type', 'fetchpriority', 'imagesrcset', 'imagesizes', 'media'] as $a) {
+            if (!empty($p[$a])) $attrs .= ' ' . $a . '="' . htmlspecialchars($p[$a]) . '"';
+        }
+        echo '
+  <link rel="preload"' . $attrs . '>';
+    }
+
+    echo '
 
   <!-- Styles -->
   <link rel="stylesheet" href="' . BASE_URL . '/css/main.css">
