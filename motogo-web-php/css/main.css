@@ -136,8 +136,13 @@ main{background:#fff;min-height:60vh}
 /* Availability badge na moto kartě/detailu */
 .moto-badge-available{display:inline-flex;align-items:center;gap:.3rem;background:#74FB71;color:#1a2e22;font-size:.78rem;font-weight:700;padding:.25rem .6rem;border-radius:12px;margin-bottom:.5rem}
 .moto-badge-available::before{content:"✓";font-weight:900}
+.moto-badge-busy{display:inline-flex;align-items:center;gap:.3rem;background:#fff3cd;color:#8a6d00;font-size:.78rem;font-weight:700;padding:.25rem .6rem;border-radius:12px;margin-bottom:.5rem;border:1px solid #ffe58a}
 .moto-branch-info{display:inline-flex;align-items:center;gap:.4rem;color:#4a6b5a;font-size:.9rem;margin:.5rem 0}
 .moto-branch-info strong{color:#1a2e22}
+
+/* "Dostupné" badge na moto kartě (v katalogu) */
+.moto-card-badge{position:absolute;top:.6rem;right:.6rem;z-index:2;background:#74FB71;color:#1a2e22;font-size:.7rem;font-weight:700;padding:.2rem .55rem;border-radius:10px;text-transform:uppercase;letter-spacing:.3px;box-shadow:0 2px 6px rgba(26,46,34,.15)}
+.moto-branch-line{color:#4a6b5a;font-size:.78rem;margin:.35rem 0 .15rem}
 
 /* ===== FOOTER ===== */
 footer{background:#1a2e22;border-top:none;padding:2.5rem 0 0;color:#b8d4c6}
