@@ -12,7 +12,7 @@ $bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], $bcLabel]);
 $page = $sb->fetchCmsPage($slug);
 $pageContent = '';
 if ($page && !empty($page['content'])) {
-    $pageContent = $page['content'];
+    $pageContent = sanitizeHtml($page['content']);
 } else {
     $pageContent = '<p>Obsah se připravuje. Kontaktujte nás pro více informací.</p>' .
         '<p>&nbsp;</p><p><a class="btn btngreen" href="' . BASE_URL . '/kontakt">KONTAKTOVAT NÁS</a></p>';
