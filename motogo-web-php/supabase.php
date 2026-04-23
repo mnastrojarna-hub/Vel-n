@@ -159,14 +159,57 @@ class SupabaseClient {
 
     // ===== APP SETTINGS =====
     public function fetchSetting($key) {
+        $cacheKey = 'setting_' . $key;
+        $cached = $this->cacheGet($cacheKey);
+        if ($cached !== null) return $cached['v'] ?? null;
+
         $result = $this->query('app_settings', 'value', ['key=eq.' . $key]);
-        if (!$result || !isset($result[0]['value'])) return null;
+        if (!$result || !isset($result[0]['value'])) {
+            $this->cacheSet($cacheKey, ['v' => null]);
+            return null;
+        }
         $v = $result[0]['value'];
         if (is_string($v)) {
             $decoded = json_decode($v, true);
-            return $decoded !== null ? $decoded : $v;
+            $v = ($decoded !== null) ? $decoded : $v;
         }
+        $this->cacheSet($cacheKey, ['v' => $v]);
         return $v;
+    }
+
+    /**
+     * Načte CMS konfiguraci stránky (site.<page>) s fallback na defaults.
+     * Defaults se rekurzivně mergují s DB hodnotami — v DB stačí přepsat jen
+     * vybrané klíče, zbytek zůstane z defaults.
+     *
+     * @param string $page Slug stránky (např. 'home', 'pujcovna')
+     * @param array $defaults Výchozí obsah (PHP pole) — použije se když DB nemá nic
+     * @return array Finální obsah pro stránku
+     */
+    public function siteContent($page, $defaults = []) {
+        $key = 'site.' . $page;
+        $db = $this->fetchSetting($key);
+        if (!is_array($db) || empty($db)) return $defaults;
+        return self::deepMerge($defaults, $db);
+    }
+
+    /**
+     * Rekurzivní merge 2 polí — klíč z $b přepíše klíč z $a.
+     * Asociativní pole se mergují, číselná (seznamy) se přepisují celé.
+     */
+    private static function deepMerge($a, $b) {
+        if (!is_array($a)) return $b;
+        if (!is_array($b)) return $b;
+        // Pokud je $b seznam (ne asoc), přepiš
+        $isListB = array_keys($b) === range(0, count($b) - 1);
+        if ($isListB) return $b;
+        $out = $a;
+        foreach ($b as $k => $v) {
+            $out[$k] = (isset($a[$k]) && is_array($a[$k]) && is_array($v))
+                ? self::deepMerge($a[$k], $v)
+                : $v;
+        }
+        return $out;
     }
 
     // ===== POBOČKY =====
