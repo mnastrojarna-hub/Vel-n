@@ -6,6 +6,43 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/supabase.php';
 
 /**
+ * Sanitizuje HTML content z DB (blog, CMS stránky, wysiwyg výstup).
+ * Odstraní <script>, <iframe> (pokud nejsou whitelistnuté), on* event
+ * handler atributy, javascript:/data: URL v href/src. Zachovává běžné
+ * formátovací tagy.
+ */
+function sanitizeHtml($html, $allowIframe = false) {
+    if (!$html || !is_string($html)) return '';
+    // <script> bloky pryč
+    $html = preg_replace('#<script\b[^>]*>.*?</script\s*>#is', '', $html);
+    $html = preg_replace('#<script\b[^>]*/?>#is', '', $html);
+    // <style> bloky pryč (nevíme, co by zanesly)
+    $html = preg_replace('#<style\b[^>]*>.*?</style\s*>#is', '', $html);
+    // <iframe> pryč pokud není povolen
+    if (!$allowIframe) {
+        $html = preg_replace('#<iframe\b[^>]*>.*?</iframe\s*>#is', '', $html);
+        $html = preg_replace('#<iframe\b[^>]*/?>#is', '', $html);
+    }
+    // on* atributy (onclick=, onload=, ...)
+    $html = preg_replace('#\son[a-z]+\s*=\s*"[^"]*"#i', '', $html);
+    $html = preg_replace("#\son[a-z]+\s*=\s*'[^']*'#i", '', $html);
+    $html = preg_replace('#\son[a-z]+\s*=\s*[^\s>]+#i', '', $html);
+    // javascript: / vbscript: / data: (kromě data:image) v href/src
+    $html = preg_replace_callback(
+        '#\b(href|src|xlink:href)\s*=\s*(["\'])([^"\']*)\2#i',
+        function ($m) {
+            $url = trim($m[3]);
+            $low = strtolower($url);
+            if (preg_match('#^\s*(javascript|vbscript):#i', $low)) return $m[1] . '="#"';
+            if (preg_match('#^\s*data:(?!image/)#i', $low)) return $m[1] . '="#"';
+            return $m[0];
+        },
+        $html
+    );
+    return $html;
+}
+
+/**
  * Převede relativní cestu na Supabase storage URL.
  * Odpovídá MG.imgUrl() v components.js.
  */
