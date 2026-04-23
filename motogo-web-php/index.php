@@ -2,6 +2,43 @@
 // ===== MotoGo24 Web PHP — Hlavní router + entry point =====
 
 require_once __DIR__ . '/config.php';
+
+// ---- Production-safe error handling ----
+// V MOTOGO_DEBUG režimu chyby propadnou do browseru (pro ladění nasazení).
+// Jinak: chyby se logují server-side, browser dostane přátelský HTML výstup.
+if (defined('MOTOGO_DEBUG') && MOTOGO_DEBUG) {
+    @ini_set('display_errors', '1');
+    @ini_set('display_startup_errors', '1');
+    error_reporting(E_ALL);
+} else {
+    @ini_set('display_errors', '0');
+    @ini_set('log_errors', '1');
+    error_reporting(E_ALL);
+
+    set_exception_handler(function ($e) {
+        @error_log('[MotoGo24] Uncaught: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
+        if (!headers_sent()) {
+            http_response_code(500);
+            header('Content-Type: text/html; charset=utf-8');
+        }
+        echo '<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Chyba serveru – MotoGo24</title><meta name="robots" content="noindex"></head><body style="font-family:sans-serif;max-width:640px;margin:3rem auto;padding:1rem;text-align:center;">'
+            . '<h1>Dočasná chyba serveru</h1>'
+            . '<p>Omlouváme se, na stránce došlo k technické chybě. Zkuste to prosím za chvíli znovu.</p>'
+            . '<p><a href="/">Zpět na úvod</a> · <a href="tel:+420774256271">+420 774 256 271</a></p>'
+            . '</body></html>';
+    });
+
+    set_error_handler(function ($severity, $message, $file, $line) {
+        // Non-fatal chyby (warning/notice/deprecated) jen logujeme, nešlapem na ně
+        if (!(error_reporting() & $severity)) return false;
+        if (in_array($severity, [E_NOTICE, E_DEPRECATED, E_USER_DEPRECATED, E_WARNING, E_USER_WARNING, E_USER_NOTICE, E_STRICT], true)) {
+            @error_log("[MotoGo24] {$message} @ {$file}:{$line}");
+            return true;
+        }
+        return false;
+    });
+}
+
 require_once __DIR__ . '/supabase.php';
 require_once __DIR__ . '/components.php';
 require_once __DIR__ . '/layout.php';
@@ -24,6 +61,20 @@ if ($path !== '/' && substr($path, -1) === '/') {
 // Sitemap.xml (dynamický)
 if ($path === '/sitemap.xml') {
     require __DIR__ . '/sitemap.php';
+    exit;
+}
+
+// Favicon.ico — servírujeme SVG favicon jako fallback.
+// (.htaccess rewrite pošle tenhle request sem, pokud fyzický soubor chybí.)
+if ($path === '/favicon.ico') {
+    $svg = __DIR__ . '/favicon.svg';
+    if (is_file($svg)) {
+        header('Content-Type: image/svg+xml');
+        header('Cache-Control: public, max-age=86400');
+        readfile($svg);
+        exit;
+    }
+    http_response_code(204);
     exit;
 }
 

@@ -12,16 +12,22 @@ class SupabaseClient {
     public function __construct() {
         $this->url = SUPABASE_URL;
         $this->key = SUPABASE_ANON_KEY;
-        $this->cacheDir = sys_get_temp_dir() . '/motogo_cache';
-        if (!is_dir($this->cacheDir)) {
-            @mkdir($this->cacheDir, 0755, true);
+        // Preferuj project-local cache (funguje i bez /tmp write perms),
+        // fallback na system temp.
+        $candidates = [__DIR__ . '/.cache', sys_get_temp_dir() . '/motogo_cache'];
+        $this->cacheDir = null;
+        foreach ($candidates as $dir) {
+            if (is_dir($dir) && is_writable($dir)) { $this->cacheDir = $dir; break; }
+            if (!is_dir($dir) && @mkdir($dir, 0755, true) && is_writable($dir)) { $this->cacheDir = $dir; break; }
         }
+        // pokud oba selžou, cache se vypne (is_null check v cacheGet/Set)
     }
 
     /**
      * Čte z file cache. Vrací null pokud cache neexistuje nebo expiroval.
      */
     private function cacheGet($key) {
+        if (!$this->cacheDir) return null;
         $file = $this->cacheDir . '/' . md5($key) . '.json';
         if (!file_exists($file)) return null;
         if (filemtime($file) < time() - $this->cacheTtl) {
@@ -36,6 +42,7 @@ class SupabaseClient {
      * Zapíše do file cache.
      */
     private function cacheSet($key, $data) {
+        if (!$this->cacheDir) return;
         $file = $this->cacheDir . '/' . md5($key) . '.json';
         @file_put_contents($file, json_encode($data), LOCK_EX);
     }
@@ -79,23 +86,33 @@ class SupabaseClient {
      * GET request s curl.
      */
     private function _get($url) {
-        $ch = curl_init();
-        curl_setopt_array($ch, [
-            CURLOPT_URL => $url,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPHEADER => [
-                'apikey: ' . $this->key,
-                'Authorization: Bearer ' . $this->key,
-                'Accept: application/json',
-            ],
-            CURLOPT_TIMEOUT => 15,
-        ]);
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
+        if (!function_exists('curl_init')) {
+            @error_log('[MotoGo24] curl extension nedostupné');
+            return [];
+        }
+        try {
+            $ch = curl_init();
+            curl_setopt_array($ch, [
+                CURLOPT_URL => $url,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_HTTPHEADER => [
+                    'apikey: ' . $this->key,
+                    'Authorization: Bearer ' . $this->key,
+                    'Accept: application/json',
+                ],
+                CURLOPT_TIMEOUT => 8,
+                CURLOPT_CONNECTTIMEOUT => 3,
+            ]);
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
 
-        if ($httpCode >= 200 && $httpCode < 300 && $response) {
-            return json_decode($response, true) ?: [];
+            if ($httpCode >= 200 && $httpCode < 300 && $response) {
+                $decoded = json_decode($response, true);
+                return is_array($decoded) ? $decoded : [];
+            }
+        } catch (\Throwable $e) {
+            @error_log('[MotoGo24] GET failed: ' . $e->getMessage());
         }
         return [];
     }
@@ -104,26 +121,36 @@ class SupabaseClient {
      * POST request s curl.
      */
     private function _post($url, $data = []) {
-        $ch = curl_init();
-        curl_setopt_array($ch, [
-            CURLOPT_URL => $url,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => json_encode($data),
-            CURLOPT_HTTPHEADER => [
-                'apikey: ' . $this->key,
-                'Authorization: Bearer ' . $this->key,
-                'Content-Type: application/json',
-                'Accept: application/json',
-            ],
-            CURLOPT_TIMEOUT => 15,
-        ]);
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
+        if (!function_exists('curl_init')) {
+            @error_log('[MotoGo24] curl extension nedostupné');
+            return [];
+        }
+        try {
+            $ch = curl_init();
+            curl_setopt_array($ch, [
+                CURLOPT_URL => $url,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => json_encode($data),
+                CURLOPT_HTTPHEADER => [
+                    'apikey: ' . $this->key,
+                    'Authorization: Bearer ' . $this->key,
+                    'Content-Type: application/json',
+                    'Accept: application/json',
+                ],
+                CURLOPT_TIMEOUT => 8,
+                CURLOPT_CONNECTTIMEOUT => 3,
+            ]);
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
 
-        if ($httpCode >= 200 && $httpCode < 300 && $response) {
-            return json_decode($response, true) ?: [];
+            if ($httpCode >= 200 && $httpCode < 300 && $response) {
+                $decoded = json_decode($response, true);
+                return is_array($decoded) ? $decoded : [];
+            }
+        } catch (\Throwable $e) {
+            @error_log('[MotoGo24] POST failed: ' . $e->getMessage());
         }
         return [];
     }
@@ -200,9 +227,7 @@ class SupabaseClient {
     private static function deepMerge($a, $b) {
         if (!is_array($a)) return $b;
         if (!is_array($b)) return $b;
-        // Pokud je $b seznam (ne asoc), přepiš
-        $isListB = array_keys($b) === range(0, count($b) - 1);
-        if ($isListB) return $b;
+        if (self::isList($b)) return $b;
         $out = $a;
         foreach ($b as $k => $v) {
             $out[$k] = (isset($a[$k]) && is_array($a[$k]) && is_array($v))
@@ -210,6 +235,18 @@ class SupabaseClient {
                 : $v;
         }
         return $out;
+    }
+
+    /** Bezpečný list-check (nepoužívá range(), které má edge-case na prázdném poli). */
+    private static function isList($arr) {
+        if (!is_array($arr)) return false;
+        if (function_exists('array_is_list')) return array_is_list($arr);
+        if (empty($arr)) return true;
+        $i = 0;
+        foreach ($arr as $k => $_) {
+            if ($k !== $i++) return false;
+        }
+        return true;
     }
 
     // ===== POBOČKY =====
