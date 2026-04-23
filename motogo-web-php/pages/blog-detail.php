@@ -6,6 +6,14 @@ $sb = new SupabaseClient();
 $slug = $_GET['slug'] ?? '';
 $post = $sb->fetchCmsPage($slug);
 
+// Fallback: pokud DB nemá článek, zkus fallback set
+if (!$post) {
+    require_once __DIR__ . '/blog_fallback.php';
+    foreach (getBlogFallbackPosts() as $p) {
+        if (($p['slug'] ?? '') === $slug) { $post = $p; break; }
+    }
+}
+
 if (!$post) {
     $content = '<main id="content"><div class="container">' .
         renderBreadcrumb([['label' => 'Domů', 'href' => '/'], ['label' => 'Blog', 'href' => '/blog'], 'Článek nenalezen']) .

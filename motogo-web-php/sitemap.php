@@ -46,11 +46,16 @@ foreach ($motos as $m) {
     echo '  <url><loc>' . $base . '/katalog/' . htmlspecialchars($m['id']) . '</loc><lastmod>' . $today . '</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>' . "\n";
 }
 
-// Dynamické: blog posty z DB
+// Dynamické: blog posty z DB + fallback když DB prázdná
 $posts = $sb->fetchCmsPages();
+if (!$posts || empty($posts)) {
+    require_once __DIR__ . '/pages/blog_fallback.php';
+    $posts = getBlogFallbackPosts();
+}
 foreach ($posts as $p) {
     if (empty($p['slug'])) continue;
-    $lastmod = !empty($p['updated_at']) ? substr($p['updated_at'], 0, 10) : $today;
+    $lastmod = !empty($p['updated_at']) ? substr($p['updated_at'], 0, 10)
+        : (!empty($p['created_at']) ? substr($p['created_at'], 0, 10) : $today);
     echo '  <url><loc>' . $base . '/blog/' . htmlspecialchars($p['slug']) . '</loc><lastmod>' . $lastmod . '</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>' . "\n";
 }
 

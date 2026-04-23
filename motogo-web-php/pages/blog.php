@@ -1,27 +1,29 @@
 <?php
 // ===== MotoGo24 Web PHP — Blog listing =====
-// Odpovídá pages-blog.js
-// Podpora GET parametru ?tag=X pro filtrování dle štítku
+// Podpora GET parametru ?tag=X pro filtrování dle štítku.
+// Pokud DB cms_pages nemá záznamy, použijí se fallback články z blog_fallback.php.
 
 $sb = new SupabaseClient();
 $activeTag = $_GET['tag'] ?? '';
 
-// Načtení postů — pokud tag, filtrujeme na serveru
 $posts = $activeTag ? $sb->fetchCmsPages($activeTag) : $sb->fetchCmsPages();
-$allPosts = $sb->fetchCmsPages(); // pro počty v tag filtru
+$allPosts = $sb->fetchCmsPages();
 $bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], 'Blog']);
 
-// Fallback sample articles if CMS is empty
+// Fallback články (pokud cms_pages v DB prázdná). Plné články jsou v
+// blog_fallback.php, kde si je načte i blog-detail.php pro single view.
 if (!$allPosts || empty($allPosts)) {
-    $allPosts = [
-        ['slug' => 'nove-motorky-v-nabidce', 'title' => 'Nové motorky v nabídce', 'excerpt' => 'Představujeme nové motorky na pronájem na Vysočině v naší půjčovně Motogo24. Objevte sportovní a cestovní modely pro vaše dobrodružství.', 'tags' => ['Novinky půjčovny'], 'image_url' => '', 'images' => []],
-        ['slug' => 'top-motorkarske-trasy', 'title' => 'Top motorkářské trasy', 'excerpt' => 'Projeďte motorkářské trasy v ČR, jako je Český ráj nebo Krušné hory, s našimi motorkami k zapůjčení.', 'tags' => ['Motorkářské trasy'], 'image_url' => '', 'images' => []],
-        ['slug' => 'tipy-pro-bezpecnou-jizdu', 'title' => 'Tipy pro bezpečnou jízdu', 'excerpt' => 'Zjistěte, jak si půjčit motorku na Vysočině a užít bezpečnou jízdu. Praktické rady pro začátečníky i zkušené jezdce.', 'tags' => ['Rady a tipy'], 'image_url' => '', 'images' => []],
-    ];
-    if (empty($posts)) $posts = $allPosts;
+    require_once __DIR__ . '/blog_fallback.php';
+    $allPosts = getBlogFallbackPosts();
+    if ($activeTag) {
+        $posts = array_values(array_filter($allPosts, function ($p) use ($activeTag) {
+            return !empty($p['tags']) && in_array($activeTag, $p['tags'], true);
+        }));
+    } else {
+        $posts = $allPosts;
+    }
 }
 
-// Extract tags (z všech postů pro kompletní počty)
 $tagCounts = [];
 foreach ($allPosts as $p) {
     if (!empty($p['tags'])) {
@@ -34,8 +36,8 @@ foreach ($allPosts as $p) {
 $tagHtml = '';
 if (!empty($tagCounts)) {
     $isAllActive = !$activeTag ? ' class="active"' : '';
-    $tagHtml = '<ul class="nav nav-pills df"><li>Štítky</li>' .
-        '<li' . $isAllActive . '><a href="' . BASE_URL . '/blog">Všechny (' . count($allPosts) . ')</a></li>';
+    $tagHtml = '<ul class="nav nav-pills df"><li>Štítky</li>'
+        . '<li' . $isAllActive . '><a href="' . BASE_URL . '/blog">Všechny (' . count($allPosts) . ')</a></li>';
     foreach ($tagCounts as $tag => $count) {
         $isActive = ($activeTag === $tag) ? ' class="active"' : '';
         $tagHtml .= '<li' . $isActive . '><a href="' . BASE_URL . '/blog?tag=' . urlencode($tag) . '">' . htmlspecialchars($tag) . ' (' . $count . ')</a></li>';
@@ -43,7 +45,6 @@ if (!empty($tagCounts)) {
     $tagHtml .= '</ul>';
 }
 
-// Render posts
 $gridHtml = '';
 if (empty($posts)) {
     $gridHtml = '<p>Žádné články v této kategorii.</p>';
@@ -51,14 +52,20 @@ if (empty($posts)) {
     foreach ($posts as $p) { $gridHtml .= renderBlogCard($p); }
 }
 
-$content = '<main id="content"><div class="container">' . $bc .
-    '<section class="ccontent"><h1>Blog a tipy</h1>' .
-    '<div id="blog-tags">' . $tagHtml . '</div>' .
-    '<div class="tab-content"><div class="tab-pane active">' .
-    '<div id="blog-grid" class="gr3">' . $gridHtml . '</div>' .
-    '</div></div></section></div></main>';
+$intro = '<p>Tipy na <strong>motorkářské trasy</strong>, rady pro bezpečnou jízdu, novinky z naší <strong>půjčovny motorek na Vysočině</strong> i praktické postupy pro začátečníky i zkušené jezdce.</p>';
+
+$content = '<main id="content"><div class="container">' . $bc
+    . '<section class="ccontent"><h1>Blog a tipy pro motorkáře</h1>' . $intro
+    . '<div id="blog-tags">' . $tagHtml . '</div>'
+    . '<div class="tab-content"><div class="tab-pane active">'
+    . '<div id="blog-grid" class="gr3">' . $gridHtml . '</div>'
+    . '</div></div></section></div></main>';
 
 renderPage('Blog a tipy pro motorkáře | MotoGo24', $content, '/blog', [
-    'description' => 'Blog Motogo24 – tipy na motorkářské trasy, novinky z půjčovny a rady pro bezpečnou jízdu na motorce.',
-    'keywords' => 'motorkářský blog, trasy na motorku, tipy pro motorkáře, novinky půjčovna motorek',
+    'description' => 'Blog Motogo24 – tipy na motorkářské trasy na Vysočině i v ČR, novinky z půjčovny, rady pro bezpečnou jízdu a praktické postupy.',
+    'keywords' => 'motorkářský blog, trasy na motorku, tipy pro motorkáře, novinky půjčovna motorek, Vysočina, Český ráj',
+    'breadcrumbs' => [
+        ['name' => 'Domů', 'url' => 'https://motogo24.cz/'],
+        ['name' => 'Blog', 'url' => 'https://motogo24.cz/blog'],
+    ],
 ]);
