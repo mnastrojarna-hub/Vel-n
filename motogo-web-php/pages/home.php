@@ -17,7 +17,7 @@ $defaults = [
         'og_image' => null,
     ],
     'hero' => [
-        'image' => 'gfx/hero-banner.png',
+        'image' => 'gfx/hero-banner.jpg',
         'alt' => 'Půjčovna motorek Vysočina',
         'eyebrow' => '<strong>Půjčovna motorek</strong> na Vysočině',
         'body' => 'Půjč si motorku na Vysočině snadno online.<br>Vyber si z cestovních, sportovních i enduro modelů.<br>Rezervace s platbou kartou a rychlým převzetím.',
@@ -26,6 +26,7 @@ $defaults = [
     ],
     'h1' => 'Půjčovna motorek Vysočina Motogo24 – bez kauce a nonstop',
     'intro' => 'Vítejte v <strong>Motogo24</strong> – vaší půjčovně motorek na Vysočině. U nás si půjčíte motorku <strong>bez kauce</strong>, s výbavou v ceně a v režimu <strong>nonstop</strong>. Ať hledáte cestovní, sportovní, enduro nebo dětskou motorku, Motogo24 vám v srdci Vysočiny nabídne motorku na míru.',
+    'signposts_title' => 'Rychlý rozcestník po Motogo24',
     'signposts' => [
         ['icon' => 'gfx/ico-katalog.svg', 'title' => 'Katalog motorek', 'text' => 'Prohlédněte si naši nabídku motorek na pronájem – od sportovních po cestovní modely.', 'btn' => 'KATALOG MOTOREK', 'href' => '/katalog'],
         ['icon' => 'gfx/ico-jak.svg', 'title' => 'Jak si půjčit motorku', 'text' => 'Jednoduchý proces: vyberte motorku k zapůjčení, rezervujte a vyjeďte.', 'btn' => 'JAK SI PŮJČIT MOTORKU', 'href' => '/jak-pujcit'],
@@ -86,7 +87,8 @@ $defaults = [
 $C = $sb->siteContent('home', $defaults);
 
 // ---- Signpost
-$signHtml = '<section aria-labelledby="signpost"><div class="gr3">';
+$signpostTitle = $C['signposts_title'] ?? 'Rychlý rozcestník po Motogo24';
+$signHtml = '<section aria-labelledby="signpost-h"><h2 id="signpost-h">' . htmlspecialchars($signpostTitle) . '</h2><p>&nbsp;</p><div class="gr3">';
 foreach ($C['signposts'] as $s) {
     $iconSrc = BASE_URL . '/' . ltrim($s['icon'], '/');
     $titleText = trim(strip_tags($s['title'] ?? ''));

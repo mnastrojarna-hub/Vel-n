@@ -309,7 +309,7 @@ $productSchema = '
 renderPage($model . ' | Půjčovna MotoGo24', $content, '/katalog/' . $motoId, [
     'description' => htmlspecialchars($moto['description'] ?? ('Pronájem motorky ' . $moto['model'] . ' na Vysočině. Bez kauce, výbava v ceně.')),
     'keywords' => 'pronájem ' . $moto['model'] . ', půjčit ' . $moto['model'] . ', motorka k pronájmu',
-    'og_image' => $mainImg ?: 'https://motogo24.cz/gfx/hero-banner.png',
+    'og_image' => $mainImg ?: null,
     'og_type' => 'product',
     'schema' => $productSchema,
     'breadcrumbs' => [['name' => 'Domů', 'url' => 'https://motogo24.cz/'], ['name' => 'Katalog', 'url' => 'https://motogo24.cz/katalog'], ['name' => $moto['model'], 'url' => 'https://motogo24.cz/katalog/' . $motoId]],

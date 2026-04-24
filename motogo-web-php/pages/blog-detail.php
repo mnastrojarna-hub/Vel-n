@@ -61,7 +61,7 @@ $articleSchema = '
 renderPage($title . ' | Blog MotoGo24', $content, '/blog/' . $slug, [
     'description' => $excerpt ?: ('Článek na blogu Motogo24 – ' . ($post['title'] ?? '')),
     'og_type' => 'article',
-    'og_image' => !empty($post['images'][0]) ? $post['images'][0] : (!empty($post['image_url']) ? $post['image_url'] : 'https://motogo24.cz/gfx/hero-banner.png'),
+    'og_image' => !empty($post['images'][0]) ? $post['images'][0] : (!empty($post['image_url']) ? $post['image_url'] : null),
     'schema' => $articleSchema,
     'breadcrumbs' => [['name' => 'Domů', 'url' => 'https://motogo24.cz/'], ['name' => 'Blog', 'url' => 'https://motogo24.cz/blog'], ['name' => $post['title'] ?? '', 'url' => 'https://motogo24.cz/blog/' . $slug]],
 ]);
