@@ -134,10 +134,18 @@ function renderInlineJs() {
  *   breadcrumbs  — pole pro BreadcrumbList schema [['name'=>'X','url'=>'Y'], ...]
  */
 function renderPage($title, $content, $currentPath = '/', $meta = []) {
+    // Dynamická base URL podle aktuální domény (motogo24.com nová /
+    // motogo24.cz stará) — www se strippuje, schéma dle HTTPS/proxy.
+    $host = $_SERVER['HTTP_HOST'] ?? 'motogo24.cz';
+    $host = preg_replace('#^www\.#i', '', strtolower($host));
+    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+    $siteOrigin = ($isHttps ? 'https://' : 'http://') . $host;
+
     $description = $meta['description'] ?? 'Půjčovna motorek Vysočina – silniční, sportovní, enduro i dětské. Nonstop pronájem bez kauce, online rezervace a motorkářská výbava zdarma.';
     $keywords = $meta['keywords'] ?? 'půjčovna motorek Vysočina, pronájem motorek Vysočina, půjčovna motorek Pelhřimov, půjčovna motorek bez kauce, nonstop půjčovna motorek, rezervace motorky online, motorky k pronájmu Vysočina, motorbike rental Czech Republic';
-    $canonical = $meta['canonical'] ?? ('https://motogo24.cz' . $currentPath);
-    $ogImage = $meta['og_image'] ?? 'https://motogo24.cz/gfx/hero-banner.png';
+    $canonical = $meta['canonical'] ?? ($siteOrigin . $currentPath);
+    $ogImage = $meta['og_image'] ?? ($siteOrigin . '/gfx/hero-banner.png');
     $ogType = $meta['og_type'] ?? 'website';
     $robots = $meta['robots'] ?? 'index,follow';
     $extraSchema = $meta['schema'] ?? '';
@@ -192,9 +200,9 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
     "name": "Motogo24 – půjčovna motorek Vysočina",
-    "url": "https://motogo24.cz",
-    "logo": "https://motogo24.cz/gfx/logo.svg",
-    "image": "https://motogo24.cz/gfx/hero-banner.png",
+    "url": "' . $siteOrigin . '",
+    "logo": "' . $siteOrigin . '/gfx/logo.svg",
+    "image": "' . $siteOrigin . '/gfx/hero-banner.png",
     "email": "info@motogo24.cz",
     "telephone": "+420 774 256 271",
     "priceRange": "od 990 Kč/den",
