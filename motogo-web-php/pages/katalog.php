@@ -12,6 +12,12 @@ $title = 'Katalog motorek';
 if ($path === '/katalog/cestovni') {
     $category = 'cestovni';
     $title = 'Cestovní motorky';
+} elseif ($path === '/katalog/naked') {
+    $category = 'naked';
+    $title = 'Naked motorky';
+} elseif ($path === '/katalog/supermoto') {
+    $category = 'supermoto';
+    $title = 'Supermoto motorky';
 } elseif ($path === '/katalog/detske') {
     $category = 'detske';
     $title = 'Dětské motorky';
@@ -41,6 +47,10 @@ if ($category) {
         $fc = strtolower($category);
         if ($fc === 'cestovni') {
             return strpos($cat, 'cestov') !== false || strpos($cat, 'adventure') !== false || strpos($cat, 'touring') !== false;
+        } elseif ($fc === 'naked') {
+            return strpos($cat, 'naked') !== false || strpos($cat, 'street') !== false || strpos($cat, 'roadster') !== false;
+        } elseif ($fc === 'supermoto') {
+            return strpos($cat, 'supermoto') !== false || strpos($cat, 'super moto') !== false || strpos($cat, 'sm') === 0;
         } elseif ($fc === 'detske') {
             return strpos($cat, 'dets') !== false || strpos($cat, 'dět') !== false || (isset($m['license_required']) && strtoupper($m['license_required']) === 'N');
         }
@@ -115,14 +125,18 @@ if (empty($filtered)) {
     }
 }
 
-// ---- Filtry UI: sestavíme možnosti z aktuálních dat ----
-$cats = [];
+// ---- Filtry UI: pevné hlavní kategorie + dynamicky dopln z dat ----
+$fixedCats = [
+    'cestovni'  => 'Cestovní motorky',
+    'naked'     => 'Naked motorky',
+    'supermoto' => 'Supermoto motorky',
+    'detske'    => 'Dětské motorky',
+];
 $lics = [];
 foreach ($motos as $m) {
-    if (!empty($m['category'])) $cats[$m['category']] = true;
     if (!empty($m['license_required'])) $lics[$m['license_required']] = true;
 }
-ksort($cats); ksort($lics);
+ksort($lics);
 
 $activeCat = $category ?: '';
 $activeLic = $getLic ?: '';
@@ -140,8 +154,8 @@ $filterHtml = '<form id="katalog-filters" class="katalog-filters" method="get" a
         . '<input type="search" id="flt-q" name="q" placeholder="Hledat model, značku…" value="' . htmlspecialchars($getQuery) . '"></div>'
     . '<div class="filter-field"><label class="sr-only" for="flt-cat">Kategorie</label>'
         . '<select id="flt-cat" name="kategorie"><option value="">Kategorie — všechny</option>';
-foreach (array_keys($cats) as $c) {
-    $filterHtml .= $opt($c, $c, strtolower($activeCat));
+foreach ($fixedCats as $cVal => $cLabel) {
+    $filterHtml .= $opt($cVal, $cLabel, strtolower($activeCat));
 }
 $filterHtml .= '</select></div>'
     . '<div class="filter-field"><label class="sr-only" for="flt-lic">Řidičský průkaz</label>'

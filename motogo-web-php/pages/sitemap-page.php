@@ -9,6 +9,8 @@ $links = [
     ['href' => '/pujcovna-motorek', 'label' => 'Půjčovna motorek'],
     ['href' => '/katalog', 'label' => 'Katalog motorek'],
     ['href' => '/katalog/cestovni', 'label' => '  Cestovní motorky'],
+    ['href' => '/katalog/naked', 'label' => '  Naked motorky'],
+    ['href' => '/katalog/supermoto', 'label' => '  Supermoto motorky'],
     ['href' => '/katalog/detske', 'label' => '  Dětské motorky'],
     ['href' => '/jak-pujcit', 'label' => 'Jak si půjčit motorku'],
     ['href' => '/jak-pujcit/postup', 'label' => '  Postup půjčení'],

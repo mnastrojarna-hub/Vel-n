@@ -9,6 +9,8 @@ function getMenuItems() {
         ['label' => 'Půjčovna motorek', 'route' => '/pujcovna-motorek'],
         ['label' => 'Katalog motorek', 'route' => '/katalog', 'children' => [
             ['label' => 'Cestovní motorky', 'route' => '/katalog/cestovni'],
+            ['label' => 'Naked motorky', 'route' => '/katalog/naked'],
+            ['label' => 'Supermoto motorky', 'route' => '/katalog/supermoto'],
             ['label' => 'Dětské motorky', 'route' => '/katalog/detske'],
         ]],
         ['label' => 'Jak si půjčit motorku', 'route' => '/jak-pujcit', 'children' => [
@@ -53,7 +55,7 @@ function renderHeader($currentPath = '/') {
                 '<button class="nav-toggle" aria-label="Menu" onclick="document.getElementById(\'mobile-menu\').classList.toggle(\'open\')">MENU ☰</button>' .
                 '<nav id="mobile-menu" class="mobile-menu-overlay">' .
                     '<button class="mobile-menu-close" aria-label="Zavřít" onclick="document.getElementById(\'mobile-menu\').classList.toggle(\'open\')">✕</button>' .
-                    '<ul id="main-menu" class="main-menu df">' . $nav .
+                    '<ul id="main-menu" class="main-menu">' . $nav .
                         '<li class="menu-rez"><a class="btn btngreen-small pulse" data-route="/rezervace" href="' . BASE_URL . '/rezervace">REZERVACE</a></li>' .
                     '</ul>' .
                 '</nav>' .
