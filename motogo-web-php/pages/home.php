@@ -19,22 +19,23 @@ $defaults = [
         'image' => 'gfx/hero-banner.png',
         'alt' => 'Půjčovna motorek Vysočina',
         'eyebrow' => '<strong>Půjčovna motorek</strong> na Vysočině',
-        'body' => 'Půjč si motorku na Vysočině snadno online.<br>Vyber si z <strong>cestovních, sportovních i enduro</strong> modelů.<br>Rezervace s <strong>platbou kartou</strong> a <strong>rychlým převzetím</strong>.',
+        'body' => 'Půjč si motorku na Vysočině snadno online.<br>Vyber si z cestovních, sportovních i enduro modelů.<br>Rezervace s platbou kartou a rychlým převzetím.',
         'cta_primary' => ['label' => 'VYBER SI MOTORKU', 'href' => '/katalog', 'cls' => 'btngreen'],
         'cta_secondary' => ['label' => 'JAK TO FUNGUJE', 'href' => '/jak-pujcit', 'cls' => 'btndark'],
     ],
     'h1' => 'Půjčovna motorek Vysočina Motogo24 – bez kauce a nonstop',
+    'intro' => 'Vítejte v <strong>Motogo24</strong> – vaší půjčovně motorek na Vysočině. U nás si půjčíte motorku <strong>bez kauce</strong>, s výbavou v ceně a v režimu <strong>nonstop</strong>. Ať hledáte cestovní, sportovní, enduro nebo dětskou motorku, Motogo24 vám v srdci Vysočiny nabídne motorku na míru.',
     'signposts' => [
-        ['icon' => 'gfx/ico-katalog.svg', 'title' => '<strong>Katalog</strong> motorek', 'text' => 'Prohlédněte si naši nabídku <strong>motorek na pronájem</strong> – od sportovních po cestovní modely.', 'btn' => 'KATALOG MOTOREK', 'href' => '/katalog'],
-        ['icon' => 'gfx/ico-jak.svg', 'title' => '<strong>Jak si půjčit</strong> motorku', 'text' => 'Jednoduchý proces: vyberte <strong>motorku k zapůjčení</strong>, rezervujte, vyjeďte.', 'btn' => 'JAK SI PŮJČIT MOTORKU', 'href' => '/jak-pujcit'],
-        ['icon' => 'gfx/ico-rezervace.svg', 'title' => '<strong>Online rezervace</strong> motorky', 'text' => 'Zarezervujte si <strong>motorku na pronájem</strong> přes snadný systém.', 'btn' => 'REZERVOVAT MOTORKU', 'href' => '/rezervace'],
-        ['icon' => 'gfx/ico-kontakt.svg', 'title' => '<strong>Kontakty</strong> a mapa', 'text' => 'Navštivte naši <strong>půjčovnu motorek v Pelhřimově</strong> nebo nás kontaktujte.', 'btn' => 'KONTAKT', 'href' => '/kontakt'],
-        ['icon' => 'gfx/ico-faq.svg', 'title' => 'Často kladené <strong>dotazy</strong>', 'text' => 'Nejčastější dotazy k <strong>půjčení motorky</strong> přehledně.', 'btn' => 'ČASTÉ DOTAZY', 'href' => '/jak-pujcit/faq'],
-        ['icon' => 'gfx/ico-trasy.svg', 'title' => 'Motocyklové <strong>výlety</strong>', 'text' => 'Objevte nejlepší <strong>motocyklové trasy v Česku</strong> pro turisty.', 'btn' => 'MOTOCYKLOVÉ TRASY', 'href' => '/blog'],
+        ['icon' => 'gfx/ico-katalog.svg', 'title' => 'Katalog motorek', 'text' => 'Prohlédněte si naši nabídku motorek na pronájem – od sportovních po cestovní modely.', 'btn' => 'KATALOG MOTOREK', 'href' => '/katalog'],
+        ['icon' => 'gfx/ico-jak.svg', 'title' => 'Jak si půjčit motorku', 'text' => 'Jednoduchý proces: vyberte motorku k zapůjčení, rezervujte a vyjeďte.', 'btn' => 'JAK SI PŮJČIT MOTORKU', 'href' => '/jak-pujcit'],
+        ['icon' => 'gfx/ico-rezervace.svg', 'title' => 'Online rezervace motorky', 'text' => 'Zarezervujte si motorku na pronájem přes snadný online systém.', 'btn' => 'REZERVOVAT MOTORKU', 'href' => '/rezervace'],
+        ['icon' => 'gfx/ico-kontakt.svg', 'title' => 'Kontakty a mapa', 'text' => 'Navštivte naši půjčovnu motorek v Pelhřimově nebo nás kontaktujte.', 'btn' => 'KONTAKT', 'href' => '/kontakt'],
+        ['icon' => 'gfx/ico-faq.svg', 'title' => 'Často kladené dotazy', 'text' => 'Nejčastější dotazy k půjčení motorky přehledně na jednom místě.', 'btn' => 'ČASTÉ DOTAZY', 'href' => '/jak-pujcit/faq'],
+        ['icon' => 'gfx/ico-trasy.svg', 'title' => 'Motocyklové výlety', 'text' => 'Objevte nejlepší motocyklové trasy v Česku pro turisty i místní.', 'btn' => 'MOTOCYKLOVÉ TRASY', 'href' => '/blog'],
     ],
     'motos_section' => [
         'title' => 'Naše motorky k pronájmu na Vysočině',
-        'intro' => 'Prohlédněte si nabídku cestovních, sportovních a enduro z naší <strong>půjčovny motorek na Vysočině</strong>.',
+        'intro' => 'Prohlédněte si nabídku cestovních, sportovních a enduro z naší půjčovny motorek na Vysočině.',
         'empty' => 'Momentálně nemáme žádné motorky v nabídce.',
         'cta_label' => 'KATALOG MOTOREK',
         'cta_href' => '/katalog',
@@ -61,7 +62,7 @@ $defaults = [
     ],
     'cta' => [
         'title' => 'Rezervuj svou motorku online',
-        'text' => 'Naše <strong>půjčovna motorek Vysočina</strong> je otevřená <strong>nonstop</strong>. Stačí pár kliků a tvoje jízda začíná.',
+        'text' => 'Naše <strong>půjčovna motorek Vysočina</strong> je otevřená nonstop. Stačí pár kliků a tvoje jízda začíná.',
         'buttons' => [
             ['label' => 'REZERVOVAT MOTORKU', 'href' => '/rezervace', 'cls' => 'btndark pulse'],
             ['label' => 'Dárkový poukaz', 'href' => '/poukazy', 'cls' => 'btndark'],
@@ -87,9 +88,11 @@ $C = $sb->siteContent('home', $defaults);
 $signHtml = '<section aria-labelledby="signpost"><div class="gr3">';
 foreach ($C['signposts'] as $s) {
     $iconSrc = BASE_URL . '/' . ltrim($s['icon'], '/');
+    $titleText = trim(strip_tags($s['title'] ?? ''));
+    if ($titleText === '') $titleText = htmlspecialchars($s['btn'] ?? 'Informace');
     $signHtml .= '<a class="gbox" href="' . BASE_URL . $s['href'] . '">' .
-        '<div class="gr2"><div class="gbox-img"><img src="' . htmlspecialchars($iconSrc) . '" class="icon" alt="' . htmlspecialchars(strip_tags($s['btn'])) . '" loading="lazy"></div><div>' .
-        '<h3><p>' . $s['title'] . '</p></h3><p>' . $s['text'] . '</p>' .
+        '<div class="gr2"><div class="gbox-img"><img src="' . htmlspecialchars($iconSrc) . '" class="icon" alt="' . htmlspecialchars(strip_tags($s['btn'] ?? $titleText)) . '" loading="lazy"></div><div>' .
+        '<h3>' . ($s['title'] !== '' ? $s['title'] : $titleText) . '</h3><p>' . $s['text'] . '</p>' .
         '<div class="btn btngreen-small">' . $s['btn'] . '</div></div></div></a>';
 }
 $signHtml .= '</div></section>';
@@ -170,8 +173,10 @@ $bannerHtml = '<div class="banner">' .
         '<p><a class="btn ' . ($ctaP['cls'] ?? 'btngreen') . '" href="' . BASE_URL . $ctaP['href'] . '">' . $ctaP['label'] . '</a> <a class="btn ' . ($ctaS['cls'] ?? 'btndark') . '" href="' . BASE_URL . $ctaS['href'] . '">' . $ctaS['label'] . '</a></p>' .
     '</div></div></div></div>';
 
+$introHtml = !empty($C['intro']) ? '<p class="home-intro">' . $C['intro'] . '</p>' : '';
+
 $content = $bannerHtml .
-    '<main id="content"><div class="container"><h1>' . $C['h1'] . '</h1>' .
+    '<main id="content"><div class="container"><h1>' . $C['h1'] . '</h1>' . $introHtml .
     $signHtml . $motosHtml . $processHtml . $faqHtml . $reviewsHtml . $ctaHtml . $blogHtml .
     '</div></main>';
 
