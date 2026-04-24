@@ -12,7 +12,7 @@ function getBlogFallbackPosts() {
             'excerpt' => 'Vybrali jsme pro vás 5 nejkrásnějších motorkářských tras, které projedete z Pelhřimova během víkendu. Žďárské vrchy, Český ráj i Telč.',
             'description' => 'Vybrali jsme pro vás 5 nejkrásnějších motorkářských tras, které projedete z Pelhřimova během víkendu.',
             'tags' => ['Motorkářské trasy', 'Vysočina'],
-            'image_url' => 'gfx/hero-banner.png',
+            'image_url' => '/gfx/hero-banner.png',
             'images' => [],
             'created_at' => '2026-03-15',
             'content' => '<p>Vysočina je rájem pro motorkáře – klikaté silnice, otevřené vyhlídky, historická městečka i přírodní rezervace. Tady je 5 našich oblíbených tras z Pelhřimova.</p>'
@@ -35,7 +35,7 @@ function getBlogFallbackPosts() {
             'excerpt' => 'Přehledný návod od rezervace až po vrácení. Co si vzít s sebou, co musíte mít za řidičák a jak funguje naše nonstop předání.',
             'description' => 'Přehledný návod od rezervace až po vrácení motorky.',
             'tags' => ['Rady a tipy', 'Rezervace'],
-            'image_url' => 'gfx/darkovy-poukaz.jpg',
+            'image_url' => '/gfx/darkovy-poukaz.jpg',
             'images' => [],
             'created_at' => '2026-03-08',
             'content' => '<p>Plánujete víkendovou jízdu, ale vlastní motorku zatím nemáte? U nás v Motogo24 si vše zařídíte online za pár minut. Tady je kompletní návod.</p>'
@@ -59,7 +59,7 @@ function getBlogFallbackPosts() {
             'excerpt' => '8 pravidel, která vám udrží jízdu v pohodě. Od správné výbavy přes techniku zatáčení až po chování v dešti a na mokré vozovce.',
             'description' => '8 pravidel pro bezpečnou motorkářskou sezónu.',
             'tags' => ['Rady a tipy', 'Bezpečnost'],
-            'image_url' => 'gfx/ico-pojisteni.svg',
+            'image_url' => '/gfx/hero-banner.png',
             'images' => [],
             'created_at' => '2026-02-20',
             'content' => '<p>Ať už jste začínající jezdec nebo ostřílený cestovatel, pár jednoduchých pravidel vám udrží jízdu v pohodě. Tady je 8 tipů z praxe.</p>'
@@ -88,7 +88,7 @@ function getBlogFallbackPosts() {
             'excerpt' => 'Rozšířili jsme flotilu o další cestovní a enduro modely. Podívejte se, co přibylo a na co se můžete těšit v letošní sezóně.',
             'description' => 'Novinky z flotily Motogo24 pro sezónu 2026.',
             'tags' => ['Novinky půjčovny'],
-            'image_url' => 'gfx/ico-katalog.svg',
+            'image_url' => '/gfx/hero-banner.png',
             'images' => [],
             'created_at' => '2026-02-05',
             'content' => '<p>Sezóna 2026 je tady a s ní i rozšíření naší flotily. Investovali jsme do nových strojů, které najdete v <a href="/katalog">katalogu motorek</a>.</p>'
@@ -109,7 +109,7 @@ function getBlogFallbackPosts() {
             'excerpt' => 'Narozeniny, Vánoce, výročí? Dárek, který opravdu potěší. Náš voucher platí 3 roky a obdarovaný si sám vybere termín i motorku.',
             'description' => 'Proč je dárkový poukaz Motogo24 lepší než další kravata.',
             'tags' => ['Dárky a poukazy'],
-            'image_url' => 'gfx/darkovy-poukaz.jpg',
+            'image_url' => '/gfx/darkovy-poukaz.jpg',
             'images' => [],
             'created_at' => '2026-01-20',
             'content' => '<p>Hledáte dárek, který opravdu potěší? Dárkový poukaz na pronájem motorky je originální, flexibilní a má dlouhou platnost.</p>'
