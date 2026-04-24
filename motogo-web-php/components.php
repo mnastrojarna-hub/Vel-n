@@ -105,9 +105,11 @@ function renderMotoCard($m) {
     }
 
     return '<a class="moto-wrapper" href="' . BASE_URL . '/katalog/' . $id . '" aria-label="' . $model . '">' .
-        '<div class="moto-title"><h2>' . $model . '</h2></div>' .
-        ($badge ? $badge : '') .
-        '<div class="moto-img">' . ($img ? '<img src="' . htmlspecialchars($img) . '" alt="' . $model . '" class="imgres" loading="lazy">' : '') . '</div>' .
+        '<div class="moto-img">' .
+            ($img ? '<img src="' . htmlspecialchars($img) . '" alt="' . $model . '" class="imgres" loading="lazy">' : '') .
+            ($badge ? $badge : '') .
+            '<div class="moto-title"><h2>' . $model . '</h2></div>' .
+        '</div>' .
         '<div class="moto-desc">' . $featHtml . $branchLine . ($priceText ? '<p class="moto-price">' . $priceText . '</p>' : '') . '</div>' .
         '<div class="moto-btn"><span class="btn btngreen-small">DETAIL MOTORKY</span></div>' .
     '</a>';
