@@ -1,16 +1,16 @@
 RewriteEngine On
 RewriteBase /
 
-# ---- SEO: kanonická doména + HTTPS + bez www ----
-# 1) motogo24.com -> motogo24.cz (jediná kanonická doména)
-RewriteCond %{HTTP_HOST} ^(www\.)?motogo24\.com$ [NC]
-RewriteRule ^(.*)$ https://motogo24.cz/$1 [R=301,L]
+# ---- SEO: www -> non-www + HTTPS ----
+# DŮLEŽITÉ: motogo24.com (nová verze) a motogo24.cz (stará funkční verze)
+# se VĚDOMĚ NEPROPOJUJÍ křížově — zatím běží každá samostatně. Až se spojí,
+# přidá se sem redirect mezi doménami.
 
-# 2) www -> non-www (pro motogo24.cz)
-RewriteCond %{HTTP_HOST} ^www\.motogo24\.cz$ [NC]
-RewriteRule ^(.*)$ https://motogo24.cz/$1 [R=301,L]
+# 1) www -> non-www (každá doména zůstává na sobě samé)
+RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+RewriteRule ^(.*)$ https://%1/$1 [R=301,L]
 
-# 3) http -> https (pokud HTTPS není aktivní)
+# 2) http -> https (pokud HTTPS není aktivní)
 RewriteCond %{HTTPS} !=on
 RewriteCond %{HTTP:X-Forwarded-Proto} !=https
 RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
