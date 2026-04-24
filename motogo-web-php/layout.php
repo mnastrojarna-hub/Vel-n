@@ -84,7 +84,7 @@ function renderFooter() {
             '<div class="footer-phone dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/telefon.svg" alt="Telefon" class="icon-small" loading="lazy"></div><div><p>ZAVOLEJTE NÁM<br><strong><a href="' . PHONE_LINK . '">' . PHONE . '</a></strong></p></div></div>' .
             '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/email.svg" alt="E-mail" class="icon-small" loading="lazy"></div><div><p>' . EMAIL_USER . '@' . EMAIL_DOMAIN . '</p></div></div>' .
             '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/adresa.svg" alt="Adresa" class="icon-small" loading="lazy"></div><div><p><strong>Půjčovna motorek Motogo24</strong><br>' . ADDRESS . '</p></div></div>' .
-            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/provozni-doba.svg" alt="Provozní doba" class="icon-small" loading="lazy"></div><div><p><strong>PO - NE</strong> 00:00 – 24:00&nbsp;(nonstop)</p></div></div>' .
+            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/provozni-doba.svg" alt="Provozní doba" class="icon-small" loading="lazy"></div><div><p>PO - NE 00:00 – 24:00&nbsp;(nonstop)</p></div></div>' .
         '</div>' .
     '</div></div>' .
     '<div class="copyright"><div class="container">' .

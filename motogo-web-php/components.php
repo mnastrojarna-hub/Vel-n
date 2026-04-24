@@ -88,8 +88,11 @@ function renderMotoCard($m) {
     $featHtml .= '</ul>';
 
     $priceText = $price > 0 ? ('Cena: od ' . formatPrice($price) . '/den') : '';
-    $model = htmlspecialchars($m['model'] ?? '');
+    $modelRaw = trim((string)($m['model'] ?? ''));
+    if ($modelRaw === '') $modelRaw = 'Motorka k pronájmu';
+    $model = htmlspecialchars($modelRaw);
     $id = htmlspecialchars($m['id'] ?? '');
+    $imgAlt = htmlspecialchars('Motorka ' . $modelRaw . ' – půjčovna Motogo24');
 
     // Branch info (pokud tabulka motorcycles byla joinnutá s branches)
     $branch = $m['branches'] ?? null;
@@ -106,7 +109,7 @@ function renderMotoCard($m) {
 
     return '<a class="moto-wrapper" href="' . BASE_URL . '/katalog/' . $id . '" aria-label="' . $model . '">' .
         '<div class="moto-img">' .
-            ($img ? '<img src="' . htmlspecialchars($img) . '" alt="' . $model . '" class="imgres" loading="lazy">' : '') .
+            ($img ? '<img src="' . htmlspecialchars($img) . '" alt="' . $imgAlt . '" class="imgres" loading="lazy">' : '') .
             ($badge ? $badge : '') .
             '<div class="moto-title"><h2>' . $model . '</h2></div>' .
         '</div>' .
@@ -129,12 +132,15 @@ function renderBlogCard($post) {
     $tags = $post['tags'] ?? [];
     $tag = !empty($tags) ? $tags[0] : '';
     $excerpt = $post['excerpt'] ?? ($post['description'] ?? '');
-    $title = htmlspecialchars($post['title'] ?? '');
+    $titleRaw = trim((string)($post['title'] ?? ''));
+    if ($titleRaw === '') $titleRaw = 'Článek z blogu Motogo24';
+    $title = htmlspecialchars($titleRaw);
     $slug = htmlspecialchars($post['slug'] ?? '');
+    $imgAlt = htmlspecialchars($titleRaw . ' – blog Motogo24');
 
     return '<div><a class="blog-wrapper" href="' . BASE_URL . '/blog/' . $slug . '" aria-label="' . $title . '">' .
         '<div class="blog-title"><h2>' . $title . '</h2></div>' .
-        '<div class="blog-img">' . ($img ? '<img src="' . htmlspecialchars($img) . '" alt="' . $title . '" class="imgres" loading="lazy">' : '') . '</div>' .
+        '<div class="blog-img">' . ($img ? '<img src="' . htmlspecialchars($img) . '" alt="' . $imgAlt . '" class="imgres" loading="lazy">' : '') . '</div>' .
         '<div class="blog-desc">' . ($tag ? '<p><span class="tag-label">' . htmlspecialchars($tag) . '</span></p>' : '') . '<p>' . htmlspecialchars($excerpt) . '</p></div>' .
         '<div class="blog-btn"><span class="btn btngreen-small">PŘEČÍST ČLÁNEK</span></div>' .
     '</a></div>';
@@ -145,9 +151,11 @@ function renderBlogCard($post) {
  */
 function renderWbox($icon, $title, $text) {
     $iconSrc = $icon ? BASE_URL . '/' . ltrim($icon, '/') : '';
+    $titleText = trim(strip_tags($title));
+    if ($titleText === '') $titleText = 'Informace';
     return '<div class="wbox">' .
-        ($icon ? '<div class="wbox-img"><img src="' . htmlspecialchars($iconSrc) . '" class="icon" alt="' . strip_tags($title) . '" loading="lazy"></div>' : '') .
-        '<h3><p>' . $title . '</p></h3>' .
+        ($icon ? '<div class="wbox-img"><img src="' . htmlspecialchars($iconSrc) . '" class="icon" alt="' . htmlspecialchars($titleText) . '" loading="lazy"></div>' : '') .
+        '<h3>' . $title . '</h3>' .
         '<p>' . $text . '</p></div>';
 }
 
