@@ -291,6 +291,27 @@ class SupabaseClient {
     public function fetchExtras() {
         return $this->query('extras_catalog', '*', [], 'name.asc');
     }
+
+    // ===== REVIEWS (veřejné recenze na web) =====
+    public function fetchPublicReviews($limit = 6) {
+        $cached = $this->cacheGet('reviews_public_' . $limit);
+        if ($cached !== null) return $cached;
+        // Bez závislosti na konkrétní struktuře: vezmeme všechny, order by created_at desc
+        $data = $this->query(
+            'reviews',
+            'id,rating,comment,author_name,created_at',
+            [],
+            'created_at.desc'
+        );
+        if (!is_array($data)) $data = [];
+        // Pouze s textem
+        $data = array_values(array_filter($data, function ($r) {
+            return !empty($r['comment']) && strlen(trim($r['comment'])) > 10;
+        }));
+        if ($limit > 0) $data = array_slice($data, 0, $limit);
+        $this->cacheSet('reviews_public_' . $limit, $data);
+        return $data;
+    }
 }
 
 // ===== HELPER FUNKCE =====

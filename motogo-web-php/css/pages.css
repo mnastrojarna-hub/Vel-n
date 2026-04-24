@@ -1,5 +1,13 @@
 /* ===== MotoGo24 Web — Pages CSS (detail, blog, forms, calendar) ===== */
 
+/* ===== REVIEWS CARDS ===== */
+.review-card{background:#fff;border:1px solid #d4e8e0;border-left:4px solid #74FB71;border-radius:10px;padding:1.25rem 1.35rem;transition:border-color .2s,box-shadow .2s}
+.review-card:hover{border-color:#74FB71;box-shadow:0 4px 14px rgba(26,46,34,.08)}
+.review-stars{color:#f5b841;font-size:1.05rem;margin-bottom:.5rem;letter-spacing:2px}
+.review-comment{color:#1a2e22;font-size:.93rem;line-height:1.55;margin-bottom:.75rem;font-style:italic}
+.review-author{color:#4a6b5a;font-size:.85rem;margin:0}
+.review-author strong{color:#1a2e22}
+
 /* ===== KATALOG FILTRY — pill styl ===== */
 .katalog-filters{background:#fff;border:1px solid #d4e8e0;border-radius:16px;padding:1.1rem 1.25rem;margin:1rem 0 1.5rem;box-shadow:0 4px 16px rgba(26,46,34,.06)}
 .filter-row{display:grid;grid-template-columns:repeat(3,1fr);gap:.7rem;margin-bottom:.9rem}
