@@ -38,9 +38,45 @@ $navHtml .= '<a class="moto-nav-back" href="' . BASE_URL . '/katalog">&#8801; Ka
 $navHtml .= $next ? '<a class="moto-nav-next" href="' . BASE_URL . '/katalog/' . htmlspecialchars($next['id']) . '">' . htmlspecialchars($next['model']) . ' &rarr;</a>' : '<span class="moto-nav-next moto-nav-disabled"></span>';
 $navHtml .= '</nav>';
 
+// ---- Availability check: dostupné dnes? (rychlý dotaz na RPC booked_dates) ----
+$isAvailableToday = false;
+if (($moto['status'] ?? '') === 'active') {
+    $bookings = $sb->fetchMotoBookings($motoId);
+    $today = date('Y-m-d');
+    $isAvailableToday = true;
+    if (is_array($bookings)) {
+        foreach ($bookings as $b) {
+            $s = $b['start_date'] ?? '';
+            $e = $b['end_date'] ?? '';
+            if ($s && $e && $today >= substr($s, 0, 10) && $today <= substr($e, 0, 10)) {
+                $isAvailableToday = false;
+                break;
+            }
+        }
+    }
+}
+
+// ---- Branch info ----
+$branch = $moto['branches'] ?? null;
+$branchHtml = '';
+if (is_array($branch) && !empty($branch['name'])) {
+    $addr = trim(($branch['address'] ?? '') . ', ' . ($branch['city'] ?? ''), ', ');
+    $branchHtml = '<p class="moto-branch-info"><span aria-hidden="true">📍</span> Místo vyzvednutí: <strong>' . htmlspecialchars($branch['name']) . '</strong>'
+        . ($addr ? ' · ' . htmlspecialchars($addr) : '')
+        . '</p>';
+}
+
 // Header
-$headerHtml = '<div class="moto-detail-header"><div><h1>' . $model . '</h1></div><div>' .
-    '<a class="btn btngreen" href="' . BASE_URL . '/rezervace?moto=' . htmlspecialchars($moto['id']) . '">REZERVOVAT ONLINE</a></div></div>';
+$badgeHtml = $isAvailableToday
+    ? '<span class="moto-badge-available">Dostupné dnes</span>'
+    : (($moto['status'] ?? '') === 'active' ? '<span class="moto-badge-busy">Dnes obsazeno – vyber jiný termín</span>' : '');
+
+$headerHtml = '<div class="moto-detail-header"><div>'
+    . ($badgeHtml ? '<div>' . $badgeHtml . '</div>' : '')
+    . '<h1>' . $model . '</h1>'
+    . $branchHtml
+    . '</div><div>'
+    . '<a class="btn btngreen" href="' . BASE_URL . '/rezervace?moto=' . htmlspecialchars($moto['id']) . '">REZERVOVAT ONLINE</a></div></div>';
 
 // Short desc + features
 $descHtml = '<div class="moto-shortdesc">';

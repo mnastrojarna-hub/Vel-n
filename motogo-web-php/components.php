@@ -70,6 +70,7 @@ function renderMotoCard($m) {
     if ($cat) $features[] = htmlspecialchars($cat);
     if ($license && $license !== 'N') $features[] = htmlspecialchars($license);
     if ($kw) $features[] = htmlspecialchars($kw);
+    if (!empty($m['has_abs'])) $features[] = 'ABS';
     if ($desc && is_string($desc)) {
         foreach (explode(',', $desc) as $f) {
             $t = trim($f);
@@ -90,10 +91,24 @@ function renderMotoCard($m) {
     $model = htmlspecialchars($m['model'] ?? '');
     $id = htmlspecialchars($m['id'] ?? '');
 
+    // Branch info (pokud tabulka motorcycles byla joinnutá s branches)
+    $branch = $m['branches'] ?? null;
+    $branchLine = '';
+    if (is_array($branch) && !empty($branch['name'])) {
+        $branchLine = '<p class="moto-branch-line"><span aria-hidden="true">📍</span> ' . htmlspecialchars($branch['name']) . '</p>';
+    }
+
+    // Available badge — "k dispozici" pokud status=active (rezervační kalendář je v detailu)
+    $badge = '';
+    if (($m['status'] ?? '') === 'active') {
+        $badge = '<span class="moto-card-badge">Dostupné</span>';
+    }
+
     return '<a class="moto-wrapper" href="' . BASE_URL . '/katalog/' . $id . '" aria-label="' . $model . '">' .
         '<div class="moto-title"><h2>' . $model . '</h2></div>' .
+        ($badge ? $badge : '') .
         '<div class="moto-img">' . ($img ? '<img src="' . htmlspecialchars($img) . '" alt="' . $model . '" class="imgres" loading="lazy">' : '') . '</div>' .
-        '<div class="moto-desc">' . $featHtml . ($priceText ? '<p class="moto-price">' . $priceText . '</p>' : '') . '</div>' .
+        '<div class="moto-desc">' . $featHtml . $branchLine . ($priceText ? '<p class="moto-price">' . $priceText . '</p>' : '') . '</div>' .
         '<div class="moto-btn"><span class="btn btngreen-small">DETAIL MOTORKY</span></div>' .
     '</a>';
 }
