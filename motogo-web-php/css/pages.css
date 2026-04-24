@@ -8,30 +8,122 @@
 .review-author{color:#4a6b5a;font-size:.85rem;margin:0}
 .review-author strong{color:#1a2e22}
 
-/* ===== KATALOG FILTRY ===== */
-.katalog-filters{background:#fff;border:1px solid #d4e8e0;border-radius:14px;padding:1.1rem 1.25rem;margin:1rem 0 1.5rem;box-shadow:0 2px 8px rgba(26,46,34,.04)}
-.filter-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.75rem .85rem;margin-bottom:.85rem}
+/* ===== KATALOG FILTRY — pill styl ===== */
+.katalog-filters{background:#fff;border:1px solid #d4e8e0;border-radius:16px;padding:1.1rem 1.25rem;margin:1rem 0 1.5rem;box-shadow:0 4px 16px rgba(26,46,34,.06)}
+.filter-row{display:grid;grid-template-columns:repeat(3,1fr);gap:.7rem;margin-bottom:.9rem}
 .filter-row:last-child{margin-bottom:0}
-.filter-field{display:flex;flex-direction:column;gap:.3rem;min-width:0}
-.filter-field label{font-size:.72rem;color:#4a6b5a;font-weight:700;text-transform:uppercase;letter-spacing:.4px}
-.filter-field input[type=search],.filter-field select{width:100%;padding:.55rem .95rem;border:1px solid #b8d4c6;border-radius:22px;background:#fff;color:#1a2e22;font-family:'Montserrat',sans-serif;font-size:.88rem;cursor:pointer;transition:border-color .15s,box-shadow .15s;appearance:none}
-.filter-field select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%231a2e22' stroke-width='2' fill='none'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .95rem center;padding-right:2.2rem}
+.filter-field{position:relative;display:block;min-width:0}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* Pill: velké oblé selecty/inputy s chevronem */
+.filter-field input[type=search],
+.filter-field select{
+  width:100%;
+  padding:.85rem 2.6rem .85rem 1.2rem;
+  border:1.5px solid #d4e8e0;
+  border-radius:999px;
+  background:#fff;
+  color:#1a2e22;
+  font-family:'Montserrat',sans-serif;
+  font-size:.95rem;
+  font-weight:500;
+  line-height:1.2;
+  cursor:pointer;
+  appearance:none;
+  -webkit-appearance:none;
+  transition:border-color .15s,box-shadow .15s,background-color .15s;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  overflow:hidden;
+}
+.filter-field select{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9'%3E%3Cpath d='M1 1l6 6 6-6' stroke='%231a8c1a' stroke-width='2.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:right 1.1rem center;
+}
 .filter-field input[type=search]{cursor:text}
-.filter-field input[type=search]:focus,.filter-field select:focus{outline:none;border-color:#74FB71;box-shadow:0 0 0 3px rgba(116,251,113,.18)}
-.filter-row-checks{display:flex;flex-wrap:wrap;gap:.5rem 1.25rem;align-items:center;padding-top:.85rem;border-top:1px dashed #d4e8e0}
-.filter-check{display:inline-flex;align-items:center;gap:.4rem;font-size:.88rem;color:#1a2e22;cursor:pointer;padding:.25rem 0}
-.filter-check input{accent-color:#1a8c1a;width:16px;height:16px;cursor:pointer}
-.filter-row-checks .btn{margin-left:auto;padding:.55rem 1.25rem;font-size:.88rem}
-.filter-row-checks .btn+.btn{margin-left:.5rem}
-.katalog-count{font-size:.88rem;color:#4a6b5a;margin:.5rem 0 1rem}
+.filter-field input[type=search]:hover,
+.filter-field select:hover{border-color:#74FB71;background-color:#f9fefa}
+.filter-field input[type=search]:focus,
+.filter-field select:focus{
+  outline:none;
+  border-color:#74FB71;
+  box-shadow:0 0 0 4px rgba(116,251,113,.2);
+  background-color:#fff;
+}
+/* Search field — icon + padding */
+.filter-field-search{position:relative}
+.filter-field-search input[type=search]{padding-left:2.7rem}
+.filter-field-search .filter-icon{
+  position:absolute;
+  left:1rem;
+  top:50%;
+  transform:translateY(-50%);
+  font-size:1rem;
+  pointer-events:none;
+  opacity:.55;
+}
+
+/* Druhá řada: checkboxes + tlačítka */
+.filter-row-checks{
+  display:flex;
+  flex-wrap:wrap;
+  gap:.6rem 1.25rem;
+  align-items:center;
+  padding-top:.95rem;
+  border-top:1px dashed #d4e8e0;
+}
+.filter-check{
+  display:inline-flex;
+  align-items:center;
+  gap:.5rem;
+  font-size:.9rem;
+  color:#1a2e22;
+  cursor:pointer;
+  padding:.3rem .75rem .3rem .3rem;
+  border:1.5px solid transparent;
+  border-radius:999px;
+  transition:all .15s;
+  user-select:none;
+}
+.filter-check:hover{background:#f1faf4}
+.filter-check input{accent-color:#1a8c1a;width:18px;height:18px;cursor:pointer;flex-shrink:0}
+.filter-check input:checked+span{color:#1a8c1a;font-weight:700}
+.filter-check:has(input:checked){background:#e8fce8;border-color:#74FB71}
+
+.filter-actions{display:flex;gap:.55rem;margin-left:auto;align-items:center}
+.filter-actions .btn{padding:.65rem 1.4rem;font-size:.9rem}
+.filter-actions .btndark{background:transparent;color:#1a2e22;border:1.5px solid #b8d4c6}
+.filter-actions .btndark:hover{background:#1a2e22;color:#fff;border-color:#1a2e22}
+
+.filter-submit{
+  padding:.75rem 2rem!important;
+  font-size:.92rem!important;
+  font-weight:700;
+  letter-spacing:.5px;
+  box-shadow:0 4px 12px rgba(116,251,113,.35);
+  display:inline-flex;
+  align-items:center;
+  gap:.4rem;
+}
+.filter-submit::after{content:"→";font-weight:900;transition:transform .2s}
+.filter-submit:hover::after{transform:translateX(3px)}
+
+.katalog-count{font-size:.9rem;color:#4a6b5a;margin:.25rem 0 1.25rem}
 .katalog-count strong{color:#1a2e22}
 .katalog-empty{padding:2.5rem 1.5rem;text-align:center;background:#fff;border:1px dashed #d4e8e0;border-radius:12px;grid-column:1 / -1}
 .katalog-empty p{margin:0 0 .75rem}
+
+@media(max-width:900px){
+  .filter-row{grid-template-columns:repeat(2,1fr)}
+}
 @media(max-width:600px){
-  .filter-row{grid-template-columns:1fr 1fr;gap:.6rem}
+  .katalog-filters{padding:1rem;border-radius:14px}
+  .filter-row{grid-template-columns:1fr;gap:.55rem}
   .filter-row-checks{flex-direction:column;align-items:stretch;gap:.5rem}
-  .filter-row-checks .btn{margin-left:0;width:100%}
-  .filter-row-checks .btn+.btn{margin-left:0;margin-top:.25rem}
+  .filter-actions{margin-left:0;flex-direction:column}
+  .filter-actions .btn{width:100%}
+  .filter-check{justify-content:flex-start;padding:.5rem .75rem;background:#f9fefa;border-color:#e8f0ec}
 }
 
 

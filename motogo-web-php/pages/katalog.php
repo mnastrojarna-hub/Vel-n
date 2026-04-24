@@ -135,51 +135,54 @@ $opt = function ($val, $label, $active) {
 
 $filterHtml = '<form id="katalog-filters" class="katalog-filters" method="get" action="' . BASE_URL . '/katalog">'
     . '<div class="filter-row">'
-    . '<div class="filter-field"><label for="flt-q">Hledat</label>'
-        . '<input type="search" id="flt-q" name="q" placeholder="model, značka, popis…" value="' . htmlspecialchars($getQuery) . '"></div>'
-    . '<div class="filter-field"><label for="flt-cat">Kategorie</label>'
-        . '<select id="flt-cat" name="kategorie"><option value="">Všechny</option>';
+    . '<div class="filter-field filter-field-search"><label class="sr-only" for="flt-q">Hledat</label>'
+        . '<span class="filter-icon" aria-hidden="true">🔍</span>'
+        . '<input type="search" id="flt-q" name="q" placeholder="Hledat model, značku…" value="' . htmlspecialchars($getQuery) . '"></div>'
+    . '<div class="filter-field"><label class="sr-only" for="flt-cat">Kategorie</label>'
+        . '<select id="flt-cat" name="kategorie"><option value="">Kategorie — všechny</option>';
 foreach (array_keys($cats) as $c) {
     $filterHtml .= $opt($c, $c, strtolower($activeCat));
 }
 $filterHtml .= '</select></div>'
-    . '<div class="filter-field"><label for="flt-lic">Řidičský průkaz</label>'
-        . '<select id="flt-lic" name="ridicak"><option value="">Všechny skupiny</option>';
+    . '<div class="filter-field"><label class="sr-only" for="flt-lic">Řidičský průkaz</label>'
+        . '<select id="flt-lic" name="ridicak"><option value="">Řidičský průkaz</option>';
 foreach (array_keys($lics) as $l) {
     $filterHtml .= $opt($l, ($l === 'N') ? 'Bez ŘP (dětské)' : 'Skupina ' . $l, $activeLic);
 }
 $filterHtml .= '</select></div>'
-    . '<div class="filter-field"><label for="flt-kw">Výkon min.</label>'
+    . '<div class="filter-field"><label class="sr-only" for="flt-kw">Výkon</label>'
         . '<select id="flt-kw" name="kw_min">'
-        . $opt(0, 'Vše', $getKwMin)
-        . $opt(11, '11 kW (A1)', $getKwMin)
-        . $opt(35, '35 kW (A2)', $getKwMin)
-        . $opt(70, '70 kW+', $getKwMin)
-        . $opt(100, '100 kW+', $getKwMin)
+        . $opt(0, 'Výkon — libovolný', $getKwMin)
+        . $opt(11, 'od 11 kW (A1)', $getKwMin)
+        . $opt(35, 'od 35 kW (A2)', $getKwMin)
+        . $opt(70, 'od 70 kW', $getKwMin)
+        . $opt(100, 'od 100 kW', $getKwMin)
         . '</select></div>'
-    . '<div class="filter-field"><label for="flt-price">Cena max. (Kč/den)</label>'
+    . '<div class="filter-field"><label class="sr-only" for="flt-price">Cena max.</label>'
         . '<select id="flt-price" name="cena_max">'
-        . $opt(0, 'Vše', $getPriceMax)
-        . $opt(1000, 'do 1 000 Kč', $getPriceMax)
-        . $opt(1500, 'do 1 500 Kč', $getPriceMax)
-        . $opt(2000, 'do 2 000 Kč', $getPriceMax)
-        . $opt(3000, 'do 3 000 Kč', $getPriceMax)
+        . $opt(0, 'Cena — libovolná', $getPriceMax)
+        . $opt(1000, 'do 1 000 Kč/den', $getPriceMax)
+        . $opt(1500, 'do 1 500 Kč/den', $getPriceMax)
+        . $opt(2000, 'do 2 000 Kč/den', $getPriceMax)
+        . $opt(3000, 'do 3 000 Kč/den', $getPriceMax)
         . '</select></div>'
-    . '<div class="filter-field"><label for="flt-sort">Řazení</label>'
+    . '<div class="filter-field"><label class="sr-only" for="flt-sort">Řazení</label>'
         . '<select id="flt-sort" name="razeni">'
-        . $opt('default', 'Výchozí', $getSort)
-        . $opt('cena_asc', 'Cena ↑', $getSort)
-        . $opt('cena_desc', 'Cena ↓', $getSort)
-        . $opt('vykon_desc', 'Výkon ↓', $getSort)
-        . $opt('vykon_asc', 'Výkon ↑', $getSort)
+        . $opt('default', 'Řazení — výchozí', $getSort)
+        . $opt('cena_asc', 'Cena: od nejnižší', $getSort)
+        . $opt('cena_desc', 'Cena: od nejvyšší', $getSort)
+        . $opt('vykon_desc', 'Výkon: od nejvyššího', $getSort)
+        . $opt('vykon_asc', 'Výkon: od nejnižšího', $getSort)
         . '</select></div>'
     . '</div>'
     . '<div class="filter-row filter-row-checks">'
-    . '<label class="filter-check"><input type="checkbox" name="abs" value="1"' . ($getAbs ? ' checked' : '') . '> Pouze s ABS</label>'
-    . '<label class="filter-check"><input type="radio" name="jezdci" value="0"' . ($getRiders !== 2 ? ' checked' : '') . '> Libovolný počet</label>'
-    . '<label class="filter-check"><input type="radio" name="jezdci" value="2"' . ($getRiders === 2 ? ' checked' : '') . '> Pro 2 osoby</label>'
-    . '<button type="submit" class="btn btngreen">Filtrovat</button>'
+    . '<label class="filter-check"><input type="checkbox" name="abs" value="1"' . ($getAbs ? ' checked' : '') . '><span>Pouze s ABS</span></label>'
+    . '<label class="filter-check"><input type="radio" name="jezdci" value="0"' . ($getRiders !== 2 ? ' checked' : '') . '><span>Libovolný počet jezdců</span></label>'
+    . '<label class="filter-check"><input type="radio" name="jezdci" value="2"' . ($getRiders === 2 ? ' checked' : '') . '><span>Pro 2 osoby</span></label>'
+    . '<div class="filter-actions">'
     . '<a class="btn btndark" href="' . BASE_URL . '/katalog">Resetovat</a>'
+    . '<button type="submit" class="btn btngreen filter-submit"><span>HLEDAT</span></button>'
+    . '</div>'
     . '</div></form>';
 
 // Počet výsledků
