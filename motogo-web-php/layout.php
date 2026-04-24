@@ -30,7 +30,7 @@ function renderHeader($currentPath = '/') {
     $nav = '';
     foreach ($menuItems as $item) {
         $hasSub = !empty($item['children']);
-        $arrow = $hasSub ? ' <img src="' . BASE_URL . '/gfx/arrow-down.svg" alt="" loading="lazy" class="menu-arrow">' : '';
+        $arrow = $hasSub ? ' <img src="' . BASE_URL . '/gfx/arrow-down.svg" alt="Rozbalit podmenu" aria-hidden="true" loading="lazy" class="menu-arrow">' : '';
         $isActive = ($currentPath !== '/' && strpos($currentPath, $item['route']) === 0);
         $nav .= '<li' . ($hasSub ? ' class="has-sub"' : '') . '>';
         $nav .= '<a' . ($isActive ? ' class="active"' : '') . ' data-route="' . $item['route'] . '" href="' . BASE_URL . $item['route'] . '">' . $item['label'] . $arrow . '</a>';
@@ -145,18 +145,20 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
     $description = $meta['description'] ?? 'Půjčovna motorek Vysočina – silniční, sportovní, enduro i dětské. Nonstop pronájem bez kauce, online rezervace a motorkářská výbava zdarma.';
     $keywords = $meta['keywords'] ?? 'půjčovna motorek Vysočina, pronájem motorek Vysočina, půjčovna motorek Pelhřimov, půjčovna motorek bez kauce, nonstop půjčovna motorek, rezervace motorky online, motorky k pronájmu Vysočina, motorbike rental Czech Republic';
     $canonical = $meta['canonical'] ?? ($siteOrigin . $currentPath);
-    $ogImage = $meta['og_image'] ?? ($siteOrigin . '/gfx/hero-banner.png');
+    $ogImage = $meta['og_image'] ?? ($siteOrigin . '/gfx/hero-banner.jpg');
     $ogType = $meta['og_type'] ?? 'website';
     $robots = $meta['robots'] ?? 'index,follow';
     $extraSchema = $meta['schema'] ?? '';
     $breadcrumbs = $meta['breadcrumbs'] ?? [];
     $preload = $meta['preload'] ?? [];
-    // Automatický preload hero banneru na homepage (LCP optimalizace)
+    // Automatický preload hero banneru na homepage (LCP optimalizace).
+    // Preferujeme WebP — moderní prohlížeče (~95 %) ho podpoří, ostatní
+    // si stáhnou JPEG fallback z <picture> v home.php.
     if ($currentPath === '/' && empty($preload)) {
         $preload[] = [
-            'href' => BASE_URL . '/gfx/hero-banner.png',
+            'href' => BASE_URL . '/gfx/hero-banner.webp',
             'as' => 'image',
-            'type' => 'image/png',
+            'type' => 'image/webp',
             'fetchpriority' => 'high',
         ];
     }
@@ -202,7 +204,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
     "name": "Motogo24 – půjčovna motorek Vysočina",
     "url": "' . $siteOrigin . '",
     "logo": "' . $siteOrigin . '/gfx/logo.svg",
-    "image": "' . $siteOrigin . '/gfx/hero-banner.png",
+    "image": "' . $siteOrigin . '/gfx/hero-banner.jpg",
     "email": "info@motogo24.cz",
     "telephone": "+420 774 256 271",
     "priceRange": "od 990 Kč/den",
