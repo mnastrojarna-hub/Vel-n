@@ -117,11 +117,15 @@ function renderMotoCard($m) {
 
 /**
  * HTML karta blogu — odpovídá MG.renderBlogCard() v components.js.
- * ZMĚNA: href z #/blog/{slug} na /blog/{slug}
+ * Podporuje i relativní cesty začínající /gfx/ (lokální obrázky).
  */
 function renderBlogCard($post) {
     $images = $post['images'] ?? [];
     $img = (!empty($images) ? $images[0] : '') ?: ($post['image_url'] ?? '');
+    // Relativní lokální cesty: /gfx/... nebo gfx/...
+    if ($img && strpos($img, 'http') !== 0 && strpos($img, 'data:') !== 0) {
+        $img = BASE_URL . '/' . ltrim($img, '/');
+    }
     $tags = $post['tags'] ?? [];
     $tag = !empty($tags) ? $tags[0] : '';
     $excerpt = $post['excerpt'] ?? ($post['description'] ?? '');

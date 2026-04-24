@@ -6,6 +6,7 @@
 $sb = new SupabaseClient();
 $motos = $sb->fetchMotos();
 $posts = $sb->fetchCmsPages();
+$reviews = $sb->fetchPublicReviews(6);
 
 $defaults = [
     'seo' => [
@@ -74,6 +75,10 @@ $defaults = [
         'cta_href' => '/blog',
         'limit' => 3,
     ],
+    'reviews' => [
+        'title' => 'Co o nás říkají zákazníci',
+        'intro' => 'Reálné recenze od motorkářů, kteří si u nás půjčili. Děkujeme za každé hodnocení.',
+    ],
 ];
 
 $C = $sb->siteContent('home', $defaults);
@@ -116,6 +121,26 @@ $faqHtml = renderFaqSection($C['faq']['title'], $C['faq']['items'], $C['faq']['m
 // ---- CTA
 $ctaHtml = renderCta($C['cta']['title'], $C['cta']['text'], $C['cta']['buttons']);
 
+// ---- Reviews (zobrazí se jen pokud data existují)
+$reviewsHtml = '';
+if (!empty($reviews)) {
+    $reviewsHtml = '<section aria-labelledby="reviews"><h2>' . htmlspecialchars($C['reviews']['title']) . '</h2>'
+        . '<p>' . htmlspecialchars($C['reviews']['intro']) . '</p><p>&nbsp;</p>'
+        . '<div class="gr3">';
+    foreach ($reviews as $r) {
+        $rating = (int)($r['rating'] ?? 0);
+        $stars = str_repeat('★', max(0, min(5, $rating))) . str_repeat('☆', max(0, 5 - $rating));
+        $author = htmlspecialchars($r['author_name'] ?? 'Spokojený zákazník');
+        $comment = htmlspecialchars($r['comment'] ?? '');
+        $reviewsHtml .= '<div class="review-card">'
+            . '<div class="review-stars" aria-label="Hodnocení ' . $rating . ' z 5">' . $stars . '</div>'
+            . '<p class="review-comment">„' . $comment . '"</p>'
+            . '<p class="review-author">— <strong>' . $author . '</strong></p>'
+            . '</div>';
+    }
+    $reviewsHtml .= '</div></section>';
+}
+
 // ---- Blog
 $bl = $C['blog'];
 $blogHtml = '<section aria-labelledby="blog"><h2>' . $bl['title'] . '</h2><div id="home-blog" class="gr3">';
@@ -147,7 +172,7 @@ $bannerHtml = '<div class="banner">' .
 
 $content = $bannerHtml .
     '<main id="content"><div class="container"><h1>' . $C['h1'] . '</h1>' .
-    $signHtml . $motosHtml . $processHtml . $faqHtml . $ctaHtml . $blogHtml .
+    $signHtml . $motosHtml . $processHtml . $faqHtml . $reviewsHtml . $ctaHtml . $blogHtml .
     '</div></main>';
 
 renderPage($C['seo']['title'], $content, '/', [
