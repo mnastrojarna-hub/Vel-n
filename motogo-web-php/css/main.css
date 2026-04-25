@@ -58,11 +58,11 @@ table{width:100%;border-collapse:collapse}
 .header-phone a{color:#74FB71;font-weight:600;font-size:.95rem}
 
 /* --- Main Menu --- */
-.main-menu{display:flex;align-items:center;gap:.1rem;list-style:none}
-.main-menu>li{position:relative}
-.main-menu>li>a{color:#e8f5ee;padding:.5rem .75rem;font-size:.9rem;font-weight:500;display:flex;align-items:center;gap:.3rem;transition:color .2s;white-space:nowrap}
-.menu-rez{display:flex;align-items:center;margin-left:.25rem}
-.menu-rez .btn{background:#1a2e22;color:#74FB71;border:2px solid #74FB71}.menu-rez .btn:hover{background:#2a4e3a}
+.main-menu{display:flex;flex-wrap:nowrap;align-items:center;gap:.1rem;list-style:none}
+.main-menu>li{position:relative;flex:0 0 auto}
+.main-menu>li>a{color:#e8f5ee;padding:.5rem .6rem;font-size:.88rem;font-weight:500;display:flex;align-items:center;gap:.3rem;transition:color .2s;white-space:nowrap}
+.menu-rez{display:flex;align-items:center;margin-left:.4rem;flex:0 0 auto}
+.menu-rez .btn{background:#1a2e22;color:#74FB71;border:2px solid #74FB71;white-space:nowrap}.menu-rez .btn:hover{background:#2a4e3a}
 .main-menu>li>a:hover,.main-menu>li>a.active{color:#74FB71}
 .main-menu>li>a .menu-arrow{width:12px;height:12px;filter:brightness(0) invert(1);opacity:.6}
 

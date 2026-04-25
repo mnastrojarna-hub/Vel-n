@@ -8,6 +8,8 @@ echo '<?xml version="1.0" encoding="UTF-8"?>';
   <url><loc><?php echo SITE_URL; ?>/</loc><priority>1.0</priority><changefreq>weekly</changefreq></url>
   <url><loc><?php echo SITE_URL; ?>/katalog</loc><priority>0.9</priority><changefreq>weekly</changefreq></url>
   <url><loc><?php echo SITE_URL; ?>/katalog/cestovni</loc><priority>0.8</priority><changefreq>weekly</changefreq></url>
+  <url><loc><?php echo SITE_URL; ?>/katalog/naked</loc><priority>0.8</priority><changefreq>weekly</changefreq></url>
+  <url><loc><?php echo SITE_URL; ?>/katalog/supermoto</loc><priority>0.8</priority><changefreq>weekly</changefreq></url>
   <url><loc><?php echo SITE_URL; ?>/katalog/detske</loc><priority>0.8</priority><changefreq>weekly</changefreq></url>
   <url><loc><?php echo SITE_URL; ?>/pujcovna-motorek</loc><priority>0.8</priority><changefreq>monthly</changefreq></url>
   <url><loc><?php echo SITE_URL; ?>/jak-pujcit</loc><priority>0.8</priority><changefreq>monthly</changefreq></url>

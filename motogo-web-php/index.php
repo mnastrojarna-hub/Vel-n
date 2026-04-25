@@ -94,6 +94,14 @@ switch (true) {
         require __DIR__ . '/pages/katalog.php';
         break;
 
+    case $path === '/katalog/naked':
+        require __DIR__ . '/pages/katalog.php';
+        break;
+
+    case $path === '/katalog/supermoto':
+        require __DIR__ . '/pages/katalog.php';
+        break;
+
     case $path === '/katalog/detske':
         require __DIR__ . '/pages/katalog.php';
         break;
