@@ -1,106 +1,121 @@
 <?php
-// ===== MotoGo24 Web PHP — Dokumenty a návody (CMS-driven) =====
+// ===== MotoGo24 Web PHP — Dokumenty a návody (CMS-driven, 1:1 prepis) =====
+// Zdroj: https://www.motogo24.cz/cz/jak-si-pujcit-motorku/dokumenty-a-navody
+// Obsah rozdelen do 2 souboru v /data/ kvuli pravidlu max 5000 tokenu na soubor.
 
 $sb = new SupabaseClient();
 
-$defaults = [
-    'seo' => [
-        'title' => 'Dokumenty a návody | MotoGo24',
-        'description' => 'Nájemní smlouva, dokumenty a podmínky pronájmu motorky. Bez kauce, jasná pravidla, pojištění v ceně. Potřebné doklady pro půjčení.',
-        'keywords' => 'nájemní smlouva motorka, dokumenty k půjčení, podmínky pronájmu, pojištění motorky',
-    ],
-    'h1' => 'Nájemní smlouva a kauce – férové podmínky bez zálohy',
-    'intro' => 'V <strong>Motogo24</strong> klademe důraz na jednoduchost a férovost. Půjčujeme <strong>bez kauce</strong>, s <strong>jasnou nájemní smlouvou</strong>, <strong>pojištěním v ceně</strong> a <strong>výbavou pro řidiče</strong>.',
-    'top_cta' => ['label' => 'REZERVOVAT ONLINE', 'href' => '/rezervace'],
-    'summary' => [
-        'title' => 'Shrnutí hlavních bodů',
-        'items' => [
-            ['icon' => 'gfx/ico-bez-kauce.svg', 'title' => 'Bez kauce / zálohy', 'text' => 'motorku půjčujeme bez blokace peněz'],
-            ['icon' => 'gfx/ico-pojisteni.svg', 'title' => 'Pojištění', 'text' => 'v ceně (povinné ručení; havarijní dle konkrétního modelu a podmínek)'],
-            ['icon' => 'gfx/ico-vybava.svg', 'title' => 'Výbava pro řidiče', 'text' => 'v ceně (helma, bunda, kalhoty, rukavice)'],
-            ['icon' => 'gfx/ico-nonstop.svg', 'title' => 'Nonstop provoz', 'text' => 'převzetí a vrácení kdykoli v den výpůjčky'],
-            ['icon' => 'gfx/ico-jasna-pravidla.svg', 'title' => 'Jasná pravidla užívání', 'text' => 'doma i v zahraničí (podle zelené karty)'],
-            ['icon' => 'gfx/ico-bezskryte.svg', 'title' => 'Žádné skryté poplatky', 'text' => 'vše je uvedeno níže a ve smlouvě'],
-        ],
-    ],
-    'required_docs' => [
-        'title' => 'Co potřebujete k uzavření smlouvy',
-        'items' => [
-            '<strong>Občanský průkaz / pas</strong>',
-            '<strong>Řidičský průkaz</strong> odpovídající skupiny',
-            '<strong>Věk</strong> min. 18 let',
-            '<strong>Kontakty</strong> (telefon, e-mail)',
-        ],
-    ],
-    'payments' => [
-        'title' => 'Platby, storno a poplatky',
-        'headers' => ['Položka', 'Podmínky'],
-        'rows' => [
-            ['<strong>Platba nájemného</strong>', 'Online předem.'],
-            ['<strong>Storno rezervace</strong>', 'Lze bezplatně do předem domluveného času.'],
-            ['<strong>Palivo & čištění</strong>', 'Vrácení bez povinnosti dotankovat a mýt.'],
-            ['<strong>Přistavení / svoz</strong>', 'Dle ceníku přistavení.'],
-            ['<strong>Pozdní vrácení</strong>', 'Při zpoždění účtujeme dle domluvy.'],
-        ],
-    ],
-    'usage' => [
-        'title' => 'Užívání motorky a odpovědnost',
-        'items' => [
-            'Jezděte v <strong>souladu s předpisy</strong>',
-            'Za <strong>pokuty a přestupky</strong> odpovídá nájemce',
-            '<strong>Zahraničí</strong>: možné; řiďte se územní platností pojištění',
-            'V případě <strong>nehody nebo poruchy</strong> postupujte dle pokynů',
-            '<strong>Úpravy motorky</strong> bez souhlasu nejsou dovoleny',
-        ],
-    ],
-    'handover' => [
-        'title' => 'Předání a vrácení',
-        'items' => [
-            '<strong>Převzetí</strong> v Pelhřimově nebo <a href="/jak-pujcit/pristaveni">přistavení</a>',
-            'Při předání obdržíte <strong>klíče, výbavu a dokumenty</strong>',
-            '<strong>Vrácení</strong> kdykoli během posledního dne výpůjčky',
-        ],
-    ],
-    'cta' => [
-        'title' => 'Nájemní smlouva bez kauce – půjčovna motorek Vysočina',
-        'text' => 'Motogo24 je <strong>půjčovna motorek na Vysočině</strong> s férovými podmínkami.',
-        'buttons' => [['label' => 'REZERVOVAT ONLINE', 'href' => '/rezervace', 'cls' => 'btndark pulse']],
-    ],
-];
+$part1 = require __DIR__ . '/../data/dokumenty-content-1.php';
+$part2 = require __DIR__ . '/../data/dokumenty-content-2.php';
+$defaults = array_merge($part1, $part2);
 
 $C = $sb->siteContent('jak_pujcit_dokumenty', $defaults);
 
 $bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], ['label' => 'Jak si půjčit', 'href' => '/jak-pujcit'], 'Dokumenty a návody']);
 
-$summaryHtml = '<section><h2>' . $C['summary']['title'] . '</h2><div class="gr6">';
-foreach ($C['summary']['items'] as $s) { $summaryHtml .= renderWbox($s['icon'], $s['title'], $s['text']); }
+// --- Section 1: title + intro + top CTA ---
+$titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">Hlavní obsah stránky</h2>' .
+    '<h1>' . $C['h1'] . '</h1>' .
+    '<p>' . $C['intro'] . '</p>' .
+    '<p>&nbsp;</p>' .
+    '<p><a aria-label="' . htmlspecialchars($C['top_cta']['aria']) . '" class="btn btngreen" href="' . BASE_URL . $C['top_cta']['href'] . '">' . $C['top_cta']['label'] . '</a></p>' .
+    '</section>';
+
+// --- Section 2: summary 6 boxů ---
+$summaryHtml = '<section aria-labelledby="benefits"><h2 id="benefits" class="vh">Hlavní výhody a přínosy</h2>' .
+    '<h2>' . $C['summary']['title'] . '</h2><div class="gr6">';
+foreach ($C['summary']['items'] as $s) {
+    $summaryHtml .= renderWbox($s['icon'], $s['title'], $s['text']);
+}
 $summaryHtml .= '</div></section>';
 
+// --- Section 3: requirements + payments table + 2-col (usage/handover) + privacy + documents ---
 $reqLis = '';
 foreach ($C['required_docs']['items'] as $i) { $reqLis .= '<li>' . $i . '</li>'; }
-$paymentTable = renderTable($C['payments']['headers'], $C['payments']['rows']);
-$docsHtml = '<section><h2>' . $C['required_docs']['title'] . '</h2><ul>' . $reqLis . '</ul>' .
-    '<p>&nbsp;</p><h2>' . $C['payments']['title'] . '</h2>' . $paymentTable . '</section>';
 
-$useLis = '';
-foreach ($C['usage']['items'] as $i) { $useLis .= '<li>' . $i . '</li>'; }
-$handLis = '';
-foreach ($C['handover']['items'] as $i) {
-    // převést relativní /jak-pujcit/... na BASE_URL
-    $html = preg_replace_callback('/href="(\/[^"]+)"/', function ($m) { return 'href="' . BASE_URL . $m[1] . '"'; }, $i);
-    $handLis .= '<li>' . $html . '</li>';
+$paymentsTable = '<div class="table-responsive"><table aria-label="' . htmlspecialchars($C['payments']['aria']) . '" class="table table-striped table-hover"><thead><tr>';
+foreach ($C['payments']['headers'] as $h) { $paymentsTable .= '<th>' . $h . '</th>'; }
+$paymentsTable .= '</tr></thead><tbody>';
+foreach ($C['payments']['rows'] as $row) {
+    $paymentsTable .= '<tr>';
+    foreach ($row as $cell) { $paymentsTable .= '<td>' . $cell . '</td>'; }
+    $paymentsTable .= '</tr>';
 }
-$rightsHtml = '<section><div class="gr2">' .
+$paymentsTable .= '</tbody></table></div>';
+
+$mid = $C['payments']['mid_cta'];
+$paymentsBlock = '<h2>' . $C['payments']['title'] . '</h2>' .
+    '<p>' . $C['payments']['lead'] . '</p>' .
+    '<p>&nbsp;</p>' . $paymentsTable . '<p>&nbsp;</p>' .
+    '<p><a aria-label="' . htmlspecialchars($mid['aria']) . '" class="btn btngreen" href="' . BASE_URL . $mid['href'] . '">' . $mid['label'] . '</a></p>' .
+    '<p>&nbsp;</p>';
+
+// 2-col usage / handover, oba s relativnimi linky → BASE_URL
+$linkFix = function ($html) {
+    return preg_replace_callback('/href="(\/[^"]+)"/', function ($m) { return 'href="' . BASE_URL . $m[1] . '"'; }, $html);
+};
+$useLis = '';
+foreach ($C['usage']['items'] as $i) { $useLis .= '<li>' . $linkFix($i) . '</li>'; }
+$handLis = '';
+foreach ($C['handover']['items'] as $i) { $handLis .= '<li>' . $linkFix($i) . '</li>'; }
+$twoColHtml = '<div class="gr2">' .
     '<div><h2>' . $C['usage']['title'] . '</h2><ul>' . $useLis . '</ul></div>' .
     '<div><h2>' . $C['handover']['title'] . '</h2><ul>' . $handLis . '</ul></div>' .
-    '</div></section>';
+    '</div>';
+
+$privacyHtml = '<p>&nbsp;</p><h2>' . $C['privacy']['title'] . '</h2>' .
+    '<p>' . $linkFix($C['privacy']['text']) . '</p><p>&nbsp;</p>';
+
+// Dokumenty PDF — boxwhitey karty
+$docsCardsHtml = '<h2>' . $C['documents']['title'] . '</h2><div class="attachments attachments-columns gr2">';
+foreach ($C['documents']['items'] as $d) {
+    $href = BASE_URL . $d['href'];
+    $name = htmlspecialchars($d['name']);
+    $size = htmlspecialchars($d['size']);
+    $docsCardsHtml .= '<a class="boxwhitey dfac" href="' . $href . '" title="' . $name . '"><div class="gr3">' .
+        '<img src="' . BASE_URL . '/gfx/ico-pdf.svg" class="icon-big" alt="' . $name . '" title="' . $name . '" loading="lazy">' .
+        '<div><h3>' . $name . '</h3><br>(' . $size . ')</div>' .
+        '<div><span class="btn btngreen-small"><img src="' . BASE_URL . '/gfx/ico-stahnout.svg" alt="Stáhnout" loading="lazy"><br>STÁHNOUT</span></div>' .
+        '</div></a>';
+}
+$docsCardsHtml .= '</div>';
+
+$mainSection = '<section aria-labelledby="main1" class="main1"><h2 id="main1" class="vh">Důležité informace</h2>' .
+    '<p>&nbsp;</p><p>&nbsp;</p>' .
+    '<h2>' . $C['required_docs']['title'] . '</h2><ul>' . $reqLis . '</ul>' .
+    '<p>&nbsp;</p><p>&nbsp;</p>' .
+    $paymentsBlock .
+    $twoColHtml .
+    $privacyHtml .
+    $docsCardsHtml .
+    '</section>';
+
+// --- Section 4: mid CTA "Souhlasíte s podmínkami?" ---
+$midCtaSection = '<section aria-labelledby="main3" class="main3"><h2 id="main3" class="vh">Další informace</h2>' .
+    '<p>&nbsp;</p><p>&nbsp;</p>' .
+    '<h2>' . $C['midcta']['title'] . '</h2>' .
+    '<p>' . $C['midcta']['text'] . '</p>' .
+    '</section>';
+
+// --- Section 5: final CTA ---
+$ctaButtons = '';
+foreach ($C['cta']['buttons'] as $btn) {
+    $ctaButtons .= '<a aria-label="' . htmlspecialchars($btn['aria'] ?? $btn['label']) . '" class="btn ' . ($btn['cls'] ?? 'btndark') . '" href="' . BASE_URL . $btn['href'] . '">' . $btn['label'] . '</a>&nbsp;';
+}
+$finalCtaSection = '<section aria-labelledby="cta"><h2 id="cta" class="vh">Kontaktujte nás</h2>' .
+    '<h2>' . $C['cta']['title'] . '</h2>' .
+    '<p>' . $C['cta']['text'] . '</p>' .
+    '<p>&nbsp;</p>' .
+    '<p>' . $ctaButtons . '</p>' .
+    '</section>';
 
 $content = '<main id="content"><div class="container">' . $bc .
-    '<div class="ccontent">' .
-    '<section><h1>' . $C['h1'] . '</h1><p>' . $C['intro'] . '</p>' .
-    '<p>&nbsp;</p><p><a class="btn btngreen" href="' . BASE_URL . $C['top_cta']['href'] . '">' . $C['top_cta']['label'] . '</a></p></section>' .
-    $summaryHtml . $docsHtml . $rightsHtml .
-    renderCta($C['cta']['title'], $C['cta']['text'], $C['cta']['buttons']) .
+    '<div data-tag="Dokumenty a návody" class="sections ccontent">' .
+    $titleSection .
+    $summaryHtml .
+    $mainSection .
+    $midCtaSection .
+    $finalCtaSection .
     '</div></div></main>';
 
 renderPage($C['seo']['title'], $content, '/jak-pujcit/dokumenty', [
