@@ -12,11 +12,14 @@ MG._rezShowMindeeStep = async function(){
     var licExpiry=document.getElementById('rez-license-expiry');
     var licConf=document.getElementById('rez-license-confirm');
     if(!docNum||!docNum.value){alert('Vyplňte číslo dokladu totožnosti.');return;}
-    if(!licNum||!licNum.value||licNum.value.trim().length<4){alert('Číslo řidičského průkazu musí mít alespoň 4 znaky.');return;}
-    if(!licGroup||!licGroup.value){alert('Vyberte skupinu řidičského oprávnění.');return;}
-    if(!licExpiry||!licExpiry.value){alert('Vyplňte platnost řidičského průkazu.');return;}
-    if(!MG._isLicenseExpiryValid(licExpiry.value)){alert('Řidičský průkaz musí být platný min. 14 dní od dnes.');return;}
-    if(!licConf||!licConf.checked){alert('Potvrďte prosím držení platného řidičského oprávnění.');return;}
+    if(!licGroup||!licGroup.value){alert('Vyberte skupinu řidičského oprávnění (A2, A nebo Bez ŘP).');return;}
+    var _isNoLic = (licGroup.value === 'N');
+    if(!_isNoLic){
+      if(!licNum||!licNum.value||licNum.value.trim().length<4){alert('Číslo řidičského průkazu musí mít alespoň 4 znaky.');return;}
+      if(!licExpiry||!licExpiry.value){alert('Vyplňte platnost řidičského průkazu.');return;}
+      if(!MG._isLicenseExpiryValid(licExpiry.value)){alert('Řidičský průkaz musí být platný min. 14 dní od dnes.');return;}
+      if(!licConf||!licConf.checked){alert('Potvrďte prosím držení platného řidičského oprávnění.');return;}
+    }
 
     // Validace hesla (pokud nebylo nastaveno dříve)
     if(!MG._rez._passwordSet){
@@ -28,14 +31,20 @@ MG._rezShowMindeeStep = async function(){
     }
 
     MG._rez._docNumber=docNum.value;
-    MG._rez._licenseNumber=licNum.value;
+    MG._rez._licenseNumber=_isNoLic?null:licNum.value;
+    if(MG._rez.formData){
+      MG._rez.formData._licGroup=licGroup.value;
+      MG._rez.formData._licExpiry=_isNoLic?null:(licExpiry?licExpiry.value:null);
+    }
     MG._rez._docsValidated=true;
 
     // Save to profile
     if(MG._rez.userId){
       try{await window.sb.from('profiles').update({
-        id_number:docNum.value, license_number:licNum.value,
-        license_group:[licGroup.value], license_expiry:licExpiry.value
+        id_number:docNum.value,
+        license_number:_isNoLic?null:licNum.value,
+        license_group:[licGroup.value],
+        license_expiry:_isNoLic?null:licExpiry.value
       }).eq('id',MG._rez.userId);}catch(e){}
     }
 
@@ -357,11 +366,14 @@ MG._rezSubmitPayment = async function(){
     var licExpiry=document.getElementById('rez-license-expiry');
     var licConf=document.getElementById('rez-license-confirm');
     if(!docNum||!docNum.value){alert('Vyplňte číslo dokladu totožnosti.');return;}
-    if(!licNum||!licNum.value||licNum.value.trim().length<4){alert('Číslo řidičského průkazu musí mít alespoň 4 znaky.');return;}
-    if(!licGroup||!licGroup.value){alert('Vyberte skupinu řidičského oprávnění.');return;}
-    if(!licExpiry||!licExpiry.value){alert('Vyplňte platnost řidičského průkazu.');return;}
-    if(!MG._isLicenseExpiryValid(licExpiry.value)){alert('Řidičský průkaz musí být platný min. 14 dní od dnes.');return;}
-    if(!licConf||!licConf.checked){alert('Potvrďte prosím držení platného řidičského oprávnění.');return;}
+    if(!licGroup||!licGroup.value){alert('Vyberte skupinu řidičského oprávnění (A2, A nebo Bez ŘP).');return;}
+    var _isNoLic = (licGroup.value === 'N');
+    if(!_isNoLic){
+      if(!licNum||!licNum.value||licNum.value.trim().length<4){alert('Číslo řidičského průkazu musí mít alespoň 4 znaky.');return;}
+      if(!licExpiry||!licExpiry.value){alert('Vyplňte platnost řidičského průkazu.');return;}
+      if(!MG._isLicenseExpiryValid(licExpiry.value)){alert('Řidičský průkaz musí být platný min. 14 dní od dnes.');return;}
+      if(!licConf||!licConf.checked){alert('Potvrďte prosím držení platného řidičského oprávnění.');return;}
+    }
 
     // Validace hesla (pokud nebylo nastaveno dříve)
     if(!MG._rez._passwordSet){
@@ -372,22 +384,29 @@ MG._rezSubmitPayment = async function(){
       MG._rez._password=pwd.value;
     }
 
-    // Kontrola ŘP skupiny vs. motorka
+    // Kontrola ŘP skupiny vs. motorka (jen pokud motorka vyžaduje ŘP)
     var _moto = MG._rez.motos ? MG._rez.motos.find(function(m){return m.id===(MG._rez.formData||{}).motoId;}) : null;
     if(_moto && _moto.license_required && _moto.license_required !== 'N'){
       var _lg = licGroup.value.toUpperCase();
-      var _allowed = {A:['A','A2','A1','AM'],A2:['A2','A1','AM'],A1:['A1','AM'],AM:['AM'],B:['B','AM']};
+      var _allowed = {A:['A','A2','A1','AM'],A2:['A2','A1','AM']};
       var _ok = _allowed[_lg] || [];
       if(_ok.indexOf(_moto.license_required) === -1){
-        alert('Pro tuto motorku potřebujete ŘP skupiny ' + _moto.license_required + '. Vaše skupina: ' + _lg);
+        alert('Pro tuto motorku potřebujete ŘP skupiny ' + _moto.license_required + '. Vaše skupina: ' + (_lg==='N'?'Bez ŘP':_lg));
         return;
       }
     }
 
+    if(MG._rez.formData){
+      MG._rez.formData._licGroup=licGroup.value;
+      MG._rez.formData._licExpiry=_isNoLic?null:(licExpiry?licExpiry.value:null);
+    }
+
     if(MG._rez.userId){
       try{await window.sb.from('profiles').update({
-        id_number:docNum.value, license_number:licNum.value,
-        license_group:[licGroup.value], license_expiry:licExpiry.value
+        id_number:docNum.value,
+        license_number:_isNoLic?null:licNum.value,
+        license_group:[licGroup.value],
+        license_expiry:_isNoLic?null:licExpiry.value
       }).eq('id',MG._rez.userId);}catch(e){}
     }
 

@@ -101,10 +101,12 @@ export async function handleWebBookingCheckout(
     }
   }
 
+  // automatic_payment_methods povolí Apple Pay / Google Pay na podporovaných zařízeních
+  // (Stripe Checkout automaticky verifikuje doménu pro Apple Pay)
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
     mode: 'payment',
-    payment_method_types: ['card', 'link'],
+    automatic_payment_methods: { enabled: true },
     line_items: [{
       price_data: {
         currency,
