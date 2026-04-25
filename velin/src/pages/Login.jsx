@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import Button from '../components/ui/Button'
+import LanguageSwitcher from '../components/LanguageSwitcher'
+import { useLang } from '../i18n/LanguageProvider'
 
 const Logo = ({ size = 64 }) => (
   <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
@@ -25,6 +27,7 @@ const Logo = ({ size = 64 }) => (
 )
 
 export default function Login({ user, onSignIn }) {
+  const { t } = useLang()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
@@ -42,13 +45,13 @@ export default function Login({ user, onSignIn }) {
     try {
       await onSignIn(email, password)
     } catch (err) {
-      const msg = err.message || 'Neznámá chyba'
+      const msg = err.message || ''
       if (msg.includes('Invalid login credentials')) {
-        setError('Nesprávný e-mail nebo heslo.')
+        setError(t('login.errInvalid'))
       } else if (msg.includes('Email not confirmed')) {
-        setError('E-mail nebyl potvrzen. Zkontrolujte svou schránku.')
+        setError(t('login.errEmailNotConfirmed'))
       } else {
-        setError(`Chyba přihlášení: ${msg}`)
+        setError(t('login.errGeneric', { msg: msg || t('common.error') }))
       }
     } finally {
       setLoading(false)
@@ -57,9 +60,16 @@ export default function Login({ user, onSignIn }) {
 
   return (
     <div
-      className="flex items-center justify-center min-h-screen font-montserrat"
+      className="relative flex items-center justify-center min-h-screen font-montserrat"
       style={{ background: '#dff0ec' }}
     >
+      <div
+        className="absolute"
+        style={{ top: 20, right: 20, zIndex: 10 }}
+      >
+        <LanguageSwitcher variant="light" />
+      </div>
+
       <div
         className="bg-white rounded-card shadow-card w-full"
         style={{ maxWidth: 400, padding: '48px 40px' }}
@@ -78,7 +88,7 @@ export default function Login({ user, onSignIn }) {
             className="text-sm font-bold uppercase"
             style={{ color: '#1a2e22', letterSpacing: 3 }}
           >
-            Velín — přihlášení
+            {t('login.subtitle')}
           </p>
         </div>
 
@@ -88,14 +98,14 @@ export default function Login({ user, onSignIn }) {
               className="block text-sm font-extrabold uppercase tracking-widest mb-2"
               style={{ color: '#1a2e22' }}
             >
-              E-mail
+              {t('login.email')}
             </label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              placeholder="admin@motogo24.cz"
+              placeholder={t('login.emailPlaceholder')}
               className="w-full outline-none font-montserrat"
               style={{
                 padding: '12px 18px',
@@ -114,14 +124,14 @@ export default function Login({ user, onSignIn }) {
               className="block text-sm font-extrabold uppercase tracking-widest mb-2"
               style={{ color: '#1a2e22' }}
             >
-              Heslo
+              {t('login.password')}
             </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              placeholder="••••••••"
+              placeholder={t('login.passwordPlaceholder')}
               className="w-full outline-none font-montserrat"
               style={{
                 padding: '12px 18px',
@@ -160,7 +170,7 @@ export default function Login({ user, onSignIn }) {
               fontSize: 14,
             }}
           >
-            {loading ? 'Přihlašování...' : 'Přihlásit se'}
+            {loading ? t('login.submitting') : t('login.submit')}
           </Button>
         </form>
 
