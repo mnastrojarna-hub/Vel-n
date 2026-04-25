@@ -54,9 +54,9 @@ function renderHeader($currentPath = '/') {
             '<div class="header-logo"><a href="' . BASE_URL . '/" aria-label="Motogo24"><img src="' . BASE_URL . '/' . LOGO_SVG . '" alt="Půjčovna motorek Vysočina Motogo24" loading="lazy"></a></div>' .
             '<div class="header-phone"><p><a href="' . PHONE_LINK . '" aria-label="Zavolejte nám"><img alt="Zavolejte" src="' . BASE_URL . '/gfx/telefon-header.svg" loading="lazy"></a>&nbsp;<a href="' . PHONE_LINK . '">' . PHONE . '</a></p></div>' .
             '<div class="header-menu dfje">' .
-                '<button class="nav-toggle" aria-label="Menu" onclick="document.getElementById(\'mobile-menu\').classList.toggle(\'open\')">MENU ☰</button>' .
-                '<nav id="mobile-menu" class="mobile-menu-overlay">' .
-                    '<button class="mobile-menu-close" aria-label="Zavřít" onclick="document.getElementById(\'mobile-menu\').classList.toggle(\'open\')">✕</button>' .
+                '<button class="nav-toggle" aria-label="Otevřít menu" aria-expanded="false" aria-controls="mobile-menu" onclick="(function(){var m=document.getElementById(\'mobile-menu\');var open=!m.classList.contains(\'open\');m.classList.toggle(\'open\',open);document.body.classList.toggle(\'menu-open\',open);this.setAttribute(\'aria-expanded\',open?\'true\':\'false\');}).call(this)">MENU ☰</button>' .
+                '<nav id="mobile-menu" class="mobile-menu-overlay" aria-label="Hlavní navigace">' .
+                    '<button class="mobile-menu-close" aria-label="Zavřít menu" onclick="document.getElementById(\'mobile-menu\').classList.remove(\'open\');document.body.classList.remove(\'menu-open\');var b=document.querySelector(\'.nav-toggle\');if(b)b.setAttribute(\'aria-expanded\',\'false\')">✕</button>' .
                     '<ul id="main-menu" class="main-menu">' . $nav .
                         '<li class="menu-rez"><a class="btn btngreen-small pulse" data-route="/rezervace" href="' . BASE_URL . '/rezervace">REZERVACE</a></li>' .
                     '</ul>' .
@@ -106,9 +106,35 @@ function renderInlineJs() {
   if(window.location.hash && window.location.hash.indexOf("#/")===0){
     window.location.replace(window.location.hash.substring(1));
   }
-  // Scroll to top button
+  // Scroll to top button (passive listener pro lepší scroll perf na mobilu)
   var btn = document.getElementById("Up");
-  if(btn){ window.addEventListener("scroll", function(){ btn.classList.toggle("visible", window.scrollY > 400); }); }
+  if(btn){ window.addEventListener("scroll", function(){ btn.classList.toggle("visible", window.scrollY > 400); }, {passive:true}); }
+  // Mobilní menu — zamyká body scroll, zavírá na ESC, na klik mimo a po výběru
+  var menu = document.getElementById("mobile-menu");
+  var toggleBtn = document.querySelector(".nav-toggle");
+  function setMenu(open){
+    if(!menu) return;
+    menu.classList.toggle("open", open);
+    document.body.classList.toggle("menu-open", open);
+    if(toggleBtn) toggleBtn.setAttribute("aria-expanded", open?"true":"false");
+  }
+  if(toggleBtn){ toggleBtn.setAttribute("aria-expanded","false"); toggleBtn.setAttribute("aria-controls","mobile-menu"); }
+  if(menu){
+    // klik na overlay (ne na menu items) zavře
+    menu.addEventListener("click", function(e){ if(e.target===menu) setMenu(false); });
+    // klik na nepodmenu odkaz zavře menu
+    menu.querySelectorAll("a").forEach(function(a){
+      if(a.closest(".has-sub")) return;
+      a.addEventListener("click", function(){ setMenu(false); });
+    });
+  }
+  document.addEventListener("keydown", function(e){
+    if(e.key==="Escape" && menu && menu.classList.contains("open")) setMenu(false);
+  });
+  // Při resize na desktop zavři mobil menu
+  window.addEventListener("resize", function(){
+    if(window.innerWidth>768 && menu && menu.classList.contains("open")) setMenu(false);
+  }, {passive:true});
   // Submenu toggle (mobile)
   document.querySelectorAll(".has-sub > a").forEach(function(a){
     a.addEventListener("click", function(e){
@@ -184,7 +210,14 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
 <html lang="cs" dir="ltr" prefix="og: https://ogp.me/ns#">
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1a2e22">
+  <meta name="color-scheme" content="light">
+  <meta name="format-detection" content="telephone=yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MotoGo24">
   <meta name="description" content="' . htmlspecialchars($description) . '">
   <meta name="keywords" content="' . htmlspecialchars($keywords) . '">
   <meta name="robots" content="' . htmlspecialchars($robots) . '">

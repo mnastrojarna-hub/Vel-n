@@ -167,8 +167,8 @@ $ctaP = $hero['cta_primary'];
 $ctaS = $hero['cta_secondary'];
 $bannerHtml = '<div class="banner">' .
     '<picture>' .
-        '<source srcset="' . htmlspecialchars($heroWebp) . '" type="image/webp">' .
-        '<img fetchpriority="high" alt="' . htmlspecialchars($hero['alt']) . '" src="' . htmlspecialchars($heroImgUrl) . '">' .
+        '<source srcset="' . htmlspecialchars($heroWebp) . '" type="image/webp" sizes="(max-width:480px) 100vw,(max-width:1024px) 100vw,1920px">' .
+        '<img fetchpriority="high" decoding="async" alt="' . htmlspecialchars($hero['alt']) . '" src="' . htmlspecialchars($heroImgUrl) . '" width="1920" height="480">' .
     '</picture>' .
     '<div class="banner-wrapper"><div class="container"><div class="banner-caption">' .
         '<p>' . $hero['eyebrow'] . '</p><p>&nbsp;</p>' .
