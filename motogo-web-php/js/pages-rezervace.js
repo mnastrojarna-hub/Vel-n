@@ -69,10 +69,11 @@ MG._initSizeChipEvents = function(scope){
 
 // ===== STATIC FORM HTML =====
 MG._rezFormHtml = function(){
-  // Quick-time chips (08:00 ... 19:00)
-  var qt = ['08:00','09:00','10:00','12:00','14:00','16:00','18:00'];
+  // Quick-time chips 06:00 .. 14:00 (po hodině), default vyznačeno 09:00
+  var qt = ['06:00','07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00'];
   var quickChips = qt.map(function(t){
-    return '<button type="button" class="time-chip" data-time="'+t+'">'+t+'</button>';
+    var act = t === '09:00' ? ' active' : '';
+    return '<button type="button" class="time-chip'+act+'" data-time="'+t+'">'+t+'</button>';
   }).join('');
 
   return '<div id="rez-form">' +
@@ -100,8 +101,9 @@ MG._rezFormHtml = function(){
       '<div class="rez-time-card">' +
         '<div class="rez-time-card-head"><span class="rez-time-ico">&#128340;</span>' +
         '<div><div class="rez-time-title">Čas převzetí nebo přistavení</div>' +
-        '<div class="rez-time-sub">Hodina, kdy chcete motorku převzít</div></div>' +
-        '<input type="time" id="rez-pickup-time" required></div>' +
+        '<div class="rez-time-sub">Vyberte z nabídky nebo zadejte vlastní čas</div></div>' +
+        '<input type="time" id="rez-pickup-time" value="09:00" required></div>' +
+        '<div class="rez-time-chips-label">Doporučené časy (06:00 — 14:00) <span style="color:#8aab99;font-weight:500;font-size:.75rem">· nebo vyberte vlastní čas vlevo</span></div>' +
         '<div class="rez-time-chips">'+quickChips+'</div>' +
       '</div>' +
 

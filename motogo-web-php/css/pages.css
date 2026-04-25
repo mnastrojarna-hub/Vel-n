@@ -365,7 +365,8 @@
 .rez-time-card-mini .rez-time-ico{font-size:1.25rem}
 .rez-time-card-mini input[type=time]{padding:.45rem .75rem;font-size:.95rem;min-width:100px}
 
-.rez-time-chips{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.7rem;padding-top:.7rem;border-top:1px dashed rgba(26,140,26,.25)}
+.rez-time-chips-label{margin-top:.7rem;padding-top:.7rem;border-top:1px dashed rgba(26,140,26,.25);font-size:.78rem;font-weight:700;color:#1a3a2a;letter-spacing:.2px}
+.rez-time-chips{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.45rem}
 .time-chip{padding:.4rem .9rem;border-radius:999px;border:1.5px solid #b8e6b8;background:#fff;color:#1a2e22;font-family:'Montserrat',sans-serif;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .15s;letter-spacing:.3px}
 .time-chip:hover{border-color:#74FB71;background:#f0faf5}
 .time-chip.active{background:#1a8c1a;border-color:#1a8c1a;color:#fff;box-shadow:0 2px 8px rgba(26,140,26,.35)}
