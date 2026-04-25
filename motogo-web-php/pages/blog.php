@@ -36,7 +36,7 @@ foreach ($allPosts as $p) {
 $tagHtml = '';
 if (!empty($tagCounts)) {
     $isAllActive = !$activeTag ? ' class="active"' : '';
-    $tagHtml = '<ul class="nav nav-pills df"><li>Štítky</li>'
+    $tagHtml = '<ul class="nav blog-tabs df">'
         . '<li' . $isAllActive . '><a href="' . BASE_URL . '/blog">Všechny (' . count($allPosts) . ')</a></li>';
     foreach ($tagCounts as $tag => $count) {
         $isActive = ($activeTag === $tag) ? ' class="active"' : '';
@@ -52,10 +52,8 @@ if (empty($posts)) {
     foreach ($posts as $p) { $gridHtml .= renderBlogCard($p); }
 }
 
-$intro = '<p>Tipy na <strong>motorkářské trasy</strong>, rady pro bezpečnou jízdu, novinky z naší <strong>půjčovny motorek na Vysočině</strong> i praktické postupy pro začátečníky i zkušené jezdce.</p>';
-
 $content = '<main id="content"><div class="container">' . $bc
-    . '<section class="ccontent"><h1>Blog a tipy pro motorkáře</h1>' . $intro
+    . '<section class="ccontent"><h1>Blog a tipy</h1>'
     . '<div id="blog-tags">' . $tagHtml . '</div>'
     . '<div class="tab-content"><div class="tab-pane active">'
     . '<div id="blog-grid" class="gr3">' . $gridHtml . '</div>'
