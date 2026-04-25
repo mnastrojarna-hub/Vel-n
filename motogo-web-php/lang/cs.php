@@ -1,0 +1,81 @@
+<?php
+// Čeština — výchozí slovník MotoGo24 webu pro zákazníky
+return [
+    // Language switcher
+    'lang.select' => 'Vybrat jazyk',
+    'lang.current' => 'Aktuální jazyk',
+
+    // Header / focus skip links
+    'header.skip.menu' => 'PŘEJDI NA HLAVNÍ MENU',
+    'header.skip.content' => 'PŘEJDI NA OBSAH',
+    'header.skip.contact' => 'PŘEJDI NA KONTAKT',
+    'header.menuOpen' => 'Otevřít menu',
+    'header.menuClose' => 'Zavřít menu',
+    'header.menuLabel' => 'Hlavní navigace',
+    'header.menuToggle' => 'MENU ☰',
+    'header.callUs' => 'Zavolejte nám',
+    'header.logoAlt' => 'Půjčovna motorek Vysočina Motogo24',
+    'header.expandSubmenu' => 'Rozbalit podmenu',
+
+    // Menu položky (route → label)
+    'menu.rental' => 'Půjčovna motorek',
+    'menu.catalog' => 'Katalog motorek',
+    'menu.catalog.touring' => 'Cestovní motorky',
+    'menu.catalog.naked' => 'Naked motorky',
+    'menu.catalog.supermoto' => 'Supermoto motorky',
+    'menu.catalog.kids' => 'Dětské motorky',
+    'menu.howto' => 'Jak si půjčit motorku',
+    'menu.howto.process' => 'Postup půjčení motorky',
+    'menu.howto.pickup' => 'Převzetí v půjčovně',
+    'menu.howto.returnHome' => 'Vrácení motocyklu v půjčovně',
+    'menu.howto.returnElsewhere' => 'Vrácení motorky jinde',
+    'menu.howto.price' => 'Co je v ceně nájmu',
+    'menu.howto.delivery' => 'Přistavení motocyklu',
+    'menu.howto.documents' => 'Dokumenty a návody',
+    'menu.howto.faq' => 'Často kladené dotazy',
+    'menu.vouchers' => 'Poukazy',
+    'menu.blog' => 'Blog',
+    'menu.contact' => 'Kontakt',
+    'menu.reservation' => 'REZERVACE',
+
+    // Footer
+    'footer.aboutTitle' => 'Půjčovna motorek',
+    'footer.aboutText' => 'Vítejte u Motogo24, vaší <strong>půjčovny motorek v Pelhřimově</strong>! Nabízíme <strong>pronájem motorek</strong> pro místní i turisty. Vyberte si z nabídky sportovních nebo enduro motorek a rezervujte online ve třech krocích.',
+    'footer.socialTitle' => 'Půjčovna motorek na sítích',
+    'footer.helpTitle' => 'Potřebujete poradit?',
+    'footer.callUs' => 'ZAVOLEJTE NÁM',
+    'footer.companyLine1' => 'Půjčovna motorek Motogo24',
+    'footer.openHours' => 'PO - NE 00:00 – 24:00 (nonstop)',
+    'footer.openHoursIcon' => 'Provozní doba',
+    'footer.copyright' => '© Půjčovna motorek Vysočina Motogo24 - všechna práva vyhrazena',
+    'footer.sitemap' => 'Mapa stránek',
+    'footer.cookies' => 'Cookies',
+    'footer.gdpr' => 'GDPR',
+    'footer.terms' => 'Obchodní podmínky',
+    'footer.contract' => 'Smlouva o pronájmu',
+    'footer.toTop' => 'NAHORU',
+    'footer.iconPhone' => 'Telefon',
+    'footer.iconEmail' => 'E-mail',
+    'footer.iconAddress' => 'Adresa',
+
+    // Common UI
+    'common.bookButton' => 'REZERVOVAT MOTORKU',
+    'common.detailButton' => 'DETAIL MOTORKY',
+    'common.readArticle' => 'PŘEČÍST ČLÁNEK',
+    'common.moreFaq' => 'Další často kladené otázky',
+    'common.available' => 'Dostupné',
+    'common.priceFromPerDay' => 'Cena: od {price}/den',
+    'common.unnamedMotorcycle' => 'Motorka k pronájmu',
+    'common.unnamedArticle' => 'Článek z blogu Motogo24',
+    'common.info' => 'Informace',
+    'common.satisfiedCustomer' => 'Spokojený zákazník',
+    'common.ratingAria' => 'Hodnocení {rating} z 5',
+    'common.motorcycleAlt' => 'Motorka {model} – půjčovna Motogo24',
+    'common.blogAlt' => '{title} – blog Motogo24',
+    'common.backHome' => 'Zpět na úvod',
+
+    // 500 server error
+    'err500.title' => 'Chyba serveru – MotoGo24',
+    'err500.heading' => 'Dočasná chyba serveru',
+    'err500.message' => 'Omlouváme se, na stránce došlo k technické chybě. Zkuste to prosím za chvíli znovu.',
+];
