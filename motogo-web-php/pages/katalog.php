@@ -167,6 +167,12 @@ $opt = function ($val, $label, $active) {
     return '<option value="' . htmlspecialchars((string)$val) . '"' . $sel . '>' . htmlspecialchars($label) . '</option>';
 };
 
+// Cenové možnosti: do 1 500 Kč/den, dále po 500 Kč až do 10 000 Kč/den
+$priceOptsHtml = $opt(0, t('filters.priceAny'), $getPriceMax);
+for ($p = 1500; $p <= 10000; $p += 500) {
+    $priceOptsHtml .= $opt($p, t('filters.priceTo', ['price' => number_format($p, 0, ',', ' ')]), $getPriceMax);
+}
+
 $filterHtml = '<form id="katalog-filters" class="katalog-filters" method="get" action="' . BASE_URL . '/katalog">'
     . '<div class="filter-row">'
     . '<div class="filter-field filter-field-search"><label class="sr-only" for="flt-q">' . te('filters.search') . '</label>'
@@ -209,11 +215,7 @@ $filterHtml .= '</select></div>'
     . '</div>'
     . '<div class="filter-field"><label class="sr-only" for="flt-price">' . te('filters.priceMax') . '</label>'
         . '<select id="flt-price" name="cena_max">'
-        . $opt(0, t('filters.priceAny'), $getPriceMax)
-        . $opt(1000, t('filters.priceTo', ['price' => '1 000']), $getPriceMax)
-        . $opt(1500, t('filters.priceTo', ['price' => '1 500']), $getPriceMax)
-        . $opt(2000, t('filters.priceTo', ['price' => '2 000']), $getPriceMax)
-        . $opt(3000, t('filters.priceTo', ['price' => '3 000']), $getPriceMax)
+        . $priceOptsHtml
         . '</select></div>'
     . '<div class="filter-field"><label class="sr-only" for="flt-sort">' . te('filters.sort') . '</label>'
         . '<select id="flt-sort" name="razeni">'
