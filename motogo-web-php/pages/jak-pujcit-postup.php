@@ -11,7 +11,7 @@ $defaults = array_merge($part1, $part2);
 
 $C = $sb->siteContent('jak_pujcit_postup', $defaults);
 
-$bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], ['label' => 'Jak si půjčit', 'href' => '/jak-pujcit'], 'Postup půjčení motorky']);
+$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.howto'), 'href' => '/jak-pujcit'], t('menu.howto.process')]);
 
 // --- Section 1: title (h1 + intro p1 + h2 + intro p2) ---
 $titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">Hlavní obsah stránky</h2>' .
@@ -128,8 +128,8 @@ renderPage($C['seo']['title'], $content, '/jak-pujcit/postup', [
     'keywords' => $C['seo']['keywords'],
     'schema' => $faqSchema,
     'breadcrumbs' => [
-        ['name' => 'Domů', 'url' => 'https://motogo24.cz/'],
-        ['name' => 'Jak si půjčit', 'url' => 'https://motogo24.cz/jak-pujcit'],
-        ['name' => 'Postup půjčení', 'url' => 'https://motogo24.cz/jak-pujcit/postup'],
+        ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
+        ['name' => t('breadcrumb.howto'), 'url' => 'https://motogo24.cz/jak-pujcit'],
+        ['name' => t('menu.howto.process'), 'url' => 'https://motogo24.cz/jak-pujcit/postup'],
     ],
 ]);

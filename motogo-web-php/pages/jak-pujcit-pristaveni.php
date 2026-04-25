@@ -11,12 +11,12 @@ $defaults = array_merge($part1, $part2);
 
 $C = $sb->siteContent('jak_pujcit_pristaveni', $defaults);
 
-$bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], ['label' => 'Jak si půjčit', 'href' => '/jak-pujcit'], 'Přistavení motocyklu']);
+$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.howto'), 'href' => '/jak-pujcit'], t('menu.howto.delivery')]);
 
 // --- Section 1: title + intro + "Kdy se přistavení hodí" ---
 $whenLis = '';
 foreach ($C['when']['items'] as $i) { $whenLis .= '<li>' . $i . '</li>'; }
-$titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">Hlavní obsah stránky</h2>' .
+$titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">' . te('a11y.mainContent') . '</h2>' .
     '<h1>' . $C['h1'] . '</h1>' .
     '<p>' . $C['intro'] . '</p>' .
     '<p>&nbsp;</p><p>&nbsp;</p>' .
@@ -26,7 +26,7 @@ $titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">Hlav
 
 // --- Section 2: benefits "Proč využít přistavení motorky" — 5 boxes (gr5) ---
 $grid = $C['why']['grid'] ?? 'gr5';
-$whyHtml = '<section aria-labelledby="benefits"><h2 id="benefits" class="vh">Hlavní výhody a přínosy</h2>' .
+$whyHtml = '<section aria-labelledby="benefits"><h2 id="benefits" class="vh">' . te('a11y.benefits') . '</h2>' .
     '<h2>' . $C['why']['title'] . '</h2><div class="' . htmlspecialchars($grid) . '">';
 foreach ($C['why']['items'] as $w) {
     $whyHtml .= renderWbox($w['icon'], $w['title'], $w['text']);
@@ -35,7 +35,7 @@ $whyHtml .= '</div></section>';
 
 // --- Section 3: process "Jak přistavení probíhá" — 10 boxes (gr5) ---
 $pgrid = $C['process']['grid'] ?? 'gr5';
-$processHtml = '<section aria-labelledby="process"><h2 id="process" class="vh">Jak to u nás funguje</h2>' .
+$processHtml = '<section aria-labelledby="process"><h2 id="process" class="vh">' . te('a11y.processHowItWorks') . '</h2>' .
     '<h2>' . $C['process']['title'] . '</h2><div class="' . htmlspecialchars($pgrid) . '">';
 foreach ($C['process']['steps'] as $s) {
     $processHtml .= renderWbox($s['icon'], $s['title'], $s['text']);
@@ -45,7 +45,7 @@ $processHtml .= '</div></section>';
 // --- Section 4: pricing "Ceník přistavení" + příklad ---
 $priceLis = '';
 foreach ($C['pricing']['items'] as $i) { $priceLis .= '<li>' . $i . '</li>'; }
-$pricingHtml = '<section aria-labelledby="main2" class="main2"><h2 id="main2" class="vh">Další důležité informace</h2>' .
+$pricingHtml = '<section aria-labelledby="main2" class="main2"><h2 id="main2" class="vh">' . te('a11y.moreImportantInfo') . '</h2>' .
     '<h2>' . $C['pricing']['title'] . '</h2>' .
     '<p>' . $C['pricing']['lead'] . '</p>' .
     '<p>&nbsp;</p>' .
@@ -56,7 +56,7 @@ $pricingHtml = '<section aria-labelledby="main2" class="main2"><h2 id="main2" cl
     '</section>';
 
 // --- Section 5: FAQ ---
-$faqHtml = '<section aria-labelledby="faq"><h2 id="faq" class="vh">Na co se nás často ptáte</h2>' .
+$faqHtml = '<section aria-labelledby="faq"><h2 id="faq" class="vh">' . te('a11y.frequentQuestions') . '</h2>' .
     '<h2>' . $C['faq']['title'] . '</h2>' .
     '<div class="tab-content"><div class="tab-pane active" id="all"><div class="gr2">';
 foreach ($C['faq']['items'] as $f) {
@@ -69,7 +69,7 @@ $ctaButtons = '';
 foreach ($C['cta']['buttons'] as $btn) {
     $ctaButtons .= '<a aria-label="' . htmlspecialchars($btn['aria'] ?? $btn['label']) . '" class="btn ' . ($btn['cls'] ?? 'btndark') . '" href="' . BASE_URL . $btn['href'] . '">' . $btn['label'] . '</a>&nbsp;';
 }
-$finalCtaSection = '<section aria-labelledby="cta"><h2 id="cta" class="vh">Kontaktujte nás</h2>' .
+$finalCtaSection = '<section aria-labelledby="cta"><h2 id="cta" class="vh">' . te('a11y.contactUs') . '</h2>' .
     '<h2>' . $C['cta']['title'] . '</h2>' .
     '<p>' . $C['cta']['text'] . '</p>' .
     '<p>&nbsp;</p><p>&nbsp;</p>' .
@@ -80,7 +80,7 @@ $content = '<main id="content"><div class="container">' . $bc .
     '<div data-tag="Přistavení motocyklu" class="sections ccontent">' .
     $titleSection .
     $whyHtml .
-    '<section aria-labelledby="main1" class="main1"><h2 id="main1" class="vh">Důležité informace</h2></section>' .
+    '<section aria-labelledby="main1" class="main1"><h2 id="main1" class="vh">' . te('a11y.importantInfo') . '</h2></section>' .
     $processHtml .
     $pricingHtml .
     $faqHtml .
@@ -102,8 +102,8 @@ renderPage($C['seo']['title'], $content, '/jak-pujcit/pristaveni', [
     'keywords' => $C['seo']['keywords'],
     'schema' => $faqSchema,
     'breadcrumbs' => [
-        ['name' => 'Domů', 'url' => 'https://motogo24.cz/'],
-        ['name' => 'Jak si půjčit', 'url' => 'https://motogo24.cz/jak-pujcit'],
-        ['name' => 'Přistavení', 'url' => 'https://motogo24.cz/jak-pujcit/pristaveni'],
+        ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
+        ['name' => t('breadcrumb.howto'), 'url' => 'https://motogo24.cz/jak-pujcit'],
+        ['name' => t('menu.howto.delivery'), 'url' => 'https://motogo24.cz/jak-pujcit/pristaveni'],
     ],
 ]);

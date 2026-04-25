@@ -206,28 +206,37 @@ class SupabaseClient {
 
     /**
      * Načte CMS konfiguraci stránky (site.<page>) s fallback na defaults.
-     * Defaults se rekurzivně mergují s DB hodnotami — v DB stačí přepsat jen
-     * vybrané klíče, zbytek zůstane z defaults.
+     * Defaults se rekurzivně mergují s jazykovým overlay a DB hodnotami.
      *
-     * Vícejazyčný režim: pokud je aktivní jiný jazyk než 'cs', nejprve se zkusí
-     * klíč 'site.<page>.<lang>' (per-language override), poté 'site.<page>' (CS fallback)
-     * a nakonec defaults (které by už měly přijít v aktuálním jazyce).
+     * Pořadí merge (pozdější přepisuje dřívější):
+     *   1) $defaults (CS — z PHP / data/*.php)
+     *   2) jazykový overlay z dictionary: t('pages.<page>') (z lang/pages_<lang>.php)
+     *   3) DB 'site.<page>' (CS overlay z app_settings)
+     *   4) DB 'site.<page>.<lang>' (per-language overlay z app_settings)
      *
-     * @param string $page Slug stránky (např. 'home', 'pujcovna')
-     * @param array $defaults Výchozí obsah (PHP pole, již lokalizovaný)
-     * @return array Finální obsah pro stránku
+     * @param string $page Slug stránky (např. 'home', 'pujcovna', 'jak_pujcit_cena')
+     * @param array $defaults Výchozí obsah v CS
+     * @return array Finální obsah pro stránku v aktuálním jazyce
      */
     public function siteContent($page, $defaults = []) {
         $merged = $defaults;
         $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
 
-        // 1) Základní (CS) DB override — drží zpětnou kompatibilitu
+        // 1) Jazykový overlay z dictionary souboru (lang/pages_<lang>.php) — pro non-CS jazyky
+        if ($lang && $lang !== 'cs' && function_exists('t')) {
+            $langOverlay = t('pages.' . $page);
+            if (is_array($langOverlay)) {
+                $merged = self::deepMerge($merged, $langOverlay);
+            }
+        }
+
+        // 2) Základní (CS) DB override
         $db = $this->fetchSetting('site.' . $page);
         if (is_array($db) && !empty($db)) {
             $merged = self::deepMerge($merged, $db);
         }
 
-        // 2) Per-language DB override (např. site.home.en) — přepíše jen co je definováno
+        // 3) Per-language DB override (např. site.home.en)
         if ($lang && $lang !== 'cs') {
             $dbLang = $this->fetchSetting('site.' . $page . '.' . $lang);
             if (is_array($dbLang) && !empty($dbLang)) {

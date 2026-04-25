@@ -60,7 +60,7 @@ $defaults = [
 
 $C = $sb->siteContent('poukazy', $defaults);
 
-$bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], 'Poukazy']);
+$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], t('breadcrumb.vouchers')]);
 
 $img = $C['intro_image'];
 $imgSrc = BASE_URL . '/' . ltrim($img['src'], '/');
@@ -103,7 +103,7 @@ renderPage($C['seo']['title'], $content, '/poukazy', [
     'keywords' => $C['seo']['keywords'],
     'og_image' => $C['seo']['og_image'] ?? null,
     'breadcrumbs' => [
-        ['name' => 'Domů', 'url' => 'https://motogo24.cz/'],
-        ['name' => 'Poukazy', 'url' => 'https://motogo24.cz/poukazy'],
+        ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
+        ['name' => t('breadcrumb.vouchers'), 'url' => 'https://motogo24.cz/poukazy'],
     ],
 ]);

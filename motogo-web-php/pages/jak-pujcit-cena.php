@@ -11,7 +11,7 @@ $defaults = array_merge($part1, $part2);
 
 $C = $sb->siteContent('jak_pujcit_cena', $defaults);
 
-$bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], ['label' => 'Jak si půjčit', 'href' => '/jak-pujcit'], 'Co je v ceně nájmu']);
+$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.howto'), 'href' => '/jak-pujcit'], t('menu.howto.price')]);
 
 // --- Section 1: title + intro + 2-col (basic / extra + services) ---
 $basicLis = '';
@@ -42,7 +42,7 @@ $rightCol = '<div>' .
     '<ul>' . $servicesLis . '</ul>' .
     '</div>';
 
-$titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">Hlavní obsah stránky</h2>' .
+$titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">' . te('a11y.mainContent') . '</h2>' .
     '<h1>' . $C['h1'] . '</h1>' .
     '<p>' . $C['intro'] . '</p>' .
     '<p>&nbsp;</p>' .
@@ -51,7 +51,7 @@ $titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">Hlav
 
 // --- Section 2: benefits "Další výhody v ceně" — 5 boxes (gr5) ---
 $grid = $C['benefits']['grid'] ?? 'gr5';
-$benefitsHtml = '<section aria-labelledby="benefits"><h2 id="benefits" class="vh">Hlavní výhody a přínosy</h2>' .
+$benefitsHtml = '<section aria-labelledby="benefits"><h2 id="benefits" class="vh">' . te('a11y.benefits') . '</h2>' .
     '<h2>' . $C['benefits']['title'] . '</h2><div class="' . htmlspecialchars($grid) . '">';
 foreach ($C['benefits']['items'] as $b) {
     $benefitsHtml .= renderWbox($b['icon'], $b['title'], $b['text']);
@@ -59,14 +59,14 @@ foreach ($C['benefits']['items'] as $b) {
 $benefitsHtml .= '</div></section>';
 
 // --- Section 3: prazdny placeholder main1 (jako v originale) ---
-$main1Section = '<section aria-labelledby="main1" class="main1"><h2 id="main1" class="vh">Důležité informace</h2></section>';
+$main1Section = '<section aria-labelledby="main1" class="main1"><h2 id="main1" class="vh">' . te('a11y.importantInfo') . '</h2></section>';
 
 // --- Section 4: final CTA ---
 $ctaButtons = '';
 foreach ($C['cta']['buttons'] as $btn) {
     $ctaButtons .= '<a aria-label="' . htmlspecialchars($btn['aria'] ?? $btn['label']) . '" class="btn ' . ($btn['cls'] ?? 'btndark') . '" href="' . BASE_URL . $btn['href'] . '">' . $btn['label'] . '</a>&nbsp;';
 }
-$finalCtaSection = '<section aria-labelledby="cta"><h2 id="cta" class="vh">Kontaktujte nás</h2>' .
+$finalCtaSection = '<section aria-labelledby="cta"><h2 id="cta" class="vh">' . te('a11y.contactUs') . '</h2>' .
     '<h2>' . $C['cta']['title'] . '</h2>' .
     '<p>' . $C['cta']['text'] . '</p>' .
     '<p>&nbsp;</p>' .
@@ -85,8 +85,8 @@ renderPage($C['seo']['title'], $content, '/jak-pujcit/co-v-cene', [
     'description' => $C['seo']['description'],
     'keywords' => $C['seo']['keywords'],
     'breadcrumbs' => [
-        ['name' => 'Domů', 'url' => 'https://motogo24.cz/'],
-        ['name' => 'Jak si půjčit', 'url' => 'https://motogo24.cz/jak-pujcit'],
-        ['name' => 'Co je v ceně nájmu', 'url' => 'https://motogo24.cz/jak-pujcit/co-v-cene'],
+        ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
+        ['name' => t('breadcrumb.howto'), 'url' => 'https://motogo24.cz/jak-pujcit'],
+        ['name' => t('menu.howto.price'), 'url' => 'https://motogo24.cz/jak-pujcit/co-v-cene'],
     ],
 ]);

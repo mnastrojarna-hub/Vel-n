@@ -16,7 +16,7 @@ $C = $sb->siteContent('jak_pujcit_vyzvednuti', $defaults);
 $pagePath = parse_url($_SERVER['REQUEST_URI'] ?? '/jak-pujcit/prevzeti', PHP_URL_PATH);
 if ($pagePath !== '/jak-pujcit/vyzvednuti') $pagePath = '/jak-pujcit/prevzeti';
 
-$bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], ['label' => 'Jak si půjčit', 'href' => '/jak-pujcit'], 'Převzetí v půjčovně']);
+$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.howto'), 'href' => '/jak-pujcit'], t('menu.howto.pickup')]);
 
 // --- Section 1: title + intro + top CTA ---
 $titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">Hlavní obsah stránky</h2>' .
@@ -131,8 +131,8 @@ renderPage($C['seo']['title'], $content, $pagePath, [
     'canonical' => 'https://motogo24.cz/jak-pujcit/prevzeti',
     'schema' => $faqSchema,
     'breadcrumbs' => [
-        ['name' => 'Domů', 'url' => 'https://motogo24.cz/'],
-        ['name' => 'Jak si půjčit', 'url' => 'https://motogo24.cz/jak-pujcit'],
-        ['name' => 'Převzetí v půjčovně', 'url' => 'https://motogo24.cz/jak-pujcit/prevzeti'],
+        ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
+        ['name' => t('breadcrumb.howto'), 'url' => 'https://motogo24.cz/jak-pujcit'],
+        ['name' => t('menu.howto.pickup'), 'url' => 'https://motogo24.cz/jak-pujcit/prevzeti'],
     ],
 ]);

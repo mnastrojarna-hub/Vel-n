@@ -25,7 +25,7 @@ $defaults = [
 
 $C = $sb->siteContent('jak_pujcit', $defaults);
 
-$bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], 'Jak si půjčit motorku']);
+$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], t('menu.howto')]);
 
 $linksHtml = '<div class="gr4 jp-tiles">';
 foreach ($C['links'] as $l) {
@@ -43,7 +43,7 @@ renderPage($C['seo']['title'], $content, '/jak-pujcit', [
     'description' => $C['seo']['description'],
     'keywords' => $C['seo']['keywords'],
     'breadcrumbs' => [
-        ['name' => 'Domů', 'url' => 'https://motogo24.cz/'],
-        ['name' => 'Jak si půjčit', 'url' => 'https://motogo24.cz/jak-pujcit'],
+        ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
+        ['name' => t('breadcrumb.howto'), 'url' => 'https://motogo24.cz/jak-pujcit'],
     ],
 ]);

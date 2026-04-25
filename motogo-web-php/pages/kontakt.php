@@ -51,7 +51,7 @@ $defaults = [
 
 $C = $sb->siteContent('kontakt', $defaults);
 
-$bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], 'Kontakt']);
+$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], t('breadcrumb.contact')]);
 
 $quickHtml = '<section><div class="contact-quick-boxes">';
 foreach ($C['quick'] as $q) {
@@ -117,7 +117,7 @@ renderPage($C['seo']['title'], $content, '/kontakt', [
     'description' => $C['seo']['description'],
     'keywords' => $C['seo']['keywords'],
     'breadcrumbs' => [
-        ['name' => 'Domů', 'url' => 'https://motogo24.cz/'],
-        ['name' => 'Kontakt', 'url' => 'https://motogo24.cz/kontakt'],
+        ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
+        ['name' => t('breadcrumb.contact'), 'url' => 'https://motogo24.cz/kontakt'],
     ],
 ]);

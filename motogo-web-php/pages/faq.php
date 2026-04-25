@@ -46,12 +46,12 @@ foreach ($cats as $k => &$cat) {
 }
 unset($cat);
 
-$tabs = [['id' => 'all', 'label' => 'Vše (' . count($allItems) . ')', 'items' => $allItems]];
+$tabs = [['id' => 'all', 'label' => t('faq.tabAll', ['count' => count($allItems)]), 'items' => $allItems]];
 foreach ($cats as $id => $cat) {
     $tabs[] = ['id' => $id, 'label' => $cat['label'] . ' (' . count($cat['items']) . ')', 'items' => $cat['items']];
 }
 
-$bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], ['label' => 'Jak si půjčit', 'href' => '/jak-pujcit'], 'Často kladené dotazy']);
+$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.howto'), 'href' => '/jak-pujcit'], t('menu.howto.faq')]);
 
 $tabsHtml = '<ul class="tabs">';
 foreach ($tabs as $t) {
@@ -105,8 +105,8 @@ renderPage($C['seo']['title'], $content, '/jak-pujcit/faq', [
     'keywords' => $C['seo']['keywords'],
     'schema' => $faqSchema,
     'breadcrumbs' => [
-        ['name' => 'Domů', 'url' => 'https://motogo24.cz/'],
-        ['name' => 'Jak si půjčit', 'url' => 'https://motogo24.cz/jak-pujcit'],
-        ['name' => 'FAQ', 'url' => 'https://motogo24.cz/jak-pujcit/faq'],
+        ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
+        ['name' => t('breadcrumb.howto'), 'url' => 'https://motogo24.cz/jak-pujcit'],
+        ['name' => t('menu.howto.faq'), 'url' => 'https://motogo24.cz/jak-pujcit/faq'],
     ],
 ]);
