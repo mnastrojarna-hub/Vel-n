@@ -146,6 +146,43 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     final returnMethod =
         draft.returnMethod == 'delivery' ? 'delivery' : 'branch';
 
+    // ─────────────────────────────────────────────────────────────────
+    // Gear sizes — 5 driver + 5 passenger columns on `bookings`
+    // Driver sizes come from BookingDraft fields (set in form_body).
+    // Passenger sizes are stored as a single string inside
+    // SelectedExtra.size of `extra-spolujezdec` (format
+    //   "Helma: M, Rukavice: L, Bunda: M, Kalhoty: M")
+    // and SelectedExtra.size of `extra-boty-spolu` for passenger boots.
+    // We parse them here and write to dedicated columns so Velín
+    // detail rezervace zobrazuje kompletní rozpis.
+    // ─────────────────────────────────────────────────────────────────
+    String? _findExtraSize(String id) {
+      for (final e in draft.extras) {
+        if (e.id == id) return e.size;
+      }
+      return null;
+    }
+    Map<String, String> _parsePassengerGearSizes() {
+      final raw = _findExtraSize('extra-spolujezdec');
+      if (raw == null || raw.trim().isEmpty) return {};
+      final map = <String, String>{};
+      for (final part in raw.split(',')) {
+        final ix = part.indexOf(':');
+        if (ix <= 0) continue;
+        final k = part.substring(0, ix).trim().toLowerCase();
+        final v = part.substring(ix + 1).trim();
+        if (v.isEmpty) continue;
+        if (k.startsWith('helm')) map['helmet'] = v;
+        else if (k.startsWith('rukav')) map['gloves'] = v;
+        else if (k.startsWith('bund')) map['jacket'] = v;
+        else if (k.startsWith('kalh')) map['pants'] = v;
+      }
+      return map;
+    }
+    final pg = _parsePassengerGearSizes();
+    final driverBoots = draft.bootsSize ?? _findExtraSize('extra-boty-ridic');
+    final passengerBoots = _findExtraSize('extra-boty-spolu');
+
     try {
       // Direct insert into bookings table (matches original Capacitor app)
       final res = await MotoGoSupabase.client.from('bookings').insert({
@@ -175,6 +212,21 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         'return_lng': draft.returnLng,
         'status': 'pending',
         'payment_status': 'unpaid',
+        // Driver gear sizes (5 columns)
+        'helmet_size': draft.helmetSize,
+        'jacket_size': draft.jacketSize,
+        'pants_size': draft.pantsSize,
+        'boots_size': driverBoots,
+        'gloves_size': draft.glovesSize,
+        // Passenger gear sizes (5 columns)
+        'passenger_helmet_size':
+            draft.passengerHelmetSize ?? pg['helmet'],
+        'passenger_jacket_size':
+            draft.passengerJacketSize ?? pg['jacket'],
+        'passenger_pants_size':
+            draft.passengerPantsSize ?? pg['pants'],
+        'passenger_gloves_size': pg['gloves'],
+        'passenger_boots_size': passengerBoots,
       }).select().single();
 
       final bookingId = res['id'] as String?;
