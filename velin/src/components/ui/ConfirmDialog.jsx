@@ -1,8 +1,6 @@
 import Button from './Button'
-import { useLang } from '../../i18n/LanguageProvider'
 
 export default function ConfirmDialog({ open, title, message, onConfirm, onCancel, danger = false }) {
-  const { t } = useLang()
   if (!open) return null
 
   return (
@@ -26,7 +24,7 @@ export default function ConfirmDialog({ open, title, message, onConfirm, onCance
           {message}
         </p>
         <div className="flex gap-3 justify-end">
-          <Button onClick={onCancel}>{t('common.cancel')}</Button>
+          <Button onClick={onCancel}>Zrušit</Button>
           <Button
             onClick={onConfirm}
             style={danger ? {
@@ -36,7 +34,7 @@ export default function ConfirmDialog({ open, title, message, onConfirm, onCance
             } : undefined}
             green={!danger}
           >
-            {t('common.confirm')}
+            Potvrdit
           </Button>
         </div>
       </div>

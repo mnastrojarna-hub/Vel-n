@@ -1,11 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { useLang } from '../../i18n/LanguageProvider'
 
-export default function SearchInput({ value, onChange, placeholder }) {
-  const { t } = useLang()
+export default function SearchInput({ value, onChange, placeholder = 'Hledat…' }) {
   const [local, setLocal] = useState(value || '')
   const timer = useRef(null)
-  const ph = placeholder ?? t('common.searchPlaceholder')
 
   useEffect(() => {
     setLocal(value || '')
@@ -30,7 +27,7 @@ export default function SearchInput({ value, onChange, placeholder }) {
         type="text"
         value={local}
         onChange={handleChange}
-        placeholder={ph}
+        placeholder={placeholder}
         className="rounded-btn text-sm font-medium outline-none"
         style={{
           padding: '8px 14px 8px 34px',
