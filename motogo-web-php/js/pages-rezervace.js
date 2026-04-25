@@ -160,20 +160,21 @@ MG._rezFormHtml = function(){
     // ===== STEP C — Výbava =====
     '<section class="rez-section">' +
       '<div class="rez-section-head"><span class="rez-step-num">3</span><h2>Výbava a velikosti</h2></div>' +
-      '<p class="rez-section-sub">Vyberte si položky a kliknutím rozbalte velikosti. Pokud velikost neuvedete, vyzkoušíme ji na místě.</p>' +
+      '<p class="rez-section-sub">Vyberte velikosti kliknutím na čtverečky níže. Pokud velikost nezvolíte, vyzkoušíme ji na místě.</p>' +
 
       '<div class="gear-grid">' +
 
-        // Driver gear (free)
-        '<div class="gear-card gear-card-rider" id="gear-card-rider">' +
+        // Driver gear (free) — auto-open
+        '<div class="gear-card gear-card-rider open" id="gear-card-rider">' +
           '<label class="gear-head">' +
-            '<input type="checkbox" id="rez-eq-rider-gear">' +
+            '<input type="checkbox" id="rez-eq-rider-gear" checked>' +
             '<span class="gear-ico">&#127949;</span>' +
             '<div class="gear-body"><div class="gear-title">Výbava řidiče</div>' +
             '<div class="gear-price gear-price-free">v ceně · zdarma</div>' +
-            '<div class="gear-sub">Helma, bunda, rukavice, kalhoty (v základu se zkouší v půjčovně)</div></div>' +
+            '<div class="gear-sub">Helma, bunda, rukavice, kalhoty</div></div>' +
           '</label>' +
           '<div class="gear-extra-toggle"><label><input type="checkbox" id="rez-own-gear"> Mám vlastní výbavu — nepůjčuji</label></div>' +
+          '<div class="gear-size-panel-hint">&#128205; Vyberte své velikosti — bude na vás čekat již nachystaná výbava.</div>' +
           MG._gearPanelHtml({panelId:'gear-panel-rider', group:'rider', kinds:['helmet','jacket','gloves','pants']}) +
         '</div>' +
 
@@ -188,6 +189,7 @@ MG._rezFormHtml = function(){
             MG._tip('Základní výbava pro spolujezdce: helma, bunda, rukavice a kukla. Velikost si vyberete kliknutím níže nebo na místě.') +
             '</div></div>' +
           '</label>' +
+          '<div class="gear-size-panel-hint">&#9989; Zaškrtněte výše + vyberte velikosti spolujezdce</div>' +
           MG._gearPanelHtml({panelId:'gear-panel-passenger', group:'passenger', kinds:['helmet','jacket','gloves']}) +
         '</div>' +
 
@@ -200,6 +202,7 @@ MG._rezFormHtml = function(){
             '<div class="gear-price">+ 290 Kč</div>' +
             '<div class="gear-sub">Motocyklové boty (nejsou v základní výbavě)</div></div>' +
           '</label>' +
+          '<div class="gear-size-panel-hint">&#9989; Zaškrtněte výše + vyberte velikost bot</div>' +
           MG._gearPanelHtml({panelId:'gear-panel-boots-rider', group:'rider', kinds:['boots']}) +
         '</div>' +
 
@@ -212,6 +215,7 @@ MG._rezFormHtml = function(){
             '<div class="gear-price">+ 290 Kč</div>' +
             '<div class="gear-sub">Motocyklové boty pro spolujezdce</div></div>' +
           '</label>' +
+          '<div class="gear-size-panel-hint">&#9989; Zaškrtněte výše + vyberte velikost bot</div>' +
           MG._gearPanelHtml({panelId:'gear-panel-boots-passenger', group:'passenger', kinds:['boots']}) +
         '</div>' +
 
@@ -266,22 +270,19 @@ MG._rezInitFormEvents = function(){
     }
     MG._rezUpdatePrice();
   });
-  // Own gear toggle
+  // Own gear toggle — když má vlastní, schovej rider size panel
   var og = document.getElementById('rez-own-gear');
   if(og) og.addEventListener('change',function(){
     var card = document.getElementById('gear-card-rider');
+    if(!card) return;
     if(this.checked){
-      // Disable and clear rider sizes
-      var head = card && card.querySelector('.gear-head input[type=checkbox]');
-      if(head){ head.checked = false; }
-      card && card.classList.remove('open');
+      // Vyčistit rider velikosti + UI
       MG._rez.sizes.rider = {};
-      // Reset chip UI
-      card && card.querySelectorAll('.size-chip.active').forEach(function(b){ b.classList.remove('active'); });
-      card && card.querySelectorAll('.size-pick').forEach(function(p){ p.textContent='vyber'; p.dataset.empty='1'; });
-      if(card) card.classList.add('disabled');
+      card.querySelectorAll('.size-chip.active').forEach(function(b){ b.classList.remove('active'); });
+      card.querySelectorAll('.size-pick').forEach(function(p){ p.textContent='vyber'; p.dataset.empty='1'; });
+      card.classList.add('disabled');
     } else {
-      if(card) card.classList.remove('disabled');
+      card.classList.remove('disabled');
     }
   });
 
