@@ -41,7 +41,7 @@ $defaults = [
     ],
     'map' => [
         'title' => 'Kde nás najdete',
-        'src' => 'https://frame.mapy.cz/s/?x=15.15413&y=49.35169&z=14&source=coor&id=15.15413%2C49.35169',
+        'src' => 'https://www.google.com/maps?q=Mezn%C3%A1+9%2C+393+01+Pelh%C5%99imov&hl=cs&z=15&output=embed',
     ],
     'seo_text' => [
         'title' => 'Kontakty – půjčovna motorek Vysočina (Pelhřimov)',
@@ -96,9 +96,13 @@ $infoSection .= '<section class="cta-green-box"><h2>' . htmlspecialchars($sideCt
     '<p><a class="btn ' . ($btn['cls'] ?? 'btndark') . '" href="' . BASE_URL . $btn['href'] . '">' . htmlspecialchars($btn['label']) . '</a></p></section>' .
     '</div></div>';
 
+$mapSrc = $C['map']['src'] ?? '';
+if (stripos($mapSrc, 'mapy.cz') !== false || $mapSrc === '') {
+    $mapSrc = 'https://www.google.com/maps?q=Mezn%C3%A1+9%2C+393+01+Pelh%C5%99imov&hl=cs&z=15&output=embed';
+}
 $mapSection = '<section>' .
     '<h2>' . htmlspecialchars($C['map']['title']) . '</h2>' .
-    '<p><iframe aria-label="Mapa kde nás najdete" class="map" loading="lazy" src="' . htmlspecialchars($C['map']['src']) . '"></iframe></p></section>';
+    '<p><iframe aria-label="Mapa kde nás najdete" class="map" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen src="' . htmlspecialchars($mapSrc) . '"></iframe></p></section>';
 
 $seoText = '<h2>' . htmlspecialchars($C['seo_text']['title']) . '</h2><p>' . $C['seo_text']['body'] . '</p>';
 
