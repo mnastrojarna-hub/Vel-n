@@ -5,6 +5,7 @@ import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import StatusBadge from '../../components/ui/StatusBadge'
 import Modal from '../../components/ui/Modal'
+import { autoTranslateRow } from '../../lib/autoTranslate'
 
 export default function PagesTab() {
   const [pages, setPages] = useState([])
@@ -90,6 +91,7 @@ function PageModal({ entry, onClose, onSaved }) {
     setSaving(true); setErr(null)
     try {
       const payload = { ...form, updated_at: new Date().toISOString() }
+      let savedId = entry?.id
       if (entry) {
         const result = await debugAction('cmsPage.update', 'PageModal', () =>
           supabase.from('cms_pages').update(payload).eq('id', entry.id)
@@ -97,12 +99,17 @@ function PageModal({ entry, onClose, onSaved }) {
         if (result?.error) throw result.error
       } else {
         const result = await debugAction('cmsPage.create', 'PageModal', () =>
-          supabase.from('cms_pages').insert(payload)
+          supabase.from('cms_pages').insert(payload).select().single()
         , payload)
         if (result?.error) throw result.error
+        savedId = result?.data?.id
       }
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: entry ? 'cms_page_updated' : 'cms_page_created', details: { slug: form.slug } })
+      // Auto-překlad pro web (na pozadí)
+      if (savedId) {
+        autoTranslateRow({ table: 'cms_pages', id: savedId, row: payload })
+      }
       onSaved()
     } catch (e) { setErr(e.message) } finally { setSaving(false) }
   }

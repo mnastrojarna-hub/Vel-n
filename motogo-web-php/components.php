@@ -132,8 +132,10 @@ function renderBlogCard($post) {
     }
     $tags = $post['tags'] ?? [];
     $tag = !empty($tags) ? $tags[0] : '';
-    $excerpt = $post['excerpt'] ?? ($post['description'] ?? '');
-    $titleRaw = trim((string)($post['title'] ?? ''));
+    // Auto-překlady z `translations` JSONB sloupce s CZ fallbackem
+    $excerpt = localized($post, 'excerpt');
+    if ($excerpt === '') $excerpt = $post['description'] ?? '';
+    $titleRaw = trim((string)localized($post, 'title'));
     if ($titleRaw === '') $titleRaw = t('card.unnamedArticle');
     $title = htmlspecialchars($titleRaw);
     $slug = htmlspecialchars($post['slug'] ?? '');

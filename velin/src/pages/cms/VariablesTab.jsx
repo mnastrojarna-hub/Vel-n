@@ -4,6 +4,7 @@ import { debugAction } from '../../lib/debugLog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
+import { autoTranslate } from '../../lib/autoTranslate'
 
 const GROUPS = ['general', 'pricing', 'contact', 'legal']
 
@@ -35,6 +36,10 @@ export default function VariablesTab() {
       setVars(v => v.map(item => item.id === id ? { ...item, value } : item))
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'cms_variable_updated', details: { id } })
+      // Auto-překlad hodnoty pro web (na pozadí)
+      if (typeof value === 'string' && value.trim().length > 0) {
+        autoTranslate({ table: 'cms_variables', id, fields: { value } })
+      }
     }
   }
 
@@ -121,6 +126,7 @@ function VarModal({ entry, onClose, onSaved }) {
     setSaving(true); setErr(null)
     try {
       const { group: _g, ...payload } = form
+      let savedId = entry?.id
       if (entry) {
         const result = await debugAction('cmsVariable.update', 'VarModal', () =>
           supabase.from('cms_variables').update(payload).eq('id', entry.id)
@@ -128,12 +134,17 @@ function VarModal({ entry, onClose, onSaved }) {
         if (result?.error) throw result.error
       } else {
         const result = await debugAction('cmsVariable.create', 'VarModal', () =>
-          supabase.from('cms_variables').insert(payload)
+          supabase.from('cms_variables').insert(payload).select().single()
         , payload)
         if (result?.error) throw result.error
+        savedId = result?.data?.id
       }
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: entry ? 'cms_var_updated' : 'cms_var_created', details: { key: form.key } })
+      // Auto-překlad hodnoty pro web (na pozadí)
+      if (savedId && typeof payload.value === 'string' && payload.value.trim().length > 0) {
+        autoTranslate({ table: 'cms_variables', id: savedId, fields: { value: payload.value } })
+      }
       onSaved()
     } catch (e) { setErr(e.message) } finally { setSaving(false) }
   }

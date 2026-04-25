@@ -78,10 +78,11 @@ $headerHtml = '<div class="moto-detail-header"><div>'
     . '</div><div>'
     . '<a class="btn btngreen" href="' . BASE_URL . '/rezervace?moto=' . htmlspecialchars($moto['id']) . '">' . te('common.reserveOnline') . '</a></div></div>';
 
-// Short desc + features
+// Short desc + features (auto-překlad popisku z translations JSONB sloupce)
+$motoDesc = localized($moto, 'description');
 $descHtml = '<div class="moto-shortdesc">';
-if (!empty($moto['description'])) {
-    $descHtml .= '<div class="wbox"><p>' . htmlspecialchars($moto['description']) . '</p></div><p>&nbsp;</p>';
+if ($motoDesc !== '') {
+    $descHtml .= '<div class="wbox"><p>' . htmlspecialchars($motoDesc) . '</p></div><p>&nbsp;</p>';
 }
 $features = [];
 if (!empty($moto['power_kw'])) $features[] = '<strong>' . te('detail.specPower') . ':</strong> ' . htmlspecialchars($moto['power_kw']) . ' kW';
@@ -134,7 +135,7 @@ if (!empty($moto['license_required'])) $specsRows[] = [t('detail.specLicense'), 
 if (!empty($moto['ideal_usage'])) $specsRows[] = [t('detail.specIdealFor'), $moto['ideal_usage']];
 
 $descSpecsHtml = '<section class="gr2"><div>';
-$descSpecsHtml .= '<h2>' . te('detail.descTitle') . '</h2><p>' . htmlspecialchars($moto['description'] ?? $moto['model']) . '</p>';
+$descSpecsHtml .= '<h2>' . te('detail.descTitle') . '</h2><p>' . htmlspecialchars($motoDesc !== '' ? $motoDesc : ($moto['model'] ?? '')) . '</p>';
 if (!empty($moto['manual_url'])) {
     $descSpecsHtml .= '<p>&nbsp;</p><p><a class="btn btngreen" href="' . htmlspecialchars($moto['manual_url']) . '" target="_blank" rel="noopener">' . te('detail.userManual') . '</a></p>';
 }
@@ -343,11 +344,11 @@ $content = '<main id="content"><div class="container">' . $bc .
 $minPrice = getMinPrice($moto);
 $productSchema = '
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"Product","name":' . json_encode($moto['model'], JSON_UNESCAPED_UNICODE) . ',"description":' . json_encode($moto['description'] ?? $moto['model'], JSON_UNESCAPED_UNICODE) . ',"image":' . json_encode($mainImg ?: 'https://motogo24.cz/gfx/logo.svg') . ',"brand":{"@type":"Brand","name":' . json_encode($moto['brand'] ?? '', JSON_UNESCAPED_UNICODE) . '},"offers":{"@type":"Offer","priceCurrency":"CZK","price":' . json_encode($minPrice) . ',"availability":"https://schema.org/InStock","url":"https://motogo24.cz/katalog/' . $motoId . '"}}
+  {"@context":"https://schema.org","@type":"Product","name":' . json_encode($moto['model'], JSON_UNESCAPED_UNICODE) . ',"description":' . json_encode($motoDesc !== '' ? $motoDesc : ($moto['model'] ?? ''), JSON_UNESCAPED_UNICODE) . ',"image":' . json_encode($mainImg ?: 'https://motogo24.cz/gfx/logo.svg') . ',"brand":{"@type":"Brand","name":' . json_encode($moto['brand'] ?? '', JSON_UNESCAPED_UNICODE) . '},"offers":{"@type":"Offer","priceCurrency":"CZK","price":' . json_encode($minPrice) . ',"availability":"https://schema.org/InStock","url":"https://motogo24.cz/katalog/' . $motoId . '"}}
   </script>';
 
 renderPage($model . ' | Půjčovna MotoGo24', $content, '/katalog/' . $motoId, [
-    'description' => htmlspecialchars($moto['description'] ?? t('detail.descFallback', ['model' => $moto['model'] ?? ''])),
+    'description' => htmlspecialchars($motoDesc !== '' ? $motoDesc : t('detail.descFallback', ['model' => $moto['model'] ?? ''])),
     'keywords' => t('detail.descKeywords', ['model' => $moto['model'] ?? '']),
     'og_image' => $mainImg ?: null,
     'og_type' => 'product',

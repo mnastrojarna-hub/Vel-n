@@ -22,7 +22,14 @@ if (!$post) {
     return;
 }
 
-$title = htmlspecialchars($post['title'] ?? '');
+// Lokalizované varianty (auto-překlady z Velínu, fallback CZ)
+$titleRaw = localized($post, 'title');
+$excerptRaw = localized($post, 'excerpt');
+if ($excerptRaw === '') $excerptRaw = $post['description'] ?? '';
+$contentRaw = localized($post, 'content');
+if ($contentRaw === '') $contentRaw = $post['description'] ?? '';
+
+$title = htmlspecialchars($titleRaw);
 $bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.blog'), 'href' => '/blog'], $title]);
 
 // Gallery
@@ -41,8 +48,8 @@ if (!empty($post['images']) && count($post['images']) > 0) {
         '<img src="' . htmlspecialchars($post['image_url']) . '" alt="' . $title . '" loading="lazy"></div></div></a></div></div></section>';
 }
 
-$postContent = sanitizeHtml($post['content'] ?? ($post['description'] ?? ''));
-$excerpt = $post['excerpt'] ?? ($post['description'] ?? '');
+$postContent = sanitizeHtml($contentRaw);
+$excerpt = $excerptRaw;
 
 $content = '<main id="content"><div class="container">' . $bc .
     '<div class="ccontent blog-detail">' .
@@ -55,13 +62,13 @@ $content = '<main id="content"><div class="container">' . $bc .
 // Article schema
 $articleSchema = '
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"Article","headline":' . json_encode($post['title'] ?? '', JSON_UNESCAPED_UNICODE) . ',"author":{"@type":"Organization","name":"MotoGo24"},"publisher":{"@type":"Organization","name":"MotoGo24","logo":{"@type":"ImageObject","url":"https://motogo24.cz/gfx/logo.svg"}}' . (!empty($post['created_at']) ? ',"datePublished":' . json_encode($post['created_at']) : '') . '}
+  {"@context":"https://schema.org","@type":"Article","headline":' . json_encode($titleRaw, JSON_UNESCAPED_UNICODE) . ',"author":{"@type":"Organization","name":"MotoGo24"},"publisher":{"@type":"Organization","name":"MotoGo24","logo":{"@type":"ImageObject","url":"https://motogo24.cz/gfx/logo.svg"}}' . (!empty($post['created_at']) ? ',"datePublished":' . json_encode($post['created_at']) : '') . '}
   </script>';
 
-renderPage($title . ' | Blog MotoGo24', $content, '/blog/' . $slug, [
-    'description' => $excerpt ?: t('blog.detail.descFallback', ['title' => $post['title'] ?? '']),
+renderPage($titleRaw . ' | Blog MotoGo24', $content, '/blog/' . $slug, [
+    'description' => $excerpt ?: t('blog.detail.descFallback', ['title' => $titleRaw]),
     'og_type' => 'article',
     'og_image' => !empty($post['images'][0]) ? $post['images'][0] : (!empty($post['image_url']) ? $post['image_url'] : null),
     'schema' => $articleSchema,
-    'breadcrumbs' => [['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'], ['name' => t('breadcrumb.blog'), 'url' => 'https://motogo24.cz/blog'], ['name' => $post['title'] ?? '', 'url' => 'https://motogo24.cz/blog/' . $slug]],
+    'breadcrumbs' => [['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'], ['name' => t('breadcrumb.blog'), 'url' => 'https://motogo24.cz/blog'], ['name' => $titleRaw, 'url' => 'https://motogo24.cz/blog/' . $slug]],
 ]);

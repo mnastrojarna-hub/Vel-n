@@ -125,6 +125,7 @@
 - **purchase_price** (NUMERIC DEFAULT 0) — pořizovací cena motorky v Kč
 - **purchase_mileage** (INTEGER DEFAULT NULL) — km při zakoupení, základ pro výpočet servisních intervalů
 - **tracking_unit** (TEXT DEFAULT 'km') — jednotka sledování nájezdu: 'km' (kilometry) nebo 'mh' (motohodiny). CHECK(tracking_unit IN ('km','mh'))
+- **translations** (JSONB DEFAULT '{}') — auto-překlady pro web (struktura `{ "en": {"description":"..."}, "de": {...}, ... }` přes 7 jazyků cs/en/de/es/fr/nl/pl). CZ = výchozí sloupec, web čte přes helper `localized()`. Plní edge funkce `translate-content`.
 
 ### sos_incidents
 - id, user_id, booking_id, moto_id, type, title, description
@@ -203,6 +204,23 @@
 - **branch_code** (TEXT UNIQUE) — unikátní kód pobočky (6 číslic, např. "000126")
 - **is_open** (BOOLEAN DEFAULT false) — otevřená (nonstop provoz) / zavřená
 - **type** (TEXT DEFAULT NULL) — typ pobočky: turistická, městská, horská, rekreační voda, metropolitní centrum, městská tranzitní
+- **translations** (JSONB DEFAULT '{}') — auto-překlady pro web (notes), plní `translate-content`
+
+### Sloupec `translations` — auto-překlady pro veřejný web
+**Účel:** Texty zadávané přes Velín (Blog, Produkty, Motorky, Pobočky, CMS proměnné) jsou v češtině; pro web motogo24.cz se automaticky překládají do en/de/es/fr/nl/pl přes Anthropic Claude API (edge funkce `translate-content`). Český text zůstává v původním sloupci jako fallback.
+
+**Struktura:** `{"en":{"title":"...","content":"..."}, "de":{...}, "es":{...}, "fr":{...}, "nl":{...}, "pl":{...}}`
+
+**Tabulky se sloupcem `translations` (JSONB DEFAULT '{}', GIN index):**
+| Tabulka | Překládané pole |
+|---------|------------------|
+| `cms_pages` | title, excerpt, content |
+| `cms_variables` | value |
+| `products` | name, description, color, material |
+| `motorcycles` | description |
+| `branches` | notes |
+
+**Web (motogo-web-php):** helper `localized($row, $field)` v `i18n.php` čte `translations[lang][field] ?? row[field]`.
 
 ### branch_accessories
 - id (UUID PK), branch_id (FK→branches ON DELETE CASCADE)

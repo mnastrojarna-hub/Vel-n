@@ -7,6 +7,7 @@ import Pagination from '../../components/ui/Pagination'
 import SearchInput from '../../components/ui/SearchInput'
 import Modal from '../../components/ui/Modal'
 import ImageUploader from '../../components/ui/ImageUploader'
+import { autoTranslateRow } from '../../lib/autoTranslate'
 
 const PER_PAGE = 25
 
@@ -156,6 +157,7 @@ function ProductFormModal({ product, onClose, onSaved }) {
     sort_order: product?.sort_order ?? 0,
   })
   const [saving, setSaving] = useState(false)
+  const [translating, setTranslating] = useState(false)
   const [err, setErr] = useState(null)
 
   // Stabilní cesta v bucketu — u úprav použij ID produktu, u nového vygeneruj UUID
@@ -188,6 +190,7 @@ function ProductFormModal({ product, onClose, onSaved }) {
         sort_order: Number(form.sort_order) || 0,
       }
 
+      let savedId = product?.id
       if (isEdit) {
         const result = await debugAction('product.update', 'ProductFormModal', () =>
           supabase.from('products').update(payload).eq('id', product.id)
@@ -195,12 +198,20 @@ function ProductFormModal({ product, onClose, onSaved }) {
         if (result?.error) throw result.error
       } else {
         const result = await debugAction('product.create', 'ProductFormModal', () =>
-          supabase.from('products').insert(payload)
+          supabase.from('products').insert(payload).select().single()
         , payload)
         if (result?.error) throw result.error
+        savedId = result?.data?.id
+      }
+
+      // Auto-překlad pro web (běží na pozadí, blokuje zavření modal po dobu překladu)
+      if (savedId) {
+        setSaving(false); setTranslating(true)
+        await autoTranslateRow({ table: 'products', id: savedId, row: payload })
+        setTranslating(false)
       }
       onSaved()
-    } catch (e) { setErr(e.message) } finally { setSaving(false) }
+    } catch (e) { setErr(e.message); setSaving(false); setTranslating(false) }
   }
 
   return (
@@ -250,7 +261,9 @@ function ProductFormModal({ product, onClose, onSaved }) {
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}
       <div className="flex justify-end gap-3 mt-5">
         <Button onClick={onClose}>Zrušit</Button>
-        <Button green onClick={handleSave} disabled={saving}>{saving ? 'Ukládám…' : isEdit ? 'Uložit' : 'Vytvořit'}</Button>
+        <Button green onClick={handleSave} disabled={saving || translating}>
+          {saving ? 'Ukládám…' : translating ? '🌍 Překládám pro web…' : isEdit ? 'Uložit' : 'Vytvořit'}
+        </Button>
       </div>
     </Modal>
   )

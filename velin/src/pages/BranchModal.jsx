@@ -4,6 +4,7 @@ import { debugAction } from '../lib/debugLog'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
 import { FormField, generateBranchCode } from './BranchHelpers'
+import { autoTranslateRow } from '../lib/autoTranslate'
 
 function BranchModal({ existing, onClose, onSaved }) {
   const isEdit = !!existing
@@ -49,7 +50,9 @@ function BranchModal({ existing, onClose, onSaved }) {
         updated_at: new Date().toISOString(),
       }
       const result = await debugAction(isEdit ? 'branches.update' : 'branches.create', 'BranchModal', () =>
-        isEdit ? supabase.from('branches').update(payload).eq('id', existing.id) : supabase.from('branches').insert(payload)
+        isEdit
+          ? supabase.from('branches').update(payload).eq('id', existing.id).select().single()
+          : supabase.from('branches').insert(payload).select().single()
       , payload)
       if (result?.error) {
         const msg = result.error.message || 'Neznámá chyba'
@@ -60,6 +63,11 @@ function BranchModal({ existing, onClose, onSaved }) {
         action: isEdit ? 'branch_updated' : 'branch_created',
         details: { name: form.name },
       })
+      // Auto-překlad poznámky pro web (na pozadí)
+      const branchId = result?.data?.id || existing?.id
+      if (branchId && payload.notes) {
+        autoTranslateRow({ table: 'branches', id: branchId, row: { notes: payload.notes } })
+      }
       onSaved()
     } catch (e) { setErr(e.message) } finally { setSaving(false) }
   }

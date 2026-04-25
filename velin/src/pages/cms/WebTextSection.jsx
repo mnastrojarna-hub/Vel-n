@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { autoTranslate } from '../../lib/autoTranslate'
 
 export default function WebTextSection({ section, values, onSaved }) {
   const [open, setOpen] = useState(false)
@@ -44,6 +45,7 @@ function FieldRow({ field, value, onSaved }) {
   const currentVal = value ?? field.default ?? ''
   const [val, setVal] = useState(currentVal)
   const [saving, setSaving] = useState(false)
+  const [translating, setTranslating] = useState(false)
   const [saved, setSaved] = useState(false)
   const changed = val !== currentVal
 
@@ -57,18 +59,26 @@ function FieldRow({ field, value, onSaved }) {
       .maybeSingle()
 
     let error
+    let rowId = existing?.id
     if (existing) {
       const res = await supabase.from('cms_variables').update({ value: val }).eq('key', field.key)
       error = res.error
     } else {
-      const res = await supabase.from('cms_variables').insert({ key: field.key, value: val, group: 'web' })
+      const res = await supabase.from('cms_variables').insert({ key: field.key, value: val, group: 'web' }).select().single()
       error = res.error
+      rowId = res?.data?.id
     }
     setSaving(false)
     if (!error) {
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
       onSaved?.(field.key, val)
+      // Auto-překlad pro web (na pozadí, jen pro non-empty)
+      if (rowId && typeof val === 'string' && val.trim().length > 0) {
+        setTranslating(true)
+        autoTranslate({ table: 'cms_variables', id: rowId, fields: { value: val } })
+          .finally(() => setTranslating(false))
+      }
     }
   }
 
@@ -126,7 +136,12 @@ function FieldRow({ field, value, onSaved }) {
           </button>
         )}
         {!changed && saved && (
-          <span className="text-xs font-bold" style={{ color: '#22c55e', padding: '8px 0' }}>Uloženo</span>
+          <span className="text-xs font-bold" style={{ color: '#22c55e', padding: '8px 0' }}>
+            {translating ? '🌍 Překládám…' : 'Uloženo'}
+          </span>
+        )}
+        {!changed && !saved && translating && (
+          <span className="text-xs font-bold" style={{ color: '#1d4ed8', padding: '8px 0' }}>🌍 Překládám…</span>
         )}
       </div>
     </div>
