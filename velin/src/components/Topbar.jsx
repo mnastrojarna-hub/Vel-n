@@ -84,7 +84,7 @@ export default function Topbar() {
       style={{
         padding: '12px 28px',
         height: 60,
-        borderBottom: '1px solid #d4e8e0',
+        borderBottom: '1px solid #1a2e22',
       }}
     >
       <div className="flex items-center gap-3">
@@ -135,8 +135,8 @@ export default function Topbar() {
 
           {dropdownOpen && (
             <div className="absolute right-0 top-full mt-2 z-50 rounded-card shadow-card bg-white"
-              style={{ width: 280, border: '1px solid #d4e8e0' }}>
-              <div className="p-3 text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22', borderBottom: '1px solid #d4e8e0' }}>
+              style={{ width: 280, border: '1px solid #1a2e22' }}>
+              <div className="p-3 text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22', borderBottom: '1px solid #1a2e22' }}>
                 Notifikace
               </div>
               {notifItems.length === 0 ? (
@@ -145,8 +145,8 @@ export default function Topbar() {
                 notifItems.map((n, i) => (
                   <div key={i}
                     onClick={() => { navigate(n.path); setDropdownOpen(false) }}
-                    className="flex items-center gap-2 cursor-pointer transition-colors hover:bg-[#f1faf7]"
-                    style={{ padding: '10px 14px', borderBottom: '1px solid #d4e8e0' }}>
+                    className="flex items-center gap-2 cursor-pointer transition-colors hover:bg-[#f5f5f5]"
+                    style={{ padding: '10px 14px', borderBottom: '1px solid #1a2e22' }}>
                     <span className="text-base">{n.icon}</span>
                     <span className="text-sm font-bold" style={{ color: n.color }}>{n.text}</span>
                   </div>
