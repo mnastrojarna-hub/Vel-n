@@ -120,24 +120,62 @@
 .katalog-empty{padding:2.5rem 1.5rem;text-align:center;background:#fff;border:1px dashed #d4e8e0;border-radius:12px;grid-column:1 / -1}
 .katalog-empty p{margin:0 0 .75rem}
 
+@media(max-width:1024px){
+  .filter-row{grid-template-columns:repeat(3,1fr)}
+}
 @media(max-width:900px){
   .filter-row{grid-template-columns:repeat(2,1fr)}
 }
 @media(max-width:600px){
-  .katalog-filters{padding:1rem;border-radius:14px}
+  .katalog-filters{padding:1rem;border-radius:14px;margin:.75rem 0 1.25rem}
   .filter-row{grid-template-columns:1fr;gap:.55rem}
-  .filter-row-checks{flex-direction:column;align-items:stretch;gap:.5rem}
-  .filter-actions{margin-left:0;flex-direction:column}
-  .filter-actions .btn{width:100%}
-  .filter-check{justify-content:flex-start;padding:.5rem .75rem;background:#f9fefa;border-color:#e8f0ec}
+  .filter-field input[type=search],
+  .filter-field select{padding:.95rem 2.6rem .95rem 1.1rem;font-size:1rem;min-height:48px}
+  .filter-field-search input[type=search]{padding-left:2.6rem}
+  .filter-row-checks{flex-direction:column;align-items:stretch;gap:.5rem;padding-top:.75rem}
+  .filter-actions{margin-left:0;flex-direction:column;width:100%;gap:.5rem}
+  .filter-actions .btn{width:100%;min-height:48px;justify-content:center}
+  .filter-check{justify-content:flex-start;padding:.65rem .85rem;background:#f9fefa;border-color:#e8f0ec;min-height:44px}
+  .filter-check input{width:22px;height:22px}
+  .katalog-count{font-size:.85rem;margin:0 0 .85rem}
+}
+/* Moto karta — touch-friendly tap on mobil */
+@media(max-width:768px){
+  #katalog-grid.gr4{grid-template-columns:repeat(2,1fr);gap:.75rem}
+  .moto-wrapper{border-radius:10px}
+  .moto-title{padding:.6rem .75rem}
+  .moto-title h2{font-size:.95rem}
+  .moto-desc{padding:.7rem .8rem .35rem}
+  .moto-desc li{font-size:.8rem}
+  .moto-price{font-size:.9rem;margin-top:.4rem}
+  .moto-btn{padding:.4rem .75rem .85rem}
+  .moto-btn .btn{width:100%;font-size:.78rem;padding:.5rem .75rem}
+  .moto-card-badge{font-size:.65rem;padding:.2rem .5rem;top:.45rem;right:.45rem}
+}
+@media(max-width:480px){
+  #katalog-grid.gr4{grid-template-columns:1fr;gap:.85rem}
+  .moto-img{aspect-ratio:16/10}
+  .moto-title h2{font-size:1.05rem}
+  .moto-desc li{font-size:.85rem}
+  .moto-btn .btn{font-size:.85rem;padding:.65rem 1rem}
+}
+/* Moto detail nav — kompaktní na mobilu */
+@media(max-width:768px){
+  .moto-nav{flex-wrap:wrap;gap:.5rem;padding:.5rem 0;margin-bottom:.75rem}
+  .moto-nav a{font-size:.82rem;flex:1;min-width:0}
+  .moto-nav-back{order:-1;flex:1 1 100%;text-align:center;padding:.55rem;background:#f4faf7;border-radius:8px}
+  .moto-nav-prev,.moto-nav-next{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .moto-detail-header{gap:.75rem;margin-bottom:1rem}
+  .moto-detail-header>div:last-child{width:100%}
+  .moto-detail-header .btn{width:100%;text-align:center}
 }
 
 
 /* ===== MOTO DETAIL ===== */
 .moto-detail{padding-bottom:2rem}
-.moto-nav{display:flex;justify-content:space-between;align-items:center;padding:.75rem 0;margin-bottom:1rem;border-bottom:1px solid #e0e0e0}
-.moto-nav a{color:#1a8c1a;font-size:.9rem;transition:color .2s}
-.moto-nav a:hover{color:#0d6e0d}
+.moto-nav{display:flex;justify-content:space-between;align-items:center;padding:.75rem 0;margin-bottom:1rem;border-bottom:1px solid #e0e0e0;gap:.5rem}
+.moto-nav a{color:#1a8c1a;font-size:.9rem;transition:color .2s;padding:.35rem .5rem;border-radius:6px}
+.moto-nav a:hover{color:#0d6e0d;background:#f4faf7}
 .moto-nav-disabled{color:#bbb;pointer-events:none}
 .moto-nav-back{font-weight:600}
 .moto-detail-header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem}
@@ -154,6 +192,47 @@
 .moto-gallery .gallery-img img:hover{opacity:.85}
 .moto-gallery .gr3{gap:.5rem}
 .moto-gallery .gr3 .gallery-img img{height:100px;object-fit:cover}
+
+/* Moto detail — mobilní layout */
+@media(max-width:768px){
+  .moto-info.gr2{display:flex;flex-direction:column-reverse;gap:1rem}
+  .moto-shortdesc{margin-top:.5rem}
+  .moto-gallery .moto-photo{margin-bottom:.5rem}
+  .moto-gallery .moto-photo .gallery-img img{aspect-ratio:4/3;object-fit:cover;width:100%;height:auto;max-height:60vh}
+  /* Galerie thumbs — horizontal scroll snap */
+  .moto-gallery .gr3{display:flex;flex-wrap:nowrap;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;gap:.5rem;padding-bottom:.5rem;scrollbar-width:thin}
+  .moto-gallery .gr3>div{flex:0 0 calc(33.333% - .35rem);min-width:0;scroll-snap-align:start}
+  .moto-gallery .gr3 .gallery-img img{height:90px}
+  /* Specs/popis sloupce — jeden pod druhým */
+  .moto-detail section.gr2,
+  .moto-prices.gr2{grid-template-columns:1fr;gap:1.25rem}
+  .moto-reservation{padding:1rem}
+  /* Tabulka cen — kompaktní */
+  .moto-prices .table th,.moto-prices .table td{padding:.55rem .75rem;font-size:.85rem}
+  /* Sticky CTA na mobilu — REZERVOVAT pevně dole */
+  .moto-detail-header>div:last-child{position:sticky;bottom:0;z-index:30}
+}
+@media(max-width:480px){
+  .moto-gallery .gr3>div{flex:0 0 calc(50% - .25rem)}
+  .moto-gallery .gr3 .gallery-img img{height:110px}
+}
+
+/* Calendar grid — kompaktní mobilní layout */
+@media(max-width:600px){
+  .cal-grid{padding:.6rem;gap:3px;border-radius:10px}
+  .cal-header{font-size:.7rem;padding:.3rem .15rem}
+  .cal-day{padding:.25rem .15rem;font-size:.78rem;min-height:40px;border-radius:8px!important}
+  .cal-day span:first-child{font-size:.55rem!important}
+  .cal-nav button{width:36px;height:36px;font-size:1rem}
+  .cal-nav span{font-size:.95rem}
+  .calendar-icons{flex-wrap:wrap;gap:.5rem;font-size:.78rem}
+  .calendar-icons.gr3{display:flex}
+  .calendar-icons>div{font-size:.78rem}
+}
+@media(max-width:380px){
+  .cal-grid{gap:2px;padding:.5rem}
+  .cal-day{min-height:36px;padding:.2rem .1rem}
+}
 
 /* Moto prices */
 .moto-prices{margin-top:2rem}
@@ -453,19 +532,137 @@
 @media(max-width:768px){
   .gear-grid{grid-template-columns:1fr;gap:.7rem}
   .rez-loc-grid{grid-template-columns:1fr;gap:.55rem}
-  .rez-section{padding:1rem 1.1rem .9rem;border-radius:14px}
+  .rez-section{padding:1rem 1rem .9rem;border-radius:14px;margin:.85rem 0 1rem}
+  .rez-section-head{gap:.55rem;margin-bottom:.7rem}
   .rez-section-head h2{font-size:1.05rem}
-  .rez-time-card-head{gap:.6rem}
-  .rez-time-card input[type=time]{margin-left:0!important;width:100%}
+  .rez-step-num{width:28px;height:28px;font-size:.9rem}
+  .rez-section-sub{font-size:.85rem;margin:-.15rem 0 .75rem}
+  .rez-time-card{padding:.85rem .9rem;border-radius:12px}
+  .rez-time-card-head{gap:.6rem;flex-wrap:wrap}
+  .rez-time-card input[type=time]{margin-left:0!important;width:100%;flex:1 1 100%;min-height:48px;font-size:1.1rem}
   .rez-time-card-head>div:not(.rez-time-ico){flex:1;min-width:0}
+  .rez-time-chips{gap:.4rem;justify-content:flex-start}
+  .time-chip{padding:.55rem .9rem;font-size:.85rem;min-height:40px}
   .rez-addr-row{flex-direction:column}
-  .rez-map-btn{width:100%}
-  .gear-head{padding:.85rem .9rem;gap:.6rem}
-  .gear-ico{font-size:1.6rem}
+  .rez-map-btn{width:100%;min-height:44px}
+  .rez-loc-card{padding:.95rem 1rem;min-height:64px;border-radius:12px}
+  .rez-loc-title{font-size:.9rem}
+  .gear-head{padding:.95rem .9rem;gap:.6rem;min-height:64px}
+  .gear-head input[type=checkbox]{width:24px;height:24px}
+  .gear-ico{font-size:1.7rem}
   .gear-title{font-size:.95rem}
-  .size-chip{padding:.45rem .75rem;font-size:.8rem;min-width:38px}
+  .gear-sub{font-size:.8rem}
+  .size-chip{padding:.6rem .85rem;font-size:.85rem;min-width:42px;min-height:40px}
+  .size-row{padding:.65rem 0}
+  .gear-size-panel{padding:.5rem .9rem 1rem}
+  .rez-agree{padding:.7rem .85rem;font-size:.85rem;gap:.6rem}
+  .rez-agree input{width:22px;height:22px}
+  .rez-cta{width:100%;padding:1rem 1rem!important;font-size:1.05rem!important;justify-content:center}
+  /* Pickup/delivery — mobilní */
+  .pickup{flex-direction:column;align-items:stretch;gap:.5rem}
+  .pickup>div:first-child{white-space:normal}
+  .pickup input[type=time]{max-width:100%;width:100%}
+  /* Form-product-select — wrap na mobilu */
+  .form-product-select{flex-direction:column;align-items:stretch;gap:.5rem}
+  .form-product-select select{min-width:0;width:100%}
+  .form-product-select>div{white-space:normal}
+  /* Voucher row */
+  .rez-voucher-row{flex-direction:column;align-items:stretch}
+  .rez-voucher-row .btn{width:100%;min-height:44px}
+  /* Inputy v rezervaci — větší touch */
+  .pcontent input[type=text],.pcontent input[type=email],.pcontent input[type=tel],
+  .pcontent input[type=search],.pcontent input[type=time],.pcontent input[type=date],
+  .pcontent select,.pcontent textarea{padding:.85rem 1rem;font-size:16px;min-height:48px}
+  .pcontent textarea{min-height:120px}
+  /* Checkboxes — větší touch */
+  .checkboxes input[type=checkbox],.checkboxes input[type=radio]{width:22px;height:22px}
+  .checkboxes label{font-size:.92rem;line-height:1.5}
+  /* Tooltip — adaptivní šířka */
+  .ctooltiptext{position:fixed;left:1rem;right:1rem;top:auto;bottom:1rem;width:auto;max-width:none;z-index:200}
 }
 @media(max-width:480px){
   .rez-time-chips{gap:.3rem}
-  .time-chip{padding:.35rem .7rem;font-size:.78rem}
+  .time-chip{padding:.4rem .75rem;font-size:.78rem;min-height:36px}
+  .rez-section{padding:.85rem .85rem .8rem}
+  .rez-section-head h2{font-size:1rem}
+  .rez-loc-card{padding:.85rem .85rem;gap:.65rem}
+  .rez-loc-ico{font-size:1.4rem}
+  .gear-head{padding:.85rem .8rem}
+  .gear-ico{font-size:1.5rem}
+  .gear-title{font-size:.9rem}
+  .gear-price{font-size:.72rem;padding:.15rem .5rem}
+  .rez-cta{padding:.95rem .75rem!important;font-size:1rem!important}
+}
+
+/* ===== GIFT VOUCHER — mobilní ===== */
+@media(max-width:768px){
+  .gift-voucher-order{max-width:100%}
+  .gv-values{gap:.4rem}
+  .gv-value-btn{padding:.65rem 1rem;font-size:.9rem;min-height:44px;flex:1 1 calc(50% - .25rem);justify-content:center}
+  .gv-custom-value{flex-wrap:wrap}
+  .gv-custom-value input{width:100%;min-height:44px}
+  .gv-equipment-btn{padding:.85rem;gap:.75rem;flex-wrap:wrap;min-height:64px}
+  .gv-equipment-btn input{width:22px;height:22px}
+  .gv-eq-price{font-size:.85rem}
+}
+@media(max-width:480px){
+  .gv-value-btn{flex:1 1 100%}
+}
+
+/* ===== KONTAKT — quick boxes mobilní ===== */
+@media(max-width:768px){
+  .contact-quick-boxes{flex-direction:column;border-radius:12px}
+  .contact-quick-box{border-right:none;border-bottom:1px solid #d4e8e0;padding:1rem 1.1rem}
+  .contact-quick-box:last-child{border-bottom:none}
+  .map{height:320px}
+}
+@media(max-width:480px){
+  .map{height:260px;border-radius:8px}
+  .cta-green-box{padding:1.25rem;border-radius:10px}
+}
+
+/* ===== BLOG card mobilní ===== */
+@media(max-width:768px){
+  .blog-wrapper{border-radius:12px}
+  .blog-title{top:.75rem;left:.75rem;right:.75rem;padding:.7rem .85rem}
+  .blog-title h2{font-size:.95rem}
+  .blog-desc{padding:.85rem .85rem .25rem}
+  .blog-desc p{font-size:.85rem}
+  .blog-btn{padding:.4rem .85rem 1rem}
+  .blog-btn .btn{font-size:.78rem}
+  .blog-tabs li a,.nav-pills li a{padding:.5rem .9rem;min-height:40px;display:inline-flex;align-items:center}
+  /* Blog detail */
+  .blog-content{font-size:.95rem}
+  .blog-content h2{font-size:1.2rem;margin-top:1.25rem}
+  .blog-content h3{font-size:1.05rem;margin-top:1rem}
+}
+
+/* ===== FAQ accordion mobilní ===== */
+@media(max-width:768px){
+  .faq-item summary{padding:.95rem 1rem;font-size:.92rem;min-height:52px}
+  .faq-item p,.faq-item div:not(summary){padding:0 1rem .9rem;font-size:.88rem}
+  .tabs,.tab{flex-wrap:wrap}
+  .tab{padding:.5rem .85rem;min-height:38px;display:inline-flex;align-items:center}
+}
+
+/* ===== JAK SI PŮJČIT — tiles mobilní ===== */
+@media(max-width:480px){
+  .jp-tile{font-size:.88rem;min-height:54px;padding:.8rem .9rem;border-radius:22px}
+}
+
+/* ===== REVIEWS mobilní ===== */
+@media(max-width:768px){
+  .review-card{padding:1rem 1.1rem}
+  .review-comment{font-size:.88rem}
+}
+
+/* ===== TABLE — mobilní stack pro klíčové tabulky ===== */
+.table-responsive{-webkit-overflow-scrolling:touch}
+@media(max-width:520px){
+  .table th,.table td{padding:.5rem .65rem;font-size:.82rem}
+}
+
+/* ===== FORMS — focus state na mobil  ===== */
+@media(max-width:768px){
+  .pcontent input:focus,.pcontent select:focus,.pcontent textarea:focus{box-shadow:0 0 0 4px rgba(116,251,113,.2)}
 }
