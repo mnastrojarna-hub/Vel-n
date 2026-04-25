@@ -8,7 +8,7 @@ $activeTag = $_GET['tag'] ?? '';
 
 $posts = $activeTag ? $sb->fetchCmsPages($activeTag) : $sb->fetchCmsPages();
 $allPosts = $sb->fetchCmsPages();
-$bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], 'Blog']);
+$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], t('breadcrumb.blog')]);
 
 // Fallback články (pokud cms_pages v DB prázdná). Plné články jsou v
 // blog_fallback.php, kde si je načte i blog-detail.php pro single view.
@@ -37,7 +37,7 @@ $tagHtml = '';
 if (!empty($tagCounts)) {
     $isAllActive = !$activeTag ? ' class="active"' : '';
     $tagHtml = '<ul class="nav blog-tabs df">'
-        . '<li' . $isAllActive . '><a href="' . BASE_URL . '/blog">Všechny (' . count($allPosts) . ')</a></li>';
+        . '<li' . $isAllActive . '><a href="' . BASE_URL . '/blog">' . htmlspecialchars(t('blog.tagAll', ['count' => count($allPosts)])) . '</a></li>';
     foreach ($tagCounts as $tag => $count) {
         $isActive = ($activeTag === $tag) ? ' class="active"' : '';
         $tagHtml .= '<li' . $isActive . '><a href="' . BASE_URL . '/blog?tag=' . urlencode($tag) . '">' . htmlspecialchars($tag) . ' (' . $count . ')</a></li>';
@@ -47,23 +47,23 @@ if (!empty($tagCounts)) {
 
 $gridHtml = '';
 if (empty($posts)) {
-    $gridHtml = '<p>Žádné články v této kategorii.</p>';
+    $gridHtml = '<p>' . te('blog.empty') . '</p>';
 } else {
     foreach ($posts as $p) { $gridHtml .= renderBlogCard($p); }
 }
 
 $content = '<main id="content"><div class="container">' . $bc
-    . '<section class="ccontent"><h1>Blog a tipy</h1>'
+    . '<section class="ccontent"><h1>' . te('blog.h1') . '</h1>'
     . '<div id="blog-tags">' . $tagHtml . '</div>'
     . '<div class="tab-content"><div class="tab-pane active">'
     . '<div id="blog-grid" class="gr3">' . $gridHtml . '</div>'
     . '</div></div></section></div></main>';
 
-renderPage('Blog a tipy pro motorkáře | MotoGo24', $content, '/blog', [
-    'description' => 'Blog Motogo24 – tipy na motorkářské trasy na Vysočině i v ČR, novinky z půjčovny, rady pro bezpečnou jízdu a praktické postupy.',
-    'keywords' => 'motorkářský blog, trasy na motorku, tipy pro motorkáře, novinky půjčovna motorek, Vysočina, Český ráj',
+renderPage(t('blog.title'), $content, '/blog', [
+    'description' => t('blog.description'),
+    'keywords' => t('blog.keywords'),
     'breadcrumbs' => [
-        ['name' => 'Domů', 'url' => 'https://motogo24.cz/'],
-        ['name' => 'Blog', 'url' => 'https://motogo24.cz/blog'],
+        ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
+        ['name' => t('breadcrumb.blog'), 'url' => 'https://motogo24.cz/blog'],
     ],
 ]);

@@ -3,7 +3,7 @@
 // PHP renderuje HTML shell + header/footer, JS zajišťuje interaktivitu
 // (kalendář, ceník, mapa, OCR, Stripe platby)
 
-$bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], 'REZERVACE']);
+$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], t('breadcrumb.reservation')]);
 
 // Předvyplnění z query stringu
 $motoId = $_GET['moto'] ?? '';
@@ -14,14 +14,15 @@ $resume = $_GET['resume'] ?? '';
 
 $content = '<main id="content"><div class="container">' . $bc .
     '<div class="ccontent pcontent">' .
-    '<div id="rezervace-app"><div class="loading-overlay"><span class="spinner"></span> Načítám rezervační systém...</div></div>' .
+    '<div id="rezervace-app"><div class="loading-overlay"><span class="spinner"></span> ' . te('rezervace.loading') . '</div></div>' .
     '</div></div></main>';
 
 // Supabase SDK + konfigurace + JS moduly pro rezervaci
 $rezervaceJs = '<script>
 window.MOTOGO_CONFIG = {
   SUPABASE_URL: ' . json_encode(SUPABASE_URL) . ',
-  SUPABASE_ANON_KEY: ' . json_encode(SUPABASE_ANON_KEY) . '
+  SUPABASE_ANON_KEY: ' . json_encode(SUPABASE_ANON_KEY) . ',
+  LANG: ' . json_encode(function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs') . '
 };
 window.REZERVACE_PARAMS = {
   moto: ' . json_encode($motoId) . ',
@@ -57,8 +58,8 @@ MG._rez = { startDate: null, endDate: null, motos: [], motoId: "", allBookings: 
 })();
 </script>';
 
-renderPage('Online rezervace motorky | MotoGo24', $content . $rezervaceJs, '/rezervace', [
-    'description' => 'Online rezervace motorky na Vysočině. Bez kauce, s výbavou v ceně a nonstop provozem. Vyberte motorku, termín a zaplaťte online.',
-    'keywords' => 'rezervace motorky online, půjčit motorku, pronájem motorky Vysočina, online booking',
+renderPage(t('rezervace.title'), $content . $rezervaceJs, '/rezervace', [
+    'description' => t('rezervace.description'),
+    'keywords' => t('rezervace.keywords'),
     'robots' => 'noindex,follow',
 ]);

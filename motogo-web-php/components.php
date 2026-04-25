@@ -3,6 +3,7 @@
 // IDENTICKÝ HTML výstup jako components.js
 
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/i18n.php';
 require_once __DIR__ . '/supabase.php';
 
 /**
@@ -87,12 +88,12 @@ function renderMotoCard($m) {
     foreach ($features as $f) { $featHtml .= '<li>' . $f . '</li>'; }
     $featHtml .= '</ul>';
 
-    $priceText = $price > 0 ? ('Cena: od ' . formatPrice($price) . '/den') : '';
+    $priceText = $price > 0 ? t('card.priceFromPerDay', ['price' => formatPrice($price)]) : '';
     $modelRaw = trim((string)($m['model'] ?? ''));
-    if ($modelRaw === '') $modelRaw = 'Motorka k pronájmu';
+    if ($modelRaw === '') $modelRaw = t('card.unnamedMotorcycle');
     $model = htmlspecialchars($modelRaw);
     $id = htmlspecialchars($m['id'] ?? '');
-    $imgAlt = htmlspecialchars('Motorka ' . $modelRaw . ' – půjčovna Motogo24');
+    $imgAlt = htmlspecialchars(t('common.motorcycleAlt', ['model' => $modelRaw]));
 
     // Branch info (pokud tabulka motorcycles byla joinnutá s branches)
     $branch = $m['branches'] ?? null;
@@ -104,7 +105,7 @@ function renderMotoCard($m) {
     // Available badge — "k dispozici" pokud status=active (rezervační kalendář je v detailu)
     $badge = '';
     if (($m['status'] ?? '') === 'active') {
-        $badge = '<span class="moto-card-badge">Dostupné</span>';
+        $badge = '<span class="moto-card-badge">' . te('card.available') . '</span>';
     }
 
     return '<a class="moto-wrapper" href="' . BASE_URL . '/katalog/' . $id . '" aria-label="' . $model . '">' .
@@ -114,7 +115,7 @@ function renderMotoCard($m) {
             '<div class="moto-title"><h2>' . $model . '</h2></div>' .
         '</div>' .
         '<div class="moto-desc">' . $featHtml . $branchLine . ($priceText ? '<p class="moto-price">' . $priceText . '</p>' : '') . '</div>' .
-        '<div class="moto-btn"><span class="btn btngreen-small">DETAIL MOTORKY</span></div>' .
+        '<div class="moto-btn"><span class="btn btngreen-small">' . te('card.detailButton') . '</span></div>' .
     '</a>';
 }
 
@@ -133,16 +134,16 @@ function renderBlogCard($post) {
     $tag = !empty($tags) ? $tags[0] : '';
     $excerpt = $post['excerpt'] ?? ($post['description'] ?? '');
     $titleRaw = trim((string)($post['title'] ?? ''));
-    if ($titleRaw === '') $titleRaw = 'Článek z blogu Motogo24';
+    if ($titleRaw === '') $titleRaw = t('card.unnamedArticle');
     $title = htmlspecialchars($titleRaw);
     $slug = htmlspecialchars($post['slug'] ?? '');
-    $imgAlt = htmlspecialchars($titleRaw . ' – blog Motogo24');
+    $imgAlt = htmlspecialchars(t('common.blogAlt', ['title' => $titleRaw]));
 
     return '<div><a class="blog-wrapper" href="' . BASE_URL . '/blog/' . $slug . '" aria-label="' . $title . '">' .
         '<div class="blog-title"><h2>' . $title . '</h2></div>' .
         '<div class="blog-img">' . ($img ? '<img src="' . htmlspecialchars($img) . '" alt="' . $imgAlt . '" class="imgres" loading="lazy">' : '') . '</div>' .
         '<div class="blog-desc">' . ($tag ? '<p><span class="tag-label">' . htmlspecialchars($tag) . '</span></p>' : '') . '<p>' . htmlspecialchars($excerpt) . '</p></div>' .
-        '<div class="blog-btn"><span class="btn btngreen-small">PŘEČÍST ČLÁNEK</span></div>' .
+        '<div class="blog-btn"><span class="btn btngreen-small">' . te('card.readArticle') . '</span></div>' .
     '</a></div>';
 }
 
@@ -152,7 +153,7 @@ function renderBlogCard($post) {
 function renderWbox($icon, $title, $text) {
     $iconSrc = $icon ? BASE_URL . '/' . ltrim($icon, '/') : '';
     $titleText = trim(strip_tags($title));
-    if ($titleText === '') $titleText = 'Informace';
+    if ($titleText === '') $titleText = t('common.info');
     return '<div class="wbox">' .
         ($icon ? '<div class="wbox-img"><img src="' . htmlspecialchars($iconSrc) . '" class="icon" alt="' . htmlspecialchars($titleText) . '" loading="lazy"></div>' : '') .
         '<h3>' . $title . '</h3>' .
@@ -177,7 +178,7 @@ function renderFaqSection($title, $items, $moreLink = null) {
     }
     $html .= '</div></div></div>';
     if ($moreLink) {
-        $html .= '<p>&nbsp;</p><p><a class="btn btngreen" href="' . BASE_URL . $moreLink . '">Další často kladené otázky</a></p>';
+        $html .= '<p>&nbsp;</p><p><a class="btn btngreen" href="' . BASE_URL . $moreLink . '">' . te('common.moreFaq') . '</a></p>';
     }
     $html .= '</section>';
     return $html;
