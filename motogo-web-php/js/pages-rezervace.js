@@ -166,17 +166,17 @@ MG._rezFormHtml = function(){
 
       '<div class="gear-grid">' +
 
-        // Driver gear (free) — auto-open
-        '<div class="gear-card gear-card-rider open" id="gear-card-rider">' +
+        // Driver gear (free) — collapsed by default
+        '<div class="gear-card gear-card-rider" id="gear-card-rider">' +
           '<label class="gear-head">' +
-            '<input type="checkbox" id="rez-eq-rider-gear" checked>' +
+            '<input type="checkbox" id="rez-eq-rider-gear">' +
             '<span class="gear-ico">&#127949;</span>' +
             '<div class="gear-body"><div class="gear-title">Výbava řidiče</div>' +
             '<div class="gear-price gear-price-free">v ceně · zdarma</div>' +
             '<div class="gear-sub">Helma, bunda, rukavice, kalhoty</div></div>' +
           '</label>' +
           '<div class="gear-extra-toggle"><label><input type="checkbox" id="rez-own-gear"> Mám vlastní výbavu — nepůjčuji</label></div>' +
-          '<div class="gear-size-panel-hint">&#128205; Vyberte své velikosti — bude na vás čekat již nachystaná výbava.</div>' +
+          '<div class="gear-size-panel-hint">&#9989; Zaškrtněte výše pro výběr velikostí (jinak se vyzkouší na místě)</div>' +
           MG._gearPanelHtml({panelId:'gear-panel-rider', group:'rider', kinds:['helmet','jacket','gloves','pants']}) +
         '</div>' +
 
@@ -191,7 +191,7 @@ MG._rezFormHtml = function(){
             MG._tip('Základní výbava pro spolujezdce: helma, bunda, rukavice a kukla. Velikost si vyberete kliknutím níže nebo na místě.') +
             '</div></div>' +
           '</label>' +
-          '<div class="gear-size-panel-hint">&#9989; Zaškrtněte výše + vyberte velikosti spolujezdce</div>' +
+          '<div class="gear-size-panel-hint">&#9989; Zaškrtněte výše a rozbalí se výběr velikostí spolujezdce</div>' +
           MG._gearPanelHtml({panelId:'gear-panel-passenger', group:'passenger', kinds:['helmet','jacket','gloves']}) +
         '</div>' +
 
@@ -204,7 +204,7 @@ MG._rezFormHtml = function(){
             '<div class="gear-price">+ 290 Kč</div>' +
             '<div class="gear-sub">Motocyklové boty (nejsou v základní výbavě)</div></div>' +
           '</label>' +
-          '<div class="gear-size-panel-hint">&#9989; Zaškrtněte výše + vyberte velikost bot</div>' +
+          '<div class="gear-size-panel-hint">&#9989; Zaškrtněte výše a rozbalí se výběr velikosti bot</div>' +
           MG._gearPanelHtml({panelId:'gear-panel-boots-rider', group:'rider', kinds:['boots']}) +
         '</div>' +
 
@@ -217,7 +217,7 @@ MG._rezFormHtml = function(){
             '<div class="gear-price">+ 290 Kč</div>' +
             '<div class="gear-sub">Motocyklové boty pro spolujezdce</div></div>' +
           '</label>' +
-          '<div class="gear-size-panel-hint">&#9989; Zaškrtněte výše + vyberte velikost bot</div>' +
+          '<div class="gear-size-panel-hint">&#9989; Zaškrtněte výše a rozbalí se výběr velikosti bot</div>' +
           MG._gearPanelHtml({panelId:'gear-panel-boots-passenger', group:'passenger', kinds:['boots']}) +
         '</div>' +
 
