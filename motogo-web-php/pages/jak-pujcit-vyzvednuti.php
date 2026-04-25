@@ -1,61 +1,14 @@
 <?php
-// ===== MotoGo24 Web PHP — Převzetí v půjčovně (CMS-driven) =====
+// ===== MotoGo24 Web PHP — Převzetí v půjčovně (CMS-driven, 1:1 prepis) =====
+// Zdroj: https://www.motogo24.cz/cz/jak-si-pujcit-motorku/prevzeti-v-pujcovne
 // Pozn.: URL /jak-pujcit/vyzvednuti i /jak-pujcit/prevzeti vede sem (SEO).
+// Obsah rozdelen do 2 souboru v /data/ kvuli pravidlu max 5000 tokenu na soubor.
 
 $sb = new SupabaseClient();
 
-$defaults = [
-    'seo' => [
-        'title' => 'Převzetí motocyklu v půjčovně | MotoGo24',
-        'description' => 'Převzetí motorky v půjčovně Pelhřimov. Nonstop provoz, bez kauce, výbava v ceně. Co si vzít s sebou a jak probíhá předání.',
-        'keywords' => 'převzetí motorky v půjčovně, vyzvednutí motocyklu, půjčovna Pelhřimov, nonstop převzetí',
-    ],
-    'h1' => 'Převzetí motocyklu v půjčovně – rychle, jednoduše a nonstop',
-    'intro' => 'V <strong>Motogo24 – půjčovna motorek Vysočina</strong> je <strong>převzetí motorky</strong> otázkou pár minut. Půjčujeme <strong>bez kauce</strong>, s <strong>výbavou v ceně</strong> a <strong>nonstop provozem</strong>.',
-    'top_cta' => ['label' => 'REZERVOVAT ONLINE', 'href' => '/rezervace'],
-    'place' => [
-        'title' => 'Kde probíhá převzetí',
-        'address' => 'Mezná 9, 393 01 <strong>Pelhřimov</strong> (Vysočina)',
-        'hours' => '<em>nonstop</em>',
-        'phone' => '+420 774 256 271',
-        'return_title' => 'Vrácení motorky – bez stresu',
-        'return_text' => 'Motorku můžeš vrátit <strong>kdykoli během posledního dne výpůjčky</strong>. Více informací viz <a href="/jak-pujcit/vraceni-pujcovna">vrácení v půjčovně</a> nebo <a href="/jak-pujcit/vraceni-jinde">vrácení jinde</a>.',
-        'map_src' => 'https://frame.mapy.cz/s/?x=15.15413&y=49.35169&z=14&source=coor&id=15.15413%2C49.35169',
-    ],
-    'steps' => [
-        'title' => 'Jak probíhá převzetí krok za krokem',
-        'items' => [
-            ['icon' => 'gfx/ico-step1.svg', 'title' => 'Přijď v domluvený čas', 'text' => 'na naši adresu nebo vyčkej na přistavení'],
-            ['icon' => 'gfx/ico-step2.svg', 'title' => 'Ověříme doklady', 'text' => 'OP/pas + řidičský průkaz odpovídající skupiny'],
-            ['icon' => 'gfx/ico-step3.svg', 'title' => 'Předáme motorku a výbavu', 'text' => 'helma, bunda, kalhoty, rukavice'],
-            ['icon' => 'gfx/ico-step4.svg', 'title' => 'Krátké seznámení se strojem', 'text' => 'ovládání, tipy, doporučení k trase'],
-            ['icon' => 'gfx/ico-step5.svg', 'title' => 'Podepíšeme předávací protokol', 'text' => 'a můžeš vyrazit'],
-        ],
-    ],
-    'bring' => [
-        'title' => 'Co si vzít s sebou',
-        'items' => [
-            '<strong>Občanský průkaz / pas</strong>',
-            '<strong>Řidičský průkaz</strong> odpovídající skupiny (A/A2 podle motorky)',
-            '<strong>Vhodnou obuv</strong> (moto boty lze půjčit jako nadstandard)',
-        ],
-        'cta' => ['label' => 'ZAREZERVOVAT TERMÍN', 'href' => '/rezervace'],
-    ],
-    'faq' => [
-        'title' => 'Časté dotazy k převzetí',
-        'items' => [
-            ['q' => 'Musím platit kauci při převzetí?', 'a' => 'Ne, <strong>půjčujeme bez kauce</strong>. Podmínky jsou jasně dané a férové.'],
-            ['q' => 'Je možný kontakt bez osobního setkání?', 'a' => 'Ano, nabízíme <strong>bezkontaktní předání</strong> po domluvě.'],
-            ['q' => 'Co když nestíhám domluvený čas?', 'a' => 'Dej nám vědět telefonicky – přizpůsobíme čas, nebo nabídneme <strong>přistavení</strong>.'],
-            ['q' => 'Je v ceně i výbava pro spolujezdce?', 'a' => 'Výbava pro řidiče je v ceně vždy. Výbavu pro spolujezdce lze přiobjednat jako <strong>nadstandard</strong>.'],
-        ],
-    ],
-    'cta' => [
-        'title' => 'Převzetí motorky v půjčovně – Motogo24 Vysočina',
-        'text' => 'Motogo24 je <strong>půjčovna motorek na Vysočině</strong> s <strong>nonstop převzetím i vrácením</strong>, <strong>bez kauce</strong> a s <strong>výbavou v ceně</strong>.',
-        'buttons' => [['label' => 'REZERVOVAT ONLINE', 'href' => '/rezervace', 'cls' => 'btndark pulse']],
-    ],
-];
+$part1 = require __DIR__ . '/../data/prevzeti-content-1.php';
+$part2 = require __DIR__ . '/../data/prevzeti-content-2.php';
+$defaults = array_merge($part1, $part2);
 
 $C = $sb->siteContent('jak_pujcit_vyzvednuti', $defaults);
 
@@ -65,39 +18,118 @@ if ($pagePath !== '/jak-pujcit/vyzvednuti') $pagePath = '/jak-pujcit/prevzeti';
 
 $bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], ['label' => 'Jak si půjčit', 'href' => '/jak-pujcit'], 'Převzetí v půjčovně']);
 
-$mapIframe = '<iframe class="map" loading="lazy" src="' . htmlspecialchars($C['place']['map_src']) . '" title="Jak se k nám dostanete"></iframe>';
+// --- Section 1: title + intro + top CTA ---
+$titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">Hlavní obsah stránky</h2>' .
+    '<h1>' . $C['h1'] . '</h1>' .
+    '<p>' . $C['intro'] . '</p>' .
+    '<p>&nbsp;</p>' .
+    '<p><a aria-label="' . htmlspecialchars($C['top_cta']['aria']) . '" class="btn btngreen" href="' . BASE_URL . $C['top_cta']['href'] . '">' . $C['top_cta']['label'] . '</a></p>' .
+    '<p>&nbsp;</p><p>&nbsp;</p>' .
+    '</section>';
 
-$placeHtml = '<section><div class="gr2"><div>' .
+// --- Section 2 (main1): 2-col adresa + Google Maps embed ---
+$mapIframe = '<iframe class="map" loading="lazy" src="' . htmlspecialchars($C['place']['map_src']) . '" title="' . htmlspecialchars($C['place']['map_title']) . '"></iframe>';
+$placeSection = '<section aria-labelledby="main1" class="main1"><h2 id="main1" class="vh">Důležité informace</h2>' .
+    '<div class="gr2"><div>' .
     '<h2>' . $C['place']['title'] . '</h2>' .
-    '<p><strong>Provozovna:</strong> ' . $C['place']['address'] . '</p>' .
-    '<p><strong>Provozní doba:</strong> ' . $C['place']['hours'] . '</p>' .
-    '<p><strong>Telefon:</strong> <a href="tel:' . preg_replace('/\s+/', '', $C['place']['phone']) . '">' . htmlspecialchars($C['place']['phone']) . '</a></p>' .
-    '<p>&nbsp;</p><h2>' . $C['place']['return_title'] . '</h2>' .
-    '<p>' . $C['place']['return_text'] . '</p>' .
-    '</div><div><p>' . $mapIframe . '</p></div></div></section>';
+    '<p><strong>' . $C['place']['address_label'] . '&nbsp;</strong>' . $C['place']['address'] . '</p>' .
+    '<p><strong>' . $C['place']['hours_label'] . '</strong> ' . $C['place']['hours'] . '</p>' .
+    '<p>&nbsp;</p>' .
+    '</div><div>' .
+    '<p>' . $mapIframe . '</p>' .
+    '</div></div>' .
+    '</section>';
 
-$stepsHtml = '<section><h2>' . $C['steps']['title'] . '</h2><div class="gr5">';
-foreach ($C['steps']['items'] as $s) { $stepsHtml .= renderWbox($s['icon'], $s['title'], $s['text']); }
-$stepsHtml .= '</div></section>';
+// --- Section 3: process 8 boxes (gr4) ---
+$grid = $C['process']['grid'] ?? 'gr4';
+$processHtml = '<section aria-labelledby="process"><h2 id="process" class="vh">Jak to u nás funguje</h2>' .
+    '<h2>' . $C['process']['title'] . '</h2>' .
+    '<div class="' . htmlspecialchars($grid) . '">';
+foreach ($C['process']['steps'] as $s) {
+    $processHtml .= renderWbox($s['icon'], $s['title'], $s['text']);
+}
+$processHtml .= '</div></section>';
+
+// --- Section 4 (main2): 2-col Co najdes (s tlacitkem) + Co s sebou ---
+$amenitiesLis = '';
+foreach ($C['amenities']['items'] as $i) { $amenitiesLis .= '<li>' . $i . '</li>'; }
+$amenityCol = '<div>' .
+    '<h2>' . $C['amenities']['title'] . '</h2>' .
+    '<p>' . $C['amenities']['lead'] . '</p>' .
+    '<p>&nbsp;</p>' .
+    '<ul>' . $amenitiesLis . '</ul>' .
+    '<p>&nbsp;</p>' .
+    '<p><a aria-label="' . htmlspecialchars($C['amenities']['cta']['aria']) . '" class="btn btngreen" href="' . BASE_URL . $C['amenities']['cta']['href'] . '">' . $C['amenities']['cta']['label'] . '</a></p>' .
+    '<p>&nbsp;</p><p>&nbsp;</p>' .
+    '</div>';
 
 $bringLis = '';
-foreach ($C['bring']['items'] as $b) { $bringLis .= '<li>' . $b . '</li>'; }
-$bringHtml = '<section><h2>' . $C['bring']['title'] . '</h2><ul>' . $bringLis . '</ul>' .
-    '<p>&nbsp;</p><p><a class="btn btngreen" href="' . BASE_URL . $C['bring']['cta']['href'] . '">' . $C['bring']['cta']['label'] . '</a></p></section>';
+foreach ($C['bring']['items'] as $i) { $bringLis .= '<li>' . $i . '</li>'; }
+$bringCol = '<div>' .
+    '<h2>' . $C['bring']['title'] . '</h2>' .
+    '<ul>' . $bringLis . '</ul>' .
+    '<p>&nbsp;</p><p>&nbsp;</p><p>&nbsp;</p>' .
+    '</div>';
+
+$main2Section = '<section aria-labelledby="main2" class="main2"><h2 id="main2" class="vh">Další důležité informace</h2>' .
+    '<div class="gr2">' . $amenityCol . $bringCol . '</div>' .
+    '</section>';
+
+// --- Section 5: FAQ ---
+$faqHtml = '<section aria-labelledby="faq"><h2 id="faq" class="vh">Na co se nás často ptáte</h2>' .
+    '<h2>' . $C['faq']['title'] . '</h2>' .
+    '<div class="tab-content"><div class="tab-pane active" id="all"><div class="gr2">';
+foreach ($C['faq']['items'] as $f) {
+    $faqHtml .= renderFaqItem($f['q'], $f['a']);
+}
+$faqHtml .= '</div></div></div></section>';
+
+// --- Section 6 (main3): mid CTA "REZERVOVAT VYZVEDNUTÍ" ---
+$mid = $C['mid_cta'];
+$mid3Section = '<section aria-labelledby="main3" class="main3"><h2 id="main3" class="vh">Další informace</h2>' .
+    '<p><a aria-label="' . htmlspecialchars($mid['aria']) . '" class="btn btngreen" href="' . BASE_URL . $mid['href'] . '">' . $mid['label'] . '</a></p>' .
+    '</section>';
+
+// --- Section 7: final CTA ---
+$ctaButtons = '';
+foreach ($C['cta']['buttons'] as $btn) {
+    $ctaButtons .= '<a aria-label="' . htmlspecialchars($btn['aria'] ?? $btn['label']) . '" class="btn ' . ($btn['cls'] ?? 'btndark') . '" href="' . BASE_URL . $btn['href'] . '">' . $btn['label'] . '</a>&nbsp;';
+}
+$finalCtaSection = '<section aria-labelledby="cta"><h2 id="cta" class="vh">Kontaktujte nás</h2>' .
+    '<h2>' . $C['cta']['title'] . '</h2>' .
+    '<p>' . $C['cta']['text'] . '</p>' .
+    '<p>&nbsp;</p>' .
+    '<p>' . $C['cta']['text2'] . '</p>' .
+    '<p>&nbsp;</p><p>&nbsp;</p>' .
+    '<p>' . $ctaButtons . '</p>' .
+    '</section>';
 
 $content = '<main id="content"><div class="container">' . $bc .
-    '<div class="ccontent">' .
-    '<section><h1>' . $C['h1'] . '</h1><p>' . $C['intro'] . '</p>' .
-    '<p>&nbsp;</p><p><a class="btn btngreen" href="' . BASE_URL . $C['top_cta']['href'] . '">' . $C['top_cta']['label'] . '</a></p></section>' .
-    $placeHtml . $stepsHtml . $bringHtml .
-    renderFaqSection($C['faq']['title'], $C['faq']['items']) .
-    renderCta($C['cta']['title'], $C['cta']['text'], $C['cta']['buttons']) .
+    '<div data-tag="Převzetí v půjčovně" class="sections ccontent">' .
+    $titleSection .
+    $placeSection .
+    $processHtml .
+    $main2Section .
+    $faqHtml .
+    $mid3Section .
+    $finalCtaSection .
     '</div></div></main>';
+
+// FAQPage schema
+$faqSchemaItems = [];
+foreach ($C['faq']['items'] as $faq) {
+    $faqSchemaItems[] = '{"@type":"Question","name":' . json_encode(strip_tags($faq['q']), JSON_UNESCAPED_UNICODE) . ',"acceptedAnswer":{"@type":"Answer","text":' . json_encode(strip_tags($faq['a']), JSON_UNESCAPED_UNICODE) . '}}';
+}
+$faqSchema = '
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[' . implode(',', $faqSchemaItems) . ']}
+  </script>';
 
 renderPage($C['seo']['title'], $content, $pagePath, [
     'description' => $C['seo']['description'],
     'keywords' => $C['seo']['keywords'],
     'canonical' => 'https://motogo24.cz/jak-pujcit/prevzeti',
+    'schema' => $faqSchema,
     'breadcrumbs' => [
         ['name' => 'Domů', 'url' => 'https://motogo24.cz/'],
         ['name' => 'Jak si půjčit', 'url' => 'https://motogo24.cz/jak-pujcit'],
