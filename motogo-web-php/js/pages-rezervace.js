@@ -101,7 +101,7 @@ MG._rezFormHtml = function(){
         '<div class="rez-time-card-head"><span class="rez-time-ico">&#128340;</span>' +
         '<div><div class="rez-time-title">Čas převzetí nebo přistavení</div>' +
         '<div class="rez-time-sub">Hodina, kdy chcete motorku převzít</div></div>' +
-        '<input type="time" id="rez-pickup-time" required></div>' +
+        '<input type="time" id="rez-pickup-time" required value="09:00"></div>' +
         '<div class="rez-time-chips">'+quickChips+'</div>' +
       '</div>' +
 
@@ -116,8 +116,8 @@ MG._rezFormHtml = function(){
           '<input type="checkbox" id="rez-delivery">' +
           '<div class="rez-loc-ico">&#128666;</div>' +
           '<div class="rez-loc-body"><div class="rez-loc-title">Přistavení motorky jinam' +
-          MG._tip('Motorku vám dovezeme na domluvené místo. V ceně: nakládka 500 Kč, vykládka 500 Kč + 40 Kč/km tam i zpět.') +
-          '</div><div class="rez-loc-sub">Od <strong>+1 000 Kč</strong> · doprava dle vzdálenosti</div></div>' +
+          MG._tip('Motorku vám dovezeme na domluvené místo. Cena: 1 000 Kč + 40 Kč/km od pobočky Mezná 9, 393 01 Mezná. Trasu spočítáme automaticky po zadání adresy.') +
+          '</div><div class="rez-loc-sub">1 000 Kč + 40 Kč/km od pobočky</div></div>' +
         '</label>' +
       '</div>' +
 
@@ -127,7 +127,7 @@ MG._rezFormHtml = function(){
           '<input type="text" id="rez-delivery-address" placeholder="Zadejte adresu přistavení (ulice, město)">' +
           '<button type="button" class="rez-map-btn" onclick="MG._openWebMapPicker(\'delivery\')">&#128205; Mapa</button>' +
         '</div>' +
-        '<div id="rez-delivery-confirm" class="rez-addr-confirm" style="display:none"><label><input type="checkbox" id="rez-delivery-confirmed"> ✅ Potvrzuji adresu přistavení</label></div>' +
+        '<div id="rez-delivery-route-info" class="rez-route-info" style="display:none"></div>' +
         '<div class="rez-addr-confirm" style="margin-top:.4rem"><label><input type="checkbox" id="rez-return-same-as-delivery" checked> Vrátit motorku na stejné adrese</label></div>' +
       '</div>' +
 
@@ -137,8 +137,8 @@ MG._rezFormHtml = function(){
           '<input type="checkbox" id="rez-return-other">' +
           '<div class="rez-loc-ico">&#128205;</div>' +
           '<div class="rez-loc-body"><div class="rez-loc-title">Vrácení motorky jinde, než kde bylo vyzvednuto' +
-          MG._tip('Motorku vám rádi vyzvedneme jinde. V ceně: nakládka 500 Kč, vykládka 500 Kč + 40 Kč/km tam i zpět.') +
-          '</div><div class="rez-loc-sub">Od <strong>+1 000 Kč</strong> · doprava dle vzdálenosti</div></div>' +
+          MG._tip('Motorku vám rádi vyzvedneme jinde. Cena: 1 000 Kč + 40 Kč/km od pobočky Mezná 9, 393 01 Mezná. Trasu spočítáme automaticky po zadání adresy.') +
+          '</div><div class="rez-loc-sub">1 000 Kč + 40 Kč/km od pobočky</div></div>' +
         '</label>' +
       '</div>' +
 
@@ -148,11 +148,11 @@ MG._rezFormHtml = function(){
           '<input type="text" id="rez-return-address" placeholder="Zadejte adresu vrácení">' +
           '<button type="button" class="rez-map-btn" onclick="MG._openWebMapPicker(\'return\')">&#128205; Mapa</button>' +
         '</div>' +
-        '<div id="rez-return-confirm" class="rez-addr-confirm" style="display:none"><label><input type="checkbox" id="rez-return-confirmed"> ✅ Potvrzuji adresu vrácení</label></div>' +
+        '<div id="rez-return-route-info" class="rez-route-info" style="display:none"></div>' +
         '<div class="rez-time-card rez-time-card-mini" style="margin-top:.6rem">' +
           '<div class="rez-time-card-head"><span class="rez-time-ico">&#128340;</span>' +
           '<div><div class="rez-time-title">Čas vrácení</div></div>' +
-          '<input type="time" id="rez-return-time"></div>' +
+          '<input type="time" id="rez-return-time" value="19:00"></div>' +
         '</div>' +
       '</div>' +
     '</section>' +
@@ -267,6 +267,10 @@ MG._rezInitFormEvents = function(){
     if(this.checked){
       var ro=document.getElementById('rez-return-other');
       if(ro){ ro.checked=false; var p=document.getElementById('rez-return-panel'); if(p) p.style.display='none'; }
+      // Propagace distance: return = delivery
+      if(typeof MG._rez.deliveryDistanceKm === 'number'){
+        MG._rez.returnDistanceKm = MG._rez.deliveryDistanceKm;
+      }
     }
     MG._rezUpdatePrice();
   });
@@ -471,10 +475,10 @@ MG._rezInit = async function(){
     _f('rez-name', d.name); _f('rez-email', d.email); _f('rez-phone', d.phone);
     _f('rez-street', d.street); _f('rez-city', d.city); _f('rez-zip', d.zip);
     _f('rez-country', d.country); _f('rez-pickup-time', d.pickupTime);
-    // Trigger pickup-time chip highlight
-    var ptInp = document.getElementById('rez-pickup-time');
-    if(ptInp && ptInp.value){ ptInp.dispatchEvent(new Event('change',{bubbles:true})); }
   }
+  // Trigger pickup-time chip highlight (i pro defaultni 09:00 bez session dat)
+  var ptInp0 = document.getElementById('rez-pickup-time');
+  if(ptInp0 && ptInp0.value){ ptInp0.dispatchEvent(new Event('change',{bubbles:true})); }
 
   // Restore size chip UI
   if(typeof MG._rezRestoreSizesUI === 'function') MG._rezRestoreSizesUI();
