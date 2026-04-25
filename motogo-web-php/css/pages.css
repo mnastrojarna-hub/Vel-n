@@ -398,9 +398,9 @@
 .gear-card{background:#fff;border:1.5px solid #d4e8e0;border-radius:16px;overflow:hidden;transition:all .25s;position:relative}
 .gear-card:hover{border-color:#74FB71;box-shadow:0 6px 18px rgba(26,46,34,.08)}
 .gear-card.open{border-color:#1a8c1a;box-shadow:0 8px 24px rgba(26,140,26,.18)}
-.gear-card.disabled{opacity:.7;background:#f5f7f6}
-.gear-card.disabled .gear-head{pointer-events:none}
-.gear-card.disabled .gear-size-panel{max-height:0!important;padding:0 1.1rem!important;opacity:0}
+.gear-card.disabled{opacity:.55;background:#f5f7f6}
+.gear-card.disabled .gear-size-panel,
+.gear-card.disabled .gear-size-panel-hint{display:none}
 .gear-head{display:flex;align-items:flex-start;gap:.75rem;padding:1rem 1.1rem;cursor:pointer;transition:background .15s;margin:0!important}
 .gear-head:hover{background:#f9fefa}
 .gear-card.open .gear-head{background:linear-gradient(135deg,#f0faf5 0%,#e8fce8 100%)}
@@ -415,9 +415,11 @@
 .gear-extra-toggle label{display:inline-flex;align-items:center;gap:.4rem;cursor:pointer}
 .gear-extra-toggle input{accent-color:#1a8c1a;width:16px;height:16px}
 
-/* Size panel — slide-down */
-.gear-size-panel{max-height:0;overflow:hidden;transition:max-height .3s ease,padding .3s ease;padding:0 1.1rem;background:#fff}
-.gear-card.open .gear-size-panel{max-height:1200px;padding:.4rem 1.1rem 1rem}
+/* Size panel — vždy viditelné (žádný collapse) */
+.gear-size-panel{padding:.5rem 1.1rem 1rem;background:#fff;border-top:1px dashed #e0ece6}
+.gear-card.disabled .gear-size-panel{display:none}
+.gear-card .gear-size-panel-hint{display:block;padding:.55rem 1.1rem .15rem;font-size:.78rem;color:#8aab99;font-style:italic;line-height:1.4}
+.gear-card.open .gear-size-panel-hint{color:#1a8c1a;font-weight:600;font-style:normal}
 
 .size-row{padding:.55rem 0;border-top:1px solid #f0f5f2}
 .size-row:first-child{border-top:none}
