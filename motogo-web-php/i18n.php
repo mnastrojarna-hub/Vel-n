@@ -75,29 +75,71 @@ function i18nDetectLanguage() {
 
 /**
  * Vrátí celý slovník pro aktuální jazyk (s fallbackem na CS pro chybějící klíče).
+ * Slovník se skládá ze 2 souborů per jazyk:
+ *   - lang/<code>.php       — chrome / UI texty (header, footer, menu, common, atd.)
+ *   - lang/pages_<code>.php — strukturované defaults velkých CMS stránek (pages.*)
+ * Oba se rekurzivně mergují s CS fallbackem.
  */
 function i18nDictionary() {
     static $cache = [];
     $lang = i18nDetectLanguage();
     if (isset($cache[$lang])) return $cache[$lang];
 
-    $loadFile = function ($code) {
-        $path = __DIR__ . '/lang/' . $code . '.php';
+    $loadFile = function ($path) {
         if (!is_file($path)) return [];
         $data = require $path;
         return is_array($data) ? $data : [];
     };
+    $loadLang = function ($code) use ($loadFile) {
+        $base = $loadFile(__DIR__ . '/lang/' . $code . '.php');
+        $pages = $loadFile(__DIR__ . '/lang/pages_' . $code . '.php');
+        if (!empty($pages)) {
+            // pages_xx.php vrací buď [ 'pages' => [...] ] nebo rovnou strom — sjednotíme.
+            if (isset($pages['pages']) && is_array($pages['pages'])) {
+                $base['pages'] = isset($base['pages']) && is_array($base['pages'])
+                    ? _i18nDeepMerge($base['pages'], $pages['pages'])
+                    : $pages['pages'];
+            } else {
+                $base['pages'] = isset($base['pages']) && is_array($base['pages'])
+                    ? _i18nDeepMerge($base['pages'], $pages)
+                    : $pages;
+            }
+        }
+        return $base;
+    };
 
-    $current = $loadFile($lang);
+    $current = $loadLang($lang);
     if ($lang === I18N_DEFAULT) {
         $cache[$lang] = $current;
         return $current;
     }
 
-    // Merge nad fallbackem (aby chybějící klíče nepadly na klíč nebo prázdno)
-    $fallback = $loadFile(I18N_DEFAULT);
-    $cache[$lang] = $current + $fallback;
+    // Hluboký merge nad CS fallbackem (aby chybějící klíče propadly na CS)
+    $fallback = $loadLang(I18N_DEFAULT);
+    $cache[$lang] = _i18nDeepMerge($fallback, $current);
     return $cache[$lang];
+}
+
+/** Hluboký merge: hodnoty z $b přepisují $a; lists se přepíší celé, asoc. pole se mergují. */
+function _i18nDeepMerge($a, $b) {
+    if (!is_array($a)) return $b;
+    if (!is_array($b)) return $b;
+    // List heuristika — array_is_list pro PHP 8.1+, jinak ruční check
+    $isList = function ($arr) {
+        if (function_exists('array_is_list')) return array_is_list($arr);
+        if (empty($arr)) return true;
+        $i = 0;
+        foreach ($arr as $k => $_) { if ($k !== $i++) return false; }
+        return true;
+    };
+    if ($isList($b)) return $b;
+    $out = $a;
+    foreach ($b as $k => $v) {
+        $out[$k] = (isset($a[$k]) && is_array($a[$k]) && is_array($v))
+            ? _i18nDeepMerge($a[$k], $v)
+            : $v;
+    }
+    return $out;
 }
 
 /**
