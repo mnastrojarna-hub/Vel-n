@@ -1,5 +1,11 @@
 /* ===== MotoGo24 Web — Pages CSS (detail, blog, forms, calendar) ===== */
 
+/* ===== JAK SI PŮJČIT — overview tiles ===== */
+.jp-tiles{margin-top:1rem}
+.jp-tile{display:flex;align-items:center;justify-content:center;text-align:center;background:#74FB71;color:#1a2e22;border:2px solid #5edc5a;border-radius:30px;padding:1rem 1.25rem;min-height:64px;font-weight:700;font-size:1rem;line-height:1.25;transition:background .2s,transform .2s,box-shadow .2s,border-color .2s;text-decoration:none}
+.jp-tile:hover{background:#5edc5a;color:#1a2e22;transform:translateY(-2px);box-shadow:0 6px 16px rgba(26,46,34,.18);border-color:#4cc04a}
+@media(max-width:768px){.jp-tile{font-size:.95rem;min-height:56px;padding:.85rem 1rem}}
+
 /* ===== REVIEWS CARDS ===== */
 .review-card{background:#fff;border:1px solid #d4e8e0;border-left:4px solid #74FB71;border-radius:10px;padding:1.25rem 1.35rem;transition:border-color .2s,box-shadow .2s}
 .review-card:hover{border-color:#74FB71;box-shadow:0 4px 14px rgba(26,46,34,.08)}
