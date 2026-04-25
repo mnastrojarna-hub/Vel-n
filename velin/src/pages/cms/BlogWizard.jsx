@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
+import ImageUploader from '../../components/ui/ImageUploader'
 
 const STEPS = [
   { id: 1, label: 'Základní info', desc: 'Název článku a krátký popis' },
@@ -21,21 +22,27 @@ export default function BlogWizard({ onClose, onSaved }) {
   const [err, setErr] = useState(null)
   const [form, setForm] = useState({
     title: '', slug: '', excerpt: '', content: '',
-    image_url: '', images: '', tags: '',
+    images: [], tags: '',
     published: false,
   })
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
+  // Stabilní složka pro nahrávané obrázky (i před uložením článku)
+  const folderId = useMemo(() => {
+    const r = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    return `blog/${r}`
+  }, [])
+
   async function handlePublish() {
     setSaving(true); setErr(null)
     const tags = form.tags.split(',').map(t => t.trim()).filter(Boolean)
-    const images = form.images.split('\n').map(u => u.trim()).filter(Boolean)
+    const images = (form.images || []).filter(Boolean)
     const payload = {
       title: form.title,
       slug: form.slug || slugify(form.title),
       content: form.content,
       excerpt: form.excerpt,
-      image_url: form.image_url || (images[0] || ''),
+      image_url: images[0] || '',
       images, tags,
       published: form.published,
       updated_at: new Date().toISOString(),
@@ -79,7 +86,7 @@ export default function BlogWizard({ onClose, onSaved }) {
       {/* Step content */}
       {step === 1 && <Step1 form={form} set={set} />}
       {step === 2 && <Step2 form={form} set={set} />}
-      {step === 3 && <Step3 form={form} set={set} />}
+      {step === 3 && <Step3 form={form} set={set} folderId={folderId} />}
       {step === 4 && <Step4 form={form} set={set} />}
 
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}
@@ -153,27 +160,17 @@ function Step2({ form, set }) {
   )
 }
 
-function Step3({ form, set }) {
+function Step3({ form, set, folderId }) {
   return (
     <div className="space-y-3">
       <div>
-        <Label>Hlavní obrázek (URL)</Label>
-        <Hint text="Náhledový obrázek článku — zobrazí se na kartě v blogu i v detailu" />
-        <input value={form.image_url} onChange={e => set('image_url', e.target.value)}
-          placeholder="https://..." className="w-full rounded-btn text-sm outline-none" style={inputStyle} />
-        {form.image_url && (
-          <div className="mt-2 rounded-card overflow-hidden" style={{ maxWidth: 300 }}>
-            <img src={form.image_url} alt="Náhled" style={{ width: '100%', display: 'block' }}
-              onError={e => { e.target.style.display = 'none' }} />
-          </div>
-        )}
-      </div>
-      <div>
-        <Label>Galerie obrázků (URLs, každý na nový řádek)</Label>
-        <Hint text="Další fotky — zobrazí se jako galerie pod článkem" />
-        <textarea value={form.images} onChange={e => set('images', e.target.value)}
-          placeholder="https://...&#10;https://..." className="w-full rounded-btn text-sm outline-none"
-          style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }} />
+        <Label>Obrázky článku</Label>
+        <Hint text="Přetáhněte fotky z počítače sem nebo klikněte pro výběr. První obrázek se použije jako hlavní (náhled v seznamu blogu). Ostatní se zobrazí jako galerie." />
+        <ImageUploader
+          value={form.images}
+          onChange={urls => set('images', urls)}
+          folder={folderId}
+        />
       </div>
       <div>
         <Label>Štítky / kategorie (oddělené čárkou)</Label>
@@ -187,14 +184,15 @@ function Step3({ form, set }) {
 
 function Step4({ form, set }) {
   const tags = form.tags.split(',').map(t => t.trim()).filter(Boolean)
+  const heroImage = (form.images || [])[0] || ''
   return (
     <div className="space-y-4">
       <Hint text="Zkontrolujte článek před uložením. Koncept nebude vidět na webu, publikovaný ano." />
       <div className="rounded-card p-4" style={{ background: '#f8fafc', border: '1px solid #e2ece7' }}>
         <div className="text-xs font-bold uppercase mb-3" style={{ color: '#6b8f7b' }}>Náhled článku na webu</div>
-        {form.image_url && (
+        {heroImage && (
           <div className="rounded-card overflow-hidden mb-3" style={{ maxHeight: 200 }}>
-            <img src={form.image_url} alt="" style={{ width: '100%', objectFit: 'cover' }}
+            <img src={heroImage} alt="" style={{ width: '100%', objectFit: 'cover' }}
               onError={e => { e.target.style.display = 'none' }} />
           </div>
         )}

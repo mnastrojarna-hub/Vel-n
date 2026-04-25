@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
 import { debugAction } from '../../lib/debugLog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
@@ -6,6 +6,7 @@ import Button from '../../components/ui/Button'
 import Pagination from '../../components/ui/Pagination'
 import SearchInput from '../../components/ui/SearchInput'
 import Modal from '../../components/ui/Modal'
+import ImageUploader from '../../components/ui/ImageUploader'
 
 const PER_PAGE = 25
 
@@ -150,12 +151,19 @@ function ProductFormModal({ product, onClose, onSaved }) {
     color: product?.color || '',
     material: product?.material || '',
     sizes: product?.sizes?.join(', ') || '',
-    images: product?.images?.join('\n') || '',
+    images: Array.isArray(product?.images) ? product.images.filter(Boolean) : [],
     is_active: product?.is_active ?? true,
     sort_order: product?.sort_order ?? 0,
   })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
+
+  // Stabilní cesta v bucketu — u úprav použij ID produktu, u nového vygeneruj UUID
+  const folderId = useMemo(() => {
+    if (product?.id) return `products/${product.id}`
+    const r = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    return `products/${r}`
+  }, [product?.id])
 
   function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
 
@@ -175,7 +183,7 @@ function ProductFormModal({ product, onClose, onSaved }) {
         color: form.color.trim() || null,
         material: form.material.trim() || null,
         sizes: form.sizes ? form.sizes.split(',').map(s => s.trim()).filter(Boolean) : [],
-        images: form.images ? form.images.split('\n').map(s => s.trim()).filter(Boolean) : [],
+        images: (form.images || []).filter(Boolean),
         is_active: form.is_active,
         sort_order: Number(form.sort_order) || 0,
       }
@@ -223,21 +231,14 @@ function ProductFormModal({ product, onClose, onSaved }) {
           <Input value={form.sizes} onChange={v => set('sizes', v)} placeholder="XS, S, M, L, XL" />
         </div>
         <div>
-          <Label>Obrázky (URL, jeden na řádek)</Label>
-          <textarea value={form.images} onChange={e => set('images', e.target.value)}
-            className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 70, resize: 'vertical' }}
-            placeholder={"https://example.com/photo1.jpg\nhttps://example.com/photo2.jpg"} />
+          <Label>Obrázky produktu</Label>
+          <ImageUploader
+            value={form.images}
+            onChange={urls => set('images', urls)}
+            folder={folderId}
+            helperText="Přetáhněte fotky z počítače, klikněte pro výběr nebo přidejte přes URL. První obrázek je hlavní (zobrazí se v e-shopu jako náhled)."
+          />
         </div>
-
-        {form.images && (
-          <div className="flex gap-2 flex-wrap">
-            {form.images.split('\n').filter(Boolean).map((url, i) => (
-              <img key={i} src={url.trim()} alt={`Preview ${i + 1}`}
-                style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '2px solid #d4e8e0' }}
-                onError={e => { e.target.style.display = 'none' }} />
-            ))}
-          </div>
-        )}
 
         <label className="flex items-center gap-2 cursor-pointer">
           <input type="checkbox" checked={form.is_active} onChange={e => set('is_active', e.target.checked)}
