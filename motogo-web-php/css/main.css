@@ -3,19 +3,34 @@
 
 /* --- Reset & Base --- */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth;font-size:16px}
-body{font-family:'Montserrat','Segoe UI',sans-serif;background:#dff0ec;color:#1a2e22;line-height:1.6;-webkit-font-smoothing:antialiased}
-a{color:#1a8c1a;text-decoration:none;transition:color .2s}
+html{scroll-behavior:smooth;font-size:16px;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{font-family:'Montserrat','Segoe UI',sans-serif;background:#dff0ec;color:#1a2e22;line-height:1.6;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;overflow-x:hidden;min-width:320px}
+a{color:#1a8c1a;text-decoration:none;transition:color .2s;-webkit-tap-highlight-color:rgba(116,251,113,.25)}
 a:hover{color:#0d6e0d}
-img{max-width:100%;height:auto;display:block}
+img,picture,video,svg{max-width:100%;height:auto;display:block}
 ul,ol{list-style:none}
-h1,h2,h3,h4{color:#1a2e22;line-height:1.3;font-weight:700;font-family:'Montserrat',sans-serif}
-h1{font-size:2rem;margin-bottom:.8rem}
-h2{font-size:1.5rem;margin-bottom:.6rem}
-h3{font-size:1.15rem;margin-bottom:.4rem}
-p{margin-bottom:.8rem}
+h1,h2,h3,h4{color:#1a2e22;line-height:1.3;font-weight:700;font-family:'Montserrat',sans-serif;overflow-wrap:break-word;word-wrap:break-word;hyphens:auto}
+h1{font-size:clamp(1.5rem,4.2vw,2rem);margin-bottom:.8rem}
+h2{font-size:clamp(1.25rem,3.2vw,1.5rem);margin-bottom:.6rem}
+h3{font-size:clamp(1.05rem,2.4vw,1.15rem);margin-bottom:.4rem}
+p{margin-bottom:.8rem;overflow-wrap:break-word}
 strong{color:#1a2e22}
 table{width:100%;border-collapse:collapse}
+button,input,select,textarea{font-family:inherit}
+/* iOS auto-zoom prevention — vstupy musí mít min 16px */
+input,select,textarea{font-size:16px}
+@media(min-width:768px){
+  input,select,textarea{font-size:inherit}
+}
+/* Focus visible — viditelný focus ring jen pro klu00e1vesnici, ne tap */
+:focus{outline:none}
+:focus-visible{outline:2px solid #1a8c1a;outline-offset:2px;border-radius:4px}
+.btn:focus-visible,a.btn:focus-visible{outline:3px solid #1a2e22;outline-offset:3px}
+/* Reduced motion */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+  .pulse{animation:none!important}
+}
 
 /* --- Container --- */
 .container{max-width:1200px;margin:0 auto;padding:0 1.25rem}
@@ -200,40 +215,168 @@ section[aria-labelledby="process"] h2{color:#fff}
 section[aria-labelledby="process"] .wbox{background:#fff;border-color:#d4e8e0}
 
 /* ===== RESPONSIVE ===== */
+/* Tablet landscape */
+@media(max-width:1200px){
+  .container{padding:0 1.5rem}
+}
+/* Tablet */
 @media(max-width:1024px){
   .gr6{grid-template-columns:repeat(3,1fr)}
   .gr5{grid-template-columns:repeat(3,1fr)}
   .gr4{grid-template-columns:repeat(2,1fr)}
+  .gr3{grid-template-columns:repeat(3,1fr)}
+  .header{padding:.65rem 0}
+  .header-logo img{height:40px}
+  .main-menu>li>a{padding:.5rem .45rem;font-size:.85rem}
 }
+/* Tablet portrait / mobile landscape */
+@media(max-width:900px){
+  .gr6,.gr5{grid-template-columns:repeat(3,1fr)}
+  .gr4{grid-template-columns:repeat(2,1fr)}
+}
+/* Mobile (large) */
 @media(max-width:768px){
-  .gr6,.gr5,.gr4,.gr3{grid-template-columns:repeat(2,1fr)}
-  .gr2{grid-template-columns:1fr}
-  .banner{min-height:320px}
-  .banner>img,.banner>picture,.banner>picture img{height:320px}
-  .banner-caption strong{font-size:1.4rem}
-  h1{font-size:1.5rem}
-  h2{font-size:1.25rem}
+  .container{padding:0 1rem}
+  .gr6,.gr5,.gr4,.gr3{grid-template-columns:repeat(2,1fr);gap:1rem}
+  .gr2{grid-template-columns:1fr;gap:1rem}
+  .banner{min-height:380px}
+  .banner>img,.banner>picture,.banner>picture img{height:380px}
+  .banner-wrapper{background:linear-gradient(180deg,rgba(26,46,34,.45) 0%,rgba(26,46,34,.85) 100%)}
+  .banner-caption{max-width:100%;padding:0 .25rem}
+  .banner-caption strong{font-size:1.4rem;display:inline-block}
+  .banner-caption p{font-size:.95rem}
+  .banner-caption .btn{width:100%;margin-bottom:.5rem;display:block}
+  .banner-caption .btn+.btn{margin-left:0}
   .moto-gallery .gr3 .gallery-img img{height:80px}
-  .nav-toggle{display:block}
-  .mobile-menu-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.95);z-index:999;flex-direction:column;padding:2rem;overflow-y:auto}
+  /* Hamburger menu */
+  .nav-toggle{display:block;min-height:44px;min-width:44px;padding:.5rem .9rem;font-size:.95rem;font-weight:700;letter-spacing:.5px}
+  .mobile-menu-overlay{display:none;position:fixed;inset:0;background:rgba(15,28,21,.97);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:999;flex-direction:column;padding:max(env(safe-area-inset-top),1rem) 1.5rem max(env(safe-area-inset-bottom),1.5rem);overflow-y:auto;-webkit-overflow-scrolling:touch}
   .mobile-menu-overlay.open{display:flex}
-  .mobile-menu-close{display:block;position:absolute;top:1rem;right:1.5rem;background:none;border:none;color:#74FB71;font-size:2rem;cursor:pointer}
-  .main-menu{flex-direction:column;align-items:flex-start;gap:.5rem;width:100%}
-  .main-menu>li{width:100%}
-  .main-menu>li>a{padding:.75rem 0;font-size:1.1rem}
-  .submenu{position:static;display:none;border:none;background:transparent;box-shadow:none;padding-left:1rem}
-  .main-menu>li.show>.submenu,.main-menu>li:hover>.submenu{display:block}
+  .mobile-menu-close{display:flex;align-items:center;justify-content:center;position:absolute;top:max(env(safe-area-inset-top),.5rem);right:.75rem;background:none;border:none;color:#74FB71;font-size:2rem;cursor:pointer;width:48px;height:48px;border-radius:50%;line-height:1}
+  .mobile-menu-close:active{background:rgba(116,251,113,.15)}
+  body.menu-open{overflow:hidden;touch-action:none}
+  .main-menu{flex-direction:column;align-items:stretch;gap:.25rem;width:100%;margin-top:2rem}
+  .main-menu>li{width:100%;border-bottom:1px solid rgba(116,251,113,.12)}
+  .main-menu>li:last-child{border-bottom:none}
+  .main-menu>li>a{padding:1rem .25rem;font-size:1.05rem;min-height:48px;justify-content:space-between;width:100%}
+  .main-menu>li>a .menu-arrow{width:14px;height:14px;transition:transform .2s}
+  .main-menu>li.show>a .menu-arrow{transform:rotate(180deg)}
+  .submenu{position:static;display:none;border:none;background:rgba(116,251,113,.05);box-shadow:none;padding:.25rem 0 .5rem;margin:.25rem 0 .5rem;border-radius:8px}
+  .submenu li a{padding:.75rem 1rem;font-size:.95rem;min-height:44px;display:flex;align-items:center}
+  .main-menu>li.show>.submenu{display:block}
+  .main-menu>li:hover>.submenu{display:none}
+  .main-menu>li.show:hover>.submenu{display:block}
+  .menu-rez{width:100%;margin:1rem 0 0}
+  .menu-rez .btn{width:100%;padding:.95rem 1rem;font-size:1rem;text-align:center}
   .map{height:280px}
-  .ctooltiptext{width:260px}
+  .ctooltiptext{width:min(280px,calc(100vw - 3rem));left:auto;right:0}
   .gallery-blog>div{width:calc(50% - .5rem)}
+  /* Header — show phone icon-only on mobile */
+  .header-phone p{gap:.25rem}
+  .header-phone img{width:28px;height:28px}
+  .header-phone a:not([aria-label]){font-size:.85rem}
+  /* Footer */
+  footer{padding:2rem 0 0}
+  footer .gr4{grid-template-columns:repeat(2,1fr);gap:1.5rem}
+  .footer-contact{grid-column:1/-1;padding:1.25rem}
+  .footer-phone a{font-size:1.35rem}
+  .copyright p{font-size:.78rem;line-height:1.5}
+  .copyright a{display:inline-block;margin:.15rem .35rem}
+  /* Section spacing */
+  .ccontent{padding:1rem 0 2rem}
+  .ccontent section{margin-bottom:1.75rem}
+  section[aria-labelledby="cta"],
+  section[aria-labelledby="process"]{padding:1.5rem 1.1rem;border-radius:14px;margin:1.5rem 0}
+  /* Buttons full-width on mobile when wrapped in centered p */
+  .text-center .btn+.btn{margin-top:.5rem}
+  /* Scroll to top — safe area */
+  #Up{bottom:max(env(safe-area-inset-bottom),1rem);right:max(env(safe-area-inset-right),1rem);width:48px;height:48px}
 }
+/* Mobile (small) */
 @media(max-width:480px){
   .gr6,.gr5,.gr4,.gr3,.gr2{grid-template-columns:1fr}
-  .container{padding:0 1rem}
-  .banner{min-height:240px}
-  .banner>img,.banner>picture,.banner>picture img{height:240px}
-  .header-phone{display:none}
+  .container{padding:0 .9rem}
+  .banner{min-height:340px}
+  .banner>img,.banner>picture,.banner>picture img{height:340px}
+  .banner-caption strong{font-size:1.25rem}
+  .banner-caption p{font-size:.9rem}
+  /* Header — schovat textový telefon, nechat jen ikonu */
+  .header-logo img{height:38px}
+  .header-phone p>a:last-child{display:none}
+  .header-phone img{width:32px;height:32px;padding:5px}
+  .nav-toggle{padding:.45rem .75rem;font-size:.85rem}
+  /* Footer */
+  footer .gr4{grid-template-columns:1fr;gap:1.25rem}
+  .footer-contact{padding:1rem}
   .gallery-blog>div{width:100%}
+  /* Touch targets — všechny btn min 44px */
+  .btn{min-height:44px;display:inline-flex;align-items:center;justify-content:center;line-height:1.2}
+  .btngreen-small{min-height:40px;padding:.6rem 1rem}
+}
+/* Mobile (extra small — iPhone SE 1st gen 320px) */
+@media(max-width:360px){
+  .container{padding:0 .75rem}
+  h1{font-size:1.35rem}
+  .header-logo img{height:34px}
+  .nav-toggle{padding:.4rem .6rem;font-size:.8rem}
+  .banner{min-height:300px}
+  .banner>img,.banner>picture,.banner>picture img{height:300px}
+}
+/* Landscape mobile — kratší banner */
+@media(max-width:900px) and (orientation:landscape) and (max-height:500px){
+  .banner{min-height:280px}
+  .banner>img,.banner>picture,.banner>picture img{height:280px}
+  .header{position:relative}
+}
+/* High-DPI screens — ostřejší ikony */
+@media(-webkit-min-device-pixel-ratio:2),(min-resolution:2dppx){
+  .header-logo img{image-rendering:-webkit-optimize-contrast}
+}
+/* Hover only on devices that actually support it (skip transient hover on touch) */
+@media(hover:none){
+  .moto-wrapper:hover{transform:none}
+  .gbox:hover,.wbox:hover{box-shadow:none}
+  .blog-wrapper:hover{transform:none;box-shadow:0 4px 14px rgba(26,46,34,.08)}
+}
+
+/* ===== TABLET — doladění mezistupně 768-1024px ===== */
+@media(min-width:769px) and (max-width:1024px){
+  .container{padding:0 1.5rem}
+  .banner{min-height:420px}
+  .banner>img,.banner>picture,.banner>picture img{height:420px}
+  /* Footer 4 sloupce → 2 sloupce na tablet portrait */
+  footer .gr4{grid-template-columns:repeat(2,1fr);gap:1.5rem}
+  /* Wbox/Gbox padding kompaktnější */
+  .wbox{padding:1rem}
+  .gbox{padding:1rem}
+  .wbox-img .icon{width:48px;height:48px}
+}
+@media(min-width:601px) and (max-width:900px){
+  /* Tablet portrait — hlavní gridy už 2-3 sloupce */
+  .gr4{grid-template-columns:repeat(2,1fr)}
+  .gr3{grid-template-columns:repeat(3,1fr)}
+}
+
+/* ===== Touch — minimální velikost 44×44px pro všechny interaktivní prvky ===== */
+@media(pointer:coarse){
+  a.btn,button.btn,.btn{min-height:44px;display:inline-flex;align-items:center;justify-content:center}
+  .btngreen-small{min-height:38px}
+  .submenu li a{min-height:44px;display:flex;align-items:center}
+  .header-phone a{min-height:36px;display:inline-flex;align-items:center}
+  details summary{min-height:48px}
+  /* Lehce větší klikací plocha pro odkazy v paragrafech ne nutno */
+}
+
+/* ===== Image rendering — srcset hint ===== */
+.banner img,.banner picture img{will-change:auto}
+
+/* ===== Print stylesheet ===== */
+@media print{
+  .header,footer,.nav-toggle,#Up,.banner,.mobile-menu-overlay{display:none!important}
+  body{background:#fff;color:#000}
+  a{color:#000;text-decoration:underline}
+  .container{max-width:100%;padding:0}
+  .moto-wrapper,.blog-wrapper{box-shadow:none;border:1px solid #ccc;page-break-inside:avoid}
 }
 
 /* ===== LOADING SPINNER ===== */

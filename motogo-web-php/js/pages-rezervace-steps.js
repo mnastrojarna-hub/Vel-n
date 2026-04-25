@@ -138,6 +138,15 @@ MG._submitReservation = async function(){
       rpcParams.p_passenger_gloves_size = ps.gloves||null;
       rpcParams.p_passenger_boots_size  = ps.boots||null;
     }
+    // Cas vraceni — uloz jen pokud se vraci mimo provozovnu
+    // (return-other = vlastni adresa vraceni, nebo delivery + same-as-delivery = vraci na adrese pristaveni)
+    var isReturnOffsite = (retO && retO.checked) ||
+      (document.getElementById('rez-delivery') && document.getElementById('rez-delivery').checked &&
+       retS && retS.checked);
+    if(isReturnOffsite){
+      var rtEl = document.getElementById('rez-return-time');
+      if(rtEl && rtEl.value) rpcParams.p_return_time = rtEl.value;
+    }
     console.log('[REZ] create_web_booking params:', rpcParams);
     var regRes = await window.sb.rpc('create_web_booking', rpcParams);
     if(regRes.error){

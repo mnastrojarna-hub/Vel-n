@@ -65,12 +65,12 @@ export default function AiNotificationBell() {
         <div style={{
           position: 'absolute', top: '100%', right: 0, width: 380, maxHeight: 500,
           background: '#fff', borderRadius: 12, boxShadow: '0 8px 30px rgba(0,0,0,0.15)',
-          border: '1px solid #d4e8e0', zIndex: 9999, overflow: 'hidden',
+          border: '1px solid #1a2e22', zIndex: 9999, overflow: 'hidden',
           display: 'flex', flexDirection: 'column',
         }}>
           {/* Header */}
           <div style={{
-            padding: '10px 14px', borderBottom: '1px solid #d4e8e0',
+            padding: '10px 14px', borderBottom: '1px solid #1a2e22',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
             <span style={{ fontWeight: 800, fontSize: 13, color: '#0f1a14' }}>
@@ -123,7 +123,7 @@ export default function AiNotificationBell() {
           </div>
 
           {/* Footer */}
-          <div style={{ padding: '8px 14px', borderTop: '1px solid #d4e8e0', textAlign: 'center' }}>
+          <div style={{ padding: '8px 14px', borderTop: '1px solid #1a2e22', textAlign: 'center' }}>
             <button onClick={() => { setOpen(false); navigate('/orchestrator') }} style={{
               fontSize: 11, color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer',
             }}>Všechny nálezy v AI Řediteli</button>
