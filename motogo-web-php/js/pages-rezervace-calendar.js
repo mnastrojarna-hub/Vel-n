@@ -13,22 +13,46 @@ MG._rezResetDates = function(){
 // ===== LOAD CALENDAR =====
 MG._rezLoadCalendar = async function(){
   var cal = document.getElementById('rez-calendar'); if(!cal) return;
-  var motoId = MG._rez.motoId;
-  MG._rez.allBookings = {};
-  if(motoId){
-    var bookings = await MG.fetchMotoBookings(motoId);
-    MG._rez.allBookings[motoId] = MG._rezBookedMap(bookings);
-  } else {
-    var motos = MG._rez.motos;
-    for(var i = 0; i < motos.length; i++){
-      var bk = await MG.fetchMotoBookings(motos[i].id);
-      MG._rez.allBookings[motos[i].id] = MG._rezBookedMap(bk);
-    }
-  }
+  await MG._rezFetchBookings();
   // If start date is pre-filled, show that month; otherwise show current month
   var calDate = MG._rez.startDate ? new Date(MG._rez.startDate) : new Date();
   MG._rez.calYear = calDate.getFullYear(); MG._rez.calMonth = calDate.getMonth();
   MG._rezRenderCal();
+  MG._rezStartLiveRefresh();
+};
+
+// ===== FETCH BOOKINGS (sdílená logika pro init i live refresh) =====
+MG._rezFetchBookings = async function(){
+  var motoId = MG._rez.motoId;
+  var fresh = {};
+  if(motoId){
+    var bookings = await MG.fetchMotoBookings(motoId);
+    fresh[motoId] = MG._rezBookedMap(bookings);
+  } else {
+    var motos = MG._rez.motos || [];
+    for(var i = 0; i < motos.length; i++){
+      var bk = await MG.fetchMotoBookings(motos[i].id);
+      fresh[motos[i].id] = MG._rezBookedMap(bk);
+    }
+  }
+  MG._rez.allBookings = fresh;
+};
+
+// ===== LIVE REFRESH (real-time polling pro anon usery — RLS blokuje subscribe) =====
+MG._rezStartLiveRefresh = function(){
+  if(MG._rezLiveTimer) return; // už běží
+  MG._rezLiveTimer = setInterval(async function(){
+    var cal = document.getElementById('rez-calendar');
+    if(!cal){ MG._rezStopLiveRefresh(); return; }
+    var prev = JSON.stringify(MG._rez.allBookings || {});
+    await MG._rezFetchBookings();
+    var next = JSON.stringify(MG._rez.allBookings || {});
+    if(prev !== next) MG._rezRenderCal();
+  }, 30000); // 30 s — drží krok s 4h pending oknem i 2min cron auto-cancel
+};
+
+MG._rezStopLiveRefresh = function(){
+  if(MG._rezLiveTimer){ clearInterval(MG._rezLiveTimer); MG._rezLiveTimer = null; }
 };
 
 // ===== BUILD BOOKED-DAYS MAP (with pending status for <4h) =====

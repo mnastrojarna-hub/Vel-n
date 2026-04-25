@@ -1,27 +1,28 @@
 import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useLang } from '../i18n/LanguageProvider'
 
 
 const NAV = [
-  { id: 'dashboard', path: '/', label: 'Velín', icon: '⚡' },
-  { id: 'fleet', path: '/flotila', label: 'Flotila', icon: '🏍️' },
-  { id: 'bookings', path: '/rezervace', label: 'Rezervace', icon: '📅' },
-  { id: 'customers', path: '/zakaznici', label: 'Zákazníci', icon: '👥' },
-  { id: 'finance', path: '/finance', label: 'Finance', icon: '💰' },
-  { id: 'documents', path: '/dokumenty', label: 'Dokumenty', icon: '📄' },
-  { id: 'branches', path: '/pobocky', label: 'Pobočky', icon: '🏢' },
-  { id: 'service', path: '/servis', label: 'Servis', icon: '🔧' },
-  { id: 'messages', path: '/zpravy', label: 'Zprávy', icon: '💬', badgeKey: 'messages' },
-  { id: 'cms', path: '/cms', label: 'Texty webu', icon: '🌐' },
-  { id: 'analyza', path: '/analyza', label: 'Analýza', icon: '🧠' },
-  { id: 'discount-codes', path: '/slevove-kody', label: 'Slevové kódy', icon: '🏷️' },
-  { id: 'eshop', path: '/e-shop', label: 'E-shop', icon: '🛒' },
-  { id: 'government', path: '/statni-sprava', label: 'Státní správa', icon: '🏛️' },
-  { id: 'ai', path: '/ai-copilot', label: 'AI Copilot', icon: '🤖' },
-  { id: 'orchestrator', path: '/orchestrator', label: 'AI Ředitel', icon: '👔' },
-  { id: 'sos', path: '/sos', label: 'SOS Panel', icon: '🚨', badgeKey: 'sos' },
-  { id: 'employees', path: '/zamestnanci', label: 'Zaměstnanci', icon: '👷' },
+  { id: 'dashboard', path: '/', labelKey: 'nav.dashboard', icon: '⚡' },
+  { id: 'fleet', path: '/flotila', labelKey: 'nav.fleet', icon: '🏍️' },
+  { id: 'bookings', path: '/rezervace', labelKey: 'nav.bookings', icon: '📅' },
+  { id: 'customers', path: '/zakaznici', labelKey: 'nav.customers', icon: '👥' },
+  { id: 'finance', path: '/finance', labelKey: 'nav.finance', icon: '💰' },
+  { id: 'documents', path: '/dokumenty', labelKey: 'nav.documents', icon: '📄' },
+  { id: 'branches', path: '/pobocky', labelKey: 'nav.branches', icon: '🏢' },
+  { id: 'service', path: '/servis', labelKey: 'nav.service', icon: '🔧' },
+  { id: 'messages', path: '/zpravy', labelKey: 'nav.messages', icon: '💬', badgeKey: 'messages' },
+  { id: 'cms', path: '/cms', labelKey: 'nav.cms', icon: '🌐' },
+  { id: 'analyza', path: '/analyza', labelKey: 'nav.analyza', icon: '🧠' },
+  { id: 'discount-codes', path: '/slevove-kody', labelKey: 'nav.discountCodes', icon: '🏷️' },
+  { id: 'eshop', path: '/e-shop', labelKey: 'nav.eshop', icon: '🛒' },
+  { id: 'government', path: '/statni-sprava', labelKey: 'nav.government', icon: '🏛️' },
+  { id: 'ai', path: '/ai-copilot', labelKey: 'nav.aiCopilot', icon: '🤖' },
+  { id: 'orchestrator', path: '/orchestrator', labelKey: 'nav.orchestrator', icon: '👔' },
+  { id: 'sos', path: '/sos', labelKey: 'nav.sos', icon: '🚨', badgeKey: 'sos' },
+  { id: 'employees', path: '/zamestnanci', labelKey: 'nav.employees', icon: '👷' },
 ]
 
 const Logo = ({ size = 44 }) => (
@@ -47,6 +48,7 @@ const Logo = ({ size = 44 }) => (
 )
 
 export default function Sidebar({ admin, onSignOut }) {
+  const { t } = useLang()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [badges, setBadges] = useState({ messages: 0, sos: 0 })
@@ -108,7 +110,7 @@ export default function Sidebar({ admin, onSignOut }) {
               className="text-[9px] font-bold uppercase mt-0.5"
               style={{ color: 'rgba(255,255,255,.4)', letterSpacing: '3px' }}
             >
-              Velín
+              {t('nav.dashboard')}
             </div>
           </div>
         )}
@@ -138,7 +140,7 @@ export default function Sidebar({ admin, onSignOut }) {
               }}
             >
               <span className="text-base shrink-0">{item.icon}</span>
-              {!collapsed && <span className="flex-1 text-left">{item.label}</span>}
+              {!collapsed && <span className="flex-1 text-left">{t(item.labelKey)}</span>}
               {!collapsed && item.badgeKey && badges[item.badgeKey] > 0 && (
                 <span className="flex items-center justify-center shrink-0"
                   style={{
@@ -187,7 +189,7 @@ export default function Sidebar({ admin, onSignOut }) {
           <button
             onClick={onSignOut}
             className="text-sm font-bold uppercase opacity-40 hover:opacity-100 transition-opacity cursor-pointer bg-transparent border-none text-white"
-            title="Odhlásit se"
+            title={t('topbar.signOut')}
           >
             ↗
           </button>

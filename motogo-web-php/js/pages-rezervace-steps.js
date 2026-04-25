@@ -70,8 +70,19 @@ MG._submitReservation = async function(){
   var retO=document.getElementById('rez-return-other'),retS=document.getElementById('rez-return-same-as-delivery');
   if(retO&&retO.checked) returnAddr=(document.getElementById('rez-return-address')||{}).value||null;
   else if(retS&&retS.checked&&deliveryAddr) returnAddr=deliveryAddr;
-  if(deliveryAddr) extras.push({name:'Přistavení motorky (nakládka+vykládka+doprava)',unit_price:1000});
-  if(returnAddr) extras.push({name:'Vrácení motorky (nakládka+vykládka+doprava)',unit_price:1000});
+  // Fee = 1000 Kč + 40 Kč/km (km = vzdalenost od pobocky Mezna 9, spoctena pres Mapy.cz)
+  if(deliveryAddr){
+    var dKm = MG._rez.deliveryDistanceKm;
+    var dFee = MG._calcDeliveryFee(dKm);
+    var dLbl = (typeof dKm==='number') ? ' (1 000 Kč + 40 Kč × '+dKm.toFixed(1).replace('.',',')+' km)' : '';
+    extras.push({name:'Přistavení motorky'+dLbl,unit_price:dFee});
+  }
+  if(returnAddr){
+    var rKm = (retS&&retS.checked) ? MG._rez.deliveryDistanceKm : MG._rez.returnDistanceKm;
+    var rFee = MG._calcDeliveryFee(rKm);
+    var rLbl = (typeof rKm==='number') ? ' (1 000 Kč + 40 Kč × '+rKm.toFixed(1).replace('.',',')+' km)' : '';
+    extras.push({name:'Vrácení motorky'+rLbl,unit_price:rFee});
+  }
 
   // Collect sizes from new chip UI
   var rs = (MG._rez.sizes && MG._rez.sizes.rider) || {};
@@ -126,6 +137,15 @@ MG._submitReservation = async function(){
       rpcParams.p_passenger_jacket_size = ps.jacket||null;
       rpcParams.p_passenger_gloves_size = ps.gloves||null;
       rpcParams.p_passenger_boots_size  = ps.boots||null;
+    }
+    // Cas vraceni — uloz jen pokud se vraci mimo provozovnu
+    // (return-other = vlastni adresa vraceni, nebo delivery + same-as-delivery = vraci na adrese pristaveni)
+    var isReturnOffsite = (retO && retO.checked) ||
+      (document.getElementById('rez-delivery') && document.getElementById('rez-delivery').checked &&
+       retS && retS.checked);
+    if(isReturnOffsite){
+      var rtEl = document.getElementById('rez-return-time');
+      if(rtEl && rtEl.value) rpcParams.p_return_time = rtEl.value;
     }
     console.log('[REZ] create_web_booking params:', rpcParams);
     var regRes = await window.sb.rpc('create_web_booking', rpcParams);
@@ -323,6 +343,9 @@ MG._rezBackToStep1 = function(){
   f('rez-name',d.name);f('rez-email',d.email);f('rez-phone',d.phone);
   f('rez-street',d.street);f('rez-city',d.city);f('rez-zip',d.zip);
   f('rez-country',d.country);f('rez-pickup-time',d.pickupTime);
+  // Trigger pickup-time chip highlight (zachova default 09:00 i puvodni vyber)
+  var ptInpB = document.getElementById('rez-pickup-time');
+  if(ptInpB && ptInpB.value){ ptInpB.dispatchEvent(new Event('change',{bubbles:true})); }
 
   // Restore sizes UI
   MG._rezRestoreSizesUI();

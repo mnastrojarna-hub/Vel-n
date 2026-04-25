@@ -2,6 +2,15 @@
 var MG = window.MG || {};
 window.MG = MG;
 
+// ===== DELIVERY/RETURN FEE HELPER =====
+// Cena přistavení/vrácení = 1000 Kč + 40 Kč/km. Pokud zatím nemáme distance,
+// použijeme jen základní 1000 Kč (zobrazí se "trasa se počítá").
+MG._calcDeliveryFee = function(distanceKm){
+  var base = 1000;
+  if(typeof distanceKm === 'number' && distanceKm > 0) return Math.round(base + 40 * distanceKm);
+  return base;
+};
+
 // ===== PRICE UPDATE (in-place, no form rebuild) =====
 MG._rezUpdatePrice = function(){
   var r = MG._rez, mId = r.motoId || r.selectedMotoId;
@@ -11,13 +20,17 @@ MG._rezUpdatePrice = function(){
   if(document.getElementById('rez-eq-passenger') && document.getElementById('rez-eq-passenger').checked) extras += 690;
   if(document.getElementById('rez-eq-boots-rider') && document.getElementById('rez-eq-boots-rider').checked) extras += 290;
   if(document.getElementById('rez-eq-boots-passenger') && document.getElementById('rez-eq-boots-passenger').checked) extras += 290;
-  // Delivery/return fees (nakládka 500 + vykládka 500 = 1000 base per direction, + km calculated later)
+  // Delivery/return fees: 1000 Kč + 40 Kč/km od pobočky Mezná 9
   var isDel = document.getElementById('rez-delivery') && document.getElementById('rez-delivery').checked;
-  if(isDel) extras += 1000;
   var retOther = document.getElementById('rez-return-other');
   var retSameAsDel = document.getElementById('rez-return-same-as-delivery');
-  if(retOther && retOther.checked) extras += 1000;
-  else if(retSameAsDel && retSameAsDel.checked && isDel) extras += 1000;
+  var delFee = 0, retFee = 0;
+  if(isDel) delFee = MG._calcDeliveryFee(MG._rez.deliveryDistanceKm);
+  if(retOther && retOther.checked) retFee = MG._calcDeliveryFee(MG._rez.returnDistanceKm);
+  else if(retSameAsDel && retSameAsDel.checked && isDel) retFee = delFee;
+  MG._rez.deliveryFee = delFee;
+  MG._rez.returnFee = retFee;
+  extras += delFee + retFee;
   MG._rez.discountAmt = 0;
   var fullPrice = base + extras;
   if(MG._rez.appliedCodes && MG._rez.appliedCodes.length){
@@ -166,6 +179,110 @@ MG._mapyRgeocode = function(lat, lng){
     .catch(function(){ return null; });
 };
 
+// ===== ROUTE CALCULATION (delivery/return distance from branch) =====
+// Pobočka Mezná 9, 393 01 Mezná — koordináty se geocodují při prvním požadavku
+MG._BRANCH_FROM_ADDRESS = 'Mezná 9, 393 01 Mezná';
+MG._BRANCH_FROM_COORDS = null;
+
+MG._ensureBranchCoords = function(){
+  if(MG._BRANCH_FROM_COORDS) return Promise.resolve(MG._BRANCH_FROM_COORDS);
+  return MG._mapySuggest(MG._BRANCH_FROM_ADDRESS, 1).then(function(arr){
+    if(arr && arr.length && arr[0].lat && arr[0].lng){
+      MG._BRANCH_FROM_COORDS = { lat: arr[0].lat, lng: arr[0].lng };
+      return MG._BRANCH_FROM_COORDS;
+    }
+    return null;
+  });
+};
+
+// Routing pres Mapy.cz - vraci { distanceKm, durationMin }
+MG._mapyRouting = function(fromLat, fromLng, toLat, toLng){
+  var url = MG.MAPY_CZ_BASE + '/routing/route' +
+    '?start=' + fromLng + ',' + fromLat +
+    '&end=' + toLng + ',' + toLat +
+    '&routeType=car_fast&lang=cs&format=geojson&apikey=' + MG.MAPY_CZ_KEY;
+  return fetch(url, { headers: { 'X-Mapy-Api-Key': MG.MAPY_CZ_KEY } })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      var len = (data && (data.length || (data.properties && data.properties.length))) || 0;
+      var dur = (data && (data.duration || (data.properties && data.properties.duration))) || 0;
+      if(!len) return null;
+      return { distanceKm: len / 1000, durationMin: Math.round(dur / 60) };
+    })
+    .catch(function(){ return null; });
+};
+
+// Format trasa-info HTML do panelu prislusneho typu (delivery/return)
+MG._renderRouteInfo = function(type, state){
+  var el = document.getElementById('rez-' + type + '-route-info');
+  if(!el) return;
+  if(state.loading){
+    el.style.display = 'block';
+    el.innerHTML = '<div style="background:#f1faf7;border:1px solid #d4e8e0;border-radius:8px;padding:.6rem .8rem;font-size:.85rem;color:#374151"><span class="spinner" style="display:inline-block;width:12px;height:12px;border:2px solid #74FB71;border-right-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:.5rem;vertical-align:middle"></span>Počítám nejrychlejší trasu od pobočky Mezná 9, 393 01 Mezná…</div>';
+    return;
+  }
+  if(state.error){
+    el.style.display = 'block';
+    el.innerHTML = '<div style="background:#fff4f4;border:1px solid #f0c8c8;border-radius:8px;padding:.6rem .8rem;font-size:.85rem;color:#a02020">Trasu se nepodařilo spočítat. Cena přistavení bude upřesněna ručně (1 000 Kč + 40 Kč/km).</div>';
+    return;
+  }
+  if(typeof state.distanceKm === 'number'){
+    var km = state.distanceKm.toFixed(1).replace('.', ',');
+    var fee = MG._calcDeliveryFee(state.distanceKm);
+    var label = type === 'delivery' ? 'přistavení' : 'vrácení';
+    el.style.display = 'block';
+    el.innerHTML =
+      '<div style="background:#f0faf5;border:1px solid #74FB71;border-radius:8px;padding:.6rem .8rem;font-size:.88rem;color:#1a3a2a">' +
+        '<div style="font-weight:700;margin-bottom:.2rem">Cena ' + label + ': ' + MG.formatPrice(fee) + '</div>' +
+        '<div style="font-size:.82rem;color:#374151">Nejrychlejší trasa od pobočky <strong>Mezná 9, 393 01 Mezná</strong>: <strong>' + km + ' km</strong>' +
+        (state.durationMin ? ' (~' + state.durationMin + ' min jízdy)' : '') + '</div>' +
+        '<div style="font-size:.78rem;color:#6b7280;margin-top:.2rem">Výpočet: 1 000 Kč + 40 Kč × ' + km + ' km = ' + MG.formatPrice(fee) + '</div>' +
+      '</div>';
+    return;
+  }
+  el.style.display = 'none';
+  el.innerHTML = '';
+};
+
+// Spocita trasu pro dany typ (delivery/return) pri zadane lat/lng adrese.
+// Pokud lat/lng chybi, zkusi geocode pres _mapySuggest podle textu inputu.
+MG._calcRouteFor = function(type, lat, lng){
+  MG._renderRouteInfo(type, { loading: true });
+  var inpId = type === 'delivery' ? 'rez-delivery-address' : 'rez-return-address';
+
+  function withCoords(toLat, toLng){
+    return MG._ensureBranchCoords().then(function(from){
+      if(!from) { MG._renderRouteInfo(type, { error: true }); return; }
+      return MG._mapyRouting(from.lat, from.lng, toLat, toLng).then(function(res){
+        if(!res){ MG._renderRouteInfo(type, { error: true }); return; }
+        if(type === 'delivery') MG._rez.deliveryDistanceKm = res.distanceKm;
+        else MG._rez.returnDistanceKm = res.distanceKm;
+        MG._renderRouteInfo(type, { distanceKm: res.distanceKm, durationMin: res.durationMin });
+        // Pokud "Vrátit motorku na stejné adrese" — propaguj vzdalenost na return
+        if(type === 'delivery'){
+          var rSame = document.getElementById('rez-return-same-as-delivery');
+          if(rSame && rSame.checked) MG._rez.returnDistanceKm = res.distanceKm;
+        }
+        MG._rezUpdatePrice();
+      });
+    });
+  }
+
+  if(typeof lat === 'number' && typeof lng === 'number'){
+    return withCoords(lat, lng);
+  }
+  // Fallback: geocode podle textu inputu
+  var inp = document.getElementById(inpId);
+  var q = inp && inp.value && inp.value.trim();
+  if(!q){ MG._renderRouteInfo(type, {}); return Promise.resolve(); }
+  return MG._mapySuggest(q, 1).then(function(arr){
+    if(arr && arr.length && arr[0].lat && arr[0].lng){
+      return withCoords(arr[0].lat, arr[0].lng);
+    }
+    MG._renderRouteInfo(type, { error: true });
+  });
+};
+
 // Suggest (autocomplete) pres Mapy.cz
 MG._mapySuggest = function(query, limit){
   if(!query || query.trim().length < 2) return Promise.resolve([]);
@@ -235,13 +352,16 @@ MG._attachMapyAutocomplete = function(inputId){
     inp.value = newVal;
     justPickedValue = newVal;
     closeList();
-    // Trigger only `change` for downstream listeners (price recalc, confirm checkbox).
-    // Do NOT dispatch `input` — that would re-trigger our own suggest loop.
+    var t = inputId === 'rez-delivery-address' ? 'delivery' : 'return';
+    MG._rez['_'+t+'RouteAddr'] = inp.value;
+    // Trigger only `change` (downstream price recalc, confirm checkbox).
+    // Do NOT dispatch `input` — to znovu spustí suggest a zacyklí dropdown.
     inp.dispatchEvent(new Event('change', { bubbles: true }));
     inp.blur();
-    var t = inputId === 'rez-delivery-address' ? 'delivery' : 'return';
-    var confirmEl = document.getElementById('rez-'+t+'-confirm');
-    if(confirmEl) confirmEl.style.display = 'block';
+    // Výpočet trasy automaticky po výběru adresy
+    if(typeof MG._calcRouteFor === 'function'){
+      MG._calcRouteFor(t, it.lat, it.lng);
+    }
   }
 
   inp.addEventListener('input', function(){
@@ -254,6 +374,22 @@ MG._attachMapyAutocomplete = function(inputId){
     timer = setTimeout(function(){
       MG._mapySuggest(q, 8).then(function(arr){ items = arr; active = -1; render(); });
     }, 220);
+  });
+  inp.addEventListener('change', function(){
+    var t = inputId === 'rez-delivery-address' ? 'delivery' : 'return';
+    var v = inp.value && inp.value.trim();
+    if(!v){
+      if(t==='delivery') MG._rez.deliveryDistanceKm = null;
+      else MG._rez.returnDistanceKm = null;
+      MG._rez['_'+t+'RouteAddr'] = '';
+      MG._renderRouteInfo(t, {});
+      MG._rezUpdatePrice();
+      return;
+    }
+    if(MG._rez['_'+t+'RouteAddr'] === v) return;
+    MG._rez['_'+t+'RouteAddr'] = v;
+    // Fallback geocode podle textu (kdyz uzivatel nepouzil autocomplete)
+    MG._calcRouteFor(t);
   });
   inp.addEventListener('keydown', function(e){
     if(!items.length){
@@ -364,7 +500,6 @@ MG._confirmWebMapPicker = function(){
     var inputId = type === 'delivery' ? 'rez-delivery-address' : 'rez-return-address';
     var inp = document.getElementById(inputId);
     if(inp){ inp.value = r.full; inp.dispatchEvent(new Event('input', { bubbles: true })); }
-    var confirmEl = document.getElementById('rez-'+type+'-confirm');
-    if(confirmEl) confirmEl.style.display = 'block';
+    MG._calcRouteFor(type, center.lat, center.lng);
   });
 };
