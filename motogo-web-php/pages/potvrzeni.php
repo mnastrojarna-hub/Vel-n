@@ -8,12 +8,12 @@ $orderId = $_GET['order_id'] ?? '';
 $bookingId = $_GET['booking_id'] ?? '';
 $isShop = !empty($orderId);
 
-$bcLabel = $isShop ? 'Potvrzení objednávky' : 'Potvrzení rezervace';
-$bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], $bcLabel]);
+$bcLabel = $isShop ? t('breadcrumb.confirmationOrder') : t('breadcrumb.confirmation');
+$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], $bcLabel]);
 
 $content = '<main id="content"><div class="container">' . $bc .
     '<div class="ccontent"><div id="confirm-content">' .
-    '<div class="loading-overlay"><span class="spinner"></span> Ověřujeme platbu...</div>' .
+    '<div class="loading-overlay"><span class="spinner"></span> ' . te('confirm.verifying') . '</div>' .
     '</div></div></div></main>';
 
 // Supabase SDK + JS pro polling
@@ -28,6 +28,7 @@ window.MOTOGO_CONFIG = {
 <script src="' . BASE_URL . '/js/api.js"></script>
 <script src="' . BASE_URL . '/js/pages-potvrzeni.js"></script>';
 
-renderPage($bcLabel . ' | MotoGo24', $content . $potvrzeniJs, '/potvrzeni', [
+$pageTitle = $isShop ? t('confirm.titleOrder') : t('confirm.titleBooking');
+renderPage($pageTitle, $content . $potvrzeniJs, '/potvrzeni', [
     'robots' => 'noindex,nofollow',
 ]);

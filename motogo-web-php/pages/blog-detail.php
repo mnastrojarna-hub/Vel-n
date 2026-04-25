@@ -16,14 +16,14 @@ if (!$post) {
 
 if (!$post) {
     $content = '<main id="content"><div class="container">' .
-        renderBreadcrumb([['label' => 'Domů', 'href' => '/'], ['label' => 'Blog', 'href' => '/blog'], 'Článek nenalezen']) .
-        '<div class="ccontent"><h1>Článek nenalezen</h1><p><a class="btn btngreen" href="' . BASE_URL . '/blog">Zpět na blog</a></p></div></div></main>';
-    renderPage('Článek nenalezen – Motogo24', $content, '/blog/' . htmlspecialchars($slug));
+        renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.blog'), 'href' => '/blog'], t('blog.detail.notFoundHeading')]) .
+        '<div class="ccontent"><h1>' . te('blog.detail.notFoundHeading') . '</h1><p><a class="btn btngreen" href="' . BASE_URL . '/blog">' . te('blog.detail.backToBlog') . '</a></p></div></div></main>';
+    renderPage(t('blog.detail.notFoundTitle'), $content, '/blog/' . htmlspecialchars($slug));
     return;
 }
 
 $title = htmlspecialchars($post['title'] ?? '');
-$bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], ['label' => 'Blog', 'href' => '/blog'], $title]);
+$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.blog'), 'href' => '/blog'], $title]);
 
 // Gallery
 $galleryHtml = '';
@@ -59,9 +59,9 @@ $articleSchema = '
   </script>';
 
 renderPage($title . ' | Blog MotoGo24', $content, '/blog/' . $slug, [
-    'description' => $excerpt ?: ('Článek na blogu Motogo24 – ' . ($post['title'] ?? '')),
+    'description' => $excerpt ?: t('blog.detail.descFallback', ['title' => $post['title'] ?? '']),
     'og_type' => 'article',
     'og_image' => !empty($post['images'][0]) ? $post['images'][0] : (!empty($post['image_url']) ? $post['image_url'] : null),
     'schema' => $articleSchema,
-    'breadcrumbs' => [['name' => 'Domů', 'url' => 'https://motogo24.cz/'], ['name' => 'Blog', 'url' => 'https://motogo24.cz/blog'], ['name' => $post['title'] ?? '', 'url' => 'https://motogo24.cz/blog/' . $slug]],
+    'breadcrumbs' => [['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'], ['name' => t('breadcrumb.blog'), 'url' => 'https://motogo24.cz/blog'], ['name' => $post['title'] ?? '', 'url' => 'https://motogo24.cz/blog/' . $slug]],
 ]);
