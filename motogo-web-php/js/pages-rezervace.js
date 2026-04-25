@@ -69,10 +69,11 @@ MG._initSizeChipEvents = function(scope){
 
 // ===== STATIC FORM HTML =====
 MG._rezFormHtml = function(){
-  // Quick-time chips (08:00 ... 19:00)
-  var qt = ['08:00','09:00','10:00','12:00','14:00','16:00','18:00'];
+  // Quick-time chips 06:00 .. 14:00 (po hodině), default vyznačeno 09:00
+  var qt = ['06:00','07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00'];
   var quickChips = qt.map(function(t){
-    return '<button type="button" class="time-chip" data-time="'+t+'">'+t+'</button>';
+    var act = t === '09:00' ? ' active' : '';
+    return '<button type="button" class="time-chip'+act+'" data-time="'+t+'">'+t+'</button>';
   }).join('');
 
   return '<div id="rez-form">' +
@@ -100,8 +101,9 @@ MG._rezFormHtml = function(){
       '<div class="rez-time-card">' +
         '<div class="rez-time-card-head"><span class="rez-time-ico">&#128340;</span>' +
         '<div><div class="rez-time-title">Čas převzetí nebo přistavení</div>' +
-        '<div class="rez-time-sub">Hodina, kdy chcete motorku převzít</div></div>' +
+        '<div class="rez-time-sub">Vyberte z nabídky nebo zadejte vlastní čas</div></div>' +
         '<input type="time" id="rez-pickup-time" required value="09:00"></div>' +
+        '<div class="rez-time-chips-label">Doporučené časy (06:00 — 14:00) <span style="color:#8aab99;font-weight:500;font-size:.75rem">· nebo vyberte vlastní čas vlevo</span></div>' +
         '<div class="rez-time-chips">'+quickChips+'</div>' +
       '</div>' +
 
@@ -164,17 +166,17 @@ MG._rezFormHtml = function(){
 
       '<div class="gear-grid">' +
 
-        // Driver gear (free) — auto-open
-        '<div class="gear-card gear-card-rider open" id="gear-card-rider">' +
+        // Driver gear (free) — collapsed by default
+        '<div class="gear-card gear-card-rider" id="gear-card-rider">' +
           '<label class="gear-head">' +
-            '<input type="checkbox" id="rez-eq-rider-gear" checked>' +
+            '<input type="checkbox" id="rez-eq-rider-gear">' +
             '<span class="gear-ico">&#127949;</span>' +
             '<div class="gear-body"><div class="gear-title">Výbava řidiče</div>' +
             '<div class="gear-price gear-price-free">v ceně · zdarma</div>' +
             '<div class="gear-sub">Helma, bunda, rukavice, kalhoty</div></div>' +
           '</label>' +
           '<div class="gear-extra-toggle"><label><input type="checkbox" id="rez-own-gear"> Mám vlastní výbavu — nepůjčuji</label></div>' +
-          '<div class="gear-size-panel-hint">&#128205; Vyberte své velikosti — bude na vás čekat již nachystaná výbava.</div>' +
+          '<div class="gear-size-panel-hint">&#9989; Zaškrtněte výše pro výběr velikostí (jinak se vyzkouší na místě)</div>' +
           MG._gearPanelHtml({panelId:'gear-panel-rider', group:'rider', kinds:['helmet','jacket','gloves','pants']}) +
         '</div>' +
 
@@ -189,7 +191,7 @@ MG._rezFormHtml = function(){
             MG._tip('Základní výbava pro spolujezdce: helma, bunda, rukavice a kukla. Velikost si vyberete kliknutím níže nebo na místě.') +
             '</div></div>' +
           '</label>' +
-          '<div class="gear-size-panel-hint">&#9989; Zaškrtněte výše + vyberte velikosti spolujezdce</div>' +
+          '<div class="gear-size-panel-hint">&#9989; Zaškrtněte výše a rozbalí se výběr velikostí spolujezdce</div>' +
           MG._gearPanelHtml({panelId:'gear-panel-passenger', group:'passenger', kinds:['helmet','jacket','gloves']}) +
         '</div>' +
 
@@ -202,7 +204,7 @@ MG._rezFormHtml = function(){
             '<div class="gear-price">+ 290 Kč</div>' +
             '<div class="gear-sub">Motocyklové boty (nejsou v základní výbavě)</div></div>' +
           '</label>' +
-          '<div class="gear-size-panel-hint">&#9989; Zaškrtněte výše + vyberte velikost bot</div>' +
+          '<div class="gear-size-panel-hint">&#9989; Zaškrtněte výše a rozbalí se výběr velikosti bot</div>' +
           MG._gearPanelHtml({panelId:'gear-panel-boots-rider', group:'rider', kinds:['boots']}) +
         '</div>' +
 
@@ -215,7 +217,7 @@ MG._rezFormHtml = function(){
             '<div class="gear-price">+ 290 Kč</div>' +
             '<div class="gear-sub">Motocyklové boty pro spolujezdce</div></div>' +
           '</label>' +
-          '<div class="gear-size-panel-hint">&#9989; Zaškrtněte výše + vyberte velikost bot</div>' +
+          '<div class="gear-size-panel-hint">&#9989; Zaškrtněte výše a rozbalí se výběr velikosti bot</div>' +
           MG._gearPanelHtml({panelId:'gear-panel-boots-passenger', group:'passenger', kinds:['boots']}) +
         '</div>' +
 
