@@ -209,15 +209,33 @@ class SupabaseClient {
      * Defaults se rekurzivně mergují s DB hodnotami — v DB stačí přepsat jen
      * vybrané klíče, zbytek zůstane z defaults.
      *
+     * Vícejazyčný režim: pokud je aktivní jiný jazyk než 'cs', nejprve se zkusí
+     * klíč 'site.<page>.<lang>' (per-language override), poté 'site.<page>' (CS fallback)
+     * a nakonec defaults (které by už měly přijít v aktuálním jazyce).
+     *
      * @param string $page Slug stránky (např. 'home', 'pujcovna')
-     * @param array $defaults Výchozí obsah (PHP pole) — použije se když DB nemá nic
+     * @param array $defaults Výchozí obsah (PHP pole, již lokalizovaný)
      * @return array Finální obsah pro stránku
      */
     public function siteContent($page, $defaults = []) {
-        $key = 'site.' . $page;
-        $db = $this->fetchSetting($key);
-        if (!is_array($db) || empty($db)) return $defaults;
-        return self::deepMerge($defaults, $db);
+        $merged = $defaults;
+        $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
+
+        // 1) Základní (CS) DB override — drží zpětnou kompatibilitu
+        $db = $this->fetchSetting('site.' . $page);
+        if (is_array($db) && !empty($db)) {
+            $merged = self::deepMerge($merged, $db);
+        }
+
+        // 2) Per-language DB override (např. site.home.en) — přepíše jen co je definováno
+        if ($lang && $lang !== 'cs') {
+            $dbLang = $this->fetchSetting('site.' . $page . '.' . $lang);
+            if (is_array($dbLang) && !empty($dbLang)) {
+                $merged = self::deepMerge($merged, $dbLang);
+            }
+        }
+
+        return $merged;
     }
 
     /**

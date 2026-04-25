@@ -101,14 +101,31 @@ function i18nDictionary() {
 }
 
 /**
- * Překlad. $key je tečkový název klíče (např. 'menu.rental').
- * $params: asociativní pole pro {placeholder} substituci.
+ * Překlad. $key je tečkový název klíče (např. 'menu.rental' nebo 'pages.home.h1').
+ * Podporuje hluboké zanořené pole (vrací mixed: string nebo array).
+ * $params: asociativní pole pro {placeholder} substituci (jen u stringu).
  * Pokud klíč neexistuje, vrátí samotný klíč (debug-friendly).
  */
 function t($key, $params = null) {
     $dict = i18nDictionary();
-    $raw = $dict[$key] ?? $key;
-    if (is_array($params) && !empty($params)) {
+    // Nejdřív rovný lookup (rychlá cesta pro existující klíče s tečkami v názvu)
+    if (isset($dict[$key])) {
+        $raw = $dict[$key];
+    } else {
+        // Zkus tečkovou navigaci do vnořeného pole (např. 'pages.home.h1')
+        $parts = explode('.', $key);
+        $node = $dict;
+        $found = true;
+        foreach ($parts as $p) {
+            if (is_array($node) && array_key_exists($p, $node)) {
+                $node = $node[$p];
+            } else {
+                $found = false; break;
+            }
+        }
+        $raw = $found ? $node : $key;
+    }
+    if (is_string($raw) && is_array($params) && !empty($params)) {
         foreach ($params as $k => $v) {
             $raw = str_replace('{' . $k . '}', (string)$v, $raw);
         }
@@ -117,10 +134,13 @@ function t($key, $params = null) {
 }
 
 /**
- * HTML-safe překlad — htmlspecialchars-uje výsledek.
+ * HTML-safe překlad — htmlspecialchars-uje výsledek (pouze string).
+ * Pole vrátí prázdný string (volat te() smí jen pro stringové klíče).
  */
 function te($key, $params = null) {
-    return htmlspecialchars(t($key, $params), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $v = t($key, $params);
+    if (!is_string($v)) return '';
+    return htmlspecialchars($v, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 }
 
 /**
