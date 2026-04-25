@@ -2,6 +2,9 @@
 // ===== MotoGo24 Web PHP — Hlavní router + entry point =====
 
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/i18n.php';
+// Detekuj jazyk co nejdřív (kvůli set-cookie hlavičce při ?lang=xx)
+i18nDetectLanguage();
 
 // ---- Production-safe error handling ----
 // V MOTOGO_DEBUG režimu chyby propadnou do browseru (pro ladění nasazení).
@@ -21,10 +24,15 @@ if (defined('MOTOGO_DEBUG') && MOTOGO_DEBUG) {
             http_response_code(500);
             header('Content-Type: text/html; charset=utf-8');
         }
-        echo '<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Chyba serveru – MotoGo24</title><meta name="robots" content="noindex"></head><body style="font-family:sans-serif;max-width:640px;margin:3rem auto;padding:1rem;text-align:center;">'
-            . '<h1>Dočasná chyba serveru</h1>'
-            . '<p>Omlouváme se, na stránce došlo k technické chybě. Zkuste to prosím za chvíli znovu.</p>'
-            . '<p><a href="/">Zpět na úvod</a> · <a href="tel:+420774256271">+420 774 256 271</a></p>'
+        $lang = function_exists('i18nHtmlLang') ? i18nHtmlLang() : 'cs-CZ';
+        $title = function_exists('te') ? te('err500.title') : 'Chyba serveru – MotoGo24';
+        $heading = function_exists('te') ? te('err500.heading') : 'Dočasná chyba serveru';
+        $msg = function_exists('te') ? te('err500.message') : 'Omlouváme se, na stránce došlo k technické chybě. Zkuste to prosím za chvíli znovu.';
+        $back = function_exists('te') ? te('common.backHome') : 'Zpět na úvod';
+        echo '<!DOCTYPE html><html lang="' . htmlspecialchars($lang) . '"><head><meta charset="utf-8"><title>' . $title . '</title><meta name="robots" content="noindex"></head><body style="font-family:sans-serif;max-width:640px;margin:3rem auto;padding:1rem;text-align:center;">'
+            . '<h1>' . $heading . '</h1>'
+            . '<p>' . $msg . '</p>'
+            . '<p><a href="/">' . $back . '</a> · <a href="tel:+420774256271">+420 774 256 271</a></p>'
             . '</body></html>';
     });
 

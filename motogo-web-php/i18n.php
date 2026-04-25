@@ -1,0 +1,185 @@
+<?php
+// ===== MotoGo24 Web PHP — i18n core =====
+// Detekce jazyka, načítání slovníků, t() helper.
+//
+// Priorita: GET ?lang=xx → COOKIE mg_web_lang → Accept-Language → 'cs'
+// Cookie se nastavuje při ?lang= a žije 365 dní.
+// Podporované jazyky se shodují s Flutter appkou: cs, en, de, es, fr, nl, pl.
+
+require_once __DIR__ . '/config.php';
+
+const I18N_SUPPORTED = ['cs', 'en', 'de', 'es', 'fr', 'nl', 'pl'];
+const I18N_DEFAULT = 'cs';
+const I18N_COOKIE = 'mg_web_lang';
+
+const I18N_LANGUAGES = [
+    'cs' => ['flag' => '🇨🇿', 'name' => 'Čeština'],
+    'en' => ['flag' => '🇬🇧', 'name' => 'English'],
+    'de' => ['flag' => '🇩🇪', 'name' => 'Deutsch'],
+    'es' => ['flag' => '🇪🇸', 'name' => 'Español'],
+    'fr' => ['flag' => '🇫🇷', 'name' => 'Français'],
+    'nl' => ['flag' => '🇳🇱', 'name' => 'Nederlands'],
+    'pl' => ['flag' => '🇵🇱', 'name' => 'Polski'],
+];
+
+/**
+ * Detekuje a (případně) uloží jazyk pro aktuální request.
+ * Volat co nejdřív v hlavním entry pointu (index.php, sitemap.php).
+ */
+function i18nDetectLanguage() {
+    static $cached = null;
+    if ($cached !== null) return $cached;
+
+    // 1) ?lang=xx — explicitní volba (uloží do cookie a zruší query string)
+    $fromQuery = isset($_GET['lang']) ? strtolower(substr((string)$_GET['lang'], 0, 2)) : '';
+    if ($fromQuery && in_array($fromQuery, I18N_SUPPORTED, true)) {
+        // Uložit cookie (365 dní, /, secure pokud HTTPS)
+        $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+        if (!headers_sent()) {
+            setcookie(I18N_COOKIE, $fromQuery, [
+                'expires' => time() + 365 * 24 * 3600,
+                'path' => '/',
+                'secure' => $secure,
+                'httponly' => false,
+                'samesite' => 'Lax',
+            ]);
+        }
+        $_COOKIE[I18N_COOKIE] = $fromQuery;
+        $cached = $fromQuery;
+        return $cached;
+    }
+
+    // 2) Cookie
+    $fromCookie = $_COOKIE[I18N_COOKIE] ?? '';
+    if ($fromCookie && in_array($fromCookie, I18N_SUPPORTED, true)) {
+        $cached = $fromCookie;
+        return $cached;
+    }
+
+    // 3) Accept-Language hlavička
+    $acceptLang = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '';
+    if ($acceptLang) {
+        // Vezmi první 2 znaky první jazykové preference (např. "cs-CZ,cs;q=0.9,en;q=0.8" → "cs")
+        $first = strtolower(substr(preg_replace('/[^a-zA-Z\-,;]/', '', $acceptLang), 0, 2));
+        if (in_array($first, I18N_SUPPORTED, true)) {
+            $cached = $first;
+            return $cached;
+        }
+    }
+
+    // 4) Default
+    $cached = I18N_DEFAULT;
+    return $cached;
+}
+
+/**
+ * Vrátí celý slovník pro aktuální jazyk (s fallbackem na CS pro chybějící klíče).
+ */
+function i18nDictionary() {
+    static $cache = [];
+    $lang = i18nDetectLanguage();
+    if (isset($cache[$lang])) return $cache[$lang];
+
+    $loadFile = function ($code) {
+        $path = __DIR__ . '/lang/' . $code . '.php';
+        if (!is_file($path)) return [];
+        $data = require $path;
+        return is_array($data) ? $data : [];
+    };
+
+    $current = $loadFile($lang);
+    if ($lang === I18N_DEFAULT) {
+        $cache[$lang] = $current;
+        return $current;
+    }
+
+    // Merge nad fallbackem (aby chybějící klíče nepadly na klíč nebo prázdno)
+    $fallback = $loadFile(I18N_DEFAULT);
+    $cache[$lang] = $current + $fallback;
+    return $cache[$lang];
+}
+
+/**
+ * Překlad. $key je tečkový název klíče (např. 'menu.rental').
+ * $params: asociativní pole pro {placeholder} substituci.
+ * Pokud klíč neexistuje, vrátí samotný klíč (debug-friendly).
+ */
+function t($key, $params = null) {
+    $dict = i18nDictionary();
+    $raw = $dict[$key] ?? $key;
+    if (is_array($params) && !empty($params)) {
+        foreach ($params as $k => $v) {
+            $raw = str_replace('{' . $k . '}', (string)$v, $raw);
+        }
+    }
+    return $raw;
+}
+
+/**
+ * HTML-safe překlad — htmlspecialchars-uje výsledek.
+ */
+function te($key, $params = null) {
+    return htmlspecialchars(t($key, $params), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+}
+
+/**
+ * BCP 47 locale tag pro <html lang="..."> a meta og:locale.
+ */
+function i18nHtmlLang() {
+    $lang = i18nDetectLanguage();
+    $map = [
+        'cs' => 'cs-CZ', 'en' => 'en-GB', 'de' => 'de-DE', 'es' => 'es-ES',
+        'fr' => 'fr-FR', 'nl' => 'nl-NL', 'pl' => 'pl-PL',
+    ];
+    return $map[$lang] ?? 'cs-CZ';
+}
+
+/**
+ * og:locale ve formátu "xx_YY"
+ */
+function i18nOgLocale() {
+    return str_replace('-', '_', i18nHtmlLang());
+}
+
+/**
+ * Vyrenderuje language switcher tlačítko + dropdown.
+ * Cílová URL = aktuální cesta + ?lang=xx.
+ */
+function renderLanguageSwitcher() {
+    $current = i18nDetectLanguage();
+    $cur = I18N_LANGUAGES[$current] ?? I18N_LANGUAGES[I18N_DEFAULT];
+
+    // Aktuální URL bez ?lang=, abychom mohli přidat náš param
+    $reqUri = $_SERVER['REQUEST_URI'] ?? '/';
+    $parts = parse_url($reqUri);
+    $path = $parts['path'] ?? '/';
+    $existingQuery = [];
+    if (!empty($parts['query'])) {
+        parse_str($parts['query'], $existingQuery);
+        unset($existingQuery['lang']);
+    }
+    $baseQuery = !empty($existingQuery) ? ('&' . http_build_query($existingQuery)) : '';
+
+    $items = '';
+    foreach (I18N_LANGUAGES as $code => $info) {
+        $href = htmlspecialchars($path . '?lang=' . $code . $baseQuery);
+        $isActive = ($code === $current);
+        $cls = 'lang-item' . ($isActive ? ' active' : '');
+        $check = $isActive ? '<span class="lang-check" aria-hidden="true">✓</span>' : '';
+        $items .= '<li><a class="' . $cls . '" href="' . $href . '" hreflang="' . $code . '" lang="' . $code . '">'
+            . '<span class="lang-flag" aria-hidden="true">' . $info['flag'] . '</span>'
+            . '<span class="lang-name">' . htmlspecialchars($info['name']) . '</span>'
+            . $check
+            . '</a></li>';
+    }
+
+    return '<div class="lang-switcher" data-lang-switcher>'
+        . '<button type="button" class="lang-toggle" aria-haspopup="true" aria-expanded="false" aria-label="' . te('lang.select') . '" title="' . te('lang.select') . '">'
+            . '<span class="lang-flag" aria-hidden="true">' . $cur['flag'] . '</span>'
+            . '<span class="lang-code">' . strtoupper($current) . '</span>'
+            . '<span class="lang-arrow" aria-hidden="true">▾</span>'
+        . '</button>'
+        . '<ul class="lang-dropdown" role="menu">' . $items . '</ul>'
+    . '</div>';
+}

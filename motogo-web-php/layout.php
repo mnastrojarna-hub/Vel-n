@@ -2,25 +2,26 @@
 // ===== MotoGo24 Web PHP — Shared Layout (Header + Footer + SEO) =====
 
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/i18n.php';
 
-// Menu struktura
+// Menu struktura — labels jsou klíče i18n, route zůstává stejná napříč jazyky
 function getMenuItems() {
     return [
-        ['label' => 'Půjčovna motorek', 'route' => '/pujcovna-motorek'],
-        ['label' => 'Katalog motorek', 'route' => '/katalog'],
-        ['label' => 'Jak si půjčit motorku', 'route' => '/jak-pujcit', 'children' => [
-            ['label' => 'Postup půjčení motorky', 'route' => '/jak-pujcit/postup'],
-            ['label' => 'Převzetí v půjčovně', 'route' => '/jak-pujcit/prevzeti'],
-            ['label' => 'Vrácení motocyklu v půjčovně', 'route' => '/jak-pujcit/vraceni-pujcovna'],
-            ['label' => 'Vrácení motorky jinde', 'route' => '/jak-pujcit/vraceni-jinde'],
-            ['label' => 'Co je v ceně nájmu', 'route' => '/jak-pujcit/co-v-cene'],
-            ['label' => 'Přistavení motocyklu', 'route' => '/jak-pujcit/pristaveni'],
-            ['label' => 'Dokumenty a návody', 'route' => '/jak-pujcit/dokumenty'],
-            ['label' => 'Často kladené dotazy', 'route' => '/jak-pujcit/faq'],
+        ['label' => t('menu.rental'), 'route' => '/pujcovna-motorek'],
+        ['label' => t('menu.catalog'), 'route' => '/katalog'],
+        ['label' => t('menu.howto'), 'route' => '/jak-pujcit', 'children' => [
+            ['label' => t('menu.howto.process'), 'route' => '/jak-pujcit/postup'],
+            ['label' => t('menu.howto.pickup'), 'route' => '/jak-pujcit/prevzeti'],
+            ['label' => t('menu.howto.returnHome'), 'route' => '/jak-pujcit/vraceni-pujcovna'],
+            ['label' => t('menu.howto.returnElsewhere'), 'route' => '/jak-pujcit/vraceni-jinde'],
+            ['label' => t('menu.howto.price'), 'route' => '/jak-pujcit/co-v-cene'],
+            ['label' => t('menu.howto.delivery'), 'route' => '/jak-pujcit/pristaveni'],
+            ['label' => t('menu.howto.documents'), 'route' => '/jak-pujcit/dokumenty'],
+            ['label' => t('menu.howto.faq'), 'route' => '/jak-pujcit/faq'],
         ]],
-        ['label' => 'Poukazy', 'route' => '/poukazy'],
-        ['label' => 'Blog', 'route' => '/blog'],
-        ['label' => 'Kontakt', 'route' => '/kontakt'],
+        ['label' => t('menu.vouchers'), 'route' => '/poukazy'],
+        ['label' => t('menu.blog'), 'route' => '/blog'],
+        ['label' => t('menu.contact'), 'route' => '/kontakt'],
     ];
 }
 
@@ -43,17 +44,23 @@ function renderHeader($currentPath = '/') {
         $nav .= '</li>';
     }
 
+    // Submenu šipka — překlad přes htmlspecialchars
+    $submenuArrowAlt = htmlspecialchars(t('header.expandSubmenu'), ENT_QUOTES, 'UTF-8');
+    // Záměna alt atributů v $nav (konzervativní replace pouze v naší šabloně)
+    $nav = str_replace(' alt="Rozbalit podmenu" ', ' alt="' . $submenuArrowAlt . '" ', $nav);
+
     return '<header>' .
-        '<ul class="focus"><li><a href="#main-menu">PŘEJDI NA HLAVNÍ MENU</a></li><li><a href="#content">PŘEJDI NA OBSAH</a></li><li><a href="#footer">PŘEJDI NA KONTAKT</a></li></ul>' .
+        '<ul class="focus"><li><a href="#main-menu">' . te('header.skip.menu') . '</a></li><li><a href="#content">' . te('header.skip.content') . '</a></li><li><a href="#footer">' . te('header.skip.contact') . '</a></li></ul>' .
         '<div class="header"><div class="container dfcs">' .
-            '<div class="header-logo"><a href="' . BASE_URL . '/" aria-label="Motogo24"><img src="' . BASE_URL . '/' . LOGO_SVG . '" alt="Půjčovna motorek Vysočina Motogo24" loading="lazy"></a></div>' .
-            '<div class="header-phone"><p><a href="' . PHONE_LINK . '" aria-label="Zavolejte nám"><img alt="Zavolejte" src="' . BASE_URL . '/gfx/telefon-header.svg" loading="lazy"></a>&nbsp;<a href="' . PHONE_LINK . '">' . PHONE . '</a></p></div>' .
+            '<div class="header-logo"><a href="' . BASE_URL . '/" aria-label="Motogo24"><img src="' . BASE_URL . '/' . LOGO_SVG . '" alt="' . te('header.logoAlt') . '" loading="lazy"></a></div>' .
+            '<div class="header-phone"><p><a href="' . PHONE_LINK . '" aria-label="' . te('header.callUs') . '"><img alt="' . te('header.callUs') . '" src="' . BASE_URL . '/gfx/telefon-header.svg" loading="lazy"></a>&nbsp;<a href="' . PHONE_LINK . '">' . PHONE . '</a></p></div>' .
+            '<div class="header-lang">' . renderLanguageSwitcher() . '</div>' .
             '<div class="header-menu dfje">' .
-                '<button class="nav-toggle" aria-label="Otevřít menu" aria-expanded="false" aria-controls="mobile-menu" onclick="(function(){var m=document.getElementById(\'mobile-menu\');var open=!m.classList.contains(\'open\');m.classList.toggle(\'open\',open);document.body.classList.toggle(\'menu-open\',open);this.setAttribute(\'aria-expanded\',open?\'true\':\'false\');}).call(this)">MENU ☰</button>' .
-                '<nav id="mobile-menu" class="mobile-menu-overlay" aria-label="Hlavní navigace">' .
-                    '<button class="mobile-menu-close" aria-label="Zavřít menu" onclick="document.getElementById(\'mobile-menu\').classList.remove(\'open\');document.body.classList.remove(\'menu-open\');var b=document.querySelector(\'.nav-toggle\');if(b)b.setAttribute(\'aria-expanded\',\'false\')">✕</button>' .
+                '<button class="nav-toggle" aria-label="' . te('header.menuOpen') . '" aria-expanded="false" aria-controls="mobile-menu" onclick="(function(){var m=document.getElementById(\'mobile-menu\');var open=!m.classList.contains(\'open\');m.classList.toggle(\'open\',open);document.body.classList.toggle(\'menu-open\',open);this.setAttribute(\'aria-expanded\',open?\'true\':\'false\');}).call(this)">' . te('header.menuToggle') . '</button>' .
+                '<nav id="mobile-menu" class="mobile-menu-overlay" aria-label="' . te('header.menuLabel') . '">' .
+                    '<button class="mobile-menu-close" aria-label="' . te('header.menuClose') . '" onclick="document.getElementById(\'mobile-menu\').classList.remove(\'open\');document.body.classList.remove(\'menu-open\');var b=document.querySelector(\'.nav-toggle\');if(b)b.setAttribute(\'aria-expanded\',\'false\')">✕</button>' .
                     '<ul id="main-menu" class="main-menu">' . $nav .
-                        '<li class="menu-rez"><a class="btn btngreen-small pulse" data-route="/rezervace" href="' . BASE_URL . '/rezervace">REZERVACE</a></li>' .
+                        '<li class="menu-rez"><a class="btn btngreen-small pulse" data-route="/rezervace" href="' . BASE_URL . '/rezervace">' . te('menu.reservation') . '</a></li>' .
                     '</ul>' .
                 '</nav>' .
             '</div>' .
@@ -67,31 +74,31 @@ function renderFooter() {
     foreach ($menuItems as $item) {
         $menuHtml .= '<li><a data-route="' . $item['route'] . '" href="' . BASE_URL . $item['route'] . '">' . $item['label'] . '</a></li>';
     }
-    $menuHtml .= '<li><a data-route="/rezervace" href="' . BASE_URL . '/rezervace">REZERVACE</a></li>';
+    $menuHtml .= '<li><a data-route="/rezervace" href="' . BASE_URL . '/rezervace">' . te('menu.reservation') . '</a></li>';
 
     return '<footer id="footer"><div class="container"><div class="gr4">' .
         '<div>' .
             '<p><a href="' . BASE_URL . '/" aria-label="Motogo24"><img src="' . BASE_URL . '/' . LOGO_SVG . '" alt="Motogo24" loading="lazy"></a></p><p>&nbsp;</p>' .
-            '<p>Vítejte u Motogo24, vaší <strong>půjčovny motorek v Pelhřimově</strong>! Nabízíme <strong>pronájem motorek</strong> pro místní i turisty. Vyberte si z nabídky sportovních nebo enduro motorek a rezervujte online ve třech krocích.</p>' .
+            '<p>' . t('footer.aboutText') . '</p>' .
         '</div>' .
-        '<div><h3>Půjčovna motorek</h3><ul>' . $menuHtml . '</ul></div>' .
-        '<div><h3>Půjčovna motorek na sítích</h3>' .
+        '<div><h3>' . te('footer.aboutTitle') . '</h3><ul>' . $menuHtml . '</ul></div>' .
+        '<div><h3>' . te('footer.socialTitle') . '</h3>' .
             '<p class="dfc"><span class="footer-social-icon"><img alt="Facebook" src="' . BASE_URL . '/gfx/facebook.svg"></span>&nbsp;<a href="' . FB_URL . '">facebook</a></p><p>&nbsp;</p>' .
             '<p class="dfc"><span class="footer-social-icon"><img alt="Instagram" src="' . BASE_URL . '/gfx/instagram.svg"></span>&nbsp;<a href="' . IG_URL . '">instagram</a></p>' .
         '</div>' .
-        '<div class="footer-contact"><h3>Potřebujete poradit?</h3>' .
-            '<div class="footer-phone dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/telefon.svg" alt="Telefon" class="icon-small" loading="lazy"></div><div><p>ZAVOLEJTE NÁM<br><strong><a href="' . PHONE_LINK . '">' . PHONE . '</a></strong></p></div></div>' .
-            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/email.svg" alt="E-mail" class="icon-small" loading="lazy"></div><div><p>' . EMAIL_USER . '@' . EMAIL_DOMAIN . '</p></div></div>' .
-            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/adresa.svg" alt="Adresa" class="icon-small" loading="lazy"></div><div><p><strong>Půjčovna motorek Motogo24</strong><br>' . ADDRESS . '</p></div></div>' .
-            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/provozni-doba.svg" alt="Provozní doba" class="icon-small" loading="lazy"></div><div><p>PO - NE 00:00 – 24:00&nbsp;(nonstop)</p></div></div>' .
+        '<div class="footer-contact"><h3>' . te('footer.helpTitle') . '</h3>' .
+            '<div class="footer-phone dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/telefon.svg" alt="' . te('footer.iconPhone') . '" class="icon-small" loading="lazy"></div><div><p>' . te('footer.callUs') . '<br><strong><a href="' . PHONE_LINK . '">' . PHONE . '</a></strong></p></div></div>' .
+            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/email.svg" alt="' . te('footer.iconEmail') . '" class="icon-small" loading="lazy"></div><div><p>' . EMAIL_USER . '@' . EMAIL_DOMAIN . '</p></div></div>' .
+            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/adresa.svg" alt="' . te('footer.iconAddress') . '" class="icon-small" loading="lazy"></div><div><p><strong>' . te('footer.companyLine1') . '</strong><br>' . ADDRESS . '</p></div></div>' .
+            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/provozni-doba.svg" alt="' . te('footer.openHoursIcon') . '" class="icon-small" loading="lazy"></div><div><p>' . te('footer.openHours') . '</p></div></div>' .
         '</div>' .
     '</div></div>' .
     '<div class="copyright"><div class="container">' .
-        '<p>© Půjčovna motorek Vysočina Motogo24 - všechna práva vyhrazena</p>' .
-        '<p><a href="' . BASE_URL . '/mapa-stranek">Mapa stránek</a><a href="#">Cookies</a><a href="' . BASE_URL . '/gdpr">GDPR</a><a href="' . BASE_URL . '/obchodni-podminky">Obchodní podmínky</a><a href="' . BASE_URL . '/smlouva">Smlouva o pronájmu</a></p>' .
+        '<p>' . te('footer.copyright') . '</p>' .
+        '<p><a href="' . BASE_URL . '/mapa-stranek">' . te('footer.sitemap') . '</a><a href="#">' . te('footer.cookies') . '</a><a href="' . BASE_URL . '/gdpr">' . te('footer.gdpr') . '</a><a href="' . BASE_URL . '/obchodni-podminky">' . te('footer.terms') . '</a><a href="' . BASE_URL . '/smlouva">' . te('footer.contract') . '</a></p>' .
     '</div></div>' .
     '</footer>' .
-    '<a id="Up" href="#" aria-label="NAHORU" onclick="window.scrollTo({top:0,behavior:\'smooth\'});return false"><img src="' . BASE_URL . '/gfx/arrow-top.svg" alt="NAHORU"></a>';
+    '<a id="Up" href="#" aria-label="' . te('footer.toTop') . '" onclick="window.scrollTo({top:0,behavior:\'smooth\'});return false"><img src="' . BASE_URL . '/gfx/arrow-top.svg" alt="' . te('footer.toTop') . '"></a>';
 }
 
 function renderInlineJs() {
@@ -130,6 +137,23 @@ function renderInlineJs() {
   window.addEventListener("resize", function(){
     if(window.innerWidth>768 && menu && menu.classList.contains("open")) setMenu(false);
   }, {passive:true});
+  // Language switcher dropdown toggle
+  document.querySelectorAll("[data-lang-switcher]").forEach(function(sw){
+    var toggle = sw.querySelector(".lang-toggle");
+    var dropdown = sw.querySelector(".lang-dropdown");
+    if(!toggle || !dropdown) return;
+    toggle.addEventListener("click", function(e){
+      e.stopPropagation();
+      var open = sw.classList.toggle("open");
+      toggle.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+    document.addEventListener("click", function(e){
+      if(!sw.contains(e.target)){ sw.classList.remove("open"); toggle.setAttribute("aria-expanded","false"); }
+    });
+    document.addEventListener("keydown", function(e){
+      if(e.key==="Escape" && sw.classList.contains("open")){ sw.classList.remove("open"); toggle.setAttribute("aria-expanded","false"); }
+    });
+  });
   // Submenu toggle (mobile)
   document.querySelectorAll(".has-sub > a").forEach(function(a){
     a.addEventListener("click", function(e){
@@ -201,8 +225,10 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   </script>';
     }
 
+    $htmlLang = i18nHtmlLang();
+    $ogLocale = i18nOgLocale();
     echo '<!DOCTYPE html>
-<html lang="cs" dir="ltr" prefix="og: https://ogp.me/ns#">
+<html lang="' . htmlspecialchars($htmlLang) . '" dir="ltr" prefix="og: https://ogp.me/ns#">
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -219,7 +245,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   <meta name="author" content="MotoGo24">
   <meta property="og:url" content="' . htmlspecialchars($canonical) . '">
   <meta property="og:type" content="' . htmlspecialchars($ogType) . '">
-  <meta property="og:locale" content="cs_CZ">
+  <meta property="og:locale" content="' . htmlspecialchars($ogLocale) . '">
   <meta property="og:title" content="' . htmlspecialchars($title) . '">
   <meta property="og:site_name" content="Půjčovna motorek Vysočina MotoGo24">
   <meta property="og:description" content="' . htmlspecialchars($description) . '">
