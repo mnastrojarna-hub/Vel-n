@@ -73,12 +73,20 @@ MG._submitReservation = async function(){
   if(deliveryAddr) extras.push({name:'Přistavení motorky (nakládka+vykládka+doprava)',unit_price:1000});
   if(returnAddr) extras.push({name:'Vrácení motorky (nakládka+vykládka+doprava)',unit_price:1000});
 
+  // Collect sizes from new chip UI
+  var rs = (MG._rez.sizes && MG._rez.sizes.rider) || {};
+  var ps = (MG._rez.sizes && MG._rez.sizes.passenger) || {};
+  // If "own gear" toggled — clear rider sizes (force rental skipped)
+  var ownGearEl = document.getElementById('rez-own-gear');
+  if(ownGearEl && ownGearEl.checked){ rs = {}; }
+
   MG._rez.formData={motoId:mId,name:name.value,email:email.value,phone:phone.value,
     street:street.value,city:city.value,zip:zip.value,country:(country&&country.value)||'Česká republika',
-    note:(document.getElementById('rez-note')||{}).value||'',pickupTime:ptEl.value,
+    note:'',pickupTime:ptEl.value,
     deliveryAddr:deliveryAddr,returnAddr:returnAddr,extras:extras,
     appliedCodes:(MG._rez.appliedCodes&&MG._rez.appliedCodes.length)?MG._rez.appliedCodes:[],
-    discountAmt:MG._rez.discountAmt||0};
+    discountAmt:MG._rez.discountAmt||0,
+    riderSizes: rs, passengerSizes: ps};
 
   // Save customer to DB immediately (even if they don't finish payment)
   try {
@@ -95,7 +103,7 @@ MG._submitReservation = async function(){
       p_name: name.value, p_email: email.value, p_phone: phone.value,
       p_street: street.value||'', p_city: city.value||'', p_zip: zip.value||'',
       p_country: (country&&country.value)||'CZ',
-      p_note: MG._rez.formData.note||'',
+      p_note: '',
       p_pickup_time: ptEl.value ? ptEl.value+':00' : null,
       p_delivery_address: deliveryAddr, p_return_address: returnAddr,
       p_extras: extras,
@@ -103,8 +111,22 @@ MG._submitReservation = async function(){
       p_discount_code: codes.length?codes.map(function(c){return c.code;}).join(', '):null,
       p_promo_code: promoCode,
       p_voucher_id: voucherId,
-      p_license_group: (document.getElementById('rez-license-group')||{}).value||null
+      p_license_group: (document.getElementById('rez-license-group')||{}).value||null,
+      // Driver gear sizes (RPC supports since 2026-04-11)
+      p_helmet_size: rs.helmet||null,
+      p_jacket_size: rs.jacket||null,
+      p_pants_size:  rs.pants||null,
+      p_boots_size:  rs.boots||null,
+      p_gloves_size: rs.gloves||null
     };
+    // Passenger gear sizes — pošli jen pokud je RPC rozšířený (po aplikaci SQL migrace)
+    var hasPassengerSizes = !!(ps.helmet||ps.jacket||ps.gloves||ps.boots);
+    if(hasPassengerSizes){
+      rpcParams.p_passenger_helmet_size = ps.helmet||null;
+      rpcParams.p_passenger_jacket_size = ps.jacket||null;
+      rpcParams.p_passenger_gloves_size = ps.gloves||null;
+      rpcParams.p_passenger_boots_size  = ps.boots||null;
+    }
     console.log('[REZ] create_web_booking params:', rpcParams);
     var regRes = await window.sb.rpc('create_web_booking', rpcParams);
     if(regRes.error){
@@ -133,6 +155,7 @@ MG._submitReservation = async function(){
         startDate: MG._rez.startDate, endDate: MG._rez.endDate,
         motoId: MG._rez.motoId, appliedCodes: MG._rez.appliedCodes,
         discountAmt: MG._rez.discountAmt,
+        sizes: MG._rez.sizes,
         _docNumber: MG._rez._docNumber, _licenseNumber: MG._rez._licenseNumber,
         _docsValidated: MG._rez._docsValidated,
         _passwordSet: MG._rez._passwordSet||false
@@ -299,8 +322,40 @@ MG._rezBackToStep1 = function(){
   var f=function(id,v){var e=document.getElementById(id);if(e&&v)e.value=v;};
   f('rez-name',d.name);f('rez-email',d.email);f('rez-phone',d.phone);
   f('rez-street',d.street);f('rez-city',d.city);f('rez-zip',d.zip);
-  f('rez-country',d.country);f('rez-note',d.note);f('rez-pickup-time',d.pickupTime);
+  f('rez-country',d.country);f('rez-pickup-time',d.pickupTime);
+
+  // Restore sizes UI
+  MG._rezRestoreSizesUI();
   MG._rezUpdatePrice();
+};
+
+// ===== RESTORE SIZES UI from MG._rez.sizes =====
+MG._rezRestoreSizesUI = function(){
+  var s = MG._rez.sizes || {rider:{}, passenger:{}};
+  // Tick parent gear card if any size selected
+  var groups = {
+    'rez-eq-rider-gear': ['rider', ['helmet','jacket','gloves','pants']],
+    'rez-eq-passenger':  ['passenger', ['helmet','jacket','gloves']],
+    'rez-eq-boots-rider': ['rider', ['boots']],
+    'rez-eq-boots-passenger': ['passenger', ['boots']]
+  };
+  Object.keys(groups).forEach(function(cbId){
+    var grp = groups[cbId][0], keys = groups[cbId][1];
+    var hasAny = keys.some(function(k){ return (s[grp]||{})[k]; });
+    var cb = document.getElementById(cbId);
+    if(cb && hasAny){ cb.checked = true; var card = cb.closest('.gear-card'); if(card) card.classList.add('open'); }
+  });
+  // Mark active chips
+  document.querySelectorAll('.size-chips').forEach(function(g){
+    var grp = g.dataset.group, key = g.dataset.key;
+    var sel = (s[grp]||{})[key];
+    if(!sel) return;
+    g.querySelectorAll('.size-chip').forEach(function(b){
+      if(b.dataset.size === sel) b.classList.add('active');
+    });
+    var head = g.previousElementSibling;
+    if(head){ var pick = head.querySelector('.size-pick'); if(pick){ pick.textContent = sel; pick.dataset.empty='0'; } }
+  });
 };
 
 // Mindee scan + Stripe payment → pages-rezervace-scan.js

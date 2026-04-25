@@ -3,81 +3,259 @@
 var MG = window.MG || {};
 window.MG = MG;
 
-MG._rez = { startDate: null, endDate: null, motos: [], motoId: '', allBookings: {}, appliedCodes: [], discountAmt: 0 };
+MG._rez = { startDate: null, endDate: null, motos: [], motoId: '', allBookings: {}, appliedCodes: [], discountAmt: 0,
+  sizes: { rider:{}, passenger:{} } };
 
 // ===== TOOLTIP HELPER =====
 MG._tip = function(text){ return ' <span class="ctooltip">&#9432;<span class="ctooltiptext">'+text+'</span></span>'; };
 MG._reqTip = function(){ return ' <span class="ctooltip" style="color:#c00;font-size:.75rem">*<span class="ctooltiptext">Toto pole je povinné</span></span>'; };
 
+// ===== SIZE CHIP HELPERS =====
+MG._SIZE_CHIPS_GEAR  = ['XS','S','M','L','XL','XXL'];
+MG._SIZE_CHIPS_PANTS = ['XS','S','M','L','XL','XXL'];
+MG._SIZE_CHIPS_BOOTS = ['36','37','38','39','40','41','42','43','44','45','46'];
+
+MG._renderSizeChips = function(group, key, sizes, label, icon){
+  var sel = (MG._rez.sizes[group]||{})[key] || '';
+  var h = '<div class="size-row"><div class="size-row-head"><span class="size-ico">'+icon+'</span><span class="size-lbl">'+label+'</span>'+
+    '<span class="size-pick" data-empty="'+(sel?'0':'1')+'">'+(sel?sel:'vyber')+'</span></div>'+
+    '<div class="size-chips" data-group="'+group+'" data-key="'+key+'">';
+  sizes.forEach(function(s){
+    h += '<button type="button" class="size-chip'+(s===sel?' active':'')+'" data-size="'+s+'">'+s+'</button>';
+  });
+  h += '</div></div>';
+  return h;
+};
+
+MG._gearPanelHtml = function(opts){
+  // opts: { panelId, group ('rider'|'passenger'), kinds: ['helmet','jacket','gloves','pants','boots'] }
+  var labels = {
+    helmet: { l:'Helma',     ico:'&#129695;', sizes: MG._SIZE_CHIPS_GEAR },
+    jacket: { l:'Bunda',     ico:'&#129509;', sizes: MG._SIZE_CHIPS_GEAR },
+    gloves: { l:'Rukavice',  ico:'&#129306;', sizes: MG._SIZE_CHIPS_GEAR },
+    pants:  { l:'Kalhoty',   ico:'&#128087;', sizes: MG._SIZE_CHIPS_PANTS },
+    boots:  { l:'Boty',      ico:'&#129406;', sizes: MG._SIZE_CHIPS_BOOTS }
+  };
+  var rows = '';
+  opts.kinds.forEach(function(k){
+    var c = labels[k]; if(!c) return;
+    rows += MG._renderSizeChips(opts.group, k, c.sizes, c.l, c.ico);
+  });
+  return '<div class="gear-size-panel" id="'+opts.panelId+'">'+rows+'</div>';
+};
+
+MG._initSizeChipEvents = function(scope){
+  var root = scope || document;
+  root.querySelectorAll('.size-chips').forEach(function(grp){
+    if(grp.dataset.bound==='1') return; grp.dataset.bound='1';
+    grp.addEventListener('click', function(ev){
+      var btn = ev.target.closest('.size-chip'); if(!btn) return;
+      var group = grp.dataset.group, key = grp.dataset.key, val = btn.dataset.size;
+      MG._rez.sizes[group] = MG._rez.sizes[group] || {};
+      var prev = MG._rez.sizes[group][key];
+      if(prev === val){ delete MG._rez.sizes[group][key]; }
+      else { MG._rez.sizes[group][key] = val; }
+      grp.querySelectorAll('.size-chip').forEach(function(b){ b.classList.remove('active'); });
+      if(MG._rez.sizes[group][key]){ btn.classList.add('active'); }
+      var head = grp.previousElementSibling;
+      if(head){
+        var pick = head.querySelector('.size-pick');
+        var current = MG._rez.sizes[group][key];
+        if(pick){ pick.textContent = current ? current : 'vyber'; pick.dataset.empty = current ? '0' : '1'; }
+      }
+    });
+  });
+};
+
 // ===== STATIC FORM HTML =====
 MG._rezFormHtml = function(){
-  return '<div id="rez-form"><p>&nbsp;</p>' +
-    '<input type="text" id="rez-name" name="name" placeholder="* Jméno a příjmení" required title="Toto pole je povinné" autocomplete="name">' +
-    '<div class="gr2"><input type="text" id="rez-street" name="street-address" placeholder="* Ulice, č.p." required autocomplete="street-address">' +
-    '<input type="text" id="rez-zip" name="postal-code" placeholder="* PSČ" required autocomplete="postal-code"></div>' +
-    '<div class="gr2"><input type="text" id="rez-city" name="address-level2" placeholder="* Město" required autocomplete="address-level2">' +
-    '<input type="text" id="rez-country" name="country-name" placeholder="* Stát" value="Česká republika" required autocomplete="country-name"></div>' +
-    '<div class="gr2"><input type="email" id="rez-email" name="email" placeholder="* E-mail" required autocomplete="email">' +
-    '<input type="tel" id="rez-phone" name="tel" placeholder="* Telefon (+420XXXXXXXXX)" required autocomplete="tel" pattern="^\\+\\d{12,15}$"></div>' +
-    '<div class="gr2 voucher-code"><input type="text" id="rez-voucher" placeholder="Slevový kód" maxlength="255">' +
-    '<div><span class="btn btngreen-small" onclick="MG._applyVoucher()">UPLATNIT</span></div></div>' +
-    '<div id="rez-applied-codes"></div>' +
-    '<div id="rez-voucher-msg" style="font-size:.85rem;margin:-.5rem 0 .75rem"></div>' +
-    '<div class="dfc pickup"><div>* Čas převzetí nebo přistavení motorky'+MG._reqTip()+'</div><input type="time" id="rez-pickup-time" required title="Toto pole je povinné"></div>' +
-    '<div class="checkboxes">' +
-    '<div><input type="checkbox" id="rez-eq-passenger"><label for="rez-eq-passenger">Výbava pro spolujezdce <strong>+ 690 Kč</strong>' +
-    MG._tip('Výbavu pro spolujezdce zaškrtněte jen v případě, že pojedete ve dvou a spolujezdec si výbavu potřebuje zapůjčit. Velikost si vyzkouší na místě. Základní výbava pro spolujezdce zahrnuje helmu, bundu, rukavice a kuklu.') +
-    '</label></div>' +
-    '<div><input type="checkbox" id="rez-eq-boots-rider"><label for="rez-eq-boots-rider">Zapůjčení bot pro řidiče <strong>+ 290 Kč</strong>' +
-    MG._tip('Motocyklové boty nejsou součástí základní výbavy. V případě zájmu vám rádi zapůjčíme boty ve vaší velikosti.') +
-    '</label></div>' +
-    '<div><input type="checkbox" id="rez-eq-boots-passenger"><label for="rez-eq-boots-passenger">Zapůjčení bot pro spolujezdce <strong>+ 290 Kč</strong></label></div>' +
-    '<div><input type="checkbox" id="rez-delivery"><label for="rez-delivery">Přistavení motorky jinam <span id="rez-delivery-price"></span>' +
-    MG._tip('Motorku vám dovezeme na domluvené místo. Do ceny za přistavení motorky se promítá: nakládka 500 Kč, vykládka 500 Kč a náklady na dopravu (40 Kč/km, tam i zpět).') +
-    '</label></div>' +
-    '<div id="rez-delivery-panel" style="display:none;margin:0 0 .75rem 1.5rem;padding:.75rem;background:#f9f9f9;border:1px solid #e0e0e0;border-radius:6px">' +
-    '<input type="text" id="rez-delivery-address" placeholder="Zadejte adresu přistavení">' +
-    '<div style="display:flex;gap:6px;margin-top:.5rem"><button type="button" onclick="MG._openWebMapPicker(\'delivery\')" style="padding:6px 12px;background:#fff;border:1px solid #ccc;border-radius:6px;font-size:.85rem;cursor:pointer">🗺️ Vybrat na mapě</button></div>' +
-    '<div id="rez-delivery-confirm" style="display:none;margin-top:.5rem"><input type="checkbox" id="rez-delivery-confirmed"><label for="rez-delivery-confirmed" style="font-size:.85rem;font-weight:600;color:#1a8c1a"> ✅ Potvrdit adresu přistavení</label></div>' +
-    '<div style="margin-top:.5rem"><input type="checkbox" id="rez-return-same-as-delivery" checked><label for="rez-return-same-as-delivery" style="font-size:.85rem"> Vrátit motorku na stejné adrese</label></div>' +
-    '<div><input type="checkbox" id="rez-own-gear"><label for="rez-own-gear" style="font-size:.85rem"> Mám vlastní výbavu</label></div>' +
-    '</div>' +
-    '<div><input type="checkbox" id="rez-return-other"><label for="rez-return-other">Vrácení motorky na jiné adrese <span id="rez-return-price"></span>' +
-    MG._tip('Motorku nemusíte vracet zpět v místě motopůjčovny, rádi si ji u vás vyzvedneme. Do ceny za vrácení motorky jinde se promítá: nakládka 500 Kč, vykládka 500 Kč a náklady na dopravu (40 Kč/km, tam i zpět).') +
-    '</label></div>' +
-    '<div id="rez-return-panel" style="display:none;margin:0 0 .75rem 1.5rem;padding:.75rem;background:#f9f9f9;border:1px solid #e0e0e0;border-radius:6px">' +
-    '<input type="text" id="rez-return-address" placeholder="Zadejte adresu vrácení">' +
-    '<div style="display:flex;gap:6px;margin-top:.5rem"><button type="button" onclick="MG._openWebMapPicker(\'return\')" style="padding:6px 12px;background:#fff;border:1px solid #ccc;border-radius:6px;font-size:.85rem;cursor:pointer">🗺️ Vybrat na mapě</button></div>' +
-    '<div id="rez-return-confirm" style="display:none;margin-top:.5rem"><input type="checkbox" id="rez-return-confirmed"><label for="rez-return-confirmed" style="font-size:.85rem;font-weight:600;color:#1a8c1a"> ✅ Potvrdit adresu vrácení</label></div>' +
-    '<div class="dfc" style="margin-top:.5rem"><div>Čas vrácení</div><input type="time" id="rez-return-time" style="max-width:200px"></div>' +
-    '</div>' +
-    '</div>' +
-    '<textarea id="rez-note" placeholder="Poznámka – uveďte preferovanou velikost výbavy (helma, bunda, rukavice, kalhoty)"></textarea>' +
-    '<div class="checkboxes">' +
-    '<div class="agreement gr2"><input type="checkbox" id="rez-agree-vop" required checked><div>* Souhlasím s <a href="/obchodni-podminky">obchodními podmínkami</a></div></div>' +
-    '<div class="agreement gr2"><input type="checkbox" id="rez-agree-gdpr" checked><div>Souhlasím se <a href="/gdpr">zpracováním osobních údajů</a></div></div>' +
-    '<div class="agreement gr2"><input type="checkbox" id="rez-agree-marketing" checked><div>Souhlasím se zasíláním marketingových sdělení</div></div>' +
-    '<div class="agreement gr2"><input type="checkbox" id="rez-agree-photo" checked><div>Souhlasím s využitím fotografií pro marketingové účely</div></div></div>' +
+  // Quick-time chips (08:00 ... 19:00)
+  var qt = ['08:00','09:00','10:00','12:00','14:00','16:00','18:00'];
+  var quickChips = qt.map(function(t){
+    return '<button type="button" class="time-chip" data-time="'+t+'">'+t+'</button>';
+  }).join('');
+
+  return '<div id="rez-form">' +
+    // ===== STEP A — Kontaktní údaje =====
+    '<section class="rez-section">' +
+      '<div class="rez-section-head"><span class="rez-step-num">1</span><h2>Vaše kontaktní údaje</h2></div>' +
+      '<input type="text" id="rez-name" name="name" placeholder="* Jméno a příjmení" required autocomplete="name">' +
+      '<div class="gr2"><input type="text" id="rez-street" name="street-address" placeholder="* Ulice, č.p." required autocomplete="street-address">' +
+      '<input type="text" id="rez-zip" name="postal-code" placeholder="* PSČ" required autocomplete="postal-code"></div>' +
+      '<div class="gr2"><input type="text" id="rez-city" name="address-level2" placeholder="* Město" required autocomplete="address-level2">' +
+      '<input type="text" id="rez-country" name="country-name" placeholder="* Stát" value="Česká republika" required autocomplete="country-name"></div>' +
+      '<div class="gr2"><input type="email" id="rez-email" name="email" placeholder="* E-mail" required autocomplete="email">' +
+      '<input type="tel" id="rez-phone" name="tel" placeholder="* Telefon (+420XXXXXXXXX)" required autocomplete="tel" pattern="^\\+\\d{12,15}$"></div>' +
+      '<div class="rez-voucher-row"><input type="text" id="rez-voucher" placeholder="Slevový kód / dárkový poukaz" maxlength="255">' +
+      '<button type="button" class="btn btngreen-small" onclick="MG._applyVoucher()">UPLATNIT</button></div>' +
+      '<div id="rez-applied-codes"></div>' +
+      '<div id="rez-voucher-msg" style="font-size:.85rem;margin:-.25rem 0 .25rem"></div>' +
+    '</section>' +
+
+    // ===== STEP B — Místo a čas =====
+    '<section class="rez-section">' +
+      '<div class="rez-section-head"><span class="rez-step-num">2</span><h2>Vyzvednutí a vrácení</h2></div>' +
+
+      // Time card
+      '<div class="rez-time-card">' +
+        '<div class="rez-time-card-head"><span class="rez-time-ico">&#128340;</span>' +
+        '<div><div class="rez-time-title">Čas převzetí nebo přistavení</div>' +
+        '<div class="rez-time-sub">Hodina, kdy chcete motorku převzít</div></div>' +
+        '<input type="time" id="rez-pickup-time" required></div>' +
+        '<div class="rez-time-chips">'+quickChips+'</div>' +
+      '</div>' +
+
+      // Pickup option (delivery checkbox card)
+      '<div class="rez-loc-grid">' +
+        '<label class="rez-loc-card rez-loc-card-info">' +
+          '<div class="rez-loc-ico">&#127968;</div>' +
+          '<div class="rez-loc-body"><div class="rez-loc-title">Vyzvednutí v motopůjčovně</div>' +
+          '<div class="rez-loc-sub">Zdarma · 24/7 přístup s kódem · základní nastavení</div></div>' +
+        '</label>' +
+        '<label class="rez-loc-card" data-loc="delivery">' +
+          '<input type="checkbox" id="rez-delivery">' +
+          '<div class="rez-loc-ico">&#128666;</div>' +
+          '<div class="rez-loc-body"><div class="rez-loc-title">Přistavení motorky jinam' +
+          MG._tip('Motorku vám dovezeme na domluvené místo. V ceně: nakládka 500 Kč, vykládka 500 Kč + 40 Kč/km tam i zpět.') +
+          '</div><div class="rez-loc-sub">Od <strong>+1 000 Kč</strong> · doprava dle vzdálenosti</div></div>' +
+        '</label>' +
+      '</div>' +
+
+      // Delivery panel
+      '<div id="rez-delivery-panel" class="rez-addr-panel" style="display:none">' +
+        '<div class="rez-addr-row">' +
+          '<input type="text" id="rez-delivery-address" placeholder="Zadejte adresu přistavení (ulice, město)">' +
+          '<button type="button" class="rez-map-btn" onclick="MG._openWebMapPicker(\'delivery\')">&#128205; Mapa</button>' +
+        '</div>' +
+        '<div id="rez-delivery-confirm" class="rez-addr-confirm" style="display:none"><label><input type="checkbox" id="rez-delivery-confirmed"> ✅ Potvrzuji adresu přistavení</label></div>' +
+        '<div class="rez-addr-confirm" style="margin-top:.4rem"><label><input type="checkbox" id="rez-return-same-as-delivery" checked> Vrátit motorku na stejné adrese</label></div>' +
+      '</div>' +
+
+      // Return-other card
+      '<div class="rez-loc-grid" style="grid-template-columns:1fr">' +
+        '<label class="rez-loc-card" data-loc="return-other">' +
+          '<input type="checkbox" id="rez-return-other">' +
+          '<div class="rez-loc-ico">&#128205;</div>' +
+          '<div class="rez-loc-body"><div class="rez-loc-title">Vrácení motorky jinde, než kde bylo vyzvednuto' +
+          MG._tip('Motorku vám rádi vyzvedneme jinde. V ceně: nakládka 500 Kč, vykládka 500 Kč + 40 Kč/km tam i zpět.') +
+          '</div><div class="rez-loc-sub">Od <strong>+1 000 Kč</strong> · doprava dle vzdálenosti</div></div>' +
+        '</label>' +
+      '</div>' +
+
+      // Return panel
+      '<div id="rez-return-panel" class="rez-addr-panel" style="display:none">' +
+        '<div class="rez-addr-row">' +
+          '<input type="text" id="rez-return-address" placeholder="Zadejte adresu vrácení">' +
+          '<button type="button" class="rez-map-btn" onclick="MG._openWebMapPicker(\'return\')">&#128205; Mapa</button>' +
+        '</div>' +
+        '<div id="rez-return-confirm" class="rez-addr-confirm" style="display:none"><label><input type="checkbox" id="rez-return-confirmed"> ✅ Potvrzuji adresu vrácení</label></div>' +
+        '<div class="rez-time-card rez-time-card-mini" style="margin-top:.6rem">' +
+          '<div class="rez-time-card-head"><span class="rez-time-ico">&#128340;</span>' +
+          '<div><div class="rez-time-title">Čas vrácení</div></div>' +
+          '<input type="time" id="rez-return-time"></div>' +
+        '</div>' +
+      '</div>' +
+    '</section>' +
+
+    // ===== STEP C — Výbava =====
+    '<section class="rez-section">' +
+      '<div class="rez-section-head"><span class="rez-step-num">3</span><h2>Výbava a velikosti</h2></div>' +
+      '<p class="rez-section-sub">Vyberte si položky a kliknutím rozbalte velikosti. Pokud velikost neuvedete, vyzkoušíme ji na místě.</p>' +
+
+      '<div class="gear-grid">' +
+
+        // Driver gear (free)
+        '<div class="gear-card gear-card-rider" id="gear-card-rider">' +
+          '<label class="gear-head">' +
+            '<input type="checkbox" id="rez-eq-rider-gear">' +
+            '<span class="gear-ico">&#127949;</span>' +
+            '<div class="gear-body"><div class="gear-title">Výbava řidiče</div>' +
+            '<div class="gear-price gear-price-free">v ceně · zdarma</div>' +
+            '<div class="gear-sub">Helma, bunda, rukavice, kalhoty (v základu se zkouší v půjčovně)</div></div>' +
+          '</label>' +
+          '<div class="gear-extra-toggle"><label><input type="checkbox" id="rez-own-gear"> Mám vlastní výbavu — nepůjčuji</label></div>' +
+          MG._gearPanelHtml({panelId:'gear-panel-rider', group:'rider', kinds:['helmet','jacket','gloves','pants']}) +
+        '</div>' +
+
+        // Passenger basic kit
+        '<div class="gear-card" id="gear-card-passenger">' +
+          '<label class="gear-head">' +
+            '<input type="checkbox" id="rez-eq-passenger">' +
+            '<span class="gear-ico">&#128107;</span>' +
+            '<div class="gear-body"><div class="gear-title">Výbava spolujezdce</div>' +
+            '<div class="gear-price">+ 690 Kč</div>' +
+            '<div class="gear-sub">Helma, bunda, rukavice, kukla' +
+            MG._tip('Základní výbava pro spolujezdce: helma, bunda, rukavice a kukla. Velikost si vyberete kliknutím níže nebo na místě.') +
+            '</div></div>' +
+          '</label>' +
+          MG._gearPanelHtml({panelId:'gear-panel-passenger', group:'passenger', kinds:['helmet','jacket','gloves']}) +
+        '</div>' +
+
+        // Boots driver
+        '<div class="gear-card" id="gear-card-boots-rider">' +
+          '<label class="gear-head">' +
+            '<input type="checkbox" id="rez-eq-boots-rider">' +
+            '<span class="gear-ico">&#129406;</span>' +
+            '<div class="gear-body"><div class="gear-title">Boty pro řidiče</div>' +
+            '<div class="gear-price">+ 290 Kč</div>' +
+            '<div class="gear-sub">Motocyklové boty (nejsou v základní výbavě)</div></div>' +
+          '</label>' +
+          MG._gearPanelHtml({panelId:'gear-panel-boots-rider', group:'rider', kinds:['boots']}) +
+        '</div>' +
+
+        // Boots passenger
+        '<div class="gear-card" id="gear-card-boots-passenger">' +
+          '<label class="gear-head">' +
+            '<input type="checkbox" id="rez-eq-boots-passenger">' +
+            '<span class="gear-ico">&#129406;</span>' +
+            '<div class="gear-body"><div class="gear-title">Boty pro spolujezdce</div>' +
+            '<div class="gear-price">+ 290 Kč</div>' +
+            '<div class="gear-sub">Motocyklové boty pro spolujezdce</div></div>' +
+          '</label>' +
+          MG._gearPanelHtml({panelId:'gear-panel-boots-passenger', group:'passenger', kinds:['boots']}) +
+        '</div>' +
+
+      '</div>' +
+    '</section>' +
+
+    // ===== STEP D — Souhlasy =====
+    '<section class="rez-section">' +
+      '<div class="rez-section-head"><span class="rez-step-num">4</span><h2>Souhlasy</h2></div>' +
+      '<div class="rez-agreements">' +
+        '<label class="rez-agree"><input type="checkbox" id="rez-agree-vop" required checked><span>* Souhlasím s <a href="/obchodni-podminky">obchodními podmínkami</a></span></label>' +
+        '<label class="rez-agree"><input type="checkbox" id="rez-agree-gdpr" checked><span>Souhlasím se <a href="/gdpr">zpracováním osobních údajů</a></span></label>' +
+        '<label class="rez-agree"><input type="checkbox" id="rez-agree-marketing" checked><span>Souhlasím se zasíláním marketingových sdělení</span></label>' +
+        '<label class="rez-agree"><input type="checkbox" id="rez-agree-photo" checked><span>Souhlasím s využitím fotografií pro marketingové účely</span></label>' +
+      '</div>' +
+    '</section>' +
+
+    '<input type="hidden" id="rez-note" value="">' +
     '<div id="rez-price-preview"></div>' +
-    '<div class="text-center" style="margin-top:1rem"><button class="btn btngreen" onclick="MG._submitReservation()">Pokračovat v rezervaci</button></div>' +
+    '<div class="text-center" style="margin-top:1rem"><button type="button" class="btn btngreen rez-cta" onclick="MG._submitReservation()">Pokračovat v rezervaci &rarr;</button></div>' +
     '</div>';
 };
 
 // ===== INIT FORM EVENTS (called once) =====
 MG._rezInitFormEvents = function(){
+  // Delivery toggle
   var dc = document.getElementById('rez-delivery');
   if(dc) dc.addEventListener('change',function(){
     var p=document.getElementById('rez-delivery-panel');
     if(p) p.style.display=this.checked?'block':'none';
-    if(!this.checked){ var rs=document.getElementById('rez-return-same-as-delivery'); if(rs) rs.checked=true; }
+    var card = document.getElementById('gear-card-rider'); // delivery may want pre-fitted rider gear
+    if(card){
+      var cb = document.getElementById('rez-eq-rider-gear');
+      if(this.checked && cb && !cb.checked){ cb.checked = true; card.classList.add('open'); }
+    }
     MG._rezUpdatePrice();
   });
+  // Return-other toggle
   var retO = document.getElementById('rez-return-other');
   if(retO) retO.addEventListener('change',function(){
     var p=document.getElementById('rez-return-panel');
     if(p) p.style.display=this.checked?'block':'none';
-    var rs=document.getElementById('rez-return-same-as-delivery');
-    if(rs && this.checked) rs.checked=false;
+    var rSame = document.getElementById('rez-return-same-as-delivery');
+    if(rSame && this.checked) rSame.checked=false;
     MG._rezUpdatePrice();
   });
   var rSame = document.getElementById('rez-return-same-as-delivery');
@@ -88,15 +266,77 @@ MG._rezInitFormEvents = function(){
     }
     MG._rezUpdatePrice();
   });
+  // Own gear toggle
   var og = document.getElementById('rez-own-gear');
   if(og) og.addEventListener('change',function(){
-    var n=document.getElementById('rez-note');
-    if(n) n.placeholder = this.checked ? 'Poznámka' : 'Poznámka – uveďte preferovanou velikost výbavy (helma, bunda, rukavice, kalhoty)';
+    var card = document.getElementById('gear-card-rider');
+    if(this.checked){
+      // Disable and clear rider sizes
+      var head = card && card.querySelector('.gear-head input[type=checkbox]');
+      if(head){ head.checked = false; }
+      card && card.classList.remove('open');
+      MG._rez.sizes.rider = {};
+      // Reset chip UI
+      card && card.querySelectorAll('.size-chip.active').forEach(function(b){ b.classList.remove('active'); });
+      card && card.querySelectorAll('.size-pick').forEach(function(p){ p.textContent='vyber'; p.dataset.empty='1'; });
+      if(card) card.classList.add('disabled');
+    } else {
+      if(card) card.classList.remove('disabled');
+    }
   });
-  ['rez-eq-passenger','rez-eq-boots-rider','rez-eq-boots-passenger'].forEach(function(id){
+
+  // Gear card heads — toggle open/close on checkbox change + sync ui
+  ['rez-eq-rider-gear','rez-eq-passenger','rez-eq-boots-rider','rez-eq-boots-passenger'].forEach(function(id){
     var cb = document.getElementById(id);
-    if(cb) cb.addEventListener('change', function(){ MG._rezUpdatePrice(); });
+    if(!cb) return;
+    cb.addEventListener('change', function(){
+      var card = cb.closest('.gear-card');
+      if(card){
+        if(cb.checked) card.classList.add('open');
+        else {
+          card.classList.remove('open');
+          // Clear sizes on uncheck
+          var panel = card.querySelector('.gear-size-panel');
+          if(panel){
+            var grps = panel.querySelectorAll('.size-chips');
+            grps.forEach(function(g){
+              var grp = g.dataset.group, key = g.dataset.key;
+              if(MG._rez.sizes[grp]) delete MG._rez.sizes[grp][key];
+              g.querySelectorAll('.size-chip.active').forEach(function(b){ b.classList.remove('active'); });
+            });
+            panel.querySelectorAll('.size-pick').forEach(function(p){ p.textContent='vyber'; p.dataset.empty='1'; });
+          }
+        }
+      }
+      MG._rezUpdatePrice();
+    });
   });
+
+  // Quick time chips
+  var chipWrap = document.querySelector('.rez-time-chips');
+  if(chipWrap){
+    chipWrap.addEventListener('click', function(ev){
+      var btn = ev.target.closest('.time-chip'); if(!btn) return;
+      var t = btn.dataset.time;
+      var inp = document.getElementById('rez-pickup-time');
+      if(inp){ inp.value = t; inp.dispatchEvent(new Event('change',{bubbles:true})); }
+      chipWrap.querySelectorAll('.time-chip.active').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+    });
+  }
+  var ptInp = document.getElementById('rez-pickup-time');
+  if(ptInp){
+    ptInp.addEventListener('change', function(){
+      var v = ptInp.value;
+      document.querySelectorAll('.time-chip').forEach(function(b){
+        if(b.dataset.time === v) b.classList.add('active');
+        else b.classList.remove('active');
+      });
+    });
+  }
+
+  // Size chips
+  MG._initSizeChipEvents();
 };
 
 // ===== INIT PAGE (called from PHP inline script) =====
@@ -187,8 +427,10 @@ MG._rezInit = async function(){
       if(!mp && sd.motoId) MG._rez.motoId = sd.motoId;
       if(sd.appliedCodes) MG._rez.appliedCodes = sd.appliedCodes;
       if(sd.discountAmt) MG._rez.discountAmt = sd.discountAmt;
+      if(sd.sizes) MG._rez.sizes = sd.sizes;
     }
   } catch(e){}
+  if(!MG._rez.sizes) MG._rez.sizes = { rider:{}, passenger:{} };
 
   var motos = await MG.fetchMotos();
   MG._rez.motos = motos;
@@ -227,8 +469,14 @@ MG._rezInit = async function(){
     var d = MG._rez.formData;
     _f('rez-name', d.name); _f('rez-email', d.email); _f('rez-phone', d.phone);
     _f('rez-street', d.street); _f('rez-city', d.city); _f('rez-zip', d.zip);
-    _f('rez-country', d.country); _f('rez-note', d.note); _f('rez-pickup-time', d.pickupTime);
+    _f('rez-country', d.country); _f('rez-pickup-time', d.pickupTime);
+    // Trigger pickup-time chip highlight
+    var ptInp = document.getElementById('rez-pickup-time');
+    if(ptInp && ptInp.value){ ptInp.dispatchEvent(new Event('change',{bubbles:true})); }
   }
+
+  // Restore size chip UI
+  if(typeof MG._rezRestoreSizesUI === 'function') MG._rezRestoreSizesUI();
 
   if(preDelivery){
     var dc = document.getElementById('rez-delivery');
