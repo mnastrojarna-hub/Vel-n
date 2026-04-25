@@ -17,9 +17,9 @@ export default function LanguageSwitcher({ variant = 'topbar' }) {
   const current = languages.find((l) => l.code === lang) || languages[0]
 
   const isLight = variant === 'light'
-  const triggerBg = isLight ? '#f1faf7' : '#f1faf7'
-  const triggerBorder = isLight ? '#d4e8e0' : '#d4e8e0'
-  const triggerColor = isLight ? '#0f1a14' : '#0f1a14'
+  const triggerBg = isLight ? '#ffffff' : '#1a2e22'
+  const triggerBorder = isLight ? '#1a2e22' : '#1a2e22'
+  const triggerColor = isLight ? '#0f1a14' : '#ffffff'
 
   return (
     <div className="relative" ref={ref}>
@@ -28,24 +28,25 @@ export default function LanguageSwitcher({ variant = 'topbar' }) {
         onClick={() => setOpen((v) => !v)}
         title={t('lang.select')}
         aria-label={t('lang.select')}
-        className="flex items-center gap-2 cursor-pointer transition-colors"
+        className="flex items-center gap-2 cursor-pointer transition-all hover:opacity-90"
         style={{
-          padding: '6px 10px',
+          padding: '8px 14px',
           borderRadius: 999,
-          border: `1px solid ${triggerBorder}`,
+          border: `2px solid ${triggerBorder}`,
           background: triggerBg,
           color: triggerColor,
           fontSize: 13,
-          fontWeight: 700,
+          fontWeight: 800,
           fontFamily: 'inherit',
           lineHeight: 1,
+          boxShadow: isLight ? '0 2px 6px rgba(0,0,0,.08)' : '0 2px 6px rgba(26,46,34,.25)',
         }}
       >
-        <span style={{ fontSize: 16 }}>{current.flag}</span>
-        <span className="hidden sm:inline" style={{ textTransform: 'uppercase', letterSpacing: 1 }}>
+        <span style={{ fontSize: 18 }}>{current.flag}</span>
+        <span style={{ textTransform: 'uppercase', letterSpacing: 1.5 }}>
           {current.code}
         </span>
-        <span style={{ fontSize: 10, opacity: 0.6 }}>▾</span>
+        <span style={{ fontSize: 11, opacity: 0.8 }}>▾</span>
       </button>
 
       {open && (

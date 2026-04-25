@@ -102,8 +102,8 @@ export default function Topbar() {
           {label}
         </h1>
       </div>
-      <div className="flex items-center gap-5">
-        <div className="text-sm font-semibold hidden sm:block" style={{ color: '#1a2e22' }}>
+      <div className="flex items-center gap-3 sm:gap-5">
+        <div className="text-sm font-semibold hidden lg:block" style={{ color: '#1a2e22' }}>
           {time.toLocaleDateString(dateLocale, {
             weekday: 'long',
             day: 'numeric',
@@ -112,11 +112,14 @@ export default function Topbar() {
           })}
         </div>
         <div
-          className="text-sm font-extrabold"
+          className="text-sm font-extrabold hidden sm:block"
           style={{ color: '#1a8a18', letterSpacing: 1 }}
         >
           {time.toLocaleTimeString(dateLocale)}
         </div>
+
+        {/* Language switcher — viditelně v horním menu */}
+        <LanguageSwitcher />
 
         {/* AI Agent notifications */}
         <AiNotificationBell />
@@ -165,9 +168,8 @@ export default function Topbar() {
           )}
         </div>
 
-        <LanguageSwitcher />
-
         <div
+          className="hidden sm:block"
           style={{
             width: 8,
             height: 8,
