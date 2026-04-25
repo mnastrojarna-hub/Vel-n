@@ -2,35 +2,43 @@ import { useState, useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import AiNotificationBell from './ai/AiNotificationBell'
+import LanguageSwitcher from './LanguageSwitcher'
+import { useLang } from '../i18n/LanguageProvider'
 
 
-const ROUTE_LABELS = {
-  '/': 'Velín',
-  '/flotila': 'Flotila',
-  '/rezervace': 'Rezervace',
-  '/zakaznici': 'Zákazníci',
-  '/finance': 'Finance',
-  '/dokumenty': 'Dokumenty',
-  '/sklady': 'Sklady',
-  '/servis': 'Servis',
-  '/zpravy': 'Zprávy',
-  '/cms': 'Web CMS',
-  '/analyza': 'Analýza',
-  '/e-shop': 'E-shop',
-  '/statni-sprava': 'Státní správa',
-  '/ai-copilot': 'AI Copilot',
-  '/sos': 'SOS Panel',
-  '/pobocky': 'Pobočky',
-  '/slevove-kody': 'Slevové kódy',
+const ROUTE_LABEL_KEYS = {
+  '/': 'nav.dashboard',
+  '/flotila': 'nav.fleet',
+  '/rezervace': 'nav.bookings',
+  '/zakaznici': 'nav.customers',
+  '/finance': 'nav.finance',
+  '/dokumenty': 'nav.documents',
+  '/sklady': 'nav.inventory',
+  '/servis': 'nav.service',
+  '/zpravy': 'nav.messages',
+  '/cms': 'nav.cms',
+  '/analyza': 'nav.analyza',
+  '/e-shop': 'nav.eshop',
+  '/statni-sprava': 'nav.government',
+  '/ai-copilot': 'nav.aiCopilot',
+  '/sos': 'nav.sos',
+  '/pobocky': 'nav.branches',
+  '/slevove-kody': 'nav.discountCodes',
+  '/zamestnanci': 'nav.employees',
+  '/orchestrator': 'nav.orchestrator',
 }
 
 export default function Topbar() {
+  const { t, lang } = useLang()
   const [time, setTime] = useState(new Date())
   const [notifs, setNotifs] = useState({ messages: 0, sos: 0, lowStock: 0, stkSoon: 0 })
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
   const dropdownRef = useRef(null)
+
+  const localeMap = { cs: 'cs-CZ', en: 'en-GB', de: 'de-DE', es: 'es-ES', fr: 'fr-FR', nl: 'nl-NL', pl: 'pl-PL' }
+  const dateLocale = localeMap[lang] || 'cs-CZ'
 
   useEffect(() => {
     const interval = setInterval(() => setTime(new Date()), 1000)
@@ -69,13 +77,14 @@ export default function Topbar() {
   }
 
   const totalNotifs = notifs.messages + notifs.sos + notifs.lowStock + notifs.stkSoon
-  const label = ROUTE_LABELS[location.pathname] || 'Velín'
+  const labelKey = ROUTE_LABEL_KEYS[location.pathname]
+  const label = labelKey ? t(labelKey) : t('nav.dashboard')
 
   const notifItems = [
-    notifs.sos > 0 && { icon: '🚨', text: `${notifs.sos} aktivních SOS`, path: '/sos', color: '#dc2626' },
-    notifs.messages > 0 && { icon: '💬', text: `${notifs.messages} nepřečtených zpráv`, path: '/zpravy', color: '#8b5cf6' },
-    notifs.lowStock > 0 && { icon: '📦', text: `${notifs.lowStock} pod minimem`, path: '/sklady', color: '#b45309' },
-    notifs.stkSoon > 0 && { icon: '🔧', text: `${notifs.stkSoon} STK brzy vyprší`, path: '/servis', color: '#b45309' },
+    notifs.sos > 0 && { icon: '🚨', text: t('topbar.activeSosCount', { count: notifs.sos }), path: '/sos', color: '#dc2626' },
+    notifs.messages > 0 && { icon: '💬', text: t('topbar.unreadMessagesCount', { count: notifs.messages }), path: '/zpravy', color: '#8b5cf6' },
+    notifs.lowStock > 0 && { icon: '📦', text: t('topbar.lowStockCount', { count: notifs.lowStock }), path: '/sklady', color: '#b45309' },
+    notifs.stkSoon > 0 && { icon: '🔧', text: t('topbar.stkSoonCount', { count: notifs.stkSoon }), path: '/servis', color: '#b45309' },
   ].filter(Boolean)
 
   return (
@@ -95,7 +104,7 @@ export default function Topbar() {
       </div>
       <div className="flex items-center gap-5">
         <div className="text-sm font-semibold hidden sm:block" style={{ color: '#1a2e22' }}>
-          {time.toLocaleDateString('cs-CZ', {
+          {time.toLocaleDateString(dateLocale, {
             weekday: 'long',
             day: 'numeric',
             month: 'long',
@@ -106,7 +115,7 @@ export default function Topbar() {
           className="text-sm font-extrabold"
           style={{ color: '#1a8a18', letterSpacing: 1 }}
         >
-          {time.toLocaleTimeString('cs-CZ')}
+          {time.toLocaleTimeString(dateLocale)}
         </div>
 
         {/* AI Agent notifications */}
@@ -118,7 +127,7 @@ export default function Topbar() {
             onClick={() => setDropdownOpen(!dropdownOpen)}
             className="relative cursor-pointer bg-transparent border-none text-xl"
             style={{ lineHeight: 1 }}
-            title="Notifikace"
+            title={t('topbar.notifications')}
           >
             🔔
             {totalNotifs > 0 && (
@@ -137,10 +146,10 @@ export default function Topbar() {
             <div className="absolute right-0 top-full mt-2 z-50 rounded-card shadow-card bg-white"
               style={{ width: 280, border: '1px solid #1a2e22' }}>
               <div className="p-3 text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22', borderBottom: '1px solid #1a2e22' }}>
-                Notifikace
+                {t('topbar.notifications')}
               </div>
               {notifItems.length === 0 ? (
-                <div className="p-4 text-center text-sm" style={{ color: '#1a2e22' }}>Žádné notifikace</div>
+                <div className="p-4 text-center text-sm" style={{ color: '#1a2e22' }}>{t('topbar.noNotifications')}</div>
               ) : (
                 notifItems.map((n, i) => (
                   <div key={i}
@@ -156,6 +165,8 @@ export default function Topbar() {
           )}
         </div>
 
+        <LanguageSwitcher />
+
         <div
           style={{
             width: 8,
@@ -164,7 +175,7 @@ export default function Topbar() {
             background: '#74FB71',
             boxShadow: '0 0 8px #74FB71',
           }}
-          title="Online"
+          title={t('topbar.online')}
         />
       </div>
     </div>
