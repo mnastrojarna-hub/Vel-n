@@ -19,9 +19,9 @@ foreach ($motos as $i => $m) {
 
 if (!$moto) {
     $content = '<main id="content"><div class="container">' .
-        renderBreadcrumb([['label' => 'Domů', 'href' => '/'], ['label' => 'Katalog', 'href' => '/katalog'], 'Motorka nenalezena']) .
-        '<div class="ccontent"><h1>Motorka nenalezena</h1><p><a class="btn btngreen" href="' . BASE_URL . '/katalog">Zpět na katalog</a></p></div></div></main>';
-    renderPage('Motorka nenalezena – Motogo24', $content, '/katalog/' . $motoId);
+        renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.catalog'), 'href' => '/katalog'], t('detail.notFoundHeading')]) .
+        '<div class="ccontent"><h1>' . te('detail.notFoundHeading') . '</h1><p><a class="btn btngreen" href="' . BASE_URL . '/katalog">' . te('detail.backToCatalog') . '</a></p></div></div></main>';
+    renderPage(t('detail.notFoundTitle'), $content, '/katalog/' . $motoId);
     return;
 }
 
@@ -29,12 +29,12 @@ $model = htmlspecialchars($moto['model'] ?? '');
 $prev = $idx > 0 ? $motos[$idx - 1] : null;
 $next = $idx < count($motos) - 1 ? $motos[$idx + 1] : null;
 
-$bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], ['label' => 'Katalog motorek', 'href' => '/katalog'], $model]);
+$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.catalog'), 'href' => '/katalog'], $model]);
 
 // Navigace prev/next
 $navHtml = '<nav class="moto-nav">';
 $navHtml .= $prev ? '<a class="moto-nav-prev" href="' . BASE_URL . '/katalog/' . htmlspecialchars($prev['id']) . '">&larr; ' . htmlspecialchars($prev['model']) . '</a>' : '<span class="moto-nav-prev moto-nav-disabled"></span>';
-$navHtml .= '<a class="moto-nav-back" href="' . BASE_URL . '/katalog">&#8801; Katalog motorek</a>';
+$navHtml .= '<a class="moto-nav-back" href="' . BASE_URL . '/katalog">&#8801; ' . te('detail.navBackCatalog') . '</a>';
 $navHtml .= $next ? '<a class="moto-nav-next" href="' . BASE_URL . '/katalog/' . htmlspecialchars($next['id']) . '">' . htmlspecialchars($next['model']) . ' &rarr;</a>' : '<span class="moto-nav-next moto-nav-disabled"></span>';
 $navHtml .= '</nav>';
 
@@ -61,22 +61,22 @@ $branch = $moto['branches'] ?? null;
 $branchHtml = '';
 if (is_array($branch) && !empty($branch['name'])) {
     $addr = trim(($branch['address'] ?? '') . ', ' . ($branch['city'] ?? ''), ', ');
-    $branchHtml = '<p class="moto-branch-info"><span aria-hidden="true">📍</span> Místo vyzvednutí: <strong>' . htmlspecialchars($branch['name']) . '</strong>'
+    $branchHtml = '<p class="moto-branch-info"><span aria-hidden="true">📍</span> ' . te('detail.pickupPlace') . ': <strong>' . htmlspecialchars($branch['name']) . '</strong>'
         . ($addr ? ' · ' . htmlspecialchars($addr) : '')
         . '</p>';
 }
 
 // Header
 $badgeHtml = $isAvailableToday
-    ? '<span class="moto-badge-available">Dostupné dnes</span>'
-    : (($moto['status'] ?? '') === 'active' ? '<span class="moto-badge-busy">Dnes obsazeno – vyber jiný termín</span>' : '');
+    ? '<span class="moto-badge-available">' . te('detail.availableToday') . '</span>'
+    : (($moto['status'] ?? '') === 'active' ? '<span class="moto-badge-busy">' . te('detail.busyToday') . '</span>' : '');
 
 $headerHtml = '<div class="moto-detail-header"><div>'
     . ($badgeHtml ? '<div>' . $badgeHtml . '</div>' : '')
     . '<h1>' . $model . '</h1>'
     . $branchHtml
     . '</div><div>'
-    . '<a class="btn btngreen" href="' . BASE_URL . '/rezervace?moto=' . htmlspecialchars($moto['id']) . '">REZERVOVAT ONLINE</a></div></div>';
+    . '<a class="btn btngreen" href="' . BASE_URL . '/rezervace?moto=' . htmlspecialchars($moto['id']) . '">' . te('common.reserveOnline') . '</a></div></div>';
 
 // Short desc + features
 $descHtml = '<div class="moto-shortdesc">';
@@ -84,18 +84,18 @@ if (!empty($moto['description'])) {
     $descHtml .= '<div class="wbox"><p>' . htmlspecialchars($moto['description']) . '</p></div><p>&nbsp;</p>';
 }
 $features = [];
-if (!empty($moto['power_kw'])) $features[] = '<strong>Výkon:</strong> ' . htmlspecialchars($moto['power_kw']) . ' kW';
-if (!empty($moto['category'])) $features[] = '<strong>Typ:</strong> ' . htmlspecialchars($moto['category']);
-if (!empty($moto['engine_cc'])) $features[] = '<strong>Motor:</strong> ' . htmlspecialchars($moto['engine_cc']) . ' ccm';
-if (!empty($moto['engine_type'])) $features[] = '<strong>Motor typ:</strong> ' . htmlspecialchars($moto['engine_type']);
-if (!empty($moto['ideal_usage'])) $features[] = '<strong>Vhodná pro:</strong> ' . htmlspecialchars($moto['ideal_usage']);
+if (!empty($moto['power_kw'])) $features[] = '<strong>' . te('detail.specPower') . ':</strong> ' . htmlspecialchars($moto['power_kw']) . ' kW';
+if (!empty($moto['category'])) $features[] = '<strong>' . te('detail.specType') . ':</strong> ' . htmlspecialchars($moto['category']);
+if (!empty($moto['engine_cc'])) $features[] = '<strong>' . te('detail.specEngine') . ':</strong> ' . htmlspecialchars($moto['engine_cc']) . ' ccm';
+if (!empty($moto['engine_type'])) $features[] = '<strong>' . te('detail.specEngineType') . ':</strong> ' . htmlspecialchars($moto['engine_type']);
+if (!empty($moto['ideal_usage'])) $features[] = '<strong>' . te('detail.specSuitableFor') . ':</strong> ' . htmlspecialchars($moto['ideal_usage']);
 if ($features) {
-    $descHtml .= '<h2>Krátký popis</h2><ul>';
+    $descHtml .= '<h2>' . te('detail.shortDesc') . '</h2><ul>';
     foreach ($features as $f) { $descHtml .= '<li>' . $f . '</li>'; }
     $descHtml .= '</ul><p>&nbsp;</p>';
 }
 if (!empty($moto['features'])) {
-    $descHtml .= '<h3>Výbava a výhody</h3><ul>';
+    $descHtml .= '<h3>' . te('detail.featuresAdvantages') . '</h3><ul>';
     $featArr = is_string($moto['features']) ? explode(',', $moto['features']) : ($moto['features'] ?? []);
     foreach ($featArr as $f) { if (trim($f)) $descHtml .= '<li>' . htmlspecialchars(trim($f)) . '</li>'; }
     $descHtml .= '</ul>';
@@ -123,29 +123,29 @@ $infoHtml = '<section class="moto-info gr2">' . $descHtml . $galleryHtml . '</se
 
 // Specs table
 $specsRows = [];
-if (!empty($moto['engine_cc'])) $specsRows[] = ['Objem motoru', $moto['engine_cc'] . ' ccm'];
-if (!empty($moto['power_kw'])) $specsRows[] = ['Výkon', $moto['power_kw'] . ' kW'];
-if (!empty($moto['engine_type'])) $specsRows[] = ['Typ motoru', $moto['engine_type']];
-if (!empty($moto['weight_kg'])) $specsRows[] = ['Hmotnost', $moto['weight_kg'] . ' kg'];
-if (!empty($moto['seat_height_mm'])) $specsRows[] = ['Výška sedla', $moto['seat_height_mm'] . ' mm'];
-if (!empty($moto['fuel_tank_l'])) $specsRows[] = ['Nádrž', $moto['fuel_tank_l'] . ' l'];
-if (!empty($moto['has_abs'])) $specsRows[] = ['ABS', 'Ano'];
-if (!empty($moto['license_required'])) $specsRows[] = ['Řidičák', 'Skupina ' . $moto['license_required']];
-if (!empty($moto['ideal_usage'])) $specsRows[] = ['Ideální pro', $moto['ideal_usage']];
+if (!empty($moto['engine_cc'])) $specsRows[] = [t('detail.specEngineCc'), $moto['engine_cc'] . ' ccm'];
+if (!empty($moto['power_kw'])) $specsRows[] = [t('detail.specEngineKw'), $moto['power_kw'] . ' kW'];
+if (!empty($moto['engine_type'])) $specsRows[] = [t('detail.specEngineTypeRow'), $moto['engine_type']];
+if (!empty($moto['weight_kg'])) $specsRows[] = [t('detail.specWeight'), $moto['weight_kg'] . ' kg'];
+if (!empty($moto['seat_height_mm'])) $specsRows[] = [t('detail.specSeatHeight'), $moto['seat_height_mm'] . ' mm'];
+if (!empty($moto['fuel_tank_l'])) $specsRows[] = [t('detail.specFuelTank'), $moto['fuel_tank_l'] . ' l'];
+if (!empty($moto['has_abs'])) $specsRows[] = [t('detail.specAbs'), t('detail.specYes')];
+if (!empty($moto['license_required'])) $specsRows[] = [t('detail.specLicense'), t('detail.specLicenseGroup', ['group' => $moto['license_required']])];
+if (!empty($moto['ideal_usage'])) $specsRows[] = [t('detail.specIdealFor'), $moto['ideal_usage']];
 
 $descSpecsHtml = '<section class="gr2"><div>';
-$descSpecsHtml .= '<h2>Popis motorky</h2><p>' . htmlspecialchars($moto['description'] ?? $moto['model']) . '</p>';
+$descSpecsHtml .= '<h2>' . te('detail.descTitle') . '</h2><p>' . htmlspecialchars($moto['description'] ?? $moto['model']) . '</p>';
 if (!empty($moto['manual_url'])) {
-    $descSpecsHtml .= '<p>&nbsp;</p><p><a class="btn btngreen" href="' . htmlspecialchars($moto['manual_url']) . '" target="_blank" rel="noopener">Uživatelský manuál</a></p>';
+    $descSpecsHtml .= '<p>&nbsp;</p><p><a class="btn btngreen" href="' . htmlspecialchars($moto['manual_url']) . '" target="_blank" rel="noopener">' . te('detail.userManual') . '</a></p>';
 }
-$descSpecsHtml .= '</div><div><h2>Technická specifikace</h2>';
+$descSpecsHtml .= '</div><div><h2>' . te('detail.specsTitle') . '</h2>';
 if ($specsRows) {
-    $descSpecsHtml .= renderTable(['Parametr', 'Hodnota'], $specsRows);
+    $descSpecsHtml .= renderTable([t('detail.specHeaderParam'), t('detail.specHeaderValue')], $specsRows);
 }
 $descSpecsHtml .= '</div></section>';
 
-// Pricing table
-$days = ['Pondělí', 'Úterý', 'Středa', 'Čtvrtek', 'Pátek', 'Sobota', 'Neděle'];
+// Pricing table — názvy dnů ze slovníku
+$days = [t('days.mon'), t('days.tue'), t('days.wed'), t('days.thu'), t('days.fri'), t('days.sat'), t('days.sun')];
 $priceKeys = ['price_mon', 'price_tue', 'price_wed', 'price_thu', 'price_fri', 'price_sat', 'price_sun'];
 $priceRows = [];
 foreach ($days as $i => $day) {
@@ -153,20 +153,20 @@ foreach ($days as $i => $day) {
     if ($p) $priceRows[] = [$day, formatPrice($p)];
 }
 
-$pricesHtml = '<section class="moto-prices gr2"><div><h2>Ceník půjčovného</h2>' .
-    '<p>Cena půjčení se liší podle dne v týdnu:</p>';
-if ($priceRows) $pricesHtml .= renderTable(['Den', 'Cena za den'], $priceRows);
-$pricesHtml .= '<p><strong>V ceně je zahrnuta výbava:</strong> helma, bunda, kalhoty a rukavice.</p></div>';
+$pricesHtml = '<section class="moto-prices gr2"><div><h2>' . te('detail.priceTitle') . '</h2>' .
+    '<p>' . te('detail.priceLead') . '</p>';
+if ($priceRows) $pricesHtml .= renderTable([t('detail.priceHeaderDay'), t('detail.priceHeaderPrice')], $priceRows);
+$pricesHtml .= '<p>' . t('detail.priceIncludes') . '</p></div>';
 
-// Kalendář — zůstane jako JS (interaktivní komponenta)
+// Kalendář — zůstane jako JS (interaktivní komponenta), labely propagujeme do JS
 $calId = 'detail-cal-' . $moto['id'];
-$pricesHtml .= '<div class="moto-reservation"><h2>Dostupnost</h2>' .
-    '<p>Vyberte si volný termín přímo v kalendáři a přejděte na rezervaci.</p>' .
-    '<div id="' . $calId . '" class="calendar-placeholder"><div class="loading-overlay"><span class="spinner"></span> Načítám dostupnost...</div></div>' .
-    '<div class="calendar-icons gr3"><div><span class="cicon loosely">&nbsp;</span> Volné</div><div><span class="cicon occupied">&nbsp;</span> Obsazené</div><div><span class="cicon unconfirmed">&nbsp;</span> Nepotvrzené</div></div>' .
+$pricesHtml .= '<div class="moto-reservation"><h2>' . te('detail.availabilityTitle') . '</h2>' .
+    '<p>' . te('detail.availabilityLead') . '</p>' .
+    '<div id="' . $calId . '" class="calendar-placeholder"><div class="loading-overlay"><span class="spinner"></span> ' . te('detail.calendarLoading') . '</div></div>' .
+    '<div class="calendar-icons gr3"><div><span class="cicon loosely">&nbsp;</span> ' . te('detail.calendarFree') . '</div><div><span class="cicon occupied">&nbsp;</span> ' . te('detail.calendarOccupied') . '</div><div><span class="cicon unconfirmed">&nbsp;</span> ' . te('detail.calendarPending') . '</div></div>' .
     '<div id="' . $calId . '-banner" style="display:none"></div>' .
-    '<p class="calendar-info">* Vyberte si prosím minimálně 3 souvislé dny.</p>' .
-    '<div class="reservation-btn"><a id="' . $calId . '-reserve-btn" class="btn btngreen" href="' . BASE_URL . '/rezervace?moto=' . htmlspecialchars($moto['id']) . '">PŘEJÍT NA REZERVACE</a></div>' .
+    '<p class="calendar-info">' . te('detail.calendarMinDays') . '</p>' .
+    '<div class="reservation-btn"><a id="' . $calId . '-reserve-btn" class="btn btngreen" href="' . BASE_URL . '/rezervace?moto=' . htmlspecialchars($moto['id']) . '">' . te('detail.calendarGoToReservation') . '</a></div>' .
 '</div></section>';
 
 // Podobné motorky
@@ -185,19 +185,35 @@ $related = array_slice($related, 0, 4);
 
 $relatedHtml = '';
 if ($related) {
-    $relatedHtml = '<section class="moto-related"><h2>Podobné motorky k zapůjčení</h2><div class="gr4">';
+    $relatedHtml = '<section class="moto-related"><h2>' . te('detail.relatedTitle') . '</h2><div class="gr4">';
     foreach ($related as $m) {
-        $relatedHtml .= '<section aria-label="katalog motorek">' . renderMotoCard($m) . '</section>';
+        $relatedHtml .= '<section aria-label="' . te('filters.aria.catalog') . '">' . renderMotoCard($m) . '</section>';
     }
     $relatedHtml .= '</div></section>';
 }
 
 // Inline JS pro kalendář (interaktivní komponenta — zůstává v JS)
+$calMonths = [t('months.1'), t('months.2'), t('months.3'), t('months.4'), t('months.5'), t('months.6'), t('months.7'), t('months.8'), t('months.9'), t('months.10'), t('months.11'), t('months.12')];
+$calDayNames = [t('days.short.mon'), t('days.short.tue'), t('days.short.wed'), t('days.short.thu'), t('days.short.fri'), t('days.short.sat'), t('days.short.sun')];
+// Pořadí Sun-first pro getDay() (0=Sun)
+$calDayFull = [t('days.short.sun'), t('days.short.mon'), t('days.short.tue'), t('days.short.wed'), t('days.short.thu'), t('days.short.fri'), t('days.short.sat')];
+$calStartLabel = t('detail.calendarStartSelected', ['date' => '__DATE__']);
+$calRangeLabel = t('detail.calendarRangeSelected', ['start' => '__START__', 'end' => '__END__']);
+$calClearLabel = t('detail.calendarClearSelection');
+
 $calendarJs = '<script>
 var SUPABASE_URL = ' . json_encode(SUPABASE_URL) . ';
 var SUPABASE_ANON_KEY = ' . json_encode(SUPABASE_ANON_KEY) . ';
 var MOTO_ID = ' . json_encode($moto['id']) . ';
 var CAL_ID = ' . json_encode($calId) . ';
+var CAL_I18N = {
+  months: ' . json_encode($calMonths, JSON_UNESCAPED_UNICODE) . ',
+  dayNames: ' . json_encode($calDayNames, JSON_UNESCAPED_UNICODE) . ',
+  dayFull: ' . json_encode($calDayFull, JSON_UNESCAPED_UNICODE) . ',
+  startSelectedTpl: ' . json_encode($calStartLabel, JSON_UNESCAPED_UNICODE) . ',
+  rangeSelectedTpl: ' . json_encode($calRangeLabel, JSON_UNESCAPED_UNICODE) . ',
+  clearLabel: ' . json_encode($calClearLabel, JSON_UNESCAPED_UNICODE) . '
+};
 
 (function(){
   var _calState = {};
@@ -253,8 +269,8 @@ var CAL_ID = ' . json_encode($calId) . ';
   function renderMonth(){
     var el=document.getElementById(CAL_ID);if(!el)return;
     var s=_calState,y=s.year,m=s.month;
-    var months=["Leden","Únor","Březen","Duben","Květen","Červen","Červenec","Srpen","Září","Říjen","Listopad","Prosinec"];
-    var dayNames=["Po","Út","St","Čt","Pá","So","Ne"],dayFull=["Ne","Po","Út","St","Čt","Pá","So"];
+    var months=CAL_I18N.months;
+    var dayNames=CAL_I18N.dayNames,dayFull=CAL_I18N.dayFull;
     var firstDay=new Date(y,m,1),lastDay=new Date(y,m+1,0);
     var startDow=(firstDay.getDay()+6)%7,todayStr=new Date().toISOString().split("T")[0];
     var sd=s.startDate,ed=s.endDate;
@@ -292,13 +308,16 @@ var CAL_ID = ' . json_encode($calId) . ';
     var ban=document.getElementById(CAL_ID+"-banner");if(!ban)return;
     var s=_calState;
     if(!s.startDate){ban.style.display="none";return;}
+    var clearBtn=\'<span class="btn" style="background:#0b0b0b;color:#74FB71;padding:6px 14px;font-size:.85rem;cursor:pointer;border-radius:20px" onclick="calReset()">\'+CAL_I18N.clearLabel+\'</span>\';
     if(!s.endDate){
       ban.style.display="block";
-      ban.innerHTML=\'<div style="background:#74FB71;color:#0b0b0b;padding:12px 16px;border-radius:25px;margin:12px 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span>Vybrán začátek: <strong>\'+formatDateCal(s.startDate)+\'</strong> — klikněte na koncové datum</span><span class="btn" style="background:#0b0b0b;color:#74FB71;padding:6px 14px;font-size:.85rem;cursor:pointer;border-radius:20px" onclick="calReset()">&#x2715; ZRUŠIT VÝBĚR</span></div>\';
+      var startMsg=CAL_I18N.startSelectedTpl.replace("__DATE__", formatDateCal(s.startDate));
+      ban.innerHTML=\'<div style="background:#74FB71;color:#0b0b0b;padding:12px 16px;border-radius:25px;margin:12px 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span>\'+startMsg+\'</span>\'+clearBtn+\'</div>\';
       return;
     }
     ban.style.display="block";
-    ban.innerHTML=\'<div style="background:#74FB71;color:#0b0b0b;padding:14px 18px;border-radius:25px;margin:12px 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span style="font-size:1.05rem"><strong>VYBRANÝ TERMÍN: \'+formatDateCal(s.startDate)+" – "+formatDateCal(s.endDate)+\'</strong></span><span class="btn" style="background:#0b0b0b;color:#74FB71;padding:6px 14px;font-size:.85rem;cursor:pointer;border-radius:20px" onclick="calReset()">&#x2715; ZRUŠIT VÝBĚR</span></div>\';
+    var rangeMsg=CAL_I18N.rangeSelectedTpl.replace("__START__", formatDateCal(s.startDate)).replace("__END__", formatDateCal(s.endDate));
+    ban.innerHTML=\'<div style="background:#74FB71;color:#0b0b0b;padding:14px 18px;border-radius:25px;margin:12px 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><span style="font-size:1.05rem">\'+rangeMsg+\'</span>\'+clearBtn+\'</div>\';
   }
   function updateBtn(){
     var s=_calState;var btn=document.getElementById(CAL_ID+"-reserve-btn");if(!btn)return;
@@ -328,10 +347,10 @@ $productSchema = '
   </script>';
 
 renderPage($model . ' | Půjčovna MotoGo24', $content, '/katalog/' . $motoId, [
-    'description' => htmlspecialchars($moto['description'] ?? ('Pronájem motorky ' . $moto['model'] . ' na Vysočině. Bez kauce, výbava v ceně.')),
-    'keywords' => 'pronájem ' . $moto['model'] . ', půjčit ' . $moto['model'] . ', motorka k pronájmu',
+    'description' => htmlspecialchars($moto['description'] ?? t('detail.descFallback', ['model' => $moto['model'] ?? ''])),
+    'keywords' => t('detail.descKeywords', ['model' => $moto['model'] ?? '']),
     'og_image' => $mainImg ?: null,
     'og_type' => 'product',
     'schema' => $productSchema,
-    'breadcrumbs' => [['name' => 'Domů', 'url' => 'https://motogo24.cz/'], ['name' => 'Katalog', 'url' => 'https://motogo24.cz/katalog'], ['name' => $moto['model'], 'url' => 'https://motogo24.cz/katalog/' . $motoId]],
+    'breadcrumbs' => [['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'], ['name' => t('breadcrumb.catalog'), 'url' => 'https://motogo24.cz/katalog'], ['name' => $moto['model'], 'url' => 'https://motogo24.cz/katalog/' . $motoId]],
 ]);

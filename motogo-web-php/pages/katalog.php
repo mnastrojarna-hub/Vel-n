@@ -7,20 +7,20 @@ $motos = $sb->fetchMotos();
 
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $category = null;
-$title = 'Katalog motorek';
+$title = t('menu.catalog');
 
 if ($path === '/katalog/cestovni') {
     $category = 'cestovni';
-    $title = 'Cestovní motorky';
+    $title = t('menu.catalog.touring');
 } elseif ($path === '/katalog/naked') {
     $category = 'naked';
-    $title = 'Naked motorky';
+    $title = t('menu.catalog.naked');
 } elseif ($path === '/katalog/supermoto') {
     $category = 'supermoto';
-    $title = 'Supermoto motorky';
+    $title = t('menu.catalog.supermoto');
 } elseif ($path === '/katalog/detske') {
     $category = 'detske';
-    $title = 'Dětské motorky';
+    $title = t('menu.catalog.kids');
 }
 
 // Všechny GET filtry
@@ -35,7 +35,7 @@ $getSort    = $_GET['razeni'] ?? 'default';
 
 if ($getCat) $category = $getCat;
 
-$bc = [['label' => 'Domů', 'href' => '/'], ['label' => 'Katalog motorek', 'href' => '/katalog']];
+$bc = [['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.catalog'), 'href' => '/katalog']];
 if ($category) { $bc[] = $title; } else { $bc[1] = $title; }
 
 // ---- Filtrování ----
@@ -117,20 +117,20 @@ switch ($getSort) {
 // ---- Grid ----
 $gridHtml = '';
 if (empty($filtered)) {
-    $gridHtml = '<div class="katalog-empty"><p>Podle zvolených filtrů momentálně nemáme žádné motorky.</p>'
-        . '<p><a class="btn btngreen" href="' . BASE_URL . '/katalog">Zrušit filtry</a></p></div>';
+    $gridHtml = '<div class="katalog-empty"><p>' . te('filters.empty') . '</p>'
+        . '<p><a class="btn btngreen" href="' . BASE_URL . '/katalog">' . te('filters.clearFilters') . '</a></p></div>';
 } else {
     foreach ($filtered as $m) {
-        $gridHtml .= '<section aria-label="katalog motorek">' . renderMotoCard($m) . '</section>';
+        $gridHtml .= '<section aria-label="' . te('filters.aria.catalog') . '">' . renderMotoCard($m) . '</section>';
     }
 }
 
 // ---- Filtry UI: pevné hlavní kategorie + dynamicky dopln z dat ----
 $fixedCats = [
-    'cestovni'  => 'Cestovní motorky',
-    'naked'     => 'Naked motorky',
-    'supermoto' => 'Supermoto motorky',
-    'detske'    => 'Dětské motorky',
+    'cestovni'  => t('menu.catalog.touring'),
+    'naked'     => t('menu.catalog.naked'),
+    'supermoto' => t('menu.catalog.supermoto'),
+    'detske'    => t('menu.catalog.kids'),
 ];
 $lics = [];
 foreach ($motos as $m) {
@@ -149,73 +149,73 @@ $opt = function ($val, $label, $active) {
 
 $filterHtml = '<form id="katalog-filters" class="katalog-filters" method="get" action="' . BASE_URL . '/katalog">'
     . '<div class="filter-row">'
-    . '<div class="filter-field filter-field-search"><label class="sr-only" for="flt-q">Hledat</label>'
+    . '<div class="filter-field filter-field-search"><label class="sr-only" for="flt-q">' . te('filters.search') . '</label>'
         . '<span class="filter-icon" aria-hidden="true">🔍</span>'
-        . '<input type="search" id="flt-q" name="q" placeholder="Hledat model, značku…" value="' . htmlspecialchars($getQuery) . '"></div>'
-    . '<div class="filter-field"><label class="sr-only" for="flt-cat">Kategorie</label>'
-        . '<select id="flt-cat" name="kategorie"><option value="">Kategorie — všechny</option>';
+        . '<input type="search" id="flt-q" name="q" placeholder="' . te('filters.searchPlaceholder') . '" value="' . htmlspecialchars($getQuery) . '"></div>'
+    . '<div class="filter-field"><label class="sr-only" for="flt-cat">' . te('filters.category') . '</label>'
+        . '<select id="flt-cat" name="kategorie"><option value="">' . te('filters.categoryAll') . '</option>';
 foreach ($fixedCats as $cVal => $cLabel) {
     $filterHtml .= $opt($cVal, $cLabel, strtolower($activeCat));
 }
 $filterHtml .= '</select></div>'
-    . '<div class="filter-field"><label class="sr-only" for="flt-lic">Řidičský průkaz</label>'
-        . '<select id="flt-lic" name="ridicak"><option value="">Řidičský průkaz</option>';
+    . '<div class="filter-field"><label class="sr-only" for="flt-lic">' . te('filters.license') . '</label>'
+        . '<select id="flt-lic" name="ridicak"><option value="">' . te('filters.licenseAny') . '</option>';
 foreach (array_keys($lics) as $l) {
-    $filterHtml .= $opt($l, ($l === 'N') ? 'Bez ŘP (dětské)' : 'Skupina ' . $l, $activeLic);
+    $filterHtml .= $opt($l, ($l === 'N') ? t('filters.licenseNone') : t('filters.licenseGroup', ['group' => $l]), $activeLic);
 }
 $filterHtml .= '</select></div>'
-    . '<div class="filter-field"><label class="sr-only" for="flt-kw">Výkon</label>'
+    . '<div class="filter-field"><label class="sr-only" for="flt-kw">' . te('filters.power') . '</label>'
         . '<select id="flt-kw" name="kw_min">'
-        . $opt(0, 'Výkon — libovolný', $getKwMin)
-        . $opt(11, 'od 11 kW (A1)', $getKwMin)
-        . $opt(35, 'od 35 kW (A2)', $getKwMin)
-        . $opt(70, 'od 70 kW', $getKwMin)
-        . $opt(100, 'od 100 kW', $getKwMin)
+        . $opt(0, t('filters.powerAny'), $getKwMin)
+        . $opt(11, t('filters.powerFromA1'), $getKwMin)
+        . $opt(35, t('filters.powerFromA2'), $getKwMin)
+        . $opt(70, t('filters.powerFrom', ['kw' => 70]), $getKwMin)
+        . $opt(100, t('filters.powerFrom', ['kw' => 100]), $getKwMin)
         . '</select></div>'
-    . '<div class="filter-field"><label class="sr-only" for="flt-price">Cena max.</label>'
+    . '<div class="filter-field"><label class="sr-only" for="flt-price">' . te('filters.priceMax') . '</label>'
         . '<select id="flt-price" name="cena_max">'
-        . $opt(0, 'Cena — libovolná', $getPriceMax)
-        . $opt(1000, 'do 1 000 Kč/den', $getPriceMax)
-        . $opt(1500, 'do 1 500 Kč/den', $getPriceMax)
-        . $opt(2000, 'do 2 000 Kč/den', $getPriceMax)
-        . $opt(3000, 'do 3 000 Kč/den', $getPriceMax)
+        . $opt(0, t('filters.priceAny'), $getPriceMax)
+        . $opt(1000, t('filters.priceTo', ['price' => '1 000']), $getPriceMax)
+        . $opt(1500, t('filters.priceTo', ['price' => '1 500']), $getPriceMax)
+        . $opt(2000, t('filters.priceTo', ['price' => '2 000']), $getPriceMax)
+        . $opt(3000, t('filters.priceTo', ['price' => '3 000']), $getPriceMax)
         . '</select></div>'
-    . '<div class="filter-field"><label class="sr-only" for="flt-sort">Řazení</label>'
+    . '<div class="filter-field"><label class="sr-only" for="flt-sort">' . te('filters.sort') . '</label>'
         . '<select id="flt-sort" name="razeni">'
-        . $opt('default', 'Řazení — výchozí', $getSort)
-        . $opt('cena_asc', 'Cena: od nejnižší', $getSort)
-        . $opt('cena_desc', 'Cena: od nejvyšší', $getSort)
-        . $opt('vykon_desc', 'Výkon: od nejvyššího', $getSort)
-        . $opt('vykon_asc', 'Výkon: od nejnižšího', $getSort)
+        . $opt('default', t('filters.sortDefault'), $getSort)
+        . $opt('cena_asc', t('filters.sortPriceAsc'), $getSort)
+        . $opt('cena_desc', t('filters.sortPriceDesc'), $getSort)
+        . $opt('vykon_desc', t('filters.sortPowerDesc'), $getSort)
+        . $opt('vykon_asc', t('filters.sortPowerAsc'), $getSort)
         . '</select></div>'
     . '</div>'
     . '<div class="filter-row filter-row-checks">'
-    . '<label class="filter-check"><input type="checkbox" name="abs" value="1"' . ($getAbs ? ' checked' : '') . '><span>Pouze s ABS</span></label>'
-    . '<label class="filter-check"><input type="radio" name="jezdci" value="0"' . ($getRiders !== 2 ? ' checked' : '') . '><span>Libovolný počet jezdců</span></label>'
-    . '<label class="filter-check"><input type="radio" name="jezdci" value="2"' . ($getRiders === 2 ? ' checked' : '') . '><span>Pro 2 osoby</span></label>'
+    . '<label class="filter-check"><input type="checkbox" name="abs" value="1"' . ($getAbs ? ' checked' : '') . '><span>' . te('filters.absOnly') . '</span></label>'
+    . '<label class="filter-check"><input type="radio" name="jezdci" value="0"' . ($getRiders !== 2 ? ' checked' : '') . '><span>' . te('filters.ridersAny') . '</span></label>'
+    . '<label class="filter-check"><input type="radio" name="jezdci" value="2"' . ($getRiders === 2 ? ' checked' : '') . '><span>' . te('filters.ridersTwo') . '</span></label>'
     . '<div class="filter-actions">'
-    . '<a class="btn btndark" href="' . BASE_URL . '/katalog">Resetovat</a>'
-    . '<button type="submit" class="btn btngreen filter-submit"><span>HLEDAT</span></button>'
+    . '<a class="btn btndark" href="' . BASE_URL . '/katalog">' . te('filters.reset') . '</a>'
+    . '<button type="submit" class="btn btngreen filter-submit"><span>' . te('filters.submit') . '</span></button>'
     . '</div>'
     . '</div></form>';
 
 // Počet výsledků
-$countHtml = '<p class="katalog-count">Nalezeno <strong>' . count($filtered) . '</strong> z ' . count($motos) . ' motorek</p>';
+$countHtml = '<p class="katalog-count">' . t('filters.countLine', ['count' => count($filtered), 'total' => count($motos)]) . '</p>';
 
 $content = '<main id="content"><div class="container">'
     . renderBreadcrumb($bc)
     . '<div class="ccontent"><h1>' . htmlspecialchars($title) . '</h1>'
-    . '<p>Vyberte si z naší nabídky <strong>cestovních, sportovních, enduro i dětských motorek</strong>. Můžete filtrovat podle kategorie, řidičského průkazu, výkonu, ceny a dalších parametrů.</p>'
+    . '<p>' . t('filters.catalogLead') . '</p>'
     . $filterHtml
     . $countHtml
     . '<div id="katalog-grid" class="gr4">' . $gridHtml . '</div>'
     . '</div></div></main>';
 
 renderPage($title . ' | MotoGo24', $content, $path, [
-    'description' => 'Katalog motorek k pronájmu na Vysočině. Filtr dle kategorie, ŘP, výkonu a ceny. Cestovní, sportovní, enduro a dětské motorky. Online rezervace.',
-    'keywords' => 'katalog motorek, motorky k pronájmu, cestovní motorky, sportovní motorky, enduro, dětské motorky, filtr motorek',
+    'description' => t('katalog.seo.description'),
+    'keywords' => t('katalog.seo.keywords'),
     'breadcrumbs' => [
-        ['name' => 'Domů', 'url' => 'https://motogo24.cz/'],
-        ['name' => 'Katalog motorek', 'url' => 'https://motogo24.cz/katalog'],
+        ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
+        ['name' => t('breadcrumb.catalog'), 'url' => 'https://motogo24.cz/katalog'],
     ],
 ]);
