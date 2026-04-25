@@ -7,12 +7,7 @@ require_once __DIR__ . '/config.php';
 function getMenuItems() {
     return [
         ['label' => 'Půjčovna motorek', 'route' => '/pujcovna-motorek'],
-        ['label' => 'Katalog motorek', 'route' => '/katalog', 'children' => [
-            ['label' => 'Cestovní motorky', 'route' => '/katalog/cestovni'],
-            ['label' => 'Naked motorky', 'route' => '/katalog/naked'],
-            ['label' => 'Supermoto motorky', 'route' => '/katalog/supermoto'],
-            ['label' => 'Dětské motorky', 'route' => '/katalog/detske'],
-        ]],
+        ['label' => 'Katalog motorek', 'route' => '/katalog'],
         ['label' => 'Jak si půjčit motorku', 'route' => '/jak-pujcit', 'children' => [
             ['label' => 'Postup půjčení motorky', 'route' => '/jak-pujcit/postup'],
             ['label' => 'Převzetí v půjčovně', 'route' => '/jak-pujcit/prevzeti'],
