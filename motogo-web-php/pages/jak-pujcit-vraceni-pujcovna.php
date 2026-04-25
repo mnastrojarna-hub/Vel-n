@@ -60,7 +60,7 @@ $defaults = [
 
 $C = $sb->siteContent('jak_pujcit_vraceni_pujcovna', $defaults);
 
-$bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], ['label' => 'Jak si půjčit', 'href' => '/jak-pujcit'], 'Vrácení motocyklu v půjčovně']);
+$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.howto'), 'href' => '/jak-pujcit'], t('menu.howto.returnHome')]);
 
 $mapIframe = '<iframe class="map" loading="lazy" src="' . htmlspecialchars($C['place']['map_src']) . '" title="Adresa půjčovny"></iframe>';
 
@@ -95,8 +95,8 @@ renderPage($C['seo']['title'], $content, '/jak-pujcit/vraceni-pujcovna', [
     'description' => $C['seo']['description'],
     'keywords' => $C['seo']['keywords'],
     'breadcrumbs' => [
-        ['name' => 'Domů', 'url' => 'https://motogo24.cz/'],
-        ['name' => 'Jak si půjčit', 'url' => 'https://motogo24.cz/jak-pujcit'],
-        ['name' => 'Vrácení v půjčovně', 'url' => 'https://motogo24.cz/jak-pujcit/vraceni-pujcovna'],
+        ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
+        ['name' => t('breadcrumb.howto'), 'url' => 'https://motogo24.cz/jak-pujcit'],
+        ['name' => t('menu.howto.returnHome'), 'url' => 'https://motogo24.cz/jak-pujcit/vraceni-pujcovna'],
     ],
 ]);

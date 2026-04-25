@@ -11,10 +11,10 @@ $defaults = array_merge($part1, $part2);
 
 $C = $sb->siteContent('jak_pujcit_dokumenty', $defaults);
 
-$bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], ['label' => 'Jak si půjčit', 'href' => '/jak-pujcit'], 'Dokumenty a návody']);
+$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.howto'), 'href' => '/jak-pujcit'], t('menu.howto.documents')]);
 
 // --- Section 1: title + intro + top CTA ---
-$titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">Hlavní obsah stránky</h2>' .
+$titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">' . te('a11y.mainContent') . '</h2>' .
     '<h1>' . $C['h1'] . '</h1>' .
     '<p>' . $C['intro'] . '</p>' .
     '<p>&nbsp;</p>' .
@@ -22,7 +22,7 @@ $titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">Hlav
     '</section>';
 
 // --- Section 2: summary 6 boxů ---
-$summaryHtml = '<section aria-labelledby="benefits"><h2 id="benefits" class="vh">Hlavní výhody a přínosy</h2>' .
+$summaryHtml = '<section aria-labelledby="benefits"><h2 id="benefits" class="vh">' . te('a11y.benefits') . '</h2>' .
     '<h2>' . $C['summary']['title'] . '</h2><div class="gr6">';
 foreach ($C['summary']['items'] as $s) {
     $summaryHtml .= renderWbox($s['icon'], $s['title'], $s['text']);
@@ -75,12 +75,12 @@ foreach ($C['documents']['items'] as $d) {
     $docsCardsHtml .= '<a class="boxwhitey dfac" href="' . $href . '" title="' . $name . '"><div class="gr3">' .
         '<img src="' . BASE_URL . '/gfx/ico-pdf.svg" class="icon-big" alt="' . $name . '" title="' . $name . '" loading="lazy">' .
         '<div><h3>' . $name . '</h3><br>(' . $size . ')</div>' .
-        '<div><span class="btn btngreen-small"><img src="' . BASE_URL . '/gfx/ico-stahnout.svg" alt="Stáhnout" loading="lazy"><br>STÁHNOUT</span></div>' .
+        '<div><span class="btn btngreen-small"><img src="' . BASE_URL . '/gfx/ico-stahnout.svg" alt="' . te('common.download') . '" loading="lazy"><br>' . te('common.downloadCaps') . '</span></div>' .
         '</div></a>';
 }
 $docsCardsHtml .= '</div>';
 
-$mainSection = '<section aria-labelledby="main1" class="main1"><h2 id="main1" class="vh">Důležité informace</h2>' .
+$mainSection = '<section aria-labelledby="main1" class="main1"><h2 id="main1" class="vh">' . te('a11y.importantInfo') . '</h2>' .
     '<p>&nbsp;</p><p>&nbsp;</p>' .
     '<h2>' . $C['required_docs']['title'] . '</h2><ul>' . $reqLis . '</ul>' .
     '<p>&nbsp;</p><p>&nbsp;</p>' .
@@ -91,7 +91,7 @@ $mainSection = '<section aria-labelledby="main1" class="main1"><h2 id="main1" cl
     '</section>';
 
 // --- Section 4: mid CTA "Souhlasíte s podmínkami?" ---
-$midCtaSection = '<section aria-labelledby="main3" class="main3"><h2 id="main3" class="vh">Další informace</h2>' .
+$midCtaSection = '<section aria-labelledby="main3" class="main3"><h2 id="main3" class="vh">' . te('a11y.moreInfo') . '</h2>' .
     '<p>&nbsp;</p><p>&nbsp;</p>' .
     '<h2>' . $C['midcta']['title'] . '</h2>' .
     '<p>' . $C['midcta']['text'] . '</p>' .
@@ -102,7 +102,7 @@ $ctaButtons = '';
 foreach ($C['cta']['buttons'] as $btn) {
     $ctaButtons .= '<a aria-label="' . htmlspecialchars($btn['aria'] ?? $btn['label']) . '" class="btn ' . ($btn['cls'] ?? 'btndark') . '" href="' . BASE_URL . $btn['href'] . '">' . $btn['label'] . '</a>&nbsp;';
 }
-$finalCtaSection = '<section aria-labelledby="cta"><h2 id="cta" class="vh">Kontaktujte nás</h2>' .
+$finalCtaSection = '<section aria-labelledby="cta"><h2 id="cta" class="vh">' . te('a11y.contactUs') . '</h2>' .
     '<h2>' . $C['cta']['title'] . '</h2>' .
     '<p>' . $C['cta']['text'] . '</p>' .
     '<p>&nbsp;</p>' .
@@ -122,8 +122,8 @@ renderPage($C['seo']['title'], $content, '/jak-pujcit/dokumenty', [
     'description' => $C['seo']['description'],
     'keywords' => $C['seo']['keywords'],
     'breadcrumbs' => [
-        ['name' => 'Domů', 'url' => 'https://motogo24.cz/'],
-        ['name' => 'Jak si půjčit', 'url' => 'https://motogo24.cz/jak-pujcit'],
-        ['name' => 'Dokumenty', 'url' => 'https://motogo24.cz/jak-pujcit/dokumenty'],
+        ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
+        ['name' => t('breadcrumb.howto'), 'url' => 'https://motogo24.cz/jak-pujcit'],
+        ['name' => t('menu.howto.documents'), 'url' => 'https://motogo24.cz/jak-pujcit/dokumenty'],
     ],
 ]);

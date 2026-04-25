@@ -43,7 +43,7 @@ $defaults = [
 
 $C = $sb->siteContent('jak_pujcit_postup', $defaults);
 
-$bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], ['label' => 'Jak si půjčit', 'href' => '/jak-pujcit'], 'Postup půjčení motorky']);
+$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.howto'), 'href' => '/jak-pujcit'], t('menu.howto.process')]);
 
 $stepsHtml = '<section aria-labelledby="process"><h2>' . $C['process']['title'] . '</h2><div class="gr4">';
 foreach ($C['process']['steps'] as $s) {
@@ -61,8 +61,8 @@ renderPage($C['seo']['title'], $content, '/jak-pujcit/postup', [
     'description' => $C['seo']['description'],
     'keywords' => $C['seo']['keywords'],
     'breadcrumbs' => [
-        ['name' => 'Domů', 'url' => 'https://motogo24.cz/'],
-        ['name' => 'Jak si půjčit', 'url' => 'https://motogo24.cz/jak-pujcit'],
-        ['name' => 'Postup půjčení', 'url' => 'https://motogo24.cz/jak-pujcit/postup'],
+        ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
+        ['name' => t('breadcrumb.howto'), 'url' => 'https://motogo24.cz/jak-pujcit'],
+        ['name' => t('menu.howto.process'), 'url' => 'https://motogo24.cz/jak-pujcit/postup'],
     ],
 ]);

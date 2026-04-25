@@ -100,7 +100,7 @@ renderPage($C['seo']['title'], $content, '/pujcovna-motorek', [
     'description' => $C['seo']['description'],
     'keywords' => $C['seo']['keywords'],
     'breadcrumbs' => [
-        ['name' => 'Domů', 'url' => 'https://motogo24.cz/'],
-        ['name' => 'Půjčovna motorek', 'url' => 'https://motogo24.cz/pujcovna-motorek'],
+        ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
+        ['name' => t('menu.rental'), 'url' => 'https://motogo24.cz/pujcovna-motorek'],
     ],
 ]);

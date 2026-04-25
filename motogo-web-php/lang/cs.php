@@ -59,6 +59,24 @@ return [
     'footer.iconEmail' => 'E-mail',
     'footer.iconAddress' => 'Adresa',
 
+    // ===== Skryté A11Y nadpisy sekcí (vh = visually hidden) =====
+    'a11y.mainContent' => 'Hlavní obsah stránky',
+    'a11y.benefits' => 'Hlavní výhody a přínosy',
+    'a11y.importantInfo' => 'Důležité informace',
+    'a11y.contactUs' => 'Kontaktujte nás',
+    'a11y.process' => 'Jak probíhá pronájem',
+    'a11y.faq' => 'Časté dotazy',
+    'a11y.documents' => 'Dokumenty a podmínky',
+    'a11y.delivery' => 'Přistavení a doprava',
+    'a11y.gallery' => 'Galerie',
+    'a11y.processHowItWorks' => 'Jak to u nás funguje',
+    'a11y.moreImportantInfo' => 'Další důležité informace',
+    'a11y.frequentQuestions' => 'Na co se nás často ptáte',
+    'a11y.moreInfo' => 'Další informace',
+
+    // ===== FAQ stránka =====
+    'faq.tabAll' => 'Vše ({count})',
+
     // ===== Common UI =====
     'common.bookButton' => 'REZERVOVAT MOTORKU',
     'common.detailButton' => 'DETAIL MOTORKY',
@@ -83,6 +101,8 @@ return [
     'common.giftCardSection' => 'Dárkové poukazy',
     'common.contactUs' => 'KONTAKTOVAT NÁS',
     'common.preparingContent' => 'Obsah se připravuje. Kontaktujte nás pro více informací.',
+    'common.download' => 'Stáhnout',
+    'common.downloadCaps' => 'STÁHNOUT',
 
     // ===== Breadcrumby (statické labely) =====
     'breadcrumb.home' => 'Domů',
