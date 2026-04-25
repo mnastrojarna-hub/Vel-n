@@ -80,11 +80,12 @@ export default function Topbar() {
 
   return (
     <div
-      className="flex items-center justify-between shrink-0 bg-white"
+      className="flex items-center justify-between shrink-0"
       style={{
         padding: '12px 28px',
         height: 60,
-        borderBottom: '1px solid #1a2e22',
+        background: '#ffffff',
+        borderBottom: '2px solid #1a2e22',
       }}
     >
       <div className="flex items-center gap-3">
@@ -104,7 +105,7 @@ export default function Topbar() {
         </div>
         <div
           className="text-sm font-extrabold"
-          style={{ color: '#1a8a18', letterSpacing: 1 }}
+          style={{ color: '#13C14E', letterSpacing: 1 }}
         >
           {time.toLocaleTimeString('cs-CZ')}
         </div>
@@ -134,8 +135,8 @@ export default function Topbar() {
           </button>
 
           {dropdownOpen && (
-            <div className="absolute right-0 top-full mt-2 z-50 rounded-card shadow-card bg-white"
-              style={{ width: 280, border: '1px solid #1a2e22' }}>
+            <div className="absolute right-0 top-full mt-2 z-50 rounded-card shadow-card"
+              style={{ width: 280, background: '#ffffff', border: '1px solid #1a2e22' }}>
               <div className="p-3 text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22', borderBottom: '1px solid #1a2e22' }}>
                 Notifikace
               </div>
