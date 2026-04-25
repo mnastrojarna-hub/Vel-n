@@ -323,7 +323,7 @@ MG._attachMapyAutocomplete = function(inputId){
   list.style.cssText = 'position:absolute;top:100%;left:0;right:0;z-index:10000;background:#fff;border:1px solid #e0e0e0;border-radius:6px;margin-top:4px;max-height:240px;overflow-y:auto;box-shadow:0 4px 14px rgba(0,0,0,.12);display:none';
   wrap.appendChild(list);
 
-  var timer = null, items = [], active = -1;
+  var timer = null, items = [], active = -1, justPickedValue = null;
 
   function render(){
     if(!items.length){ list.style.display = 'none'; list.innerHTML = ''; return; }
@@ -345,20 +345,32 @@ MG._attachMapyAutocomplete = function(inputId){
     });
   }
 
+  function closeList(){ items = []; active = -1; clearTimeout(timer); list.style.display = 'none'; list.innerHTML = ''; }
+
   function pick(it){
-    inp.value = it.full || it.label || '';
-    items = []; active = -1; render();
+    var newVal = it.full || it.label || '';
+    inp.value = newVal;
+    justPickedValue = newVal;
+    closeList();
     var t = inputId === 'rez-delivery-address' ? 'delivery' : 'return';
     MG._rez['_'+t+'RouteAddr'] = inp.value;
-    inp.dispatchEvent(new Event('input', { bubbles: true }));
-    // Vypocet trasy automaticky po vyberu adresy (preskakuje change-handler-driven fallback)
-    MG._calcRouteFor(t, it.lat, it.lng);
+    // Trigger only `change` (downstream price recalc, confirm checkbox).
+    // Do NOT dispatch `input` — to znovu spustí suggest a zacyklí dropdown.
+    inp.dispatchEvent(new Event('change', { bubbles: true }));
+    inp.blur();
+    // Výpočet trasy automaticky po výběru adresy
+    if(typeof MG._calcRouteFor === 'function'){
+      MG._calcRouteFor(t, it.lat, it.lng);
+    }
   }
 
   inp.addEventListener('input', function(){
     var q = inp.value;
+    // Po vybrání ze suggestionu input ignoruje opakovaný suggest, dokud user neupraví hodnotu
+    if(justPickedValue !== null && q === justPickedValue){ closeList(); return; }
+    justPickedValue = null;
     clearTimeout(timer);
-    if(!q || q.length < 2){ items = []; render(); return; }
+    if(!q || q.length < 2){ closeList(); return; }
     timer = setTimeout(function(){
       MG._mapySuggest(q, 8).then(function(arr){ items = arr; active = -1; render(); });
     }, 220);
@@ -380,14 +392,24 @@ MG._attachMapyAutocomplete = function(inputId){
     MG._calcRouteFor(t);
   });
   inp.addEventListener('keydown', function(e){
-    if(!items.length) return;
+    if(!items.length){
+      if(e.key === 'Escape') closeList();
+      return;
+    }
     if(e.key === 'ArrowDown'){ e.preventDefault(); active = Math.min(items.length - 1, active + 1); render(); }
     else if(e.key === 'ArrowUp'){ e.preventDefault(); active = Math.max(0, active - 1); render(); }
     else if(e.key === 'Enter' && active >= 0){ e.preventDefault(); pick(items[active]); }
-    else if(e.key === 'Escape'){ items = []; render(); }
+    else if(e.key === 'Escape'){ e.preventDefault(); closeList(); }
+  });
+  // Pokud user manuálně promaže input nebo začne psát něco jiného, povol nový suggest
+  inp.addEventListener('focus', function(){
+    if(justPickedValue !== null && inp.value === justPickedValue){
+      // držet zavřený — user už adresu vybral
+      closeList();
+    }
   });
   document.addEventListener('mousedown', function(e){
-    if(!wrap.contains(e.target)){ items = []; render(); }
+    if(!wrap.contains(e.target)){ closeList(); }
   });
 };
 
