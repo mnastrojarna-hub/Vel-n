@@ -1,6 +1,6 @@
 <?php
 // ===== MotoGo24 Web PHP — Katalog motorek s rozšířenými filtry =====
-// Filtry přes GET: ?kategorie, ?ridicak, ?kw_min, ?cena_max, ?abs, ?jezdci, ?q, ?sort
+// Filtry přes GET: ?kategorie, ?ridicak, ?kw_min, ?kw_max, ?cena_max, ?abs, ?jezdci, ?q, ?sort
 
 $sb = new SupabaseClient();
 $motos = $sb->fetchMotos();
@@ -23,10 +23,29 @@ if ($path === '/katalog/cestovni') {
     $title = t('menu.catalog.kids');
 }
 
+// Dynamické hranice slideru výkonu z dat
+$kwValues = [];
+foreach ($motos as $m) {
+    $v = (float)($m['power_kw'] ?? 0);
+    if ($v > 0) $kwValues[] = $v;
+}
+if (!empty($kwValues)) {
+    $kwBoundMin = (int)floor(min($kwValues));
+    $kwBoundMax = (int)ceil(max($kwValues));
+} else {
+    $kwBoundMin = 0;
+    $kwBoundMax = 150;
+}
+if ($kwBoundMin === $kwBoundMax) $kwBoundMax = $kwBoundMin + 1;
+
 // Všechny GET filtry
 $getCat     = trim($_GET['kategorie'] ?? '');
 $getLic     = trim($_GET['ridicak'] ?? '');
-$getKwMin   = (float)($_GET['kw_min'] ?? 0);
+$getKwMin   = isset($_GET['kw_min']) && $_GET['kw_min'] !== '' ? (int)$_GET['kw_min'] : $kwBoundMin;
+$getKwMax   = isset($_GET['kw_max']) && $_GET['kw_max'] !== '' ? (int)$_GET['kw_max'] : $kwBoundMax;
+$getKwMin   = max($kwBoundMin, min($getKwMin, $kwBoundMax));
+$getKwMax   = max($kwBoundMin, min($getKwMax, $kwBoundMax));
+if ($getKwMin > $getKwMax) { $tmp = $getKwMin; $getKwMin = $getKwMax; $getKwMax = $tmp; }
 $getPriceMax= (float)($_GET['cena_max'] ?? 0);
 $getAbs     = isset($_GET['abs']) && $_GET['abs'] === '1';
 $getRiders  = (int)($_GET['jezdci'] ?? 0); // 1=sólo, 2=se spolujezdcem
@@ -62,9 +81,10 @@ if ($getLic) {
         return ($m['license_required'] ?? '') === $getLic;
     });
 }
-if ($getKwMin > 0) {
-    $filtered = array_filter($filtered, function ($m) use ($getKwMin) {
-        return (float)($m['power_kw'] ?? 0) >= $getKwMin;
+if ($getKwMin > $kwBoundMin || $getKwMax < $kwBoundMax) {
+    $filtered = array_filter($filtered, function ($m) use ($getKwMin, $getKwMax) {
+        $kw = (float)($m['power_kw'] ?? 0);
+        return $kw >= $getKwMin && $kw <= $getKwMax;
     });
 }
 if ($getPriceMax > 0) {
@@ -164,14 +184,29 @@ foreach (array_keys($lics) as $l) {
     $filterHtml .= $opt($l, ($l === 'N') ? t('filters.licenseNone') : t('filters.licenseGroup', ['group' => $l]), $activeLic);
 }
 $filterHtml .= '</select></div>'
-    . '<div class="filter-field"><label class="sr-only" for="flt-kw">' . te('filters.power') . '</label>'
-        . '<select id="flt-kw" name="kw_min">'
-        . $opt(0, t('filters.powerAny'), $getKwMin)
-        . $opt(11, t('filters.powerFromA1'), $getKwMin)
-        . $opt(35, t('filters.powerFromA2'), $getKwMin)
-        . $opt(70, t('filters.powerFrom', ['kw' => 70]), $getKwMin)
-        . $opt(100, t('filters.powerFrom', ['kw' => 100]), $getKwMin)
-        . '</select></div>'
+    . '<div class="filter-field filter-field-range">'
+        . '<div class="range-header">'
+            . '<span class="range-title">' . te('filters.power') . '</span>'
+            . '<span class="range-value" id="flt-kw-display">'
+                . htmlspecialchars((string)$getKwMin) . ' – '
+                . ($getKwMax >= $kwBoundMax ? te('filters.rangeMax') : htmlspecialchars((string)$getKwMax))
+                . ' kW</span>'
+        . '</div>'
+        . '<div class="range-slider" data-bound-min="' . $kwBoundMin . '" data-bound-max="' . $kwBoundMax . '">'
+            . '<div class="range-track"></div>'
+            . '<div class="range-fill" id="flt-kw-fill"></div>'
+            . '<input type="range" id="flt-kw-min" name="kw_min" class="range-input range-input-min"'
+                . ' min="' . $kwBoundMin . '" max="' . $kwBoundMax . '" step="1"'
+                . ' value="' . $getKwMin . '" aria-label="' . te('filters.power.aria.min') . '">'
+            . '<input type="range" id="flt-kw-max" name="kw_max" class="range-input range-input-max"'
+                . ' min="' . $kwBoundMin . '" max="' . $kwBoundMax . '" step="1"'
+                . ' value="' . $getKwMax . '" aria-label="' . te('filters.power.aria.max') . '">'
+        . '</div>'
+        . '<div class="range-bounds">'
+            . '<span>' . $kwBoundMin . ' kW</span>'
+            . '<span>' . $kwBoundMax . ' kW</span>'
+        . '</div>'
+    . '</div>'
     . '<div class="filter-field"><label class="sr-only" for="flt-price">' . te('filters.priceMax') . '</label>'
         . '<select id="flt-price" name="cena_max">'
         . $opt(0, t('filters.priceAny'), $getPriceMax)
@@ -197,7 +232,30 @@ $filterHtml .= '</select></div>'
     . '<a class="btn btndark" href="' . BASE_URL . '/katalog">' . te('filters.reset') . '</a>'
     . '<button type="submit" class="btn btngreen filter-submit"><span>' . te('filters.submit') . '</span></button>'
     . '</div>'
-    . '</div></form>';
+    . '</div></form>'
+    . '<script>(function(){'
+    . 'var MAX_LABEL=' . json_encode(t('filters.rangeMax'), JSON_UNESCAPED_UNICODE) . ';'
+    . 'var minIn=document.getElementById("flt-kw-min");'
+    . 'var maxIn=document.getElementById("flt-kw-max");'
+    . 'var disp=document.getElementById("flt-kw-display");'
+    . 'var fill=document.getElementById("flt-kw-fill");'
+    . 'var form=document.getElementById("katalog-filters");'
+    . 'if(!minIn||!maxIn)return;'
+    . 'var bMin=+minIn.min,bMax=+minIn.max;'
+    . 'function update(src){'
+    . 'var a=+minIn.value,b=+maxIn.value;'
+    . 'if(a>b){if(src==="min"){maxIn.value=a;b=a;}else{minIn.value=b;a=b;}}'
+    . 'if(disp)disp.textContent=a+" – "+(b>=bMax?MAX_LABEL:b)+" kW";'
+    . 'if(fill&&bMax>bMin){var l=((a-bMin)/(bMax-bMin))*100;var r=100-((b-bMin)/(bMax-bMin))*100;fill.style.left=l+"%";fill.style.right=r+"%";}'
+    . '}'
+    . 'minIn.addEventListener("input",function(){update("min");});'
+    . 'maxIn.addEventListener("input",function(){update("max");});'
+    . 'if(form){form.addEventListener("submit",function(){'
+    . 'if(+minIn.value<=bMin)minIn.disabled=true;'
+    . 'if(+maxIn.value>=bMax)maxIn.disabled=true;'
+    . '});}'
+    . 'update();'
+    . '})();</script>';
 
 // Počet výsledků
 $countHtml = '<p class="katalog-count">' . t('filters.countLine', ['count' => count($filtered), 'total' => count($motos)]) . '</p>';
