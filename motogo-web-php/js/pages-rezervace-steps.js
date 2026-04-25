@@ -200,7 +200,7 @@ MG._submitReservation = async function(){
             customer_name:d.name,
             motorcycle:moto?moto.model:'',
             source:'web',
-            resume_link:'https://motogo24.cz/rezervace?resume='+MG._rez.bookingId
+            resume_link:'https://motogo24.com/rezervace?resume='+MG._rez.bookingId
           })
         }).catch(function(){});
       }
@@ -241,7 +241,8 @@ MG._rezShowStep2 = function(){
   }
 
   var isMob=MG._isMobile();
-  var resumeLink=MG._rez.bookingId?'https://motogo24.cz/rezervace?resume='+MG._rez.bookingId:'';
+  // TEST: QR cílí na motogo24.com pro ověření Apple Pay / Google Pay flow přes Stripe na mobilu
+  var resumeLink=MG._rez.bookingId?'https://motogo24.com/rezervace?resume='+MG._rez.bookingId:'';
 
   // QR code section (desktop only) — allows customer to continue on mobile
   var qrSection='';
@@ -269,14 +270,31 @@ MG._rezShowStep2 = function(){
     '<div><input type="radio" id="rez-doc-pas" name="rez-doc-type" value="pas"><label for="rez-doc-pas">Cestovní pas</label></div></div>'+
     '<input type="text" id="rez-doc-number" placeholder="* Číslo dokladu" required autocomplete="off"'+(MG._rez._docNumber?' value="'+MG._rez._docNumber+'"':'')+'>'+
     '<h3 style="margin-top:.5rem;margin-bottom:.2rem">Řidičský průkaz</h3>'+
-    '<input type="text" id="rez-license-number" placeholder="* Číslo řidičského průkazu" required autocomplete="off"'+(MG._rez._licenseNumber?' value="'+MG._rez._licenseNumber+'"':'')+'>'+
-    '<div style="display:flex;gap:.75rem;margin-top:.5rem">'+
-    '<div style="flex:1"><label style="font-size:.85rem;font-weight:600;color:#374151">* Skupina ŘP</label>'+
-    '<select id="rez-license-group" required style="width:100%;padding:.55rem .75rem;border:1px solid #d1d5db;border-radius:8px;font-size:.9rem;margin-top:.25rem">'+
-    '<option value="">— Vyberte —</option><option value="AM">AM</option><option value="A1">A1</option><option value="A2">A2</option><option value="A">A</option><option value="B">B</option></select></div>'+
-    '<div style="flex:1"><label style="font-size:.85rem;font-weight:600;color:#374151">* Platnost ŘP do</label>'+
-    '<input type="date" id="rez-license-expiry" required style="width:100%;padding:.55rem .75rem;border:1px solid #d1d5db;border-radius:8px;font-size:.9rem;margin-top:.25rem"></div></div>'+
-    '<div class="checkboxes" style="margin:1rem 0"><div class="agreement gr2"><input type="checkbox" id="rez-license-confirm" required'+(MG._rez._docsValidated?' checked':'')+'>'+
+    '<div id="rez-license-num-wrap"><input type="text" id="rez-license-number" placeholder="* Číslo řidičského průkazu" autocomplete="off"'+(MG._rez._licenseNumber?' value="'+MG._rez._licenseNumber+'"':'')+'></div>'+
+    '<div style="margin-top:.5rem">'+
+    '<label style="font-size:.85rem;font-weight:600;color:#374151;display:block;margin-bottom:.35rem">* Skupina ŘP</label>'+
+    '<div id="rez-license-group-chips" style="display:flex;gap:.5rem;flex-wrap:wrap">'+
+    '<button type="button" class="lic-chip" data-val="A2">A2</button>'+
+    '<button type="button" class="lic-chip" data-val="A">A</button>'+
+    '<button type="button" class="lic-chip" data-val="N">Bez ŘP</button>'+
+    '</div>'+
+    '<input type="hidden" id="rez-license-group" value="">'+
+    '</div>'+
+    '<div id="rez-license-expiry-wrap" style="margin-top:.75rem">'+
+    '<label style="font-size:.85rem;font-weight:600;color:#374151;display:block;margin-bottom:.35rem">* Platnost ŘP do</label>'+
+    '<div style="display:flex;gap:.4rem;align-items:center">'+
+    '<select id="rez-lic-day" class="lic-date-sel" style="flex:1;padding:.55rem .5rem;border:1px solid #d1d5db;border-radius:8px;font-size:.95rem;background:#fff;font-weight:600"></select>'+
+    '<select id="rez-lic-month" class="lic-date-sel" style="flex:1.6;padding:.55rem .5rem;border:1px solid #d1d5db;border-radius:8px;font-size:.95rem;background:#fff;font-weight:600"></select>'+
+    '<select id="rez-lic-year" class="lic-date-sel" style="flex:1.2;padding:.55rem .5rem;border:1px solid #d1d5db;border-radius:8px;font-size:.95rem;background:#fff;font-weight:600"></select>'+
+    '</div>'+
+    '<div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.4rem">'+
+    '<button type="button" class="lic-quick" data-years="5">+5 let</button>'+
+    '<button type="button" class="lic-quick" data-years="10">+10 let</button>'+
+    '<button type="button" class="lic-quick" data-years="15">+15 let</button>'+
+    '</div>'+
+    '<input type="hidden" id="rez-license-expiry" value="">'+
+    '</div>'+
+    '<div id="rez-license-confirm-wrap" class="checkboxes" style="margin:1rem 0"><div class="agreement gr2"><input type="checkbox" id="rez-license-confirm"'+(MG._rez._docsValidated?' checked':'')+'>'+
     '<div>* Potvrzuji, že jsem držitelem platného řidičského oprávnění a splňuji zákonné podmínky k řízení rezervovaného motocyklu.</div></div></div>'+
 
     // Optional document upload section (web)
@@ -327,7 +345,97 @@ MG._rezShowStep2 = function(){
     '<div style="display:flex;align-items:center;gap:1rem">'+
     '<div style="background:#74FB71;color:#0b0b0b;padding:.6rem 1.2rem;border-radius:25px;font-weight:800;font-size:1.05rem">'+MG.formatPrice(total)+'</div>'+
     '<button class="btn btngreen" onclick="'+payBtnAction+'">'+payBtnLabel+'</button></div></div>';
+  MG._rezInitLicenseUI();
   window.scrollTo({top:form.offsetTop-80,behavior:'smooth'});
+};
+
+// ===== LICENSE UI: chips for group + custom date picker =====
+MG._rezInitLicenseUI = function(){
+  // Inject styles once
+  if(!document.getElementById('mg-lic-styles')){
+    var st=document.createElement('style'); st.id='mg-lic-styles';
+    st.textContent =
+      '.lic-chip{padding:.55rem 1rem;border:1.5px solid #d1d5db;background:#fff;border-radius:999px;font-size:.95rem;font-weight:700;cursor:pointer;color:#374151;transition:all .15s;min-width:72px}'+
+      '.lic-chip:hover{border-color:#74FB71;background:#f0faf5}'+
+      '.lic-chip.active{background:#74FB71;border-color:#1a8c1a;color:#0b0b0b;box-shadow:0 1px 4px rgba(26,140,26,.25)}'+
+      '.lic-quick{padding:.35rem .75rem;border:1px solid #d1d5db;background:#f9fafb;border-radius:6px;font-size:.8rem;font-weight:600;cursor:pointer;color:#374151;transition:all .15s}'+
+      '.lic-quick:hover{border-color:#74FB71;background:#f0faf5;color:#1a8c1a}'+
+      '.lic-date-sel:focus{outline:none;border-color:#74FB71;box-shadow:0 0 0 3px rgba(116,251,113,.25)}';
+    document.head.appendChild(st);
+  }
+
+  // ---- Group chips ----
+  var hidden = document.getElementById('rez-license-group');
+  var expiryWrap = document.getElementById('rez-license-expiry-wrap');
+  var chips = document.querySelectorAll('#rez-license-group-chips .lic-chip');
+  var pre = (MG._rez && MG._rez.formData && MG._rez.formData._licGroup) || '';
+  var numWrap = document.getElementById('rez-license-num-wrap');
+  var confirmWrap = document.getElementById('rez-license-confirm-wrap');
+  function applyGroup(val){
+    hidden.value = val;
+    chips.forEach(function(c){ c.classList.toggle('active', c.dataset.val === val); });
+    var hide = (val === 'N');
+    if(expiryWrap) expiryWrap.style.display = hide ? 'none' : '';
+    if(numWrap) numWrap.style.display = hide ? 'none' : '';
+    if(confirmWrap) confirmWrap.style.display = hide ? 'none' : '';
+  }
+  chips.forEach(function(c){
+    c.addEventListener('click', function(){ applyGroup(c.dataset.val); });
+  });
+  if(pre) applyGroup(pre);
+
+  // ---- Date selects ----
+  var dSel=document.getElementById('rez-lic-day');
+  var mSel=document.getElementById('rez-lic-month');
+  var ySel=document.getElementById('rez-lic-year');
+  var hiddenExp=document.getElementById('rez-license-expiry');
+  if(!dSel||!mSel||!ySel) return;
+
+  var now=new Date(); var thisYear=now.getFullYear();
+  var monthNames=['leden','únor','březen','duben','květen','červen','červenec','srpen','září','říjen','listopad','prosinec'];
+
+  function opt(val,label,sel){ var o=document.createElement('option'); o.value=val; o.textContent=label; if(sel) o.selected=true; return o; }
+
+  // Day select
+  dSel.appendChild(opt('','Den',true));
+  for(var i=1;i<=31;i++) dSel.appendChild(opt(i, i<10?('0'+i):(''+i)));
+  // Month select
+  mSel.appendChild(opt('','Měsíc',true));
+  for(var m=1;m<=12;m++){ var lbl=(m<10?('0'+m):(''+m))+' — '+monthNames[m-1]; mSel.appendChild(opt(m, lbl)); }
+  // Year select (this year .. this year + 20)
+  ySel.appendChild(opt('','Rok',true));
+  for(var y=thisYear; y<=thisYear+20; y++) ySel.appendChild(opt(y, y));
+
+  function syncExpiry(){
+    var d=dSel.value, m=mSel.value, y=ySel.value;
+    if(!d||!m||!y){ hiddenExp.value=''; return; }
+    var iso = y+'-'+(m<10?('0'+m):(''+m))+'-'+(d<10?('0'+d):(''+d));
+    var test=new Date(iso);
+    if(isNaN(test.getTime())){ hiddenExp.value=''; return; }
+    if(test.getFullYear()!=y || (test.getMonth()+1)!=parseInt(m,10) || test.getDate()!=parseInt(d,10)){
+      hiddenExp.value=''; return;
+    }
+    hiddenExp.value = iso;
+  }
+  [dSel,mSel,ySel].forEach(function(s){ s.addEventListener('change', syncExpiry); });
+
+  // Quick "+N let" buttons → set today + N years
+  document.querySelectorAll('.lic-quick').forEach(function(b){
+    b.addEventListener('click', function(){
+      var yrs=parseInt(b.dataset.years,10)||0;
+      var t=new Date(); t.setFullYear(t.getFullYear()+yrs);
+      dSel.value=t.getDate(); mSel.value=t.getMonth()+1; ySel.value=t.getFullYear();
+      syncExpiry();
+    });
+  });
+
+  // Restore previous value if any
+  var prev = (MG._rez && MG._rez.formData && MG._rez.formData._licExpiry) || '';
+  if(prev && /^\d{4}-\d{2}-\d{2}$/.test(prev)){
+    var pp=prev.split('-');
+    ySel.value=parseInt(pp[0],10); mSel.value=parseInt(pp[1],10); dSel.value=parseInt(pp[2],10);
+    syncExpiry();
+  }
 };
 
 // ===== BACK TO STEP 1 =====
