@@ -156,16 +156,17 @@
 .moto-related{margin-top:2rem}
 
 /* ===== BLOG CARD ===== */
-.blog-wrapper{display:flex;flex-direction:column;background:#fff;border:1px solid #d4e8e0;border-radius:10px;overflow:hidden;transition:border-color .2s,transform .2s,box-shadow .2s;text-decoration:none;color:#1a2e22;height:100%}
-.blog-wrapper:hover{border-color:#74FB71;transform:translateY(-3px);box-shadow:0 6px 20px rgba(26,46,34,.1);color:#1a2e22}
-.blog-title{padding:1rem 1rem .25rem}
-.blog-title h2{font-size:1.05rem;margin:0;color:#1a2e22}
-.blog-img{padding:.5rem 1rem}
-.blog-img .imgres{width:100%;height:170px;object-fit:cover;border-radius:6px}
-.blog-desc{padding:0 1rem;flex:1}
-.blog-desc p{font-size:.9rem;color:#4a6b5a;margin-bottom:.4rem}
-.blog-btn{padding:.75rem 1rem;text-align:center}
-.tag-label{display:inline-block;background:#e8fce8;color:#1a8c1a;padding:.2rem .6rem;border-radius:4px;font-size:.78rem;font-weight:600}
+.blog-wrapper{position:relative;display:flex;flex-direction:column;background:#fff;border-radius:14px;overflow:hidden;transition:transform .2s,box-shadow .2s;text-decoration:none;color:#1a2e22;height:100%;box-shadow:0 4px 14px rgba(26,46,34,.08)}
+.blog-wrapper:hover{transform:translateY(-3px);box-shadow:0 10px 28px rgba(26,46,34,.16);color:#1a2e22}
+.blog-title{position:absolute;top:1rem;left:1rem;right:1rem;background:#1a2e22;color:#fff;padding:.85rem 1rem;border-radius:10px;z-index:2;box-shadow:0 4px 12px rgba(0,0,0,.18)}
+.blog-title h2{font-size:1.05rem;margin:0;color:#fff;line-height:1.25;font-weight:700}
+.blog-img{padding:0;margin:0;width:100%;aspect-ratio:4/3;overflow:hidden;background:#dff0ec}
+.blog-img .imgres{width:100%;height:100%;object-fit:cover;border-radius:0;display:block}
+.blog-desc{padding:1rem 1rem .25rem;flex:1;background:#fff;display:flex;flex-direction:column;gap:.5rem}
+.blog-desc p{font-size:.9rem;color:#4a6b5a;margin:0;line-height:1.5}
+.blog-btn{padding:.5rem 1rem 1.25rem;text-align:left;background:#fff}
+.blog-btn .btn{font-size:.78rem;padding:.55rem 1.1rem}
+.tag-label{display:inline-block;background:#1a3a2a;color:#fff;padding:.3rem .85rem;border-radius:6px;font-size:.78rem;font-weight:600;line-height:1.2}
 .blog-detail{padding-bottom:2rem}
 .blog-content{line-height:1.7}
 .blog-content p{margin-bottom:1rem}
@@ -174,11 +175,17 @@
 .gallery-blog .gallery-box img{width:100%;height:auto}
 .gallery-blog>div{width:calc(25% - .5rem)}
 
-/* Blog tag filter */
+/* Blog tag filter (legacy nav-pills used elsewhere) */
 .nav-pills{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1.5rem;list-style:none;padding:0;align-items:center}
 .nav-pills li:first-child{color:#8aab99;font-size:.85rem;margin-right:.25rem}
 .nav-pills li a{display:inline-block;padding:.35rem .8rem;border-radius:20px;font-size:.85rem;color:#4a6b5a;border:1px solid #b8d4c6;transition:all .2s}
 .nav-pills li a:hover,.nav-pills li.active a{color:#1a8c1a;border-color:#74FB71;background:#e8fce8}
+
+/* Blog tabs (segmented filter — solid active state) */
+.blog-tabs{display:flex;flex-wrap:wrap;gap:.5rem;margin:1rem 0 2rem;list-style:none;padding:0;align-items:center}
+.blog-tabs li a{display:inline-block;padding:.55rem 1.1rem;border-radius:8px;font-size:.85rem;font-weight:600;color:#1a2e22;background:#fff;border:1px solid #d4e8e0;text-decoration:none;transition:all .2s}
+.blog-tabs li a:hover{border-color:#1a3a2a;color:#1a3a2a}
+.blog-tabs li.active a{background:#1a2e22;color:#fff;border-color:#1a2e22}
 
 /* ===== FAQ ACCORDION ===== */
 .faq-item{background:#fff;border:1px solid #d4e8e0;border-radius:8px;margin-bottom:.5rem;overflow:hidden}
