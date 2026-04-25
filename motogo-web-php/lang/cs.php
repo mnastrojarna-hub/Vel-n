@@ -162,10 +162,9 @@ return [
     'filters.licenseNone' => 'Bez ŘP (dětské)',
     'filters.licenseGroup' => 'Skupina {group}',
     'filters.power' => 'Výkon',
-    'filters.powerAny' => 'Výkon — libovolný',
-    'filters.powerFrom' => 'od {kw} kW',
-    'filters.powerFromA1' => 'od 11 kW (A1)',
-    'filters.powerFromA2' => 'od 35 kW (A2)',
+    'filters.power.aria.min' => 'Minimální výkon v kW',
+    'filters.power.aria.max' => 'Maximální výkon v kW',
+    'filters.rangeMax' => 'max',
     'filters.priceMax' => 'Cena max.',
     'filters.priceAny' => 'Cena — libovolná',
     'filters.priceTo' => 'do {price} Kč/den',
@@ -185,6 +184,10 @@ return [
     'filters.countLine' => 'Nalezeno <strong>{count}</strong> z {total} motorek',
     'filters.catalogLead' => 'Vyberte si z naší nabídky <strong>cestovních, sportovních, enduro i dětských motorek</strong>. Můžete filtrovat podle kategorie, řidičského průkazu, výkonu, ceny a dalších parametrů.',
     'filters.aria.catalog' => 'katalog motorek',
+
+    // ===== Katalog SEO =====
+    'katalog.seo.description' => 'Katalog motorek k pronájmu na Vysočině. Filtr dle kategorie, ŘP, výkonu a ceny. Cestovní, sportovní, enduro a dětské motorky. Online rezervace.',
+    'katalog.seo.keywords' => 'katalog motorek, motorky k pronájmu, cestovní motorky, sportovní motorky, enduro, dětské motorky, filtr motorek',
 
     // ===== Detail motorky =====
     'detail.notFoundTitle' => 'Motorka nenalezena – Motogo24',
