@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
 import Modal from '../components/ui/Modal'
 import Button from '../components/ui/Button'
+import ImageUploader from '../components/ui/ImageUploader'
 
 const CATEGORIES = [
   { value: 'cestovni', label: 'Cestovní' },
@@ -22,6 +23,11 @@ function FormField({ label, value, onChange, type = 'text' }) {
 }
 
 export default function AddMotoModal({ branches, onClose, onSaved }) {
+  // Pre-generujeme ID, aby bylo možné ukládat fotky do správné složky ještě před uložením do DB
+  const motoId = useMemo(() => (
+    (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  ), [])
+
   const [form, setForm] = useState({
     model: '', spz: '', vin: '', category: '', branch_id: '',
     acquired_at: '', mileage: 0, status: 'active',
@@ -29,6 +35,7 @@ export default function AddMotoModal({ branches, onClose, onSaved }) {
     oil_interval_km: 10000, oil_interval_days: 365,
     tire_interval_km: 25000, full_service_interval_km: 20000,
     full_service_interval_days: 730, stk_valid_until: '',
+    images: [],
   })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
@@ -45,7 +52,9 @@ export default function AddMotoModal({ branches, onClose, onSaved }) {
       const tireKm = Number(form.tire_interval_km) || 25000
       const fullKm = Number(form.full_service_interval_km) || 20000
       const fullDays = Number(form.full_service_interval_days) || 730
+      const images = (form.images || []).filter(Boolean)
       const motoData = {
+        id: motoId,
         model: form.model, spz: form.spz, vin: form.vin,
         category: form.category, status: form.status,
         acquired_at: form.acquired_at || null, mileage: mileageVal, purchase_mileage: mileageVal,
@@ -54,6 +63,8 @@ export default function AddMotoModal({ branches, onClose, onSaved }) {
         stk_valid_until: form.stk_valid_until || null,
         oil_interval_km: oilKm, oil_interval_days: oilDays, tire_interval_km: tireKm,
         full_service_interval_km: fullKm, full_service_interval_days: fullDays,
+        image_url: images[0] || null,
+        images,
       }
       const result = await debugAction('fleet.create', 'AddMotoModal', () =>
         supabase.from('motorcycles').insert(motoData).select().single()
@@ -104,6 +115,14 @@ export default function AddMotoModal({ branches, onClose, onSaved }) {
         <FormField label="Datum pořízení" value={form.acquired_at} onChange={v => set('acquired_at', v)} type="date" />
         <FormField label="Nájezd (km)" value={form.mileage} onChange={v => set('mileage', v)} type="number" />
       </div>
+
+      <h4 className="text-sm font-extrabold uppercase tracking-widest mt-5 mb-3" style={{ color: '#1a2e22' }}>Fotky motorky</h4>
+      <ImageUploader
+        value={form.images}
+        onChange={urls => set('images', urls)}
+        folder={`motos/${motoId}`}
+        helperText="Přetáhněte fotky z počítače nebo klikněte pro výběr. První fotka bude hlavní (zobrazí se v kalendáři, výběru motorky a v aplikaci)."
+      />
 
       <h4 className="text-sm font-extrabold uppercase tracking-widest mt-5 mb-3" style={{ color: '#1a2e22' }}>Servisní intervaly</h4>
       <div className="grid grid-cols-2 gap-3">
