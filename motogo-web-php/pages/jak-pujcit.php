@@ -13,9 +13,11 @@ $defaults = [
     'intro' => 'V <strong>Motogo24 – půjčovna motorek na Vysočině</strong> je půjčení jednoduché, rychlé a férové.',
     'links' => [
         ['href' => '/jak-pujcit/postup', 'label' => 'Postup půjčení motorky'],
+        ['href' => '/jak-pujcit/prevzeti', 'label' => 'Převzetí v půjčovně'],
+        ['href' => '/jak-pujcit/vraceni-pujcovna', 'label' => 'Vrácení motocyklu v půjčovně'],
+        ['href' => '/jak-pujcit/vraceni-jinde', 'label' => 'Vrácení motorky jinde'],
+        ['href' => '/jak-pujcit/co-v-cene', 'label' => 'Co je v ceně nájmu'],
         ['href' => '/jak-pujcit/pristaveni', 'label' => 'Přistavení motocyklu'],
-        ['href' => '/jak-pujcit/vyzvednuti', 'label' => 'Vyzvednutí motocyklu'],
-        ['href' => '/jak-pujcit/co-v-cene', 'label' => 'Co je v ceně'],
         ['href' => '/jak-pujcit/dokumenty', 'label' => 'Dokumenty a návody'],
         ['href' => '/jak-pujcit/faq', 'label' => 'Často kladené dotazy'],
     ],
@@ -25,9 +27,9 @@ $C = $sb->siteContent('jak_pujcit', $defaults);
 
 $bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], 'Jak si půjčit motorku']);
 
-$linksHtml = '<div class="gr3">';
+$linksHtml = '<div class="gr4 jp-tiles">';
 foreach ($C['links'] as $l) {
-    $linksHtml .= '<a class="gbox" href="' . BASE_URL . $l['href'] . '"><div class="gr2"><div><h3>' . htmlspecialchars($l['label']) . '</h3></div></div></a>';
+    $linksHtml .= '<a class="jp-tile" href="' . BASE_URL . $l['href'] . '">' . htmlspecialchars($l['label']) . '</a>';
 }
 $linksHtml .= '</div>';
 

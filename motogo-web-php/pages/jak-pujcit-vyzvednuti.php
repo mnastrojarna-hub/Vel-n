@@ -1,28 +1,29 @@
 <?php
-// ===== MotoGo24 Web PHP — Vyzvednutí motocyklu (CMS-driven) =====
+// ===== MotoGo24 Web PHP — Převzetí v půjčovně (CMS-driven) =====
+// Pozn.: URL /jak-pujcit/vyzvednuti i /jak-pujcit/prevzeti vede sem (SEO).
 
 $sb = new SupabaseClient();
 
 $defaults = [
     'seo' => [
-        'title' => 'Vyzvednutí motocyklu | MotoGo24',
-        'description' => 'Vyzvednutí motorky v Pelhřimově. Nonstop provoz, bez kauce, výbava v ceně. Co si vzít s sebou a jak probíhá předání.',
-        'keywords' => 'vyzvednutí motorky, převzetí motocyklu, půjčovna Pelhřimov, nonstop vyzvednutí',
+        'title' => 'Převzetí motocyklu v půjčovně | MotoGo24',
+        'description' => 'Převzetí motorky v půjčovně Pelhřimov. Nonstop provoz, bez kauce, výbava v ceně. Co si vzít s sebou a jak probíhá předání.',
+        'keywords' => 'převzetí motorky v půjčovně, vyzvednutí motocyklu, půjčovna Pelhřimov, nonstop převzetí',
     ],
-    'h1' => 'Vyzvednutí motocyklu – rychle, jednoduše a nonstop',
-    'intro' => 'V <strong>Motogo24 – půjčovna motorek Vysočina</strong> je <strong>vyzvednutí motorky</strong> otázkou pár minut. Půjčujeme <strong>bez kauce</strong>, s <strong>výbavou v ceně</strong> a <strong>nonstop provozem</strong>.',
+    'h1' => 'Převzetí motocyklu v půjčovně – rychle, jednoduše a nonstop',
+    'intro' => 'V <strong>Motogo24 – půjčovna motorek Vysočina</strong> je <strong>převzetí motorky</strong> otázkou pár minut. Půjčujeme <strong>bez kauce</strong>, s <strong>výbavou v ceně</strong> a <strong>nonstop provozem</strong>.',
     'top_cta' => ['label' => 'REZERVOVAT ONLINE', 'href' => '/rezervace'],
     'place' => [
-        'title' => 'Kde probíhá vyzvednutí',
+        'title' => 'Kde probíhá převzetí',
         'address' => 'Mezná 9, 393 01 <strong>Pelhřimov</strong> (Vysočina)',
         'hours' => '<em>nonstop</em>',
         'phone' => '+420 774 256 271',
         'return_title' => 'Vrácení motorky – bez stresu',
-        'return_text' => 'Motorku můžeš vrátit <strong>kdykoli během posledního dne výpůjčky</strong>. Nevyžadujeme vrácení s plnou nádrží ani mytí.',
+        'return_text' => 'Motorku můžeš vrátit <strong>kdykoli během posledního dne výpůjčky</strong>. Více informací viz <a href="/jak-pujcit/vraceni-pujcovna">vrácení v půjčovně</a> nebo <a href="/jak-pujcit/vraceni-jinde">vrácení jinde</a>.',
         'map_src' => 'https://frame.mapy.cz/s/?x=15.15413&y=49.35169&z=14&source=coor&id=15.15413%2C49.35169',
     ],
     'steps' => [
-        'title' => 'Jak probíhá vyzvednutí krok za krokem',
+        'title' => 'Jak probíhá převzetí krok za krokem',
         'items' => [
             ['icon' => 'gfx/ico-step1.svg', 'title' => 'Přijď v domluvený čas', 'text' => 'na naši adresu nebo vyčkej na přistavení'],
             ['icon' => 'gfx/ico-step2.svg', 'title' => 'Ověříme doklady', 'text' => 'OP/pas + řidičský průkaz odpovídající skupiny'],
@@ -41,24 +42,28 @@ $defaults = [
         'cta' => ['label' => 'ZAREZERVOVAT TERMÍN', 'href' => '/rezervace'],
     ],
     'faq' => [
-        'title' => 'Časté dotazy k vyzvednutí',
+        'title' => 'Časté dotazy k převzetí',
         'items' => [
-            ['q' => 'Musím platit kauci při vyzvednutí?', 'a' => 'Ne, <strong>půjčujeme bez kauce</strong>. Podmínky jsou jasně dané a férové.'],
+            ['q' => 'Musím platit kauci při převzetí?', 'a' => 'Ne, <strong>půjčujeme bez kauce</strong>. Podmínky jsou jasně dané a férové.'],
             ['q' => 'Je možný kontakt bez osobního setkání?', 'a' => 'Ano, nabízíme <strong>bezkontaktní předání</strong> po domluvě.'],
             ['q' => 'Co když nestíhám domluvený čas?', 'a' => 'Dej nám vědět telefonicky – přizpůsobíme čas, nebo nabídneme <strong>přistavení</strong>.'],
             ['q' => 'Je v ceně i výbava pro spolujezdce?', 'a' => 'Výbava pro řidiče je v ceně vždy. Výbavu pro spolujezdce lze přiobjednat jako <strong>nadstandard</strong>.'],
         ],
     ],
     'cta' => [
-        'title' => 'Vyzvednutí motorky – půjčovna motorek Vysočina',
-        'text' => 'Motogo24 je <strong>půjčovna motorek na Vysočině</strong> s <strong>nonstop vyzvednutím i vrácením</strong>, <strong>bez kauce</strong> a s <strong>výbavou v ceně</strong>.',
+        'title' => 'Převzetí motorky v půjčovně – Motogo24 Vysočina',
+        'text' => 'Motogo24 je <strong>půjčovna motorek na Vysočině</strong> s <strong>nonstop převzetím i vrácením</strong>, <strong>bez kauce</strong> a s <strong>výbavou v ceně</strong>.',
         'buttons' => [['label' => 'REZERVOVAT ONLINE', 'href' => '/rezervace', 'cls' => 'btndark pulse']],
     ],
 ];
 
 $C = $sb->siteContent('jak_pujcit_vyzvednuti', $defaults);
 
-$bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], ['label' => 'Jak si půjčit', 'href' => '/jak-pujcit'], 'Vyzvednutí motocyklu']);
+// /jak-pujcit/prevzeti je primární URL, /jak-pujcit/vyzvednuti zachováno kvůli SEO
+$pagePath = parse_url($_SERVER['REQUEST_URI'] ?? '/jak-pujcit/prevzeti', PHP_URL_PATH);
+if ($pagePath !== '/jak-pujcit/vyzvednuti') $pagePath = '/jak-pujcit/prevzeti';
+
+$bc = renderBreadcrumb([['label' => 'Domů', 'href' => '/'], ['label' => 'Jak si půjčit', 'href' => '/jak-pujcit'], 'Převzetí v půjčovně']);
 
 $mapIframe = '<iframe class="map" loading="lazy" src="' . htmlspecialchars($C['place']['map_src']) . '" title="Jak se k nám dostanete"></iframe>';
 
@@ -89,12 +94,13 @@ $content = '<main id="content"><div class="container">' . $bc .
     renderCta($C['cta']['title'], $C['cta']['text'], $C['cta']['buttons']) .
     '</div></div></main>';
 
-renderPage($C['seo']['title'], $content, '/jak-pujcit/vyzvednuti', [
+renderPage($C['seo']['title'], $content, $pagePath, [
     'description' => $C['seo']['description'],
     'keywords' => $C['seo']['keywords'],
+    'canonical' => 'https://motogo24.cz/jak-pujcit/prevzeti',
     'breadcrumbs' => [
         ['name' => 'Domů', 'url' => 'https://motogo24.cz/'],
         ['name' => 'Jak si půjčit', 'url' => 'https://motogo24.cz/jak-pujcit'],
-        ['name' => 'Vyzvednutí', 'url' => 'https://motogo24.cz/jak-pujcit/vyzvednuti'],
+        ['name' => 'Převzetí v půjčovně', 'url' => 'https://motogo24.cz/jak-pujcit/prevzeti'],
     ],
 ]);

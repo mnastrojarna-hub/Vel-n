@@ -14,8 +14,10 @@ echo '<?xml version="1.0" encoding="UTF-8"?>';
   <url><loc><?php echo SITE_URL; ?>/pujcovna-motorek</loc><priority>0.8</priority><changefreq>monthly</changefreq></url>
   <url><loc><?php echo SITE_URL; ?>/jak-pujcit</loc><priority>0.8</priority><changefreq>monthly</changefreq></url>
   <url><loc><?php echo SITE_URL; ?>/jak-pujcit/postup</loc><priority>0.7</priority><changefreq>monthly</changefreq></url>
+  <url><loc><?php echo SITE_URL; ?>/jak-pujcit/prevzeti</loc><priority>0.7</priority><changefreq>monthly</changefreq></url>
+  <url><loc><?php echo SITE_URL; ?>/jak-pujcit/vraceni-pujcovna</loc><priority>0.7</priority><changefreq>monthly</changefreq></url>
+  <url><loc><?php echo SITE_URL; ?>/jak-pujcit/vraceni-jinde</loc><priority>0.7</priority><changefreq>monthly</changefreq></url>
   <url><loc><?php echo SITE_URL; ?>/jak-pujcit/pristaveni</loc><priority>0.7</priority><changefreq>monthly</changefreq></url>
-  <url><loc><?php echo SITE_URL; ?>/jak-pujcit/vyzvednuti</loc><priority>0.7</priority><changefreq>monthly</changefreq></url>
   <url><loc><?php echo SITE_URL; ?>/jak-pujcit/co-v-cene</loc><priority>0.7</priority><changefreq>monthly</changefreq></url>
   <url><loc><?php echo SITE_URL; ?>/jak-pujcit/dokumenty</loc><priority>0.7</priority><changefreq>monthly</changefreq></url>
   <url><loc><?php echo SITE_URL; ?>/jak-pujcit/faq</loc><priority>0.8</priority><changefreq>monthly</changefreq></url>

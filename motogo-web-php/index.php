@@ -130,7 +130,16 @@ switch (true) {
         break;
 
     case $path === '/jak-pujcit/vyzvednuti':
+    case $path === '/jak-pujcit/prevzeti':
         require __DIR__ . '/pages/jak-pujcit-vyzvednuti.php';
+        break;
+
+    case $path === '/jak-pujcit/vraceni-pujcovna':
+        require __DIR__ . '/pages/jak-pujcit-vraceni-pujcovna.php';
+        break;
+
+    case $path === '/jak-pujcit/vraceni-jinde':
+        require __DIR__ . '/pages/jak-pujcit-vraceni-jinde.php';
         break;
 
     case $path === '/jak-pujcit/co-v-cene':
