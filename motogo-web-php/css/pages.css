@@ -224,7 +224,7 @@
 .calendar-icons .cicon{display:inline-block;width:16px;height:16px;border-radius:50%}
 .cicon.loosely{background:#74FB71}
 .cicon.occupied{background:#4a6b5a}
-.cicon.unconfirmed{border:2px solid #b8d4c6;background:transparent}
+.cicon.unconfirmed{border:2px solid #ccc;background:#fff}
 .calendar-info{font-size:.85rem;color:#8aab99;margin-top:.5rem}
 
 /* Calendar grid */
@@ -234,7 +234,7 @@
 .cal-day.available{background:#74FB71;color:#1a2e22;cursor:pointer}
 .cal-day.available:hover{background:#5edc5a;color:#1a2e22}
 .cal-day.occupied{background:#4a6b5a;color:#fff;cursor:not-allowed}
-.cal-day.unconfirmed{background:transparent;color:#1a2e22;border:2px solid #b8d4c6;cursor:not-allowed}
+.cal-day.unconfirmed{background:#fff;color:#333;border:2px solid #ccc;cursor:not-allowed}
 .cal-day.today{background:#74FB71;color:#1a2e22;box-shadow:0 0 0 3px rgba(116,251,113,.4)}
 .cal-day.selected{background:#1a8c1a;color:#fff;box-shadow:0 0 0 2px #fff}
 .cal-day.in-range{background:#1a8c1a;color:#fff}

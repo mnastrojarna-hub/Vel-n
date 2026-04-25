@@ -215,9 +215,7 @@ var CAL_ID = ' . json_encode($calId) . ';
       return await r.json();
     } catch(e){ return []; }
   }
-  async function buildCalendar(){
-    var el = document.getElementById(CAL_ID); if(!el) return;
-    var bookings = await fetchBookings(MOTO_ID);
+  function buildBookedDays(bookings){
     var bookedDays = {}, now = new Date();
     (bookings||[]).forEach(function(b){
       var s=new Date(b.start_date),e=new Date(b.end_date),d=new Date(s);
@@ -226,8 +224,31 @@ var CAL_ID = ' . json_encode($calId) . ';
       var status=(isPending&&isRecent)?"unconfirmed":"occupied";
       while(d<=e){var key=d.toISOString().split("T")[0];bookedDays[key]=status;d.setDate(d.getDate()+1);}
     });
+    return bookedDays;
+  }
+  async function buildCalendar(){
+    var el = document.getElementById(CAL_ID); if(!el) return;
+    var bookings = await fetchBookings(MOTO_ID);
+    var bookedDays = buildBookedDays(bookings);
+    var now = new Date();
     _calState={year:now.getFullYear(),month:now.getMonth(),bookedDays:bookedDays,motoId:MOTO_ID,startDate:null,endDate:null};
     renderMonth();
+    startLiveRefresh();
+  }
+  // Real-time refresh — pending bookings se zobrazí všem v 30s okně (anon RLS bypass přes get_moto_booked_dates RPC)
+  var _liveTimer = null;
+  function startLiveRefresh(){
+    if(_liveTimer) return;
+    _liveTimer = setInterval(async function(){
+      var el = document.getElementById(CAL_ID);
+      if(!el){ clearInterval(_liveTimer); _liveTimer = null; return; }
+      var bookings = await fetchBookings(MOTO_ID);
+      var fresh = buildBookedDays(bookings);
+      if(JSON.stringify(fresh) !== JSON.stringify(_calState.bookedDays)){
+        _calState.bookedDays = fresh;
+        renderMonth();
+      }
+    }, 30000);
   }
   function renderMonth(){
     var el=document.getElementById(CAL_ID);if(!el)return;
