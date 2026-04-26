@@ -86,13 +86,16 @@ function buildOrderHtml(req: OrderEmailRequest): string {
       <p style="color:#374151;font-size:14px;line-height:1.7;margin-top:24px">Prosíme o potvrzení objednávky a předpokládaný termín dodání.</p>
       <p style="color:#374151;font-size:14px;line-height:1.7">Děkujeme,<br><strong>MotoGo24</strong></p>
     </div>
-    <div style="background:#0a1f15;padding:14px 32px;color:#ffffff;font-size:11px;line-height:1.6">
-      <strong style="color:#ffffff">Bc. Petra Semorádová</strong>
-      <span style="color:#9ca3af"> &nbsp;|&nbsp; </span>Mezná 9, 393 01 Mezná
-      <span style="color:#9ca3af"> &nbsp;|&nbsp; </span>IČO: 21874263
-      <span style="color:#9ca3af"> &nbsp;|&nbsp; </span><span style="color:#74FB71">+420 774 256 271</span>
-      <span style="color:#9ca3af"> &nbsp;|&nbsp; </span><span style="color:#74FB71">info@motogo24.cz</span>
-      <span style="color:#9ca3af"> &nbsp;|&nbsp; </span><span style="color:#74FB71">www.motogo24.cz</span>
+    <div style="background:#0a1f15;padding:24px 32px">
+      <div style="border:1px solid #74FB71;border-radius:6px;padding:16px;color:#ffffff;font-size:12px;line-height:1.7">
+        <div style="font-size:14px;font-weight:800;color:#ffffff">Motogo24</div>
+        <div style="font-size:14px;font-weight:800;color:#ffffff;margin-bottom:6px">Bc. Petra Semorádová</div>
+        <div style="color:#9ca3af">Mezná 9, 393 01 Mezná</div>
+        <div style="color:#9ca3af">IČO: 21874263</div>
+        <div><span style="color:#9ca3af">Telefon:</span> <span style="color:#74FB71">+420 774 256 271</span></div>
+        <div><span style="color:#9ca3af">E-mail:</span> <span style="color:#74FB71">info@motogo24.cz</span></div>
+        <div><span style="color:#9ca3af">Web:</span> <span style="color:#74FB71">www.motogo24.cz</span></div>
+      </div>
     </div>
   </div>
 </body></html>`

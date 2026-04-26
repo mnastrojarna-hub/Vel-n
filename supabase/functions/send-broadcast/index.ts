@@ -356,7 +356,7 @@ serve(async (req) => {
   }
 })
 
-/** Build branded marketing HTML email — unified design (1:1 with invoice) */
+/** Build branded marketing HTML email — unified design (1:1 with invoice + screen) */
 function buildMarketingHtml(body: string, subject: string): string {
   const SITE_URL = Deno.env.get('SITE_URL') || 'https://motogo24.cz'
   const header = `<div style="background:#0a1f15;padding:24px 32px">
@@ -368,14 +368,29 @@ function buildMarketingHtml(body: string, subject: string): string {
       </td>
     </tr></table>
   </div>`
-  const footer = `<div style="background:#0a1f15;padding:14px 32px;color:#ffffff;font-size:11px;line-height:1.6">
-    <strong style="color:#ffffff">Bc. Petra Semorádová</strong>
-    <span style="color:#9ca3af"> &nbsp;|&nbsp; </span>Mezná 9, 393 01 Mezná
-    <span style="color:#9ca3af"> &nbsp;|&nbsp; </span>IČO: 21874263
-    <span style="color:#9ca3af"> &nbsp;|&nbsp; </span><span style="color:#74FB71">+420 774 256 271</span>
-    <span style="color:#9ca3af"> &nbsp;|&nbsp; </span><span style="color:#74FB71">info@motogo24.cz</span>
-    <span style="color:#9ca3af"> &nbsp;|&nbsp; </span><span style="color:#74FB71">www.motogo24.cz</span>
-    <div style="color:#9ca3af;font-size:10px;margin-top:8px;line-height:1.5">Tento email jste obdrželi, protože jste souhlasili se zasíláním marketingových sdělení od MOTO GO 24. Pro odhlášení odpovězte na tento email s textem &quot;ODHLÁSIT&quot;.</div>
+  const helpCard = `<div style="margin:24px 32px 0;background:#0a1f15;border:2px solid #74FB71;border-radius:8px;padding:24px">
+    <div style="color:#74FB71;font-size:18px;font-weight:800;margin:0 0 8px">Máte dotaz?</div>
+    <div style="color:#ffffff;font-size:13px;margin:0 0 16px">Pokud budete mít jakýkoliv dotaz, jsme vám k dispozici.</div>
+    <a href="mailto:info@motogo24.cz" style="display:inline-block;background:#74FB71;color:#0a1f15;font-size:13px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:24px">info@motogo24.cz</a>
+  </div>`
+  const footer = `<div style="background:#0a1f15;padding:24px 32px;margin-top:24px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>
+      <td style="vertical-align:top;padding-right:16px">
+        <div style="border:1px solid #74FB71;border-radius:6px;padding:16px;color:#ffffff;font-size:12px;line-height:1.7">
+          <div style="font-size:14px;font-weight:800;color:#ffffff">Motogo24</div>
+          <div style="font-size:14px;font-weight:800;color:#ffffff;margin-bottom:6px">Bc. Petra Semorádová</div>
+          <div style="color:#9ca3af">Mezná 9, 393 01 Mezná</div>
+          <div style="color:#9ca3af">IČO: 21874263</div>
+          <div><span style="color:#9ca3af">Telefon:</span> <span style="color:#74FB71">+420 774 256 271</span></div>
+          <div><span style="color:#9ca3af">E-mail:</span> <span style="color:#74FB71">info@motogo24.cz</span></div>
+          <div><span style="color:#9ca3af">Web:</span> <span style="color:#74FB71">www.motogo24.cz</span></div>
+        </div>
+      </td>
+      <td style="vertical-align:top;width:120px;text-align:center">
+        <img src="${SITE_URL}/gfx/qr-motogo24.png" alt="QR" width="110" height="110" style="display:block;background:#ffffff;padding:6px;border-radius:4px"/>
+      </td>
+    </tr></table>
+    <div style="color:#9ca3af;font-size:10px;margin-top:16px;line-height:1.5;text-align:center">Tento email jste obdrželi, protože jste souhlasili se zasíláním marketingových sdělení od MOTO GO 24. Pro odhlášení odpovězte na tento email s textem &quot;ODHLÁSIT&quot;.</div>
   </div>`
 
   // Convert newlines to <br> for plain-text templates
@@ -386,6 +401,7 @@ function buildMarketingHtml(body: string, subject: string): string {
   <div style="max-width:780px;margin:0 auto;background:#ffffff">
     ${header}
     <div style="padding:32px;color:#0f1a14;font-size:14px;line-height:1.7">${htmlBody}</div>
+    ${helpCard}
     ${footer}
   </div>
 </body></html>`
