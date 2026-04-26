@@ -715,3 +715,82 @@
 @media(max-width:768px){
   .pcontent input:focus,.pcontent select:focus,.pcontent textarea:focus{box-shadow:0 0 0 4px rgba(116,251,113,.2)}
 }
+
+/* ===== E-SHOP DETAIL ===== */
+.shop-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start}
+.shop-detail-media .shop-main-img{width:100%;height:auto;border-radius:12px;border:1px solid #d4e8e0;display:block}
+.shop-gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.6rem;margin-top:.85rem}
+.shop-gallery a{display:block;border-radius:10px;overflow:hidden;border:1px solid #d4e8e0;transition:border-color .2s,box-shadow .2s}
+.shop-gallery a:hover{border-color:#74FB71;box-shadow:0 4px 12px rgba(26,46,34,.08)}
+.shop-gallery img{width:100%;height:auto;display:block}
+.shop-detail-info h1{margin-bottom:.5rem}
+.shop-price{font-size:clamp(1.25rem,3.5vw,1.6rem);font-weight:800;color:#1a2e22;margin:0 0 .85rem}
+.shop-specs{margin-top:.75rem;width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;border:1px solid #d4e8e0}
+.shop-specs th{text-align:left;padding:.6rem .85rem;border-bottom:1px solid #d4e8e0;font-weight:700;color:#1a2e22;font-size:.9rem;background:#f4faf7;width:40%}
+.shop-specs td{padding:.6rem .85rem;border-bottom:1px solid #d4e8e0;color:#0f1a14;font-size:.9rem}
+.shop-specs tr:last-child th,.shop-specs tr:last-child td{border-bottom:none}
+.shop-cta{margin-top:1.1rem}
+.shop-cta .btn{min-height:48px;display:inline-flex;align-items:center;justify-content:center;padding:.75rem 1.5rem}
+@media(max-width:900px){
+  .shop-detail-grid{grid-template-columns:1fr;gap:1.25rem}
+  .shop-gallery{grid-template-columns:repeat(4,1fr)}
+}
+@media(max-width:600px){
+  .shop-gallery{grid-template-columns:repeat(3,1fr);gap:.4rem}
+  .shop-specs th,.shop-specs td{padding:.55rem .7rem;font-size:.85rem}
+  .shop-specs th{width:45%}
+  .shop-cta .btn{width:100%}
+}
+@media(max-width:380px){
+  .shop-gallery{grid-template-columns:repeat(2,1fr)}
+}
+
+/* ===== Rezervace — dřívější breakpointy pro hustší layouty ===== */
+@media(max-width:600px){
+  .rez-loc-grid{grid-template-columns:1fr;gap:.55rem}
+  .gear-grid{grid-template-columns:1fr;gap:.7rem}
+}
+
+/* ===== Calendar banner v detailu/rezervaci — text wrap a kompaktnější padding ===== */
+@media(max-width:600px){
+  #detail-cal-banner,
+  [id$="-banner"] > div{padding:.7rem .85rem!important;border-radius:18px!important;font-size:.92rem}
+  [id$="-banner"] > div span:first-child{flex:1 1 100%;min-width:0;line-height:1.4}
+  [id$="-banner"] > div .btn{flex:1 1 100%;min-height:40px;display:inline-flex;align-items:center;justify-content:center}
+}
+
+/* ===== Mindee/scan card layout — wrap na úzkých displejích ===== */
+@media(max-width:480px){
+  /* Mindee karty mají inline flex; necháme wrap aby se ikona+text+button vešly */
+  #rez-form > div[style*="background:#f9f9f9"]{padding:.85rem!important}
+  #rez-form > div[style*="background:#f9f9f9"] > div[style*="display:flex"]{flex-wrap:wrap}
+  #rez-form > div[style*="background:#f9f9f9"] .btn{width:100%;justify-content:center}
+}
+
+/* ===== Gallery blog — 480px stacking ===== */
+@media(max-width:480px){
+  .gallery-blog>div{width:100%}
+}
+
+/* ===== Form-product-select v JS — mobilní stack pro dropdown s motokami ===== */
+@media(max-width:600px){
+  .form-product-select.gr2{grid-template-columns:1fr;gap:.5rem;display:flex;flex-direction:column}
+  .form-product-select.gr2>div{white-space:normal}
+  .form-product-select.gr2 select{min-width:0;width:100%}
+}
+
+/* ===== Voucher dropdown v potvrzeni.js — center na mobilu ===== */
+@media(max-width:600px){
+  div[id="potvrzeni-content"] div[style*="max-width:500px"]{max-width:100%!important;padding:1rem!important}
+}
+
+/* ===== Reservation summary table v rezervaci-steps — kompaktní na mobilu ===== */
+@media(max-width:480px){
+  #rez-summary-tbl td{font-size:.82rem;padding:.4rem 0!important}
+}
+
+/* ===== QR sekce v rezervace-steps — wrap na mobilu ===== */
+@media(max-width:520px){
+  div[style*="border:2px dashed #74FB71"]{flex-direction:column!important;text-align:center;gap:.6rem!important}
+  div[style*="border:2px dashed #74FB71"] > div[style*="min-width:200px"]{min-width:0!important;width:100%}
+}

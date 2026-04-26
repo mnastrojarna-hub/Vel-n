@@ -39,10 +39,10 @@ if ($mainImg && strpos($mainImg, 'http') !== 0 && strpos($mainImg, 'data:') !== 
 
 $galleryHtml = '';
 if (!empty($images)) {
-    $galleryHtml = '<div class="shop-gallery" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:14px;">';
+    $galleryHtml = '<div class="shop-gallery">';
     foreach ($images as $img) {
         $u = (strpos($img, 'http') === 0 || strpos($img, '/') === 0) ? $img : imgUrl($img);
-        $galleryHtml .= '<a href="' . htmlspecialchars($u) . '" target="_blank" rel="noopener"><img src="' . htmlspecialchars($u) . '" alt="' . htmlspecialchars(t('shop.productAlt', ['name' => $nameRaw])) . '" loading="lazy" style="width:100%;height:auto;border-radius:12px;border:1px solid #d4e8e0;"></a>';
+        $galleryHtml .= '<a href="' . htmlspecialchars($u) . '" target="_blank" rel="noopener"><img src="' . htmlspecialchars($u) . '" alt="' . htmlspecialchars(t('shop.productAlt', ['name' => $nameRaw])) . '" loading="lazy"></a>';
     }
     $galleryHtml .= '</div>';
 }
@@ -63,9 +63,9 @@ $specsRows[] = [t('shop.specStock'), $stock > 0 ? t('shop.inStock', ['n' => $sto
 
 $specsHtml = '';
 if (!empty($specsRows)) {
-    $specsHtml = '<table class="moto-specs" style="margin-top:14px;width:100%;border-collapse:collapse;">';
+    $specsHtml = '<table class="shop-specs">';
     foreach ($specsRows as [$lbl, $val]) {
-        $specsHtml .= '<tr><th style="text-align:left;padding:8px 12px;border-bottom:1px solid #d4e8e0;font-weight:700;color:#1a2e22;">' . htmlspecialchars($lbl) . '</th><td style="padding:8px 12px;border-bottom:1px solid #d4e8e0;color:#0f1a14;">' . htmlspecialchars($val) . '</td></tr>';
+        $specsHtml .= '<tr><th>' . htmlspecialchars($lbl) . '</th><td>' . htmlspecialchars($val) . '</td></tr>';
     }
     $specsHtml .= '</table>';
 }
@@ -82,21 +82,21 @@ if ($descRaw !== '') {
     $descHtml = '<div class="ccontent" style="margin-top:18px;"><h2>' . te('shop.detail.descTitle') . '</h2><p>' . nl2br(htmlspecialchars($descRaw)) . '</p></div>';
 }
 
-$leftCol = '<div>'
-    . ($mainImg ? '<img src="' . htmlspecialchars($mainImg) . '" alt="' . htmlspecialchars(t('shop.productAlt', ['name' => $nameRaw])) . '" style="width:100%;height:auto;border-radius:12px;border:1px solid #d4e8e0;" loading="lazy">' : '')
+$leftCol = '<div class="shop-detail-media">'
+    . ($mainImg ? '<img src="' . htmlspecialchars($mainImg) . '" alt="' . htmlspecialchars(t('shop.productAlt', ['name' => $nameRaw])) . '" class="shop-main-img" loading="lazy">' : '')
     . $galleryHtml
     . '</div>';
 
-$rightCol = '<div>'
+$rightCol = '<div class="shop-detail-info">'
     . '<h1>' . $name . '</h1>'
-    . ($priceText ? '<p style="font-size:24px;font-weight:800;color:#1a2e22;">' . htmlspecialchars($priceText) . '</p>' : '')
+    . ($priceText ? '<p class="shop-price">' . htmlspecialchars($priceText) . '</p>' : '')
     . $specsHtml
-    . '<p style="margin-top:18px;">' . $ctaButtons . '</p>'
+    . '<p class="shop-cta">' . $ctaButtons . '</p>'
     . '</div>';
 
 $content = '<main id="content"><div class="container">' . $bc
-    . '<article class="moto-detail">'
-    . '<section class="gr2" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;">'
+    . '<article class="moto-detail shop-detail">'
+    . '<section class="shop-detail-grid">'
     . $leftCol . $rightCol
     . '</section>'
     . $descHtml
