@@ -356,16 +356,20 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
 
       String? customerName;
       String? customerAddress;
+      String? customerEmail;
+      String? customerPhone;
       final user = MotoGoSupabase.currentUser;
       if (user != null) {
         try {
           final profile = await MotoGoSupabase.client
               .from('profiles')
-              .select('full_name, street, city, zip, country')
+              .select('full_name, email, phone, street, city, zip, country')
               .eq('id', user.id)
               .maybeSingle();
           if (profile != null) {
             customerName = profile['full_name'] as String?;
+            customerEmail = profile['email'] as String?;
+            customerPhone = profile['phone'] as String?;
             final parts = [profile['street'], profile['city'], profile['zip'], profile['country']]
                 .where((s) => s != null && (s as String).isNotEmpty)
                 .join(', ');
@@ -376,7 +380,13 @@ class _DetailState extends ConsumerState<ReservationDetailScreen> {
         }
       }
 
-      final html = InvoiceHtmlBuilder.build(invoice, customerName: customerName, customerAddress: customerAddress);
+      final html = InvoiceHtmlBuilder.build(
+        invoice,
+        customerName: customerName,
+        customerAddress: customerAddress,
+        customerEmail: customerEmail,
+        customerPhone: customerPhone,
+      );
       if (!mounted) return;
       Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => DocWebViewScreen(
