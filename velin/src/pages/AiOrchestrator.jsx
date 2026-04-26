@@ -8,6 +8,7 @@ import AiAutonomyPanel from '../components/ai/AiAutonomyPanel'
 import AiAgentSettingsPanel from '../components/ai/AiAgentSettingsPanel'
 import AiAgentFindingsPanel from '../components/ai/AiAgentFindingsPanel'
 import AppAgentSettingsPanel from '../components/ai/AppAgentSettingsPanel'
+import WebAgentSettingsPanel from '../components/ai/WebAgentSettingsPanel'
 
 export default function AiOrchestrator() {
   const [briefing, setBriefing] = useState(null)
@@ -66,6 +67,7 @@ export default function AiOrchestrator() {
     { id: 'autonomy', label: 'Autonomie', icon: '🤖' },
     { id: 'learning', label: 'Učení & Autonomie', icon: '🎓' },
     { id: 'app-agent', label: 'SOS Agent', icon: '🆘' },
+    { id: 'web-agent', label: 'Web Agent', icon: '🌐' },
   ]
 
   return (
@@ -230,6 +232,13 @@ export default function AiOrchestrator() {
       {tab === 'app-agent' && (
         <div className="rounded-card bg-white p-4 shadow-card">
           <AppAgentSettingsPanel />
+        </div>
+      )}
+
+      {/* Web Agent Settings Tab */}
+      {tab === 'web-agent' && (
+        <div className="rounded-card bg-white p-4 shadow-card">
+          <WebAgentSettingsPanel />
         </div>
       )}
     </>

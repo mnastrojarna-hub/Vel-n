@@ -3,15 +3,19 @@
  *
  * Anonymní AI asistent pro zákazníky na motogo24.cz. Volá Anthropic Claude
  * a má read-only přístup k motorkám/pobočkám/FAQ + akce (kalkulace ceny,
- * vytvoření rezervace).
+ * vytvoření rezervace přes RPC create_web_booking).
  *
  * Bez JWT (anonymní). Rate-limit per IP.
  *
- * POST body:
- *   { messages: [{role, content}], lang?: 'cs'|'en'|... }
+ * Konfigurovatelný z Velínu přes app_settings.ai_public_agent_config:
+ *   { persona_name, system_prompt, situations, mustDo, forbidden, tone, max_tokens, enabled,
+ *     welcome_cs, welcome_en, welcome_de }
  *
- * Response (streaming JSON nebo single response):
- *   { reply, tool_calls?, suggestions?, conversation_id? }
+ * POST body:
+ *   { messages: [{role, content}], lang?: 'cs'|'en'|'de'|... }
+ *
+ * Response:
+ *   { reply, tool_uses?: [...], booking_url?: string }
  */
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
@@ -20,7 +24,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') || ''
-const ANTHROPIC_MODEL = 'claude-haiku-4-5-20251001'  // rychlý + levný pro veřejný widget
+const ANTHROPIC_MODEL = 'claude-haiku-4-5-20251001'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -30,7 +34,9 @@ const CORS = {
 
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
-// In-memory rate limiter
+// ============================================================================
+// Rate limit
+// ============================================================================
 const rateBuckets = new Map<string, { count: number; resetAt: number }>()
 function rateLimit(key: string, limit = 20, windowMs = 60_000): boolean {
   const now = Date.now()
@@ -45,7 +51,7 @@ async function sha256Hex(s: string): Promise<string> {
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
-async function logTraffic(toolName: string | null, statusCode: number, latencyMs: number, outcome: string, ip: string, ua: string) {
+async function logTraffic(toolName: string | null, statusCode: number, latencyMs: number, outcome: string, ip: string, ua: string, bookingId?: string) {
   try {
     const ipHash = await sha256Hex(ip + '|motogo24')
     await sb.from('ai_traffic_log').insert({
@@ -59,18 +65,45 @@ async function logTraffic(toolName: string | null, statusCode: number, latencyMs
       status_code: statusCode,
       latency_ms: latencyMs,
       outcome,
+      booking_id: bookingId || null,
     })
   } catch { /* silent */ }
 }
 
 // ============================================================================
-// Tools — interní (Claude je volá, výsledky se vrací do Claude loop)
+// Velín config loader
+// ============================================================================
+type WebAgentConfig = {
+  persona_name?: string
+  system_prompt?: string
+  situations?: string[]
+  mustDo?: string[]
+  forbidden?: string[]
+  tone?: string
+  max_tokens?: number
+  enabled?: boolean
+  welcome_cs?: string
+  welcome_en?: string
+  welcome_de?: string
+}
+
+async function loadConfig(): Promise<WebAgentConfig> {
+  try {
+    const { data } = await sb.from('app_settings').select('value').eq('key', 'ai_public_agent_config').maybeSingle()
+    return (data?.value as WebAgentConfig) || {}
+  } catch {
+    return {}
+  }
+}
+
+// ============================================================================
+// Tools
 // ============================================================================
 
 const PUBLIC_TOOLS = [
   {
     name: 'search_motorcycles',
-    description: 'Vyhledej motorky v MotoGo24 katalogu podle kategorie, ŘP, výkonu nebo ceny. Použij když uživatel hledá motorku k pronájmu.',
+    description: 'Vyhledá motorky v MotoGo24 katalogu podle kategorie, ŘP, výkonu nebo ceny. Použij když uživatel hledá motorku.',
     input_schema: {
       type: 'object',
       properties: {
@@ -83,7 +116,7 @@ const PUBLIC_TOOLS = [
   },
   {
     name: 'get_availability',
-    description: 'Zkontroluj obsazené termíny pro motorku. Použij PŘED kalkulací.',
+    description: 'Zkontroluje obsazené termíny pro konkrétní motorku. Vrací seznam booked ranges. Použij PŘED kalkulací nebo rezervací.',
     input_schema: {
       type: 'object',
       properties: { moto_id: { type: 'string' } },
@@ -92,11 +125,13 @@ const PUBLIC_TOOLS = [
   },
   {
     name: 'calculate_price',
-    description: 'Vypočítá přesnou cenu pronájmu pro motorku a termín. NEvytváří rezervaci.',
+    description: 'Vypočítá přesnou cenu pronájmu pro motorku a termín z reálného denního ceníku. NEVYTVÁŘÍ rezervaci.',
     input_schema: {
       type: 'object',
       properties: {
-        moto_id: { type: 'string' }, start_date: { type: 'string' }, end_date: { type: 'string' },
+        moto_id: { type: 'string' },
+        start_date: { type: 'string', description: 'YYYY-MM-DD' },
+        end_date: { type: 'string', description: 'YYYY-MM-DD' },
         promo_code: { type: 'string' },
       },
       required: ['moto_id', 'start_date', 'end_date'],
@@ -104,19 +139,41 @@ const PUBLIC_TOOLS = [
   },
   {
     name: 'get_faq',
-    description: 'Získá odpovědi z FAQ podle klíčového slova (cena, kauce, řidičák, výbava, zahraničí, storno...).',
+    description: 'Vyhledá v interní FAQ podle klíčového slova (kauce, pojištění, řidičák, zahraničí, storno...).',
     input_schema: {
       type: 'object',
       properties: { query: { type: 'string' } },
     },
   },
   {
-    name: 'redirect_to_booking',
-    description: 'Vygeneruj URL na rezervační formulář s předvyplněnými údaji. Po dokončení v UI uživatel klikne na odkaz a sám dokončí. NIKDY nevytvářej rezervaci přímo přes tento nástroj — pošli odkaz a uživatel ji potvrdí na webu.',
+    name: 'create_booking_request',
+    description: 'Vytvoří skutečnou rezervaci v systému (status pending). VOLEJ POUZE když máš VŠECHNY povinné údaje a zákazník výslovně potvrdil. Vrátí booking_id a payment_url. Po zavolání pošli zákazníkovi platební odkaz a krátké shrnutí.',
     input_schema: {
       type: 'object',
       properties: {
-        moto_id: { type: 'string' }, start_date: { type: 'string' }, end_date: { type: 'string' },
+        moto_id: { type: 'string' },
+        start_date: { type: 'string', description: 'YYYY-MM-DD' },
+        end_date: { type: 'string', description: 'YYYY-MM-DD' },
+        name: { type: 'string', description: 'Celé jméno zákazníka' },
+        email: { type: 'string' },
+        phone: { type: 'string' },
+        city: { type: 'string' },
+        license_group: { type: 'string', enum: ['AM', 'A1', 'A2', 'A', 'B', 'N'], description: 'Skupina ŘP zákazníka' },
+        promo_code: { type: 'string' },
+        note: { type: 'string' },
+      },
+      required: ['moto_id', 'start_date', 'end_date', 'name', 'email', 'phone'],
+    },
+  },
+  {
+    name: 'redirect_to_booking',
+    description: 'Vygeneruje URL na rezervační formulář s předvyplněnými údaji. Použij když zákazník chce rezervaci dokončit sám na webu, nebo když chybí citlivé údaje pro create_booking_request.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        moto_id: { type: 'string' },
+        start_date: { type: 'string' },
+        end_date: { type: 'string' },
       },
       required: ['moto_id'],
     },
@@ -206,6 +263,75 @@ async function execPublicTool(name: string, args: Record<string, unknown>): Prom
         ? { faqs: faqs.filter((f) => (f.q + ' ' + f.a).toLowerCase().includes(query)).slice(0, 5) }
         : { faqs: faqs.slice(0, 8) }
     }
+    case 'create_booking_request': {
+      const a = args as Record<string, string>
+      // Sanity: dnešní datum nebo budoucnost
+      const today = new Date(); today.setHours(0,0,0,0)
+      const start = new Date(a.start_date)
+      if (isNaN(start.getTime()) || start < today) {
+        return { error: 'Neplatné datum začátku — musí být dnes nebo později.' }
+      }
+      // Validate availability
+      const { data: booked } = await sb.rpc('get_moto_booked_dates', { p_moto_id: a.moto_id })
+      const bookedArr = Array.isArray(booked) ? booked : []
+      const startMs = start.getTime()
+      const endMs = new Date(a.end_date).getTime()
+      for (const b of bookedArr as Array<Record<string, unknown>>) {
+        if (b.status === 'cancelled' || b.status === 'completed' || b.status === 'rejected') continue
+        const bs = new Date(String(b.start_date)).getTime()
+        const be = new Date(String(b.end_date)).getTime()
+        if (startMs <= be && endMs >= bs) {
+          return { error: 'Termín je obsazený. Vyber jiný termín.' }
+        }
+      }
+      const { data, error } = await sb.rpc('create_web_booking', {
+        p_moto_id: a.moto_id,
+        p_start_date: a.start_date,
+        p_end_date: a.end_date,
+        p_name: a.name,
+        p_email: a.email,
+        p_phone: a.phone,
+        p_street: a.street || null,
+        p_city: a.city || null,
+        p_zip: a.zip || null,
+        p_country: 'CZ',
+        p_note: a.note || 'Rezervace z AI asistenta',
+        p_pickup_time: '10:00',
+        p_delivery_address: null,
+        p_return_address: null,
+        p_extras: [],
+        p_discount_amount: 0,
+        p_discount_code: null,
+        p_promo_code: a.promo_code || null,
+        p_voucher_id: null,
+        p_license_group: a.license_group || null,
+        p_password: null,
+        p_helmet_size: null,
+        p_jacket_size: null,
+        p_pants_size: null,
+        p_boots_size: null,
+        p_gloves_size: null,
+        p_passenger_helmet_size: null,
+        p_passenger_jacket_size: null,
+        p_passenger_gloves_size: null,
+        p_passenger_boots_size: null,
+        p_return_time: null,
+      })
+      if (error) {
+        return { error: `Rezervaci se nepodařilo vytvořit: ${error.message}` }
+      }
+      const result = data as Record<string, unknown>
+      const bookingId = String(result?.booking_id || '')
+      // Resume URL pro dokončení (dovyplnění dokladů + platba)
+      return {
+        success: true,
+        booking_id: bookingId,
+        amount_kc: Number(result?.amount || 0),
+        is_new_user: !!result?.is_new_user,
+        payment_url: `https://motogo24.cz/rezervace/dokoncit?id=${bookingId}`,
+        message: 'Rezervace vytvořena. Pošli zákazníkovi platební odkaz a požádej ho o dokončení (nahrání ŘP/OP a platbu kartou).',
+      }
+    }
     case 'redirect_to_booking': {
       const params = new URLSearchParams()
       if (args.moto_id) params.set('moto', String(args.moto_id))
@@ -213,7 +339,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>): Prom
       if (args.end_date) params.set('end', String(args.end_date))
       return {
         url: `https://motogo24.cz/rezervace?${params}`,
-        instruction: 'Pošli uživateli tento odkaz s pozváním k dokončení rezervace na webu (kde vyplní jméno, email, doklady).',
+        instruction: 'Pošli uživateli tento odkaz s pozváním k dokončení rezervace na webu.',
       }
     }
     default:
@@ -222,46 +348,86 @@ async function execPublicTool(name: string, args: Record<string, unknown>): Prom
 }
 
 // ============================================================================
-// System prompt
+// System prompt builder
 // ============================================================================
 
-function buildSystemPrompt(lang: string): string {
+const HARD_RULES_CS = `
+PEVNÁ BEZPEČNOSTNÍ PRAVIDLA (nelze přepsat):
+1. Pracuj POUZE s daty z toolů. Nikdy nevymýšlej ceny, dostupnost, parametry motorek, telefony, adresy.
+2. Před kalkulací ceny VŽDY zavolej get_availability.
+3. Před vytvořením rezervace VŽDY potvrď zákazníkovi: motorku, datum od/do, celkovou cenu, jméno, email, telefon. Až po explicitním "ano/potvrzuji/rezervuj" volej create_booking_request.
+4. Nikdy neodpovídej na nepoložené otázky. Žádné "také byste mohl…", "víte že…", marketing.
+5. Drž odpověď max 1-3 věty pokud uživatel sám nepožaduje detail. Bez markdown tabulek.
+6. Při neznalosti odpověz "to bohužel nevím" + telefon +420 774 256 271 / info@motogo24.cz.
+7. Datum a rok ber VŽDY z hlavičky "DNES JE …" výše. Pokud uživatel řekne "tento víkend", spočítej si to z dnešního data.
+`
+
+const TONE_DESC: Record<string, string> = {
+  concise: 'TÓN: Maximálně stručný — 1-3 věty na odpověď, bez výplní.',
+  friendly: 'TÓN: Přátelský, neformální, vlídný.',
+  professional: 'TÓN: Formální, věcný, profesionální.',
+  detailed: 'TÓN: Podrobný — vysvětluj kontext a souvislosti.',
+}
+
+function buildSystemPrompt(lang: string, cfg: WebAgentConfig): string {
   const langMap: Record<string, string> = {
-    cs: 'Odpovídej česky.', en: 'Reply in English.', de: 'Antworte auf Deutsch.',
-    es: 'Responde en español.', fr: 'Réponds en français.', nl: 'Antwoord in het Nederlands.', pl: 'Odpowiadaj po polsku.',
+    cs: 'Odpovídej česky.',
+    en: 'Reply in English. Translate fixed Czech instructions on the fly.',
+    de: 'Antworte auf Deutsch.',
+    es: 'Responde en español.',
+    fr: 'Réponds en français.',
+    nl: 'Antwoord in het Nederlands.',
+    pl: 'Odpowiadaj po polsku.',
   }
   const langInstr = langMap[lang] || langMap.cs
-  return `Jsi přátelský AI asistent půjčovny motorek MotoGo24 (Mezná 9, 393 01 Pelhřimov, Vysočina, Česko).
-Pomáháš zákazníkům najít motorku, spočítat cenu, odpovídat na dotazy o pronájmu a navést je na rezervační formulář.
 
-KLÍČOVÁ FAKTA O MOTOGO24:
-- Bez kauce, bez skrytých poplatků
-- Motorkářská výbava (helma, bunda, kalhoty, rukavice) v ceně
-- Nonstop provoz 24/7, 365 dní v roce
-- Pojištění (povinné ručení) v ceně
-- Sjezd do zahraničí povolen, zelená karta v ceně
-- Online rezervace s platbou kartou (Stripe)
-- Telefon: +420 774 256 271, email: info@motogo24.cz
+  // Today header (Europe/Prague)
+  const now = new Date()
+  const fmt = new Intl.DateTimeFormat('cs-CZ', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    timeZone: 'Europe/Prague',
+  })
+  const fmtIso = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Prague', year: 'numeric', month: '2-digit', day: '2-digit',
+  })
+  const todayHuman = fmt.format(now)
+  const todayIso = fmtIso.format(now)
 
-PRAVIDLA:
-1. NIKDY si nevymýšlej fakta o cenách, dostupnosti nebo motorkách — vždy zavolej příslušný nástroj.
-2. Před kalkulací ceny ZKONTROLUJ dostupnost (get_availability).
-3. Při doporučení motorky uveď: model, kategorii, výkon, cenu od/den, ŘP, URL.
-4. Rezervaci NIKDY nevytváříš sám — vždy vygeneruj odkaz na /rezervace?moto=...&start=...&end=... přes redirect_to_booking a pozvi uživatele dokončit ji na webu.
-5. Buď stručný a přátelský. Používej max 3-4 odstavce. Žádné markdown tabulky — jednoduchý text.
-6. Pokud nevíš → upřímně to řekni a nasměruj na +420 774 256 271 nebo info@motogo24.cz.
+  const persona = cfg.persona_name || 'Rezervační asistent MotoGo24'
+  const userPrompt = (cfg.system_prompt || '').trim()
+  const tone = TONE_DESC[cfg.tone || 'concise'] || TONE_DESC.concise
 
-${langInstr}`
+  let parts: string[] = []
+  parts.push(`DNES JE ${todayHuman} (ISO ${todayIso}, časová zóna Europe/Prague). Tento údaj je zdroj pravdy o aktuálním datu — vždy ho použij místo vlastních odhadů.`)
+  parts.push(`Jsi ${persona}. Pracuješ v půjčovně motorek MotoGo24 (Mezná 9, 393 01 Pelhřimov, Vysočina, ČR).`)
+  if (userPrompt) parts.push(userPrompt)
+  parts.push(tone)
+
+  if (cfg.situations && cfg.situations.length > 0) {
+    parts.push('SITUAČNÍ PRAVIDLA:\n' + cfg.situations.map((s) => `- ${s}`).join('\n'))
+  }
+  if (cfg.mustDo && cfg.mustDo.length > 0) {
+    parts.push('VŽDY MUSÍ UDĚLAT:\n' + cfg.mustDo.map((s) => `- ${s}`).join('\n'))
+  }
+  if (cfg.forbidden && cfg.forbidden.length > 0) {
+    parts.push('ZAKÁZÁNO:\n' + cfg.forbidden.map((s) => `- ${s}`).join('\n'))
+  }
+  parts.push(HARD_RULES_CS)
+  parts.push(`KONTAKTY: telefon +420 774 256 271, email info@motogo24.cz, web https://motogo24.cz.`)
+  parts.push(langInstr)
+
+  return parts.join('\n\n')
 }
 
 // ============================================================================
-// Anthropic API loop
+// Anthropic loop
 // ============================================================================
 
 async function runClaudeLoop(
   messages: Array<{ role: string; content: unknown }>,
   systemPrompt: string,
-  maxIters = 5
+  maxTokens: number,
+  maxIters = 6,
 ): Promise<{ reply: string; toolUses: Array<{ name: string; input: Record<string, unknown>; result: unknown }> }> {
   const toolUses: Array<{ name: string; input: Record<string, unknown>; result: unknown }> = []
   let iter = 0
@@ -278,7 +444,7 @@ async function runClaudeLoop(
       },
       body: JSON.stringify({
         model: ANTHROPIC_MODEL,
-        max_tokens: 1024,
+        max_tokens: maxTokens,
         system: systemPrompt,
         tools: PUBLIC_TOOLS,
         messages: apiMessages,
@@ -310,7 +476,7 @@ async function runClaudeLoop(
     const reply = textBlocks.map((b) => String(b.text)).join('\n').trim()
     return { reply, toolUses }
   }
-  return { reply: 'Omlouvám se, dostal jsem se do smyčky. Zkus prosím přeformulovat otázku, nebo nás kontaktuj na +420 774 256 271.', toolUses }
+  return { reply: 'Omlouvám se, dostal jsem se do smyčky. Zkuste prosím přeformulovat otázku, nebo nás kontaktujte na +420 774 256 271.', toolUses }
 }
 
 // ============================================================================
@@ -343,7 +509,6 @@ serve(async (req) => {
         status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
       })
     }
-    // Limit historie na 20 zpráv pro rychlost + náklady
     const recent = messages.slice(-20).filter((m) => m.role === 'user' || m.role === 'assistant')
 
     if (!ANTHROPIC_API_KEY) {
@@ -352,16 +517,36 @@ serve(async (req) => {
       })
     }
 
-    const systemPrompt = buildSystemPrompt(lang)
-    const { reply, toolUses } = await runClaudeLoop(recent, systemPrompt)
-
-    const latency = Date.now() - startedAt
-    void logTraffic(null, 200, latency, 'view', ip, ua)
-    for (const tu of toolUses) {
-      void logTraffic(tu.name, 200, latency, tu.name === 'redirect_to_booking' ? 'quote' : 'view', ip, ua)
+    const cfg = await loadConfig()
+    if (cfg.enabled === false) {
+      return new Response(JSON.stringify({
+        reply: 'Asistent je momentálně vypnutý. Zavolejte prosím +420 774 256 271 nebo napište na info@motogo24.cz.',
+      }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
     }
 
-    return new Response(JSON.stringify({ reply, tool_uses: toolUses }), {
+    const systemPrompt = buildSystemPrompt(lang, cfg)
+    const maxTokens = Math.min(Math.max(Number(cfg.max_tokens) || 800, 256), 4096)
+    const { reply, toolUses } = await runClaudeLoop(recent, systemPrompt, maxTokens)
+
+    const latency = Date.now() - startedAt
+    let bookingCreated: string | undefined
+    let bookingUrl: string | undefined
+    for (const tu of toolUses) {
+      const outcome = tu.name === 'create_booking_request' && (tu.result as Record<string, unknown>)?.success
+        ? 'booking_created'
+        : tu.name === 'redirect_to_booking' ? 'quote' : 'view'
+      if (tu.name === 'create_booking_request') {
+        const r = tu.result as Record<string, unknown>
+        if (r?.success) {
+          bookingCreated = String(r.booking_id || '')
+          bookingUrl = String(r.payment_url || '')
+        }
+      }
+      void logTraffic(tu.name, 200, latency, outcome, ip, ua, bookingCreated)
+    }
+    void logTraffic(null, 200, latency, bookingCreated ? 'booking_created' : 'view', ip, ua, bookingCreated)
+
+    return new Response(JSON.stringify({ reply, tool_uses: toolUses, booking_url: bookingUrl }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     })
   } catch (e) {
