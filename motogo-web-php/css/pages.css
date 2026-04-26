@@ -574,6 +574,71 @@
 .rez-cta{padding:.95rem 2.4rem!important;font-size:1rem!important;font-weight:800;letter-spacing:.5px;box-shadow:0 6px 18px rgba(116,251,113,.45);transition:all .25s}
 .rez-cta:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(116,251,113,.55)}
 
+/* Step 2 — verifikace dokladů, heslo, faktura */
+.rez-field-label{display:block;font-size:.85rem;font-weight:700;color:#1a2e22;margin:.65rem 0 .35rem;letter-spacing:.2px}
+.rez-input{width:100%;padding:.75rem .9rem;border:1.5px solid #d4e8e0;border-radius:12px;font-size:.95rem;background:#fff;color:#1a2e22;font-family:'Montserrat',sans-serif;transition:all .15s;box-sizing:border-box}
+.rez-input:focus{outline:none;border-color:#74FB71;box-shadow:0 0 0 3px rgba(116,251,113,.22);background:#fafffb}
+.rez-input:disabled{background:#f0f5f2;color:#8aab99;cursor:not-allowed}
+.rez-doc-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.55rem;margin:.25rem 0 .35rem}
+.rez-doc-card{display:flex;align-items:center;gap:.7rem;background:#fff;border:1.5px solid #d4e8e0;border-radius:14px;padding:.75rem .9rem;cursor:pointer;transition:all .2s;position:relative}
+.rez-doc-card input[type=radio]{flex-shrink:0;width:20px;height:20px;accent-color:#1a8c1a;cursor:pointer;margin:0}
+.rez-doc-card:hover{border-color:#74FB71;background:#f9fefa;transform:translateY(-1px);box-shadow:0 4px 12px rgba(26,46,34,.08)}
+.rez-doc-card:has(input:checked){border-color:#1a8c1a;background:#e8fce8;box-shadow:0 4px 12px rgba(26,140,26,.18)}
+.rez-doc-ico{font-size:1.4rem;line-height:1;flex-shrink:0}
+.rez-doc-label{font-weight:700;color:#1a2e22;font-size:.92rem;line-height:1.25}
+.rez-subhead{margin:1rem 0 .15rem;font-size:1rem;color:#1a2e22;font-weight:800;display:flex;align-items:center;gap:.45rem}
+.rez-subhead-ico{font-size:1.05rem}
+.rez-date-row{display:grid;grid-template-columns:1fr 1.6fr 1.2fr;gap:.45rem}
+.rez-date-row select{padding:.65rem .55rem;border:1.5px solid #d4e8e0;border-radius:10px;font-size:.95rem;background:#fff;font-weight:700;color:#1a2e22;font-family:'Montserrat',sans-serif;transition:all .15s}
+.rez-date-row select:focus{outline:none;border-color:#74FB71;box-shadow:0 0 0 3px rgba(116,251,113,.22)}
+.rez-pwd-section{background:linear-gradient(135deg,#f0faf5 0%,#e8fce8 100%);border:1.5px solid #b8e6b8;border-radius:14px;padding:1rem 1.1rem;margin:.85rem 0 1rem}
+.rez-pwd-head{display:flex;align-items:flex-start;gap:.65rem;margin-bottom:.55rem}
+.rez-pwd-ico{font-size:1.5rem;line-height:1;flex-shrink:0}
+.rez-pwd-title{font-weight:800;color:#1a2e22;font-size:.98rem;line-height:1.25;margin:0 0 .15rem}
+.rez-pwd-sub{font-size:.82rem;color:#4a6b5a;line-height:1.4;margin:0}
+.rez-pwd-grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:.35rem}
+.rez-pwd-grid .rez-input{border-color:#74FB71;background:#fff}
+.rez-doc-upload{background:#f9fefa;border:1px dashed #b8e6b8;border-radius:14px;padding:.85rem 1rem;margin:.85rem 0 .25rem}
+.rez-doc-upload-head{display:flex;align-items:baseline;gap:.5rem;margin-bottom:.35rem;flex-wrap:wrap}
+.rez-doc-upload-title{font-weight:700;color:#1a2e22;font-size:.95rem}
+.rez-doc-upload-tag{font-size:.72rem;color:#4a6b5a;background:#fff;padding:.1rem .5rem;border-radius:999px;border:1px solid #d4e8e0}
+.rez-doc-upload-sub{color:#4a6b5a;font-size:.82rem;line-height:1.45;margin:0 0 .55rem}
+.rez-doc-upload-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.6rem}
+.rez-doc-upload-card{background:#fff;border:1px solid #e0ece6;border-radius:12px;padding:.7rem .8rem}
+.rez-doc-upload-card-head{display:flex;align-items:center;gap:.45rem;font-weight:700;color:#1a2e22;font-size:.9rem;margin-bottom:.45rem}
+.rez-doc-upload-actions{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.45rem}
+.rez-invoice-card{background:#fff;border:1.5px solid #d4e8e0;border-radius:14px;padding:.85rem 1rem;margin-bottom:.6rem}
+.rez-invoice-table{width:100%;border-collapse:collapse;font-size:.88rem;color:#1a2e22}
+.rez-invoice-table th{text-align:left;padding:.45rem 0;font-weight:700;border-bottom:1px solid #d4e8e0;font-size:.85rem;color:#4a6b5a}
+.rez-invoice-table th:last-child{text-align:right}
+.rez-invoice-table td{padding:.45rem 0;border-bottom:1px solid #f0f5f2}
+.rez-invoice-table td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.rez-invoice-total{display:flex;justify-content:space-between;align-items:center;margin-top:.65rem;padding-top:.65rem;border-top:2px solid #1a8c1a;font-size:1rem}
+.rez-invoice-total strong:last-child{color:#1a8c1a;font-size:1.1rem}
+.rez-invoice-meta{background:#f9fefa;border:1px solid #d4e8e0;border-radius:12px;padding:.7rem .85rem;font-size:.84rem;color:#374151;line-height:1.55}
+.rez-invoice-meta strong{color:#1a2e22}
+.rez-step2-actions{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.85rem;margin-top:1.1rem}
+.rez-step2-pay{display:flex;align-items:center;gap:.85rem;flex-wrap:wrap}
+.rez-step2-amount{background:#74FB71;color:#0b0b0b;padding:.6rem 1.2rem;border-radius:25px;font-weight:800;font-size:1.05rem;box-shadow:0 4px 12px rgba(116,251,113,.4)}
+.rez-qr-card{background:linear-gradient(135deg,#f0faf5 0%,#e8fce8 100%);border:2px dashed #74FB71;border-radius:14px;padding:.85rem 1rem;margin:.75rem 0;display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+.rez-qr-card img{width:104px;height:104px;border-radius:10px;border:1px solid #d4e8e0;background:#fff;flex-shrink:0}
+.rez-qr-body{flex:1;min-width:200px}
+.rez-qr-body h3{margin:0 0 .25rem;color:#1a2e22;font-size:.95rem}
+.rez-qr-bullets{font-size:.8rem;color:#374151;line-height:1.55}
+.rez-qr-note{color:#4a6b5a;font-size:.75rem;margin:.3rem 0 0}
+@media(max-width:768px){
+  .rez-doc-grid{grid-template-columns:1fr}
+  .rez-pwd-grid{grid-template-columns:1fr;gap:.55rem}
+  .rez-doc-upload-grid{grid-template-columns:1fr;gap:.55rem}
+  .rez-date-row{grid-template-columns:1fr 1.4fr 1fr;gap:.4rem}
+  .rez-date-row select{padding:.7rem .45rem;font-size:.92rem;min-height:46px}
+  .rez-input{padding:.85rem .9rem;font-size:1rem;min-height:48px}
+  .rez-step2-actions{flex-direction:column-reverse;align-items:stretch}
+  .rez-step2-pay{justify-content:space-between;width:100%}
+  .rez-step2-actions .btn{width:100%;justify-content:center}
+  .rez-step2-pay .btn{flex:1}
+}
+
 /* Slide-down animation */
 @keyframes rezSlideDown{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
 

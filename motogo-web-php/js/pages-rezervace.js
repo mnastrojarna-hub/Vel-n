@@ -375,7 +375,7 @@ MG._rezInit = async function(){
         motos: [{ id: bd.moto_id, model: bd.moto_model }],
         motoId: bd.moto_id, allBookings: {}, appliedCodes: [], discountAmt: 0,
         bookingId: bd.booking_id, userId: bd.user_id, bookingAmount: bd.total_price,
-        _isResume: true, _passwordSet: true,
+        _isResume: true,
         _docsValidated: bd.has_id_number && bd.has_license_number,
         _docNumber: bd.has_id_number ? '(vyplněno)' : '',
         _licenseNumber: bd.has_license_number ? '(vyplněno)' : '',
