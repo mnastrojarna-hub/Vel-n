@@ -389,6 +389,20 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
     echo '</div>';
     echo renderFooter();
     echo renderInlineJs();
+
+    // AI booking widget — floating bubble. Skryt na /rezervace a /potvrzeni
+    // (tam má uživatel vlastní formulář a nepotřebuje agenta nahoru). Konfig
+    // se sype do window.MOTOGO_CONFIG před načtením skriptu.
+    $hideAi = ($currentPath === '/rezervace' || $currentPath === '/potvrzeni');
+    if (!$hideAi) {
+        echo '
+<script>
+window.MOTOGO_CONFIG = window.MOTOGO_CONFIG || {};
+window.MOTOGO_CONFIG.SUPABASE_URL = ' . json_encode(SUPABASE_URL) . ';
+window.MOTOGO_CONFIG.SUPABASE_ANON_KEY = ' . json_encode(SUPABASE_ANON_KEY) . ';
+</script>
+<script src="' . BASE_URL . '/js/ai-widget.js" defer></script>';
+    }
     echo '
 </body>
 </html>';
