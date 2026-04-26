@@ -286,27 +286,18 @@ class SupabaseClient {
     }
 
     // ===== CMS PAGES =====
+    // Bez cache — blog/CMS musí reagovat okamžitě po uložení/smazání ve Velínu.
     public function fetchCmsPage($slug) {
-        $cacheKey = 'cms_' . $slug;
-        $cached = $this->cacheGet($cacheKey);
-        if ($cached !== null) return $cached;
-        $result = $this->query('cms_pages', '*', ['slug=eq.' . $slug]);
-        $data = $result ? ($result[0] ?? null) : null;
-        if ($data) $this->cacheSet($cacheKey, $data);
-        return $data;
+        $result = $this->query('cms_pages', '*', ['slug=eq.' . $slug, 'published=eq.true']);
+        return $result ? ($result[0] ?? null) : null;
     }
 
     public function fetchCmsPages($tag = null) {
-        $cacheKey = 'cms_pages' . ($tag ? '_' . $tag : '');
-        $cached = $this->cacheGet($cacheKey);
-        if ($cached !== null) return $cached;
-        $filters = [];
+        $filters = ['published=eq.true'];
         if ($tag) {
             $filters[] = 'tags=cs.{' . $tag . '}';
         }
-        $data = $this->query('cms_pages', '*', $filters, 'created_at.desc');
-        $this->cacheSet($cacheKey, $data);
-        return $data;
+        return $this->query('cms_pages', '*', $filters, 'created_at.desc');
     }
 
     // ===== PRODUKTY =====

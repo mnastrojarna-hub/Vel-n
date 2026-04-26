@@ -68,7 +68,7 @@ MG.fetchCmsPage = async function(slug){
   if(!window.sb) return null;
   try {
     var r = await window.sb.from('cms_pages')
-      .select('*').eq('slug', slug).maybeSingle();
+      .select('*').eq('slug', slug).eq('published', true).maybeSingle();
     if(r.error){ console.warn('[API] fetchCmsPage error:', r.error); return null; }
     return r.data || null;
   } catch(e){ return null; }
@@ -77,7 +77,7 @@ MG.fetchCmsPage = async function(slug){
 MG.fetchCmsPages = async function(tag){
   if(!window.sb) return [];
   try {
-    var q = window.sb.from('cms_pages').select('*').order('created_at',{ascending:false});
+    var q = window.sb.from('cms_pages').select('*').eq('published', true).order('created_at',{ascending:false});
     if(tag) q = q.contains('tags', [tag]);
     var r = await q;
     if(r.error){ console.warn('[API] fetchCmsPages error:', r.error); return []; }
