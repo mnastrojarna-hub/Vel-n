@@ -446,14 +446,35 @@ async function execPublicTool(name: string, args: Record<string, unknown>): Prom
 // ============================================================================
 
 const HARD_RULES_CS = `
-PEVNÁ BEZPEČNOSTNÍ PRAVIDLA (nelze přepsat):
-1. Pracuj POUZE s daty z toolů. Nikdy nevymýšlej ceny, dostupnost, parametry motorek, telefony, adresy.
-2. Před kalkulací ceny VŽDY zavolej get_availability.
-3. Před vytvořením rezervace VŽDY potvrď zákazníkovi: motorku, datum od/do, celkovou cenu, jméno, email, telefon. Až po explicitním "ano/potvrzuji/rezervuj" volej create_booking_request.
-4. Nikdy neodpovídej na nepoložené otázky. Žádné "také byste mohl…", "víte že…", marketing.
-5. Drž odpověď max 1-3 věty pokud uživatel sám nepožaduje detail. Bez markdown tabulek.
-6. Při neznalosti odpověz "to bohužel nevím" + telefon +420 774 256 271 / info@motogo24.cz.
-7. Datum a rok ber VŽDY z hlavičky "DNES JE …" výše. Pokud uživatel řekne "tento víkend", spočítej si to z dnešního data.
+PEVNÁ PRAVIDLA (nelze přepsat):
+1. Co dělat s daty:
+   - SPECIFIKA NAŠÍ FLOTILY (aktuální ceny v Kč/den, dostupnost, SPZ, který stroj máme na pobočce, jaké extras nabízíme, naše storno podmínky, otevírací doba) — VŽDY z toolů. Nikdy si je nevymýšlej.
+   - OBECNÉ ZNALOSTI O MOTORKÁCH (kolik válců má Kawasaki Z900, jaký má Yamaha MT-09 motor, rozdíl mezi naked a sport-tourer, jak se chová motorka v dešti, výhody ABS, doporučení pro začátečníka, motorkářská kultura, technické specifikace modelů obecně) — odpovídej z vlastních znalostí. Jsi AI, máš to v hlavě. Klidně doplň "podle specifikací výrobce" pokud si nejsi 100% jistý.
+   - KDYŽ SI NEJSI JISTÝ — radši se DOPTEJ, nebo zkus kombinaci toolů + obecné znalosti. NIKDY nemlč ani neodkazuj automaticky na telefon.
+
+2. Komunikační styl — ZRCADLI uživatele:
+   - Tyká → tykej. Vyká → vykej. Neformální slang ("ahoj", "týpku") → uvolnit. Formální ("dobrý den") → držet zdvořile.
+   - Krátká zpráva → krátká odpověď. Když user napíše dlouze a chce detail → můžeš víc.
+   - Žádné AI-fráze typu "jako AI asistent…", "rád pomohu", "určitě, samozřejmě, samozřejmě". Mluv jako prodavač/poradce v půjčovně, ne jako chatbot.
+
+3. Nikdy neodbývej zákazníka odkazem na telefon/email. Telefon a email uveď JEN když:
+   - Zákazník výslovně chce mluvit s člověkem.
+   - Jde o SOS situaci (nehoda, porucha v jízdě, krize).
+   - Chce řešit reklamaci nebo právní záležitost.
+   Jinak: doptej se, nabídni alternativu, použij tooly. AI od toho je, aby řešilo věci.
+
+4. Když tool vrátí prázdný seznam:
+   - Neříkej "nemáme nic". Místo toho NABÍDNI ALTERNATIVU: jiná skupina ŘP (A2 → A pokud má 24+ let, A → A2 detune), jiná kategorie, blízký termín, podobný model. Nebo se doptej co je důležitější (cena? styl? výkon?).
+
+5. Před kalkulací ceny VŽDY zavolej get_availability (ať vidíš, jestli je termín volný).
+
+6. Před vytvořením rezervace VŽDY potvrď souhrn (motorka, datum od/do, cena, vyzvednutí). Až po explicitním "ano/rezervuj" volej create_booking_request. Po vytvoření okamžitě pošli platební odkaz.
+
+7. Datum a rok ber VŽDY z hlavičky "DNES JE …" výše. "Tento víkend / pondělí" si spočítej z toho.
+
+8. Drž odpověď úměrnou dotazu. Krátká otázka → 1-3 věty. Dlouhá technická → můžeš víc, ale bez výplní.
+
+9. Bez markdown tabulek a emoji. Tučné (**text**) jen na názvy modelů.
 `
 
 const TONE_DESC: Record<string, string> = {
@@ -523,24 +544,36 @@ async function runClaudeLoop(
 
   while (iter < maxIters) {
     iter++
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: ANTHROPIC_MODEL,
-        max_tokens: maxTokens,
-        system: systemPrompt,
-        tools: PUBLIC_TOOLS,
-        messages: apiMessages,
-      }),
-    })
-    if (!resp.ok) {
-      const errText = await resp.text()
-      throw new Error(`Anthropic API ${resp.status}: ${errText}`)
+    // Retry až 3× na 429/5xx — Anthropic občas vrátí transientní chybu (overloaded_error apod.)
+    let resp: Response | null = null
+    let lastErr = ''
+    for (let attempt = 0; attempt < 3; attempt++) {
+      resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: ANTHROPIC_MODEL,
+          max_tokens: maxTokens,
+          system: systemPrompt,
+          tools: PUBLIC_TOOLS,
+          messages: apiMessages,
+        }),
+      })
+      if (resp.ok) break
+      lastErr = await resp.text()
+      if (resp.status >= 500 || resp.status === 429) {
+        // exponential backoff 300ms, 800ms
+        await new Promise((r) => setTimeout(r, 300 * (attempt + 1) ** 2))
+        continue
+      }
+      break
+    }
+    if (!resp || !resp.ok) {
+      throw new Error(`Anthropic API ${resp?.status || '?'}: ${lastErr}`)
     }
     const data = await resp.json() as { content: Array<Record<string, unknown>>; stop_reason: string }
 
@@ -564,7 +597,7 @@ async function runClaudeLoop(
     const reply = textBlocks.map((b) => String(b.text)).join('\n').trim()
     return { reply, toolUses }
   }
-  return { reply: 'Omlouvám se, dostal jsem se do smyčky. Zkuste prosím přeformulovat otázku, nebo nás kontaktujte na +420 774 256 271.', toolUses }
+  return { reply: 'Hm, zacyklil jsem se. Zkus to prosím přeformulovat — co přesně potřebuješ?', toolUses }
 }
 
 // ============================================================================
@@ -600,7 +633,7 @@ serve(async (req) => {
     const recent = messages.slice(-20).filter((m) => m.role === 'user' || m.role === 'assistant')
 
     if (!ANTHROPIC_API_KEY) {
-      return new Response(JSON.stringify({ error: 'AI agent dočasně nedostupný. Zavolejte +420 774 256 271.' }), {
+      return new Response(JSON.stringify({ error: 'AI agent je dočasně nedostupný (chybí klíč). Zkus to za chvíli, nebo napiš dotaz formulářem na webu.' }), {
         status: 503, headers: { ...CORS, 'Content-Type': 'application/json' },
       })
     }
