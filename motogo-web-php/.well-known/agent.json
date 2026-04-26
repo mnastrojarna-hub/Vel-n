@@ -1,0 +1,112 @@
+{
+  "$schema": "https://agents.json/schema/v1.json",
+  "schemaVersion": "1.0",
+  "name": "MotoGo24",
+  "displayName": "MotoGo24 — Půjčovna motorek Vysočina",
+  "description": "Česká půjčovna motorek se sídlem v Mezné u Pelhřimova. Půjčujeme silniční, naked, supermoto, enduro a dětské motorky bez kauce, s motorkářskou výbavou v ceně, v nonstop provozu. Tento manifest popisuje, co nabízíme AI agentům pro čtení obsahu i programové rezervace.",
+  "version": "0.1.0",
+  "publisher": {
+    "name": "Bc. Petra Semorádová",
+    "legalName": "Bc. Petra Semorádová",
+    "url": "https://motogo24.cz",
+    "email": "info@motogo24.cz",
+    "phone": "+420 774 256 271",
+    "taxID": "21874263",
+    "address": {
+      "streetAddress": "Mezná 9",
+      "addressLocality": "Pelhřimov",
+      "postalCode": "393 01",
+      "addressRegion": "Vysočina",
+      "addressCountry": "CZ"
+    }
+  },
+  "termsOfService": "https://motogo24.cz/obchodni-podminky",
+  "privacyPolicy": "https://motogo24.cz/gdpr",
+  "securityContact": "https://motogo24.cz/.well-known/security.txt",
+  "languages": ["cs", "en", "de", "es", "fr", "nl", "pl"],
+  "currencies": ["CZK", "EUR", "USD"],
+  "regions": ["CZ", "SK", "AT", "DE", "PL"],
+  "discovery": {
+    "sitemap": "https://motogo24.cz/sitemap.xml",
+    "llmsIndex": "https://motogo24.cz/llms.txt",
+    "llmsFull": "https://motogo24.cz/llms-full.txt",
+    "robots": "https://motogo24.cz/robots.txt",
+    "schemaOrg": "JSON-LD na každé stránce: Organization, WebSite, AutomotiveBusiness, Product, Motorcycle (Vehicle), Offer, FAQPage, HowTo, Article, BreadcrumbList"
+  },
+  "capabilities": {
+    "read": {
+      "available": true,
+      "description": "AI agenti mohou číst veřejný web bez omezení. robots.txt explicitně povoluje 22+ AI crawlerů (GPTBot, ClaudeBot, PerplexityBot, Google-Extended, Applebot-Extended, Meta-ExternalAgent, Bytespider, ad.).",
+      "endpoints": [
+        {"type": "html", "url": "https://motogo24.cz/", "description": "Veřejný web s JSON-LD strukturovanými daty"},
+        {"type": "markdown", "url": "https://motogo24.cz/llms.txt", "description": "Krátký LLM index"},
+        {"type": "markdown", "url": "https://motogo24.cz/llms-full.txt", "description": "Plný obsah všech statických stránek"},
+        {"type": "xml", "url": "https://motogo24.cz/sitemap.xml", "description": "XML sitemap s hreflang + image extension"}
+      ]
+    },
+    "search": {
+      "available": true,
+      "description": "Web podporuje WebSite SearchAction přes URL šablonu /katalog?q={search_term_string}. AI agent může vyhledat motorky dle modelu, kategorie, výkonu nebo popisu.",
+      "urlTemplate": "https://motogo24.cz/katalog?q={search_term_string}",
+      "filters": {
+        "kategorie": "cestovni | naked | supermoto | detske",
+        "ridicak": "AM | A1 | A2 | A | B | N",
+        "kw_min": "minimální výkon v kW (number)",
+        "kw_max": "maximální výkon v kW (number)",
+        "cena_max": "maximální cena za den v Kč (number)",
+        "abs": "1 = jen ABS, 0 = vše",
+        "jezdci": "1 = sólo, 2 = se spolujezdcem",
+        "razeni": "default | cena_asc | cena_desc | vykon_asc | vykon_desc"
+      }
+    },
+    "booking": {
+      "available": true,
+      "directApi": false,
+      "description": "Programové rezervace přes REST API a MCP server jsou v přípravě (Q2 2026). Zatím rezervace probíhá přes online formulář na webu, který je AI-friendly: agent může otevřít https://motogo24.cz/rezervace?moto={id}&start=YYYY-MM-DD&end=YYYY-MM-DD a pomoci uživateli vyplnit formulář. Po nasazení API budou tady dostupné endpointy: GET /api/v1/motorcycles, GET /api/v1/motorcycles/{id}/availability, POST /api/v1/quotes, POST /api/v1/bookings.",
+      "plannedEndpoints": {
+        "rest": "https://api.motogo24.cz/v1/openapi.json",
+        "mcp": "https://mcp.motogo24.cz",
+        "mcpStdio": "@motogo24/mcp-server (npm)"
+      },
+      "interimUrlTemplate": "https://motogo24.cz/rezervace?moto={moto_id}&start={start_date}&end={end_date}"
+    }
+  },
+  "policies": {
+    "deposit": "Žádná kauce — zákazník neblokuje peníze na kartě.",
+    "cancellation": "Bezplatné storno minimálně 7 dní před převzetím. Později individuálně.",
+    "minimumAge": 18,
+    "minimumAgeKids": "Pro dětské motorky ručí zákonný zástupce, řidičský průkaz není potřeba.",
+    "license": {
+      "A": "neomezené motocykly, min. věk 24 let (nebo 21 s 2letou praxí A2)",
+      "A2": "do 35 kW, min. věk 18 let",
+      "A1": "do 11 kW, do 125 ccm, min. věk 16 let",
+      "B": "automatické scootery do 125 ccm po 2 letech praxe (CZ specifické)",
+      "N": "dětské motorky bez ŘP"
+    },
+    "abroad": "Sjezd do zahraničí povolen, zelená karta v ceně.",
+    "fuel": "Vrácení bez povinnosti dotankovat.",
+    "cleaning": "Vrácení bez povinnosti mýt; nadměrné znečištění individuálně."
+  },
+  "contact": {
+    "primary": {
+      "type": "phone",
+      "value": "+420 774 256 271",
+      "availability": "24/7"
+    },
+    "email": "info@motogo24.cz",
+    "messaging": ["whatsapp:+420774256271", "sms:+420774256271"],
+    "languages": ["cs", "en"]
+  },
+  "social": {
+    "facebook": "https://www.facebook.com/profile.php?id=61581614672839",
+    "instagram": "https://www.instagram.com/moto.go24/"
+  },
+  "trust": {
+    "vatRegistered": false,
+    "registeredSince": "2024-07-31",
+    "paymentProcessor": "Stripe (PCI DSS compliant)",
+    "dataPrivacy": "GDPR compliant, RLS v databázi, šifrované přístupové kódy",
+    "ocrIdVerification": "Mindee OCR pro ověření dokladů"
+  },
+  "lastUpdated": "2026-04-26"
+}

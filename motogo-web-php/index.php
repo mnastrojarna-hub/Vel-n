@@ -79,6 +79,26 @@ if ($path === '/llms.txt') {
     exit;
 }
 
+// llms-full.txt — sloučený plný obsah pro LLM (statické stránky + DB).
+// AI agent dostane kompletní kontext webu v jednom requestu (~80 kB markdown).
+if ($path === '/llms-full.txt') {
+    require __DIR__ . '/pages/llms-full-txt.php';
+    exit;
+}
+
+// .well-known/agent.json — manifest pro AI agenty (capabilities, endpoints).
+// Statický soubor; pokud existuje fyzicky, server ho doručí přes .htaccess.
+// Tento fallback je pro hosting, kde .well-known/ není přímo dostupné.
+if ($path === '/.well-known/agent.json') {
+    $f = __DIR__ . '/.well-known/agent.json';
+    if (is_file($f)) {
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: public, max-age=3600');
+        readfile($f);
+        exit;
+    }
+}
+
 // .well-known/security.txt — RFC 9116 (statický soubor v .well-known/)
 // .htaccess nepřesměrovává requesty na existující soubory, takže pokud je soubor
 // k dispozici, server ho doručí přímo. Tento fallback řeší případ, kdy
