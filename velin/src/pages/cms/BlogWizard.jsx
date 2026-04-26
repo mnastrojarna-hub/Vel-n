@@ -3,11 +3,12 @@ import { supabase } from '../../lib/supabase'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 import ImageUploader from '../../components/ui/ImageUploader'
+import RichTextEditor from '../../components/ui/RichTextEditor'
 import { autoTranslateRow } from '../../lib/autoTranslate'
 
 const STEPS = [
   { id: 1, label: 'Základní info', desc: 'Název článku a krátký popis' },
-  { id: 2, label: 'Obsah', desc: 'Text článku (HTML)' },
+  { id: 2, label: 'Obsah', desc: 'Text článku' },
   { id: 3, label: 'Média & štítky', desc: 'Obrázky a kategorie' },
   { id: 4, label: 'Náhled & publikace', desc: 'Kontrola a zveřejnění' },
 ]
@@ -171,19 +172,15 @@ function Step1({ form, set }) {
 function Step2({ form, set }) {
   return (
     <div className="space-y-3">
-      <Hint text="Hlavní obsah článku — zobrazí se na detailu článku motogo24.cz/blog/{slug}. Můžete použít HTML tagy." />
+      <Hint text="Hlavní obsah článku — zobrazí se na detailu článku motogo24.cz/blog/{slug}. Použijte lištu pro formátování (tučně, kurzíva, nadpisy, seznamy, odkazy, obrázky)." />
       <div>
-        <Label>Obsah článku (HTML) *</Label>
-        <textarea value={form.content} onChange={e => set('content', e.target.value)}
-          placeholder="<p>Text článku...</p>&#10;<h2>Podnadpis</h2>&#10;<p>Další odstavec...</p>"
-          className="w-full rounded-btn text-sm outline-none font-mono"
-          style={{ ...inputStyle, minHeight: 300, resize: 'vertical' }} />
-      </div>
-      <div className="p-3 rounded-card" style={{ background: '#f8fafc', border: '1px solid #e2ece7' }}>
-        <div className="text-xs font-bold mb-1" style={{ color: '#6b8f7b' }}>Nápověda k formátování:</div>
-        <div className="text-xs" style={{ color: '#4a6b5a', lineHeight: 1.6 }}>
-          {'<p>odstavec</p> · <h2>podnadpis</h2> · <strong>tučně</strong> · <a href="...">odkaz</a> · <ul><li>seznam</li></ul> · <img src="URL">'}
-        </div>
+        <Label>Obsah článku *</Label>
+        <RichTextEditor
+          value={form.content}
+          onChange={html => set('content', html)}
+          placeholder="Začněte psát článek… Pomocí lišty výše můžete přidat nadpisy, seznamy, odkazy a obrázky."
+          minHeight={340}
+        />
       </div>
     </div>
   )

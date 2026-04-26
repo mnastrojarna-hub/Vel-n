@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
+import RichTextEditor from '../../components/ui/RichTextEditor'
 
 const CHANNEL_LABELS = { sms: 'SMS', email: 'E-mail', whatsapp: 'WhatsApp' }
 
@@ -187,21 +188,33 @@ export default function TemplateEditModal({ channel, template, onClose, onSaved 
           )}
           <div>
             <Label>Tělo šablony *</Label>
-            <textarea ref={textareaRef} value={bodyTemplate} onChange={e => setBodyTemplate(e.target.value)}
-              placeholder={channel === 'email' ? 'HTML nebo text šablony…' : 'Text šablony… Použijte {{proměnné}} pro dynamický obsah.'}
-              className="w-full rounded-btn text-sm outline-none"
-              style={{ ...inputStyle, minHeight: channel === 'email' ? 240 : 180, resize: 'vertical', fontFamily: channel === 'email' ? 'monospace' : 'inherit', fontSize: 14, lineHeight: 1.6 }} />
-          </div>
-          <div>
-            <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Vložit proměnnou:</span>
-            <div className="flex flex-wrap gap-1 mt-1">
-              {AVAILABLE_VARS.map(v => (
-                <button key={v} onClick={() => insertVariable(v)} className="rounded-btn font-mono font-bold cursor-pointer border-none"
-                  style={{ padding: '3px 8px', fontSize: 10, background: detectedVars.includes(v) ? '#e8fee7' : '#f1faf7', border: detectedVars.includes(v) ? '1px solid #74FB71' : '1px solid #d4e8e0', color: '#2563eb' }}>
-                  {`{{${v}}}`}
-                </button>
-              ))}
-            </div>
+            {channel === 'email' ? (
+              <RichTextEditor
+                value={bodyTemplate}
+                onChange={setBodyTemplate}
+                placeholder="Začněte psát obsah e-mailu… Pomocí lišty formátujte text a vkládejte proměnné z menu vpravo."
+                minHeight={260}
+                variables={AVAILABLE_VARS.map(v => ({ label: `{{${v}}}`, value: `{{${v}}}` }))}
+              />
+            ) : (
+              <>
+                <textarea ref={textareaRef} value={bodyTemplate} onChange={e => setBodyTemplate(e.target.value)}
+                  placeholder="Text šablony… Použijte {{proměnné}} pro dynamický obsah."
+                  className="w-full rounded-btn text-sm outline-none"
+                  style={{ ...inputStyle, minHeight: 180, resize: 'vertical', fontSize: 14, lineHeight: 1.6 }} />
+                <div className="mt-2">
+                  <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Vložit proměnnou:</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {AVAILABLE_VARS.map(v => (
+                      <button key={v} onClick={() => insertVariable(v)} className="rounded-btn font-mono font-bold cursor-pointer border-none"
+                        style={{ padding: '3px 8px', fontSize: 10, background: detectedVars.includes(v) ? '#e8fee7' : '#f1faf7', border: detectedVars.includes(v) ? '1px solid #74FB71' : '1px solid #d4e8e0', color: '#2563eb' }}>
+                        {`{{${v}}}`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
           {channel === 'whatsapp' && (
             <div>

@@ -4,6 +4,7 @@ import { debugAction } from '../../lib/debugLog'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
+import RichTextEditor from '../../components/ui/RichTextEditor'
 
 const SAMPLE_VARS = {
   customer_name: 'Jan Novák',
@@ -194,12 +195,16 @@ function EditTemplateModal({ template, onClose, onSaved }) {
         </div>
         <div>
           <Label>Obsah šablony</Label>
-          <textarea value={content} onChange={e => setContent(e.target.value)}
-            className="w-full rounded-btn text-sm outline-none font-mono"
-            style={{ padding: '12px', background: '#f1faf7', border: '1px solid #d4e8e0', minHeight: 300, resize: 'vertical' }} />
+          <RichTextEditor
+            value={content}
+            onChange={setContent}
+            placeholder="Začněte psát obsah šablony… Pomocí lišty formátujte text a vkládejte proměnné z menu vpravo."
+            minHeight={320}
+            variables={Object.keys(SAMPLE_VARS).map(k => ({ label: `{{${k}}}`, value: `{{${k}}}` }))}
+          />
         </div>
         <p className="text-sm" style={{ color: '#1a2e22' }}>
-          Proměnné: {extractVars(content).map(v => `{{${v}}}`).join(', ') || 'žádné'}
+          Proměnné v šabloně: {extractVars(content).map(v => `{{${v}}}`).join(', ') || 'žádné'}
         </p>
 
         {/* PDF upload */}
