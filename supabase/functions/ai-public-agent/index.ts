@@ -85,6 +85,7 @@ type WebAgentConfig = {
   welcome_cs?: string
   welcome_en?: string
   welcome_de?: string
+  knowledge_extra?: string  // freetext z Velínu, inject do promptu (sezonní akce, novinky, dočasné info...)
 }
 
 async function loadConfig(): Promise<WebAgentConfig> {
@@ -659,6 +660,9 @@ function buildSystemPrompt(lang: string, cfg: WebAgentConfig): string {
   parts.push(HARD_RULES_CS)
   parts.push(COMPANY_BRAIN)
   parts.push(MOTO_KNOWLEDGE_TIPS)
+  if (cfg.knowledge_extra && cfg.knowledge_extra.trim()) {
+    parts.push('AKTUÁLNÍ ZNALOSTI Z VELÍNU (sezonní akce, novinky, ad-hoc info — vyšší priorita než COMPANY_BRAIN, pokud kolidují):\n' + cfg.knowledge_extra.trim())
+  }
   parts.push(`KONTAKTY (DAVAT JEN NA VYZADANI ČLOVĚKA / SOS / PRÁVO): telefon +420 774 256 271, email info@motogo24.cz, web https://motogo24.cz.`)
   parts.push(langInstr)
 

@@ -74,6 +74,7 @@ Pokud zákazník nechce dokončit přes chat, použij redirect_to_booking → /r
   welcome_cs: 'Čau, tady Tomáš z MotoGo24. Co bys potřeboval — vybrat káru, mrknout na termín, nebo rovnou jedem?',
   welcome_en: 'Hey, this is Tom from MotoGo24. What do you need — pick a bike, check a date, or shall we book it right away?',
   welcome_de: 'Servus, hier Tom von MotoGo24. Was brauchst du — ein Bike aussuchen, Termin prüfen oder gleich buchen?',
+  knowledge_extra: '',  // freetext — sezonní akce, novinky, dočasné info; injektuje se do promptu
 }
 
 const TONE_OPTIONS = [
@@ -363,10 +364,41 @@ export default function WebAgentSettingsPanel() {
         </div>
       </div>
 
+      <div style={{ marginBottom: 12, padding: '12px 16px', borderRadius: 10, border: '2px solid #fbbf24', background: '#fffbeb' }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#92400e', marginBottom: 6 }}>
+          Aktuální znalosti (sezonní akce, novinky, ad-hoc info)
+        </div>
+        <div style={{ fontSize: 11, color: '#78350f', marginBottom: 8, lineHeight: 1.5 }}>
+          Cokoliv napíšeš sem, agent zná OKAMŽITĚ při příští otázce zákazníka — bez deploye edge funkce.
+          Použij na: probíhající slevy, dočasně nedostupné motorky, nové modely co ještě nejsou v katalogu, otevírací hodiny pobočky o svátcích, info pro VIP zákazníky atd.
+          <br/>Tato znalost má <strong>vyšší prioritu než COMPANY_BRAIN</strong> v edge funkci, pokud se jedna informace s druhou tluče.
+        </div>
+        <textarea
+          value={config.knowledge_extra || ''}
+          onChange={e => updateField('knowledge_extra', e.target.value)}
+          placeholder="Např.: Akce duben 2026 — naked motorky -20 %.&#10;Yamaha MT-09 #2 (SPZ 1AB 2345) je do 3.5. v servisu, nenabízej.&#10;Pobočka Mezná je 1.5. zavřená, vyzvednutí přes self-service kód funguje normálně."
+          rows={6}
+          style={{ width: '100%', fontSize: 12, padding: 10, borderRadius: 8, border: '1px solid #fbbf24', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5 }}
+        />
+      </div>
+
       <div style={{ padding: '10px 14px', borderRadius: 8, background: '#eff6ff', border: '1px solid #bfdbfe', fontSize: 11, color: '#1e40af', lineHeight: 1.5 }}>
         <strong>Jak to funguje:</strong> Konfigurace se ukládá do <code>app_settings.ai_public_agent_config</code>.
-        Edge funkce <code>ai-public-agent</code> ji načítá při každém dotazu z chatu na motogo24.cz a sestavuje z ní system prompt.
-        Edge funkce navíc automaticky doplní <strong>aktuální datum</strong>, fixní bezpečnostní pravidla (anti-halucinace, formát rezervace) a jazyk konverzace.
+        Edge funkce <code>ai-public-agent</code> ji načítá při <strong>každém dotazu</strong> z chatu na motogo24.cz a sestavuje z ní system prompt.
+        Změny se projeví okamžitě bez deploye.
+        <br/><br/>
+        <strong>Co agent ČTE ŽIVĚ z DB při každém dotazu</strong> (web změníš → agent ví hned):
+        <ul style={{ margin: '4px 0 0 18px', padding: 0, listStyle: 'disc' }}>
+          <li>Motorky, ceny, parametry — tabulka <code>motorcycles</code></li>
+          <li>Dostupnost / obsazené termíny — RPC <code>get_moto_booked_dates</code></li>
+          <li>Příslušenství a ceny extras — tabulka <code>extras_catalog</code></li>
+          <li>Pobočky — tabulka <code>branches</code></li>
+          <li>Promo kódy a vouchery — RPC <code>validate_promo_code</code> + <code>validate_voucher_code</code></li>
+          <li>FAQ — <code>app_settings.site.faq</code> (CMS → Web texts → FAQ; když uložíš, agent ví hned)</li>
+          <li>Aktuální znalosti — <code>app_settings.ai_public_agent_config.knowledge_extra</code> (textarea výše)</li>
+        </ul>
+        <br/>
+        Edge funkce navíc automaticky doplní <strong>aktuální datum</strong>, fixní bezpečnostní pravidla (anti-halucinace, sales mindset, jazyková kázeň) a jazyk konverzace.
       </div>
     </div>
   )
