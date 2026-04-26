@@ -236,9 +236,10 @@ function renderLanguageSwitcher() {
             . '</a></li>';
     }
 
+    $globe = '<svg class="sw-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18"></path><path d="M12 3a14 14 0 0 1 0 18"></path><path d="M12 3a14 14 0 0 0 0 18"></path></svg>';
     return '<div class="lang-switcher" data-lang-switcher>'
         . '<button type="button" class="lang-toggle" aria-haspopup="true" aria-expanded="false" aria-label="' . te('lang.select') . '" title="' . te('lang.select') . '">'
-            . '<span class="lang-flag" aria-hidden="true">' . $cur['flag'] . '</span>'
+            . $globe
             . '<span class="lang-code">' . strtoupper($current) . '</span>'
             . '<span class="lang-arrow" aria-hidden="true">▾</span>'
         . '</button>'
