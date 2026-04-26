@@ -146,8 +146,27 @@ const PUBLIC_TOOLS = [
     },
   },
   {
+    name: 'get_extras_catalog',
+    description: 'Vrátí seznam příslušenství, které lze přiobjednat (boty, výbava spolujezdce, přistavení, atd.) s cenami.',
+    input_schema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'get_branches',
+    description: 'Vrátí seznam poboček MotoGo24 s adresou, GPS a otevíracími hodinami.',
+    input_schema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'validate_promo_or_voucher',
+    description: 'Ověří promo kód nebo voucher. Vrátí typ a hodnotu slevy. Pokud je kód neplatný, vrátí valid=false.',
+    input_schema: {
+      type: 'object',
+      properties: { code: { type: 'string' } },
+      required: ['code'],
+    },
+  },
+  {
     name: 'create_booking_request',
-    description: 'Vytvoří skutečnou rezervaci v systému (status pending). VOLEJ POUZE když máš VŠECHNY povinné údaje a zákazník výslovně potvrdil. Vrátí booking_id a payment_url. Po zavolání pošli zákazníkovi platební odkaz a krátké shrnutí.',
+    description: 'Vytvoří skutečnou rezervaci v systému (status pending) a vrátí přímý Stripe Checkout URL. VOLEJ POUZE když máš VŠECHNY povinné údaje (motorka, datumy, jméno, email, telefon) a zákazník explicitně potvrdil souhrn (motorka, termín, cena). Po zavolání pošli zákazníkovi platební odkaz a krátké shrnutí (motorka, datum, cena).',
     input_schema: {
       type: 'object',
       properties: {
@@ -157,10 +176,35 @@ const PUBLIC_TOOLS = [
         name: { type: 'string', description: 'Celé jméno zákazníka' },
         email: { type: 'string' },
         phone: { type: 'string' },
+        street: { type: 'string', description: 'Ulice + č.p. trvalého bydliště' },
         city: { type: 'string' },
+        zip: { type: 'string', description: 'PSČ' },
+        country: { type: 'string', description: 'Stát, default CZ' },
         license_group: { type: 'string', enum: ['AM', 'A1', 'A2', 'A', 'B', 'N'], description: 'Skupina ŘP zákazníka' },
         promo_code: { type: 'string' },
         note: { type: 'string' },
+        pickup_time: { type: 'string', description: 'HH:MM, default 10:00 (nepoužije se u přistavení mimo provozovnu)' },
+        return_time: { type: 'string', description: 'HH:MM, povinné pouze při vrácení mimo provozovnu' },
+        delivery_address: { type: 'string', description: 'Adresa přistavení mimo Mezná (např. "Vinohradská 12, 120 00 Praha 2"). Vyplň jen když zákazník chce přistavení.' },
+        return_address: { type: 'string', description: 'Adresa vrácení mimo Mezná. Vyplň jen když se liší od delivery_address nebo když chce vrácení mimo půjčovnu.' },
+        extras: {
+          type: 'array',
+          description: 'Přiobjednané příslušenství. Načti ceny přes get_extras_catalog. Položky: {name, unit_price}.',
+          items: {
+            type: 'object',
+            properties: { name: { type: 'string' }, unit_price: { type: 'number' } },
+            required: ['name', 'unit_price'],
+          },
+        },
+        helmet_size: { type: 'string', description: 'Velikost helmy řidiče (XS-XXL)' },
+        jacket_size: { type: 'string', description: 'Velikost bundy řidiče' },
+        pants_size: { type: 'string', description: 'Velikost kalhot řidiče' },
+        boots_size: { type: 'string', description: 'Velikost bot řidiče (36-46)' },
+        gloves_size: { type: 'string', description: 'Velikost rukavic řidiče' },
+        passenger_helmet_size: { type: 'string' },
+        passenger_jacket_size: { type: 'string' },
+        passenger_boots_size: { type: 'string' },
+        passenger_gloves_size: { type: 'string' },
       },
       required: ['moto_id', 'start_date', 'end_date', 'name', 'email', 'phone'],
     },
@@ -263,6 +307,36 @@ async function execPublicTool(name: string, args: Record<string, unknown>): Prom
         ? { faqs: faqs.filter((f) => (f.q + ' ' + f.a).toLowerCase().includes(query)).slice(0, 5) }
         : { faqs: faqs.slice(0, 8) }
     }
+    case 'get_extras_catalog': {
+      const { data } = await sb.from('extras_catalog')
+        .select('id, name, description, price, unit, category, is_active')
+        .eq('is_active', true).order('sort_order', { ascending: true }).order('name')
+      return { extras: (data || []).map((e: Record<string, unknown>) => ({
+        id: e.id, name: e.name, price_kc: e.price, unit: e.unit || 'ks', category: e.category, description: e.description,
+      })) }
+    }
+    case 'get_branches': {
+      const { data } = await sb.from('branches')
+        .select('id, name, address, city, zip, lat, lng, phone, is_open, type, notes')
+        .order('name')
+      return { branches: (data || []).map((b: Record<string, unknown>) => ({
+        id: b.id, name: b.name, address: `${b.address || ''}, ${b.zip || ''} ${b.city || ''}`.trim(),
+        lat: b.lat, lng: b.lng, phone: b.phone, is_open_nonstop: !!b.is_open, type: b.type, notes: b.notes,
+      })) }
+    }
+    case 'validate_promo_or_voucher': {
+      const code = String(args.code || '').trim()
+      if (!code) return { valid: false, error: 'Prázdný kód' }
+      const { data: promo } = await sb.rpc('validate_promo_code', { code })
+      if (promo && (promo as Record<string, unknown>).valid) {
+        return { valid: true, kind: 'promo', ...(promo as Record<string, unknown>) }
+      }
+      const { data: vch } = await sb.rpc('validate_voucher_code', { p_code: code })
+      if (vch && (vch as Record<string, unknown>).valid) {
+        return { valid: true, kind: 'voucher', ...(vch as Record<string, unknown>) }
+      }
+      return { valid: false, error: 'Kód není platný nebo už byl použit.' }
+    }
     case 'create_booking_request': {
       const a = args as Record<string, string>
       // Sanity: dnešní datum nebo budoucnost
@@ -284,6 +358,8 @@ async function execPublicTool(name: string, args: Record<string, unknown>): Prom
           return { error: 'Termín je obsazený. Vyber jiný termín.' }
         }
       }
+      const ax = args as Record<string, unknown>
+      const extrasArr = Array.isArray(ax.extras) ? (ax.extras as Array<Record<string, unknown>>) : []
       const { data, error } = await sb.rpc('create_web_booking', {
         p_moto_id: a.moto_id,
         p_start_date: a.start_date,
@@ -294,28 +370,28 @@ async function execPublicTool(name: string, args: Record<string, unknown>): Prom
         p_street: a.street || null,
         p_city: a.city || null,
         p_zip: a.zip || null,
-        p_country: 'CZ',
+        p_country: a.country || 'CZ',
         p_note: a.note || 'Rezervace z AI asistenta',
-        p_pickup_time: '10:00',
-        p_delivery_address: null,
-        p_return_address: null,
-        p_extras: [],
+        p_pickup_time: a.pickup_time || '10:00',
+        p_delivery_address: a.delivery_address || null,
+        p_return_address: a.return_address || null,
+        p_extras: extrasArr,
         p_discount_amount: 0,
         p_discount_code: null,
         p_promo_code: a.promo_code || null,
         p_voucher_id: null,
         p_license_group: a.license_group || null,
         p_password: null,
-        p_helmet_size: null,
-        p_jacket_size: null,
-        p_pants_size: null,
-        p_boots_size: null,
-        p_gloves_size: null,
-        p_passenger_helmet_size: null,
-        p_passenger_jacket_size: null,
-        p_passenger_gloves_size: null,
-        p_passenger_boots_size: null,
-        p_return_time: null,
+        p_helmet_size: a.helmet_size || null,
+        p_jacket_size: a.jacket_size || null,
+        p_pants_size: a.pants_size || null,
+        p_boots_size: a.boots_size || null,
+        p_gloves_size: a.gloves_size || null,
+        p_passenger_helmet_size: a.passenger_helmet_size || null,
+        p_passenger_jacket_size: a.passenger_jacket_size || null,
+        p_passenger_gloves_size: a.passenger_gloves_size || null,
+        p_passenger_boots_size: a.passenger_boots_size || null,
+        p_return_time: a.return_time || null,
       })
       if (error) {
         return { error: `Rezervaci se nepodařilo vytvořit: ${error.message}` }
