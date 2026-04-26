@@ -218,14 +218,22 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
     $siteOrigin = ($isHttps ? 'https://' : 'http://') . $host;
 
     $description = $meta['description'] ?? 'Půjčovna motorek Vysočina – silniční, sportovní, enduro i dětské. Nonstop pronájem bez kauce, online rezervace a motorkářská výbava zdarma.';
-    $keywords = $meta['keywords'] ?? 'půjčovna motorek Vysočina, pronájem motorek Vysočina, půjčovna motorek Pelhřimov, půjčovna motorek bez kauce, nonstop půjčovna motorek, rezervace motorky online, motorky k pronájmu Vysočina, motorbike rental Czech Republic';
+    $keywords = $meta['keywords'] ?? 'půjčovna motorek Vysočina, pronájem motorek Vysočina, půjčovna motorek Pelhřimov, půjčovna motorek bez kauce, nonstop půjčovna motorek, rezervace motorky online, motorky k pronájmu Vysočina, motorbike rental Czech Republic, motorcycle rental Prague, půjčovna motorek Praha';
     $canonical = $meta['canonical'] ?? ($siteOrigin . $currentPath);
     $ogImage = $meta['og_image'] ?? ($siteOrigin . '/gfx/hero-banner.jpg');
     $ogType = $meta['og_type'] ?? 'website';
-    $robots = $meta['robots'] ?? 'index,follow';
+    // Default robots — povolíme rich snippets (velké náhledy obrázků a plný text v
+    // SERP). max-image-preview:large je doporučeno Googlem pro Discover.
+    $robots = $meta['robots'] ?? 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1';
     $extraSchema = $meta['schema'] ?? '';
     $breadcrumbs = $meta['breadcrumbs'] ?? [];
     $preload = $meta['preload'] ?? [];
+    // AggregateRating injekce — pokud caller předá ['rating' => 4.9, 'count' => 42],
+    // přidá se do LocalBusiness JSON-LD jako rich-snippet hvězdičky v SERP.
+    $aggregateRating = $meta['aggregate_rating'] ?? null;
+    // Speakable — voice asistenti (Google Assistant, Alexa, Siri) si přečtou
+    // nahlas obsah z těchto CSS selektorů. Defaultně H1 + .home-intro.
+    $speakableSelectors = $meta['speakable'] ?? null;
     // Automatický preload hero banneru na homepage (LCP optimalizace).
     // Preferujeme WebP — moderní prohlížeče (~95 %) ho podpoří, ostatní
     // si stáhnou JPEG fallback z <picture> v home.php.
@@ -249,6 +257,26 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   <script type="application/ld+json">
   {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[' . implode(',', $items) . ']}
   </script>';
+    }
+
+    // Speakable schema — když caller pošle CSS selektory, vygenerujeme samostatný
+    // SpeakableSpecification blok. WebPage @id navazuje na canonical, takže voice
+    // asistent ví, že selektory patří k této stránce.
+    $speakableSchema = '';
+    if (!empty($speakableSelectors) && is_array($speakableSelectors)) {
+        $sel = json_encode(array_values($speakableSelectors), JSON_UNESCAPED_UNICODE);
+        $speakableSchema = '
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"WebPage","@id":' . json_encode($canonical, JSON_UNESCAPED_UNICODE) . ',"speakable":{"@type":"SpeakableSpecification","cssSelector":' . $sel . '}}
+  </script>';
+    }
+
+    // AggregateRating fragment — injektuje se do LocalBusiness JSON-LD níže.
+    $aggregateRatingFragment = '';
+    if (is_array($aggregateRating) && !empty($aggregateRating['count']) && !empty($aggregateRating['rating'])) {
+        $r = max(1, min(5, (float)$aggregateRating['rating']));
+        $c = max(1, (int)$aggregateRating['count']);
+        $aggregateRatingFragment = ',"aggregateRating":{"@type":"AggregateRating","ratingValue":"' . number_format($r, 1, '.', '') . '","reviewCount":' . $c . ',"bestRating":"5","worstRating":"1"}';
     }
 
     $htmlLang = i18nHtmlLang();
@@ -285,7 +313,25 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   <meta name="twitter:image" content="' . htmlspecialchars($ogImage) . '">
   <link rel="canonical" href="' . htmlspecialchars($canonical) . '">
   <link rel="icon" type="image/svg+xml" href="' . BASE_URL . '/favicon.svg">
-  <link rel="apple-touch-icon" href="' . BASE_URL . '/apple-touch-icon.png">' . renderHreflangAlternates($siteOrigin, $currentPath) . '
+  <link rel="apple-touch-icon" href="' . BASE_URL . '/apple-touch-icon.png">
+  <link rel="manifest" href="' . BASE_URL . '/manifest.webmanifest">
+  <link rel="alternate" type="application/rss+xml" title="MotoGo24 — Blog a tipy na trasy" href="' . $siteOrigin . '/feed.xml">
+  <link rel="alternate" type="application/json" title="MotoGo24 — AI Agent Manifest" href="' . $siteOrigin . '/.well-known/agent.json">
+  <link rel="alternate" type="application/json" title="MotoGo24 — ChatGPT Plugin Manifest" href="' . $siteOrigin . '/.well-known/ai-plugin.json">
+  <link rel="alternate" type="text/markdown" title="MotoGo24 — LLM Index" href="' . $siteOrigin . '/llms.txt">
+  <meta name="application-name" content="MotoGo24">
+  <meta name="geo.region" content="CZ-VY">
+  <meta name="geo.placename" content="Pelhřimov, Vysočina, Česko">
+  <meta name="geo.position" content="49.4147;15.2953">
+  <meta name="ICBM" content="49.4147, 15.2953">
+  <meta name="rating" content="general">
+  <meta name="distribution" content="global">
+  <meta name="revisit-after" content="3 days">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <!-- Webmaster Tools verifikace (vyplnit hodnoty po registraci):
+       - Google Search Console: <meta name="google-site-verification" content="...">
+       - Seznam Webmaster Tools: <meta name="seznam-wmt" content="...">
+       - Bing Webmaster Tools:  <meta name="msvalidate.01" content="..."> -->' . renderHreflangAlternates($siteOrigin, $currentPath) . '
   <title>' . htmlspecialchars($title) . '</title>
 
   <script type="application/ld+json">
@@ -331,8 +377,9 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
         "@type": ["LocalBusiness", "AutomotiveBusiness"],
         "@id": "' . $siteOrigin . '/#localbusiness",
         "name": "MotoGo24 — půjčovna motorek Vysočina",
-        "alternateName": ["Motogo24 Pelhřimov", "Půjčovna motorek Vysočina"],
+        "alternateName": ["Motogo24 Pelhřimov", "Půjčovna motorek Vysočina", "MotoGo24 motorcycle rental"],
         "description": "Půjčovna motorek na Vysočině — silniční, naked, supermoto, enduro i dětské motorky. Bez kauce, výbava v ceně, nonstop provoz.",
+        "slogan": "Půjč si motorku bez kauce. Nonstop. Online.",
         "url": "' . $siteOrigin . '",
         "logo": "' . $siteOrigin . '/gfx/logo.svg",
         "image": ["' . $siteOrigin . '/gfx/hero-banner.jpg", "' . $siteOrigin . '/gfx/logo.svg"],
@@ -341,24 +388,68 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
         "priceRange": "990 – 5000 Kč/den",
         "currenciesAccepted": "CZK, EUR, USD",
         "paymentAccepted": "Cash, Credit Card, Debit Card, Apple Pay, Google Pay",
+        "knowsLanguage": ["cs","en","de","es","fr","nl","pl"],
+        "keywords": "půjčovna motorek, pronájem motorek, motorbike rental, motorcycle rental, Czech Republic, Vysočina, Pelhřimov, bez kauce, nonstop, enduro, supermoto, naked, sportovní, cestovní, A2 řidičák, A1 řidičák",
         "openingHoursSpecification": {"@type": "OpeningHoursSpecification","dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],"opens": "00:00","closes": "23:59"},
         "address": {"@type": "PostalAddress","streetAddress": "Mezná 9","addressLocality": "Pelhřimov","postalCode": "393 01","addressRegion": "Vysočina","addressCountry": "CZ"},
         "geo": {"@type": "GeoCoordinates","latitude": 49.4147,"longitude": 15.2953},
+        "hasMap": "https://mapy.cz/zakladni?q=Mezn%C3%A1%209%20Pelh%C5%99imov",
         "areaServed": [
           {"@type": "Country", "name": "Česko"},
-          {"@type": "AdministrativeArea", "name": "Kraj Vysočina"}
+          {"@type": "AdministrativeArea", "name": "Kraj Vysočina"},
+          {"@type": "Country", "name": "Slovensko"},
+          {"@type": "Country", "name": "Rakousko"},
+          {"@type": "Country", "name": "Německo"},
+          {"@type": "Country", "name": "Polsko"}
         ],
         "hasOfferCatalog": {
           "@type": "OfferCatalog",
           "name": "Katalog motorek k pronájmu",
-          "url": "' . $siteOrigin . '/katalog"
+          "url": "' . $siteOrigin . '/katalog",
+          "itemListElement": [
+            {"@type": "OfferCatalog", "name": "Cestovní motorky", "url": "' . $siteOrigin . '/katalog/cestovni"},
+            {"@type": "OfferCatalog", "name": "Naked motorky", "url": "' . $siteOrigin . '/katalog/naked"},
+            {"@type": "OfferCatalog", "name": "Supermoto", "url": "' . $siteOrigin . '/katalog/supermoto"},
+            {"@type": "OfferCatalog", "name": "Dětské motorky", "url": "' . $siteOrigin . '/katalog/detske"}
+          ]
         },
+        "potentialAction": [
+          {"@type": "ReserveAction", "target": {"@type": "EntryPoint", "urlTemplate": "' . $siteOrigin . '/rezervace?moto={moto_id}&start={start_date}&end={end_date}", "actionPlatform": ["http://schema.org/DesktopWebPlatform","http://schema.org/MobileWebPlatform","http://schema.org/IOSPlatform","http://schema.org/AndroidPlatform"]}, "result": {"@type": "Reservation", "name": "Rezervace motorky"}},
+          {"@type": "OrderAction", "target": "' . $siteOrigin . '/eshop", "name": "Nákup výbavy a poukazů"}
+        ],
         "parentOrganization": {"@id": "' . $siteOrigin . '/#organization"},
-        "sameAs": ["' . FB_URL . '","' . IG_URL . '"]
+        "sameAs": ["' . FB_URL . '","' . IG_URL . '","https://motogo24.cz","https://motogo24.com"]' . $aggregateRatingFragment . '
+      },
+      {
+        "@type": "Service",
+        "@id": "' . $siteOrigin . '/#service-rental",
+        "serviceType": "Pronájem motocyklů (motorcycle rental)",
+        "name": "Půjčovna motorek MotoGo24",
+        "description": "Krátkodobý i dlouhodobý pronájem motocyklů v Česku. Cestovní, naked, supermoto, enduro, sportovní i dětské motorky. Bez kauce, motorkářská výbava v ceně, online rezervace s platbou kartou, nonstop dostupnost převzetí. Možnost přistavení mimo pobočku, sjezd do EU povolen, zelená karta v ceně.",
+        "provider": {"@id": "' . $siteOrigin . '/#localbusiness"},
+        "areaServed": [{"@type": "Country", "name": "Česko"},{"@type": "Country", "name": "Slovensko"},{"@type": "Country", "name": "Rakousko"},{"@type": "Country", "name": "Německo"},{"@type": "Country", "name": "Polsko"}],
+        "audience": {"@type": "PeopleAudience", "audienceType": "Motorkáři, turisté, firmy, dárky pro blízké"},
+        "availableChannel": [
+          {"@type": "ServiceChannel", "serviceUrl": "' . $siteOrigin . '/rezervace", "name": "Online rezervační formulář"},
+          {"@type": "ServiceChannel", "serviceUrl": "https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/public-api", "name": "Veřejné REST API pro AI agenty a partnery"},
+          {"@type": "ServiceChannel", "serviceUrl": "https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/mcp-server", "name": "MCP server (Model Context Protocol) pro Claude Desktop, Cursor, Cline"},
+          {"@type": "ServiceChannel", "servicePhone": "+420 774 256 271", "name": "Telefon (24/7)"},
+          {"@type": "ServiceChannel", "serviceUrl": "https://wa.me/420774256271", "name": "WhatsApp"}
+        ],
+        "termsOfService": "' . $siteOrigin . '/obchodni-podminky",
+        "offers": {
+          "@type": "AggregateOffer",
+          "priceCurrency": "CZK",
+          "lowPrice": "990",
+          "highPrice": "5000",
+          "offerCount": 50,
+          "availability": "https://schema.org/InStock",
+          "seller": {"@id": "' . $siteOrigin . '/#localbusiness"}
+        }
       }
     ]
   }
-  </script>' . $breadcrumbSchema . ($extraSchema ? "\n" . $extraSchema : '') . '
+  </script>' . $breadcrumbSchema . $speakableSchema . ($extraSchema ? "\n" . $extraSchema : '') . '
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">

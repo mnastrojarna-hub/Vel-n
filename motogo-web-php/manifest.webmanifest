@@ -1,0 +1,54 @@
+{
+  "name": "MotoGo24 — Půjčovna motorek",
+  "short_name": "MotoGo24",
+  "description": "Půjčovna motorek v Česku. Bez kauce, výbava v ceně, nonstop provoz. Online rezervace s platbou kartou.",
+  "lang": "cs",
+  "dir": "ltr",
+  "start_url": "/?utm_source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#1a2e22",
+  "categories": ["travel", "lifestyle", "shopping"],
+  "icons": [
+    {"src": "/gfx/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"},
+    {"src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png", "purpose": "any"},
+    {"src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"}
+  ],
+  "shortcuts": [
+    {
+      "name": "Katalog motorek",
+      "short_name": "Katalog",
+      "description": "Procházet motorky k pronájmu",
+      "url": "/katalog?utm_source=pwa_shortcut",
+      "icons": [{"src": "/gfx/ico-katalog.svg", "sizes": "any", "type": "image/svg+xml"}]
+    },
+    {
+      "name": "Rezervovat",
+      "short_name": "Rezervace",
+      "description": "Vytvořit novou rezervaci",
+      "url": "/rezervace?utm_source=pwa_shortcut",
+      "icons": [{"src": "/gfx/ico-rezervace.svg", "sizes": "any", "type": "image/svg+xml"}]
+    },
+    {
+      "name": "Kontakt",
+      "short_name": "Kontakt",
+      "description": "Telefon a kontaktní údaje",
+      "url": "/kontakt?utm_source=pwa_shortcut",
+      "icons": [{"src": "/gfx/ico-kontakt.svg", "sizes": "any", "type": "image/svg+xml"}]
+    }
+  ],
+  "related_applications": [
+    {
+      "platform": "play",
+      "url": "https://play.google.com/store/apps/details?id=cz.motogo24.app",
+      "id": "cz.motogo24.app"
+    },
+    {
+      "platform": "itunes",
+      "url": "https://apps.apple.com/cz/app/motogo24/id0000000000"
+    }
+  ],
+  "prefer_related_applications": false
+}
