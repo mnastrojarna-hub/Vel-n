@@ -4,8 +4,9 @@ import WebTextsTab from './cms/WebTextsTab'
 import PagesTab from './cms/PagesTab'
 import VariablesTab from './cms/VariablesTab'
 import FeatureFlagsTab from './cms/FeatureFlagsTab'
+import AiTrafficTab from './cms/AiTrafficTab'
 
-const TABS = ['Texty webu', 'Stránky CMS', 'Proměnné', 'Feature flags']
+const TABS = ['Texty webu', 'AI návštěvnost', 'Stránky CMS', 'Proměnné', 'Feature flags']
 
 export default function CMS() {
   const [tab, setTab] = useState('Texty webu')
@@ -34,6 +35,7 @@ export default function CMS() {
       </div>
 
       {tab === 'Texty webu' && <WebTextsTab />}
+      {tab === 'AI návštěvnost' && <AiTrafficTab />}
       {tab === 'Stránky CMS' && <PagesTab />}
       {tab === 'Proměnné' && <VariablesTab />}
       {tab === 'Feature flags' && <FeatureFlagsTab />}

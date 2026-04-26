@@ -50,6 +50,7 @@ if (defined('MOTOGO_DEBUG') && MOTOGO_DEBUG) {
 require_once __DIR__ . '/supabase.php';
 require_once __DIR__ . '/components.php';
 require_once __DIR__ . '/layout.php';
+require_once __DIR__ . '/ai_traffic.php';
 
 // Získání cesty z REQUEST_URI (bez query stringu)
 $requestUri = $_SERVER['REQUEST_URI'] ?? '/';
@@ -65,6 +66,11 @@ if ($path === '' || $path === false) $path = '/';
 if ($path !== '/' && substr($path, -1) === '/') {
     $path = rtrim($path, '/');
 }
+
+// AI traffic logging — detekuje AI crawlery (GPTBot, ClaudeBot, PerplexityBot ad.)
+// a loguje request do ai_traffic_log. Fire-and-forget, nezablokuje render.
+// Pro lidi je no-op (žádné DB volání).
+aiTrafficMaybeLog($path, function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs');
 
 // Sitemap.xml (dynamický)
 if ($path === '/sitemap.xml') {

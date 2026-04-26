@@ -151,6 +151,9 @@
 | `ai_logs` | AI logy |
 | `automation_rules` | Automatizační pravidla |
 | `predictions` | Predikce |
+| `api_keys` | REST API klíče pro partnery (key_hash sha256, key_prefix, partner_name/email, rate_limit_rpm, scopes[], is_active, request_count, revoked_at). Plain klíč se vrací jen 1× při vytvoření. |
+| `ai_traffic_log` | Log AI provozu — crawler/rest_api/mcp/widget. ts, source, bot_name, user_agent, path, endpoint, ip_hash (sha256+salt pro GDPR), partner_id, status_code, latency_ms, outcome (view/quote/booking_created/error/rate_limited), booking_id, details jsonb. Indexy na ts, source, bot_name, path, partner_id, outcome. |
+| `ai_citations` | Manuální tracking "kde nás zmínil AI". observed_at, ai_platform (chatgpt/claude/perplexity/gemini/copilot/grok/duckassist/other), query, response_excerpt, cited_url, screenshot_url, rank, notes, recorded_by. |
 
 ### Platby
 

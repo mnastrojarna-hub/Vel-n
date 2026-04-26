@@ -41,6 +41,9 @@ Detailní politiky:
 - **emp_documents:** admin ALL (is_admin)
 - **delivery_notes:** admin ALL (is_admin)
 - **contracts:** admin ALL (is_admin)
+- **api_keys:** admin ALL (is_admin)
+- **ai_traffic_log:** admin SELECT (is_admin), service_role INSERT (WITH CHECK true) — anon + edge fns mohou logovat
+- **ai_citations:** admin ALL (is_admin)
 
 ---
 
@@ -60,9 +63,9 @@ Detailní politiky:
 
 ---
 
-## 8. EDGE FUNKCE (28 aktivních po cleanup)
+## 8. EDGE FUNKCE (31 aktivních po cleanup)
 
-### V repozitáři (24 — všechny deployované)
+### V repozitáři (27 — všechny deployované)
 
 | Funkce | JWT | Popis |
 |--------|-----|-------|
@@ -90,6 +93,9 @@ Detailní politiky:
 | `translate-content` | ON | Auto-překlad textů z Velínu pro veřejný web. Volá Anthropic API (`claude-haiku-4-5-20251001`), překládá zadaná pole do 6 jazyků (en, de, es, fr, nl, pl) a UPDATEuje sloupec `translations` v cílové tabulce přes service_role. Striktně zachovává HTML tagy, ICO, čísla, SPZ, ceny. Vstup: `{table, id, fields, target_langs?}`. |
 | `send-push` | OFF | FCM v1 push notifikace na zákaznická zařízení. Volá se ze SQL přes `send_push_via_edge()` (pouze service_role). Načítá `push_tokens.active=true`, podepisuje JWT pro Google OAuth2, posílá FCM message s Android channel `motogo_door_codes` + APNS payload. Auto-deaktivuje invalid tokeny (NOT_FOUND/UNREGISTERED). |
 | `webhook-receiver` | OFF | Příjem Stripe webhooků (**LIVE mode**, signature povinná). Auto-generuje dokumenty po platbě. Synchronizuje karty do payment_methods. **Shop platby:** auto-generuje DP + odesílá voucher_purchased email s kódy poukazů |
+| `public-api` | OFF | **Veřejné REST API** pro AI agenty / partnery / integrátory. Tenká vrstva nad RPC. 9 endpointů (motorcycles list+detail+availability, branches, extras, quote, bookings, promo/voucher validate) + GET /api/v1/openapi.json (OpenAPI 3.1 spec). Hybrid auth: bez klíče = rate-limit per IP (60/min read, 30/h create_booking), s X-Api-Key header = per-partner rate_limit_rpm z `api_keys`. Loguje do `ai_traffic_log` (source='rest_api'). |
+| `mcp-server` | OFF | **Model Context Protocol server** (HTTP + JSON-RPC 2.0) pro Claude Desktop, Cursor, Cline, Smithery, custom agenty. 9 tools (motogo_search_motorcycles, motogo_get_motorcycle, motogo_get_availability, motogo_quote, motogo_create_booking, motogo_get_branches, motogo_get_faq, motogo_validate_promo, motogo_validate_voucher) + 5 resources (about, motorcycles, branches, faq, policies). Methods: initialize, tools/list, tools/call, resources/list, resources/read, ping. GET / vrací discovery JSON. Optional X-Api-Key auth. Loguje do `ai_traffic_log` (source='mcp'). |
+| `ai-public-agent` | OFF | **AI booking widget backend** (anonymní, bez JWT). Anthropic Claude Haiku 4.5 + 5 tools (search_motorcycles, get_availability, calculate_price, get_faq, redirect_to_booking). Anti-halucinace: model nikdy nevymýšlí ceny — vše přes RPC. Rezervaci NEvytváří přímo, vrací URL na /rezervace?moto=...&start=... Multi-language system prompt (cs/en/de + fallback). Rate-limit 20 req/min/IP. Loguje do `ai_traffic_log` (source='widget'). |
 
 ### Pouze v Supabase dashboardu (4 — bez kódu v repo)
 
