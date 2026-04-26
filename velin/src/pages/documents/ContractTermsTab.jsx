@@ -4,6 +4,7 @@ import { debugAction } from '../../lib/debugLog'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
+import RichTextEditor from '../../components/ui/RichTextEditor'
 
 const CONTRACT_TYPES = [
   { type: 'vop', label: 'Obchodn\u00ed podm\u00ednky (VOP)', icon: '\ud83d\udcdc', description: 'V\u0161eobecn\u00e9 obchodn\u00ed podm\u00ednky pro pron\u00e1jem motocykl\u016f' },
@@ -187,33 +188,15 @@ function EditContractModal({ template, onClose, onSaved }) {
             style={inputStyle} />
         </div>
 
-        {vars.length > 0 && (
-          <div className="p-3 rounded-lg" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
-            <Label>Dostupn\u00e9 prom\u011bnn\u00e9 (vlo\u017ete do textu jako {'{{'}n\u00e1zev{'}}'})</Label>
-            <div className="flex flex-wrap gap-1 mt-1">
-              {vars.map(v => (
-                <button key={v} onClick={() => {
-                  const textarea = document.getElementById('contract-content')
-                  if (textarea) {
-                    const pos = textarea.selectionStart
-                    const newContent = content.slice(0, pos) + `{{${v}}}` + content.slice(pos)
-                    setContent(newContent)
-                  }
-                }}
-                  className="rounded-btn text-sm font-mono cursor-pointer"
-                  style={{ padding: '2px 8px', background: '#dcfce7', color: '#166534', border: '1px solid #bbf7d0' }}>
-                  {`{{${v}}}`}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
         <div>
-          <Label>Obsah ({vars.length > 0 ? 'HTML \u0161ablona s prom\u011bnn\u00fdmi' : 'HTML text'})</Label>
-          <textarea id="contract-content" value={content} onChange={e => setContent(e.target.value)}
-            className="w-full rounded-btn text-sm outline-none font-mono"
-            style={{ ...inputStyle, minHeight: 450, resize: 'vertical' }} />
+          <Label>Obsah</Label>
+          <RichTextEditor
+            value={content}
+            onChange={setContent}
+            placeholder="Za\u010dn\u011bte ps\u00e1t obsah\u2026 Pomoc\u00ed li\u0161ty form\u00e1tujte text a z menu \u201e+ Prom\u011bnn\u00e1\u2026\u201c vkl\u00e1dejte placeholdery."
+            minHeight={460}
+            variables={vars.length > 0 ? vars.map(v => ({ label: `{{${v}}}`, value: `{{${v}}}` })) : null}
+          />
         </div>
 
         <div className="flex items-center gap-2 text-sm" style={{ color: '#1a2e22' }}>

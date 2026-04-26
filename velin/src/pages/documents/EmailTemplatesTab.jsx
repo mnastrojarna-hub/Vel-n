@@ -5,6 +5,7 @@ import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import Badge from '../../components/ui/Badge'
+import RichTextEditor from '../../components/ui/RichTextEditor'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 
 const SAMPLE_VARS = {
@@ -343,20 +344,11 @@ function EditEmailTemplateModal({ template, onClose, onSaved }) {
   const [err, setErr] = useState(null)
   const [showPreview, setShowPreview] = useState(false)
   const [dragOver, setDragOver] = useState(false)
-  const textareaRef = useRef(null)
   const fileInputRef = useRef(null)
   const meta = getTemplateMeta(template.slug)
 
   const vars = template.variables || extractVars(bodyHtml)
-
-  function insertVariable(varName) {
-    const ta = textareaRef.current; if (!ta) return
-    const start = ta.selectionStart; const end = ta.selectionEnd
-    const tag = `{{${varName}}}`
-    const newVal = bodyHtml.slice(0, start) + tag + bodyHtml.slice(end)
-    setBodyHtml(newVal)
-    setTimeout(() => { ta.focus(); ta.selectionStart = ta.selectionEnd = start + tag.length }, 0)
-  }
+  const variableOptions = vars.map(v => ({ label: `{{${v}}}`, value: `{{${v}}}` }))
 
   const handleFileDrop = useCallback((e) => {
     e.preventDefault(); setDragOver(false)
@@ -425,25 +417,15 @@ function EditEmailTemplateModal({ template, onClose, onSaved }) {
           <input ref={fileInputRef} type="file" accept=".html,.htm" onChange={handleFileDrop} className="hidden" />
         </div>
 
-        <div><Label>HTML tělo</Label>
-          <textarea ref={textareaRef} value={bodyHtml} onChange={e => setBodyHtml(e.target.value)}
-            className="w-full rounded-btn text-sm outline-none font-mono"
-            style={{ ...inputStyle, minHeight: 300, resize: 'vertical' }} />
+        <div><Label>Tělo e-mailu</Label>
+          <RichTextEditor
+            value={bodyHtml}
+            onChange={setBodyHtml}
+            placeholder="Začněte psát obsah e-mailu… Pomocí lišty můžete formátovat text, vkládat nadpisy, seznamy, odkazy, obrázky a proměnné."
+            minHeight={320}
+            variables={variableOptions}
+          />
         </div>
-        {vars.length > 0 && (
-          <div>
-            <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Vložit proměnnou:</span>
-            <div className="flex flex-wrap gap-1 mt-1">
-              {vars.map(v => (
-                <button key={v} onClick={() => insertVariable(v)}
-                  className="rounded-btn text-[9px] font-mono font-bold cursor-pointer"
-                  style={{ padding: '3px 8px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#2563eb' }}>
-                  {`{{${v}}}`}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
         <div className="flex items-center gap-2">
           <input type="checkbox" checked={active} onChange={e => setActive(e.target.checked)} id="tpl-active" />
           <label htmlFor="tpl-active" className="text-sm font-bold" style={{ color: '#1a2e22' }}>Aktivní</label>
