@@ -50,13 +50,18 @@ function buildOrderHtml(req: OrderEmailRequest): string {
   const hasPrice = req.items.some(it => it.unit_price)
 
   return `<!DOCTYPE html><html lang="cs"><head><meta charset="UTF-8"></head>
-<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f4f7f5;padding:32px">
-  <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08)">
-    <div style="background:#1a2e22;padding:28px 32px;text-align:center">
-      <h1 style="margin:0;color:#74FB71;font-size:22px;font-weight:900">MOTO GO 24</h1>
-      <p style="color:#a7f3d0;font-size:13px;margin:8px 0 0 0">Objednávka materiálu</p>
+<body style="margin:0;padding:0;background:#d9dee2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1a14;-webkit-font-smoothing:antialiased">
+  <div style="max-width:780px;margin:0 auto;background:#ffffff">
+    <div style="background:#0a1f15;padding:24px 32px">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>
+        <td style="vertical-align:middle;padding-right:14px;width:52px"><img src="${SITE_URL}/gfx/logo-icon.png" alt="MotoGo24" width="52" height="52" style="display:block;border:0"/></td>
+        <td style="vertical-align:middle">
+          <div style="color:#74FB71;font-size:20px;font-weight:900;letter-spacing:1px;line-height:1">MOTO GO 24</div>
+          <div style="color:#74FB71;font-size:9px;font-weight:700;letter-spacing:2px;margin-top:4px">PŮJČOVNA MOTOREK</div>
+        </td>
+      </tr></table>
     </div>
-    <div style="padding:32px">
+    <div style="padding:32px;color:#0f1a14;font-size:14px;line-height:1.7">
       <p style="color:#374151;font-size:14px;line-height:1.7">Dobrý den,</p>
       <p style="color:#374151;font-size:14px;line-height:1.7">rádi bychom objednali následující položky${req.order_number ? ` (č. obj. <strong>${req.order_number}</strong>)` : ''}:</p>
 
@@ -81,8 +86,13 @@ function buildOrderHtml(req: OrderEmailRequest): string {
       <p style="color:#374151;font-size:14px;line-height:1.7;margin-top:24px">Prosíme o potvrzení objednávky a předpokládaný termín dodání.</p>
       <p style="color:#374151;font-size:14px;line-height:1.7">Děkujeme,<br><strong>MotoGo24</strong></p>
     </div>
-    <div style="background:#f9fafb;padding:16px 32px;text-align:center;border-top:1px solid #e5e7eb">
-      <p style="color:#9ca3af;font-size:11px;margin:0">Bc. Petra Semorádová · IČO: 21874263 · info@motogo24.cz · +420 774 256 271</p>
+    <div style="background:#0a1f15;padding:14px 32px;color:#ffffff;font-size:11px;line-height:1.6">
+      <strong style="color:#ffffff">Bc. Petra Semorádová</strong>
+      <span style="color:#9ca3af"> &nbsp;|&nbsp; </span>Mezná 9, 393 01 Mezná
+      <span style="color:#9ca3af"> &nbsp;|&nbsp; </span>IČO: 21874263
+      <span style="color:#9ca3af"> &nbsp;|&nbsp; </span><span style="color:#74FB71">+420 774 256 271</span>
+      <span style="color:#9ca3af"> &nbsp;|&nbsp; </span><span style="color:#74FB71">info@motogo24.cz</span>
+      <span style="color:#9ca3af"> &nbsp;|&nbsp; </span><span style="color:#74FB71">www.motogo24.cz</span>
     </div>
   </div>
 </body></html>`
