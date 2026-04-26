@@ -53,6 +53,9 @@ function renderHeader($currentPath = '/') {
 
     return '<header>' .
         '<ul class="focus"><li><a href="#main-menu">' . te('header.skip.menu') . '</a></li><li><a href="#content">' . te('header.skip.content') . '</a></li><li><a href="#footer">' . te('header.skip.contact') . '</a></li></ul>' .
+        '<div class="header-topbar"><div class="container">' .
+            '<div class="header-lang">' . renderCurrencySwitcher() . renderLanguageSwitcher() . '</div>' .
+        '</div></div>' .
         '<div class="header"><div class="container dfcs">' .
             '<div class="header-logo"><a href="' . BASE_URL . '/" aria-label="Motogo24"><img src="' . BASE_URL . '/' . LOGO_SVG . '" alt="' . te('header.logoAlt') . '" loading="lazy"></a></div>' .
             '<div class="header-phone"><p><a href="' . PHONE_LINK . '" aria-label="' . te('header.callUs') . '"><img alt="' . te('header.callUs') . '" src="' . BASE_URL . '/gfx/telefon-header.svg" loading="lazy"></a>&nbsp;<a href="' . PHONE_LINK . '">' . PHONE . '</a></p></div>' .
@@ -65,7 +68,6 @@ function renderHeader($currentPath = '/') {
                     '</ul>' .
                 '</nav>' .
             '</div>' .
-            '<div class="header-lang">' . renderCurrencySwitcher() . renderLanguageSwitcher() . '</div>' .
         '</div></div>' .
     '</header>';
 }

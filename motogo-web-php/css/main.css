@@ -72,9 +72,12 @@ input,select,textarea{font-size:16px}
 .header-phone img{width:24px;height:24px;background:rgba(116,251,113,.15);border-radius:50%;padding:2px}
 .header-phone a{color:#74FB71;font-weight:600;font-size:.95rem}
 
+/* --- Top bar (currency + language v pravém horním rohu) --- */
+.header-topbar{background:#0f1c15;border-bottom:1px solid #2a4e3a;padding:.35rem 0}
+.header-topbar .container{display:flex;justify-content:flex-end;align-items:center}
+
 /* --- Language + Currency Switcher --- */
-.header-lang{position:relative;display:flex;align-items:center;gap:.4rem;margin-left:.5rem}
-.header-menu{margin-left:auto}
+.header-lang{position:relative;display:flex;align-items:center;gap:.4rem}
 .lang-switcher{position:relative;font-family:inherit}
 /* --- Currency Switcher (sdílí vizuální styl s language) --- */
 .cur-switcher{position:relative;font-family:inherit}
@@ -327,7 +330,8 @@ section[aria-labelledby="process"] .wbox{background:#fff;border-color:#d4e8e0}
   .header-phone img{width:28px;height:28px}
   .header-phone a:not([aria-label]){font-size:.85rem}
   /* Language switcher — kompaktnější na mobilu */
-  .header-lang{margin-left:.3rem;gap:.3rem}
+  .header-lang{gap:.3rem}
+  .header-topbar{padding:.25rem 0}
   .lang-toggle{padding:.35rem .55rem;font-size:.78rem}
   .lang-toggle .lang-flag{font-size:1rem}
   .lang-dropdown{right:0;min-width:180px}
@@ -428,7 +432,7 @@ section[aria-labelledby="process"] .wbox{background:#fff;border-color:#d4e8e0}
 
 /* ===== Print stylesheet ===== */
 @media print{
-  .header,footer,.nav-toggle,#Up,.banner,.mobile-menu-overlay{display:none!important}
+  .header,.header-topbar,footer,.nav-toggle,#Up,.banner,.mobile-menu-overlay{display:none!important}
   body{background:#fff;color:#000}
   a{color:#000;text-decoration:underline}
   .container{max-width:100%;padding:0}
