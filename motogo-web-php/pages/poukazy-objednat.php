@@ -30,11 +30,11 @@ $form = '<div class="gift-voucher-order">' .
     '</div>' .
 
     '<div class="gv-values">' .
-        '<label class="gv-value-btn"><input type="radio" name="value" value="300" checked> 300 Kč</label>' .
-        '<label class="gv-value-btn"><input type="radio" name="value" value="500"> 500 Kč</label>' .
-        '<label class="gv-value-btn"><input type="radio" name="value" value="1000"> 1 000 Kč</label>' .
-        '<label class="gv-value-btn"><input type="radio" name="value" value="2000"> 2 000 Kč</label>' .
-        '<label class="gv-value-btn"><input type="radio" name="value" value="5000"> 5 000 Kč</label>' .
+        '<label class="gv-value-btn"><input type="radio" name="value" value="300" checked> ' . moneyHtml(300) . '</label>' .
+        '<label class="gv-value-btn"><input type="radio" name="value" value="500"> ' . moneyHtml(500) . '</label>' .
+        '<label class="gv-value-btn"><input type="radio" name="value" value="1000"> ' . moneyHtml(1000) . '</label>' .
+        '<label class="gv-value-btn"><input type="radio" name="value" value="2000"> ' . moneyHtml(2000) . '</label>' .
+        '<label class="gv-value-btn"><input type="radio" name="value" value="5000"> ' . moneyHtml(5000) . '</label>' .
     '</div>' .
     '<div class="gv-custom-value">' .
         '<label>' . te('voucher.customAmount') . ' <input type="number" name="customValue" id="gv-custom" min="100" max="50000" step="1" placeholder="' . te('voucher.customPlaceholder') . '"></label>' .
@@ -50,7 +50,8 @@ $form = '<div class="gift-voucher-order">' .
     '</div>' .
 
     '<div class="gv-price-preview" id="gvPricePreview">' .
-        te('voucher.totalPrice') . ' <strong id="gvTotalPrice">300 Kč</strong>' .
+        te('voucher.totalPrice') . ' <strong id="gvTotalPrice">' . moneyHtml(300) . '</strong>' .
+        ' <span class="gv-czk-note" id="gvCzkNote" style="font-size:.78rem;color:#6b7280;margin-left:.5rem"></span>' .
     '</div>' .
 
     '<div class="checkboxes">' .
@@ -84,15 +85,32 @@ var GV_I18N = {
   errPay: ' . json_encode(t('voucher.errPaymentFailed'), JSON_UNESCAPED_UNICODE) . ',
   errGen: ' . json_encode(t('voucher.errGeneric'), JSON_UNESCAPED_UNICODE) . ',
   processing: ' . json_encode(t('voucher.processing'), JSON_UNESCAPED_UNICODE) . ',
-  continue: ' . json_encode(t('voucher.continueToPay'), JSON_UNESCAPED_UNICODE) . '
+  continue: ' . json_encode(t('voucher.continueToPay'), JSON_UNESCAPED_UNICODE) . ',
+  czkChargeNote: ' . json_encode(t('currency.note.czkCharge'), JSON_UNESCAPED_UNICODE) . '
 };
+var GV_CURRENCY = ' . json_encode(function_exists('currencyJsConfig') ? currencyJsConfig() : ['current'=>'CZK','rates'=>[],'meta'=>[]], JSON_UNESCAPED_UNICODE) . ';
 (function(){
 var radios=document.querySelectorAll("input[name=value]");
 var custom=document.getElementById("gv-custom");
 var printCb=document.getElementById("gv-print");
 var totalEl=document.getElementById("gvTotalPrice");
+var czkNoteEl=document.getElementById("gvCzkNote");
 
-function fmt(n){return Number(n).toLocaleString(GV_I18N.locale)+" "+GV_I18N.currency;}
+// Konvertuje CZK částku na zobrazenou měnu (varianta A: backend vždy CZK)
+function convert(czk){
+  var cur=(GV_CURRENCY && GV_CURRENCY.current) || "CZK";
+  if(cur==="CZK") return czk;
+  var rate=GV_CURRENCY.rates && GV_CURRENCY.rates[cur];
+  if(!rate) return czk;
+  return czk/rate;
+}
+function fmt(czk){
+  var cur=(GV_CURRENCY && GV_CURRENCY.current) || "CZK";
+  var meta=(GV_CURRENCY.meta && GV_CURRENCY.meta[cur]) || {symbol:"Kč",decimals:0};
+  var v=convert(czk);
+  return Number(v).toLocaleString(GV_I18N.locale,{minimumFractionDigits:meta.decimals,maximumFractionDigits:meta.decimals})+" "+meta.symbol;
+}
+function fmtCzk(czk){return Number(czk).toLocaleString("cs-CZ")+" Kč";}
 function getAmount(){
   if(custom&&custom.value&&Number(custom.value)>0)return Number(custom.value);
   var r=document.querySelector("input[name=value]:checked");
@@ -101,7 +119,15 @@ function getAmount(){
 function update(){
   var a=getAmount();
   var eq=printCb&&printCb.checked?180:0;
-  totalEl.textContent=fmt(a+eq);
+  var totalCzk=a+eq;
+  totalEl.textContent=fmt(totalCzk);
+  // Když je vybrána jiná měna než CZK, zobraz info o reálné účtované CZK částce
+  if(czkNoteEl){
+    var cur=(GV_CURRENCY && GV_CURRENCY.current) || "CZK";
+    if(cur!=="CZK"){
+      czkNoteEl.textContent=GV_I18N.czkChargeNote.replace("{czk}",fmtCzk(totalCzk));
+    } else { czkNoteEl.textContent=""; }
+  }
 }
 
 radios.forEach(function(r){r.addEventListener("change",function(){

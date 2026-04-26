@@ -129,9 +129,59 @@ MG.formatDate = function(iso){
   return d.getDate() + '.' + (d.getMonth()+1) + '.' + d.getFullYear();
 };
 
-MG.formatPrice = function(n){
-  if(!n && n !== 0) return '';
-  return Number(n).toLocaleString('cs-CZ') + ' Kč';
+// CURRENCY layer — vstup je VŽDY v CZK (z DB), výstup ve zvolené měně.
+// Konfiguraci nastavuje PHP přes window.MOTOGO_CONFIG.CURRENCY:
+//   { current: 'EUR', rates: {EUR: 24.31, PLN: 5.65}, meta: {...} }
+MG._curMeta = {
+  CZK: { symbol: 'Kč', decimals: 0, locale: 'cs-CZ' },
+  EUR: { symbol: '€', decimals: 2, locale: 'cs-CZ' },
+  PLN: { symbol: 'zł', decimals: 2, locale: 'cs-CZ' }
+};
+
+MG.currentCurrency = function(){
+  try { return (window.MOTOGO_CONFIG && window.MOTOGO_CONFIG.CURRENCY && window.MOTOGO_CONFIG.CURRENCY.current) || 'CZK'; }
+  catch(e){ return 'CZK'; }
+};
+
+MG.fxRate = function(code){
+  try {
+    var c = (code||'').toUpperCase();
+    if (c === 'CZK') return 1;
+    var rates = window.MOTOGO_CONFIG && window.MOTOGO_CONFIG.CURRENCY && window.MOTOGO_CONFIG.CURRENCY.rates;
+    return (rates && rates[c]) ? Number(rates[c]) : 0;
+  } catch(e){ return 0; }
+};
+
+// Konverze CZK → cílová měna. CZK→CZK = identita.
+MG.convertFromCzk = function(czk, targetCurrency){
+  if (czk === null || czk === undefined || czk === '') return null;
+  var cur = (targetCurrency || MG.currentCurrency()).toUpperCase();
+  if (cur === 'CZK') return Number(czk);
+  var rate = MG.fxRate(cur);
+  if (!rate) return Number(czk);
+  return Number(czk) / rate;
+};
+
+// Formátuje CZK částku ve zvolené měně. Vstup VŽDY v CZK.
+MG.formatPrice = function(czk, opts){
+  if (!czk && czk !== 0) return '';
+  opts = opts || {};
+  var cur = (opts.currency || MG.currentCurrency()).toUpperCase();
+  var meta = MG._curMeta[cur] || MG._curMeta.CZK;
+  var value = MG.convertFromCzk(czk, cur);
+  if (value === null) return '';
+  var formatted = Number(value).toLocaleString(meta.locale, {
+    minimumFractionDigits: meta.decimals,
+    maximumFractionDigits: meta.decimals
+  });
+  if (opts.withSymbol === false) return formatted;
+  return formatted + ' ' + meta.symbol;
+};
+
+// Vždy vrátí formátovanou částku v CZK (pro Stripe info, faktury apod.)
+MG.formatPriceCzk = function(czk){
+  if (!czk && czk !== 0) return '';
+  return Number(czk).toLocaleString('cs-CZ') + ' Kč';
 };
 
 // ===== MIN PRICE HELPER =====

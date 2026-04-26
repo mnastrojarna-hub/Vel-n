@@ -372,10 +372,13 @@ function formatDate($iso) {
 }
 
 /**
- * Formátuje cenu v Kč.
+ * Formátuje cenu (vstup vždy v CZK z DB) ve zvolené měně zákazníka.
+ * Deleguje na money() z i18n_currency.php — stejný výstup jako historický
+ * "1 500 Kč" pro CZK, jinak konvertuje přes aktuální ČNB kurz.
  */
 function formatPrice($n) {
     if ($n === null || $n === '') return '';
+    if (function_exists('money')) return money($n);
     return number_format((float)$n, 0, ',', ' ') . ' Kč';
 }
 

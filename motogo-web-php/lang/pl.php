@@ -4,6 +4,15 @@ return [
     'lang.select' => 'Wybierz język',
     'lang.current' => 'Aktualny język',
 
+    // Currency switcher
+    'currency.select' => 'Wybierz walutę',
+    'currency.current' => 'Aktualna waluta',
+    'currency.rate.title' => 'Aktualny kurs',
+    'currency.rate.source' => 'Źródło',
+    'currency.rate.stale' => 'Kurs chwilowo niedostępny — używamy ostatniego znanego',
+    'currency.source.fallback' => 'rezerwa',
+    'currency.note.czkCharge' => 'Płatność realizowana jest w CZK (dokładna kwota {czk}). Twój bank przeliczy kwotę na Twoją walutę.',
+
     'header.skip.menu' => 'PRZEJDŹ DO MENU GŁÓWNEGO',
     'header.skip.content' => 'PRZEJDŹ DO TREŚCI',
     'header.skip.contact' => 'PRZEJDŹ DO KONTAKTU',

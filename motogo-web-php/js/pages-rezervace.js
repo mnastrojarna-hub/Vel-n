@@ -118,8 +118,8 @@ MG._rezFormHtml = function(){
           '<input type="checkbox" id="rez-delivery">' +
           '<div class="rez-loc-ico">&#128666;</div>' +
           '<div class="rez-loc-body"><div class="rez-loc-title">Přistavení motorky jinam' +
-          MG._tip('Motorku vám dovezeme na domluvené místo. Cena: 1 000 Kč + 40 Kč/km od pobočky Mezná 9, 393 01 Mezná. Trasu spočítáme automaticky po zadání adresy.') +
-          '</div><div class="rez-loc-sub">1 000 Kč + 40 Kč/km od pobočky</div></div>' +
+          MG._tip('Motorku vám dovezeme na domluvené místo. Cena: '+MG.formatPrice(1000)+' + '+MG.formatPrice(40)+'/km od pobočky Mezná 9, 393 01 Mezná. Trasu spočítáme automaticky po zadání adresy.') +
+          '</div><div class="rez-loc-sub">'+MG.formatPrice(1000)+' + '+MG.formatPrice(40)+'/km od pobočky</div></div>' +
         '</label>' +
       '</div>' +
 
@@ -139,8 +139,8 @@ MG._rezFormHtml = function(){
           '<input type="checkbox" id="rez-return-other">' +
           '<div class="rez-loc-ico">&#128205;</div>' +
           '<div class="rez-loc-body"><div class="rez-loc-title">Vrácení motorky jinde, než kde bylo vyzvednuto' +
-          MG._tip('Motorku vám rádi vyzvedneme jinde. Cena: 1 000 Kč + 40 Kč/km od pobočky Mezná 9, 393 01 Mezná. Trasu spočítáme automaticky po zadání adresy.') +
-          '</div><div class="rez-loc-sub">1 000 Kč + 40 Kč/km od pobočky</div></div>' +
+          MG._tip('Motorku vám rádi vyzvedneme jinde. Cena: '+MG.formatPrice(1000)+' + '+MG.formatPrice(40)+'/km od pobočky Mezná 9, 393 01 Mezná. Trasu spočítáme automaticky po zadání adresy.') +
+          '</div><div class="rez-loc-sub">'+MG.formatPrice(1000)+' + '+MG.formatPrice(40)+'/km od pobočky</div></div>' +
         '</label>' +
       '</div>' +
 
@@ -186,7 +186,7 @@ MG._rezFormHtml = function(){
             '<input type="checkbox" id="rez-eq-passenger">' +
             '<span class="gear-ico">&#128107;</span>' +
             '<div class="gear-body"><div class="gear-title">Výbava spolujezdce</div>' +
-            '<div class="gear-price">+ 690 Kč</div>' +
+            '<div class="gear-price">+ '+MG.formatPrice(690)+'</div>' +
             '<div class="gear-sub">Helma, bunda, rukavice, kukla' +
             MG._tip('Základní výbava pro spolujezdce: helma, bunda, rukavice a kukla. Velikost si vyberete kliknutím níže nebo na místě.') +
             '</div></div>' +
@@ -201,7 +201,7 @@ MG._rezFormHtml = function(){
             '<input type="checkbox" id="rez-eq-boots-rider">' +
             '<span class="gear-ico">&#129406;</span>' +
             '<div class="gear-body"><div class="gear-title">Boty pro řidiče</div>' +
-            '<div class="gear-price">+ 290 Kč</div>' +
+            '<div class="gear-price">+ '+MG.formatPrice(290)+'</div>' +
             '<div class="gear-sub">Motocyklové boty (nejsou v základní výbavě)</div></div>' +
           '</label>' +
           '<div class="gear-size-panel-hint">&#9989; Zaškrtněte výše a rozbalí se výběr velikosti bot</div>' +
@@ -214,7 +214,7 @@ MG._rezFormHtml = function(){
             '<input type="checkbox" id="rez-eq-boots-passenger">' +
             '<span class="gear-ico">&#129406;</span>' +
             '<div class="gear-body"><div class="gear-title">Boty pro spolujezdce</div>' +
-            '<div class="gear-price">+ 290 Kč</div>' +
+            '<div class="gear-price">+ '+MG.formatPrice(290)+'</div>' +
             '<div class="gear-sub">Motocyklové boty pro spolujezdce</div></div>' +
           '</label>' +
           '<div class="gear-size-panel-hint">&#9989; Zaškrtněte výše a rozbalí se výběr velikosti bot</div>' +

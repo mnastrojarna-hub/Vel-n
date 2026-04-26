@@ -6,6 +6,15 @@ return [
     'lang.select' => 'Seleccionar idioma',
     'lang.current' => 'Idioma actual',
 
+    // ===== Currency switcher =====
+    'currency.select' => 'Seleccionar moneda',
+    'currency.current' => 'Moneda actual',
+    'currency.rate.title' => 'Tipo de cambio actual',
+    'currency.rate.source' => 'Fuente',
+    'currency.rate.stale' => 'Tipo temporalmente no disponible — usamos el último conocido',
+    'currency.source.fallback' => 'reserva',
+    'currency.note.czkCharge' => 'El pago se realiza en CZK (importe exacto {czk}). Su banco convertirá el importe a su moneda.',
+
     // ===== Header / focus skip links =====
     'header.skip.menu' => 'IR AL MENÚ PRINCIPAL',
     'header.skip.content' => 'IR AL CONTENIDO',

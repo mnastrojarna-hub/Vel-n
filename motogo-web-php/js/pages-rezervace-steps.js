@@ -74,13 +74,13 @@ MG._submitReservation = async function(){
   if(deliveryAddr){
     var dKm = MG._rez.deliveryDistanceKm;
     var dFee = MG._calcDeliveryFee(dKm);
-    var dLbl = (typeof dKm==='number') ? ' (1 000 Kč + 40 Kč × '+dKm.toFixed(1).replace('.',',')+' km)' : '';
+    var dLbl = (typeof dKm==='number') ? ' ('+MG.formatPrice(1000)+' + '+MG.formatPrice(40)+' × '+dKm.toFixed(1).replace('.',',')+' km)' : '';
     extras.push({name:'Přistavení motorky'+dLbl,unit_price:dFee});
   }
   if(returnAddr){
     var rKm = (retS&&retS.checked) ? MG._rez.deliveryDistanceKm : MG._rez.returnDistanceKm;
     var rFee = MG._calcDeliveryFee(rKm);
-    var rLbl = (typeof rKm==='number') ? ' (1 000 Kč + 40 Kč × '+rKm.toFixed(1).replace('.',',')+' km)' : '';
+    var rLbl = (typeof rKm==='number') ? ' ('+MG.formatPrice(1000)+' + '+MG.formatPrice(40)+' × '+rKm.toFixed(1).replace('.',',')+' km)' : '';
     extras.push({name:'Vrácení motorky'+rLbl,unit_price:rFee});
   }
 

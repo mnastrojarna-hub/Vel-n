@@ -20,7 +20,8 @@ $content = '<main id="content"><div class="container">' . $bc .
 $potvrzeniJs = '<script>
 window.MOTOGO_CONFIG = {
   SUPABASE_URL: ' . json_encode(SUPABASE_URL) . ',
-  SUPABASE_ANON_KEY: ' . json_encode(SUPABASE_ANON_KEY) . '
+  SUPABASE_ANON_KEY: ' . json_encode(SUPABASE_ANON_KEY) . ',
+  CURRENCY: ' . json_encode(function_exists('currencyJsConfig') ? currencyJsConfig() : ['current'=>'CZK','rates'=>[]], JSON_UNESCAPED_UNICODE) . '
 };
 </script>
 <script src="' . BASE_URL . '/js/supabase-sdk.js"></script>

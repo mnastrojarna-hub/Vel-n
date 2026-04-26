@@ -113,7 +113,7 @@ MG._applyVoucher = async function(){
     var curDisc=MG._rez.appliedCodes.reduce(function(s,c){return s+c.discountAmt;},0);
     disc=Math.min(disc,Math.max(0,base-curDisc));
     MG._rez.appliedCodes.push({code:code,type:'promo',id:pd.id,discountAmt:disc,discountType:pd.type,discountValue:pd.value});
-    var lbl=pd.type==='percent'?pd.value+'%':pd.value+' Kč';
+    var lbl=pd.type==='percent'?pd.value+'%':MG.formatPrice(pd.value);
     if(msg) msg.innerHTML='<span style="color:#1a8c1a">✓ Sleva '+lbl+' uplatněna (−'+MG.formatPrice(disc)+')</span>';
     inp.value=''; MG._renderAppliedCodes(); MG._rezUpdatePrice(); return;
   }
@@ -223,7 +223,7 @@ MG._renderRouteInfo = function(type, state){
   }
   if(state.error){
     el.style.display = 'block';
-    el.innerHTML = '<div style="background:#fff4f4;border:1px solid #f0c8c8;border-radius:8px;padding:.6rem .8rem;font-size:.85rem;color:#a02020">Trasu se nepodařilo spočítat. Cena přistavení bude upřesněna ručně (1 000 Kč + 40 Kč/km).</div>';
+    el.innerHTML = '<div style="background:#fff4f4;border:1px solid #f0c8c8;border-radius:8px;padding:.6rem .8rem;font-size:.85rem;color:#a02020">Trasu se nepodařilo spočítat. Cena přistavení bude upřesněna ručně ('+MG.formatPrice(1000)+' + '+MG.formatPrice(40)+'/km).</div>';
     return;
   }
   if(typeof state.distanceKm === 'number'){
@@ -236,7 +236,7 @@ MG._renderRouteInfo = function(type, state){
         '<div style="font-weight:700;margin-bottom:.2rem">Cena ' + label + ': ' + MG.formatPrice(fee) + '</div>' +
         '<div style="font-size:.82rem;color:#374151">Nejrychlejší trasa od pobočky <strong>Mezná 9, 393 01 Mezná</strong>: <strong>' + km + ' km</strong>' +
         (state.durationMin ? ' (~' + state.durationMin + ' min jízdy)' : '') + '</div>' +
-        '<div style="font-size:.78rem;color:#6b7280;margin-top:.2rem">Výpočet: 1 000 Kč + 40 Kč × ' + km + ' km = ' + MG.formatPrice(fee) + '</div>' +
+        '<div style="font-size:.78rem;color:#6b7280;margin-top:.2rem">Výpočet: '+MG.formatPrice(1000)+' + '+MG.formatPrice(40)+' × ' + km + ' km = ' + MG.formatPrice(fee) + '</div>' +
       '</div>';
     return;
   }

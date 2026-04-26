@@ -3,6 +3,7 @@
 
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/i18n.php';
+require_once __DIR__ . '/i18n_currency.php';
 
 // Menu struktura — labels jsou klíče i18n, route zůstává stejná napříč jazyky
 function getMenuItems() {
@@ -54,7 +55,7 @@ function renderHeader($currentPath = '/') {
         '<div class="header"><div class="container dfcs">' .
             '<div class="header-logo"><a href="' . BASE_URL . '/" aria-label="Motogo24"><img src="' . BASE_URL . '/' . LOGO_SVG . '" alt="' . te('header.logoAlt') . '" loading="lazy"></a></div>' .
             '<div class="header-phone"><p><a href="' . PHONE_LINK . '" aria-label="' . te('header.callUs') . '"><img alt="' . te('header.callUs') . '" src="' . BASE_URL . '/gfx/telefon-header.svg" loading="lazy"></a>&nbsp;<a href="' . PHONE_LINK . '">' . PHONE . '</a></p></div>' .
-            '<div class="header-lang">' . renderLanguageSwitcher() . '</div>' .
+            '<div class="header-lang">' . renderCurrencySwitcher() . renderLanguageSwitcher() . '</div>' .
             '<div class="header-menu dfje">' .
                 '<button class="nav-toggle" aria-label="' . te('header.menuOpen') . '" aria-expanded="false" aria-controls="mobile-menu" onclick="(function(){var m=document.getElementById(\'mobile-menu\');var open=!m.classList.contains(\'open\');m.classList.toggle(\'open\',open);document.body.classList.toggle(\'menu-open\',open);this.setAttribute(\'aria-expanded\',open?\'true\':\'false\');}).call(this)">' . te('header.menuToggle') . '</button>' .
                 '<nav id="mobile-menu" class="mobile-menu-overlay" aria-label="' . te('header.menuLabel') . '">' .
@@ -137,10 +138,10 @@ function renderInlineJs() {
   window.addEventListener("resize", function(){
     if(window.innerWidth>768 && menu && menu.classList.contains("open")) setMenu(false);
   }, {passive:true});
-  // Language switcher dropdown toggle
-  document.querySelectorAll("[data-lang-switcher]").forEach(function(sw){
-    var toggle = sw.querySelector(".lang-toggle");
-    var dropdown = sw.querySelector(".lang-dropdown");
+  // Language + Currency switcher dropdown toggle (sdílená logika)
+  function bindSwitcher(sw, toggleSel, dropSel){
+    var toggle = sw.querySelector(toggleSel);
+    var dropdown = sw.querySelector(dropSel);
     if(!toggle || !dropdown) return;
     toggle.addEventListener("click", function(e){
       e.stopPropagation();
@@ -153,7 +154,9 @@ function renderInlineJs() {
     document.addEventListener("keydown", function(e){
       if(e.key==="Escape" && sw.classList.contains("open")){ sw.classList.remove("open"); toggle.setAttribute("aria-expanded","false"); }
     });
-  });
+  }
+  document.querySelectorAll("[data-lang-switcher]").forEach(function(sw){ bindSwitcher(sw, ".lang-toggle", ".lang-dropdown"); });
+  document.querySelectorAll("[data-cur-switcher]").forEach(function(sw){ bindSwitcher(sw, ".cur-toggle", ".cur-dropdown"); });
   // Submenu toggle (mobile)
   document.querySelectorAll(".has-sub > a").forEach(function(a){
     a.addEventListener("click", function(e){
