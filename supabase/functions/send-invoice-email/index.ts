@@ -117,10 +117,11 @@ serve(async (req) => {
 
     if (!invoice_id) return jsonResponse({ success: false, error: 'Missing invoice_id' }, 400)
 
-    // If InvoicePreviewModal passed html_content directly, wrap and send
+    // If InvoicePreviewModal passed html_content directly, use it as-is when it's a full invoice document
     if (html_content && customer_email) {
       const subject = `Faktura \u010d. ${invoice_number || '\u2014'} \u2014 MOTO GO 24`
-      const html = wrapInBrandedLayout(html_content)
+      const isFullDoc = /^\s*<!DOCTYPE/i.test(html_content) || /<html[\s>]/i.test(html_content)
+      const html = isFullDoc ? html_content : wrapInBrandedLayout(html_content)
       if (!RESEND_API_KEY) return jsonResponse({ success: false, error: 'RESEND_API_KEY not configured' }, 500)
       const result = await sendWithRetry({ from: FROM_EMAIL, reply_to: REPLY_TO, to: customer_email, subject, html })
       try { await supabase.from('sent_emails').insert({ template_slug: 'invoice', recipient_email: customer_email, subject, body_html: html, status: result.success ? 'sent' : 'failed', error_message: result.error || null, provider_id: result.provider_id || null }) } catch {}
@@ -194,21 +195,25 @@ serve(async (req) => {
 <p>T\u00fdm MotoGo24</p>`
     }
 
-    const html = wrapInBrandedLayout(templateHtml)
     if (!RESEND_API_KEY) return jsonResponse({ success: false, error: 'RESEND_API_KEY not configured' }, 500)
 
-    // Download invoice HTML from storage and attach
+    // Prefer the full unified-design invoice HTML from Storage as the email body (1:1 with PDF/screen).
+    // Fallback to DB email_template + branded wrapper when the file is missing.
+    let html = ''
     const attachments: { content: string; filename: string }[] = []
     if (invoice.pdf_path) {
       try {
         const { data: blob } = await supabase.storage.from('documents').download(invoice.pdf_path)
         if (blob) {
           const bytes = new Uint8Array(await blob.arrayBuffer())
+          const text = new TextDecoder('utf-8').decode(bytes)
+          if (text && /<html[\s>]/i.test(text)) html = text
           const b64 = btoa(Array.from(bytes, (b: number) => String.fromCharCode(b)).join(''))
           attachments.push({ content: b64, filename: `${invoiceLabel.replace(/ /g, '-')}-${invoice.number}.html` })
         }
       } catch { /* ignore */ }
     }
+    if (!html) html = wrapInBrandedLayout(templateHtml)
 
     const emailPayload: Record<string, unknown> = { from: FROM_EMAIL, reply_to: REPLY_TO, to: recipientEmail, subject, html }
     if (attachments.length > 0) emailPayload.attachments = attachments

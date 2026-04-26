@@ -262,26 +262,3 @@ export function generateInvoiceHtml(p: TemplateParams): string {
 </body></html>`
 }
 
-export function generateEmailHtml(p: {
-  customer: any; company: any; title: string; number: string; total: number
-  dueDate: string; voucher_codes?: string[]; voucherValidUntil?: string | null
-  doorCodes?: any[]; isPaymentReceipt: boolean; isProforma: boolean; isShopFinal: boolean
-  bookingNumber?: string
-  paymentMethodLabel?: string
-  isEdit?: boolean
-}): string {
-  const docLabel = p.isPaymentReceipt ? 'doklad k přijaté platbě' : p.isProforma ? 'zálohovou fakturu' : p.isShopFinal ? 'konečnou fakturu' : 'fakturu'
-  const vc = p.voucher_codes || []
-  const dc = p.doorCodes || []
-  return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:24px;color:#0f1a14">
-    <h2 style="color:#0a1f15;margin:0 0 12px">Dobrý den${p.customer.full_name ? ` ${p.customer.full_name}` : ''},</h2>
-    <p style="margin:0 0 8px">Zasíláme vám ${docLabel} č. <strong>${p.number}</strong>${p.isEdit ? ' <span style="color:#b45309">(úprava rezervace)</span>' : ''} na částku <strong>${fmtPrice(p.total)}</strong>.</p>
-    ${p.bookingNumber ? `<p style="margin:0 0 4px">Rezervace: <strong>${p.bookingNumber}</strong></p>` : ''}
-    ${p.paymentMethodLabel ? `<p style="margin:0 0 4px">Platba: <strong>${p.paymentMethodLabel}</strong></p>` : `<p style="margin:0 0 4px">Splatnost: <strong>${fmtDate(p.dueDate)}</strong></p>`}
-    <p style="margin:0 0 4px">Variabilní symbol: <strong>${p.number}</strong></p>
-    ${vc.length > 0 ? `<div style="padding:12px;background:#dcfce7;border-radius:6px;margin:12px 0;border:1px solid #86efac"><div style="font-size:11px;font-weight:800;color:#166534;letter-spacing:1.5px;margin-bottom:6px">DÁRKOVÉ POUKAZY</div>${vc.map((c: string) => `<div style="font-size:16px;font-weight:700;font-family:monospace;color:#166534;padding:2px 0">${c}</div>`).join('')}${p.voucherValidUntil ? `<div style="font-size:11px;color:#166534;margin-top:6px">Platnost: 3 roky (do ${fmtDate(p.voucherValidUntil)}). Kód uplatníte při rezervaci v aplikaci MotoGo24.</div>` : ''}</div>` : ''}
-    ${dc.length > 0 ? `<div style="padding:12px;background:#e0f2fe;border-radius:6px;margin:12px 0;border:1px solid #0284c7"><div style="font-size:11px;font-weight:800;color:#0c4a6e;letter-spacing:1.5px;margin-bottom:8px">PŘÍSTUPOVÉ KÓDY K POBOČCE</div>${dc.filter((c: any) => !c.withheld_reason).map((d: any) => `<div style="font-size:18px;font-weight:700;font-family:monospace;letter-spacing:3px;color:#0369a1;padding:2px 0">${d.code_type === 'motorcycle' ? 'Motorka' : 'Příslušenství'}: ${d.door_code}</div>`).join('')}${dc.some((c: any) => c.withheld_reason) ? '<div style="font-size:12px;color:#b45309;margin-top:6px">Kódy budou zaslány po ověření dokladů.</div>' : '<div style="font-size:11px;color:#164e63;margin-top:6px">Kódy jsou platné po dobu trvání pronájmu.</div>'}</div>` : ''}
-    <hr style="border:0;border-top:1px solid #e5e7eb;margin:16px 0">
-    <p style="font-size:12px;color:#6b7280;margin:0">${p.company.name} | ${p.company.email}</p>
-  </div>`
-}
