@@ -4,6 +4,15 @@ return [
     'lang.select' => 'Taal kiezen',
     'lang.current' => 'Huidige taal',
 
+    // Currency switcher
+    'currency.select' => 'Valuta kiezen',
+    'currency.current' => 'Huidige valuta',
+    'currency.rate.title' => 'Huidige wisselkoers',
+    'currency.rate.source' => 'Bron',
+    'currency.rate.stale' => 'Koers tijdelijk niet beschikbaar — laatst bekende waarde',
+    'currency.source.fallback' => 'reserve',
+    'currency.note.czkCharge' => 'De betaling vindt plaats in CZK (exact bedrag {czk}). Uw bank rekent het bedrag om naar uw valuta.',
+
     'header.skip.menu' => 'NAAR HOOFDMENU',
     'header.skip.content' => 'NAAR INHOUD',
     'header.skip.contact' => 'NAAR CONTACT',

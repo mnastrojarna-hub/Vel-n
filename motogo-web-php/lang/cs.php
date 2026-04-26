@@ -6,6 +6,15 @@ return [
     'lang.select' => 'Vybrat jazyk',
     'lang.current' => 'Aktuální jazyk',
 
+    // ===== Currency switcher =====
+    'currency.select' => 'Zvolit měnu',
+    'currency.current' => 'Aktuální měna',
+    'currency.rate.title' => 'Aktuální kurz',
+    'currency.rate.source' => 'Zdroj',
+    'currency.rate.stale' => 'Kurz dočasně nedostupný — používáme poslední známý',
+    'currency.source.fallback' => 'záložní',
+    'currency.note.czkCharge' => 'Platba probíhá v CZK (přesná částka {czk}). Banka vám částku přepočte na vaši měnu.',
+
     // ===== Header / focus skip links =====
     'header.skip.menu' => 'PŘEJDI NA HLAVNÍ MENU',
     'header.skip.content' => 'PŘEJDI NA OBSAH',

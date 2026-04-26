@@ -5,6 +5,15 @@ return [
     'lang.select' => 'Sprache wählen',
     'lang.current' => 'Aktuelle Sprache',
 
+    // Currency switcher
+    'currency.select' => 'Währung wählen',
+    'currency.current' => 'Aktuelle Währung',
+    'currency.rate.title' => 'Aktueller Wechselkurs',
+    'currency.rate.source' => 'Quelle',
+    'currency.rate.stale' => 'Kurs vorübergehend nicht verfügbar — letzter bekannter Wert',
+    'currency.source.fallback' => 'Reserve',
+    'currency.note.czkCharge' => 'Die Zahlung erfolgt in CZK (exakter Betrag {czk}). Ihre Bank rechnet den Betrag in Ihre Währung um.',
+
     // Header / focus skip links
     'header.skip.menu' => 'ZUM HAUPTMENÜ',
     'header.skip.content' => 'ZUM INHALT',

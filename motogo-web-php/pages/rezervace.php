@@ -22,7 +22,8 @@ $rezervaceJs = '<script>
 window.MOTOGO_CONFIG = {
   SUPABASE_URL: ' . json_encode(SUPABASE_URL) . ',
   SUPABASE_ANON_KEY: ' . json_encode(SUPABASE_ANON_KEY) . ',
-  LANG: ' . json_encode(function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs') . '
+  LANG: ' . json_encode(function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs') . ',
+  CURRENCY: ' . json_encode(function_exists('currencyJsConfig') ? currencyJsConfig() : ['current'=>'CZK','rates'=>[]], JSON_UNESCAPED_UNICODE) . '
 };
 window.REZERVACE_PARAMS = {
   moto: ' . json_encode($motoId) . ',
