@@ -322,14 +322,32 @@ async function execPublicTool(name: string, args: Record<string, unknown>): Prom
       }
       const result = data as Record<string, unknown>
       const bookingId = String(result?.booking_id || '')
-      // Resume URL pro dokončení (dovyplnění dokladů + platba)
+      const amount = Number(result?.amount || 0)
+      // Hned zkusíme získat reálný Stripe Checkout URL přes process-payment.
+      // Když selže (např. amount <= 0), fallback na resume URL.
+      let paymentUrl = `https://motogo24.cz/rezervace/dokoncit?id=${bookingId}`
+      try {
+        const ppResp = await fetch(`${SUPABASE_URL}/functions/v1/process-payment`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+            'apikey': SUPABASE_SERVICE_KEY,
+          },
+          body: JSON.stringify({ source: 'web', booking_id: bookingId }),
+        })
+        if (ppResp.ok) {
+          const pp = await ppResp.json() as Record<string, unknown>
+          if (pp.checkout_url) paymentUrl = String(pp.checkout_url)
+        }
+      } catch { /* fallback paymentUrl */ }
       return {
         success: true,
         booking_id: bookingId,
-        amount_kc: Number(result?.amount || 0),
+        amount_kc: amount,
         is_new_user: !!result?.is_new_user,
-        payment_url: `https://motogo24.cz/rezervace/dokoncit?id=${bookingId}`,
-        message: 'Rezervace vytvořena. Pošli zákazníkovi platební odkaz a požádej ho o dokončení (nahrání ŘP/OP a platbu kartou).',
+        payment_url: paymentUrl,
+        message: 'Rezervace vytvořena. Pošli zákazníkovi přímý platební odkaz (Stripe Checkout) a v krátké zprávě shrň motorku, termín a celkovou částku.',
       }
     }
     case 'redirect_to_booking': {
@@ -370,16 +388,10 @@ const TONE_DESC: Record<string, string> = {
 }
 
 function buildSystemPrompt(lang: string, cfg: WebAgentConfig): string {
-  const langMap: Record<string, string> = {
-    cs: 'Odpovídej česky.',
-    en: 'Reply in English. Translate fixed Czech instructions on the fly.',
-    de: 'Antworte auf Deutsch.',
-    es: 'Responde en español.',
-    fr: 'Réponds en français.',
-    nl: 'Antwoord in het Nederlands.',
-    pl: 'Odpowiadaj po polsku.',
-  }
-  const langInstr = langMap[lang] || langMap.cs
+  // Jazyk je adaptivní — model VŽDY odpovídá ve stejném jazyce, jakým píše uživatel.
+  // `lang` je jen hint z prohlížeče (UI jazyk webu) pro úvodní zprávu.
+  const langHint = (lang || 'cs').slice(0, 2)
+  const langInstr = `JAZYK: Detekuj jazyk POSLEDNÍ uživatelské zprávy a odpovídej VÝHRADNĚ ve stejném jazyce. Pokud uživatel přepne jazyk uprostřed konverzace, přepni s ním. Hint UI jazyka: ${langHint}. Tento hint použij jen pro 1. zprávu, dál se řiď textem uživatele. Žádné překlady ani dvojjazyčné odpovědi — vyber jeden jazyk a v něm odpověz.`
 
   // Today header (Europe/Prague)
   const now = new Date()
