@@ -12,6 +12,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Legend } from 'recharts'
+import { CreateApiKeyModal, RevokeApiKeyConfirm } from './ApiKeyModals'
 
 const PERIODS = [
   { id: '7d',  label: '7 dní',  ms: 7  * 24 * 3600 * 1000 },
@@ -45,6 +46,8 @@ export default function AiTraffic() {
   const [partners, setPartners] = useState([])
   const [citations, setCitations] = useState([])
   const [showAddCitation, setShowAddCitation] = useState(false)
+  const [showCreateKey, setShowCreateKey] = useState(false)
+  const [revokeKey, setRevokeKey] = useState(null)
 
   useEffect(() => { loadData() }, [period])
 
@@ -55,7 +58,7 @@ export default function AiTraffic() {
       const from = new Date(Date.now() - periodObj.ms).toISOString()
       const [tr, pa, ci] = await Promise.all([
         supabase.from('ai_traffic_log').select('source, bot_name, endpoint, outcome, partner_id, ts').gte('ts', from).order('ts', { ascending: false }).limit(20000),
-        supabase.from('api_keys').select('id, partner_name, partner_email, is_active, request_count, last_used_at, rate_limit_rpm, scopes, created_at, revoked_at'),
+        supabase.from('api_keys').select('id, partner_name, partner_email, key_prefix, is_active, request_count, last_used_at, rate_limit_rpm, scopes, created_at, revoked_at'),
         supabase.from('ai_citations').select('*').gte('observed_at', from).order('observed_at', { ascending: false }),
       ])
       if (tr.error) throw tr.error
@@ -181,20 +184,32 @@ export default function AiTraffic() {
 
       {/* Partners (API keys) */}
       <div style={{ background: '#fff', borderRadius: 14, padding: 16, border: '1px solid #e3e8e5', marginBottom: 20 }}>
-        <h3 className="font-extrabold text-sm mb-3" style={{ color: '#1a2e22' }}>API partneři</h3>
+        <div className="flex justify-between items-center mb-3">
+          <div>
+            <h3 className="font-extrabold text-sm" style={{ color: '#1a2e22' }}>API partneři</h3>
+            <p style={{ color: '#888', fontSize: 11 }}>REST API klíče s rate-limity per partner. Klíč v plain textu se zobrazí pouze 1× při vytvoření.</p>
+          </div>
+          <button onClick={() => setShowCreateKey(true)}
+            className="rounded-btn text-xs font-bold cursor-pointer"
+            style={{ padding: '6px 14px', background: '#74FB71', color: '#1a2e22', border: 'none' }}>
+            + Nový API klíč
+          </button>
+        </div>
         {partners.length === 0 ? (
-          <p style={{ color: '#888', fontSize: 13 }}>Žádní partneři. Klíč vytvoříš zavoláním RPC <code>create_api_key()</code>.</p>
+          <p style={{ color: '#888', fontSize: 13 }}>Žádní partneři. Klíč vytvoříš tlačítkem nahoře nebo přes RPC <code>create_api_key()</code>.</p>
         ) : (
           <table className="w-full text-xs">
             <thead>
               <tr style={{ borderBottom: '1px solid #e3e8e5', textAlign: 'left' }}>
                 <th className="p-2">Partner</th>
                 <th className="p-2">E-mail</th>
+                <th className="p-2">Prefix</th>
                 <th className="p-2 text-right">Rate / min</th>
                 <th className="p-2">Scopes</th>
                 <th className="p-2 text-right">Requests ({periodObj.label})</th>
                 <th className="p-2">Last used</th>
                 <th className="p-2">Status</th>
+                <th className="p-2"></th>
               </tr>
             </thead>
             <tbody>
@@ -202,6 +217,7 @@ export default function AiTraffic() {
                 <tr key={p.id} style={{ borderBottom: '1px solid #f1f1f1' }}>
                   <td className="p-2 font-bold" style={{ color: '#1a2e22' }}>{p.partner_name}</td>
                   <td className="p-2">{p.partner_email}</td>
+                  <td className="p-2"><code style={{ background: '#f1faf7', padding: '2px 6px', borderRadius: 4, fontSize: 10 }}>{p.key_prefix}…</code></td>
                   <td className="p-2 text-right">{p.rate_limit_rpm}</td>
                   <td className="p-2" style={{ fontSize: 10 }}>{(p.scopes || []).join(', ')}</td>
                   <td className="p-2 text-right font-bold" style={{ color: '#1a2e22' }}>{(stats.byPartner[p.id] || 0).toLocaleString('cs-CZ')}</td>
@@ -213,12 +229,22 @@ export default function AiTraffic() {
                       color: p.is_active && !p.revoked_at ? '#166534' : '#991b1b',
                     }}>{p.is_active && !p.revoked_at ? 'Aktivní' : 'Revokovaný'}</span>
                   </td>
+                  <td className="p-2">
+                    {p.is_active && !p.revoked_at && (
+                      <button onClick={() => setRevokeKey(p)}
+                        style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}
+                        title="Zneplatnit klíč">Revoke</button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </div>
+
+      {showCreateKey && <CreateApiKeyModal onClose={() => setShowCreateKey(false)} onCreated={loadData} />}
+      {revokeKey && <RevokeApiKeyConfirm apiKey={revokeKey} onClose={() => setRevokeKey(null)} onRevoked={loadData} />}
 
       {/* Top endpoints */}
       <div style={{ background: '#fff', borderRadius: 14, padding: 16, border: '1px solid #e3e8e5', marginBottom: 20 }}>

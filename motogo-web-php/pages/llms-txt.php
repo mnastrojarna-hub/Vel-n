@@ -169,13 +169,20 @@ echo "- [GDPR / Ochrana osobních údajů]({$base}/gdpr): zásady zpracování\n
 echo "- [Mapa stránek]({$base}/mapa-stranek): kompletní seznam URL\n\n";
 
 echo "## {$T['h2_api']}\n\n";
-echo "{$T['apiNote']}\n\n";
-echo "**Strukturované zdroje:**\n";
+echo "**Developer dokumentace:** [{$base}/partneri]({$base}/partneri)\n\n";
+echo "**REST API a MCP server jsou nasazené.** Hybrid auth — bez klíče nízký rate-limit per IP, s X-Api-Key per-partner limit dle smlouvy.\n\n";
+echo "**Endpointy:**\n";
+echo "- REST API: `https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/public-api/api/v1/...` (9 endpointů — motorcycles, quote, bookings, ...)\n";
+echo "- OpenAPI 3.1 spec: `https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/public-api/api/v1/openapi.json`\n";
+echo "- MCP server: `https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/mcp-server` (9 tools + 5 resources, registrace v Claude Desktop)\n\n";
+echo "**Strukturované zdroje pro AI bez API:**\n";
 echo "- Sitemap XML s hreflang + image extension: [{$base}/sitemap.xml]({$base}/sitemap.xml)\n";
 echo "- Detailní LLM obsah (sloučený markdown): [{$base}/llms-full.txt]({$base}/llms-full.txt)\n";
+echo "- Manifest pro AI agenty: [{$base}/.well-known/agent.json]({$base}/.well-known/agent.json)\n";
 echo "- robots.txt s allowlistem AI botů: [{$base}/robots.txt]({$base}/robots.txt)\n";
 echo "- JSON-LD na každé stránce: Organization, WebSite, AutomotiveBusiness, Product/Vehicle/Motorcycle, Offer, FAQPage, HowTo, Article, BreadcrumbList\n";
 echo "- Bezpečnostní kontakt: [{$base}/.well-known/security.txt]({$base}/.well-known/security.txt)\n\n";
+echo "**Pro získání API klíče:** napište na info@motogo24.cz s předmětem \"API klíč\".\n\n";
 
 echo "---\n";
 echo "*Generováno: " . date('Y-m-d H:i') . " UTC · jazyk: {$lang}*\n";

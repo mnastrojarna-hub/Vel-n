@@ -375,12 +375,25 @@ if (is_array($posts) && !empty($posts)) {
 }
 
 // Footer
-echo "# Pro AI agenty — strukturované zdroje\n\n";
+echo "# Pro AI agenty — strukturované zdroje + API\n\n";
+echo "**Developer dokumentace:** {$base}/partneri\n\n";
+echo "## REST API (LIVE)\n\n";
+echo "- **Base URL:** https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/public-api\n";
+echo "- **OpenAPI 3.1 spec:** https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/public-api/api/v1/openapi.json\n";
+echo "- **9 endpointů:** GET /api/v1/motorcycles, GET /api/v1/motorcycles/{id}, GET /api/v1/motorcycles/{id}/availability, GET /api/v1/branches, GET /api/v1/extras, POST /api/v1/quotes, POST /api/v1/bookings, POST /api/v1/promo/validate, POST /api/v1/voucher/validate\n";
+echo "- **Hybrid auth:** bez klíče = 60 req/min/IP read, 30 req/h/IP create_booking. S X-Api-Key = per-partner rate-limit (typ. 1000 req/min).\n";
+echo "- **API klíč:** info@motogo24.cz s předmětem \"API klíč\"\n\n";
+echo "## MCP server (LIVE)\n\n";
+echo "- **Endpoint:** https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/mcp-server\n";
+echo "- **Protocol:** Model Context Protocol (HTTP + JSON-RPC 2.0), spec https://modelcontextprotocol.io\n";
+echo "- **9 tools:** motogo_search_motorcycles, motogo_get_motorcycle, motogo_get_availability, motogo_quote, motogo_create_booking, motogo_get_branches, motogo_get_faq, motogo_validate_promo, motogo_validate_voucher\n";
+echo "- **5 resources:** motogo://about, motogo://motorcycles, motogo://branches, motogo://faq, motogo://policies\n";
+echo "- **Klient (Claude Desktop):** přidej do `claude_desktop_config.json` → `\"mcpServers\": { \"motogo24\": { \"url\": \"...mcp-server\" } }`\n\n";
+echo "## Strukturované zdroje\n\n";
 echo "- **Sitemap XML s hreflang + image extension:** {$base}/sitemap.xml\n";
 echo "- **Krátký LLM index:** {$base}/llms.txt\n";
-echo "- **robots.txt s allowlistem AI botů:** {$base}/robots.txt\n";
-echo "- **Bezpečnostní kontakt:** {$base}/.well-known/security.txt\n";
+echo "- **robots.txt s allowlistem 22 AI botů:** {$base}/robots.txt\n";
 echo "- **Manifest pro AI agenty:** {$base}/.well-known/agent.json\n";
-echo "- **JSON-LD Schema.org** na každé stránce: Organization, WebSite (+SearchAction), AutomotiveBusiness, Product/Vehicle/Motorcycle, Offer, FAQPage, HowTo, Article, BreadcrumbList\n";
-echo "- **Veřejné REST API a MCP server pro programové rezervace** — v přípravě (Q2 2026)\n\n";
+echo "- **Bezpečnostní kontakt:** {$base}/.well-known/security.txt\n";
+echo "- **JSON-LD Schema.org** na každé stránce: Organization, WebSite (+SearchAction), AutomotiveBusiness, Product/Vehicle/Motorcycle, Offer, FAQPage, HowTo, Article, BreadcrumbList\n\n";
 echo "*Generováno: " . date('Y-m-d H:i') . " UTC · jazyk: $lang · délka kontextu: ~80 kB*\n";
