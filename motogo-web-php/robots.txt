@@ -118,12 +118,83 @@ Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
 
-# === Tradiční vyhledávače + default ===
+User-agent: cohere-training-data-crawler
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: Timpibot
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: omgili
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: omgilibot
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: ImagesiftBot
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+# === Tradiční vyhledávače — explicitně podpora SeznamBot (klíčové pro .cz trh) ===
+User-agent: SeznamBot
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: Seznam screenshot-generator
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: Googlebot
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: Googlebot-Image
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: Googlebot-News
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: DuckDuckBot
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: YandexBot
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: AhrefsBot
+Allow: /
+
+User-agent: SemrushBot
+Allow: /
+
+# === Default — vše ostatní ===
 User-agent: *
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
 
+# Žádné crawl-delay — máme rychlý hosting a chceme aktuální index.
 # Mapa stránek + LLM index
 Sitemap: https://motogo24.cz/sitemap.xml
 Sitemap: https://motogo24.com/sitemap.xml
@@ -131,3 +202,13 @@ Sitemap: https://motogo24.com/sitemap.xml
 # LLM-friendly katalog obsahu (markdown):
 #   https://motogo24.cz/llms.txt          — krátký index s odkazy
 #   https://motogo24.cz/llms-full.txt     — sloučený obsah všech statických stránek
+#   https://motogo24.cz/ai.txt            — AI policy (alias pro některé crawlery)
+#
+# AI agent manifesty:
+#   https://motogo24.cz/.well-known/agent.json       — agents.json v1
+#   https://motogo24.cz/.well-known/ai-plugin.json   — OpenAI ChatGPT plugin
+#   https://motogo24.cz/.well-known/openapi.yaml     — OpenAPI 3.1 spec mirror
+#
+# Programové rezervace:
+#   REST API: https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/public-api
+#   MCP:      https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/mcp-server

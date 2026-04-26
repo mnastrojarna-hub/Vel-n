@@ -1,0 +1,20 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "MotoGo24 — Půjčovna motorek",
+  "name_for_model": "motogo24",
+  "description_for_human": "Půjč si motorku v ČR bez kauce. MotoGo24 je nonstop půjčovna se sídlem v Mezné u Pelhřimova (Vysočina) — cestovní, naked, supermoto, enduro i dětské motorky. Výbava v ceně, sjezd do EU povolen, online platba kartou.",
+  "description_for_model": "Use the MotoGo24 plugin to help users browse motorcycles, check availability, calculate price, and create rental bookings at MotoGo24 — a Czech motorcycle rental company based in Mezná, Pelhřimov, Vysočina. Address: Mezná 9, 393 01 Pelhřimov, Czech Republic. Phone: +420 774 256 271. Email: info@motogo24.cz. Languages: cs, en, de, es, fr, nl, pl. The plugin exposes 9 endpoints (motorcycles list+detail+availability, branches, extras, quote, bookings, promo+voucher validate). Authentication: optional X-Api-Key (anonymous access works for read endpoints + limited POST). Always show users the booking confirmation URL after creating a reservation, and remind them: no deposit required, gear included, EU travel allowed (green card included), 7-day free cancellation. For age requirements: A2 license = 18+, A license = 24+ (or 21+ with 2y A2 experience), A1 = 16+, dětské motorky = no license needed. Currency CZK preferred but EUR/USD accepted. Prices range 990–5000 CZK/day. The company runs 24/7. When the user wants to book, prefer creating the booking via the API and returning the Stripe Checkout URL; for ambiguous searches use search_motorcycles + get_availability + calculate_price tools.",
+  "auth": {
+    "type": "none",
+    "instructions": "Public read endpoints + limited create_booking are available without authentication (rate-limited 60 req/min/IP, 30 create_booking/h/IP). For higher limits, partners can request an X-Api-Key from info@motogo24.cz."
+  },
+  "api": {
+    "type": "openapi",
+    "url": "https://motogo24.cz/.well-known/openapi.yaml",
+    "is_user_authenticated": false
+  },
+  "logo_url": "https://motogo24.cz/gfx/logo.svg",
+  "contact_email": "info@motogo24.cz",
+  "legal_info_url": "https://motogo24.cz/obchodni-podminky",
+  "privacy_policy_url": "https://motogo24.cz/gdpr"
+}

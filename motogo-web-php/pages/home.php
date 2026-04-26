@@ -183,8 +183,58 @@ $content = $bannerHtml .
     $signHtml . $motosHtml . $processHtml . $faqHtml . $reviewsHtml . $ctaHtml . $blogHtml .
     '</div></main>';
 
+// ---- Strukturovaná data: FAQ + HowTo + AggregateRating ze sekcí výše ----
+
+// FAQPage schema z $C['faq']['items'] — stripuje HTML, zachycuje strong/em jako text.
+$faqSchemaItems = [];
+if (!empty($C['faq']['items']) && is_array($C['faq']['items'])) {
+    foreach ($C['faq']['items'] as $f) {
+        $q = trim(strip_tags($f['q'] ?? ''));
+        $a = trim(strip_tags($f['a'] ?? ''));
+        if ($q === '' || $a === '') continue;
+        $faqSchemaItems[] = '{"@type":"Question","name":' . json_encode($q, JSON_UNESCAPED_UNICODE) . ',"acceptedAnswer":{"@type":"Answer","text":' . json_encode($a, JSON_UNESCAPED_UNICODE) . '}}';
+    }
+}
+$faqSchema = '';
+if (!empty($faqSchemaItems)) {
+    $faqSchema = '<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[' . implode(',', $faqSchemaItems) . ']}</script>';
+}
+
+// HowTo schema z $C['process']['steps'] — návod "Jak si půjčit motorku v Motogo24".
+$howToSteps = [];
+if (!empty($C['process']['steps']) && is_array($C['process']['steps'])) {
+    foreach ($C['process']['steps'] as $i => $s) {
+        $name = trim(strip_tags($s['title'] ?? ''));
+        $text = trim(strip_tags($s['text'] ?? ''));
+        if ($name === '' || $text === '') continue;
+        $howToSteps[] = '{"@type":"HowToStep","position":' . ($i + 1) . ',"name":' . json_encode($name, JSON_UNESCAPED_UNICODE) . ',"text":' . json_encode($text, JSON_UNESCAPED_UNICODE) . ',"url":"https://motogo24.cz/jak-pujcit#krok-' . ($i + 1) . '"}';
+    }
+}
+$howToSchema = '';
+if (!empty($howToSteps)) {
+    $howToSchema = '<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"Jak si půjčit motorku v MotoGo24","description":"Snadný 4krokový postup — výběr motorky, online rezervace, převzetí na pobočce v Pelhřimově, jízda.","totalTime":"PT10M","estimatedCost":{"@type":"MonetaryAmount","currency":"CZK","value":"990"},"supply":[{"@type":"HowToSupply","name":"Řidičský průkaz odpovídající skupiny (AM/A1/A2/A nebo B)"},{"@type":"HowToSupply","name":"Občanský průkaz nebo pas"},{"@type":"HowToSupply","name":"Platební karta (Visa/Mastercard, Apple/Google Pay)"}],"tool":[{"@type":"HowToTool","name":"Online rezervační formulář"}],"step":[' . implode(',', $howToSteps) . ']}</script>';
+}
+
+// AggregateRating z reálných reviews — pokud máme aspoň 1 recenzi s ratingem.
+$aggRating = null;
+if (!empty($reviews) && is_array($reviews)) {
+    $rated = array_filter($reviews, function ($r) { return !empty($r['rating']); });
+    if (count($rated) > 0) {
+        $sum = array_sum(array_map(function ($r) { return (int)$r['rating']; }, $rated));
+        $cnt = count($rated);
+        $avg = round($sum / $cnt, 1);
+        $aggRating = ['rating' => $avg, 'count' => $cnt];
+    }
+}
+
 renderPage($C['seo']['title'], $content, '/', [
     'description' => $C['seo']['description'],
     'keywords' => $C['seo']['keywords'],
     'og_image' => $C['seo']['og_image'] ?? null,
+    'schema' => $faqSchema . $howToSchema,
+    'aggregate_rating' => $aggRating,
+    'speakable' => ['h1', '.home-intro', '[aria-labelledby="catalogue"] > h2', '[aria-labelledby="process"]'],
+    'breadcrumbs' => [
+        ['name' => 'Domů', 'url' => 'https://motogo24.cz/'],
+    ],
 ]);

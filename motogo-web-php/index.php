@@ -100,6 +100,65 @@ if ($path === '/.well-known/agent.json') {
     if (is_file($f)) {
         header('Content-Type: application/json; charset=utf-8');
         header('Cache-Control: public, max-age=3600');
+        header('Access-Control-Allow-Origin: *');
+        header('X-Robots-Tag: noindex, follow');
+        readfile($f);
+        exit;
+    }
+}
+
+// .well-known/ai-plugin.json — OpenAI ChatGPT plugin manifest (legacy formát).
+// Některé GPT integrace ho stále hledají vedle agent.json — duální podpora
+// zvyšuje šanci, že nás AI agent najde a použije pro booking.
+if ($path === '/.well-known/ai-plugin.json') {
+    $f = __DIR__ . '/.well-known/ai-plugin.json';
+    if (is_file($f)) {
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: public, max-age=3600');
+        header('Access-Control-Allow-Origin: *');
+        header('X-Robots-Tag: noindex, follow');
+        readfile($f);
+        exit;
+    }
+}
+
+// .well-known/openapi.yaml + .well-known/openapi.json + /openapi.json + /openapi.yaml
+// Proxy s 1h cache na Supabase public-api OpenAPI spec. Dává AI agentům jednu
+// důvěryhodnou URL na motogo24.cz origin, fallback na stub při výpadku Supabase.
+if ($path === '/.well-known/openapi.yaml' || $path === '/.well-known/openapi.json'
+    || $path === '/openapi.yaml' || $path === '/openapi.json') {
+    require __DIR__ . '/pages/openapi-proxy.php';
+    exit;
+}
+
+// /ai.txt — alternativní konvence vedle /llms.txt (spirit2.com/ai.txt formát).
+// Některé AI tooly hledají specificky tenhle soubor.
+if ($path === '/ai.txt') {
+    $f = __DIR__ . '/ai.txt';
+    if (is_file($f)) {
+        header('Content-Type: text/plain; charset=utf-8');
+        header('Cache-Control: public, max-age=3600');
+        header('Access-Control-Allow-Origin: *');
+        header('X-Robots-Tag: noindex, follow');
+        readfile($f);
+        exit;
+    }
+}
+
+// /feed.xml — RSS 2.0 feed pro blog. Pomáhá Google Discover, Seznam Novinkám,
+// AI agentům s aktualizovaným obsahem (články o motorkách a trasách).
+if ($path === '/feed.xml' || $path === '/rss.xml') {
+    require __DIR__ . '/pages/feed.php';
+    exit;
+}
+
+// /manifest.webmanifest — PWA manifest (offline UX, "Přidat na plochu").
+if ($path === '/manifest.webmanifest') {
+    $f = __DIR__ . '/manifest.webmanifest';
+    if (is_file($f)) {
+        header('Content-Type: application/manifest+json; charset=utf-8');
+        header('Cache-Control: public, max-age=86400');
+        header('Access-Control-Allow-Origin: *');
         readfile($f);
         exit;
     }
