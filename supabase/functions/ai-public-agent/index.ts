@@ -146,6 +146,25 @@ const PUBLIC_TOOLS = [
     },
   },
   {
+    name: 'get_extras_catalog',
+    description: 'Vrátí seznam příslušenství, které lze přiobjednat (boty, výbava spolujezdce, přistavení, atd.) s cenami.',
+    input_schema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'get_branches',
+    description: 'Vrátí seznam poboček MotoGo24 s adresou, GPS a otevíracími hodinami.',
+    input_schema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'validate_promo_or_voucher',
+    description: 'Ověří promo kód nebo voucher. Vrátí typ a hodnotu slevy. Pokud je kód neplatný, vrátí valid=false.',
+    input_schema: {
+      type: 'object',
+      properties: { code: { type: 'string' } },
+      required: ['code'],
+    },
+  },
+  {
     name: 'create_booking_request',
     description: 'Vytvoří skutečnou rezervaci v systému (status pending). VOLEJ POUZE když máš VŠECHNY povinné údaje a zákazník výslovně potvrdil. Vrátí booking_id a payment_url. Po zavolání pošli zákazníkovi platební odkaz a krátké shrnutí.',
     input_schema: {
@@ -262,6 +281,36 @@ async function execPublicTool(name: string, args: Record<string, unknown>): Prom
       return query
         ? { faqs: faqs.filter((f) => (f.q + ' ' + f.a).toLowerCase().includes(query)).slice(0, 5) }
         : { faqs: faqs.slice(0, 8) }
+    }
+    case 'get_extras_catalog': {
+      const { data } = await sb.from('extras_catalog')
+        .select('id, name, description, price, unit, category, is_active')
+        .eq('is_active', true).order('sort_order', { ascending: true }).order('name')
+      return { extras: (data || []).map((e: Record<string, unknown>) => ({
+        id: e.id, name: e.name, price_kc: e.price, unit: e.unit || 'ks', category: e.category, description: e.description,
+      })) }
+    }
+    case 'get_branches': {
+      const { data } = await sb.from('branches')
+        .select('id, name, address, city, zip, lat, lng, phone, is_open, type, notes')
+        .order('name')
+      return { branches: (data || []).map((b: Record<string, unknown>) => ({
+        id: b.id, name: b.name, address: `${b.address || ''}, ${b.zip || ''} ${b.city || ''}`.trim(),
+        lat: b.lat, lng: b.lng, phone: b.phone, is_open_nonstop: !!b.is_open, type: b.type, notes: b.notes,
+      })) }
+    }
+    case 'validate_promo_or_voucher': {
+      const code = String(args.code || '').trim()
+      if (!code) return { valid: false, error: 'Prázdný kód' }
+      const { data: promo } = await sb.rpc('validate_promo_code', { code })
+      if (promo && (promo as Record<string, unknown>).valid) {
+        return { valid: true, kind: 'promo', ...(promo as Record<string, unknown>) }
+      }
+      const { data: vch } = await sb.rpc('validate_voucher_code', { p_code: code })
+      if (vch && (vch as Record<string, unknown>).valid) {
+        return { valid: true, kind: 'voucher', ...(vch as Record<string, unknown>) }
+      }
+      return { valid: false, error: 'Kód není platný nebo už byl použit.' }
     }
     case 'create_booking_request': {
       const a = args as Record<string, string>
