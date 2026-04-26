@@ -103,14 +103,19 @@ async function loadConfig(): Promise<WebAgentConfig> {
 const PUBLIC_TOOLS = [
   {
     name: 'search_motorcycles',
-    description: 'Vyhledá motorky v MotoGo24 katalogu podle kategorie, ŘP, výkonu nebo ceny. Použij když uživatel hledá motorku.',
+    description: 'Vyhledá motorky v MotoGo24 katalogu. Filtruj podle značky, modelu, kategorie, ŘP, výkonu, ceny nebo dostupnosti k danému datu. Když uživatel řekne "máš kawu/Kawasaki/BMW na pondělí" — ZAVOLEJ s `brand` a `available_on`, neinteroguj. Vrátí seznam s URL na detail.',
     input_schema: {
       type: 'object',
       properties: {
+        brand: { type: 'string', description: 'Značka, např. "Kawasaki", "BMW", "Yamaha", "Honda", "KTM", "Husqvarna", "Ducati", "Suzuki", "Triumph". Case-insensitive substring match.' },
+        model_query: { type: 'string', description: 'Volnotextový dotaz na model (např. "Z 900", "MT-09", "S 1000", "Versys"). Použij kombinovaně s brand pro přesnost.' },
         category: { type: 'string', enum: ['cestovni', 'naked', 'supermoto', 'detske'] },
         license_group: { type: 'string', enum: ['AM', 'A1', 'A2', 'A', 'B', 'N'] },
         kw_min: { type: 'number' }, kw_max: { type: 'number' },
         price_max: { type: 'number', description: 'Max Kč/den' },
+        available_on: { type: 'string', description: 'Datum YYYY-MM-DD — vrátí jen motorky volné v tento den. Použij při dotazech "na pondělí", "na 3. května" atp.' },
+        available_from: { type: 'string', description: 'Spolu s available_to — rozsah YYYY-MM-DD pro celé období rezervace.' },
+        available_to: { type: 'string' },
       },
     },
   },
@@ -233,6 +238,8 @@ async function execPublicTool(name: string, args: Record<string, unknown>): Prom
       if (args.license_group) q = q.eq('license_required', args.license_group)
       if (args.kw_min) q = q.gte('power_kw', Number(args.kw_min))
       if (args.kw_max) q = q.lte('power_kw', Number(args.kw_max))
+      if (args.brand) q = q.ilike('brand', `%${String(args.brand)}%`)
+      if (args.model_query) q = q.ilike('model', `%${String(args.model_query)}%`)
       const { data } = await q
       let result = data || []
       if (args.price_max) {
@@ -243,13 +250,37 @@ async function execPublicTool(name: string, args: Record<string, unknown>): Prom
           return ps.length > 0 && Math.min(...ps) <= maxP
         })
       }
+
+      // Filtr dostupnosti — buď konkrétní den (available_on) nebo rozsah (available_from/to)
+      const availFrom = args.available_on ? String(args.available_on) : (args.available_from ? String(args.available_from) : null)
+      const availTo = args.available_on ? String(args.available_on) : (args.available_to ? String(args.available_to) : null)
+      if (availFrom && availTo) {
+        const checks = await Promise.all(result.map(async (m: Record<string, unknown>) => {
+          const { data: booked } = await sb.rpc('get_moto_booked_dates', { p_moto_id: m.id })
+          const ranges = (booked || []) as Array<{ start_date: string; end_date: string }>
+          const conflict = ranges.some((r) => !(availTo < r.start_date || availFrom > r.end_date))
+          return { moto: m, free: !conflict }
+        }))
+        result = checks.filter((c) => c.free).map((c) => c.moto as Record<string, unknown>)
+      }
+
+      const minPriceFor = (m: Record<string, unknown>): number => {
+        const ps = ['price_mon','price_tue','price_wed','price_thu','price_fri','price_sat','price_sun']
+          .map((k) => Number((m as Record<string, unknown>)[k] || 0)).filter((p) => p > 0)
+        return ps.length > 0 ? Math.min(...ps) : 0
+      }
+
       return {
         count: result.length,
+        availability_window: availFrom ? { from: availFrom, to: availTo } : null,
         motorcycles: result.slice(0, 8).map((m: Record<string, unknown>) => ({
-          id: m.id, name: `${m.brand || ''} ${m.model}`.trim(),
-          category: m.category, power_kw: m.power_kw, license: m.license_required,
-          min_price_kc: Math.min(...['price_mon','price_tue','price_wed','price_thu','price_fri','price_sat','price_sun']
-            .map((k) => Number((m as Record<string, unknown>)[k] || 0)).filter((p) => p > 0)),
+          id: m.id,
+          name: `${m.brand || ''} ${m.model}`.trim(),
+          brand: m.brand,
+          category: m.category,
+          power_kw: m.power_kw,
+          license: m.license_required,
+          min_price_kc: minPriceFor(m),
           ideal_usage: m.ideal_usage,
           url: `https://motogo24.cz/katalog/${m.id}`,
         })),
