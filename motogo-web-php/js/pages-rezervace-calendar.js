@@ -225,10 +225,12 @@ MG._rezShowAvailMotos = function(){
     el.innerHTML='<p style="color:#f66;margin:12px 0">V tomto termínu bohužel není dostupná žádná motorka.</p>';
     return;
   }
-  var h = '<form class="form-product-select gr2" style="margin:12px 0"><div>Dostupné motorky:</div><select id="rez-avail-dropdown">' +
+  var h = '<form class="rez-moto-pick rez-moto-pick-avail"><label for="rez-avail-dropdown">'+
+    '<span class="rez-pick-badge">Volné v termínu: '+free.length+'</span> Vyberte motorku ze seznamu</label>' +
+    '<div class="rez-moto-pick-wrap"><select id="rez-avail-dropdown">' +
     '<option value="">— vyberte motorku —</option>';
   free.forEach(function(m){ h += '<option value="'+m.id+'">'+m.model+'</option>'; });
-  h += '</select></form>';
+  h += '</select></div></form>';
   el.style.display='block'; el.innerHTML = h;
   document.getElementById('rez-avail-dropdown').addEventListener('change', function(){
     MG._rez.selectedMotoId = this.value;

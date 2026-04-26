@@ -779,6 +779,55 @@
   .form-product-select.gr2 select{min-width:0;width:100%}
 }
 
+/* ===== Rezervace — pre-form step sekce (Vyber motorku / Vyber termín) ===== */
+.rez-section-pre{padding:1.1rem 1.25rem 1.15rem}
+.rez-section-pre #rez-calendar{margin-top:.25rem}
+.rez-section-pre #rez-calendar .cal-grid{border:none;padding:.25rem 0;margin:.4rem 0 .25rem;background:transparent;box-shadow:none}
+.rez-section-pre #rez-calendar .cal-nav{padding:0}
+.rez-section-pre #rez-calendar .calendar-icons{margin-top:.5rem}
+
+/* Výrazný moto-pick dropdown (Vyber motorku + Dostupné motorky) */
+.rez-moto-pick{display:flex;flex-direction:column;gap:.45rem;margin:0}
+.rez-moto-pick label{font-weight:700;color:#1a2e22;font-size:.92rem;letter-spacing:.2px;display:flex;align-items:center;flex-wrap:wrap;gap:.5rem}
+.rez-moto-pick-wrap{position:relative}
+.rez-moto-pick-wrap::after{
+  content:"";position:absolute;right:1.1rem;top:50%;transform:translateY(-50%) rotate(45deg);
+  width:9px;height:9px;border-right:2.2px solid #1a8c1a;border-bottom:2.2px solid #1a8c1a;
+  pointer-events:none;
+}
+.rez-moto-pick select{
+  width:100%;
+  padding:.85rem 2.6rem .85rem 1.15rem;
+  background:#fff;
+  border:1.5px solid #74FB71;
+  border-radius:14px;
+  color:#1a2e22;
+  font-family:'Montserrat',sans-serif;
+  font-size:1rem;
+  font-weight:600;
+  line-height:1.2;
+  cursor:pointer;
+  appearance:none;
+  -webkit-appearance:none;
+  background-image:none;
+  box-shadow:0 2px 8px rgba(116,251,113,.18);
+  transition:border-color .15s,box-shadow .15s,background-color .15s;
+  margin:0;
+}
+.rez-moto-pick select:hover{border-color:#1a8c1a;background:#f9fefa}
+.rez-moto-pick select:focus{outline:none;border-color:#1a8c1a;box-shadow:0 0 0 4px rgba(116,251,113,.28)}
+.rez-pick-badge{
+  display:inline-block;background:#1a8c1a;color:#fff;
+  padding:.2rem .65rem;border-radius:999px;
+  font-size:.72rem;font-weight:700;letter-spacing:.4px;text-transform:uppercase;
+}
+.rez-moto-pick-avail{margin-top:.75rem!important;padding:.85rem 1rem;background:#f0faf5;border:1.5px dashed #74FB71;border-radius:14px;animation:rezSlideDown .25s ease}
+
+@media(max-width:600px){
+  .rez-moto-pick select{font-size:16px;padding:.95rem 2.6rem .95rem 1.1rem;min-height:48px}
+  .rez-moto-pick label{font-size:.9rem}
+}
+
 /* ===== Voucher dropdown v potvrzeni.js — center na mobilu ===== */
 @media(max-width:600px){
   div[id="potvrzeni-content"] div[style*="max-width:500px"]{max-width:100%!important;padding:1rem!important}
