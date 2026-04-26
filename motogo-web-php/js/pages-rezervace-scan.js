@@ -68,13 +68,10 @@ MG._rezShowMindeeStep = async function(){
   var form=document.getElementById('rez-form');if(!form)return;
   var total=MG._rez.bookingAmount||0;
 
-  // Mobile: mandatory, Desktop: optional
+  // Doporučené, ale lze přeskočit (na desktopu i mobilu)
   var subtitle=isMob
-    ?'<p style="color:#555;line-height:1.6;margin-bottom:1rem">Pro dokončení rezervace je nutné vyfotit oba doklady. Díky tomu bude vaše odbavení rychlejší a získáte přístup k autonomní pobočce.</p>'
+    ?'<p style="color:#555;line-height:1.6;margin-bottom:1rem">Doporučujeme vyfotit oba doklady — odbavení je rychlejší a získáte přístup k autonomní pobočce. Tento krok lze přeskočit.</p>'
     :'<p style="color:#555;line-height:1.6;margin-bottom:1rem">Vyfotografujte doklady pro rychlejší odbavení a možnost využít autonomní pobočku. Tento krok můžete přeskočit.</p>';
-
-  // Mobile: payment button disabled until both docs scanned
-  var payBtnDisabled=isMob?' disabled style="opacity:.5;cursor:not-allowed"':'';
 
   form.innerHTML=
     '<h2 style="margin-top:1rem">Ověření dokladů fotoaparátem</h2>'+subtitle+
@@ -82,7 +79,7 @@ MG._rezShowMindeeStep = async function(){
     '<div style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:10px;padding:1rem;margin-bottom:1rem">'+
     '<div style="display:flex;align-items:center;gap:1rem;margin-bottom:.75rem">'+
     '<span style="font-size:1.5rem">&#128196;</span>'+
-    '<div><h3 style="margin:0">Doklad totožnosti'+(isMob?' <span style="color:#c00">*</span>':'')+'</h3>'+
+    '<div><h3 style="margin:0">Doklad totožnosti <span style="font-size:.78rem;color:#888;font-weight:400">(doporučeno)</span></h3>'+
     '<p style="margin:0;font-size:.85rem;color:#555">Občanský průkaz nebo cestovní pas</p></div></div>'+
     '<div id="mindee-id-status"></div>'+
     '<button class="btn btngreen-small" onclick="MG._rezScanDoc(\'id\')" style="margin-top:.5rem">Vyfotit doklad</button></div>'+
@@ -90,18 +87,18 @@ MG._rezShowMindeeStep = async function(){
     '<div style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:10px;padding:1rem;margin-bottom:1rem">'+
     '<div style="display:flex;align-items:center;gap:1rem;margin-bottom:.75rem">'+
     '<span style="font-size:1.5rem">&#128179;</span>'+
-    '<div><h3 style="margin:0">Řidičský průkaz'+(isMob?' <span style="color:#c00">*</span>':'')+'</h3>'+
+    '<div><h3 style="margin:0">Řidičský průkaz <span style="font-size:.78rem;color:#888;font-weight:400">(doporučeno)</span></h3>'+
     '<p style="margin:0;font-size:.85rem;color:#555">Přední strana</p></div></div>'+
     '<div id="mindee-dl-status"></div>'+
     '<button class="btn btngreen-small" onclick="MG._rezScanDoc(\'dl\')" style="margin-top:.5rem">Vyfotit řidičský průkaz</button></div>'+
 
-    (isMob?'<p id="mindee-mandatory-msg" style="color:#c00;font-size:.85rem;text-align:center;margin:.5rem 0">Oba doklady musí být nahrány před pokračováním k platbě.</p>':'')+
+    '<p id="mindee-mandatory-msg" style="color:#4a6b5a;font-size:.85rem;text-align:center;margin:.5rem 0">Doklady jsou volitelné — pokud nechcete fotit, klikněte níže na <strong>Přeskočit a zaplatit</strong>.</p>'+
 
     '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-top:1.5rem">'+
     '<button class="btn btndark" onclick="MG._rezShowStep2()">&#8592; Zpět</button>'+
     '<div style="display:flex;align-items:center;gap:1rem">'+
     '<div style="background:#74FB71;color:#0b0b0b;padding:.6rem 1.2rem;border-radius:25px;font-weight:800;font-size:1.05rem">'+MG.formatPrice(total)+'</div>'+
-    '<button id="mindee-pay-btn" class="btn btngreen" onclick="MG._rezSubmitPayment()"'+payBtnDisabled+'>Pokračovat k platbě</button></div></div>';
+    '<button id="mindee-pay-btn" class="btn btngreen" onclick="MG._rezSubmitPayment()">Přeskočit a zaplatit</button></div></div>';
   window.scrollTo({top:form.offsetTop-80,behavior:'smooth'});
 };
 
@@ -188,14 +185,15 @@ MG._rezProcessOcr = async function(base64,docType){
   }
 };
 
-// ===== CHECK MANDATORY DOCS (mobile: enable pay button when both scanned) =====
+// ===== CHECK SCAN STATUS — flip button label when both docs scanned =====
 MG._rezCheckMandatoryDocs = function(){
-  if(!MG._isMobile()) return;
   var btn=document.getElementById('mindee-pay-btn');
   var msg=document.getElementById('mindee-mandatory-msg');
   if(MG._rez._idScanned && MG._rez._dlScanned){
-    if(btn){btn.disabled=false;btn.style.opacity='1';btn.style.cursor='pointer';}
+    if(btn){ btn.textContent='Pokračovat k platbě'; }
     if(msg) msg.innerHTML='<span style="color:#1a8c1a">&#10004; Oba doklady nahrány — můžete pokračovat k platbě.</span>';
+  } else if(MG._rez._idScanned || MG._rez._dlScanned){
+    if(btn){ btn.textContent='Přeskočit zbytek a zaplatit'; }
   }
 };
 

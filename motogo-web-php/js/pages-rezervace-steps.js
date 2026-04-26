@@ -244,107 +244,139 @@ MG._rezShowStep2 = function(){
   // TEST: QR cílí na motogo24.com pro ověření Apple Pay / Google Pay flow přes Stripe na mobilu
   var resumeLink=MG._rez.bookingId?'https://motogo24.com/rezervace?resume='+MG._rez.bookingId:'';
 
-  // QR code section (desktop only) — allows customer to continue on mobile
-  var qrSection='';
-  if(!isMob && resumeLink){
-    qrSection='<div style="background:#f0faf5;border:2px dashed #74FB71;border-radius:10px;padding:.75rem 1rem;margin:.75rem 0;display:flex;align-items:center;gap:1rem;flex-wrap:wrap">'+
-      '<div style="flex-shrink:0"><img src="'+MG._qrCodeUrl(resumeLink)+'" alt="QR kód" style="width:100px;height:100px;border-radius:8px;border:1px solid #e0e0e0"></div>'+
-      '<div style="flex:1;min-width:200px">'+
-      '<h3 style="margin:0 0 .2rem;color:#1a2e22;font-size:.9rem">Dokončete na mobilu</h3>'+
-      '<div style="font-size:.78rem;color:#374151;line-height:1.5">'+
-      '<div>&#10003; Apple Pay / Google Pay</div>'+
-      '<div>&#10003; Sken dokladů fotoaparátem</div>'+
-      '<div>&#10003; Autonomní pobočka</div></div>'+
-      '<p style="color:#9ca3af;font-size:.75rem;margin:.3rem 0 0">QR platný 4 hodiny</p></div></div>';
-  }
-
   // Mobile: button goes to Mindee step; Desktop: button goes to Stripe payment
   var payBtnLabel=isMob?'Ověřit doklady a zaplatit':'Pokračovat k platbě';
   var payBtnAction=isMob?'MG._rezShowMindeeStep()':'MG._rezSubmitPayment()';
 
+  // QR code section (desktop only) — allows customer to continue on mobile
+  var qrSectionMarkup = '';
+  if(!isMob && resumeLink){
+    qrSectionMarkup =
+      '<div class="rez-qr-card">'+
+      '<img src="'+MG._qrCodeUrl(resumeLink)+'" alt="QR kód">'+
+      '<div class="rez-qr-body">'+
+      '<h3>Dokončete na mobilu</h3>'+
+      '<div class="rez-qr-bullets">'+
+      '<div>&#10003; Apple Pay / Google Pay</div>'+
+      '<div>&#10003; Sken dokladů fotoaparátem</div>'+
+      '<div>&#10003; Autonomní pobočka</div></div>'+
+      '<p class="rez-qr-note">QR platný 4 hodiny</p></div></div>';
+  }
+
   form.innerHTML=
-    '<h2 style="margin-top:.5rem;margin-bottom:.3rem">Ověření totožnosti a řidičského oprávnění</h2>'+
-    '<p style="color:#555;line-height:1.5;margin-bottom:.5rem;font-size:.9rem">Pro přípravu nájemní smlouvy vyplňte údaje z dokladu totožnosti a řidičského průkazu.</p>'+
-    '<h3 style="margin-bottom:.2rem">Doklad totožnosti</h3><div class="checkboxes" style="margin:.3rem 0">'+
-    '<div><input type="radio" id="rez-doc-op" name="rez-doc-type" value="op" checked><label for="rez-doc-op">Občanský průkaz</label></div>'+
-    '<div><input type="radio" id="rez-doc-pas" name="rez-doc-type" value="pas"><label for="rez-doc-pas">Cestovní pas</label></div></div>'+
-    '<input type="text" id="rez-doc-number" placeholder="* Číslo dokladu" required autocomplete="off"'+(MG._rez._docNumber?' value="'+MG._rez._docNumber+'"':'')+'>'+
-    '<h3 style="margin-top:.5rem;margin-bottom:.2rem">Řidičský průkaz</h3>'+
-    '<div id="rez-license-num-wrap"><input type="text" id="rez-license-number" placeholder="* Číslo řidičského průkazu" autocomplete="off"'+(MG._rez._licenseNumber?' value="'+MG._rez._licenseNumber+'"':'')+'></div>'+
-    '<div style="margin-top:.5rem">'+
-    '<label style="font-size:.85rem;font-weight:600;color:#374151;display:block;margin-bottom:.35rem">* Skupina ŘP</label>'+
-    '<div id="rez-license-group-chips" style="display:flex;gap:.5rem;flex-wrap:wrap">'+
-    '<button type="button" class="lic-chip" data-val="A2">A2</button>'+
-    '<button type="button" class="lic-chip" data-val="A">A</button>'+
-    '<button type="button" class="lic-chip" data-val="N">Bez ŘP</button>'+
-    '</div>'+
-    '<input type="hidden" id="rez-license-group" value="">'+
-    '</div>'+
-    '<div id="rez-license-expiry-wrap" style="margin-top:.75rem">'+
-    '<label style="font-size:.85rem;font-weight:600;color:#374151;display:block;margin-bottom:.35rem">* Platnost ŘP do</label>'+
-    '<div style="display:flex;gap:.4rem;align-items:center">'+
-    '<select id="rez-lic-day" class="lic-date-sel" style="flex:1;padding:.55rem .5rem;border:1px solid #d1d5db;border-radius:8px;font-size:.95rem;background:#fff;font-weight:600"></select>'+
-    '<select id="rez-lic-month" class="lic-date-sel" style="flex:1.6;padding:.55rem .5rem;border:1px solid #d1d5db;border-radius:8px;font-size:.95rem;background:#fff;font-weight:600"></select>'+
-    '<select id="rez-lic-year" class="lic-date-sel" style="flex:1.2;padding:.55rem .5rem;border:1px solid #d1d5db;border-radius:8px;font-size:.95rem;background:#fff;font-weight:600"></select>'+
-    '</div>'+
-    '<div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.4rem">'+
-    '<button type="button" class="lic-quick" data-years="5">+5 let</button>'+
-    '<button type="button" class="lic-quick" data-years="10">+10 let</button>'+
-    '<button type="button" class="lic-quick" data-years="15">+15 let</button>'+
-    '</div>'+
-    '<input type="hidden" id="rez-license-expiry" value="">'+
-    '</div>'+
-    '<div id="rez-license-confirm-wrap" class="checkboxes" style="margin:1rem 0"><div class="agreement gr2"><input type="checkbox" id="rez-license-confirm"'+(MG._rez._docsValidated?' checked':'')+'>'+
-    '<div>* Potvrzuji, že jsem držitelem platného řidičského oprávnění a splňuji zákonné podmínky k řízení rezervovaného motocyklu.</div></div></div>'+
+    // Section 1 — Verifikace dokladů + ŘP
+    '<section class="rez-section">'+
+      '<div class="rez-section-head"><span class="rez-step-num">1</span><h2>Ověření totožnosti a řidičského oprávnění</h2></div>'+
+      '<p class="rez-section-sub">Pro přípravu nájemní smlouvy vyplňte údaje z dokladu totožnosti a řidičského průkazu.</p>'+
 
-    // Optional document upload section (web)
+      '<h3 class="rez-subhead"><span class="rez-subhead-ico">&#128196;</span>Doklad totožnosti</h3>'+
+      '<div class="rez-doc-grid">'+
+        '<label class="rez-doc-card"><input type="radio" id="rez-doc-op" name="rez-doc-type" value="op" checked>'+
+        '<span class="rez-doc-ico">&#128100;</span><span class="rez-doc-label">Občanský průkaz</span></label>'+
+        '<label class="rez-doc-card"><input type="radio" id="rez-doc-pas" name="rez-doc-type" value="pas">'+
+        '<span class="rez-doc-ico">&#128370;</span><span class="rez-doc-label">Cestovní pas</span></label>'+
+      '</div>'+
+      '<label class="rez-field-label" for="rez-doc-number">* Číslo dokladu</label>'+
+      '<input type="text" id="rez-doc-number" class="rez-input" placeholder="Zadejte číslo dokladu totožnosti" required autocomplete="off"'+(MG._rez._docNumber?' value="'+MG._rez._docNumber+'"':'')+'>'+
+
+      '<h3 class="rez-subhead"><span class="rez-subhead-ico">&#128663;</span>Řidičský průkaz</h3>'+
+      '<div id="rez-license-num-wrap">'+
+        '<label class="rez-field-label" for="rez-license-number">* Číslo řidičského průkazu</label>'+
+        '<input type="text" id="rez-license-number" class="rez-input" placeholder="Zadejte číslo ŘP" autocomplete="off"'+(MG._rez._licenseNumber?' value="'+MG._rez._licenseNumber+'"':'')+'>'+
+      '</div>'+
+      '<div style="margin-top:.85rem">'+
+        '<label class="rez-field-label">* Skupina ŘP</label>'+
+        '<div id="rez-license-group-chips" style="display:flex;gap:.5rem;flex-wrap:wrap">'+
+          '<button type="button" class="lic-chip" data-val="A2">A2</button>'+
+          '<button type="button" class="lic-chip" data-val="A">A</button>'+
+          '<button type="button" class="lic-chip" data-val="N">Bez ŘP</button>'+
+        '</div>'+
+        '<input type="hidden" id="rez-license-group" value="">'+
+      '</div>'+
+      '<div id="rez-license-expiry-wrap" style="margin-top:.85rem">'+
+        '<label class="rez-field-label">* Platnost ŘP do</label>'+
+        '<div class="rez-date-row">'+
+          '<select id="rez-lic-day" class="lic-date-sel" aria-label="Den"></select>'+
+          '<select id="rez-lic-month" class="lic-date-sel" aria-label="Měsíc"></select>'+
+          '<select id="rez-lic-year" class="lic-date-sel" aria-label="Rok"></select>'+
+        '</div>'+
+        '<input type="hidden" id="rez-license-expiry" value="">'+
+      '</div>'+
+      '<div id="rez-license-confirm-wrap" style="margin:.95rem 0 .25rem">'+
+        '<label class="rez-agree"><input type="checkbox" id="rez-license-confirm"'+(MG._rez._docsValidated?' checked':'')+'>'+
+        '<span>* Potvrzuji, že jsem držitelem platného řidičského oprávnění a splňuji zákonné podmínky k řízení rezervovaného motocyklu.</span></label>'+
+      '</div>'+
+    '</section>'+
+
+    // Section 2 — volitelné nahrání dokladů (desktop only)
     (!isMob?
-    '<div style="background:#f0faf5;border:1px solid #d4e8e0;border-radius:10px;padding:1rem;margin:1.5rem 0">'+
-    '<h3 style="margin:0 0 .5rem">Nahrání dokladů <span style="font-size:.8rem;color:#888;font-weight:400">(nepovinné)</span></h3>'+
-    '<p style="color:#555;font-size:.85rem;line-height:1.5;margin-bottom:.75rem">Můžete nahrát fotografie dokladů pro rychlejší odbavení. Snímky budou automaticky rozpoznány a údaje doplněny do formuláře.</p>'+
+    '<section class="rez-section">'+
+      '<div class="rez-section-head"><span class="rez-step-num">2</span><h2>Nahrání dokladů</h2></div>'+
+      '<p class="rez-section-sub">Volitelné — zrychlí odbavení. Fotografie automaticky rozpoznáme a údaje doplníme do formuláře.</p>'+
+      '<div class="rez-doc-upload-grid">'+
+        '<div class="rez-doc-upload-card">'+
+          '<div class="rez-doc-upload-card-head">&#128196; Doklad totožnosti</div>'+
+          '<div id="webdoc-id-status"></div>'+
+          '<div class="rez-doc-upload-actions">'+
+            '<button class="btn btngreen-small" onclick="MG._rezUploadDoc(\'id\')" style="font-size:.8rem">Nahrát soubor</button>'+
+            '<button class="btn btngreen-small" onclick="MG._rezCaptureDoc(\'id\')" style="font-size:.8rem">Vyfotit</button>'+
+          '</div>'+
+        '</div>'+
+        '<div class="rez-doc-upload-card">'+
+          '<div class="rez-doc-upload-card-head">&#128663; Řidičský průkaz</div>'+
+          '<div id="webdoc-dl-status"></div>'+
+          '<div class="rez-doc-upload-actions">'+
+            '<button class="btn btngreen-small" onclick="MG._rezUploadDoc(\'dl\')" style="font-size:.8rem">Nahrát soubor</button>'+
+            '<button class="btn btngreen-small" onclick="MG._rezCaptureDoc(\'dl\')" style="font-size:.8rem">Vyfotit</button>'+
+          '</div>'+
+        '</div>'+
+      '</div>'+
+    '</section>':'')+
 
-    '<div style="display:flex;gap:1rem;flex-wrap:wrap">'+
-    '<div style="flex:1;min-width:240px;background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:.75rem">'+
-    '<div style="font-weight:600;margin-bottom:.5rem">&#128196; Doklad totožnosti</div>'+
-    '<div id="webdoc-id-status"></div>'+
-    '<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem">'+
-    '<button class="btn btngreen-small" onclick="MG._rezUploadDoc(\'id\')" style="font-size:.8rem">Nahrát soubor</button>'+
-    '<button class="btn btngreen-small" onclick="MG._rezCaptureDoc(\'id\')" style="font-size:.8rem">Vyfotit</button></div></div>'+
+    // Section 3 — Heslo pro správu rezervace
+    '<section class="rez-section">'+
+      '<div class="rez-section-head"><span class="rez-step-num">'+(isMob?'2':'3')+'</span><h2>Heslo pro správu rezervace</h2></div>'+
+      '<div class="rez-pwd-section">'+
+        '<div class="rez-pwd-head">'+
+          '<span class="rez-pwd-ico">&#128274;</span>'+
+          '<div><div class="rez-pwd-title">Vytvořte si přístupové heslo</div>'+
+          '<p class="rez-pwd-sub">Pro úpravu rezervace a přihlášení do aplikace MotoGo24. Min. 8 znaků.</p></div>'+
+        '</div>'+
+        '<div class="rez-pwd-grid">'+
+          '<input type="password" id="rez-password" class="rez-input" name="new-password" placeholder="* Heslo (min. 8 znaků)" required autocomplete="new-password" minlength="8">'+
+          '<input type="password" id="rez-password-confirm" class="rez-input" name="new-password" placeholder="* Potvrzení hesla" required autocomplete="new-password" minlength="8">'+
+        '</div>'+
+      '</div>'+
+      qrSectionMarkup+
+    '</section>'+
 
-    '<div style="flex:1;min-width:240px;background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:.75rem">'+
-    '<div style="font-weight:600;margin-bottom:.5rem">&#128179; Řidičský průkaz</div>'+
-    '<div id="webdoc-dl-status"></div>'+
-    '<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem">'+
-    '<button class="btn btngreen-small" onclick="MG._rezUploadDoc(\'dl\')" style="font-size:.8rem">Nahrát soubor</button>'+
-    '<button class="btn btngreen-small" onclick="MG._rezCaptureDoc(\'dl\')" style="font-size:.8rem">Vyfotit</button></div></div>'+
-    '</div></div>':'')+
+    // Section 4 — Náhled zálohové faktury
+    '<section class="rez-section">'+
+      '<div class="rez-section-head"><span class="rez-step-num">'+(isMob?'3':'4')+'</span><h2>Náhled zálohové faktury</h2></div>'+
+      '<div class="rez-invoice-card">'+
+        '<table class="rez-invoice-table">'+
+          '<tr><th>Položka</th><th>Cena</th></tr>'+rows+
+        '</table>'+
+        '<div class="rez-invoice-total"><strong>Celkem k úhradě</strong><strong>'+MG.formatPrice(total)+'</strong></div>'+
+      '</div>'+
+      '<div class="rez-invoice-meta">'+
+        '<strong>Odběratel:</strong> '+d.name+' &middot; '+d.email+(d.phone?' &middot; '+d.phone:'')+'<br>'+
+        (d.street?d.street+', ':'')+(d.zip?d.zip+' ':'')+(d.city||'')+'<br>'+
+        '<strong>Motorka:</strong> '+motoName+' &middot; <strong>Termín:</strong> '+MG.formatDate(r.startDate)+' – '+MG.formatDate(r.endDate)+
+        (d.deliveryAddr?'<br><strong>Přistavení:</strong> '+d.deliveryAddr:'')+
+        (d.returnAddr?'<br><strong>Vrácení:</strong> '+d.returnAddr:'')+
+      '</div>'+
+    '</section>'+
 
-    '<div style="background:#f0faf5;border:1px solid #74FB71;border-radius:10px;padding:.75rem 1rem;margin:.75rem 0">'+
-    '<h3 style="margin:0 0 .3rem;font-size:.9rem;color:#1a3a2a">Heslo pro správu rezervace</h3>'+
-    '<p style="color:#555;font-size:.82rem;margin:0 0 .5rem">Pro úpravu rezervace a přihlášení do aplikace MotoGo24.</p>'+
-    '<div class="gr2" style="margin:0"><input type="password" id="rez-password" name="new-password" placeholder="* Heslo (min. 8 znaků)" required autocomplete="new-password" minlength="8" style="border-color:#74FB71"'+(MG._rez._passwordSet?' value="********" disabled':'')+'>'+
-    '<input type="password" id="rez-password-confirm" name="new-password" placeholder="* Potvrzení hesla" required autocomplete="new-password" minlength="8" style="border-color:#74FB71"'+(MG._rez._passwordSet?' value="********" disabled':'')+'></div></div>'+
-    qrSection+
-    '<hr style="border:none;border-top:2px solid #74FB71;margin:.75rem 0">'+
-    '<h2 style="margin-bottom:.3rem">Náhled zálohové faktury</h2>'+
-    '<div style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:10px;padding:1rem;margin-bottom:1rem">'+
-    '<table style="width:100%;border-collapse:collapse;font-size:.88rem;color:#333">'+
-    '<tr><td style="padding:5px 0;font-weight:700;border-bottom:1px solid #ccc">Položka</td>'+
-    '<td style="padding:5px 0;font-weight:700;border-bottom:1px solid #ccc;text-align:right">Cena</td></tr>'+rows+'</table>'+
-    '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:2px solid #1a8c1a">'+
-    '<strong>Celkem k úhradě</strong><strong style="color:#1a8c1a">'+MG.formatPrice(total)+'</strong></div></div>'+
-    '<div style="background:#f1faf7;border:1px solid #d4e8e0;border-radius:10px;padding:.75rem;margin-bottom:1rem;font-size:.85rem;color:#374151">'+
-    '<strong>Odběratel:</strong> '+d.name+' | '+d.email+' | '+(d.phone||'')+'<br>'+
-    (d.street?d.street+', ':'')+(d.zip?d.zip+' ':'')+(d.city||'')+'<br>'+
-    '<strong>Motorka:</strong> '+motoName+' | <strong>Termín:</strong> '+MG.formatDate(r.startDate)+' – '+MG.formatDate(r.endDate)+
-    (d.deliveryAddr?'<br><strong>Přistavení:</strong> '+d.deliveryAddr:'')+
-    (d.returnAddr?'<br><strong>Vrácení:</strong> '+d.returnAddr:'')+'</div>'+
-    '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-top:1rem">'+
-    (MG._rez._isResume?'<a class="btn btndark" href="/rezervace">&#8592; Nová rezervace</a>':
-    '<button class="btn btndark" onclick="MG._rezBackToStep1()">&#8592; Zpět</button>')+
-    '<div style="display:flex;align-items:center;gap:1rem">'+
-    '<div style="background:#74FB71;color:#0b0b0b;padding:.6rem 1.2rem;border-radius:25px;font-weight:800;font-size:1.05rem">'+MG.formatPrice(total)+'</div>'+
-    '<button class="btn btngreen" onclick="'+payBtnAction+'">'+payBtnLabel+'</button></div></div>';
+    // Akční lišta
+    '<div class="rez-step2-actions">'+
+      (MG._rez._isResume?'<a class="btn btndark" href="/rezervace">&#8592; Nová rezervace</a>':
+      '<button class="btn btndark" onclick="MG._rezBackToStep1()">&#8592; Zpět</button>')+
+      '<div class="rez-step2-pay">'+
+        '<div class="rez-step2-amount">'+MG.formatPrice(total)+'</div>'+
+        '<button class="btn btngreen" onclick="'+payBtnAction+'">'+payBtnLabel+'</button>'+
+      '</div>'+
+    '</div>';
   MG._rezInitLicenseUI();
   window.scrollTo({top:form.offsetTop-80,behavior:'smooth'});
 };
@@ -355,12 +387,9 @@ MG._rezInitLicenseUI = function(){
   if(!document.getElementById('mg-lic-styles')){
     var st=document.createElement('style'); st.id='mg-lic-styles';
     st.textContent =
-      '.lic-chip{padding:.55rem 1rem;border:1.5px solid #d1d5db;background:#fff;border-radius:999px;font-size:.95rem;font-weight:700;cursor:pointer;color:#374151;transition:all .15s;min-width:72px}'+
-      '.lic-chip:hover{border-color:#74FB71;background:#f0faf5}'+
-      '.lic-chip.active{background:#74FB71;border-color:#1a8c1a;color:#0b0b0b;box-shadow:0 1px 4px rgba(26,140,26,.25)}'+
-      '.lic-quick{padding:.35rem .75rem;border:1px solid #d1d5db;background:#f9fafb;border-radius:6px;font-size:.8rem;font-weight:600;cursor:pointer;color:#374151;transition:all .15s}'+
-      '.lic-quick:hover{border-color:#74FB71;background:#f0faf5;color:#1a8c1a}'+
-      '.lic-date-sel:focus{outline:none;border-color:#74FB71;box-shadow:0 0 0 3px rgba(116,251,113,.25)}';
+      '.lic-chip{padding:.6rem 1.1rem;border:1.5px solid #d4e8e0;background:#fff;border-radius:999px;font-size:.95rem;font-weight:700;cursor:pointer;color:#1a2e22;transition:all .15s;min-width:72px;font-family:Montserrat,sans-serif}'+
+      '.lic-chip:hover{border-color:#74FB71;background:#f0faf5;transform:translateY(-1px)}'+
+      '.lic-chip.active{background:#1a8c1a;border-color:#1a8c1a;color:#fff;box-shadow:0 3px 10px rgba(26,140,26,.35);transform:translateY(-1px)}';
     document.head.appendChild(st);
   }
 
@@ -418,16 +447,6 @@ MG._rezInitLicenseUI = function(){
     hiddenExp.value = iso;
   }
   [dSel,mSel,ySel].forEach(function(s){ s.addEventListener('change', syncExpiry); });
-
-  // Quick "+N let" buttons → set today + N years
-  document.querySelectorAll('.lic-quick').forEach(function(b){
-    b.addEventListener('click', function(){
-      var yrs=parseInt(b.dataset.years,10)||0;
-      var t=new Date(); t.setFullYear(t.getFullYear()+yrs);
-      dSel.value=t.getDate(); mSel.value=t.getMonth()+1; ySel.value=t.getFullYear();
-      syncExpiry();
-    });
-  });
 
   // Restore previous value if any
   var prev = (MG._rez && MG._rez.formData && MG._rez.formData._licExpiry) || '';
