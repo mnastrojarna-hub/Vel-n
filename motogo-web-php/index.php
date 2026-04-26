@@ -267,6 +267,11 @@ switch (true) {
         require __DIR__ . '/pages/sitemap-page.php';
         break;
 
+    // Developer / partner stránka — REST API, MCP, llms.txt
+    case $path === '/partneri' || $path === '/api':
+        require __DIR__ . '/pages/partneri.php';
+        break;
+
     // Rezervace
     case $path === '/rezervace':
         require __DIR__ . '/pages/rezervace.php';

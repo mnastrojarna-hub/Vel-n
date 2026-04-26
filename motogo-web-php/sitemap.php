@@ -84,6 +84,7 @@ $static = [
     ['loc' => '/gdpr',                   'priority' => '0.3',  'changefreq' => 'yearly'],
     ['loc' => '/smlouva',                'priority' => '0.3',  'changefreq' => 'yearly'],
     ['loc' => '/mapa-stranek',           'priority' => '0.4',  'changefreq' => 'monthly'],
+    ['loc' => '/partneri',               'priority' => '0.6',  'changefreq' => 'monthly'],
 ];
 
 echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";

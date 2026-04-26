@@ -31,6 +31,7 @@
     "llmsIndex": "https://motogo24.cz/llms.txt",
     "llmsFull": "https://motogo24.cz/llms-full.txt",
     "robots": "https://motogo24.cz/robots.txt",
+    "developerDocs": "https://motogo24.cz/partneri",
     "schemaOrg": "JSON-LD na každé stránce: Organization, WebSite, AutomotiveBusiness, Product, Motorcycle (Vehicle), Offer, FAQPage, HowTo, Article, BreadcrumbList"
   },
   "capabilities": {
@@ -61,12 +62,19 @@
     },
     "booking": {
       "available": true,
-      "directApi": false,
-      "description": "Programové rezervace přes REST API a MCP server jsou v přípravě (Q2 2026). Zatím rezervace probíhá přes online formulář na webu, který je AI-friendly: agent může otevřít https://motogo24.cz/rezervace?moto={id}&start=YYYY-MM-DD&end=YYYY-MM-DD a pomoci uživateli vyplnit formulář. Po nasazení API budou tady dostupné endpointy: GET /api/v1/motorcycles, GET /api/v1/motorcycles/{id}/availability, POST /api/v1/quotes, POST /api/v1/bookings.",
-      "plannedEndpoints": {
-        "rest": "https://api.motogo24.cz/v1/openapi.json",
-        "mcp": "https://mcp.motogo24.cz",
-        "mcpStdio": "@motogo24/mcp-server (npm)"
+      "directApi": true,
+      "description": "Programové rezervace jsou možné dvěma kanály. (1) REST API: 9 endpointů, OpenAPI 3.1 spec, hybrid auth (anon = nízký rate-limit, X-Api-Key = per-partner limit). (2) MCP server: Model Context Protocol pro Claude Desktop, Cursor, Cline. Plus interim URL šablona pro otevření web formuláře s předvyplněnými parametry.",
+      "endpoints": {
+        "rest": "https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/public-api",
+        "openapi": "https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/public-api/api/v1/openapi.json",
+        "mcp": "https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/mcp-server",
+        "developerDocs": "https://motogo24.cz/partneri"
+      },
+      "auth": {
+        "type": "ApiKey",
+        "header": "X-Api-Key",
+        "obtainAt": "mailto:info@motogo24.cz?subject=API%20kl%C3%AD%C4%8D",
+        "anonymousAccess": "Read endpointy + omezený POST jsou dostupné bez klíče (rate-limit 60 req/min/IP, 30 create_booking/h/IP)."
       },
       "interimUrlTemplate": "https://motogo24.cz/rezervace?moto={moto_id}&start={start_date}&end={end_date}"
     }
