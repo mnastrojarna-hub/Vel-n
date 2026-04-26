@@ -150,6 +150,52 @@ function renderBlogCard($post) {
 }
 
 /**
+ * HTML karta produktu (e-shop).
+ * Kompatibilní stylem s renderMotoCard / renderBlogCard.
+ * Auto-překlad name + (volitelně) description z `translations` JSONB sloupce.
+ */
+function renderProductCard($p) {
+    $images = $p['images'] ?? [];
+    $img = (!empty($images) ? $images[0] : '') ?: ($p['image_url'] ?? '');
+    if ($img && strpos($img, 'http') !== 0 && strpos($img, 'data:') !== 0 && strpos($img, '/') !== 0) {
+        $img = imgUrl($img);
+    } elseif ($img && strpos($img, '/') === 0 && strpos($img, '//') !== 0) {
+        $img = BASE_URL . $img;
+    }
+    $nameRaw = trim((string)localized($p, 'name'));
+    if ($nameRaw === '') $nameRaw = t('shop.unnamedProduct');
+    $name = htmlspecialchars($nameRaw);
+    $price = isset($p['price']) ? (float)$p['price'] : 0;
+    $priceText = $price > 0 ? formatPrice($price) : '';
+    $id = htmlspecialchars($p['id'] ?? '');
+    $imgAlt = htmlspecialchars(t('shop.productAlt', ['name' => $nameRaw]));
+
+    // Krátký popisek (z description, max 120 znaků)
+    $descRaw = trim((string)localized($p, 'description'));
+    $shortDesc = '';
+    if ($descRaw !== '') {
+        $stripped = trim(strip_tags($descRaw));
+        $shortDesc = mb_strlen($stripped) > 120 ? mb_substr($stripped, 0, 117) . '…' : $stripped;
+    }
+
+    $stock = (int)($p['stock_quantity'] ?? 0);
+    $stockBadge = '';
+    if ($stock <= 0) {
+        $stockBadge = '<span class="moto-card-badge" style="background:#fee2e2;color:#dc2626;">' . te('shop.soldOut') . '</span>';
+    }
+
+    return '<a class="moto-wrapper" href="' . BASE_URL . '/eshop/' . $id . '" aria-label="' . $name . '">' .
+        '<div class="moto-img">' .
+            ($img ? '<img src="' . htmlspecialchars($img) . '" alt="' . $imgAlt . '" class="imgres" loading="lazy">' : '') .
+            $stockBadge .
+            '<div class="moto-title"><h2>' . $name . '</h2></div>' .
+        '</div>' .
+        '<div class="moto-desc">' . ($shortDesc ? '<p>' . htmlspecialchars($shortDesc) . '</p>' : '') . ($priceText ? '<p class="moto-price">' . htmlspecialchars($priceText) . '</p>' : '') . '</div>' .
+        '<div class="moto-btn"><span class="btn btngreen-small">' . te('shop.detailButton') . '</span></div>' .
+    '</a>';
+}
+
+/**
  * Ikona box — odpovídá MG.renderWbox() v components.js.
  */
 function renderWbox($icon, $title, $text) {

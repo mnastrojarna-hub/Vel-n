@@ -20,6 +20,7 @@ function getMenuItems() {
             ['label' => t('menu.howto.faq'), 'route' => '/jak-pujcit/faq'],
         ]],
         ['label' => t('menu.vouchers'), 'route' => '/poukazy'],
+        ['label' => t('menu.shop'), 'route' => '/eshop'],
         ['label' => t('menu.blog'), 'route' => '/blog'],
         ['label' => t('menu.contact'), 'route' => '/kontakt'],
     ];
@@ -173,6 +174,28 @@ function renderInlineJs() {
  * Vykreslí kompletní HTML stránku s SEO.
  *
  * $meta klíče:
+/**
+ * Vyrenderuje <link rel="alternate" hreflang="…" href="…"> tagy pro všechny
+ * podporované jazyky (cs, en, de, es, fr, nl, pl) + x-default.
+ * Pro jazykové varianty používá ?lang=xx parametr.
+ *
+ * @param string $siteOrigin např. https://motogo24.cz
+ * @param string $path aktuální cesta (např. /blog/xy nebo /eshop)
+ * @return string HTML <link> tagy
+ */
+function renderHreflangAlternates($siteOrigin, $path) {
+    if (!defined('I18N_SUPPORTED')) return '';
+    $out = '';
+    foreach (I18N_SUPPORTED as $code) {
+        $href = $siteOrigin . $path . ($code === I18N_DEFAULT ? '' : ('?lang=' . $code));
+        $out .= "\n  " . '<link rel="alternate" hreflang="' . htmlspecialchars($code) . '" href="' . htmlspecialchars($href) . '">';
+    }
+    // x-default → CZ verze (default)
+    $out .= "\n  " . '<link rel="alternate" hreflang="x-default" href="' . htmlspecialchars($siteOrigin . $path) . '">';
+    return $out;
+}
+
+/**
  *   description  — meta description
  *   keywords     — meta keywords (přepíše default)
  *   canonical    — canonical URL (default https://motogo24.cz{path})
@@ -252,7 +275,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   <meta property="og:image" content="' . htmlspecialchars($ogImage) . '">
   <link rel="canonical" href="' . htmlspecialchars($canonical) . '">
   <link rel="icon" type="image/svg+xml" href="' . BASE_URL . '/favicon.svg">
-  <link rel="apple-touch-icon" href="' . BASE_URL . '/apple-touch-icon.png">
+  <link rel="apple-touch-icon" href="' . BASE_URL . '/apple-touch-icon.png">' . renderHreflangAlternates($siteOrigin, $currentPath) . '
   <title>' . htmlspecialchars($title) . '</title>
 
   <script type="application/ld+json">

@@ -171,6 +171,16 @@ switch (true) {
         require __DIR__ . '/pages/poukazy-objednat.php';
         break;
 
+    // E-shop (produkty z Velínu, texty lokalizované přes helper localized())
+    case $path === '/eshop' || $path === '/e-shop':
+        require __DIR__ . '/pages/shop.php';
+        break;
+
+    case preg_match('#^/eshop/([a-f0-9\-]+)$#', $path, $matches) === 1:
+        $_GET['id'] = $matches[1];
+        require __DIR__ . '/pages/shop-detail.php';
+        break;
+
     // Blog
     case $path === '/blog':
         require __DIR__ . '/pages/blog.php';
