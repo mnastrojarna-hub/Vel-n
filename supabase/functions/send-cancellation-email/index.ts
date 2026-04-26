@@ -47,7 +47,7 @@ function renderTemplate(template: string, vars: Record<string, string>): string 
   return result
 }
 
-/** Wrap body HTML in unified MotoGo24 email layout (1:1 with invoice design) */
+/** Wrap body HTML in unified MotoGo24 email layout (1:1 with invoice design + screen reference) */
 function wrapInBrandedLayout(bodyHtml: string): string {
   const header = `<div style="background:#0a1f15;padding:24px 32px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>
@@ -58,13 +58,28 @@ function wrapInBrandedLayout(bodyHtml: string): string {
       </td>
     </tr></table>
   </div>`
-  const footer = `<div style="background:#0a1f15;padding:14px 32px;color:#ffffff;font-size:11px;line-height:1.6">
-    <strong style="color:#ffffff">Bc. Petra Semor\u00e1dov\u00e1</strong>
-    <span style="color:#9ca3af"> &nbsp;|&nbsp; </span>Mezn\u00e1 9, 393 01 Mezn\u00e1
-    <span style="color:#9ca3af"> &nbsp;|&nbsp; </span>I\u010cO: 21874263
-    <span style="color:#9ca3af"> &nbsp;|&nbsp; </span><span style="color:#74FB71">+420 774 256 271</span>
-    <span style="color:#9ca3af"> &nbsp;|&nbsp; </span><span style="color:#74FB71">info@motogo24.cz</span>
-    <span style="color:#9ca3af"> &nbsp;|&nbsp; </span><span style="color:#74FB71">www.motogo24.cz</span>
+  const helpCard = `<div style="margin:24px 32px 0;background:#0a1f15;border:2px solid #74FB71;border-radius:8px;padding:24px">
+    <div style="color:#74FB71;font-size:18px;font-weight:800;margin:0 0 8px">M\u00e1te dotaz?</div>
+    <div style="color:#ffffff;font-size:13px;margin:0 0 16px">Pokud budete m\u00edt jak\u00fdkoliv dotaz, jsme v\u00e1m k dispozici.</div>
+    <a href="mailto:info@motogo24.cz" style="display:inline-block;background:#74FB71;color:#0a1f15;font-size:13px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:24px">info@motogo24.cz</a>
+  </div>`
+  const footer = `<div style="background:#0a1f15;padding:24px 32px;margin-top:24px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>
+      <td style="vertical-align:top;padding-right:16px">
+        <div style="border:1px solid #74FB71;border-radius:6px;padding:16px;color:#ffffff;font-size:12px;line-height:1.7">
+          <div style="font-size:14px;font-weight:800;color:#ffffff">Motogo24</div>
+          <div style="font-size:14px;font-weight:800;color:#ffffff;margin-bottom:6px">Bc. Petra Semor\u00e1dov\u00e1</div>
+          <div style="color:#9ca3af">Mezn\u00e1 9, 393 01 Mezn\u00e1</div>
+          <div style="color:#9ca3af">I\u010cO: 21874263</div>
+          <div><span style="color:#9ca3af">Telefon:</span> <span style="color:#74FB71">+420 774 256 271</span></div>
+          <div><span style="color:#9ca3af">E-mail:</span> <span style="color:#74FB71">info@motogo24.cz</span></div>
+          <div><span style="color:#9ca3af">Web:</span> <span style="color:#74FB71">www.motogo24.cz</span></div>
+        </div>
+      </td>
+      <td style="vertical-align:top;width:120px;text-align:center">
+        <img src="${SITE_URL}/gfx/qr-motogo24.png" alt="QR" width="110" height="110" style="display:block;background:#ffffff;padding:6px;border-radius:4px"/>
+      </td>
+    </tr></table>
   </div>`
 
   return `<!DOCTYPE html><html lang="cs"><head><meta charset="UTF-8"></head>
@@ -72,6 +87,7 @@ function wrapInBrandedLayout(bodyHtml: string): string {
   <div style="max-width:780px;margin:0 auto;background:#ffffff">
     ${header}
     <div style="padding:32px;color:#0f1a14;font-size:14px;line-height:1.7">${bodyHtml}</div>
+    ${helpCard}
     ${footer}
   </div>
 </body></html>`
