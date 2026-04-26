@@ -96,9 +96,56 @@ $ctaHtml = renderCta($C['cta']['title'], $C['cta']['text'], $C['cta']['buttons']
 $content = '<main id="content"><div class="container">' . $bc .
     '<div class="ccontent">' . $intro . $benefitsHtml . $stepsHtml . $faqHtml . $ctaHtml . '</div></div></main>';
 
+// ===== Service + FAQPage JSON-LD =====
+// Service popisuje hlavní byznys — pronájem motorek — s areaServed,
+// price range, providerMobility, hoursAvailable. AI agenti ho používají
+// jako "what they do" answer pro prompty typu "kde si půjčit motorku v ČR".
+$benefitFeatures = [];
+foreach (($C['benefits']['items'] ?? []) as $b) {
+    $title = trim(strip_tags($b['title'] ?? ''));
+    $text  = trim(strip_tags($b['text'] ?? ''));
+    if ($title === '' && $text === '') continue;
+    $benefitFeatures[] = '{"@type":"PropertyValue","name":' . json_encode($title, JSON_UNESCAPED_UNICODE)
+        . ',"value":' . json_encode($text !== '' ? $text : $title, JSON_UNESCAPED_UNICODE) . '}';
+}
+
+$serviceSchema = '
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"Service"'
+    . ',"@id":"https://motogo24.cz/pujcovna-motorek#service"'
+    . ',"serviceType":"Motorcycle rental"'
+    . ',"name":"Pronájem motorek MotoGo24 — Vysočina"'
+    . ',"description":' . json_encode(strip_tags($C['intro']['body'] ?? 'Půjčovna motorek na Vysočině — bez kauce, výbava v ceně, nonstop provoz.'), JSON_UNESCAPED_UNICODE)
+    . ',"url":"https://motogo24.cz/pujcovna-motorek"'
+    . ',"provider":{"@id":"https://motogo24.cz/#organization"}'
+    . ',"areaServed":[{"@type":"Country","name":"Česko"},{"@type":"AdministrativeArea","name":"Kraj Vysočina"},{"@type":"Country","name":"Slovensko"},{"@type":"Country","name":"Rakousko"},{"@type":"Country","name":"Polsko"}]'
+    . ',"availableChannel":{"@type":"ServiceChannel","serviceUrl":"https://motogo24.cz/rezervace","availableLanguage":["cs","en","de","es","fr","nl","pl"]}'
+    . ',"hoursAvailable":{"@type":"OpeningHoursSpecification","dayOfWeek":["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],"opens":"00:00","closes":"23:59"}'
+    . ',"offers":{"@type":"AggregateOffer","priceCurrency":"CZK","lowPrice":"990","highPrice":"5000","offerCount":' . max(1, count($sb->fetchMotos() ?: [])) . ',"url":"https://motogo24.cz/katalog"}'
+    . ',"category":"Vehicle rental"'
+    . (!empty($benefitFeatures) ? ',"additionalProperty":[' . implode(',', $benefitFeatures) . ']' : '')
+    . '}
+  </script>';
+
+// FAQPage z home FAQ items
+$faqSchemaItems = [];
+foreach (($C['faq']['items'] ?? []) as $faq) {
+    if (empty($faq['q']) || empty($faq['a'])) continue;
+    $faqSchemaItems[] = '{"@type":"Question","name":' . json_encode(strip_tags($faq['q']), JSON_UNESCAPED_UNICODE)
+        . ',"acceptedAnswer":{"@type":"Answer","text":' . json_encode(strip_tags($faq['a']), JSON_UNESCAPED_UNICODE) . '}}';
+}
+$faqSchema = '';
+if (!empty($faqSchemaItems)) {
+    $faqSchema = '
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[' . implode(',', $faqSchemaItems) . ']}
+  </script>';
+}
+
 renderPage($C['seo']['title'], $content, '/pujcovna-motorek', [
     'description' => $C['seo']['description'],
     'keywords' => $C['seo']['keywords'],
+    'schema' => $serviceSchema . $faqSchema,
     'breadcrumbs' => [
         ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
         ['name' => t('menu.rental'), 'url' => 'https://motogo24.cz/pujcovna-motorek'],
