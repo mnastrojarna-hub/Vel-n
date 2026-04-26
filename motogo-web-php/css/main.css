@@ -73,7 +73,8 @@ input,select,textarea{font-size:16px}
 .header-phone a{color:#74FB71;font-weight:600;font-size:.95rem}
 
 /* --- Language + Currency Switcher --- */
-.header-lang{position:relative;display:flex;align-items:center;gap:.4rem;margin-left:auto;margin-right:.5rem}
+.header-lang{position:relative;display:flex;align-items:center;gap:.4rem;margin-left:.5rem}
+.header-menu{margin-left:auto}
 .lang-switcher{position:relative;font-family:inherit}
 /* --- Currency Switcher (sdílí vizuální styl s language) --- */
 .cur-switcher{position:relative;font-family:inherit}
@@ -326,7 +327,7 @@ section[aria-labelledby="process"] .wbox{background:#fff;border-color:#d4e8e0}
   .header-phone img{width:28px;height:28px}
   .header-phone a:not([aria-label]){font-size:.85rem}
   /* Language switcher — kompaktnější na mobilu */
-  .header-lang{margin-right:.4rem}
+  .header-lang{margin-left:.3rem;gap:.3rem}
   .lang-toggle{padding:.35rem .55rem;font-size:.78rem}
   .lang-toggle .lang-flag{font-size:1rem}
   .lang-dropdown{right:0;min-width:180px}
