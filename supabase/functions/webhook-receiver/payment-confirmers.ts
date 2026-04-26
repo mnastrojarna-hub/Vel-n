@@ -20,15 +20,19 @@ function generateVoucherHtml(code: string, amount: number, validUntil: string, b
   const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
   const fmtPrice = (n: number) => (n || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 0 })
   return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>Dárkový poukaz ${code}</title></head>
-<body style="margin:0;padding:0;font-family:'Segoe UI',Helvetica,Arial,sans-serif;background:#f4f7f5">
-<div style="max-width:600px;margin:32px auto;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.12)">
-  <div style="background:#1a2e22;padding:32px 40px;text-align:center">
-    <img src="${SITE_URL}/gfx/logo-icon.png" alt="MotoGo24" width="56" height="56" style="display:inline-block;vertical-align:middle;margin-right:12px" />
-    <h1 style="margin:0;color:#74FB71;font-size:24px;font-weight:900;letter-spacing:2px;display:inline-block;vertical-align:middle">MOTO GO 24</h1>
-    <p style="margin:8px 0 0;color:#9ca3af;font-size:11px;letter-spacing:3px;text-transform:uppercase">Půjčovna motorek</p>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#d9dee2;color:#0f1a14">
+<div style="max-width:780px;margin:0 auto;background:#ffffff">
+  <div style="background:#0a1f15;padding:24px 32px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>
+      <td style="vertical-align:middle;padding-right:14px;width:52px"><img src="${SITE_URL}/gfx/logo-icon.png" alt="MotoGo24" width="52" height="52" style="display:block;border:0"/></td>
+      <td style="vertical-align:middle">
+        <div style="color:#74FB71;font-size:20px;font-weight:900;letter-spacing:1px;line-height:1">MOTO GO 24</div>
+        <div style="color:#74FB71;font-size:9px;font-weight:700;letter-spacing:2px;margin-top:4px">PŮJČOVNA MOTOREK</div>
+      </td>
+    </tr></table>
   </div>
   <div style="padding:40px;text-align:center">
-    <h2 style="margin:0 0 8px;font-size:20px;font-weight:800;color:#1a2e22;text-transform:uppercase;letter-spacing:2px">Dárkový poukaz</h2>
+    <h2 style="margin:0 0 8px;font-size:20px;font-weight:800;color:#0a1f15;text-transform:uppercase;letter-spacing:2px">Dárkový poukaz</h2>
     <p style="margin:0 0 24px;font-size:13px;color:#6b7280">na pronájem motocyklu dle vlastního výběru</p>
     <div style="background:#dcfce7;border:2px solid #86efac;border-radius:16px;padding:24px;margin:0 0 24px">
       <p style="margin:0 0 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#166534">Hodnota poukazu</p>
@@ -36,7 +40,7 @@ function generateVoucherHtml(code: string, amount: number, validUntil: string, b
     </div>
     <div style="background:#f8faf9;border:2px dashed #74FB71;border-radius:12px;padding:20px;margin:0 0 24px">
       <p style="margin:0 0 6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#6b7280">Kód poukazu</p>
-      <p style="margin:0;font-size:28px;font-weight:900;font-family:'Courier New',monospace;letter-spacing:4px;color:#1a2e22">${code}</p>
+      <p style="margin:0;font-size:28px;font-weight:900;font-family:'Courier New',monospace;letter-spacing:4px;color:#0a1f15">${code}</p>
     </div>
     <table style="width:100%;border-collapse:collapse;font-size:12px;color:#374151;margin-bottom:20px">
       <tr><td style="padding:6px 0;text-align:left;font-weight:600">Vystaveno pro:</td><td style="padding:6px 0;text-align:right">${buyerName || '—'}</td></tr>
@@ -47,8 +51,13 @@ function generateVoucherHtml(code: string, amount: number, validUntil: string, b
       <p style="margin:0">Rezervujte si termín na <a href="https://www.motogo24.cz" style="color:#2563eb">www.motogo24.cz</a> a při rezervaci zadejte kód <strong>${code}</strong> do kolonky Slevový kód. Hodnota poukazu se automaticky odečte z ceny.</p>
     </div>
   </div>
-  <div style="background:#1a2e22;padding:16px 40px;text-align:center">
-    <p style="margin:0;color:#9ca3af;font-size:10px">MOTO GO 24 — Pronájem motorek po celé ČR | +420 774 256 271 | info@motogo24.cz</p>
+  <div style="background:#0a1f15;padding:14px 32px;color:#ffffff;font-size:11px;line-height:1.6">
+    <strong style="color:#ffffff">Bc. Petra Semorádová</strong>
+    <span style="color:#9ca3af"> &nbsp;|&nbsp; </span>Mezná 9, 393 01 Mezná
+    <span style="color:#9ca3af"> &nbsp;|&nbsp; </span>IČO: 21874263
+    <span style="color:#9ca3af"> &nbsp;|&nbsp; </span><span style="color:#74FB71">+420 774 256 271</span>
+    <span style="color:#9ca3af"> &nbsp;|&nbsp; </span><span style="color:#74FB71">info@motogo24.cz</span>
+    <span style="color:#9ca3af"> &nbsp;|&nbsp; </span><span style="color:#74FB71">www.motogo24.cz</span>
   </div>
 </div></body></html>`
 }
