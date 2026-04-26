@@ -317,26 +317,46 @@ async function execPublicTool(name: string, args: Record<string, unknown>): Prom
       return { days: count, rental_total: total, promo_discount: discount, grand_total: total - discount, currency: 'CZK' }
     }
     case 'get_faq': {
-      const faqs = [
-        { q: 'Kauce', a: 'NE — MotoGo24 půjčuje bez kauce. Žádná blokace na kartě.' },
-        { q: 'Cena výbavy', a: 'Helma, bunda, kalhoty, rukavice pro řidiče v ceně. Spolujezdec za příplatek.' },
-        { q: 'Řidičák A', a: 'Skupina A pro silnější stroje (>35 kW), min. věk 24 let.' },
-        { q: 'Řidičák A2', a: 'A2 — motorky do 35 kW, min. věk 18 let.' },
-        { q: 'Řidičák A1', a: 'A1 — motorky do 11 kW a 125 ccm, min. věk 16 let.' },
-        { q: 'Dětské motorky', a: 'Bez ŘP. Ručí zákonný zástupce.' },
-        { q: 'Zahraničí', a: 'Sjezd povolen. Zelená karta v ceně.' },
-        { q: 'Vyzvednutí', a: 'Mezná 9, Pelhřimov, Vysočina (49.4147, 15.2953). Nebo přistavení kamkoliv v ČR za příplatek.' },
-        { q: 'Provozní doba', a: '24/7 nonstop. Vyzvednutí přes přístupové kódy.' },
-        { q: 'Storno', a: 'Bezplatně min. 7 dní před převzetím. Později individuálně.' },
-        { q: 'Pojištění', a: 'Povinné ručení v ceně. Havarijní dle modelu.' },
-        { q: 'Platba', a: 'Online kartou přes Stripe. Visa, MC, Amex, Apple Pay, Google Pay.' },
-        { q: 'Tankování', a: 'Vrácení bez nutnosti dotankovat ani umýt.' },
-        { q: 'Kontakt', a: '+420 774 256 271, info@motogo24.cz' },
-      ]
-      const query = String(args.query || '').toLowerCase()
-      return query
-        ? { faqs: faqs.filter((f) => (f.q + ' ' + f.a).toLowerCase().includes(query)).slice(0, 5) }
-        : { faqs: faqs.slice(0, 8) }
+      // Primárně čteme FAQ z CMS (app_settings.site.faq) — sem admin edituje obsah z Velínu (CMS → Web texts → FAQ).
+      // Struktura: { categories: { <key>: { label, items: [{q, a}] } } }.
+      // Fallback: hardcoded základ pro případ, že CMS klíč není nastaven.
+      const stripHtml = (s: string) => String(s || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+      let faqs: Array<{ q: string; a: string; cat?: string }> = []
+      try {
+        const { data: cms } = await sb.from('app_settings').select('value').eq('key', 'site.faq').maybeSingle()
+        const cats = (cms?.value as Record<string, unknown>)?.categories as Record<string, { label?: string; items?: Array<{ q?: string; a?: string }> }> | undefined
+        if (cats && typeof cats === 'object') {
+          for (const [catKey, cat] of Object.entries(cats)) {
+            for (const it of (cat.items || [])) {
+              if (it.q && it.a) faqs.push({ q: stripHtml(it.q), a: stripHtml(it.a), cat: cat.label || catKey })
+            }
+          }
+        }
+      } catch { /* ignore — fallback below */ }
+
+      if (faqs.length === 0) {
+        faqs = [
+          { q: 'Kauce', a: 'NE — MotoGo24 půjčuje bez kauce. Žádná blokace na kartě.' },
+          { q: 'Cena výbavy', a: 'Helma, bunda, kalhoty, rukavice pro řidiče v ceně. Spolujezdec za příplatek.' },
+          { q: 'Řidičák A', a: 'Skupina A pro silnější stroje (>35 kW), min. věk 24 let.' },
+          { q: 'Řidičák A2', a: 'A2 — motorky do 35 kW, min. věk 18 let.' },
+          { q: 'Řidičák A1', a: 'A1 — motorky do 11 kW a 125 ccm, min. věk 16 let.' },
+          { q: 'Dětské motorky', a: 'Bez ŘP. Ručí zákonný zástupce.' },
+          { q: 'Zahraničí', a: 'Sjezd povolen. Zelená karta v ceně.' },
+          { q: 'Vyzvednutí', a: 'Mezná 9, Pelhřimov, Vysočina (49.4147, 15.2953). Nebo přistavení kamkoliv v ČR za příplatek.' },
+          { q: 'Provozní doba', a: '24/7 nonstop. Vyzvednutí přes přístupové kódy.' },
+          { q: 'Storno', a: 'Bezplatně min. 7 dní před převzetím. Později individuálně.' },
+          { q: 'Pojištění', a: 'Povinné ručení v ceně. Havarijní dle modelu.' },
+          { q: 'Platba', a: 'Online kartou přes Stripe. Visa, MC, Amex, Apple Pay, Google Pay.' },
+          { q: 'Tankování', a: 'Vrácení bez nutnosti dotankovat ani umýt.' },
+        ]
+      }
+
+      const query = String(args.query || '').toLowerCase().trim()
+      const matched = query
+        ? faqs.filter((f) => (f.q + ' ' + f.a + ' ' + (f.cat || '')).toLowerCase().includes(query))
+        : faqs
+      return { source: faqs[0]?.cat ? 'cms' : 'fallback', count: matched.length, faqs: matched.slice(0, 8) }
     }
     case 'get_extras_catalog': {
       const { data } = await sb.from('extras_catalog')
