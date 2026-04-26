@@ -102,17 +102,56 @@ $content = '<main id="content"><div class="container">' . $bc
     . $descHtml
     . '</article></div></main>';
 
-// Schema.org Product
+// Schema.org Product — kompletní data pro AI: brand, materiál, barva, velikosti,
+// stav skladu, cena, currency. Aggregate rating se přidá globálně z reviews tabulky
+// pokud existuje min. 3 recenze.
+$productUrl = 'https://motogo24.cz/eshop/' . htmlspecialchars($id);
+$schemaImages = [];
+foreach ($images as $img) {
+    $u = (strpos($img, 'http') === 0 || strpos($img, '/') === 0) ? $img : imgUrl($img);
+    if ($u && !in_array($u, $schemaImages, true)) $schemaImages[] = $u;
+}
+
+$globalReviews = $sb->fetchPublicReviews(50);
+$reviewAgg = '';
+if (is_array($globalReviews) && count($globalReviews) >= 3) {
+    $sum = 0; $n = 0;
+    foreach ($globalReviews as $r) {
+        $rt = (int)($r['rating'] ?? 0);
+        if ($rt >= 1 && $rt <= 5) { $sum += $rt; $n++; }
+    }
+    if ($n >= 3) {
+        $avg = round($sum / $n, 2);
+        $reviewAgg = ',"aggregateRating":{"@type":"AggregateRating","ratingValue":' . $avg . ',"bestRating":5,"worstRating":1,"ratingCount":' . $n . ',"reviewCount":' . $n . '}';
+    }
+}
+
+$additionalProps = [];
+if ($colorRaw !== '')  $additionalProps[] = '{"@type":"PropertyValue","name":"Barva","value":' . json_encode($colorRaw, JSON_UNESCAPED_UNICODE) . '}';
+if ($matRaw !== '')    $additionalProps[] = '{"@type":"PropertyValue","name":"Materiál","value":' . json_encode($matRaw, JSON_UNESCAPED_UNICODE) . '}';
+if (!empty($sizes))    $additionalProps[] = '{"@type":"PropertyValue","name":"Dostupné velikosti","value":' . json_encode(implode(', ', $sizes), JSON_UNESCAPED_UNICODE) . '}';
+
+$category = trim((string)($product['category'] ?? ''));
+
 $productSchema = '
   <script type="application/ld+json">
   {"@context":"https://schema.org","@type":"Product","name":' . json_encode($nameRaw, JSON_UNESCAPED_UNICODE) .
   ',"description":' . json_encode($descRaw !== '' ? $descRaw : $nameRaw, JSON_UNESCAPED_UNICODE) .
-  ($mainImg ? ',"image":' . json_encode($mainImg) : '') .
-  ($sku !== '' ? ',"sku":' . json_encode($sku) : '') .
+  ',"url":' . json_encode($productUrl) .
+  (!empty($schemaImages) ? ',"image":' . json_encode($schemaImages) : '') .
+  ($sku !== '' ? ',"sku":' . json_encode($sku) . ',"mpn":' . json_encode($sku) : '') .
+  ($category !== '' ? ',"category":' . json_encode($category, JSON_UNESCAPED_UNICODE) : '') .
+  ($colorRaw !== '' ? ',"color":' . json_encode($colorRaw, JSON_UNESCAPED_UNICODE) : '') .
+  ($matRaw !== '' ? ',"material":' . json_encode($matRaw, JSON_UNESCAPED_UNICODE) : '') .
+  (!empty($additionalProps) ? ',"additionalProperty":[' . implode(',', $additionalProps) . ']' : '') .
   ',"brand":{"@type":"Brand","name":"MotoGo24"}' .
   ($price > 0 ? ',"offers":{"@type":"Offer","priceCurrency":"CZK","price":' . json_encode($price) .
     ',"availability":' . json_encode($stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock') .
-    ',"url":"https://motogo24.cz/eshop/' . htmlspecialchars($id) . '"}' : '') .
+    ',"itemCondition":"https://schema.org/NewCondition"' .
+    ',"priceValidUntil":' . json_encode(date('Y-m-d', strtotime('+1 year'))) .
+    ',"seller":{"@type":"Organization","name":"MotoGo24","url":"https://motogo24.cz"}' .
+    ',"url":' . json_encode($productUrl) . '}' : '') .
+  $reviewAgg .
   '}
   </script>';
 

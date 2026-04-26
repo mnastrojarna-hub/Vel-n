@@ -22,9 +22,32 @@ $content = '<main id="content"><div class="container">' . $bc
     . '<div id="shop-grid" class="gr3">' . $gridHtml . '</div>'
     . '</section></div></main>';
 
+// ItemList JSON-LD pro AI agenty / Google rich results
+$listItems = [];
+$pos = 0;
+foreach ((is_array($products) ? $products : []) as $p) {
+    if (empty($p['id'])) continue;
+    $pos++;
+    $pname = (string)localized($p, 'name');
+    if ($pname === '') $pname = (string)($p['name'] ?? '');
+    $listItems[] = '{"@type":"ListItem","position":' . $pos
+        . ',"url":"https://motogo24.cz/eshop/' . htmlspecialchars($p['id']) . '"'
+        . ',"name":' . json_encode($pname, JSON_UNESCAPED_UNICODE)
+        . '}';
+    if ($pos >= 50) break;
+}
+$itemListSchema = '';
+if (!empty($listItems)) {
+    $itemListSchema = '
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"ItemList","name":"E-shop motorkářské výbavy MotoGo24","numberOfItems":' . count($products) . ',"itemListElement":[' . implode(',', $listItems) . ']}
+  </script>';
+}
+
 renderPage(t('shop.title'), $content, '/eshop', [
     'description' => t('shop.description'),
     'keywords' => t('shop.keywords'),
+    'schema' => $itemListSchema,
     'breadcrumbs' => [
         ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
         ['name' => t('breadcrumb.shop'), 'url' => 'https://motogo24.cz/eshop'],

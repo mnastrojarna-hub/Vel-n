@@ -340,11 +340,114 @@ $content = '<main id="content"><div class="container">' . $bc .
         $infoHtml . $descSpecsHtml . $pricesHtml . $relatedHtml .
     '</article></div></main>' . $calendarJs;
 
-// Product schema
+// ===== Product + Vehicle (Motorcycle subtype) JSON-LD =====
+// AI agenti dostávají kompletní popis motorky: motor, výkon, kapacita,
+// cena per den (UnitPriceSpecification), dostupnost (InStock/OutOfStock dle dnes),
+// brand, fotky, kategorie ŘP. Schema.org Motorcycle dědí z Vehicle.
 $minPrice = getMinPrice($moto);
+$availability = $isAvailableToday ? 'https://schema.org/InStock' : 'https://schema.org/PreOrder';
+$motoUrl = 'https://motogo24.cz/katalog/' . $motoId;
+
+// Sbírej všechny obrázky (ne jen mainImg)
+$schemaImages = [];
+if ($mainImg) $schemaImages[] = $mainImg;
+if (!empty($moto['images']) && is_array($moto['images'])) {
+    foreach ($moto['images'] as $img) {
+        $u = imgUrl($img);
+        if ($u && !in_array($u, $schemaImages, true)) $schemaImages[] = $u;
+    }
+}
+if (empty($schemaImages)) $schemaImages[] = 'https://motogo24.cz/gfx/logo.svg';
+
+// Per-day pricing → UnitPriceSpecification[]
+$dayMap = ['mon' => 'Monday', 'tue' => 'Tuesday', 'wed' => 'Wednesday', 'thu' => 'Thursday', 'fri' => 'Friday', 'sat' => 'Saturday', 'sun' => 'Sunday'];
+$priceSpecs = [];
+foreach ($dayMap as $short => $long) {
+    $p = (float)($moto['price_' . $short] ?? 0);
+    if ($p > 0) {
+        $priceSpecs[] = '{"@type":"UnitPriceSpecification","price":' . $p . ',"priceCurrency":"CZK","unitCode":"DAY","name":"Cena ' . $long . '","validFrom":null,"eligibleQuantity":{"@type":"QuantitativeValue","unitCode":"DAY","value":1}}';
+    }
+}
+
+// Vehicle properties — všechno co máme v DB
+$vehicleProps = [];
+$vehicleProps[] = '"vehicleSpecialUsage":"https://schema.org/RentalVehicleUsage"';
+if (!empty($moto['year']))           $vehicleProps[] = '"vehicleModelDate":' . json_encode((string)$moto['year']);
+if (!empty($moto['mileage']))        $vehicleProps[] = '"mileageFromOdometer":{"@type":"QuantitativeValue","value":' . (int)$moto['mileage'] . ',"unitCode":"KMT"}';
+if (!empty($moto['weight_kg']))      $vehicleProps[] = '"weight":{"@type":"QuantitativeValue","value":' . (float)$moto['weight_kg'] . ',"unitCode":"KGM"}';
+if (!empty($moto['fuel_tank_l']))    $vehicleProps[] = '"fuelCapacity":{"@type":"QuantitativeValue","value":' . (float)$moto['fuel_tank_l'] . ',"unitCode":"LTR"}';
+if (!empty($moto['seat_height_mm'])) $vehicleProps[] = '"height":{"@type":"QuantitativeValue","value":' . (float)$moto['seat_height_mm'] . ',"unitCode":"MMT","name":"Výška sedla"}';
+if (!empty($moto['vin']))            $vehicleProps[] = '"vehicleIdentificationNumber":' . json_encode((string)$moto['vin']);
+
+// Engine — kombinace výkon + zdvih
+$engineParts = [];
+if (!empty($moto['power_kw']))    $engineParts[] = '"enginePower":{"@type":"QuantitativeValue","value":' . (float)$moto['power_kw'] . ',"unitCode":"KWT"}';
+if (!empty($moto['torque_nm']))   $engineParts[] = '"torque":{"@type":"QuantitativeValue","value":' . (float)$moto['torque_nm'] . ',"unitCode":"NU"}';
+if (!empty($moto['engine_cc']))   $engineParts[] = '"engineDisplacement":{"@type":"QuantitativeValue","value":' . (float)$moto['engine_cc'] . ',"unitCode":"CMQ"}';
+if (!empty($moto['engine_type'])) $engineParts[] = '"name":' . json_encode((string)$moto['engine_type'], JSON_UNESCAPED_UNICODE);
+if (!empty($engineParts)) {
+    $vehicleProps[] = '"vehicleEngine":{"@type":"EngineSpecification",' . implode(',', $engineParts) . '}';
+}
+
+// License required (kategorie ŘP)
+if (!empty($moto['license_required'])) {
+    $vehicleProps[] = '"requiresSubscription":false';
+    $vehicleProps[] = '"audience":{"@type":"Audience","audienceType":"' . htmlspecialchars((string)$moto['license_required']) . ' driving license holders","requiredMinAge":' . ((string)$moto['license_required'] === 'A' ? 24 : ((string)$moto['license_required'] === 'A2' ? 18 : 16)) . '}';
+}
+
+// Branch info → seller
+$sellerBlock = '';
+if (is_array($branch) && !empty($branch['name'])) {
+    $sellerBlock = ',"seller":{"@type":"Organization","name":' . json_encode($branch['name'], JSON_UNESCAPED_UNICODE)
+        . ',"address":{"@type":"PostalAddress","streetAddress":' . json_encode($branch['address'] ?? '', JSON_UNESCAPED_UNICODE)
+        . ',"addressLocality":' . json_encode($branch['city'] ?? '', JSON_UNESCAPED_UNICODE)
+        . ',"addressCountry":"CZ"}}';
+}
+
+// AggregateRating — pokud máme ≥3 recenzí v cache (z home.php), použijeme je jako globální značku kvality
+$reviewAgg = '';
+$globalReviews = $sb->fetchPublicReviews(50);
+if (is_array($globalReviews) && count($globalReviews) >= 3) {
+    $sum = 0; $n = 0;
+    foreach ($globalReviews as $r) {
+        $rt = (int)($r['rating'] ?? 0);
+        if ($rt >= 1 && $rt <= 5) { $sum += $rt; $n++; }
+    }
+    if ($n >= 3) {
+        $avg = round($sum / $n, 2);
+        $reviewAgg = ',"aggregateRating":{"@type":"AggregateRating","ratingValue":' . $avg . ',"bestRating":5,"worstRating":1,"ratingCount":' . $n . ',"reviewCount":' . $n . '}';
+    }
+}
+
+$offerBlock = '{"@type":"Offer","priceCurrency":"CZK","price":' . json_encode($minPrice)
+    . ',"availability":' . json_encode($availability)
+    . ',"url":' . json_encode($motoUrl)
+    . ',"priceValidUntil":' . json_encode(date('Y-m-d', strtotime('+1 year')))
+    . ',"businessFunction":"https://purl.org/goodrelations/v1#LeaseOut"'
+    . ',"itemCondition":"https://schema.org/UsedCondition"'
+    . (!empty($priceSpecs) ? ',"priceSpecification":[' . implode(',', $priceSpecs) . ']' : '')
+    . ($sellerBlock !== '' ? $sellerBlock : '')
+    . '}';
+
+$brandName = $moto['brand'] ?? '';
+$brandBlock = $brandName !== '' ? ',"brand":{"@type":"Brand","name":' . json_encode($brandName, JSON_UNESCAPED_UNICODE) . '}' : '';
+$catBlock = !empty($moto['category']) ? ',"category":' . json_encode((string)$moto['category'], JSON_UNESCAPED_UNICODE) : '';
+$colorBlock = !empty($moto['color']) ? ',"color":' . json_encode((string)$moto['color'], JSON_UNESCAPED_UNICODE) : '';
+$skuBlock = !empty($moto['spz']) ? ',"sku":' . json_encode((string)$moto['spz']) : '';
+
+$descForSchema = $motoDesc !== '' ? $motoDesc : ($moto['model'] ?? '');
+
 $productSchema = '
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"Product","name":' . json_encode($moto['model'], JSON_UNESCAPED_UNICODE) . ',"description":' . json_encode($motoDesc !== '' ? $motoDesc : ($moto['model'] ?? ''), JSON_UNESCAPED_UNICODE) . ',"image":' . json_encode($mainImg ?: 'https://motogo24.cz/gfx/logo.svg') . ',"brand":{"@type":"Brand","name":' . json_encode($moto['brand'] ?? '', JSON_UNESCAPED_UNICODE) . '},"offers":{"@type":"Offer","priceCurrency":"CZK","price":' . json_encode($minPrice) . ',"availability":"https://schema.org/InStock","url":"https://motogo24.cz/katalog/' . $motoId . '"}}
+  {"@context":"https://schema.org","@type":["Product","Motorcycle"],"name":' . json_encode($moto['model'], JSON_UNESCAPED_UNICODE)
+  . ',"description":' . json_encode($descForSchema, JSON_UNESCAPED_UNICODE)
+  . ',"image":' . json_encode($schemaImages)
+  . ',"url":' . json_encode($motoUrl)
+  . $brandBlock . $catBlock . $colorBlock . $skuBlock
+  . ',' . implode(',', $vehicleProps)
+  . ',"offers":' . $offerBlock
+  . $reviewAgg
+  . '}
   </script>';
 
 renderPage($model . ' | Půjčovna MotoGo24', $content, '/katalog/' . $motoId, [

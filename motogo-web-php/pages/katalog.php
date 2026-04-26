@@ -271,9 +271,30 @@ $content = '<main id="content"><div class="container">'
     . '<div id="katalog-grid" class="gr4">' . $gridHtml . '</div>'
     . '</div></div></main>';
 
+// ItemList JSON-LD — AI agent dostane kompletní katalog v jednom payload (max 50 položek per stránka)
+$listItems = [];
+foreach (array_slice($filtered, 0, 50) as $i => $m) {
+    if (empty($m['id'])) continue;
+    $listItems[] = '{"@type":"ListItem","position":' . ($i + 1)
+        . ',"url":"https://motogo24.cz/katalog/' . htmlspecialchars($m['id']) . '"'
+        . ',"name":' . json_encode($m['model'] ?? '', JSON_UNESCAPED_UNICODE)
+        . '}';
+}
+$itemListSchema = '';
+if (!empty($listItems)) {
+    $itemListSchema = '
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"ItemList","name":' . json_encode($title . ' — MotoGo24', JSON_UNESCAPED_UNICODE)
+        . ',"numberOfItems":' . count($filtered)
+        . ',"itemListOrder":"https://schema.org/ItemListOrderAscending"'
+        . ',"itemListElement":[' . implode(',', $listItems) . ']}
+  </script>';
+}
+
 renderPage($title . ' | MotoGo24', $content, $path, [
     'description' => t('katalog.seo.description'),
     'keywords' => t('katalog.seo.keywords'),
+    'schema' => $itemListSchema,
     'breadcrumbs' => [
         ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
         ['name' => t('breadcrumb.catalog'), 'url' => 'https://motogo24.cz/katalog'],

@@ -72,6 +72,27 @@ if ($path === '/sitemap.xml') {
     exit;
 }
 
+// llms.txt — LLM-friendly katalog stránek (Jeremy Howard standard)
+// Per-language přes ?lang= nebo cookie. Vrací text/markdown.
+if ($path === '/llms.txt') {
+    require __DIR__ . '/pages/llms-txt.php';
+    exit;
+}
+
+// .well-known/security.txt — RFC 9116 (statický soubor v .well-known/)
+// .htaccess nepřesměrovává requesty na existující soubory, takže pokud je soubor
+// k dispozici, server ho doručí přímo. Tento fallback řeší případ, kdy
+// .well-known/ na hostingu není přístupné — vrátíme obsah ze stejného repozitáře.
+if ($path === '/.well-known/security.txt' || $path === '/security.txt') {
+    $f = __DIR__ . '/.well-known/security.txt';
+    if (is_file($f)) {
+        header('Content-Type: text/plain; charset=utf-8');
+        header('Cache-Control: public, max-age=86400');
+        readfile($f);
+        exit;
+    }
+}
+
 // Favicon.ico — servírujeme SVG favicon jako fallback.
 // (.htaccess rewrite pošle tenhle request sem, pokud fyzický soubor chybí.)
 if ($path === '/favicon.ico') {

@@ -1,6 +1,133 @@
+# MotoGo24 — robots.txt
+# Explicitní allowlist pro AI agenty + tradiční vyhledávače.
+# Každý AI bot má vlastní blok (RFC 9309). LLM-friendly index: /llms.txt, /llms-full.txt.
+
+# === AI crawleři pro trénink i live browsing ===
+User-agent: GPTBot
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: Claude-User
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: Claude-SearchBot
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: anthropic-ai
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: Perplexity-User
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: GoogleOther
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: Applebot-Extended
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: Meta-ExternalAgent
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: Meta-ExternalFetcher
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: FacebookBot
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: Bytespider
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: cohere-ai
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: DuckAssistBot
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: Amazonbot
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: Diffbot
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: YouBot
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: PetalBot
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+User-agent: MistralAI-User
+Allow: /
+Disallow: /rezervace
+Disallow: /potvrzeni
+
+# === Tradiční vyhledávače + default ===
 User-agent: *
 Allow: /
 Disallow: /rezervace
 Disallow: /potvrzeni
 
+# Mapa stránek + LLM index
 Sitemap: https://motogo24.cz/sitemap.xml
+Sitemap: https://motogo24.com/sitemap.xml
+
+# LLM-friendly katalog obsahu (markdown):
+#   https://motogo24.cz/llms.txt          — krátký index s odkazy
+#   https://motogo24.cz/llms-full.txt     — sloučený obsah všech statických stránek

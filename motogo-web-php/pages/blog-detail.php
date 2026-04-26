@@ -59,10 +59,45 @@ $content = '<main id="content"><div class="container">' . $bc .
     $galleryHtml .
     '</div></div></main>';
 
-// Article schema
+// ===== Article schema — kompletní pro AI Overviews / Discover / Perplexity =====
+$articleUrl = 'https://motogo24.cz/blog/' . htmlspecialchars($slug);
+$schemaImages = [];
+if (!empty($post['images']) && is_array($post['images'])) {
+    foreach ($post['images'] as $img) {
+        if (!empty($img)) $schemaImages[] = $img;
+    }
+}
+if (empty($schemaImages) && !empty($post['image_url'])) $schemaImages[] = $post['image_url'];
+if (empty($schemaImages)) $schemaImages[] = 'https://motogo24.cz/gfx/hero-banner.jpg';
+
+// articleBody — striputj HTML a vezmi prvních ~5000 znaků (rich snippet limit)
+$articleBodyText = trim(strip_tags($contentRaw));
+if (mb_strlen($articleBodyText) > 5000) {
+    $articleBodyText = mb_substr($articleBodyText, 0, 4997) . '...';
+}
+
+$wordCount = $articleBodyText !== '' ? str_word_count($articleBodyText) : 0;
+
+$datePublished = $post['created_at'] ?? null;
+$dateModified  = $post['updated_at'] ?? $datePublished;
+
 $articleSchema = '
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":"Article","headline":' . json_encode($titleRaw, JSON_UNESCAPED_UNICODE) . ',"author":{"@type":"Organization","name":"MotoGo24"},"publisher":{"@type":"Organization","name":"MotoGo24","logo":{"@type":"ImageObject","url":"https://motogo24.cz/gfx/logo.svg"}}' . (!empty($post['created_at']) ? ',"datePublished":' . json_encode($post['created_at']) : '') . '}
+  {"@context":"https://schema.org","@type":["Article","BlogPosting"]'
+    . ',"headline":' . json_encode($titleRaw, JSON_UNESCAPED_UNICODE)
+    . ',"description":' . json_encode($excerpt !== '' ? $excerpt : $titleRaw, JSON_UNESCAPED_UNICODE)
+    . ',"image":' . json_encode($schemaImages)
+    . ',"url":' . json_encode($articleUrl)
+    . ',"mainEntityOfPage":{"@type":"WebPage","@id":' . json_encode($articleUrl) . '}'
+    . ',"author":{"@type":"Organization","name":"MotoGo24","url":"https://motogo24.cz"}'
+    . ',"publisher":{"@type":"Organization","name":"MotoGo24","logo":{"@type":"ImageObject","url":"https://motogo24.cz/gfx/logo.svg","width":512,"height":512}}'
+    . ($datePublished ? ',"datePublished":' . json_encode($datePublished) : '')
+    . ($dateModified  ? ',"dateModified":'  . json_encode($dateModified)  : '')
+    . ($wordCount > 0 ? ',"wordCount":' . $wordCount : '')
+    . ($articleBodyText !== '' ? ',"articleBody":' . json_encode($articleBodyText, JSON_UNESCAPED_UNICODE) : '')
+    . ',"inLanguage":' . json_encode(i18nHtmlLang())
+    . ',"isAccessibleForFree":true'
+    . '}
   </script>';
 
 renderPage($titleRaw . ' | Blog MotoGo24', $content, '/blog/' . $slug, [
