@@ -214,7 +214,7 @@ MG._submitReservation = async function(){
 MG._rezShowStep2 = function(){
   var form=document.getElementById('rez-form');if(!form)return;
   // Hide calendar, banner, moto select — only show on step 1
-  ['rez-intro','rez-calendar','rez-date-banner','rez-avail-select','rez-moto-select'].forEach(function(id){
+  ['rez-intro','rez-step-moto','rez-step-cal','rez-calendar','rez-date-banner','rez-avail-select','rez-moto-select'].forEach(function(id){
     var el=document.getElementById(id);if(el)el.style.display='none';
   });
   var d=MG._rez.formData,r=MG._rez;
@@ -442,7 +442,7 @@ MG._rezInitLicenseUI = function(){
 MG._rezBackToStep1 = function(){
   var form=document.getElementById('rez-form');if(!form)return;
   // Show calendar elements again
-  ['rez-intro','rez-calendar','rez-date-banner','rez-moto-select'].forEach(function(id){
+  ['rez-intro','rez-step-moto','rez-step-cal','rez-calendar','rez-date-banner','rez-moto-select'].forEach(function(id){
     var el=document.getElementById(id);if(el)el.style.display='';
   });
   form.outerHTML=MG._rezFormHtml();MG._rezInitFormEvents();

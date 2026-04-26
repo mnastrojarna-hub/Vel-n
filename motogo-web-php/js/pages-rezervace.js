@@ -79,7 +79,7 @@ MG._rezFormHtml = function(){
   return '<div id="rez-form">' +
     // ===== STEP A — Kontaktní údaje =====
     '<section class="rez-section">' +
-      '<div class="rez-section-head"><span class="rez-step-num">1</span><h2>Vaše kontaktní údaje</h2></div>' +
+      '<div class="rez-section-head"><span class="rez-step-num">3</span><h2>Vaše kontaktní údaje</h2></div>' +
       '<input type="text" id="rez-name" name="name" placeholder="* Jméno a příjmení" required autocomplete="name">' +
       '<div class="gr2"><input type="text" id="rez-street" name="street-address" placeholder="* Ulice, č.p." required autocomplete="street-address">' +
       '<input type="text" id="rez-zip" name="postal-code" placeholder="* PSČ" required autocomplete="postal-code"></div>' +
@@ -95,7 +95,7 @@ MG._rezFormHtml = function(){
 
     // ===== STEP B — Místo a čas =====
     '<section class="rez-section">' +
-      '<div class="rez-section-head"><span class="rez-step-num">2</span><h2>Vyzvednutí a vrácení</h2></div>' +
+      '<div class="rez-section-head"><span class="rez-step-num">4</span><h2>Vyzvednutí a vrácení</h2></div>' +
 
       // Time card
       '<div class="rez-time-card">' +
@@ -161,7 +161,7 @@ MG._rezFormHtml = function(){
 
     // ===== STEP C — Výbava =====
     '<section class="rez-section">' +
-      '<div class="rez-section-head"><span class="rez-step-num">3</span><h2>Výbava a velikosti</h2></div>' +
+      '<div class="rez-section-head"><span class="rez-step-num">5</span><h2>Výbava a velikosti</h2></div>' +
       '<p class="rez-section-sub">Vyberte velikosti kliknutím na čtverečky níže. Pokud velikost nezvolíte, vyzkoušíme ji na místě.</p>' +
 
       '<div class="gear-grid">' +
@@ -226,7 +226,7 @@ MG._rezFormHtml = function(){
 
     // ===== STEP D — Souhlasy =====
     '<section class="rez-section">' +
-      '<div class="rez-section-head"><span class="rez-step-num">4</span><h2>Souhlasy</h2></div>' +
+      '<div class="rez-section-head"><span class="rez-step-num">6</span><h2>Souhlasy</h2></div>' +
       '<div class="rez-agreements">' +
         '<label class="rez-agree"><input type="checkbox" id="rez-agree-vop" required checked><span>* Souhlasím s <a href="/obchodni-podminky">obchodními podmínkami</a></span></label>' +
         '<label class="rez-agree"><input type="checkbox" id="rez-agree-gdpr" checked><span>Souhlasím se <a href="/gdpr">zpracováním osobních údajů</a></span></label>' +
@@ -407,10 +407,16 @@ MG._rezInit = async function(){
       '<p style="margin:0 0 .3rem;font-size:.85rem;color:#555">Chcete <strong>konkrétní motorku</strong>? Vyberte ji ze seznamu — kalendář ukáže její dostupné termíny.</p>' +
       '<p style="margin:0;font-size:.85rem;color:#1a8c1a"><strong>Bez kauce · výbava pro řidiče zdarma · velikost si vyberete v motopůjčovně</strong></p>' +
       '</div></div>' +
-      '<div id="rez-moto-select"></div>' +
-      '<div id="rez-calendar"></div>' +
-      '<div id="rez-date-banner" style="display:none"></div>' +
-      '<div id="rez-avail-select" style="display:none"></div>' +
+      '<section class="rez-section rez-section-pre" id="rez-step-moto">' +
+        '<div class="rez-section-head"><span class="rez-step-num">1</span><h2>Vyberte motorku</h2></div>' +
+        '<div id="rez-moto-select"></div>' +
+      '</section>' +
+      '<section class="rez-section rez-section-pre" id="rez-step-cal">' +
+        '<div class="rez-section-head"><span class="rez-step-num">2</span><h2>Vyberte termín</h2></div>' +
+        '<div id="rez-calendar"></div>' +
+        '<div id="rez-date-banner" style="display:none"></div>' +
+        '<div id="rez-avail-select" style="display:none"></div>' +
+      '</section>' +
       MG._rezFormHtml();
   }
 
@@ -445,10 +451,11 @@ MG._rezInit = async function(){
 
   var sel = document.getElementById('rez-moto-select');
   if(sel){
-    var h = '<form class="form-product-select gr2"><div>Vyber motorku:</div><select id="rez-moto-dropdown">' +
+    var h = '<form class="rez-moto-pick"><label for="rez-moto-dropdown">Konkrétní model nebo libovolná motorka</label>' +
+      '<div class="rez-moto-pick-wrap"><select id="rez-moto-dropdown">' +
       '<option value="">libovolná dostupná motorka v mém termínu</option>';
     motos.forEach(function(m){ h += '<option value="'+m.id+'"'+(m.id===mp?' selected':'')+'>'+m.model+'</option>'; });
-    h += '</select></form>';
+    h += '</select></div></form>';
     sel.innerHTML = h;
     document.getElementById('rez-moto-dropdown').addEventListener('change', function(){
       MG._rez.motoId = this.value;
