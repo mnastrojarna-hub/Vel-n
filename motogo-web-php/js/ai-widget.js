@@ -22,20 +22,23 @@
   var LANG = document.documentElement.lang ? document.documentElement.lang.slice(0, 2) : 'cs';
   var API = SUPABASE_URL + '/functions/v1/ai-public-agent';
 
-  // i18n strings
+  // i18n strings (welcome se případně přepíše hláškou z app_settings)
   var T = {
-    cs: { open: 'Zeptejte se AI', placeholder: 'Napište dotaz...', send: 'Odeslat',
-          welcome: 'Ahoj! Jsem AI asistent MotoGo24. Pomůžu ti najít motorku, spočítat cenu, nebo odpovědět na otázky o pronájmu. Co potřebuješ?',
+    cs: { open: 'Zeptejte se AI', placeholder: 'Napište dotaz nebo začněte rezervaci...', send: 'Odeslat',
+          welcome: 'Dobrý den, jsem rezervační asistent MotoGo24. Co potřebujete — najít motorku, spočítat cenu, nebo rovnou rezervovat?',
           thinking: 'Přemýšlím...', error: 'Něco se nepovedlo. Zavolejte +420 774 256 271.', close: 'Zavřít chat', clear: 'Začít znovu',
-          tos: 'Konverzace s AI je informativní; přesné podmínky najdeš ve smlouvě.' },
-    en: { open: 'Ask AI', placeholder: 'Ask anything...', send: 'Send',
-          welcome: 'Hi! I\'m the MotoGo24 AI assistant. I can help you find a motorcycle, calculate prices, or answer rental questions. What do you need?',
+          tos: 'Konverzace s AI je informativní; přesné podmínky najdeš ve smlouvě.',
+          ctaPay: 'Pokračovat k platbě →', ctaBook: 'Pokračovat k rezervaci →' },
+    en: { open: 'Ask AI', placeholder: 'Ask or start a booking...', send: 'Send',
+          welcome: 'Hi, I\'m the MotoGo24 booking assistant. What do you need — find a motorcycle, get a price, or book straight away?',
           thinking: 'Thinking...', error: 'Something went wrong. Call +420 774 256 271.', close: 'Close chat', clear: 'Start over',
-          tos: 'AI conversations are informational; binding terms are in the contract.' },
-    de: { open: 'KI fragen', placeholder: 'Frage stellen...', send: 'Senden',
-          welcome: 'Hallo! Ich bin der MotoGo24 KI-Assistent. Ich helfe dir, ein Motorrad zu finden, Preise zu berechnen oder Mietfragen zu beantworten.',
+          tos: 'AI conversations are informational; binding terms are in the contract.',
+          ctaPay: 'Continue to payment →', ctaBook: 'Continue to booking →' },
+    de: { open: 'KI fragen', placeholder: 'Frage stellen oder buchen...', send: 'Senden',
+          welcome: 'Hallo, ich bin der Buchungsassistent von MotoGo24. Was brauchen Sie — ein Motorrad finden, Preis berechnen oder gleich buchen?',
           thinking: 'Denke nach...', error: 'Etwas ist schiefgelaufen. Rufen Sie +420 774 256 271 an.', close: 'Chat schließen', clear: 'Neu starten',
-          tos: 'KI-Gespräche sind informativ; verbindlich ist der Vertrag.' },
+          tos: 'KI-Gespräche sind informativ; verbindlich ist der Vertrag.',
+          ctaPay: 'Weiter zur Zahlung →', ctaBook: 'Weiter zur Buchung →' },
   };
   var t = T[LANG] || T.cs;
 
@@ -112,6 +115,29 @@
     var conversation = [];
     var isLoading = false;
     var welcomed = false;
+    var customWelcome = null;
+
+    // Načti uvítací zprávu z app_settings (admin si ji může změnit ve Velínu).
+    // PostgREST endpoint je veřejný (RLS app_settings = SELECT public).
+    (function fetchWelcome() {
+      try {
+        var url = SUPABASE_URL + '/rest/v1/app_settings?key=eq.ai_public_agent_config&select=value';
+        fetch(url, { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY } })
+          .then(function(r) { return r.ok ? r.json() : []; })
+          .then(function(rows) {
+            if (rows && rows[0] && rows[0].value) {
+              var v = rows[0].value;
+              if (v.enabled === false) {
+                bubble.style.display = 'none';
+                return;
+              }
+              var key = 'welcome_' + LANG;
+              if (v[key] && typeof v[key] === 'string') customWelcome = v[key];
+            }
+          })
+          .catch(function() {});
+      } catch (e) {}
+    })();
 
     function open() {
       panel.classList.add('open');
@@ -120,7 +146,7 @@
       bubble.setAttribute('aria-label', t.close);
       if (!welcomed) {
         welcomed = true;
-        appendMsg('assistant', t.welcome);
+        appendMsg('assistant', customWelcome || t.welcome);
       }
       setTimeout(function() { input.focus(); }, 200);
     }
@@ -203,18 +229,26 @@
           var reply = data.reply || t.error;
           conversation.push({ role: 'assistant', content: reply });
           appendMsg('assistant', reply);
-          // Pokud agent volal redirect_to_booking → CTA tlačítko
-          if (data.tool_uses && data.tool_uses.length) {
+          // CTA tlačítka — preferujeme platební odkaz z create_booking_request,
+          // jinak redirect_to_booking. Hodnota tu.result je už deserializovaná.
+          var ctaUrl = data.booking_url || null;
+          var ctaLabel = ctaUrl ? t.ctaPay : null;
+          if (!ctaUrl && data.tool_uses && data.tool_uses.length) {
             for (var i = 0; i < data.tool_uses.length; i++) {
               var tu = data.tool_uses[i];
               if (tu.name === 'redirect_to_booking' && tu.result && tu.result.url) {
-                var cta = el('a', {
-                  href: tu.result.url, target: '_blank', rel: 'noopener',
-                  class: 'btn btngreen', style: 'display:inline-block;margin-top:8px;background:#74FB71;color:#0b0b0b;padding:8px 16px;border-radius:18px;text-decoration:none;font-weight:700;font-size:13px',
-                }, ['Pokračovat k rezervaci →']);
-                msgs.lastChild.appendChild(cta);
+                ctaUrl = tu.result.url;
+                ctaLabel = t.ctaBook;
+                break;
               }
             }
+          }
+          if (ctaUrl) {
+            var cta = el('a', {
+              href: ctaUrl, target: '_blank', rel: 'noopener',
+              style: 'display:inline-block;margin-top:8px;background:#74FB71;color:#0b0b0b;padding:8px 16px;border-radius:18px;text-decoration:none;font-weight:700;font-size:13px',
+            }, [ctaLabel]);
+            msgs.lastChild.appendChild(cta);
           }
         }
       } catch (e) {
