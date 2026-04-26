@@ -60,9 +60,9 @@ Detailní politiky:
 
 ---
 
-## 8. EDGE FUNKCE (27 aktivních po cleanup)
+## 8. EDGE FUNKCE (28 aktivních po cleanup)
 
-### V repozitáři (23 — všechny deployované)
+### V repozitáři (24 — všechny deployované)
 
 | Funkce | JWT | Popis |
 |--------|-----|-------|
@@ -87,6 +87,7 @@ Detailní politiky:
 | `send-invoice-email` | OFF | Odesílání faktur emailem zákazníkům |
 | `send-message` | OFF | Centrální odesílání zpráv (SMS/WhatsApp přes Twilio, email přes Resend) |
 | `send-order-email` | OFF | Odesílání objednávkových emailů dodavatelům. Retry 3× |
+| `translate-content` | ON | Auto-překlad textů z Velínu pro veřejný web. Volá Anthropic API (`claude-haiku-4-5-20251001`), překládá zadaná pole do 6 jazyků (en, de, es, fr, nl, pl) a UPDATEuje sloupec `translations` v cílové tabulce přes service_role. Striktně zachovává HTML tagy, ICO, čísla, SPZ, ceny. Vstup: `{table, id, fields, target_langs?}`. |
 | `send-push` | OFF | FCM v1 push notifikace na zákaznická zařízení. Volá se ze SQL přes `send_push_via_edge()` (pouze service_role). Načítá `push_tokens.active=true`, podepisuje JWT pro Google OAuth2, posílá FCM message s Android channel `motogo_door_codes` + APNS payload. Auto-deaktivuje invalid tokeny (NOT_FOUND/UNREGISTERED). |
 | `webhook-receiver` | OFF | Příjem Stripe webhooků (**LIVE mode**, signature povinná). Auto-generuje dokumenty po platbě. Synchronizuje karty do payment_methods. **Shop platby:** auto-generuje DP + odesílá voucher_purchased email s kódy poukazů |
 

@@ -32,6 +32,7 @@ return [
     'menu.howto.faq' => 'Veelgestelde vragen',
     'menu.vouchers' => 'Cadeaubonnen',
     'menu.blog' => 'Blog',
+    'menu.shop' => 'Winkel',
     'menu.contact' => 'Contact',
     'menu.reservation' => 'RESERVERING',
 

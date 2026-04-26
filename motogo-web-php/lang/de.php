@@ -35,6 +35,7 @@ return [
     'menu.howto.faq' => 'Häufig gestellte Fragen',
     'menu.vouchers' => 'Gutscheine',
     'menu.blog' => 'Blog',
+    'menu.shop' => 'Shop',
     'menu.contact' => 'Kontakt',
     'menu.reservation' => 'RESERVIERUNG',
 

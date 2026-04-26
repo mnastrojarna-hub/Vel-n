@@ -245,3 +245,42 @@ function renderLanguageSwitcher() {
         . '<ul class="lang-dropdown" role="menu">' . $items . '</ul>'
     . '</div>';
 }
+
+/**
+ * Vrátí přeloženou hodnotu pole z DB řádku, který má JSONB sloupec `translations`
+ * (struktura `{ "en": {"title":"..."}, "de": {...}, ... }`). Český text v původním
+ * sloupci slouží jako fallback. Auto-překlady plní edge funkce `translate-content`
+ * po uložení dat z Velínu.
+ *
+ * @param array|null $row    Řádek z DB (asociativní pole), např. cms_pages, products...
+ * @param string     $field  Název sloupce (title, content, description, value, ...)
+ * @param string|null $lang  Cílový jazyk (default: aktuální detekovaný)
+ * @return string            Přeložený text nebo český fallback (nikdy null)
+ */
+function localized($row, $field, $lang = null) {
+    if (!is_array($row)) return '';
+    $fallback = isset($row[$field]) ? (string)$row[$field] : '';
+    $lang = $lang ?: i18nDetectLanguage();
+    // Pro češtinu vždy fallback (původní sloupec).
+    if ($lang === I18N_DEFAULT) return $fallback;
+    $tr = $row['translations'] ?? null;
+    if (is_string($tr)) {
+        // Pokud DB klient vrátil JSON jako string (REST), dekódujeme.
+        $decoded = json_decode($tr, true);
+        if (is_array($decoded)) $tr = $decoded; else $tr = null;
+    }
+    if (is_array($tr) && isset($tr[$lang]) && is_array($tr[$lang]) && isset($tr[$lang][$field])) {
+        $val = $tr[$lang][$field];
+        if (is_string($val) && $val !== '') return $val;
+    }
+    return $fallback;
+}
+
+/**
+ * HTML-safe varianta `localized()` (htmlspecialchars).
+ * Pozor: NEPOUŽÍVAT pro pole obsahující povolené HTML (např. blog content) — pro ta volat
+ * `localized()` + `sanitizeHtml()` (z components.php).
+ */
+function localizedEsc($row, $field, $lang = null) {
+    return htmlspecialchars(localized($row, $field, $lang), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+}

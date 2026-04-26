@@ -311,7 +311,22 @@ class SupabaseClient {
 
     // ===== PRODUKTY =====
     public function fetchProducts() {
-        return $this->query('products', '*', ['is_active=eq.true'], 'sort_order.asc');
+        $cached = $this->cacheGet('products_active');
+        if ($cached !== null) return $cached;
+        $data = $this->query('products', '*', ['is_active=eq.true'], 'sort_order.asc');
+        $this->cacheSet('products_active', $data);
+        return $data;
+    }
+
+    public function fetchProduct($id) {
+        if (!$id) return null;
+        $cacheKey = 'product_' . $id;
+        $cached = $this->cacheGet($cacheKey);
+        if ($cached !== null) return $cached;
+        $result = $this->query('products', '*', ['id=eq.' . $id]);
+        $data = $result ? ($result[0] ?? null) : null;
+        if ($data) $this->cacheSet($cacheKey, $data);
+        return $data;
     }
 
     // ===== EXTRAS CATALOG =====

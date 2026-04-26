@@ -15,6 +15,7 @@ import PricingTab from '../components/fleet/PricingTab'
 import MotoMap from '../components/shared/MotoMap'
 import InfoTab from './FleetDetailInfoTab'
 import { PerformanceTab } from './FleetDetailPhotos'
+import { autoTranslateRow } from '../lib/autoTranslate'
 
 const TABS = ['Info', 'Rezervace', 'Ceník', 'Servis', 'Mapa', 'Výkon']
 
@@ -58,6 +59,10 @@ export default function FleetDetail() {
     , updateData)
     if (result?.error) setError(result.error.message)
     await logAudit('motorcycle_updated', { moto_id: id })
+    // Auto-překlad popisku motorky pro web (na pozadí, neblokuje UI)
+    if (!result?.error && description && description.trim().length > 0) {
+      autoTranslateRow({ table: 'motorcycles', id, row: { description } })
+    }
     setSaving(false)
   }
 

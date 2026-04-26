@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 import ImageUploader from '../../components/ui/ImageUploader'
+import { autoTranslateRow } from '../../lib/autoTranslate'
 
 const STEPS = [
   { id: 1, label: 'Základní info', desc: 'Název článku a krátký popis' },
@@ -19,6 +20,8 @@ function slugify(text) {
 export default function BlogWizard({ onClose, onSaved }) {
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
+  const [translating, setTranslating] = useState(false)
+  const [translateStatus, setTranslateStatus] = useState(null)
   const [err, setErr] = useState(null)
   const [form, setForm] = useState({
     title: '', slug: '', excerpt: '', content: '',
@@ -34,7 +37,7 @@ export default function BlogWizard({ onClose, onSaved }) {
   }, [])
 
   async function handlePublish() {
-    setSaving(true); setErr(null)
+    setSaving(true); setErr(null); setTranslateStatus(null)
     const tags = form.tags.split(',').map(t => t.trim()).filter(Boolean)
     const images = (form.images || []).filter(Boolean)
     const payload = {
@@ -47,7 +50,7 @@ export default function BlogWizard({ onClose, onSaved }) {
       published: form.published,
       updated_at: new Date().toISOString(),
     }
-    const { error } = await supabase.from('cms_pages').insert(payload)
+    const { data: inserted, error } = await supabase.from('cms_pages').insert(payload).select().single()
     setSaving(false)
     if (error) { setErr(error.message); return }
     const { data: { user } } = await supabase.auth.getUser()
@@ -55,6 +58,27 @@ export default function BlogWizard({ onClose, onSaved }) {
       admin_id: user?.id, action: 'blog_article_created',
       details: { slug: payload.slug, title: payload.title },
     })
+
+    // Auto-překlad do 6 jazyků pro web — běží na pozadí, ale počkáme krátce kvůli toastu
+    if (inserted?.id) {
+      setTranslating(true)
+      setTranslateStatus({ status: 'translating' })
+      autoTranslateRow({
+        table: 'cms_pages',
+        id: inserted.id,
+        row: payload,
+        onStatus: (s) => setTranslateStatus(s),
+      }).then((res) => {
+        setTranslating(false)
+        if (res?.success) {
+          setTimeout(() => onSaved(), 600)
+        } else {
+          // I při selhání překladu článek ulož
+          setTimeout(() => onSaved(), 1200)
+        }
+      })
+      return
+    }
     onSaved()
   }
 
@@ -90,6 +114,7 @@ export default function BlogWizard({ onClose, onSaved }) {
       {step === 4 && <Step4 form={form} set={set} />}
 
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}
+      {translateStatus && <TranslationStatus status={translateStatus} />}
 
       {/* Navigation */}
       <div className="flex justify-between mt-5">
@@ -97,14 +122,18 @@ export default function BlogWizard({ onClose, onSaved }) {
           {step > 1 && <Button onClick={() => setStep(step - 1)}>Zpět</Button>}
         </div>
         <div className="flex gap-2">
-          <Button onClick={onClose}>Zrušit</Button>
+          <Button onClick={onClose} disabled={translating}>Zrušit</Button>
           {step < 4 ? (
             <Button green onClick={() => setStep(step + 1)} disabled={!canNext}>
               Další krok
             </Button>
           ) : (
-            <Button green onClick={handlePublish} disabled={saving || !form.title}>
-              {saving ? 'Ukládám...' : form.published ? 'Publikovat článek' : 'Uložit jako koncept'}
+            <Button green onClick={handlePublish} disabled={saving || translating || !form.title}>
+              {saving
+                ? 'Ukládám...'
+                : translating
+                  ? 'Překládám…'
+                  : form.published ? 'Publikovat článek' : 'Uložit jako koncept'}
             </Button>
           )}
         </div>
@@ -232,4 +261,20 @@ function Label({ children }) {
 }
 function Hint({ text }) {
   return <div className="text-xs mb-2" style={{ color: '#6b8f7b', lineHeight: 1.5 }}>{text}</div>
+}
+
+function TranslationStatus({ status }) {
+  if (!status) return null
+  const map = {
+    translating: { bg: '#dbeafe', color: '#1d4ed8', text: '🌍 Překládám do 6 jazyků (en, de, es, fr, nl, pl) — Anthropic Claude…' },
+    done:        { bg: '#dcfce7', color: '#166534', text: `✓ Přeloženo do ${(status.languages || []).length} jazyků` },
+    error:       { bg: '#fee2e2', color: '#dc2626', text: `⚠️ Překlad selhal: ${status.error || 'neznámá chyba'} (článek je uložen, můžete přeložit později)` },
+    skipped:     { bg: '#f3f4f6', color: '#6b7280', text: 'ℹ️ Žádný text k překladu' },
+  }
+  const cfg = map[status.status] || map.translating
+  return (
+    <div className="mt-3 rounded-card text-xs font-bold" style={{ padding: '8px 12px', background: cfg.bg, color: cfg.color }}>
+      {cfg.text}
+    </div>
+  )
 }
