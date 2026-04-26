@@ -66,19 +66,23 @@ input,select,textarea{font-size:16px}
 .focus li a:focus{left:0;top:0}
 
 /* ===== HEADER ===== */
+/* Topbar (currency + language) má stejné tmavé pozadí jako .header,
+   bez borderu mezi nimi — vizuálně tvoří jeden souvislý menu blok. */
+.header-topbar{background:#1a2e22;padding:.4rem 0}
+.header-topbar .container{display:flex;justify-content:flex-end;align-items:center}
+.header-lang{display:flex;align-items:center;gap:.5rem}
 .header{background:#1a2e22;padding:.75rem 0;position:sticky;top:0;z-index:100;border-bottom:1px solid #2a4e3a}
 .header-logo img{height:44px;width:auto}
 .header-phone p{margin:0;display:flex;align-items:center;gap:.4rem}
 .header-phone img{width:24px;height:24px;background:rgba(116,251,113,.15);border-radius:50%;padding:2px}
 .header-phone a{color:#74FB71;font-weight:600;font-size:.95rem}
 
-/* --- Language + Currency Switcher (uvnitř menu) --- */
-.menu-switchers{display:flex;align-items:center;gap:.4rem;margin-left:.6rem;flex:0 0 auto;list-style:none}
+/* --- Language + Currency Switcher (světle zelené na tmavém pozadí menu) --- */
 .lang-switcher{position:relative;font-family:inherit}
 /* --- Currency Switcher (sdílí vizuální styl s language) --- */
 .cur-switcher{position:relative;font-family:inherit}
-.cur-toggle{display:inline-flex;align-items:center;gap:.4rem;padding:.4rem .7rem;border-radius:999px;border:2px solid #74FB71;background:transparent;color:#fff;font-weight:700;font-size:.85rem;cursor:pointer;line-height:1;transition:background .15s}
-.cur-toggle:hover,.cur-switcher.open .cur-toggle{background:rgba(116,251,113,.12)}
+.cur-toggle{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .7rem;border-radius:6px;border:1px solid rgba(116,251,113,.35);background:transparent;color:#74FB71;font-weight:700;font-size:.85rem;cursor:pointer;line-height:1;transition:background .15s,border-color .15s}
+.cur-toggle:hover,.cur-switcher.open .cur-toggle{background:rgba(116,251,113,.12);border-color:#74FB71}
 .cur-toggle .cur-flag{font-size:1.05rem;line-height:1}
 .cur-toggle .cur-code{letter-spacing:.08em}
 .cur-toggle .cur-arrow{font-size:.7rem;opacity:.8}
@@ -102,12 +106,13 @@ input,select,textarea{font-size:16px}
 .cur-item .cur-sub{font-size:.7rem;color:#9bb5a8;font-weight:500;margin-top:.1rem}
 .cur-item .cur-check{color:#74FB71;font-weight:900}
 @media (max-width:768px){
-  .cur-toggle{padding:.5rem .8rem;font-size:.9rem}
-  .cur-toggle .cur-flag{font-size:1.05rem}
-  .cur-dropdown{right:auto;left:50%;transform:translateX(-50%);min-width:240px}
+  .cur-toggle{padding:.3rem .55rem;font-size:.78rem}
+  .cur-toggle .cur-flag{font-size:1rem}
+  .cur-dropdown{right:0;min-width:240px}
+  .header-lang{gap:.35rem}
 }
-.lang-toggle{display:inline-flex;align-items:center;gap:.4rem;padding:.4rem .7rem;border-radius:999px;border:2px solid #74FB71;background:transparent;color:#fff;font-weight:700;font-size:.85rem;cursor:pointer;line-height:1;transition:background .15s}
-.lang-toggle:hover,.lang-switcher.open .lang-toggle{background:rgba(116,251,113,.12)}
+.lang-toggle{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .7rem;border-radius:6px;border:1px solid rgba(116,251,113,.35);background:transparent;color:#74FB71;font-weight:700;font-size:.85rem;cursor:pointer;line-height:1;transition:background .15s,border-color .15s}
+.lang-toggle:hover,.lang-switcher.open .lang-toggle{background:rgba(116,251,113,.12);border-color:#74FB71}
 .lang-toggle .lang-flag{font-size:1.05rem;line-height:1}
 .lang-toggle .lang-code{letter-spacing:.08em}
 .lang-toggle .lang-arrow{font-size:.7rem;opacity:.8}
@@ -324,11 +329,12 @@ section[aria-labelledby="process"] .wbox{background:#fff;border-color:#d4e8e0}
   .header-phone p{gap:.25rem}
   .header-phone img{width:28px;height:28px}
   .header-phone a:not([aria-label]){font-size:.85rem}
-  /* Language + Currency switchery — uvnitř hamburger menu, vedle sebe v jednom řádku */
-  .main-menu>li.menu-switchers{display:flex;justify-content:center;align-items:center;gap:.6rem;margin:1rem 0 .25rem;padding:0;border-bottom:none;width:100%}
-  .menu-switchers .lang-toggle,.menu-switchers .cur-toggle{padding:.55rem .85rem;font-size:.9rem;min-height:44px}
-  .menu-switchers .lang-toggle .lang-flag,.menu-switchers .cur-toggle .cur-flag{font-size:1.05rem}
-  .menu-switchers .lang-dropdown,.menu-switchers .cur-dropdown{right:auto;left:50%;transform:translateX(-50%);min-width:220px}
+  /* Topbar — kompaktnější na mobilu, ale stále vpravo a se stejným pozadím */
+  .header-topbar{padding:.3rem 0}
+  .header-lang{gap:.35rem}
+  .lang-toggle{padding:.3rem .55rem;font-size:.78rem}
+  .lang-toggle .lang-flag{font-size:1rem}
+  .lang-dropdown{right:0;min-width:200px}
   /* Footer */
   footer{padding:2rem 0 0}
   footer .gr4{grid-template-columns:repeat(2,1fr);gap:1.5rem}
@@ -442,12 +448,6 @@ section[aria-labelledby="process"] .wbox{background:#fff;border-color:#d4e8e0}
   .main-menu>li>a{padding:.5rem .4rem;font-size:.82rem}
   .menu-rez .btn{padding:.55rem 1rem;font-size:.85rem}
   .header-phone a{font-size:.9rem}
-  /* Switchery se v menu na úzkém desktopu zmenší na pouhou vlajku, aby
-     nezúžily ostatní položky menu (ty si drží své fixní velikosti). */
-  .menu-switchers{margin-left:.35rem;gap:.25rem}
-  .menu-switchers .cur-toggle,.menu-switchers .lang-toggle{padding:.3rem .45rem}
-  .menu-switchers .cur-toggle .cur-code,.menu-switchers .lang-toggle .lang-code,
-  .menu-switchers .cur-toggle .cur-arrow,.menu-switchers .lang-toggle .lang-arrow{display:none}
 }
 
 /* ===== Touch — minimální velikost 44×44px pro všechny interaktivní prvky ===== */
@@ -465,7 +465,7 @@ section[aria-labelledby="process"] .wbox{background:#fff;border-color:#d4e8e0}
 
 /* ===== Print stylesheet ===== */
 @media print{
-  .header,footer,.nav-toggle,#Up,.banner,.mobile-menu-overlay{display:none!important}
+  .header,.header-topbar,footer,.nav-toggle,#Up,.banner,.mobile-menu-overlay{display:none!important}
   body{background:#fff;color:#000}
   a{color:#000;text-decoration:underline}
   .container{max-width:100%;padding:0}
