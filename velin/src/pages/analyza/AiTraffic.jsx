@@ -58,10 +58,13 @@ export default function AiTraffic() {
         supabase.from('api_keys').select('id, partner_name, partner_email, is_active, request_count, last_used_at, rate_limit_rpm, scopes, created_at, revoked_at'),
         supabase.from('ai_citations').select('*').gte('observed_at', from).order('observed_at', { ascending: false }),
       ])
-      if (tr.error) throw tr.error
-      setRows(tr.data || [])
-      setPartners(pa.data || [])
-      setCitations(ci.data || [])
+      // ai_traffic_log / api_keys / ai_citations nemusí v DB ještě existovat
+      // (pre-req SQL z 2026-04-26 čeká na admin run). Toleruj missing tabulky.
+      const isMissingTable = (e) => e && (e.code === 'PGRST205' || e.code === '42P01' || (e.message || '').includes('schema cache'))
+      if (tr.error && !isMissingTable(tr.error)) throw tr.error
+      setRows(tr.error ? [] : (tr.data || []))
+      setPartners(pa.error ? [] : (pa.data || []))
+      setCitations(ci.error ? [] : (ci.data || []))
     } catch (e) {
       setError(e.message)
     } finally {

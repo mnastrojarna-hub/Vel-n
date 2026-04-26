@@ -64,22 +64,46 @@ export default function AiTrafficTab() {
   const [error, setError] = useState(null)
   const [rows, setRows] = useState([])
   const [selectedPath, setSelectedPath] = useState(null)
+  const [trafficMissing, setTrafficMissing] = useState(false)
+  const [webUsersCount, setWebUsersCount] = useState(0)
+  const [appUsersCount, setAppUsersCount] = useState(0)
 
   useEffect(() => { loadData() }, [period])
 
   async function loadData() {
-    setLoading(true); setError(null)
+    setLoading(true); setError(null); setTrafficMissing(false)
     try {
       const periodObj = PERIODS.find(p => p.id === period)
       const from = new Date(Date.now() - periodObj.ms).toISOString()
-      const { data, error: err } = await supabase
-        .from('ai_traffic_log')
-        .select('path, bot_name, source, outcome, ts')
-        .gte('ts', from)
-        .order('ts', { ascending: false })
-        .limit(20000)
-      if (err) throw err
-      setRows(data || [])
+
+      // Načti AI traffic + počty uživatelů paralelně.
+      const [trafficRes, webRes, appRes] = await Promise.all([
+        supabase
+          .from('ai_traffic_log')
+          .select('path, bot_name, source, outcome, ts')
+          .gte('ts', from)
+          .order('ts', { ascending: false })
+          .limit(20000),
+        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('registration_source', 'web'),
+        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('registration_source', 'app'),
+      ])
+
+      // Tabulka ai_traffic_log nemusí ještě v DB existovat — degradujeme na info hlášku
+      // a necháme zbytek dashboardu (uživatelé webu/app) fungovat.
+      if (trafficRes.error) {
+        const msg = trafficRes.error.message || ''
+        if (msg.includes('ai_traffic_log') || trafficRes.error.code === 'PGRST205' || trafficRes.error.code === '42P01') {
+          setTrafficMissing(true)
+          setRows([])
+        } else {
+          throw trafficRes.error
+        }
+      } else {
+        setRows(trafficRes.data || [])
+      }
+
+      setWebUsersCount(webRes.count || 0)
+      setAppUsersCount(appRes.count || 0)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -158,12 +182,20 @@ export default function AiTrafficTab() {
       </div>
 
       {/* KPI tiles */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
         <KpiTile label="AI requests" value={totalAi.toLocaleString('cs-CZ')} hint={`${PERIODS.find(p => p.id === period).label} zpětně`} />
+        <KpiTile label="Celková návštěvnost webu" value={(webUsersCount + appUsersCount).toLocaleString('cs-CZ')} hint="registrovaní zákazníci celkem" />
+        <KpiTile label="Uživatelé webu" value={webUsersCount.toLocaleString('cs-CZ')} hint="profiles.registration_source='web'" />
+        <KpiTile label="Uživatelé app" value={appUsersCount.toLocaleString('cs-CZ')} hint="profiles.registration_source='app'" />
         <KpiTile label="Unikátních botů" value={uniqueBots} hint="GPTBot, ClaudeBot, ..." />
         <KpiTile label="Rezervací z AI" value={totalBookings} hint="outcome='booking_created'" />
-        <KpiTile label="Tracked stránek" value={STATIC_PAGES.length} hint="statické URL webu" />
       </div>
+
+      {trafficMissing && (
+        <div style={{ marginBottom: 16, padding: 14, background: '#fef3c7', borderRadius: 14, border: '1px solid #fde68a', color: '#854d0e', fontSize: 13 }}>
+          <strong>Tabulka <code>ai_traffic_log</code> ještě není v databázi.</strong> Spusť pre-req SQL z chatu (changelog 2026-04-26) — bez něj edge funkce <code>public-api</code>, <code>mcp-server</code> a <code>ai-public-agent</code> nelogují provoz a tento dashboard nemá data. Počty uživatelů webu/app fungují i tak.
+        </div>
+      )}
 
       {/* Tabulka per stránka */}
       <div style={{ background: '#fff', borderRadius: 14, padding: 16, border: '1px solid #e3e8e5' }}>
