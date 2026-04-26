@@ -341,9 +341,10 @@ function renderCurrencySwitcher() {
             . '</a></li>';
     }
 
+    $coin = '<svg class="sw-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"></circle><path d="M15 9.5c-.7-1-2-1.5-3-1.5-1.7 0-3 .9-3 2.2 0 1.3 1.3 1.8 3 2.3 1.7.5 3 1 3 2.3 0 1.3-1.3 2.2-3 2.2-1.4 0-2.5-.5-3.2-1.5"></path><path d="M12 6.5v11"></path></svg>';
     return '<div class="cur-switcher" data-cur-switcher>'
         . '<button type="button" class="cur-toggle" aria-haspopup="true" aria-expanded="false" aria-label="' . te('currency.select') . '" title="' . te('currency.select') . '">'
-            . '<span class="cur-flag" aria-hidden="true">' . $curMeta['flag'] . '</span>'
+            . $coin
             . '<span class="cur-code">' . htmlspecialchars($current) . '</span>'
             . '<span class="cur-arrow" aria-hidden="true">▾</span>'
         . '</button>'

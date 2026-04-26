@@ -66,24 +66,25 @@ input,select,textarea{font-size:16px}
 .focus li a:focus{left:0;top:0}
 
 /* ===== HEADER ===== */
-/* Topbar (currency + language) má stejné tmavé pozadí jako .header,
-   bez borderu mezi nimi — vizuálně tvoří jeden souvislý menu blok. */
-.header-topbar{background:#1a2e22;padding:.4rem 0}
+/* Topbar (currency + language) splývá s .header — stejné tmavé pozadí,
+   sticky společně, žádný border / margin / gap mezi nimi. Tvoří jednu plochu. */
+.header-topbar{background:#1a2e22;padding:.3rem 0 0;margin:0;border:0;position:sticky;top:0;z-index:101}
 .header-topbar .container{display:flex;justify-content:flex-end;align-items:center}
-.header-lang{display:flex;align-items:center;gap:.5rem}
-.header{background:#1a2e22;padding:.75rem 0;position:sticky;top:0;z-index:100;border-bottom:1px solid #2a4e3a}
+.header-lang{display:flex;align-items:center;gap:.25rem}
+.header{background:#1a2e22;padding:.6rem 0 .75rem;margin:0;position:sticky;top:0;z-index:100;border-top:0;border-bottom:1px solid #2a4e3a}
 .header-logo img{height:44px;width:auto}
 .header-phone p{margin:0;display:flex;align-items:center;gap:.4rem}
 .header-phone img{width:24px;height:24px;background:rgba(116,251,113,.15);border-radius:50%;padding:2px}
 .header-phone a{color:#74FB71;font-weight:600;font-size:.95rem}
 
-/* --- Language + Currency Switcher (světle zelené na tmavém pozadí menu) --- */
+/* --- Language + Currency Switcher (zelené ikony + text, splývají s tmavým menu) --- */
 .lang-switcher{position:relative;font-family:inherit}
 /* --- Currency Switcher (sdílí vizuální styl s language) --- */
 .cur-switcher{position:relative;font-family:inherit}
-.cur-toggle{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .7rem;border-radius:6px;border:1px solid rgba(116,251,113,.35);background:transparent;color:#74FB71;font-weight:700;font-size:.85rem;cursor:pointer;line-height:1;transition:background .15s,border-color .15s}
-.cur-toggle:hover,.cur-switcher.open .cur-toggle{background:rgba(116,251,113,.12);border-color:#74FB71}
-.cur-toggle .cur-flag{font-size:1.05rem;line-height:1}
+.cur-toggle{display:inline-flex;align-items:center;gap:.35rem;padding:.25rem .55rem;border-radius:0;border:0;background:transparent;color:#74FB71;font-weight:700;font-size:.82rem;cursor:pointer;line-height:1;transition:color .15s,opacity .15s;-webkit-appearance:none;appearance:none}
+.cur-toggle:hover,.cur-switcher.open .cur-toggle{background:transparent;color:#a8ff9f}
+.cur-toggle .sw-icon{color:#74FB71;width:16px;height:16px;flex-shrink:0;transition:color .15s}
+.cur-toggle:hover .sw-icon,.cur-switcher.open .cur-toggle .sw-icon{color:#a8ff9f}
 .cur-toggle .cur-code{letter-spacing:.08em}
 .cur-toggle .cur-arrow{font-size:.7rem;opacity:.8}
 .cur-dropdown{display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:260px;background:#1a2e22;border:1px solid #2a4e3a;border-radius:8px;padding:.4rem 0;list-style:none;z-index:300;box-shadow:0 8px 24px rgba(0,0,0,.5);max-height:420px;overflow-y:auto}
@@ -106,14 +107,15 @@ input,select,textarea{font-size:16px}
 .cur-item .cur-sub{font-size:.7rem;color:#9bb5a8;font-weight:500;margin-top:.1rem}
 .cur-item .cur-check{color:#74FB71;font-weight:900}
 @media (max-width:768px){
-  .cur-toggle{padding:.3rem .55rem;font-size:.78rem}
-  .cur-toggle .cur-flag{font-size:1rem}
+  .cur-toggle{padding:.25rem .45rem;font-size:.78rem;border:0}
+  .cur-toggle .sw-icon{width:14px;height:14px}
   .cur-dropdown{right:0;min-width:240px}
-  .header-lang{gap:.35rem}
+  .header-lang{gap:.2rem}
 }
-.lang-toggle{display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .7rem;border-radius:6px;border:1px solid rgba(116,251,113,.35);background:transparent;color:#74FB71;font-weight:700;font-size:.85rem;cursor:pointer;line-height:1;transition:background .15s,border-color .15s}
-.lang-toggle:hover,.lang-switcher.open .lang-toggle{background:rgba(116,251,113,.12);border-color:#74FB71}
-.lang-toggle .lang-flag{font-size:1.05rem;line-height:1}
+.lang-toggle{display:inline-flex;align-items:center;gap:.35rem;padding:.25rem .55rem;border-radius:0;border:0;background:transparent;color:#74FB71;font-weight:700;font-size:.82rem;cursor:pointer;line-height:1;transition:color .15s,opacity .15s;-webkit-appearance:none;appearance:none}
+.lang-toggle:hover,.lang-switcher.open .lang-toggle{background:transparent;color:#a8ff9f}
+.lang-toggle .sw-icon{color:#74FB71;width:16px;height:16px;flex-shrink:0;transition:color .15s}
+.lang-toggle:hover .sw-icon,.lang-switcher.open .lang-toggle .sw-icon{color:#a8ff9f}
 .lang-toggle .lang-code{letter-spacing:.08em}
 .lang-toggle .lang-arrow{font-size:.7rem;opacity:.8}
 .lang-dropdown{display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:200px;background:#1a2e22;border:1px solid #2a4e3a;border-radius:8px;padding:.4rem 0;list-style:none;z-index:300;box-shadow:0 8px 24px rgba(0,0,0,.5);max-height:380px;overflow-y:auto}
@@ -330,10 +332,10 @@ section[aria-labelledby="process"] .wbox{background:#fff;border-color:#d4e8e0}
   .header-phone img{width:28px;height:28px}
   .header-phone a:not([aria-label]){font-size:.85rem}
   /* Topbar — kompaktnější na mobilu, ale stále vpravo a se stejným pozadím */
-  .header-topbar{padding:.3rem 0}
-  .header-lang{gap:.35rem}
-  .lang-toggle{padding:.3rem .55rem;font-size:.78rem}
-  .lang-toggle .lang-flag{font-size:1rem}
+  .header-topbar{padding:.25rem 0 0}
+  .header-lang{gap:.2rem}
+  .lang-toggle{padding:.25rem .45rem;font-size:.78rem;border:0}
+  .lang-toggle .sw-icon{width:14px;height:14px}
   .lang-dropdown{right:0;min-width:200px}
   /* Footer */
   footer{padding:2rem 0 0}
@@ -384,7 +386,8 @@ section[aria-labelledby="process"] .wbox{background:#fff;border-color:#d4e8e0}
   .banner-caption strong{font-size:1.15rem}
   .banner-caption p{font-size:.85rem}
   /* Currency/lang — kompaktnější */
-  .cur-toggle,.lang-toggle{padding:.3rem .5rem;font-size:.75rem}
+  .cur-toggle,.lang-toggle{padding:.2rem .4rem;font-size:.75rem;border:0}
+  .cur-toggle .sw-icon,.lang-toggle .sw-icon{width:14px;height:14px}
   .cur-toggle .cur-arrow,.lang-toggle .lang-arrow{display:none}
   /* Footer contact — menší padding */
   .footer-contact{padding:.9rem}
