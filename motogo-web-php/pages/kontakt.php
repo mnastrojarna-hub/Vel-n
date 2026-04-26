@@ -113,9 +113,67 @@ $content = '<main id="content"><div class="container contact">' . $bc .
     $quickHtml . $infoSection . $mapSection . $seoText .
     '</div></div></main>';
 
+// ===== Per-branch LocalBusiness JSON-LD =====
+// Pro každou aktivní pobočku z DB vystavíme samostatný AutomotiveBusiness záznam
+// s adresou, GPS, otevírací dobou a vazbou na hlavní Organization. AI agenti tak
+// vědí, kde přesně si zákazník motorku vyzvedne (multi-branch routing).
+$branches = $sb->fetchBranches();
+$branchSchemas = [];
+if (is_array($branches)) {
+    foreach ($branches as $br) {
+        if (empty($br['id']) || empty($br['name'])) continue;
+        $brName = (string)$br['name'];
+        $brAddr = (string)($br['address'] ?? '');
+        $brCity = (string)($br['city'] ?? '');
+        $brZip  = (string)($br['zip'] ?? '');
+        $brPhone= (string)($br['phone'] ?? PHONE);
+        $brEmail= (string)($br['email'] ?? EMAIL_FULL);
+        $brLat  = isset($br['latitude'])  ? (float)$br['latitude']  : null;
+        $brLng  = isset($br['longitude']) ? (float)$br['longitude'] : null;
+        $isOpen = !empty($br['is_open']);
+        $brType = (string)($br['type'] ?? '');
+        $brNotes = trim((string)localized($br, 'notes'));
+
+        $hours = $isOpen
+            ? '"openingHoursSpecification":{"@type":"OpeningHoursSpecification","dayOfWeek":["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],"opens":"00:00","closes":"23:59"}'
+            : '"openingHoursSpecification":{"@type":"OpeningHoursSpecification","dayOfWeek":["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],"opens":"08:00","closes":"20:00"}';
+
+        $geo = ($brLat !== null && $brLng !== null)
+            ? ',"geo":{"@type":"GeoCoordinates","latitude":' . $brLat . ',"longitude":' . $brLng . '}'
+            : '';
+
+        $branchSchemas[] = '{"@type":["LocalBusiness","AutomotiveBusiness"]'
+            . ',"@id":"https://motogo24.cz/kontakt#branch-' . htmlspecialchars($br['id']) . '"'
+            . ',"name":' . json_encode('MotoGo24 — ' . $brName, JSON_UNESCAPED_UNICODE)
+            . ',"branchOf":{"@id":"https://motogo24.cz/#organization"}'
+            . ',"parentOrganization":{"@id":"https://motogo24.cz/#organization"}'
+            . ',"telephone":' . json_encode($brPhone)
+            . ',"email":' . json_encode($brEmail)
+            . ',"url":"https://motogo24.cz/kontakt"'
+            . ',"address":{"@type":"PostalAddress","streetAddress":' . json_encode($brAddr, JSON_UNESCAPED_UNICODE)
+                . ',"addressLocality":' . json_encode($brCity, JSON_UNESCAPED_UNICODE)
+                . ',"postalCode":' . json_encode($brZip)
+                . ',"addressCountry":"CZ"}'
+            . $geo
+            . ',' . $hours
+            . ($brType !== '' ? ',"description":' . json_encode($brType . ($brNotes !== '' ? ' — ' . $brNotes : ''), JSON_UNESCAPED_UNICODE) : ($brNotes !== '' ? ',"description":' . json_encode($brNotes, JSON_UNESCAPED_UNICODE) : ''))
+            . ',"priceRange":"990 – 5000 Kč/den"'
+            . '}';
+    }
+}
+
+$branchesSchema = '';
+if (!empty($branchSchemas)) {
+    $branchesSchema = '
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@graph":[' . implode(',', $branchSchemas) . ']}
+  </script>';
+}
+
 renderPage($C['seo']['title'], $content, '/kontakt', [
     'description' => $C['seo']['description'],
     'keywords' => $C['seo']['keywords'],
+    'schema' => $branchesSchema,
     'breadcrumbs' => [
         ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
         ['name' => t('breadcrumb.contact'), 'url' => 'https://motogo24.cz/kontakt'],

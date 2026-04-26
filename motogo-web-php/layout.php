@@ -276,6 +276,13 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   <meta property="og:site_name" content="Půjčovna motorek Vysočina MotoGo24">
   <meta property="og:description" content="' . htmlspecialchars($description) . '">
   <meta property="og:image" content="' . htmlspecialchars($ogImage) . '">
+  <meta property="og:image:width" content="1920">
+  <meta property="og:image:height" content="1080">
+  <meta property="og:image:alt" content="' . htmlspecialchars($title) . '">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="' . htmlspecialchars($title) . '">
+  <meta name="twitter:description" content="' . htmlspecialchars($description) . '">
+  <meta name="twitter:image" content="' . htmlspecialchars($ogImage) . '">
   <link rel="canonical" href="' . htmlspecialchars($canonical) . '">
   <link rel="icon" type="image/svg+xml" href="' . BASE_URL . '/favicon.svg">
   <link rel="apple-touch-icon" href="' . BASE_URL . '/apple-touch-icon.png">' . renderHreflangAlternates($siteOrigin, $currentPath) . '
@@ -284,18 +291,72 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
-    "@type": "LocalBusiness",
-    "name": "Motogo24 – půjčovna motorek Vysočina",
-    "url": "' . $siteOrigin . '",
-    "logo": "' . $siteOrigin . '/gfx/logo.svg",
-    "image": "' . $siteOrigin . '/gfx/hero-banner.jpg",
-    "email": "info@motogo24.cz",
-    "telephone": "+420 774 256 271",
-    "priceRange": "od 990 Kč/den",
-    "openingHoursSpecification": {"@type": "OpeningHoursSpecification","dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],"opens": "00:00","closes": "23:59"},
-    "address": {"@type": "PostalAddress","streetAddress": "Mezná 9","addressLocality": "Pelhřimov","postalCode": "393 01","addressRegion": "Vysočina","addressCountry": "CZ"},
-    "geo": {"@type": "GeoCoordinates","latitude": 49.4147,"longitude": 15.2953},
-    "sameAs": ["' . FB_URL . '","' . IG_URL . '"]
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "' . $siteOrigin . '/#organization",
+        "name": "MotoGo24",
+        "legalName": "Bc. Petra Semorádová",
+        "url": "' . $siteOrigin . '",
+        "logo": {"@type": "ImageObject", "url": "' . $siteOrigin . '/gfx/logo.svg", "width": 512, "height": 512},
+        "image": "' . $siteOrigin . '/gfx/hero-banner.jpg",
+        "email": "info@motogo24.cz",
+        "telephone": "+420 774 256 271",
+        "taxID": "21874263",
+        "vatID": "CZ21874263",
+        "foundingDate": "2024-07-31",
+        "founder": {"@type": "Person", "name": "Bc. Petra Semorádová"},
+        "address": {"@type": "PostalAddress","streetAddress": "Mezná 9","addressLocality": "Pelhřimov","postalCode": "393 01","addressRegion": "Vysočina","addressCountry": "CZ"},
+        "contactPoint": [
+          {"@type": "ContactPoint", "telephone": "+420 774 256 271", "contactType": "customer service", "email": "info@motogo24.cz", "areaServed": ["CZ","SK","AT","DE","PL"], "availableLanguage": ["cs","en","de","pl","sk"], "hoursAvailable": {"@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"], "opens": "00:00", "closes": "23:59"}},
+          {"@type": "ContactPoint", "telephone": "+420 774 256 271", "contactType": "emergency", "email": "info@motogo24.cz", "availableLanguage": ["cs","en"]}
+        ],
+        "sameAs": ["' . FB_URL . '","' . IG_URL . '"]
+      },
+      {
+        "@type": "WebSite",
+        "@id": "' . $siteOrigin . '/#website",
+        "url": "' . $siteOrigin . '",
+        "name": "MotoGo24 — půjčovna motorek Vysočina",
+        "description": "Online rezervace motorek, e-shop, dárkové poukazy. Půjčovna v Pelhřimově, nonstop, bez kauce.",
+        "inLanguage": "' . htmlspecialchars($htmlLang) . '",
+        "publisher": {"@id": "' . $siteOrigin . '/#organization"},
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": {"@type": "EntryPoint", "urlTemplate": "' . $siteOrigin . '/katalog?q={search_term_string}"},
+          "query-input": "required name=search_term_string"
+        }
+      },
+      {
+        "@type": ["LocalBusiness", "AutomotiveBusiness"],
+        "@id": "' . $siteOrigin . '/#localbusiness",
+        "name": "MotoGo24 — půjčovna motorek Vysočina",
+        "alternateName": ["Motogo24 Pelhřimov", "Půjčovna motorek Vysočina"],
+        "description": "Půjčovna motorek na Vysočině — silniční, naked, supermoto, enduro i dětské motorky. Bez kauce, výbava v ceně, nonstop provoz.",
+        "url": "' . $siteOrigin . '",
+        "logo": "' . $siteOrigin . '/gfx/logo.svg",
+        "image": ["' . $siteOrigin . '/gfx/hero-banner.jpg", "' . $siteOrigin . '/gfx/logo.svg"],
+        "email": "info@motogo24.cz",
+        "telephone": "+420 774 256 271",
+        "priceRange": "990 – 5000 Kč/den",
+        "currenciesAccepted": "CZK, EUR, USD",
+        "paymentAccepted": "Cash, Credit Card, Debit Card, Apple Pay, Google Pay",
+        "openingHoursSpecification": {"@type": "OpeningHoursSpecification","dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],"opens": "00:00","closes": "23:59"},
+        "address": {"@type": "PostalAddress","streetAddress": "Mezná 9","addressLocality": "Pelhřimov","postalCode": "393 01","addressRegion": "Vysočina","addressCountry": "CZ"},
+        "geo": {"@type": "GeoCoordinates","latitude": 49.4147,"longitude": 15.2953},
+        "areaServed": [
+          {"@type": "Country", "name": "Česko"},
+          {"@type": "AdministrativeArea", "name": "Kraj Vysočina"}
+        ],
+        "hasOfferCatalog": {
+          "@type": "OfferCatalog",
+          "name": "Katalog motorek k pronájmu",
+          "url": "' . $siteOrigin . '/katalog"
+        },
+        "parentOrganization": {"@id": "' . $siteOrigin . '/#organization"},
+        "sameAs": ["' . FB_URL . '","' . IG_URL . '"]
+      }
+    ]
   }
   </script>' . $breadcrumbSchema . ($extraSchema ? "\n" . $extraSchema : '') . '
 

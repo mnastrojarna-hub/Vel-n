@@ -113,7 +113,7 @@ $content = '<main id="content"><div class="container">' . $bc .
     $finalCtaSection .
     '</div></div></main>';
 
-// FAQPage schema
+// ===== FAQPage schema (otázky/odpovědi) =====
 $faqSchemaItems = [];
 foreach ($C['faq']['items'] as $faq) {
     $faqSchemaItems[] = '{"@type":"Question","name":' . json_encode(strip_tags($faq['q']), JSON_UNESCAPED_UNICODE) . ',"acceptedAnswer":{"@type":"Answer","text":' . json_encode(strip_tags($faq['a']), JSON_UNESCAPED_UNICODE) . '}}';
@@ -123,10 +123,46 @@ $faqSchema = '
   {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[' . implode(',', $faqSchemaItems) . ']}
   </script>';
 
+// ===== HowTo schema — krok za krokem postup pro AI agenty =====
+// Generuje se automaticky z $C['process']['steps'] (12 boxů z CMS).
+// Google + AI to ukazuje jako "kroky postupu" v AI Overviews / featured snippets.
+$howToSteps = [];
+$stepPos = 0;
+foreach ($C['process']['steps'] as $s) {
+    $stepPos++;
+    $stepName = trim(strip_tags($s['title'] ?? ''));
+    $stepText = trim(strip_tags($s['text'] ?? ''));
+    if ($stepName === '' && $stepText === '') continue;
+    $howToSteps[] = '{"@type":"HowToStep","position":' . $stepPos
+        . ',"name":' . json_encode($stepName !== '' ? $stepName : ('Krok ' . $stepPos), JSON_UNESCAPED_UNICODE)
+        . ',"text":' . json_encode($stepText, JSON_UNESCAPED_UNICODE)
+        . ',"url":"https://motogo24.cz/jak-pujcit/postup#step-' . $stepPos . '"'
+        . '}';
+}
+$howToSchema = '';
+if (!empty($howToSteps)) {
+    $howToName = trim(strip_tags($C['process']['title'] ?? 'Jak si půjčit motorku'));
+    $howToDesc = trim(strip_tags($C['intro_p1'] ?? 'Postup půjčení motorky v MotoGo24 — od výběru po vrácení.'));
+    $howToSchema = '
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"HowTo","name":' . json_encode($howToName, JSON_UNESCAPED_UNICODE)
+        . ',"description":' . json_encode($howToDesc, JSON_UNESCAPED_UNICODE)
+        . ',"image":"https://motogo24.cz/gfx/hero-banner.jpg"'
+        . ',"totalTime":"PT15M"'
+        . ',"estimatedCost":{"@type":"MonetaryAmount","currency":"CZK","value":"990"}'
+        . ',"supply":[{"@type":"HowToSupply","name":"Občanský průkaz nebo cestovní pas"},{"@type":"HowToSupply","name":"Řidičský průkaz (skupina A1/A2/A nebo B pro dětské motorky)"},{"@type":"HowToSupply","name":"Platební karta nebo hotovost"}]'
+        . ',"tool":[{"@type":"HowToTool","name":"Mobilní telefon nebo počítač s internetem"}]'
+        . ',"step":[' . implode(',', $howToSteps) . ']'
+        . '}
+  </script>';
+}
+
+$combinedSchema = $faqSchema . $howToSchema;
+
 renderPage($C['seo']['title'], $content, '/jak-pujcit/postup', [
     'description' => $C['seo']['description'],
     'keywords' => $C['seo']['keywords'],
-    'schema' => $faqSchema,
+    'schema' => $combinedSchema,
     'breadcrumbs' => [
         ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
         ['name' => t('breadcrumb.howto'), 'url' => 'https://motogo24.cz/jak-pujcit'],
