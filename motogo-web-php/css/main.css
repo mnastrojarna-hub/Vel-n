@@ -376,12 +376,25 @@ section[aria-labelledby="process"] .wbox{background:#fff;border-color:#d4e8e0}
   .nav-toggle{padding:.4rem .6rem;font-size:.8rem}
   .banner{min-height:300px}
   .banner>img,.banner>picture,.banner>picture img{height:300px}
+  .banner-caption strong{font-size:1.15rem}
+  .banner-caption p{font-size:.85rem}
+  /* Currency/lang — kompaktnější */
+  .cur-toggle,.lang-toggle{padding:.3rem .5rem;font-size:.75rem}
+  .cur-toggle .cur-arrow,.lang-toggle .lang-arrow{display:none}
+  /* Footer contact — menší padding */
+  .footer-contact{padding:.9rem}
+  .footer-phone a{font-size:1.2rem}
 }
 /* Landscape mobile — kratší banner */
 @media(max-width:900px) and (orientation:landscape) and (max-height:500px){
-  .banner{min-height:280px}
-  .banner>img,.banner>picture,.banner>picture img{height:280px}
+  .banner{min-height:240px}
+  .banner>img,.banner>picture,.banner>picture img{height:240px}
   .header{position:relative}
+  /* Banner CTAs — vrátíme inline na landscape (více místa) */
+  .banner-caption .btn{width:auto;display:inline-flex;margin-bottom:0;margin-right:.5rem}
+  .banner-caption strong{font-size:1.3rem}
+  /* Skrýt overlay menu pokud je otevřené (UX safety) */
+  .mobile-menu-overlay.open{padding-top:.5rem}
 }
 /* High-DPI screens — ostřejší ikony */
 @media(-webkit-min-device-pixel-ratio:2),(min-resolution:2dppx){
@@ -405,11 +418,31 @@ section[aria-labelledby="process"] .wbox{background:#fff;border-color:#d4e8e0}
   .wbox{padding:1rem}
   .gbox{padding:1rem}
   .wbox-img .icon{width:48px;height:48px}
+  /* Banner caption — větší velikost na tabletu */
+  .banner-caption strong{font-size:1.6rem}
+  .banner-caption p{font-size:1rem}
+  /* Hero CTA — flex layout ne-full-width na tabletu */
+  .banner-caption .btn{margin-right:.5rem;margin-bottom:.5rem}
+  /* Section spacing kompaktnější na tabletu */
+  .ccontent{padding:1.25rem 0 2.5rem}
+  .ccontent section{margin-bottom:2rem}
+  section[aria-labelledby="cta"],
+  section[aria-labelledby="process"]{padding:1.75rem 1.5rem}
+  /* Moto karty — mírně kompaktnější texty */
+  .moto-title h2{font-size:1rem}
+  .moto-desc li{font-size:.82rem}
 }
 @media(min-width:601px) and (max-width:900px){
   /* Tablet portrait — hlavní gridy už 2-3 sloupce */
   .gr4{grid-template-columns:repeat(2,1fr)}
   .gr3{grid-template-columns:repeat(3,1fr)}
+}
+
+/* ===== iPad landscape / large tablet 1025-1180 ===== */
+@media(min-width:1025px) and (max-width:1180px){
+  .main-menu>li>a{padding:.5rem .4rem;font-size:.82rem}
+  .menu-rez .btn{padding:.55rem 1rem;font-size:.85rem}
+  .header-phone a{font-size:.9rem}
 }
 
 /* ===== Touch — minimální velikost 44×44px pro všechny interaktivní prvky ===== */
