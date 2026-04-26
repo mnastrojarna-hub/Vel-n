@@ -131,16 +131,20 @@ class _InvoiceTile extends StatelessWidget {
     // Fetch customer profile for invoice header
     String? customerName;
     String? customerAddress;
+    String? customerEmail;
+    String? customerPhone;
     try {
       final user = MotoGoSupabase.currentUser;
       if (user != null) {
         final profile = await MotoGoSupabase.client
             .from('profiles')
-            .select('full_name, street, city, zip, country')
+            .select('full_name, email, phone, street, city, zip, country')
             .eq('id', user.id)
             .maybeSingle();
         if (profile != null) {
           customerName = profile['full_name'] as String?;
+          customerEmail = profile['email'] as String?;
+          customerPhone = profile['phone'] as String?;
           final parts = [profile['street'], profile['city'], profile['zip'], profile['country']]
               .where((s) => s != null && (s as String).isNotEmpty)
               .join(', ');
@@ -156,6 +160,8 @@ class _InvoiceTile extends StatelessWidget {
       invoice,
       customerName: customerName,
       customerAddress: customerAddress,
+      customerEmail: customerEmail,
+      customerPhone: customerPhone,
     );
 
     if (!context.mounted) return;
