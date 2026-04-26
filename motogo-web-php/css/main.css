@@ -72,12 +72,8 @@ input,select,textarea{font-size:16px}
 .header-phone img{width:24px;height:24px;background:rgba(116,251,113,.15);border-radius:50%;padding:2px}
 .header-phone a{color:#74FB71;font-weight:600;font-size:.95rem}
 
-/* --- Top bar (currency + language v pravém horním rohu) --- */
-.header-topbar{background:#0f1c15;border-bottom:1px solid #2a4e3a;padding:.35rem 0}
-.header-topbar .container{display:flex;justify-content:flex-end;align-items:center}
-
-/* --- Language + Currency Switcher --- */
-.header-lang{position:relative;display:flex;align-items:center;gap:.4rem}
+/* --- Language + Currency Switcher (uvnitř menu) --- */
+.menu-switchers{display:flex;align-items:center;gap:.4rem;margin-left:.6rem;flex:0 0 auto;list-style:none}
 .lang-switcher{position:relative;font-family:inherit}
 /* --- Currency Switcher (sdílí vizuální styl s language) --- */
 .cur-switcher{position:relative;font-family:inherit}
@@ -106,10 +102,9 @@ input,select,textarea{font-size:16px}
 .cur-item .cur-sub{font-size:.7rem;color:#9bb5a8;font-weight:500;margin-top:.1rem}
 .cur-item .cur-check{color:#74FB71;font-weight:900}
 @media (max-width:768px){
-  .cur-toggle{padding:.35rem .55rem;font-size:.78rem}
-  .cur-toggle .cur-flag{font-size:1rem}
-  .cur-dropdown{right:0;min-width:240px}
-  .header-lang{gap:.3rem}
+  .cur-toggle{padding:.5rem .8rem;font-size:.9rem}
+  .cur-toggle .cur-flag{font-size:1.05rem}
+  .cur-dropdown{right:auto;left:50%;transform:translateX(-50%);min-width:240px}
 }
 .lang-toggle{display:inline-flex;align-items:center;gap:.4rem;padding:.4rem .7rem;border-radius:999px;border:2px solid #74FB71;background:transparent;color:#fff;font-weight:700;font-size:.85rem;cursor:pointer;line-height:1;transition:background .15s}
 .lang-toggle:hover,.lang-switcher.open .lang-toggle{background:rgba(116,251,113,.12)}
@@ -329,12 +324,11 @@ section[aria-labelledby="process"] .wbox{background:#fff;border-color:#d4e8e0}
   .header-phone p{gap:.25rem}
   .header-phone img{width:28px;height:28px}
   .header-phone a:not([aria-label]){font-size:.85rem}
-  /* Language switcher — kompaktnější na mobilu */
-  .header-lang{gap:.3rem}
-  .header-topbar{padding:.25rem 0}
-  .lang-toggle{padding:.35rem .55rem;font-size:.78rem}
-  .lang-toggle .lang-flag{font-size:1rem}
-  .lang-dropdown{right:0;min-width:180px}
+  /* Language + Currency switchery — uvnitř hamburger menu, vedle sebe v jednom řádku */
+  .main-menu>li.menu-switchers{display:flex;justify-content:center;align-items:center;gap:.6rem;margin:1rem 0 .25rem;padding:0;border-bottom:none;width:100%}
+  .menu-switchers .lang-toggle,.menu-switchers .cur-toggle{padding:.55rem .85rem;font-size:.9rem;min-height:44px}
+  .menu-switchers .lang-toggle .lang-flag,.menu-switchers .cur-toggle .cur-flag{font-size:1.05rem}
+  .menu-switchers .lang-dropdown,.menu-switchers .cur-dropdown{right:auto;left:50%;transform:translateX(-50%);min-width:220px}
   /* Footer */
   footer{padding:2rem 0 0}
   footer .gr4{grid-template-columns:repeat(2,1fr);gap:1.5rem}
@@ -448,6 +442,12 @@ section[aria-labelledby="process"] .wbox{background:#fff;border-color:#d4e8e0}
   .main-menu>li>a{padding:.5rem .4rem;font-size:.82rem}
   .menu-rez .btn{padding:.55rem 1rem;font-size:.85rem}
   .header-phone a{font-size:.9rem}
+  /* Switchery se v menu na úzkém desktopu zmenší na pouhou vlajku, aby
+     nezúžily ostatní položky menu (ty si drží své fixní velikosti). */
+  .menu-switchers{margin-left:.35rem;gap:.25rem}
+  .menu-switchers .cur-toggle,.menu-switchers .lang-toggle{padding:.3rem .45rem}
+  .menu-switchers .cur-toggle .cur-code,.menu-switchers .lang-toggle .lang-code,
+  .menu-switchers .cur-toggle .cur-arrow,.menu-switchers .lang-toggle .lang-arrow{display:none}
 }
 
 /* ===== Touch — minimální velikost 44×44px pro všechny interaktivní prvky ===== */
@@ -465,7 +465,7 @@ section[aria-labelledby="process"] .wbox{background:#fff;border-color:#d4e8e0}
 
 /* ===== Print stylesheet ===== */
 @media print{
-  .header,.header-topbar,footer,.nav-toggle,#Up,.banner,.mobile-menu-overlay{display:none!important}
+  .header,footer,.nav-toggle,#Up,.banner,.mobile-menu-overlay{display:none!important}
   body{background:#fff;color:#000}
   a{color:#000;text-decoration:underline}
   .container{max-width:100%;padding:0}
