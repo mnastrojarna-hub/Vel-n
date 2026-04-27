@@ -101,7 +101,9 @@
 - id, model, spz, vin, year, status (`moto_status` ENUM: active, maintenance, unavailable, retired)
 - stk_valid_until, acquired_at
 - **unavailable_reason** (TEXT DEFAULT NULL) — důvod dočasného vyřazení (cleaning, transport, inspection, seasonal, damage_wait, other)
-- power_kw, torque_nm, weight_kg, fuel_tank_l, seat_height_mm
+- power_kw (NUMERIC(6,1)) — výkon v kW (povolena 1 desetina, např. 92.5)
+- torque_nm (NUMERIC(6,1)), fuel_tank_l (NUMERIC(4,1))
+- weight_kg (INTEGER), seat_height_mm (TEXT)
 - license_required, has_abs, has_asc
 - description, ideal_usage, features, manual_url
 - engine_type, power_hp
