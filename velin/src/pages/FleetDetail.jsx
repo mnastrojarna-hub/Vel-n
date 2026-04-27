@@ -51,7 +51,10 @@ export default function FleetDetail() {
     const updateData = { model, spz, vin, category, branch_id, mileage, purchase_mileage: purchase_mileage ? Number(purchase_mileage) : null,
       status, year, engine_cc, color, acquired_at,
       power_kw, torque_nm, weight_kg, fuel_tank_l, seat_height_mm, license_required: license_required || null,
-      has_abs, has_asc, description, ideal_usage, features, engine_type,
+      has_abs, has_asc, description,
+      ideal_usage: Array.isArray(ideal_usage) ? ideal_usage.map(s => s?.trim()).filter(Boolean) : ideal_usage,
+      features: Array.isArray(features) ? features.map(s => s?.trim()).filter(Boolean) : features,
+      engine_type,
       brand: brand?.trim() || null, purchase_price: purchase_price ? Number(purchase_price) : 0,
       tracking_unit: tracking_unit || 'km', stk_valid_until: stk_valid_until || null }
     const result = await debugAction('fleet.save', 'FleetDetail', () =>

@@ -222,14 +222,14 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
           </div>
           <div>
             <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Ideální použití (každé na nový řádek)</label>
-            <textarea value={(moto.ideal_usage || []).join('\n')} onChange={e => set('ideal_usage', e.target.value.split('\n').filter(Boolean))}
+            <textarea value={(moto.ideal_usage || []).join('\n')} onChange={e => set('ideal_usage', e.target.value.split('\n'))}
               className="w-full rounded-btn text-sm outline-none" rows={3}
               style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', resize: 'vertical' }}
               placeholder="Cestování&#10;Adventure&#10;Offroad" />
           </div>
           <div>
             <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Vlastnosti / Features (každá na nový řádek)</label>
-            <textarea value={(moto.features || []).join('\n')} onChange={e => set('features', e.target.value.split('\n').filter(Boolean))}
+            <textarea value={(moto.features || []).join('\n')} onChange={e => set('features', e.target.value.split('\n'))}
               className="w-full rounded-btn text-sm outline-none" rows={3}
               style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', resize: 'vertical' }}
               placeholder="Vyhřívaná madla&#10;Cruise control&#10;Tempomat" />
