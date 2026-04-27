@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import Modal from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
@@ -13,9 +13,33 @@ const STEPS = [
   { id: 4, label: 'Náhled & publikace', desc: 'Kontrola a zveřejnění' },
 ]
 
+const LS_KEY = 'blogWizard_draft_v1'
+const AUTOSAVE_DEBOUNCE_MS = 1500
+
 function slugify(text) {
-  return text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  return (text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+}
+
+function emptyForm() {
+  return { title: '', slug: '', excerpt: '', content: '', images: [], tags: '', published: false }
+}
+
+function formFromEntry(row) {
+  if (!row) return emptyForm()
+  return {
+    title: row.title || '',
+    slug: row.slug || '',
+    excerpt: row.excerpt || '',
+    content: row.content || '',
+    images: Array.isArray(row.images) ? row.images : (row.image_url ? [row.image_url] : []),
+    tags: Array.isArray(row.tags) ? row.tags.join(', ') : (row.tags || ''),
+    published: !!row.published,
+  }
+}
+
+function formHasContent(f) {
+  return !!(f && (f.title?.trim() || f.content?.trim() || f.excerpt?.trim() || (f.images || []).length))
 }
 
 export default function BlogWizard({ entry, onClose, onSaved }) {
@@ -25,19 +49,11 @@ export default function BlogWizard({ entry, onClose, onSaved }) {
   const [translating, setTranslating] = useState(false)
   const [translateStatus, setTranslateStatus] = useState(null)
   const [err, setErr] = useState(null)
-  const [form, setForm] = useState(isEdit ? {
-    title: entry.title || '',
-    slug: entry.slug || '',
-    excerpt: entry.excerpt || '',
-    content: entry.content || '',
-    images: Array.isArray(entry.images) ? entry.images : (entry.image_url ? [entry.image_url] : []),
-    tags: Array.isArray(entry.tags) ? entry.tags.join(', ') : '',
-    published: !!entry.published,
-  } : {
-    title: '', slug: '', excerpt: '', content: '',
-    images: [], tags: '',
-    published: false,
-  })
+  const [autosaveStatus, setAutosaveStatus] = useState('idle') // idle | saving | saved | error
+  const [draftId, setDraftId] = useState(entry?.id || null)
+  const [restoreOffer, setRestoreOffer] = useState(null) // { form, draftId } | null
+
+  const [form, setForm] = useState(() => formFromEntry(entry))
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   // Stabilní složka pro nahrávané obrázky (i před uložením článku)
@@ -46,6 +62,117 @@ export default function BlogWizard({ entry, onClose, onSaved }) {
     const r = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`
     return `blog/${r}`
   }, [isEdit, entry?.id])
+
+  // Refy pro stabilní hodnoty v listenerech (beforeunload / debounce)
+  const formRef = useRef(form)
+  const draftIdRef = useRef(draftId)
+  useEffect(() => { formRef.current = form }, [form])
+  useEffect(() => { draftIdRef.current = draftId }, [draftId])
+
+  // 1) Restore z localStorage (jen pro nový článek bez entry)
+  useEffect(() => {
+    if (isEdit) return
+    try {
+      const raw = localStorage.getItem(LS_KEY)
+      if (!raw) return
+      const data = JSON.parse(raw)
+      if (data && formHasContent(data.form)) {
+        setRestoreOffer(data)
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  function acceptRestore() {
+    if (restoreOffer?.form) setForm(restoreOffer.form)
+    if (restoreOffer?.draftId) setDraftId(restoreOffer.draftId)
+    setRestoreOffer(null)
+  }
+  function discardRestore() {
+    try { localStorage.removeItem(LS_KEY) } catch {}
+    setRestoreOffer(null)
+  }
+
+  // 2) Záloha do localStorage při každé změně (synchronní, rychlé)
+  useEffect(() => {
+    try {
+      if (formHasContent(form)) {
+        localStorage.setItem(LS_KEY, JSON.stringify({ form, draftId }))
+      }
+    } catch {}
+  }, [form, draftId])
+
+  // 3) Debounced autosave do DB jako koncept (nový) nebo update řádku (edit)
+  const saveDraft = useCallback(async () => {
+    const f = formRef.current
+    if (!formHasContent(f)) return null
+    setAutosaveStatus('saving')
+    const tags = (f.tags || '').split(',').map(t => t.trim()).filter(Boolean)
+    const images = (f.images || []).filter(Boolean)
+    const payload = {
+      title: f.title?.trim() || '(bez názvu)',
+      slug: f.slug?.trim() || slugify(f.title) || `koncept-${Date.now()}`,
+      content: f.content || '',
+      excerpt: f.excerpt || '',
+      image_url: images[0] || '',
+      images, tags,
+      // V edit režimu zachováme existující published flag, jinak koncept
+      published: isEdit ? !!f.published : false,
+      updated_at: new Date().toISOString(),
+    }
+    let id = draftIdRef.current
+    if (id) {
+      const { error } = await supabase.from('cms_pages').update(payload).eq('id', id)
+      if (error) { setAutosaveStatus('error'); return null }
+    } else {
+      // Nový článek — autosave vytvoří řádek jako koncept (published vynuceno na false)
+      const insertPayload = { ...payload, published: false }
+      const { data, error } = await supabase.from('cms_pages').insert(insertPayload).select('id').single()
+      if (error || !data?.id) { setAutosaveStatus('error'); return null }
+      id = data.id
+      setDraftId(id)
+      draftIdRef.current = id
+    }
+    setAutosaveStatus('saved')
+    return id
+  }, [isEdit])
+
+  useEffect(() => {
+    if (!formHasContent(form)) return
+    if (saving || translating) return
+    const t = setTimeout(() => { saveDraft() }, AUTOSAVE_DEBOUNCE_MS)
+    return () => clearTimeout(t)
+  }, [form.title, form.slug, form.excerpt, form.content, form.images, form.tags, saveDraft, saving, translating])
+
+  // 4) Ochrana proti zavření prohlížeče: záloha do LS + browser prompt
+  useEffect(() => {
+    function onBeforeUnload(e) {
+      if (!formHasContent(formRef.current)) return
+      try {
+        localStorage.setItem(LS_KEY, JSON.stringify({ form: formRef.current, draftId: draftIdRef.current }))
+      } catch {}
+      // Standardní browser prompt — uživatel uvidí "změny nemusí být uloženy"
+      e.preventDefault()
+      e.returnValue = ''
+      return ''
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [])
+
+  // 5) Bezpečné zavření modálu — vždy uloží jako koncept, nikdy nezahodí text
+  async function handleClose() {
+    if (translating || saving) return // čekáme na dokončení akce
+    if (formHasContent(form)) {
+      const id = await saveDraft()
+      if (id) {
+        try { localStorage.removeItem(LS_KEY) } catch {}
+      }
+    } else {
+      try { localStorage.removeItem(LS_KEY) } catch {}
+    }
+    onClose()
+  }
 
   async function handlePublish() {
     setSaving(true); setErr(null); setTranslateStatus(null)
@@ -62,43 +189,41 @@ export default function BlogWizard({ entry, onClose, onSaved }) {
       updated_at: new Date().toISOString(),
     }
 
-    let savedRow = null
+    let id = draftIdRef.current
     let error = null
-    if (isEdit) {
-      const res = await supabase.from('cms_pages').update(payload).eq('id', entry.id).select().single()
-      savedRow = res.data; error = res.error
+    if (id) {
+      const res = await supabase.from('cms_pages').update(payload).eq('id', id).select().single()
+      error = res.error
     } else {
       const res = await supabase.from('cms_pages').insert(payload).select().single()
-      savedRow = res.data; error = res.error
+      error = res.error
+      if (res.data?.id) { id = res.data.id; setDraftId(id); draftIdRef.current = id }
     }
     setSaving(false)
     if (error) { setErr(error.message); return }
 
+    try { localStorage.removeItem(LS_KEY) } catch {}
+
     const { data: { user } } = await supabase.auth.getUser()
     await supabase.from('admin_audit_log').insert({
       admin_id: user?.id,
-      action: isEdit ? 'blog_article_updated' : 'blog_article_created',
-      details: { slug: payload.slug, title: payload.title },
+      action: (isEdit || draftIdRef.current) ? 'blog_article_updated' : 'blog_article_created',
+      details: { slug: payload.slug, title: payload.title, published: payload.published },
     })
 
-    // Auto-překlad do 6 jazyků pro web — běží na pozadí, ale počkáme krátce kvůli toastu
-    const savedId = savedRow?.id || entry?.id
-    if (savedId) {
+    // Auto-překlad do 6 jazyků (en, de, es, fr, nl, pl) — vždy, i pro koncept,
+    // aby web měl přeložené texty hned jakmile uživatel přepne na publikováno.
+    if (id) {
       setTranslating(true)
       setTranslateStatus({ status: 'translating' })
       autoTranslateRow({
         table: 'cms_pages',
-        id: savedId,
+        id,
         row: payload,
         onStatus: (s) => setTranslateStatus(s),
       }).then((res) => {
         setTranslating(false)
-        if (res?.success) {
-          setTimeout(() => onSaved(), 600)
-        } else {
-          // I při selhání překladu článek ulož
-          setTimeout(() => onSaved(), 1200)
-        }
+        setTimeout(() => onSaved(), res?.success ? 600 : 1200)
       })
       return
     }
@@ -106,9 +231,31 @@ export default function BlogWizard({ entry, onClose, onSaved }) {
   }
 
   const canNext = step === 1 ? !!form.title : step === 2 ? !!form.content : true
+  const titleText = isEdit ? `Upravit článek: ${entry.title}` : 'Nový článek na blog'
+  const publishLabel = saving
+    ? 'Ukládám...'
+    : translating
+      ? 'Překládám…'
+      : isEdit
+        ? (form.published ? 'Uložit změny a publikovat' : 'Uložit změny (koncept)')
+        : (form.published ? 'Publikovat článek' : 'Uložit jako koncept')
 
   return (
-    <Modal open title={isEdit ? `Upravit článek: ${entry.title}` : 'Nový článek na blog'} onClose={onClose} wide>
+    <Modal open title={titleText} onClose={handleClose} wide>
+      {/* Restore prompt z localStorage */}
+      {restoreOffer && (
+        <div className="mb-4 p-3 rounded-card flex items-center gap-3" style={{ background: '#fef3c7', border: '1px solid #fde68a' }}>
+          <div className="flex-1 text-sm" style={{ color: '#78350f' }}>
+            <div className="font-extrabold">Máte rozepsaný článek z minula</div>
+            <div className="text-xs mt-0.5" style={{ color: '#92400e' }}>
+              {restoreOffer.form?.title || '(bez názvu)'} — chcete pokračovat tam, kde jste skončili?
+            </div>
+          </div>
+          <Button small onClick={discardRestore}>Zahodit</Button>
+          <Button small green onClick={acceptRestore}>Načíst</Button>
+        </div>
+      )}
+
       {/* Stepper */}
       <div className="flex gap-1 mb-5">
         {STEPS.map(s => (
@@ -140,31 +287,40 @@ export default function BlogWizard({ entry, onClose, onSaved }) {
       {translateStatus && <TranslationStatus status={translateStatus} />}
 
       {/* Navigation */}
-      <div className="flex justify-between mt-5">
-        <div>
+      <div className="flex justify-between mt-5 items-center">
+        <div className="flex items-center gap-3">
           {step > 1 && <Button onClick={() => setStep(step - 1)}>Zpět</Button>}
+          <AutosaveIndicator status={autosaveStatus} hasContent={formHasContent(form)} draftId={draftId} />
         </div>
         <div className="flex gap-2">
-          <Button onClick={onClose} disabled={translating}>Zrušit</Button>
+          <Button onClick={handleClose} disabled={translating || saving}>
+            {formHasContent(form) ? 'Uložit a zavřít' : 'Zavřít'}
+          </Button>
           {step < 4 ? (
             <Button green onClick={() => setStep(step + 1)} disabled={!canNext}>
               Další krok
             </Button>
           ) : (
             <Button green onClick={handlePublish} disabled={saving || translating || !form.title}>
-              {saving
-                ? 'Ukládám...'
-                : translating
-                  ? 'Překládám…'
-                  : isEdit
-                    ? (form.published ? 'Uložit změny a publikovat' : 'Uložit změny (koncept)')
-                    : (form.published ? 'Publikovat článek' : 'Uložit jako koncept')}
+              {publishLabel}
             </Button>
           )}
         </div>
       </div>
     </Modal>
   )
+}
+
+function AutosaveIndicator({ status, hasContent, draftId }) {
+  if (!hasContent) return null
+  const map = {
+    idle: draftId ? { text: 'Koncept uložen', color: '#6b8f7b' } : { text: 'Bude uloženo jako koncept', color: '#9ab3a5' },
+    saving: { text: '⏳ Ukládám koncept…', color: '#1d4ed8' },
+    saved: { text: '✓ Koncept uložen', color: '#16a34a' },
+    error: { text: '⚠ Autosave selhal (text je zálohován v prohlížeči)', color: '#dc2626' },
+  }
+  const cfg = map[status] || map.idle
+  return <span className="text-xs font-bold" style={{ color: cfg.color }}>{cfg.text}</span>
 }
 
 function Step1({ form, set }) {
@@ -237,7 +393,7 @@ function Step4({ form, set }) {
   const heroImage = (form.images || [])[0] || ''
   return (
     <div className="space-y-4">
-      <Hint text="Zkontrolujte článek před uložením. Koncept nebude vidět na webu, publikovaný ano." />
+      <Hint text="Zkontrolujte článek před uložením. Koncept nebude vidět na webu, publikovaný ano. Po uložení se text automaticky přeloží do EN, DE, ES, FR, NL a PL." />
       <div className="rounded-card p-4" style={{ background: '#f8fafc', border: '1px solid #e2ece7' }}>
         <div className="text-xs font-bold uppercase mb-3" style={{ color: '#6b8f7b' }}>Náhled článku na webu</div>
         {heroImage && (
