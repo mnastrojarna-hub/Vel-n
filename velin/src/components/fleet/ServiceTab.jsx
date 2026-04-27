@@ -95,24 +95,30 @@ export default function ServiceTab({ motoId, motoMileage, purchaseMileage, track
   async function handleAddSchedule(form) {
     setSaving(true)
     const intervalDays = Number(form.interval_days) || null
-    // Calculate next_date from interval_days so it shows in "Plánované" tab
+    // Calculate next_due from interval_days so it shows in "Plánované" tab
     let nextDate = null
     if (intervalDays) {
       const d = new Date()
       d.setDate(d.getDate() + intervalDays)
       nextDate = d.toISOString().slice(0, 10)
     }
-    await supabase.from('maintenance_schedules').insert({
+    const { error } = await supabase.from('maintenance_schedules').insert({
       moto_id: motoId,
       description: form.description,
       interval_km: Number(form.interval_km) || 10000,
       interval_days: intervalDays,
       schedule_type: intervalDays ? 'both' : 'mileage',
       active: true,
-      next_date: nextDate,
+      next_due: nextDate,
       first_service_km: Number(form.first_service_km) || null,
       first_service_desc: form.first_service_desc || null,
     })
+    if (error) {
+      console.error('[ServiceTab] schedule insert failed:', error)
+      alert(`Nepodařilo se vytvořit servisní plán: ${error.message}`)
+      setSaving(false)
+      return
+    }
     await logAudit('schedule_created', { moto_id: motoId })
     setSaving(false)
     await loadAll()
@@ -135,7 +141,7 @@ export default function ServiceTab({ motoId, motoMileage, purchaseMileage, track
       status: 'in_service',
     }).select().single()
 
-    // Recalculate next_date based on interval_days
+    // Recalculate next_due based on interval_days
     const updateData = {
       last_service_km: Number(motoMileage) || 0,
       last_performed: new Date().toISOString().split('T')[0],
@@ -143,7 +149,7 @@ export default function ServiceTab({ motoId, motoMileage, purchaseMileage, track
     if (schedule.interval_days) {
       const nd = new Date()
       nd.setDate(nd.getDate() + schedule.interval_days)
-      updateData.next_date = nd.toISOString().slice(0, 10)
+      updateData.next_due = nd.toISOString().slice(0, 10)
     }
     await supabase.from('maintenance_schedules')
       .update(updateData)
