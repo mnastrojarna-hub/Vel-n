@@ -45,17 +45,38 @@ export default function FleetDetail() {
 
   async function handleSave() {
     setSaving(true); setError(null)
+    const toInt = v => {
+      if (v === null || v === undefined || v === '') return null
+      const n = Number(v)
+      return Number.isFinite(n) ? Math.round(n) : null
+    }
+    const toNum = v => {
+      if (v === null || v === undefined || v === '') return null
+      const n = Number(v)
+      return Number.isFinite(n) ? n : null
+    }
     const { model, spz, vin, category, branch_id, mileage, purchase_mileage, status, year, engine_cc, color, acquired_at,
       power_kw, torque_nm, weight_kg, fuel_tank_l, seat_height_mm, license_required,
       has_abs, has_asc, description, ideal_usage, features, engine_type, brand, purchase_price, tracking_unit, stk_valid_until } = moto
-    const updateData = { model, spz, vin, category, branch_id, mileage, purchase_mileage: purchase_mileage ? Number(purchase_mileage) : null,
-      status, year, engine_cc, color, acquired_at,
-      power_kw, torque_nm, weight_kg, fuel_tank_l, seat_height_mm, license_required: license_required || null,
+    const updateData = { model, spz, vin, category, branch_id,
+      mileage: toInt(mileage) ?? 0,
+      purchase_mileage: toInt(purchase_mileage),
+      status,
+      year: toInt(year),
+      engine_cc: toInt(engine_cc),
+      color, acquired_at,
+      power_kw: toNum(power_kw),
+      torque_nm: toNum(torque_nm),
+      weight_kg: toInt(weight_kg),
+      fuel_tank_l: toNum(fuel_tank_l),
+      seat_height_mm: seat_height_mm || null,
+      license_required: license_required || null,
       has_abs, has_asc, description,
       ideal_usage: Array.isArray(ideal_usage) ? ideal_usage.map(s => s?.trim()).filter(Boolean) : ideal_usage,
       features: Array.isArray(features) ? features.map(s => s?.trim()).filter(Boolean) : features,
       engine_type,
-      brand: brand?.trim() || null, purchase_price: purchase_price ? Number(purchase_price) : 0,
+      brand: brand?.trim() || null,
+      purchase_price: toNum(purchase_price) ?? 0,
       tracking_unit: tracking_unit || 'km', stk_valid_until: stk_valid_until || null }
     const result = await debugAction('fleet.save', 'FleetDetail', () =>
       supabase.from('motorcycles').update(updateData).eq('id', id)

@@ -46,12 +46,16 @@ export default function AddMotoModal({ branches, onClose, onSaved }) {
     setSaving(true)
     setErr(null)
     try {
-      const mileageVal = Number(form.mileage) || 0
-      const oilKm = Number(form.oil_interval_km) || 10000
-      const oilDays = Number(form.oil_interval_days) || 365
-      const tireKm = Number(form.tire_interval_km) || 25000
-      const fullKm = Number(form.full_service_interval_km) || 20000
-      const fullDays = Number(form.full_service_interval_days) || 730
+      const toInt = (v, fallback = 0) => {
+        const n = Number(v)
+        return Number.isFinite(n) ? Math.round(n) : fallback
+      }
+      const mileageVal = toInt(form.mileage, 0)
+      const oilKm = toInt(form.oil_interval_km, 10000)
+      const oilDays = toInt(form.oil_interval_days, 365)
+      const tireKm = toInt(form.tire_interval_km, 25000)
+      const fullKm = toInt(form.full_service_interval_km, 20000)
+      const fullDays = toInt(form.full_service_interval_days, 730)
       const images = (form.images || []).filter(Boolean)
       const motoData = {
         id: motoId,
