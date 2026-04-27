@@ -72,10 +72,10 @@ export default function BlogSection() {
         </div>
       )}
 
-      {/* Wizard modal — slouží i pro úpravy existujícího článku/konceptu */}
+      {/* Wizard modal — autosave + edit existujícího článku/konceptu */}
       {(showWizard || editing) && (
         <BlogWizard
-          existing={editing}
+          entry={editing}
           onClose={() => { setShowWizard(false); setEditing(null); load() }}
           onSaved={() => { setShowWizard(false); setEditing(null); load() }}
         />

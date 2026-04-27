@@ -25,7 +25,7 @@ function emptyForm() {
   return { title: '', slug: '', excerpt: '', content: '', images: [], tags: '', published: false }
 }
 
-function formFromExisting(row) {
+function formFromEntry(row) {
   if (!row) return emptyForm()
   return {
     title: row.title || '',
@@ -42,25 +42,26 @@ function formHasContent(f) {
   return !!(f && (f.title?.trim() || f.content?.trim() || f.excerpt?.trim() || (f.images || []).length))
 }
 
-export default function BlogWizard({ onClose, onSaved, existing = null }) {
+export default function BlogWizard({ entry, onClose, onSaved }) {
+  const isEdit = !!entry?.id
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
   const [translating, setTranslating] = useState(false)
   const [translateStatus, setTranslateStatus] = useState(null)
   const [err, setErr] = useState(null)
   const [autosaveStatus, setAutosaveStatus] = useState('idle') // idle | saving | saved | error
-  const [draftId, setDraftId] = useState(existing?.id || null)
+  const [draftId, setDraftId] = useState(entry?.id || null)
   const [restoreOffer, setRestoreOffer] = useState(null) // { form, draftId } | null
 
-  const [form, setForm] = useState(() => formFromExisting(existing))
+  const [form, setForm] = useState(() => formFromEntry(entry))
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   // Stabilní složka pro nahrávané obrázky (i před uložením článku)
   const folderId = useMemo(() => {
-    if (existing?.id) return `blog/${existing.id}`
+    if (isEdit) return `blog/${entry.id}`
     const r = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`
     return `blog/${r}`
-  }, [existing?.id])
+  }, [isEdit, entry?.id])
 
   // Refy pro stabilní hodnoty v listenerech (beforeunload / debounce)
   const formRef = useRef(form)
@@ -68,9 +69,9 @@ export default function BlogWizard({ onClose, onSaved, existing = null }) {
   useEffect(() => { formRef.current = form }, [form])
   useEffect(() => { draftIdRef.current = draftId }, [draftId])
 
-  // 1) Restore z localStorage (jen pro nový článek bez existing)
+  // 1) Restore z localStorage (jen pro nový článek bez entry)
   useEffect(() => {
-    if (existing) return
+    if (isEdit) return
     try {
       const raw = localStorage.getItem(LS_KEY)
       if (!raw) return
@@ -101,7 +102,7 @@ export default function BlogWizard({ onClose, onSaved, existing = null }) {
     } catch {}
   }, [form, draftId])
 
-  // 3) Debounced autosave do DB jako koncept
+  // 3) Debounced autosave do DB jako koncept (nový) nebo update řádku (edit)
   const saveDraft = useCallback(async () => {
     const f = formRef.current
     if (!formHasContent(f)) return null
@@ -115,7 +116,8 @@ export default function BlogWizard({ onClose, onSaved, existing = null }) {
       excerpt: f.excerpt || '',
       image_url: images[0] || '',
       images, tags,
-      published: false,
+      // V edit režimu zachováme existující published flag, jinak koncept
+      published: isEdit ? !!f.published : false,
       updated_at: new Date().toISOString(),
     }
     let id = draftIdRef.current
@@ -123,7 +125,9 @@ export default function BlogWizard({ onClose, onSaved, existing = null }) {
       const { error } = await supabase.from('cms_pages').update(payload).eq('id', id)
       if (error) { setAutosaveStatus('error'); return null }
     } else {
-      const { data, error } = await supabase.from('cms_pages').insert(payload).select('id').single()
+      // Nový článek — autosave vytvoří řádek jako koncept (published vynuceno na false)
+      const insertPayload = { ...payload, published: false }
+      const { data, error } = await supabase.from('cms_pages').insert(insertPayload).select('id').single()
       if (error || !data?.id) { setAutosaveStatus('error'); return null }
       id = data.id
       setDraftId(id)
@@ -131,7 +135,7 @@ export default function BlogWizard({ onClose, onSaved, existing = null }) {
     }
     setAutosaveStatus('saved')
     return id
-  }, [])
+  }, [isEdit])
 
   useEffect(() => {
     if (!formHasContent(form)) return
@@ -203,7 +207,7 @@ export default function BlogWizard({ onClose, onSaved, existing = null }) {
     const { data: { user } } = await supabase.auth.getUser()
     await supabase.from('admin_audit_log').insert({
       admin_id: user?.id,
-      action: existing ? 'blog_article_updated' : 'blog_article_created',
+      action: (isEdit || draftIdRef.current) ? 'blog_article_updated' : 'blog_article_created',
       details: { slug: payload.slug, title: payload.title, published: payload.published },
     })
 
@@ -227,7 +231,14 @@ export default function BlogWizard({ onClose, onSaved, existing = null }) {
   }
 
   const canNext = step === 1 ? !!form.title : step === 2 ? !!form.content : true
-  const titleText = existing ? 'Upravit článek' : 'Nový článek na blog'
+  const titleText = isEdit ? `Upravit článek: ${entry.title}` : 'Nový článek na blog'
+  const publishLabel = saving
+    ? 'Ukládám...'
+    : translating
+      ? 'Překládám…'
+      : isEdit
+        ? (form.published ? 'Uložit změny a publikovat' : 'Uložit změny (koncept)')
+        : (form.published ? 'Publikovat článek' : 'Uložit jako koncept')
 
   return (
     <Modal open title={titleText} onClose={handleClose} wide>
@@ -291,11 +302,7 @@ export default function BlogWizard({ onClose, onSaved, existing = null }) {
             </Button>
           ) : (
             <Button green onClick={handlePublish} disabled={saving || translating || !form.title}>
-              {saving
-                ? 'Ukládám...'
-                : translating
-                  ? 'Překládám…'
-                  : form.published ? 'Publikovat článek' : 'Uložit jako koncept'}
+              {publishLabel}
             </Button>
           )}
         </div>
