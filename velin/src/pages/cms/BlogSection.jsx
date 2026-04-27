@@ -72,9 +72,13 @@ export default function BlogSection() {
         </div>
       )}
 
-      {/* Wizard modal */}
-      {showWizard && (
-        <BlogWizard onClose={() => setShowWizard(false)} onSaved={() => { setShowWizard(false); load() }} />
+      {/* Wizard modal — pro nový i editaci */}
+      {(showWizard || editing) && (
+        <BlogWizard
+          entry={editing}
+          onClose={() => { setShowWizard(false); setEditing(null) }}
+          onSaved={() => { setShowWizard(false); setEditing(null); load() }}
+        />
       )}
     </div>
   )
@@ -119,6 +123,7 @@ function ArticleRow({ article, onToggle, onDelete, onEdit }) {
 
       {/* Akce */}
       <div className="flex gap-1 shrink-0">
+        <SmBtn label="Upravit" onClick={onEdit} />
         <SmBtn label={a.published ? 'Skrýt' : 'Zveřejnit'} onClick={onToggle} />
         <SmBtn label="Smazat" onClick={onDelete} danger />
       </div>

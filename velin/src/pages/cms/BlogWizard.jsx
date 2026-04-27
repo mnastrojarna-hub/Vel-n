@@ -18,13 +18,22 @@ function slugify(text) {
     .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 }
 
-export default function BlogWizard({ onClose, onSaved }) {
+export default function BlogWizard({ entry, onClose, onSaved }) {
+  const isEdit = !!entry?.id
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
   const [translating, setTranslating] = useState(false)
   const [translateStatus, setTranslateStatus] = useState(null)
   const [err, setErr] = useState(null)
-  const [form, setForm] = useState({
+  const [form, setForm] = useState(isEdit ? {
+    title: entry.title || '',
+    slug: entry.slug || '',
+    excerpt: entry.excerpt || '',
+    content: entry.content || '',
+    images: Array.isArray(entry.images) ? entry.images : (entry.image_url ? [entry.image_url] : []),
+    tags: Array.isArray(entry.tags) ? entry.tags.join(', ') : '',
+    published: !!entry.published,
+  } : {
     title: '', slug: '', excerpt: '', content: '',
     images: [], tags: '',
     published: false,
@@ -33,9 +42,10 @@ export default function BlogWizard({ onClose, onSaved }) {
 
   // Stabilní složka pro nahrávané obrázky (i před uložením článku)
   const folderId = useMemo(() => {
+    if (isEdit) return `blog/${entry.id}`
     const r = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`
     return `blog/${r}`
-  }, [])
+  }, [isEdit, entry?.id])
 
   async function handlePublish() {
     setSaving(true); setErr(null); setTranslateStatus(null)
@@ -51,22 +61,34 @@ export default function BlogWizard({ onClose, onSaved }) {
       published: form.published,
       updated_at: new Date().toISOString(),
     }
-    const { data: inserted, error } = await supabase.from('cms_pages').insert(payload).select().single()
+
+    let savedRow = null
+    let error = null
+    if (isEdit) {
+      const res = await supabase.from('cms_pages').update(payload).eq('id', entry.id).select().single()
+      savedRow = res.data; error = res.error
+    } else {
+      const res = await supabase.from('cms_pages').insert(payload).select().single()
+      savedRow = res.data; error = res.error
+    }
     setSaving(false)
     if (error) { setErr(error.message); return }
+
     const { data: { user } } = await supabase.auth.getUser()
     await supabase.from('admin_audit_log').insert({
-      admin_id: user?.id, action: 'blog_article_created',
+      admin_id: user?.id,
+      action: isEdit ? 'blog_article_updated' : 'blog_article_created',
       details: { slug: payload.slug, title: payload.title },
     })
 
     // Auto-překlad do 6 jazyků pro web — běží na pozadí, ale počkáme krátce kvůli toastu
-    if (inserted?.id) {
+    const savedId = savedRow?.id || entry?.id
+    if (savedId) {
       setTranslating(true)
       setTranslateStatus({ status: 'translating' })
       autoTranslateRow({
         table: 'cms_pages',
-        id: inserted.id,
+        id: savedId,
         row: payload,
         onStatus: (s) => setTranslateStatus(s),
       }).then((res) => {
@@ -86,7 +108,7 @@ export default function BlogWizard({ onClose, onSaved }) {
   const canNext = step === 1 ? !!form.title : step === 2 ? !!form.content : true
 
   return (
-    <Modal open title="Nový článek na blog" onClose={onClose} wide>
+    <Modal open title={isEdit ? `Upravit článek: ${entry.title}` : 'Nový článek na blog'} onClose={onClose} wide>
       {/* Stepper */}
       <div className="flex gap-1 mb-5">
         {STEPS.map(s => (
@@ -134,7 +156,9 @@ export default function BlogWizard({ onClose, onSaved }) {
                 ? 'Ukládám...'
                 : translating
                   ? 'Překládám…'
-                  : form.published ? 'Publikovat článek' : 'Uložit jako koncept'}
+                  : isEdit
+                    ? (form.published ? 'Uložit změny a publikovat' : 'Uložit změny (koncept)')
+                    : (form.published ? 'Publikovat článek' : 'Uložit jako koncept')}
             </Button>
           )}
         </div>
