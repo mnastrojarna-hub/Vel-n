@@ -270,10 +270,15 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
 }
 
 function Field({ label, value, onChange, type = 'text', disabled = false, placeholder = '' }) {
+  // Numerická pole vykreslíme jako text+inputMode="decimal", aby šlo
+  // psát jak "92.5" tak "92,5" (nativní type="number" čárku odmítá).
+  const isNumeric = type === 'number'
+  const inputType = isNumeric ? 'text' : type
+  const inputMode = isNumeric ? 'decimal' : undefined
   return (
     <div>
       <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</label>
-      <input type={type} value={value || ''} onChange={e => onChange?.(e.target.value)} disabled={disabled} placeholder={placeholder} className="w-full rounded-btn text-sm outline-none disabled:opacity-50" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
+      <input type={inputType} inputMode={inputMode} value={value || ''} onChange={e => onChange?.(e.target.value)} disabled={disabled} placeholder={placeholder} className="w-full rounded-btn text-sm outline-none disabled:opacity-50" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
     </div>
   )
 }
