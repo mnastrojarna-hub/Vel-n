@@ -14,10 +14,13 @@ const CATEGORIES = [
 ]
 
 function FormField({ label, value, onChange, type = 'text' }) {
+  const isNumeric = type === 'number'
+  const inputType = isNumeric ? 'text' : type
+  const inputMode = isNumeric ? 'decimal' : undefined
   return (
     <div>
       <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</label>
-      <input type={type} value={value} onChange={e => onChange(e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
+      <input type={inputType} inputMode={inputMode} value={value} onChange={e => onChange(e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
     </div>
   )
 }
@@ -47,7 +50,8 @@ export default function AddMotoModal({ branches, onClose, onSaved }) {
     setErr(null)
     try {
       const toInt = (v, fallback = 0) => {
-        const n = Number(v)
+        const s = typeof v === 'string' ? v.replace(',', '.').trim() : v
+        const n = Number(s)
         return Number.isFinite(n) ? Math.round(n) : fallback
       }
       const mileageVal = toInt(form.mileage, 0)
@@ -63,7 +67,11 @@ export default function AddMotoModal({ branches, onClose, onSaved }) {
         category: form.category, status: form.status,
         acquired_at: form.acquired_at || null, mileage: mileageVal, purchase_mileage: mileageVal,
         branch_id: form.branch_id || null, brand: form.brand?.trim() || null,
-        purchase_price: form.purchase_price ? Number(form.purchase_price) : 0,
+        purchase_price: (() => {
+          const s = typeof form.purchase_price === 'string' ? form.purchase_price.replace(',', '.').trim() : form.purchase_price
+          const n = Number(s)
+          return Number.isFinite(n) ? n : 0
+        })(),
         stk_valid_until: form.stk_valid_until || null,
         oil_interval_km: oilKm, oil_interval_days: oilDays, tire_interval_km: tireKm,
         full_service_interval_km: fullKm, full_service_interval_days: fullDays,

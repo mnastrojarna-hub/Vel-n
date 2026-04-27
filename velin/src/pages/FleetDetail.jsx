@@ -45,14 +45,17 @@ export default function FleetDetail() {
 
   async function handleSave() {
     setSaving(true); setError(null)
+    const normalize = v => typeof v === 'string' ? v.replace(',', '.').trim() : v
     const toInt = v => {
-      if (v === null || v === undefined || v === '') return null
-      const n = Number(v)
+      const s = normalize(v)
+      if (s === null || s === undefined || s === '') return null
+      const n = Number(s)
       return Number.isFinite(n) ? Math.round(n) : null
     }
     const toNum = v => {
-      if (v === null || v === undefined || v === '') return null
-      const n = Number(v)
+      const s = normalize(v)
+      if (s === null || s === undefined || s === '') return null
+      const n = Number(s)
       return Number.isFinite(n) ? n : null
     }
     const { model, spz, vin, category, branch_id, mileage, purchase_mileage, status, year, engine_cc, color, acquired_at,
