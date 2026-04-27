@@ -5,7 +5,6 @@ import Button from '../ui/Button'
 import Badge from '../ui/Badge'
 import ConfirmDialog from '../ui/ConfirmDialog'
 import Modal from '../ui/Modal'
-import ServiceOrdersPanel from './ServiceOrdersPanel'
 import AddScheduleBtn from './AddScheduleBtn'
 import PartsPanel from './PartsPanel'
 
@@ -168,9 +167,6 @@ export default function ServiceTab({ motoId, motoMileage, purchaseMileage, track
 
   return (
     <div className="space-y-5">
-      {/* Otevřené servisní zakázky (pokud existují) */}
-      <ServiceOrdersPanel motoId={motoId} logAudit={logAudit} />
-
       {/* Servisní plány — editovatelné */}
       <Card>
         <div className="flex items-center justify-between mb-4">
