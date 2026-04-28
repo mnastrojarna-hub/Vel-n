@@ -255,6 +255,12 @@
     if (!wrap) return;
     var prevBtn = wrap.querySelector('.moto-thumbs-prev');
     var nextBtn = wrap.querySelector('.moto-thumbs-next');
+    // Infinite mode — žádné okraje, šipky vždy aktivní.
+    if (strip.dataset.mgInfinite === '1') {
+      if (prevBtn) prevBtn.disabled = false;
+      if (nextBtn) nextBtn.disabled = false;
+      return;
+    }
     var max = strip.scrollWidth - strip.clientWidth - 1;
     if (prevBtn) prevBtn.disabled = strip.scrollLeft <= 0;
     if (nextBtn) nextBtn.disabled = strip.scrollLeft >= max;
@@ -276,103 +282,78 @@
     window.addEventListener('resize', function(){ updateThumbBtns(strip); });
   });
 
-  // ===== Mobile gallery slider (jedna velká fotka + tečky pod) =====
-  // Na mobilu (≤768 px) je původní layout (velká fotka nad pásem miniatur)
-  // matoucí — fotky vypadají naskládané pod sebou bez oddělení. Místo toho
-  // sestavíme jeden full-width swipe slider se scroll-snap a tečkami pod.
-  // Klepnutí na slide otevře lightbox (přes existující data-gallery delegaci).
-  var MOBILE_GALLERY_BREAKPOINT = 768;
+  // ===== Infinite (circular) loop scroll na pásu miniatur =====
+  // Originální layout je: velká hlavní fotka (.moto-photo) + horizontální pás
+  // miniatur (.moto-thumbs) pod ní. Aby uživatel mohl scrollovat thumby donekonečna
+  // dokola, naklonujeme celý set ještě 2× (1× před, 1× za) a scrollLeft startuje
+  // ve středu. Když user dorazí na okraj, atomicky přeskočíme zpět do středu
+  // (bez smooth) — vizuálně je to neviditelné, takže to vypadá jako nekonečno.
+  function setupInfiniteThumbs(strip){
+    if (!strip || strip.dataset.mgInfinite === '1') return;
+    var originals = Array.prototype.slice.call(strip.children);
+    if (originals.length < 2) return;
+    strip.dataset.mgInfinite = '1';
 
-  function setupMobileGallery(gal){
-    if (!gal || gal.dataset.mgMobileSetup === '1') return;
-    var anchors = Array.prototype.slice.call(gal.querySelectorAll('a[data-gallery]'));
-    if (!anchors.length) return;
-    gal.dataset.mgMobileSetup = '1';
+    function clone(arr){
+      return arr.map(function(el){
+        var c = el.cloneNode(true);
+        c.setAttribute('data-clone', '1');
+        // Anchor uvnitř klonu má pořád data-gallery, takže by ho lightbox sebral
+        // duplicitně. Necháme atribut (klik správně otevře lightbox), ale
+        // collect() už filtruje duplicitní data-index, takže to OK je.
+        return c;
+      });
+    }
+    var before = clone(originals);
+    var after = clone(originals);
+    // Zvrátit "before" aby pořadí 0,1,2,3,4 dávalo smysl (před originály jdou
+    // klony v původním pořadí, takže scrollování doleva ukáže poslední → první)
+    before.forEach(function(el){ strip.insertBefore(el, strip.firstChild); });
+    after.forEach(function(el){ strip.appendChild(el); });
 
-    var slider = document.createElement('div');
-    slider.className = 'moto-mobile-slider';
-
-    var track = document.createElement('div');
-    track.className = 'moto-mobile-track';
-
-    anchors.forEach(function(a, i){
-      var srcImg = a.querySelector('img');
-      if (!srcImg) return;
-      var slide = document.createElement('a');
-      slide.className = 'moto-mobile-slide';
-      slide.href = a.getAttribute('href') || srcImg.src;
-      slide.setAttribute('data-gallery', a.getAttribute('data-gallery') || 'moto');
-      slide.setAttribute('data-index', String(i));
-      var lbl = a.getAttribute('aria-label');
-      if (lbl) slide.setAttribute('aria-label', lbl);
-      var img = document.createElement('img');
-      img.src = srcImg.getAttribute('src') || srcImg.src;
-      img.alt = srcImg.getAttribute('alt') || '';
-      img.loading = i === 0 ? 'eager' : 'lazy';
-      img.decoding = 'async';
-      slide.appendChild(img);
-      track.appendChild(slide);
-    });
-
-    slider.appendChild(track);
-
-    if (anchors.length > 1) {
-      var dots = document.createElement('div');
-      dots.className = 'moto-mobile-dots';
-      dots.setAttribute('aria-hidden', 'true');
-      for (var j = 0; j < anchors.length; j++) {
-        var d = document.createElement('span');
-        d.className = 'moto-mobile-dot' + (j === 0 ? ' active' : '');
-        dots.appendChild(d);
-      }
-      slider.appendChild(dots);
-
-      var rafId = 0;
-      track.addEventListener('scroll', function(){
-        if (rafId) return;
-        rafId = requestAnimationFrame(function(){
-          rafId = 0;
-          var w = track.clientWidth;
-          if (!w) return;
-          var idx = Math.round(track.scrollLeft / w);
-          var ds = slider.querySelectorAll('.moto-mobile-dot');
-          for (var k = 0; k < ds.length; k++) {
-            ds[k].classList.toggle('active', k === idx);
-          }
-        });
-      }, {passive:true});
+    function setX(x, smooth){
+      strip.style.scrollBehavior = smooth ? 'smooth' : 'auto';
+      strip.scrollLeft = x;
     }
 
-    // Schováme původní velkou fotku i pás miniatur — slider je nahrazuje.
-    var photo = gal.querySelector('.moto-photo');
-    if (photo) photo.classList.add('moto-mobile-hide');
-    var thumbsWrap = gal.querySelector('.moto-thumbs-wrap');
-    if (thumbsWrap) thumbsWrap.classList.add('moto-mobile-hide');
+    function centerScroll(){
+      // Šířka jednoho setu (originály = třetina celkové šířky)
+      var setW = strip.scrollWidth / 3;
+      setX(setW, false);
+    }
 
-    gal.insertBefore(slider, gal.firstChild);
-  }
+    // Po renderu obrázků (lazy load může změnit šířky) vystředit
+    if (document.readyState === 'complete') centerScroll();
+    else window.addEventListener('load', centerScroll, {once:true});
+    // Pojistka — po krátké chvíli ještě jednou (kdyby se obrázky nahrály později)
+    setTimeout(centerScroll, 100);
+    setTimeout(centerScroll, 500);
 
-  function teardownMobileGallery(gal){
-    if (!gal || gal.dataset.mgMobileSetup !== '1') return;
-    var slider = gal.querySelector('.moto-mobile-slider');
-    if (slider) slider.remove();
-    var hidden = gal.querySelectorAll('.moto-mobile-hide');
-    hidden.forEach(function(h){ h.classList.remove('moto-mobile-hide'); });
-    delete gal.dataset.mgMobileSetup;
-  }
+    var jumping = false;
+    strip.addEventListener('scroll', function(){
+      if (jumping) return;
+      var setW = strip.scrollWidth / 3;
+      var sl = strip.scrollLeft;
+      // Když jsme se dostali do levého klonu — přeskočit doprava o setW
+      if (sl < setW * 0.5) {
+        jumping = true;
+        setX(sl + setW, false);
+        requestAnimationFrame(function(){ jumping = false; });
+      }
+      // Když jsme se dostali do pravého klonu — přeskočit doleva o setW
+      else if (sl > setW * 1.5) {
+        jumping = true;
+        setX(sl - setW, false);
+        requestAnimationFrame(function(){ jumping = false; });
+      }
+    }, {passive:true});
 
-  function refreshMobileGalleries(){
-    var isMobile = window.matchMedia('(max-width:' + MOBILE_GALLERY_BREAKPOINT + 'px)').matches;
-    document.querySelectorAll('.moto-gallery').forEach(function(gal){
-      if (isMobile) setupMobileGallery(gal);
-      else teardownMobileGallery(gal);
+    // Resize — klony zůstanou, jen znovu vystřed
+    window.addEventListener('resize', function(){
+      clearTimeout(strip._mgRecenter);
+      strip._mgRecenter = setTimeout(centerScroll, 150);
     });
   }
 
-  refreshMobileGalleries();
-  var resizeTimer = 0;
-  window.addEventListener('resize', function(){
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(refreshMobileGalleries, 150);
-  });
+  document.querySelectorAll('.moto-thumbs').forEach(setupInfiniteThumbs);
 })();
