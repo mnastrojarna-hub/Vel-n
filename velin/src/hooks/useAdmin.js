@@ -81,7 +81,11 @@ export function useAdmin(user) {
     }
 
     fetchAdmin()
-  }, [user])
+    // Závisíme na user.id, ne celém objektu — Supabase při TOKEN_REFRESHED
+    // vytváří nový session objekt (stejný user.id), což jinak způsobuje
+    // re-fetch admin záznamu, dočasné loading=true a UNMOUNT všech routes
+    // (zavírá modaly a wizardy uprostřed práce uživatele).
+  }, [user?.id])
 
   return { admin, role, branchAccess, permissions, loading, error }
 }

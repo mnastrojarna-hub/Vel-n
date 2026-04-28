@@ -234,12 +234,20 @@
 .moto-gallery .gallery-img{border-radius:8px;overflow:hidden}
 .moto-gallery .gallery-img img{width:100%;height:auto;cursor:pointer;transition:opacity .2s}
 .moto-gallery .gallery-img img:hover{opacity:.85}
-/* Thumby — grid s libovolným počtem fotek; auto-fill aby nepřetékaly. */
-.moto-gallery .moto-thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:.5rem}
-.moto-gallery .moto-thumbs .gallery-img img{height:100px;object-fit:cover}
+/* Thumby — vždy horizontální scroll-snap pás se šipkami pro postupné procházení. */
+.moto-thumbs-wrap{position:relative;display:flex;align-items:center;gap:.25rem}
+.moto-gallery .moto-thumbs{display:flex;flex-wrap:nowrap;overflow-x:auto;scroll-behavior:smooth;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;gap:.5rem;padding:.25rem 0;scrollbar-width:thin;flex:1;min-width:0}
+.moto-gallery .moto-thumbs::-webkit-scrollbar{height:6px}
+.moto-gallery .moto-thumbs::-webkit-scrollbar-thumb{background:#cfd8d3;border-radius:3px}
+.moto-gallery .moto-thumbs>div{flex:0 0 120px;scroll-snap-align:start}
+.moto-gallery .moto-thumbs .gallery-img img{height:90px;object-fit:cover}
+.moto-thumbs-nav{flex:0 0 auto;width:32px;height:90px;background:rgba(26,46,34,.85);color:#74FB71;border:1px solid #2a4e3a;border-radius:8px;font-size:1.1rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s,opacity .15s;font-family:inherit;padding:0}
+.moto-thumbs-nav:hover{background:#2a4e3a;color:#a8ff9f}
+.moto-thumbs-nav:disabled{opacity:.35;cursor:default}
 /* Zpětná kompatibilita pro starší .gr3 použití uvnitř moto-gallery */
-.moto-gallery .gr3{gap:.5rem}
-.moto-gallery .gr3 .gallery-img img{height:100px;object-fit:cover}
+.moto-gallery .gr3{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:.5rem;padding:.25rem 0}
+.moto-gallery .gr3>div{flex:0 0 120px}
+.moto-gallery .gr3 .gallery-img img{height:90px;object-fit:cover}
 
 /* Moto detail — mobilní layout */
 @media(max-width:768px){
@@ -247,13 +255,12 @@
   .moto-shortdesc{margin-top:.5rem}
   .moto-gallery .moto-photo{margin-bottom:.5rem}
   .moto-gallery .moto-photo .gallery-img img{aspect-ratio:4/3;object-fit:cover;width:100%;height:auto;max-height:60vh}
-  /* Galerie thumbs — horizontal scroll snap */
-  .moto-gallery .moto-thumbs,
-  .moto-gallery .gr3{display:flex;flex-wrap:nowrap;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;gap:.5rem;padding-bottom:.5rem;scrollbar-width:thin}
+  /* Galerie thumbs — užší miniatury, šipky kompaktnější */
   .moto-gallery .moto-thumbs>div,
-  .moto-gallery .gr3>div{flex:0 0 calc(33.333% - .35rem);min-width:0;scroll-snap-align:start}
+  .moto-gallery .gr3>div{flex:0 0 calc(33.333% - .35rem)}
   .moto-gallery .moto-thumbs .gallery-img img,
   .moto-gallery .gr3 .gallery-img img{height:90px}
+  .moto-thumbs-nav{width:28px;height:90px;font-size:1rem}
   /* Specs/popis sloupce — jeden pod druhým */
   .moto-detail section.gr2,
   .moto-prices.gr2{grid-template-columns:1fr;gap:1.25rem}
@@ -613,19 +620,40 @@
 .rez-doc-upload-tag{font-size:.72rem;color:#4a6b5a;background:#fff;padding:.1rem .5rem;border-radius:999px;border:1px solid #d4e8e0}
 .rez-doc-upload-sub{color:#4a6b5a;font-size:.82rem;line-height:1.45;margin:0 0 .55rem}
 .rez-doc-upload-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.6rem}
-.rez-doc-upload-card{background:#fff;border:1px solid #e0ece6;border-radius:12px;padding:.7rem .8rem}
-.rez-doc-upload-card-head{display:flex;align-items:center;gap:.45rem;font-weight:700;color:#1a2e22;font-size:.9rem;margin-bottom:.45rem}
-.rez-doc-upload-actions{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.45rem}
-.rez-invoice-card{background:#fff;border:1.5px solid #d4e8e0;border-radius:14px;padding:.85rem 1rem;margin-bottom:.6rem}
-.rez-invoice-table{width:100%;border-collapse:collapse;font-size:.88rem;color:#1a2e22}
-.rez-invoice-table th{text-align:left;padding:.45rem 0;font-weight:700;border-bottom:1px solid #d4e8e0;font-size:.85rem;color:#4a6b5a}
+.rez-doc-upload-card{background:linear-gradient(180deg,#fff 0%,#f9fefa 100%);border:1.5px solid #d4e8e0;border-radius:14px;padding:.85rem .9rem;transition:all .2s;box-shadow:0 2px 6px rgba(26,46,34,.04)}
+.rez-doc-upload-card:hover{border-color:#74FB71;box-shadow:0 6px 18px rgba(116,251,113,.18);transform:translateY(-1px)}
+.rez-doc-upload-card-head{display:flex;align-items:center;gap:.5rem;font-weight:700;color:#1a2e22;font-size:.95rem;margin-bottom:.55rem;padding-bottom:.45rem;border-bottom:1px dashed #d4e8e0}
+.rez-doc-upload-actions{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.55rem}
+.rez-invoice-card{background:#fff;border:1.5px solid #d4e8e0;border-radius:16px;padding:1rem 1.1rem;margin-bottom:.7rem;box-shadow:0 4px 14px rgba(26,46,34,.05)}
+.rez-invoice-table{width:100%;border-collapse:collapse;font-size:.92rem;color:#1a2e22}
+.rez-invoice-table th{text-align:left;padding:.55rem .25rem;font-weight:800;border-bottom:2px solid #1a8c1a;font-size:.78rem;color:#1a8c1a;text-transform:uppercase;letter-spacing:.5px}
 .rez-invoice-table th:last-child{text-align:right}
-.rez-invoice-table td{padding:.45rem 0;border-bottom:1px solid #f0f5f2}
-.rez-invoice-table td:last-child{text-align:right;font-variant-numeric:tabular-nums}
-.rez-invoice-total{display:flex;justify-content:space-between;align-items:center;margin-top:.65rem;padding-top:.65rem;border-top:2px solid #1a8c1a;font-size:1rem}
-.rez-invoice-total strong:last-child{color:#1a8c1a;font-size:1.1rem}
-.rez-invoice-meta{background:#f9fefa;border:1px solid #d4e8e0;border-radius:12px;padding:.7rem .85rem;font-size:.84rem;color:#374151;line-height:1.55}
-.rez-invoice-meta strong{color:#1a2e22}
+.rez-invoice-table td{padding:.65rem .25rem;border-bottom:1px solid #eaf3ed;font-weight:600}
+.rez-invoice-table tr:last-child td{border-bottom:none}
+.rez-invoice-table tr:hover td{background:#f9fefa}
+.rez-invoice-table td:last-child{text-align:right;font-variant-numeric:tabular-nums;color:#1a2e22;font-weight:700}
+.rez-inv-ico{display:inline-block;width:1.25rem;margin-right:.45rem;color:#1a8c1a;font-size:.95rem;vertical-align:middle}
+.rez-invoice-row-discount td{color:#1a8c1a !important}
+.rez-invoice-row-discount td:last-child{font-weight:800}
+.rez-invoice-total{display:flex;justify-content:space-between;align-items:center;margin-top:.85rem;padding:.75rem 1rem;border-radius:12px;background:linear-gradient(135deg,#1a2e22 0%,#0f1f17 100%);color:#fff;font-size:1rem;box-shadow:0 4px 12px rgba(26,46,34,.18)}
+.rez-invoice-total strong{color:#fff;font-size:1rem;letter-spacing:.3px}
+.rez-invoice-total strong:last-child{color:#74FB71;font-size:1.25rem;font-weight:800;font-variant-numeric:tabular-nums}
+.rez-invoice-meta{background:linear-gradient(180deg,#f9fefa 0%,#f0faf5 100%);border:1px solid #d4e8e0;border-left:4px solid #1a8c1a;border-radius:12px;padding:.85rem 1rem;font-size:.86rem;color:#1a2e22;line-height:1.5;display:flex;flex-direction:column;gap:.6rem}
+.rez-meta-row{display:flex;align-items:flex-start;gap:.65rem}
+.rez-meta-ico{flex-shrink:0;width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;background:#fff;border:1.5px solid #b8e6b8;border-radius:8px;font-size:.95rem;line-height:1}
+.rez-meta-body{flex:1;min-width:0}
+.rez-meta-label{font-size:.7rem;font-weight:800;color:#1a8c1a;text-transform:uppercase;letter-spacing:.5px;margin-bottom:.1rem}
+.rez-meta-value{font-weight:600;color:#1a2e22;word-break:break-word}
+.rez-meta-dim{color:#4a6b5a;font-weight:500;font-size:.82rem}
+.rez-scan-card{background:linear-gradient(180deg,#fff 0%,#f9fefa 100%);border:1.5px solid #d4e8e0;border-radius:14px;padding:.9rem 1rem;margin-bottom:.85rem;box-shadow:0 2px 8px rgba(26,46,34,.05);transition:all .2s}
+.rez-scan-card:hover{border-color:#74FB71;box-shadow:0 6px 18px rgba(116,251,113,.18)}
+.rez-scan-card-head{display:flex;align-items:center;gap:.85rem;margin-bottom:.6rem;padding-bottom:.55rem;border-bottom:1px dashed #d4e8e0}
+.rez-scan-ico{font-size:1.6rem;line-height:1;flex-shrink:0;filter:drop-shadow(0 2px 4px rgba(26,140,26,.18))}
+.rez-scan-title{font-weight:800;color:#1a2e22;font-size:1rem;line-height:1.25;margin:0;display:flex;align-items:center;gap:.45rem;flex-wrap:wrap}
+.rez-scan-tag{font-size:.7rem;font-weight:700;color:#1a8c1a;background:#e8fce8;padding:.15rem .55rem;border-radius:999px;text-transform:uppercase;letter-spacing:.3px}
+.rez-scan-sub{font-size:.82rem;color:#4a6b5a;margin-top:.15rem;line-height:1.4}
+.rez-scan-hint{color:#4a6b5a;font-size:.85rem;text-align:center;margin:.65rem 0 0;padding:.65rem;background:#f9fefa;border:1px dashed #b8e6b8;border-radius:10px}
+.rez-scan-hint strong{color:#1a8c1a}
 .rez-step2-actions{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.85rem;margin-top:1.1rem}
 .rez-step2-pay{display:flex;align-items:center;gap:.85rem;flex-wrap:wrap}
 .rez-step2-amount{background:#74FB71;color:#0b0b0b;padding:.6rem 1.2rem;border-radius:25px;font-weight:800;font-size:1.05rem;box-shadow:0 4px 12px rgba(116,251,113,.4)}
@@ -639,6 +667,16 @@
   .rez-doc-grid{grid-template-columns:1fr}
   .rez-pwd-grid{grid-template-columns:1fr;gap:.55rem}
   .rez-doc-upload-grid{grid-template-columns:1fr;gap:.55rem}
+  .rez-invoice-card{padding:.85rem .85rem;border-radius:14px}
+  .rez-invoice-table{font-size:.88rem}
+  .rez-invoice-total{padding:.7rem .85rem;font-size:.95rem}
+  .rez-invoice-total strong:last-child{font-size:1.15rem}
+  .rez-invoice-meta{padding:.75rem .85rem}
+  .rez-meta-ico{width:26px;height:26px;font-size:.9rem}
+  .rez-scan-card{padding:.8rem .85rem}
+  .rez-scan-card-head{gap:.65rem}
+  .rez-scan-ico{font-size:1.45rem}
+  .rez-scan-title{font-size:.95rem}
   .rez-date-row{grid-template-columns:1fr 1.4fr 1fr;gap:.4rem}
   .rez-date-row select{padding:.7rem .45rem;font-size:.92rem;min-height:46px}
   .rez-input{padding:.85rem .9rem;font-size:1rem;min-height:48px}

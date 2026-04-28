@@ -316,6 +316,7 @@ section[aria-labelledby="process"] .wbox{background:#fff;border-color:#d4e8e0}
   .banner-caption .btn+.btn{margin-left:0}
   .moto-gallery .moto-thumbs .gallery-img img,
   .moto-gallery .gr3 .gallery-img img{height:80px}
+  .moto-thumbs-nav{height:80px}
   /* Hamburger menu */
   .nav-toggle{display:block;min-height:44px;min-width:44px;padding:.5rem .9rem;font-size:.95rem;font-weight:700;letter-spacing:.5px}
   .mobile-menu-overlay{display:none;position:fixed;inset:0;background:rgba(15,28,21,.97);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:999;flex-direction:column;padding:max(env(safe-area-inset-top),1rem) 1.5rem max(env(safe-area-inset-bottom),1.5rem);overflow-y:auto;-webkit-overflow-scrolling:touch}
@@ -478,9 +479,12 @@ section[aria-labelledby="process"] .wbox{background:#fff;border-color:#d4e8e0}
 /* ===== Image rendering — srcset hint ===== */
 .banner img,.banner picture img{will-change:auto}
 
-/* ===== Lightbox ===== */
-.mg-lb{position:fixed;inset:0;background:rgba(10,18,13,.94);z-index:9999;display:flex;align-items:center;justify-content:center;padding:env(safe-area-inset-top,0) env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0)}
-.mg-lb[hidden]{display:none}
+/* ===== Lightbox =====
+   Pozicování s !important + krytí celého viewportu — defenzivní proti
+   ancestor transform/filter, které by mohly rozbít position:fixed a způsobit
+   render náhledu pod patou webu. */
+.mg-lb{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:0!important;inset:0!important;width:100vw;height:100vh;background:rgba(10,18,13,.94);z-index:99999;display:flex;align-items:center;justify-content:center;padding:env(safe-area-inset-top,0) env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0);margin:0}
+.mg-lb[hidden]{display:none!important}
 body.mg-lb-open{overflow:hidden}
 .mg-lb-stage{flex:1;display:flex;align-items:center;justify-content:center;max-width:100%;max-height:100%;padding:1rem;cursor:zoom-out}
 .mg-lb-img{max-width:min(96vw,1600px);max-height:88vh;width:auto;height:auto;object-fit:contain;border-radius:6px;box-shadow:0 12px 40px rgba(0,0,0,.6);background:#1a2e22;cursor:default}

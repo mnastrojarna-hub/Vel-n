@@ -224,20 +224,20 @@ MG._rezShowStep2 = function(){
   if(MG._rez._isResume){
     // Resume mode: use stored total from DB
     total=MG._rez.bookingAmount||0;
-    rows='<tr><td style="padding:5px 0;border-bottom:1px solid #eee">Rezervace: '+motoName+'</td>'+
-      '<td style="padding:5px 0;border-bottom:1px solid #eee;text-align:right">'+MG.formatPrice(total)+'</td></tr>';
+    rows='<tr><td><span class="rez-inv-ico">&#127949;</span>Rezervace: '+motoName+'</td>'+
+      '<td>'+MG.formatPrice(total)+'</td></tr>';
   } else {
     base=(moto&&r.startDate&&r.endDate)?MG.calcPrice(moto,r.startDate,r.endDate):0;
     d.extras.forEach(function(e){extT+=e.unit_price;});
     disc=d.discountAmt||0;
     total=Math.max(0,base+extT-disc);
-    rows='<tr><td style="padding:5px 0;border-bottom:1px solid #eee">Pronájem: '+motoName+'</td>'+
-      '<td style="padding:5px 0;border-bottom:1px solid #eee;text-align:right">'+MG.formatPrice(base)+'</td></tr>';
-    d.extras.forEach(function(e){rows+='<tr><td style="padding:5px 0;border-bottom:1px solid #eee">'+e.name+'</td>'+
-      '<td style="padding:5px 0;border-bottom:1px solid #eee;text-align:right">'+MG.formatPrice(e.unit_price)+'</td></tr>';});
+    rows='<tr><td><span class="rez-inv-ico">&#127949;</span>Pronájem: '+motoName+'</td>'+
+      '<td>'+MG.formatPrice(base)+'</td></tr>';
+    d.extras.forEach(function(e){rows+='<tr><td><span class="rez-inv-ico">&#10010;</span>'+e.name+'</td>'+
+      '<td>'+MG.formatPrice(e.unit_price)+'</td></tr>';});
     if(disc>0){var cl=(d.appliedCodes||[]).map(function(c){return c.code;}).join('+');
-      rows+='<tr><td style="padding:5px 0;border-bottom:1px solid #eee;color:#1a8c1a">Sleva ('+cl+')</td>'+
-      '<td style="padding:5px 0;border-bottom:1px solid #eee;text-align:right;color:#1a8c1a">−'+MG.formatPrice(disc)+'</td></tr>';}
+      rows+='<tr class="rez-invoice-row-discount"><td><span class="rez-inv-ico">&#127873;</span>Sleva ('+cl+')</td>'+
+      '<td>−'+MG.formatPrice(disc)+'</td></tr>';}
   }
 
   var isMob=MG._isMobile();
@@ -360,11 +360,20 @@ MG._rezShowStep2 = function(){
         '<div class="rez-invoice-total"><strong>Celkem k úhradě</strong><strong>'+MG.formatPrice(total)+'</strong></div>'+
       '</div>'+
       '<div class="rez-invoice-meta">'+
-        '<strong>Odběratel:</strong> '+d.name+' &middot; '+d.email+(d.phone?' &middot; '+d.phone:'')+'<br>'+
-        (d.street?d.street+', ':'')+(d.zip?d.zip+' ':'')+(d.city||'')+'<br>'+
-        '<strong>Motorka:</strong> '+motoName+' &middot; <strong>Termín:</strong> '+MG.formatDate(r.startDate)+' – '+MG.formatDate(r.endDate)+
-        (d.deliveryAddr?'<br><strong>Přistavení:</strong> '+d.deliveryAddr:'')+
-        (d.returnAddr?'<br><strong>Vrácení:</strong> '+d.returnAddr:'')+
+        '<div class="rez-meta-row"><span class="rez-meta-ico">&#128100;</span>'+
+          '<div class="rez-meta-body"><div class="rez-meta-label">Odběratel</div>'+
+          '<div class="rez-meta-value">'+d.name+' &middot; '+d.email+(d.phone?' &middot; '+d.phone:'')+
+          ((d.street||d.city||d.zip)?'<br><span class="rez-meta-dim">'+(d.street?d.street+', ':'')+(d.zip?d.zip+' ':'')+(d.city||'')+'</span>':'')+
+          '</div></div></div>'+
+        '<div class="rez-meta-row"><span class="rez-meta-ico">&#127949;</span>'+
+          '<div class="rez-meta-body"><div class="rez-meta-label">Motorka &amp; termín</div>'+
+          '<div class="rez-meta-value">'+motoName+' &middot; '+MG.formatDate(r.startDate)+' – '+MG.formatDate(r.endDate)+'</div></div></div>'+
+        (d.deliveryAddr?'<div class="rez-meta-row"><span class="rez-meta-ico">&#128666;</span>'+
+          '<div class="rez-meta-body"><div class="rez-meta-label">Přistavení</div>'+
+          '<div class="rez-meta-value">'+d.deliveryAddr+'</div></div></div>':'')+
+        (d.returnAddr?'<div class="rez-meta-row"><span class="rez-meta-ico">&#128205;</span>'+
+          '<div class="rez-meta-body"><div class="rez-meta-label">Vrácení</div>'+
+          '<div class="rez-meta-value">'+d.returnAddr+'</div></div></div>':'')+
       '</div>'+
     '</section>'+
 

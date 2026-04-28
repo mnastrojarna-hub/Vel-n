@@ -57,7 +57,20 @@
     items = collect(group);
     if (!items.length) return;
     current = Math.max(0, Math.min(items.length - 1, index|0));
+    // Únik z případného ancestor containing-blocku (transform/filter na předkovi
+    // umí rozbít position:fixed a způsobit, že overlay vykreslí pod patou webu).
+    if (root.parentElement !== document.body) document.body.appendChild(root);
     root.removeAttribute('hidden');
+    // Inline pojistka na případy, kdy by CSS bylo přepsáno jiným pravidlem.
+    root.style.position = 'fixed';
+    root.style.top = '0';
+    root.style.left = '0';
+    root.style.right = '0';
+    root.style.bottom = '0';
+    root.style.width = '100vw';
+    root.style.height = '100vh';
+    root.style.zIndex = '99999';
+    root.style.display = 'flex';
     document.body.classList.add('mg-lb-open');
     render();
     btnClose.focus();
@@ -65,6 +78,15 @@
 
   function close(){
     root.setAttribute('hidden','');
+    root.style.display = '';
+    root.style.position = '';
+    root.style.top = '';
+    root.style.left = '';
+    root.style.right = '';
+    root.style.bottom = '';
+    root.style.width = '';
+    root.style.height = '';
+    root.style.zIndex = '';
     document.body.classList.remove('mg-lb-open');
     imgEl.src = '';
     items = [];
@@ -119,4 +141,35 @@
       if (dx < 0) next(); else prev();
     }
   }, {passive:true});
+
+  // ===== Thumb strip nav (šipky pod hlavní fotkou) =====
+  function thumbsForBtn(btn){
+    var wrap = btn.closest('.moto-thumbs-wrap');
+    return wrap ? wrap.querySelector('.moto-thumbs') : null;
+  }
+  function updateThumbBtns(strip){
+    var wrap = strip.closest('.moto-thumbs-wrap');
+    if (!wrap) return;
+    var prevBtn = wrap.querySelector('.moto-thumbs-prev');
+    var nextBtn = wrap.querySelector('.moto-thumbs-next');
+    var max = strip.scrollWidth - strip.clientWidth - 1;
+    if (prevBtn) prevBtn.disabled = strip.scrollLeft <= 0;
+    if (nextBtn) nextBtn.disabled = strip.scrollLeft >= max;
+  }
+  document.addEventListener('click', function(e){
+    var btn = e.target.closest && e.target.closest('.moto-thumbs-prev, .moto-thumbs-next');
+    if (!btn) return;
+    e.preventDefault();
+    var strip = thumbsForBtn(btn);
+    if (!strip) return;
+    var first = strip.querySelector('div');
+    var step = first ? (first.getBoundingClientRect().width + 8) : Math.max(120, strip.clientWidth * 0.5);
+    var dir = btn.classList.contains('moto-thumbs-next') ? 1 : -1;
+    strip.scrollBy({ left: dir * step * 2, behavior: 'smooth' });
+  });
+  document.querySelectorAll('.moto-thumbs').forEach(function(strip){
+    updateThumbBtns(strip);
+    strip.addEventListener('scroll', function(){ updateThumbBtns(strip); }, {passive:true});
+    window.addEventListener('resize', function(){ updateThumbBtns(strip); });
+  });
 })();

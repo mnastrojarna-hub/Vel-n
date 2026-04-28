@@ -142,11 +142,17 @@ if (!empty($allImages)) {
     $main = $allImages[0];
     $galleryHtml .= '<div class="moto-photo"><a href="' . htmlspecialchars($main) . '" data-gallery="moto" data-index="0" aria-label="' . $openLabel . '"><div class="gallery-img"><img src="' . htmlspecialchars($main) . '" alt="' . $modelAlt . '" loading="lazy"></div></a></div>';
     if (count($allImages) > 1) {
+        $prevLabel = htmlspecialchars(t('gallery.prev'), ENT_QUOTES, 'UTF-8');
+        $nextLabel = htmlspecialchars(t('gallery.next'), ENT_QUOTES, 'UTF-8');
+        $galleryHtml .= '<div class="moto-thumbs-wrap">';
+        $galleryHtml .= '<button type="button" class="moto-thumbs-nav moto-thumbs-prev" aria-label="' . $prevLabel . '">&#10094;</button>';
         $galleryHtml .= '<div class="moto-thumbs">';
         for ($i = 1; $i < count($allImages); $i++) {
             $u = $allImages[$i];
             $galleryHtml .= '<div><a href="' . htmlspecialchars($u) . '" data-gallery="moto" data-index="' . $i . '" aria-label="' . $openLabel . '"><div class="gallery-img"><img src="' . htmlspecialchars($u) . '" alt="' . $modelAlt . '" loading="lazy"></div></a></div>';
         }
+        $galleryHtml .= '</div>';
+        $galleryHtml .= '<button type="button" class="moto-thumbs-nav moto-thumbs-next" aria-label="' . $nextLabel . '">&#10095;</button>';
         $galleryHtml .= '</div>';
     }
 }
@@ -249,7 +255,24 @@ $calStartLabel = t('detail.calendarStartSelected', ['date' => '__DATE__']);
 $calRangeLabel = t('detail.calendarRangeSelected', ['start' => '__START__', 'end' => '__END__']);
 $calClearLabel = t('detail.calendarClearSelection');
 
+// Pro AI agenta — kontext aktuálně prohlížené motorky (značka, model, kategorie, cena, výkon).
+// Widget si tohle čte z window.MOTOGO_PAGE_CTX a posílá s každou zprávou, ať agent ví,
+// na co se zákazník dívá, když řekne "rezervuj mi tuhle motorku".
+$aiPageCtx = json_encode([
+    'type' => 'moto_detail',
+    'moto_id' => $moto['id'] ?? null,
+    'brand' => $moto['brand'] ?? null,
+    'model' => $moto['model'] ?? null,
+    'category' => $moto['category'] ?? null,
+    'license_required' => $moto['license_required'] ?? null,
+    'power_kw' => $moto['power_kw'] ?? null,
+    'price_min_kc' => $moto['price_min'] ?? ($moto['price_mon'] ?? null),
+    'status' => $moto['status'] ?? null,
+    'available_today' => $isAvailableToday,
+], JSON_UNESCAPED_UNICODE);
+
 $calendarJs = '<script>
+window.MOTOGO_PAGE_CTX = ' . $aiPageCtx . ';
 var SUPABASE_URL = ' . json_encode(SUPABASE_URL) . ';
 var SUPABASE_ANON_KEY = ' . json_encode(SUPABASE_ANON_KEY) . ';
 var MOTO_ID = ' . json_encode($moto['id']) . ';

@@ -70,35 +70,44 @@ MG._rezShowMindeeStep = async function(){
 
   // Doporučené, ale lze přeskočit (na desktopu i mobilu)
   var subtitle=isMob
-    ?'<p style="color:#555;line-height:1.6;margin-bottom:1rem">Doporučujeme vyfotit oba doklady — odbavení je rychlejší a získáte přístup k autonomní pobočce. Tento krok lze přeskočit.</p>'
-    :'<p style="color:#555;line-height:1.6;margin-bottom:1rem">Vyfotografujte doklady pro rychlejší odbavení a možnost využít autonomní pobočku. Tento krok můžete přeskočit.</p>';
+    ?'Doporučujeme vyfotit oba doklady — odbavení je rychlejší a získáte přístup k autonomní pobočce. Tento krok lze přeskočit.'
+    :'Vyfotografujte doklady pro rychlejší odbavení a možnost využít autonomní pobočku. Tento krok můžete přeskočit.';
 
   form.innerHTML=
-    '<h2 style="margin-top:1rem">Ověření dokladů fotoaparátem</h2>'+subtitle+
+    '<section class="rez-section">'+
+      '<div class="rez-section-head"><span class="rez-step-num">&#128247;</span><h2>Ověření dokladů fotoaparátem</h2></div>'+
+      '<p class="rez-section-sub">'+subtitle+'</p>'+
 
-    '<div style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:10px;padding:1rem;margin-bottom:1rem">'+
-    '<div style="display:flex;align-items:center;gap:1rem;margin-bottom:.75rem">'+
-    '<span style="font-size:1.5rem">&#128196;</span>'+
-    '<div><h3 style="margin:0">Doklad totožnosti <span style="font-size:.78rem;color:#888;font-weight:400">(doporučeno)</span></h3>'+
-    '<p style="margin:0;font-size:.85rem;color:#555">Občanský průkaz nebo cestovní pas</p></div></div>'+
-    '<div id="mindee-id-status"></div>'+
-    '<button class="btn btngreen-small" onclick="MG._rezScanDoc(\'id\')" style="margin-top:.5rem">Vyfotit doklad</button></div>'+
+      '<div class="rez-scan-card">'+
+        '<div class="rez-scan-card-head">'+
+          '<span class="rez-scan-ico">&#128196;</span>'+
+          '<div><div class="rez-scan-title">Doklad totožnosti <span class="rez-scan-tag">doporučeno</span></div>'+
+          '<div class="rez-scan-sub">Občanský průkaz nebo cestovní pas</div></div>'+
+        '</div>'+
+        '<div id="mindee-id-status"></div>'+
+        '<button class="btn btngreen-small" onclick="MG._rezScanDoc(\'id\')" style="margin-top:.5rem">Vyfotit doklad</button>'+
+      '</div>'+
 
-    '<div style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:10px;padding:1rem;margin-bottom:1rem">'+
-    '<div style="display:flex;align-items:center;gap:1rem;margin-bottom:.75rem">'+
-    '<span style="font-size:1.5rem">&#128179;</span>'+
-    '<div><h3 style="margin:0">Řidičský průkaz <span style="font-size:.78rem;color:#888;font-weight:400">(doporučeno)</span></h3>'+
-    '<p style="margin:0;font-size:.85rem;color:#555">Přední strana</p></div></div>'+
-    '<div id="mindee-dl-status"></div>'+
-    '<button class="btn btngreen-small" onclick="MG._rezScanDoc(\'dl\')" style="margin-top:.5rem">Vyfotit řidičský průkaz</button></div>'+
+      '<div class="rez-scan-card">'+
+        '<div class="rez-scan-card-head">'+
+          '<span class="rez-scan-ico">&#128663;</span>'+
+          '<div><div class="rez-scan-title">Řidičský průkaz <span class="rez-scan-tag">doporučeno</span></div>'+
+          '<div class="rez-scan-sub">Přední strana</div></div>'+
+        '</div>'+
+        '<div id="mindee-dl-status"></div>'+
+        '<button class="btn btngreen-small" onclick="MG._rezScanDoc(\'dl\')" style="margin-top:.5rem">Vyfotit řidičský průkaz</button>'+
+      '</div>'+
 
-    '<p id="mindee-mandatory-msg" style="color:#4a6b5a;font-size:.85rem;text-align:center;margin:.5rem 0">Doklady jsou volitelné — pokud nechcete fotit, klikněte níže na <strong>Přeskočit a zaplatit</strong>.</p>'+
+      '<p id="mindee-mandatory-msg" class="rez-scan-hint">Doklady jsou volitelné — pokud nechcete fotit, klikněte níže na <strong>Přeskočit a zaplatit</strong>.</p>'+
+    '</section>'+
 
-    '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-top:1.5rem">'+
-    '<button class="btn btndark" onclick="MG._rezShowStep2()">&#8592; Zpět</button>'+
-    '<div style="display:flex;align-items:center;gap:1rem">'+
-    '<div style="background:#74FB71;color:#0b0b0b;padding:.6rem 1.2rem;border-radius:25px;font-weight:800;font-size:1.05rem">'+MG.formatPrice(total)+'</div>'+
-    '<button id="mindee-pay-btn" class="btn btngreen" onclick="MG._rezSubmitPayment()">Přeskočit a zaplatit</button></div></div>';
+    '<div class="rez-step2-actions">'+
+      '<button class="btn btndark" onclick="MG._rezShowStep2()">&#8592; Zpět</button>'+
+      '<div class="rez-step2-pay">'+
+        '<div class="rez-step2-amount">'+MG.formatPrice(total)+'</div>'+
+        '<button id="mindee-pay-btn" class="btn btngreen" onclick="MG._rezSubmitPayment()">Přeskočit a zaplatit</button>'+
+      '</div>'+
+    '</div>';
   window.scrollTo({top:form.offsetTop-80,behavior:'smooth'});
 };
 

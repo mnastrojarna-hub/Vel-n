@@ -165,6 +165,28 @@ class SupabaseClient {
             ['status=eq.active'],
             'model.asc'
         );
+
+        // Sjednotit s nejbližším volným datem (RPC bypassuje RLS na bookings).
+        // Pokud RPC chybí nebo selže, motorky se zobrazí bez data → fallback "Dostupné dnes".
+        if (!empty($data)) {
+            $avail = $this->rpc('get_motos_availability_status', []);
+            if (is_array($avail) && !empty($avail)) {
+                $byId = [];
+                foreach ($avail as $row) {
+                    if (!empty($row['moto_id'])) {
+                        $byId[$row['moto_id']] = $row['next_available_date'] ?? null;
+                    }
+                }
+                foreach ($data as &$m) {
+                    $mid = $m['id'] ?? null;
+                    if ($mid && array_key_exists($mid, $byId)) {
+                        $m['next_available_date'] = $byId[$mid];
+                    }
+                }
+                unset($m);
+            }
+        }
+
         $this->cacheSet('motos', $data);
         return $data;
     }
