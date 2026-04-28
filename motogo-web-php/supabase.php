@@ -252,13 +252,22 @@ class SupabaseClient {
             }
         }
 
-        // 2) Základní (CS) DB override
+        // 2) Velín CMS overlay (cms_variables, klíče web.<page>.<path…>)
+        // Pozor: používáme cmsDeepMerge, ne deepMerge — u list klíčů (např. signposts[0..5])
+        // chceme mergovat po prvcích, ne nahradit celé pole, protože overlay z DB
+        // typicky obsahuje jen některé indexy/atributy.
+        $cmsOverlay = $this->fetchWebTexts($page, $lang);
+        if (is_array($cmsOverlay) && !empty($cmsOverlay)) {
+            $merged = self::cmsDeepMerge($merged, $cmsOverlay);
+        }
+
+        // 3) Základní (CS) DB override z app_settings
         $db = $this->fetchSetting('site.' . $page);
         if (is_array($db) && !empty($db)) {
             $merged = self::deepMerge($merged, $db);
         }
 
-        // 3) Per-language DB override (např. site.home.en)
+        // 4) Per-language DB override (např. site.home.en)
         if ($lang && $lang !== 'cs') {
             $dbLang = $this->fetchSetting('site.' . $page . '.' . $lang);
             if (is_array($dbLang) && !empty($dbLang)) {
@@ -267,6 +276,93 @@ class SupabaseClient {
         }
 
         return $merged;
+    }
+
+    /**
+     * Načte CMS texty z `cms_variables` pro danou stránku (klíče tvaru `web.<page>.<path>`).
+     * Klíč se rozsekne podle teček a složí se do vnořeného pole, takže
+     * `web.home.hero.title` → `['hero' => ['title' => 'hodnota']]`.
+     * Per-language overlay se bere z JSONB sloupce `translations` (`{lang: {value: '…'}}`).
+     *
+     * @param string $page Slug stránky bez prefixu `web.`
+     * @param string|null $lang Cílový jazyk (default: aktuální detekovaný)
+     * @return array Vnořené pole textů (prázdné pokud nic nenalezeno)
+     */
+    public function fetchWebTexts($page, $lang = null) {
+        if (!$page) return [];
+        $lang = $lang ?: 'cs';
+        $cacheKey = 'webtexts_' . $page . '_' . $lang;
+        $cached = $this->cacheGet($cacheKey);
+        if ($cached !== null) return $cached;
+
+        $prefix = 'web.' . $page . '.';
+        // PostgREST: like.web.<page>.* — `*` je wildcard
+        $rows = $this->query(
+            'cms_variables',
+            'key,value,translations',
+            ['key=like.' . $prefix . '*']
+        );
+
+        $out = [];
+        foreach ((array)$rows as $row) {
+            $key = $row['key'] ?? '';
+            if (strpos($key, $prefix) !== 0) continue;
+            $tail = substr($key, strlen($prefix));
+            if ($tail === '') continue;
+
+            // Vyber hodnotu — preferuj překlad pokud existuje a není prázdný
+            $val = $row['value'] ?? null;
+            if ($lang !== 'cs' && !empty($row['translations']) && is_array($row['translations'])) {
+                $tr = $row['translations'];
+                if (isset($tr[$lang])) {
+                    if (is_array($tr[$lang]) && isset($tr[$lang]['value'])) {
+                        $cand = $tr[$lang]['value'];
+                    } else {
+                        $cand = $tr[$lang];
+                    }
+                    if (is_string($cand) && $cand !== '') $val = $cand;
+                }
+            }
+            // jsonb sloupec se vrací buď jako primitiva (string/number) nebo jako pole
+            if (is_string($val) || is_numeric($val) || is_bool($val) || $val === null || is_array($val)) {
+                self::setNested($out, explode('.', $tail), $val);
+            }
+        }
+
+        $this->cacheSet($cacheKey, $out);
+        return $out;
+    }
+
+    /**
+     * Hluboký merge zachovávající listy: rekurzivně mergeuje i numericky indexované
+     * prvky (na rozdíl od `deepMerge`, který listy nahrazuje celé). Použito pro CMS overlay,
+     * aby admin mohl editovat jednotlivé prvky pole (např. signposts[2].title).
+     */
+    private static function cmsDeepMerge($a, $b) {
+        if (!is_array($a)) return $b;
+        if (!is_array($b)) return $b;
+        $out = $a;
+        foreach ($b as $k => $v) {
+            $out[$k] = (isset($a[$k]) && is_array($a[$k]) && is_array($v))
+                ? self::cmsDeepMerge($a[$k], $v)
+                : $v;
+        }
+        return $out;
+    }
+
+    /** Zapíše hodnotu do vnořeného pole podle pole klíčů. */
+    private static function setNested(&$arr, $path, $val) {
+        $node = &$arr;
+        foreach ($path as $i => $k) {
+            if ($i === count($path) - 1) {
+                $node[$k] = $val;
+                return;
+            }
+            if (!isset($node[$k]) || !is_array($node[$k])) {
+                $node[$k] = [];
+            }
+            $node = &$node[$k];
+        }
     }
 
     /**

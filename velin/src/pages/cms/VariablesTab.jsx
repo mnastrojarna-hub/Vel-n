@@ -6,21 +6,22 @@ import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import { autoTranslate } from '../../lib/autoTranslate'
 
-const GROUPS = ['general', 'pricing', 'contact', 'legal']
+const CATEGORIES = ['general', 'web', 'pricing', 'contact', 'content', 'legal']
 
 export default function VariablesTab() {
   const [vars, setVars] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [filterGroup, setFilterGroup] = useState('')
+  const [filterCategory, setFilterCategory] = useState('')
   const [editing, setEditing] = useState(null)
   const [showAdd, setShowAdd] = useState(false)
 
-  useEffect(() => { load() }, [filterGroup])
+  useEffect(() => { load() }, [filterCategory])
 
   async function load() {
     setLoading(true)
     let query = supabase.from('cms_variables').select('*').order('key')
+    if (filterCategory) query = query.eq('category', filterCategory)
     const { data, error: err } = await query
     if (err) setError(err.message)
     else setVars(data || [])
@@ -46,11 +47,11 @@ export default function VariablesTab() {
   return (
     <div>
       <div className="flex items-center gap-3 mb-4">
-        <select value={filterGroup} onChange={e => setFilterGroup(e.target.value)}
+        <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
           className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer outline-none"
           style={{ padding: '8px 14px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#1a2e22' }}>
-          <option value="">Všechny skupiny</option>
-          {GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
+          <option value="">Všechny kategorie</option>
+          {CATEGORIES.map(g => <option key={g} value={g}>{g}</option>)}
         </select>
         <div className="ml-auto">
           <Button green onClick={() => setShowAdd(true)}>+ Nová proměnná</Button>
@@ -65,7 +66,7 @@ export default function VariablesTab() {
         <Table>
           <thead>
             <TRow header>
-              <TH>Skupina</TH><TH>Klíč</TH><TH>Hodnota</TH><TH>Akce</TH>
+              <TH>Kategorie</TH><TH>Klíč</TH><TH>Hodnota</TH><TH>Akce</TH>
             </TRow>
           </thead>
           <tbody>
@@ -74,7 +75,7 @@ export default function VariablesTab() {
                 <TD>
                   <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
                     style={{ padding: '3px 8px', background: '#f1faf7', color: '#1a2e22' }}>
-                    {v.group}
+                    {v.category}
                   </span>
                 </TD>
                 <TD mono bold>{v.key}</TD>
@@ -117,7 +118,7 @@ function InlineEdit({ value, onSave }) {
 }
 
 function VarModal({ entry, onClose, onSaved }) {
-  const [form, setForm] = useState(entry ? { key: entry.key, value: entry.value, group: entry.group } : { key: '', value: '', group: 'general' })
+  const [form, setForm] = useState(entry ? { key: entry.key, value: entry.value, category: entry.category } : { key: '', value: '', category: 'general' })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
@@ -125,7 +126,7 @@ function VarModal({ entry, onClose, onSaved }) {
   async function handleSave() {
     setSaving(true); setErr(null)
     try {
-      const { group: _g, ...payload } = form
+      const payload = form
       let savedId = entry?.id
       if (entry) {
         const result = await debugAction('cmsVariable.update', 'VarModal', () =>
@@ -153,9 +154,9 @@ function VarModal({ entry, onClose, onSaved }) {
     <Modal open title={entry ? 'Upravit proměnnou' : 'Nová proměnná'} onClose={onClose}>
       <div className="space-y-3">
         <div>
-          <Label>Skupina</Label>
-          <select value={form.group} onChange={e => set('group', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle}>
-            {GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
+          <Label>Kategorie</Label>
+          <select value={form.category} onChange={e => set('category', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle}>
+            {CATEGORIES.map(g => <option key={g} value={g}>{g}</option>)}
           </select>
         </div>
         <div><Label>Klíč</Label><input value={form.key} onChange={e => set('key', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>

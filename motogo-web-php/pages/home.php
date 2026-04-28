@@ -88,50 +88,76 @@ $C = $sb->siteContent('home', $defaults);
 
 // ---- Signpost
 $signpostTitle = $C['signposts_title'] ?? 'Rychlý rozcestník po Motogo24';
-$signHtml = '<section aria-labelledby="signpost-h"><h2 id="signpost-h">' . htmlspecialchars($signpostTitle) . '</h2><p>&nbsp;</p><div class="gr3">';
-foreach ($C['signposts'] as $s) {
+$signHtml = '<section aria-labelledby="signpost-h"><h2 id="signpost-h" data-cms-key="web.home.signposts_title">' . htmlspecialchars($signpostTitle) . '</h2><p>&nbsp;</p><div class="gr3">';
+foreach ($C['signposts'] as $i => $s) {
     $iconSrc = BASE_URL . '/' . ltrim($s['icon'], '/');
     $titleText = trim(strip_tags($s['title'] ?? ''));
     if ($titleText === '') $titleText = htmlspecialchars($s['btn'] ?? 'Informace');
+    $kBase = 'web.home.signposts.' . $i;
     $signHtml .= '<a class="gbox" href="' . BASE_URL . $s['href'] . '">' .
         '<div class="gr2"><div class="gbox-img"><img src="' . htmlspecialchars($iconSrc) . '" class="icon" alt="' . htmlspecialchars(strip_tags($s['btn'] ?? $titleText)) . '" loading="lazy"></div><div>' .
-        '<h3>' . ($s['title'] !== '' ? $s['title'] : $titleText) . '</h3><p>' . $s['text'] . '</p>' .
-        '<div class="btn btngreen-small">' . $s['btn'] . '</div></div></div></a>';
+        '<h3 data-cms-key="' . $kBase . '.title">' . ($s['title'] !== '' ? $s['title'] : $titleText) . '</h3>' .
+        '<p data-cms-key="' . $kBase . '.text">' . $s['text'] . '</p>' .
+        '<div class="btn btngreen-small" data-cms-key="' . $kBase . '.btn">' . $s['btn'] . '</div></div></div></a>';
 }
 $signHtml .= '</div></section>';
 
 // ---- Motorky
 $mo = $C['motos_section'];
-$motosHtml = '<section aria-labelledby="catalogue"><h2>' . $mo['title'] . '</h2>' .
-    '<p>' . $mo['intro'] . '</p><p>&nbsp;</p>' .
+$motosHtml = '<section aria-labelledby="catalogue"><h2 data-cms-key="web.home.motos_section.title">' . $mo['title'] . '</h2>' .
+    '<p data-cms-key="web.home.motos_section.intro">' . $mo['intro'] . '</p><p>&nbsp;</p>' .
     '<div id="home-motos" class="gr4">';
 if (!empty($motos)) {
     foreach (array_slice($motos, 0, (int)($mo['limit'] ?? 4)) as $m) {
         $motosHtml .= '<section aria-labelledby="catalogue">' . renderMotoCard($m) . '</section>';
     }
 } else {
-    $motosHtml .= '<p>' . htmlspecialchars($mo['empty']) . '</p>';
+    $motosHtml .= '<p data-cms-key="web.home.motos_section.empty">' . htmlspecialchars($mo['empty']) . '</p>';
 }
-$motosHtml .= '</div><p>&nbsp;</p><p class="text-center"><a class="btn btngreen" href="' . BASE_URL . $mo['cta_href'] . '">' . $mo['cta_label'] . '</a></p></section>';
+$motosHtml .= '</div><p>&nbsp;</p><p class="text-center"><a class="btn btngreen" href="' . BASE_URL . $mo['cta_href'] . '" data-cms-key="web.home.motos_section.cta_label">' . $mo['cta_label'] . '</a></p></section>';
 
 // ---- Proces
-$processHtml = '<section aria-labelledby="process"><h2>' . $C['process']['title'] . '</h2><div class="gr4">';
-foreach ($C['process']['steps'] as $s) {
-    $processHtml .= renderWbox($s['icon'], $s['title'], $s['text']);
+$processHtml = '<section aria-labelledby="process"><h2 data-cms-key="web.home.process.title">' . $C['process']['title'] . '</h2><div class="gr4">';
+foreach ($C['process']['steps'] as $i => $s) {
+    $kBase = 'web.home.process.steps.' . $i;
+    $processHtml .= renderWbox(
+        $s['icon'],
+        '<span data-cms-key="' . $kBase . '.title">' . $s['title'] . '</span>',
+        '<span data-cms-key="' . $kBase . '.text">' . $s['text'] . '</span>'
+    );
 }
 $processHtml .= '</div></section>';
 
 // ---- FAQ
-$faqHtml = renderFaqSection($C['faq']['title'], $C['faq']['items'], $C['faq']['more_link'] ?? null);
+// Texty obalíme spany s `data-cms-key`, aby je admin overlay (cms-admin.js) detekoval.
+$faqItemsKeyed = [];
+foreach (($C['faq']['items'] ?? []) as $i => $f) {
+    $faqItemsKeyed[] = [
+        'q' => '<span data-cms-key="web.home.faq.items.' . $i . '.q">' . ($f['q'] ?? '') . '</span>',
+        'a' => '<span data-cms-key="web.home.faq.items.' . $i . '.a">' . ($f['a'] ?? '') . '</span>',
+    ];
+}
+$faqTitleKeyed = '<span data-cms-key="web.home.faq.title">' . ($C['faq']['title'] ?? '') . '</span>';
+$faqHtml = renderFaqSection($faqTitleKeyed, $faqItemsKeyed, $C['faq']['more_link'] ?? null);
 
 // ---- CTA
-$ctaHtml = renderCta($C['cta']['title'], $C['cta']['text'], $C['cta']['buttons']);
+$ctaButtonsKeyed = [];
+foreach (($C['cta']['buttons'] ?? []) as $i => $btn) {
+    $b = $btn;
+    $b['label'] = '<span data-cms-key="web.home.cta.buttons.' . $i . '.label">' . ($btn['label'] ?? '') . '</span>';
+    $ctaButtonsKeyed[] = $b;
+}
+$ctaHtml = renderCta(
+    '<span data-cms-key="web.home.cta.title">' . ($C['cta']['title'] ?? '') . '</span>',
+    '<span data-cms-key="web.home.cta.text">' . ($C['cta']['text'] ?? '') . '</span>',
+    $ctaButtonsKeyed
+);
 
 // ---- Reviews (zobrazí se jen pokud data existují)
 $reviewsHtml = '';
 if (!empty($reviews)) {
-    $reviewsHtml = '<section aria-labelledby="reviews"><h2>' . htmlspecialchars($C['reviews']['title']) . '</h2>'
-        . '<p>' . htmlspecialchars($C['reviews']['intro']) . '</p><p>&nbsp;</p>'
+    $reviewsHtml = '<section aria-labelledby="reviews"><h2 data-cms-key="web.home.reviews.title">' . htmlspecialchars($C['reviews']['title']) . '</h2>'
+        . '<p data-cms-key="web.home.reviews.intro">' . htmlspecialchars($C['reviews']['intro']) . '</p><p>&nbsp;</p>'
         . '<div class="gr3">';
     foreach ($reviews as $r) {
         $rating = (int)($r['rating'] ?? 0);
@@ -149,15 +175,15 @@ if (!empty($reviews)) {
 
 // ---- Blog
 $bl = $C['blog'];
-$blogHtml = '<section aria-labelledby="blog"><h2>' . $bl['title'] . '</h2><div id="home-blog" class="gr3">';
+$blogHtml = '<section aria-labelledby="blog"><h2 data-cms-key="web.home.blog.title">' . $bl['title'] . '</h2><div id="home-blog" class="gr3">';
 if (!empty($posts)) {
     foreach (array_slice($posts, 0, (int)($bl['limit'] ?? 3)) as $p) {
         $blogHtml .= renderBlogCard($p);
     }
 } else {
-    $blogHtml .= '<p>' . htmlspecialchars($bl['empty']) . '</p>';
+    $blogHtml .= '<p data-cms-key="web.home.blog.empty">' . htmlspecialchars($bl['empty']) . '</p>';
 }
-$blogHtml .= '</div><p>&nbsp;</p><p class="text-center"><a class="btn btngreen" href="' . BASE_URL . $bl['cta_href'] . '">' . $bl['cta_label'] . '</a></p></section>';
+$blogHtml .= '</div><p>&nbsp;</p><p class="text-center"><a class="btn btngreen" href="' . BASE_URL . $bl['cta_href'] . '" data-cms-key="web.home.blog.cta_label">' . $bl['cta_label'] . '</a></p></section>';
 
 // ---- Banner
 $hero = $C['hero'];
@@ -171,15 +197,15 @@ $bannerHtml = '<div class="banner">' .
         '<img fetchpriority="high" decoding="async" alt="' . htmlspecialchars($hero['alt']) . '" src="' . htmlspecialchars($heroImgUrl) . '" width="1920" height="480">' .
     '</picture>' .
     '<div class="banner-wrapper"><div class="container"><div class="banner-caption">' .
-        '<p>' . $hero['eyebrow'] . '</p><p>&nbsp;</p>' .
-        '<p>' . $hero['body'] . '</p><p>&nbsp;</p>' .
-        '<p><a class="btn ' . ($ctaP['cls'] ?? 'btngreen') . '" href="' . BASE_URL . $ctaP['href'] . '">' . $ctaP['label'] . '</a> <a class="btn ' . ($ctaS['cls'] ?? 'btndark') . '" href="' . BASE_URL . $ctaS['href'] . '">' . $ctaS['label'] . '</a></p>' .
+        '<p data-cms-key="web.home.hero.eyebrow">' . $hero['eyebrow'] . '</p><p>&nbsp;</p>' .
+        '<p data-cms-key="web.home.hero.body">' . $hero['body'] . '</p><p>&nbsp;</p>' .
+        '<p><a class="btn ' . ($ctaP['cls'] ?? 'btngreen') . '" href="' . BASE_URL . $ctaP['href'] . '" data-cms-key="web.home.hero.cta_primary.label">' . $ctaP['label'] . '</a> <a class="btn ' . ($ctaS['cls'] ?? 'btndark') . '" href="' . BASE_URL . $ctaS['href'] . '" data-cms-key="web.home.hero.cta_secondary.label">' . $ctaS['label'] . '</a></p>' .
     '</div></div></div></div>';
 
-$introHtml = !empty($C['intro']) ? '<p class="home-intro">' . $C['intro'] . '</p>' : '';
+$introHtml = !empty($C['intro']) ? '<p class="home-intro" data-cms-key="web.home.intro">' . $C['intro'] . '</p>' : '';
 
 $content = $bannerHtml .
-    '<main id="content"><div class="container"><h1>' . $C['h1'] . '</h1>' . $introHtml .
+    '<main id="content"><div class="container"><h1 data-cms-key="web.home.h1">' . $C['h1'] . '</h1>' . $introHtml .
     $signHtml . $motosHtml . $processHtml . $faqHtml . $reviewsHtml . $ctaHtml . $blogHtml .
     '</div></main>';
 
