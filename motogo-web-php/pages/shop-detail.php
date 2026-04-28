@@ -40,9 +40,12 @@ if ($mainImg && strpos($mainImg, 'http') !== 0 && strpos($mainImg, 'data:') !== 
 $galleryHtml = '';
 if (!empty($images)) {
     $galleryHtml = '<div class="shop-gallery">';
+    $openLabel = htmlspecialchars(t('gallery.openImage'), ENT_QUOTES, 'UTF-8');
+    $idx = 0;
     foreach ($images as $img) {
         $u = (strpos($img, 'http') === 0 || strpos($img, '/') === 0) ? $img : imgUrl($img);
-        $galleryHtml .= '<a href="' . htmlspecialchars($u) . '" target="_blank" rel="noopener"><img src="' . htmlspecialchars($u) . '" alt="' . htmlspecialchars(t('shop.productAlt', ['name' => $nameRaw])) . '" loading="lazy"></a>';
+        $galleryHtml .= '<a href="' . htmlspecialchars($u) . '" data-gallery="shop" data-index="' . $idx . '" aria-label="' . $openLabel . '"><img src="' . htmlspecialchars($u) . '" alt="' . htmlspecialchars(t('shop.productAlt', ['name' => $nameRaw])) . '" loading="lazy"></a>';
+        $idx++;
     }
     $galleryHtml .= '</div>';
 }

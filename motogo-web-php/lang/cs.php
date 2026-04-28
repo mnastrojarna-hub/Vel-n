@@ -247,6 +247,13 @@ return [
     'katalog.seo.description' => 'Katalog motorek k pronájmu na Vysočině. Filtr dle kategorie, ŘP, výkonu a ceny. Cestovní, sportovní, enduro a dětské motorky. Online rezervace.',
     'katalog.seo.keywords' => 'katalog motorek, motorky k pronájmu, cestovní motorky, sportovní motorky, enduro, dětské motorky, filtr motorek',
 
+    // ===== Galerie / Lightbox =====
+    'gallery.openImage' => 'Otevřít fotku v galerii',
+    'gallery.prev' => 'Předchozí fotka',
+    'gallery.next' => 'Další fotka',
+    'gallery.close' => 'Zavřít náhled',
+    'gallery.counter' => '{current} / {total}',
+
     // ===== Detail motorky =====
     'detail.notFoundTitle' => 'Motorka nenalezena – Motogo24',
     'detail.notFoundHeading' => 'Motorka nenalezena',

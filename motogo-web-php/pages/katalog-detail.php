@@ -103,20 +103,29 @@ if (!empty($moto['features'])) {
 }
 $descHtml .= '</div>';
 
-// Gallery
-$images = $moto['images'] ?? [];
-$mainImg = imgUrl($moto['image_url'] ?? (!empty($images) ? $images[0] : ''));
-$galleryHtml = '<div class="moto-gallery">';
-if ($mainImg) {
-    $galleryHtml .= '<div class="moto-photo"><a href="' . htmlspecialchars($mainImg) . '" target="_blank"><div class="gallery-img"><img src="' . htmlspecialchars($mainImg) . '" alt="' . $model . '" loading="lazy"></div></a></div>';
+// Gallery — sestavíme pole VŠECH fotek (main + ostatní), každá s indexem do lightboxu.
+$rawImages = is_array($moto['images'] ?? null) ? $moto['images'] : [];
+$mainImg = imgUrl($moto['image_url'] ?? (!empty($rawImages) ? $rawImages[0] : ''));
+$allImages = [];
+if ($mainImg) $allImages[] = $mainImg;
+foreach ($rawImages as $img) {
+    $u = imgUrl($img);
+    if ($u && !in_array($u, $allImages, true)) $allImages[] = $u;
 }
-if (!empty($moto['images']) && count($moto['images']) > 1) {
-    $galleryHtml .= '<div class="gr3">';
-    foreach (array_slice($moto['images'], 1, 3) as $img) {
-        $u = imgUrl($img);
-        $galleryHtml .= '<div><a href="' . htmlspecialchars($u) . '" target="_blank"><div class="gallery-img"><img src="' . htmlspecialchars($u) . '" alt="' . $model . '" loading="lazy"></div></a></div>';
+$galleryHtml = '<div class="moto-gallery">';
+if (!empty($allImages)) {
+    $modelAlt = htmlspecialchars($model, ENT_QUOTES, 'UTF-8');
+    $openLabel = htmlspecialchars(t('gallery.openImage'), ENT_QUOTES, 'UTF-8');
+    $main = $allImages[0];
+    $galleryHtml .= '<div class="moto-photo"><a href="' . htmlspecialchars($main) . '" data-gallery="moto" data-index="0" aria-label="' . $openLabel . '"><div class="gallery-img"><img src="' . htmlspecialchars($main) . '" alt="' . $modelAlt . '" loading="lazy"></div></a></div>';
+    if (count($allImages) > 1) {
+        $galleryHtml .= '<div class="moto-thumbs">';
+        for ($i = 1; $i < count($allImages); $i++) {
+            $u = $allImages[$i];
+            $galleryHtml .= '<div><a href="' . htmlspecialchars($u) . '" data-gallery="moto" data-index="' . $i . '" aria-label="' . $openLabel . '"><div class="gallery-img"><img src="' . htmlspecialchars($u) . '" alt="' . $modelAlt . '" loading="lazy"></div></a></div>';
+        }
+        $galleryHtml .= '</div>';
     }
-    $galleryHtml .= '</div>';
 }
 $galleryHtml .= '</div>';
 

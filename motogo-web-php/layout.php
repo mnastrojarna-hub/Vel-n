@@ -481,6 +481,22 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
     echo $content;
     echo '</div>';
     echo renderFooter();
+
+    // Lightbox container (sdílený pro všechny galerie přes [data-gallery]).
+    $lbPrev    = htmlspecialchars(t('gallery.prev'), ENT_QUOTES, 'UTF-8');
+    $lbNext    = htmlspecialchars(t('gallery.next'), ENT_QUOTES, 'UTF-8');
+    $lbClose   = htmlspecialchars(t('gallery.close'), ENT_QUOTES, 'UTF-8');
+    $lbCounter = htmlspecialchars(t('gallery.counter'), ENT_QUOTES, 'UTF-8');
+    echo '
+<div id="mg-lightbox" class="mg-lb" role="dialog" aria-modal="true" aria-label="' . $lbClose . '" data-counter-tpl="' . $lbCounter . '" hidden>
+  <button type="button" class="mg-lb-close" aria-label="' . $lbClose . '">&times;</button>
+  <button type="button" class="mg-lb-prev" aria-label="' . $lbPrev . '">&#10094;</button>
+  <div class="mg-lb-stage"><img class="mg-lb-img" alt=""></div>
+  <button type="button" class="mg-lb-next" aria-label="' . $lbNext . '">&#10095;</button>
+  <div class="mg-lb-counter" aria-live="polite"></div>
+</div>
+<script src="' . BASE_URL . '/js/lightbox.js" defer></script>';
+
     echo renderInlineJs();
 
     // AI booking widget — floating bubble. Skryt na /rezervace a /potvrzeni
