@@ -9,6 +9,7 @@ import Badge from '../components/ui/Badge'
 import SearchInput from '../components/ui/SearchInput'
 import Pagination from '../components/ui/Pagination'
 import Modal from '../components/ui/Modal'
+import CustomersBulkActionsModal from './CustomersBulkActionsModal'
 
 const PER_PAGE = 25
 
@@ -29,6 +30,8 @@ export default function Customers() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [showAdd, setShowAdd] = useState(false)
+  const [showBulk, setShowBulk] = useState(false)
+  const [selectedIds, setSelectedIds] = useState(new Set())
   const [showFilters, setShowFilters] = useState(false)
   const defaultFilters = {
     search: '', city: '', country: '', licenseGroups: [],
@@ -147,7 +150,11 @@ export default function Customers() {
           style={{ padding: '8px 14px', background: showFilters ? '#74FB71' : '#f1faf7', border: '1px solid #d4e8e0', color: showFilters ? '#1a2e22' : '#1a2e22' }}>
           ☰ Filtry {activeFilterCount > 0 && <span className="ml-1 inline-block rounded-full text-sm" style={{ background: '#74FB71', color: '#1a2e22', padding: '1px 6px' }}>{activeFilterCount}</span>}
         </button>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <Button onClick={() => setShowBulk(true)} disabled={selectedIds.size === 0}
+            style={{ background: selectedIds.size > 0 ? '#fde68a' : '#f1faf7', color: '#92400e', opacity: selectedIds.size === 0 ? 0.5 : 1 }}>
+            ☰ Hromadná správa{selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}
+          </Button>
           <Button green onClick={() => setShowAdd(true)}>+ Nový zákazník</Button>
         </div>
       </div>
@@ -212,6 +219,16 @@ export default function Customers() {
           <Table>
             <thead>
               <TRow header>
+                <TH>
+                  <input type="checkbox" className="accent-[#1a8a18] cursor-pointer" style={{ width: 16, height: 16 }}
+                    checked={customers.length > 0 && customers.every(c => selectedIds.has(c.id))}
+                    onChange={e => {
+                      const next = new Set(selectedIds)
+                      if (e.target.checked) customers.forEach(c => next.add(c.id))
+                      else customers.forEach(c => next.delete(c.id))
+                      setSelectedIds(next)
+                    }} />
+                </TH>
                 <TH>Jméno</TH><TH>Email</TH><TH>Telefon</TH>
                 <TH>Skupiny</TH><TH>Město</TH><TH>Země</TH><TH>Zdroj</TH><TH>Registrace</TH><TH>Rezervací</TH>
                 <TH>Ø částka</TH><TH>Ø délka</TH><TH>Top motorka</TH><TH>Top pobočka</TH>
@@ -221,7 +238,17 @@ export default function Customers() {
               {customers.map(c => (
                 <tr key={c.id} onClick={() => navigate(`/zakaznici/${c.id}`)}
                   className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
-                  style={{ borderBottom: '1px solid #d4e8e0' }}>
+                  style={{ borderBottom: '1px solid #d4e8e0', background: selectedIds.has(c.id) ? '#fef9c3' : undefined }}>
+                  <TD>
+                    <input type="checkbox" className="accent-[#1a8a18] cursor-pointer" style={{ width: 16, height: 16 }}
+                      checked={selectedIds.has(c.id)}
+                      onClick={e => e.stopPropagation()}
+                      onChange={e => {
+                        const next = new Set(selectedIds)
+                        if (e.target.checked) next.add(c.id); else next.delete(c.id)
+                        setSelectedIds(next)
+                      }} />
+                  </TD>
                   <TD bold>{c.full_name || '—'}</TD>
                   <TD>{c.email || '—'}</TD>
                   <TD mono>{c.phone || '—'}</TD>
@@ -254,6 +281,10 @@ export default function Customers() {
       )}
 
       {showAdd && <AddCustomerModal onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); loadCustomers() }} />}
+
+      <CustomersBulkActionsModal open={showBulk} onClose={() => setShowBulk(false)}
+        selectedCustomers={customers.filter(c => selectedIds.has(c.id))}
+        onUpdated={() => { loadCustomers() }} />
     </div>
   )
 }
