@@ -101,21 +101,63 @@ export async function handleWebBookingCheckout(
     }
   }
 
+  // -- Bundled e-shop order (upsell from step 2): one Stripe session, two invoices --
+  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [{
+    price_data: {
+      currency,
+      unit_amount: amount,
+      product_data: { name: PRODUCT_NAMES.booking, description: `Rezervace #${body.booking_id!.slice(-8).toUpperCase()}` }
+    },
+    quantity: 1
+  }]
+  const sessionMetadata: Record<string, string> = { booking_id: body.booking_id!, type: 'booking', source: 'web' }
+
+  const shopOrderId = (body as Record<string, unknown>).shop_order_id as string | undefined
+  if (shopOrderId) {
+    const { data: shopOrder } = await supabaseAdmin
+      .from('shop_orders')
+      .select('id, payment_status, shipping_cost, shop_order_items(product_name, quantity, unit_price, size)')
+      .eq('id', shopOrderId)
+      .single()
+    if (shopOrder && (shopOrder as Record<string, unknown>).payment_status !== 'paid') {
+      const items = ((shopOrder as Record<string, unknown>).shop_order_items as Array<Record<string, unknown>>) || []
+      for (const it of items) {
+        const qty = Number(it.quantity) || 1
+        const unit = Number(it.unit_price) || 0
+        if (unit <= 0) continue
+        const sizeLbl = it.size ? ` (${it.size})` : ''
+        lineItems.push({
+          price_data: {
+            currency,
+            unit_amount: Math.round(unit * 100),
+            product_data: { name: `${it.product_name}${sizeLbl}` }
+          },
+          quantity: qty
+        })
+      }
+      const ship = Number((shopOrder as Record<string, unknown>).shipping_cost) || 0
+      if (ship > 0) {
+        lineItems.push({
+          price_data: {
+            currency,
+            unit_amount: Math.round(ship * 100),
+            product_data: { name: 'Doprava' }
+          },
+          quantity: 1
+        })
+      }
+      sessionMetadata.shop_order_id = shopOrderId
+    }
+  }
+
   // automatic_payment_methods povolí Apple Pay / Google Pay na podporovaných zařízeních
   // (Stripe Checkout automaticky verifikuje doménu pro Apple Pay)
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
     mode: 'payment',
     automatic_payment_methods: { enabled: true },
-    line_items: [{
-      price_data: {
-        currency,
-        unit_amount: amount,
-        product_data: { name: PRODUCT_NAMES.booking, description: `Rezervace #${body.booking_id!.slice(-8).toUpperCase()}` }
-      },
-      quantity: 1
-    }],
-    metadata: { booking_id: body.booking_id!, type: 'booking', source: 'web' },
+    line_items: lineItems,
+    metadata: sessionMetadata,
     success_url: `${SITE_URL}/#/potvrzeni?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${SITE_URL}/#/rezervace?resume=${body.booking_id}`,
     locale: 'cs',
@@ -125,6 +167,13 @@ export async function handleWebBookingCheckout(
     stripe_session_id: session.id,
     stripe_payment_intent_id: session.payment_intent as string
   }).eq('id', body.booking_id!)
+
+  if (sessionMetadata.shop_order_id) {
+    await supabaseAdmin.from('shop_orders').update({
+      stripe_session_id: session.id,
+      stripe_payment_intent_id: session.payment_intent as string,
+    }).eq('id', sessionMetadata.shop_order_id)
+  }
 
   return new Response(JSON.stringify({ checkout_url: session.url, session_id: session.id }), {
     headers: { ...CORS, 'Content-Type': 'application/json' }

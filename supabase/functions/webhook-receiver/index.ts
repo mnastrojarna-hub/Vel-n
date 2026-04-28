@@ -92,6 +92,12 @@ Deno.serve(async (req: Request) => {
         await syncCardFromSetupSession(supabase, session)
       } else if ((paymentType === 'booking' || paymentType === 'extension') && metadata.booking_id) {
         await confirmBookingPayment(supabase, metadata.booking_id, session.id, stripePaymentIntentId)
+        // Bundled e-shop upsell paid in the same session — confirm shop side too (separate invoice + email)
+        if (metadata.shop_order_id) {
+          try {
+            await confirmShopPayment(supabase, metadata.shop_order_id, session.id, stripePaymentIntentId)
+          } catch (e) { console.warn('[webhook] bundled shop confirm failed:', e) }
+        }
         if (session.customer) {
           await syncCardsForCustomer(supabase, session.customer as string)
         }
@@ -113,6 +119,10 @@ Deno.serve(async (req: Request) => {
 
       if ((paymentType === 'booking' || paymentType === 'extension') && metadata.booking_id) {
         await confirmBookingPayment(supabase, metadata.booking_id, paymentIntent.id)
+        if (metadata.shop_order_id) {
+          try { await confirmShopPayment(supabase, metadata.shop_order_id, paymentIntent.id) }
+          catch (e) { console.warn('[webhook] bundled shop confirm (intent) failed:', e) }
+        }
       } else if (paymentType === 'shop' && metadata.order_id) {
         await confirmShopPayment(supabase, metadata.order_id, paymentIntent.id)
       } else if (paymentType === 'sos' && metadata.booking_id) {
