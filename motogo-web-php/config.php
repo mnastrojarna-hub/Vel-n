@@ -33,3 +33,14 @@ define('LOGO_SVG', 'gfx/logo.svg');
 define('COMPANY_NAME', 'Bc. Petra Semorádová');
 define('COMPANY_ICO', '21874263');
 define('COMPANY_ADDRESS', 'Mezná 9, 393 01 Pelhřimov');
+
+// ===== Cache busting pro statické assety =====
+// assetUrl('/css/main.css') → '/css/main.css?v=1714338472'
+// Verze je modifikační čas souboru — každá změna automaticky invaliduje
+// browser cache, takže uživatelé nikdy nemusí dělat hard-refresh.
+function assetUrl($path) {
+    $abs = __DIR__ . $path;
+    $v = @filemtime($abs);
+    if (!$v) return BASE_URL . $path;
+    return BASE_URL . $path . '?v=' . $v;
+}

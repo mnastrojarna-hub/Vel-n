@@ -143,29 +143,90 @@ function _i18nDeepMerge($a, $b) {
 }
 
 /**
+ * Načte CMS overlay pro chrome texty (klíče `web.layout.*` z `cms_variables`).
+ * Vrací mapu `[<original_key>] => <string>` (původní klíč bez prefixu `web.layout.`).
+ * Cache per request + APCu/file 60 s, aby se to nedotazovalo na každém renderu.
+ */
+function _i18nCmsOverlay() {
+    static $cached = null;
+    if ($cached !== null) return $cached;
+
+    if (!class_exists('SupabaseClient', false)) {
+        $cached = [];
+        return $cached;
+    }
+
+    $lang = i18nDetectLanguage();
+    try {
+        $sb = new SupabaseClient();
+        // PostgREST: key=like.web.layout.*
+        $rows = $sb->query('cms_variables', 'key,value,translations', ['key=like.web.layout.*']);
+    } catch (\Throwable $e) {
+        $cached = [];
+        return $cached;
+    }
+
+    $out = [];
+    $prefix = 'web.layout.';
+    foreach ((array)$rows as $r) {
+        $k = $r['key'] ?? '';
+        if (strpos($k, $prefix) !== 0) continue;
+        $tail = substr($k, strlen($prefix));
+        if ($tail === '') continue;
+
+        $val = $r['value'] ?? null;
+        // per-language overlay z translations
+        if ($lang !== 'cs' && !empty($r['translations']) && is_array($r['translations'])) {
+            $tr = $r['translations'];
+            if (isset($tr[$lang])) {
+                $cand = is_array($tr[$lang])
+                    ? ($tr[$lang]['value'] ?? null)
+                    : $tr[$lang];
+                if (is_string($cand) && $cand !== '') $val = $cand;
+            }
+        }
+        if (is_string($val) || is_numeric($val)) {
+            $out[$tail] = (string)$val;
+        }
+    }
+    $cached = $out;
+    return $cached;
+}
+
+/**
  * Překlad. $key je tečkový název klíče (např. 'menu.rental' nebo 'pages.home.h1').
  * Podporuje hluboké zanořené pole (vrací mixed: string nebo array).
  * $params: asociativní pole pro {placeholder} substituci (jen u stringu).
  * Pokud klíč neexistuje, vrátí samotný klíč (debug-friendly).
+ *
+ * NOVÉ: pokud existuje override v `cms_variables` pod `web.layout.<key>`,
+ * má přednost před statickým slovníkem (Velín admin může přepisovat chrome
+ * texty bez deployi).
  */
 function t($key, $params = null) {
-    $dict = i18nDictionary();
-    // Nejdřív rovný lookup (rychlá cesta pro existující klíče s tečkami v názvu)
-    if (isset($dict[$key])) {
-        $raw = $dict[$key];
+    // 1) CMS overlay (Velín-edited)
+    $overlay = _i18nCmsOverlay();
+    if (isset($overlay[$key])) {
+        $raw = $overlay[$key];
     } else {
-        // Zkus tečkovou navigaci do vnořeného pole (např. 'pages.home.h1')
-        $parts = explode('.', $key);
-        $node = $dict;
-        $found = true;
-        foreach ($parts as $p) {
-            if (is_array($node) && array_key_exists($p, $node)) {
-                $node = $node[$p];
-            } else {
-                $found = false; break;
+        $dict = i18nDictionary();
+        // Nejdřív rovný lookup (rychlá cesta pro existující klíče s tečkami v názvu)
+        if (isset($dict[$key])) {
+            $raw = $dict[$key];
+        } else {
+            // Zkus tečkovou navigaci do vnořeného pole (např. 'pages.home.h1')
+            $parts = explode('.', $key);
+            $node = $dict;
+            $found = true;
+            foreach ($parts as $p) {
+                if (is_array($node) && array_key_exists($p, $node)) {
+                    $node = $node[$p];
+                } else {
+                    $found = false; break;
+                }
             }
+            $raw = $found ? $node : $key;
         }
-        $raw = $found ? $node : $key;
     }
     if (is_string($raw) && is_array($params) && !empty($params)) {
         foreach ($params as $k => $v) {
@@ -178,11 +239,48 @@ function t($key, $params = null) {
 /**
  * HTML-safe překlad — htmlspecialchars-uje výsledek (pouze string).
  * Pole vrátí prázdný string (volat te() smí jen pro stringové klíče).
+ *
+ * BEZ wrapperu — bezpečné pro HTML atributy (alt, title, aria-label, value, …).
+ * Pro editovatelné texty v <body> kontextu volej `tc()`.
  */
 function te($key, $params = null) {
     $v = t($key, $params);
     if (!is_string($v)) return '';
     return htmlspecialchars($v, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+}
+
+/**
+ * CMS-aware HTML překlad — pro adminy obalí výsledek do
+ * `<span data-cms-key="web.layout.<key>">…</span>`, pro běžné uživatele vrátí
+ * stejný plain text jako `te()`. Tím získá inline edit (cms-admin.js) bez
+ * nutnosti ručně psát data-cms-key do každé šablony.
+ *
+ * Použití: jen v <body> kontextu (nikdy uvnitř HTML atributu — tam použij `te()`).
+ *
+ *   <h2><?= tc('menu.rental') ?></h2>          ✅
+ *   <a href="..." title="<?= te('menu.rental') ?>">…</a>   ← title musí být `te`
+ */
+function tc($key, $params = null) {
+    $escaped = te($key, $params);
+    if (empty($_COOKIE['mg_cms_admin'])) return $escaped;
+    $safeKey = htmlspecialchars($key, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    return '<span data-cms-key="web.layout.' . $safeKey . '">' . $escaped . '</span>';
+}
+
+/**
+ * Jako `tc()`, ale bere již předpřipravený HTML obsah (např. když je v `t()`
+ * uložené HTML jako `<strong>X</strong>`). NEšlo to přes htmlspecialchars,
+ * tj. volající musí garantovat trusted HTML.
+ */
+function tcRaw($key, $params = null) {
+    $raw = t($key, $params);
+    if (!is_string($raw)) return '';
+    if (is_array($params) && !empty($params)) {
+        // už zpracováno v t()
+    }
+    if (empty($_COOKIE['mg_cms_admin'])) return $raw;
+    $safeKey = htmlspecialchars($key, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    return '<span data-cms-key="web.layout.' . $safeKey . '">' . $raw . '</span>';
 }
 
 /**

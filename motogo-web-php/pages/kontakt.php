@@ -54,7 +54,8 @@ $C = $sb->siteContent('kontakt', $defaults);
 $bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], t('breadcrumb.contact')]);
 
 $quickHtml = '<section><div class="contact-quick-boxes">';
-foreach ($C['quick'] as $q) {
+foreach ($C['quick'] as $i => $q) {
+    $kBase = 'web.kontakt.quick.' . $i;
     $iconHtml = '';
     if (!empty($q['icon'])) {
         $iconSrc = BASE_URL . '/' . ltrim($q['icon'], '/');
@@ -62,38 +63,38 @@ foreach ($C['quick'] as $q) {
     }
     $val = $q['value'];
     if (!empty($q['href'])) {
-        $val = '<a href="' . htmlspecialchars($q['href']) . '">' . htmlspecialchars($q['value']) . '</a>';
+        $val = '<a href="' . htmlspecialchars($q['href']) . '" data-cms-key="' . $kBase . '.value">' . htmlspecialchars($q['value']) . '</a>';
     } else {
-        $val = htmlspecialchars($q['value']);
+        $val = '<span data-cms-key="' . $kBase . '.value">' . htmlspecialchars($q['value']) . '</span>';
     }
     $quickHtml .= '<div class="contact-quick-box dfc">' . $iconHtml .
-        '<div><p><small>' . htmlspecialchars($q['label']) . '</small><br><strong>' . $val . '</strong></p></div></div>';
+        '<div><p><small data-cms-key="' . $kBase . '.label">' . htmlspecialchars($q['label']) . '</small><br><strong>' . $val . '</strong></p></div></div>';
 }
 $quickHtml .= '</div></section>';
 
 $p = $C['place'];
 $sideCta = $C['side_cta'];
 $infoSection = '<div class="gr2 contact-info"><section>' .
-    '<h2>' . htmlspecialchars($p['title']) . '</h2>' .
-    '<p><strong>' . htmlspecialchars($p['address_label']) . '</strong><br>' . $p['address'] . '</p><p>&nbsp;</p>' .
-    '<p><strong>' . htmlspecialchars($p['hours_label']) . '</strong><br>' . $p['hours'] . '</p><p>&nbsp;</p>' .
-    '<h2>' . htmlspecialchars($p['billing_title']) . '</h2>' .
-    '<p><strong>' . htmlspecialchars($p['billing_name']) . '</strong><br>' . htmlspecialchars($p['billing_address']) . '</p><p>&nbsp;</p>' .
-    '<p>IČO: ' . htmlspecialchars($p['billing_ico']) . '<br>' . htmlspecialchars($p['billing_vat']) . '</p><p>&nbsp;</p>' .
-    '<p>' . htmlspecialchars($p['billing_note']) . '</p>' .
+    '<h2 data-cms-key="web.kontakt.place.title">' . htmlspecialchars($p['title']) . '</h2>' .
+    '<p><strong data-cms-key="web.kontakt.place.address_label">' . htmlspecialchars($p['address_label']) . '</strong><br><span data-cms-key="web.kontakt.place.address">' . $p['address'] . '</span></p><p>&nbsp;</p>' .
+    '<p><strong data-cms-key="web.kontakt.place.hours_label">' . htmlspecialchars($p['hours_label']) . '</strong><br><span data-cms-key="web.kontakt.place.hours">' . $p['hours'] . '</span></p><p>&nbsp;</p>' .
+    '<h2 data-cms-key="web.kontakt.place.billing_title">' . htmlspecialchars($p['billing_title']) . '</h2>' .
+    '<p><strong data-cms-key="web.kontakt.place.billing_name">' . htmlspecialchars($p['billing_name']) . '</strong><br><span data-cms-key="web.kontakt.place.billing_address">' . htmlspecialchars($p['billing_address']) . '</span></p><p>&nbsp;</p>' .
+    '<p>IČO: <span data-cms-key="web.kontakt.place.billing_ico">' . htmlspecialchars($p['billing_ico']) . '</span><br><span data-cms-key="web.kontakt.place.billing_vat">' . htmlspecialchars($p['billing_vat']) . '</span></p><p>&nbsp;</p>' .
+    '<p data-cms-key="web.kontakt.place.billing_note">' . htmlspecialchars($p['billing_note']) . '</p>' .
     '</section><div>';
 
-$infoSection .= '<section><h2>' . htmlspecialchars($C['social_title']) . '</h2>';
-foreach ($C['social'] as $s) {
+$infoSection .= '<section><h2 data-cms-key="web.kontakt.social_title">' . htmlspecialchars($C['social_title']) . '</h2>';
+foreach ($C['social'] as $i => $s) {
     $iconSrc = BASE_URL . '/' . ltrim($s['icon'], '/');
-    $infoSection .= '<p class="dfc"><span class="social-icon"><img alt="' . htmlspecialchars($s['alt']) . '" src="' . htmlspecialchars($iconSrc) . '"></span>&nbsp;<a href="' . htmlspecialchars($s['href']) . '">' . htmlspecialchars($s['label']) . '</a></p><p>&nbsp;</p>';
+    $infoSection .= '<p class="dfc"><span class="social-icon"><img alt="' . htmlspecialchars($s['alt']) . '" src="' . htmlspecialchars($iconSrc) . '"></span>&nbsp;<a href="' . htmlspecialchars($s['href']) . '" data-cms-key="web.kontakt.social.' . $i . '.label">' . htmlspecialchars($s['label']) . '</a></p><p>&nbsp;</p>';
 }
 $infoSection .= '</section>';
 
 $btn = $sideCta['button'];
-$infoSection .= '<section class="cta-green-box"><h2>' . htmlspecialchars($sideCta['title']) . '</h2>' .
-    '<p>' . $sideCta['text'] . '</p><p>&nbsp;</p>' .
-    '<p><a class="btn ' . ($btn['cls'] ?? 'btndark') . '" href="' . BASE_URL . $btn['href'] . '">' . htmlspecialchars($btn['label']) . '</a></p></section>' .
+$infoSection .= '<section class="cta-green-box"><h2 data-cms-key="web.kontakt.side_cta.title">' . htmlspecialchars($sideCta['title']) . '</h2>' .
+    '<p data-cms-key="web.kontakt.side_cta.text">' . $sideCta['text'] . '</p><p>&nbsp;</p>' .
+    '<p><a class="btn ' . ($btn['cls'] ?? 'btndark') . '" href="' . BASE_URL . $btn['href'] . '" data-cms-key="web.kontakt.side_cta.button.label">' . htmlspecialchars($btn['label']) . '</a></p></section>' .
     '</div></div>';
 
 $mapSrc = $C['map']['src'] ?? '';
@@ -101,15 +102,15 @@ if (stripos($mapSrc, 'mapy.cz') !== false || $mapSrc === '') {
     $mapSrc = 'https://www.google.com/maps?q=Mezn%C3%A1+9%2C+393+01+Pelh%C5%99imov&hl=cs&z=15&output=embed';
 }
 $mapSection = '<section>' .
-    '<h2>' . htmlspecialchars($C['map']['title']) . '</h2>' .
+    '<h2 data-cms-key="web.kontakt.map.title">' . htmlspecialchars($C['map']['title']) . '</h2>' .
     '<p><iframe aria-label="Mapa kde nás najdete" class="map" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen src="' . htmlspecialchars($mapSrc) . '"></iframe></p></section>';
 
-$seoText = '<h2>' . htmlspecialchars($C['seo_text']['title']) . '</h2><p>' . $C['seo_text']['body'] . '</p>';
+$seoText = '<h2 data-cms-key="web.kontakt.seo_text.title">' . htmlspecialchars($C['seo_text']['title']) . '</h2><p data-cms-key="web.kontakt.seo_text.body">' . $C['seo_text']['body'] . '</p>';
 
 $content = '<main id="content"><div class="container contact">' . $bc .
     '<div class="ccontent contacts">' .
-    '<h1>' . htmlspecialchars($C['h1']) . '</h1>' .
-    '<p>' . $C['intro'] . '</p><p>&nbsp;</p>' .
+    '<h1 data-cms-key="web.kontakt.h1">' . htmlspecialchars($C['h1']) . '</h1>' .
+    '<p data-cms-key="web.kontakt.intro">' . $C['intro'] . '</p><p>&nbsp;</p>' .
     $quickHtml . $infoSection . $mapSection . $seoText .
     '</div></div></main>';
 
