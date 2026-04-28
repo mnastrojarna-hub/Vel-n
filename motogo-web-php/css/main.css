@@ -265,8 +265,8 @@ footer ul li a::before{content:"›";margin-right:.4rem;color:#74FB71}
 .copyright a{color:#8aab99;margin:0 .4rem;transition:color .15s}
 .copyright a:hover{color:#74FB71}
 
-/* Scroll to top */
-#Up{position:fixed;bottom:1.5rem;right:1.5rem;width:44px;height:44px;background:#74FB71;border:none;border-radius:50%;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s;z-index:90;cursor:pointer}
+/* Scroll to top — pozice nad AI bubble (která sedí na bottom-right) */
+#Up{position:fixed;bottom:calc(1.5rem + 80px);right:1.5rem;width:44px;height:44px;background:#74FB71;border:none;border-radius:50%;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s;z-index:90;cursor:pointer}
 #Up.visible{opacity:1;pointer-events:auto}
 #Up img{width:20px;height:20px;filter:brightness(0)}
 
@@ -365,8 +365,8 @@ section[aria-labelledby="process"] .wbox{background:#fff;border-color:#d4e8e0}
   section[aria-labelledby="process"]{padding:1.5rem 1.1rem;border-radius:14px;margin:1.5rem 0}
   /* Buttons full-width on mobile when wrapped in centered p */
   .text-center .btn+.btn{margin-top:.5rem}
-  /* Scroll to top — safe area */
-  #Up{bottom:max(env(safe-area-inset-bottom),1rem);right:max(env(safe-area-inset-right),1rem);width:48px;height:48px}
+  /* Scroll to top — safe area + nad AI bubble (mobil) */
+  #Up{bottom:calc(max(env(safe-area-inset-bottom),1rem) + 70px);right:max(env(safe-area-inset-right),1rem);width:48px;height:48px}
 }
 /* Mobile (small) */
 @media(max-width:480px){
