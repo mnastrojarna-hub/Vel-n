@@ -18,15 +18,14 @@
 
   function collect(group){
     var nodes = document.querySelectorAll('a[data-gallery="' + cssEscape(group) + '"]');
-    // Když je galerie na mobilu nahrazena sliderem, originální .moto-photo
-    // a .moto-thumbs-wrap dostanou .moto-mobile-hide a jejich anchory bychom
-    // dvakrát namixovali do lightboxu — odfiltrovat.
+    // Filtrovat: skryté originály (mobile rebuild) a klony pásu miniatur.
     var arr = Array.prototype.slice.call(nodes).filter(function(a){
-      return !a.closest('.moto-mobile-hide');
+      if (a.closest('.mg-mob-orig-hidden')) return false;
+      if (a.getAttribute('data-mg-clone') === '1') return false;
+      return true;
     });
     // Deduplikace podle data-index — zachová jediný anchor pro každý index
-    // (ten první v DOM pořadí). Pojistka pro případ, že by se na mobile
-    // zachovaly originály i slider naráz.
+    // (např. hlavní fotka je v .mg-mob-main i v .mg-mob-strip jako index 0).
     var seen = {};
     arr = arr.filter(function(a){
       var k = a.getAttribute('data-index') || '0';
@@ -282,78 +281,149 @@
     window.addEventListener('resize', function(){ updateThumbBtns(strip); });
   });
 
-  // ===== Infinite (circular) loop scroll na pásu miniatur =====
-  // Originální layout je: velká hlavní fotka (.moto-photo) + horizontální pás
-  // miniatur (.moto-thumbs) pod ní. Aby uživatel mohl scrollovat thumby donekonečna
-  // dokola, naklonujeme celý set ještě 2× (1× před, 1× za) a scrollLeft startuje
-  // ve středu. Když user dorazí na okraj, atomicky přeskočíme zpět do středu
-  // (bez smooth) — vizuálně je to neviditelné, takže to vypadá jako nekonečno.
-  function setupInfiniteThumbs(strip){
-    if (!strip || strip.dataset.mgInfinite === '1') return;
-    var originals = Array.prototype.slice.call(strip.children);
-    if (originals.length < 2) return;
-    strip.dataset.mgInfinite = '1';
+  // ===== Mobile gallery rebuild =====
+  // Na mobilu (≤768 px) přebudujeme galerii do vlastní izolované struktury
+  // (.mg-mob-*) — původní DOM (.moto-photo, .moto-thumbs-wrap) schováme přes
+  // display:none. Tím obejdeme jakékoli kolize s globálním CSS pro .gr3 / .gr4
+  // / column-reverse a podobně, protože nové třídy nikdo jiný nestyluje.
+  //
+  // Layout:
+  //   [   velká hlavní fotka   ]   ← .mg-mob-main (klik = lightbox)
+  //   [ A ][ B ][ C ][ D ][ E ]    ← .mg-mob-strip (4-5 viditelných, scroll-x)
+  //                                  klony 1× před + 1× za = nekonečný loop
+  var MGM_BREAK = 768;
 
-    function clone(arr){
-      return arr.map(function(el){
-        var c = el.cloneNode(true);
-        c.setAttribute('data-clone', '1');
-        // Anchor uvnitř klonu má pořád data-gallery, takže by ho lightbox sebral
-        // duplicitně. Necháme atribut (klik správně otevře lightbox), ale
-        // collect() už filtruje duplicitní data-index, takže to OK je.
-        return c;
+  function buildMobileGallery(gal){
+    if (!gal || gal.dataset.mgmDone === '1') return;
+    var anchors = Array.prototype.slice.call(gal.querySelectorAll('a[data-gallery]'));
+    if (!anchors.length) return;
+    var group = anchors[0].getAttribute('data-gallery') || 'moto';
+    gal.dataset.mgmDone = '1';
+
+    function makeAnchor(srcAnchor, indexOverride, isClone){
+      var srcImg = srcAnchor.querySelector('img');
+      var a = document.createElement('a');
+      a.setAttribute('data-gallery', group);
+      a.setAttribute('data-index', String(indexOverride));
+      a.href = srcAnchor.getAttribute('href') || (srcImg && srcImg.src) || '#';
+      var lbl = srcAnchor.getAttribute('aria-label');
+      if (lbl) a.setAttribute('aria-label', lbl);
+      if (isClone) a.setAttribute('data-mg-clone', '1');
+      var img = document.createElement('img');
+      img.src = (srcImg && (srcImg.getAttribute('src') || srcImg.src)) || '';
+      img.alt = (srcImg && srcImg.getAttribute('alt')) || '';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      a.appendChild(img);
+      return a;
+    }
+
+    var wrap = document.createElement('div');
+    wrap.className = 'mg-mob';
+
+    // Hlavní fotka
+    var main = makeAnchor(anchors[0], 0, false);
+    main.className = 'mg-mob-main';
+    wrap.appendChild(main);
+
+    // Pás miniatur (jen pokud je víc než 1 fotka)
+    if (anchors.length > 1) {
+      var strip = document.createElement('div');
+      strip.className = 'mg-mob-strip';
+
+      // Originály index 1..N-1 (index 0 je hlavní; do pásu přidáme i index 0,
+      // ať se uživatel může vrátit k hlavní fotce přes pás)
+      var thumbs = [];
+      for (var i = 0; i < anchors.length; i++) {
+        thumbs.push(makeAnchor(anchors[i], i, false));
+      }
+
+      // Infinite loop — duplikujeme set 2× (1× před, 1× za), originály jdou
+      // do středu. Klony mají data-mg-clone="1", aby je lightbox při collect()
+      // zfiltroval (deduplikace podle data-index ale i tak zachytí).
+      var beforeClones = anchors.map(function(a, i){ return makeAnchor(a, i, true); });
+      var afterClones  = anchors.map(function(a, i){ return makeAnchor(a, i, true); });
+
+      // Vložit before-clones v původním pořadí (insertBefore zachová pořadí
+      // jen když se odkazujeme na fixní referenci, ne na firstChild)
+      var anchorRef = null;
+      beforeClones.forEach(function(c){ strip.appendChild(c); });
+      thumbs.forEach(function(c){ strip.appendChild(c); });
+      afterClones.forEach(function(c){ strip.appendChild(c); });
+
+      wrap.appendChild(strip);
+
+      // Vystředit scroll na originály (= 1/3 celkové šířky)
+      function centerStrip(){
+        var setW = strip.scrollWidth / 3;
+        strip.style.scrollBehavior = 'auto';
+        strip.scrollLeft = setW;
+      }
+      // Vícekrát kvůli lazy načítání obrázků (šířka roste)
+      requestAnimationFrame(centerStrip);
+      setTimeout(centerStrip, 100);
+      setTimeout(centerStrip, 400);
+      setTimeout(centerStrip, 1000);
+
+      // Edge-jump pro nekonečný dojem
+      var jumping = false;
+      strip.addEventListener('scroll', function(){
+        if (jumping) return;
+        var setW = strip.scrollWidth / 3;
+        if (setW < 10) return; // ještě se nenačetlo
+        var sl = strip.scrollLeft;
+        if (sl < setW * 0.4) {
+          jumping = true;
+          strip.style.scrollBehavior = 'auto';
+          strip.scrollLeft = sl + setW;
+          requestAnimationFrame(function(){ jumping = false; });
+        } else if (sl > setW * 1.6) {
+          jumping = true;
+          strip.style.scrollBehavior = 'auto';
+          strip.scrollLeft = sl - setW;
+          requestAnimationFrame(function(){ jumping = false; });
+        }
+      }, {passive:true});
+
+      // Resize → re-center
+      var resizeT = 0;
+      window.addEventListener('resize', function(){
+        clearTimeout(resizeT);
+        resizeT = setTimeout(centerStrip, 150);
       });
     }
-    var before = clone(originals);
-    var after = clone(originals);
-    // Zvrátit "before" aby pořadí 0,1,2,3,4 dávalo smysl (před originály jdou
-    // klony v původním pořadí, takže scrollování doleva ukáže poslední → první)
-    before.forEach(function(el){ strip.insertBefore(el, strip.firstChild); });
-    after.forEach(function(el){ strip.appendChild(el); });
 
-    function setX(x, smooth){
-      strip.style.scrollBehavior = smooth ? 'smooth' : 'auto';
-      strip.scrollLeft = x;
-    }
+    // Schovat původní gallery děti — necháme je v DOM, ale neviditelné
+    Array.prototype.forEach.call(gal.children, function(c){
+      c.classList.add('mg-mob-orig-hidden');
+    });
 
-    function centerScroll(){
-      // Šířka jednoho setu (originály = třetina celkové šířky)
-      var setW = strip.scrollWidth / 3;
-      setX(setW, false);
-    }
+    // Vložit naši strukturu jako první potomek galerie
+    gal.insertBefore(wrap, gal.firstChild);
+  }
 
-    // Po renderu obrázků (lazy load může změnit šířky) vystředit
-    if (document.readyState === 'complete') centerScroll();
-    else window.addEventListener('load', centerScroll, {once:true});
-    // Pojistka — po krátké chvíli ještě jednou (kdyby se obrázky nahrály později)
-    setTimeout(centerScroll, 100);
-    setTimeout(centerScroll, 500);
+  function teardownMobileGallery(gal){
+    if (!gal || gal.dataset.mgmDone !== '1') return;
+    var wrap = gal.querySelector('.mg-mob');
+    if (wrap) wrap.remove();
+    Array.prototype.forEach.call(gal.querySelectorAll('.mg-mob-orig-hidden'), function(c){
+      c.classList.remove('mg-mob-orig-hidden');
+    });
+    delete gal.dataset.mgmDone;
+  }
 
-    var jumping = false;
-    strip.addEventListener('scroll', function(){
-      if (jumping) return;
-      var setW = strip.scrollWidth / 3;
-      var sl = strip.scrollLeft;
-      // Když jsme se dostali do levého klonu — přeskočit doprava o setW
-      if (sl < setW * 0.5) {
-        jumping = true;
-        setX(sl + setW, false);
-        requestAnimationFrame(function(){ jumping = false; });
-      }
-      // Když jsme se dostali do pravého klonu — přeskočit doleva o setW
-      else if (sl > setW * 1.5) {
-        jumping = true;
-        setX(sl - setW, false);
-        requestAnimationFrame(function(){ jumping = false; });
-      }
-    }, {passive:true});
-
-    // Resize — klony zůstanou, jen znovu vystřed
-    window.addEventListener('resize', function(){
-      clearTimeout(strip._mgRecenter);
-      strip._mgRecenter = setTimeout(centerScroll, 150);
+  function refreshMobileGalleries(){
+    var isMobile = window.matchMedia('(max-width:' + MGM_BREAK + 'px)').matches;
+    document.querySelectorAll('.moto-gallery').forEach(function(gal){
+      if (isMobile) buildMobileGallery(gal);
+      else teardownMobileGallery(gal);
     });
   }
 
-  document.querySelectorAll('.moto-thumbs').forEach(setupInfiniteThumbs);
+  refreshMobileGalleries();
+  var mgmResizeT = 0;
+  window.addEventListener('resize', function(){
+    clearTimeout(mgmResizeT);
+    mgmResizeT = setTimeout(refreshMobileGalleries, 200);
+  });
 })();
