@@ -13,7 +13,7 @@ $delivery = $_GET['delivery'] ?? '';
 $resume = $_GET['resume'] ?? '';
 
 $content = '<main id="content"><div class="container">' . $bc .
-    '<div class="ccontent pcontent">' .
+    '<div class="ccontent pcontent pcontent-wide">' .
     '<div id="rezervace-app"><div class="loading-overlay"><span class="spinner"></span> ' . te('rezervace.loading') . '</div></div>' .
     '</div></div></main>';
 
