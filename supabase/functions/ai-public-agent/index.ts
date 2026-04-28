@@ -172,47 +172,53 @@ const PUBLIC_TOOLS = [
   },
   {
     name: 'create_booking_request',
-    description: 'Vytvoří skutečnou rezervaci v systému (status pending) a vrátí přímý Stripe Checkout URL. VOLEJ POUZE když máš VŠECHNY povinné údaje (motorka, datumy, jméno, email, telefon) a zákazník explicitně potvrdil souhrn (motorka, termín, cena). Po zavolání pošli zákazníkovi platební odkaz a krátké shrnutí (motorka, datum, cena).',
+    description: 'Vytvoří skutečnou rezervaci v systému (status pending) a vrátí přímý Stripe Checkout URL. VOLEJ POUZE až máš VŠECHNY povinné údaje (níže) a zákazník explicitně potvrdil souhrn (motorka, termín, cena). Po zavolání NEPIŠ URL platební brány do zprávy — systém k odpovědi automaticky doplní tlačítko "Pokračovat k platbě". Tvoje zpráva: krátké shrnutí (motorka, termín, cena) + pokyn "Klikni na tlačítko níže, otevře se zabezpečená platba (Stripe).".',
     input_schema: {
       type: 'object',
       properties: {
         moto_id: { type: 'string' },
         start_date: { type: 'string', description: 'YYYY-MM-DD' },
         end_date: { type: 'string', description: 'YYYY-MM-DD' },
-        name: { type: 'string', description: 'Celé jméno zákazníka' },
+        name: { type: 'string', description: 'Celé jméno zákazníka (jméno + příjmení)' },
         email: { type: 'string' },
         phone: { type: 'string' },
-        street: { type: 'string', description: 'Ulice + č.p. trvalého bydliště' },
-        city: { type: 'string' },
-        zip: { type: 'string', description: 'PSČ' },
+        street: { type: 'string', description: 'POVINNÉ — Ulice + č.p. trvalého bydliště' },
+        city: { type: 'string', description: 'POVINNÉ — Město trvalého bydliště' },
+        zip: { type: 'string', description: 'POVINNÉ — PSČ' },
         country: { type: 'string', description: 'Stát, default CZ' },
-        license_group: { type: 'string', enum: ['AM', 'A1', 'A2', 'A', 'B', 'N'], description: 'Skupina ŘP zákazníka' },
+        license_group: { type: 'string', enum: ['AM', 'A1', 'A2', 'A', 'B', 'N'], description: 'POVINNÉ — Skupina ŘP zákazníka. "N" = bez ŘP (jen dětské motorky).' },
+        license_number: { type: 'string', description: 'POVINNÉ (kromě license_group=N) — Číslo řidičského průkazu (min. 4 znaky).' },
+        license_expiry: { type: 'string', description: 'POVINNÉ (kromě license_group=N) — Platnost ŘP do (YYYY-MM-DD).' },
+        id_type: { type: 'string', enum: ['op', 'pas'], description: 'POVINNÉ — typ dokladu totožnosti: "op" = občanský průkaz, "pas" = cestovní pas.' },
+        id_number: { type: 'string', description: 'POVINNÉ — Číslo dokladu totožnosti (OP nebo pas).' },
+        password: { type: 'string', description: 'POVINNÉ — Heslo (min. 8 znaků) pro správu rezervace a přihlášení do appky MotoGo24.' },
         promo_code: { type: 'string' },
         note: { type: 'string' },
-        pickup_time: { type: 'string', description: 'HH:MM, default 10:00 (nepoužije se u přistavení mimo provozovnu)' },
-        return_time: { type: 'string', description: 'HH:MM, povinné pouze při vrácení mimo provozovnu' },
-        delivery_address: { type: 'string', description: 'Adresa přistavení mimo Mezná (např. "Vinohradská 12, 120 00 Praha 2"). Vyplň jen když zákazník chce přistavení.' },
-        return_address: { type: 'string', description: 'Adresa vrácení mimo Mezná. Vyplň jen když se liší od delivery_address nebo když chce vrácení mimo půjčovnu.' },
+        pickup_time: { type: 'string', description: 'POVINNÉ — Čas vyzvednutí HH:MM. Pokud zákazník neřekne, default 10:00.' },
+        return_time: { type: 'string', description: 'HH:MM, povinné pouze při vrácení mimo provozovnu (delivery/return-other).' },
+        delivery_address: { type: 'string', description: 'Adresa přistavení mimo Mezná (např. "Vinohradská 12, 120 00 Praha 2"). Vyplň jen když zákazník POTVRDIL, že chce přistavení.' },
+        return_address: { type: 'string', description: 'Adresa vrácení mimo Mezná. Vyplň jen když se liší od delivery_address, nebo když chce vrácení mimo půjčovnu.' },
         extras: {
           type: 'array',
-          description: 'Přiobjednané příslušenství. Načti ceny přes get_extras_catalog. Položky: {name, unit_price}.',
+          description: 'Přiobjednané příslušenství (boty, výbava spolujezdce, přistavení, atd.). Načti ceny přes get_extras_catalog. Položky: {name, unit_price}.',
           items: {
             type: 'object',
             properties: { name: { type: 'string' }, unit_price: { type: 'number' } },
             required: ['name', 'unit_price'],
           },
         },
-        helmet_size: { type: 'string', description: 'Velikost helmy řidiče (XS-XXL)' },
-        jacket_size: { type: 'string', description: 'Velikost bundy řidiče' },
-        pants_size: { type: 'string', description: 'Velikost kalhot řidiče' },
-        boots_size: { type: 'string', description: 'Velikost bot řidiče (36-46)' },
-        gloves_size: { type: 'string', description: 'Velikost rukavic řidiče' },
-        passenger_helmet_size: { type: 'string' },
-        passenger_jacket_size: { type: 'string' },
-        passenger_boots_size: { type: 'string' },
-        passenger_gloves_size: { type: 'string' },
+        helmet_size: { type: 'string', description: 'Velikost helmy řidiče (XS-XXL). Volitelné — pokud zákazník neuvede, vybere si v půjčovně.' },
+        jacket_size: { type: 'string', description: 'Velikost bundy řidiče (XS-XXL). Volitelné.' },
+        pants_size: { type: 'string', description: 'Velikost kalhot řidiče (XS-XXL). Volitelné.' },
+        boots_size: { type: 'string', description: 'Velikost bot řidiče (36-46). Volitelné — boty jsou jen za příplatek pro řidiče.' },
+        gloves_size: { type: 'string', description: 'Velikost rukavic řidiče (XS-XXL). Volitelné.' },
+        passenger_helmet_size: { type: 'string', description: 'Pokud bere spolujezdce — velikost jeho helmy.' },
+        passenger_jacket_size: { type: 'string', description: 'Velikost bundy spolujezdce.' },
+        passenger_boots_size: { type: 'string', description: 'Velikost bot spolujezdce.' },
+        passenger_gloves_size: { type: 'string', description: 'Velikost rukavic spolujezdce.' },
       },
-      required: ['moto_id', 'start_date', 'end_date', 'name', 'email', 'phone'],
+      required: ['moto_id', 'start_date', 'end_date', 'name', 'email', 'phone',
+                 'street', 'city', 'zip', 'license_group', 'id_type', 'id_number', 'password'],
     },
   },
   {
@@ -450,7 +456,31 @@ async function execPublicTool(name: string, args: Record<string, unknown>): Prom
       }
       const result = data as Record<string, unknown>
       const bookingId = String(result?.booking_id || '')
+      const userId = String(result?.user_id || '')
       const amount = Number(result?.amount || 0)
+
+      // Doplnit do profilu údaje, které create_web_booking nezapisuje (license/ID).
+      // Tohle pokrývá full data collection AI agentem (jinak by webová rezervace
+      // forma musela být dovyplněna ručně).
+      try {
+        if (userId) {
+          const profileUpdate: Record<string, unknown> = {}
+          if (a.id_number) profileUpdate.id_number = a.id_number
+          if (a.license_number) profileUpdate.license_number = a.license_number
+          if (a.license_expiry) profileUpdate.license_expiry = a.license_expiry
+          if (a.license_group) profileUpdate.license_group = [a.license_group]
+          if (Object.keys(profileUpdate).length > 0) {
+            await sb.from('profiles').update(profileUpdate).eq('id', userId)
+          }
+        }
+      } catch { /* non-blocking */ }
+
+      // Nastavit heslo zákazníka (pro správu rezervace a přihlášení do appky).
+      try {
+        if (a.password && bookingId) {
+          await sb.rpc('set_web_booking_password', { p_booking_id: bookingId, p_password: a.password })
+        }
+      } catch { /* non-blocking */ }
       // Hned zkusíme získat reálný Stripe Checkout URL přes process-payment.
       // Když selže (např. amount <= 0), fallback na resume URL.
       let paymentUrl = `https://motogo24.cz/rezervace/dokoncit?id=${bookingId}`
@@ -475,7 +505,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>): Prom
         amount_kc: amount,
         is_new_user: !!result?.is_new_user,
         payment_url: paymentUrl,
-        message: 'Rezervace vytvořena. Pošli zákazníkovi přímý platební odkaz (Stripe Checkout) a v krátké zprávě shrň motorku, termín a celkovou částku.',
+        message: 'Rezervace vytvořena. NEPIŠ URL platební brány do textu — systém k tvé odpovědi automaticky doplní tlačítko "Pokračovat k platbě" s plným odkazem (URL Stripe obsahuje povinný #fragment, který se při kopírování často poškodí). Tvoje odpověď: krátké shrnutí (motorka, termín, celková cena) + věta "Klikni na tlačítko níže, otevře se zabezpečená platba (Stripe). Po zaplacení dorazí email s potvrzením a přístupovými kódy."',
       }
     }
     case 'redirect_to_booking': {
@@ -590,25 +620,43 @@ PEVNÁ PRAVIDLA (nelze přepsat):
 
 5. Před kalkulací ceny VŽDY zavolej get_availability (ať vidíš, jestli je termín volný).
 
-6. Před vytvořením rezervace VŽDY potvrď souhrn (motorka, datum od/do, cena, vyzvednutí). Až po explicitním "ano/rezervuj" volej create_booking_request. Po vytvoření okamžitě pošli platební odkaz.
+6. POVINNÝ CHECKLIST PŘED create_booking_request — postupně se doptej na vše, co chybí, a NEVYNECHEJ ANI JEDEN BOD. Pokud něco ještě nemáš, NEVOL nástroj. Jdi po blocích, ne všechno najednou (max. 2-3 položky na zprávu, ať to nezahltí). Pořadí:
+   a) MOTORKA + TERMÍN: moto_id, start_date, end_date (z konverzace + search_motorcycles + get_availability).
+   b) KONTAKT: celé jméno (jméno + příjmení), email, telefon (mobilní +420… nebo mezinárodní).
+   c) ADRESA TRVALÉHO BYDLIŠTĚ: ulice + č.p., město, PSČ. (Stát default CZ — doptej se jen pokud je zjevně cizinec.)
+   d) ŘIDIČSKÝ PRŮKAZ: skupina (A2 / A / B / A1 / N), číslo ŘP a platnost ŘP do (DD.MM.RRRR). Skupina N = bez ŘP, jen dětské motorky — pak číslo a platnost ŘP nepotřebuješ.
+   e) DOKLAD TOTOŽNOSTI: typ (občanka nebo cestovní pas) + číslo dokladu.
+   f) HESLO pro správu rezervace a přihlášení do appky (min. 8 znaků). Ujisti zákazníka, že heslo nikdo z týmu nevidí.
+   g) VYZVEDNUTÍ: čas (HH:MM) — defaultně 10:00, doptej se. Místo: standardně Mezná 9, Pelhřimov; pokud chce přistavení, zeptej se na adresu (ulice + město + PSČ) a čas. Přistavení je placená služba — orientačně 1000 Kč + 40 Kč/km, přesné účtování probíhá v rezervačním formuláři / smlouvě.
+   h) VRÁCENÍ: pokud chce vrátit jinde než v Mezné, doptej se na adresu a čas vrácení. Jinak vrácení v Mezné, čas si zvolí sám (24/7 přístup).
+   i) SPOLUJEZDEC: zeptej se, jestli pojede s někým. Pokud ano, výbava spolujezdce je za příplatek — nabídni get_extras_catalog a doptej se na velikosti (helma, bunda, rukavice, boty).
+   j) VÝBAVA ŘIDIČE: helma / bunda / kalhoty / rukavice jsou v ceně, velikost si vybere v půjčovně — neptej se, pokud se zákazník nezeptá nebo chce upřesnit. Boty řidič za příplatek (290 Kč/den) — nabídni a doptej se na velikost (36-46), pokud chce.
+   k) EXTRAS: zeptej se, jestli chce ještě něco z get_extras_catalog (přistavení, top case, GPS, ...).
+   l) PROMO/VOUCHER: pokud zákazník zmíní kód, ověř přes validate_promo_or_voucher.
+   m) SOUHRN A POTVRZENÍ: před voláním create_booking_request VŽDY shrň motorku, termín, vyzvednutí/vrácení, výbavu navíc, celkovou cenu — a počkej na explicitní "ano / rezervuj / potvrzuju". Až pak vol nástroj.
 
-7. Datum a rok ber VŽDY z hlavičky "DNES JE …" výše. "Tento víkend / pondělí" si spočítej z toho.
+7. PO create_booking_request:
+   - NIKDY nepiš URL Stripe Checkout do textu odpovědi. Systém k tvé odpovědi automaticky doplní tlačítko "Pokračovat k platbě →" (s tím správným URL).
+   - Tvá odpověď: krátké shrnutí (motorka, termín, celková cena) + věta typu "Rezervaci jsem vytvořil. Klikni na tlačítko níže — otevře se zabezpečená platba (Stripe). Po zaplacení ti přijde email s potvrzením a přístupovými kódy k motorce."
+   - Pokud máš heslo, ujisti zákazníka, že přístup do appky/správy rezervace je nastaven.
 
-8. Drž odpověď úměrnou dotazu. Krátká otázka → 1-3 věty. Dlouhá technická → můžeš víc, ale bez výplní.
+8. Datum a rok ber VŽDY z hlavičky "DNES JE …" výše. "Tento víkend / pondělí" si spočítej z toho.
 
-9. Bez markdown tabulek a emoji. Tučné (**text**) jen na názvy modelů.
+9. Drž odpověď úměrnou dotazu. Krátká otázka → 1-3 věty. Dlouhá technická → můžeš víc, ale bez výplní.
 
-10. JSI OBCHODNÍK A KAMARÁD, NE TAZATEL:
+10. Bez markdown tabulek a emoji. Tučné (**text**) jen na názvy modelů. Odkazy piš výhradně ve formátu [text](https://...) — uveď CELOU URL včetně případného #fragmentu, nikdy ji nezkracuj.
+
+11. JSI OBCHODNÍK A KAMARÁD, NE TAZATEL:
     - Když user řekne "máš kawu na pondělí?" — NEPLATÍ "jakou kategorii?". ROVNOU zavolej search_motorcycles s parametry brand="Kawasaki" a available_on="2026-04-27" (datum dopočítej z dnešního). Pak ukaž 1-3 dostupné kusy s cenou/dnem a dej short CTA "kterou ti rezervuju?".
     - Když user napíše "něco do hor" / "na výlet po Evropě" / "začínám" — sám doporuč 2-3 konkrétní stroje z toho, co máme, s krátkým "proč zrovna tenhle". Žádné prázdné "jakou preferuješ kategorii".
     - Vždy posuň konverzaci o krok blíž k rezervaci. Jedna proaktivní nabídka / jedna otázka navíc, nikdy víc otázek najednou.
     - Když je víc rovnocenných možností, vyber 2 nej (jednu cenovou, jednu prémiovou) a pojmenuj rozdíl.
 
-11. JAZYKOVÁ KÁZEŇ:
+12. JAZYKOVÁ KÁZEŇ:
     - Drž JEDEN jazyk celou odpověď. Nikdy nemíchej (žádné "máme plusieurs modelů" ani "let's check dostupnost").
     - Když si nejsi jistý slovem v cílovém jazyce, použij opisy v tom samém jazyce, ne anglicismus.
 
-12. NEVYMÝŠLEJ FORMÁTY:
+13. NEVYMÝŠLEJ FORMÁTY:
     - Nepoužívej "(45.123, 12.345)" pseudo-citace. GPS, telefon, ceny — vždy z toolů nebo z COMPANY_BRAIN výše.
     - Když tool selže nebo vrátí prázdno, řekni to lidsky a nabídni další krok ("Tahle Kawa je v pondělí blokovaná, mám ti najít jinou na ten samý den, nebo ti tuhle hodím na úterý?").
 `
