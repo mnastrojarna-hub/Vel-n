@@ -44,7 +44,7 @@ const LANG_NAMES: Record<string, string> = {
   pl: 'Polish (Polski)',
 }
 
-const ALLOWED_TABLES = new Set(['cms_pages', 'cms_variables', 'products', 'motorcycles', 'branches'])
+const ALLOWED_TABLES = new Set(['cms_pages', 'cms_variables', 'products', 'motorcycles', 'branches', 'faq_items'])
 const MODEL = 'claude-haiku-4-5-20251001'
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {

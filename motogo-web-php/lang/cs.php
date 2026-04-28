@@ -86,6 +86,7 @@ return [
 
     // ===== FAQ stránka =====
     'faq.tabAll' => 'Vše ({count})',
+    'faq.empty' => 'Pro tuto kategorii zatím nejsou žádné otázky.',
 
     // ===== Common UI =====
     'common.bookButton' => 'REZERVOVAT MOTORKU',

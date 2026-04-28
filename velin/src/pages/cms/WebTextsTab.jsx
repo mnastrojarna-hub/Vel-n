@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import WebTextSection from './WebTextSection'
 import BlogSection from './BlogSection'
+import FaqSection from './FaqSection'
 import { WEB_PAGES } from './webTextsPages'
 
 // Celkový počet textů
@@ -164,12 +165,33 @@ export default function WebTextsTab() {
               články z cms_pages
             </div>
           </button>
+
+          <button
+            onClick={() => setActivePage('faq')}
+            className="w-full text-left mb-px cursor-pointer"
+            style={{
+              padding: '8px 12px', border: 'none', borderRadius: 10,
+              background: activePage === 'faq' ? '#1a2e22' : 'transparent',
+              color: activePage === 'faq' ? '#74FB71' : '#1a2e22',
+              fontSize: 13, fontWeight: activePage === 'faq' ? 800 : 600,
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <span>📋</span>
+              <span className="flex-1">Časté dotazy</span>
+            </div>
+            <div className="text-xs mt-0.5" style={{ color: activePage === 'faq' ? 'rgba(255,255,255,.4)' : '#9ab3a5' }}>
+              otázky z faq_items
+            </div>
+          </button>
         </div>
 
-        {/* Pravý panel - obsah stránky nebo blog */}
+        {/* Pravý panel - obsah stránky nebo blog/faq */}
         <div className="flex-1 min-w-0">
           {activePage === 'blog' ? (
             <BlogSection />
+          ) : activePage === 'faq' ? (
+            <FaqSection />
           ) : page && (
             <>
               <div className="mb-4">

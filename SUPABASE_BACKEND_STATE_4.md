@@ -66,4 +66,5 @@
 | `trg_emp_documents_updated` | emp_documents | update_updated_at() |
 | `trg_delivery_notes_updated` | delivery_notes | update_updated_at() |
 | `trg_contracts_updated` | contracts | update_updated_at() |
+| `faq_items_set_updated_at` | faq_items (BEFORE UPDATE) | set_updated_at_now() — auto-aktualizace `updated_at` při změně FAQ položky |
 | Různé `_updated_at` triggery | více tabulek | update_updated_at() |

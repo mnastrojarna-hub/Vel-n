@@ -270,3 +270,18 @@
 - created_at, updated_at
 - RLS: Admin full access, Customer read own (via booking.user_id)
 - Realtime: ANO
+
+### faq_items (NEW)
+- id (UUID PK)
+- category_key (TEXT NOT NULL) — slug kategorie (reservations, borrowing, conditions, delivery, travel, vouchers...)
+- category_label (TEXT NOT NULL) — zobrazovaný název kategorie
+- question (TEXT NOT NULL)
+- answer (TEXT NOT NULL) — HTML povolené (<strong>, <a href>, <br>)
+- sort_order (INTEGER NOT NULL DEFAULT 0) — řazení uvnitř kategorie
+- featured_home (BOOLEAN NOT NULL DEFAULT false) — zobrazit i v home FAQ sekci (top 4 podle sort_order)
+- published (BOOLEAN NOT NULL DEFAULT true) — viditelné na webu
+- translations (JSONB NOT NULL DEFAULT '{}') — auto-překlady přes translate-content edge fn ({en: {question, answer}, de: {...}, ...})
+- created_at, updated_at (TIMESTAMPTZ NOT NULL DEFAULT now())
+- Indexy: (category_key, sort_order), (published, sort_order) WHERE published, (featured_home, sort_order) WHERE featured_home
+- RLS: public SELECT WHERE published=true, admin ALL
+- Realtime: ANO

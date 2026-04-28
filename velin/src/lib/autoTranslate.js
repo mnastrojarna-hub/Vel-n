@@ -22,6 +22,7 @@ const FIELD_MAP = {
   products: ['name', 'description', 'color', 'material'],
   motorcycles: ['description'],
   branches: ['notes'],
+  faq_items: ['question', 'answer'],
 }
 
 /**

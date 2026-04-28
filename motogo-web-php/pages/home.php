@@ -55,12 +55,8 @@ $defaults = [
     'faq' => [
         'title' => 'Často kladené otázky',
         'more_link' => '/jak-pujcit/faq',
-        'items' => [
-            ['q' => 'Jak si mohu rezervovat motorku?', 'a' => 'Motorku si můžeš rezervovat přes náš online rezervační systém přímo tady na webu. Případně se nám můžeš ozvat e-mailem, telefonicky nebo přes naše sociální sítě.'],
-            ['q' => 'Můžu si motorku půjčit i bez předchozí rezervace?', 'a' => 'Bez rezervace to bohužel nejde. Každou motorku je nutné předem zamluvit – online, telefonicky, e-mailem nebo přes sociální sítě.'],
-            ['q' => 'Musím složit kauci?', 'a' => 'Ne! U nás <strong>žádnou kauci platit nemusíš</strong>. Naše půjčovna se tímto zásadně liší od většiny konkurence.'],
-            ['q' => 'Můžu odcestovat s motorkou do zahraničí?', 'a' => 'Ano, s motorkou můžeš bez problémů vyrazit i do zahraničí. Cesty mimo Česko neomezujeme, jen je potřeba dodržet územní platnost pojištění (zelená karta).'],
-        ],
+        // items se naplní z DB (faq_items WHERE featured_home=true) — viz níže
+        'items' => [],
     ],
     'cta' => [
         'title' => 'Rezervuj svou motorku online',
@@ -128,17 +124,21 @@ foreach ($C['process']['steps'] as $i => $s) {
 }
 $processHtml .= '</div></section>';
 
-// ---- FAQ
-// Texty obalíme spany s `data-cms-key`, aby je admin overlay (cms-admin.js) detekoval.
+// ---- FAQ — featured items z DB (faq_items WHERE featured_home=true)
+// Položky se spravují ve Velíně v záložce „Časté dotazy"; admin označí 4 (nebo víc)
+// otázek jako ⭐ a tady se zobrazí prvních N podle sort_order.
+$lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
+$featuredFaq = $sb->fetchFaqItems(['featured_only' => true, 'limit' => 4]);
 $faqItemsKeyed = [];
-foreach (($C['faq']['items'] ?? []) as $i => $f) {
-    $faqItemsKeyed[] = [
-        'q' => '<span data-cms-key="web.home.faq.items.' . $i . '.q">' . ($f['q'] ?? '') . '</span>',
-        'a' => '<span data-cms-key="web.home.faq.items.' . $i . '.a">' . ($f['a'] ?? '') . '</span>',
-    ];
+foreach ($featuredFaq as $r) {
+    $q = function_exists('localized') ? (localized($r, 'question', $lang) ?: $r['question']) : $r['question'];
+    $a = function_exists('localized') ? (localized($r, 'answer', $lang) ?: $r['answer']) : $r['answer'];
+    $faqItemsKeyed[] = ['q' => $q, 'a' => $a];
 }
 $faqTitleKeyed = '<span data-cms-key="web.home.faq.title">' . ($C['faq']['title'] ?? '') . '</span>';
-$faqHtml = renderFaqSection($faqTitleKeyed, $faqItemsKeyed, $C['faq']['more_link'] ?? null);
+$faqHtml = !empty($faqItemsKeyed)
+    ? renderFaqSection($faqTitleKeyed, $faqItemsKeyed, $C['faq']['more_link'] ?? null)
+    : '';
 
 // ---- CTA
 $ctaButtonsKeyed = [];
@@ -211,10 +211,10 @@ $content = $bannerHtml .
 
 // ---- Strukturovaná data: FAQ + HowTo + AggregateRating ze sekcí výše ----
 
-// FAQPage schema z $C['faq']['items'] — stripuje HTML, zachycuje strong/em jako text.
+// FAQPage schema z $faqItemsKeyed (DB-driven) — stripuje HTML, zachycuje strong/em jako text.
 $faqSchemaItems = [];
-if (!empty($C['faq']['items']) && is_array($C['faq']['items'])) {
-    foreach ($C['faq']['items'] as $f) {
+if (!empty($faqItemsKeyed) && is_array($faqItemsKeyed)) {
+    foreach ($faqItemsKeyed as $f) {
         $q = trim(strip_tags($f['q'] ?? ''));
         $a = trim(strip_tags($f['a'] ?? ''));
         if ($q === '' || $a === '') continue;
