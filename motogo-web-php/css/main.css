@@ -70,6 +70,12 @@ input,select,textarea{font-size:16px}
    sticky společně, žádný border / margin / gap mezi nimi. Tvoří jednu plochu. */
 .header-topbar{background:#1a2e22;padding:.35rem 0;margin:0;border:0;position:sticky;top:0;z-index:101}
 .header-topbar .container{display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap}
+.header-tools{display:flex;align-items:center;gap:.4rem}
+.header-cart{position:relative;display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;color:#74FB71;text-decoration:none;transition:background .15s,color .15s}
+.header-cart:hover{background:rgba(116,251,113,.12);color:#a8ff9f}
+.header-cart-icon{width:20px;height:20px}
+.header-cart-badge{position:absolute;top:-2px;right:-2px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#74FB71;color:#1a2e22;font-size:.7rem;font-weight:800;display:inline-flex;align-items:center;justify-content:center;line-height:1;border:2px solid #1a2e22;box-sizing:content-box}
+.header-cart-badge[hidden]{display:none}
 .header-lang{display:flex;align-items:center;gap:.25rem}
 .header{background:#1a2e22;padding:.6rem 0 .75rem;margin:0;position:sticky;top:0;z-index:100;border-top:0;border-bottom:1px solid #2a4e3a}
 .header-logo img{height:44px;width:auto}

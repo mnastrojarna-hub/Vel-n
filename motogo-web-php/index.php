@@ -287,6 +287,11 @@ switch (true) {
         require __DIR__ . '/pages/shop-detail.php';
         break;
 
+    // E-shop košík (klient-side render z localStorage)
+    case $path === '/kosik' || $path === '/cart':
+        require __DIR__ . '/pages/cart.php';
+        break;
+
     // Blog
     case $path === '/blog':
         require __DIR__ . '/pages/blog.php';

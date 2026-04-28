@@ -55,7 +55,13 @@ function renderHeader($currentPath = '/') {
         '<ul class="focus"><li><a href="#main-menu">' . te('header.skip.menu') . '</a></li><li><a href="#content">' . te('header.skip.content') . '</a></li><li><a href="#footer">' . te('header.skip.contact') . '</a></li></ul>' .
         '<div class="header-topbar"><div class="container">' .
             '<div class="header-phone"><p><a href="' . PHONE_LINK . '" aria-label="' . te('header.callUs') . '"><img alt="' . te('header.callUs') . '" src="' . BASE_URL . '/gfx/telefon-header.svg" loading="lazy"></a>&nbsp;<a href="' . PHONE_LINK . '">' . PHONE . '</a></p></div>' .
-            '<div class="header-lang">' . renderCurrencySwitcher() . renderLanguageSwitcher() . '</div>' .
+            '<div class="header-tools">' .
+                '<a class="header-cart" href="' . BASE_URL . '/kosik" aria-label="' . te('cart.iconLabel') . '" title="' . te('cart.iconLabel') . '">' .
+                    '<svg class="header-cart-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6h15l-1.5 9h-12z"/><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M6 6L4 2H1"/></svg>' .
+                    '<span class="header-cart-badge" data-cart-badge hidden aria-live="polite"></span>' .
+                '</a>' .
+                '<div class="header-lang">' . renderCurrencySwitcher() . renderLanguageSwitcher() . '</div>' .
+            '</div>' .
         '</div></div>' .
         '<div class="header"><div class="container dfcs">' .
             '<div class="header-logo"><a href="' . BASE_URL . '/" aria-label="Motogo24"><img src="' . BASE_URL . '/' . LOGO_SVG . '" alt="' . te('header.logoAlt') . '" loading="lazy"></a></div>' .
@@ -498,12 +504,17 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
 <script src="' . BASE_URL . '/js/lightbox.js" defer></script>';
 
     // E-shop košík (lokální storage, sdílený mezi stránkami)
-    $cartAdded = htmlspecialchars(t('cart.added'), ENT_QUOTES, 'UTF-8');
+    $cartI18n = json_encode([
+        'cart_added'  => t('cart.added'),
+        'cart_url'    => BASE_URL . '/kosik',
+        'cart_size'   => t('cart.size'),
+        'cart_pcs'    => t('cart.pcs'),
+        'cart_qty'    => t('cart.qty'),
+        'cart_remove' => t('cart.remove'),
+    ], JSON_UNESCAPED_UNICODE);
     echo '
 <script>
-window.MG_I18N = window.MG_I18N || {};
-window.MG_I18N.cart_added = "' . $cartAdded . '";
-window.MG_I18N.cart_url = "' . BASE_URL . '/kosik";
+window.MG_I18N = Object.assign(window.MG_I18N || {}, ' . $cartI18n . ');
 </script>
 <script src="' . BASE_URL . '/js/cart.js" defer></script>';
 
