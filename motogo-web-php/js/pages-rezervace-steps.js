@@ -70,6 +70,12 @@ MG._submitReservation = async function(){
   var retO=document.getElementById('rez-return-other'),retS=document.getElementById('rez-return-same-as-delivery');
   if(retO&&retO.checked) returnAddr=(document.getElementById('rez-return-address')||{}).value||null;
   else if(retS&&retS.checked&&deliveryAddr) returnAddr=deliveryAddr;
+  // Když motorku nevracíme do půjčovny, čas vrácení je povinný
+  if(returnAddr){
+    var rtElValidate=document.getElementById('rez-return-time');
+    if(!rtElValidate||!rtElValidate.value){
+      alert('Vyplňte prosím čas vrácení motorky.');return;}
+  }
   // Fee = 1000 Kč + 40 Kč/km (km = vzdalenost od pobocky Mezna 9, spoctena pres Mapy.cz)
   if(deliveryAddr){
     var dKm = MG._rez.deliveryDistanceKm;
