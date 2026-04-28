@@ -274,6 +274,8 @@ return [
     'card.detailButton' => 'MOTORCYCLE DETAIL',
     'card.readArticle' => 'READ ARTICLE',
     'card.available' => 'Available',
+    'card.availableToday' => 'Available today',
+    'card.availableFrom' => 'Available from {date}',
     'card.unnamedMotorcycle' => 'Motorcycle for rent',
     'card.unnamedArticle' => 'Article from Motogo24 blog',
 

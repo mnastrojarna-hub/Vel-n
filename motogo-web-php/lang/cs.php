@@ -339,6 +339,8 @@ return [
     'card.detailButton' => 'DETAIL MOTORKY',
     'card.readArticle' => 'PŘEČÍST ČLÁNEK',
     'card.available' => 'Dostupné',
+    'card.availableToday' => 'Dostupné dnes',
+    'card.availableFrom' => 'Dostupné od {date}',
     'card.unnamedMotorcycle' => 'Motorka k pronájmu',
     'card.unnamedArticle' => 'Článek z blogu Motogo24',
 

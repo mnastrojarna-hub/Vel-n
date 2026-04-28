@@ -256,6 +256,8 @@ return [
     'card.detailButton' => 'MOTORDETAILS',
     'card.readArticle' => 'ARTIKEL LEZEN',
     'card.available' => 'Beschikbaar',
+    'card.availableToday' => 'Vandaag beschikbaar',
+    'card.availableFrom' => 'Beschikbaar vanaf {date}',
     'card.unnamedMotorcycle' => 'Motor te huur',
     'card.unnamedArticle' => 'Artikel uit Motogo24-blog',
 
