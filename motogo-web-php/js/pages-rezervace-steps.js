@@ -210,6 +210,212 @@ MG._submitReservation = async function(){
   MG._rezShowStep2();
 };
 
+// ===== MOTO GALLERY (compact hero with prev/next + dots) =====
+MG._rezGalleryImages = function(moto){
+  if(!moto) return [];
+  var arr = [];
+  if(moto.image_url) arr.push(moto.image_url);
+  if(moto.images && moto.images.length){
+    moto.images.forEach(function(p){ if(p && arr.indexOf(p)===-1) arr.push(p); });
+  }
+  return arr.map(function(p){ return MG.imgUrl(p); }).filter(Boolean);
+};
+
+MG._rezGalleryHtml = function(moto){
+  var imgs = MG._rezGalleryImages(moto);
+  var name = moto ? (moto.model||'') : '';
+  if(!imgs.length){
+    return '<div class="rez-moto-hero rez-moto-hero-empty">'+
+      '<div class="rez-moto-hero-placeholder">&#127949;</div>'+
+      '<div class="rez-moto-hero-caption"><div class="rez-moto-hero-name">'+name+'</div></div>'+
+    '</div>';
+  }
+  var slides = imgs.map(function(src,i){
+    return '<img class="rez-moto-hero-img'+(i===0?' active':'')+'" data-idx="'+i+'" src="'+src+'" alt="'+name+'" loading="lazy">';
+  }).join('');
+  var dots = imgs.length>1 ? imgs.map(function(_,i){
+    return '<button type="button" class="rez-moto-hero-dot'+(i===0?' active':'')+'" data-idx="'+i+'" aria-label="Foto '+(i+1)+'"></button>';
+  }).join('') : '';
+  var nav = imgs.length>1 ? (
+    '<button type="button" class="rez-moto-hero-nav rez-moto-hero-prev" aria-label="Předchozí">&#10094;</button>'+
+    '<button type="button" class="rez-moto-hero-nav rez-moto-hero-next" aria-label="Další">&#10095;</button>'
+  ) : '';
+  return '<div class="rez-moto-hero" data-count="'+imgs.length+'">'+
+    '<div class="rez-moto-hero-stage">'+slides+'</div>'+
+    nav+
+    '<div class="rez-moto-hero-caption"><div class="rez-moto-hero-name">'+name+'</div>'+
+      (dots?'<div class="rez-moto-hero-dots">'+dots+'</div>':'')+
+    '</div>'+
+  '</div>';
+};
+
+MG._rezInitGallery = function(){
+  var hero = document.querySelector('.rez-moto-hero'); if(!hero) return;
+  var imgs = hero.querySelectorAll('.rez-moto-hero-img');
+  var dots = hero.querySelectorAll('.rez-moto-hero-dot');
+  var n = imgs.length; if(n<=1) return;
+  var idx = 0;
+  function show(i){
+    idx = (i+n)%n;
+    imgs.forEach(function(im,k){ im.classList.toggle('active', k===idx); });
+    dots.forEach(function(dt,k){ dt.classList.toggle('active', k===idx); });
+  }
+  hero.querySelector('.rez-moto-hero-prev').addEventListener('click', function(){ show(idx-1); });
+  hero.querySelector('.rez-moto-hero-next').addEventListener('click', function(){ show(idx+1); });
+  dots.forEach(function(dt){ dt.addEventListener('click', function(){ show(parseInt(dt.dataset.idx,10)||0); }); });
+  // Touch swipe
+  var sx = null;
+  hero.addEventListener('touchstart', function(e){ sx = e.touches[0].clientX; }, {passive:true});
+  hero.addEventListener('touchend', function(e){
+    if(sx==null) return;
+    var dx = (e.changedTouches[0].clientX - sx);
+    if(Math.abs(dx)>40) show(idx + (dx<0?1:-1));
+    sx = null;
+  });
+};
+
+// ===== UPSELL: e-shop produkty v kroku 2 =====
+MG._rezProductsCache = null;
+MG._rezLoadProducts = async function(){
+  if(MG._rezProductsCache) return MG._rezProductsCache;
+  try {
+    var prods = await MG.fetchProducts();
+    // Limit na max 8 nejviditelnějších produktů; obsahuje sizes/stock
+    MG._rezProductsCache = (prods||[]).slice(0, 8);
+  } catch(e){ MG._rezProductsCache = []; }
+  return MG._rezProductsCache;
+};
+
+MG._rezShopItems = MG._rezShopItems || []; // [{product_id, name, unit_price, qty, size, image}]
+
+MG._rezShopTotal = function(){
+  var t = 0;
+  (MG._rezShopItems||[]).forEach(function(it){ t += (it.unit_price||0) * (it.qty||1); });
+  return t;
+};
+
+MG._rezProductsHtml = function(){
+  var prods = MG._rezProductsCache || [];
+  if(!prods.length){
+    return '<p class="rez-section-sub" style="margin:0">Aktuálně nejsou k dispozici žádné doplňky.</p>';
+  }
+  var cards = prods.map(function(p){
+    var img = MG.imgUrl((p.images && p.images[0]) || p.image_url || '');
+    var price = MG.formatPrice(p.price||0);
+    var sizes = Array.isArray(p.sizes) ? p.sizes : [];
+    var inCart = (MG._rezShopItems||[]).find(function(it){ return it.product_id===p.id; });
+    var picked = inCart ? inCart.size : null;
+    var sizeChips = sizes.length ?
+      ('<div class="rez-prod-sizes">'+sizes.map(function(s){
+        return '<button type="button" class="rez-prod-size'+(picked===s?' active':'')+'" data-size="'+s+'">'+s+'</button>';
+      }).join('')+'</div>') : '';
+    var btnLabel = inCart ? '&#10003; Přidáno' : '+ Přidat';
+    var btnCls = inCart ? 'rez-prod-add added' : 'rez-prod-add';
+    return '<div class="rez-prod-card" data-id="'+p.id+'" data-price="'+(p.price||0)+'" data-name="'+(p.name||'').replace(/"/g,'&quot;')+'" data-image="'+img+'" data-has-sizes="'+(sizes.length?'1':'0')+'">'+
+      '<div class="rez-prod-thumb">'+(img?('<img src="'+img+'" alt="'+(p.name||'')+'" loading="lazy">'):'<span class="rez-prod-thumb-ph">&#128717;</span>')+'</div>'+
+      '<div class="rez-prod-body">'+
+        '<div class="rez-prod-name">'+(p.name||'')+'</div>'+
+        '<div class="rez-prod-price">'+price+'</div>'+
+        sizeChips+
+        '<button type="button" class="'+btnCls+'">'+btnLabel+'</button>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+  return '<div class="rez-prod-grid">'+cards+'</div>';
+};
+
+MG._rezInitProducts = function(){
+  var grid = document.querySelector('.rez-prod-grid'); if(!grid) return;
+  grid.querySelectorAll('.rez-prod-card').forEach(function(card){
+    var sizeBtns = card.querySelectorAll('.rez-prod-size');
+    var addBtn = card.querySelector('.rez-prod-add');
+    sizeBtns.forEach(function(b){
+      b.addEventListener('click', function(){
+        sizeBtns.forEach(function(x){ x.classList.remove('active'); });
+        b.classList.add('active');
+      });
+    });
+    if(addBtn){
+      addBtn.addEventListener('click', function(){
+        var pid = card.dataset.id;
+        var hasSizes = card.dataset.hasSizes==='1';
+        var existing = MG._rezShopItems.find(function(it){ return it.product_id===pid; });
+        if(existing){
+          MG._rezShopItems = MG._rezShopItems.filter(function(it){ return it.product_id!==pid; });
+        } else {
+          var size = null;
+          if(hasSizes){
+            var sel = card.querySelector('.rez-prod-size.active');
+            if(!sel){ alert('Nejdřív vyberte velikost.'); return; }
+            size = sel.dataset.size;
+          }
+          MG._rezShopItems.push({
+            product_id: pid,
+            name: card.dataset.name,
+            unit_price: parseFloat(card.dataset.price)||0,
+            qty: 1, size: size,
+            image: card.dataset.image
+          });
+        }
+        MG._rezRefreshShopUi();
+      });
+    }
+  });
+};
+
+MG._rezRefreshShopUi = function(){
+  // Rebuild product cards (active state) + invoice rows
+  var sec = document.getElementById('rez-shop-products');
+  if(sec){ sec.innerHTML = MG._rezProductsHtml(); MG._rezInitProducts(); }
+  MG._rezRefreshInvoice();
+};
+
+MG._rezRefreshInvoice = function(){
+  var box = document.getElementById('rez-invoice-box');
+  if(!box) return;
+  var d=MG._rez.formData,r=MG._rez;
+  var moto=r.motos.find(function(m){return m.id===d.motoId;});
+  var motoName=moto?moto.model:'—';
+  var base=0,extT=0,disc=0,bookingTotal=0,rows='';
+  if(MG._rez._isResume){
+    bookingTotal=MG._rez.bookingAmount||0;
+    rows='<tr><td><span class="rez-inv-ico">&#127949;</span>Rezervace: '+motoName+'</td>'+
+      '<td>'+MG.formatPrice(bookingTotal)+'</td></tr>';
+  } else {
+    base=(moto&&r.startDate&&r.endDate)?MG.calcPrice(moto,r.startDate,r.endDate):0;
+    d.extras.forEach(function(e){extT+=e.unit_price;});
+    disc=d.discountAmt||0;
+    bookingTotal=Math.max(0,base+extT-disc);
+    rows='<tr><td><span class="rez-inv-ico">&#127949;</span>Pronájem: '+motoName+'</td>'+
+      '<td>'+MG.formatPrice(base)+'</td></tr>';
+    d.extras.forEach(function(e){rows+='<tr><td><span class="rez-inv-ico">&#10010;</span>'+e.name+'</td>'+
+      '<td>'+MG.formatPrice(e.unit_price)+'</td></tr>';});
+    if(disc>0){var cl=(d.appliedCodes||[]).map(function(c){return c.code;}).join('+');
+      rows+='<tr class="rez-invoice-row-discount"><td><span class="rez-inv-ico">&#127873;</span>Sleva ('+cl+')</td>'+
+      '<td>−'+MG.formatPrice(disc)+'</td></tr>';}
+  }
+  // Shop items
+  var shop = MG._rezShopItems||[];
+  shop.forEach(function(it){
+    var sLbl = it.size ? ' ('+it.size+')' : '';
+    rows += '<tr class="rez-invoice-row-shop"><td><span class="rez-inv-ico">&#128717;</span>'+it.name+sLbl+(it.qty>1?(' × '+it.qty):'')+'</td>'+
+      '<td>'+MG.formatPrice((it.unit_price||0)*(it.qty||1))+'</td></tr>';
+  });
+  var shopTotal = MG._rezShopTotal();
+  var grandTotal = bookingTotal + shopTotal;
+
+  box.innerHTML =
+    '<table class="rez-invoice-table">'+
+      '<tr><th>Položka</th><th>Cena</th></tr>'+rows+
+    '</table>'+
+    '<div class="rez-invoice-total"><strong>Celkem k úhradě</strong><strong>'+MG.formatPrice(grandTotal)+'</strong></div>';
+
+  // Update sticky pay amount
+  var amtEl = document.querySelector('.rez-step2-amount');
+  if(amtEl) amtEl.textContent = MG.formatPrice(grandTotal);
+  MG._rez._grandTotal = grandTotal;
+};
+
 // ===== STEP 2: Doklady + QR kód + Náhled faktury =====
 MG._rezShowStep2 = function(){
   var form=document.getElementById('rez-form');if(!form)return;
@@ -219,26 +425,29 @@ MG._rezShowStep2 = function(){
   });
   var d=MG._rez.formData,r=MG._rez;
   var moto=r.motos.find(function(m){return m.id===d.motoId;});
-  var motoName=moto?moto.model:'—';
-  var base=0,extT=0,disc=0,total=0,rows='';
-  if(MG._rez._isResume){
-    // Resume mode: use stored total from DB
-    total=MG._rez.bookingAmount||0;
-    rows='<tr><td><span class="rez-inv-ico">&#127949;</span>Rezervace: '+motoName+'</td>'+
-      '<td>'+MG.formatPrice(total)+'</td></tr>';
-  } else {
-    base=(moto&&r.startDate&&r.endDate)?MG.calcPrice(moto,r.startDate,r.endDate):0;
-    d.extras.forEach(function(e){extT+=e.unit_price;});
-    disc=d.discountAmt||0;
-    total=Math.max(0,base+extT-disc);
-    rows='<tr><td><span class="rez-inv-ico">&#127949;</span>Pronájem: '+motoName+'</td>'+
-      '<td>'+MG.formatPrice(base)+'</td></tr>';
-    d.extras.forEach(function(e){rows+='<tr><td><span class="rez-inv-ico">&#10010;</span>'+e.name+'</td>'+
-      '<td>'+MG.formatPrice(e.unit_price)+'</td></tr>';});
-    if(disc>0){var cl=(d.appliedCodes||[]).map(function(c){return c.code;}).join('+');
-      rows+='<tr class="rez-invoice-row-discount"><td><span class="rez-inv-ico">&#127873;</span>Sleva ('+cl+')</td>'+
-      '<td>−'+MG.formatPrice(disc)+'</td></tr>';}
+  // Pokud v resume flow moto nemá fotky, doplň ji asynchronně
+  if(moto && !moto.image_url && !(moto.images && moto.images.length)){
+    try {
+      window.sb.from('motorcycles').select('id, model, image_url, images').eq('id', moto.id).maybeSingle().then(function(rs){
+        if(rs && rs.data){
+          moto.image_url = rs.data.image_url; moto.images = rs.data.images;
+          var heroSec = document.getElementById('rez-moto-hero-wrap');
+          if(heroSec){ heroSec.innerHTML = MG._rezGalleryHtml(moto); MG._rezInitGallery(); }
+        }
+      });
+    } catch(e){}
   }
+  var motoName=moto?moto.model:'—';
+  // Initial booking total for sticky pay button (přepočte se po přidání produktů)
+  var bookingTotal=0;
+  if(MG._rez._isResume){
+    bookingTotal=MG._rez.bookingAmount||0;
+  } else {
+    var _b=(moto&&r.startDate&&r.endDate)?MG.calcPrice(moto,r.startDate,r.endDate):0;
+    var _e=0; d.extras.forEach(function(e){_e+=e.unit_price;});
+    bookingTotal=Math.max(0,_b+_e-(d.discountAmt||0));
+  }
+  var total = bookingTotal + MG._rezShopTotal();
 
   var isMob=MG._isMobile();
   // TEST: QR cílí na motogo24.com pro ověření Apple Pay / Google Pay flow přes Stripe na mobilu
@@ -264,6 +473,9 @@ MG._rezShowStep2 = function(){
   }
 
   form.innerHTML=
+    // Hero — fotka rezervované motorky (kompaktní galerie)
+    '<div id="rez-moto-hero-wrap">'+MG._rezGalleryHtml(moto)+'</div>'+
+
     // Section 1 — Verifikace dokladů + ŘP
     '<section class="rez-section">'+
       '<div class="rez-section-head"><span class="rez-step-num">1</span><h2>Ověření totožnosti a řidičského oprávnění</h2></div>'+
@@ -350,15 +562,18 @@ MG._rezShowStep2 = function(){
       qrSectionMarkup+
     '</section>'+
 
+    // Section 3.5 — Doprodej (e-shop produkty) — jen pokud nejsme v resume režimu
+    (MG._rez._isResume?'':
+      '<section class="rez-section">'+
+        '<div class="rez-section-head"><span class="rez-step-num">&#128717;</span><h2>Doplňky na cestu</h2></div>'+
+        '<p class="rez-section-sub">Přidejte si k pronájmu výbavu nebo doplňky. <strong>Vyzvednete s motorkou</strong>, doprava 0 Kč. Faktura za doplňky přijde samostatně.</p>'+
+        '<div id="rez-shop-products"><div class="rez-prod-loading"><span class="spinner"></span> Načítám doplňky…</div></div>'+
+      '</section>')+
+
     // Section 4 — Náhled zálohové faktury
     '<section class="rez-section">'+
       '<div class="rez-section-head"><span class="rez-step-num">'+(isMob?'3':'4')+'</span><h2>Náhled zálohové faktury</h2></div>'+
-      '<div class="rez-invoice-card">'+
-        '<table class="rez-invoice-table">'+
-          '<tr><th>Položka</th><th>Cena</th></tr>'+rows+
-        '</table>'+
-        '<div class="rez-invoice-total"><strong>Celkem k úhradě</strong><strong>'+MG.formatPrice(total)+'</strong></div>'+
-      '</div>'+
+      '<div class="rez-invoice-card" id="rez-invoice-box"></div>'+
       '<div class="rez-invoice-meta">'+
         '<div class="rez-meta-row"><span class="rez-meta-ico">&#128100;</span>'+
           '<div class="rez-meta-body"><div class="rez-meta-label">Odběratel</div>'+
@@ -387,6 +602,12 @@ MG._rezShowStep2 = function(){
       '</div>'+
     '</div>';
   MG._rezInitLicenseUI();
+  MG._rezInitGallery();
+  MG._rezRefreshInvoice();
+  // Lazy-load products and render upsell section
+  if(!MG._rez._isResume){
+    MG._rezLoadProducts().then(function(){ MG._rezRefreshShopUi(); });
+  }
   window.scrollTo({top:form.offsetTop-80,behavior:'smooth'});
 };
 
@@ -469,6 +690,8 @@ MG._rezInitLicenseUI = function(){
 // ===== BACK TO STEP 1 =====
 MG._rezBackToStep1 = function(){
   var form=document.getElementById('rez-form');if(!form)return;
+  // Zruš případnou již vytvořenou shop objednávku (zákazník mění rezervaci)
+  MG._rez._shopOrderId = null;
   // Show calendar elements again
   ['rez-intro','rez-step-moto','rez-step-cal','rez-calendar','rez-date-banner','rez-moto-select'].forEach(function(id){
     var el=document.getElementById(id);if(el)el.style.display='';

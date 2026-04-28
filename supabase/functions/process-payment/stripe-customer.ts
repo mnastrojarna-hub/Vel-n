@@ -17,6 +17,8 @@ export interface PaymentRequest {
   booking_id?: string
   order_id?: string
   incident_id?: string
+  /** Optional bundled e-shop order to attach to a web booking checkout (single Stripe session, two invoices). */
+  shop_order_id?: string
   amount: number
   currency?: string
   method?: string

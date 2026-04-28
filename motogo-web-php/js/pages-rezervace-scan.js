@@ -434,10 +434,47 @@ MG._rezSubmitPayment = async function(){
   var amount=MG._rez.bookingAmount;
   if(!bookingId){alert('Chyba: rezervace nebyla vytvořena. Zkuste znovu.');if(btn){btn.disabled=false;btn.textContent='Pokračovat k platbě';}return;}
 
+  // Pokud zákazník přidal doplňky z e-shopu — vytvoř shop_order (pickup, doprava 0)
+  // a pošli ID do process-payment, ať se přibalí do stejné Stripe session.
+  var shopOrderId = MG._rez._shopOrderId || null;
+  var shopItems = MG._rezShopItems || [];
+  if(shopItems.length && !shopOrderId){
+    try {
+      var d = MG._rez.formData || {};
+      var addr = (d.street||'') + (d.zip?(', '+d.zip):'') + (d.city?(' '+d.city):'');
+      var soRes = await window.sb.rpc('create_web_shop_order', {
+        items: shopItems.map(function(it){ return { product_id: it.product_id, size: it.size||null, qty: it.qty||1 }; }),
+        customer_name: d.name||'',
+        customer_email: d.email||'',
+        customer_phone: d.phone||'',
+        shipping_method: 'pickup',
+        shipping_address: addr.trim()||null,
+        payment_method: 'stripe',
+        promo_code: null,
+        notes: 'Doprodej k rezervaci '+bookingId
+      });
+      if(soRes.error || (soRes.data && soRes.data.error)){
+        console.warn('[REZ] create_web_shop_order failed:', soRes.error || soRes.data);
+        alert('Nepodařilo se vytvořit objednávku doplňků: '+((soRes.data&&soRes.data.error)||(soRes.error&&soRes.error.message)||'neznámá chyba'));
+        if(btn){btn.disabled=false;btn.textContent='Pokračovat k platbě';}
+        return;
+      }
+      shopOrderId = (soRes.data && soRes.data.order_id) || null;
+      MG._rez._shopOrderId = shopOrderId;
+    } catch(e){
+      console.error('[REZ] shop order exception', e);
+      alert('Chyba při vytváření objednávky doplňků.');
+      if(btn){btn.disabled=false;btn.textContent='Pokračovat k platbě';}
+      return;
+    }
+  }
+
   try{
+    var payBody={booking_id:bookingId,amount:amount,type:'booking',source:'web',mode:'checkout'};
+    if(shopOrderId) payBody.shop_order_id = shopOrderId;
     var payRes=await fetch(window.MOTOGO_CONFIG.SUPABASE_URL+'/functions/v1/process-payment',{method:'POST',
       headers:{'Content-Type':'application/json','apikey':window.MOTOGO_CONFIG.SUPABASE_ANON_KEY},
-      body:JSON.stringify({booking_id:bookingId,amount:amount,type:'booking',source:'web',mode:'checkout'})});
+      body:JSON.stringify(payBody)});
     var payData=await payRes.json();
     if(payData.error){
       var emsg = payData.error || '';
