@@ -8,6 +8,7 @@ import SearchInput from '../components/ui/SearchInput'
 import Pagination from '../components/ui/Pagination'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import NewBookingModal from './booking/NewBookingModal'
+import BookingsBulkActionsModal from './booking/BookingsBulkActionsModal'
 import GlobalCalendar from './booking/GlobalCalendar'
 import BookingsTable from './booking/BookingsTable'
 import BookingsExtendedFilters from './booking/BookingsExtendedFilters'
@@ -46,6 +47,8 @@ export default function Bookings() {
   })
   useEffect(() => { localStorage.setItem('velin_bookings_filters', JSON.stringify(filters)) }, [filters])
   const [showAdd, setShowAdd] = useState(false)
+  const [showBulk, setShowBulk] = useState(false)
+  const [selectedIds, setSelectedIds] = useState(new Set())
   const [view, setView] = useState('Seznam')
   const [showFilters, setShowFilters] = useState(false)
   const [branches, setBranches] = useState([])
@@ -194,7 +197,13 @@ export default function Bookings() {
             </button>
           </>
         )}
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          {view === 'Seznam' && (
+            <Button onClick={() => setShowBulk(true)} disabled={selectedIds.size === 0}
+              style={{ background: selectedIds.size > 0 ? '#fde68a' : '#f1faf7', color: '#92400e', opacity: selectedIds.size === 0 ? 0.5 : 1 }}>
+              ☰ Hromadná správa{selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}
+            </Button>
+          )}
           <Button green onClick={() => setShowAdd(true)}>+ Nová rezervace</Button>
         </div>
       </div>
@@ -226,12 +235,17 @@ export default function Bookings() {
         <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
-          <BookingsTable bookings={bookings} navigate={navigate} fmtDateRange={fmtDateRange} dpTotals={dpTotals} setDeleteConfirm={setDeleteConfirm} />
+          <BookingsTable bookings={bookings} navigate={navigate} fmtDateRange={fmtDateRange} dpTotals={dpTotals} setDeleteConfirm={setDeleteConfirm}
+            selectedIds={selectedIds} setSelectedIds={setSelectedIds} />
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </>
       )}
 
       {showAdd && <NewBookingModal onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); loadBookings() }} />}
+
+      <BookingsBulkActionsModal open={showBulk} onClose={() => setShowBulk(false)}
+        selectedBookings={bookings.filter(b => selectedIds.has(b.id))}
+        onUpdated={() => { loadBookings() }} />
 
       {deleteConfirm && (
         <ConfirmDialog
