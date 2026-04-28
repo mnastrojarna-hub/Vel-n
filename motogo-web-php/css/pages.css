@@ -224,10 +224,21 @@
 .moto-nav-back{font-weight:600}
 .moto-detail-header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem}
 .moto-info{margin-bottom:2rem}
+/* Detail layout — fotka na celou šířku nahoře, popis pod ní (mobil i desktop). */
+.moto-info.gr2{display:flex;flex-direction:column-reverse;gap:1.5rem}
+.moto-info .moto-photo .gallery-img img{width:100%;height:auto;max-height:600px;object-fit:cover;aspect-ratio:16/9}
 .moto-shortdesc .wbox{text-align:left;margin-bottom:1rem}
 .moto-shortdesc ul{margin:.5rem 0;padding-left:1.2rem}
 .moto-shortdesc li{color:#4a6b5a;font-size:.9rem;padding:.15rem 0;list-style:disc}
 .moto-shortdesc li::before{display:none}
+/* Desktop — popis ve 2 sloupcích pod fotkou, aby nezely prázdné mezery vpravo. */
+@media(min-width:769px){
+  .moto-shortdesc{columns:2;column-gap:2.5rem}
+  .moto-shortdesc>*{break-inside:avoid;page-break-inside:avoid}
+  .moto-shortdesc h2,
+  .moto-shortdesc h3{break-after:avoid;page-break-after:avoid;margin-top:0}
+  .moto-shortdesc .wbox{column-span:all;margin-bottom:1.25rem}
+}
 
 /* Gallery */
 .moto-gallery .moto-photo{margin-bottom:.75rem}
