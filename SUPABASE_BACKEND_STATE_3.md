@@ -12,7 +12,8 @@
 | `is_superadmin()` | Vrací boolean — je aktuální user superadmin? |
 | `validate_promo_code(code)` | Validuje promo kód, vrací jsonb |
 | `use_promo_code(code, booking_id, base_amount)` | Použije promo kód atomicky |
-| `create_shop_order(items, shipping, address, payment, promo)` | Vytvoří e-shop objednávku. **Procentuální sleva se počítá z celkové ceny (subtotal + shipping)** |
+| `create_shop_order(items, shipping, address, payment, promo)` | Vytvoří e-shop objednávku. **Procentuální sleva se počítá z celkové ceny (subtotal + shipping)**. **Login-only**, používá Flutter app. |
+| `create_web_shop_order(items, customer_name, customer_email, customer_phone, shipping_method, shipping_address, payment_method, promo_code, notes)` | **Anon-friendly RPC pro web e-shop** (motogo24.cz). Items: `[{product_id uuid, size text|null, qty int}]` — cena z DB (ne z klienta), velikost validována proti `products.sizes[]`, kontrola `stock_quantity`. Doprava: `pickup`=0, `post`=99, `zasilkovna`=79 Kč. Vytvoří `shop_orders` + `shop_order_items` (s `product_id` FK + `size`). Vrací `{success, order_id}` nebo `{error, ...}`. SECURITY DEFINER, GRANT TO anon, authenticated. **NEPŘEPISUJE** stávající `create_shop_order` — Flutter dál používá login-only verzi. |
 | `cancel_booking_tracked(booking_id, reason)` | Stornuje rezervaci s refund kalkulací |
 | `sos_swap_bookings(incident_id, replacement_moto_id, ...)` | SOS výměna motorky — atomický swap |
 | `expire_vouchers()` | Automatická expirace voucherů (pg_cron) |

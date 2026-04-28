@@ -805,6 +805,30 @@
 .shop-specs tr:last-child th,.shop-specs tr:last-child td{border-bottom:none}
 .shop-cta{margin-top:1.1rem}
 .shop-cta .btn{min-height:48px;display:inline-flex;align-items:center;justify-content:center;padding:.75rem 1.5rem}
+
+/* ----- Cart picker (size + qty + add-to-cart) ----- */
+.shop-cart-form{margin-top:1.1rem;display:flex;flex-direction:column;gap:1rem}
+.shop-size-label,.shop-qty-label{display:block;font-size:.85rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#1a2e22;margin-bottom:.5rem}
+.shop-size-chips{display:flex;flex-wrap:wrap;gap:.5rem}
+.shop-size-chip{min-width:48px;min-height:48px;padding:.55rem .9rem;border-radius:10px;border:2px solid #d4e8e0;background:#fff;color:#1a2e22;font-weight:700;font-size:.95rem;cursor:pointer;transition:all .15s;font-family:inherit}
+.shop-size-chip:hover{border-color:#74FB71;color:#1a2e22;background:#f4faf7}
+.shop-size-chip.active{border-color:#1a2e22;background:#1a2e22;color:#74FB71;box-shadow:0 4px 12px rgba(26,46,34,.25)}
+.shop-size-chip:focus-visible{outline:3px solid #74FB71;outline-offset:2px}
+.shop-size-error{margin:.5rem 0 0;font-size:.85rem;color:#dc2626;font-weight:600}
+.shop-qty-stepper{display:inline-flex;align-items:stretch;border:2px solid #d4e8e0;border-radius:10px;overflow:hidden;background:#fff;width:max-content}
+.shop-qty-btn{width:44px;height:48px;border:0;background:#f4faf7;color:#1a2e22;font-size:1.4rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .12s,color .12s;font-family:inherit;line-height:1}
+.shop-qty-btn:hover{background:#e8f5ee;color:#1a8a18}
+.shop-qty-btn:active{background:#dff0e6}
+.shop-qty-input{width:60px;height:48px;border:0;border-left:1px solid #d4e8e0;border-right:1px solid #d4e8e0;background:#fff;color:#0f1a14;text-align:center;font-size:1rem;font-weight:700;-moz-appearance:textfield}
+.shop-qty-input::-webkit-outer-spin-button,
+.shop-qty-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.shop-qty-input:focus{outline:none;background:#f4faf7}
+.shop-cart-feedback{margin:.4rem 0 0;font-size:.9rem;font-weight:600}
+.shop-cart-feedback-ok{color:#1a8a18}
+@media(max-width:600px){
+  .shop-size-chip{min-width:44px;min-height:44px;padding:.5rem .8rem}
+  .shop-qty-input{width:54px}
+}
 @media(max-width:900px){
   .shop-detail-grid{grid-template-columns:1fr;gap:1.25rem}
   .shop-gallery{grid-template-columns:repeat(4,1fr)}

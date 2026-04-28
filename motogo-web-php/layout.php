@@ -497,6 +497,16 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
 </div>
 <script src="' . BASE_URL . '/js/lightbox.js" defer></script>';
 
+    // E-shop košík (lokální storage, sdílený mezi stránkami)
+    $cartAdded = htmlspecialchars(t('cart.added'), ENT_QUOTES, 'UTF-8');
+    echo '
+<script>
+window.MG_I18N = window.MG_I18N || {};
+window.MG_I18N.cart_added = "' . $cartAdded . '";
+window.MG_I18N.cart_url = "' . BASE_URL . '/kosik";
+</script>
+<script src="' . BASE_URL . '/js/cart.js" defer></script>';
+
     echo renderInlineJs();
 
     // AI booking widget — floating bubble. Skryt na /rezervace a /potvrzeni

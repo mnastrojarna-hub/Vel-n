@@ -210,6 +210,10 @@
 - **stripe_session_id** — Stripe Checkout Session ID
 - created_at, updated_at
 
+### shop_order_items (nové sloupce)
+- **product_id** (UUID FK→products ON DELETE SET NULL) — vazba na konkrétní produkt v katalogu (web naplní, app dnes ignoruje, NULL kompatibilní zpětně). Index `idx_shop_order_items_product_id`.
+- **size** (TEXT NULL) — vybraná velikost položky („M", „42" apod.). Plní web (`create_web_shop_order` validuje proti `products.sizes[]`); Flutter app zatím NULL.
+
 ### branches (nové sloupce)
 - **branch_code** (TEXT UNIQUE) — unikátní kód pobočky (6 číslic, např. "000126")
 - **is_open** (BOOLEAN DEFAULT false) — otevřená (nonstop provoz) / zavřená
