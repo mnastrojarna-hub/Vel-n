@@ -131,11 +131,157 @@ export async function handleWebBookingCheckout(
   })
 }
 
-/** Handle web anonymous SHOP checkout (voucher purchase, no auth required) */
+/** Handle web anonymous PRODUCT checkout (e-shop produkty z motogo24.cz). */
+async function handleWebProductCheckout(
+  body: PaymentRequest,
+  webBody: Record<string, unknown>
+): Promise<Response> {
+  const orderId = body.order_id as string
+  const customerEmail = (webBody.customer_email as string) || ''
+  const customerName  = (webBody.customer_name as string)  || ''
+  const customerPhone = (webBody.customer_phone as string) || ''
+  const currency = body.currency || 'czk'
+
+  const supabaseAdmin = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  )
+
+  // Načti objednávku + položky (RPC create_web_shop_order je už vytvořilo)
+  const { data: order, error: orderErr } = await supabaseAdmin
+    .from('shop_orders')
+    .select('id, total, subtotal, shipping_cost, discount, currency, customer_email, customer_name, customer_phone, payment_status, shipping_method')
+    .eq('id', orderId)
+    .single()
+  if (orderErr || !order) {
+    return new Response(JSON.stringify({ success: false, error: 'Objednávka nenalezena.' }),
+      { status: 404, headers: { ...CORS, 'Content-Type': 'application/json' } })
+  }
+  if (order.payment_status === 'paid') {
+    return new Response(JSON.stringify({ success: false, error: 'Tato objednávka je již zaplacena.' }),
+      { status: 409, headers: { ...CORS, 'Content-Type': 'application/json' } })
+  }
+
+  const { data: items } = await supabaseAdmin
+    .from('shop_order_items')
+    .select('product_name, product_sku, size, quantity, unit_price, total_price')
+    .eq('order_id', orderId)
+  const orderItems = items || []
+  if (orderItems.length === 0) {
+    return new Response(JSON.stringify({ success: false, error: 'Objednávka neobsahuje žádné položky.' }),
+      { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } })
+  }
+
+  // Stripe customer (re-use po e-mailu)
+  const email = customerEmail || order.customer_email || ''
+  const name  = customerName  || order.customer_name  || ''
+  const customers = email ? await stripe.customers.list({ email, limit: 1 }) : { data: [] }
+  let custId = customers.data.length > 0 ? customers.data[0].id : null
+  if (!custId && email) {
+    const newCust = await stripe.customers.create({
+      email, name, phone: customerPhone || order.customer_phone || undefined,
+      metadata: { source: 'web_shop_products' }
+    })
+    custId = newCust.id
+  }
+
+  // Sestavit Stripe line items z DB (cena pochází z DB, ne z klienta)
+  const lineItems: Record<string, unknown>[] = orderItems.map((it: Record<string, unknown>) => {
+    const baseName = String(it.product_name || 'Produkt')
+    const size = it.size ? ` (vel. ${it.size})` : ''
+    return {
+      price_data: {
+        currency,
+        unit_amount: Math.round(Number(it.unit_price) * 100),
+        product_data: {
+          name: baseName + size,
+          ...(it.product_sku ? { metadata: { sku: String(it.product_sku) } } : {})
+        }
+      },
+      quantity: Number(it.quantity) || 1
+    }
+  })
+
+  // Doprava jako samostatný line item (Stripe ji tak ukáže na účtence)
+  const shipCost = Number(order.shipping_cost) || 0
+  if (shipCost > 0) {
+    const shipName = order.shipping_method === 'zasilkovna' ? 'Doprava — Zásilkovna'
+                   : order.shipping_method === 'post'       ? 'Doprava — Česká pošta'
+                   : 'Doprava'
+    lineItems.push({
+      price_data: {
+        currency,
+        unit_amount: Math.round(shipCost * 100),
+        product_data: { name: shipName }
+      },
+      quantity: 1
+    })
+  }
+
+  // Sleva přes Stripe coupon (jen ad-hoc, neukládáme)
+  let discounts: Record<string, unknown>[] | undefined
+  const discount = Number(order.discount) || 0
+  if (discount > 0) {
+    const coupon = await stripe.coupons.create({
+      amount_off: Math.round(discount * 100),
+      currency,
+      duration: 'once',
+      name: 'Sleva',
+    })
+    discounts = [{ coupon: coupon.id }]
+  }
+
+  const sessionParams: Record<string, unknown> = {
+    mode: 'payment',
+    line_items: lineItems as Stripe.Checkout.SessionCreateParams.LineItem[],
+    automatic_payment_methods: { enabled: true }, // Apple Pay / Google Pay
+    metadata: { order_id: orderId, type: 'shop', source: 'web' },
+    success_url: `${SITE_URL}/objednavka/dokoncit?order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url:  `${SITE_URL}/kosik`,
+    locale: 'cs',
+  }
+  if (custId) sessionParams.customer = custId
+  if (discounts) sessionParams.discounts = discounts
+
+  const session = await stripe.checkout.sessions.create(sessionParams as Stripe.Checkout.SessionCreateParams)
+
+  await supabaseAdmin.from('shop_orders').update({
+    stripe_session_id: session.id,
+    stripe_payment_intent_id: session.payment_intent as string,
+  }).eq('id', orderId)
+
+  // ZF (proforma) — best-effort, neblokuje
+  try {
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
+    const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY },
+      body: JSON.stringify({ type: 'shop_proforma', order_id: orderId, send_email: true }),
+    })
+  } catch (e) { console.warn('[WebProductCheckout] ZF generation failed:', e) }
+
+  return new Response(JSON.stringify({
+    success: true,
+    url: session.url,           // alias pro web (kompatibilita s checkout.js)
+    checkout_url: session.url,
+    session_id: session.id,
+    order_id: orderId
+  }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
+}
+
+/** Handle web anonymous SHOP checkout — produkty (kind=products) NEBO voucher (default). */
 export async function handleWebShopCheckout(
   body: PaymentRequest
 ): Promise<Response> {
   const webBody = body as Record<string, unknown>
+
+  // Větvení: produkty z e-shopu (mají order_id z create_web_shop_order, nemají voucher_amount)
+  // vs. dárkový poukaz (existující flow).
+  if (webBody.kind === 'products' || (body.order_id && webBody.voucher_amount == null)) {
+    return await handleWebProductCheckout(body, webBody)
+  }
+
   const customerEmail = webBody.customer_email as string
   const customerName = (webBody.customer_name as string) || ''
   const customerPhone = (webBody.customer_phone as string) || ''
