@@ -107,3 +107,64 @@
   border: 1px solid #74FB71;
 }
 .mg-cms-toolbar button:hover { filter: brightness(1.1); }
+
+/* ===== Inline edit ===== */
+[data-cms-key].mg-cms-editing {
+  outline: 3px solid #74FB71 !important;
+  outline-offset: 4px;
+  background-color: #f0fff4 !important;
+  cursor: text;
+  caret-color: #1a2e22;
+  min-width: 80px;
+  min-height: 1em;
+}
+[data-cms-key].mg-cms-editing::after {
+  opacity: 1;
+  background: #74FB71;
+  color: #0f1a14;
+  content: '✏️ ' attr(data-cms-key) ' · Enter = uložit, Esc = zrušit';
+  font-weight: 800;
+}
+[data-cms-key].mg-cms-saving {
+  outline-color: #f59e0b !important;
+  background-color: #fef3c7 !important;
+  pointer-events: none;
+  opacity: .85;
+}
+[data-cms-key].mg-cms-saving::after {
+  background: #f59e0b;
+  color: #0f1a14;
+  content: '💾 Ukládám…';
+}
+
+/* V edit režimu nesmí outline blikat ani překrývat */
+[data-cms-key].mg-cms-editing,
+[data-cms-key].mg-cms-saving {
+  animation: none !important;
+}
+
+/* ===== Toast ===== */
+.mg-cms-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 32px;
+  transform: translate(-50%, 20px);
+  background: #1a2e22;
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font: 700 13px/1.3 system-ui, -apple-system, sans-serif;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, .35);
+  opacity: 0;
+  transition: opacity .25s ease, transform .25s ease;
+  z-index: 100000;
+  max-width: 420px;
+  text-align: center;
+}
+.mg-cms-toast-show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.mg-cms-toast-error {
+  background: #dc2626;
+}

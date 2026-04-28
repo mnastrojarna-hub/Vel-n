@@ -59,11 +59,36 @@ foreach ($tabs as $t) {
 }
 $tabsHtml .= '</ul>';
 
+// Pre-keyed lookup for category items: maps "<catKey>|<idx>" → "web.faq.categories.<catKey>.items.<idx>"
+$catItemKeyMap = [];
+foreach ($cats as $catKey => $cat) {
+    foreach ($cat['items'] as $idx => $it) {
+        $catItemKeyMap[$catKey . '|' . $idx] = 'web.faq.categories.' . $catKey . '.items.' . $idx;
+    }
+}
+
 $panesHtml = '<div class="tab-content">';
 foreach ($tabs as $t) {
     $panesHtml .= '<div class="tab-pane' . ($t['id'] === 'all' ? ' active' : '') . '" id="' . htmlspecialchars($t['id']) . '"><div class="gr2">';
     foreach ($t['items'] as $faq) {
-        $panesHtml .= renderFaqItem($faq['q'], $faq['a']);
+        // Find originating category + index for stable CMS key
+        $kBase = null;
+        foreach ($cats as $catKey => $cat) {
+            foreach ($cat['items'] as $idx => $orig) {
+                if (($orig['q'] ?? '') === ($faq['q'] ?? '') && ($orig['a'] ?? '') === ($faq['a'] ?? '')) {
+                    $kBase = $catItemKeyMap[$catKey . '|' . $idx] ?? null;
+                    break 2;
+                }
+            }
+        }
+        if ($kBase) {
+            $qKeyed = '<span data-cms-key="' . $kBase . '.q">' . $faq['q'] . '</span>';
+            $aKeyed = '<span data-cms-key="' . $kBase . '.a">' . $faq['a'] . '</span>';
+        } else {
+            $qKeyed = $faq['q'];
+            $aKeyed = $faq['a'];
+        }
+        $panesHtml .= renderFaqItem($qKeyed, $aKeyed);
     }
     $panesHtml .= '</div></div>';
 }
@@ -84,10 +109,10 @@ document.querySelectorAll(".tab[data-tab]").forEach(function(t){
 </script>';
 
 $content = '<main id="content"><div class="container">' . $bc .
-    '<div class="ccontent"><h1>' . htmlspecialchars($C['h1']) . '</h1>' .
+    '<div class="ccontent"><h1 data-cms-key="web.faq.h1">' . htmlspecialchars($C['h1']) . '</h1>' .
     $tabsHtml . $panesHtml .
-    '<p>&nbsp;</p><p>' . $C['closing'] . '</p>' .
-    '<p>&nbsp;</p><p><a class="btn btngreen" href="' . BASE_URL . $C['cta']['href'] . '">' . htmlspecialchars($C['cta']['label']) . '</a></p>' .
+    '<p>&nbsp;</p><p data-cms-key="web.faq.closing">' . $C['closing'] . '</p>' .
+    '<p>&nbsp;</p><p><a class="btn btngreen" href="' . BASE_URL . $C['cta']['href'] . '" data-cms-key="web.faq.cta.label">' . htmlspecialchars($C['cta']['label']) . '</a></p>' .
     '</div></div></main>' . $tabJs;
 
 // FAQPage schema
