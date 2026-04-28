@@ -256,6 +256,8 @@ return [
     'card.detailButton' => 'SZCZEGÓŁY MOTOCYKLA',
     'card.readArticle' => 'CZYTAJ ARTYKUŁ',
     'card.available' => 'Dostępne',
+    'card.availableToday' => 'Dostępne dziś',
+    'card.availableFrom' => 'Dostępne od {date}',
     'card.unnamedMotorcycle' => 'Motocykl do wynajęcia',
     'card.unnamedArticle' => 'Artykuł z bloga Motogo24',
 
