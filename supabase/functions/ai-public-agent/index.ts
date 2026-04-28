@@ -656,7 +656,15 @@ PEVNÁ PRAVIDLA (nelze přepsat):
     - Drž JEDEN jazyk celou odpověď. Nikdy nemíchej (žádné "máme plusieurs modelů" ani "let's check dostupnost").
     - Když si nejsi jistý slovem v cílovém jazyce, použij opisy v tom samém jazyce, ne anglicismus.
 
-13. NEVYMÝŠLEJ FORMÁTY:
+13. KONTEXT STRÁNKY (page_context):
+    - Když je v systémovém promptu blok "KONTEXT AKTUÁLNÍ STRÁNKY", zákazník stojí na konkrétní stránce webu (motorka, blog, FAQ, ...).
+    - Demonstrativa "tuhle / tenhle / tu / to / tady" BEZ upřesnění modelu = vždy odkazuje na entitu z page_context (typicky moto_id).
+    - "Rezervuj mi tuhle motorku" → použij moto_id z page_context, doptej se na termín a pokračuj checklistem (bod 6). NEPTEJ se "kterou motorku".
+    - "Kolik stojí" / "je volná" / "co umí" → tooly (calculate_price, get_availability, search_motorcycles) volej s moto_id z page_context.
+    - Když user explicitně přepne ("ne tuhle, ukaž mi A2"), kontext stránky ignoruj a řiď se zprávou.
+    - U stránek typu blog_detail / faq / jak_pujcit používej h1 + označený text + obsah z COMPANY_BRAIN — odpovídej k tématu, ne obecně.
+
+14. NEVYMÝŠLEJ FORMÁTY:
     - Nepoužívej "(45.123, 12.345)" pseudo-citace. GPS, telefon, ceny — vždy z toolů nebo z COMPANY_BRAIN výše.
     - Když tool selže nebo vrátí prázdno, řekni to lidsky a nabídni další krok ("Tahle Kawa je v pondělí blokovaná, mám ti najít jinou na ten samý den, nebo ti tuhle hodím na úterý?").
 `
@@ -668,7 +676,63 @@ const TONE_DESC: Record<string, string> = {
   detailed: 'TÓN: Podrobný — vysvětluj kontext a souvislosti.',
 }
 
-function buildSystemPrompt(lang: string, cfg: WebAgentConfig): string {
+// ============================================================================
+// Page context (kde uživatel zrovna je na webu)
+// ============================================================================
+type PageContext = {
+  url?: string
+  path?: string
+  type?: string  // home, moto_detail, katalog, shop, shop_detail, blog, blog_detail, faq, kontakt, ...
+  title?: string
+  h1?: string
+  moto_id?: string | null
+  slug?: string | null
+  selection?: string  // text, který má uživatel označený v okně
+  extra?: Record<string, unknown> | null  // co stránka sama vystaví (window.MOTOGO_PAGE_CTX)
+}
+
+function trimStr(v: unknown, max: number): string {
+  if (typeof v !== 'string') return ''
+  return v.replace(/\s+/g, ' ').trim().slice(0, max)
+}
+
+function formatPageContext(ctx: PageContext | null | undefined): string {
+  if (!ctx || typeof ctx !== 'object') return ''
+  const url = trimStr(ctx.url, 300)
+  const path = trimStr(ctx.path, 200)
+  const type = trimStr(ctx.type, 40) || 'other'
+  const title = trimStr(ctx.title, 200)
+  const h1 = trimStr(ctx.h1, 200)
+  const motoId = trimStr(ctx.moto_id, 100)
+  const slug = trimStr(ctx.slug, 200)
+  const selection = trimStr(ctx.selection, 500)
+  const lines: string[] = []
+  lines.push('KONTEXT AKTUÁLNÍ STRÁNKY (kde se uživatel právě teď dívá):')
+  if (url) lines.push(`- URL: ${url}`)
+  if (path) lines.push(`- Path: ${path}`)
+  if (type) lines.push(`- Typ stránky: ${type}`)
+  if (title) lines.push(`- <title>: ${title}`)
+  if (h1) lines.push(`- <h1>: ${h1}`)
+  if (motoId) lines.push(`- moto_id: ${motoId}  ← UŽIVATEL PROHLÍŽÍ TUTO MOTORKU`)
+  if (slug) lines.push(`- slug: ${slug}`)
+  if (selection) lines.push(`- Označený text: "${selection}"`)
+  if (ctx.extra && typeof ctx.extra === 'object') {
+    try {
+      const raw = JSON.stringify(ctx.extra).slice(0, 1500)
+      if (raw && raw !== '{}') lines.push(`- Extra (z window.MOTOGO_PAGE_CTX): ${raw}`)
+    } catch { /* ignore */ }
+  }
+  lines.push('')
+  lines.push('JAK TO POUŽÍT:')
+  lines.push('- Když user řekne "rezervuj mi tuhle/tuto motorku", "kolik stojí", "je volná na X", "tahle se mi líbí" — bez upřesnění modelu — VŽDYCKY použij moto_id výše. NEPTEJ se "kterou motorku?".')
+  lines.push('- Když user řekne "co tu čtu / vysvětli mi to / jak je to s tímhle" — drž se obsahu této stránky (typ + h1 + označený text) a odpověz konkrétně, ne obecně.')
+  lines.push('- Když je type=blog_detail / faq / jak_pujcit / pujcovna a user se ptá obecně, vycházej z aktuálního obsahu stránky a doplň relevantní fakta z COMPANY_BRAIN/FAQ.')
+  lines.push('- Pokud kontext stránky koliduje s něčím v konverzaci (např. user otevřel jinou motorku), zmiň to a doptej se: "vidím že koukáš na X, mluvíme o tomhle nebo o té předtím?".')
+  lines.push('- Kontext je read-only; když user explicitně řekne "ne tuhle, jinou", přepni se a použij to, co řekl.')
+  return lines.join('\n')
+}
+
+function buildSystemPrompt(lang: string, cfg: WebAgentConfig, pageCtx?: PageContext | null): string {
   // Jazyk je adaptivní — model VŽDY odpovídá ve stejném jazyce, jakým píše uživatel.
   // `lang` je jen hint z prohlížeče (UI jazyk webu) pro úvodní zprávu.
   const langHint = (lang || 'cs').slice(0, 2)
@@ -693,6 +757,10 @@ function buildSystemPrompt(lang: string, cfg: WebAgentConfig): string {
   let parts: string[] = []
   parts.push(`DNES JE ${todayHuman} (ISO ${todayIso}, časová zóna Europe/Prague). Tento údaj je zdroj pravdy o aktuálním datu — vždy ho použij místo vlastních odhadů.`)
   parts.push(`Jsi ${persona}. Pracuješ v půjčovně motorek MotoGo24 (Mezná 9, 393 01 Pelhřimov, Vysočina, ČR).`)
+  // Kontext aktuální stránky vkládáme co nejvýš — má vyšší prioritu než obecný brain,
+  // protože uživatel mluví typicky o tom, na co se právě dívá.
+  const pageCtxStr = formatPageContext(pageCtx)
+  if (pageCtxStr) parts.push(pageCtxStr)
   if (userPrompt) parts.push(userPrompt)
   parts.push(tone)
 
@@ -834,7 +902,12 @@ serve(async (req) => {
       }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
     }
 
-    const systemPrompt = buildSystemPrompt(lang, cfg)
+    // page_context z widgetu — kde uživatel zrovna je (URL, typ stránky, moto_id, ...)
+    const pageCtx = (body.page_context && typeof body.page_context === 'object')
+      ? body.page_context as PageContext
+      : null
+
+    const systemPrompt = buildSystemPrompt(lang, cfg, pageCtx)
     const maxTokens = Math.min(Math.max(Number(cfg.max_tokens) || 800, 256), 4096)
     const { reply, toolUses } = await runClaudeLoop(recent, systemPrompt, maxTokens)
 
