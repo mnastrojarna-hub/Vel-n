@@ -533,6 +533,20 @@ window.MOTOGO_CONFIG.SUPABASE_ANON_KEY = ' . json_encode(SUPABASE_ANON_KEY) . ';
 </script>
 <script src="' . BASE_URL . '/js/ai-widget.js" defer></script>';
     }
+    // CMS admin highlight overlay — JS se načte JEN když je nastavena cookie
+    // `mg_cms_admin=1` (po úspěšném ověření tokenu z Velínu). Běžný návštěvník
+    // overlay nikdy neuvidí. `?cms_highlight=<klíč>` v URL otevře cílový text.
+    if (!empty($_COOKIE['mg_cms_admin'])) {
+        $highlight = isset($_GET['cms_highlight']) ? (string)$_GET['cms_highlight'] : '';
+        $cmsCfg = json_encode([
+            'highlight' => $highlight,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        echo '
+<script>window.MG_CMS_ADMIN = ' . $cmsCfg . ';</script>
+<link rel="stylesheet" href="' . BASE_URL . '/css/cms-admin.css">
+<script src="' . BASE_URL . '/js/cms-admin.js" defer></script>';
+    }
+
     echo '
 </body>
 </html>';

@@ -52,6 +52,54 @@ require_once __DIR__ . '/components.php';
 require_once __DIR__ . '/layout.php';
 require_once __DIR__ . '/ai_traffic.php';
 
+// ---- CMS admin režim (zvýraznění editovatelných textů) ----
+// Velín posílá uživatele na URL s ?cms_admin=<token>. Token se ověří proti
+// app_settings.cms_admin_token; při shodě nastavíme cookie 'mg_cms_admin=1'
+// (30 dní) a redirectneme na URL bez parametru, ať se token neukládá v historii.
+// Cookie je čitelná z JS — nese pouze flag, ne tajné info, takže je bezpečná.
+// Logout: ?cms_admin_logout=1 → smaže cookie.
+(function () {
+    $reqUri = $_SERVER['REQUEST_URI'] ?? '/';
+    $parts = parse_url($reqUri);
+    $reqPath = $parts['path'] ?? '/';
+    $existing = [];
+    if (!empty($parts['query'])) parse_str($parts['query'], $existing);
+
+    $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+
+    if (isset($_GET['cms_admin_logout'])) {
+        if (!headers_sent()) {
+            setcookie('mg_cms_admin', '', [
+                'expires' => time() - 3600,
+                'path' => '/', 'secure' => $secure, 'httponly' => false, 'samesite' => 'Lax',
+            ]);
+        }
+        unset($existing['cms_admin_logout'], $existing['cms_admin'], $existing['cms_highlight']);
+        $qs = !empty($existing) ? ('?' . http_build_query($existing)) : '';
+        if (!headers_sent()) { header('Location: ' . $reqPath . $qs); exit; }
+    }
+
+    if (isset($_GET['cms_admin']) && $_GET['cms_admin'] !== '') {
+        $provided = (string)$_GET['cms_admin'];
+        $sb = new SupabaseClient();
+        $expected = $sb->fetchSetting('cms_admin_token');
+        if (is_string($expected) && $expected !== '' && hash_equals($expected, $provided)) {
+            if (!headers_sent()) {
+                setcookie('mg_cms_admin', '1', [
+                    'expires' => time() + 30 * 24 * 3600,
+                    'path' => '/', 'secure' => $secure, 'httponly' => false, 'samesite' => 'Lax',
+                ]);
+            }
+            $_COOKIE['mg_cms_admin'] = '1';
+        }
+        // Token vždy odstraníme z URL — i při shodě i při neshodě (ať neleakuje).
+        unset($existing['cms_admin']);
+        $qs = !empty($existing) ? ('?' . http_build_query($existing)) : '';
+        if (!headers_sent()) { header('Location: ' . $reqPath . $qs); exit; }
+    }
+})();
+
 // Získání cesty z REQUEST_URI (bez query stringu)
 $requestUri = $_SERVER['REQUEST_URI'] ?? '/';
 $path = parse_url($requestUri, PHP_URL_PATH);
