@@ -43,29 +43,41 @@
   var t = T[LANG] || T.cs;
 
   // ---- DOM ----
+  // Responsive sizing strategy:
+  //   - dvh (dynamic viewport) is used after vh, so when supported it overrides
+  //     and avoids iOS URL-bar / on-screen-keyboard overflow.
+  //   - safe-area-inset-bottom respects the iOS home indicator on notched devices.
+  //   - Height-based media queries catch landscape phones and short laptop windows
+  //     where width-only breakpoints miss; otherwise the panel could exceed the
+  //     viewport (the user-reported "popup bigger than screen" bug).
+  //   - Input font-size:16px prevents iOS Safari auto-zoom on focus.
   var styles = '\
-  #motogo-ai-bubble{position:fixed;right:20px;bottom:20px;z-index:9999;width:64px;height:64px;border-radius:50%;background:#74FB71;color:#0b0b0b;border:none;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.25);font-size:28px;display:flex;align-items:center;justify-content:center;transition:transform .15s ease;font-family:inherit}\
+  #motogo-ai-bubble{position:fixed;right:20px;bottom:20px;bottom:max(20px,env(safe-area-inset-bottom));z-index:9999;width:64px;height:64px;border-radius:50%;background:#74FB71;color:#0b0b0b;border:none;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.25);font-size:28px;display:flex;align-items:center;justify-content:center;transition:transform .15s ease;font-family:inherit}\
   #motogo-ai-bubble:hover{transform:scale(1.06)}\
   #motogo-ai-bubble[aria-expanded=true]{background:#1a2e22;color:#74FB71}\
-  #motogo-ai-panel{position:fixed;right:20px;bottom:96px;z-index:9998;width:380px;max-width:calc(100vw - 40px);height:560px;max-height:calc(100vh - 120px);background:#fff;border-radius:18px;box-shadow:0 12px 40px rgba(0,0,0,.3);display:none;flex-direction:column;overflow:hidden;font-family:Montserrat,system-ui,sans-serif}\
+  #motogo-ai-panel{position:fixed;right:20px;bottom:96px;bottom:calc(96px + env(safe-area-inset-bottom,0px));z-index:9998;width:380px;max-width:calc(100vw - 40px);height:560px;max-height:calc(100vh - 120px);max-height:calc(100dvh - 120px);background:#fff;border-radius:18px;box-shadow:0 12px 40px rgba(0,0,0,.3);display:none;flex-direction:column;overflow:hidden;font-family:Montserrat,system-ui,sans-serif}\
   #motogo-ai-panel.open{display:flex;animation:motogo-pop .2s ease-out}\
   @keyframes motogo-pop{from{opacity:0;transform:translateY(8px) scale(.96)}to{opacity:1;transform:none}}\
-  #motogo-ai-header{padding:14px 16px;background:#1a2e22;color:#74FB71;display:flex;align-items:center;justify-content:space-between;font-weight:700}\
+  #motogo-ai-header{padding:14px 16px;background:#1a2e22;color:#74FB71;display:flex;align-items:center;justify-content:space-between;font-weight:700;flex-shrink:0}\
   #motogo-ai-header button{background:none;border:none;color:#74FB71;cursor:pointer;font-size:18px;padding:4px 8px}\
-  #motogo-ai-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;background:#f8f9fa}\
-  .motogo-ai-msg{padding:10px 14px;border-radius:14px;max-width:85%;line-height:1.45;word-wrap:break-word;font-size:14px}\
+  #motogo-ai-messages{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px;display:flex;flex-direction:column;gap:10px;background:#f8f9fa;min-height:0}\
+  .motogo-ai-msg{padding:10px 14px;border-radius:14px;max-width:85%;line-height:1.45;word-wrap:break-word;overflow-wrap:break-word;font-size:14px}\
   .motogo-ai-msg.user{background:#1a2e22;color:#fff;align-self:flex-end;border-bottom-right-radius:4px}\
   .motogo-ai-msg.assistant{background:#fff;color:#0b0b0b;align-self:flex-start;border:1px solid #e3e8e5;border-bottom-left-radius:4px}\
   .motogo-ai-msg.thinking{background:none;border:none;color:#666;font-style:italic;align-self:flex-start;padding:6px 0}\
-  .motogo-ai-msg a{color:#1a8c1a;text-decoration:underline}\
+  .motogo-ai-msg a{color:#1a8c1a;text-decoration:underline;word-break:break-word}\
   .motogo-ai-tools{font-size:11px;color:#888;margin-top:6px}\
-  #motogo-ai-input-row{padding:10px;background:#fff;border-top:1px solid #e3e8e5;display:flex;gap:8px;align-items:flex-end}\
-  #motogo-ai-input{flex:1;border:1px solid #d4e8e0;border-radius:18px;padding:10px 14px;font-family:inherit;font-size:14px;resize:none;max-height:100px;min-height:40px}\
+  #motogo-ai-input-row{padding:10px;background:#fff;border-top:1px solid #e3e8e5;display:flex;gap:8px;align-items:flex-end;flex-shrink:0}\
+  #motogo-ai-input{flex:1;min-width:0;border:1px solid #d4e8e0;border-radius:18px;padding:10px 14px;font-family:inherit;font-size:16px;resize:none;max-height:100px;min-height:40px}\
   #motogo-ai-input:focus{outline:none;border-color:#74FB71}\
-  #motogo-ai-send{background:#74FB71;color:#0b0b0b;border:none;border-radius:18px;padding:10px 16px;cursor:pointer;font-weight:700;font-family:inherit;font-size:13px}\
+  #motogo-ai-send{background:#74FB71;color:#0b0b0b;border:none;border-radius:18px;padding:10px 16px;cursor:pointer;font-weight:700;font-family:inherit;font-size:13px;flex-shrink:0;min-height:40px}\
   #motogo-ai-send:disabled{opacity:.5;cursor:not-allowed}\
-  #motogo-ai-tos{font-size:10px;color:#888;text-align:center;padding:6px;background:#fff;border-top:1px solid #e3e8e5}\
-  @media (max-width:480px){#motogo-ai-panel{right:10px;bottom:84px;left:10px;width:auto;max-width:none;height:calc(100vh - 100px)}#motogo-ai-bubble{right:14px;bottom:14px}}';
+  #motogo-ai-tos{font-size:10px;color:#888;text-align:center;padding:6px;background:#fff;border-top:1px solid #e3e8e5;flex-shrink:0}\
+  body.motogo-ai-open #Up{display:none!important}\
+  @media (max-width:600px){#motogo-ai-panel{right:10px;left:10px;width:auto;max-width:none;bottom:84px;bottom:calc(84px + env(safe-area-inset-bottom,0px));height:calc(100vh - 100px);height:calc(100dvh - 100px)}#motogo-ai-bubble{right:14px;bottom:14px;bottom:max(14px,env(safe-area-inset-bottom));width:56px;height:56px;font-size:24px}}\
+  @media (max-height:600px){#motogo-ai-panel{height:calc(100vh - 88px);height:calc(100dvh - 88px);bottom:78px}#motogo-ai-bubble{width:52px;height:52px;font-size:22px;bottom:14px}}\
+  @media (max-height:420px){#motogo-ai-panel{height:calc(100vh - 70px);height:calc(100dvh - 70px);bottom:62px}#motogo-ai-bubble{width:46px;height:46px;font-size:20px;bottom:10px}}\
+  @media (orientation:landscape) and (max-height:500px) and (max-width:900px){#motogo-ai-panel{right:8px;left:auto;width:min(380px,calc(100vw - 16px));max-width:calc(100vw - 16px)}}';
 
   function el(tag, attrs, children) {
     var n = document.createElement(tag);
@@ -141,6 +153,7 @@
 
     function open() {
       panel.classList.add('open');
+      document.body.classList.add('motogo-ai-open');
       bubble.setAttribute('aria-expanded', 'true');
       bubble.textContent = '✕';
       bubble.setAttribute('aria-label', t.close);
@@ -153,6 +166,7 @@
 
     function close() {
       panel.classList.remove('open');
+      document.body.classList.remove('motogo-ai-open');
       bubble.setAttribute('aria-expanded', 'false');
       bubble.textContent = '💬';
       bubble.setAttribute('aria-label', t.open);
