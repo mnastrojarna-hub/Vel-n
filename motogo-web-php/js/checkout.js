@@ -207,9 +207,21 @@
     });
   }
 
+  // Počkat, až bude MGCart připravený. cart.js běží také přes `defer`, ale
+  // protože je v layoutu pod obsahem (pozdější DOM order), spouští se až po
+  // checkout.js. Bez tohohle waitu by MGCart.load() vrátil [] a stránka by
+  // hlásila prázdný košík i když je naplněný.
+  function waitForMGCart(cb, attemptsLeft){
+    if (window.MGCart) return cb();
+    if (attemptsLeft <= 0) return cb(); // bezpečný fallback (zobrazí empty)
+    setTimeout(function(){ waitForMGCart(cb, attemptsLeft - 1); }, 50);
+  }
+
+  function bootstrap(){ waitForMGCart(init, 40); /* až 2 s */ }
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', bootstrap);
   } else {
-    init();
+    bootstrap();
   }
 })();
