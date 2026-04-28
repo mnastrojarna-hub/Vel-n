@@ -168,9 +168,11 @@
               'Authorization': 'Bearer ' + window.MOTOGO_CONFIG.SUPABASE_ANON_KEY
             },
             body: JSON.stringify({
-              type: 'web_shop',
+              type:    'shop',
+              kind:    'products',
+              source:  'web',
               order_id: orderId,
-              amount: totalNow,
+              amount:   totalNow,
               currency: 'czk',
               customer_email: email,
               customer_name:  name,
@@ -180,11 +182,12 @@
             })
           });
           var json = await resp.json().catch(function(){ return null; });
-          if (resp.ok && json && json.url) {
+          var checkoutUrl = json && (json.url || json.checkout_url);
+          if (resp.ok && checkoutUrl) {
             // Vyčistit košík až těsně před navigací (kdyby Stripe selhal,
             // uživatel stále vidí svůj košík při návratu).
             window.MGCart.clear();
-            window.location.href = json.url;
+            window.location.href = checkoutUrl;
             return;
           }
           // Fallback — pokud edge fn ještě nepodporuje web_shop produkty,
