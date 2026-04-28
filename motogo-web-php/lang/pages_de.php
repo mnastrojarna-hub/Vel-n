@@ -100,6 +100,14 @@ return [
             'h1' => 'Motorradvermietung Vysočina Motogo24 – ohne Kaution und 24/7',
             'intro' => 'Willkommen bei <strong>Motogo24</strong> – deiner Motorradvermietung in Vysočina. Hier mietest du ein Motorrad <strong>ohne Kaution</strong>, mit Ausrüstung im Preis und im <strong>Rund-um-die-Uhr-Modus</strong>. Egal ob Touren-, Sport-, Enduro- oder Kinder-Motorrad – Motogo24 im Herzen von Vysočina hat das richtige für dich.',
             'signposts_title' => 'Schneller Wegweiser bei Motogo24',
+            'signposts' => [
+                ['icon' => 'gfx/ico-katalog.svg', 'title' => 'Motorradkatalog', 'text' => 'Sieh dir unser Angebot an Mietmotorrädern an – von Sport- bis Tourenmodellen.', 'btn' => 'MOTORRADKATALOG', 'href' => '/katalog'],
+                ['icon' => 'gfx/ico-jak.svg', 'title' => 'Wie miete ich ein Motorrad', 'text' => 'Einfacher Ablauf: Motorrad auswählen, reservieren und losfahren.', 'btn' => 'WIE MIETE ICH', 'href' => '/jak-pujcit'],
+                ['icon' => 'gfx/ico-rezervace.svg', 'title' => 'Online-Reservierung', 'text' => 'Reserviere ein Motorrad über unser einfaches Online-System.', 'btn' => 'MOTORRAD RESERVIEREN', 'href' => '/rezervace'],
+                ['icon' => 'gfx/ico-kontakt.svg', 'title' => 'Kontakt und Karte', 'text' => 'Besuche unsere Motorradvermietung in Pelhřimov oder kontaktiere uns.', 'btn' => 'KONTAKT', 'href' => '/kontakt'],
+                ['icon' => 'gfx/ico-faq.svg', 'title' => 'Häufige Fragen', 'text' => 'Die häufigsten Fragen zur Motorradmiete übersichtlich an einem Ort.', 'btn' => 'FAQ', 'href' => '/jak-pujcit/faq'],
+                ['icon' => 'gfx/ico-trasy.svg', 'title' => 'Motorradtouren', 'text' => 'Entdecke die besten Motorradrouten in Tschechien – für Touristen und Einheimische.', 'btn' => 'MOTORRADROUTEN', 'href' => '/blog'],
+            ],
             'motos_section' => [
                 'title' => 'Unsere Motorräder zur Miete in Vysočina',
                 'intro' => 'Schau dir unser Angebot an Touren-, Sport- und Enduro-Motorrädern unserer Vermietung in Vysočina an.',
@@ -108,8 +116,25 @@ return [
                 'cta_href' => '/katalog',
                 'limit' => 4,
             ],
-            'process' => ['title' => 'Wie die Motorradvermietung in Vysočina abläuft'],
-            'faq' => ['title' => 'Häufig gestellte Fragen', 'more_link' => '/jak-pujcit/faq'],
+            'process' => [
+                'title' => 'Wie die Motorradvermietung in Vysočina abläuft',
+                'steps' => [
+                    ['icon' => 'gfx/ico-step1.svg', 'title' => '1. Auswählen', 'text' => 'Wähle dein ideales Motorrad aus unserem Mietangebot.'],
+                    ['icon' => 'gfx/ico-step2.svg', 'title' => '2. Reservieren', 'text' => 'Reserviere dein Motorrad über unser einfaches Online-System.'],
+                    ['icon' => 'gfx/ico-step3.svg', 'title' => '3. Übernahme', 'text' => 'Übernimm das Motorrad in unserer Vermietung in Pelhřimov.'],
+                    ['icon' => 'gfx/ico-step4.svg', 'title' => '4. Genieße die Fahrt', 'text' => 'Genieße die Freiheit und entdecke Tschechien auf dem Mietmotorrad.'],
+                ],
+            ],
+            'faq' => [
+                'title' => 'Häufig gestellte Fragen',
+                'more_link' => '/jak-pujcit/faq',
+                'items' => [
+                    ['q' => 'Wie kann ich ein Motorrad reservieren?', 'a' => 'Du kannst ein Motorrad direkt hier auf der Website über unser Online-Reservierungssystem buchen. Alternativ erreichst du uns per E-Mail, Telefon oder über soziale Netzwerke.'],
+                    ['q' => 'Kann ich ein Motorrad ohne vorherige Reservierung mieten?', 'a' => 'Leider nein. Jedes Motorrad muss vorab reserviert werden – online, telefonisch, per E-Mail oder über soziale Netzwerke.'],
+                    ['q' => 'Muss ich eine Kaution hinterlegen?', 'a' => 'Nein! Bei uns musst du <strong>keine Kaution zahlen</strong>. Damit unterscheidet sich unsere Vermietung grundlegend von den meisten Mitbewerbern.'],
+                    ['q' => 'Darf ich mit dem Motorrad ins Ausland fahren?', 'a' => 'Ja, mit dem Motorrad kannst du problemlos ins Ausland fahren. Reisen außerhalb Tschechiens sind nicht eingeschränkt – du musst nur die territoriale Gültigkeit der Versicherung (grüne Karte) beachten.'],
+                ],
+            ],
             'cta' => [
                 'title' => 'Reserviere dein Motorrad online',
                 'text' => 'Unsere <strong>Motorradvermietung Vysočina</strong> ist <strong>rund um die Uhr</strong> geöffnet. Ein paar Klicks und deine Fahrt beginnt.',
@@ -150,9 +175,38 @@ return [
                     ['label' => 'Motorräder zur Miete ansehen', 'href' => '/katalog', 'cls' => 'btngreen'],
                     ['label' => 'RESERVIEREN', 'href' => '/rezervace', 'cls' => 'btngreen pulse'],
                 ],
+                'items' => [
+                    ['icon' => 'gfx/ico-bez-kauce.svg', 'title' => 'Ohne Kaution', 'text' => 'und ohne versteckte Gebühren'],
+                    ['icon' => 'gfx/ico-online-rez.svg', 'title' => 'Online-Reservierung', 'text' => 'mit wenigen Klicks'],
+                    ['icon' => 'gfx/ico-vybava.svg', 'title' => 'Fahrerausrüstung im Preis', 'text' => 'Helm, Jacke, Hose und Handschuhe'],
+                    ['icon' => 'gfx/ico-nonstop.svg', 'title' => 'Rund um die Uhr', 'text' => 'für Übernahme und Rückgabe gemäß Reservierung'],
+                    ['icon' => 'gfx/ico-spolecne.svg', 'title' => 'Wir sind für dich da', 'text' => 'wenn etwas passiert'],
+                    ['icon' => 'gfx/ico-pristaveni.svg', 'title' => 'Lieferung und Abholung', 'text' => 'an einen vereinbarten Ort'],
+                ],
             ],
-            'process' => ['title' => 'Wie die Vermietung in Vysočina abläuft'],
-            'faq' => ['title' => 'Häufig gestellte Fragen', 'more_link' => '/jak-pujcit/faq'],
+            'process' => [
+                'title' => 'Wie die Vermietung in Vysočina abläuft',
+                'steps' => [
+                    ['icon' => 'gfx/ico-step1.svg', 'title' => '1. Motorrad auswählen', 'text' => 'Sieh dir unser Angebot an und wähle den Typ, der zu dir, deiner Erfahrung und deiner Fahrerlaubnis passt.'],
+                    ['icon' => 'gfx/ico-step3.svg', 'title' => '2. Online reservieren', 'text' => 'Reserviere nach Datum oder nach einem konkreten Motorrad, das du mieten möchtest.'],
+                    ['icon' => 'gfx/ico-step4.svg', 'title' => '3. Ausrüstung wählen', 'text' => 'Fahrerausrüstung ist im Preis enthalten, Sozius-Ausrüstung gegen Aufpreis. Die Größe wählst du vor Ort.'],
+                    ['icon' => 'gfx/ico-step5.svg', 'title' => '4. Bezahlen', 'text' => 'Zahle einfach online über das Zahlungsportal.'],
+                    ['icon' => 'gfx/ico-step6.svg', 'title' => '5. Motorrad übernehmen', 'text' => 'Übernimm das Motorrad direkt in der Vermietung oder am bei der Reservierung gewählten Ort.'],
+                    ['icon' => 'gfx/ico-step7.svg', 'title' => '6. Genieße die Fahrt', 'text' => 'Mach dich auf den Weg, sammle neue Erlebnisse und genieße die volle Freiheit auf zwei Rädern.'],
+                    ['icon' => 'gfx/ico-step8.svg', 'title' => '7. Motorrad zurückgeben', 'text' => 'Gib das Motorrad einfach am vereinbarten Tag zurück – in der Vermietung oder an einem vereinbarten Ort.'],
+                    ['icon' => 'gfx/ico-sleva.svg', 'title' => 'Rabatt für die nächste Fahrt', 'text' => 'Nach der Rückgabe des Motorrads schicken wir dir automatisch einen Rabattcode über 200 Kč für die nächste Reservierung.'],
+                ],
+            ],
+            'faq' => [
+                'title' => 'Häufig gestellte Fragen',
+                'more_link' => '/jak-pujcit/faq',
+                'items' => [
+                    ['q' => 'Wie kann ich ein Motorrad reservieren?', 'a' => 'Du kannst ein Motorrad über unser Online-Reservierungssystem direkt hier auf der Website buchen. Alternativ kontaktiere uns per E-Mail, Telefon oder über soziale Netzwerke.'],
+                    ['q' => 'Kann ich ein Motorrad ohne Reservierung mieten?', 'a' => 'Leider nicht. Jedes Motorrad muss vorab reserviert werden.'],
+                    ['q' => 'Muss ich eine Kaution hinterlegen?', 'a' => 'Nein! Bei uns musst du <strong>keine Kaution zahlen</strong>. Darin unterscheidet sich unsere Vermietung grundlegend von den meisten Mitbewerbern.'],
+                    ['q' => 'Darf ich mit dem Motorrad ins Ausland fahren?', 'a' => 'Ja, mit dem Motorrad kannst du problemlos ins Ausland reisen. Reisen außerhalb Tschechiens sind nicht eingeschränkt; du musst nur die territoriale Gültigkeit deiner Versicherung (grüne Karte) beachten.'],
+                ],
+            ],
             'cta' => [
                 'title' => 'Reserviere dein Motorrad online',
                 'text' => 'Unsere <strong>Motorradvermietung Vysočina</strong> ist <strong>rund um die Uhr</strong> geöffnet.',
