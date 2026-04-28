@@ -1,5 +1,5 @@
 # SUPABASE BACKEND STATE — MotoGo24 (Část 1: Tabulky)
-> **Poslední aktualizace:** 2026-04-14 (door codes release + regen + FCM push)
+> **Poslední aktualizace:** 2026-04-28 (create_web_booking p_existing_booking_id — fix překryv s vlastní pending rezervací)
 > **Zdroj:** Reálný stav Supabase databáze (SQL dump z dashboardu) + Edge Functions
 > **Projekt:** `vnwnqteskbykeucanlhk.supabase.co`
 > **POZOR:** Tento soubor MUSÍ být aktualizován při každé SQL změně!
