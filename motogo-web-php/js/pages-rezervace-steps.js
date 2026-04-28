@@ -286,7 +286,9 @@ MG._rezLoadProducts = async function(){
   return MG._rezProductsCache;
 };
 
-MG._rezShopItems = MG._rezShopItems || []; // [{product_id, name, unit_price, qty, size, image}]
+MG._rezShopItems = MG._rezShopItems || []; // [{product_id, name, unit_price, qty, size, image, stock}]
+
+MG._rezCartKey = function(productId, size){ return productId + '|' + (size||''); };
 
 MG._rezShopTotal = function(){
   var t = 0;
@@ -303,25 +305,44 @@ MG._rezProductsHtml = function(){
     var img = MG.imgUrl((p.images && p.images[0]) || p.image_url || '');
     var price = MG.formatPrice(p.price||0);
     var sizes = Array.isArray(p.sizes) ? p.sizes : [];
-    var inCart = (MG._rezShopItems||[]).find(function(it){ return it.product_id===p.id; });
-    var picked = inCart ? inCart.size : null;
+    // Souhrn co už má v košíku z tohoto produktu (přes všechny velikosti)
+    var inCartQty = (MG._rezShopItems||[]).filter(function(it){ return it.product_id===p.id; })
+      .reduce(function(a,it){ return a+(it.qty||1); }, 0);
+    var stock = (typeof p.stock_quantity==='number' && p.stock_quantity>=0) ? p.stock_quantity : 99;
     var sizeChips = sizes.length ?
       ('<div class="rez-prod-sizes">'+sizes.map(function(s){
-        return '<button type="button" class="rez-prod-size'+(picked===s?' active':'')+'" data-size="'+s+'">'+s+'</button>';
+        return '<button type="button" class="rez-prod-size" data-size="'+s+'">'+s+'</button>';
       }).join('')+'</div>') : '';
-    var btnLabel = inCart ? '&#10003; Přidáno' : '+ Přidat';
-    var btnCls = inCart ? 'rez-prod-add added' : 'rez-prod-add';
-    return '<div class="rez-prod-card" data-id="'+p.id+'" data-price="'+(p.price||0)+'" data-name="'+(p.name||'').replace(/"/g,'&quot;')+'" data-image="'+img+'" data-has-sizes="'+(sizes.length?'1':'0')+'">'+
+    var qtyStep =
+      '<div class="rez-prod-qty">'+
+        '<span class="rez-prod-qty-label">Počet</span>'+
+        '<div class="rez-prod-qty-step">'+
+          '<button type="button" class="rez-prod-qty-btn rez-prod-qty-minus" aria-label="Méně">&minus;</button>'+
+          '<span class="rez-prod-qty-val">1</span>'+
+          '<button type="button" class="rez-prod-qty-btn rez-prod-qty-plus" aria-label="Více">+</button>'+
+        '</div>'+
+      '</div>';
+    var inCartBadge = inCartQty>0 ? ('<div class="rez-prod-incart">&#10003; v košíku: '+inCartQty+' ks</div>') : '';
+    return '<div class="rez-prod-card" data-id="'+p.id+'" data-price="'+(p.price||0)+'" data-name="'+(p.name||'').replace(/"/g,'&quot;')+'" data-image="'+img+'" data-has-sizes="'+(sizes.length?'1':'0')+'" data-stock="'+stock+'">'+
       '<div class="rez-prod-thumb">'+(img?('<img src="'+img+'" alt="'+(p.name||'')+'" loading="lazy">'):'<span class="rez-prod-thumb-ph">&#128717;</span>')+'</div>'+
       '<div class="rez-prod-body">'+
         '<div class="rez-prod-name">'+(p.name||'')+'</div>'+
         '<div class="rez-prod-price">'+price+'</div>'+
         sizeChips+
-        '<button type="button" class="'+btnCls+'">'+btnLabel+'</button>'+
+        qtyStep+
+        inCartBadge+
+        '<button type="button" class="rez-prod-add">+ Přidat</button>'+
       '</div>'+
     '</div>';
   }).join('');
   return '<div class="rez-prod-grid">'+cards+'</div>';
+};
+
+MG._rezResetProductCard = function(card){
+  card.querySelectorAll('.rez-prod-size').forEach(function(x){ x.classList.remove('active'); });
+  var qv = card.querySelector('.rez-prod-qty-val'); if(qv) qv.textContent = '1';
+  // Update disabled stav − tlačítka
+  var minus = card.querySelector('.rez-prod-qty-minus'); if(minus) minus.disabled = true;
 };
 
 MG._rezInitProducts = function(){
@@ -329,45 +350,119 @@ MG._rezInitProducts = function(){
   grid.querySelectorAll('.rez-prod-card').forEach(function(card){
     var sizeBtns = card.querySelectorAll('.rez-prod-size');
     var addBtn = card.querySelector('.rez-prod-add');
+    var minus = card.querySelector('.rez-prod-qty-minus');
+    var plus = card.querySelector('.rez-prod-qty-plus');
+    var qv = card.querySelector('.rez-prod-qty-val');
+    var stock = parseInt(card.dataset.stock,10) || 99;
+
+    // Initial disabled state of − button
+    if(minus) minus.disabled = true;
+
     sizeBtns.forEach(function(b){
       b.addEventListener('click', function(){
         sizeBtns.forEach(function(x){ x.classList.remove('active'); });
         b.classList.add('active');
       });
     });
+
+    if(minus){
+      minus.addEventListener('click', function(){
+        var n = parseInt(qv.textContent,10) || 1;
+        if(n>1){ n--; qv.textContent = String(n); }
+        minus.disabled = (n<=1);
+        plus.disabled = false;
+      });
+    }
+    if(plus){
+      plus.addEventListener('click', function(){
+        var n = parseInt(qv.textContent,10) || 1;
+        if(n<stock){ n++; qv.textContent = String(n); }
+        plus.disabled = (n>=stock);
+        minus.disabled = (n<=1);
+      });
+    }
+
     if(addBtn){
       addBtn.addEventListener('click', function(){
         var pid = card.dataset.id;
         var hasSizes = card.dataset.hasSizes==='1';
-        var existing = MG._rezShopItems.find(function(it){ return it.product_id===pid; });
+        var qty = Math.max(1, parseInt(qv.textContent,10) || 1);
+        var size = null;
+        if(hasSizes){
+          var sel = card.querySelector('.rez-prod-size.active');
+          if(!sel){ alert('Nejdřív vyberte velikost.'); return; }
+          size = sel.dataset.size;
+        }
+        // Sloučit s existujícím řádkem (stejný product_id + size) — kupujeme víc kusů
+        var key = MG._rezCartKey(pid, size);
+        var existing = MG._rezShopItems.find(function(it){ return MG._rezCartKey(it.product_id, it.size)===key; });
         if(existing){
-          MG._rezShopItems = MG._rezShopItems.filter(function(it){ return it.product_id!==pid; });
+          existing.qty = Math.min(stock, (existing.qty||1) + qty);
         } else {
-          var size = null;
-          if(hasSizes){
-            var sel = card.querySelector('.rez-prod-size.active');
-            if(!sel){ alert('Nejdřív vyberte velikost.'); return; }
-            size = sel.dataset.size;
-          }
           MG._rezShopItems.push({
             product_id: pid,
             name: card.dataset.name,
             unit_price: parseFloat(card.dataset.price)||0,
-            qty: 1, size: size,
-            image: card.dataset.image
+            qty: qty, size: size,
+            image: card.dataset.image,
+            stock: stock
           });
         }
-        MG._rezRefreshShopUi();
+        // Vizuální feedback + reset karty pro přidání další velikosti / kusu
+        addBtn.classList.add('flash');
+        setTimeout(function(){ addBtn.classList.remove('flash'); }, 600);
+        MG._rezResetProductCard(card);
+        MG._rezRefreshShopUi(true); // skip rebuild produkty (uživatel právě klikl, ať mu karty neskáčou)
       });
     }
   });
 };
 
-MG._rezRefreshShopUi = function(){
-  // Rebuild product cards (active state) + invoice rows
-  var sec = document.getElementById('rez-shop-products');
-  if(sec){ sec.innerHTML = MG._rezProductsHtml(); MG._rezInitProducts(); }
+MG._rezRefreshShopUi = function(skipProductsRebuild){
+  // Rebuild product cards (incart badge update) + invoice rows
+  if(!skipProductsRebuild){
+    var sec = document.getElementById('rez-shop-products');
+    if(sec){ sec.innerHTML = MG._rezProductsHtml(); MG._rezInitProducts(); }
+  } else {
+    // Jen aktualizovat „v košíku: X ks" badge u produktů, beze rebuildu
+    var grid = document.querySelector('.rez-prod-grid');
+    if(grid){
+      grid.querySelectorAll('.rez-prod-card').forEach(function(card){
+        var pid = card.dataset.id;
+        var inCartQty = (MG._rezShopItems||[]).filter(function(it){ return it.product_id===pid; })
+          .reduce(function(a,it){ return a+(it.qty||1); }, 0);
+        var body = card.querySelector('.rez-prod-body');
+        var badge = card.querySelector('.rez-prod-incart');
+        if(inCartQty>0){
+          if(!badge){
+            badge = document.createElement('div');
+            badge.className = 'rez-prod-incart';
+            // Vlož před tlačítko Přidat
+            var addBtn2 = card.querySelector('.rez-prod-add');
+            body.insertBefore(badge, addBtn2);
+          }
+          badge.innerHTML = '&#10003; v košíku: '+inCartQty+' ks';
+        } else if(badge){ badge.remove(); }
+      });
+    }
+  }
   MG._rezRefreshInvoice();
+};
+
+// ===== Akce v invoice řádcích doprodeje =====
+MG._rezShopItemAdjust = function(key, delta){
+  var idx = MG._rezShopItems.findIndex(function(it){ return MG._rezCartKey(it.product_id, it.size)===key; });
+  if(idx<0) return;
+  var it = MG._rezShopItems[idx];
+  var stock = it.stock || 99;
+  var n = (it.qty||1) + delta;
+  if(n<=0){ MG._rezShopItems.splice(idx,1); }
+  else { it.qty = Math.min(stock, Math.max(1, n)); }
+  MG._rezRefreshShopUi();
+};
+MG._rezShopItemRemove = function(key){
+  MG._rezShopItems = MG._rezShopItems.filter(function(it){ return MG._rezCartKey(it.product_id, it.size)!==key; });
+  MG._rezRefreshShopUi();
 };
 
 MG._rezRefreshInvoice = function(){
@@ -394,12 +489,28 @@ MG._rezRefreshInvoice = function(){
       rows+='<tr class="rez-invoice-row-discount"><td><span class="rez-inv-ico">&#127873;</span>Sleva ('+cl+')</td>'+
       '<td>−'+MG.formatPrice(disc)+'</td></tr>';}
   }
-  // Shop items
+  // Shop items s ovládáním (− 1 + × )
   var shop = MG._rezShopItems||[];
   shop.forEach(function(it){
     var sLbl = it.size ? ' ('+it.size+')' : '';
-    rows += '<tr class="rez-invoice-row-shop"><td><span class="rez-inv-ico">&#128717;</span>'+it.name+sLbl+(it.qty>1?(' × '+it.qty):'')+'</td>'+
-      '<td>'+MG.formatPrice((it.unit_price||0)*(it.qty||1))+'</td></tr>';
+    var key = MG._rezCartKey(it.product_id, it.size);
+    var stock = it.stock || 99;
+    var qty = it.qty||1;
+    var minusDis = qty<=1 ? '' : '';
+    var plusDis = qty>=stock ? ' disabled' : '';
+    rows += '<tr class="rez-invoice-row-shop"><td>'+
+      '<div class="rez-inv-shop-cell">'+
+        '<span class="rez-inv-ico">&#128717;</span>'+
+        '<span class="rez-inv-shop-name">'+it.name+sLbl+'</span>'+
+        '<span class="rez-inv-qty">'+
+          '<button type="button" class="rez-inv-qty-btn" onclick="MG._rezShopItemAdjust(\''+key+'\',-1)" aria-label="Méně">&minus;</button>'+
+          '<span class="rez-inv-qty-val">'+qty+'</span>'+
+          '<button type="button" class="rez-inv-qty-btn" onclick="MG._rezShopItemAdjust(\''+key+'\',1)" aria-label="Více"'+plusDis+'>+</button>'+
+        '</span>'+
+        '<button type="button" class="rez-inv-remove" onclick="MG._rezShopItemRemove(\''+key+'\')" aria-label="Odstranit">&times;</button>'+
+      '</div>'+
+      '</td>'+
+      '<td>'+MG.formatPrice((it.unit_price||0)*qty)+'</td></tr>';
   });
   var shopTotal = MG._rezShopTotal();
   var grandTotal = bookingTotal + shopTotal;
@@ -562,17 +673,17 @@ MG._rezShowStep2 = function(){
       qrSectionMarkup+
     '</section>'+
 
-    // Section 3.5 — Doprodej (e-shop produkty) — jen pokud nejsme v resume režimu
+    // Section 4 — Doprodej (e-shop produkty) — jen pokud nejsme v resume režimu
     (MG._rez._isResume?'':
       '<section class="rez-section">'+
-        '<div class="rez-section-head"><span class="rez-step-num">&#128717;</span><h2>Doplňky na cestu</h2></div>'+
+        '<div class="rez-section-head"><span class="rez-step-num">'+(isMob?'3':'4')+'</span><h2>Doplňky na cestu</h2></div>'+
         '<p class="rez-section-sub">Přidejte si k pronájmu výbavu nebo doplňky. <strong>Vyzvednete s motorkou</strong>, doprava 0 Kč. Faktura za doplňky přijde samostatně.</p>'+
         '<div id="rez-shop-products"><div class="rez-prod-loading"><span class="spinner"></span> Načítám doplňky…</div></div>'+
       '</section>')+
 
-    // Section 4 — Náhled zálohové faktury
+    // Section 5 — Náhled zálohové faktury
     '<section class="rez-section">'+
-      '<div class="rez-section-head"><span class="rez-step-num">'+(isMob?'3':'4')+'</span><h2>Náhled zálohové faktury</h2></div>'+
+      '<div class="rez-section-head"><span class="rez-step-num">'+(MG._rez._isResume?(isMob?'3':'4'):(isMob?'4':'5'))+'</span><h2>Náhled zálohové faktury</h2></div>'+
       '<div class="rez-invoice-card" id="rez-invoice-box"></div>'+
       '<div class="rez-invoice-meta">'+
         '<div class="rez-meta-row"><span class="rez-meta-ico">&#128100;</span>'+
