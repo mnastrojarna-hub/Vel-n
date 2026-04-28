@@ -34,17 +34,20 @@ $bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['labe
 
 // Gallery
 $galleryHtml = '';
+$openLabel = htmlspecialchars(t('gallery.openImage'), ENT_QUOTES, 'UTF-8');
 if (!empty($post['images']) && count($post['images']) > 0) {
     $galleryHtml = '<section><div class="gallery-blog">';
+    $idx = 0;
     foreach ($post['images'] as $img) {
         $galleryHtml .= '<div class="col-lg-3 col-md-4 col-sm-6">' .
-            '<a href="' . htmlspecialchars($img) . '" target="_blank"><div class="gallery-background"><div class="gallery-box">' .
+            '<a href="' . htmlspecialchars($img) . '" data-gallery="blog" data-index="' . $idx . '" aria-label="' . $openLabel . '"><div class="gallery-background"><div class="gallery-box">' .
             '<img src="' . htmlspecialchars($img) . '" alt="' . $title . '" loading="lazy"></div></div></a></div>';
+        $idx++;
     }
     $galleryHtml .= '</div></section>';
 } elseif (!empty($post['image_url'])) {
     $galleryHtml = '<section><div class="gallery-blog">' .
-        '<div class="col-lg-3 col-md-4 col-sm-6"><a href="' . htmlspecialchars($post['image_url']) . '" target="_blank"><div class="gallery-background"><div class="gallery-box">' .
+        '<div class="col-lg-3 col-md-4 col-sm-6"><a href="' . htmlspecialchars($post['image_url']) . '" data-gallery="blog" data-index="0" aria-label="' . $openLabel . '"><div class="gallery-background"><div class="gallery-box">' .
         '<img src="' . htmlspecialchars($post['image_url']) . '" alt="' . $title . '" loading="lazy"></div></div></a></div></div></section>';
 }
 

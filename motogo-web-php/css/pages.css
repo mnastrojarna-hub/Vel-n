@@ -234,6 +234,10 @@
 .moto-gallery .gallery-img{border-radius:8px;overflow:hidden}
 .moto-gallery .gallery-img img{width:100%;height:auto;cursor:pointer;transition:opacity .2s}
 .moto-gallery .gallery-img img:hover{opacity:.85}
+/* Thumby — grid s libovolným počtem fotek; auto-fill aby nepřetékaly. */
+.moto-gallery .moto-thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:.5rem}
+.moto-gallery .moto-thumbs .gallery-img img{height:100px;object-fit:cover}
+/* Zpětná kompatibilita pro starší .gr3 použití uvnitř moto-gallery */
 .moto-gallery .gr3{gap:.5rem}
 .moto-gallery .gr3 .gallery-img img{height:100px;object-fit:cover}
 
@@ -244,8 +248,11 @@
   .moto-gallery .moto-photo{margin-bottom:.5rem}
   .moto-gallery .moto-photo .gallery-img img{aspect-ratio:4/3;object-fit:cover;width:100%;height:auto;max-height:60vh}
   /* Galerie thumbs — horizontal scroll snap */
+  .moto-gallery .moto-thumbs,
   .moto-gallery .gr3{display:flex;flex-wrap:nowrap;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;gap:.5rem;padding-bottom:.5rem;scrollbar-width:thin}
+  .moto-gallery .moto-thumbs>div,
   .moto-gallery .gr3>div{flex:0 0 calc(33.333% - .35rem);min-width:0;scroll-snap-align:start}
+  .moto-gallery .moto-thumbs .gallery-img img,
   .moto-gallery .gr3 .gallery-img img{height:90px}
   /* Specs/popis sloupce — jeden pod druhým */
   .moto-detail section.gr2,
@@ -257,7 +264,9 @@
   .moto-detail-header>div:last-child{position:sticky;bottom:0;z-index:30}
 }
 @media(max-width:480px){
+  .moto-gallery .moto-thumbs>div,
   .moto-gallery .gr3>div{flex:0 0 calc(50% - .25rem)}
+  .moto-gallery .moto-thumbs .gallery-img img,
   .moto-gallery .gr3 .gallery-img img{height:110px}
 }
 
