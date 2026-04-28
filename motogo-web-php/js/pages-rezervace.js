@@ -144,17 +144,23 @@ MG._rezFormHtml = function(){
         '</label>' +
       '</div>' +
 
-      // Return panel
+      // Return panel (address only)
       '<div id="rez-return-panel" class="rez-addr-panel" style="display:none">' +
         '<div class="rez-addr-row">' +
           '<input type="text" id="rez-return-address" placeholder="Zadejte adresu vrácení">' +
           '<button type="button" class="rez-map-btn" onclick="MG._openWebMapPicker(\'return\')">&#128205; Mapa</button>' +
         '</div>' +
         '<div id="rez-return-route-info" class="rez-route-info" style="display:none"></div>' +
-        '<div class="rez-time-card rez-time-card-mini" style="margin-top:.6rem">' +
+      '</div>' +
+
+      // Return time — shown vždy, když motorku nevracíme do půjčovny
+      // (přistavení + stejná adresa, NEBO vrácení jinde)
+      '<div id="rez-return-time-wrap" style="display:none;margin-top:.6rem">' +
+        '<div class="rez-time-card rez-time-card-mini">' +
           '<div class="rez-time-card-head"><span class="rez-time-ico">&#128340;</span>' +
-          '<div><div class="rez-time-title">Čas vrácení</div></div>' +
-          '<input type="time" id="rez-return-time" value="19:00"></div>' +
+          '<div><div class="rez-time-title">Čas vrácení motorky</div>' +
+          '<div class="rez-time-sub">V kolik hodin vrátíte motorku na uvedené adrese?</div></div>' +
+          '<input type="time" id="rez-return-time" required value="19:00"></div>' +
         '</div>' +
       '</div>' +
     '</section>' +
@@ -241,6 +247,17 @@ MG._rezFormHtml = function(){
     '</div>';
 };
 
+// Show/hide "Čas vrácení" input — visible whenever the bike is returned offsite
+// (delivery + same-as-delivery, NEBO return-other).
+MG._rezUpdateReturnTimeVisibility = function(){
+  var del = document.getElementById('rez-delivery');
+  var retO = document.getElementById('rez-return-other');
+  var retSame = document.getElementById('rez-return-same-as-delivery');
+  var show = (retO && retO.checked) || (del && del.checked && retSame && retSame.checked);
+  var w = document.getElementById('rez-return-time-wrap');
+  if(w) w.style.display = show ? 'block' : 'none';
+};
+
 // ===== INIT FORM EVENTS (called once) =====
 MG._rezInitFormEvents = function(){
   // Delivery toggle
@@ -253,6 +270,7 @@ MG._rezInitFormEvents = function(){
       var cb = document.getElementById('rez-eq-rider-gear');
       if(this.checked && cb && !cb.checked){ cb.checked = true; card.classList.add('open'); }
     }
+    MG._rezUpdateReturnTimeVisibility();
     MG._rezUpdatePrice();
   });
   // Return-other toggle
@@ -262,6 +280,7 @@ MG._rezInitFormEvents = function(){
     if(p) p.style.display=this.checked?'block':'none';
     var rSame = document.getElementById('rez-return-same-as-delivery');
     if(rSame && this.checked) rSame.checked=false;
+    MG._rezUpdateReturnTimeVisibility();
     MG._rezUpdatePrice();
   });
   var rSame = document.getElementById('rez-return-same-as-delivery');
@@ -274,6 +293,7 @@ MG._rezInitFormEvents = function(){
         MG._rez.returnDistanceKm = MG._rez.deliveryDistanceKm;
       }
     }
+    MG._rezUpdateReturnTimeVisibility();
     MG._rezUpdatePrice();
   });
   // Own gear toggle — když má vlastní, schovej rider size panel
@@ -344,6 +364,9 @@ MG._rezInitFormEvents = function(){
 
   // Size chips
   MG._initSizeChipEvents();
+
+  // Initial state for return-time visibility (delivery is unchecked by default)
+  MG._rezUpdateReturnTimeVisibility();
 };
 
 // ===== INIT PAGE (called from PHP inline script) =====
