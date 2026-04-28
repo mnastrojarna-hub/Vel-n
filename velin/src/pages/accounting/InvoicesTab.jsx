@@ -9,6 +9,8 @@ import StatusBadge from '../../components/ui/StatusBadge'
 import Modal from '../../components/ui/Modal'
 import SearchInput from '../../components/ui/SearchInput'
 import Pagination from '../../components/ui/Pagination'
+import BulkActionsBar, { SelectAllCheckbox, RowCheckbox } from '../../components/ui/BulkActionsBar'
+import { exportToCsv, bulkUpdate, bulkDelete } from '../../lib/bulkActions'
 
 const PER_PAGE = 25
 
@@ -52,6 +54,7 @@ export default function InvoicesTab() {
   useEffect(() => { localStorage.setItem('velin_acc_invoices_filters', JSON.stringify(filters)) }, [filters])
   const [showAdd, setShowAdd] = useState(false)
   const [detailInv, setDetailInv] = useState(null)
+  const [selectedIds, setSelectedIds] = useState(new Set())
 
   useEffect(() => { load() }, [page, filters])
 
@@ -135,6 +138,27 @@ export default function InvoicesTab() {
   const totalPages = Math.ceil(total / PER_PAGE)
   const fmt = (n) => (n || 0).toLocaleString('cs-CZ') + ' Kč'
 
+  const ids = [...selectedIds]
+  const bulkActions = [
+    { label: 'Označit zaplaceno', icon: '💰', onClick: async () => { await bulkUpdate('invoices', ids, { status: 'paid' }, 'invoices_bulk_paid'); setSelectedIds(new Set()); load() } },
+    { label: 'Označit vystavené', icon: '📤', onClick: async () => { await bulkUpdate('invoices', ids, { status: 'issued' }, 'invoices_bulk_issued'); setSelectedIds(new Set()); load() } },
+    { label: 'Stornovat', icon: '✗', onClick: async () => { await bulkUpdate('invoices', ids, { status: 'cancelled' }, 'invoices_bulk_cancelled'); setSelectedIds(new Set()); load() }, confirm: 'Stornovat {count} faktur?' },
+    { label: 'Hromadný PDF (tisk)', icon: '🖨', onClick: async () => {
+      for (const inv of invoices.filter(i => selectedIds.has(i.id))) await generatePdf(inv.id)
+    } },
+    { label: 'Odeslat e-mailem', icon: '✉', confirm: 'Odeslat {count} faktur e-mailem?', onClick: async () => {
+      for (const inv of invoices.filter(i => selectedIds.has(i.id))) await sendEmail(inv.id)
+    } },
+    { label: 'Export CSV', icon: '⬇', onClick: () => exportToCsv('invoices', [
+      { key: 'number', label: 'Číslo' }, { key: 'type', label: 'Typ' },
+      { key: 'profiles', label: 'Zákazník', format: (_, r) => r.profiles?.full_name || '' },
+      { key: 'total', label: 'Celkem' }, { key: 'tax_amount', label: 'DPH' },
+      { key: 'issue_date', label: 'Vystavení' }, { key: 'due_date', label: 'Splatnost' },
+      { key: 'status', label: 'Stav' },
+    ], invoices.filter(i => selectedIds.has(i.id))) },
+    { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} faktur? Tato akce je nevratná.', onClick: async () => { await bulkDelete('invoices', ids, 'invoices_bulk_deleted'); setSelectedIds(new Set()); load() } },
+  ]
+
   return (
     <div>
       <div className="flex flex-wrap items-center gap-3 mb-4">
@@ -176,9 +200,11 @@ export default function InvoicesTab() {
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
+          <BulkActionsBar count={selectedIds.size} onClear={() => setSelectedIds(new Set())} actions={bulkActions} />
           <Table>
             <thead>
               <TRow header>
+                <TH><SelectAllCheckbox items={invoices} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
                 <TH>Číslo</TH><TH>Typ</TH><TH>Zákazník</TH><TH>Částka</TH><TH>DPH</TH>
                 <TH>Vystavení</TH><TH>Splatnost</TH><TH>Stav</TH><TH>Akce</TH>
               </TRow>
@@ -190,7 +216,8 @@ export default function InvoicesTab() {
                 return (
                 <tr key={inv.id} onClick={() => setDetailInv(inv)}
                   className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
-                  style={{ borderBottom: '1px solid #d4e8e0' }}>
+                  style={{ borderBottom: '1px solid #d4e8e0', background: selectedIds.has(inv.id) ? '#fef9c3' : undefined }}>
+                  <TD><RowCheckbox id={inv.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TD>
                   <TD mono bold>
                     <div className="flex items-center gap-1">
                       {inv.number || '—'}

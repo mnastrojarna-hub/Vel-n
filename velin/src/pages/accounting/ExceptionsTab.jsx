@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import BulkActionsBar, { SelectAllCheckbox, RowCheckbox } from '../../components/ui/BulkActionsBar'
+import { exportToCsv, bulkUpdate, bulkDelete } from '../../lib/bulkActions'
 import { supabase } from '../../lib/supabase'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
@@ -22,6 +24,7 @@ export default function ExceptionsTab() {
   // Inline edit
   const [editingId, setEditingId] = useState(null)
   const [editForm, setEditForm] = useState({})
+  const [selectedIds, setSelectedIds] = useState(new Set())
 
   useEffect(() => { load() }, [page, showResolved])
 
@@ -129,9 +132,19 @@ export default function ExceptionsTab() {
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
+          <BulkActionsBar count={selectedIds.size} onClear={() => setSelectedIds(new Set())} actions={[
+            { label: 'Vyřešit hromadně', icon: '✓', onClick: async () => { await bulkUpdate('financial_exceptions', [...selectedIds], { resolved_at: new Date().toISOString(), resolution_note: 'Hromadně vyřešeno' }, 'exceptions_bulk_resolved'); setSelectedIds(new Set()); load() } },
+            { label: 'Export CSV', icon: '⬇', onClick: () => exportToCsv('exceptions', [
+              { key: 'created_at', label: 'Datum' }, { key: 'reason', label: 'Důvod' },
+              { key: 'amount', label: 'Částka' }, { key: 'confidence', label: 'Confidence' },
+              { key: 'source', label: 'Zdroj' }, { key: 'resolved_at', label: 'Vyřešeno' },
+            ], exceptions.filter(e => selectedIds.has(e.id))) },
+            { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} výjimek?', onClick: async () => { await bulkDelete('financial_exceptions', [...selectedIds], 'exceptions_bulk_deleted'); setSelectedIds(new Set()); load() } },
+          ]} />
           <Table>
             <thead>
               <TRow header>
+                <TH><SelectAllCheckbox items={exceptions} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
                 <TH>Datum</TH><TH>Důvod</TH><TH>Částka</TH><TH>Confidence</TH>
                 <TH>Zdroj</TH><TH>Stav</TH><TH>Akce</TH>
               </TRow>
@@ -146,6 +159,7 @@ export default function ExceptionsTab() {
                 return (
                   <>
                     <TRow key={exc.id}>
+                      <TD><RowCheckbox id={exc.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} stopPropagation={false} /></TD>
                       <TD>{exc.created_at ? new Date(exc.created_at).toLocaleDateString('cs-CZ') : '—'}</TD>
                       <TD>
                         <span className="text-sm font-bold" style={{ color: '#dc2626' }}>{exc.reason || '—'}</span>

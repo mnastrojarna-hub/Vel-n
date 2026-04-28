@@ -1,14 +1,18 @@
 import { TRow, TD } from '../../components/ui/Table'
 import Badge from '../../components/ui/Badge'
+import { RowCheckbox } from '../../components/ui/BulkActionsBar'
 import EventDetail from './FinancialEventDetail'
 
-export default function EvRow({ ev, st, tp, dt, catLabel, supplierName, isExpanded, isActing, fmt, onExpand, onApprove, onFlexi, onEdit, onDelete }) {
+export default function EvRow({ ev, st, tp, dt, catLabel, supplierName, isExpanded, isActing, fmt, onExpand, onApprove, onFlexi, onEdit, onDelete, selectedIds, setSelectedIds }) {
   const canApprove = ev.status === 'enriched' || ev.status === 'exported'
   const canFlexi = ev.status === 'validated'
 
   return (
     <>
       <TRow>
+        {selectedIds && (
+          <TD><RowCheckbox id={ev.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} stopPropagation={false} /></TD>
+        )}
         <TD>{ev.duzp ? new Date(ev.duzp).toLocaleDateString('cs-CZ') : '\u2014'}</TD>
         <TD><Badge label={tp.label} color={tp.color} bg={tp.bg} /></TD>
         <TD>
@@ -57,7 +61,7 @@ export default function EvRow({ ev, st, tp, dt, catLabel, supplierName, isExpand
       </TRow>
       {isExpanded && (
         <tr style={{ background: '#f9fafb', borderBottom: '1px solid #d4e8e0' }}>
-          <td colSpan={8} style={{ padding: '12px 16px' }}>
+          <td colSpan={selectedIds ? 9 : 8} style={{ padding: '12px 16px' }}>
             <EventDetail event={ev} />
           </td>
         </tr>

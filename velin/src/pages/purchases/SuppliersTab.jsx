@@ -8,6 +8,8 @@ import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import SearchInput from '../../components/ui/SearchInput'
 import Pagination from '../../components/ui/Pagination'
+import BulkActionsBar, { SelectAllCheckbox, RowCheckbox } from '../../components/ui/BulkActionsBar'
+import { exportToCsv, bulkDelete } from '../../lib/bulkActions'
 
 const PER_PAGE = 25
 
@@ -29,6 +31,7 @@ export default function SuppliersTab() {
   useEffect(() => { localStorage.setItem('velin_suppliers_filters', JSON.stringify(filters)) }, [filters])
   const [showAdd, setShowAdd] = useState(false)
   const [editing, setEditing] = useState(null)
+  const [selectedIds, setSelectedIds] = useState(new Set())
 
   useEffect(() => { load() }, [page, filters])
 
@@ -44,6 +47,20 @@ export default function SuppliersTab() {
   }
 
   const totalPages = Math.ceil(total / PER_PAGE)
+
+  const ids = [...selectedIds]
+  const bulkActions = [
+    { label: 'Kopírovat e-maily', icon: '📧', onClick: () => {
+      const emails = suppliers.filter(s => selectedIds.has(s.id)).map(s => s.email).filter(Boolean).join(', ')
+      if (emails) navigator.clipboard.writeText(emails)
+    } },
+    { label: 'Export CSV', icon: '⬇', onClick: () => exportToCsv('suppliers', [
+      { key: 'name', label: 'Název' }, { key: 'ico', label: 'IČO' }, { key: 'dic', label: 'DIČ' },
+      { key: 'contact_person', label: 'Kontakt' }, { key: 'email', label: 'Email' }, { key: 'phone', label: 'Telefon' },
+      { key: 'category', label: 'Kategorie' }, { key: 'address', label: 'Adresa' },
+    ], suppliers.filter(s => selectedIds.has(s.id))) },
+    { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} dodavatelů?', onClick: async () => { await bulkDelete('suppliers', ids, 'suppliers_bulk_deleted'); setSelectedIds(new Set()); load() } },
+  ]
 
   return (
     <div>
@@ -77,15 +94,19 @@ export default function SuppliersTab() {
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
+          <BulkActionsBar count={selectedIds.size} onClear={() => setSelectedIds(new Set())} actions={bulkActions} />
           <Table>
             <thead>
               <TRow header>
+                <TH><SelectAllCheckbox items={suppliers} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
                 <TH>Název</TH><TH>IČO</TH><TH>Kontakt</TH><TH>Email</TH><TH>Kategorie</TH>
               </TRow>
             </thead>
             <tbody>
               {suppliers.map(s => (
-                <tr key={s.id} onClick={() => setEditing(s)} className="cursor-pointer hover:bg-[#f1faf7] transition-colors" style={{ borderBottom: '1px solid #d4e8e0' }}>
+                <tr key={s.id} onClick={() => setEditing(s)} className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
+                  style={{ borderBottom: '1px solid #d4e8e0', background: selectedIds.has(s.id) ? '#fef9c3' : undefined }}>
+                  <TD><RowCheckbox id={s.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TD>
                   <TD bold>{s.name}</TD>
                   <TD mono>{s.ico || '—'}</TD>
                   <TD>{s.contact_person || '—'}</TD>

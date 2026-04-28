@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import BulkActionsBar, { SelectAllCheckbox, RowCheckbox } from '../../components/ui/BulkActionsBar'
+import { exportToCsv, bulkUpdate, bulkDelete } from '../../lib/bulkActions'
 import { supabase } from '../../lib/supabase'
 import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
@@ -38,6 +40,7 @@ export default function LiabilitiesTab() {
   const [detail, setDetail] = useState(null)
   const [filters, setFilters] = useState({ type: '', status: '' })
   const [summary, setSummary] = useState({ total: 0, overdue: 0, byType: {} })
+  const [selectedIds, setSelectedIds] = useState(new Set())
 
   useEffect(() => { load() }, [page, filters])
 
@@ -194,9 +197,19 @@ export default function LiabilitiesTab() {
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
+          <BulkActionsBar count={selectedIds.size} onClear={() => setSelectedIds(new Set())} actions={[
+            { label: 'Označit zaplaceno', icon: '💰', onClick: async () => { await bulkUpdate('acc_liabilities', [...selectedIds], { status: 'paid', paid_at: new Date().toISOString().slice(0, 10) }, 'liabilities_bulk_paid'); setSelectedIds(new Set()); load() } },
+            { label: 'Export CSV', icon: '⬇', onClick: () => exportToCsv('liabilities', [
+              { key: 'counterparty', label: 'Protistrana' }, { key: 'type', label: 'Typ' },
+              { key: 'description', label: 'Popis' }, { key: 'amount', label: 'Částka' },
+              { key: 'paid_amount', label: 'Uhrazeno' }, { key: 'due_date', label: 'Splatnost' }, { key: 'status', label: 'Stav' },
+            ], liabilities.filter(l => selectedIds.has(l.id))) },
+            { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} závazků (i navázané finanční události)?', onClick: async () => { await bulkDelete('acc_liabilities', [...selectedIds], 'liabilities_bulk_deleted'); setSelectedIds(new Set()); load() } },
+          ]} />
           <Table>
             <thead>
               <TRow header>
+                <TH><SelectAllCheckbox items={liabilities} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
                 <TH>Protistrana</TH><TH>Typ</TH><TH>Popis</TH><TH>Castka</TH>
                 <TH>Uhrazeno</TH><TH>Zbyva</TH><TH>Splatnost</TH><TH>Stav</TH><TH>Akce</TH>
               </TRow>
@@ -207,6 +220,7 @@ export default function LiabilitiesTab() {
                 const isOverdue = l.status === 'overdue'
                 return (
                   <TRow key={l.id}>
+                    <TD><RowCheckbox id={l.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} stopPropagation={false} /></TD>
                     <TD bold>{l.counterparty || '—'}</TD>
                     <TD>{LIABILITY_TYPES.find(t => t.value === l.type)?.label || l.type}</TD>
                     <TD>{l.description || '—'}</TD>

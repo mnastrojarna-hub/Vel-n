@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import BulkActionsBar, { SelectAllCheckbox, RowCheckbox } from '../components/ui/BulkActionsBar'
+import { exportToCsv, bulkDelete } from '../lib/bulkActions'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
@@ -28,6 +30,7 @@ export default function Inventory() {
     return defaultFilters
   })
   const [showAdd, setShowAdd] = useState(false)
+  const [selectedIds, setSelectedIds] = useState(new Set())
 
   useEffect(() => { localStorage.setItem('velin_inventory_filters', JSON.stringify(filters)) }, [filters])
 
@@ -106,9 +109,19 @@ export default function Inventory() {
         <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
+          <BulkActionsBar count={selectedIds.size} onClear={() => setSelectedIds(new Set())} actions={[
+            { label: 'Export CSV', icon: '⬇', onClick: () => exportToCsv('inventory', [
+              { key: 'sku', label: 'SKU' }, { key: 'name', label: 'Název' },
+              { key: 'category', label: 'Kategorie' }, { key: 'stock', label: 'Sklad' },
+              { key: 'min_stock', label: 'Min' }, { key: 'unit_price', label: 'Cena/ks' },
+              { key: 'suppliers', label: 'Dodavatel', format: (_, r) => r.suppliers?.name || '' },
+            ], items.filter(i => selectedIds.has(i.id))) },
+            { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} skladových položek?', onClick: async () => { await bulkDelete('inventory', [...selectedIds], 'inventory_bulk_deleted'); setSelectedIds(new Set()); load() } },
+          ]} />
           <Table>
             <thead>
               <TRow header>
+                <TH><SelectAllCheckbox items={items} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
                 <TH>SKU</TH><TH>Název</TH><TH>Kategorie</TH><TH>Sklad</TH>
                 <TH>Minimum</TH><TH>Stav</TH><TH>Cena/ks</TH><TH>Dodavatel</TH>
               </TRow>
@@ -121,8 +134,9 @@ export default function Inventory() {
                     key={item.id}
                     onClick={() => navigate(`/sklady/${item.id}`)}
                     className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
-                    style={{ borderBottom: '1px solid #d4e8e0', background: isLow ? '#fff5f5' : 'transparent' }}
+                    style={{ borderBottom: '1px solid #d4e8e0', background: selectedIds.has(item.id) ? '#fef9c3' : isLow ? '#fff5f5' : 'transparent' }}
                   >
+                    <TD><RowCheckbox id={item.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TD>
                     <TD mono bold>{item.sku || '—'}</TD>
                     <TD bold>{item.name}</TD>
                     <TD>{item.category || '—'}</TD>
