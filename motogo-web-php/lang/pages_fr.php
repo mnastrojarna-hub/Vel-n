@@ -100,6 +100,14 @@ return [
             'h1' => 'Location de motos Vysočina Motogo24 – sans caution et 24h/24',
             'intro' => 'Bienvenue chez <strong>Motogo24</strong> – ta location de motos en Vysočina. Ici tu loues une moto <strong>sans caution</strong>, avec équipement inclus et en mode <strong>24h/24</strong>. Que tu cherches une moto de tourisme, sport, enduro ou pour enfants, Motogo24 au cœur de Vysočina te propose la moto idéale.',
             'signposts_title' => 'Guide rapide chez Motogo24',
+            'signposts' => [
+                ['icon' => 'gfx/ico-katalog.svg', 'title' => 'Catalogue de motos', 'text' => 'Découvre notre offre de motos à louer — du sport au tourisme.', 'btn' => 'CATALOGUE DE MOTOS', 'href' => '/katalog'],
+                ['icon' => 'gfx/ico-jak.svg', 'title' => 'Comment louer une moto', 'text' => 'Processus simple : choisis une moto, réserve et pars en route.', 'btn' => 'COMMENT LOUER', 'href' => '/jak-pujcit'],
+                ['icon' => 'gfx/ico-rezervace.svg', 'title' => 'Réservation en ligne', 'text' => 'Réserve ta moto via notre système en ligne facile.', 'btn' => 'RÉSERVER UNE MOTO', 'href' => '/rezervace'],
+                ['icon' => 'gfx/ico-kontakt.svg', 'title' => 'Contact et carte', 'text' => 'Visite notre location de motos à Pelhřimov ou contacte-nous.', 'btn' => 'CONTACT', 'href' => '/kontakt'],
+                ['icon' => 'gfx/ico-faq.svg', 'title' => 'Foire aux questions', 'text' => 'Les questions les plus fréquentes sur la location de motos en un seul endroit.', 'btn' => 'FAQ', 'href' => '/jak-pujcit/faq'],
+                ['icon' => 'gfx/ico-trasy.svg', 'title' => 'Itinéraires moto', 'text' => 'Découvre les meilleurs itinéraires moto en République tchèque pour touristes et locaux.', 'btn' => 'ITINÉRAIRES MOTO', 'href' => '/blog'],
+            ],
             'motos_section' => [
                 'title' => 'Nos motos à louer en Vysočina',
                 'intro' => 'Découvre notre offre de motos tourisme, sport et enduro de notre location en Vysočina.',
@@ -108,8 +116,25 @@ return [
                 'cta_href' => '/katalog',
                 'limit' => 4,
             ],
-            'process' => ['title' => 'Comment fonctionne la location en Vysočina'],
-            'faq' => ['title' => 'Foire aux questions', 'more_link' => '/jak-pujcit/faq'],
+            'process' => [
+                'title' => 'Comment fonctionne la location en Vysočina',
+                'steps' => [
+                    ['icon' => 'gfx/ico-step1.svg', 'title' => '1. Choisis', 'text' => 'Choisis ta moto idéale dans notre offre de motos à louer.'],
+                    ['icon' => 'gfx/ico-step2.svg', 'title' => '2. Réserve', 'text' => 'Réserve ta moto via notre système en ligne simple.'],
+                    ['icon' => 'gfx/ico-step3.svg', 'title' => '3. Récupère', 'text' => 'Récupère la moto à notre location à Pelhřimov.'],
+                    ['icon' => 'gfx/ico-step4.svg', 'title' => '4. Profite du voyage', 'text' => 'Vis la liberté et découvre la République tchèque sur des motos de location.'],
+                ],
+            ],
+            'faq' => [
+                'title' => 'Foire aux questions',
+                'more_link' => '/jak-pujcit/faq',
+                'items' => [
+                    ['q' => 'Comment puis-je réserver une moto ?', 'a' => 'Tu peux réserver une moto via notre système de réservation en ligne directement ici sur le site. Ou contacte-nous par e-mail, téléphone ou réseaux sociaux.'],
+                    ['q' => 'Puis-je louer une moto sans réservation préalable ?', 'a' => 'Hélas non. Chaque moto doit être réservée à l\'avance — en ligne, par téléphone, e-mail ou réseaux sociaux.'],
+                    ['q' => 'Dois-je verser une caution ?', 'a' => 'Non ! Chez nous tu <strong>ne paies aucune caution</strong>. Notre location se distingue ainsi fondamentalement de la plupart de la concurrence.'],
+                    ['q' => 'Puis-je voyager à l\'étranger avec la moto ?', 'a' => 'Oui, tu peux voyager à l\'étranger sans problème. Nous ne limitons pas les voyages hors de la République tchèque ; tu dois juste respecter la validité territoriale de l\'assurance (carte verte).'],
+                ],
+            ],
             'cta' => [
                 'title' => 'Réserve ta moto en ligne',
                 'text' => 'Notre <strong>location de motos Vysočina</strong> est ouverte <strong>24h/24</strong>. Quelques clics et ta balade commence.',
@@ -150,9 +175,38 @@ return [
                     ['label' => 'Voir les motos à louer', 'href' => '/katalog', 'cls' => 'btngreen'],
                     ['label' => 'RÉSERVER', 'href' => '/rezervace', 'cls' => 'btngreen pulse'],
                 ],
+                'items' => [
+                    ['icon' => 'gfx/ico-bez-kauce.svg', 'title' => 'Sans caution', 'text' => 'et sans frais cachés'],
+                    ['icon' => 'gfx/ico-online-rez.svg', 'title' => 'Réservation en ligne', 'text' => 'en quelques clics'],
+                    ['icon' => 'gfx/ico-vybava.svg', 'title' => 'Équipement pilote inclus', 'text' => 'casque, blouson, pantalon et gants'],
+                    ['icon' => 'gfx/ico-nonstop.svg', 'title' => 'Service 24h/24', 'text' => 'pour la prise en charge et le retour selon ta réservation'],
+                    ['icon' => 'gfx/ico-spolecne.svg', 'title' => 'Nous sommes avec toi', 'text' => 'si quelque chose se passe'],
+                    ['icon' => 'gfx/ico-pristaveni.svg', 'title' => 'Livraison et reprise', 'text' => 'à un endroit convenu'],
+                ],
             ],
-            'process' => ['title' => 'Comment fonctionne la location en Vysočina'],
-            'faq' => ['title' => 'Foire aux questions', 'more_link' => '/jak-pujcit/faq'],
+            'process' => [
+                'title' => 'Comment fonctionne la location en Vysočina',
+                'steps' => [
+                    ['icon' => 'gfx/ico-step1.svg', 'title' => '1. Choisis une moto', 'text' => 'Découvre notre offre et choisis le type qui te convient, à ton expérience et à ton permis.'],
+                    ['icon' => 'gfx/ico-step3.svg', 'title' => '2. Réserve en ligne', 'text' => 'Réserve par date ou par moto précise que tu veux louer.'],
+                    ['icon' => 'gfx/ico-step4.svg', 'title' => '3. Choisis l\'équipement', 'text' => 'L\'équipement pilote est inclus, celui du passager est en supplément. La taille se choisit sur place.'],
+                    ['icon' => 'gfx/ico-step5.svg', 'title' => '4. Paie', 'text' => 'Paie facilement en ligne via la passerelle de paiement.'],
+                    ['icon' => 'gfx/ico-step6.svg', 'title' => '5. Récupère la moto', 'text' => 'Récupère la moto directement à la location, ou à l\'endroit choisi lors de la réservation.'],
+                    ['icon' => 'gfx/ico-step7.svg', 'title' => '6. Profite du voyage', 'text' => 'Prends la route, découvre de nouvelles expériences et profite pleinement de la liberté à deux roues.'],
+                    ['icon' => 'gfx/ico-step8.svg', 'title' => '7. Rends la moto', 'text' => 'Rends simplement la moto le jour convenu – à la location ou à un endroit convenu.'],
+                    ['icon' => 'gfx/ico-sleva.svg', 'title' => 'Réduction pour la prochaine balade', 'text' => 'Après le retour de la moto nous t\'envoyons automatiquement un code de réduction de 200 Kč pour ta prochaine réservation.'],
+                ],
+            ],
+            'faq' => [
+                'title' => 'Foire aux questions',
+                'more_link' => '/jak-pujcit/faq',
+                'items' => [
+                    ['q' => 'Comment puis-je réserver une moto ?', 'a' => 'Tu peux réserver une moto via notre système de réservation en ligne directement ici sur le site. Ou contacte-nous par e-mail, téléphone ou réseaux sociaux.'],
+                    ['q' => 'Puis-je louer une moto sans réservation préalable ?', 'a' => 'Hélas non. Chaque moto doit être réservée à l\'avance.'],
+                    ['q' => 'Dois-je verser une caution ?', 'a' => 'Non ! Chez nous tu <strong>ne paies aucune caution</strong>. Notre location se distingue ainsi fondamentalement de la plupart de la concurrence.'],
+                    ['q' => 'Puis-je voyager à l\'étranger avec la moto ?', 'a' => 'Oui, tu peux voyager à l\'étranger sans problème. Nous ne limitons pas les voyages hors de la République tchèque ; il suffit de respecter la validité territoriale de l\'assurance (carte verte).'],
+                ],
+            ],
             'cta' => [
                 'title' => 'Réserve ta moto en ligne',
                 'text' => 'Notre <strong>location de motos Vysočina</strong> est ouverte <strong>24h/24</strong>.',

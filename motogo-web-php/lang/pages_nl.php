@@ -98,6 +98,14 @@ return [
             'h1' => 'Motorverhuur Vysočina Motogo24 – zonder borg en 24/7',
             'intro' => 'Welkom bij <strong>Motogo24</strong> – jouw motorverhuur in Vysočina. Bij ons huur je een motor <strong>zonder borg</strong>, met uitrusting inbegrepen en in <strong>24/7</strong> modus. Of je nu een toer-, sport-, enduro- of kindermotor zoekt: Motogo24 in het hart van Vysočina heeft de juiste voor jou.',
             'signposts_title' => 'Snelle wegwijzer bij Motogo24',
+            'signposts' => [
+                ['icon' => 'gfx/ico-katalog.svg', 'title' => 'Motorcatalogus', 'text' => 'Bekijk ons aanbod motoren te huur — van sport- tot toermodellen.', 'btn' => 'MOTORCATALOGUS', 'href' => '/katalog'],
+                ['icon' => 'gfx/ico-jak.svg', 'title' => 'Hoe huur je een motor', 'text' => 'Eenvoudig proces: kies een motor, reserveer en rij weg.', 'btn' => 'HOE HUREN', 'href' => '/jak-pujcit'],
+                ['icon' => 'gfx/ico-rezervace.svg', 'title' => 'Online reservering', 'text' => 'Reserveer je motor via ons eenvoudige online systeem.', 'btn' => 'MOTOR RESERVEREN', 'href' => '/rezervace'],
+                ['icon' => 'gfx/ico-kontakt.svg', 'title' => 'Contact en kaart', 'text' => 'Bezoek onze motorverhuur in Pelhřimov of neem contact op.', 'btn' => 'CONTACT', 'href' => '/kontakt'],
+                ['icon' => 'gfx/ico-faq.svg', 'title' => 'Veelgestelde vragen', 'text' => 'De meest gestelde vragen over motorverhuur op één plek.', 'btn' => 'FAQ', 'href' => '/jak-pujcit/faq'],
+                ['icon' => 'gfx/ico-trasy.svg', 'title' => 'Motorroutes', 'text' => 'Ontdek de mooiste motorroutes in Tsjechië voor toeristen en lokale rijders.', 'btn' => 'MOTORROUTES', 'href' => '/blog'],
+            ],
             'motos_section' => [
                 'title' => 'Onze motoren te huur in Vysočina',
                 'intro' => 'Bekijk ons aanbod toer-, sport- en enduromotoren van onze motorverhuur in Vysočina.',
@@ -106,8 +114,25 @@ return [
                 'cta_href' => '/katalog',
                 'limit' => 4,
             ],
-            'process' => ['title' => 'Hoe motorverhuur in Vysočina werkt'],
-            'faq' => ['title' => 'Veelgestelde vragen', 'more_link' => '/jak-pujcit/faq'],
+            'process' => [
+                'title' => 'Hoe motorverhuur in Vysočina werkt',
+                'steps' => [
+                    ['icon' => 'gfx/ico-step1.svg', 'title' => '1. Kies', 'text' => 'Kies je ideale motor uit ons aanbod motoren te huur.'],
+                    ['icon' => 'gfx/ico-step2.svg', 'title' => '2. Reserveer', 'text' => 'Reserveer je motor via ons eenvoudige online systeem.'],
+                    ['icon' => 'gfx/ico-step3.svg', 'title' => '3. Ophalen', 'text' => 'Haal de motor op bij onze verhuur in Pelhřimov.'],
+                    ['icon' => 'gfx/ico-step4.svg', 'title' => '4. Geniet van de rit', 'text' => 'Ervaar de vrijheid en ontdek Tsjechië op een huurmotor.'],
+                ],
+            ],
+            'faq' => [
+                'title' => 'Veelgestelde vragen',
+                'more_link' => '/jak-pujcit/faq',
+                'items' => [
+                    ['q' => 'Hoe kan ik een motor reserveren?', 'a' => 'Je kunt een motor direct op de website reserveren via ons online reserveringssysteem. Of neem contact op via e-mail, telefoon of social media.'],
+                    ['q' => 'Kan ik een motor huren zonder vooraf te reserveren?', 'a' => 'Helaas niet. Elke motor moet vooraf gereserveerd worden — online, telefonisch, per e-mail of via social media.'],
+                    ['q' => 'Moet ik een borg betalen?', 'a' => 'Nee! Bij ons betaal je <strong>geen enkele borg</strong>. Daarmee onderscheidt onze verhuur zich fundamenteel van de meeste concurrenten.'],
+                    ['q' => 'Mag ik met de motor naar het buitenland?', 'a' => 'Ja, je kunt zonder problemen met de motor naar het buitenland. Reizen buiten Tsjechië beperken we niet; let alleen op de territoriale geldigheid van de verzekering (groene kaart).'],
+                ],
+            ],
             'cta' => [
                 'title' => 'Reserveer je motor online',
                 'text' => 'Onze <strong>motorverhuur Vysočina</strong> is <strong>24/7</strong> open. Een paar klikken en je rit begint.',
@@ -148,9 +173,38 @@ return [
                     ['label' => 'Bekijk motoren te huur', 'href' => '/katalog', 'cls' => 'btngreen'],
                     ['label' => 'RESERVEREN', 'href' => '/rezervace', 'cls' => 'btngreen pulse'],
                 ],
+                'items' => [
+                    ['icon' => 'gfx/ico-bez-kauce.svg', 'title' => 'Zonder borg', 'text' => 'en zonder verborgen kosten'],
+                    ['icon' => 'gfx/ico-online-rez.svg', 'title' => 'Online reservering', 'text' => 'in een paar klikken'],
+                    ['icon' => 'gfx/ico-vybava.svg', 'title' => 'Rijuitrusting inbegrepen', 'text' => 'helm, jas, broek en handschoenen'],
+                    ['icon' => 'gfx/ico-nonstop.svg', 'title' => '24/7 service', 'text' => 'voor ophalen en terugbrengen volgens je reservering'],
+                    ['icon' => 'gfx/ico-spolecne.svg', 'title' => 'We staan naast je', 'text' => 'als er iets gebeurt'],
+                    ['icon' => 'gfx/ico-pristaveni.svg', 'title' => 'Bezorgen en ophalen', 'text' => 'op een afgesproken plek'],
+                ],
             ],
-            'process' => ['title' => 'Hoe verhuur in Vysočina werkt'],
-            'faq' => ['title' => 'Veelgestelde vragen', 'more_link' => '/jak-pujcit/faq'],
+            'process' => [
+                'title' => 'Hoe verhuur in Vysočina werkt',
+                'steps' => [
+                    ['icon' => 'gfx/ico-step1.svg', 'title' => '1. Kies een motor', 'text' => 'Bekijk ons aanbod en kies het type dat past bij jou, je ervaring en je rijbewijs.'],
+                    ['icon' => 'gfx/ico-step3.svg', 'title' => '2. Reserveer online', 'text' => 'Reserveer op datum of op een specifieke motor die je wilt huren.'],
+                    ['icon' => 'gfx/ico-step4.svg', 'title' => '3. Kies uitrusting', 'text' => 'Rijuitrusting is inbegrepen, passagiersuitrusting tegen meerprijs. De maat kies je ter plaatse.'],
+                    ['icon' => 'gfx/ico-step5.svg', 'title' => '4. Betaal', 'text' => 'Betaal eenvoudig online via de betaalpoort.'],
+                    ['icon' => 'gfx/ico-step6.svg', 'title' => '5. Haal de motor op', 'text' => 'Haal de motor op bij de verhuur of op de plek die je bij de reservering koos.'],
+                    ['icon' => 'gfx/ico-step7.svg', 'title' => '6. Geniet van de rit', 'text' => 'Ga op pad, beleef nieuwe ervaringen en geniet ten volle van de vrijheid op twee wielen.'],
+                    ['icon' => 'gfx/ico-step8.svg', 'title' => '7. Breng de motor terug', 'text' => 'Breng de motor gewoon op de afgesproken dag terug – bij de verhuur of op een afgesproken plek.'],
+                    ['icon' => 'gfx/ico-sleva.svg', 'title' => 'Korting voor je volgende rit', 'text' => 'Na het terugbrengen sturen we je automatisch een kortingscode van 200 Kč voor je volgende reservering.'],
+                ],
+            ],
+            'faq' => [
+                'title' => 'Veelgestelde vragen',
+                'more_link' => '/jak-pujcit/faq',
+                'items' => [
+                    ['q' => 'Hoe kan ik een motor reserveren?', 'a' => 'Je kunt een motor reserveren via ons online reserveringssysteem direct hier op de site. Of neem contact op via e-mail, telefoon of social media.'],
+                    ['q' => 'Kan ik een motor huren zonder vooraf te reserveren?', 'a' => 'Helaas niet. Elke motor moet vooraf gereserveerd worden.'],
+                    ['q' => 'Moet ik een borg betalen?', 'a' => 'Nee! Bij ons betaal je <strong>geen enkele borg</strong>. Daarmee onderscheidt onze verhuur zich fundamenteel van de meeste concurrenten.'],
+                    ['q' => 'Mag ik met de motor naar het buitenland?', 'a' => 'Ja, je kunt zonder problemen met de motor naar het buitenland. Reizen buiten Tsjechië beperken we niet; let alleen op de territoriale geldigheid van de verzekering (groene kaart).'],
+                ],
+            ],
             'cta' => [
                 'title' => 'Reserveer je motor online',
                 'text' => 'Onze <strong>motorverhuur Vysočina</strong> is <strong>24/7</strong> open.',
