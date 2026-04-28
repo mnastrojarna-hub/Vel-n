@@ -24,10 +24,10 @@ window.MOTOGO_CONFIG = {
   CURRENCY: ' . json_encode(function_exists('currencyJsConfig') ? currencyJsConfig() : ['current'=>'CZK','rates'=>[]], JSON_UNESCAPED_UNICODE) . '
 };
 </script>
-<script src="' . BASE_URL . '/js/supabase-sdk.js"></script>
-<script src="' . BASE_URL . '/js/supabase-init.js"></script>
-<script src="' . BASE_URL . '/js/api.js"></script>
-<script src="' . BASE_URL . '/js/pages-potvrzeni.js"></script>';
+<script src="' . assetUrl('/js/supabase-sdk.js') . '"></script>
+<script src="' . assetUrl('/js/supabase-init.js') . '"></script>
+<script src="' . assetUrl('/js/api.js') . '"></script>
+<script src="' . assetUrl('/js/pages-potvrzeni.js') . '"></script>';
 
 $pageTitle = $isShop ? t('confirm.titleOrder') : t('confirm.titleBooking');
 renderPage($pageTitle, $content . $potvrzeniJs, '/potvrzeni', [
