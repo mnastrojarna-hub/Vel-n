@@ -305,6 +305,7 @@ section[aria-labelledby="process"] .wbox{background:#fff;border-color:#d4e8e0}
   .banner-caption .btn+.btn{margin-left:0}
   .moto-gallery .moto-thumbs .gallery-img img,
   .moto-gallery .gr3 .gallery-img img{height:80px}
+  .moto-thumbs-nav{height:80px}
   /* Hamburger menu */
   .nav-toggle{display:block;min-height:44px;min-width:44px;padding:.5rem .9rem;font-size:.95rem;font-weight:700;letter-spacing:.5px}
   .mobile-menu-overlay{display:none;position:fixed;inset:0;background:rgba(15,28,21,.97);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:999;flex-direction:column;padding:max(env(safe-area-inset-top),1rem) 1.5rem max(env(safe-area-inset-bottom),1.5rem);overflow-y:auto;-webkit-overflow-scrolling:touch}

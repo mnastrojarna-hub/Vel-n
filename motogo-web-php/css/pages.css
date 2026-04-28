@@ -234,12 +234,20 @@
 .moto-gallery .gallery-img{border-radius:8px;overflow:hidden}
 .moto-gallery .gallery-img img{width:100%;height:auto;cursor:pointer;transition:opacity .2s}
 .moto-gallery .gallery-img img:hover{opacity:.85}
-/* Thumby — grid s libovolným počtem fotek; auto-fill aby nepřetékaly. */
-.moto-gallery .moto-thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:.5rem}
-.moto-gallery .moto-thumbs .gallery-img img{height:100px;object-fit:cover}
+/* Thumby — vždy horizontální scroll-snap pás se šipkami pro postupné procházení. */
+.moto-thumbs-wrap{position:relative;display:flex;align-items:center;gap:.25rem}
+.moto-gallery .moto-thumbs{display:flex;flex-wrap:nowrap;overflow-x:auto;scroll-behavior:smooth;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;gap:.5rem;padding:.25rem 0;scrollbar-width:thin;flex:1;min-width:0}
+.moto-gallery .moto-thumbs::-webkit-scrollbar{height:6px}
+.moto-gallery .moto-thumbs::-webkit-scrollbar-thumb{background:#cfd8d3;border-radius:3px}
+.moto-gallery .moto-thumbs>div{flex:0 0 120px;scroll-snap-align:start}
+.moto-gallery .moto-thumbs .gallery-img img{height:90px;object-fit:cover}
+.moto-thumbs-nav{flex:0 0 auto;width:32px;height:90px;background:rgba(26,46,34,.85);color:#74FB71;border:1px solid #2a4e3a;border-radius:8px;font-size:1.1rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s,opacity .15s;font-family:inherit;padding:0}
+.moto-thumbs-nav:hover{background:#2a4e3a;color:#a8ff9f}
+.moto-thumbs-nav:disabled{opacity:.35;cursor:default}
 /* Zpětná kompatibilita pro starší .gr3 použití uvnitř moto-gallery */
-.moto-gallery .gr3{gap:.5rem}
-.moto-gallery .gr3 .gallery-img img{height:100px;object-fit:cover}
+.moto-gallery .gr3{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:.5rem;padding:.25rem 0}
+.moto-gallery .gr3>div{flex:0 0 120px}
+.moto-gallery .gr3 .gallery-img img{height:90px;object-fit:cover}
 
 /* Moto detail — mobilní layout */
 @media(max-width:768px){
@@ -247,13 +255,12 @@
   .moto-shortdesc{margin-top:.5rem}
   .moto-gallery .moto-photo{margin-bottom:.5rem}
   .moto-gallery .moto-photo .gallery-img img{aspect-ratio:4/3;object-fit:cover;width:100%;height:auto;max-height:60vh}
-  /* Galerie thumbs — horizontal scroll snap */
-  .moto-gallery .moto-thumbs,
-  .moto-gallery .gr3{display:flex;flex-wrap:nowrap;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;gap:.5rem;padding-bottom:.5rem;scrollbar-width:thin}
+  /* Galerie thumbs — užší miniatury, šipky kompaktnější */
   .moto-gallery .moto-thumbs>div,
-  .moto-gallery .gr3>div{flex:0 0 calc(33.333% - .35rem);min-width:0;scroll-snap-align:start}
+  .moto-gallery .gr3>div{flex:0 0 calc(33.333% - .35rem)}
   .moto-gallery .moto-thumbs .gallery-img img,
   .moto-gallery .gr3 .gallery-img img{height:90px}
+  .moto-thumbs-nav{width:28px;height:90px;font-size:1rem}
   /* Specs/popis sloupce — jeden pod druhým */
   .moto-detail section.gr2,
   .moto-prices.gr2{grid-template-columns:1fr;gap:1.25rem}

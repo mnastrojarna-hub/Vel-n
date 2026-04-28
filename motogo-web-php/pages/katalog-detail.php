@@ -142,11 +142,17 @@ if (!empty($allImages)) {
     $main = $allImages[0];
     $galleryHtml .= '<div class="moto-photo"><a href="' . htmlspecialchars($main) . '" data-gallery="moto" data-index="0" aria-label="' . $openLabel . '"><div class="gallery-img"><img src="' . htmlspecialchars($main) . '" alt="' . $modelAlt . '" loading="lazy"></div></a></div>';
     if (count($allImages) > 1) {
+        $prevLabel = htmlspecialchars(t('gallery.prev'), ENT_QUOTES, 'UTF-8');
+        $nextLabel = htmlspecialchars(t('gallery.next'), ENT_QUOTES, 'UTF-8');
+        $galleryHtml .= '<div class="moto-thumbs-wrap">';
+        $galleryHtml .= '<button type="button" class="moto-thumbs-nav moto-thumbs-prev" aria-label="' . $prevLabel . '">&#10094;</button>';
         $galleryHtml .= '<div class="moto-thumbs">';
         for ($i = 1; $i < count($allImages); $i++) {
             $u = $allImages[$i];
             $galleryHtml .= '<div><a href="' . htmlspecialchars($u) . '" data-gallery="moto" data-index="' . $i . '" aria-label="' . $openLabel . '"><div class="gallery-img"><img src="' . htmlspecialchars($u) . '" alt="' . $modelAlt . '" loading="lazy"></div></a></div>';
         }
+        $galleryHtml .= '</div>';
+        $galleryHtml .= '<button type="button" class="moto-thumbs-nav moto-thumbs-next" aria-label="' . $nextLabel . '">&#10095;</button>';
         $galleryHtml .= '</div>';
     }
 }
