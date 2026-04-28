@@ -162,6 +162,21 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
           <Field label="Hmotnost (kg)" value={moto.weight_kg} onChange={v => set('weight_kg', v)} type="number" />
           <Field label="Nádrž (L)" value={moto.fuel_tank_l} onChange={v => set('fuel_tank_l', v)} type="number" />
           <Field label="Výška sedla (mm)" value={moto.seat_height_mm} onChange={v => set('seat_height_mm', v)} type="number" />
+          <Field label="Převodovka" value={moto.transmission} onChange={v => set('transmission', v)} placeholder="např. 6stupňová manuální" />
+          <div>
+            <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Pohon</label>
+            <select value={moto.drivetrain || ''} onChange={e => set('drivetrain', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>
+              <option value="">—</option>
+              <option value="chain">řetěz</option>
+              <option value="shaft">kardan</option>
+              <option value="belt">řemen</option>
+            </select>
+          </div>
+          <Field label="Max. rychlost (km/h)" value={moto.top_speed_kmh} onChange={v => set('top_speed_kmh', v)} type="number" placeholder="např. 220" />
+          <Field label="Spotřeba (l/100 km)" value={moto.fuel_consumption_l100km} onChange={v => set('fuel_consumption_l100km', v)} type="number" placeholder="např. 5.5" />
+          <Field label="Palivo" value={moto.fuel_type} onChange={v => set('fuel_type', v)} placeholder="např. Natural 95" />
+          <Field label="Brzdy" value={moto.brake_type} onChange={v => set('brake_type', v)} placeholder="např. kotoučové (ABS)" />
+          <Field label="Počet míst k sezení" value={moto.seats_count} onChange={v => set('seats_count', v)} type="number" placeholder="1 nebo 2" />
           <div>
             <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>ŘP kategorie</label>
             <select value={moto.license_required || ''} onChange={e => set('license_required', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>
@@ -219,6 +234,13 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
               className="w-full rounded-btn text-sm outline-none" rows={3}
               style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', resize: 'vertical' }}
               placeholder="Popis motorky pro zákazníky…" />
+          </div>
+          <div>
+            <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Pro koho je motorka vhodná?</label>
+            <textarea value={moto.suitable_for || ''} onChange={e => set('suitable_for', e.target.value)}
+              className="w-full rounded-btn text-sm outline-none" rows={3}
+              style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', resize: 'vertical' }}
+              placeholder="Pro koho je motorka určena (HTML/odrážky povoleny)…" />
           </div>
           <div>
             <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Ideální použití (každé na nový řádek)</label>
