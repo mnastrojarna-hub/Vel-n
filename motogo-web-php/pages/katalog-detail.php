@@ -85,10 +85,28 @@ if ($motoDesc !== '') {
     $descHtml .= '<div class="wbox"><p>' . htmlspecialchars($motoDesc) . '</p></div><p>&nbsp;</p>';
 }
 $features = [];
-if (!empty($moto['power_kw'])) $features[] = '<strong>' . te('detail.specPower') . ':</strong> ' . htmlspecialchars($moto['power_kw']) . ' kW';
+// Výkon (kW + cca koní, pokud máme power_hp)
+if (!empty($moto['power_kw'])) {
+    $kwBullet = htmlspecialchars($moto['power_kw']) . ' kW';
+    if (!empty($moto['power_hp'])) $kwBullet .= ' (cca ' . htmlspecialchars($moto['power_hp']) . ' ' . te('detail.hpUnit') . ')';
+    $features[] = '<strong>' . te('detail.specPower') . ':</strong> ' . $kwBullet;
+}
+// Typ (kategorie)
 if (!empty($moto['category'])) $features[] = '<strong>' . te('detail.specType') . ':</strong> ' . htmlspecialchars($moto['category']);
-if (!empty($moto['engine_cc'])) $features[] = '<strong>' . te('detail.specEngine') . ':</strong> ' . htmlspecialchars($moto['engine_cc']) . ' ccm';
-if (!empty($moto['engine_type'])) $features[] = '<strong>' . te('detail.specEngineType') . ':</strong> ' . htmlspecialchars($moto['engine_type']);
+// Motor: ccm + typ + převodovka v jednom bulletu (jako na originálním webu)
+$motorParts = [];
+if (!empty($moto['engine_cc'])) $motorParts[] = htmlspecialchars($moto['engine_cc']) . ' ccm';
+if (!empty($moto['engine_type'])) $motorParts[] = htmlspecialchars($moto['engine_type']);
+if (!empty($moto['transmission'])) $motorParts[] = htmlspecialchars($moto['transmission']);
+if ($motorParts) $features[] = '<strong>' . te('detail.specEngine') . ':</strong> ' . implode(', ', $motorParts);
+// Pohon
+if (!empty($moto['drivetrain'])) {
+    $dtMap = ['chain' => t('detail.drivetrainChain'), 'shaft' => t('detail.drivetrainShaft'), 'belt' => t('detail.drivetrainBelt')];
+    $features[] = '<strong>' . te('detail.specDrivetrain') . ':</strong> ' . htmlspecialchars($dtMap[$moto['drivetrain']] ?? $moto['drivetrain']);
+}
+// Spotřeba
+if (!empty($moto['fuel_consumption_l100km'])) $features[] = '<strong>' . te('detail.specFuelConsumption') . ':</strong> cca ' . htmlspecialchars($moto['fuel_consumption_l100km']) . ' l/100 km';
+// Vhodná pro
 if (!empty($moto['ideal_usage'])) $features[] = '<strong>' . te('detail.specSuitableFor') . ':</strong> ' . htmlspecialchars($moto['ideal_usage']);
 if ($features) {
     $descHtml .= '<h2>' . te('detail.shortDesc') . '</h2><ul>';

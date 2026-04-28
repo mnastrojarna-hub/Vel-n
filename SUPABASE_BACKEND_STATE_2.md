@@ -128,6 +128,14 @@
 - **purchase_mileage** (INTEGER DEFAULT NULL) — km při zakoupení, základ pro výpočet servisních intervalů
 - **tracking_unit** (TEXT DEFAULT 'km') — jednotka sledování nájezdu: 'km' (kilometry) nebo 'mh' (motohodiny). CHECK(tracking_unit IN ('km','mh'))
 - **translations** (JSONB DEFAULT '{}') — auto-překlady pro web (struktura `{ "en": {"description":"..."}, "de": {...}, ... }` přes 7 jazyků cs/en/de/es/fr/nl/pl). CZ = výchozí sloupec, web čte přes helper `localized()`. Plní edge funkce `translate-content`.
+- **transmission** (TEXT) — převodovka jako volný text (např. „6stupňová manuální"). Web zobrazuje v Krátkém popisu (sloučeno do Motor) i v tabulce specs.
+- **drivetrain** (TEXT) — typ pohonu, CHECK(drivetrain IN ('chain','shaft','belt')). Web mapuje na lokalizované řetěz/kardan/řemen.
+- **top_speed_kmh** (INTEGER) — maximální rychlost v km/h. Spec tabulka.
+- **fuel_consumption_l100km** (NUMERIC(4,2)) — průměrná spotřeba l/100 km. Krátký popis + spec tabulka.
+- **fuel_type** (TEXT) — druh paliva (např. „Natural 95"). Spec tabulka.
+- **brake_type** (TEXT) — popis brzdové soustavy (např. „kotoučové (ABS)"). Spec tabulka.
+- **seats_count** (INTEGER) — počet míst k sezení (1 nebo 2). Spec tabulka.
+- **suitable_for** (TEXT) — HTML/text sekce „Pro koho je motorka vhodná?" (vykresluje se přes `sanitizeHtml()` v levém sloupci moto-info, mezi Krátkým popisem a Výbavou).
 
 ### sos_incidents
 - id, user_id, booking_id, moto_id, type, title, description
