@@ -119,4 +119,35 @@
       if (dx < 0) next(); else prev();
     }
   }, {passive:true});
+
+  // ===== Thumb strip nav (šipky pod hlavní fotkou) =====
+  function thumbsForBtn(btn){
+    var wrap = btn.closest('.moto-thumbs-wrap');
+    return wrap ? wrap.querySelector('.moto-thumbs') : null;
+  }
+  function updateThumbBtns(strip){
+    var wrap = strip.closest('.moto-thumbs-wrap');
+    if (!wrap) return;
+    var prevBtn = wrap.querySelector('.moto-thumbs-prev');
+    var nextBtn = wrap.querySelector('.moto-thumbs-next');
+    var max = strip.scrollWidth - strip.clientWidth - 1;
+    if (prevBtn) prevBtn.disabled = strip.scrollLeft <= 0;
+    if (nextBtn) nextBtn.disabled = strip.scrollLeft >= max;
+  }
+  document.addEventListener('click', function(e){
+    var btn = e.target.closest && e.target.closest('.moto-thumbs-prev, .moto-thumbs-next');
+    if (!btn) return;
+    e.preventDefault();
+    var strip = thumbsForBtn(btn);
+    if (!strip) return;
+    var first = strip.querySelector('div');
+    var step = first ? (first.getBoundingClientRect().width + 8) : Math.max(120, strip.clientWidth * 0.5);
+    var dir = btn.classList.contains('moto-thumbs-next') ? 1 : -1;
+    strip.scrollBy({ left: dir * step * 2, behavior: 'smooth' });
+  });
+  document.querySelectorAll('.moto-thumbs').forEach(function(strip){
+    updateThumbBtns(strip);
+    strip.addEventListener('scroll', function(){ updateThumbBtns(strip); }, {passive:true});
+    window.addEventListener('resize', function(){ updateThumbBtns(strip); });
+  });
 })();
