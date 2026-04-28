@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import BulkActionsBar, { SelectAllCheckbox } from '../../components/ui/BulkActionsBar'
+import { exportToCsv, bulkUpdate, bulkDelete } from '../../lib/bulkActions'
 import { supabase, supabaseUrl } from '../../lib/supabase'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Badge from '../../components/ui/Badge'
@@ -33,6 +35,7 @@ export default function FinancialEventsTab() {
   const [editEvent, setEditEvent] = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [bulkPushing, setBulkPushing] = useState(false)
+  const [selectedIds, setSelectedIds] = useState(new Set())
 
   useEffect(() => { load() }, [page, statusFilter, typeFilter, sourceFilter, docTypeFilter, dateFrom, dateTo])
 
@@ -192,8 +195,20 @@ export default function FinancialEventsTab() {
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
+          <BulkActionsBar count={selectedIds.size} onClear={() => setSelectedIds(new Set())} actions={[
+            { label: 'Označit schválené', icon: '✓', onClick: async () => { await bulkUpdate('financial_events', [...selectedIds], { status: 'approved' }, 'fin_events_bulk_approved'); setSelectedIds(new Set()); load() } },
+            { label: 'Export CSV', icon: '⬇', onClick: () => exportToCsv('financial-events', [
+              { key: 'duzp', label: 'Datum' }, { key: 'event_type', label: 'Typ' },
+              { key: 'document_type', label: 'Doklad' }, { key: 'metadata', label: 'Dodavatel', format: v => v?.supplier_name || '' },
+              { key: 'amount_czk', label: 'Částka' }, { key: 'status', label: 'Stav' },
+            ], events.filter(e => selectedIds.has(e.id))) },
+            { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} finančních událostí (i navázané závazky)?', onClick: async () => { await bulkDelete('financial_events', [...selectedIds], 'fin_events_bulk_deleted'); setSelectedIds(new Set()); load() } },
+          ]} />
           <Table>
-            <thead><TRow header><TH>Datum</TH><TH>Typ</TH><TH>Doklad</TH><TH>Dodavatel</TH><TH>Castka</TH><TH>AI kategorie</TH><TH>Status</TH><TH>Akce</TH></TRow></thead>
+            <thead><TRow header>
+              <TH><SelectAllCheckbox items={events} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
+              <TH>Datum</TH><TH>Typ</TH><TH>Doklad</TH><TH>Dodavatel</TH><TH>Castka</TH><TH>AI kategorie</TH><TH>Status</TH><TH>Akce</TH>
+            </TRow></thead>
             <tbody>
               {events.map(ev => {
                 const st = STATUS_MAP[ev.status] || STATUS_MAP.pending
@@ -207,7 +222,8 @@ export default function FinancialEventsTab() {
                     supplierName={ev.metadata?.supplier_name || '\u2014'} isExpanded={expandedId === ev.id} isActing={actionId === ev.id}
                     fmt={fmt} onExpand={() => setExpandedId(expandedId === ev.id ? null : ev.id)}
                     onApprove={() => approveEvent(ev)} onFlexi={() => pushToFlexi(ev)}
-                    onEdit={() => setEditEvent(ev)} onDelete={() => setDeleteConfirm(ev)} />
+                    onEdit={() => setEditEvent(ev)} onDelete={() => setDeleteConfirm(ev)}
+                    selectedIds={selectedIds} setSelectedIds={setSelectedIds} />
                 )
               })}
               {events.length === 0 && <TRow><TD>Zadne financni udalosti</TD></TRow>}

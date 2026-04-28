@@ -5,6 +5,8 @@ import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import Pagination from '../../components/ui/Pagination'
 import SearchInput from '../../components/ui/SearchInput'
+import BulkActionsBar, { SelectAllCheckbox, RowCheckbox } from '../../components/ui/BulkActionsBar'
+import { exportToCsv, bulkUpdate, bulkDelete } from '../../lib/bulkActions'
 import { NewShopOrderModal, ShopOrderDetail } from './ShopOrderModals'
 
 const PER_PAGE = 25
@@ -28,6 +30,7 @@ export default function ShopOrdersTab() {
   useEffect(() => { localStorage.setItem('velin_shoporders_filters', JSON.stringify(filters)) }, [filters])
   const [detail, setDetail] = useState(null)
   const [showAdd, setShowAdd] = useState(false)
+  const [selectedIds, setSelectedIds] = useState(new Set())
 
   useEffect(() => { load() }, [page, filters])
   useEffect(() => {
@@ -47,6 +50,21 @@ export default function ShopOrdersTab() {
   const totalPages = Math.ceil(total / PER_PAGE)
   const fmt = n => n != null ? `${Number(n).toLocaleString('cs-CZ')} Kč` : '—'
   const fmtDate = d => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
+
+  const ids = [...selectedIds]
+  const bulkActions = [
+    { label: 'Potvrdit', icon: '✓', onClick: async () => { await bulkUpdate('shop_orders', ids, { status: 'confirmed', confirmed_at: new Date().toISOString() }, 'shop_orders_bulk_confirmed'); setSelectedIds(new Set()); load() } },
+    { label: 'Odesláno', icon: '📦', onClick: async () => { await bulkUpdate('shop_orders', ids, { status: 'shipped' }, 'shop_orders_bulk_shipped'); setSelectedIds(new Set()); load() } },
+    { label: 'Doručeno', icon: '✅', onClick: async () => { await bulkUpdate('shop_orders', ids, { status: 'delivered' }, 'shop_orders_bulk_delivered'); setSelectedIds(new Set()); load() } },
+    { label: 'Zrušit', icon: '✗', onClick: async () => { await bulkUpdate('shop_orders', ids, { status: 'cancelled' }, 'shop_orders_bulk_cancelled'); setSelectedIds(new Set()); load() }, confirm: 'Zrušit {count} objednávek?' },
+    { label: 'Označit zaplaceno', icon: '💰', onClick: async () => { await bulkUpdate('shop_orders', ids, { payment_status: 'paid' }, 'shop_orders_bulk_paid'); setSelectedIds(new Set()); load() } },
+    { label: 'Export CSV', icon: '⬇', onClick: () => exportToCsv('shop-orders', [
+      { key: 'order_number', label: 'Číslo' }, { key: 'customer_name', label: 'Zákazník' },
+      { key: 'customer_email', label: 'Email' }, { key: 'created_at', label: 'Datum', format: v => v ? new Date(v).toLocaleString('cs-CZ') : '' },
+      { key: 'total', label: 'Celkem' }, { key: 'payment_status', label: 'Platba' }, { key: 'status', label: 'Stav' },
+    ], orders.filter(o => selectedIds.has(o.id))) },
+    { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} objednávek?', onClick: async () => { await bulkDelete('shop_orders', ids, 'shop_orders_bulk_deleted'); setSelectedIds(new Set()); load() } },
+  ]
 
   return (
     <div>
@@ -69,21 +87,27 @@ export default function ShopOrdersTab() {
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
+          <BulkActionsBar count={selectedIds.size} onClear={() => setSelectedIds(new Set())} actions={bulkActions} />
           <Table>
-            <thead><TRow header><TH>Číslo</TH><TH>Zákazník</TH><TH>Datum</TH><TH>Celkem</TH><TH>Platba</TH><TH>Stav</TH></TRow></thead>
+            <thead><TRow header>
+              <TH><SelectAllCheckbox items={orders} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
+              <TH>Číslo</TH><TH>Zákazník</TH><TH>Datum</TH><TH>Celkem</TH><TH>Platba</TH><TH>Stav</TH>
+            </TRow></thead>
             <tbody>
               {orders.map(o => {
                 const sc = STATUS_COLORS[o.status] || { bg: '#f3f4f6', color: '#1a2e22' }
                 const pc = PAYMENT_COLORS[o.payment_status] || { bg: '#f3f4f6', color: '#1a2e22' }
                 return (
-                  <tr key={o.id} onClick={() => setDetail(o)} className="cursor-pointer hover:bg-[#f1faf7] transition-colors" style={{ borderBottom: '1px solid #d4e8e0' }}>
+                  <tr key={o.id} onClick={() => setDetail(o)} className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
+                    style={{ borderBottom: '1px solid #d4e8e0', background: selectedIds.has(o.id) ? '#fef9c3' : undefined }}>
+                    <TD><RowCheckbox id={o.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TD>
                     <TD mono bold>{o.order_number}</TD><TD>{o.customer_name || o.customer_email || '—'}</TD><TD>{fmtDate(o.created_at)}</TD><TD bold>{fmt(o.total)}</TD>
                     <TD><span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase" style={{ padding: '3px 8px', background: pc.bg, color: pc.color }}>{PAYMENT_LABELS[o.payment_status] || o.payment_status}</span></TD>
                     <TD><span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase" style={{ padding: '3px 8px', background: sc.bg, color: sc.color }}>{STATUS_LABELS[o.status] || o.status}</span></TD>
                   </tr>
                 )
               })}
-              {orders.length === 0 && <TRow><TD colSpan={6}>Žádné objednávky</TD></TRow>}
+              {orders.length === 0 && <TRow><TD colSpan={7}>Žádné objednávky</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />

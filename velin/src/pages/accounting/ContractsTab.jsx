@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import BulkActionsBar, { SelectAllCheckbox, RowCheckbox } from '../../components/ui/BulkActionsBar'
+import { exportToCsv, bulkUpdate, bulkDelete } from '../../lib/bulkActions'
 import { supabase } from '../../lib/supabase'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Badge from '../../components/ui/Badge'
@@ -50,6 +52,7 @@ export default function ContractsTab() {
   const [search, setSearch] = useState('')
   const [detail, setDetail] = useState(null)
   const [resultMsg, setResultMsg] = useState(null)
+  const [selectedIds, setSelectedIds] = useState(new Set())
 
   useEffect(() => { load() }, [page, filterGroup, search])
 
@@ -161,9 +164,21 @@ export default function ContractsTab() {
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
+          <BulkActionsBar count={selectedIds.size} onClear={() => setSelectedIds(new Set())} actions={[
+            { label: 'Aktivovat', icon: '✓', onClick: async () => { await bulkUpdate('contracts', [...selectedIds], { status: 'active' }, 'contracts_bulk_activated'); setSelectedIds(new Set()); load() } },
+            { label: 'Ukončit', icon: '⏹', onClick: async () => { await bulkUpdate('contracts', [...selectedIds], { status: 'terminated' }, 'contracts_bulk_terminated'); setSelectedIds(new Set()); load() }, confirm: 'Ukončit {count} smluv?' },
+            { label: 'Export CSV', icon: '⬇', onClick: () => exportToCsv('contracts', [
+              { key: 'contract_number', label: 'Číslo' }, { key: 'contract_type', label: 'Typ' },
+              { key: 'title', label: 'Název' }, { key: 'counterparty', label: 'Protistrana' },
+              { key: 'amount', label: 'Částka' }, { key: 'valid_from', label: 'Od' },
+              { key: 'valid_until', label: 'Do' }, { key: 'status', label: 'Stav' },
+            ], contracts.filter(c => selectedIds.has(c.id))) },
+            { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} smluv?', onClick: async () => { await bulkDelete('contracts', [...selectedIds], 'contracts_bulk_deleted'); setSelectedIds(new Set()); load() } },
+          ]} />
           <Table>
             <thead>
               <TRow header>
+                <TH><SelectAllCheckbox items={contracts} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
                 <TH>Číslo</TH><TH>Typ</TH><TH>Název</TH><TH>Protistrana</TH>
                 <TH>Částka</TH><TH>Platnost</TH><TH>Status</TH><TH>Akce</TH>
               </TRow>
@@ -177,6 +192,7 @@ export default function ContractsTab() {
 
                 return (
                   <TRow key={c.id}>
+                    <TD><RowCheckbox id={c.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TD>
                     <TD mono bold>{c.contract_number || '—'}</TD>
                     <TD><Badge label={ct.label} color={ct.color} bg={ct.bg} /></TD>
                     <TD><span className="text-sm font-bold" style={{ color: '#1a2e22' }}>{c.title || '—'}</span></TD>

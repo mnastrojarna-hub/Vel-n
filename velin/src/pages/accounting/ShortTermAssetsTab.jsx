@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import BulkActionsBar, { SelectAllCheckbox, RowCheckbox } from '../../components/ui/BulkActionsBar'
+import { exportToCsv, bulkDelete } from '../../lib/bulkActions'
 import { supabase } from '../../lib/supabase'
 import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
@@ -29,6 +31,7 @@ export default function ShortTermAssetsTab() {
   const [showAdd, setShowAdd] = useState(false)
   const [detail, setDetail] = useState(null)
   const [summary, setSummary] = useState({ total: 0, byCategory: {} })
+  const [selectedIds, setSelectedIds] = useState(new Set())
 
   useEffect(() => { load() }, [page])
 
@@ -92,9 +95,18 @@ export default function ShortTermAssetsTab() {
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
+          <BulkActionsBar count={selectedIds.size} onClear={() => setSelectedIds(new Set())} actions={[
+            { label: 'Export CSV', icon: '⬇', onClick: () => exportToCsv('short-term-assets', [
+              { key: 'name', label: 'Název' }, { key: 'category', label: 'Kategorie' },
+              { key: 'purchase_price', label: 'Pořizovací cena' }, { key: 'current_value', label: 'Aktuální hodnota' },
+              { key: 'acquired_date', label: 'Datum pořízení' }, { key: 'status', label: 'Stav' },
+            ], assets.filter(a => selectedIds.has(a.id))) },
+            { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} položek krátkodobého majetku?', onClick: async () => { await bulkDelete('acc_short_term_assets', [...selectedIds], 'short_assets_bulk_deleted'); setSelectedIds(new Set()); load() } },
+          ]} />
           <Table>
             <thead>
               <TRow header>
+                <TH><SelectAllCheckbox items={assets} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
                 <TH>Nazev</TH><TH>Kategorie</TH><TH>Porizovaci cena</TH><TH>Aktualni hodnota</TH>
                 <TH>Datum porizeni</TH><TH>Stav</TH><TH>Akce</TH>
               </TRow>
@@ -102,6 +114,7 @@ export default function ShortTermAssetsTab() {
             <tbody>
               {assets.map(a => (
                 <TRow key={a.id}>
+                  <TD><RowCheckbox id={a.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} stopPropagation={false} /></TD>
                   <TD bold>{a.name}</TD>
                   <TD>{CATEGORIES.find(c => c.value === a.category)?.label || a.category}</TD>
                   <TD>{fmt(a.purchase_price)}</TD>
