@@ -249,13 +249,27 @@
 .moto-gallery .gr3>div{flex:0 0 120px}
 .moto-gallery .gr3 .gallery-img img{height:90px;object-fit:cover}
 
+/* ===== Mobile galerie — jeden velký swipeable obrázek + tečky =====
+   Na desktopu skryté (lightbox.js si je nasadí jen pod 768 px). */
+.moto-mobile-slider{display:none;position:relative;margin:0 0 .75rem;border-radius:12px;overflow:hidden;background:#1a2e22;box-shadow:0 4px 14px rgba(26,46,34,.12)}
+.moto-mobile-track{display:flex;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;scroll-behavior:smooth}
+.moto-mobile-track::-webkit-scrollbar{display:none}
+.moto-mobile-slide{flex:0 0 100%;scroll-snap-align:center;display:block;cursor:zoom-in;background:#1a2e22}
+.moto-mobile-slide img{width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;display:block;pointer-events:none}
+.moto-mobile-dots{position:absolute;left:0;right:0;bottom:.6rem;display:flex;justify-content:center;gap:6px;z-index:3;pointer-events:none}
+.moto-mobile-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.45);transition:background .2s,width .2s,border-radius .2s;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.moto-mobile-dot.active{background:#74FB71;width:22px;border-radius:6px}
+.moto-mobile-hide{display:none!important}
+
 /* Moto detail — mobilní layout */
 @media(max-width:768px){
   .moto-info.gr2{display:flex;flex-direction:column-reverse;gap:1rem}
   .moto-shortdesc{margin-top:.5rem}
+  .moto-mobile-slider{display:block}
   .moto-gallery .moto-photo{margin-bottom:.5rem}
   .moto-gallery .moto-photo .gallery-img img{aspect-ratio:4/3;object-fit:cover;width:100%;height:auto;max-height:60vh}
-  /* Galerie thumbs — užší miniatury, šipky kompaktnější */
+  /* Galerie thumbs — užší miniatury, šipky kompaktnější (desktop fallback,
+     na mobilu je celý pás schovaný přes .moto-mobile-hide) */
   .moto-gallery .moto-thumbs>div,
   .moto-gallery .gr3>div{flex:0 0 calc(33.333% - .35rem)}
   .moto-gallery .moto-thumbs .gallery-img img,
