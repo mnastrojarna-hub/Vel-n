@@ -241,6 +241,14 @@
         // /katalog/<motoId>  (UUID nebo cokoliv co není prázdné)
         var mMoto = path.match(/^\/katalog\/([^\/]+)$/);
         if (mMoto) { type = 'moto_detail'; motoId = mMoto[1]; }
+        // Autoritativní moto_id ze stránky (PHP do window.MOTOGO_PAGE_CTX.moto_id zapíše skutečné UUID
+        // z DB). Má vyšší prioritu než URL pattern, který selže u slug URL, redirectů nebo cached PWA path.
+        try {
+          if (window.MOTOGO_PAGE_CTX && typeof window.MOTOGO_PAGE_CTX === 'object') {
+            if (window.MOTOGO_PAGE_CTX.moto_id) { motoId = String(window.MOTOGO_PAGE_CTX.moto_id); }
+            if (window.MOTOGO_PAGE_CTX.type) { type = String(window.MOTOGO_PAGE_CTX.type); }
+          }
+        } catch (e) {}
         else if (path === '/katalog') type = 'katalog';
         else if (path === '/' || path === '/home') type = 'home';
         else if (path === '/shop') type = 'shop';
