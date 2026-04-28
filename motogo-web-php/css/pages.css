@@ -810,6 +810,7 @@
 .checkout-page{padding-top:.5rem}
 .checkout-intro{color:#4a6b5a;margin:.25rem 0 1rem;font-size:.95rem}
 .checkout-loading{padding:2rem 0;color:#4a6b5a;display:flex;align-items:center;gap:.75rem}
+.checkout-loading[hidden]{display:none}
 .checkout-empty{padding:2rem 0;text-align:center;color:#4a6b5a}
 .checkout-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:.85rem}
 .checkout-field{display:flex;flex-direction:column;gap:.3rem;font-size:.88rem;color:#1a2e22;font-weight:600}
@@ -851,6 +852,7 @@
 /* ===== E-shop košík (/kosik) ===== */
 .cart-page{padding-top:.5rem}
 .cart-loading{padding:2rem 0;color:#4a6b5a;display:flex;align-items:center;gap:.75rem;font-size:.95rem}
+.cart-loading[hidden]{display:none}
 .cart-empty{padding:2rem 0;text-align:center}
 .cart-empty p{margin:.6rem 0;color:#4a6b5a}
 .cart-grid{display:grid;grid-template-columns:1fr 320px;gap:1.5rem;align-items:start;margin-top:1rem}
