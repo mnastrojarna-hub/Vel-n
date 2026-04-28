@@ -134,7 +134,10 @@ MG._submitReservation = async function(){
       p_jacket_size: rs.jacket||null,
       p_pants_size:  rs.pants||null,
       p_boots_size:  rs.boots||null,
-      p_gloves_size: rs.gloves||null
+      p_gloves_size: rs.gloves||null,
+      // Pokud uživatel kliknul "Zpět" v kroku 2 a vrací se s úpravami,
+      // RPC namísto vytvoření nového pending bookingu UPDATE-uje původní
+      p_existing_booking_id: MG._rez.bookingId || null
     };
     // Passenger gear sizes — pošli jen pokud je RPC rozšířený (po aplikaci SQL migrace)
     var hasPassengerSizes = !!(ps.helmet||ps.jacket||ps.gloves||ps.boots);
@@ -191,6 +194,7 @@ MG._submitReservation = async function(){
 
   // Schedule abandoned email after 5 minutes if payment not completed
   if(MG._rez.bookingId && MG._rez.formData){
+    if(MG._rez._abandonedTimer) clearTimeout(MG._rez._abandonedTimer);
     MG._rez._abandonedTimer = setTimeout(function(){
       // Check if still pending (not yet paid)
       if(!MG._rez._paymentDone){
