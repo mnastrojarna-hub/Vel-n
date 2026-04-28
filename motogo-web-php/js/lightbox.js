@@ -57,7 +57,20 @@
     items = collect(group);
     if (!items.length) return;
     current = Math.max(0, Math.min(items.length - 1, index|0));
+    // Únik z případného ancestor containing-blocku (transform/filter na předkovi
+    // umí rozbít position:fixed a způsobit, že overlay vykreslí pod patou webu).
+    if (root.parentElement !== document.body) document.body.appendChild(root);
     root.removeAttribute('hidden');
+    // Inline pojistka na případy, kdy by CSS bylo přepsáno jiným pravidlem.
+    root.style.position = 'fixed';
+    root.style.top = '0';
+    root.style.left = '0';
+    root.style.right = '0';
+    root.style.bottom = '0';
+    root.style.width = '100vw';
+    root.style.height = '100vh';
+    root.style.zIndex = '99999';
+    root.style.display = 'flex';
     document.body.classList.add('mg-lb-open');
     render();
     btnClose.focus();
@@ -65,6 +78,15 @@
 
   function close(){
     root.setAttribute('hidden','');
+    root.style.display = '';
+    root.style.position = '';
+    root.style.top = '';
+    root.style.left = '';
+    root.style.right = '';
+    root.style.bottom = '';
+    root.style.width = '';
+    root.style.height = '';
+    root.style.zIndex = '';
     document.body.classList.remove('mg-lb-open');
     imgEl.src = '';
     items = [];
