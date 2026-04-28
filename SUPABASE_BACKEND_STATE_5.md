@@ -96,7 +96,7 @@ Detailní politiky:
 | `webhook-receiver` | OFF | Příjem Stripe webhooků (**LIVE mode**, signature povinná). Auto-generuje dokumenty po platbě. Synchronizuje karty do payment_methods. **Shop platby:** auto-generuje DP + odesílá voucher_purchased email s kódy poukazů. **Bundled booking + shop (od 2026-04-28):** když `event.metadata.type='booking'` a obsahuje `metadata.shop_order_id`, zavolá vedle `confirmBookingPayment` ještě `confirmShopPayment` → trigger `generate_shop_invoice` vystaví shop_final fakturu, odešle voucher/order email. Výsledek: jedna Stripe session, dvě faktury, dva emaily. |
 | `public-api` | OFF | **Veřejné REST API** pro AI agenty / partnery / integrátory. Tenká vrstva nad RPC. 9 endpointů (motorcycles list+detail+availability, branches, extras, quote, bookings, promo/voucher validate) + GET /api/v1/openapi.json (OpenAPI 3.1 spec). Hybrid auth: bez klíče = rate-limit per IP (60/min read, 30/h create_booking), s X-Api-Key header = per-partner rate_limit_rpm z `api_keys`. Loguje do `ai_traffic_log` (source='rest_api'). |
 | `mcp-server` | OFF | **Model Context Protocol server** (HTTP + JSON-RPC 2.0) pro Claude Desktop, Cursor, Cline, Smithery, custom agenty. 9 tools (motogo_search_motorcycles, motogo_get_motorcycle, motogo_get_availability, motogo_quote, motogo_create_booking, motogo_get_branches, motogo_get_faq, motogo_validate_promo, motogo_validate_voucher) + 5 resources (about, motorcycles, branches, faq, policies). Methods: initialize, tools/list, tools/call, resources/list, resources/read, ping. GET / vrací discovery JSON. Optional X-Api-Key auth. Loguje do `ai_traffic_log` (source='mcp'). |
-| `ai-public-agent` | OFF | **AI booking widget backend** (anonymní, bez JWT). Anthropic Claude Haiku 4.5 + **9 tools**: `search_motorcycles`, `get_availability`, `calculate_price`, `get_faq`, `get_extras_catalog`, `get_branches`, `validate_promo_or_voucher`, **`create_booking_request`**, `redirect_to_booking`. Anti-halucinace: model nikdy nevymýšlí ceny ani datum — system prompt obsahuje hlavičku "DNES JE …" v Europe/Prague. **Jazykově adaptivní**: model detekuje jazyk poslední user zprávy a odpovídá vždy ve stejném (přepínání mid-konverzace OK). UI lang z prohlížeče je jen hint pro 1. zprávu. **Konfigurovatelný z Velínu** přes `app_settings.ai_public_agent_config` (persona_name, system_prompt, situations, mustDo, forbidden, tone, max_tokens, enabled, welcome_cs/en/de). `create_booking_request` přijímá kompletní data: moto_id, datumy, kontakt (jméno/email/telefon/adresa), ŘP skupina, promo kód, pickup/return time, delivery_address/return_address pro přistavení mimo Mezná, extras (jako pole {name, unit_price}), všechny gear sizes řidič+spolujezdec. Po vytvoření booking přes RPC `create_web_booking` edge funkce **interně volá `process-payment` (source=web, booking_id)** a vrací reálný **Stripe Checkout URL** v `payment_url` (fallback na `/rezervace/dokoncit?id=X` pokud Stripe selže). Rate-limit 20 req/min/IP. Loguje do `ai_traffic_log` (source='widget', outcome=`view`/`quote`/`booking_created`). |
+| `ai-public-agent` | OFF | **AI booking widget backend** (anonymní, bez JWT). Anthropic Claude Haiku 4.5 + **10 tools**: `search_motorcycles`, `get_availability`, `calculate_price` (vrací error když chybí ceník dne, výslovně označuje že NEzahrnuje extras+dopravu), `get_faq` (čistě CMS, žádný hardcoded fallback), **`get_policies`** (NEW — čte `app_settings.site.policies`, agent musí přiznat neznalost když prázdné), `get_extras_catalog`, `get_branches`, `validate_promo_or_voucher`, **`create_booking_request`**, `redirect_to_booking`. **Anti-halucinace policies:** firemní fakta (adresa, telefon, email) se načítají z `app_settings.company_info` dynamicky, statický COMPANY_BRAIN obsahuje jen identitu firmy + obecné zákonné limity ŘP + technický popis flow. Storno, kauce, ceny přistavení, foreign-travel, věkové limity půjčovny — výhradně přes `get_policies`/`get_faq` z CMS. Anti-halucinace: model nikdy nevymýšlí ceny ani datum — system prompt obsahuje hlavičku "DNES JE …" v Europe/Prague. **Jazykově adaptivní**: model detekuje jazyk poslední user zprávy a odpovídá vždy ve stejném (přepínání mid-konverzace OK). UI lang z prohlížeče je jen hint pro 1. zprávu. **Konfigurovatelný z Velínu** přes `app_settings.ai_public_agent_config` (persona_name, system_prompt, situations, mustDo, forbidden, tone, max_tokens, enabled, welcome_cs/en/de). `create_booking_request` přijímá kompletní data: moto_id, datumy, kontakt (jméno/email/telefon/adresa), ŘP skupina, promo kód, pickup/return time, delivery_address/return_address pro přistavení mimo Mezná, extras (jako pole {name, unit_price}), všechny gear sizes řidič+spolujezdec. Po vytvoření booking přes RPC `create_web_booking` edge funkce **interně volá `process-payment` (source=web, booking_id)** a vrací reálný **Stripe Checkout URL** v `payment_url` (fallback na `/rezervace/dokoncit?id=X` pokud Stripe selže). Rate-limit 20 req/min/IP. Loguje do `ai_traffic_log` (source='widget', outcome=`view`/`quote`/`booking_created`). |
 
 ### Pouze v Supabase dashboardu (4 — bez kódu v repo)
 
@@ -206,6 +206,26 @@ Detailní politiky:
 ### google_review_url (app_settings key)
 ```
 https://search.google.com/local/writereview?placeid=PLACE_ID
+```
+
+### site.policies (app_settings key) — NOVÉ
+Strukturované oficiální podmínky půjčovny pro AI public agent (`get_policies` tool) i budoucí zobrazení v CMS. Když je klíč prázdný, agent přizná neznalost místo halucinace. Příklad struktury (admin si plní z Velínu):
+```json
+{
+  "deposit": "Půjčujeme bez kauce — žádná blokace na kartě.",
+  "cancellation": {
+    "free_until_days": 7,
+    "partial_refund_percent_2_to_7_days": 50,
+    "less_than_2_days": "Individuálně po dohodě (volá zákazník)."
+  },
+  "included": ["Helma, bunda, kalhoty a rukavice řidiče", "Povinné ručení / zelená karta", "Neomezené km v ČR a EU"],
+  "addons_extra_charge": ["Výbava spolujezdce", "Boty pro řidiče", "Sjezd mimo EU"],
+  "delivery_pricing": "Orientačně 1000 Kč + 40 Kč/km, přesný výpočet probíhá v rezervačním formuláři.",
+  "foreign_travel": "EU + Schengen v ceně, mimo EU po dohodě a s doplňkovým pojištěním.",
+  "fuel": "Vracíš jak chceš (i prázdné). Dotankování za nákupní cenu.",
+  "documents_required": ["Občanský průkaz nebo cestovní pas", "Platný řidičský průkaz odpovídající skupiny"],
+  "rental_age_min": { "A1": 16, "A2": 18, "A": 24, "B_for_A1": 21 }
+}
 ```
 
 ---

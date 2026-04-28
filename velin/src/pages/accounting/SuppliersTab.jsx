@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import BulkActionsBar, { SelectAllCheckbox, RowCheckbox } from '../../components/ui/BulkActionsBar'
+import { exportToCsv, bulkDelete } from '../../lib/bulkActions'
 import { supabase } from '../../lib/supabase'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
@@ -18,6 +20,7 @@ export default function SuppliersTab() {
   const [editSupplier, setEditSupplier] = useState(null)
   const [showAdd, setShowAdd] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [selectedIds, setSelectedIds] = useState(new Set())
 
   useEffect(() => { load() }, [page, search])
 
@@ -63,9 +66,22 @@ export default function SuppliersTab() {
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
+          <BulkActionsBar count={selectedIds.size} onClear={() => setSelectedIds(new Set())} actions={[
+            { label: 'Kopírovat e-maily', icon: '📧', onClick: () => {
+              const emails = suppliers.filter(s => selectedIds.has(s.id)).map(s => s.contact_email).filter(Boolean).join(', ')
+              if (emails) navigator.clipboard.writeText(emails)
+            } },
+            { label: 'Export CSV', icon: '⬇', onClick: () => exportToCsv('suppliers-acc', [
+              { key: 'name', label: 'Název' }, { key: 'ico', label: 'IČO' }, { key: 'dic', label: 'DIČ' },
+              { key: 'bank_account', label: 'Bankovní účet' }, { key: 'default_category', label: 'Kategorie' },
+              { key: 'contact_email', label: 'Email' }, { key: 'address', label: 'Adresa' },
+            ], suppliers.filter(s => selectedIds.has(s.id))) },
+            { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} dodavatelů?', onClick: async () => { await bulkDelete('suppliers', [...selectedIds], 'suppliers_acc_bulk_deleted'); setSelectedIds(new Set()); load() } },
+          ]} />
           <Table>
             <thead>
               <TRow header>
+                <TH><SelectAllCheckbox items={suppliers} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
                 <TH>Název</TH><TH>IČO</TH><TH>DIČ</TH><TH>Bankovní účet</TH>
                 <TH>Kategorie</TH><TH>Kontakt</TH><TH>Akce</TH>
               </TRow>
@@ -73,6 +89,7 @@ export default function SuppliersTab() {
             <tbody>
               {suppliers.map(s => (
                 <TRow key={s.id}>
+                  <TD><RowCheckbox id={s.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} stopPropagation={false} /></TD>
                   <TD bold>{s.name || '—'}</TD>
                   <TD mono>{s.ico || '—'}</TD>
                   <TD mono>{s.dic || '—'}</TD>

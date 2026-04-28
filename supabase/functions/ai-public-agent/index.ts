@@ -88,12 +88,31 @@ type WebAgentConfig = {
   knowledge_extra?: string  // freetext z Velínu, inject do promptu (sezonní akce, novinky, dočasné info...)
 }
 
-async function loadConfig(): Promise<WebAgentConfig> {
+type CompanyInfo = {
+  name?: string
+  ico?: string
+  dic?: string | null
+  address?: string
+  phone?: string
+  email?: string
+  web?: string
+  bank_account?: string
+}
+
+async function loadConfig(): Promise<{ cfg: WebAgentConfig; company: CompanyInfo }> {
+  // Načti všechny relevantní app_settings klíče paralelně.
+  // company_info je zdroj pravdy o adrese / telefonu / emailu firmy (žádné hardcoded fakty).
   try {
-    const { data } = await sb.from('app_settings').select('value').eq('key', 'ai_public_agent_config').maybeSingle()
-    return (data?.value as WebAgentConfig) || {}
+    const [cfgRes, ciRes] = await Promise.all([
+      sb.from('app_settings').select('value').eq('key', 'ai_public_agent_config').maybeSingle(),
+      sb.from('app_settings').select('value').eq('key', 'company_info').maybeSingle(),
+    ])
+    return {
+      cfg: (cfgRes.data?.value as WebAgentConfig) || {},
+      company: (ciRes.data?.value as CompanyInfo) || {},
+    }
   } catch {
-    return {}
+    return { cfg: {}, company: {} }
   }
 }
 
@@ -145,10 +164,18 @@ const PUBLIC_TOOLS = [
   },
   {
     name: 'get_faq',
-    description: 'Vyhledá v interní FAQ podle klíčového slova (kauce, pojištění, řidičák, zahraničí, storno...).',
+    description: 'Vyhledá v interní FAQ (CMS) podle klíčového slova (kauce, pojištění, řidičák, zahraničí, storno...). Vrací jen reálná data z administrace — pokud není v CMS, vrátí prázdno a TY pak zákazníkovi přiznáš, že to nevíš a doporučíš kontakt.',
     input_schema: {
       type: 'object',
       properties: { query: { type: 'string' } },
+    },
+  },
+  {
+    name: 'get_policies',
+    description: 'Vrátí oficiální podmínky půjčovny z CMS (storno, kauce, co je v ceně, cenu přistavení, foreign travel, dokumenty pro vyzvednutí, tankování, věkové limity skupin ŘP). VŽDY zavolej, než zákazníkovi sdělíš jakékoliv konkrétní procento storno-poplatku, výši kauce, cenu přistavení nebo platnost pojištění mimo EU. Pokud tool vrátí prázdno, NEUVÁDĚJ konkrétní čísla z hlavy — řekni "tohle ti přesně neporadím, ozvi se na info@motogo24.cz".',
+    input_schema: {
+      type: 'object',
+      properties: { topic: { type: 'string', description: 'Volitelně téma — cancellation, deposit, included, addons, delivery_pricing, foreign_travel, fuel, license_groups, documents.' } },
     },
   },
   {
@@ -305,30 +332,63 @@ async function execPublicTool(name: string, args: Record<string, unknown>): Prom
       if (!moto) return { error: 'Motorka nenalezena' }
       const days = ['sun','mon','tue','wed','thu','fri','sat']
       const start = new Date(String(start_date)), end = new Date(String(end_date))
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) return { error: 'Neplatné datum' }
+      if (end < start) return { error: 'Konec musí být po začátku' }
+
+      const motoRow = moto as Record<string, unknown>
       let total = 0, count = 0
+      const missingDays: string[] = []
       const d = new Date(start)
       while (d <= end) {
         const dn = days[d.getDay()]
-        total += Number((moto as Record<string, unknown>)['price_' + dn] ?? 0); count++
+        const raw = motoRow['price_' + dn]
+        const price = raw == null ? null : Number(raw)
+        if (price == null || !isFinite(price) || price <= 0) {
+          missingDays.push(d.toISOString().slice(0, 10))
+        } else {
+          total += price
+        }
+        count++
         d.setDate(d.getDate() + 1)
       }
+      // Cena pro motorku není kompletní — radši nic nevrať než ohlásit nesprávně nízkou cenu.
+      if (missingDays.length > 0) {
+        return {
+          error: 'Ceník této motorky pro některé dny chybí v DB — nemůžu zaručit přesnou cenu. Doporuč zákazníkovi rezervaci dokončit ve formuláři, kde se cena spočítá konzervativně.',
+          missing_price_days: missingDays,
+        }
+      }
       let discount = 0
+      let promoApplied: { type: string; value: number } | null = null
       if (promo_code) {
         const { data: pr } = await sb.rpc('validate_promo_code', { code: promo_code })
         if (pr && (pr as Record<string, unknown>).valid) {
           const p = pr as Record<string, unknown>
-          if (p.type === 'percent') discount = Math.round(total * Number(p.value) / 100)
-          else discount = Number(p.value)
+          const v = Number(p.value)
+          if (p.type === 'percent') discount = Math.round(total * v / 100)
+          else discount = v
+          promoApplied = { type: String(p.type), value: v }
         }
       }
-      return { days: count, rental_total: total, promo_discount: discount, grand_total: total - discount, currency: 'CZK' }
+      return {
+        days: count,
+        rental_total: total,
+        promo_discount: discount,
+        promo_applied: promoApplied,
+        grand_total: total - discount,
+        currency: 'CZK',
+        // Důležitá výhrada: agentu přímo říkáme, co cena NEzahrnuje — ať to zmíní zákazníkovi, ne aby
+        // tvrdil "celková cena XY Kč" a zákazník byl pak překvapený extras nebo dopravou.
+        note_excludes: 'Cena nezahrnuje příplatky za přistavení mimo Mezná, výbavu spolujezdce, boty pro řidiče, GPS, top case ani jiné extras — ty se připočítají v rezervačním formuláři dle výběru.',
+      }
     }
     case 'get_faq': {
-      // Primárně čteme FAQ z CMS (app_settings.site.faq) — sem admin edituje obsah z Velínu (CMS → Web texts → FAQ).
+      // Jediný zdroj pravdy: CMS klíč app_settings.site.faq (admin edituje z Velínu → CMS → Web texts → FAQ).
       // Struktura: { categories: { <key>: { label, items: [{q, a}] } } }.
-      // Fallback: hardcoded základ pro případ, že CMS klíč není nastaven.
+      // ŽÁDNÝ hardcoded fallback s konkrétními tvrzeními — když je CMS prázdné, vracíme prázdno
+      // a agent musí přiznat, že na to neodpoví, místo aby halucinoval policies z hlavy.
       const stripHtml = (s: string) => String(s || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
-      let faqs: Array<{ q: string; a: string; cat?: string }> = []
+      const faqs: Array<{ q: string; a: string; cat?: string }> = []
       try {
         const { data: cms } = await sb.from('app_settings').select('value').eq('key', 'site.faq').maybeSingle()
         const cats = (cms?.value as Record<string, unknown>)?.categories as Record<string, { label?: string; items?: Array<{ q?: string; a?: string }> }> | undefined
@@ -339,31 +399,44 @@ async function execPublicTool(name: string, args: Record<string, unknown>): Prom
             }
           }
         }
-      } catch { /* ignore — fallback below */ }
+      } catch { /* CMS nedostupný — vrátíme prázdno a agent to korektně přizná */ }
 
       if (faqs.length === 0) {
-        faqs = [
-          { q: 'Kauce', a: 'NE — MotoGo24 půjčuje bez kauce. Žádná blokace na kartě.' },
-          { q: 'Cena výbavy', a: 'Helma, bunda, kalhoty, rukavice pro řidiče v ceně. Spolujezdec za příplatek.' },
-          { q: 'Řidičák A', a: 'Skupina A pro silnější stroje (>35 kW), min. věk 24 let.' },
-          { q: 'Řidičák A2', a: 'A2 — motorky do 35 kW, min. věk 18 let.' },
-          { q: 'Řidičák A1', a: 'A1 — motorky do 11 kW a 125 ccm, min. věk 16 let.' },
-          { q: 'Dětské motorky', a: 'Bez ŘP. Ručí zákonný zástupce.' },
-          { q: 'Zahraničí', a: 'Sjezd povolen. Zelená karta v ceně.' },
-          { q: 'Vyzvednutí', a: 'Mezná 9, Pelhřimov, Vysočina (49.4147, 15.2953). Nebo přistavení kamkoliv v ČR za příplatek.' },
-          { q: 'Provozní doba', a: '24/7 nonstop. Vyzvednutí přes přístupové kódy.' },
-          { q: 'Storno', a: 'Bezplatně min. 7 dní před převzetím. Později individuálně.' },
-          { q: 'Pojištění', a: 'Povinné ručení v ceně. Havarijní dle modelu.' },
-          { q: 'Platba', a: 'Online kartou přes Stripe. Visa, MC, Amex, Apple Pay, Google Pay.' },
-          { q: 'Tankování', a: 'Vrácení bez nutnosti dotankovat ani umýt.' },
-        ]
+        return {
+          source: 'empty',
+          count: 0,
+          faqs: [],
+          notice: 'FAQ v CMS není naplněna. NESDÍLEJ konkrétní policies z hlavy. Doporuč zákazníkovi kontakt info@motogo24.cz / +420 774 256 271, nebo zavolej tool get_policies a získej oficiální podmínky odtud. NIKDY si neimprovizuj cenu kauce, % storno-poplatku ani podmínky pojištění.',
+        }
       }
 
       const query = String(args.query || '').toLowerCase().trim()
       const matched = query
         ? faqs.filter((f) => (f.q + ' ' + f.a + ' ' + (f.cat || '')).toLowerCase().includes(query))
         : faqs
-      return { source: faqs[0]?.cat ? 'cms' : 'fallback', count: matched.length, faqs: matched.slice(0, 8) }
+      return { source: 'cms', count: matched.length, faqs: matched.slice(0, 8) }
+    }
+    case 'get_policies': {
+      // Oficiální podmínky půjčovny z CMS klíče app_settings.site.policies. Admin si tam vyplňuje
+      // strukturovaný JSON ve Velínu. Pokud je klíč prázdný, vracíme prázdno + explicitní pokyn agentovi.
+      try {
+        const { data: cms } = await sb.from('app_settings').select('value').eq('key', 'site.policies').maybeSingle()
+        const policies = (cms?.value as Record<string, unknown>) || {}
+        if (!policies || Object.keys(policies).length === 0) {
+          return {
+            source: 'empty',
+            policies: {},
+            notice: 'Policies v CMS nejsou nastavené. NESDÍLEJ z hlavy konkrétní procenta storna, výši kauce, cenu přistavení, pojištění mimo EU ani věkové limity skupin ŘP, které nejsou v české vyhlášce. Místo toho přiznej, že přesná čísla najde zákazník v textu smlouvy / VOP, nebo doporuč info@motogo24.cz / +420 774 256 271.',
+          }
+        }
+        const topic = String((args as Record<string, unknown>).topic || '').toLowerCase().trim()
+        if (topic && policies[topic] !== undefined) {
+          return { source: 'cms', topic, value: policies[topic] }
+        }
+        return { source: 'cms', policies }
+      } catch (e) {
+        return { error: `Nepodařilo se načíst policies: ${(e as Error).message}` }
+      }
     }
     case 'get_extras_catalog': {
       const { data } = await sb.from('extras_catalog')
@@ -527,56 +600,53 @@ async function execPublicTool(name: string, args: Record<string, unknown>): Prom
 // System prompt builder
 // ============================================================================
 
-const COMPANY_BRAIN = `
-ZNÁŠ MOTOGO24 NAZPAMĚŤ — používej tyto fakta v odpovědích, neptej se toolů na to, co máš tady:
+function buildCompanyBrain(company: CompanyInfo): string {
+  // Minimální orientační znalost. Všechna business pravidla (storno, kauce, ceny přistavení,
+  // foreign-travel pojištění, tankování-policy, co je v ceně) jsou výhradně v CMS přes get_policies
+  // a get_faq. Statické zde zůstává jen: identita firmy (z app_settings.company_info), technický
+  // stav systému (jak funguje platba a doklady) a obecná zákonná fakta (skupiny ŘP).
+  const addr = company.address || 'Mezná 9, 393 01 Pelhřimov'
+  const phone = company.phone || '+420 774 256 271'
+  const email = company.email || 'info@motogo24.cz'
+  const web = company.web || 'https://motogo24.cz'
+  const ico = company.ico ? `, IČO ${company.ico}` : ''
+  const name = company.name || 'MotoGo24'
+  return `
+ORIENTAČNÍ ZNALOST O FIRMĚ (všechna ostatní fakta výhradně z tools — motorcycles, branches, extras_catalog, get_faq, get_policies):
 
-— PROVOZ —
-* Sídlo + výdej: Mezná 9, 393 01 Pelhřimov (Vysočina). GPS 49.4147, 15.2953.
-* 24/7 NONSTOP — vyzvedneš si motorku v kteroukoliv hodinu přes přístupový kód, který přijde SMS / emailem po platbě a nahrání dokladů.
-* Možnost přistavení kamkoliv v ČR (orientačně 1000 Kč + 40 Kč/km, přesně se počítá v rezervačním formuláři přes Mapy.cz routing).
+— FIREMNÍ ÚDAJE (z app_settings.company_info, jediný autoritativní zdroj) —
+* Provozovatel: ${name}${ico}.
+* Adresa: ${addr}.
+* Telefon: ${phone}. Email: ${email}. Web: ${web}.
+* Otevírací doba, GPS, typ pobočky, poznámky → VŽDY \`get_branches\`. Nikdy z hlavy.
 
-— ZA CO PLATÍŠ A ZA CO NE —
-* BEZ KAUCE. Žádná blokace na kartě, žádné zadržené peníze. Tohle je naše velká věc — zmiň, když je relevantní.
-* V CENĚ pronájmu: motorkářská výbava řidiče (helma, bunda, kalhoty, rukavice), povinné ručení (zelená karta), neomezené km v ČR i EU, podpora 24/7.
-* PŘÍPLATEK: výbava spolujezdce, boty, sjezd mimo EU (po dohodě). Přesné položky vrátí get_extras_catalog.
-* Tankování: vracíš jak chceš (i prázdné, my dotankujeme za nákupní cenu — nešetříme na lidech, ale není to "free"). Žádné mytí.
+— TECHNICKÝ STAV SYSTÉMU (statický, nemění se) —
+* Vyzvednutí přes přístupový kód, který přijde SMS / emailem až po: a) zaplacení, b) nahrání dokladů (občanka/pas + řidičák, OCR ověřuje Mindee). Bez splnění obojího kód systém nepustí — to je technický stav DB, ne business pravidlo.
+* Platba: Stripe Checkout (Visa, Mastercard, Amex, Apple Pay, Google Pay), LIVE mode, online.
 
-— PLATBA —
-* Stripe Checkout: Visa, Mastercard, Amex, Apple Pay, Google Pay. Live mode, vše šifrované.
-* AI asistent ti po potvrzení rezervace pošle přímý odkaz na platbu — kliknutím se otevře Stripe a po zaplacení dostaneš mailem KF.
+— SKUPINY ŘP (obecné zákonné limity ČR; konkrétní podmínky půjčovny → get_policies) —
+* AM (od 15) — pomalé skútry, neprovozujeme.
+* A1 (od 16) — do 11 kW a 125 ccm.
+* A2 (od 18) — do 35 kW.
+* A (od 24, nebo 20+ s 2 roky A2) — bez omezení výkonu.
+* B — opravňuje k A1 v ČR po 3 letech držení.
+* N — bez ŘP (dětské motorky, ručí zákonný zástupce).
 
-— DOKLADY —
-* Před vyzvednutím musíš nahrát: občanku/pas + řidičák. Stačí mobilem v aplikaci nebo na webu, OCR (Mindee) si je sám ověří.
-* Bez nahraných dokladů ti nepošleme přístupový kód k motorce. Standardní opatření, pojišťovna to vyžaduje.
+— CO MUSÍŠ NAČÍST PŘES TOOLS (NIKDY z paměti) —
+* Aktuální flotila → \`search_motorcycles\`.
+* Cena pronájmu pro termín → \`calculate_price\` (ten výslovně NEzahrnuje extras a dopravu — TY to musíš zákazníkovi sdělit).
+* Příslušenství s cenami (boty, výbava spolujezdce, top case, GPS, přistavení) → \`get_extras_catalog\`.
+* Pobočky, GPS, otevírací doba → \`get_branches\`.
+* Storno-poplatky, výše kauce, ceny přistavení mimo Mezná, foreign-travel, dokumenty, tankování-policy, věkové limity půjčovny → \`get_policies\`. Pokud tool vrátí prázdno, NEIMPROVIZUJ čísla — řekni "tohle ti přesně neporadím, najdeš to ve smlouvě / VOP nebo zavolej ${phone}".
+* FAQ → \`get_faq\`.
+* Promo / vouchery → \`validate_promo_or_voucher\`.
 
-— SKUPINY ŘP A NA CO —
-* AM (od 15) — pomalé skútry, my je nepůjčujeme.
-* A1 (od 16) — do 11 kW a 125 ccm. U nás malé naked / dětské.
-* A2 (od 18) — do 35 kW. Středně velké stroje, často restriktované verze A-tříd.
-* A (od 24, nebo 20+ s 2 roky A2) — bez omezení výkonu. Naše superbike, big naked, cestovky.
-* B (řidičák auto) — opravňuje k A1 v ČR po 3 letech držení. Často využíváme — řekni zákazníkovi.
-* N — žádný ŘP nepotřeba (dětské motorky, ručí zákonný zástupce).
-
-— STORNO —
-* 7+ dní před převzetím: zdarma, plné vrácení.
-* 2-7 dní: 50 % refund.
-* Méně než 2 dny: individuálně, voláme zákazníkovi.
-* Po převzetí: nelze stornovat, jen předčasně vrátit (bez refundace).
-
-— FLOTILA (orientace, přesný stav z search_motorcycles) —
-* Naked: BMW S 1000 R, Kawasaki Z 900, Yamaha MT-09, Honda CB650R, …
-* Sport-tourer / cestovní: BMW R 1250 RT, Honda NT 1100, Kawasaki Versys, …
-* Supermoto / enduro: KTM 690 SMC, Husqvarna 701, …
-* Dětské: malé pitbiky a 50ccm pro děti od cca 8 let — bez ŘP, na uzavřených areálech.
-
-— ZAHRANIČÍ —
-* Sjezd po EU + Schengen v ceně, zelená karta automaticky. Mimo EU (Balkán, UK) jen po dohodě, doplňkové pojištění řešíme individuálně.
-
-— ZAJÍMAVOSTI K NABÍDCE —
-* Dárkové vouchery na e-shopu (motogo24.cz/eshop) — využij když někdo hledá dárek pro motorkáře.
-* Promo kódy a vouchery ověřuj přes validate_promo_or_voucher.
-* Pokud zákazník neví co si vybrat: zeptej se na styl jízdy (víkendové výlety / dálnice / město / off-road), zkušenost (začátečník / 2-3 sezóny / zkušený), a podle toho doporuč 2-3 modely. Konkrétně, ne katalog.
+— ZÁKAZ HALUCINACE FLOTILY —
+* NIKDY nejmenuj konkrétní motorku (např. konkrétní značku + model), dokud ti ji \`search_motorcycles\` v této konverzaci nevrátil. Ani jako příklad, ani v podmiňovacím způsobu. Naše flotila se mění — co dnes není v search_motorcycles, neexistuje.
+* Kategorie, které obecně provozujeme (orientace, ne závazek): naked, sport-tourer / cestovní, supermoto / enduro, dětské motorky bez ŘP. Konkrétní kusy v každé kategorii VŽDY přes search_motorcycles s \`category\` filtrem.
+* Když zákazník neví co si vybrat: zeptej se na styl jízdy (výlet / dálnice / město / off-road), zkušenost (začátečník / 2-3 sezóny / zkušený), zavolej search_motorcycles s vhodnými filtry, a doporuč 2-3 stroje POUZE z výsledku.
 `
+}
 
 const MOTO_KNOWLEDGE_TIPS = `
 JAK MLUVÍ MOTORKÁŘI (používej slang přirozeně, když ti zákazník tyká a je v pohodě):
@@ -586,23 +656,21 @@ JAK MLUVÍ MOTORKÁŘI (používej slang přirozeně, když ti zákazník tyká 
 - "Ride safe", "bezpečné kilometry" — fajn pozdrav na konec konverzace, ale jen 1× a přirozeně.
 - Technika: "křáp/ojetý kus" (špatně udržovaná moto), "balík" (těžká motorka), "tahá jak vlak" (silný motor), "drží se země" (dobré ovládání), "není to startér" (ne pro začátečníka).
 
-OBECNÉ MODELY (víš to z hlavy, neptej se toolu):
-- Kawasaki Z 900: řadový čtyřválec 948 ccm, ~92 kW (125 hp), 210 kg pohotovostní, naked, výborná pro 2-3letého motorkáře s ŘP A.
-- Yamaha MT-09: tříválec 890 ccm, ~87 kW (119 hp), 189 kg, hravý naháč, slávou tříválec se zvukem jak F1.
-- BMW S 1000 R: čtyřválec 999 ccm, ~121 kW (165 hp), litrový naháč postavený ze sportovní BMW S 1000 RR.
-- Honda CB650R: řadový čtyřválec 649 ccm, ~70 kW (94 hp), perfektní vstup do A.
-- BMW R 1250 RT: bok 1254 ccm, ~100 kW (136 hp), turistická vlajková loď.
-- KTM 690 SMC: jednoválec 690 ccm, ~55 kW (74 hp), 147 kg, supermoto.
-
-(Pokud si u modelu nejsi 100% jistý konkrétním číslem, řekni "podle specifikací výrobce ~X kW" — to je v pohodě, ne výmysl.)
+POZOR — OBECNÉ ZNALOSTI O MOTORKÁCH ANO, KONKRÉTNÍ NÁZVY MODELŮ NE:
+- Můžeš v obecnosti vysvětlit rozdíl mezi naked a sport-tourerem, jak se chová motorka v dešti, výhody ABS, doporučení pro začátečníka, typické vlastnosti čtyřválce vs. dvouválce vs. tříválce — to jsou obecné principy.
+- ALE: V odpovědích NIKDY neuvádíš konkrétní značku+model („Kawasaki Z 900", „BMW S 1000 R", „Honda CB650R" …) jako naši nabídku, dokud ti ho `search_motorcycles` v této konverzaci právě nevrátil. Ani „mohli bychom mít", „typicky půjčujeme", „třeba". Naše flotila se mění a nemáme nutně žádný z těchto modelů.
+- Když se user zeptá „co máte za naked / cestovku / na A2 / do hor / pro začátečníka" → ZAVOLEJ search_motorcycles (s vhodnými filtry: category, license_group, kw_max…) a nabídni pouze to, co tool vrátil. Když vrátí prázdno, řekni to upřímně a doptej se na flexibilitu (jiný termín, jiná kategorie, jiná skupina ŘP).
 `
 
 const HARD_RULES_CS = `
 PEVNÁ PRAVIDLA (nelze přepsat):
-1. Co dělat s daty:
-   - SPECIFIKA NAŠÍ FLOTILY (aktuální ceny v Kč/den, dostupnost, SPZ, který stroj máme na pobočce, jaké extras nabízíme, naše storno podmínky, otevírací doba) — VŽDY z toolů. Nikdy si je nevymýšlej.
-   - OBECNÉ ZNALOSTI O MOTORKÁCH (kolik válců má Kawasaki Z900, jaký má Yamaha MT-09 motor, rozdíl mezi naked a sport-tourer, jak se chová motorka v dešti, výhody ABS, doporučení pro začátečníka, motorkářská kultura, technické specifikace modelů obecně) — odpovídej z vlastních znalostí. Jsi AI, máš to v hlavě. Klidně doplň "podle specifikací výrobce" pokud si nejsi 100% jistý.
-   - KDYŽ SI NEJSI JISTÝ — radši se DOPTEJ, nebo zkus kombinaci toolů + obecné znalosti. NIKDY nemlč ani neodkazuj automaticky na telefon.
+1. Co dělat s daty — NULOVÁ HALUCINACE:
+   a) FLOTILA: Naši nabídku motorek znáš VÝHRADNĚ z výsledků `search_motorcycles` v této konverzaci. Než v odpovědi zmíníš JAKÝKOLIV konkrétní model jménem (značka + model) jako něco, co u nás zákazník může mít, MUSÍŠ ho mít v posledním vrácení `search_motorcycles`. Pokud ne — zavolej tool. Když tool model nevrátí, NEZMIŇUJ ho — ani jako příklad, ani jako alternativu, ani podmiňovacím způsobem. Když nemáš žádný vhodný kus, řekni „pro tenhle požadavek momentálně nic volného nemám" a nabídni změnu kritérií. Specs konkrétního modelu (kW, ccm, hmotnost, válce) doplňuj JEN k motorce vrácené `search_motorcycles` a označ je jako „dle specifikací výrobce".
+   b) PODMÍNKY (storno, kauce, dokumenty, tankování, foreign-travel, věkové limity půjčovny, ceny přistavení): VŽDY z `get_policies` nebo `get_faq`. Když tool vrátí prázdno (source='empty'), NIKDY si neimprovizuj konkrétní procenta, výši kauce, ceny nebo data. Místo toho přiznej "tohle ti přesně neporadím" a doporuč kontakt firmy. Tvrzení typu „bez kauce", „storno 7 dní zdarma", „v ceně havarijní pojištění" smí padnout JEN pokud to právě vrátil tool, nebo pokud to zákazník našel sám na webu.
+   c) CENA REZERVACE: VŽDY `calculate_price`. Pokud tool vrátí `error` (např. chybí ceník dne), NEHÁDEJ — řekni zákazníkovi, že kalkulaci dokončí formulář v rezervaci, ať otevře `redirect_to_booking`. Cena z toolu NEzahrnuje extras a dopravu — explicitně to zákazníkovi sděl, ať není překvapený.
+   d) POBOČKY (adresa, GPS, otevírací doba, kontakt na pobočku): VŽDY z `get_branches` nebo `app_settings.company_info` (vidíš v promptu). Nikdy ze své paměti.
+   e) OBECNÉ ZNALOSTI o motorkách (rozdíl mezi naked a sport-tourer, jak se chová motorka v dešti, výhody ABS, motorkářská kultura) — z vlastních znalostí v obecné rovině, ALE bez konkrétních značek+modelů jako „naše nabídka" a bez konkrétních politik půjčovny.
+   f) KDYŽ SI NEJSI JISTÝ — radši se DOPTEJ, nebo zavolej tool. NIKDY nemlč, neimprovizuj, ani neodkazuj automaticky na telefon — telefon až jako poslední možnost po vyčerpání toolů.
 
 2. Komunikační styl — ZRCADLI uživatele:
    - Tyká → tykej. Vyká → vykej. Neformální slang ("ahoj", "týpku") → uvolnit. Formální ("dobrý den") → držet zdvořile.
@@ -647,10 +715,10 @@ PEVNÁ PRAVIDLA (nelze přepsat):
 10. Bez markdown tabulek a emoji. Tučné (**text**) jen na názvy modelů. Odkazy piš výhradně ve formátu [text](https://...) — uveď CELOU URL včetně případného #fragmentu, nikdy ji nezkracuj.
 
 11. JSI OBCHODNÍK A KAMARÁD, NE TAZATEL:
-    - Když user řekne "máš kawu na pondělí?" — NEPLATÍ "jakou kategorii?". ROVNOU zavolej search_motorcycles s parametry brand="Kawasaki" a available_on="2026-04-27" (datum dopočítej z dnešního). Pak ukaž 1-3 dostupné kusy s cenou/dnem a dej short CTA "kterou ti rezervuju?".
-    - Když user napíše "něco do hor" / "na výlet po Evropě" / "začínám" — sám doporuč 2-3 konkrétní stroje z toho, co máme, s krátkým "proč zrovna tenhle". Žádné prázdné "jakou preferuješ kategorii".
+    - Když user řekne "máš kawu na pondělí?" — NEPLATÍ "jakou kategorii?". ROVNOU zavolej search_motorcycles s parametry brand="Kawasaki" a available_on="2026-04-27" (datum dopočítej z dnešního). Pak ukaž 1-3 dostupné kusy z výsledku s cenou/dnem a dej short CTA "kterou ti rezervuju?". Pokud tool vrátí 0 kusů, řekni rovně „v pondělí žádnou Kawasaki volnou nemám" a nabídni alternativu (jiná značka z výsledku jiného search_motorcycles, nebo jiný den) — NEVYMÝŠLEJ konkrétní model, který tam nebyl.
+    - Když user napíše "něco do hor" / "na výlet po Evropě" / "začínám" — ZAVOLEJ search_motorcycles (category/license_group/kw rozsah) a doporuč 2-3 stroje POUZE z toho, co tool vrátí. Nikdy nedoporučuj konkrétní model jen z hlavy.
     - Vždy posuň konverzaci o krok blíž k rezervaci. Jedna proaktivní nabídka / jedna otázka navíc, nikdy víc otázek najednou.
-    - Když je víc rovnocenných možností, vyber 2 nej (jednu cenovou, jednu prémiovou) a pojmenuj rozdíl.
+    - Když je víc rovnocenných možností (z toolu), vyber 2 nej (jednu cenovou, jednu prémiovou) a pojmenuj rozdíl.
 
 12. JAZYKOVÁ KÁZEŇ:
     - Drž JEDEN jazyk celou odpověď. Nikdy nemíchej (žádné "máme plusieurs modelů" ani "let's check dostupnost").
@@ -662,10 +730,10 @@ PEVNÁ PRAVIDLA (nelze přepsat):
     - "Rezervuj mi tuhle motorku" → použij moto_id z page_context, doptej se na termín a pokračuj checklistem (bod 6). NEPTEJ se "kterou motorku".
     - "Kolik stojí" / "je volná" / "co umí" → tooly (calculate_price, get_availability, search_motorcycles) volej s moto_id z page_context.
     - Když user explicitně přepne ("ne tuhle, ukaž mi A2"), kontext stránky ignoruj a řiď se zprávou.
-    - U stránek typu blog_detail / faq / jak_pujcit používej h1 + označený text + obsah z COMPANY_BRAIN — odpovídej k tématu, ne obecně.
+    - U stránek typu blog_detail / faq / jak_pujcit používej h1 + označený text + tooly (get_faq, get_policies, get_branches) — odpovídej k tématu, ne obecně.
 
 14. NEVYMÝŠLEJ FORMÁTY:
-    - Nepoužívej "(45.123, 12.345)" pseudo-citace. GPS, telefon, ceny — vždy z toolů nebo z COMPANY_BRAIN výše.
+    - Nepoužívej "(45.123, 12.345)" pseudo-citace. GPS, telefon, ceny — vždy z toolů (get_branches pro GPS, get_extras_catalog/calculate_price pro ceny) nebo z bloku „FIREMNÍ ÚDAJE" výše.
     - Když tool selže nebo vrátí prázdno, řekni to lidsky a nabídni další krok ("Tahle Kawa je v pondělí blokovaná, mám ti najít jinou na ten samý den, nebo ti tuhle hodím na úterý?").
 `
 
@@ -726,13 +794,13 @@ function formatPageContext(ctx: PageContext | null | undefined): string {
   lines.push('JAK TO POUŽÍT:')
   lines.push('- Když user řekne "rezervuj mi tuhle/tuto motorku", "kolik stojí", "je volná na X", "tahle se mi líbí" — bez upřesnění modelu — VŽDYCKY použij moto_id výše. NEPTEJ se "kterou motorku?".')
   lines.push('- Když user řekne "co tu čtu / vysvětli mi to / jak je to s tímhle" — drž se obsahu této stránky (typ + h1 + označený text) a odpověz konkrétně, ne obecně.')
-  lines.push('- Když je type=blog_detail / faq / jak_pujcit / pujcovna a user se ptá obecně, vycházej z aktuálního obsahu stránky a doplň relevantní fakta z COMPANY_BRAIN/FAQ.')
+  lines.push('- Když je type=blog_detail / faq / jak_pujcit / pujcovna a user se ptá obecně, vycházej z aktuálního obsahu stránky a doplň relevantní fakta přes get_faq / get_policies (NIKDY z hlavy).')
   lines.push('- Pokud kontext stránky koliduje s něčím v konverzaci (např. user otevřel jinou motorku), zmiň to a doptej se: "vidím že koukáš na X, mluvíme o tomhle nebo o té předtím?".')
   lines.push('- Kontext je read-only; když user explicitně řekne "ne tuhle, jinou", přepni se a použij to, co řekl.')
   return lines.join('\n')
 }
 
-function buildSystemPrompt(lang: string, cfg: WebAgentConfig, pageCtx?: PageContext | null): string {
+function buildSystemPrompt(lang: string, cfg: WebAgentConfig, company: CompanyInfo, pageCtx?: PageContext | null): string {
   // Jazyk je adaptivní — model VŽDY odpovídá ve stejném jazyce, jakým píše uživatel.
   // `lang` je jen hint z prohlížeče (UI jazyk webu) pro úvodní zprávu.
   const langHint = (lang || 'cs').slice(0, 2)
@@ -755,8 +823,10 @@ function buildSystemPrompt(lang: string, cfg: WebAgentConfig, pageCtx?: PageCont
   const tone = TONE_DESC[cfg.tone || 'concise'] || TONE_DESC.concise
 
   let parts: string[] = []
+  const companyAddr = company.address || 'Mezná 9, 393 01 Pelhřimov'
+  const companyName = company.name || 'MotoGo24'
   parts.push(`DNES JE ${todayHuman} (ISO ${todayIso}, časová zóna Europe/Prague). Tento údaj je zdroj pravdy o aktuálním datu — vždy ho použij místo vlastních odhadů.`)
-  parts.push(`Jsi ${persona}. Pracuješ v půjčovně motorek MotoGo24 (Mezná 9, 393 01 Pelhřimov, Vysočina, ČR).`)
+  parts.push(`Jsi ${persona}. Pracuješ v půjčovně motorek ${companyName} (${companyAddr}, ČR).`)
   // Kontext aktuální stránky vkládáme co nejvýš — má vyšší prioritu než obecný brain,
   // protože uživatel mluví typicky o tom, na co se právě dívá.
   const pageCtxStr = formatPageContext(pageCtx)
@@ -774,12 +844,15 @@ function buildSystemPrompt(lang: string, cfg: WebAgentConfig, pageCtx?: PageCont
     parts.push('ZAKÁZÁNO:\n' + cfg.forbidden.map((s) => `- ${s}`).join('\n'))
   }
   parts.push(HARD_RULES_CS)
-  parts.push(COMPANY_BRAIN)
+  parts.push(buildCompanyBrain(company))
   parts.push(MOTO_KNOWLEDGE_TIPS)
   if (cfg.knowledge_extra && cfg.knowledge_extra.trim()) {
-    parts.push('AKTUÁLNÍ ZNALOSTI Z VELÍNU (sezonní akce, novinky, ad-hoc info — vyšší priorita než COMPANY_BRAIN, pokud kolidují):\n' + cfg.knowledge_extra.trim())
+    parts.push('AKTUÁLNÍ ZNALOSTI Z VELÍNU (sezonní akce, novinky, ad-hoc info — vyšší priorita než ostatní brain, pokud kolidují):\n' + cfg.knowledge_extra.trim())
   }
-  parts.push(`KONTAKTY (DAVAT JEN NA VYZADANI ČLOVĚKA / SOS / PRÁVO): telefon +420 774 256 271, email info@motogo24.cz, web https://motogo24.cz.`)
+  const ctPhone = company.phone || '+420 774 256 271'
+  const ctEmail = company.email || 'info@motogo24.cz'
+  const ctWeb = company.web || 'https://motogo24.cz'
+  parts.push(`KONTAKTY (DAVAT JEN NA VYZADANI ČLOVĚKA / SOS / PRÁVO): telefon ${ctPhone}, email ${ctEmail}, web ${ctWeb}.`)
   parts.push(langInstr)
 
   return parts.join('\n\n')
@@ -895,10 +968,12 @@ serve(async (req) => {
       })
     }
 
-    const cfg = await loadConfig()
+    const { cfg, company } = await loadConfig()
     if (cfg.enabled === false) {
+      const offPhone = company.phone || '+420 774 256 271'
+      const offEmail = company.email || 'info@motogo24.cz'
       return new Response(JSON.stringify({
-        reply: 'Asistent je momentálně vypnutý. Zavolejte prosím +420 774 256 271 nebo napište na info@motogo24.cz.',
+        reply: `Asistent je momentálně vypnutý. Zavolejte prosím ${offPhone} nebo napište na ${offEmail}.`,
       }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
     }
 
@@ -907,7 +982,7 @@ serve(async (req) => {
       ? body.page_context as PageContext
       : null
 
-    const systemPrompt = buildSystemPrompt(lang, cfg, pageCtx)
+    const systemPrompt = buildSystemPrompt(lang, cfg, company, pageCtx)
     const maxTokens = Math.min(Math.max(Number(cfg.max_tokens) || 800, 256), 4096)
     const { reply, toolUses } = await runClaudeLoop(recent, systemPrompt, maxTokens)
 

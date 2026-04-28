@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import BulkActionsBar, { SelectAllCheckbox, RowCheckbox } from '../../components/ui/BulkActionsBar'
+import { exportToCsv, bulkDelete } from '../../lib/bulkActions'
 import { supabase } from '../../lib/supabase'
 import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
@@ -18,6 +20,7 @@ export default function CashRegisterTab() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [showAdd, setShowAdd] = useState(false)
+  const [selectedIds, setSelectedIds] = useState(new Set())
   const [filters, setFilters] = useState(() => {
     try {
       const saved = localStorage.getItem('velin_cashregister_filters')
@@ -99,9 +102,17 @@ export default function CashRegisterTab() {
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
+          <BulkActionsBar count={selectedIds.size} onClear={() => setSelectedIds(new Set())} actions={[
+            { label: 'Export CSV', icon: '⬇', onClick: () => exportToCsv('cash-register', [
+              { key: 'date', label: 'Datum' }, { key: 'type', label: 'Typ' },
+              { key: 'description', label: 'Popis' }, { key: 'amount', label: 'Částka' }, { key: 'balance', label: 'Zůstatek' },
+            ], entries.filter(e => selectedIds.has(e.id))) },
+            { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} pokladních záznamů?', onClick: async () => { await bulkDelete('cash_register', [...selectedIds], 'cash_register_bulk_deleted'); setSelectedIds(new Set()); load() } },
+          ]} />
           <Table>
             <thead>
               <TRow header>
+                <TH><SelectAllCheckbox items={entries} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
                 <TH>Datum</TH><TH>Typ</TH><TH>Popis</TH><TH>Částka</TH><TH>Zůstatek</TH>
               </TRow>
             </thead>
@@ -112,6 +123,7 @@ export default function CashRegisterTab() {
                 return true
               }).map(e => (
                 <TRow key={e.id}>
+                  <TD><RowCheckbox id={e.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TD>
                   <TD>{e.date ? new Date(e.date).toLocaleDateString('cs-CZ') : '—'}</TD>
                   <TD>
                     <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"

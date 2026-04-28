@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import BulkActionsBar, { SelectAllCheckbox, RowCheckbox } from '../../components/ui/BulkActionsBar'
+import { exportToCsv, bulkDelete } from '../../lib/bulkActions'
 import { supabase } from '../../lib/supabase'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Badge from '../../components/ui/Badge'
@@ -30,6 +32,7 @@ export default function DeliveryNotesTab() {
   const [matchModal, setMatchModal] = useState(null)
   const [invoices, setInvoices] = useState([])
   const [matchSearch, setMatchSearch] = useState('')
+  const [selectedIds, setSelectedIds] = useState(new Set())
 
   useEffect(() => { load() }, [page, filter, search])
 
@@ -231,9 +234,18 @@ export default function DeliveryNotesTab() {
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
+          <BulkActionsBar count={selectedIds.size} onClear={() => setSelectedIds(new Set())} actions={[
+            { label: 'Export CSV', icon: '⬇', onClick: () => exportToCsv('delivery-notes', [
+              { key: 'dl_number', label: 'Číslo' }, { key: 'supplier_name', label: 'Dodavatel' },
+              { key: 'total_amount', label: 'Částka' }, { key: 'delivery_date', label: 'Datum' },
+              { key: 'matched_invoice_id', label: 'Spárováno', format: v => v ? 'ANO' : 'NE' },
+            ], notes.filter(n => selectedIds.has(n.id) && !n._isInvoice)) },
+            { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} dodacích listů?', onClick: async () => { await bulkDelete('delivery_notes', [...selectedIds], 'delivery_notes_bulk_deleted'); setSelectedIds(new Set()); load() } },
+          ]} />
           <Table>
             <thead>
               <TRow header>
+                <TH><SelectAllCheckbox items={notes.filter(n => !n._isInvoice)} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
                 <TH>{filter === 'missing_dl' ? 'Č. faktury' : 'Č. DL'}</TH>
                 <TH>Dodavatel</TH>
                 <TH>Částka</TH>
@@ -253,6 +265,7 @@ export default function DeliveryNotesTab() {
 
                 return (
                   <TRow key={dl.id}>
+                    <TD>{!dl._isInvoice && <RowCheckbox id={dl.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} />}</TD>
                     <TD mono bold>{dl.dl_number || '—'}</TD>
                     <TD><span className="text-sm font-bold" style={{ color: '#1a2e22' }}>{dl.supplier_name || '—'}</span></TD>
                     <TD bold>{fmt(dl.total_amount)}</TD>

@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import BulkActionsBar from '../../components/ui/BulkActionsBar'
+import { exportToCsv, bulkDelete } from '../../lib/bulkActions'
 import { supabase } from '../../lib/supabase'
 import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
@@ -257,6 +259,16 @@ export default function ReceivedInvoicesTab() {
         selected={filters.statuses}
         onChange={statuses => { setPage(1); setFilters(f => ({ ...f, statuses })) }}
       />
+
+      <BulkActionsBar count={selected.size} onClear={() => setSelected(new Set())} actions={[
+        { label: 'Export CSV', icon: '⬇', onClick: () => exportToCsv('received-invoices', [
+          { key: 'invoice_number', label: 'Číslo' }, { key: 'supplier_name', label: 'Dodavatel' },
+          { key: 'supplier_ico', label: 'IČO dodavatele' }, { key: 'total_amount', label: 'Celkem' },
+          { key: 'tax_amount', label: 'DPH' }, { key: 'issue_date', label: 'Vystavení' },
+          { key: 'due_date', label: 'Splatnost' }, { key: 'status', label: 'Stav' },
+        ], invoices.filter(i => selected.has(i.id))) },
+        { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} přijatých faktur?', onClick: async () => { await bulkDelete('received_invoices', [...selected], 'received_invoices_bulk_deleted'); setSelected(new Set()); load() } },
+      ]} />
 
       {/* DIAGNOSTIKA */}
       {debugMode && (
