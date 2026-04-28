@@ -178,11 +178,24 @@
 
     function appendMsg(role, text, extra) {
       var node = el('div', { class: 'motogo-ai-msg ' + role });
-      // Auto-link URL + zachovat newliney
-      var safe = text
-        .replace(/[<>&]/g, function(c) { return { '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]; })
-        .replace(/(https?:\/\/[^\s)]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>')
-        .replace(/\n/g, '<br>');
+      // 1) escape HTML
+      var safe = text.replace(/[<>&]/g, function(c) { return { '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]; });
+      // 2) markdown links [text](url) — vyrenderujeme PŘED auto-linking, ať se neporouchá Stripe
+      //    URL s '#fragment' obsahujícím publishable key. URL musí obsahovat http(s):// a může
+      //    obsahovat libovolné non-whitespace znaky kromě uzavírací závorky.
+      safe = safe.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+        function(_, label, url) {
+          return '<a href="' + url + '" target="_blank" rel="noopener">' + label + '</a>';
+        });
+      // 3) markdown bold **text**
+      safe = safe.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+      // 4) auto-link bare URLs (jen ty, co ještě nejsou v <a>)
+      safe = safe.replace(/(^|[^"=>])(https?:\/\/[^\s<)]+)/g,
+        function(_, prefix, url) {
+          return prefix + '<a href="' + url + '" target="_blank" rel="noopener">' + url + '</a>';
+        });
+      // 5) newlines
+      safe = safe.replace(/\n/g, '<br>');
       node.innerHTML = safe;
       if (extra) node.appendChild(extra);
       msgs.appendChild(node);
