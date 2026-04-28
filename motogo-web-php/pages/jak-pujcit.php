@@ -28,14 +28,14 @@ $C = $sb->siteContent('jak_pujcit', $defaults);
 $bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], t('menu.howto')]);
 
 $linksHtml = '<div class="gr4 jp-tiles">';
-foreach ($C['links'] as $l) {
-    $linksHtml .= '<a class="jp-tile" href="' . BASE_URL . $l['href'] . '">' . htmlspecialchars($l['label']) . '</a>';
+foreach ($C['links'] as $i => $l) {
+    $linksHtml .= '<a class="jp-tile" href="' . BASE_URL . $l['href'] . '" data-cms-key="web.jak_pujcit.links.' . $i . '.label">' . htmlspecialchars($l['label']) . '</a>';
 }
 $linksHtml .= '</div>';
 
 $content = '<main id="content"><div class="container">' . $bc .
-    '<div class="ccontent"><h1>' . $C['h1'] . '</h1>' .
-    '<p>' . $C['intro'] . '</p>' .
+    '<div class="ccontent"><h1 data-cms-key="web.jak_pujcit.h1">' . $C['h1'] . '</h1>' .
+    '<p data-cms-key="web.jak_pujcit.intro">' . $C['intro'] . '</p>' .
     '<p>&nbsp;</p>' . $linksHtml .
     '</div></div></main>';
 

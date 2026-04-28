@@ -5,25 +5,27 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/i18n.php';
 require_once __DIR__ . '/i18n_currency.php';
 
-// Menu struktura — labels jsou klíče i18n, route zůstává stejná napříč jazyky
+// Menu struktura — labels jsou klíče i18n, route zůstává stejná napříč jazyky.
+// `tc()` obalí text spanem `data-cms-key="web.layout.<key>"` jen pro adminy
+// (cookie mg_cms_admin) → inline edit přes overlay; běžní uživatelé dostanou plain text.
 function getMenuItems() {
     return [
-        ['label' => t('menu.rental'), 'route' => '/pujcovna-motorek'],
-        ['label' => t('menu.catalog'), 'route' => '/katalog'],
-        ['label' => t('menu.howto'), 'route' => '/jak-pujcit', 'children' => [
-            ['label' => t('menu.howto.process'), 'route' => '/jak-pujcit/postup'],
-            ['label' => t('menu.howto.pickup'), 'route' => '/jak-pujcit/prevzeti'],
-            ['label' => t('menu.howto.returnHome'), 'route' => '/jak-pujcit/vraceni-pujcovna'],
-            ['label' => t('menu.howto.returnElsewhere'), 'route' => '/jak-pujcit/vraceni-jinde'],
-            ['label' => t('menu.howto.price'), 'route' => '/jak-pujcit/co-v-cene'],
-            ['label' => t('menu.howto.delivery'), 'route' => '/jak-pujcit/pristaveni'],
-            ['label' => t('menu.howto.documents'), 'route' => '/jak-pujcit/dokumenty'],
-            ['label' => t('menu.howto.faq'), 'route' => '/jak-pujcit/faq'],
+        ['label' => tc('menu.rental'), 'route' => '/pujcovna-motorek'],
+        ['label' => tc('menu.catalog'), 'route' => '/katalog'],
+        ['label' => tc('menu.howto'), 'route' => '/jak-pujcit', 'children' => [
+            ['label' => tc('menu.howto.process'), 'route' => '/jak-pujcit/postup'],
+            ['label' => tc('menu.howto.pickup'), 'route' => '/jak-pujcit/prevzeti'],
+            ['label' => tc('menu.howto.returnHome'), 'route' => '/jak-pujcit/vraceni-pujcovna'],
+            ['label' => tc('menu.howto.returnElsewhere'), 'route' => '/jak-pujcit/vraceni-jinde'],
+            ['label' => tc('menu.howto.price'), 'route' => '/jak-pujcit/co-v-cene'],
+            ['label' => tc('menu.howto.delivery'), 'route' => '/jak-pujcit/pristaveni'],
+            ['label' => tc('menu.howto.documents'), 'route' => '/jak-pujcit/dokumenty'],
+            ['label' => tc('menu.howto.faq'), 'route' => '/jak-pujcit/faq'],
         ]],
-        ['label' => t('menu.vouchers'), 'route' => '/poukazy'],
-        ['label' => t('menu.shop'), 'route' => '/eshop'],
-        ['label' => t('menu.blog'), 'route' => '/blog'],
-        ['label' => t('menu.contact'), 'route' => '/kontakt'],
+        ['label' => tc('menu.vouchers'), 'route' => '/poukazy'],
+        ['label' => tc('menu.shop'), 'route' => '/eshop'],
+        ['label' => tc('menu.blog'), 'route' => '/blog'],
+        ['label' => tc('menu.contact'), 'route' => '/kontakt'],
     ];
 }
 
@@ -52,7 +54,7 @@ function renderHeader($currentPath = '/') {
     $nav = str_replace(' alt="Rozbalit podmenu" ', ' alt="' . $submenuArrowAlt . '" ', $nav);
 
     return '<header>' .
-        '<ul class="focus"><li><a href="#main-menu">' . te('header.skip.menu') . '</a></li><li><a href="#content">' . te('header.skip.content') . '</a></li><li><a href="#footer">' . te('header.skip.contact') . '</a></li></ul>' .
+        '<ul class="focus"><li><a href="#main-menu">' . tc('header.skip.menu') . '</a></li><li><a href="#content">' . tc('header.skip.content') . '</a></li><li><a href="#footer">' . tc('header.skip.contact') . '</a></li></ul>' .
         '<div class="header-topbar"><div class="container">' .
             '<div class="header-phone"><p><a href="' . PHONE_LINK . '" aria-label="' . te('header.callUs') . '"><img alt="' . te('header.callUs') . '" src="' . BASE_URL . '/gfx/telefon-header.svg" loading="lazy"></a>&nbsp;<a href="' . PHONE_LINK . '">' . PHONE . '</a></p></div>' .
             '<div class="header-tools">' .
@@ -66,11 +68,11 @@ function renderHeader($currentPath = '/') {
         '<div class="header"><div class="container dfcs">' .
             '<div class="header-logo"><a href="' . BASE_URL . '/" aria-label="Motogo24"><img src="' . BASE_URL . '/' . LOGO_SVG . '" alt="' . te('header.logoAlt') . '" loading="lazy"></a></div>' .
             '<div class="header-menu dfje">' .
-                '<button class="nav-toggle" aria-label="' . te('header.menuOpen') . '" aria-expanded="false" aria-controls="mobile-menu" onclick="(function(){var m=document.getElementById(\'mobile-menu\');var open=!m.classList.contains(\'open\');m.classList.toggle(\'open\',open);document.body.classList.toggle(\'menu-open\',open);this.setAttribute(\'aria-expanded\',open?\'true\':\'false\');}).call(this)">' . te('header.menuToggle') . '</button>' .
+                '<button class="nav-toggle" aria-label="' . te('header.menuOpen') . '" aria-expanded="false" aria-controls="mobile-menu" onclick="(function(){var m=document.getElementById(\'mobile-menu\');var open=!m.classList.contains(\'open\');m.classList.toggle(\'open\',open);document.body.classList.toggle(\'menu-open\',open);this.setAttribute(\'aria-expanded\',open?\'true\':\'false\');}).call(this)">' . tc('header.menuToggle') . '</button>' .
                 '<nav id="mobile-menu" class="mobile-menu-overlay" aria-label="' . te('header.menuLabel') . '">' .
                     '<button class="mobile-menu-close" aria-label="' . te('header.menuClose') . '" onclick="document.getElementById(\'mobile-menu\').classList.remove(\'open\');document.body.classList.remove(\'menu-open\');var b=document.querySelector(\'.nav-toggle\');if(b)b.setAttribute(\'aria-expanded\',\'false\')">✕</button>' .
                     '<ul id="main-menu" class="main-menu">' . $nav .
-                        '<li class="menu-rez"><a class="btn btngreen-small pulse" data-route="/rezervace" href="' . BASE_URL . '/rezervace">' . te('menu.reservation') . '</a></li>' .
+                        '<li class="menu-rez"><a class="btn btngreen-small pulse" data-route="/rezervace" href="' . BASE_URL . '/rezervace">' . tc('menu.reservation') . '</a></li>' .
                     '</ul>' .
                 '</nav>' .
             '</div>' .
@@ -84,28 +86,28 @@ function renderFooter() {
     foreach ($menuItems as $item) {
         $menuHtml .= '<li><a data-route="' . $item['route'] . '" href="' . BASE_URL . $item['route'] . '">' . $item['label'] . '</a></li>';
     }
-    $menuHtml .= '<li><a data-route="/rezervace" href="' . BASE_URL . '/rezervace">' . te('menu.reservation') . '</a></li>';
+    $menuHtml .= '<li><a data-route="/rezervace" href="' . BASE_URL . '/rezervace">' . tc('menu.reservation') . '</a></li>';
 
     return '<footer id="footer"><div class="container"><div class="gr4">' .
         '<div>' .
             '<p><a href="' . BASE_URL . '/" aria-label="Motogo24"><img src="' . BASE_URL . '/' . LOGO_SVG . '" alt="Motogo24" loading="lazy"></a></p><p>&nbsp;</p>' .
-            '<p>' . t('footer.aboutText') . '</p>' .
+            '<p>' . tcRaw('footer.aboutText') . '</p>' .
         '</div>' .
-        '<div><h3>' . te('footer.aboutTitle') . '</h3><ul>' . $menuHtml . '</ul></div>' .
-        '<div><h3>' . te('footer.socialTitle') . '</h3>' .
+        '<div><h3>' . tc('footer.aboutTitle') . '</h3><ul>' . $menuHtml . '</ul></div>' .
+        '<div><h3>' . tc('footer.socialTitle') . '</h3>' .
             '<p class="dfc"><span class="footer-social-icon"><img alt="Facebook" src="' . BASE_URL . '/gfx/facebook.svg"></span>&nbsp;<a href="' . FB_URL . '">facebook</a></p><p>&nbsp;</p>' .
             '<p class="dfc"><span class="footer-social-icon"><img alt="Instagram" src="' . BASE_URL . '/gfx/instagram.svg"></span>&nbsp;<a href="' . IG_URL . '">instagram</a></p>' .
         '</div>' .
-        '<div class="footer-contact"><h3>' . te('footer.helpTitle') . '</h3>' .
-            '<div class="footer-phone dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/telefon.svg" alt="' . te('footer.iconPhone') . '" class="icon-small" loading="lazy"></div><div><p>' . te('footer.callUs') . '<br><strong><a href="' . PHONE_LINK . '">' . PHONE . '</a></strong></p></div></div>' .
+        '<div class="footer-contact"><h3>' . tc('footer.helpTitle') . '</h3>' .
+            '<div class="footer-phone dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/telefon.svg" alt="' . te('footer.iconPhone') . '" class="icon-small" loading="lazy"></div><div><p>' . tc('footer.callUs') . '<br><strong><a href="' . PHONE_LINK . '">' . PHONE . '</a></strong></p></div></div>' .
             '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/email.svg" alt="' . te('footer.iconEmail') . '" class="icon-small" loading="lazy"></div><div><p>' . EMAIL_USER . '@' . EMAIL_DOMAIN . '</p></div></div>' .
-            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/adresa.svg" alt="' . te('footer.iconAddress') . '" class="icon-small" loading="lazy"></div><div><p><strong>' . te('footer.companyLine1') . '</strong><br>' . ADDRESS . '</p></div></div>' .
-            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/provozni-doba.svg" alt="' . te('footer.openHoursIcon') . '" class="icon-small" loading="lazy"></div><div><p>' . te('footer.openHours') . '</p></div></div>' .
+            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/adresa.svg" alt="' . te('footer.iconAddress') . '" class="icon-small" loading="lazy"></div><div><p><strong>' . tc('footer.companyLine1') . '</strong><br>' . ADDRESS . '</p></div></div>' .
+            '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/provozni-doba.svg" alt="' . te('footer.openHoursIcon') . '" class="icon-small" loading="lazy"></div><div><p>' . tc('footer.openHours') . '</p></div></div>' .
         '</div>' .
     '</div></div>' .
     '<div class="copyright"><div class="container">' .
-        '<p>' . te('footer.copyright') . '</p>' .
-        '<p><a href="' . BASE_URL . '/mapa-stranek">' . te('footer.sitemap') . '</a><a href="#">' . te('footer.cookies') . '</a><a href="' . BASE_URL . '/gdpr">' . te('footer.gdpr') . '</a><a href="' . BASE_URL . '/obchodni-podminky">' . te('footer.terms') . '</a><a href="' . BASE_URL . '/smlouva">' . te('footer.contract') . '</a></p>' .
+        '<p>' . tc('footer.copyright') . '</p>' .
+        '<p><a href="' . BASE_URL . '/mapa-stranek">' . tc('footer.sitemap') . '</a><a href="#">' . tc('footer.cookies') . '</a><a href="' . BASE_URL . '/gdpr">' . tc('footer.gdpr') . '</a><a href="' . BASE_URL . '/obchodni-podminky">' . tc('footer.terms') . '</a><a href="' . BASE_URL . '/smlouva">' . tc('footer.contract') . '</a></p>' .
     '</div></div>' .
     '</footer>' .
     '<a id="Up" href="#" aria-label="' . te('footer.toTop') . '" onclick="window.scrollTo({top:0,behavior:\'smooth\'});return false"><img src="' . BASE_URL . '/gfx/arrow-top.svg" alt="' . te('footer.toTop') . '"></a>';
@@ -538,8 +540,19 @@ window.MOTOGO_CONFIG.SUPABASE_ANON_KEY = ' . json_encode(SUPABASE_ANON_KEY) . ';
     // overlay nikdy neuvidí. `?cms_highlight=<klíč>` v URL otevře cílový text.
     if (!empty($_COOKIE['mg_cms_admin'])) {
         $highlight = isset($_GET['cms_highlight']) ? (string)$_GET['cms_highlight'] : '';
+        // Token re-fetchneme server-side z app_settings — admin už ho jednou
+        // ověřil cookie; expozice ho do JS u admina neleakuje (každý kdo dorazí
+        // sem už cookie má). Bez tokenu inline-edit nepůjde uložit.
+        $cmsToken = '';
+        try {
+            $cmsSb = isset($sb) && $sb instanceof SupabaseClient ? $sb : new SupabaseClient();
+            $tk = $cmsSb->fetchSetting('cms_admin_token');
+            if (is_string($tk)) $cmsToken = $tk;
+        } catch (\Throwable $e) { /* token zůstane prázdný — overlay info-only */ }
         $cmsCfg = json_encode([
             'highlight' => $highlight,
+            'token' => $cmsToken,
+            'apiUrl' => SUPABASE_URL . '/functions/v1/cms-save',
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         echo '
 <script>window.MG_CMS_ADMIN = ' . $cmsCfg . ';</script>
