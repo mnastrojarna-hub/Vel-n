@@ -226,7 +226,8 @@ BEGIN
   -- ===== 3b) OVĚŘENÍ EXISTUJÍCÍ PENDING REZERVACE (re-use scenario) =====
   -- Frontend posílá p_existing_booking_id, když uživatel kliknul "Zpět" v kroku 2
   -- a vrací se s upravenými údaji. Pokud booking patří stejnému user_id, je
-  -- pending+unpaid a je z webu, UPDATE-ujeme ho místo vytvoření nového.
+  -- pending+unpaid A je `booking_source='web'`, UPDATE-ujeme ho místo
+  -- vytvoření nového. App/SOS/admin bookingy NIKDY nepřepisujeme.
   IF p_existing_booking_id IS NOT NULL THEN
     SELECT id, user_id, status, payment_status, booking_source
       INTO v_existing_booking
@@ -237,7 +238,8 @@ BEGIN
     IF v_existing_booking.id IS NOT NULL
        AND v_existing_booking.user_id = v_user_id
        AND v_existing_booking.status = 'pending'
-       AND v_existing_booking.payment_status = 'unpaid' THEN
+       AND v_existing_booking.payment_status = 'unpaid'
+       AND v_existing_booking.booking_source = 'web' THEN
       v_reuse_booking := true;
     END IF;
   END IF;
