@@ -9,8 +9,8 @@ const ALL_FIELDS = WEB_PAGES.flatMap(p => p.sections.flatMap(s => s.fields))
 const TOTAL_FIELDS = ALL_FIELDS.length
 
 // Veřejná URL webu — používá se pro tlačítko „Otevřít na webu" u každého textu.
-// Lze přepsat přes Vite env `VITE_WEB_BASE_URL` (např. pro staging).
-const WEB_BASE_URL = (import.meta?.env?.VITE_WEB_BASE_URL || 'https://motogo24.cz').replace(/\/$/, '')
+// Lze přepsat přes Vite env `VITE_WEB_BASE_URL` (např. pro staging/produkci .cz).
+const WEB_BASE_URL = (import.meta?.env?.VITE_WEB_BASE_URL || 'https://motogo24.com').replace(/\/$/, '')
 
 // Sestaví URL na konkrétní stránku webu s admin tokenem a (volitelně) klíčem ke zvýraznění.
 export function buildWebUrl(base, pageUrl, token, highlightKey) {
@@ -177,7 +177,7 @@ export default function WebTextsTab() {
                   <span style={{ fontSize: 24 }}>{page.icon}</span>
                   <div className="flex-1">
                     <h2 className="text-lg font-extrabold" style={{ color: '#0f1a14', margin: 0 }}>{page.label}</h2>
-                    <div className="text-xs font-mono" style={{ color: '#6b8f7b' }}>motogo24.cz{page.url}</div>
+                    <div className="text-xs font-mono" style={{ color: '#6b8f7b' }}>{WEB_BASE_URL.replace(/^https?:\/\//, '')}{page.url}</div>
                   </div>
                   {page.url && (
                     <a
