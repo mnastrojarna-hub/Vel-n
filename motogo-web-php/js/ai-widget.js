@@ -210,6 +210,71 @@
       return n;
     }
 
+    // ---- Kontext aktuální stránky ----
+    // Co tu odesíláme:
+    //   - URL + path + dokumentový titulek + první H1 (orientace agenta)
+    //   - typ stránky odvozený z URL (home, moto_detail, katalog, shop, shop_detail,
+    //     blog, blog_detail, faq, kontakt, jak-pujcit, poukazy, pujcovna, partneri, other)
+    //   - klíče parametrů: moto_id, slug, query (pokud lze odvodit)
+    //   - aktuálně označený text (až 500 znaků) — když user "čte tohle a chce o tom mluvit"
+    //   - extra věci, které jednotlivá stránka vystaví do window.MOTOGO_PAGE_CTX
+    //     (např. shop-detail si tam může strčit produkt, blog-detail článek, atd.)
+    function buildPageCtx() {
+      try {
+        var path = (location.pathname || '/').replace(/\/+$/, '') || '/';
+        var type = 'other';
+        var motoId = null, slug = null;
+        // /katalog/<motoId>  (UUID nebo cokoliv co není prázdné)
+        var mMoto = path.match(/^\/katalog\/([^\/]+)$/);
+        if (mMoto) { type = 'moto_detail'; motoId = mMoto[1]; }
+        else if (path === '/katalog') type = 'katalog';
+        else if (path === '/' || path === '/home') type = 'home';
+        else if (path === '/shop') type = 'shop';
+        else { var mShop = path.match(/^\/shop\/([^\/]+)$/); if (mShop) { type = 'shop_detail'; slug = mShop[1]; } }
+        if (type === 'other') {
+          if (path === '/blog') type = 'blog';
+          else { var mBlog = path.match(/^\/blog\/([^\/]+)$/); if (mBlog) { type = 'blog_detail'; slug = mBlog[1]; } }
+        }
+        if (type === 'other') {
+          if (path === '/faq') type = 'faq';
+          else if (path === '/kontakt') type = 'kontakt';
+          else if (path === '/pujcovna') type = 'pujcovna';
+          else if (path === '/partneri') type = 'partneri';
+          else if (path === '/poukazy') type = 'poukazy';
+          else if (path === '/poukazy-objednat') type = 'poukazy_objednat';
+          else if (path.indexOf('/jak-pujcit') === 0) type = 'jak_pujcit';
+          else if (path === '/rezervace') type = 'rezervace';
+          else if (path === '/potvrzeni') type = 'potvrzeni';
+        }
+        // První H1 jako orientační název toho, na co se uživatel dívá
+        var h1 = '';
+        try {
+          var h1El = document.querySelector('h1');
+          if (h1El && h1El.textContent) h1 = h1El.textContent.replace(/\s+/g, ' ').trim().slice(0, 200);
+        } catch (e) {}
+        // Označený text — když uživatel něco vybere a zeptá se "co to znamená"
+        var selection = '';
+        try {
+          if (window.getSelection) {
+            var s = String(window.getSelection() || '').replace(/\s+/g, ' ').trim();
+            if (s) selection = s.slice(0, 500);
+          }
+        } catch (e) {}
+        var extra = (window.MOTOGO_PAGE_CTX && typeof window.MOTOGO_PAGE_CTX === 'object') ? window.MOTOGO_PAGE_CTX : null;
+        return {
+          url: location.href,
+          path: path,
+          type: type,
+          title: (document.title || '').slice(0, 200),
+          h1: h1,
+          moto_id: motoId,
+          slug: slug,
+          selection: selection,
+          extra: extra,
+        };
+      } catch (e) { return null; }
+    }
+
     async function send() {
       if (isLoading) return;
       var text = input.value.trim();
@@ -230,7 +295,7 @@
             'apikey': SUPABASE_ANON_KEY,
             'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
           },
-          body: JSON.stringify({ messages: conversation, lang: LANG }),
+          body: JSON.stringify({ messages: conversation, lang: LANG, page_context: buildPageCtx() }),
         });
         thinkingNode.remove();
         if (!resp.ok) {
