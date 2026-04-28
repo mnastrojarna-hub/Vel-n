@@ -98,6 +98,14 @@ return [
             'h1' => 'Wypożyczalnia motocykli Vysočina Motogo24 – bez kaucji i całodobowo',
             'intro' => 'Witamy w <strong>Motogo24</strong> – twojej wypożyczalni motocykli w Vysočina. U nas wypożyczasz motocykl <strong>bez kaucji</strong>, z wyposażeniem w cenie i w trybie <strong>całodobowym</strong>. Niezależnie czy szukasz motocykla turystycznego, sportowego, enduro czy dla dzieci, Motogo24 w sercu Vysočina ma dla ciebie odpowiedni motocykl.',
             'signposts_title' => 'Szybki przewodnik po Motogo24',
+            'signposts' => [
+                ['icon' => 'gfx/ico-katalog.svg', 'title' => 'Katalog motocykli', 'text' => 'Zobacz naszą ofertę motocykli do wynajęcia — od sportowych po turystyczne.', 'btn' => 'KATALOG MOTOCYKLI', 'href' => '/katalog'],
+                ['icon' => 'gfx/ico-jak.svg', 'title' => 'Jak wypożyczyć motocykl', 'text' => 'Prosty proces: wybierz motocykl, zarezerwuj i ruszaj.', 'btn' => 'JAK WYPOŻYCZYĆ', 'href' => '/jak-pujcit'],
+                ['icon' => 'gfx/ico-rezervace.svg', 'title' => 'Rezerwacja online', 'text' => 'Zarezerwuj motocykl przez nasz prosty system online.', 'btn' => 'ZAREZERWUJ MOTOCYKL', 'href' => '/rezervace'],
+                ['icon' => 'gfx/ico-kontakt.svg', 'title' => 'Kontakt i mapa', 'text' => 'Odwiedź naszą wypożyczalnię w Pelhřimovie lub skontaktuj się z nami.', 'btn' => 'KONTAKT', 'href' => '/kontakt'],
+                ['icon' => 'gfx/ico-faq.svg', 'title' => 'Najczęściej zadawane pytania', 'text' => 'Najczęstsze pytania o wynajem motocykla zebrane w jednym miejscu.', 'btn' => 'FAQ', 'href' => '/jak-pujcit/faq'],
+                ['icon' => 'gfx/ico-trasy.svg', 'title' => 'Trasy motocyklowe', 'text' => 'Odkryj najlepsze trasy motocyklowe w Czechach dla turystów i lokalnych.', 'btn' => 'TRASY MOTOCYKLOWE', 'href' => '/blog'],
+            ],
             'motos_section' => [
                 'title' => 'Nasze motocykle do wynajęcia w Vysočina',
                 'intro' => 'Zobacz naszą ofertę motocykli turystycznych, sportowych i enduro z naszej wypożyczalni w Vysočina.',
@@ -106,8 +114,25 @@ return [
                 'cta_href' => '/katalog',
                 'limit' => 4,
             ],
-            'process' => ['title' => 'Jak działa wypożyczanie motocykli w Vysočina'],
-            'faq' => ['title' => 'Najczęściej zadawane pytania', 'more_link' => '/jak-pujcit/faq'],
+            'process' => [
+                'title' => 'Jak działa wypożyczanie motocykli w Vysočina',
+                'steps' => [
+                    ['icon' => 'gfx/ico-step1.svg', 'title' => '1. Wybierz', 'text' => 'Wybierz idealny motocykl z naszej oferty motocykli do wynajęcia.'],
+                    ['icon' => 'gfx/ico-step2.svg', 'title' => '2. Zarezerwuj', 'text' => 'Zarezerwuj motocykl przez nasz prosty system online.'],
+                    ['icon' => 'gfx/ico-step3.svg', 'title' => '3. Odbierz', 'text' => 'Odbierz motocykl w naszej wypożyczalni w Pelhřimovie.'],
+                    ['icon' => 'gfx/ico-step4.svg', 'title' => '4. Ciesz się jazdą', 'text' => 'Poczuj wolność i odkryj Czechy na motocyklach do wynajęcia.'],
+                ],
+            ],
+            'faq' => [
+                'title' => 'Najczęściej zadawane pytania',
+                'more_link' => '/jak-pujcit/faq',
+                'items' => [
+                    ['q' => 'Jak mogę zarezerwować motocykl?', 'a' => 'Motocykl możesz zarezerwować przez nasz system rezerwacji online bezpośrednio na stronie. Lub skontaktuj się z nami przez e-mail, telefon lub media społecznościowe.'],
+                    ['q' => 'Czy mogę wypożyczyć motocykl bez wcześniejszej rezerwacji?', 'a' => 'Niestety nie. Każdy motocykl trzeba zarezerwować z wyprzedzeniem — online, telefonicznie, e-mailem lub przez media społecznościowe.'],
+                    ['q' => 'Czy muszę wpłacić kaucję?', 'a' => 'Nie! U nas <strong>nie płacisz żadnej kaucji</strong>. Tym fundamentalnie różnimy się od większości konkurencji.'],
+                    ['q' => 'Czy mogę pojechać motocyklem za granicę?', 'a' => 'Tak, motocyklem bez problemu pojedziesz za granicę. Podróży poza Czechy nie ograniczamy; trzeba tylko zachować terytorialny zakres ubezpieczenia (zielona karta).'],
+                ],
+            ],
             'cta' => [
                 'title' => 'Zarezerwuj motocykl online',
                 'text' => 'Nasza <strong>wypożyczalnia motocykli Vysočina</strong> jest otwarta <strong>całodobowo</strong>. Kilka kliknięć i twoja jazda się rozpoczyna.',
@@ -148,9 +173,38 @@ return [
                     ['label' => 'Zobacz motocykle do wynajęcia', 'href' => '/katalog', 'cls' => 'btngreen'],
                     ['label' => 'REZERWUJ', 'href' => '/rezervace', 'cls' => 'btngreen pulse'],
                 ],
+                'items' => [
+                    ['icon' => 'gfx/ico-bez-kauce.svg', 'title' => 'Bez kaucji', 'text' => 'i bez ukrytych opłat'],
+                    ['icon' => 'gfx/ico-online-rez.svg', 'title' => 'Rezerwacja online', 'text' => 'w kilka kliknięć'],
+                    ['icon' => 'gfx/ico-vybava.svg', 'title' => 'Wyposażenie kierowcy w cenie', 'text' => 'kask, kurtka, spodnie i rękawice'],
+                    ['icon' => 'gfx/ico-nonstop.svg', 'title' => 'Obsługa całodobowa', 'text' => 'do odbioru i zwrotu zgodnie z rezerwacją'],
+                    ['icon' => 'gfx/ico-spolecne.svg', 'title' => 'Jesteśmy razem', 'text' => 'gdy coś się wydarzy'],
+                    ['icon' => 'gfx/ico-pristaveni.svg', 'title' => 'Dostawa i odbiór motocykla', 'text' => 'w umówione miejsce'],
+                ],
             ],
-            'process' => ['title' => 'Jak działa wypożyczanie w Vysočina'],
-            'faq' => ['title' => 'Najczęściej zadawane pytania', 'more_link' => '/jak-pujcit/faq'],
+            'process' => [
+                'title' => 'Jak działa wypożyczanie w Vysočina',
+                'steps' => [
+                    ['icon' => 'gfx/ico-step1.svg', 'title' => '1. Wybierz motocykl', 'text' => 'Zobacz naszą ofertę i wybierz typ, który ci odpowiada, twoim doświadczeniom i prawu jazdy.'],
+                    ['icon' => 'gfx/ico-step3.svg', 'title' => '2. Zarezerwuj online', 'text' => 'Zarezerwuj według daty lub konkretnego motocykla, który chcesz wypożyczyć.'],
+                    ['icon' => 'gfx/ico-step4.svg', 'title' => '3. Wybierz wyposażenie', 'text' => 'Wyposażenie kierowcy jest w cenie, dla pasażera za dopłatą. Rozmiar wybierzesz na miejscu.'],
+                    ['icon' => 'gfx/ico-step5.svg', 'title' => '4. Zapłać', 'text' => 'Zapłać prosto online przez bramkę płatności.'],
+                    ['icon' => 'gfx/ico-step6.svg', 'title' => '5. Odbierz motocykl', 'text' => 'Odbierz motocykl bezpośrednio w wypożyczalni lub w wybranym przy rezerwacji miejscu.'],
+                    ['icon' => 'gfx/ico-step7.svg', 'title' => '6. Ciesz się jazdą', 'text' => 'Wyrusz w drogę, odkrywaj nowe doświadczenia i ciesz się pełną wolnością na dwóch kołach.'],
+                    ['icon' => 'gfx/ico-step8.svg', 'title' => '7. Zwróć motocykl', 'text' => 'Po prostu zwróć motocykl w umówionym dniu – w wypożyczalni lub w umówionym miejscu.'],
+                    ['icon' => 'gfx/ico-sleva.svg', 'title' => 'Zniżka na kolejną jazdę', 'text' => 'Po zwrocie motocykla automatycznie wyślemy ci kod rabatowy 200 Kč na kolejną rezerwację.'],
+                ],
+            ],
+            'faq' => [
+                'title' => 'Najczęściej zadawane pytania',
+                'more_link' => '/jak-pujcit/faq',
+                'items' => [
+                    ['q' => 'Jak mogę zarezerwować motocykl?', 'a' => 'Motocykl możesz zarezerwować przez nasz system rezerwacji online bezpośrednio na stronie. Lub skontaktuj się z nami e-mailem, telefonicznie lub przez media społecznościowe.'],
+                    ['q' => 'Czy mogę wypożyczyć motocykl bez wcześniejszej rezerwacji?', 'a' => 'Niestety nie. Każdy motocykl trzeba zarezerwować z wyprzedzeniem.'],
+                    ['q' => 'Czy muszę wpłacić kaucję?', 'a' => 'Nie! U nas <strong>nie płacisz żadnej kaucji</strong>. Tym fundamentalnie różnimy się od większości konkurencji.'],
+                    ['q' => 'Czy mogę pojechać motocyklem za granicę?', 'a' => 'Tak, motocyklem bez problemu pojedziesz za granicę. Podróży poza Czechy nie ograniczamy; trzeba tylko zachować terytorialny zakres ubezpieczenia (zielona karta).'],
+                ],
+            ],
             'cta' => [
                 'title' => 'Zarezerwuj motocykl online',
                 'text' => 'Nasza <strong>wypożyczalnia motocykli Vysočina</strong> jest otwarta <strong>całodobowo</strong>.',
