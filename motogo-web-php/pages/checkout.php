@@ -113,9 +113,9 @@ window.MOTOGO_CONFIG.SUPABASE_URL = ' . json_encode(SUPABASE_URL) . ';
 window.MOTOGO_CONFIG.SUPABASE_ANON_KEY = ' . json_encode(SUPABASE_ANON_KEY) . ';
 window.MOTOGO_CONFIG.LANG = ' . json_encode(function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs') . ';
 </script>
-<script src="' . BASE_URL . '/js/supabase-sdk.js"></script>
-<script src="' . BASE_URL . '/js/supabase-init.js"></script>
-<script src="' . BASE_URL . '/js/checkout.js" defer></script>';
+<script src="' . assetUrl('/js/supabase-sdk.js') . '"></script>
+<script src="' . assetUrl('/js/supabase-init.js') . '"></script>
+<script src="' . assetUrl('/js/checkout.js') . '" defer></script>';
 
 renderPage(t('checkout.title') . ' | ' . t('shop.title'), $content . $checkoutJs, '/objednavka', [
     'description' => mb_substr(t('checkout.intro'), 0, 160),

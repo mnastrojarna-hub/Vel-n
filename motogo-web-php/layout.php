@@ -479,8 +479,8 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
     echo '
 
   <!-- Styles -->
-  <link rel="stylesheet" href="' . BASE_URL . '/css/main.css">
-  <link rel="stylesheet" href="' . BASE_URL . '/css/pages.css">
+  <link rel="stylesheet" href="' . assetUrl('/css/main.css') . '">
+  <link rel="stylesheet" href="' . assetUrl('/css/pages.css') . '">
 </head>
 <body>
 ';
@@ -503,7 +503,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   <button type="button" class="mg-lb-next" aria-label="' . $lbNext . '">&#10095;</button>
   <div class="mg-lb-counter" aria-live="polite"></div>
 </div>
-<script src="' . BASE_URL . '/js/lightbox.js" defer></script>';
+<script src="' . assetUrl('/js/lightbox.js') . '" defer></script>';
 
     // E-shop košík (lokální storage, sdílený mezi stránkami)
     $cartI18n = json_encode([
@@ -518,7 +518,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
 <script>
 window.MG_I18N = Object.assign(window.MG_I18N || {}, ' . $cartI18n . ');
 </script>
-<script src="' . BASE_URL . '/js/cart.js" defer></script>';
+<script src="' . assetUrl('/js/cart.js') . '" defer></script>';
 
     echo renderInlineJs();
 
@@ -533,7 +533,7 @@ window.MOTOGO_CONFIG = window.MOTOGO_CONFIG || {};
 window.MOTOGO_CONFIG.SUPABASE_URL = ' . json_encode(SUPABASE_URL) . ';
 window.MOTOGO_CONFIG.SUPABASE_ANON_KEY = ' . json_encode(SUPABASE_ANON_KEY) . ';
 </script>
-<script src="' . BASE_URL . '/js/ai-widget.js" defer></script>';
+<script src="' . assetUrl('/js/ai-widget.js') . '" defer></script>';
     }
     // CMS admin highlight overlay — JS se načte JEN když je nastavena cookie
     // `mg_cms_admin=1` (po úspěšném ověření tokenu z Velínu). Běžný návštěvník
