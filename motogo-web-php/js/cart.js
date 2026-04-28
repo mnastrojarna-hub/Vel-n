@@ -172,9 +172,135 @@
     });
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bindProductDetail);
-  } else {
+  // ----- Cart page (/kosik) renderer -----
+  function fmtPrice(amount){
+    var v = Math.round(Number(amount) || 0);
+    // 1 234 Kč — non-breaking space jako oddělovač tisíců
+    var s = v.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    return s + ' Kč';
+  }
+  function escapeHtml(s){
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
+  function renderCartPage(){
+    var loading = document.querySelector('[data-cart-loading]');
+    var empty   = document.querySelector('[data-cart-empty]');
+    var loaded  = document.querySelector('[data-cart-loaded]');
+    var list    = document.querySelector('[data-cart-items]');
+    if (!list && !empty) return; // ne košíková stránka
+    if (loading) loading.setAttribute('hidden','');
+
+    var items = Cart.load();
+    if (items.length === 0) {
+      if (empty)  empty.removeAttribute('hidden');
+      if (loaded) loaded.setAttribute('hidden','');
+      return;
+    }
+    if (empty)  empty.setAttribute('hidden','');
+    if (loaded) loaded.removeAttribute('hidden');
+
+    var i18n = window.MG_I18N || {};
+    var rows = items.map(function(it, idx){
+      var max = it.stock ? Math.min(it.stock, 99) : 99;
+      var sizeLine = it.size ? '<p class="cart-item-size">' + escapeHtml(i18n.cart_size || 'Velikost') + ': <strong>' + escapeHtml(it.size) + '</strong></p>' : '';
+      var img = it.image ? '<img src="' + escapeHtml(it.image) + '" alt="' + escapeHtml(it.name) + '" class="cart-item-img" loading="lazy">' : '<div class="cart-item-img cart-item-img-placeholder" aria-hidden="true"></div>';
+      var line = (Number(it.price) || 0) * (Number(it.qty) || 0);
+      return '<div class="cart-item" data-cart-row="' + idx + '">'
+        + img
+        + '<div class="cart-item-info">'
+        +   '<h3 class="cart-item-name">' + escapeHtml(it.name) + '</h3>'
+        +   sizeLine
+        +   '<p class="cart-item-unit">' + fmtPrice(it.price) + ' / ' + escapeHtml(i18n.cart_pcs || 'ks') + '</p>'
+        + '</div>'
+        + '<div class="cart-item-qty">'
+        +   '<label class="visually-hidden" for="cart-qty-' + idx + '">' + escapeHtml(i18n.cart_qty || 'Množství') + '</label>'
+        +   '<div class="shop-qty-stepper">'
+        +     '<button type="button" class="shop-qty-btn" data-cart-qty-step="-1" data-row="' + idx + '" aria-label="−">−</button>'
+        +     '<input type="number" id="cart-qty-' + idx + '" class="shop-qty-input" data-cart-qty-input data-row="' + idx + '" value="' + (it.qty|0) + '" min="1" max="' + max + '" inputmode="numeric">'
+        +     '<button type="button" class="shop-qty-btn" data-cart-qty-step="1" data-row="' + idx + '" aria-label="+">+</button>'
+        +   '</div>'
+        +   '<button type="button" class="cart-item-remove" data-cart-remove data-row="' + idx + '" aria-label="' + escapeHtml(i18n.cart_remove || 'Odebrat') + '" title="' + escapeHtml(i18n.cart_remove || 'Odebrat') + '">✕</button>'
+        + '</div>'
+        + '<div class="cart-item-line"><strong>' + fmtPrice(line) + '</strong></div>'
+        + '</div>';
+    }).join('');
+    list.innerHTML = rows;
+
+    var subtotal = Cart.subtotal();
+    var sub = document.querySelector('[data-cart-subtotal]');
+    var tot = document.querySelector('[data-cart-total]');
+    if (sub) sub.textContent = fmtPrice(subtotal);
+    if (tot) tot.textContent = fmtPrice(subtotal); // dopravu řeší checkout
+  }
+
+  function bindCartPage(){
+    var list = document.querySelector('[data-cart-items]');
+    if (!list && !document.querySelector('[data-cart-empty]')) return;
+
+    document.addEventListener('click', function(e){
+      var stepBtn = e.target.closest && e.target.closest('[data-cart-qty-step]');
+      if (stepBtn) {
+        var row = parseInt(stepBtn.getAttribute('data-row'), 10);
+        var step = parseInt(stepBtn.getAttribute('data-qty-step') || stepBtn.getAttribute('data-cart-qty-step'), 10) || 0;
+        var items = Cart.load();
+        if (!items[row]) return;
+        Cart.update(row, (items[row].qty || 0) + step);
+        return;
+      }
+      var rmBtn = e.target.closest && e.target.closest('[data-cart-remove]');
+      if (rmBtn) {
+        var rrow = parseInt(rmBtn.getAttribute('data-row'), 10);
+        Cart.remove(rrow);
+        return;
+      }
+    });
+    document.addEventListener('change', function(e){
+      var input = e.target.closest && e.target.closest('[data-cart-qty-input]');
+      if (!input) return;
+      var rrow = parseInt(input.getAttribute('data-row'), 10);
+      var v = parseInt(input.value, 10);
+      if (!v || v < 1) v = 1;
+      Cart.update(rrow, v);
+    });
+
+    Cart.onChange(renderCartPage);
+    renderCartPage();
+  }
+
+  // ----- Topbar cart icon -----
+  function bindCartBadge(){
+    var badge = document.querySelector('[data-cart-badge]');
+    if (!badge) return;
+    function refresh(){
+      var n = Cart.count();
+      if (n > 0) {
+        badge.textContent = n > 99 ? '99+' : String(n);
+        badge.removeAttribute('hidden');
+      } else {
+        badge.setAttribute('hidden','');
+        badge.textContent = '';
+      }
+    }
+    refresh();
+    Cart.onChange(refresh);
+    // I cross-tab synchronization (storage event z jiného tabu)
+    window.addEventListener('storage', function(e){
+      if (e.key === KEY) refresh();
+    });
+  }
+
+  function init(){
     bindProductDetail();
+    bindCartBadge();
+    bindCartPage();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
   }
 })();
