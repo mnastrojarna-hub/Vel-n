@@ -292,6 +292,16 @@ switch (true) {
         require __DIR__ . '/pages/cart.php';
         break;
 
+    // E-shop pokladna
+    case $path === '/objednavka' || $path === '/objednavka/':
+        require __DIR__ . '/pages/checkout.php';
+        break;
+
+    // E-shop potvrzení objednávky
+    case $path === '/objednavka/dokoncit' || $path === '/objednavka/dokonceno':
+        require __DIR__ . '/pages/order-confirm.php';
+        break;
+
     // Blog
     case $path === '/blog':
         require __DIR__ . '/pages/blog.php';
