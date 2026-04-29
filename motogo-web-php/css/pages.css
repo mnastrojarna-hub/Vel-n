@@ -1175,3 +1175,32 @@
   div[style*="border:2px dashed #74FB71"]{flex-direction:column!important;text-align:center;gap:.6rem!important}
   div[style*="border:2px dashed #74FB71"] > div[style*="min-width:200px"]{min-width:0!important;width:100%}
 }
+
+/* ===== Bank-style document camera overlay (rezervace) ===== */
+#rez-cam-overlay{position:fixed;inset:0;z-index:9999;display:flex;align-items:stretch;justify-content:stretch}
+#rez-cam-overlay .rez-cam-bg{position:absolute;inset:0;background:#000}
+#rez-cam-overlay .rez-cam-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+#rez-cam-overlay .rez-cam-mask{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+#rez-cam-overlay .rez-cam-frame{position:relative;width:min(86vw,720px);aspect-ratio:1.586/1;border:2px solid rgba(116,251,113,.95);border-radius:18px;box-shadow:0 0 0 9999px rgba(0,0,0,.55);background:transparent}
+#rez-cam-overlay .rez-cam-corner{position:absolute;width:28px;height:28px;border:4px solid #74FB71;border-radius:4px}
+#rez-cam-overlay .rez-cam-corner.tl{top:-4px;left:-4px;border-right:none;border-bottom:none;border-top-left-radius:14px}
+#rez-cam-overlay .rez-cam-corner.tr{top:-4px;right:-4px;border-left:none;border-bottom:none;border-top-right-radius:14px}
+#rez-cam-overlay .rez-cam-corner.bl{bottom:-4px;left:-4px;border-right:none;border-top:none;border-bottom-left-radius:14px}
+#rez-cam-overlay .rez-cam-corner.br{bottom:-4px;right:-4px;border-left:none;border-top:none;border-bottom-right-radius:14px}
+#rez-cam-overlay .rez-cam-top{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:.7rem;padding:.85rem 1rem;color:#fff;background:linear-gradient(180deg,rgba(0,0,0,.55),transparent);z-index:2}
+#rez-cam-overlay .rez-cam-close{background:rgba(0,0,0,.45);color:#fff;border:1px solid rgba(255,255,255,.35);width:36px;height:36px;border-radius:50%;font-size:1.4rem;line-height:1;cursor:pointer}
+#rez-cam-overlay .rez-cam-title{font-weight:700;font-size:1.05rem}
+#rez-cam-overlay .rez-cam-hint{position:absolute;left:0;right:0;top:54%;text-align:center;color:#fff;font-size:.95rem;text-shadow:0 1px 4px rgba(0,0,0,.7);padding:0 1rem;z-index:2}
+#rez-cam-overlay .rez-cam-bottom{position:absolute;left:0;right:0;bottom:0;padding:1.2rem 1rem 2rem;display:flex;flex-direction:column;align-items:center;gap:.7rem;background:linear-gradient(0deg,rgba(0,0,0,.55),transparent);z-index:2}
+#rez-cam-overlay .rez-cam-shoot{display:flex;flex-direction:column;align-items:center;gap:.4rem;background:#74FB71;color:#0a1a14;border:none;padding:.85rem 1.6rem;border-radius:999px;font-weight:800;cursor:pointer;box-shadow:0 6px 20px rgba(116,251,113,.4);font-size:1rem}
+#rez-cam-overlay .rez-cam-shoot:hover{background:#5fe05c}
+#rez-cam-overlay .rez-cam-shoot-inner{width:46px;height:46px;border-radius:50%;background:#fff;border:3px solid #0a1a14}
+#rez-cam-overlay .rez-cam-shoot-label{font-size:.85rem;letter-spacing:.04em}
+#rez-cam-overlay .rez-cam-progress{display:flex;flex-direction:column;align-items:center;gap:.35rem;color:#fff;width:min(80vw,360px)}
+#rez-cam-overlay .rez-cam-progress-track{height:6px;width:100%;background:rgba(255,255,255,.25);border-radius:999px;overflow:hidden}
+#rez-cam-overlay .rez-cam-progress-bar{height:100%;width:0;background:#74FB71;border-radius:999px;transition:width .25s}
+#rez-cam-overlay .rez-cam-progress-text{font-size:.85rem;text-shadow:0 1px 3px rgba(0,0,0,.7)}
+@media(max-width:520px){
+  #rez-cam-overlay .rez-cam-frame{width:90vw}
+  #rez-cam-overlay .rez-cam-hint{top:60%}
+}

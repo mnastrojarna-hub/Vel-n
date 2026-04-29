@@ -641,7 +641,7 @@ MG._rezShowStep2 = function(){
       '</div>'+
     '</section>'+
 
-    // Section 2 — volitelné nahrání dokladů (desktop only)
+    // Section 2 — volitelné nahrání dokladů (desktop only — mobil dostane plnou Mindee step po Pokračovat)
     (!isMob?
     '<section class="rez-section">'+
       '<div class="rez-section-head"><span class="rez-step-num">2</span><h2>Nahrání dokladů</h2></div>'+
@@ -651,16 +651,16 @@ MG._rezShowStep2 = function(){
           '<div class="rez-doc-upload-card-head">&#128196; Doklad totožnosti</div>'+
           '<div id="webdoc-id-status"></div>'+
           '<div class="rez-doc-upload-actions">'+
-            '<button class="btn btngreen-small" onclick="MG._rezUploadDoc(\'id\')" style="font-size:.8rem">Nahrát soubor</button>'+
-            '<button class="btn btngreen-small" onclick="MG._rezCaptureDoc(\'id\')" style="font-size:.8rem">Vyfotit</button>'+
+            '<button class="btn btngreen-small" onclick="MG._rezCaptureDoc(\'id\')" style="font-size:.8rem">&#128247; Vyfotit (skener)</button>'+
+            '<button class="btn btngreen-small" onclick="MG._rezUploadDoc(\'id\')" style="font-size:.8rem">&#128194; Nahrát soubor</button>'+
           '</div>'+
         '</div>'+
         '<div class="rez-doc-upload-card">'+
           '<div class="rez-doc-upload-card-head">&#128663; Řidičský průkaz</div>'+
           '<div id="webdoc-dl-status"></div>'+
           '<div class="rez-doc-upload-actions">'+
-            '<button class="btn btngreen-small" onclick="MG._rezUploadDoc(\'dl\')" style="font-size:.8rem">Nahrát soubor</button>'+
-            '<button class="btn btngreen-small" onclick="MG._rezCaptureDoc(\'dl\')" style="font-size:.8rem">Vyfotit</button>'+
+            '<button class="btn btngreen-small" onclick="MG._rezCaptureDoc(\'dl\')" style="font-size:.8rem">&#128247; Vyfotit (skener)</button>'+
+            '<button class="btn btngreen-small" onclick="MG._rezUploadDoc(\'dl\')" style="font-size:.8rem">&#128194; Nahrát soubor</button>'+
           '</div>'+
         '</div>'+
       '</div>'+
