@@ -81,6 +81,7 @@ MG._rezValidatePickupTime = function(){
 };
 
 // ===== VOUCHER / PROMO CODE VALIDATION =====
+MG._rez = MG._rez || {};
 if(!MG._rez.appliedCodes) MG._rez.appliedCodes = [];
 if(!MG._rez.discountAmt) MG._rez.discountAmt = 0;
 
