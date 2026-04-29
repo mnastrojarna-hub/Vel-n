@@ -54,7 +54,10 @@
       return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; });
     }).then(function (res) {
       if (!res.ok || !res.data || !res.data.success) {
-        var msg = (res.data && res.data.error) ? String(res.data.error) : ('HTTP ' + res.status);
+        var d = res.data || {};
+        var msg = d.error ? String(d.error) : ('HTTP ' + res.status);
+        if (d.detail) msg += ': ' + d.detail;
+        if (d.code) msg += ' [' + d.code + ']';
         throw new Error(msg);
       }
       return res.data;
