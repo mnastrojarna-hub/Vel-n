@@ -234,6 +234,8 @@
 | `motorcycles` | description |
 | `branches` | notes |
 
+**`cms_variables.category` CHECK constraint** (`cms_variables_category_check`, 2026-04-29): povoluje hodnoty `'general'`, `'web'`, `'pricing'`, `'contact'`, `'content'`, `'legal'` — totožné s `CATEGORIES` v `velin/src/pages/cms/VariablesTab.jsx`. Před 2026-04-29 chyběla `'web'` → `cms-save` edge fn (inline edit z webu) hodila 500 při INSERTu nového klíče s `category='web'`. Při změně Velín UI seznamu je nutné updatovat i tento constraint.
+
 **Web (motogo-web-php):** helper `localized($row, $field)` v `i18n.php` čte `translations[lang][field] ?? row[field]`.
 
 ### branch_accessories
