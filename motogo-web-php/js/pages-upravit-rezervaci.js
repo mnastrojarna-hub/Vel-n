@@ -728,7 +728,56 @@ MG._editRez._injectConsentsStyles = function(){
     '.edit-rez-history-when{font-size:.75rem;color:#6a7a70;font-weight:600;text-transform:uppercase;letter-spacing:.04em}'+
     '.edit-rez-history-when .muted{color:#9aa8a0;font-weight:500}'+
     '.edit-rez-history-changes{margin-top:.2rem;font-size:.92rem;color:#1a2e22;line-height:1.45}'+
-    '.edit-rez-history-changes s{color:#9aa8a0}';
+    '.edit-rez-history-changes s{color:#9aa8a0}'+
+    /* ===== MOTO PICKER (katalog-style) ===== */
+    '.edit-rez-loading{display:flex;align-items:center;gap:.6rem;color:#6a7a70;padding:1rem 0}'+
+    '.edit-rez-moto-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.6rem;margin-bottom:.4rem}'+
+    '.edit-rez-moto-head .btn-secondary{background:#fff;border:1.5px solid #d4e8e0;color:#1a2e22;padding:.45rem .9rem;border-radius:999px;font-weight:700;cursor:pointer;font-size:.85rem}'+
+    '.edit-rez-moto-head .btn-secondary:hover{border-color:#1a8c1a;background:#f0faf5}'+
+    '.erez-moto-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:1rem;margin-top:.8rem}'+
+    '@media(max-width:520px){.erez-moto-grid{grid-template-columns:1fr}}'+
+    '.erez-moto-card{background:#fff;border:1px solid #d4e8e0;border-radius:18px;overflow:hidden;display:flex;flex-direction:column;transition:transform .15s, box-shadow .15s, border-color .15s;box-shadow:0 4px 12px rgba(20,80,40,.05)}'+
+    '.erez-moto-card:hover:not(.is-disabled){transform:translateY(-3px);box-shadow:0 12px 28px rgba(20,80,40,.14);border-color:#1a8c1a}'+
+    '.erez-moto-card.is-disabled{opacity:.55;filter:grayscale(.4)}'+
+    '.erez-moto-hero{position:relative;aspect-ratio:4/3;background:linear-gradient(135deg,#f0faf5 0%,#e0f0e6 100%);display:flex;align-items:center;justify-content:center;overflow:hidden}'+
+    '.erez-moto-hero-img{width:100%;height:100%;object-fit:cover;display:block}'+
+    '.erez-moto-hero-placeholder{font-size:3.5rem;opacity:.4}'+
+    '.erez-moto-pill{position:absolute;top:.6rem;left:.6rem;background:#1a8c1a;color:#fff;padding:.25rem .65rem;border-radius:999px;font-size:.72rem;font-weight:800;letter-spacing:.04em}'+
+    '.erez-moto-pill.alt{background:#fff;color:#1a8c1a;border:1.5px solid #1a8c1a}'+
+    '.erez-moto-meta{padding:1rem 1.1rem 1.1rem;display:flex;flex-direction:column;gap:.45rem;flex:1}'+
+    '.erez-moto-meta h4{margin:0;color:#1a2e22;font-size:1.12rem;line-height:1.2}'+
+    '.erez-moto-specs{font-size:.78rem;color:#7d978a;font-weight:600;letter-spacing:.04em;text-transform:uppercase}'+
+    '.erez-moto-price{font-size:.92rem;color:#1a2e22;font-weight:700;margin-top:.2rem}'+
+    '.erez-moto-price .muted{color:#9aa8a0;font-weight:500;text-decoration:line-through}'+
+    '.erez-moto-diff{display:inline-block;padding:.3rem .7rem;border-radius:999px;font-size:.82rem;font-weight:700;align-self:flex-start}'+
+    '.erez-moto-diff.up{background:#fff4d6;color:#7a5400;border:1px solid #e6a019}'+
+    '.erez-moto-diff.down{background:#e8f5ee;color:#147214;border:1px solid #1a8c1a}'+
+    '.erez-moto-diff.zero{background:#f0f5f2;color:#3a4a40;border:1px solid #d4e8e0}'+
+    '.erez-moto-reasons{font-size:.8rem;color:#c0392b;font-weight:600;background:#ffebe7;padding:.4rem .65rem;border-radius:8px}'+
+    '.erez-moto-cta{margin-top:auto;background:#1a8c1a;color:#fff;border:none;padding:.7rem 1rem;border-radius:12px;font-weight:800;cursor:pointer;font-size:.92rem;letter-spacing:.02em;transition:filter .15s, transform .12s}'+
+    '.erez-moto-cta:hover:not(.disabled){filter:brightness(1.08);transform:translateY(-1px)}'+
+    '.erez-moto-cta.disabled{background:#d4e8e0;color:#7d978a;cursor:not-allowed}'+
+    /* ===== LOCATION CARDS ===== */
+    '.erez-loc-grid{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin-bottom:.8rem}'+
+    '@media(max-width:680px){.erez-loc-grid{grid-template-columns:1fr}}'+
+    '.erez-loc-card{display:grid;grid-template-columns:48px 1fr 28px;gap:.7rem;align-items:center;padding:1rem 1.1rem;background:#fff;border:1.5px solid #d4e8e0;border-radius:14px;cursor:pointer;transition:all .15s;position:relative}'+
+    '.erez-loc-card:hover{border-color:#1a8c1a;background:#f7fcf9}'+
+    '.erez-loc-card.active{border-color:#1a8c1a;background:#e8f5ee;box-shadow:0 0 0 3px rgba(26,140,26,.15)}'+
+    '.erez-loc-card input[type=radio]{position:absolute;opacity:0;pointer-events:none}'+
+    '.erez-loc-ico{font-size:2rem;line-height:1;text-align:center}'+
+    '.erez-loc-body{display:flex;flex-direction:column;gap:.2rem}'+
+    '.erez-loc-title{font-size:1rem;color:#1a2e22}'+
+    '.erez-loc-sub{font-size:.78rem;color:#5a6a60;line-height:1.35}'+
+    '.erez-loc-check{display:none;background:#1a8c1a;color:#fff;width:24px;height:24px;border-radius:50%;text-align:center;line-height:24px;font-size:.85rem;font-weight:800}'+
+    '.erez-loc-card.active .erez-loc-check{display:block}'+
+    '.erez-loc-addr-panel{padding:.85rem 1rem;background:#fafdfb;border:1px dashed #d4e8e0;border-radius:14px;margin-bottom:1rem}'+
+    '.erez-loc-addr-row{display:flex;gap:.5rem;align-items:stretch;flex-wrap:wrap}'+
+    '.erez-loc-input{flex:1;min-width:200px;padding:.65rem .85rem;border:1.5px solid #d4e8e0;border-radius:10px;font-family:Montserrat,sans-serif;font-size:.92rem;color:#1a2e22;background:#fff}'+
+    '.erez-loc-input:focus{outline:none;border-color:#1a8c1a;box-shadow:0 0 0 3px rgba(26,140,26,.12)}'+
+    '.erez-loc-mapbtn{background:#1a8c1a;color:#fff;border:none;padding:.65rem 1rem;border-radius:10px;font-weight:700;cursor:pointer;font-size:.85rem;white-space:nowrap;transition:filter .15s}'+
+    '.erez-loc-mapbtn:hover{filter:brightness(1.08)}'+
+    '.erez-loc-route{margin-top:.6rem;font-size:.85rem;color:#1a2e22}'+
+    '.edit-rez-loc-submit{margin-top:.5rem;padding:.85rem 1.4rem;border-radius:14px;font-size:1rem}';
   document.head.appendChild(st);
 };
 
@@ -749,7 +798,7 @@ MG._editRez._bindConsentsCard = function(scope){
   if (revokeAll) revokeAll.addEventListener('click', function(){
     MG._editRez._confirmDialog('Opravdu chcete odvolat všechny souhlasy?', function(){
       MG._editRez._saveAllConsents(false);
-    });
+    }, { yesLabel: 'Odvolat vše', noLabel: 'Zachovat', danger: true });
   });
 };
 
@@ -1038,7 +1087,7 @@ MG._editRez._renderDetail = function(){
     if (cancelBtn) cancelBtn.addEventListener('click', function(){
       MG._editRez._confirmDialog('Opravdu chcete zrušit nezaplacenou rezervaci?', function(){
         MG._editRez._cancelPending(b.id);
-      });
+      }, { yesLabel: 'Ano, zrušit', noLabel: 'Ne, ponechat', danger: true });
     });
   }
 
@@ -1172,30 +1221,26 @@ MG._editRez._renderTabMoto = async function(){
   var b = MG._editRez.selectedBooking;
   var t = document.getElementById('edit-rez-tab-content');
   t.innerHTML = '<h3>' + MG.t('editRez.moto.title') + '</h3>'
-    + '<p>' + MG.t('editRez.moto.help') + '</p>'
-    + '<p class="edit-rez-tip">' + MG.t('editRez.loading') + '</p>';
+    + '<p class="muted">Vyberte si jinou motorku z naší flotily — zobrazujeme všechny dostupné v daném termínu, kompatibilní s vaším řidičským oprávněním.</p>'
+    + '<div class="edit-rez-loading"><span class="spinner"></span> Načítám flotilu…</div>';
 
-  // Načti všechny aktivní motorky + profil zákazníka pro license
   try {
     var [motosR, profileR] = await Promise.all([
-      window.sb.from('motorcycles').select('id,model,brand,image_url,license_required,price_mon,price_tue,price_wed,price_thu,price_fri,price_sat,price_sun,price_weekday,price_weekend').eq('status','active').order('model'),
-      window.sb.from('profiles').select('license_group').eq('id', MG._editRez.user.id).single()
+      window.sb.from('motorcycles')
+        .select('id,model,brand,image_url,images,description,license_required,engine_size,power_kw,year,price_mon,price_tue,price_wed,price_thu,price_fri,price_sat,price_sun,price_weekday,price_weekend')
+        .eq('status','active').order('model'),
+      window.sb.from('profiles').select('license_group').eq('id', MG._editRez.user.id).maybeSingle()
     ]);
     var motos = (motosR && motosR.data) || [];
     var profileGroups = (profileR && profileR.data && profileR.data.license_group) || [];
-    // Vyloučit aktuální motorku
     motos = motos.filter(function(m){ return m.id !== b.moto_id; });
 
     if (!motos.length){
       t.innerHTML = '<h3>' + MG.t('editRez.moto.title') + '</h3>'
-        + '<p>' + MG.t('editRez.moto.help') + '</p>'
         + '<p class="muted">' + MG.t('editRez.moto.noOptions') + '</p>';
       return;
     }
 
-    // Pro každou motorku: dostupnost v termínu + cenový rozdíl.
-    // Cílíme cizí motorky → žádné filtrování vlastního bookingu (server overlap
-    // check spadne, pokud by tam vlastní omylem zůstal — fail-safe).
     var rangePromises = motos.map(function(m){
       return window.sb.rpc('get_moto_booked_dates', { p_moto_id: m.id })
         .then(function(r){ return { moto: m, occupied: (r && r.data) || [] }; });
@@ -1203,42 +1248,85 @@ MG._editRez._renderTabMoto = async function(){
     var withAvail = await Promise.all(rangePromises);
 
     var oldPrice = MG._editRez._priceForRange(MG._editRez.selectedMoto, b.start_date, b.end_date);
-    var rows = withAvail.map(function(x){
+    var cards = withAvail.map(function(x){
       var m = x.moto;
       var licOk = MG._editRez._licenseAllows(profileGroups, m.license_required);
       var available = !MG._editRez._rangeOverlapsOccupied(b.start_date, b.end_date, x.occupied);
       var newPrice = MG._editRez._priceForRange(m, b.start_date, b.end_date);
       var diff = Math.round(newPrice - oldPrice);
       var disabled = !licOk || !available;
-      var reasons = [];
-      if (!licOk) reasons.push(MG.t('editRez.moto.licenseInsufficient'));
-      if (!available) reasons.push(MG.t('editRez.moto.notAvailable'));
-      var diffLabel = diff === 0 ? '' : (diff > 0
-        ? '<span class="diff-pos">+' + MG.formatPrice(diff) + '</span>'
-        : '<span class="diff-neg">' + MG.formatPrice(diff) + '</span>');
-      var img = m.image_url ? '<img src="'+m.image_url+'" alt="" loading="lazy">' : '';
+
+      // Galerie — preferujeme images[0] jako hero, fallback na image_url
+      var heroSrc = (m.images && m.images.length ? m.images[0] : m.image_url) || '';
+      var heroUrl = (typeof MG.imgUrl === 'function') ? MG.imgUrl(heroSrc) : heroSrc;
+      var heroHtml = heroUrl
+        ? '<img class="erez-moto-hero-img" src="' + heroUrl + '" alt="" loading="lazy">'
+        : '<div class="erez-moto-hero-placeholder">🏍️</div>';
+
       var label = (m.brand ? m.brand + ' ' : '') + m.model;
-      return '<button type="button" class="edit-rez-moto-card' + (disabled ? ' disabled' : '') + '" data-id="' + m.id + '"' + (disabled ? ' disabled' : '') + '>'
-        + '<div class="edit-rez-booking-img">' + img + '</div>'
-        + '<div class="edit-rez-booking-body">'
-          + '<div class="edit-rez-booking-title">' + label + '</div>'
-          + '<div class="edit-rez-booking-meta">' + MG.t('editRez.moto.licReq', { lic: m.license_required || '—' }) + '</div>'
-          + (reasons.length ? '<div class="edit-rez-moto-reasons">' + reasons.join(' · ') + '</div>' : '')
-        + '</div>'
-        + '<div class="edit-rez-booking-price">' + diffLabel + '</div>'
-      + '</button>';
+      var lic = m.license_required && m.license_required !== 'N'
+        ? '<span class="erez-moto-pill">ŘP ' + m.license_required + '</span>'
+        : '<span class="erez-moto-pill alt">Bez ŘP</span>';
+
+      var specs = [];
+      if (m.engine_size) specs.push(m.engine_size + ' cm³');
+      if (m.power_kw)    specs.push(m.power_kw + ' kW');
+      if (m.year)        specs.push(m.year);
+      var specsHtml = specs.length ? '<div class="erez-moto-specs">' + specs.join(' · ') + '</div>' : '';
+
+      var diffHtml = diff === 0
+        ? '<span class="erez-moto-diff zero">Stejná cena</span>'
+        : (diff > 0
+          ? '<span class="erez-moto-diff up">+' + MG.formatPrice(diff) + ' za celou rezervaci</span>'
+          : '<span class="erez-moto-diff down">' + MG.formatPrice(diff) + ' (vrátíme)</span>');
+
+      var reasons = [];
+      if (!licOk) reasons.push('🚫 Nedostatečné ŘP');
+      if (!available) reasons.push('📅 V termínu obsazené');
+      var reasonsHtml = reasons.length
+        ? '<div class="erez-moto-reasons">' + reasons.join(' · ') + '</div>'
+        : '';
+
+      var cta = disabled
+        ? '<button type="button" class="erez-moto-cta disabled" disabled>Nedostupné</button>'
+        : '<button type="button" class="erez-moto-cta" data-id="' + m.id + '" data-name="' + label.replace(/"/g,'&quot;') + '">Vybrat tuto motorku →</button>';
+
+      return '<article class="erez-moto-card' + (disabled ? ' is-disabled' : '') + '">' +
+        '<div class="erez-moto-hero">' + heroHtml + lic + '</div>' +
+        '<div class="erez-moto-meta">' +
+          '<h4>' + label + '</h4>' +
+          specsHtml +
+          '<div class="erez-moto-price">' + MG.formatPrice(newPrice) + ' celkem' +
+            ' <span class="muted">vs. </span>' + MG.formatPrice(oldPrice) + '</div>' +
+          diffHtml +
+          reasonsHtml +
+          cta +
+        '</div>' +
+      '</article>';
     }).join('');
 
-    t.innerHTML = '<h3>' + MG.t('editRez.moto.title') + '</h3>'
-      + '<p>' + MG.t('editRez.moto.help') + '</p>'
-      + '<div class="edit-rez-booking-list">' + rows + '</div>';
+    t.innerHTML = '<div class="edit-rez-moto-head">' +
+        '<h3>' + MG.t('editRez.moto.title') + '</h3>' +
+        '<button type="button" class="btn btn-secondary" id="edit-rez-moto-back">← Zpět na detail</button>' +
+      '</div>' +
+      '<p class="muted">Vyberte si jinou motorku z naší flotily — zobrazujeme všechny dostupné v daném termínu, kompatibilní s vaším řidičským oprávněním.</p>' +
+      '<div class="erez-moto-grid">' + cards + '</div>';
 
-    t.querySelectorAll('.edit-rez-moto-card:not(.disabled)').forEach(function(btn){
+    var back = document.getElementById('edit-rez-moto-back');
+    if (back) back.addEventListener('click', function(){
+      MG._editRez.tab = 'detail';
+      MG._editRez._renderDetail();
+    });
+
+    t.querySelectorAll('.erez-moto-cta:not(.disabled)').forEach(function(btn){
       btn.addEventListener('click', function(){
         var newId = btn.getAttribute('data-id');
-        MG._editRez._confirmDialog(MG.t('editRez.moto.confirm'), function(){
-          MG._editRez._submitChange({ p_new_moto_id: newId });
-        });
+        var name = btn.getAttribute('data-name');
+        MG._editRez._confirmDialog(
+          'Změnit motorku na ' + name + '?',
+          function(){ MG._editRez._submitChange({ p_new_moto_id: newId }); },
+          { yesLabel: 'Ano, změnit motorku', noLabel: 'Ne, ponechat' }
+        );
       });
     });
   } catch(err){
@@ -1353,56 +1441,91 @@ MG._editRez._renderTabLocation = function(){
   var isDelP = b.pickup_method === 'delivery';
   var isDelR = b.return_method === 'delivery';
 
+  // 4 karty (2x pickup + 2x return) — vizuálně shodné s rezervačním formulářem.
+  // Každá karta má ikonu, titulek, popis a cenu; aktivní = zelená border + check.
+  function locCard(name, val, ico, title, sub, checked){
+    return '<label class="erez-loc-card' + (checked ? ' active' : '') + '" data-loc-name="' + name + '" data-loc-val="' + val + '">' +
+      '<input type="radio" name="' + name + '" value="' + val + '"' + (checked ? ' checked' : '') + '>' +
+      '<span class="erez-loc-ico" aria-hidden="true">' + ico + '</span>' +
+      '<span class="erez-loc-body">' +
+        '<span class="erez-loc-title">' + title + '</span>' +
+        '<span class="erez-loc-sub">' + sub + '</span>' +
+      '</span>' +
+      '<span class="erez-loc-check">✓</span>' +
+    '</label>';
+  }
+
   t.innerHTML =
     '<h3>' + MG.t('editRez.loc.title') + '</h3>' +
-    '<p>' + MG.t('editRez.loc.help') + '</p>' +
+    '<p class="muted">' + MG.t('editRez.loc.help') + '</p>' +
     '<form id="edit-rez-loc-form" class="edit-rez-form" novalidate>' +
       // PICKUP
-      '<fieldset class="edit-rez-loc-fieldset">' +
-        '<legend>' + MG.t('editRez.loc.pickup') + '</legend>' +
-        '<label class="edit-rez-loc-radio"><input type="radio" name="pickup" value="pickup"' + (!isDelP ? ' checked' : '') + '>' +
-          ' <span><strong>' + MG.t('editRez.loc.atRental') + '</strong> · ' + MG.formatPrice(0) + '</span></label>' +
-        '<label class="edit-rez-loc-radio"><input type="radio" name="pickup" value="delivery"' + (isDelP ? ' checked' : '') + '>' +
-          ' <span><strong>' + MG.t('editRez.loc.delivery') + '</strong> · 1 000 Kč + 40 Kč/km</span></label>' +
-        '<div class="edit-rez-loc-addr" data-side="pickup" style="display:' + (isDelP ? 'block' : 'none') + '">' +
-          '<input type="text" name="pickupAddr" placeholder="' + MG.t('editRez.loc.addrPlaceholder') + '" value="' + (b.pickup_address || '').replace(/"/g,'&quot;') + '" autocomplete="street-address">' +
-          '<button type="button" class="btn-link edit-rez-map-btn" data-map="pickup">📍 ' + MG.t('editRez.loc.mapBtn') + '</button>' +
-          '<div class="edit-rez-loc-route" id="edit-rez-loc-route-pickup"></div>' +
-          '<input type="hidden" name="pickupLat" value="' + (b.pickup_lat || '') + '">' +
-          '<input type="hidden" name="pickupLng" value="' + (b.pickup_lng || '') + '">' +
-          '<input type="hidden" name="pickupFee" value="0">' +
+      '<h4 class="edit-rez-section-h">📥 Vyzvednutí motorky</h4>' +
+      '<div class="erez-loc-grid">' +
+        locCard('pickup', 'pickup', '🏠',
+          '<strong>V půjčovně Mezná</strong>',
+          'Mezná 9, 257 87 — autonomní pobočka, otevřeno nonstop. <strong>0 Kč.</strong>',
+          !isDelP) +
+        locCard('pickup', 'delivery', '🚚',
+          '<strong>Přistavení na adresu</strong>',
+          '<strong>1 000 Kč + 40 Kč/km</strong> z Mezné. Cena se vypočte automaticky z trasy.',
+          isDelP) +
+      '</div>' +
+      '<div class="erez-loc-addr-panel" data-side="pickup" style="display:' + (isDelP ? 'block' : 'none') + '">' +
+        '<div class="erez-loc-addr-row">' +
+          '<input type="text" name="pickupAddr" class="erez-loc-input" placeholder="' + MG.t('editRez.loc.addrPlaceholder') + '" value="' + (b.pickup_address || '').replace(/"/g,'&quot;') + '" autocomplete="street-address">' +
+          '<button type="button" class="erez-loc-mapbtn" data-map="pickup">📍 Vybrat na mapě</button>' +
         '</div>' +
-      '</fieldset>' +
+        '<div class="erez-loc-route" id="edit-rez-loc-route-pickup"></div>' +
+        '<input type="hidden" name="pickupLat" value="' + (b.pickup_lat || '') + '">' +
+        '<input type="hidden" name="pickupLng" value="' + (b.pickup_lng || '') + '">' +
+        '<input type="hidden" name="pickupFee" value="0">' +
+      '</div>' +
+
       // RETURN
-      '<fieldset class="edit-rez-loc-fieldset">' +
-        '<legend>' + MG.t('editRez.loc.return') + '</legend>' +
-        '<label class="edit-rez-loc-radio"><input type="radio" name="returnM" value="pickup"' + (!isDelR ? ' checked' : '') + '>' +
-          ' <span><strong>' + MG.t('editRez.loc.atRental') + '</strong> · ' + MG.formatPrice(0) + '</span></label>' +
-        '<label class="edit-rez-loc-radio"><input type="radio" name="returnM" value="delivery"' + (isDelR ? ' checked' : '') + '>' +
-          ' <span><strong>' + MG.t('editRez.loc.deliveryReturn') + '</strong> · 1 000 Kč + 40 Kč/km</span></label>' +
-        '<div class="edit-rez-loc-addr" data-side="return" style="display:' + (isDelR ? 'block' : 'none') + '">' +
-          '<input type="text" name="returnAddr" placeholder="' + MG.t('editRez.loc.addrPlaceholder') + '" value="' + (b.return_address || '').replace(/"/g,'&quot;') + '" autocomplete="street-address">' +
-          '<button type="button" class="btn-link edit-rez-map-btn" data-map="return">📍 ' + MG.t('editRez.loc.mapBtn') + '</button>' +
-          '<div class="edit-rez-loc-route" id="edit-rez-loc-route-return"></div>' +
-          '<input type="hidden" name="returnLat" value="' + (b.return_lat || '') + '">' +
-          '<input type="hidden" name="returnLng" value="' + (b.return_lng || '') + '">' +
-          '<input type="hidden" name="returnFee" value="0">' +
+      '<h4 class="edit-rez-section-h">📤 Vrácení motorky</h4>' +
+      '<div class="erez-loc-grid">' +
+        locCard('returnM', 'pickup', '🏠',
+          '<strong>V půjčovně Mezná</strong>',
+          'Vrátíte v autonomní pobočce. <strong>0 Kč.</strong>',
+          !isDelR) +
+        locCard('returnM', 'delivery', '🛵',
+          '<strong>Vyzvedneme od vás</strong>',
+          '<strong>1 000 Kč + 40 Kč/km</strong> z Mezné. Cena se vypočte automaticky.',
+          isDelR) +
+      '</div>' +
+      '<div class="erez-loc-addr-panel" data-side="return" style="display:' + (isDelR ? 'block' : 'none') + '">' +
+        '<div class="erez-loc-addr-row">' +
+          '<input type="text" name="returnAddr" class="erez-loc-input" placeholder="' + MG.t('editRez.loc.addrPlaceholder') + '" value="' + (b.return_address || '').replace(/"/g,'&quot;') + '" autocomplete="street-address">' +
+          '<button type="button" class="erez-loc-mapbtn" data-map="return">📍 Vybrat na mapě</button>' +
         '</div>' +
-      '</fieldset>' +
+        '<div class="erez-loc-route" id="edit-rez-loc-route-return"></div>' +
+        '<input type="hidden" name="returnLat" value="' + (b.return_lat || '') + '">' +
+        '<input type="hidden" name="returnLng" value="' + (b.return_lng || '') + '">' +
+        '<input type="hidden" name="returnFee" value="0">' +
+      '</div>' +
+
       '<div id="edit-rez-loc-summary" class="edit-rez-price-summary" aria-live="polite"></div>' +
-      '<button type="submit" class="btn btngreen" id="edit-rez-loc-cta" disabled>' + MG.t('editRez.loc.cta') + '</button>' +
+      '<button type="submit" class="btn btngreen edit-rez-loc-submit" id="edit-rez-loc-cta" disabled>' + MG.t('editRez.loc.cta') + '</button>' +
     '</form>';
 
   var f = document.getElementById('edit-rez-loc-form');
 
-  // Toggle adresa boxů podle radia
+  // Toggle adresa boxů + active class na kartách
   function syncAddrVisibility(){
     var pkV = f.pickup.value;
     var rtV = f.returnM.value;
-    document.querySelector('[data-side="pickup"]').style.display = (pkV === 'delivery') ? 'block' : 'none';
-    document.querySelector('[data-side="return"]').style.display = (rtV === 'delivery') ? 'block' : 'none';
+    f.querySelector('.erez-loc-addr-panel[data-side="pickup"]').style.display = (pkV === 'delivery') ? 'block' : 'none';
+    f.querySelector('.erez-loc-addr-panel[data-side="return"]').style.display = (rtV === 'delivery') ? 'block' : 'none';
     if (pkV !== 'delivery'){ f.pickupFee.value = '0'; }
     if (rtV !== 'delivery'){ f.returnFee.value = '0'; }
+    // Active class na kartách
+    f.querySelectorAll('.erez-loc-card').forEach(function(c){
+      var name = c.getAttribute('data-loc-name');
+      var val = c.getAttribute('data-loc-val');
+      var current = (name === 'pickup') ? pkV : rtV;
+      c.classList.toggle('active', current === val);
+    });
     livePreview();
   }
   Array.from(f.pickup).forEach(function(r){ r.addEventListener('change', syncAddrVisibility); });
@@ -1411,7 +1534,7 @@ MG._editRez._renderTabLocation = function(){
   // Mapa picker (reuse existující MG._openWebMapPicker — ale ten zapisuje
   // do rezervačních inputů. Sklouzneme se do vlastního mini-pickeru, který
   // přepoužije Leaflet+Mapy.cz tile layer.)
-  f.querySelectorAll('.edit-rez-map-btn').forEach(function(btn){
+  f.querySelectorAll('.erez-loc-mapbtn').forEach(function(btn){
     btn.addEventListener('click', function(){
       var side = btn.getAttribute('data-map');
       MG._editRez._openLocPicker(side, function(result){
@@ -1833,12 +1956,19 @@ MG._editRez._renderTabCancel = function(){
     // Inline confirm (žádný native confirm, lepší UX).
     MG._editRez._confirmDialog(MG.t('editRez.cancel.confirmTitle'), function(){
       MG._editRez._submitCancel(reason, percent, refund);
-    });
+    }, { yesLabel: MG.t('editRez.cancel.confirmYes'), noLabel: MG.t('editRez.cancel.confirmNo'), danger: true });
   });
 };
 
 // ===== Inline confirm dialog =====
-MG._editRez._confirmDialog = function(title, onYes){
+// opts (volitelné): { yesLabel, noLabel, danger }
+//   - default labels = neutrální Ano/Ne (ne storno-ANO/storno-NE)
+//   - `danger:true` udělá hlavní tlačítko červené (storno tok)
+MG._editRez._confirmDialog = function(title, onYes, opts){
+  opts = opts || {};
+  var yesLabel = opts.yesLabel || 'Ano';
+  var noLabel  = opts.noLabel  || 'Ne';
+  var btnCls = opts.danger ? 'btnred' : 'btngreen';
   var existing = document.getElementById('edit-rez-confirm-overlay');
   if (existing) existing.remove();
   var ov = document.createElement('div');
@@ -1848,8 +1978,8 @@ MG._editRez._confirmDialog = function(title, onYes){
     '<div class="edit-rez-confirm-dialog" role="dialog" aria-modal="true">' +
       '<h4>' + title + '</h4>' +
       '<div class="edit-rez-confirm-actions">' +
-        '<button type="button" class="btn btn-secondary" data-no>' + MG.t('editRez.cancel.confirmNo') + '</button>' +
-        '<button type="button" class="btn btnred" data-yes>' + MG.t('editRez.cancel.confirmYes') + '</button>' +
+        '<button type="button" class="btn btn-secondary" data-no>' + noLabel + '</button>' +
+        '<button type="button" class="btn ' + btnCls + '" data-yes>' + yesLabel + '</button>' +
       '</div>' +
     '</div>';
   document.body.appendChild(ov);
