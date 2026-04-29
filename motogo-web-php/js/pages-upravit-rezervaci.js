@@ -912,11 +912,275 @@ MG._editRez._submitChange = async function(payload){
   }
 };
 
+// ===== TAB: ZMĚNA MÍSTA =====
+// Pro pickup i return: radio "v půjčovně (Mezná) / přistavení na adresu".
+// Pokud "přistavení", zobrazí se input s autocomplete + tlačítko "Mapa".
+// Cena se přepočítává live přes Mapy.cz routing API (1000 + km*40).
+// Submit → apply_booking_changes RPC.
 MG._editRez._renderTabLocation = function(){
+  var b = MG._editRez.selectedBooking;
   var t = document.getElementById('edit-rez-tab-content');
-  t.innerHTML = '<h3>' + MG.t('editRez.loc.title') + '</h3>'
-    + '<p>' + MG.t('editRez.loc.help') + '</p>'
-    + '<p class="edit-rez-tip">' + MG.t('editRez.loading') + '</p>';
+  var isDelP = b.pickup_method === 'delivery';
+  var isDelR = b.return_method === 'delivery';
+
+  t.innerHTML =
+    '<h3>' + MG.t('editRez.loc.title') + '</h3>' +
+    '<p>' + MG.t('editRez.loc.help') + '</p>' +
+    '<form id="edit-rez-loc-form" class="edit-rez-form" novalidate>' +
+      // PICKUP
+      '<fieldset class="edit-rez-loc-fieldset">' +
+        '<legend>' + MG.t('editRez.loc.pickup') + '</legend>' +
+        '<label class="edit-rez-loc-radio"><input type="radio" name="pickup" value="pickup"' + (!isDelP ? ' checked' : '') + '>' +
+          ' <span><strong>' + MG.t('editRez.loc.atRental') + '</strong> · ' + MG.formatPrice(0) + '</span></label>' +
+        '<label class="edit-rez-loc-radio"><input type="radio" name="pickup" value="delivery"' + (isDelP ? ' checked' : '') + '>' +
+          ' <span><strong>' + MG.t('editRez.loc.delivery') + '</strong> · 1 000 Kč + 40 Kč/km</span></label>' +
+        '<div class="edit-rez-loc-addr" data-side="pickup" style="display:' + (isDelP ? 'block' : 'none') + '">' +
+          '<input type="text" name="pickupAddr" placeholder="' + MG.t('editRez.loc.addrPlaceholder') + '" value="' + (b.pickup_address || '').replace(/"/g,'&quot;') + '" autocomplete="street-address">' +
+          '<button type="button" class="btn-link edit-rez-map-btn" data-map="pickup">📍 ' + MG.t('editRez.loc.mapBtn') + '</button>' +
+          '<div class="edit-rez-loc-route" id="edit-rez-loc-route-pickup"></div>' +
+          '<input type="hidden" name="pickupLat" value="' + (b.pickup_lat || '') + '">' +
+          '<input type="hidden" name="pickupLng" value="' + (b.pickup_lng || '') + '">' +
+          '<input type="hidden" name="pickupFee" value="0">' +
+        '</div>' +
+      '</fieldset>' +
+      // RETURN
+      '<fieldset class="edit-rez-loc-fieldset">' +
+        '<legend>' + MG.t('editRez.loc.return') + '</legend>' +
+        '<label class="edit-rez-loc-radio"><input type="radio" name="returnM" value="pickup"' + (!isDelR ? ' checked' : '') + '>' +
+          ' <span><strong>' + MG.t('editRez.loc.atRental') + '</strong> · ' + MG.formatPrice(0) + '</span></label>' +
+        '<label class="edit-rez-loc-radio"><input type="radio" name="returnM" value="delivery"' + (isDelR ? ' checked' : '') + '>' +
+          ' <span><strong>' + MG.t('editRez.loc.deliveryReturn') + '</strong> · 1 000 Kč + 40 Kč/km</span></label>' +
+        '<div class="edit-rez-loc-addr" data-side="return" style="display:' + (isDelR ? 'block' : 'none') + '">' +
+          '<input type="text" name="returnAddr" placeholder="' + MG.t('editRez.loc.addrPlaceholder') + '" value="' + (b.return_address || '').replace(/"/g,'&quot;') + '" autocomplete="street-address">' +
+          '<button type="button" class="btn-link edit-rez-map-btn" data-map="return">📍 ' + MG.t('editRez.loc.mapBtn') + '</button>' +
+          '<div class="edit-rez-loc-route" id="edit-rez-loc-route-return"></div>' +
+          '<input type="hidden" name="returnLat" value="' + (b.return_lat || '') + '">' +
+          '<input type="hidden" name="returnLng" value="' + (b.return_lng || '') + '">' +
+          '<input type="hidden" name="returnFee" value="0">' +
+        '</div>' +
+      '</fieldset>' +
+      '<div id="edit-rez-loc-summary" class="edit-rez-price-summary" aria-live="polite"></div>' +
+      '<button type="submit" class="btn btngreen" id="edit-rez-loc-cta" disabled>' + MG.t('editRez.loc.cta') + '</button>' +
+    '</form>';
+
+  var f = document.getElementById('edit-rez-loc-form');
+
+  // Toggle adresa boxů podle radia
+  function syncAddrVisibility(){
+    var pkV = f.pickup.value;
+    var rtV = f.returnM.value;
+    document.querySelector('[data-side="pickup"]').style.display = (pkV === 'delivery') ? 'block' : 'none';
+    document.querySelector('[data-side="return"]').style.display = (rtV === 'delivery') ? 'block' : 'none';
+    if (pkV !== 'delivery'){ f.pickupFee.value = '0'; }
+    if (rtV !== 'delivery'){ f.returnFee.value = '0'; }
+    livePreview();
+  }
+  Array.from(f.pickup).forEach(function(r){ r.addEventListener('change', syncAddrVisibility); });
+  Array.from(f.returnM).forEach(function(r){ r.addEventListener('change', syncAddrVisibility); });
+
+  // Mapa picker (reuse existující MG._openWebMapPicker — ale ten zapisuje
+  // do rezervačních inputů. Sklouzneme se do vlastního mini-pickeru, který
+  // přepoužije Leaflet+Mapy.cz tile layer.)
+  f.querySelectorAll('.edit-rez-map-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var side = btn.getAttribute('data-map');
+      MG._editRez._openLocPicker(side, function(result){
+        if (!result) return;
+        var addrInp = side === 'pickup' ? f.pickupAddr : f.returnAddr;
+        var latInp = side === 'pickup' ? f.pickupLat : f.returnLat;
+        var lngInp = side === 'pickup' ? f.pickupLng : f.returnLng;
+        addrInp.value = result.address || '';
+        latInp.value = result.lat;
+        lngInp.value = result.lng;
+        recalcRoute(side);
+      });
+    });
+  });
+
+  // Při změně adresy textem zkusíme suggest → routing
+  function debounce(fn, ms){
+    var to;
+    return function(){ var args = arguments, ctx = this;
+      clearTimeout(to);
+      to = setTimeout(function(){ fn.apply(ctx, args); }, ms);
+    };
+  }
+  function recalcRoute(side){
+    var addrInp = side === 'pickup' ? f.pickupAddr : f.returnAddr;
+    var latInp = side === 'pickup' ? f.pickupLat : f.returnLat;
+    var lngInp = side === 'pickup' ? f.pickupLng : f.returnLng;
+    var feeInp = side === 'pickup' ? f.pickupFee : f.returnFee;
+    var routeEl = document.getElementById('edit-rez-loc-route-' + side);
+    var addr = (addrInp.value || '').trim();
+    if (!addr){ routeEl.textContent = ''; feeInp.value = '0'; livePreview(); return; }
+    routeEl.innerHTML = '<span class="muted">' + MG.t('editRez.loc.routing') + '</span>';
+
+    function applyFee(km){
+      var fee = MG._calcDeliveryFee ? MG._calcDeliveryFee(km) : (1000 + Math.ceil(km) * 40);
+      feeInp.value = String(fee);
+      routeEl.innerHTML = '<strong>' + km.toFixed(1).replace('.', ',') + ' km</strong> · '
+        + MG.formatPrice(fee) + '</strong>';
+      livePreview();
+    }
+
+    var p = (latInp.value && lngInp.value)
+      ? Promise.resolve({ lat: Number(latInp.value), lng: Number(lngInp.value) })
+      : (MG._mapySuggest ? MG._mapySuggest(addr, 1).then(function(a){ return (a && a[0]) || null; }) : Promise.resolve(null));
+
+    p.then(function(coords){
+      if (!coords){ routeEl.innerHTML = '<span class="muted">' + MG.t('editRez.loc.geocodeFail') + '</span>'; return; }
+      latInp.value = coords.lat; lngInp.value = coords.lng;
+      if (!MG._ensureBranchCoords || !MG._mapyRouting){ applyFee(50); return; }  // fallback estimate
+      MG._ensureBranchCoords().then(function(branch){
+        if (!branch) return applyFee(50);
+        return MG._mapyRouting(branch.lat, branch.lng, coords.lat, coords.lng).then(function(rt){
+          applyFee(rt && rt.distanceKm ? rt.distanceKm : 50);
+        });
+      });
+    });
+  }
+  f.pickupAddr.addEventListener('input', debounce(function(){ recalcRoute('pickup'); }, 600));
+  f.returnAddr.addEventListener('input', debounce(function(){ recalcRoute('return'); }, 600));
+
+  // Live preview ceny přes apply_booking_changes(p_dry_run:=true)
+  function livePreview(){
+    var summary = document.getElementById('edit-rez-loc-summary');
+    var cta = document.getElementById('edit-rez-loc-cta');
+    var pkM = f.pickup.value;
+    var rtM = f.returnM.value;
+    var pkFee = (pkM === 'delivery') ? Number(f.pickupFee.value || 0) : 0;
+    var rtFee = (rtM === 'delivery') ? Number(f.returnFee.value || 0) : 0;
+    if (pkM === b.pickup_method && rtM === b.return_method
+        && pkFee === Number(b.delivery_fee || 0) - 0 /* approximation */){
+      // Beze změny — nedělej nic.
+    }
+
+    var args = {
+      p_booking_id: b.id,
+      p_new_pickup_method: pkM,
+      p_new_pickup_address: pkM === 'delivery' ? f.pickupAddr.value : null,
+      p_new_pickup_lat: pkM === 'delivery' && f.pickupLat.value ? Number(f.pickupLat.value) : null,
+      p_new_pickup_lng: pkM === 'delivery' && f.pickupLng.value ? Number(f.pickupLng.value) : null,
+      p_new_pickup_fee: pkM === 'delivery' ? pkFee : 0,
+      p_new_return_method: rtM,
+      p_new_return_address: rtM === 'delivery' ? f.returnAddr.value : null,
+      p_new_return_lat: rtM === 'delivery' && f.returnLat.value ? Number(f.returnLat.value) : null,
+      p_new_return_lng: rtM === 'delivery' && f.returnLng.value ? Number(f.returnLng.value) : null,
+      p_new_return_fee: rtM === 'delivery' ? rtFee : 0,
+      p_dry_run: true
+    };
+    window.sb.rpc('apply_booking_changes', args).then(function(r){
+      if (r.error || !r.data || r.data.success === false){
+        var code = r.data && r.data.error;
+        if (code === 'no_change'){
+          summary.innerHTML = '<span class="muted">' + MG.t('editRez.extend.noChange') + '</span>';
+        } else {
+          summary.innerHTML = '<span class="error">' + MG.t('editRez.err.generic') + '</span>';
+        }
+        cta.disabled = true;
+        return;
+      }
+      var d = r.data;
+      var diff = d.net_diff || 0;
+      var refund = d.refund_amount || 0;
+      if (diff > 0){
+        summary.innerHTML = '<div class="line">' + MG.t('editRez.extend.priceDiff') + ': <strong>'
+          + MG.formatPrice(diff) + '</strong></div>';
+      } else if (diff < 0 || refund > 0){
+        summary.innerHTML = '<div class="line refund-full">' + MG.t('editRez.cancel.refundLabel') + ': <strong>'
+          + MG.formatPrice(refund || -diff) + '</strong></div>';
+      } else {
+        summary.innerHTML = '<span class="muted">' + MG.t('editRez.loc.noPriceChange') + '</span>';
+      }
+      cta.disabled = false;
+    });
+  }
+
+  syncAddrVisibility();
+  if (isDelP) recalcRoute('pickup');
+  if (isDelR) recalcRoute('return');
+
+  f.addEventListener('submit', function(e){
+    e.preventDefault();
+    if (MG._editRez.busy) return;
+    var pkM = f.pickup.value, rtM = f.returnM.value;
+    var payload = {
+      p_new_pickup_method: pkM,
+      p_new_pickup_address: pkM === 'delivery' ? f.pickupAddr.value : null,
+      p_new_pickup_lat: pkM === 'delivery' && f.pickupLat.value ? Number(f.pickupLat.value) : null,
+      p_new_pickup_lng: pkM === 'delivery' && f.pickupLng.value ? Number(f.pickupLng.value) : null,
+      p_new_pickup_fee: pkM === 'delivery' ? Number(f.pickupFee.value || 0) : 0,
+      p_new_return_method: rtM,
+      p_new_return_address: rtM === 'delivery' ? f.returnAddr.value : null,
+      p_new_return_lat: rtM === 'delivery' && f.returnLat.value ? Number(f.returnLat.value) : null,
+      p_new_return_lng: rtM === 'delivery' && f.returnLng.value ? Number(f.returnLng.value) : null,
+      p_new_return_fee: rtM === 'delivery' ? Number(f.returnFee.value || 0) : 0
+    };
+    MG._editRez._confirmDialog(MG.t('editRez.loc.confirm'), function(){
+      MG._editRez._submitChange(payload);
+    });
+  });
+};
+
+// Mini map picker pro location tab — full-screen Leaflet + Mapy.cz tiles,
+// reuse libraries z rezervace flow (Leaflet už načtený když se otevřela
+// rezervace dříve; jinak loadnut on-demand).
+MG._editRez._openLocPicker = function(side, onConfirm){
+  var prev = document.getElementById('edit-rez-map-overlay');
+  if (prev) prev.remove();
+  var ov = document.createElement('div');
+  ov.id = 'edit-rez-map-overlay';
+  ov.className = 'edit-rez-map-overlay';
+  ov.innerHTML =
+    '<div class="edit-rez-map-bar">' +
+      '<button type="button" class="btn-link" data-close>✕</button>' +
+      '<strong>' + MG.t('editRez.loc.pickOnMap') + '</strong>' +
+      '<button type="button" class="btn btngreen-small" data-confirm>' + MG.t('editRez.loc.pickConfirm') + '</button>' +
+    '</div>' +
+    '<div class="edit-rez-map-pin">📍</div>' +
+    '<div id="edit-rez-map-container"></div>' +
+    '<div class="edit-rez-map-addr" id="edit-rez-map-addr"></div>';
+  document.body.appendChild(ov);
+  document.body.style.overflow = 'hidden';
+
+  var center = { lat: 49.8175, lng: 15.473 };
+  function init(){
+    if (!window.L) return;
+    var map = L.map('edit-rez-map-container', { zoomControl: true }).setView([center.lat, center.lng], 7);
+    var tileUrl = (MG.MAPY_CZ_BASE || 'https://api.mapy.cz/v1') + '/maptiles/basic/256/{z}/{x}/{y}?apikey=' + MG.MAPY_CZ_KEY;
+    L.tileLayer(tileUrl, { minZoom: 0, maxZoom: 19, attribution: '<a href="https://api.mapy.cz/copyright" target="_blank">Mapy.cz</a>' }).addTo(map);
+    var c = map.getCenter();
+    var addrEl = document.getElementById('edit-rez-map-addr');
+    function rev(lat, lng){
+      if (!MG._mapyRgeocode) return;
+      MG._mapyRgeocode(lat, lng).then(function(r){
+        if (r && r.full && addrEl){ addrEl.textContent = r.full; }
+      });
+    }
+    rev(c.lat, c.lng);
+    map.on('moveend', function(){
+      var c2 = map.getCenter();
+      center = { lat: c2.lat, lng: c2.lng };
+      rev(c2.lat, c2.lng);
+    });
+    ov._mgmap = map;
+    ov._addrEl = addrEl;
+  }
+  if (!window.L){
+    var css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    document.head.appendChild(css);
+    var scr = document.createElement('script'); scr.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    scr.onload = init;
+    document.head.appendChild(scr);
+  } else { setTimeout(init, 30); }
+
+  function close(){ if (ov._mgmap) ov._mgmap.remove(); ov.remove(); document.body.style.overflow = ''; }
+  ov.querySelector('[data-close]').addEventListener('click', close);
+  ov.querySelector('[data-confirm]').addEventListener('click', function(){
+    var addr = (ov._addrEl && ov._addrEl.textContent) || '';
+    close();
+    onConfirm({ lat: center.lat, lng: center.lng, address: addr });
+  });
 };
 
 // ===== TAB: DETAIL =====
