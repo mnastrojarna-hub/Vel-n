@@ -6,14 +6,17 @@ RewriteBase /
 # se VĚDOMĚ NEPROPOJUJÍ křížově — zatím běží každá samostatně. Až se spojí,
 # přidá se sem redirect mezi doménami.
 
-# 1) www -> non-www (každá doména zůstává na sobě samé)
+# 1) www -> non-www (každá doména zůstává na sobě samé), zároveň vynutí HTTPS
 RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
-RewriteRule ^(.*)$ https://%1/$1 [R=301,L]
+RewriteRule ^(.*)$ https://%1/$1 [R=301,L,NE]
 
-# 2) http -> https (pokud HTTPS není aktivní)
+# 2) http -> https (pokud HTTPS není aktivní). Bereme v úvahu i reverse proxy
+#    (Cloudflare, load balancer) přes X-Forwarded-Proto a SERVER_PORT.
 RewriteCond %{HTTPS} !=on
 RewriteCond %{HTTP:X-Forwarded-Proto} !=https
-RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+RewriteCond %{HTTP:CF-Visitor} !{"scheme":"https"} [NC]
+RewriteCond %{SERVER_PORT} !^443$
+RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L,NE]
 
 # ---- Hezké URL: všechno, co není soubor/složka, jde přes index.php ----
 RewriteCond %{REQUEST_FILENAME} !-f
@@ -57,6 +60,9 @@ php_flag log_errors on
 <IfModule mod_headers.c>
     # HSTS — vynutí HTTPS na 2 roky (zveřejni do preload listu po ověření)
     Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains"
+    # Upgrade-Insecure-Requests — donutí prohlížeč přepsat http:// odkazy
+    # ve vlastních stránkách na https:// (pomáhá při embed iframe, mixed content).
+    Header always set Content-Security-Policy "upgrade-insecure-requests"
     # Anti-MIME sniffing
     Header always set X-Content-Type-Options "nosniff"
     # Pouze same-origin frame embedding (anti-clickjacking)
