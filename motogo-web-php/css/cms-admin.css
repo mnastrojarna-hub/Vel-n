@@ -18,7 +18,8 @@
 }
 [data-cms-key]:hover {
   outline: 2px solid rgba(34, 197, 94, .9);
-  background-color: rgba(116, 251, 113, .08);
+  /* Tmavší poloprůhledné pozadí — na světlém i tmavém podkladu zůstane čitelné. */
+  background-color: rgba(26, 46, 34, .12);
 }
 
 /* Štítek s klíčem — zobrazí se na hover */
@@ -113,10 +114,21 @@
   outline: 3px solid #74FB71 !important;
   outline-offset: 4px;
   background-color: #f0fff4 !important;
+  /* Vynucení tmavé barvy textu — `<span data-cms-key>` jinak dědí barvu rodiče
+     (např. bílou v hero sekci nad tmavým pozadím), takže text by na světlém
+     edit-pozadí zmizel. `-webkit-text-fill-color` přebíjí gradient/clip texty. */
+  color: #0f1a14 !important;
+  -webkit-text-fill-color: #0f1a14 !important;
+  text-shadow: none !important;
   cursor: text;
   caret-color: #1a2e22;
   min-width: 80px;
   min-height: 1em;
+}
+[data-cms-key].mg-cms-editing * {
+  color: #0f1a14 !important;
+  -webkit-text-fill-color: #0f1a14 !important;
+  text-shadow: none !important;
 }
 [data-cms-key].mg-cms-editing::after {
   opacity: 1;
@@ -128,8 +140,16 @@
 [data-cms-key].mg-cms-saving {
   outline-color: #f59e0b !important;
   background-color: #fef3c7 !important;
+  color: #0f1a14 !important;
+  -webkit-text-fill-color: #0f1a14 !important;
+  text-shadow: none !important;
   pointer-events: none;
   opacity: .85;
+}
+[data-cms-key].mg-cms-saving * {
+  color: #0f1a14 !important;
+  -webkit-text-fill-color: #0f1a14 !important;
+  text-shadow: none !important;
 }
 [data-cms-key].mg-cms-saving::after {
   background: #f59e0b;
