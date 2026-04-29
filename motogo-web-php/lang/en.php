@@ -336,14 +336,17 @@ return [
     'editRez.forgot.back' => '← Back to sign in',
 
     'editRez.reset.title' => 'Set new password',
-    'editRez.reset.help' => 'Enter your new password (min. 8 characters). You will be signed in and see your bookings after saving.',
+    'editRez.reset.help' => 'Enter your new password (min. 6 characters). You will be signed in and see your bookings after saving.',
+    'editRez.reset.otpHelp' => 'We sent a verification code to <strong>{email}</strong>. Enter the 8-character code from the e-mail (same code works for app and web) and set a new password.',
+    'editRez.reset.otpCode' => 'Verification code from e-mail (8 characters)',
+    'editRez.reset.otpInvalid' => 'Invalid or expired code. Please request a new one.',
     'editRez.reset.password' => 'New password',
     'editRez.reset.password2' => 'Confirm password',
     'editRez.reset.submit' => 'SAVE NEW PASSWORD',
     'editRez.reset.submitting' => 'Saving…',
     'editRez.reset.success' => 'Password saved. Continue to your bookings.',
     'editRez.reset.error' => 'Could not save the password. Please try again.',
-    'editRez.reset.tooShort' => 'Password must be at least 8 characters.',
+    'editRez.reset.tooShort' => 'Password must be at least 6 characters.',
     'editRez.reset.mismatch' => 'Passwords do not match.',
 
     'editRez.list.title' => 'Your bookings',
@@ -500,6 +503,8 @@ return [
     'editRez.err.notShortening' => 'For shortening, the new dates must be inside the original ones.',
     'editRez.err.notExtending' => 'For extension, at least one date must be outside the original range.',
     'editRez.err.cantEdit' => 'This booking cannot be edited (completed or cancelled).',
+    'editRez.err.serverDown' => 'Login service temporarily unavailable. Please try again shortly or contact us at +420 774 256 271.',
+    'editRez.err.emailNotConfirmed' => 'E-mail not yet confirmed. Please check your inbox or contact us.',
 
     // ===== Catalogue filters =====
     'filters.search' => 'Search',

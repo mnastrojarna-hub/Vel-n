@@ -438,14 +438,17 @@ return [
 
     // Reset password (po kliku na link z e-mailu)
     'editRez.reset.title' => 'Nastavit nové heslo',
-    'editRez.reset.help' => 'Zadejte nové heslo (min. 8 znaků). Po uložení budete přihlášen(a) a uvidíte své rezervace.',
+    'editRez.reset.help' => 'Zadejte nové heslo (min. 6 znaků). Po uložení budete přihlášen(a) a uvidíte své rezervace.',
+    'editRez.reset.otpHelp' => 'Poslali jsme vám ověřovací kód na <strong>{email}</strong>. Zadejte 8-místný kód z e-mailu (stejný kód funguje pro aplikaci i web) a nastavte si nové heslo.',
+    'editRez.reset.otpCode' => 'Ověřovací kód z e-mailu (8 znaků)',
+    'editRez.reset.otpInvalid' => 'Neplatný nebo expirovaný kód. Zkuste si nechat poslat nový.',
     'editRez.reset.password' => 'Nové heslo',
     'editRez.reset.password2' => 'Heslo znovu',
     'editRez.reset.submit' => 'ULOŽIT NOVÉ HESLO',
     'editRez.reset.submitting' => 'Ukládám…',
     'editRez.reset.success' => 'Heslo nastaveno. Pokračujte do svých rezervací.',
     'editRez.reset.error' => 'Nepodařilo se uložit heslo. Zkuste to prosím znovu.',
-    'editRez.reset.tooShort' => 'Heslo musí mít alespoň 8 znaků.',
+    'editRez.reset.tooShort' => 'Heslo musí mít alespoň 6 znaků.',
     'editRez.reset.mismatch' => 'Zadaná hesla se neshodují.',
 
     // Reservation list / picker
@@ -615,6 +618,8 @@ return [
     'editRez.err.notShortening' => 'Pro zkrácení musí být nové datumy uvnitř původních.',
     'editRez.err.notExtending' => 'Pro prodloužení musí být alespoň jedno datum mimo původní rozsah.',
     'editRez.err.cantEdit' => 'Tuto rezervaci nelze upravit (dokončená nebo stornovaná).',
+    'editRez.err.serverDown' => 'Přihlašovací služba momentálně nedostupná. Zkuste to prosím za chvíli, nebo nás kontaktujte na +420 774 256 271.',
+    'editRez.err.emailNotConfirmed' => 'E-mail ještě nebyl potvrzen. Zkontrolujte e-mailovou schránku nebo nám napište.',
 
     // ===== Filtry katalogu =====
     'filters.search' => 'Hledat',

@@ -21,7 +21,8 @@ $keys = [
     'editRez.login.forgot','editRez.login.tip',
     'editRez.forgot.title','editRez.forgot.help','editRez.forgot.bookingId','editRez.forgot.email',
     'editRez.forgot.submit','editRez.forgot.submitting','editRez.forgot.success','editRez.forgot.error','editRez.forgot.back',
-    'editRez.reset.title','editRez.reset.help','editRez.reset.password','editRez.reset.password2',
+    'editRez.reset.title','editRez.reset.help','editRez.reset.otpHelp','editRez.reset.otpCode','editRez.reset.otpInvalid',
+    'editRez.reset.password','editRez.reset.password2',
     'editRez.reset.submit','editRez.reset.submitting','editRez.reset.success','editRez.reset.error',
     'editRez.reset.tooShort','editRez.reset.mismatch',
     'editRez.list.title','editRez.list.shopTitle','editRez.list.vouchersTitle',
@@ -61,7 +62,7 @@ $keys = [
     'editRez.storno.title','editRez.storno.tier1','editRez.storno.tier2','editRez.storno.tier3','editRez.storno.note',
     'editRez.err.generic','editRez.err.notFound','editRez.err.wrongStatus','editRez.err.notPaid',
     'editRez.err.activeStartLocked','editRez.err.invalidRange','editRez.err.notShortening',
-    'editRez.err.notExtending','editRez.err.cantEdit',
+    'editRez.err.notExtending','editRez.err.cantEdit','editRez.err.serverDown','editRez.err.emailNotConfirmed',
 ];
 $i18n = [];
 foreach ($keys as $k) {
@@ -81,6 +82,20 @@ window.EDIT_REZ_PARAMS = {
   bookingId: ' . json_encode($bookingId) . ',
   resetToken: ' . json_encode($resetToken) . '
 };
+// Pre-init MG._rez prázdného placeholderu — pages-rezervace-pricing.js
+// (který reusneme pro Mapy.cz helpery) sahá na MG._rez.appliedCodes
+// během top-level inicializace. Bez tohoto placeholderu se cely JS rozbije.
+var MG = window.MG || {};
+window.MG = MG;
+if (!MG._rez) MG._rez = { appliedCodes: [], discountAmt: 0, motos: [], allBookings: {}, sizes: { rider:{}, passenger:{} } };
+if (typeof MG.t !== "function") {
+  MG.t = function(k, p){
+    var dict = window.MG_I18N || {};
+    var s = (typeof dict[k] === "string") ? dict[k] : k;
+    if (p && typeof s === "string") Object.keys(p).forEach(function(x){ s = s.split("{"+x+"}").join(String(p[x])); });
+    return s;
+  };
+}
 </script>
 <script src="' . assetUrl('/js/supabase-sdk.js') . '"></script>
 <script src="' . assetUrl('/js/supabase-init.js') . '"></script>
