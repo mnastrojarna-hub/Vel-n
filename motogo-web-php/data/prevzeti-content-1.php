@@ -25,42 +25,42 @@ return [
         'grid' => 'gr4',
         'steps' => [
             [
-                'icon' => 'gfx/ico-step-cas.svg',
+                'icon' => 'gfx/cas-prevzeti-motorky.svg',
                 'title' => 'Přijď v domluvený čas',
                 'text' => 'Na naši adresu: Mezná 9, 393 01 Pelhřimov.',
             ],
             [
-                'icon' => 'gfx/ico-step-doklady.svg',
+                'icon' => 'gfx/overime-doklady.svg',
                 'title' => 'Ověříme doklady',
                 'text' => 'OP/pas a řidičský průkaz odpovídající skupiny',
             ],
             [
-                'icon' => 'gfx/ico-step-smlouva.svg',
+                'icon' => 'gfx/doplnime-smlouvu.svg',
                 'title' => 'Doplníme smlouvu',
                 'text' => 'Předvyplněnou nájemní smlouvu doplníme o údaje z dokladů.',
             ],
             [
-                'icon' => 'gfx/ico-step-vybava.svg',
+                'icon' => 'gfx/vyber-vybavu.svg',
                 'title' => 'Vybereš a vyzkoušíš si výbavu',
                 'text' => 'Výbavu z rezervace si můžeš vyzkoušet v naší zkušební kabince.',
             ],
             [
-                'icon' => 'gfx/ico-step-projit-motorku.svg',
+                'icon' => 'gfx/prevezmi-motorku.svg',
                 'title' => 'Společně projdeme motorku',
                 'text' => 'Zkontrolujeme stav stroje a seznámíš se s jeho ovládáním.',
             ],
             [
-                'icon' => 'gfx/ico-step-protokol.svg',
+                'icon' => 'gfx/podpis-dokumentu.svg',
                 'title' => 'Podepíšeme předávací protokol',
                 'text' => 'Zdokumentujeme stav motorky a výbavy před výpůjčkou.',
             ],
             [
-                'icon' => 'gfx/ico-step-klice.svg',
+                'icon' => 'gfx/predani-motorky.svg',
                 'title' => 'Předáme klíče',
                 'text' => 'Motorka je připravená a čeká na tebe.',
             ],
             [
-                'icon' => 'gfx/ico-step-jizda.svg',
+                'icon' => 'gfx/uzij-si-jizdu.svg',
                 'title' => 'Můžeš vyrazit',
                 'text' => 'Vyraz na cestu – bez kauce, bez stresu. Zbytek je jen asfalt a svoboda.',
             ],

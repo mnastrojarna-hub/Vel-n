@@ -1,32 +1,38 @@
 <?php
-// ===== MotoGo24 Web PHP — Potvrzení e-shop objednávky =====
-// Stránka po úspěšném vytvoření objednávky (Stripe success URL).
-// Server si dotáhne shop_orders přes service role (placeholder zatím
-// zobrazí jen číslo objednávky z URL — kompletní info dorazí v emailu
-// a do "Moje objednávky" pro přihlášené).
+// ===== MotoGo24 Web PHP — Děkovací stránka po nákupu v e-shopu =====
+// Stránka po úspěšném zaplacení produktové objednávky (Stripe success URL pro
+// shop produkty). Číslo objednávky vezmeme z URL, plné info dorazí e-mailem.
 
 $orderId = $_GET['order_id'] ?? '';
 
 $bc = renderBreadcrumb([
     ['label' => t('breadcrumb.home'), 'href' => '/'],
     ['label' => t('breadcrumb.shop'), 'href' => '/eshop'],
-    t('checkout.confirm.title'),
+    t('breadcrumb.confirmationOrder'),
 ]);
 
 $shortId = $orderId ? strtoupper(substr($orderId, -8)) : '';
-$body = '<div class="checkout-confirm">'
-    . '<div class="checkout-confirm-icon" aria-hidden="true">✓</div>'
-    . '<h1>' . te('checkout.confirm.heading') . '</h1>'
-    . '<p class="checkout-confirm-lead">' . te('checkout.confirm.lead') . '</p>'
-    . ($shortId ? '<p class="checkout-confirm-id">' . te('checkout.confirm.orderNumber') . ': <strong>#' . htmlspecialchars($shortId) . '</strong></p>' : '')
-    . '<ul class="checkout-confirm-next">'
-    .   '<li>' . te('checkout.confirm.next1') . '</li>'
-    .   '<li>' . te('checkout.confirm.next2') . '</li>'
-    .   '<li>' . te('checkout.confirm.next3') . '</li>'
-    . '</ul>'
-    . '<p class="checkout-confirm-actions">'
-    .   '<a class="btn btngreen" href="' . BASE_URL . '/eshop">' . te('checkout.confirm.continueShopping') . '</a>'
-    .   '&nbsp;<a class="btn btndark" href="' . BASE_URL . '/">' . te('checkout.confirm.home') . '</a>'
+
+// Lokalizované URL — stay v aktuálním jazyce a doméně (cs → .cz, ostatní → .com)
+$homeUrl = function_exists('siteCanonicalUrl') ? siteCanonicalUrl('/') : BASE_URL . '/';
+$shopUrl = function_exists('siteCanonicalUrl') ? siteCanonicalUrl('/eshop') : BASE_URL . '/eshop';
+
+$body = '<div class="confirm-page confirm-success">'
+    . '<div class="confirm-icon" aria-hidden="true">✔</div>'
+    . '<h1>' . te('confirm.success.orderTitle') . '</h1>'
+    . '<p class="confirm-lead">' . te('confirm.success.thanksAnon') . '</p>'
+    . ($shortId ? '<p class="confirm-summary-id">' . te('confirm.success.orderNumber') . ': <strong>#' . htmlspecialchars($shortId) . '</strong></p>' : '')
+    . '<p class="confirm-emailed">' . te('confirm.success.emailSentOrder') . '</p>'
+    . '<div class="confirm-next">'
+    .   '<h3>' . te('confirm.success.nextTitle') . '</h3>'
+    .   '<ol>'
+    .     '<li>' . te('confirm.success.nextOrderShip') . '</li>'
+    .     '<li>' . te('confirm.success.nextContact') . '</li>'
+    .   '</ol>'
+    . '</div>'
+    . '<p class="confirm-actions" style="margin-top:1.5rem">'
+    .   '<a class="btn btngreen" href="' . htmlspecialchars($shopUrl) . '">' . te('confirm.success.continueShopping') . '</a>'
+    .   '&nbsp;<a class="btn btndark" href="' . htmlspecialchars($homeUrl) . '">' . te('confirm.success.backHome') . '</a>'
     . '</p>'
     . '</div>';
 
@@ -44,7 +50,7 @@ $confirmJs = '<script>
 })();
 </script>';
 
-renderPage(t('checkout.confirm.title') . ' | ' . t('shop.title'), $content . $confirmJs, '/objednavka/dokoncit', [
-    'description' => t('checkout.confirm.lead'),
+renderPage(t('confirm.titleOrder'), $content . $confirmJs, '/objednavka/dokoncit', [
+    'description' => t('confirm.success.emailSentOrder'),
     'robots' => 'noindex, nofollow',
 ]);

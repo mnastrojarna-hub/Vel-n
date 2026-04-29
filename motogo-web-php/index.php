@@ -200,6 +200,12 @@ if ($path === '/feed.xml' || $path === '/rss.xml') {
     exit;
 }
 
+// /opensearch.xml — OpenSearch description pro browser searchbar a Seznam Webmaster.
+if ($path === '/opensearch.xml') {
+    require __DIR__ . '/pages/opensearch-xml.php';
+    exit;
+}
+
 // /manifest.webmanifest — PWA manifest (offline UX, "Přidat na plochu").
 if ($path === '/manifest.webmanifest') {
     $f = __DIR__ . '/manifest.webmanifest';
@@ -397,6 +403,11 @@ switch (true) {
     // Rezervace
     case $path === '/rezervace':
         require __DIR__ . '/pages/rezervace.php';
+        break;
+
+    // Úprava rezervace (login + prodloužit / zkrátit / storno)
+    case $path === '/upravit-rezervaci':
+        require __DIR__ . '/pages/upravit-rezervaci.php';
         break;
 
     // Potvrzení

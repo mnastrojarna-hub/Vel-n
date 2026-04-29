@@ -19,7 +19,7 @@ return [
         'grid' => 'gr5',
         'items' => [
             [
-                'icon' => 'gfx/ico-flexibilita.svg',
+                'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
                 'title' => 'Flexibilita',
                 'text' => 'Motorku přivezeme, kam potřebuješ – domů, do hotelu, k nádraží nebo na start výletu.',
             ],
@@ -34,7 +34,7 @@ return [
                 'text' => 'Přistavení domlouváme na předem sjednaný čas – klidně večer nebo o víkendu. Stačí zvolit čas v rezervaci.',
             ],
             [
-                'icon' => 'gfx/ico-uspora-casu.svg',
+                'icon' => 'gfx/uspora-casu.svg',
                 'title' => 'Úspora času',
                 'text' => 'Čas ušetřený na cestě do půjčovny a zpět můžeš věnovat sobě.',
             ],

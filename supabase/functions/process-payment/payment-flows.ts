@@ -3,7 +3,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe from 'https://esm.sh/stripe@14'
-import { stripe, SITE_URL, PRODUCT_NAMES, CORS, PaymentRequest } from './stripe-customer.ts'
+import { stripe, SITE_URL, PRODUCT_NAMES, CORS, PaymentRequest, resolveReturnOrigin, resolveStripeLocale, withLangParam } from './stripe-customer.ts'
 
 /** Handle web anonymous booking checkout (no auth required) */
 export async function handleWebBookingCheckout(
@@ -150,17 +150,17 @@ export async function handleWebBookingCheckout(
     }
   }
 
-  // automatic_payment_methods povolí Apple Pay / Google Pay na podporovaných zařízeních
-  // (Stripe Checkout automaticky verifikuje doménu pro Apple Pay)
+  // Apple Pay / Google Pay se v Checkout Session povolují přes Stripe Dashboard
+  // (Settings → Payment methods). `automatic_payment_methods` je platný jen pro PaymentIntent.
+  const returnOrigin = resolveReturnOrigin(body.origin, body.locale)
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
     mode: 'payment',
-    automatic_payment_methods: { enabled: true },
     line_items: lineItems,
     metadata: sessionMetadata,
-    success_url: `${SITE_URL}/#/potvrzeni?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${SITE_URL}/#/rezervace?resume=${body.booking_id}`,
-    locale: 'cs',
+    success_url: withLangParam(`${returnOrigin}/potvrzeni?session_id={CHECKOUT_SESSION_ID}`, body.locale),
+    cancel_url: withLangParam(`${returnOrigin}/rezervace?resume=${body.booking_id}`, body.locale),
+    locale: resolveStripeLocale(body.locale) as Stripe.Checkout.SessionCreateParams.Locale,
   })
 
   await supabaseAdmin.from('bookings').update({
@@ -280,14 +280,14 @@ async function handleWebProductCheckout(
     discounts = [{ coupon: coupon.id }]
   }
 
+  const returnOrigin = resolveReturnOrigin(body.origin, body.locale)
   const sessionParams: Record<string, unknown> = {
     mode: 'payment',
     line_items: lineItems as Stripe.Checkout.SessionCreateParams.LineItem[],
-    automatic_payment_methods: { enabled: true }, // Apple Pay / Google Pay
     metadata: { order_id: orderId, type: 'shop', source: 'web' },
-    success_url: `${SITE_URL}/objednavka/dokoncit?order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url:  `${SITE_URL}/kosik`,
-    locale: 'cs',
+    success_url: withLangParam(`${returnOrigin}/objednavka/dokoncit?order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`, body.locale),
+    cancel_url:  withLangParam(`${returnOrigin}/kosik`, body.locale),
+    locale: resolveStripeLocale(body.locale),
   }
   if (custId) sessionParams.customer = custId
   if (discounts) sessionParams.discounts = discounts
@@ -420,15 +420,16 @@ export async function handleWebShopCheckout(
     })
   }
 
+  const voucherReturnOrigin = resolveReturnOrigin(body.origin, body.locale)
   const session = await stripe.checkout.sessions.create({
     customer: custId,
     mode: 'payment',
     payment_method_types: ['card', 'link'],
     line_items: lineItems as Stripe.Checkout.SessionCreateParams.LineItem[],
     metadata: { order_id: orderId, type: 'shop', source: 'web' },
-    success_url: `${SITE_URL}/#/potvrzeni?order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${SITE_URL}/#/poukazy`,
-    locale: 'cs',
+    success_url: withLangParam(`${voucherReturnOrigin}/potvrzeni?order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`, body.locale),
+    cancel_url: withLangParam(`${voucherReturnOrigin}/poukazy`, body.locale),
+    locale: resolveStripeLocale(body.locale) as Stripe.Checkout.SessionCreateParams.Locale,
   })
 
   await supabaseAdmin.from('shop_orders').update({

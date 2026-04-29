@@ -131,8 +131,8 @@ renderPage($C['seo']['title'], $content, $pagePath, [
     'canonical' => 'https://motogo24.cz/jak-pujcit/prevzeti',
     'schema' => $faqSchema,
     'breadcrumbs' => [
-        ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
-        ['name' => t('breadcrumb.howto'), 'url' => 'https://motogo24.cz/jak-pujcit'],
-        ['name' => t('menu.howto.pickup'), 'url' => 'https://motogo24.cz/jak-pujcit/prevzeti'],
+        ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
+        ['name' => t('breadcrumb.howto'), 'url' => siteCanonicalUrl('/jak-pujcit')],
+        ['name' => t('menu.howto.pickup'), 'url' => siteCanonicalUrl('/jak-pujcit/prevzeti')],
     ],
 ]);

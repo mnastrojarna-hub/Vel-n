@@ -58,6 +58,9 @@ function renderHeader($currentPath = '/') {
         '<div class="header-topbar"><div class="container">' .
             '<div class="header-phone"><p><a href="' . PHONE_LINK . '" aria-label="' . te('header.callUs') . '"><img alt="' . te('header.callUs') . '" src="' . BASE_URL . '/gfx/telefon-header.svg" loading="lazy"></a>&nbsp;<a href="' . PHONE_LINK . '">' . PHONE . '</a></p></div>' .
             '<div class="header-tools">' .
+                '<a class="header-edit-rez" href="' . BASE_URL . '/upravit-rezervaci" aria-label="' . te('menu.editReservation.aria') . '" title="' . te('menu.editReservation') . '">' .
+                    '<svg class="header-edit-rez-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>' .
+                '</a>' .
                 '<a class="header-cart" href="' . BASE_URL . '/kosik" aria-label="' . te('cart.iconLabel') . '" title="' . te('cart.iconLabel') . '">' .
                     '<svg class="header-cart-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6h15l-1.5 9h-12z"/><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M6 6L4 2H1"/></svg>' .
                     '<span class="header-cart-badge" data-cart-badge hidden aria-live="polite"></span>' .
@@ -87,6 +90,7 @@ function renderFooter() {
         $menuHtml .= '<li><a data-route="' . $item['route'] . '" href="' . BASE_URL . $item['route'] . '">' . $item['label'] . '</a></li>';
     }
     $menuHtml .= '<li><a data-route="/rezervace" href="' . BASE_URL . '/rezervace">' . tc('menu.reservation') . '</a></li>';
+    $menuHtml .= '<li><a data-route="/upravit-rezervaci" href="' . BASE_URL . '/upravit-rezervaci">' . tc('menu.editReservation') . '</a></li>';
 
     return '<footer id="footer"><div class="container"><div class="gr4">' .
         '<div>' .
@@ -95,8 +99,8 @@ function renderFooter() {
         '</div>' .
         '<div><h3>' . tc('footer.aboutTitle') . '</h3><ul>' . $menuHtml . '</ul></div>' .
         '<div><h3>' . tc('footer.socialTitle') . '</h3>' .
-            '<p class="dfc"><span class="footer-social-icon"><img alt="Facebook" src="' . BASE_URL . '/gfx/facebook.svg"></span>&nbsp;<a href="' . FB_URL . '">facebook</a></p><p>&nbsp;</p>' .
-            '<p class="dfc"><span class="footer-social-icon"><img alt="Instagram" src="' . BASE_URL . '/gfx/instagram.svg"></span>&nbsp;<a href="' . IG_URL . '">instagram</a></p>' .
+            '<p class="dfc"><span class="footer-social-icon"><img alt="Facebook" src="' . BASE_URL . '/gfx/facebook-footer.svg"></span>&nbsp;<a href="' . FB_URL . '">facebook</a></p><p>&nbsp;</p>' .
+            '<p class="dfc"><span class="footer-social-icon"><img alt="Instagram" src="' . BASE_URL . '/gfx/instagram-footer.svg"></span>&nbsp;<a href="' . IG_URL . '">instagram</a></p>' .
         '</div>' .
         '<div class="footer-contact"><h3>' . tc('footer.helpTitle') . '</h3>' .
             '<div class="footer-phone dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/telefon.svg" alt="' . te('footer.iconPhone') . '" class="icon-small" loading="lazy"></div><div><p>' . tc('footer.callUs') . '<br><strong><a href="' . PHONE_LINK . '">' . PHONE . '</a></strong></p></div></div>' .
@@ -188,23 +192,94 @@ function renderInlineJs() {
  *
  * $meta klíče:
 /**
+ * Postaví pole "sameAs" URLs pro LocalBusiness JSON-LD. Kromě fixních
+ * profilů (FB, IG, vlastní domény) připojí Seznam-ekosystém kartám, pokud
+ * jsou nakonfigurované v env (SAMEAS_FIRMY_CZ, SAMEAS_MAPY_CZ, SAMEAS_HEUREKA,
+ * SAMEAS_ZBOZI). NAP konzistence mezi webem a těmito katalogy je klíčová pro
+ * lokální SEO v Seznam.cz.
+ */
+function buildSameAs() {
+    $list = [FB_URL, IG_URL, 'https://motogo24.cz', 'https://motogo24.com'];
+    $extras = [
+        defined('SAMEAS_FIRMY_CZ') ? SAMEAS_FIRMY_CZ : '',
+        defined('SAMEAS_MAPY_CZ')  ? SAMEAS_MAPY_CZ  : '',
+        defined('SAMEAS_HEUREKA')  ? SAMEAS_HEUREKA  : '',
+        defined('SAMEAS_ZBOZI')    ? SAMEAS_ZBOZI    : '',
+    ];
+    foreach ($extras as $u) {
+        if (is_string($u) && $u !== '') $list[] = $u;
+    }
+    return $list;
+}
+
+/**
+ * Sklik retargeting tag (Seznam reklamní systém). Emituje se jen pokud
+ * je SKLIK_RETARGETING_ID nastaveno přes env. Pro Seznam ekvivalent
+ * Google Ads remarketingu — bez kódu uživatele Sklik nenavidíme.
+ *
+ * Conversion tracking (rezervace, objednávka) se řeší zvlášť na confirmation
+ * stránkách — tady jen univerzální retargeting na všech stránkách.
+ */
+function renderSklikRetargeting() {
+    $id = defined('SKLIK_RETARGETING_ID') ? SKLIK_RETARGETING_ID : '';
+    if ($id === '' || !ctype_digit((string)$id)) return '';
+    $idEsc = htmlspecialchars((string)$id, ENT_QUOTES, 'UTF-8');
+    return '
+<!-- Sklik retargeting (Seznam.cz) -->
+<script>
+  var seznam_retargeting_id = ' . $idEsc . ';
+</script>
+<script async src="https://c.imedia.cz/js/retargeting.js"></script>';
+}
+
+/**
+ * Webmaster Tools verifikační meta tagy. Emitují se jen ty, které mají
+ * neprázdnou hodnotu v env / config — žádné prázdné <meta> v HTML.
+ *
+ * Hodnoty se konfigurují přes env vars (viz config.php):
+ *   MOTOGO_VERIFY_GOOGLE / BING / SEZNAM / YANDEX / PINTEREST / FACEBOOK
+ */
+function renderWebmasterVerification() {
+    $tags = [
+        ['google-site-verification', defined('VERIFY_GOOGLE')    ? VERIFY_GOOGLE    : ''],
+        ['msvalidate.01',            defined('VERIFY_BING')      ? VERIFY_BING      : ''],
+        ['seznam-wmt',               defined('VERIFY_SEZNAM')    ? VERIFY_SEZNAM    : ''],
+        ['yandex-verification',      defined('VERIFY_YANDEX')    ? VERIFY_YANDEX    : ''],
+        ['p:domain_verify',          defined('VERIFY_PINTEREST') ? VERIFY_PINTEREST : ''],
+        ['facebook-domain-verification', defined('VERIFY_FACEBOOK') ? VERIFY_FACEBOOK : ''],
+    ];
+    $out = '';
+    foreach ($tags as [$name, $content]) {
+        if ($content === '' || $content === null) continue;
+        $out .= "\n  " . '<meta name="' . htmlspecialchars($name) . '" content="' . htmlspecialchars((string)$content) . '">';
+    }
+    return $out;
+}
+
+/**
  * Vyrenderuje <link rel="alternate" hreflang="…" href="…"> tagy pro všechny
  * podporované jazyky (cs, en, de, es, fr, nl, pl) + x-default.
- * Pro jazykové varianty používá ?lang=xx parametr.
  *
- * @param string $siteOrigin např. https://motogo24.cz
+ * Cross-domain mapping (Google-friendly):
+ *   hreflang="cs" → https://motogo24.cz{path}
+ *   hreflang="en" → https://motogo24.com{path}
+ *   hreflang="de|es|fr|nl|pl" → https://motogo24.com{path}?lang=xx
+ *   hreflang="x-default" → https://motogo24.com{path}
+ *
+ * Reciproční hreflang mezi doménami je nutný — Google jinak hreflang ignoruje.
+ *
  * @param string $path aktuální cesta (např. /blog/xy nebo /eshop)
  * @return string HTML <link> tagy
  */
-function renderHreflangAlternates($siteOrigin, $path) {
+function renderHreflangAlternates($path) {
     if (!defined('I18N_SUPPORTED')) return '';
     $out = '';
     foreach (I18N_SUPPORTED as $code) {
-        $href = $siteOrigin . $path . ($code === I18N_DEFAULT ? '' : ('?lang=' . $code));
+        $href = i18nUrlForLang($code, $path);
         $out .= "\n  " . '<link rel="alternate" hreflang="' . htmlspecialchars($code) . '" href="' . htmlspecialchars($href) . '">';
     }
-    // x-default → CZ verze (default)
-    $out .= "\n  " . '<link rel="alternate" hreflang="x-default" href="' . htmlspecialchars($siteOrigin . $path) . '">';
+    // x-default → mezinárodní (EN) verze na .com
+    $out .= "\n  " . '<link rel="alternate" hreflang="x-default" href="' . htmlspecialchars(i18nUrlForLang('en', $path)) . '">';
     return $out;
 }
 
@@ -229,7 +304,10 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
 
     $description = $meta['description'] ?? 'Půjčovna motorek Vysočina – silniční, sportovní, enduro i dětské. Nonstop pronájem bez kauce, online rezervace a motorkářská výbava zdarma.';
     $keywords = $meta['keywords'] ?? 'půjčovna motorek Vysočina, pronájem motorek Vysočina, půjčovna motorek Pelhřimov, půjčovna motorek bez kauce, nonstop půjčovna motorek, rezervace motorky online, motorky k pronájmu Vysočina, motorbike rental Czech Republic, motorcycle rental Prague, půjčovna motorek Praha';
-    $canonical = $meta['canonical'] ?? ($siteOrigin . $currentPath);
+    // Canonical = doménová home pro aktuální jazyk (cs → .cz, ostatní → .com).
+    // Tím Google indexuje českou verzi výhradně z motogo24.cz a anglickou/další
+    // z motogo24.com — žádný duplicate-content stejného jazyka přes obě domény.
+    $canonical = $meta['canonical'] ?? siteCanonicalUrl($currentPath);
     $ogImage = $meta['og_image'] ?? ($siteOrigin . '/gfx/hero-banner.jpg');
     $ogType = $meta['og_type'] ?? 'website';
     // Default robots — povolíme rich snippets (velké náhledy obrázků a plný text v
@@ -326,6 +404,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   <link rel="apple-touch-icon" href="' . BASE_URL . '/apple-touch-icon.png">
   <link rel="manifest" href="' . BASE_URL . '/manifest.webmanifest">
   <link rel="alternate" type="application/rss+xml" title="MotoGo24 — Blog a tipy na trasy" href="' . $siteOrigin . '/feed.xml">
+  <link rel="search" type="application/opensearchdescription+xml" title="MotoGo24" href="' . $siteOrigin . '/opensearch.xml">
   <link rel="alternate" type="application/json" title="MotoGo24 — AI Agent Manifest" href="' . $siteOrigin . '/.well-known/agent.json">
   <link rel="alternate" type="application/json" title="MotoGo24 — ChatGPT Plugin Manifest" href="' . $siteOrigin . '/.well-known/ai-plugin.json">
   <link rel="alternate" type="text/markdown" title="MotoGo24 — LLM Index" href="' . $siteOrigin . '/llms.txt">
@@ -338,10 +417,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   <meta name="distribution" content="global">
   <meta name="revisit-after" content="3 days">
   <meta name="referrer" content="strict-origin-when-cross-origin">
-  <!-- Webmaster Tools verifikace (vyplnit hodnoty po registraci):
-       - Google Search Console: <meta name="google-site-verification" content="...">
-       - Seznam Webmaster Tools: <meta name="seznam-wmt" content="...">
-       - Bing Webmaster Tools:  <meta name="msvalidate.01" content="..."> -->' . renderHreflangAlternates($siteOrigin, $currentPath) . '
+' . renderWebmasterVerification() . renderHreflangAlternates($currentPath) . '
   <title>' . htmlspecialchars($title) . '</title>
 
   <script type="application/ld+json">
@@ -428,7 +504,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
           {"@type": "OrderAction", "target": "' . $siteOrigin . '/eshop", "name": "Nákup výbavy a poukazů"}
         ],
         "parentOrganization": {"@id": "' . $siteOrigin . '/#organization"},
-        "sameAs": ["' . FB_URL . '","' . IG_URL . '","https://motogo24.cz","https://motogo24.com"]' . $aggregateRatingFragment . '
+        "sameAs": ' . json_encode(buildSameAs(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . $aggregateRatingFragment . '
       },
       {
         "@type": "Service",
@@ -482,7 +558,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   <link rel="stylesheet" href="' . assetUrl('/css/main.css') . '">
   <link rel="stylesheet" href="' . assetUrl('/css/pages.css') . '">
 </head>
-<body>
+<body' . ($currentPath === '/' ? ' class="homepage"' : '') . '>
 ';
     echo renderHeader($currentPath);
     echo '<div id="app">';
@@ -559,6 +635,8 @@ window.MOTOGO_CONFIG.SUPABASE_ANON_KEY = ' . json_encode(SUPABASE_ANON_KEY) . ';
 <link rel="stylesheet" href="' . BASE_URL . '/css/cms-admin.css">
 <script src="' . BASE_URL . '/js/cms-admin.js" defer></script>';
     }
+
+    echo renderSklikRetargeting();
 
     echo '
 </body>

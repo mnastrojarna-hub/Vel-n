@@ -164,8 +164,8 @@ renderPage($C['seo']['title'], $content, '/jak-pujcit/postup', [
     'keywords' => $C['seo']['keywords'],
     'schema' => $combinedSchema,
     'breadcrumbs' => [
-        ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
-        ['name' => t('breadcrumb.howto'), 'url' => 'https://motogo24.cz/jak-pujcit'],
-        ['name' => t('menu.howto.process'), 'url' => 'https://motogo24.cz/jak-pujcit/postup'],
+        ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
+        ['name' => t('breadcrumb.howto'), 'url' => siteCanonicalUrl('/jak-pujcit')],
+        ['name' => t('menu.howto.process'), 'url' => siteCanonicalUrl('/jak-pujcit/postup')],
     ],
 ]);

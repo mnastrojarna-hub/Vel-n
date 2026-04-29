@@ -29,6 +29,44 @@ define('IG_URL', 'https://www.instagram.com/moto.go24/');
 // Logo
 define('LOGO_SVG', 'gfx/logo.svg');
 
+// ===== Webmaster Tools verifikační kódy =====
+// Po registraci domény v každém z těchto nástrojů sem vlož content hodnotu z meta tagu.
+// Hodnoty jdou nastavit i přes env vars (server config / .env), nesmí ale jít do gitu jako secret.
+//   Google Search Console:  MOTOGO_VERIFY_GOOGLE
+//   Bing Webmaster Tools:   MOTOGO_VERIFY_BING (msvalidate.01)
+//   Seznam Webmaster:       MOTOGO_VERIFY_SEZNAM (seznam-wmt) — DŮLEŽITÉ pro CZ trh
+//   Yandex Webmaster:       MOTOGO_VERIFY_YANDEX
+//   Pinterest:              MOTOGO_VERIFY_PINTEREST
+//   Facebook domain verif:  MOTOGO_VERIFY_FACEBOOK
+// Pokud jsou prázdné, žádný meta tag se neemituje (viz layout.php).
+define('VERIFY_GOOGLE',    getenv('MOTOGO_VERIFY_GOOGLE')    ?: '');
+define('VERIFY_BING',      getenv('MOTOGO_VERIFY_BING')      ?: '');
+define('VERIFY_SEZNAM',    getenv('MOTOGO_VERIFY_SEZNAM')    ?: '');
+define('VERIFY_YANDEX',    getenv('MOTOGO_VERIFY_YANDEX')    ?: '');
+define('VERIFY_PINTEREST', getenv('MOTOGO_VERIFY_PINTEREST') ?: '');
+define('VERIFY_FACEBOOK',  getenv('MOTOGO_VERIFY_FACEBOOK')  ?: '');
+
+// ===== Seznam.cz ekosystém — externí profily pro NAP konzistenci =====
+// Vlož URL profilu/karty firmy v každé z těchto Seznam služeb. Použijí se v
+// LocalBusiness JSON-LD jako "sameAs" — Seznam tak propojí web s firemní kartou
+// a posílí lokální vyhledávání. Pokud prázdné, do sameAs se nepřidá.
+//   Firmy.cz       — firemní karta (https://www.firmy.cz/detail/...)
+//   Mapy.cz        — pin firmy na Mapy.cz (https://mapy.cz/zakladni?source=firm&id=...)
+//   Heureka.cz     — e-shop profil (https://obchody.heureka.cz/...)
+//   Zbozi.cz       — feed/profil v Seznam Zbozi (https://www.zbozi.cz/shop/...)
+//   Seznam Hodnoceni — recenze obchodu (https://obchody.heureka.cz/...recenze/)
+define('SAMEAS_FIRMY_CZ',   getenv('MOTOGO_SAMEAS_FIRMY_CZ')   ?: '');
+define('SAMEAS_MAPY_CZ',    getenv('MOTOGO_SAMEAS_MAPY_CZ')    ?: '');
+define('SAMEAS_HEUREKA',    getenv('MOTOGO_SAMEAS_HEUREKA')    ?: '');
+define('SAMEAS_ZBOZI',      getenv('MOTOGO_SAMEAS_ZBOZI')      ?: '');
+
+// ===== Sklik (Seznam reklamní systém) =====
+// SKLIK_RETARGETING_ID — ID retargetingového kódu (číslo z Sklik admin → Měření).
+// Pokud prázdné, žádný měřící kód se neemituje.
+// Conversion tracking se řeší zvlášť na confirmation stránkách (rezervace,
+// objednávka) — tady je jen univerzální retargeting visible na všech stránkách.
+define('SKLIK_RETARGETING_ID', getenv('MOTOGO_SKLIK_RETARGETING_ID') ?: '');
+
 // Firemní údaje
 define('COMPANY_NAME', 'Bc. Petra Semorádová');
 define('COMPANY_ICO', '21874263');

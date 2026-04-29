@@ -201,7 +201,7 @@ serve(async (req) => {
       company_dic: companyInfo.dic,
       company_phone: '+420 774 256 271',
       company_email: 'info@motogo24.cz',
-      company_web: 'www.motogo24.cz',
+      company_web: 'motogo24.com',
       company_bank: 'mBank',
       company_account: '670100-2225851630/6210',
       // Time & period
@@ -270,20 +270,22 @@ function getFallbackTemplate(slug: string): string | null {
 <body style="margin:0;padding:0;font-family:'Segoe UI',sans-serif;color:#1a1a1a">
 <div style="max-width:780px;margin:0 auto;padding:32px">
   <h1 style="text-align:center;font-size:20px;border-bottom:2px solid #1a8a18;padding-bottom:12px">SMLOUVA O PRONÁJMU MOTOCYKLU</h1>
-  <p style="text-align:center;font-size:12px;color:#666">č. {{booking_number}} ze dne {{today}}</p>
+  <p style="text-align:center;font-size:13px;color:#1a8a18;font-weight:700;margin:8px 0 4px">Číslo smlouvy / rezervace: {{booking_number}}</p>
+  <p style="text-align:center;font-size:11px;color:#666">ze dne {{today}}</p>
   <div style="display:flex;gap:24px;margin:24px 0">
     <div style="flex:1;padding:14px;background:#f8faf9;border-radius:8px">
       <p style="margin:0 0 4px;font-size:10px;font-weight:700;text-transform:uppercase;color:#888">Pronajímatel</p>
       <p style="margin:0;font-weight:700">{{company_name}}</p>
       <p style="margin:2px 0;font-size:12px">{{company_address}}</p>
-      <p style="margin:2px 0;font-size:12px">IČO: {{company_ico}} | DIČ: {{company_dic}}</p>
+      <p style="margin:2px 0;font-size:12px">IČO: {{company_ico}}{{company_dic}}</p>
     </div>
     <div style="flex:1;padding:14px;background:#f8faf9;border-radius:8px">
       <p style="margin:0 0 4px;font-size:10px;font-weight:700;text-transform:uppercase;color:#888">Nájemce</p>
       <p style="margin:0;font-weight:700">{{customer_name}}</p>
       <p style="margin:2px 0;font-size:12px">{{customer_address}}</p>
       <p style="margin:2px 0;font-size:12px">Tel: {{customer_phone}} | Email: {{customer_email}}</p>
-      <p style="margin:2px 0;font-size:12px">ŘP: {{customer_license}} (platnost do {{customer_license_expiry}})</p>
+      <p style="margin:2px 0;font-size:12px">Číslo OP/pasu: <strong>{{customer_id_number}}</strong></p>
+      <p style="margin:2px 0;font-size:12px">Číslo ŘP: <strong>{{customer_license}}</strong> (platnost do {{customer_license_expiry}})</p>
     </div>
   </div>
   <h3 style="font-size:13px;margin-top:24px">I. Předmět pronájmu</h3>
@@ -297,9 +299,11 @@ function getFallbackTemplate(slug: string): string | null {
   <p style="font-size:12px">Od: <strong>{{start_date}}</strong> do: <strong>{{end_date}}</strong> ({{days}} dní)</p>
   <h3 style="font-size:13px">III. Cena</h3>
   <p style="font-size:12px">Denní sazba: <strong>{{daily_rate}} Kč</strong> | Celkem: <strong>{{total_price}} Kč</strong> vč. DPH</p>
-  <div style="margin-top:48px;display:flex;justify-content:space-between">
-    <div style="text-align:center;width:45%"><div style="border-top:1px solid #999;padding-top:8px;font-size:11px">Pronajímatel</div></div>
-    <div style="text-align:center;width:45%"><div style="border-top:1px solid #999;padding-top:8px;font-size:11px">Nájemce — {{customer_name}}</div></div>
+  <div style="margin-top:40px;padding:18px;background:#ecfdf5;border:1px solid #16a34a;border-radius:8px;text-align:center;font-size:12px;color:#065f46">
+    <p style="margin:0;font-weight:700;font-size:13px">Podepsáno elektronicky</p>
+    <p style="margin:6px 0 0">Smlouva byla uzavřena prostřednictvím elektronických komunikací na dálku. Odesláním rezervačního formuláře a úhradou nájemného nájemce vyjádřil souhlas se zněním této smlouvy. Elektronický souhlas má stejnou právní váhu jako fyzický podpis nájemce.</p>
+    <p style="margin:8px 0 0;font-size:11px;color:#166534">Pronajímatel: {{company_name}} &nbsp;·&nbsp; Nájemce: {{customer_name}}</p>
+    <p style="margin:4px 0 0;font-size:11px;color:#166534">Datum: {{today}} &nbsp;·&nbsp; Smlouva č. {{booking_number}}</p>
   </div>
 </div></body></html>`
   }
@@ -354,7 +358,7 @@ function getFallbackTemplate(slug: string): string | null {
   <p style="font-size:12px">Tyto VOP jsou nedílnou součástí nájemní smlouvy. Pronajímatel si vyhrazuje právo na změnu VOP. Právní vztahy neupravené těmito VOP se řídí občanským zákoníkem.</p>
   <div style="margin-top:32px;padding:16px;background:#f8faf9;border-radius:8px;font-size:11px;color:#666">
     <p style="margin:0">{{company_name}} | {{company_address}} | IČO: {{company_ico}}</p>
-    <p style="margin:4px 0 0">Kontakt: info@motogo24.cz | +420 774 256 271 | www.motogo24.cz</p>
+    <p style="margin:4px 0 0">Kontakt: info@motogo24.cz | +420 774 256 271 | motogo24.com</p>
   </div>
 </div></body></html>`
   }

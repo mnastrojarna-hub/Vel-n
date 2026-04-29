@@ -19,12 +19,12 @@ return [
                 'text' => 'motorku půjčujeme bez blokace peněz',
             ],
             [
-                'icon' => 'gfx/ico-pojisteni.svg',
-                'title' => 'Pojištění',
-                'text' => 'v ceně (povinné ručení; havarijní dle konkrétního modelu a podmínek)',
+                'icon' => 'gfx/rezervace-online.svg',
+                'title' => 'Online rezervace',
+                'text' => 'včetně platby',
             ],
             [
-                'icon' => 'gfx/ico-vybava.svg',
+                'icon' => 'gfx/vyber-vybavu.svg',
                 'title' => 'Výbava pro řidiče',
                 'text' => 'v ceně (helma, bunda, kalhoty, rukavice)',
             ],
@@ -34,12 +34,12 @@ return [
                 'text' => 'převzetí a vrácení kdykoli v den výpůjčky',
             ],
             [
-                'icon' => 'gfx/ico-jasna-pravidla.svg',
+                'icon' => 'gfx/jasne-podminky.svg',
                 'title' => 'Jasná pravidla užívání',
                 'text' => 'doma i v zahraničí (podle zelené karty)',
             ],
             [
-                'icon' => 'gfx/ico-bezskryte.svg',
+                'icon' => 'gfx/zadne-skryte-poplatky.svg',
                 'title' => 'Žádné skryté poplatky',
                 'text' => 'vše je uvedeno níže a ve smlouvě',
             ],

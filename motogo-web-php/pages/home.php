@@ -28,12 +28,12 @@ $defaults = [
     'intro' => 'Vítejte v <strong>Motogo24</strong> – vaší půjčovně motorek na Vysočině. U nás si půjčíte motorku <strong>bez kauce</strong>, s výbavou v ceně a v režimu <strong>nonstop</strong>. Ať hledáte cestovní, sportovní, enduro nebo dětskou motorku, Motogo24 vám v srdci Vysočiny nabídne motorku na míru.',
     'signposts_title' => 'Rychlý rozcestník po Motogo24',
     'signposts' => [
-        ['icon' => 'gfx/ico-katalog.svg', 'title' => 'Katalog motorek', 'text' => 'Prohlédněte si naši nabídku motorek na pronájem – od sportovních po cestovní modely.', 'btn' => 'KATALOG MOTOREK', 'href' => '/katalog'],
-        ['icon' => 'gfx/ico-jak.svg', 'title' => 'Jak si půjčit motorku', 'text' => 'Jednoduchý proces: vyberte motorku k zapůjčení, rezervujte a vyjeďte.', 'btn' => 'JAK SI PŮJČIT MOTORKU', 'href' => '/jak-pujcit'],
-        ['icon' => 'gfx/ico-rezervace.svg', 'title' => 'Online rezervace motorky', 'text' => 'Zarezervujte si motorku na pronájem přes snadný online systém.', 'btn' => 'REZERVOVAT MOTORKU', 'href' => '/rezervace'],
-        ['icon' => 'gfx/ico-kontakt.svg', 'title' => 'Kontakty a mapa', 'text' => 'Navštivte naši půjčovnu motorek v Pelhřimově nebo nás kontaktujte.', 'btn' => 'KONTAKT', 'href' => '/kontakt'],
-        ['icon' => 'gfx/ico-faq.svg', 'title' => 'Často kladené dotazy', 'text' => 'Nejčastější dotazy k půjčení motorky přehledně na jednom místě.', 'btn' => 'ČASTÉ DOTAZY', 'href' => '/jak-pujcit/faq'],
-        ['icon' => 'gfx/ico-trasy.svg', 'title' => 'Motocyklové výlety', 'text' => 'Objevte nejlepší motocyklové trasy v Česku pro turisty i místní.', 'btn' => 'MOTOCYKLOVÉ TRASY', 'href' => '/blog'],
+        ['icon' => 'gfx/vyber-motorku.svg', 'title' => 'Katalog motorek', 'text' => 'Prohlédněte si naši nabídku motorek na pronájem – od sportovních po cestovní modely.', 'btn' => 'KATALOG MOTOREK', 'href' => '/katalog'],
+        ['icon' => 'gfx/potvrzeni-rezervace.svg', 'title' => 'Jak si půjčit motorku', 'text' => 'Jednoduchý proces: vyberte motorku k zapůjčení, rezervujte a vyjeďte.', 'btn' => 'JAK SI PŮJČIT MOTORKU', 'href' => '/jak-pujcit'],
+        ['icon' => 'gfx/rezervace-online.svg', 'title' => 'Online rezervace motorky', 'text' => 'Zarezervujte si motorku na pronájem přes snadný online systém.', 'btn' => 'REZERVOVAT MOTORKU', 'href' => '/rezervace'],
+        ['icon' => 'gfx/kontakt.svg', 'title' => 'Kontakty a mapa', 'text' => 'Navštivte naši půjčovnu motorek v Pelhřimově nebo nás kontaktujte.', 'btn' => 'KONTAKT', 'href' => '/kontakt'],
+        ['icon' => 'gfx/faq.svg', 'title' => 'Často kladené dotazy', 'text' => 'Nejčastější dotazy k půjčení motorky přehledně na jednom místě.', 'btn' => 'ČASTÉ DOTAZY', 'href' => '/jak-pujcit/faq'],
+        ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => 'Motocyklové výlety', 'text' => 'Objevte nejlepší motocyklové trasy v Česku pro turisty i místní.', 'btn' => 'MOTOCYKLOVÉ TRASY', 'href' => '/blog'],
     ],
     'motos_section' => [
         'title' => 'Naše motorky k pronájmu na Vysočině',
@@ -46,10 +46,10 @@ $defaults = [
     'process' => [
         'title' => 'Jak probíhá půjčení motorky na Vysočině',
         'steps' => [
-            ['icon' => 'gfx/ico-step1.svg', 'title' => '1. Vyber', 'text' => 'Vyberte si svou ideální motorku z naší nabídky motorek na pronájem.'],
-            ['icon' => 'gfx/ico-step2.svg', 'title' => '2. Rezervuj', 'text' => 'Zarezervujte si půjčení motorky přes náš jednoduchý online systém.'],
-            ['icon' => 'gfx/ico-step3.svg', 'title' => '3. Převzetí', 'text' => 'Vyzvedněte si motorku v naší půjčovně motorek v Pelhřimově.'],
-            ['icon' => 'gfx/ico-step4.svg', 'title' => '4. Užij jízdu', 'text' => 'Užijte si svobodu a objevte Česko na motorkách k zapůjčení.'],
+            ['icon' => 'gfx/vyber-motorku.svg', 'title' => '1. Vyber', 'text' => 'Vyberte si svou ideální motorku z naší nabídky motorek na pronájem.'],
+            ['icon' => 'gfx/rezervace-online.svg', 'title' => '2. Rezervuj', 'text' => 'Zarezervujte si půjčení motorky přes náš jednoduchý online systém.'],
+            ['icon' => 'gfx/predani-motorky.svg', 'title' => '3. Převzetí', 'text' => 'Vyzvedněte si motorku v naší půjčovně motorek v Pelhřimově.'],
+            ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => '4. Užij jízdu', 'text' => 'Užijte si svobodu a objevte Česko na motorkách k zapůjčení.'],
         ],
     ],
     'faq' => [
@@ -233,7 +233,7 @@ if (!empty($C['process']['steps']) && is_array($C['process']['steps'])) {
         $name = trim(strip_tags($s['title'] ?? ''));
         $text = trim(strip_tags($s['text'] ?? ''));
         if ($name === '' || $text === '') continue;
-        $howToSteps[] = '{"@type":"HowToStep","position":' . ($i + 1) . ',"name":' . json_encode($name, JSON_UNESCAPED_UNICODE) . ',"text":' . json_encode($text, JSON_UNESCAPED_UNICODE) . ',"url":"https://motogo24.cz/jak-pujcit#krok-' . ($i + 1) . '"}';
+        $howToSteps[] = '{"@type":"HowToStep","position":' . ($i + 1) . ',"name":' . json_encode($name, JSON_UNESCAPED_UNICODE) . ',"text":' . json_encode($text, JSON_UNESCAPED_UNICODE) . ',"url":' . json_encode(siteCanonicalUrl('/jak-pujcit#krok-' . ($i + 1)), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . '}';
     }
 }
 $howToSchema = '';
@@ -261,6 +261,6 @@ renderPage($C['seo']['title'], $content, '/', [
     'aggregate_rating' => $aggRating,
     'speakable' => ['h1', '.home-intro', '[aria-labelledby="catalogue"] > h2', '[aria-labelledby="process"]'],
     'breadcrumbs' => [
-        ['name' => 'Domů', 'url' => 'https://motogo24.cz/'],
+        ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
     ],
 ]);

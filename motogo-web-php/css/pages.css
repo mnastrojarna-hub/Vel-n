@@ -363,9 +363,10 @@
 
 /* ===== FAQ ACCORDION ===== */
 .faq-item{background:#fff;border:1px solid #d4e8e0;border-radius:8px;margin-bottom:.5rem;overflow:hidden}
-.faq-item summary{padding:1rem 1.25rem;cursor:pointer;font-weight:600;color:#1a2e22;font-size:.95rem;list-style:none;display:flex;justify-content:space-between;align-items:center;transition:background .15s}
+.faq-item summary{padding:.85rem 1rem .85rem 1.25rem;cursor:pointer;font-weight:600;color:#1a2e22;font-size:.95rem;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:1rem;transition:background .15s}
 .faq-item summary:hover{background:#f4faf7}
-.faq-item summary::after{content:"+";font-size:1.3rem;color:#74FB71;font-weight:400;transition:transform .2s}
+.faq-item summary::after{content:"+";flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:6px;background:#00FF5A;color:#fff;font-size:1.25rem;font-weight:700;line-height:1;transition:background .2s,transform .2s}
+.faq-item summary:hover::after{background:#00e651}
 .faq-item[open] summary::after{content:"−"}
 .faq-item p,.faq-item div:not(summary){padding:0 1.25rem 1rem;color:#4a6b5a;font-size:.9rem;line-height:1.6}
 .faq-item summary::-webkit-details-marker{display:none}
@@ -614,6 +615,13 @@
 .rez-agree input{accent-color:#1a8c1a;width:18px;height:18px;flex-shrink:0;margin-top:.1rem;cursor:pointer}
 .rez-agree:has(input:checked){border-color:#74FB71;background:#e8fce8}
 .rez-agree a{color:#1a8c1a;font-weight:600}
+
+/* Step 2 — zvýraznění potvrzení o ŘP (důležitý souhlas) */
+#rez-license-confirm-wrap{margin:1.1rem 0 .4rem!important}
+#rez-license-confirm-wrap .rez-agree{padding:.95rem 1.05rem;gap:.75rem;font-size:.95rem;font-weight:600;color:#1a2e22;background:#f0faf5;border:2px solid #74FB71;border-left:6px solid #1a8c1a;border-radius:12px;box-shadow:0 2px 10px rgba(26,140,26,.12)}
+#rez-license-confirm-wrap .rez-agree:hover{background:#e8fce8;border-color:#5edc5a;border-left-color:#1a8c1a;box-shadow:0 4px 14px rgba(26,140,26,.18)}
+#rez-license-confirm-wrap .rez-agree input{width:22px;height:22px;margin-top:.05rem}
+#rez-license-confirm-wrap .rez-agree:has(input:checked){background:#d4f7d4;border-color:#1a8c1a;border-left-color:#1a8c1a;box-shadow:0 2px 10px rgba(26,140,26,.18)}
 
 /* CTA */
 .rez-cta{padding:.95rem 2.4rem!important;font-size:1rem!important;font-weight:800;letter-spacing:.5px;box-shadow:0 6px 18px rgba(116,251,113,.45);transition:all .25s}
@@ -974,18 +982,32 @@
   .checkout-grid-2{grid-template-columns:1fr}
 }
 
-/* ===== E-shop potvrzení (/objednavka/dokoncit) ===== */
-.checkout-confirm{max-width:640px;margin:1.5rem auto;text-align:center;padding:1rem}
-.checkout-confirm-icon{width:84px;height:84px;border-radius:50%;background:#74FB71;color:#1a2e22;font-size:3rem;font-weight:900;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;box-shadow:0 8px 24px rgba(116,251,113,.4)}
-.checkout-confirm h1{margin:0 0 .5rem;color:#1a2e22}
-.checkout-confirm-lead{font-size:1.05rem;color:#4a6b5a;margin:0 0 1rem;line-height:1.55}
-.checkout-confirm-id{margin:0 0 1.25rem;font-size:1.1rem;color:#1a2e22}
-.checkout-confirm-id strong{color:#1a8a18;letter-spacing:.04em}
-.checkout-confirm-next{list-style:none;padding:0;margin:1rem auto 1.5rem;max-width:480px;text-align:left}
-.checkout-confirm-next li{padding:.55rem 0 .55rem 1.85rem;position:relative;color:#1a2e22;font-size:.95rem;line-height:1.5;border-bottom:1px dashed #e1f0e8}
-.checkout-confirm-next li:before{content:'›';position:absolute;left:.5rem;top:.45rem;color:#1a8a18;font-weight:900;font-size:1.2rem}
-.checkout-confirm-next li:last-child{border-bottom:none}
-.checkout-confirm-actions{margin-top:1.25rem}
+/* ===== Děkovací stránky (/potvrzeni, /objednavka/dokoncit) ===== */
+.checkout-confirm,.confirm-page{max-width:640px;margin:1.5rem auto;text-align:center;padding:1rem}
+.checkout-confirm-icon,.confirm-icon{width:84px;height:84px;border-radius:50%;background:#74FB71;color:#1a2e22;font-size:3rem;font-weight:900;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;box-shadow:0 8px 24px rgba(116,251,113,.4)}
+.confirm-page.confirm-pending .confirm-icon{background:#ffe89a;box-shadow:0 8px 24px rgba(255,232,154,.5)}
+.confirm-page.confirm-error .confirm-icon{background:#fecaca;color:#7c1d1d;box-shadow:0 8px 24px rgba(254,202,202,.5)}
+.checkout-confirm h1,.confirm-page h1{margin:0 0 .5rem;color:#1a2e22}
+.checkout-confirm-lead,.confirm-lead{font-size:1.05rem;color:#4a6b5a;margin:0 0 1rem;line-height:1.55}
+.checkout-confirm-id,.confirm-summary-id{margin:0 0 1.25rem;font-size:1.1rem;color:#1a2e22}
+.checkout-confirm-id strong,.confirm-summary-id strong{color:#1a8a18;letter-spacing:.04em}
+.checkout-confirm-next,.confirm-next{list-style:none;padding:0;margin:1rem auto 1.5rem;max-width:520px;text-align:left}
+.confirm-next h3{margin:0 0 .35rem;font-size:1rem;color:#1a2e22}
+.confirm-next ol{list-style:none;padding:0;margin:0}
+.checkout-confirm-next li,.confirm-next ol li{padding:.55rem 0 .55rem 1.85rem;position:relative;color:#1a2e22;font-size:.95rem;line-height:1.5;border-bottom:1px dashed #e1f0e8}
+.checkout-confirm-next li:before,.confirm-next ol li:before{content:'›';position:absolute;left:.5rem;top:.45rem;color:#1a8a18;font-weight:900;font-size:1.2rem}
+.checkout-confirm-next li:last-child,.confirm-next ol li:last-child{border-bottom:none}
+.checkout-confirm-actions,.confirm-actions{margin-top:1.25rem}
+.confirm-summary{background:#e8fce8;border-radius:12px;padding:1.1rem 1.25rem;margin:1rem auto;max-width:520px;text-align:left;font-size:.95rem;line-height:1.55}
+.confirm-summary h3{margin:0 0 .55rem;font-size:1rem;color:#1a2e22}
+.confirm-summary p{margin:.25rem 0}
+.confirm-emailed{font-size:.95rem;color:#4a6b5a;margin:.75rem auto 0;max-width:520px}
+.confirm-vouchers{margin:1.25rem auto;max-width:520px;display:flex;flex-direction:column;gap:.75rem}
+.confirm-voucher-card{background:#fff;border:2px solid #1a8c1a;border-radius:12px;padding:1rem;text-align:center}
+.confirm-voucher-label{font-size:.8rem;color:#6b7280;text-transform:uppercase;letter-spacing:2px;margin-bottom:4px}
+.confirm-voucher-code{font-size:1.5rem;font-weight:900;color:#1a8c1a;letter-spacing:3px;font-family:ui-monospace,Menlo,Consolas,monospace}
+.confirm-voucher-amount{font-size:1rem;font-weight:700;margin-top:6px}
+.confirm-voucher-validity{font-size:.8rem;color:#6b7280;margin-top:4px}
 
 /* ===== E-shop košík (/kosik) ===== */
 .cart-page{padding-top:.5rem}
@@ -1166,4 +1188,33 @@
 @media(max-width:520px){
   div[style*="border:2px dashed #74FB71"]{flex-direction:column!important;text-align:center;gap:.6rem!important}
   div[style*="border:2px dashed #74FB71"] > div[style*="min-width:200px"]{min-width:0!important;width:100%}
+}
+
+/* ===== Bank-style document camera overlay (rezervace) ===== */
+#rez-cam-overlay{position:fixed;inset:0;z-index:9999;display:flex;align-items:stretch;justify-content:stretch}
+#rez-cam-overlay .rez-cam-bg{position:absolute;inset:0;background:#000}
+#rez-cam-overlay .rez-cam-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+#rez-cam-overlay .rez-cam-mask{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+#rez-cam-overlay .rez-cam-frame{position:relative;width:min(86vw,720px);aspect-ratio:1.586/1;border:2px solid rgba(116,251,113,.95);border-radius:18px;box-shadow:0 0 0 9999px rgba(0,0,0,.55);background:transparent}
+#rez-cam-overlay .rez-cam-corner{position:absolute;width:28px;height:28px;border:4px solid #74FB71;border-radius:4px}
+#rez-cam-overlay .rez-cam-corner.tl{top:-4px;left:-4px;border-right:none;border-bottom:none;border-top-left-radius:14px}
+#rez-cam-overlay .rez-cam-corner.tr{top:-4px;right:-4px;border-left:none;border-bottom:none;border-top-right-radius:14px}
+#rez-cam-overlay .rez-cam-corner.bl{bottom:-4px;left:-4px;border-right:none;border-top:none;border-bottom-left-radius:14px}
+#rez-cam-overlay .rez-cam-corner.br{bottom:-4px;right:-4px;border-left:none;border-top:none;border-bottom-right-radius:14px}
+#rez-cam-overlay .rez-cam-top{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:.7rem;padding:.85rem 1rem;color:#fff;background:linear-gradient(180deg,rgba(0,0,0,.55),transparent);z-index:2}
+#rez-cam-overlay .rez-cam-close{background:rgba(0,0,0,.45);color:#fff;border:1px solid rgba(255,255,255,.35);width:36px;height:36px;border-radius:50%;font-size:1.4rem;line-height:1;cursor:pointer}
+#rez-cam-overlay .rez-cam-title{font-weight:700;font-size:1.05rem}
+#rez-cam-overlay .rez-cam-hint{position:absolute;left:0;right:0;top:54%;text-align:center;color:#fff;font-size:.95rem;text-shadow:0 1px 4px rgba(0,0,0,.7);padding:0 1rem;z-index:2}
+#rez-cam-overlay .rez-cam-bottom{position:absolute;left:0;right:0;bottom:0;padding:1.2rem 1rem 2rem;display:flex;flex-direction:column;align-items:center;gap:.7rem;background:linear-gradient(0deg,rgba(0,0,0,.55),transparent);z-index:2}
+#rez-cam-overlay .rez-cam-shoot{display:flex;flex-direction:column;align-items:center;gap:.4rem;background:#74FB71;color:#0a1a14;border:none;padding:.85rem 1.6rem;border-radius:999px;font-weight:800;cursor:pointer;box-shadow:0 6px 20px rgba(116,251,113,.4);font-size:1rem}
+#rez-cam-overlay .rez-cam-shoot:hover{background:#5fe05c}
+#rez-cam-overlay .rez-cam-shoot-inner{width:46px;height:46px;border-radius:50%;background:#fff;border:3px solid #0a1a14}
+#rez-cam-overlay .rez-cam-shoot-label{font-size:.85rem;letter-spacing:.04em}
+#rez-cam-overlay .rez-cam-progress{display:flex;flex-direction:column;align-items:center;gap:.35rem;color:#fff;width:min(80vw,360px)}
+#rez-cam-overlay .rez-cam-progress-track{height:6px;width:100%;background:rgba(255,255,255,.25);border-radius:999px;overflow:hidden}
+#rez-cam-overlay .rez-cam-progress-bar{height:100%;width:0;background:#74FB71;border-radius:999px;transition:width .25s}
+#rez-cam-overlay .rez-cam-progress-text{font-size:.85rem;text-shadow:0 1px 3px rgba(0,0,0,.7)}
+@media(max-width:520px){
+  #rez-cam-overlay .rez-cam-frame{width:90vw}
+  #rez-cam-overlay .rez-cam-hint{top:60%}
 }
