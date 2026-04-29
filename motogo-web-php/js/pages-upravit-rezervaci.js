@@ -537,26 +537,36 @@ MG._editRez._cancelPending = async function(bookingId){
 MG._editRez._renderBookingRow = function(b){
   var m = b.motorcycles || {};
   var motoLabel = (m.brand ? m.brand + ' ' : '') + (m.model || '');
-  var img = m.image_url ? '<img src="'+m.image_url+'" alt="" loading="lazy">' : '';
+  // Preferuj images[0] (gallery), fallback image_url, fallback emoji placeholder.
+  // onerror skryje img a zobrazí placeholder pokud cesta vrátí 404.
+  var heroSrc = (m.images && m.images.length ? m.images[0] : m.image_url) || '';
+  var heroUrl = heroSrc && typeof MG.imgUrl === 'function' ? MG.imgUrl(heroSrc) : heroSrc;
+  var img = heroUrl
+    ? '<img src="' + heroUrl + '" alt="" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">' +
+      '<div class="erez-row-img-ph" style="display:none">🏍️</div>'
+    : '<div class="erez-row-img-ph">🏍️</div>';
   var dates = MG.formatDate(b.start_date) + ' – ' + MG.formatDate(b.end_date);
+  var days = MG._editRez._daysBetween(b.start_date, b.end_date);
+  var daysLbl = days + (days === 1 ? ' den' : days < 5 ? ' dny' : ' dní');
   var ds = MG._editRez._displayStatus(b);
   var pending = MG._editRez._isPendingUnpaid(b);
-  // Pro pending bookingy ukážeme jiný "status" (nezaplacená) — at je to vidět hned z listu.
   var statusLbl = pending ? 'Nezaplaceno' : MG.t('editRez.status.' + ds);
   var statusCls = pending ? 'pending-unpaid' : ds;
   var price = MG.formatPrice(Number(b.total_price || 0));
+  var bookingNum = (b.id || '').substring(0,8).toUpperCase();
   var payCta = pending
     ? '<button type="button" class="edit-rez-row-pay" data-pay-id="' + b.id + '" aria-label="Pokračovat k platbě">💳 Pokračovat k platbě</button>'
     : '';
   return '<div class="edit-rez-booking-wrap">' +
-    '<button type="button" class="edit-rez-booking' + (pending ? ' pending' : '') + '" data-id="' + b.id + '">' +
-      '<div class="edit-rez-booking-img">' + img + '</div>' +
-      '<div class="edit-rez-booking-body">' +
-        '<div class="edit-rez-booking-title">' + motoLabel + '</div>' +
-        '<div class="edit-rez-booking-meta">' + dates + '</div>' +
+    '<button type="button" class="edit-rez-booking erez-row' + (pending ? ' pending' : '') + '" data-id="' + b.id + '">' +
+      '<div class="erez-row-img">' + img + '</div>' +
+      '<div class="erez-row-body">' +
+        '<div class="erez-row-num">#' + bookingNum + '</div>' +
+        '<div class="erez-row-title">' + motoLabel + '</div>' +
+        '<div class="erez-row-meta">📅 ' + dates + ' <span class="muted">· ' + daysLbl + '</span></div>' +
         '<div class="edit-rez-booking-status status-' + statusCls + '">' + statusLbl + '</div>' +
       '</div>' +
-      '<div class="edit-rez-booking-price">' + price + '</div>' +
+      '<div class="erez-row-price">' + price + '</div>' +
     '</button>' + payCta + '</div>';
 };
 
@@ -567,14 +577,15 @@ MG._editRez._renderShopRow = function(o){
   var statusKey = 'editRez.shopStatus.' + (o.status || 'unknown');
   var lbl = MG.t(statusKey, {});
   if (lbl === statusKey) lbl = o.status || '';
-  return '<button type="button" class="edit-rez-booking" data-shop-id="' + o.id + '">' +
-    '<div class="edit-rez-booking-img">🛒</div>' +
-    '<div class="edit-rez-booking-body">' +
-      '<div class="edit-rez-booking-title">' + num + '</div>' +
-      '<div class="edit-rez-booking-meta">' + when + '</div>' +
+  return '<button type="button" class="edit-rez-booking erez-row" data-shop-id="' + o.id + '">' +
+    '<div class="erez-row-img"><div class="erez-row-img-ph">🛒</div></div>' +
+    '<div class="erez-row-body">' +
+      '<div class="erez-row-num">' + num + '</div>' +
+      '<div class="erez-row-title">E-shop objednávka</div>' +
+      '<div class="erez-row-meta">📅 ' + when + '</div>' +
       '<div class="edit-rez-booking-status status-' + (o.payment_status === 'paid' ? 'completed' : 'pending') + '">' + lbl + '</div>' +
     '</div>' +
-    '<div class="edit-rez-booking-price">' + price + '</div>' +
+    '<div class="erez-row-price">' + price + '</div>' +
   '</button>';
 };
 
@@ -583,14 +594,15 @@ MG._editRez._renderVoucherRow = function(v){
   var when = MG.formatDate(v.created_at);
   var price = MG.formatPrice(Number(v.amount || 0));
   var lbl = MG.t('editRez.voucherStatus.' + (v.status || 'active'), {});
-  return '<button type="button" class="edit-rez-booking" data-voucher-id="' + v.id + '">' +
-    '<div class="edit-rez-booking-img">🎁</div>' +
-    '<div class="edit-rez-booking-body">' +
-      '<div class="edit-rez-booking-title">' + code + '</div>' +
-      '<div class="edit-rez-booking-meta">' + when + '</div>' +
+  return '<button type="button" class="edit-rez-booking erez-row" data-voucher-id="' + v.id + '">' +
+    '<div class="erez-row-img"><div class="erez-row-img-ph">🎁</div></div>' +
+    '<div class="erez-row-body">' +
+      '<div class="erez-row-num">' + code + '</div>' +
+      '<div class="erez-row-title">Dárkový poukaz</div>' +
+      '<div class="erez-row-meta">📅 ' + when + '</div>' +
       '<div class="edit-rez-booking-status status-' + (v.status === 'active' ? 'upcoming' : v.status === 'redeemed' ? 'completed' : 'cancelled') + '">' + lbl + '</div>' +
     '</div>' +
-    '<div class="edit-rez-booking-price">' + price + '</div>' +
+    '<div class="erez-row-price">' + price + '</div>' +
   '</button>';
 };
 
@@ -777,7 +789,22 @@ MG._editRez._injectConsentsStyles = function(){
     '.erez-loc-mapbtn{background:#1a8c1a;color:#fff;border:none;padding:.65rem 1rem;border-radius:10px;font-weight:700;cursor:pointer;font-size:.85rem;white-space:nowrap;transition:filter .15s}'+
     '.erez-loc-mapbtn:hover{filter:brightness(1.08)}'+
     '.erez-loc-route{margin-top:.6rem;font-size:.85rem;color:#1a2e22}'+
-    '.edit-rez-loc-submit{margin-top:.5rem;padding:.85rem 1.4rem;border-radius:14px;font-size:1rem}';
+    '.edit-rez-loc-submit{margin-top:.5rem;padding:.85rem 1.4rem;border-radius:14px;font-size:1rem}'+
+    /* ===== ROZSIRENA KARTA REZERVACE V LISTU ===== */
+    '.edit-rez-booking.erez-row{display:grid;grid-template-columns:120px 1fr auto;gap:1rem;padding:1rem 1.1rem;background:#fff;border:1px solid #d4e8e0;border-radius:16px;align-items:center;text-align:left;cursor:pointer;width:100%;transition:transform .15s, box-shadow .15s, border-color .15s;font:inherit;color:inherit}'+
+    '.edit-rez-booking.erez-row:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(20,80,40,.12);border-color:#1a8c1a}'+
+    '@media(max-width:520px){.edit-rez-booking.erez-row{grid-template-columns:90px 1fr;grid-template-areas:"img body" "img price";align-items:start}}'+
+    '@media(max-width:520px){.edit-rez-booking.erez-row .erez-row-img{grid-area:img}}'+
+    '@media(max-width:520px){.edit-rez-booking.erez-row .erez-row-body{grid-area:body}}'+
+    '@media(max-width:520px){.edit-rez-booking.erez-row .erez-row-price{grid-area:price;justify-self:end;margin-top:.4rem}}'+
+    '.erez-row-img{aspect-ratio:4/3;background:linear-gradient(135deg,#f0faf5 0%,#e0f0e6 100%);border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center}'+
+    '.erez-row-img img{width:100%;height:100%;object-fit:cover}'+
+    '.erez-row-img-ph{font-size:2.2rem;opacity:.5}'+
+    '.erez-row-num{font-size:.7rem;color:#7d978a;font-weight:700;letter-spacing:.06em;font-family:Menlo,monospace}'+
+    '.erez-row-title{font-size:1.05rem;color:#1a2e22;font-weight:800;margin:.2rem 0 .35rem}'+
+    '.erez-row-meta{font-size:.85rem;color:#3a4a40;margin-bottom:.5rem}'+
+    '.erez-row-meta .muted{color:#9aa8a0}'+
+    '.erez-row-price{font-weight:800;color:#1a2e22;font-size:1.1rem;white-space:nowrap}';
   document.head.appendChild(st);
 };
 
