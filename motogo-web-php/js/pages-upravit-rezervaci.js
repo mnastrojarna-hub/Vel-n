@@ -115,8 +115,81 @@ MG._editRez._goto = function(view){
   MG._editRez.view = view;
   if (view === 'login')   return MG._editRez._renderLogin();
   if (view === 'forgot')  return MG._editRez._renderForgot();
+  if (view === 'reset')   return MG._editRez._renderReset();
   if (view === 'list')    return MG._editRez._renderList();
   if (view === 'detail')  return MG._editRez._renderDetail();
+};
+
+// ===== RESET PASSWORD (po kliku na reset link z e-mailu) =====
+// Supabase přidá do URL hashe `#access_token=...&type=recovery` a knihovna
+// auto-vystaví session. Detekujeme to v init() a zobrazíme set-password form.
+MG._editRez._renderReset = function(){
+  MG._editRez._renderShell();
+  var c = document.getElementById('edit-rez-content');
+  c.innerHTML =
+    '<section class="edit-rez-card">' +
+    '<h2>' + MG.t('editRez.reset.title') + '</h2>' +
+    '<p>' + MG.t('editRez.reset.help') + '</p>' +
+    '<form id="edit-rez-reset-form" class="edit-rez-form" novalidate>' +
+      '<label>' + MG.t('editRez.reset.password') +
+        '<input type="password" name="password" required autocomplete="new-password" minlength="8">' +
+      '</label>' +
+      '<label>' + MG.t('editRez.reset.password2') +
+        '<input type="password" name="password2" required autocomplete="new-password" minlength="8">' +
+      '</label>' +
+      '<button type="submit" class="btn btngreen">' + MG.t('editRez.reset.submit') + '</button>' +
+    '</form>' +
+    '</section>';
+  document.getElementById('edit-rez-reset-form').addEventListener('submit', MG._editRez._submitReset);
+};
+
+MG._editRez._submitReset = async function(e){
+  e.preventDefault();
+  if (MG._editRez.busy) return;
+  var f = e.currentTarget;
+  var btn = f.querySelector('button[type=submit]');
+  var origLabel = btn.textContent;
+  var pw = f.password.value;
+  var pw2 = f.password2.value;
+  if (!pw || pw.length < 8){
+    MG._editRez._showError(MG.t('editRez.reset.tooShort'));
+    return;
+  }
+  if (pw !== pw2){
+    MG._editRez._showError(MG.t('editRez.reset.mismatch'));
+    return;
+  }
+  MG._editRez._setBusy(true);
+  btn.disabled = true;
+  btn.textContent = MG.t('editRez.reset.submitting');
+  try {
+    var res = await window.sb.auth.updateUser({ password: pw });
+    if (res.error){
+      console.error('[editRez] reset err', res.error);
+      MG._editRez._showError(MG.t('editRez.reset.error'));
+      return;
+    }
+    // Po úspěšném resetu vyčistíme hash z URL (token už nepotřebujeme)
+    // a zobrazíme list rezervací — uživatel je v té chvíli již přihlášen.
+    if (window.history && window.history.replaceState){
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+    var sess = await window.sb.auth.getSession();
+    if (sess && sess.data && sess.data.session && sess.data.session.user){
+      MG._editRez.user = sess.data.session.user;
+      await MG._editRez._loadBookings();
+      MG._editRez._goto('list');
+    } else {
+      MG._editRez._goto('login');
+    }
+  } catch(err){
+    console.error('[editRez] reset exception', err);
+    MG._editRez._showError(MG.t('editRez.reset.error'));
+  } finally {
+    MG._editRez._setBusy(false);
+    btn.disabled = false;
+    btn.textContent = origLabel;
+  }
 };
 
 // ===== LOGIN =====
@@ -403,7 +476,7 @@ MG._editRez._renderTabDetail = function(){
   var rows = [
     [MG.t('editRez.detail.bookingId'), '<code>' + b.id.substring(0,8).toUpperCase() + '</code>'],
     [MG.t('editRez.detail.moto'), (m.brand ? m.brand + ' ' : '') + (m.model || '')],
-    [MG.t('editRez.detail.dates'), MG.formatDate(b.start_date) + ' – ' + MG.formatDate(b.end_date) + ' (' + days + ' / ' + days + ')'],
+    [MG.t('editRez.detail.dates'), MG.formatDate(b.start_date) + ' – ' + MG.formatDate(b.end_date) + ' (' + MG.t('editRez.detail.daysCount', { n: days }) + ')'],
     [MG.t('editRez.detail.pickup'), (b.pickup_time || '—') + (b.pickup_address ? ' · ' + b.pickup_address : '')],
     [MG.t('editRez.detail.return'), (b.return_time || '—') + (b.return_address ? ' · ' + b.return_address : '')],
     [MG.t('editRez.detail.totalPaid'), '<strong>' + MG.formatPrice(Number(b.total_price || 0)) + '</strong>']
@@ -572,13 +645,14 @@ MG._editRez._renderTabExtend = async function(){
   var t = document.getElementById('edit-rez-tab-content');
   var isActive = (b.status === 'active');
   var helpKey = isActive ? 'editRez.extend.helpActive' : 'editRez.extend.helpUpcoming';
+  var todayIso = MG._editRez._toIsoDate(new Date());
 
   t.innerHTML =
     '<h3>' + MG.t('editRez.extend.title') + '</h3>' +
     '<p>' + MG.t(helpKey) + '</p>' +
     '<form id="edit-rez-extend-form" class="edit-rez-form edit-rez-date-grid" novalidate>' +
       '<label>' + MG.t('editRez.extend.newStart') +
-        '<input type="date" name="newStart" value="' + b.start_date + '" min="' + (isActive ? b.start_date : '') + '" max="' + b.start_date + '"' + (isActive ? ' readonly' : '') + '>' +
+        '<input type="date" name="newStart" value="' + b.start_date + '" min="' + (isActive ? b.start_date : todayIso) + '" max="' + b.start_date + '"' + (isActive ? ' readonly' : '') + '>' +
       '</label>' +
       '<label>' + MG.t('editRez.extend.newEnd') +
         '<input type="date" name="newEnd" value="' + b.end_date + '" min="' + b.end_date + '">' +
@@ -828,9 +902,31 @@ MG._editRez._submitShorten = async function(newStart, newEnd, reason, refund, pc
 
 // ===== INIT =====
 MG._editRezInit = async function(){
-  // Zachytit Supabase password recovery flow: Supabase v hash # přidá access_token
-  // a type=recovery. Knihovna ho zpracuje automaticky a vystaví session.
-  // Po recovery flow chceme uživatele rovnou pustit do listu.
+  // Detekce password recovery flow: Supabase přidá do URL hashe `#type=recovery`
+  // a access_token; knihovna automaticky vytvoří session a emituje
+  // PASSWORD_RECOVERY event. Pak musíme zákazníka donutit nastavit nové heslo,
+  // ne ho rovnou pustit do listu se starým session tokenem.
+  var isRecovery = false;
+  try {
+    var hash = String(window.location.hash || '');
+    isRecovery = hash.indexOf('type=recovery') !== -1;
+    // Bezpečnostní pojistka: i kdyby Supabase event nestihl, listener níže
+    // recovery flag přepne také.
+    if (window.sb && window.sb.auth && window.sb.auth.onAuthStateChange){
+      window.sb.auth.onAuthStateChange(function(event){
+        if (event === 'PASSWORD_RECOVERY'){
+          MG._editRez._goto('reset');
+        }
+      });
+    }
+  } catch(e){}
+
+  if (isRecovery){
+    // Necháme Supabase chvíli na zpracování hashe (vystavení session).
+    setTimeout(function(){ MG._editRez._goto('reset'); }, 50);
+    return;
+  }
+
   try {
     var sess = await window.sb.auth.getSession();
     if (sess && sess.data && sess.data.session && sess.data.session.user){
