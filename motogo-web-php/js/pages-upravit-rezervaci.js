@@ -338,12 +338,199 @@ MG._editRez._renderList = function(){
   });
 };
 
-// ===== DETAIL placeholder (rozšíříme v dalších commitech) =====
+// ===== DETAIL — tab shell + per-tab render =====
 MG._editRez._renderDetail = function(){
   MG._editRez._renderShell();
   var c = document.getElementById('edit-rez-content');
-  c.innerHTML = '<p>' + MG.t('editRez.loading') + '</p>';
-  // TODO: tab UI + tab content (detail / extend / shorten / cancel) — další commit.
+  var b = MG._editRez.selectedBooking;
+  if (!b){ MG._editRez._goto('list'); return; }
+  var m = MG._editRez.selectedMoto || {};
+
+  // Hlavička s motorkou + datumem + back na list.
+  var motoLabel = (m.brand ? m.brand + ' ' : '') + (m.model || '');
+  var dates = MG.formatDate(b.start_date) + ' – ' + MG.formatDate(b.end_date);
+  var status = '<span class="edit-rez-booking-status status-' + b.status + '">'
+    + MG._editRez._statusLabel(b.status) + '</span>';
+
+  // Tab buttons. Storno + Zkrátit + Prodloužit jen pro paid bookings.
+  var canEdit = (b.status === 'reserved' || b.status === 'active') && b.payment_status === 'paid';
+  var tabs = [
+    { key:'detail',  label: MG.t('editRez.tab.detail'),  show: true },
+    { key:'extend',  label: MG.t('editRez.tab.extend'),  show: canEdit },
+    { key:'shorten', label: MG.t('editRez.tab.shorten'), show: canEdit },
+    { key:'cancel',  label: MG.t('editRez.tab.cancel'),  show: canEdit }
+  ].filter(function(t){ return t.show; });
+
+  var tabHtml = tabs.map(function(t){
+    var act = (MG._editRez.tab === t.key) ? ' active' : '';
+    return '<button type="button" class="edit-rez-tab' + act + '" data-tab="' + t.key + '">' + t.label + '</button>';
+  }).join('');
+
+  c.innerHTML =
+    '<section class="edit-rez-card edit-rez-detail-head">' +
+      '<button type="button" class="btn-link" id="edit-rez-back">← ' + MG.t('editRez.list.title') + '</button>' +
+      '<h2>' + motoLabel + '</h2>' +
+      '<div class="edit-rez-detail-meta">' + dates + ' · ' + status + '</div>' +
+    '</section>' +
+    '<nav class="edit-rez-tabs" role="tablist">' + tabHtml + '</nav>' +
+    '<section class="edit-rez-card" id="edit-rez-tab-content"></section>';
+
+  document.getElementById('edit-rez-back').addEventListener('click', function(){
+    MG._editRez.selectedBooking = null;
+    MG._editRez._goto('list');
+  });
+  c.querySelectorAll('.edit-rez-tab').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      MG._editRez.tab = btn.getAttribute('data-tab');
+      MG._editRez._renderDetail();
+    });
+  });
+
+  // Per-tab obsah.
+  if (MG._editRez.tab === 'detail')  return MG._editRez._renderTabDetail();
+  if (MG._editRez.tab === 'cancel')  return MG._editRez._renderTabCancel();
+  if (MG._editRez.tab === 'extend')  return MG._editRez._renderTabExtend();
+  if (MG._editRez.tab === 'shorten') return MG._editRez._renderTabShorten();
+  return MG._editRez._renderTabDetail();
+};
+
+// ===== TAB: DETAIL =====
+MG._editRez._renderTabDetail = function(){
+  var b = MG._editRez.selectedBooking;
+  var m = MG._editRez.selectedMoto || {};
+  var t = document.getElementById('edit-rez-tab-content');
+  var days = MG._editRez._daysBetween(b.start_date, b.end_date);
+  var rows = [
+    [MG.t('editRez.detail.bookingId'), '<code>' + b.id.substring(0,8).toUpperCase() + '</code>'],
+    [MG.t('editRez.detail.moto'), (m.brand ? m.brand + ' ' : '') + (m.model || '')],
+    [MG.t('editRez.detail.dates'), MG.formatDate(b.start_date) + ' – ' + MG.formatDate(b.end_date) + ' (' + days + ' / ' + days + ')'],
+    [MG.t('editRez.detail.pickup'), (b.pickup_time || '—') + (b.pickup_address ? ' · ' + b.pickup_address : '')],
+    [MG.t('editRez.detail.return'), (b.return_time || '—') + (b.return_address ? ' · ' + b.return_address : '')],
+    [MG.t('editRez.detail.totalPaid'), '<strong>' + MG.formatPrice(Number(b.total_price || 0)) + '</strong>']
+  ];
+  var rowsHtml = rows.map(function(r){
+    return '<dt>' + r[0] + '</dt><dd>' + r[1] + '</dd>';
+  }).join('');
+  t.innerHTML =
+    '<h3>' + MG.t('editRez.detail.title') + '</h3>' +
+    '<dl class="edit-rez-dl">' + rowsHtml + '</dl>' +
+    MG._editRez._stornoBoxHtml();
+};
+
+// Storno podmínky box — sdílený mezi tab Storno, Zkrátit a Detail.
+MG._editRez._stornoBoxHtml = function(){
+  return '<aside class="edit-rez-storno-box">' +
+    '<h4>' + MG.t('editRez.storno.title') + '</h4>' +
+    '<ul>' +
+      '<li>' + MG.t('editRez.storno.tier1') + '</li>' +
+      '<li>' + MG.t('editRez.storno.tier2') + '</li>' +
+      '<li>' + MG.t('editRez.storno.tier3') + '</li>' +
+    '</ul>' +
+    '<p class="edit-rez-storno-note">' + MG.t('editRez.storno.note') + '</p>' +
+    '</aside>';
+};
+
+// ===== TAB: STORNO =====
+MG._editRez._renderTabCancel = function(){
+  var b = MG._editRez.selectedBooking;
+  var t = document.getElementById('edit-rez-tab-content');
+  // Refund se počítá podle hours-until-start (shoda s Flutter app StornoCalc).
+  var percent = MG._editRez._refundPercent(b.start_date);
+  var refund = Math.round(Number(b.total_price || 0) * percent / 100);
+
+  t.innerHTML =
+    '<h3>' + MG.t('editRez.cancel.title') + '</h3>' +
+    '<div class="edit-rez-warn">' + MG.t('editRez.cancel.warn') + '</div>' +
+    '<div class="edit-rez-refund-line refund-' + (percent === 100 ? 'full' : percent === 50 ? 'half' : 'none') + '">' +
+      '<span class="lbl">' + MG.t('editRez.cancel.refundLabel') + ':</span> ' +
+      '<strong>' + MG.formatPrice(refund) + '</strong> ' +
+      '<span class="pct">(' + percent + '%)</span>' +
+    '</div>' +
+    '<form id="edit-rez-cancel-form" class="edit-rez-form" novalidate>' +
+      '<label>' + MG.t('editRez.cancel.reasonLabel') +
+        '<textarea name="reason" rows="3" placeholder="' + MG.t('editRez.cancel.reasonPlaceholder') + '" maxlength="500"></textarea>' +
+      '</label>' +
+      '<button type="submit" class="btn btnred">' + MG.t('editRez.cancel.cta') + '</button>' +
+    '</form>' +
+    MG._editRez._stornoBoxHtml();
+
+  document.getElementById('edit-rez-cancel-form').addEventListener('submit', function(e){
+    e.preventDefault();
+    var reason = (e.currentTarget.reason.value || '').trim();
+    // Inline confirm (žádný native confirm, lepší UX).
+    MG._editRez._confirmDialog(MG.t('editRez.cancel.confirmTitle'), function(){
+      MG._editRez._submitCancel(reason, percent, refund);
+    });
+  });
+};
+
+// ===== Inline confirm dialog =====
+MG._editRez._confirmDialog = function(title, onYes){
+  var existing = document.getElementById('edit-rez-confirm-overlay');
+  if (existing) existing.remove();
+  var ov = document.createElement('div');
+  ov.id = 'edit-rez-confirm-overlay';
+  ov.className = 'edit-rez-confirm-overlay';
+  ov.innerHTML =
+    '<div class="edit-rez-confirm-dialog" role="dialog" aria-modal="true">' +
+      '<h4>' + title + '</h4>' +
+      '<div class="edit-rez-confirm-actions">' +
+        '<button type="button" class="btn btn-secondary" data-no>' + MG.t('editRez.cancel.confirmNo') + '</button>' +
+        '<button type="button" class="btn btnred" data-yes>' + MG.t('editRez.cancel.confirmYes') + '</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(ov);
+  ov.querySelector('[data-no]').addEventListener('click', function(){ ov.remove(); });
+  ov.querySelector('[data-yes]').addEventListener('click', function(){ ov.remove(); onYes(); });
+  ov.addEventListener('click', function(e){ if (e.target === ov) ov.remove(); });
+};
+
+MG._editRez._submitCancel = async function(reason, percent, refund){
+  if (MG._editRez.busy) return;
+  var b = MG._editRez.selectedBooking;
+  MG._editRez._setBusy(true);
+  try {
+    var r = await window.sb.rpc('cancel_booking_tracked', {
+      p_booking_id: b.id,
+      p_reason: reason || null
+    });
+    if (r.error){
+      console.error('[editRez] cancel err', r.error);
+      MG._editRez._showError(MG.t('editRez.err.generic'));
+      return;
+    }
+    // Success — ukázat zprávu a vrátit na seznam.
+    var msg = MG.t('editRez.cancel.success', { amount: MG.formatPrice(refund), percent: percent });
+    var c = document.getElementById('edit-rez-tab-content');
+    if (c) c.innerHTML = '<div class="edit-rez-success-box"><h3>✓</h3><p>' + msg + '</p>'
+      + '<button type="button" class="btn btngreen-small" id="edit-rez-back-list">'
+      + MG.t('editRez.list.title') + '</button></div>';
+    var back = document.getElementById('edit-rez-back-list');
+    if (back) back.addEventListener('click', async function(){
+      MG._editRez.selectedBooking = null;
+      await MG._editRez._loadBookings();
+      MG._editRez._goto('list');
+    });
+  } catch(err){
+    console.error('[editRez] cancel exception', err);
+    MG._editRez._showError(MG.t('editRez.err.generic'));
+  } finally {
+    MG._editRez._setBusy(false);
+  }
+};
+
+// ===== TAB: PROLONGATION (placeholder pro část C) =====
+MG._editRez._renderTabExtend = function(){
+  var t = document.getElementById('edit-rez-tab-content');
+  t.innerHTML = '<h3>' + MG.t('editRez.extend.title') + '</h3>'
+    + '<p>' + MG.t('editRez.loading') + '</p>';
+};
+
+// ===== TAB: SHORTEN (placeholder pro část C) =====
+MG._editRez._renderTabShorten = function(){
+  var t = document.getElementById('edit-rez-tab-content');
+  t.innerHTML = '<h3>' + MG.t('editRez.shorten.title') + '</h3>'
+    + '<p>' + MG.t('editRez.loading') + '</p>';
 };
 
 // ===== INIT =====
