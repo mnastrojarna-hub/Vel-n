@@ -155,11 +155,13 @@ serve(async (req: Request): Promise<Response> => {
     .limit(1)
 
   if (selErr) {
+    console.error('[cms-save] select error', JSON.stringify(selErr))
     return jsonResponse({
       error: 'select_failed',
       detail: selErr.message,
       code: (selErr as { code?: string }).code || null,
       hint: (selErr as { hint?: string }).hint || null,
+      full: selErr as unknown,
     }, 500)
   }
 
@@ -174,11 +176,13 @@ serve(async (req: Request): Promise<Response> => {
       .update({ value })
       .eq('id', existing.id)
     if (updErr) {
+      console.error('[cms-save] update error', JSON.stringify(updErr), 'for id', existing.id, 'key', key)
       return jsonResponse({
         error: 'update_failed',
         detail: updErr.message,
         code: (updErr as { code?: string }).code || null,
         hint: (updErr as { hint?: string }).hint || null,
+        full: updErr as unknown,
       }, 500)
     }
   } else {
@@ -188,11 +192,13 @@ serve(async (req: Request): Promise<Response> => {
       .from('cms_variables')
       .insert({ key, value, category: 'web' })
     if (insErr) {
+      console.error('[cms-save] insert error', JSON.stringify(insErr), 'payload', JSON.stringify({ key, valueType: typeof value, valueLen: typeof value === 'string' ? value.length : -1, category: 'web' }))
       return jsonResponse({
         error: 'insert_failed',
         detail: insErr.message,
         code: (insErr as { code?: string }).code || null,
         hint: (insErr as { hint?: string }).hint || null,
+        full: insErr as unknown,
       }, 500)
     }
     const { data: insRows } = await sb

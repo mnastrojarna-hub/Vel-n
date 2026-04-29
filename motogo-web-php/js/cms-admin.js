@@ -51,13 +51,21 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token: token, key: key, value: value }),
     }).then(function (r) {
-      return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; });
+      return r.text().then(function (text) {
+        var data = null;
+        try { data = JSON.parse(text); } catch (_) { data = { raw: text }; }
+        // Vždy logni kompletní odpověď do konzole — uživateli stačí F12
+        // Console a vidí přesnou PG chybu (detail + code).
+        console.log('[cms-save] response', { status: r.status, ok: r.ok, body: data, raw: text });
+        return { ok: r.ok, status: r.status, data: data };
+      });
     }).then(function (res) {
       if (!res.ok || !res.data || !res.data.success) {
         var d = res.data || {};
         var msg = d.error ? String(d.error) : ('HTTP ' + res.status);
         if (d.detail) msg += ': ' + d.detail;
         if (d.code) msg += ' [' + d.code + ']';
+        if (d.raw && !d.error) msg += ': ' + String(d.raw).slice(0, 200);
         throw new Error(msg);
       }
       return res.data;
