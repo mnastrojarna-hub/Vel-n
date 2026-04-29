@@ -2,6 +2,74 @@
 var MG = window.MG || {};
 window.MG = MG;
 
+// ===== PERSIST DOC FIELDS DO PROFILU =====
+// Brand-new web zákazník není po create_web_booking RPC přihlášen client-side,
+// proto profile.update() padá na RLS (povolen jen own row, id=auth.uid()).
+// Tato funkce zaručí, že údaje skutečně dorazí do Supabase:
+//  1) nastaví heslo přes set_web_booking_password (SECURITY DEFINER)
+//  2) signInWithPassword() — vytvoří klientskou session
+//  3) update profiles (id_number / license_number / license_group / license_expiry)
+//  4) verify read-back — když selže, logujeme do konzole.
+MG._rezPersistDocs = async function(idNumber, licenseNumber, licenseGroup, licenseExpiry){
+  if(!MG._rez.userId){ console.warn('[REZ] persistDocs: no userId'); return false; }
+
+  // 1) Heslo — jen jednou
+  if(MG._rez._password && MG._rez.bookingId && !MG._rez._passwordSet){
+    try {
+      var pwRes = await window.sb.rpc('set_web_booking_password', {
+        p_booking_id: MG._rez.bookingId, p_password: MG._rez._password
+      });
+      if(pwRes && pwRes.error){ console.error('[REZ] set_web_booking_password error:', pwRes.error); }
+      MG._rez._passwordSet = true;
+    } catch(e){ console.error('[REZ] set_web_booking_password exception:', e); }
+  }
+
+  // 2) Sign-in (idempotentní)
+  var signedIn = false;
+  try {
+    var sess = await window.sb.auth.getSession();
+    signedIn = !!(sess && sess.data && sess.data.session && sess.data.session.user);
+  } catch(e){}
+  if(!signedIn && MG._rez._password && MG._rez.formData && MG._rez.formData.email){
+    try {
+      var siRes = await window.sb.auth.signInWithPassword({
+        email: MG._rez.formData.email.trim().toLowerCase(),
+        password: MG._rez._password
+      });
+      if(siRes && siRes.error){ console.warn('[REZ] auto sign-in error:', siRes.error.message); }
+      else { signedIn = true; }
+    } catch(e){ console.warn('[REZ] auto sign-in exception:', e); }
+  }
+  delete MG._rez._password;
+
+  // 3) Update profilu
+  var payload = {
+    id_number: idNumber || null,
+    license_number: licenseNumber || null,
+    license_group: licenseGroup ? [licenseGroup] : null,
+    license_expiry: licenseExpiry || null
+  };
+  try {
+    var ur = await window.sb.from('profiles').update(payload).eq('id', MG._rez.userId);
+    if(ur && ur.error){ console.error('[REZ] profile update error:', ur.error); }
+  } catch(e){ console.error('[REZ] profile update exception:', e); }
+
+  // 4) Verify
+  try {
+    var rd = await window.sb.from('profiles')
+      .select('license_group,license_expiry,id_number,license_number')
+      .eq('id', MG._rez.userId).maybeSingle();
+    if(rd && rd.data){
+      var ok = (rd.data.license_group && rd.data.license_group.length) ||
+        rd.data.id_number || rd.data.license_number || rd.data.license_expiry;
+      if(!ok){ console.warn('[REZ] profile verify: empty after update — pravděpodobně RLS (sign-in selhal)'); }
+    } else if(rd && rd.error){
+      console.warn('[REZ] profile verify error:', rd.error);
+    }
+  } catch(e){}
+  return true;
+};
+
 // ===== MINDEE STEP (mobile: mandatory, desktop: optional) =====
 MG._rezShowMindeeStep = async function(){
   // If docs not yet validated (coming from step 2 form), validate first
@@ -38,24 +106,12 @@ MG._rezShowMindeeStep = async function(){
     }
     MG._rez._docsValidated=true;
 
-    // Save to profile
-    if(MG._rez.userId){
-      try{await window.sb.from('profiles').update({
-        id_number:docNum.value,
-        license_number:_isNoLic?null:licNum.value,
-        license_group:[licGroup.value],
-        license_expiry:_isNoLic?null:licExpiry.value
-      }).eq('id',MG._rez.userId);}catch(e){}
-    }
-
-    // Uložit heslo přes RPC
-    if(MG._rez._password && MG._rez.bookingId){
-      try{await window.sb.rpc('set_web_booking_password',{
-        p_booking_id:MG._rez.bookingId, p_password:MG._rez._password
-      });}catch(e){console.warn('[REZ] password save error:',e);}
-      MG._rez._passwordSet=true;
-      delete MG._rez._password;
-    }
+    // Save license/doklad to profile — pořadí důležité:
+    // 1) Nastav heslo (RPC SECURITY DEFINER)
+    // 2) Sign-in zákazníka (jinak RLS blokuje update profilu)
+    // 3) Update profilu — license_group/expiry/id_number/license_number
+    await MG._rezPersistDocs(docNum.value, _isNoLic?null:licNum.value,
+      licGroup.value, _isNoLic?null:(licExpiry?licExpiry.value:null));
   }
 
   // Reset scan flags
@@ -336,23 +392,8 @@ MG._rezSubmitPayment = async function(){
       MG._rez.formData._licExpiry=_isNoLic?null:(licExpiry?licExpiry.value:null);
     }
 
-    if(MG._rez.userId){
-      try{await window.sb.from('profiles').update({
-        id_number:docNum.value,
-        license_number:_isNoLic?null:licNum.value,
-        license_group:[licGroup.value],
-        license_expiry:_isNoLic?null:licExpiry.value
-      }).eq('id',MG._rez.userId);}catch(e){}
-    }
-
-    // Uložit heslo přes RPC (aktualizace auth.users)
-    if(MG._rez._password && MG._rez.bookingId){
-      try{await window.sb.rpc('set_web_booking_password',{
-        p_booking_id:MG._rez.bookingId, p_password:MG._rez._password
-      });}catch(e){console.warn('[REZ] password save error:',e);}
-      MG._rez._passwordSet=true;
-      delete MG._rez._password;
-    }
+    await MG._rezPersistDocs(docNum.value, _isNoLic?null:licNum.value,
+      licGroup.value, _isNoLic?null:(licExpiry?licExpiry.value:null));
   }
 
   var btn=document.querySelector('#rez-form .btn.btngreen');
