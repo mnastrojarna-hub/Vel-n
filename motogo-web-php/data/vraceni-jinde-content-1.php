@@ -24,7 +24,7 @@ return [
                 'text' => 'Vybereš si místo vrácení podle své trasy – hotel, nádraží, parkoviště nebo kdekoliv jinde.',
             ],
             [
-                'icon' => 'gfx/ico-uspora-casu.svg',
+                'icon' => 'gfx/uspora-casu.svg',
                 'title' => 'Úspora času',
                 'text' => 'Ušetříš cestu zpátky do půjčovny i domů – předáš motorku tam, kde jsi.',
             ],
@@ -39,7 +39,7 @@ return [
                 'text' => 'Vrácení domlouváme na předem sjednaný čas – klidně večer nebo o víkendu.',
             ],
             [
-                'icon' => 'gfx/ico-jednoduchost.svg',
+                'icon' => 'gfx/potvrzeni-rezervace.svg',
                 'title' => 'Jednoduchost',
                 'text' => 'Předáš klíče a výbavu, my zkontrolujeme motorku a odjedeme. Žádné papírování navíc.',
             ],

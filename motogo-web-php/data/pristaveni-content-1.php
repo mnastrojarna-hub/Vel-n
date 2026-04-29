@@ -34,7 +34,7 @@ return [
                 'text' => 'Přistavení domlouváme na předem sjednaný čas – klidně večer nebo o víkendu. Stačí zvolit čas v rezervaci.',
             ],
             [
-                'icon' => 'gfx/ico-uspora-casu.svg',
+                'icon' => 'gfx/uspora-casu.svg',
                 'title' => 'Úspora času',
                 'text' => 'Čas ušetřený na cestě do půjčovny a zpět můžeš věnovat sobě.',
             ],

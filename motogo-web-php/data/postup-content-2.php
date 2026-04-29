@@ -5,7 +5,7 @@
 return [
     'gallery' => [
         // Diagram vybavy (originalne 69e5ff03bfe42 z motogo24.cz cdn)
-        'image' => '/gfx/postup-vybava-diagram.jpg',
+        'image' => '/gfx/vybava_diagram_motogo24_1200px.svg',
         'alt' => 'Výbava diagram&nbsp;Motogo24',
         'group' => 'gal_1',
     ],

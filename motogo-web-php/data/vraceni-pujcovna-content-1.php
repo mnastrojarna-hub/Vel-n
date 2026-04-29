@@ -10,22 +10,22 @@ return [
         'grid' => 'gr4',
         'steps' => [
             [
-                'icon' => 'gfx/ico-step-cas.svg',
+                'icon' => 'gfx/cas-prevzeti-motorky.svg',
                 'title' => 'Přijeď v domluvený čas',
                 'text' => '',
             ],
             [
-                'icon' => 'gfx/ico-step-klice-vybava.svg',
+                'icon' => 'gfx/predani-motorky.svg',
                 'title' => 'Předej klíče a výbavu',
                 'text' => '',
             ],
             [
-                'icon' => 'gfx/ico-step-kontrola.svg',
+                'icon' => 'gfx/podpis-dokumentu.svg',
                 'title' => 'Společně zkontrolujeme stav motorky a výbavy',
                 'text' => '',
             ],
             [
-                'icon' => 'gfx/ico-step-email.svg',
+                'icon' => 'gfx/potvrzeni-rezervace.svg',
                 'title' => 'Na e-mail ti přijde potvrzení o ukončení nájmu, konečná faktura a slevový kód na další rezervaci.',
                 'text' => '',
             ],
