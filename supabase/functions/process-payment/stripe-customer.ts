@@ -13,6 +13,46 @@ export const SITE_URL = Deno.env.get('SITE_URL') || 'https://motogo24.cz'
 
 export type PaymentType = 'booking' | 'shop' | 'extension' | 'sos'
 
+const SUPPORTED_LANGS = ['cs', 'en', 'de', 'es', 'fr', 'nl', 'pl'] as const
+const DOMAIN_CS = 'https://motogo24.cz'
+const DOMAIN_INTL = 'https://motogo24.com'
+
+/**
+ * Build the absolute origin used for Stripe redirect URLs.
+ * Prefers what the browser sent (so .com users return to .com and keep their
+ * mg_web_lang cookie), falls back to per-language canonical domain, then SITE_URL.
+ */
+export function resolveReturnOrigin(origin: string | null | undefined, locale: string | null | undefined): string {
+  const lang = (locale || '').toLowerCase()
+  if (origin) {
+    try {
+      const u = new URL(origin)
+      if (u.hostname.endsWith('motogo24.cz') || u.hostname.endsWith('motogo24.com')) {
+        return `${u.protocol}//${u.host}`
+      }
+    } catch { /* ignore */ }
+  }
+  if (lang === 'cs') return DOMAIN_CS
+  if (SUPPORTED_LANGS.includes(lang as typeof SUPPORTED_LANGS[number])) return DOMAIN_INTL
+  return SITE_URL
+}
+
+/** Pick a Stripe Checkout `locale` value supported by Stripe; falls back to 'cs'. */
+export function resolveStripeLocale(locale: string | null | undefined): string {
+  const lang = (locale || '').toLowerCase()
+  if (SUPPORTED_LANGS.includes(lang as typeof SUPPORTED_LANGS[number])) return lang
+  return 'cs'
+}
+
+/** Append `&lang=xx` to a Stripe redirect URL if non-default. Default cs/en stay clean. */
+export function withLangParam(url: string, locale: string | null | undefined): string {
+  const lang = (locale || '').toLowerCase()
+  if (!lang || lang === 'cs' || lang === 'en') return url
+  if (!SUPPORTED_LANGS.includes(lang as typeof SUPPORTED_LANGS[number])) return url
+  const sep = url.includes('?') ? '&' : '?'
+  return `${url}${sep}lang=${lang}`
+}
+
 export interface PaymentRequest {
   booking_id?: string
   order_id?: string
@@ -25,6 +65,10 @@ export interface PaymentRequest {
   type?: PaymentType
   mode?: 'intent' | 'checkout'
   source?: string
+  /** Browser origin (https://motogo24.cz / https://motogo24.com) — Stripe redirects back here. */
+  origin?: string
+  /** Active website language (cs/en/de/es/fr/nl/pl) — propagates to thank-you page. */
+  locale?: string
 }
 
 export const PRODUCT_NAMES: Record<PaymentType, string> = {
