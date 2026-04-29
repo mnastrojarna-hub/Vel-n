@@ -565,9 +565,9 @@ return [
 
     // Extend
     'editRez.extend.title' => 'Prodloužit rezervaci',
-    'editRez.extend.help' => 'Vyberte v kalendáři nový (pozdější) konec rezervace. Zaplatíte pouze rozdíl ceny přes Stripe.',
-    'editRez.extend.helpUpcoming' => 'Vyberte nový termín — můžete posunout začátek dříve i konec později.',
-    'editRez.extend.helpActive' => 'U probíhající rezervace lze měnit pouze datum vrácení (prodloužit konec).',
+    'editRez.extend.help' => 'V kalendáři klikněte na den před původním začátkem (vyzvednutí dříve) nebo na den po původním konci (vrácení později). Zaplatíte pouze rozdíl ceny.',
+    'editRez.extend.helpUpcoming' => 'V kalendáři klikněte na den před začátkem rezervace (vyzvednutí dříve) nebo na den po jejím konci (vrácení později). Můžete prodloužit obě strany — opětovným kliknutím na prodloužený okraj výběr zrušíte.',
+    'editRez.extend.helpActive' => 'U probíhající rezervace lze prodloužit jen vrácení. V kalendáři klikněte na den po původním konci.',
     'editRez.extend.newStart' => 'Nový začátek',
     'editRez.extend.newEnd' => 'Nový konec',
     'editRez.extend.priceDiff' => 'Doplatek',
@@ -578,9 +578,9 @@ return [
 
     // Shorten
     'editRez.shorten.title' => 'Zkrátit rezervaci',
-    'editRez.shorten.help' => 'Vyberte v kalendáři nový (kratší) termín. Vracíme peníze automaticky podle storno podmínek.',
-    'editRez.shorten.helpUpcoming' => 'Můžete zkrátit od začátku (pozdější vyzvednutí) i od konce (dřívější vrácení).',
-    'editRez.shorten.helpActive' => 'U probíhající rezervace lze zkrátit pouze datum vrácení (vrátit dříve).',
+    'editRez.shorten.help' => 'Vyberte stranu (Začátek nebo Konec) a v kalendáři klikněte uvnitř rezervace na nový den. Vracíme peníze podle storno podmínek.',
+    'editRez.shorten.helpUpcoming' => 'Vyberte tlačítkem nahoře, jestli chcete zkrátit Začátek (pozdější vyzvednutí) nebo Konec (dřívější vrácení). Pak v kalendáři klikněte uvnitř rezervace na nový den. Opětovný klik na zkrácený okraj výběr zruší.',
+    'editRez.shorten.helpActive' => 'U probíhající rezervace lze zkrátit jen vrácení. V kalendáři klikněte na den před původním koncem (a ne dříve než dnešek).',
     'editRez.shorten.refund' => 'Vrátíme {amount} ({percent}%)',
     'editRez.shorten.refundZero' => '0 Kč — méně než 48 hodin do termínu, refund nelze.',
     'editRez.shorten.cta' => 'Zkrátit a vrátit peníze',
@@ -616,7 +616,7 @@ return [
     'editRez.err.activeStartLocked' => 'U probíhající rezervace nelze měnit datum vyzvednutí.',
     'editRez.err.invalidRange' => 'Vyberte platný termín.',
     'editRez.err.notShortening' => 'Pro zkrácení musí být nové datumy uvnitř původních.',
-    'editRez.err.notExtending' => 'Pro prodloužení musí být alespoň jedno datum mimo původní rozsah.',
+    'editRez.err.notExtending' => 'Nový termín musí obsahovat původní rozsah — vyberte den před začátkem nebo po konci původní rezervace.',
     'editRez.err.cantEdit' => 'Tuto rezervaci nelze upravit (dokončená nebo stornovaná).',
     'editRez.err.serverDown' => 'Přihlašovací služba momentálně nedostupná. Zkuste to prosím za chvíli, nebo nás kontaktujte na +420 774 256 271.',
     'editRez.err.emailNotConfirmed' => 'E-mail ještě nebyl potvrzen. Zkontrolujte e-mailovou schránku nebo nám napište.',

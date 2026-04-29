@@ -35,6 +35,9 @@
 - **promo_code** — promo kód (text)
 - **stripe_payment_intent_id** — Stripe Payment Intent ID (pro refundy)
 - **stripe_session_id** — Stripe Checkout Session ID
+- **stripe_checkout_url** (TEXT DEFAULT NULL) — URL aktivní Stripe Checkout session, ukládá `process-payment` při vytvoření session. Použito v abandoned mailu jako přímý odkaz na platbu.
+- **checkout_started_at** (TIMESTAMPTZ DEFAULT NULL) — okamžik kliknutí na „Pokračovat k platbě" (= vytvoření Stripe Checkout session). Vstupní bod 10minutového odpočtu pro abandoned mail.
+- **abandoned_email_sent_at** (TIMESTAMPTZ DEFAULT NULL) — kdy byl odeslán „nedokončená rezervace" mail (deduplikace v `send_abandoned_booking_emails`).
 - **rating, rated_at** — hodnocení zákazníkem
 - **helmet_size, jacket_size, pants_size, boots_size, gloves_size** — velikosti výbavy řidiče (helma, bunda, kalhoty, boty, rukavice)
 - **passenger_helmet_size, passenger_jacket_size, passenger_pants_size, passenger_boots_size, passenger_gloves_size** — velikosti výbavy spolujezdce
@@ -59,7 +62,7 @@
 - license_group (text[]), riding_experience
 - emergency_contact, emergency_phone
 - gear_sizes (jsonb), reliability_score (jsonb)
-- marketing_consent (boolean)
+- marketing_consent (boolean DEFAULT **true**)
 - **date_of_birth** — datum narození
 - **avatar_url** — URL avataru
 - **preferred_branch** — preferovaná pobočka
@@ -68,15 +71,16 @@
 - **is_blocked** (boolean DEFAULT false) — zákazník zablokován
 - **blocked_at** (timestamptz) — datum blokace
 - **blocked_reason** (text) — důvod blokace
-- **consent_gdpr** (boolean DEFAULT false) — souhlas GDPR
-- **consent_vop** (boolean DEFAULT false) — souhlas VOP
-- **consent_email** (boolean DEFAULT false) — souhlas email komunikace
-- **consent_sms** (boolean DEFAULT false) — souhlas SMS komunikace
-- **consent_push** (boolean DEFAULT false) — souhlas push notifikace
-- **consent_data_processing** (boolean DEFAULT false) — souhlas zpracování dat
-- **consent_photo** (boolean DEFAULT false) — souhlas fotografování dokladů
-- **consent_whatsapp** (boolean DEFAULT false) — souhlas WhatsApp komunikace
-- **consent_contract** (boolean DEFAULT false) — souhlas s návrhem smlouvy na motogo24.cz
+- **consent_gdpr** (boolean DEFAULT **true**) — souhlas GDPR
+- **consent_vop** (boolean DEFAULT **true**) — souhlas VOP
+- **consent_email** (boolean DEFAULT **true**) — souhlas email komunikace
+- **consent_sms** (boolean DEFAULT **true**) — souhlas SMS komunikace
+- **consent_push** (boolean DEFAULT **true**) — souhlas push notifikace
+- **consent_data_processing** (boolean DEFAULT **true**) — souhlas zpracování dat
+- **consent_photo** (boolean DEFAULT **true**) — souhlas fotografování dokladů
+- **consent_whatsapp** (boolean DEFAULT **true**) — souhlas WhatsApp komunikace
+- **consent_contract** (boolean DEFAULT **true**) — souhlas s návrhem smlouvy na motogo24.cz
+- **POZN.** Všech 10 consent sloupců default `true` (změna 2026-04-29). Backfill NULL→true proběhl. Frontend v upravit-rezervaci navíc bere NULL jako ON, jen explicitní `false` zobrazí jako vypnuté.
 - **stripe_customer_id** (TEXT) — Stripe Customer ID pro uložené platební metody
 - **id_number** (TEXT DEFAULT NULL) — číslo dokladu totožnosti (OP nebo pas) z Mindee OCR
 - **id_verified_at** (TIMESTAMPTZ) — datum ověření OP přes Mindee OCR

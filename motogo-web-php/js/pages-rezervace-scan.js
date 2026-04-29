@@ -465,7 +465,6 @@ MG._rezSubmitPayment = async function(){
     if(payData.checkout_url){
       MG._rez._paymentDone=true;
       try{sessionStorage.removeItem('mg_rez_form');}catch(e){}
-      if(MG._rez._abandonedTimer) clearTimeout(MG._rez._abandonedTimer);
       window.location.href=payData.checkout_url;
     }
     else{alert('Nepodařilo se vytvořit platbu.');if(btn){btn.disabled=false;btn.textContent='Pokračovat k platbě';}}

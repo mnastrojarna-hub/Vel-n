@@ -165,7 +165,9 @@ export async function handleWebBookingCheckout(
 
   await supabaseAdmin.from('bookings').update({
     stripe_session_id: session.id,
-    stripe_payment_intent_id: session.payment_intent as string
+    stripe_payment_intent_id: session.payment_intent as string,
+    stripe_checkout_url: session.url,
+    checkout_started_at: new Date().toISOString(),
   }).eq('id', body.booking_id!)
 
   if (sessionMetadata.shop_order_id) {
