@@ -123,11 +123,15 @@ serve(async (req: Request): Promise<Response> => {
   // větvení je transparentnější a chyba z PG se snadno propaguje na klienta.
   // Schema: id (uuid PK, default), key (text NOT NULL UNIQUE), value (jsonb NOT NULL),
   //         category (text NOT NULL), translations (jsonb NOT NULL default '{}'), updated_*.
-  const { data: existing, error: selErr } = await sb
+  // Pozn.: záměrně NE-používáme `.maybeSingle()` — pokud z nějakého důvodu
+  // existují duplikáty (nebo `key` ztratil UNIQUE constraint), maybeSingle()
+  // vyhodí 406 a uživatel uvidí 500. `limit(1)` zaručí, že vždycky dostaneme
+  // max 1 řádek a aktualizujeme ho.
+  const { data: existingRows, error: selErr } = await sb
     .from('cms_variables')
     .select('id')
     .eq('key', key)
-    .maybeSingle()
+    .limit(1)
 
   if (selErr) {
     return jsonResponse({
@@ -138,6 +142,7 @@ serve(async (req: Request): Promise<Response> => {
     }, 500)
   }
 
+  const existing = Array.isArray(existingRows) && existingRows.length > 0 ? existingRows[0] : null
   let rowId: string | null = existing?.id ?? null
 
   if (existing?.id) {
@@ -156,21 +161,25 @@ serve(async (req: Request): Promise<Response> => {
       }, 500)
     }
   } else {
-    // INSERT
-    const { data: ins, error: insErr } = await sb
+    // INSERT — `select().single()` po insertu vyžaduje RLS/representation,
+    // proto raději děláme nahý insert + samostatný select pro id.
+    const { error: insErr } = await sb
       .from('cms_variables')
       .insert({ key, value, category: 'web' })
-      .select('id')
-      .single()
-    if (insErr || !ins) {
+    if (insErr) {
       return jsonResponse({
         error: 'insert_failed',
-        detail: insErr?.message || 'no_row',
-        code: (insErr as { code?: string } | null)?.code || null,
-        hint: (insErr as { hint?: string } | null)?.hint || null,
+        detail: insErr.message,
+        code: (insErr as { code?: string }).code || null,
+        hint: (insErr as { hint?: string }).hint || null,
       }, 500)
     }
-    rowId = ins.id
+    const { data: insRows } = await sb
+      .from('cms_variables')
+      .select('id')
+      .eq('key', key)
+      .limit(1)
+    rowId = (Array.isArray(insRows) && insRows.length > 0) ? insRows[0].id : null
   }
 
   // 3) Fire-and-forget auto-překlad (admin nečeká)

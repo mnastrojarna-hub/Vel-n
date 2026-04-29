@@ -632,8 +632,8 @@ window.MOTOGO_CONFIG.SUPABASE_ANON_KEY = ' . json_encode(SUPABASE_ANON_KEY) . ';
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         echo '
 <script>window.MG_CMS_ADMIN = ' . $cmsCfg . ';</script>
-<link rel="stylesheet" href="' . BASE_URL . '/css/cms-admin.css">
-<script src="' . BASE_URL . '/js/cms-admin.js" defer></script>';
+<link rel="stylesheet" href="' . BASE_URL . '/css/cms-admin.css?v=' . @filemtime(__DIR__ . '/css/cms-admin.css') . '">
+<script src="' . BASE_URL . '/js/cms-admin.js?v=' . @filemtime(__DIR__ . '/js/cms-admin.js') . '" defer></script>';
     }
 
     echo renderSklikRetargeting();
