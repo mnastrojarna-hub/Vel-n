@@ -190,21 +190,27 @@ function renderInlineJs() {
 /**
  * Vyrenderuje <link rel="alternate" hreflang="…" href="…"> tagy pro všechny
  * podporované jazyky (cs, en, de, es, fr, nl, pl) + x-default.
- * Pro jazykové varianty používá ?lang=xx parametr.
  *
- * @param string $siteOrigin např. https://motogo24.cz
+ * Cross-domain mapping (Google-friendly):
+ *   hreflang="cs" → https://motogo24.cz{path}
+ *   hreflang="en" → https://motogo24.com{path}
+ *   hreflang="de|es|fr|nl|pl" → https://motogo24.com{path}?lang=xx
+ *   hreflang="x-default" → https://motogo24.com{path}
+ *
+ * Reciproční hreflang mezi doménami je nutný — Google jinak hreflang ignoruje.
+ *
  * @param string $path aktuální cesta (např. /blog/xy nebo /eshop)
  * @return string HTML <link> tagy
  */
-function renderHreflangAlternates($siteOrigin, $path) {
+function renderHreflangAlternates($path) {
     if (!defined('I18N_SUPPORTED')) return '';
     $out = '';
     foreach (I18N_SUPPORTED as $code) {
-        $href = $siteOrigin . $path . ($code === I18N_DEFAULT ? '' : ('?lang=' . $code));
+        $href = i18nUrlForLang($code, $path);
         $out .= "\n  " . '<link rel="alternate" hreflang="' . htmlspecialchars($code) . '" href="' . htmlspecialchars($href) . '">';
     }
-    // x-default → CZ verze (default)
-    $out .= "\n  " . '<link rel="alternate" hreflang="x-default" href="' . htmlspecialchars($siteOrigin . $path) . '">';
+    // x-default → mezinárodní (EN) verze na .com
+    $out .= "\n  " . '<link rel="alternate" hreflang="x-default" href="' . htmlspecialchars(i18nUrlForLang('en', $path)) . '">';
     return $out;
 }
 
@@ -229,7 +235,10 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
 
     $description = $meta['description'] ?? 'Půjčovna motorek Vysočina – silniční, sportovní, enduro i dětské. Nonstop pronájem bez kauce, online rezervace a motorkářská výbava zdarma.';
     $keywords = $meta['keywords'] ?? 'půjčovna motorek Vysočina, pronájem motorek Vysočina, půjčovna motorek Pelhřimov, půjčovna motorek bez kauce, nonstop půjčovna motorek, rezervace motorky online, motorky k pronájmu Vysočina, motorbike rental Czech Republic, motorcycle rental Prague, půjčovna motorek Praha';
-    $canonical = $meta['canonical'] ?? ($siteOrigin . $currentPath);
+    // Canonical = doménová home pro aktuální jazyk (cs → .cz, ostatní → .com).
+    // Tím Google indexuje českou verzi výhradně z motogo24.cz a anglickou/další
+    // z motogo24.com — žádný duplicate-content stejného jazyka přes obě domény.
+    $canonical = $meta['canonical'] ?? siteCanonicalUrl($currentPath);
     $ogImage = $meta['og_image'] ?? ($siteOrigin . '/gfx/hero-banner.jpg');
     $ogType = $meta['og_type'] ?? 'website';
     // Default robots — povolíme rich snippets (velké náhledy obrázků a plný text v
@@ -341,7 +350,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   <!-- Webmaster Tools verifikace (vyplnit hodnoty po registraci):
        - Google Search Console: <meta name="google-site-verification" content="...">
        - Seznam Webmaster Tools: <meta name="seznam-wmt" content="...">
-       - Bing Webmaster Tools:  <meta name="msvalidate.01" content="..."> -->' . renderHreflangAlternates($siteOrigin, $currentPath) . '
+       - Bing Webmaster Tools:  <meta name="msvalidate.01" content="..."> -->' . renderHreflangAlternates($currentPath) . '
   <title>' . htmlspecialchars($title) . '</title>
 
   <script type="application/ld+json">

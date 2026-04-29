@@ -46,8 +46,8 @@ renderPage(t('cart.title') . ' | ' . t('shop.title'), $content, '/kosik', [
     'description' => mb_substr(t('cart.title') . ' — ' . t('shop.intro'), 0, 160),
     'robots' => 'noindex, follow',
     'breadcrumbs' => [
-        ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
-        ['name' => t('breadcrumb.shop'), 'url' => 'https://motogo24.cz/eshop'],
-        ['name' => t('cart.title'), 'url' => 'https://motogo24.cz/kosik'],
+        ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
+        ['name' => t('breadcrumb.shop'), 'url' => siteCanonicalUrl('/eshop')],
+        ['name' => t('cart.title'), 'url' => siteCanonicalUrl('/kosik')],
     ],
 ]);

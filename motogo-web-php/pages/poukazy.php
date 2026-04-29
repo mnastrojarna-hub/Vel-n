@@ -103,7 +103,7 @@ renderPage($C['seo']['title'], $content, '/poukazy', [
     'keywords' => $C['seo']['keywords'],
     'og_image' => $C['seo']['og_image'] ?? null,
     'breadcrumbs' => [
-        ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
-        ['name' => t('breadcrumb.vouchers'), 'url' => 'https://motogo24.cz/poukazy'],
+        ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
+        ['name' => t('breadcrumb.vouchers'), 'url' => siteCanonicalUrl('/poukazy')],
     ],
 ]);

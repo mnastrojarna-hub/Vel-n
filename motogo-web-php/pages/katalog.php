@@ -296,7 +296,7 @@ renderPage($title . ' | MotoGo24', $content, $path, [
     'keywords' => t('katalog.seo.keywords'),
     'schema' => $itemListSchema,
     'breadcrumbs' => [
-        ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
-        ['name' => t('breadcrumb.catalog'), 'url' => 'https://motogo24.cz/katalog'],
+        ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
+        ['name' => t('breadcrumb.catalog'), 'url' => siteCanonicalUrl('/katalog')],
     ],
 ]);

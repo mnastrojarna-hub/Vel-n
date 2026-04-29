@@ -102,8 +102,8 @@ renderPage($C['seo']['title'], $content, '/jak-pujcit/vraceni-pujcovna', [
     'keywords' => $C['seo']['keywords'],
     'schema' => $faqSchema,
     'breadcrumbs' => [
-        ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
-        ['name' => t('breadcrumb.howto'), 'url' => 'https://motogo24.cz/jak-pujcit'],
-        ['name' => t('menu.howto.returnHome'), 'url' => 'https://motogo24.cz/jak-pujcit/vraceni-pujcovna'],
+        ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
+        ['name' => t('breadcrumb.howto'), 'url' => siteCanonicalUrl('/jak-pujcit')],
+        ['name' => t('menu.howto.returnHome'), 'url' => siteCanonicalUrl('/jak-pujcit/vraceni-pujcovna')],
     ],
 ]);

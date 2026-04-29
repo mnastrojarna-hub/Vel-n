@@ -121,9 +121,9 @@ renderPage(t('checkout.title') . ' | ' . t('shop.title'), $content . $checkoutJs
     'description' => mb_substr(t('checkout.intro'), 0, 160),
     'robots' => 'noindex, follow',
     'breadcrumbs' => [
-        ['name' => t('breadcrumb.home'),  'url' => 'https://motogo24.cz/'],
-        ['name' => t('breadcrumb.shop'),  'url' => 'https://motogo24.cz/eshop'],
-        ['name' => t('cart.title'),       'url' => 'https://motogo24.cz/kosik'],
-        ['name' => t('checkout.title'),   'url' => 'https://motogo24.cz/objednavka'],
+        ['name' => t('breadcrumb.home'),  'url' => siteCanonicalUrl('/')],
+        ['name' => t('breadcrumb.shop'),  'url' => siteCanonicalUrl('/eshop')],
+        ['name' => t('cart.title'),       'url' => siteCanonicalUrl('/kosik')],
+        ['name' => t('checkout.title'),   'url' => siteCanonicalUrl('/objednavka')],
     ],
 ]);

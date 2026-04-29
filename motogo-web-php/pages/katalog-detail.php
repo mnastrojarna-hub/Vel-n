@@ -526,5 +526,5 @@ renderPage($model . ' | Půjčovna MotoGo24', $content, '/katalog/' . $motoId, [
     'og_image' => $mainImg ?: null,
     'og_type' => 'product',
     'schema' => $productSchema,
-    'breadcrumbs' => [['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'], ['name' => t('breadcrumb.catalog'), 'url' => 'https://motogo24.cz/katalog'], ['name' => $moto['model'], 'url' => 'https://motogo24.cz/katalog/' . $motoId]],
+    'breadcrumbs' => [['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')], ['name' => t('breadcrumb.catalog'), 'url' => siteCanonicalUrl('/katalog')], ['name' => $moto['model'], 'url' => siteCanonicalUrl('/katalog/') . $motoId]],
 ]);

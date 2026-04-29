@@ -233,7 +233,7 @@ if (!empty($C['process']['steps']) && is_array($C['process']['steps'])) {
         $name = trim(strip_tags($s['title'] ?? ''));
         $text = trim(strip_tags($s['text'] ?? ''));
         if ($name === '' || $text === '') continue;
-        $howToSteps[] = '{"@type":"HowToStep","position":' . ($i + 1) . ',"name":' . json_encode($name, JSON_UNESCAPED_UNICODE) . ',"text":' . json_encode($text, JSON_UNESCAPED_UNICODE) . ',"url":"https://motogo24.cz/jak-pujcit#krok-' . ($i + 1) . '"}';
+        $howToSteps[] = '{"@type":"HowToStep","position":' . ($i + 1) . ',"name":' . json_encode($name, JSON_UNESCAPED_UNICODE) . ',"text":' . json_encode($text, JSON_UNESCAPED_UNICODE) . ',"url":' . json_encode(siteCanonicalUrl('/jak-pujcit#krok-' . ($i + 1)), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . '}';
     }
 }
 $howToSchema = '';
@@ -261,6 +261,6 @@ renderPage($C['seo']['title'], $content, '/', [
     'aggregate_rating' => $aggRating,
     'speakable' => ['h1', '.home-intro', '[aria-labelledby="catalogue"] > h2', '[aria-labelledby="process"]'],
     'breadcrumbs' => [
-        ['name' => 'Domů', 'url' => 'https://motogo24.cz/'],
+        ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
     ],
 ]);

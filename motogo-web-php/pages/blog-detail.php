@@ -108,5 +108,5 @@ renderPage($titleRaw . ' | Blog MotoGo24', $content, '/blog/' . $slug, [
     'og_type' => 'article',
     'og_image' => !empty($post['images'][0]) ? $post['images'][0] : (!empty($post['image_url']) ? $post['image_url'] : null),
     'schema' => $articleSchema,
-    'breadcrumbs' => [['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'], ['name' => t('breadcrumb.blog'), 'url' => 'https://motogo24.cz/blog'], ['name' => $titleRaw, 'url' => 'https://motogo24.cz/blog/' . $slug]],
+    'breadcrumbs' => [['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')], ['name' => t('breadcrumb.blog'), 'url' => siteCanonicalUrl('/blog')], ['name' => $titleRaw, 'url' => siteCanonicalUrl('/blog/') . $slug]],
 ]);

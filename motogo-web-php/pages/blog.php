@@ -63,7 +63,7 @@ renderPage(t('blog.title'), $content, '/blog', [
     'description' => t('blog.description'),
     'keywords' => t('blog.keywords'),
     'breadcrumbs' => [
-        ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
-        ['name' => t('breadcrumb.blog'), 'url' => 'https://motogo24.cz/blog'],
+        ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
+        ['name' => t('breadcrumb.blog'), 'url' => siteCanonicalUrl('/blog')],
     ],
 ]);

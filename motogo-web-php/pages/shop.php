@@ -31,7 +31,7 @@ foreach ((is_array($products) ? $products : []) as $p) {
     $pname = (string)localized($p, 'name');
     if ($pname === '') $pname = (string)($p['name'] ?? '');
     $listItems[] = '{"@type":"ListItem","position":' . $pos
-        . ',"url":"https://motogo24.cz/eshop/' . htmlspecialchars($p['id']) . '"'
+        . ',"url":' . json_encode(siteCanonicalUrl('/eshop/' . $p['id']), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
         . ',"name":' . json_encode($pname, JSON_UNESCAPED_UNICODE)
         . '}';
     if ($pos >= 50) break;
@@ -49,7 +49,7 @@ renderPage(t('shop.title'), $content, '/eshop', [
     'keywords' => t('shop.keywords'),
     'schema' => $itemListSchema,
     'breadcrumbs' => [
-        ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
-        ['name' => t('breadcrumb.shop'), 'url' => 'https://motogo24.cz/eshop'],
+        ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
+        ['name' => t('breadcrumb.shop'), 'url' => siteCanonicalUrl('/eshop')],
     ],
 ]);
