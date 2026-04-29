@@ -470,7 +470,9 @@ MG._rezSubmitPayment = async function(){
   }
 
   try{
-    var payBody={booking_id:bookingId,amount:amount,type:'booking',source:'web',mode:'checkout'};
+    var payBody={booking_id:bookingId,amount:amount,type:'booking',source:'web',mode:'checkout',
+      origin: window.location.origin,
+      locale: (document.documentElement.lang||'cs').slice(0,2)};
     if(shopOrderId) payBody.shop_order_id = shopOrderId;
     var payRes=await fetch(window.MOTOGO_CONFIG.SUPABASE_URL+'/functions/v1/process-payment',{method:'POST',
       headers:{'Content-Type':'application/json','apikey':window.MOTOGO_CONFIG.SUPABASE_ANON_KEY},

@@ -178,7 +178,9 @@
               customer_name:  name,
               customer_phone: phone,
               shipping_method: ship,
-              shipping_address: shipAddr
+              shipping_address: shipAddr,
+              origin: window.location.origin,
+              locale: (document.documentElement.lang||'cs').slice(0,2)
             })
           });
           var json = await resp.json().catch(function(){ return null; });
