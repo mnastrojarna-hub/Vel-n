@@ -335,6 +335,17 @@ return [
     'editRez.forgot.error' => 'Failed to send the e-mail. Please try again.',
     'editRez.forgot.back' => '← Back to sign in',
 
+    'editRez.reset.title' => 'Set new password',
+    'editRez.reset.help' => 'Enter your new password (min. 8 characters). You will be signed in and see your bookings after saving.',
+    'editRez.reset.password' => 'New password',
+    'editRez.reset.password2' => 'Confirm password',
+    'editRez.reset.submit' => 'SAVE NEW PASSWORD',
+    'editRez.reset.submitting' => 'Saving…',
+    'editRez.reset.success' => 'Password saved. Continue to your bookings.',
+    'editRez.reset.error' => 'Could not save the password. Please try again.',
+    'editRez.reset.tooShort' => 'Password must be at least 8 characters.',
+    'editRez.reset.mismatch' => 'Passwords do not match.',
+
     'editRez.list.title' => 'Your bookings',
     'editRez.list.empty' => 'You have no bookings that can be managed.',
     'editRez.list.openNew' => 'Make a new booking',

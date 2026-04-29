@@ -436,6 +436,18 @@ return [
     'editRez.forgot.error' => 'Nepodařilo se odeslat e-mail. Zkuste to prosím znovu.',
     'editRez.forgot.back' => '← Zpět na přihlášení',
 
+    // Reset password (po kliku na link z e-mailu)
+    'editRez.reset.title' => 'Nastavit nové heslo',
+    'editRez.reset.help' => 'Zadejte nové heslo (min. 8 znaků). Po uložení budete přihlášen(a) a uvidíte své rezervace.',
+    'editRez.reset.password' => 'Nové heslo',
+    'editRez.reset.password2' => 'Heslo znovu',
+    'editRez.reset.submit' => 'ULOŽIT NOVÉ HESLO',
+    'editRez.reset.submitting' => 'Ukládám…',
+    'editRez.reset.success' => 'Heslo nastaveno. Pokračujte do svých rezervací.',
+    'editRez.reset.error' => 'Nepodařilo se uložit heslo. Zkuste to prosím znovu.',
+    'editRez.reset.tooShort' => 'Heslo musí mít alespoň 8 znaků.',
+    'editRez.reset.mismatch' => 'Zadaná hesla se neshodují.',
+
     // Reservation list / picker
     'editRez.list.title' => 'Vaše rezervace',
     'editRez.list.empty' => 'Nemáte žádnou rezervaci, kterou by bylo možné upravit.',

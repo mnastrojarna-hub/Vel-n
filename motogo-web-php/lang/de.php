@@ -335,6 +335,17 @@ return [
     'editRez.forgot.error' => 'E-Mail konnte nicht gesendet werden. Bitte versuchen Sie es erneut.',
     'editRez.forgot.back' => '← Zurück zum Login',
 
+    'editRez.reset.title' => 'Neues Passwort festlegen',
+    'editRez.reset.help' => 'Geben Sie ein neues Passwort ein (min. 8 Zeichen). Nach dem Speichern werden Sie angemeldet und sehen Ihre Reservierungen.',
+    'editRez.reset.password' => 'Neues Passwort',
+    'editRez.reset.password2' => 'Passwort bestätigen',
+    'editRez.reset.submit' => 'NEUES PASSWORT SPEICHERN',
+    'editRez.reset.submitting' => 'Speichere…',
+    'editRez.reset.success' => 'Passwort gespeichert. Weiter zu Ihren Reservierungen.',
+    'editRez.reset.error' => 'Passwort konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.',
+    'editRez.reset.tooShort' => 'Passwort muss mindestens 8 Zeichen haben.',
+    'editRez.reset.mismatch' => 'Die Passwörter stimmen nicht überein.',
+
     'editRez.list.title' => 'Ihre Reservierungen',
     'editRez.list.empty' => 'Sie haben keine bearbeitbare Reservierung.',
     'editRez.list.openNew' => 'Neue Reservierung erstellen',
