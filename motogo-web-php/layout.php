@@ -95,8 +95,8 @@ function renderFooter() {
         '</div>' .
         '<div><h3>' . tc('footer.aboutTitle') . '</h3><ul>' . $menuHtml . '</ul></div>' .
         '<div><h3>' . tc('footer.socialTitle') . '</h3>' .
-            '<p class="dfc"><span class="footer-social-icon"><img alt="Facebook" src="' . BASE_URL . '/gfx/facebook.svg"></span>&nbsp;<a href="' . FB_URL . '">facebook</a></p><p>&nbsp;</p>' .
-            '<p class="dfc"><span class="footer-social-icon"><img alt="Instagram" src="' . BASE_URL . '/gfx/instagram.svg"></span>&nbsp;<a href="' . IG_URL . '">instagram</a></p>' .
+            '<p class="dfc"><span class="footer-social-icon"><img alt="Facebook" src="' . BASE_URL . '/gfx/facebook-footer.svg"></span>&nbsp;<a href="' . FB_URL . '">facebook</a></p><p>&nbsp;</p>' .
+            '<p class="dfc"><span class="footer-social-icon"><img alt="Instagram" src="' . BASE_URL . '/gfx/instagram-footer.svg"></span>&nbsp;<a href="' . IG_URL . '">instagram</a></p>' .
         '</div>' .
         '<div class="footer-contact"><h3>' . tc('footer.helpTitle') . '</h3>' .
             '<div class="footer-phone dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/telefon.svg" alt="' . te('footer.iconPhone') . '" class="icon-small" loading="lazy"></div><div><p>' . tc('footer.callUs') . '<br><strong><a href="' . PHONE_LINK . '">' . PHONE . '</a></strong></p></div></div>' .

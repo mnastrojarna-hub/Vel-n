@@ -15,9 +15,9 @@ $defaults = [
     'intro_cta' => ['label' => 'OBJEDNAT DÁRKOVÝ POUKAZ', 'href' => '/koupit-darkovy-poukaz', 'aria' => 'Objednat dárkový poukaz na pronájem motorky v půjčovně Motogo24'],
     'intro_image' => ['src' => 'gfx/darkovy-poukaz.jpg', 'alt' => 'Dárkový poukaz'],
     'steps' => [
-        ['icon' => 'gfx/ico-step1.svg', 'title' => '1. Vyber', 'text' => 'Vybereš si hodnotu poukazu nebo konkrétní motorku.'],
-        ['icon' => 'gfx/ico-step2.svg', 'title' => '2. Zaplať', 'text' => 'Zaplatíš online.'],
-        ['icon' => 'gfx/ico-step3.svg', 'title' => '3. Vyzvedni', 'text' => 'Poukaz po zaplacení přistane do tvé e-mailové schránky.'],
+        ['icon' => 'gfx/vyber-motorku.svg', 'title' => '1. Vyber', 'text' => 'Vybereš si hodnotu poukazu nebo konkrétní motorku.'],
+        ['icon' => 'gfx/zaplat.svg', 'title' => '2. Zaplať', 'text' => 'Zaplatíš online.'],
+        ['icon' => 'gfx/potvrzeni-rezervace.svg', 'title' => '3. Vyzvedni', 'text' => 'Poukaz po zaplacení přistane do tvé e-mailové schránky.'],
     ],
     'validity_note' => 'Všechny vouchery mají <strong>platnost 3 roky</strong> od data vystavení. <strong>Obdarovaný si sám zvolí termín výpůjčky</strong>, který se mu hodí. Může nás kontaktovat e-mailem, telefonicky nebo přes sociální sítě.',
     'why' => [
