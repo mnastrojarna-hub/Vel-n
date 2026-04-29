@@ -19,7 +19,7 @@ return [
         'grid' => 'gr5',
         'items' => [
             [
-                'icon' => 'gfx/ico-flexibilita.svg',
+                'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
                 'title' => 'Flexibilita',
                 'text' => 'Vybereš si místo vrácení podle své trasy – hotel, nádraží, parkoviště nebo kdekoliv jinde.',
             ],

@@ -19,7 +19,7 @@ return [
         'grid' => 'gr5',
         'items' => [
             [
-                'icon' => 'gfx/ico-flexibilita.svg',
+                'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
                 'title' => 'Flexibilita',
                 'text' => 'Motorku přivezeme, kam potřebuješ – domů, do hotelu, k nádraží nebo na start výletu.',
             ],
