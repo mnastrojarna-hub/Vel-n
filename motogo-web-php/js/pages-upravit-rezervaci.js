@@ -519,18 +519,311 @@ MG._editRez._submitCancel = async function(reason, percent, refund){
   }
 };
 
-// ===== TAB: PROLONGATION (placeholder pro část C) =====
-MG._editRez._renderTabExtend = function(){
-  var t = document.getElementById('edit-rez-tab-content');
-  t.innerHTML = '<h3>' + MG.t('editRez.extend.title') + '</h3>'
-    + '<p>' + MG.t('editRez.loading') + '</p>';
+// ===== AVAILABILITY (occupied dates other than this booking) =====
+// Pro extend kontrolujeme překryv s ostatními rezervacemi stejné motorky.
+// Používáme veřejnou RPC get_moto_booked_dates a vyřazujeme aktuální booking.
+MG._editRez._loadOccupied = async function(){
+  var b = MG._editRez.selectedBooking;
+  if (!b || !b.moto_id) return [];
+  try {
+    var r = await window.sb.rpc('get_moto_booked_dates', { p_moto_id: b.moto_id });
+    if (r.error){ console.warn('[editRez] occupied err', r.error); return []; }
+    var data = r.data || [];
+    return data.filter(function(x){
+      // RPC vrací dates+status; vyhazujeme svůj vlastní booking dle datumů.
+      // (RPC neuvádí booking_id; porovnáme tedy dle start+end+status, což je
+      // dostatečné — pravděpodobnost, že má někdo identický rozsah, je nulová,
+      // a v case match nám to jen umožní více volnosti — bezpečné fail-open.)
+      return !(x.start_date === b.start_date && x.end_date === b.end_date);
+    });
+  } catch(e){ return []; }
 };
 
-// ===== TAB: SHORTEN (placeholder pro část C) =====
-MG._editRez._renderTabShorten = function(){
+// Cena za rozsah — duplikát logiky z api.js MG.calcPrice, ale pracujeme s motorkou
+// předanou (může chybět v cache). Inclusive start+end.
+MG._editRez._priceForRange = function(moto, startIso, endIso){
+  if (!moto || !startIso || !endIso) return 0;
+  var s = new Date(startIso), e = new Date(endIso);
+  if (s > e) return 0;
+  var days = ['sun','mon','tue','wed','thu','fri','sat'];
+  var d = new Date(s); var total = 0;
+  while (d <= e){
+    var k = 'price_' + days[d.getDay()];
+    var p = Number(moto[k] || moto.price_weekday || 0);
+    total += p;
+    d.setDate(d.getDate() + 1);
+  }
+  return total;
+};
+
+// Detekce překryvu rozsahu se seznamem occupied (každý je {start_date,end_date}).
+MG._editRez._rangeOverlapsOccupied = function(startIso, endIso, occupied){
+  return (occupied || []).some(function(o){
+    return !(endIso < o.start_date || startIso > o.end_date);
+  });
+};
+
+// ===== TAB: PROLONGATION =====
+// Aktivní rezervace: měnit lze JEN end_date (start je zamčený).
+// Reserved: měnit lze obojí (dříve začít / později skončit).
+MG._editRez._renderTabExtend = async function(){
+  var b = MG._editRez.selectedBooking;
+  var m = MG._editRez.selectedMoto || {};
   var t = document.getElementById('edit-rez-tab-content');
-  t.innerHTML = '<h3>' + MG.t('editRez.shorten.title') + '</h3>'
-    + '<p>' + MG.t('editRez.loading') + '</p>';
+  var isActive = (b.status === 'active');
+  var helpKey = isActive ? 'editRez.extend.helpActive' : 'editRez.extend.helpUpcoming';
+
+  t.innerHTML =
+    '<h3>' + MG.t('editRez.extend.title') + '</h3>' +
+    '<p>' + MG.t(helpKey) + '</p>' +
+    '<form id="edit-rez-extend-form" class="edit-rez-form edit-rez-date-grid" novalidate>' +
+      '<label>' + MG.t('editRez.extend.newStart') +
+        '<input type="date" name="newStart" value="' + b.start_date + '" min="' + (isActive ? b.start_date : '') + '" max="' + b.start_date + '"' + (isActive ? ' readonly' : '') + '>' +
+      '</label>' +
+      '<label>' + MG.t('editRez.extend.newEnd') +
+        '<input type="date" name="newEnd" value="' + b.end_date + '" min="' + b.end_date + '">' +
+      '</label>' +
+      '<div id="edit-rez-extend-summary" class="edit-rez-price-summary" aria-live="polite"></div>' +
+      '<button type="submit" class="btn btngreen" id="edit-rez-extend-cta" disabled>' + MG.t('editRez.extend.cta') + '</button>' +
+    '</form>';
+
+  // Načteme occupied jen jednou, pak cachujeme pro live recalcs.
+  var occupied = await MG._editRez._loadOccupied();
+  var f = document.getElementById('edit-rez-extend-form');
+
+  function recalc(){
+    var ns = f.newStart.value, ne = f.newEnd.value;
+    var summary = document.getElementById('edit-rez-extend-summary');
+    var cta = document.getElementById('edit-rez-extend-cta');
+    if (!ns || !ne || ns > ne){
+      summary.textContent = '';
+      cta.disabled = true;
+      return;
+    }
+    var noChange = (ns === b.start_date && ne === b.end_date);
+    if (noChange){
+      summary.innerHTML = '<span class="muted">' + MG.t('editRez.extend.noChange') + '</span>';
+      cta.disabled = true;
+      return;
+    }
+    // Pro extend: alespoň jedno z nových dat musí být MIMO původní rozsah a
+    // celý nový rozsah musí původní obsahovat (start dříve nebo stejně, end
+    // později nebo stejně).
+    if (ns > b.start_date || ne < b.end_date){
+      summary.innerHTML = '<span class="error">' + MG.t('editRez.err.notExtending') + '</span>';
+      cta.disabled = true;
+      return;
+    }
+    if (MG._editRez._rangeOverlapsOccupied(ns, ne, occupied)){
+      summary.innerHTML = '<span class="error">' + MG.t('editRez.extend.unavailable') + '</span>';
+      cta.disabled = true;
+      return;
+    }
+    var origPrice = MG._editRez._priceForRange(m, b.start_date, b.end_date);
+    var newPrice  = MG._editRez._priceForRange(m, ns, ne);
+    var diff = Math.max(0, Math.round(newPrice - origPrice));
+    summary.innerHTML = '<div class="line"><span class="lbl">' + MG.t('editRez.extend.priceDiff') + ':</span> ' +
+      '<strong>' + MG.formatPrice(diff) + '</strong></div>';
+    cta.disabled = (diff <= 0);
+  }
+  f.newStart.addEventListener('change', recalc);
+  f.newEnd.addEventListener('change', recalc);
+  recalc();
+
+  f.addEventListener('submit', function(e){
+    e.preventDefault();
+    if (MG._editRez.busy) return;
+    MG._editRez._submitExtend(f.newStart.value, f.newEnd.value);
+  });
+};
+
+// Pošle požadavek na Stripe Checkout přes Edge funkci `process-payment`
+// (typ='extension'). Edge vrátí { url } a my zákazníka přesměrujeme.
+// Webhook po úspěšné platbě atomicky aplikuje datumy + cenu (existující logika).
+MG._editRez._submitExtend = async function(newStart, newEnd){
+  var b = MG._editRez.selectedBooking;
+  var m = MG._editRez.selectedMoto || {};
+  var origPrice = MG._editRez._priceForRange(m, b.start_date, b.end_date);
+  var newPrice  = MG._editRez._priceForRange(m, newStart, newEnd);
+  var diff = Math.round(newPrice - origPrice);
+  if (diff <= 0){ MG._editRez._showError(MG.t('editRez.err.invalidRange')); return; }
+
+  var cta = document.getElementById('edit-rez-extend-cta');
+  var origLabel = cta ? cta.textContent : '';
+  if (cta){ cta.disabled = true; cta.textContent = MG.t('editRez.extend.creating'); }
+  MG._editRez._setBusy(true);
+  try {
+    // Auth token pro Edge volání.
+    var sess = await window.sb.auth.getSession();
+    var token = sess && sess.data && sess.data.session && sess.data.session.access_token;
+    if (!token) throw new Error('no-auth');
+    var url = window.MOTOGO_CONFIG.SUPABASE_URL + '/functions/v1/process-payment';
+    var resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token,
+        'apikey': window.MOTOGO_CONFIG.SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({
+        type: 'extension',
+        booking_id: b.id,
+        new_start_date: newStart,
+        new_end_date: newEnd,
+        amount: diff,
+        success_url: window.location.origin + '/potvrzeni?booking_id=' + b.id,
+        cancel_url:  window.location.origin + '/upravit-rezervaci'
+      })
+    });
+    var data = await resp.json().catch(function(){ return null; });
+    if (!resp.ok || !data || !data.url){
+      console.error('[editRez] extend payment err', resp.status, data);
+      MG._editRez._showError((data && data.error) ? data.error : MG.t('editRez.err.generic'));
+      return;
+    }
+    window.location.href = data.url;
+  } catch(err){
+    console.error('[editRez] extend exception', err);
+    MG._editRez._showError(MG.t('editRez.err.generic'));
+  } finally {
+    MG._editRez._setBusy(false);
+    if (cta){ cta.disabled = false; cta.textContent = origLabel; }
+  }
+};
+
+// ===== TAB: SHORTEN =====
+// Aktivní rezervace: měnit lze JEN end_date (vrátit dříve).
+// Reserved: měnit lze obojí (později začít / dříve skončit).
+MG._editRez._renderTabShorten = function(){
+  var b = MG._editRez.selectedBooking;
+  var m = MG._editRez.selectedMoto || {};
+  var t = document.getElementById('edit-rez-tab-content');
+  var isActive = (b.status === 'active');
+  var helpKey = isActive ? 'editRez.shorten.helpActive' : 'editRez.shorten.helpUpcoming';
+
+  t.innerHTML =
+    '<h3>' + MG.t('editRez.shorten.title') + '</h3>' +
+    '<p>' + MG.t(helpKey) + '</p>' +
+    '<form id="edit-rez-shorten-form" class="edit-rez-form edit-rez-date-grid" novalidate>' +
+      '<label>' + MG.t('editRez.extend.newStart') +
+        '<input type="date" name="newStart" value="' + b.start_date + '" min="' + b.start_date + '" max="' + b.end_date + '"' + (isActive ? ' readonly' : '') + '>' +
+      '</label>' +
+      '<label>' + MG.t('editRez.extend.newEnd') +
+        '<input type="date" name="newEnd" value="' + b.end_date + '" min="' + b.start_date + '" max="' + b.end_date + '">' +
+      '</label>' +
+      '<label>' + MG.t('editRez.shorten.reasonLabel') +
+        '<textarea name="reason" rows="2" maxlength="500"></textarea>' +
+      '</label>' +
+      '<div id="edit-rez-shorten-summary" class="edit-rez-price-summary" aria-live="polite"></div>' +
+      '<button type="submit" class="btn btngreen" id="edit-rez-shorten-cta" disabled>' + MG.t('editRez.shorten.cta') + '</button>' +
+    '</form>' +
+    MG._editRez._stornoBoxHtml();
+
+  var f = document.getElementById('edit-rez-shorten-form');
+  function recalc(){
+    var ns = f.newStart.value, ne = f.newEnd.value;
+    var summary = document.getElementById('edit-rez-shorten-summary');
+    var cta = document.getElementById('edit-rez-shorten-cta');
+    if (!ns || !ne || ns > ne){
+      summary.textContent = ''; cta.disabled = true; return;
+    }
+    var noChange = (ns === b.start_date && ne === b.end_date);
+    if (noChange){
+      summary.innerHTML = '<span class="muted">' + MG.t('editRez.extend.noChange') + '</span>';
+      cta.disabled = true; return;
+    }
+    // Pro shorten: nové datumy musí být UVNITŘ původních.
+    if (ns < b.start_date || ne > b.end_date){
+      summary.innerHTML = '<span class="error">' + MG.t('editRez.err.notShortening') + '</span>';
+      cta.disabled = true; return;
+    }
+    var origPrice = MG._editRez._priceForRange(m, b.start_date, b.end_date);
+    var newPrice  = MG._editRez._priceForRange(m, ns, ne);
+    var diff = Math.max(0, Math.round(origPrice - newPrice));
+    if (diff <= 0){
+      summary.innerHTML = '<span class="muted">' + MG.t('editRez.extend.noChange') + '</span>';
+      cta.disabled = true; return;
+    }
+    // Refund % podle nového konce / začátku (shoda s SQL backend logikou).
+    var target = (ne < b.end_date) ? ne : ns;
+    var pct = MG._editRez._refundPercent(target);
+    var refund = Math.round(diff * pct / 100);
+    var cls = pct === 100 ? 'refund-full' : pct === 50 ? 'refund-half' : 'refund-none';
+    if (pct === 0){
+      summary.innerHTML = '<div class="line ' + cls + '">' + MG.t('editRez.shorten.refundZero') + '</div>';
+      cta.disabled = true;
+    } else {
+      summary.innerHTML = '<div class="line ' + cls + '">'
+        + MG.t('editRez.shorten.refund', { amount: MG.formatPrice(refund), percent: pct })
+        + '</div>';
+      cta.disabled = false;
+    }
+    f.dataset.refund = String(refund);
+    f.dataset.pct = String(pct);
+  }
+  f.newStart.addEventListener('change', recalc);
+  f.newEnd.addEventListener('change', recalc);
+  recalc();
+
+  f.addEventListener('submit', function(e){
+    e.preventDefault();
+    if (MG._editRez.busy) return;
+    var ns = f.newStart.value, ne = f.newEnd.value;
+    var reason = (f.reason.value || '').trim();
+    var refund = Number(f.dataset.refund || 0);
+    var pct = Number(f.dataset.pct || 0);
+    MG._editRez._confirmDialog(MG.t('editRez.shorten.cta') + '?', function(){
+      MG._editRez._submitShorten(ns, ne, reason, refund, pct);
+    });
+  });
+};
+
+MG._editRez._submitShorten = async function(newStart, newEnd, reason, refund, pct){
+  var b = MG._editRez.selectedBooking;
+  MG._editRez._setBusy(true);
+  try {
+    var r = await window.sb.rpc('shorten_booking_with_refund', {
+      p_booking_id: b.id,
+      p_new_start: newStart,
+      p_new_end: newEnd,
+      p_reason: reason || null
+    });
+    if (r.error || !r.data || r.data.success === false){
+      console.error('[editRez] shorten err', r.error, r.data);
+      var errCode = r.data && r.data.error;
+      var msgKey = {
+        'wrong_status': 'editRez.err.wrongStatus',
+        'not_paid': 'editRez.err.notPaid',
+        'active_start_locked': 'editRez.err.activeStartLocked',
+        'not_a_shortening': 'editRez.err.notShortening',
+        'invalid_range': 'editRez.err.invalidRange',
+        'no_change': 'editRez.err.invalidRange',
+        'no_diff': 'editRez.err.invalidRange',
+        'not_found': 'editRez.err.notFound',
+        'unauthenticated': 'editRez.login.error'
+      }[errCode] || 'editRez.err.generic';
+      MG._editRez._showError(MG.t(msgKey));
+      return;
+    }
+    var actualRefund = r.data.refund_amount || refund;
+    var actualPct = r.data.refund_percent || pct;
+    var msg = MG.t('editRez.shorten.success', { amount: MG.formatPrice(actualRefund), percent: actualPct });
+    var c = document.getElementById('edit-rez-tab-content');
+    if (c) c.innerHTML = '<div class="edit-rez-success-box"><h3>✓</h3><p>' + msg + '</p>'
+      + '<button type="button" class="btn btngreen-small" id="edit-rez-back-list">'
+      + MG.t('editRez.list.title') + '</button></div>';
+    var back = document.getElementById('edit-rez-back-list');
+    if (back) back.addEventListener('click', async function(){
+      MG._editRez.selectedBooking = null;
+      await MG._editRez._loadBookings();
+      MG._editRez._goto('list');
+    });
+  } catch(err){
+    console.error('[editRez] shorten exception', err);
+    MG._editRez._showError(MG.t('editRez.err.generic'));
+  } finally {
+    MG._editRez._setBusy(false);
+  }
 };
 
 // ===== INIT =====

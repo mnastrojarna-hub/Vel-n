@@ -691,3 +691,25 @@ body.mg-lb-open{overflow:hidden;overscroll-behavior:none}
 .edit-rez-success-box{text-align:center;padding:1.5rem .5rem}
 .edit-rez-success-box h3{font-size:3rem;color:#1a8c1a;margin:0 0 .5rem}
 .edit-rez-success-box p{color:#1a2e22;font-size:1rem;margin-bottom:1.2rem}
+
+/* Extend / Shorten — date pickers + summary */
+.edit-rez-date-grid{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+.edit-rez-date-grid > textarea,
+.edit-rez-date-grid > label[name=reason],
+.edit-rez-date-grid > #edit-rez-extend-summary,
+.edit-rez-date-grid > #edit-rez-shorten-summary,
+.edit-rez-date-grid > button{grid-column:1/-1}
+.edit-rez-date-grid > label:has(textarea){grid-column:1/-1}
+.edit-rez-price-summary{min-height:1.5rem;font-size:1rem;color:#1a2e22}
+.edit-rez-price-summary .line{padding:.7rem 1rem;border-radius:10px;background:#f4faf6;border:1px solid #d9ecdf}
+.edit-rez-price-summary .line.refund-full{background:#e3fbe3;border-color:#9fe69f}
+.edit-rez-price-summary .line.refund-half{background:#fff3cd;border-color:#ffd97a}
+.edit-rez-price-summary .line.refund-none{background:#fde7e7;border-color:#f4b4b4;color:#8c1a1a}
+.edit-rez-price-summary .line .lbl{color:#666;margin-right:.4rem}
+.edit-rez-price-summary .line strong{font-size:1.15rem}
+.edit-rez-price-summary .muted{color:#888;font-style:italic}
+.edit-rez-price-summary .error{color:#8c1a1a;font-weight:600}
+
+@media(max-width:600px){
+  .edit-rez-date-grid{grid-template-columns:1fr}
+}
