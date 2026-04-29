@@ -796,14 +796,18 @@ MG._editRez._injectConsentsStyles = function(){
     '.edit-rez-pending-actions .btn-secondary{background:#fff;border:1.5px solid #e6a019;color:#7a5400}'+
     '.edit-rez-pending-actions .btn-secondary:hover{background:#fff4d6}'+
     /* ===== DETAIL TAB ===== */
-    '.edit-rez-detail-grid{display:grid;grid-template-columns:1.1fr 1.4fr;gap:1.4rem}'+
+    '.edit-rez-detail-grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:1.4rem;align-items:start;margin-bottom:1.2rem}'+
     '@media(max-width:880px){.edit-rez-detail-grid{grid-template-columns:1fr}}'+
-    '.edit-rez-detail-gallery{position:sticky;top:80px;align-self:start}'+
-    '.edit-rez-detail-gallery .rez-moto-hero{border-radius:18px;overflow:hidden;box-shadow:0 6px 20px rgba(20,80,40,.12)}'+
+    '.edit-rez-detail-gallery .rez-moto-hero{border-radius:18px;overflow:hidden;box-shadow:0 6px 20px rgba(20,80,40,.12);min-height:280px;max-height:440px}'+
+    '@media(max-width:880px){.edit-rez-detail-gallery .rez-moto-hero{aspect-ratio:4/3;min-height:240px;max-height:380px}}'+
+    '.edit-rez-detail-headline{margin-top:1rem}'+
     '.edit-rez-detail-headline h3{margin:0 0 .35rem;font-size:1.55rem;color:#1a2e22;line-height:1.15}'+
     '.edit-rez-chip{display:inline-block;background:#e8f5ee;color:#147214;padding:.3rem .7rem;border-radius:999px;font-size:.78rem;font-weight:700;margin-right:.4rem}'+
     '.edit-rez-detail-id{font-size:.78rem;color:#6a7a70;margin-top:.6rem}'+
     '.edit-rez-detail-id code{background:#f0f5f2;padding:.15rem .5rem;border-radius:6px;font-family:Menlo,monospace;font-size:.85rem;letter-spacing:.05em}'+
+    '.edit-rez-detail-side{display:flex;flex-direction:column;gap:.6rem}'+
+    '.edit-rez-detail-extras{margin-top:.4rem}'+
+    /* Legacy support — pokud někde info-grid zůstane, zachová 2 sloupce */
     '.edit-rez-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin:1.1rem 0}'+
     '@media(max-width:680px){.edit-rez-info-grid{grid-template-columns:1fr}}'+
     '.edit-rez-info-item{display:flex;gap:.7rem;padding:.7rem .85rem;background:#fafdfb;border:1px solid #e5efe9;border-radius:14px}'+
@@ -1348,7 +1352,7 @@ MG._editRez._renderTabMoto = async function(){
   try {
     var [motosR, profileR] = await Promise.all([
       window.sb.from('motorcycles')
-        .select('id,model,brand,image_url,images,description,license_required,engine_size,power_kw,year,price_mon,price_tue,price_wed,price_thu,price_fri,price_sat,price_sun,price_weekday,price_weekend')
+        .select('id,model,brand,image_url,images,description,license_required,engine_cc,power_kw,year,price_mon,price_tue,price_wed,price_thu,price_fri,price_sat,price_sun,price_weekday,price_weekend')
         .eq('status','active').order('model'),
       window.sb.from('profiles').select('license_group').eq('id', MG._editRez.user.id).maybeSingle()
     ]);
@@ -1384,13 +1388,16 @@ MG._editRez._renderTabMoto = async function(){
         ? '<img class="erez-moto-hero-img" src="' + heroUrl + '" alt="" loading="lazy">'
         : '<div class="erez-moto-hero-placeholder">🏍️</div>';
 
-      var label = (m.brand ? m.brand + ' ' : '') + m.model;
+      var bStr = (m.brand || '').trim();
+      var mStr = (m.model || '').trim();
+      var label = (bStr && mStr.toLowerCase().indexOf(bStr.toLowerCase()) !== 0)
+        ? (bStr + ' ' + mStr) : (mStr || bStr);
       var lic = m.license_required && m.license_required !== 'N'
         ? '<span class="erez-moto-pill">ŘP ' + m.license_required + '</span>'
         : '<span class="erez-moto-pill alt">Bez ŘP</span>';
 
       var specs = [];
-      if (m.engine_size) specs.push(m.engine_size + ' cm³');
+      if (m.engine_cc) specs.push(m.engine_cc + ' cm³');
       if (m.power_kw)    specs.push(m.power_kw + ' kW');
       if (m.year)        specs.push(m.year);
       var specsHtml = specs.length ? '<div class="erez-moto-specs">' + specs.join(' · ') + '</div>' : '';
@@ -1984,50 +1991,55 @@ MG._editRez._renderTabDetail = function(){
     ? '<strong>Vrácení na adrese:</strong> ' + (b.return_address || '—')
     : '<strong>Vrácení v půjčovně:</strong> Mezná 9, Mezná';
 
-  var motoLbl = (m.brand ? m.brand + ' ' : '') + (m.model || '—');
+  var brandStr = (m.brand || '').trim();
+  var modelStr = (m.model || '').trim();
+  var motoLbl = (brandStr && modelStr.toLowerCase().indexOf(brandStr.toLowerCase()) !== 0)
+    ? (brandStr + ' ' + modelStr)
+    : (modelStr || brandStr || '—');
   var licReq = m.license_required && m.license_required !== 'N'
     ? '<span class="edit-rez-chip">Vyžaduje ŘP: ' + m.license_required + '</span>'
     : '<span class="edit-rez-chip">Bez ŘP</span>';
 
   t.innerHTML =
     '<div class="edit-rez-detail-grid">' +
-      '<div class="edit-rez-detail-gallery" id="edit-rez-detail-gallery">' + galleryHtml + '</div>' +
-      '<div class="edit-rez-detail-main">' +
+      '<div class="edit-rez-detail-gallery" id="edit-rez-detail-gallery">' +
+        galleryHtml +
         '<div class="edit-rez-detail-headline">' +
           '<h3>' + motoLbl + '</h3>' +
           licReq +
           '<div class="edit-rez-detail-id">Číslo rezervace <code>' + b.id.substring(0,8).toUpperCase() + '</code></div>' +
         '</div>' +
-
-        '<div class="edit-rez-info-grid">' +
-          '<div class="edit-rez-info-item"><div class="ico">📅</div><div><div class="lbl">Termín</div>' +
-            '<div class="val">' + MG.formatDate(b.start_date) + ' – ' + MG.formatDate(b.end_date) +
-            ' <span class="muted">(' + days + (days === 1 ? ' den' : days < 5 ? ' dny' : ' dní') + ')</span></div></div></div>' +
-          '<div class="edit-rez-info-item"><div class="ico">🕐</div><div><div class="lbl">Čas vyzvednutí / vrácení</div>' +
-            '<div class="val">' + (b.pickup_time || '—') + ' / ' + (b.return_time || 'při vrácení v půjčovně') + '</div></div></div>' +
-          '<div class="edit-rez-info-item"><div class="ico">📍</div><div><div class="lbl">Místo vyzvednutí</div>' +
-            '<div class="val">' + pickupLbl + '</div></div></div>' +
-          '<div class="edit-rez-info-item"><div class="ico">🏁</div><div><div class="lbl">Místo vrácení</div>' +
-            '<div class="val">' + returnLbl + '</div></div></div>' +
-        '</div>' +
-
-        // Cenový rozpis
-        '<h4 class="edit-rez-section-h">💰 Cenový rozpis</h4>' +
-        MG._editRez._priceBreakdownHtml(b, m) +
-
-        // Výbava
-        (hasSizes
-          ? '<h4 class="edit-rez-section-h">🎽 Výbava</h4>' +
-            '<div class="edit-rez-gear-grid">' +
-              MG._editRez._gearListHtml(sizes.rider, 'Řidič') +
-              MG._editRez._gearListHtml(sizes.passenger, 'Spolujezdec') +
-            '</div>'
-          : '') +
-
-        // Historie úprav
-        '<h4 class="edit-rez-section-h">🕘 Historie úprav</h4>' +
-        MG._editRez._historyHtml(b) +
       '</div>' +
+      '<aside class="edit-rez-detail-side">' +
+        '<div class="edit-rez-info-item"><div class="ico">📅</div><div><div class="lbl">Termín</div>' +
+          '<div class="val">' + MG.formatDate(b.start_date) + ' – ' + MG.formatDate(b.end_date) +
+          ' <span class="muted">(' + days + (days === 1 ? ' den' : days < 5 ? ' dny' : ' dní') + ')</span></div></div></div>' +
+        '<div class="edit-rez-info-item"><div class="ico">🕐</div><div><div class="lbl">Čas vyzvednutí / vrácení</div>' +
+          '<div class="val">' + (b.pickup_time || '—') + ' / ' + (b.return_time || 'při vrácení v půjčovně') + '</div></div></div>' +
+        '<div class="edit-rez-info-item"><div class="ico">📍</div><div><div class="lbl">Místo vyzvednutí</div>' +
+          '<div class="val">' + pickupLbl + '</div></div></div>' +
+        '<div class="edit-rez-info-item"><div class="ico">🏁</div><div><div class="lbl">Místo vrácení</div>' +
+          '<div class="val">' + returnLbl + '</div></div></div>' +
+      '</aside>' +
+    '</div>' +
+
+    '<div class="edit-rez-detail-extras">' +
+      // Cenový rozpis
+      '<h4 class="edit-rez-section-h">💰 Cenový rozpis</h4>' +
+      MG._editRez._priceBreakdownHtml(b, m) +
+
+      // Výbava
+      (hasSizes
+        ? '<h4 class="edit-rez-section-h">🎽 Výbava</h4>' +
+          '<div class="edit-rez-gear-grid">' +
+            MG._editRez._gearListHtml(sizes.rider, 'Řidič') +
+            MG._editRez._gearListHtml(sizes.passenger, 'Spolujezdec') +
+          '</div>'
+        : '') +
+
+      // Historie úprav
+      '<h4 class="edit-rez-section-h">🕘 Historie úprav</h4>' +
+      MG._editRez._historyHtml(b) +
     '</div>';
 
   // Aktivuj prev/next/dots galerie (event listenery z pages-rezervace-steps.js)
