@@ -624,9 +624,26 @@ body.mg-lb-open{overflow:hidden;overscroll-behavior:none}
 .edit-rez-booking-status{display:inline-block;font-size:.75rem;font-weight:700;padding:.15rem .5rem;border-radius:10px;margin-top:.3rem;text-transform:uppercase;letter-spacing:.02em}
 .edit-rez-booking-status.status-pending{background:#fff3cd;color:#7a5b00}
 .edit-rez-booking-status.status-reserved{background:#d6ecff;color:#0a4a85}
+.edit-rez-booking-status.status-upcoming{background:#d6ecff;color:#0a4a85}
 .edit-rez-booking-status.status-active{background:#e3fbe3;color:#1a8c1a}
 .edit-rez-booking-status.status-completed{background:#eee;color:#555}
 .edit-rez-booking-status.status-cancelled{background:#fde7e7;color:#8c1a1a}
+
+/* Filter tabs nad listem */
+.edit-rez-filters{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:1rem}
+.edit-rez-filter{flex:0 1 auto;padding:.45rem .85rem;border:1px solid #e3eee8;background:#fff;color:#1a2e22;border-radius:20px;cursor:pointer;font-size:.9rem;font-weight:600;font-family:inherit;transition:all .15s}
+.edit-rez-filter:hover{background:#f4faf6;border-color:#74FB71}
+.edit-rez-filter.active{background:#1a2e22;color:#fff;border-color:#1a2e22}
+.edit-rez-filter .cnt{display:inline-block;background:rgba(255,255,255,.2);color:inherit;border-radius:10px;padding:.05rem .4rem;margin-left:.3rem;font-size:.78rem;font-weight:700}
+.edit-rez-filter:not(.active) .cnt{background:#f4faf6;color:#666}
+.edit-rez-section-empty{color:#666;font-style:italic;text-align:center;padding:1.5rem}
+
+/* Doklady dialog */
+.edit-rez-doc-dialog{max-width:520px}
+.edit-rez-doclist{list-style:none;padding:0;margin:0 0 1rem}
+.edit-rez-doclist li{display:flex;justify-content:space-between;align-items:center;gap:.6rem;padding:.6rem 0;border-bottom:1px solid #eee;font-size:.95rem}
+.edit-rez-doclist li:last-child{border-bottom:none}
+.edit-rez-doclist .btn-link{background:none;border:none;color:#1a8c1a;cursor:pointer;font-weight:600;text-decoration:underline;padding:0;font-family:inherit;font-size:.9rem}
 .edit-rez-booking-price{font-weight:800;color:#1a2e22;font-size:1.05rem;white-space:nowrap}
 
 @media(max-width:600px){

@@ -26,13 +26,16 @@ MG.t = MG.t || function(key, params){
 
 // State pro celý flow upravit-rezervaci.
 MG._editRez = {
-  view: 'login',        // 'login' | 'forgot' | 'list' | 'detail'
+  view: 'login',        // 'login' | 'forgot' | 'reset' | 'list' | 'detail'
   user: null,           // auth user
-  bookings: [],         // user's editable bookings
+  bookings: [],         // všechny bookings zákazníka (full historie)
+  shopOrders: [],       // e-shop objednávky zákazníka
+  vouchers: [],         // dárkové poukazy zákazníka
+  filter: 'all',        // 'all' | 'active' | 'upcoming' | 'completed' | 'cancelled'
   selectedBooking: null,
   selectedMoto: null,
   occupied: [],         // bookings z jiných rezervací stejné motorky
-  tab: 'detail',        // 'detail' | 'extend' | 'shorten' | 'cancel'
+  tab: 'detail',        // 'detail' | 'extend' | 'shorten' | 'moto' | 'location' | 'docs' | 'cancel'
   busy: false
 };
 
@@ -334,37 +337,57 @@ MG._editRez._submitForgot = async function(e){
   }
 };
 
-// ===== LOAD BOOKINGS =====
-// RLS ochrání: uživatel vidí jen vlastní bookingy (auth.uid() = user_id).
-// Filtrujeme na statusy, kde má smysl něco upravovat: pending+paid (vzácné),
-// reserved, active. Completed/cancelled se nezobrazují (nelze měnit).
+// ===== LOAD BOOKINGS, SHOP ORDERS, VOUCHERS =====
+// RLS ochrání: uživatel vidí jen své vlastní záznamy.
+// Načítáme **kompletní historii** napříč statusy + e-shop objednávky + poukazy.
 MG._editRez._loadBookings = async function(){
   if (!MG._editRez.user) return;
+  var uid = MG._editRez.user.id;
   try {
-    var r = await window.sb
-      .from('bookings')
-      .select('id,moto_id,start_date,end_date,pickup_time,return_time,status,payment_status,total_price,created_at,delivery_fee,extras_price,discount_amount,pickup_method,pickup_address,return_method,return_address,stripe_payment_intent_id,motorcycles(id,model,brand,image_url,price_mon,price_tue,price_wed,price_thu,price_fri,price_sat,price_sun,price_weekday,price_weekend)')
-      .eq('user_id', MG._editRez.user.id)
-      .in('status', ['pending','reserved','active'])
-      .order('start_date', { ascending: true });
-    if (r.error){
-      console.error('[editRez] loadBookings err', r.error);
-      MG._editRez.bookings = [];
-      return;
-    }
-    MG._editRez.bookings = r.data || [];
+    var results = await Promise.all([
+      window.sb.from('bookings')
+        .select('id,moto_id,start_date,end_date,pickup_time,return_time,status,payment_status,total_price,created_at,delivery_fee,extras_price,discount_amount,pickup_method,pickup_address,pickup_lat,pickup_lng,return_method,return_address,return_lat,return_lng,stripe_payment_intent_id,booking_source,motorcycles(id,model,brand,image_url,license_required,price_mon,price_tue,price_wed,price_thu,price_fri,price_sat,price_sun,price_weekday,price_weekend)')
+        .eq('user_id', uid)
+        .order('start_date', { ascending: false }),
+      window.sb.from('shop_orders')
+        .select('id,order_number,status,payment_status,total_amount,created_at,confirmed_at,stripe_payment_intent_id,shop_order_items(product_id,size,name,price,quantity)')
+        .eq('customer_id', uid)
+        .order('created_at', { ascending: false }),
+      window.sb.from('vouchers')
+        .select('id,code,amount,currency,status,valid_from,valid_until,created_at,description,category,redeemed_at,booking_id')
+        .eq('buyer_id', uid)
+        .order('created_at', { ascending: false })
+    ]);
+    MG._editRez.bookings = (results[0] && results[0].data) || [];
+    MG._editRez.shopOrders = (results[1] && results[1].data) || [];
+    MG._editRez.vouchers = (results[2] && results[2].data) || [];
   } catch(err){
     console.error('[editRez] loadBookings exception', err);
     MG._editRez.bookings = [];
+    MG._editRez.shopOrders = [];
+    MG._editRez.vouchers = [];
   }
 };
 
-// ===== LIST OF BOOKINGS =====
+// Vypočítá display status pro filter (1:1 s Flutter app `displayStatus`).
+MG._editRez._displayStatus = function(b){
+  if (b.status === 'cancelled') return 'cancelled';
+  if (b.status === 'completed') return 'completed';
+  var today = MG._editRez._toIsoDate(new Date());
+  if (b.end_date < today) return 'completed';
+  if (b.start_date > today) return 'upcoming';
+  return 'active';
+};
+
+// ===== LIST — 5 tabů + sekce Rezervace / E-shop / Poukazy =====
 MG._editRez._renderList = function(){
   MG._editRez._renderShell();
   var c = document.getElementById('edit-rez-content');
   var bs = MG._editRez.bookings || [];
-  if (!bs.length){
+  var shop = MG._editRez.shopOrders || [];
+  var vouchers = MG._editRez.vouchers || [];
+
+  if (!bs.length && !shop.length && !vouchers.length){
     c.innerHTML =
       '<section class="edit-rez-card edit-rez-empty">' +
       '<h2>' + MG.t('editRez.list.title') + '</h2>' +
@@ -374,31 +397,58 @@ MG._editRez._renderList = function(){
     return;
   }
 
-  var rows = bs.map(function(b){
-    var m = b.motorcycles || {};
-    var motoLabel = (m.brand ? m.brand + ' ' : '') + (m.model || '');
-    var img = m.image_url ? '<img src="'+m.image_url+'" alt="" loading="lazy">' : '';
-    var dates = MG.formatDate(b.start_date) + ' – ' + MG.formatDate(b.end_date);
-    var statusLbl = MG._editRez._statusLabel(b.status);
-    var price = MG.formatPrice(Number(b.total_price || 0));
-    return '<button type="button" class="edit-rez-booking" data-id="' + b.id + '">' +
-      '<div class="edit-rez-booking-img">' + img + '</div>' +
-      '<div class="edit-rez-booking-body">' +
-        '<div class="edit-rez-booking-title">' + motoLabel + '</div>' +
-        '<div class="edit-rez-booking-meta">' + dates + '</div>' +
-        '<div class="edit-rez-booking-status status-' + b.status + '">' + statusLbl + '</div>' +
-      '</div>' +
-      '<div class="edit-rez-booking-price">' + price + '</div>' +
-      '</button>';
+  var filter = MG._editRez.filter || 'all';
+  var filtered = bs.filter(function(b){
+    if (filter === 'all') return true;
+    return MG._editRez._displayStatus(b) === filter;
+  });
+
+  var counts = { all: bs.length, active: 0, upcoming: 0, completed: 0, cancelled: 0 };
+  bs.forEach(function(b){ var s = MG._editRez._displayStatus(b); if (counts[s] !== undefined) counts[s]++; });
+
+  var tabKeys = ['all','active','upcoming','completed','cancelled'];
+  var tabsHtml = tabKeys.map(function(k){
+    var act = (filter === k) ? ' active' : '';
+    return '<button type="button" class="edit-rez-filter' + act + '" data-filter="' + k + '">'
+      + MG.t('editRez.filter.' + k) + ' <span class="cnt">' + counts[k] + '</span></button>';
   }).join('');
+
+  var bookingsHtml = filtered.length
+    ? filtered.map(MG._editRez._renderBookingRow).join('')
+    : '<p class="edit-rez-section-empty">' + MG.t('editRez.list.empty') + '</p>';
+
+  var shopHtml = shop.length
+    ? shop.map(MG._editRez._renderShopRow).join('')
+    : '';
+  var vouchersHtml = vouchers.length
+    ? vouchers.map(MG._editRez._renderVoucherRow).join('')
+    : '';
 
   c.innerHTML =
     '<section class="edit-rez-card">' +
-    '<h2>' + MG.t('editRez.list.title') + '</h2>' +
-    '<div class="edit-rez-booking-list">' + rows + '</div>' +
-    '</section>';
+      '<h2>' + MG.t('editRez.list.title') + '</h2>' +
+      '<div class="edit-rez-filters">' + tabsHtml + '</div>' +
+      '<div class="edit-rez-booking-list">' + bookingsHtml + '</div>' +
+    '</section>' +
+    (shopHtml
+      ? '<section class="edit-rez-card"><h2>' + MG.t('editRez.list.shopTitle') + '</h2>'
+        + '<div class="edit-rez-booking-list">' + shopHtml + '</div></section>'
+      : '') +
+    (vouchersHtml
+      ? '<section class="edit-rez-card"><h2>' + MG.t('editRez.list.vouchersTitle') + '</h2>'
+        + '<div class="edit-rez-booking-list">' + vouchersHtml + '</div></section>'
+      : '');
 
-  c.querySelectorAll('.edit-rez-booking').forEach(function(btn){
+  // Filter switchers
+  c.querySelectorAll('.edit-rez-filter').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      MG._editRez.filter = btn.getAttribute('data-filter');
+      MG._editRez._renderList();
+    });
+  });
+
+  // Booking row click → detail
+  c.querySelectorAll('.edit-rez-booking[data-id]').forEach(function(btn){
     btn.addEventListener('click', function(){
       var id = btn.getAttribute('data-id');
       var found = (MG._editRez.bookings || []).find(function(x){ return x.id === id; });
@@ -409,6 +459,149 @@ MG._editRez._renderList = function(){
       MG._editRez._goto('detail');
     });
   });
+
+  // Shop / voucher row → openuje download dokumentů (lazy load přes detail RPC)
+  c.querySelectorAll('[data-shop-id]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      MG._editRez._showOrderDocs(btn.getAttribute('data-shop-id'), 'shop');
+    });
+  });
+  c.querySelectorAll('[data-voucher-id]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      MG._editRez._showOrderDocs(btn.getAttribute('data-voucher-id'), 'voucher');
+    });
+  });
+};
+
+MG._editRez._renderBookingRow = function(b){
+  var m = b.motorcycles || {};
+  var motoLabel = (m.brand ? m.brand + ' ' : '') + (m.model || '');
+  var img = m.image_url ? '<img src="'+m.image_url+'" alt="" loading="lazy">' : '';
+  var dates = MG.formatDate(b.start_date) + ' – ' + MG.formatDate(b.end_date);
+  var ds = MG._editRez._displayStatus(b);
+  var statusLbl = MG.t('editRez.status.' + ds);
+  var price = MG.formatPrice(Number(b.total_price || 0));
+  return '<button type="button" class="edit-rez-booking" data-id="' + b.id + '">' +
+    '<div class="edit-rez-booking-img">' + img + '</div>' +
+    '<div class="edit-rez-booking-body">' +
+      '<div class="edit-rez-booking-title">' + motoLabel + '</div>' +
+      '<div class="edit-rez-booking-meta">' + dates + '</div>' +
+      '<div class="edit-rez-booking-status status-' + ds + '">' + statusLbl + '</div>' +
+    '</div>' +
+    '<div class="edit-rez-booking-price">' + price + '</div>' +
+  '</button>';
+};
+
+MG._editRez._renderShopRow = function(o){
+  var num = o.order_number ? '#' + o.order_number : (o.id || '').substring(0,8).toUpperCase();
+  var when = MG.formatDate(o.created_at);
+  var price = MG.formatPrice(Number(o.total_amount || 0));
+  var statusKey = 'editRez.shopStatus.' + (o.status || 'unknown');
+  var lbl = MG.t(statusKey, {});
+  if (lbl === statusKey) lbl = o.status || '';
+  return '<button type="button" class="edit-rez-booking" data-shop-id="' + o.id + '">' +
+    '<div class="edit-rez-booking-img">🛒</div>' +
+    '<div class="edit-rez-booking-body">' +
+      '<div class="edit-rez-booking-title">' + num + '</div>' +
+      '<div class="edit-rez-booking-meta">' + when + '</div>' +
+      '<div class="edit-rez-booking-status status-' + (o.payment_status === 'paid' ? 'completed' : 'pending') + '">' + lbl + '</div>' +
+    '</div>' +
+    '<div class="edit-rez-booking-price">' + price + '</div>' +
+  '</button>';
+};
+
+MG._editRez._renderVoucherRow = function(v){
+  var code = v.code || '';
+  var when = MG.formatDate(v.created_at);
+  var price = MG.formatPrice(Number(v.amount || 0));
+  var lbl = MG.t('editRez.voucherStatus.' + (v.status || 'active'), {});
+  return '<button type="button" class="edit-rez-booking" data-voucher-id="' + v.id + '">' +
+    '<div class="edit-rez-booking-img">🎁</div>' +
+    '<div class="edit-rez-booking-body">' +
+      '<div class="edit-rez-booking-title">' + code + '</div>' +
+      '<div class="edit-rez-booking-meta">' + when + '</div>' +
+      '<div class="edit-rez-booking-status status-' + (v.status === 'active' ? 'upcoming' : v.status === 'redeemed' ? 'completed' : 'cancelled') + '">' + lbl + '</div>' +
+    '</div>' +
+    '<div class="edit-rez-booking-price">' + price + '</div>' +
+  '</button>';
+};
+
+// Modal s odkazy na faktury / dokumenty pro shop_order nebo voucher.
+// (Pro bookings je ekvivalent v Detail tabu „Doklady" — v dalším commitu.)
+MG._editRez._showOrderDocs = async function(orderId, kind){
+  if (!orderId) return;
+  MG._editRez._setBusy(true);
+  try {
+    var col = (kind === 'voucher') ? 'order_id' : 'order_id';
+    var r = await window.sb
+      .from('invoices')
+      .select('id,number,type,status,total,pdf_path,issue_date')
+      .eq(col, orderId)
+      .order('issue_date', { ascending: true });
+    var docs = (r && r.data) || [];
+    var listHtml = docs.length
+      ? '<ul class="edit-rez-doclist">' + docs.map(function(d){
+          var label = MG.t('editRez.doc.type.' + (d.type || 'unknown'), {}) || (d.type || '');
+          var num = d.number || (d.id || '').substring(0,8);
+          var amt = MG.formatPrice(Number(d.total || 0));
+          var actions = '<button type="button" class="btn-link" data-pdf="' + (d.pdf_path || '') + '">' + MG.t('editRez.doc.download') + '</button>';
+          return '<li><div><strong>' + label + '</strong> ' + num + ' · ' + amt + '</div><div>' + actions + '</div></li>';
+        }).join('') + '</ul>'
+      : '<p>' + MG.t('editRez.doc.empty') + '</p>';
+
+    var ov = document.createElement('div');
+    ov.className = 'edit-rez-confirm-overlay';
+    ov.innerHTML = '<div class="edit-rez-confirm-dialog edit-rez-doc-dialog" role="dialog">'
+      + '<h4>' + MG.t('editRez.doc.title') + '</h4>'
+      + listHtml
+      + '<div class="edit-rez-confirm-actions"><button type="button" class="btn btn-secondary" data-close>' + MG.t('editRez.doc.close') + '</button></div>'
+      + '</div>';
+    document.body.appendChild(ov);
+    ov.querySelector('[data-close]').addEventListener('click', function(){ ov.remove(); });
+    ov.addEventListener('click', function(e){ if (e.target === ov) ov.remove(); });
+    // PDF download — vystaví signed URL pro storage path
+    ov.querySelectorAll('[data-pdf]').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        var p = btn.getAttribute('data-pdf');
+        await MG._editRez._openDocPdf(p);
+      });
+    });
+  } catch(err){
+    console.error('[editRez] showOrderDocs err', err);
+    MG._editRez._showError(MG.t('editRez.err.generic'));
+  } finally {
+    MG._editRez._setBusy(false);
+  }
+};
+
+// Otevře PDF z Supabase Storage. invoices.pdf_path může být plný path (s bucketem)
+// nebo jen relativní; default bucket = 'invoices'.
+MG._editRez._openDocPdf = async function(path){
+  if (!path){ MG._editRez._showError(MG.t('editRez.doc.notAvailable')); return; }
+  try {
+    var bucket = 'invoices';
+    var key = path;
+    // Pokud path obsahuje slash a první segment je bucket name, rozdělíme
+    if (path.indexOf('/') > -1){
+      var first = path.split('/')[0];
+      if (['invoices','documents','generated_documents'].indexOf(first) > -1){
+        bucket = first;
+        key = path.substring(first.length + 1);
+      }
+    }
+    var r = await window.sb.storage.from(bucket).createSignedUrl(key, 600);
+    if (r.error || !r.data || !r.data.signedUrl){
+      // fallback na public URL
+      var p = window.sb.storage.from(bucket).getPublicUrl(key);
+      if (p && p.data && p.data.publicUrl){ window.open(p.data.publicUrl, '_blank'); return; }
+      MG._editRez._showError(MG.t('editRez.doc.notAvailable'));
+      return;
+    }
+    window.open(r.data.signedUrl, '_blank');
+  } catch(err){
+    console.error('[editRez] openDocPdf err', err);
+    MG._editRez._showError(MG.t('editRez.doc.notAvailable'));
+  }
 };
 
 // ===== DETAIL — tab shell + per-tab render =====

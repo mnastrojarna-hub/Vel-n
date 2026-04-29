@@ -450,10 +450,57 @@ return [
 
     // Reservation list / picker
     'editRez.list.title' => 'Vaše rezervace',
-    'editRez.list.empty' => 'Nemáte žádnou rezervaci, kterou by bylo možné upravit.',
+    'editRez.list.shopTitle' => 'E-shop objednávky',
+    'editRez.list.vouchersTitle' => 'Dárkové poukazy',
+    'editRez.list.empty' => 'Nemáte žádnou rezervaci.',
     'editRez.list.openNew' => 'Vytvořit novou rezervaci',
     'editRez.list.choose' => 'Klikněte pro výběr',
     'editRez.logout' => 'Odhlásit se',
+
+    // Filter tabs (5 statusů jako v app)
+    'editRez.filter.all' => 'Vše',
+    'editRez.filter.active' => 'Aktivní',
+    'editRez.filter.upcoming' => 'Nadcházející',
+    'editRez.filter.completed' => 'Dokončené',
+    'editRez.filter.cancelled' => 'Zrušené',
+
+    // E-shop objednávky statusy
+    'editRez.shopStatus.new' => 'Nová',
+    'editRez.shopStatus.confirmed' => 'Potvrzená',
+    'editRez.shopStatus.processing' => 'Zpracovává se',
+    'editRez.shopStatus.shipped' => 'Odeslána',
+    'editRez.shopStatus.delivered' => 'Doručena',
+    'editRez.shopStatus.cancelled' => 'Zrušena',
+    'editRez.shopStatus.returned' => 'Vrácena',
+    'editRez.shopStatus.refunded' => 'Refundována',
+
+    // Voucher statusy
+    'editRez.voucherStatus.active' => 'Aktivní',
+    'editRez.voucherStatus.redeemed' => 'Uplatněn',
+    'editRez.voucherStatus.expired' => 'Expirován',
+    'editRez.voucherStatus.cancelled' => 'Zrušen',
+
+    // Dokumenty / duplikáty
+    'editRez.doc.title' => 'Doklady ke stažení',
+    'editRez.doc.empty' => 'K této objednávce zatím nejsou doklady.',
+    'editRez.doc.download' => 'Stáhnout PDF',
+    'editRez.doc.notAvailable' => 'Doklad není momentálně dostupný.',
+    'editRez.doc.close' => 'Zavřít',
+    'editRez.doc.type.proforma' => 'Zálohová faktura',
+    'editRez.doc.type.advance' => 'Zálohová faktura',
+    'editRez.doc.type.final' => 'Konečná faktura',
+    'editRez.doc.type.issued' => 'Konečná faktura',
+    'editRez.doc.type.payment_receipt' => 'Platební doklad',
+    'editRez.doc.type.shop_proforma' => 'Zálohová faktura (e-shop)',
+    'editRez.doc.type.shop_final' => 'Daňový doklad (e-shop)',
+    'editRez.doc.type.credit_note' => 'Dobropis',
+    'editRez.doc.type.contract' => 'Smlouva o pronájmu',
+    'editRez.doc.type.vop' => 'VOP',
+    'editRez.doc.type.protocol' => 'Předávací protokol',
+    'editRez.doc.type.invoice_advance' => 'Zálohová faktura',
+    'editRez.doc.type.invoice_final' => 'Konečná faktura',
+    'editRez.doc.type.invoice_shop' => 'Daňový doklad (e-shop)',
+    'editRez.doc.type.unknown' => 'Doklad',
 
     // Statuses
     'editRez.status.pending' => 'Čeká na zaplacení',
