@@ -243,7 +243,7 @@ Strukturované oficiální podmínky půjčovny pro AI public agent (`get_polici
 | Job | Čas | Funkce |
 |-----|-----|--------|
 | `auto-cancel-pending-bookings` (1) | každé 2 min (`*/2 * * * *`) | `SELECT auto_cancel_expired_pending()` — ruší pending+unpaid bookings: app=10min, web=4h |
-| `send-abandoned-booking-emails` | každé 2 min (`*/2 * * * *`) | `SELECT send_abandoned_booking_emails()` — pošle „nedokončená rezervace" mail web bookingu po 20 min od kroku 1, resp. 10 min od kliknutí „Pokračovat k platbě" (Stripe session). Dedup přes `bookings.abandoned_email_sent_at`. |
+| `send-abandoned-booking-emails` (12) | každé 2 min (`*/2 * * * *`) | `SELECT send_abandoned_booking_emails()` — pošle „nedokončená rezervace" mail web bookingu po 20 min od kroku 1, resp. 10 min od kliknutí „Pokračovat k platbě" (Stripe session). Dedup přes `bookings.abandoned_email_sent_at`. |
 | `auto-complete-expired-bookings` (4) | denně 00:01 (`1 0 * * *`) | `SELECT auto_complete_expired_bookings()` — active/reserved + end_date < today + paid → completed |
 | `expire-vouchers` (8) | denně 01:00 UTC (`0 1 * * *`) | `SELECT expire_vouchers()` |
 | `cron-daily` (9) | denně 02:00 UTC (`0 2 * * *`) | `SELECT snapshot_daily_stats(); SELECT auto_schedule_services();` |
