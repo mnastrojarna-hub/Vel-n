@@ -357,7 +357,7 @@ MG._editRez._renderOtpReset = function(email){
     '<p>' + MG.t('editRez.reset.otpHelp', { email: email }) + '</p>' +
     '<form id="edit-rez-otp-form" class="edit-rez-form" novalidate>' +
       '<label>' + MG.t('editRez.reset.otpCode') +
-        '<input type="text" name="otp" required autocomplete="one-time-code" inputmode="text" maxlength="10" pattern="[A-Za-z0-9]+" style="letter-spacing:.2em;text-transform:uppercase;font-size:1.1rem">' +
+        '<input type="text" name="otp" required autocomplete="one-time-code" inputmode="numeric" maxlength="10" pattern="[0-9A-Za-z]+" style="letter-spacing:.4em;font-size:1.6rem;font-weight:700;text-align:center;font-family:monospace;padding:.85rem;color:#1a2e22">' +
       '</label>' +
       '<label>' + MG.t('editRez.reset.password') +
         '<input type="password" name="password" required autocomplete="new-password" minlength="6">' +

@@ -337,8 +337,8 @@ return [
 
     'editRez.reset.title' => 'Set new password',
     'editRez.reset.help' => 'Enter your new password (min. 6 characters). You will be signed in and see your bookings after saving.',
-    'editRez.reset.otpHelp' => 'We sent a verification code to <strong>{email}</strong>. Enter the code below and set a new password.',
-    'editRez.reset.otpCode' => 'Verification code from e-mail',
+    'editRez.reset.otpHelp' => 'We sent a verification code to <strong>{email}</strong>. Enter the 8-character code from the e-mail (same code works for app and web) and set a new password.',
+    'editRez.reset.otpCode' => 'Verification code from e-mail (8 characters)',
     'editRez.reset.otpInvalid' => 'Invalid or expired code. Please request a new one.',
     'editRez.reset.password' => 'New password',
     'editRez.reset.password2' => 'Confirm password',

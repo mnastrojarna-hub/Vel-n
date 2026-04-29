@@ -439,8 +439,8 @@ return [
     // Reset password (po kliku na link z e-mailu)
     'editRez.reset.title' => 'Nastavit nové heslo',
     'editRez.reset.help' => 'Zadejte nové heslo (min. 6 znaků). Po uložení budete přihlášen(a) a uvidíte své rezervace.',
-    'editRez.reset.otpHelp' => 'Poslali jsme vám e-mail s ověřovacím kódem na <strong>{email}</strong>. Zadejte kód níže a nastavte nové heslo.',
-    'editRez.reset.otpCode' => 'Ověřovací kód z e-mailu',
+    'editRez.reset.otpHelp' => 'Poslali jsme vám ověřovací kód na <strong>{email}</strong>. Zadejte 8-místný kód z e-mailu (stejný kód funguje pro aplikaci i web) a nastavte si nové heslo.',
+    'editRez.reset.otpCode' => 'Ověřovací kód z e-mailu (8 znaků)',
     'editRez.reset.otpInvalid' => 'Neplatný nebo expirovaný kód. Zkuste si nechat poslat nový.',
     'editRez.reset.password' => 'Nové heslo',
     'editRez.reset.password2' => 'Heslo znovu',
