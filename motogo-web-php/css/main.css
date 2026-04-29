@@ -300,6 +300,16 @@ body.homepage .banner-caption .btngreen,
 .banner-caption .btngreen{color:#000}
 .banner-caption .btngreen:hover{color:#000}
 
+/* Zvýraznění klíčových slov v intru: Motogo24 / bez kauce / nonstop */
+body.homepage .home-intro strong{color:#74FB71}
+
+/* Sekce katalogu motorek — nadpis černě (je nad světlým pozadím) */
+body.homepage section[aria-labelledby="catalogue"] h2{color:#000}
+
+/* CTA sekce — tlačítka zeleně s černým písmem */
+body.homepage section[aria-labelledby="cta"] .btndark{background:#74FB71;color:#000;border-color:#74FB71}
+body.homepage section[aria-labelledby="cta"] .btndark:hover{background:#a8ff9f;color:#000;border-color:#a8ff9f}
+
 /* Signpost cards — tmavé pozadí + neon zelený rámeček + zelený nadpis */
 body.homepage .gbox{background:#0e2a1c;border:2px solid #74FB71;border-bottom:2px solid #74FB71;border-radius:12px;color:#e8f5ee;box-shadow:0 0 0 0 transparent}
 body.homepage .gbox:hover{border-color:#a8ff9f;box-shadow:0 0 22px rgba(116,251,113,.18);color:#e8f5ee}
