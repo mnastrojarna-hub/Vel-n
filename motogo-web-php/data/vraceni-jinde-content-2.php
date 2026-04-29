@@ -8,7 +8,7 @@ return [
         'grid' => 'gr5',
         'steps' => [
             [
-                'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                'icon' => 'gfx/uzij-si-jizdu.svg',
                 'title' => 'Zvol místo a čas vrácení',
                 'text' => 'V rezervačním formuláři zadej adresu a čas, kdy motorku předáš.',
             ],
@@ -18,17 +18,17 @@ return [
                 'text' => 'Před předáním si nachystej výbavu, která byla součástí výpůjčky.',
             ],
             [
-                'icon' => 'gfx/prevezmi-motorku.svg',
+                'icon' => 'gfx/cas-prevzeti-motorky.svg',
                 'title' => 'Přijedeme v domluvený čas',
                 'text' => 'Dorazíme na sjednané místo přesně v domluvený čas.',
             ],
             [
-                'icon' => 'gfx/podpis-dokumentu.svg',
+                'icon' => 'gfx/prevezmi-motorku.svg',
                 'title' => 'Společně zkontrolujeme motorku a výbavu',
                 'text' => 'Zkontrolujeme stav motorky a výbavy, naložíme a odjedeme.&nbsp;',
             ],
             [
-                'icon' => 'gfx/potvrzeni-rezervace.svg',
+                'icon' => 'gfx/sleva-na-pristi-jizdu.svg',
                 'title' => 'Na e-mail ti přijde potvrzení',
                 'text' => 'Potvrzení o ukončení nájmu, konečná faktura a slevový kód na další rezervaci.',
             ],

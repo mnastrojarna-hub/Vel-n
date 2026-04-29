@@ -20,12 +20,12 @@ return [
                 'text' => '',
             ],
             [
-                'icon' => 'gfx/podpis-dokumentu.svg',
+                'icon' => 'gfx/prevezmi-motorku.svg',
                 'title' => 'Společně zkontrolujeme stav motorky a výbavy',
                 'text' => '',
             ],
             [
-                'icon' => 'gfx/potvrzeni-rezervace.svg',
+                'icon' => 'gfx/sleva-na-pristi-jizdu.svg',
                 'title' => 'Na e-mail ti přijde potvrzení o ukončení nájmu, konečná faktura a slevový kód na další rezervaci.',
                 'text' => '',
             ],

@@ -31,7 +31,7 @@ $defaults = [
             ['icon' => 'gfx/vyber-vybavu.svg', 'title' => 'Výbava pro řidiče v ceně', 'text' => 'helma, bunda, kalhoty a rukavice'],
             ['icon' => 'gfx/ico-nonstop.svg', 'title' => 'Nonstop provoz', 'text' => 'pro vyzvednutí i vrácení dle rezervace'],
             ['icon' => 'gfx/ico-spolecne.svg', 'title' => 'Jsme v tom společně', 'text' => 'když se něco přihodí'],
-            ['icon' => 'gfx/vyzvednuti-vraceni-motorky.svg', 'title' => 'Přistavení i vrácení motorky', 'text' => 'na domluvené místo'],
+            ['icon' => 'gfx/predani-motorky.svg', 'title' => 'Přistavení i vrácení motorky', 'text' => 'na domluvené místo'],
         ],
     ],
     'process' => [
