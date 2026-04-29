@@ -86,8 +86,29 @@ async function triggerTranslate(rowId: string, value: string): Promise<'queued' 
 }
 
 serve(async (req: Request): Promise<Response> => {
+  // Diagnostika — viditelné v Supabase Dashboard → Functions → cms-save → Logs.
+  // Pomáhá odhalit, jaká metoda/headers/URL skutečně dorazí (např. když proxy
+  // přepíše POST na GET nebo když některý prohlížeč pošle před POST nějaký
+  // prefetch / SW-intercept).
+  console.log('[cms-save] req', {
+    method: req.method,
+    url: req.url,
+    has_auth: !!req.headers.get('authorization'),
+    has_apikey: !!req.headers.get('apikey'),
+    content_type: req.headers.get('content-type'),
+    user_agent: req.headers.get('user-agent'),
+  })
+
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
-  if (req.method !== 'POST') return jsonResponse({ error: 'method_not_allowed' }, 405)
+  // GET/HEAD bez body — vrátíme 200 health stub (některé prohlížeče/proxy
+  // dělají prefetch a potřebují non-error odpověď). Save logika běží jen
+  // pro POST (níže).
+  if (req.method === 'GET' || req.method === 'HEAD') {
+    return jsonResponse({ ok: true, fn: 'cms-save', method: req.method })
+  }
+  if (req.method !== 'POST') {
+    return jsonResponse({ error: 'method_not_allowed', method: req.method }, 405)
+  }
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
     return jsonResponse({ error: 'env_not_configured' }, 500)
