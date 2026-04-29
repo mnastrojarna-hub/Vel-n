@@ -44,6 +44,7 @@ Detailní politiky:
 - **api_keys:** admin ALL (is_admin)
 - **ai_traffic_log:** admin SELECT (is_admin), service_role INSERT (WITH CHECK true) — anon + edge fns mohou logovat
 - **ai_citations:** admin ALL (is_admin)
+- **faq_items:** public SELECT (published=true), admin ALL (is_admin) — Realtime ANO
 
 ---
 
@@ -60,6 +61,7 @@ Detailní politiky:
 - `documents`
 - `invoices`
 - `vouchers`
+- `faq_items`
 
 ---
 

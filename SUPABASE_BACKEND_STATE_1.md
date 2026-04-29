@@ -168,6 +168,7 @@
 | `app_settings` | Nastavení aplikace (key-value, jsonb) |
 | `cms_pages` | CMS stránky |
 | `cms_variables` | CMS proměnné |
+| `faq_items` | FAQ otázky (DB-driven) — kategorie, otázka, HTML odpověď, sort_order, featured_home (zobrazit i na home), published, jsonb translations. Spravuje se ve Velíně CMS → Texty webu → Časté dotazy. |
 | `feature_flags` | Feature flags |
 | `reviews` | Recenze zákazníků |
 

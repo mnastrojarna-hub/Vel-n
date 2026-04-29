@@ -79,17 +79,9 @@ export const PAGE_HOME = {
       ]
     },
     {
-      id: 'faq', label: 'FAQ (4 otázky)', location: 'Sekce s častými dotazy pod kroky',
+      id: 'faq', label: 'FAQ (řízeno přes DB)', location: 'Sekce s častými dotazy pod kroky — položky se editují v záložce „Časté dotazy"',
       fields: [
         { key: 'web.home.faq.title', label: 'Nadpis FAQ sekce', default: 'Často kladené otázky' },
-        { key: 'web.home.faq.items.0.q', label: 'Otázka 1', default: 'Jak si mohu rezervovat motorku?' },
-        { key: 'web.home.faq.items.0.a', label: 'Odpověď 1 (HTML povolený)', type: 'textarea', default: 'Motorku si můžeš rezervovat přes náš online rezervační systém přímo tady na webu. Případně se nám můžeš ozvat e-mailem, telefonicky nebo přes naše sociální sítě.' },
-        { key: 'web.home.faq.items.1.q', label: 'Otázka 2', default: 'Můžu si motorku půjčit i bez předchozí rezervace?' },
-        { key: 'web.home.faq.items.1.a', label: 'Odpověď 2 (HTML povolený)', type: 'textarea', default: 'Bez rezervace to bohužel nejde. Každou motorku je nutné předem zamluvit – online, telefonicky, e-mailem nebo přes sociální sítě.' },
-        { key: 'web.home.faq.items.2.q', label: 'Otázka 3', default: 'Musím složit kauci?' },
-        { key: 'web.home.faq.items.2.a', label: 'Odpověď 3 (HTML povolený)', type: 'textarea', default: 'Ne! U nás <strong>žádnou kauci platit nemusíš</strong>. Naše půjčovna se tímto zásadně liší od většiny konkurence.' },
-        { key: 'web.home.faq.items.3.q', label: 'Otázka 4', default: 'Můžu odcestovat s motorkou do zahraničí?' },
-        { key: 'web.home.faq.items.3.a', label: 'Odpověď 4 (HTML povolený)', type: 'textarea', default: 'Ano, s motorkou můžeš bez problémů vyrazit i do zahraničí. Cesty mimo Česko neomezujeme, jen je potřeba dodržet územní platnost pojištění (zelená karta).' },
       ]
     },
     {

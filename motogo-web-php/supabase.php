@@ -418,6 +418,26 @@ class SupabaseClient {
         return $this->query('cms_pages', '*', $filters, 'created_at.desc');
     }
 
+    // ===== FAQ =====
+    /**
+     * Načte FAQ položky z `faq_items` (jen published) seřazené podle kategorie a sort_order.
+     * Bez cache — admin chce změny ve Velíně vidět hned (jak u blogu).
+     *
+     * @param array $opts ['featured_only' => bool, 'limit' => int, 'category_key' => string]
+     * @return array Pole řádků (id, category_key, category_label, question, answer,
+     *               sort_order, featured_home, translations)
+     */
+    public function fetchFaqItems($opts = []) {
+        $filters = ['published=eq.true'];
+        if (!empty($opts['featured_only'])) $filters[] = 'featured_home=eq.true';
+        if (!empty($opts['category_key'])) $filters[] = 'category_key=eq.' . $opts['category_key'];
+        $rows = $this->query('faq_items', '*', $filters, 'category_key.asc,sort_order.asc');
+        if (!empty($opts['limit']) && is_array($rows)) {
+            $rows = array_slice($rows, 0, (int)$opts['limit']);
+        }
+        return $rows ?: [];
+    }
+
     // ===== PRODUKTY =====
     public function fetchProducts() {
         $cached = $this->cacheGet('products_active');
