@@ -44,6 +44,8 @@ return [
     'menu.shop' => 'Winkel',
     'menu.contact' => 'Contact',
     'menu.reservation' => 'RESERVERING',
+    'menu.editReservation' => 'Reservering beheren',
+    'menu.editReservation.aria' => 'Reservering bewerken of annuleren',
 
     'footer.aboutTitle' => 'Motorverhuur',
     'footer.aboutText' => 'Welkom bij Motogo24, je <strong>motorverhuur in Pelhřimov</strong>! Wij bieden <strong>motorverhuur</strong> voor lokale rijders en toeristen. Kies uit onze sport- of enduromotoren en reserveer online in drie stappen.',
@@ -114,6 +116,7 @@ return [
     'breadcrumb.vouchers' => 'Cadeaubonnen',
     'breadcrumb.reservation' => 'RESERVERING',
     'breadcrumb.confirmation' => 'Reserveringsbevestiging',
+    'breadcrumb.editReservation' => 'Reservering beheren',
     'breadcrumb.confirmationOrder' => 'Orderbevestiging',
     'breadcrumb.notFound' => 'Pagina niet gevonden',
     'breadcrumb.sitemap' => 'Sitemap',

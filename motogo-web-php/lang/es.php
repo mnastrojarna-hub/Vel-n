@@ -48,6 +48,8 @@ return [
     'menu.shop' => 'Tienda',
     'menu.contact' => 'Contacto',
     'menu.reservation' => 'RESERVAR',
+    'menu.editReservation' => 'Gestionar reserva',
+    'menu.editReservation.aria' => 'Editar o cancelar reserva',
 
     // ===== Footer =====
     'footer.aboutTitle' => 'Alquiler de motos',
@@ -123,6 +125,7 @@ return [
     'breadcrumb.vouchers' => 'Vales',
     'breadcrumb.reservation' => 'RESERVA',
     'breadcrumb.confirmation' => 'Confirmación de reserva',
+    'breadcrumb.editReservation' => 'Gestionar reserva',
     'breadcrumb.confirmationOrder' => 'Confirmación de pedido',
     'breadcrumb.notFound' => 'Página no encontrada',
     'breadcrumb.sitemap' => 'Mapa del sitio',

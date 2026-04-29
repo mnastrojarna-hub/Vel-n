@@ -81,6 +81,14 @@ input,select,textarea{font-size:16px}
 }
 .header-cart-badge{position:absolute;top:-2px;right:-2px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#74FB71;color:#1a2e22;font-size:.7rem;font-weight:800;display:inline-flex;align-items:center;justify-content:center;line-height:1;border:2px solid #1a2e22;box-sizing:content-box}
 .header-cart-badge[hidden]{display:none}
+.header-edit-rez{position:relative;display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:8px;color:#74FB71;text-decoration:none;transition:background .15s,color .15s}
+.header-edit-rez:hover{background:rgba(116,251,113,.12);color:#a8ff9f}
+.header-edit-rez:focus-visible{outline:2px solid #74FB71;outline-offset:2px}
+.header-edit-rez-icon{width:22px;height:22px}
+@media(max-width:600px){
+  .header-edit-rez{width:44px;height:44px}
+  .header-edit-rez-icon{width:24px;height:24px}
+}
 .header-lang{display:flex;align-items:center;gap:.25rem}
 .header{background:#1a2e22;padding:.6rem 0 .75rem;margin:0;position:sticky;top:0;z-index:100;border-top:0;border-bottom:1px solid #2a4e3a}
 .header-logo img{height:44px;width:auto}

@@ -47,6 +47,8 @@ return [
     'menu.shop' => 'Boutique',
     'menu.contact' => 'Contact',
     'menu.reservation' => 'RÉSERVATION',
+    'menu.editReservation' => 'Gérer ma réservation',
+    'menu.editReservation.aria' => 'Modifier ou annuler la réservation',
 
     // ===== Footer =====
     'footer.aboutTitle' => 'Location de motos',
@@ -122,6 +124,7 @@ return [
     'breadcrumb.vouchers' => 'Bons cadeaux',
     'breadcrumb.reservation' => 'RÉSERVATION',
     'breadcrumb.confirmation' => 'Confirmation de réservation',
+    'breadcrumb.editReservation' => 'Gérer ma réservation',
     'breadcrumb.confirmationOrder' => 'Confirmation de commande',
     'breadcrumb.notFound' => 'Page introuvable',
     'breadcrumb.sitemap' => 'Plan du site',

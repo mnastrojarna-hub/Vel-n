@@ -44,6 +44,8 @@ return [
     'menu.shop' => 'Sklep',
     'menu.contact' => 'Kontakt',
     'menu.reservation' => 'REZERWACJA',
+    'menu.editReservation' => 'Zarządzaj rezerwacją',
+    'menu.editReservation.aria' => 'Edytuj lub anuluj rezerwację',
 
     'footer.aboutTitle' => 'Wypożyczalnia motocykli',
     'footer.aboutText' => 'Witamy w Motogo24, twojej <strong>wypożyczalni motocykli w Pelhřimovie</strong>! Oferujemy <strong>wypożyczanie motocykli</strong> dla mieszkańców i turystów. Wybierz spośród motocykli sportowych lub enduro i zarezerwuj online w trzech krokach.',
@@ -114,6 +116,7 @@ return [
     'breadcrumb.vouchers' => 'Bony',
     'breadcrumb.reservation' => 'REZERWACJA',
     'breadcrumb.confirmation' => 'Potwierdzenie rezerwacji',
+    'breadcrumb.editReservation' => 'Zarządzaj rezerwacją',
     'breadcrumb.confirmationOrder' => 'Potwierdzenie zamówienia',
     'breadcrumb.notFound' => 'Strona nie znaleziona',
     'breadcrumb.sitemap' => 'Mapa strony',
