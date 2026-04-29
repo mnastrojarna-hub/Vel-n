@@ -428,6 +428,8 @@ return [
     'editRez.moto.notAvailable' => 'Booked for these dates',
     'editRez.moto.noOptions' => 'No other motorcycles available.',
     'editRez.moto.confirm' => 'Switch to selected motorcycle?',
+    'editRez.postStripe.applying' => 'Payment confirmed, finishing your booking change…',
+    'editRez.postStripe.error' => 'Payment was successful, but finishing the change failed. Please contact us.',
     'editRez.change.success' => 'Change has been saved.',
     'editRez.change.successWithRefund' => 'Change has been saved. We\'ll refund {amount} within minutes.',
     'editRez.err.activeMotoLocked' => 'Cannot change motorcycle during an active rental.',

@@ -538,6 +538,8 @@ return [
     'editRez.moto.notAvailable' => 'V termínu obsazeno',
     'editRez.moto.noOptions' => 'Žádné jiné motorky nejsou k dispozici.',
     'editRez.moto.confirm' => 'Změnit na vybranou motorku?',
+    'editRez.postStripe.applying' => 'Platba potvrzena, dokončuji změnu rezervace…',
+    'editRez.postStripe.error' => 'Platba proběhla, ale změnu rezervace se nepodařilo dokončit. Kontaktujte nás prosím.',
     'editRez.change.success' => 'Změna byla uložena.',
     'editRez.change.successWithRefund' => 'Změna byla uložena. Vrátíme vám {amount} během několika minut.',
     'editRez.err.activeMotoLocked' => 'U probíhající rezervace nelze změnit motorku.',
