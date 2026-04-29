@@ -706,25 +706,29 @@ MG._editRez._renderVoucherRow = function(v){
 // v Supabase je uložíme jako false, ale ve Velíně se mu to obarví červeně a
 // nová rezervace už od něj nepůjde, dokud neodsouhlasí znovu (řeší create_web_booking).
 MG._editRez._CONSENT_FIELDS = [
-  { key: 'marketing_consent',     label: 'Marketingový souhlas',  desc: 'Newslettery, slevové akce a novinky.' },
-  { key: 'consent_gdpr',          label: 'GDPR',                  desc: 'Souhlas se zpracováním osobních údajů (povinné pro rezervaci).' },
-  { key: 'consent_vop',           label: 'VOP',                   desc: 'Souhlas s všeobecnými obchodními podmínkami (povinné pro rezervaci).' },
-  { key: 'consent_data_processing', label: 'Zpracování dat',      desc: 'Souhlas se zpracováním dat pro plnění smlouvy.' },
-  { key: 'consent_contract',      label: 'Smlouva',               desc: 'Souhlas s návrhem nájemní smlouvy MotoGo24.' },
-  { key: 'consent_email',         label: 'Email',                 desc: 'Komunikace e-mailem (potvrzení, faktury, smlouvy).' },
-  { key: 'consent_sms',           label: 'SMS',                   desc: 'Komunikace přes SMS (přístupové kódy, urgentní upozornění).' },
-  { key: 'consent_whatsapp',      label: 'WhatsApp',              desc: 'Komunikace přes WhatsApp.' },
-  { key: 'consent_push',          label: 'Push',                  desc: 'Push notifikace v aplikaci MotoGo24.' },
-  { key: 'consent_photo',         label: 'Foto',                  desc: 'Fotografování dokladů přes Mindee OCR pro autonomní pobočku.' }
+  { key: 'consent_gdpr',          label: 'GDPR',                  desc: 'Souhlas se zpracováním osobních údajů.', icon: '🛡️', required: true },
+  { key: 'consent_vop',           label: 'VOP',                   desc: 'Všeobecné obchodní podmínky.',           icon: '📜', required: true },
+  { key: 'consent_contract',      label: 'Nájemní smlouva',       desc: 'Souhlas s návrhem nájemní smlouvy MotoGo24.', icon: '✍️', required: true },
+  { key: 'consent_data_processing', label: 'Zpracování dat',      desc: 'Souhlas se zpracováním dat pro plnění smlouvy.', icon: '🗄️', required: true },
+  { key: 'marketing_consent',     label: 'Marketing',             desc: 'Newslettery, slevové akce a novinky.',   icon: '📣' },
+  { key: 'consent_email',         label: 'Email',                 desc: 'Komunikace e-mailem (potvrzení, faktury, smlouvy).', icon: '📧' },
+  { key: 'consent_sms',           label: 'SMS',                   desc: 'Komunikace přes SMS (přístupové kódy, urgentní upozornění).', icon: '💬' },
+  { key: 'consent_whatsapp',      label: 'WhatsApp',              desc: 'Komunikace přes WhatsApp.',              icon: '🟢' },
+  { key: 'consent_push',          label: 'Push',                  desc: 'Push notifikace v aplikaci MotoGo24.',   icon: '🔔' },
+  { key: 'consent_photo',         label: 'Foto dokladů',          desc: 'Fotografování dokladů přes Mindee OCR pro autonomní pobočku.', icon: '📷' }
 ];
 
 MG._editRez._renderConsentsCard = function(){
   var cs = MG._editRez.consents || {};
-  var rows = MG._editRez._CONSENT_FIELDS.map(function(f){
+  var renderRow = function(f){
     var val = !!cs[f.key];
-    return '<div class="edit-rez-consent-row" data-key="' + f.key + '">' +
+    var badge = f.required
+      ? '<span class="edit-rez-consent-badge required">Povinné</span>'
+      : '<span class="edit-rez-consent-badge optional">Volitelné</span>';
+    return '<div class="edit-rez-consent-row' + (f.required ? ' is-required' : '') + (val ? ' is-on' : '') + '" data-key="' + f.key + '">' +
+      '<div class="edit-rez-consent-icon" aria-hidden="true">' + (f.icon || '✅') + '</div>' +
       '<div class="edit-rez-consent-body">' +
-        '<div class="edit-rez-consent-label">' + f.label + '</div>' +
+        '<div class="edit-rez-consent-head"><span class="edit-rez-consent-label">' + f.label + '</span>' + badge + '</div>' +
         '<div class="edit-rez-consent-desc">' + f.desc + '</div>' +
       '</div>' +
       '<label class="edit-rez-toggle" aria-label="' + f.label + '">' +
@@ -733,17 +737,31 @@ MG._editRez._renderConsentsCard = function(){
         '<span class="edit-rez-toggle-state">' + (val ? 'Ano' : 'Ne') + '</span>' +
       '</label>' +
     '</div>';
-  }).join('');
+  };
+  var required = MG._editRez._CONSENT_FIELDS.filter(function(f){ return f.required; });
+  var optional = MG._editRez._CONSENT_FIELDS.filter(function(f){ return !f.required; });
+  var rows =
+    '<div class="edit-rez-consents-section">' +
+      '<div class="edit-rez-consents-section-h"><span class="ico">⚖️</span> Povinné pro rezervaci</div>' +
+      required.map(renderRow).join('') +
+    '</div>' +
+    '<div class="edit-rez-consents-section">' +
+      '<div class="edit-rez-consents-section-h"><span class="ico">⚙️</span> Volitelné — komunikace a marketing</div>' +
+      optional.map(renderRow).join('') +
+    '</div>';
 
   return '<section class="edit-rez-card edit-rez-consents-card">' +
     '<div class="edit-rez-consents-head">' +
-      '<h2>Souhlasy</h2>' +
+      '<div class="edit-rez-consents-title">' +
+        '<span class="edit-rez-consents-title-ico">🔒</span>' +
+        '<div><h2>Souhlasy a komunikace</h2>' +
+        '<p class="edit-rez-consents-help">Změny se ukládají automaticky. Odvolání povinných souhlasů zablokuje další nové rezervace.</p></div>' +
+      '</div>' +
       '<div class="edit-rez-consents-actions">' +
-        '<button type="button" class="btn btn-secondary" id="edit-rez-consents-grant-all">Přijmout vše</button>' +
-        '<button type="button" class="btn btn-secondary" id="edit-rez-consents-revoke-all">Odvolat vše</button>' +
+        '<button type="button" class="btn-pill primary" id="edit-rez-consents-grant-all">✓ Přijmout vše</button>' +
+        '<button type="button" class="btn-pill ghost" id="edit-rez-consents-revoke-all">Odvolat vše</button>' +
       '</div>' +
     '</div>' +
-    '<p class="edit-rez-consents-help">Změny se ukládají automaticky. Odvolání povinných souhlasů (GDPR, VOP, Smlouva, Zpracování dat) zablokuje další nové rezervace, dokud souhlasy znovu neudělíte.</p>' +
     '<div class="edit-rez-consents-list">' + rows + '</div>' +
     '<div id="edit-rez-consents-status" class="edit-rez-consents-status" aria-live="polite"></div>' +
   '</section>';
@@ -755,27 +773,59 @@ MG._editRez._injectConsentsStyles = function(){
   var st = document.createElement('style');
   st.id = 'edit-rez-consents-styles';
   st.textContent =
-    '.edit-rez-consents-card{}'+
-    '.edit-rez-consents-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.6rem;margin-bottom:.4rem}'+
-    '.edit-rez-consents-actions{display:flex;gap:.5rem;flex-wrap:wrap}'+
-    '.edit-rez-consents-actions .btn-secondary{background:#fff;border:1.5px solid #d4e8e0;color:#1a2e22;padding:.45rem .9rem;border-radius:999px;font-weight:700;font-size:.85rem;cursor:pointer;transition:all .15s}'+
-    '.edit-rez-consents-actions .btn-secondary:hover{border-color:#1a8c1a;background:#f0faf5}'+
-    '.edit-rez-consents-help{font-size:.82rem;color:#5a6a60;margin:0 0 .8rem}'+
-    '.edit-rez-consents-list{display:flex;flex-direction:column;gap:.4rem}'+
-    '.edit-rez-consent-row{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.7rem .9rem;background:#fafdfb;border:1px solid #e5efe9;border-radius:14px}'+
-    '.edit-rez-consent-row.busy{opacity:.55}'+
-    '.edit-rez-consent-body{flex:1;min-width:0}'+
-    '.edit-rez-consent-label{font-weight:700;color:#1a2e22}'+
-    '.edit-rez-consent-desc{font-size:.78rem;color:#6a7a70;margin-top:.1rem}'+
-    '.edit-rez-toggle{display:inline-flex;align-items:center;gap:.5rem;cursor:pointer;user-select:none}'+
+    '.edit-rez-consents-card{background:linear-gradient(180deg,#fafffb 0%,#ffffff 70%);border:1px solid #d4e8e0;border-left:4px solid #74FB71}'+
+    '.edit-rez-consents-card h2{font-size:1.25rem;color:#0f1f17;margin:0;display:flex;align-items:center;gap:.5rem}'+
+    '.edit-rez-consents-head{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;padding-bottom:.9rem;border-bottom:1px dashed #d4e8e0}'+
+    '.edit-rez-consents-title{display:flex;align-items:flex-start;gap:.8rem;flex:1;min-width:240px}'+
+    '.edit-rez-consents-title-ico{font-size:2rem;line-height:1;flex:0 0 auto;background:#e8f5ee;border:1.5px solid #b9e3c8;border-radius:14px;width:48px;height:48px;display:flex;align-items:center;justify-content:center}'+
+    '.edit-rez-consents-help{font-size:.82rem;color:#5a6a60;margin:.2rem 0 0;line-height:1.45}'+
+    '.edit-rez-consents-actions{display:flex;gap:.5rem;flex-wrap:wrap;align-self:center}'+
+    '.edit-rez-consents-actions .btn-pill{padding:.55rem 1.1rem;border-radius:999px;font-weight:800;font-size:.85rem;cursor:pointer;font-family:inherit;letter-spacing:.01em;transition:all .15s;border:1.5px solid transparent;white-space:nowrap}'+
+    '.edit-rez-consents-actions .btn-pill.primary{background:#74FB71;color:#0f1f17;border-color:#5edc5a;box-shadow:0 3px 10px rgba(116,251,113,.35)}'+
+    '.edit-rez-consents-actions .btn-pill.primary:hover{background:#5edc5a;transform:translateY(-1px);box-shadow:0 5px 14px rgba(116,251,113,.45)}'+
+    '.edit-rez-consents-actions .btn-pill.ghost{background:#fff;border-color:#d4e8e0;color:#5a6a60}'+
+    '.edit-rez-consents-actions .btn-pill.ghost:hover{border-color:#c0392b;color:#c0392b;background:#fff5f3}'+
+    /* Sekce */
+    '.edit-rez-consents-section{margin-bottom:1.1rem}'+
+    '.edit-rez-consents-section:last-child{margin-bottom:0}'+
+    '.edit-rez-consents-section-h{font-size:.78rem;color:#147214;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin:0 0 .5rem;padding:.35rem .6rem;background:#e8f5ee;border-radius:999px;display:inline-flex;align-items:center;gap:.4rem}'+
+    '.edit-rez-consents-section-h .ico{font-size:.95rem}'+
+    '.edit-rez-consents-list{display:flex;flex-direction:column;gap:0}'+
+    /* Řádek */
+    '.edit-rez-consent-row{display:grid;grid-template-columns:42px 1fr auto;gap:.8rem;align-items:center;padding:.85rem 1rem;background:#fff;border:1.5px solid #e5efe9;border-radius:14px;margin-bottom:.45rem;transition:all .15s}'+
+    '.edit-rez-consent-row:hover{border-color:#74FB71;box-shadow:0 4px 12px rgba(20,80,40,.08)}'+
+    '.edit-rez-consent-row.is-on{border-color:#74FB71;background:linear-gradient(90deg,#f4fff4 0%,#ffffff 60%)}'+
+    '.edit-rez-consent-row.is-required{background:#fcfff8}'+
+    '.edit-rez-consent-row.is-required.is-on{background:linear-gradient(90deg,#e8f9ec 0%,#ffffff 60%);border-color:#5edc5a}'+
+    '.edit-rez-consent-row.busy{opacity:.55;pointer-events:none}'+
+    '.edit-rez-consent-icon{font-size:1.5rem;line-height:1;text-align:center;background:#f0f5f2;width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}'+
+    '.edit-rez-consent-row.is-on .edit-rez-consent-icon{background:#e8f5ee}'+
+    '.edit-rez-consent-body{min-width:0}'+
+    '.edit-rez-consent-head{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.15rem}'+
+    '.edit-rez-consent-label{font-weight:800;color:#0f1f17;font-size:.98rem}'+
+    '.edit-rez-consent-badge{font-size:.65rem;font-weight:800;padding:.15rem .55rem;border-radius:999px;text-transform:uppercase;letter-spacing:.06em}'+
+    '.edit-rez-consent-badge.required{background:#fff4d6;color:#7a5400;border:1px solid #e6a019}'+
+    '.edit-rez-consent-badge.optional{background:#eef4f0;color:#5a6a60;border:1px solid #d4e8e0}'+
+    '.edit-rez-consent-desc{font-size:.8rem;color:#5a6a60;line-height:1.4}'+
+    /* Toggle */
+    '.edit-rez-toggle{display:inline-flex;align-items:center;gap:.55rem;cursor:pointer;user-select:none;flex:0 0 auto}'+
     '.edit-rez-toggle input{position:absolute;opacity:0;pointer-events:none}'+
-    '.edit-rez-toggle-slider{width:46px;height:26px;background:#cdd7d2;border-radius:999px;position:relative;transition:background .18s}'+
-    '.edit-rez-toggle-slider::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;background:#fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:left .18s}'+
-    '.edit-rez-toggle input:checked + .edit-rez-toggle-slider{background:#1a8c1a}'+
-    '.edit-rez-toggle input:checked + .edit-rez-toggle-slider::after{left:23px}'+
-    '.edit-rez-toggle-state{font-weight:700;font-size:.85rem;color:#1a2e22;min-width:28px}'+
-    '.edit-rez-consents-status{font-size:.82rem;margin-top:.7rem;min-height:1.2em;color:#1a8c1a}'+
+    '.edit-rez-toggle-slider{width:50px;height:28px;background:#cdd7d2;border-radius:999px;position:relative;transition:background .18s,box-shadow .18s;border:1px solid #b8c7be}'+
+    '.edit-rez-toggle-slider::after{content:"";position:absolute;top:2px;left:2px;width:22px;height:22px;background:#fff;border-radius:50%;box-shadow:0 2px 4px rgba(0,0,0,.25);transition:left .18s,background .18s}'+
+    '.edit-rez-toggle input:checked + .edit-rez-toggle-slider{background:#74FB71;border-color:#5edc5a;box-shadow:0 0 0 3px rgba(116,251,113,.18)}'+
+    '.edit-rez-toggle input:checked + .edit-rez-toggle-slider::after{left:25px;background:#fff}'+
+    '.edit-rez-toggle input:focus-visible + .edit-rez-toggle-slider{box-shadow:0 0 0 3px rgba(116,251,113,.45)}'+
+    '.edit-rez-toggle-state{font-weight:800;font-size:.78rem;color:#5a6a60;min-width:24px;letter-spacing:.04em;text-transform:uppercase}'+
+    '.edit-rez-toggle input:checked ~ .edit-rez-toggle-state{color:#147214}'+
+    /* Status */
+    '.edit-rez-consents-status{font-size:.85rem;margin-top:.9rem;min-height:1.2em;color:#147214;font-weight:700;display:flex;align-items:center;gap:.4rem}'+
+    '.edit-rez-consents-status:not(:empty)::before{content:"✓";display:inline-block;font-weight:800}'+
     '.edit-rez-consents-status.error{color:#c0392b}'+
+    '.edit-rez-consents-status.error:not(:empty)::before{content:"✕"}'+
+    '@media(max-width:680px){.edit-rez-consent-row{grid-template-columns:36px 1fr;gap:.6rem}'+
+      '.edit-rez-consent-row .edit-rez-toggle{grid-column:1/3;justify-content:flex-end;margin-top:.2rem}'+
+      '.edit-rez-consents-head{flex-direction:column}.edit-rez-consents-actions{align-self:stretch}'+
+      '.edit-rez-consents-actions .btn-pill{flex:1;text-align:center}}'+
     /* ===== PENDING ROW + BANNER ===== */
     '.edit-rez-booking-wrap{display:flex;flex-direction:column;gap:0;margin-bottom:.6rem}'+
     '.edit-rez-booking-wrap .edit-rez-booking{margin-bottom:0;border-bottom-left-radius:0;border-bottom-right-radius:0}'+
@@ -943,7 +993,7 @@ MG._editRez._setConsentsStatus = function(msg, isError){
 MG._editRez._saveConsent = async function(key, value, inp){
   if (!MG._editRez.user) return;
   var row = inp && inp.closest('.edit-rez-consent-row');
-  if (row) row.classList.add('busy');
+  if (row){ row.classList.add('busy'); row.classList.toggle('is-on', !!value); }
   inp.disabled = true;
   var stateEl = row && row.querySelector('.edit-rez-toggle-state');
   if (stateEl) stateEl.textContent = value ? 'Ano' : 'Ne';
@@ -954,6 +1004,7 @@ MG._editRez._saveConsent = async function(key, value, inp){
       console.error('[editRez] consent save err', key, r.error);
       // Rollback UI
       inp.checked = !value;
+      if (row) row.classList.toggle('is-on', !value);
       if (stateEl) stateEl.textContent = !value ? 'Ano' : 'Ne';
       MG._editRez._setConsentsStatus('Nepodařilo se uložit souhlas.', true);
     } else {
@@ -963,6 +1014,7 @@ MG._editRez._saveConsent = async function(key, value, inp){
   } catch(e){
     console.error('[editRez] consent save exception', e);
     inp.checked = !value;
+    if (row) row.classList.toggle('is-on', !value);
     if (stateEl) stateEl.textContent = !value ? 'Ano' : 'Ne';
     MG._editRez._setConsentsStatus('Nepodařilo se uložit souhlas.', true);
   } finally {
@@ -995,6 +1047,8 @@ MG._editRez._saveAllConsents = async function(value){
       MG._editRez.consents[key] = !!value;
       var stateEl = inp.parentElement.querySelector('.edit-rez-toggle-state');
       if (stateEl) stateEl.textContent = value ? 'Ano' : 'Ne';
+      var row = inp.closest('.edit-rez-consent-row');
+      if (row) row.classList.toggle('is-on', !!value);
     });
     MG._editRez._setConsentsStatus(value ? 'Všechny souhlasy uděleny.' : 'Všechny souhlasy odvolány.', false);
   } catch(e){
