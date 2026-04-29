@@ -112,8 +112,7 @@ MG._rezInjectCalStyles = function(){
     '#rez-calendar .rezcal-nav button{background:#1a8c1a;color:#fff;border:none;width:38px;height:38px;border-radius:999px;cursor:pointer;font-size:1.4rem;line-height:1;font-weight:700;transition:transform .12s}'+
     '#rez-calendar .rezcal-nav button:hover{transform:scale(1.06);background:#147214}'+
     '#rez-calendar .rezcal-title{font-weight:800;font-size:1.05rem;color:#1a2e22;text-align:center;flex:1}'+
-    '#rez-calendar .rezcal-months{display:grid;grid-template-columns:1fr 1fr;gap:1rem}'+
-    '@media(max-width:680px){#rez-calendar .rezcal-months{grid-template-columns:1fr}}'+
+    '#rez-calendar .rezcal-single{max-width:520px;margin:0 auto}'+
     '#rez-calendar .rezcal-month{}'+
     '#rez-calendar .rezcal-mhead{text-align:center;font-weight:700;color:#1a2e22;margin:.2rem 0 .55rem;font-size:.95rem;letter-spacing:.02em}'+
     '#rez-calendar .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}'+
@@ -183,22 +182,19 @@ MG._rezRenderMonthHtml = function(y, m){
   return h;
 };
 
-// ===== RENDER CALENDAR =====
+// ===== RENDER CALENDAR (single month) =====
 MG._rezRenderCal = function(){
   var cal = document.getElementById('rez-calendar'); if(!cal) return;
   MG._rezInjectCalStyles();
   var y = MG._rez.calYear, m = MG._rez.calMonth;
   var months = ['Leden','Únor','Březen','Duben','Květen','Červen','Červenec','Srpen','Září','Říjen','Listopad','Prosinec'];
-  var y2 = y, m2 = m+1; if(m2 > 11){ m2 = 0; y2++; }
 
   var h = '<div class="rezcal-nav">'+
     '<button type="button" onclick="MG._rezCalPrev()" aria-label="Předchozí měsíc">‹</button>'+
-    '<span class="rezcal-title">'+months[m]+' '+y+' &nbsp;–&nbsp; '+months[m2]+' '+y2+'</span>'+
+    '<span class="rezcal-title">'+months[m]+' '+y+'</span>'+
     '<button type="button" onclick="MG._rezCalNext()" aria-label="Další měsíc">›</button>'+
     '</div>'+
-    '<div class="rezcal-months">'+
-      MG._rezRenderMonthHtml(y, m) + MG._rezRenderMonthHtml(y2, m2) +
-    '</div>'+
+    '<div class="rezcal-single">'+ MG._rezRenderMonthHtml(y, m) +'</div>'+
     '<div class="calendar-icons">' +
       '<div><span class="cicon loosely"></span> Volné</div>' +
       '<div><span class="cicon selrange"></span> Vybraný termín</div>' +

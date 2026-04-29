@@ -2059,18 +2059,14 @@ MG._editRez._renderRangeCalendar = function(opts){
 
   function render(){
     var y = state.pivotYear, m = state.pivotMonth;
-    var y2 = y, m2 = m+1; if (m2 > 11){ m2 = 0; y2++; }
     opts.container.innerHTML =
       '<div class="erez-cal-wrap">' +
         '<div class="erez-cal-nav">' +
-          '<button type="button" class="erez-cal-navbtn" data-prev>‹</button>' +
-          '<span class="erez-cal-navtitle">' + monthsCs[m] + ' ' + y +
-            ' &nbsp;–&nbsp; ' + monthsCs[m2] + ' ' + y2 + '</span>' +
-          '<button type="button" class="erez-cal-navbtn" data-next>›</button>' +
+          '<button type="button" class="erez-cal-navbtn" data-prev aria-label="Předchozí měsíc">‹</button>' +
+          '<span class="erez-cal-navtitle">' + monthsCs[m] + ' ' + y + '</span>' +
+          '<button type="button" class="erez-cal-navbtn" data-next aria-label="Další měsíc">›</button>' +
         '</div>' +
-        '<div class="erez-cal-months">' +
-          renderMonth(y, m) + renderMonth(y2, m2) +
-        '</div>' +
+        '<div class="erez-cal-single">' + renderMonth(y, m) + '</div>' +
         '<div class="erez-cal-legend">' +
           '<span><i class="dot dot-free"></i> Volné</span>' +
           '<span><i class="dot dot-own"></i> Tato rezervace</span>' +
@@ -2098,8 +2094,7 @@ MG._editRez._renderRangeCalendar = function(opts){
       '.erez-cal-navbtn{background:#1a8c1a;color:#fff;border:none;width:38px;height:38px;border-radius:999px;cursor:pointer;font-size:1.4rem;line-height:1;font-weight:700;display:inline-flex;align-items:center;justify-content:center;transition:transform .12s}'+
       '.erez-cal-navbtn:hover{transform:scale(1.06);background:#147214}'+
       '.erez-cal-navtitle{font-weight:800;font-size:1.05rem;color:#1a2e22;text-align:center;flex:1}'+
-      '.erez-cal-months{display:grid;grid-template-columns:1fr 1fr;gap:1rem}'+
-      '@media(max-width:680px){.erez-cal-months{grid-template-columns:1fr}}'+
+      '.erez-cal-single{max-width:520px;margin:0 auto}'+
       '.erez-cal-mhead{text-align:center;font-weight:700;color:#1a2e22;margin:.2rem 0 .55rem;font-size:.95rem;letter-spacing:.02em}'+
       '.erez-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}'+
       '.erez-cal-dn{font-size:.7rem;color:#7d978a;text-align:center;font-weight:700;padding:.2rem 0;letter-spacing:.04em;text-transform:uppercase}'+
@@ -2119,14 +2114,105 @@ MG._editRez._renderRangeCalendar = function(opts){
       '.erez-cal-legend .dot-occ{background:#444}'+
       '.erez-cal-legend .dot-sel{background:#0f5e0f}'+
       '.erez-range-banner{background:#74FB71;color:#0b0b0b;padding:.7rem 1rem;border-radius:18px;margin:.4rem 0 .8rem;font-weight:700;display:flex;justify-content:space-between;flex-wrap:wrap;gap:.4rem;align-items:center}'+
-      '.erez-range-banner .erez-clear{background:#0b0b0b;color:#74FB71;padding:.35rem .8rem;border-radius:14px;cursor:pointer;font-size:.78rem;border:none;font-weight:700}';
+      '.erez-range-banner .erez-clear{background:#0b0b0b;color:#74FB71;padding:.35rem .8rem;border-radius:14px;cursor:pointer;font-size:.78rem;border:none;font-weight:700}'+
+      /* manuální zadání datumů */
+      '.erez-dates-manual{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin-bottom:.5rem}'+
+      '@media(max-width:520px){.erez-dates-manual{grid-template-columns:1fr}}'+
+      '.erez-date-field{display:flex;flex-direction:column;gap:.25rem}'+
+      '.erez-date-field>span{font-size:.78rem;font-weight:700;color:#1a2e22;letter-spacing:.03em;text-transform:uppercase}'+
+      '.erez-date-field.locked>span::after{content:" (zamčeno)";color:#9aa8a0;font-weight:500;text-transform:none}'+
+      '.erez-date-input{padding:.7rem .9rem;border:1.5px solid #d4e8e0;border-radius:12px;font-family:Montserrat,sans-serif;font-size:1rem;font-weight:700;color:#1a2e22;background:#fafdfb;letter-spacing:.05em;transition:all .15s;text-align:center}'+
+      '.erez-date-input:focus{outline:none;border-color:#1a8c1a;background:#fff;box-shadow:0 0 0 3px rgba(26,140,26,.12)}'+
+      '.erez-date-input.invalid{border-color:#c0392b;background:#ffebe7}'+
+      '.erez-date-input[readonly]{background:#eef3f0;color:#9aa8a0;cursor:not-allowed}'+
+      '.erez-dates-help{font-size:.75rem;color:#6a7a70;margin:-.2rem 0 .6rem;text-align:center}';
     document.head.appendChild(st);
   }
 
   render();
   return {
     setSelection: function(s, e){ state.sel1 = s||null; state.sel2 = e||null; render(); },
-    getSelection: function(){ return { start: state.sel1, end: state.sel2 }; }
+    getSelection: function(){ return { start: state.sel1, end: state.sel2 }; },
+    showMonth: function(year, month){ state.pivotYear = year; state.pivotMonth = month; render(); }
+  };
+};
+
+// ===== MANUAL DATE INPUT (DD.MM.RRRR) =====
+// Pomocná funkce pro hezká pole "Nový začátek / Nový konec" — synchronizovaná
+// s kalendářem. Auto-format na blur (DD.MM.YYYY → ISO YYYY-MM-DD).
+MG._editRez._isoToCs = function(iso){
+  if (!iso) return '';
+  var p = iso.split('-');
+  if (p.length !== 3) return '';
+  return p[2] + '.' + p[1] + '.' + p[0];
+};
+MG._editRez._csToIso = function(cs){
+  if (!cs) return '';
+  var s = cs.replace(/\s+/g,'').replace(/-/g,'.').replace(/\//g,'.');
+  var p = s.split('.');
+  if (p.length !== 3) return '';
+  var d = p[0].padStart(2,'0'), m = p[1].padStart(2,'0'), y = p[2];
+  if (y.length === 2) y = '20' + y;
+  if (!/^\d{4}$/.test(y) || !/^\d{2}$/.test(m) || !/^\d{2}$/.test(d)) return '';
+  // sanity
+  var dt = new Date(y+'-'+m+'-'+d);
+  if (isNaN(dt.getTime())) return '';
+  if (dt.getFullYear() != y || (dt.getMonth()+1) != parseInt(m,10) || dt.getDate() != parseInt(d,10)) return '';
+  return y+'-'+m+'-'+d;
+};
+
+// Vykreslí dvojici inputů "Nový začátek" + "Nový konec" do containeru.
+// opts: { container, startIso, endIso, minIso, maxIso, lockStart, onChange(start,end) }
+MG._editRez._renderManualDates = function(opts){
+  var minLbl = opts.minIso ? MG._editRez._isoToCs(opts.minIso) : '';
+  var maxLbl = opts.maxIso ? MG._editRez._isoToCs(opts.maxIso) : '';
+  var rangeHelp = (minLbl || maxLbl) ? '<small class="muted">Povolené rozmezí: ' + minLbl + ' – ' + maxLbl + '</small>' : '';
+  opts.container.innerHTML =
+    '<div class="erez-dates-manual">' +
+      '<label class="erez-date-field' + (opts.lockStart ? ' locked' : '') + '">' +
+        '<span>Nový začátek</span>' +
+        '<input type="text" class="erez-date-input" data-which="start" placeholder="DD.MM.RRRR" inputmode="numeric" value="' +
+          MG._editRez._isoToCs(opts.startIso || '') + '"' + (opts.lockStart ? ' readonly' : '') + '>' +
+      '</label>' +
+      '<label class="erez-date-field">' +
+        '<span>Nový konec</span>' +
+        '<input type="text" class="erez-date-input" data-which="end" placeholder="DD.MM.RRRR" inputmode="numeric" value="' +
+          MG._editRez._isoToCs(opts.endIso || '') + '">' +
+      '</label>' +
+    '</div>' +
+    (rangeHelp ? '<div class="erez-dates-help">' + rangeHelp + '</div>' : '');
+
+  function applyValue(input){
+    var which = input.getAttribute('data-which');
+    var iso = MG._editRez._csToIso(input.value);
+    if (!iso){ input.classList.add('invalid'); return; }
+    if (opts.minIso && iso < opts.minIso){ input.classList.add('invalid'); return; }
+    if (opts.maxIso && iso > opts.maxIso){ input.classList.add('invalid'); return; }
+    input.classList.remove('invalid');
+    input.value = MG._editRez._isoToCs(iso);  // normalizovaný formát
+    if (typeof opts.onChange === 'function') opts.onChange(which, iso);
+  }
+  opts.container.querySelectorAll('.erez-date-input').forEach(function(inp){
+    if (inp.readOnly) return;
+    // Auto-format jen číslic při psaní
+    inp.addEventListener('input', function(){
+      var v = inp.value.replace(/[^\d]/g,'').slice(0,8);
+      if (v.length >= 5) v = v.slice(0,2) + '.' + v.slice(2,4) + '.' + v.slice(4);
+      else if (v.length >= 3) v = v.slice(0,2) + '.' + v.slice(2);
+      inp.value = v;
+    });
+    inp.addEventListener('blur', function(){ applyValue(inp); });
+    inp.addEventListener('keydown', function(e){ if (e.key === 'Enter'){ e.preventDefault(); applyValue(inp); } });
+  });
+  return {
+    setStart: function(iso){
+      var i = opts.container.querySelector('[data-which=start]');
+      if (i) i.value = MG._editRez._isoToCs(iso || '');
+    },
+    setEnd: function(iso){
+      var i = opts.container.querySelector('[data-which=end]');
+      if (i) i.value = MG._editRez._isoToCs(iso || '');
+    }
   };
 };
 
@@ -2153,6 +2239,7 @@ MG._editRez._renderTabExtend = async function(){
     '<h3>' + MG.t('editRez.extend.title') + '</h3>' +
     '<p>' + MG.t(helpKey) + '</p>' +
     '<div id="edit-rez-extend-banner" class="erez-range-banner" style="display:none"></div>' +
+    '<div id="edit-rez-extend-manual"></div>' +
     '<div id="edit-rez-extend-cal"></div>' +
     '<form id="edit-rez-extend-form" class="edit-rez-form" novalidate>' +
       '<input type="hidden" name="newStart" value="' + b.start_date + '">' +
@@ -2209,9 +2296,31 @@ MG._editRez._renderTabExtend = async function(){
     cta.disabled = (diff <= 0);
   }
 
+  // Pravidla extend (1:1 jako Flutter app BookingDateEditor):
+  //  - upcoming (reserved): start lze posunout DŘÍVE (max do dneška), end POZDĚJI
+  //  - active: start zamčený = b.start_date, end posunout POZDĚJI
+  // Tedy minStart = isActive ? ownStart : today; maxStart = ownStart;
+  //      minEnd   = ownEnd;                       maxEnd   = strop +1 rok.
+  var manual = MG._editRez._renderManualDates({
+    container: document.getElementById('edit-rez-extend-manual'),
+    startIso: b.start_date, endIso: b.end_date,
+    minIso: isActive ? b.start_date : todayIso,
+    maxIso: maxIsoDate,
+    lockStart: isActive,
+    onChange: function(which, iso){
+      var ns = (which === 'start') ? iso : f.newStart.value;
+      var ne = (which === 'end')   ? iso : f.newEnd.value;
+      cal.setSelection(ns, ne);
+      var d = new Date(iso);
+      cal.showMonth(d.getFullYear(), d.getMonth());
+      onChange(ns, ne);
+    }
+  });
+
   function onChange(s, e){
     f.newStart.value = s || '';
     f.newEnd.value = e || '';
+    if (manual){ manual.setStart(s); manual.setEnd(e); }
     updateBanner(s, e);
     recalc(s, e);
   }
@@ -2310,6 +2419,7 @@ MG._editRez._renderTabShorten = function(){
     '<h3>' + MG.t('editRez.shorten.title') + '</h3>' +
     '<p>' + MG.t(helpKey) + '</p>' +
     '<div id="edit-rez-shorten-banner" class="erez-range-banner" style="display:none"></div>' +
+    '<div id="edit-rez-shorten-manual"></div>' +
     '<div id="edit-rez-shorten-cal"></div>' +
     '<form id="edit-rez-shorten-form" class="edit-rez-form" novalidate>' +
       '<input type="hidden" name="newStart" value="' + b.start_date + '">' +
@@ -2383,9 +2493,30 @@ MG._editRez._renderTabShorten = function(){
     f.dataset.pct = String(pct);
   }
 
+  // Pravidla shorten:
+  //  - upcoming (reserved): start lze posunout POZDĚJI (uvnitř původního rozsahu),
+  //    end DŘÍVE; obojí uvnitř [b.start_date, b.end_date]
+  //  - active: start zamčený = b.start_date, end pouze DŘÍVE.
+  var manual = MG._editRez._renderManualDates({
+    container: document.getElementById('edit-rez-shorten-manual'),
+    startIso: b.start_date, endIso: b.end_date,
+    minIso: b.start_date,
+    maxIso: b.end_date,
+    lockStart: isActive,
+    onChange: function(which, iso){
+      var ns = (which === 'start') ? iso : f.newStart.value;
+      var ne = (which === 'end')   ? iso : f.newEnd.value;
+      cal.setSelection(ns, ne);
+      var d = new Date(iso);
+      cal.showMonth(d.getFullYear(), d.getMonth());
+      onChange(ns, ne);
+    }
+  });
+
   function onChange(s, e){
     f.newStart.value = s || '';
     f.newEnd.value = e || '';
+    if (manual){ manual.setStart(s); manual.setEnd(e); }
     updateBanner(s, e);
     recalc(s, e);
   }
