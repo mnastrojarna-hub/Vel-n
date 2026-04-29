@@ -866,7 +866,9 @@ MG._editRez._renderTabMoto = async function(){
       return;
     }
 
-    // Pro každou motorku: dostupnost v termínu + cenový rozdíl
+    // Pro každou motorku: dostupnost v termínu + cenový rozdíl.
+    // Cílíme cizí motorky → žádné filtrování vlastního bookingu (server overlap
+    // check spadne, pokud by tam vlastní omylem zůstal — fail-safe).
     var rangePromises = motos.map(function(m){
       return window.sb.rpc('get_moto_booked_dates', { p_moto_id: m.id })
         .then(function(r){ return { moto: m, occupied: (r && r.data) || [] }; });
@@ -1410,21 +1412,28 @@ MG._editRez._submitCancel = async function(reason, percent, refund){
 };
 
 // ===== AVAILABILITY (occupied dates other than this booking) =====
-// Pro extend kontrolujeme překryv s ostatními rezervacemi stejné motorky.
-// Používáme veřejnou RPC get_moto_booked_dates a vyřazujeme aktuální booking.
-MG._editRez._loadOccupied = async function(){
+// Pro extend/shorten/moto-swap kontrolujeme překryv s ostatními rezervacemi
+// stejné motorky a vyřazujeme tu vlastní (jinak by si zákazník nemohl posunout
+// vlastní termín). RPC get_moto_booked_dates vrací jen start_date/end_date/status,
+// proto identifikujeme vlastní booking přes přesný match dat NEBO přes plné
+// obsažení v aktuálním rozsahu (pro případ že už byl jednou upraven a created_at
+// kolize není spolehlivá). Toto je fail-open — pokud by se omylem vyhodil cizí
+// booking, server-side overlap check v RPC apply_booking_changes ho zachytí.
+MG._editRez._loadOccupied = async function(p_moto_id){
   var b = MG._editRez.selectedBooking;
-  if (!b || !b.moto_id) return [];
+  var motoId = p_moto_id || (b && b.moto_id);
+  if (!motoId) return [];
   try {
-    var r = await window.sb.rpc('get_moto_booked_dates', { p_moto_id: b.moto_id });
+    var r = await window.sb.rpc('get_moto_booked_dates', { p_moto_id: motoId });
     if (r.error){ console.warn('[editRez] occupied err', r.error); return []; }
     var data = r.data || [];
+    if (!b || p_moto_id && p_moto_id !== b.moto_id) return data;
     return data.filter(function(x){
-      // RPC vrací dates+status; vyhazujeme svůj vlastní booking dle datumů.
-      // (RPC neuvádí booking_id; porovnáme tedy dle start+end+status, což je
-      // dostatečné — pravděpodobnost, že má někdo identický rozsah, je nulová,
-      // a v case match nám to jen umožní více volnosti — bezpečné fail-open.)
-      return !(x.start_date === b.start_date && x.end_date === b.end_date);
+      // 1) Přesný match původního rozsahu = vlastní booking
+      if (x.start_date === b.start_date && x.end_date === b.end_date) return false;
+      // 2) Záznam plně uvnitř původního rozsahu = vlastní booking po dřívější úpravě
+      if (x.start_date >= b.start_date && x.end_date <= b.end_date) return false;
+      return true;
     });
   } catch(e){ return []; }
 };
@@ -1453,9 +1462,198 @@ MG._editRez._rangeOverlapsOccupied = function(startIso, endIso, occupied){
   });
 };
 
+// ===== DUAL CALENDAR PICKER (start + end) =====
+// Sdílená komponenta pro Prodloužit i Zkrátit. Vykreslí dva měsíční kalendáře
+// vedle sebe (mobilně pod sebou), uživatel klikne 2× — první klik = nový začátek,
+// druhý = nový konec (stejná logika jako v Flutter app: BookingDateEditor).
+//
+// opts = {
+//   container: HTMLElement,        // kam vykreslit
+//   minDate: 'YYYY-MM-DD',         // nejnižší volitelný den (extend: dnes; shorten: orig start)
+//   maxDate: 'YYYY-MM-DD',         // nejvyšší volitelný den (extend: +1 rok; shorten: orig end)
+//   ownStart, ownEnd,              // datum vlastního bookingu (zvýraznění)
+//   selectedStart, selectedEnd,    // aktuální výběr
+//   occupied: [{start_date,end_date,status}],  // bez vlastního bookingu
+//   lockStart: bool,               // pro active rezervaci u extend (start zamčený = ownStart)
+//   onChange: function(start,end)  // emit při každé změně výběru
+// }
+MG._editRez._renderRangeCalendar = function(opts){
+  var state = {
+    sel1: opts.selectedStart || null,
+    sel2: opts.selectedEnd || null,
+    pivotYear: 0, pivotMonth: 0
+  };
+  var anchor = opts.selectedStart || opts.ownStart || opts.minDate;
+  var ad = anchor ? new Date(anchor) : new Date();
+  state.pivotYear = ad.getFullYear();
+  state.pivotMonth = ad.getMonth();
+
+  var monthsCs = ['Leden','Únor','Březen','Duben','Květen','Červen','Červenec','Srpen','Září','Říjen','Listopad','Prosinec'];
+  var dayN = ['Po','Út','St','Čt','Pá','So','Ne'];
+
+  function iso(y,m,d){ return y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0'); }
+  function inRange(ds, a, b){ if(!a||!b) return false; return ds >= a && ds <= b; }
+  function isOccupiedDay(ds){
+    return (opts.occupied||[]).some(function(o){ return ds >= o.start_date && ds <= o.end_date; });
+  }
+  function isOwn(ds){ return opts.ownStart && opts.ownEnd && ds >= opts.ownStart && ds <= opts.ownEnd; }
+  function disabled(ds){
+    if (opts.minDate && ds < opts.minDate) return true;
+    if (opts.maxDate && ds > opts.maxDate) return true;
+    if (opts.lockStart && opts.ownStart && ds < opts.ownStart) return true;
+    if (isOccupiedDay(ds)) return true;
+    return false;
+  }
+
+  function pick(ds){
+    if (disabled(ds)) return;
+    if (opts.lockStart){
+      // Active rezervace: start zamčený, mění se jen end
+      state.sel1 = opts.ownStart;
+      state.sel2 = ds;
+    } else {
+      // 2-step: 1. klik = start, 2. klik = end
+      if (!state.sel1 || (state.sel1 && state.sel2)){
+        state.sel1 = ds; state.sel2 = null;
+      } else if (ds < state.sel1){
+        state.sel1 = ds; state.sel2 = null;
+      } else {
+        // Ověř, že celý rozsah je volný (cizí bookingy)
+        var d1 = new Date(state.sel1), d2 = new Date(ds);
+        var blocked = false;
+        var cur = new Date(d1);
+        while(cur <= d2){
+          var cs = iso(cur.getFullYear(), cur.getMonth(), cur.getDate());
+          if (isOccupiedDay(cs)){ blocked = true; break; }
+          cur.setDate(cur.getDate()+1);
+        }
+        if (blocked){
+          state.sel1 = ds; state.sel2 = null;  // restartuj výběr
+        } else {
+          state.sel2 = ds;
+        }
+      }
+    }
+    render();
+    if (typeof opts.onChange === 'function'){ opts.onChange(state.sel1, state.sel2); }
+  }
+
+  function renderMonth(y, m){
+    var first = new Date(y,m,1), last = new Date(y,m+1,0);
+    var dow = (first.getDay()+6)%7; // Po=0
+    var h = '<div class="erez-cal-month"><div class="erez-cal-mhead">'+monthsCs[m]+' '+y+'</div>';
+    h += '<div class="erez-cal-grid">';
+    dayN.forEach(function(d){ h += '<div class="erez-cal-dn">'+d+'</div>'; });
+    for(var i=0;i<dow;i++) h += '<div class="erez-cal-empty"></div>';
+    var todayIso = (function(){ var t=new Date(); return iso(t.getFullYear(), t.getMonth(), t.getDate()); })();
+    for(var d=1; d<=last.getDate(); d++){
+      var ds = iso(y,m,d);
+      var cls = ['erez-cal-day'];
+      var off = disabled(ds);
+      var occ = isOccupiedDay(ds);
+      var own = isOwn(ds);
+      var s1 = state.sel1, s2 = state.sel2;
+      var inSel = (s1 && s2 && inRange(ds, s1, s2));
+      var isS1 = s1 && ds === s1;
+      var isS2 = s2 && ds === s2;
+      if (off) cls.push('off');
+      if (occ) cls.push('occ');
+      if (own && !inSel && !isS1 && !isS2) cls.push('own');
+      if (inSel) cls.push('in-range');
+      if (isS1) cls.push('sel-start');
+      if (isS2) cls.push('sel-end');
+      if (ds === todayIso) cls.push('today');
+      h += '<div class="'+cls.join(' ')+'" data-ds="'+ds+'"><span>'+d+'</span></div>';
+    }
+    h += '</div></div>';
+    return h;
+  }
+
+  function shiftMonth(delta){
+    state.pivotMonth += delta;
+    while(state.pivotMonth < 0){ state.pivotMonth += 12; state.pivotYear--; }
+    while(state.pivotMonth > 11){ state.pivotMonth -= 12; state.pivotYear++; }
+    render();
+  }
+
+  function render(){
+    var y = state.pivotYear, m = state.pivotMonth;
+    var y2 = y, m2 = m+1; if (m2 > 11){ m2 = 0; y2++; }
+    opts.container.innerHTML =
+      '<div class="erez-cal-wrap">' +
+        '<div class="erez-cal-nav">' +
+          '<button type="button" class="erez-cal-navbtn" data-prev>‹</button>' +
+          '<span class="erez-cal-navtitle">' + monthsCs[m] + ' ' + y +
+            ' &nbsp;–&nbsp; ' + monthsCs[m2] + ' ' + y2 + '</span>' +
+          '<button type="button" class="erez-cal-navbtn" data-next>›</button>' +
+        '</div>' +
+        '<div class="erez-cal-months">' +
+          renderMonth(y, m) + renderMonth(y2, m2) +
+        '</div>' +
+        '<div class="erez-cal-legend">' +
+          '<span><i class="dot dot-free"></i> Volné</span>' +
+          '<span><i class="dot dot-own"></i> Tato rezervace</span>' +
+          '<span><i class="dot dot-occ"></i> Obsazené</span>' +
+          '<span><i class="dot dot-sel"></i> Nový výběr</span>' +
+        '</div>' +
+      '</div>';
+    var prev = opts.container.querySelector('[data-prev]');
+    var next = opts.container.querySelector('[data-next]');
+    if (prev) prev.addEventListener('click', function(){ shiftMonth(-1); });
+    if (next) next.addEventListener('click', function(){ shiftMonth(1); });
+    opts.container.querySelectorAll('.erez-cal-day').forEach(function(el){
+      if (el.classList.contains('off')) return;
+      el.addEventListener('click', function(){ pick(el.getAttribute('data-ds')); });
+    });
+  }
+
+  // Inject styles once
+  if (!document.getElementById('erez-cal-styles')){
+    var st = document.createElement('style');
+    st.id = 'erez-cal-styles';
+    st.textContent =
+      '.erez-cal-wrap{background:#fff;border:1px solid #d4e8e0;border-radius:18px;padding:1rem;margin:.6rem 0 1rem;box-shadow:0 4px 14px rgba(20,80,40,.06);font-family:Montserrat,sans-serif}'+
+      '.erez-cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem}'+
+      '.erez-cal-navbtn{background:#1a8c1a;color:#fff;border:none;width:38px;height:38px;border-radius:999px;cursor:pointer;font-size:1.4rem;line-height:1;font-weight:700;display:inline-flex;align-items:center;justify-content:center;transition:transform .12s}'+
+      '.erez-cal-navbtn:hover{transform:scale(1.06);background:#147214}'+
+      '.erez-cal-navtitle{font-weight:800;font-size:1.05rem;color:#1a2e22;text-align:center;flex:1}'+
+      '.erez-cal-months{display:grid;grid-template-columns:1fr 1fr;gap:1rem}'+
+      '@media(max-width:680px){.erez-cal-months{grid-template-columns:1fr}}'+
+      '.erez-cal-mhead{text-align:center;font-weight:700;color:#1a2e22;margin:.2rem 0 .55rem;font-size:.95rem;letter-spacing:.02em}'+
+      '.erez-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}'+
+      '.erez-cal-dn{font-size:.7rem;color:#7d978a;text-align:center;font-weight:700;padding:.2rem 0;letter-spacing:.04em;text-transform:uppercase}'+
+      '.erez-cal-empty{}'+
+      '.erez-cal-day{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;background:#74FB71;color:#0b0b0b;border-radius:10px;cursor:pointer;font-weight:700;font-size:.92rem;transition:transform .1s, box-shadow .1s, background .1s;user-select:none}'+
+      '.erez-cal-day:hover:not(.off){transform:scale(1.07);box-shadow:0 3px 8px rgba(26,140,26,.25)}'+
+      '.erez-cal-day.off{background:#3a3a3a;color:#fff;cursor:not-allowed;opacity:.85}'+
+      '.erez-cal-day.occ{background:#444;color:#fff;cursor:not-allowed}'+
+      '.erez-cal-day.own{background:#bce6c9;color:#0b3a18;border:1.5px dashed #1a8c1a}'+
+      '.erez-cal-day.in-range{background:#1a8c1a;color:#fff}'+
+      '.erez-cal-day.sel-start, .erez-cal-day.sel-end{background:#0f5e0f;color:#fff;box-shadow:0 0 0 2px #74FB71}'+
+      '.erez-cal-day.today{outline:2px solid #1a8c1a;outline-offset:-2px}'+
+      '.erez-cal-legend{display:flex;flex-wrap:wrap;gap:.6rem 1.1rem;margin-top:.85rem;font-size:.78rem;color:#3a4a40}'+
+      '.erez-cal-legend .dot{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:.3rem;vertical-align:middle}'+
+      '.erez-cal-legend .dot-free{background:#74FB71}'+
+      '.erez-cal-legend .dot-own{background:#bce6c9;border:1.5px dashed #1a8c1a}'+
+      '.erez-cal-legend .dot-occ{background:#444}'+
+      '.erez-cal-legend .dot-sel{background:#0f5e0f}'+
+      '.erez-range-banner{background:#74FB71;color:#0b0b0b;padding:.7rem 1rem;border-radius:18px;margin:.4rem 0 .8rem;font-weight:700;display:flex;justify-content:space-between;flex-wrap:wrap;gap:.4rem;align-items:center}'+
+      '.erez-range-banner .erez-clear{background:#0b0b0b;color:#74FB71;padding:.35rem .8rem;border-radius:14px;cursor:pointer;font-size:.78rem;border:none;font-weight:700}';
+    document.head.appendChild(st);
+  }
+
+  render();
+  return {
+    setSelection: function(s, e){ state.sel1 = s||null; state.sel2 = e||null; render(); },
+    getSelection: function(){ return { start: state.sel1, end: state.sel2 }; }
+  };
+};
+
 // ===== TAB: PROLONGATION =====
 // Aktivní rezervace: měnit lze JEN end_date (start je zamčený).
 // Reserved: měnit lze obojí (dříve začít / později skončit).
+// UI: dvojkalendář (Po-Ne grid) místo nativního <input type=date> — stejný
+// vizuál jako rezervační formulář a Flutter app BookingDateEditor.
 MG._editRez._renderTabExtend = async function(){
   var b = MG._editRez.selectedBooking;
   var m = MG._editRez.selectedMoto || {};
@@ -1464,51 +1662,63 @@ MG._editRez._renderTabExtend = async function(){
   var helpKey = isActive ? 'editRez.extend.helpActive' : 'editRez.extend.helpUpcoming';
   var todayIso = MG._editRez._toIsoDate(new Date());
 
+  // Strop pro extend: rok dopředu (víc nedává smysl + brzdí render).
+  var maxIsoDate = (function(){
+    var d = new Date(); d.setFullYear(d.getFullYear()+1);
+    return MG._editRez._toIsoDate(d);
+  })();
+
   t.innerHTML =
     '<h3>' + MG.t('editRez.extend.title') + '</h3>' +
     '<p>' + MG.t(helpKey) + '</p>' +
-    '<form id="edit-rez-extend-form" class="edit-rez-form edit-rez-date-grid" novalidate>' +
-      '<label>' + MG.t('editRez.extend.newStart') +
-        '<input type="date" name="newStart" value="' + b.start_date + '" min="' + (isActive ? b.start_date : todayIso) + '" max="' + b.start_date + '"' + (isActive ? ' readonly' : '') + '>' +
-      '</label>' +
-      '<label>' + MG.t('editRez.extend.newEnd') +
-        '<input type="date" name="newEnd" value="' + b.end_date + '" min="' + b.end_date + '">' +
-      '</label>' +
+    '<div id="edit-rez-extend-banner" class="erez-range-banner" style="display:none"></div>' +
+    '<div id="edit-rez-extend-cal"></div>' +
+    '<form id="edit-rez-extend-form" class="edit-rez-form" novalidate>' +
+      '<input type="hidden" name="newStart" value="' + b.start_date + '">' +
+      '<input type="hidden" name="newEnd"   value="' + b.end_date   + '">' +
       '<div id="edit-rez-extend-summary" class="edit-rez-price-summary" aria-live="polite"></div>' +
       '<button type="submit" class="btn btngreen" id="edit-rez-extend-cta" disabled>' + MG.t('editRez.extend.cta') + '</button>' +
     '</form>';
 
-  // Načteme occupied jen jednou, pak cachujeme pro live recalcs.
   var occupied = await MG._editRez._loadOccupied();
   var f = document.getElementById('edit-rez-extend-form');
+  var banner = document.getElementById('edit-rez-extend-banner');
 
-  function recalc(){
-    var ns = f.newStart.value, ne = f.newEnd.value;
+  function updateBanner(ns, ne){
+    if (!ns){ banner.style.display='none'; banner.innerHTML=''; return; }
+    banner.style.display='flex';
+    if (!ne){
+      banner.innerHTML = '<span>Nový začátek: <strong>'+MG.formatDate(ns)+'</strong> — klikněte na nový konec</span>' +
+        '<button type="button" class="erez-clear">✕ Zrušit</button>';
+    } else {
+      banner.innerHTML = '<span>Nový termín: <strong>'+MG.formatDate(ns)+' – '+MG.formatDate(ne)+'</strong></span>' +
+        '<button type="button" class="erez-clear">✕ Zrušit</button>';
+    }
+    var btn = banner.querySelector('.erez-clear');
+    if (btn) btn.addEventListener('click', function(){
+      cal.setSelection(b.start_date, b.end_date);
+      onChange(b.start_date, b.end_date);
+    });
+  }
+
+  function recalc(ns, ne){
     var summary = document.getElementById('edit-rez-extend-summary');
     var cta = document.getElementById('edit-rez-extend-cta');
     if (!ns || !ne || ns > ne){
-      summary.textContent = '';
-      cta.disabled = true;
-      return;
+      summary.textContent = ''; cta.disabled = true; return;
     }
     var noChange = (ns === b.start_date && ne === b.end_date);
     if (noChange){
       summary.innerHTML = '<span class="muted">' + MG.t('editRez.extend.noChange') + '</span>';
-      cta.disabled = true;
-      return;
+      cta.disabled = true; return;
     }
-    // Pro extend: alespoň jedno z nových dat musí být MIMO původní rozsah a
-    // celý nový rozsah musí původní obsahovat (start dříve nebo stejně, end
-    // později nebo stejně).
     if (ns > b.start_date || ne < b.end_date){
       summary.innerHTML = '<span class="error">' + MG.t('editRez.err.notExtending') + '</span>';
-      cta.disabled = true;
-      return;
+      cta.disabled = true; return;
     }
     if (MG._editRez._rangeOverlapsOccupied(ns, ne, occupied)){
       summary.innerHTML = '<span class="error">' + MG.t('editRez.extend.unavailable') + '</span>';
-      cta.disabled = true;
-      return;
+      cta.disabled = true; return;
     }
     var origPrice = MG._editRez._priceForRange(m, b.start_date, b.end_date);
     var newPrice  = MG._editRez._priceForRange(m, ns, ne);
@@ -1517,9 +1727,27 @@ MG._editRez._renderTabExtend = async function(){
       '<strong>' + MG.formatPrice(diff) + '</strong></div>';
     cta.disabled = (diff <= 0);
   }
-  f.newStart.addEventListener('change', recalc);
-  f.newEnd.addEventListener('change', recalc);
-  recalc();
+
+  function onChange(s, e){
+    f.newStart.value = s || '';
+    f.newEnd.value = e || '';
+    updateBanner(s, e);
+    recalc(s, e);
+  }
+
+  var cal = MG._editRez._renderRangeCalendar({
+    container: document.getElementById('edit-rez-extend-cal'),
+    minDate: isActive ? b.start_date : todayIso,
+    maxDate: maxIsoDate,
+    ownStart: b.start_date,
+    ownEnd: b.end_date,
+    selectedStart: b.start_date,
+    selectedEnd: b.end_date,
+    occupied: occupied,
+    lockStart: isActive,
+    onChange: onChange
+  });
+  onChange(b.start_date, b.end_date);
 
   f.addEventListener('submit', function(e){
     e.preventDefault();
@@ -1600,13 +1828,11 @@ MG._editRez._renderTabShorten = function(){
   t.innerHTML =
     '<h3>' + MG.t('editRez.shorten.title') + '</h3>' +
     '<p>' + MG.t(helpKey) + '</p>' +
-    '<form id="edit-rez-shorten-form" class="edit-rez-form edit-rez-date-grid" novalidate>' +
-      '<label>' + MG.t('editRez.extend.newStart') +
-        '<input type="date" name="newStart" value="' + b.start_date + '" min="' + b.start_date + '" max="' + b.end_date + '"' + (isActive ? ' readonly' : '') + '>' +
-      '</label>' +
-      '<label>' + MG.t('editRez.extend.newEnd') +
-        '<input type="date" name="newEnd" value="' + b.end_date + '" min="' + b.start_date + '" max="' + b.end_date + '">' +
-      '</label>' +
+    '<div id="edit-rez-shorten-banner" class="erez-range-banner" style="display:none"></div>' +
+    '<div id="edit-rez-shorten-cal"></div>' +
+    '<form id="edit-rez-shorten-form" class="edit-rez-form" novalidate>' +
+      '<input type="hidden" name="newStart" value="' + b.start_date + '">' +
+      '<input type="hidden" name="newEnd"   value="' + b.end_date   + '">' +
       '<label>' + MG.t('editRez.shorten.reasonLabel') +
         '<textarea name="reason" rows="2" maxlength="500"></textarea>' +
       '</label>' +
@@ -1616,8 +1842,26 @@ MG._editRez._renderTabShorten = function(){
     MG._editRez._stornoBoxHtml();
 
   var f = document.getElementById('edit-rez-shorten-form');
-  function recalc(){
-    var ns = f.newStart.value, ne = f.newEnd.value;
+  var banner = document.getElementById('edit-rez-shorten-banner');
+
+  function updateBanner(ns, ne){
+    if (!ns){ banner.style.display='none'; banner.innerHTML=''; return; }
+    banner.style.display='flex';
+    if (!ne){
+      banner.innerHTML = '<span>Nový začátek: <strong>'+MG.formatDate(ns)+'</strong> — klikněte na nový konec</span>' +
+        '<button type="button" class="erez-clear">✕ Zrušit</button>';
+    } else {
+      banner.innerHTML = '<span>Nový termín: <strong>'+MG.formatDate(ns)+' – '+MG.formatDate(ne)+'</strong></span>' +
+        '<button type="button" class="erez-clear">✕ Zrušit</button>';
+    }
+    var btn = banner.querySelector('.erez-clear');
+    if (btn) btn.addEventListener('click', function(){
+      cal.setSelection(b.start_date, b.end_date);
+      onChange(b.start_date, b.end_date);
+    });
+  }
+
+  function recalc(ns, ne){
     var summary = document.getElementById('edit-rez-shorten-summary');
     var cta = document.getElementById('edit-rez-shorten-cta');
     if (!ns || !ne || ns > ne){
@@ -1657,9 +1901,27 @@ MG._editRez._renderTabShorten = function(){
     f.dataset.refund = String(refund);
     f.dataset.pct = String(pct);
   }
-  f.newStart.addEventListener('change', recalc);
-  f.newEnd.addEventListener('change', recalc);
-  recalc();
+
+  function onChange(s, e){
+    f.newStart.value = s || '';
+    f.newEnd.value = e || '';
+    updateBanner(s, e);
+    recalc(s, e);
+  }
+
+  var cal = MG._editRez._renderRangeCalendar({
+    container: document.getElementById('edit-rez-shorten-cal'),
+    minDate: b.start_date,
+    maxDate: b.end_date,
+    ownStart: b.start_date,
+    ownEnd: b.end_date,
+    selectedStart: b.start_date,
+    selectedEnd: b.end_date,
+    occupied: [],            // při zkrácení se zužujeme uvnitř vlastního rozsahu — žádný cizí overlap
+    lockStart: isActive,
+    onChange: onChange
+  });
+  onChange(b.start_date, b.end_date);
 
   f.addEventListener('submit', function(e){
     e.preventDefault();
