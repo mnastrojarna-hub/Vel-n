@@ -188,6 +188,47 @@ function renderInlineJs() {
  *
  * $meta klíče:
 /**
+ * Postaví pole "sameAs" URLs pro LocalBusiness JSON-LD. Kromě fixních
+ * profilů (FB, IG, vlastní domény) připojí Seznam-ekosystém kartám, pokud
+ * jsou nakonfigurované v env (SAMEAS_FIRMY_CZ, SAMEAS_MAPY_CZ, SAMEAS_HEUREKA,
+ * SAMEAS_ZBOZI). NAP konzistence mezi webem a těmito katalogy je klíčová pro
+ * lokální SEO v Seznam.cz.
+ */
+function buildSameAs() {
+    $list = [FB_URL, IG_URL, 'https://motogo24.cz', 'https://motogo24.com'];
+    $extras = [
+        defined('SAMEAS_FIRMY_CZ') ? SAMEAS_FIRMY_CZ : '',
+        defined('SAMEAS_MAPY_CZ')  ? SAMEAS_MAPY_CZ  : '',
+        defined('SAMEAS_HEUREKA')  ? SAMEAS_HEUREKA  : '',
+        defined('SAMEAS_ZBOZI')    ? SAMEAS_ZBOZI    : '',
+    ];
+    foreach ($extras as $u) {
+        if (is_string($u) && $u !== '') $list[] = $u;
+    }
+    return $list;
+}
+
+/**
+ * Sklik retargeting tag (Seznam reklamní systém). Emituje se jen pokud
+ * je SKLIK_RETARGETING_ID nastaveno přes env. Pro Seznam ekvivalent
+ * Google Ads remarketingu — bez kódu uživatele Sklik nenavidíme.
+ *
+ * Conversion tracking (rezervace, objednávka) se řeší zvlášť na confirmation
+ * stránkách — tady jen univerzální retargeting na všech stránkách.
+ */
+function renderSklikRetargeting() {
+    $id = defined('SKLIK_RETARGETING_ID') ? SKLIK_RETARGETING_ID : '';
+    if ($id === '' || !ctype_digit((string)$id)) return '';
+    $idEsc = htmlspecialchars((string)$id, ENT_QUOTES, 'UTF-8');
+    return '
+<!-- Sklik retargeting (Seznam.cz) -->
+<script>
+  var seznam_retargeting_id = ' . $idEsc . ';
+</script>
+<script async src="https://c.imedia.cz/js/retargeting.js"></script>';
+}
+
+/**
  * Webmaster Tools verifikační meta tagy. Emitují se jen ty, které mají
  * neprázdnou hodnotu v env / config — žádné prázdné <meta> v HTML.
  *
@@ -359,6 +400,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   <link rel="apple-touch-icon" href="' . BASE_URL . '/apple-touch-icon.png">
   <link rel="manifest" href="' . BASE_URL . '/manifest.webmanifest">
   <link rel="alternate" type="application/rss+xml" title="MotoGo24 — Blog a tipy na trasy" href="' . $siteOrigin . '/feed.xml">
+  <link rel="search" type="application/opensearchdescription+xml" title="MotoGo24" href="' . $siteOrigin . '/opensearch.xml">
   <link rel="alternate" type="application/json" title="MotoGo24 — AI Agent Manifest" href="' . $siteOrigin . '/.well-known/agent.json">
   <link rel="alternate" type="application/json" title="MotoGo24 — ChatGPT Plugin Manifest" href="' . $siteOrigin . '/.well-known/ai-plugin.json">
   <link rel="alternate" type="text/markdown" title="MotoGo24 — LLM Index" href="' . $siteOrigin . '/llms.txt">
@@ -458,7 +500,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
           {"@type": "OrderAction", "target": "' . $siteOrigin . '/eshop", "name": "Nákup výbavy a poukazů"}
         ],
         "parentOrganization": {"@id": "' . $siteOrigin . '/#organization"},
-        "sameAs": ["' . FB_URL . '","' . IG_URL . '","https://motogo24.cz","https://motogo24.com"]' . $aggregateRatingFragment . '
+        "sameAs": ' . json_encode(buildSameAs(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . $aggregateRatingFragment . '
       },
       {
         "@type": "Service",
@@ -589,6 +631,8 @@ window.MOTOGO_CONFIG.SUPABASE_ANON_KEY = ' . json_encode(SUPABASE_ANON_KEY) . ';
 <link rel="stylesheet" href="' . BASE_URL . '/css/cms-admin.css">
 <script src="' . BASE_URL . '/js/cms-admin.js" defer></script>';
     }
+
+    echo renderSklikRetargeting();
 
     echo '
 </body>
