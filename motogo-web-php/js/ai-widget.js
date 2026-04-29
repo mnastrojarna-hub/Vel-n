@@ -258,18 +258,19 @@
         // /katalog/<motoId>  (UUID nebo cokoliv co není prázdné)
         var mMoto = path.match(/^\/katalog\/([^\/]+)$/);
         if (mMoto) { type = 'moto_detail'; motoId = mMoto[1]; }
-        // Autoritativní moto_id ze stránky (PHP do window.MOTOGO_PAGE_CTX.moto_id zapíše skutečné UUID
-        // z DB). Má vyšší prioritu než URL pattern, který selže u slug URL, redirectů nebo cached PWA path.
+        else if (path === '/katalog') type = 'katalog';
+        else if (path === '/' || path === '/home') type = 'home';
+        else if (path === '/shop') type = 'shop';
+        else { var mShop = path.match(/^\/shop\/([^\/]+)$/); if (mShop) { type = 'shop_detail'; slug = mShop[1]; } }
+        // Autoritativní override z window.MOTOGO_PAGE_CTX (PHP zapíše skutečné UUID/type
+        // ze server-side kontextu). Má vyšší prioritu než URL pattern, protože URL
+        // pattern selže u slug URL, redirectů nebo cached PWA path.
         try {
           if (window.MOTOGO_PAGE_CTX && typeof window.MOTOGO_PAGE_CTX === 'object') {
             if (window.MOTOGO_PAGE_CTX.moto_id) { motoId = String(window.MOTOGO_PAGE_CTX.moto_id); }
             if (window.MOTOGO_PAGE_CTX.type) { type = String(window.MOTOGO_PAGE_CTX.type); }
           }
         } catch (e) {}
-        else if (path === '/katalog') type = 'katalog';
-        else if (path === '/' || path === '/home') type = 'home';
-        else if (path === '/shop') type = 'shop';
-        else { var mShop = path.match(/^\/shop\/([^\/]+)$/); if (mShop) { type = 'shop_detail'; slug = mShop[1]; } }
         if (type === 'other') {
           if (path === '/blog') type = 'blog';
           else { var mBlog = path.match(/^\/blog\/([^\/]+)$/); if (mBlog) { type = 'blog_detail'; slug = mBlog[1]; } }
