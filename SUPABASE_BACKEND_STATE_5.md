@@ -167,8 +167,10 @@ Detailní politiky:
 **App settings (DB) pro pg_net push:**
 | Klíč | Účel |
 |------|------|
-| `app.settings.supabase_url` | URL pro `send_push_via_edge()` SQL helper |
-| `app.settings.service_role_key` | Service role key pro autorizaci `send-push` z DB triggerů |
+| `app.settings.supabase_url` | URL pro `send_push_via_edge()` SQL helper (GUC, na Supabase managed nepřístupný k zápisu) |
+| `app.settings.service_role_key` | Service role key pro autorizaci `send-push` z DB triggerů (GUC) |
+| `app_settings(key='supabase_url')` | URL pro `send_abandoned_booking_emails()` — uloženo jako jsonb string v public tabulce, čte se přes `value #>> '{}'`. Použito místo GUC, protože `ALTER DATABASE` vyhazuje na Supabase managed `permission denied`. |
+| `app_settings(key='service_role_key')` | Service role JWT pro autorizaci pg_net.http_post z `send_abandoned_booking_emails()`. |
 
 **Frontend config (ne secret):**
 | Klíč | Hodnota |
