@@ -81,6 +81,14 @@ input,select,textarea{font-size:16px}
 }
 .header-cart-badge{position:absolute;top:-2px;right:-2px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#74FB71;color:#1a2e22;font-size:.7rem;font-weight:800;display:inline-flex;align-items:center;justify-content:center;line-height:1;border:2px solid #1a2e22;box-sizing:content-box}
 .header-cart-badge[hidden]{display:none}
+.header-edit-rez{position:relative;display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:8px;color:#74FB71;text-decoration:none;transition:background .15s,color .15s}
+.header-edit-rez:hover{background:rgba(116,251,113,.12);color:#a8ff9f}
+.header-edit-rez:focus-visible{outline:2px solid #74FB71;outline-offset:2px}
+.header-edit-rez-icon{width:22px;height:22px}
+@media(max-width:600px){
+  .header-edit-rez{width:44px;height:44px}
+  .header-edit-rez-icon{width:24px;height:24px}
+}
 .header-lang{display:flex;align-items:center;gap:.25rem}
 .header{background:#1a2e22;padding:.6rem 0 .75rem;margin:0;position:sticky;top:0;z-index:100;border-top:0;border-bottom:1px solid #2a4e3a}
 .header-logo img{height:44px;width:auto}
@@ -580,3 +588,50 @@ body.mg-lb-open{overflow:hidden;overscroll-behavior:none}
 
 /* Misc */
 .imgres{width:100%;height:auto;border-radius:6px}
+
+/* ===== Upravit rezervaci ===== */
+#edit-rez-app{max-width:780px;margin:0 auto}
+#edit-rez-app.busy{opacity:.6;pointer-events:none}
+#edit-rez-app h1{margin:0 0 .5rem}
+.edit-rez-intro{color:#666;margin:0 0 1.5rem;font-size:1rem}
+.edit-rez-intro strong{color:#1a2e22}
+.edit-rez-userbar{display:flex;align-items:center;justify-content:space-between;background:#f4faf6;border:1px solid #d9ecdf;border-radius:10px;padding:.5rem .9rem;margin-bottom:1rem;font-size:.9rem;color:#1a2e22}
+.edit-rez-userbar .btn-link{background:none;border:none;color:#1a8c1a;cursor:pointer;font-weight:600;text-decoration:underline;padding:0;font-size:.9rem;font-family:inherit}
+.edit-rez-userbar .btn-link:hover{color:#0d6b0d}
+.edit-rez-error{background:#fde7e7;border:1px solid #f4b4b4;color:#8c1a1a;padding:.7rem 1rem;border-radius:8px;margin-bottom:1rem;font-size:.95rem}
+.edit-rez-card{background:#fff;border:1px solid #e3eee8;border-radius:14px;padding:1.5rem;margin-bottom:1rem;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.edit-rez-card h2{margin:0 0 .5rem;font-size:1.25rem;color:#1a2e22}
+.edit-rez-card p{margin:0 0 1rem;color:#444}
+.edit-rez-form{display:flex;flex-direction:column;gap:.9rem;margin-bottom:1rem}
+.edit-rez-form label{display:flex;flex-direction:column;gap:.3rem;font-size:.9rem;color:#1a2e22;font-weight:600}
+.edit-rez-form input{padding:.75rem .9rem;border:1px solid #b8d4c6;border-radius:10px;font-size:1rem;font-family:inherit;background:#fff}
+.edit-rez-form input:focus{outline:2px solid #74FB71;outline-offset:1px;border-color:#74FB71}
+.edit-rez-form button[type=submit]{margin-top:.5rem}
+.edit-rez-tip{font-size:.85rem;color:#666;margin:0 0 .75rem}
+.edit-rez-card a{color:#1a8c1a;text-decoration:underline}
+.edit-rez-success{background:#eafaef;border-color:#bce6c8}
+.edit-rez-empty{text-align:center}
+
+/* Booking list */
+.edit-rez-booking-list{display:flex;flex-direction:column;gap:.75rem}
+.edit-rez-booking{display:grid;grid-template-columns:64px 1fr auto;gap:.9rem;align-items:center;background:#fff;border:1px solid #e3eee8;border-radius:12px;padding:.75rem;cursor:pointer;text-align:left;font-family:inherit;transition:border-color .15s,background .15s,transform .1s}
+.edit-rez-booking:hover{border-color:#74FB71;background:#f4faf6}
+.edit-rez-booking:active{transform:scale(.99)}
+.edit-rez-booking-img{width:64px;height:48px;border-radius:8px;overflow:hidden;background:#f0f0f0;display:flex;align-items:center;justify-content:center}
+.edit-rez-booking-img img{width:100%;height:100%;object-fit:cover}
+.edit-rez-booking-title{font-weight:700;color:#1a2e22;font-size:1rem}
+.edit-rez-booking-meta{color:#666;font-size:.9rem;margin-top:.15rem}
+.edit-rez-booking-status{display:inline-block;font-size:.75rem;font-weight:700;padding:.15rem .5rem;border-radius:10px;margin-top:.3rem;text-transform:uppercase;letter-spacing:.02em}
+.edit-rez-booking-status.status-pending{background:#fff3cd;color:#7a5b00}
+.edit-rez-booking-status.status-reserved{background:#d6ecff;color:#0a4a85}
+.edit-rez-booking-status.status-active{background:#e3fbe3;color:#1a8c1a}
+.edit-rez-booking-status.status-completed{background:#eee;color:#555}
+.edit-rez-booking-status.status-cancelled{background:#fde7e7;color:#8c1a1a}
+.edit-rez-booking-price{font-weight:800;color:#1a2e22;font-size:1.05rem;white-space:nowrap}
+
+@media(max-width:600px){
+  .edit-rez-card{padding:1.1rem}
+  .edit-rez-booking{grid-template-columns:48px 1fr;gap:.6rem}
+  .edit-rez-booking-img{width:48px;height:40px}
+  .edit-rez-booking-price{grid-column:2/3;font-size:1rem}
+}

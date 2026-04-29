@@ -1,0 +1,84 @@
+<?php
+// ===== MotoGo24 Web PHP — Upravit rezervaci =====
+// PHP renderuje shell + i18n payload, JS řeší login + edit/cancel/extend/shorten flow.
+
+$bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], t('breadcrumb.editReservation')]);
+
+// Předvyplnění z query stringu (např. po kliku z e-mailu).
+$bookingId = $_GET['booking'] ?? '';
+$resetToken = $_GET['reset'] ?? '';
+
+$content = '<main id="content"><div class="container">' . $bc .
+    '<div class="ccontent pcontent">' .
+    '<div id="edit-rez-app"><div class="loading-overlay"><span class="spinner"></span> ' . te('editRez.loading') . '</div></div>' .
+    '</div></div></main>';
+
+// i18n payload pro JS — všechny editRez.* + rez.alert.* + storno klíče.
+$keys = [
+    'editRez.h1','editRez.intro','editRez.loading',
+    'editRez.login.title','editRez.login.help','editRez.login.email','editRez.login.password',
+    'editRez.login.submit','editRez.login.submitting','editRez.login.error',
+    'editRez.login.forgot','editRez.login.tip',
+    'editRez.forgot.title','editRez.forgot.help','editRez.forgot.bookingId','editRez.forgot.email',
+    'editRez.forgot.submit','editRez.forgot.submitting','editRez.forgot.success','editRez.forgot.error','editRez.forgot.back',
+    'editRez.list.title','editRez.list.empty','editRez.list.openNew','editRez.list.choose','editRez.logout',
+    'editRez.status.pending','editRez.status.reserved','editRez.status.active','editRez.status.completed','editRez.status.cancelled',
+    'editRez.detail.title','editRez.detail.bookingId','editRez.detail.moto','editRez.detail.dates',
+    'editRez.detail.pickup','editRez.detail.return','editRez.detail.totalPaid','editRez.detail.daysCount',
+    'editRez.tab.detail','editRez.tab.extend','editRez.tab.shorten','editRez.tab.cancel',
+    'editRez.extend.title','editRez.extend.help','editRez.extend.helpUpcoming','editRez.extend.helpActive',
+    'editRez.extend.newStart','editRez.extend.newEnd','editRez.extend.priceDiff','editRez.extend.cta',
+    'editRez.extend.unavailable','editRez.extend.noChange','editRez.extend.creating',
+    'editRez.shorten.title','editRez.shorten.help','editRez.shorten.helpUpcoming','editRez.shorten.helpActive',
+    'editRez.shorten.refund','editRez.shorten.refundZero','editRez.shorten.cta','editRez.shorten.confirming',
+    'editRez.shorten.success','editRez.shorten.reasonLabel',
+    'editRez.cancel.title','editRez.cancel.warn','editRez.cancel.refundLabel','editRez.cancel.reasonLabel',
+    'editRez.cancel.reasonPlaceholder','editRez.cancel.cta','editRez.cancel.confirming','editRez.cancel.success',
+    'editRez.cancel.confirmTitle','editRez.cancel.confirmYes','editRez.cancel.confirmNo',
+    'editRez.storno.title','editRez.storno.tier1','editRez.storno.tier2','editRez.storno.tier3','editRez.storno.note',
+    'editRez.err.generic','editRez.err.notFound','editRez.err.wrongStatus','editRez.err.notPaid',
+    'editRez.err.activeStartLocked','editRez.err.invalidRange','editRez.err.notShortening',
+    'editRez.err.notExtending','editRez.err.cantEdit',
+];
+$i18n = [];
+foreach ($keys as $k) {
+    $v = t($k);
+    if (is_string($v)) $i18n[$k] = $v;
+}
+
+$js = '<script>
+window.MOTOGO_CONFIG = {
+  SUPABASE_URL: ' . json_encode(SUPABASE_URL) . ',
+  SUPABASE_ANON_KEY: ' . json_encode(SUPABASE_ANON_KEY) . ',
+  LANG: ' . json_encode(function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs') . ',
+  CURRENCY: ' . json_encode(function_exists('currencyJsConfig') ? currencyJsConfig() : ['current'=>'CZK','rates'=>[]], JSON_UNESCAPED_UNICODE) . '
+};
+window.MG_I18N = Object.assign(window.MG_I18N || {}, ' . json_encode($i18n, JSON_UNESCAPED_UNICODE) . ');
+window.EDIT_REZ_PARAMS = {
+  bookingId: ' . json_encode($bookingId) . ',
+  resetToken: ' . json_encode($resetToken) . '
+};
+</script>
+<script src="' . assetUrl('/js/supabase-sdk.js') . '"></script>
+<script src="' . assetUrl('/js/supabase-init.js') . '"></script>
+<script src="' . assetUrl('/js/api.js') . '"></script>
+<script src="' . assetUrl('/js/components.js') . '"></script>
+<script src="' . assetUrl('/js/pages-rezervace-calendar.js') . '"></script>
+<script src="' . assetUrl('/js/pages-rezervace-pricing.js') . '"></script>
+<script src="' . assetUrl('/js/pages-upravit-rezervaci.js') . '"></script>
+<script>
+(function(){
+  function tryInit(){
+    if(window.sb && window.MG && MG._editRezInit){ MG._editRezInit(); }
+    else { setTimeout(tryInit, 100); }
+  }
+  if(document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", function(){ setTimeout(tryInit, 100); });
+  } else { setTimeout(tryInit, 100); }
+})();
+</script>';
+
+renderPage(t('editRez.title'), $content . $js, '/upravit-rezervaci', [
+    'description' => t('editRez.description'),
+    'robots' => 'noindex,nofollow',
+]);

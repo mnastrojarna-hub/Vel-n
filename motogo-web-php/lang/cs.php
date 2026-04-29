@@ -48,6 +48,8 @@ return [
     'menu.shop' => 'E-shop',
     'menu.contact' => 'Kontakt',
     'menu.reservation' => 'REZERVACE',
+    'menu.editReservation' => 'Upravit rezervaci',
+    'menu.editReservation.aria' => 'Upravit nebo zrušit rezervaci',
 
     // ===== Footer =====
     'footer.aboutTitle' => 'Půjčovna motorek',
@@ -221,6 +223,7 @@ return [
     'breadcrumb.vouchers' => 'Poukazy',
     'breadcrumb.reservation' => 'REZERVACE',
     'breadcrumb.confirmation' => 'Potvrzení rezervace',
+    'breadcrumb.editReservation' => 'Upravit rezervaci',
     'breadcrumb.confirmationOrder' => 'Potvrzení objednávky',
     'breadcrumb.notFound' => 'Stránka nenalezena',
     'breadcrumb.sitemap' => 'Mapa stránek',
@@ -403,6 +406,124 @@ return [
     'rez.alert.bookingOverlapOwn' => 'V tomto termínu již máte jinou aktivní rezervaci.',
     'rez.alert.error' => 'Chyba: {msg}',
     'rez.alert.saveError' => 'Chyba při ukládání: {msg}',
+
+    // ===== Úprava rezervace (login + edit + storno) =====
+    'editRez.title' => 'Upravit rezervaci',
+    'editRez.description' => 'Upravte termín, prodlužte, zkraťte nebo zrušte svou rezervaci. Vrácení peněz dle storno podmínek.',
+    'editRez.h1' => 'Upravit rezervaci',
+    'editRez.intro' => 'Přihlaste se a spravujte svou rezervaci — můžete <strong>prodloužit</strong>, <strong>zkrátit</strong> nebo <strong>zrušit</strong> termín. Vrácení peněz proběhne automaticky podle storno podmínek.',
+    'editRez.loading' => 'Načítám…',
+
+    // Login
+    'editRez.login.title' => 'Přihlášení',
+    'editRez.login.help' => 'Zadejte e-mail a heslo z rezervace. Heslo jste si nastavili při dokončení rezervace nebo v aplikaci.',
+    'editRez.login.email' => 'E-mail',
+    'editRez.login.password' => 'Heslo',
+    'editRez.login.submit' => 'PŘIHLÁSIT',
+    'editRez.login.submitting' => 'Přihlašuji…',
+    'editRez.login.error' => 'Nesprávný e-mail nebo heslo.',
+    'editRez.login.forgot' => 'Zapomněl(a) jsem heslo',
+    'editRez.login.tip' => 'Tip: Pokud nemáte heslo, použijte odkaz „Zapomněl jsem heslo" — pošleme vám e-mail s nastavením.',
+
+    // Forgot password
+    'editRez.forgot.title' => 'Obnova hesla',
+    'editRez.forgot.help' => 'Zadejte číslo rezervace a e-mail. Pošleme vám odkaz pro nastavení nového hesla.',
+    'editRez.forgot.bookingId' => 'Číslo rezervace (z potvrzení)',
+    'editRez.forgot.email' => 'E-mail z rezervace',
+    'editRez.forgot.submit' => 'POSLAT ODKAZ',
+    'editRez.forgot.submitting' => 'Odesílám…',
+    'editRez.forgot.success' => 'Pokud rezervace existuje, poslali jsme e-mail s odkazem pro nastavení hesla.',
+    'editRez.forgot.error' => 'Nepodařilo se odeslat e-mail. Zkuste to prosím znovu.',
+    'editRez.forgot.back' => '← Zpět na přihlášení',
+
+    // Reservation list / picker
+    'editRez.list.title' => 'Vaše rezervace',
+    'editRez.list.empty' => 'Nemáte žádnou rezervaci, kterou by bylo možné upravit.',
+    'editRez.list.openNew' => 'Vytvořit novou rezervaci',
+    'editRez.list.choose' => 'Klikněte pro výběr',
+    'editRez.logout' => 'Odhlásit se',
+
+    // Statuses
+    'editRez.status.pending' => 'Čeká na zaplacení',
+    'editRez.status.reserved' => 'Rezervováno',
+    'editRez.status.active' => 'Probíhá',
+    'editRez.status.completed' => 'Dokončeno',
+    'editRez.status.cancelled' => 'Zrušeno',
+
+    // Detail
+    'editRez.detail.title' => 'Detail rezervace',
+    'editRez.detail.bookingId' => 'Číslo rezervace',
+    'editRez.detail.moto' => 'Motorka',
+    'editRez.detail.dates' => 'Termín',
+    'editRez.detail.pickup' => 'Vyzvednutí',
+    'editRez.detail.return' => 'Vrácení',
+    'editRez.detail.totalPaid' => 'Celkem zaplaceno',
+    'editRez.detail.daysCount' => '{n} dnů',
+    'editRez.detail.dayCount.1' => '{n} den',
+    'editRez.detail.dayCount.few' => '{n} dny',
+    'editRez.detail.dayCount.many' => '{n} dní',
+
+    // Tabs / actions
+    'editRez.tab.detail' => 'Detail',
+    'editRez.tab.extend' => 'Prodloužit',
+    'editRez.tab.shorten' => 'Zkrátit',
+    'editRez.tab.cancel' => 'Storno',
+
+    // Extend
+    'editRez.extend.title' => 'Prodloužit rezervaci',
+    'editRez.extend.help' => 'Vyberte v kalendáři nový (pozdější) konec rezervace. Zaplatíte pouze rozdíl ceny přes Stripe.',
+    'editRez.extend.helpUpcoming' => 'Vyberte nový termín — můžete posunout začátek dříve i konec později.',
+    'editRez.extend.helpActive' => 'U probíhající rezervace lze měnit pouze datum vrácení (prodloužit konec).',
+    'editRez.extend.newStart' => 'Nový začátek',
+    'editRez.extend.newEnd' => 'Nový konec',
+    'editRez.extend.priceDiff' => 'Doplatek',
+    'editRez.extend.cta' => 'Pokračovat na platbu →',
+    'editRez.extend.unavailable' => 'V požadovaném termínu motorka není dostupná. Zvolte prosím jiný termín.',
+    'editRez.extend.noChange' => 'Vyberte prosím nové datumy.',
+    'editRez.extend.creating' => 'Vytvářím platbu…',
+
+    // Shorten
+    'editRez.shorten.title' => 'Zkrátit rezervaci',
+    'editRez.shorten.help' => 'Vyberte v kalendáři nový (kratší) termín. Vracíme peníze automaticky podle storno podmínek.',
+    'editRez.shorten.helpUpcoming' => 'Můžete zkrátit od začátku (pozdější vyzvednutí) i od konce (dřívější vrácení).',
+    'editRez.shorten.helpActive' => 'U probíhající rezervace lze zkrátit pouze datum vrácení (vrátit dříve).',
+    'editRez.shorten.refund' => 'Vrátíme {amount} ({percent}%)',
+    'editRez.shorten.refundZero' => '0 Kč — méně než 48 hodin do termínu, refund nelze.',
+    'editRez.shorten.cta' => 'Zkrátit a vrátit peníze',
+    'editRez.shorten.confirming' => 'Zkracuji…',
+    'editRez.shorten.success' => 'Rezervace zkrácena. Vrácení {amount} Kč ({percent}%) na původní platební metodu.',
+    'editRez.shorten.reasonLabel' => 'Důvod (volitelné)',
+
+    // Cancel / storno
+    'editRez.cancel.title' => 'Zrušit rezervaci',
+    'editRez.cancel.warn' => 'Tuto akci nelze vrátit. Po zrušení bude rezervace stornována a vrátíme peníze podle storno podmínek.',
+    'editRez.cancel.refundLabel' => 'Vrátíme',
+    'editRez.cancel.reasonLabel' => 'Důvod zrušení (volitelné)',
+    'editRez.cancel.reasonPlaceholder' => 'Např. změna plánů',
+    'editRez.cancel.cta' => 'Stornovat rezervaci',
+    'editRez.cancel.confirming' => 'Stornuji…',
+    'editRez.cancel.success' => 'Rezervace byla stornována. Vrácení {amount} Kč ({percent}%) proběhne během několika minut.',
+    'editRez.cancel.confirmTitle' => 'Opravdu chcete stornovat rezervaci?',
+    'editRez.cancel.confirmYes' => 'Ano, stornovat',
+    'editRez.cancel.confirmNo' => 'Zrušit',
+
+    // Storno conditions box (matches Flutter app StornoCalc)
+    'editRez.storno.title' => 'Storno podmínky',
+    'editRez.storno.tier1' => '<strong>Více než 7 dní</strong> před začátkem: <strong>100 %</strong> vrácení',
+    'editRez.storno.tier2' => '<strong>2 až 7 dní</strong> před začátkem: <strong>50 %</strong> vrácení',
+    'editRez.storno.tier3' => '<strong>Méně než 2 dny</strong> před začátkem: <strong>nevratné</strong> (0 %)',
+    'editRez.storno.note' => 'Vrácení proběhne automaticky na původní platební metodu (kartu).',
+
+    // Errors / messages
+    'editRez.err.generic' => 'Něco se pokazilo. Zkuste to prosím znovu.',
+    'editRez.err.notFound' => 'Rezervace nebyla nalezena.',
+    'editRez.err.wrongStatus' => 'Tuto rezervaci již nelze upravit.',
+    'editRez.err.notPaid' => 'Rezervace zatím není zaplacená — kontaktujte nás.',
+    'editRez.err.activeStartLocked' => 'U probíhající rezervace nelze měnit datum vyzvednutí.',
+    'editRez.err.invalidRange' => 'Vyberte platný termín.',
+    'editRez.err.notShortening' => 'Pro zkrácení musí být nové datumy uvnitř původních.',
+    'editRez.err.notExtending' => 'Pro prodloužení musí být alespoň jedno datum mimo původní rozsah.',
+    'editRez.err.cantEdit' => 'Tuto rezervaci nelze upravit (dokončená nebo stornovaná).',
 
     // ===== Filtry katalogu =====
     'filters.search' => 'Hledat',

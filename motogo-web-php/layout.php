@@ -58,6 +58,9 @@ function renderHeader($currentPath = '/') {
         '<div class="header-topbar"><div class="container">' .
             '<div class="header-phone"><p><a href="' . PHONE_LINK . '" aria-label="' . te('header.callUs') . '"><img alt="' . te('header.callUs') . '" src="' . BASE_URL . '/gfx/telefon-header.svg" loading="lazy"></a>&nbsp;<a href="' . PHONE_LINK . '">' . PHONE . '</a></p></div>' .
             '<div class="header-tools">' .
+                '<a class="header-edit-rez" href="' . BASE_URL . '/upravit-rezervaci" aria-label="' . te('menu.editReservation.aria') . '" title="' . te('menu.editReservation') . '">' .
+                    '<svg class="header-edit-rez-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>' .
+                '</a>' .
                 '<a class="header-cart" href="' . BASE_URL . '/kosik" aria-label="' . te('cart.iconLabel') . '" title="' . te('cart.iconLabel') . '">' .
                     '<svg class="header-cart-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6h15l-1.5 9h-12z"/><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M6 6L4 2H1"/></svg>' .
                     '<span class="header-cart-badge" data-cart-badge hidden aria-live="polite"></span>' .
@@ -87,6 +90,7 @@ function renderFooter() {
         $menuHtml .= '<li><a data-route="' . $item['route'] . '" href="' . BASE_URL . $item['route'] . '">' . $item['label'] . '</a></li>';
     }
     $menuHtml .= '<li><a data-route="/rezervace" href="' . BASE_URL . '/rezervace">' . tc('menu.reservation') . '</a></li>';
+    $menuHtml .= '<li><a data-route="/upravit-rezervaci" href="' . BASE_URL . '/upravit-rezervaci">' . tc('menu.editReservation') . '</a></li>';
 
     return '<footer id="footer"><div class="container"><div class="gr4">' .
         '<div>' .

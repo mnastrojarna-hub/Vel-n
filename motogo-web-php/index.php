@@ -405,6 +405,11 @@ switch (true) {
         require __DIR__ . '/pages/rezervace.php';
         break;
 
+    // Úprava rezervace (login + prodloužit / zkrátit / storno)
+    case $path === '/upravit-rezervaci':
+        require __DIR__ . '/pages/upravit-rezervaci.php';
+        break;
+
     // Potvrzení
     case $path === '/potvrzeni':
         require __DIR__ . '/pages/potvrzeni.php';
