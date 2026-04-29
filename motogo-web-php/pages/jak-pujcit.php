@@ -43,7 +43,7 @@ renderPage($C['seo']['title'], $content, '/jak-pujcit', [
     'description' => $C['seo']['description'],
     'keywords' => $C['seo']['keywords'],
     'breadcrumbs' => [
-        ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
-        ['name' => t('breadcrumb.howto'), 'url' => 'https://motogo24.cz/jak-pujcit'],
+        ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
+        ['name' => t('breadcrumb.howto'), 'url' => siteCanonicalUrl('/jak-pujcit')],
     ],
 ]);

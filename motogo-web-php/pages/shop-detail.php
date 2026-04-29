@@ -148,7 +148,7 @@ $content = '<main id="content"><div class="container">' . $bc
 // Schema.org Product — kompletní data pro AI: brand, materiál, barva, velikosti,
 // stav skladu, cena, currency. Aggregate rating se přidá globálně z reviews tabulky
 // pokud existuje min. 3 recenze.
-$productUrl = 'https://motogo24.cz/eshop/' . htmlspecialchars($id);
+$productUrl = siteCanonicalUrl('/eshop/' . htmlspecialchars($id));
 $schemaImages = [];
 foreach ($images as $img) {
     $u = (strpos($img, 'http') === 0 || strpos($img, '/') === 0) ? $img : imgUrl($img);
@@ -204,8 +204,8 @@ renderPage($nameRaw . ' | ' . t('shop.title'), $content, '/eshop/' . htmlspecial
     'og_image' => $mainImg ?: null,
     'schema' => $productSchema,
     'breadcrumbs' => [
-        ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
-        ['name' => t('breadcrumb.shop'), 'url' => 'https://motogo24.cz/eshop'],
-        ['name' => $nameRaw, 'url' => 'https://motogo24.cz/eshop/' . $id],
+        ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
+        ['name' => t('breadcrumb.shop'), 'url' => siteCanonicalUrl('/eshop')],
+        ['name' => $nameRaw, 'url' => siteCanonicalUrl('/eshop/' . $id)],
     ],
 ]);

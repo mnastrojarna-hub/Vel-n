@@ -176,7 +176,7 @@ renderPage($C['seo']['title'], $content, '/kontakt', [
     'keywords' => $C['seo']['keywords'],
     'schema' => $branchesSchema,
     'breadcrumbs' => [
-        ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
-        ['name' => t('breadcrumb.contact'), 'url' => 'https://motogo24.cz/kontakt'],
+        ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
+        ['name' => t('breadcrumb.contact'), 'url' => siteCanonicalUrl('/kontakt')],
     ],
 ]);

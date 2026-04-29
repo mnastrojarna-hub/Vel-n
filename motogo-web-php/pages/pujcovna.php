@@ -176,7 +176,7 @@ renderPage($C['seo']['title'], $content, '/pujcovna-motorek', [
     'keywords' => $C['seo']['keywords'],
     'schema' => $serviceSchema . $faqSchema,
     'breadcrumbs' => [
-        ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
-        ['name' => t('menu.rental'), 'url' => 'https://motogo24.cz/pujcovna-motorek'],
+        ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
+        ['name' => t('menu.rental'), 'url' => siteCanonicalUrl('/pujcovna-motorek')],
     ],
 ]);
