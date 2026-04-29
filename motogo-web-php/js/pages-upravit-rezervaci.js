@@ -243,7 +243,16 @@ MG._editRez._submitLogin = async function(e){
   try {
     var res = await window.sb.auth.signInWithPassword({ email: email, password: password });
     if (res.error || !res.data || !res.data.user){
-      MG._editRez._showError(MG.t('editRez.login.error'));
+      console.error('[editRez] login err', res.error);
+      // Rozlišíme typy chyb pro user-friendly zprávu.
+      var msg = MG.t('editRez.login.error');
+      var status = res.error && res.error.status;
+      if (status === 500 || status >= 500){
+        msg = MG.t('editRez.err.serverDown');
+      } else if (res.error && /confirm|verified/i.test(res.error.message || '')){
+        msg = MG.t('editRez.err.emailNotConfirmed');
+      }
+      MG._editRez._showError(msg);
       return;
     }
     MG._editRez.user = res.data.user;
@@ -251,7 +260,7 @@ MG._editRez._submitLogin = async function(e){
     MG._editRez._goto('list');
   } catch(err){
     console.error('[editRez] login err', err);
-    MG._editRez._showError(MG.t('editRez.login.error'));
+    MG._editRez._showError(MG.t('editRez.err.serverDown'));
   } finally {
     MG._editRez._setBusy(false);
     btn.disabled = false;
@@ -315,8 +324,16 @@ MG._editRez._submitForgot = async function(e){
     var res = await window.sb.auth.resetPasswordForEmail(email, { redirectTo: redirectTo });
     if (res.error){
       console.warn('[editRez] resetPassword err', res.error);
-      // I při error ukážeme generický success — neprozradíme, že email neexistuje
-      // (anti-enumeration), je to standardní auth pattern.
+      // 500 = server-side problem (typicky nezkonfigurovaný SMTP nebo
+      // chybějící redirect URL v allow listu) — uživateli ukážeme info,
+      // ne generický success, ať ví, že to není jeho chyba.
+      var st = res.error.status;
+      if (st === 500 || st >= 500){
+        MG._editRez._showError(MG.t('editRez.err.serverDown'));
+        return;
+      }
+      // Jinak (4xx) ukážeme generický success — neprozradíme, že email
+      // neexistuje (anti-enumeration), standardní auth pattern.
     }
     var c = document.getElementById('edit-rez-content');
     c.innerHTML = '<section class="edit-rez-card edit-rez-success">'

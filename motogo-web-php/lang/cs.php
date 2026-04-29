@@ -615,6 +615,8 @@ return [
     'editRez.err.notShortening' => 'Pro zkrácení musí být nové datumy uvnitř původních.',
     'editRez.err.notExtending' => 'Pro prodloužení musí být alespoň jedno datum mimo původní rozsah.',
     'editRez.err.cantEdit' => 'Tuto rezervaci nelze upravit (dokončená nebo stornovaná).',
+    'editRez.err.serverDown' => 'Přihlašovací služba momentálně nedostupná. Zkuste to prosím za chvíli, nebo nás kontaktujte na +420 774 256 271.',
+    'editRez.err.emailNotConfirmed' => 'E-mail ještě nebyl potvrzen. Zkontrolujte e-mailovou schránku nebo nám napište.',
 
     // ===== Filtry katalogu =====
     'filters.search' => 'Hledat',

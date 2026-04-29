@@ -500,6 +500,8 @@ return [
     'editRez.err.notShortening' => 'For shortening, the new dates must be inside the original ones.',
     'editRez.err.notExtending' => 'For extension, at least one date must be outside the original range.',
     'editRez.err.cantEdit' => 'This booking cannot be edited (completed or cancelled).',
+    'editRez.err.serverDown' => 'Login service temporarily unavailable. Please try again shortly or contact us at +420 774 256 271.',
+    'editRez.err.emailNotConfirmed' => 'E-mail not yet confirmed. Please check your inbox or contact us.',
 
     // ===== Catalogue filters =====
     'filters.search' => 'Search',
