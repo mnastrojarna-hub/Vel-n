@@ -688,7 +688,47 @@ MG._editRez._injectConsentsStyles = function(){
     '.edit-rez-pending-actions .btngreen{background:#1a8c1a;color:#fff}'+
     '.edit-rez-pending-actions .btngreen:hover{background:#147214}'+
     '.edit-rez-pending-actions .btn-secondary{background:#fff;border:1.5px solid #e6a019;color:#7a5400}'+
-    '.edit-rez-pending-actions .btn-secondary:hover{background:#fff4d6}';
+    '.edit-rez-pending-actions .btn-secondary:hover{background:#fff4d6}'+
+    /* ===== DETAIL TAB ===== */
+    '.edit-rez-detail-grid{display:grid;grid-template-columns:1.1fr 1.4fr;gap:1.4rem}'+
+    '@media(max-width:880px){.edit-rez-detail-grid{grid-template-columns:1fr}}'+
+    '.edit-rez-detail-gallery{position:sticky;top:80px;align-self:start}'+
+    '.edit-rez-detail-gallery .rez-moto-hero{border-radius:18px;overflow:hidden;box-shadow:0 6px 20px rgba(20,80,40,.12)}'+
+    '.edit-rez-detail-headline h3{margin:0 0 .35rem;font-size:1.55rem;color:#1a2e22;line-height:1.15}'+
+    '.edit-rez-chip{display:inline-block;background:#e8f5ee;color:#147214;padding:.3rem .7rem;border-radius:999px;font-size:.78rem;font-weight:700;margin-right:.4rem}'+
+    '.edit-rez-detail-id{font-size:.78rem;color:#6a7a70;margin-top:.6rem}'+
+    '.edit-rez-detail-id code{background:#f0f5f2;padding:.15rem .5rem;border-radius:6px;font-family:Menlo,monospace;font-size:.85rem;letter-spacing:.05em}'+
+    '.edit-rez-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin:1.1rem 0}'+
+    '@media(max-width:680px){.edit-rez-info-grid{grid-template-columns:1fr}}'+
+    '.edit-rez-info-item{display:flex;gap:.7rem;padding:.7rem .85rem;background:#fafdfb;border:1px solid #e5efe9;border-radius:14px}'+
+    '.edit-rez-info-item .ico{font-size:1.4rem;line-height:1}'+
+    '.edit-rez-info-item .lbl{font-size:.72rem;color:#6a7a70;text-transform:uppercase;letter-spacing:.05em;font-weight:700}'+
+    '.edit-rez-info-item .val{font-size:.92rem;color:#1a2e22;margin-top:.15rem;line-height:1.35}'+
+    '.edit-rez-info-item .val .muted{color:#6a7a70;font-weight:400}'+
+    '.edit-rez-section-h{font-size:1rem;color:#1a2e22;margin:1.4rem 0 .5rem;border-bottom:1px solid #e5efe9;padding-bottom:.4rem;font-weight:800}'+
+    /* Cena */
+    '.edit-rez-price-card{background:#fafdfb;border:1px solid #e5efe9;border-radius:14px;padding:.4rem .9rem}'+
+    '.edit-rez-price-row{display:flex;justify-content:space-between;padding:.55rem 0;border-bottom:1px dashed #e5efe9;font-size:.92rem;color:#1a2e22}'+
+    '.edit-rez-price-row:last-child{border-bottom:none}'+
+    '.edit-rez-price-row.total{border-top:2px solid #1a8c1a;border-bottom:none;font-size:1.05rem;font-weight:800;color:#0f5e0f;padding-top:.7rem}'+
+    /* Výbava */
+    '.edit-rez-gear-grid{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}'+
+    '@media(max-width:680px){.edit-rez-gear-grid{grid-template-columns:1fr}}'+
+    '.edit-rez-gear-block{background:#fafdfb;border:1px solid #e5efe9;border-radius:14px;padding:.7rem .9rem}'+
+    '.edit-rez-gear-block h5{margin:0 0 .4rem;font-size:.85rem;color:#1a2e22;font-weight:800;text-transform:uppercase;letter-spacing:.04em}'+
+    '.edit-rez-gear-list{list-style:none;margin:0;padding:0}'+
+    '.edit-rez-gear-list li{display:flex;justify-content:space-between;padding:.3rem 0;font-size:.88rem;color:#1a2e22;border-bottom:1px dashed #e5efe9}'+
+    '.edit-rez-gear-list li:last-child{border-bottom:none}'+
+    '.edit-rez-gear-list .gear-val{font-weight:800;color:#147214}'+
+    /* Historie */
+    '.edit-rez-history-empty{color:#6a7a70;font-style:italic;font-size:.9rem;padding:.5rem 0}'+
+    '.edit-rez-history-list{list-style:none;margin:0;padding:.4rem 0 .2rem .9rem;border-left:2px solid #e5efe9}'+
+    '.edit-rez-history-item{position:relative;padding:.4rem 0 1rem 1rem}'+
+    '.edit-rez-history-dot{position:absolute;left:-1.36rem;top:.55rem;width:14px;height:14px;border-radius:50%;background:#1a8c1a;border:3px solid #fff;box-shadow:0 0 0 2px #d4e8e0}'+
+    '.edit-rez-history-when{font-size:.75rem;color:#6a7a70;font-weight:600;text-transform:uppercase;letter-spacing:.04em}'+
+    '.edit-rez-history-when .muted{color:#9aa8a0;font-weight:500}'+
+    '.edit-rez-history-changes{margin-top:.2rem;font-size:.92rem;color:#1a2e22;line-height:1.45}'+
+    '.edit-rez-history-changes s{color:#9aa8a0}';
   document.head.appendChild(st);
 };
 
@@ -1574,26 +1614,180 @@ MG._editRez._openLocPicker = function(side, onConfirm){
 };
 
 // ===== TAB: DETAIL =====
+// Mapování klíčů velikostí výbavy na lidský label.
+MG._editRez._GEAR_LABELS = {
+  helmet: '🪖 Helma', jacket: '🧥 Bunda', pants: '👖 Kalhoty',
+  boots: '🥾 Boty', gloves: '🧤 Rukavice'
+};
+
+// Z bookingu sestavíme strukturu velikostí pro řidiče i spolujezdce.
+MG._editRez._collectSizes = function(b){
+  var rider = {}, passenger = {};
+  ['helmet','jacket','pants','boots','gloves'].forEach(function(k){
+    if (b[k + '_size']) rider[k] = b[k + '_size'];
+    if (b['passenger_' + k + '_size']) passenger[k] = b['passenger_' + k + '_size'];
+  });
+  return { rider: rider, passenger: passenger };
+};
+
+MG._editRez._gearListHtml = function(group, label){
+  var keys = Object.keys(group || {});
+  if (!keys.length) return '';
+  var items = keys.map(function(k){
+    var lbl = MG._editRez._GEAR_LABELS[k] || k;
+    return '<li><span class="gear-key">' + lbl + '</span><span class="gear-val">' + group[k] + '</span></li>';
+  }).join('');
+  return '<div class="edit-rez-gear-block"><h5>' + label + '</h5><ul class="edit-rez-gear-list">' + items + '</ul></div>';
+};
+
+// Historie úprav z modification_history (jsonb array). Každý záznam:
+//   { at, from_start, from_end, to_start, to_end, source, ... }
+// Render: časová osa s ikonami (calendar / motorbike / location).
+MG._editRez._historyHtml = function(b){
+  var hist = Array.isArray(b.modification_history) ? b.modification_history : [];
+  if (!hist.length){
+    if (b.original_start_date || b.original_end_date){
+      hist = [{
+        at: b.created_at,
+        from_start: b.original_start_date || b.start_date,
+        from_end: b.original_end_date || b.end_date,
+        to_start: b.start_date,
+        to_end: b.end_date,
+        source: 'system'
+      }];
+    } else {
+      return '<p class="edit-rez-history-empty">Rezervace ještě nebyla upravována.</p>';
+    }
+  }
+  // Seřadíme od nejnovější
+  var sorted = hist.slice().sort(function(a, c){
+    return (c.at || '').localeCompare(a.at || '');
+  });
+  var items = sorted.map(function(h){
+    var when = h.at ? new Date(h.at).toLocaleString('cs-CZ', {
+      day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'
+    }) : '';
+    var changes = [];
+    if (h.from_start && h.to_start && h.from_start !== h.to_start){
+      changes.push('📅 Začátek: <s>' + MG.formatDate(h.from_start) + '</s> → <strong>' + MG.formatDate(h.to_start) + '</strong>');
+    }
+    if (h.from_end && h.to_end && h.from_end !== h.to_end){
+      changes.push('🏁 Konec: <s>' + MG.formatDate(h.from_end) + '</s> → <strong>' + MG.formatDate(h.to_end) + '</strong>');
+    }
+    if (h.from_moto_id && h.to_moto_id && h.from_moto_id !== h.to_moto_id){
+      changes.push('🏍️ Motorka byla změněna');
+    }
+    if (h.pickup_change || h.return_change){
+      changes.push('📍 Změna místa vyzvednutí / vrácení');
+    }
+    if (!changes.length) changes.push('Úprava rezervace');
+    var src = (h.source === 'web_customer' ? 'Z webu' :
+               h.source === 'app_customer' ? 'Z aplikace' :
+               h.source === 'admin'        ? 'Admin' :
+               h.source === 'system'       ? 'Vytvoření' : (h.source || ''));
+    return '<li class="edit-rez-history-item">' +
+      '<div class="edit-rez-history-dot"></div>' +
+      '<div class="edit-rez-history-body">' +
+        '<div class="edit-rez-history-when">' + when + (src ? ' · <span class="muted">' + src + '</span>' : '') + '</div>' +
+        '<div class="edit-rez-history-changes">' + changes.join('<br>') + '</div>' +
+      '</div>' +
+    '</li>';
+  }).join('');
+  return '<ol class="edit-rez-history-list">' + items + '</ol>';
+};
+
+// Cenový rozpis — pronájem + extras + sleva + delivery + total.
+MG._editRez._priceBreakdownHtml = function(b, m){
+  var total = Number(b.total_price || 0);
+  var extras = Number(b.extras_price || 0);
+  var delivery = Number(b.delivery_fee || 0);
+  var discount = Number(b.discount_amount || 0);
+  // base = total + discount - extras - delivery (zpětně z toho, co máme)
+  var base = total + discount - extras - delivery;
+  if (base < 0) base = 0;
+  var rows = [];
+  rows.push(['🏍️ Pronájem motorky', MG.formatPrice(base)]);
+  if (extras > 0)   rows.push(['➕ Příslušenství', MG.formatPrice(extras)]);
+  if (delivery > 0) rows.push(['🚚 Přistavení / vrácení', MG.formatPrice(delivery)]);
+  if (discount > 0) rows.push(['🎁 Sleva', '−' + MG.formatPrice(discount)]);
+  var rowsHtml = rows.map(function(r){
+    return '<div class="edit-rez-price-row"><span>' + r[0] + '</span><span>' + r[1] + '</span></div>';
+  }).join('');
+  return '<div class="edit-rez-price-card">' +
+    rowsHtml +
+    '<div class="edit-rez-price-row total"><span>Celkem zaplaceno</span><span>' + MG.formatPrice(total) + '</span></div>' +
+  '</div>';
+};
+
 MG._editRez._renderTabDetail = function(){
   var b = MG._editRez.selectedBooking;
   var m = MG._editRez.selectedMoto || {};
   var t = document.getElementById('edit-rez-tab-content');
   var days = MG._editRez._daysBetween(b.start_date, b.end_date);
-  var rows = [
-    [MG.t('editRez.detail.bookingId'), '<code>' + b.id.substring(0,8).toUpperCase() + '</code>'],
-    [MG.t('editRez.detail.moto'), (m.brand ? m.brand + ' ' : '') + (m.model || '')],
-    [MG.t('editRez.detail.dates'), MG.formatDate(b.start_date) + ' – ' + MG.formatDate(b.end_date) + ' (' + MG.t('editRez.detail.daysCount', { n: days }) + ')'],
-    [MG.t('editRez.detail.pickup'), (b.pickup_time || '—') + (b.pickup_address ? ' · ' + b.pickup_address : '')],
-    [MG.t('editRez.detail.return'), (b.return_time || '—') + (b.return_address ? ' · ' + b.return_address : '')],
-    [MG.t('editRez.detail.totalPaid'), '<strong>' + MG.formatPrice(Number(b.total_price || 0)) + '</strong>']
-  ];
-  var rowsHtml = rows.map(function(r){
-    return '<dt>' + r[0] + '</dt><dd>' + r[1] + '</dd>';
-  }).join('');
+  var sizes = MG._editRez._collectSizes(b);
+  var hasSizes = Object.keys(sizes.rider).length || Object.keys(sizes.passenger).length;
+
+  // Galerie — reuse z rezervačního flow (loaduje se z pages-rezervace-steps.js)
+  var galleryHtml = (typeof MG._rezGalleryHtml === 'function')
+    ? MG._rezGalleryHtml(m)
+    : '<div class="edit-rez-detail-img">' + (m.image_url ? '<img src="' + m.image_url + '" alt="">' : '') + '</div>';
+
+  // Pickup / return labely
+  var pickupLbl = (b.pickup_method === 'delivery')
+    ? '<strong>Přistavení na adresu:</strong> ' + (b.pickup_address || '—')
+    : '<strong>Vyzvednutí v půjčovně:</strong> Mezná 9, Mezná';
+  var returnLbl = (b.return_method === 'delivery')
+    ? '<strong>Vrácení na adrese:</strong> ' + (b.return_address || '—')
+    : '<strong>Vrácení v půjčovně:</strong> Mezná 9, Mezná';
+
+  var motoLbl = (m.brand ? m.brand + ' ' : '') + (m.model || '—');
+  var licReq = m.license_required && m.license_required !== 'N'
+    ? '<span class="edit-rez-chip">Vyžaduje ŘP: ' + m.license_required + '</span>'
+    : '<span class="edit-rez-chip">Bez ŘP</span>';
+
   t.innerHTML =
-    '<h3>' + MG.t('editRez.detail.title') + '</h3>' +
-    '<dl class="edit-rez-dl">' + rowsHtml + '</dl>' +
-    MG._editRez._stornoBoxHtml();
+    '<div class="edit-rez-detail-grid">' +
+      '<div class="edit-rez-detail-gallery" id="edit-rez-detail-gallery">' + galleryHtml + '</div>' +
+      '<div class="edit-rez-detail-main">' +
+        '<div class="edit-rez-detail-headline">' +
+          '<h3>' + motoLbl + '</h3>' +
+          licReq +
+          '<div class="edit-rez-detail-id">Číslo rezervace <code>' + b.id.substring(0,8).toUpperCase() + '</code></div>' +
+        '</div>' +
+
+        '<div class="edit-rez-info-grid">' +
+          '<div class="edit-rez-info-item"><div class="ico">📅</div><div><div class="lbl">Termín</div>' +
+            '<div class="val">' + MG.formatDate(b.start_date) + ' – ' + MG.formatDate(b.end_date) +
+            ' <span class="muted">(' + days + (days === 1 ? ' den' : days < 5 ? ' dny' : ' dní') + ')</span></div></div></div>' +
+          '<div class="edit-rez-info-item"><div class="ico">🕐</div><div><div class="lbl">Čas vyzvednutí / vrácení</div>' +
+            '<div class="val">' + (b.pickup_time || '—') + ' / ' + (b.return_time || 'při vrácení v půjčovně') + '</div></div></div>' +
+          '<div class="edit-rez-info-item"><div class="ico">📍</div><div><div class="lbl">Místo vyzvednutí</div>' +
+            '<div class="val">' + pickupLbl + '</div></div></div>' +
+          '<div class="edit-rez-info-item"><div class="ico">🏁</div><div><div class="lbl">Místo vrácení</div>' +
+            '<div class="val">' + returnLbl + '</div></div></div>' +
+        '</div>' +
+
+        // Cenový rozpis
+        '<h4 class="edit-rez-section-h">💰 Cenový rozpis</h4>' +
+        MG._editRez._priceBreakdownHtml(b, m) +
+
+        // Výbava
+        (hasSizes
+          ? '<h4 class="edit-rez-section-h">🎽 Výbava</h4>' +
+            '<div class="edit-rez-gear-grid">' +
+              MG._editRez._gearListHtml(sizes.rider, 'Řidič') +
+              MG._editRez._gearListHtml(sizes.passenger, 'Spolujezdec') +
+            '</div>'
+          : '') +
+
+        // Historie úprav
+        '<h4 class="edit-rez-section-h">🕘 Historie úprav</h4>' +
+        MG._editRez._historyHtml(b) +
+      '</div>' +
+    '</div>';
+
+  // Aktivuj prev/next/dots galerie (event listenery z pages-rezervace-steps.js)
+  if (typeof MG._rezInitGallery === 'function') MG._rezInitGallery();
 };
 
 // Storno podmínky box — sdílený mezi tab Storno, Zkrátit a Detail.

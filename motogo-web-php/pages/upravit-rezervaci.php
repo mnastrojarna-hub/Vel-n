@@ -88,6 +88,7 @@ window.EDIT_REZ_PARAMS = {
 <script src="' . assetUrl('/js/components.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace-calendar.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace-pricing.js') . '"></script>
+<script src="' . assetUrl('/js/pages-rezervace-steps.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci.js') . '"></script>
 <script>
 (function(){
