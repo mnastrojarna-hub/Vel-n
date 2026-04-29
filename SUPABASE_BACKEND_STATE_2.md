@@ -35,6 +35,9 @@
 - **promo_code** — promo kód (text)
 - **stripe_payment_intent_id** — Stripe Payment Intent ID (pro refundy)
 - **stripe_session_id** — Stripe Checkout Session ID
+- **stripe_checkout_url** (TEXT DEFAULT NULL) — URL aktivní Stripe Checkout session, ukládá `process-payment` při vytvoření session. Použito v abandoned mailu jako přímý odkaz na platbu.
+- **checkout_started_at** (TIMESTAMPTZ DEFAULT NULL) — okamžik kliknutí na „Pokračovat k platbě" (= vytvoření Stripe Checkout session). Vstupní bod 10minutového odpočtu pro abandoned mail.
+- **abandoned_email_sent_at** (TIMESTAMPTZ DEFAULT NULL) — kdy byl odeslán „nedokončená rezervace" mail (deduplikace v `send_abandoned_booking_emails`).
 - **rating, rated_at** — hodnocení zákazníkem
 - **helmet_size, jacket_size, pants_size, boots_size, gloves_size** — velikosti výbavy řidiče (helma, bunda, kalhoty, boty, rukavice)
 - **passenger_helmet_size, passenger_jacket_size, passenger_pants_size, passenger_boots_size, passenger_gloves_size** — velikosti výbavy spolujezdce
