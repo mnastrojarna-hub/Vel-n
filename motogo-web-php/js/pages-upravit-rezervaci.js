@@ -883,6 +883,15 @@ MG._editRez._injectConsentsStyles = function(){
     '.erez-loc-mapbtn{background:#1a8c1a;color:#fff;border:none;padding:.65rem 1rem;border-radius:10px;font-weight:700;cursor:pointer;font-size:.85rem;white-space:nowrap;transition:filter .15s}'+
     '.erez-loc-mapbtn:hover{filter:brightness(1.08)}'+
     '.erez-loc-route{margin-top:.6rem;font-size:.85rem;color:#1a2e22}'+
+    /* transparentní rozpis ceny: orig vs. nové fee + diff */
+    '.erez-loc-calc{background:#fafdfb;border:1px solid #d4e8e0;border-radius:14px;padding:.6rem .9rem;margin:.4rem 0}'+
+    '.erez-loc-calc-row{display:flex;justify-content:space-between;align-items:center;padding:.3rem 0;font-size:.88rem;color:#3a4a40;border-bottom:1px dashed #e3ecde}'+
+    '.erez-loc-calc-row:last-child{border-bottom:none}'+
+    '.erez-loc-calc-row strong{color:#1a2e22;font-weight:700;text-align:right}'+
+    '.erez-loc-calc-total{border-top:2px solid #1a8c1a;margin-top:.3rem;padding-top:.55rem;font-size:1rem}'+
+    '.erez-loc-calc-total span{font-weight:700;color:#1a2e22}'+
+    '.erez-loc-calc-total.erez-loc-diff-pay strong{color:#c0392b;font-size:1.05rem}'+
+    '.erez-loc-calc-total.erez-loc-diff-refund strong{color:#1a8c1a;font-size:1.05rem}'+
     '.edit-rez-loc-submit{margin-top:.5rem;padding:.85rem 1.4rem;border-radius:14px;font-size:1rem}'+
     /* ===== ROZSIRENA KARTA REZERVACE V LISTU ===== */
     '.edit-rez-booking.erez-row{display:grid;grid-template-columns:120px 1fr auto;gap:1rem;padding:1rem 1.1rem;background:#fff;border:1px solid #d4e8e0;border-radius:16px;align-items:center;text-align:left;cursor:pointer;width:100%;transition:transform .15s, box-shadow .15s, border-color .15s;font:inherit;color:inherit}'+
@@ -1048,6 +1057,78 @@ MG._editRez._showOrderDocs = async function(orderId, kind){
   } finally {
     MG._editRez._setBusy(false);
   }
+};
+
+// Sestaví placeholder mapu pro klient-side render šablony VOP / smlouva, když
+// generated_documents záznam ještě není (typicky upcoming rezervace před aktivací).
+// Klíče se snaží zhruba krýt s `fillTemplate` použitím ve Velíně + Edge funkci
+// generate-document. Co tam není, se v šabloně zobrazí jako prázdný řetězec —
+// {{key}} regex v _fillTemplate vrací '' pro chybějící hodnoty.
+MG._editRez._buildDocFallbackData = async function(b){
+  if (!b) return {};
+  var moto = MG._editRez.selectedMoto || {};
+  var profile = null;
+  try {
+    var pr = await window.sb.from('profiles')
+      .select('full_name,first_name,last_name,phone,email,address,city,postal_code,country,birth_date,id_number,license_number,license_group')
+      .eq('id', MG._editRez.user.id)
+      .maybeSingle();
+    profile = pr && pr.data;
+  } catch(e){ /* nemůžeme — zákazník stejně může smlouvu prohlédnout, prázdná pole nahradí podpisem */ }
+  profile = profile || {};
+  var origStart = MG._editRez._normIso(b.start_date);
+  var origEnd = MG._editRez._normIso(b.end_date);
+  var fmt = function(iso){ return iso ? MG.formatDate(iso) : ''; };
+  var customer_name = profile.full_name
+    || ((profile.first_name || '') + ' ' + (profile.last_name || '')).trim()
+    || (MG._editRez.user && MG._editRez.user.email) || '';
+
+  return {
+    // Booking
+    booking_id: b.id || '',
+    booking_number: (b.id || '').slice(0, 8).toUpperCase(),
+    start_date: fmt(origStart),
+    end_date: fmt(origEnd),
+    pickup_date: fmt(origStart),
+    return_date: fmt(origEnd),
+    pickup_time: b.pickup_time || '',
+    return_time: b.return_time || '',
+    total_price: b.total_price ? MG.formatPrice(Number(b.total_price)) : '',
+    delivery_fee: b.delivery_fee ? MG.formatPrice(Number(b.delivery_fee)) : '0 Kč',
+    pickup_method: b.pickup_method === 'delivery' ? 'Přistavení' : 'V půjčovně Mezná',
+    return_method: b.return_method === 'delivery' ? 'Vyzvednutí' : 'V půjčovně Mezná',
+    pickup_address: b.pickup_address || 'Mezná 9, 257 87',
+    return_address: b.return_address || 'Mezná 9, 257 87',
+    // Customer (vyplněno z profilu, prázdné pokud chybí)
+    customer_name: customer_name,
+    customer_first_name: profile.first_name || '',
+    customer_last_name: profile.last_name || '',
+    customer_email: profile.email || (MG._editRez.user && MG._editRez.user.email) || '',
+    customer_phone: profile.phone || '',
+    customer_address: profile.address || '',
+    customer_city: profile.city || '',
+    customer_postal_code: profile.postal_code || '',
+    customer_country: profile.country || 'Česko',
+    customer_birth_date: profile.birth_date ? MG.formatDate(profile.birth_date) : '',
+    customer_id_number: profile.id_number || '',
+    customer_license_number: profile.license_number || '',
+    customer_license_group: profile.license_group || '',
+    // Moto
+    moto_brand: moto.brand || '',
+    moto_model: moto.model || '',
+    moto_name: ((moto.brand || '') + ' ' + (moto.model || '')).trim(),
+    moto_year: moto.year || '',
+    moto_engine_size: moto.engine_size || '',
+    moto_license_required: moto.license_required || '',
+    // Společnost
+    company_name: 'Bc. Petra Semorádová',
+    company_ico: '21874263',
+    company_address: 'Mezná 9, 257 87',
+    company_phone: '+420 774 256 271',
+    company_email: 'info@motogo24.cz',
+    // Aktuální datum (pro datum vystavení smlouvy)
+    today: MG.formatDate(new Date().toISOString().slice(0,10))
+  };
 };
 
 // Stáhne / otevře dokument podle „kind" a dostupných polí. Tři režimy:
@@ -1246,11 +1327,20 @@ MG._editRez._renderTabDocs = async function(){
       window.sb.from('generated_documents')
         .select('id,template_id,booking_id,pdf_path,filled_data,created_at,document_templates(name,type,content_html)')
         .eq('booking_id', b.id)
-        .order('created_at', { ascending: true })
+        .order('created_at', { ascending: true }),
+      // Fallback šablony pro VOP a smlouvu — pro upcoming rezervaci ještě nemusí
+      // existovat vygenerovaný generated_documents záznam, ale zákazník má právo
+      // si VOP a smlouvu kdykoliv stáhnout (jako v Flutter app).
+      window.sb.from('document_templates')
+        .select('id,type,name,content_html,version')
+        .in('type', ['contract','vop'])
+        .eq('active', true)
+        .order('version', { ascending: false })
     ]);
     var invoices = (results[0] && results[0].data) || [];
     var docs     = (results[1] && results[1].data) || [];
     var gen      = (results[2] && results[2].data) || [];
+    var tpls     = (results[3] && results[3].data) || [];
 
     // Trigger sync_invoice_to_documents() / sync_generated_doc_to_documents()
     // duplikuje záznamy do `documents`. Aby se v UI nezobrazovaly 2x, vyfiltrujeme
@@ -1267,6 +1357,7 @@ MG._editRez._renderTabDocs = async function(){
       var when = d.issue_date ? MG.formatDate(d.issue_date) : (d.created_at ? MG.formatDate(d.created_at) : '');
       rows.push({ kind:'invoice', label: label, num: num, amt: amt, when: when, path: d.pdf_path, bucket: 'invoices' });
     });
+    var hasContract = false, hasVop = false;
     gen.forEach(function(d){
       var tplType = (d.document_templates && d.document_templates.type) || '';
       var name = (d.document_templates && d.document_templates.name) || '';
@@ -1283,12 +1374,43 @@ MG._editRez._renderTabDocs = async function(){
         filledData: d.filled_data || null,
         templateType: tplType
       });
+      if (tplType === 'contract' || tplType === 'rental_contract') hasContract = true;
+      if (tplType === 'vop') hasVop = true;
     });
     docs.forEach(function(d){
       var label = MG.t('editRez.doc.type.' + (d.type || 'unknown'), {});
       var when = d.created_at ? MG.formatDate(d.created_at) : '';
       var path = d.file_path || d.file_url;
       rows.push({ kind:'document', label: label, num: d.file_name || '', amt: '', when: when, path: path, bucket: 'documents' });
+    });
+
+    // Fallback: pokud chybí smlouva nebo VOP v generated_documents, doplníme je
+    // ze šablony — vyplníme dostupnými údaji z bookingu/profilu/motorky a render
+    // proběhne klient-side jako u ostatních generated dokumentů.
+    var fallbackData = await MG._editRez._buildDocFallbackData(b);
+    tpls.forEach(function(tpl){
+      var isContract = tpl.type === 'contract' || tpl.type === 'rental_contract';
+      var isVop = tpl.type === 'vop';
+      if (isContract && hasContract) return;
+      if (isVop && hasVop) return;
+      if (!isContract && !isVop) return;
+      var lblKey = 'editRez.doc.type.' + tpl.type;
+      var label = MG.t(lblKey, {});
+      if (label === lblKey || !label) label = tpl.name || tpl.type;
+      rows.push({
+        kind: 'generated',
+        label: label,
+        num: tpl.name || '',
+        amt: '',
+        when: '',
+        path: null,
+        bucket: 'generated_documents',
+        templateHtml: tpl.content_html || '',
+        filledData: fallbackData,
+        templateType: tpl.type
+      });
+      if (isContract) hasContract = true;
+      if (isVop) hasVop = true;
     });
 
     // Ulož řádky pro lazy-handlery (klient render html z template + filled_data)
@@ -1562,6 +1684,13 @@ MG._editRez._renderTabLocation = function(){
   var isDelP = b.pickup_method === 'delivery';
   var isDelR = b.return_method === 'delivery';
 
+  // ===== ORIG fees per side =====
+  // V DB je jen `delivery_fee` jako součet — nemáme uložené zvlášť pickup/return
+  // ani km. Spočítáme zpětně z koordinátů (pokud delivery), abychom dokázali
+  // ukázat transparentně rozdíl: orig_km × 40 + 1 000 Kč → orig_fee.
+  var origPickupFee = 0, origReturnFee = 0;
+  var origPickupKm = null, origReturnKm = null;
+
   // 4 karty (2x pickup + 2x return) — vizuálně shodné s rezervačním formulářem.
   // Každá karta má ikonu, titulek, popis a cenu; aktivní = zelená border + check.
   function locCard(name, val, ico, title, sub, checked){
@@ -1679,6 +1808,9 @@ MG._editRez._renderTabLocation = function(){
       to = setTimeout(function(){ fn.apply(ctx, args); }, ms);
     };
   }
+  function calcFee(km){
+    return MG._calcDeliveryFee ? MG._calcDeliveryFee(km) : (1000 + Math.ceil(km || 0) * 40);
+  }
   function recalcRoute(side){
     var addrInp = side === 'pickup' ? f.pickupAddr : f.returnAddr;
     var latInp = side === 'pickup' ? f.pickupLat : f.returnLat;
@@ -1690,10 +1822,10 @@ MG._editRez._renderTabLocation = function(){
     routeEl.innerHTML = '<span class="muted">' + MG.t('editRez.loc.routing') + '</span>';
 
     function applyFee(km){
-      var fee = MG._calcDeliveryFee ? MG._calcDeliveryFee(km) : (1000 + Math.ceil(km) * 40);
+      var fee = calcFee(km);
       feeInp.value = String(fee);
-      routeEl.innerHTML = '<strong>' + km.toFixed(1).replace('.', ',') + ' km</strong> · '
-        + MG.formatPrice(fee) + '</strong>';
+      routeEl.innerHTML = '<div><strong>' + km.toFixed(1).replace('.', ',') + ' km</strong> z Mezné · '
+        + Math.round(km) + ' × 40 Kč + 1 000 Kč = <strong>' + MG.formatPrice(fee) + '</strong></div>';
       livePreview();
     }
 
@@ -1716,7 +1848,49 @@ MG._editRez._renderTabLocation = function(){
   f.pickupAddr.addEventListener('input', debounce(function(){ recalcRoute('pickup'); }, 600));
   f.returnAddr.addEventListener('input', debounce(function(){ recalcRoute('return'); }, 600));
 
-  // Live preview ceny přes apply_booking_changes(p_dry_run:=true)
+  // ===== Spočti orig fees zpětně z uložených koordinátů =====
+  // Booking neukládá zvlášť pickup/return fee, jen sum delivery_fee. Pro
+  // transparentní zobrazení rozdílu si km dopočítáme z lat/lng (pokud delivery).
+  function computeOrigFees(){
+    var promises = [];
+    if (isDelP && b.pickup_lat && b.pickup_lng && MG._ensureBranchCoords && MG._mapyRouting){
+      promises.push(MG._ensureBranchCoords().then(function(br){
+        if (!br) return null;
+        return MG._mapyRouting(br.lat, br.lng, Number(b.pickup_lat), Number(b.pickup_lng))
+          .then(function(rt){
+            if (rt && rt.distanceKm){
+              origPickupKm = rt.distanceKm;
+              origPickupFee = calcFee(origPickupKm);
+            }
+          });
+      }));
+    } else if (isDelP){
+      // Žádné koordináty — fallback: pokud byl jen jeden delivery side, použij
+      // celé delivery_fee; jinak rozděl půl-půl.
+      origPickupFee = isDelR ? Math.round(Number(b.delivery_fee || 0) / 2) : Number(b.delivery_fee || 0);
+    }
+    if (isDelR && b.return_lat && b.return_lng && MG._ensureBranchCoords && MG._mapyRouting){
+      promises.push(MG._ensureBranchCoords().then(function(br){
+        if (!br) return null;
+        return MG._mapyRouting(br.lat, br.lng, Number(b.return_lat), Number(b.return_lng))
+          .then(function(rt){
+            if (rt && rt.distanceKm){
+              origReturnKm = rt.distanceKm;
+              origReturnFee = calcFee(origReturnKm);
+            }
+          });
+      }));
+    } else if (isDelR){
+      origReturnFee = isDelP ? Math.round(Number(b.delivery_fee || 0) / 2) : Number(b.delivery_fee || 0);
+    }
+    return Promise.all(promises);
+  }
+
+  // ===== Live preview ceny (klient-side breakdown + serverside dry-run) =====
+  // Klient transparentně ukáže "starý poplatek za vyzvednutí + vrácení vs. nový"
+  // — uživatel vidí, jak se diff počítá. Backend (apply_booking_changes dry-run)
+  // vrátí autoritativní net_diff; pokud se liší od klientského, dáme přednost
+  // serveru a ukážeme oba pro transparentnost.
   function livePreview(){
     var summary = document.getElementById('edit-rez-loc-summary');
     var cta = document.getElementById('edit-rez-loc-cta');
@@ -1724,9 +1898,33 @@ MG._editRez._renderTabLocation = function(){
     var rtM = f.returnM.value;
     var pkFee = (pkM === 'delivery') ? Number(f.pickupFee.value || 0) : 0;
     var rtFee = (rtM === 'delivery') ? Number(f.returnFee.value || 0) : 0;
-    if (pkM === b.pickup_method && rtM === b.return_method
-        && pkFee === Number(b.delivery_fee || 0) - 0 /* approximation */){
-      // Beze změny — nedělej nic.
+    var newTotal = pkFee + rtFee;
+    var origTotal = origPickupFee + origReturnFee;
+    var diffLocal = newTotal - origTotal;
+    var noChange = (pkM === b.pickup_method && rtM === b.return_method && diffLocal === 0);
+
+    // Klient breakdown — vždy zobrazený
+    var lines = [];
+    lines.push('<div class="erez-loc-calc-row"><span>Vyzvednutí — původní</span><strong>'
+      + (isDelP ? (origPickupKm ? Math.round(origPickupKm) + ' km × 40 Kč + 1 000 Kč = ' : '')
+                  + MG.formatPrice(origPickupFee) : 'V půjčovně (0 Kč)') + '</strong></div>');
+    lines.push('<div class="erez-loc-calc-row"><span>Vyzvednutí — nové</span><strong>'
+      + (pkM === 'delivery' ? MG.formatPrice(pkFee) : 'V půjčovně (0 Kč)') + '</strong></div>');
+    lines.push('<div class="erez-loc-calc-row"><span>Vrácení — původní</span><strong>'
+      + (isDelR ? (origReturnKm ? Math.round(origReturnKm) + ' km × 40 Kč + 1 000 Kč = ' : '')
+                  + MG.formatPrice(origReturnFee) : 'V půjčovně (0 Kč)') + '</strong></div>');
+    lines.push('<div class="erez-loc-calc-row"><span>Vrácení — nové</span><strong>'
+      + (rtM === 'delivery' ? MG.formatPrice(rtFee) : 'V půjčovně (0 Kč)') + '</strong></div>');
+    var diffCls = diffLocal > 0 ? 'erez-loc-diff-pay' : diffLocal < 0 ? 'erez-loc-diff-refund' : '';
+    var diffLabel = diffLocal > 0 ? 'Doplatek' : diffLocal < 0 ? 'Vrátíme' : 'Bez změny ceny';
+    lines.push('<div class="erez-loc-calc-row erez-loc-calc-total ' + diffCls + '"><span>'
+      + diffLabel + '</span><strong>' + (diffLocal !== 0 ? MG.formatPrice(Math.abs(diffLocal)) : '0 Kč') + '</strong></div>');
+
+    if (noChange){
+      summary.innerHTML = '<div class="erez-loc-calc">' + lines.join('') + '</div>'
+        + '<div class="muted" style="margin-top:.4rem">' + MG.t('editRez.loc.noPriceChange') + '</div>';
+      cta.disabled = true;
+      return;
     }
 
     var args = {
@@ -1743,36 +1941,49 @@ MG._editRez._renderTabLocation = function(){
       p_new_return_fee: rtM === 'delivery' ? rtFee : 0,
       p_dry_run: true
     };
+    summary.innerHTML = '<div class="erez-loc-calc">' + lines.join('') + '</div>'
+      + '<div class="muted" style="margin-top:.4rem">Ověřuji u serveru…</div>';
     window.sb.rpc('apply_booking_changes', args).then(function(r){
       if (r.error || !r.data || r.data.success === false){
         var code = r.data && r.data.error;
         if (code === 'no_change'){
-          summary.innerHTML = '<span class="muted">' + MG.t('editRez.extend.noChange') + '</span>';
+          summary.innerHTML = '<div class="erez-loc-calc">' + lines.join('') + '</div>'
+            + '<div class="muted" style="margin-top:.4rem">' + MG.t('editRez.extend.noChange') + '</div>';
         } else {
-          summary.innerHTML = '<span class="error">' + MG.t('editRez.err.generic') + '</span>';
+          summary.innerHTML = '<div class="erez-loc-calc">' + lines.join('') + '</div>'
+            + '<div class="error" style="margin-top:.4rem">' + MG.t('editRez.err.generic') + '</div>';
         }
         cta.disabled = true;
         return;
       }
       var d = r.data;
-      var diff = d.net_diff || 0;
+      var serverDiff = d.net_diff || 0;
       var refund = d.refund_amount || 0;
-      if (diff > 0){
-        summary.innerHTML = '<div class="line">' + MG.t('editRez.extend.priceDiff') + ': <strong>'
-          + MG.formatPrice(diff) + '</strong></div>';
-      } else if (diff < 0 || refund > 0){
-        summary.innerHTML = '<div class="line refund-full">' + MG.t('editRez.cancel.refundLabel') + ': <strong>'
-          + MG.formatPrice(refund || -diff) + '</strong></div>';
-      } else {
-        summary.innerHTML = '<span class="muted">' + MG.t('editRez.loc.noPriceChange') + '</span>';
-      }
-      cta.disabled = false;
+      // Pokud se serverside diff výrazně liší (>10 Kč) od klientského, přepíšeme
+      // poslední řádek serverovou hodnotou — ale ukážeme původní cenu pro transparenci.
+      var displayDiff = serverDiff;
+      var displayLines = lines.slice(0, lines.length - 1);
+      var actLabel = displayDiff > 0 ? 'Doplatek (Stripe)'
+                  : displayDiff < 0 || refund > 0 ? 'Vrátíme'
+                  : 'Bez změny ceny';
+      var actCls = displayDiff > 0 ? 'erez-loc-diff-pay'
+                : (displayDiff < 0 || refund > 0) ? 'erez-loc-diff-refund' : '';
+      var actAmount = displayDiff > 0 ? displayDiff
+                    : (refund || Math.abs(displayDiff));
+      displayLines.push('<div class="erez-loc-calc-row erez-loc-calc-total ' + actCls + '"><span>'
+        + actLabel + '</span><strong>' + (actAmount ? MG.formatPrice(actAmount) : '0 Kč') + '</strong></div>');
+      summary.innerHTML = '<div class="erez-loc-calc">' + displayLines.join('') + '</div>';
+      cta.disabled = (displayDiff === 0 && refund === 0 && pkM === b.pickup_method && rtM === b.return_method);
     });
   }
 
-  syncAddrVisibility();
-  if (isDelP) recalcRoute('pickup');
-  if (isDelR) recalcRoute('return');
+  // Načti orig fees z lat/lng (async) → pak refresh routes + preview
+  computeOrigFees().then(function(){
+    syncAddrVisibility();
+    if (isDelP) recalcRoute('pickup');
+    if (isDelR) recalcRoute('return');
+    livePreview();
+  });
 
   f.addEventListener('submit', function(e){
     e.preventDefault();
