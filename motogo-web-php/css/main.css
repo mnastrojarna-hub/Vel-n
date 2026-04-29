@@ -690,9 +690,10 @@ body.mg-lb-open{overflow:hidden;overscroll-behavior:none}
 
 /* Tabs */
 .edit-rez-tabs{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.75rem}
-.edit-rez-tab{flex:1 1 auto;min-width:0;padding:.65rem .75rem;border:1px solid #e3eee8;background:#fff;color:#1a2e22;border-radius:10px;cursor:pointer;font-weight:600;font-size:.95rem;font-family:inherit;transition:all .15s;text-align:center}
-.edit-rez-tab:hover{background:#f4faf6;border-color:#74FB71}
-.edit-rez-tab.active{background:#1a2e22;color:#fff;border-color:#1a2e22}
+.edit-rez-tab{flex:1 1 auto;min-width:0;padding:.65rem .9rem;border:1.5px solid #d4e8e0;background:#fff;color:#1a2e22;border-radius:999px;cursor:pointer;font-weight:700;font-size:.9rem;font-family:inherit;transition:all .15s;text-align:center}
+.edit-rez-tab:hover{background:#f4faf6;border-color:#74FB71;color:#0d6b0d}
+.edit-rez-tab.active{background:#74FB71;color:#1a2e22;border-color:#5edc5a;box-shadow:0 4px 12px rgba(116,251,113,.35)}
+.edit-rez-tab.active:hover{background:#5edc5a;color:#1a2e22}
 
 /* Detail dl */
 .edit-rez-dl{display:grid;grid-template-columns:auto 1fr;gap:.5rem 1rem;margin:0 0 1rem}
