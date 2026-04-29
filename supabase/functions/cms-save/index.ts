@@ -117,25 +117,64 @@ serve(async (req: Request): Promise<Response> => {
   if (!expected) return jsonResponse({ error: 'token_not_configured' }, 503)
   if (!timingSafeEqual(expected, token)) return jsonResponse({ error: 'invalid_token' }, 403)
 
-  // 2) Upsert do cms_variables
+  // 2) Select existing row by key, then UPDATE or INSERT.
+  // Důvod: upsert s onConflict='key' selhával na 500 (zřejmě kvůli kombinaci
+  // existujícího řádku s jinou category + RLS / select po insertu). Explicitní
+  // větvení je transparentnější a chyba z PG se snadno propaguje na klienta.
   // Schema: id (uuid PK, default), key (text NOT NULL UNIQUE), value (jsonb NOT NULL),
   //         category (text NOT NULL), translations (jsonb NOT NULL default '{}'), updated_*.
-  // Použijeme upsert podle `key` (UNIQUE).
-  const { data: row, error: upErr } = await sb
+  const { data: existing, error: selErr } = await sb
     .from('cms_variables')
-    .upsert(
-      { key, value, category: 'web' },
-      { onConflict: 'key' }
-    )
     .select('id')
-    .single()
+    .eq('key', key)
+    .maybeSingle()
 
-  if (upErr || !row) {
-    return jsonResponse({ error: 'upsert_failed', detail: upErr?.message || 'no_row' }, 500)
+  if (selErr) {
+    return jsonResponse({
+      error: 'select_failed',
+      detail: selErr.message,
+      code: (selErr as { code?: string }).code || null,
+      hint: (selErr as { hint?: string }).hint || null,
+    }, 500)
+  }
+
+  let rowId: string | null = existing?.id ?? null
+
+  if (existing?.id) {
+    // UPDATE — neměníme category, abychom nepřemazali ručně nastavenou hodnotu
+    // ve Velíně (např. 'general' / 'content'). Pouze hodnotu.
+    const { error: updErr } = await sb
+      .from('cms_variables')
+      .update({ value })
+      .eq('id', existing.id)
+    if (updErr) {
+      return jsonResponse({
+        error: 'update_failed',
+        detail: updErr.message,
+        code: (updErr as { code?: string }).code || null,
+        hint: (updErr as { hint?: string }).hint || null,
+      }, 500)
+    }
+  } else {
+    // INSERT
+    const { data: ins, error: insErr } = await sb
+      .from('cms_variables')
+      .insert({ key, value, category: 'web' })
+      .select('id')
+      .single()
+    if (insErr || !ins) {
+      return jsonResponse({
+        error: 'insert_failed',
+        detail: insErr?.message || 'no_row',
+        code: (insErr as { code?: string } | null)?.code || null,
+        hint: (insErr as { hint?: string } | null)?.hint || null,
+      }, 500)
+    }
+    rowId = ins.id
   }
 
   // 3) Fire-and-forget auto-překlad (admin nečeká)
-  const translation = await triggerTranslate(row.id, value)
+  const translation = rowId ? await triggerTranslate(rowId, value) : 'skipped'
 
-  return jsonResponse({ success: true, key, id: row.id, translation })
+  return jsonResponse({ success: true, key, id: rowId, translation })
 })
