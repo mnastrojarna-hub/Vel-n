@@ -162,6 +162,9 @@ $infoHtml = '<section class="moto-info gr2">' . $descHtml . $galleryHtml . '</se
 
 // Specs table (pořadí dle originálního webu)
 $specsRows = [];
+// Identifikace
+if (!empty($moto['year']))    $specsRows[] = [t('detail.specYear'), $moto['year']];
+if (!empty($moto['color']))   $specsRows[] = [t('detail.specColor'), htmlspecialchars($moto['color'])];
 if (!empty($moto['engine_cc'])) $specsRows[] = [t('detail.specEngineCc'), $moto['engine_cc'] . ' ccm'];
 if (!empty($moto['power_kw'])) {
     $kwVal = $moto['power_kw'] . ' kW';
@@ -181,10 +184,15 @@ if (!empty($moto['fuel_type'])) $specsRows[] = [t('detail.specFuelType'), $moto[
 if (!empty($moto['fuel_tank_l'])) $specsRows[] = [t('detail.specFuelTank'), $moto['fuel_tank_l'] . ' l'];
 if (!empty($moto['brake_type'])) $specsRows[] = [t('detail.specBrakeType'), $moto['brake_type']];
 if (!empty($moto['has_abs'])) $specsRows[] = [t('detail.specAbs'), t('detail.specYes')];
+if (!empty($moto['has_asc'])) $specsRows[] = [t('detail.specAsc'), t('detail.specYes')];
 if (!empty($moto['weight_kg'])) $specsRows[] = [t('detail.specWeight'), $moto['weight_kg'] . ' kg'];
 if (!empty($moto['seat_height_mm'])) $specsRows[] = [t('detail.specSeatHeight'), $moto['seat_height_mm'] . ' mm'];
 if (!empty($moto['seats_count'])) $specsRows[] = [t('detail.specSeatsCount'), $moto['seats_count']];
 if (!empty($moto['license_required'])) $specsRows[] = [t('detail.specLicense'), t('detail.specLicenseGroup', ['group' => $moto['license_required']])];
+if (!empty($moto['min_rental_days'])) $specsRows[] = [t('detail.specMinRental'), t('detail.daysUnit', ['count' => (int)$moto['min_rental_days']])];
+if (!empty($moto['max_rental_days'])) {
+    $specsRows[] = [t('detail.specMaxRental'), t('detail.daysUnit', ['count' => (int)$moto['max_rental_days']])];
+}
 if (!empty($moto['ideal_usage'])) $specsRows[] = [t('detail.specIdealFor'), $moto['ideal_usage']];
 
 $descSpecsHtml = '<section class="gr2"><div>';

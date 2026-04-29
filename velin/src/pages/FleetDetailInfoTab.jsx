@@ -158,6 +158,7 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
           </div>
           <Field label="Typ motoru" value={moto.engine_type} onChange={v => set('engine_type', v)} placeholder="např. boxer, řadový 4V" />
           <Field label="Výkon (kW)" value={moto.power_kw} onChange={v => set('power_kw', v)} type="number" />
+          <Field label="Výkon (koně)" value={moto.power_hp} onChange={v => set('power_hp', v)} type="number" placeholder="cca X k (web zobrazuje vedle kW)" />
           <Field label="Točivý moment (Nm)" value={moto.torque_nm} onChange={v => set('torque_nm', v)} type="number" />
           <Field label="Hmotnost (kg)" value={moto.weight_kg} onChange={v => set('weight_kg', v)} type="number" />
           <Field label="Nádrž (L)" value={moto.fuel_tank_l} onChange={v => set('fuel_tank_l', v)} type="number" />
@@ -177,6 +178,8 @@ function InfoTab({ moto, set, error, saving, onSave, onDeactivate, onDelete, onM
           <Field label="Palivo" value={moto.fuel_type} onChange={v => set('fuel_type', v)} placeholder="např. Natural 95" />
           <Field label="Brzdy" value={moto.brake_type} onChange={v => set('brake_type', v)} placeholder="např. kotoučové (ABS)" />
           <Field label="Počet míst k sezení" value={moto.seats_count} onChange={v => set('seats_count', v)} type="number" placeholder="1 nebo 2" />
+          <Field label="Min. délka pronájmu (dní)" value={moto.min_rental_days} onChange={v => set('min_rental_days', v)} type="number" placeholder="např. 2" />
+          <Field label="Max. délka pronájmu (dní)" value={moto.max_rental_days} onChange={v => set('max_rental_days', v)} type="number" placeholder="např. 30 (prázdné = neomezeno)" />
           <div>
             <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>ŘP kategorie</label>
             <select value={moto.license_required || ''} onChange={e => set('license_required', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>
