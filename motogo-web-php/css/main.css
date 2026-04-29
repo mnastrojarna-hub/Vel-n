@@ -635,3 +635,81 @@ body.mg-lb-open{overflow:hidden;overscroll-behavior:none}
   .edit-rez-booking-img{width:48px;height:40px}
   .edit-rez-booking-price{grid-column:2/3;font-size:1rem}
 }
+
+/* Detail header */
+.edit-rez-detail-head h2{margin:.25rem 0 .35rem;font-size:1.35rem}
+.edit-rez-detail-head .btn-link{background:none;border:none;color:#1a8c1a;cursor:pointer;font-weight:600;padding:0;font-size:.9rem;font-family:inherit;text-decoration:underline}
+.edit-rez-detail-meta{color:#555;font-size:.92rem;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
+
+/* Tabs */
+.edit-rez-tabs{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.75rem}
+.edit-rez-tab{flex:1 1 auto;min-width:0;padding:.65rem .75rem;border:1px solid #e3eee8;background:#fff;color:#1a2e22;border-radius:10px;cursor:pointer;font-weight:600;font-size:.95rem;font-family:inherit;transition:all .15s;text-align:center}
+.edit-rez-tab:hover{background:#f4faf6;border-color:#74FB71}
+.edit-rez-tab.active{background:#1a2e22;color:#fff;border-color:#1a2e22}
+
+/* Detail dl */
+.edit-rez-dl{display:grid;grid-template-columns:auto 1fr;gap:.5rem 1rem;margin:0 0 1rem}
+.edit-rez-dl dt{color:#666;font-weight:600;font-size:.9rem}
+.edit-rez-dl dd{margin:0;color:#1a2e22;font-size:.95rem}
+.edit-rez-dl code{background:#f4faf6;padding:.1rem .4rem;border-radius:4px;font-size:.9rem}
+
+/* Storno box */
+.edit-rez-storno-box{background:#fff8e1;border:1px solid #ffe0a3;border-radius:10px;padding:1rem;margin-top:1rem;font-size:.92rem}
+.edit-rez-storno-box h4{margin:0 0 .5rem;color:#7a5b00;font-size:1rem}
+.edit-rez-storno-box ul{margin:0 0 .5rem;padding-left:1.1rem;color:#5a4500}
+.edit-rez-storno-box li{margin-bottom:.25rem}
+.edit-rez-storno-note{color:#7a5b00;font-size:.85rem;margin:.5rem 0 0}
+
+/* Cancel form */
+.edit-rez-warn{background:#fde7e7;border:1px solid #f4b4b4;color:#8c1a1a;padding:.7rem 1rem;border-radius:8px;margin-bottom:1rem;font-size:.95rem}
+.edit-rez-form textarea{padding:.75rem .9rem;border:1px solid #b8d4c6;border-radius:10px;font-size:1rem;font-family:inherit;resize:vertical;min-height:70px}
+.edit-rez-form textarea:focus{outline:2px solid #74FB71;outline-offset:1px;border-color:#74FB71}
+.edit-rez-refund-line{background:#f4faf6;border:1px solid #d9ecdf;border-radius:10px;padding:.85rem 1rem;margin-bottom:1rem;font-size:1.05rem}
+.edit-rez-refund-line .lbl{color:#666}
+.edit-rez-refund-line strong{font-size:1.2rem;color:#1a2e22}
+.edit-rez-refund-line .pct{margin-left:.4rem;font-weight:700}
+.edit-rez-refund-line.refund-full{background:#e3fbe3;border-color:#9fe69f}
+.edit-rez-refund-line.refund-full .pct{color:#1a8c1a}
+.edit-rez-refund-line.refund-half{background:#fff3cd;border-color:#ffd97a}
+.edit-rez-refund-line.refund-half .pct{color:#7a5b00}
+.edit-rez-refund-line.refund-none{background:#fde7e7;border-color:#f4b4b4}
+.edit-rez-refund-line.refund-none .pct{color:#8c1a1a}
+
+/* Red CTA */
+.btnred{background:#c92a2a;color:#fff}
+.btnred:hover{background:#a01c1c}
+.btn-secondary{background:#eee;color:#333}
+.btn-secondary:hover{background:#ddd}
+
+/* Inline confirm dialog */
+.edit-rez-confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:9999;padding:1rem}
+.edit-rez-confirm-dialog{background:#fff;border-radius:14px;padding:1.5rem;max-width:420px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.25)}
+.edit-rez-confirm-dialog h4{margin:0 0 1rem;color:#1a2e22;font-size:1.1rem}
+.edit-rez-confirm-actions{display:flex;gap:.6rem;justify-content:flex-end;flex-wrap:wrap}
+
+/* Success box po stornu/zkrácení */
+.edit-rez-success-box{text-align:center;padding:1.5rem .5rem}
+.edit-rez-success-box h3{font-size:3rem;color:#1a8c1a;margin:0 0 .5rem}
+.edit-rez-success-box p{color:#1a2e22;font-size:1rem;margin-bottom:1.2rem}
+
+/* Extend / Shorten — date pickers + summary */
+.edit-rez-date-grid{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+.edit-rez-date-grid > textarea,
+.edit-rez-date-grid > label[name=reason],
+.edit-rez-date-grid > #edit-rez-extend-summary,
+.edit-rez-date-grid > #edit-rez-shorten-summary,
+.edit-rez-date-grid > button{grid-column:1/-1}
+.edit-rez-date-grid > label:has(textarea){grid-column:1/-1}
+.edit-rez-price-summary{min-height:1.5rem;font-size:1rem;color:#1a2e22}
+.edit-rez-price-summary .line{padding:.7rem 1rem;border-radius:10px;background:#f4faf6;border:1px solid #d9ecdf}
+.edit-rez-price-summary .line.refund-full{background:#e3fbe3;border-color:#9fe69f}
+.edit-rez-price-summary .line.refund-half{background:#fff3cd;border-color:#ffd97a}
+.edit-rez-price-summary .line.refund-none{background:#fde7e7;border-color:#f4b4b4;color:#8c1a1a}
+.edit-rez-price-summary .line .lbl{color:#666;margin-right:.4rem}
+.edit-rez-price-summary .line strong{font-size:1.15rem}
+.edit-rez-price-summary .muted{color:#888;font-style:italic}
+.edit-rez-price-summary .error{color:#8c1a1a;font-weight:600}
+
+@media(max-width:600px){
+  .edit-rez-date-grid{grid-template-columns:1fr}
+}
