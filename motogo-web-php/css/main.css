@@ -283,54 +283,41 @@ section[aria-labelledby="process"] h2{color:#fff}
 section[aria-labelledby="process"] .wbox{background:#fff;border-color:#d4e8e0}
 
 /* ===== HOMEPAGE DARK THEME ===== */
-body.homepage{background:#0a1f14;color:#e8f5ee}
-body.homepage main{background:#0a1f14;color:#e8f5ee}
-body.homepage h1,body.homepage h2,body.homepage h3,body.homepage h4{color:#fff}
-body.homepage strong{color:#fff}
-body.homepage p{color:#d4e8e0}
-body.homepage a{color:#74FB71}
-body.homepage a:hover{color:#a8ff9f}
+/* Dark bg pokrývá jen horní část stránky (hero + horní polovina prvního řádku
+   karet); pod tím se vrací světlé pozadí. */
+body.homepage{background:#dff0ec;color:#1a2e22}
+body.homepage main{background:linear-gradient(180deg,#0a1f14 0,#0a1f14 360px,#dff0ec 540px,#dff0ec 100%);color:#1a2e22}
+body.homepage main h1,body.homepage main>.container>h1{color:#fff}
 body.homepage .home-intro{color:#d4e8e0}
+body.homepage section[aria-labelledby="signpost-h"] h2{color:#fff}
+body.homepage section[aria-labelledby="signpost-h"]+section h2,
+body.homepage section[aria-labelledby="catalogue"] h2,
+body.homepage section[aria-labelledby="process"] h2{color:#fff}
+body.homepage section[aria-labelledby="signpost-h"] strong{color:#fff}
 
-/* Signpost cards — dark bg with neon green border + green title */
+/* Hero CTA — primary tlačítko musí mít čistě černý text */
+body.homepage .banner-caption .btngreen,
+.banner-caption .btngreen{color:#000}
+.banner-caption .btngreen:hover{color:#000}
+
+/* Signpost cards — tmavé pozadí + neon zelený rámeček + zelený nadpis */
 body.homepage .gbox{background:#0e2a1c;border:2px solid #74FB71;border-bottom:2px solid #74FB71;border-radius:12px;color:#e8f5ee;box-shadow:0 0 0 0 transparent}
 body.homepage .gbox:hover{border-color:#a8ff9f;box-shadow:0 0 22px rgba(116,251,113,.18);color:#e8f5ee}
 body.homepage .gbox h3{color:#74FB71}
 body.homepage .gbox p{color:#d4e8e0}
-body.homepage .gbox-img{background:rgba(116,251,113,.1)}
+body.homepage .gbox-img{background:rgba(116,251,113,.12)}
+/* Některé SVG ikony mají tmavě-zelený fill (#093E2E) — na tmavém pozadí karty
+   by zmizely. Filtr je překreslí na neon zelenou (sjednotí všechny ikony). */
+body.homepage .gbox-img .icon{filter:brightness(0) saturate(100%) invert(82%) sepia(36%) saturate(1500%) hue-rotate(64deg) brightness(106%) contrast(100%)}
 body.homepage .btngreen-small{background:#74FB71;color:#0a1f14}
 body.homepage .btngreen-small:hover{background:#a8ff9f;color:#0a1f14}
 
-/* Wbox (process steps) on dark bg */
-body.homepage .wbox{background:#0e2a1c;border:1px solid rgba(116,251,113,.35);color:#e8f5ee}
-body.homepage .wbox:hover{border-color:#74FB71;box-shadow:0 0 18px rgba(116,251,113,.15)}
-body.homepage .wbox h3{color:#fff}
-body.homepage .wbox>p{color:#b8d4c6}
-
-/* Process section — adjust nested wbox bg to match dark theme */
+/* Wbox (process steps) na tmavém pozadí */
 body.homepage section[aria-labelledby="process"]{background:#0e2a1c;border:1px solid rgba(116,251,113,.2)}
-body.homepage section[aria-labelledby="process"] .wbox{background:#0a1f14;border-color:rgba(116,251,113,.3)}
-
-/* Moto card on dark homepage */
-body.homepage .moto-wrapper{background:#0e2a1c;border:1px solid rgba(116,251,113,.35);color:#e8f5ee}
-body.homepage .moto-wrapper:hover{border-color:#74FB71;color:#e8f5ee}
-body.homepage .moto-desc li{color:#d4e8e0}
-body.homepage .moto-price{color:#74FB71}
-
-/* Blog cards on dark homepage */
-body.homepage .blog-wrapper{background:#0e2a1c;border:1px solid rgba(116,251,113,.35);color:#e8f5ee}
-body.homepage .blog-wrapper:hover{border-color:#74FB71}
-
-/* Reviews on dark homepage */
-body.homepage .review-card{background:#0e2a1c;border:1px solid rgba(116,251,113,.3);color:#e8f5ee;border-radius:12px;padding:1.25rem}
-body.homepage .review-stars{color:#fbbf24}
-body.homepage .review-comment{color:#d4e8e0}
-body.homepage .review-author{color:#b8d4c6}
-body.homepage .review-author strong{color:#fff}
-
-/* FAQ section accordion — dark theme */
-body.homepage details{background:#0e2a1c;border:1px solid rgba(116,251,113,.3);color:#e8f5ee}
-body.homepage details summary{color:#fff}
+body.homepage section[aria-labelledby="process"] .wbox{background:#0a1f14;border-color:rgba(116,251,113,.3);color:#e8f5ee}
+body.homepage section[aria-labelledby="process"] .wbox h3{color:#fff}
+body.homepage section[aria-labelledby="process"] .wbox>p{color:#b8d4c6}
+body.homepage section[aria-labelledby="process"] .wbox .icon{filter:brightness(0) saturate(100%) invert(82%) sepia(36%) saturate(1500%) hue-rotate(64deg) brightness(106%) contrast(100%)}
 
 /* ===== RESPONSIVE ===== */
 /* Tablet landscape */
