@@ -58,6 +58,12 @@
         throw new Error(msg);
       }
       return res.data;
+    }).catch(function (err) {
+      // Fetch failure (network / CORS) má jiný error tvar — zlepšíme info pro adminu.
+      if (err && err.name === 'TypeError') {
+        throw new Error('CORS/síťová chyba — edge funkce cms-save není správně nasazená. Spusť: supabase functions deploy cms-save --no-verify-jwt');
+      }
+      throw err;
     });
   }
 
