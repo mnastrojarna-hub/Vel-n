@@ -193,30 +193,9 @@ MG._submitReservation = async function(){
     }
   } catch(e){ alert(T('rez.alert.saveError', {msg: e.message})); return; }
 
-  // Schedule abandoned email after 5 minutes if payment not completed
-  if(MG._rez.bookingId && MG._rez.formData){
-    if(MG._rez._abandonedTimer) clearTimeout(MG._rez._abandonedTimer);
-    MG._rez._abandonedTimer = setTimeout(function(){
-      // Check if still pending (not yet paid)
-      if(!MG._rez._paymentDone){
-        var d = MG._rez.formData;
-        var moto = MG._rez.motos.find(function(m){return m.id===d.motoId;});
-        fetch(window.MOTOGO_CONFIG.SUPABASE_URL+'/functions/v1/send-booking-email',{
-          method:'POST',
-          headers:{'Content-Type':'application/json','apikey':window.MOTOGO_CONFIG.SUPABASE_ANON_KEY},
-          body:JSON.stringify({
-            type:'booking_abandoned',
-            booking_id:MG._rez.bookingId,
-            customer_email:d.email,
-            customer_name:d.name,
-            motorcycle:moto?moto.model:'',
-            source:'web',
-            resume_link:'https://motogo24.com/rezervace?resume='+MG._rez.bookingId
-          })
-        }).catch(function(){});
-      }
-    }, 5*60*1000); // 5 minut
-  }
+  // Abandoned-mail planning is now server-side: pg_cron `send_abandoned_booking_emails`
+  // posílá mail 20 min po vytvoření pending bookingu (krok 1→2) nebo 10 min po
+  // vytvoření Stripe session (kliknutí "Pokračovat k platbě"). Frontend nepotřebuje timer.
 
   MG._rezShowStep2();
 };
