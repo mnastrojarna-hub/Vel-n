@@ -188,6 +188,30 @@ function renderInlineJs() {
  *
  * $meta klíče:
 /**
+ * Webmaster Tools verifikační meta tagy. Emitují se jen ty, které mají
+ * neprázdnou hodnotu v env / config — žádné prázdné <meta> v HTML.
+ *
+ * Hodnoty se konfigurují přes env vars (viz config.php):
+ *   MOTOGO_VERIFY_GOOGLE / BING / SEZNAM / YANDEX / PINTEREST / FACEBOOK
+ */
+function renderWebmasterVerification() {
+    $tags = [
+        ['google-site-verification', defined('VERIFY_GOOGLE')    ? VERIFY_GOOGLE    : ''],
+        ['msvalidate.01',            defined('VERIFY_BING')      ? VERIFY_BING      : ''],
+        ['seznam-wmt',               defined('VERIFY_SEZNAM')    ? VERIFY_SEZNAM    : ''],
+        ['yandex-verification',      defined('VERIFY_YANDEX')    ? VERIFY_YANDEX    : ''],
+        ['p:domain_verify',          defined('VERIFY_PINTEREST') ? VERIFY_PINTEREST : ''],
+        ['facebook-domain-verification', defined('VERIFY_FACEBOOK') ? VERIFY_FACEBOOK : ''],
+    ];
+    $out = '';
+    foreach ($tags as [$name, $content]) {
+        if ($content === '' || $content === null) continue;
+        $out .= "\n  " . '<meta name="' . htmlspecialchars($name) . '" content="' . htmlspecialchars((string)$content) . '">';
+    }
+    return $out;
+}
+
+/**
  * Vyrenderuje <link rel="alternate" hreflang="…" href="…"> tagy pro všechny
  * podporované jazyky (cs, en, de, es, fr, nl, pl) + x-default.
  *
@@ -347,10 +371,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   <meta name="distribution" content="global">
   <meta name="revisit-after" content="3 days">
   <meta name="referrer" content="strict-origin-when-cross-origin">
-  <!-- Webmaster Tools verifikace (vyplnit hodnoty po registraci):
-       - Google Search Console: <meta name="google-site-verification" content="...">
-       - Seznam Webmaster Tools: <meta name="seznam-wmt" content="...">
-       - Bing Webmaster Tools:  <meta name="msvalidate.01" content="..."> -->' . renderHreflangAlternates($currentPath) . '
+' . renderWebmasterVerification() . renderHreflangAlternates($currentPath) . '
   <title>' . htmlspecialchars($title) . '</title>
 
   <script type="application/ld+json">
