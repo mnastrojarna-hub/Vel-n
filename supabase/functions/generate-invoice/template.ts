@@ -1,7 +1,9 @@
 // ===== INVOICE HTML TEMPLATE GENERATOR =====
 // Unified design — used for ZF / DP / KF / Shop / Credit note
 
-const LOGO_URL = 'https://motogo24.cz/gfx/logo-icon.png'
+const LOGO_URL = 'https://motogo24.com/gfx/logo-icon.png'
+const PUBLIC_QR_TARGET = 'https://motogo24.com'
+const QR_URL = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(PUBLIC_QR_TARGET)}`
 
 const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
 const fmtPrice = (n: number) => `${(n || 0).toLocaleString('cs-CZ', { maximumFractionDigits: 0 })} Kč`
@@ -235,7 +237,7 @@ export function generateInvoiceHtml(p: TemplateParams): string {
     <div style="font-size:11px;font-weight:800;color:#166534;letter-spacing:1.5px;margin-bottom:6px">DÁRKOVÉ POUKAZY</div>
     ${vc.map((c: string) => `<div style="font-size:14px;font-weight:700;font-family:'Courier New',monospace;color:#166534;padding:2px 0">${c}</div>`).join('')}
     ${p.voucherValidUntil ? `<div style="font-size:11px;color:#166534;margin-top:6px">Platnost: 3 roky (do ${fmtDate(p.voucherValidUntil)})</div>` : ''}
-    <div style="font-size:10px;color:#4a6357;margin-top:4px">Kód uplatníte při rezervaci na motogo24.cz nebo v aplikaci MotoGo24.</div>
+    <div style="font-size:10px;color:#4a6357;margin-top:4px">Kód uplatníte při rezervaci na motogo24.com nebo v aplikaci MotoGo24.</div>
   </div>` : ''}
 
   ${dc.length > 0 ? `<div style="margin:0 32px 16px;padding:14px;background:#e0f2fe;border-radius:6px;border:1px solid #0284c7">
@@ -248,14 +250,35 @@ export function generateInvoiceHtml(p: TemplateParams): string {
   ${p.isPaymentReceipt ? `<div style="margin:0 32px 16px;padding:10px 14px;background:#ecfdf5;border-left:3px solid #16a34a;font-size:11px;color:#065f46">Tento doklad potvrzuje přijetí platby dle zákona č. 235/2004 Sb., o dani z přidané hodnoty.</div>` : ''}
   ${p.isShopFinal ? `<div style="margin:0 32px 16px;padding:10px 14px;background:#ecfdf5;border-left:3px solid #16a34a;font-size:11px;color:#065f46">Konečná faktura — platba byla již provedena na základě dokladu ${p.dpNumber || 'DP'}. K úhradě: 0 Kč.</div>` : ''}
 
+  <!-- KONTAKT + QR -->
+  <div style="background:#0a1f15;padding:24px 32px;margin-top:8px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>
+      <td style="vertical-align:top;padding-right:16px">
+        <div style="border:1px solid #74FB71;border-radius:6px;padding:16px;color:#ffffff;font-size:12px;line-height:1.7">
+          <div style="font-size:14px;font-weight:800;color:#ffffff">Motogo24</div>
+          <div style="font-size:14px;font-weight:800;color:#ffffff;margin-bottom:6px">${p.company.name}</div>
+          <div style="color:#9ca3af">${p.company.address}</div>
+          <div style="color:#9ca3af">IČO: ${p.company.ico}</div>
+          <div><span style="color:#9ca3af">Telefon:</span> <span style="color:#74FB71">${p.company.phone}</span></div>
+          <div><span style="color:#9ca3af">E-mail:</span> <span style="color:#74FB71">${p.company.email}</span></div>
+          <div><span style="color:#9ca3af">Web:</span> <span style="color:#74FB71">motogo24.com</span></div>
+        </div>
+      </td>
+      <td style="vertical-align:top;width:130px;text-align:center">
+        <a href="${PUBLIC_QR_TARGET}" style="text-decoration:none"><img src="${QR_URL}" alt="motogo24.com" width="120" height="120" style="display:block;background:#ffffff;padding:6px;border-radius:4px"/></a>
+        <div style="color:#9ca3af;font-size:10px;margin-top:6px">motogo24.com</div>
+      </td>
+    </tr></table>
+  </div>
+
   <!-- FOOTER -->
-  <div style="background:#0a1f15;padding:14px 32px;color:#ffffff;font-size:11px;line-height:1.6">
+  <div style="background:#0a1f15;padding:14px 32px;color:#ffffff;font-size:11px;line-height:1.6;border-top:1px solid #16352a">
     <strong style="color:#ffffff">${p.company.name}</strong>
     <span style="color:#9ca3af"> &nbsp;|&nbsp; </span>${p.company.address}
     <span style="color:#9ca3af"> &nbsp;|&nbsp; </span>IČO: ${p.company.ico}
     <span style="color:#9ca3af"> &nbsp;|&nbsp; </span><span style="color:#74FB71">${p.company.phone}</span>
     <span style="color:#9ca3af"> &nbsp;|&nbsp; </span><span style="color:#74FB71">${p.company.email}</span>
-    <span style="color:#9ca3af"> &nbsp;|&nbsp; </span><span style="color:#74FB71">${p.company.web || 'www.motogo24.cz'}</span>
+    <span style="color:#9ca3af"> &nbsp;|&nbsp; </span><span style="color:#74FB71">motogo24.com</span>
   </div>
 
 </div>
