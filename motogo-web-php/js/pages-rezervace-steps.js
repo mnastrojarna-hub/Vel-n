@@ -37,33 +37,34 @@ MG._submitReservation = async function(){
     city=document.getElementById('rez-city'),zip=document.getElementById('rez-zip'),
     country=document.getElementById('rez-country'),agree=document.getElementById('rez-agree-vop');
 
+  var T = (MG.t || function(k){ return k; });
   // Enhanced validation
   if(!name||!MG._isNameValid(name.value)){
-    alert('Zadejte platné jméno a příjmení (min. 2 písmena, bez číslic).');return;}
+    alert(T('rez.alert.name'));return;}
   if(!street||!street.value||street.value.trim().length<3){
-    alert('Zadejte ulici a číslo popisné (min. 3 znaky).');return;}
+    alert(T('rez.alert.street'));return;}
   if(!city||!city.value||city.value.trim().length<2){
-    alert('Zadejte město (min. 2 znaky).');return;}
+    alert(T('rez.alert.city'));return;}
   if(!zip||!zip.value){
-    alert('Vyplňte prosím PSČ.');return;}
+    alert(T('rez.alert.zip'));return;}
   if(!email||!email.value||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim())){
-    alert('Zadejte platnou e-mailovou adresu.');return;}
+    alert(T('rez.alert.email'));return;}
   if(!phone||!MG._isPhoneValid(phone.value)){
-    alert('Zadejte telefon v mezinárodním formátu (např. +420 777 000 000).');return;}
-  if(!agree||!agree.checked){alert('Pro pokračování musíte souhlasit s obchodními podmínkami.');return;}
+    alert(T('rez.alert.phone'));return;}
+  if(!agree||!agree.checked){alert(T('rez.alert.terms'));return;}
   var r=MG._rez;
-  if(!r.startDate||!r.endDate){alert('Vyberte prosím termín v kalendáři.');return;}
+  if(!r.startDate||!r.endDate){alert(T('rez.alert.dates'));return;}
   var mId=r.motoId||r.selectedMotoId;
-  if(!mId){alert('Vyberte prosím motorku.');return;}
+  if(!mId){alert(T('rez.alert.moto'));return;}
   var ptEl=document.getElementById('rez-pickup-time');
-  if(!ptEl||!ptEl.value){alert('Vyplňte prosím čas převzetí nebo přistavení motorky.');return;}
+  if(!ptEl||!ptEl.value){alert(T('rez.alert.pickupTime'));return;}
   if(!MG._rezValidatePickupTime()){
     var isDel=document.getElementById('rez-delivery')&&document.getElementById('rez-delivery').checked;
-    alert(isDel?'Při přistavení je nejdříve možný čas aktuální čas + 6 hodin.':'Nejdříve možný čas převzetí je aktuální čas + 1 hodina.');return;}
+    alert(isDel?T('rez.alert.minTimeDelivery'):T('rez.alert.minTime'));return;}
   var extras=[];
-  if(document.getElementById('rez-eq-passenger')&&document.getElementById('rez-eq-passenger').checked) extras.push({name:'Výbava spolujezdce',unit_price:690});
-  if(document.getElementById('rez-eq-boots-rider')&&document.getElementById('rez-eq-boots-rider').checked) extras.push({name:'Boty řidič',unit_price:290});
-  if(document.getElementById('rez-eq-boots-passenger')&&document.getElementById('rez-eq-boots-passenger').checked) extras.push({name:'Boty spolujezdce',unit_price:290});
+  if(document.getElementById('rez-eq-passenger')&&document.getElementById('rez-eq-passenger').checked) extras.push({name:T('rez.gear.item.passengerExtras'),unit_price:690});
+  if(document.getElementById('rez-eq-boots-rider')&&document.getElementById('rez-eq-boots-rider').checked) extras.push({name:T('rez.gear.item.bootsRider'),unit_price:290});
+  if(document.getElementById('rez-eq-boots-passenger')&&document.getElementById('rez-eq-boots-passenger').checked) extras.push({name:T('rez.gear.item.bootsPassenger'),unit_price:290});
   var deliveryAddr=null,returnAddr=null;
   if(document.getElementById('rez-delivery')&&document.getElementById('rez-delivery').checked)
     deliveryAddr=(document.getElementById('rez-delivery-address')||{}).value||null;
@@ -74,20 +75,20 @@ MG._submitReservation = async function(){
   if(returnAddr){
     var rtElValidate=document.getElementById('rez-return-time');
     if(!rtElValidate||!rtElValidate.value){
-      alert('Vyplňte prosím čas vrácení motorky.');return;}
+      alert(T('rez.alert.returnTime'));return;}
   }
   // Fee = 1000 Kč + 40 Kč/km (km = vzdalenost od pobocky Mezna 9, spoctena pres Mapy.cz)
   if(deliveryAddr){
     var dKm = MG._rez.deliveryDistanceKm;
     var dFee = MG._calcDeliveryFee(dKm);
     var dLbl = (typeof dKm==='number') ? ' ('+MG.formatPrice(1000)+' + '+MG.formatPrice(40)+' × '+dKm.toFixed(1).replace('.',',')+' km)' : '';
-    extras.push({name:'Přistavení motorky'+dLbl,unit_price:dFee});
+    extras.push({name:T('rez.gear.item.delivery')+dLbl,unit_price:dFee});
   }
   if(returnAddr){
     var rKm = (retS&&retS.checked) ? MG._rez.deliveryDistanceKm : MG._rez.returnDistanceKm;
     var rFee = MG._calcDeliveryFee(rKm);
     var rLbl = (typeof rKm==='number') ? ' ('+MG.formatPrice(1000)+' + '+MG.formatPrice(40)+' × '+rKm.toFixed(1).replace('.',',')+' km)' : '';
-    extras.push({name:'Vrácení motorky'+rLbl,unit_price:rFee});
+    extras.push({name:T('rez.gear.item.return')+rLbl,unit_price:rFee});
   }
 
   // Collect sizes from new chip UI
@@ -98,7 +99,7 @@ MG._submitReservation = async function(){
   if(ownGearEl && ownGearEl.checked){ rs = {}; }
 
   MG._rez.formData={motoId:mId,name:name.value,email:email.value,phone:phone.value,
-    street:street.value,city:city.value,zip:zip.value,country:(country&&country.value)||'Česká republika',
+    street:street.value,city:city.value,zip:zip.value,country:(country&&country.value)||T('rez.contact.countryDefault'),
     note:'',pickupTime:ptEl.value,
     deliveryAddr:deliveryAddr,returnAddr:returnAddr,extras:extras,
     appliedCodes:(MG._rez.appliedCodes&&MG._rez.appliedCodes.length)?MG._rez.appliedCodes:[],
@@ -161,16 +162,16 @@ MG._submitReservation = async function(){
     if(regRes.error){
       console.error('[REZ] create_web_booking error:', regRes.error);
       var emsg = regRes.error.message || '';
-      if(emsg.indexOf('Booking overlap') !== -1) alert('Tuto motorku pr\u00e1v\u011b rezervoval jin\u00fd z\u00e1kazn\u00edk ve stejn\u00e9m term\u00ednu. Zvolte pros\u00edm jin\u00fd term\u00edn nebo jinou motorku.');
-      else if(emsg.indexOf('overlapping booking') !== -1) alert('V tomto term\u00ednu ji\u017e m\u00e1te jinou aktivn\u00ed rezervaci.');
-      else alert('Chyba: '+emsg);
-      if(btn){btn.disabled=false;btn.textContent='Pokra\u010dovat k platb\u011b';}
+      if(emsg.indexOf('Booking overlap') !== -1) alert(T('rez.alert.bookingOverlap'));
+      else if(emsg.indexOf('overlapping booking') !== -1) alert(T('rez.alert.bookingOverlapOwn'));
+      else alert(T('rez.alert.error', {msg: emsg}));
+      if(btn){btn.disabled=false;btn.textContent=T('rez.cta.continuePay');}
       return;
     }
     var regData = regRes.data;
     if(regData && regData.error){
       alert(regData.error);
-      if(btn){btn.disabled=false;btn.textContent='Pokra\u010dovat k platb\u011b';}
+      if(btn){btn.disabled=false;btn.textContent=T('rez.cta.continuePay');}
       return;
     }
     if(regData){
@@ -190,7 +191,7 @@ MG._submitReservation = async function(){
         _passwordSet: MG._rez._passwordSet||false
       })); } catch(e2){}
     }
-  } catch(e){ alert('Chyba při ukládání: '+e.message); return; }
+  } catch(e){ alert(T('rez.alert.saveError', {msg: e.message})); return; }
 
   // Schedule abandoned email after 5 minutes if payment not completed
   if(MG._rez.bookingId && MG._rez.formData){
