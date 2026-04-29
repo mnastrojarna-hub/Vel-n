@@ -45,6 +45,7 @@ MG._rez = { startDate: null, endDate: null, motos: [], motoId: "", allBookings: 
 <script src="' . assetUrl('/js/pages-rezervace-calendar.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace-pricing.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace-steps.js') . '"></script>
+<script src="' . assetUrl('/js/pages-rezervace-camera.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace-scan.js') . '"></script>
 <script>
 // Spustit inicializaci po načtení všech JS souborů

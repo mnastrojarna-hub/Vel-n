@@ -85,7 +85,10 @@ MG._rezShowMindeeStep = async function(){
           '<div class="rez-scan-sub">Občanský průkaz nebo cestovní pas</div></div>'+
         '</div>'+
         '<div id="mindee-id-status"></div>'+
-        '<button class="btn btngreen-small" onclick="MG._rezScanDoc(\'id\')" style="margin-top:.5rem">Vyfotit doklad</button>'+
+        '<div class="rez-doc-upload-actions" style="margin-top:.5rem">'+
+          '<button class="btn btngreen-small" onclick="MG._rezScanDoc(\'id\')">&#128247; Vyfotit</button>'+
+          '<button class="btn btngreen-small" onclick="MG._rezGalleryDoc(\'id\',\'mindee\')">&#128194; Nahrát ze zařízení</button>'+
+        '</div>'+
       '</div>'+
 
       '<div class="rez-scan-card">'+
@@ -95,7 +98,10 @@ MG._rezShowMindeeStep = async function(){
           '<div class="rez-scan-sub">Přední strana</div></div>'+
         '</div>'+
         '<div id="mindee-dl-status"></div>'+
-        '<button class="btn btngreen-small" onclick="MG._rezScanDoc(\'dl\')" style="margin-top:.5rem">Vyfotit řidičský průkaz</button>'+
+        '<div class="rez-doc-upload-actions" style="margin-top:.5rem">'+
+          '<button class="btn btngreen-small" onclick="MG._rezScanDoc(\'dl\')">&#128247; Vyfotit</button>'+
+          '<button class="btn btngreen-small" onclick="MG._rezGalleryDoc(\'dl\',\'mindee\')">&#128194; Nahrát ze zařízení</button>'+
+        '</div>'+
       '</div>'+
 
       '<p id="mindee-mandatory-msg" class="rez-scan-hint">Doklady jsou volitelné — pokud nechcete fotit, klikněte níže na <strong>Přeskočit a zaplatit</strong>.</p>'+
@@ -111,71 +117,79 @@ MG._rezShowMindeeStep = async function(){
   window.scrollTo({top:form.offsetTop-80,behavior:'smooth'});
 };
 
-// ===== SCAN DOCUMENT (camera capture → Mindee OCR) =====
+// ===== SCAN DOCUMENT — open in-page camera (frame + auto burst), then OCR best frames =====
 MG._rezScanDoc = function(docType){
-  var input=document.createElement('input');
-  input.type='file'; input.accept='image/*';
-  input.setAttribute('capture','environment');
-  input.style.display='none';
-  document.body.appendChild(input);
-
-  input.onchange=function(){
-    var file=input.files&&input.files[0];
-    document.body.removeChild(input);
-    if(!file)return;
-    var statusId='mindee-'+(docType==='id'?'id':'dl')+'-status';
-    var statusEl=document.getElementById(statusId);
-    if(statusEl) statusEl.innerHTML='<div style="color:#999;padding:.5rem 0">&#9203; Zpracovávám dokument...</div>';
-
-    var reader=new FileReader();
-    reader.onload=function(){
-      var img=new Image();
-      img.onload=function(){
-        var canvas=document.createElement('canvas');
-        var maxW=1600,w=img.width,h=img.height;
-        if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
-        canvas.width=w;canvas.height=h;
-        canvas.getContext('2d').drawImage(img,0,0,w,h);
-        var base64=canvas.toDataURL('image/jpeg',0.8).split(',')[1];
-        MG._rezProcessOcr(base64,docType);
-      };
-      img.src=reader.result;
-    };
-    reader.readAsDataURL(file);
-  };
-  input.click();
+  var statusId='mindee-'+(docType==='id'?'id':'dl')+'-status';
+  var statusEl=document.getElementById(statusId);
+  MG._rezOpenCamera(docType, function(frames){
+    if(!frames||!frames.length){ return; }
+    if(statusEl) statusEl.innerHTML='<div style="color:#999;padding:.5rem 0">&#9203; Rozpoznávám doklad ze '+frames.length+' snímků...</div>';
+    MG._rezOcrBurst(frames, docType, MG._rez.userId||null).then(function(result){
+      if(result.ok){
+        MG._rezApplyOcrResult(result.fields, docType, result.frame, 'mindee');
+      } else {
+        if(statusEl) statusEl.innerHTML='<div style="color:#e67e22;padding:.5rem 0">&#9888; Doklad se nepodařilo rozpoznat. Zkuste to znovu — držte mobil rovně, doklad celý v rámečku, dobré osvětlení.</div>';
+      }
+    });
+  });
 };
 
-// ===== PROCESS OCR via scan-document edge function =====
-MG._rezProcessOcr = async function(base64,docType){
-  var statusEl=document.getElementById('mindee-'+(docType==='id'?'id':'dl')+'-status');
-  try{
-    var res=await fetch(window.MOTOGO_CONFIG.SUPABASE_URL+'/functions/v1/scan-document',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','apikey':window.MOTOGO_CONFIG.SUPABASE_ANON_KEY},
-      body:JSON.stringify({image_base64:base64,document_type:docType==='id'?'id':'dl',user_id:MG._rez.userId||null})
-    });
-    var data=await res.json();
-    if(data.fields&&Object.keys(data.fields).length>0){
-      var f=data.fields;
-      var info=docType==='id'?(f.idNumber?'č. '+f.idNumber:''):(f.licenseNumber?'č. '+f.licenseNumber:'');
-      if(statusEl) statusEl.innerHTML='<div style="color:#1a8c1a;padding:.5rem 0">&#10004; Doklad rozpoznán'+(info?' — '+info:'')+'</div>';
+// ===== GALLERY upload (mobile + desktop) — image (OCR) or PDF (raw upload) =====
+MG._rezGalleryDoc = function(docType, mode){
+  var prefix = (mode==='mindee') ? 'mindee-' : 'webdoc-';
+  var statusId = prefix + (docType==='id'?'id':'dl') + '-status';
+  var statusEl=document.getElementById(statusId);
+  MG._rezPickFromGallery(function(b64,file){
+    if(!b64 && !file){ return; }
+    if(b64){
+      if(statusEl) statusEl.innerHTML='<div style="color:#999;padding:.5rem 0">&#9203; Rozpoznávám doklad...</div>';
+      MG._rezOcrBurst([b64], docType, MG._rez.userId||null).then(function(result){
+        if(result.ok){
+          MG._rezApplyOcrResult(result.fields, docType, result.frame, mode);
+        } else {
+          if(statusEl) statusEl.innerHTML='<div style="color:#e67e22;padding:.5rem 0">&#9888; Nepodařilo se rozpoznat — zkuste lepší snímek nebo vyplňte údaje ručně.</div>';
+        }
+      });
+    } else if(file){
+      // PDF — raw upload, no OCR
+      MG._rezUploadDocFile(file, docType);
+    }
+  });
+};
 
-      // Mark doc as scanned
-      if(docType==='id') MG._rez._idScanned=true;
-      if(docType==='dl') MG._rez._dlScanned=true;
-      MG._rezCheckMandatoryDocs();
+// ===== APPLY OCR RESULT — save to profile, upload to storage, update UI =====
+// mode: 'mindee' (Mindee step on mobile) or 'webdoc' (desktop optional upload — auto-fills form)
+MG._rezApplyOcrResult = async function(f, docType, base64, mode){
+  var prefix = (mode==='mindee') ? 'mindee-' : 'webdoc-';
+  var statusEl=document.getElementById(prefix+(docType==='id'?'id':'dl')+'-status');
+  var info=docType==='id'?(f.idNumber?'č. '+f.idNumber:''):(f.licenseNumber?'č. '+f.licenseNumber:'');
+  if(statusEl) statusEl.innerHTML='<div style="color:#1a8c1a;padding:.5rem 0">&#10004; Doklad rozpoznán'+(info?' — '+info:'')+'</div>';
 
-      // Save OCR results to profile
-      if(MG._rez.userId){
-        var upd={};
-        if(docType==='id'&&f.idNumber){upd.id_number=f.idNumber;upd.id_verified_at=new Date().toISOString();}
-        if(docType==='dl'&&f.licenseNumber){upd.license_number=f.licenseNumber;upd.license_verified_at=new Date().toISOString();}
-        if(Object.keys(upd).length) await window.sb.from('profiles').update(upd).eq('id',MG._rez.userId);
-      }
+  // Auto-fill form fields (desktop step 2 only)
+  if(mode==='webdoc'){
+    if(docType==='id'&&f.idNumber){ var dn=document.getElementById('rez-doc-number'); if(dn) dn.value=f.idNumber; }
+    if(docType==='dl'){
+      if(f.licenseNumber){ var ln=document.getElementById('rez-license-number'); if(ln) ln.value=f.licenseNumber; }
+      if(f.licenseCategory){ var lg=document.getElementById('rez-license-group'); if(lg) lg.value=String(f.licenseCategory).toUpperCase(); }
+      if(f.licenseExpiry){ var le=document.getElementById('rez-license-expiry'); if(le) le.value=f.licenseExpiry; }
+    }
+  }
 
-      // Upload document photo to storage
-      if(MG._rez.userId){
+  // Mark doc as scanned (Mindee mobile step uses this to flip pay button)
+  if(docType==='id') MG._rez._idScanned=true;
+  if(docType==='dl') MG._rez._dlScanned=true;
+  if(typeof MG._rezCheckMandatoryDocs==='function') MG._rezCheckMandatoryDocs();
+
+  // Save OCR to profile + upload to storage
+  if(MG._rez.userId){
+    try{
+      var upd={};
+      if(docType==='id'&&f.idNumber){upd.id_number=f.idNumber;upd.id_verified_at=new Date().toISOString();}
+      if(docType==='dl'&&f.licenseNumber){upd.license_number=f.licenseNumber;upd.license_verified_at=new Date().toISOString();}
+      if(Object.keys(upd).length) await window.sb.from('profiles').update(upd).eq('id',MG._rez.userId);
+    }catch(e){}
+    try{
+      if(base64){
         var docTypeStr=docType==='id'?'id_card':'drivers_license';
         var blob=MG._rezB64toBlob(base64,'image/jpeg');
         await window.sb.storage.from('documents').upload(
@@ -186,11 +200,18 @@ MG._rezProcessOcr = async function(base64,docType){
           name:docType==='id'?'Doklad totožnosti (web sken)':'Řidičský průkaz (web sken)'
         }).catch(function(){});
       }
-    } else {
-      if(statusEl) statusEl.innerHTML='<div style="color:#e67e22;padding:.5rem 0">&#9888; Nepodařilo se rozpoznat — zkuste to znovu</div>';
-    }
-  }catch(e){
-    if(statusEl) statusEl.innerHTML='<div style="color:#e67e22;padding:.5rem 0">&#9888; Chyba zpracování — zkuste to znovu</div>';
+    }catch(e){}
+  }
+};
+
+// Legacy single-frame OCR (kept for backward compat — routes through burst path of length 1).
+MG._rezProcessOcr = async function(base64,docType){
+  var statusEl=document.getElementById('mindee-'+(docType==='id'?'id':'dl')+'-status');
+  var result=await MG._rezOcrBurst([base64], docType, MG._rez.userId||null);
+  if(result.ok){
+    await MG._rezApplyOcrResult(result.fields, docType, result.frame, 'mindee');
+  } else if(statusEl) {
+    statusEl.innerHTML='<div style="color:#e67e22;padding:.5rem 0">&#9888; Nepodařilo se rozpoznat — zkuste to znovu</div>';
   }
 };
 
@@ -206,128 +227,35 @@ MG._rezCheckMandatoryDocs = function(){
   }
 };
 
-// ===== UPLOAD DOCUMENT FROM FILE (web step 2 — optional) =====
+// ===== UPLOAD DOCUMENT FROM FILE (web step 2 — gallery / PDF) =====
 MG._rezUploadDoc = function(docType){
-  var input=document.createElement('input');
-  input.type='file'; input.accept='image/*,.pdf';
-  input.style.display='none';
-  document.body.appendChild(input);
-
-  input.onchange=function(){
-    var file=input.files&&input.files[0];
-    document.body.removeChild(input);
-    if(!file)return;
-    var statusId='webdoc-'+(docType==='id'?'id':'dl')+'-status';
-    var statusEl=document.getElementById(statusId);
-    if(statusEl) statusEl.innerHTML='<div style="color:#999;padding:.5rem 0">&#9203; Zpracovávám dokument...</div>';
-
-    // For images, resize and send to Mindee OCR
-    if(file.type.indexOf('image')!==-1){
-      var reader=new FileReader();
-      reader.onload=function(){
-        var img=new Image();
-        img.onload=function(){
-          var canvas=document.createElement('canvas');
-          var maxW=1600,w=img.width,h=img.height;
-          if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
-          canvas.width=w;canvas.height=h;
-          canvas.getContext('2d').drawImage(img,0,0,w,h);
-          var base64=canvas.toDataURL('image/jpeg',0.8).split(',')[1];
-          MG._rezProcessWebDocOcr(base64,docType);
-        };
-        img.src=reader.result;
-      };
-      reader.readAsDataURL(file);
-    } else {
-      // PDF or other — just upload to storage without OCR
-      MG._rezUploadDocFile(file,docType);
-    }
-  };
-  input.click();
+  MG._rezGalleryDoc(docType, 'webdoc');
 };
 
-// ===== CAPTURE DOCUMENT WITH CAMERA (web step 2) =====
+// ===== CAPTURE DOCUMENT WITH IN-PAGE CAMERA (web step 2 — burst + frame) =====
 MG._rezCaptureDoc = function(docType){
-  var input=document.createElement('input');
-  input.type='file'; input.accept='image/*';
-  input.setAttribute('capture','environment');
-  input.style.display='none';
-  document.body.appendChild(input);
-
-  input.onchange=function(){
-    var file=input.files&&input.files[0];
-    document.body.removeChild(input);
-    if(!file)return;
-    var statusId='webdoc-'+(docType==='id'?'id':'dl')+'-status';
-    var statusEl=document.getElementById(statusId);
-    if(statusEl) statusEl.innerHTML='<div style="color:#999;padding:.5rem 0">&#9203; Zpracovávám dokument...</div>';
-
-    var reader=new FileReader();
-    reader.onload=function(){
-      var img=new Image();
-      img.onload=function(){
-        var canvas=document.createElement('canvas');
-        var maxW=1600,w=img.width,h=img.height;
-        if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
-        canvas.width=w;canvas.height=h;
-        canvas.getContext('2d').drawImage(img,0,0,w,h);
-        var base64=canvas.toDataURL('image/jpeg',0.8).split(',')[1];
-        MG._rezProcessWebDocOcr(base64,docType);
-      };
-      img.src=reader.result;
-    };
-    reader.readAsDataURL(file);
-  };
-  input.click();
+  var statusId='webdoc-'+(docType==='id'?'id':'dl')+'-status';
+  var statusEl=document.getElementById(statusId);
+  MG._rezOpenCamera(docType, function(frames){
+    if(!frames||!frames.length){ return; }
+    if(statusEl) statusEl.innerHTML='<div style="color:#999;padding:.5rem 0">&#9203; Rozpoznávám doklad ze '+frames.length+' snímků...</div>';
+    MG._rezOcrBurst(frames, docType, MG._rez.userId||null).then(function(result){
+      if(result.ok){
+        MG._rezApplyOcrResult(result.fields, docType, result.frame, 'webdoc');
+      } else {
+        if(statusEl) statusEl.innerHTML='<div style="color:#e67e22;padding:.5rem 0">&#9888; Nepodařilo se rozpoznat — zkuste lepší snímek nebo vyplňte údaje ručně.</div>';
+      }
+    });
+  });
 };
 
-// ===== PROCESS WEB DOC OCR (for step 2 optional upload) =====
-MG._rezProcessWebDocOcr = async function(base64,docType){
-  var statusEl=document.getElementById('webdoc-'+(docType==='id'?'id':'dl')+'-status');
-  try{
-    var res=await fetch(window.MOTOGO_CONFIG.SUPABASE_URL+'/functions/v1/scan-document',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','apikey':window.MOTOGO_CONFIG.SUPABASE_ANON_KEY},
-      body:JSON.stringify({image_base64:base64,document_type:docType==='id'?'id':'dl',user_id:MG._rez.userId||null})
-    });
-    var data=await res.json();
-    if(data.fields&&Object.keys(data.fields).length>0){
-      var f=data.fields;
-      var info=docType==='id'?(f.idNumber?'č. '+f.idNumber:''):(f.licenseNumber?'č. '+f.licenseNumber:'');
-      if(statusEl) statusEl.innerHTML='<div style="color:#1a8c1a;padding:.5rem 0">&#10004; Doklad rozpoznán'+(info?' — '+info:'')+'</div>';
-
-      // Auto-fill form fields from OCR
-      if(docType==='id'&&f.idNumber){
-        var dn=document.getElementById('rez-doc-number');if(dn)dn.value=f.idNumber;
-      }
-      if(docType==='dl'){
-        if(f.licenseNumber){var ln=document.getElementById('rez-license-number');if(ln)ln.value=f.licenseNumber;}
-        if(f.licenseCategory){var lg=document.getElementById('rez-license-group');if(lg)lg.value=f.licenseCategory.toUpperCase();}
-        if(f.licenseExpiry){var le=document.getElementById('rez-license-expiry');if(le)le.value=f.licenseExpiry;}
-      }
-
-      // Save OCR to profile + upload to storage
-      if(MG._rez.userId){
-        var upd={};
-        if(docType==='id'&&f.idNumber){upd.id_number=f.idNumber;upd.id_verified_at=new Date().toISOString();}
-        if(docType==='dl'&&f.licenseNumber){upd.license_number=f.licenseNumber;upd.license_verified_at=new Date().toISOString();}
-        if(Object.keys(upd).length) await window.sb.from('profiles').update(upd).eq('id',MG._rez.userId);
-        var docTypeStr=docType==='id'?'id_card':'drivers_license';
-        var blob=MG._rezB64toBlob(base64,'image/jpeg');
-        await window.sb.storage.from('documents').upload(
-          MG._rez.userId+'/'+docTypeStr+'_'+Date.now()+'.jpg',blob
-        ).catch(function(){});
-        await window.sb.from('documents').insert({
-          user_id:MG._rez.userId,type:docTypeStr,
-          name:docType==='id'?'Doklad totožnosti (web upload)':'Řidičský průkaz (web upload)'
-        }).catch(function(){});
-      }
-    } else {
-      if(statusEl) statusEl.innerHTML='<div style="color:#e67e22;padding:.5rem 0">&#9888; Nepodařilo se rozpoznat — zkuste jiný snímek nebo vyplňte údaje ručně</div>';
-    }
-  }catch(e){
-    if(statusEl) statusEl.innerHTML='<div style="color:#e67e22;padding:.5rem 0">&#9888; Chyba zpracování — vyplňte údaje ručně</div>';
-  }
+// Legacy alias — kept so any external callers keep working.
+MG._rezProcessWebDocOcr = function(base64,docType){
+  return MG._rezOcrBurst([base64], docType, MG._rez.userId||null).then(function(result){
+    if(result.ok) return MG._rezApplyOcrResult(result.fields, docType, result.frame, 'webdoc');
+    var statusEl=document.getElementById('webdoc-'+(docType==='id'?'id':'dl')+'-status');
+    if(statusEl) statusEl.innerHTML='<div style="color:#e67e22;padding:.5rem 0">&#9888; Nepodařilo se rozpoznat — vyplňte údaje ručně.</div>';
+  });
 };
 
 // ===== UPLOAD DOC FILE (PDF, non-image) =====
