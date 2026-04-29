@@ -720,8 +720,12 @@ MG._editRez._CONSENT_FIELDS = [
 
 MG._editRez._renderConsentsCard = function(){
   var cs = MG._editRez.consents || {};
+  // Default-on: pokud sloupec v DB je NULL (nikdy explicitně neuložen),
+  // bereme to jako udělený souhlas. Pouze explicitní `false` se zobrazí
+  // jako vypnutý.
+  var isOn = function(key){ return cs[key] !== false; };
   var renderRow = function(f){
-    var val = !!cs[f.key];
+    var val = isOn(f.key);
     var badge = f.required
       ? '<span class="edit-rez-consent-badge required">Povinné</span>'
       : '<span class="edit-rez-consent-badge optional">Volitelné</span>';
