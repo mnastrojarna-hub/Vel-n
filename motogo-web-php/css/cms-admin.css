@@ -146,6 +146,22 @@
 [data-cms-key].mg-cms-editing::before {
   display: none !important;
 }
+/* Selekce textu (dvojklik = označení slova) — globální ::selection styly stránky
+ * mohou nastavit světlou barvu textu na světlé pozadí, takže označený text mizí.
+ * Vynutíme vysokokontrastní zelená/tmavá kombinaci. */
+[data-cms-key].mg-cms-editing ::selection,
+[data-cms-key].mg-cms-editing::selection {
+  background: #74FB71 !important;
+  color: #0f1a14 !important;
+  -webkit-text-fill-color: #0f1a14 !important;
+  text-shadow: none !important;
+}
+[data-cms-key].mg-cms-editing ::-moz-selection,
+[data-cms-key].mg-cms-editing::-moz-selection {
+  background: #74FB71 !important;
+  color: #0f1a14 !important;
+  text-shadow: none !important;
+}
 [data-cms-key].mg-cms-editing::after {
   opacity: 1;
   background: #74FB71;
