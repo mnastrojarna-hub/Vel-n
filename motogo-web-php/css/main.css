@@ -644,6 +644,15 @@ body.mg-lb-open{overflow:hidden;overscroll-behavior:none}
 .edit-rez-doclist li{display:flex;justify-content:space-between;align-items:center;gap:.6rem;padding:.6rem 0;border-bottom:1px solid #eee;font-size:.95rem}
 .edit-rez-doclist li:last-child{border-bottom:none}
 .edit-rez-doclist .btn-link{background:none;border:none;color:#1a8c1a;cursor:pointer;font-weight:600;text-decoration:underline;padding:0;font-family:inherit;font-size:.9rem}
+.edit-rez-doclist .muted{color:#999;font-size:.85rem}
+
+/* Změna motorky — karty s diff cenou */
+.edit-rez-moto-card{display:grid;grid-template-columns:64px 1fr auto;gap:.9rem;align-items:center;background:#fff;border:1px solid #e3eee8;border-radius:12px;padding:.75rem;cursor:pointer;text-align:left;font-family:inherit;transition:all .15s}
+.edit-rez-moto-card:hover:not(.disabled){border-color:#74FB71;background:#f4faf6}
+.edit-rez-moto-card.disabled{opacity:.55;cursor:not-allowed;background:#f9f9f9}
+.edit-rez-moto-reasons{font-size:.8rem;color:#8c1a1a;margin-top:.2rem}
+.edit-rez-booking-price .diff-pos{color:#7a5b00}
+.edit-rez-booking-price .diff-neg{color:#1a8c1a}
 .edit-rez-booking-price{font-weight:800;color:#1a2e22;font-size:1.05rem;white-space:nowrap}
 
 @media(max-width:600px){

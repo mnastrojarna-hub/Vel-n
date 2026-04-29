@@ -731,13 +731,187 @@ MG._editRez._renderTabDocs = async function(){
   }
 };
 
-// Placeholder pro moto/location (následující commit naplní funkcionalitou).
-MG._editRez._renderTabMoto = function(){
+// ===== TAB: ZMĚNA MOTORKY =====
+// License hierarchie 1:1 jako v Flutter app + apply_booking_changes RPC
+// (server validuje znovu — bezpečné).
+MG._editRez._licenseAllows = function(profileGroups, motoRequired){
+  if (!motoRequired || motoRequired === 'N') return true;
+  if (!profileGroups || !profileGroups.length) return false;
+  var allowed = {
+    AM: ['AM','A1','A2','A','B'],
+    A1: ['A1','A2','A'],
+    A2: ['A2','A'],
+    A:  ['A'],
+    B:  ['B']
+  }[motoRequired] || [motoRequired];
+  return profileGroups.some(function(g){ return allowed.indexOf(g) > -1; });
+};
+
+MG._editRez._renderTabMoto = async function(){
+  var b = MG._editRez.selectedBooking;
   var t = document.getElementById('edit-rez-tab-content');
   t.innerHTML = '<h3>' + MG.t('editRez.moto.title') + '</h3>'
     + '<p>' + MG.t('editRez.moto.help') + '</p>'
     + '<p class="edit-rez-tip">' + MG.t('editRez.loading') + '</p>';
+
+  // Načti všechny aktivní motorky + profil zákazníka pro license
+  try {
+    var [motosR, profileR] = await Promise.all([
+      window.sb.from('motorcycles').select('id,model,brand,image_url,license_required,price_mon,price_tue,price_wed,price_thu,price_fri,price_sat,price_sun,price_weekday,price_weekend').eq('status','active').order('model'),
+      window.sb.from('profiles').select('license_group').eq('id', MG._editRez.user.id).single()
+    ]);
+    var motos = (motosR && motosR.data) || [];
+    var profileGroups = (profileR && profileR.data && profileR.data.license_group) || [];
+    // Vyloučit aktuální motorku
+    motos = motos.filter(function(m){ return m.id !== b.moto_id; });
+
+    if (!motos.length){
+      t.innerHTML = '<h3>' + MG.t('editRez.moto.title') + '</h3>'
+        + '<p>' + MG.t('editRez.moto.help') + '</p>'
+        + '<p class="muted">' + MG.t('editRez.moto.noOptions') + '</p>';
+      return;
+    }
+
+    // Pro každou motorku: dostupnost v termínu + cenový rozdíl
+    var rangePromises = motos.map(function(m){
+      return window.sb.rpc('get_moto_booked_dates', { p_moto_id: m.id })
+        .then(function(r){ return { moto: m, occupied: (r && r.data) || [] }; });
+    });
+    var withAvail = await Promise.all(rangePromises);
+
+    var oldPrice = MG._editRez._priceForRange(MG._editRez.selectedMoto, b.start_date, b.end_date);
+    var rows = withAvail.map(function(x){
+      var m = x.moto;
+      var licOk = MG._editRez._licenseAllows(profileGroups, m.license_required);
+      var available = !MG._editRez._rangeOverlapsOccupied(b.start_date, b.end_date, x.occupied);
+      var newPrice = MG._editRez._priceForRange(m, b.start_date, b.end_date);
+      var diff = Math.round(newPrice - oldPrice);
+      var disabled = !licOk || !available;
+      var reasons = [];
+      if (!licOk) reasons.push(MG.t('editRez.moto.licenseInsufficient'));
+      if (!available) reasons.push(MG.t('editRez.moto.notAvailable'));
+      var diffLabel = diff === 0 ? '' : (diff > 0
+        ? '<span class="diff-pos">+' + MG.formatPrice(diff) + '</span>'
+        : '<span class="diff-neg">' + MG.formatPrice(diff) + '</span>');
+      var img = m.image_url ? '<img src="'+m.image_url+'" alt="" loading="lazy">' : '';
+      var label = (m.brand ? m.brand + ' ' : '') + m.model;
+      return '<button type="button" class="edit-rez-moto-card' + (disabled ? ' disabled' : '') + '" data-id="' + m.id + '"' + (disabled ? ' disabled' : '') + '>'
+        + '<div class="edit-rez-booking-img">' + img + '</div>'
+        + '<div class="edit-rez-booking-body">'
+          + '<div class="edit-rez-booking-title">' + label + '</div>'
+          + '<div class="edit-rez-booking-meta">' + MG.t('editRez.moto.licReq', { lic: m.license_required || '—' }) + '</div>'
+          + (reasons.length ? '<div class="edit-rez-moto-reasons">' + reasons.join(' · ') + '</div>' : '')
+        + '</div>'
+        + '<div class="edit-rez-booking-price">' + diffLabel + '</div>'
+      + '</button>';
+    }).join('');
+
+    t.innerHTML = '<h3>' + MG.t('editRez.moto.title') + '</h3>'
+      + '<p>' + MG.t('editRez.moto.help') + '</p>'
+      + '<div class="edit-rez-booking-list">' + rows + '</div>';
+
+    t.querySelectorAll('.edit-rez-moto-card:not(.disabled)').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var newId = btn.getAttribute('data-id');
+        MG._editRez._confirmDialog(MG.t('editRez.moto.confirm'), function(){
+          MG._editRez._submitChange({ p_new_moto_id: newId });
+        });
+      });
+    });
+  } catch(err){
+    console.error('[editRez] renderTabMoto err', err);
+    t.innerHTML = '<h3>' + MG.t('editRez.moto.title') + '</h3>'
+      + '<div class="edit-rez-error">' + MG.t('editRez.err.generic') + '</div>';
+  }
 };
+
+// ===== UNIFIED CHANGE SUBMIT =====
+// Volá apply_booking_changes RPC (existující). Server vrátí buď
+// payment_required=true (otevřeme Stripe Checkout přes process-payment Edge),
+// nebo aplikuje rovnou + případný refund.
+MG._editRez._submitChange = async function(payload){
+  if (MG._editRez.busy) return;
+  var b = MG._editRez.selectedBooking;
+  MG._editRez._setBusy(true);
+  try {
+    var args = Object.assign({ p_booking_id: b.id }, payload || {});
+    var r = await window.sb.rpc('apply_booking_changes', args);
+    if (r.error || !r.data || r.data.success === false){
+      var code = r.data && r.data.error;
+      var msgKey = {
+        'wrong_status': 'editRez.err.wrongStatus',
+        'not_paid': 'editRez.err.notPaid',
+        'active_start_locked': 'editRez.err.activeStartLocked',
+        'active_moto_locked': 'editRez.err.activeMotoLocked',
+        'invalid_range': 'editRez.err.invalidRange',
+        'no_change': 'editRez.err.invalidRange',
+        'not_found': 'editRez.err.notFound',
+        'overlap': 'editRez.extend.unavailable',
+        'license_insufficient': 'editRez.moto.licenseInsufficient',
+        'moto_not_found': 'editRez.err.notFound',
+        'unauthenticated': 'editRez.login.error'
+      }[code] || 'editRez.err.generic';
+      MG._editRez._showError(MG.t(msgKey));
+      return;
+    }
+    if (r.data.payment_required){
+      // Otevři Stripe Checkout přes process-payment Edge.
+      // Pošleme dokument změny, který se aplikuje až po platbě (server-side).
+      var sess = await window.sb.auth.getSession();
+      var token = sess && sess.data && sess.data.session && sess.data.session.access_token;
+      if (!token) throw new Error('no-auth');
+      var url = window.MOTOGO_CONFIG.SUPABASE_URL + '/functions/v1/process-payment';
+      var resp = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token,
+          'apikey': window.MOTOGO_CONFIG.SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify({
+          type: 'extension',
+          booking_id: b.id,
+          amount: r.data.net_diff,
+          // Edge funkce process-payment uloží pendingChanges do session metadata
+          // a webhook po platbě zavolá apply_booking_changes znovu (idempotentně)
+          // s identickými parametry — atomický apply.
+          pending_changes: payload,
+          success_url: window.location.origin + '/potvrzeni?booking_id=' + b.id,
+          cancel_url:  window.location.origin + '/upravit-rezervaci'
+        })
+      });
+      var data = await resp.json().catch(function(){ return null; });
+      if (!resp.ok || !data || !data.url){
+        console.error('[editRez] payment err', resp.status, data);
+        MG._editRez._showError((data && data.error) ? data.error : MG.t('editRez.err.generic'));
+        return;
+      }
+      window.location.href = data.url;
+      return;
+    }
+    // Aplikováno bez doplatku — možná s refundem.
+    var refund = r.data.refund_amount || 0;
+    var msg = refund > 0
+      ? MG.t('editRez.change.successWithRefund', { amount: MG.formatPrice(refund) })
+      : MG.t('editRez.change.success');
+    var c = document.getElementById('edit-rez-tab-content');
+    if (c) c.innerHTML = '<div class="edit-rez-success-box"><h3>✓</h3><p>' + msg + '</p>'
+      + '<button type="button" class="btn btngreen-small" id="edit-rez-back-list">'
+      + MG.t('editRez.list.title') + '</button></div>';
+    var back = document.getElementById('edit-rez-back-list');
+    if (back) back.addEventListener('click', async function(){
+      MG._editRez.selectedBooking = null;
+      await MG._editRez._loadBookings();
+      MG._editRez._goto('list');
+    });
+  } catch(err){
+    console.error('[editRez] submitChange err', err);
+    MG._editRez._showError(MG.t('editRez.err.generic'));
+  } finally {
+    MG._editRez._setBusy(false);
+  }
+};
+
 MG._editRez._renderTabLocation = function(){
   var t = document.getElementById('edit-rez-tab-content');
   t.innerHTML = '<h3>' + MG.t('editRez.loc.title') + '</h3>'
