@@ -45,6 +45,7 @@ $keys = [
     'editRez.moto.licReq','editRez.moto.licenseInsufficient','editRez.moto.notAvailable',
     'editRez.moto.noOptions','editRez.moto.confirm',
     'editRez.change.success','editRez.change.successWithRefund','editRez.err.activeMotoLocked',
+    'editRez.postStripe.applying','editRez.postStripe.error',
     'editRez.loc.pickup','editRez.loc.return','editRez.loc.atRental','editRez.loc.delivery','editRez.loc.deliveryReturn',
     'editRez.loc.addrPlaceholder','editRez.loc.mapBtn','editRez.loc.routing','editRez.loc.geocodeFail',
     'editRez.loc.noPriceChange','editRez.loc.cta','editRez.loc.confirm','editRez.loc.pickOnMap','editRez.loc.pickConfirm',

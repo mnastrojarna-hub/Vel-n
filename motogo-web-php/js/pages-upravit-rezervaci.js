@@ -855,8 +855,18 @@ MG._editRez._submitChange = async function(payload){
       return;
     }
     if (r.data.payment_required){
-      // Otevři Stripe Checkout přes process-payment Edge.
-      // Pošleme dokument změny, který se aplikuje až po platbě (server-side).
+      // Webhook (process-payment Edge) dnes pro type='extension' jen potvrdí
+      // platbu, ale neaplikuje pending změny (na rozdíl od Flutter app, která
+      // je drží v RAM a aplikuje po success). Uložíme tedy pending_changes
+      // do localStorage a po návratu z Stripe je aplikuje klient-side
+      // (viz _applyPendingAfterPayment v init flow).
+      try {
+        localStorage.setItem('editRez_pending_' + b.id, JSON.stringify({
+          payload: payload,
+          ts: Date.now()
+        }));
+      } catch(e){ /* localStorage disabled — fallback ztratí změny */ }
+
       var sess = await window.sb.auth.getSession();
       var token = sess && sess.data && sess.data.session && sess.data.session.access_token;
       if (!token) throw new Error('no-auth');
@@ -872,11 +882,7 @@ MG._editRez._submitChange = async function(payload){
           type: 'extension',
           booking_id: b.id,
           amount: r.data.net_diff,
-          // Edge funkce process-payment uloží pendingChanges do session metadata
-          // a webhook po platbě zavolá apply_booking_changes znovu (idempotentně)
-          // s identickými parametry — atomický apply.
-          pending_changes: payload,
-          success_url: window.location.origin + '/potvrzeni?booking_id=' + b.id,
+          success_url: window.location.origin + '/upravit-rezervaci?paid_booking=' + b.id,
           cancel_url:  window.location.origin + '/upravit-rezervaci'
         })
       });
@@ -884,6 +890,7 @@ MG._editRez._submitChange = async function(payload){
       if (!resp.ok || !data || !data.url){
         console.error('[editRez] payment err', resp.status, data);
         MG._editRez._showError((data && data.error) ? data.error : MG.t('editRez.err.generic'));
+        try { localStorage.removeItem('editRez_pending_' + b.id); } catch(e){}
         return;
       }
       window.location.href = data.url;
@@ -1427,9 +1434,9 @@ MG._editRez._renderTabExtend = async function(){
   });
 };
 
-// Pošle požadavek na Stripe Checkout přes Edge funkci `process-payment`
-// (typ='extension'). Edge vrátí { url } a my zákazníka přesměrujeme.
-// Webhook po úspěšné platbě atomicky aplikuje datumy + cenu (existující logika).
+// Pošle požadavek na Stripe Checkout přes Edge funkci `process-payment`.
+// Pending změny (nové datumy) ukládáme do localStorage; po návratu na
+// success_url je _applyPendingAfterPayment() aplikuje na booking přes RLS.
 MG._editRez._submitExtend = async function(newStart, newEnd){
   var b = MG._editRez.selectedBooking;
   var m = MG._editRez.selectedMoto || {};
@@ -1443,7 +1450,13 @@ MG._editRez._submitExtend = async function(newStart, newEnd){
   if (cta){ cta.disabled = true; cta.textContent = MG.t('editRez.extend.creating'); }
   MG._editRez._setBusy(true);
   try {
-    // Auth token pro Edge volání.
+    // Uložíme pending pro post-Stripe handler.
+    try {
+      localStorage.setItem('editRez_pending_' + b.id, JSON.stringify({
+        payload: { p_new_start: newStart, p_new_end: newEnd },
+        ts: Date.now()
+      }));
+    } catch(e){}
     var sess = await window.sb.auth.getSession();
     var token = sess && sess.data && sess.data.session && sess.data.session.access_token;
     if (!token) throw new Error('no-auth');
@@ -1458,10 +1471,8 @@ MG._editRez._submitExtend = async function(newStart, newEnd){
       body: JSON.stringify({
         type: 'extension',
         booking_id: b.id,
-        new_start_date: newStart,
-        new_end_date: newEnd,
         amount: diff,
-        success_url: window.location.origin + '/potvrzeni?booking_id=' + b.id,
+        success_url: window.location.origin + '/upravit-rezervaci?paid_booking=' + b.id,
         cancel_url:  window.location.origin + '/upravit-rezervaci'
       })
     });
@@ -1469,6 +1480,7 @@ MG._editRez._submitExtend = async function(newStart, newEnd){
     if (!resp.ok || !data || !data.url){
       console.error('[editRez] extend payment err', resp.status, data);
       MG._editRez._showError((data && data.error) ? data.error : MG.t('editRez.err.generic'));
+      try { localStorage.removeItem('editRez_pending_' + b.id); } catch(e){}
       return;
     }
     window.location.href = data.url;
@@ -1616,6 +1628,59 @@ MG._editRez._submitShorten = async function(newStart, newEnd, reason, refund, pc
   }
 };
 
+// ===== POST-STRIPE HANDLER =====
+// Po návratu ze Stripe success URL (?paid_booking=<id>) aplikujeme
+// pending_changes uložené v localStorage před redirectem. Webhook už
+// zaktualizoval payment_status, ale datumy/motorka/lokace se aplikují
+// až klient-side (1:1 jako Flutter app pendingEditChanges flow).
+MG._editRez._applyPendingAfterPayment = async function(bookingId){
+  if (!bookingId) return false;
+  var raw = null;
+  try { raw = localStorage.getItem('editRez_pending_' + bookingId); } catch(e){}
+  if (!raw) return false;
+  var entry; try { entry = JSON.parse(raw); } catch(e){ return false; }
+  if (!entry || !entry.payload) return false;
+
+  // Polling: počkáme až payment_status='paid' (webhook potvrzuje async).
+  // Max 30s, krok 2s.
+  var paid = false;
+  for (var i = 0; i < 15; i++){
+    var r = await window.sb.from('bookings').select('payment_status,total_price').eq('id', bookingId).single();
+    if (r.data && r.data.payment_status === 'paid'){ paid = true; break; }
+    await new Promise(function(res){ setTimeout(res, 2000); });
+  }
+  if (!paid){ console.warn('[editRez] post-stripe: payment not confirmed in time'); return false; }
+
+  // Aplikujeme změny — RLS umožní vlastní booking update.
+  // Skládáme update payload z pending payloadu (mapování p_new_* → bookings sloupce).
+  var p = entry.payload || {};
+  var update = {};
+  if (p.p_new_start)         update.start_date = p.p_new_start;
+  if (p.p_new_end)           update.end_date = p.p_new_end;
+  if (p.p_new_moto_id)       update.moto_id = p.p_new_moto_id;
+  if (p.p_new_pickup_method) update.pickup_method = p.p_new_pickup_method;
+  if (p.p_new_pickup_address !== undefined) update.pickup_address = p.p_new_pickup_address;
+  if (p.p_new_pickup_lat !== undefined && p.p_new_pickup_lat !== null) update.pickup_lat = p.p_new_pickup_lat;
+  if (p.p_new_pickup_lng !== undefined && p.p_new_pickup_lng !== null) update.pickup_lng = p.p_new_pickup_lng;
+  if (p.p_new_return_method) update.return_method = p.p_new_return_method;
+  if (p.p_new_return_address !== undefined) update.return_address = p.p_new_return_address;
+  if (p.p_new_return_lat !== undefined && p.p_new_return_lat !== null) update.return_lat = p.p_new_return_lat;
+  if (p.p_new_return_lng !== undefined && p.p_new_return_lng !== null) update.return_lng = p.p_new_return_lng;
+  if (p.p_new_pickup_fee !== undefined || p.p_new_return_fee !== undefined){
+    update.delivery_fee = Number(p.p_new_pickup_fee || 0) + Number(p.p_new_return_fee || 0);
+  }
+
+  if (Object.keys(update).length){
+    var ur = await window.sb.from('bookings').update(update).eq('id', bookingId);
+    if (ur.error){
+      console.error('[editRez] post-stripe update err', ur.error);
+      return false;
+    }
+  }
+  try { localStorage.removeItem('editRez_pending_' + bookingId); } catch(e){}
+  return true;
+};
+
 // ===== INIT =====
 MG._editRezInit = async function(){
   // Detekce password recovery flow: Supabase přidá do URL hashe `#type=recovery`
@@ -1647,6 +1712,33 @@ MG._editRezInit = async function(){
     var sess = await window.sb.auth.getSession();
     if (sess && sess.data && sess.data.session && sess.data.session.user){
       MG._editRez.user = sess.data.session.user;
+
+      // Detekce post-Stripe návratu: ?paid_booking=<id>
+      var paidId = null;
+      try {
+        var u = new URL(window.location.href);
+        paidId = u.searchParams.get('paid_booking');
+      } catch(e){}
+      if (paidId){
+        // Vykreslíme rychlou loading obrazovku, pak aplikujeme pending změny.
+        MG._editRez._renderShell();
+        var c = document.getElementById('edit-rez-content');
+        if (c) c.innerHTML = '<section class="edit-rez-card"><p>'
+          + MG.t('editRez.postStripe.applying') + '</p></section>';
+        var ok = await MG._editRez._applyPendingAfterPayment(paidId);
+        // Vyčistíme query string aby se to při reload neopakovalo
+        if (window.history && window.history.replaceState){
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+        await MG._editRez._loadBookings();
+        // Zobrazíme úspěch v listu, jinak rovnou list
+        MG._editRez._goto('list');
+        if (!ok){
+          MG._editRez._showError(MG.t('editRez.postStripe.error'));
+        }
+        return;
+      }
+
       await MG._editRez._loadBookings();
       MG._editRez._goto('list');
       return;
