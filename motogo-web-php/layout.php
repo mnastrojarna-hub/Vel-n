@@ -554,7 +554,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   <link rel="stylesheet" href="' . assetUrl('/css/main.css') . '">
   <link rel="stylesheet" href="' . assetUrl('/css/pages.css') . '">
 </head>
-<body>
+<body' . ($currentPath === '/' ? ' class="homepage"' : '') . '>
 ';
     echo renderHeader($currentPath);
     echo '<div id="app">';
