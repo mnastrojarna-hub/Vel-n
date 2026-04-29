@@ -200,6 +200,12 @@ if ($path === '/feed.xml' || $path === '/rss.xml') {
     exit;
 }
 
+// /opensearch.xml — OpenSearch description pro browser searchbar a Seznam Webmaster.
+if ($path === '/opensearch.xml') {
+    require __DIR__ . '/pages/opensearch-xml.php';
+    exit;
+}
+
 // /manifest.webmanifest — PWA manifest (offline UX, "Přidat na plochu").
 if ($path === '/manifest.webmanifest') {
     $f = __DIR__ . '/manifest.webmanifest';

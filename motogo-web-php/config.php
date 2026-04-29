@@ -46,6 +46,27 @@ define('VERIFY_YANDEX',    getenv('MOTOGO_VERIFY_YANDEX')    ?: '');
 define('VERIFY_PINTEREST', getenv('MOTOGO_VERIFY_PINTEREST') ?: '');
 define('VERIFY_FACEBOOK',  getenv('MOTOGO_VERIFY_FACEBOOK')  ?: '');
 
+// ===== Seznam.cz ekosystém — externí profily pro NAP konzistenci =====
+// Vlož URL profilu/karty firmy v každé z těchto Seznam služeb. Použijí se v
+// LocalBusiness JSON-LD jako "sameAs" — Seznam tak propojí web s firemní kartou
+// a posílí lokální vyhledávání. Pokud prázdné, do sameAs se nepřidá.
+//   Firmy.cz       — firemní karta (https://www.firmy.cz/detail/...)
+//   Mapy.cz        — pin firmy na Mapy.cz (https://mapy.cz/zakladni?source=firm&id=...)
+//   Heureka.cz     — e-shop profil (https://obchody.heureka.cz/...)
+//   Zbozi.cz       — feed/profil v Seznam Zbozi (https://www.zbozi.cz/shop/...)
+//   Seznam Hodnoceni — recenze obchodu (https://obchody.heureka.cz/...recenze/)
+define('SAMEAS_FIRMY_CZ',   getenv('MOTOGO_SAMEAS_FIRMY_CZ')   ?: '');
+define('SAMEAS_MAPY_CZ',    getenv('MOTOGO_SAMEAS_MAPY_CZ')    ?: '');
+define('SAMEAS_HEUREKA',    getenv('MOTOGO_SAMEAS_HEUREKA')    ?: '');
+define('SAMEAS_ZBOZI',      getenv('MOTOGO_SAMEAS_ZBOZI')      ?: '');
+
+// ===== Sklik (Seznam reklamní systém) =====
+// SKLIK_RETARGETING_ID — ID retargetingového kódu (číslo z Sklik admin → Měření).
+// Pokud prázdné, žádný měřící kód se neemituje.
+// Conversion tracking se řeší zvlášť na confirmation stránkách (rezervace,
+// objednávka) — tady je jen univerzální retargeting visible na všech stránkách.
+define('SKLIK_RETARGETING_ID', getenv('MOTOGO_SKLIK_RETARGETING_ID') ?: '');
+
 // Firemní údaje
 define('COMPANY_NAME', 'Bc. Petra Semorádová');
 define('COMPANY_ICO', '21874263');
