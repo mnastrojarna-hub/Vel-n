@@ -3,12 +3,26 @@
 var MG = window.MG || {};
 window.MG = MG;
 
+// i18n helper — čte z window.MG_I18N (sype PHP server-side dle aktuálního jazyka).
+// Fallback na klíč, aby chybějící překlady byly viditelné v dev konzoli.
+// Podporuje {placeholder} substituce.
+MG.t = MG.t || function(key, params){
+  var dict = window.MG_I18N || {};
+  var s = (typeof dict[key] === 'string') ? dict[key] : key;
+  if (params && typeof s === 'string'){
+    Object.keys(params).forEach(function(p){
+      s = s.split('{'+p+'}').join(String(params[p]));
+    });
+  }
+  return s;
+};
+
 MG._rez = { startDate: null, endDate: null, motos: [], motoId: '', allBookings: {}, appliedCodes: [], discountAmt: 0,
   sizes: { rider:{}, passenger:{} } };
 
 // ===== TOOLTIP HELPER =====
 MG._tip = function(text){ return ' <span class="ctooltip">&#9432;<span class="ctooltiptext">'+text+'</span></span>'; };
-MG._reqTip = function(){ return ' <span class="ctooltip" style="color:#c00;font-size:.75rem">*<span class="ctooltiptext">Toto pole je povinné</span></span>'; };
+MG._reqTip = function(){ return ' <span class="ctooltip" style="color:#c00;font-size:.75rem">*<span class="ctooltiptext">'+MG.t('rez.contact.required')+'</span></span>'; };
 
 // ===== SIZE CHIP HELPERS =====
 MG._SIZE_CHIPS_GEAR  = ['XS','S','M','L','XL','XXL'];
@@ -17,8 +31,9 @@ MG._SIZE_CHIPS_BOOTS = ['36','37','38','39','40','41','42','43','44','45','46'];
 
 MG._renderSizeChips = function(group, key, sizes, label, icon){
   var sel = (MG._rez.sizes[group]||{})[key] || '';
+  var pickLbl = MG.t('rez.gear.sizeChoose');
   var h = '<div class="size-row"><div class="size-row-head"><span class="size-ico">'+icon+'</span><span class="size-lbl">'+label+'</span>'+
-    '<span class="size-pick" data-empty="'+(sel?'0':'1')+'">'+(sel?sel:'vyber')+'</span></div>'+
+    '<span class="size-pick" data-empty="'+(sel?'0':'1')+'">'+(sel?sel:pickLbl)+'</span></div>'+
     '<div class="size-chips" data-group="'+group+'" data-key="'+key+'">';
   sizes.forEach(function(s){
     h += '<button type="button" class="size-chip'+(s===sel?' active':'')+'" data-size="'+s+'">'+s+'</button>';
@@ -30,11 +45,11 @@ MG._renderSizeChips = function(group, key, sizes, label, icon){
 MG._gearPanelHtml = function(opts){
   // opts: { panelId, group ('rider'|'passenger'), kinds: ['helmet','jacket','gloves','pants','boots'] }
   var labels = {
-    helmet: { l:'Helma',     ico:'&#129695;', sizes: MG._SIZE_CHIPS_GEAR },
-    jacket: { l:'Bunda',     ico:'&#129509;', sizes: MG._SIZE_CHIPS_GEAR },
-    gloves: { l:'Rukavice',  ico:'&#129306;', sizes: MG._SIZE_CHIPS_GEAR },
-    pants:  { l:'Kalhoty',   ico:'&#128087;', sizes: MG._SIZE_CHIPS_PANTS },
-    boots:  { l:'Boty',      ico:'&#129406;', sizes: MG._SIZE_CHIPS_BOOTS }
+    helmet: { l: MG.t('rez.gear.label.helmet'), ico:'&#129695;', sizes: MG._SIZE_CHIPS_GEAR },
+    jacket: { l: MG.t('rez.gear.label.jacket'), ico:'&#129509;', sizes: MG._SIZE_CHIPS_GEAR },
+    gloves: { l: MG.t('rez.gear.label.gloves'), ico:'&#129306;', sizes: MG._SIZE_CHIPS_GEAR },
+    pants:  { l: MG.t('rez.gear.label.pants'),  ico:'&#128087;', sizes: MG._SIZE_CHIPS_PANTS },
+    boots:  { l: MG.t('rez.gear.label.boots'),  ico:'&#129406;', sizes: MG._SIZE_CHIPS_BOOTS }
   };
   var rows = '';
   opts.kinds.forEach(function(k){
@@ -61,7 +76,7 @@ MG._initSizeChipEvents = function(scope){
       if(head){
         var pick = head.querySelector('.size-pick');
         var current = MG._rez.sizes[group][key];
-        if(pick){ pick.textContent = current ? current : 'vyber'; pick.dataset.empty = current ? '0' : '1'; }
+        if(pick){ pick.textContent = current ? current : MG.t('rez.gear.sizeChoose'); pick.dataset.empty = current ? '0' : '1'; }
       }
     });
   });
@@ -76,34 +91,38 @@ MG._rezFormHtml = function(){
     return '<button type="button" class="time-chip'+act+'" data-time="'+t+'">'+t+'</button>';
   }).join('');
 
+  var deliveryTip = MG.t('rez.pickup.deliveryTip', { base: MG.formatPrice(1000), perKm: MG.formatPrice(40) });
+  var returnTip = MG.t('rez.pickup.returnTip', { base: MG.formatPrice(1000), perKm: MG.formatPrice(40) });
+  var deliverySub = MG.t('rez.pickup.deliverySub', { base: MG.formatPrice(1000), perKm: MG.formatPrice(40) });
+
   return '<div id="rez-form">' +
     // ===== STEP A — Kontaktní údaje =====
     '<section class="rez-section">' +
-      '<div class="rez-section-head"><span class="rez-step-num">3</span><h2>Vaše kontaktní údaje</h2></div>' +
-      '<input type="text" id="rez-name" name="name" placeholder="* Jméno a příjmení" required autocomplete="name">' +
-      '<div class="gr2"><input type="text" id="rez-street" name="street-address" placeholder="* Ulice, č.p." required autocomplete="street-address">' +
-      '<input type="text" id="rez-zip" name="postal-code" placeholder="* PSČ" required autocomplete="postal-code"></div>' +
-      '<div class="gr2"><input type="text" id="rez-city" name="address-level2" placeholder="* Město" required autocomplete="address-level2">' +
-      '<input type="text" id="rez-country" name="country-name" placeholder="* Stát" value="Česká republika" required autocomplete="country-name"></div>' +
-      '<div class="gr2"><input type="email" id="rez-email" name="email" placeholder="* E-mail" required autocomplete="email">' +
-      '<input type="tel" id="rez-phone" name="tel" placeholder="* Telefon (+420XXXXXXXXX)" required autocomplete="tel" pattern="^\\+\\d{12,15}$"></div>' +
-      '<div class="rez-voucher-row"><input type="text" id="rez-voucher" placeholder="Slevový kód / dárkový poukaz" maxlength="255">' +
-      '<button type="button" class="btn btngreen-small" onclick="MG._applyVoucher()">UPLATNIT</button></div>' +
+      '<div class="rez-section-head"><span class="rez-step-num">3</span><h2>'+MG.t('rez.step.contact')+'</h2></div>' +
+      '<input type="text" id="rez-name" name="name" placeholder="'+MG.t('rez.contact.name')+'" required autocomplete="name">' +
+      '<div class="gr2"><input type="text" id="rez-street" name="street-address" placeholder="'+MG.t('rez.contact.street')+'" required autocomplete="street-address">' +
+      '<input type="text" id="rez-zip" name="postal-code" placeholder="'+MG.t('rez.contact.zip')+'" required autocomplete="postal-code"></div>' +
+      '<div class="gr2"><input type="text" id="rez-city" name="address-level2" placeholder="'+MG.t('rez.contact.city')+'" required autocomplete="address-level2">' +
+      '<input type="text" id="rez-country" name="country-name" placeholder="'+MG.t('rez.contact.country')+'" value="'+MG.t('rez.contact.countryDefault')+'" required autocomplete="country-name"></div>' +
+      '<div class="gr2"><input type="email" id="rez-email" name="email" placeholder="'+MG.t('rez.contact.email')+'" required autocomplete="email">' +
+      '<input type="tel" id="rez-phone" name="tel" placeholder="'+MG.t('rez.contact.phone')+'" required autocomplete="tel" pattern="^\\+\\d{12,15}$"></div>' +
+      '<div class="rez-voucher-row"><input type="text" id="rez-voucher" placeholder="'+MG.t('rez.contact.voucher')+'" maxlength="255">' +
+      '<button type="button" class="btn btngreen-small" onclick="MG._applyVoucher()">'+MG.t('rez.contact.apply')+'</button></div>' +
       '<div id="rez-applied-codes"></div>' +
       '<div id="rez-voucher-msg" style="font-size:.85rem;margin:-.25rem 0 .25rem"></div>' +
     '</section>' +
 
     // ===== STEP B — Místo a čas =====
     '<section class="rez-section">' +
-      '<div class="rez-section-head"><span class="rez-step-num">4</span><h2>Vyzvednutí a vrácení</h2></div>' +
+      '<div class="rez-section-head"><span class="rez-step-num">4</span><h2>'+MG.t('rez.step.location')+'</h2></div>' +
 
       // Time card
       '<div class="rez-time-card">' +
         '<div class="rez-time-card-head"><span class="rez-time-ico">&#128340;</span>' +
-        '<div><div class="rez-time-title">Čas převzetí nebo přistavení</div>' +
-        '<div class="rez-time-sub">Vyberte z nabídky nebo zadejte vlastní čas</div></div>' +
+        '<div><div class="rez-time-title">'+MG.t('rez.pickup.title')+'</div>' +
+        '<div class="rez-time-sub">'+MG.t('rez.pickup.sub')+'</div></div>' +
         '<input type="time" id="rez-pickup-time" required value="09:00"></div>' +
-        '<div class="rez-time-chips-label">Doporučené časy (06:00 — 14:00) <span style="color:#8aab99;font-weight:500;font-size:.75rem">· nebo vyberte vlastní čas vlevo</span></div>' +
+        '<div class="rez-time-chips-label">'+MG.t('rez.pickup.recommended')+' <span style="color:#8aab99;font-weight:500;font-size:.75rem">'+MG.t('rez.pickup.orCustom')+'</span></div>' +
         '<div class="rez-time-chips">'+quickChips+'</div>' +
       '</div>' +
 
@@ -111,26 +130,26 @@ MG._rezFormHtml = function(){
       '<div class="rez-loc-grid">' +
         '<label class="rez-loc-card rez-loc-card-info">' +
           '<div class="rez-loc-ico">&#127968;</div>' +
-          '<div class="rez-loc-body"><div class="rez-loc-title">Vyzvednutí v motopůjčovně</div>' +
-          '<div class="rez-loc-sub">Zdarma · 24/7 přístup s kódem · základní nastavení</div></div>' +
+          '<div class="rez-loc-body"><div class="rez-loc-title">'+MG.t('rez.pickup.atRental')+'</div>' +
+          '<div class="rez-loc-sub">'+MG.t('rez.pickup.atRentalSub')+'</div></div>' +
         '</label>' +
         '<label class="rez-loc-card" data-loc="delivery">' +
           '<input type="checkbox" id="rez-delivery">' +
           '<div class="rez-loc-ico">&#128666;</div>' +
-          '<div class="rez-loc-body"><div class="rez-loc-title">Přistavení motorky jinam' +
-          MG._tip('Motorku vám dovezeme na domluvené místo. Cena: '+MG.formatPrice(1000)+' + '+MG.formatPrice(40)+'/km od pobočky Mezná 9, 393 01 Mezná. Trasu spočítáme automaticky po zadání adresy.') +
-          '</div><div class="rez-loc-sub">'+MG.formatPrice(1000)+' + '+MG.formatPrice(40)+'/km od pobočky</div></div>' +
+          '<div class="rez-loc-body"><div class="rez-loc-title">'+MG.t('rez.pickup.delivery') +
+          MG._tip(deliveryTip) +
+          '</div><div class="rez-loc-sub">'+deliverySub+'</div></div>' +
         '</label>' +
       '</div>' +
 
       // Delivery panel
       '<div id="rez-delivery-panel" class="rez-addr-panel" style="display:none">' +
         '<div class="rez-addr-row">' +
-          '<input type="text" id="rez-delivery-address" placeholder="Zadejte adresu přistavení (ulice, město)">' +
-          '<button type="button" class="rez-map-btn" onclick="MG._openWebMapPicker(\'delivery\')">&#128205; Mapa</button>' +
+          '<input type="text" id="rez-delivery-address" placeholder="'+MG.t('rez.pickup.deliveryAddr')+'">' +
+          '<button type="button" class="rez-map-btn" onclick="MG._openWebMapPicker(\'delivery\')">&#128205; '+MG.t('rez.pickup.map')+'</button>' +
         '</div>' +
         '<div id="rez-delivery-route-info" class="rez-route-info" style="display:none"></div>' +
-        '<div class="rez-addr-confirm" style="margin-top:.4rem"><label><input type="checkbox" id="rez-return-same-as-delivery" checked> Vrátit motorku na stejné adrese</label></div>' +
+        '<div class="rez-addr-confirm" style="margin-top:.4rem"><label><input type="checkbox" id="rez-return-same-as-delivery" checked> '+MG.t('rez.pickup.sameAsDel')+'</label></div>' +
       '</div>' +
 
       // Return-other card
@@ -138,17 +157,17 @@ MG._rezFormHtml = function(){
         '<label class="rez-loc-card" data-loc="return-other">' +
           '<input type="checkbox" id="rez-return-other">' +
           '<div class="rez-loc-ico">&#128205;</div>' +
-          '<div class="rez-loc-body"><div class="rez-loc-title">Vrácení motorky jinde, než kde bylo vyzvednuto' +
-          MG._tip('Motorku vám rádi vyzvedneme jinde. Cena: '+MG.formatPrice(1000)+' + '+MG.formatPrice(40)+'/km od pobočky Mezná 9, 393 01 Mezná. Trasu spočítáme automaticky po zadání adresy.') +
-          '</div><div class="rez-loc-sub">'+MG.formatPrice(1000)+' + '+MG.formatPrice(40)+'/km od pobočky</div></div>' +
+          '<div class="rez-loc-body"><div class="rez-loc-title">'+MG.t('rez.pickup.returnOther') +
+          MG._tip(returnTip) +
+          '</div><div class="rez-loc-sub">'+deliverySub+'</div></div>' +
         '</label>' +
       '</div>' +
 
       // Return panel (address only)
       '<div id="rez-return-panel" class="rez-addr-panel" style="display:none">' +
         '<div class="rez-addr-row">' +
-          '<input type="text" id="rez-return-address" placeholder="Zadejte adresu vrácení">' +
-          '<button type="button" class="rez-map-btn" onclick="MG._openWebMapPicker(\'return\')">&#128205; Mapa</button>' +
+          '<input type="text" id="rez-return-address" placeholder="'+MG.t('rez.pickup.returnAddr')+'">' +
+          '<button type="button" class="rez-map-btn" onclick="MG._openWebMapPicker(\'return\')">&#128205; '+MG.t('rez.pickup.map')+'</button>' +
         '</div>' +
         '<div id="rez-return-route-info" class="rez-route-info" style="display:none"></div>' +
       '</div>' +
@@ -158,8 +177,8 @@ MG._rezFormHtml = function(){
       '<div id="rez-return-time-wrap" style="display:none;margin-top:.6rem">' +
         '<div class="rez-time-card rez-time-card-mini">' +
           '<div class="rez-time-card-head"><span class="rez-time-ico">&#128340;</span>' +
-          '<div><div class="rez-time-title">Čas vrácení motorky</div>' +
-          '<div class="rez-time-sub">V kolik hodin vrátíte motorku na uvedené adrese?</div></div>' +
+          '<div><div class="rez-time-title">'+MG.t('rez.return.title')+'</div>' +
+          '<div class="rez-time-sub">'+MG.t('rez.return.sub')+'</div></div>' +
           '<input type="time" id="rez-return-time" required value="19:00"></div>' +
         '</div>' +
       '</div>' +
@@ -167,8 +186,8 @@ MG._rezFormHtml = function(){
 
     // ===== STEP C — Výbava =====
     '<section class="rez-section">' +
-      '<div class="rez-section-head"><span class="rez-step-num">5</span><h2>Výbava a velikosti</h2></div>' +
-      '<p class="rez-section-sub">Vyberte velikosti kliknutím na čtverečky níže. Pokud velikost nezvolíte, vyzkoušíme ji na místě.</p>' +
+      '<div class="rez-section-head"><span class="rez-step-num">5</span><h2>'+MG.t('rez.step.gear')+'</h2></div>' +
+      '<p class="rez-section-sub">'+MG.t('rez.gear.intro')+'</p>' +
 
       '<div class="gear-grid">' +
 
@@ -177,12 +196,12 @@ MG._rezFormHtml = function(){
           '<label class="gear-head">' +
             '<input type="checkbox" id="rez-eq-rider-gear">' +
             '<span class="gear-ico">&#127949;</span>' +
-            '<div class="gear-body"><div class="gear-title">Výbava řidiče</div>' +
-            '<div class="gear-price gear-price-free">v ceně · zdarma</div>' +
-            '<div class="gear-sub">Helma, bunda, rukavice, kalhoty</div></div>' +
+            '<div class="gear-body"><div class="gear-title">'+MG.t('rez.gear.rider')+'</div>' +
+            '<div class="gear-price gear-price-free">'+MG.t('rez.gear.riderFree')+'</div>' +
+            '<div class="gear-sub">'+MG.t('rez.gear.riderSub')+'</div></div>' +
           '</label>' +
-          '<div class="gear-extra-toggle"><label><input type="checkbox" id="rez-own-gear"> Mám vlastní výbavu — nepůjčuji</label></div>' +
-          '<div class="gear-size-panel-hint">&#9989; Zaškrtněte výše pro výběr velikostí (jinak se vyzkouší na místě)</div>' +
+          '<div class="gear-extra-toggle"><label><input type="checkbox" id="rez-own-gear"> '+MG.t('rez.gear.riderOwn')+'</label></div>' +
+          '<div class="gear-size-panel-hint">'+MG.t('rez.gear.sizeHintGear')+'</div>' +
           MG._gearPanelHtml({panelId:'gear-panel-rider', group:'rider', kinds:['helmet','jacket','gloves','pants']}) +
         '</div>' +
 
@@ -191,13 +210,13 @@ MG._rezFormHtml = function(){
           '<label class="gear-head">' +
             '<input type="checkbox" id="rez-eq-passenger">' +
             '<span class="gear-ico">&#128107;</span>' +
-            '<div class="gear-body"><div class="gear-title">Výbava spolujezdce</div>' +
+            '<div class="gear-body"><div class="gear-title">'+MG.t('rez.gear.passenger')+'</div>' +
             '<div class="gear-price">+ '+MG.formatPrice(690)+'</div>' +
-            '<div class="gear-sub">Helma, bunda, rukavice, kukla' +
-            MG._tip('Základní výbava pro spolujezdce: helma, bunda, rukavice a kukla. Velikost si vyberete kliknutím níže nebo na místě.') +
+            '<div class="gear-sub">'+MG.t('rez.gear.passengerSub') +
+            MG._tip(MG.t('rez.gear.passengerTip')) +
             '</div></div>' +
           '</label>' +
-          '<div class="gear-size-panel-hint">&#9989; Zaškrtněte výše a rozbalí se výběr velikostí spolujezdce</div>' +
+          '<div class="gear-size-panel-hint">'+MG.t('rez.gear.sizeHintPassenger')+'</div>' +
           MG._gearPanelHtml({panelId:'gear-panel-passenger', group:'passenger', kinds:['helmet','jacket','gloves']}) +
         '</div>' +
 
@@ -206,11 +225,11 @@ MG._rezFormHtml = function(){
           '<label class="gear-head">' +
             '<input type="checkbox" id="rez-eq-boots-rider">' +
             '<span class="gear-ico">&#129406;</span>' +
-            '<div class="gear-body"><div class="gear-title">Boty pro řidiče</div>' +
+            '<div class="gear-body"><div class="gear-title">'+MG.t('rez.gear.bootsRider')+'</div>' +
             '<div class="gear-price">+ '+MG.formatPrice(290)+'</div>' +
-            '<div class="gear-sub">Motocyklové boty (nejsou v základní výbavě)</div></div>' +
+            '<div class="gear-sub">'+MG.t('rez.gear.bootsRiderSub')+'</div></div>' +
           '</label>' +
-          '<div class="gear-size-panel-hint">&#9989; Zaškrtněte výše a rozbalí se výběr velikosti bot</div>' +
+          '<div class="gear-size-panel-hint">'+MG.t('rez.gear.sizeHintBoots')+'</div>' +
           MG._gearPanelHtml({panelId:'gear-panel-boots-rider', group:'rider', kinds:['boots']}) +
         '</div>' +
 
@@ -219,11 +238,11 @@ MG._rezFormHtml = function(){
           '<label class="gear-head">' +
             '<input type="checkbox" id="rez-eq-boots-passenger">' +
             '<span class="gear-ico">&#129406;</span>' +
-            '<div class="gear-body"><div class="gear-title">Boty pro spolujezdce</div>' +
+            '<div class="gear-body"><div class="gear-title">'+MG.t('rez.gear.bootsPassenger')+'</div>' +
             '<div class="gear-price">+ '+MG.formatPrice(290)+'</div>' +
-            '<div class="gear-sub">Motocyklové boty pro spolujezdce</div></div>' +
+            '<div class="gear-sub">'+MG.t('rez.gear.bootsPassengerSub')+'</div></div>' +
           '</label>' +
-          '<div class="gear-size-panel-hint">&#9989; Zaškrtněte výše a rozbalí se výběr velikosti bot</div>' +
+          '<div class="gear-size-panel-hint">'+MG.t('rez.gear.sizeHintBoots')+'</div>' +
           MG._gearPanelHtml({panelId:'gear-panel-boots-passenger', group:'passenger', kinds:['boots']}) +
         '</div>' +
 
@@ -232,18 +251,18 @@ MG._rezFormHtml = function(){
 
     // ===== STEP D — Souhlasy =====
     '<section class="rez-section">' +
-      '<div class="rez-section-head"><span class="rez-step-num">6</span><h2>Souhlasy</h2></div>' +
+      '<div class="rez-section-head"><span class="rez-step-num">6</span><h2>'+MG.t('rez.step.agreements')+'</h2></div>' +
       '<div class="rez-agreements">' +
-        '<label class="rez-agree"><input type="checkbox" id="rez-agree-vop" required checked><span>* Souhlasím s <a href="/obchodni-podminky">obchodními podmínkami</a></span></label>' +
-        '<label class="rez-agree"><input type="checkbox" id="rez-agree-gdpr" checked><span>Souhlasím se <a href="/gdpr">zpracováním osobních údajů</a></span></label>' +
-        '<label class="rez-agree"><input type="checkbox" id="rez-agree-marketing" checked><span>Souhlasím se zasíláním marketingových sdělení</span></label>' +
-        '<label class="rez-agree"><input type="checkbox" id="rez-agree-photo" checked><span>Souhlasím s využitím fotografií pro marketingové účely</span></label>' +
+        '<label class="rez-agree"><input type="checkbox" id="rez-agree-vop" required checked><span>'+MG.t('rez.agree.terms')+'</span></label>' +
+        '<label class="rez-agree"><input type="checkbox" id="rez-agree-gdpr" checked><span>'+MG.t('rez.agree.gdpr')+'</span></label>' +
+        '<label class="rez-agree"><input type="checkbox" id="rez-agree-marketing" checked><span>'+MG.t('rez.agree.marketing')+'</span></label>' +
+        '<label class="rez-agree"><input type="checkbox" id="rez-agree-photo" checked><span>'+MG.t('rez.agree.photo')+'</span></label>' +
       '</div>' +
     '</section>' +
 
     '<input type="hidden" id="rez-note" value="">' +
     '<div id="rez-price-preview"></div>' +
-    '<div class="text-center" style="margin-top:1rem"><button type="button" class="btn btngreen rez-cta" onclick="MG._submitReservation()">Pokračovat v rezervaci &rarr;</button></div>' +
+    '<div class="text-center" style="margin-top:1rem"><button type="button" class="btn btngreen rez-cta" onclick="MG._submitReservation()">'+MG.t('rez.cta.continue')+'</button></div>' +
     '</div>';
 };
 
@@ -381,14 +400,14 @@ MG._rezInit = async function(){
   // ===== RESUME FLOW =====
   if(resumeId){
     var rezApp = document.getElementById('rezervace-app');
-    if(rezApp) rezApp.innerHTML = '<div id="rez-form"><div class="loading-overlay"><span class="spinner"></span> Načítám rezervaci...</div></div>';
+    if(rezApp) rezApp.innerHTML = '<div id="rez-form"><div class="loading-overlay"><span class="spinner"></span> '+MG.t('rez.loading.resume')+'</div></div>';
     try {
       var resumeRes = await window.sb.rpc('get_web_booking_resume', { p_booking_id: resumeId });
       if(resumeRes.error || (resumeRes.data && resumeRes.data.error)){
         document.getElementById('rez-form').innerHTML =
           '<div style="text-align:center;padding:2rem 0"><div style="font-size:3rem;margin-bottom:1rem">&#9888;</div>' +
-          '<h2>Rezervace nenalezena</h2><p>' + (resumeRes.data && resumeRes.data.error ? resumeRes.data.error : 'Rezervace již byla dokončena nebo zrušena.') + '</p>' +
-          '<p style="margin-top:1rem"><a class="btn btngreen" href="/rezervace">Vytvořit novou rezervaci</a></p></div>';
+          '<h2>'+MG.t('rez.notFound.title')+'</h2><p>' + (resumeRes.data && resumeRes.data.error ? resumeRes.data.error : MG.t('rez.notFound.text')) + '</p>' +
+          '<p style="margin-top:1rem"><a class="btn btngreen" href="/rezervace">'+MG.t('rez.notFound.create')+'</a></p></div>';
         return;
       }
       var bd = resumeRes.data;
@@ -413,9 +432,9 @@ MG._rezInit = async function(){
     } catch(e){
       console.error('[REZ] resume error', e);
       document.getElementById('rez-form').innerHTML =
-        '<div style="text-align:center;padding:2rem 0"><h2>Chyba při načítání rezervace</h2>' +
-        '<p>Zkuste to prosím znovu nebo nás kontaktujte.</p>' +
-        '<p style="margin-top:1rem"><a class="btn btngreen" href="/rezervace">Vytvořit novou rezervaci</a></p></div>';
+        '<div style="text-align:center;padding:2rem 0"><h2>'+MG.t('rez.error.loading')+'</h2>' +
+        '<p>'+MG.t('rez.error.tryAgain')+'</p>' +
+        '<p style="margin-top:1rem"><a class="btn btngreen" href="/rezervace">'+MG.t('rez.notFound.create')+'</a></p></div>';
     }
     return;
   }
@@ -423,19 +442,19 @@ MG._rezInit = async function(){
   // ===== NORMAL FLOW =====
   var rezApp = document.getElementById('rezervace-app');
   if(rezApp){
-    rezApp.innerHTML = '<div id="rez-intro"><h1>Rezervace motorky</h1>' +
+    rezApp.innerHTML = '<div id="rez-intro"><h1>'+MG.t('rez.h1')+'</h1>' +
       '<div style="background:#f0faf5;border:1px solid #d4e8e0;border-radius:10px;padding:.75rem 1rem;margin-bottom:1rem">' +
-      '<p style="margin:0 0 .4rem;font-size:.9rem"><strong>Jak rezervace funguje?</strong></p>' +
-      '<p style="margin:0 0 .3rem;font-size:.85rem;color:#555">Chcete <strong>konkrétní termín</strong>? Vyberte „libovolná dostupná motorka" a v kalendáři vyznačte datum — zobrazí se všechny volné motorky.</p>' +
-      '<p style="margin:0 0 .3rem;font-size:.85rem;color:#555">Chcete <strong>konkrétní motorku</strong>? Vyberte ji ze seznamu — kalendář ukáže její dostupné termíny.</p>' +
-      '<p style="margin:0;font-size:.85rem;color:#1a8c1a"><strong>Bez kauce · výbava pro řidiče zdarma · velikost si vyberete v motopůjčovně</strong></p>' +
+      '<p style="margin:0 0 .4rem;font-size:.9rem"><strong>'+MG.t('rez.intro.title')+'</strong></p>' +
+      '<p style="margin:0 0 .3rem;font-size:.85rem;color:#555">'+MG.t('rez.intro.specific')+'</p>' +
+      '<p style="margin:0 0 .3rem;font-size:.85rem;color:#555">'+MG.t('rez.intro.bike')+'</p>' +
+      '<p style="margin:0;font-size:.85rem;color:#1a8c1a"><strong>'+MG.t('rez.intro.benefits')+'</strong></p>' +
       '</div></div>' +
       '<section class="rez-section rez-section-pre" id="rez-step-moto">' +
-        '<div class="rez-section-head"><span class="rez-step-num">1</span><h2>Vyberte motorku</h2></div>' +
+        '<div class="rez-section-head"><span class="rez-step-num">1</span><h2>'+MG.t('rez.step.moto')+'</h2></div>' +
         '<div id="rez-moto-select"></div>' +
       '</section>' +
       '<section class="rez-section rez-section-pre" id="rez-step-cal">' +
-        '<div class="rez-section-head"><span class="rez-step-num">2</span><h2>Vyberte termín</h2></div>' +
+        '<div class="rez-section-head"><span class="rez-step-num">2</span><h2>'+MG.t('rez.step.date')+'</h2></div>' +
         '<div id="rez-calendar"></div>' +
         '<div id="rez-date-banner" style="display:none"></div>' +
         '<div id="rez-avail-select" style="display:none"></div>' +
@@ -474,9 +493,9 @@ MG._rezInit = async function(){
 
   var sel = document.getElementById('rez-moto-select');
   if(sel){
-    var h = '<form class="rez-moto-pick"><label for="rez-moto-dropdown">Konkrétní model nebo libovolná motorka</label>' +
+    var h = '<form class="rez-moto-pick"><label for="rez-moto-dropdown">'+MG.t('rez.motoSelect.label')+'</label>' +
       '<div class="rez-moto-pick-wrap"><select id="rez-moto-dropdown">' +
-      '<option value="">libovolná dostupná motorka v mém termínu</option>';
+      '<option value="">'+MG.t('rez.motoSelect.any')+'</option>';
     motos.forEach(function(m){ h += '<option value="'+m.id+'"'+(m.id===mp?' selected':'')+'>'+m.model+'</option>'; });
     h += '</select></div></form>';
     sel.innerHTML = h;
