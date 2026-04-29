@@ -150,12 +150,11 @@ export async function handleWebBookingCheckout(
     }
   }
 
-  // automatic_payment_methods povolí Apple Pay / Google Pay na podporovaných zařízeních
-  // (Stripe Checkout automaticky verifikuje doménu pro Apple Pay)
+  // Apple Pay / Google Pay se v Checkout Session povolují přes Stripe Dashboard
+  // (Settings → Payment methods). `automatic_payment_methods` je platný jen pro PaymentIntent.
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
     mode: 'payment',
-    automatic_payment_methods: { enabled: true },
     line_items: lineItems,
     metadata: sessionMetadata,
     success_url: `${SITE_URL}/#/potvrzeni?session_id={CHECKOUT_SESSION_ID}`,
@@ -283,7 +282,6 @@ async function handleWebProductCheckout(
   const sessionParams: Record<string, unknown> = {
     mode: 'payment',
     line_items: lineItems as Stripe.Checkout.SessionCreateParams.LineItem[],
-    automatic_payment_methods: { enabled: true }, // Apple Pay / Google Pay
     metadata: { order_id: orderId, type: 'shop', source: 'web' },
     success_url: `${SITE_URL}/objednavka/dokoncit?order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url:  `${SITE_URL}/kosik`,
