@@ -618,13 +618,16 @@ MG._editRez._renderDetail = function(){
   var status = '<span class="edit-rez-booking-status status-' + b.status + '">'
     + MG._editRez._statusLabel(b.status) + '</span>';
 
-  // Tab buttons. Storno + Zkrátit + Prodloužit jen pro paid bookings.
+  // Tab buttons. Edit-akce jen pro paid+(reserved|active). Doklady vždy.
   var canEdit = (b.status === 'reserved' || b.status === 'active') && b.payment_status === 'paid';
   var tabs = [
-    { key:'detail',  label: MG.t('editRez.tab.detail'),  show: true },
-    { key:'extend',  label: MG.t('editRez.tab.extend'),  show: canEdit },
-    { key:'shorten', label: MG.t('editRez.tab.shorten'), show: canEdit },
-    { key:'cancel',  label: MG.t('editRez.tab.cancel'),  show: canEdit }
+    { key:'detail',   label: MG.t('editRez.tab.detail'),   show: true },
+    { key:'extend',   label: MG.t('editRez.tab.extend'),   show: canEdit },
+    { key:'shorten',  label: MG.t('editRez.tab.shorten'),  show: canEdit },
+    { key:'moto',     label: MG.t('editRez.tab.moto'),     show: canEdit && b.status === 'reserved' },
+    { key:'location', label: MG.t('editRez.tab.location'), show: canEdit && b.status === 'reserved' },
+    { key:'docs',     label: MG.t('editRez.tab.docs'),     show: true },
+    { key:'cancel',   label: MG.t('editRez.tab.cancel'),   show: canEdit }
   ].filter(function(t){ return t.show; });
 
   var tabHtml = tabs.map(function(t){
@@ -653,11 +656,93 @@ MG._editRez._renderDetail = function(){
   });
 
   // Per-tab obsah.
-  if (MG._editRez.tab === 'detail')  return MG._editRez._renderTabDetail();
-  if (MG._editRez.tab === 'cancel')  return MG._editRez._renderTabCancel();
-  if (MG._editRez.tab === 'extend')  return MG._editRez._renderTabExtend();
-  if (MG._editRez.tab === 'shorten') return MG._editRez._renderTabShorten();
+  if (MG._editRez.tab === 'detail')   return MG._editRez._renderTabDetail();
+  if (MG._editRez.tab === 'cancel')   return MG._editRez._renderTabCancel();
+  if (MG._editRez.tab === 'extend')   return MG._editRez._renderTabExtend();
+  if (MG._editRez.tab === 'shorten')  return MG._editRez._renderTabShorten();
+  if (MG._editRez.tab === 'moto')     return MG._editRez._renderTabMoto();
+  if (MG._editRez.tab === 'location') return MG._editRez._renderTabLocation();
+  if (MG._editRez.tab === 'docs')     return MG._editRez._renderTabDocs();
   return MG._editRez._renderTabDetail();
+};
+
+// ===== TAB: DOKLADY =====
+// Načte všechny doklady spojené s booking_id z `invoices` (ZF/FV/dobropis/
+// platební doklad/shop_*) a `documents` (smlouva/VOP/protokol). Každý
+// stažitelný PDF přes Supabase Storage signed URL.
+MG._editRez._renderTabDocs = async function(){
+  var b = MG._editRez.selectedBooking;
+  var t = document.getElementById('edit-rez-tab-content');
+  t.innerHTML = '<h3>' + MG.t('editRez.doc.title') + '</h3>'
+    + '<p>' + MG.t('editRez.loading') + '</p>';
+
+  try {
+    var results = await Promise.all([
+      window.sb.from('invoices')
+        .select('id,number,type,status,total,pdf_path,issue_date,created_at')
+        .eq('booking_id', b.id)
+        .order('issue_date', { ascending: true }),
+      window.sb.from('documents')
+        .select('id,type,name,file_url,storage_path,created_at')
+        .eq('booking_id', b.id)
+        .order('created_at', { ascending: true })
+    ]);
+    var invoices = (results[0] && results[0].data) || [];
+    var docs     = (results[1] && results[1].data) || [];
+
+    var rows = [];
+    invoices.forEach(function(d){
+      var label = MG.t('editRez.doc.type.' + (d.type || 'unknown'), {});
+      var num = d.number || (d.id || '').substring(0,8);
+      var amt = d.total ? MG.formatPrice(Number(d.total)) : '';
+      var when = d.issue_date ? MG.formatDate(d.issue_date) : (d.created_at ? MG.formatDate(d.created_at) : '');
+      rows.push({ kind:'invoice', label: label, num: num, amt: amt, when: when, path: d.pdf_path });
+    });
+    docs.forEach(function(d){
+      var label = MG.t('editRez.doc.type.' + (d.type || 'unknown'), {});
+      var when = d.created_at ? MG.formatDate(d.created_at) : '';
+      var path = d.storage_path || d.file_url;
+      rows.push({ kind:'document', label: label, num: d.name || '', amt: '', when: when, path: path });
+    });
+
+    var listHtml = rows.length
+      ? '<ul class="edit-rez-doclist">' + rows.map(function(r){
+          var meta = [r.num, r.when, r.amt].filter(function(x){ return x; }).join(' · ');
+          var btn = r.path
+            ? '<button type="button" class="btn-link" data-pdf="' + r.path + '">' + MG.t('editRez.doc.download') + '</button>'
+            : '<span class="muted">' + MG.t('editRez.doc.notAvailable') + '</span>';
+          return '<li><div><strong>' + r.label + '</strong>' + (meta ? '<br><span class="muted">' + meta + '</span>' : '') + '</div><div>' + btn + '</div></li>';
+        }).join('') + '</ul>'
+      : '<p>' + MG.t('editRez.doc.empty') + '</p>';
+
+    t.innerHTML = '<h3>' + MG.t('editRez.doc.title') + '</h3>'
+      + '<p class="edit-rez-tip">' + MG.t('editRez.doc.help') + '</p>'
+      + listHtml;
+
+    t.querySelectorAll('[data-pdf]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        MG._editRez._openDocPdf(btn.getAttribute('data-pdf'));
+      });
+    });
+  } catch(err){
+    console.error('[editRez] renderTabDocs err', err);
+    t.innerHTML = '<h3>' + MG.t('editRez.doc.title') + '</h3>'
+      + '<div class="edit-rez-error">' + MG.t('editRez.err.generic') + '</div>';
+  }
+};
+
+// Placeholder pro moto/location (následující commit naplní funkcionalitou).
+MG._editRez._renderTabMoto = function(){
+  var t = document.getElementById('edit-rez-tab-content');
+  t.innerHTML = '<h3>' + MG.t('editRez.moto.title') + '</h3>'
+    + '<p>' + MG.t('editRez.moto.help') + '</p>'
+    + '<p class="edit-rez-tip">' + MG.t('editRez.loading') + '</p>';
+};
+MG._editRez._renderTabLocation = function(){
+  var t = document.getElementById('edit-rez-tab-content');
+  t.innerHTML = '<h3>' + MG.t('editRez.loc.title') + '</h3>'
+    + '<p>' + MG.t('editRez.loc.help') + '</p>'
+    + '<p class="edit-rez-tip">' + MG.t('editRez.loading') + '</p>';
 };
 
 // ===== TAB: DETAIL =====

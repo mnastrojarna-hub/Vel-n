@@ -40,6 +40,8 @@ $keys = [
     'editRez.detail.title','editRez.detail.bookingId','editRez.detail.moto','editRez.detail.dates',
     'editRez.detail.pickup','editRez.detail.return','editRez.detail.totalPaid','editRez.detail.daysCount',
     'editRez.tab.detail','editRez.tab.extend','editRez.tab.shorten','editRez.tab.cancel',
+    'editRez.tab.moto','editRez.tab.location','editRez.tab.docs',
+    'editRez.doc.help','editRez.moto.title','editRez.moto.help','editRez.loc.title','editRez.loc.help',
     'editRez.extend.title','editRez.extend.help','editRez.extend.helpUpcoming','editRez.extend.helpActive',
     'editRez.extend.newStart','editRez.extend.newEnd','editRez.extend.priceDiff','editRez.extend.cta',
     'editRez.extend.unavailable','editRez.extend.noChange','editRez.extend.creating',
