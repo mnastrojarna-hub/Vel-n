@@ -363,9 +363,10 @@
 
 /* ===== FAQ ACCORDION ===== */
 .faq-item{background:#fff;border:1px solid #d4e8e0;border-radius:8px;margin-bottom:.5rem;overflow:hidden}
-.faq-item summary{padding:1rem 1.25rem;cursor:pointer;font-weight:600;color:#1a2e22;font-size:.95rem;list-style:none;display:flex;justify-content:space-between;align-items:center;transition:background .15s}
+.faq-item summary{padding:.85rem 1rem .85rem 1.25rem;cursor:pointer;font-weight:600;color:#1a2e22;font-size:.95rem;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:1rem;transition:background .15s}
 .faq-item summary:hover{background:#f4faf7}
-.faq-item summary::after{content:"+";font-size:1.3rem;color:#74FB71;font-weight:400;transition:transform .2s}
+.faq-item summary::after{content:"+";flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:6px;background:#00FF5A;color:#fff;font-size:1.25rem;font-weight:700;line-height:1;transition:background .2s,transform .2s}
+.faq-item summary:hover::after{background:#00e651}
 .faq-item[open] summary::after{content:"−"}
 .faq-item p,.faq-item div:not(summary){padding:0 1.25rem 1rem;color:#4a6b5a;font-size:.9rem;line-height:1.6}
 .faq-item summary::-webkit-details-marker{display:none}
