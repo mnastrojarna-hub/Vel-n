@@ -346,11 +346,11 @@ MG._editRez._loadBookings = async function(){
   try {
     var results = await Promise.all([
       window.sb.from('bookings')
-        .select('id,moto_id,start_date,end_date,pickup_time,return_time,status,payment_status,total_price,created_at,delivery_fee,extras_price,discount_amount,pickup_method,pickup_address,pickup_lat,pickup_lng,return_method,return_address,return_lat,return_lng,stripe_payment_intent_id,booking_source,motorcycles(id,model,brand,image_url,license_required,price_mon,price_tue,price_wed,price_thu,price_fri,price_sat,price_sun,price_weekday,price_weekend)')
+        .select('id,moto_id,start_date,end_date,pickup_time,return_time,status,payment_status,total_price,created_at,delivery_fee,extras_price,discount_amount,pickup_method,pickup_address,pickup_lat,pickup_lng,return_method,return_address,return_lat,return_lng,stripe_payment_intent_id,booking_source,modification_history,original_start_date,original_end_date,helmet_size,jacket_size,pants_size,boots_size,gloves_size,passenger_helmet_size,passenger_jacket_size,passenger_pants_size,passenger_boots_size,passenger_gloves_size,motorcycles(id,model,brand,image_url,images,license_required,price_mon,price_tue,price_wed,price_thu,price_fri,price_sat,price_sun,price_weekday,price_weekend)')
         .eq('user_id', uid)
         .order('start_date', { ascending: false }),
       window.sb.from('shop_orders')
-        .select('id,order_number,status,payment_status,total_amount,created_at,confirmed_at,stripe_payment_intent_id,shop_order_items(product_id,size,name,price,quantity)')
+        .select('id,order_number,status,payment_status,total_amount,created_at,shop_order_items(product_id,size,name,price,quantity)')
         .eq('customer_id', uid)
         .order('created_at', { ascending: false }),
       window.sb.from('vouchers')
@@ -766,12 +766,62 @@ MG._editRez._showOrderDocs = async function(orderId, kind){
   }
 };
 
+// Stáhne / otevře dokument podle „kind" a dostupných polí. Tři režimy:
+//   1) `path` v storage → signed URL (nebo public fallback)
+//   2) generated_documents bez path → render template HTML + dosaď filled_data,
+//      uložíme jako Blob a otevřeme/uložíme — to je důvod, proč šlo VOP/Smlouva
+//      ve Velíně stáhnout a na webu ne (web předtím spoléhal jen na storage path).
+//   3) jinak — chybová hláška.
+MG._editRez._downloadDocRow = async function(row){
+  if (!row){ MG._editRez._showError(MG.t('editRez.doc.notAvailable')); return; }
+  // 1) preferuj storage
+  if (row.path){
+    return MG._editRez._openDocPdf(row.path, row.bucket || 'invoices');
+  }
+  // 2) klient render z template
+  if (row.kind === 'generated' && row.templateHtml && row.filledData){
+    try {
+      var html = MG._editRez._fillTemplate(row.templateHtml, row.filledData);
+      var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      // Otevřeme v novém tabu — zákazník si dokument prohlédne / vytiskne / uloží
+      var w = window.open(url, '_blank');
+      if (!w){
+        // Fallback: vynucené stažení (popup blocker)
+        var a = document.createElement('a');
+        a.href = url; a.download = (row.label || 'dokument') + '.html';
+        document.body.appendChild(a); a.click(); a.remove();
+      }
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 30000);
+      return;
+    } catch(e){
+      console.error('[editRez] template render err', e);
+    }
+  }
+  MG._editRez._showError(MG.t('editRez.doc.notAvailable'));
+};
+
+// Jednoduchá template substituce {{key}} a {{nested.key}} — kompatibilní s
+// Velínovým `fillTemplate` ze `clientTemplates.js` (web nemá Mustache lib,
+// takže to děláme manuálně přes regex).
+MG._editRez._fillTemplate = function(html, vars){
+  if (!html || !vars) return html || '';
+  return String(html).replace(/\{\{\s*([\w.]+)\s*\}\}/g, function(_, key){
+    var parts = key.split('.'), v = vars;
+    for (var i = 0; i < parts.length; i++){
+      if (v == null) return '';
+      v = v[parts[i]];
+    }
+    return v == null ? '' : String(v);
+  });
+};
+
 // Otevře PDF z Supabase Storage. invoices.pdf_path může být plný path (s bucketem)
 // nebo jen relativní; default bucket = 'invoices'.
-MG._editRez._openDocPdf = async function(path){
+MG._editRez._openDocPdf = async function(path, defaultBucket){
   if (!path){ MG._editRez._showError(MG.t('editRez.doc.notAvailable')); return; }
   try {
-    var bucket = 'invoices';
+    var bucket = defaultBucket || 'invoices';
     var key = path;
     // Pokud path obsahuje slash a první segment je bucket name, rozdělíme
     if (path.indexOf('/') > -1){
@@ -875,12 +925,24 @@ MG._editRez._renderTabDocs = async function(){
         .eq('booking_id', b.id)
         .order('issue_date', { ascending: true }),
       window.sb.from('documents')
-        .select('id,type,name,file_url,storage_path,created_at')
+        .select('id,type,file_path,file_name,file_url,created_at')
+        .eq('booking_id', b.id)
+        .order('created_at', { ascending: true }),
+      window.sb.from('generated_documents')
+        .select('id,template_id,booking_id,pdf_path,filled_data,created_at,document_templates(name,type,content_html)')
         .eq('booking_id', b.id)
         .order('created_at', { ascending: true })
     ]);
     var invoices = (results[0] && results[0].data) || [];
     var docs     = (results[1] && results[1].data) || [];
+    var gen      = (results[2] && results[2].data) || [];
+
+    // Trigger sync_invoice_to_documents() / sync_generated_doc_to_documents()
+    // duplikuje záznamy do `documents`. Aby se v UI nezobrazovaly 2x, vyfiltrujeme
+    // typy které spravují faktury a generated_documents.
+    var SYNCED_TYPES = ['invoice_advance','payment_receipt','invoice_final','invoice_shop',
+                        'rental_contract','contract','vop','handover_protocol','protocol'];
+    docs = docs.filter(function(d){ return SYNCED_TYPES.indexOf(d.type) === -1; });
 
     var rows = [];
     invoices.forEach(function(d){
@@ -888,20 +950,41 @@ MG._editRez._renderTabDocs = async function(){
       var num = d.number || (d.id || '').substring(0,8);
       var amt = d.total ? MG.formatPrice(Number(d.total)) : '';
       var when = d.issue_date ? MG.formatDate(d.issue_date) : (d.created_at ? MG.formatDate(d.created_at) : '');
-      rows.push({ kind:'invoice', label: label, num: num, amt: amt, when: when, path: d.pdf_path });
+      rows.push({ kind:'invoice', label: label, num: num, amt: amt, when: when, path: d.pdf_path, bucket: 'invoices' });
+    });
+    gen.forEach(function(d){
+      var tplType = (d.document_templates && d.document_templates.type) || '';
+      var name = (d.document_templates && d.document_templates.name) || '';
+      var lblKey = 'editRez.doc.type.' + tplType;
+      var label = MG.t(lblKey, {});
+      if (label === lblKey || !label) label = name || tplType || 'Dokument';
+      var when = d.created_at ? MG.formatDate(d.created_at) : '';
+      // Klient-side fallback render — vždy generujeme HTML z template + filled_data,
+      // takže VOP/Smlouva půjde stáhnout i bez existujícího pdf_path v storage.
+      rows.push({
+        kind: 'generated', label: label, num: name, amt: '', when: when,
+        path: d.pdf_path, bucket: 'generated_documents',
+        templateHtml: (d.document_templates && d.document_templates.content_html) || '',
+        filledData: d.filled_data || null,
+        templateType: tplType
+      });
     });
     docs.forEach(function(d){
       var label = MG.t('editRez.doc.type.' + (d.type || 'unknown'), {});
       var when = d.created_at ? MG.formatDate(d.created_at) : '';
-      var path = d.storage_path || d.file_url;
-      rows.push({ kind:'document', label: label, num: d.name || '', amt: '', when: when, path: path });
+      var path = d.file_path || d.file_url;
+      rows.push({ kind:'document', label: label, num: d.file_name || '', amt: '', when: when, path: path, bucket: 'documents' });
     });
 
+    // Ulož řádky pro lazy-handlery (klient render html z template + filled_data)
+    MG._editRez._docRows = rows;
+
     var listHtml = rows.length
-      ? '<ul class="edit-rez-doclist">' + rows.map(function(r){
+      ? '<ul class="edit-rez-doclist">' + rows.map(function(r, i){
           var meta = [r.num, r.when, r.amt].filter(function(x){ return x; }).join(' · ');
-          var btn = r.path
-            ? '<button type="button" class="btn-link" data-pdf="' + r.path + '">' + MG.t('editRez.doc.download') + '</button>'
+          var canDownload = r.path || (r.kind === 'generated' && r.templateHtml && r.filledData);
+          var btn = canDownload
+            ? '<button type="button" class="btn-link" data-row="' + i + '">' + MG.t('editRez.doc.download') + '</button>'
             : '<span class="muted">' + MG.t('editRez.doc.notAvailable') + '</span>';
           return '<li><div><strong>' + r.label + '</strong>' + (meta ? '<br><span class="muted">' + meta + '</span>' : '') + '</div><div>' + btn + '</div></li>';
         }).join('') + '</ul>'
@@ -911,9 +994,10 @@ MG._editRez._renderTabDocs = async function(){
       + '<p class="edit-rez-tip">' + MG.t('editRez.doc.help') + '</p>'
       + listHtml;
 
-    t.querySelectorAll('[data-pdf]').forEach(function(btn){
+    t.querySelectorAll('[data-row]').forEach(function(btn){
       btn.addEventListener('click', function(){
-        MG._editRez._openDocPdf(btn.getAttribute('data-pdf'));
+        var row = MG._editRez._docRows[parseInt(btn.getAttribute('data-row'), 10)];
+        MG._editRez._downloadDocRow(row);
       });
     });
   } catch(err){
