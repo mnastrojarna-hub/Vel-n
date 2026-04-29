@@ -319,34 +319,111 @@ MG._editRez._submitForgot = async function(e){
   btn.disabled = true;
   btn.textContent = MG.t('editRez.forgot.submitting');
   try {
-    // Redirect zpět na úpravu po nastavení hesla (Supabase přidá ?type=recovery).
-    var redirectTo = window.location.origin + '/upravit-rezervaci';
-    var res = await window.sb.auth.resetPasswordForEmail(email, { redirectTo: redirectTo });
+    // Supabase v aktuální verzi posílá místo magic linku 8-znakový OTP kód
+    // (alfanumerický, expires 1h). Stejný flow jako mobilní app.
+    // resetPasswordForEmail spustí Reset Password e-mail s `{{ .Token }}` placeholderem.
+    var res = await window.sb.auth.resetPasswordForEmail(email);
     if (res.error){
       console.warn('[editRez] resetPassword err', res.error);
-      // 500 = server-side problem (typicky nezkonfigurovaný SMTP nebo
-      // chybějící redirect URL v allow listu) — uživateli ukážeme info,
-      // ne generický success, ať ví, že to není jeho chyba.
       var st = res.error.status;
       if (st === 500 || st >= 500){
         MG._editRez._showError(MG.t('editRez.err.serverDown'));
         return;
       }
-      // Jinak (4xx) ukážeme generický success — neprozradíme, že email
-      // neexistuje (anti-enumeration), standardní auth pattern.
+      // 4xx — generický success (anti-enumeration).
     }
-    var c = document.getElementById('edit-rez-content');
-    c.innerHTML = '<section class="edit-rez-card edit-rez-success">'
-      + '<p>' + MG.t('editRez.forgot.success') + '</p>'
-      + '<p><a href="#" id="edit-rez-back-login2">' + MG.t('editRez.forgot.back') + '</a></p>'
-      + '</section>';
-    document.getElementById('edit-rez-back-login2').addEventListener('click', function(ev){
-      ev.preventDefault();
-      MG._editRez._goto('login');
-    });
+    // Email byl odeslán — zobrazíme OTP formulář (zadej kód + nové heslo).
+    MG._editRez._renderOtpReset(email);
   } catch(err){
     console.error('[editRez] forgot err', err);
     MG._editRez._showError(MG.t('editRez.forgot.error'));
+  } finally {
+    MG._editRez._setBusy(false);
+    btn.disabled = false;
+    btn.textContent = origLabel;
+  }
+};
+
+// ===== OTP RESET (verifyOtp + updateUser) — 1:1 jako mobilní app =====
+// Po `resetPasswordForEmail` zákazník dostane email s 8-znakovým OTP.
+// Tady ho zadá spolu s novým heslem. verifyOtp vystaví session,
+// updateUser nastaví nové heslo. Po úspěchu je rovnou přihlášen do listu.
+MG._editRez._renderOtpReset = function(email){
+  MG._editRez._renderShell();
+  var c = document.getElementById('edit-rez-content');
+  c.innerHTML =
+    '<section class="edit-rez-card">' +
+    '<h2>' + MG.t('editRez.reset.title') + '</h2>' +
+    '<p>' + MG.t('editRez.reset.otpHelp', { email: email }) + '</p>' +
+    '<form id="edit-rez-otp-form" class="edit-rez-form" novalidate>' +
+      '<label>' + MG.t('editRez.reset.otpCode') +
+        '<input type="text" name="otp" required autocomplete="one-time-code" inputmode="text" maxlength="10" pattern="[A-Za-z0-9]+" style="letter-spacing:.2em;text-transform:uppercase;font-size:1.1rem">' +
+      '</label>' +
+      '<label>' + MG.t('editRez.reset.password') +
+        '<input type="password" name="password" required autocomplete="new-password" minlength="6">' +
+      '</label>' +
+      '<label>' + MG.t('editRez.reset.password2') +
+        '<input type="password" name="password2" required autocomplete="new-password" minlength="6">' +
+      '</label>' +
+      '<input type="hidden" name="email" value="' + email.replace(/"/g, '&quot;') + '">' +
+      '<button type="submit" class="btn btngreen">' + MG.t('editRez.reset.submit') + '</button>' +
+    '</form>' +
+    '<p><a href="#" id="edit-rez-otp-back">' + MG.t('editRez.forgot.back') + '</a></p>' +
+    '</section>';
+  document.getElementById('edit-rez-otp-back').addEventListener('click', function(ev){
+    ev.preventDefault();
+    MG._editRez._goto('login');
+  });
+  document.getElementById('edit-rez-otp-form').addEventListener('submit', MG._editRez._submitOtpReset);
+};
+
+MG._editRez._submitOtpReset = async function(e){
+  e.preventDefault();
+  if (MG._editRez.busy) return;
+  var f = e.currentTarget;
+  var btn = f.querySelector('button[type=submit]');
+  var origLabel = btn.textContent;
+  var email = (f.email.value || '').trim().toLowerCase();
+  var otp = (f.otp.value || '').trim().toUpperCase();
+  var pw = f.password.value;
+  var pw2 = f.password2.value;
+  if (!otp || otp.length < 6){
+    MG._editRez._showError(MG.t('editRez.reset.otpInvalid'));
+    return;
+  }
+  if (!pw || pw.length < 6){
+    MG._editRez._showError(MG.t('editRez.reset.tooShort'));
+    return;
+  }
+  if (pw !== pw2){
+    MG._editRez._showError(MG.t('editRez.reset.mismatch'));
+    return;
+  }
+  MG._editRez._setBusy(true);
+  btn.disabled = true;
+  btn.textContent = MG.t('editRez.reset.submitting');
+  try {
+    // 1) Ověř OTP kód → vystaví session
+    var v = await window.sb.auth.verifyOtp({ email: email, token: otp, type: 'recovery' });
+    if (v.error || !v.data || !v.data.session){
+      console.error('[editRez] verifyOtp err', v.error);
+      MG._editRez._showError(MG.t('editRez.reset.otpInvalid'));
+      return;
+    }
+    // 2) Nastav nové heslo (na vystavené session)
+    var u = await window.sb.auth.updateUser({ password: pw });
+    if (u.error){
+      console.error('[editRez] updateUser err', u.error);
+      MG._editRez._showError(MG.t('editRez.reset.error'));
+      return;
+    }
+    // 3) Hotovo — uživatel je přihlášený, načti rezervace a jdi do listu
+    MG._editRez.user = (v.data && v.data.user) || (u.data && u.data.user) || null;
+    await MG._editRez._loadBookings();
+    MG._editRez._goto('list');
+  } catch(err){
+    console.error('[editRez] otp reset exception', err);
+    MG._editRez._showError(MG.t('editRez.reset.error'));
   } finally {
     MG._editRez._setBusy(false);
     btn.disabled = false;
