@@ -356,16 +356,22 @@ MG._editRez._loadBookings = async function(){
       window.sb.from('vouchers')
         .select('id,code,amount,currency,status,valid_from,valid_until,created_at,description,category,redeemed_at,booking_id')
         .eq('buyer_id', uid)
-        .order('created_at', { ascending: false })
+        .order('created_at', { ascending: false }),
+      window.sb.from('profiles')
+        .select('marketing_consent,consent_gdpr,consent_vop,consent_email,consent_sms,consent_push,consent_data_processing,consent_photo,consent_whatsapp,consent_contract')
+        .eq('id', uid)
+        .maybeSingle()
     ]);
     MG._editRez.bookings = (results[0] && results[0].data) || [];
     MG._editRez.shopOrders = (results[1] && results[1].data) || [];
     MG._editRez.vouchers = (results[2] && results[2].data) || [];
+    MG._editRez.consents = (results[3] && results[3].data) || {};
   } catch(err){
     console.error('[editRez] loadBookings exception', err);
     MG._editRez.bookings = [];
     MG._editRez.shopOrders = [];
     MG._editRez.vouchers = [];
+    MG._editRez.consents = {};
   }
 };
 
@@ -387,13 +393,17 @@ MG._editRez._renderList = function(){
   var shop = MG._editRez.shopOrders || [];
   var vouchers = MG._editRez.vouchers || [];
 
+  MG._editRez._injectConsentsStyles();
+
   if (!bs.length && !shop.length && !vouchers.length){
     c.innerHTML =
       '<section class="edit-rez-card edit-rez-empty">' +
       '<h2>' + MG.t('editRez.list.title') + '</h2>' +
       '<p>' + MG.t('editRez.list.empty') + '</p>' +
       '<p><a class="btn btngreen-small" href="/rezervace">' + MG.t('editRez.list.openNew') + '</a></p>' +
-      '</section>';
+      '</section>' +
+      MG._editRez._renderConsentsCard();
+    MG._editRez._bindConsentsCard(c);
     return;
   }
 
@@ -437,7 +447,10 @@ MG._editRez._renderList = function(){
     (vouchersHtml
       ? '<section class="edit-rez-card"><h2>' + MG.t('editRez.list.vouchersTitle') + '</h2>'
         + '<div class="edit-rez-booking-list">' + vouchersHtml + '</div></section>'
-      : '');
+      : '') +
+    MG._editRez._renderConsentsCard();
+
+  MG._editRez._bindConsentsCard(c);
 
   // Filter switchers
   c.querySelectorAll('.edit-rez-filter').forEach(function(btn){
@@ -524,6 +537,185 @@ MG._editRez._renderVoucherRow = function(v){
     '</div>' +
     '<div class="edit-rez-booking-price">' + price + '</div>' +
   '</button>';
+};
+
+// ===== SOUHLASY =====
+// Sloupce v profiles odpovídají Velínu 1:1. Některé jsou zákonem povinné pro
+// rezervaci (GDPR, VOP, Smlouva, Zpracování dat) — pokud je zákazník odvolá,
+// v Supabase je uložíme jako false, ale ve Velíně se mu to obarví červeně a
+// nová rezervace už od něj nepůjde, dokud neodsouhlasí znovu (řeší create_web_booking).
+MG._editRez._CONSENT_FIELDS = [
+  { key: 'marketing_consent',     label: 'Marketingový souhlas',  desc: 'Newslettery, slevové akce a novinky.' },
+  { key: 'consent_gdpr',          label: 'GDPR',                  desc: 'Souhlas se zpracováním osobních údajů (povinné pro rezervaci).' },
+  { key: 'consent_vop',           label: 'VOP',                   desc: 'Souhlas s všeobecnými obchodními podmínkami (povinné pro rezervaci).' },
+  { key: 'consent_data_processing', label: 'Zpracování dat',      desc: 'Souhlas se zpracováním dat pro plnění smlouvy.' },
+  { key: 'consent_contract',      label: 'Smlouva',               desc: 'Souhlas s návrhem nájemní smlouvy MotoGo24.' },
+  { key: 'consent_email',         label: 'Email',                 desc: 'Komunikace e-mailem (potvrzení, faktury, smlouvy).' },
+  { key: 'consent_sms',           label: 'SMS',                   desc: 'Komunikace přes SMS (přístupové kódy, urgentní upozornění).' },
+  { key: 'consent_whatsapp',      label: 'WhatsApp',              desc: 'Komunikace přes WhatsApp.' },
+  { key: 'consent_push',          label: 'Push',                  desc: 'Push notifikace v aplikaci MotoGo24.' },
+  { key: 'consent_photo',         label: 'Foto',                  desc: 'Fotografování dokladů přes Mindee OCR pro autonomní pobočku.' }
+];
+
+MG._editRez._renderConsentsCard = function(){
+  var cs = MG._editRez.consents || {};
+  var rows = MG._editRez._CONSENT_FIELDS.map(function(f){
+    var val = !!cs[f.key];
+    return '<div class="edit-rez-consent-row" data-key="' + f.key + '">' +
+      '<div class="edit-rez-consent-body">' +
+        '<div class="edit-rez-consent-label">' + f.label + '</div>' +
+        '<div class="edit-rez-consent-desc">' + f.desc + '</div>' +
+      '</div>' +
+      '<label class="edit-rez-toggle" aria-label="' + f.label + '">' +
+        '<input type="checkbox" data-consent="' + f.key + '"' + (val ? ' checked' : '') + '>' +
+        '<span class="edit-rez-toggle-slider"></span>' +
+        '<span class="edit-rez-toggle-state">' + (val ? 'Ano' : 'Ne') + '</span>' +
+      '</label>' +
+    '</div>';
+  }).join('');
+
+  return '<section class="edit-rez-card edit-rez-consents-card">' +
+    '<div class="edit-rez-consents-head">' +
+      '<h2>Souhlasy</h2>' +
+      '<div class="edit-rez-consents-actions">' +
+        '<button type="button" class="btn btn-secondary" id="edit-rez-consents-grant-all">Přijmout vše</button>' +
+        '<button type="button" class="btn btn-secondary" id="edit-rez-consents-revoke-all">Odvolat vše</button>' +
+      '</div>' +
+    '</div>' +
+    '<p class="edit-rez-consents-help">Změny se ukládají automaticky. Odvolání povinných souhlasů (GDPR, VOP, Smlouva, Zpracování dat) zablokuje další nové rezervace, dokud souhlasy znovu neudělíte.</p>' +
+    '<div class="edit-rez-consents-list">' + rows + '</div>' +
+    '<div id="edit-rez-consents-status" class="edit-rez-consents-status" aria-live="polite"></div>' +
+  '</section>';
+};
+
+// Inject one-shot styles pro souhlasy (toggle switches + layout).
+MG._editRez._injectConsentsStyles = function(){
+  if (document.getElementById('edit-rez-consents-styles')) return;
+  var st = document.createElement('style');
+  st.id = 'edit-rez-consents-styles';
+  st.textContent =
+    '.edit-rez-consents-card{}'+
+    '.edit-rez-consents-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.6rem;margin-bottom:.4rem}'+
+    '.edit-rez-consents-actions{display:flex;gap:.5rem;flex-wrap:wrap}'+
+    '.edit-rez-consents-actions .btn-secondary{background:#fff;border:1.5px solid #d4e8e0;color:#1a2e22;padding:.45rem .9rem;border-radius:999px;font-weight:700;font-size:.85rem;cursor:pointer;transition:all .15s}'+
+    '.edit-rez-consents-actions .btn-secondary:hover{border-color:#1a8c1a;background:#f0faf5}'+
+    '.edit-rez-consents-help{font-size:.82rem;color:#5a6a60;margin:0 0 .8rem}'+
+    '.edit-rez-consents-list{display:flex;flex-direction:column;gap:.4rem}'+
+    '.edit-rez-consent-row{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.7rem .9rem;background:#fafdfb;border:1px solid #e5efe9;border-radius:14px}'+
+    '.edit-rez-consent-row.busy{opacity:.55}'+
+    '.edit-rez-consent-body{flex:1;min-width:0}'+
+    '.edit-rez-consent-label{font-weight:700;color:#1a2e22}'+
+    '.edit-rez-consent-desc{font-size:.78rem;color:#6a7a70;margin-top:.1rem}'+
+    '.edit-rez-toggle{display:inline-flex;align-items:center;gap:.5rem;cursor:pointer;user-select:none}'+
+    '.edit-rez-toggle input{position:absolute;opacity:0;pointer-events:none}'+
+    '.edit-rez-toggle-slider{width:46px;height:26px;background:#cdd7d2;border-radius:999px;position:relative;transition:background .18s}'+
+    '.edit-rez-toggle-slider::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;background:#fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:left .18s}'+
+    '.edit-rez-toggle input:checked + .edit-rez-toggle-slider{background:#1a8c1a}'+
+    '.edit-rez-toggle input:checked + .edit-rez-toggle-slider::after{left:23px}'+
+    '.edit-rez-toggle-state{font-weight:700;font-size:.85rem;color:#1a2e22;min-width:28px}'+
+    '.edit-rez-consents-status{font-size:.82rem;margin-top:.7rem;min-height:1.2em;color:#1a8c1a}'+
+    '.edit-rez-consents-status.error{color:#c0392b}';
+  document.head.appendChild(st);
+};
+
+// Po render listu připojí listenery na toggle switche + tlačítka.
+MG._editRez._bindConsentsCard = function(scope){
+  var card = scope.querySelector('.edit-rez-consents-card');
+  if (!card) return;
+  card.querySelectorAll('input[data-consent]').forEach(function(inp){
+    inp.addEventListener('change', function(){
+      MG._editRez._saveConsent(inp.getAttribute('data-consent'), inp.checked, inp);
+    });
+  });
+  var grantAll = card.querySelector('#edit-rez-consents-grant-all');
+  if (grantAll) grantAll.addEventListener('click', function(){
+    MG._editRez._saveAllConsents(true);
+  });
+  var revokeAll = card.querySelector('#edit-rez-consents-revoke-all');
+  if (revokeAll) revokeAll.addEventListener('click', function(){
+    MG._editRez._confirmDialog('Opravdu chcete odvolat všechny souhlasy?', function(){
+      MG._editRez._saveAllConsents(false);
+    });
+  });
+};
+
+MG._editRez._setConsentsStatus = function(msg, isError){
+  var el = document.getElementById('edit-rez-consents-status');
+  if (!el) return;
+  el.textContent = msg || '';
+  el.classList.toggle('error', !!isError);
+  if (msg && !isError){
+    setTimeout(function(){
+      if (el.textContent === msg) el.textContent = '';
+    }, 3000);
+  }
+};
+
+// Save jednoho souhlasu — direct profiles.update (RLS: user UPDATE id=uid OK).
+MG._editRez._saveConsent = async function(key, value, inp){
+  if (!MG._editRez.user) return;
+  var row = inp && inp.closest('.edit-rez-consent-row');
+  if (row) row.classList.add('busy');
+  inp.disabled = true;
+  var stateEl = row && row.querySelector('.edit-rez-toggle-state');
+  if (stateEl) stateEl.textContent = value ? 'Ano' : 'Ne';
+  try {
+    var payload = {}; payload[key] = !!value;
+    var r = await window.sb.from('profiles').update(payload).eq('id', MG._editRez.user.id);
+    if (r.error){
+      console.error('[editRez] consent save err', key, r.error);
+      // Rollback UI
+      inp.checked = !value;
+      if (stateEl) stateEl.textContent = !value ? 'Ano' : 'Ne';
+      MG._editRez._setConsentsStatus('Nepodařilo se uložit souhlas.', true);
+    } else {
+      (MG._editRez.consents = MG._editRez.consents || {})[key] = !!value;
+      MG._editRez._setConsentsStatus(value ? 'Souhlas udělen.' : 'Souhlas odvolán.', false);
+    }
+  } catch(e){
+    console.error('[editRez] consent save exception', e);
+    inp.checked = !value;
+    if (stateEl) stateEl.textContent = !value ? 'Ano' : 'Ne';
+    MG._editRez._setConsentsStatus('Nepodařilo se uložit souhlas.', true);
+  } finally {
+    inp.disabled = false;
+    if (row) row.classList.remove('busy');
+  }
+};
+
+// Hromadné nastavení všech souhlasů (Přijmout vše / Odvolat vše)
+MG._editRez._saveAllConsents = async function(value){
+  if (!MG._editRez.user) return;
+  var card = document.querySelector('.edit-rez-consents-card');
+  if (!card) return;
+  card.classList.add('busy');
+  var inputs = card.querySelectorAll('input[data-consent]');
+  inputs.forEach(function(inp){ inp.disabled = true; });
+  try {
+    var payload = {};
+    MG._editRez._CONSENT_FIELDS.forEach(function(f){ payload[f.key] = !!value; });
+    var r = await window.sb.from('profiles').update(payload).eq('id', MG._editRez.user.id);
+    if (r.error){
+      console.error('[editRez] saveAll consents err', r.error);
+      MG._editRez._setConsentsStatus('Nepodařilo se uložit souhlasy.', true);
+      return;
+    }
+    MG._editRez.consents = MG._editRez.consents || {};
+    inputs.forEach(function(inp){
+      var key = inp.getAttribute('data-consent');
+      inp.checked = !!value;
+      MG._editRez.consents[key] = !!value;
+      var stateEl = inp.parentElement.querySelector('.edit-rez-toggle-state');
+      if (stateEl) stateEl.textContent = value ? 'Ano' : 'Ne';
+    });
+    MG._editRez._setConsentsStatus(value ? 'Všechny souhlasy uděleny.' : 'Všechny souhlasy odvolány.', false);
+  } catch(e){
+    console.error('[editRez] saveAll exception', e);
+    MG._editRez._setConsentsStatus('Nepodařilo se uložit souhlasy.', true);
+  } finally {
+    inputs.forEach(function(inp){ inp.disabled = false; });
+    card.classList.remove('busy');
+  }
 };
 
 // Modal s odkazy na faktury / dokumenty pro shop_order nebo voucher.
