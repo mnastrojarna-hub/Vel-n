@@ -73,12 +73,17 @@ function i18nOriginForLang($lang) {
  *   cs  na .cz  → https://motogo24.cz{path}
  *   en  na .com → https://motogo24.com{path}
  *   de/fr/nl/pl/es na .com → https://motogo24.com{path}?lang=xx
+ *
+ * $forceLangQuery=true vždy přidá ?lang=xx (i pro doménový default). Používá
+ * jen language switcher — díky tomu se vždy refreshne cookie `mg_web_lang`
+ * a explicitní volba EN na .com (resp. CS na .cz) přebije starou cookie.
+ * Pro canonical/hreflang to NIKDY nezapínat — mate Google.
  */
-function i18nUrlForLang($lang, $path) {
+function i18nUrlForLang($lang, $path, $forceLangQuery = false) {
     $origin = i18nOriginForLang($lang);
     // Defaultní jazyk dané domény nepotřebuje ?lang= parametr.
     $isDomainDefault = ($lang === 'cs') || ($lang === 'en');
-    if ($isDomainDefault) {
+    if ($isDomainDefault && !$forceLangQuery) {
         return $origin . $path;
     }
     $sep = (strpos($path, '?') !== false) ? '&' : '?';
@@ -406,8 +411,11 @@ function renderLanguageSwitcher() {
 
     $items = '';
     foreach (I18N_LANGUAGES as $code => $info) {
-        // Cross-domain URL pro daný jazyk (cs → .cz, ostatní → .com)
-        $url = i18nUrlForLang($code, $path);
+        // Cross-domain URL pro daný jazyk (cs → .cz, ostatní → .com).
+        // forceLangQuery=true → vždy připojí ?lang=xx, aby se cookie `mg_web_lang`
+        // refreshla i při přepnutí na doménový default (jinak by stará cookie
+        // přebila novou volbu — přesně to byl bug s nefunkčním přepínáním na EN).
+        $url = i18nUrlForLang($code, $path, true);
         // Připoj zbývající query parametry (mimo lang)
         if (!empty($existingQuery)) {
             $sep = (strpos($url, '?') !== false) ? '&' : '?';
