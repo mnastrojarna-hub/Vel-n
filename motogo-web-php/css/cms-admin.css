@@ -109,26 +109,42 @@
 }
 .mg-cms-toolbar button:hover { filter: brightness(1.1); }
 
-/* ===== Inline edit ===== */
+/* ===== Inline edit =====
+ * Vizuální princip: editovaný prvek se vizuálně „vytrhne" z designu stránky —
+ * tmavé pozadí (#0f1a14) + bílý text (#fff) + zelený rámeček. Tím je text vždy
+ * čitelný BEZ ohledu na podklad (hero s bílým textem na tmavém, světlý footer,
+ * gradient hero atd.). `<span data-cms-key>` z `tc()` helperu jinak dědí barvu
+ * rodiče, což na světlém edit-pozadí způsobovalo splynutí (např. bílý text
+ * z hero zmizel na světle-zeleném podkladu). `-webkit-text-fill-color` přebíjí
+ * gradient/clip texty (use case: hero h1 s background-clip:text). */
 [data-cms-key].mg-cms-editing {
   outline: 3px solid #74FB71 !important;
   outline-offset: 4px;
-  background-color: #f0fff4 !important;
-  /* Vynucení tmavé barvy textu — `<span data-cms-key>` jinak dědí barvu rodiče
-     (např. bílou v hero sekci nad tmavým pozadím), takže text by na světlém
-     edit-pozadí zmizel. `-webkit-text-fill-color` přebíjí gradient/clip texty. */
-  color: #0f1a14 !important;
-  -webkit-text-fill-color: #0f1a14 !important;
+  background-color: #0f1a14 !important;
+  background-image: none !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
   text-shadow: none !important;
+  filter: none !important;
   cursor: text;
-  caret-color: #1a2e22;
+  caret-color: #74FB71;
   min-width: 80px;
   min-height: 1em;
+  border-radius: 4px;
+  box-shadow: 0 0 0 4px rgba(116, 251, 113, .25), 0 8px 24px rgba(0, 0, 0, .35);
 }
 [data-cms-key].mg-cms-editing * {
-  color: #0f1a14 !important;
-  -webkit-text-fill-color: #0f1a14 !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
   text-shadow: none !important;
+  filter: none !important;
+}
+/* Některé sekce mají před `<span>` ::before pseudo-element nebo gradient overlay —
+ * vypneme je v edit režimu, ať nepřekrývají text. */
+[data-cms-key].mg-cms-editing::before {
+  display: none !important;
 }
 [data-cms-key].mg-cms-editing::after {
   opacity: 1;
@@ -139,16 +155,19 @@
 }
 [data-cms-key].mg-cms-saving {
   outline-color: #f59e0b !important;
-  background-color: #fef3c7 !important;
-  color: #0f1a14 !important;
-  -webkit-text-fill-color: #0f1a14 !important;
+  background-color: #1f2937 !important;
+  background-image: none !important;
+  color: #fef3c7 !important;
+  -webkit-text-fill-color: #fef3c7 !important;
   text-shadow: none !important;
   pointer-events: none;
-  opacity: .85;
+  opacity: .9;
 }
 [data-cms-key].mg-cms-saving * {
-  color: #0f1a14 !important;
-  -webkit-text-fill-color: #0f1a14 !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  color: #fef3c7 !important;
+  -webkit-text-fill-color: #fef3c7 !important;
   text-shadow: none !important;
 }
 [data-cms-key].mg-cms-saving::after {
