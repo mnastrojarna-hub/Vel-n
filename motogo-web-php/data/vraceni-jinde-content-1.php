@@ -39,7 +39,7 @@ return [
                 'text' => 'Vrácení domlouváme na předem sjednaný čas – klidně večer nebo o víkendu.',
             ],
             [
-                'icon' => 'gfx/potvrzeni-rezervace.svg',
+                'icon' => 'gfx/predani-motorky.svg',
                 'title' => 'Jednoduchost',
                 'text' => 'Předáš klíče a výbavu, my zkontrolujeme motorku a odjedeme. Žádné papírování navíc.',
             ],

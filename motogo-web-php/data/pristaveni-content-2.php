@@ -43,7 +43,7 @@ return [
                 'text' => 'Zkontroluj shrnutí objednávky, odsouhlas podmínky a zaplať online.',
             ],
             [
-                'icon' => 'gfx/predani-motorky.svg',
+                'icon' => 'gfx/podpis-dokumentu.svg',
                 'title' => 'Převzetí na místě',
                 'text' => 'Při předání zkontrolujeme doklady, doplníme smlouvu a podepíšeme předávací protokol.',
             ],
@@ -53,7 +53,7 @@ return [
                 'text' => 'Vyraz na cestu – bez kauce, bez stresu. Zbytek je jen asfalt a svoboda.',
             ],
             [
-                'icon' => 'gfx/prevezmi-motorku.svg',
+                'icon' => 'gfx/predani-motorky.svg',
                 'title' => 'Vrácení motorky',
                 'text' => 'Motorku vrať včas na předem sjednané místo. Nemusíš tankovat ani mýt.',
             ],
