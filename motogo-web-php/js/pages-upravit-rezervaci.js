@@ -473,6 +473,14 @@ MG._editRez._renderList = function(){
     });
   });
 
+  // Pending CTA — pokračovat k platbě (resume flow na /rezervace?resume=<id>)
+  c.querySelectorAll('[data-pay-id]').forEach(function(btn){
+    btn.addEventListener('click', function(ev){
+      ev.stopPropagation();
+      MG._editRez._resumePending(btn.getAttribute('data-pay-id'));
+    });
+  });
+
   // Shop / voucher row → openuje download dokumentů (lazy load přes detail RPC)
   c.querySelectorAll('[data-shop-id]').forEach(function(btn){
     btn.addEventListener('click', function(){
@@ -486,23 +494,70 @@ MG._editRez._renderList = function(){
   });
 };
 
+MG._editRez._isPendingUnpaid = function(b){
+  return b && b.status === 'pending' && b.payment_status !== 'paid';
+};
+
+// Pokračování k platbě = zákazník se vrátí přesně tam, kde skončil v rezervačním
+// flow (resume RPC v `pages-rezervace.js` načte všechny step-1 hodnoty, motorky,
+// extras, slevu a předskočí na step 2 — doklady + heslo + Stripe).
+MG._editRez._resumePending = function(bookingId){
+  if (!bookingId) return;
+  window.location.href = '/rezervace?resume=' + encodeURIComponent(bookingId);
+};
+
+// Storno pending+unpaid — žádný refund (nebylo zaplaceno), použijeme stejný RPC
+// jako u zaplacených rezervací; cancel_booking_tracked si ošetří refund kalkulaci
+// (0 % protože payment_status != 'paid').
+MG._editRez._cancelPending = async function(bookingId){
+  if (!bookingId || MG._editRez.busy) return;
+  MG._editRez._setBusy(true);
+  try {
+    var r = await window.sb.rpc('cancel_booking_tracked', {
+      p_booking_id: bookingId,
+      p_reason: 'Zrušeno zákazníkem před zaplacením'
+    });
+    if (r.error){
+      console.error('[editRez] cancelPending err', r.error);
+      MG._editRez._showError(MG.t('editRez.err.generic'));
+      return;
+    }
+    // Po stornu zpět na list (s refreshem)
+    MG._editRez.selectedBooking = null;
+    await MG._editRez._loadBookings();
+    MG._editRez._goto('list');
+  } catch(err){
+    console.error('[editRez] cancelPending exception', err);
+    MG._editRez._showError(MG.t('editRez.err.generic'));
+  } finally {
+    MG._editRez._setBusy(false);
+  }
+};
+
 MG._editRez._renderBookingRow = function(b){
   var m = b.motorcycles || {};
   var motoLabel = (m.brand ? m.brand + ' ' : '') + (m.model || '');
   var img = m.image_url ? '<img src="'+m.image_url+'" alt="" loading="lazy">' : '';
   var dates = MG.formatDate(b.start_date) + ' – ' + MG.formatDate(b.end_date);
   var ds = MG._editRez._displayStatus(b);
-  var statusLbl = MG.t('editRez.status.' + ds);
+  var pending = MG._editRez._isPendingUnpaid(b);
+  // Pro pending bookingy ukážeme jiný "status" (nezaplacená) — at je to vidět hned z listu.
+  var statusLbl = pending ? 'Nezaplaceno' : MG.t('editRez.status.' + ds);
+  var statusCls = pending ? 'pending-unpaid' : ds;
   var price = MG.formatPrice(Number(b.total_price || 0));
-  return '<button type="button" class="edit-rez-booking" data-id="' + b.id + '">' +
-    '<div class="edit-rez-booking-img">' + img + '</div>' +
-    '<div class="edit-rez-booking-body">' +
-      '<div class="edit-rez-booking-title">' + motoLabel + '</div>' +
-      '<div class="edit-rez-booking-meta">' + dates + '</div>' +
-      '<div class="edit-rez-booking-status status-' + ds + '">' + statusLbl + '</div>' +
-    '</div>' +
-    '<div class="edit-rez-booking-price">' + price + '</div>' +
-  '</button>';
+  var payCta = pending
+    ? '<button type="button" class="edit-rez-row-pay" data-pay-id="' + b.id + '" aria-label="Pokračovat k platbě">💳 Pokračovat k platbě</button>'
+    : '';
+  return '<div class="edit-rez-booking-wrap">' +
+    '<button type="button" class="edit-rez-booking' + (pending ? ' pending' : '') + '" data-id="' + b.id + '">' +
+      '<div class="edit-rez-booking-img">' + img + '</div>' +
+      '<div class="edit-rez-booking-body">' +
+        '<div class="edit-rez-booking-title">' + motoLabel + '</div>' +
+        '<div class="edit-rez-booking-meta">' + dates + '</div>' +
+        '<div class="edit-rez-booking-status status-' + statusCls + '">' + statusLbl + '</div>' +
+      '</div>' +
+      '<div class="edit-rez-booking-price">' + price + '</div>' +
+    '</button>' + payCta + '</div>';
 };
 
 MG._editRez._renderShopRow = function(o){
@@ -614,7 +669,26 @@ MG._editRez._injectConsentsStyles = function(){
     '.edit-rez-toggle input:checked + .edit-rez-toggle-slider::after{left:23px}'+
     '.edit-rez-toggle-state{font-weight:700;font-size:.85rem;color:#1a2e22;min-width:28px}'+
     '.edit-rez-consents-status{font-size:.82rem;margin-top:.7rem;min-height:1.2em;color:#1a8c1a}'+
-    '.edit-rez-consents-status.error{color:#c0392b}';
+    '.edit-rez-consents-status.error{color:#c0392b}'+
+    /* ===== PENDING ROW + BANNER ===== */
+    '.edit-rez-booking-wrap{display:flex;flex-direction:column;gap:0;margin-bottom:.6rem}'+
+    '.edit-rez-booking-wrap .edit-rez-booking{margin-bottom:0;border-bottom-left-radius:0;border-bottom-right-radius:0}'+
+    '.edit-rez-booking-wrap .edit-rez-row-pay{background:linear-gradient(90deg,#1a8c1a,#0f5e0f);color:#fff;border:none;font-weight:800;padding:.7rem 1rem;cursor:pointer;font-size:.92rem;border-bottom-left-radius:14px;border-bottom-right-radius:14px;display:flex;align-items:center;justify-content:center;gap:.5rem;letter-spacing:.02em;transition:filter .15s}'+
+    '.edit-rez-booking-wrap .edit-rez-row-pay:hover{filter:brightness(1.08)}'+
+    '.edit-rez-booking.pending{border-left:4px solid #e6a019}'+
+    '.edit-rez-booking-status.status-pending-unpaid{background:#fff4d6;color:#7a5400;border:1px solid #e6a019}'+
+    '.edit-rez-pending-banner{background:linear-gradient(135deg,#fff4d6 0%,#ffe9b3 100%);border:1.5px solid #e6a019;display:grid;grid-template-columns:60px 1fr auto;gap:1rem;align-items:center;padding:1rem 1.2rem}'+
+    '@media(max-width:680px){.edit-rez-pending-banner{grid-template-columns:1fr;text-align:center}}'+
+    '.edit-rez-pending-icon{font-size:2.2rem;line-height:1;text-align:center}'+
+    '.edit-rez-pending-body h3{margin:0 0 .25rem;color:#7a5400;font-size:1.05rem}'+
+    '.edit-rez-pending-body p{margin:0;color:#5a4000;font-size:.85rem;line-height:1.4}'+
+    '.edit-rez-pending-actions{display:flex;flex-direction:column;gap:.45rem;min-width:200px}'+
+    '@media(max-width:680px){.edit-rez-pending-actions{min-width:0;flex-direction:row;flex-wrap:wrap;justify-content:center}}'+
+    '.edit-rez-pending-actions .btn{padding:.55rem 1rem;border-radius:999px;font-weight:700;cursor:pointer;border:none;font-size:.88rem;white-space:nowrap}'+
+    '.edit-rez-pending-actions .btngreen{background:#1a8c1a;color:#fff}'+
+    '.edit-rez-pending-actions .btngreen:hover{background:#147214}'+
+    '.edit-rez-pending-actions .btn-secondary{background:#fff;border:1.5px solid #e6a019;color:#7a5400}'+
+    '.edit-rez-pending-actions .btn-secondary:hover{background:#fff4d6}';
   document.head.appendChild(st);
 };
 
@@ -877,12 +951,29 @@ MG._editRez._renderDetail = function(){
     return '<button type="button" class="edit-rez-tab' + act + '" data-tab="' + t.key + '">' + t.label + '</button>';
   }).join('');
 
+  // Pending banner — vyzve k dokončení platby (nebo storno bez vrácení)
+  var pending = MG._editRez._isPendingUnpaid(b);
+  var pendingBanner = pending
+    ? '<section class="edit-rez-card edit-rez-pending-banner">' +
+        '<div class="edit-rez-pending-icon">⏳</div>' +
+        '<div class="edit-rez-pending-body">' +
+          '<h3>Rezervace čeká na zaplacení</h3>' +
+          '<p>Tato rezervace ještě nebyla potvrzena platbou. Dokud nezaplatíte, motorka pro vás není rezervována. Úpravy (datum, motorka, místo) půjdou až po dokončení platby.</p>' +
+        '</div>' +
+        '<div class="edit-rez-pending-actions">' +
+          '<button type="button" class="btn btngreen" id="edit-rez-resume-pay">💳 Pokračovat k platbě</button>' +
+          '<button type="button" class="btn btn-secondary" id="edit-rez-cancel-pending">Zrušit rezervaci</button>' +
+        '</div>' +
+      '</section>'
+    : '';
+
   c.innerHTML =
     '<section class="edit-rez-card edit-rez-detail-head">' +
       '<button type="button" class="btn-link" id="edit-rez-back">← ' + MG.t('editRez.list.title') + '</button>' +
       '<h2>' + motoLabel + '</h2>' +
       '<div class="edit-rez-detail-meta">' + dates + ' · ' + status + '</div>' +
     '</section>' +
+    pendingBanner +
     '<nav class="edit-rez-tabs" role="tablist">' + tabHtml + '</nav>' +
     '<section class="edit-rez-card" id="edit-rez-tab-content"></section>';
 
@@ -896,6 +987,20 @@ MG._editRez._renderDetail = function(){
       MG._editRez._renderDetail();
     });
   });
+
+  // Pending banner CTA
+  if (pending){
+    var resumeBtn = document.getElementById('edit-rez-resume-pay');
+    if (resumeBtn) resumeBtn.addEventListener('click', function(){
+      MG._editRez._resumePending(b.id);
+    });
+    var cancelBtn = document.getElementById('edit-rez-cancel-pending');
+    if (cancelBtn) cancelBtn.addEventListener('click', function(){
+      MG._editRez._confirmDialog('Opravdu chcete zrušit nezaplacenou rezervaci?', function(){
+        MG._editRez._cancelPending(b.id);
+      });
+    });
+  }
 
   // Per-tab obsah.
   if (MG._editRez.tab === 'detail')   return MG._editRez._renderTabDetail();
