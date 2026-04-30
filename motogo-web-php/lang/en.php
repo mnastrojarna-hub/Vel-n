@@ -339,6 +339,14 @@ return [
     'rez.cal.pickFromList' => 'Select a motorcycle from the list',
     'rez.cal.selectMoto' => 'select a motorcycle',
 
+    // ===== Camera / document scanner (pages-rezervace-camera.js) =====
+    'rez.cam.docs.id' => 'ID card',
+    'rez.cam.docs.license' => 'Driver\'s license',
+    'rez.cam.close' => 'Close',
+    'rez.cam.hint' => 'Place the document fully inside the frame. Hold the phone steady with good lighting.',
+    'rez.cam.shoot' => 'Start scan',
+    'rez.cam.progress' => 'Capturing…',
+
     // ===== Manage reservation (login + edit + cancel) =====
     'editRez.title' => 'Manage booking',
     'editRez.description' => 'Edit dates, extend, shorten or cancel your booking. Refunds follow our cancellation policy.',

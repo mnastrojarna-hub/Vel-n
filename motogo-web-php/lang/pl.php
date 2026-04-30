@@ -325,6 +325,14 @@ return [
     'rez.cal.pickFromList' => 'Wybierz motocykl z listy',
     'rez.cal.selectMoto' => 'wybierz motocykl',
 
+    // ===== Aparat / skaner dokumentów (pages-rezervace-camera.js) =====
+    'rez.cam.docs.id' => 'Dowód tożsamości',
+    'rez.cam.docs.license' => 'Prawo jazdy',
+    'rez.cam.close' => 'Zamknij',
+    'rez.cam.hint' => 'Umieść dokument w całości w ramce. Trzymaj telefon prosto przy dobrym oświetleniu.',
+    'rez.cam.shoot' => 'Rozpocznij skanowanie',
+    'rez.cam.progress' => 'Rejestracja…',
+
     'filters.search' => 'Szukaj',
     'filters.searchPlaceholder' => 'Szukaj modelu, marki…',
     'filters.category' => 'Kategoria',

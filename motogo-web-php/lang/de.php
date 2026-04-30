@@ -339,6 +339,14 @@ return [
     'rez.cal.pickFromList' => 'Wählen Sie ein Motorrad aus der Liste',
     'rez.cal.selectMoto' => 'Motorrad auswählen',
 
+    // ===== Kamera / Dokumentenscanner (pages-rezervace-camera.js) =====
+    'rez.cam.docs.id' => 'Personalausweis',
+    'rez.cam.docs.license' => 'Führerschein',
+    'rez.cam.close' => 'Schließen',
+    'rez.cam.hint' => 'Legen Sie das Dokument vollständig in den Rahmen. Halten Sie das Telefon ruhig bei guter Beleuchtung.',
+    'rez.cam.shoot' => 'Scan starten',
+    'rez.cam.progress' => 'Aufnahme…',
+
     // ===== Reservierung verwalten =====
     'editRez.title' => 'Reservierung verwalten',
     'editRez.description' => 'Termin ändern, verlängern, verkürzen oder stornieren. Erstattung gemäß Stornobedingungen.',

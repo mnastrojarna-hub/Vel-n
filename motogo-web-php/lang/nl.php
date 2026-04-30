@@ -325,6 +325,14 @@ return [
     'rez.cal.pickFromList' => 'Kies een motor uit de lijst',
     'rez.cal.selectMoto' => 'kies een motor',
 
+    // ===== Camera / documentscanner (pages-rezervace-camera.js) =====
+    'rez.cam.docs.id' => 'Identiteitsbewijs',
+    'rez.cam.docs.license' => 'Rijbewijs',
+    'rez.cam.close' => 'Sluiten',
+    'rez.cam.hint' => 'Plaats het document volledig in het kader. Houd de telefoon recht met goede verlichting.',
+    'rez.cam.shoot' => 'Scan starten',
+    'rez.cam.progress' => 'Opnemen…',
+
     'filters.search' => 'Zoeken',
     'filters.searchPlaceholder' => 'Zoek model, merk…',
     'filters.category' => 'Categorie',

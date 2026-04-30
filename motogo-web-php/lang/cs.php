@@ -438,6 +438,14 @@ return [
     'rez.cal.pickFromList' => 'Vyberte motorku ze seznamu',
     'rez.cal.selectMoto' => 'vyberte motorku',
 
+    // ===== Kamera / scanner dokladů (pages-rezervace-camera.js) =====
+    'rez.cam.docs.id' => 'Doklad totožnosti',
+    'rez.cam.docs.license' => 'Řidičský průkaz',
+    'rez.cam.close' => 'Zavřít',
+    'rez.cam.hint' => 'Vložte doklad celý do rámečku. Držte telefon rovně, dobré osvětlení.',
+    'rez.cam.shoot' => 'Spustit sken',
+    'rez.cam.progress' => 'Snímám…',
+
     // ===== Úprava rezervace (login + edit + storno) =====
     'editRez.title' => 'Upravit rezervaci',
     'editRez.description' => 'Upravte termín, prodlužte, zkraťte nebo zrušte svou rezervaci. Vrácení peněz dle storno podmínek.',

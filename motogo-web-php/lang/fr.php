@@ -339,6 +339,14 @@ return [
     'rez.cal.pickFromList' => 'Sélectionnez une moto dans la liste',
     'rez.cal.selectMoto' => 'choisir une moto',
 
+    // ===== Caméra / scanner de documents (pages-rezervace-camera.js) =====
+    'rez.cam.docs.id' => 'Pièce d\'identité',
+    'rez.cam.docs.license' => 'Permis de conduire',
+    'rez.cam.close' => 'Fermer',
+    'rez.cam.hint' => 'Placez le document entièrement dans le cadre. Maintenez le téléphone droit avec un bon éclairage.',
+    'rez.cam.shoot' => 'Démarrer le scan',
+    'rez.cam.progress' => 'Capture…',
+
     // ===== Filtry katalogu =====
     'filters.search' => 'Rechercher',
     'filters.searchPlaceholder' => 'Rechercher un modèle, une marque…',
