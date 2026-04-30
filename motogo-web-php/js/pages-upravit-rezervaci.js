@@ -1700,6 +1700,7 @@ MG._editRez._submitChange = async function(payload){
         },
         body: JSON.stringify({
           type: 'extension',
+          mode: 'checkout',
           booking_id: b.id,
           amount: r.data.net_diff,
           success_url: window.location.origin + '/upravit-rezervaci?paid_booking=' + b.id,
@@ -1707,13 +1708,14 @@ MG._editRez._submitChange = async function(payload){
         })
       });
       var data = await resp.json().catch(function(){ return null; });
-      if (!resp.ok || !data || !data.url){
+      var redirectUrl = data && (data.checkout_url || data.url);
+      if (!resp.ok || !redirectUrl){
         console.error('[editRez] payment err', resp.status, data);
         MG._editRez._showError((data && data.error) ? data.error : MG.t('editRez.err.generic'));
         try { localStorage.removeItem('editRez_pending_' + b.id); } catch(e){}
         return;
       }
-      window.location.href = data.url;
+      window.location.href = redirectUrl;
       return;
     }
     // Aplikováno bez doplatku — možná s refundem.
@@ -3159,6 +3161,7 @@ MG._editRez._submitExtend = async function(newStart, newEnd){
       },
       body: JSON.stringify({
         type: 'extension',
+        mode: 'checkout',
         booking_id: b.id,
         amount: diff,
         success_url: window.location.origin + '/upravit-rezervaci?paid_booking=' + b.id,
@@ -3166,13 +3169,14 @@ MG._editRez._submitExtend = async function(newStart, newEnd){
       })
     });
     var data = await resp.json().catch(function(){ return null; });
-    if (!resp.ok || !data || !data.url){
+    var redirectUrl = data && (data.checkout_url || data.url);
+    if (!resp.ok || !redirectUrl){
       console.error('[editRez] extend payment err', resp.status, data);
       MG._editRez._showError((data && data.error) ? data.error : MG.t('editRez.err.generic'));
       try { localStorage.removeItem('editRez_pending_' + b.id); } catch(e){}
       return;
     }
-    window.location.href = data.url;
+    window.location.href = redirectUrl;
   } catch(err){
     console.error('[editRez] extend exception', err);
     MG._editRez._showError(MG.t('editRez.err.generic'));

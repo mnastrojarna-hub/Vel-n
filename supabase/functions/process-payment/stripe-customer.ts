@@ -69,6 +69,9 @@ export interface PaymentRequest {
   origin?: string
   /** Active website language (cs/en/de/es/fr/nl/pl) — propagates to thank-you page. */
   locale?: string
+  /** Optional explicit Stripe redirect URLs — used by web extension flow to return to /upravit-rezervaci. */
+  success_url?: string
+  cancel_url?: string
 }
 
 export const PRODUCT_NAMES: Record<PaymentType, string> = {
