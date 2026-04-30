@@ -1564,12 +1564,13 @@ MG._editRez._renderTabMoto = async function(){
     });
     var withAvail = await Promise.all(rangePromises);
 
-    var oldPrice = MG._editRez._priceForRange(MG._editRez.selectedMoto, b.start_date, b.end_date);
+    var fbRate = MG._editRez._fallbackDailyRate(b);
+    var oldPrice = MG._editRez._priceForRange(MG._editRez.selectedMoto, b.start_date, b.end_date, fbRate);
     var cards = withAvail.map(function(x){
       var m = x.moto;
       var licOk = MG._editRez._licenseAllows(profileGroups, m.license_required);
       var available = !MG._editRez._rangeOverlapsOccupied(b.start_date, b.end_date, x.occupied);
-      var newPrice = MG._editRez._priceForRange(m, b.start_date, b.end_date);
+      var newPrice = MG._editRez._priceForRange(m, b.start_date, b.end_date, fbRate);
       var diff = Math.round(newPrice - oldPrice);
       var disabled = !licOk || !available;
 
@@ -1711,6 +1712,7 @@ MG._editRez._submitChange = async function(payload){
         },
         body: JSON.stringify({
           type: 'extension',
+          mode: 'checkout',
           booking_id: b.id,
           amount: r.data.net_diff,
           success_url: window.location.origin + '/upravit-rezervaci?paid_booking=' + b.id,
@@ -1718,13 +1720,14 @@ MG._editRez._submitChange = async function(payload){
         })
       });
       var data = await resp.json().catch(function(){ return null; });
-      if (!resp.ok || !data || !data.url){
+      var redirectUrl = data && (data.checkout_url || data.url);
+      if (!resp.ok || !redirectUrl){
         console.error('[editRez] payment err', resp.status, data);
         MG._editRez._showError((data && data.error) ? data.error : MG.t('editRez.err.generic'));
         try { localStorage.removeItem('editRez_pending_' + b.id); } catch(e){}
         return;
       }
-      window.location.href = data.url;
+      window.location.href = redirectUrl;
       return;
     }
     // Aplikováno bez doplatku — možná s refundem.
@@ -2475,14 +2478,39 @@ MG._editRez._loadOccupied = async function(p_moto_id){
   } catch(e){ return []; }
 };
 
-// Cena za rozsah — používá sdílený MG.calcPriceBreakdown z api.js (vrací total + denní rozpis).
-// Inclusive start+end.
-MG._editRez._priceBreakdown = function(moto, startIso, endIso){
-  if (!moto || !startIso || !endIso) return { total: 0, days: [], uniform: true };
-  return (MG.calcPriceBreakdown ? MG.calcPriceBreakdown(moto, startIso, endIso) : { total: 0, days: [], uniform: true });
+// Spočítá počet inkluzivních dní mezi dvěma ISO daty (start+end včetně).
+MG._editRez._daysInclusive = function(startIso, endIso){
+  if (!startIso || !endIso) return 0;
+  var s = new Date(startIso), e = new Date(endIso);
+  if (isNaN(s) || isNaN(e) || s > e) return 0;
+  return Math.round((e - s) / 86400000) + 1;
 };
-MG._editRez._priceForRange = function(moto, startIso, endIso){
-  return MG._editRez._priceBreakdown(moto, startIso, endIso).total;
+
+// Vrátí fallback denní sazbu z bookingu — total_price / N inkluzivních dní.
+// Použije se v případě, že motorka nemá nastavené denní ceny v DB.
+MG._editRez._fallbackDailyRate = function(booking){
+  if (!booking) return 0;
+  var nz = MG._editRez._normIso;
+  var n = MG._editRez._daysInclusive(nz(booking.start_date), nz(booking.end_date));
+  if (n <= 0) return 0;
+  // total_price obsahuje extras + delivery; pro přibližný daily rate je nejjednodušší
+  // odečíst známé položky (extras_price + delivery_fee) + přičíst zpět discount.
+  var base = Number(booking.total_price || 0)
+           - Number(booking.extras_price || 0)
+           - Number(booking.delivery_fee || 0)
+           + Number(booking.discount_amount || 0);
+  if (base <= 0) base = Number(booking.total_price || 0);
+  return base > 0 ? Math.round(base / n) : 0;
+};
+
+// Cena za rozsah — používá sdílený MG.calcPriceBreakdown z api.js (vrací total + denní rozpis).
+// Inclusive start+end. Fallback rate se použije, pokud motorka nemá denní ceny.
+MG._editRez._priceBreakdown = function(moto, startIso, endIso, fallbackRate){
+  if (!moto || !startIso || !endIso) return { total: 0, days: [], uniform: true };
+  return (MG.calcPriceBreakdown ? MG.calcPriceBreakdown(moto, startIso, endIso, fallbackRate) : { total: 0, days: [], uniform: true });
+};
+MG._editRez._priceForRange = function(moto, startIso, endIso, fallbackRate){
+  return MG._editRez._priceBreakdown(moto, startIso, endIso, fallbackRate).total;
 };
 
 // Vrátí dny, které jsou v rozsahu nového termínu, ale ne v původním (pro extend).
@@ -3045,8 +3073,9 @@ MG._editRez._renderTabExtend = async function(){
       summary.innerHTML = '<span class="error">' + MG.t('editRez.extend.unavailable') + '</span>';
       cta.disabled = true; return;
     }
-    var origBd = MG._editRez._priceBreakdown(m, origStart, origEnd);
-    var newBd  = MG._editRez._priceBreakdown(m, ns, ne);
+    var fbRate = MG._editRez._fallbackDailyRate(b);
+    var origBd = MG._editRez._priceBreakdown(m, origStart, origEnd, fbRate);
+    var newBd  = MG._editRez._priceBreakdown(m, ns, ne, fbRate);
     var diffInfo = MG._editRez._diffAddedDays(origBd, newBd);
     var diff = Math.max(0, Math.round(diffInfo.total));
     var breakdownHtml = '';
@@ -3121,8 +3150,9 @@ MG._editRez._renderTabExtend = async function(){
 MG._editRez._submitExtend = async function(newStart, newEnd){
   var b = MG._editRez.selectedBooking;
   var m = MG._editRez.selectedMoto || {};
-  var origPrice = MG._editRez._priceForRange(m, MG._editRez._normIso(b.start_date), MG._editRez._normIso(b.end_date));
-  var newPrice  = MG._editRez._priceForRange(m, newStart, newEnd);
+  var fbRate = MG._editRez._fallbackDailyRate(b);
+  var origPrice = MG._editRez._priceForRange(m, MG._editRez._normIso(b.start_date), MG._editRez._normIso(b.end_date), fbRate);
+  var newPrice  = MG._editRez._priceForRange(m, newStart, newEnd, fbRate);
   var diff = Math.round(newPrice - origPrice);
   if (diff <= 0){ MG._editRez._showError(MG.t('editRez.err.invalidRange')); return; }
 
@@ -3151,6 +3181,7 @@ MG._editRez._submitExtend = async function(newStart, newEnd){
       },
       body: JSON.stringify({
         type: 'extension',
+        mode: 'checkout',
         booking_id: b.id,
         amount: diff,
         success_url: window.location.origin + '/upravit-rezervaci?paid_booking=' + b.id,
@@ -3158,13 +3189,14 @@ MG._editRez._submitExtend = async function(newStart, newEnd){
       })
     });
     var data = await resp.json().catch(function(){ return null; });
-    if (!resp.ok || !data || !data.url){
+    var redirectUrl = data && (data.checkout_url || data.url);
+    if (!resp.ok || !redirectUrl){
       console.error('[editRez] extend payment err', resp.status, data);
       MG._editRez._showError((data && data.error) ? data.error : MG.t('editRez.err.generic'));
       try { localStorage.removeItem('editRez_pending_' + b.id); } catch(e){}
       return;
     }
-    window.location.href = data.url;
+    window.location.href = redirectUrl;
   } catch(err){
     console.error('[editRez] extend exception', err);
     MG._editRez._showError(MG.t('editRez.err.generic'));
@@ -3268,8 +3300,9 @@ MG._editRez._renderTabShorten = function(){
       summary.innerHTML = '<span class="error">' + MG.t('editRez.err.notShortening') + '</span>';
       cta.disabled = true; return;
     }
-    var origPrice = MG._editRez._priceForRange(m, origStart, origEnd);
-    var newPrice  = MG._editRez._priceForRange(m, ns, ne);
+    var fbRate = MG._editRez._fallbackDailyRate(b);
+    var origPrice = MG._editRez._priceForRange(m, origStart, origEnd, fbRate);
+    var newPrice  = MG._editRez._priceForRange(m, ns, ne, fbRate);
     var diff = Math.max(0, Math.round(origPrice - newPrice));
     if (diff <= 0){
       summary.innerHTML = '<span class="muted">' + MG.t('editRez.extend.noChange') + '</span>';

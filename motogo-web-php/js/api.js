@@ -121,17 +121,21 @@ MG.dowShort = function(dow){
 
 // Vrací rozpis ceny po dnech: { total, days: [{iso,dow,dowLabel,price}], uniform }
 // `uniform` = true pokud mají všechny dny stejnou cenu (lze zobrazit jednořádkově).
-MG.calcPriceBreakdown = function(moto, startDate, endDate){
+// `fallbackDailyRate` (volitelný) — pokud motorka nemá nastavené denní ceny ani price_weekday,
+// použije se tato sazba na všechny dny (typicky `booking.total_price / N_days` pro extend flow).
+MG.calcPriceBreakdown = function(moto, startDate, endDate, fallbackDailyRate){
   if(!moto || !startDate || !endDate) return { total: 0, days: [], uniform: true };
   var s = new Date(startDate);
   var e = new Date(endDate);
   if (s > e) return { total: 0, days: [], uniform: true };
   var dows = ['sun','mon','tue','wed','thu','fri','sat'];
+  var fb = Number(fallbackDailyRate) > 0 ? Math.round(Number(fallbackDailyRate)) : 0;
   var d = new Date(s);
   var arr = [], total = 0;
   while(d <= e){
     var dow = d.getDay();
-    var price = Number(moto['price_' + dows[dow]] || moto.price_weekday || 0);
+    var raw = Number(moto['price_' + dows[dow]] || moto.price_weekday || 0);
+    var price = raw > 0 ? raw : fb;
     var iso = d.getFullYear() + '-' +
       String(d.getMonth()+1).padStart(2,'0') + '-' +
       String(d.getDate()).padStart(2,'0');
