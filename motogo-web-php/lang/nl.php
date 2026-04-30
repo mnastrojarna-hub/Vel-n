@@ -293,6 +293,7 @@ return [
     'rez.alert.bookingOverlapOwn' => 'U heeft al een andere actieve reservering op deze datums.',
     'rez.alert.error' => 'Fout: {msg}',
     'rez.alert.saveError' => 'Opslaan mislukt: {msg}',
+    'rez.alert.selectSize' => 'Kies eerst een maat.',
 
     // ===== Kalender (pages-rezervace-calendar.js) =====
     'rez.cal.month.0' => 'Januari',

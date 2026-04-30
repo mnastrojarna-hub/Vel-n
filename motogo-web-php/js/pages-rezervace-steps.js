@@ -380,7 +380,7 @@ MG._rezInitProducts = function(){
         var size = null;
         if(hasSizes){
           var sel = card.querySelector('.rez-prod-size.active');
-          if(!sel){ alert('Nejdřív vyberte velikost.'); return; }
+          if(!sel){ alert(MG.t('rez.alert.selectSize')); return; }
           size = sel.dataset.size;
         }
         // Sloučit s existujícím řádkem (stejný product_id + size) — kupujeme víc kusů

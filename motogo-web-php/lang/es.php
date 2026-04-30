@@ -308,6 +308,7 @@ return [
     'rez.alert.bookingOverlapOwn' => 'Ya tiene otra reserva activa en estas fechas.',
     'rez.alert.error' => 'Error: {msg}',
     'rez.alert.saveError' => 'Error al guardar: {msg}',
+    'rez.alert.selectSize' => 'Seleccione primero una talla.',
 
     // ===== Calendario (pages-rezervace-calendar.js) =====
     'rez.cal.month.0' => 'Enero',

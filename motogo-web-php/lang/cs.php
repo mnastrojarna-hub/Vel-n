@@ -406,6 +406,7 @@ return [
     'rez.alert.bookingOverlapOwn' => 'V tomto termínu již máte jinou aktivní rezervaci.',
     'rez.alert.error' => 'Chyba: {msg}',
     'rez.alert.saveError' => 'Chyba při ukládání: {msg}',
+    'rez.alert.selectSize' => 'Nejdřív vyberte velikost.',
 
     // ===== Kalendář (pages-rezervace-calendar.js) =====
     'rez.cal.month.0' => 'Leden',
