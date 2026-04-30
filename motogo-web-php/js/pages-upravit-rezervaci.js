@@ -444,7 +444,7 @@ MG._editRez._loadBookings = async function(){
         .eq('user_id', uid)
         .order('start_date', { ascending: false }),
       window.sb.from('shop_orders')
-        .select('id,order_number,status,payment_status,total_amount,created_at,shop_order_items(product_id,size,name,price,quantity)')
+        .select('id,order_number,status,payment_status,total_amount,created_at,shop_order_items(product_id,size,product_name,unit_price,quantity)')
         .eq('customer_id', uid)
         .order('created_at', { ascending: false }),
       window.sb.from('vouchers')
