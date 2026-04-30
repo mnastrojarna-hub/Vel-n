@@ -105,7 +105,19 @@ MG.fetchExtras = async function(){
 };
 
 // ===== PRICE CALCULATION =====
+// Fallback CS labely (pro případ, kdy MG_I18N ještě není načteno).
 MG.DOW_LABELS_CS = ['Ne','Po','Út','St','Čt','Pá','So'];
+
+// Vrátí lokalizovaný krátký název dne v týdnu (0=Ne, 1=Po, …, 6=So)
+// — pokud i18n klíč existuje, použije ho; jinak spadne na CS fallback.
+MG.dowShort = function(dow){
+  var key = 'dow.short.' + dow;
+  if (typeof MG.t === 'function'){
+    var v = MG.t(key);
+    if (typeof v === 'string' && v && v !== key) return v;
+  }
+  return MG.DOW_LABELS_CS[dow];
+};
 
 // Vrací rozpis ceny po dnech: { total, days: [{iso,dow,dowLabel,price}], uniform }
 // `uniform` = true pokud mají všechny dny stejnou cenu (lze zobrazit jednořádkově).
@@ -123,7 +135,7 @@ MG.calcPriceBreakdown = function(moto, startDate, endDate){
     var iso = d.getFullYear() + '-' +
       String(d.getMonth()+1).padStart(2,'0') + '-' +
       String(d.getDate()).padStart(2,'0');
-    arr.push({ iso: iso, dow: dow, dowLabel: MG.DOW_LABELS_CS[dow], price: price });
+    arr.push({ iso: iso, dow: dow, dowLabel: MG.dowShort(dow), price: price });
     total += price;
     d.setDate(d.getDate() + 1);
   }

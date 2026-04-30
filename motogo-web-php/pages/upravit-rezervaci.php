@@ -63,6 +63,90 @@ $keys = [
     'editRez.err.generic','editRez.err.notFound','editRez.err.wrongStatus','editRez.err.notPaid',
     'editRez.err.activeStartLocked','editRez.err.invalidRange','editRez.err.notShortening',
     'editRez.err.notExtending','editRez.err.cantEdit','editRez.err.serverDown','editRez.err.emailNotConfirmed',
+
+    // Kalendář
+    'editRez.cal.month.1','editRez.cal.month.2','editRez.cal.month.3','editRez.cal.month.4',
+    'editRez.cal.month.5','editRez.cal.month.6','editRez.cal.month.7','editRez.cal.month.8',
+    'editRez.cal.month.9','editRez.cal.month.10','editRez.cal.month.11','editRez.cal.month.12',
+    'editRez.cal.dow.1','editRez.cal.dow.2','editRez.cal.dow.3','editRez.cal.dow.4',
+    'editRez.cal.dow.5','editRez.cal.dow.6','editRez.cal.dow.7',
+    'editRez.cal.prev','editRez.cal.next','editRez.cal.locked','editRez.cal.newRange','editRez.cal.clear',
+    'editRez.cal.legend.kept','editRez.cal.legend.removed','editRez.cal.legend.outOfBooking',
+    'editRez.cal.legend.free','editRez.cal.legend.thisBooking',
+    'editRez.cal.legend.extension','editRez.cal.legend.occupied',
+
+    // Validace
+    'editRez.validate.pastDate','editRez.validate.dayOccupied','editRez.validate.activeStartLocked','editRez.validate.gapBeforeStart',
+    'editRez.validate.extendBefore','editRez.validate.extendAfter','editRez.validate.extendEither',
+    'editRez.validate.gapAfterEnd','editRez.validate.shortenInside','editRez.validate.shortenBefore',
+    'editRez.validate.shortenPast','editRez.validate.shortenPickSide',
+    'editRez.validate.startAfterEnd','editRez.validate.endBeforeStart',
+
+    // Den/dny
+    'editRez.dayWord.1','editRez.dayWord.few','editRez.dayWord.many',
+
+    // Detail
+    'editRez.detail.bookingNum','editRez.detail.dateLabel','editRez.detail.timeLabel','editRez.detail.timeAtRental',
+    'editRez.detail.pickupPlace','editRez.detail.returnPlace','editRez.detail.priceBreakdown',
+    'editRez.detail.gearTitle','editRez.detail.historyTitle','editRez.detail.gearRider','editRez.detail.gearPassenger',
+    'editRez.detail.priceRental','editRez.detail.priceExtras','editRez.detail.priceDelivery',
+    'editRez.detail.deliveryAddr','editRez.detail.pickupAtRental','editRez.detail.returnAtAddr','editRez.detail.returnAtRental',
+    'editRez.detail.licenseRequired','editRez.detail.licenseNone',
+    'editRez.detail.deliveryShort','editRez.detail.pickupShort',
+
+    // Pending / list
+    'editRez.status.unpaid','editRez.pending.title','editRez.pending.text','editRez.pending.payNow','editRez.pending.cancelNow',
+    'editRez.pending.confirmCancel','editRez.pending.confirmYes','editRez.pending.confirmNo','editRez.pending.cancelReason',
+    'editRez.list.payCta','editRez.list.payAria','editRez.list.shopRowTitle','editRez.list.voucherRowTitle',
+
+    // Moto tab
+    'editRez.moto.intro','editRez.moto.loading','editRez.moto.licPill','editRez.moto.noLicPill',
+    'editRez.moto.samePrice','editRez.moto.diffRefund','editRez.moto.reasonLicense','editRez.moto.reasonOccupied',
+    'editRez.moto.unavailable','editRez.moto.selectThis','editRez.moto.diffUp',
+    'editRez.moto.priceTotal','editRez.moto.priceVs','editRez.moto.backToDetail',
+    'editRez.moto.confirmTitle','editRez.moto.confirmYes','editRez.moto.confirmNo',
+
+    // Loc tab
+    'editRez.loc.headPickup','editRez.loc.headReturn','editRez.loc.atRentalTitle',
+    'editRez.loc.atRentalDescPickup','editRez.loc.atRentalDescReturn',
+    'editRez.loc.deliveryTitle','editRez.loc.deliveryReturnTitle',
+    'editRez.loc.deliveryDescPickup','editRez.loc.deliveryDescReturn','editRez.loc.pickOnMapBtn',
+    'editRez.loc.routeSummary',
+    'editRez.loc.calc.pickupOrig','editRez.loc.calc.pickupNew','editRez.loc.calc.returnOrig','editRez.loc.calc.returnNew',
+    'editRez.loc.calc.atRentalShort','editRez.loc.calc.kmFormula',
+    'editRez.loc.calc.surcharge','editRez.loc.calc.surchargeStripe','editRez.loc.calc.refund','editRez.loc.calc.noChange','editRez.loc.calc.verifying',
+
+    // Historie
+    'editRez.history.empty','editRez.history.startChanged','editRez.history.endChanged',
+    'editRez.history.motoChanged','editRez.history.locationChanged','editRez.history.generic',
+    'editRez.history.sourceWeb','editRez.history.sourceApp','editRez.history.sourceAdmin','editRez.history.sourceSystem',
+    'editRez.detail.priceDiscount','editRez.detail.priceTotal',
+
+    // Souhlasy
+    'editRez.consents.cardTitle','editRez.consents.toggleYes','editRez.consents.toggleNo',
+    'editRez.consents.required','editRez.consents.optional','editRez.consents.sectionRequired','editRez.consents.sectionOptional',
+    'editRez.consents.help','editRez.consents.grantAll','editRez.consents.revokeAll',
+    'editRez.consents.confirmRevoke','editRez.consents.confirmYes','editRez.consents.confirmNo',
+    'editRez.consents.saveError','editRez.consents.saveErrorPlural',
+    'editRez.consents.granted','editRez.consents.revoked','editRez.consents.allGranted','editRez.consents.allRevoked',
+    'editRez.consents.label.gdpr','editRez.consents.desc.gdpr',
+    'editRez.consents.label.vop','editRez.consents.desc.vop',
+    'editRez.consents.label.contract','editRez.consents.desc.contract',
+    'editRez.consents.label.dataProcessing','editRez.consents.desc.dataProcessing',
+    'editRez.consents.label.marketing','editRez.consents.desc.marketing',
+    'editRez.consents.label.email','editRez.consents.desc.email',
+    'editRez.consents.label.sms','editRez.consents.desc.sms',
+    'editRez.consents.label.whatsapp','editRez.consents.desc.whatsapp',
+    'editRez.consents.label.push','editRez.consents.desc.push',
+    'editRez.consents.label.photo','editRez.consents.desc.photo',
+
+    // Extend / shorten long help + range
+    'editRez.extend.addedDays',
+    'dow.short.0','dow.short.1','dow.short.2','dow.short.3','dow.short.4','dow.short.5','dow.short.6',
+    'editRez.extend.helpActiveLong','editRez.extend.helpUpcomingLong',
+    'editRez.shorten.helpActiveLong','editRez.shorten.helpUpcomingLong',
+    'editRez.shorten.dirStart','editRez.shorten.dirEnd',
+    'editRez.range.newStart','editRez.range.newEnd','editRez.range.startBetween','editRez.range.endBetween',
 ];
 $i18n = [];
 foreach ($keys as $k) {
