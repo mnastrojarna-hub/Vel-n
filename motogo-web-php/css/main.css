@@ -761,7 +761,13 @@ body.mg-lb-open{overflow:hidden;overscroll-behavior:none}
 .erez-extend-breakdown-title{font-weight:700;color:#1a2e22;margin-bottom:.35rem;font-size:.85rem;text-transform:uppercase;letter-spacing:.3px}
 .erez-extend-breakdown-row{display:flex;justify-content:space-between;padding:.18rem 0;color:#475569;font-variant-numeric:tabular-nums}
 .erez-extend-breakdown-row span:last-child{font-weight:600;color:#0f1a14}
+.erez-loc-times-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin:.4rem 0 .9rem}
+.erez-loc-time{display:flex;flex-direction:column;gap:.3rem}
+.erez-loc-time-label{font-size:.85rem;color:#1a2e22;font-weight:600}
+.erez-loc-time input[type=time]{padding:.65rem .8rem;border:1px solid #b8d4c6;border-radius:10px;font-size:1rem;font-family:inherit;background:#fff}
+.erez-loc-time input[type=time]:focus{outline:2px solid #74FB71;outline-offset:1px;border-color:#74FB71}
 
 @media(max-width:600px){
+  .erez-loc-times-grid{grid-template-columns:1fr}
   .edit-rez-date-grid{grid-template-columns:1fr}
 }
