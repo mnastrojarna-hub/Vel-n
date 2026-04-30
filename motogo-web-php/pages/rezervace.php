@@ -45,6 +45,7 @@ $rezKeys = [
     'alert.terms','alert.dates','alert.moto','alert.pickupTime',
     'alert.minTime','alert.minTimeDelivery','alert.returnTime',
     'alert.bookingOverlap','alert.bookingOverlapOwn','alert.error','alert.saveError',
+    'alert.selectSize',
     // Kalendář (pages-rezervace-calendar.js)
     'cal.month.0','cal.month.1','cal.month.2','cal.month.3','cal.month.4','cal.month.5',
     'cal.month.6','cal.month.7','cal.month.8','cal.month.9','cal.month.10','cal.month.11',
