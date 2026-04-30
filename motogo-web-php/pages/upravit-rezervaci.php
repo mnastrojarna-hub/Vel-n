@@ -141,6 +141,8 @@ $keys = [
     'editRez.consents.label.photo','editRez.consents.desc.photo',
 
     // Extend / shorten long help + range
+    'editRez.extend.addedDays',
+    'dow.short.0','dow.short.1','dow.short.2','dow.short.3','dow.short.4','dow.short.5','dow.short.6',
     'editRez.extend.helpActiveLong','editRez.extend.helpUpcomingLong',
     'editRez.shorten.helpActiveLong','editRez.shorten.helpUpcomingLong',
     'editRez.shorten.dirStart','editRez.shorten.dirEnd',

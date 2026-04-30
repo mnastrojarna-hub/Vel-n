@@ -814,6 +814,15 @@ return [
     'editRez.consents.desc.photo' => 'Fotografování dokladů přes Mindee OCR pro autonomní pobočku.',
 
     // -- Calendar/range banner extend/shorten help
+    'editRez.extend.addedDays' => 'Přidané dny:',
+    // Krátké názvy dnů (0=Ne, 1=Po, …, 6=So — odpovídá JS Date.getDay())
+    'dow.short.0' => 'Ne',
+    'dow.short.1' => 'Po',
+    'dow.short.2' => 'Út',
+    'dow.short.3' => 'St',
+    'dow.short.4' => 'Čt',
+    'dow.short.5' => 'Pá',
+    'dow.short.6' => 'So',
     'editRez.extend.helpActiveLong' => 'V kalendáři klikněte na <strong>den po {end}</strong> — prodlouží se vrácení o tento počet dní. Začátek ({start}) už nelze měnit, protože rezervace už běží.',
     'editRez.extend.helpUpcomingLong' => 'V kalendáři klikněte na <strong>den před {start}</strong> (vyzvednutí dříve) <em>nebo</em> na <strong>den po {end}</strong> (vrácení později). Můžete prodloužit obě strany.',
     'editRez.shorten.helpActiveLong' => 'V kalendáři klikněte na <strong>den před {end}</strong> — vrátíte motorku dříve. Začátek ({start}) už nelze měnit, protože rezervace běží. Refund podle storno podmínek.',

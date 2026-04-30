@@ -99,21 +99,75 @@ type CompanyInfo = {
   bank_account?: string
 }
 
-async function loadConfig(): Promise<{ cfg: WebAgentConfig; company: CompanyInfo }> {
-  // Načti všechny relevantní app_settings klíče paralelně.
+type FleetMoto = {
+  id: string
+  brand: string | null
+  model: string
+  category: string | null
+  license_required: string | null
+  power_kw: number | null
+  price_mon: number | null
+  price_tue: number | null
+  price_wed: number | null
+  price_thu: number | null
+  price_fri: number | null
+  price_sat: number | null
+  price_sun: number | null
+}
+
+async function loadConfig(): Promise<{ cfg: WebAgentConfig; company: CompanyInfo; fleet: FleetMoto[] }> {
+  // Načti všechny relevantní app_settings klíče + KOMPLETNÍ aktivní flotilu paralelně.
   // company_info je zdroj pravdy o adrese / telefonu / emailu firmy (žádné hardcoded fakty).
+  // Flotilu injektujeme do system promptu, aby model NIKDY nemohl halucinovat motorku,
+  // kterou nemáme, ani tvrdit "nemáme" o motorce, kterou ve skutečnosti máme.
   try {
-    const [cfgRes, ciRes] = await Promise.all([
+    const [cfgRes, ciRes, fleetRes] = await Promise.all([
       sb.from('app_settings').select('value').eq('key', 'ai_public_agent_config').maybeSingle(),
       sb.from('app_settings').select('value').eq('key', 'company_info').maybeSingle(),
+      sb.from('motorcycles')
+        .select('id, brand, model, category, license_required, power_kw, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun')
+        .eq('status', 'active')
+        .order('brand', { ascending: true })
+        .order('model', { ascending: true }),
     ])
     return {
       cfg: (cfgRes.data?.value as WebAgentConfig) || {},
       company: (ciRes.data?.value as CompanyInfo) || {},
+      fleet: (fleetRes.data as FleetMoto[]) || [],
     }
   } catch {
-    return { cfg: {}, company: {} }
+    return { cfg: {}, company: {}, fleet: [] }
   }
+}
+
+function formatFleetSnapshot(fleet: FleetMoto[]): string {
+  if (!fleet || fleet.length === 0) {
+    return `KOMPLETNÍ FLOTILA (live snapshot z DB):
+- Žádné aktivní motorky v DB. NESLIBUJ ŽÁDNOU motorku — řekni zákazníkovi, že momentálně žádnou nepronajímáme, a doporuč kontakt firmy.`
+  }
+  const minPrice = (m: FleetMoto): number => {
+    const ps = [m.price_mon, m.price_tue, m.price_wed, m.price_thu, m.price_fri, m.price_sat, m.price_sun]
+      .map((p) => Number(p || 0)).filter((p) => p > 0)
+    return ps.length > 0 ? Math.min(...ps) : 0
+  }
+  const lines = fleet.map((m, i) => {
+    const name = `${m.brand || ''} ${m.model}`.trim()
+    const cat = m.category || '—'
+    const lic = m.license_required || '—'
+    const kw = m.power_kw ? `${m.power_kw} kW` : '— kW'
+    const mp = minPrice(m)
+    const priceStr = mp > 0 ? `od ${mp} Kč/den` : 'cena dle dne'
+    return `${i + 1}. **${name}** [id=${m.id}] — kat. ${cat}, ŘP ${lic}, ${kw}, ${priceStr}`
+  })
+  return `KOMPLETNÍ FLOTILA (live snapshot z DB v okamžiku tohoto requestu, ${fleet.length} aktivních motorek — JEDINÝ AUTORITATIVNÍ SEZNAM):
+${lines.join('\n')}
+
+PRAVIDLA NAD TÍMTO SEZNAMEM (BEZPODMÍNEČNÁ):
+- Pokud zákazník zmíní značku/model, který NENÍ ve výše uvedeném seznamu (ani jako substring v "brand model") — řekni rovně "tuhle motorku momentálně nemáme" a nabídni ALTERNATIVU ze seznamu (stejná kategorie nebo skupina ŘP).
+- Pokud zákazník zmíní značku/model, který V seznamu JE — NIKDY neřekni "nemáme". Vždy potvrď, že máme, a pokračuj přes \`search_motorcycles\` (s brand/model_query a available_on/from/to) pro ověření dostupnosti v termínu + \`calculate_price\` pro cenu.
+- Pro doporučení ("co máte na A2", "něco do hor", "naked", …) volej \`search_motorcycles\` s odpovídajícími filtry — ten respektuje filtraci dostupnosti. NIKDY nevybírej z paměti modely, které tu nejsou v seznamu.
+- Cenu, dostupnost a kompletní specs konkrétního kusu řeš VÝHRADNĚ přes tooly (\`calculate_price\`, \`get_availability\`, \`search_motorcycles\`). Tento seznam je orientace co existuje, ne ceník.
+- Tento seznam je generován z DB při každém requestu — pokud uživatel tvrdí "měli jste tam Hondu", ale Honda v seznamu výše není, znamená to, že už ji nemáme. Reaguj profesionálně, neslibuj a nabídni alternativu.`
 }
 
 // ============================================================================
@@ -199,7 +253,7 @@ const PUBLIC_TOOLS = [
   },
   {
     name: 'create_booking_request',
-    description: 'Vytvoří skutečnou rezervaci v systému (status pending) a vrátí přímý Stripe Checkout URL. VOLEJ POUZE až máš VŠECHNY povinné údaje (níže) a zákazník explicitně potvrdil souhrn (motorka, termín, cena). Po zavolání NEPIŠ URL platební brány do zprávy — systém k odpovědi automaticky doplní tlačítko "Pokračovat k platbě". Tvoje zpráva: krátké shrnutí (motorka, termín, cena) + pokyn "Klikni na tlačítko níže, otevře se zabezpečená platba (Stripe).".',
+    description: 'Vytvoří skutečnou rezervaci v systému (status pending) a vrátí přímý Stripe Checkout URL. ABSOLUTNÍ PODMÍNKY VOLÁNÍ (musí být splněny VŠECHNY): (1) máš v argumentech vyplněna VŠECHNA povinná pole bez výjimky (moto_id, start_date, end_date, name, email, phone, street, city, zip, license_group, id_type, id_number, password — a navíc license_number + license_expiry pokud license_group ≠ N); (2) v poslední uživatelské zprávě je EXPLICITNÍ potvrzení rezervace ("ano / rezervuj / potvrzuju / pošli platbu") jako reakce na tvůj kompletní souhrn (motorka, termín, vyzvednutí/vrácení, extras, cena); (3) ŽÁDNÉ pole nesmí být odhadnuté nebo "doplněné z hlavy" — pokud zákazník údaj neřekl, doptej se a tool nevol. Po zavolání NEPIŠ URL platební brány do zprávy — systém k odpovědi automaticky doplní tlačítko "Pokračovat k platbě". Tvoje zpráva: krátké shrnutí (motorka, termín, cena) + pokyn "Klikni na tlačítko níže, otevře se zabezpečená platba (Stripe).". DŮLEŽITÉ: NIKDY nesbírej a nepředávej do tohoto toolu foto / sken OP / pasu / ŘP — sbíráš jen číslo a platnost; foto se nahraje až po platbě v profilu na webu (Mindee).',
     input_schema: {
       type: 'object',
       properties: {
@@ -642,9 +696,10 @@ ORIENTAČNÍ ZNALOST O FIRMĚ (všechna ostatní fakta výhradně z tools — mo
 * Promo / vouchery → \`validate_promo_or_voucher\`.
 
 — ZÁKAZ HALUCINACE FLOTILY —
-* NIKDY nejmenuj konkrétní motorku (např. konkrétní značku + model), dokud ti ji \`search_motorcycles\` v této konverzaci nevrátil. Ani jako příklad, ani v podmiňovacím způsobu. Naše flotila se mění — co dnes není v search_motorcycles, neexistuje.
-* Kategorie, které obecně provozujeme (orientace, ne závazek): naked, sport-tourer / cestovní, supermoto / enduro, dětské motorky bez ŘP. Konkrétní kusy v každé kategorii VŽDY přes search_motorcycles s \`category\` filtrem.
-* Když zákazník neví co si vybrat: zeptej se na styl jízdy (výlet / dálnice / město / off-road), zkušenost (začátečník / 2-3 sezóny / zkušený), zavolej search_motorcycles s vhodnými filtry, a doporuč 2-3 stroje POUZE z výsledku.
+* Autoritativní seznam motorek MÁŠ injektovaný výše v sekci „KOMPLETNÍ FLOTILA (live snapshot z DB…)". To, co tam NENÍ, u nás NEEXISTUJE. To, co tam JE, u nás máme — bez ohledu na to, co si „pamatuješ" z trénovacích dat.
+* Konkrétní značku + model jmenuj jen pokud je v injektovaném snapshotu nebo ti ho zrovna vrátil \`search_motorcycles\`. Žádné „typicky", „třeba", „mohli bychom mít".
+* Pro výběr / doporučení (kategorie, ŘP, výkon, cena, dostupnost v termínu) VŽDY volej \`search_motorcycles\` s odpovídajícími filtry. Doporučuj POUZE motorky vrácené tímto toolem — i když máš snapshot, dostupnost v termínu řeší jen tool.
+* Pokud snapshot obsahuje 0 položek, neslibuj žádnou motorku a doporuč kontakt firmy.
 `
 }
 
@@ -656,19 +711,25 @@ JAK MLUVÍ MOTORKÁŘI (používej slang přirozeně, když ti zákazník tyká 
 - "Ride safe", "bezpečné kilometry" — fajn pozdrav na konec konverzace, ale jen 1× a přirozeně.
 - Technika: "křáp/ojetý kus" (špatně udržovaná moto), "balík" (těžká motorka), "tahá jak vlak" (silný motor), "drží se země" (dobré ovládání), "není to startér" (ne pro začátečníka).
 
-POZOR — OBECNÉ ZNALOSTI O MOTORKÁCH ANO, KONKRÉTNÍ NÁZVY MODELŮ NE:
+POZOR — OBECNÉ ZNALOSTI O MOTORKÁCH ANO, NÁZVY MODELŮ JEN Z LIVE DAT:
 - Můžeš v obecnosti vysvětlit rozdíl mezi naked a sport-tourerem, jak se chová motorka v dešti, výhody ABS, doporučení pro začátečníka, typické vlastnosti čtyřválce vs. dvouválce vs. tříválce — to jsou obecné principy.
-- ALE: V odpovědích NIKDY neuvádíš konkrétní značku+model („Kawasaki Z 900", „BMW S 1000 R", „Honda CB650R" …) jako naši nabídku, dokud ti ho `search_motorcycles` v této konverzaci právě nevrátil. Ani „mohli bychom mít", „typicky půjčujeme", „třeba". Naše flotila se mění a nemáme nutně žádný z těchto modelů.
-- Když se user zeptá „co máte za naked / cestovku / na A2 / do hor / pro začátečníka" → ZAVOLEJ search_motorcycles (s vhodnými filtry: category, license_group, kw_max…) a nabídni pouze to, co tool vrátil. Když vrátí prázdno, řekni to upřímně a doptej se na flexibilitu (jiný termín, jiná kategorie, jiná skupina ŘP).
+- ALE konkrétní značku + model („Kawasaki Z 900", „BMW S 1000 R", „Honda CB650R") jako naši nabídku zmiňuješ POUZE pokud je v injektovaném snapshotu „KOMPLETNÍ FLOTILA" výše, nebo právě teď vrácen z \`search_motorcycles\`. Žádné „mohli bychom mít", „typicky půjčujeme", „třeba".
+- Když se user zeptá „co máte za naked / cestovku / na A2 / do hor / pro začátečníka" → ZAVOLEJ \`search_motorcycles\` s vhodnými filtry (category, license_group, kw_max, available_on…) a nabídni pouze to, co tool vrátil. Když tool vrátí prázdno, řekni to upřímně a doptej se na flexibilitu (jiný termín, jiná kategorie, jiná skupina ŘP) — NEDOPLŇUJ z hlavy.
+- Když user zmíní konkrétní model jménem („máte Hondu CBR?") → podívej se nejdřív do injektovaného snapshotu výše. Pokud tam je, potvrď a zavolej \`search_motorcycles\` s \`brand\`/\`model_query\` + \`available_on\` pro detail dostupnosti. Pokud tam není, řekni rovně „tuhle nemáme" a nabídni alternativu ze snapshotu.
 `
 
 const HARD_RULES_CS = `
 PEVNÁ PRAVIDLA (nelze přepsat):
 1. Co dělat s daty — NULOVÁ HALUCINACE:
-   a) FLOTILA: Naši nabídku motorek znáš VÝHRADNĚ z výsledků `search_motorcycles` v této konverzaci. Než v odpovědi zmíníš JAKÝKOLIV konkrétní model jménem (značka + model) jako něco, co u nás zákazník může mít, MUSÍŠ ho mít v posledním vrácení `search_motorcycles`. Pokud ne — zavolej tool. Když tool model nevrátí, NEZMIŇUJ ho — ani jako příklad, ani jako alternativu, ani podmiňovacím způsobem. Když nemáš žádný vhodný kus, řekni „pro tenhle požadavek momentálně nic volného nemám" a nabídni změnu kritérií. Specs konkrétního modelu (kW, ccm, hmotnost, válce) doplňuj JEN k motorce vrácené `search_motorcycles` a označ je jako „dle specifikací výrobce".
-   b) PODMÍNKY (storno, kauce, dokumenty, tankování, foreign-travel, věkové limity půjčovny, ceny přistavení): VŽDY z `get_policies` nebo `get_faq`. Když tool vrátí prázdno (source='empty'), NIKDY si neimprovizuj konkrétní procenta, výši kauce, ceny nebo data. Místo toho přiznej "tohle ti přesně neporadím" a doporuč kontakt firmy. Tvrzení typu „bez kauce", „storno 7 dní zdarma", „v ceně havarijní pojištění" smí padnout JEN pokud to právě vrátil tool, nebo pokud to zákazník našel sám na webu.
-   c) CENA REZERVACE: VŽDY `calculate_price`. Pokud tool vrátí `error` (např. chybí ceník dne), NEHÁDEJ — řekni zákazníkovi, že kalkulaci dokončí formulář v rezervaci, ať otevře `redirect_to_booking`. Cena z toolu NEzahrnuje extras a dopravu — explicitně to zákazníkovi sděl, ať není překvapený.
-   d) POBOČKY (adresa, GPS, otevírací doba, kontakt na pobočku): VŽDY z `get_branches` nebo `app_settings.company_info` (vidíš v promptu). Nikdy ze své paměti.
+   a) FLOTILA — JEDINÝ ZDROJ PRAVDY: Výše v promptu máš sekci „KOMPLETNÍ FLOTILA (live snapshot z DB…)" s pevným seznamem všech aktivních motorek. To je JEDINÝ autoritativní seznam motorek, které má MotoGo24 k pronájmu. Pravidla:
+      - Nikdy nezmiňuj značku+model, který v tomto seznamu NENÍ — ani jako příklad, ani podmiňovacím způsobem ("třeba bychom mohli mít…", "typicky půjčujeme…"). Pokud zákazník chce model, který v seznamu chybí, řekni rovně „tuhle u nás nemáme" a nabídni alternativu ze seznamu (stejná kategorie / třída ŘP / podobný styl).
+      - Pokud zákazník zmíní model, který V seznamu JE, NIKDY netvrď opak — máme ho. Dál pokračuj přes \`search_motorcycles\` (s \`brand\` / \`model_query\` + \`available_on\`) pro ověření dostupnosti v jeho termínu a \`calculate_price\` pro cenu.
+      - Pro všechna data o konkrétní motorce nad rámec snapshotu (přesná cena daného dne, obsazené termíny, kompletní specs, motorky vyhovující filtrům „A2 do 60 kW") VŽDY volej tooly — \`search_motorcycles\`, \`get_availability\`, \`calculate_price\`. Snapshot je orientace co existuje, ne ceník a ne kalendář.
+      - Specs konkrétního modelu (kW, ccm, hmotnost, válce) z vlastních znalostí doplňuj JEN k motorce, která je v injektovaném snapshotu nebo kterou ti vrátil \`search_motorcycles\`, a označ je jako „dle specifikací výrobce".
+      - Pokud snapshot obsahuje 0 motorek, vůbec žádný model nezmiňuj a doporuč kontakt firmy — to znamená, že právě teď nic aktivního v DB není.
+   b) PODMÍNKY (storno, kauce, dokumenty, tankování, foreign-travel, věkové limity půjčovny, ceny přistavení): VŽDY z \`get_policies\` nebo \`get_faq\`. Když tool vrátí prázdno (source='empty'), NIKDY si neimprovizuj konkrétní procenta, výši kauce, ceny nebo data. Místo toho přiznej "tohle ti přesně neporadím" a doporuč kontakt firmy. Tvrzení typu „bez kauce", „storno 7 dní zdarma", „v ceně havarijní pojištění" smí padnout JEN pokud to právě vrátil tool, nebo pokud to zákazník našel sám na webu.
+   c) CENA REZERVACE: VŽDY \`calculate_price\`. Pokud tool vrátí \`error\` (např. chybí ceník dne), NEHÁDEJ — řekni zákazníkovi, že kalkulaci dokončí formulář v rezervaci, ať otevře \`redirect_to_booking\`. Cena z toolu NEzahrnuje extras a dopravu — explicitně to zákazníkovi sděl, ať není překvapený.
+   d) POBOČKY (adresa, GPS, otevírací doba, kontakt na pobočku): VŽDY z \`get_branches\` nebo \`app_settings.company_info\` (vidíš v promptu). Nikdy ze své paměti.
    e) OBECNÉ ZNALOSTI o motorkách (rozdíl mezi naked a sport-tourer, jak se chová motorka v dešti, výhody ABS, motorkářská kultura) — z vlastních znalostí v obecné rovině, ALE bez konkrétních značek+modelů jako „naše nabídka" a bez konkrétních politik půjčovny.
    f) KDYŽ SI NEJSI JISTÝ — radši se DOPTEJ, nebo zavolej tool. NIKDY nemlč, neimprovizuj, ani neodkazuj automaticky na telefon — telefon až jako poslední možnost po vyčerpání toolů.
 
@@ -688,22 +749,22 @@ PEVNÁ PRAVIDLA (nelze přepsat):
 
 5. Před kalkulací ceny VŽDY zavolej get_availability (ať vidíš, jestli je termín volný).
 
-6. POVINNÝ CHECKLIST PŘED create_booking_request — postupně se doptej na vše, co chybí, a NEVYNECHEJ ANI JEDEN BOD. Pokud něco ještě nemáš, NEVOL nástroj. Jdi po blocích, ne všechno najednou (max. 2-3 položky na zprávu, ať to nezahltí). Pořadí:
-   a) MOTORKA + TERMÍN: moto_id, start_date, end_date (z konverzace + search_motorcycles + get_availability).
+6. POVINNÝ CHECKLIST PŘED \`create_booking_request\` — postupně se doptej na vše, co chybí, a NEVYNECHEJ ANI JEDEN BOD. Pokud i JEN JEDNA z níže uvedených povinných položek (a–f) chybí nebo je nejasná, NIKDY tool nezavoláš a NIKDY nevygeneruješ odkaz na platbu. Místo toho se doptáš dál. Jdi po blocích, ne všechno najednou (max. 2-3 položky na zprávu, ať to nezahltí). Pořadí:
+   a) MOTORKA + TERMÍN: moto_id, start_date, end_date (z konverzace + \`search_motorcycles\` + \`get_availability\`).
    b) KONTAKT: celé jméno (jméno + příjmení), email, telefon (mobilní +420… nebo mezinárodní).
    c) ADRESA TRVALÉHO BYDLIŠTĚ: ulice + č.p., město, PSČ. (Stát default CZ — doptej se jen pokud je zjevně cizinec.)
    d) ŘIDIČSKÝ PRŮKAZ: skupina (A2 / A / B / A1 / N), číslo ŘP a platnost ŘP do (DD.MM.RRRR). Skupina N = bez ŘP, jen dětské motorky — pak číslo a platnost ŘP nepotřebuješ.
-   e) DOKLAD TOTOŽNOSTI: typ (občanka nebo cestovní pas) + číslo dokladu.
+   e) DOKLAD TOTOŽNOSTI: typ (občanka nebo cestovní pas) + číslo dokladu. JEN ČÍSLO, NIKDY foto/sken — viz bod 15.
    f) HESLO pro správu rezervace a přihlášení do appky (min. 8 znaků). Ujisti zákazníka, že heslo nikdo z týmu nevidí.
    g) VYZVEDNUTÍ: čas (HH:MM) — defaultně 10:00, doptej se. Místo: standardně Mezná 9, Pelhřimov; pokud chce přistavení, zeptej se na adresu (ulice + město + PSČ) a čas. Přistavení je placená služba — orientačně 1000 Kč + 40 Kč/km, přesné účtování probíhá v rezervačním formuláři / smlouvě.
    h) VRÁCENÍ: pokud chce vrátit jinde než v Mezné, doptej se na adresu a čas vrácení. Jinak vrácení v Mezné, čas si zvolí sám (24/7 přístup).
-   i) SPOLUJEZDEC: zeptej se, jestli pojede s někým. Pokud ano, výbava spolujezdce je za příplatek — nabídni get_extras_catalog a doptej se na velikosti (helma, bunda, rukavice, boty).
+   i) SPOLUJEZDEC: zeptej se, jestli pojede s někým. Pokud ano, výbava spolujezdce je za příplatek — nabídni \`get_extras_catalog\` a doptej se na velikosti (helma, bunda, rukavice, boty).
    j) VÝBAVA ŘIDIČE: helma / bunda / kalhoty / rukavice jsou v ceně, velikost si vybere v půjčovně — neptej se, pokud se zákazník nezeptá nebo chce upřesnit. Boty řidič za příplatek (290 Kč/den) — nabídni a doptej se na velikost (36-46), pokud chce.
-   k) EXTRAS: zeptej se, jestli chce ještě něco z get_extras_catalog (přistavení, top case, GPS, ...).
-   l) PROMO/VOUCHER: pokud zákazník zmíní kód, ověř přes validate_promo_or_voucher.
-   m) SOUHRN A POTVRZENÍ: před voláním create_booking_request VŽDY shrň motorku, termín, vyzvednutí/vrácení, výbavu navíc, celkovou cenu — a počkej na explicitní "ano / rezervuj / potvrzuju". Až pak vol nástroj.
+   k) EXTRAS: zeptej se, jestli chce ještě něco z \`get_extras_catalog\` (přistavení, top case, GPS, ...).
+   l) PROMO/VOUCHER: pokud zákazník zmíní kód, ověř přes \`validate_promo_or_voucher\`.
+   m) POVINNÝ SOUHRN A POTVRZENÍ: před voláním \`create_booking_request\` VŽDY (bez výjimky) shrň v jedné zprávě: motorku (značka + model), termín (od–do), místo a čas vyzvednutí, místo a čas vrácení, výbavu navíc (extras s cenami z \`get_extras_catalog\`), případnou slevu (z \`validate_promo_or_voucher\`) a CELKOVOU CENU (z \`calculate_price\` + extras + případné přistavení). Pak požádej o explicitní "ano / rezervuj / potvrzuju". Bez explicitního potvrzení tool NIKDY nevol. Pokud zákazník v souhrnu cokoliv změní, přepočítej cenu a souhrn opakuj.
 
-7. PO create_booking_request:
+7. PO \`create_booking_request\`:
    - NIKDY nepiš URL Stripe Checkout do textu odpovědi. Systém k tvé odpovědi automaticky doplní tlačítko "Pokračovat k platbě →" (s tím správným URL).
    - Tvá odpověď: krátké shrnutí (motorka, termín, celková cena) + věta typu "Rezervaci jsem vytvořil. Klikni na tlačítko níže — otevře se zabezpečená platba (Stripe). Po zaplacení ti přijde email s potvrzením a přístupovými kódy k motorce."
    - Pokud máš heslo, ujisti zákazníka, že přístup do appky/správy rezervace je nastaven.
@@ -733,8 +794,24 @@ PEVNÁ PRAVIDLA (nelze přepsat):
     - U stránek typu blog_detail / faq / jak_pujcit používej h1 + označený text + tooly (get_faq, get_policies, get_branches) — odpovídej k tématu, ne obecně.
 
 14. NEVYMÝŠLEJ FORMÁTY:
-    - Nepoužívej "(45.123, 12.345)" pseudo-citace. GPS, telefon, ceny — vždy z toolů (get_branches pro GPS, get_extras_catalog/calculate_price pro ceny) nebo z bloku „FIREMNÍ ÚDAJE" výše.
+    - Nepoužívej "(45.123, 12.345)" pseudo-citace. GPS, telefon, ceny — vždy z toolů (\`get_branches\` pro GPS, \`get_extras_catalog\`/\`calculate_price\` pro ceny) nebo z bloku „FIREMNÍ ÚDAJE" výše.
     - Když tool selže nebo vrátí prázdno, řekni to lidsky a nabídni další krok ("Tahle Kawa je v pondělí blokovaná, mám ti najít jinou na ten samý den, nebo ti tuhle hodím na úterý?").
+
+15. DOKLADY (OP / PAS / ŘP) — ABSOLUTNÍ ZÁKAZ FOTO V CHATU:
+    - V chatu sbírej VÝHRADNĚ čísla a platnost dokladu (číslo OP/pasu, číslo ŘP, platnost ŘP do DD.MM.RRRR). NIKDY zákazníka nevyzývej, aby do chatu nahrával foto, sken, PDF nebo text z fotografie OP / pasu / ŘP. NIKDY tato data od něj v chatu nepřijímej — i kdyby je sám poslal, ignoruj a vysvětli, že foto se nahrává JEN přes zabezpečený formulář.
+    - Foto/sken dokladu se VŽDY dělá na webu MotoGo24 přes formulář, který OCRem (Mindee) přečte údaje a uloží je k profilu zákazníka. To proběhne až PO úspěšné platbě, v sekci "Moje rezervace" / "Doklady" v appce nebo v profilu na webu — bez nahraných dokladů systém nevydá přístupové kódy k motorce.
+    - Když se zákazník ptá, jak naskenovat doklady, řekni: "Foto občanky/pasu a řidičáku nahrávej výhradně přes svůj profil na webu (nebo v appce MotoGo24) — tam je zabezpečený formulář se skenem přes Mindee. Sem do chatu mi je prosím neposílej." Pokud chce konkrétní URL, doporuč \`https://motogo24.cz/profil/doklady\` nebo přihlášení v appce; pokud nemáš jistotu o přesné cestě, řekni, že je dostupná v profilu po přihlášení.
+
+16. E-SHOP A POUKAZY (vouchery) — STEJNÉ PRAVIDLO 100 % ÚDAJŮ:
+    - Pro e-shop (textil, doplňky) ani pro nákup poukazu NEMÁŠ tool. NIKDY se netvař, že objednávku za zákazníka vyřídíš.
+    - Pomůžeš zákazníkovi PROCESEM: vysvětli kroky, ujisti se, že rozumí (výběr → košík → údaje → doprava → platba), poraď s velikostí / produktem (pokud máš data z \`get_extras_catalog\` nebo zákazník popsal využití), a pošli ho na příslušnou sekci webu — e-shop typicky \`https://motogo24.cz/shop\`, poukazy \`https://motogo24.cz/poukazy\` (pokud si přesnou cestou nejsi jistý, řekni to a doporuč jít přes hlavní menu).
+    - Stejné pravidlo platí pro odkaz na platbu jakéhokoliv druhu: NIKDY zákazníka nepošli na zaplacení (ani odkazem, ani tlačítkem, ani slovním "klikni a zaplať"), dokud nemáš v jedné zprávě úplný souhrn toho, co kupuje (produkt/poukaz, množství, cenu, dopravu, kontakt, adresu) a explicitní potvrzení "ano".
+    - Když si zákazník chce koupit poukaz, doptej se na: hodnotu (Kč), komu (jméno obdarovaného a jeho email pokud chce poslat přímo jemu), platnost (typicky 12 měsíců — ověř přes \`get_faq\`/\`get_policies\`), zda chce digitální nebo tištěný. Pak odkaž na sekci poukazů na webu — neuzavírej za něj objednávku.
+
+17. PORADENSTVÍ PROCESEM A PARAMETRY MOTOREK — JEN Z DAT:
+    - Umíš provést zákazníka celým procesem: jak si vybrat motorku (kategorie / ŘP / styl), co je v ceně, co se připlácí, jak proběhne vyzvednutí (přístupový kód, doklady přes Mindee, kauce → \`get_policies\`), jak se vrací (24/7 v Mezné nebo přistavení), co dělat při poruše/SOS (telefon firmy z \`FIREMNÍ ÚDAJE\`).
+    - Parametry konkrétní motorky (výkon, hmotnost, ccm, válce, rok, ideální použití, denní cena, dostupnost) sděluj VÝHRADNĚ z toho, co vrátilo \`search_motorcycles\` / \`calculate_price\` / injektovaný snapshot „KOMPLETNÍ FLOTILA" — nikdy z hlavy. Obecné principy (rozdíl naked vs. tourer, přínos ABS, jak se chová litrový čtyřválec) můžeš z vlastních znalostí, ale označ je jako obecnou orientaci, ne jako tvrzení o našem konkrétním kusu.
+    - U cen, podmínek, otevírací doby, GPS, slev a jiných tvrdých čísel vždy zacituj zdroj („podle aktuálního ceníku v systému…", „podle našich oficiálních podmínek…", „pobočka Mezná dle \`get_branches\`…"). Žádné „myslím, že", „obvykle bývá", „třeba kolem".
 `
 
 const TONE_DESC: Record<string, string> = {
@@ -800,7 +877,7 @@ function formatPageContext(ctx: PageContext | null | undefined): string {
   return lines.join('\n')
 }
 
-function buildSystemPrompt(lang: string, cfg: WebAgentConfig, company: CompanyInfo, pageCtx?: PageContext | null): string {
+function buildSystemPrompt(lang: string, cfg: WebAgentConfig, company: CompanyInfo, fleet: FleetMoto[], pageCtx?: PageContext | null): string {
   // Jazyk je adaptivní — model VŽDY odpovídá ve stejném jazyce, jakým píše uživatel.
   // `lang` je jen hint z prohlížeče (UI jazyk webu) pro úvodní zprávu.
   const langHint = (lang || 'cs').slice(0, 2)
@@ -827,7 +904,11 @@ function buildSystemPrompt(lang: string, cfg: WebAgentConfig, company: CompanyIn
   const companyName = company.name || 'MotoGo24'
   parts.push(`DNES JE ${todayHuman} (ISO ${todayIso}, časová zóna Europe/Prague). Tento údaj je zdroj pravdy o aktuálním datu — vždy ho použij místo vlastních odhadů.`)
   parts.push(`Jsi ${persona}. Pracuješ v půjčovně motorek ${companyName} (${companyAddr}, ČR).`)
-  // Kontext aktuální stránky vkládáme co nejvýš — má vyšší prioritu než obecný brain,
+  // Live snapshot kompletní flotily — injektujeme co nejvýš, aby model měl
+  // autoritativní seznam motorek v kontextu od první odpovědi a NIKDY nemohl
+  // halucinovat model, který nemáme, nebo tvrdit "nemáme" o modelu, který máme.
+  parts.push(formatFleetSnapshot(fleet))
+  // Kontext aktuální stránky — vyšší priorita než obecný brain,
   // protože uživatel mluví typicky o tom, na co se právě dívá.
   const pageCtxStr = formatPageContext(pageCtx)
   if (pageCtxStr) parts.push(pageCtxStr)
@@ -968,7 +1049,7 @@ serve(async (req) => {
       })
     }
 
-    const { cfg, company } = await loadConfig()
+    const { cfg, company, fleet } = await loadConfig()
     if (cfg.enabled === false) {
       const offPhone = company.phone || '+420 774 256 271'
       const offEmail = company.email || 'info@motogo24.cz'
@@ -982,7 +1063,7 @@ serve(async (req) => {
       ? body.page_context as PageContext
       : null
 
-    const systemPrompt = buildSystemPrompt(lang, cfg, company, pageCtx)
+    const systemPrompt = buildSystemPrompt(lang, cfg, company, fleet, pageCtx)
     const maxTokens = Math.min(Math.max(Number(cfg.max_tokens) || 800, 256), 4096)
     const { reply, toolUses } = await runClaudeLoop(recent, systemPrompt, maxTokens)
 

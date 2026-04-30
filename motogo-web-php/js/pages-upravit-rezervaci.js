@@ -452,7 +452,7 @@ MG._editRez._loadBookings = async function(){
         .eq('user_id', uid)
         .order('start_date', { ascending: false }),
       window.sb.from('shop_orders')
-        .select('id,order_number,status,payment_status,total_amount,created_at,shop_order_items(product_id,size,name,price,quantity)')
+        .select('id,order_number,status,payment_status,total_amount,created_at,shop_order_items(product_id,size,product_name,unit_price,quantity)')
         .eq('customer_id', uid)
         .order('created_at', { ascending: false }),
       window.sb.from('vouchers')
@@ -730,8 +730,12 @@ MG._editRez._CONSENT_FIELDS = [
 
 MG._editRez._renderConsentsCard = function(){
   var cs = MG._editRez.consents || {};
+  // Default-on: pokud sloupec v DB je NULL (nikdy explicitně neuložen),
+  // bereme to jako udělený souhlas. Pouze explicitní `false` se zobrazí
+  // jako vypnutý.
+  var isOn = function(key){ return cs[key] !== false; };
   var renderRow = function(f){
-    var val = !!cs[f.key];
+    var val = isOn(f.key);
     var label = MG.t('editRez.consents.label.' + f.i18n);
     var desc  = MG.t('editRez.consents.desc.'  + f.i18n);
     var badge = f.required
@@ -2471,21 +2475,25 @@ MG._editRez._loadOccupied = async function(p_moto_id){
   } catch(e){ return []; }
 };
 
-// Cena za rozsah — duplikát logiky z api.js MG.calcPrice, ale pracujeme s motorkou
-// předanou (může chybět v cache). Inclusive start+end.
+// Cena za rozsah — používá sdílený MG.calcPriceBreakdown z api.js (vrací total + denní rozpis).
+// Inclusive start+end.
+MG._editRez._priceBreakdown = function(moto, startIso, endIso){
+  if (!moto || !startIso || !endIso) return { total: 0, days: [], uniform: true };
+  return (MG.calcPriceBreakdown ? MG.calcPriceBreakdown(moto, startIso, endIso) : { total: 0, days: [], uniform: true });
+};
 MG._editRez._priceForRange = function(moto, startIso, endIso){
-  if (!moto || !startIso || !endIso) return 0;
-  var s = new Date(startIso), e = new Date(endIso);
-  if (s > e) return 0;
-  var days = ['sun','mon','tue','wed','thu','fri','sat'];
-  var d = new Date(s); var total = 0;
-  while (d <= e){
-    var k = 'price_' + days[d.getDay()];
-    var p = Number(moto[k] || moto.price_weekday || 0);
-    total += p;
-    d.setDate(d.getDate() + 1);
-  }
-  return total;
+  return MG._editRez._priceBreakdown(moto, startIso, endIso).total;
+};
+
+// Vrátí dny, které jsou v rozsahu nového termínu, ale ne v původním (pro extend).
+// Vstup: oba breakdowny ze _priceBreakdown. Vrací seznam přidaných dnů + součet.
+MG._editRez._diffAddedDays = function(origBd, newBd){
+  if (!origBd || !newBd) return { added: [], total: 0 };
+  var origSet = {};
+  (origBd.days || []).forEach(function(d){ origSet[d.iso] = true; });
+  var added = (newBd.days || []).filter(function(d){ return !origSet[d.iso]; });
+  var total = added.reduce(function(s,d){ return s + (d.price||0); }, 0);
+  return { added: added, total: total };
 };
 
 // Detekce překryvu rozsahu se seznamem occupied (každý je {start_date,end_date}).
@@ -3037,10 +3045,20 @@ MG._editRez._renderTabExtend = async function(){
       summary.innerHTML = '<span class="error">' + MG.t('editRez.extend.unavailable') + '</span>';
       cta.disabled = true; return;
     }
-    var origPrice = MG._editRez._priceForRange(m, origStart, origEnd);
-    var newPrice  = MG._editRez._priceForRange(m, ns, ne);
-    var diff = Math.max(0, Math.round(newPrice - origPrice));
-    summary.innerHTML = '<div class="line"><span class="lbl">' + MG.t('editRez.extend.priceDiff') + ':</span> ' +
+    var origBd = MG._editRez._priceBreakdown(m, origStart, origEnd);
+    var newBd  = MG._editRez._priceBreakdown(m, ns, ne);
+    var diffInfo = MG._editRez._diffAddedDays(origBd, newBd);
+    var diff = Math.max(0, Math.round(diffInfo.total));
+    var breakdownHtml = '';
+    if (diffInfo.added.length){
+      breakdownHtml = '<div class="erez-extend-breakdown"><div class="erez-extend-breakdown-title">' + MG.t('editRez.extend.addedDays') + '</div>';
+      diffInfo.added.forEach(function(d){
+        breakdownHtml += '<div class="erez-extend-breakdown-row"><span>' + d.dowLabel + ' ' + MG.formatDate(d.iso) + '</span><span>' + MG.formatPrice(d.price) + '</span></div>';
+      });
+      breakdownHtml += '</div>';
+    }
+    summary.innerHTML = breakdownHtml +
+      '<div class="line"><span class="lbl">' + MG.t('editRez.extend.priceDiff') + ':</span> ' +
       '<strong>' + MG.formatPrice(diff) + '</strong></div>';
     cta.disabled = (diff <= 0);
   }

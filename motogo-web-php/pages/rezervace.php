@@ -51,6 +51,12 @@ foreach ($rezKeys as $k) {
     $v = t('rez.' . $k);
     if (is_string($v)) $rezI18n['rez.' . $k] = $v;
 }
+// Krátké názvy dnů — použité v denním rozpisu ceny (calcPriceBreakdown v api.js).
+foreach (['0','1','2','3','4','5','6'] as $dow) {
+    $dk = 'dow.short.' . $dow;
+    $dv = t($dk);
+    if (is_string($dv)) $rezI18n[$dk] = $dv;
+}
 
 // Supabase SDK + konfigurace + JS moduly pro rezervaci
 $rezervaceJs = '<script>
