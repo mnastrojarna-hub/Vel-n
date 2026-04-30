@@ -138,11 +138,28 @@ MG._rezInjectCalStyles = function(){
   document.head.appendChild(st);
 };
 
+// i18n helpers — názvy měsíců a dní z window.MG_I18N (sype lang/*.php přes
+// pages/rezervace.php). Bez fallback hardcoded textů — pokud klíč chybí,
+// MG.t vrátí samotný klíč a admin / dev to v konzoli ihned vidí.
+MG._rezMonthNames = function(){
+  var arr = []; for (var i = 0; i < 12; i++) arr.push(MG.t('rez.cal.month.' + i)); return arr;
+};
+MG._rezDayShortMon = function(){
+  // Pondělí jako první den týdne (CZ konvence). dayShort.0=Po, .6=Ne
+  var arr = []; for (var i = 0; i < 7; i++) arr.push(MG.t('rez.cal.dayShort.' + i)); return arr;
+};
+MG._rezDayShortSun = function(){
+  // JS Date.getDay() vrací 0=Ne, 1=Po, ... — namapuj přes Mon-first pole
+  // Ne=6, Po=0, Út=1, St=2, Čt=3, Pá=4, So=5 → výsledné pole indexované Date.getDay()
+  var mon = MG._rezDayShortMon();
+  return [mon[6], mon[0], mon[1], mon[2], mon[3], mon[4], mon[5]];
+};
+
 // ===== RENDER MĚSÍCE — pomocná =====
 MG._rezRenderMonthHtml = function(y, m){
-  var months = ['Leden','Únor','Březen','Duben','Květen','Červen','Červenec','Srpen','Září','Říjen','Listopad','Prosinec'];
-  var dayN = ['Po','Út','St','Čt','Pá','So','Ne'];
-  var dayFull = ['Ne','Po','Út','St','Čt','Pá','So'];
+  var months = MG._rezMonthNames();
+  var dayN = MG._rezDayShortMon();
+  var dayFull = MG._rezDayShortSun();
   var first = new Date(y,m,1), last = new Date(y,m+1,0);
   var dow = (first.getDay()+6)%7;
   var todayStr = new Date().toISOString().split('T')[0];
@@ -187,19 +204,19 @@ MG._rezRenderCal = function(){
   var cal = document.getElementById('rez-calendar'); if(!cal) return;
   MG._rezInjectCalStyles();
   var y = MG._rez.calYear, m = MG._rez.calMonth;
-  var months = ['Leden','Únor','Březen','Duben','Květen','Červen','Červenec','Srpen','Září','Říjen','Listopad','Prosinec'];
+  var months = MG._rezMonthNames();
 
   var h = '<div class="rezcal-nav">'+
-    '<button type="button" onclick="MG._rezCalPrev()" aria-label="Předchozí měsíc">‹</button>'+
+    '<button type="button" onclick="MG._rezCalPrev()" aria-label="'+MG.t('rez.cal.prev')+'">‹</button>'+
     '<span class="rezcal-title">'+months[m]+' '+y+'</span>'+
-    '<button type="button" onclick="MG._rezCalNext()" aria-label="Další měsíc">›</button>'+
+    '<button type="button" onclick="MG._rezCalNext()" aria-label="'+MG.t('rez.cal.next')+'">›</button>'+
     '</div>'+
     '<div class="rezcal-single">'+ MG._rezRenderMonthHtml(y, m) +'</div>'+
     '<div class="calendar-icons">' +
-      '<div><span class="cicon loosely"></span> Volné</div>' +
-      '<div><span class="cicon selrange"></span> Vybraný termín</div>' +
-      '<div><span class="cicon occupied"></span> Obsazené</div>' +
-      '<div><span class="cicon unconfirmed"></span> Nepotvrzené</div>' +
+      '<div><span class="cicon loosely"></span> '+MG.t('rez.cal.legend.free')+'</div>' +
+      '<div><span class="cicon selrange"></span> '+MG.t('rez.cal.legend.selected')+'</div>' +
+      '<div><span class="cicon occupied"></span> '+MG.t('rez.cal.legend.occupied')+'</div>' +
+      '<div><span class="cicon unconfirmed"></span> '+MG.t('rez.cal.legend.unconfirmed')+'</div>' +
     '</div>';
   cal.innerHTML = h;
 };
@@ -277,13 +294,13 @@ MG._rezShowAvailMotos = function(){
   });
   if(!free.length){
     el.style.display='block';
-    el.innerHTML='<p style="color:#f66;margin:12px 0">V tomto termínu bohužel není dostupná žádná motorka.</p>';
+    el.innerHTML='<p style="color:#f66;margin:12px 0">'+MG.t('rez.cal.noMotoInRange')+'</p>';
     return;
   }
   var h = '<form class="rez-moto-pick rez-moto-pick-avail"><label for="rez-avail-dropdown">'+
-    '<span class="rez-pick-badge">Volné v termínu: '+free.length+'</span> Vyberte motorku ze seznamu</label>' +
+    '<span class="rez-pick-badge">'+MG.t('rez.cal.freeInRange')+': '+free.length+'</span> '+MG.t('rez.cal.pickFromList')+'</label>' +
     '<div class="rez-moto-pick-wrap"><select id="rez-avail-dropdown">' +
-    '<option value="">— vyberte motorku —</option>';
+    '<option value="">— '+MG.t('rez.cal.selectMoto')+' —</option>';
   free.forEach(function(m){ h += '<option value="'+m.id+'">'+m.model+'</option>'; });
   h += '</select></div></form>';
   el.style.display='block'; el.innerHTML = h;
