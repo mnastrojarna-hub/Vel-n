@@ -558,10 +558,15 @@ return [
     'editRez.loc.routing' => 'Počítám trasu od pobočky Mezná…',
     'editRez.loc.geocodeFail' => 'Adresu se nepodařilo najít. Zkuste přesnější zadání.',
     'editRez.loc.noPriceChange' => 'Beze změny ceny.',
-    'editRez.loc.cta' => 'Uložit změnu místa',
-    'editRez.loc.confirm' => 'Uložit změnu místa?',
+    'editRez.loc.cta' => 'Uložit změnu',
+    'editRez.loc.confirm' => 'Uložit změnu?',
     'editRez.loc.pickOnMap' => 'Vyberte místo na mapě',
     'editRez.loc.pickConfirm' => 'Potvrdit',
+    'editRez.loc.timesTitle' => 'Časy vyzvednutí a vrácení',
+    'editRez.loc.timesHelp' => 'Změna času je zdarma — pokud měníte jen čas, žádný doplatek.',
+    'editRez.loc.pickupTime' => 'Čas vyzvednutí',
+    'editRez.loc.returnTime' => 'Čas vrácení',
+    'editRez.loc.timeOnly' => 'Změna času (zdarma)',
 
     // Extend
     'editRez.extend.title' => 'Prodloužit rezervaci',
@@ -582,10 +587,12 @@ return [
     'editRez.shorten.helpUpcoming' => 'Vyberte tlačítkem nahoře, jestli chcete zkrátit Začátek (pozdější vyzvednutí) nebo Konec (dřívější vrácení). Pak v kalendáři klikněte uvnitř rezervace na nový den. Opětovný klik na zkrácený okraj výběr zruší.',
     'editRez.shorten.helpActive' => 'U probíhající rezervace lze zkrátit jen vrácení. V kalendáři klikněte na den před původním koncem (a ne dříve než dnešek).',
     'editRez.shorten.refund' => 'Vrátíme {amount} ({percent}%)',
-    'editRez.shorten.refundZero' => '0 Kč — méně než 48 hodin do termínu, refund nelze.',
+    'editRez.shorten.refundZero' => '0 Kč — méně než 48 hodin do termínu, refund dle storno podmínek nelze. Rezervaci ale můžete zkrátit i tak.',
     'editRez.shorten.cta' => 'Zkrátit a vrátit peníze',
+    'editRez.shorten.ctaNoRefund' => 'Zkrátit (bez vrácení peněz)',
     'editRez.shorten.confirming' => 'Zkracuji…',
     'editRez.shorten.success' => 'Rezervace zkrácena. Vrácení {amount} Kč ({percent}%) na původní platební metodu.',
+    'editRez.shorten.successNoRefund' => 'Rezervace zkrácena. Refund dle storno podmínek nebyl možný.',
     'editRez.shorten.reasonLabel' => 'Důvod (volitelné)',
 
     // Cancel / storno

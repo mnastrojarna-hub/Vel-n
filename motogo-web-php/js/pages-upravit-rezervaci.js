@@ -1654,7 +1654,11 @@ MG._editRez._submitChange = async function(payload){
   var b = MG._editRez.selectedBooking;
   MG._editRez._setBusy(true);
   try {
-    var args = Object.assign({ p_booking_id: b.id }, payload || {});
+    // Vytáhnout `_time_update` ze payloadu (RPC ho neumí — aplikujeme po úspěchu).
+    var timeUpdate = (payload && payload._time_update) || null;
+    var rpcPayload = Object.assign({}, payload || {});
+    delete rpcPayload._time_update;
+    var args = Object.assign({ p_booking_id: b.id }, rpcPayload);
     var r = await window.sb.rpc('apply_booking_changes', args);
     if (r.error || !r.data || r.data.success === false){
       var code = r.data && r.data.error;
@@ -1718,7 +1722,14 @@ MG._editRez._submitChange = async function(payload){
       window.location.href = redirectUrl;
       return;
     }
-    // Aplikováno bez doplatku — možná s refundem.
+    // Aplikováno bez doplatku — možná s refundem. Pokud uživatel zároveň
+    // změnil pickup_time/return_time, aplikujeme to přímým UPDATEm (RPC ho neumí).
+    if (timeUpdate){
+      try {
+        var tu = await window.sb.from('bookings').update(timeUpdate).eq('id', b.id);
+        if (tu.error) console.warn('[editRez] time update warn', tu.error);
+      } catch(e){ console.warn('[editRez] time update exception', e); }
+    }
     var refund = r.data.refund_amount || 0;
     var msg = refund > 0
       ? MG.t('editRez.change.successWithRefund', { amount: MG.formatPrice(refund) })
@@ -1823,6 +1834,20 @@ MG._editRez._renderTabLocation = function(){
         '<input type="hidden" name="returnFee" value="0">' +
       '</div>' +
 
+      // Časy vyzvednutí / vrácení — měnitelné nezávisle na metodě (přímý UPDATE).
+      '<h4 class="edit-rez-section-h">⏰ ' + MG.t('editRez.loc.timesTitle') + '</h4>' +
+      '<p class="muted" style="margin-top:-.4rem">' + MG.t('editRez.loc.timesHelp') + '</p>' +
+      '<div class="erez-loc-times-grid">' +
+        '<label class="erez-loc-time">' +
+          '<span class="erez-loc-time-label">' + MG.t('editRez.loc.pickupTime') + '</span>' +
+          '<input type="time" name="pickupTime" value="' + (b.pickup_time || '') + '" step="900">' +
+        '</label>' +
+        '<label class="erez-loc-time">' +
+          '<span class="erez-loc-time-label">' + MG.t('editRez.loc.returnTime') + '</span>' +
+          '<input type="time" name="returnTime" value="' + (b.return_time || '') + '" step="900">' +
+        '</label>' +
+      '</div>' +
+
       '<div id="edit-rez-loc-summary" class="edit-rez-price-summary" aria-live="polite"></div>' +
       '<button type="submit" class="btn btngreen edit-rez-loc-submit" id="edit-rez-loc-cta" disabled>' + MG.t('editRez.loc.cta') + '</button>' +
     '</form>';
@@ -1915,6 +1940,8 @@ MG._editRez._renderTabLocation = function(){
   }
   f.pickupAddr.addEventListener('input', debounce(function(){ recalcRoute('pickup'); }, 600));
   f.returnAddr.addEventListener('input', debounce(function(){ recalcRoute('return'); }, 600));
+  if (f.pickupTime) f.pickupTime.addEventListener('change', function(){ livePreview(); });
+  if (f.returnTime) f.returnTime.addEventListener('change', function(){ livePreview(); });
 
   // ===== Spočti orig fees zpětně z uložených koordinátů =====
   // Booking neukládá zvlášť pickup/return fee, jen sum delivery_fee. Pro
@@ -1969,7 +1996,14 @@ MG._editRez._renderTabLocation = function(){
     var newTotal = pkFee + rtFee;
     var origTotal = origPickupFee + origReturnFee;
     var diffLocal = newTotal - origTotal;
-    var noChange = (pkM === b.pickup_method && rtM === b.return_method && diffLocal === 0);
+    // Změna času je zdarma — povolí submit i když místo zůstává stejné.
+    var pkTime = f.pickupTime ? (f.pickupTime.value || '') : '';
+    var rtTime = f.returnTime ? (f.returnTime.value || '') : '';
+    var origPkTime = b.pickup_time || '';
+    var origRtTime = b.return_time || '';
+    var timeChanged = (pkTime !== origPkTime) || (rtTime !== origRtTime);
+    var locUnchanged = (pkM === b.pickup_method && rtM === b.return_method && diffLocal === 0);
+    var noChange = locUnchanged && !timeChanged;
 
     // Klient breakdown — vždy zobrazený
     var lines = [];
@@ -1992,6 +2026,16 @@ MG._editRez._renderTabLocation = function(){
       summary.innerHTML = '<div class="erez-loc-calc">' + lines.join('') + '</div>'
         + '<div class="muted" style="margin-top:.4rem">' + MG.t('editRez.loc.noPriceChange') + '</div>';
       cta.disabled = true;
+      return;
+    }
+
+    // Pouze čas se změnil — RPC by vrátilo `no_change`. Skip server preview,
+    // změnu času aplikujeme přímým UPDATEm na bookings v submit handleru.
+    if (locUnchanged && timeChanged){
+      var timeLines = ['<div class="erez-loc-calc-row erez-loc-calc-total"><span>'
+        + MG.t('editRez.loc.timeOnly') + '</span><strong>0 Kč</strong></div>'];
+      summary.innerHTML = '<div class="erez-loc-calc">' + timeLines.join('') + '</div>';
+      cta.disabled = false;
       return;
     }
 
@@ -2057,6 +2101,47 @@ MG._editRez._renderTabLocation = function(){
     e.preventDefault();
     if (MG._editRez.busy) return;
     var pkM = f.pickup.value, rtM = f.returnM.value;
+    var pkTime = f.pickupTime ? (f.pickupTime.value || '') : '';
+    var rtTime = f.returnTime ? (f.returnTime.value || '') : '';
+    var origPkTime = b.pickup_time || '';
+    var origRtTime = b.return_time || '';
+    var timeUpdate = {};
+    if (pkTime !== origPkTime) timeUpdate.pickup_time = pkTime || null;
+    if (rtTime !== origRtTime) timeUpdate.return_time = rtTime || null;
+    var locUnchanged = (pkM === b.pickup_method && rtM === b.return_method &&
+      Number(f.pickupFee.value || 0) === origPickupFee &&
+      Number(f.returnFee.value || 0) === origReturnFee);
+
+    // Pouze čas: přímý UPDATE bez RPC (žádná cenová změna).
+    if (locUnchanged && Object.keys(timeUpdate).length){
+      MG._editRez._confirmDialog(MG.t('editRez.loc.confirm'), async function(){
+        MG._editRez._setBusy(true);
+        try {
+          var ur = await window.sb.from('bookings').update(timeUpdate).eq('id', b.id);
+          if (ur.error){
+            console.error('[editRez] loc time update err', ur.error);
+            MG._editRez._showError(MG.t('editRez.err.generic'));
+            return;
+          }
+          // Lokální update pro okamžitý refresh detailu
+          if (timeUpdate.pickup_time !== undefined) b.pickup_time = timeUpdate.pickup_time;
+          if (timeUpdate.return_time !== undefined) b.return_time = timeUpdate.return_time;
+          var c = document.getElementById('edit-rez-tab-content');
+          if (c) c.innerHTML = '<div class="edit-rez-success-box"><h3>✓</h3><p>'
+            + MG.t('editRez.change.success') + '</p>'
+            + '<button type="button" class="btn btngreen-small" id="edit-rez-back-list">'
+            + MG.t('editRez.list.title') + '</button></div>';
+          var back = document.getElementById('edit-rez-back-list');
+          if (back) back.addEventListener('click', async function(){
+            MG._editRez.selectedBooking = null;
+            await MG._editRez._loadBookings();
+            MG._editRez._goto('list');
+          });
+        } finally { MG._editRez._setBusy(false); }
+      });
+      return;
+    }
+
     var payload = {
       p_new_pickup_method: pkM,
       p_new_pickup_address: pkM === 'delivery' ? f.pickupAddr.value : null,
@@ -2067,7 +2152,10 @@ MG._editRez._renderTabLocation = function(){
       p_new_return_address: rtM === 'delivery' ? f.returnAddr.value : null,
       p_new_return_lat: rtM === 'delivery' && f.returnLat.value ? Number(f.returnLat.value) : null,
       p_new_return_lng: rtM === 'delivery' && f.returnLng.value ? Number(f.returnLng.value) : null,
-      p_new_return_fee: rtM === 'delivery' ? Number(f.returnFee.value || 0) : 0
+      p_new_return_fee: rtM === 'delivery' ? Number(f.returnFee.value || 0) : 0,
+      // Pomocný field — _submitChange ho vyzvedne a aplikuje přes přímý UPDATE
+      // po úspěšné RPC (RPC pickup_time/return_time neumí, ale RLS dovolí UPDATE).
+      _time_update: Object.keys(timeUpdate).length ? timeUpdate : null
     };
     MG._editRez._confirmDialog(MG.t('editRez.loc.confirm'), function(){
       MG._editRez._submitChange(payload);
@@ -3297,12 +3385,16 @@ MG._editRez._renderTabShorten = function(){
     var cls = pct === 100 ? 'refund-full' : pct === 50 ? 'refund-half' : 'refund-none';
     if (pct === 0){
       summary.innerHTML = '<div class="line ' + cls + '">' + MG.t('editRez.shorten.refundZero') + '</div>';
-      cta.disabled = true;
+      // Refund=0, ale samotné zkrácení rezervace povolíme — uživatel se může chtít
+      // vrátit dřív i bez vrácení peněz. Přejmenujeme tlačítko, aby to bylo jasné.
+      cta.disabled = false;
+      cta.textContent = MG.t('editRez.shorten.ctaNoRefund');
     } else {
       summary.innerHTML = '<div class="line ' + cls + '">'
         + MG.t('editRez.shorten.refund', { amount: MG.formatPrice(refund), percent: pct })
         + '</div>';
       cta.disabled = false;
+      cta.textContent = MG.t('editRez.shorten.cta');
     }
     f.dataset.refund = String(refund);
     f.dataset.pct = String(pct);
@@ -3375,7 +3467,8 @@ MG._editRez._renderTabShorten = function(){
     var reason = (f.reason.value || '').trim();
     var refund = Number(f.dataset.refund || 0);
     var pct = Number(f.dataset.pct || 0);
-    MG._editRez._confirmDialog(MG.t('editRez.shorten.cta') + '?', function(){
+    var ctaLabel = (pct === 0) ? MG.t('editRez.shorten.ctaNoRefund') : MG.t('editRez.shorten.cta');
+    MG._editRez._confirmDialog(ctaLabel + '?', function(){
       MG._editRez._submitShorten(ns, ne, reason, refund, pct);
     });
   });
@@ -3408,9 +3501,11 @@ MG._editRez._submitShorten = async function(newStart, newEnd, reason, refund, pc
       MG._editRez._showError(MG.t(msgKey));
       return;
     }
-    var actualRefund = r.data.refund_amount || refund;
-    var actualPct = r.data.refund_percent || pct;
-    var msg = MG.t('editRez.shorten.success', { amount: MG.formatPrice(actualRefund), percent: actualPct });
+    var actualRefund = r.data.refund_amount != null ? r.data.refund_amount : refund;
+    var actualPct = r.data.refund_percent != null ? r.data.refund_percent : pct;
+    var msg = (actualPct === 0 || actualRefund <= 0)
+      ? MG.t('editRez.shorten.successNoRefund')
+      : MG.t('editRez.shorten.success', { amount: MG.formatPrice(actualRefund), percent: actualPct });
     var c = document.getElementById('edit-rez-tab-content');
     if (c) c.innerHTML = '<div class="edit-rez-success-box"><h3>✓</h3><p>' + msg + '</p>'
       + '<button type="button" class="btn btngreen-small" id="edit-rez-back-list">'
@@ -3469,6 +3564,11 @@ MG._editRez._applyPendingAfterPayment = async function(bookingId){
   if (p.p_new_return_lng !== undefined && p.p_new_return_lng !== null) update.return_lng = p.p_new_return_lng;
   if (p.p_new_pickup_fee !== undefined || p.p_new_return_fee !== undefined){
     update.delivery_fee = Number(p.p_new_pickup_fee || 0) + Number(p.p_new_return_fee || 0);
+  }
+  // Změna času — lokální pomocný field z location tabu (RPC ho neumí).
+  if (p._time_update){
+    if (p._time_update.pickup_time !== undefined) update.pickup_time = p._time_update.pickup_time;
+    if (p._time_update.return_time !== undefined) update.return_time = p._time_update.return_time;
   }
 
   if (Object.keys(update).length){
