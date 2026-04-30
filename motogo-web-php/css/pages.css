@@ -672,6 +672,11 @@
 .rez-inv-ico{display:inline-block;width:1.25rem;margin-right:.45rem;color:#1a8c1a;font-size:.95rem;vertical-align:middle}
 .rez-invoice-row-discount td{color:#1a8c1a !important}
 .rez-invoice-row-discount td:last-child{font-weight:800}
+.rez-invoice-row-day td{padding-top:.25rem !important;padding-bottom:.25rem !important;color:#475569 !important;font-size:.85rem;font-weight:500}
+.rez-invoice-row-day td:last-child{color:#475569 !important;font-weight:600}
+.rez-invoice-row-day .rez-inv-ico{color:#94a3b8}
+.rez-inv-day-lbl{padding-left:.6rem}
+.rez-inv-sub{font-weight:400;color:#6b7280;font-size:.82rem;margin-left:.35rem}
 .rez-invoice-total{display:flex;justify-content:space-between;align-items:center;margin-top:.85rem;padding:.75rem 1rem;border-radius:12px;background:linear-gradient(135deg,#1a2e22 0%,#0f1f17 100%);color:#fff;font-size:1rem;box-shadow:0 4px 12px rgba(26,46,34,.18)}
 .rez-invoice-total strong{color:#fff;font-size:1rem;letter-spacing:.3px}
 .rez-invoice-total strong:last-child{color:#74FB71;font-size:1.25rem;font-weight:800;font-variant-numeric:tabular-nums}
