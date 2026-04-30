@@ -45,6 +45,14 @@ $rezKeys = [
     'alert.terms','alert.dates','alert.moto','alert.pickupTime',
     'alert.minTime','alert.minTimeDelivery','alert.returnTime',
     'alert.bookingOverlap','alert.bookingOverlapOwn','alert.error','alert.saveError',
+    // Kalendář (pages-rezervace-calendar.js)
+    'cal.month.0','cal.month.1','cal.month.2','cal.month.3','cal.month.4','cal.month.5',
+    'cal.month.6','cal.month.7','cal.month.8','cal.month.9','cal.month.10','cal.month.11',
+    'cal.dayShort.0','cal.dayShort.1','cal.dayShort.2','cal.dayShort.3','cal.dayShort.4','cal.dayShort.5','cal.dayShort.6',
+    'cal.prev','cal.next','cal.legend.free','cal.legend.selected','cal.legend.occupied','cal.legend.unconfirmed',
+    'cal.noMotoInRange','cal.freeInRange','cal.pickFromList','cal.selectMoto',
+    // Kamera / scanner dokladů (pages-rezervace-camera.js)
+    'cam.docs.id','cam.docs.license','cam.close','cam.hint','cam.shoot','cam.progress',
 ];
 $rezI18n = [];
 foreach ($rezKeys as $k) {

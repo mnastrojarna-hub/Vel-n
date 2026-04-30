@@ -106,7 +106,10 @@ window.MG = MG;
   }
 
   function buildOverlay(docType){
-    var label = docType==='id' ? 'Doklad totožnosti' : 'Řidičský průkaz';
+    // i18n přes MG.t (definováno v pages-rezervace.js, který se načítá první).
+    // Klíče: rez.cam.docs.id / rez.cam.docs.license, rez.cam.{close,hint,shoot,progress}.
+    var t = (window.MG && window.MG.t) || function(k){ return k; };
+    var label = docType==='id' ? t('rez.cam.docs.id') : t('rez.cam.docs.license');
     var wrap=document.createElement('div');
     wrap.id='rez-cam-overlay';
     wrap.innerHTML =
@@ -119,16 +122,16 @@ window.MG = MG;
         '</div>'+
       '</div>'+
       '<div class="rez-cam-top">'+
-        '<button type="button" class="rez-cam-close" aria-label="Zavřít">&times;</button>'+
+        '<button type="button" class="rez-cam-close" aria-label="'+t('rez.cam.close')+'">&times;</button>'+
         '<div class="rez-cam-title">'+label+'</div>'+
       '</div>'+
-      '<div class="rez-cam-hint">Vložte doklad celý do rámečku. Držte telefon rovně, dobré osvětlení.</div>'+
+      '<div class="rez-cam-hint">'+t('rez.cam.hint')+'</div>'+
       '<div class="rez-cam-bottom">'+
         '<button type="button" class="rez-cam-shoot">'+
           '<span class="rez-cam-shoot-inner"></span>'+
-          '<span class="rez-cam-shoot-label">Spustit sken</span>'+
+          '<span class="rez-cam-shoot-label">'+t('rez.cam.shoot')+'</span>'+
         '</button>'+
-        '<div class="rez-cam-progress" style="display:none"><div class="rez-cam-progress-track"><div class="rez-cam-progress-bar"></div></div><div class="rez-cam-progress-text">Snímám…</div></div>'+
+        '<div class="rez-cam-progress" style="display:none"><div class="rez-cam-progress-track"><div class="rez-cam-progress-bar"></div></div><div class="rez-cam-progress-text">'+t('rez.cam.progress')+'</div></div>'+
       '</div>';
     document.body.appendChild(wrap);
     return wrap;
