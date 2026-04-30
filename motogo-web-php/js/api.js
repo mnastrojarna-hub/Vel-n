@@ -105,21 +105,34 @@ MG.fetchExtras = async function(){
 };
 
 // ===== PRICE CALCULATION =====
-MG.calcPrice = function(moto, startDate, endDate){
-  if(!moto || !startDate || !endDate) return 0;
+MG.DOW_LABELS_CS = ['Ne','Po','Út','St','Čt','Pá','So'];
+
+// Vrací rozpis ceny po dnech: { total, days: [{iso,dow,dowLabel,price}], uniform }
+// `uniform` = true pokud mají všechny dny stejnou cenu (lze zobrazit jednořádkově).
+MG.calcPriceBreakdown = function(moto, startDate, endDate){
+  if(!moto || !startDate || !endDate) return { total: 0, days: [], uniform: true };
   var s = new Date(startDate);
   var e = new Date(endDate);
-  var total = 0;
-  var days = ['sun','mon','tue','wed','thu','fri','sat'];
+  if (s > e) return { total: 0, days: [], uniform: true };
+  var dows = ['sun','mon','tue','wed','thu','fri','sat'];
   var d = new Date(s);
+  var arr = [], total = 0;
   while(d <= e){
-    var dayName = days[d.getDay()];
-    var key = 'price_' + dayName;
-    var price = moto[key] || moto.price_weekday || 0;
-    total += Number(price);
+    var dow = d.getDay();
+    var price = Number(moto['price_' + dows[dow]] || moto.price_weekday || 0);
+    var iso = d.getFullYear() + '-' +
+      String(d.getMonth()+1).padStart(2,'0') + '-' +
+      String(d.getDate()).padStart(2,'0');
+    arr.push({ iso: iso, dow: dow, dowLabel: MG.DOW_LABELS_CS[dow], price: price });
+    total += price;
     d.setDate(d.getDate() + 1);
   }
-  return total;
+  var uniform = arr.length <= 1 || arr.every(function(x){ return x.price === arr[0].price; });
+  return { total: total, days: arr, uniform: uniform };
+};
+
+MG.calcPrice = function(moto, startDate, endDate){
+  return MG.calcPriceBreakdown(moto, startDate, endDate).total;
 };
 
 // ===== DATE HELPERS =====
