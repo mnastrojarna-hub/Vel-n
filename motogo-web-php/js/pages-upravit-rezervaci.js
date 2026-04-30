@@ -452,7 +452,7 @@ MG._editRez._loadBookings = async function(){
         .eq('user_id', uid)
         .order('start_date', { ascending: false }),
       window.sb.from('shop_orders')
-        .select('id,order_number,status,payment_status,total_amount,created_at,shop_order_items(product_id,size,product_name,unit_price,quantity)')
+        .select('id,order_number,status,payment_status,total_amount,created_at,shop_order_items(product_name,unit_price,quantity)')
         .eq('customer_id', uid)
         .order('created_at', { ascending: false }),
       window.sb.from('vouchers')
@@ -1143,8 +1143,12 @@ MG._editRez._buildDocFallbackData = async function(b){
   var moto = MG._editRez.selectedMoto || {};
   var profile = null;
   try {
+    // Sloupce 1:1 podle skutečné `profiles` schématu (viz SUPABASE_BACKEND_STATE_2):
+    // full_name, email, phone, street, city, zip, country, date_of_birth,
+    // id_number, license_number, license_group. (Nepoužíváme first/last_name,
+    // address, postal_code, birth_date — neexistují.)
     var pr = await window.sb.from('profiles')
-      .select('full_name,first_name,last_name,phone,email,address,city,postal_code,country,birth_date,id_number,license_number,license_group')
+      .select('full_name,phone,email,street,city,zip,country,date_of_birth,id_number,license_number,license_group')
       .eq('id', MG._editRez.user.id)
       .maybeSingle();
     profile = pr && pr.data;
@@ -1154,8 +1158,14 @@ MG._editRez._buildDocFallbackData = async function(b){
   var origEnd = MG._editRez._normIso(b.end_date);
   var fmt = function(iso){ return iso ? MG.formatDate(iso) : ''; };
   var customer_name = profile.full_name
-    || ((profile.first_name || '') + ' ' + (profile.last_name || '')).trim()
     || (MG._editRez.user && MG._editRez.user.email) || '';
+  // Rozdělení full_name na first/last (používá se v některých placeholderech šablon)
+  var nameParts = (profile.full_name || '').trim().split(/\s+/);
+  var firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : (nameParts[0] || '');
+  var lastName  = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+  var licenseGroup = Array.isArray(profile.license_group)
+    ? profile.license_group.join(', ')
+    : (profile.license_group || '');
 
   return {
     // Booking
@@ -1175,18 +1185,19 @@ MG._editRez._buildDocFallbackData = async function(b){
     return_address: b.return_address || 'Mezná 9, 257 87',
     // Customer (vyplněno z profilu, prázdné pokud chybí)
     customer_name: customer_name,
-    customer_first_name: profile.first_name || '',
-    customer_last_name: profile.last_name || '',
+    customer_first_name: firstName,
+    customer_last_name: lastName,
     customer_email: profile.email || (MG._editRez.user && MG._editRez.user.email) || '',
     customer_phone: profile.phone || '',
-    customer_address: profile.address || '',
+    customer_address: profile.street || '',
     customer_city: profile.city || '',
-    customer_postal_code: profile.postal_code || '',
+    customer_postal_code: profile.zip || '',
     customer_country: profile.country || 'Česko',
-    customer_birth_date: profile.birth_date ? MG.formatDate(profile.birth_date) : '',
+    customer_birth_date: profile.date_of_birth ? MG.formatDate(profile.date_of_birth) : '',
     customer_id_number: profile.id_number || '',
     customer_license_number: profile.license_number || '',
-    customer_license_group: profile.license_group || '',
+    customer_license: profile.license_number || '',
+    customer_license_group: licenseGroup,
     // Moto
     moto_brand: moto.brand || '',
     moto_model: moto.model || '',
@@ -1215,7 +1226,7 @@ MG._editRez._downloadDocRow = async function(row){
   if (!row){ MG._editRez._showError(MG.t('editRez.doc.notAvailable')); return; }
   // 1) preferuj storage
   if (row.path){
-    return MG._editRez._openDocPdf(row.path, row.bucket || 'invoices');
+    return MG._editRez._openDocPdf(row.path, row.bucket || 'documents');
   }
   // 2) klient render z template
   if (row.kind === 'generated' && row.templateHtml && row.filledData){
@@ -1255,21 +1266,19 @@ MG._editRez._fillTemplate = function(html, vars){
   });
 };
 
-// Otevře PDF z Supabase Storage. invoices.pdf_path může být plný path (s bucketem)
-// nebo jen relativní; default bucket = 'invoices'.
+// Otevře PDF z Supabase Storage. Všechny doklady (faktury, smlouvy, generated)
+// jsou uloženy v jediném bucketu `documents`; `pdf_path` je celý klíč (např.
+// "invoices/<id>.html" nebo "generated/<id>.html").
 MG._editRez._openDocPdf = async function(path, defaultBucket){
   if (!path){ MG._editRez._showError(MG.t('editRez.doc.notAvailable')); return; }
   try {
-    var bucket = defaultBucket || 'invoices';
-    var key = path;
-    // Pokud path obsahuje slash a první segment je bucket name, rozdělíme
-    if (path.indexOf('/') > -1){
-      var first = path.split('/')[0];
-      if (['invoices','documents','generated_documents'].indexOf(first) > -1){
-        bucket = first;
-        key = path.substring(first.length + 1);
-      }
+    var bucket = defaultBucket || 'documents';
+    // Backward-compat: pokud volající omylem předal bucket 'invoices' nebo
+    // 'generated_documents' (neexistují), spadneme zpět na 'documents'.
+    if (bucket !== 'documents' && bucket !== 'media' && bucket !== 'sos-photos'){
+      bucket = 'documents';
     }
+    var key = path;
     var r = await window.sb.storage.from(bucket).createSignedUrl(key, 600);
     if (r.error || !r.data || !r.data.signedUrl){
       // fallback na public URL
@@ -1395,26 +1404,34 @@ MG._editRez._renderTabDocs = async function(){
         .eq('booking_id', b.id)
         .order('issue_date', { ascending: true }),
       window.sb.from('documents')
-        .select('id,type,file_path,file_name,file_url,created_at')
+        .select('id,type,file_path,file_name,name,created_at')
         .eq('booking_id', b.id)
         .order('created_at', { ascending: true }),
+      // generated_documents bez embedu na document_templates — embed přes RLS
+      // joinu vrací 400 pro zákazníka. Šablony si donačteme zvlášť (viz níže).
       window.sb.from('generated_documents')
-        .select('id,template_id,booking_id,pdf_path,filled_data,created_at,document_templates(name,type,content_html)')
+        .select('id,template_id,booking_id,pdf_path,filled_data,created_at')
         .eq('booking_id', b.id)
         .order('created_at', { ascending: true }),
       // Fallback šablony pro VOP a smlouvu — pro upcoming rezervaci ještě nemusí
       // existovat vygenerovaný generated_documents záznam, ale zákazník má právo
-      // si VOP a smlouvu kdykoliv stáhnout (jako v Flutter app).
+      // si VOP a smlouvu kdykoliv stáhnout (jako v Flutter app). Reálný typ
+      // smlouvy v `document_templates` je `rental_contract`, ne `contract`.
       window.sb.from('document_templates')
         .select('id,type,name,content_html,version')
-        .in('type', ['contract','vop'])
-        .eq('active', true)
+        .in('type', ['rental_contract','vop'])
         .order('version', { ascending: false })
     ]);
     var invoices = (results[0] && results[0].data) || [];
     var docs     = (results[1] && results[1].data) || [];
     var gen      = (results[2] && results[2].data) || [];
     var tpls     = (results[3] && results[3].data) || [];
+
+    // Mapování template_id -> šablona (z `tpls` query). Customer nemá embed
+    // přístup do document_templates přes FK join, ale standalone query funguje
+    // (RLS produkce povoluje). Použijeme to k obohacení každého generated_documents.
+    var tplsById = {};
+    tpls.forEach(function(tp){ if (tp && tp.id) tplsById[tp.id] = tp; });
 
     // Trigger sync_invoice_to_documents() / sync_generated_doc_to_documents()
     // duplikuje záznamy do `documents`. Aby se v UI nezobrazovaly 2x, vyfiltrujeme
@@ -1429,12 +1446,13 @@ MG._editRez._renderTabDocs = async function(){
       var num = d.number || (d.id || '').substring(0,8);
       var amt = d.total ? MG.formatPrice(Number(d.total)) : '';
       var when = d.issue_date ? MG.formatDate(d.issue_date) : (d.created_at ? MG.formatDate(d.created_at) : '');
-      rows.push({ kind:'invoice', label: label, num: num, amt: amt, when: when, path: d.pdf_path, bucket: 'invoices' });
+      rows.push({ kind:'invoice', label: label, num: num, amt: amt, when: when, path: d.pdf_path, bucket: 'documents' });
     });
     var hasContract = false, hasVop = false;
     gen.forEach(function(d){
-      var tplType = (d.document_templates && d.document_templates.type) || '';
-      var name = (d.document_templates && d.document_templates.name) || '';
+      var tpl = tplsById[d.template_id] || null;
+      var tplType = (tpl && tpl.type) || '';
+      var name = (tpl && tpl.name) || '';
       var lblKey = 'editRez.doc.type.' + tplType;
       var label = MG.t(lblKey, {});
       if (label === lblKey || !label) label = name || tplType || 'Dokument';
@@ -1443,8 +1461,8 @@ MG._editRez._renderTabDocs = async function(){
       // takže VOP/Smlouva půjde stáhnout i bez existujícího pdf_path v storage.
       rows.push({
         kind: 'generated', label: label, num: name, amt: '', when: when,
-        path: d.pdf_path, bucket: 'generated_documents',
-        templateHtml: (d.document_templates && d.document_templates.content_html) || '',
+        path: d.pdf_path, bucket: 'documents',
+        templateHtml: (tpl && tpl.content_html) || '',
         filledData: d.filled_data || null,
         templateType: tplType
       });
@@ -1454,8 +1472,7 @@ MG._editRez._renderTabDocs = async function(){
     docs.forEach(function(d){
       var label = MG.t('editRez.doc.type.' + (d.type || 'unknown'), {});
       var when = d.created_at ? MG.formatDate(d.created_at) : '';
-      var path = d.file_path || d.file_url;
-      rows.push({ kind:'document', label: label, num: d.file_name || '', amt: '', when: when, path: path, bucket: 'documents' });
+      rows.push({ kind:'document', label: label, num: d.file_name || d.name || '', amt: '', when: when, path: d.file_path, bucket: 'documents' });
     });
 
     // Fallback: pokud chybí smlouva nebo VOP v generated_documents, doplníme je
@@ -1478,7 +1495,7 @@ MG._editRez._renderTabDocs = async function(){
         amt: '',
         when: '',
         path: null,
-        bucket: 'generated_documents',
+        bucket: 'documents',
         templateHtml: tpl.content_html || '',
         filledData: fallbackData,
         templateType: tpl.type
@@ -1917,16 +1934,19 @@ MG._editRez._renderTabLocation = function(){
     return MG._calcDeliveryFee ? MG._calcDeliveryFee(km) : (1000 + Math.ceil(km || 0) * 40);
   }
   function recalcRoute(side){
+    if (!f.isConnected) return; // tab switched away — async geocoding callbacks no-op
     var addrInp = side === 'pickup' ? f.pickupAddr : f.returnAddr;
     var latInp = side === 'pickup' ? f.pickupLat : f.returnLat;
     var lngInp = side === 'pickup' ? f.pickupLng : f.returnLng;
     var feeInp = side === 'pickup' ? f.pickupFee : f.returnFee;
     var routeEl = document.getElementById('edit-rez-loc-route-' + side);
+    if (!routeEl) return;
     var addr = (addrInp.value || '').trim();
     if (!addr){ routeEl.textContent = ''; feeInp.value = '0'; livePreview(); return; }
     routeEl.innerHTML = '<span class="muted">' + MG.t('editRez.loc.routing') + '</span>';
 
     function applyFee(km){
+      if (!routeEl.isConnected) return;
       var fee = calcFee(km);
       feeInp.value = String(fee);
       routeEl.innerHTML = '<div>' + MG.t('editRez.loc.routeSummary', {
@@ -1942,6 +1962,7 @@ MG._editRez._renderTabLocation = function(){
       : (MG._mapySuggest ? MG._mapySuggest(addr, 1).then(function(a){ return (a && a[0]) || null; }) : Promise.resolve(null));
 
     p.then(function(coords){
+      if (!routeEl.isConnected) return;
       if (!coords){ routeEl.innerHTML = '<span class="muted">' + MG.t('editRez.loc.geocodeFail') + '</span>'; return; }
       latInp.value = coords.lat; lngInp.value = coords.lng;
       if (!MG._ensureBranchCoords || !MG._mapyRouting){ applyFee(50); return; }  // fallback estimate
@@ -2004,6 +2025,10 @@ MG._editRez._renderTabLocation = function(){
   function livePreview(){
     var summary = document.getElementById('edit-rez-loc-summary');
     var cta = document.getElementById('edit-rez-loc-cta');
+    // Pokud uživatel mezitím přepnul tab pryč z „Změna místa", form i summary
+    // už nejsou v DOMu — async callbacks (geocoding, routing) by jinak
+    // hodily „Cannot set properties of null". Tichý bail-out.
+    if (!summary || !cta || !f.isConnected) return;
     var pkM = f.pickup.value;
     var rtM = f.returnM.value;
     var pkFee = (pkM === 'delivery') ? Number(f.pickupFee.value || 0) : 0;
@@ -2073,6 +2098,7 @@ MG._editRez._renderTabLocation = function(){
     summary.innerHTML = '<div class="erez-loc-calc">' + lines.join('') + '</div>'
       + '<div class="muted" style="margin-top:.4rem">' + MG.t('editRez.loc.calc.verifying') + '</div>';
     window.sb.rpc('apply_booking_changes', args).then(function(r){
+      if (!summary.isConnected) return;
       if (r.error || !r.data || r.data.success === false){
         var code = r.data && r.data.error;
         if (code === 'no_change'){
