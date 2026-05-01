@@ -133,42 +133,42 @@ return [
                 'title' => 'How the rental works step by step',
                 'steps' => [
                     [
-                        'icon' => 'gfx/ico-step1.svg',
+                        'icon' => 'gfx/vyber-motorku.svg',
                         'title' => '1. Pick a motorcycle',
                         'text' => 'Browse our range of <strong>touring, sports, enduro and kids motorcycles</strong> and choose the right one.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step2.svg',
+                        'icon' => 'gfx/kontaktni-udaje.svg',
                         'title' => '2. Number of riders',
                         'text' => 'Choose whether you ride solo or with a passenger. We will offer you suitable bikes and gear.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step3.svg',
+                        'icon' => 'gfx/rezervace-online.svg',
                         'title' => '3. Online booking',
                         'text' => 'Easily book a motorcycle by date. Pay in advance <strong>online</strong>.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step4.svg',
+                        'icon' => 'gfx/vyber-vybavu.svg',
                         'title' => '4. Gear included',
                         'text' => 'As the rider, you automatically get a helmet, jacket, trousers and gloves. You choose your size when booking.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step5.svg',
+                        'icon' => 'gfx/zaplat.svg',
                         'title' => '5. Confirmation and payment',
                         'text' => 'The booking is binding once confirmed. You pay online.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step6.svg',
+                        'icon' => 'gfx/predani-motorky.svg',
                         'title' => '6. Picking up the motorcycle',
                         'text' => 'Pick up the motorcycle in person in Pelhřimov or use our <strong>delivery</strong> to an agreed location.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step7.svg',
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
                         'title' => '7. Enjoy the ride',
                         'text' => 'Hit the road – <strong>without deposit, without stress</strong>, with clear terms and insurance included.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step8.svg',
+                        'icon' => 'gfx/vrat-motorku-vcas.svg',
                         'title' => '8. Returning the motorcycle',
                         'text' => 'You can return the motorcycle any time during the last day of the rental. No need to refuel or wash it.',
                     ],
@@ -233,27 +233,27 @@ return [
                 'title' => 'How the pick-up works step by step',
                 'items' => [
                     [
-                        'icon' => 'gfx/ico-step1.svg',
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
                         'title' => 'Arrive at the agreed time',
                         'text' => 'at our address or wait for the delivery',
                     ],
                     [
-                        'icon' => 'gfx/ico-step2.svg',
+                        'icon' => 'gfx/overime-doklady.svg',
                         'title' => 'We verify your documents',
                         'text' => 'ID/passport + driving licence of the relevant category',
                     ],
                     [
-                        'icon' => 'gfx/ico-step3.svg',
+                        'icon' => 'gfx/predani-motorky.svg',
                         'title' => 'We hand over the motorcycle and gear',
                         'text' => 'helmet, jacket, trousers, gloves',
                     ],
                     [
-                        'icon' => 'gfx/ico-step4.svg',
+                        'icon' => 'gfx/prevezmi-motorku.svg',
                         'title' => 'A short briefing on the bike',
                         'text' => 'controls, tips, route recommendations',
                     ],
                     [
-                        'icon' => 'gfx/ico-step5.svg',
+                        'icon' => 'gfx/podpis-dokumentu.svg',
                         'title' => 'We sign the handover protocol',
                         'text' => 'and you can hit the road',
                     ],
@@ -329,27 +329,27 @@ return [
                 'title' => 'How the return at the rental works',
                 'items' => [
                     [
-                        'icon' => 'gfx/ico-step1.svg',
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
                         'title' => 'Arrive at the agreed time',
                         'text' => 'at the rental address in Pelhřimov',
                     ],
                     [
-                        'icon' => 'gfx/ico-step2.svg',
+                        'icon' => 'gfx/predani-motorky.svg',
                         'title' => 'Together we check the motorcycle',
                         'text' => 'inspection of bodywork, fuel tank and gear',
                     ],
                     [
-                        'icon' => 'gfx/ico-step3.svg',
+                        'icon' => 'gfx/vyber-vybavu.svg',
                         'title' => 'You return the gear',
                         'text' => 'helmet, jacket, trousers, gloves',
                     ],
                     [
-                        'icon' => 'gfx/ico-step4.svg',
+                        'icon' => 'gfx/podpis-dokumentu.svg',
                         'title' => 'We sign the return protocol',
                         'text' => 'a clear and fair record',
                     ],
                     [
-                        'icon' => 'gfx/ico-step5.svg',
+                        'icon' => 'gfx/potvrzeni-rezervace.svg',
                         'title' => 'Done',
                         'text' => 'we will send you a confirmation by e-mail',
                     ],
@@ -425,17 +425,17 @@ return [
             ],
             'steps' => [
                 [
-                    'icon' => 'gfx/ico-step1.svg',
+                    'icon' => 'gfx/vyber-motorku.svg',
                     'title' => '1. Choose',
                     'text' => 'Choose the voucher value or a specific motorcycle.',
                 ],
                 [
-                    'icon' => 'gfx/ico-step2.svg',
+                    'icon' => 'gfx/zaplat.svg',
                     'title' => '2. Pay',
                     'text' => 'Pay online.',
                 ],
                 [
-                    'icon' => 'gfx/ico-step3.svg',
+                    'icon' => 'gfx/potvrzeni-rezervace.svg',
                     'title' => '3. Receive',
                     'text' => 'After payment, the voucher arrives in your e-mail inbox.',
                 ],
