@@ -52,26 +52,42 @@ $pages['jak_pujcit_vraceni_jinde'] = array_merge(
     require $dataDir . 'vraceni-jinde-content-2.php'
 );
 
-// 5) faq (3 faq-content-* soubory + meta z 3.)
-$p1 = require $dataDir . 'faq-content-1.php';
-$p2 = require $dataDir . 'faq-content-2.php';
-$p3 = require $dataDir . 'faq-content-3.php';
-$meta = $p3['__meta'];
-unset($p3['__meta']);
-$cats = [];
-foreach ([$p1, $p2, $p3] as $part) {
-    foreach ($part as $catKey => $catData) {
-        if (!isset($cats[$catKey])) $cats[$catKey] = ['label' => $catData['label'], 'items' => []];
-        $cats[$catKey]['items'] = array_merge($cats[$catKey]['items'], $catData['items']);
+// 4b) Stranky se "$defaults = array_merge(...)" — naloadujeme data soubory primo
+$pages['jak_pujcit_postup'] = array_merge(
+    require $dataDir . 'postup-content-1.php',
+    require $dataDir . 'postup-content-2.php'
+);
+$pages['jak_pujcit_vyzvednuti'] = array_merge(
+    require $dataDir . 'prevzeti-content-1.php',
+    require $dataDir . 'prevzeti-content-2.php'
+);
+$pages['jak_pujcit_vraceni_pujcovna'] = array_merge(
+    require $dataDir . 'vraceni-pujcovna-content-1.php',
+    require $dataDir . 'vraceni-pujcovna-content-2.php'
+);
+
+// 5) faq (3 faq-content-* soubory + meta z 3.) — preskocime, pokud chybi
+if (is_file($dataDir . 'faq-content-1.php') && is_file($dataDir . 'faq-content-2.php') && is_file($dataDir . 'faq-content-3.php')) {
+    $p1 = require $dataDir . 'faq-content-1.php';
+    $p2 = require $dataDir . 'faq-content-2.php';
+    $p3 = require $dataDir . 'faq-content-3.php';
+    $meta = $p3['__meta'];
+    unset($p3['__meta']);
+    $cats = [];
+    foreach ([$p1, $p2, $p3] as $part) {
+        foreach ($part as $catKey => $catData) {
+            if (!isset($cats[$catKey])) $cats[$catKey] = ['label' => $catData['label'], 'items' => []];
+            $cats[$catKey]['items'] = array_merge($cats[$catKey]['items'], $catData['items']);
+        }
     }
+    $pages['faq'] = [
+        'seo' => $meta['seo'],
+        'h1' => $meta['h1'],
+        'closing' => $meta['closing'],
+        'cta' => $meta['cta'],
+        'categories' => $cats,
+    ];
 }
-$pages['faq'] = [
-    'seo' => $meta['seo'],
-    'h1' => $meta['h1'],
-    'closing' => $meta['closing'],
-    'cta' => $meta['cta'],
-    'categories' => $cats,
-];
 
 // 6) Stranky kde je $defaults inline v page/*.php — extrahujeme regulárním výrazem
 //    NEni cele bezpecne (PHP variabilni interpolace), ale staci pro konstantni strings.
@@ -80,9 +96,6 @@ $inlinePages = [
     'pujcovna' => 'pujcovna.php',
     'kontakt' => 'kontakt.php',
     'jak_pujcit' => 'jak-pujcit.php',
-    'jak_pujcit_postup' => 'jak-pujcit-postup.php',
-    'jak_pujcit_vyzvednuti' => 'jak-pujcit-vyzvednuti.php',
-    'jak_pujcit_vraceni_pujcovna' => 'jak-pujcit-vraceni-pujcovna.php',
     'poukazy' => 'poukazy.php',
 ];
 
