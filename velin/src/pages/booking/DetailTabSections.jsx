@@ -191,9 +191,12 @@ export function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, o
         <div className="flex items-center gap-3">
           <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Termín a platba</h3>
           {booking.booking_source && (
-            <span className="inline-block rounded-btn text-xs font-extrabold uppercase tracking-wide"
+            <span className="inline-flex items-center gap-1 rounded-btn text-xs font-extrabold uppercase tracking-wide"
               style={{ padding: '2px 8px', background: booking.booking_source === 'web' ? '#dbeafe' : '#dcfce7', color: booking.booking_source === 'web' ? '#2563eb' : '#16a34a' }}>
               {booking.booking_source === 'web' ? 'Rezervace z webu' : 'Rezervace z aplikace'}
+              {booking.created_via_ai && (
+                <span title="Vytvořeno přes AI asistenta" style={{ background: '#fef3c7', color: '#92400e', padding: '0 5px', borderRadius: 6, fontSize: 10 }}>🤖 AI</span>
+              )}
             </span>
           )}
         </div>

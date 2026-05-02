@@ -62,7 +62,7 @@ export default function BookingSummary({ booking, sosIncidents, bookingExtras, c
       <SumRow label="Motorka" value={`${b.motorcycles?.model || '—'}${b.motorcycles?.spz ? ` (${b.motorcycles.spz})` : ''}`} />
       <SumRow label="Pobočka" value={branchName} />
       <SumRow label="Zákazník" value={`${b.profiles?.full_name || '—'} (${b.profiles?.email || '—'}, ${b.profiles?.phone || '—'})`} />
-      <SumRow label="Zdroj" value={b.booking_source === 'web' ? 'Web (motogo24.cz)' : b.booking_source === 'app' ? 'Mobilní aplikace' : '—'} color={b.booking_source === 'web' ? '#2563eb' : b.booking_source === 'app' ? '#16a34a' : undefined} />
+      <SumRow label="Zdroj" value={`${b.booking_source === 'web' ? 'Web (motogo24.cz)' : b.booking_source === 'app' ? 'Mobilní aplikace' : '—'}${b.created_via_ai ? ' 🤖 (přes AI asistenta)' : ''}`} color={b.booking_source === 'web' ? '#2563eb' : b.booking_source === 'app' ? '#16a34a' : undefined} />
 
       <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Termín</div>
       <SumRow label="Začátek" value={`${new Date(b.start_date).toLocaleDateString('cs-CZ')} v ${b.pickup_time || '9:00'}`} />
