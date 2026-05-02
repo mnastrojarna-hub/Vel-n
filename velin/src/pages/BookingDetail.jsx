@@ -279,9 +279,12 @@ export default function BookingDetail() {
         <span className="text-sm font-mono" style={{ color: '#1a2e22' }}>#{id?.slice(-8).toUpperCase()}</span>
         <StatusBadge status={getDisplayStatus(booking)} />
         {booking.booking_source && (
-          <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase"
+          <span className="inline-flex items-center gap-1 rounded-btn text-sm font-extrabold tracking-wide uppercase"
             style={{ padding: '3px 8px', background: booking.booking_source === 'web' ? '#dbeafe' : '#dcfce7', color: booking.booking_source === 'web' ? '#2563eb' : '#16a34a' }}>
             {booking.booking_source === 'web' ? 'WEB' : 'APP'}
+            {booking.created_via_ai && (
+              <span title="Vytvořeno přes AI asistenta" style={{ background: '#fef3c7', color: '#92400e', padding: '1px 5px', borderRadius: 6, fontSize: 11, fontWeight: 800 }}>🤖 AI</span>
+            )}
           </span>
         )}
         {booking.payment_status && (() => {

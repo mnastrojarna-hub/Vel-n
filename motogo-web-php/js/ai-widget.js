@@ -26,21 +26,50 @@
   var T = {
     cs: { open: 'Zeptej se Tomáše', placeholder: 'Napiš co potřebuješ...', send: 'Pošli',
           welcome: 'Čau, tady Tomáš z MotoGo24. Co bys potřeboval — vybrat káru, mrknout na termín, nebo rovnou jedem?',
-          thinking: 'Koukám na to...', error: 'Něco se zaseklo, zkus to prosím znovu.', close: 'Zavřít chat', clear: 'Začít znovu',
+          thinking: 'Koukám na to...', error: 'Něco se zaseklo, zkus to prosím znovu.', close: 'Zavřít chat', reset: 'Začít znovu',
           tos: 'Konverzace s asistentem je informativní; přesné podmínky najdeš ve smlouvě.',
           ctaPay: 'Pokračovat k platbě →', ctaBook: 'Pokračovat k rezervaci →' },
     en: { open: 'Ask Tom', placeholder: 'Type your question...', send: 'Send',
           welcome: 'Hey, this is Tom from MotoGo24. What do you need — pick a bike, check a date, or shall we book it right away?',
-          thinking: 'Looking into it...', error: 'Something hiccuped, please try again.', close: 'Close chat', clear: 'Start over',
+          thinking: 'Looking into it...', error: 'Something hiccuped, please try again.', close: 'Close chat', reset: 'Start over',
           tos: 'AI conversations are informational; binding terms are in the contract.',
           ctaPay: 'Continue to payment →', ctaBook: 'Continue to booking →' },
     de: { open: 'Tom fragen', placeholder: 'Stell deine Frage...', send: 'Senden',
           welcome: 'Servus, hier Tom von MotoGo24. Was brauchst du — ein Bike aussuchen, Termin prüfen oder gleich buchen?',
-          thinking: 'Schau gerade...', error: 'Da hakte es kurz, bitte nochmal probieren.', close: 'Chat schließen', clear: 'Neu starten',
+          thinking: 'Schau gerade...', error: 'Da hakte es kurz, bitte nochmal probieren.', close: 'Chat schließen', reset: 'Neu starten',
           tos: 'KI-Gespräche sind informativ; verbindlich ist der Vertrag.',
           ctaPay: 'Weiter zur Zahlung →', ctaBook: 'Weiter zur Buchung →' },
   };
   var t = T[LANG] || T.cs;
+
+  // ---- Persistence ----
+  // Stav (otevřeno/zavřeno + historie konverzace + timestamp poslední aktivity)
+  // držíme v sessionStorage, aby překlikem na jinou stránku / přepnutím jazyka
+  // / listováním webu nedošlo k uzavření asistenta a ke ztrátě kontextu.
+  // Mažeme: zavřením křížkem, reset tlačítkem, 5 min nečinností, koncem session.
+  var STORAGE_KEY = 'motogo_ai_widget_v1';
+  var IDLE_MS = 5 * 60 * 1000;
+  function loadState() {
+    try {
+      var raw = sessionStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      var s = JSON.parse(raw);
+      if (!s || typeof s !== 'object') return null;
+      // Cross-language guard — když user přepnul jazyk na webu, držíme konverzaci
+      // jen pokud agent v té době mluvil stejným jazykem; jinak resetujeme, ať
+      // model nebloudí mezi cs/en/de uvnitř jednoho threadu.
+      if (s.lang && s.lang !== LANG) return null;
+      // 5min idle TTL
+      if (s.lastActivity && (Date.now() - s.lastActivity) > IDLE_MS) return null;
+      return s;
+    } catch (e) { return null; }
+  }
+  function saveState(s) {
+    try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch (e) {}
+  }
+  function clearState() {
+    try { sessionStorage.removeItem(STORAGE_KEY); } catch (e) {}
+  }
 
   // ---- DOM ----
   // Responsive sizing strategy:
@@ -63,7 +92,8 @@
   #motogo-ai-header-logo{display:flex;align-items:center;gap:8px;min-width:0;flex:1 1 auto}\
   #motogo-ai-header-logo svg{height:28px;width:auto;flex-shrink:0;display:block}\
   #motogo-ai-header-tag{font-size:11px;font-weight:600;color:#74FB71;opacity:.85;letter-spacing:.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\
-  #motogo-ai-header button{background:none;border:none;color:#74FB71;cursor:pointer;font-size:18px;padding:4px 8px;flex-shrink:0}\
+  #motogo-ai-header button{background:none;border:none;color:#74FB71;cursor:pointer;font-size:18px;padding:4px 8px;flex-shrink:0;line-height:1;border-radius:6px}\
+  #motogo-ai-header button:hover{background:rgba(116,251,113,.12)}\
   #motogo-ai-messages{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px;display:flex;flex-direction:column;gap:10px;background:#f8f9fa;min-height:0}\
   .motogo-ai-msg{padding:10px 14px;border-radius:14px;max-width:85%;line-height:1.45;word-wrap:break-word;overflow-wrap:break-word;font-size:14px}\
   .motogo-ai-msg.user{background:#1a2e22;color:#fff;align-self:flex-end;border-bottom-right-radius:4px}\
@@ -129,9 +159,19 @@
       + '</svg>'
       + '<span id="motogo-ai-header-tag">AI asistent</span>';
 
+    var resetBtn = el('button', {
+      type: 'button', 'aria-label': t.reset, title: t.reset,
+      onclick: function() { resetConversation(true); },
+    }, ['↻']);
+    var closeBtn = el('button', {
+      type: 'button', 'aria-label': t.close, title: t.close,
+      onclick: function() { close(true); }, // close=true → mažeme stav per pravidlu
+    }, ['✕']);
+
     var header = el('div', { id: 'motogo-ai-header' }, [
       logoWrap,
-      el('button', { type: 'button', 'aria-label': t.close, title: t.close, onclick: close }, ['✕']),
+      resetBtn,
+      closeBtn,
     ]);
 
     var panel = el('div', { id: 'motogo-ai-panel', role: 'dialog', 'aria-label': 'MotoGo24 AI' },
@@ -145,6 +185,43 @@
     var isLoading = false;
     var welcomed = false;
     var customWelcome = null;
+    var idleTimer = null;
+
+    function persist(extra) {
+      var s = {
+        open: panel.classList.contains('open'),
+        conversation: conversation,
+        lang: LANG,
+        lastActivity: Date.now(),
+        welcomed: welcomed,
+      };
+      if (extra) for (var k in extra) s[k] = extra[k];
+      saveState(s);
+    }
+
+    function armIdleTimer() {
+      if (idleTimer) clearTimeout(idleTimer);
+      idleTimer = setTimeout(function() {
+        // 5 min ticha → reset, ať se příští interakce nezamotá ve starém kontextu
+        resetConversation(false);
+      }, IDLE_MS);
+    }
+
+    function resetConversation(reopen) {
+      conversation = [];
+      welcomed = false;
+      msgs.innerHTML = '';
+      if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
+      clearState();
+      if (reopen) {
+        // user kliknul Reset → nech panel otevřený a vykresli welcome
+        welcomed = true;
+        appendMsg('assistant', customWelcome || t.welcome);
+        persist();
+        armIdleTimer();
+        setTimeout(function() { input.focus(); }, 50);
+      }
+    }
 
     // Načti uvítací zprávu z app_settings (admin si ji může změnit ve Velínu).
     // PostgREST endpoint je veřejný (RLS app_settings = SELECT public).
@@ -178,22 +255,62 @@
         welcomed = true;
         appendMsg('assistant', customWelcome || t.welcome);
       }
+      persist();
+      armIdleTimer();
       setTimeout(function() { input.focus(); }, 200);
     }
 
-    function close() {
+    function close(clearAll) {
       panel.classList.remove('open');
       document.body.classList.remove('motogo-ai-open');
       bubble.setAttribute('aria-expanded', 'false');
       bubble.textContent = '💬';
       bubble.setAttribute('aria-label', t.open);
+      if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
+      // Když user zavřel křížkem → maž historii (per pravidlu od admina:
+      // konverzaci mažeme po zavření / reset / 5 min nečinnosti).
+      // Jinak (auto-close např. z resetConversation) je už stav vyčištěn.
+      if (clearAll) {
+        conversation = [];
+        welcomed = false;
+        msgs.innerHTML = '';
+        clearState();
+      }
     }
 
     function toggle() {
-      if (panel.classList.contains('open')) close(); else open();
+      if (panel.classList.contains('open')) close(true); else open();
     }
 
     bubble.addEventListener('click', toggle);
+
+    // ---- Restore stavu z předchozí stránky ----
+    // Když user překliknul na jinou stránku / přepnul jazyk a panel byl otevřený,
+    // znovu ho otevřeme a obnovíme historii — agent musí zůstat aktivní.
+    (function restore() {
+      var s = loadState();
+      if (!s) return;
+      if (Array.isArray(s.conversation) && s.conversation.length) {
+        conversation = s.conversation.slice();
+        // Re-render historie do DOMu (stejný formát jako při živém příchodu)
+        for (var i = 0; i < conversation.length; i++) {
+          var m = conversation[i];
+          if (m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string') {
+            appendMsg(m.role, m.content);
+          }
+        }
+      }
+      welcomed = !!s.welcomed;
+      if (s.open) {
+        // Otevři bez re-vykreslení welcome (welcomed=true už je)
+        panel.classList.add('open');
+        document.body.classList.add('motogo-ai-open');
+        bubble.setAttribute('aria-expanded', 'true');
+        bubble.textContent = '✕';
+        bubble.setAttribute('aria-label', t.close);
+        armIdleTimer();
+      }
+    })();
 
     input.addEventListener('input', function() {
       input.style.height = 'auto';
@@ -326,6 +443,8 @@
       isLoading = true;
       sendBtn.disabled = true;
       var thinkingNode = appendThinking();
+      persist();
+      armIdleTimer();
 
       try {
         var resp = await fetch(API, {
@@ -347,6 +466,8 @@
           var reply = data.reply || t.error;
           conversation.push({ role: 'assistant', content: reply });
           appendMsg('assistant', reply);
+          persist();
+          armIdleTimer();
           // CTA tlačítka — preferujeme platební odkaz z create_booking_request,
           // jinak redirect_to_booking. Hodnota tu.result je už deserializovaná.
           var ctaUrl = data.booking_url || null;
