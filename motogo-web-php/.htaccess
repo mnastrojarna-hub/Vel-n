@@ -11,6 +11,10 @@ RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
 RewriteRule ^(.*)$ https://%1/$1 [R=301,L]
 
 # 2) http -> https (pokud HTTPS není aktivní)
+# Výjimka: /.well-known/acme-challenge/ musí být dostupné po HTTP, jinak
+# Let's Encrypt HTTP-01 validace selže (validátor narazí na cizí/neplatný
+# cert na HTTPS endpointu, dokud cert neexistuje — chicken-and-egg).
+RewriteCond %{REQUEST_URI} !^/\.well-known/acme-challenge/
 RewriteCond %{HTTPS} !=on
 RewriteCond %{HTTP:X-Forwarded-Proto} !=https
 RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
