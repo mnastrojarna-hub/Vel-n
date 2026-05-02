@@ -638,6 +638,21 @@ body.mg-lb-open{overflow:hidden;overscroll-behavior:none}
 
 /* Doklady dialog */
 .edit-rez-doc-dialog{max-width:520px}
+/* Upload doklady — sekce nad seznamem v tabu Doklady. Slouží pro Mindee scan
+   ze stránky upravit-rezervaci (post-payment), aby se zákazník dostal k door
+   codes bez návratu do rezervace flow. */
+.edit-rez-upload{background:linear-gradient(180deg,#f0fff4 0%,#fff 100%);border:1px solid #d1fae5;border-radius:12px;padding:1rem 1.25rem;margin:0 0 1.25rem}
+.edit-rez-upload h4{margin:0 0 .5rem;font-size:1.05rem}
+.edit-rez-upload-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:.75rem}
+@media (max-width:560px){.edit-rez-upload-row{grid-template-columns:1fr}}
+.edit-rez-upload-card{background:#fff;border:1px solid #e3e8e5;border-radius:10px;padding:.75rem .9rem;display:flex;align-items:center;gap:.75rem}
+.edit-rez-upload-card.is-ok{border-color:#74FB71;background:#f0fff4}
+.edit-rez-upload-status{font-size:1.4rem;font-weight:800;color:#999;width:1.5rem;text-align:center}
+.edit-rez-upload-card.is-ok .edit-rez-upload-status{color:#16a34a}
+.edit-rez-upload-label{flex:1;font-weight:600}
+.edit-rez-upload-status-msg{margin-top:.75rem;font-size:.9rem;min-height:1.2em}
+.edit-rez-upload-status-msg.is-info{color:#1a8c1a}
+.edit-rez-upload-status-msg.is-error{color:#dc2626}
 .edit-rez-doclist{list-style:none;padding:0;margin:0 0 1rem}
 .edit-rez-doclist li{display:flex;justify-content:space-between;align-items:center;gap:.6rem;padding:.6rem 0;border-bottom:1px solid #eee;font-size:.95rem}
 .edit-rez-doclist li:last-child{border-bottom:none}

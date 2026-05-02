@@ -1398,6 +1398,15 @@ MG._editRez._renderTabDocs = async function(){
     + '<p>' + MG.t('editRez.loading') + '</p>';
 
   try {
+    // Načti profil pro zjištění stavu ověření dokladů (id_verified_at, license_verified_at,
+    // passport_verified_at) — používá to upload sekce ke zobrazení ✓ / ○ vedle docladu.
+    try {
+      var pres = await window.sb.from('profiles')
+        .select('id_verified_at,id_verified_until,license_verified_at,license_verified_until,passport_verified_at,passport_verified_until')
+        .eq('id', b.user_id).maybeSingle();
+      MG._editRez._profile = (pres && pres.data) || {};
+    } catch(_){ MG._editRez._profile = {}; }
+
     var results = await Promise.all([
       window.sb.from('invoices')
         .select('id,number,type,status,total,pdf_path,issue_date,created_at')
@@ -1518,7 +1527,34 @@ MG._editRez._renderTabDocs = async function(){
         }).join('') + '</ul>'
       : '<p>' + MG.t('editRez.doc.empty') + '</p>';
 
+    // Sekce „Nahrát/aktualizovat doklady" — zákazník po platbě musí naskenovat OP/pas + ŘP
+    // přes Mindee OCR, jinak systém nevydá door codes (auto_generate_door_codes trigger).
+    // Triggery release_withheld_door_codes / release_withheld_door_codes_for_user
+    // automaticky uvolní kódy, jakmile dorazí nový INSERT do `documents` se správným typem.
+    var profile = MG._editRez._profile || {};
+    var hasId = !!(profile.id_verified_at || profile.passport_verified_at);
+    var hasLicense = !!profile.license_verified_at;
+    var uploadHtml = '<div class="edit-rez-upload">'
+      + '<h4>📷 ' + (MG.t('editRez.doc.uploadTitle','editRez.doc.uploadTitle') || 'Nahrát / aktualizovat doklady') + '</h4>'
+      + '<p class="edit-rez-tip">' + (MG.t('editRez.doc.uploadHelp','editRez.doc.uploadHelp') || 'Nahraj občanku/pas a řidičák — sken přes Mindee OCR. Bez nich systém nevydá přístupový kód k motorce.') + '</p>'
+      + '<div class="edit-rez-upload-row">'
+      +   '<div class="edit-rez-upload-card' + (hasId ? ' is-ok' : '') + '">'
+      +     '<div class="edit-rez-upload-status">' + (hasId ? '✓' : '○') + '</div>'
+      +     '<div class="edit-rez-upload-label">' + (MG.t('editRez.doc.idLabel','editRez.doc.idLabel') || 'Občanka / pas') + '</div>'
+      +     '<button type="button" class="btn btngreen-small" data-doc-upload="id">' + (hasId ? (MG.t('editRez.doc.updateBtn','editRez.doc.updateBtn') || 'Aktualizovat') : (MG.t('editRez.doc.uploadBtn','editRez.doc.uploadBtn') || 'Nahrát')) + '</button>'
+      +   '</div>'
+      +   '<div class="edit-rez-upload-card' + (hasLicense ? ' is-ok' : '') + '">'
+      +     '<div class="edit-rez-upload-status">' + (hasLicense ? '✓' : '○') + '</div>'
+      +     '<div class="edit-rez-upload-label">' + (MG.t('editRez.doc.licenseLabel','editRez.doc.licenseLabel') || 'Řidičský průkaz') + '</div>'
+      +     '<button type="button" class="btn btngreen-small" data-doc-upload="dl">' + (hasLicense ? (MG.t('editRez.doc.updateBtn','editRez.doc.updateBtn') || 'Aktualizovat') : (MG.t('editRez.doc.uploadBtn','editRez.doc.uploadBtn') || 'Nahrát')) + '</button>'
+      +   '</div>'
+      + '</div>'
+      + '<div id="edit-rez-upload-status" class="edit-rez-upload-status-msg" aria-live="polite"></div>'
+      + '</div>';
+
     t.innerHTML = '<h3>' + MG.t('editRez.doc.title') + '</h3>'
+      + uploadHtml
+      + '<h4 style="margin-top:24px">' + (MG.t('editRez.doc.archiveTitle','editRez.doc.archiveTitle') || 'Doklady ke stažení') + '</h4>'
       + '<p class="edit-rez-tip">' + MG.t('editRez.doc.help') + '</p>'
       + listHtml;
 
@@ -1528,11 +1564,140 @@ MG._editRez._renderTabDocs = async function(){
         MG._editRez._downloadDocRow(row);
       });
     });
+    t.querySelectorAll('[data-doc-upload]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var docType = btn.getAttribute('data-doc-upload');
+        MG._editRez._uploadDoc(docType);
+      });
+    });
   } catch(err){
     console.error('[editRez] renderTabDocs err', err);
     t.innerHTML = '<h3>' + MG.t('editRez.doc.title') + '</h3>'
       + '<div class="edit-rez-error">' + MG.t('editRez.err.generic') + '</div>';
   }
+};
+
+// ===== UPLOAD / SCAN DOKLADŮ =====
+// Tady zákazník nahraje fotku nebo soubor (občanka/pas/řidičák), edge fn `scan-document`
+// to pošle do Mindee OCR a vrátí extracted fields. Pak vložíme do `documents` table
+// (per type), což triggerne `release_withheld_door_codes` — pokud má rezervaci paid,
+// systém uvolní door codes a pošle SMS/WhatsApp/email s kódy.
+// Tahle cesta záměrně NEPOUŽÍVÁ MG._rezOpenCamera/MG._rezOcrBurst (pochází z rezervace
+// flow a sahá do MG._rez state), aby nezasahovala do existujícího flow rezervace.
+MG._editRez._uploadDoc = async function(docType){
+  var b = MG._editRez.selectedBooking;
+  if (!b || !b.user_id) return;
+  var statusEl = document.getElementById('edit-rez-upload-status');
+  var setStatus = function(msg, isError){
+    if (!statusEl) return;
+    statusEl.textContent = msg || '';
+    statusEl.className = 'edit-rez-upload-status-msg' + (isError ? ' is-error' : (msg ? ' is-info' : ''));
+  };
+
+  // 1) File picker (image / PDF). Native capture=environment otevře foťák na mobilu.
+  var input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*,application/pdf';
+  try { input.setAttribute('capture', 'environment'); } catch(_){ }
+  input.onchange = async function(){
+    var f = input.files && input.files[0];
+    if (!f) return;
+    setStatus(MG.t('editRez.doc.uploadingMsg','editRez.doc.uploadingMsg') || 'Nahrávám a skenuji…');
+
+    // 2) Base64 encode
+    var b64 = await new Promise(function(resolve, reject){
+      var r = new FileReader();
+      r.onload = function(){
+        var s = String(r.result || '');
+        var i = s.indexOf(',');
+        resolve(i >= 0 ? s.slice(i + 1) : s);
+      };
+      r.onerror = reject;
+      r.readAsDataURL(f);
+    });
+
+    // 3) Mindee přes scan-document edge fn
+    var sb = window.sb;
+    var sess = (await sb.auth.getSession()).data && (await sb.auth.getSession()).data.session;
+    var token = sess && sess.access_token;
+    var url = (window.MOTOGO_CONFIG && window.MOTOGO_CONFIG.SUPABASE_URL) || sb.supabaseUrl;
+    var anon = (window.MOTOGO_CONFIG && window.MOTOGO_CONFIG.SUPABASE_ANON_KEY) || sb.supabaseKey;
+    var headers = { 'Content-Type': 'application/json', 'apikey': anon };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+
+    var ocr;
+    try {
+      var resp = await fetch(url + '/functions/v1/scan-document', {
+        method: 'POST', headers: headers,
+        body: JSON.stringify({ document_type: docType, image_base64: b64, user_id: b.user_id }),
+      });
+      ocr = await resp.json();
+      if (!resp.ok || !ocr || ocr.error) {
+        setStatus((MG.t('editRez.doc.scanFail','editRez.doc.scanFail') || 'Sken se nepodařil — zkus znovu nebo lépe nasviť.') + (ocr && ocr.error ? ' (' + ocr.error + ')' : ''), true);
+        return;
+      }
+    } catch(e){
+      setStatus(MG.t('editRez.doc.scanFail','editRez.doc.scanFail') || 'Sken se nepodařil — zkus znovu nebo lépe nasviť.', true);
+      return;
+    }
+    var fields = (ocr && (ocr.data || ocr.fields)) || {};
+
+    // 4) Upload originálu do Storage (bucket `documents`) — prefix `user_id/<docType>/<ts>.<ext>`
+    var ext = (f.name && f.name.split('.').pop()) || 'jpg';
+    var ts = new Date().toISOString().replace(/[^0-9]/g,'').slice(0,14);
+    var path = b.user_id + '/' + docType + '/' + ts + '.' + ext;
+    try {
+      var up = await sb.storage.from('documents').upload(path, f, { upsert: true, contentType: f.type || 'image/jpeg' });
+      if (up && up.error) throw up.error;
+    } catch(e){
+      console.warn('[editRez] upload to storage failed', e);
+      // Pokračujeme i bez uloženého souboru — Mindee data se zapíšou do profilu níž
+    }
+
+    // 5) Insert do `documents` table (typ podle docType) — triggery
+    //    sync_invoice_to_documents / release_withheld_door_codes uvolní kódy.
+    var docTableType = docType === 'dl' ? 'drivers_license'
+                     : docType === 'passport' ? 'passport'
+                     : 'id_card'; // default 'id'
+    try {
+      await sb.from('documents').insert({
+        user_id: b.user_id,
+        booking_id: b.id,
+        type: docTableType,
+        file_path: path,
+        file_name: f.name || (docType + '.' + ext),
+        name: docTableType,
+      });
+    } catch(e){
+      console.warn('[editRez] documents insert failed', e);
+    }
+
+    // 6) Aktualizace profilu — id_number, license_number, license_expiry,
+    //    *_verified_at podle Mindee polí (pokud je zaslal).
+    var profileUpd = {};
+    if (docType === 'id') {
+      if (fields.idNumber || fields.id_number) profileUpd.id_number = fields.idNumber || fields.id_number;
+      profileUpd.id_verified_at = new Date().toISOString();
+      if (fields.expiryDate || fields.expiry_date) profileUpd.id_verified_until = fields.expiryDate || fields.expiry_date;
+    } else if (docType === 'passport') {
+      if (fields.idNumber || fields.passport_number) profileUpd.id_number = fields.idNumber || fields.passport_number;
+      profileUpd.passport_verified_at = new Date().toISOString();
+      if (fields.expiryDate || fields.expiry_date) profileUpd.passport_verified_until = fields.expiryDate || fields.expiry_date;
+    } else if (docType === 'dl') {
+      if (fields.licenseNumber || fields.license_number) profileUpd.license_number = fields.licenseNumber || fields.license_number;
+      if (fields.licenseExpiry || fields.license_expiry) profileUpd.license_expiry = fields.licenseExpiry || fields.license_expiry;
+      profileUpd.license_verified_at = new Date().toISOString();
+      if (fields.licenseExpiry || fields.license_expiry) profileUpd.license_verified_until = fields.licenseExpiry || fields.license_expiry;
+    }
+    if (Object.keys(profileUpd).length) {
+      try { await sb.from('profiles').update(profileUpd).eq('id', b.user_id); } catch(e){ console.warn('[editRez] profile update failed', e); }
+    }
+
+    setStatus(MG.t('editRez.doc.scanOk','editRez.doc.scanOk') || 'Doklad uložen ✓ — pokud je rezervace zaplacená, kódy ti dorazí na email/SMS.', false);
+    // Re-render tabu: refreshne stav „✓ / ○" + případné nové documents řádky
+    setTimeout(function(){ MG._editRez._renderTabDocs(); }, 800);
+  };
+  input.click();
 };
 
 // ===== TAB: ZMĚNA MOTORKY =====
