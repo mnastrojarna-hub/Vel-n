@@ -37,7 +37,9 @@
 - **stripe_session_id** — Stripe Checkout Session ID
 - **stripe_checkout_url** (TEXT DEFAULT NULL) — URL aktivní Stripe Checkout session, ukládá `process-payment` při vytvoření session. Použito v abandoned mailu jako přímý odkaz na platbu.
 - **checkout_started_at** (TIMESTAMPTZ DEFAULT NULL) — okamžik kliknutí na „Pokračovat k platbě" (= vytvoření Stripe Checkout session). Vstupní bod 10minutového odpočtu pro abandoned mail.
-- **abandoned_email_sent_at** (TIMESTAMPTZ DEFAULT NULL) — kdy byl odeslán „nedokončená rezervace" mail (deduplikace v `send_abandoned_booking_emails`).
+- **abandoned_email_sent_at** (TIMESTAMPTZ DEFAULT NULL) — kdy byl odeslán „nedokončená rezervace" mail (deduplikace v `send_abandoned_booking_emails` pro stavy unpaid+pending — A: chybí platba i doklady, B: chybí jen platba).
+- **docs_reminder_sent_at** (TIMESTAMPTZ DEFAULT NULL) — kdy byl odeslán „nahrajte doklady" mail (state C: paid+reserved, 5 min od `confirmed_at`, doklady nenahrané — kontrola přes `check_booking_docs_status`). Deduplikace, jeden mail na rezervaci.
+- **created_via_ai** (BOOLEAN DEFAULT false) — TRUE pokud rezervaci vytvořil `ai-public-agent` edge fn (zákazník přes AI asistenta v widgetu na webu). FALSE = klasický web formulář / appka / admin / SOS. Velín to zobrazuje jako 🤖 AI badge vedle WEB.
 - **rating, rated_at** — hodnocení zákazníkem
 - **helmet_size, jacket_size, pants_size, boots_size, gloves_size** — velikosti výbavy řidiče (helma, bunda, kalhoty, boty, rukavice)
 - **passenger_helmet_size, passenger_jacket_size, passenger_pants_size, passenger_boots_size, passenger_gloves_size** — velikosti výbavy spolujezdce
