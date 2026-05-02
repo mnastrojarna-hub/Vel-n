@@ -121,6 +121,8 @@ const FALLBACK_SUBJECTS: Record<string, (vars: Record<string, string>) => string
   },
   voucher_purchased: (v) => `V\u00e1\u0161 d\u00e1rkov\u00fd poukaz od MotoGo24`,
   booking_abandoned: (v) => `Dokon\u010dete svou rezervaci \u010d. ${v.booking_number} motocyklu u MotoGo24`,
+  booking_abandoned_full: (v) => `Dokon\u010dete rezervaci \u010d. ${v.booking_number} \u2014 chyb\u00ed platba a doklady`,
+  booking_missing_docs: (v) => `Nahrajte doklady k rezervaci \u010d. ${v.booking_number} \u2014 MotoGo24`,
   booking_cancelled: (v) => `Va\u0161e rezervace \u010d. ${v.booking_number} motocyklu u MotoGo24 byla \u00fasp\u011b\u0161n\u011b stornov\u00e1na`,
   sos_incident: () => `SOS \u2014 MotoGo24 je na cest\u011b`,
   door_codes: (v) => `P\u0159\u00edstupov\u00e9 k\u00f3dy k pobo\u010dce \u2014 rezervace \u010d. ${v.booking_number}`,
@@ -279,6 +281,8 @@ serve(async (req) => {
       order_number,
       source = 'app', // 'web' or 'app'
       resume_link,
+      pay_url,
+      docs_url,
       discount_code,
       google_review_url,
       facebook_review_url,
@@ -308,6 +312,11 @@ serve(async (req) => {
       order_number: order_number || (booking_id || '').slice(-8).toUpperCase(),
       resume_link: resume_link || '',
       resume_qr_url: resume_link ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(resume_link)}` : '',
+      // Nové URL pro abandoned/docs reminder maily — pay_url a docs_url se vyplňují z cron funkce
+      // send_abandoned_booking_emails podle stavu rezervace (state A/B/C). Když chybí, fallback
+      // na resume_link, ať se starší volání send-booking-email nerozbijí.
+      pay_url: pay_url || resume_link || '',
+      docs_url: docs_url || '',
       discount_code: discount_code || '',
       google_review_url: google_review_url || '',
       facebook_review_url: facebook_review_url || '',
@@ -385,6 +394,26 @@ ${vars.resume_link ? `<div style="text-align:center;margin:24px 0"><a href="${va
 <p style="color:#dc2626;font-weight:700;font-style:italic">Pozor: odkaz je platn\u00fd pouze 4 hodiny. Po uplynut\u00ed t\u00e9to doby se motocykl uvoln\u00ed pro dal\u0161\u00ed z\u00e1kazn\u00edky.</p>
 <p>D\u011bkujeme a t\u011b\u0161\u00edme se na v\u00e1s.</p>
 <p>T\u00fdm MotoGo24</p>`
+      } else if (type === 'booking_abandoned_full') {
+        // State A — unpaid + chybí doklady. Dva CTA: platba + nahrání dokladů.
+        templateHtml = `<p>Dobrý den,</p>
+<p>vidíme, že jste rozjeli rezervaci č. <strong>${vars.booking_number}</strong> motocyklu <strong>${vars.motorcycle}</strong> na <strong>${vars.start_date} – ${vars.end_date}</strong>, ale ještě jste ji nedokončili. Chybí dvě věci:</p>
+<ol><li><strong>Zaplatit</strong> přes zabezpečenou Stripe bránu</li><li><strong>Nahrát doklady</strong> (občanka/pas + řidičák) — sken přes mobil díky Mindee OCR zabere 30 vteřin</li></ol>
+<p>Vraťte se prosím do rezervace a obojí dořešte — všechna vyplněná data jsou uložená.</p>
+<div style="text-align:center;margin:24px 0">
+  ${vars.pay_url ? `<a href="${vars.pay_url}" style="display:inline-block;background:#74FB71;color:#1a2e22;padding:14px 22px;border-radius:25px;text-decoration:none;font-weight:800;font-size:14px;margin:4px">Pokračovat k platbě</a>` : ''}
+  ${vars.docs_url ? `<a href="${vars.docs_url}" style="display:inline-block;background:#1a2e22;color:#74FB71;padding:14px 22px;border-radius:25px;text-decoration:none;font-weight:800;font-size:14px;margin:4px">Nahrát doklady</a>` : ''}
+</div>
+<p style="color:#dc2626;font-weight:700;font-style:italic">Bez platby a dokladů systém přístupový kód k motorce nevydá. Termín můžeme držet jen omezenou dobu.</p>
+<p>Tým MotoGo24</p>`
+      } else if (type === 'booking_missing_docs') {
+        // State C — paid + chybí doklady. Jen docs CTA, nic dalšího.
+        templateHtml = `<p>Dobrý den,</p>
+<p>vaše rezervace č. <strong>${vars.booking_number}</strong> motocyklu <strong>${vars.motorcycle}</strong> na <strong>${vars.start_date} – ${vars.end_date}</strong> je zaplacená — děkujeme!</p>
+<p>Aby vám dorazil <strong>přístupový kód k motorce</strong>, ještě potřebujeme naskenovat doklady (občanku/pas + řidičák). Sken přes mobil díky Mindee OCR zabere 30 vteřin.</p>
+${vars.docs_url ? `<div style="text-align:center;margin:24px 0"><a href="${vars.docs_url}" style="display:inline-block;background:#74FB71;color:#1a2e22;padding:14px 28px;border-radius:25px;text-decoration:none;font-weight:800;font-size:15px">Nahrát doklady</a></div>` : ''}
+<p>Bez nahraných dokladů systém kódy nevydá — a platit za něco, co si nemůžete vyzvednout, by byla škoda.</p>
+<p>Tým MotoGo24</p>`
       } else if (type === 'booking_reserved') {
         templateHtml = `<p>Dobr\u00fd den,</p>
 <p>d\u011bkujeme za va\u0161i d\u016fv\u011bru a za rezervaci \u010d. <strong>${vars.booking_number}</strong> motocyklu u MotoGo24.</p>
