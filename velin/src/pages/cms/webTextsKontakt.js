@@ -100,6 +100,13 @@ export const PAGE_POUKAZY = {
   ]
 }
 
+// POZN. ke konvenci klíčů u sekcí Kalendář / Skener / Validace:
+// Klíče v `lang/*.php` mají tvar `rez.cal.month.0`, `rez.cam.shoot`, …
+// Aby je admin přepsal přes CMS bez deployi, používáme prefix
+// `web.layout.<key>` — `_i18nCmsOverlay()` v PHP strne `web.layout.` a zbytek
+// použije jako klíč pro `t()`. (Prefix se historicky jmenuje „layout", ale ve
+// skutečnosti to je obecný t()-overlay; rozšíření o non-layout klíče je čistá
+// reuse.) Auto-překlad přes `translations` jsonb funguje stejně jako u home.
 export const PAGE_REZERVACE = {
   id: 'rezervace', label: 'Rezervace', icon: '📅', url: '/rezervace',
   description: 'Rezervační stránka s kalendářem a formulářem.',
@@ -119,9 +126,60 @@ export const PAGE_REZERVACE = {
       fields: [
         { key: 'web.rez.delivery.label', label: 'Přistavení label', default: 'Přistavení motorky jinam, než na adresu motopůjčovny' },
         { key: 'web.rez.delivery.tooltip', label: 'Přistavení tooltip', type: 'textarea', default: 'Motorku vám dovezeme na domluvené místo. Do ceny za přistavení motorky se promítá: nakládka 500 Kč, vykládka 500 Kč a náklady na dopravu (20 Kč/km × 2 cesty = 40 Kč/km).' },
-        { key: 'web.rez.passenger.label', label: 'Výbava spolujezdce', default: 'Základní výbava spolujezdce - 690,- Kč' },
+        { key: 'web.rez.passenger.label', label: 'Výbava spolujezdce', default: 'Základní výbavu spolujezdce - 690,- Kč' },
         { key: 'web.rez.boots.rider', label: 'Boty řidič', default: 'Zapůjčení bot pro řidiče - 290,- Kč' },
         { key: 'web.rez.boots.passenger', label: 'Boty spolujezdec', default: 'Zapůjčení bot pro spolujezdce - 290,- Kč' },
+      ]
+    },
+    {
+      id: 'calendar', label: 'Kalendář', location: 'Kalendář dostupnosti motorky (pages-rezervace-calendar.js)',
+      fields: [
+        { key: 'web.layout.rez.cal.month.0', label: 'Měsíc 1', default: 'Leden' },
+        { key: 'web.layout.rez.cal.month.1', label: 'Měsíc 2', default: 'Únor' },
+        { key: 'web.layout.rez.cal.month.2', label: 'Měsíc 3', default: 'Březen' },
+        { key: 'web.layout.rez.cal.month.3', label: 'Měsíc 4', default: 'Duben' },
+        { key: 'web.layout.rez.cal.month.4', label: 'Měsíc 5', default: 'Květen' },
+        { key: 'web.layout.rez.cal.month.5', label: 'Měsíc 6', default: 'Červen' },
+        { key: 'web.layout.rez.cal.month.6', label: 'Měsíc 7', default: 'Červenec' },
+        { key: 'web.layout.rez.cal.month.7', label: 'Měsíc 8', default: 'Srpen' },
+        { key: 'web.layout.rez.cal.month.8', label: 'Měsíc 9', default: 'Září' },
+        { key: 'web.layout.rez.cal.month.9', label: 'Měsíc 10', default: 'Říjen' },
+        { key: 'web.layout.rez.cal.month.10', label: 'Měsíc 11', default: 'Listopad' },
+        { key: 'web.layout.rez.cal.month.11', label: 'Měsíc 12', default: 'Prosinec' },
+        { key: 'web.layout.rez.cal.dayShort.0', label: 'Den (zkratka) — Po', default: 'Po' },
+        { key: 'web.layout.rez.cal.dayShort.1', label: 'Den (zkratka) — Út', default: 'Út' },
+        { key: 'web.layout.rez.cal.dayShort.2', label: 'Den (zkratka) — St', default: 'St' },
+        { key: 'web.layout.rez.cal.dayShort.3', label: 'Den (zkratka) — Čt', default: 'Čt' },
+        { key: 'web.layout.rez.cal.dayShort.4', label: 'Den (zkratka) — Pá', default: 'Pá' },
+        { key: 'web.layout.rez.cal.dayShort.5', label: 'Den (zkratka) — So', default: 'So' },
+        { key: 'web.layout.rez.cal.dayShort.6', label: 'Den (zkratka) — Ne', default: 'Ne' },
+        { key: 'web.layout.rez.cal.prev', label: 'Aria-label "předchozí měsíc"', default: 'Předchozí měsíc' },
+        { key: 'web.layout.rez.cal.next', label: 'Aria-label "další měsíc"', default: 'Další měsíc' },
+        { key: 'web.layout.rez.cal.legend.free', label: 'Legenda — Volné', default: 'Volné' },
+        { key: 'web.layout.rez.cal.legend.selected', label: 'Legenda — Vybraný termín', default: 'Vybraný termín' },
+        { key: 'web.layout.rez.cal.legend.occupied', label: 'Legenda — Obsazené', default: 'Obsazené' },
+        { key: 'web.layout.rez.cal.legend.unconfirmed', label: 'Legenda — Nepotvrzené', default: 'Nepotvrzené' },
+        { key: 'web.layout.rez.cal.noMotoInRange', label: 'Hláška — žádná motorka v termínu', default: 'V tomto termínu bohužel není dostupná žádná motorka.' },
+        { key: 'web.layout.rez.cal.freeInRange', label: 'Badge — Volné v termínu', default: 'Volné v termínu' },
+        { key: 'web.layout.rez.cal.pickFromList', label: 'Label — Vyberte motorku ze seznamu', default: 'Vyberte motorku ze seznamu' },
+        { key: 'web.layout.rez.cal.selectMoto', label: 'Placeholder — vyberte motorku', default: 'vyberte motorku' },
+      ]
+    },
+    {
+      id: 'camera', label: 'Skener dokladů', location: 'Mobilní kamera pro OP/ŘP (pages-rezervace-camera.js)',
+      fields: [
+        { key: 'web.layout.rez.cam.docs.id', label: 'Titulek — OP', default: 'Doklad totožnosti' },
+        { key: 'web.layout.rez.cam.docs.license', label: 'Titulek — ŘP', default: 'Řidičský průkaz' },
+        { key: 'web.layout.rez.cam.close', label: 'Aria-label — Zavřít', default: 'Zavřít' },
+        { key: 'web.layout.rez.cam.hint', label: 'Hint pod rámečkem', type: 'textarea', default: 'Vložte doklad celý do rámečku. Držte telefon rovně, dobré osvětlení.' },
+        { key: 'web.layout.rez.cam.shoot', label: 'CTA — Spustit sken', default: 'Spustit sken' },
+        { key: 'web.layout.rez.cam.progress', label: 'Status — Snímám', default: 'Snímám…' },
+      ]
+    },
+    {
+      id: 'alerts', label: 'Validační hlášky', location: 'alert() pop-upy při neúplném formuláři (pages-rezervace-steps.js)',
+      fields: [
+        { key: 'web.layout.rez.alert.selectSize', label: 'Vyberte velikost', default: 'Nejdřív vyberte velikost.' },
       ]
     },
   ]

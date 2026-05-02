@@ -24,6 +24,14 @@ MG.t = MG.t || function(key, params){
   return s;
 };
 
+// Pluralizace dnů (CS: 1 den / 2-4 dny / 5+ dní; ostatní jazyky používají
+// jen jednu nebo dvě formy — slovník to řeší správnou hodnotou klíče.
+// Anglický slovník má všechny tři varianty mapované na "days" / "day").
+MG._dayLabel = MG._dayLabel || function(n){
+  var key = (n === 1) ? 'editRez.dayWord.1' : (n < 5 ? 'editRez.dayWord.few' : 'editRez.dayWord.many');
+  return n + ' ' + MG.t(key);
+};
+
 // State pro celý flow upravit-rezervaci.
 MG._editRez = {
   view: 'login',        // 'login' | 'forgot' | 'reset' | 'list' | 'detail'
@@ -444,7 +452,7 @@ MG._editRez._loadBookings = async function(){
         .eq('user_id', uid)
         .order('start_date', { ascending: false }),
       window.sb.from('shop_orders')
-        .select('id,order_number,status,payment_status,total_amount,created_at,shop_order_items(product_id,size,name,price,quantity)')
+        .select('id,order_number,status,payment_status,total_amount,created_at,shop_order_items(product_name,unit_price,quantity)')
         .eq('customer_id', uid)
         .order('created_at', { ascending: false }),
       window.sb.from('vouchers')
@@ -609,7 +617,7 @@ MG._editRez._cancelPending = async function(bookingId){
   try {
     var r = await window.sb.rpc('cancel_booking_tracked', {
       p_booking_id: bookingId,
-      p_reason: 'Zrušeno zákazníkem před zaplacením'
+      p_reason: MG.t('editRez.pending.cancelReason')
     });
     if (r.error){
       console.error('[editRez] cancelPending err', r.error);
@@ -641,15 +649,15 @@ MG._editRez._renderBookingRow = function(b){
     : '<div class="erez-row-img-ph">🏍️</div>';
   var dates = MG.formatDate(b.start_date) + ' – ' + MG.formatDate(b.end_date);
   var days = MG._editRez._daysBetween(b.start_date, b.end_date);
-  var daysLbl = days + (days === 1 ? ' den' : days < 5 ? ' dny' : ' dní');
+  var daysLbl = MG._dayLabel(days);
   var ds = MG._editRez._displayStatus(b);
   var pending = MG._editRez._isPendingUnpaid(b);
-  var statusLbl = pending ? 'Nezaplaceno' : MG.t('editRez.status.' + ds);
+  var statusLbl = pending ? MG.t('editRez.status.unpaid') : MG.t('editRez.status.' + ds);
   var statusCls = pending ? 'pending-unpaid' : ds;
   var price = MG.formatPrice(Number(b.total_price || 0));
   var bookingNum = (b.id || '').substring(0,8).toUpperCase();
   var payCta = pending
-    ? '<button type="button" class="edit-rez-row-pay" data-pay-id="' + b.id + '" aria-label="Pokračovat k platbě">💳 Pokračovat k platbě</button>'
+    ? '<button type="button" class="edit-rez-row-pay" data-pay-id="' + b.id + '" aria-label="' + MG.t('editRez.list.payAria') + '">' + MG.t('editRez.list.payCta') + '</button>'
     : '';
   return '<div class="edit-rez-booking-wrap">' +
     '<button type="button" class="edit-rez-booking erez-row' + (pending ? ' pending' : '') + '" data-id="' + b.id + '">' +
@@ -675,7 +683,7 @@ MG._editRez._renderShopRow = function(o){
     '<div class="erez-row-img"><div class="erez-row-img-ph">🛒</div></div>' +
     '<div class="erez-row-body">' +
       '<div class="erez-row-num">' + num + '</div>' +
-      '<div class="erez-row-title">E-shop objednávka</div>' +
+      '<div class="erez-row-title">' + MG.t('editRez.list.shopRowTitle') + '</div>' +
       '<div class="erez-row-meta">📅 ' + when + '</div>' +
       '<div class="edit-rez-booking-status status-' + (o.payment_status === 'paid' ? 'completed' : 'pending') + '">' + lbl + '</div>' +
     '</div>' +
@@ -692,7 +700,7 @@ MG._editRez._renderVoucherRow = function(v){
     '<div class="erez-row-img"><div class="erez-row-img-ph">🎁</div></div>' +
     '<div class="erez-row-body">' +
       '<div class="erez-row-num">' + code + '</div>' +
-      '<div class="erez-row-title">Dárkový poukaz</div>' +
+      '<div class="erez-row-title">' + MG.t('editRez.list.voucherRowTitle') + '</div>' +
       '<div class="erez-row-meta">📅 ' + when + '</div>' +
       '<div class="edit-rez-booking-status status-' + (v.status === 'active' ? 'upcoming' : v.status === 'redeemed' ? 'completed' : 'cancelled') + '">' + lbl + '</div>' +
     '</div>' +
@@ -705,17 +713,19 @@ MG._editRez._renderVoucherRow = function(v){
 // rezervaci (GDPR, VOP, Smlouva, Zpracování dat) — pokud je zákazník odvolá,
 // v Supabase je uložíme jako false, ale ve Velíně se mu to obarví červeně a
 // nová rezervace už od něj nepůjde, dokud neodsouhlasí znovu (řeší create_web_booking).
+// Definice souhlasů — labely a popisky se vždy berou přes MG.t() v render čase
+// (i18n překlad podle aktuálního jazyka). Pole drží jen klíče, ikony a flag required.
 MG._editRez._CONSENT_FIELDS = [
-  { key: 'consent_gdpr',          label: 'GDPR',                  desc: 'Souhlas se zpracováním osobních údajů.', icon: '🛡️', required: true },
-  { key: 'consent_vop',           label: 'VOP',                   desc: 'Všeobecné obchodní podmínky.',           icon: '📜', required: true },
-  { key: 'consent_contract',      label: 'Nájemní smlouva',       desc: 'Souhlas s návrhem nájemní smlouvy MotoGo24.', icon: '✍️', required: true },
-  { key: 'consent_data_processing', label: 'Zpracování dat',      desc: 'Souhlas se zpracováním dat pro plnění smlouvy.', icon: '🗄️', required: true },
-  { key: 'marketing_consent',     label: 'Marketing',             desc: 'Newslettery, slevové akce a novinky.',   icon: '📣' },
-  { key: 'consent_email',         label: 'Email',                 desc: 'Komunikace e-mailem (potvrzení, faktury, smlouvy).', icon: '📧' },
-  { key: 'consent_sms',           label: 'SMS',                   desc: 'Komunikace přes SMS (přístupové kódy, urgentní upozornění).', icon: '💬' },
-  { key: 'consent_whatsapp',      label: 'WhatsApp',              desc: 'Komunikace přes WhatsApp.',              icon: '🟢' },
-  { key: 'consent_push',          label: 'Push',                  desc: 'Push notifikace v aplikaci MotoGo24.',   icon: '🔔' },
-  { key: 'consent_photo',         label: 'Foto dokladů',          desc: 'Fotografování dokladů přes Mindee OCR pro autonomní pobočku.', icon: '📷' }
+  { key: 'consent_gdpr',            i18n: 'gdpr',           icon: '🛡️', required: true },
+  { key: 'consent_vop',             i18n: 'vop',            icon: '📜', required: true },
+  { key: 'consent_contract',        i18n: 'contract',       icon: '✍️', required: true },
+  { key: 'consent_data_processing', i18n: 'dataProcessing', icon: '🗄️', required: true },
+  { key: 'marketing_consent',       i18n: 'marketing',      icon: '📣' },
+  { key: 'consent_email',           i18n: 'email',          icon: '📧' },
+  { key: 'consent_sms',             i18n: 'sms',            icon: '💬' },
+  { key: 'consent_whatsapp',        i18n: 'whatsapp',       icon: '🟢' },
+  { key: 'consent_push',            i18n: 'push',           icon: '🔔' },
+  { key: 'consent_photo',           i18n: 'photo',          icon: '📷' }
 ];
 
 MG._editRez._renderConsentsCard = function(){
@@ -726,19 +736,21 @@ MG._editRez._renderConsentsCard = function(){
   var isOn = function(key){ return cs[key] !== false; };
   var renderRow = function(f){
     var val = isOn(f.key);
+    var label = MG.t('editRez.consents.label.' + f.i18n);
+    var desc  = MG.t('editRez.consents.desc.'  + f.i18n);
     var badge = f.required
-      ? '<span class="edit-rez-consent-badge required">Povinné</span>'
-      : '<span class="edit-rez-consent-badge optional">Volitelné</span>';
+      ? '<span class="edit-rez-consent-badge required">' + MG.t('editRez.consents.required') + '</span>'
+      : '<span class="edit-rez-consent-badge optional">' + MG.t('editRez.consents.optional') + '</span>';
     return '<div class="edit-rez-consent-row' + (f.required ? ' is-required' : '') + (val ? ' is-on' : '') + '" data-key="' + f.key + '">' +
       '<div class="edit-rez-consent-icon" aria-hidden="true">' + (f.icon || '✅') + '</div>' +
       '<div class="edit-rez-consent-body">' +
-        '<div class="edit-rez-consent-head"><span class="edit-rez-consent-label">' + f.label + '</span>' + badge + '</div>' +
-        '<div class="edit-rez-consent-desc">' + f.desc + '</div>' +
+        '<div class="edit-rez-consent-head"><span class="edit-rez-consent-label">' + label + '</span>' + badge + '</div>' +
+        '<div class="edit-rez-consent-desc">' + desc + '</div>' +
       '</div>' +
-      '<label class="edit-rez-toggle" aria-label="' + f.label + '">' +
+      '<label class="edit-rez-toggle" aria-label="' + label + '">' +
         '<input type="checkbox" data-consent="' + f.key + '"' + (val ? ' checked' : '') + '>' +
         '<span class="edit-rez-toggle-slider"></span>' +
-        '<span class="edit-rez-toggle-state">' + (val ? 'Ano' : 'Ne') + '</span>' +
+        '<span class="edit-rez-toggle-state">' + (val ? MG.t('editRez.consents.toggleYes') : MG.t('editRez.consents.toggleNo')) + '</span>' +
       '</label>' +
     '</div>';
   };
@@ -746,11 +758,11 @@ MG._editRez._renderConsentsCard = function(){
   var optional = MG._editRez._CONSENT_FIELDS.filter(function(f){ return !f.required; });
   var rows =
     '<div class="edit-rez-consents-section">' +
-      '<div class="edit-rez-consents-section-h"><span class="ico">⚖️</span> Povinné pro rezervaci</div>' +
+      '<div class="edit-rez-consents-section-h"><span class="ico">⚖️</span> ' + MG.t('editRez.consents.sectionRequired') + '</div>' +
       required.map(renderRow).join('') +
     '</div>' +
     '<div class="edit-rez-consents-section">' +
-      '<div class="edit-rez-consents-section-h"><span class="ico">⚙️</span> Volitelné — komunikace a marketing</div>' +
+      '<div class="edit-rez-consents-section-h"><span class="ico">⚙️</span> ' + MG.t('editRez.consents.sectionOptional') + '</div>' +
       optional.map(renderRow).join('') +
     '</div>';
 
@@ -758,12 +770,12 @@ MG._editRez._renderConsentsCard = function(){
     '<div class="edit-rez-consents-head">' +
       '<div class="edit-rez-consents-title">' +
         '<span class="edit-rez-consents-title-ico">🔒</span>' +
-        '<div><h2>Souhlasy a komunikace</h2>' +
-        '<p class="edit-rez-consents-help">Změny se ukládají automaticky. Odvolání povinných souhlasů zablokuje další nové rezervace.</p></div>' +
+        '<div><h2>' + MG.t('editRez.consents.cardTitle') + '</h2>' +
+        '<p class="edit-rez-consents-help">' + MG.t('editRez.consents.help') + '</p></div>' +
       '</div>' +
       '<div class="edit-rez-consents-actions">' +
-        '<button type="button" class="btn-pill primary" id="edit-rez-consents-grant-all">✓ Přijmout vše</button>' +
-        '<button type="button" class="btn-pill ghost" id="edit-rez-consents-revoke-all">Odvolat vše</button>' +
+        '<button type="button" class="btn-pill primary" id="edit-rez-consents-grant-all">' + MG.t('editRez.consents.grantAll') + '</button>' +
+        '<button type="button" class="btn-pill ghost" id="edit-rez-consents-revoke-all">' + MG.t('editRez.consents.revokeAll') + '</button>' +
       '</div>' +
     '</div>' +
     '<div class="edit-rez-consents-list">' + rows + '</div>' +
@@ -984,9 +996,9 @@ MG._editRez._bindConsentsCard = function(scope){
   });
   var revokeAll = card.querySelector('#edit-rez-consents-revoke-all');
   if (revokeAll) revokeAll.addEventListener('click', function(){
-    MG._editRez._confirmDialog('Opravdu chcete odvolat všechny souhlasy?', function(){
+    MG._editRez._confirmDialog(MG.t('editRez.consents.confirmRevoke'), function(){
       MG._editRez._saveAllConsents(false);
-    }, { yesLabel: 'Odvolat vše', noLabel: 'Zachovat', danger: true });
+    }, { yesLabel: MG.t('editRez.consents.confirmYes'), noLabel: MG.t('editRez.consents.confirmNo'), danger: true });
   });
 };
 
@@ -1009,7 +1021,7 @@ MG._editRez._saveConsent = async function(key, value, inp){
   if (row){ row.classList.add('busy'); row.classList.toggle('is-on', !!value); }
   inp.disabled = true;
   var stateEl = row && row.querySelector('.edit-rez-toggle-state');
-  if (stateEl) stateEl.textContent = value ? 'Ano' : 'Ne';
+  if (stateEl) stateEl.textContent = value ? MG.t('editRez.consents.toggleYes') : MG.t('editRez.consents.toggleNo');
   try {
     var payload = {}; payload[key] = !!value;
     var r = await window.sb.from('profiles').update(payload).eq('id', MG._editRez.user.id);
@@ -1018,18 +1030,18 @@ MG._editRez._saveConsent = async function(key, value, inp){
       // Rollback UI
       inp.checked = !value;
       if (row) row.classList.toggle('is-on', !value);
-      if (stateEl) stateEl.textContent = !value ? 'Ano' : 'Ne';
-      MG._editRez._setConsentsStatus('Nepodařilo se uložit souhlas.', true);
+      if (stateEl) stateEl.textContent = !value ? MG.t('editRez.consents.toggleYes') : MG.t('editRez.consents.toggleNo');
+      MG._editRez._setConsentsStatus(MG.t('editRez.consents.saveError'), true);
     } else {
       (MG._editRez.consents = MG._editRez.consents || {})[key] = !!value;
-      MG._editRez._setConsentsStatus(value ? 'Souhlas udělen.' : 'Souhlas odvolán.', false);
+      MG._editRez._setConsentsStatus(value ? MG.t('editRez.consents.granted') : MG.t('editRez.consents.revoked'), false);
     }
   } catch(e){
     console.error('[editRez] consent save exception', e);
     inp.checked = !value;
     if (row) row.classList.toggle('is-on', !value);
     if (stateEl) stateEl.textContent = !value ? 'Ano' : 'Ne';
-    MG._editRez._setConsentsStatus('Nepodařilo se uložit souhlas.', true);
+    MG._editRez._setConsentsStatus(MG.t('editRez.consents.saveError'), true);
   } finally {
     inp.disabled = false;
     if (row) row.classList.remove('busy');
@@ -1050,7 +1062,7 @@ MG._editRez._saveAllConsents = async function(value){
     var r = await window.sb.from('profiles').update(payload).eq('id', MG._editRez.user.id);
     if (r.error){
       console.error('[editRez] saveAll consents err', r.error);
-      MG._editRez._setConsentsStatus('Nepodařilo se uložit souhlasy.', true);
+      MG._editRez._setConsentsStatus(MG.t('editRez.consents.saveErrorPlural'), true);
       return;
     }
     MG._editRez.consents = MG._editRez.consents || {};
@@ -1059,14 +1071,14 @@ MG._editRez._saveAllConsents = async function(value){
       inp.checked = !!value;
       MG._editRez.consents[key] = !!value;
       var stateEl = inp.parentElement.querySelector('.edit-rez-toggle-state');
-      if (stateEl) stateEl.textContent = value ? 'Ano' : 'Ne';
+      if (stateEl) stateEl.textContent = value ? MG.t('editRez.consents.toggleYes') : MG.t('editRez.consents.toggleNo');
       var row = inp.closest('.edit-rez-consent-row');
       if (row) row.classList.toggle('is-on', !!value);
     });
-    MG._editRez._setConsentsStatus(value ? 'Všechny souhlasy uděleny.' : 'Všechny souhlasy odvolány.', false);
+    MG._editRez._setConsentsStatus(value ? MG.t('editRez.consents.allGranted') : MG.t('editRez.consents.allRevoked'), false);
   } catch(e){
     console.error('[editRez] saveAll exception', e);
-    MG._editRez._setConsentsStatus('Nepodařilo se uložit souhlasy.', true);
+    MG._editRez._setConsentsStatus(MG.t('editRez.consents.saveErrorPlural'), true);
   } finally {
     inputs.forEach(function(inp){ inp.disabled = false; });
     card.classList.remove('busy');
@@ -1131,8 +1143,12 @@ MG._editRez._buildDocFallbackData = async function(b){
   var moto = MG._editRez.selectedMoto || {};
   var profile = null;
   try {
+    // Sloupce 1:1 podle skutečné `profiles` schématu (viz SUPABASE_BACKEND_STATE_2):
+    // full_name, email, phone, street, city, zip, country, date_of_birth,
+    // id_number, license_number, license_group. (Nepoužíváme first/last_name,
+    // address, postal_code, birth_date — neexistují.)
     var pr = await window.sb.from('profiles')
-      .select('full_name,first_name,last_name,phone,email,address,city,postal_code,country,birth_date,id_number,license_number,license_group')
+      .select('full_name,phone,email,street,city,zip,country,date_of_birth,id_number,license_number,license_group')
       .eq('id', MG._editRez.user.id)
       .maybeSingle();
     profile = pr && pr.data;
@@ -1142,8 +1158,14 @@ MG._editRez._buildDocFallbackData = async function(b){
   var origEnd = MG._editRez._normIso(b.end_date);
   var fmt = function(iso){ return iso ? MG.formatDate(iso) : ''; };
   var customer_name = profile.full_name
-    || ((profile.first_name || '') + ' ' + (profile.last_name || '')).trim()
     || (MG._editRez.user && MG._editRez.user.email) || '';
+  // Rozdělení full_name na first/last (používá se v některých placeholderech šablon)
+  var nameParts = (profile.full_name || '').trim().split(/\s+/);
+  var firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : (nameParts[0] || '');
+  var lastName  = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+  var licenseGroup = Array.isArray(profile.license_group)
+    ? profile.license_group.join(', ')
+    : (profile.license_group || '');
 
   return {
     // Booking
@@ -1156,25 +1178,26 @@ MG._editRez._buildDocFallbackData = async function(b){
     pickup_time: b.pickup_time || '',
     return_time: b.return_time || '',
     total_price: b.total_price ? MG.formatPrice(Number(b.total_price)) : '',
-    delivery_fee: b.delivery_fee ? MG.formatPrice(Number(b.delivery_fee)) : '0 Kč',
+    delivery_fee: b.delivery_fee ? MG.formatPrice(Number(b.delivery_fee)) : MG.formatPrice(0),
     pickup_method: b.pickup_method === 'delivery' ? 'Přistavení' : 'V půjčovně Mezná',
     return_method: b.return_method === 'delivery' ? 'Vyzvednutí' : 'V půjčovně Mezná',
     pickup_address: b.pickup_address || 'Mezná 9, 257 87',
     return_address: b.return_address || 'Mezná 9, 257 87',
     // Customer (vyplněno z profilu, prázdné pokud chybí)
     customer_name: customer_name,
-    customer_first_name: profile.first_name || '',
-    customer_last_name: profile.last_name || '',
+    customer_first_name: firstName,
+    customer_last_name: lastName,
     customer_email: profile.email || (MG._editRez.user && MG._editRez.user.email) || '',
     customer_phone: profile.phone || '',
-    customer_address: profile.address || '',
+    customer_address: profile.street || '',
     customer_city: profile.city || '',
-    customer_postal_code: profile.postal_code || '',
+    customer_postal_code: profile.zip || '',
     customer_country: profile.country || 'Česko',
-    customer_birth_date: profile.birth_date ? MG.formatDate(profile.birth_date) : '',
+    customer_birth_date: profile.date_of_birth ? MG.formatDate(profile.date_of_birth) : '',
     customer_id_number: profile.id_number || '',
     customer_license_number: profile.license_number || '',
-    customer_license_group: profile.license_group || '',
+    customer_license: profile.license_number || '',
+    customer_license_group: licenseGroup,
     // Moto
     moto_brand: moto.brand || '',
     moto_model: moto.model || '',
@@ -1203,7 +1226,7 @@ MG._editRez._downloadDocRow = async function(row){
   if (!row){ MG._editRez._showError(MG.t('editRez.doc.notAvailable')); return; }
   // 1) preferuj storage
   if (row.path){
-    return MG._editRez._openDocPdf(row.path, row.bucket || 'invoices');
+    return MG._editRez._openDocPdf(row.path, row.bucket || 'documents');
   }
   // 2) klient render z template
   if (row.kind === 'generated' && row.templateHtml && row.filledData){
@@ -1243,21 +1266,19 @@ MG._editRez._fillTemplate = function(html, vars){
   });
 };
 
-// Otevře PDF z Supabase Storage. invoices.pdf_path může být plný path (s bucketem)
-// nebo jen relativní; default bucket = 'invoices'.
+// Otevře PDF z Supabase Storage. Všechny doklady (faktury, smlouvy, generated)
+// jsou uloženy v jediném bucketu `documents`; `pdf_path` je celý klíč (např.
+// "invoices/<id>.html" nebo "generated/<id>.html").
 MG._editRez._openDocPdf = async function(path, defaultBucket){
   if (!path){ MG._editRez._showError(MG.t('editRez.doc.notAvailable')); return; }
   try {
-    var bucket = defaultBucket || 'invoices';
-    var key = path;
-    // Pokud path obsahuje slash a první segment je bucket name, rozdělíme
-    if (path.indexOf('/') > -1){
-      var first = path.split('/')[0];
-      if (['invoices','documents','generated_documents'].indexOf(first) > -1){
-        bucket = first;
-        key = path.substring(first.length + 1);
-      }
+    var bucket = defaultBucket || 'documents';
+    // Backward-compat: pokud volající omylem předal bucket 'invoices' nebo
+    // 'generated_documents' (neexistují), spadneme zpět na 'documents'.
+    if (bucket !== 'documents' && bucket !== 'media' && bucket !== 'sos-photos'){
+      bucket = 'documents';
     }
+    var key = path;
     var r = await window.sb.storage.from(bucket).createSignedUrl(key, 600);
     if (r.error || !r.data || !r.data.signedUrl){
       // fallback na public URL
@@ -1310,12 +1331,12 @@ MG._editRez._renderDetail = function(){
     ? '<section class="edit-rez-card edit-rez-pending-banner">' +
         '<div class="edit-rez-pending-icon">⏳</div>' +
         '<div class="edit-rez-pending-body">' +
-          '<h3>Rezervace čeká na zaplacení</h3>' +
-          '<p>Tato rezervace ještě nebyla potvrzena platbou. Dokud nezaplatíte, motorka pro vás není rezervována. Úpravy (datum, motorka, místo) půjdou až po dokončení platby.</p>' +
+          '<h3>' + MG.t('editRez.pending.title') + '</h3>' +
+          '<p>' + MG.t('editRez.pending.text') + '</p>' +
         '</div>' +
         '<div class="edit-rez-pending-actions">' +
-          '<button type="button" class="btn btngreen" id="edit-rez-resume-pay">💳 Pokračovat k platbě</button>' +
-          '<button type="button" class="btn btn-secondary" id="edit-rez-cancel-pending">Zrušit rezervaci</button>' +
+          '<button type="button" class="btn btngreen" id="edit-rez-resume-pay">' + MG.t('editRez.pending.payNow') + '</button>' +
+          '<button type="button" class="btn btn-secondary" id="edit-rez-cancel-pending">' + MG.t('editRez.pending.cancelNow') + '</button>' +
         '</div>' +
       '</section>'
     : '';
@@ -1349,9 +1370,9 @@ MG._editRez._renderDetail = function(){
     });
     var cancelBtn = document.getElementById('edit-rez-cancel-pending');
     if (cancelBtn) cancelBtn.addEventListener('click', function(){
-      MG._editRez._confirmDialog('Opravdu chcete zrušit nezaplacenou rezervaci?', function(){
+      MG._editRez._confirmDialog(MG.t('editRez.pending.confirmCancel'), function(){
         MG._editRez._cancelPending(b.id);
-      }, { yesLabel: 'Ano, zrušit', noLabel: 'Ne, ponechat', danger: true });
+      }, { yesLabel: MG.t('editRez.pending.confirmYes'), noLabel: MG.t('editRez.pending.confirmNo'), danger: true });
     });
   }
 
@@ -1383,26 +1404,34 @@ MG._editRez._renderTabDocs = async function(){
         .eq('booking_id', b.id)
         .order('issue_date', { ascending: true }),
       window.sb.from('documents')
-        .select('id,type,file_path,file_name,file_url,created_at')
+        .select('id,type,file_path,file_name,name,created_at')
         .eq('booking_id', b.id)
         .order('created_at', { ascending: true }),
+      // generated_documents bez embedu na document_templates — embed přes RLS
+      // joinu vrací 400 pro zákazníka. Šablony si donačteme zvlášť (viz níže).
       window.sb.from('generated_documents')
-        .select('id,template_id,booking_id,pdf_path,filled_data,created_at,document_templates(name,type,content_html)')
+        .select('id,template_id,booking_id,pdf_path,filled_data,created_at')
         .eq('booking_id', b.id)
         .order('created_at', { ascending: true }),
       // Fallback šablony pro VOP a smlouvu — pro upcoming rezervaci ještě nemusí
       // existovat vygenerovaný generated_documents záznam, ale zákazník má právo
-      // si VOP a smlouvu kdykoliv stáhnout (jako v Flutter app).
+      // si VOP a smlouvu kdykoliv stáhnout (jako v Flutter app). Reálný typ
+      // smlouvy v `document_templates` je `rental_contract`, ne `contract`.
       window.sb.from('document_templates')
         .select('id,type,name,content_html,version')
-        .in('type', ['contract','vop'])
-        .eq('active', true)
+        .in('type', ['rental_contract','vop'])
         .order('version', { ascending: false })
     ]);
     var invoices = (results[0] && results[0].data) || [];
     var docs     = (results[1] && results[1].data) || [];
     var gen      = (results[2] && results[2].data) || [];
     var tpls     = (results[3] && results[3].data) || [];
+
+    // Mapování template_id -> šablona (z `tpls` query). Customer nemá embed
+    // přístup do document_templates přes FK join, ale standalone query funguje
+    // (RLS produkce povoluje). Použijeme to k obohacení každého generated_documents.
+    var tplsById = {};
+    tpls.forEach(function(tp){ if (tp && tp.id) tplsById[tp.id] = tp; });
 
     // Trigger sync_invoice_to_documents() / sync_generated_doc_to_documents()
     // duplikuje záznamy do `documents`. Aby se v UI nezobrazovaly 2x, vyfiltrujeme
@@ -1417,12 +1446,13 @@ MG._editRez._renderTabDocs = async function(){
       var num = d.number || (d.id || '').substring(0,8);
       var amt = d.total ? MG.formatPrice(Number(d.total)) : '';
       var when = d.issue_date ? MG.formatDate(d.issue_date) : (d.created_at ? MG.formatDate(d.created_at) : '');
-      rows.push({ kind:'invoice', label: label, num: num, amt: amt, when: when, path: d.pdf_path, bucket: 'invoices' });
+      rows.push({ kind:'invoice', label: label, num: num, amt: amt, when: when, path: d.pdf_path, bucket: 'documents' });
     });
     var hasContract = false, hasVop = false;
     gen.forEach(function(d){
-      var tplType = (d.document_templates && d.document_templates.type) || '';
-      var name = (d.document_templates && d.document_templates.name) || '';
+      var tpl = tplsById[d.template_id] || null;
+      var tplType = (tpl && tpl.type) || '';
+      var name = (tpl && tpl.name) || '';
       var lblKey = 'editRez.doc.type.' + tplType;
       var label = MG.t(lblKey, {});
       if (label === lblKey || !label) label = name || tplType || 'Dokument';
@@ -1431,8 +1461,8 @@ MG._editRez._renderTabDocs = async function(){
       // takže VOP/Smlouva půjde stáhnout i bez existujícího pdf_path v storage.
       rows.push({
         kind: 'generated', label: label, num: name, amt: '', when: when,
-        path: d.pdf_path, bucket: 'generated_documents',
-        templateHtml: (d.document_templates && d.document_templates.content_html) || '',
+        path: d.pdf_path, bucket: 'documents',
+        templateHtml: (tpl && tpl.content_html) || '',
         filledData: d.filled_data || null,
         templateType: tplType
       });
@@ -1442,8 +1472,7 @@ MG._editRez._renderTabDocs = async function(){
     docs.forEach(function(d){
       var label = MG.t('editRez.doc.type.' + (d.type || 'unknown'), {});
       var when = d.created_at ? MG.formatDate(d.created_at) : '';
-      var path = d.file_path || d.file_url;
-      rows.push({ kind:'document', label: label, num: d.file_name || '', amt: '', when: when, path: path, bucket: 'documents' });
+      rows.push({ kind:'document', label: label, num: d.file_name || d.name || '', amt: '', when: when, path: d.file_path, bucket: 'documents' });
     });
 
     // Fallback: pokud chybí smlouva nebo VOP v generated_documents, doplníme je
@@ -1466,7 +1495,7 @@ MG._editRez._renderTabDocs = async function(){
         amt: '',
         when: '',
         path: null,
-        bucket: 'generated_documents',
+        bucket: 'documents',
         templateHtml: tpl.content_html || '',
         filledData: fallbackData,
         templateType: tpl.type
@@ -1526,8 +1555,8 @@ MG._editRez._renderTabMoto = async function(){
   var b = MG._editRez.selectedBooking;
   var t = document.getElementById('edit-rez-tab-content');
   t.innerHTML = '<h3>' + MG.t('editRez.moto.title') + '</h3>'
-    + '<p class="muted">Vyberte si jinou motorku z naší flotily — zobrazujeme všechny dostupné v daném termínu, kompatibilní s vaším řidičským oprávněním.</p>'
-    + '<div class="edit-rez-loading"><span class="spinner"></span> Načítám flotilu…</div>';
+    + '<p class="muted">' + MG.t('editRez.moto.intro') + '</p>'
+    + '<div class="edit-rez-loading"><span class="spinner"></span> ' + MG.t('editRez.moto.loading') + '</div>';
 
   try {
     var [motosR, profileR] = await Promise.all([
@@ -1552,12 +1581,13 @@ MG._editRez._renderTabMoto = async function(){
     });
     var withAvail = await Promise.all(rangePromises);
 
-    var oldPrice = MG._editRez._priceForRange(MG._editRez.selectedMoto, b.start_date, b.end_date);
+    var fbRate = MG._editRez._fallbackDailyRate(b);
+    var oldPrice = MG._editRez._priceForRange(MG._editRez.selectedMoto, b.start_date, b.end_date, fbRate);
     var cards = withAvail.map(function(x){
       var m = x.moto;
       var licOk = MG._editRez._licenseAllows(profileGroups, m.license_required);
       var available = !MG._editRez._rangeOverlapsOccupied(b.start_date, b.end_date, x.occupied);
-      var newPrice = MG._editRez._priceForRange(m, b.start_date, b.end_date);
+      var newPrice = MG._editRez._priceForRange(m, b.start_date, b.end_date, fbRate);
       var diff = Math.round(newPrice - oldPrice);
       var disabled = !licOk || !available;
 
@@ -1573,8 +1603,8 @@ MG._editRez._renderTabMoto = async function(){
       var label = (bStr && mStr.toLowerCase().indexOf(bStr.toLowerCase()) !== 0)
         ? (bStr + ' ' + mStr) : (mStr || bStr);
       var lic = m.license_required && m.license_required !== 'N'
-        ? '<span class="erez-moto-pill">ŘP ' + m.license_required + '</span>'
-        : '<span class="erez-moto-pill alt">Bez ŘP</span>';
+        ? '<span class="erez-moto-pill">' + MG.t('editRez.moto.licPill', { lic: m.license_required }) + '</span>'
+        : '<span class="erez-moto-pill alt">' + MG.t('editRez.moto.noLicPill') + '</span>';
 
       var specs = [];
       if (m.engine_cc) specs.push(m.engine_cc + ' cm³');
@@ -1583,29 +1613,29 @@ MG._editRez._renderTabMoto = async function(){
       var specsHtml = specs.length ? '<div class="erez-moto-specs">' + specs.join(' · ') + '</div>' : '';
 
       var diffHtml = diff === 0
-        ? '<span class="erez-moto-diff zero">Stejná cena</span>'
+        ? '<span class="erez-moto-diff zero">' + MG.t('editRez.moto.samePrice') + '</span>'
         : (diff > 0
-          ? '<span class="erez-moto-diff up">+' + MG.formatPrice(diff) + ' za celou rezervaci</span>'
-          : '<span class="erez-moto-diff down">' + MG.formatPrice(diff) + ' (vrátíme)</span>');
+          ? '<span class="erez-moto-diff up">' + MG.t('editRez.moto.diffUp', { amount: MG.formatPrice(diff) }) + '</span>'
+          : '<span class="erez-moto-diff down">' + MG.t('editRez.moto.diffRefund', { amount: MG.formatPrice(diff) }) + '</span>');
 
       var reasons = [];
-      if (!licOk) reasons.push('🚫 Nedostatečné ŘP');
-      if (!available) reasons.push('📅 V termínu obsazené');
+      if (!licOk) reasons.push(MG.t('editRez.moto.reasonLicense'));
+      if (!available) reasons.push(MG.t('editRez.moto.reasonOccupied'));
       var reasonsHtml = reasons.length
         ? '<div class="erez-moto-reasons">' + reasons.join(' · ') + '</div>'
         : '';
 
       var cta = disabled
-        ? '<button type="button" class="erez-moto-cta disabled" disabled>Nedostupné</button>'
-        : '<button type="button" class="erez-moto-cta" data-id="' + m.id + '" data-name="' + label.replace(/"/g,'&quot;') + '">Vybrat tuto motorku →</button>';
+        ? '<button type="button" class="erez-moto-cta disabled" disabled>' + MG.t('editRez.moto.unavailable') + '</button>'
+        : '<button type="button" class="erez-moto-cta" data-id="' + m.id + '" data-name="' + label.replace(/"/g,'&quot;') + '">' + MG.t('editRez.moto.selectThis') + '</button>';
 
       return '<article class="erez-moto-card' + (disabled ? ' is-disabled' : '') + '">' +
         '<div class="erez-moto-hero">' + heroHtml + lic + '</div>' +
         '<div class="erez-moto-meta">' +
           '<h4>' + label + '</h4>' +
           specsHtml +
-          '<div class="erez-moto-price">' + MG.formatPrice(newPrice) + ' celkem' +
-            ' <span class="muted">vs. </span>' + MG.formatPrice(oldPrice) + '</div>' +
+          '<div class="erez-moto-price">' + MG.formatPrice(newPrice) + ' ' + MG.t('editRez.moto.priceTotal') +
+            ' <span class="muted">' + MG.t('editRez.moto.priceVs') + ' </span>' + MG.formatPrice(oldPrice) + '</div>' +
           diffHtml +
           reasonsHtml +
           cta +
@@ -1615,9 +1645,9 @@ MG._editRez._renderTabMoto = async function(){
 
     t.innerHTML = '<div class="edit-rez-moto-head">' +
         '<h3>' + MG.t('editRez.moto.title') + '</h3>' +
-        '<button type="button" class="btn btn-secondary" id="edit-rez-moto-back">← Zpět na detail</button>' +
+        '<button type="button" class="btn btn-secondary" id="edit-rez-moto-back">' + MG.t('editRez.moto.backToDetail') + '</button>' +
       '</div>' +
-      '<p class="muted">Vyberte si jinou motorku z naší flotily — zobrazujeme všechny dostupné v daném termínu, kompatibilní s vaším řidičským oprávněním.</p>' +
+      '<p class="muted">' + MG.t('editRez.moto.intro') + '</p>' +
       '<div class="erez-moto-grid">' + cards + '</div>';
 
     var back = document.getElementById('edit-rez-moto-back');
@@ -1631,9 +1661,9 @@ MG._editRez._renderTabMoto = async function(){
         var newId = btn.getAttribute('data-id');
         var name = btn.getAttribute('data-name');
         MG._editRez._confirmDialog(
-          'Změnit motorku na ' + name + '?',
+          MG.t('editRez.moto.confirmTitle', { name: name }),
           function(){ MG._editRez._submitChange({ p_new_moto_id: newId }); },
-          { yesLabel: 'Ano, změnit motorku', noLabel: 'Ne, ponechat' }
+          { yesLabel: MG.t('editRez.moto.confirmYes'), noLabel: MG.t('editRez.moto.confirmNo') }
         );
       });
     });
@@ -1653,7 +1683,11 @@ MG._editRez._submitChange = async function(payload){
   var b = MG._editRez.selectedBooking;
   MG._editRez._setBusy(true);
   try {
-    var args = Object.assign({ p_booking_id: b.id }, payload || {});
+    // Vytáhnout `_time_update` ze payloadu (RPC ho neumí — aplikujeme po úspěchu).
+    var timeUpdate = (payload && payload._time_update) || null;
+    var rpcPayload = Object.assign({}, payload || {});
+    delete rpcPayload._time_update;
+    var args = Object.assign({ p_booking_id: b.id }, rpcPayload);
     var r = await window.sb.rpc('apply_booking_changes', args);
     if (r.error || !r.data || r.data.success === false){
       var code = r.data && r.data.error;
@@ -1699,6 +1733,7 @@ MG._editRez._submitChange = async function(payload){
         },
         body: JSON.stringify({
           type: 'extension',
+          mode: 'checkout',
           booking_id: b.id,
           amount: r.data.net_diff,
           success_url: window.location.origin + '/upravit-rezervaci?paid_booking=' + b.id,
@@ -1706,16 +1741,24 @@ MG._editRez._submitChange = async function(payload){
         })
       });
       var data = await resp.json().catch(function(){ return null; });
-      if (!resp.ok || !data || !data.url){
+      var redirectUrl = data && (data.checkout_url || data.url);
+      if (!resp.ok || !redirectUrl){
         console.error('[editRez] payment err', resp.status, data);
         MG._editRez._showError((data && data.error) ? data.error : MG.t('editRez.err.generic'));
         try { localStorage.removeItem('editRez_pending_' + b.id); } catch(e){}
         return;
       }
-      window.location.href = data.url;
+      window.location.href = redirectUrl;
       return;
     }
-    // Aplikováno bez doplatku — možná s refundem.
+    // Aplikováno bez doplatku — možná s refundem. Pokud uživatel zároveň
+    // změnil pickup_time/return_time, aplikujeme to přímým UPDATEm (RPC ho neumí).
+    if (timeUpdate){
+      try {
+        var tu = await window.sb.from('bookings').update(timeUpdate).eq('id', b.id);
+        if (tu.error) console.warn('[editRez] time update warn', tu.error);
+      } catch(e){ console.warn('[editRez] time update exception', e); }
+    }
     var refund = r.data.refund_amount || 0;
     var msg = refund > 0
       ? MG.t('editRez.change.successWithRefund', { amount: MG.formatPrice(refund) })
@@ -1775,21 +1818,21 @@ MG._editRez._renderTabLocation = function(){
     '<p class="muted">' + MG.t('editRez.loc.help') + '</p>' +
     '<form id="edit-rez-loc-form" class="edit-rez-form" novalidate>' +
       // PICKUP
-      '<h4 class="edit-rez-section-h">📥 Vyzvednutí motorky</h4>' +
+      '<h4 class="edit-rez-section-h">' + MG.t('editRez.loc.headPickup') + '</h4>' +
       '<div class="erez-loc-grid">' +
         locCard('pickup', 'pickup', '🏠',
-          '<strong>V půjčovně Mezná</strong>',
-          'Mezná 9, 257 87 — autonomní pobočka, otevřeno nonstop. <strong>0 Kč.</strong>',
+          '<strong>' + MG.t('editRez.loc.atRentalTitle') + '</strong>',
+          MG.t('editRez.loc.atRentalDescPickup'),
           !isDelP) +
         locCard('pickup', 'delivery', '🚚',
-          '<strong>Přistavení na adresu</strong>',
-          '<strong>1 000 Kč + 40 Kč/km</strong> z Mezné. Cena se vypočte automaticky z trasy.',
+          '<strong>' + MG.t('editRez.loc.deliveryTitle') + '</strong>',
+          MG.t('editRez.loc.deliveryDescPickup'),
           isDelP) +
       '</div>' +
       '<div class="erez-loc-addr-panel" data-side="pickup" style="display:' + (isDelP ? 'block' : 'none') + '">' +
         '<div class="erez-loc-addr-row">' +
           '<input type="text" name="pickupAddr" class="erez-loc-input" placeholder="' + MG.t('editRez.loc.addrPlaceholder') + '" value="' + (b.pickup_address || '').replace(/"/g,'&quot;') + '" autocomplete="street-address">' +
-          '<button type="button" class="erez-loc-mapbtn" data-map="pickup">📍 Vybrat na mapě</button>' +
+          '<button type="button" class="erez-loc-mapbtn" data-map="pickup">' + MG.t('editRez.loc.pickOnMapBtn') + '</button>' +
         '</div>' +
         '<div class="erez-loc-route" id="edit-rez-loc-route-pickup"></div>' +
         '<input type="hidden" name="pickupLat" value="' + (b.pickup_lat || '') + '">' +
@@ -1798,26 +1841,40 @@ MG._editRez._renderTabLocation = function(){
       '</div>' +
 
       // RETURN
-      '<h4 class="edit-rez-section-h">📤 Vrácení motorky</h4>' +
+      '<h4 class="edit-rez-section-h">' + MG.t('editRez.loc.headReturn') + '</h4>' +
       '<div class="erez-loc-grid">' +
         locCard('returnM', 'pickup', '🏠',
-          '<strong>V půjčovně Mezná</strong>',
-          'Vrátíte v autonomní pobočce. <strong>0 Kč.</strong>',
+          '<strong>' + MG.t('editRez.loc.atRentalTitle') + '</strong>',
+          MG.t('editRez.loc.atRentalDescReturn'),
           !isDelR) +
         locCard('returnM', 'delivery', '🛵',
-          '<strong>Vyzvedneme od vás</strong>',
-          '<strong>1 000 Kč + 40 Kč/km</strong> z Mezné. Cena se vypočte automaticky.',
+          '<strong>' + MG.t('editRez.loc.deliveryReturnTitle') + '</strong>',
+          MG.t('editRez.loc.deliveryDescReturn'),
           isDelR) +
       '</div>' +
       '<div class="erez-loc-addr-panel" data-side="return" style="display:' + (isDelR ? 'block' : 'none') + '">' +
         '<div class="erez-loc-addr-row">' +
           '<input type="text" name="returnAddr" class="erez-loc-input" placeholder="' + MG.t('editRez.loc.addrPlaceholder') + '" value="' + (b.return_address || '').replace(/"/g,'&quot;') + '" autocomplete="street-address">' +
-          '<button type="button" class="erez-loc-mapbtn" data-map="return">📍 Vybrat na mapě</button>' +
+          '<button type="button" class="erez-loc-mapbtn" data-map="return">' + MG.t('editRez.loc.pickOnMapBtn') + '</button>' +
         '</div>' +
         '<div class="erez-loc-route" id="edit-rez-loc-route-return"></div>' +
         '<input type="hidden" name="returnLat" value="' + (b.return_lat || '') + '">' +
         '<input type="hidden" name="returnLng" value="' + (b.return_lng || '') + '">' +
         '<input type="hidden" name="returnFee" value="0">' +
+      '</div>' +
+
+      // Časy vyzvednutí / vrácení — měnitelné nezávisle na metodě (přímý UPDATE).
+      '<h4 class="edit-rez-section-h">⏰ ' + MG.t('editRez.loc.timesTitle') + '</h4>' +
+      '<p class="muted" style="margin-top:-.4rem">' + MG.t('editRez.loc.timesHelp') + '</p>' +
+      '<div class="erez-loc-times-grid">' +
+        '<label class="erez-loc-time">' +
+          '<span class="erez-loc-time-label">' + MG.t('editRez.loc.pickupTime') + '</span>' +
+          '<input type="time" name="pickupTime" value="' + (b.pickup_time || '') + '" step="900">' +
+        '</label>' +
+        '<label class="erez-loc-time">' +
+          '<span class="erez-loc-time-label">' + MG.t('editRez.loc.returnTime') + '</span>' +
+          '<input type="time" name="returnTime" value="' + (b.return_time || '') + '" step="900">' +
+        '</label>' +
       '</div>' +
 
       '<div id="edit-rez-loc-summary" class="edit-rez-price-summary" aria-live="polite"></div>' +
@@ -1877,20 +1934,26 @@ MG._editRez._renderTabLocation = function(){
     return MG._calcDeliveryFee ? MG._calcDeliveryFee(km) : (1000 + Math.ceil(km || 0) * 40);
   }
   function recalcRoute(side){
+    if (!f.isConnected) return; // tab switched away — async geocoding callbacks no-op
     var addrInp = side === 'pickup' ? f.pickupAddr : f.returnAddr;
     var latInp = side === 'pickup' ? f.pickupLat : f.returnLat;
     var lngInp = side === 'pickup' ? f.pickupLng : f.returnLng;
     var feeInp = side === 'pickup' ? f.pickupFee : f.returnFee;
     var routeEl = document.getElementById('edit-rez-loc-route-' + side);
+    if (!routeEl) return;
     var addr = (addrInp.value || '').trim();
     if (!addr){ routeEl.textContent = ''; feeInp.value = '0'; livePreview(); return; }
     routeEl.innerHTML = '<span class="muted">' + MG.t('editRez.loc.routing') + '</span>';
 
     function applyFee(km){
+      if (!routeEl.isConnected) return;
       var fee = calcFee(km);
       feeInp.value = String(fee);
-      routeEl.innerHTML = '<div><strong>' + km.toFixed(1).replace('.', ',') + ' km</strong> z Mezné · '
-        + Math.round(km) + ' × 40 Kč + 1 000 Kč = <strong>' + MG.formatPrice(fee) + '</strong></div>';
+      routeEl.innerHTML = '<div>' + MG.t('editRez.loc.routeSummary', {
+        km: km.toFixed(1).replace('.', ','),
+        kmInt: Math.round(km),
+        fee: MG.formatPrice(fee)
+      }) + '</div>';
       livePreview();
     }
 
@@ -1899,6 +1962,7 @@ MG._editRez._renderTabLocation = function(){
       : (MG._mapySuggest ? MG._mapySuggest(addr, 1).then(function(a){ return (a && a[0]) || null; }) : Promise.resolve(null));
 
     p.then(function(coords){
+      if (!routeEl.isConnected) return;
       if (!coords){ routeEl.innerHTML = '<span class="muted">' + MG.t('editRez.loc.geocodeFail') + '</span>'; return; }
       latInp.value = coords.lat; lngInp.value = coords.lng;
       if (!MG._ensureBranchCoords || !MG._mapyRouting){ applyFee(50); return; }  // fallback estimate
@@ -1912,6 +1976,8 @@ MG._editRez._renderTabLocation = function(){
   }
   f.pickupAddr.addEventListener('input', debounce(function(){ recalcRoute('pickup'); }, 600));
   f.returnAddr.addEventListener('input', debounce(function(){ recalcRoute('return'); }, 600));
+  if (f.pickupTime) f.pickupTime.addEventListener('change', function(){ livePreview(); });
+  if (f.returnTime) f.returnTime.addEventListener('change', function(){ livePreview(); });
 
   // ===== Spočti orig fees zpětně z uložených koordinátů =====
   // Booking neukládá zvlášť pickup/return fee, jen sum delivery_fee. Pro
@@ -1959,6 +2025,10 @@ MG._editRez._renderTabLocation = function(){
   function livePreview(){
     var summary = document.getElementById('edit-rez-loc-summary');
     var cta = document.getElementById('edit-rez-loc-cta');
+    // Pokud uživatel mezitím přepnul tab pryč z „Změna místa", form i summary
+    // už nejsou v DOMu — async callbacks (geocoding, routing) by jinak
+    // hodily „Cannot set properties of null". Tichý bail-out.
+    if (!summary || !cta || !f.isConnected) return;
     var pkM = f.pickup.value;
     var rtM = f.returnM.value;
     var pkFee = (pkM === 'delivery') ? Number(f.pickupFee.value || 0) : 0;
@@ -1966,29 +2036,48 @@ MG._editRez._renderTabLocation = function(){
     var newTotal = pkFee + rtFee;
     var origTotal = origPickupFee + origReturnFee;
     var diffLocal = newTotal - origTotal;
-    var noChange = (pkM === b.pickup_method && rtM === b.return_method && diffLocal === 0);
+    // Změna času je zdarma — povolí submit i když místo zůstává stejné.
+    var pkTime = f.pickupTime ? (f.pickupTime.value || '') : '';
+    var rtTime = f.returnTime ? (f.returnTime.value || '') : '';
+    var origPkTime = b.pickup_time || '';
+    var origRtTime = b.return_time || '';
+    var timeChanged = (pkTime !== origPkTime) || (rtTime !== origRtTime);
+    var locUnchanged = (pkM === b.pickup_method && rtM === b.return_method && diffLocal === 0);
+    var noChange = locUnchanged && !timeChanged;
 
     // Klient breakdown — vždy zobrazený
+    var atRentalShort = MG.t('editRez.loc.calc.atRentalShort');
+    var kmFormula = function(km){ return MG.t('editRez.loc.calc.kmFormula', { km: Math.round(km) }); };
     var lines = [];
-    lines.push('<div class="erez-loc-calc-row"><span>Vyzvednutí — původní</span><strong>'
-      + (isDelP ? (origPickupKm ? Math.round(origPickupKm) + ' km × 40 Kč + 1 000 Kč = ' : '')
-                  + MG.formatPrice(origPickupFee) : 'V půjčovně (0 Kč)') + '</strong></div>');
-    lines.push('<div class="erez-loc-calc-row"><span>Vyzvednutí — nové</span><strong>'
-      + (pkM === 'delivery' ? MG.formatPrice(pkFee) : 'V půjčovně (0 Kč)') + '</strong></div>');
-    lines.push('<div class="erez-loc-calc-row"><span>Vrácení — původní</span><strong>'
-      + (isDelR ? (origReturnKm ? Math.round(origReturnKm) + ' km × 40 Kč + 1 000 Kč = ' : '')
-                  + MG.formatPrice(origReturnFee) : 'V půjčovně (0 Kč)') + '</strong></div>');
-    lines.push('<div class="erez-loc-calc-row"><span>Vrácení — nové</span><strong>'
-      + (rtM === 'delivery' ? MG.formatPrice(rtFee) : 'V půjčovně (0 Kč)') + '</strong></div>');
+    lines.push('<div class="erez-loc-calc-row"><span>' + MG.t('editRez.loc.calc.pickupOrig') + '</span><strong>'
+      + (isDelP ? (origPickupKm ? kmFormula(origPickupKm) : '')
+                  + MG.formatPrice(origPickupFee) : atRentalShort) + '</strong></div>');
+    lines.push('<div class="erez-loc-calc-row"><span>' + MG.t('editRez.loc.calc.pickupNew') + '</span><strong>'
+      + (pkM === 'delivery' ? MG.formatPrice(pkFee) : atRentalShort) + '</strong></div>');
+    lines.push('<div class="erez-loc-calc-row"><span>' + MG.t('editRez.loc.calc.returnOrig') + '</span><strong>'
+      + (isDelR ? (origReturnKm ? kmFormula(origReturnKm) : '')
+                  + MG.formatPrice(origReturnFee) : atRentalShort) + '</strong></div>');
+    lines.push('<div class="erez-loc-calc-row"><span>' + MG.t('editRez.loc.calc.returnNew') + '</span><strong>'
+      + (rtM === 'delivery' ? MG.formatPrice(rtFee) : atRentalShort) + '</strong></div>');
     var diffCls = diffLocal > 0 ? 'erez-loc-diff-pay' : diffLocal < 0 ? 'erez-loc-diff-refund' : '';
-    var diffLabel = diffLocal > 0 ? 'Doplatek' : diffLocal < 0 ? 'Vrátíme' : 'Bez změny ceny';
+    var diffLabel = diffLocal > 0 ? MG.t('editRez.loc.calc.surcharge') : diffLocal < 0 ? MG.t('editRez.loc.calc.refund') : MG.t('editRez.loc.calc.noChange');
     lines.push('<div class="erez-loc-calc-row erez-loc-calc-total ' + diffCls + '"><span>'
-      + diffLabel + '</span><strong>' + (diffLocal !== 0 ? MG.formatPrice(Math.abs(diffLocal)) : '0 Kč') + '</strong></div>');
+      + diffLabel + '</span><strong>' + (diffLocal !== 0 ? MG.formatPrice(Math.abs(diffLocal)) : MG.formatPrice(0)) + '</strong></div>');
 
     if (noChange){
       summary.innerHTML = '<div class="erez-loc-calc">' + lines.join('') + '</div>'
         + '<div class="muted" style="margin-top:.4rem">' + MG.t('editRez.loc.noPriceChange') + '</div>';
       cta.disabled = true;
+      return;
+    }
+
+    // Pouze čas se změnil — RPC by vrátilo `no_change`. Skip server preview,
+    // změnu času aplikujeme přímým UPDATEm na bookings v submit handleru.
+    if (locUnchanged && timeChanged){
+      var timeLines = ['<div class="erez-loc-calc-row erez-loc-calc-total"><span>'
+        + MG.t('editRez.loc.timeOnly') + '</span><strong>0 Kč</strong></div>'];
+      summary.innerHTML = '<div class="erez-loc-calc">' + timeLines.join('') + '</div>';
+      cta.disabled = false;
       return;
     }
 
@@ -2007,8 +2096,9 @@ MG._editRez._renderTabLocation = function(){
       p_dry_run: true
     };
     summary.innerHTML = '<div class="erez-loc-calc">' + lines.join('') + '</div>'
-      + '<div class="muted" style="margin-top:.4rem">Ověřuji u serveru…</div>';
+      + '<div class="muted" style="margin-top:.4rem">' + MG.t('editRez.loc.calc.verifying') + '</div>';
     window.sb.rpc('apply_booking_changes', args).then(function(r){
+      if (!summary.isConnected) return;
       if (r.error || !r.data || r.data.success === false){
         var code = r.data && r.data.error;
         if (code === 'no_change'){
@@ -2028,15 +2118,15 @@ MG._editRez._renderTabLocation = function(){
       // poslední řádek serverovou hodnotou — ale ukážeme původní cenu pro transparenci.
       var displayDiff = serverDiff;
       var displayLines = lines.slice(0, lines.length - 1);
-      var actLabel = displayDiff > 0 ? 'Doplatek (Stripe)'
-                  : displayDiff < 0 || refund > 0 ? 'Vrátíme'
-                  : 'Bez změny ceny';
+      var actLabel = displayDiff > 0 ? MG.t('editRez.loc.calc.surchargeStripe')
+                  : displayDiff < 0 || refund > 0 ? MG.t('editRez.loc.calc.refund')
+                  : MG.t('editRez.loc.calc.noChange');
       var actCls = displayDiff > 0 ? 'erez-loc-diff-pay'
                 : (displayDiff < 0 || refund > 0) ? 'erez-loc-diff-refund' : '';
       var actAmount = displayDiff > 0 ? displayDiff
                     : (refund || Math.abs(displayDiff));
       displayLines.push('<div class="erez-loc-calc-row erez-loc-calc-total ' + actCls + '"><span>'
-        + actLabel + '</span><strong>' + (actAmount ? MG.formatPrice(actAmount) : '0 Kč') + '</strong></div>');
+        + actLabel + '</span><strong>' + (actAmount ? MG.formatPrice(actAmount) : MG.formatPrice(0)) + '</strong></div>');
       summary.innerHTML = '<div class="erez-loc-calc">' + displayLines.join('') + '</div>';
       cta.disabled = (displayDiff === 0 && refund === 0 && pkM === b.pickup_method && rtM === b.return_method);
     });
@@ -2054,6 +2144,47 @@ MG._editRez._renderTabLocation = function(){
     e.preventDefault();
     if (MG._editRez.busy) return;
     var pkM = f.pickup.value, rtM = f.returnM.value;
+    var pkTime = f.pickupTime ? (f.pickupTime.value || '') : '';
+    var rtTime = f.returnTime ? (f.returnTime.value || '') : '';
+    var origPkTime = b.pickup_time || '';
+    var origRtTime = b.return_time || '';
+    var timeUpdate = {};
+    if (pkTime !== origPkTime) timeUpdate.pickup_time = pkTime || null;
+    if (rtTime !== origRtTime) timeUpdate.return_time = rtTime || null;
+    var locUnchanged = (pkM === b.pickup_method && rtM === b.return_method &&
+      Number(f.pickupFee.value || 0) === origPickupFee &&
+      Number(f.returnFee.value || 0) === origReturnFee);
+
+    // Pouze čas: přímý UPDATE bez RPC (žádná cenová změna).
+    if (locUnchanged && Object.keys(timeUpdate).length){
+      MG._editRez._confirmDialog(MG.t('editRez.loc.confirm'), async function(){
+        MG._editRez._setBusy(true);
+        try {
+          var ur = await window.sb.from('bookings').update(timeUpdate).eq('id', b.id);
+          if (ur.error){
+            console.error('[editRez] loc time update err', ur.error);
+            MG._editRez._showError(MG.t('editRez.err.generic'));
+            return;
+          }
+          // Lokální update pro okamžitý refresh detailu
+          if (timeUpdate.pickup_time !== undefined) b.pickup_time = timeUpdate.pickup_time;
+          if (timeUpdate.return_time !== undefined) b.return_time = timeUpdate.return_time;
+          var c = document.getElementById('edit-rez-tab-content');
+          if (c) c.innerHTML = '<div class="edit-rez-success-box"><h3>✓</h3><p>'
+            + MG.t('editRez.change.success') + '</p>'
+            + '<button type="button" class="btn btngreen-small" id="edit-rez-back-list">'
+            + MG.t('editRez.list.title') + '</button></div>';
+          var back = document.getElementById('edit-rez-back-list');
+          if (back) back.addEventListener('click', async function(){
+            MG._editRez.selectedBooking = null;
+            await MG._editRez._loadBookings();
+            MG._editRez._goto('list');
+          });
+        } finally { MG._editRez._setBusy(false); }
+      });
+      return;
+    }
+
     var payload = {
       p_new_pickup_method: pkM,
       p_new_pickup_address: pkM === 'delivery' ? f.pickupAddr.value : null,
@@ -2064,7 +2195,10 @@ MG._editRez._renderTabLocation = function(){
       p_new_return_address: rtM === 'delivery' ? f.returnAddr.value : null,
       p_new_return_lat: rtM === 'delivery' && f.returnLat.value ? Number(f.returnLat.value) : null,
       p_new_return_lng: rtM === 'delivery' && f.returnLng.value ? Number(f.returnLng.value) : null,
-      p_new_return_fee: rtM === 'delivery' ? Number(f.returnFee.value || 0) : 0
+      p_new_return_fee: rtM === 'delivery' ? Number(f.returnFee.value || 0) : 0,
+      // Pomocný field — _submitChange ho vyzvedne a aplikuje přes přímý UPDATE
+      // po úspěšné RPC (RPC pickup_time/return_time neumí, ale RLS dovolí UPDATE).
+      _time_update: Object.keys(timeUpdate).length ? timeUpdate : null
     };
     MG._editRez._confirmDialog(MG.t('editRez.loc.confirm'), function(){
       MG._editRez._submitChange(payload);
@@ -2176,35 +2310,36 @@ MG._editRez._historyHtml = function(b){
         source: 'system'
       }];
     } else {
-      return '<p class="edit-rez-history-empty">Rezervace ještě nebyla upravována.</p>';
+      return '<p class="edit-rez-history-empty">' + MG.t('editRez.history.empty') + '</p>';
     }
   }
   // Seřadíme od nejnovější
   var sorted = hist.slice().sort(function(a, c){
     return (c.at || '').localeCompare(a.at || '');
   });
+  var localeTag = (window.MOTOGO_CONFIG && window.MOTOGO_CONFIG.LANG === 'cs') ? 'cs-CZ' : (document.documentElement.lang || 'en-GB');
   var items = sorted.map(function(h){
-    var when = h.at ? new Date(h.at).toLocaleString('cs-CZ', {
+    var when = h.at ? new Date(h.at).toLocaleString(localeTag, {
       day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'
     }) : '';
     var changes = [];
     if (h.from_start && h.to_start && h.from_start !== h.to_start){
-      changes.push('📅 Začátek: <s>' + MG.formatDate(h.from_start) + '</s> → <strong>' + MG.formatDate(h.to_start) + '</strong>');
+      changes.push(MG.t('editRez.history.startChanged', { from: MG.formatDate(h.from_start), to: MG.formatDate(h.to_start) }));
     }
     if (h.from_end && h.to_end && h.from_end !== h.to_end){
-      changes.push('🏁 Konec: <s>' + MG.formatDate(h.from_end) + '</s> → <strong>' + MG.formatDate(h.to_end) + '</strong>');
+      changes.push(MG.t('editRez.history.endChanged', { from: MG.formatDate(h.from_end), to: MG.formatDate(h.to_end) }));
     }
     if (h.from_moto_id && h.to_moto_id && h.from_moto_id !== h.to_moto_id){
-      changes.push('🏍️ Motorka byla změněna');
+      changes.push(MG.t('editRez.history.motoChanged'));
     }
     if (h.pickup_change || h.return_change){
-      changes.push('📍 Změna místa vyzvednutí / vrácení');
+      changes.push(MG.t('editRez.history.locationChanged'));
     }
-    if (!changes.length) changes.push('Úprava rezervace');
-    var src = (h.source === 'web_customer' ? 'Z webu' :
-               h.source === 'app_customer' ? 'Z aplikace' :
-               h.source === 'admin'        ? 'Admin' :
-               h.source === 'system'       ? 'Vytvoření' : (h.source || ''));
+    if (!changes.length) changes.push(MG.t('editRez.history.generic'));
+    var src = (h.source === 'web_customer' ? MG.t('editRez.history.sourceWeb') :
+               h.source === 'app_customer' ? MG.t('editRez.history.sourceApp') :
+               h.source === 'admin'        ? MG.t('editRez.history.sourceAdmin') :
+               h.source === 'system'       ? MG.t('editRez.history.sourceSystem') : (h.source || ''));
     return '<li class="edit-rez-history-item">' +
       '<div class="edit-rez-history-dot"></div>' +
       '<div class="edit-rez-history-body">' +
@@ -2226,16 +2361,16 @@ MG._editRez._priceBreakdownHtml = function(b, m){
   var base = total + discount - extras - delivery;
   if (base < 0) base = 0;
   var rows = [];
-  rows.push(['🏍️ Pronájem motorky', MG.formatPrice(base)]);
-  if (extras > 0)   rows.push(['➕ Příslušenství', MG.formatPrice(extras)]);
-  if (delivery > 0) rows.push(['🚚 Přistavení / vrácení', MG.formatPrice(delivery)]);
-  if (discount > 0) rows.push(['🎁 Sleva', '−' + MG.formatPrice(discount)]);
+  rows.push(['🏍️ ' + MG.t('editRez.detail.priceRental'), MG.formatPrice(base)]);
+  if (extras > 0)   rows.push(['➕ ' + MG.t('editRez.detail.priceExtras'), MG.formatPrice(extras)]);
+  if (delivery > 0) rows.push(['🚚 ' + MG.t('editRez.detail.priceDelivery'), MG.formatPrice(delivery)]);
+  if (discount > 0) rows.push(['🎁 ' + MG.t('editRez.detail.priceDiscount'), '−' + MG.formatPrice(discount)]);
   var rowsHtml = rows.map(function(r){
     return '<div class="edit-rez-price-row"><span>' + r[0] + '</span><span>' + r[1] + '</span></div>';
   }).join('');
   return '<div class="edit-rez-price-card">' +
     rowsHtml +
-    '<div class="edit-rez-price-row total"><span>Celkem zaplaceno</span><span>' + MG.formatPrice(total) + '</span></div>' +
+    '<div class="edit-rez-price-row total"><span>' + MG.t('editRez.detail.priceTotal') + '</span><span>' + MG.formatPrice(total) + '</span></div>' +
   '</div>';
 };
 
@@ -2254,11 +2389,11 @@ MG._editRez._renderTabDetail = function(){
 
   // Pickup / return labely
   var pickupLbl = (b.pickup_method === 'delivery')
-    ? '<strong>Přistavení na adresu:</strong> ' + (b.pickup_address || '—')
-    : '<strong>Vyzvednutí v půjčovně:</strong> Mezná 9, Mezná';
+    ? '<strong>' + MG.t('editRez.detail.deliveryAddr') + '</strong> ' + (b.pickup_address || '—')
+    : '<strong>' + MG.t('editRez.detail.pickupAtRental') + '</strong> Mezná 9, Mezná';
   var returnLbl = (b.return_method === 'delivery')
-    ? '<strong>Vrácení na adrese:</strong> ' + (b.return_address || '—')
-    : '<strong>Vrácení v půjčovně:</strong> Mezná 9, Mezná';
+    ? '<strong>' + MG.t('editRez.detail.returnAtAddr') + '</strong> ' + (b.return_address || '—')
+    : '<strong>' + MG.t('editRez.detail.returnAtRental') + '</strong> Mezná 9, Mezná';
 
   var brandStr = (m.brand || '').trim();
   var modelStr = (m.model || '').trim();
@@ -2266,8 +2401,8 @@ MG._editRez._renderTabDetail = function(){
     ? (brandStr + ' ' + modelStr)
     : (modelStr || brandStr || '—');
   var licReq = m.license_required && m.license_required !== 'N'
-    ? '<span class="edit-rez-chip">Vyžaduje ŘP: ' + m.license_required + '</span>'
-    : '<span class="edit-rez-chip">Bez ŘP</span>';
+    ? '<span class="edit-rez-chip">' + MG.t('editRez.detail.licenseRequired', { lic: m.license_required }) + '</span>'
+    : '<span class="edit-rez-chip">' + MG.t('editRez.detail.licenseNone') + '</span>';
 
   t.innerHTML =
     '<div class="edit-rez-detail-grid">' +
@@ -2276,38 +2411,38 @@ MG._editRez._renderTabDetail = function(){
         '<div class="edit-rez-detail-headline">' +
           '<h3>' + motoLbl + '</h3>' +
           licReq +
-          '<div class="edit-rez-detail-id">Číslo rezervace <code>' + b.id.substring(0,8).toUpperCase() + '</code></div>' +
+          '<div class="edit-rez-detail-id">' + MG.t('editRez.detail.bookingNum') + ' <code>' + b.id.substring(0,8).toUpperCase() + '</code></div>' +
         '</div>' +
       '</div>' +
       '<aside class="edit-rez-detail-side">' +
-        '<div class="edit-rez-info-item"><div class="ico">📅</div><div><div class="lbl">Termín</div>' +
+        '<div class="edit-rez-info-item"><div class="ico">📅</div><div><div class="lbl">' + MG.t('editRez.detail.dateLabel') + '</div>' +
           '<div class="val">' + MG.formatDate(b.start_date) + ' – ' + MG.formatDate(b.end_date) +
-          ' <span class="muted">(' + days + (days === 1 ? ' den' : days < 5 ? ' dny' : ' dní') + ')</span></div></div></div>' +
-        '<div class="edit-rez-info-item"><div class="ico">🕐</div><div><div class="lbl">Čas vyzvednutí / vrácení</div>' +
-          '<div class="val">' + (b.pickup_time || '—') + ' / ' + (b.return_time || 'při vrácení v půjčovně') + '</div></div></div>' +
-        '<div class="edit-rez-info-item"><div class="ico">📍</div><div><div class="lbl">Místo vyzvednutí</div>' +
+          ' <span class="muted">(' + MG._dayLabel(days) + ')</span></div></div></div>' +
+        '<div class="edit-rez-info-item"><div class="ico">🕐</div><div><div class="lbl">' + MG.t('editRez.detail.timeLabel') + '</div>' +
+          '<div class="val">' + (b.pickup_time || '—') + ' / ' + (b.return_time || MG.t('editRez.detail.timeAtRental')) + '</div></div></div>' +
+        '<div class="edit-rez-info-item"><div class="ico">📍</div><div><div class="lbl">' + MG.t('editRez.detail.pickupPlace') + '</div>' +
           '<div class="val">' + pickupLbl + '</div></div></div>' +
-        '<div class="edit-rez-info-item"><div class="ico">🏁</div><div><div class="lbl">Místo vrácení</div>' +
+        '<div class="edit-rez-info-item"><div class="ico">🏁</div><div><div class="lbl">' + MG.t('editRez.detail.returnPlace') + '</div>' +
           '<div class="val">' + returnLbl + '</div></div></div>' +
       '</aside>' +
     '</div>' +
 
     '<div class="edit-rez-detail-extras">' +
       // Cenový rozpis
-      '<h4 class="edit-rez-section-h">💰 Cenový rozpis</h4>' +
+      '<h4 class="edit-rez-section-h">💰 ' + MG.t('editRez.detail.priceBreakdown') + '</h4>' +
       MG._editRez._priceBreakdownHtml(b, m) +
 
       // Výbava
       (hasSizes
-        ? '<h4 class="edit-rez-section-h">🎽 Výbava</h4>' +
+        ? '<h4 class="edit-rez-section-h">🎽 ' + MG.t('editRez.detail.gearTitle') + '</h4>' +
           '<div class="edit-rez-gear-grid">' +
-            MG._editRez._gearListHtml(sizes.rider, 'Řidič') +
-            MG._editRez._gearListHtml(sizes.passenger, 'Spolujezdec') +
+            MG._editRez._gearListHtml(sizes.rider, MG.t('editRez.detail.gearRider')) +
+            MG._editRez._gearListHtml(sizes.passenger, MG.t('editRez.detail.gearPassenger')) +
           '</div>'
         : '') +
 
       // Historie úprav
-      '<h4 class="edit-rez-section-h">🕘 Historie úprav</h4>' +
+      '<h4 class="edit-rez-section-h">🕘 ' + MG.t('editRez.detail.historyTitle') + '</h4>' +
       MG._editRez._historyHtml(b) +
     '</div>';
 
@@ -2457,21 +2592,50 @@ MG._editRez._loadOccupied = async function(p_moto_id){
   } catch(e){ return []; }
 };
 
-// Cena za rozsah — duplikát logiky z api.js MG.calcPrice, ale pracujeme s motorkou
-// předanou (může chybět v cache). Inclusive start+end.
-MG._editRez._priceForRange = function(moto, startIso, endIso){
-  if (!moto || !startIso || !endIso) return 0;
+// Spočítá počet inkluzivních dní mezi dvěma ISO daty (start+end včetně).
+MG._editRez._daysInclusive = function(startIso, endIso){
+  if (!startIso || !endIso) return 0;
   var s = new Date(startIso), e = new Date(endIso);
-  if (s > e) return 0;
-  var days = ['sun','mon','tue','wed','thu','fri','sat'];
-  var d = new Date(s); var total = 0;
-  while (d <= e){
-    var k = 'price_' + days[d.getDay()];
-    var p = Number(moto[k] || moto.price_weekday || 0);
-    total += p;
-    d.setDate(d.getDate() + 1);
-  }
-  return total;
+  if (isNaN(s) || isNaN(e) || s > e) return 0;
+  return Math.round((e - s) / 86400000) + 1;
+};
+
+// Vrátí fallback denní sazbu z bookingu — total_price / N inkluzivních dní.
+// Použije se v případě, že motorka nemá nastavené denní ceny v DB.
+MG._editRez._fallbackDailyRate = function(booking){
+  if (!booking) return 0;
+  var nz = MG._editRez._normIso;
+  var n = MG._editRez._daysInclusive(nz(booking.start_date), nz(booking.end_date));
+  if (n <= 0) return 0;
+  // total_price obsahuje extras + delivery; pro přibližný daily rate je nejjednodušší
+  // odečíst známé položky (extras_price + delivery_fee) + přičíst zpět discount.
+  var base = Number(booking.total_price || 0)
+           - Number(booking.extras_price || 0)
+           - Number(booking.delivery_fee || 0)
+           + Number(booking.discount_amount || 0);
+  if (base <= 0) base = Number(booking.total_price || 0);
+  return base > 0 ? Math.round(base / n) : 0;
+};
+
+// Cena za rozsah — používá sdílený MG.calcPriceBreakdown z api.js (vrací total + denní rozpis).
+// Inclusive start+end. Fallback rate se použije, pokud motorka nemá denní ceny.
+MG._editRez._priceBreakdown = function(moto, startIso, endIso, fallbackRate){
+  if (!moto || !startIso || !endIso) return { total: 0, days: [], uniform: true };
+  return (MG.calcPriceBreakdown ? MG.calcPriceBreakdown(moto, startIso, endIso, fallbackRate) : { total: 0, days: [], uniform: true });
+};
+MG._editRez._priceForRange = function(moto, startIso, endIso, fallbackRate){
+  return MG._editRez._priceBreakdown(moto, startIso, endIso, fallbackRate).total;
+};
+
+// Vrátí dny, které jsou v rozsahu nového termínu, ale ne v původním (pro extend).
+// Vstup: oba breakdowny ze _priceBreakdown. Vrací seznam přidaných dnů + součet.
+MG._editRez._diffAddedDays = function(origBd, newBd){
+  if (!origBd || !newBd) return { added: [], total: 0 };
+  var origSet = {};
+  (origBd.days || []).forEach(function(d){ origSet[d.iso] = true; });
+  var added = (newBd.days || []).filter(function(d){ return !origSet[d.iso]; });
+  var total = added.reduce(function(s,d){ return s + (d.price||0); }, 0);
+  return { added: added, total: total };
 };
 
 // Detekce překryvu rozsahu se seznamem occupied (každý je {start_date,end_date}).
@@ -2510,8 +2674,8 @@ MG._editRez._renderRangeCalendar = function(opts){
   state.pivotYear = ad.getFullYear();
   state.pivotMonth = ad.getMonth();
 
-  var monthsCs = ['Leden','Únor','Březen','Duben','Květen','Červen','Červenec','Srpen','Září','Říjen','Listopad','Prosinec'];
-  var dayN = ['Po','Út','St','Čt','Pá','So','Ne'];
+  var monthsCs = [1,2,3,4,5,6,7,8,9,10,11,12].map(function(n){ return MG.t('editRez.cal.month.' + n); });
+  var dayN = [1,2,3,4,5,6,7].map(function(n){ return MG.t('editRez.cal.dow.' + n); });
 
   function iso(y,m,d){ return y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0'); }
   function todayIso(){ var t=new Date(); return iso(t.getFullYear(),t.getMonth(),t.getDate()); }
@@ -2548,8 +2712,8 @@ MG._editRez._renderRangeCalendar = function(opts){
   }
 
   function pick(ds){
-    if (isPast(ds)){ err('Nelze vybrat datum v minulosti.'); return; }
-    if (isOccupied(ds) && !inOrig(ds)){ err('Tento den je obsazený jinou rezervací.'); return; }
+    if (isPast(ds)){ err(MG.t('editRez.validate.pastDate')); return; }
+    if (isOccupied(ds) && !inOrig(ds)){ err(MG.t('editRez.validate.dayOccupied')); return; }
     if (opts.mode === 'shorten') return handleShorten(ds);
     return handleExtend(ds);
   }
@@ -2570,14 +2734,14 @@ MG._editRez._renderRangeCalendar = function(opts){
     // Klik PŘED origStart
     if (ds < origS){
       if (opts.isActive){
-        err('U probíhající rezervace nelze měnit datum vyzvednutí. Klikněte na den po ' + fmtCs(origE) + '.');
+        err(MG.t('editRez.validate.activeStartLocked', { date: fmtCs(origE) }));
         return;
       }
       // Upcoming: posun začátku dříve. Ověř volnost úseku <ds, origS-1>.
       var prevDay = new Date(origS); prevDay.setDate(prevDay.getDate()-1);
       var prevIso = iso(prevDay.getFullYear(), prevDay.getMonth(), prevDay.getDate());
       if (ds <= prevIso && !rangeFreeForExtension(ds, prevIso)){
-        err('Mezi vybraným datem a začátkem rezervace jsou obsazené dny.'); return;
+        err(MG.t('editRez.validate.gapBeforeStart')); return;
       }
       emit(ds, curE); return;
     }
@@ -2585,9 +2749,9 @@ MG._editRez._renderRangeCalendar = function(opts){
     // Klik UVNITŘ původního rozsahu → toto je vaše rezervace, neklikatelné
     if (ds >= origS && ds <= origE){
       if (opts.isActive){
-        err('Pro prodloužení klikněte na den po ' + fmtCs(origE) + '.');
+        err(MG.t('editRez.validate.extendAfter', { date: fmtCs(origE) }));
       } else {
-        err('Toto je vaše rezervace. Pro prodloužení klikněte na den před ' + fmtCs(origS) + ' nebo po ' + fmtCs(origE) + '.');
+        err(MG.t('editRez.validate.extendEither', { start: fmtCs(origS), end: fmtCs(origE) }));
       }
       return;
     }
@@ -2597,7 +2761,7 @@ MG._editRez._renderRangeCalendar = function(opts){
       var nextDay = new Date(origE); nextDay.setDate(nextDay.getDate()+1);
       var nextIso = iso(nextDay.getFullYear(), nextDay.getMonth(), nextDay.getDate());
       if (nextIso <= ds && !rangeFreeForExtension(nextIso, ds)){
-        err('Mezi koncem rezervace a vybraným datem jsou obsazené dny.'); return;
+        err(MG.t('editRez.validate.gapAfterEnd')); return;
       }
       emit(curS, ds);
     }
@@ -2606,7 +2770,7 @@ MG._editRez._renderRangeCalendar = function(opts){
   function handleShorten(ds){
     var origS = opts.origStart, origE = opts.origEnd;
     var inRes = ds >= origS && ds <= origE;
-    if (!inRes){ err('Pro zkrácení klikněte uvnitř vaší rezervace.'); return; }
+    if (!inRes){ err(MG.t('editRez.validate.shortenInside')); return; }
     var curS = opts.newStart || origS;
     var curE = opts.newEnd || origE;
     var hasSh = curS !== origS || curE !== origE;
@@ -2623,21 +2787,21 @@ MG._editRez._renderRangeCalendar = function(opts){
 
     if (opts.isActive){
       // Pouze konec lze zkrátit; nový konec nesmí být >= origE a >= dnešek
-      if (ds >= origE){ err('Pro zkrácení klikněte na den před ' + fmtCs(origE) + '.'); return; }
-      if (ds < todayIso()){ err('Nelze zkrátit do minulosti.'); return; }
+      if (ds >= origE){ err(MG.t('editRez.validate.shortenBefore', { date: fmtCs(origE) })); return; }
+      if (ds < todayIso()){ err(MG.t('editRez.validate.shortenPast')); return; }
       emit(origS, ds); return;
     }
 
     // Upcoming → potřebujeme vybraný směr
     var dirU = opts.shortenDir;
-    if (!dirU){ err('Nejdříve vyberte, jestli chcete zkrátit Začátek, nebo Konec.'); return; }
+    if (!dirU){ err(MG.t('editRez.validate.shortenPickSide')); return; }
     if (dirU === 'start'){
       var newS = ds > origS ? ds : origS;
-      if (newS > origE){ err('Začátek nesmí být po konci.'); return; }
+      if (newS > origE){ err(MG.t('editRez.validate.startAfterEnd')); return; }
       emit(newS, origE);
     } else {
       var newE = ds < origE ? ds : origE;
-      if (newE < origS){ err('Konec nesmí být před začátkem.'); return; }
+      if (newE < origS){ err(MG.t('editRez.validate.endBeforeStart')); return; }
       emit(origS, newE);
     }
   }
@@ -2701,16 +2865,16 @@ MG._editRez._renderRangeCalendar = function(opts){
   function legendHtml(){
     if (opts.mode === 'shorten'){
       return '<div class="erez-cal-legend">' +
-        '<span><i class="dot dot-keep"></i> Zachováno</span>' +
-        '<span><i class="dot dot-removed"></i> Zkráceno</span>' +
-        '<span><i class="dot dot-occ"></i> Mimo rezervaci</span>' +
+        '<span><i class="dot dot-keep"></i> ' + MG.t('editRez.cal.legend.kept') + '</span>' +
+        '<span><i class="dot dot-removed"></i> ' + MG.t('editRez.cal.legend.removed') + '</span>' +
+        '<span><i class="dot dot-occ"></i> ' + MG.t('editRez.cal.legend.outOfBooking') + '</span>' +
         '</div>';
     }
     return '<div class="erez-cal-legend">' +
-      '<span><i class="dot dot-free"></i> Volné</span>' +
-      '<span><i class="dot dot-orig"></i> Tato rezervace</span>' +
-      '<span><i class="dot dot-extension"></i> Prodloužení</span>' +
-      '<span><i class="dot dot-occ"></i> Obsazené</span>' +
+      '<span><i class="dot dot-free"></i> ' + MG.t('editRez.cal.legend.free') + '</span>' +
+      '<span><i class="dot dot-orig"></i> ' + MG.t('editRez.cal.legend.thisBooking') + '</span>' +
+      '<span><i class="dot dot-extension"></i> ' + MG.t('editRez.cal.legend.extension') + '</span>' +
+      '<span><i class="dot dot-occ"></i> ' + MG.t('editRez.cal.legend.occupied') + '</span>' +
       '</div>';
   }
 
@@ -2719,9 +2883,9 @@ MG._editRez._renderRangeCalendar = function(opts){
     opts.container.innerHTML =
       '<div class="erez-cal-wrap">' +
         '<div class="erez-cal-nav">' +
-          '<button type="button" class="erez-cal-navbtn" data-prev aria-label="Předchozí měsíc">‹</button>' +
+          '<button type="button" class="erez-cal-navbtn" data-prev aria-label="' + MG.t('editRez.cal.prev') + '">‹</button>' +
           '<span class="erez-cal-navtitle">' + monthsCs[m] + ' ' + y + '</span>' +
-          '<button type="button" class="erez-cal-navbtn" data-next aria-label="Další měsíc">›</button>' +
+          '<button type="button" class="erez-cal-navbtn" data-next aria-label="' + MG.t('editRez.cal.next') + '">›</button>' +
         '</div>' +
         '<div class="erez-cal-single">' + renderMonth(y, m) + '</div>' +
         legendHtml() +
@@ -2791,7 +2955,7 @@ MG._editRez._renderRangeCalendar = function(opts){
       '@media(max-width:520px){.erez-dates-manual{grid-template-columns:1fr}}'+
       '.erez-date-field{display:flex;flex-direction:column;gap:.25rem}'+
       '.erez-date-field>span{font-size:.78rem;font-weight:700;color:#1a2e22;letter-spacing:.03em;text-transform:uppercase}'+
-      '.erez-date-field.locked>span::after{content:" (zamčeno)";color:#9aa8a0;font-weight:500;text-transform:none}'+
+      '.erez-date-field.locked>span::after{content:" ' + MG.t('editRez.cal.locked') + '";color:#9aa8a0;font-weight:500;text-transform:none}'+
       '.erez-date-input{padding:.7rem .9rem;border:1.5px solid #d4e8e0;border-radius:12px;font-family:Montserrat,sans-serif;font-size:1rem;font-weight:700;color:#1a2e22;background:#fafdfb;letter-spacing:.05em;transition:all .15s;text-align:center}'+
       '.erez-date-input:focus{outline:none;border-color:#1a8c1a;background:#fff;box-shadow:0 0 0 3px rgba(26,140,26,.12)}'+
       '.erez-date-input.invalid{border-color:#c0392b;background:#ffebe7}'+
@@ -2866,10 +3030,16 @@ MG._editRez._renderManualDates = function(opts){
   var minEndIso = opts.minEndIso || opts.minIso || '';
   var maxEndIso = opts.maxEndIso || opts.maxIso || '';
   var startHelp = (minStartIso || maxStartIso)
-    ? 'Začátek: ' + (minStartIso ? MG._editRez._isoToCs(minStartIso) : '–') + ' – ' + (maxStartIso ? MG._editRez._isoToCs(maxStartIso) : '–')
+    ? MG.t('editRez.range.startBetween', {
+        min: minStartIso ? MG._editRez._isoToCs(minStartIso) : '–',
+        max: maxStartIso ? MG._editRez._isoToCs(maxStartIso) : '–'
+      })
     : '';
   var endHelp = (minEndIso || maxEndIso)
-    ? 'Konec: ' + (minEndIso ? MG._editRez._isoToCs(minEndIso) : '–') + ' – ' + (maxEndIso ? MG._editRez._isoToCs(maxEndIso) : '–')
+    ? MG.t('editRez.range.endBetween', {
+        min: minEndIso ? MG._editRez._isoToCs(minEndIso) : '–',
+        max: maxEndIso ? MG._editRez._isoToCs(maxEndIso) : '–'
+      })
     : '';
   var rangeHelp = (startHelp || endHelp)
     ? '<small class="muted">' + [startHelp, endHelp].filter(Boolean).join(' · ') + '</small>'
@@ -2877,12 +3047,12 @@ MG._editRez._renderManualDates = function(opts){
   opts.container.innerHTML =
     '<div class="erez-dates-manual">' +
       '<label class="erez-date-field' + (opts.lockStart ? ' locked' : '') + '">' +
-        '<span>Nový začátek</span>' +
+        '<span>' + MG.t('editRez.range.newStart') + '</span>' +
         '<input type="text" class="erez-date-input" data-which="start" placeholder="DD.MM.RRRR" inputmode="numeric" value="' +
           MG._editRez._isoToCs(opts.startIso || '') + '"' + (opts.lockStart ? ' readonly' : '') + '>' +
       '</label>' +
       '<label class="erez-date-field">' +
-        '<span>Nový konec</span>' +
+        '<span>' + MG.t('editRez.range.newEnd') + '</span>' +
         '<input type="text" class="erez-date-input" data-which="end" placeholder="DD.MM.RRRR" inputmode="numeric" value="' +
           MG._editRez._isoToCs(opts.endIso || '') + '">' +
       '</label>' +
@@ -2949,12 +3119,8 @@ MG._editRez._renderTabExtend = async function(){
 
   // Kontextová nápověda — jasně co se kliká
   var helpHtml = isActive
-    ? 'V kalendáři klikněte na <strong>den po ' + MG.formatDate(origEnd)
-        + '</strong> — prodlouží se vrácení o tento počet dní. Začátek (' + MG.formatDate(origStart)
-        + ') už nelze měnit, protože rezervace už běží.'
-    : 'V kalendáři klikněte na <strong>den před ' + MG.formatDate(origStart)
-        + '</strong> (vyzvednutí dříve) <em>nebo</em> na <strong>den po ' + MG.formatDate(origEnd)
-        + '</strong> (vrácení později). Můžete prodloužit obě strany.';
+    ? MG.t('editRez.extend.helpActiveLong', { start: MG.formatDate(origStart), end: MG.formatDate(origEnd) })
+    : MG.t('editRez.extend.helpUpcomingLong', { start: MG.formatDate(origStart), end: MG.formatDate(origEnd) });
 
   t.innerHTML =
     '<h3>' + MG.t('editRez.extend.title') + '</h3>' +
@@ -2991,8 +3157,8 @@ MG._editRez._renderTabExtend = async function(){
       return;
     }
     banner.style.display='flex';
-    banner.innerHTML = '<span>Nový termín: <strong>'+MG.formatDate(ns)+' – '+MG.formatDate(ne)+'</strong></span>' +
-      '<button type="button" class="erez-clear">✕ Zrušit</button>';
+    banner.innerHTML = '<span>' + MG.t('editRez.cal.newRange') + ' <strong>'+MG.formatDate(ns)+' – '+MG.formatDate(ne)+'</strong></span>' +
+      '<button type="button" class="erez-clear">' + MG.t('editRez.cal.clear') + '</button>';
     var btn = banner.querySelector('.erez-clear');
     if (btn) btn.addEventListener('click', function(){
       cal.setSelection(origStart, origEnd);
@@ -3021,10 +3187,21 @@ MG._editRez._renderTabExtend = async function(){
       summary.innerHTML = '<span class="error">' + MG.t('editRez.extend.unavailable') + '</span>';
       cta.disabled = true; return;
     }
-    var origPrice = MG._editRez._priceForRange(m, origStart, origEnd);
-    var newPrice  = MG._editRez._priceForRange(m, ns, ne);
-    var diff = Math.max(0, Math.round(newPrice - origPrice));
-    summary.innerHTML = '<div class="line"><span class="lbl">' + MG.t('editRez.extend.priceDiff') + ':</span> ' +
+    var fbRate = MG._editRez._fallbackDailyRate(b);
+    var origBd = MG._editRez._priceBreakdown(m, origStart, origEnd, fbRate);
+    var newBd  = MG._editRez._priceBreakdown(m, ns, ne, fbRate);
+    var diffInfo = MG._editRez._diffAddedDays(origBd, newBd);
+    var diff = Math.max(0, Math.round(diffInfo.total));
+    var breakdownHtml = '';
+    if (diffInfo.added.length){
+      breakdownHtml = '<div class="erez-extend-breakdown"><div class="erez-extend-breakdown-title">' + MG.t('editRez.extend.addedDays') + '</div>';
+      diffInfo.added.forEach(function(d){
+        breakdownHtml += '<div class="erez-extend-breakdown-row"><span>' + d.dowLabel + ' ' + MG.formatDate(d.iso) + '</span><span>' + MG.formatPrice(d.price) + '</span></div>';
+      });
+      breakdownHtml += '</div>';
+    }
+    summary.innerHTML = breakdownHtml +
+      '<div class="line"><span class="lbl">' + MG.t('editRez.extend.priceDiff') + ':</span> ' +
       '<strong>' + MG.formatPrice(diff) + '</strong></div>';
     cta.disabled = (diff <= 0);
   }
@@ -3087,8 +3264,9 @@ MG._editRez._renderTabExtend = async function(){
 MG._editRez._submitExtend = async function(newStart, newEnd){
   var b = MG._editRez.selectedBooking;
   var m = MG._editRez.selectedMoto || {};
-  var origPrice = MG._editRez._priceForRange(m, MG._editRez._normIso(b.start_date), MG._editRez._normIso(b.end_date));
-  var newPrice  = MG._editRez._priceForRange(m, newStart, newEnd);
+  var fbRate = MG._editRez._fallbackDailyRate(b);
+  var origPrice = MG._editRez._priceForRange(m, MG._editRez._normIso(b.start_date), MG._editRez._normIso(b.end_date), fbRate);
+  var newPrice  = MG._editRez._priceForRange(m, newStart, newEnd, fbRate);
   var diff = Math.round(newPrice - origPrice);
   if (diff <= 0){ MG._editRez._showError(MG.t('editRez.err.invalidRange')); return; }
 
@@ -3117,6 +3295,7 @@ MG._editRez._submitExtend = async function(newStart, newEnd){
       },
       body: JSON.stringify({
         type: 'extension',
+        mode: 'checkout',
         booking_id: b.id,
         amount: diff,
         success_url: window.location.origin + '/upravit-rezervaci?paid_booking=' + b.id,
@@ -3124,13 +3303,14 @@ MG._editRez._submitExtend = async function(newStart, newEnd){
       })
     });
     var data = await resp.json().catch(function(){ return null; });
-    if (!resp.ok || !data || !data.url){
+    var redirectUrl = data && (data.checkout_url || data.url);
+    if (!resp.ok || !redirectUrl){
       console.error('[editRez] extend payment err', resp.status, data);
       MG._editRez._showError((data && data.error) ? data.error : MG.t('editRez.err.generic'));
       try { localStorage.removeItem('editRez_pending_' + b.id); } catch(e){}
       return;
     }
-    window.location.href = data.url;
+    window.location.href = redirectUrl;
   } catch(err){
     console.error('[editRez] extend exception', err);
     MG._editRez._showError(MG.t('editRez.err.generic'));
@@ -3157,18 +3337,16 @@ MG._editRez._renderTabShorten = function(){
 
   // Kontextová nápověda — jasně co se kliká
   var helpHtml = isActive
-    ? 'V kalendáři klikněte na <strong>den před ' + MG.formatDate(origEnd)
-        + '</strong> — vrátíte motorku dříve. Začátek (' + MG.formatDate(origStart)
-        + ') už nelze měnit, protože rezervace běží. Refund podle storno podmínek.'
-    : 'Vyberte stranu, kterou chcete zkrátit (Začátek = pozdější vyzvednutí, Konec = dřívější vrácení), pak klikněte v kalendáři uvnitř rezervace na nový den. Refund podle storno podmínek.';
+    ? MG.t('editRez.shorten.helpActiveLong', { start: MG.formatDate(origStart), end: MG.formatDate(origEnd) })
+    : MG.t('editRez.shorten.helpUpcomingLong');
 
   // Šipky pro výběr směru (jen upcoming)
   var dirsHtml = '';
   if (!isActive){
     dirsHtml =
       '<div class="erez-shorten-dirs">' +
-        '<button type="button" data-dir="start">← Zkrátit začátek</button>' +
-        '<button type="button" data-dir="end">Zkrátit konec →</button>' +
+        '<button type="button" data-dir="start">' + MG.t('editRez.shorten.dirStart') + '</button>' +
+        '<button type="button" data-dir="end">' + MG.t('editRez.shorten.dirEnd') + '</button>' +
       '</div>';
   }
 
@@ -3211,8 +3389,8 @@ MG._editRez._renderTabShorten = function(){
       return;
     }
     banner.style.display='flex';
-    banner.innerHTML = '<span>Nový termín: <strong>'+MG.formatDate(ns)+' – '+MG.formatDate(ne)+'</strong></span>' +
-      '<button type="button" class="erez-clear">✕ Zrušit</button>';
+    banner.innerHTML = '<span>' + MG.t('editRez.cal.newRange') + ' <strong>'+MG.formatDate(ns)+' – '+MG.formatDate(ne)+'</strong></span>' +
+      '<button type="button" class="erez-clear">' + MG.t('editRez.cal.clear') + '</button>';
     var btn = banner.querySelector('.erez-clear');
     if (btn) btn.addEventListener('click', function(){
       cal.setSelection(origStart, origEnd);
@@ -3236,8 +3414,9 @@ MG._editRez._renderTabShorten = function(){
       summary.innerHTML = '<span class="error">' + MG.t('editRez.err.notShortening') + '</span>';
       cta.disabled = true; return;
     }
-    var origPrice = MG._editRez._priceForRange(m, origStart, origEnd);
-    var newPrice  = MG._editRez._priceForRange(m, ns, ne);
+    var fbRate = MG._editRez._fallbackDailyRate(b);
+    var origPrice = MG._editRez._priceForRange(m, origStart, origEnd, fbRate);
+    var newPrice  = MG._editRez._priceForRange(m, ns, ne, fbRate);
     var diff = Math.max(0, Math.round(origPrice - newPrice));
     if (diff <= 0){
       summary.innerHTML = '<span class="muted">' + MG.t('editRez.extend.noChange') + '</span>';
@@ -3250,12 +3429,16 @@ MG._editRez._renderTabShorten = function(){
     var cls = pct === 100 ? 'refund-full' : pct === 50 ? 'refund-half' : 'refund-none';
     if (pct === 0){
       summary.innerHTML = '<div class="line ' + cls + '">' + MG.t('editRez.shorten.refundZero') + '</div>';
-      cta.disabled = true;
+      // Refund=0, ale samotné zkrácení rezervace povolíme — uživatel se může chtít
+      // vrátit dřív i bez vrácení peněz. Přejmenujeme tlačítko, aby to bylo jasné.
+      cta.disabled = false;
+      cta.textContent = MG.t('editRez.shorten.ctaNoRefund');
     } else {
       summary.innerHTML = '<div class="line ' + cls + '">'
         + MG.t('editRez.shorten.refund', { amount: MG.formatPrice(refund), percent: pct })
         + '</div>';
       cta.disabled = false;
+      cta.textContent = MG.t('editRez.shorten.cta');
     }
     f.dataset.refund = String(refund);
     f.dataset.pct = String(pct);
@@ -3328,7 +3511,8 @@ MG._editRez._renderTabShorten = function(){
     var reason = (f.reason.value || '').trim();
     var refund = Number(f.dataset.refund || 0);
     var pct = Number(f.dataset.pct || 0);
-    MG._editRez._confirmDialog(MG.t('editRez.shorten.cta') + '?', function(){
+    var ctaLabel = (pct === 0) ? MG.t('editRez.shorten.ctaNoRefund') : MG.t('editRez.shorten.cta');
+    MG._editRez._confirmDialog(ctaLabel + '?', function(){
       MG._editRez._submitShorten(ns, ne, reason, refund, pct);
     });
   });
@@ -3361,9 +3545,11 @@ MG._editRez._submitShorten = async function(newStart, newEnd, reason, refund, pc
       MG._editRez._showError(MG.t(msgKey));
       return;
     }
-    var actualRefund = r.data.refund_amount || refund;
-    var actualPct = r.data.refund_percent || pct;
-    var msg = MG.t('editRez.shorten.success', { amount: MG.formatPrice(actualRefund), percent: actualPct });
+    var actualRefund = r.data.refund_amount != null ? r.data.refund_amount : refund;
+    var actualPct = r.data.refund_percent != null ? r.data.refund_percent : pct;
+    var msg = (actualPct === 0 || actualRefund <= 0)
+      ? MG.t('editRez.shorten.successNoRefund')
+      : MG.t('editRez.shorten.success', { amount: MG.formatPrice(actualRefund), percent: actualPct });
     var c = document.getElementById('edit-rez-tab-content');
     if (c) c.innerHTML = '<div class="edit-rez-success-box"><h3>✓</h3><p>' + msg + '</p>'
       + '<button type="button" class="btn btngreen-small" id="edit-rez-back-list">'
@@ -3422,6 +3608,11 @@ MG._editRez._applyPendingAfterPayment = async function(bookingId){
   if (p.p_new_return_lng !== undefined && p.p_new_return_lng !== null) update.return_lng = p.p_new_return_lng;
   if (p.p_new_pickup_fee !== undefined || p.p_new_return_fee !== undefined){
     update.delivery_fee = Number(p.p_new_pickup_fee || 0) + Number(p.p_new_return_fee || 0);
+  }
+  // Změna času — lokální pomocný field z location tabu (RPC ho neumí).
+  if (p._time_update){
+    if (p._time_update.pickup_time !== undefined) update.pickup_time = p._time_update.pickup_time;
+    if (p._time_update.return_time !== undefined) update.return_time = p._time_update.return_time;
   }
 
   if (Object.keys(update).length){

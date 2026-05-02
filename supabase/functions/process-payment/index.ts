@@ -31,6 +31,8 @@ Deno.serve(async (req: Request) => {
     const { booking_id, order_id, incident_id, amount, currency, method, type, mode } = body
     const paymentType: PaymentType = type || 'booking'
     const paymentMode = mode || 'intent'
+    const explicitSuccessUrl = (body as Record<string, unknown>).success_url as string | undefined
+    const explicitCancelUrl = (body as Record<string, unknown>).cancel_url as string | undefined
 
     // Validate required fields
     if ((paymentType === 'booking' || paymentType === 'extension' || paymentType === 'sos') && !booking_id) {
@@ -244,6 +246,17 @@ Deno.serve(async (req: Request) => {
       cancelPath = `/payment-cancel?booking_id=${referenceId}`
     }
 
+    // Klient (web `upravit-rezervaci` flow) může explicitně předat success/cancel URL,
+    // aby se po platbě vrátil zpět na `upravit-rezervaci?paid_booking=…` místo
+    // hardcoded `/payment-success`. Validujeme jen formát URL — autorizace je už
+    // vyřešená přes auth token v requestu.
+    const isValidHttpsUrl = (u?: string): boolean => {
+      if (!u) return false
+      try { const p = new URL(u); return p.protocol === 'https:' || p.protocol === 'http:' } catch { return false }
+    }
+    const finalSuccessUrl = isValidHttpsUrl(explicitSuccessUrl) ? explicitSuccessUrl! : SITE_URL + successPath
+    const finalCancelUrl  = isValidHttpsUrl(explicitCancelUrl)  ? explicitCancelUrl!  : SITE_URL + cancelPath
+
     const sessionParams: Record<string, unknown> = {
       line_items: [{
         price_data: {
@@ -255,8 +268,8 @@ Deno.serve(async (req: Request) => {
       }],
       mode: 'payment',
       payment_method_types: ['card', 'link'],
-      success_url: SITE_URL + successPath,
-      cancel_url: SITE_URL + cancelPath,
+      success_url: finalSuccessUrl,
+      cancel_url: finalCancelUrl,
       metadata,
       locale: 'cs',
     }

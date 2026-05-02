@@ -380,7 +380,7 @@ MG._rezInitProducts = function(){
         var size = null;
         if(hasSizes){
           var sel = card.querySelector('.rez-prod-size.active');
-          if(!sel){ alert('Nejdřív vyberte velikost.'); return; }
+          if(!sel){ alert(MG.t('rez.alert.selectSize')); return; }
           size = sel.dataset.size;
         }
         // Sloučit s existujícím řádkem (stejný product_id + size) — kupujeme víc kusů
@@ -467,12 +467,23 @@ MG._rezRefreshInvoice = function(){
     rows='<tr><td><span class="rez-inv-ico">&#127949;</span>Rezervace: '+motoName+'</td>'+
       '<td>'+MG.formatPrice(bookingTotal)+'</td></tr>';
   } else {
-    base=(moto&&r.startDate&&r.endDate)?MG.calcPrice(moto,r.startDate,r.endDate):0;
+    var bd=(moto&&r.startDate&&r.endDate)?MG.calcPriceBreakdown(moto,r.startDate,r.endDate):{total:0,days:[],uniform:true};
+    base=bd.total;
     d.extras.forEach(function(e){extT+=e.unit_price;});
     disc=d.discountAmt||0;
     bookingTotal=Math.max(0,base+extT-disc);
-    rows='<tr><td><span class="rez-inv-ico">&#127949;</span>Pronájem: '+motoName+'</td>'+
-      '<td>'+MG.formatPrice(base)+'</td></tr>';
+    if(bd.uniform || bd.days.length<=1){
+      rows='<tr><td><span class="rez-inv-ico">&#127949;</span>Pronájem: '+motoName+
+        (bd.days.length>1?' <span class="rez-inv-sub">('+bd.days.length+' dní × '+MG.formatPrice(bd.days[0].price)+')</span>':'')+'</td>'+
+        '<td>'+MG.formatPrice(base)+'</td></tr>';
+    } else {
+      rows='<tr><td><span class="rez-inv-ico">&#127949;</span>Pronájem: '+motoName+'</td>'+
+        '<td>'+MG.formatPrice(base)+'</td></tr>';
+      bd.days.forEach(function(day){
+        rows+='<tr class="rez-invoice-row-day"><td><span class="rez-inv-ico">&middot;</span><span class="rez-inv-day-lbl">'+day.dowLabel+' '+MG.formatDate(day.iso)+'</span></td>'+
+          '<td>'+MG.formatPrice(day.price)+'</td></tr>';
+      });
+    }
     d.extras.forEach(function(e){rows+='<tr><td><span class="rez-inv-ico">&#10010;</span>'+e.name+'</td>'+
       '<td>'+MG.formatPrice(e.unit_price)+'</td></tr>';});
     if(disc>0){var cl=(d.appliedCodes||[]).map(function(c){return c.code;}).join('+');

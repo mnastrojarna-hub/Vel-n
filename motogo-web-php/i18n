@@ -3,10 +3,12 @@
 // Detekce jazyka, načítání slovníků, t() helper.
 //
 // Doménová strategie (Google-friendly multi-regional):
-//   motogo24.cz  → Czech homebase. Default vždy 'cs'. Accept-Language IGNOROVÁN.
-//                  Manuální přepnutí jazyka přesměruje na motogo24.com.
-//   motogo24.com → International. Default = browser Accept-Language (kromě 'cs')
-//                  → fallback 'en'. Manuální 'cs' v switcheru jde na motogo24.cz.
+//   motogo24.cz  → Czech homebase. Default vždy 'cs'.
+//   motogo24.com → International. Default 'en'. Accept-Language pro ostatní jazyky.
+//   motogo24.at  → Německá verze. Default 'de'.
+//   motogo24.es  → Španělská verze. Default 'es'.
+//   motogo24.pl  → Polská verze. Default 'pl'.
+//   Manuální přepnutí jazyka přesměruje na příslušnou doménu.
 //
 // Priorita detekce: GET ?lang=xx → COOKIE mg_web_lang → doménový default
 // Cookie se nastavuje při ?lang= a žije 365 dní.
@@ -20,9 +22,29 @@ const I18N_DEFAULT = 'cs';
 const I18N_COOKIE = 'mg_web_lang';
 
 // Doménové mapování — určuje, na které doméně bydlí "kanonická" verze jazyka.
-// Z hlediska Google hreflang/canonical: cs žije na .cz, ostatní na .com.
+// Každý jazyk s vlastní TLD = vlastní doména. Jazyky bez TLD (fr, nl) → .com.
 const I18N_DOMAIN_CS = 'motogo24.cz';
 const I18N_DOMAIN_INTL = 'motogo24.com';
+
+// Mapa: jazyk → kanonická doména
+const I18N_DOMAIN_MAP = [
+    'cs' => 'motogo24.cz',
+    'en' => 'motogo24.com',
+    'de' => 'motogo24.at',
+    'es' => 'motogo24.es',
+    'pl' => 'motogo24.pl',
+    'fr' => 'motogo24.com',  // bez vlastní TLD → zůstává na .com
+    'nl' => 'motogo24.com',  // bez vlastní TLD → zůstává na .com
+];
+
+// Reverzní mapa: doména → výchozí jazyk
+const I18N_DOMAIN_DEFAULTS = [
+    'motogo24.cz' => 'cs',
+    'motogo24.com' => 'en',
+    'motogo24.at' => 'de',
+    'motogo24.es' => 'es',
+    'motogo24.pl' => 'pl',
+];
 
 const I18N_LANGUAGES = [
     'cs' => ['flag' => '🇨🇿', 'name' => 'Čeština'],
@@ -51,20 +73,39 @@ function i18nIsComDomain() {
 }
 
 /**
- * Default jazyk podle aktuální domény:
- *   .cz → 'cs' (Czech homebase, Accept-Language ignorován)
- *   .com → 'en' (international fallback; Accept-Language detekce probíhá v i18nDetectLanguage)
+ * True, pokud běžíme na .cz doméně.
+ */
+function i18nIsCzDomain() {
+    $h = i18nSiteHost();
+    return $h === I18N_DOMAIN_CS || str_ends_with($h, '.' . I18N_DOMAIN_CS);
+}
+
+/**
+ * Default jazyk podle aktuální domény (multi-domain):
+ *   .cz → 'cs', .com → 'en', .at → 'de', .es → 'es', .pl → 'pl'
  */
 function i18nSiteDefaultLang() {
-    return i18nIsComDomain() ? 'en' : 'cs';
+    $h = i18nSiteHost();
+    // Přesná shoda domény
+    if (isset(I18N_DOMAIN_DEFAULTS[$h])) {
+        return I18N_DOMAIN_DEFAULTS[$h];
+    }
+    // Zkus bez www.
+    foreach (I18N_DOMAIN_DEFAULTS as $domain => $lang) {
+        if ($h === $domain || str_ends_with($h, '.' . $domain)) {
+            return $lang;
+        }
+    }
+    // Fallback
+    return 'en';
 }
 
 /**
  * Vrátí origin (https://motogo24.xx) pro doménovou kanonickou verzi daného jazyka.
- * Pravidlo: 'cs' bydlí na .cz, vše ostatní na .com.
+ * Pravidlo: každý jazyk s vlastní TLD má svou doménu, ostatní → .com.
  */
 function i18nOriginForLang($lang) {
-    $domain = ($lang === 'cs') ? I18N_DOMAIN_CS : I18N_DOMAIN_INTL;
+    $domain = I18N_DOMAIN_MAP[$lang] ?? I18N_DOMAIN_INTL;
     return 'https://' . $domain;
 }
 
@@ -81,8 +122,11 @@ function i18nOriginForLang($lang) {
  */
 function i18nUrlForLang($lang, $path, $forceLangQuery = false) {
     $origin = i18nOriginForLang($lang);
-    // Defaultní jazyk dané domény nepotřebuje ?lang= parametr.
-    $isDomainDefault = ($lang === 'cs') || ($lang === 'en');
+    // Jazyk je defaultní pro svou doménu → nepotřebuje ?lang= parametr.
+    // Např. 'de' na motogo24.at, 'es' na motogo24.es, 'en' na motogo24.com atd.
+    $domainForLang = I18N_DOMAIN_MAP[$lang] ?? I18N_DOMAIN_INTL;
+    $defaultForDomain = I18N_DOMAIN_DEFAULTS[$domainForLang] ?? 'en';
+    $isDomainDefault = ($lang === $defaultForDomain);
     if ($isDomainDefault && !$forceLangQuery) {
         return $origin . $path;
     }
@@ -142,18 +186,26 @@ function i18nDetectLanguage() {
     }
 
     // 3) Doménově-závislý default
-    if (i18nIsComDomain()) {
-        // .com: detekce z Accept-Language, ALE 'cs' vyloučíme — čeští návštěvníci
-        // patří na .cz, jinak vznikla duplicate-content situace pro Google.
-        $acceptLang = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '';
-        if ($acceptLang) {
-            $first = strtolower(substr(preg_replace('/[^a-zA-Z\-,;]/', '', $acceptLang), 0, 2));
-            if ($first !== 'cs' && in_array($first, I18N_SUPPORTED, true)) {
-                $cached = $first;
-                return $cached;
+    $siteDefault = i18nSiteDefaultLang();
+
+    if (!i18nIsCzDomain()) {
+        // Mezinárodní domény (.com, .at, .es, .pl): detekce z Accept-Language,
+        // ALE 'cs' vyloučíme — čeští návštěvníci patří na .cz.
+        // Na dedikovaných doménách (.at, .es, .pl) Accept-Language ignorujeme —
+        // uživatel přišel na doménu pro konkrétní jazyk.
+        $hasDedicatedDomain = ($siteDefault !== 'en'); // .at/.es/.pl = dedikovaná
+        if (!$hasDedicatedDomain) {
+            // .com: Accept-Language fallback
+            $acceptLang = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '';
+            if ($acceptLang) {
+                $first = strtolower(substr(preg_replace('/[^a-zA-Z\-,;]/', '', $acceptLang), 0, 2));
+                if ($first !== 'cs' && in_array($first, I18N_SUPPORTED, true)) {
+                    $cached = $first;
+                    return $cached;
+                }
             }
         }
-        $cached = 'en';
+        $cached = $siteDefault;
         return $cached;
     }
 
