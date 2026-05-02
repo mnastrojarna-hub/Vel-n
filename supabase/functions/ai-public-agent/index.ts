@@ -698,6 +698,15 @@ async function execPublicTool(name: string, args: Record<string, unknown>): Prom
       const userId = String(result?.user_id || '')
       const amount = Number(result?.amount || 0)
 
+      // Označ rezervaci jako vytvořenou přes AI agenta — Velín tak zobrazí
+      // 🤖 AI badge vedle WEB. Sloupec `created_via_ai` přibyl 2026-05-02
+      // (booking-source granularity per request od admina).
+      try {
+        if (bookingId) {
+          await sb.from('bookings').update({ created_via_ai: true }).eq('id', bookingId)
+        }
+      } catch { /* non-blocking — feature degraduje gracefully na obyč WEB badge */ }
+
       // Doplnit do profilu údaje, které create_web_booking nezapisuje (license/ID).
       // Tohle pokrývá full data collection AI agentem (jinak by webová rezervace
       // forma musela být dovyplněna ručně).
