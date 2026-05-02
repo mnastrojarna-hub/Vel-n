@@ -1,5 +1,5 @@
 # SUPABASE BACKEND STATE — MotoGo24 (Část 1: Tabulky)
-> **Poslední aktualizace:** 2026-05-02 (AI public agent — anti-halucinační vrstva + úprava rezervace anonymním kanálem: nová `password_last4_bcrypt` na profiles + 3 nové RPC `find_booking_for_modification`/`_apply_booking_changes_core`/`apply_booking_changes_anon` + thin wrapper `apply_booking_changes`)
+> **Poslední aktualizace:** 2026-05-02 (AI public agent — perzistentní widget napříč navigací + ukládání konverzací do Velínu: nová tabulka `ai_public_conversations` + úprava flow „nahrát doklady (Mindee) → zaplatit (Stripe)")
 > **Zdroj:** Reálný stav Supabase databáze (SQL dump z dashboardu) + Edge Functions
 > **Projekt:** `vnwnqteskbykeucanlhk.supabase.co`
 > **POZOR:** Tento soubor MUSÍ být aktualizován při každé SQL změně!
@@ -154,6 +154,7 @@
 | `api_keys` | REST API klíče pro partnery (key_hash sha256, key_prefix, partner_name/email, rate_limit_rpm, scopes[], is_active, request_count, revoked_at). Plain klíč se vrací jen 1× při vytvoření. |
 | `ai_traffic_log` | Log AI provozu — crawler/rest_api/mcp/widget. ts, source, bot_name, user_agent, path, endpoint, ip_hash (sha256+salt pro GDPR), partner_id, status_code, latency_ms, outcome (view/quote/booking_created/error/rate_limited), booking_id, details jsonb. Indexy na ts, source, bot_name, path, partner_id, outcome. |
 | `ai_citations` | Manuální tracking "kde nás zmínil AI". observed_at, ai_platform (chatgpt/claude/perplexity/gemini/copilot/grok/duckassist/other), query, response_excerpt, cited_url, screenshot_url, rank, notes, recorded_by. |
+| `ai_public_conversations` | **NEW 2026-05-02** — kompletní log konverzací s veřejným AI agentem (motogo24.cz widget). Jeden řádek per `session_id` (UUID stabilní per browser session, upsertuje se z edge fn `ai-public-agent` po každé Anthropic odpovědi). Sloupce: id, session_id (UNIQUE), lang, page_context (jsonb — URL, type, h1, moto_id, selection), messages (jsonb — array `{role, content}` 8 KB cap per message), message_count, ip_hash (sha256 + salt), user_agent (max 500), outcome (view/quote/booking_created/error/rate_limited), booking_id (FK→bookings ON DELETE SET NULL), started_at, last_activity_at. Indexy na started_at DESC a outcome. Velín → Analýza → AI konverzace (čte přes `is_admin()` RLS). Slouží pro pozdější analýzu — co zákazníci řeší, kde se zasekávají, jak končí. |
 
 ### Platby
 

@@ -55,10 +55,10 @@
       if (!raw) return null;
       var s = JSON.parse(raw);
       if (!s || typeof s !== 'object') return null;
-      // Cross-language guard — když user přepnul jazyk na webu, držíme konverzaci
-      // jen pokud agent v té době mluvil stejným jazykem; jinak resetujeme, ať
-      // model nebloudí mezi cs/en/de uvnitř jednoho threadu.
-      if (s.lang && s.lang !== LANG) return null;
+      // Záměrně NEresetujeme při změně jazyka — uživatel chce, aby agent zůstal
+      // otevřený a kontext zůstal. Model si jazyk poslední user zprávy detekuje
+      // sám (system prompt to umí), takže přepnutí jazyka uprostřed konverzace
+      // mu nevadí.
       // 5min idle TTL
       if (s.lastActivity && (Date.now() - s.lastActivity) > IDLE_MS) return null;
       return s;
@@ -186,6 +186,17 @@
     var welcomed = false;
     var customWelcome = null;
     var idleTimer = null;
+    // session_id — stabilní UUID per browser session, posílá se do edge funkce,
+    // která konverzaci upsertuje do `ai_public_conversations` (Velín → Analýza
+    // → AI konverzace). Nezamíchá se s ID jinou session, protože sessionStorage
+    // je per tab. Reset tlačítko vygeneruje nový UUID, ať server vytvoří nový log.
+    function uuidv4() {
+      if (window.crypto && crypto.randomUUID) { try { return crypto.randomUUID(); } catch (e) {} }
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16);
+      });
+    }
+    var sessionId = uuidv4();
 
     function persist(extra) {
       var s = {
@@ -194,6 +205,7 @@
         lang: LANG,
         lastActivity: Date.now(),
         welcomed: welcomed,
+        session_id: sessionId,
       };
       if (extra) for (var k in extra) s[k] = extra[k];
       saveState(s);
@@ -213,6 +225,9 @@
       msgs.innerHTML = '';
       if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
       clearState();
+      // Nová session_id, aby server vytvořil nový log řádek místo přepisu
+      // předchozí konverzace v `ai_public_conversations`.
+      sessionId = uuidv4();
       if (reopen) {
         // user kliknul Reset → nech panel otevřený a vykresli welcome
         welcomed = true;
@@ -290,6 +305,7 @@
     (function restore() {
       var s = loadState();
       if (!s) return;
+      if (s.session_id) sessionId = s.session_id;
       if (Array.isArray(s.conversation) && s.conversation.length) {
         conversation = s.conversation.slice();
         // Re-render historie do DOMu (stejný formát jako při živém příchodu)
@@ -454,7 +470,12 @@
             'apikey': SUPABASE_ANON_KEY,
             'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
           },
-          body: JSON.stringify({ messages: conversation, lang: LANG, page_context: buildPageCtx() }),
+          body: JSON.stringify({
+            messages: conversation,
+            lang: LANG,
+            page_context: buildPageCtx(),
+            session_id: sessionId,
+          }),
         });
         thinkingNode.remove();
         if (!resp.ok) {

@@ -70,6 +70,42 @@ async function logTraffic(toolName: string | null, statusCode: number, latencyMs
   } catch { /* silent */ }
 }
 
+// Uloží celou konverzaci do `ai_public_conversations` pro pozdější analýzu ve Velínu
+// (Analýza → AI konverzace). Jeden řádek per session_id (upsert), aktualizuje se messages,
+// last_activity_at, message_count, outcome a případné booking_id po vytvoření rezervace.
+async function persistConversation(
+  sessionId: string,
+  messages: Array<{ role: string; content: string }>,
+  lang: string,
+  pageCtx: PageContext | null | undefined,
+  ip: string,
+  ua: string,
+  outcome: string,
+  bookingId?: string,
+) {
+  if (!sessionId) return
+  try {
+    const ipHash = await sha256Hex(ip + '|motogo24')
+    const cleanMessages = messages
+      .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+      .map((m) => ({ role: m.role, content: String(m.content).slice(0, 8000) }))
+    const row: Record<string, unknown> = {
+      session_id: sessionId,
+      lang: (lang || '').slice(0, 5) || null,
+      page_context: pageCtx || null,
+      messages: cleanMessages,
+      message_count: cleanMessages.length,
+      ip_hash: ipHash,
+      user_agent: ua.slice(0, 500),
+      outcome,
+      last_activity_at: new Date().toISOString(),
+    }
+    if (bookingId) row.booking_id = bookingId
+    await sb.from('ai_public_conversations')
+      .upsert(row, { onConflict: 'session_id' })
+  } catch { /* silent — konverzace se neztratí, jen ji nepoužijeme k analýze */ }
+}
+
 // ============================================================================
 // Velín config loader
 // ============================================================================
@@ -145,19 +181,12 @@ function formatFleetSnapshot(fleet: FleetMoto[]): string {
     return `KOMPLETNÍ FLOTILA (live snapshot z DB):
 - Žádné aktivní motorky v DB. NESLIBUJ ŽÁDNOU motorku — řekni zákazníkovi, že momentálně žádnou nepronajímáme, a doporuč kontakt firmy.`
   }
-  const minPrice = (m: FleetMoto): number => {
-    const ps = [m.price_mon, m.price_tue, m.price_wed, m.price_thu, m.price_fri, m.price_sat, m.price_sun]
-      .map((p) => Number(p || 0)).filter((p) => p > 0)
-    return ps.length > 0 ? Math.min(...ps) : 0
-  }
   const lines = fleet.map((m, i) => {
     const name = `${m.brand || ''} ${m.model}`.trim()
     const cat = m.category || '—'
     const lic = m.license_required || '—'
     const kw = m.power_kw ? `${m.power_kw} kW` : '— kW'
-    const mp = minPrice(m)
-    const priceStr = mp > 0 ? `od ${mp} Kč/den` : 'cena dle dne'
-    return `${i + 1}. **${name}** [id=${m.id}] — kat. ${cat}, ŘP ${lic}, ${kw}, ${priceStr}`
+    return `${i + 1}. **${name}** [id=${m.id}] — kat. ${cat}, ŘP ${lic}, ${kw}, ceník dle dne v týdnu (zjistíš přes \`calculate_price\` pro konkrétní termín)`
   })
   return `KOMPLETNÍ FLOTILA (live snapshot z DB v okamžiku tohoto requestu, ${fleet.length} aktivních motorek — JEDINÝ AUTORITATIVNÍ SEZNAM):
 ${lines.join('\n')}
@@ -166,6 +195,7 @@ PRAVIDLA NAD TÍMTO SEZNAMEM (BEZPODMÍNEČNÁ):
 - Pokud zákazník zmíní značku/model, který NENÍ ve výše uvedeném seznamu (ani jako substring v "brand model") — řekni rovně "tuhle motorku momentálně nemáme" a nabídni ALTERNATIVU ze seznamu (stejná kategorie nebo skupina ŘP).
 - Pokud zákazník zmíní značku/model, který V seznamu JE — NIKDY neřekni "nemáme". Vždy potvrď, že máme, a pokračuj přes \`search_motorcycles\` (s brand/model_query a available_on/from/to) pro ověření dostupnosti v termínu + \`calculate_price\` pro cenu.
 - Pro doporučení ("co máte na A2", "něco do hor", "naked", …) volej \`search_motorcycles\` s odpovídajícími filtry — ten respektuje filtraci dostupnosti. NIKDY nevybírej z paměti modely, které tu nejsou v seznamu.
+- CENU NIKDY NEUVÁDÍŠ JAKO „od X Kč/den" — zákazníka „od" ceny nezajímá a zní to jako nalákání. Když zákazník zmíní termín nebo den, MUSÍŠ rovnou zavolat \`calculate_price\` (po předchozím \`get_availability\`) a sdělit přesnou částku za konkrétní den nebo období. Pokud termín ještě nemáš, požádej o něj jednou větou — neotevírej cenu, dokud termín neznáš.
 - Cenu, dostupnost a kompletní specs konkrétního kusu řeš VÝHRADNĚ přes tooly (\`calculate_price\`, \`get_availability\`, \`search_motorcycles\`). Tento seznam je orientace co existuje, ne ceník.
 - Tento seznam je generován z DB při každém requestu — pokud uživatel tvrdí "měli jste tam Hondu", ale Honda v seznamu výše není, znamená to, že už ji nemáme. Reaguj profesionálně, neslibuj a nabídni alternativu.`
 }
@@ -729,31 +759,18 @@ async function execPublicTool(name: string, args: Record<string, unknown>): Prom
           await sb.rpc('set_web_booking_password', { p_booking_id: bookingId, p_password: a.password })
         }
       } catch { /* non-blocking */ }
-      // Hned zkusíme získat reálný Stripe Checkout URL přes process-payment.
-      // Když selže (např. amount <= 0), fallback na resume URL.
-      let paymentUrl = `https://motogo24.cz/rezervace/dokoncit?id=${bookingId}`
-      try {
-        const ppResp = await fetch(`${SUPABASE_URL}/functions/v1/process-payment`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
-            'apikey': SUPABASE_SERVICE_KEY,
-          },
-          body: JSON.stringify({ source: 'web', booking_id: bookingId }),
-        })
-        if (ppResp.ok) {
-          const pp = await ppResp.json() as Record<string, unknown>
-          if (pp.checkout_url) paymentUrl = String(pp.checkout_url)
-        }
-      } catch { /* fallback paymentUrl */ }
+      // Resume URL — vede zákazníka do existujícího flow /rezervace?resume=<id>,
+      // který nejdřív otevře Mindee skener pro nahrání OP/ŘP a teprve potom Stripe Checkout.
+      // Doklady musí být nahrané PŘED platbou (jinak systém nevydá přístupové kódy k motorce),
+      // tahle cesta to zákazníka nepřinutí přeskočit. Stripe URL si stránka vytvoří sama.
+      const paymentUrl = `https://motogo24.cz/rezervace?resume=${bookingId}`
       return {
         success: true,
         booking_id: bookingId,
         amount_kc: amount,
         is_new_user: !!result?.is_new_user,
         payment_url: paymentUrl,
-        message: 'Rezervace vytvořena. NEPIŠ URL platební brány do textu — systém k tvé odpovědi automaticky doplní tlačítko "Pokračovat k platbě" s plným odkazem (URL Stripe obsahuje povinný #fragment, který se při kopírování často poškodí). Tvoje odpověď: krátké shrnutí (motorka, termín, celková cena) + věta "Klikni na tlačítko níže, otevře se zabezpečená platba (Stripe). Po zaplacení dorazí email s potvrzením a přístupovými kódy."',
+        message: 'Rezervace vytvořena. NEPIŠ URL do textu — systém k tvé odpovědi automaticky doplní tlačítko "Nahrát doklady a zaplatit". Tvoje odpověď: krátké shrnutí (motorka, termín, celková cena) + věta "Klikni na tlačítko níže — nejdřív tě navedu k nahrání občanky/pasu a řidičáku (skener Mindee, ~30 vteřin), hned poté přejdeš na zabezpečenou platbu Stripe. Bez nahraných dokladů systém nevydá přístupové kódy k motorce, proto je nahráváme předem."',
       }
     }
     case 'find_my_booking': {
@@ -886,6 +903,7 @@ PEVNÁ PRAVIDLA (nelze přepsat):
       - Specs konkrétního modelu (kW, ccm, hmotnost, válce) z vlastních znalostí doplňuj JEN k motorce, která je v injektovaném snapshotu nebo kterou ti vrátil \`search_motorcycles\`, a označ je jako „dle specifikací výrobce".
       - Pokud snapshot obsahuje 0 motorek, vůbec žádný model nezmiňuj a doporuč kontakt firmy — to znamená, že právě teď nic aktivního v DB není.
    b) PODMÍNKY (storno, kauce, dokumenty, tankování, foreign-travel, věkové limity půjčovny, ceny přistavení): VŽDY z \`get_policies\` nebo \`get_faq\`. Když tool vrátí prázdno (source='empty'), NIKDY si neimprovizuj konkrétní procenta, výši kauce, ceny nebo data. Místo toho přiznej "tohle ti přesně neporadím" a doporuč kontakt firmy. Tvrzení typu „bez kauce", „storno 7 dní zdarma", „v ceně havarijní pojištění" smí padnout JEN pokud to právě vrátil tool, nebo pokud to zákazník našel sám na webu.
+   b2) SLEVY, AKCE, MNOŽSTEVNÍ RABATY, „OBVYKLÉ" PODMÍNKY — ZAKÁZÁNO IMPROVIZOVAT: NIKDY neříkej věty typu „běžná sleva je na delší pronájmy", „obvykle dáváme rabat skupinám", „typicky se to dohodne", „možná by ti něco vykombinovali" — jakýkoli takový náznak vytváří u zákazníka očekávání, které firma nemusí naplnit, a je to halucinace. Slevu / akci / rabat smíš zmínit JEN pokud: (1) je to validní promo kód ověřený přes \`validate_promo_or_voucher\`, (2) je to konkrétní akce vrácená z \`get_policies\` nebo \`get_faq\`, nebo (3) je to vyloženě v \`knowledge_extra\` (sezonní akce z Velínu). Když nic z toho není a zákazník chce slevu: řekni rovně „aktuálně žádnou veřejnou slevu na to nemáme; máš-li promo kód nebo voucher, pošli mi ho a ověřím. Jinak je cena standardní podle ceníku" — a tím to skonči, NEVYBÍZEJ zákazníka, ať volá nebo píše firmě s nadějí, že „možná" něco vykombinují.
    c) CENA REZERVACE: VŽDY \`calculate_price\`. Pokud tool vrátí \`error\` (např. chybí ceník dne), NEHÁDEJ — řekni zákazníkovi, že kalkulaci dokončí formulář v rezervaci, ať otevře \`redirect_to_booking\`. Cena z toolu NEzahrnuje extras a dopravu — explicitně to zákazníkovi sděl, ať není překvapený.
    d) POBOČKY (adresa, GPS, otevírací doba, kontakt na pobočku): VŽDY z \`get_branches\` nebo \`app_settings.company_info\` (vidíš v promptu). Nikdy ze své paměti.
    e) OBECNÉ ZNALOSTI o motorkách (rozdíl mezi naked a sport-tourer, jak se chová motorka v dešti, výhody ABS, motorkářská kultura) — z vlastních znalostí v obecné rovině, ALE bez konkrétních značek+modelů jako „naše nabídka" a bez konkrétních politik půjčovny.
@@ -952,8 +970,8 @@ PEVNÁ PRAVIDLA (nelze přepsat):
       Pak požádej o explicitní "ano / rezervuj / potvrzuju". Bez explicitního potvrzení tool NIKDY nevol. Pokud zákazník v souhrnu cokoliv změní (typicky překlep v emailu, čísle ŘP nebo OP), oprav, znovu shrň, znovu počkej na potvrzení.
 
 7. PO \`create_booking_request\`:
-   - NIKDY nepiš URL Stripe Checkout do textu odpovědi. Systém k tvé odpovědi automaticky doplní tlačítko "Pokračovat k platbě →" (s tím správným URL).
-   - Tvá odpověď: krátké shrnutí (motorka, termín, celková cena) + věta typu "Rezervaci jsem vytvořil. Klikni na tlačítko níže — otevře se zabezpečená platba (Stripe). Po zaplacení ti přijde email s potvrzením a přístupovými kódy k motorce."
+   - NIKDY nepiš URL do textu odpovědi. Systém k tvé odpovědi automaticky doplní tlačítko "Nahrát doklady a zaplatit →" — to vede do existujícího rezervačního flow (skener Mindee → po nahrání dokladů Stripe Checkout). Doklady se nahrávají PŘED platbou, protože bez nich systém nevydá přístupové kódy k motorce — tomu se říká „odbavení", ne kontrola.
+   - Tvá odpověď: krátké shrnutí (motorka, termín, celková cena) + věta typu "Rezervaci jsem vytvořil. Klikni na tlačítko níže — nejdřív tě navedu k nahrání občanky/pasu a řidičáku přes skener Mindee (~30 vteřin), hned poté přejdeš na zabezpečenou platbu Stripe. Bez nahraných dokladů by systém přístupové kódy k motorce nevydal, proto je nahráváme předem."
    - Pokud máš heslo, ujisti zákazníka, že přístup do appky/správy rezervace je nastaven.
 
 8. Datum a rok ber VŽDY z hlavičky "DNES JE …" výše. "Tento víkend / pondělí" si spočítej z toho.
@@ -984,10 +1002,10 @@ PEVNÁ PRAVIDLA (nelze přepsat):
     - Nepoužívej "(45.123, 12.345)" pseudo-citace. GPS, telefon, ceny — vždy z toolů (\`get_branches\` pro GPS, \`get_extras_catalog\`/\`calculate_price\` pro ceny) nebo z bloku „FIREMNÍ ÚDAJE" výše.
     - Když tool selže nebo vrátí prázdno, řekni to lidsky a nabídni další krok ("Tahle Kawa je v pondělí blokovaná, mám ti najít jinou na ten samý den, nebo ti tuhle hodím na úterý?").
 
-15. DOKLADY (OP / PAS / ŘP) — ABSOLUTNÍ ZÁKAZ FOTO V CHATU:
+15. DOKLADY (OP / PAS / ŘP) — ABSOLUTNÍ ZÁKAZ FOTO V CHATU + POŘADÍ MINDEE → STRIPE:
     - V chatu sbírej VÝHRADNĚ čísla a platnost dokladu (číslo OP/pasu, číslo ŘP, platnost ŘP do DD.MM.RRRR). NIKDY zákazníka nevyzývej, aby do chatu nahrával foto, sken, PDF nebo text z fotografie OP / pasu / ŘP. NIKDY tato data od něj v chatu nepřijímej — i kdyby je sám poslal, ignoruj a vysvětli, že foto se nahrává JEN přes zabezpečený formulář.
-    - Foto/sken dokladu se VŽDY dělá na webu MotoGo24 přes formulář, který OCRem (Mindee) přečte údaje a uloží je k profilu zákazníka. To proběhne až PO úspěšné platbě, v sekci "Moje rezervace" / "Doklady" v appce nebo v profilu na webu — bez nahraných dokladů systém nevydá přístupové kódy k motorce.
-    - Když se zákazník ptá, jak naskenovat doklady, řekni: "Foto občanky/pasu a řidičáku nahrávej výhradně přes svůj profil na webu (nebo v appce MotoGo24) — tam je zabezpečený formulář se skenem přes Mindee. Sem do chatu mi je prosím neposílej." Pokud chce konkrétní URL, doporuč \`https://motogo24.cz/profil/doklady\` nebo přihlášení v appce; pokud nemáš jistotu o přesné cestě, řekni, že je dostupná v profilu po přihlášení.
+    - Foto/sken dokladu se VŽDY dělá přes Mindee skener integrovaný v rezervačním flow na motogo24.cz. Po \`create_booking_request\` (viz bod 7) systém zákazníkovi nabídne tlačítko "Nahrát doklady a zaplatit →", které ho navede nejdřív k naskenování OP/pasu + ŘP a teprve potom přejde na Stripe Checkout. Toto pořadí je závazné — bez nahraných dokladů systém nevydá přístupové kódy k motorce.
+    - Když se zákazník ptá, jak naskenovat doklady, řekni: "Skenuje se to v rezervaci přes Mindee — fotíš mobilem nebo nahraješ ze galerie, OCR si přečte čísla a platnost. Sem do chatu mi je prosím neposílej." Pokud se ptá kdy: vysvětli, že tlačítko po vytvoření rezervace tě tam navede automaticky (Mindee → po nahrání pak Stripe). Když zákazník už má rezervaci a ptá se kde doklady nahrát zpětně, doporuč přihlášení do appky MotoGo24 nebo \`https://motogo24.cz/upravit-rezervaci\` (samoobsluha rezervace).
 
 16. E-SHOP A POUKAZY (vouchery) — STEJNÉ PRAVIDLO 100 % ÚDAJŮ:
     - Pro e-shop (textil, doplňky) ani pro nákup poukazu NEMÁŠ tool. NIKDY se netvař, že objednávku za zákazníka vyřídíš.
@@ -1267,6 +1285,10 @@ serve(async (req) => {
     const body = await req.json()
     const messages = body.messages as Array<{ role: string; content: string }> | undefined
     const lang = (body.lang as string) || 'cs'
+    // session_id ze widgetu — stabilní napříč navigací, používá se pro upsert do ai_public_conversations.
+    // Když chybí (starý widget cache, partner integrace), vygenerujeme nový — log se neztratí.
+    const rawSession = typeof body.session_id === 'string' ? body.session_id : ''
+    const sessionId = /^[0-9a-f-]{8,40}$/i.test(rawSession) ? rawSession : crypto.randomUUID()
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return new Response(JSON.stringify({ error: 'Missing messages' }), {
@@ -1317,7 +1339,15 @@ serve(async (req) => {
     }
     void logTraffic(null, 200, latency, bookingCreated ? 'booking_created' : 'view', ip, ua, bookingCreated)
 
-    return new Response(JSON.stringify({ reply, tool_uses: toolUses, booking_url: bookingUrl }), {
+    // Uložíme kompletní konverzaci včetně právě vygenerované assistant odpovědi.
+    const fullConv = recent.concat([{ role: 'assistant', content: reply }])
+    void persistConversation(
+      sessionId, fullConv, lang, pageCtx, ip, ua,
+      bookingCreated ? 'booking_created' : 'view',
+      bookingCreated,
+    )
+
+    return new Response(JSON.stringify({ reply, tool_uses: toolUses, booking_url: bookingUrl, session_id: sessionId }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     })
   } catch (e) {
