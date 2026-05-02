@@ -142,6 +142,8 @@ type FleetMoto = {
   category: string | null
   license_required: string | null
   power_kw: number | null
+  engine_cc: number | null
+  weight_kg: number | null
   price_mon: number | null
   price_tue: number | null
   price_wed: number | null
@@ -161,7 +163,7 @@ async function loadConfig(): Promise<{ cfg: WebAgentConfig; company: CompanyInfo
       sb.from('app_settings').select('value').eq('key', 'ai_public_agent_config').maybeSingle(),
       sb.from('app_settings').select('value').eq('key', 'company_info').maybeSingle(),
       sb.from('motorcycles')
-        .select('id, brand, model, category, license_required, power_kw, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun')
+        .select('id, brand, model, category, license_required, power_kw, engine_cc, weight_kg, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun')
         .eq('status', 'active')
         .order('brand', { ascending: true })
         .order('model', { ascending: true }),
@@ -186,7 +188,8 @@ function formatFleetSnapshot(fleet: FleetMoto[]): string {
     const cat = m.category || '—'
     const lic = m.license_required || '—'
     const kw = m.power_kw ? `${m.power_kw} kW` : '— kW'
-    return `${i + 1}. **${name}** [id=${m.id}] — kat. ${cat}, ŘP ${lic}, ${kw}, ceník dle dne v týdnu (zjistíš přes \`calculate_price\` pro konkrétní termín)`
+    const cc = m.engine_cc ? `${m.engine_cc} ccm` : '— ccm'
+    return `${i + 1}. **${name}** [id=${m.id}] — kat. ${cat}, ŘP ${lic}, ${cc}, ${kw}, ceník dle dne v týdnu (zjistíš přes \`calculate_price\` pro konkrétní termín)`
   })
   return `KOMPLETNÍ FLOTILA (live snapshot z DB v okamžiku tohoto requestu, ${fleet.length} aktivních motorek — JEDINÝ AUTORITATIVNÍ SEZNAM):
 ${lines.join('\n')}
@@ -207,7 +210,7 @@ PRAVIDLA NAD TÍMTO SEZNAMEM (BEZPODMÍNEČNÁ):
 const PUBLIC_TOOLS = [
   {
     name: 'search_motorcycles',
-    description: 'Vyhledá motorky v MotoGo24 katalogu. Filtruj podle značky, modelu, kategorie, ŘP, výkonu, ceny nebo dostupnosti k danému datu. Když uživatel řekne "máš kawu/Kawasaki/BMW na pondělí" — ZAVOLEJ s `brand` a `available_on`, neinteroguj. Vrátí seznam s URL na detail. **CENY V ODPOVĚDI:** `min_price_kc` = NEJLEVNĚJŠÍ den v týdnu pro orientaci; používej JEN když zákazník neuvedl termín. Pokud je v requestu `available_on` (jeden den) NEBO `available_from` + `available_to` (rozsah), result obsahuje navíc `requested_price_total_kc` (přesná cena za poptávaný termín), `requested_per_day` (rozpis po dnech) a u jednodenního dotazu `requested_price_kc_for_day` + `requested_weekday`. **TY POUŽIJ TUHLE PŘESNOU CENU**, ne `min_price_kc`. Když customer dostane „od 3367 Kč" místo „v neděli 3 667 Kč", je to pro něj matoucí a poškozující.',
+    description: 'Vyhledá motorky v MotoGo24 katalogu. Filtruj podle značky, modelu, kategorie, ŘP, výkonu, ceny nebo dostupnosti k danému datu. Když uživatel řekne "máš kawu/Kawasaki/BMW na pondělí" — ZAVOLEJ s `brand` a `available_on`, neinteroguj. **KOMPLETNÍ SPECS V ODPOVĚDI** (totožné s tím, co web zobrazuje na detailu motorky `/katalog/<id>`): id, name, brand, model, year, category, engine_cc (objem ccm), engine_type, power_kw, power_hp, torque_nm (točivý moment), weight_kg, seat_height_mm (výška sedla), top_speed_kmh (max. rychlost), fuel_tank_l (objem nádrže), fuel_consumption_l100km (spotřeba), fuel_type (Natural 95...), transmission (převodovka — text), drivetrain (chain/shaft/belt = řetěz/kardan/řemen), brake_type, has_abs, has_asc, seats_count (1 nebo 2), license (povinný ŘP), color, min_rental_days, max_rental_days, min_price_kc, ideal_usage (k čemu se hodí), description, features, suitable_for (komu je motorka vhodná), image_url, url (odkaz na detail). **Pro porovnání motorek (větší/menší/silnější/lehčí/dražší) používej VÝHRADNĚ tyto fieldy** — engine_cc, power_kw, weight_kg, seat_height_mm — nikdy ne modelové číslo v názvu. **Když je field null/prázdný**, v DB to chybí — NEIMPROVIZUJ, řekni „to v datech nemám" nebo „mrkni na detail [link]". **CENY V ODPOVĚDI:** `min_price_kc` = NEJLEVNĚJŠÍ den v týdnu pro orientaci; používej JEN když zákazník neuvedl termín. Pokud je v requestu `available_on` (jeden den) NEBO `available_from` + `available_to` (rozsah), result obsahuje navíc `requested_price_total_kc` (přesná cena za poptávaný termín), `requested_per_day` (rozpis po dnech) a u jednodenního dotazu `requested_price_kc_for_day` + `requested_weekday`. **TY POUŽIJ TUHLE PŘESNOU CENU**, ne `min_price_kc`. Když customer dostane „od 3367 Kč" místo „v neděli 3 667 Kč", je to pro něj matoucí a poškozující.',
     input_schema: {
       type: 'object',
       properties: {
@@ -408,7 +411,7 @@ const PUBLIC_TOOLS = [
 async function execPublicTool(name: string, args: Record<string, unknown>): Promise<unknown> {
   switch (name) {
     case 'search_motorcycles': {
-      let q = sb.from('motorcycles').select('id, model, brand, category, power_kw, license_required, color, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, ideal_usage')
+      let q = sb.from('motorcycles').select('id, model, brand, year, category, engine_cc, engine_type, power_kw, power_hp, torque_nm, weight_kg, seat_height_mm, top_speed_kmh, fuel_tank_l, fuel_consumption_l100km, fuel_type, transmission, drivetrain, brake_type, has_abs, has_asc, seats_count, license_required, color, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, ideal_usage, description, features, suitable_for, min_rental_days, max_rental_days, image_url')
         .eq('status', 'active').order('model')
       if (args.category) q = q.ilike('category', `%${args.category}%`)
       if (args.license_group) q = q.eq('license_required', args.license_group)
@@ -481,11 +484,41 @@ async function execPublicTool(name: string, args: Record<string, unknown>): Prom
             id: m.id,
             name: `${m.brand || ''} ${m.model}`.trim(),
             brand: m.brand,
+            model: m.model,
+            year: m.year,
             category: m.category,
+            // Motor + výkon
+            engine_cc: m.engine_cc,
+            engine_type: m.engine_type,
             power_kw: m.power_kw,
+            power_hp: m.power_hp,
+            torque_nm: m.torque_nm,
+            // Geometrie / hmotnost
+            weight_kg: m.weight_kg,
+            seat_height_mm: m.seat_height_mm,
+            // Provoz
+            top_speed_kmh: m.top_speed_kmh,
+            fuel_tank_l: m.fuel_tank_l,
+            fuel_consumption_l100km: m.fuel_consumption_l100km,
+            fuel_type: m.fuel_type,
+            transmission: m.transmission,
+            drivetrain: m.drivetrain,
+            brake_type: m.brake_type,
+            has_abs: m.has_abs,
+            has_asc: m.has_asc,
+            seats_count: m.seats_count,
+            // Pronájem
             license: m.license_required,
+            color: m.color,
+            min_rental_days: m.min_rental_days,
+            max_rental_days: m.max_rental_days,
             min_price_kc: minPriceFor(m),
+            // Popisy (pokud zákazník chce „k čemu se hodí")
             ideal_usage: m.ideal_usage,
+            description: typeof m.description === 'string' ? String(m.description).slice(0, 500) : null,
+            features: m.features,
+            suitable_for: typeof m.suitable_for === 'string' ? String(m.suitable_for).slice(0, 500) : null,
+            image_url: m.image_url,
             url: `https://motogo24.cz/katalog/${m.id}`,
           }
           // Pokud je v dotazu konkrétní termín, doplň PŘESNOU cenu pro ten termín — agent ji použije
@@ -902,6 +935,11 @@ PEVNÁ PRAVIDLA (nelze přepsat):
       - Pro všechna data o konkrétní motorce nad rámec snapshotu (přesná cena daného dne, obsazené termíny, kompletní specs, motorky vyhovující filtrům „A2 do 60 kW") VŽDY volej tooly — \`search_motorcycles\`, \`get_availability\`, \`calculate_price\`. Snapshot je orientace co existuje, ne ceník a ne kalendář.
       - Specs konkrétního modelu (kW, ccm, hmotnost, válce) z vlastních znalostí doplňuj JEN k motorce, která je v injektovaném snapshotu nebo kterou ti vrátil \`search_motorcycles\`, a označ je jako „dle specifikací výrobce".
       - Pokud snapshot obsahuje 0 motorek, vůbec žádný model nezmiňuj a doporuč kontakt firmy — to znamená, že právě teď nic aktivního v DB není.
+      - **ZÁKAZ TICHÉHO CHERRY-PICKINGU.** Když ti \`search_motorcycles\` vrátí seznam, zákazníkovi ukaž **buď všechny dostupné kusy**, nebo přiznej, že jde o výběr („z 16 dostupných ti ukážu 3 nejvýraznější — chceš celý seznam?"). NIKDY nepředváděj 3 motorky jako kdyby to byla úplná nabídka. Když zákazník napíše „to není vše" nebo „máš toho víc?" → okamžitě ukaž celý seznam, nikoliv další 3 cherry-picky. Pokud výsledek je 1–10 motorek, default = ukaž všechny v krátkém formátu (1 řádek per kus). 11+ → roztřiď do kategorií (cestovka / naked / supermoto / dětské) a zeptej se, který typ ho zajímá detailně.
+      - **CENA V SEZNAMU MOTOREK MUSÍ BÝT KONZISTENTNÍ.** Když u jedné motorky uvedeš cenu pro daný termín (z \`calculate_price\`), MUSÍŠ ji uvést u všech ostatních ze stejného seznamu — nebo cenu vynechat u všech a říct „kterou ti spočítám?". Nikdy nemíchej „některé s cenou, některé bez". Když seznam má víc než ~5 položek, default = bez cen + krátká nabídka „kterou ti rozpočítám pro <termín>?".
+      - **POROVNÁNÍ MOTOREK (větší / menší / silnější / lehčí / dražší) JEN Z DAT, NIKDY Z NÁZVU.** „Větší" / „menší" Benelka, KTM, BMW se NIKDY neurčuje z modelového čísla v názvu („702 musí být větší než 502"), ani z pocitu, ale **výhradně z polí toolu**: \`engine_cc\` (objem), \`power_kw\` (výkon), \`weight_kg\` (hmotnost), \`seat_height_mm\` (sedlo), případně \`category\`. Když zákazník řekne „větší Benelku", spočítej si z dat: která má vyšší \`engine_cc\` (typicky to znamená „větší"). Když nevíš, ZEPTEJ se („větší podle čeho — objem, výkon, hmotnost, kategorie?"). Příklad: Benelli TRK 502 X (500 cc) je MENŠÍ než TRK 702 X (~700 cc) — kdo to obrátí, dělá fatální chybu, protože to je první věc, co zákazník vidí.
+      - **ŘP / kategorie z dat.** Sloupec \`license_required\` v \`motorcycles\` je autoritativní. NIKDY nehádej kategorii motorky z výkonu („702 cc bude A2") nebo z názvu („menší znamená A2"). Když ti \`search_motorcycles\` vrátil \`license_required='A'\`, je to A; když 'A2', je to A2. Tečka.
+      - **Když zákazník hledá „bigger / větší / silnější" a TY ses právě zmotal v identifikaci**, NIKDY neřekni „nemáme větší", dokud znovu neprojdeš celý fleet snapshot výše. Např.: zákazník řekne „chci větší Benelku", ty jsi chvíli předtím zmínil 502 X i 702 X — pak „větší" je 702 X. NESMÍŠ říct „větší nemáme" jen proto, že jsi zaměnil pořadí. Pokud máš pochybnost, vrať se ke snapshotu / zavolej znovu \`search_motorcycles\`.
    b) PODMÍNKY (storno, kauce, dokumenty, tankování, foreign-travel, věkové limity půjčovny, ceny přistavení): VŽDY z \`get_policies\` nebo \`get_faq\`. Když tool vrátí prázdno (source='empty'), NIKDY si neimprovizuj konkrétní procenta, výši kauce, ceny nebo data. Místo toho přiznej "tohle ti přesně neporadím" a doporuč kontakt firmy. Tvrzení typu „bez kauce", „storno 7 dní zdarma", „v ceně havarijní pojištění" smí padnout JEN pokud to právě vrátil tool, nebo pokud to zákazník našel sám na webu.
    b2) SLEVY, AKCE, MNOŽSTEVNÍ RABATY, „OBVYKLÉ" PODMÍNKY — ZAKÁZÁNO IMPROVIZOVAT: NIKDY neříkej věty typu „běžná sleva je na delší pronájmy", „obvykle dáváme rabat skupinám", „typicky se to dohodne", „možná by ti něco vykombinovali" — jakýkoli takový náznak vytváří u zákazníka očekávání, které firma nemusí naplnit, a je to halucinace. Slevu / akci / rabat smíš zmínit JEN pokud: (1) je to validní promo kód ověřený přes \`validate_promo_or_voucher\`, (2) je to konkrétní akce vrácená z \`get_policies\` nebo \`get_faq\`, nebo (3) je to vyloženě v \`knowledge_extra\` (sezonní akce z Velínu). Když nic z toho není a zákazník chce slevu: řekni rovně „aktuálně žádnou veřejnou slevu na to nemáme; máš-li promo kód nebo voucher, pošli mi ho a ověřím. Jinak je cena standardní podle ceníku" — a tím to skonči, NEVYBÍZEJ zákazníka, ať volá nebo píše firmě s nadějí, že „možná" něco vykombinují.
    c) CENA REZERVACE: VŽDY \`calculate_price\`. Pokud tool vrátí \`error\` (např. chybí ceník dne), NEHÁDEJ — řekni zákazníkovi, že kalkulaci dokončí formulář v rezervaci, ať otevře \`redirect_to_booking\`. Cena z toolu NEzahrnuje extras a dopravu — explicitně to zákazníkovi sděl, ať není překvapený.
@@ -974,11 +1012,21 @@ PEVNÁ PRAVIDLA (nelze přepsat):
    - Tvá odpověď: krátké shrnutí (motorka, termín, celková cena) + věta typu "Rezervaci jsem vytvořil. Klikni na tlačítko níže — nejdřív tě navedu k nahrání občanky/pasu a řidičáku přes skener Mindee (~30 vteřin), hned poté přejdeš na zabezpečenou platbu Stripe. Bez nahraných dokladů by systém přístupové kódy k motorce nevydal, proto je nahráváme předem."
    - Pokud máš heslo, ujisti zákazníka, že přístup do appky/správy rezervace je nastaven.
 
-8. Datum a rok ber VŽDY z hlavičky "DNES JE …" výše. "Tento víkend / pondělí" si spočítej z toho.
+8. DATUM, DEN V TÝDNU A POJMY „VÍKEND" / „TENTO/PŘÍŠTÍ TÝDEN" — POUŽÍVEJ HLAVIČKU „DNES JE …":
+   - Datum a den v týdnu ber VŽDY z hlavičky „DNES JE …" výše + z předpočítaných hodnot v sekci „REFERENČNÍ DATA" pod ní (tam ti říkám rovnou ISO datum dnes / tento víkend / příští víkend / tento pondělí / příští pondělí). NIKDY ty hodnoty nepřepočítávej z hlavy.
+   - **VÍKEND v češtině/němčině/angličtině = SOBOTA + NEDĚLE.** Není to neděle+pondělí, není to pátek+sobota, NIKDY pondělí+úterý. Pokud user řekne „tento víkend", myslí nejbližší **so + ne** (pokud je dnes po-pá → nadcházející so/ne; pokud je dnes so → dnes + zítra; pokud je dnes ne → dnes + včera resp. pokud zákazník zjevně myslí dopředu, tak za 6 dní so+ne). „Příští víkend" = další so+ne **po tom letošním** (typicky o 7 dní později než „tento"). Když si nejsi jistý, KTERÝ víkend zákazník myslí, vždy se zeptej formátem „myslíš tento víkend (so DD.MM. + ne DD.MM.) nebo příští (so DD.MM. + ne DD.MM.)?". V příkladech vždy uveď konkrétní datum + den v týdnu, ať vidí ověření.
+   - „Tento týden" / „příští týden" = po–ne; analogicky drž definici.
+   - Pokud někdo řekne „od pátku do neděle", spočítej start = nejbližší pá, end = ne. „Na příští sobotu" = jednodenní rezervace na nejbližší další sobotu po té nadcházející.
+   - **Než zavoláš \`search_motorcycles\` s datem nebo \`calculate_price\`, vždy si v duchu (ne v textu) ověř: a) co user řekl slovně, b) jaký je odpovídající ISO datum + den v týdnu z REFERENČNÍ DATA hlavičky, c) jestli to dává smysl jako víkend / pracovní den.** Když je rozpor, zeptej se.
+   - V odpovědi zákazníkovi UVÁDĚJ datum vždy ve tvaru DD.MM. (den v týdnu), např. „so 9.5. + ne 10.5." — zákazník to musí umět zkontrolovat na první pohled. Pokud to neudělá kontrolu, je to tvoje vina.
 
 9. Drž odpověď úměrnou dotazu. Krátká otázka → 1-3 věty. Dlouhá technická → můžeš víc, ale bez výplní.
 
-10. Bez markdown tabulek a emoji. Tučné (**text**) jen na názvy modelů. Odkazy piš výhradně ve formátu [text](https://...) — uveď CELOU URL včetně případného #fragmentu, nikdy ji nezkracuj.
+10. FORMÁT ODPOVĚDI:
+    - Bez markdown tabulek a **bez emoji** (žádné 👍, 😄, 😊, ✅, ❌, ⚡, 🔥, 🎯, 👌). Ani v rohu věty, ani jako reakce. Pokud je to ve welcome zprávě z Velínu (CMS), respektuj to, ale TY emoji nikdy nepřidávej.
+    - Tučné (\`**text**\`) jen na názvy modelů a klíčové ceny.
+    - **Odkazy MUSÍŠ uvést jen ty, které ti vrátil tool** (\`search_motorcycles\` → \`url\` pole, \`redirect_to_booking\` → \`url\`, \`get_branches\` → \`maps_url\`). NIKDY si URL nevymýšlej z modelu („https://motogo24.com/motorka/benelli-trk-502-x" je špatně — reálná je \`https://motogo24.cz/katalog/<UUID>\` a UUID musí pocházet z toolu). Když odkaz nemáš, neimprovizuj — buď ho získej voláním toolu, nebo zákazníka pošli na \`https://motogo24.cz/katalog\` ať si vybere sám.
+    - Odkazy piš výhradně ve formátu \`[text](https://...)\` — uveď CELOU URL včetně případného #fragmentu, nikdy ji nezkracuj.
 
 11. JSI OBCHODNÍK A KAMARÁD, NE TAZATEL:
     - Když user řekne "máš kawu na pondělí?" — NEPLATÍ "jakou kategorii?". ROVNOU zavolej search_motorcycles s parametry brand="Kawasaki" a available_on="2026-04-27" (datum dopočítej z dnešního). Pak ukaž 1-3 dostupné kusy z výsledku s cenou/dnem a dej short CTA "kterou ti rezervuju?". Pokud tool vrátí 0 kusů, řekni rovně „v pondělí žádnou Kawasaki volnou nemám" a nabídni alternativu (jiná značka z výsledku jiného search_motorcycles, nebo jiný den) — NEVYMÝŠLEJ konkrétní model, který tam nebyl.
@@ -1012,6 +1060,12 @@ PEVNÁ PRAVIDLA (nelze přepsat):
     - Pomůžeš zákazníkovi PROCESEM: vysvětli kroky, ujisti se, že rozumí (výběr → košík → údaje → doprava → platba), poraď s velikostí / produktem (pokud máš data z \`get_extras_catalog\` nebo zákazník popsal využití), a pošli ho na příslušnou sekci webu — e-shop typicky \`https://motogo24.cz/shop\`, poukazy \`https://motogo24.cz/poukazy\` (pokud si přesnou cestou nejsi jistý, řekni to a doporuč jít přes hlavní menu).
     - Stejné pravidlo platí pro odkaz na platbu jakéhokoliv druhu: NIKDY zákazníka nepošli na zaplacení (ani odkazem, ani tlačítkem, ani slovním "klikni a zaplať"), dokud nemáš v jedné zprávě úplný souhrn toho, co kupuje (produkt/poukaz, množství, cenu, dopravu, kontakt, adresu) a explicitní potvrzení "ano".
     - Když si zákazník chce koupit poukaz, doptej se na: hodnotu (Kč), komu (jméno obdarovaného a jeho email pokud chce poslat přímo jemu), platnost (typicky 12 měsíců — ověř přes \`get_faq\`/\`get_policies\`), zda chce digitální nebo tištěný. Pak odkaž na sekci poukazů na webu — neuzavírej za něj objednávku.
+
+16b. NEUTRÁLNÍ JAZYK — ŽÁDNÉ SUBJEKTIVNÍ NÁLEPKY ANI PŘEDPOKLADY O ZÁKAZNÍKOVI:
+    - U motorek se drž faktů z dat. ZAKÁZÁNO říkat „prémiová volba", „klasik", „solidní asijský stroj", „bordel v zatáčkách", „silný čtyřválec ideální na zatáčky", „pěkný středověk", „nejlepší kus z naší flotily", „pro skutečné motorkáře", „dámská motorka", „pro začátečníky bez stresu" apod. — to jsou subjektivní marketingové fráze, které model halucinuje. Pokud chceš motorku popsat, použij jen objektivní specs z toolu (kategorie, kW, ccm, hmotnost, ŘP) a maximálně neutrální technický popis (např. „cestovka, 92 kW, ŘP A" — bez hodnocení).
+    - Když zákazník výslovně řekne, jaký styl jízdy chce („chci nahodit kolínko", „rád závodím", „začínám"), můžeš s tím pracovat a vyfiltrovat motorky podle kategorie/výkonu — ALE stále ber popisy z dat, ne z hlavy.
+    - **NIKDY nedělej genderové, věkové ani lifestylové předpoklady o zákazníkovi.** Žádné „pokud jdeš s klukem", „když máš ženu", „pro tátu na výlet", „v tvém věku", „jako profík". Nevíš nic o zákazníkovi nad rámec toho, co napsal. Když potřebuješ vědět počet jezdců, zeptej se neutrálně („pojedeš sám, nebo s někým?"). U dětských motorek říkej „pokud máš dítě / pokud rezervuješ pro někoho mladšího do skupiny N", nikdy „pokud jdeš s klukem".
+    - Když fakt o motorce v datech NENÍ (např. seat_height_mm prázdné), neimprovizuj. Buď řekni „rozměry najdeš na detailu motorky [link]" nebo se zeptej co přesně potřebuje znát.
 
 17. PORADENSTVÍ PROCESEM A PARAMETRY MOTOREK — JEN Z DAT:
     - Umíš provést zákazníka celým procesem: jak si vybrat motorku (kategorie / ŘP / styl), co je v ceně, co se připlácí, jak proběhne vyzvednutí (přístupový kód, doklady přes Mindee, kauce → \`get_policies\`), jak se vrací (24/7 v Mezné nebo přistavení), co dělat při poruše/SOS (telefon firmy z \`FIREMNÍ ÚDAJE\`).
@@ -1144,6 +1198,41 @@ function buildSystemPrompt(lang: string, cfg: WebAgentConfig, company: CompanyIn
   })
   const todayHuman = fmt.format(now)
   const todayIso = fmtIso.format(now)
+  // Předpočítané referenční datumy — agent na to nesmí spoléhat, že si „víkend"
+  // nebo „příští pondělí" spočítá sám (v reálných konverzacích to plete: říká
+  // „tento víkend = ne–po" místo „so+ne"). Zde to spočítáme deterministicky
+  // v Europe/Prague a injektujeme jako autoritativní reference.
+  const dateRefs = (() => {
+    const todayDate = new Date(`${todayIso}T00:00:00+02:00`) // Europe/Prague summer; offset hraje roli jen pro velmi okrajové půlnoční výpočty, posun po dni ne
+    // Den v týdnu: Po=1 ... Ne=7 (ISO)
+    const todayDow = todayDate.getUTCDay() === 0 ? 7 : todayDate.getUTCDay()
+    const fmtIsoLocal = (d: Date): string => fmtIso.format(d)
+    const fmtCsLong = new Intl.DateTimeFormat('cs-CZ', { weekday: 'long', day: 'numeric', month: 'numeric', year: 'numeric', timeZone: 'Europe/Prague' })
+    const addDays = (base: Date, n: number): Date => new Date(base.getTime() + n * 24 * 3600 * 1000)
+    // Tento víkend = nejbližší upcoming sobota a neděle (pokud je dnes so → dnes+zítra; pokud ne → dnes + následující den; pokud po-pá → nejbližší so/ne; pokud ne → dnes a včera, ale pro budoucí význam bereme „za 6 dní" so+ne)
+    // Konvence: pokud je dnes Mon–Fri → tento víkend = nejbližší So+Ne; So → dnes+zítra; Ne → včera+dnes (jen orientačně, agent se má zeptat).
+    let satOffset: number
+    if (todayDow <= 5) satOffset = 6 - todayDow      // Po(1)→5, Út(2)→4, ... Pá(5)→1
+    else if (todayDow === 6) satOffset = 0           // So → dnes
+    else satOffset = -1                              // Ne → včera (so), agent se má zeptat na příští víkend
+    const sat = addDays(todayDate, satOffset)
+    const sun = addDays(sat, 1)
+    const nextSat = addDays(sat, 7)
+    const nextSun = addDays(sat, 8)
+    const tomorrow = addDays(todayDate, 1)
+    const dayAfter = addDays(todayDate, 2)
+    const inWeek = addDays(todayDate, 7)
+    return {
+      today: `${fmtIsoLocal(todayDate)} (${fmtCsLong.format(todayDate)})`,
+      tomorrow: `${fmtIsoLocal(tomorrow)} (${fmtCsLong.format(tomorrow)})`,
+      dayAfter: `${fmtIsoLocal(dayAfter)} (${fmtCsLong.format(dayAfter)})`,
+      thisWeekendSat: `${fmtIsoLocal(sat)} (${fmtCsLong.format(sat)})`,
+      thisWeekendSun: `${fmtIsoLocal(sun)} (${fmtCsLong.format(sun)})`,
+      nextWeekendSat: `${fmtIsoLocal(nextSat)} (${fmtCsLong.format(nextSat)})`,
+      nextWeekendSun: `${fmtIsoLocal(nextSun)} (${fmtCsLong.format(nextSun)})`,
+      inWeek: `${fmtIsoLocal(inWeek)} (${fmtCsLong.format(inWeek)})`,
+    }
+  })()
 
   const persona = cfg.persona_name || 'Rezervační asistent MotoGo24'
   const userPrompt = (cfg.system_prompt || '').trim()
@@ -1152,7 +1241,19 @@ function buildSystemPrompt(lang: string, cfg: WebAgentConfig, company: CompanyIn
   let parts: string[] = []
   const companyAddr = company.address || 'Mezná 9, 393 01 Pelhřimov'
   const companyName = company.name || 'MotoGo24'
-  parts.push(`DNES JE ${todayHuman} (ISO ${todayIso}, časová zóna Europe/Prague). Tento údaj je zdroj pravdy o aktuálním datu — vždy ho použij místo vlastních odhadů.`)
+  parts.push(`DNES JE ${todayHuman} (ISO ${todayIso}, časová zóna Europe/Prague). Tento údaj je zdroj pravdy o aktuálním datu — vždy ho použij místo vlastních odhadů.
+
+REFERENČNÍ DATA (předpočítané, nikdy je nepřepočítávej; používej tyto ISO hodnoty pro tooly):
+- Dnes: ${dateRefs.today}
+- Zítra: ${dateRefs.tomorrow}
+- Pozítří: ${dateRefs.dayAfter}
+- TENTO VÍKEND (sobota): ${dateRefs.thisWeekendSat}
+- TENTO VÍKEND (neděle): ${dateRefs.thisWeekendSun}
+- PŘÍŠTÍ VÍKEND (sobota): ${dateRefs.nextWeekendSat}
+- PŘÍŠTÍ VÍKEND (neděle): ${dateRefs.nextWeekendSun}
+- Za týden (stejný den jako dnes +7): ${dateRefs.inWeek}
+
+Když user řekne „víkend" / „weekend" / „Wochenende", mluví o **sobotě + neděli** — viz ISO data výše. „Tento víkend" je řádek THIS WEEKEND, „příští víkend" je NEXT WEEKEND. NIKDY nepárová ne+po nebo po+út jako víkend.`)
   parts.push(`Jsi ${persona}. Pracuješ v půjčovně motorek ${companyName} (${companyAddr}, ČR).`)
   // Live snapshot kompletní flotily — injektujeme co nejvýš, aby model měl
   // autoritativní seznam motorek v kontextu od první odpovědi a NIKDY nemohl
