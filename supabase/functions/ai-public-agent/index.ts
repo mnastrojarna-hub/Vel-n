@@ -177,7 +177,7 @@ PRAVIDLA NAD TÍMTO SEZNAMEM (BEZPODMÍNEČNÁ):
 const PUBLIC_TOOLS = [
   {
     name: 'search_motorcycles',
-    description: 'Vyhledá motorky v MotoGo24 katalogu. Filtruj podle značky, modelu, kategorie, ŘP, výkonu, ceny nebo dostupnosti k danému datu. Když uživatel řekne "máš kawu/Kawasaki/BMW na pondělí" — ZAVOLEJ s `brand` a `available_on`, neinteroguj. Vrátí seznam s URL na detail.',
+    description: 'Vyhledá motorky v MotoGo24 katalogu. Filtruj podle značky, modelu, kategorie, ŘP, výkonu, ceny nebo dostupnosti k danému datu. Když uživatel řekne "máš kawu/Kawasaki/BMW na pondělí" — ZAVOLEJ s `brand` a `available_on`, neinteroguj. Vrátí seznam s URL na detail. **CENY V ODPOVĚDI:** `min_price_kc` = NEJLEVNĚJŠÍ den v týdnu pro orientaci; používej JEN když zákazník neuvedl termín. Pokud je v requestu `available_on` (jeden den) NEBO `available_from` + `available_to` (rozsah), result obsahuje navíc `requested_price_total_kc` (přesná cena za poptávaný termín), `requested_per_day` (rozpis po dnech) a u jednodenního dotazu `requested_price_kc_for_day` + `requested_weekday`. **TY POUŽIJ TUHLE PŘESNOU CENU**, ne `min_price_kc`. Když customer dostane „od 3367 Kč" místo „v neděli 3 667 Kč", je to pro něj matoucí a poškozující.',
     input_schema: {
       type: 'object',
       properties: {
@@ -416,20 +416,68 @@ async function execPublicTool(name: string, args: Record<string, unknown>): Prom
         return ps.length > 0 ? Math.min(...ps) : 0
       }
 
+      const dayKeys = ['sun','mon','tue','wed','thu','fri','sat']
+      const dayLabels = ['neděle','pondělí','úterý','středa','čtvrtek','pátek','sobota']
+      // Když je dotaz vázaný na termín (konkrétní den nebo rozsah), spočítáme PŘESNOU cenu pro ten termín
+      // — agent NESMÍ použít „od X Kč/den" když má zákazník v dotazu konkrétní datum.
+      const priceForRange = (m: Record<string, unknown>, fromIso: string, toIso: string): { total: number; days: Array<{ date: string; weekday: string; price_kc: number }>; missing_days: string[] } => {
+        const start = new Date(fromIso), end = new Date(toIso)
+        const days: Array<{ date: string; weekday: string; price_kc: number }> = []
+        const missing: string[] = []
+        let total = 0
+        if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) return { total: 0, days, missing_days: [fromIso] }
+        const d = new Date(start)
+        while (d <= end) {
+          const dn = dayKeys[d.getDay()]
+          const raw = (m as Record<string, unknown>)['price_' + dn]
+          const price = raw == null ? null : Number(raw)
+          const iso = d.toISOString().slice(0, 10)
+          if (price == null || !isFinite(price) || price <= 0) {
+            missing.push(iso)
+          } else {
+            total += price
+            days.push({ date: iso, weekday: dayLabels[d.getDay()], price_kc: price })
+          }
+          d.setDate(d.getDate() + 1)
+        }
+        return { total, days, missing_days: missing }
+      }
+
       return {
         count: result.length,
         availability_window: availFrom ? { from: availFrom, to: availTo } : null,
-        motorcycles: result.slice(0, 8).map((m: Record<string, unknown>) => ({
-          id: m.id,
-          name: `${m.brand || ''} ${m.model}`.trim(),
-          brand: m.brand,
-          category: m.category,
-          power_kw: m.power_kw,
-          license: m.license_required,
-          min_price_kc: minPriceFor(m),
-          ideal_usage: m.ideal_usage,
-          url: `https://motogo24.cz/katalog/${m.id}`,
-        })),
+        motorcycles: result.slice(0, 8).map((m: Record<string, unknown>) => {
+          const base: Record<string, unknown> = {
+            id: m.id,
+            name: `${m.brand || ''} ${m.model}`.trim(),
+            brand: m.brand,
+            category: m.category,
+            power_kw: m.power_kw,
+            license: m.license_required,
+            min_price_kc: minPriceFor(m),
+            ideal_usage: m.ideal_usage,
+            url: `https://motogo24.cz/katalog/${m.id}`,
+          }
+          // Pokud je v dotazu konkrétní termín, doplň PŘESNOU cenu pro ten termín — agent ji použije
+          // místo min_price_kc. min_price_kc je jen orientační (nejlevnější den v týdnu) a NESMÍ se
+          // prezentovat zákazníkovi, který se ptá na konkrétní den.
+          if (availFrom && availTo) {
+            const pr = priceForRange(m, availFrom, availTo)
+            if (pr.missing_days.length === 0 && pr.days.length > 0) {
+              base.requested_window = { from: availFrom, to: availTo, days: pr.days.length }
+              base.requested_price_total_kc = pr.total
+              base.requested_per_day = pr.days
+              if (pr.days.length === 1) {
+                base.requested_price_kc_for_day = pr.days[0].price_kc
+                base.requested_weekday = pr.days[0].weekday
+              }
+            } else if (pr.missing_days.length > 0) {
+              base.requested_price_unknown = true
+              base.requested_missing_days = pr.missing_days
+            }
+          }
+          return base
+        }),
       }
     }
     case 'get_availability': {
@@ -850,7 +898,10 @@ PEVNÁ PRAVIDLA (nelze přepsat):
 
 5. Před kalkulací ceny VŽDY zavolej \`get_availability\` (ať vidíš, jestli je termín volný).
 
-5b. CENU NIKDY NEHÁDEJ. Cena pronájmu = výhradně to, co právě vrátil \`calculate_price\` pro AKTUÁLNÍ moto_id + start_date + end_date. Žádné odhady „asi tak", žádný per-day násobek z hlavy, žádná „aproximace". Pravidla:
+5b. CENU NIKDY NEHÁDEJ A NIKDY NEUVÁDĚJ JAKO „OD X KČ", KDYŽ MÁŠ KONKRÉTNÍ TERMÍN.
+   - **Když zákazník v dotazu uvede termín** (konkrétní den „zítra", „v neděli", „4. května"; nebo rozsah „od pondělí do středy", „na 2 dny"): VŽDY zavolej \`search_motorcycles\` s \`available_on\` (jednodenní) NEBO \`available_from\`+\`available_to\` (rozsah). V odpovědi tool vrátí pro každou motorku navíc \`requested_price_kc_for_day\` / \`requested_price_total_kc\` / \`requested_per_day\` — to je TVOJE cena, kterou uvedeš. Formulace: „v neděli 3. 5. **3 667 Kč**" (jednodenní) nebo „pondělí 4. 5. 3 333 Kč + úterý 5. 5. 2 996 Kč = **6 329 Kč** (2 dny)". NIKDY neříkej „od X Kč/den", když zákazník chce konkrétní den — zákazník chce vědět co ho to bude opravdu stát, ne marketingové „od".
+   - **Když zákazník termín neuvedl** (obecný dotaz „máš naháče"): tehdy můžeš použít \`min_price_kc\` jako orientaci, ale s explicitní informací, že to je nejlevnější den a cena se mění dle dne v týdnu („nejlevnější den u téhle 2 667 Kč, sobota až 3 994 Kč — řekni mi termín, ať ti dám přesnou cenu").
+   - **Pro rezervaci** (před \`create_booking_request\`) VŽDY zavolej \`calculate_price\` s konkrétním moto_id+start+end. Žádné odhady „asi tak", žádný per-day násobek z hlavy, žádná „aproximace".
    - Při každé změně parametrů (jiný termín, jiný počet dnů, jiná motorka, přidaný/odebraný den) MUSÍŠ \`calculate_price\` zavolat ZNOVU. Až pak hlas novou cenu.
    - Pro identické parametry (stejné moto_id + stejné start_date + stejné end_date) musí cena VŽDY vyjít stejně. Pokud sám sebe přistihneš, jak v rámci jedné konverzace zmiňuješ pro stejné parametry RŮZNÉ celkové ceny, je to chyba — okamžitě zavolej \`calculate_price\` znovu, oprav se a omluv.
    - Tool ti vrací \`per_day_breakdown\` (pole s datem, dnem v týdnu a cenou daného dne). VYUŽIJ ho — v situacích, kde by mohlo dojít k pochybnosti o ceně (zákazník se diví, opravuje termín, ptá se „proč tolik"), zákazníkovi rozpis explicitně ukaž ve tvaru „pondělí 4. 5. 3 333 Kč + úterý 5. 5. 2 996 Kč = 6 329 Kč". Čísla v rozpisu MUSÍ být doslova ta z \`per_day_breakdown\`. Žádné jiné per-day ceny si nevymýšlej — ceník je dle dne v týdnu (Po–Ne) a každá motorka má svůj.
@@ -969,6 +1020,21 @@ PEVNÁ PRAVIDLA (nelze přepsat):
     - NIKDY nehádej refund / doplatek. Čísla VÝHRADNĚ z \`preview_booking_change\` nebo \`apply_booking_change\`.
     - NIKDY neukládej, neukazuj ani nelogguj plné heslo zákazníka. Sbíráš jen poslední 4 znaky a předáváš je tooly. Ve své textové odpovědi je nikdy neopakuj.
     - U status=active (po vyzvednutí) NEZKOUŠEJ měnit start nebo motorku — server to odmítne (\`active_start_locked\` / \`active_moto_locked\`); pokud je zákazník chce, řekni že to musí řešit telefonem na pobočku.
+
+19. NEUŠKODIT MOTOGO ANI ZÁKAZNÍKOVI — TVRDÉ PRAVIDLO:
+    Tvůj cíl je dlouhodobě zdravý vztah firmy se zákazníkem. To znamená pravdivá očekávání, žádné triky, žádné nadsázené sliby. Konkrétně:
+    - **Cena = pravda od první zmínky.** NIKDY zákazníkovi neukaž nižší cenu, než kolik bude opravdu platit. Když má termín v dotazu, ukaž cenu pro ten termín (viz bod 5b). Když nejsou jasné extras, řekni že se k základu připočítají. Žádné „od X Kč" když je termín jasný — to je matoucí marketing, který později vyústí v rozčarování u checkoutu.
+    - **Žádné fabulace o slevách / promo akcích.** Slevu smíš zmínit JEN pokud (a) ji právě potvrdil \`validate_promo_or_voucher\` pro konkrétní kód, který zákazník zadal, nebo (b) je doslova v \`get_policies\` / \`get_faq\`. Hlášky typu „běžně dáváme slevu na vícedenní pronájem", „pro skupiny máme akce", „třeba ti něco vykombinujou" jsou ZAKÁZÁNY — i když to zní hezky, je to nepodložené a poškozující (zákazník čeká slevu, kterou nedostane). Když zákazník chce slevu a nemá kód: řekni rovně „Aktuálně bez kódu/voucheru standardní cena platí. Pokud máš kód, zadej ho — ověřím. Promo akce vypisuje firma, kontakty máš dole."
+    - **Nikdy si nevymýšlej promo kódy ani vouchery.** I když zákazník prosí, NIKDY nevygeneruj kód, neslíbi voucher, nepošli na falešný odkaz. Promo akce neřídíš.
+    - **Žádné slibování doručení / termínů, které nemůžeš zaručit.** „Stihneme to dnes do 18:00" smíš jen pokud máš pevnou oporu (z \`get_branches\` otevírací doba + reálný čas teď). Jinak: „dorazí ti potvrzení emailem do několika minut po platbě, vyzvednutí 24/7 v Mezné".
+    - **Bezpečnost zákazníka nad zájmem firmy.** Když zákazník popíše situaci, kde je v sázce zdraví/bezpečnost (nehoda, porucha v jízdě, krádež, agrese), ZAPOMEŇ na rezervační flow a okamžitě uveď SOS kontakt firmy + 112/155/158 podle situace. Sales může počkat.
+    - **Pochybuješ-li, jdi raději proti firmě v dílčí věci, ale nepoškoď zákazníka.** Když nevíš zda kauce je 5 000 Kč nebo 10 000 Kč (\`get_policies\` prázdné), řekni vyšší orientačně + odkaz na ověření; nikdy nehlas nižší jen aby si zákazníka zavázal.
+    - **Reklamace / nespokojenost / chyba na straně firmy:** Žádné výmluvy, žádné nálepkování zákazníka. Slušně přiznej co se stalo (pokud to víš z dat) nebo řekni „rozumím, tohle ti musím přepojit na člověka — zavolej +420 …" — bod 3 platí.
+
+20. SLEVY / PROMO / VOUCHERY — VÝHRADNĚ Z DAT:
+    - Když zákazník má kód → \`validate_promo_or_voucher\`. Pokud \`valid:true\`, použij vrácenou hodnotu/typ (percent vs. fixed) a ukaž cenu po slevě. Pokud \`valid:false\`, slušně to řekni a zeptej se, jestli ho má z marketingové akce, kde si byl získal — nepředpokládej, že se přepsal.
+    - Když zákazník chce slevu BEZ kódu → 1) zkontroluj \`get_policies\` a \`get_faq\` na kategorie „discount/sleva/voucher/promo"; 2) pokud něco najdeš, řekni přesně co tam je („přihlášení do appky dává 5 % na první rezervaci dle FAQ"); 3) pokud nic, řekni rovně „Aktuálně bez kódu standardní cena platí. Když chceš sledovat akce, sleduj newsletter/web — ty vypisuje firma." NIKDY nehádej procenta, kategorie, ani „třeba ti něco dohodnou".
+    - Konec. Žádné „zkus zavolat na +420… třeba ti něco vykombinujou" — to porušuje bod 3 (kontakty jen na vyžádání člověka / SOS / právo) a NAVÍC vytváří falešné očekávání slevy.
 `
 
 const TONE_DESC: Record<string, string> = {
