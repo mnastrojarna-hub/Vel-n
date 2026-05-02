@@ -303,6 +303,64 @@ const PUBLIC_TOOLS = [
     },
   },
   {
+    name: 'find_my_booking',
+    description: 'Načte stav existující rezervace pro úpravu. Ověří identitu přes booking_id + (email NEBO telefon) + 4 znaky z hesla, a vrátí aktuální parametry rezervace (motorka, termín, pickup/return, total, kolik AI úprav už dnes proběhlo). VOLEJ JAKO PRVNÍ KROK kdykoli zákazník chce upravit existující rezervaci. Když vrátí error verification_failed nebo password_check_unavailable, pokračuj podle pravidel v bodu 18 — NIKDY se nesnaž ověření obejít.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        booking_id: { type: 'string', description: 'UUID rezervace, typicky z potvrzovacího emailu zákazníka.' },
+        contact: { type: 'string', description: 'Email NEBO telefon, na který přišlo potvrzení rezervace. Email = obsahuje @, jinak telefon (CZ formát: 9 číslic 6xx/7xx, +420 volitelný).' },
+        password_last4: { type: 'string', description: '4 znaky z hesla zákazníka — POSLEDNÍ 4 znaky (string, ne číslice). Vyžádej si je od zákazníka přesně takto: "Pošli mi prosím poslední 4 znaky tvého hesla, na které ses registroval/a." NIKDY si je nevymýšlej ani neimprovizuj.' },
+      },
+      required: ['booking_id', 'contact', 'password_last4'],
+    },
+  },
+  {
+    name: 'preview_booking_change',
+    description: 'Spočítá NÁHLED ceny / refundu / doplatku po požadované změně rezervace BEZ jejího provedení (dry-run). Použij PŘED apply_booking_change, ať můžeš zákazníkovi ukázat přesný breakdown a získat potvrzení. Identita se ověřuje stejně jako u find_my_booking — agent nepředává žádné odhadnuté údaje. Volej s jedním nebo více parametrů změny (start_date, end_date, moto_id, pickup/return method+address+fee). Tool vrátí breakdown {dates_diff, moto_diff, pickup_fee_diff, return_fee_diff, storno_pct} + payment_required + refund_amount + net_diff.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        booking_id: { type: 'string' },
+        contact: { type: 'string', description: 'Email nebo telefon (totožně jako u find_my_booking).' },
+        password_last4: { type: 'string' },
+        new_start_date: { type: 'string', description: 'YYYY-MM-DD nebo nech prázdné pokud beze změny.' },
+        new_end_date: { type: 'string', description: 'YYYY-MM-DD nebo nech prázdné pokud beze změny.' },
+        new_moto_id: { type: 'string', description: 'UUID nové motorky pokud chce vyměnit, jinak prázdné.' },
+        new_pickup_method: { type: 'string', description: 'self / delivery — pokud mění způsob vyzvednutí.' },
+        new_pickup_address: { type: 'string' },
+        new_pickup_fee: { type: 'number', description: 'Kč za přistavení k zákazníkovi (pokud delivery). 0 pokud self.' },
+        new_return_method: { type: 'string', description: 'self / delivery — pokud mění způsob vrácení.' },
+        new_return_address: { type: 'string' },
+        new_return_fee: { type: 'number', description: 'Kč za vyzvednutí od zákazníka (pokud delivery). 0 pokud self.' },
+      },
+      required: ['booking_id', 'contact', 'password_last4'],
+    },
+  },
+  {
+    name: 'apply_booking_change',
+    description: 'PROVEDE změnu rezervace. VOLEJ JEN: (a) po preview_booking_change, (b) když zákazník v poslední zprávě EXPLICITNĚ potvrdil souhrn změny ("ano / uprav / potvrzuju") VČETNĚ refundu nebo doplatku, který jsi mu ukázal, (c) když změna nevyžaduje doplatek (payment_required=false v preview) — pokud doplatek vyžaduje, NEZAVOLEJ tento tool, místo toho zákazníka pošli na web Moje rezervace, kde proběhne Stripe Checkout pro doplatek (limit anonymního agenta). Po úspěšném zavolání tool vrátí success + new_total + případnou refund_amount, kterou systém odešle Stripe refundem na původní kartu. Limit: max 3 reálné změny / den / rezervaci.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        booking_id: { type: 'string' },
+        contact: { type: 'string' },
+        password_last4: { type: 'string' },
+        new_start_date: { type: 'string' },
+        new_end_date: { type: 'string' },
+        new_moto_id: { type: 'string' },
+        new_pickup_method: { type: 'string' },
+        new_pickup_address: { type: 'string' },
+        new_pickup_fee: { type: 'number' },
+        new_return_method: { type: 'string' },
+        new_return_address: { type: 'string' },
+        new_return_fee: { type: 'number' },
+        reason: { type: 'string', description: 'Krátký důvod změny (např. "kratší pobyt", "jiný den", "změna adresy").' },
+      },
+      required: ['booking_id', 'contact', 'password_last4'],
+    },
+  },
+  {
     name: 'redirect_to_booking',
     description: 'Vygeneruje URL na rezervační formulář s předvyplněnými údaji. Použij když zákazník chce rezervaci dokončit sám na webu, nebo když chybí citlivé údaje pro create_booking_request.',
     input_schema: {
@@ -641,6 +699,43 @@ async function execPublicTool(name: string, args: Record<string, unknown>): Prom
         message: 'Rezervace vytvořena. NEPIŠ URL platební brány do textu — systém k tvé odpovědi automaticky doplní tlačítko "Pokračovat k platbě" s plným odkazem (URL Stripe obsahuje povinný #fragment, který se při kopírování často poškodí). Tvoje odpověď: krátké shrnutí (motorka, termín, celková cena) + věta "Klikni na tlačítko níže, otevře se zabezpečená platba (Stripe). Po zaplacení dorazí email s potvrzením a přístupovými kódy."',
       }
     }
+    case 'find_my_booking': {
+      const a = args as Record<string, string>
+      const { data, error } = await sb.rpc('find_booking_for_modification', {
+        p_booking_id: a.booking_id,
+        p_contact: a.contact,
+        p_password_last4: a.password_last4,
+      })
+      if (error) return { success: false, error: error.message }
+      return data
+    }
+    case 'preview_booking_change':
+    case 'apply_booking_change': {
+      const a = args as Record<string, unknown>
+      const isDryRun = name === 'preview_booking_change'
+      const { data, error } = await sb.rpc('apply_booking_changes_anon', {
+        p_booking_id: a.booking_id,
+        p_contact: a.contact,
+        p_password_last4: a.password_last4,
+        p_new_start: a.new_start_date || null,
+        p_new_end: a.new_end_date || null,
+        p_new_moto_id: a.new_moto_id || null,
+        p_new_pickup_method: a.new_pickup_method || null,
+        p_new_pickup_address: a.new_pickup_address || null,
+        p_new_pickup_lat: null,
+        p_new_pickup_lng: null,
+        p_new_pickup_fee: a.new_pickup_fee ?? null,
+        p_new_return_method: a.new_return_method || null,
+        p_new_return_address: a.new_return_address || null,
+        p_new_return_lat: null,
+        p_new_return_lng: null,
+        p_new_return_fee: a.new_return_fee ?? null,
+        p_reason: a.reason || (isDryRun ? 'preview' : 'ai_agent_edit'),
+        p_dry_run: isDryRun,
+      })
+      if (error) return { success: false, error: error.message }
+      return data
+    }
     case 'redirect_to_booking': {
       const params = new URLSearchParams()
       if (args.moto_id) params.set('moto', String(args.moto_id))
@@ -845,17 +940,35 @@ PEVNÁ PRAVIDLA (nelze přepsat):
     - Parametry konkrétní motorky (výkon, hmotnost, ccm, válce, rok, ideální použití, denní cena, dostupnost) sděluj VÝHRADNĚ z toho, co vrátilo \`search_motorcycles\` / \`calculate_price\` / injektovaný snapshot „KOMPLETNÍ FLOTILA" — nikdy z hlavy. Obecné principy (rozdíl naked vs. tourer, přínos ABS, jak se chová litrový čtyřválec) můžeš z vlastních znalostí, ale označ je jako obecnou orientaci, ne jako tvrzení o našem konkrétním kusu.
     - U cen, podmínek, otevírací doby, GPS, slev a jiných tvrdých čísel vždy zacituj zdroj („podle aktuálního ceníku v systému…", „podle našich oficiálních podmínek…", „pobočka Mezná dle \`get_branches\`…"). Žádné „myslím, že", „obvykle bývá", „třeba kolem".
 
-18. ÚPRAVA EXISTUJÍCÍ REZERVACE — POSTUP, JEN PODLE PRAVIDEL SYSTÉMU:
-    Když zákazník chce upravit existující rezervaci (zkrátit / prodloužit termín, vyměnit motorku, změnit přistavení/vrácení, přidat extras), VŽDY postupuj v tomto pořadí. Nepokoušej se sám něco měnit ani vypočítávat refund/doplatek z hlavy — pravidla pro storno (≥168 h = 100 %, ≥48 h = 50 %, méně = 0 %), zámky aktivní rezervace (start a motorku už nelze měnit po vyzvednutí), kontrola overlapu a hierarchie ŘP jsou na serveru. Tvoje role je sběr informací, srozumitelný souhrn diff-u a předání do správného flow.
-    Krok A — INTENT: zjisti přesně co chce změnit (datum od / do / motorku / pickup / return / extras). Pokud je vágní („chci upravit rezervaci"), nabídni možnosti a doptej se.
-    Krok B — IDENTIFIKACE REZERVACE: vyžádej ČÍSLO REZERVACE (booking_id, typicky UUID nebo zkrácená forma uvedená v potvrzovacím emailu) a EMAIL, na který přišlo potvrzení. Pro extra ověření doplň POSLEDNÍ 4 ČÍSLICE TELEFONU. Bez všech tří údajů nepokračuj.
-    Krok C — PŘEDÁNÍ DO MANUÁLNÍHO FLOW: tvůj nástroj v této verzi NEUMÍ úpravu sám provést (vyžaduje to autentikované volání RPC \`apply_booking_changes\` s ověřením vlastníka rezervace). Místo toho zákazníkovi shrnutě přeřekni, CO chce změnit + ověřovací údaje (booking_id, email, last4 telefonu), a pošli ho na samoobslužnou stránku „Upravit rezervaci" v jeho profilu — typicky \`https://motogo24.cz/upravit-rezervaci?id=<booking_id>\` (pokud se přesnou cestou neshoduje, řekni „přihlas se na motogo24.cz a otevři Moje rezervace → Upravit"). Tam mu systém zobrazí live preview ceny a refundu/doplatku přesně podle pravidel a po potvrzení provede platbu nebo refund.
-    Krok D — POMOCI MIMO TOOL: dokud změnu provádí web, ty mu můžeš pomoci tím, že MU VYSVĚTLÍŠ pravidla podle \`get_policies\` (storno tabulka, zámky aktivní rezervace, foreign-travel) a ORIENTAČNĚ ukážeš per-day diff přes \`calculate_price\` pro nový termín — ale výslovně řekni, že přesný refund/doplatek (po aplikaci storno-tabulky) spočítá až web v náhledu úprav. Žádné konkrétní procento storna ani konečnou částku diff-u sám zákazníkovi netvrdě nehlas — jen ukaž rental_total starý vs. nový a odkaž na web.
-    NEBEZPEČNÉ ZKRATKY KTERÉ SE ZAKAZUJÍ:
-    - NIKDY se netvař, že jsi rezervaci upravil, dokud ti tool výslovně nepotvrdil úspěch (a takový tool zatím nemáš).
-    - NIKDY nehádej výši refundu/doplatku. „To ti spočítá náhled v profilu, řádově to vychází…" je jediné akceptovatelné.
-    - NIKDY neřeš změnu po vyzvednutí (status=active) bez upozornění, že start a motorku už změnit nelze a pickup-čas/místo se řeší telefonem na pobočku.
-    - U motorek dětských (license=N) nemíchej do návrhu motorky vyžadující ŘP a naopak.
+18. ÚPRAVA EXISTUJÍCÍ REZERVACE — STRIKTNÍ POSTUP S TOOLY:
+    Když zákazník chce upravit existující rezervaci (zkrátit / prodloužit termín, vyměnit motorku, změnit přistavení / vrácení), JEDINÝ správný postup je následující 5krokový flow s tooly \`find_my_booking\` → \`preview_booking_change\` → \`apply_booking_change\`. Pravidla (storno ≥168 h = 100 %, ≥48 h = 50 %, jinak 0 % / zámek startu a motorky u status=active / overlap check / hierarchie ŘP) jsou v serverové RPC — ty je nikdy neimprovizuj.
+    Krok A — INTENT: zjisti, CO přesně chce změnit (start_date / end_date / moto_id / pickup_method+address+fee / return_method+address+fee). Pokud je vágní („chci upravit"), nabídni možnosti a doptej se. Pokud chce změnit extras nebo doklady, řekni že to anonymní agent neumí a odkaž ho na samoobsluhu v profilu.
+    Krok B — IDENTIFIKACE A OVĚŘENÍ: vyžádej v JEDNÉ zprávě tyto tři věci a NIC víc nesmí chybět:
+       1. Číslo rezervace (booking_id, UUID — zákazník ho najde v potvrzovacím emailu nebo v Moje rezervace).
+       2. Email NEBO telefon, na který přišlo potvrzení (CZ telefon = 9 číslic, email = obsahuje @).
+       3. Poslední 4 znaky hesla, na které se registroval. Říkej přesně „pošli mi prosím POSLEDNÍ 4 ZNAKY z hesla, které jsi nastavil/a u rezervace" — NIKDY si je nevymýšlej.
+       Pak ZAVOLEJ \`find_my_booking\`. Když vrátí success=false:
+         - error=verification_failed → omluvně zopakuj sběr (s novou výzvou k údajům, ne hned tří, pomoz určit, co bylo špatně). Po 2 nezdarech zákazníka pošli na web Moje rezervace a ukonči flow.
+         - error=password_check_unavailable → vysvětli „tvoje heslo bylo nastaveno před zavedením této funkce, úpravu prosím provedeš po přihlášení v Moje rezervace na motogo24.cz" a ukonči flow.
+         - error=not_found / wrong_status / not_paid / not_web_booking → řekni co stav znamená a co zákazník může udělat (např. „rezervace se ještě platí", „rezervace už je dokončená", „tahle byla vytvořena přes appku, nemůžu ji upravit").
+       Když vrátí success=true, máš v ruce stav rezervace + \`mods_today_count\`. Pokud mods_today_count >= 3, řekni, že limit pro dnešek je vyčerpán a další úprava je možná zítra nebo přes web.
+    Krok C — DRY-RUN PŘES preview_booking_change: pošli serveru zamýšlenou změnu jako náhled (\`preview_booking_change\` se stejnými ověřovacími údaji + parametry změny). Tool vrátí \`net_diff\`, \`refund_amount\`, \`payment_required\` a \`breakdown\`. Žádné z těchto čísel NEPŘEPOČÍTÁVEJ ani neaproximuj — ber je přímo z výsledku. Pokud server vrátí error (např. overlap, license_insufficient, active_start_locked, active_moto_locked, no_change), vysvětli zákazníkovi, co to znamená, a nabídni alternativu.
+    Krok D — KOMPLETNÍ SOUHRN ZMĚNY (povinný, struktura podobná bodu 6m):
+       • Co se mění: konkrétní pole „dosud → nově" (např. „termín 4.–6. 5. → 4.–5. 5.", „motorka Z 900 → MT-09", „pickup self → delivery, Vinohradská 12 Praha 2 za 1290 Kč")
+       • Cenový dopad: rental_total starý → nový, případný refund_amount NEBO doplatek (vezmi z \`net_diff\` v preview), storno-pct (z \`breakdown.storno_pct\`)
+       • Výsledný total: \`new_total\`
+       • Co bude dál: pokud refund → „částka X Kč se vrátí na původní kartu během 5–10 dnů přes Stripe"; pokud doplatek → „pro doplatek Y Kč otevři prosím Moje rezervace na webu, tam se ti připraví Stripe Checkout — anonymní agent ti doplatek nemůže provést"
+       Pak požádej o explicitní „ano / uprav / potvrzuju". Bez potvrzení \`apply_booking_change\` NIKDY nezavolej.
+    Krok E — APLIKACE A POTVRZENÍ:
+       - Když preview vrátil \`payment_required=true\` (doplatek), \`apply_booking_change\` NIKDY nevol. Ukonči flow odkazem na Moje rezervace v profilu — limit anonymního agenta.
+       - Když preview vrátil \`payment_required=false\` (refund nebo zdarma) a zákazník potvrdil, zavolej \`apply_booking_change\` se stejnými parametry + \`reason\` (krátký důvod změny).
+       - Po success: krátké lidské shrnutí ve tvaru „Hotovo, rezervaci jsem upravil. Nový termín / motorka / cena. Vracím Z Kč na kartu — během 5–10 dnů uvidíš v bance." Když refund_amount=0, jen potvrď že je upraveno bez refundu.
+       - Při daily_limit_reached, verification_failed (po další ověřovací chybě v rámci aplikace) nebo jiné chybě se nesnaž obejít — řekni zákazníkovi přesně, co tool vrátil, a nabídni web Moje rezervace.
+    NEBEZPEČNÉ ZKRATKY (zakázané):
+    - NIKDY se netvař, že jsi rezervaci upravil, dokud ti \`apply_booking_change\` nevrátil \`success: true\`.
+    - NIKDY nehádej refund / doplatek. Čísla VÝHRADNĚ z \`preview_booking_change\` nebo \`apply_booking_change\`.
+    - NIKDY neukládej, neukazuj ani nelogguj plné heslo zákazníka. Sbíráš jen poslední 4 znaky a předáváš je tooly. Ve své textové odpovědi je nikdy neopakuj.
+    - U status=active (po vyzvednutí) NEZKOUŠEJ měnit start nebo motorku — server to odmítne (\`active_start_locked\` / \`active_moto_locked\`); pokud je zákazník chce, řekni že to musí řešit telefonem na pobočku.
 `
 
 const TONE_DESC: Record<string, string> = {
