@@ -22,23 +22,56 @@
   var LANG = document.documentElement.lang ? document.documentElement.lang.slice(0, 2) : 'cs';
   var API = SUPABASE_URL + '/functions/v1/ai-public-agent';
 
+  // Persistence — konverzace + stav panelu přežijí navigaci napříč stránkami / přepnutí jazyka.
+  // Konverzace expiruje po 5 minutách neaktivity (uživatel se mezitím vrátil odjinud).
+  // Reset tlačítko v hlavičce ji smaže okamžitě, aniž by se panel zavřel.
+  var STORAGE_KEY = 'motogo_ai_widget_v1';
+  var IDLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minut
+
+  function uuidv4() {
+    if (window.crypto && crypto.randomUUID) { try { return crypto.randomUUID(); } catch (e) {} }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      var r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16);
+    });
+  }
+
+  function loadState() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      var s = JSON.parse(raw);
+      if (!s || typeof s !== 'object') return null;
+      // Idle timeout — pokud je poslední aktivita starší než 5 min, vyhoď konverzaci.
+      // Stav panelu (open/close) ponecháme, ale začínáme s prázdnou konverzací (welcome se ukáže znovu).
+      if (s.last_activity_at && Date.now() - s.last_activity_at > IDLE_TIMEOUT_MS) {
+        s.conversation = [];
+        s.welcomed = false;
+      }
+      return s;
+    } catch (e) { return null; }
+  }
+
+  function saveState(s) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch (e) {}
+  }
+
   // i18n strings (welcome se případně přepíše hláškou z app_settings)
   var T = {
     cs: { open: 'Zeptej se Tomáše', placeholder: 'Napiš co potřebuješ...', send: 'Pošli',
           welcome: 'Čau, tady Tomáš z MotoGo24. Co bys potřeboval — vybrat káru, mrknout na termín, nebo rovnou jedem?',
           thinking: 'Koukám na to...', error: 'Něco se zaseklo, zkus to prosím znovu.', close: 'Zavřít chat', clear: 'Začít znovu',
           tos: 'Konverzace s asistentem je informativní; přesné podmínky najdeš ve smlouvě.',
-          ctaPay: 'Pokračovat k platbě →', ctaBook: 'Pokračovat k rezervaci →' },
+          ctaPay: 'Nahrát doklady a zaplatit →', ctaBook: 'Pokračovat k rezervaci →' },
     en: { open: 'Ask Tom', placeholder: 'Type your question...', send: 'Send',
           welcome: 'Hey, this is Tom from MotoGo24. What do you need — pick a bike, check a date, or shall we book it right away?',
           thinking: 'Looking into it...', error: 'Something hiccuped, please try again.', close: 'Close chat', clear: 'Start over',
           tos: 'AI conversations are informational; binding terms are in the contract.',
-          ctaPay: 'Continue to payment →', ctaBook: 'Continue to booking →' },
+          ctaPay: 'Upload documents & pay →', ctaBook: 'Continue to booking →' },
     de: { open: 'Tom fragen', placeholder: 'Stell deine Frage...', send: 'Senden',
           welcome: 'Servus, hier Tom von MotoGo24. Was brauchst du — ein Bike aussuchen, Termin prüfen oder gleich buchen?',
           thinking: 'Schau gerade...', error: 'Da hakte es kurz, bitte nochmal probieren.', close: 'Chat schließen', clear: 'Neu starten',
           tos: 'KI-Gespräche sind informativ; verbindlich ist der Vertrag.',
-          ctaPay: 'Weiter zur Zahlung →', ctaBook: 'Weiter zur Buchung →' },
+          ctaPay: 'Dokumente hochladen & bezahlen →', ctaBook: 'Weiter zur Buchung →' },
   };
   var t = T[LANG] || T.cs;
 
@@ -64,6 +97,8 @@
   #motogo-ai-header-logo svg{height:28px;width:auto;flex-shrink:0;display:block}\
   #motogo-ai-header-tag{font-size:11px;font-weight:600;color:#74FB71;opacity:.85;letter-spacing:.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\
   #motogo-ai-header button{background:none;border:none;color:#74FB71;cursor:pointer;font-size:18px;padding:4px 8px;flex-shrink:0}\
+  #motogo-ai-header-actions{display:flex;align-items:center;gap:2px;flex-shrink:0}\
+  #motogo-ai-reset{font-size:16px}\
   #motogo-ai-messages{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px;display:flex;flex-direction:column;gap:10px;background:#f8f9fa;min-height:0}\
   .motogo-ai-msg{padding:10px 14px;border-radius:14px;max-width:85%;line-height:1.45;word-wrap:break-word;overflow-wrap:break-word;font-size:14px}\
   .motogo-ai-msg.user{background:#1a2e22;color:#fff;align-self:flex-end;border-bottom-right-radius:4px}\
@@ -129,10 +164,13 @@
       + '</svg>'
       + '<span id="motogo-ai-header-tag">AI asistent</span>';
 
-    var header = el('div', { id: 'motogo-ai-header' }, [
-      logoWrap,
-      el('button', { type: 'button', 'aria-label': t.close, title: t.close, onclick: close }, ['✕']),
-    ]);
+    var resetBtn = el('button', {
+      id: 'motogo-ai-reset', type: 'button',
+      'aria-label': t.clear, title: t.clear,
+    }, ['↻']);
+    var closeBtn = el('button', { type: 'button', 'aria-label': t.close, title: t.close }, ['✕']);
+    var headerActions = el('div', { id: 'motogo-ai-header-actions' }, [resetBtn, closeBtn]);
+    var header = el('div', { id: 'motogo-ai-header' }, [logoWrap, headerActions]);
 
     var panel = el('div', { id: 'motogo-ai-panel', role: 'dialog', 'aria-label': 'MotoGo24 AI' },
       [header, msgs, inputRow, tos]);
@@ -141,10 +179,24 @@
     document.body.appendChild(panel);
 
     // ---- State ----
-    var conversation = [];
+    // Hydratujeme z localStorage (5min idle clears conversation, panel stav přežívá navigaci).
+    var saved = loadState() || {};
+    var sessionId = saved.session_id || uuidv4();
+    var conversation = Array.isArray(saved.conversation) ? saved.conversation : [];
+    var welcomed = !!saved.welcomed;
+    var isOpen = !!saved.panel_open;
     var isLoading = false;
-    var welcomed = false;
     var customWelcome = null;
+
+    function persist() {
+      saveState({
+        session_id: sessionId,
+        conversation: conversation,
+        welcomed: welcomed,
+        panel_open: isOpen,
+        last_activity_at: Date.now(),
+      });
+    }
 
     // Načti uvítací zprávu z app_settings (admin si ji může změnit ve Velínu).
     // PostgREST endpoint je veřejný (RLS app_settings = SELECT public).
@@ -174,10 +226,12 @@
       bubble.setAttribute('aria-expanded', 'true');
       bubble.textContent = '✕';
       bubble.setAttribute('aria-label', t.close);
+      isOpen = true;
       if (!welcomed) {
         welcomed = true;
         appendMsg('assistant', customWelcome || t.welcome);
       }
+      persist();
       setTimeout(function() { input.focus(); }, 200);
     }
 
@@ -187,13 +241,50 @@
       bubble.setAttribute('aria-expanded', 'false');
       bubble.textContent = '💬';
       bubble.setAttribute('aria-label', t.open);
+      isOpen = false;
+      persist();
     }
 
     function toggle() {
       if (panel.classList.contains('open')) close(); else open();
     }
 
+    function resetConversation() {
+      conversation = [];
+      welcomed = false;
+      msgs.innerHTML = '';
+      // Nová session_id — server vytvoří nový log řádek místo přepisu předchozí konverzace.
+      sessionId = uuidv4();
+      welcomed = true;
+      appendMsg('assistant', customWelcome || t.welcome);
+      persist();
+      input.focus();
+    }
+
     bubble.addEventListener('click', toggle);
+    closeBtn.addEventListener('click', close);
+    resetBtn.addEventListener('click', resetConversation);
+
+    // Hydratace UI — pokud byl panel otevřený před navigací, nech ho otevřený a obnov konverzaci.
+    if (conversation.length > 0) {
+      conversation.forEach(function(m) {
+        if (m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string') {
+          appendMsg(m.role, m.content);
+        }
+      });
+    }
+    if (isOpen) {
+      panel.classList.add('open');
+      document.body.classList.add('motogo-ai-open');
+      bubble.setAttribute('aria-expanded', 'true');
+      bubble.textContent = '✕';
+      bubble.setAttribute('aria-label', t.close);
+      if (!welcomed && conversation.length === 0) {
+        welcomed = true;
+        appendMsg('assistant', customWelcome || t.welcome);
+        persist();
+      }
+    }
 
     input.addEventListener('input', function() {
       input.style.height = 'auto';
@@ -325,6 +416,7 @@
       input.style.height = 'auto';
       isLoading = true;
       sendBtn.disabled = true;
+      persist();
       var thinkingNode = appendThinking();
 
       try {
@@ -335,7 +427,12 @@
             'apikey': SUPABASE_ANON_KEY,
             'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
           },
-          body: JSON.stringify({ messages: conversation, lang: LANG, page_context: buildPageCtx() }),
+          body: JSON.stringify({
+            messages: conversation,
+            lang: LANG,
+            page_context: buildPageCtx(),
+            session_id: sessionId,
+          }),
         });
         thinkingNode.remove();
         if (!resp.ok) {
@@ -347,6 +444,7 @@
           var reply = data.reply || t.error;
           conversation.push({ role: 'assistant', content: reply });
           appendMsg('assistant', reply);
+          persist();
           // CTA tlačítka — preferujeme platební odkaz z create_booking_request,
           // jinak redirect_to_booking. Hodnota tu.result je už deserializovaná.
           var ctaUrl = data.booking_url || null;
