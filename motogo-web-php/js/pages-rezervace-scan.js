@@ -2,6 +2,74 @@
 var MG = window.MG || {};
 window.MG = MG;
 
+// ===== PERSIST DOC FIELDS DO PROFILU =====
+// Brand-new web zákazník není po create_web_booking RPC přihlášen client-side,
+// proto profile.update() padá na RLS (povolen jen own row, id=auth.uid()).
+// Tato funkce zaručí, že údaje skutečně dorazí do Supabase:
+//  1) nastaví heslo přes set_web_booking_password (SECURITY DEFINER)
+//  2) signInWithPassword() — vytvoří klientskou session
+//  3) update profiles (id_number / license_number / license_group / license_expiry)
+//  4) verify read-back — když selže, logujeme do konzole.
+MG._rezPersistDocs = async function(idNumber, licenseNumber, licenseGroup, licenseExpiry){
+  if(!MG._rez.userId){ console.warn('[REZ] persistDocs: no userId'); return false; }
+
+  // 1) Heslo — jen jednou
+  if(MG._rez._password && MG._rez.bookingId && !MG._rez._passwordSet){
+    try {
+      var pwRes = await window.sb.rpc('set_web_booking_password', {
+        p_booking_id: MG._rez.bookingId, p_password: MG._rez._password
+      });
+      if(pwRes && pwRes.error){ console.error('[REZ] set_web_booking_password error:', pwRes.error); }
+      MG._rez._passwordSet = true;
+    } catch(e){ console.error('[REZ] set_web_booking_password exception:', e); }
+  }
+
+  // 2) Sign-in (idempotentní)
+  var signedIn = false;
+  try {
+    var sess = await window.sb.auth.getSession();
+    signedIn = !!(sess && sess.data && sess.data.session && sess.data.session.user);
+  } catch(e){}
+  if(!signedIn && MG._rez._password && MG._rez.formData && MG._rez.formData.email){
+    try {
+      var siRes = await window.sb.auth.signInWithPassword({
+        email: MG._rez.formData.email.trim().toLowerCase(),
+        password: MG._rez._password
+      });
+      if(siRes && siRes.error){ console.warn('[REZ] auto sign-in error:', siRes.error.message); }
+      else { signedIn = true; }
+    } catch(e){ console.warn('[REZ] auto sign-in exception:', e); }
+  }
+  delete MG._rez._password;
+
+  // 3) Update profilu
+  var payload = {
+    id_number: idNumber || null,
+    license_number: licenseNumber || null,
+    license_group: licenseGroup ? [licenseGroup] : null,
+    license_expiry: licenseExpiry || null
+  };
+  try {
+    var ur = await window.sb.from('profiles').update(payload).eq('id', MG._rez.userId);
+    if(ur && ur.error){ console.error('[REZ] profile update error:', ur.error); }
+  } catch(e){ console.error('[REZ] profile update exception:', e); }
+
+  // 4) Verify
+  try {
+    var rd = await window.sb.from('profiles')
+      .select('license_group,license_expiry,id_number,license_number')
+      .eq('id', MG._rez.userId).maybeSingle();
+    if(rd && rd.data){
+      var ok = (rd.data.license_group && rd.data.license_group.length) ||
+        rd.data.id_number || rd.data.license_number || rd.data.license_expiry;
+      if(!ok){ console.warn('[REZ] profile verify: empty after update — pravděpodobně RLS (sign-in selhal)'); }
+    } else if(rd && rd.error){
+      console.warn('[REZ] profile verify error:', rd.error);
+    }
+  } catch(e){}
+  return true;
+};
+
 // ===== MINDEE STEP (mobile: mandatory, desktop: optional) =====
 MG._rezShowMindeeStep = async function(){
   // If docs not yet validated (coming from step 2 form), validate first
@@ -38,24 +106,12 @@ MG._rezShowMindeeStep = async function(){
     }
     MG._rez._docsValidated=true;
 
-    // Save to profile
-    if(MG._rez.userId){
-      try{await window.sb.from('profiles').update({
-        id_number:docNum.value,
-        license_number:_isNoLic?null:licNum.value,
-        license_group:[licGroup.value],
-        license_expiry:_isNoLic?null:licExpiry.value
-      }).eq('id',MG._rez.userId);}catch(e){}
-    }
-
-    // Uložit heslo přes RPC
-    if(MG._rez._password && MG._rez.bookingId){
-      try{await window.sb.rpc('set_web_booking_password',{
-        p_booking_id:MG._rez.bookingId, p_password:MG._rez._password
-      });}catch(e){console.warn('[REZ] password save error:',e);}
-      MG._rez._passwordSet=true;
-      delete MG._rez._password;
-    }
+    // Save license/doklad to profile — pořadí důležité:
+    // 1) Nastav heslo (RPC SECURITY DEFINER)
+    // 2) Sign-in zákazníka (jinak RLS blokuje update profilu)
+    // 3) Update profilu — license_group/expiry/id_number/license_number
+    await MG._rezPersistDocs(docNum.value, _isNoLic?null:licNum.value,
+      licGroup.value, _isNoLic?null:(licExpiry?licExpiry.value:null));
   }
 
   // Reset scan flags
@@ -70,103 +126,126 @@ MG._rezShowMindeeStep = async function(){
 
   // Doporučené, ale lze přeskočit (na desktopu i mobilu)
   var subtitle=isMob
-    ?'<p style="color:#555;line-height:1.6;margin-bottom:1rem">Doporučujeme vyfotit oba doklady — odbavení je rychlejší a získáte přístup k autonomní pobočce. Tento krok lze přeskočit.</p>'
-    :'<p style="color:#555;line-height:1.6;margin-bottom:1rem">Vyfotografujte doklady pro rychlejší odbavení a možnost využít autonomní pobočku. Tento krok můžete přeskočit.</p>';
+    ?'Doporučujeme vyfotit oba doklady — odbavení je rychlejší a získáte přístup k autonomní pobočce. Tento krok lze přeskočit.'
+    :'Vyfotografujte doklady pro rychlejší odbavení a možnost využít autonomní pobočku. Tento krok můžete přeskočit.';
 
   form.innerHTML=
-    '<h2 style="margin-top:1rem">Ověření dokladů fotoaparátem</h2>'+subtitle+
+    '<section class="rez-section">'+
+      '<div class="rez-section-head"><span class="rez-step-num">&#128247;</span><h2>Ověření dokladů fotoaparátem</h2></div>'+
+      '<p class="rez-section-sub">'+subtitle+'</p>'+
 
-    '<div style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:10px;padding:1rem;margin-bottom:1rem">'+
-    '<div style="display:flex;align-items:center;gap:1rem;margin-bottom:.75rem">'+
-    '<span style="font-size:1.5rem">&#128196;</span>'+
-    '<div><h3 style="margin:0">Doklad totožnosti <span style="font-size:.78rem;color:#888;font-weight:400">(doporučeno)</span></h3>'+
-    '<p style="margin:0;font-size:.85rem;color:#555">Občanský průkaz nebo cestovní pas</p></div></div>'+
-    '<div id="mindee-id-status"></div>'+
-    '<button class="btn btngreen-small" onclick="MG._rezScanDoc(\'id\')" style="margin-top:.5rem">Vyfotit doklad</button></div>'+
+      '<div class="rez-scan-card">'+
+        '<div class="rez-scan-card-head">'+
+          '<span class="rez-scan-ico">&#128196;</span>'+
+          '<div><div class="rez-scan-title">Doklad totožnosti <span class="rez-scan-tag">doporučeno</span></div>'+
+          '<div class="rez-scan-sub">Občanský průkaz nebo cestovní pas</div></div>'+
+        '</div>'+
+        '<div id="mindee-id-status"></div>'+
+        '<div class="rez-doc-upload-actions" style="margin-top:.5rem">'+
+          '<button class="btn btngreen-small" onclick="MG._rezScanDoc(\'id\')">&#128247; Vyfotit</button>'+
+          '<button class="btn btngreen-small" onclick="MG._rezGalleryDoc(\'id\',\'mindee\')">&#128194; Nahrát ze zařízení</button>'+
+        '</div>'+
+      '</div>'+
 
-    '<div style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:10px;padding:1rem;margin-bottom:1rem">'+
-    '<div style="display:flex;align-items:center;gap:1rem;margin-bottom:.75rem">'+
-    '<span style="font-size:1.5rem">&#128179;</span>'+
-    '<div><h3 style="margin:0">Řidičský průkaz <span style="font-size:.78rem;color:#888;font-weight:400">(doporučeno)</span></h3>'+
-    '<p style="margin:0;font-size:.85rem;color:#555">Přední strana</p></div></div>'+
-    '<div id="mindee-dl-status"></div>'+
-    '<button class="btn btngreen-small" onclick="MG._rezScanDoc(\'dl\')" style="margin-top:.5rem">Vyfotit řidičský průkaz</button></div>'+
+      '<div class="rez-scan-card">'+
+        '<div class="rez-scan-card-head">'+
+          '<span class="rez-scan-ico">&#128663;</span>'+
+          '<div><div class="rez-scan-title">Řidičský průkaz <span class="rez-scan-tag">doporučeno</span></div>'+
+          '<div class="rez-scan-sub">Přední strana</div></div>'+
+        '</div>'+
+        '<div id="mindee-dl-status"></div>'+
+        '<div class="rez-doc-upload-actions" style="margin-top:.5rem">'+
+          '<button class="btn btngreen-small" onclick="MG._rezScanDoc(\'dl\')">&#128247; Vyfotit</button>'+
+          '<button class="btn btngreen-small" onclick="MG._rezGalleryDoc(\'dl\',\'mindee\')">&#128194; Nahrát ze zařízení</button>'+
+        '</div>'+
+      '</div>'+
 
-    '<p id="mindee-mandatory-msg" style="color:#4a6b5a;font-size:.85rem;text-align:center;margin:.5rem 0">Doklady jsou volitelné — pokud nechcete fotit, klikněte níže na <strong>Přeskočit a zaplatit</strong>.</p>'+
+      '<p id="mindee-mandatory-msg" class="rez-scan-hint">Doklady jsou volitelné — pokud nechcete fotit, klikněte níže na <strong>Přeskočit a zaplatit</strong>.</p>'+
+    '</section>'+
 
-    '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-top:1.5rem">'+
-    '<button class="btn btndark" onclick="MG._rezShowStep2()">&#8592; Zpět</button>'+
-    '<div style="display:flex;align-items:center;gap:1rem">'+
-    '<div style="background:#74FB71;color:#0b0b0b;padding:.6rem 1.2rem;border-radius:25px;font-weight:800;font-size:1.05rem">'+MG.formatPrice(total)+'</div>'+
-    '<button id="mindee-pay-btn" class="btn btngreen" onclick="MG._rezSubmitPayment()">Přeskočit a zaplatit</button></div></div>';
+    '<div class="rez-step2-actions">'+
+      '<button class="btn btndark" onclick="MG._rezShowStep2()">&#8592; Zpět</button>'+
+      '<div class="rez-step2-pay">'+
+        '<div class="rez-step2-amount">'+MG.formatPrice(total)+'</div>'+
+        '<button id="mindee-pay-btn" class="btn btngreen" onclick="MG._rezSubmitPayment()">Přeskočit a zaplatit</button>'+
+      '</div>'+
+    '</div>';
   window.scrollTo({top:form.offsetTop-80,behavior:'smooth'});
 };
 
-// ===== SCAN DOCUMENT (camera capture → Mindee OCR) =====
+// ===== SCAN DOCUMENT — open in-page camera (frame + auto burst), then OCR best frames =====
 MG._rezScanDoc = function(docType){
-  var input=document.createElement('input');
-  input.type='file'; input.accept='image/*';
-  input.setAttribute('capture','environment');
-  input.style.display='none';
-  document.body.appendChild(input);
-
-  input.onchange=function(){
-    var file=input.files&&input.files[0];
-    document.body.removeChild(input);
-    if(!file)return;
-    var statusId='mindee-'+(docType==='id'?'id':'dl')+'-status';
-    var statusEl=document.getElementById(statusId);
-    if(statusEl) statusEl.innerHTML='<div style="color:#999;padding:.5rem 0">&#9203; Zpracovávám dokument...</div>';
-
-    var reader=new FileReader();
-    reader.onload=function(){
-      var img=new Image();
-      img.onload=function(){
-        var canvas=document.createElement('canvas');
-        var maxW=1600,w=img.width,h=img.height;
-        if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
-        canvas.width=w;canvas.height=h;
-        canvas.getContext('2d').drawImage(img,0,0,w,h);
-        var base64=canvas.toDataURL('image/jpeg',0.8).split(',')[1];
-        MG._rezProcessOcr(base64,docType);
-      };
-      img.src=reader.result;
-    };
-    reader.readAsDataURL(file);
-  };
-  input.click();
+  var statusId='mindee-'+(docType==='id'?'id':'dl')+'-status';
+  var statusEl=document.getElementById(statusId);
+  MG._rezOpenCamera(docType, function(frames){
+    if(!frames||!frames.length){ return; }
+    if(statusEl) statusEl.innerHTML='<div style="color:#999;padding:.5rem 0">&#9203; Rozpoznávám doklad ze '+frames.length+' snímků...</div>';
+    MG._rezOcrBurst(frames, docType, MG._rez.userId||null).then(function(result){
+      if(result.ok){
+        MG._rezApplyOcrResult(result.fields, docType, result.frame, 'mindee');
+      } else {
+        if(statusEl) statusEl.innerHTML='<div style="color:#e67e22;padding:.5rem 0">&#9888; Doklad se nepodařilo rozpoznat. Zkuste to znovu — držte mobil rovně, doklad celý v rámečku, dobré osvětlení.</div>';
+      }
+    });
+  });
 };
 
-// ===== PROCESS OCR via scan-document edge function =====
-MG._rezProcessOcr = async function(base64,docType){
-  var statusEl=document.getElementById('mindee-'+(docType==='id'?'id':'dl')+'-status');
-  try{
-    var res=await fetch(window.MOTOGO_CONFIG.SUPABASE_URL+'/functions/v1/scan-document',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','apikey':window.MOTOGO_CONFIG.SUPABASE_ANON_KEY},
-      body:JSON.stringify({image_base64:base64,document_type:docType==='id'?'id':'dl',user_id:MG._rez.userId||null})
-    });
-    var data=await res.json();
-    if(data.fields&&Object.keys(data.fields).length>0){
-      var f=data.fields;
-      var info=docType==='id'?(f.idNumber?'č. '+f.idNumber:''):(f.licenseNumber?'č. '+f.licenseNumber:'');
-      if(statusEl) statusEl.innerHTML='<div style="color:#1a8c1a;padding:.5rem 0">&#10004; Doklad rozpoznán'+(info?' — '+info:'')+'</div>';
+// ===== GALLERY upload (mobile + desktop) — image (OCR) or PDF (raw upload) =====
+MG._rezGalleryDoc = function(docType, mode){
+  var prefix = (mode==='mindee') ? 'mindee-' : 'webdoc-';
+  var statusId = prefix + (docType==='id'?'id':'dl') + '-status';
+  var statusEl=document.getElementById(statusId);
+  MG._rezPickFromGallery(function(b64,file){
+    if(!b64 && !file){ return; }
+    if(b64){
+      if(statusEl) statusEl.innerHTML='<div style="color:#999;padding:.5rem 0">&#9203; Rozpoznávám doklad...</div>';
+      MG._rezOcrBurst([b64], docType, MG._rez.userId||null).then(function(result){
+        if(result.ok){
+          MG._rezApplyOcrResult(result.fields, docType, result.frame, mode);
+        } else {
+          if(statusEl) statusEl.innerHTML='<div style="color:#e67e22;padding:.5rem 0">&#9888; Nepodařilo se rozpoznat — zkuste lepší snímek nebo vyplňte údaje ručně.</div>';
+        }
+      });
+    } else if(file){
+      // PDF — raw upload, no OCR
+      MG._rezUploadDocFile(file, docType);
+    }
+  });
+};
 
-      // Mark doc as scanned
-      if(docType==='id') MG._rez._idScanned=true;
-      if(docType==='dl') MG._rez._dlScanned=true;
-      MG._rezCheckMandatoryDocs();
+// ===== APPLY OCR RESULT — save to profile, upload to storage, update UI =====
+// mode: 'mindee' (Mindee step on mobile) or 'webdoc' (desktop optional upload — auto-fills form)
+MG._rezApplyOcrResult = async function(f, docType, base64, mode){
+  var prefix = (mode==='mindee') ? 'mindee-' : 'webdoc-';
+  var statusEl=document.getElementById(prefix+(docType==='id'?'id':'dl')+'-status');
+  var info=docType==='id'?(f.idNumber?'č. '+f.idNumber:''):(f.licenseNumber?'č. '+f.licenseNumber:'');
+  if(statusEl) statusEl.innerHTML='<div style="color:#1a8c1a;padding:.5rem 0">&#10004; Doklad rozpoznán'+(info?' — '+info:'')+'</div>';
 
-      // Save OCR results to profile
-      if(MG._rez.userId){
-        var upd={};
-        if(docType==='id'&&f.idNumber){upd.id_number=f.idNumber;upd.id_verified_at=new Date().toISOString();}
-        if(docType==='dl'&&f.licenseNumber){upd.license_number=f.licenseNumber;upd.license_verified_at=new Date().toISOString();}
-        if(Object.keys(upd).length) await window.sb.from('profiles').update(upd).eq('id',MG._rez.userId);
-      }
+  // Auto-fill form fields (desktop step 2 only)
+  if(mode==='webdoc'){
+    if(docType==='id'&&f.idNumber){ var dn=document.getElementById('rez-doc-number'); if(dn) dn.value=f.idNumber; }
+    if(docType==='dl'){
+      if(f.licenseNumber){ var ln=document.getElementById('rez-license-number'); if(ln) ln.value=f.licenseNumber; }
+      if(f.licenseCategory){ var lg=document.getElementById('rez-license-group'); if(lg) lg.value=String(f.licenseCategory).toUpperCase(); }
+      if(f.licenseExpiry){ var le=document.getElementById('rez-license-expiry'); if(le) le.value=f.licenseExpiry; }
+    }
+  }
 
-      // Upload document photo to storage
-      if(MG._rez.userId){
+  // Mark doc as scanned (Mindee mobile step uses this to flip pay button)
+  if(docType==='id') MG._rez._idScanned=true;
+  if(docType==='dl') MG._rez._dlScanned=true;
+  if(typeof MG._rezCheckMandatoryDocs==='function') MG._rezCheckMandatoryDocs();
+
+  // Save OCR to profile + upload to storage
+  if(MG._rez.userId){
+    try{
+      var upd={};
+      if(docType==='id'&&f.idNumber){upd.id_number=f.idNumber;upd.id_verified_at=new Date().toISOString();}
+      if(docType==='dl'&&f.licenseNumber){upd.license_number=f.licenseNumber;upd.license_verified_at=new Date().toISOString();}
+      if(Object.keys(upd).length) await window.sb.from('profiles').update(upd).eq('id',MG._rez.userId);
+    }catch(e){}
+    try{
+      if(base64){
         var docTypeStr=docType==='id'?'id_card':'drivers_license';
         var blob=MG._rezB64toBlob(base64,'image/jpeg');
         await window.sb.storage.from('documents').upload(
@@ -177,11 +256,18 @@ MG._rezProcessOcr = async function(base64,docType){
           name:docType==='id'?'Doklad totožnosti (web sken)':'Řidičský průkaz (web sken)'
         }).catch(function(){});
       }
-    } else {
-      if(statusEl) statusEl.innerHTML='<div style="color:#e67e22;padding:.5rem 0">&#9888; Nepodařilo se rozpoznat — zkuste to znovu</div>';
-    }
-  }catch(e){
-    if(statusEl) statusEl.innerHTML='<div style="color:#e67e22;padding:.5rem 0">&#9888; Chyba zpracování — zkuste to znovu</div>';
+    }catch(e){}
+  }
+};
+
+// Legacy single-frame OCR (kept for backward compat — routes through burst path of length 1).
+MG._rezProcessOcr = async function(base64,docType){
+  var statusEl=document.getElementById('mindee-'+(docType==='id'?'id':'dl')+'-status');
+  var result=await MG._rezOcrBurst([base64], docType, MG._rez.userId||null);
+  if(result.ok){
+    await MG._rezApplyOcrResult(result.fields, docType, result.frame, 'mindee');
+  } else if(statusEl) {
+    statusEl.innerHTML='<div style="color:#e67e22;padding:.5rem 0">&#9888; Nepodařilo se rozpoznat — zkuste to znovu</div>';
   }
 };
 
@@ -197,128 +283,35 @@ MG._rezCheckMandatoryDocs = function(){
   }
 };
 
-// ===== UPLOAD DOCUMENT FROM FILE (web step 2 — optional) =====
+// ===== UPLOAD DOCUMENT FROM FILE (web step 2 — gallery / PDF) =====
 MG._rezUploadDoc = function(docType){
-  var input=document.createElement('input');
-  input.type='file'; input.accept='image/*,.pdf';
-  input.style.display='none';
-  document.body.appendChild(input);
-
-  input.onchange=function(){
-    var file=input.files&&input.files[0];
-    document.body.removeChild(input);
-    if(!file)return;
-    var statusId='webdoc-'+(docType==='id'?'id':'dl')+'-status';
-    var statusEl=document.getElementById(statusId);
-    if(statusEl) statusEl.innerHTML='<div style="color:#999;padding:.5rem 0">&#9203; Zpracovávám dokument...</div>';
-
-    // For images, resize and send to Mindee OCR
-    if(file.type.indexOf('image')!==-1){
-      var reader=new FileReader();
-      reader.onload=function(){
-        var img=new Image();
-        img.onload=function(){
-          var canvas=document.createElement('canvas');
-          var maxW=1600,w=img.width,h=img.height;
-          if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
-          canvas.width=w;canvas.height=h;
-          canvas.getContext('2d').drawImage(img,0,0,w,h);
-          var base64=canvas.toDataURL('image/jpeg',0.8).split(',')[1];
-          MG._rezProcessWebDocOcr(base64,docType);
-        };
-        img.src=reader.result;
-      };
-      reader.readAsDataURL(file);
-    } else {
-      // PDF or other — just upload to storage without OCR
-      MG._rezUploadDocFile(file,docType);
-    }
-  };
-  input.click();
+  MG._rezGalleryDoc(docType, 'webdoc');
 };
 
-// ===== CAPTURE DOCUMENT WITH CAMERA (web step 2) =====
+// ===== CAPTURE DOCUMENT WITH IN-PAGE CAMERA (web step 2 — burst + frame) =====
 MG._rezCaptureDoc = function(docType){
-  var input=document.createElement('input');
-  input.type='file'; input.accept='image/*';
-  input.setAttribute('capture','environment');
-  input.style.display='none';
-  document.body.appendChild(input);
-
-  input.onchange=function(){
-    var file=input.files&&input.files[0];
-    document.body.removeChild(input);
-    if(!file)return;
-    var statusId='webdoc-'+(docType==='id'?'id':'dl')+'-status';
-    var statusEl=document.getElementById(statusId);
-    if(statusEl) statusEl.innerHTML='<div style="color:#999;padding:.5rem 0">&#9203; Zpracovávám dokument...</div>';
-
-    var reader=new FileReader();
-    reader.onload=function(){
-      var img=new Image();
-      img.onload=function(){
-        var canvas=document.createElement('canvas');
-        var maxW=1600,w=img.width,h=img.height;
-        if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
-        canvas.width=w;canvas.height=h;
-        canvas.getContext('2d').drawImage(img,0,0,w,h);
-        var base64=canvas.toDataURL('image/jpeg',0.8).split(',')[1];
-        MG._rezProcessWebDocOcr(base64,docType);
-      };
-      img.src=reader.result;
-    };
-    reader.readAsDataURL(file);
-  };
-  input.click();
+  var statusId='webdoc-'+(docType==='id'?'id':'dl')+'-status';
+  var statusEl=document.getElementById(statusId);
+  MG._rezOpenCamera(docType, function(frames){
+    if(!frames||!frames.length){ return; }
+    if(statusEl) statusEl.innerHTML='<div style="color:#999;padding:.5rem 0">&#9203; Rozpoznávám doklad ze '+frames.length+' snímků...</div>';
+    MG._rezOcrBurst(frames, docType, MG._rez.userId||null).then(function(result){
+      if(result.ok){
+        MG._rezApplyOcrResult(result.fields, docType, result.frame, 'webdoc');
+      } else {
+        if(statusEl) statusEl.innerHTML='<div style="color:#e67e22;padding:.5rem 0">&#9888; Nepodařilo se rozpoznat — zkuste lepší snímek nebo vyplňte údaje ručně.</div>';
+      }
+    });
+  });
 };
 
-// ===== PROCESS WEB DOC OCR (for step 2 optional upload) =====
-MG._rezProcessWebDocOcr = async function(base64,docType){
-  var statusEl=document.getElementById('webdoc-'+(docType==='id'?'id':'dl')+'-status');
-  try{
-    var res=await fetch(window.MOTOGO_CONFIG.SUPABASE_URL+'/functions/v1/scan-document',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','apikey':window.MOTOGO_CONFIG.SUPABASE_ANON_KEY},
-      body:JSON.stringify({image_base64:base64,document_type:docType==='id'?'id':'dl',user_id:MG._rez.userId||null})
-    });
-    var data=await res.json();
-    if(data.fields&&Object.keys(data.fields).length>0){
-      var f=data.fields;
-      var info=docType==='id'?(f.idNumber?'č. '+f.idNumber:''):(f.licenseNumber?'č. '+f.licenseNumber:'');
-      if(statusEl) statusEl.innerHTML='<div style="color:#1a8c1a;padding:.5rem 0">&#10004; Doklad rozpoznán'+(info?' — '+info:'')+'</div>';
-
-      // Auto-fill form fields from OCR
-      if(docType==='id'&&f.idNumber){
-        var dn=document.getElementById('rez-doc-number');if(dn)dn.value=f.idNumber;
-      }
-      if(docType==='dl'){
-        if(f.licenseNumber){var ln=document.getElementById('rez-license-number');if(ln)ln.value=f.licenseNumber;}
-        if(f.licenseCategory){var lg=document.getElementById('rez-license-group');if(lg)lg.value=f.licenseCategory.toUpperCase();}
-        if(f.licenseExpiry){var le=document.getElementById('rez-license-expiry');if(le)le.value=f.licenseExpiry;}
-      }
-
-      // Save OCR to profile + upload to storage
-      if(MG._rez.userId){
-        var upd={};
-        if(docType==='id'&&f.idNumber){upd.id_number=f.idNumber;upd.id_verified_at=new Date().toISOString();}
-        if(docType==='dl'&&f.licenseNumber){upd.license_number=f.licenseNumber;upd.license_verified_at=new Date().toISOString();}
-        if(Object.keys(upd).length) await window.sb.from('profiles').update(upd).eq('id',MG._rez.userId);
-        var docTypeStr=docType==='id'?'id_card':'drivers_license';
-        var blob=MG._rezB64toBlob(base64,'image/jpeg');
-        await window.sb.storage.from('documents').upload(
-          MG._rez.userId+'/'+docTypeStr+'_'+Date.now()+'.jpg',blob
-        ).catch(function(){});
-        await window.sb.from('documents').insert({
-          user_id:MG._rez.userId,type:docTypeStr,
-          name:docType==='id'?'Doklad totožnosti (web upload)':'Řidičský průkaz (web upload)'
-        }).catch(function(){});
-      }
-    } else {
-      if(statusEl) statusEl.innerHTML='<div style="color:#e67e22;padding:.5rem 0">&#9888; Nepodařilo se rozpoznat — zkuste jiný snímek nebo vyplňte údaje ručně</div>';
-    }
-  }catch(e){
-    if(statusEl) statusEl.innerHTML='<div style="color:#e67e22;padding:.5rem 0">&#9888; Chyba zpracování — vyplňte údaje ručně</div>';
-  }
+// Legacy alias — kept so any external callers keep working.
+MG._rezProcessWebDocOcr = function(base64,docType){
+  return MG._rezOcrBurst([base64], docType, MG._rez.userId||null).then(function(result){
+    if(result.ok) return MG._rezApplyOcrResult(result.fields, docType, result.frame, 'webdoc');
+    var statusEl=document.getElementById('webdoc-'+(docType==='id'?'id':'dl')+'-status');
+    if(statusEl) statusEl.innerHTML='<div style="color:#e67e22;padding:.5rem 0">&#9888; Nepodařilo se rozpoznat — vyplňte údaje ručně.</div>';
+  });
 };
 
 // ===== UPLOAD DOC FILE (PDF, non-image) =====
@@ -399,23 +392,8 @@ MG._rezSubmitPayment = async function(){
       MG._rez.formData._licExpiry=_isNoLic?null:(licExpiry?licExpiry.value:null);
     }
 
-    if(MG._rez.userId){
-      try{await window.sb.from('profiles').update({
-        id_number:docNum.value,
-        license_number:_isNoLic?null:licNum.value,
-        license_group:[licGroup.value],
-        license_expiry:_isNoLic?null:licExpiry.value
-      }).eq('id',MG._rez.userId);}catch(e){}
-    }
-
-    // Uložit heslo přes RPC (aktualizace auth.users)
-    if(MG._rez._password && MG._rez.bookingId){
-      try{await window.sb.rpc('set_web_booking_password',{
-        p_booking_id:MG._rez.bookingId, p_password:MG._rez._password
-      });}catch(e){console.warn('[REZ] password save error:',e);}
-      MG._rez._passwordSet=true;
-      delete MG._rez._password;
-    }
+    await MG._rezPersistDocs(docNum.value, _isNoLic?null:licNum.value,
+      licGroup.value, _isNoLic?null:(licExpiry?licExpiry.value:null));
   }
 
   var btn=document.querySelector('#rez-form .btn.btngreen');
@@ -425,10 +403,49 @@ MG._rezSubmitPayment = async function(){
   var amount=MG._rez.bookingAmount;
   if(!bookingId){alert('Chyba: rezervace nebyla vytvořena. Zkuste znovu.');if(btn){btn.disabled=false;btn.textContent='Pokračovat k platbě';}return;}
 
+  // Pokud zákazník přidal doplňky z e-shopu — vytvoř shop_order (pickup, doprava 0)
+  // a pošli ID do process-payment, ať se přibalí do stejné Stripe session.
+  var shopOrderId = MG._rez._shopOrderId || null;
+  var shopItems = MG._rezShopItems || [];
+  if(shopItems.length && !shopOrderId){
+    try {
+      var d = MG._rez.formData || {};
+      var addr = (d.street||'') + (d.zip?(', '+d.zip):'') + (d.city?(' '+d.city):'');
+      var soRes = await window.sb.rpc('create_web_shop_order', {
+        items: shopItems.map(function(it){ return { product_id: it.product_id, size: it.size||null, qty: it.qty||1 }; }),
+        customer_name: d.name||'',
+        customer_email: d.email||'',
+        customer_phone: d.phone||'',
+        shipping_method: 'pickup',
+        shipping_address: addr.trim()||null,
+        payment_method: 'stripe',
+        promo_code: null,
+        notes: 'Doprodej k rezervaci '+bookingId
+      });
+      if(soRes.error || (soRes.data && soRes.data.error)){
+        console.warn('[REZ] create_web_shop_order failed:', soRes.error || soRes.data);
+        alert('Nepodařilo se vytvořit objednávku doplňků: '+((soRes.data&&soRes.data.error)||(soRes.error&&soRes.error.message)||'neznámá chyba'));
+        if(btn){btn.disabled=false;btn.textContent='Pokračovat k platbě';}
+        return;
+      }
+      shopOrderId = (soRes.data && soRes.data.order_id) || null;
+      MG._rez._shopOrderId = shopOrderId;
+    } catch(e){
+      console.error('[REZ] shop order exception', e);
+      alert('Chyba při vytváření objednávky doplňků.');
+      if(btn){btn.disabled=false;btn.textContent='Pokračovat k platbě';}
+      return;
+    }
+  }
+
   try{
+    var payBody={booking_id:bookingId,amount:amount,type:'booking',source:'web',mode:'checkout',
+      origin: window.location.origin,
+      locale: (document.documentElement.lang||'cs').slice(0,2)};
+    if(shopOrderId) payBody.shop_order_id = shopOrderId;
     var payRes=await fetch(window.MOTOGO_CONFIG.SUPABASE_URL+'/functions/v1/process-payment',{method:'POST',
       headers:{'Content-Type':'application/json','apikey':window.MOTOGO_CONFIG.SUPABASE_ANON_KEY},
-      body:JSON.stringify({booking_id:bookingId,amount:amount,type:'booking',source:'web',mode:'checkout'})});
+      body:JSON.stringify(payBody)});
     var payData=await payRes.json();
     if(payData.error){
       var emsg = payData.error || '';
@@ -448,7 +465,6 @@ MG._rezSubmitPayment = async function(){
     if(payData.checkout_url){
       MG._rez._paymentDone=true;
       try{sessionStorage.removeItem('mg_rez_form');}catch(e){}
-      if(MG._rez._abandonedTimer) clearTimeout(MG._rez._abandonedTimer);
       window.location.href=payData.checkout_url;
     }
     else{alert('Nepodařilo se vytvořit platbu.');if(btn){btn.disabled=false;btn.textContent='Pokračovat k platbě';}}

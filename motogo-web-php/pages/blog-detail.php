@@ -62,8 +62,12 @@ $content = '<main id="content"><div class="container">' . $bc .
     $galleryHtml .
     '</div></div></main>';
 
-// ===== Article schema — kompletní pro AI Overviews / Discover / Perplexity =====
-$articleUrl = 'https://motogo24.cz/blog/' . htmlspecialchars($slug);
+// ===== Article schema — kompletní pro AI Overviews / Discover / Perplexity / Seznam Zprávy =====
+// @type zahrnuje "NewsArticle" — Seznam Zprávy a Google News News tab články
+// chytí podle tohoto typu. Multi-type podle schema.org spec.
+$articleUrl = siteCanonicalUrl('/blog/' . $slug);
+// Origin pro logo — preferujeme český origin (NAP konzistence pro Seznam)
+$brandOrigin = i18nOriginForLang('cs');
 $schemaImages = [];
 if (!empty($post['images']) && is_array($post['images'])) {
     foreach ($post['images'] as $img) {
@@ -71,7 +75,7 @@ if (!empty($post['images']) && is_array($post['images'])) {
     }
 }
 if (empty($schemaImages) && !empty($post['image_url'])) $schemaImages[] = $post['image_url'];
-if (empty($schemaImages)) $schemaImages[] = 'https://motogo24.cz/gfx/hero-banner.jpg';
+if (empty($schemaImages)) $schemaImages[] = $brandOrigin . '/gfx/hero-banner.jpg';
 
 // articleBody — striputj HTML a vezmi prvních ~5000 znaků (rich snippet limit)
 $articleBodyText = trim(strip_tags($contentRaw));
@@ -86,14 +90,14 @@ $dateModified  = $post['updated_at'] ?? $datePublished;
 
 $articleSchema = '
   <script type="application/ld+json">
-  {"@context":"https://schema.org","@type":["Article","BlogPosting"]'
+  {"@context":"https://schema.org","@type":["Article","BlogPosting","NewsArticle"]'
     . ',"headline":' . json_encode($titleRaw, JSON_UNESCAPED_UNICODE)
     . ',"description":' . json_encode($excerpt !== '' ? $excerpt : $titleRaw, JSON_UNESCAPED_UNICODE)
     . ',"image":' . json_encode($schemaImages)
     . ',"url":' . json_encode($articleUrl)
     . ',"mainEntityOfPage":{"@type":"WebPage","@id":' . json_encode($articleUrl) . '}'
-    . ',"author":{"@type":"Organization","name":"MotoGo24","url":"https://motogo24.cz"}'
-    . ',"publisher":{"@type":"Organization","name":"MotoGo24","logo":{"@type":"ImageObject","url":"https://motogo24.cz/gfx/logo.svg","width":512,"height":512}}'
+    . ',"author":{"@type":"Organization","name":"MotoGo24","url":' . json_encode($brandOrigin) . '}'
+    . ',"publisher":{"@type":"Organization","name":"MotoGo24","logo":{"@type":"ImageObject","url":' . json_encode($brandOrigin . '/gfx/logo.svg') . ',"width":512,"height":512}}'
     . ($datePublished ? ',"datePublished":' . json_encode($datePublished) : '')
     . ($dateModified  ? ',"dateModified":'  . json_encode($dateModified)  : '')
     . ($wordCount > 0 ? ',"wordCount":' . $wordCount : '')
@@ -108,5 +112,5 @@ renderPage($titleRaw . ' | Blog MotoGo24', $content, '/blog/' . $slug, [
     'og_type' => 'article',
     'og_image' => !empty($post['images'][0]) ? $post['images'][0] : (!empty($post['image_url']) ? $post['image_url'] : null),
     'schema' => $articleSchema,
-    'breadcrumbs' => [['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'], ['name' => t('breadcrumb.blog'), 'url' => 'https://motogo24.cz/blog'], ['name' => $titleRaw, 'url' => 'https://motogo24.cz/blog/' . $slug]],
+    'breadcrumbs' => [['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')], ['name' => t('breadcrumb.blog'), 'url' => siteCanonicalUrl('/blog')], ['name' => $titleRaw, 'url' => siteCanonicalUrl('/blog/') . $slug]],
 ]);

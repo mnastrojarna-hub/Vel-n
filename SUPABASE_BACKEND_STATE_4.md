@@ -45,7 +45,7 @@
 | `trg_notify_booking_cancelled` | bookings (AFTER UPDATE OF status, WHEN →cancelled) | trg_notify_booking_cancelled() — SMS+WA storno. Dedup přes message_log. SECURITY DEFINER |
 | `trg_notify_ride_completed` | bookings (AFTER UPDATE OF status, WHEN →completed) | trg_notify_ride_completed() — SMS+WA dokončení jízdy + review link. Dedup přes message_log. SECURITY DEFINER |
 | `trg_notify_voucher_purchased` | vouchers (AFTER INSERT, WHEN active) | trg_notify_voucher_purchased() — SMS voucher info. Dedup přes message_log. SECURITY DEFINER |
-| `trg_notify_web_booking_abandoned` | bookings (AFTER UPDATE OF status, WHEN pending→cancelled) | notify_web_booking_abandoned() — odešle abandoned email pro web bookings. SECURITY DEFINER, EXCEPTION safe |
+| ~~`trg_notify_web_booking_abandoned`~~ | ~~bookings (AFTER UPDATE OF status, WHEN pending→cancelled)~~ | **DROPPED 2026-04-29** — abandoned mail se posílá dříve (10/20 min) přes cron `send_abandoned_booking_emails`, takže emit při auto-cancel po 4 h by způsobil duplicitní mail. Funkce `notify_web_booking_abandoned()` ponechána v DB (nevolaná). |
 | `trg_release_codes_on_doc_upload` | documents (AFTER INSERT, WHEN type IN id_card/passport/drivers_license/id_photo/license_photo) | release_withheld_door_codes() → deleguje na release_withheld_door_codes_for_user(NEW.user_id) — ta ověří pro každou rezervaci přesný stav dokladů (vč. platnosti ŘP vs. end_date) a uvolní/aktualizuje withheld_reason. SECURITY DEFINER, EXCEPTION safe |
 | `trg_regen_codes_on_moto_change` | bookings (AFTER UPDATE OF moto_id, WHEN moto_id změněn + status IN active/reserved) | regen_door_codes_on_moto_change() — deaktivuje staré kódy a vygeneruje nové pro novou motorku. SECURITY DEFINER, EXCEPTION safe |
 | `trg_push_on_admin_message` | admin_messages (AFTER INSERT) | trg_push_on_admin_message() — pošle FCM push přes `send-push` edge function. SECURITY DEFINER, EXCEPTION safe |
@@ -66,4 +66,5 @@
 | `trg_emp_documents_updated` | emp_documents | update_updated_at() |
 | `trg_delivery_notes_updated` | delivery_notes | update_updated_at() |
 | `trg_contracts_updated` | contracts | update_updated_at() |
+| `faq_items_set_updated_at` | faq_items (BEFORE UPDATE) | set_updated_at_now() — auto-aktualizace `updated_at` při změně FAQ položky |
 | Různé `_updated_at` triggery | více tabulek | update_updated_at() |

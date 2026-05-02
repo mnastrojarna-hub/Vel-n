@@ -114,6 +114,14 @@ return [
             'h1' => 'Motorcycle rental Vysočina Motogo24 – without deposit and 24/7',
             'intro' => 'Welcome to <strong>Motogo24</strong> – your motorcycle rental in Vysočina. With us you rent a motorcycle <strong>without deposit</strong>, with gear included and in <strong>24/7</strong> mode. Whether you\'re looking for a touring, sport, enduro or kids\' motorcycle, Motogo24 in the heart of Vysočina has the right one for you.',
             'signposts_title' => 'Quick guide around Motogo24',
+            'signposts' => [
+                ['icon' => 'gfx/vyber-motorku.svg', 'title' => 'Motorcycle catalog', 'text' => 'Browse our offer of motorcycles for rent — from sport to touring models.', 'btn' => 'MOTORCYCLE CATALOG', 'href' => '/katalog'],
+                ['icon' => 'gfx/potvrzeni-rezervace.svg', 'title' => 'How to rent a motorcycle', 'text' => 'A simple process: choose a motorcycle to rent, book and ride.', 'btn' => 'HOW TO RENT', 'href' => '/jak-pujcit'],
+                ['icon' => 'gfx/rezervace-online.svg', 'title' => 'Online motorcycle booking', 'text' => 'Book a motorcycle for rent through our easy online system.', 'btn' => 'BOOK A MOTORCYCLE', 'href' => '/rezervace'],
+                ['icon' => 'gfx/kontakt.svg', 'title' => 'Contacts and map', 'text' => 'Visit our motorcycle rental in Pelhřimov or contact us.', 'btn' => 'CONTACT', 'href' => '/kontakt'],
+                ['icon' => 'gfx/faq.svg', 'title' => 'Frequently asked questions', 'text' => 'The most common questions about renting a motorcycle in one place.', 'btn' => 'FAQ', 'href' => '/jak-pujcit/faq'],
+                ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => 'Motorcycle trips', 'text' => 'Discover the best motorcycle routes in the Czech Republic for tourists and locals.', 'btn' => 'MOTORCYCLE ROUTES', 'href' => '/blog'],
+            ],
             'motos_section' => [
                 'title' => 'Our motorcycles for rent in Vysočina',
                 'intro' => 'Browse our offer of touring, sport and enduro from our motorcycle rental in Vysočina.',
@@ -122,8 +130,25 @@ return [
                 'cta_href' => '/katalog',
                 'limit' => 4,
             ],
-            'process' => ['title' => 'How motorcycle rental works in Vysočina'],
-            'faq' => ['title' => 'Frequently asked questions', 'more_link' => '/jak-pujcit/faq'],
+            'process' => [
+                'title' => 'How motorcycle rental works in Vysočina',
+                'steps' => [
+                    ['icon' => 'gfx/vyber-motorku.svg', 'title' => '1. Choose', 'text' => 'Pick your ideal motorcycle from our offer of motorcycles for rent.'],
+                    ['icon' => 'gfx/rezervace-online.svg', 'title' => '2. Book', 'text' => 'Book your motorcycle rental through our simple online system.'],
+                    ['icon' => 'gfx/predani-motorky.svg', 'title' => '3. Pick up', 'text' => 'Pick up the motorcycle at our rental in Pelhřimov.'],
+                    ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => '4. Enjoy the ride', 'text' => 'Embrace the freedom and discover the Czech Republic on rental motorcycles.'],
+                ],
+            ],
+            'faq' => [
+                'title' => 'Frequently asked questions',
+                'more_link' => '/jak-pujcit/faq',
+                'items' => [
+                    ['q' => 'How can I book a motorcycle?', 'a' => 'You can book a motorcycle through our online booking system right here on the website. Or contact us by e-mail, phone or via social media.'],
+                    ['q' => 'Can I rent a motorcycle without booking in advance?', 'a' => 'Unfortunately not. Every motorcycle has to be booked in advance — online, by phone, e-mail or via social media.'],
+                    ['q' => 'Do I have to pay a deposit?', 'a' => 'No! With us you <strong>do not pay any deposit</strong>. Our rental is fundamentally different from most of the competition in this respect.'],
+                    ['q' => 'Can I take the motorcycle abroad?', 'a' => 'Yes, you can travel abroad with the motorcycle without any problem. We don\'t restrict trips outside the Czech Republic; you only need to comply with the territorial validity of your insurance (green card).'],
+                ],
+            ],
             'cta' => [
                 'title' => 'Book your motorcycle online',
                 'text' => 'Our <strong>motorcycle rental Vysočina</strong> is open <strong>24/7</strong>. A few clicks and your ride begins.',
@@ -167,9 +192,38 @@ return [
                     ['label' => 'See motorcycles for rent', 'href' => '/katalog', 'cls' => 'btngreen'],
                     ['label' => 'BOOK NOW', 'href' => '/rezervace', 'cls' => 'btngreen pulse'],
                 ],
+                'items' => [
+                    ['icon' => 'gfx/ico-bez-kauce.svg', 'title' => 'No deposit', 'text' => 'and no hidden fees'],
+                    ['icon' => 'gfx/rezervace-online.svg', 'title' => 'Online booking', 'text' => 'in just a few clicks'],
+                    ['icon' => 'gfx/vyber-vybavu.svg', 'title' => 'Rider gear included', 'text' => 'helmet, jacket, trousers and gloves'],
+                    ['icon' => 'gfx/ico-nonstop.svg', 'title' => '24/7 service', 'text' => 'for pickup and return per your booking'],
+                    ['icon' => 'gfx/ico-spolecne.svg', 'title' => 'We\'re in it together', 'text' => 'if anything happens'],
+                    ['icon' => 'gfx/predani-motorky.svg', 'title' => 'Motorcycle delivery & pickup', 'text' => 'to an agreed place'],
+                ],
             ],
-            'process' => ['title' => 'How motorcycle rental works in Vysočina'],
-            'faq' => ['title' => 'Frequently asked questions', 'more_link' => '/jak-pujcit/faq'],
+            'process' => [
+                'title' => 'How motorcycle rental works in Vysočina',
+                'steps' => [
+                    ['icon' => 'gfx/vyber-motorku.svg', 'title' => '1. Pick a motorcycle', 'text' => 'Browse our offer and choose the type that suits you, your experience and your licence.'],
+                    ['icon' => 'gfx/rezervace-online.svg', 'title' => '2. Book online', 'text' => 'Reserve by date or by a specific motorcycle you want to rent.'],
+                    ['icon' => 'gfx/vyber-vybavu.svg', 'title' => '3. Choose gear', 'text' => 'Rider gear is included; passenger gear costs extra. You can choose the size on site.'],
+                    ['icon' => 'gfx/zaplat.svg', 'title' => '4. Pay', 'text' => 'Pay easily online through the payment gateway.'],
+                    ['icon' => 'gfx/predani-motorky.svg', 'title' => '5. Pick up the motorcycle', 'text' => 'Pick up the motorcycle directly at the rental, or at the place you selected when booking.'],
+                    ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => '6. Enjoy the ride', 'text' => 'Hit the road, discover new experiences and enjoy the full freedom of two wheels.'],
+                    ['icon' => 'gfx/vrat-motorku-vcas.svg', 'title' => '7. Return the motorcycle', 'text' => 'Simply return the motorcycle on the agreed day – at the rental, or at the agreed place.'],
+                    ['icon' => 'gfx/sleva-na-pristi-jizdu.svg', 'title' => 'Discount for your next ride', 'text' => 'After returning the motorcycle, we\'ll automatically send you a 200 Kč discount code for your next booking.'],
+                ],
+            ],
+            'faq' => [
+                'title' => 'Frequently asked questions',
+                'more_link' => '/jak-pujcit/faq',
+                'items' => [
+                    ['q' => 'How can I book a motorcycle?', 'a' => 'You can book a motorcycle through our online booking system right here on the website. Or contact us by e-mail, phone or via social media.'],
+                    ['q' => 'Can I rent a motorcycle without booking in advance?', 'a' => 'Unfortunately not. Every motorcycle has to be booked in advance.'],
+                    ['q' => 'Do I have to pay a deposit?', 'a' => 'No! With us you <strong>do not pay any deposit</strong>. Our rental is fundamentally different from most of the competition in this respect.'],
+                    ['q' => 'Can I take the motorcycle abroad?', 'a' => 'Yes, you can travel abroad with the motorcycle without any problem. We don\'t restrict trips outside the Czech Republic; you only need to comply with the territorial validity of your insurance (green card).'],
+                ],
+            ],
             'cta' => [
                 'title' => 'Book your motorcycle online',
                 'text' => 'Our <strong>motorcycle rental Vysočina</strong> is open <strong>24/7</strong>. A few clicks and your ride begins.',

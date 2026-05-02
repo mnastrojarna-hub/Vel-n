@@ -1,5 +1,5 @@
 # SUPABASE BACKEND STATE — MotoGo24 (Část 1: Tabulky)
-> **Poslední aktualizace:** 2026-04-14 (door codes release + regen + FCM push)
+> **Poslední aktualizace:** 2026-04-29 (profiles consent_* sloupce default `true` + UI redesign upravit-rezervaci)
 > **Zdroj:** Reálný stav Supabase databáze (SQL dump z dashboardu) + Edge Functions
 > **Projekt:** `vnwnqteskbykeucanlhk.supabase.co`
 > **POZOR:** Tento soubor MUSÍ být aktualizován při každé SQL změně!
@@ -168,6 +168,7 @@
 | `app_settings` | Nastavení aplikace (key-value, jsonb) |
 | `cms_pages` | CMS stránky |
 | `cms_variables` | CMS proměnné |
+| `faq_items` | FAQ otázky (DB-driven) — kategorie, otázka, HTML odpověď, sort_order, featured_home (zobrazit i na home), published, jsonb translations. Spravuje se ve Velíně CMS → Texty webu → Časté dotazy. |
 | `feature_flags` | Feature flags |
 | `reviews` | Recenze zákazníků |
 

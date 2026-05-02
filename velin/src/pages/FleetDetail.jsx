@@ -58,37 +58,73 @@ export default function FleetDetail() {
       const n = Number(s)
       return Number.isFinite(n) ? n : null
     }
-    const { model, spz, vin, category, branch_id, mileage, purchase_mileage, status, year, engine_cc, color, acquired_at,
-      power_kw, torque_nm, weight_kg, fuel_tank_l, seat_height_mm, license_required,
-      has_abs, has_asc, description, ideal_usage, features, engine_type, brand, purchase_price, tracking_unit, stk_valid_until } = moto
-    const updateData = { model, spz, vin, category, branch_id,
+    const {
+      // Identifikace + zařazení
+      model, spz, vin, brand, category, branch_id, color, year, acquired_at, stk_valid_until,
+      // Provoz
+      mileage, purchase_mileage, tracking_unit, status, purchase_price,
+      // Motor / výkon
+      engine_cc, engine_type, transmission, drivetrain,
+      power_kw, power_hp, torque_nm, top_speed_kmh,
+      // Spotřeba / palivo
+      fuel_type, fuel_consumption_l100km, fuel_tank_l,
+      // Brzdy / hmotnost / rozměry / komfort
+      brake_type, has_abs, has_asc, weight_kg, seat_height_mm, seats_count,
+      // Oprávnění + délka pronájmu
+      license_required, min_rental_days, max_rental_days,
+      // Texty (auto-překládají se po uložení)
+      description, suitable_for, ideal_usage, features,
+    } = moto
+    const updateData = {
+      model, spz, vin,
+      brand: brand?.trim() || null,
+      category, branch_id, color,
+      year: toInt(year),
+      acquired_at,
+      stk_valid_until: stk_valid_until || null,
       mileage: toInt(mileage) ?? 0,
       purchase_mileage: toInt(purchase_mileage),
+      tracking_unit: tracking_unit || 'km',
       status,
-      year: toInt(year),
+      purchase_price: toNum(purchase_price) ?? 0,
       engine_cc: toInt(engine_cc),
-      color, acquired_at,
+      engine_type,
+      transmission: transmission || null,
+      drivetrain: drivetrain || null,
       power_kw: toNum(power_kw),
+      power_hp: toInt(power_hp),
       torque_nm: toNum(torque_nm),
-      weight_kg: toInt(weight_kg),
+      top_speed_kmh: toInt(top_speed_kmh),
+      fuel_type: fuel_type || null,
+      fuel_consumption_l100km: toNum(fuel_consumption_l100km),
       fuel_tank_l: toNum(fuel_tank_l),
+      brake_type: brake_type || null,
+      has_abs, has_asc,
+      weight_kg: toInt(weight_kg),
       seat_height_mm: seat_height_mm || null,
+      seats_count: toInt(seats_count),
       license_required: license_required || null,
-      has_abs, has_asc, description,
+      min_rental_days: toInt(min_rental_days),
+      max_rental_days: toInt(max_rental_days),
+      description,
+      suitable_for: suitable_for || null,
       ideal_usage: Array.isArray(ideal_usage) ? ideal_usage.map(s => s?.trim()).filter(Boolean) : ideal_usage,
       features: Array.isArray(features) ? features.map(s => s?.trim()).filter(Boolean) : features,
-      engine_type,
-      brand: brand?.trim() || null,
-      purchase_price: toNum(purchase_price) ?? 0,
-      tracking_unit: tracking_unit || 'km', stk_valid_until: stk_valid_until || null }
+    }
     const result = await debugAction('fleet.save', 'FleetDetail', () =>
       supabase.from('motorcycles').update(updateData).eq('id', id)
     , updateData)
     if (result?.error) setError(result.error.message)
     await logAudit('motorcycle_updated', { moto_id: id })
-    // Auto-překlad popisku motorky pro web (na pozadí, neblokuje UI)
-    if (!result?.error && description && description.trim().length > 0) {
-      autoTranslateRow({ table: 'motorcycles', id, row: { description } })
+    // Auto-překlad textových polí motorky pro web (na pozadí, neblokuje UI).
+    // Web čte translations jsonb pro `description` i `suitable_for` přes localized().
+    if (!result?.error) {
+      const translateFields = {}
+      if (description && description.trim().length > 0) translateFields.description = description
+      if (suitable_for && suitable_for.trim().length > 0) translateFields.suitable_for = suitable_for
+      if (Object.keys(translateFields).length > 0) {
+        autoTranslateRow({ table: 'motorcycles', id, row: translateFields })
+      }
     }
     setSaving(false)
   }

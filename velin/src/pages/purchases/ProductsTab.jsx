@@ -7,6 +7,8 @@ import Pagination from '../../components/ui/Pagination'
 import SearchInput from '../../components/ui/SearchInput'
 import Modal from '../../components/ui/Modal'
 import ImageUploader from '../../components/ui/ImageUploader'
+import BulkActionsBar, { SelectAllCheckbox, RowCheckbox } from '../../components/ui/BulkActionsBar'
+import { exportToCsv, bulkUpdate, bulkDelete } from '../../lib/bulkActions'
 import { autoTranslateRow } from '../../lib/autoTranslate'
 
 const PER_PAGE = 25
@@ -19,6 +21,7 @@ export default function ProductsTab() {
   const [search, setSearch] = useState('')
   const [detail, setDetail] = useState(null)
   const [showAdd, setShowAdd] = useState(false)
+  const [selectedIds, setSelectedIds] = useState(new Set())
 
   useEffect(() => { load() }, [page, search])
 
@@ -65,6 +68,18 @@ export default function ProductsTab() {
   const totalPages = Math.ceil(total / PER_PAGE)
   const fmt = n => n != null ? `${Number(n).toLocaleString('cs-CZ')} Kč` : '—'
 
+  const ids = [...selectedIds]
+  const bulkActions = [
+    { label: 'Aktivovat', icon: '✓', onClick: async () => { await bulkUpdate('products', ids, { is_active: true }, 'products_bulk_activated'); setSelectedIds(new Set()); load() } },
+    { label: 'Deaktivovat', icon: '⏸', onClick: async () => { await bulkUpdate('products', ids, { is_active: false }, 'products_bulk_deactivated'); setSelectedIds(new Set()); load() } },
+    { label: 'Export CSV', icon: '⬇', onClick: () => exportToCsv('products', [
+      { key: 'name', label: 'Název' }, { key: 'sku', label: 'SKU' }, { key: 'price', label: 'Cena' },
+      { key: 'stock_quantity', label: 'Sklad' }, { key: 'category', label: 'Kategorie' },
+      { key: 'is_active', label: 'Aktivní', format: v => v ? 'ANO' : 'NE' },
+    ], products.filter(p => selectedIds.has(p.id))) },
+    { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} produktů?', onClick: async () => { await bulkDelete('products', ids, 'products_bulk_deleted'); setSelectedIds(new Set()); load() } },
+  ]
+
   return (
     <div>
       <div className="flex items-center gap-3 mb-4 flex-wrap">
@@ -78,15 +93,19 @@ export default function ProductsTab() {
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
+          <BulkActionsBar count={selectedIds.size} onClear={() => setSelectedIds(new Set())} actions={bulkActions} />
           <Table>
             <thead>
               <TRow header>
+                <TH><SelectAllCheckbox items={products} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
                 <TH>Foto</TH><TH>Název</TH><TH>SKU</TH><TH>Cena</TH><TH>Sklad</TH><TH>Velikosti</TH><TH>Stav</TH><TH>Akce</TH>
               </TRow>
             </thead>
             <tbody>
               {products.map(p => (
-                <tr key={p.id} className="cursor-pointer hover:bg-[#f1faf7] transition-colors" style={{ borderBottom: '1px solid #d4e8e0' }}>
+                <tr key={p.id} className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
+                  style={{ borderBottom: '1px solid #d4e8e0', background: selectedIds.has(p.id) ? '#fef9c3' : undefined }}>
+                  <TD><RowCheckbox id={p.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TD>
                   <TD>
                     {p.images?.[0] ? (
                       <img src={p.images[0]} alt={p.name} style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 8 }} />

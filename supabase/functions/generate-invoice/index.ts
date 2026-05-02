@@ -34,6 +34,32 @@ async function loadCompanyInfo(supabase: any) {
 const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
 const fmtPrice = (n: number) => (n || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2 })
 
+// ===== PRICE BREAKDOWN PER DAY =====
+// Motorky mají denní ceny v sloupcích price_mon..price_sun + fallback price_weekday.
+// Vstup: motorcycles row (může být null), startDate, endDate (date string nebo ISO timestamp).
+// Výstup: { total, days: [{iso,dow,dowLabel,price}], uniform } — uniform=true když všechny dny stejná cena.
+const DOW_LABELS_CS = ['Ne', 'Po', 'Út', 'St', 'Čt', 'Pá', 'So']
+const DOW_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
+function calcPriceBreakdown(moto: any, startDate: string, endDate: string): { total: number; days: Array<{ iso: string; dow: number; dowLabel: string; price: number }>; uniform: boolean } {
+  if (!moto || !startDate || !endDate) return { total: 0, days: [], uniform: true }
+  const s = new Date(startDate); const e = new Date(endDate)
+  if (isNaN(s.getTime()) || isNaN(e.getTime()) || s > e) return { total: 0, days: [], uniform: true }
+  const d = new Date(s.getFullYear(), s.getMonth(), s.getDate())
+  const eDate = new Date(e.getFullYear(), e.getMonth(), e.getDate())
+  const arr: Array<{ iso: string; dow: number; dowLabel: string; price: number }> = []
+  let total = 0
+  while (d <= eDate) {
+    const dow = d.getDay()
+    const price = Number(moto['price_' + DOW_KEYS[dow]] || moto.price_weekday || 0)
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    arr.push({ iso, dow, dowLabel: DOW_LABELS_CS[dow], price })
+    total += price
+    d.setDate(d.getDate() + 1)
+  }
+  const uniform = arr.length <= 1 || arr.every((x) => x.price === arr[0].price)
+  return { total, days: arr, uniform }
+}
+
 const CORS = {
   'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -152,7 +178,7 @@ serve(async (req) => {
       }
     } else {
       const { data: booking, error: bErr } = await supabase
-        .from('bookings').select('*, motorcycles(model, spz), profiles(id, full_name, email, phone, street, city, zip, country, ico, dic)')
+        .from('bookings').select('*, motorcycles(model, spz, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, price_weekday, price_weekend), profiles(id, full_name, email, phone, street, city, zip, country, ico, dic)')
         .eq('id', booking_id).single()
       if (bErr || !booking) return new Response(JSON.stringify({ error: 'Booking not found' }), { status: 404 })
 
@@ -201,11 +227,44 @@ serve(async (req) => {
           ? `ÚPRAVA — prodloužení o ${deltaDays} ${deltaDays === 1 ? 'den' : deltaDays < 5 ? 'dny' : 'dní'}`
           : `ÚPRAVA — změna termínu`
 
+        // Hlavička úpravy — section header (renderuje se přes colspan, bez ceny v řádku).
         items.push({
-          description: `Úprava rezervace: ${motoLabel} — nový termín ${fmtD(last.to_start)} – ${fmtD(last.to_end)} (původně ${fmtD(last.from_start)} – ${fmtD(last.from_end)})`,
+          description: `── Úprava rezervace: ${motoLabel} — nový termín ${fmtD(last.to_start)} – ${fmtD(last.to_end)} (původně ${fmtD(last.from_start)} – ${fmtD(last.from_end)}) ──`,
           qty: 1,
-          unit_price: priceDiff,
+          unit_price: 0,
         })
+
+        // Denní rozpis přidaných dnů (extend) — vychází z denních cen motorky.
+        // Bezpečné: pokud se rozpis nesejde s priceDiff (např. ruční override),
+        // přidáme korekční řádek aby součet seděl 1:1 s tím, co user platí.
+        const ext = calcPriceBreakdown(booking.motorcycles, last.to_start, last.to_end)
+        const orig = calcPriceBreakdown(booking.motorcycles, last.from_start, last.from_end)
+        const origIso = new Set((orig.days || []).map((d) => d.iso))
+        const addedDays = (ext.days || []).filter((d) => !origIso.has(d.iso))
+        const addedSum = addedDays.reduce((s, d) => s + (d.price || 0), 0)
+        if (addedDays.length && addedSum > 0) {
+          for (const ad of addedDays) {
+            items.push({
+              description: `Pronájem ${motoLabel} — ${ad.dowLabel} ${fmtD(ad.iso)}`,
+              qty: 1,
+              unit_price: ad.price,
+            })
+          }
+          if (addedSum !== priceDiff) {
+            items.push({
+              description: `Korekce ceny prodloužení`,
+              qty: 1,
+              unit_price: priceDiff - addedSum,
+            })
+          }
+        } else {
+          // Fallback: nemáme detailní rozpis (např. prázdné denní ceny) — jediný řádek.
+          items.push({
+            description: `Doplatek za prodloužení rezervace`,
+            qty: 1,
+            unit_price: priceDiff,
+          })
+        }
 
         // Booking-level ref in title; exposed via bookingNumber below
       } else {
@@ -214,12 +273,40 @@ serve(async (req) => {
         const days = Math.max(1, Math.ceil((new Date(booking.end_date).getTime() - new Date(booking.start_date).getTime()) / 86400000))
         const extrasTotal = extras.reduce((s, e) => s + Number(e.unit_price || 0) * Number(e.quantity || 1), 0)
         const baseRental = (booking.total_price || 0) - extrasTotal - (booking.delivery_fee || 0) + (booking.discount_amount || 0)
+        const motoLabelStd = `${booking.motorcycles?.model || 'motorky'}${booking.motorcycles?.spz ? ' (' + booking.motorcycles.spz + ')' : ''}`
+        const bd = calcPriceBreakdown(booking.motorcycles, booking.start_date, booking.end_date)
 
-        items.push({
-          description: `Pronájem ${booking.motorcycles?.model || 'motorky'} (${booking.motorcycles?.spz || ''}) — ${startDate} – ${endDate}`,
-          qty: days,
-          unit_price: Math.round(baseRental / days),
-        })
+        if (!bd.uniform && bd.days.length > 1 && bd.total > 0) {
+          // Hlavička + per-day rozpis (každý den ≠ stejná cena → vlastní řádek).
+          // `── ... ──` značí section header — template ho vyrenderuje přes colspan.
+          items.push({
+            description: `── Pronájem ${motoLabelStd} — ${startDate} – ${endDate} ──`,
+            qty: 1,
+            unit_price: 0,
+          })
+          for (const ad of bd.days) {
+            items.push({
+              description: `${ad.dowLabel} ${fmtDate(ad.iso)}`,
+              qty: 1,
+              unit_price: ad.price,
+            })
+          }
+          // Korekce: pokud Σ(rozpisu) ≠ baseRental (slevy/ruční override v bookingu), srovnáme.
+          if (Math.round(bd.total) !== Math.round(baseRental)) {
+            items.push({
+              description: `Korekce ceny pronájmu`,
+              qty: 1,
+              unit_price: Math.round(baseRental - bd.total),
+            })
+          }
+        } else {
+          // Uniformní cena nebo chybějící denní rozpis → jeden řádek (qty × unit).
+          items.push({
+            description: `Pronájem ${motoLabelStd} — ${startDate} – ${endDate}`,
+            qty: days,
+            unit_price: Math.round(baseRental / days),
+          })
+        }
 
         // Itemize accessories with sizes from booking gear columns
         for (const ex of extras) {

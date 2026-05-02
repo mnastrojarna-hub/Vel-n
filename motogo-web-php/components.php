@@ -102,10 +102,18 @@ function renderMotoCard($m) {
         $branchLine = '<p class="moto-branch-line"><span aria-hidden="true">📍</span> ' . htmlspecialchars($branch['name']) . '</p>';
     }
 
-    // Available badge — "k dispozici" pokud status=active (rezervační kalendář je v detailu)
+    // Available badge — "Dostupné dnes" pokud je motorka volná dnes,
+    // jinak "Dostupné od DD.MM.YYYY" podle nejbližšího volného data z RPC.
     $badge = '';
     if (($m['status'] ?? '') === 'active') {
-        $badge = '<span class="moto-card-badge">' . te('card.available') . '</span>';
+        $today = date('Y-m-d');
+        $nextAvail = $m['next_available_date'] ?? null;
+        if ($nextAvail && $nextAvail > $today) {
+            $dateFmt = date('d.m.Y', strtotime($nextAvail));
+            $badge = '<span class="moto-card-badge">' . te('card.availableFrom', ['date' => $dateFmt]) . '</span>';
+        } else {
+            $badge = '<span class="moto-card-badge">' . te('card.availableToday') . '</span>';
+        }
     }
 
     return '<a class="moto-wrapper" href="' . BASE_URL . '/katalog/' . $id . '" aria-label="' . $model . '">' .

@@ -1,0 +1,31 @@
+# Supabase project configuration
+# Pozn.: `project_id` musí matchovat tvůj cloud projekt (vnwnqteskbykeucanlhk).
+# Per-function settings (`verify_jwt`, `import_map`, ...) se aplikují pouze
+# pokud používáš `supabase functions deploy` s tímto repo jako workspace.
+
+project_id = "vnwnqteskbykeucanlhk"
+
+# ===== Edge funkce s vypnutou JWT verifikací =====
+# Tyhle funkce volají anonymní klienti (web, AI agenti) a auth si řeší
+# samy (token v body, X-Api-Key header, IP rate-limit, ...). Bez tohoto
+# nastavení Supabase gateway zablokuje i OPTIONS preflight → CORS error.
+
+# CMS save (volá motogo24.com admin overlay; auth = cms_admin_token v body)
+[functions.cms-save]
+verify_jwt = false
+
+# Veřejné REST API pro AI agenty / partnery (auth = X-Api-Key header)
+[functions.public-api]
+verify_jwt = false
+
+# MCP server pro Claude Desktop / Cursor / Cline / Smithery
+[functions.mcp-server]
+verify_jwt = false
+
+# AI booking widget na motogo24.com (anonymous user chat)
+[functions.ai-public-agent]
+verify_jwt = false
+
+# Stripe webhook receiver (auth = signed Stripe-Signature header)
+[functions.webhook-receiver]
+verify_jwt = false

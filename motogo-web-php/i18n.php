@@ -2,15 +2,27 @@
 // ===== MotoGo24 Web PHP — i18n core =====
 // Detekce jazyka, načítání slovníků, t() helper.
 //
-// Priorita: GET ?lang=xx → COOKIE mg_web_lang → Accept-Language → 'cs'
+// Doménová strategie (Google-friendly multi-regional):
+//   motogo24.cz  → Czech homebase. Default vždy 'cs'. Accept-Language IGNOROVÁN.
+//                  Manuální přepnutí jazyka přesměruje na motogo24.com.
+//   motogo24.com → International. Default = browser Accept-Language (kromě 'cs')
+//                  → fallback 'en'. Manuální 'cs' v switcheru jde na motogo24.cz.
+//
+// Priorita detekce: GET ?lang=xx → COOKIE mg_web_lang → doménový default
 // Cookie se nastavuje při ?lang= a žije 365 dní.
-// Podporované jazyky se shodují s Flutter appkou: cs, en, de, es, fr, nl, pl.
 
 require_once __DIR__ . '/config.php';
 
 const I18N_SUPPORTED = ['cs', 'en', 'de', 'es', 'fr', 'nl', 'pl'];
+// Globální defaultní jazyk (pro slovníkový fallback). Per-doména default
+// se počítá v i18nSiteDefaultLang() a má přednost při detekci.
 const I18N_DEFAULT = 'cs';
 const I18N_COOKIE = 'mg_web_lang';
+
+// Doménové mapování — určuje, na které doméně bydlí "kanonická" verze jazyka.
+// Z hlediska Google hreflang/canonical: cs žije na .cz, ostatní na .com.
+const I18N_DOMAIN_CS = 'motogo24.cz';
+const I18N_DOMAIN_INTL = 'motogo24.com';
 
 const I18N_LANGUAGES = [
     'cs' => ['flag' => '🇨🇿', 'name' => 'Čeština'],
@@ -23,8 +35,80 @@ const I18N_LANGUAGES = [
 ];
 
 /**
+ * Vrátí aktuální host bez www. prefixu, lowercase.
+ */
+function i18nSiteHost() {
+    $h = strtolower($_SERVER['HTTP_HOST'] ?? I18N_DOMAIN_CS);
+    return preg_replace('#^www\.#', '', $h);
+}
+
+/**
+ * True, pokud běžíme na .com doméně (nebo její www variantě).
+ */
+function i18nIsComDomain() {
+    $h = i18nSiteHost();
+    return $h === I18N_DOMAIN_INTL || str_ends_with($h, '.' . I18N_DOMAIN_INTL);
+}
+
+/**
+ * Default jazyk podle aktuální domény:
+ *   .cz → 'cs' (Czech homebase, Accept-Language ignorován)
+ *   .com → 'en' (international fallback; Accept-Language detekce probíhá v i18nDetectLanguage)
+ */
+function i18nSiteDefaultLang() {
+    return i18nIsComDomain() ? 'en' : 'cs';
+}
+
+/**
+ * Vrátí origin (https://motogo24.xx) pro doménovou kanonickou verzi daného jazyka.
+ * Pravidlo: 'cs' bydlí na .cz, vše ostatní na .com.
+ */
+function i18nOriginForLang($lang) {
+    $domain = ($lang === 'cs') ? I18N_DOMAIN_CS : I18N_DOMAIN_INTL;
+    return 'https://' . $domain;
+}
+
+/**
+ * Postaví kanonickou URL pro daný jazyk + cestu.
+ *   cs  na .cz  → https://motogo24.cz{path}
+ *   en  na .com → https://motogo24.com{path}
+ *   de/fr/nl/pl/es na .com → https://motogo24.com{path}?lang=xx
+ *
+ * $forceLangQuery=true vždy přidá ?lang=xx (i pro doménový default). Používá
+ * jen language switcher — díky tomu se vždy refreshne cookie `mg_web_lang`
+ * a explicitní volba EN na .com (resp. CS na .cz) přebije starou cookie.
+ * Pro canonical/hreflang to NIKDY nezapínat — mate Google.
+ */
+function i18nUrlForLang($lang, $path, $forceLangQuery = false) {
+    $origin = i18nOriginForLang($lang);
+    // Defaultní jazyk dané domény nepotřebuje ?lang= parametr.
+    $isDomainDefault = ($lang === 'cs') || ($lang === 'en');
+    if ($isDomainDefault && !$forceLangQuery) {
+        return $origin . $path;
+    }
+    $sep = (strpos($path, '?') !== false) ? '&' : '?';
+    return $origin . $path . $sep . 'lang=' . $lang;
+}
+
+/**
+ * Kanonická URL pro aktuálně detekovaný jazyk + zadanou cestu.
+ * Použij v pages/*.php pro breadcrumbs / structured data — vždy ukáže
+ * na správnou doménu pro daný jazyk (žádné natvrdo motogo24.cz).
+ */
+function siteCanonicalUrl($path = '') {
+    return i18nUrlForLang(i18nDetectLanguage(), $path);
+}
+
+/**
  * Detekuje a (případně) uloží jazyk pro aktuální request.
  * Volat co nejdřív v hlavním entry pointu (index.php, sitemap.php).
+ *
+ * Priorita:
+ *   1) ?lang=xx (explicitní, uloží do cookie)
+ *   2) Cookie mg_web_lang (přetrvává volbu mezi requesty)
+ *   3) Doménově-závislý default:
+ *      - .com: Accept-Language (kromě 'cs', protože Czech bydlí na .cz) → fallback 'en'
+ *      - .cz: vždy 'cs' (Accept-Language IGNOROVÁN; přepnout lze jen ručně přes switcher)
  */
 function i18nDetectLanguage() {
     static $cached = null;
@@ -50,26 +134,31 @@ function i18nDetectLanguage() {
         return $cached;
     }
 
-    // 2) Cookie
+    // 2) Cookie (přetrvávající uživatelská volba)
     $fromCookie = $_COOKIE[I18N_COOKIE] ?? '';
     if ($fromCookie && in_array($fromCookie, I18N_SUPPORTED, true)) {
         $cached = $fromCookie;
         return $cached;
     }
 
-    // 3) Accept-Language hlavička
-    $acceptLang = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '';
-    if ($acceptLang) {
-        // Vezmi první 2 znaky první jazykové preference (např. "cs-CZ,cs;q=0.9,en;q=0.8" → "cs")
-        $first = strtolower(substr(preg_replace('/[^a-zA-Z\-,;]/', '', $acceptLang), 0, 2));
-        if (in_array($first, I18N_SUPPORTED, true)) {
-            $cached = $first;
-            return $cached;
+    // 3) Doménově-závislý default
+    if (i18nIsComDomain()) {
+        // .com: detekce z Accept-Language, ALE 'cs' vyloučíme — čeští návštěvníci
+        // patří na .cz, jinak vznikla duplicate-content situace pro Google.
+        $acceptLang = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '';
+        if ($acceptLang) {
+            $first = strtolower(substr(preg_replace('/[^a-zA-Z\-,;]/', '', $acceptLang), 0, 2));
+            if ($first !== 'cs' && in_array($first, I18N_SUPPORTED, true)) {
+                $cached = $first;
+                return $cached;
+            }
         }
+        $cached = 'en';
+        return $cached;
     }
 
-    // 4) Default
-    $cached = I18N_DEFAULT;
+    // .cz: vždy čeština (Accept-Language nepoužíváme — manuální přepnutí jen v switcheru)
+    $cached = 'cs';
     return $cached;
 }
 
@@ -143,29 +232,90 @@ function _i18nDeepMerge($a, $b) {
 }
 
 /**
+ * Načte CMS overlay pro chrome texty (klíče `web.layout.*` z `cms_variables`).
+ * Vrací mapu `[<original_key>] => <string>` (původní klíč bez prefixu `web.layout.`).
+ * Cache per request + APCu/file 60 s, aby se to nedotazovalo na každém renderu.
+ */
+function _i18nCmsOverlay() {
+    static $cached = null;
+    if ($cached !== null) return $cached;
+
+    if (!class_exists('SupabaseClient', false)) {
+        $cached = [];
+        return $cached;
+    }
+
+    $lang = i18nDetectLanguage();
+    try {
+        $sb = new SupabaseClient();
+        // PostgREST: key=like.web.layout.*
+        $rows = $sb->query('cms_variables', 'key,value,translations', ['key=like.web.layout.*']);
+    } catch (\Throwable $e) {
+        $cached = [];
+        return $cached;
+    }
+
+    $out = [];
+    $prefix = 'web.layout.';
+    foreach ((array)$rows as $r) {
+        $k = $r['key'] ?? '';
+        if (strpos($k, $prefix) !== 0) continue;
+        $tail = substr($k, strlen($prefix));
+        if ($tail === '') continue;
+
+        $val = $r['value'] ?? null;
+        // per-language overlay z translations
+        if ($lang !== 'cs' && !empty($r['translations']) && is_array($r['translations'])) {
+            $tr = $r['translations'];
+            if (isset($tr[$lang])) {
+                $cand = is_array($tr[$lang])
+                    ? ($tr[$lang]['value'] ?? null)
+                    : $tr[$lang];
+                if (is_string($cand) && $cand !== '') $val = $cand;
+            }
+        }
+        if (is_string($val) || is_numeric($val)) {
+            $out[$tail] = (string)$val;
+        }
+    }
+    $cached = $out;
+    return $cached;
+}
+
+/**
  * Překlad. $key je tečkový název klíče (např. 'menu.rental' nebo 'pages.home.h1').
  * Podporuje hluboké zanořené pole (vrací mixed: string nebo array).
  * $params: asociativní pole pro {placeholder} substituci (jen u stringu).
  * Pokud klíč neexistuje, vrátí samotný klíč (debug-friendly).
+ *
+ * NOVÉ: pokud existuje override v `cms_variables` pod `web.layout.<key>`,
+ * má přednost před statickým slovníkem (Velín admin může přepisovat chrome
+ * texty bez deployi).
  */
 function t($key, $params = null) {
-    $dict = i18nDictionary();
-    // Nejdřív rovný lookup (rychlá cesta pro existující klíče s tečkami v názvu)
-    if (isset($dict[$key])) {
-        $raw = $dict[$key];
+    // 1) CMS overlay (Velín-edited)
+    $overlay = _i18nCmsOverlay();
+    if (isset($overlay[$key])) {
+        $raw = $overlay[$key];
     } else {
-        // Zkus tečkovou navigaci do vnořeného pole (např. 'pages.home.h1')
-        $parts = explode('.', $key);
-        $node = $dict;
-        $found = true;
-        foreach ($parts as $p) {
-            if (is_array($node) && array_key_exists($p, $node)) {
-                $node = $node[$p];
-            } else {
-                $found = false; break;
+        $dict = i18nDictionary();
+        // Nejdřív rovný lookup (rychlá cesta pro existující klíče s tečkami v názvu)
+        if (isset($dict[$key])) {
+            $raw = $dict[$key];
+        } else {
+            // Zkus tečkovou navigaci do vnořeného pole (např. 'pages.home.h1')
+            $parts = explode('.', $key);
+            $node = $dict;
+            $found = true;
+            foreach ($parts as $p) {
+                if (is_array($node) && array_key_exists($p, $node)) {
+                    $node = $node[$p];
+                } else {
+                    $found = false; break;
+                }
             }
+            $raw = $found ? $node : $key;
         }
-        $raw = $found ? $node : $key;
     }
     if (is_string($raw) && is_array($params) && !empty($params)) {
         foreach ($params as $k => $v) {
@@ -178,11 +328,48 @@ function t($key, $params = null) {
 /**
  * HTML-safe překlad — htmlspecialchars-uje výsledek (pouze string).
  * Pole vrátí prázdný string (volat te() smí jen pro stringové klíče).
+ *
+ * BEZ wrapperu — bezpečné pro HTML atributy (alt, title, aria-label, value, …).
+ * Pro editovatelné texty v <body> kontextu volej `tc()`.
  */
 function te($key, $params = null) {
     $v = t($key, $params);
     if (!is_string($v)) return '';
     return htmlspecialchars($v, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+}
+
+/**
+ * CMS-aware HTML překlad — pro adminy obalí výsledek do
+ * `<span data-cms-key="web.layout.<key>">…</span>`, pro běžné uživatele vrátí
+ * stejný plain text jako `te()`. Tím získá inline edit (cms-admin.js) bez
+ * nutnosti ručně psát data-cms-key do každé šablony.
+ *
+ * Použití: jen v <body> kontextu (nikdy uvnitř HTML atributu — tam použij `te()`).
+ *
+ *   <h2><?= tc('menu.rental') ?></h2>          ✅
+ *   <a href="..." title="<?= te('menu.rental') ?>">…</a>   ← title musí být `te`
+ */
+function tc($key, $params = null) {
+    $escaped = te($key, $params);
+    if (empty($_COOKIE['mg_cms_admin'])) return $escaped;
+    $safeKey = htmlspecialchars($key, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    return '<span data-cms-key="web.layout.' . $safeKey . '">' . $escaped . '</span>';
+}
+
+/**
+ * Jako `tc()`, ale bere již předpřipravený HTML obsah (např. když je v `t()`
+ * uložené HTML jako `<strong>X</strong>`). NEšlo to přes htmlspecialchars,
+ * tj. volající musí garantovat trusted HTML.
+ */
+function tcRaw($key, $params = null) {
+    $raw = t($key, $params);
+    if (!is_string($raw)) return '';
+    if (is_array($params) && !empty($params)) {
+        // už zpracováno v t()
+    }
+    if (empty($_COOKIE['mg_cms_admin'])) return $raw;
+    $safeKey = htmlspecialchars($key, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    return '<span data-cms-key="web.layout.' . $safeKey . '">' . $raw . '</span>';
 }
 
 /**
@@ -206,13 +393,13 @@ function i18nOgLocale() {
 
 /**
  * Vyrenderuje language switcher tlačítko + dropdown.
- * Cílová URL = aktuální cesta + ?lang=xx.
+ * Cílová URL přepíná i doménu — 'cs' vede na motogo24.cz, ostatní na motogo24.com.
  */
 function renderLanguageSwitcher() {
     $current = i18nDetectLanguage();
     $cur = I18N_LANGUAGES[$current] ?? I18N_LANGUAGES[I18N_DEFAULT];
 
-    // Aktuální URL bez ?lang=, abychom mohli přidat náš param
+    // Aktuální URL — vyextrahujeme path a všechny query parametry (kromě 'lang')
     $reqUri = $_SERVER['REQUEST_URI'] ?? '/';
     $parts = parse_url($reqUri);
     $path = $parts['path'] ?? '/';
@@ -221,11 +408,20 @@ function renderLanguageSwitcher() {
         parse_str($parts['query'], $existingQuery);
         unset($existingQuery['lang']);
     }
-    $baseQuery = !empty($existingQuery) ? ('&' . http_build_query($existingQuery)) : '';
 
     $items = '';
     foreach (I18N_LANGUAGES as $code => $info) {
-        $href = htmlspecialchars($path . '?lang=' . $code . $baseQuery);
+        // Cross-domain URL pro daný jazyk (cs → .cz, ostatní → .com).
+        // forceLangQuery=true → vždy připojí ?lang=xx, aby se cookie `mg_web_lang`
+        // refreshla i při přepnutí na doménový default (jinak by stará cookie
+        // přebila novou volbu — přesně to byl bug s nefunkčním přepínáním na EN).
+        $url = i18nUrlForLang($code, $path, true);
+        // Připoj zbývající query parametry (mimo lang)
+        if (!empty($existingQuery)) {
+            $sep = (strpos($url, '?') !== false) ? '&' : '?';
+            $url .= $sep . http_build_query($existingQuery);
+        }
+        $href = htmlspecialchars($url);
         $isActive = ($code === $current);
         $cls = 'lang-item' . ($isActive ? ' active' : '');
         $check = $isActive ? '<span class="lang-check" aria-hidden="true">✓</span>' : '';

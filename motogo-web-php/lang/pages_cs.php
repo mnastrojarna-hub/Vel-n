@@ -44,7 +44,7 @@ return [
                 'grid' => 'gr5',
                 'items' => [
                     [
-                        'icon' => 'gfx/ico-online-rezervace.svg',
+                        'icon' => 'gfx/rezervace-online.svg',
                         'title' => 'Online rezervace',
                         'text' => 'rychlá a jednoduchá rezervace z pohodlí domova.',
                     ],
@@ -59,12 +59,12 @@ return [
                         'text' => 'žádná záloha při půjčení.',
                     ],
                     [
-                        'icon' => 'gfx/ico-jasne-podminky.svg',
+                        'icon' => 'gfx/jasne-podminky.svg',
                         'title' => 'Jasné podmínky',
                         'text' => 'bez skrytých poplatků.',
                     ],
                     [
-                        'icon' => 'gfx/ico-sleva.svg',
+                        'icon' => 'gfx/sleva-na-pristi-jizdu.svg',
                         'title' => 'Sleva na další rezervaci',
                         'text' => 'po každém dokončeném pronájmu dostaneš slevový kód na příští rezervaci.&nbsp;',
                     ],
@@ -105,12 +105,12 @@ return [
                         'text' => 'motorku půjčujeme bez blokace peněz',
                     ],
                     [
-                        'icon' => 'gfx/ico-pojisteni.svg',
-                        'title' => 'Pojištění',
-                        'text' => 'v ceně (povinné ručení; havarijní dle konkrétního modelu a podmínek)',
+                        'icon' => 'gfx/rezervace-online.svg',
+                        'title' => 'Online rezervace',
+                        'text' => 'včetně platby',
                     ],
                     [
-                        'icon' => 'gfx/ico-vybava.svg',
+                        'icon' => 'gfx/vyber-vybavu.svg',
                         'title' => 'Výbava pro řidiče',
                         'text' => 'v ceně (helma, bunda, kalhoty, rukavice)',
                     ],
@@ -120,12 +120,12 @@ return [
                         'text' => 'převzetí a vrácení kdykoli v den výpůjčky',
                     ],
                     [
-                        'icon' => 'gfx/ico-jasna-pravidla.svg',
+                        'icon' => 'gfx/jasne-podminky.svg',
                         'title' => 'Jasná pravidla užívání',
                         'text' => 'doma i v zahraničí (podle zelené karty)',
                     ],
                     [
-                        'icon' => 'gfx/ico-bezskryte.svg',
+                        'icon' => 'gfx/zadne-skryte-poplatky.svg',
                         'title' => 'Žádné skryté poplatky',
                         'text' => 'vše je uvedeno níže a ve smlouvě',
                     ],
@@ -263,7 +263,7 @@ return [
                 'grid' => 'gr5',
                 'items' => [
                     [
-                        'icon' => 'gfx/ico-flexibilita.svg',
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
                         'title' => 'Flexibilita',
                         'text' => 'Motorku přivezeme, kam potřebuješ – domů, do hotelu, k nádraží nebo na start výletu.',
                     ],
@@ -278,7 +278,7 @@ return [
                         'text' => 'Přistavení domlouváme na předem sjednaný čas – klidně večer nebo o víkendu. Stačí zvolit čas v rezervaci.',
                     ],
                     [
-                        'icon' => 'gfx/ico-uspora-casu.svg',
+                        'icon' => 'gfx/uspora-casu.svg',
                         'title' => 'Úspora času',
                         'text' => 'Čas ušetřený na cestě do půjčovny a zpět můžeš věnovat sobě.',
                     ],
@@ -294,52 +294,52 @@ return [
                 'grid' => 'gr5',
                 'steps' => [
                     [
-                        'icon' => 'gfx/ico-step-vyber.svg',
+                        'icon' => 'gfx/vyber-motorku.svg',
                         'title' => 'Vyber motorku',
                         'text' => 'Prohlédni si naši nabídku cestovních, supermoto, naked a dětských motorek a vyber si tu pravou.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step-termin.svg',
+                        'icon' => 'gfx/rezervace-online.svg',
                         'title' => 'Zvol termín',
                         'text' => 'V kalendáři vyber datum, kdy chceš vyjet. Uvidíš, které motorky jsou volné.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step-udaje.svg',
+                        'icon' => 'gfx/kontaktni-udaje.svg',
                         'title' => 'Kontaktní údaje',
                         'text' => 'Vyplň jméno, adresu, e-mail a telefon.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step-cas.svg',
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
                         'title' => 'Čas přistavení',
                         'text' => 'Zvol, kdy ti motorku přistavíme – klidně večer nebo o víkendu.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step-misto.svg',
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
                         'title' => 'Místo přistavení',
                         'text' => 'Zadej adresu, kam motorku přivézt – domů, do hotelu, k nádraží nebo na start výletu.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step-vybava.svg',
+                        'icon' => 'gfx/vyber-vybavu.svg',
                         'title' => 'Výbava',
                         'text' => 'Základní výbava řidiče je v ceně. Požadované velikosti pro všechny části výbavy uveď do pole Poznámka – povinné.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step-platba.svg',
+                        'icon' => 'gfx/zaplat.svg',
                         'title' => 'Potvrzení a platba',
                         'text' => 'Zkontroluj shrnutí objednávky, odsouhlas podmínky a zaplať online.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step-prevzeti.svg',
+                        'icon' => 'gfx/podpis-dokumentu.svg',
                         'title' => 'Převzetí na místě',
                         'text' => 'Při předání zkontrolujeme doklady, doplníme smlouvu a podepíšeme předávací protokol.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step-jizda.svg',
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
                         'title' => 'Užij si jízdu',
                         'text' => 'Vyraz na cestu – bez kauce, bez stresu. Zbytek je jen asfalt a svoboda.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step-vraceni.svg',
+                        'icon' => 'gfx/predani-motorky.svg',
                         'title' => 'Vrácení motorky',
                         'text' => 'Motorku vrať včas na předem sjednané místo. Nemusíš tankovat ani mýt.',
                     ],
@@ -415,12 +415,12 @@ return [
                 'grid' => 'gr5',
                 'items' => [
                     [
-                        'icon' => 'gfx/ico-flexibilita.svg',
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
                         'title' => 'Flexibilita',
                         'text' => 'Vybereš si místo vrácení podle své trasy – hotel, nádraží, parkoviště nebo kdekoliv jinde.',
                     ],
                     [
-                        'icon' => 'gfx/ico-uspora-casu.svg',
+                        'icon' => 'gfx/uspora-casu.svg',
                         'title' => 'Úspora času',
                         'text' => 'Ušetříš cestu zpátky do půjčovny i domů – předáš motorku tam, kde jsi.',
                     ],
@@ -435,7 +435,7 @@ return [
                         'text' => 'Vrácení domlouváme na předem sjednaný čas – klidně večer nebo o víkendu.',
                     ],
                     [
-                        'icon' => 'gfx/ico-jednoduchost.svg',
+                        'icon' => 'gfx/predani-motorky.svg',
                         'title' => 'Jednoduchost',
                         'text' => 'Předáš klíče a výbavu, my zkontrolujeme motorku a odjedeme. Žádné papírování navíc.',
                     ],
@@ -446,27 +446,27 @@ return [
                 'grid' => 'gr5',
                 'steps' => [
                     [
-                        'icon' => 'gfx/ico-step-misto-cas.svg',
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
                         'title' => 'Zvol místo a čas vrácení',
                         'text' => 'V rezervačním formuláři zadej adresu a čas, kdy motorku předáš.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step-vybava.svg',
+                        'icon' => 'gfx/vyber-vybavu.svg',
                         'title' => 'Připrav si výbavu',
                         'text' => 'Před předáním si nachystej výbavu, která byla součástí výpůjčky.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step-prijedeme.svg',
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
                         'title' => 'Přijedeme v domluvený čas',
                         'text' => 'Dorazíme na sjednané místo přesně v domluvený čas.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step-kontrola.svg',
+                        'icon' => 'gfx/prevezmi-motorku.svg',
                         'title' => 'Společně zkontrolujeme motorku a výbavu',
                         'text' => 'Zkontrolujeme stav motorky a výbavy, naložíme a odjedeme.&nbsp;',
                     ],
                     [
-                        'icon' => 'gfx/ico-step-email.svg',
+                        'icon' => 'gfx/sleva-na-pristi-jizdu.svg',
                         'title' => 'Na e-mail ti přijde potvrzení',
                         'text' => 'Potvrzení o ukončení nájmu, konečná faktura a slevový kód na další rezervaci.',
                     ],
@@ -557,289 +557,423 @@ return [
                 'keywords' => 'půjčovna motorek Vysočina, pronájem motorek Vysočina, půjčovna motorek Pelhřimov, půjčovna motorek bez kauce, nonstop půjčovna motorek, půjčovna cestovní motorky, pronájem sportovní motorky, půjčovna enduro motorek, půjčovna skútrů Vysočina, dětské motorky k pronájmu, rezervace motorky online, motorky k pronájmu Vysočina, motorbike rental Czech Republic, motorcycle hire Vysocina, rent a motorbike Pelhřimov',
             ],
         ],
-        'faq' => [
-            'seo' => [
-                'title' => 'Půjčovna motorek Vysočina – Jak si půjčit motorku – Často kladené dotazy',
-                'description' => 'Nejčastější dotazy k půjčení motorky u MotoGo24. Odpovědi na rezervaci motorky, podmínky i průběh zapůjčení motocyklu. Rezervuj si motorku jednoduše online. Vyber termín, stroj i výbavu a vyraz na nezapomenutelnou jízdu s MotoGo24 na Vysočině.',
-                'keywords' => 'půjčovna motorek Vysočina, pronájem motorek Vysočina, půjčovna motorek Pelhřimov, půjčovna motorek bez kauce, nonstop půjčovna motorek, půjčovna cestovních motorek, pronájem sportovních motorek, půjčovna enduro motorek, půjčovna skútrů Vysočina, dětské motorky k pronájmu, rezervace motorek online, motorky k pronájmu Vysočina, půjčovna motorek Česká republika, půjčovna motocyklů Pelhřimov',
+        'jak_pujcit_postup' => [
+            'h1' => 'Postup půjčení motorky',
+            'intro_p1' => 'V <strong>Motogo24 – půjčově motorek na Vysočině</strong> je půjčení jednoduché, rychlé a férové.&nbsp;<strong>Bez kauce, s výbavou pro řidiče v ceně a nonstop provozem pro půjčení a vrácení motorky</strong>. Přesvědč se, jak snadno to funguje.',
+            'intro_h2' => 'Jak si půjčit motorku – půjčovna Motogo24 – Vysočina',
+            'intro_p2' => 'V naší <strong>motopůjčovně </strong>zvládneš vše online: vyber motorku, zvol termín a vyplň rezervační formulář – včetně výbavy a způsobu předání. Motorku si vyzvedni v Pelhřimově, nebo si objednej přistavení kamkoliv v ČR. Platbu provedeš online při dokončení rezervace..',
+            'process' => [
+                'title' => 'Jak probíhá pronájem krok za krokem',
+                'grid' => 'gr4',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/vyber-motorku.svg',
+                        'title' => '1. Vyber motorku',
+                        'text' => 'Prohlédni si naši nabídku&nbsp;<strong>cestovních, supermoto, naked a dětských motorek</strong>&nbsp;a vyber si tu pravou.',
+                    ],
+                    [
+                        'icon' => 'gfx/rezervace-online.svg',
+                        'title' => '2. Zvol termín',
+                        'text' => 'V kalendáři vyber datum, kdy chceš vyjet. Uvidíš, které motorky jsou volné.',
+                    ],
+                    [
+                        'icon' => 'gfx/kontaktni-udaje.svg',
+                        'title' => '3. Kontaktní údaje',
+                        'text' => 'Vyplň jméno, adresu, e-mail a telefon.',
+                    ],
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => '4. Čas převzetí',
+                        'text' => 'Zvol, kdy si motorku vyzvedneš nebo kdy ji přistavíme.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
+                        'title' => '5. Zvol si předání',
+                        'text' => 'Vyber způsob převzetí – osobně v Pelhřimově, nebo přistavení kamkoliv v ČR.&nbsp;',
+                    ],
+                    [
+                        'icon' => 'gfx/prevezmi-motorku.svg',
+                        'title' => '6. Zvol si vrácení',
+                        'text' => 'Vyber, jestli budeš motorku vracet na adrese motopůjčovny, nebo jinde.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => '7. Výbava',
+                        'text' => 'Základní výbava řidiče je v ceně. Chceš výbavu pro spolujezdce, zapůjčit boty nebo jedeš s vlastní výbavou? Zaškrtneš při rezervaci.',
+                    ],
+                    [
+                        'icon' => 'gfx/zaplat.svg',
+                        'title' => '8. Shrnutí objednávky a platba',
+                        'text' => 'Zkontroluj shrnutí objednávky, odsouhlas podmínky a zaplať online platební kartou.',
+                    ],
+                    [
+                        'icon' => 'gfx/potvrzeni-rezervace.svg',
+                        'title' => '9. Potvrzení e-mailem',
+                        'text' => 'Po dokončení rezervace ti přijde e-mail s potvrzením rezervace a platby, dokladem o platbě, předvyplněnou nájemní smlouvou a základními instrukcemi pro vyzvednutí motorky.',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => '10. Převzetí motorky',
+                        'text' => 'Při předání zkontrolujeme doklady, doplníme smlouvu a podepíšeme předávací protokol. Vyzkouší se velikost výbavy – a pak už jen nastartovat!',
+                    ],
+                    [
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
+                        'title' => '11. Užij si jízdu',
+                        'text' => 'Vyraz na cestu – <strong>bez kauce, bez stresu</strong>. Zbytek je jen asfalt a svoboda.',
+                    ],
+                    [
+                        'icon' => 'gfx/vrat-motorku-vcas.svg',
+                        'title' => '12. Vrácení motorky',
+                        'text' => 'Motorku vrať včas – osobně do půjčovny v Pelhřimově, nebo na předem sjednané místo. Nemusíš tankovat ani mýt.',
+                    ],
+                ],
             ],
-            'h1' => 'Často kladené dotazy',
-            'closing' => 'Naše <strong>půjčovna motorek Vysočina</strong> je tu pro všechny, kdo chtějí zažít <strong>nezapomenutelnou jízdu</strong> bez zbytečných komplikací. Pronájem je <strong>bez kauce</strong>, s <strong>výbavou v ceně</strong> a <strong>nonstop</strong>. Stačí si vybrat svůj stroj a rezervovat motorku online během pár minut. Ať už hledáte <strong>cestovní motorku, sportovní model nebo enduro</strong>, u nás si vyberete.',
+            'gallery' => [
+                'image' => '/gfx/vybava_diagram_motogo24_1200px.svg',
+                'alt' => 'Výbava diagram&nbsp;Motogo24',
+                'group' => 'gal_1',
+            ],
+            'sizes' => [
+                'adult' => [
+                    'title' => 'Dospělá výbava',
+                    'headers' => [
+                        'Výbava',
+                        'Dostupné velikosti',
+                    ],
+                    'rows' => [
+                        [
+                            'Helma',
+                            'XS, S, M, L, XL',
+                        ],
+                        [
+                            'Bunda',
+                            'M, L, XL, 2XL',
+                        ],
+                        [
+                            'Kalhoty',
+                            'M, L, XL, 2XL',
+                        ],
+                        [
+                            'Rukavice',
+                            'M, L, XL',
+                        ],
+                        [
+                            'Motoboty',
+                            '39–46',
+                        ],
+                        [
+                            'Kukla',
+                            'univerzální',
+                        ],
+                        [
+                            'Reflexní vesta&nbsp;',
+                            'univerzální',
+                        ],
+                    ],
+                ],
+                'kid' => [
+                    'title' => 'Dětská výbava',
+                    'headers' => [
+                        'Výbava',
+                        'Dostupné velikosti',
+                    ],
+                    'rows' => [
+                        [
+                            'Helma',
+                            'S (47–48 cm), M (49–50 cm), L (51–52 cm)',
+                        ],
+                        [
+                            'Bunda',
+                            '110–116, 122–128, 134–140, 146–152 cm',
+                        ],
+                        [
+                            'Kalhoty',
+                            '110–116, 122–128, 134–140, 146–152 cm',
+                        ],
+                        [
+                            'Rukavice',
+                            'XS/S (4–7 let), M/L (8–12 let)',
+                        ],
+                        [
+                            'Motoboty',
+                            '29–35',
+                        ],
+                        [
+                            'Kukla',
+                            'S (4–7 let), M (8–12 let)',
+                        ],
+                        [
+                            'Reflexní vesta&nbsp;',
+                            'XS, S, M',
+                        ],
+                    ],
+                ],
+            ],
+            'faq' => [
+                'title' => 'Často kladené otázky',
+                'items' => [
+                    [
+                        'q' => 'Je nutná kauce při půjčení?',
+                        'a' => 'Ne.&nbsp;<strong>Půjčujeme bez kauce</strong>&nbsp;– férově a bez zbytečných překážek.',
+                    ],
+                    [
+                        'q' => 'Je v ceně půjčovného i výbava?',
+                        'a' => 'Ano. Každý řidič dostane&nbsp;<strong>helmu, bundu, kalhoty a rukavice zdarma</strong>.',
+                    ],
+                    [
+                        'q' => 'Kde si mohu motorku převzít?',
+                        'a' => 'Vyzvednutí probíhá v Pelhřimově, případně nabízíme&nbsp;<strong>přistavení motorky</strong>&nbsp;na tebou zvolené místo.',
+                    ],
+                    [
+                        'q' => 'Do kdy musím motorku vrátit?',
+                        'a' => 'Motorku můžeš vrátit kdykoli během posledního dne výpůjčky – klidně i o půlnoci.',
+                    ],
+                ],
+                'more_link' => [
+                    'label' => 'Další často kladené otázky',
+                    'href' => '/jak-pujcit/faq',
+                    'aria' => 'Přečti si další často pokládané otázky',
+                ],
+            ],
             'cta' => [
-                'label' => 'Rezervovat motorku online',
-                'href' => '/rezervace',
+                'title' => 'Sedni na motorku!',
+                'text' => 'Rezervuj si motorku online ještě dnes a užij si <strong>svobodu na dvou kolech</strong> – jednoduše a bez zbytečných podmínek.',
+                'buttons' => [
+                    [
+                        'label' => 'REZERVOVAT ONLINE',
+                        'href' => '/rezervace',
+                        'cls' => 'btndark pulse',
+                        'aria' => 'Rezervovat motorku online',
+                    ],
+                ],
             ],
-            'categories' => [
-                'reservations' => [
-                    'label' => 'Rezervace',
-                    'items' => [
-                        [
-                            'q' => 'Jak si mohu rezervovat motorku?',
-                            'a' => 'Motorku si můžeš rezervovat přes náš online rezervační systém přímo tady na webu. Pokud budeš potřebovat pomoc, klidně se nám ozvi – e-mailem, telefonicky nebo přes sociální sítě – rádi ti pomůžeme.',
-                        ],
-                        [
-                            'q' => 'Můžu si motorku půjčit i bez předchozí rezervace?',
-                            'a' => 'Bez rezervace to bohužel nejde. Každou motorku je nutné předem zamluvit přes náš online systém. Bez rezervace nemůžeme zaručit dostupnost motocyklu.',
-                        ],
-                        [
-                            'q' => 'Jak probíhá rezervace?',
-                            'a' => 'Rezervace probíhá ve třech krocích: vyplníš základní údaje, zkontroluješ shrnutí a cenu, a rovnou zaplatíš online. Potvrzení platby spolu s návrhem nájemní smlouvy ti přijde e-mailem okamžitě. Smlouva nabývá platnosti až při osobním převzetí motorky, po ověření ŘP a OP (nebo PASu).',
-                        ],
-                        [
-                            'q' => 'Musím mít rezervaci předem?',
-                            'a' => 'Ano, rezervace je povinná. Bez ní nemůžeme zaručit dostupnost motorky.',
-                        ],
-                        [
-                            'q' => 'Jak zaplatím?',
-                            'a' => 'Online platební kartou – zaplatíš přímo v rezervačním formuláři.',
-                        ],
-                        [
-                            'q' => 'Kdo podepisuje smlouvu za dítě?',
-                            'a' => 'Smlouvu podepisuje rodič nebo zákonný zástupce, který je zároveň uveden jako nájemce.',
-                        ],
-                        [
-                            'q' => 'Jaký řidičský průkaz potřebuji?',
-                            'a' => 'Záleží na tom, jakou motorku si vybereš – u každého modelu je přímo v nabídce uvedeno, jaké řidičské oprávnění je potřeba. Silnější stroje vyžadují skupinu A, slabší skupinu A2. Na dětské motorky řidičský průkaz nepotřebuješ.',
-                        ],
-                        [
-                            'q' => 'Mohu rezervaci zrušit nebo změnit termín?',
-                            'a' => 'Rezervaci lze zrušit bez poplatku nejpozději 7 dní před sjednaným termínem převzetí. Pokud motorku nepřevezmeš bez předchozího zrušení rezervace, účtujeme plnou výši nájemného. Změnu termínu řeš s námi individuálně co nejdříve – ozvi se telefonicky nebo e-mailem.',
-                        ],
-                        [
-                            'q' => 'Co se stane, když motorku z vaší strany nebudete moci předat?',
-                            'a' => 'V takovém případě tě okamžitě kontaktujeme a nabídneme ti nejlepší možné řešení – náhradní motorku nebo jiný termín. A jako omluvu dostaneš slevu na příští rezervaci.',
-                        ],
-                        [
-                            'q' => 'Jak si zvolím správnou velikost výbavy?',
-                            'a' => 'Velikosti můžeš vyplnit předem přímo v rezervačním formuláři. Pokud chceš vybrat až na místě, vyzkoušíš si různé velikosti při převzetí. V případě přistavení motorky na jiné místo je výběr velikostí předem povinný, abychom ti mohli dovézt správnou výbavu. Dostupnost konkrétních velikostí závisí na aktuální obsazenosti půjčovny.',
-                        ],
+            'seo' => [
+                'title' => 'Půjčovna motorek Vysočina – Jak si půjčit motorku – Postup půjčení motorky',
+                'description' => 'Zjisti, jak probíhá půjčení motorky u MotoGo24. Přehledný postup rezervace motorky, podmínky i tipy pro bezstarostnou jízdu. Rezervuj si motorku jednoduše online. Vyber termín, stroj i výbavu a vyraz na nezapomenutelnou jízdu s MotoGo24 na Vysočině.',
+                'keywords' => 'půjčovna motorek Vysočina, pronájem motorek Vysočina, půjčovna motorek Pelhřimov, půjčovna motorek bez kauce, nonstop půjčovna motorek, půjčovna cestovní motorky, pronájem sportovní motorky, půjčovna enduro motorek, půjčovna skútrů Vysočina, dětské motorky k pronájmu, rezervace motorky online, motorky k pronájmu Vysočina, motorbike rental Czech Republic, motorcycle hire Vysocina, rent a motorbike Pelhřimov',
+            ],
+        ],
+        'jak_pujcit_vyzvednuti' => [
+            'h1' => 'Převzetí v půjčovně – rychle, jednoduše a nonstop',
+            'intro' => 'V <strong>Motogo24 – půjčovně motorek na Vysočině</strong>&nbsp;převzetí motorky otázkou pár minut. Půjčujeme bez <strong>kauce, s výbavou pro řidiče v ceně a nonstop provozem</strong>. Přijď osobně do Pelhřimova a vyraz na cestu!',
+            'top_cta' => [
+                'label' => 'REZERVOVAT ONLINE',
+                'href' => '/rezervace',
+                'aria' => 'Přejít na online rezervaci motorky v půjčovně Motogo24',
+            ],
+            'place' => [
+                'title' => 'Kde probíhá převzetí motocyklu',
+                'address_label' => 'Provozovna:',
+                'address' => 'Mezná 9, 393 01 <strong>Pelhřimov</strong> (Vysočina)',
+                'hours_label' => 'Provozní doba:',
+                'hours' => '<em>nonstop</em> (vyzvednutí i vrácení kdykoli v den výpůjčky)',
+                'map_src' => 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d53928.274636159236!2d15.154130970132716!3d49.35168867371007!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x470ce75bf69a97b3%3A0xe75f9d3fadf02b5b!2zTWV6bsOhIDksIDM5MyAwMSBNZXpuw6E!5e0!3m2!1scs!2scz!4v1759860051295!5m2!1scs!2scz',
+                'map_title' => 'Jak se k nám dostanete',
+            ],
+            'process' => [
+                'title' => 'Jak probíhá převzetí v motopůjčovně',
+                'grid' => 'gr4',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'Přijď v domluvený čas',
+                        'text' => 'Na naši adresu: Mezná 9, 393 01 Pelhřimov.',
+                    ],
+                    [
+                        'icon' => 'gfx/overime-doklady.svg',
+                        'title' => 'Ověříme doklady',
+                        'text' => 'OP/pas a řidičský průkaz odpovídající skupiny',
+                    ],
+                    [
+                        'icon' => 'gfx/doplnime-smlouvu.svg',
+                        'title' => 'Doplníme smlouvu',
+                        'text' => 'Předvyplněnou nájemní smlouvu doplníme o údaje z dokladů.',
+                    ],
+                    [
+                        'icon' => 'gfx/vyber-vybavu.svg',
+                        'title' => 'Vybereš a vyzkoušíš si výbavu',
+                        'text' => 'Výbavu z rezervace si můžeš vyzkoušet v naší zkušební kabince.',
+                    ],
+                    [
+                        'icon' => 'gfx/prevezmi-motorku.svg',
+                        'title' => 'Společně projdeme motorku',
+                        'text' => 'Zkontrolujeme stav stroje a seznámíš se s jeho ovládáním.',
+                    ],
+                    [
+                        'icon' => 'gfx/podpis-dokumentu.svg',
+                        'title' => 'Podepíšeme předávací protokol',
+                        'text' => 'Zdokumentujeme stav motorky a výbavy před výpůjčkou.',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Předáme klíče',
+                        'text' => 'Motorka je připravená a čeká na tebe.',
+                    ],
+                    [
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
+                        'title' => 'Můžeš vyrazit',
+                        'text' => 'Vyraz na cestu – bez kauce, bez stresu. Zbytek je jen asfalt a svoboda.',
                     ],
                 ],
-                'borrowing' => [
-                    'label' => 'Výpůjčka a vrácení',
-                    'items' => [
-                        [
-                            'q' => 'Můžu motorku při vrácení na jiném místě vrátit dřív, než jsme se domluvili?',
-                            'a' => 'Na sjednané místo vyjíždíme z Pelhřimova přesně podle domluveného času, takže dřívější vrácení bohužel není možné. Pokud se ti plány změní, ozvi se nám – pokusíme se čas přizpůsobit, ale záleží na naší aktuální vytíženosti.',
-                        ],
-                        [
-                            'q' => 'Můžu motorku vrátit opravdu kdekoliv v ČR?',
-                            'a' => 'Ano, přijedeme si pro motorku kamkoliv v České republice. Místo vrácení zadáš při rezervaci – může to být hotel, parkoviště, nádraží nebo jakákoliv jiná adresa.',
-                        ],
-                        [
-                            'q' => 'Jak daleko dopředu musím vrácení na jiném místě nahlásit?',
-                            'a' => 'Místo a čas vrácení zadáváš už v rezervačním formuláři.',
-                        ],
-                        [
-                            'q' => 'Co když se na místo vrácení zpozdím?',
-                            'a' => 'Zavolej nám, jakmile víš, že to nestihneš na čas. Domluvíme se – většinou na tebe počkáme. Jen potřebujeme vědět, s jakým zpožděním počítat, abychom si mohli přizpůsobit plán dne.',
-                        ],
-                        [
-                            'q' => 'Jak se počítá cena za vrácení na jiném místě?',
-                            'a' => 'Cena zahrnuje 500 Kč za naložení, 500 Kč za vyložení a 20 Kč za každý kilometr vzdálenosti z místa vrácení do půjčovny (tam i zpět). Například při vrácení 50 km od Pelhřimova zaplatíš 500 + 500 + (50 × 2 × 20) = 3 000 Kč.',
-                        ],
-                        [
-                            'q' => 'Platím za vrácení jinde zvlášť, nebo je to součástí ceny pronájmu?',
-                            'a' => 'Vrácení na jiném místě je doplňková služba a platí se zvlášť nad rámec ceny pronájmu.',
-                        ],
-                        [
-                            'q' => 'Co když chci motorku vyzvednout v Pelhřimově, ale vrátit jinde – jde to?',
-                            'a' => 'Ano, můžeš vyzvednout motorku u nás v Pelhřimově a vrátíš ji tam, kde potřebuješ.',
-                        ],
-                        [
-                            'q' => 'Co mám mít připravené, když přijedete pro motorku?',
-                            'a' => 'Měj připravené klíče a veškerou výbavu, která byla součástí výpůjčky. Společně zkontrolujeme stav motorky a výbavy.',
-                        ],
-                        [
-                            'q' => 'Můžu motorku vrátit do půjčovny dřív, než jsme se domluvili?',
-                            'a' => 'Ano, motorku můžeš vrátit kdykoliv během posledního dne výpůjčky. Stačí nám dát vědět, že dorazíš dřív. Žádné příplatky za dřívější vrácení neúčtujeme.',
-                        ],
-                        [
-                            'q' => 'Co se stane, když nestihnu motorku do půjčovny vrátit do půlnoci posledního dne?',
-                            'a' => 'Pokud víš, že se zpozdíš, ozvi se nám co nejdřív. Domluvíme se na řešení. V případě neoznámeného pozdního vrácení se postupuje podle podmínek nájemní smlouvy.',
-                        ],
-                        [
-                            'q' => 'Musím při vrácení v půjčovně něco podepsat?',
-                            'a' => 'Pokud je vše v pořádku, vrácení proběhne rychle a bez zbytečného papírování. Potvrzení o ukončení nájmu a konečnou fakturu dostaneš na e-mail.',
-                        ],
-                        [
-                            'q' => 'Jak probíhá kontrola motorky při vrácení v půjčovně?',
-                            'a' => 'Společně projdeme stav motorky a výbavy. Pokud je vše v pořádku, převezmeme klíče a výbavu a ty můžeš jít. Celé to zabere pár minut.',
-                        ],
-                        [
-                            'q' => 'Kde probíhá vyzvednutí a vrácení?',
-                            'a' => 'V místě půjčovny na adrese Mezná 9, Pelhřimov. V rezervačním formuláři si ale můžeš domluvit i vyzvednutí nebo vrácení na jiném místě.',
-                        ],
-                        [
-                            'q' => 'Do kdy musím motorku vrátit?',
-                            'a' => 'Motorku vrať ideálně ve sjednaný čas. Pokud vracíš v místě půjčovny, můžeš ale přijet po dohodě kdykoli během posledního dne výpůjčky – nejpozději do půlnoci, bez jakýchkoli sankcí. Vracíš-li na jiném místě, je sjednaný čas závazný.',
-                        ],
-                        [
-                            'q' => 'Musím vracet s plnou nádrží a čistou?',
-                            'a' => 'Ne. U nás netankuješ ani nemyješ. Jen hlídej, aby nesvítila rezerva.',
-                        ],
-                        [
-                            'q' => 'Musím přijet osobně?',
-                            'a' => 'Ano, při převzetí motorky je nutná osobní přítomnost – ověříme tvé doklady (ŘP a OP nebo PAS), společně podepíšeme předávací protokol a vybereme výbavu.',
-                        ],
-                        [
-                            'q' => 'Co dělat, když nestihnu domluvený čas vyzvednutí?',
-                            'a' => 'Ozvi se nám co nejdřív – telefonicky nebo e-mailem. Domluvíme se.',
-                        ],
-                        [
-                            'q' => 'Od kolika let si lze dětskou motorku půjčit?',
-                            'a' => 'Neplatí jeden věk pro všechny – záleží na fyzické a psychické vyspělosti dítěte. Obecně nabízíme dětské motorky od 3–4 let pro ty nejmenší, od 5–6 let pak klasické dětské motorky. Rádi vám pomůžeme s výběrem vhodného stroje.',
-                        ],
-                        [
-                            'q' => 'Může dítě jezdit samo, nebo musí být pod dohledem?',
-                            'a' => 'Dítě musí být vždy pod dohledem rodiče nebo zákonného zástupce, který za něj nese plnou odpovědnost. Jízda na veřejných komunikacích není povolena.',
-                        ],
-                        [
-                            'q' => 'Je výbava pro dítě součástí ceny?',
-                            'a' => 'Ano, základní výbava je vždy součástí ceny. Půjčíme dítěti helmu, bundu, kalhoty a rukavice ve vhodné a dostupné velikosti.',
-                        ],
-                        [
-                            'q' => 'Půjčíte motorku i začátečníkovi?',
-                            'a' => 'Ano, půjčíme každému, kdo má platné řidičské oprávnění příslušné skupiny a platný OP nebo PAS. Žádnou minimální praxi nevyžadujeme.',
-                        ],
-                        [
-                            'q' => 'Mohu prodloužit výpůjčku?',
-                            'a' => 'Ano, pokud to dovolí dostupnost motorky. Stačí se nám co nejdříve ozvat – telefonicky nebo e-mailem – a domluvíme se.',
-                        ],
-                        [
-                            'q' => 'Jak probíhá převzetí motorky v půjčovně?',
-                            'a' => 'Přátelsky a bez stresu. Přivítáme tě, společně si projdeme motorku, zkontrolujeme tvé doklady (OP a ŘP) a vyřídíme papíry. Vybereš si výbavu, která ti sedí, podepíšeme předávací protokol a ty dostaneš klíče, dokumenty a všechny potřebné instrukce. Auto můžeš zaparkovat u nás, osobní věci odložit ve skřínce – a než vyrazíš, klidně si odskočíš na toaletu. Pak už jen nasednout a jet!',
-                        ],
-                        [
-                            'q' => 'Jaké velikosti výbavy nabízíte?',
-                            'a' => 'Dospělí jezdci si mohou vybrat z těchto velikostí: helmy XS–XL, bundy a kalhoty M–2XL, rukavice M–XL, motoboty 39–46. Kukla a reflexní vesta jsou univerzální. Pro děti nabízíme: helmy pro obvod hlavy 47–52 cm (větší děti vybírají z dospělých velikostí), bundy a kalhoty pro výšku 110–152 cm (věk 5–12 let), rukavice pro věk 4–7 a 8–12 let, motoboty 29–35.',
-                        ],
-                        [
-                            'q' => 'Mohu si půjčit i motoboty?',
-                            'a' => 'Ano, motorkářské boty nabízíme jako doplňkovou službu za příplatek – pro řidiče i spolujezdce. Jednoduše si je přidáš v rezervačním formuláři. Nabízíme velikosti 39–46 pro dospělé a 29–35 pro děti.',
-                        ],
-                        [
-                            'q' => 'Jak zajišťujete hygienu výbavy?',
-                            'a' => 'O čistotu dbáme pečlivě. Kuklu dostaneš vždy zbrusu novou – je jednorázová a po výpůjčce zůstane tvoje. Boty dezinfikujeme po každém zákazníkovi. Oblečení pereme v pravidelných intervalech a nadstandardně i při každém větším znečištění.',
-                        ],
-                        [
-                            'q' => 'Mohu použít vlastní výbavu?',
-                            'a' => 'Ano, vlastní výbava je vítána. V rezervačním formuláři jednoduše zaškrtneš, že výbavu nepotřebuješ půjčit.',
-                        ],
-                        [
-                            'q' => 'Co je součástí motorky při převzetí?',
-                            'a' => 'Vždy dostaneš klíče, malý technický průkaz, zelenou kartu, reflexní vestu, motolékárničku, záznam o dopravní nehodě s propiskou, kontakt na asistenční službu a jednorázovou kuklu. Případná výbava (helma, bunda, kalhoty, rukavice, boty) se předává dle toho, co sis objednal v rezervaci. Kufry jsou součástí vybraných modelů motorek – jejich dostupnost zjistíš přímo v nabídce konkrétní motorky.',
-                        ],
-                        [
-                            'q' => 'Mají motorky kufry?',
-                            'a' => 'Záleží na typu motorky. Cestovní motorky mívají zpravidla 3 kufry, naked a supermoto 1 kufr nebo tankvak. Dětské motorky kufry nemají. Kufry jsou vždy pevnou součástí motorky bez příplatku – přesné vybavení najdeš v nabídce každého modelu na webu.',
-                        ],
-                        [
-                            'q' => 'Mohu zaplatit až při převzetí motorky?',
-                            'a' => 'Ne, platba probíhá výhradně online při dokončení rezervace. Bez úspěšné platby rezervace nevzniká.',
-                        ],
-                        [
-                            'q' => 'Je u půjčovny možnost parkování?',
-                            'a' => 'Ano, přímo před půjčovnou máme k dispozici několik parkovacích míst zdarma. Kapacita je ale omezená, takže počítej s tím, že nemusí být vždy volno.',
-                        ],
+            ],
+            'amenities' => [
+                'title' => 'Co najdeš v půjčovně',
+                'lead' => 'Pro pohodlné převzetí máme připraveno – vše zdarma:',
+                'items' => [
+                    'parkoviště pro zákazníky (kapacita je omezená)',
+                    'Wi-Fi',
+                    'WC',
+                    'zkušební kabinku na vyzkoušení výbavy',
+                    'uzamykatelné skříňky na úschovu osobních věcí, které nechceš brát na cestu (kapacita omezená)',
+                ],
+                'cta' => [
+                    'label' => 'ZAREZERVOVAT TERMÍN',
+                    'href' => '/rezervace',
+                    'aria' => 'Zarezervovat termín vyzvednutí motorky v Motogo24',
+                ],
+            ],
+            'bring' => [
+                'title' => 'Co si vzít s sebou',
+                'items' => [
+                    'platný občanský průkaz nebo pas',
+                    'platný řidičský průkaz s oprávněním odpovídající skupiny (A/A2 podle vybrané motorky)',
+                    'vlastní výbavu – helma, bunda, kalhoty, rukavice (pokud nemáš zarezervované u nás)',
+                    'pevnou obuv (pokud u nás nemáš rezervaci na motocyklové boty)',
+                    'vlastní navigaci nebo telefon s navigační aplikací – navigace není součástí výpůjčky',
+                ],
+            ],
+            'faq' => [
+                'title' => 'Časté dotazy k vyzvednutí',
+                'items' => [
+                    [
+                        'q' => 'Musím platit kauci při vyzvednutí?',
+                        'a' => 'Ne, <strong>půjčujeme bez kauce</strong>. Podmínky jsou jasně dané a férové.',
+                    ],
+                    [
+                        'q' => 'Je možný kontakt bez osobního setkání?',
+                        'a' => 'Ano, nabízíme <strong>bezkontaktní předání</strong> po domluvě. Instrukce a dokumenty dostaneš předem.',
+                    ],
+                    [
+                        'q' => 'Co když nestíhám domluvený čas?',
+                        'a' => 'Dej nám vědět telefonicky – přizpůsobíme čas, nebo nabídneme <strong>přistavení</strong> / jiný termín.',
+                    ],
+                    [
+                        'q' => 'Je v ceně i výbava pro spolujezdce?',
+                        'a' => 'Výbava pro řidiče je v ceně vždy. Výbavu pro spolujezdce lze přiobjednat jako <strong>nadstandard</strong>.',
                     ],
                 ],
-                'conditions' => [
-                    'label' => 'Výbava a podmínky',
-                    'items' => [
-                        [
-                            'q' => 'Je v ceně půjčovného výbava řidiče?',
-                            'a' => 'Ano, výbava řidiče je vždy součástí ceny. Půjčíme ti helmu, bundu, kalhoty i rukavice – ve více velikostech.',
-                        ],
-                        [
-                            'q' => 'Je v ceně zahrnutá i výbava pro spolujezdce?',
-                            'a' => 'Výbava pro spolujezdce není součástí základní ceny, ale snadno si ji přiobjednáš jako doplňkovou službu přímo v rezervačním formuláři.',
-                        ],
-                        [
-                            'q' => 'Je nutná kauce?',
-                            'a' => 'Ne. Motorky půjčujeme <strong>bez kauce</strong> a bez skrytých poplatků.',
-                        ],
-                        [
-                            'q' => 'Jaké doklady potřebuji?',
-                            'a' => '<strong>OP/pas</strong> a <strong>řidičský průkaz</strong> odpovídající skupiny (A/A2 dle motorky).',
-                        ],
+            ],
+            'mid_cta' => [
+                'label' => 'REZERVOVAT VYZVEDNUTÍ',
+                'href' => '/rezervace',
+                'aria' => 'Rezervovat vyzvednutí motorky v půjčovně Motogo24',
+            ],
+            'cta' => [
+                'title' => 'Převzetí v půjčovně – půjčovna motorek Vysočina (Pelhřimov)',
+                'text' => 'MotoGo24 je <strong>půjčovna motorek na Vysočině</strong> s možností <strong>převzetí motorky kdykoliv</strong> během dne, včetně svátků i víkendů, <strong>bez kauce</strong> a <strong>s výbavou pro řidiče v ceně</strong> výpůjčky.',
+                'text2' => 'Vyber si <strong>cestovní, supermoto, naked nebo dětskou motorku</strong> a pohodlně ji rezervuj online.',
+                'buttons' => [
+                    [
+                        'label' => 'REZERVOVAT ONLINE',
+                        'href' => '/rezervace',
+                        'cls' => 'btndark pulse',
+                        'aria' => 'Přejít na online rezervaci a domluvit vyzvednutí motorky',
                     ],
                 ],
-                'delivery' => [
-                    'label' => 'Přistavení',
-                    'items' => [
-                        [
-                            'q' => 'Můžete motorku přistavit k hotelu/na nádraží?',
-                            'a' => 'Ano, motorku přistavíme na domluvené místo v rámci ČR. Cena se skládá z poplatku za nakládku a vykládku (2 × 500 Kč) a sazba 20 Kč/km – počítáme kilometry tam i zpět od Mezné u Pelhřimova.',
-                        ],
-                        [
-                            'q' => 'Jak přistavení objednám?',
-                            'a' => 'Jednoduše – při online rezervaci doplníš adresu a čas přistavení. Cena se dopočítá automaticky.',
-                        ],
-                        [
-                            'q' => 'Mohu vrátit motorku jinde, než byla převzata?',
-                            'a' => 'Ano, vrácení na jiném místě je možné v rámci celé ČR. Cena se řídí stejným ceníkem jako přistavení – 500 Kč za nakládku/vykládku a 20 Kč/km od Mezné u Pelhřimova.',
-                        ],
-                        [
-                            'q' => 'Lze vrátit motorku jinde, než byla převzata?',
-                            'a' => 'Ano, nabízíme <strong>svoz</strong> – účtujeme dle ceníku přistavení/svozu.',
-                        ],
-                        [
-                            'q' => 'Máte věrnostní program?',
-                            'a' => 'Zatím ne, ale každý zákazník po vrácení motorky dostane slevový kód 200 Kč na příští rezervaci.',
-                        ],
-                        [
-                            'q' => 'Jak daleko přistavení motorky nabízíte?',
-                            'a' => 'Přistavujeme po celé České republice, do zahraničí přistavení nenabízíme.',
-                        ],
-                        [
-                            'q' => 'Jak probíhá převzetí motorky při přistavení na jiné místo?',
-                            'a' => 'Přijedeme na domluvené místo ve sjednaný čas. Přivezeme ti motorku i výbavu, kterou sis zvolil při rezervaci. Společně si motorku projdeme, zkontrolujeme tvé doklady, podepíšeme předávací protokol a dostaneš klíče a instrukce.',
-                        ],
+            ],
+            'seo' => [
+                'title' => 'Půjčovna motorek Vysočina – Jak si půjčit motorku – Převzetí v půjčovně',
+                'description' => 'Převzetí motorky v půjčovně motorek MotoGo24 je rychlé a bez starostí. Připrav si doklady a během pár minut můžeš vyrazit. Rezervuj si motorku jednoduše online. Vyber termín, stroj i výbavu a vyraz na nezapomenutelnou jízdu s MotoGo24 na Vysočině.',
+                'keywords' => 'půjčovna motorek Vysočina, pronájem motorek Vysočina, půjčovna motorek Pelhřimov, půjčovna motorek bez kauce, nonstop půjčovna motorek, půjčovna cestovní motorky, pronájem sportovní motorky, půjčovna enduro motorek, půjčovna skútrů Vysočina, dětské motorky k pronájmu, rezervace motorky online, motorky k pronájmu Vysočina, motorbike rental Czech Republic, motorcycle hire Vysocina, rent a motorbike Pelhřimov',
+            ],
+        ],
+        'jak_pujcit_vraceni_pujcovna' => [
+            'h1' => 'Vrácení motocyklu v půjčovně – rychle a bez komplikací',
+            'intro' => 'Výpůjčka končí stejně jednoduše jako začala. Přijeď v domluvený čas vrácení na naši adresu v Pelhřimově, společně zkontrolujeme motorku a výbavu a je hotovo. Nemusíš tankovat ani mýt – to nech na nás.&nbsp;',
+            'process' => [
+                'grid' => 'gr4',
+                'steps' => [
+                    [
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
+                        'title' => 'Přijeď v domluvený čas',
+                        'text' => '',
+                    ],
+                    [
+                        'icon' => 'gfx/predani-motorky.svg',
+                        'title' => 'Předej klíče a výbavu',
+                        'text' => '',
+                    ],
+                    [
+                        'icon' => 'gfx/prevezmi-motorku.svg',
+                        'title' => 'Společně zkontrolujeme stav motorky a výbavy',
+                        'text' => '',
+                    ],
+                    [
+                        'icon' => 'gfx/sleva-na-pristi-jizdu.svg',
+                        'title' => 'Na e-mail ti přijde potvrzení o ukončení nájmu, konečná faktura a slevový kód na další rezervaci.',
+                        'text' => '',
                     ],
                 ],
-                'travel' => [
-                    'label' => 'Cesty do zahraničí',
-                    'items' => [
-                        [
-                            'q' => 'Můžu odcestovat s motorkou do zahraničí?',
-                            'a' => 'Ano, s motorkou můžeš bez problémů vyrazit i do zahraničí. Cesty mimo Česko neomezujeme, jen je potřeba dodržet územní platnost pojištění (zelená karta).<br>Pojištění se nevztahuje na Bělorusko, Írán, Rusko, Srbsko a Kypr – jízda do těchto zemí je proto zakázána.',
-                        ],
-                        [
-                            'q' => 'Mohu s motorkou vycestovat do zahraničí?',
-                            'a' => 'Ano, ale drž se <strong>územní platnosti pojištění</strong> (zelená karta). Některé země mohou být vyloučené.',
-                        ],
-                        [
-                            'q' => 'Potřebuji něco speciálního do zahraničí?',
-                            'a' => 'Nic speciálního – malý technický průkaz a zelená karta jsou součástí motorky. Doporučujeme mít u sebe <strong>nájemní smlouvu</strong>, kterou dostaneš při převzetí – slouží jako doklad oprávněného užívání vozidla při případné policejní kontrole. Rovněž doporučujeme sjednání cestovního pojištění.',
-                        ],
+            ],
+            'time' => [
+                'title' => 'Čas vrácení',
+                'text' => 'Prosíme o dodržení času vrácení – pomůžeš nám tím zajistit, aby další zákazník převzal motorku včas. Pokud se přeci jen zpozdíš, dej nám prosím vědět telefonicky. Do půlnoci posledního dne výpůjčky neplatíš žádný poplatek. Pokud motorku vrátíš výrazně po tomto termínu, bude ti účtováno nájemné za další den.',
+            ],
+            'issues' => [
+                'title' => 'Nesrovnalosti při vrácení',
+                'lead' => 'Při převzetí společně zkontrolujeme stav motorky a výbavy. Pokud by nastala některá z níže uvedených situací, sepíšeme protokol o zjištěném poškození:',
+                'items' => [
+                    'chybějící výbava',
+                    'poškozená výbava',
+                    'poškozený motocykl',
+                ],
+                'closing' => 'Protokol zákazník podepíše a obdrží jeho kopii. Další postup se řídí podmínkami nájemní smlouvy a obchodními podmínkami.',
+            ],
+            'faq' => [
+                'title' => 'Často kladené dotazy k vrácení motocyklu v půjčovně',
+                'items' => [
+                    [
+                        'q' => 'Do kdy musím motorku vrátit?',
+                        'a' => 'Motorku vrať ideálně ve sjednaný čas. Pokud vracíš v místě půjčovny, můžeš ale přijet po dohodě kdykoli během posledního dne výpůjčky – nejpozději do půlnoci, bez jakýchkoli sankcí. Vracíš-li na jiném místě, je sjednaný čas závazný.',
+                    ],
+                    [
+                        'q' => 'Musím vracet s plnou nádrží a čistou?',
+                        'a' => 'Ne. U nás netankuješ ani nemyješ. Jen hlídej, aby nesvítila rezerva.&nbsp;',
+                    ],
+                    [
+                        'q' => 'Můžu motorku vrátit do půjčovny dřív, než jsme se domluvili?',
+                        'a' => 'Ano, motorku můžeš vrátit kdykoliv během posledního dne výpůjčky. Stačí nám dát vědět, že dorazíš dřív. Žádné příplatky za dřívější vrácení neúčtujeme.',
+                    ],
+                    [
+                        'q' => 'Co se stane, když nestihnu motorku do půjčovny vrátit do půlnoci posledního dne?&nbsp;',
+                        'a' => 'Pokud víš, že nestihneš, ozvi se nám co nejdřív. Domluvíme se na řešení. V případě neoznámeného pozdního vrácení se postupuje podle podmínek nájemní smlouvy.',
+                    ],
+                    [
+                        'q' => 'Musím při vrácení v půjčovně něco podepsat?&nbsp;',
+                        'a' => 'Pokud je vše v pořádku, vrácení proběhne rychle a bez zbytečného papírování. Potvrzení o ukončení nájmu a konečnou fakturu dostaneš na e-mail.',
+                    ],
+                    [
+                        'q' => 'Jak probíhá kontrola motorky při vrácení v půjčovně?&nbsp;',
+                        'a' => 'Společně projdeme stav motorky a výbavy. Pokud je vše v pořádku, převezmeme klíče a výbavu a ty můžeš jít. Celé to zabere pár minut.',
                     ],
                 ],
-                'vouchers' => [
-                    'label' => 'Poukazy',
-                    'items' => [
-                        [
-                            'q' => 'Jaká je platnost dárkového poukazu?',
-                            'a' => '<strong>3 roky</strong> od data vystavení. Termín na motorku si obdarovaný volí sám přes náš rezervační systém podle aktuální dostupnosti.',
-                        ],
-                        [
-                            'q' => 'Na jaké motorky lze poukaz uplatnit?',
-                            'a' => 'Na <strong>cestovní, sportovní, enduro i dětské</strong> modely dle hodnoty poukazu a oprávnění.',
-                        ],
-                        [
-                            'q' => 'Musí obdarovaný platit kauci?',
-                            'a' => '<strong>Ne, žádná kauce se neskládá.</strong> Naše podmínky jsou transparentní a výbava pro řidiče je vždy zahrnuta v ceně.',
-                        ],
-                        [
-                            'q' => 'Jak voucher doručíte?',
-                            'a' => '<strong>Okamžitě e-mailem</strong> po úhradě (PDF). Na požádání i tištěný voucher.',
-                        ],
-                        [
-                            'q' => 'Dá se termín uplatnění změnit?',
-                            'a' => 'Ano, po předchozí domluvě je možné termín upravit podle aktuální dostupnosti zvolené motorky.',
-                        ],
+            ],
+            'cta' => [
+                'title' => 'Vrácení motorky v půjčovně – MotoGo24, Pelhřimov (Vysočina)',
+                'text' => 'MotoGo24 je půjčovna motorek na Vysočině s nonstop provozem a jednoduchým vrácením motorky kdykoliv v den výpůjčky. Bez kauce, bez mytí, bez tankování. Vyber si cestovní, supermoto, naked nebo dětskou motorku a rezervuj online.',
+                'buttons' => [
+                    [
+                        'label' => 'KONTAKT',
+                        'href' => '/kontakt',
+                        'cls' => 'btndark',
+                        'aria' => 'Kontaktujte nás',
                     ],
                 ],
+            ],
+            'seo' => [
+                'title' => 'Půjčovna motorek Vysočina – Jak si půjčit motorku – Vrácení motocyklu v půjčovně',
+                'description' => 'Vrácení motocyklu v půjčovně motorek MotoGo24 je jednoduché. Rychlá kontrola motorky a předání bez zbytečného čekání. Rezervuj si motorku jednoduše online. Vyber termín, stroj i výbavu a vyraz na nezapomenutelnou jízdu s MotoGo24 na Vysočině.',
+                'keywords' => 'půjčovna motorek Vysočina, pronájem motorek Vysočina, půjčovna motorek Pelhřimov, půjčovna motorek bez kauce, nonstop půjčovna motorek, půjčovna cestovní motorky, pronájem sportovní motorky, půjčovna enduro motorek, půjčovna skútrů Vysočina, dětské motorky k pronájmu, rezervace motorky online, motorky k pronájmu Vysočina, motorbike rental Czech Republic, motorcycle hire Vysocina, rent a motorbike Pelhřimov',
             ],
         ],
         'home' => [
@@ -870,42 +1004,42 @@ return [
             'signposts_title' => 'Rychlý rozcestník po Motogo24',
             'signposts' => [
                 [
-                    'icon' => 'gfx/ico-katalog.svg',
+                    'icon' => 'gfx/vyber-motorku.svg',
                     'title' => 'Katalog motorek',
                     'text' => 'Prohlédněte si naši nabídku motorek na pronájem – od sportovních po cestovní modely.',
                     'btn' => 'KATALOG MOTOREK',
                     'href' => '/katalog',
                 ],
                 [
-                    'icon' => 'gfx/ico-jak.svg',
+                    'icon' => 'gfx/potvrzeni-rezervace.svg',
                     'title' => 'Jak si půjčit motorku',
                     'text' => 'Jednoduchý proces: vyberte motorku k zapůjčení, rezervujte a vyjeďte.',
                     'btn' => 'JAK SI PŮJČIT MOTORKU',
                     'href' => '/jak-pujcit',
                 ],
                 [
-                    'icon' => 'gfx/ico-rezervace.svg',
+                    'icon' => 'gfx/rezervace-online.svg',
                     'title' => 'Online rezervace motorky',
                     'text' => 'Zarezervujte si motorku na pronájem přes snadný online systém.',
                     'btn' => 'REZERVOVAT MOTORKU',
                     'href' => '/rezervace',
                 ],
                 [
-                    'icon' => 'gfx/ico-kontakt.svg',
+                    'icon' => 'gfx/kontakt.svg',
                     'title' => 'Kontakty a mapa',
                     'text' => 'Navštivte naši půjčovnu motorek v Pelhřimově nebo nás kontaktujte.',
                     'btn' => 'KONTAKT',
                     'href' => '/kontakt',
                 ],
                 [
-                    'icon' => 'gfx/ico-faq.svg',
+                    'icon' => 'gfx/faq.svg',
                     'title' => 'Často kladené dotazy',
                     'text' => 'Nejčastější dotazy k půjčení motorky přehledně na jednom místě.',
                     'btn' => 'ČASTÉ DOTAZY',
                     'href' => '/jak-pujcit/faq',
                 ],
                 [
-                    'icon' => 'gfx/ico-trasy.svg',
+                    'icon' => 'gfx/uzij-si-jizdu.svg',
                     'title' => 'Motocyklové výlety',
                     'text' => 'Objevte nejlepší motocyklové trasy v Česku pro turisty i místní.',
                     'btn' => 'MOTOCYKLOVÉ TRASY',
@@ -924,22 +1058,22 @@ return [
                 'title' => 'Jak probíhá půjčení motorky na Vysočině',
                 'steps' => [
                     [
-                        'icon' => 'gfx/ico-step1.svg',
+                        'icon' => 'gfx/vyber-motorku.svg',
                         'title' => '1. Vyber',
                         'text' => 'Vyberte si svou ideální motorku z naší nabídky motorek na pronájem.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step2.svg',
+                        'icon' => 'gfx/rezervace-online.svg',
                         'title' => '2. Rezervuj',
                         'text' => 'Zarezervujte si půjčení motorky přes náš jednoduchý online systém.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step3.svg',
+                        'icon' => 'gfx/predani-motorky.svg',
                         'title' => '3. Převzetí',
                         'text' => 'Vyzvedněte si motorku v naší půjčovně motorek v Pelhřimově.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step4.svg',
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
                         'title' => '4. Užij jízdu',
                         'text' => 'Užijte si svobodu a objevte Česko na motorkách k zapůjčení.',
                     ],
@@ -948,24 +1082,7 @@ return [
             'faq' => [
                 'title' => 'Často kladené otázky',
                 'more_link' => '/jak-pujcit/faq',
-                'items' => [
-                    [
-                        'q' => 'Jak si mohu rezervovat motorku?',
-                        'a' => 'Motorku si můžeš rezervovat přes náš online rezervační systém přímo tady na webu. Případně se nám můžeš ozvat e-mailem, telefonicky nebo přes naše sociální sítě.',
-                    ],
-                    [
-                        'q' => 'Můžu si motorku půjčit i bez předchozí rezervace?',
-                        'a' => 'Bez rezervace to bohužel nejde. Každou motorku je nutné předem zamluvit – online, telefonicky, e-mailem nebo přes sociální sítě.',
-                    ],
-                    [
-                        'q' => 'Musím složit kauci?',
-                        'a' => 'Ne! U nás <strong>žádnou kauci platit nemusíš</strong>. Naše půjčovna se tímto zásadně liší od většiny konkurence.',
-                    ],
-                    [
-                        'q' => 'Můžu odcestovat s motorkou do zahraničí?',
-                        'a' => 'Ano, s motorkou můžeš bez problémů vyrazit i do zahraničí. Cesty mimo Česko neomezujeme, jen je potřeba dodržet územní platnost pojištění (zelená karta).',
-                    ],
-                ],
+                'items' => [],
             ],
             'cta' => [
                 'title' => 'Rezervuj svou motorku online',
@@ -1039,12 +1156,12 @@ return [
                         'text' => 'a bez skrytých poplatků',
                     ],
                     [
-                        'icon' => 'gfx/ico-online-rez.svg',
+                        'icon' => 'gfx/rezervace-online.svg',
                         'title' => 'Online rezervace',
                         'text' => 'na pár kliknutí',
                     ],
                     [
-                        'icon' => 'gfx/ico-vybava.svg',
+                        'icon' => 'gfx/vyber-vybavu.svg',
                         'title' => 'Výbava pro řidiče v ceně',
                         'text' => 'helma, bunda, kalhoty a rukavice',
                     ],
@@ -1059,7 +1176,7 @@ return [
                         'text' => 'když se něco přihodí',
                     ],
                     [
-                        'icon' => 'gfx/ico-pristaveni.svg',
+                        'icon' => 'gfx/predani-motorky.svg',
                         'title' => 'Přistavení i vrácení motorky',
                         'text' => 'na domluvené místo',
                     ],
@@ -1069,42 +1186,42 @@ return [
                 'title' => 'Jak probíhá půjčení motorky na Vysočině',
                 'steps' => [
                     [
-                        'icon' => 'gfx/ico-step1.svg',
+                        'icon' => 'gfx/vyber-motorku.svg',
                         'title' => '1. Vyber motorku',
                         'text' => 'Prohlédni si naši nabídku, vyber si typ, který ti vyhovuje, odpovídá tvým zkušenostem a řidičskému oprávnění.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step3.svg',
+                        'icon' => 'gfx/rezervace-online.svg',
                         'title' => '2. Rezervuj online',
                         'text' => 'Uskutečni rezervaci podle data nebo podle konkrétní motorky, kterou si chceš půjčit.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step4.svg',
+                        'icon' => 'gfx/vyber-vybavu.svg',
                         'title' => '3. Vyber výbavu',
                         'text' => 'Výbava pro řidiče je v ceně, pro spolujezdce za příplatek. Velikost si můžeš zvolit až na místě.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step5.svg',
+                        'icon' => 'gfx/zaplat.svg',
                         'title' => '4. Zaplať',
                         'text' => 'Zaplať jednoduše online prostřednictvím platební brány.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step6.svg',
+                        'icon' => 'gfx/predani-motorky.svg',
                         'title' => '5. Převezmi motorku',
                         'text' => 'Motorku si vyzvedni přímo v půjčovně, nebo na místě, které jsi zvolil při rezervaci.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step7.svg',
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
                         'title' => '6. Užij si jízdu',
                         'text' => 'Vyraz na cestu, objevuj nové zážitky a užij si naplno svobodu na dvou kolech.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step8.svg',
+                        'icon' => 'gfx/vrat-motorku-vcas.svg',
                         'title' => '7. Vrať motorku',
                         'text' => 'Motorku jednoduše vrať ve sjednaný den – přímo v půjčovně, nebo na předem domluveném místě.',
                     ],
                     [
-                        'icon' => 'gfx/ico-sleva.svg',
+                        'icon' => 'gfx/sleva-na-pristi-jizdu.svg',
                         'title' => 'Sleva na příští jízdu',
                         'text' => 'Po vrácení motorky ti automaticky zašleme slevový kód 200 Kč na další rezervaci.',
                     ],
@@ -1274,290 +1391,6 @@ return [
                 ],
             ],
         ],
-        'jak_pujcit_postup' => [
-            'seo' => [
-                'title' => 'Postup půjčení motorky | MotoGo24',
-                'description' => 'Postup půjčení motorky v Motogo24 krok za krokem. Online rezervace, výbava v ceně, bez kauce, nonstop provoz a možnost přistavení.',
-                'keywords' => 'postup půjčení motorky, jak půjčit motorku, rezervace motorky, pronájem motorek Pelhřimov',
-            ],
-            'h1' => 'Postup půjčení motorky',
-            'intro' => '<p>V <strong>Motogo24 – půjčovna motorek na Vysočině</strong> je půjčení jednoduché, rychlé a férové. <strong>Bez kauce, s výbavou v ceně a nonstop provozem</strong>. Podívej se, jak snadno to funguje.</p><p>&nbsp;</p><h2>Jak si půjčit motorku – půjčovna Motogo24 Vysočina</h2><p>V <strong>půjčovně motorek Motogo24</strong> je <strong>postup půjčení motorky</strong> jednoduchý: <strong>online rezervace</strong>, <strong>výbava v ceně</strong>, <strong>bez kauce</strong>, <strong>nonstop provoz</strong> a možnost <strong>přistavení motorky</strong>. Ať hledáš <strong>cestovní motorku</strong> na víkend, <strong>sportovní motorku</strong> pro adrenalin nebo <strong>enduro</strong> do terénu, u nás najdeš ideální řešení.</p>',
-            'process' => [
-                'title' => 'Jak probíhá pronájem krok za krokem',
-                'steps' => [
-                    [
-                        'icon' => 'gfx/ico-step1.svg',
-                        'title' => '1. Vyber motorku',
-                        'text' => 'Prohlédni si naši nabídku <strong>cestovních, sportovních, enduro i dětských motorek</strong> a vyber si tu pravou.',
-                    ],
-                    [
-                        'icon' => 'gfx/ico-step2.svg',
-                        'title' => '2. Počet jezdců',
-                        'text' => 'Zvol, jestli pojedeš sám, nebo se spolujezdcem. Nabídneme ti vhodné stroje a výbavu.',
-                    ],
-                    [
-                        'icon' => 'gfx/ico-step3.svg',
-                        'title' => '3. Rezervace online',
-                        'text' => 'Jednoduše si zarezervuj motorku podle data. Platbu proveď předem <strong>online</strong>.',
-                    ],
-                    [
-                        'icon' => 'gfx/ico-step4.svg',
-                        'title' => '4. Výbava v ceně',
-                        'text' => 'Automaticky, jako řidič, dostaneš helmu, bundu, kalhoty a rukavice. Velikost si vybereš při rezervaci.',
-                    ],
-                    [
-                        'icon' => 'gfx/ico-step5.svg',
-                        'title' => '5. Potvrzení a platba',
-                        'text' => 'Rezervace je závazná po potvrzení. Platbu provedeš online.',
-                    ],
-                    [
-                        'icon' => 'gfx/ico-step6.svg',
-                        'title' => '6. Převzetí motorky',
-                        'text' => 'Převezmeš motorku osobně v Pelhřimově nebo využiješ <strong>přistavení</strong> na domluvené místo.',
-                    ],
-                    [
-                        'icon' => 'gfx/ico-step7.svg',
-                        'title' => '7. Užij si jízdu',
-                        'text' => 'Vyraz na cestu – <strong>bez kauce, bez stresu</strong>, s jasnými podmínkami a pojištěním v ceně.',
-                    ],
-                    [
-                        'icon' => 'gfx/ico-step8.svg',
-                        'title' => '8. Vrácení motorky',
-                        'text' => 'Motorku vrátíš kdykoli během posledního dne výpůjčky. Nemusíš tankovat ani mýt.',
-                    ],
-                ],
-            ],
-            'faq' => [
-                'title' => 'Často kladené otázky',
-                'more_link' => '/jak-pujcit/faq',
-                'items' => [
-                    [
-                        'q' => 'Je nutná kauce při půjčení?',
-                        'a' => 'Ne. <strong>Půjčujeme bez kauce</strong> – férově a bez zbytečných překážek.',
-                    ],
-                    [
-                        'q' => 'Je v ceně půjčovného i výbava?',
-                        'a' => 'Ano. Každý řidič dostane <strong>helmu, bundu, kalhoty a rukavice zdarma</strong>.',
-                    ],
-                    [
-                        'q' => 'Kde si mohu motorku převzít?',
-                        'a' => 'Vyzvednutí probíhá v Pelhřimově, případně nabízíme <strong>přistavení motorky</strong> na tebou zvolené místo.',
-                    ],
-                    [
-                        'q' => 'Do kdy musím motorku vrátit?',
-                        'a' => 'Motorku můžeš vrátit kdykoli během posledního dne výpůjčky – klidně i o půlnoci.',
-                    ],
-                ],
-            ],
-            'cta' => [
-                'title' => 'Připraven na jízdu?',
-                'text' => 'Rezervuj si motorku online ještě dnes a užij si <strong>svobodu na dvou kolech</strong>.',
-                'buttons' => [
-                    [
-                        'label' => 'REZERVOVAT ONLINE',
-                        'href' => '/rezervace',
-                        'cls' => 'btndark pulse',
-                    ],
-                ],
-            ],
-        ],
-        'jak_pujcit_vyzvednuti' => [
-            'seo' => [
-                'title' => 'Převzetí motocyklu v půjčovně | MotoGo24',
-                'description' => 'Převzetí motorky v půjčovně Pelhřimov. Nonstop provoz, bez kauce, výbava v ceně. Co si vzít s sebou a jak probíhá předání.',
-                'keywords' => 'převzetí motorky v půjčovně, vyzvednutí motocyklu, půjčovna Pelhřimov, nonstop převzetí',
-            ],
-            'h1' => 'Převzetí motocyklu v půjčovně – rychle, jednoduše a nonstop',
-            'intro' => 'V <strong>Motogo24 – půjčovna motorek Vysočina</strong> je <strong>převzetí motorky</strong> otázkou pár minut. Půjčujeme <strong>bez kauce</strong>, s <strong>výbavou v ceně</strong> a <strong>nonstop provozem</strong>.',
-            'top_cta' => [
-                'label' => 'REZERVOVAT ONLINE',
-                'href' => '/rezervace',
-            ],
-            'place' => [
-                'title' => 'Kde probíhá převzetí',
-                'address' => 'Mezná 9, 393 01 <strong>Pelhřimov</strong> (Vysočina)',
-                'hours' => '<em>nonstop</em>',
-                'phone' => '+420 774 256 271',
-                'return_title' => 'Vrácení motorky – bez stresu',
-                'return_text' => 'Motorku můžeš vrátit <strong>kdykoli během posledního dne výpůjčky</strong>. Více informací viz <a href="/jak-pujcit/vraceni-pujcovna">vrácení v půjčovně</a> nebo <a href="/jak-pujcit/vraceni-jinde">vrácení jinde</a>.',
-                'map_src' => 'https://frame.mapy.cz/s/?x=15.15413&y=49.35169&z=14&source=coor&id=15.15413%2C49.35169',
-            ],
-            'steps' => [
-                'title' => 'Jak probíhá převzetí krok za krokem',
-                'items' => [
-                    [
-                        'icon' => 'gfx/ico-step1.svg',
-                        'title' => 'Přijď v domluvený čas',
-                        'text' => 'na naši adresu nebo vyčkej na přistavení',
-                    ],
-                    [
-                        'icon' => 'gfx/ico-step2.svg',
-                        'title' => 'Ověříme doklady',
-                        'text' => 'OP/pas + řidičský průkaz odpovídající skupiny',
-                    ],
-                    [
-                        'icon' => 'gfx/ico-step3.svg',
-                        'title' => 'Předáme motorku a výbavu',
-                        'text' => 'helma, bunda, kalhoty, rukavice',
-                    ],
-                    [
-                        'icon' => 'gfx/ico-step4.svg',
-                        'title' => 'Krátké seznámení se strojem',
-                        'text' => 'ovládání, tipy, doporučení k trase',
-                    ],
-                    [
-                        'icon' => 'gfx/ico-step5.svg',
-                        'title' => 'Podepíšeme předávací protokol',
-                        'text' => 'a můžeš vyrazit',
-                    ],
-                ],
-            ],
-            'bring' => [
-                'title' => 'Co si vzít s sebou',
-                'items' => [
-                    '<strong>Občanský průkaz / pas</strong>',
-                    '<strong>Řidičský průkaz</strong> odpovídající skupiny (A/A2 podle motorky)',
-                    '<strong>Vhodnou obuv</strong> (moto boty lze půjčit jako nadstandard)',
-                ],
-                'cta' => [
-                    'label' => 'ZAREZERVOVAT TERMÍN',
-                    'href' => '/rezervace',
-                ],
-            ],
-            'faq' => [
-                'title' => 'Časté dotazy k převzetí',
-                'items' => [
-                    [
-                        'q' => 'Musím platit kauci při převzetí?',
-                        'a' => 'Ne, <strong>půjčujeme bez kauce</strong>. Podmínky jsou jasně dané a férové.',
-                    ],
-                    [
-                        'q' => 'Je možný kontakt bez osobního setkání?',
-                        'a' => 'Ano, nabízíme <strong>bezkontaktní předání</strong> po domluvě.',
-                    ],
-                    [
-                        'q' => 'Co když nestíhám domluvený čas?',
-                        'a' => 'Dej nám vědět telefonicky – přizpůsobíme čas, nebo nabídneme <strong>přistavení</strong>.',
-                    ],
-                    [
-                        'q' => 'Je v ceně i výbava pro spolujezdce?',
-                        'a' => 'Výbava pro řidiče je v ceně vždy. Výbavu pro spolujezdce lze přiobjednat jako <strong>nadstandard</strong>.',
-                    ],
-                ],
-            ],
-            'cta' => [
-                'title' => 'Převzetí motorky v půjčovně – Motogo24 Vysočina',
-                'text' => 'Motogo24 je <strong>půjčovna motorek na Vysočině</strong> s <strong>nonstop převzetím i vrácením</strong>, <strong>bez kauce</strong> a s <strong>výbavou v ceně</strong>.',
-                'buttons' => [
-                    [
-                        'label' => 'REZERVOVAT ONLINE',
-                        'href' => '/rezervace',
-                        'cls' => 'btndark pulse',
-                    ],
-                ],
-            ],
-        ],
-        'jak_pujcit_vraceni_pujcovna' => [
-            'seo' => [
-                'title' => 'Vrácení motocyklu v půjčovně | MotoGo24',
-                'description' => 'Vrácení motorky přímo v půjčovně Pelhřimov. Nonstop, bez kauce, bez zbytečné administrativy. Jak probíhá vrácení motorky krok za krokem.',
-                'keywords' => 'vrácení motorky, vrácení motocyklu v půjčovně, půjčovna Pelhřimov, nonstop vrácení motorky',
-            ],
-            'h1' => 'Vrácení motocyklu v půjčovně',
-            'intro' => 'Motorku vracíš pohodlně přímo v <strong>Motogo24 – půjčovně motorek na Vysočině</strong>. <strong>Nonstop provoz</strong>, žádný stres a férové podmínky.',
-            'top_cta' => [
-                'label' => 'REZERVOVAT ONLINE',
-                'href' => '/rezervace',
-            ],
-            'place' => [
-                'title' => 'Kde a kdy motorku vrátit',
-                'address' => 'Mezná 9, 393 01 <strong>Pelhřimov</strong> (Vysočina)',
-                'hours' => '<em>nonstop</em> – kdykoli během posledního dne výpůjčky',
-                'phone' => '+420 774 256 271',
-                'note_title' => 'Co je potřeba splnit',
-                'note_text' => 'Motorku vracej <strong>v dohodnutém čase</strong> a v podobném technickém stavu, v jakém jsi ji převzal/a. <strong>Plnou nádrž ani mytí nevyžadujeme.</strong>',
-                'map_src' => 'https://frame.mapy.cz/s/?x=15.15413&y=49.35169&z=14&source=coor&id=15.15413%2C49.35169',
-            ],
-            'steps' => [
-                'title' => 'Jak vrácení v půjčovně probíhá',
-                'items' => [
-                    [
-                        'icon' => 'gfx/ico-step1.svg',
-                        'title' => 'Přijeď v dohodnutém čase',
-                        'text' => 'na adresu půjčovny v Pelhřimově',
-                    ],
-                    [
-                        'icon' => 'gfx/ico-step2.svg',
-                        'title' => 'Společně projdeme stav motorky',
-                        'text' => 'kontrola karoserie, nádrže a výbavy',
-                    ],
-                    [
-                        'icon' => 'gfx/ico-step3.svg',
-                        'title' => 'Vrátíš výbavu',
-                        'text' => 'helma, bunda, kalhoty, rukavice',
-                    ],
-                    [
-                        'icon' => 'gfx/ico-step4.svg',
-                        'title' => 'Podepíšeme protokol o vrácení',
-                        'text' => 'jasný a férový záznam',
-                    ],
-                    [
-                        'icon' => 'gfx/ico-step5.svg',
-                        'title' => 'Hotovo',
-                        'text' => 'pošleme ti potvrzení e-mailem',
-                    ],
-                ],
-            ],
-            'tips' => [
-                'title' => 'Praktické tipy k vrácení',
-                'items' => [
-                    '<strong>Plnou nádrž nevyžadujeme</strong> – pohonné hmoty se účtují jen v případě potřeby.',
-                    '<strong>Mytí motorky není nutné</strong> – běžné znečištění z jízdy je v pořádku.',
-                    '<strong>Pozdní vrácení</strong> hlas předem telefonicky, abychom domluvili řešení.',
-                    '<strong>Bezkontaktní vrácení</strong> je možné po předchozí domluvě.',
-                ],
-                'cta' => [
-                    'label' => 'ZAREZERVOVAT TERMÍN',
-                    'href' => '/rezervace',
-                ],
-            ],
-            'faq' => [
-                'title' => 'Časté dotazy k vrácení v půjčovně',
-                'items' => [
-                    [
-                        'q' => 'Co když nestihnu domluvený čas vrácení?',
-                        'a' => 'Dej nám prosím vědět telefonicky. Většinou se domluvíme na <strong>posunutí o pár hodin</strong>; delší prodlení může být zpoplatněno dle ceníku.',
-                    ],
-                    [
-                        'q' => 'Musím motorku umýt?',
-                        'a' => 'Ne. Běžné znečištění je v pořádku, mytí <strong>nevyžadujeme</strong>.',
-                    ],
-                    [
-                        'q' => 'Musím motorku vrátit s plnou nádrží?',
-                        'a' => 'Není to povinné. Pokud nádrž není plná, doplníme palivo a <strong>doúčtujeme jen reálnou cenu</strong> bez přirážek.',
-                    ],
-                    [
-                        'q' => 'Co když je půjčovna zavřená?',
-                        'a' => 'Provoz je <strong>nonstop</strong>. V noci stačí zavolat na +420 774 256 271 a domluvíme předání.',
-                    ],
-                    [
-                        'q' => 'Můžu vrátit motorku na jiném místě?',
-                        'a' => 'Ano, využij <a href="/jak-pujcit/vraceni-jinde"><strong>vrácení motorky jinde</strong></a> (přistavení/svoz dle ceníku).',
-                    ],
-                ],
-            ],
-            'cta' => [
-                'title' => 'Vrácení motorky v půjčovně – Motogo24 Pelhřimov',
-                'text' => 'Vrať motorku přímo u nás v Pelhřimově – <strong>nonstop, bez kauce, bez stresu</strong>.',
-                'buttons' => [
-                    [
-                        'label' => 'REZERVOVAT ONLINE',
-                        'href' => '/rezervace',
-                        'cls' => 'btndark pulse',
-                    ],
-                ],
-            ],
-        ],
         'poukazy' => [
             'seo' => [
                 'title' => 'Půjčovna motorek Vysočina - Poukazy',
@@ -1578,17 +1411,17 @@ return [
             ],
             'steps' => [
                 [
-                    'icon' => 'gfx/ico-step1.svg',
+                    'icon' => 'gfx/vyber-motorku.svg',
                     'title' => '1. Vyber',
                     'text' => 'Vybereš si hodnotu poukazu nebo konkrétní motorku.',
                 ],
                 [
-                    'icon' => 'gfx/ico-step2.svg',
+                    'icon' => 'gfx/zaplat.svg',
                     'title' => '2. Zaplať',
                     'text' => 'Zaplatíš online.',
                 ],
                 [
-                    'icon' => 'gfx/ico-step3.svg',
+                    'icon' => 'gfx/potvrzeni-rezervace.svg',
                     'title' => '3. Vyzvedni',
                     'text' => 'Poukaz po zaplacení přistane do tvé e-mailové schránky.',
                 ],

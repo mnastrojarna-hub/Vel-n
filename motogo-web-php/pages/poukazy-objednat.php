@@ -167,7 +167,9 @@ form.addEventListener("submit",function(e){
       amount:total,voucher_amount:amount,type:"shop",source:"web",
       mode:"checkout",customer_email:email,customer_name:name,
       customer_phone:phone,is_print:isPrint,
-      shipping_address:isPrint?addr:null
+      shipping_address:isPrint?addr:null,
+      origin: window.location.origin,
+      locale: (document.documentElement.lang||"cs").slice(0,2)
     })
   }).then(function(r){return r.json();})
   .then(function(data){

@@ -28,12 +28,12 @@ $defaults = [
     'intro' => 'Vítejte v <strong>Motogo24</strong> – vaší půjčovně motorek na Vysočině. U nás si půjčíte motorku <strong>bez kauce</strong>, s výbavou v ceně a v režimu <strong>nonstop</strong>. Ať hledáte cestovní, sportovní, enduro nebo dětskou motorku, Motogo24 vám v srdci Vysočiny nabídne motorku na míru.',
     'signposts_title' => 'Rychlý rozcestník po Motogo24',
     'signposts' => [
-        ['icon' => 'gfx/ico-katalog.svg', 'title' => 'Katalog motorek', 'text' => 'Prohlédněte si naši nabídku motorek na pronájem – od sportovních po cestovní modely.', 'btn' => 'KATALOG MOTOREK', 'href' => '/katalog'],
-        ['icon' => 'gfx/ico-jak.svg', 'title' => 'Jak si půjčit motorku', 'text' => 'Jednoduchý proces: vyberte motorku k zapůjčení, rezervujte a vyjeďte.', 'btn' => 'JAK SI PŮJČIT MOTORKU', 'href' => '/jak-pujcit'],
-        ['icon' => 'gfx/ico-rezervace.svg', 'title' => 'Online rezervace motorky', 'text' => 'Zarezervujte si motorku na pronájem přes snadný online systém.', 'btn' => 'REZERVOVAT MOTORKU', 'href' => '/rezervace'],
-        ['icon' => 'gfx/ico-kontakt.svg', 'title' => 'Kontakty a mapa', 'text' => 'Navštivte naši půjčovnu motorek v Pelhřimově nebo nás kontaktujte.', 'btn' => 'KONTAKT', 'href' => '/kontakt'],
-        ['icon' => 'gfx/ico-faq.svg', 'title' => 'Často kladené dotazy', 'text' => 'Nejčastější dotazy k půjčení motorky přehledně na jednom místě.', 'btn' => 'ČASTÉ DOTAZY', 'href' => '/jak-pujcit/faq'],
-        ['icon' => 'gfx/ico-trasy.svg', 'title' => 'Motocyklové výlety', 'text' => 'Objevte nejlepší motocyklové trasy v Česku pro turisty i místní.', 'btn' => 'MOTOCYKLOVÉ TRASY', 'href' => '/blog'],
+        ['icon' => 'gfx/vyber-motorku.svg', 'title' => 'Katalog motorek', 'text' => 'Prohlédněte si naši nabídku motorek na pronájem – od sportovních po cestovní modely.', 'btn' => 'KATALOG MOTOREK', 'href' => '/katalog'],
+        ['icon' => 'gfx/potvrzeni-rezervace.svg', 'title' => 'Jak si půjčit motorku', 'text' => 'Jednoduchý proces: vyberte motorku k zapůjčení, rezervujte a vyjeďte.', 'btn' => 'JAK SI PŮJČIT MOTORKU', 'href' => '/jak-pujcit'],
+        ['icon' => 'gfx/rezervace-online.svg', 'title' => 'Online rezervace motorky', 'text' => 'Zarezervujte si motorku na pronájem přes snadný online systém.', 'btn' => 'REZERVOVAT MOTORKU', 'href' => '/rezervace'],
+        ['icon' => 'gfx/kontakt.svg', 'title' => 'Kontakty a mapa', 'text' => 'Navštivte naši půjčovnu motorek v Pelhřimově nebo nás kontaktujte.', 'btn' => 'KONTAKT', 'href' => '/kontakt'],
+        ['icon' => 'gfx/faq.svg', 'title' => 'Často kladené dotazy', 'text' => 'Nejčastější dotazy k půjčení motorky přehledně na jednom místě.', 'btn' => 'ČASTÉ DOTAZY', 'href' => '/jak-pujcit/faq'],
+        ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => 'Motocyklové výlety', 'text' => 'Objevte nejlepší motocyklové trasy v Česku pro turisty i místní.', 'btn' => 'MOTOCYKLOVÉ TRASY', 'href' => '/blog'],
     ],
     'motos_section' => [
         'title' => 'Naše motorky k pronájmu na Vysočině',
@@ -46,21 +46,17 @@ $defaults = [
     'process' => [
         'title' => 'Jak probíhá půjčení motorky na Vysočině',
         'steps' => [
-            ['icon' => 'gfx/ico-step1.svg', 'title' => '1. Vyber', 'text' => 'Vyberte si svou ideální motorku z naší nabídky motorek na pronájem.'],
-            ['icon' => 'gfx/ico-step2.svg', 'title' => '2. Rezervuj', 'text' => 'Zarezervujte si půjčení motorky přes náš jednoduchý online systém.'],
-            ['icon' => 'gfx/ico-step3.svg', 'title' => '3. Převzetí', 'text' => 'Vyzvedněte si motorku v naší půjčovně motorek v Pelhřimově.'],
-            ['icon' => 'gfx/ico-step4.svg', 'title' => '4. Užij jízdu', 'text' => 'Užijte si svobodu a objevte Česko na motorkách k zapůjčení.'],
+            ['icon' => 'gfx/vyber-motorku.svg', 'title' => '1. Vyber', 'text' => 'Vyberte si svou ideální motorku z naší nabídky motorek na pronájem.'],
+            ['icon' => 'gfx/rezervace-online.svg', 'title' => '2. Rezervuj', 'text' => 'Zarezervujte si půjčení motorky přes náš jednoduchý online systém.'],
+            ['icon' => 'gfx/predani-motorky.svg', 'title' => '3. Převzetí', 'text' => 'Vyzvedněte si motorku v naší půjčovně motorek v Pelhřimově.'],
+            ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => '4. Užij jízdu', 'text' => 'Užijte si svobodu a objevte Česko na motorkách k zapůjčení.'],
         ],
     ],
     'faq' => [
         'title' => 'Často kladené otázky',
         'more_link' => '/jak-pujcit/faq',
-        'items' => [
-            ['q' => 'Jak si mohu rezervovat motorku?', 'a' => 'Motorku si můžeš rezervovat přes náš online rezervační systém přímo tady na webu. Případně se nám můžeš ozvat e-mailem, telefonicky nebo přes naše sociální sítě.'],
-            ['q' => 'Můžu si motorku půjčit i bez předchozí rezervace?', 'a' => 'Bez rezervace to bohužel nejde. Každou motorku je nutné předem zamluvit – online, telefonicky, e-mailem nebo přes sociální sítě.'],
-            ['q' => 'Musím složit kauci?', 'a' => 'Ne! U nás <strong>žádnou kauci platit nemusíš</strong>. Naše půjčovna se tímto zásadně liší od většiny konkurence.'],
-            ['q' => 'Můžu odcestovat s motorkou do zahraničí?', 'a' => 'Ano, s motorkou můžeš bez problémů vyrazit i do zahraničí. Cesty mimo Česko neomezujeme, jen je potřeba dodržet územní platnost pojištění (zelená karta).'],
-        ],
+        // items se naplní z DB (faq_items WHERE featured_home=true) — viz níže
+        'items' => [],
     ],
     'cta' => [
         'title' => 'Rezervuj svou motorku online',
@@ -88,50 +84,80 @@ $C = $sb->siteContent('home', $defaults);
 
 // ---- Signpost
 $signpostTitle = $C['signposts_title'] ?? 'Rychlý rozcestník po Motogo24';
-$signHtml = '<section aria-labelledby="signpost-h"><h2 id="signpost-h">' . htmlspecialchars($signpostTitle) . '</h2><p>&nbsp;</p><div class="gr3">';
-foreach ($C['signposts'] as $s) {
+$signHtml = '<section aria-labelledby="signpost-h"><h2 id="signpost-h" data-cms-key="web.home.signposts_title">' . htmlspecialchars($signpostTitle) . '</h2><p>&nbsp;</p><div class="gr3">';
+foreach ($C['signposts'] as $i => $s) {
     $iconSrc = BASE_URL . '/' . ltrim($s['icon'], '/');
     $titleText = trim(strip_tags($s['title'] ?? ''));
     if ($titleText === '') $titleText = htmlspecialchars($s['btn'] ?? 'Informace');
+    $kBase = 'web.home.signposts.' . $i;
     $signHtml .= '<a class="gbox" href="' . BASE_URL . $s['href'] . '">' .
         '<div class="gr2"><div class="gbox-img"><img src="' . htmlspecialchars($iconSrc) . '" class="icon" alt="' . htmlspecialchars(strip_tags($s['btn'] ?? $titleText)) . '" loading="lazy"></div><div>' .
-        '<h3>' . ($s['title'] !== '' ? $s['title'] : $titleText) . '</h3><p>' . $s['text'] . '</p>' .
-        '<div class="btn btngreen-small">' . $s['btn'] . '</div></div></div></a>';
+        '<h3 data-cms-key="' . $kBase . '.title">' . ($s['title'] !== '' ? $s['title'] : $titleText) . '</h3>' .
+        '<p data-cms-key="' . $kBase . '.text">' . $s['text'] . '</p>' .
+        '<div class="btn btngreen-small" data-cms-key="' . $kBase . '.btn">' . $s['btn'] . '</div></div></div></a>';
 }
 $signHtml .= '</div></section>';
 
 // ---- Motorky
 $mo = $C['motos_section'];
-$motosHtml = '<section aria-labelledby="catalogue"><h2>' . $mo['title'] . '</h2>' .
-    '<p>' . $mo['intro'] . '</p><p>&nbsp;</p>' .
+$motosHtml = '<section aria-labelledby="catalogue"><h2 data-cms-key="web.home.motos_section.title">' . $mo['title'] . '</h2>' .
+    '<p data-cms-key="web.home.motos_section.intro">' . $mo['intro'] . '</p><p>&nbsp;</p>' .
     '<div id="home-motos" class="gr4">';
 if (!empty($motos)) {
     foreach (array_slice($motos, 0, (int)($mo['limit'] ?? 4)) as $m) {
         $motosHtml .= '<section aria-labelledby="catalogue">' . renderMotoCard($m) . '</section>';
     }
 } else {
-    $motosHtml .= '<p>' . htmlspecialchars($mo['empty']) . '</p>';
+    $motosHtml .= '<p data-cms-key="web.home.motos_section.empty">' . htmlspecialchars($mo['empty']) . '</p>';
 }
-$motosHtml .= '</div><p>&nbsp;</p><p class="text-center"><a class="btn btngreen" href="' . BASE_URL . $mo['cta_href'] . '">' . $mo['cta_label'] . '</a></p></section>';
+$motosHtml .= '</div><p>&nbsp;</p><p class="text-center"><a class="btn btngreen" href="' . BASE_URL . $mo['cta_href'] . '" data-cms-key="web.home.motos_section.cta_label">' . $mo['cta_label'] . '</a></p></section>';
 
 // ---- Proces
-$processHtml = '<section aria-labelledby="process"><h2>' . $C['process']['title'] . '</h2><div class="gr4">';
-foreach ($C['process']['steps'] as $s) {
-    $processHtml .= renderWbox($s['icon'], $s['title'], $s['text']);
+$processHtml = '<section aria-labelledby="process"><h2 data-cms-key="web.home.process.title">' . $C['process']['title'] . '</h2><div class="gr4">';
+foreach ($C['process']['steps'] as $i => $s) {
+    $kBase = 'web.home.process.steps.' . $i;
+    $processHtml .= renderWbox(
+        $s['icon'],
+        '<span data-cms-key="' . $kBase . '.title">' . $s['title'] . '</span>',
+        '<span data-cms-key="' . $kBase . '.text">' . $s['text'] . '</span>'
+    );
 }
 $processHtml .= '</div></section>';
 
-// ---- FAQ
-$faqHtml = renderFaqSection($C['faq']['title'], $C['faq']['items'], $C['faq']['more_link'] ?? null);
+// ---- FAQ — featured items z DB (faq_items WHERE featured_home=true)
+// Položky se spravují ve Velíně v záložce „Časté dotazy"; admin označí 4 (nebo víc)
+// otázek jako ⭐ a tady se zobrazí prvních N podle sort_order.
+$lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
+$featuredFaq = $sb->fetchFaqItems(['featured_only' => true, 'limit' => 4]);
+$faqItemsKeyed = [];
+foreach ($featuredFaq as $r) {
+    $q = function_exists('localized') ? (localized($r, 'question', $lang) ?: $r['question']) : $r['question'];
+    $a = function_exists('localized') ? (localized($r, 'answer', $lang) ?: $r['answer']) : $r['answer'];
+    $faqItemsKeyed[] = ['q' => $q, 'a' => $a];
+}
+$faqTitleKeyed = '<span data-cms-key="web.home.faq.title">' . ($C['faq']['title'] ?? '') . '</span>';
+$faqHtml = !empty($faqItemsKeyed)
+    ? renderFaqSection($faqTitleKeyed, $faqItemsKeyed, $C['faq']['more_link'] ?? null)
+    : '';
 
 // ---- CTA
-$ctaHtml = renderCta($C['cta']['title'], $C['cta']['text'], $C['cta']['buttons']);
+$ctaButtonsKeyed = [];
+foreach (($C['cta']['buttons'] ?? []) as $i => $btn) {
+    $b = $btn;
+    $b['label'] = '<span data-cms-key="web.home.cta.buttons.' . $i . '.label">' . ($btn['label'] ?? '') . '</span>';
+    $ctaButtonsKeyed[] = $b;
+}
+$ctaHtml = renderCta(
+    '<span data-cms-key="web.home.cta.title">' . ($C['cta']['title'] ?? '') . '</span>',
+    '<span data-cms-key="web.home.cta.text">' . ($C['cta']['text'] ?? '') . '</span>',
+    $ctaButtonsKeyed
+);
 
 // ---- Reviews (zobrazí se jen pokud data existují)
 $reviewsHtml = '';
 if (!empty($reviews)) {
-    $reviewsHtml = '<section aria-labelledby="reviews"><h2>' . htmlspecialchars($C['reviews']['title']) . '</h2>'
-        . '<p>' . htmlspecialchars($C['reviews']['intro']) . '</p><p>&nbsp;</p>'
+    $reviewsHtml = '<section aria-labelledby="reviews"><h2 data-cms-key="web.home.reviews.title">' . htmlspecialchars($C['reviews']['title']) . '</h2>'
+        . '<p data-cms-key="web.home.reviews.intro">' . htmlspecialchars($C['reviews']['intro']) . '</p><p>&nbsp;</p>'
         . '<div class="gr3">';
     foreach ($reviews as $r) {
         $rating = (int)($r['rating'] ?? 0);
@@ -149,15 +175,15 @@ if (!empty($reviews)) {
 
 // ---- Blog
 $bl = $C['blog'];
-$blogHtml = '<section aria-labelledby="blog"><h2>' . $bl['title'] . '</h2><div id="home-blog" class="gr3">';
+$blogHtml = '<section aria-labelledby="blog"><h2 data-cms-key="web.home.blog.title">' . $bl['title'] . '</h2><div id="home-blog" class="gr3">';
 if (!empty($posts)) {
     foreach (array_slice($posts, 0, (int)($bl['limit'] ?? 3)) as $p) {
         $blogHtml .= renderBlogCard($p);
     }
 } else {
-    $blogHtml .= '<p>' . htmlspecialchars($bl['empty']) . '</p>';
+    $blogHtml .= '<p data-cms-key="web.home.blog.empty">' . htmlspecialchars($bl['empty']) . '</p>';
 }
-$blogHtml .= '</div><p>&nbsp;</p><p class="text-center"><a class="btn btngreen" href="' . BASE_URL . $bl['cta_href'] . '">' . $bl['cta_label'] . '</a></p></section>';
+$blogHtml .= '</div><p>&nbsp;</p><p class="text-center"><a class="btn btngreen" href="' . BASE_URL . $bl['cta_href'] . '" data-cms-key="web.home.blog.cta_label">' . $bl['cta_label'] . '</a></p></section>';
 
 // ---- Banner
 $hero = $C['hero'];
@@ -171,24 +197,24 @@ $bannerHtml = '<div class="banner">' .
         '<img fetchpriority="high" decoding="async" alt="' . htmlspecialchars($hero['alt']) . '" src="' . htmlspecialchars($heroImgUrl) . '" width="1920" height="480">' .
     '</picture>' .
     '<div class="banner-wrapper"><div class="container"><div class="banner-caption">' .
-        '<p>' . $hero['eyebrow'] . '</p><p>&nbsp;</p>' .
-        '<p>' . $hero['body'] . '</p><p>&nbsp;</p>' .
-        '<p><a class="btn ' . ($ctaP['cls'] ?? 'btngreen') . '" href="' . BASE_URL . $ctaP['href'] . '">' . $ctaP['label'] . '</a> <a class="btn ' . ($ctaS['cls'] ?? 'btndark') . '" href="' . BASE_URL . $ctaS['href'] . '">' . $ctaS['label'] . '</a></p>' .
+        '<p data-cms-key="web.home.hero.eyebrow">' . $hero['eyebrow'] . '</p><p>&nbsp;</p>' .
+        '<p data-cms-key="web.home.hero.body">' . $hero['body'] . '</p><p>&nbsp;</p>' .
+        '<p><a class="btn ' . ($ctaP['cls'] ?? 'btngreen') . '" href="' . BASE_URL . $ctaP['href'] . '" data-cms-key="web.home.hero.cta_primary.label">' . $ctaP['label'] . '</a> <a class="btn ' . ($ctaS['cls'] ?? 'btndark') . '" href="' . BASE_URL . $ctaS['href'] . '" data-cms-key="web.home.hero.cta_secondary.label">' . $ctaS['label'] . '</a></p>' .
     '</div></div></div></div>';
 
-$introHtml = !empty($C['intro']) ? '<p class="home-intro">' . $C['intro'] . '</p>' : '';
+$introHtml = !empty($C['intro']) ? '<p class="home-intro" data-cms-key="web.home.intro">' . $C['intro'] . '</p>' : '';
 
 $content = $bannerHtml .
-    '<main id="content"><div class="container"><h1>' . $C['h1'] . '</h1>' . $introHtml .
+    '<main id="content"><div class="container"><h1 data-cms-key="web.home.h1">' . $C['h1'] . '</h1>' . $introHtml .
     $signHtml . $motosHtml . $processHtml . $faqHtml . $reviewsHtml . $ctaHtml . $blogHtml .
     '</div></main>';
 
 // ---- Strukturovaná data: FAQ + HowTo + AggregateRating ze sekcí výše ----
 
-// FAQPage schema z $C['faq']['items'] — stripuje HTML, zachycuje strong/em jako text.
+// FAQPage schema z $faqItemsKeyed (DB-driven) — stripuje HTML, zachycuje strong/em jako text.
 $faqSchemaItems = [];
-if (!empty($C['faq']['items']) && is_array($C['faq']['items'])) {
-    foreach ($C['faq']['items'] as $f) {
+if (!empty($faqItemsKeyed) && is_array($faqItemsKeyed)) {
+    foreach ($faqItemsKeyed as $f) {
         $q = trim(strip_tags($f['q'] ?? ''));
         $a = trim(strip_tags($f['a'] ?? ''));
         if ($q === '' || $a === '') continue;
@@ -207,7 +233,7 @@ if (!empty($C['process']['steps']) && is_array($C['process']['steps'])) {
         $name = trim(strip_tags($s['title'] ?? ''));
         $text = trim(strip_tags($s['text'] ?? ''));
         if ($name === '' || $text === '') continue;
-        $howToSteps[] = '{"@type":"HowToStep","position":' . ($i + 1) . ',"name":' . json_encode($name, JSON_UNESCAPED_UNICODE) . ',"text":' . json_encode($text, JSON_UNESCAPED_UNICODE) . ',"url":"https://motogo24.cz/jak-pujcit#krok-' . ($i + 1) . '"}';
+        $howToSteps[] = '{"@type":"HowToStep","position":' . ($i + 1) . ',"name":' . json_encode($name, JSON_UNESCAPED_UNICODE) . ',"text":' . json_encode($text, JSON_UNESCAPED_UNICODE) . ',"url":' . json_encode(siteCanonicalUrl('/jak-pujcit#krok-' . ($i + 1)), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . '}';
     }
 }
 $howToSchema = '';
@@ -235,6 +261,6 @@ renderPage($C['seo']['title'], $content, '/', [
     'aggregate_rating' => $aggRating,
     'speakable' => ['h1', '.home-intro', '[aria-labelledby="catalogue"] > h2', '[aria-labelledby="process"]'],
     'breadcrumbs' => [
-        ['name' => 'Domů', 'url' => 'https://motogo24.cz/'],
+        ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
     ],
 ]);

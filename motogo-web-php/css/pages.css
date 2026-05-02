@@ -224,22 +224,58 @@
 .moto-nav-back{font-weight:600}
 .moto-detail-header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem}
 .moto-info{margin-bottom:2rem}
+/* Detail layout — fotka na celou šířku nahoře, popis pod ní (mobil i desktop). */
+.moto-info.gr2{display:flex;flex-direction:column-reverse;gap:1.5rem}
+.moto-info .moto-photo .gallery-img img{width:100%;height:auto;max-height:600px;object-fit:cover;aspect-ratio:16/9}
 .moto-shortdesc .wbox{text-align:left;margin-bottom:1rem}
 .moto-shortdesc ul{margin:.5rem 0;padding-left:1.2rem}
 .moto-shortdesc li{color:#4a6b5a;font-size:.9rem;padding:.15rem 0;list-style:disc}
 .moto-shortdesc li::before{display:none}
+/* Desktop — popis ve 2 sloupcích pod fotkou, aby nezely prázdné mezery vpravo. */
+@media(min-width:769px){
+  .moto-shortdesc{columns:2;column-gap:2.5rem}
+  .moto-shortdesc>*{break-inside:avoid;page-break-inside:avoid}
+  .moto-shortdesc h2,
+  .moto-shortdesc h3{break-after:avoid;page-break-after:avoid;margin-top:0}
+  .moto-shortdesc .wbox{column-span:all;margin-bottom:1.25rem}
+}
+
+/* ===== Mobile galerie přebudovaná v JS — vlastní izolované třídy =====
+   Aktivní jen pod 768 px (JS sám vkládá strukturu, CSS jen řeší vzhled).
+   Schopná přepsat jakákoliv globální .gr3/.gr4/grid/column-reverse pravidla,
+   protože nikdo jiný .mg-mob-* nestyluje. */
+.mg-mob{display:block;width:100%;margin:0 0 1rem}
+.mg-mob-main{display:block;width:100%;border-radius:12px;overflow:hidden;background:#1a2e22;box-shadow:0 4px 14px rgba(26,46,34,.18);cursor:zoom-in;margin:0 0 .65rem;position:relative}
+.mg-mob-main img{display:block;width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;background:#1a2e22}
+/* "Klikni pro zvětšení" indikátor — jemné lupě v rohu */
+.mg-mob-main::after{content:"⤢";position:absolute;top:.55rem;right:.55rem;width:32px;height:32px;border-radius:50%;background:rgba(26,46,34,.75);color:#74FB71;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:700;pointer-events:none;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.mg-mob-strip{display:flex!important;flex-wrap:nowrap!important;flex-direction:row!important;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;gap:.4rem;padding:.15rem 0;scroll-behavior:smooth;scrollbar-width:none;scroll-snap-type:x proximity}
+.mg-mob-strip::-webkit-scrollbar{display:none}
+.mg-mob-strip a{flex:0 0 22%!important;scroll-snap-align:start;display:block;border-radius:8px;overflow:hidden;background:#1a2e22;border:2px solid transparent;transition:border-color .15s,transform .1s;text-decoration:none;cursor:pointer;position:relative}
+.mg-mob-strip a:active{transform:scale(.97)}
+.mg-mob-strip a:hover{border-color:#74FB71}
+.mg-mob-strip a img{display:block;width:100%;height:auto;aspect-ratio:1/1;object-fit:cover}
+.mg-mob-orig-hidden{display:none!important}
 
 /* Gallery */
 .moto-gallery .moto-photo{margin-bottom:.75rem}
 .moto-gallery .gallery-img{border-radius:8px;overflow:hidden}
 .moto-gallery .gallery-img img{width:100%;height:auto;cursor:pointer;transition:opacity .2s}
 .moto-gallery .gallery-img img:hover{opacity:.85}
-/* Thumby — grid s libovolným počtem fotek; auto-fill aby nepřetékaly. */
-.moto-gallery .moto-thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:.5rem}
-.moto-gallery .moto-thumbs .gallery-img img{height:100px;object-fit:cover}
+/* Thumby — vždy horizontální scroll-snap pás se šipkami pro postupné procházení. */
+.moto-thumbs-wrap{position:relative;display:flex;align-items:center;gap:.25rem}
+.moto-gallery .moto-thumbs{display:flex;flex-wrap:nowrap;overflow-x:auto;scroll-behavior:smooth;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;gap:.5rem;padding:.25rem 0;scrollbar-width:thin;flex:1;min-width:0}
+.moto-gallery .moto-thumbs::-webkit-scrollbar{height:6px}
+.moto-gallery .moto-thumbs::-webkit-scrollbar-thumb{background:#cfd8d3;border-radius:3px}
+.moto-gallery .moto-thumbs>div{flex:0 0 120px;scroll-snap-align:start}
+.moto-gallery .moto-thumbs .gallery-img img{height:90px;object-fit:cover}
+.moto-thumbs-nav{flex:0 0 auto;width:32px;height:90px;background:rgba(26,46,34,.85);color:#74FB71;border:1px solid #2a4e3a;border-radius:8px;font-size:1.1rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s,opacity .15s;font-family:inherit;padding:0}
+.moto-thumbs-nav:hover{background:#2a4e3a;color:#a8ff9f}
+.moto-thumbs-nav:disabled{opacity:.35;cursor:default}
 /* Zpětná kompatibilita pro starší .gr3 použití uvnitř moto-gallery */
-.moto-gallery .gr3{gap:.5rem}
-.moto-gallery .gr3 .gallery-img img{height:100px;object-fit:cover}
+.moto-gallery .gr3{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:.5rem;padding:.25rem 0}
+.moto-gallery .gr3>div{flex:0 0 120px}
+.moto-gallery .gr3 .gallery-img img{height:90px;object-fit:cover}
 
 /* Moto detail — mobilní layout */
 @media(max-width:768px){
@@ -247,13 +283,13 @@
   .moto-shortdesc{margin-top:.5rem}
   .moto-gallery .moto-photo{margin-bottom:.5rem}
   .moto-gallery .moto-photo .gallery-img img{aspect-ratio:4/3;object-fit:cover;width:100%;height:auto;max-height:60vh}
-  /* Galerie thumbs — horizontal scroll snap */
-  .moto-gallery .moto-thumbs,
-  .moto-gallery .gr3{display:flex;flex-wrap:nowrap;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;gap:.5rem;padding-bottom:.5rem;scrollbar-width:thin}
+  /* Galerie thumbs — užší miniatury, šipky kompaktnější (desktop fallback,
+     na mobilu je celý pás schovaný přes .moto-mobile-hide) */
   .moto-gallery .moto-thumbs>div,
-  .moto-gallery .gr3>div{flex:0 0 calc(33.333% - .35rem);min-width:0;scroll-snap-align:start}
+  .moto-gallery .gr3>div{flex:0 0 calc(33.333% - .35rem)}
   .moto-gallery .moto-thumbs .gallery-img img,
   .moto-gallery .gr3 .gallery-img img{height:90px}
+  .moto-thumbs-nav{width:28px;height:90px;font-size:1rem}
   /* Specs/popis sloupce — jeden pod druhým */
   .moto-detail section.gr2,
   .moto-prices.gr2{grid-template-columns:1fr;gap:1.25rem}
@@ -327,9 +363,10 @@
 
 /* ===== FAQ ACCORDION ===== */
 .faq-item{background:#fff;border:1px solid #d4e8e0;border-radius:8px;margin-bottom:.5rem;overflow:hidden}
-.faq-item summary{padding:1rem 1.25rem;cursor:pointer;font-weight:600;color:#1a2e22;font-size:.95rem;list-style:none;display:flex;justify-content:space-between;align-items:center;transition:background .15s}
+.faq-item summary{padding:.85rem 1rem .85rem 1.25rem;cursor:pointer;font-weight:600;color:#1a2e22;font-size:.95rem;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:1rem;transition:background .15s}
 .faq-item summary:hover{background:#f4faf7}
-.faq-item summary::after{content:"+";font-size:1.3rem;color:#74FB71;font-weight:400;transition:transform .2s}
+.faq-item summary::after{content:"+";flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:6px;background:#00FF5A;color:#fff;font-size:1.25rem;font-weight:700;line-height:1;transition:background .2s,transform .2s}
+.faq-item summary:hover::after{background:#00e651}
 .faq-item[open] summary::after{content:"−"}
 .faq-item p,.faq-item div:not(summary){padding:0 1.25rem 1rem;color:#4a6b5a;font-size:.9rem;line-height:1.6}
 .faq-item summary::-webkit-details-marker{display:none}
@@ -579,6 +616,13 @@
 .rez-agree:has(input:checked){border-color:#74FB71;background:#e8fce8}
 .rez-agree a{color:#1a8c1a;font-weight:600}
 
+/* Step 2 — zvýraznění potvrzení o ŘP (důležitý souhlas) */
+#rez-license-confirm-wrap{margin:1.1rem 0 .4rem!important}
+#rez-license-confirm-wrap .rez-agree{padding:.95rem 1.05rem;gap:.75rem;font-size:.95rem;font-weight:600;color:#1a2e22;background:#f0faf5;border:2px solid #74FB71;border-left:6px solid #1a8c1a;border-radius:12px;box-shadow:0 2px 10px rgba(26,140,26,.12)}
+#rez-license-confirm-wrap .rez-agree:hover{background:#e8fce8;border-color:#5edc5a;border-left-color:#1a8c1a;box-shadow:0 4px 14px rgba(26,140,26,.18)}
+#rez-license-confirm-wrap .rez-agree input{width:22px;height:22px;margin-top:.05rem}
+#rez-license-confirm-wrap .rez-agree:has(input:checked){background:#d4f7d4;border-color:#1a8c1a;border-left-color:#1a8c1a;box-shadow:0 2px 10px rgba(26,140,26,.18)}
+
 /* CTA */
 .rez-cta{padding:.95rem 2.4rem!important;font-size:1rem!important;font-weight:800;letter-spacing:.5px;box-shadow:0 6px 18px rgba(116,251,113,.45);transition:all .25s}
 .rez-cta:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(116,251,113,.55)}
@@ -613,19 +657,116 @@
 .rez-doc-upload-tag{font-size:.72rem;color:#4a6b5a;background:#fff;padding:.1rem .5rem;border-radius:999px;border:1px solid #d4e8e0}
 .rez-doc-upload-sub{color:#4a6b5a;font-size:.82rem;line-height:1.45;margin:0 0 .55rem}
 .rez-doc-upload-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.6rem}
-.rez-doc-upload-card{background:#fff;border:1px solid #e0ece6;border-radius:12px;padding:.7rem .8rem}
-.rez-doc-upload-card-head{display:flex;align-items:center;gap:.45rem;font-weight:700;color:#1a2e22;font-size:.9rem;margin-bottom:.45rem}
-.rez-doc-upload-actions{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.45rem}
-.rez-invoice-card{background:#fff;border:1.5px solid #d4e8e0;border-radius:14px;padding:.85rem 1rem;margin-bottom:.6rem}
-.rez-invoice-table{width:100%;border-collapse:collapse;font-size:.88rem;color:#1a2e22}
-.rez-invoice-table th{text-align:left;padding:.45rem 0;font-weight:700;border-bottom:1px solid #d4e8e0;font-size:.85rem;color:#4a6b5a}
+.rez-doc-upload-card{background:linear-gradient(180deg,#fff 0%,#f9fefa 100%);border:1.5px solid #d4e8e0;border-radius:14px;padding:.85rem .9rem;transition:all .2s;box-shadow:0 2px 6px rgba(26,46,34,.04)}
+.rez-doc-upload-card:hover{border-color:#74FB71;box-shadow:0 6px 18px rgba(116,251,113,.18);transform:translateY(-1px)}
+.rez-doc-upload-card-head{display:flex;align-items:center;gap:.5rem;font-weight:700;color:#1a2e22;font-size:.95rem;margin-bottom:.55rem;padding-bottom:.45rem;border-bottom:1px dashed #d4e8e0}
+.rez-doc-upload-actions{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.55rem}
+.rez-invoice-card{background:#fff;border:1.5px solid #d4e8e0;border-radius:16px;padding:1rem 1.1rem;margin-bottom:.7rem;box-shadow:0 4px 14px rgba(26,46,34,.05)}
+.rez-invoice-table{width:100%;border-collapse:collapse;font-size:.92rem;color:#1a2e22}
+.rez-invoice-table th{text-align:left;padding:.55rem .25rem;font-weight:800;border-bottom:2px solid #1a8c1a;font-size:.78rem;color:#1a8c1a;text-transform:uppercase;letter-spacing:.5px}
 .rez-invoice-table th:last-child{text-align:right}
-.rez-invoice-table td{padding:.45rem 0;border-bottom:1px solid #f0f5f2}
-.rez-invoice-table td:last-child{text-align:right;font-variant-numeric:tabular-nums}
-.rez-invoice-total{display:flex;justify-content:space-between;align-items:center;margin-top:.65rem;padding-top:.65rem;border-top:2px solid #1a8c1a;font-size:1rem}
-.rez-invoice-total strong:last-child{color:#1a8c1a;font-size:1.1rem}
-.rez-invoice-meta{background:#f9fefa;border:1px solid #d4e8e0;border-radius:12px;padding:.7rem .85rem;font-size:.84rem;color:#374151;line-height:1.55}
-.rez-invoice-meta strong{color:#1a2e22}
+.rez-invoice-table td{padding:.65rem .25rem;border-bottom:1px solid #eaf3ed;font-weight:600}
+.rez-invoice-table tr:last-child td{border-bottom:none}
+.rez-invoice-table tr:hover td{background:#f9fefa}
+.rez-invoice-table td:last-child{text-align:right;font-variant-numeric:tabular-nums;color:#1a2e22;font-weight:700}
+.rez-inv-ico{display:inline-block;width:1.25rem;margin-right:.45rem;color:#1a8c1a;font-size:.95rem;vertical-align:middle}
+.rez-invoice-row-discount td{color:#1a8c1a !important}
+.rez-invoice-row-discount td:last-child{font-weight:800}
+.rez-invoice-row-day td{padding-top:.25rem !important;padding-bottom:.25rem !important;color:#475569 !important;font-size:.85rem;font-weight:500}
+.rez-invoice-row-day td:last-child{color:#475569 !important;font-weight:600}
+.rez-invoice-row-day .rez-inv-ico{color:#94a3b8}
+.rez-inv-day-lbl{padding-left:.6rem}
+.rez-inv-sub{font-weight:400;color:#6b7280;font-size:.82rem;margin-left:.35rem}
+.rez-invoice-total{display:flex;justify-content:space-between;align-items:center;margin-top:.85rem;padding:.75rem 1rem;border-radius:12px;background:linear-gradient(135deg,#1a2e22 0%,#0f1f17 100%);color:#fff;font-size:1rem;box-shadow:0 4px 12px rgba(26,46,34,.18)}
+.rez-invoice-total strong{color:#fff;font-size:1rem;letter-spacing:.3px}
+.rez-invoice-total strong:last-child{color:#74FB71;font-size:1.25rem;font-weight:800;font-variant-numeric:tabular-nums}
+.rez-invoice-meta{background:linear-gradient(180deg,#f9fefa 0%,#f0faf5 100%);border:1px solid #d4e8e0;border-left:4px solid #1a8c1a;border-radius:12px;padding:.85rem 1rem;font-size:.86rem;color:#1a2e22;line-height:1.5;display:flex;flex-direction:column;gap:.6rem}
+.rez-meta-row{display:flex;align-items:flex-start;gap:.65rem}
+.rez-meta-ico{flex-shrink:0;width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;background:#fff;border:1.5px solid #b8e6b8;border-radius:8px;font-size:.95rem;line-height:1}
+.rez-meta-body{flex:1;min-width:0}
+.rez-meta-label{font-size:.7rem;font-weight:800;color:#1a8c1a;text-transform:uppercase;letter-spacing:.5px;margin-bottom:.1rem}
+.rez-meta-value{font-weight:600;color:#1a2e22;word-break:break-word}
+.rez-meta-dim{color:#4a6b5a;font-weight:500;font-size:.82rem}
+.rez-scan-card{background:linear-gradient(180deg,#fff 0%,#f9fefa 100%);border:1.5px solid #d4e8e0;border-radius:14px;padding:.9rem 1rem;margin-bottom:.85rem;box-shadow:0 2px 8px rgba(26,46,34,.05);transition:all .2s}
+.rez-scan-card:hover{border-color:#74FB71;box-shadow:0 6px 18px rgba(116,251,113,.18)}
+.rez-scan-card-head{display:flex;align-items:center;gap:.85rem;margin-bottom:.6rem;padding-bottom:.55rem;border-bottom:1px dashed #d4e8e0}
+.rez-scan-ico{font-size:1.6rem;line-height:1;flex-shrink:0;filter:drop-shadow(0 2px 4px rgba(26,140,26,.18))}
+.rez-scan-title{font-weight:800;color:#1a2e22;font-size:1rem;line-height:1.25;margin:0;display:flex;align-items:center;gap:.45rem;flex-wrap:wrap}
+.rez-scan-tag{font-size:.7rem;font-weight:700;color:#1a8c1a;background:#e8fce8;padding:.15rem .55rem;border-radius:999px;text-transform:uppercase;letter-spacing:.3px}
+.rez-scan-sub{font-size:.82rem;color:#4a6b5a;margin-top:.15rem;line-height:1.4}
+.rez-scan-hint{color:#4a6b5a;font-size:.85rem;text-align:center;margin:.65rem 0 0;padding:.65rem;background:#f9fefa;border:1px dashed #b8e6b8;border-radius:10px}
+.rez-scan-hint strong{color:#1a8c1a}
+
+/* ===== Moto Hero galerie (krok 2) — adaptivní poměr 16:10, dobré proporce na všech obrazovkách ===== */
+.rez-moto-hero{position:relative;width:100%;max-width:100%;aspect-ratio:16/10;min-height:380px;max-height:560px;border-radius:18px;overflow:hidden;background:#1a2e22;box-shadow:0 6px 22px rgba(26,46,34,.18);margin:0 0 1.1rem}
+.rez-moto-hero-stage{position:absolute;inset:0}
+.rez-moto-hero-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .35s ease;pointer-events:none}
+.rez-moto-hero-img.active{opacity:1;pointer-events:auto}
+.rez-moto-hero-empty{display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1a2e22 0%,#0f1f17 100%)}
+.rez-moto-hero-placeholder{font-size:5rem;opacity:.45;color:#74FB71}
+.rez-moto-hero-caption{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:space-between;gap:.65rem;padding:.85rem 1.1rem;background:linear-gradient(to top,rgba(0,0,0,.65) 0%,rgba(0,0,0,.35) 60%,transparent 100%);color:#fff}
+.rez-moto-hero-name{font-weight:800;font-size:1.05rem;letter-spacing:.3px;text-shadow:0 2px 6px rgba(0,0,0,.35)}
+.rez-moto-hero-dots{display:flex;gap:.4rem}
+.rez-moto-hero-dot{width:8px;height:8px;border-radius:50%;border:none;background:rgba(255,255,255,.5);padding:0;cursor:pointer;transition:all .15s}
+.rez-moto-hero-dot.active{background:#74FB71;transform:scale(1.35);box-shadow:0 0 0 2px rgba(116,251,113,.35)}
+.rez-moto-hero-dot:hover{background:#fff}
+.rez-moto-hero-nav{position:absolute;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:50%;border:none;background:rgba(255,255,255,.92);color:#1a2e22;font-size:1rem;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;box-shadow:0 4px 12px rgba(0,0,0,.25)}
+.rez-moto-hero-nav:hover{background:#74FB71;color:#1a2e22;transform:translateY(-50%) scale(1.05)}
+.rez-moto-hero-prev{left:.65rem}
+.rez-moto-hero-next{right:.65rem}
+
+/* ===== Doplňky / produkty (upsell v kroku 2) ===== */
+.rez-prod-loading{display:flex;align-items:center;gap:.6rem;color:#4a6b5a;font-size:.9rem;padding:.5rem 0}
+.rez-prod-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.7rem;margin-top:.25rem}
+.rez-prod-card{display:flex;flex-direction:column;background:linear-gradient(180deg,#fff 0%,#f9fefa 100%);border:1.5px solid #d4e8e0;border-radius:14px;overflow:hidden;transition:all .2s;box-shadow:0 2px 8px rgba(26,46,34,.05)}
+.rez-prod-card:hover{border-color:#74FB71;transform:translateY(-2px);box-shadow:0 8px 22px rgba(116,251,113,.18)}
+.rez-prod-thumb{position:relative;width:100%;aspect-ratio:1/1;background:#f0faf5;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.rez-prod-thumb img{width:100%;height:100%;object-fit:cover}
+.rez-prod-thumb-ph{font-size:2.5rem;opacity:.4;color:#1a8c1a}
+.rez-prod-body{padding:.65rem .7rem .7rem;display:flex;flex-direction:column;gap:.4rem;flex:1}
+.rez-prod-name{font-weight:700;color:#1a2e22;font-size:.88rem;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.2em}
+.rez-prod-price{font-weight:800;color:#1a8c1a;font-size:.95rem;font-variant-numeric:tabular-nums}
+.rez-prod-sizes{display:flex;flex-wrap:wrap;gap:.25rem;margin:.1rem 0}
+.rez-prod-size{padding:.3rem .55rem;border:1.5px solid #d4e8e0;background:#fff;border-radius:999px;font-size:.78rem;font-weight:700;color:#1a2e22;cursor:pointer;font-family:'Montserrat',sans-serif;transition:all .15s;min-width:34px}
+.rez-prod-size:hover{border-color:#74FB71;background:#f0faf5}
+.rez-prod-size.active{background:#1a8c1a;color:#fff;border-color:#1a8c1a;box-shadow:0 2px 6px rgba(26,140,26,.3)}
+.rez-prod-qty{display:flex;align-items:center;gap:.4rem;margin:.1rem 0}
+.rez-prod-qty-label{font-size:.75rem;color:#4a6b5a;font-weight:700;letter-spacing:.2px}
+.rez-prod-qty-step{display:inline-flex;align-items:center;background:#fff;border:1.5px solid #d4e8e0;border-radius:10px;overflow:hidden;flex:1;justify-content:space-between;max-width:120px}
+.rez-prod-qty-btn{width:32px;height:32px;border:none;background:transparent;color:#1a2e22;font-size:1.1rem;font-weight:800;cursor:pointer;font-family:'Montserrat',sans-serif;transition:all .15s;line-height:1;display:flex;align-items:center;justify-content:center}
+.rez-prod-qty-btn:hover:not(:disabled){background:#e8fce8;color:#1a8c1a}
+.rez-prod-qty-btn:disabled{opacity:.35;cursor:not-allowed}
+.rez-prod-qty-val{flex:1;text-align:center;font-weight:800;color:#1a2e22;font-size:.95rem;font-variant-numeric:tabular-nums;min-width:24px}
+.rez-prod-incart{font-size:.7rem;color:#1a8c1a;font-weight:700;background:#e8fce8;padding:.15rem .5rem;border-radius:999px;align-self:flex-start;margin-top:.1rem}
+.rez-prod-add{margin-top:auto;padding:.55rem .85rem;background:#1a2e22;color:#74FB71;border:none;border-radius:10px;font-weight:800;font-size:.85rem;cursor:pointer;font-family:'Montserrat',sans-serif;transition:all .15s;letter-spacing:.2px}
+.rez-prod-add:hover{background:#0f1f17;transform:translateY(-1px)}
+.rez-prod-add.flash{background:#1a8c1a;color:#fff;animation:rezProdFlash .6s ease}
+@keyframes rezProdFlash{0%{transform:scale(1)}50%{transform:scale(1.05);box-shadow:0 0 0 6px rgba(116,251,113,.3)}100%{transform:scale(1)}}
+.rez-invoice-row-shop td{color:#1a2e22;vertical-align:middle}
+.rez-invoice-row-shop td:first-child{font-weight:600}
+.rez-inv-shop-cell{display:flex;align-items:center;gap:.55rem;flex-wrap:wrap}
+.rez-inv-shop-name{flex:1;min-width:120px}
+.rez-inv-qty{display:inline-flex;align-items:center;border:1px solid #d4e8e0;border-radius:8px;background:#fff;overflow:hidden}
+.rez-inv-qty-btn{width:24px;height:24px;border:none;background:transparent;color:#1a2e22;font-size:.9rem;font-weight:800;cursor:pointer;line-height:1;font-family:'Montserrat',sans-serif;transition:background .15s;display:inline-flex;align-items:center;justify-content:center;padding:0}
+.rez-inv-qty-btn:hover:not(:disabled){background:#e8fce8;color:#1a8c1a}
+.rez-inv-qty-btn:disabled{opacity:.35;cursor:not-allowed}
+.rez-inv-qty-val{min-width:22px;text-align:center;font-weight:800;font-size:.78rem;color:#1a2e22;font-variant-numeric:tabular-nums;padding:0 .15rem}
+.rez-inv-remove{width:24px;height:24px;border:1px solid #f0d4d4;background:#fff;color:#c33;border-radius:50%;font-size:.85rem;font-weight:800;cursor:pointer;line-height:1;font-family:'Montserrat',sans-serif;display:inline-flex;align-items:center;justify-content:center;padding:0;transition:all .15s}
+.rez-inv-remove:hover{background:#fde8e8;border-color:#c33;transform:scale(1.05)}
+
+@media(max-width:768px){
+  .rez-moto-hero{aspect-ratio:4/3;min-height:300px;max-height:400px;border-radius:14px;margin-bottom:.85rem}
+  .rez-moto-hero-name{font-size:.95rem}
+  .rez-moto-hero-nav{width:34px;height:34px;font-size:.9rem}
+  .rez-prod-grid{grid-template-columns:repeat(2,1fr);gap:.55rem}
+  .rez-prod-name{font-size:.82rem}
+  .rez-prod-price{font-size:.9rem}
+  .rez-prod-add{padding:.6rem .8rem;font-size:.85rem;min-height:42px}
+}
+@media(max-width:420px){
+  .rez-moto-hero{aspect-ratio:3/2;min-height:240px;max-height:320px}
+  .rez-prod-grid{grid-template-columns:1fr 1fr;gap:.5rem}
+}
 .rez-step2-actions{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.85rem;margin-top:1.1rem}
 .rez-step2-pay{display:flex;align-items:center;gap:.85rem;flex-wrap:wrap}
 .rez-step2-amount{background:#74FB71;color:#0b0b0b;padding:.6rem 1.2rem;border-radius:25px;font-weight:800;font-size:1.05rem;box-shadow:0 4px 12px rgba(116,251,113,.4)}
@@ -639,6 +780,16 @@
   .rez-doc-grid{grid-template-columns:1fr}
   .rez-pwd-grid{grid-template-columns:1fr;gap:.55rem}
   .rez-doc-upload-grid{grid-template-columns:1fr;gap:.55rem}
+  .rez-invoice-card{padding:.85rem .85rem;border-radius:14px}
+  .rez-invoice-table{font-size:.88rem}
+  .rez-invoice-total{padding:.7rem .85rem;font-size:.95rem}
+  .rez-invoice-total strong:last-child{font-size:1.15rem}
+  .rez-invoice-meta{padding:.75rem .85rem}
+  .rez-meta-ico{width:26px;height:26px;font-size:.9rem}
+  .rez-scan-card{padding:.8rem .85rem}
+  .rez-scan-card-head{gap:.65rem}
+  .rez-scan-ico{font-size:1.45rem}
+  .rez-scan-title{font-size:.95rem}
   .rez-date-row{grid-template-columns:1fr 1.4fr 1fr;gap:.4rem}
   .rez-date-row select{padding:.7rem .45rem;font-size:.92rem;min-height:46px}
   .rez-input{padding:.85rem .9rem;font-size:1rem;min-height:48px}
@@ -805,6 +956,132 @@
 .shop-specs tr:last-child th,.shop-specs tr:last-child td{border-bottom:none}
 .shop-cta{margin-top:1.1rem}
 .shop-cta .btn{min-height:48px;display:inline-flex;align-items:center;justify-content:center;padding:.75rem 1.5rem}
+
+/* ===== E-shop pokladna (/objednavka) ===== */
+.checkout-page{padding-top:.5rem}
+.checkout-intro{color:#4a6b5a;margin:.25rem 0 1rem;font-size:.95rem}
+.checkout-loading{padding:2rem 0;color:#4a6b5a;display:flex;align-items:center;gap:.75rem}
+.checkout-loading[hidden]{display:none}
+.checkout-empty{padding:2rem 0;text-align:center;color:#4a6b5a}
+.checkout-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:.85rem}
+.checkout-field{display:flex;flex-direction:column;gap:.3rem;font-size:.88rem;color:#1a2e22;font-weight:600}
+.checkout-field span{font-size:.82rem;letter-spacing:.04em;text-transform:uppercase;color:#4a6b5a;font-weight:700}
+.checkout-field .rez-input{margin-bottom:0}
+.checkout-field-wide{grid-column:1/-1}
+.checkout-ship-info{display:flex;flex-direction:column;gap:.15rem;flex:1;min-width:0}
+.checkout-ship-info strong{color:#1a2e22;font-size:.98rem;line-height:1.3}
+.checkout-ship-info small{color:#4a6b5a;font-size:.82rem;line-height:1.4}
+.checkout-ship-price{margin-top:.25rem;font-weight:800;color:#1a8a18;font-size:.95rem;background:rgba(116,251,113,.2);padding:.15rem .55rem;border-radius:999px;align-self:flex-start}
+.checkout-summary-list{margin:.4rem 0 .85rem;display:flex;flex-direction:column;gap:.4rem}
+.checkout-line{display:flex;justify-content:space-between;align-items:flex-start;gap:.75rem;padding:.55rem 0;border-bottom:1px dashed #e1f0e8}
+.checkout-line:last-child{border-bottom:none}
+.checkout-line-info{display:flex;flex-direction:column;gap:.15rem;min-width:0}
+.checkout-line-info strong{color:#1a2e22;font-size:.95rem;line-height:1.3}
+.checkout-line-info small{color:#4a6b5a;font-size:.82rem}
+.checkout-line-size{display:inline-block;margin-left:.4rem;background:#f4faf7;border:1px solid #d4e8e0;border-radius:6px;padding:0 .45rem;font-size:.78rem;font-weight:700;color:#1a2e22;letter-spacing:.04em}
+.checkout-line-amount{font-weight:700;color:#1a2e22;font-size:.98rem;white-space:nowrap}
+.checkout-totals{margin:.5rem 0 1rem}
+.checkout-notes{min-height:60px}
+.checkout-error{margin:0 0 .75rem;padding:.75rem 1rem;background:#fee2e2;border:1px solid #fecaca;border-radius:10px;color:#dc2626;font-weight:600;font-size:.9rem}
+@media(max-width:600px){
+  .checkout-grid-2{grid-template-columns:1fr}
+}
+
+/* ===== Děkovací stránky (/potvrzeni, /objednavka/dokoncit) ===== */
+.checkout-confirm,.confirm-page{max-width:640px;margin:1.5rem auto;text-align:center;padding:1rem}
+.checkout-confirm-icon,.confirm-icon{width:84px;height:84px;border-radius:50%;background:#74FB71;color:#1a2e22;font-size:3rem;font-weight:900;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;box-shadow:0 8px 24px rgba(116,251,113,.4)}
+.confirm-page.confirm-pending .confirm-icon{background:#ffe89a;box-shadow:0 8px 24px rgba(255,232,154,.5)}
+.confirm-page.confirm-error .confirm-icon{background:#fecaca;color:#7c1d1d;box-shadow:0 8px 24px rgba(254,202,202,.5)}
+.checkout-confirm h1,.confirm-page h1{margin:0 0 .5rem;color:#1a2e22}
+.checkout-confirm-lead,.confirm-lead{font-size:1.05rem;color:#4a6b5a;margin:0 0 1rem;line-height:1.55}
+.checkout-confirm-id,.confirm-summary-id{margin:0 0 1.25rem;font-size:1.1rem;color:#1a2e22}
+.checkout-confirm-id strong,.confirm-summary-id strong{color:#1a8a18;letter-spacing:.04em}
+.checkout-confirm-next,.confirm-next{list-style:none;padding:0;margin:1rem auto 1.5rem;max-width:520px;text-align:left}
+.confirm-next h3{margin:0 0 .35rem;font-size:1rem;color:#1a2e22}
+.confirm-next ol{list-style:none;padding:0;margin:0}
+.checkout-confirm-next li,.confirm-next ol li{padding:.55rem 0 .55rem 1.85rem;position:relative;color:#1a2e22;font-size:.95rem;line-height:1.5;border-bottom:1px dashed #e1f0e8}
+.checkout-confirm-next li:before,.confirm-next ol li:before{content:'›';position:absolute;left:.5rem;top:.45rem;color:#1a8a18;font-weight:900;font-size:1.2rem}
+.checkout-confirm-next li:last-child,.confirm-next ol li:last-child{border-bottom:none}
+.checkout-confirm-actions,.confirm-actions{margin-top:1.25rem}
+.confirm-summary{background:#e8fce8;border-radius:12px;padding:1.1rem 1.25rem;margin:1rem auto;max-width:520px;text-align:left;font-size:.95rem;line-height:1.55}
+.confirm-summary h3{margin:0 0 .55rem;font-size:1rem;color:#1a2e22}
+.confirm-summary p{margin:.25rem 0}
+.confirm-emailed{font-size:.95rem;color:#4a6b5a;margin:.75rem auto 0;max-width:520px}
+.confirm-vouchers{margin:1.25rem auto;max-width:520px;display:flex;flex-direction:column;gap:.75rem}
+.confirm-voucher-card{background:#fff;border:2px solid #1a8c1a;border-radius:12px;padding:1rem;text-align:center}
+.confirm-voucher-label{font-size:.8rem;color:#6b7280;text-transform:uppercase;letter-spacing:2px;margin-bottom:4px}
+.confirm-voucher-code{font-size:1.5rem;font-weight:900;color:#1a8c1a;letter-spacing:3px;font-family:ui-monospace,Menlo,Consolas,monospace}
+.confirm-voucher-amount{font-size:1rem;font-weight:700;margin-top:6px}
+.confirm-voucher-validity{font-size:.8rem;color:#6b7280;margin-top:4px}
+
+/* ===== E-shop košík (/kosik) ===== */
+.cart-page{padding-top:.5rem}
+.cart-loading{padding:2rem 0;color:#4a6b5a;display:flex;align-items:center;gap:.75rem;font-size:.95rem}
+.cart-loading[hidden]{display:none}
+.cart-empty{padding:2rem 0;text-align:center}
+.cart-empty p{margin:.6rem 0;color:#4a6b5a}
+.cart-grid{display:grid;grid-template-columns:1fr 320px;gap:1.5rem;align-items:start;margin-top:1rem}
+.cart-items{display:flex;flex-direction:column;gap:.75rem}
+.cart-item{display:grid;grid-template-columns:96px 1fr auto auto;gap:1rem;align-items:center;padding:.85rem;background:#fff;border:1px solid #d4e8e0;border-radius:12px}
+.cart-item-img{width:96px;height:96px;object-fit:cover;border-radius:8px;background:#f4faf7}
+.cart-item-img-placeholder{background:linear-gradient(135deg,#f4faf7,#e1f0e8)}
+.cart-item-info{min-width:0}
+.cart-item-name{margin:0 0 .25rem;font-size:1.05rem;color:#1a2e22;font-weight:700;line-height:1.3}
+.cart-item-size{margin:.15rem 0;color:#4a6b5a;font-size:.88rem}
+.cart-item-unit{margin:.25rem 0 0;color:#4a6b5a;font-size:.85rem}
+.cart-item-qty{display:flex;align-items:center;gap:.5rem}
+.cart-item-remove{width:36px;height:36px;border:1px solid #d4e8e0;background:#fff;color:#9a4040;border-radius:8px;cursor:pointer;font-size:1rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center;transition:all .12s;font-family:inherit}
+.cart-item-remove:hover{background:#fee2e2;border-color:#dc2626;color:#dc2626}
+.cart-item-line{font-size:1.1rem;color:#1a2e22;text-align:right;min-width:90px}
+.cart-summary{position:sticky;top:90px;padding:1.25rem;background:#fff;border:1px solid #d4e8e0;border-radius:14px;box-shadow:0 2px 8px rgba(26,46,34,.04)}
+.cart-summary h2{margin:0 0 .85rem;font-size:1.1rem;color:#1a2e22}
+.cart-totals{margin:0 0 1rem;display:flex;flex-direction:column;gap:.4rem}
+.cart-row{display:flex;justify-content:space-between;align-items:baseline;font-size:.95rem;color:#1a2e22;margin:0;padding:.35rem 0;border-bottom:1px dashed #e1f0e8}
+.cart-row:last-child{border-bottom:none}
+.cart-row dt,.cart-row dd{margin:0}
+.cart-total-row{font-size:1.15rem;font-weight:800;color:#1a2e22;border-bottom:none;padding-top:.6rem;border-top:2px solid #1a2e22;margin-top:.4rem}
+.cart-note{margin:.4rem 0 1rem;font-size:.82rem;color:#4a6b5a;line-height:1.45}
+.cart-actions{margin:0 0 .5rem}
+.cart-checkout-btn{width:100%;min-height:50px;display:inline-flex;align-items:center;justify-content:center;font-size:1rem}
+.cart-continue{margin:.6rem 0 0;text-align:center}
+.cart-continue a{color:#4a6b5a;font-size:.9rem;text-decoration:none}
+.cart-continue a:hover{color:#1a2e22;text-decoration:underline}
+.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+@media(max-width:900px){
+  .cart-grid{grid-template-columns:1fr;gap:1rem}
+  .cart-summary{position:static;top:auto}
+}
+@media(max-width:600px){
+  .cart-item{grid-template-columns:72px 1fr;grid-template-rows:auto auto;gap:.7rem;padding:.7rem}
+  .cart-item-img{width:72px;height:72px;grid-row:1/3}
+  .cart-item-info{grid-column:2;grid-row:1}
+  .cart-item-qty{grid-column:2;grid-row:2;justify-content:space-between}
+  .cart-item-line{grid-column:1/3;grid-row:3;text-align:right;border-top:1px dashed #e1f0e8;padding-top:.5rem}
+}
+
+/* ----- Cart picker (size + qty + add-to-cart) ----- */
+.shop-cart-form{margin-top:1.1rem;display:flex;flex-direction:column;gap:1rem}
+.shop-size-label,.shop-qty-label{display:block;font-size:.85rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#1a2e22;margin-bottom:.5rem}
+.shop-size-chips{display:flex;flex-wrap:wrap;gap:.5rem}
+.shop-size-chip{min-width:48px;min-height:48px;padding:.55rem .9rem;border-radius:10px;border:2px solid #d4e8e0;background:#fff;color:#1a2e22;font-weight:700;font-size:.95rem;cursor:pointer;transition:all .15s;font-family:inherit}
+.shop-size-chip:hover{border-color:#74FB71;color:#1a2e22;background:#f4faf7}
+.shop-size-chip.active{border-color:#1a2e22;background:#1a2e22;color:#74FB71;box-shadow:0 4px 12px rgba(26,46,34,.25)}
+.shop-size-chip:focus-visible{outline:3px solid #74FB71;outline-offset:2px}
+.shop-size-error{margin:.5rem 0 0;font-size:.85rem;color:#dc2626;font-weight:600}
+.shop-qty-stepper{display:inline-flex;align-items:stretch;border:2px solid #d4e8e0;border-radius:10px;overflow:hidden;background:#fff;width:max-content}
+.shop-qty-btn{width:44px;height:48px;border:0;background:#f4faf7;color:#1a2e22;font-size:1.4rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .12s,color .12s;font-family:inherit;line-height:1}
+.shop-qty-btn:hover{background:#e8f5ee;color:#1a8a18}
+.shop-qty-btn:active{background:#dff0e6}
+.shop-qty-input{width:60px;height:48px;border:0;border-left:1px solid #d4e8e0;border-right:1px solid #d4e8e0;background:#fff;color:#0f1a14;text-align:center;font-size:1rem;font-weight:700;-moz-appearance:textfield}
+.shop-qty-input::-webkit-outer-spin-button,
+.shop-qty-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.shop-qty-input:focus{outline:none;background:#f4faf7}
+.shop-cart-feedback{margin:.4rem 0 0;font-size:.9rem;font-weight:600}
+.shop-cart-feedback-ok{color:#1a8a18}
+@media(max-width:600px){
+  .shop-size-chip{min-width:44px;min-height:44px;padding:.5rem .8rem}
+  .shop-qty-input{width:54px}
+}
 @media(max-width:900px){
   .shop-detail-grid{grid-template-columns:1fr;gap:1.25rem}
   .shop-gallery{grid-template-columns:repeat(4,1fr)}
@@ -916,4 +1193,33 @@
 @media(max-width:520px){
   div[style*="border:2px dashed #74FB71"]{flex-direction:column!important;text-align:center;gap:.6rem!important}
   div[style*="border:2px dashed #74FB71"] > div[style*="min-width:200px"]{min-width:0!important;width:100%}
+}
+
+/* ===== Bank-style document camera overlay (rezervace) ===== */
+#rez-cam-overlay{position:fixed;inset:0;z-index:9999;display:flex;align-items:stretch;justify-content:stretch}
+#rez-cam-overlay .rez-cam-bg{position:absolute;inset:0;background:#000}
+#rez-cam-overlay .rez-cam-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+#rez-cam-overlay .rez-cam-mask{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+#rez-cam-overlay .rez-cam-frame{position:relative;width:min(86vw,720px);aspect-ratio:1.586/1;border:2px solid rgba(116,251,113,.95);border-radius:18px;box-shadow:0 0 0 9999px rgba(0,0,0,.55);background:transparent}
+#rez-cam-overlay .rez-cam-corner{position:absolute;width:28px;height:28px;border:4px solid #74FB71;border-radius:4px}
+#rez-cam-overlay .rez-cam-corner.tl{top:-4px;left:-4px;border-right:none;border-bottom:none;border-top-left-radius:14px}
+#rez-cam-overlay .rez-cam-corner.tr{top:-4px;right:-4px;border-left:none;border-bottom:none;border-top-right-radius:14px}
+#rez-cam-overlay .rez-cam-corner.bl{bottom:-4px;left:-4px;border-right:none;border-top:none;border-bottom-left-radius:14px}
+#rez-cam-overlay .rez-cam-corner.br{bottom:-4px;right:-4px;border-left:none;border-top:none;border-bottom-right-radius:14px}
+#rez-cam-overlay .rez-cam-top{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:.7rem;padding:.85rem 1rem;color:#fff;background:linear-gradient(180deg,rgba(0,0,0,.55),transparent);z-index:2}
+#rez-cam-overlay .rez-cam-close{background:rgba(0,0,0,.45);color:#fff;border:1px solid rgba(255,255,255,.35);width:36px;height:36px;border-radius:50%;font-size:1.4rem;line-height:1;cursor:pointer}
+#rez-cam-overlay .rez-cam-title{font-weight:700;font-size:1.05rem}
+#rez-cam-overlay .rez-cam-hint{position:absolute;left:0;right:0;top:54%;text-align:center;color:#fff;font-size:.95rem;text-shadow:0 1px 4px rgba(0,0,0,.7);padding:0 1rem;z-index:2}
+#rez-cam-overlay .rez-cam-bottom{position:absolute;left:0;right:0;bottom:0;padding:1.2rem 1rem 2rem;display:flex;flex-direction:column;align-items:center;gap:.7rem;background:linear-gradient(0deg,rgba(0,0,0,.55),transparent);z-index:2}
+#rez-cam-overlay .rez-cam-shoot{display:flex;flex-direction:column;align-items:center;gap:.4rem;background:#74FB71;color:#0a1a14;border:none;padding:.85rem 1.6rem;border-radius:999px;font-weight:800;cursor:pointer;box-shadow:0 6px 20px rgba(116,251,113,.4);font-size:1rem}
+#rez-cam-overlay .rez-cam-shoot:hover{background:#5fe05c}
+#rez-cam-overlay .rez-cam-shoot-inner{width:46px;height:46px;border-radius:50%;background:#fff;border:3px solid #0a1a14}
+#rez-cam-overlay .rez-cam-shoot-label{font-size:.85rem;letter-spacing:.04em}
+#rez-cam-overlay .rez-cam-progress{display:flex;flex-direction:column;align-items:center;gap:.35rem;color:#fff;width:min(80vw,360px)}
+#rez-cam-overlay .rez-cam-progress-track{height:6px;width:100%;background:rgba(255,255,255,.25);border-radius:999px;overflow:hidden}
+#rez-cam-overlay .rez-cam-progress-bar{height:100%;width:0;background:#74FB71;border-radius:999px;transition:width .25s}
+#rez-cam-overlay .rez-cam-progress-text{font-size:.85rem;text-shadow:0 1px 3px rgba(0,0,0,.7)}
+@media(max-width:520px){
+  #rez-cam-overlay .rez-cam-frame{width:90vw}
+  #rez-cam-overlay .rez-cam-hint{top:60%}
 }

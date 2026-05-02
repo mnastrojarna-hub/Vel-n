@@ -142,11 +142,17 @@ if (!empty($allImages)) {
     $main = $allImages[0];
     $galleryHtml .= '<div class="moto-photo"><a href="' . htmlspecialchars($main) . '" data-gallery="moto" data-index="0" aria-label="' . $openLabel . '"><div class="gallery-img"><img src="' . htmlspecialchars($main) . '" alt="' . $modelAlt . '" loading="lazy"></div></a></div>';
     if (count($allImages) > 1) {
+        $prevLabel = htmlspecialchars(t('gallery.prev'), ENT_QUOTES, 'UTF-8');
+        $nextLabel = htmlspecialchars(t('gallery.next'), ENT_QUOTES, 'UTF-8');
+        $galleryHtml .= '<div class="moto-thumbs-wrap">';
+        $galleryHtml .= '<button type="button" class="moto-thumbs-nav moto-thumbs-prev" aria-label="' . $prevLabel . '">&#10094;</button>';
         $galleryHtml .= '<div class="moto-thumbs">';
         for ($i = 1; $i < count($allImages); $i++) {
             $u = $allImages[$i];
             $galleryHtml .= '<div><a href="' . htmlspecialchars($u) . '" data-gallery="moto" data-index="' . $i . '" aria-label="' . $openLabel . '"><div class="gallery-img"><img src="' . htmlspecialchars($u) . '" alt="' . $modelAlt . '" loading="lazy"></div></a></div>';
         }
+        $galleryHtml .= '</div>';
+        $galleryHtml .= '<button type="button" class="moto-thumbs-nav moto-thumbs-next" aria-label="' . $nextLabel . '">&#10095;</button>';
         $galleryHtml .= '</div>';
     }
 }
@@ -156,6 +162,9 @@ $infoHtml = '<section class="moto-info gr2">' . $descHtml . $galleryHtml . '</se
 
 // Specs table (pořadí dle originálního webu)
 $specsRows = [];
+// Identifikace
+if (!empty($moto['year']))    $specsRows[] = [t('detail.specYear'), $moto['year']];
+if (!empty($moto['color']))   $specsRows[] = [t('detail.specColor'), htmlspecialchars($moto['color'])];
 if (!empty($moto['engine_cc'])) $specsRows[] = [t('detail.specEngineCc'), $moto['engine_cc'] . ' ccm'];
 if (!empty($moto['power_kw'])) {
     $kwVal = $moto['power_kw'] . ' kW';
@@ -175,10 +184,15 @@ if (!empty($moto['fuel_type'])) $specsRows[] = [t('detail.specFuelType'), $moto[
 if (!empty($moto['fuel_tank_l'])) $specsRows[] = [t('detail.specFuelTank'), $moto['fuel_tank_l'] . ' l'];
 if (!empty($moto['brake_type'])) $specsRows[] = [t('detail.specBrakeType'), $moto['brake_type']];
 if (!empty($moto['has_abs'])) $specsRows[] = [t('detail.specAbs'), t('detail.specYes')];
+if (!empty($moto['has_asc'])) $specsRows[] = [t('detail.specAsc'), t('detail.specYes')];
 if (!empty($moto['weight_kg'])) $specsRows[] = [t('detail.specWeight'), $moto['weight_kg'] . ' kg'];
 if (!empty($moto['seat_height_mm'])) $specsRows[] = [t('detail.specSeatHeight'), $moto['seat_height_mm'] . ' mm'];
 if (!empty($moto['seats_count'])) $specsRows[] = [t('detail.specSeatsCount'), $moto['seats_count']];
 if (!empty($moto['license_required'])) $specsRows[] = [t('detail.specLicense'), t('detail.specLicenseGroup', ['group' => $moto['license_required']])];
+if (!empty($moto['min_rental_days'])) $specsRows[] = [t('detail.specMinRental'), t('detail.daysUnit', ['count' => (int)$moto['min_rental_days']])];
+if (!empty($moto['max_rental_days'])) {
+    $specsRows[] = [t('detail.specMaxRental'), t('detail.daysUnit', ['count' => (int)$moto['max_rental_days']])];
+}
 if (!empty($moto['ideal_usage'])) $specsRows[] = [t('detail.specIdealFor'), $moto['ideal_usage']];
 
 $descSpecsHtml = '<section class="gr2"><div>';
@@ -249,7 +263,24 @@ $calStartLabel = t('detail.calendarStartSelected', ['date' => '__DATE__']);
 $calRangeLabel = t('detail.calendarRangeSelected', ['start' => '__START__', 'end' => '__END__']);
 $calClearLabel = t('detail.calendarClearSelection');
 
+// Pro AI agenta — kontext aktuálně prohlížené motorky (značka, model, kategorie, cena, výkon).
+// Widget si tohle čte z window.MOTOGO_PAGE_CTX a posílá s každou zprávou, ať agent ví,
+// na co se zákazník dívá, když řekne "rezervuj mi tuhle motorku".
+$aiPageCtx = json_encode([
+    'type' => 'moto_detail',
+    'moto_id' => $moto['id'] ?? null,
+    'brand' => $moto['brand'] ?? null,
+    'model' => $moto['model'] ?? null,
+    'category' => $moto['category'] ?? null,
+    'license_required' => $moto['license_required'] ?? null,
+    'power_kw' => $moto['power_kw'] ?? null,
+    'price_min_kc' => $moto['price_min'] ?? ($moto['price_mon'] ?? null),
+    'status' => $moto['status'] ?? null,
+    'available_today' => $isAvailableToday,
+], JSON_UNESCAPED_UNICODE);
+
 $calendarJs = '<script>
+window.MOTOGO_PAGE_CTX = ' . $aiPageCtx . ';
 var SUPABASE_URL = ' . json_encode(SUPABASE_URL) . ';
 var SUPABASE_ANON_KEY = ' . json_encode(SUPABASE_ANON_KEY) . ';
 var MOTO_ID = ' . json_encode($moto['id']) . ';
@@ -503,5 +534,5 @@ renderPage($model . ' | Půjčovna MotoGo24', $content, '/katalog/' . $motoId, [
     'og_image' => $mainImg ?: null,
     'og_type' => 'product',
     'schema' => $productSchema,
-    'breadcrumbs' => [['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'], ['name' => t('breadcrumb.catalog'), 'url' => 'https://motogo24.cz/katalog'], ['name' => $moto['model'], 'url' => 'https://motogo24.cz/katalog/' . $motoId]],
+    'breadcrumbs' => [['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')], ['name' => t('breadcrumb.catalog'), 'url' => siteCanonicalUrl('/katalog')], ['name' => $moto['model'], 'url' => siteCanonicalUrl('/katalog/') . $motoId]],
 ]);

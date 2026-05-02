@@ -8,52 +8,52 @@ return [
         'grid' => 'gr5',
         'steps' => [
             [
-                'icon' => 'gfx/ico-step-vyber.svg',
+                'icon' => 'gfx/vyber-motorku.svg',
                 'title' => 'Vyber motorku',
                 'text' => 'Prohlédni si naši nabídku cestovních, supermoto, naked a dětských motorek a vyber si tu pravou.',
             ],
             [
-                'icon' => 'gfx/ico-step-termin.svg',
+                'icon' => 'gfx/rezervace-online.svg',
                 'title' => 'Zvol termín',
                 'text' => 'V kalendáři vyber datum, kdy chceš vyjet. Uvidíš, které motorky jsou volné.',
             ],
             [
-                'icon' => 'gfx/ico-step-udaje.svg',
+                'icon' => 'gfx/kontaktni-udaje.svg',
                 'title' => 'Kontaktní údaje',
                 'text' => 'Vyplň jméno, adresu, e-mail a telefon.',
             ],
             [
-                'icon' => 'gfx/ico-step-cas.svg',
+                'icon' => 'gfx/cas-prevzeti-motorky.svg',
                 'title' => 'Čas přistavení',
                 'text' => 'Zvol, kdy ti motorku přistavíme – klidně večer nebo o víkendu.',
             ],
             [
-                'icon' => 'gfx/ico-step-misto.svg',
+                'icon' => 'gfx/vyzvednuti-vraceni-motorky.svg',
                 'title' => 'Místo přistavení',
                 'text' => 'Zadej adresu, kam motorku přivézt – domů, do hotelu, k nádraží nebo na start výletu.',
             ],
             [
-                'icon' => 'gfx/ico-step-vybava.svg',
+                'icon' => 'gfx/vyber-vybavu.svg',
                 'title' => 'Výbava',
                 'text' => 'Základní výbava řidiče je v ceně. Požadované velikosti pro všechny části výbavy uveď do pole Poznámka – povinné.',
             ],
             [
-                'icon' => 'gfx/ico-step-platba.svg',
+                'icon' => 'gfx/zaplat.svg',
                 'title' => 'Potvrzení a platba',
                 'text' => 'Zkontroluj shrnutí objednávky, odsouhlas podmínky a zaplať online.',
             ],
             [
-                'icon' => 'gfx/ico-step-prevzeti.svg',
+                'icon' => 'gfx/podpis-dokumentu.svg',
                 'title' => 'Převzetí na místě',
                 'text' => 'Při předání zkontrolujeme doklady, doplníme smlouvu a podepíšeme předávací protokol.',
             ],
             [
-                'icon' => 'gfx/ico-step-jizda.svg',
+                'icon' => 'gfx/uzij-si-jizdu.svg',
                 'title' => 'Užij si jízdu',
                 'text' => 'Vyraz na cestu – bez kauce, bez stresu. Zbytek je jen asfalt a svoboda.',
             ],
             [
-                'icon' => 'gfx/ico-step-vraceni.svg',
+                'icon' => 'gfx/predani-motorky.svg',
                 'title' => 'Vrácení motorky',
                 'text' => 'Motorku vrať včas na předem sjednané místo. Nemusíš tankovat ani mýt.',
             ],

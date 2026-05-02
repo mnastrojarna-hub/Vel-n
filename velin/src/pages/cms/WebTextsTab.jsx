@@ -2,27 +2,51 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import WebTextSection from './WebTextSection'
 import BlogSection from './BlogSection'
+import FaqSection from './FaqSection'
 import { WEB_PAGES } from './webTextsPages'
 
 // Celkový počet textů
 const ALL_FIELDS = WEB_PAGES.flatMap(p => p.sections.flatMap(s => s.fields))
 const TOTAL_FIELDS = ALL_FIELDS.length
 
+// Veřejná URL webu — používá se pro tlačítko „Otevřít na webu" u každého textu.
+// Lze přepsat přes Vite env `VITE_WEB_BASE_URL` (např. pro staging/produkci .cz).
+const WEB_BASE_URL = (import.meta?.env?.VITE_WEB_BASE_URL || 'https://motogo24.com').replace(/\/$/, '')
+
+// Sestaví URL na konkrétní stránku webu s admin tokenem a (volitelně) klíčem ke zvýraznění.
+export function buildWebUrl(base, pageUrl, token, highlightKey) {
+  const url = (base || '').replace(/\/$/, '') + (pageUrl || '/')
+  const params = []
+  if (token) params.push('cms_admin=' + encodeURIComponent(token))
+  if (highlightKey) params.push('cms_highlight=' + encodeURIComponent(highlightKey))
+  return params.length ? url + '?' + params.join('&') : url
+}
+
 export default function WebTextsTab() {
   const [activePage, setActivePage] = useState(WEB_PAGES[0].id)
   const [values, setValues] = useState({})
   const [loading, setLoading] = useState(true)
   const [seeding, setSeeding] = useState(false)
+  const [adminToken, setAdminToken] = useState('')
 
-  useEffect(() => { loadValues() }, [])
+  useEffect(() => { loadValues(); loadAdminToken() }, [])
 
   async function loadValues() {
     setLoading(true)
-    const { data } = await supabase.from('cms_variables').select('key, value').eq('group', 'web')
+    const { data } = await supabase.from('cms_variables').select('key, value').eq('category', 'web')
     const map = {}
     ;(data || []).forEach(r => { map[r.key] = r.value })
     setValues(map)
     setLoading(false)
+  }
+
+  async function loadAdminToken() {
+    const { data } = await supabase.from('app_settings').select('value').eq('key', 'cms_admin_token').maybeSingle()
+    if (data?.value) {
+      // value je jsonb — buď string přímo, nebo string-encoded
+      const v = typeof data.value === 'string' ? data.value : (data.value ?? '')
+      setAdminToken(String(v))
+    }
   }
 
   function onSaved(key, val) {
@@ -36,7 +60,7 @@ export default function WebTextsTab() {
     // Batch insert max 50 najednou
     for (let i = 0; i < missing.length; i += 50) {
       const batch = missing.slice(i, i + 50).map(f => ({
-        key: f.key, value: f.default, group: 'web'
+        key: f.key, value: f.default, category: 'web'
       }))
       await supabase.from('cms_variables').insert(batch)
     }
@@ -141,21 +165,59 @@ export default function WebTextsTab() {
               články z cms_pages
             </div>
           </button>
+
+          <button
+            onClick={() => setActivePage('faq')}
+            className="w-full text-left mb-px cursor-pointer"
+            style={{
+              padding: '8px 12px', border: 'none', borderRadius: 10,
+              background: activePage === 'faq' ? '#1a2e22' : 'transparent',
+              color: activePage === 'faq' ? '#74FB71' : '#1a2e22',
+              fontSize: 13, fontWeight: activePage === 'faq' ? 800 : 600,
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <span>📋</span>
+              <span className="flex-1">Časté dotazy</span>
+            </div>
+            <div className="text-xs mt-0.5" style={{ color: activePage === 'faq' ? 'rgba(255,255,255,.4)' : '#9ab3a5' }}>
+              otázky z faq_items
+            </div>
+          </button>
         </div>
 
-        {/* Pravý panel - obsah stránky nebo blog */}
+        {/* Pravý panel - obsah stránky nebo blog/faq */}
         <div className="flex-1 min-w-0">
           {activePage === 'blog' ? (
             <BlogSection />
+          ) : activePage === 'faq' ? (
+            <FaqSection />
           ) : page && (
             <>
               <div className="mb-4">
                 <div className="flex items-center gap-3">
                   <span style={{ fontSize: 24 }}>{page.icon}</span>
-                  <div>
+                  <div className="flex-1">
                     <h2 className="text-lg font-extrabold" style={{ color: '#0f1a14', margin: 0 }}>{page.label}</h2>
-                    <div className="text-xs font-mono" style={{ color: '#6b8f7b' }}>motogo24.cz{page.url}</div>
+                    <div className="text-xs font-mono" style={{ color: '#6b8f7b' }}>{WEB_BASE_URL.replace(/^https?:\/\//, '')}{page.url}</div>
                   </div>
+                  {page.url && (
+                    <a
+                      href={buildWebUrl(WEB_BASE_URL, page.url, adminToken, '')}
+                      target="_blank" rel="noopener noreferrer"
+                      title={adminToken ? 'Otevřít stránku v admin režimu (zvýrazní všechny texty)' : 'Token cms_admin_token v app_settings chybí — zvýraznění nebude fungovat'}
+                      className="rounded-btn text-xs font-extrabold uppercase cursor-pointer shrink-0"
+                      style={{
+                        padding: '8px 14px',
+                        background: adminToken ? '#1a2e22' : '#a8a8a8',
+                        color: '#74FB71',
+                        textDecoration: 'none',
+                        border: 'none',
+                      }}
+                    >
+                      🔗 Otevřít na webu
+                    </a>
+                  )}
                 </div>
                 {page.description && (
                   <p className="text-sm mt-2" style={{ color: '#4a6b5a' }}>{page.description}</p>
@@ -168,7 +230,15 @@ export default function WebTextsTab() {
                 </div>
               ) : (
                 page.sections.map(section => (
-                  <WebTextSection key={section.id} section={section} values={values} onSaved={onSaved} />
+                  <WebTextSection
+                    key={section.id}
+                    section={section}
+                    values={values}
+                    onSaved={onSaved}
+                    pageUrl={page.url}
+                    webBaseUrl={WEB_BASE_URL}
+                    adminToken={adminToken}
+                  />
                 ))
               )}
             </>

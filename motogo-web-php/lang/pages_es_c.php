@@ -132,42 +132,42 @@ return ['pages' => [
                 'title' => 'Cómo se desarrolla el alquiler paso a paso',
                 'steps' => [
                     [
-                        'icon' => 'gfx/ico-step1.svg',
+                        'icon' => 'gfx/vyber-motorku.svg',
                         'title' => '1. Elige la moto',
                         'text' => 'Echa un vistazo a nuestra oferta de <strong>motos de viaje, deportivas, enduro y motos infantiles</strong> y elige la adecuada.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step2.svg',
+                        'icon' => 'gfx/kontaktni-udaje.svg',
                         'title' => '2. Número de pilotos',
                         'text' => 'Decide si vas solo o con un acompañante. Te ofreceremos las máquinas y el equipamiento adecuados.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step3.svg',
+                        'icon' => 'gfx/rezervace-online.svg',
                         'title' => '3. Reserva online',
                         'text' => 'Reserva fácilmente la moto según la fecha. Realiza el pago previamente <strong>online</strong>.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step4.svg',
+                        'icon' => 'gfx/vyber-vybavu.svg',
                         'title' => '4. Equipamiento incluido',
                         'text' => 'Automáticamente, como conductor, recibirás casco, chaqueta, pantalones y guantes. La talla la eliges en la reserva.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step5.svg',
+                        'icon' => 'gfx/zaplat.svg',
                         'title' => '5. Confirmación y pago',
                         'text' => 'La reserva es vinculante tras la confirmación. El pago se realiza online.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step6.svg',
+                        'icon' => 'gfx/predani-motorky.svg',
                         'title' => '6. Recogida de la moto',
                         'text' => 'Recoges la moto personalmente en Pelhřimov o utilizas la <strong>entrega</strong> en el lugar acordado.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step7.svg',
+                        'icon' => 'gfx/uzij-si-jizdu.svg',
                         'title' => '7. Disfruta del viaje',
                         'text' => 'Lánzate a la carretera – <strong>sin depósito, sin estrés</strong>, con condiciones claras y seguro incluido.',
                     ],
                     [
-                        'icon' => 'gfx/ico-step8.svg',
+                        'icon' => 'gfx/vrat-motorku-vcas.svg',
                         'title' => '8. Devolución de la moto',
                         'text' => 'Devuelves la moto en cualquier momento durante el último día del alquiler. No tienes que repostar ni lavarla.',
                     ],
@@ -232,27 +232,27 @@ return ['pages' => [
                 'title' => 'Cómo se desarrolla la recogida paso a paso',
                 'items' => [
                     [
-                        'icon' => 'gfx/ico-step1.svg',
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
                         'title' => 'Llega a la hora acordada',
                         'text' => 'a nuestra dirección o espera la entrega',
                     ],
                     [
-                        'icon' => 'gfx/ico-step2.svg',
+                        'icon' => 'gfx/overime-doklady.svg',
                         'title' => 'Verificamos los documentos',
                         'text' => 'DNI/pasaporte + permiso de conducir de la categoría correspondiente',
                     ],
                     [
-                        'icon' => 'gfx/ico-step3.svg',
+                        'icon' => 'gfx/predani-motorky.svg',
                         'title' => 'Entregamos la moto y el equipamiento',
                         'text' => 'casco, chaqueta, pantalones, guantes',
                     ],
                     [
-                        'icon' => 'gfx/ico-step4.svg',
+                        'icon' => 'gfx/prevezmi-motorku.svg',
                         'title' => 'Breve familiarización con la máquina',
                         'text' => 'controles, consejos, recomendaciones de ruta',
                     ],
                     [
-                        'icon' => 'gfx/ico-step5.svg',
+                        'icon' => 'gfx/podpis-dokumentu.svg',
                         'title' => 'Firmamos el protocolo de entrega',
                         'text' => 'y ya puedes ponerte en marcha',
                     ],
@@ -328,27 +328,27 @@ return ['pages' => [
                 'title' => 'Cómo se desarrolla la devolución en el establecimiento',
                 'items' => [
                     [
-                        'icon' => 'gfx/ico-step1.svg',
+                        'icon' => 'gfx/cas-prevzeti-motorky.svg',
                         'title' => 'Llega a la hora acordada',
                         'text' => 'a la dirección del alquiler en Pelhřimov',
                     ],
                     [
-                        'icon' => 'gfx/ico-step2.svg',
+                        'icon' => 'gfx/predani-motorky.svg',
                         'title' => 'Revisamos juntos el estado de la moto',
                         'text' => 'comprobación de la carrocería, depósito y equipamiento',
                     ],
                     [
-                        'icon' => 'gfx/ico-step3.svg',
+                        'icon' => 'gfx/vyber-vybavu.svg',
                         'title' => 'Devuelves el equipamiento',
                         'text' => 'casco, chaqueta, pantalones, guantes',
                     ],
                     [
-                        'icon' => 'gfx/ico-step4.svg',
+                        'icon' => 'gfx/podpis-dokumentu.svg',
                         'title' => 'Firmamos el protocolo de devolución',
                         'text' => 'un registro claro y justo',
                     ],
                     [
-                        'icon' => 'gfx/ico-step5.svg',
+                        'icon' => 'gfx/potvrzeni-rezervace.svg',
                         'title' => 'Listo',
                         'text' => 'te enviaremos la confirmación por e-mail',
                     ],
@@ -424,17 +424,17 @@ return ['pages' => [
             ],
             'steps' => [
                 [
-                    'icon' => 'gfx/ico-step1.svg',
+                    'icon' => 'gfx/vyber-motorku.svg',
                     'title' => '1. Elige',
                     'text' => 'Elige el valor del vale o una moto concreta.',
                 ],
                 [
-                    'icon' => 'gfx/ico-step2.svg',
+                    'icon' => 'gfx/zaplat.svg',
                     'title' => '2. Paga',
                     'text' => 'Paga online.',
                 ],
                 [
-                    'icon' => 'gfx/ico-step3.svg',
+                    'icon' => 'gfx/potvrzeni-rezervace.svg',
                     'title' => '3. Recoge',
                     'text' => 'El vale, tras el pago, llegará a tu bandeja de entrada.',
                 ],

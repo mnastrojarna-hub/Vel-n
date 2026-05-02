@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import BulkActionsBar, { SelectAllCheckbox, RowCheckbox } from '../../components/ui/BulkActionsBar'
+import { exportToCsv, bulkDelete } from '../../lib/bulkActions'
 import { supabase } from '../../lib/supabase'
 import { debugAction, debugLog, debugError } from '../../lib/debugLog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
@@ -48,6 +50,7 @@ export default function LongTermAssetsTab() {
   const [generating, setGenerating] = useState(false)
   const [unlinkedMotos, setUnlinkedMotos] = useState([])
   const [addingMotoId, setAddingMotoId] = useState(null)
+  const [selectedIds, setSelectedIds] = useState(new Set())
 
   useEffect(() => { load() }, [page, subTab])
 
@@ -275,9 +278,19 @@ export default function LongTermAssetsTab() {
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : subTab === 'assets' ? (
         <>
+          <BulkActionsBar count={selectedIds.size} onClear={() => setSelectedIds(new Set())} actions={[
+            { label: 'Export CSV', icon: '⬇', onClick: () => exportToCsv('long-term-assets', [
+              { key: 'name', label: 'Název' }, { key: 'category', label: 'Kategorie' },
+              { key: 'depreciation_group', label: 'Skupina' }, { key: 'depreciation_method', label: 'Metoda' },
+              { key: 'purchase_price', label: 'Pořizovací cena' }, { key: 'residual_value', label: 'Zůst. hodnota' },
+              { key: 'total_depreciated', label: 'Odepsáno' }, { key: 'invoice_number', label: 'Doklad' },
+            ], assets.filter(a => selectedIds.has(a.id))) },
+            { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} položek dlouhodobého majetku?', onClick: async () => { await bulkDelete('acc_long_term_assets', [...selectedIds], 'long_assets_bulk_deleted'); setSelectedIds(new Set()); load() } },
+          ]} />
           <Table>
             <thead>
               <TRow header>
+                <TH><SelectAllCheckbox items={assets} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
                 <TH>Nazev</TH><TH>Kategorie</TH><TH>Sk.</TH><TH>Metoda</TH>
                 <TH>Poriz. cena</TH><TH>Zust. hodnota</TH><TH>Odepsano</TH><TH>Stav</TH><TH>Doklad</TH><TH>Akce</TH>
               </TRow>
@@ -288,6 +301,7 @@ export default function LongTermAssetsTab() {
                 const pct = a.purchase_price > 0 ? Math.round(((a.total_depreciated || 0) / a.purchase_price) * 100) : 0
                 return (
                   <TRow key={a.id}>
+                    <TD><RowCheckbox id={a.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} stopPropagation={false} /></TD>
                     <TD bold>{a.name}</TD>
                     <TD>{CATEGORIES.find(c => c.value === a.category)?.label || a.category}</TD>
                     <TD>{a.depreciation_group || '—'}</TD>

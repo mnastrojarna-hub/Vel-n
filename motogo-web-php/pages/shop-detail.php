@@ -57,10 +57,10 @@ $stock = (int)($product['stock_quantity'] ?? 0);
 $sku = trim((string)($product['sku'] ?? ''));
 $sizes = is_array($product['sizes'] ?? null) ? array_filter($product['sizes']) : [];
 
+// Specs (bez velikostí — ty jsou nyní interaktivní selector v CTA bloku)
 $specsRows = [];
 if ($colorRaw !== '') $specsRows[] = [t('shop.specColor'), $colorRaw];
 if ($matRaw !== '')   $specsRows[] = [t('shop.specMaterial'), $matRaw];
-if (!empty($sizes))   $specsRows[] = [t('shop.specSizes'), implode(', ', $sizes)];
 if ($sku !== '')      $specsRows[] = [t('shop.specSku'), $sku];
 $specsRows[] = [t('shop.specStock'), $stock > 0 ? t('shop.inStock', ['n' => $stock]) : t('shop.outOfStock')];
 
@@ -73,12 +73,52 @@ if (!empty($specsRows)) {
     $specsHtml .= '</table>';
 }
 
-// CTA — kontakt (rozsáhlejší shop checkout je samostatný task)
-$mailtoSubject = rawurlencode(t('shop.detail.inquirySubject', ['name' => $nameRaw]));
-$mailtoBody = rawurlencode(t('shop.detail.inquiryBody', ['name' => $nameRaw, 'price' => $priceText ?: '—', 'sku' => $sku ?: '—']));
-$ctaButtons = $stock > 0
-    ? '<a class="btn btngreen" href="mailto:info@motogo24.cz?subject=' . $mailtoSubject . '&body=' . $mailtoBody . '">' . te('shop.detail.buy') . '</a>'
-    : '<a class="btn btndark" href="' . BASE_URL . '/kontakt">' . te('shop.detail.notifyAvailable') . '</a>';
+// CTA blok — velikost (pokud produkt má sizes[]), množství, "Přidat do košíku".
+// Výběr velikosti je povinný, když má produkt sizes[]; jinak je hidden.
+$cartFormHtml = '';
+if ($stock > 0) {
+    $sizesPickerHtml = '';
+    if (!empty($sizes)) {
+        $sizesPickerHtml .= '<div class="shop-size-picker" data-shop-sizes>';
+        $sizesPickerHtml .= '<label class="shop-size-label">' . te('shop.detail.chooseSize') . '</label>';
+        $sizesPickerHtml .= '<div class="shop-size-chips" role="radiogroup" aria-label="' . te('shop.detail.chooseSize') . '">';
+        foreach ($sizes as $sz) {
+            $sizeEsc = htmlspecialchars((string)$sz, ENT_QUOTES, 'UTF-8');
+            $sizesPickerHtml .= '<button type="button" class="shop-size-chip" data-size="' . $sizeEsc . '" role="radio" aria-checked="false">' . $sizeEsc . '</button>';
+        }
+        $sizesPickerHtml .= '</div>';
+        $sizesPickerHtml .= '<p class="shop-size-error" data-shop-size-error hidden>' . te('shop.detail.sizeRequired') . '</p>';
+        $sizesPickerHtml .= '</div>';
+    }
+
+    $maxQty = $stock > 0 ? min($stock, 99) : 1;
+    $qtyHtml = '<div class="shop-qty-picker">'
+        . '<label class="shop-qty-label" for="shop-qty-' . htmlspecialchars($id) . '">' . te('shop.detail.quantity') . '</label>'
+        . '<div class="shop-qty-stepper">'
+        . '<button type="button" class="shop-qty-btn" data-qty-step="-1" aria-label="' . te('shop.detail.qtyDecrease') . '">−</button>'
+        . '<input type="number" id="shop-qty-' . htmlspecialchars($id) . '" class="shop-qty-input" data-shop-qty value="1" min="1" max="' . $maxQty . '" inputmode="numeric">'
+        . '<button type="button" class="shop-qty-btn" data-qty-step="1" aria-label="' . te('shop.detail.qtyIncrease') . '">+</button>'
+        . '</div>'
+        . '</div>';
+
+    $addBtnHtml = '<button type="button" class="btn btngreen shop-add-to-cart"'
+        . ' data-shop-add'
+        . ' data-product-id="' . htmlspecialchars($id) . '"'
+        . ' data-product-name="' . htmlspecialchars($nameRaw, ENT_QUOTES, 'UTF-8') . '"'
+        . ' data-product-price="' . htmlspecialchars((string)$price, ENT_QUOTES, 'UTF-8') . '"'
+        . ' data-product-image="' . htmlspecialchars($mainImg ?: '', ENT_QUOTES, 'UTF-8') . '"'
+        . ' data-product-stock="' . $stock . '"'
+        . ' data-product-has-sizes="' . (!empty($sizes) ? '1' : '0') . '"'
+        . '>' . te('shop.detail.addToCart') . '</button>';
+
+    $cartFormHtml = '<form class="shop-cart-form" data-shop-form onsubmit="return false;">'
+        . $sizesPickerHtml . $qtyHtml
+        . '<p class="shop-cta">' . $addBtnHtml . '</p>'
+        . '<p class="shop-cart-feedback" data-shop-feedback hidden></p>'
+        . '</form>';
+} else {
+    $cartFormHtml = '<p class="shop-cta"><a class="btn btndark" href="' . BASE_URL . '/kontakt">' . te('shop.detail.notifyAvailable') . '</a></p>';
+}
 
 $descHtml = '';
 if ($descRaw !== '') {
@@ -94,7 +134,7 @@ $rightCol = '<div class="shop-detail-info">'
     . '<h1>' . $name . '</h1>'
     . ($priceText ? '<p class="shop-price">' . htmlspecialchars($priceText) . '</p>' : '')
     . $specsHtml
-    . '<p class="shop-cta">' . $ctaButtons . '</p>'
+    . $cartFormHtml
     . '</div>';
 
 $content = '<main id="content"><div class="container">' . $bc
@@ -108,7 +148,7 @@ $content = '<main id="content"><div class="container">' . $bc
 // Schema.org Product — kompletní data pro AI: brand, materiál, barva, velikosti,
 // stav skladu, cena, currency. Aggregate rating se přidá globálně z reviews tabulky
 // pokud existuje min. 3 recenze.
-$productUrl = 'https://motogo24.cz/eshop/' . htmlspecialchars($id);
+$productUrl = siteCanonicalUrl('/eshop/' . htmlspecialchars($id));
 $schemaImages = [];
 foreach ($images as $img) {
     $u = (strpos($img, 'http') === 0 || strpos($img, '/') === 0) ? $img : imgUrl($img);
@@ -164,8 +204,8 @@ renderPage($nameRaw . ' | ' . t('shop.title'), $content, '/eshop/' . htmlspecial
     'og_image' => $mainImg ?: null,
     'schema' => $productSchema,
     'breadcrumbs' => [
-        ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
-        ['name' => t('breadcrumb.shop'), 'url' => 'https://motogo24.cz/eshop'],
-        ['name' => $nameRaw, 'url' => 'https://motogo24.cz/eshop/' . $id],
+        ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
+        ['name' => t('breadcrumb.shop'), 'url' => siteCanonicalUrl('/eshop')],
+        ['name' => $nameRaw, 'url' => siteCanonicalUrl('/eshop/' . $id)],
     ],
 ]);

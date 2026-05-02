@@ -1,7 +1,10 @@
 <?php
 // ===== MotoGo24 Web PHP — Dynamický XML Sitemap =====
-// Pro každou URL se emitují <xhtml:link rel="alternate" hreflang="…">
-// pro všech 7 podporovaných jazyků (cs/en/de/es/fr/nl/pl) + x-default.
+// Per-doména: motogo24.cz/sitemap.xml obsahuje české URLs (loc = .cz),
+// motogo24.com/sitemap.xml obsahuje anglické URLs (loc = .com).
+// Každý <url> entry má kompletní cross-domain hreflang alternates
+// (<xhtml:link rel="alternate" hreflang="…">) — Google si tak složí celou
+// mřížku jazyků mezi doménami.
 // U motorek a produktů přidáváme <image:image> rozšíření (Google Image SEO + AI vyhledávače).
 // lastmod se bere z reálných updated_at pokud existují, jinak dnešní datum.
 
@@ -11,31 +14,35 @@ require_once __DIR__ . '/supabase.php';
 
 header('Content-Type: application/xml; charset=utf-8');
 
-$base = 'https://motogo24.cz';
+// Doménová detekce — určuje, na které doméně se sitemap servíruje.
+$isCom = i18nIsComDomain();
+$base = $isCom ? ('https://' . I18N_DOMAIN_INTL) : ('https://' . I18N_DOMAIN_CS);
+$primaryLang = $isCom ? 'en' : 'cs';
 $today = date('Y-m-d');
 $sb = new SupabaseClient();
 
 // Vyrenderuje <xhtml:link rel="alternate"...> pro všechny jazyky pro daný path.
-function sitemapAlternates($base, $path) {
+// Cross-domain: cs → motogo24.cz, ostatní → motogo24.com.
+function sitemapAlternates($path) {
     if (!defined('I18N_SUPPORTED')) return '';
     $out = '';
     foreach (I18N_SUPPORTED as $code) {
-        $href = $base . $path . ($code === I18N_DEFAULT ? '' : ('?lang=' . $code));
+        $href = i18nUrlForLang($code, $path);
         $out .= '    <xhtml:link rel="alternate" hreflang="' . htmlspecialchars($code) . '" href="' . htmlspecialchars($href) . '"/>' . "\n";
     }
-    $out .= '    <xhtml:link rel="alternate" hreflang="x-default" href="' . htmlspecialchars($base . $path) . '"/>' . "\n";
+    $out .= '    <xhtml:link rel="alternate" hreflang="x-default" href="' . htmlspecialchars(i18nUrlForLang('en', $path)) . '"/>' . "\n";
     return $out;
 }
 
 // Vyrenderuje <image:image> rozšíření — pole URL fotek + popisek.
-function sitemapImages($urls, $caption = '') {
+function sitemapImages($urls, $caption, $base) {
     if (empty($urls)) return '';
     $out = '';
     foreach ($urls as $u) {
         if (!$u) continue;
-        // Absolutní URL (Supabase storage je už absolutní; relativní převeď na base)
+        // Absolutní URL (Supabase storage je už absolutní; relativní převeď na current base)
         if (strpos($u, 'http') !== 0) {
-            $u = 'https://motogo24.cz/' . ltrim($u, '/');
+            $u = $base . '/' . ltrim($u, '/');
         }
         $out .= '    <image:image>' . "\n"
               . '      <image:loc>' . htmlspecialchars($u) . '</image:loc>' . "\n";
@@ -48,7 +55,7 @@ function sitemapImages($urls, $caption = '') {
 }
 
 function sitemapEntry($base, $path, $changefreq, $priority, $lastmod, $alternates = true, $images = '') {
-    $alt = $alternates ? sitemapAlternates($base, $path) : '';
+    $alt = $alternates ? sitemapAlternates($path) : '';
     return '  <url>' . "\n"
          . '    <loc>' . $base . htmlspecialchars($path) . '</loc>' . "\n"
          . '    <lastmod>' . $lastmod . '</lastmod>' . "\n"
@@ -110,7 +117,7 @@ foreach ($motos as $m) {
     // De-dup, max 6 obrázků per URL (Google limit ~1000, ale 6 stačí pro motorku)
     $imgs = array_slice(array_values(array_unique($imgs)), 0, 6);
     $caption = trim(($m['model'] ?? '') . ' — ' . ($m['category'] ?? 'motorka k pronájmu') . ' MotoGo24');
-    $imageBlock = sitemapImages($imgs, $caption);
+    $imageBlock = sitemapImages($imgs, $caption, $base);
     echo sitemapEntry($base, '/katalog/' . $m['id'], 'weekly', '0.8', $lastmod, true, $imageBlock);
 }
 
@@ -127,7 +134,7 @@ if (is_array($products)) {
         if (empty($imgs) && !empty($p['image_url'])) $imgs[] = $p['image_url'];
         $imgs = array_slice(array_values(array_unique($imgs)), 0, 4);
         $caption = trim(($p['name'] ?? 'Produkt') . ' — MotoGo24 e-shop');
-        $imageBlock = sitemapImages($imgs, $caption);
+        $imageBlock = sitemapImages($imgs, $caption, $base);
         echo sitemapEntry($base, '/eshop/' . $p['id'], 'weekly', '0.7', $lastmod, true, $imageBlock);
     }
 }
@@ -148,7 +155,7 @@ foreach ($posts as $p) {
     }
     if (empty($imgs) && !empty($p['image_url'])) $imgs[] = $p['image_url'];
     $imgs = array_slice(array_values(array_unique($imgs)), 0, 3);
-    $imageBlock = sitemapImages($imgs, trim($p['title'] ?? ''));
+    $imageBlock = sitemapImages($imgs, trim($p['title'] ?? ''), $base);
     echo sitemapEntry($base, '/blog/' . $p['slug'], 'monthly', '0.7', $lastmod, true, $imageBlock);
 }
 

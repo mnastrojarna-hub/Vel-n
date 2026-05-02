@@ -27,24 +27,24 @@ $defaults = [
         ],
         'items' => [
             ['icon' => 'gfx/ico-bez-kauce.svg', 'title' => 'Bez kauce', 'text' => 'a bez skrytých poplatků'],
-            ['icon' => 'gfx/ico-online-rez.svg', 'title' => 'Online rezervace', 'text' => 'na pár kliknutí'],
-            ['icon' => 'gfx/ico-vybava.svg', 'title' => 'Výbava pro řidiče v ceně', 'text' => 'helma, bunda, kalhoty a rukavice'],
+            ['icon' => 'gfx/rezervace-online.svg', 'title' => 'Online rezervace', 'text' => 'na pár kliknutí'],
+            ['icon' => 'gfx/vyber-vybavu.svg', 'title' => 'Výbava pro řidiče v ceně', 'text' => 'helma, bunda, kalhoty a rukavice'],
             ['icon' => 'gfx/ico-nonstop.svg', 'title' => 'Nonstop provoz', 'text' => 'pro vyzvednutí i vrácení dle rezervace'],
             ['icon' => 'gfx/ico-spolecne.svg', 'title' => 'Jsme v tom společně', 'text' => 'když se něco přihodí'],
-            ['icon' => 'gfx/ico-pristaveni.svg', 'title' => 'Přistavení i vrácení motorky', 'text' => 'na domluvené místo'],
+            ['icon' => 'gfx/predani-motorky.svg', 'title' => 'Přistavení i vrácení motorky', 'text' => 'na domluvené místo'],
         ],
     ],
     'process' => [
         'title' => 'Jak probíhá půjčení motorky na Vysočině',
         'steps' => [
-            ['icon' => 'gfx/ico-step1.svg', 'title' => '1. Vyber motorku', 'text' => 'Prohlédni si naši nabídku, vyber si typ, který ti vyhovuje, odpovídá tvým zkušenostem a řidičskému oprávnění.'],
-            ['icon' => 'gfx/ico-step3.svg', 'title' => '2. Rezervuj online', 'text' => 'Uskutečni rezervaci podle data nebo podle konkrétní motorky, kterou si chceš půjčit.'],
-            ['icon' => 'gfx/ico-step4.svg', 'title' => '3. Vyber výbavu', 'text' => 'Výbava pro řidiče je v ceně, pro spolujezdce za příplatek. Velikost si můžeš zvolit až na místě.'],
-            ['icon' => 'gfx/ico-step5.svg', 'title' => '4. Zaplať', 'text' => 'Zaplať jednoduše online prostřednictvím platební brány.'],
-            ['icon' => 'gfx/ico-step6.svg', 'title' => '5. Převezmi motorku', 'text' => 'Motorku si vyzvedni přímo v půjčovně, nebo na místě, které jsi zvolil při rezervaci.'],
-            ['icon' => 'gfx/ico-step7.svg', 'title' => '6. Užij si jízdu', 'text' => 'Vyraz na cestu, objevuj nové zážitky a užij si naplno svobodu na dvou kolech.'],
-            ['icon' => 'gfx/ico-step8.svg', 'title' => '7. Vrať motorku', 'text' => 'Motorku jednoduše vrať ve sjednaný den – přímo v půjčovně, nebo na předem domluveném místě.'],
-            ['icon' => 'gfx/ico-sleva.svg', 'title' => 'Sleva na příští jízdu', 'text' => 'Po vrácení motorky ti automaticky zašleme slevový kód 200 Kč na další rezervaci.'],
+            ['icon' => 'gfx/vyber-motorku.svg', 'title' => '1. Vyber motorku', 'text' => 'Prohlédni si naši nabídku, vyber si typ, který ti vyhovuje, odpovídá tvým zkušenostem a řidičskému oprávnění.'],
+            ['icon' => 'gfx/rezervace-online.svg', 'title' => '2. Rezervuj online', 'text' => 'Uskutečni rezervaci podle data nebo podle konkrétní motorky, kterou si chceš půjčit.'],
+            ['icon' => 'gfx/vyber-vybavu.svg', 'title' => '3. Vyber výbavu', 'text' => 'Výbava pro řidiče je v ceně, pro spolujezdce za příplatek. Velikost si můžeš zvolit až na místě.'],
+            ['icon' => 'gfx/zaplat.svg', 'title' => '4. Zaplať', 'text' => 'Zaplať jednoduše online prostřednictvím platební brány.'],
+            ['icon' => 'gfx/predani-motorky.svg', 'title' => '5. Převezmi motorku', 'text' => 'Motorku si vyzvedni přímo v půjčovně, nebo na místě, které jsi zvolil při rezervaci.'],
+            ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => '6. Užij si jízdu', 'text' => 'Vyraz na cestu, objevuj nové zážitky a užij si naplno svobodu na dvou kolech.'],
+            ['icon' => 'gfx/vrat-motorku-vcas.svg', 'title' => '7. Vrať motorku', 'text' => 'Motorku jednoduše vrať ve sjednaný den – přímo v půjčovně, nebo na předem domluveném místě.'],
+            ['icon' => 'gfx/sleva-na-pristi-jizdu.svg', 'title' => 'Sleva na příští jízdu', 'text' => 'Po vrácení motorky ti automaticky zašleme slevový kód 200 Kč na další rezervaci.'],
         ],
     ],
     'faq' => [
@@ -72,26 +72,55 @@ $C = $sb->siteContent('pujcovna', $defaults);
 
 $bc = renderBreadcrumb($C['breadcrumb']);
 
-$intro = '<section><h1>' . $C['intro']['h1'] . '</h1><p>' . $C['intro']['body'] . '</p></section>';
+$intro = '<section><h1 data-cms-key="web.pujcovna.intro.h1">' . $C['intro']['h1'] . '</h1><p data-cms-key="web.pujcovna.intro.body">' . $C['intro']['body'] . '</p></section>';
 
-$benefitsHtml = '<section><h2>' . $C['benefits']['title'] . '</h2><div class="gr6">';
-foreach ($C['benefits']['items'] as $b) {
-    $benefitsHtml .= renderWbox($b['icon'], $b['title'], $b['text']);
+$benefitsHtml = '<section><h2 data-cms-key="web.pujcovna.benefits.title">' . $C['benefits']['title'] . '</h2><div class="gr6">';
+foreach ($C['benefits']['items'] as $i => $b) {
+    $kBase = 'web.pujcovna.benefits.items.' . $i;
+    $benefitsHtml .= renderWbox(
+        $b['icon'],
+        '<span data-cms-key="' . $kBase . '.title">' . $b['title'] . '</span>',
+        '<span data-cms-key="' . $kBase . '.text">' . $b['text'] . '</span>'
+    );
 }
-$benefitsHtml .= '</div><p>&nbsp;</p><p>' . $C['benefits']['closing'] . '</p><p>&nbsp;</p><p>';
-foreach ($C['benefits']['buttons'] as $btn) {
-    $benefitsHtml .= '<a class="btn ' . ($btn['cls'] ?? 'btndark') . '" href="' . BASE_URL . $btn['href'] . '">' . $btn['label'] . '</a> ';
+$benefitsHtml .= '</div><p>&nbsp;</p><p data-cms-key="web.pujcovna.benefits.closing">' . $C['benefits']['closing'] . '</p><p>&nbsp;</p><p>';
+foreach ($C['benefits']['buttons'] as $i => $btn) {
+    $benefitsHtml .= '<a class="btn ' . ($btn['cls'] ?? 'btndark') . '" href="' . BASE_URL . $btn['href'] . '" data-cms-key="web.pujcovna.benefits.buttons.' . $i . '.label">' . $btn['label'] . '</a> ';
 }
 $benefitsHtml .= '</p></section>';
 
-$stepsHtml = '<section aria-labelledby="process"><h2>' . $C['process']['title'] . '</h2><div class="gr4">';
-foreach ($C['process']['steps'] as $s) {
-    $stepsHtml .= renderWbox($s['icon'], $s['title'], $s['text']);
+$stepsHtml = '<section aria-labelledby="process"><h2 data-cms-key="web.pujcovna.process.title">' . $C['process']['title'] . '</h2><div class="gr4">';
+foreach ($C['process']['steps'] as $i => $s) {
+    $kBase = 'web.pujcovna.process.steps.' . $i;
+    $stepsHtml .= renderWbox(
+        $s['icon'],
+        '<span data-cms-key="' . $kBase . '.title">' . $s['title'] . '</span>',
+        '<span data-cms-key="' . $kBase . '.text">' . $s['text'] . '</span>'
+    );
 }
 $stepsHtml .= '</div></section>';
 
-$faqHtml = renderFaqSection($C['faq']['title'], $C['faq']['items'], $C['faq']['more_link'] ?? null);
-$ctaHtml = renderCta($C['cta']['title'], $C['cta']['text'], $C['cta']['buttons']);
+$faqItemsKeyed = [];
+foreach (($C['faq']['items'] ?? []) as $i => $f) {
+    $faqItemsKeyed[] = [
+        'q' => '<span data-cms-key="web.pujcovna.faq.items.' . $i . '.q">' . ($f['q'] ?? '') . '</span>',
+        'a' => '<span data-cms-key="web.pujcovna.faq.items.' . $i . '.a">' . ($f['a'] ?? '') . '</span>',
+    ];
+}
+$faqTitleKeyed = '<span data-cms-key="web.pujcovna.faq.title">' . ($C['faq']['title'] ?? '') . '</span>';
+$faqHtml = renderFaqSection($faqTitleKeyed, $faqItemsKeyed, $C['faq']['more_link'] ?? null);
+
+$ctaButtonsKeyed = [];
+foreach (($C['cta']['buttons'] ?? []) as $i => $btn) {
+    $b = $btn;
+    $b['label'] = '<span data-cms-key="web.pujcovna.cta.buttons.' . $i . '.label">' . ($btn['label'] ?? '') . '</span>';
+    $ctaButtonsKeyed[] = $b;
+}
+$ctaHtml = renderCta(
+    '<span data-cms-key="web.pujcovna.cta.title">' . ($C['cta']['title'] ?? '') . '</span>',
+    '<span data-cms-key="web.pujcovna.cta.text">' . ($C['cta']['text'] ?? '') . '</span>',
+    $ctaButtonsKeyed
+);
 
 $content = '<main id="content"><div class="container">' . $bc .
     '<div class="ccontent">' . $intro . $benefitsHtml . $stepsHtml . $faqHtml . $ctaHtml . '</div></div></main>';
@@ -147,7 +176,7 @@ renderPage($C['seo']['title'], $content, '/pujcovna-motorek', [
     'keywords' => $C['seo']['keywords'],
     'schema' => $serviceSchema . $faqSchema,
     'breadcrumbs' => [
-        ['name' => t('breadcrumb.home'), 'url' => 'https://motogo24.cz/'],
-        ['name' => t('menu.rental'), 'url' => 'https://motogo24.cz/pujcovna-motorek'],
+        ['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')],
+        ['name' => t('menu.rental'), 'url' => siteCanonicalUrl('/pujcovna-motorek')],
     ],
 ]);

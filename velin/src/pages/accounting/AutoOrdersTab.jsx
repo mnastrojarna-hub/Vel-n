@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import BulkActionsBar, { SelectAllCheckbox, RowCheckbox } from '../../components/ui/BulkActionsBar'
+import { exportToCsv, bulkUpdate, bulkDelete } from '../../lib/bulkActions'
 import { supabase } from '../../lib/supabase'
 import { debugAction } from '../../lib/debugLog'
 import { useDebugMode } from '../../hooks/useDebugMode'
@@ -30,6 +32,8 @@ export default function AutoOrdersTab() {
   const [editRule, setEditRule] = useState(null)
   const [error, setError] = useState(null)
   const [resultMsg, setResultMsg] = useState(null)
+  const [selOrderIds, setSelOrderIds] = useState(new Set())
+  const [selRuleIds, setSelRuleIds] = useState(new Set())
 
   useEffect(() => { load() }, [tab, page])
 
@@ -102,11 +106,27 @@ export default function AutoOrdersTab() {
           <div className="flex items-center gap-3 mb-4"><div className="ml-auto"><Button green onClick={() => setShowNewOrder(true)}>+ Nova objednavka</Button></div></div>
           {loading ? <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div> : (
             <>
+              <BulkActionsBar count={selOrderIds.size} onClear={() => setSelOrderIds(new Set())} actions={[
+                { label: 'Označit odeslané', icon: '📤', onClick: async () => { await bulkUpdate('purchase_orders', [...selOrderIds], { status: 'sent', sent_at: new Date().toISOString() }, 'auto_orders_bulk_sent'); setSelOrderIds(new Set()); load() } },
+                { label: 'Označit přijaté', icon: '✓', onClick: async () => { await bulkUpdate('purchase_orders', [...selOrderIds], { status: 'received' }, 'auto_orders_bulk_received'); setSelOrderIds(new Set()); load() } },
+                { label: 'Zrušit', icon: '✗', onClick: async () => { await bulkUpdate('purchase_orders', [...selOrderIds], { status: 'cancelled' }, 'auto_orders_bulk_cancelled'); setSelOrderIds(new Set()); load() }, confirm: 'Zrušit {count} objednávek?' },
+                { label: 'Export CSV', icon: '⬇', onClick: () => exportToCsv('auto-orders', [
+                  { key: 'order_number', label: 'Číslo' },
+                  { key: 'suppliers', label: 'Dodavatel', format: (_, r) => r.suppliers?.name || '' },
+                  { key: 'created_at', label: 'Datum' }, { key: 'total_amount', label: 'Celkem' }, { key: 'status', label: 'Stav' },
+                ], orders.filter(o => selOrderIds.has(o.id))) },
+                { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} objednávek?', onClick: async () => { await bulkDelete('purchase_orders', [...selOrderIds], 'auto_orders_bulk_deleted'); setSelOrderIds(new Set()); load() } },
+              ]} />
               <Table>
-                <thead><TRow header><TH>Cislo</TH><TH>Dodavatel</TH><TH>Email</TH><TH>Datum</TH><TH>Celkem</TH><TH>Stav</TH><TH>Akce</TH></TRow></thead>
+                <thead><TRow header>
+                  <TH><SelectAllCheckbox items={orders} selectedIds={selOrderIds} setSelectedIds={setSelOrderIds} /></TH>
+                  <TH>Cislo</TH><TH>Dodavatel</TH><TH>Email</TH><TH>Datum</TH><TH>Celkem</TH><TH>Stav</TH><TH>Akce</TH>
+                </TRow></thead>
                 <tbody>
                   {orders.map(o => (
-                    <tr key={o.id} className="cursor-pointer hover:bg-[#f1faf7] transition-colors" style={{ borderBottom: '1px solid #d4e8e0' }}>
+                    <tr key={o.id} className="cursor-pointer hover:bg-[#f1faf7] transition-colors"
+                      style={{ borderBottom: '1px solid #d4e8e0', background: selOrderIds.has(o.id) ? '#fef9c3' : undefined }}>
+                      <TD><RowCheckbox id={o.id} selectedIds={selOrderIds} setSelectedIds={setSelOrderIds} /></TD>
                       <TD mono bold onClick={() => setDetail(o)}>{o.order_number || `#${o.id?.slice(0, 8)}`}</TD>
                       <TD onClick={() => setDetail(o)}>{o.suppliers?.name || '\u2014'}</TD>
                       <TD onClick={() => setDetail(o)}><span style={{ fontSize: 12, color: '#6b7280' }}>{o.suppliers?.contact_email || '\u2014'}</span></TD>
@@ -134,11 +154,21 @@ export default function AutoOrdersTab() {
             <div className="ml-auto"><Button green onClick={() => setShowNewRule(true)}>+ Nove pravidlo</Button></div>
           </div>
           {loading ? <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div> : (
+            <>
+            <BulkActionsBar count={selRuleIds.size} onClear={() => setSelRuleIds(new Set())} actions={[
+              { label: 'Aktivovat', icon: '✓', onClick: async () => { await bulkUpdate('auto_order_rules', [...selRuleIds], { is_active: true }, 'auto_rules_bulk_activated'); setSelRuleIds(new Set()); load() } },
+              { label: 'Deaktivovat', icon: '⏸', onClick: async () => { await bulkUpdate('auto_order_rules', [...selRuleIds], { is_active: false }, 'auto_rules_bulk_deactivated'); setSelRuleIds(new Set()); load() } },
+              { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} pravidel?', onClick: async () => { await bulkDelete('auto_order_rules', [...selRuleIds], 'auto_rules_bulk_deleted'); setSelRuleIds(new Set()); load() } },
+            ]} />
             <Table>
-              <thead><TRow header><TH>Polozka</TH><TH>Dodavatel</TH><TH>Typ</TH><TH>Mnozstvi</TH><TH>Stav</TH><TH>Posledni spusteni</TH><TH>Akce</TH></TRow></thead>
+              <thead><TRow header>
+                <TH><SelectAllCheckbox items={rules} selectedIds={selRuleIds} setSelectedIds={setSelRuleIds} /></TH>
+                <TH>Polozka</TH><TH>Dodavatel</TH><TH>Typ</TH><TH>Mnozstvi</TH><TH>Stav</TH><TH>Posledni spusteni</TH><TH>Akce</TH>
+              </TRow></thead>
               <tbody>
                 {rules.map(r => (
                   <TRow key={r.id}>
+                    <TD><RowCheckbox id={r.id} selectedIds={selRuleIds} setSelectedIds={setSelRuleIds} /></TD>
                     <TD bold>{r.inventory?.name || '\u2014'} <span style={{ color: '#6b7280', fontSize: 11 }}>({r.inventory?.sku || ''})</span></TD>
                     <TD>{r.suppliers?.name || '\u2014'}</TD>
                     <TD><Badge label={TRIGGER_LABELS[r.trigger_type] || r.trigger_type} color={TRIGGER_COLORS[r.trigger_type] || '#6b7280'} bg={TRIGGER_BGS[r.trigger_type] || '#f3f4f6'} />{r.trigger_type === 'stock_low' && <span style={{ fontSize: 11, color: '#6b7280', marginLeft: 4 }}>{'\u2264'}{r.threshold_quantity}</span>}{r.trigger_type === 'interval' && <span style={{ fontSize: 11, color: '#6b7280', marginLeft: 4 }}>/{r.interval_days}d</span>}</TD>
@@ -155,6 +185,7 @@ export default function AutoOrdersTab() {
                 {rules.length === 0 && <TRow><TD>Zadna pravidla — pridejte prvni automatickou objednavku</TD></TRow>}
               </tbody>
             </Table>
+            </>
           )}
         </>
       )}

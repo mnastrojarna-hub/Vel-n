@@ -70,6 +70,25 @@ input,select,textarea{font-size:16px}
    sticky společně, žádný border / margin / gap mezi nimi. Tvoří jednu plochu. */
 .header-topbar{background:#1a2e22;padding:.35rem 0;margin:0;border:0;position:sticky;top:0;z-index:101}
 .header-topbar .container{display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap}
+.header-tools{display:flex;align-items:center;gap:.4rem}
+.header-cart{position:relative;display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:8px;color:#74FB71;text-decoration:none;transition:background .15s,color .15s}
+.header-cart:hover{background:rgba(116,251,113,.12);color:#a8ff9f}
+.header-cart:focus-visible{outline:2px solid #74FB71;outline-offset:2px}
+.header-cart-icon{width:22px;height:22px}
+@media(max-width:600px){
+  .header-cart{width:44px;height:44px}
+  .header-cart-icon{width:24px;height:24px}
+}
+.header-cart-badge{position:absolute;top:-2px;right:-2px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#74FB71;color:#1a2e22;font-size:.7rem;font-weight:800;display:inline-flex;align-items:center;justify-content:center;line-height:1;border:2px solid #1a2e22;box-sizing:content-box}
+.header-cart-badge[hidden]{display:none}
+.header-edit-rez{position:relative;display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:8px;color:#74FB71;text-decoration:none;transition:background .15s,color .15s}
+.header-edit-rez:hover{background:rgba(116,251,113,.12);color:#a8ff9f}
+.header-edit-rez:focus-visible{outline:2px solid #74FB71;outline-offset:2px}
+.header-edit-rez-icon{width:22px;height:22px}
+@media(max-width:600px){
+  .header-edit-rez{width:44px;height:44px}
+  .header-edit-rez-icon{width:24px;height:24px}
+}
 .header-lang{display:flex;align-items:center;gap:.25rem}
 .header{background:#1a2e22;padding:.6rem 0 .75rem;margin:0;position:sticky;top:0;z-index:100;border-top:0;border-bottom:1px solid #2a4e3a}
 .header-logo img{height:44px;width:auto}
@@ -169,7 +188,8 @@ main{background:#fff;min-height:60vh}
 .homepage main{background:#dff0ec}
 .ccontent{padding:1.5rem 0 3rem}
 .ccontent section{margin-bottom:2.5rem}
-.pcontent{padding:1.5rem 0 3rem;max-width:900px}
+.pcontent{padding:1.5rem 0 3rem;max-width:900px;margin:0 auto}
+.pcontent.pcontent-wide{max-width:none}
 
 /* ===== WBOX (Icon box) ===== */
 .wbox{background:#fff;border:1px solid #d4e8e0;border-radius:10px;padding:1.25rem;text-align:left;transition:border-color .2s,box-shadow .2s}
@@ -253,8 +273,8 @@ footer ul li a::before{content:"›";margin-right:.4rem;color:#74FB71}
 .copyright a{color:#8aab99;margin:0 .4rem;transition:color .15s}
 .copyright a:hover{color:#74FB71}
 
-/* Scroll to top */
-#Up{position:fixed;bottom:1.5rem;right:1.5rem;width:44px;height:44px;background:#74FB71;border:none;border-radius:50%;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s;z-index:90;cursor:pointer}
+/* Scroll to top — pozice nad AI bubble (která sedí na bottom-right) */
+#Up{position:fixed;bottom:calc(1.5rem + 80px);right:1.5rem;width:44px;height:44px;background:#74FB71;border:none;border-radius:50%;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s;z-index:90;cursor:pointer}
 #Up.visible{opacity:1;pointer-events:auto}
 #Up img{width:20px;height:20px;filter:brightness(0)}
 
@@ -269,6 +289,53 @@ section[aria-labelledby="cta"] a{color:#74FB71}
 section[aria-labelledby="process"]{background:#1a3a2a;border-radius:12px;padding:2rem;margin:2rem 0}
 section[aria-labelledby="process"] h2{color:#fff}
 section[aria-labelledby="process"] .wbox{background:#fff;border-color:#d4e8e0}
+
+/* ===== HOMEPAGE DARK THEME ===== */
+/* Dark bg pokrývá jen horní část stránky (hero + horní polovina prvního řádku
+   karet); pod tím se vrací světlé pozadí. */
+body.homepage{background:#dff0ec;color:#1a2e22}
+body.homepage main{background:linear-gradient(180deg,#0a1f14 0,#0a1f14 360px,#dff0ec 540px,#dff0ec 100%);color:#1a2e22}
+body.homepage main h1,body.homepage main>.container>h1{color:#fff}
+body.homepage .home-intro{color:#d4e8e0}
+body.homepage section[aria-labelledby="signpost-h"] h2{color:#fff}
+body.homepage section[aria-labelledby="signpost-h"]+section h2,
+body.homepage section[aria-labelledby="catalogue"] h2,
+body.homepage section[aria-labelledby="process"] h2{color:#fff}
+body.homepage section[aria-labelledby="signpost-h"] strong{color:#fff}
+
+/* Hero CTA — primary tlačítko musí mít čistě černý text */
+body.homepage .banner-caption .btngreen,
+.banner-caption .btngreen{color:#000}
+.banner-caption .btngreen:hover{color:#000}
+
+/* Zvýraznění klíčových slov v intru: Motogo24 / bez kauce / nonstop */
+body.homepage .home-intro strong{color:#74FB71}
+
+/* Sekce katalogu motorek — nadpis černě (je nad světlým pozadím) */
+body.homepage section[aria-labelledby="catalogue"] h2{color:#000}
+
+/* CTA sekce — tlačítka zeleně s černým písmem */
+body.homepage section[aria-labelledby="cta"] .btndark{background:#74FB71;color:#000;border-color:#74FB71}
+body.homepage section[aria-labelledby="cta"] .btndark:hover{background:#a8ff9f;color:#000;border-color:#a8ff9f}
+
+/* Signpost cards — tmavé pozadí + neon zelený rámeček + zelený nadpis */
+body.homepage .gbox{background:#0e2a1c;border:2px solid #74FB71;border-bottom:2px solid #74FB71;border-radius:12px;color:#e8f5ee;box-shadow:0 0 0 0 transparent}
+body.homepage .gbox:hover{border-color:#a8ff9f;box-shadow:0 0 22px rgba(116,251,113,.18);color:#e8f5ee}
+body.homepage .gbox h3{color:#74FB71}
+body.homepage .gbox p{color:#d4e8e0}
+body.homepage .gbox-img{background:rgba(116,251,113,.12)}
+/* Některé SVG ikony mají tmavě-zelený fill (#093E2E) — na tmavém pozadí karty
+   by zmizely. Filtr je překreslí na neon zelenou (sjednotí všechny ikony). */
+body.homepage .gbox-img .icon{filter:brightness(0) saturate(100%) invert(82%) sepia(36%) saturate(1500%) hue-rotate(64deg) brightness(106%) contrast(100%)}
+body.homepage .btngreen-small{background:#74FB71;color:#0a1f14}
+body.homepage .btngreen-small:hover{background:#a8ff9f;color:#0a1f14}
+
+/* Wbox (process steps) na tmavém pozadí */
+body.homepage section[aria-labelledby="process"]{background:#0e2a1c;border:1px solid rgba(116,251,113,.2)}
+body.homepage section[aria-labelledby="process"] .wbox{background:#0a1f14;border-color:rgba(116,251,113,.3);color:#e8f5ee}
+body.homepage section[aria-labelledby="process"] .wbox h3{color:#fff}
+body.homepage section[aria-labelledby="process"] .wbox>p{color:#b8d4c6}
+body.homepage section[aria-labelledby="process"] .wbox .icon{filter:brightness(0) saturate(100%) invert(82%) sepia(36%) saturate(1500%) hue-rotate(64deg) brightness(106%) contrast(100%)}
 
 /* ===== RESPONSIVE ===== */
 /* Tablet landscape */
@@ -305,6 +372,7 @@ section[aria-labelledby="process"] .wbox{background:#fff;border-color:#d4e8e0}
   .banner-caption .btn+.btn{margin-left:0}
   .moto-gallery .moto-thumbs .gallery-img img,
   .moto-gallery .gr3 .gallery-img img{height:80px}
+  .moto-thumbs-nav{height:80px}
   /* Hamburger menu */
   .nav-toggle{display:block;min-height:44px;min-width:44px;padding:.5rem .9rem;font-size:.95rem;font-weight:700;letter-spacing:.5px}
   .mobile-menu-overlay{display:none;position:fixed;inset:0;background:rgba(15,28,21,.97);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:999;flex-direction:column;padding:max(env(safe-area-inset-top),1rem) 1.5rem max(env(safe-area-inset-bottom),1.5rem);overflow-y:auto;-webkit-overflow-scrolling:touch}
@@ -352,8 +420,8 @@ section[aria-labelledby="process"] .wbox{background:#fff;border-color:#d4e8e0}
   section[aria-labelledby="process"]{padding:1.5rem 1.1rem;border-radius:14px;margin:1.5rem 0}
   /* Buttons full-width on mobile when wrapped in centered p */
   .text-center .btn+.btn{margin-top:.5rem}
-  /* Scroll to top — safe area */
-  #Up{bottom:max(env(safe-area-inset-bottom),1rem);right:max(env(safe-area-inset-right),1rem);width:48px;height:48px}
+  /* Scroll to top — safe area + nad AI bubble (mobil) */
+  #Up{bottom:calc(max(env(safe-area-inset-bottom),1rem) + 70px);right:max(env(safe-area-inset-right),1rem);width:48px;height:48px}
 }
 /* Mobile (small) */
 @media(max-width:480px){
@@ -467,27 +535,38 @@ section[aria-labelledby="process"] .wbox{background:#fff;border-color:#d4e8e0}
 /* ===== Image rendering — srcset hint ===== */
 .banner img,.banner picture img{will-change:auto}
 
-/* ===== Lightbox ===== */
-.mg-lb{position:fixed;inset:0;background:rgba(10,18,13,.94);z-index:9999;display:flex;align-items:center;justify-content:center;padding:env(safe-area-inset-top,0) env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0)}
-.mg-lb[hidden]{display:none}
-body.mg-lb-open{overflow:hidden}
-.mg-lb-stage{flex:1;display:flex;align-items:center;justify-content:center;max-width:100%;max-height:100%;padding:1rem;cursor:zoom-out}
-.mg-lb-img{max-width:min(96vw,1600px);max-height:88vh;width:auto;height:auto;object-fit:contain;border-radius:6px;box-shadow:0 12px 40px rgba(0,0,0,.6);background:#1a2e22;cursor:default}
-.mg-lb-close,.mg-lb-prev,.mg-lb-next{position:absolute;background:rgba(26,46,34,.85);color:#74FB71;border:1px solid #2a4e3a;border-radius:50%;width:48px;height:48px;font-size:1.4rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s,transform .1s;font-family:inherit}
-.mg-lb-close:hover,.mg-lb-prev:hover,.mg-lb-next:hover{background:#2a4e3a;color:#a8ff9f}
-.mg-lb-close:active,.mg-lb-prev:active,.mg-lb-next:active{transform:scale(.95)}
-.mg-lb-close{top:max(env(safe-area-inset-top,0),1rem);right:max(env(safe-area-inset-right,0),1rem);font-size:1.8rem}
+/* ===== Lightbox =====
+   Pozicování s !important + krytí celého viewportu — defenzivní proti
+   ancestor transform/filter, které by mohly rozbít position:fixed a způsobit
+   render náhledu pod patou webu.
+   100dvh místo 100vh — na iOS Safari URL bar jinak ukousne spodek a × se
+   nedostane na obrazovku. vh ponechán jako fallback pro starší prohlížeče. */
+.mg-lb{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:0!important;inset:0!important;width:100vw;height:100vh;height:100dvh;background:rgba(10,18,13,.94);z-index:99999;display:flex;align-items:center;justify-content:center;padding:env(safe-area-inset-top,0) env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0);margin:0;touch-action:none;overscroll-behavior:contain}
+.mg-lb[hidden]{display:none!important}
+body.mg-lb-open{overflow:hidden;overscroll-behavior:none}
+.mg-lb-stage{flex:1;display:flex;align-items:center;justify-content:center;max-width:100%;max-height:100%;padding:1rem;cursor:zoom-out;overflow:hidden}
+.mg-lb-img{max-width:min(96vw,1600px);max-height:88vh;width:auto;height:auto;object-fit:contain;border-radius:6px;box-shadow:0 12px 40px rgba(0,0,0,.6);background:#1a2e22;cursor:default;transform-origin:center center;will-change:transform;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-user-drag:none}
+/* Tlačítka × / ‹ / › — všechna kulatá, neonově zelená s tmavým iconem,
+   silný stín kvůli kontrastu nad fotkou. Stejný vizuál jako × button. */
+.mg-lb-close,.mg-lb-prev,.mg-lb-next{position:absolute;background:rgba(116,251,113,.95);color:#0b1d12;border:2px solid #74FB71;border-radius:50%;width:52px;height:52px;font-size:1.6rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s,transform .1s,box-shadow .15s;font-family:inherit;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.45);-webkit-tap-highlight-color:transparent;padding:0}
+.mg-lb-close:hover,.mg-lb-prev:hover,.mg-lb-next:hover{background:#a8ff9f;color:#0b1d12;box-shadow:0 6px 18px rgba(0,0,0,.5)}
+.mg-lb-close:active,.mg-lb-prev:active,.mg-lb-next:active{transform:scale(.94)}
+.mg-lb-close{top:max(env(safe-area-inset-top,0),1rem);right:max(env(safe-area-inset-right,0),1rem);font-size:1.9rem}
 .mg-lb-prev{left:max(env(safe-area-inset-left,0),1rem);top:50%;transform:translateY(-50%)}
 .mg-lb-next{right:max(env(safe-area-inset-right,0),1rem);top:50%;transform:translateY(-50%)}
-.mg-lb-prev:active,.mg-lb-next:active{transform:translateY(-50%) scale(.95)}
-.mg-lb-counter{position:absolute;bottom:max(env(safe-area-inset-bottom,0),1rem);left:50%;transform:translateX(-50%);background:rgba(26,46,34,.85);color:#e8f5ee;border:1px solid #2a4e3a;border-radius:999px;padding:.35rem .9rem;font-size:.85rem;font-weight:600;letter-spacing:.04em;pointer-events:none}
+.mg-lb-prev:active,.mg-lb-next:active{transform:translateY(-50%) scale(.94)}
+.mg-lb-counter{position:absolute;bottom:max(env(safe-area-inset-bottom,0),1rem);left:50%;transform:translateX(-50%);background:rgba(26,46,34,.92);color:#e8f5ee;border:1px solid #74FB71;border-radius:999px;padding:.4rem 1rem;font-size:.9rem;font-weight:700;letter-spacing:.04em;pointer-events:none;box-shadow:0 2px 10px rgba(0,0,0,.4)}
+@media(max-width:768px){
+  .mg-lb-img{max-height:76vh;max-height:76dvh}
+  .mg-lb-close,.mg-lb-prev,.mg-lb-next{width:48px;height:48px;font-size:1.5rem}
+  .mg-lb-close{font-size:1.8rem;top:max(env(safe-area-inset-top,0),.6rem);right:max(env(safe-area-inset-right,0),.6rem)}
+  .mg-lb-prev{left:max(env(safe-area-inset-left,0),.6rem)}
+  .mg-lb-next{right:max(env(safe-area-inset-right,0),.6rem)}
+  .mg-lb-counter{font-size:.82rem;padding:.32rem .85rem;bottom:max(env(safe-area-inset-bottom,0),.75rem)}
+}
 @media(max-width:480px){
-  .mg-lb-close,.mg-lb-prev,.mg-lb-next{width:44px;height:44px;font-size:1.2rem}
-  .mg-lb-close{font-size:1.6rem;top:max(env(safe-area-inset-top,0),.5rem);right:max(env(safe-area-inset-right,0),.5rem)}
-  .mg-lb-prev{left:max(env(safe-area-inset-left,0),.5rem)}
-  .mg-lb-next{right:max(env(safe-area-inset-right,0),.5rem)}
-  .mg-lb-img{max-height:82vh}
-  .mg-lb-counter{font-size:.78rem;padding:.3rem .75rem}
+  .mg-lb-close,.mg-lb-prev,.mg-lb-next{width:46px;height:46px}
+  .mg-lb-img{max-height:72vh;max-height:72dvh;max-width:96vw}
 }
 
 /* ===== Print stylesheet ===== */
@@ -509,3 +588,186 @@ body.mg-lb-open{overflow:hidden}
 
 /* Misc */
 .imgres{width:100%;height:auto;border-radius:6px}
+
+/* ===== Upravit rezervaci ===== */
+#edit-rez-app{max-width:780px;margin:0 auto}
+#edit-rez-app.busy{opacity:.6;pointer-events:none}
+#edit-rez-app h1{margin:0 0 .5rem}
+.edit-rez-intro{color:#666;margin:0 0 1.5rem;font-size:1rem}
+.edit-rez-intro strong{color:#1a2e22}
+.edit-rez-userbar{display:flex;align-items:center;justify-content:space-between;background:#f4faf6;border:1px solid #d9ecdf;border-radius:10px;padding:.5rem .9rem;margin-bottom:1rem;font-size:.9rem;color:#1a2e22}
+.edit-rez-userbar .btn-link{background:none;border:none;color:#1a8c1a;cursor:pointer;font-weight:600;text-decoration:underline;padding:0;font-size:.9rem;font-family:inherit}
+.edit-rez-userbar .btn-link:hover{color:#0d6b0d}
+.edit-rez-error{background:#fde7e7;border:1px solid #f4b4b4;color:#8c1a1a;padding:.7rem 1rem;border-radius:8px;margin-bottom:1rem;font-size:.95rem}
+.edit-rez-card{background:#fff;border:1px solid #e3eee8;border-radius:14px;padding:1.5rem;margin-bottom:1rem;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.edit-rez-card h2{margin:0 0 .5rem;font-size:1.25rem;color:#1a2e22}
+.edit-rez-card p{margin:0 0 1rem;color:#444}
+.edit-rez-form{display:flex;flex-direction:column;gap:.9rem;margin-bottom:1rem}
+.edit-rez-form label{display:flex;flex-direction:column;gap:.3rem;font-size:.9rem;color:#1a2e22;font-weight:600}
+.edit-rez-form input{padding:.75rem .9rem;border:1px solid #b8d4c6;border-radius:10px;font-size:1rem;font-family:inherit;background:#fff}
+.edit-rez-form input:focus{outline:2px solid #74FB71;outline-offset:1px;border-color:#74FB71}
+.edit-rez-form button[type=submit]{margin-top:.5rem}
+.edit-rez-tip{font-size:.85rem;color:#666;margin:0 0 .75rem}
+.edit-rez-card a{color:#1a8c1a;text-decoration:underline}
+.edit-rez-success{background:#eafaef;border-color:#bce6c8}
+.edit-rez-empty{text-align:center}
+
+/* Booking list */
+.edit-rez-booking-list{display:flex;flex-direction:column;gap:.75rem}
+.edit-rez-booking{display:grid;grid-template-columns:64px 1fr auto;gap:.9rem;align-items:center;background:#fff;border:1px solid #e3eee8;border-radius:12px;padding:.75rem;cursor:pointer;text-align:left;font-family:inherit;transition:border-color .15s,background .15s,transform .1s}
+.edit-rez-booking:hover{border-color:#74FB71;background:#f4faf6}
+.edit-rez-booking:active{transform:scale(.99)}
+.edit-rez-booking-img{width:64px;height:48px;border-radius:8px;overflow:hidden;background:#f0f0f0;display:flex;align-items:center;justify-content:center}
+.edit-rez-booking-img img{width:100%;height:100%;object-fit:cover}
+.edit-rez-booking-title{font-weight:700;color:#1a2e22;font-size:1rem}
+.edit-rez-booking-meta{color:#666;font-size:.9rem;margin-top:.15rem}
+.edit-rez-booking-status{display:inline-block;font-size:.75rem;font-weight:700;padding:.15rem .5rem;border-radius:10px;margin-top:.3rem;text-transform:uppercase;letter-spacing:.02em}
+.edit-rez-booking-status.status-pending{background:#fff3cd;color:#7a5b00}
+.edit-rez-booking-status.status-reserved{background:#d6ecff;color:#0a4a85}
+.edit-rez-booking-status.status-upcoming{background:#d6ecff;color:#0a4a85}
+.edit-rez-booking-status.status-active{background:#e3fbe3;color:#1a8c1a}
+.edit-rez-booking-status.status-completed{background:#eee;color:#555}
+.edit-rez-booking-status.status-cancelled{background:#fde7e7;color:#8c1a1a}
+
+/* Filter tabs nad listem */
+.edit-rez-filters{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:1rem}
+.edit-rez-filter{flex:0 1 auto;padding:.45rem .85rem;border:1px solid #e3eee8;background:#fff;color:#1a2e22;border-radius:20px;cursor:pointer;font-size:.9rem;font-weight:600;font-family:inherit;transition:all .15s}
+.edit-rez-filter:hover{background:#f4faf6;border-color:#74FB71}
+.edit-rez-filter.active{background:#1a2e22;color:#fff;border-color:#1a2e22}
+.edit-rez-filter .cnt{display:inline-block;background:rgba(255,255,255,.2);color:inherit;border-radius:10px;padding:.05rem .4rem;margin-left:.3rem;font-size:.78rem;font-weight:700}
+.edit-rez-filter:not(.active) .cnt{background:#f4faf6;color:#666}
+.edit-rez-section-empty{color:#666;font-style:italic;text-align:center;padding:1.5rem}
+
+/* Doklady dialog */
+.edit-rez-doc-dialog{max-width:520px}
+.edit-rez-doclist{list-style:none;padding:0;margin:0 0 1rem}
+.edit-rez-doclist li{display:flex;justify-content:space-between;align-items:center;gap:.6rem;padding:.6rem 0;border-bottom:1px solid #eee;font-size:.95rem}
+.edit-rez-doclist li:last-child{border-bottom:none}
+.edit-rez-doclist .btn-link{background:none;border:none;color:#1a8c1a;cursor:pointer;font-weight:600;text-decoration:underline;padding:0;font-family:inherit;font-size:.9rem}
+.edit-rez-doclist .muted{color:#999;font-size:.85rem}
+
+/* Změna motorky — karty s diff cenou */
+.edit-rez-moto-card{display:grid;grid-template-columns:64px 1fr auto;gap:.9rem;align-items:center;background:#fff;border:1px solid #e3eee8;border-radius:12px;padding:.75rem;cursor:pointer;text-align:left;font-family:inherit;transition:all .15s}
+.edit-rez-moto-card:hover:not(.disabled){border-color:#74FB71;background:#f4faf6}
+.edit-rez-moto-card.disabled{opacity:.55;cursor:not-allowed;background:#f9f9f9}
+.edit-rez-moto-reasons{font-size:.8rem;color:#8c1a1a;margin-top:.2rem}
+.edit-rez-booking-price .diff-pos{color:#7a5b00}
+.edit-rez-booking-price .diff-neg{color:#1a8c1a}
+
+/* Změna místa */
+.edit-rez-loc-fieldset{border:1px solid #e3eee8;border-radius:10px;padding:.85rem 1rem;margin:0 0 1rem}
+.edit-rez-loc-fieldset legend{font-weight:700;color:#1a2e22;padding:0 .5rem;font-size:.95rem}
+.edit-rez-loc-radio{display:flex;align-items:center;gap:.5rem;padding:.5rem 0;cursor:pointer;font-size:.95rem}
+.edit-rez-loc-radio input[type=radio]{margin:0}
+.edit-rez-loc-addr{margin-top:.5rem;display:flex;flex-wrap:wrap;align-items:center;gap:.5rem}
+.edit-rez-loc-addr input[type=text]{flex:1;min-width:200px;padding:.65rem .8rem;border:1px solid #b8d4c6;border-radius:8px;font-size:.95rem;font-family:inherit}
+.edit-rez-loc-addr input:focus{outline:2px solid #74FB71;outline-offset:1px;border-color:#74FB71}
+.edit-rez-loc-route{flex:1 0 100%;font-size:.85rem;color:#1a2e22;padding:.4rem 0}
+.edit-rez-loc-route .muted{color:#888}
+.edit-rez-map-btn{padding:.6rem .9rem!important;background:#f4faf6!important;border:1px solid #b8d4c6!important;border-radius:8px!important;color:#1a2e22!important;text-decoration:none!important;font-weight:600;cursor:pointer}
+.edit-rez-map-btn:hover{background:#e6f5e9!important}
+
+/* Map picker overlay */
+.edit-rez-map-overlay{position:fixed;inset:0;background:#fff;z-index:99999}
+.edit-rez-map-bar{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:.7rem 1rem;background:rgba(255,255,255,.96);box-shadow:0 2px 8px rgba(0,0,0,.1);z-index:100001}
+.edit-rez-map-bar .btn-link{background:none;border:none;font-size:1.4rem;cursor:pointer;color:#333;padding:.2rem .5rem;font-family:inherit}
+.edit-rez-map-pin{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:100000;font-size:2.2rem;text-shadow:0 2px 6px rgba(0,0,0,.3);pointer-events:none}
+#edit-rez-map-container{width:100%;height:100%}
+.edit-rez-map-addr{position:absolute;left:1rem;right:1rem;bottom:1rem;background:rgba(255,255,255,.95);border-radius:10px;padding:.7rem 1rem;font-size:.9rem;font-weight:600;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.15);z-index:100001}
+.edit-rez-booking-price{font-weight:800;color:#1a2e22;font-size:1.05rem;white-space:nowrap}
+
+@media(max-width:600px){
+  .edit-rez-card{padding:1.1rem}
+  .edit-rez-booking{grid-template-columns:48px 1fr;gap:.6rem}
+  .edit-rez-booking-img{width:48px;height:40px}
+  .edit-rez-booking-price{grid-column:2/3;font-size:1rem}
+}
+
+/* Detail header */
+.edit-rez-detail-head h2{margin:.25rem 0 .35rem;font-size:1.35rem}
+.edit-rez-detail-head .btn-link{background:none;border:none;color:#1a8c1a;cursor:pointer;font-weight:600;padding:0;font-size:.9rem;font-family:inherit;text-decoration:underline}
+.edit-rez-detail-meta{color:#555;font-size:.92rem;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
+
+/* Tabs */
+.edit-rez-tabs{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.75rem}
+.edit-rez-tab{flex:1 1 auto;min-width:0;padding:.65rem .9rem;border:1.5px solid #d4e8e0;background:#fff;color:#1a2e22;border-radius:999px;cursor:pointer;font-weight:700;font-size:.9rem;font-family:inherit;transition:all .15s;text-align:center}
+.edit-rez-tab:hover{background:#f4faf6;border-color:#74FB71;color:#0d6b0d}
+.edit-rez-tab.active{background:#74FB71;color:#1a2e22;border-color:#5edc5a;box-shadow:0 4px 12px rgba(116,251,113,.35)}
+.edit-rez-tab.active:hover{background:#5edc5a;color:#1a2e22}
+
+/* Detail dl */
+.edit-rez-dl{display:grid;grid-template-columns:auto 1fr;gap:.5rem 1rem;margin:0 0 1rem}
+.edit-rez-dl dt{color:#666;font-weight:600;font-size:.9rem}
+.edit-rez-dl dd{margin:0;color:#1a2e22;font-size:.95rem}
+.edit-rez-dl code{background:#f4faf6;padding:.1rem .4rem;border-radius:4px;font-size:.9rem}
+
+/* Storno box */
+.edit-rez-storno-box{background:#fff8e1;border:1px solid #ffe0a3;border-radius:10px;padding:1rem;margin-top:1rem;font-size:.92rem}
+.edit-rez-storno-box h4{margin:0 0 .5rem;color:#7a5b00;font-size:1rem}
+.edit-rez-storno-box ul{margin:0 0 .5rem;padding-left:1.1rem;color:#5a4500}
+.edit-rez-storno-box li{margin-bottom:.25rem}
+.edit-rez-storno-note{color:#7a5b00;font-size:.85rem;margin:.5rem 0 0}
+
+/* Cancel form */
+.edit-rez-warn{background:#fde7e7;border:1px solid #f4b4b4;color:#8c1a1a;padding:.7rem 1rem;border-radius:8px;margin-bottom:1rem;font-size:.95rem}
+.edit-rez-form textarea{padding:.75rem .9rem;border:1px solid #b8d4c6;border-radius:10px;font-size:1rem;font-family:inherit;resize:vertical;min-height:70px}
+.edit-rez-form textarea:focus{outline:2px solid #74FB71;outline-offset:1px;border-color:#74FB71}
+.edit-rez-refund-line{background:#f4faf6;border:1px solid #d9ecdf;border-radius:10px;padding:.85rem 1rem;margin-bottom:1rem;font-size:1.05rem}
+.edit-rez-refund-line .lbl{color:#666}
+.edit-rez-refund-line strong{font-size:1.2rem;color:#1a2e22}
+.edit-rez-refund-line .pct{margin-left:.4rem;font-weight:700}
+.edit-rez-refund-line.refund-full{background:#e3fbe3;border-color:#9fe69f}
+.edit-rez-refund-line.refund-full .pct{color:#1a8c1a}
+.edit-rez-refund-line.refund-half{background:#fff3cd;border-color:#ffd97a}
+.edit-rez-refund-line.refund-half .pct{color:#7a5b00}
+.edit-rez-refund-line.refund-none{background:#fde7e7;border-color:#f4b4b4}
+.edit-rez-refund-line.refund-none .pct{color:#8c1a1a}
+
+/* Red CTA */
+.btnred{background:#c92a2a;color:#fff}
+.btnred:hover{background:#a01c1c}
+.btn-secondary{background:#eee;color:#333}
+.btn-secondary:hover{background:#ddd}
+
+/* Inline confirm dialog */
+.edit-rez-confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:9999;padding:1rem}
+.edit-rez-confirm-dialog{background:#fff;border-radius:14px;padding:1.5rem;max-width:420px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.25)}
+.edit-rez-confirm-dialog h4{margin:0 0 1rem;color:#1a2e22;font-size:1.1rem}
+.edit-rez-confirm-actions{display:flex;gap:.6rem;justify-content:flex-end;flex-wrap:wrap}
+
+/* Success box po stornu/zkrácení */
+.edit-rez-success-box{text-align:center;padding:1.5rem .5rem}
+.edit-rez-success-box h3{font-size:3rem;color:#1a8c1a;margin:0 0 .5rem}
+.edit-rez-success-box p{color:#1a2e22;font-size:1rem;margin-bottom:1.2rem}
+
+/* Extend / Shorten — date pickers + summary */
+.edit-rez-date-grid{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+.edit-rez-date-grid > textarea,
+.edit-rez-date-grid > label[name=reason],
+.edit-rez-date-grid > #edit-rez-extend-summary,
+.edit-rez-date-grid > #edit-rez-shorten-summary,
+.edit-rez-date-grid > button{grid-column:1/-1}
+.edit-rez-date-grid > label:has(textarea){grid-column:1/-1}
+.edit-rez-price-summary{min-height:1.5rem;font-size:1rem;color:#1a2e22}
+.edit-rez-price-summary .line{padding:.7rem 1rem;border-radius:10px;background:#f4faf6;border:1px solid #d9ecdf}
+.edit-rez-price-summary .line.refund-full{background:#e3fbe3;border-color:#9fe69f}
+.edit-rez-price-summary .line.refund-half{background:#fff3cd;border-color:#ffd97a}
+.edit-rez-price-summary .line.refund-none{background:#fde7e7;border-color:#f4b4b4;color:#8c1a1a}
+.edit-rez-price-summary .line .lbl{color:#666;margin-right:.4rem}
+.edit-rez-price-summary .line strong{font-size:1.15rem}
+.edit-rez-price-summary .muted{color:#888;font-style:italic}
+.edit-rez-price-summary .error{color:#8c1a1a;font-weight:600}
+.erez-extend-breakdown{padding:.65rem .9rem;border-radius:10px;background:#fff;border:1px solid #e2e8f0;margin-bottom:.5rem;font-size:.9rem}
+.erez-extend-breakdown-title{font-weight:700;color:#1a2e22;margin-bottom:.35rem;font-size:.85rem;text-transform:uppercase;letter-spacing:.3px}
+.erez-extend-breakdown-row{display:flex;justify-content:space-between;padding:.18rem 0;color:#475569;font-variant-numeric:tabular-nums}
+.erez-extend-breakdown-row span:last-child{font-weight:600;color:#0f1a14}
+.erez-loc-times-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin:.4rem 0 .9rem}
+.erez-loc-time{display:flex;flex-direction:column;gap:.3rem}
+.erez-loc-time-label{font-size:.85rem;color:#1a2e22;font-weight:600}
+.erez-loc-time input[type=time]{padding:.65rem .8rem;border:1px solid #b8d4c6;border-radius:10px;font-size:1rem;font-family:inherit;background:#fff}
+.erez-loc-time input[type=time]:focus{outline:2px solid #74FB71;outline-offset:1px;border-color:#74FB71}
+
+@media(max-width:600px){
+  .erez-loc-times-grid{grid-template-columns:1fr}
+  .edit-rez-date-grid{grid-template-columns:1fr}
+}

@@ -8,7 +8,7 @@ return [
         'grid' => 'gr5',
         'items' => [
             [
-                'icon' => 'gfx/ico-online-rezervace.svg',
+                'icon' => 'gfx/rezervace-online.svg',
                 'title' => 'Online rezervace',
                 'text' => 'rychlá a jednoduchá rezervace z pohodlí domova.',
             ],
@@ -23,12 +23,12 @@ return [
                 'text' => 'žádná záloha při půjčení.',
             ],
             [
-                'icon' => 'gfx/ico-jasne-podminky.svg',
+                'icon' => 'gfx/jasne-podminky.svg',
                 'title' => 'Jasné podmínky',
                 'text' => 'bez skrytých poplatků.',
             ],
             [
-                'icon' => 'gfx/ico-sleva.svg',
+                'icon' => 'gfx/sleva-na-pristi-jizdu.svg',
                 'title' => 'Sleva na další rezervaci',
                 'text' => 'po každém dokončeném pronájmu dostaneš slevový kód na příští rezervaci.&nbsp;',
             ],

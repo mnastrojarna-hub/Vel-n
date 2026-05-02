@@ -44,6 +44,7 @@ Detailní politiky:
 - **api_keys:** admin ALL (is_admin)
 - **ai_traffic_log:** admin SELECT (is_admin), service_role INSERT (WITH CHECK true) — anon + edge fns mohou logovat
 - **ai_citations:** admin ALL (is_admin)
+- **faq_items:** public SELECT (published=true), admin ALL (is_admin) — Realtime ANO
 
 ---
 
@@ -60,6 +61,7 @@ Detailní politiky:
 - `documents`
 - `invoices`
 - `vouchers`
+- `faq_items`
 
 ---
 
@@ -79,7 +81,7 @@ Detailní politiky:
 | `generate-document` | OFF | Generuje dokumenty z šablon (rental_contract, handover_protocol, vop). Firemní údaje načítá z app_settings (company_info) |
 | `generate-invoice` | OFF | Generuje proforma/finální fakturu (ZF-/FV-/DP-YYYY-NNNN). Firemní údaje načítá z app_settings (company_info). Deduplikace, odečet záloh |
 | `manage-payment-methods` | OFF | Správa uložených platebních metod (Stripe). Akce: list, delete, set_default, setup. Synchronizuje karty do tabulky payment_methods |
-| `process-payment` | OFF | Stripe platební brána (**LIVE mode**). Podporuje booking, shop, extension i SOS platby. Vytváří Stripe Checkout Session. Automaticky vytváří/používá Stripe Customer. **Web shop:** ukládá kompletní data (telefon, adresa, oddělené položky), generuje ZF (proforma) + odesílá email se shrnutím |
+| `process-payment` | OFF | Stripe platební brána (**LIVE mode**). Podporuje booking, shop, extension i SOS platby. Vytváří Stripe Checkout Session. Automaticky vytváří/používá Stripe Customer. **Web shop:** dvě větve v `handleWebShopCheckout`: a) **`kind:'products'`** (motogo24.cz e-shop, od 2026-04-28) — `handleWebProductCheckout` načte `shop_orders` + `shop_order_items` z DB (RPC `create_web_shop_order` je vytvoří předem, cena z DB), sestaví Stripe line items per item s `(vel. M)` suffixem, oddělený line item pro dopravu (Zásilkovna 79 / pošta 99 Kč), Stripe coupon při `discount > 0`, `automatic_payment_methods` enabled (Apple Pay / Google Pay). `success_url=${SITE_URL}/objednavka/dokoncit?order_id=…&session_id={CHECKOUT_SESSION_ID}`, `cancel_url=${SITE_URL}/kosik`. b) **voucher (default)** — původní flow pro Flutter app a `/poukazy/objednat` beze změny. Obě větve generují ZF (`shop_proforma`) + odesílají email se shrnutím. Po platbě webhook detekuje `metadata.type=shop` → `confirm_shop_payment` RPC → existující triggery (faktura, mail). **Bundled booking + shop (od 2026-04-28):** `handleWebBookingCheckout` přijímá volitelný `shop_order_id` — načte `shop_order_items` a přidá je jako další Stripe `line_items` do stejné Checkout Session (jedna platba zákazníka, dva oddělené účetní doklady). `metadata.shop_order_id` umožní webhooku zavolat `confirmShopPayment` vedle `confirmBookingPayment` → vygenerují se **dvě nezávislé faktury** (booking ZF/FV + shop ZF/DP) a odešlou se **dva emaily**. |
 | `process-refund` | OFF | Stripe refundy (LIVE). Částečné i plné vrácení peněz. Volá Stripe Refund API |
 | `receive-invoice` | OFF | OCR + AI zpracování přijatých faktur (Claude Vision). Extrakce dat, klasifikace, routing do účetních tabulek |
 | `scan-document` | OFF | OCR skenování dokladů (OP, ŘP, pas) přes Mindee v2 API (enqueue+poll). Model ID z MINDEE_MODEL_ID secret. Retry 3×, loguje do debug_log |
@@ -91,11 +93,12 @@ Detailní politiky:
 | `send-message` | OFF | Centrální odesílání zpráv (SMS/WhatsApp přes Twilio, email přes Resend) |
 | `send-order-email` | OFF | Odesílání objednávkových emailů dodavatelům. Retry 3× |
 | `translate-content` | ON | Auto-překlad textů z Velínu pro veřejný web. Volá Anthropic API (`claude-haiku-4-5-20251001`), překládá zadaná pole do 6 jazyků (en, de, es, fr, nl, pl) a UPDATEuje sloupec `translations` v cílové tabulce přes service_role. Striktně zachovává HTML tagy, ICO, čísla, SPZ, ceny. Vstup: `{table, id, fields, target_langs?}`. |
+| `cms-save` | ON | **Inline ukládání CMS textů přímo z webu motogo24.com** (admin overlay). Anon-callable bez JWT — místo toho ověřuje `cms_admin_token` z `app_settings` (timing-safe equal). Po validaci upsertne do `cms_variables` (key/value, category=`web`) přes service_role (obejde RLS) a fire-and-forget zavolá `translate-content` pro auto-překlad do EN/DE/ES/FR/NL/PL. Vstup: `{token, key, value}`. Whitelist klíčů: musí matchovat `^web\.[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)+$` (zamezí přepsání systémových rows). Max value 16 KB. |
 | `send-push` | OFF | FCM v1 push notifikace na zákaznická zařízení. Volá se ze SQL přes `send_push_via_edge()` (pouze service_role). Načítá `push_tokens.active=true`, podepisuje JWT pro Google OAuth2, posílá FCM message s Android channel `motogo_door_codes` + APNS payload. Auto-deaktivuje invalid tokeny (NOT_FOUND/UNREGISTERED). |
-| `webhook-receiver` | OFF | Příjem Stripe webhooků (**LIVE mode**, signature povinná). Auto-generuje dokumenty po platbě. Synchronizuje karty do payment_methods. **Shop platby:** auto-generuje DP + odesílá voucher_purchased email s kódy poukazů |
+| `webhook-receiver` | OFF | Příjem Stripe webhooků (**LIVE mode**, signature povinná). Auto-generuje dokumenty po platbě. Synchronizuje karty do payment_methods. **Shop platby:** auto-generuje DP + odesílá voucher_purchased email s kódy poukazů. **Bundled booking + shop (od 2026-04-28):** když `event.metadata.type='booking'` a obsahuje `metadata.shop_order_id`, zavolá vedle `confirmBookingPayment` ještě `confirmShopPayment` → trigger `generate_shop_invoice` vystaví shop_final fakturu, odešle voucher/order email. Výsledek: jedna Stripe session, dvě faktury, dva emaily. |
 | `public-api` | OFF | **Veřejné REST API** pro AI agenty / partnery / integrátory. Tenká vrstva nad RPC. 9 endpointů (motorcycles list+detail+availability, branches, extras, quote, bookings, promo/voucher validate) + GET /api/v1/openapi.json (OpenAPI 3.1 spec). Hybrid auth: bez klíče = rate-limit per IP (60/min read, 30/h create_booking), s X-Api-Key header = per-partner rate_limit_rpm z `api_keys`. Loguje do `ai_traffic_log` (source='rest_api'). |
 | `mcp-server` | OFF | **Model Context Protocol server** (HTTP + JSON-RPC 2.0) pro Claude Desktop, Cursor, Cline, Smithery, custom agenty. 9 tools (motogo_search_motorcycles, motogo_get_motorcycle, motogo_get_availability, motogo_quote, motogo_create_booking, motogo_get_branches, motogo_get_faq, motogo_validate_promo, motogo_validate_voucher) + 5 resources (about, motorcycles, branches, faq, policies). Methods: initialize, tools/list, tools/call, resources/list, resources/read, ping. GET / vrací discovery JSON. Optional X-Api-Key auth. Loguje do `ai_traffic_log` (source='mcp'). |
-| `ai-public-agent` | OFF | **AI booking widget backend** (anonymní, bez JWT). Anthropic Claude Haiku 4.5 + **9 tools**: `search_motorcycles`, `get_availability`, `calculate_price`, `get_faq`, `get_extras_catalog`, `get_branches`, `validate_promo_or_voucher`, **`create_booking_request`**, `redirect_to_booking`. Anti-halucinace: model nikdy nevymýšlí ceny ani datum — system prompt obsahuje hlavičku "DNES JE …" v Europe/Prague. **Jazykově adaptivní**: model detekuje jazyk poslední user zprávy a odpovídá vždy ve stejném (přepínání mid-konverzace OK). UI lang z prohlížeče je jen hint pro 1. zprávu. **Konfigurovatelný z Velínu** přes `app_settings.ai_public_agent_config` (persona_name, system_prompt, situations, mustDo, forbidden, tone, max_tokens, enabled, welcome_cs/en/de). `create_booking_request` přijímá kompletní data: moto_id, datumy, kontakt (jméno/email/telefon/adresa), ŘP skupina, promo kód, pickup/return time, delivery_address/return_address pro přistavení mimo Mezná, extras (jako pole {name, unit_price}), všechny gear sizes řidič+spolujezdec. Po vytvoření booking přes RPC `create_web_booking` edge funkce **interně volá `process-payment` (source=web, booking_id)** a vrací reálný **Stripe Checkout URL** v `payment_url` (fallback na `/rezervace/dokoncit?id=X` pokud Stripe selže). Rate-limit 20 req/min/IP. Loguje do `ai_traffic_log` (source='widget', outcome=`view`/`quote`/`booking_created`). |
+| `ai-public-agent` | OFF | **AI booking widget backend** (anonymní, bez JWT). Anthropic Claude Haiku 4.5 + **10 tools**: `search_motorcycles`, `get_availability`, `calculate_price` (vrací error když chybí ceník dne, výslovně označuje že NEzahrnuje extras+dopravu), `get_faq` (čistě CMS, žádný hardcoded fallback), **`get_policies`** (NEW — čte `app_settings.site.policies`, agent musí přiznat neznalost když prázdné), `get_extras_catalog`, `get_branches`, `validate_promo_or_voucher`, **`create_booking_request`**, `redirect_to_booking`. **Anti-halucinace policies:** firemní fakta (adresa, telefon, email) se načítají z `app_settings.company_info` dynamicky, statický COMPANY_BRAIN obsahuje jen identitu firmy + obecné zákonné limity ŘP + technický popis flow. Storno, kauce, ceny přistavení, foreign-travel, věkové limity půjčovny — výhradně přes `get_policies`/`get_faq` z CMS. Anti-halucinace: model nikdy nevymýšlí ceny ani datum — system prompt obsahuje hlavičku "DNES JE …" v Europe/Prague. **Jazykově adaptivní**: model detekuje jazyk poslední user zprávy a odpovídá vždy ve stejném (přepínání mid-konverzace OK). UI lang z prohlížeče je jen hint pro 1. zprávu. **Konfigurovatelný z Velínu** přes `app_settings.ai_public_agent_config` (persona_name, system_prompt, situations, mustDo, forbidden, tone, max_tokens, enabled, welcome_cs/en/de). `create_booking_request` přijímá kompletní data: moto_id, datumy, kontakt (jméno/email/telefon/adresa), ŘP skupina, promo kód, pickup/return time, delivery_address/return_address pro přistavení mimo Mezná, extras (jako pole {name, unit_price}), všechny gear sizes řidič+spolujezdec. Po vytvoření booking přes RPC `create_web_booking` edge funkce **interně volá `process-payment` (source=web, booking_id)** a vrací reálný **Stripe Checkout URL** v `payment_url` (fallback na `/rezervace/dokoncit?id=X` pokud Stripe selže). Rate-limit 20 req/min/IP. Loguje do `ai_traffic_log` (source='widget', outcome=`view`/`quote`/`booking_created`). |
 
 ### Pouze v Supabase dashboardu (4 — bez kódu v repo)
 
@@ -164,8 +167,10 @@ Detailní politiky:
 **App settings (DB) pro pg_net push:**
 | Klíč | Účel |
 |------|------|
-| `app.settings.supabase_url` | URL pro `send_push_via_edge()` SQL helper |
-| `app.settings.service_role_key` | Service role key pro autorizaci `send-push` z DB triggerů |
+| `app.settings.supabase_url` | URL pro `send_push_via_edge()` SQL helper (GUC, na Supabase managed nepřístupný k zápisu) |
+| `app.settings.service_role_key` | Service role key pro autorizaci `send-push` z DB triggerů (GUC) |
+| `app_settings(key='supabase_url')` | URL pro `send_abandoned_booking_emails()` — uloženo jako jsonb string v public tabulce, čte se přes `value #>> '{}'`. Použito místo GUC, protože `ALTER DATABASE` vyhazuje na Supabase managed `permission denied`. |
+| `app_settings(key='service_role_key')` | Service role JWT pro autorizaci pg_net.http_post z `send_abandoned_booking_emails()`. |
 
 **Frontend config (ne secret):**
 | Klíč | Hodnota |
@@ -207,6 +212,26 @@ Detailní politiky:
 https://search.google.com/local/writereview?placeid=PLACE_ID
 ```
 
+### site.policies (app_settings key) — NOVÉ
+Strukturované oficiální podmínky půjčovny pro AI public agent (`get_policies` tool) i budoucí zobrazení v CMS. Když je klíč prázdný, agent přizná neznalost místo halucinace. Příklad struktury (admin si plní z Velínu):
+```json
+{
+  "deposit": "Půjčujeme bez kauce — žádná blokace na kartě.",
+  "cancellation": {
+    "free_until_days": 7,
+    "partial_refund_percent_2_to_7_days": 50,
+    "less_than_2_days": "Individuálně po dohodě (volá zákazník)."
+  },
+  "included": ["Helma, bunda, kalhoty a rukavice řidiče", "Povinné ručení / zelená karta", "Neomezené km v ČR a EU"],
+  "addons_extra_charge": ["Výbava spolujezdce", "Boty pro řidiče", "Sjezd mimo EU"],
+  "delivery_pricing": "Orientačně 1000 Kč + 40 Kč/km, přesný výpočet probíhá v rezervačním formuláři.",
+  "foreign_travel": "EU + Schengen v ceně, mimo EU po dohodě a s doplňkovým pojištěním.",
+  "fuel": "Vracíš jak chceš (i prázdné). Dotankování za nákupní cenu.",
+  "documents_required": ["Občanský průkaz nebo cestovní pas", "Platný řidičský průkaz odpovídající skupiny"],
+  "rental_age_min": { "A1": 16, "A2": 18, "A": 24, "B_for_A1": 21 }
+}
+```
+
 ---
 
 ## 12. SEKVENCE
@@ -220,6 +245,7 @@ https://search.google.com/local/writereview?placeid=PLACE_ID
 | Job | Čas | Funkce |
 |-----|-----|--------|
 | `auto-cancel-pending-bookings` (1) | každé 2 min (`*/2 * * * *`) | `SELECT auto_cancel_expired_pending()` — ruší pending+unpaid bookings: app=10min, web=4h |
+| `send-abandoned-booking-emails` (12) | každé 2 min (`*/2 * * * *`) | `SELECT send_abandoned_booking_emails()` — pošle „nedokončená rezervace" mail web bookingu po 20 min od kroku 1, resp. 10 min od kliknutí „Pokračovat k platbě" (Stripe session). Dedup přes `bookings.abandoned_email_sent_at`. |
 | `auto-complete-expired-bookings` (4) | denně 00:01 (`1 0 * * *`) | `SELECT auto_complete_expired_bookings()` — active/reserved + end_date < today + paid → completed |
 | `expire-vouchers` (8) | denně 01:00 UTC (`0 1 * * *`) | `SELECT expire_vouchers()` |
 | `cron-daily` (9) | denně 02:00 UTC (`0 2 * * *`) | `SELECT snapshot_daily_stats(); SELECT auto_schedule_services();` |

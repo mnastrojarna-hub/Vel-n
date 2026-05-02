@@ -1,0 +1,225 @@
+/* ===== MotoGo24 — CMS admin overlay (Velín) =====
+ * Aktivuje se POUZE pokud má prohlížeč cookie `mg_cms_admin=1`.
+ * Běžní návštěvníci nic z toho nevidí.
+ *
+ * Vizuální princip:
+ *   - každý prvek s `data-cms-key` má diskrétní zelený outline + štítek s klíčem
+ *   - hover: výraznější rámeček
+ *   - aktivně zvýrazněný klíč (`?cms_highlight=…`) má pulzující oranžový rámeček
+ *     a auto-scroll do view
+ *   - vpravo dole plovoucí tlačítko „Velín CMS" s logoutem
+ */
+
+[data-cms-key] {
+  position: relative;
+  outline: 1px dashed rgba(34, 197, 94, .55);
+  outline-offset: 2px;
+  transition: outline-color .15s ease, background-color .15s ease;
+}
+[data-cms-key]:hover {
+  outline: 2px solid rgba(34, 197, 94, .9);
+  /* Tmavší poloprůhledné pozadí — na světlém i tmavém podkladu zůstane čitelné. */
+  background-color: rgba(26, 46, 34, .12);
+}
+
+/* Štítek s klíčem — zobrazí se na hover */
+[data-cms-key]::after {
+  content: attr(data-cms-key);
+  position: absolute;
+  top: -22px;
+  left: 0;
+  background: #1a2e22;
+  color: #74FB71;
+  font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  padding: 4px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 9998;
+  transition: opacity .15s ease;
+}
+[data-cms-key]:hover::after { opacity: 1; }
+
+/* Aktivně zvýrazněný (cms_highlight=…) — pulzující oranžový rámeček */
+[data-cms-key].mg-cms-target {
+  outline: 3px solid #f97316 !important;
+  outline-offset: 4px;
+  background-color: rgba(249, 115, 22, .12) !important;
+  animation: mg-cms-pulse 1.4s ease-in-out infinite;
+}
+[data-cms-key].mg-cms-target::after {
+  opacity: 1;
+  background: #f97316;
+  color: #fff;
+  font-size: 11px;
+  top: -26px;
+}
+
+@keyframes mg-cms-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, .55); }
+  50%      { box-shadow: 0 0 0 8px rgba(249, 115, 22, 0); }
+}
+
+/* Plovoucí toolbar */
+.mg-cms-toolbar {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+  background: #1a2e22;
+  color: #fff;
+  padding: 10px 12px;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, .35);
+  font: 700 12px/1.3 system-ui, -apple-system, sans-serif;
+  max-width: 260px;
+}
+.mg-cms-toolbar .mg-cms-title {
+  color: #74FB71;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.mg-cms-toolbar .mg-cms-info {
+  font-size: 11px;
+  font-weight: 600;
+  color: #cfe9d8;
+  word-break: break-all;
+}
+.mg-cms-toolbar button {
+  background: #74FB71;
+  color: #0f1a14;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font: 800 11px/1 system-ui;
+  text-transform: uppercase;
+  cursor: pointer;
+  letter-spacing: .5px;
+}
+.mg-cms-toolbar button.mg-cms-secondary {
+  background: transparent;
+  color: #74FB71;
+  border: 1px solid #74FB71;
+}
+.mg-cms-toolbar button:hover { filter: brightness(1.1); }
+
+/* ===== Inline edit =====
+ * Vizuální princip: editovaný prvek se vizuálně „vytrhne" z designu stránky —
+ * tmavé pozadí (#0f1a14) + bílý text (#fff) + zelený rámeček. Tím je text vždy
+ * čitelný BEZ ohledu na podklad (hero s bílým textem na tmavém, světlý footer,
+ * gradient hero atd.). `<span data-cms-key>` z `tc()` helperu jinak dědí barvu
+ * rodiče, což na světlém edit-pozadí způsobovalo splynutí (např. bílý text
+ * z hero zmizel na světle-zeleném podkladu). `-webkit-text-fill-color` přebíjí
+ * gradient/clip texty (use case: hero h1 s background-clip:text). */
+[data-cms-key].mg-cms-editing {
+  outline: 3px solid #74FB71 !important;
+  outline-offset: 4px;
+  background-color: #0f1a14 !important;
+  background-image: none !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  text-shadow: none !important;
+  filter: none !important;
+  cursor: text;
+  caret-color: #74FB71;
+  min-width: 80px;
+  min-height: 1em;
+  border-radius: 4px;
+  box-shadow: 0 0 0 4px rgba(116, 251, 113, .25), 0 8px 24px rgba(0, 0, 0, .35);
+}
+[data-cms-key].mg-cms-editing * {
+  background-color: transparent !important;
+  background-image: none !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  text-shadow: none !important;
+  filter: none !important;
+}
+/* Některé sekce mají před `<span>` ::before pseudo-element nebo gradient overlay —
+ * vypneme je v edit režimu, ať nepřekrývají text. */
+[data-cms-key].mg-cms-editing::before {
+  display: none !important;
+}
+/* Selekce textu (dvojklik = označení slova) — globální ::selection styly stránky
+ * mohou nastavit světlou barvu textu na světlé pozadí, takže označený text mizí.
+ * Vynutíme vysokokontrastní zelená/tmavá kombinaci. */
+[data-cms-key].mg-cms-editing ::selection,
+[data-cms-key].mg-cms-editing::selection {
+  background: #74FB71 !important;
+  color: #0f1a14 !important;
+  -webkit-text-fill-color: #0f1a14 !important;
+  text-shadow: none !important;
+}
+[data-cms-key].mg-cms-editing ::-moz-selection,
+[data-cms-key].mg-cms-editing::-moz-selection {
+  background: #74FB71 !important;
+  color: #0f1a14 !important;
+  text-shadow: none !important;
+}
+[data-cms-key].mg-cms-editing::after {
+  opacity: 1;
+  background: #74FB71;
+  color: #0f1a14;
+  content: '✏️ ' attr(data-cms-key) ' · Enter = uložit, Esc = zrušit';
+  font-weight: 800;
+}
+[data-cms-key].mg-cms-saving {
+  outline-color: #f59e0b !important;
+  background-color: #1f2937 !important;
+  background-image: none !important;
+  color: #fef3c7 !important;
+  -webkit-text-fill-color: #fef3c7 !important;
+  text-shadow: none !important;
+  pointer-events: none;
+  opacity: .9;
+}
+[data-cms-key].mg-cms-saving * {
+  background-color: transparent !important;
+  background-image: none !important;
+  color: #fef3c7 !important;
+  -webkit-text-fill-color: #fef3c7 !important;
+  text-shadow: none !important;
+}
+[data-cms-key].mg-cms-saving::after {
+  background: #f59e0b;
+  color: #0f1a14;
+  content: '💾 Ukládám…';
+}
+
+/* V edit režimu nesmí outline blikat ani překrývat */
+[data-cms-key].mg-cms-editing,
+[data-cms-key].mg-cms-saving {
+  animation: none !important;
+}
+
+/* ===== Toast ===== */
+.mg-cms-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 32px;
+  transform: translate(-50%, 20px);
+  background: #1a2e22;
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font: 700 13px/1.3 system-ui, -apple-system, sans-serif;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, .35);
+  opacity: 0;
+  transition: opacity .25s ease, transform .25s ease;
+  z-index: 100000;
+  max-width: 420px;
+  text-align: center;
+}
+.mg-cms-toast-show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.mg-cms-toast-error {
+  background: #dc2626;
+}

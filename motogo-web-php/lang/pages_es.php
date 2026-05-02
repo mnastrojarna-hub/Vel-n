@@ -100,6 +100,14 @@ return [
             'h1' => 'Alquiler de motos Vysočina Motogo24 – sin depósito y 24/7',
             'intro' => 'Bienvenido a <strong>Motogo24</strong> – tu alquiler de motos en Vysočina. Aquí alquilas una moto <strong>sin depósito</strong>, con equipo incluido y en modo <strong>24/7</strong>. Ya busques moto de turismo, sport, enduro o infantil, Motogo24 en el corazón de Vysočina te ofrece la moto perfecta.',
             'signposts_title' => 'Guía rápida por Motogo24',
+            'signposts' => [
+                ['icon' => 'gfx/vyber-motorku.svg', 'title' => 'Catálogo de motos', 'text' => 'Mira nuestra oferta de motos de alquiler — desde modelos sport hasta de turismo.', 'btn' => 'CATÁLOGO DE MOTOS', 'href' => '/katalog'],
+                ['icon' => 'gfx/potvrzeni-rezervace.svg', 'title' => 'Cómo alquilar una moto', 'text' => 'Proceso sencillo: elige una moto, reserva y sal a la carretera.', 'btn' => 'CÓMO ALQUILAR', 'href' => '/jak-pujcit'],
+                ['icon' => 'gfx/rezervace-online.svg', 'title' => 'Reserva online', 'text' => 'Reserva tu moto a través de nuestro sencillo sistema online.', 'btn' => 'RESERVAR MOTO', 'href' => '/rezervace'],
+                ['icon' => 'gfx/kontakt.svg', 'title' => 'Contacto y mapa', 'text' => 'Visita nuestro alquiler de motos en Pelhřimov o contáctanos.', 'btn' => 'CONTACTO', 'href' => '/kontakt'],
+                ['icon' => 'gfx/faq.svg', 'title' => 'Preguntas frecuentes', 'text' => 'Las preguntas más habituales sobre el alquiler de motos en un solo lugar.', 'btn' => 'FAQ', 'href' => '/jak-pujcit/faq'],
+                ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => 'Rutas en moto', 'text' => 'Descubre las mejores rutas en moto por la República Checa para turistas y locales.', 'btn' => 'RUTAS EN MOTO', 'href' => '/blog'],
+            ],
             'motos_section' => [
                 'title' => 'Nuestras motos para alquilar en Vysočina',
                 'intro' => 'Mira nuestra oferta de motos de turismo, sport y enduro de nuestro alquiler en Vysočina.',
@@ -108,8 +116,25 @@ return [
                 'cta_href' => '/katalog',
                 'limit' => 4,
             ],
-            'process' => ['title' => 'Cómo funciona el alquiler de motos en Vysočina'],
-            'faq' => ['title' => 'Preguntas frecuentes', 'more_link' => '/jak-pujcit/faq'],
+            'process' => [
+                'title' => 'Cómo funciona el alquiler de motos en Vysočina',
+                'steps' => [
+                    ['icon' => 'gfx/vyber-motorku.svg', 'title' => '1. Elige', 'text' => 'Elige tu moto ideal de nuestra oferta de motos de alquiler.'],
+                    ['icon' => 'gfx/rezervace-online.svg', 'title' => '2. Reserva', 'text' => 'Reserva tu moto a través de nuestro sencillo sistema online.'],
+                    ['icon' => 'gfx/predani-motorky.svg', 'title' => '3. Recoge', 'text' => 'Recoge la moto en nuestro alquiler de Pelhřimov.'],
+                    ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => '4. Disfruta del viaje', 'text' => 'Vive la libertad y descubre la República Checa en motos de alquiler.'],
+                ],
+            ],
+            'faq' => [
+                'title' => 'Preguntas frecuentes',
+                'more_link' => '/jak-pujcit/faq',
+                'items' => [
+                    ['q' => '¿Cómo puedo reservar una moto?', 'a' => 'Puedes reservar una moto a través de nuestro sistema de reserva online aquí mismo en la web. También puedes contactarnos por correo, teléfono o redes sociales.'],
+                    ['q' => '¿Puedo alquilar una moto sin reserva previa?', 'a' => 'Por desgracia no. Cada moto debe reservarse con antelación – online, por teléfono, correo o redes sociales.'],
+                    ['q' => '¿Tengo que dejar un depósito?', 'a' => '¡No! Con nosotros <strong>no pagas ningún depósito</strong>. En esto nuestro alquiler se diferencia claramente de la mayoría de la competencia.'],
+                    ['q' => '¿Puedo viajar al extranjero con la moto?', 'a' => 'Sí, puedes viajar al extranjero con la moto sin problema. No restringimos los viajes fuera de la República Checa; solo debes respetar la validez territorial del seguro (carta verde).'],
+                ],
+            ],
             'cta' => [
                 'title' => 'Reserva tu moto online',
                 'text' => 'Nuestro <strong>alquiler de motos Vysočina</strong> está abierto <strong>24/7</strong>. Unos clics y tu viaje comienza.',
@@ -150,9 +175,38 @@ return [
                     ['label' => 'Ver motos para alquilar', 'href' => '/katalog', 'cls' => 'btngreen'],
                     ['label' => 'RESERVAR', 'href' => '/rezervace', 'cls' => 'btngreen pulse'],
                 ],
+                'items' => [
+                    ['icon' => 'gfx/ico-bez-kauce.svg', 'title' => 'Sin depósito', 'text' => 'y sin tarifas ocultas'],
+                    ['icon' => 'gfx/rezervace-online.svg', 'title' => 'Reserva online', 'text' => 'en unos clics'],
+                    ['icon' => 'gfx/vyber-vybavu.svg', 'title' => 'Equipo del piloto incluido', 'text' => 'casco, chaqueta, pantalones y guantes'],
+                    ['icon' => 'gfx/ico-nonstop.svg', 'title' => 'Servicio 24/7', 'text' => 'para recogida y devolución según tu reserva'],
+                    ['icon' => 'gfx/ico-spolecne.svg', 'title' => 'Estamos contigo', 'text' => 'si pasa cualquier cosa'],
+                    ['icon' => 'gfx/predani-motorky.svg', 'title' => 'Entrega y recogida', 'text' => 'en el lugar acordado'],
+                ],
             ],
-            'process' => ['title' => 'Cómo funciona el alquiler en Vysočina'],
-            'faq' => ['title' => 'Preguntas frecuentes', 'more_link' => '/jak-pujcit/faq'],
+            'process' => [
+                'title' => 'Cómo funciona el alquiler en Vysočina',
+                'steps' => [
+                    ['icon' => 'gfx/vyber-motorku.svg', 'title' => '1. Elige una moto', 'text' => 'Mira nuestra oferta y elige el tipo que se ajuste a ti, a tu experiencia y a tu permiso de conducir.'],
+                    ['icon' => 'gfx/rezervace-online.svg', 'title' => '2. Reserva online', 'text' => 'Haz tu reserva por fecha o por una moto concreta que quieras alquilar.'],
+                    ['icon' => 'gfx/vyber-vybavu.svg', 'title' => '3. Elige el equipo', 'text' => 'El equipo del piloto está incluido; el del pasajero tiene un suplemento. La talla la eliges en el local.'],
+                    ['icon' => 'gfx/zaplat.svg', 'title' => '4. Paga', 'text' => 'Paga fácilmente online a través de la pasarela de pago.'],
+                    ['icon' => 'gfx/predani-motorky.svg', 'title' => '5. Recoge la moto', 'text' => 'Recoge la moto en el alquiler o en el lugar que elegiste al reservar.'],
+                    ['icon' => 'gfx/uzij-si-jizdu.svg', 'title' => '6. Disfruta del viaje', 'text' => 'Sal a la carretera, descubre nuevas experiencias y disfruta plenamente de la libertad sobre dos ruedas.'],
+                    ['icon' => 'gfx/vrat-motorku-vcas.svg', 'title' => '7. Devuelve la moto', 'text' => 'Devuelve la moto el día acordado – directamente en el alquiler o en el lugar acordado.'],
+                    ['icon' => 'gfx/sleva-na-pristi-jizdu.svg', 'title' => 'Descuento para el próximo viaje', 'text' => 'Tras devolver la moto te enviaremos automáticamente un código de descuento de 200 Kč para tu próxima reserva.'],
+                ],
+            ],
+            'faq' => [
+                'title' => 'Preguntas frecuentes',
+                'more_link' => '/jak-pujcit/faq',
+                'items' => [
+                    ['q' => '¿Cómo puedo reservar una moto?', 'a' => 'Puedes reservar una moto a través de nuestro sistema de reserva online aquí mismo en la web. También puedes contactarnos por correo, teléfono o redes sociales.'],
+                    ['q' => '¿Puedo alquilar una moto sin reserva previa?', 'a' => 'Por desgracia no. Cada moto debe reservarse con antelación.'],
+                    ['q' => '¿Tengo que dejar un depósito?', 'a' => '¡No! Con nosotros <strong>no pagas ningún depósito</strong>. En esto nuestro alquiler se diferencia claramente de la mayoría de la competencia.'],
+                    ['q' => '¿Puedo viajar al extranjero con la moto?', 'a' => 'Sí, puedes viajar al extranjero con la moto sin problema. No restringimos los viajes fuera de la República Checa; solo debes respetar la validez territorial del seguro (carta verde).'],
+                ],
+            ],
             'cta' => [
                 'title' => 'Reserva tu moto online',
                 'text' => 'Nuestro <strong>alquiler de motos Vysočina</strong> está abierto <strong>24/7</strong>.',

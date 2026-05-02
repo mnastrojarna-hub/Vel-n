@@ -49,8 +49,9 @@ MG._rezUpdatePrice = function(){
   var el = document.getElementById('rez-price-preview');
   if(el){
     if(total > 0 || MG._rez.discountAmt > 0){
-      var discTxt = MG._rez.discountAmt > 0 ? '<div style="font-size:.85rem;color:#1a8c1a;margin-top:.3rem">Sleva: −'+MG.formatPrice(MG._rez.discountAmt)+'</div>' : '';
-      el.innerHTML = '<div style="background:#74FB71;color:#0b0b0b;padding:.75rem 1.5rem;border-radius:25px;font-size:1.15rem;font-weight:800;text-align:center;display:inline-block;margin:1rem 0">Celková cena: '+MG.formatPrice(total)+discTxt+'</div>';
+      var T = (MG.t || function(k){ return k; });
+      var discTxt = MG._rez.discountAmt > 0 ? '<div style="font-size:.85rem;color:#1a8c1a;margin-top:.3rem">'+T('rez.discount', {amount: MG.formatPrice(MG._rez.discountAmt)})+'</div>' : '';
+      el.innerHTML = '<div style="background:#74FB71;color:#0b0b0b;padding:.75rem 1.5rem;border-radius:25px;font-size:1.15rem;font-weight:800;text-align:center;display:inline-block;margin:1rem 0">'+T('rez.totalPrice', {price: MG.formatPrice(total)})+discTxt+'</div>';
     } else { el.innerHTML = ''; }
   }
 };
@@ -80,19 +81,21 @@ MG._rezValidatePickupTime = function(){
 };
 
 // ===== VOUCHER / PROMO CODE VALIDATION =====
+MG._rez = MG._rez || {};
 if(!MG._rez.appliedCodes) MG._rez.appliedCodes = [];
 if(!MG._rez.discountAmt) MG._rez.discountAmt = 0;
 
 MG._applyVoucher = async function(){
+  var T = (MG.t || function(k){ return k; });
   var inp = document.getElementById('rez-voucher');
   var msg = document.getElementById('rez-voucher-msg');
-  if(!inp || !inp.value.trim()){ if(msg) msg.innerHTML='<span style="color:#c00">Zadejte kód</span>'; return; }
+  if(!inp || !inp.value.trim()){ if(msg) msg.innerHTML='<span style="color:#c00">'+T('rez.voucher.enter')+'</span>'; return; }
   var code = inp.value.trim().toUpperCase();
   // Check duplicate
   for(var i=0;i<MG._rez.appliedCodes.length;i++){
-    if(MG._rez.appliedCodes[i].code===code){ if(msg) msg.innerHTML='<span style="color:#c00">Kód již uplatněn</span>'; return; }
+    if(MG._rez.appliedCodes[i].code===code){ if(msg) msg.innerHTML='<span style="color:#c00">'+T('rez.voucher.duplicate')+'</span>'; return; }
   }
-  if(msg) msg.innerHTML='<span style="color:#999">Ověřuji...</span>';
+  if(msg) msg.innerHTML='<span style="color:#999">'+T('rez.voucher.verifying')+'</span>';
   // Calculate base for discount
   var r=MG._rez, mId=r.motoId||r.selectedMotoId;
   var moto=r.motos.find(function(m){return m.id===mId;});
@@ -102,37 +105,37 @@ MG._applyVoucher = async function(){
   var pr = await window.sb.rpc('validate_promo_code',{p_code:code});
   if(pr.error){
     console.error('[VOUCHER] validate_promo_code error:', pr.error.message);
-    if(msg) msg.innerHTML='<span style="color:#c00">Chyba ověření kódu: '+pr.error.message+'</span>'; return;
+    if(msg) msg.innerHTML='<span style="color:#c00">'+T('rez.voucher.error',{msg: pr.error.message})+'</span>'; return;
   }
   if(pr.data && pr.data.valid){
     var pd=pr.data;
     if(pd.type==='percent' && MG._rez.appliedCodes.some(function(c){return c.discountType==='percent';})){
-      if(msg) msg.innerHTML='<span style="color:#c00">Nelze kombinovat dva procentuální kódy</span>'; return;
+      if(msg) msg.innerHTML='<span style="color:#c00">'+T('rez.voucher.percentOnce')+'</span>'; return;
     }
     var disc=pd.type==='percent'?Math.round(base*pd.value/100):pd.value;
     var curDisc=MG._rez.appliedCodes.reduce(function(s,c){return s+c.discountAmt;},0);
     disc=Math.min(disc,Math.max(0,base-curDisc));
     MG._rez.appliedCodes.push({code:code,type:'promo',id:pd.id,discountAmt:disc,discountType:pd.type,discountValue:pd.value});
     var lbl=pd.type==='percent'?pd.value+'%':MG.formatPrice(pd.value);
-    if(msg) msg.innerHTML='<span style="color:#1a8c1a">✓ Sleva '+lbl+' uplatněna (−'+MG.formatPrice(disc)+')</span>';
+    if(msg) msg.innerHTML='<span style="color:#1a8c1a">'+T('rez.voucher.discountApplied',{label: lbl, amt: MG.formatPrice(disc)})+'</span>';
     inp.value=''; MG._renderAppliedCodes(); MG._rezUpdatePrice(); return;
   }
   // Try voucher
   var vr = await window.sb.rpc('validate_voucher_code',{p_code:code});
   if(vr.error){
     console.error('[VOUCHER] validate_voucher_code error:', vr.error.message);
-    if(msg) msg.innerHTML='<span style="color:#c00">Chyba ověření kódu: '+vr.error.message+'</span>'; return;
+    if(msg) msg.innerHTML='<span style="color:#c00">'+T('rez.voucher.error',{msg: vr.error.message})+'</span>'; return;
   }
   if(vr.data && vr.data.valid){
     var vd=vr.data;
     var curDiscV=MG._rez.appliedCodes.reduce(function(s,c){return s+c.discountAmt;},0);
     var vDisc=Math.min(vd.value,Math.max(0,base-curDiscV));
     MG._rez.appliedCodes.push({code:code,type:'voucher',id:vd.id,discountAmt:vDisc,discountType:'fixed',discountValue:vd.value});
-    if(msg) msg.innerHTML='<span style="color:#1a8c1a">✓ Poukaz '+MG.formatPrice(vd.value)+' uplatněn</span>';
+    if(msg) msg.innerHTML='<span style="color:#1a8c1a">'+T('rez.voucher.voucherApplied',{amt: MG.formatPrice(vd.value)})+'</span>';
     inp.value=''; MG._renderAppliedCodes(); MG._rezUpdatePrice(); return;
   }
   // Show specific error from promo validation if available
-  var errDetail = (pr.data && pr.data.error) ? pr.data.error : 'Kód nebyl nalezen nebo není platný';
+  var errDetail = (pr.data && pr.data.error) ? pr.data.error : T('rez.voucher.invalid');
   if(msg) msg.innerHTML='<span style="color:#c00">✗ '+errDetail+'</span>';
 };
 

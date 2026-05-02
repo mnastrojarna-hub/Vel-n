@@ -10,6 +10,8 @@ import Badge from '../../components/ui/Badge'
 import Modal from '../../components/ui/Modal'
 import SearchInput from '../../components/ui/SearchInput'
 import Pagination from '../../components/ui/Pagination'
+import BulkActionsBar, { SelectAllCheckbox, RowCheckbox } from '../../components/ui/BulkActionsBar'
+import { exportToCsv, bulkDelete } from '../../lib/bulkActions'
 
 const PER_PAGE = 25
 
@@ -25,6 +27,7 @@ export default function CreditNotesTab() {
   const [viewInvoice, setViewInvoice] = useState(null)
   const [viewHtml, setViewHtml] = useState(null)
   const [stats, setStats] = useState({ totalRefunded: 0, count: 0, thisMonth: 0, thisMonthCount: 0 })
+  const [selectedIds, setSelectedIds] = useState(new Set())
 
   useEffect(() => { load() }, [page, search, sort])
 
@@ -110,6 +113,20 @@ export default function CreditNotesTab() {
   const fmt = (n) => (n || 0).toLocaleString('cs-CZ') + ' Kč'
   const totalPages = Math.ceil(total / PER_PAGE)
 
+  const ids = [...selectedIds]
+  const bulkActions = [
+    { label: 'Hromadný tisk', icon: '🖨', onClick: async () => {
+      for (const cn of creditNotes.filter(c => selectedIds.has(c.id))) await handlePrint(cn)
+    } },
+    { label: 'Export CSV', icon: '⬇', onClick: () => exportToCsv('credit-notes', [
+      { key: 'number', label: 'Číslo' },
+      { key: 'profiles', label: 'Zákazník', format: (_, r) => r.profiles?.full_name || '' },
+      { key: 'total', label: 'Částka', format: v => Math.abs(v || 0) },
+      { key: 'issue_date', label: 'Datum' }, { key: 'status', label: 'Stav' },
+    ], creditNotes.filter(c => selectedIds.has(c.id))) },
+    { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} dobropisů?', onClick: async () => { await bulkDelete('invoices', ids, 'credit_notes_bulk_deleted'); setSelectedIds(new Set()); load() } },
+  ]
+
   return (
     <div>
       {/* Stats */}
@@ -145,16 +162,20 @@ export default function CreditNotesTab() {
             {creditNotes.length === 0 ? (
               <p style={{ color: '#1a2e22', fontSize: 13 }}>Žádné dobropisy</p>
             ) : (
+              <>
+              <BulkActionsBar count={selectedIds.size} onClear={() => setSelectedIds(new Set())} actions={bulkActions} />
               <Table>
                 <thead>
                   <TRow header>
+                    <TH><SelectAllCheckbox items={creditNotes} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
                     <TH>Číslo</TH><TH>Zákazník</TH><TH>Rezervace</TH><TH>Částka</TH><TH>Datum</TH><TH>Stav</TH><TH>Akce</TH>
                   </TRow>
                 </thead>
                 <tbody>
                   {creditNotes.map(cn => (
                     <tr key={cn.id} className="cursor-pointer hover:bg-[#fef2f2] transition-colors"
-                      style={{ borderBottom: '1px solid #fecaca' }} onClick={() => handleView(cn)}>
+                      style={{ borderBottom: '1px solid #fecaca', background: selectedIds.has(cn.id) ? '#fef9c3' : undefined }} onClick={() => handleView(cn)}>
+                      <TD><RowCheckbox id={cn.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TD>
                       <TD mono bold style={{ color: '#dc2626' }}>{cn.number || '—'}</TD>
                       <TD>{cn.profiles?.full_name || '—'}</TD>
                       <TD>
@@ -177,6 +198,7 @@ export default function CreditNotesTab() {
                   ))}
                 </tbody>
               </Table>
+              </>
             )}
             <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
           </Card>
