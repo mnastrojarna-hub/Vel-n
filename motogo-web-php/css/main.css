@@ -185,7 +185,7 @@ input,select,textarea{font-size:16px}
 
 /* ===== CONTENT WRAPPERS ===== */
 main{background:#fff;min-height:60vh}
-.homepage main{background:#dff0ec}
+.homepage main{background:#fff}
 .ccontent{padding:1.5rem 0 3rem}
 .ccontent section{margin-bottom:2.5rem}
 .pcontent{padding:1.5rem 0 3rem;max-width:900px;margin:0 auto}
@@ -290,18 +290,16 @@ section[aria-labelledby="process"]{background:#1a3a2a;border-radius:12px;padding
 section[aria-labelledby="process"] h2{color:#fff}
 section[aria-labelledby="process"] .wbox{background:#fff;border-color:#d4e8e0}
 
-/* ===== HOMEPAGE DARK THEME ===== */
-/* Dark bg pokrývá jen horní část stránky (hero + horní polovina prvního řádku
-   karet); pod tím se vrací světlé pozadí. */
-body.homepage{background:#dff0ec;color:#1a2e22}
-body.homepage main{background:linear-gradient(180deg,#0a1f14 0,#0a1f14 360px,#dff0ec 540px,#dff0ec 100%);color:#1a2e22}
-body.homepage main h1,body.homepage main>.container>h1{color:#fff}
-body.homepage .home-intro{color:#d4e8e0}
-body.homepage section[aria-labelledby="signpost-h"] h2{color:#fff}
+/* ===== HOMEPAGE THEME ===== */
+body.homepage{background:#fff;color:#1a2e22}
+body.homepage main{background:#fff;color:#1a2e22}
+body.homepage main h1,body.homepage main>.container>h1{color:#1a2e22}
+body.homepage .home-intro{color:#1a2e22}
+body.homepage section[aria-labelledby="signpost-h"] h2{color:#1a2e22}
 body.homepage section[aria-labelledby="signpost-h"]+section h2,
 body.homepage section[aria-labelledby="catalogue"] h2,
-body.homepage section[aria-labelledby="process"] h2{color:#fff}
-body.homepage section[aria-labelledby="signpost-h"] strong{color:#fff}
+body.homepage section[aria-labelledby="process"] h2{color:#1a2e22}
+body.homepage section[aria-labelledby="signpost-h"] strong{color:#1a2e22}
 
 /* Hero CTA — primary tlačítko musí mít čistě černý text */
 body.homepage .banner-caption .btngreen,
