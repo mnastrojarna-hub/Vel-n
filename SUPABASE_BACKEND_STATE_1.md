@@ -1,5 +1,5 @@
 # SUPABASE BACKEND STATE — MotoGo24 (Část 1: Tabulky)
-> **Poslední aktualizace:** 2026-04-29 (profiles consent_* sloupce default `true` + UI redesign upravit-rezervaci)
+> **Poslední aktualizace:** 2026-05-02 (AI public agent — anti-halucinační vrstva + úprava rezervace anonymním kanálem: nová `password_last4_bcrypt` na profiles + 3 nové RPC `find_booking_for_modification`/`_apply_booking_changes_core`/`apply_booking_changes_anon` + thin wrapper `apply_booking_changes`)
 > **Zdroj:** Reálný stav Supabase databáze (SQL dump z dashboardu) + Edge Functions
 > **Projekt:** `vnwnqteskbykeucanlhk.supabase.co`
 > **POZOR:** Tento soubor MUSÍ být aktualizován při každé SQL změně!

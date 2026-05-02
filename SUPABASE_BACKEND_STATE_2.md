@@ -90,6 +90,7 @@
 - **passport_verified_at** (TIMESTAMPTZ) — datum ověření pasu přes Mindee OCR
 - **passport_verified_until** (DATE) — platnost pasu — do tohoto data je ověření platné
 - **registration_source** (TEXT DEFAULT NULL) — zdroj registrace: 'app' nebo 'web'
+- **password_last4_bcrypt** (TEXT) — bcrypt hash posledních 4 znaků hesla. Plní `set_web_booking_password` při nastavení/změně hesla. Používá AI agent (`find_booking_for_modification`, `apply_booking_changes_anon`) pro 3. ověřovací faktor při úpravě rezervace anonymním kanálem (booking_id + email/telefon + last4 z hesla). Existující profily mají NULL → AI úpravu nedovolí, RPC vrátí `password_check_unavailable`.
 
 ### payment_methods
 - id (UUID PK), user_id (UUID FK→profiles ON DELETE CASCADE)
