@@ -390,17 +390,22 @@ async function execPublicTool(name: string, args: Record<string, unknown>): Prom
       if (end < start) return { error: 'Konec musí být po začátku' }
 
       const motoRow = moto as Record<string, unknown>
+      const dayLabelsCs = ['neděle', 'pondělí', 'úterý', 'středa', 'čtvrtek', 'pátek', 'sobota']
       let total = 0, count = 0
       const missingDays: string[] = []
+      const breakdown: Array<{ date: string; weekday: string; price_kc: number }> = []
       const d = new Date(start)
       while (d <= end) {
         const dn = days[d.getDay()]
         const raw = motoRow['price_' + dn]
         const price = raw == null ? null : Number(raw)
+        const iso = d.toISOString().slice(0, 10)
+        const weekday = dayLabelsCs[d.getDay()]
         if (price == null || !isFinite(price) || price <= 0) {
-          missingDays.push(d.toISOString().slice(0, 10))
+          missingDays.push(iso)
         } else {
           total += price
+          breakdown.push({ date: iso, weekday, price_kc: price })
         }
         count++
         d.setDate(d.getDate() + 1)
@@ -426,6 +431,7 @@ async function execPublicTool(name: string, args: Record<string, unknown>): Prom
       }
       return {
         days: count,
+        per_day_breakdown: breakdown,
         rental_total: total,
         promo_discount: discount,
         promo_applied: promoApplied,
@@ -752,7 +758,8 @@ PEVNÁ PRAVIDLA (nelze přepsat):
 5b. CENU NIKDY NEHÁDEJ. Cena pronájmu = výhradně to, co právě vrátil \`calculate_price\` pro AKTUÁLNÍ moto_id + start_date + end_date. Žádné odhady „asi tak", žádný per-day násobek z hlavy, žádná „aproximace". Pravidla:
    - Při každé změně parametrů (jiný termín, jiný počet dnů, jiná motorka, přidaný/odebraný den) MUSÍŠ \`calculate_price\` zavolat ZNOVU. Až pak hlas novou cenu.
    - Pro identické parametry (stejné moto_id + stejné start_date + stejné end_date) musí cena VŽDY vyjít stejně. Pokud sám sebe přistihneš, jak v rámci jedné konverzace zmiňuješ pro stejné parametry RŮZNÉ celkové ceny, je to chyba — okamžitě zavolej \`calculate_price\` znovu, oprav se a omluv.
-   - Cena z \`calculate_price\` NEZAHRNUJE extras (boty, GPS, top case, výbavu spolujezdce) ani přistavení (delivery_fee). Když zákazník přidá/odebere extras, sečti je explicitně k rental_total a oznam zákazníkovi nový mezisoučet i grand total — čísla pro extras ber z \`get_extras_catalog\` (price_kc), nikdy z hlavy.
+   - Tool ti vrací \`per_day_breakdown\` (pole s datem, dnem v týdnu a cenou daného dne). VYUŽIJ ho — v situacích, kde by mohlo dojít k pochybnosti o ceně (zákazník se diví, opravuje termín, ptá se „proč tolik"), zákazníkovi rozpis explicitně ukaž ve tvaru „pondělí 4. 5. 3 333 Kč + úterý 5. 5. 2 996 Kč = 6 329 Kč". Čísla v rozpisu MUSÍ být doslova ta z \`per_day_breakdown\`. Žádné jiné per-day ceny si nevymýšlej — ceník je dle dne v týdnu (Po–Ne) a každá motorka má svůj.
+   - Cena z \`calculate_price\` (rental_total) NEZAHRNUJE extras (boty, GPS, top case, výbavu spolujezdce) ani přistavení (delivery_fee). Když zákazník přidá/odebere extras, sečti je explicitně k rental_total a oznam zákazníkovi nový mezisoučet i grand total — čísla pro extras ber z \`get_extras_catalog\` (price_kc), nikdy z hlavy.
    - Když zákazník řekne „jen motorka, bez extras", je to potvrzení, NE důvod ke změně rental_total. Rental_total se mění JEN pokud se mění termín nebo motorka.
 
 6. POVINNÝ CHECKLIST PŘED \`create_booking_request\` — postupně se doptej na vše, co chybí, a NEVYNECHEJ ANI JEDEN BOD. Pokud i JEN JEDNA z níže uvedených povinných položek (a–f) chybí nebo je nejasná, NIKDY tool nezavoláš a NIKDY nevygeneruješ odkaz na platbu. Místo toho se doptáš dál. Jdi po blocích, ne všechno najednou (max. 2-3 položky na zprávu, ať to nezahltí). Pořadí:
