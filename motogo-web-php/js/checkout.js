@@ -153,6 +153,14 @@
         var orderId = data.order_id;
         if (!orderId) throw new Error('Chybí order_id');
 
+        // i18n: ulož jazyk zákazníka do shop_orders.language (pro maily/SMS/push)
+        try {
+          await window.sb.rpc('set_shop_order_language', {
+            p_order_id: orderId,
+            p_language: (document.documentElement.lang || 'cs').slice(0, 2)
+          });
+        } catch (e) { console.warn('[CHECKOUT] set_shop_order_language failed:', e); }
+
         // Po úspěšném vytvoření objednávky → Stripe Checkout
         // (process-payment edge fn ve Fázi 5 rozšíříme; dnes při neúspěchu
         // přesměrujeme rovnou na potvrzovací stránku)
