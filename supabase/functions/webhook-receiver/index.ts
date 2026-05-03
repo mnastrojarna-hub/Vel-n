@@ -223,14 +223,16 @@ Deno.serve(async (req: Request) => {
       let linkedType: string | null = null
 
       // Try to find linked booking via payment_intent
+      let linkedBooking: any = null
       if (charge.payment_intent) {
         try {
           const piId = typeof charge.payment_intent === 'string' ? charge.payment_intent : (charge.payment_intent as any)?.id
           if (piId) {
             const { data: bk } = await supabase.from('bookings')
-              .select('id, motorcycles(model), profiles:user_id(full_name)')
+              .select('id, status, payment_status, total_price, start_date, end_date, booking_source, motorcycles(model), profiles:user_id(full_name, email)')
               .eq('stripe_payment_intent_id', piId).single()
             if (bk) {
+              linkedBooking = bk
               linkedId = bk.id
               linkedType = 'booking'
               refundFeMeta.customer_name = (bk as any).profiles?.full_name || ''
@@ -249,6 +251,56 @@ Deno.serve(async (req: Request) => {
         confidence_score: 1.0, status: 'validated',
         metadata: refundFeMeta,
       })
+
+      // Refund přes Stripe portál (bez Velin / app cancel flow):
+      // pokud booking ještě není cancelled, zacancelujeme ho + pošleme mail s dobropisem.
+      // Pokud už je cancelled (= náš process-refund tento event vyvolal), neděláme nic.
+      if (linkedBooking && linkedBooking.status !== 'cancelled') {
+        try {
+          const refundCzk = charge.amount_refunded / 100
+          const total = Number(linkedBooking.total_price || 0)
+          const refundPct = total > 0 ? Math.round((refundCzk / total) * 100) : 0
+          const newPaymentStatus = refundPct >= 100 ? 'refunded' : 'partial_refund'
+
+          await supabase.from('bookings').update({
+            status: 'cancelled',
+            payment_status: newPaymentStatus,
+            cancelled_at: new Date().toISOString(),
+            cancelled_by_source: 'stripe_portal',
+            cancellation_reason: refundReason
+              ? `Refund přes Stripe portál (${refundReason})`
+              : 'Refund přes Stripe portál',
+          }).eq('id', linkedBooking.id)
+
+          // Email + dobropis (send-cancellation-email sama vygeneruje credit_note)
+          if (linkedBooking.profiles?.email) {
+            await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-cancellation-email`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+              },
+              body: JSON.stringify({
+                booking_id: linkedBooking.id,
+                customer_email: linkedBooking.profiles.email,
+                customer_name: linkedBooking.profiles.full_name || '',
+                motorcycle: linkedBooking.motorcycles?.model || '',
+                start_date: linkedBooking.start_date,
+                end_date: linkedBooking.end_date,
+                cancellation_reason: refundReason
+                  ? `Refund přes Stripe portál (${refundReason})`
+                  : 'Refund přes Stripe portál',
+                cancelled_by_source: 'stripe_portal',
+                refund_amount: refundCzk,
+                refund_percent: refundPct,
+                source: linkedBooking.booking_source || 'app',
+              }),
+            }).catch(e => console.warn('Stripe-portal cancel email failed:', e?.message))
+          }
+        } catch (e) {
+          console.warn('Stripe-portal refund auto-cancel failed:', (e as Error).message)
+        }
+      }
     } else if (event.type === 'payout.paid') {
       const payout = event.data.object as Stripe.Payout
 
