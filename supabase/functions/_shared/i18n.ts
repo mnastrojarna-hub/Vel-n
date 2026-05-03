@@ -1012,3 +1012,82 @@ export function helpCardLabels(lang: Lang): { title: string; body: string; cta: 
   }
   return map[lang] || map.cs
 }
+
+// =============================================================================
+// INVOICE EMAIL i18n — subject + intro/closing pro send-invoice-email
+// (Tabulka s detaily faktury zůstává CZ — čísla/data jsou neutral. Faktura
+//  jako příloha je vždy CZ per Q3a — zákonný požadavek pro CZ účetnictví.)
+// =============================================================================
+
+/** Per-lang label pro typ faktury (zálohová / konečná / doklad / e-shop). */
+export function invoiceTypeLabel(invType: string, lang: Lang): string {
+  const map: Record<string, Record<Lang, string>> = {
+    advance:         { cs: 'Zálohová faktura', en: 'Proforma invoice',  de: 'Vorausrechnung', nl: 'Proforma factuur', es: 'Factura proforma',  fr: 'Facture proforma',   pl: 'Faktura proforma' },
+    proforma:        { cs: 'Zálohová faktura', en: 'Proforma invoice',  de: 'Vorausrechnung', nl: 'Proforma factuur', es: 'Factura proforma',  fr: 'Facture proforma',   pl: 'Faktura proforma' },
+    final:           { cs: 'Konečná faktura',  en: 'Final invoice',     de: 'Endrechnung',    nl: 'Eindfactuur',      es: 'Factura final',     fr: 'Facture finale',     pl: 'Faktura końcowa' },
+    issued:          { cs: 'Faktura vydaná',   en: 'Invoice',           de: 'Rechnung',       nl: 'Factuur',          es: 'Factura',           fr: 'Facture',            pl: 'Faktura' },
+    payment_receipt: { cs: 'Doklad o platbě',  en: 'Payment receipt',   de: 'Zahlungsbeleg',  nl: 'Betalingsbewijs',  es: 'Recibo de pago',    fr: 'Reçu de paiement',   pl: 'Potwierdzenie płatności' },
+    shop_final:      { cs: 'Faktura — e-shop', en: 'Invoice — shop',    de: 'Rechnung — Shop',nl: 'Factuur — shop',   es: 'Factura — tienda',  fr: 'Facture — boutique', pl: 'Faktura — sklep' },
+    shop_proforma:   { cs: 'Proforma — e-shop',en: 'Proforma — shop',   de: 'Proforma — Shop',nl: 'Proforma — shop',  es: 'Proforma — tienda', fr: 'Proforma — boutique',pl: 'Proforma — sklep' },
+  }
+  return map[invType]?.[lang] || map[invType]?.cs || 'Faktura'
+}
+
+/** Per-lang subject + intro/closing pro send-invoice-email. */
+export function invoiceEmailSnippets(invType: string, lang: Lang, vars: Vars): {
+  subject: string; intro: string; tableLabels: { num: string; issue: string; due: string; vs: string; total: string }; outro: string; closing: string;
+} {
+  const label = invoiceTypeLabel(invType, lang)
+  const SUBJ: Record<Lang, string> = {
+    cs: `${label} č. ${vars.invoice_number} — MOTO GO 24`,
+    en: `${label} #${vars.invoice_number} — MOTO GO 24`,
+    de: `${label} Nr. ${vars.invoice_number} — MOTO GO 24`,
+    nl: `${label} nr. ${vars.invoice_number} — MOTO GO 24`,
+    es: `${label} nº ${vars.invoice_number} — MOTO GO 24`,
+    fr: `${label} n° ${vars.invoice_number} — MOTO GO 24`,
+    pl: `${label} nr ${vars.invoice_number} — MOTO GO 24`,
+  }
+  const INTRO: Record<Lang, string> = {
+    cs: `${HELLO.cs}\nzasíláme Vám ${label.toLowerCase()} č. <strong>${vars.invoice_number}</strong>.`,
+    en: `${HELLO.en}\nplease find attached your ${label.toLowerCase()} <strong>#${vars.invoice_number}</strong>.`,
+    de: `${HELLO.de}\nanbei senden wir Ihnen die ${label.toLowerCase()} Nr. <strong>${vars.invoice_number}</strong>.`,
+    nl: `${HELLO.nl}\nin de bijlage vind je je ${label.toLowerCase()} nr. <strong>${vars.invoice_number}</strong>.`,
+    es: `${HELLO.es}\nadjuntamos tu ${label.toLowerCase()} nº <strong>${vars.invoice_number}</strong>.`,
+    fr: `${HELLO.fr}\nveuillez trouver ci-jointe votre ${label.toLowerCase()} n° <strong>${vars.invoice_number}</strong>.`,
+    pl: `${HELLO.pl}\nw załączeniu ${label.toLowerCase()} nr <strong>${vars.invoice_number}</strong>.`,
+  }
+  const TABLE: Record<Lang, { num: string; issue: string; due: string; vs: string; total: string }> = {
+    cs: { num: 'Číslo:',     issue: 'Datum vystavení:', due: 'Splatnost:',     vs: 'VS:',  total: 'Celkem:' },
+    en: { num: 'Number:',    issue: 'Issue date:',      due: 'Due date:',      vs: 'VS:',  total: 'Total:'  },
+    de: { num: 'Nummer:',    issue: 'Ausstellungsdatum:', due: 'Fälligkeit:',  vs: 'VS:',  total: 'Gesamt:' },
+    nl: { num: 'Nummer:',    issue: 'Uitgiftedatum:',   due: 'Vervaldatum:',   vs: 'VS:',  total: 'Totaal:' },
+    es: { num: 'Número:',    issue: 'Fecha emisión:',   due: 'Vencimiento:',   vs: 'VS:',  total: 'Total:'  },
+    fr: { num: 'Numéro :',   issue: 'Date d\'émission :', due: 'Échéance :',   vs: 'VS :', total: 'Total :' },
+    pl: { num: 'Numer:',     issue: 'Data wystawienia:', due: 'Termin:',       vs: 'VS:',  total: 'Razem:'  },
+  }
+  const OUTRO: Record<Lang, string> = {
+    cs: 'Faktura je v příloze (PDF / HTML). V případě dotazů se na nás obraťte.',
+    en: 'The invoice is attached (PDF / HTML). For any questions, please contact us.',
+    de: 'Die Rechnung finden Sie im Anhang (PDF / HTML). Bei Fragen kontaktieren Sie uns gerne.',
+    nl: 'De factuur is bijgevoegd (PDF / HTML). Heb je vragen? Neem contact op.',
+    es: 'La factura está adjunta (PDF / HTML). Para cualquier consulta, contáctanos.',
+    fr: 'La facture est en pièce jointe (PDF / HTML). Pour toute question, contactez-nous.',
+    pl: 'Faktura jest w załączniku (PDF / HTML). W razie pytań prosimy o kontakt.',
+  }
+  const CLOSING: Record<Lang, string> = {
+    cs: `S pozdravem,<br>${SIGN.cs}`,
+    en: `Best regards,<br>${SIGN.en}`,
+    de: `Mit freundlichen Grüßen,<br>${SIGN.de}`,
+    nl: `Met vriendelijke groet,<br>${SIGN.nl}`,
+    es: `Saludos cordiales,<br>${SIGN.es}`,
+    fr: `Cordialement,<br>${SIGN.fr}`,
+    pl: `Pozdrawiamy,<br>${SIGN.pl}`,
+  }
+  return {
+    subject: SUBJ[lang],
+    intro: INTRO[lang].replace(/\n/g, '<br>'),
+    tableLabels: TABLE[lang],
+    outro: OUTRO[lang],
+    closing: CLOSING[lang],
+  }
+}
