@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import WebTextSection from './WebTextSection'
 import BlogSection from './BlogSection'
 import FaqSection from './FaqSection'
+import TranslationBackfillButton from '../../components/shared/TranslationBackfillButton'
 import { WEB_PAGES } from './webTextsPages'
 
 // Celkový počet textů
@@ -107,6 +108,21 @@ export default function WebTextsTab() {
         {totalFilled === TOTAL_FIELDS && (
           <span className="text-xs font-bold" style={{ color: '#22c55e' }}>Vše uloženo</span>
         )}
+      </div>
+
+      {/* Backfill překladů pro cms_variables (web.* klíče) */}
+      <div className="mb-4 p-3 rounded-card flex items-center justify-between gap-3"
+        style={{ background: '#fff', border: '1px solid #e2ece7' }}>
+        <div className="text-xs" style={{ color: '#4a6b5a' }}>
+          Doplní EN/DE/ES/FR/NL/PL překlady pro <code>cms_variables</code> (klíče <code>web.*</code>),
+          kterým chybí <code>translations</code>. Projde se vše uložené v DB.
+        </div>
+        <TranslationBackfillButton
+          table="cms_variables"
+          selectColumns="id, key, value, translations, category"
+          filterPredicate={r => r.category === 'web'}
+          onDone={loadValues}
+        />
       </div>
 
       <div className="flex gap-4" style={{ minHeight: '70vh' }}>
