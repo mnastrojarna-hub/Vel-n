@@ -343,6 +343,24 @@ class _EditState extends ConsumerState<ReservationEditScreen> {
           context.push(Routes.payment);
         }
       } else {
+        // calc.priceDiff <= 0 — zkrácení / levnější motorka / místo blíže
+        // Při priceDiff < 0 musíme nejdřív vystavit credit_note + Stripe refund
+        // přes process-refund (jinak by KF nesedla na 0). UPDATE bookings až poté
+        // (DB trigger trg_booking_modified_email pošle mail s diff + dobropisem).
+        if (calc.priceDiff < 0) {
+          try {
+            await MotoGoSupabase.client.functions.invoke('process-refund', body: {
+              'booking_id': widget.bookingId,
+              'amount': -calc.priceDiff,
+              'reason': 'edit_shortening',
+            });
+          } catch (e) {
+            if (mounted) showMotoGoToast(context, icon: '✗',
+              title: t(context).error,
+              message: 'Refund failed: $e');
+            return;
+          }
+        }
         // No surcharge or refund — save directly
         await MotoGoSupabase.client.from('bookings').update(changes).eq('id', widget.bookingId);
         if (mounted) {
