@@ -5,6 +5,7 @@ const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'noreply@motogo24.cz'
+const SITE_URL = Deno.env.get('SITE_URL') || 'https://motogo24.cz'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -52,12 +53,12 @@ function buildOrderHtml(req: OrderEmailRequest): string {
   return `<!DOCTYPE html><html lang="cs"><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#d9dee2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1a14;-webkit-font-smoothing:antialiased">
   <div style="max-width:780px;margin:0 auto;background:#ffffff">
-    <div style="background:#0a1f15;padding:24px 32px">
+    <div style="background:#000000;padding:28px 32px">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>
-        <td style="vertical-align:middle;padding-right:14px;width:52px"><img src="${SITE_URL}/gfx/logo-icon.png" alt="MotoGo24" width="52" height="52" style="display:block;border:0"/></td>
+        <td style="vertical-align:middle;padding-right:16px;width:64px"><img src="${SITE_URL}/gfx/logo-icon.png" alt="MotoGo24" width="64" height="64" style="display:block;border:0"/></td>
         <td style="vertical-align:middle">
-          <div style="color:#74FB71;font-size:20px;font-weight:900;letter-spacing:1px;line-height:1">MOTO GO 24</div>
-          <div style="color:#74FB71;font-size:9px;font-weight:700;letter-spacing:2px;margin-top:4px">PŮJČOVNA MOTOREK</div>
+          <div style="color:#ffffff;font-size:24px;font-weight:900;letter-spacing:2px;line-height:1">MOTO GO 24</div>
+          <div style="color:#ffffff;font-size:10px;font-weight:400;letter-spacing:4px;margin-top:6px">PŮJČOVNA MOTOREK</div>
         </td>
       </tr></table>
     </div>
@@ -86,7 +87,7 @@ function buildOrderHtml(req: OrderEmailRequest): string {
       <p style="color:#374151;font-size:14px;line-height:1.7;margin-top:24px">Prosíme o potvrzení objednávky a předpokládaný termín dodání.</p>
       <p style="color:#374151;font-size:14px;line-height:1.7">Děkujeme,<br><strong>MotoGo24</strong></p>
     </div>
-    <div style="background:#0a1f15;padding:24px 32px">
+    <div style="background:#000000;padding:24px 32px">
       <div style="border:1px solid #74FB71;border-radius:6px;padding:16px;color:#ffffff;font-size:12px;line-height:1.7">
         <div style="font-size:14px;font-weight:800;color:#ffffff">Motogo24</div>
         <div style="font-size:14px;font-weight:800;color:#ffffff;margin-bottom:6px">Bc. Petra Semorádová</div>

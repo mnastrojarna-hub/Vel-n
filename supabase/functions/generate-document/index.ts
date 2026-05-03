@@ -201,7 +201,7 @@ serve(async (req) => {
       company_dic: companyInfo.dic,
       company_phone: '+420 774 256 271',
       company_email: 'info@motogo24.cz',
-      company_web: 'motogo24.com',
+      company_web: 'motogo24.cz',
       company_bank: 'mBank',
       company_account: '670100-2225851630/6210',
       // Time & period
@@ -358,7 +358,7 @@ function getFallbackTemplate(slug: string): string | null {
   <p style="font-size:12px">Tyto VOP jsou nedílnou součástí nájemní smlouvy. Pronajímatel si vyhrazuje právo na změnu VOP. Právní vztahy neupravené těmito VOP se řídí občanským zákoníkem.</p>
   <div style="margin-top:32px;padding:16px;background:#f8faf9;border-radius:8px;font-size:11px;color:#666">
     <p style="margin:0">{{company_name}} | {{company_address}} | IČO: {{company_ico}}</p>
-    <p style="margin:4px 0 0">Kontakt: info@motogo24.cz | +420 774 256 271 | motogo24.com</p>
+    <p style="margin:4px 0 0">Kontakt: info@motogo24.cz | +420 774 256 271 | motogo24.cz</p>
   </div>
 </div></body></html>`
   }
