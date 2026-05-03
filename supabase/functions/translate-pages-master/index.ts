@@ -45,7 +45,10 @@ const LANG_NAMES: Record<string, string> = {
   pl: 'Polish (Polski)',
 }
 
-const DEFAULT_MASTER_URL = 'https://motogo24.cz/api/master.php'
+const DEFAULT_MASTER_URLS = [
+  'https://motogo24.cz/api/master.php',
+  'https://motogo24.com/api/master.php',
+]
 const MODEL = 'claude-haiku-4-5-20251001'
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
@@ -72,17 +75,28 @@ function buildSystemPrompt(targetLang: string, langName: string): string {
   ].join('\n')
 }
 
-async function fetchMaster(masterUrl: string, sb: ReturnType<typeof createClient>, page?: string): Promise<{
+async function fetchMaster(masterUrls: string[], sb: ReturnType<typeof createClient>, page?: string): Promise<{
   pages: Record<string, unknown>,
 }> {
   const { data: tokRow } = await sb.from('app_settings').select('value').eq('key', 'cms_admin_token').maybeSingle()
   const cmsAdminToken = typeof tokRow?.value === 'string' ? tokRow.value : (tokRow?.value ?? '')
   if (!cmsAdminToken) throw new Error('cms_admin_token missing in app_settings')
-  const url = `${masterUrl}?token=${encodeURIComponent(String(cmsAdminToken))}` + (page ? `&page=${encodeURIComponent(page)}` : '')
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`master fetch failed: HTTP ${res.status}`)
-  const json = await res.json()
-  return { pages: json?.pages || {} }
+  const errors: string[] = []
+  for (const baseUrl of masterUrls) {
+    const url = `${baseUrl}?token=${encodeURIComponent(String(cmsAdminToken))}` + (page ? `&page=${encodeURIComponent(page)}` : '')
+    try {
+      const res = await fetch(url, { redirect: 'follow' })
+      if (!res.ok) {
+        errors.push(`${baseUrl}: HTTP ${res.status}`)
+        continue
+      }
+      const json = await res.json()
+      return { pages: json?.pages || {} }
+    } catch (e) {
+      errors.push(`${baseUrl}: ${(e as Error).message}`)
+    }
+  }
+  throw new Error(`master fetch failed (tried ${masterUrls.length} URL${masterUrls.length === 1 ? '' : 's'}): ${errors.join(' | ')}`)
 }
 
 async function translateTree(tree: unknown, lang: string): Promise<unknown> {
@@ -134,13 +148,18 @@ serve(async (req: Request): Promise<Response> => {
 
     const body = await req.json().catch(() => ({}))
     const action = body.action || 'list'
-    const masterUrl = body.master_url || DEFAULT_MASTER_URL
+    // Override priority: body.master_url > app_settings.master_url > built-in defaults (.cz, .com)
+    const { data: urlRow } = await sb.from('app_settings').select('value').eq('key', 'master_url').maybeSingle()
+    const settingMasterUrl = typeof urlRow?.value === 'string' ? urlRow.value : (urlRow?.value ?? '')
+    const masterUrls: string[] = body.master_url
+      ? [String(body.master_url)]
+      : (settingMasterUrl ? [String(settingMasterUrl), ...DEFAULT_MASTER_URLS] : DEFAULT_MASTER_URLS)
     const targetLangs: string[] = Array.isArray(body.target_langs) && body.target_langs.length
       ? body.target_langs.filter((l: string) => LANG_NAMES[l])
       : DEFAULT_LANGS
 
     if (action === 'list') {
-      const { pages } = await fetchMaster(masterUrl, sb)
+      const { pages } = await fetchMaster(masterUrls, sb)
       const wantPages: string[] | null = Array.isArray(body.pages) && body.pages.length ? body.pages : null
       const pageKeys = wantPages ? wantPages.filter(p => pages[p]) : Object.keys(pages)
       const queue: Array<{ page: string, lang: string }> = []
@@ -154,7 +173,7 @@ serve(async (req: Request): Promise<Response> => {
       const lang = String(body.lang || '')
       if (!page || !LANG_NAMES[lang]) return jsonResponse({ error: 'invalid page or lang' }, 400)
 
-      const { pages } = await fetchMaster(masterUrl, sb, page)
+      const { pages } = await fetchMaster(masterUrls, sb, page)
       const masterTree = pages[page]
       if (!masterTree) return jsonResponse({ error: `unknown page: ${page}` }, 404)
 

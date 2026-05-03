@@ -429,7 +429,7 @@ export default function EmailTemplatesTab() {
 }
 
 function TemplateCard({ template, onEdit }) {
-  const vars = template.variables || extractVars(template.body_html)
+  const vars = [...new Set(template.variables || extractVars(template.body_html))]
   const meta = getTemplateMeta(template.slug)
   const catDef = CATEGORIES.find(c => c.value === meta.category) || CATEGORIES[4]
   const chanDef = CHANNELS.find(c => c.value === getChannel(template.slug)) || CHANNELS[2]
@@ -534,7 +534,7 @@ function EditEmailTemplateModal({ template, onClose, onSaved, isNew = false }) {
     )
   }
 
-  const vars = template.variables || extractVars(bodyHtml)
+  const vars = [...new Set(template.variables || extractVars(bodyHtml))]
   const variableOptions = vars.map(v => ({ label: `{{${v}}}`, value: `{{${v}}}` }))
 
   const handleFileDrop = useCallback((e) => {
