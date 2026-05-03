@@ -108,12 +108,23 @@ export function ShopOrderDetail({ order, onClose, onUpdated }) {
     if (result?.error) throw result.error
     if (status === 'shipped' || status === 'delivered') {
       try {
-        const fvResult = await supabase.functions.invoke('generate-invoice', { body: { type: 'shop_final', order_id: order.id, send_email: false } })
-        // Send email with FV to customer
-        if (order.customer_email) {
-          await supabase.functions.invoke('send-invoice-email', {
-            body: { invoice_id: fvResult?.data?.invoice_id, customer_email: order.customer_email, customer_name: order.customer_name, invoice_number: fvResult?.data?.number }
-          }).catch(e => console.warn('[FV email]', e))
+        // Generate KF (shop_final) — send-booking-email ji případně dohledá nebo dovygeneruje sama
+        await supabase.functions.invoke('generate-invoice', { body: { type: 'shop_final', order_id: order.id, send_email: false } }).catch(() => {})
+        // Pošli mail shop_order_shipped s KF v příloze (jen při prvním shipped, ne znovu při delivered)
+        if (status === 'shipped' && order.customer_email) {
+          await supabase.functions.invoke('send-booking-email', {
+            body: {
+              type: 'shop_order_shipped',
+              order_id: order.id,
+              order_number: order.order_number,
+              customer_email: order.customer_email,
+              customer_name: order.customer_name || '',
+              total_price: order.total,
+              shipping_cost: order.shipping_cost,
+              tracking_number: order.tracking_number || '',
+              source: order.customer_id ? 'app' : 'web',
+            },
+          }).catch(e => console.warn('[shop_order_shipped email]', e))
         }
       } catch (e) { console.warn('[Final invoice]', e) }
     }

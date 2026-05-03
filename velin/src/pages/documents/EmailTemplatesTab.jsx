@@ -141,8 +141,72 @@ const CATEGORIES = [
   { value: 'other', label: 'Ostatní', color: '#1a2e22', bg: '#f3f4f6' },
 ]
 
+const CHANNELS = [
+  { value: 'app', label: 'App', color: '#0369a1', bg: '#e0f2fe' },
+  { value: 'web', label: 'Web', color: '#7c2d12', bg: '#fed7aa' },
+  { value: 'shared', label: 'Společné', color: '#374151', bg: '#e5e7eb' },
+]
+
+/** Povolené přílohy (multi-select v editaci šablony, sloupec attachments jsonb) */
+const ATTACHMENT_OPTIONS = [
+  { value: 'ZF',       label: 'ZF — Zálohová faktura' },
+  { value: 'DP',       label: 'DP — Doklad o platbě' },
+  { value: 'KF',       label: 'KF — Konečná faktura' },
+  { value: 'Smlouva',  label: 'Smlouva — Nájemní smlouva' },
+  { value: 'VOP',      label: 'VOP — Všeobecné obchodní podmínky' },
+  { value: 'Dobropis', label: 'Dobropis — Credit note (storno/zkrácení)' },
+  { value: 'Voucher',  label: 'Voucher — Dárkový poukaz' },
+  { value: 'eshop_DP', label: 'eshop DP — Doklad o platbě (e-shop)' },
+  { value: 'eshop_KF', label: 'eshop KF — Konečná faktura (e-shop)' },
+]
+
+/** Zdroj rozliší podle slug prefixu */
+function getChannel(slug) {
+  if (!slug) return 'shared'
+  if (slug.startsWith('web_')) return 'web'
+  // Slugy které jsou výhradně pro app/Velin — ostatní jsou shared (faktury, sos, e-shop)
+  const appSlugs = ['booking_reserved','booking_abandoned','booking_completed','booking_modified','booking_cancelled','voucher_purchased']
+  if (appSlugs.includes(slug)) return 'app'
+  return 'shared'
+}
+
 function getTemplateMeta(slug) {
   return TEMPLATE_META[slug] || { category: 'other', categoryLabel: 'Ostatní', trigger: '—', attachments: '—', info: '' }
+}
+
+/** Zabalí body šablony do zjednodušeného (přesto autentického) MotoGo24 brand layoutu
+ *  shodného s send-booking-email/wrapInBrandedLayout. Použito v náhledu modálu. */
+function wrapPreview(bodyHtml) {
+  return `<!DOCTYPE html><html lang="cs"><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#d9dee2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1a14;-webkit-font-smoothing:antialiased">
+  <div style="max-width:780px;margin:0 auto;background:#ffffff">
+    <div style="background:#000000;padding:28px 32px">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>
+        <td style="vertical-align:middle;padding-right:16px;width:64px">
+          <div style="width:64px;height:64px;background:#74FB71;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#000;font-weight:900;font-size:24px;font-family:Arial">MG</div>
+        </td>
+        <td style="vertical-align:middle">
+          <div style="color:#ffffff;font-size:24px;font-weight:900;letter-spacing:2px;line-height:1">MOTO GO 24</div>
+          <div style="color:#ffffff;font-size:10px;font-weight:400;letter-spacing:4px;margin-top:6px">PŮJČOVNA MOTOREK</div>
+        </td>
+      </tr></table>
+    </div>
+    <div style="padding:32px;color:#0f1a14;font-size:14px;line-height:1.7">${bodyHtml}</div>
+    <div style="margin:24px 32px 0;background:#000000;border:2px solid #74FB71;border-radius:8px;padding:24px">
+      <div style="color:#74FB71;font-size:18px;font-weight:800;margin:0 0 8px">Máte dotaz?</div>
+      <div style="color:#ffffff;font-size:13px;margin:0 0 16px">Pokud budete mít jakýkoliv dotaz, jsme vám k dispozici.</div>
+      <a href="mailto:info@motogo24.cz" style="display:inline-block;background:#74FB71;color:#000000;font-size:13px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:24px">info@motogo24.cz</a>
+    </div>
+    <div style="background:#000000;padding:24px 32px;margin-top:24px">
+      <div style="border:1px solid #74FB71;border-radius:6px;padding:16px;color:#ffffff;font-size:12px;line-height:1.7">
+        <div style="font-size:14px;font-weight:800;color:#ffffff">Motogo24</div>
+        <div style="font-size:14px;font-weight:800;color:#ffffff;margin-bottom:6px">Bc. Petra Semorádová</div>
+        <div style="color:#9ca3af">Mezná 9, 393 01 Mezná &nbsp;·&nbsp; IČO: 21874263</div>
+        <div><span style="color:#9ca3af">Telefon:</span> <span style="color:#74FB71">+420 774 256 271</span> &nbsp;·&nbsp; <span style="color:#9ca3af">E-mail:</span> <span style="color:#74FB71">info@motogo24.cz</span></div>
+      </div>
+    </div>
+  </div>
+</body></html>`
 }
 
 export default function EmailTemplatesTab() {
@@ -151,7 +215,7 @@ export default function EmailTemplatesTab() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [editing, setEditing] = useState(null)
-  const defaultFilters = { search: '', statuses: [], categories: [] }
+  const defaultFilters = { search: '', statuses: [], categories: [], channels: [] }
   const [filters, setFilters] = useState(() => {
     try {
       const saved = localStorage.getItem('velin_emailtemplates_filters')
@@ -185,7 +249,9 @@ export default function EmailTemplatesTab() {
 
   const filteredTemplates = templates.filter(t => {
     const meta = getTemplateMeta(t.slug)
+    const chan = getChannel(t.slug)
     if (filters.categories?.length > 0 && !filters.categories.includes(meta.category)) return false
+    if (filters.channels?.length > 0 && !filters.channels.includes(chan)) return false
     if (filters.search) {
       const s = filters.search.toLowerCase()
       if (!(t.name || '').toLowerCase().includes(s) && !(t.slug || '').toLowerCase().includes(s) && !(t.description || '').toLowerCase().includes(s) && !(meta.info || '').toLowerCase().includes(s)) return false
@@ -220,10 +286,13 @@ export default function EmailTemplatesTab() {
         <CheckboxFilterGroup label="Kategorie" values={filters.categories || []}
           onChange={v => setFilters(f => ({ ...f, categories: v }))}
           options={CATEGORIES.map(c => ({ value: c.value, label: c.label }))} />
+        <CheckboxFilterGroup label="Zdroj" values={filters.channels || []}
+          onChange={v => setFilters(f => ({ ...f, channels: v }))}
+          options={CHANNELS.map(c => ({ value: c.value, label: c.label }))} />
         <CheckboxFilterGroup label="Stav" values={filters.statuses || []}
           onChange={v => setFilters(f => ({ ...f, statuses: v }))}
           options={[{ value: 'sent', label: 'Odesláno' }, { value: 'failed', label: 'Chyba' }, { value: 'queued', label: 'Ve frontě' }]} />
-        {(filters.search || filters.statuses?.length > 0 || filters.categories?.length > 0) && (
+        {(filters.search || filters.statuses?.length > 0 || filters.categories?.length > 0 || filters.channels?.length > 0) && (
           <button onClick={() => { setFilters({ ...defaultFilters }); localStorage.removeItem('velin_emailtemplates_filters') }}
             className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
             style={{ padding: '8px 14px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#dc2626' }}>
@@ -269,12 +338,15 @@ function TemplateCard({ template, onEdit }) {
   const vars = template.variables || extractVars(template.body_html)
   const meta = getTemplateMeta(template.slug)
   const catDef = CATEGORIES.find(c => c.value === meta.category) || CATEGORIES[4]
+  const chanDef = CHANNELS.find(c => c.value === getChannel(template.slug)) || CHANNELS[2]
+  const attachmentsList = Array.isArray(template.attachments) ? template.attachments : []
 
   return (
     <Card>
       <div className="flex items-center justify-between mb-1">
         <h4 className="font-extrabold text-sm" style={{ color: '#0f1a14' }}>{template.name}</h4>
         <div className="flex items-center gap-1">
+          <Badge label={chanDef.label} color={chanDef.color} bg={chanDef.bg} />
           <Badge label={catDef.label} color={catDef.color} bg={catDef.bg} />
           <Badge label={template.active ? 'Aktivní' : 'Neaktivní'} color={template.active ? '#1a8a18' : '#6b7280'} bg={template.active ? '#dcfce7' : '#f3f4f6'} />
         </div>
@@ -286,7 +358,7 @@ function TemplateCard({ template, onEdit }) {
         {meta.info && <div className="mb-1">{meta.info}</div>}
         <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1" style={{ fontSize: 11 }}>
           <span><strong style={{ color: '#1a2e22' }}>Trigger:</strong> {meta.trigger}</span>
-          <span><strong style={{ color: '#1a2e22' }}>Přílohy:</strong> {meta.attachments}</span>
+          <span><strong style={{ color: '#1a2e22' }}>Přílohy:</strong> {attachmentsList.length > 0 ? attachmentsList.join(', ') : (meta.attachments || '—')}</span>
         </div>
       </div>
 
@@ -339,6 +411,9 @@ function EditEmailTemplateModal({ template, onClose, onSaved }) {
   const [subject, setSubject] = useState(template.subject || '')
   const [bodyHtml, setBodyHtml] = useState(template.body_html || '')
   const [active, setActive] = useState(template.active ?? true)
+  const [attachmentsSel, setAttachmentsSel] = useState(
+    Array.isArray(template.attachments) ? template.attachments : []
+  )
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
   const [err, setErr] = useState(null)
@@ -346,6 +421,12 @@ function EditEmailTemplateModal({ template, onClose, onSaved }) {
   const [dragOver, setDragOver] = useState(false)
   const fileInputRef = useRef(null)
   const meta = getTemplateMeta(template.slug)
+
+  function toggleAttachment(val) {
+    setAttachmentsSel(prev =>
+      prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]
+    )
+  }
 
   const vars = template.variables || extractVars(bodyHtml)
   const variableOptions = vars.map(v => ({ label: `{{${v}}}`, value: `{{${v}}}` }))
@@ -371,7 +452,7 @@ function EditEmailTemplateModal({ template, onClose, onSaved }) {
     setSaving(true); setErr(null)
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      const updatePayload = { name, subject, body_html: bodyHtml, active, updated_by: user?.id }
+      const updatePayload = { name, subject, body_html: bodyHtml, active, attachments: attachmentsSel, updated_by: user?.id }
       const result = await debugAction('emailTemplate.update', 'EditEmailTemplateModal', () =>
         supabase.from('email_templates').update(updatePayload).eq('id', template.id)
       , updatePayload)
@@ -426,6 +507,34 @@ function EditEmailTemplateModal({ template, onClose, onSaved }) {
             variables={variableOptions}
           />
         </div>
+
+        <div>
+          <Label>Přílohy</Label>
+          <div className="text-xs mb-2" style={{ color: '#6b7280' }}>
+            Vyberte které dokumenty se k tomuto e-mailu automaticky přiloží. Edge funkce je vygeneruje (nebo dohledá v invoices/documents) podle booking/order ID.
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {ATTACHMENT_OPTIONS.map(opt => {
+              const checked = attachmentsSel.includes(opt.value)
+              return (
+                <label key={opt.value}
+                  className="flex items-center gap-2 cursor-pointer rounded-btn"
+                  style={{
+                    padding: '6px 10px',
+                    background: checked ? '#dcfce7' : '#f9fafb',
+                    border: `1px solid ${checked ? '#86efac' : '#e5e7eb'}`,
+                    color: checked ? '#166534' : '#374151',
+                    fontSize: 12,
+                  }}>
+                  <input type="checkbox" checked={checked} onChange={() => toggleAttachment(opt.value)}
+                    className="accent-[#1a8a18]" style={{ width: 14, height: 14 }} />
+                  <span style={{ fontWeight: checked ? 700 : 500 }}>{opt.label}</span>
+                </label>
+              )
+            })}
+          </div>
+        </div>
+
         <div className="flex items-center gap-2">
           <input type="checkbox" checked={active} onChange={e => setActive(e.target.checked)} id="tpl-active" />
           <label htmlFor="tpl-active" className="text-sm font-bold" style={{ color: '#1a2e22' }}>Aktivní</label>
@@ -444,17 +553,162 @@ function EditEmailTemplateModal({ template, onClose, onSaved }) {
       </div>
 
       {showPreview && (
-        <Modal open title="Náhled e-mailu" onClose={() => setShowPreview(false)} wide>
-          <div className="text-sm font-bold mb-2" style={{ color: '#1a2e22' }}>
-            Předmět: {subject.replace(/\{\{(\w+)\}\}/g, (_, k) => SAMPLE_VARS[k] || `{{${k}}}`)}
+        <FullEmailPreviewModal
+          subject={subject.replace(/\{\{(\w+)\}\}/g, (_, k) => SAMPLE_VARS[k] || `{{${k}}}`)}
+          bodyHtml={getPreviewHtml()}
+          attachments={attachmentsSel}
+          fromEmail="noreply@motogo24.cz"
+          toEmail="zakaznik@example.cz"
+          replyTo="info@motogo24.cz"
+          onClose={() => setShowPreview(false)}
+        />
+      )}
+    </Modal>
+  )
+}
+
+/** Plný náhled e-mailu — branded wrap (hlavička + footer + helpcard) v iframe
+ *  + seznam příloh, klik → otevře iframe s ukázkovou přílohou (HTML preview).
+ *  Účel: admin uvidí přesně to, co dorazí zákazníkovi (UI + obrázky + přílohy). */
+function FullEmailPreviewModal({ subject, bodyHtml, attachments, fromEmail, toEmail, replyTo, onClose }) {
+  const [openAtt, setOpenAtt] = useState(null)
+  const fullHtml = wrapPreview(bodyHtml)
+
+  // Mapping příloh na ikony + popisek pro UI
+  const attMeta = {
+    ZF:       { icon: '📄', label: 'Zálohová faktura',    file: 'Zalohova-faktura-ZF-2026-0001.pdf' },
+    DP:       { icon: '🧾', label: 'Doklad o platbě',     file: 'Doklad-platby-DP-2026-0001.pdf' },
+    KF:       { icon: '🧮', label: 'Konečná faktura',     file: 'Konecna-faktura-KF-2026-0001.pdf' },
+    Smlouva:  { icon: '📑', label: 'Nájemní smlouva',     file: 'Najemni-smlouva.pdf' },
+    VOP:      { icon: '📋', label: 'VOP',                  file: 'VOP.pdf' },
+    Dobropis: { icon: '↩️', label: 'Dobropis',             file: 'Dobropis-DB-2026-0001.pdf' },
+    Voucher:  { icon: '🎁', label: 'Dárkový poukaz',      file: 'Voucher.pdf' },
+    eshop_DP: { icon: '🛒', label: 'DP — e-shop',         file: 'Eshop-DP-2026-0001.pdf' },
+    eshop_KF: { icon: '🛍️', label: 'KF — e-shop',         file: 'Eshop-KF-2026-0001.pdf' },
+  }
+
+  return (
+    <Modal open title="Náhled e-mailu — jak ho uvidí zákazník" onClose={onClose} wide>
+      {/* Resend-like meta panel */}
+      <div className="rounded-btn mb-3" style={{ padding: 12, background: '#f8faf9', border: '1px solid #d4e8e0', fontSize: 12, lineHeight: 1.7 }}>
+        <div><strong style={{ color: '#1a2e22' }}>Od:</strong> <span className="font-mono" style={{ color: '#374151' }}>{fromEmail}</span></div>
+        <div><strong style={{ color: '#1a2e22' }}>Komu:</strong> <span className="font-mono" style={{ color: '#374151' }}>{toEmail}</span></div>
+        <div><strong style={{ color: '#1a2e22' }}>Reply-To:</strong> <span className="font-mono" style={{ color: '#374151' }}>{replyTo}</span></div>
+        <div><strong style={{ color: '#1a2e22' }}>Předmět:</strong> <span style={{ color: '#0f1a14', fontWeight: 600 }}>{subject || '—'}</span></div>
+      </div>
+
+      {/* Branded HTML preview v iframe (autentický rendering — žádné style úniky) */}
+      <div className="rounded-card mb-3" style={{ background: '#d9dee2', border: '1px solid #d4e8e0', overflow: 'hidden' }}>
+        <iframe
+          title="Email preview"
+          srcDoc={fullHtml}
+          style={{ width: '100%', height: 600, border: 0, background: '#d9dee2', display: 'block' }}
+          sandbox=""
+        />
+      </div>
+
+      {/* Přílohy — seznam s klik-na-otevři */}
+      {attachments && attachments.length > 0 ? (
+        <div className="rounded-btn mb-3" style={{ padding: 12, background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+          <div className="text-xs font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>
+            Přílohy ({attachments.length})
           </div>
-          <div className="rounded-card" style={{ padding: 16, background: '#fff', border: '1px solid #d4e8e0', maxHeight: 500, overflow: 'auto' }}
-            dangerouslySetInnerHTML={{ __html: getPreviewHtml() }} />
-          <div className="flex justify-end mt-4"><Button onClick={() => setShowPreview(false)}>Zavřít</Button></div>
+          <div className="flex flex-wrap gap-2">
+            {attachments.map(att => {
+              const m = attMeta[att] || { icon: '📎', label: att, file: `${att}.pdf` }
+              return (
+                <button key={att}
+                  onClick={() => setOpenAtt(att)}
+                  className="rounded-btn text-xs cursor-pointer flex items-center gap-2"
+                  style={{
+                    padding: '8px 12px', background: '#fff', border: '1px solid #d4e8e0',
+                    color: '#1a2e22', fontWeight: 600,
+                  }}>
+                  <span style={{ fontSize: 14 }}>{m.icon}</span>
+                  <span>{m.label}</span>
+                  <span style={{ color: '#9ca3af', fontSize: 10, fontFamily: 'monospace' }}>{m.file}</span>
+                </button>
+              )
+            })}
+          </div>
+          <div className="text-[10px] mt-2" style={{ color: '#6b7280' }}>
+            Klikni na přílohu pro náhled. V reálném e-mailu jsou tyto soubory generovány v okamžiku odeslání podle booking/order ID — zde zobrazujeme ukázkový obsah.
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-btn mb-3 text-xs" style={{ padding: 8, background: '#fef3c7', border: '1px solid #fde68a', color: '#78350f' }}>
+          ℹ️ Tato šablona neobsahuje žádné přílohy.
+        </div>
+      )}
+
+      <div className="flex justify-end mt-2"><Button onClick={onClose}>Zavřít</Button></div>
+
+      {openAtt && (
+        <Modal open title={`Náhled přílohy: ${attMeta[openAtt]?.label || openAtt}`} onClose={() => setOpenAtt(null)} wide>
+          <div className="text-xs mb-2" style={{ color: '#6b7280' }}>
+            Toto je ukázkový obsah přílohy. V reálném e-mailu se generuje per-rezervace podle aktuálních dat z DB.
+          </div>
+          <div className="rounded-card" style={{ background: '#fff', border: '1px solid #d4e8e0', overflow: 'hidden', height: 500 }}>
+            <iframe
+              title="Attachment preview"
+              srcDoc={renderAttachmentSample(openAtt)}
+              style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
+              sandbox=""
+            />
+          </div>
+          <div className="flex justify-end mt-4"><Button onClick={() => setOpenAtt(null)}>Zavřít</Button></div>
         </Modal>
       )}
     </Modal>
   )
+}
+
+/** Ukázkový HTML obsah přílohy pro náhled v EmailTemplatesTab.
+ *  V reálu se generuje přes generate-invoice / generate-document edge funkce. */
+function renderAttachmentSample(att) {
+  const labels = {
+    ZF: 'ZÁLOHOVÁ FAKTURA',
+    DP: 'DOKLAD O PŘIJATÉ PLATBĚ',
+    KF: 'KONEČNÁ FAKTURA',
+    Dobropis: 'DOBROPIS',
+    Smlouva: 'NÁJEMNÍ SMLOUVA',
+    VOP: 'VŠEOBECNÉ OBCHODNÍ PODMÍNKY',
+    Voucher: 'DÁRKOVÝ POUKAZ',
+    eshop_DP: 'DOKLAD O PŘIJATÉ PLATBĚ — E-SHOP',
+    eshop_KF: 'KONEČNÁ FAKTURA — E-SHOP',
+  }
+  const title = labels[att] || att
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#d9dee2;font-family:-apple-system,'Segoe UI',Arial,sans-serif">
+  <div style="max-width:780px;margin:0 auto;background:#fff;min-height:100vh">
+    <div style="background:#000;padding:28px 32px">
+      <table width="100%" cellpadding="0" cellspacing="0"><tr>
+        <td style="vertical-align:middle">
+          <div style="color:#fff;font-size:24px;font-weight:900;letter-spacing:2px">MOTO GO 24</div>
+          <div style="color:#fff;font-size:10px;letter-spacing:4px;margin-top:6px">PŮJČOVNA MOTOREK</div>
+        </td>
+        <td style="vertical-align:middle;text-align:right">
+          <div style="display:inline-block;background:#74FB71;color:#000;font-size:10px;font-weight:800;letter-spacing:1px;padding:5px 9px;border-radius:3px">${title}</div>
+          <div style="color:#fff;font-size:18px;font-weight:600;margin-top:8px">${title === 'NÁJEMNÍ SMLOUVA' || title === 'VŠEOBECNÉ OBCHODNÍ PODMÍNKY' ? 'Smlouva' : 'č. 2026-0001'}</div>
+        </td>
+      </tr></table>
+    </div>
+    <div style="padding:24px 32px;color:#0f1a14;font-size:13px;line-height:1.7">
+      <p><strong>Dodavatel:</strong> Bc. Petra Semorádová · Mezná 9, 393 01 Pelhřimov · IČO: 21874263</p>
+      <p><strong>Odběratel:</strong> Jan Novák · Hlavní 123, 110 00 Praha 1</p>
+      <hr style="border:0;border-top:1px solid #e5e7eb;margin:16px 0">
+      <p style="color:#6b7280;font-size:12px">Toto je ukázkový obsah. Reálný dokument generuje edge funkce <code>generate-invoice</code> nebo <code>generate-document</code> v okamžiku vytvoření rezervace / objednávky a obsahuje konkrétní data zákazníka.</p>
+      <table style="width:100%;border-collapse:collapse;margin:16px 0;border:1px solid #e5e7eb;font-size:13px">
+        <tr style="background:#000;color:#fff"><th style="padding:10px 12px;text-align:left">Položka</th><th style="padding:10px 12px;text-align:right">Částka</th></tr>
+        <tr><td style="padding:10px 12px;border-top:1px solid #e5e7eb">Pronájem motorky BMW R 1200 GS Adventure (3 dny)</td><td style="padding:10px 12px;border-top:1px solid #e5e7eb;text-align:right">7 800 Kč</td></tr>
+        <tr style="background:#dcfce7"><td style="padding:14px 12px;font-weight:800">Celkem</td><td style="padding:14px 12px;text-align:right;font-weight:800">7 800 Kč</td></tr>
+      </table>
+    </div>
+    <div style="background:#000;padding:14px 32px;color:#fff;font-size:11px">
+      Bc. Petra Semorádová · Mezná 9, 393 01 Pelhřimov · IČO: 21874263 · <span style="color:#74FB71">+420 774 256 271</span> · <span style="color:#74FB71">info@motogo24.cz</span> · <span style="color:#74FB71">motogo24.cz</span>
+    </div>
+  </div>
+</body></html>`
 }
 
 const inputStyle = { padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0' }
