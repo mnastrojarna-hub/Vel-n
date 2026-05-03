@@ -61,35 +61,34 @@ function renderTemplate(template: string, vars: Record<string, string>): string 
 /** Wrap body HTML in unified MotoGo24 email layout (1:1 with invoice design + screen reference) */
 function wrapInBrandedLayout(bodyHtml: string, lang: Lang = 'cs'): string {
   const hc = helpCardLabels(lang)
-  const header = `<div style="background:#000000;padding:28px 32px">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>
-      <td style="vertical-align:middle;padding-right:16px;width:64px"><img src="${SITE_URL}/gfx/logo-icon.png" alt="MotoGo24" width="64" height="64" style="display:block;border:0"/></td>
-      <td style="vertical-align:middle">
-        <div style="color:#ffffff;font-size:24px;font-weight:900;letter-spacing:2px;line-height:1">MOTO GO 24</div>
-        <div style="color:#ffffff;font-size:10px;font-weight:400;letter-spacing:4px;margin-top:6px">P\u016eJ\u010cOVNA MOTOREK</div>
-      </td>
-    </tr></table>
+  // Vertik\u00e1ln\u00ed hlavi\u010dka 1:1 s brand logem (ikona velk\u00e1 naho\u0159e, text pod n\u00ed)
+  const header = `<div style="background:#000000;padding:36px 24px;text-align:center">
+    <img src="${SITE_URL}/gfx/logo-icon.png" alt="MotoGo24" width="110" height="110" style="display:inline-block;border:0;margin-bottom:16px"/>
+    <div style="color:#ffffff;font-size:32px;font-weight:900;letter-spacing:3px;line-height:1">MOTO GO 24</div>
+    <div style="color:#ffffff;font-size:11px;font-weight:400;letter-spacing:6px;margin-top:8px">P\u016eJ\u010cOVNA MOTOREK</div>
   </div>`
   const helpCard = `<div style="margin:24px 32px 0;background:#000000;border:2px solid #74FB71;border-radius:8px;padding:24px">
     <div style="color:#74FB71;font-size:18px;font-weight:800;margin:0 0 8px">${hc.title}</div>
     <div style="color:#ffffff;font-size:13px;margin:0 0 16px">${hc.body}</div>
     <a href="mailto:info@motogo24.cz" style="display:inline-block;background:#74FB71;color:#000000;font-size:13px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:24px">${hc.cta}</a>
   </div>`
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(PUBLIC_QR_TARGET)}`
   const footer = `<div style="background:#000000;padding:24px 32px;margin-top:24px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>
       <td style="vertical-align:top;padding-right:16px">
         <div style="border:1px solid #74FB71;border-radius:6px;padding:16px;color:#ffffff;font-size:12px;line-height:1.7">
           <div style="font-size:14px;font-weight:800;color:#ffffff">Motogo24</div>
           <div style="font-size:14px;font-weight:800;color:#ffffff;margin-bottom:6px">Bc. Petra Semor\u00e1dov\u00e1</div>
-          <div style="color:#9ca3af">Mezn\u00e1 9, 393 01 Mezn\u00e1</div>
+          <div style="color:#9ca3af">Mezn\u00e1 9, 393 01 Pelh\u0159imov</div>
           <div style="color:#9ca3af">I\u010cO: 21874263</div>
           <div><span style="color:#9ca3af">Telefon:</span> <span style="color:#74FB71">+420 774 256 271</span></div>
           <div><span style="color:#9ca3af">E-mail:</span> <span style="color:#74FB71">info@motogo24.cz</span></div>
           <div><span style="color:#9ca3af">Web:</span> <span style="color:#74FB71">motogo24.cz</span></div>
         </div>
       </td>
-      <td style="vertical-align:top;width:120px;text-align:center">
-        <a href="${PUBLIC_QR_TARGET}" style="text-decoration:none"><img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&amp;margin=8&amp;data=${encodeURIComponent(PUBLIC_QR_TARGET)}" alt="motogo24.cz" width="110" height="110" style="display:block;background:#ffffff;padding:6px;border-radius:4px"/></a>
+      <td style="vertical-align:top;width:130px;text-align:center">
+        <a href="${PUBLIC_QR_TARGET}" style="text-decoration:none"><img src="${qrUrl}" alt="motogo24.cz" width="120" height="120" style="display:block;background:#ffffff;padding:6px;border-radius:4px"/></a>
+        <div style="color:#9ca3af;font-size:10px;margin-top:6px">motogo24.cz</div>
       </td>
     </tr></table>
   </div>`

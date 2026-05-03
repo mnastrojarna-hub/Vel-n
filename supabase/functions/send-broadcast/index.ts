@@ -359,14 +359,10 @@ serve(async (req) => {
 /** Build branded marketing HTML email — unified design (1:1 with invoice + screen) */
 function buildMarketingHtml(body: string, subject: string): string {
   const SITE_URL = Deno.env.get('SITE_URL') || 'https://motogo24.cz'
-  const header = `<div style="background:#000000;padding:28px 32px">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>
-      <td style="vertical-align:middle;padding-right:16px;width:64px"><img src="${SITE_URL}/gfx/logo-icon.png" alt="MotoGo24" width="64" height="64" style="display:block;border:0"/></td>
-      <td style="vertical-align:middle">
-        <div style="color:#ffffff;font-size:24px;font-weight:900;letter-spacing:2px;line-height:1">MOTO GO 24</div>
-        <div style="color:#ffffff;font-size:10px;font-weight:400;letter-spacing:4px;margin-top:6px">PŮJČOVNA MOTOREK</div>
-      </td>
-    </tr></table>
+  const header = `<div style="background:#000000;padding:36px 24px;text-align:center">
+    <img src="${SITE_URL}/gfx/logo-icon.png" alt="MotoGo24" width="110" height="110" style="display:inline-block;border:0;margin-bottom:16px"/>
+    <div style="color:#ffffff;font-size:32px;font-weight:900;letter-spacing:3px;line-height:1">MOTO GO 24</div>
+    <div style="color:#ffffff;font-size:11px;font-weight:400;letter-spacing:6px;margin-top:8px">PŮJČOVNA MOTOREK</div>
   </div>`
   const helpCard = `<div style="margin:24px 32px 0;background:#000000;border:2px solid #74FB71;border-radius:8px;padding:24px">
     <div style="color:#74FB71;font-size:18px;font-weight:800;margin:0 0 8px">Máte dotaz?</div>
