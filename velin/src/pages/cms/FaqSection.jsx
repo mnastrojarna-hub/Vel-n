@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
+import TranslationBackfillButton from '../../components/shared/TranslationBackfillButton'
 import { autoTranslate } from '../../lib/autoTranslate'
 import { debugAction } from '../../lib/debugLog'
 
@@ -114,6 +115,20 @@ export default function FaqSection() {
           {totalPublished} publikováno · ⭐ {featuredCount} na home
         </div>
         <Button green onClick={() => setShowAdd(true)}>+ Nová otázka</Button>
+      </div>
+
+      {/* Backfill překladů pro starší otázky bez vyplněného translations JSONB */}
+      <div className="mb-4 p-3 rounded-card flex items-center justify-between gap-3"
+        style={{ background: '#fff', border: '1px solid #e2ece7' }}>
+        <div className="text-xs" style={{ color: '#4a6b5a' }}>
+          Doplní EN/DE/ES/FR/NL/PL překlady pro otázky, kterým chybí <code>translations</code>
+          (např. položky importované před zapnutím auto-překladu).
+        </div>
+        <TranslationBackfillButton
+          table="faq_items"
+          selectColumns="id, question, answer, translations"
+          onDone={load}
+        />
       </div>
 
       {/* Filter */}
