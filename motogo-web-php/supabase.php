@@ -233,8 +233,10 @@ class SupabaseClient {
      * Pořadí merge (pozdější přepisuje dřívější):
      *   1) $defaults (CS — z PHP / data/*.php)
      *   2) jazykový overlay z dictionary: t('pages.<page>') (z lang/pages_<lang>.php)
-     *   3) DB 'site.<page>' (CS overlay z app_settings)
-     *   4) DB 'site.<page>.<lang>' (per-language overlay z app_settings)
+     *   3) DB pages_overlay (app_settings.pages_overlay.<page>.<lang>) — auto-překlad z Velínu
+     *   4) cms_variables (web.<page>.*)
+     *   5) DB 'site.<page>' (CS overlay z app_settings)
+     *   6) DB 'site.<page>.<lang>' (per-language overlay z app_settings)
      *
      * @param string $page Slug stránky (např. 'home', 'pujcovna', 'jak_pujcit_cena')
      * @param array $defaults Výchozí obsah v CS
@@ -252,7 +254,17 @@ class SupabaseClient {
             }
         }
 
-        // 2) Velín CMS overlay (cms_variables, klíče web.<page>.<path…>)
+        // 2) DB pages_overlay (app_settings.pages_overlay.<page>.<lang>)
+        // Auto-překlad spuštěný z Velínu přes edge fn `translate-pages-master`.
+        // Vyšší priorita než lang/pages_<lang>.php — přepíše statický fallback.
+        if ($lang && $lang !== 'cs') {
+            $pagesOverlay = $this->fetchSetting('pages_overlay.' . $page . '.' . $lang);
+            if (is_array($pagesOverlay) && !empty($pagesOverlay)) {
+                $merged = self::deepMerge($merged, $pagesOverlay);
+            }
+        }
+
+        // 3) Velín CMS overlay (cms_variables, klíče web.<page>.<path…>)
         // Pozor: používáme cmsDeepMerge, ne deepMerge — u list klíčů (např. signposts[0..5])
         // chceme mergovat po prvcích, ne nahradit celé pole, protože overlay z DB
         // typicky obsahuje jen některé indexy/atributy.
@@ -261,13 +273,13 @@ class SupabaseClient {
             $merged = self::cmsDeepMerge($merged, $cmsOverlay);
         }
 
-        // 3) Základní (CS) DB override z app_settings
+        // 4) Základní (CS) DB override z app_settings
         $db = $this->fetchSetting('site.' . $page);
         if (is_array($db) && !empty($db)) {
             $merged = self::deepMerge($merged, $db);
         }
 
-        // 4) Per-language DB override (např. site.home.en)
+        // 5) Per-language DB override (např. site.home.en)
         if ($lang && $lang !== 'cs') {
             $dbLang = $this->fetchSetting('site.' . $page . '.' . $lang);
             if (is_array($dbLang) && !empty($dbLang)) {

@@ -4,6 +4,7 @@ import WebTextSection from './WebTextSection'
 import BlogSection from './BlogSection'
 import FaqSection from './FaqSection'
 import TranslationBackfillButton from '../../components/shared/TranslationBackfillButton'
+import TranslatePagesMasterButton from '../../components/cms/TranslatePagesMasterButton'
 import { WEB_PAGES } from './webTextsPages'
 
 // Celkový počet textů
@@ -108,6 +109,17 @@ export default function WebTextsTab() {
         {totalFilled === TOTAL_FIELDS && (
           <span className="text-xs font-bold" style={{ color: '#22c55e' }}>Vše uloženo</span>
         )}
+      </div>
+
+      {/* Master překlad velkých CMS stránek (jak_pujcit_*, home, pujcovna, ...) */}
+      <div className="mb-4 p-3 rounded-card flex items-center justify-between gap-3"
+        style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
+        <div className="text-xs" style={{ color: '#9a3412' }}>
+          <strong>Pages master překlad</strong> — přeloží celý strom velkých stránek
+          (jak_pujcit_*, home, pujcovna…) z CS do EN/DE/ES/FR/NL/PL a uloží do DB.
+          Po doběhu se projeví na všech doménách živě, <strong>bez FTP uploadu</strong>.
+        </div>
+        <TranslatePagesMasterButton />
       </div>
 
       {/* Backfill překladů pro cms_variables (web.* klíče) */}
