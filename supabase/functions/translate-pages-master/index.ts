@@ -1,26 +1,25 @@
 /**
  * MotoGo24 — Edge Function: translate-pages-master
  *
- * Auto-překlad CS masteru velkých CMS stránek (jak_pujcit_*, home, pujcovna, …)
- * do 6 jazyků a uložení do `app_settings` pod klíče `pages_overlay.<page>.<lang>`.
+ * Auto-překlad CS masteru velkých CMS stránek do 6 jazyků a uložení
+ * do `app_settings.pages_overlay.<page>.<lang>` (JSONB strom).
  *
- * Master CS strom se načte z public PHP endpointu motogo-web-php
- * `https://motogo24.cz/api/master.php?token=<cms_admin_token>` — buď celý naráz
- * nebo per-page přes `&page=<slug>`.
+ * Dva módy provozu:
  *
- * Klient (Velín tlačítko) volá:
- *   POST /functions/v1/translate-pages-master
- *   Body: {
- *     pages?: string[],          // konkrétní slugy; default: všechny vrácené /api/master.php
- *     target_langs?: string[],   // default ['en','de','es','fr','nl','pl']
- *     master_url?: string,       // override (default: https://motogo24.cz/api/master.php)
- *   }
+ * 1) `{action: 'list'}` — rychle (žádné Anthropic volání): vrací pole
+ *    všech kombinací {page, lang}, které je třeba přeložit.
+ *    Klient (Velín) z toho udělá frontu a volá `action:'translate-one'`
+ *    sekvenčně/paralelně. Tím se vyhneme timeoutu edge fn.
  *
- * Odpověď:
- *   { success: true, processed: [{page, lang, status, error?}], total }
+ * 2) `{action: 'translate-one', page, lang}` — přeloží JEDNU dvojici.
+ *    Trvá typicky 3-8 s. Vrací uloženou hodnotu.
  *
- * Bezpečnost: vyžaduje JWT (admin volá z Velínu). cms_admin_token autorizuje
- * fetch masteru z PHP endpointu.
+ * V obou případech se master fetchuje z public PHP endpointu
+ * `https://motogo24.cz/api/master.php?token=<cms_admin_token>`
+ * (volitelně přepsatelné přes `master_url`).
+ *
+ * Bezpečnost: vyžaduje JWT (admin volá z Velínu).
+ * Sekret: ANTHROPIC_API_KEY.
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
@@ -73,6 +72,19 @@ function buildSystemPrompt(targetLang: string, langName: string): string {
   ].join('\n')
 }
 
+async function fetchMaster(masterUrl: string, sb: ReturnType<typeof createClient>, page?: string): Promise<{
+  pages: Record<string, unknown>,
+}> {
+  const { data: tokRow } = await sb.from('app_settings').select('value').eq('key', 'cms_admin_token').maybeSingle()
+  const cmsAdminToken = typeof tokRow?.value === 'string' ? tokRow.value : (tokRow?.value ?? '')
+  if (!cmsAdminToken) throw new Error('cms_admin_token missing in app_settings')
+  const url = `${masterUrl}?token=${encodeURIComponent(String(cmsAdminToken))}` + (page ? `&page=${encodeURIComponent(page)}` : '')
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`master fetch failed: HTTP ${res.status}`)
+  const json = await res.json()
+  return { pages: json?.pages || {} }
+}
+
 async function translateTree(tree: unknown, lang: string): Promise<unknown> {
   const langName = LANG_NAMES[lang] || lang
   const userPayload = JSON.stringify(tree)
@@ -90,7 +102,6 @@ async function translateTree(tree: unknown, lang: string): Promise<unknown> {
       messages: [{ role: 'user', content: userPayload }],
     }),
   })
-
   if (!response.ok) {
     const errText = await response.text()
     throw new Error(`Anthropic ${response.status}: ${errText.slice(0, 300)}`)
@@ -113,11 +124,8 @@ serve(async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
   try {
-    if (!ANTHROPIC_API_KEY) return jsonResponse({ error: 'ANTHROPIC_API_KEY not configured' }, 500)
-
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
-    // JWT auth — vyžaduje admina ve Velíně
     const authHeader = req.headers.get('Authorization') || ''
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
     if (!token) return jsonResponse({ error: 'unauthorized' }, 401)
@@ -125,52 +133,42 @@ serve(async (req: Request): Promise<Response> => {
     if (!user) return jsonResponse({ error: 'unauthorized' }, 401)
 
     const body = await req.json().catch(() => ({}))
+    const action = body.action || 'list'
+    const masterUrl = body.master_url || DEFAULT_MASTER_URL
     const targetLangs: string[] = Array.isArray(body.target_langs) && body.target_langs.length
       ? body.target_langs.filter((l: string) => LANG_NAMES[l])
       : DEFAULT_LANGS
-    const masterUrl = body.master_url || DEFAULT_MASTER_URL
-    const wantPages: string[] | null = Array.isArray(body.pages) && body.pages.length ? body.pages : null
 
-    // Načti cms_admin_token z app_settings → autorizuje fetch /api/master.php
-    const { data: tokRow } = await sb.from('app_settings').select('value').eq('key', 'cms_admin_token').maybeSingle()
-    const cmsAdminToken = typeof tokRow?.value === 'string' ? tokRow.value : (tokRow?.value ?? '')
-    if (!cmsAdminToken) return jsonResponse({ error: 'cms_admin_token missing in app_settings' }, 500)
-
-    // Fetch master
-    const masterRes = await fetch(`${masterUrl}?token=${encodeURIComponent(String(cmsAdminToken))}`)
-    if (!masterRes.ok) {
-      return jsonResponse({ error: `master fetch failed: HTTP ${masterRes.status}` }, 502)
-    }
-    const masterJson = await masterRes.json()
-    const allPages: Record<string, unknown> = masterJson?.pages || {}
-    const pageKeys = wantPages ? wantPages.filter(p => allPages[p]) : Object.keys(allPages)
-
-    const processed: Array<{ page: string, lang: string, status: 'ok' | 'error', error?: string }> = []
-    for (const page of pageKeys) {
-      const masterTree = allPages[page]
-      for (const lang of targetLangs) {
-        try {
-          const translated = await translateTree(masterTree, lang)
-          // Upsert do app_settings
-          const settingKey = `pages_overlay.${page}.${lang}`
-          const { error: upErr } = await sb
-            .from('app_settings')
-            .upsert({ key: settingKey, value: translated, updated_at: new Date().toISOString() }, { onConflict: 'key' })
-          if (upErr) throw new Error(upErr.message)
-          processed.push({ page, lang, status: 'ok' })
-        } catch (e) {
-          processed.push({ page, lang, status: 'error', error: (e as Error).message })
-        }
-      }
+    if (action === 'list') {
+      const { pages } = await fetchMaster(masterUrl, sb)
+      const wantPages: string[] | null = Array.isArray(body.pages) && body.pages.length ? body.pages : null
+      const pageKeys = wantPages ? wantPages.filter(p => pages[p]) : Object.keys(pages)
+      const queue: Array<{ page: string, lang: string }> = []
+      for (const p of pageKeys) for (const l of targetLangs) queue.push({ page: p, lang: l })
+      return jsonResponse({ success: true, queue, pages: pageKeys, langs: targetLangs })
     }
 
-    return jsonResponse({
-      success: true,
-      total: processed.length,
-      ok: processed.filter(p => p.status === 'ok').length,
-      errors: processed.filter(p => p.status === 'error').length,
-      processed,
-    })
+    if (action === 'translate-one') {
+      if (!ANTHROPIC_API_KEY) return jsonResponse({ error: 'ANTHROPIC_API_KEY not configured' }, 500)
+      const page = String(body.page || '')
+      const lang = String(body.lang || '')
+      if (!page || !LANG_NAMES[lang]) return jsonResponse({ error: 'invalid page or lang' }, 400)
+
+      const { pages } = await fetchMaster(masterUrl, sb, page)
+      const masterTree = pages[page]
+      if (!masterTree) return jsonResponse({ error: `unknown page: ${page}` }, 404)
+
+      const translated = await translateTree(masterTree, lang)
+      const settingKey = `pages_overlay.${page}.${lang}`
+      const { error: upErr } = await sb
+        .from('app_settings')
+        .upsert({ key: settingKey, value: translated, updated_at: new Date().toISOString() }, { onConflict: 'key' })
+      if (upErr) return jsonResponse({ error: upErr.message }, 500)
+
+      return jsonResponse({ success: true, page, lang, key: settingKey })
+    }
+
+    return jsonResponse({ error: `unknown action: ${action}` }, 400)
   } catch (e) {
     return jsonResponse({ error: (e as Error).message }, 500)
   }
