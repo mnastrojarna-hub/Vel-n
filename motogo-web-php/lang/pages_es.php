@@ -224,12 +224,14 @@ return [
             ],
             'place' => [
                 'title' => 'Dónde se realiza la recogida',
+                'address_label' => 'Dirección:',
+                'hours_label' => 'Horario:',
+                'map_title' => 'Cómo llegar',
                 'address' => 'Mezná 9, 393 01 <strong>Pelhřimov</strong> (Vysočina)',
                 'hours' => '<em>24/7</em>',
                 'phone' => '+420 774 256 271',
                 'return_title' => 'Devolución de la moto – sin estrés',
                 'return_text' => 'Puedes devolver la moto <strong>en cualquier momento durante el último día del alquiler</strong>. Más información en <a href="/jak-pujcit/vraceni-pujcovna">devolución en el establecimiento</a> o <a href="/jak-pujcit/vraceni-jinde">devolución en otro lugar</a>.',
-                'map_src' => 'https://frame.mapy.cz/s/?x=15.15413&y=49.35169&z=14&source=coor&id=15.15413%2C49.35169',
             ],
             'steps' => [
                 'title' => 'Cómo se desarrolla la recogida paso a paso',

@@ -224,12 +224,14 @@ return [
             ],
             'place' => [
                 'title' => 'Où se déroule la prise en main',
+                'address_label' => 'Adresse :',
+                'hours_label' => 'Horaires :',
+                'map_title' => 'Comment nous trouver',
                 'address' => 'Mezná 9, 393 01 <strong>Pelhřimov</strong> (Vysočina)',
                 'hours' => '<em>24h/24</em>',
                 'phone' => '+420 774 256 271',
                 'return_title' => 'Restitution de la moto – sans stress',
                 'return_text' => 'Tu peux rendre la moto <strong>à n\'importe quel moment durant le dernier jour de location</strong>. Plus d\'informations dans <a href="/jak-pujcit/vraceni-pujcovna">restitution à la location</a> ou <a href="/jak-pujcit/vraceni-jinde">restitution ailleurs</a>.',
-                'map_src' => 'https://frame.mapy.cz/s/?x=15.15413&y=49.35169&z=14&source=coor&id=15.15413%2C49.35169',
             ],
             'steps' => [
                 'title' => 'Comment se déroule la prise en main étape par étape',

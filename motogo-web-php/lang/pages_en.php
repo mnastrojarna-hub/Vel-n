@@ -224,12 +224,14 @@ return [
             ],
             'place' => [
                 'title' => 'Where the pick-up takes place',
+                'address_label' => 'Address:',
+                'hours_label' => 'Opening hours:',
+                'map_title' => 'How to find us',
                 'address' => 'Mezná 9, 393 01 <strong>Pelhřimov</strong> (Vysočina)',
                 'hours' => '<em>24/7</em>',
                 'phone' => '+420 774 256 271',
                 'return_title' => 'Returning the motorcycle – stress-free',
                 'return_text' => 'You can return the motorcycle <strong>any time during the last day of the rental</strong>. For more information see <a href="/jak-pujcit/vraceni-pujcovna">return at the rental</a> or <a href="/jak-pujcit/vraceni-jinde">return elsewhere</a>.',
-                'map_src' => 'https://frame.mapy.cz/s/?x=15.15413&y=49.35169&z=14&source=coor&id=15.15413%2C49.35169',
             ],
             'steps' => [
                 'title' => 'How the pick-up works step by step',
