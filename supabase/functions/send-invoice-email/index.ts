@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { normalizeLang, helpCardLabels, invoiceEmailSnippets, type Lang } from '../_shared/i18n.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
@@ -32,7 +33,8 @@ function renderTemplate(template: string, vars: Record<string, string>): string 
 }
 
 /** Wrap body HTML in unified MotoGo24 email layout (1:1 with invoice design + screen reference) */
-function wrapInBrandedLayout(bodyHtml: string): string {
+function wrapInBrandedLayout(bodyHtml: string, lang: Lang = 'cs'): string {
+  const hc = helpCardLabels(lang)
   const header = `<div style="background:#000000;padding:28px 32px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>
       <td style="vertical-align:middle;padding-right:16px;width:64px"><img src="${SITE_URL}/gfx/logo-icon.png" alt="MotoGo24" width="64" height="64" style="display:block;border:0"/></td>
@@ -43,9 +45,9 @@ function wrapInBrandedLayout(bodyHtml: string): string {
     </tr></table>
   </div>`
   const helpCard = `<div style="margin:24px 32px 0;background:#000000;border:2px solid #74FB71;border-radius:8px;padding:24px">
-    <div style="color:#74FB71;font-size:18px;font-weight:800;margin:0 0 8px">M\u00e1te dotaz?</div>
-    <div style="color:#ffffff;font-size:13px;margin:0 0 16px">Pokud budete m\u00edt jak\u00fdkoliv dotaz, jsme v\u00e1m k dispozici.</div>
-    <a href="mailto:info@motogo24.cz" style="display:inline-block;background:#74FB71;color:#000000;font-size:13px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:24px">info@motogo24.cz</a>
+    <div style="color:#74FB71;font-size:18px;font-weight:800;margin:0 0 8px">${hc.title}</div>
+    <div style="color:#ffffff;font-size:13px;margin:0 0 16px">${hc.body}</div>
+    <a href="mailto:info@motogo24.cz" style="display:inline-block;background:#74FB71;color:#000000;font-size:13px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:24px">${hc.cta}</a>
   </div>`
   const footer = `<div style="background:#000000;padding:24px 32px;margin-top:24px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>
@@ -66,7 +68,7 @@ function wrapInBrandedLayout(bodyHtml: string): string {
     </tr></table>
   </div>`
 
-  return `<!DOCTYPE html><html lang="cs"><head><meta charset="UTF-8"></head>
+  return `<!DOCTYPE html><html lang="${lang}"><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#d9dee2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1a14;-webkit-font-smoothing:antialiased">
   <div style="max-width:780px;margin:0 auto;background:#ffffff">
     ${header}
@@ -121,15 +123,17 @@ serve(async (req) => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
   try {
-    const { invoice_id, html_content, customer_email, customer_name, invoice_number } = await req.json()
+    const { invoice_id, html_content, customer_email, customer_name, invoice_number, language } = await req.json()
+    const custLang: Lang = normalizeLang(language)
 
     if (!invoice_id) return jsonResponse({ success: false, error: 'Missing invoice_id' }, 400)
 
     // If InvoicePreviewModal passed html_content directly, use it as-is when it's a full invoice document
     if (html_content && customer_email) {
-      const subject = `Faktura \u010d. ${invoice_number || '\u2014'} \u2014 MOTO GO 24`
+      const snip = invoiceEmailSnippets('issued', custLang, { invoice_number: invoice_number || '\u2014' })
+      const subject = snip.subject
       const isFullDoc = /^\s*<!DOCTYPE/i.test(html_content) || /<html[\s>]/i.test(html_content)
-      const html = isFullDoc ? html_content : wrapInBrandedLayout(html_content)
+      const html = isFullDoc ? html_content : wrapInBrandedLayout(html_content, custLang)
       if (!RESEND_API_KEY) return jsonResponse({ success: false, error: 'RESEND_API_KEY not configured' }, 500)
       const result = await sendWithRetry({ from: FROM_EMAIL, reply_to: REPLY_TO, to: customer_email, subject, html })
       try { await supabase.from('sent_emails').insert({ template_slug: 'invoice', recipient_email: customer_email, subject, body_html: html, status: result.success ? 'sent' : 'failed', error_message: result.error || null, provider_id: result.provider_id || null }) } catch {}
@@ -181,26 +185,28 @@ serve(async (req) => {
       subject = renderTemplate(tpl.subject || '', vars)
     }
 
-    // Fallback subject
+    // i18n snippets pro subject + intro/closing/labels
+    const snip = invoiceEmailSnippets(invoice.type || 'issued', custLang, { invoice_number: invoice.number || '' })
+
+    // Fallback subject (i18n)
     if (!subject) {
-      subject = `${invoiceLabel} \u010d. ${invoice.number} \u2014 MOTO GO 24`
+      subject = snip.subject
     }
 
-    // Fallback body
+    // Fallback body (i18n) \u2014 tabulka popisk\u016f v jazyce z\u00e1kazn\u00edka, \u010d\u00edsla/data neutral
     if (!templateHtml) {
-      templateHtml = `<p>Dobr\u00fd den${recipientName ? ' ' + recipientName : ''},</p>
-<p>zas\u00edl\u00e1me V\u00e1m ${invoiceLabel.toLowerCase()} \u010d. <strong>${invoice.number}</strong>.</p>
+      templateHtml = `<p>${snip.intro}</p>
 <div style="background:#f1faf7;border:1px solid #d4e8e0;border-radius:12px;padding:16px;margin:20px 0">
   <table style="width:100%;border-collapse:collapse;font-size:14px;color:#374151">
-    <tr><td style="padding:4px 0;font-weight:700">\u010c\u00edslo:</td><td>${invoice.number}</td></tr>
-    <tr><td style="padding:4px 0;font-weight:700">Datum vystaven\u00ed:</td><td>${fmtDate(invoice.issue_date)}</td></tr>
-    <tr><td style="padding:4px 0;font-weight:700">Splatnost:</td><td>${fmtDate(invoice.due_date)}</td></tr>
-    ${invoice.variable_symbol ? `<tr><td style="padding:4px 0;font-weight:700">VS:</td><td>${invoice.variable_symbol}</td></tr>` : ''}
-    <tr><td style="padding:4px 0;font-weight:700">Celkem:</td><td style="font-weight:700;color:#1a8a18">${fmtPrice(invoice.total)} K\u010d</td></tr>
+    <tr><td style="padding:4px 0;font-weight:700">${snip.tableLabels.num}</td><td>${invoice.number}</td></tr>
+    <tr><td style="padding:4px 0;font-weight:700">${snip.tableLabels.issue}</td><td>${fmtDate(invoice.issue_date)}</td></tr>
+    <tr><td style="padding:4px 0;font-weight:700">${snip.tableLabels.due}</td><td>${fmtDate(invoice.due_date)}</td></tr>
+    ${invoice.variable_symbol ? `<tr><td style="padding:4px 0;font-weight:700">${snip.tableLabels.vs}</td><td>${invoice.variable_symbol}</td></tr>` : ''}
+    <tr><td style="padding:4px 0;font-weight:700">${snip.tableLabels.total}</td><td style="font-weight:700;color:#1a8a18">${fmtPrice(invoice.total)} K\u010d</td></tr>
   </table>
 </div>
-<p>Fakturu naleznete v p\u0159\u00edloze tohoto emailu a tak\u00e9 ve sv\u00e9 aplikaci MOTO GO 24.</p>
-<p>T\u00fdm MotoGo24</p>`
+<p>${snip.outro}</p>
+<p>${snip.closing}</p>`
     }
 
     if (!RESEND_API_KEY) return jsonResponse({ success: false, error: 'RESEND_API_KEY not configured' }, 500)
@@ -221,7 +227,28 @@ serve(async (req) => {
         }
       } catch { /* ignore */ }
     }
-    if (!html) html = wrapInBrandedLayout(templateHtml)
+    if (!html) html = wrapInBrandedLayout(templateHtml, custLang)
+
+    // Admin kopie do info@motogo24.cz vždy v CZ — rerendrujeme CZ verzi
+    let adminHtml = html
+    let adminSubject = subject
+    if (custLang !== 'cs') {
+      const csSnip = invoiceEmailSnippets(invoice.type || 'issued', 'cs', { invoice_number: invoice.number || '' })
+      const csBody = `<p>${csSnip.intro}</p>
+<div style="background:#f1faf7;border:1px solid #d4e8e0;border-radius:12px;padding:16px;margin:20px 0">
+  <table style="width:100%;border-collapse:collapse;font-size:14px;color:#374151">
+    <tr><td style="padding:4px 0;font-weight:700">${csSnip.tableLabels.num}</td><td>${invoice.number}</td></tr>
+    <tr><td style="padding:4px 0;font-weight:700">${csSnip.tableLabels.issue}</td><td>${fmtDate(invoice.issue_date)}</td></tr>
+    <tr><td style="padding:4px 0;font-weight:700">${csSnip.tableLabels.due}</td><td>${fmtDate(invoice.due_date)}</td></tr>
+    ${invoice.variable_symbol ? `<tr><td style="padding:4px 0;font-weight:700">${csSnip.tableLabels.vs}</td><td>${invoice.variable_symbol}</td></tr>` : ''}
+    <tr><td style="padding:4px 0;font-weight:700">${csSnip.tableLabels.total}</td><td style="font-weight:700;color:#1a8a18">${fmtPrice(invoice.total)} Kč</td></tr>
+  </table>
+</div>
+<p>${csSnip.outro}</p>
+<p>${csSnip.closing}</p>`
+      adminHtml = wrapInBrandedLayout(csBody, 'cs')
+      adminSubject = csSnip.subject
+    }
 
     const emailPayload: Record<string, unknown> = { from: FROM_EMAIL, reply_to: REPLY_TO, to: recipientEmail, subject, html }
     if (attachments.length > 0) emailPayload.attachments = attachments
@@ -229,7 +256,7 @@ serve(async (req) => {
 
     // Send copy to info@
     if (result.success) {
-      try { await sendWithRetry({ from: FROM_EMAIL, to: REPLY_TO, subject: `[Kopie] ${subject}`, html }) } catch {}
+      try { await sendWithRetry({ from: FROM_EMAIL, to: REPLY_TO, subject: `[Kopie${custLang !== 'cs' ? ` — zákazník ${custLang.toUpperCase()}` : ''}] ${adminSubject}`, html: adminHtml }) } catch {}
     }
 
     // Log
