@@ -75,8 +75,8 @@ export async function autoTranslate({ table, id, fields, target_langs, onStatus 
     const data = await response.json().catch(() => ({}))
     if (!response.ok || !data?.success) {
       console.warn('[autoTranslate] failed:', response.status, data)
-      onStatus?.({ status: 'error', error: data?.error || `HTTP ${response.status}` })
-      return { success: false, error: data?.error || `HTTP ${response.status}` }
+      onStatus?.({ status: 'error', error: data?.error || `HTTP ${response.status}`, code: data?.code, abort: data?.abort })
+      return { success: false, error: data?.error || `HTTP ${response.status}`, code: data?.code, abort: !!data?.abort }
     }
     onStatus?.({ status: 'done', languages: data.languages || [] })
     return { success: true, languages: data.languages || [] }

@@ -12,6 +12,14 @@ import Button from '../ui/Button'
 // Každá fáze má vlastní progress, edge fn pro pages master se volá per-pair
 // (action:'translate-one'), takže žádný edge fn timeout.
 
+class TranslateAbort extends Error {
+  constructor(message, code) {
+    super(message)
+    this.code = code
+    this.abort = true
+  }
+}
+
 async function callEdge(body) {
   const { data: { session } } = await supabase.auth.getSession()
   const accessToken = session?.access_token || supabaseAnonKey
@@ -25,7 +33,10 @@ async function callEdge(body) {
     body: JSON.stringify(body),
   })
   const data = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(data?.error || `HTTP ${response.status}`)
+  if (!response.ok) {
+    if (data?.abort) throw new TranslateAbort(data.error || `HTTP ${response.status}`, data.code)
+    throw new Error(data?.error || `HTTP ${response.status}`)
+  }
   return data
 }
 
@@ -61,6 +72,8 @@ export default function TranslateEverythingButton() {
     setRunning(true); setPhase(null); setErrors([]); setDoneSummary(null)
     const newErrors = []
 
+    let abortAll = null  // pokud je nastavený → přeskoč zbytek workflow (insufficient_credits / invalid_api_key)
+
     // ===== Fáze 1 — Pages master přes edge fn =====
     try {
       setPhase('pages')
@@ -74,14 +87,23 @@ export default function TranslateEverythingButton() {
           await callEdge({ action: 'translate-one', page, lang })
         } catch (e) {
           newErrors.push({ phase: 'pages', label: `${page}/${lang}`, error: e.message })
+          if (e.abort) { abortAll = e; break }
         }
       }
       setProgress(p => ({ ...p, done: queue.length, current: '' }))
     } catch (e) {
       newErrors.push({ phase: 'pages', label: 'list', error: e.message })
+      if (e.abort) abortAll = e
     }
 
     // ===== Fáze 2-4 — DB backfill =====
+    if (abortAll) {
+      // Anthropic kredit/klíč — fáze 2-4 by jen spamovaly stejný error 100×
+      setPhase(null); setErrors(newErrors)
+      setDoneSummary({ errors: newErrors.length, abort: abortAll.code || 'aborted', abortMsg: abortAll.message })
+      setRunning(false)
+      return
+    }
     const dbPhases = [
       { key: 'cms_variables', selectColumns: 'id, key, value, translations, category', filter: r => r.category === 'web', labelOf: r => r.key },
       { key: 'faq_items',     selectColumns: 'id, question, answer, translations',     filter: null,                       labelOf: r => r.question },
@@ -101,15 +123,17 @@ export default function TranslateEverythingButton() {
           const fields = pickTranslatableFields(ph.key, row)
           const r = await autoTranslate({ table: ph.key, id: row.id, fields })
           if (!r.success) newErrors.push({ phase: ph.key, label: String(ph.labelOf(row) || row.id).slice(0, 80), error: r.error })
+          if (r.abort) { abortAll = { code: r.code, message: r.error }; break }
         }
         setProgress(p => ({ ...p, done: candidates.length, current: '' }))
       } catch (e) {
         newErrors.push({ phase: ph.key, label: 'load', error: e.message })
       }
+      if (abortAll) break
     }
 
     setPhase(null); setErrors(newErrors)
-    setDoneSummary({ errors: newErrors.length })
+    setDoneSummary({ errors: newErrors.length, abort: abortAll?.code, abortMsg: abortAll?.message })
     setRunning(false)
   }
 
@@ -136,6 +160,17 @@ export default function TranslateEverythingButton() {
           </span>
         )}
       </div>
+      {!running && doneSummary?.abort === 'insufficient_credits' && (
+        <div className="mt-3 rounded-btn text-sm" style={{ padding: '10px 14px', background: '#fff7ed', border: '1px solid #fdba74', color: '#7c2d12' }}>
+          <strong>Anthropic API kredit vyčerpán.</strong> Workflow zastaveno hned po prvním selhání (jinak by se 60+ requestů snažilo o totéž).
+          Doplň kredit na <a href="https://console.anthropic.com/settings/billing" target="_blank" rel="noreferrer" style={{ textDecoration: 'underline' }}>console.anthropic.com → Plans &amp; Billing</a> nebo přepni na jiný klíč v Supabase secrets (<code>ANTHROPIC_API_KEY</code>).
+        </div>
+      )}
+      {!running && doneSummary?.abort === 'invalid_api_key' && (
+        <div className="mt-3 rounded-btn text-sm" style={{ padding: '10px 14px', background: '#fef2f2', border: '1px solid #fca5a5', color: '#7f1d1d' }}>
+          <strong>Neplatný Anthropic API klíč.</strong> Aktualizuj sekret <code>ANTHROPIC_API_KEY</code> v Supabase Edge Functions (Project Settings → Edge Functions → Secrets).
+        </div>
+      )}
       {!running && errors.length > 0 && (
         <details className="mt-2">
           <summary className="text-xs cursor-pointer" style={{ color: '#dc2626' }}>
