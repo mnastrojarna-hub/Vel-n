@@ -85,9 +85,9 @@ const TEMPLATE_META = {
   },
   booking_modified: {
     category: 'reservation', categoryLabel: 'Rezervace',
-    trigger: 'Úprava termínu/motorky (velín nebo app)',
-    attachments: 'ZF, DP, Smlouva, VOP',
-    info: 'Odesílá se při jakékoliv změně rezervace — zkrácení, prodloužení, změna motorky, změna místa přistavení. Dokumenty se regenerují s novými daty.',
+    trigger: 'Úprava termínu/motorky/místa/času (Velín, web, app)',
+    attachments: 'ZF, DP, Smlouva, VOP, Dobropis (při zkrácení)',
+    info: 'Odesílá se při jakékoliv změně rezervace — zkrácení, prodloužení, změna motorky, změna místa přistavení nebo času. DB trigger trg_booking_modified_email detekuje UPDATE bookings ze všech kanálů (Velín, web apply_booking_changes RPC, Flutter app) a pošle mail s diff tabulkou Původní vs Nové. Při doplatku se přiloží DP rozdílu, při vratce dobropis.',
   },
   voucher_purchased: {
     category: 'shop', categoryLabel: 'E-shop',
@@ -127,6 +127,7 @@ const TEMPLATE_META = {
   },
   // Web varianty
   web_booking_reserved: { category: 'reservation', categoryLabel: 'Rezervace', trigger: 'Web platba', attachments: 'ZF, DP, Smlouva, VOP', info: 'Web varianta potvrzení rezervace. Pokud neexistuje, použije se booking_reserved.' },
+  web_booking_modified: { category: 'reservation', categoryLabel: 'Rezervace', trigger: 'Úprava rezervace na webu (apply_booking_changes RPC)', attachments: 'ZF, DP, Smlouva, VOP, Dobropis', info: 'Web varianta úpravy rezervace. Posílá se po UPDATE bookings z webu (apply_booking_changes / shorten_booking_with_refund). Pokud neexistuje, použije se booking_modified. DB trigger pokrývá všechny kanály (Velín, web, app, AI agent) jednotně.' },
   web_booking_abandoned: { category: 'reservation', categoryLabel: 'Rezervace', trigger: 'Auto-cancel web 4h', attachments: 'ZF', info: 'Web varianta nedokončené rezervace. Pokud neexistuje, použije se booking_abandoned.' },
   web_booking_cancelled: { category: 'storno', categoryLabel: 'Storno', trigger: 'Storno web rezervace', attachments: 'Dobropis', info: 'Web varianta storna. Pokud neexistuje, použije se booking_cancelled.' },
   web_booking_completed: { category: 'reservation', categoryLabel: 'Rezervace', trigger: 'Dokončení web pronájmu', attachments: 'KF', info: 'Web varianta dokončení. Pokud neexistuje, použije se booking_completed.' },
