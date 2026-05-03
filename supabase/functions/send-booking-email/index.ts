@@ -127,6 +127,7 @@ const FALLBACK_SUBJECTS: Record<string, (vars: Record<string, string>) => string
   sos_incident: () => `SOS \u2014 MotoGo24 je na cest\u011b`,
   door_codes: (v) => `P\u0159\u00edstupov\u00e9 k\u00f3dy k pobo\u010dce \u2014 rezervace \u010d. ${v.booking_number}`,
   shop_order_confirmed: (v) => `Objedn\u00e1vka \u010d. ${v.order_number} p\u0159ijata \u2014 MOTO GO 24`,
+  shop_order_shipped: (v) => `Objedn\u00e1vka \u010d. ${v.order_number} odesl\u00e1na \u2014 MOTO GO 24`,
 }
 
 /** Download file from Supabase Storage and return as base64 */
@@ -172,6 +173,35 @@ async function autoGenerateAttachments(
         if (data.success && data.invoice_id) {
           const b64 = await downloadAsBase64(supabase, `invoices/${data.invoice_id}.html`)
           if (b64) atts.push({ content: b64, filename: `Doklad-platby-${data.number || 'DP'}.html` })
+        }
+      }
+    } catch { /* ignore */ }
+    return atts
+  }
+
+  // Shop order shipped — KF e-shop (shop_final)
+  if (type === 'shop_order_shipped' && opts.orderId) {
+    try {
+      const { data: kf } = await supabase.from('invoices')
+        .select('id, number, pdf_path')
+        .eq('order_id', opts.orderId)
+        .eq('type', 'shop_final')
+        .neq('status', 'cancelled')
+        .order('created_at', { ascending: false })
+        .limit(1)
+      if (kf?.length && kf[0].pdf_path) {
+        const b64 = await downloadAsBase64(supabase, kf[0].pdf_path)
+        if (b64) atts.push({ content: b64, filename: `Konecna-faktura-${kf[0].number || 'KF'}.html` })
+      } else {
+        // KF neexistuje → vygeneruj
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
+          method: 'POST', headers,
+          body: JSON.stringify({ type: 'shop_final', order_id: opts.orderId, send_email: false }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (data.success && data.invoice_id) {
+          const b64 = await downloadAsBase64(supabase, `invoices/${data.invoice_id}.html`)
+          if (b64) atts.push({ content: b64, filename: `Konecna-faktura-${data.number || 'KF'}.html` })
         }
       }
     } catch { /* ignore */ }
@@ -322,6 +352,8 @@ serve(async (req) => {
       // Shop order extras
       order_id,
       shipping_cost,
+      tracking_number,
+      tracking_url,
       // booking_modified — přehled úprav (původní vs nové)
       original_motorcycle,
       original_start_date,
@@ -367,6 +399,8 @@ serve(async (req) => {
       discount_code: discount_code || '',
       // Shop order
       shipping_cost: shipping_cost != null ? fmtPrice(shipping_cost) : '',
+      tracking_number: tracking_number || '',
+      tracking_url: tracking_url || '',
       // booking_modified — přehled úprav
       original_motorcycle:    original_motorcycle || '',
       original_start_date:    fmtDate(original_start_date),
@@ -585,6 +619,16 @@ ${priceMessage}
 <p>Jakmile va\u0161i objedn\u00e1vku p\u0159iprav\u00edme a p\u0159ed\u00e1me p\u0159epravci, po\u0161leme v\u00e1m e-mail s tracking \u010d\u00edslem a fin\u00e1ln\u00ed fakturou.</p>
 <p>Pokud m\u00e1te jak\u00fdkoliv dotaz, jsme v\u00e1m k dispozici.</p>
 <p>S pozdravem,<br>T\u00fdm MotoGo24</p>`
+      } else if (type === 'shop_order_shipped') {
+        templateHtml = `<p>Dobr\u00fd den,</p>
+<p>va\u0161e objedn\u00e1vka \u010d. <strong>${vars.order_number}</strong> byla odesl\u00e1na a brzy doraz\u00ed k v\u00e1m.</p>
+${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:13px">
+  <tr><td style="padding:6px 0;color:#6b7280">\u010c\u00edslo z\u00e1silky:</td><td style="padding:6px 0;font-weight:700;color:#0f1a14;font-family:monospace">${vars.tracking_number}</td></tr>
+  ${vars.tracking_url ? `<tr><td style="padding:6px 0;color:#6b7280">Sledov\u00e1n\u00ed:</td><td style="padding:6px 0"><a href="${vars.tracking_url}" style="color:#2563eb">${vars.tracking_url}</a></td></tr>` : ''}
+</table>` : ''}
+<p>V p\u0159\u00edloze najdete <strong>kone\u010dnou fakturu</strong> za tuto objedn\u00e1vku.</p>
+<p>D\u011bkujeme za n\u00e1kup u MOTO GO 24 a v\u011b\u0159\u00edme, \u017ee budete s n\u00e1kupem spokojeni.</p>
+<p>S pozdravem,<br>T\u00fdm MotoGo24</p>`
       } else {
         templateHtml = `<p>Dobr\u00fd den,</p><p>toto je automatick\u00e9 ozn\u00e1men\u00ed od MotoGo24 t\u00fdkaj\u00edc\u00ed se va\u0161\u00ed rezervace \u010d. <strong>${vars.booking_number}</strong>.</p>`
       }
@@ -603,7 +647,7 @@ ${priceMessage}
     let finalAttachments = attachments && Array.isArray(attachments) ? [...attachments] : []
     const wantsAutoAtt =
       (booking_id && (type === 'booking_abandoned' || type === 'booking_completed' || type === 'booking_modified')) ||
-      (order_id && type === 'shop_order_confirmed')
+      (order_id && (type === 'shop_order_confirmed' || type === 'shop_order_shipped'))
     if (wantsAutoAtt) {
       try {
         const autoAtts = await autoGenerateAttachments(type, booking_id || '', supabase, {
