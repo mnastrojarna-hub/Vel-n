@@ -3,8 +3,7 @@ import { supabase } from '../../lib/supabase'
 import WebTextSection from './WebTextSection'
 import BlogSection from './BlogSection'
 import FaqSection from './FaqSection'
-import TranslationBackfillButton from '../../components/shared/TranslationBackfillButton'
-import TranslatePagesMasterButton from '../../components/cms/TranslatePagesMasterButton'
+import TranslateEverythingButton from '../../components/cms/TranslateEverythingButton'
 import { WEB_PAGES } from './webTextsPages'
 
 // Celkový počet textů
@@ -111,30 +110,17 @@ export default function WebTextsTab() {
         )}
       </div>
 
-      {/* Master překlad velkých CMS stránek (jak_pujcit_*, home, pujcovna, ...) */}
-      <div className="mb-4 p-3 rounded-card flex items-center justify-between gap-3"
-        style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
-        <div className="text-xs" style={{ color: '#9a3412' }}>
-          <strong>Pages master překlad</strong> — přeloží celý strom velkých stránek
-          (jak_pujcit_*, home, pujcovna…) z CS do EN/DE/ES/FR/NL/PL a uloží do DB.
-          Po doběhu se projeví na všech doménách živě, <strong>bez FTP uploadu</strong>.
+      {/* Jediné tlačítko pro celkovou synchronizaci překladů (master + cms_variables + FAQ + blog) */}
+      <div className="mb-4 p-4 rounded-card" style={{ background: '#fff7ed', border: '2px solid #fed7aa' }}>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="text-xs flex-1" style={{ color: '#9a3412', minWidth: 320 }}>
+            <strong>🌍 Multilingvní překlad — vše naráz</strong><br />
+            Postupně přeloží do EN/DE/ES/FR/NL/PL: (1) pages master z CS šablon,
+            (2) cms_variables (web.*), (3) FAQ položky, (4) blog články.
+            Vše se uloží do DB, weby na všech doménách čtou živě — <strong>bez FTP uploadu</strong>.
+          </div>
+          <TranslateEverythingButton />
         </div>
-        <TranslatePagesMasterButton />
-      </div>
-
-      {/* Backfill překladů pro cms_variables (web.* klíče) */}
-      <div className="mb-4 p-3 rounded-card flex items-center justify-between gap-3"
-        style={{ background: '#fff', border: '1px solid #e2ece7' }}>
-        <div className="text-xs" style={{ color: '#4a6b5a' }}>
-          Doplní EN/DE/ES/FR/NL/PL překlady pro <code>cms_variables</code> (klíče <code>web.*</code>),
-          kterým chybí <code>translations</code>. Projde se vše uložené v DB.
-        </div>
-        <TranslationBackfillButton
-          table="cms_variables"
-          selectColumns="id, key, value, translations, category"
-          filterPredicate={r => r.category === 'web'}
-          onDone={loadValues}
-        />
       </div>
 
       <div className="flex gap-4" style={{ minHeight: '70vh' }}>
