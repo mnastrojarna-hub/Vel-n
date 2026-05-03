@@ -374,14 +374,195 @@ serve(async (req) => {
       return_time,
       original_pickup_time,
       original_return_time,
+      // ⚠️ Dynamic dispatcher (Etapa 7) — pokud přijde template_slug, edge fn
+      // místo i18n.ts engine načte šablonu přímo z DB (custom admin šablona).
+      // type=  zůstává primární cestou pro hardcoded šablony (booking_reserved
+      // atd.) → stávající chování beze změny.
+      template_slug,
+      event_slug,
     } = body
 
-    if (!type || !customer_email) {
-      return new Response(JSON.stringify({ error: 'Missing type or customer_email' }), {
+    // Validace: musí být buď `type` (legacy) nebo `template_slug` (dynamic dispatcher)
+    if ((!type && !template_slug) || !customer_email) {
+      return new Response(JSON.stringify({ error: 'Missing type|template_slug or customer_email' }), {
         status: 400,
         headers: { ...CORS, 'Content-Type': 'application/json' },
       })
     }
+
+    // ⚠️ DYNAMIC DISPATCHER — když přijde template_slug, dohledáme šablonu v DB
+    // a použijeme její body+subject místo i18n.ts hardcoded engine.
+    // Stávající `type=` cesta zůstává v původním kódu níže nedotčená.
+    if (template_slug && !type) {
+      // Dedup: poslali jsme tomu bookingu/orderu tu šablonu v posledních 5 min?
+      try {
+        const dedupKey = booking_id || order_id || customer_email
+        const { data: recent } = await supabase.from('message_log')
+          .select('id')
+          .eq('template_slug', template_slug)
+          .eq('status', 'sent')
+          .gt('created_at', new Date(Date.now() - 5 * 60_000).toISOString())
+          .or(booking_id ? `booking_id.eq.${booking_id}` : `recipient_email.eq.${customer_email}`)
+          .limit(1)
+        if (recent && recent.length > 0) {
+          return new Response(JSON.stringify({ skipped: true, reason: 'dedup_5min', template_slug }), {
+            status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
+          })
+        }
+      } catch { /* dedup je best-effort */ }
+
+      // Načti šablonu z DB
+      const { data: tpl, error: tplErr } = await supabase
+        .from('email_templates')
+        .select('id, slug, name, subject, body_html, active, attachments, subject_translations, body_translations')
+        .eq('slug', template_slug)
+        .eq('active', true)
+        .maybeSingle()
+      if (tplErr || !tpl) {
+        return new Response(JSON.stringify({ error: `Template '${template_slug}' not found or inactive` }), {
+          status: 404, headers: { ...CORS, 'Content-Type': 'application/json' },
+        })
+      }
+
+      // Lang detekce
+      let custLang2: Lang = normalizeLang(language)
+      if (!language && (booking_id || order_id)) {
+        try {
+          const { data: l } = await supabase.rpc('detect_customer_language', {
+            p_user_id: null, p_booking_id: booking_id || null, p_order_id: order_id || null,
+          })
+          custLang2 = normalizeLang(l)
+        } catch { /* keep 'cs' */ }
+      }
+
+      // Vyber jazyk: DB body_translations[lang] || body_html (CS default)
+      const subjT = (tpl.subject_translations as Record<string, string>) || {}
+      const bodyT = (tpl.body_translations  as Record<string, string>) || {}
+      const subjRaw = subjT[custLang2] || tpl.subject || ''
+      const bodyRaw = bodyT[custLang2] || tpl.body_html || ''
+
+      // Sestav vars (stejné jako legacy cesta)
+      const dynVars: Record<string, string> = {
+        customer_name:   customer_name || '',
+        booking_number:  (booking_id || '').slice(-8).toUpperCase(),
+        order_number:    order_number || (booking_id || '').slice(-8).toUpperCase(),
+        motorcycle:      motorcycle || '',
+        start_date:      fmtDate(start_date),
+        end_date:        fmtDate(end_date),
+        total_price:     fmtPrice(total_price || 0),
+        site_url:        SITE_URL,
+        discount_code:   discount_code || '',
+        resume_link:     resume_link || '',
+        pay_url:         pay_url || resume_link || '',
+        docs_url:        docs_url || '',
+      }
+
+      const dynSubject = renderTemplate(subjRaw, dynVars) || `Oznámení — MOTO GO 24`
+      const dynBody    = renderTemplate(bodyRaw, dynVars)
+      const dynHtml    = wrapInBrandedLayout(dynBody, custLang2)
+
+      // Auto-attachments dle attachments[] z DB šablony
+      const attList = Array.isArray(tpl.attachments) ? tpl.attachments : []
+      const dynAtts: { content: string; filename: string }[] = []
+      // Mapování ATTACHMENTS_OPTION → autoGenerateAttachments param
+      const attachmentTypeMap: Record<string, string> = {
+        ZF: 'booking_abandoned', // generuje ZF
+        DP: 'booking_completed', // generuje attaches DP/KF (existing flow)
+        KF: 'booking_completed',
+        eshop_DP: 'shop_order_confirmed',
+        eshop_KF: 'shop_order_shipped',
+        Voucher: 'voucher_purchased',
+        // Smlouva, VOP, Dobropis — fetch z generate-document / invoices přímo
+      }
+      // Pro custom šablony zatím použijeme jednoduchý pass-through:
+      // pokud admin vybere KF/DP/ZF/eshop_DP/eshop_KF → fetchneme přes existing
+      // autoGenerateAttachments() funkci se synthetic type
+      if (booking_id || order_id) {
+        for (const att of attList) {
+          const synthType = attachmentTypeMap[att]
+          if (!synthType) continue
+          try {
+            const synth = await autoGenerateAttachments(synthType, booking_id || '', supabase, {
+              priceDifference: 0, orderId: order_id || undefined,
+            })
+            for (const a of synth) dynAtts.push(a)
+          } catch { /* ignore */ }
+        }
+      }
+
+      if (!RESEND_API_KEY) {
+        return new Response(JSON.stringify({ error: 'RESEND_API_KEY not configured' }), {
+          status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
+        })
+      }
+
+      const dynPayload: Record<string, unknown> = {
+        from: FROM_EMAIL, reply_to: REPLY_TO, to: customer_email,
+        subject: dynSubject, html: dynHtml,
+      }
+      if (dynAtts.length > 0) dynPayload.attachments = dynAtts
+      const dynResult = await sendWithRetry(dynPayload)
+
+      // Admin kopie vždy CZ (rerendrujeme z body_translations.cs nebo body_html)
+      if (dynResult.success && custLang2 !== 'cs') {
+        try {
+          const csBodyRaw = bodyT['cs'] || tpl.body_html || ''
+          const csSubjRaw = subjT['cs'] || tpl.subject || ''
+          const csHtml = wrapInBrandedLayout(renderTemplate(csBodyRaw, dynVars), 'cs')
+          const csSubj = renderTemplate(csSubjRaw, dynVars)
+          await sendWithRetry({
+            from: FROM_EMAIL, to: REPLY_TO,
+            subject: `[Kopie — zákazník ${custLang2.toUpperCase()}] ${csSubj}`,
+            html: csHtml,
+          })
+        } catch { /* ignore */ }
+      } else if (dynResult.success) {
+        try {
+          await sendWithRetry({
+            from: FROM_EMAIL, to: REPLY_TO,
+            subject: `[Kopie] ${dynSubject}`, html: dynHtml,
+          })
+        } catch { /* ignore */ }
+      }
+
+      // Log
+      try {
+        await supabase.from('message_log').insert({
+          channel: 'email', direction: 'outbound',
+          recipient_email: customer_email,
+          booking_id: booking_id || null,
+          template_slug: tpl.slug,
+          content_preview: dynSubject.slice(0, 160),
+          body: dynHtml,
+          external_id: dynResult.provider_id || null,
+          status: dynResult.success ? 'sent' : 'failed',
+          error_message: dynResult.error || null,
+        })
+      } catch { /* ignore */ }
+      try {
+        await supabase.from('sent_emails').insert({
+          template_slug: tpl.slug,
+          recipient_email: customer_email,
+          subject: dynSubject,
+          body_html: dynHtml,
+          status: dynResult.success ? 'sent' : 'failed',
+          error_message: dynResult.error || null,
+          provider_id: dynResult.provider_id || null,
+        })
+      } catch { /* ignore */ }
+
+      return new Response(JSON.stringify({
+        success: dynResult.success,
+        provider_id: dynResult.provider_id,
+        template_slug: tpl.slug,
+        event_slug: event_slug || null,
+        dispatcher: 'dynamic',
+      }), {
+        status: dynResult.success ? 200 : 502,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
+    // ── konec dynamic dispatcher cesty — dál pokračuje legacy `type=` cesta ──
 
     const vars: Record<string, string> = {
       customer_name: customer_name || '',
