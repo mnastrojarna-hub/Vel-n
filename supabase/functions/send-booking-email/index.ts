@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { renderEmail, normalizeLang, helpCardLabels, type Lang } from '../_shared/i18n.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
@@ -58,7 +59,8 @@ function renderTemplate(template: string, vars: Record<string, string>): string 
 }
 
 /** Wrap body HTML in unified MotoGo24 email layout (1:1 with invoice design + screen reference) */
-function wrapInBrandedLayout(bodyHtml: string): string {
+function wrapInBrandedLayout(bodyHtml: string, lang: Lang = 'cs'): string {
+  const hc = helpCardLabels(lang)
   const header = `<div style="background:#000000;padding:28px 32px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>
       <td style="vertical-align:middle;padding-right:16px;width:64px"><img src="${SITE_URL}/gfx/logo-icon.png" alt="MotoGo24" width="64" height="64" style="display:block;border:0"/></td>
@@ -69,9 +71,9 @@ function wrapInBrandedLayout(bodyHtml: string): string {
     </tr></table>
   </div>`
   const helpCard = `<div style="margin:24px 32px 0;background:#000000;border:2px solid #74FB71;border-radius:8px;padding:24px">
-    <div style="color:#74FB71;font-size:18px;font-weight:800;margin:0 0 8px">M\u00e1te dotaz?</div>
-    <div style="color:#ffffff;font-size:13px;margin:0 0 16px">Pokud budete m\u00edt jak\u00fdkoliv dotaz, jsme v\u00e1m k dispozici.</div>
-    <a href="mailto:info@motogo24.cz" style="display:inline-block;background:#74FB71;color:#000000;font-size:13px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:24px">info@motogo24.cz</a>
+    <div style="color:#74FB71;font-size:18px;font-weight:800;margin:0 0 8px">${hc.title}</div>
+    <div style="color:#ffffff;font-size:13px;margin:0 0 16px">${hc.body}</div>
+    <a href="mailto:info@motogo24.cz" style="display:inline-block;background:#74FB71;color:#000000;font-size:13px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:24px">${hc.cta}</a>
   </div>`
   const footer = `<div style="background:#000000;padding:24px 32px;margin-top:24px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>
@@ -92,7 +94,7 @@ function wrapInBrandedLayout(bodyHtml: string): string {
     </tr></table>
   </div>`
 
-  return `<!DOCTYPE html><html lang="cs"><head><meta charset="UTF-8"></head>
+  return `<!DOCTYPE html><html lang="${lang}"><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#d9dee2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1a14;-webkit-font-smoothing:antialiased">
   <div style="max-width:780px;margin:0 auto;background:#ffffff">
     ${header}
@@ -349,6 +351,8 @@ serve(async (req) => {
       facebook_review_url,
       manual_url,
       attachments,
+      // i18n — language zákazníka (cs/en/de/nl/es/fr/pl), default 'cs'
+      language,
       // Shop order extras
       order_id,
       shipping_cost,
@@ -450,6 +454,22 @@ serve(async (req) => {
       } catch { /* ignore */ }
     }
 
+    // \u2500\u2500 i18n: detekce jazyka z\u00e1kazn\u00edka \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    // 1) explicit `language` z payloadu (volaj\u00edc\u00ed ho v\u00ed \u2014 Velin/web/app)
+    // 2) RPC detect_customer_language(user_id, booking_id, order_id) \u2014 z DB
+    // 3) fallback 'cs'
+    let custLang: Lang = normalizeLang(language)
+    if (!language && (booking_id || order_id)) {
+      try {
+        const { data: langData } = await supabase.rpc('detect_customer_language', {
+          p_user_id:    null,
+          p_booking_id: booking_id || null,
+          p_order_id:   order_id || null,
+        })
+        custLang = normalizeLang(langData)
+      } catch { /* ignore \u2014 z\u016fstane 'cs' */ }
+    }
+
     // Try to load template from DB (first web-specific, then generic)
     const slug = resolveSlug(type, source)
     let templateHtml = ''
@@ -461,19 +481,33 @@ serve(async (req) => {
     for (const trySlug of slugsToTry) {
       const { data: tpl } = await supabase
         .from('email_templates')
-        .select('slug, name, subject, body_html, active')
+        .select('slug, name, subject, body_html, active, subject_translations, body_translations')
         .eq('slug', trySlug)
         .eq('active', true)
         .maybeSingle()
 
       if (tpl?.body_html) {
-        templateHtml = renderTemplate(tpl.body_html, vars)
-        subject = renderTemplate(tpl.subject || '', vars)
+        // Per-language override z DB jsonb sloupc\u016f (priorita 1)
+        const dbSubjT = (tpl.subject_translations as Record<string, string>) || {}
+        const dbBodyT = (tpl.body_translations as Record<string, string>)   || {}
+        const dbSubj = dbSubjT[custLang] || tpl.subject || ''
+        const dbBody = dbBodyT[custLang] || tpl.body_html
+        templateHtml = renderTemplate(dbBody, vars)
+        subject = renderTemplate(dbSubj, vars)
         break
       }
     }
 
-    // If no template found in DB, use fallback subject
+    // i18n hardcoded p\u0159eklady (priorita 2 \u2014 kdy\u017e DB \u0161ablona chyb\u00ed)
+    if (!templateHtml) {
+      const i18nResult = renderEmail(type, custLang, vars)
+      if (i18nResult) {
+        subject = i18nResult.subject
+        templateHtml = i18nResult.body
+      }
+    }
+
+    // If no template found anywhere, use legacy fallback subject (priorita 3 \u2014 cs only)
     if (!subject) {
       const fallbackFn = FALLBACK_SUBJECTS[type]
       subject = fallbackFn ? fallbackFn(vars) : `Ozn\u00e1men\u00ed \u2014 MOTO GO 24`
@@ -634,7 +668,43 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
       }
     }
 
-    const html = wrapInBrandedLayout(templateHtml)
+    const html = wrapInBrandedLayout(templateHtml, custLang)
+
+    // Admin kopie do info@motogo24.cz vždy v CZ (Velin admin čte v CZ).
+    // Pokud zákazník dostal jiný jazyk, rerendrujeme CZ verzi pro admin kopii.
+    let adminHtml = html
+    let adminSubject = subject
+    if (custLang !== 'cs') {
+      // Re-render všeho v CZ pro admin
+      let csTemplateHtml = ''
+      let csSubject = ''
+      // Zkusit DB CZ
+      for (const trySlug of slugsToTry) {
+        const { data: tpl } = await supabase
+          .from('email_templates')
+          .select('slug, subject, body_html, active')
+          .eq('slug', trySlug)
+          .eq('active', true)
+          .maybeSingle()
+        if (tpl?.body_html) {
+          csTemplateHtml = renderTemplate(tpl.body_html, vars)
+          csSubject = renderTemplate(tpl.subject || '', vars)
+          break
+        }
+      }
+      if (!csTemplateHtml) {
+        const i18nCs = renderEmail(type, 'cs', vars)
+        if (i18nCs) { csSubject = i18nCs.subject; csTemplateHtml = i18nCs.body }
+      }
+      if (!csSubject) {
+        const fallbackFn = FALLBACK_SUBJECTS[type]
+        csSubject = fallbackFn ? fallbackFn(vars) : `Oznámení — MOTO GO 24`
+      }
+      if (csTemplateHtml) {
+        adminHtml = wrapInBrandedLayout(csTemplateHtml, 'cs')
+        adminSubject = csSubject
+      }
+    }
 
     if (!RESEND_API_KEY) {
       return new Response(JSON.stringify({ error: 'RESEND_API_KEY not configured' }), {
@@ -671,14 +741,16 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
     }
     const result = await sendWithRetry(emailPayload)
 
-    // Also send copy to info@motogo24.cz (without attachments to save bandwidth)
+    // Admin kopie do info@motogo24.cz — vždy v CZ (rerendrováno výše),
+    // bez příloh (bandwidth save). Pokud zákazník dostal jiný jazyk, jde o
+    // separátní mail (Velin admin nevidí cizojazyčnou verzi).
     if (result.success) {
       try {
         await sendWithRetry({
           from: FROM_EMAIL,
           to: REPLY_TO,
-          subject: `[Kopie] ${subject}`,
-          html,
+          subject: `[Kopie${custLang !== 'cs' ? ` — zákazník ${custLang.toUpperCase()}` : ''}] ${adminSubject}`,
+          html: adminHtml,
         })
       } catch (e) { /* ignore */ }
     }
