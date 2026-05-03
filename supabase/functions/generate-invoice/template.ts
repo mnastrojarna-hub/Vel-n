@@ -1,8 +1,9 @@
 // ===== INVOICE HTML TEMPLATE GENERATOR =====
 // Unified design — used for ZF / DP / KF / Shop / Credit note
 
-const LOGO_URL = 'https://motogo24.com/gfx/logo-icon.png'
-const PUBLIC_QR_TARGET = 'https://motogo24.com'
+const SITE_URL = 'https://motogo24.cz'
+const LOGO_URL = `${SITE_URL}/gfx/logo-icon.png`
+const PUBLIC_QR_TARGET = SITE_URL
 const QR_URL = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=8&data=${encodeURIComponent(PUBLIC_QR_TARGET)}`
 
 const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
@@ -109,7 +110,7 @@ export function generateInvoiceHtml(p: TemplateParams): string {
   `
 
   const badgeBg = badge.tone === 'paid' ? '#74FB71' : '#fbbf24'
-  const badgeText = '#0a1f15'
+  const badgeText = '#000000'
 
   return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>${p.title} ${p.number}</title>
 <style>body{margin:0;padding:0;background:#d9dee2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1a14;-webkit-font-smoothing:antialiased}</style>
@@ -118,21 +119,21 @@ export function generateInvoiceHtml(p: TemplateParams): string {
 <div style="max-width:780px;margin:0 auto;background:#ffffff">
 
   <!-- HEADER -->
-  <div style="background:#0a1f15;padding:24px 32px">
+  <div style="background:#000000;padding:28px 32px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">
       <tr>
-        <td style="vertical-align:top;width:50%">
+        <td style="vertical-align:middle;width:50%">
           <table role="presentation" cellpadding="0" cellspacing="0"><tr>
-            <td style="vertical-align:middle;padding-right:14px"><img src="${LOGO_URL}" alt="MotoGo24" width="52" height="52" style="display:block;border:0"/></td>
+            <td style="vertical-align:middle;padding-right:16px"><img src="${LOGO_URL}" alt="MotoGo24" width="64" height="64" style="display:block;border:0"/></td>
             <td style="vertical-align:middle">
-              <div style="color:#74FB71;font-size:20px;font-weight:900;letter-spacing:1px;line-height:1">MOTO GO 24</div>
-              <div style="color:#74FB71;font-size:9px;font-weight:700;letter-spacing:2px;margin-top:4px">PŮJČOVNA MOTOREK</div>
+              <div style="color:#ffffff;font-size:24px;font-weight:900;letter-spacing:2px;line-height:1">MOTO GO 24</div>
+              <div style="color:#ffffff;font-size:10px;font-weight:400;letter-spacing:4px;margin-top:6px">PŮJČOVNA MOTOREK</div>
             </td>
           </tr></table>
         </td>
-        <td style="vertical-align:top;text-align:right">
+        <td style="vertical-align:middle;text-align:right">
           <div style="display:inline-block;border-radius:3px;overflow:hidden;font-size:0;margin-bottom:12px">
-            <span style="display:inline-block;background:#0f3320;color:#74FB71;font-size:10px;font-weight:800;letter-spacing:1px;padding:5px 9px">${tcode}</span><span style="display:inline-block;background:${badgeBg};color:${badgeText};font-size:10px;font-weight:800;letter-spacing:1px;padding:5px 9px">${badge.label}</span>
+            <span style="display:inline-block;background:#1a1a1a;color:#74FB71;font-size:10px;font-weight:800;letter-spacing:1px;padding:5px 9px">${tcode}</span><span style="display:inline-block;background:${badgeBg};color:${badgeText};font-size:10px;font-weight:800;letter-spacing:1px;padding:5px 9px">${badge.label}</span>
           </div>
           <div style="color:#ffffff;font-size:20px;font-weight:600;line-height:1.2">${p.title} č. ${p.number}</div>
           ${p.bookingNumber ? `<div style="color:#9ca3af;font-size:12px;margin-top:4px">Rezervace č. ${p.bookingNumber}</div>` : ''}
@@ -197,7 +198,7 @@ export function generateInvoiceHtml(p: TemplateParams): string {
     <div style="font-size:11px;font-weight:800;color:#16a34a;letter-spacing:1.5px;margin-bottom:10px">POLOŽKY</div>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #e5e7eb">
       <thead>
-        <tr style="background:#0a1f15">
+        <tr style="background:#000000">
           <th style="padding:12px 16px;color:#ffffff;font-size:11px;font-weight:700;text-align:left;letter-spacing:.5px">Položka</th>
           <th style="padding:12px 16px;color:#ffffff;font-size:11px;font-weight:700;text-align:left;letter-spacing:.5px">Popis</th>
           <th style="padding:12px 16px;color:#ffffff;font-size:11px;font-weight:700;text-align:right;letter-spacing:.5px">Ks</th>
@@ -237,7 +238,7 @@ export function generateInvoiceHtml(p: TemplateParams): string {
     <div style="font-size:11px;font-weight:800;color:#166534;letter-spacing:1.5px;margin-bottom:6px">DÁRKOVÉ POUKAZY</div>
     ${vc.map((c: string) => `<div style="font-size:14px;font-weight:700;font-family:'Courier New',monospace;color:#166534;padding:2px 0">${c}</div>`).join('')}
     ${p.voucherValidUntil ? `<div style="font-size:11px;color:#166534;margin-top:6px">Platnost: 3 roky (do ${fmtDate(p.voucherValidUntil)})</div>` : ''}
-    <div style="font-size:10px;color:#4a6357;margin-top:4px">Kód uplatníte při rezervaci na motogo24.com nebo v aplikaci MotoGo24.</div>
+    <div style="font-size:10px;color:#4a6357;margin-top:4px">Kód uplatníte při rezervaci na motogo24.cz nebo v aplikaci MotoGo24.</div>
   </div>` : ''}
 
   ${dc.length > 0 ? `<div style="margin:0 32px 16px;padding:14px;background:#e0f2fe;border-radius:6px;border:1px solid #0284c7">
@@ -251,7 +252,7 @@ export function generateInvoiceHtml(p: TemplateParams): string {
   ${p.isShopFinal ? `<div style="margin:0 32px 16px;padding:10px 14px;background:#ecfdf5;border-left:3px solid #16a34a;font-size:11px;color:#065f46">Konečná faktura — platba byla již provedena na základě dokladu ${p.dpNumber || 'DP'}. K úhradě: 0 Kč.</div>` : ''}
 
   <!-- KONTAKT + QR -->
-  <div style="background:#0a1f15;padding:24px 32px;margin-top:8px">
+  <div style="background:#000000;padding:24px 32px;margin-top:8px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>
       <td style="vertical-align:top;padding-right:16px">
         <div style="border:1px solid #74FB71;border-radius:6px;padding:16px;color:#ffffff;font-size:12px;line-height:1.7">
@@ -261,24 +262,24 @@ export function generateInvoiceHtml(p: TemplateParams): string {
           <div style="color:#9ca3af">IČO: ${p.company.ico}</div>
           <div><span style="color:#9ca3af">Telefon:</span> <span style="color:#74FB71">${p.company.phone}</span></div>
           <div><span style="color:#9ca3af">E-mail:</span> <span style="color:#74FB71">${p.company.email}</span></div>
-          <div><span style="color:#9ca3af">Web:</span> <span style="color:#74FB71">motogo24.com</span></div>
+          <div><span style="color:#9ca3af">Web:</span> <span style="color:#74FB71">motogo24.cz</span></div>
         </div>
       </td>
       <td style="vertical-align:top;width:130px;text-align:center">
-        <a href="${PUBLIC_QR_TARGET}" style="text-decoration:none"><img src="${QR_URL}" alt="motogo24.com" width="120" height="120" style="display:block;background:#ffffff;padding:6px;border-radius:4px"/></a>
-        <div style="color:#9ca3af;font-size:10px;margin-top:6px">motogo24.com</div>
+        <a href="${PUBLIC_QR_TARGET}" style="text-decoration:none"><img src="${QR_URL}" alt="motogo24.cz" width="120" height="120" style="display:block;background:#ffffff;padding:6px;border-radius:4px"/></a>
+        <div style="color:#9ca3af;font-size:10px;margin-top:6px">motogo24.cz</div>
       </td>
     </tr></table>
   </div>
 
   <!-- FOOTER -->
-  <div style="background:#0a1f15;padding:14px 32px;color:#ffffff;font-size:11px;line-height:1.6;border-top:1px solid #16352a">
+  <div style="background:#000000;padding:14px 32px;color:#ffffff;font-size:11px;line-height:1.6;border-top:1px solid #1a1a1a">
     <strong style="color:#ffffff">${p.company.name}</strong>
     <span style="color:#9ca3af"> &nbsp;|&nbsp; </span>${p.company.address}
     <span style="color:#9ca3af"> &nbsp;|&nbsp; </span>IČO: ${p.company.ico}
     <span style="color:#9ca3af"> &nbsp;|&nbsp; </span><span style="color:#74FB71">${p.company.phone}</span>
     <span style="color:#9ca3af"> &nbsp;|&nbsp; </span><span style="color:#74FB71">${p.company.email}</span>
-    <span style="color:#9ca3af"> &nbsp;|&nbsp; </span><span style="color:#74FB71">motogo24.com</span>
+    <span style="color:#9ca3af"> &nbsp;|&nbsp; </span><span style="color:#74FB71">motogo24.cz</span>
   </div>
 
 </div>

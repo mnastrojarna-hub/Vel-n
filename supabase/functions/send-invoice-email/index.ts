@@ -33,21 +33,21 @@ function renderTemplate(template: string, vars: Record<string, string>): string 
 
 /** Wrap body HTML in unified MotoGo24 email layout (1:1 with invoice design + screen reference) */
 function wrapInBrandedLayout(bodyHtml: string): string {
-  const header = `<div style="background:#0a1f15;padding:24px 32px">
+  const header = `<div style="background:#000000;padding:28px 32px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>
-      <td style="vertical-align:middle;padding-right:14px;width:52px"><img src="${SITE_URL}/gfx/logo-icon.png" alt="MotoGo24" width="52" height="52" style="display:block;border:0"/></td>
+      <td style="vertical-align:middle;padding-right:16px;width:64px"><img src="${SITE_URL}/gfx/logo-icon.png" alt="MotoGo24" width="64" height="64" style="display:block;border:0"/></td>
       <td style="vertical-align:middle">
-        <div style="color:#74FB71;font-size:20px;font-weight:900;letter-spacing:1px;line-height:1">MOTO GO 24</div>
-        <div style="color:#74FB71;font-size:9px;font-weight:700;letter-spacing:2px;margin-top:4px">P\u016eJ\u010cOVNA MOTOREK</div>
+        <div style="color:#ffffff;font-size:24px;font-weight:900;letter-spacing:2px;line-height:1">MOTO GO 24</div>
+        <div style="color:#ffffff;font-size:10px;font-weight:400;letter-spacing:4px;margin-top:6px">P\u016eJ\u010cOVNA MOTOREK</div>
       </td>
     </tr></table>
   </div>`
-  const helpCard = `<div style="margin:24px 32px 0;background:#0a1f15;border:2px solid #74FB71;border-radius:8px;padding:24px">
+  const helpCard = `<div style="margin:24px 32px 0;background:#000000;border:2px solid #74FB71;border-radius:8px;padding:24px">
     <div style="color:#74FB71;font-size:18px;font-weight:800;margin:0 0 8px">M\u00e1te dotaz?</div>
     <div style="color:#ffffff;font-size:13px;margin:0 0 16px">Pokud budete m\u00edt jak\u00fdkoliv dotaz, jsme v\u00e1m k dispozici.</div>
-    <a href="mailto:info@motogo24.cz" style="display:inline-block;background:#74FB71;color:#0a1f15;font-size:13px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:24px">info@motogo24.cz</a>
+    <a href="mailto:info@motogo24.cz" style="display:inline-block;background:#74FB71;color:#000000;font-size:13px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:24px">info@motogo24.cz</a>
   </div>`
-  const footer = `<div style="background:#0a1f15;padding:24px 32px;margin-top:24px">
+  const footer = `<div style="background:#000000;padding:24px 32px;margin-top:24px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>
       <td style="vertical-align:top;padding-right:16px">
         <div style="border:1px solid #74FB71;border-radius:6px;padding:16px;color:#ffffff;font-size:12px;line-height:1.7">
