@@ -408,7 +408,7 @@ const PUBLIC_TOOLS = [
   },
 ]
 
-async function execPublicTool(name: string, args: Record<string, unknown>): Promise<unknown> {
+async function execPublicTool(name: string, args: Record<string, unknown>, lang: string = 'cs'): Promise<unknown> {
   switch (name) {
     case 'search_motorcycles': {
       let q = sb.from('motorcycles').select('id, model, brand, year, category, engine_cc, engine_type, power_kw, power_hp, torque_nm, weight_kg, seat_height_mm, top_speed_kmh, fuel_tank_l, fuel_consumption_l100km, fuel_type, transmission, drivetrain, brake_type, has_abs, has_asc, seats_count, license_required, color, price_mon, price_tue, price_wed, price_thu, price_fri, price_sat, price_sun, ideal_usage, description, features, suitable_for, min_rental_days, max_rental_days, image_url')
@@ -767,6 +767,16 @@ async function execPublicTool(name: string, args: Record<string, unknown>): Prom
       try {
         if (bookingId) {
           await sb.from('bookings').update({ created_via_ai: true }).eq('id', bookingId)
+          // i18n: ulož jazyk konverzace do bookings.language → maily/SMS/push
+          // pro tohoto zákazníka půjdou v jazyce v jakém s agentem mluvil.
+          try {
+            const detectedLang = (lang || 'cs').slice(0, 2).toLowerCase()
+            if (['cs','en','de','nl','es','fr','pl'].includes(detectedLang)) {
+              await sb.rpc('set_booking_language', {
+                p_booking_id: bookingId, p_language: detectedLang,
+              })
+            }
+          } catch { /* non-blocking */ }
         }
       } catch { /* non-blocking — feature degraduje gracefully na obyč WEB badge */ }
 
@@ -1325,6 +1335,7 @@ async function runClaudeLoop(
   messages: Array<{ role: string; content: unknown }>,
   systemPrompt: string,
   maxTokens: number,
+  lang: string = 'cs',
   maxIters = 6,
 ): Promise<{ reply: string; toolUses: Array<{ name: string; input: Record<string, unknown>; result: unknown }> }> {
   const toolUses: Array<{ name: string; input: Record<string, unknown>; result: unknown }> = []
@@ -1371,7 +1382,7 @@ async function runClaudeLoop(
       apiMessages.push({ role: 'assistant', content: data.content })
       const toolResults: Array<Record<string, unknown>> = []
       for (const tb of toolBlocks) {
-        const result = await execPublicTool(String(tb.name), tb.input as Record<string, unknown>)
+        const result = await execPublicTool(String(tb.name), tb.input as Record<string, unknown>, lang)
         toolUses.push({ name: String(tb.name), input: tb.input as Record<string, unknown>, result })
         toolResults.push({
           type: 'tool_result', tool_use_id: tb.id,
@@ -1447,7 +1458,7 @@ serve(async (req) => {
 
     const systemPrompt = buildSystemPrompt(lang, cfg, company, fleet, pageCtx)
     const maxTokens = Math.min(Math.max(Number(cfg.max_tokens) || 800, 256), 4096)
-    const { reply, toolUses } = await runClaudeLoop(recent, systemPrompt, maxTokens)
+    const { reply, toolUses } = await runClaudeLoop(recent, systemPrompt, maxTokens, lang)
 
     const latency = Date.now() - startedAt
     let bookingCreated: string | undefined
