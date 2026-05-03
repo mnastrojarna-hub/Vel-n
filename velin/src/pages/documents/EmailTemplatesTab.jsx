@@ -147,6 +147,73 @@ const CHANNELS = [
   { value: 'shared', label: 'Společné', color: '#374151', bg: '#e5e7eb' },
 ]
 
+/** Katalog dostupných triggerů — admin si vybírá jaké události vyvolají šablonu.
+ *  Ukládá se do email_templates.triggers jsonb jako array slugů.
+ *  Edge funkce a DB triggery zatím rozlišují podle TYPE payloadu, tato data
+ *  slouží jako reference + příprava na dynamický dispatcher. */
+const TRIGGER_CATALOG = [
+  { group: 'Stripe platby', items: [
+    { slug: 'stripe_payment_confirmed_booking',    label: 'Po potvrzení Stripe platby — rezervace' },
+    { slug: 'stripe_payment_confirmed_booking_web',label: 'Po potvrzení Stripe platby — web rezervace' },
+    { slug: 'stripe_payment_confirmed_shop',       label: 'Po potvrzení Stripe platby — e-shop' },
+    { slug: 'stripe_payment_confirmed_voucher',    label: 'Po potvrzení Stripe platby — dárkový poukaz' },
+    { slug: 'stripe_payment_confirmed_voucher_web',label: 'Po potvrzení Stripe platby — voucher web' },
+    { slug: 'stripe_payment_confirmed_edit',       label: 'Po potvrzení Stripe doplatku úpravy rezervace' },
+    { slug: 'stripe_refund_processed',             label: 'Po zpracovaném Stripe refundu' },
+    { slug: 'stripe_portal_refund',                label: 'Refund přes Stripe zákaznický portál (mimo naši flow)' },
+  ]},
+  { group: 'Stav rezervace', items: [
+    { slug: 'booking_status_changed_to_pending',   label: 'Stav rezervace → Pending (vytvořeno)' },
+    { slug: 'booking_status_changed_to_reserved',  label: 'Stav rezervace → Reserved (potvrzeno)' },
+    { slug: 'booking_status_changed_to_active',    label: 'Stav rezervace → Active (převzato)' },
+    { slug: 'booking_status_changed_to_completed', label: 'Stav rezervace → Completed (dokončeno)' },
+    { slug: 'booking_status_changed_to_cancelled', label: 'Stav rezervace → Cancelled (zrušeno)' },
+    { slug: 'booking_status_changed_to_cancelled_web', label: 'Stav rezervace → Cancelled (web)' },
+    { slug: 'booking_updated',                     label: 'Úprava rezervace (jakákoliv změna polí)' },
+  ]},
+  { group: 'Cron (časované)', items: [
+    { slug: 'cron_abandoned_payment_only',         label: 'Cron: Web nedokončená — chybí jen platba (10 min)' },
+    { slug: 'cron_abandoned_payment_and_docs',     label: 'Cron: Web nedokončená — chybí platba + doklady' },
+    { slug: 'cron_paid_missing_docs',              label: 'Cron: Zaplaceno, chybí doklady (5 min)' },
+    { slug: 'cron_abandoned_web',                  label: 'Cron: Web nezaplaceno do 4h (auto-cancel)' },
+    { slug: 'cron_abandoned_app',                  label: 'Cron: App nezaplaceno do 10 min (auto-cancel)' },
+    { slug: 'cron_auto_complete',                  label: 'Cron: Auto-complete v půlnoci posledního dne' },
+    { slug: 'cron_24h_before_pickup',              label: 'Cron: 24 hodin před převzetím (připomínka)' },
+    { slug: 'cron_2h_before_pickup',               label: 'Cron: 2 hodiny před převzetím' },
+  ]},
+  { group: 'Faktury & doklady', items: [
+    { slug: 'zf_invoice_created',                  label: 'Vystavena ZF (zálohová faktura)' },
+    { slug: 'dp_invoice_created',                  label: 'Vystaven DP (doklad o platbě)' },
+    { slug: 'kf_invoice_created',                  label: 'Vystavena KF (konečná faktura)' },
+    { slug: 'kf_invoice_created_web',              label: 'Vystavena KF — web rezervace' },
+    { slug: 'credit_note_created',                 label: 'Vystaven dobropis' },
+    { slug: 'auto_after_zf_created',               label: 'Automaticky po vytvoření ZF' },
+    { slug: 'auto_after_dp_created',               label: 'Automaticky po vytvoření DP' },
+    { slug: 'auto_after_kf_created',               label: 'Automaticky po vytvoření KF' },
+  ]},
+  { group: 'E-shop', items: [
+    { slug: 'shop_order_status_new',               label: 'E-shop objednávka → Nová' },
+    { slug: 'shop_order_status_confirmed',         label: 'E-shop objednávka → Potvrzená (zaplacená)' },
+    { slug: 'shop_order_status_processing',        label: 'E-shop objednávka → Zpracovává se' },
+    { slug: 'shop_order_status_shipped',           label: 'E-shop objednávka → Odeslaná' },
+    { slug: 'shop_order_status_delivered',         label: 'E-shop objednávka → Doručená' },
+  ]},
+  { group: 'Ručně z Velinu', items: [
+    { slug: 'manual_send_from_velin',              label: 'Ruční odeslání z Velinu (tlačítko)' },
+    { slug: 'manual_test_send',                    label: 'Test (admin si poslal sám sobě)' },
+  ]},
+  { group: 'Doklady & SOS', items: [
+    { slug: 'door_codes_released',                 label: 'Uvolněné přístupové kódy (po ověření dokladů)' },
+    { slug: 'sos_reported_app',                    label: 'SOS hlášení z appky' },
+    { slug: 'sos_status_changed',                  label: 'Změna stavu SOS incidentu' },
+  ]},
+  { group: 'Web interakce', items: [
+    { slug: 'web_click_continue_payment',          label: 'Web: klik na "Pokračovat k platbě"' },
+    { slug: 'web_click_resume_booking',            label: 'Web: klik na "Pokračovat v rezervaci"' },
+    { slug: 'web_form_step_completed',             label: 'Web: dokončen krok rezervačního formuláře' },
+  ]},
+]
+
 /** Povolené přílohy (multi-select v editaci šablony, sloupec attachments jsonb) */
 const ATTACHMENT_OPTIONS = [
   { value: 'ZF',       label: 'ZF — Zálohová faktura' },
@@ -215,6 +282,7 @@ export default function EmailTemplatesTab() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [editing, setEditing] = useState(null)
+  const [creating, setCreating] = useState(false)
   const defaultFilters = { search: '', statuses: [], categories: [], channels: [] }
   const [filters, setFilters] = useState(() => {
     try {
@@ -278,6 +346,14 @@ export default function EmailTemplatesTab() {
 
   return (
     <div>
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <h2 className="text-lg font-extrabold" style={{ color: '#1a2e22' }}>E-mailové šablony</h2>
+        <button onClick={() => setCreating(true)}
+          className="rounded-btn text-sm font-extrabold uppercase tracking-wide cursor-pointer"
+          style={{ padding: '10px 18px', background: '#74FB71', border: '1px solid #1a8a18', color: '#0a1f15' }}>
+          + Nová šablona
+        </button>
+      </div>
       <div className="flex items-center gap-3 mb-4 flex-wrap">
         <input type="text" value={filters.search} onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
           placeholder="Hledat šablonu, e-mail…"
@@ -330,6 +406,24 @@ export default function EmailTemplatesTab() {
           onSaved={() => { setEditing(null); load() }}
         />
       )}
+
+      {creating && (
+        <EditEmailTemplateModal
+          template={{
+            id: null,
+            name: '',
+            slug: '',
+            subject: '',
+            body_html: '',
+            active: true,
+            attachments: [],
+            triggers: [],
+          }}
+          isNew
+          onClose={() => setCreating(false)}
+          onSaved={() => { setCreating(false); load() }}
+        />
+      )}
     </div>
   )
 }
@@ -357,7 +451,7 @@ function TemplateCard({ template, onEdit }) {
       <div className="rounded-btn text-xs mb-2" style={{ padding: '8px 10px', background: '#f8faf9', border: '1px solid #e5e7eb', lineHeight: 1.6, color: '#374151' }}>
         {meta.info && <div className="mb-1">{meta.info}</div>}
         <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1" style={{ fontSize: 11 }}>
-          <span><strong style={{ color: '#1a2e22' }}>Trigger:</strong> {meta.trigger}</span>
+          <span><strong style={{ color: '#1a2e22' }}>Trigger:</strong> {Array.isArray(template.triggers) && template.triggers.length > 0 ? `${template.triggers.length} přiřazen${template.triggers.length === 1 ? '' : (template.triggers.length < 5 ? 'y' : 'o')}` : (meta.trigger || '—')}</span>
           <span><strong style={{ color: '#1a2e22' }}>Přílohy:</strong> {attachmentsList.length > 0 ? attachmentsList.join(', ') : (meta.attachments || '—')}</span>
         </div>
       </div>
@@ -406,14 +500,26 @@ function SentEmailsTable({ emails }) {
   )
 }
 
-function EditEmailTemplateModal({ template, onClose, onSaved }) {
+function EditEmailTemplateModal({ template, onClose, onSaved, isNew = false }) {
   const [name, setName] = useState(template.name || '')
+  const [slug, setSlug] = useState(template.slug || '')
   const [subject, setSubject] = useState(template.subject || '')
   const [bodyHtml, setBodyHtml] = useState(template.body_html || '')
   const [active, setActive] = useState(template.active ?? true)
+  const [category, setCategory] = useState(getTemplateMeta(template.slug || '').category || 'other')
+  const [channel, setChannel] = useState(getChannel(template.slug || ''))
   const [attachmentsSel, setAttachmentsSel] = useState(
     Array.isArray(template.attachments) ? template.attachments : []
   )
+  const [triggersSel, setTriggersSel] = useState(
+    Array.isArray(template.triggers) ? template.triggers : []
+  )
+
+  function toggleTrigger(slug) {
+    setTriggersSel(prev =>
+      prev.includes(slug) ? prev.filter(s => s !== slug) : [...prev, slug]
+    )
+  }
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
   const [err, setErr] = useState(null)
@@ -451,13 +557,34 @@ function EditEmailTemplateModal({ template, onClose, onSaved }) {
   async function handleSave() {
     setSaving(true); setErr(null)
     try {
+      if (isNew) {
+        if (!slug || !slug.trim()) throw new Error('Slug je povinný (kód šablony, např. booking_reminder)')
+        if (!/^[a-z0-9_]+$/.test(slug.trim())) throw new Error('Slug může obsahovat jen malá písmena, čísla a podtržítka')
+      }
       const { data: { user } } = await supabase.auth.getUser()
-      const updatePayload = { name, subject, body_html: bodyHtml, active, attachments: attachmentsSel, updated_by: user?.id }
-      const result = await debugAction('emailTemplate.update', 'EditEmailTemplateModal', () =>
-        supabase.from('email_templates').update(updatePayload).eq('id', template.id)
-      , updatePayload)
-      if (result?.error) throw result.error
-      await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'email_template_updated', details: { template_id: template.id } })
+      const payload = {
+        name,
+        slug: slug.trim() || template.slug,
+        subject,
+        body_html: bodyHtml,
+        active,
+        attachments: attachmentsSel,
+        triggers: triggersSel,
+        updated_by: user?.id,
+      }
+      if (isNew) {
+        const result = await debugAction('emailTemplate.insert', 'EditEmailTemplateModal', () =>
+          supabase.from('email_templates').insert(payload).select().single()
+        , payload)
+        if (result?.error) throw result.error
+        await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'email_template_created', details: { template_id: result.data?.id, slug: payload.slug } })
+      } else {
+        const result = await debugAction('emailTemplate.update', 'EditEmailTemplateModal', () =>
+          supabase.from('email_templates').update(payload).eq('id', template.id)
+        , payload)
+        if (result?.error) throw result.error
+        await supabase.from('admin_audit_log').insert({ admin_id: user?.id, action: 'email_template_updated', details: { template_id: template.id } })
+      }
       onSaved()
     } catch (e) { setErr(e.message) } finally { setSaving(false) }
   }
@@ -474,7 +601,7 @@ function EditEmailTemplateModal({ template, onClose, onSaved }) {
   }
 
   return (
-    <Modal open title={`Upravit: ${template.name}`} onClose={onClose} wide>
+    <Modal open title={isNew ? 'Nová e-mailová šablona' : `Upravit: ${template.name}`} onClose={onClose} wide>
       {/* Info panel */}
       <div className="rounded-btn mb-4" style={{ padding: '12px 14px', background: '#f8faf9', border: '1px solid #d4e8e0' }}>
         <div className="text-sm mb-1" style={{ color: '#374151', lineHeight: 1.6 }}>{meta.info}</div>
@@ -486,8 +613,19 @@ function EditEmailTemplateModal({ template, onClose, onSaved }) {
       </div>
 
       <div className="space-y-3">
-        <div><Label>Název</Label><input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
-        <div><Label>Předmět</Label><input type="text" value={subject} onChange={e => setSubject(e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
+        <div><Label>Název</Label><input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} placeholder="např. Připomínka 24h před převzetím" /></div>
+        {isNew && (
+          <div>
+            <Label>Slug (kód šablony)</Label>
+            <input type="text" value={slug} onChange={e => setSlug(e.target.value.toLowerCase().replace(/\s+/g, '_'))}
+              className="w-full rounded-btn text-sm outline-none font-mono"
+              style={inputStyle} placeholder="např. booking_reminder_24h" />
+            <div className="text-xs mt-1" style={{ color: '#6b7280' }}>
+              Malá písmena, čísla, podtržítka. Slug je trvalý identifikátor — nelze později změnit.
+            </div>
+          </div>
+        )}
+        <div><Label>Předmět</Label><input type="text" value={subject} onChange={e => setSubject(e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} placeholder="Použijte {{booking_number}} apod. pro proměnné" /></div>
 
         <div className="rounded-lg text-center cursor-pointer transition-colors"
           style={{ padding: '16px', border: `2px dashed ${dragOver ? '#74FB71' : '#d4e8e0'}`, background: dragOver ? '#f0fff4' : '#f9fdfb' }}
@@ -532,6 +670,50 @@ function EditEmailTemplateModal({ template, onClose, onSaved }) {
                 </label>
               )
             })}
+          </div>
+        </div>
+
+        <div>
+          <Label>Triggery — kdy se šablona pošle</Label>
+          <div className="text-xs mb-2" style={{ color: '#6b7280' }}>
+            Vyberte události které vyvolají odeslání této šablony. Můžete kombinovat libovolné množství.
+            <br/><strong>Pozn.:</strong> dispatcher v edge funkcích zatím rozhoduje podle <code>type</code> v payloadu — tato data slouží jako reference + příprava na dynamický dispatcher (změna typu šablony bude později řízená přímo z této tabulky).
+          </div>
+          <div className="space-y-3">
+            {TRIGGER_CATALOG.map(group => (
+              <div key={group.group} className="rounded-btn" style={{ padding: '10px 12px', background: '#f8faf9', border: '1px solid #e5e7eb' }}>
+                <div className="text-xs font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>{group.group}</div>
+                <div className="flex flex-wrap gap-2">
+                  {group.items.map(item => {
+                    const checked = triggersSel.includes(item.slug)
+                    return (
+                      <label key={item.slug}
+                        className="flex items-center gap-2 cursor-pointer rounded-btn"
+                        style={{
+                          padding: '5px 9px',
+                          background: checked ? '#dbeafe' : '#ffffff',
+                          border: `1px solid ${checked ? '#60a5fa' : '#e5e7eb'}`,
+                          color: checked ? '#1e3a8a' : '#374151',
+                          fontSize: 11.5,
+                        }}>
+                        <input type="checkbox" checked={checked} onChange={() => toggleTrigger(item.slug)}
+                          className="accent-[#2563eb]" style={{ width: 13, height: 13 }} />
+                        <span style={{ fontWeight: checked ? 700 : 500 }}>{item.label}</span>
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+            {triggersSel.length > 0 && (
+              <div className="text-xs" style={{ color: '#6b7280' }}>
+                Vybráno: <strong style={{ color: '#1a2e22' }}>{triggersSel.length}</strong> trigger{triggersSel.length === 1 ? '' : 'ů'}
+                <button onClick={() => setTriggersSel([])}
+                  className="ml-3 text-xs cursor-pointer" style={{ color: '#dc2626', background: 'none', border: 'none' }}>
+                  Vymazat výběr
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
