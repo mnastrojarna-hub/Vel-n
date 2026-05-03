@@ -51,6 +51,7 @@
 | `trg_push_on_admin_message` | admin_messages (AFTER INSERT) | trg_push_on_admin_message() — pošle FCM push přes `send-push` edge function. SECURITY DEFINER, EXCEPTION safe |
 | `trg_send_booking_completed_email` | invoices (AFTER INSERT, WHEN type='final') | trg_send_booking_completed_email() — po vložení KF odešle `booking_completed` e-mail přes `send-booking-email` (poděkování + KF v příloze + slevový kód `VRACENI-*`). **FIX 2026-05-03:** čte config z `app_settings` tabulky (GUC nefunguje na Supabase managed). Dedup přes message_log. SECURITY DEFINER, EXCEPTION safe |
 | `trg_shop_order_confirmed_email` | shop_orders (AFTER UPDATE OF payment_status, WHEN pending→paid) | **NEW 2026-05-03:** trg_send_shop_order_confirmed_email() — pošle zákazníkovi potvrzení e-shop objednávky + DP přes send-booking-email s `type='shop_order_confirmed'`. Dedup přes message_log.content_preview. SECURITY DEFINER, EXCEPTION safe |
+| `trg_booking_modified_email` | bookings (AFTER UPDATE) | **NEW 2026-05-03 (B):** trg_send_booking_modified_email() — detekuje změnu moto/datumy/cena/místo přistavení a pošle `booking_modified` mail s plným `original_*` payloadem z OLD. Pokrývá Velin / web / Flutter / RPC. Dedup 5min přes message_log. SECURITY DEFINER, EXCEPTION safe |
 
 ### Další triggery v reálné DB
 | Trigger | Tabulka | Funkce |
