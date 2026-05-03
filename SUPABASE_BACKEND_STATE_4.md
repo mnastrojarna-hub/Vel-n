@@ -49,7 +49,8 @@
 | `trg_release_codes_on_doc_upload` | documents (AFTER INSERT, WHEN type IN id_card/passport/drivers_license/id_photo/license_photo) | release_withheld_door_codes() → deleguje na release_withheld_door_codes_for_user(NEW.user_id) — ta ověří pro každou rezervaci přesný stav dokladů (vč. platnosti ŘP vs. end_date) a uvolní/aktualizuje withheld_reason. SECURITY DEFINER, EXCEPTION safe |
 | `trg_regen_codes_on_moto_change` | bookings (AFTER UPDATE OF moto_id, WHEN moto_id změněn + status IN active/reserved) | regen_door_codes_on_moto_change() — deaktivuje staré kódy a vygeneruje nové pro novou motorku. SECURITY DEFINER, EXCEPTION safe |
 | `trg_push_on_admin_message` | admin_messages (AFTER INSERT) | trg_push_on_admin_message() — pošle FCM push přes `send-push` edge function. SECURITY DEFINER, EXCEPTION safe |
-| `trg_send_booking_completed_email` | invoices (AFTER INSERT, WHEN type='final') | trg_send_booking_completed_email() — po vložení KF odešle `booking_completed` e-mail přes `send-booking-email` (poděkování + KF v příloze). Dedup přes message_log. SECURITY DEFINER, EXCEPTION safe |
+| `trg_send_booking_completed_email` | invoices (AFTER INSERT, WHEN type='final') | trg_send_booking_completed_email() — po vložení KF odešle `booking_completed` e-mail přes `send-booking-email` (poděkování + KF v příloze + slevový kód `VRACENI-*`). **FIX 2026-05-03:** čte config z `app_settings` tabulky (GUC nefunguje na Supabase managed). Dedup přes message_log. SECURITY DEFINER, EXCEPTION safe |
+| `trg_shop_order_confirmed_email` | shop_orders (AFTER UPDATE OF payment_status, WHEN pending→paid) | **NEW 2026-05-03:** trg_send_shop_order_confirmed_email() — pošle zákazníkovi potvrzení e-shop objednávky + DP přes send-booking-email s `type='shop_order_confirmed'`. Dedup přes message_log.content_preview. SECURITY DEFINER, EXCEPTION safe |
 
 ### Další triggery v reálné DB
 | Trigger | Tabulka | Funkce |
