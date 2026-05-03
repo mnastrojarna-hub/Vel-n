@@ -133,6 +133,13 @@ if ($path === '/llms.txt') {
     exit;
 }
 
+// /api/master.php — JSON export CS masteru pro multilingvní překlad
+// (volá edge fn translate-pages-master, autorizuje cms_admin_token).
+if ($path === '/api/master.php') {
+    require __DIR__ . '/pages/master-export.php';
+    exit;
+}
+
 // llms-full.txt — sloučený plný obsah pro LLM (statické stránky + DB).
 // AI agent dostane kompletní kontext webu v jednom requestu (~80 kB markdown).
 if ($path === '/llms-full.txt') {
