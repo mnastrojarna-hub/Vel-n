@@ -253,36 +253,10 @@ export default function BookingDetail() {
     const saveResult = await debugAction('booking.save', 'BookingDetail', () => supabase.from('bookings').update(saveData).eq('id', id), saveData)
     if (saveResult?.error) { setError(saveResult.error.message); setSaving(false); return }
     await logAudit('booking_updated', { booking_id: id })
-    if (['reserved', 'active'].includes(booking.status) && booking.profiles?.email) {
-      try {
-        await supabase.functions.invoke('send-booking-email', {
-          body: {
-            type: 'booking_modified',
-            booking_id: id,
-            customer_email: booking.profiles.email,
-            customer_name: booking.profiles.full_name,
-            source: booking.booking_source || 'app',
-            motorcycle:    booking.motorcycles?.model,
-            start_date,
-            end_date,
-            total_price,
-            pickup_method:  booking.pickup_method || '',
-            pickup_address: booking.pickup_address || '',
-            return_method:  booking.return_method || '',
-            return_address: booking.return_address || '',
-            // Původní hodnoty z DB (před UPDATEm)
-            original_motorcycle:     dbBooking.motorcycles?.model || booking.motorcycles?.model || '',
-            original_start_date:     dbBooking.start_date,
-            original_end_date:       dbBooking.end_date,
-            original_total_price:    dbBooking.total_price,
-            original_pickup_method:  dbBooking.pickup_method || '',
-            original_pickup_address: dbBooking.pickup_address || '',
-            original_return_method:  dbBooking.return_method || '',
-            original_return_address: dbBooking.return_address || '',
-          },
-        })
-      } catch {}
-    }
+    // booking_modified email se posílá automaticky DB triggerem trg_booking_modified_email
+    // (po UPDATE bookings) — netřeba volat send-booking-email z Velinu. Trigger detekuje
+    // změnu polí (moto, datumy, cena, místo, čas) a pošle mail s diff tabulkou + autoGenerateAttachments
+    // fetchne již existující DP úpravy / dobropis.
     setSaving(false)
   }
 

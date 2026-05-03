@@ -369,8 +369,12 @@ serve(async (req) => {
       original_return_address,
       pickup_method,
       pickup_address,
+      pickup_time,
       return_method,
       return_address,
+      return_time,
+      original_pickup_time,
+      original_return_time,
     } = body
 
     if (!type || !customer_email) {
@@ -418,6 +422,10 @@ serve(async (req) => {
       pickup_address:         pickup_address || '',
       return_method:          return_method || '',
       return_address:         return_address || '',
+      pickup_time:            pickup_time || '',
+      return_time:            return_time || '',
+      original_pickup_time:   original_pickup_time || '',
+      original_return_time:   original_return_time || '',
       google_review_url: google_review_url || '',
       facebook_review_url: facebook_review_url || '',
       manual_url: manual_url || '',

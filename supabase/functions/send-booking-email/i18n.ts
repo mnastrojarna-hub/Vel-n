@@ -900,10 +900,11 @@ ${v.tracking_number ? `<table style="width:100%;border-collapse:collapse;margin:
 
 function renderModifiedBody(lang: Lang, v: Vars): string {
   const L = DIFF_LABELS[lang]
-  const pickupOrig = [v.original_pickup_method, v.original_pickup_address].filter(Boolean).join(' — ')
-  const pickupNew  = [v.pickup_method, v.pickup_address].filter(Boolean).join(' — ')
-  const returnOrig = [v.original_return_method, v.original_return_address].filter(Boolean).join(' — ')
-  const returnNew  = [v.return_method, v.return_address].filter(Boolean).join(' — ')
+  // pickup_time/return_time je text 'HH:MM' — pokud je vyplněný, přilepíme za adresu
+  const pickupOrig = [v.original_pickup_method, v.original_pickup_address, v.original_pickup_time ? '@' + v.original_pickup_time : ''].filter(Boolean).join(' — ')
+  const pickupNew  = [v.pickup_method, v.pickup_address, v.pickup_time ? '@' + v.pickup_time : ''].filter(Boolean).join(' — ')
+  const returnOrig = [v.original_return_method, v.original_return_address, v.original_return_time ? '@' + v.original_return_time : ''].filter(Boolean).join(' — ')
+  const returnNew  = [v.return_method, v.return_address, v.return_time ? '@' + v.return_time : ''].filter(Boolean).join(' — ')
 
   const pd = Number((v.price_difference || '0').toString().replace(/\s/g, '').replace(',', '.')) || 0
 
