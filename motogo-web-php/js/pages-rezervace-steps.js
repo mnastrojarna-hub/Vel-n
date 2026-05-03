@@ -178,6 +178,13 @@ MG._submitReservation = async function(){
       MG._rez.bookingId = regData.booking_id;
       MG._rez.userId = regData.user_id;
       MG._rez.bookingAmount = regData.amount;
+      // i18n: ulož jazyk zákazníka do bookings.language (pro maily/SMS/push)
+      try {
+        await window.sb.rpc('set_booking_language', {
+          p_booking_id: regData.booking_id,
+          p_language: (document.documentElement.lang || 'cs').slice(0, 2)
+        });
+      } catch (e) { console.warn('[REZ] set_booking_language failed:', e); }
       // Uložit stav formuláře do sessionStorage (přežije navigaci zpět)
       try { sessionStorage.setItem('mg_rez_form', JSON.stringify({
         formData: MG._rez.formData, bookingId: MG._rez.bookingId,

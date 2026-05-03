@@ -77,6 +77,7 @@ Future<String?> createShopOrder({
   required ShipMode shipping,
   Map<String, String>? address,
   String? promoCode,
+  String language = 'cs',
 }) async {
   try {
     final res = await MotoGoSupabase.client.rpc('create_shop_order', params: {
@@ -92,7 +93,15 @@ Future<String?> createShopOrder({
       'p_promo_code': promoCode,
     });
     if (res is Map && res['order_id'] != null) {
-      return res['order_id'] as String;
+      final orderId = res['order_id'] as String;
+      // i18n: ulož jazyk zákazníka do shop_orders.language (pro maily/SMS/push)
+      try {
+        await MotoGoSupabase.client.rpc('set_shop_order_language', params: {
+          'p_order_id': orderId,
+          'p_language': language,
+        });
+      } catch (_) { /* ignore — log only, neni kritické */ }
+      return orderId;
     }
     return null;
   } catch (e) {

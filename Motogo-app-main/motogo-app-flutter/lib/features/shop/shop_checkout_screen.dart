@@ -199,6 +199,7 @@ class _CheckoutState extends ConsumerState<ShopCheckoutScreen> {
               .map((d) => d.code)
               .join(',')
           : null,
+      language: ref.read(localeProvider).languageCode,
     );
 
     if (orderId == null) {

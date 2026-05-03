@@ -65,7 +65,10 @@ final bookingUpsellProvider =
 
 /// Create a shop order for upsell items added during booking.
 /// Uses digital/pickup shipping since these are add-ons to an existing booking.
-Future<String?> createBookingUpsellOrder(List<BookingUpsellItem> items) async {
+Future<String?> createBookingUpsellOrder(
+  List<BookingUpsellItem> items, {
+  String language = 'cs',
+}) async {
   if (items.isEmpty) return null;
   final cartItems = items
       .map((i) => CartItem(id: i.id, name: i.name, price: i.price))
@@ -73,5 +76,6 @@ Future<String?> createBookingUpsellOrder(List<BookingUpsellItem> items) async {
   return createShopOrder(
     items: cartItems,
     shipping: ShipMode.pickup,
+    language: language,
   );
 }
