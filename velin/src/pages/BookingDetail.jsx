@@ -239,7 +239,7 @@ export default function BookingDetail() {
     const { start_date, end_date, total_price, extras, notes, moto_id, user_id } = booking
     const saveData = { start_date, end_date, total_price, extras, notes, moto_id, user_id }
     const { data: dbBooking } = await supabase.from('bookings')
-      .select('start_date, end_date, original_start_date, original_end_date, modification_history').eq('id', id).single()
+      .select('start_date, end_date, total_price, pickup_method, pickup_address, return_method, return_address, original_start_date, original_end_date, modification_history, motorcycles(model)').eq('id', id).single()
     if (dbBooking) {
       const toLD = d => d ? new Date(d).toLocaleDateString('sv-SE') : ''
       const dateChanged = toLD(dbBooking.start_date) !== toLD(start_date) || toLD(dbBooking.end_date) !== toLD(end_date)
@@ -254,7 +254,34 @@ export default function BookingDetail() {
     if (saveResult?.error) { setError(saveResult.error.message); setSaving(false); return }
     await logAudit('booking_updated', { booking_id: id })
     if (['reserved', 'active'].includes(booking.status) && booking.profiles?.email) {
-      try { await supabase.functions.invoke('send-booking-email', { body: { type: 'booking_modified', booking_id: id, customer_email: booking.profiles.email, customer_name: booking.profiles.full_name, motorcycle: booking.motorcycles?.model, start_date, end_date, total_price } }) } catch {}
+      try {
+        await supabase.functions.invoke('send-booking-email', {
+          body: {
+            type: 'booking_modified',
+            booking_id: id,
+            customer_email: booking.profiles.email,
+            customer_name: booking.profiles.full_name,
+            source: booking.booking_source || 'app',
+            motorcycle:    booking.motorcycles?.model,
+            start_date,
+            end_date,
+            total_price,
+            pickup_method:  booking.pickup_method || '',
+            pickup_address: booking.pickup_address || '',
+            return_method:  booking.return_method || '',
+            return_address: booking.return_address || '',
+            // Původní hodnoty z DB (před UPDATEm)
+            original_motorcycle:     dbBooking.motorcycles?.model || booking.motorcycles?.model || '',
+            original_start_date:     dbBooking.start_date,
+            original_end_date:       dbBooking.end_date,
+            original_total_price:    dbBooking.total_price,
+            original_pickup_method:  dbBooking.pickup_method || '',
+            original_pickup_address: dbBooking.pickup_address || '',
+            original_return_method:  dbBooking.return_method || '',
+            original_return_address: dbBooking.return_address || '',
+          },
+        })
+      } catch {}
     }
     setSaving(false)
   }

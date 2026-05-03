@@ -126,6 +126,7 @@ const FALLBACK_SUBJECTS: Record<string, (vars: Record<string, string>) => string
   booking_cancelled: (v) => `Va\u0161e rezervace \u010d. ${v.booking_number} motocyklu u MotoGo24 byla \u00fasp\u011b\u0161n\u011b stornov\u00e1na`,
   sos_incident: () => `SOS \u2014 MotoGo24 je na cest\u011b`,
   door_codes: (v) => `P\u0159\u00edstupov\u00e9 k\u00f3dy k pobo\u010dce \u2014 rezervace \u010d. ${v.booking_number}`,
+  shop_order_confirmed: (v) => `Objedn\u00e1vka \u010d. ${v.order_number} p\u0159ijata \u2014 MOTO GO 24`,
 }
 
 /** Download file from Supabase Storage and return as base64 */
@@ -143,11 +144,41 @@ async function autoGenerateAttachments(
   type: string,
   booking_id: string,
   supabase: any,
-  opts: { priceDifference?: number } = {}
+  opts: { priceDifference?: number; orderId?: string } = {}
 ): Promise<{ content: string; filename: string }[]> {
-  if (!booking_id) return []
   const atts: { content: string; filename: string }[] = []
   const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
+
+  // Shop order confirmed — DP e-shop (payment_receipt with source='shop')
+  if (type === 'shop_order_confirmed' && opts.orderId) {
+    try {
+      const { data: dp } = await supabase.from('invoices')
+        .select('id, number, pdf_path')
+        .eq('order_id', opts.orderId)
+        .eq('type', 'payment_receipt')
+        .neq('status', 'cancelled')
+        .order('created_at', { ascending: false })
+        .limit(1)
+      if (dp?.length && dp[0].pdf_path) {
+        const b64 = await downloadAsBase64(supabase, dp[0].pdf_path)
+        if (b64) atts.push({ content: b64, filename: `Doklad-platby-${dp[0].number || 'DP'}.html` })
+      } else {
+        // DP neexistuje → pokus o generování
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
+          method: 'POST', headers,
+          body: JSON.stringify({ type: 'payment_receipt', order_id: opts.orderId, source: 'shop', send_email: false }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (data.success && data.invoice_id) {
+          const b64 = await downloadAsBase64(supabase, `invoices/${data.invoice_id}.html`)
+          if (b64) atts.push({ content: b64, filename: `Doklad-platby-${data.number || 'DP'}.html` })
+        }
+      }
+    } catch { /* ignore */ }
+    return atts
+  }
+
+  if (!booking_id) return atts
 
   if (type === 'booking_abandoned') {
     // Generate ZF (proforma) for abandoned bookings — shows what needs to be paid
@@ -288,6 +319,22 @@ serve(async (req) => {
       facebook_review_url,
       manual_url,
       attachments,
+      // Shop order extras
+      order_id,
+      shipping_cost,
+      // booking_modified — přehled úprav (původní vs nové)
+      original_motorcycle,
+      original_start_date,
+      original_end_date,
+      original_total_price,
+      original_pickup_method,
+      original_pickup_address,
+      original_return_method,
+      original_return_address,
+      pickup_method,
+      pickup_address,
+      return_method,
+      return_address,
     } = body
 
     if (!type || !customer_email) {
@@ -318,6 +365,21 @@ serve(async (req) => {
       pay_url: pay_url || resume_link || '',
       docs_url: docs_url || '',
       discount_code: discount_code || '',
+      // Shop order
+      shipping_cost: shipping_cost != null ? fmtPrice(shipping_cost) : '',
+      // booking_modified — přehled úprav
+      original_motorcycle:    original_motorcycle || '',
+      original_start_date:    fmtDate(original_start_date),
+      original_end_date:      fmtDate(original_end_date),
+      original_total_price:   original_total_price != null ? fmtPrice(original_total_price) : '',
+      original_pickup_method: original_pickup_method || '',
+      original_pickup_address: original_pickup_address || '',
+      original_return_method: original_return_method || '',
+      original_return_address: original_return_address || '',
+      pickup_method:          pickup_method || '',
+      pickup_address:         pickup_address || '',
+      return_method:          return_method || '',
+      return_address:         return_address || '',
       google_review_url: google_review_url || '',
       facebook_review_url: facebook_review_url || '',
       manual_url: manual_url || '',
@@ -467,6 +529,62 @@ ${vars.door_codes_block || `<p style="color:#dc2626">K\u00f3dy se zobraz\u00ed p
 <p><strong>Omlouv\u00e1me se za nep\u0159\u00edjemnosti a jsme na cest\u011b.</strong></p>
 <p>N\u00e1\u0161 t\u00fdm se v\u00e1m ozve v nejbli\u017e\u0161\u00edch minut\u00e1ch. Pokud pot\u0159ebujete okam\u017eitou pomoc, volejte na <a href="tel:+420774256271" style="color:#2563eb;font-weight:700">+420 774 256 271</a>.</p>
 <p>T\u00fdm MotoGo24</p>`
+      } else if (type === 'booking_modified') {
+        // Diff tabulka — řádek per pole, jen pokud se změnilo (nebo neznáme original)
+        const diffRow = (label: string, oldVal: string, newVal: string): string => {
+          if (!oldVal && !newVal) return ''
+          const changed = oldVal && newVal && oldVal !== newVal
+          return `<tr>
+            <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:12px">${label}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:${changed ? '#9ca3af' : '#0f1a14'};${changed ? 'text-decoration:line-through' : ''};font-size:13px">${oldVal || '—'}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:${changed ? '#16a34a' : '#0f1a14'};font-weight:${changed ? '700' : '400'};font-size:13px">${newVal || '—'}</td>
+          </tr>`
+        }
+        const pickupOrig = [vars.original_pickup_method, vars.original_pickup_address].filter(Boolean).join(' — ')
+        const pickupNew  = [vars.pickup_method, vars.pickup_address].filter(Boolean).join(' — ')
+        const returnOrig = [vars.original_return_method, vars.original_return_address].filter(Boolean).join(' — ')
+        const returnNew  = [vars.return_method, vars.return_address].filter(Boolean).join(' — ')
+
+        const pd = Number((price_difference || 0).toString().replace(/\s/g, '').replace(',', '.')) || 0
+        let priceMessage = ''
+        if (pd > 0)      priceMessage = `<p>K úpravě se vztahuje <strong>doplatek ${vars.price_difference}</strong>. Po platbě dorazí daňový doklad.</p>`
+        else if (pd < 0) priceMessage = `<p>K úpravě se vztahuje <strong>vrácení ${vars.price_difference}</strong> formou dobropisu, který najdete v příloze. Refund jde zpět na původní platební kartu.</p>`
+
+        templateHtml = `<p>Dobrý den,</p>
+<p>vaše rezervace č. <strong>${vars.booking_number}</strong> byla upravena. Níže najdete kompletní přehled změn — původní hodnoty jsou přeškrtnuté, nové zvýrazněné zeleně.</p>
+<table style="width:100%;border-collapse:collapse;margin:16px 0;border:1px solid #e5e7eb">
+  <thead>
+    <tr style="background:#f9fafb">
+      <th style="padding:10px 12px;text-align:left;font-size:11px;color:#6b7280;letter-spacing:.5px;text-transform:uppercase">Údaj</th>
+      <th style="padding:10px 12px;text-align:left;font-size:11px;color:#6b7280;letter-spacing:.5px;text-transform:uppercase">Původní</th>
+      <th style="padding:10px 12px;text-align:left;font-size:11px;color:#6b7280;letter-spacing:.5px;text-transform:uppercase">Nové</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${diffRow('Motorka',           vars.original_motorcycle,    vars.motorcycle)}
+    ${diffRow('Začátek',           vars.original_start_date,    vars.start_date)}
+    ${diffRow('Konec',             vars.original_end_date,      vars.end_date)}
+    ${diffRow('Místo převzetí',    pickupOrig,                  pickupNew)}
+    ${diffRow('Místo vrácení',     returnOrig,                  returnNew)}
+    ${diffRow('Celková cena',      vars.original_total_price,   vars.total_price)}
+  </tbody>
+</table>
+${priceMessage}
+<p>V příloze najdete <strong>aktualizovanou nájemní smlouvu, VOP</strong> a všechny <strong>nové daňové doklady</strong> (zálohová faktura, doklad o platbě, případně dobropis).</p>
+<p>Pokud změnu neiniciovali jste vy a jde o nesrovnalost, ihned nás kontaktujte na <a href="mailto:info@motogo24.cz" style="color:#2563eb">info@motogo24.cz</a>.</p>
+<p>S pozdravem,<br>Tým MotoGo24</p>`
+      } else if (type === 'shop_order_confirmed') {
+        templateHtml = `<p>Dobr\u00fd den,</p>
+<p>d\u011bkujeme za va\u0161i objedn\u00e1vku v e-shopu MotoGo24. Va\u0161i platbu jsme \u00fasp\u011b\u0161n\u011b p\u0159ijali.</p>
+<table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:13px">
+  <tr><td style="padding:6px 0;color:#6b7280">\u010c\u00edslo objedn\u00e1vky:</td><td style="padding:6px 0;font-weight:700;color:#0f1a14">${vars.order_number}</td></tr>
+  <tr><td style="padding:6px 0;color:#6b7280">Celkov\u00e1 cena:</td><td style="padding:6px 0;font-weight:700;color:#0f1a14">${vars.total_price}</td></tr>
+  ${vars.shipping_cost ? `<tr><td style="padding:6px 0;color:#6b7280">Doprava:</td><td style="padding:6px 0;color:#0f1a14">${vars.shipping_cost}</td></tr>` : ''}
+</table>
+<p>V p\u0159\u00edloze najdete <strong>doklad o p\u0159ijat\u00e9 platb\u011b</strong>.</p>
+<p>Jakmile va\u0161i objedn\u00e1vku p\u0159iprav\u00edme a p\u0159ed\u00e1me p\u0159epravci, po\u0161leme v\u00e1m e-mail s tracking \u010d\u00edslem a fin\u00e1ln\u00ed fakturou.</p>
+<p>Pokud m\u00e1te jak\u00fdkoliv dotaz, jsme v\u00e1m k dispozici.</p>
+<p>S pozdravem,<br>T\u00fdm MotoGo24</p>`
       } else {
         templateHtml = `<p>Dobr\u00fd den,</p><p>toto je automatick\u00e9 ozn\u00e1men\u00ed od MotoGo24 t\u00fdkaj\u00edc\u00ed se va\u0161\u00ed rezervace \u010d. <strong>${vars.booking_number}</strong>.</p>`
       }
@@ -481,12 +599,16 @@ ${vars.door_codes_block || `<p style="color:#dc2626">K\u00f3dy se zobraz\u00ed p
       })
     }
 
-    // Auto-generate attachments for abandoned (ZF), completed (KF), modified (all docs)
+    // Auto-generate attachments per type
     let finalAttachments = attachments && Array.isArray(attachments) ? [...attachments] : []
-    if (booking_id && (type === 'booking_abandoned' || type === 'booking_completed' || type === 'booking_modified')) {
+    const wantsAutoAtt =
+      (booking_id && (type === 'booking_abandoned' || type === 'booking_completed' || type === 'booking_modified')) ||
+      (order_id && type === 'shop_order_confirmed')
+    if (wantsAutoAtt) {
       try {
-        const autoAtts = await autoGenerateAttachments(type, booking_id, supabase, {
+        const autoAtts = await autoGenerateAttachments(type, booking_id || '', supabase, {
           priceDifference: Number(price_difference || 0),
+          orderId: order_id || undefined,
         })
         finalAttachments = [...finalAttachments, ...autoAtts]
       } catch { /* ignore */ }

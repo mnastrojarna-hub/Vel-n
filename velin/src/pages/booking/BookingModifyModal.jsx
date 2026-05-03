@@ -148,7 +148,32 @@ export default function BookingModifyModal({ booking, onClose, onSaved }) {
       if (['reserved', 'active'].includes(booking.status) && booking.profiles?.email) {
         try {
           await supabase.functions.invoke('send-booking-email', {
-            body: { type: 'booking_modified', booking_id: booking.id, customer_email: booking.profiles.email, customer_name: booking.profiles.full_name, motorcycle: motoChanged ? selectedMoto?.model : booking.motorcycles?.model, start_date: isoDate(startDate), end_date: isoDate(endDate), total_price: chargeCustomer ? newTotalPrice : origPaidPrice, price_difference: chargeCustomer ? priceDiff : 0, source: booking.booking_source || 'app' },
+            body: {
+              type: 'booking_modified',
+              booking_id: booking.id,
+              customer_email: booking.profiles.email,
+              customer_name: booking.profiles.full_name,
+              source: booking.booking_source || 'app',
+              // Nové hodnoty
+              motorcycle:    motoChanged ? selectedMoto?.model : booking.motorcycles?.model,
+              start_date:    isoDate(startDate),
+              end_date:      isoDate(endDate),
+              total_price:   chargeCustomer ? newTotalPrice : origPaidPrice,
+              price_difference: chargeCustomer ? priceDiff : 0,
+              pickup_method:  booking.pickup_method || '',
+              pickup_address: booking.pickup_address || '',
+              return_method:  booking.return_method || '',
+              return_address: booking.return_address || '',
+              // Původní hodnoty (pro diff tabulku v mailu)
+              original_motorcycle:     booking.motorcycles?.model || '',
+              original_start_date:     booking.start_date,
+              original_end_date:       booking.end_date,
+              original_total_price:    origPaidPrice,
+              original_pickup_method:  booking.pickup_method || '',
+              original_pickup_address: booking.pickup_address || '',
+              original_return_method:  booking.return_method || '',
+              original_return_address: booking.return_address || '',
+            },
           })
         } catch {}
       }
