@@ -19,7 +19,7 @@ if ($pagePath !== '/jak-pujcit/vyzvednuti') $pagePath = '/jak-pujcit/prevzeti';
 $bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.howto'), 'href' => '/jak-pujcit'], t('menu.howto.pickup')]);
 
 // --- Section 1: title + intro + top CTA ---
-$titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">Hlavní obsah stránky</h2>' .
+$titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">' . te('a11y.mainContent') . '</h2>' .
     '<h1>' . $C['h1'] . '</h1>' .
     '<p>' . $C['intro'] . '</p>' .
     '<p>&nbsp;</p>' .
@@ -29,7 +29,7 @@ $titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">Hlav
 
 // --- Section 2 (main1): 2-col adresa + Google Maps embed ---
 $mapIframe = '<iframe class="map" loading="lazy" src="' . htmlspecialchars($C['place']['map_src']) . '" title="' . htmlspecialchars($C['place']['map_title']) . '"></iframe>';
-$placeSection = '<section aria-labelledby="main1" class="main1"><h2 id="main1" class="vh">Důležité informace</h2>' .
+$placeSection = '<section aria-labelledby="main1" class="main1"><h2 id="main1" class="vh">' . te('a11y.importantInfo') . '</h2>' .
     '<div class="gr2"><div>' .
     '<h2>' . $C['place']['title'] . '</h2>' .
     '<p><strong>' . $C['place']['address_label'] . '&nbsp;</strong>' . $C['place']['address'] . '</p>' .
@@ -42,7 +42,7 @@ $placeSection = '<section aria-labelledby="main1" class="main1"><h2 id="main1" c
 
 // --- Section 3: process 8 boxes (gr4) ---
 $grid = $C['process']['grid'] ?? 'gr4';
-$processHtml = '<section aria-labelledby="process"><h2 id="process" class="vh">Jak to u nás funguje</h2>' .
+$processHtml = '<section aria-labelledby="process"><h2 id="process" class="vh">' . te('a11y.processHowItWorks') . '</h2>' .
     '<h2>' . $C['process']['title'] . '</h2>' .
     '<div class="' . htmlspecialchars($grid) . '">';
 foreach ($C['process']['steps'] as $s) {
@@ -71,12 +71,12 @@ $bringCol = '<div>' .
     '<p>&nbsp;</p><p>&nbsp;</p><p>&nbsp;</p>' .
     '</div>';
 
-$main2Section = '<section aria-labelledby="main2" class="main2"><h2 id="main2" class="vh">Další důležité informace</h2>' .
+$main2Section = '<section aria-labelledby="main2" class="main2"><h2 id="main2" class="vh">' . te('a11y.moreImportantInfo') . '</h2>' .
     '<div class="gr2">' . $amenityCol . $bringCol . '</div>' .
     '</section>';
 
 // --- Section 5: FAQ ---
-$faqHtml = '<section aria-labelledby="faq"><h2 id="faq" class="vh">Na co se nás často ptáte</h2>' .
+$faqHtml = '<section aria-labelledby="faq"><h2 id="faq" class="vh">' . te('a11y.frequentQuestions') . '</h2>' .
     '<h2>' . $C['faq']['title'] . '</h2>' .
     '<div class="tab-content"><div class="tab-pane active" id="all"><div class="gr2">';
 foreach ($C['faq']['items'] as $f) {
@@ -86,7 +86,7 @@ $faqHtml .= '</div></div></div></section>';
 
 // --- Section 6 (main3): mid CTA "REZERVOVAT VYZVEDNUTÍ" ---
 $mid = $C['mid_cta'];
-$mid3Section = '<section aria-labelledby="main3" class="main3"><h2 id="main3" class="vh">Další informace</h2>' .
+$mid3Section = '<section aria-labelledby="main3" class="main3"><h2 id="main3" class="vh">' . te('a11y.moreInfo') . '</h2>' .
     '<p><a aria-label="' . htmlspecialchars($mid['aria']) . '" class="btn btngreen" href="' . BASE_URL . $mid['href'] . '">' . $mid['label'] . '</a></p>' .
     '</section>';
 
@@ -95,7 +95,7 @@ $ctaButtons = '';
 foreach ($C['cta']['buttons'] as $btn) {
     $ctaButtons .= '<a aria-label="' . htmlspecialchars($btn['aria'] ?? $btn['label']) . '" class="btn ' . ($btn['cls'] ?? 'btndark') . '" href="' . BASE_URL . $btn['href'] . '">' . $btn['label'] . '</a>&nbsp;';
 }
-$finalCtaSection = '<section aria-labelledby="cta"><h2 id="cta" class="vh">Kontaktujte nás</h2>' .
+$finalCtaSection = '<section aria-labelledby="cta"><h2 id="cta" class="vh">' . te('a11y.contactUs') . '</h2>' .
     '<h2>' . $C['cta']['title'] . '</h2>' .
     '<p>' . $C['cta']['text'] . '</p>' .
     '<p>&nbsp;</p>' .

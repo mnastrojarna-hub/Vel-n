@@ -208,10 +208,8 @@ function renderProductCard($p) {
  */
 function renderWbox($icon, $title, $text) {
     $iconSrc = $icon ? BASE_URL . '/' . ltrim($icon, '/') : '';
-    $titleText = trim(strip_tags($title));
-    if ($titleText === '') $titleText = t('common.info');
     return '<div class="wbox">' .
-        ($icon ? '<div class="wbox-img"><img src="' . htmlspecialchars($iconSrc) . '" class="icon" alt="' . htmlspecialchars($titleText) . '" loading="lazy"></div>' : '') .
+        ($icon ? '<div class="wbox-img"><img src="' . htmlspecialchars($iconSrc) . '" class="icon" alt="" aria-hidden="true" loading="lazy"></div>' : '') .
         '<h3>' . $title . '</h3>' .
         '<p>' . $text . '</p></div>';
 }

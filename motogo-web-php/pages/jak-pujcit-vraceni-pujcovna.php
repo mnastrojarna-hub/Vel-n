@@ -14,17 +14,17 @@ $C = $sb->siteContent('jak_pujcit_vraceni_pujcovna', $defaults);
 $bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.howto'), 'href' => '/jak-pujcit'], t('menu.howto.returnHome')]);
 
 // --- Section 1: title + intro ---
-$titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">Hlavní obsah stránky</h2>' .
+$titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">' . te('a11y.mainContent') . '</h2>' .
     '<h1>' . $C['h1'] . '</h1>' .
     '<p>' . $C['intro'] . '</p>' .
     '</section>';
 
 // --- Section 2 (placeholder): main1 ---
-$main1Section = '<section aria-labelledby="main1" class="main1"><h2 id="main1" class="vh">Důležité informace</h2></section>';
+$main1Section = '<section aria-labelledby="main1" class="main1"><h2 id="main1" class="vh">' . te('a11y.importantInfo') . '</h2></section>';
 
 // --- Section 3: process 4 boxes (gr4) — pouze titulky bez popisu (jako v originale) ---
 $grid = $C['process']['grid'] ?? 'gr4';
-$processHtml = '<section aria-labelledby="process"><h2 id="process" class="vh">Jak to u nás funguje</h2>' .
+$processHtml = '<section aria-labelledby="process"><h2 id="process" class="vh">' . te('a11y.processHowItWorks') . '</h2>' .
     '<div class="' . htmlspecialchars($grid) . '">';
 foreach ($C['process']['steps'] as $s) {
     // Pokud step nema text, vykreslime jen wbox-img + h3 (bez <p>)
@@ -41,7 +41,7 @@ $processHtml .= '</div></section>';
 // --- Section 4 (main2): Cas vraceni + Nesrovnalosti ---
 $issuesLis = '';
 foreach ($C['issues']['items'] as $i) { $issuesLis .= '<li>' . $i . '</li>'; }
-$main2Section = '<section aria-labelledby="main2" class="main2"><h2 id="main2" class="vh">Další důležité informace</h2>' .
+$main2Section = '<section aria-labelledby="main2" class="main2"><h2 id="main2" class="vh">' . te('a11y.moreImportantInfo') . '</h2>' .
     '<h2>' . $C['time']['title'] . '</h2>' .
     '<p>' . $C['time']['text'] . '</p>' .
     '<p>&nbsp;</p>' .
@@ -56,7 +56,7 @@ $main2Section = '<section aria-labelledby="main2" class="main2"><h2 id="main2" c
     '</section>';
 
 // --- Section 5: FAQ ---
-$faqHtml = '<section aria-labelledby="faq"><h2 id="faq" class="vh">Na co se nás často ptáte</h2>' .
+$faqHtml = '<section aria-labelledby="faq"><h2 id="faq" class="vh">' . te('a11y.frequentQuestions') . '</h2>' .
     '<h2>' . $C['faq']['title'] . '</h2>' .
     '<div class="tab-content"><div class="tab-pane active" id="all"><div class="gr2">';
 foreach ($C['faq']['items'] as $f) {
@@ -69,7 +69,7 @@ $ctaButtons = '';
 foreach ($C['cta']['buttons'] as $btn) {
     $ctaButtons .= '<a aria-label="' . htmlspecialchars($btn['aria'] ?? $btn['label']) . '" class="btn ' . ($btn['cls'] ?? 'btndark') . '" href="' . BASE_URL . $btn['href'] . '">' . $btn['label'] . '</a>&nbsp;';
 }
-$finalCtaSection = '<section aria-labelledby="cta"><h2 id="cta" class="vh">Kontaktujte nás</h2>' .
+$finalCtaSection = '<section aria-labelledby="cta"><h2 id="cta" class="vh">' . te('a11y.contactUs') . '</h2>' .
     '<h2>' . $C['cta']['title'] . '</h2>' .
     '<p>' . $C['cta']['text'] . '</p>' .
     '<p>&nbsp;</p><p>&nbsp;</p>' .
