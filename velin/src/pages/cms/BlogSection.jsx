@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import Button from '../../components/ui/Button'
 import BlogWizard from './BlogWizard'
+import TranslationBackfillButton from '../../components/shared/TranslationBackfillButton'
 
 export default function BlogSection() {
   const [articles, setArticles] = useState([])
@@ -53,6 +54,20 @@ export default function BlogSection() {
           <div className="text-xs mt-0.5" style={{ color: '#6b8f7b' }}>Průvodce vás provede 4 kroky: název, obsah, obrázky a publikace</div>
         </div>
         <Button green onClick={() => setShowWizard(true)}>+ Nový článek</Button>
+      </div>
+
+      {/* Backfill překladů pro starší články bez vyplněného translations JSONB */}
+      <div className="mb-4 p-3 rounded-card flex items-center justify-between gap-3"
+        style={{ background: '#fff', border: '1px solid #e2ece7' }}>
+        <div className="text-xs" style={{ color: '#4a6b5a' }}>
+          Doplní EN/DE/ES/FR/NL/PL překlady pro články, kterým chybí <code>translations</code>
+          (název, perex, obsah).
+        </div>
+        <TranslationBackfillButton
+          table="cms_pages"
+          selectColumns="id, title, excerpt, content, translations"
+          onDone={load}
+        />
       </div>
 
       {/* Seznam článků */}
