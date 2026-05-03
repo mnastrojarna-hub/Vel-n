@@ -14,9 +14,12 @@
  * 2) `{action: 'translate-one', page, lang}` — přeloží JEDNU dvojici.
  *    Trvá typicky 3-8 s. Vrací uloženou hodnotu.
  *
- * V obou případech se master fetchuje z public PHP endpointu
- * `https://motogo24.cz/api/master.php?token=<cms_admin_token>`
- * (volitelně přepsatelné přes `master_url`).
+ * Zdroj CS masteru (priorita):
+ *   1) `body.master_url` — per-call HTTP fetch (Velín ho posílat nemusí)
+ *   2) `app_settings.master_url` — per-projekt HTTP fetch (přes SQL nastavitelný)
+ *   3) `app_settings.pages_master_cs` — JSONB snapshot v DB (volitelný override)
+ *   4) bundled `master_cs.ts` — vždy dostupný, regeneruje se přes
+ *      `php motogo-web-php/scripts/build_master_json.php` po editaci CS textů
  *
  * Bezpečnost: vyžaduje JWT (admin volá z Velínu).
  * Sekret: ANTHROPIC_API_KEY.
@@ -24,6 +27,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
+import { MASTER_CS_BUNDLED } from './master_cs.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
@@ -45,10 +49,10 @@ const LANG_NAMES: Record<string, string> = {
   pl: 'Polish (Polski)',
 }
 
-const DEFAULT_MASTER_URLS = [
-  'https://motogo24.cz/api/master.php',
-  'https://motogo24.com/api/master.php',
-]
+// Live HTTP master endpointy nejsou v defaultu — nasazení PHP routy je nestabilní
+// (deploy lag, doménové SSL cert mismatche). Edge fn primárně čerpá z `master_cs.ts`
+// (bundled snapshot z motogo-web-php) a admin si může explicitně přepnout na živý
+// fetch přes `body.master_url` (jednorázové) nebo `app_settings.master_url`.
 const MODEL = 'claude-haiku-4-5-20251001'
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
@@ -77,26 +81,60 @@ function buildSystemPrompt(targetLang: string, langName: string): string {
 
 async function fetchMaster(masterUrls: string[], sb: ReturnType<typeof createClient>, page?: string): Promise<{
   pages: Record<string, unknown>,
+  source: string,
 }> {
-  const { data: tokRow } = await sb.from('app_settings').select('value').eq('key', 'cms_admin_token').maybeSingle()
-  const cmsAdminToken = typeof tokRow?.value === 'string' ? tokRow.value : (tokRow?.value ?? '')
-  if (!cmsAdminToken) throw new Error('cms_admin_token missing in app_settings')
   const errors: string[] = []
-  for (const baseUrl of masterUrls) {
-    const url = `${baseUrl}?token=${encodeURIComponent(String(cmsAdminToken))}` + (page ? `&page=${encodeURIComponent(page)}` : '')
-    try {
-      const res = await fetch(url, { redirect: 'follow' })
-      if (!res.ok) {
-        errors.push(`${baseUrl}: HTTP ${res.status}`)
-        continue
+  if (masterUrls.length > 0) {
+    const { data: tokRow } = await sb.from('app_settings').select('value').eq('key', 'cms_admin_token').maybeSingle()
+    const cmsAdminToken = typeof tokRow?.value === 'string' ? tokRow.value : (tokRow?.value ?? '')
+    if (!cmsAdminToken) {
+      errors.push('cms_admin_token missing in app_settings (skipping HTTP master endpoints)')
+    } else {
+      for (const baseUrl of masterUrls) {
+        const url = `${baseUrl}?token=${encodeURIComponent(String(cmsAdminToken))}` + (page ? `&page=${encodeURIComponent(page)}` : '')
+        try {
+          const res = await fetch(url, { redirect: 'follow' })
+          if (!res.ok) {
+            errors.push(`${baseUrl}: HTTP ${res.status}`)
+            continue
+          }
+          const json = await res.json()
+          return { pages: json?.pages || {}, source: baseUrl }
+        } catch (e) {
+          errors.push(`${baseUrl}: ${(e as Error).message}`)
+        }
       }
-      const json = await res.json()
-      return { pages: json?.pages || {} }
-    } catch (e) {
-      errors.push(`${baseUrl}: ${(e as Error).message}`)
     }
   }
-  throw new Error(`master fetch failed (tried ${masterUrls.length} URL${masterUrls.length === 1 ? '' : 's'}): ${errors.join(' | ')}`)
+
+  // Fallback 1: app_settings.pages_master_cs (admin si může nahrát aktuální snapshot
+  // ručně přes SQL, když z nějakého důvodu chce přebít bundled verzi).
+  try {
+    const { data: snapRow } = await sb.from('app_settings').select('value').eq('key', 'pages_master_cs').maybeSingle()
+    const snap = snapRow?.value
+    const snapPages = (snap && typeof snap === 'object' && !Array.isArray(snap))
+      ? ((snap as Record<string, unknown>).pages ?? snap)
+      : null
+    if (snapPages && typeof snapPages === 'object') {
+      const pagesMap = snapPages as Record<string, unknown>
+      if (page) {
+        if (pagesMap[page]) return { pages: { [page]: pagesMap[page] }, source: 'app_settings.pages_master_cs' }
+      } else {
+        return { pages: pagesMap, source: 'app_settings.pages_master_cs' }
+      }
+    }
+  } catch (e) {
+    errors.push(`app_settings.pages_master_cs: ${(e as Error).message}`)
+  }
+
+  // Fallback 2: bundled master_cs.ts (regenerováno z motogo-web-php/scripts/build_master_json.php).
+  // Edge fn vždy projde, i když je live PHP endpoint nedostupný.
+  const bundledPages = (MASTER_CS_BUNDLED as { pages: Record<string, unknown> }).pages || {}
+  if (page) {
+    if (bundledPages[page]) return { pages: { [page]: bundledPages[page] }, source: 'bundled' }
+    throw new Error(`unknown page in bundled master: ${page} (errors before fallback: ${errors.join(' | ') || 'none'})`)
+  }
+  return { pages: bundledPages, source: 'bundled' }
 }
 
 async function translateTree(tree: unknown, lang: string): Promise<unknown> {
@@ -148,23 +186,29 @@ serve(async (req: Request): Promise<Response> => {
 
     const body = await req.json().catch(() => ({}))
     const action = body.action || 'list'
-    // Override priority: body.master_url > app_settings.master_url > built-in defaults (.cz, .com)
-    const { data: urlRow } = await sb.from('app_settings').select('value').eq('key', 'master_url').maybeSingle()
-    const settingMasterUrl = typeof urlRow?.value === 'string' ? urlRow.value : (urlRow?.value ?? '')
-    const masterUrls: string[] = body.master_url
-      ? [String(body.master_url)]
-      : (settingMasterUrl ? [String(settingMasterUrl), ...DEFAULT_MASTER_URLS] : DEFAULT_MASTER_URLS)
+    // Live HTTP master se používá JEN pokud je explicitně zapnutý — body.master_url
+    // (per-call) nebo app_settings.master_url (per-projekt). Jinak edge fn čerpá z
+    // bundled snapshotu (master_cs.ts), který je vždy dostupný a aktualizuje se
+    // commitem `php motogo-web-php/scripts/build_master_json.php`.
+    let masterUrls: string[] = []
+    if (body.master_url) {
+      masterUrls = [String(body.master_url)]
+    } else {
+      const { data: urlRow } = await sb.from('app_settings').select('value').eq('key', 'master_url').maybeSingle()
+      const settingMasterUrl = typeof urlRow?.value === 'string' ? urlRow.value : (urlRow?.value ?? '')
+      if (settingMasterUrl) masterUrls = [String(settingMasterUrl)]
+    }
     const targetLangs: string[] = Array.isArray(body.target_langs) && body.target_langs.length
       ? body.target_langs.filter((l: string) => LANG_NAMES[l])
       : DEFAULT_LANGS
 
     if (action === 'list') {
-      const { pages } = await fetchMaster(masterUrls, sb)
+      const { pages, source } = await fetchMaster(masterUrls, sb)
       const wantPages: string[] | null = Array.isArray(body.pages) && body.pages.length ? body.pages : null
       const pageKeys = wantPages ? wantPages.filter(p => pages[p]) : Object.keys(pages)
       const queue: Array<{ page: string, lang: string }> = []
       for (const p of pageKeys) for (const l of targetLangs) queue.push({ page: p, lang: l })
-      return jsonResponse({ success: true, queue, pages: pageKeys, langs: targetLangs })
+      return jsonResponse({ success: true, queue, pages: pageKeys, langs: targetLangs, source })
     }
 
     if (action === 'translate-one') {
