@@ -244,7 +244,7 @@ export default function CustomerDocumentsTab({ userId }) {
     <div className="space-y-5">
       {error && <div className="p-3 rounded-card" style={{ background: '#fee2e2', color: '#dc2626', fontSize: 13 }}>{error}</div>}
 
-      <CustomerVerificationSection vs={vs} profile={profile} />
+      <CustomerVerificationSection vs={vs} profile={profile} verificationDocs={verificationDocs} />
 
       {/* Filtr + seznam dokumentů */}
       <Card>

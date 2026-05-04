@@ -569,8 +569,9 @@ MG._rezShowStep2 = function(){
   var total = bookingTotal + MG._rezShopTotal();
 
   var isMob=MG._isMobile();
-  // TEST: QR cílí na motogo24.com pro ověření Apple Pay / Google Pay flow přes Stripe na mobilu
-  var resumeLink=MG._rez.bookingId?'https://motogo24.com/rezervace?resume='+MG._rez.bookingId:'';
+  // QR cílí na stejnou doménu, ze které zákazník přišel (.cz/.com/.de/...).
+  // window.location.origin obsahuje protokol+host+port → např. "https://motogo24.cz".
+  var resumeLink=MG._rez.bookingId?(window.location.origin+'/rezervace?resume='+MG._rez.bookingId):'';
 
   // Mobile: button goes to Mindee step; Desktop: button goes to Stripe payment
   var payBtnLabel=isMob?'Ověřit doklady a zaplatit':'Pokračovat k platbě';
