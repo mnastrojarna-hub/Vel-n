@@ -49,7 +49,10 @@ const vite = spawn(npxCmd, ["vite", "--host", "127.0.0.1"], {
 });
 
 let opened = false;
-const urlRegex = /(https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?\/?)/i;
+// ANSI escape kódy odstraníme před hledáním URL (Vite obarvuje port)
+const ansiRegex = /\x1B\[[0-?]*[ -/]*[@-~]/g;
+// Port je povinný — bez něj prohlížeč otevře port 80 a dostane ERR_CONNECTION_REFUSED
+const urlRegex = /(https?:\/\/(?:localhost|127\.0\.0\.1):\d+\/?)/i;
 
 function openInBrowser(url) {
   if (opened) return;
@@ -68,15 +71,18 @@ function openInBrowser(url) {
   }
 }
 
+let buffer = "";
 function handleStream(stream, isErr) {
   stream.on("data", (chunk) => {
     const text = chunk.toString();
     (isErr ? process.stderr : process.stdout).write(text);
     if (!opened) {
-      const m = text.match(urlRegex);
+      buffer = (buffer + text).slice(-4096);
+      const clean = buffer.replace(ansiRegex, "");
+      const m = clean.match(urlRegex);
       if (m) {
-        // Počkáme krátký moment, ať Vite stihne začít poslouchat
-        setTimeout(() => openInBrowser(m[1]), 400);
+        // Počkáme, ať Vite stihne začít poslouchat
+        setTimeout(() => openInBrowser(m[1]), 800);
       }
     }
   });
