@@ -11,8 +11,9 @@ const ALL_FIELDS = WEB_PAGES.flatMap(p => p.sections.flatMap(s => s.fields))
 const TOTAL_FIELDS = ALL_FIELDS.length
 
 // Veřejná URL webu — používá se pro tlačítko „Otevřít na webu" u každého textu.
-// Lze přepsat přes Vite env `VITE_WEB_BASE_URL` (např. pro staging/produkci .cz).
-const WEB_BASE_URL = (import.meta?.env?.VITE_WEB_BASE_URL || 'https://motogo24.com').replace(/\/$/, '')
+// Default je .cz (česká verze = master jazyk; ostatní jazyky se z CS překládají).
+// Lze přepsat přes Vite env `VITE_WEB_BASE_URL`.
+const WEB_BASE_URL = (import.meta?.env?.VITE_WEB_BASE_URL || 'https://motogo24.cz').replace(/\/$/, '')
 
 // Sestaví URL na konkrétní stránku webu s admin tokenem a (volitelně) klíčem ke zvýraznění.
 export function buildWebUrl(base, pageUrl, token, highlightKey) {
