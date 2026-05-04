@@ -93,7 +93,22 @@ async function translateToLang(fields: Record<string, string>, lang: string): Pr
 
   if (!response.ok) {
     const errText = await response.text()
-    throw new Error(`Anthropic API ${response.status}: ${errText.slice(0, 300)}`)
+    const lower = errText.toLowerCase()
+    let code = 'anthropic_error'
+    let msg = `Anthropic API ${response.status}: ${errText.slice(0, 300)}`
+    if (lower.includes('credit balance') && lower.includes('too low')) {
+      code = 'insufficient_credits'
+      msg = 'Anthropic API: kredit vyčerpán. Doplň na console.anthropic.com → Plans & Billing.'
+    } else if (response.status === 401 || lower.includes('invalid x-api-key')) {
+      code = 'invalid_api_key'
+      msg = 'Anthropic API: neplatný API klíč (sekret ANTHROPIC_API_KEY).'
+    } else if (response.status === 429) {
+      code = 'rate_limit'
+    }
+    const err = new Error(msg) as Error & { code?: string, status?: number }
+    err.code = code
+    err.status = response.status
+    throw err
   }
 
   const data = await response.json()
@@ -217,7 +232,17 @@ serve(async (req: Request): Promise<Response> => {
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
+    const code = (e as { code?: string }).code
     console.error('translate-content error:', msg)
+    if (code === 'insufficient_credits') {
+      return jsonResponse({ error: msg, code, abort: true }, 402)
+    }
+    if (code === 'invalid_api_key') {
+      return jsonResponse({ error: msg, code, abort: true }, 401)
+    }
+    if (code === 'rate_limit') {
+      return jsonResponse({ error: msg, code }, 429)
+    }
     return jsonResponse({ error: msg }, 500)
   }
 })

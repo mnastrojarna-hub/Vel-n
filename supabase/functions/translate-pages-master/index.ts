@@ -137,6 +137,18 @@ async function fetchMaster(masterUrls: string[], sb: ReturnType<typeof createCli
   return { pages: bundledPages, source: 'bundled' }
 }
 
+class AnthropicError extends Error {
+  status: number
+  code: string
+  raw: string
+  constructor(status: number, code: string, message: string, raw: string) {
+    super(message)
+    this.status = status
+    this.code = code
+    this.raw = raw
+  }
+}
+
 async function translateTree(tree: unknown, lang: string): Promise<unknown> {
   const langName = LANG_NAMES[lang] || lang
   const userPayload = JSON.stringify(tree)
@@ -156,7 +168,23 @@ async function translateTree(tree: unknown, lang: string): Promise<unknown> {
   })
   if (!response.ok) {
     const errText = await response.text()
-    throw new Error(`Anthropic ${response.status}: ${errText.slice(0, 300)}`)
+    let code = 'anthropic_error'
+    let msg = `Anthropic ${response.status}: ${errText.slice(0, 300)}`
+    const lower = errText.toLowerCase()
+    if (lower.includes('credit balance') && lower.includes('too low')) {
+      code = 'insufficient_credits'
+      msg = 'Anthropic API: kredit vyčerpán. Doplň na console.anthropic.com → Plans & Billing.'
+    } else if (response.status === 401 || lower.includes('invalid x-api-key')) {
+      code = 'invalid_api_key'
+      msg = 'Anthropic API: neplatný API klíč (sekret ANTHROPIC_API_KEY).'
+    } else if (response.status === 429) {
+      code = 'rate_limit'
+      msg = 'Anthropic API: rate limit překročen, zkus to za chvíli.'
+    } else if (response.status >= 500) {
+      code = 'anthropic_upstream'
+      msg = `Anthropic API výpadek (HTTP ${response.status}).`
+    }
+    throw new AnthropicError(response.status, code, msg, errText.slice(0, 300))
   }
   const data = await response.json()
   const text = (data?.content?.[0]?.text || '').trim()
@@ -233,6 +261,17 @@ serve(async (req: Request): Promise<Response> => {
 
     return jsonResponse({ error: `unknown action: ${action}` }, 400)
   } catch (e) {
+    if (e instanceof AnthropicError) {
+      // Mapování Anthropic chyb na HTTP status, který klient pozná a může zastavit
+      // smyčku — `insufficient_credits` / `invalid_api_key` jsou trvalé, opakování
+      // 72× by jen spamovalo log. Pošleme `abort: true` pro klienta.
+      const httpStatus = e.code === 'insufficient_credits' ? 402
+        : e.code === 'invalid_api_key' ? 401
+        : e.code === 'rate_limit' ? 429
+        : 502
+      const abort = e.code === 'insufficient_credits' || e.code === 'invalid_api_key'
+      return jsonResponse({ error: e.message, code: e.code, abort, anthropic_status: e.status, anthropic_raw: e.raw }, httpStatus)
+    }
     return jsonResponse({ error: (e as Error).message }, 500)
   }
 })
