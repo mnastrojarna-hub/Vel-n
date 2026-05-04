@@ -66,9 +66,9 @@ Detailní politiky:
 
 ---
 
-## 8. EDGE FUNKCE (31 aktivních po cleanup)
+## 8. EDGE FUNKCE (32 aktivních po cleanup)
 
-### V repozitáři (27 — všechny deployované)
+### V repozitáři (28 — všechny deployované)
 
 | Funkce | JWT | Popis |
 |--------|-----|-------|
@@ -86,6 +86,7 @@ Detailní politiky:
 | `process-refund` | OFF | Stripe refundy (LIVE). Částečné i plné vrácení peněz. Volá Stripe Refund API |
 | `receive-invoice` | OFF | OCR + AI zpracování přijatých faktur (Claude Vision). Extrakce dat, klasifikace, routing do účetních tabulek |
 | `scan-document` | OFF | OCR skenování dokladů (OP, ŘP, pas) přes Mindee v2 API (enqueue+poll). Model ID z MINDEE_MODEL_ID secret. Retry 3×, loguje do debug_log |
+| `save-verification-document` | OFF | **NEW 2026-05-04** — Robustní uložení fotky verifikačního dokladu (OP/pas/ŘP) z webu. Volá se z rezervačního flow VŽDY (i když Mindee OCR selže), aby zákazník nikdy nepřišel o nahranou fotku. Běží pod **service_role** → obejde RLS pro `storage.objects` i `public.documents`, nezávisí na customer auth session (web booking flow má fragile signin přes `set_web_booking_password`+`signInWithPassword`). Vstup: `{user_id, booking_id?, doc_type: 'id'|'dl'|'passport', image_base64, mindee_status: 'ok'|'failed', ocr_fields?, mime?}`. Validace: user_id musí existovat v `profiles`, booking_id musí patřit user_id, max 8 MB, MIME whitelist (jpeg/png/webp/pdf). Uloží do `documents` bucketu pod `<user_id>/<dbType>_<ts>.<ext>` + insert do `public.documents` s `metadata.mindee_status`. Frontend (`pages-rezervace-scan.js` `MG._rezSaveDocPhoto`) má fallback na přímý SDK upload pokud edge fn selže. |
 | `send-booking-email` | OFF | Odesílá branded HTML emaily (booking_reserved, booking_completed, booking_modified, voucher_purchased, **door_codes**, sos_incident, booking_abandoned, booking_cancelled). Retry 3×. Automaticky načítá aktivní uvolněné přístupové kódy z `branch_door_codes` a vystavuje je jako `{{door_code_moto}}`, `{{door_code_gear}}`, `{{door_codes_block}}` template vars. |
 | `send-broadcast` | OFF | Hromadné zasílání kampaní (email, SMS, WhatsApp). Rate-limited, failure threshold 20% |
 | `send-cancellation-email` | OFF | Email o stornování rezervace s "obnovit" CTA. Retry 3× |

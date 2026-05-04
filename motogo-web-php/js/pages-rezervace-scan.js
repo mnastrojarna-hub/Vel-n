@@ -19,14 +19,38 @@ MG._rezOcrBurstRetry = async function(frames, docType, userId, attempts){
   return last;
 };
 
-// Nahraje fotku dokladu do storage + vytvoří záznam v documents.
-// metadata.mindee_status = 'ok' | 'failed' (vidí ve Velínu, jestli stačí kontrola
-// extrahovaných polí, nebo musí prohlédnout fotku ručně).
+// Nahraje fotku dokladu do storage + vytvoří záznam v documents přes edge fn
+// `save-verification-document` (běží pod service_role → obejde RLS, nezávisí na
+// auth session zákazníka). metadata.mindee_status = 'ok' | 'failed' (vidí ve
+// Velínu, jestli stačí kontrola extrahovaných polí, nebo musí prohlédnout fotku
+// ručně). Když edge fn z jakéhokoli důvodu selže, fallback na přímý SDK upload.
 MG._rezSaveDocPhoto = async function(base64, docType, mindeeStatus, ocrFields){
   if(!MG._rez || !MG._rez.userId || !base64) return false;
-  var docTypeStr = docType==='id' ? 'id_card' : 'drivers_license';
-  var labelOk = docType==='id' ? 'Doklad totožnosti (web sken)' : 'Řidičský průkaz (web sken)';
-  var labelManual = docType==='id' ? 'Doklad totožnosti (web — manuální)' : 'Řidičský průkaz (web — manuální)';
+  // Edge fn pod service_role — robustní proti chybějící customer session i RLS
+  try {
+    var res = await fetch(window.MOTOGO_CONFIG.SUPABASE_URL+'/functions/v1/save-verification-document', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'apikey': window.MOTOGO_CONFIG.SUPABASE_ANON_KEY },
+      body: JSON.stringify({
+        user_id: MG._rez.userId,
+        booking_id: MG._rez.bookingId || null,
+        doc_type: docType,                    // 'id' | 'dl' | 'passport'
+        image_base64: base64,
+        mindee_status: mindeeStatus,          // 'ok' | 'failed'
+        ocr_fields: ocrFields || null,
+        mime: 'image/jpeg'
+      })
+    });
+    var data = await res.json().catch(function(){ return null; });
+    if(res.ok && data && data.success) return true;
+    console.warn('[REZ] save-verification-document non-ok response, fallback to direct upload', data);
+  } catch(e){
+    console.warn('[REZ] save-verification-document fetch failed, fallback to direct upload', e);
+  }
+  // Fallback — přímý SDK upload (vyžaduje customer session + storage RLS)
+  var docTypeStr = docType==='id' ? 'id_card' : (docType==='passport' ? 'passport' : 'drivers_license');
+  var labelOk = docType==='id' ? 'Doklad totožnosti (web sken)' : (docType==='passport' ? 'Cestovní pas (web sken)' : 'Řidičský průkaz (web sken)');
+  var labelManual = docType==='id' ? 'Doklad totožnosti (web — manuální)' : (docType==='passport' ? 'Cestovní pas (web — manuální)' : 'Řidičský průkaz (web — manuální)');
   var fileName = MG._rez.userId+'/'+docTypeStr+'_'+Date.now()+'.jpg';
   try {
     var blob = MG._rezB64toBlob(base64,'image/jpeg');
@@ -42,13 +66,12 @@ MG._rezSaveDocPhoto = async function(base64, docType, mindeeStatus, ocrFields){
       name: mindeeStatus==='ok' ? labelOk : labelManual,
       metadata: {
         source: 'web',
-        mindee_status: mindeeStatus,           // 'ok' | 'failed'
+        mindee_status: mindeeStatus,
         ocr_fields: ocrFields || null,
         captured_at: new Date().toISOString()
       }
     };
     var ins = await window.sb.from('documents').insert(row);
-    // Pokud DB ještě nemá sloupec metadata (migrace nedoběhla), zkus insert bez metadata
     if(ins && ins.error && /metadata/i.test(ins.error.message||'')){
       delete row.metadata;
       await window.sb.from('documents').insert(row).catch(function(){});
