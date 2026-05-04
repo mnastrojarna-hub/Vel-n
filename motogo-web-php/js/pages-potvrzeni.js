@@ -40,6 +40,37 @@
     return params.get(key) || '';
   }
 
+  // Google Ads conversion via GTM dataLayer. Vystřelí jen jednou per
+  // transaction_id (sessionStorage guard) — refresh /potvrzeni nebo opětovné
+  // dotažení dat nezpůsobí dvojí započtení konverze v Google Ads.
+  // V GTM se nastaví trigger Custom Event = "purchase" → Google Ads Conversion
+  // Tag (conversion ID + label si dodá inzerent v GTM, ne v kódu).
+  function pushPurchaseConversion(kind, txId, value, currency, extras){
+    if(!txId) return;
+    try {
+      var key = 'mg_conv_' + kind + '_' + txId;
+      if(window.sessionStorage && sessionStorage.getItem(key)) return;
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({ ecommerce: null });
+      var payload = {
+        event: 'purchase',
+        conversion_type: kind,
+        ecommerce: {
+          transaction_id: String(txId),
+          value: Number(value || 0),
+          currency: currency || 'CZK'
+        }
+      };
+      if(extras && typeof extras === 'object'){
+        Object.keys(extras).forEach(function(k){
+          if(extras[k] != null) payload[k] = extras[k];
+        });
+      }
+      window.dataLayer.push(payload);
+      if(window.sessionStorage) sessionStorage.setItem(key, '1');
+    } catch(e){ /* analytics nesmí shodit stránku */ }
+  }
+
   async function init(){
     var sid = getParam('session_id');
     var oid = getParam('order_id');
@@ -64,7 +95,11 @@
           var r = await window.sb.from('bookings')
             .select('id,customer_name,customer_email,moto_id,start_date,end_date,total_price,payment_status,status')
             .eq('id', bid).maybeSingle();
-          if(r.data && r.data.payment_status === 'paid'){ el.innerHTML = renderBookingSuccess(r.data); found = true; break; }
+          if(r.data && r.data.payment_status === 'paid'){
+            el.innerHTML = renderBookingSuccess(r.data);
+            pushPurchaseConversion('booking', r.data.id, r.data.total_price, 'CZK', { is_free: true });
+            found = true; break;
+          }
           if(r.data && r.data.payment_status === 'unpaid' && i < 5){ await sleep(1500); continue; }
           if(r.data){ el.innerHTML = renderPending(r.data, 'booking'); found = true; break; }
         } catch(e){ console.warn('[CONFIRM] free booking poll error', e); }
@@ -88,6 +123,7 @@
             el.innerHTML = hasVouchers
               ? renderVoucherSuccess(r.data, vc.data)
               : renderShopSuccess(r.data);
+            pushPurchaseConversion(hasVouchers ? 'voucher' : 'shop_order', r.data.order_number || r.data.id, r.data.total, 'CZK');
             found = true; break;
           }
           if(r.data && r.data.payment_status !== 'paid' && i < 11){ await sleep(2000); continue; }
@@ -106,7 +142,11 @@
         var r = await window.sb.from('bookings')
           .select('id,customer_name,customer_email,moto_id,start_date,end_date,total_price,payment_status,status')
           .eq('stripe_session_id', sid).maybeSingle();
-        if(r.data && r.data.payment_status === 'paid'){ el.innerHTML = renderBookingSuccess(r.data); found = true; break; }
+        if(r.data && r.data.payment_status === 'paid'){
+          el.innerHTML = renderBookingSuccess(r.data);
+          pushPurchaseConversion('booking', r.data.id, r.data.total_price, 'CZK', { stripe_session_id: sid });
+          found = true; break;
+        }
         if(r.data && r.data.payment_status === 'unpaid' && i < 9){ await sleep(2000); continue; }
         if(r.data){ el.innerHTML = renderPending(r.data, 'booking'); found = true; break; }
       } catch(e){ console.warn('[CONFIRM] poll error', e); }
