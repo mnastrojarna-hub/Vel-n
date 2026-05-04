@@ -1,6 +1,6 @@
 import Card from '../../components/ui/Card'
 import { InfoRow } from './BookingUIHelpers'
-import { CANCEL_REASONS, describeModification } from './bookingConstants'
+import { CANCEL_REASONS, describeModification, paymentMethodInfo, stripePaymentIntentUrl } from './bookingConstants'
 import Button from '../../components/ui/Button'
 import { mapyLinkUrl, mapyNavigateUrl } from '../../lib/mapyCz'
 
@@ -108,23 +108,50 @@ function mapUrl(address, lat, lng) {
   return null
 }
 
-export function AddressBlock({ label, method, address, branchName, lat, lng }) {
-  const isDelivery = method === 'delivery'
+export function AddressBlock({ label, method, address, branchName, lat, lng, fee, time }) {
+  // „Přistavení/svoz" vyhodnocujeme primárně podle method. Fee > 0 je další
+  // jasný signál (admin občas nastaví adresu k pobočce bez method=delivery).
+  // Mapový odkaz ukazujeme VŽDY, když máme adresu nebo GPS — i pro pobočku
+  // (admin se rád proklikne na mapu, aby ji našel).
+  const hasGps = !!(lat && lng)
+  const isDelivery = method === 'delivery' || (fee > 0)
   const displayAddr = address || branchName || '—'
-  const link = isDelivery && (address || lat) ? mapUrl(address, lat, lng) : null
+  const mapLink = hasGps ? mapyLinkUrl(lat, lng) : (address ? `https://mapy.cz/zakladni?q=${encodeURIComponent(address)}` : null)
+  const navLink = hasGps ? mapyNavigateUrl(lat, lng) : null
 
   return (
-    <div>
-      <div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{label}</div>
-      <div className="text-sm font-bold" style={{ color: isDelivery ? '#2563eb' : '#1a2e22' }}>
-        {isDelivery ? '🚚 Přistavení na adresu' : '🏍️ Na pobočce'}
+    <div className="rounded-lg p-3" style={{ background: '#fff', border: `1px solid ${isDelivery ? '#bfdbfe' : '#d4e8e0'}` }}>
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="text-xs font-extrabold uppercase tracking-wider" style={{ color: '#4a5a52' }}>{label}</div>
+        {time && (
+          <span className="text-xs font-extrabold rounded-btn" style={{ padding: '2px 8px', background: '#f1faf7', color: '#1a2e22' }}>
+            {time}
+          </span>
+        )}
       </div>
-      <div className="text-sm mt-1">{displayAddr}</div>
-      {lat && lng && <div className="text-xs mt-1" style={{ color: '#6b7280' }}>GPS: {Number(lat).toFixed(6)}, {Number(lng).toFixed(6)}</div>}
-      {link && (
-        <a href={link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-1 text-xs font-bold" style={{ color: '#2563eb', textDecoration: 'none' }}>
-          📍 Zobrazit na mapě ↗
-        </a>
+      <div className="text-sm font-extrabold mb-1" style={{ color: isDelivery ? '#1d4ed8' : '#1a8a18' }}>
+        {isDelivery ? '🚚 Přistavení / svoz na adresu' : '🏍️ Na pobočce'}
+      </div>
+      <div className="text-sm font-semibold leading-snug" style={{ color: '#0f1a14' }}>{displayAddr}</div>
+      {hasGps && <div className="text-xs mt-1" style={{ color: '#6b7280', fontFamily: 'monospace' }}>GPS: {Number(lat).toFixed(6)}, {Number(lng).toFixed(6)}</div>}
+      {fee > 0 && (
+        <div className="mt-2 text-xs font-extrabold inline-block rounded-btn" style={{ padding: '2px 8px', background: '#fffbeb', color: '#92400e', border: '1px solid #fde68a' }}>
+          Poplatek: {Number(fee).toLocaleString('cs-CZ')} Kč
+        </div>
+      )}
+      {(mapLink || navLink) && (
+        <div className="flex flex-wrap gap-2 mt-2">
+          {mapLink && (
+            <a href={mapLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-extrabold rounded-btn" style={{ padding: '4px 10px', background: '#dbeafe', color: '#1d4ed8', textDecoration: 'none', border: '1px solid #bfdbfe' }}>
+              📍 Mapy.cz ↗
+            </a>
+          )}
+          {navLink && (
+            <a href={navLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-extrabold rounded-btn" style={{ padding: '4px 10px', background: '#dcfce7', color: '#166534', textDecoration: 'none', border: '1px solid #bbf7d0' }}>
+              🧭 Navigovat ↗
+            </a>
+          )}
+        </div>
       )}
     </div>
   )
@@ -180,19 +207,46 @@ export function LocationShareRow({ sosIncidents }) {
   )
 }
 
+// Heuristika: vytáhne z booking_extras položku, která vypadá jako poplatek za
+// přistavení nebo vrácení (admin si je v různých rezervacích pojmenoval různě).
+function findFeeExtra(extras, kind) {
+  const re = kind === 'pickup'
+    ? /(p[rř]istav|delivery|dovoz)/i
+    : /(vr[aá]cen[ií]|return|svoz)/i
+  return (extras || []).find(e => re.test(e?.name || e?.extras_catalog?.name || ''))
+}
+
+function feeAmount(extra) {
+  if (!extra) return 0
+  const unit = Number(extra.unit_price || extra.extras_catalog?.price_per_day || 0)
+  const qty = Number(extra.quantity || 1)
+  return unit * qty
+}
+
 export function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, onModify, error, actions, onAction }) {
   const _ld = d => d ? new Date(d).toLocaleDateString('sv-SE') : ''
   const hasModification = booking.original_start_date && booking.original_end_date &&
     (_ld(booking.start_date) !== _ld(booking.original_start_date) || _ld(booking.end_date) !== _ld(booking.original_end_date))
 
+  const branchName = booking.motorcycles?.branches?.name
+  const pickupExtra = findFeeExtra(bookingExtras, 'pickup')
+  const returnExtra = findFeeExtra(bookingExtras, 'return')
+  const pickupFee = feeAmount(pickupExtra)
+  const returnFee = feeAmount(returnExtra)
+
+  const pmInfo = paymentMethodInfo(booking.payment_method)
+  const isPaid = booking.payment_status === 'paid' && booking.status !== 'pending'
+  const isRefunded = booking.payment_status === 'refunded'
+  const stripeUrl = stripePaymentIntentUrl(booking.stripe_payment_intent_id)
+
   return (
     <Card className="col-span-2">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <h3 className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Termín a platba</h3>
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div className="flex items-center gap-3 flex-wrap">
+          <h3 className="text-base font-extrabold uppercase tracking-wider" style={{ color: '#0f1a14' }}>Termín a platba</h3>
           {booking.booking_source && (
             <span className="inline-flex items-center gap-1 rounded-btn text-xs font-extrabold uppercase tracking-wide"
-              style={{ padding: '2px 8px', background: booking.booking_source === 'web' ? '#dbeafe' : '#dcfce7', color: booking.booking_source === 'web' ? '#2563eb' : '#16a34a' }}>
+              style={{ padding: '3px 10px', background: booking.booking_source === 'web' ? '#dbeafe' : '#dcfce7', color: booking.booking_source === 'web' ? '#1d4ed8' : '#166534', border: `1px solid ${booking.booking_source === 'web' ? '#bfdbfe' : '#bbf7d0'}` }}>
               {booking.booking_source === 'web' ? 'Rezervace z webu' : 'Rezervace z aplikace'}
               {booking.created_via_ai && (
                 <span title="Vytvořeno přes AI asistenta" style={{ background: '#fef3c7', color: '#92400e', padding: '0 5px', borderRadius: 6, fontSize: 10 }}>🤖 AI</span>
@@ -210,8 +264,8 @@ export function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, o
         const history = Array.isArray(booking.modification_history) ? booking.modification_history : []
         return (
           <div className="mb-3 space-y-1">
-            <div className="p-2 rounded-lg flex items-center gap-3" style={{ background: mod.bg, fontSize: 13 }}>
-              <span className="font-extrabold" style={{ color: mod.color }}>{mod.type}</span>
+            <div className="p-2.5 rounded-lg flex items-center gap-3 flex-wrap" style={{ background: mod.bg, fontSize: 13, border: `1px solid ${mod.color}33` }}>
+              <span className="font-extrabold uppercase tracking-wide text-xs rounded-btn" style={{ color: '#fff', background: mod.color, padding: '2px 8px' }}>{mod.type}</span>
               <span style={{ color: '#1a2e22' }}>
                 {mod.detail} · Původní: {new Date(booking.original_start_date).toLocaleDateString('cs-CZ')} – {new Date(booking.original_end_date).toLocaleDateString('cs-CZ')} ({mod.origDays}d)
               </span>
@@ -228,33 +282,105 @@ export function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, o
           </div>
         )
       })()}
-      <div className="grid grid-cols-4 gap-4 p-3 rounded-lg" style={{ background: '#f1faf7' }}>
-        <div><div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Od</div><div className="text-sm font-bold" style={{ color: '#0f1a14' }}>{booking.start_date ? new Date(booking.start_date + 'T00:00:00').toLocaleDateString('cs-CZ') : '—'}{booking.pickup_time ? ` v ${booking.pickup_time}` : ''}</div></div>
-        <div><div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Do</div><div className="text-sm font-bold" style={{ color: '#0f1a14' }}>{booking.end_date ? new Date(booking.end_date + 'T00:00:00').toLocaleDateString('cs-CZ') : '—'}</div></div>
-        <div><div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Celkem</div><div className="text-sm font-extrabold" style={{ color: '#1a8a18' }}>{Number(booking.total_price || 0).toLocaleString('cs-CZ')} Kč</div></div>
-        <div><div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Dní</div><div className="text-sm font-bold" style={{ color: '#0f1a14' }}>{(() => { const d = Math.max(1, Math.round((new Date(booking.end_date) - new Date(booking.start_date)) / 86400000) + 1); return `${d} ${d === 1 ? 'den' : d < 5 ? 'dny' : 'dní'}` })()}</div></div>
+
+      {/* Termín — výrazné rámečky */}
+      <div className="grid grid-cols-4 gap-3 p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+        <KeyValueTile label="Od" value={booking.start_date ? new Date(booking.start_date + 'T00:00:00').toLocaleDateString('cs-CZ') : '—'} sub={booking.pickup_time ? `v ${booking.pickup_time}` : null} />
+        <KeyValueTile label="Do" value={booking.end_date ? new Date(booking.end_date + 'T00:00:00').toLocaleDateString('cs-CZ') : '—'} sub={booking.return_time ? `v ${booking.return_time}` : null} />
+        <KeyValueTile label="Celkem k úhradě" value={`${Number(booking.total_price || 0).toLocaleString('cs-CZ')} Kč`} accent="#1a8a18" big />
+        <KeyValueTile label="Dní" value={(() => { const d = Math.max(1, Math.round((new Date(booking.end_date) - new Date(booking.start_date)) / 86400000) + 1); return `${d} ${d === 1 ? 'den' : d < 5 ? 'dny' : 'dní'}` })()} />
       </div>
-      <div className="mt-3 p-3 rounded-lg" style={{ background: '#f1faf7' }}>
-        <div className="grid grid-cols-3 gap-4">
-          <AddressBlock label="Přistavení" method={booking.pickup_method} address={booking.pickup_address} branchName={booking.motorcycles?.branches?.name} lat={booking.pickup_lat} lng={booking.pickup_lng} />
-          <AddressBlock label="Vrácení" method={booking.return_method} address={booking.return_address} branchName={booking.motorcycles?.branches?.name} lat={booking.return_lat} lng={booking.return_lng} />
-          <div><div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Pojištění</div><div className="text-sm">{booking.insurance_type || '—'}</div></div>
+
+      {/* Místo + pojištění */}
+      <div className="mt-3 p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+        <div className="grid grid-cols-3 gap-3">
+          <AddressBlock label="Přistavení" method={booking.pickup_method} address={booking.pickup_address} branchName={branchName} lat={booking.pickup_lat} lng={booking.pickup_lng} fee={pickupFee} time={booking.pickup_time} />
+          <AddressBlock label="Vrácení" method={booking.return_method} address={booking.return_address} branchName={branchName} lat={booking.return_lat} lng={booking.return_lng} fee={returnFee} time={booking.return_time} />
+          <div className="rounded-lg p-3" style={{ background: '#fff', border: '1px solid #d4e8e0' }}>
+            <div className="text-xs font-extrabold uppercase tracking-wider mb-1.5" style={{ color: '#4a5a52' }}>Pojištění</div>
+            <div className="text-sm font-extrabold" style={{ color: '#0f1a14' }}>
+              {booking.insurance_type ? insuranceLabel(booking.insurance_type) : '—'}
+            </div>
+          </div>
         </div>
         <LocationShareRow sosIncidents={sosIncidents} />
       </div>
-      <div className="grid grid-cols-4 gap-4 mt-3 p-3 rounded-lg" style={{ background: '#f1faf7' }}>
-        <div><div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Příslušenství</div><div className="text-sm font-bold">{booking.extras_price > 0 ? `${Number(booking.extras_price).toLocaleString('cs-CZ')} Kč` : '—'}</div>
-          {bookingExtras.length > 0 && bookingExtras.map((ex, i) => <div key={i} className="text-sm" style={{ color: '#1a2e22' }}>{ex.name || ex.extras_catalog?.name || `Extra ${i + 1}`}: {Number(ex.unit_price || ex.extras_catalog?.price_per_day || 0).toLocaleString('cs-CZ')} Kč{ex.quantity > 1 ? ` × ${ex.quantity}` : ''}</div>)}</div>
-        <div><div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Doručení</div><div className="text-sm font-bold">{booking.delivery_fee > 0 ? `${Number(booking.delivery_fee).toLocaleString('cs-CZ')} Kč` : '—'}</div></div>
-        <div><div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Sleva</div><div className="text-sm font-bold" style={{ color: booking.discount_amount > 0 ? '#1a8a18' : undefined }}>{booking.discount_amount > 0 ? `-${Number(booking.discount_amount).toLocaleString('cs-CZ')} Kč` : '—'}{booking.discount_code ? ` (${booking.discount_code})` : ''}</div></div>
-        <div><div className="text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Kauce</div><div className="text-sm font-bold">{booking.deposit > 0 ? `${Number(booking.deposit).toLocaleString('cs-CZ')} Kč` : '—'}</div></div>
+
+      {/* Platba — silně zvýrazněný blok */}
+      <div className="mt-3 p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+        <div className="text-xs font-extrabold uppercase tracking-wider mb-2" style={{ color: '#4a5a52' }}>Platba</div>
+        <div className="grid grid-cols-4 gap-3">
+          <div className="rounded-lg p-2.5" style={{ background: '#fff', border: '1px solid #d4e8e0' }}>
+            <div className="text-[11px] font-extrabold uppercase tracking-wider mb-1" style={{ color: '#4a5a52' }}>Stav platby</div>
+            <div className="text-sm font-extrabold" style={{ color: isPaid ? '#1a8a18' : isRefunded ? '#dc2626' : '#dc2626' }}>
+              {isPaid ? '✅ Zaplaceno' : isRefunded ? '↩️ Refundováno' : '⚠️ Nezaplaceno'}
+            </div>
+          </div>
+          <div className="rounded-lg p-2.5" style={{ background: '#fff', border: '1px solid #d4e8e0' }}>
+            <div className="text-[11px] font-extrabold uppercase tracking-wider mb-1" style={{ color: '#4a5a52' }}>Způsob platby</div>
+            <div className="text-sm font-extrabold flex items-center gap-1.5" style={{ color: pmInfo.tone }}>
+              <span>{pmInfo.icon}</span>
+              <span>{pmInfo.label}</span>
+            </div>
+            {stripeUrl && (
+              <a href={stripeUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-1 text-[11px] font-extrabold rounded-btn"
+                style={{ padding: '2px 6px', background: '#ede9fe', color: '#6d28d9', textDecoration: 'none', border: '1px solid #ddd6fe' }}>
+                Stripe ↗
+              </a>
+            )}
+          </div>
+          <div className="rounded-lg p-2.5" style={{ background: '#fff', border: '1px solid #d4e8e0' }}>
+            <div className="text-[11px] font-extrabold uppercase tracking-wider mb-1" style={{ color: '#4a5a52' }}>Sleva</div>
+            <div className="text-sm font-extrabold" style={{ color: booking.discount_amount > 0 ? '#1a8a18' : '#0f1a14' }}>
+              {booking.discount_amount > 0 ? `-${Number(booking.discount_amount).toLocaleString('cs-CZ')} Kč` : '—'}
+            </div>
+            {booking.discount_code && <div className="text-[11px] font-bold mt-0.5" style={{ color: '#4a5a52' }}>{booking.discount_code}</div>}
+          </div>
+          <div className="rounded-lg p-2.5" style={{ background: '#fff', border: '1px solid #d4e8e0' }}>
+            <div className="text-[11px] font-extrabold uppercase tracking-wider mb-1" style={{ color: '#4a5a52' }}>Kauce</div>
+            <div className="text-sm font-extrabold" style={{ color: '#0f1a14' }}>
+              {booking.deposit > 0 ? `${Number(booking.deposit).toLocaleString('cs-CZ')} Kč` : '—'}
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* Příslušenství — přehledná tabulka */}
+      {(bookingExtras?.length > 0 || booking.extras_price > 0) && (
+        <div className="mt-3 p-3 rounded-lg" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs font-extrabold uppercase tracking-wider" style={{ color: '#4a5a52' }}>Příslušenství a poplatky</div>
+            <div className="text-sm font-extrabold" style={{ color: '#0f1a14' }}>{Number(booking.extras_price || 0).toLocaleString('cs-CZ')} Kč</div>
+          </div>
+          {bookingExtras?.length > 0 && (
+            <div className="rounded-lg" style={{ background: '#fff', border: '1px solid #d4e8e0' }}>
+              {bookingExtras.map((ex, i) => {
+                const name = ex.name || ex.extras_catalog?.name || `Extra ${i + 1}`
+                const unit = Number(ex.unit_price || ex.extras_catalog?.price_per_day || 0)
+                const qty = Number(ex.quantity || 1)
+                return (
+                  <div key={i} className="flex items-center justify-between px-3 py-1.5" style={{ borderTop: i === 0 ? 'none' : '1px solid #eef4f0', fontSize: 13 }}>
+                    <span className="font-semibold" style={{ color: '#0f1a14' }}>{name}{qty > 1 ? ` × ${qty}` : ''}</span>
+                    <span className="font-extrabold" style={{ color: '#1a2e22' }}>{(unit * qty).toLocaleString('cs-CZ')} Kč</span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          {booking.delivery_fee > 0 && (
+            <div className="mt-2 text-xs font-bold" style={{ color: '#4a5a52' }}>
+              Doručení (separátní pole): <span className="font-extrabold" style={{ color: '#0f1a14' }}>{Number(booking.delivery_fee).toLocaleString('cs-CZ')} Kč</span>
+            </div>
+          )}
+        </div>
+      )}
+
       {(() => {
         const cleanNotes = booking.notes ? booking.notes.replace(/Čas převzetí:\s*\d{1,2}:\d{2}\s*/gi, '').replace(/pickup_time[=:]\s*\S+\s*/gi, '').trim() : ''
         return cleanNotes ? (
           <div className="mt-3 p-3 rounded-lg" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
-            <div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#92400e' }}>Poznámky</div>
-            <div className="text-sm" style={{ color: '#78350f' }}>{cleanNotes}</div>
+            <div className="text-xs font-extrabold uppercase tracking-wider mb-1" style={{ color: '#92400e' }}>Poznámky</div>
+            <div className="text-sm font-semibold" style={{ color: '#78350f' }}>{cleanNotes}</div>
           </div>
         ) : null
       })()}
@@ -269,4 +395,19 @@ export function DatesAndPaymentSection({ booking, bookingExtras, sosIncidents, o
       </div>
     </Card>
   )
+}
+
+function KeyValueTile({ label, value, sub, accent, big }) {
+  return (
+    <div className="rounded-lg p-2.5" style={{ background: '#fff', border: '1px solid #d4e8e0' }}>
+      <div className="text-[11px] font-extrabold uppercase tracking-wider mb-1" style={{ color: '#4a5a52' }}>{label}</div>
+      <div className={big ? 'text-base font-extrabold' : 'text-sm font-extrabold'} style={{ color: accent || '#0f1a14' }}>{value}</div>
+      {sub && <div className="text-xs font-bold mt-0.5" style={{ color: '#4a5a52' }}>{sub}</div>}
+    </div>
+  )
+}
+
+function insuranceLabel(t) {
+  const map = { basic: 'Basic', standard: 'Standard', premium: 'Premium', plus: 'Plus' }
+  return map[String(t).toLowerCase()] || t
 }

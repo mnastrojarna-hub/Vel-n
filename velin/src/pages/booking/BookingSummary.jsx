@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { getDisplayStatus } from '../../components/ui/StatusBadge'
 import { SumRow } from './BookingUIHelpers'
-import { STATUS_LABELS, CANCEL_SOURCE_LABELS, describeModification, fmtDT } from './bookingConstants'
+import { STATUS_LABELS, CANCEL_SOURCE_LABELS, describeModification, fmtDT, paymentMethodInfo, stripePaymentIntentUrl, hasPassengerGearOrdered } from './bookingConstants'
 import { mapyLinkUrl } from '../../lib/mapyCz'
 
 // Spáruje booking_extras.name s velikostí z bookings.*_size (driver/passenger)
@@ -70,14 +70,48 @@ export default function BookingSummary({ booking, sosIncidents, bookingExtras, c
       <SumRow label="Délka" value={`${days} ${days === 1 ? 'den' : days < 5 ? 'dny' : 'dní'}`} />
 
       {hasModification && (
-        <>
-          <SumRow label="Původní termín" value={`${new Date(b.original_start_date).toLocaleDateString('cs-CZ')} – ${new Date(b.original_end_date).toLocaleDateString('cs-CZ')} (${mod.origDays} dní)`} color="#b45309" />
-          <SumRow label="Úprava rozsahu" value={`${mod.type} (${mod.detail}) → nový: ${new Date(b.start_date).toLocaleDateString('cs-CZ')} – ${new Date(b.end_date).toLocaleDateString('cs-CZ')}`} color={mod.color} />
-          {history.length > 0 && history.map((h, i) => {
-            const hm = describeModification(h.from_start, h.from_end, h.to_start, h.to_end)
-            return <SumRow key={i} label={`Úprava #${i + 1}`} value={`${new Date(h.at).toLocaleString('cs-CZ')} — ${hm.type} (${hm.detail}) · ${h.source === 'admin' ? 'admin' : 'zákazník'}`} color={hm.color} />
-          })}
-        </>
+        <div className="my-3 p-3 rounded-lg" style={{ background: mod.bg, border: `1px solid ${mod.color}55` }}>
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <span className="inline-block rounded-btn text-[11px] font-extrabold uppercase tracking-wider" style={{ padding: '2px 8px', background: mod.color, color: '#fff' }}>
+              ✏️ Záznam úprav
+            </span>
+            <span className="text-xs font-extrabold uppercase" style={{ color: mod.color }}>{mod.type}</span>
+            <span className="text-xs font-bold" style={{ color: '#1a2e22' }}>{mod.detail}</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            <div className="rounded p-2" style={{ background: 'rgba(255,255,255,.7)' }}>
+              <div className="font-extrabold uppercase tracking-wider mb-0.5" style={{ color: '#4a5a52' }}>Původní termín</div>
+              <div className="font-semibold" style={{ color: '#0f1a14' }}>
+                {new Date(b.original_start_date).toLocaleDateString('cs-CZ')} – {new Date(b.original_end_date).toLocaleDateString('cs-CZ')} ({mod.origDays} d)
+              </div>
+            </div>
+            <div className="rounded p-2" style={{ background: 'rgba(255,255,255,.7)' }}>
+              <div className="font-extrabold uppercase tracking-wider mb-0.5" style={{ color: '#4a5a52' }}>Nový termín</div>
+              <div className="font-semibold" style={{ color: mod.color }}>
+                {new Date(b.start_date).toLocaleDateString('cs-CZ')} – {new Date(b.end_date).toLocaleDateString('cs-CZ')} ({mod.newDays} d)
+              </div>
+            </div>
+          </div>
+          {history.length > 0 && (
+            <div className="mt-2 pt-2 text-xs" style={{ borderTop: `1px dashed ${mod.color}55` }}>
+              <div className="font-extrabold uppercase tracking-wider mb-1" style={{ color: '#4a5a52' }}>Historie úprav ({history.length}×)</div>
+              {history.map((h, i) => {
+                const hm = describeModification(h.from_start, h.from_end, h.to_start, h.to_end)
+                return (
+                  <div key={i} className="py-0.5 flex items-baseline gap-2 flex-wrap" style={{ color: '#0f1a14' }}>
+                    <span className="font-bold">{i + 1}.</span>
+                    <span className="font-mono">{new Date(h.at).toLocaleString('cs-CZ')}</span>
+                    <span className="font-extrabold" style={{ color: hm.color }}>{hm.type}</span>
+                    <span>({hm.detail})</span>
+                    <span className="rounded-btn font-extrabold uppercase" style={{ padding: '1px 6px', fontSize: 10, background: h.source === 'admin' ? '#dbeafe' : '#dcfce7', color: h.source === 'admin' ? '#1d4ed8' : '#166534' }}>
+                      {h.source === 'admin' ? 'admin' : 'zákazník'}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
       )}
 
       <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Vyzvednutí a vrácení</div>
@@ -85,29 +119,28 @@ export default function BookingSummary({ booking, sosIncidents, bookingExtras, c
       <SumAddressRow label="Vrácení" method={b.return_method} address={b.return_address} branchName={branchName} lat={b.return_lat} lng={b.return_lng} />
       <SumLocationShares sosIncidents={sosIncidents} />
 
-      {(b.helmet_size || b.jacket_size || b.pants_size || b.boots_size || b.gloves_size ||
-        b.passenger_helmet_size || b.passenger_jacket_size || b.passenger_pants_size || b.passenger_boots_size || b.passenger_gloves_size) && (
+      {(b.helmet_size || b.jacket_size || b.pants_size || b.boots_size || b.gloves_size) && (
         <>
-          {(b.helmet_size || b.jacket_size || b.pants_size || b.boots_size || b.gloves_size) && (
-            <>
-              <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Výbava — řidič</div>
-              <SumRow label="Helma" value={b.helmet_size ? `vel. ${b.helmet_size}` : null} />
-              <SumRow label="Bunda" value={b.jacket_size ? `vel. ${b.jacket_size}` : null} />
-              <SumRow label="Kalhoty" value={b.pants_size ? `vel. ${b.pants_size}` : null} />
-              <SumRow label="Boty" value={b.boots_size ? `vel. ${b.boots_size}` : null} />
-              <SumRow label="Rukavice" value={b.gloves_size ? `vel. ${b.gloves_size}` : null} />
-            </>
-          )}
-          {(b.passenger_helmet_size || b.passenger_jacket_size || b.passenger_pants_size || b.passenger_boots_size || b.passenger_gloves_size) && (
-            <>
-              <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Výbava — spolujezdec</div>
-              <SumRow label="Helma" value={b.passenger_helmet_size ? `vel. ${b.passenger_helmet_size}` : null} />
-              <SumRow label="Bunda" value={b.passenger_jacket_size ? `vel. ${b.passenger_jacket_size}` : null} />
-              <SumRow label="Kalhoty" value={b.passenger_pants_size ? `vel. ${b.passenger_pants_size}` : null} />
-              <SumRow label="Boty" value={b.passenger_boots_size ? `vel. ${b.passenger_boots_size}` : null} />
-              <SumRow label="Rukavice" value={b.passenger_gloves_size ? `vel. ${b.passenger_gloves_size}` : null} />
-            </>
-          )}
+          <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Výbava — řidič</div>
+          <SumRow label="Helma" value={b.helmet_size ? `vel. ${b.helmet_size}` : null} />
+          <SumRow label="Bunda" value={b.jacket_size ? `vel. ${b.jacket_size}` : null} />
+          <SumRow label="Kalhoty" value={b.pants_size ? `vel. ${b.pants_size}` : null} />
+          <SumRow label="Boty" value={b.boots_size ? `vel. ${b.boots_size}` : null} />
+          <SumRow label="Rukavice" value={b.gloves_size ? `vel. ${b.gloves_size}` : null} />
+        </>
+      )}
+      {/* Výbava spolujezdce zobrazujeme JEN když ji zákazník skutečně objednal
+          (existuje booking_extra se „spolujez" / „passenger", nebo je vyplněno
+          ≥2 velikostí — tedy reálná sada). Sám fakt, že je v `bookings`
+          vyplněna jediná passenger_*_size, neznamená objednávku. */}
+      {hasPassengerGearOrdered(b, bookingExtras) && (
+        <>
+          <div className="text-sm font-extrabold uppercase tracking-wide mt-4 mb-2" style={{ color: '#1a2e22' }}>Výbava — spolujezdec</div>
+          <SumRow label="Helma" value={b.passenger_helmet_size ? `vel. ${b.passenger_helmet_size}` : null} />
+          <SumRow label="Bunda" value={b.passenger_jacket_size ? `vel. ${b.passenger_jacket_size}` : null} />
+          <SumRow label="Kalhoty" value={b.passenger_pants_size ? `vel. ${b.passenger_pants_size}` : null} />
+          <SumRow label="Boty" value={b.passenger_boots_size ? `vel. ${b.passenger_boots_size}` : null} />
+          <SumRow label="Rukavice" value={b.passenger_gloves_size ? `vel. ${b.passenger_gloves_size}` : null} />
         </>
       )}
 
@@ -146,8 +179,21 @@ export default function BookingSummary({ booking, sosIncidents, bookingExtras, c
       )}
       {b.delivery_fee > 0 && <SumRow label="Doručení" value={`${b.delivery_fee.toLocaleString('cs-CZ')} Kč`} />}
       {b.discount_amount > 0 && <SumRow label="Sleva" value={`-${Number(b.discount_amount).toLocaleString('cs-CZ')} Kč${b.discount_code ? ` (${b.discount_code})` : ''}`} color="#1a8a18" />}
-      <SumRow label="Stav platby" value={b.payment_status === 'paid' && b.status !== 'pending' ? 'Zaplaceno' : 'Nezaplaceno'} color={b.payment_status === 'paid' && b.status !== 'pending' ? '#1a8a18' : '#dc2626'} />
-      {b.payment_method && <SumRow label="Způsob platby" value={b.payment_method} />}
+      <SumRow label="Stav platby" value={b.payment_status === 'paid' && b.status !== 'pending' ? '✅ Zaplaceno' : b.payment_status === 'refunded' ? '↩️ Refundováno' : '⚠️ Nezaplaceno'} color={b.payment_status === 'paid' && b.status !== 'pending' ? '#1a8a18' : '#dc2626'} strong />
+      {b.payment_method && (() => {
+        const pm = paymentMethodInfo(b.payment_method)
+        return <SumRow label="Způsob platby" value={`${pm.icon} ${pm.label}`} color={pm.tone} strong />
+      })()}
+      {b.stripe_payment_intent_id && (
+        <SumRow label="Stripe Payment Intent" value={
+          <span>
+            <a href={stripePaymentIntentUrl(b.stripe_payment_intent_id)} target="_blank" rel="noopener noreferrer"
+              style={{ color: '#6d28d9', textDecoration: 'none', fontFamily: 'monospace', fontWeight: 700 }}>
+              {b.stripe_payment_intent_id} ↗
+            </a>
+          </span>
+        } />
+      )}
       {b.deposit > 0 && <SumRow label="Kauce" value={`${Number(b.deposit).toLocaleString('cs-CZ')} Kč`} />}
 
       {promoUsage?.length > 0 && promoUsage.map((pu, i) => (
