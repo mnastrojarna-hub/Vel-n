@@ -1,0 +1,14 @@
+RewriteEngine On
+RewriteBase /
+
+# Force HTTPS - 2 podminky pro robustnost (Forpsi + Hosting90)
+# Forpsi nastavuje HTTPS=on i na portu 80 pri HTTPS pres proxy,
+# proto kontrolujeme i X-Forwarded-Proto hlavicku.
+RewriteCond %{HTTPS} off
+RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [L,R=301]
+
+# Hezke URL pres index.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [QSA,L]
