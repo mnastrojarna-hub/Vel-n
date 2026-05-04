@@ -663,7 +663,7 @@ return [
     'confirm.success.nextVoucherEmail' => 'Den Gutscheincode finden Sie in Ihrer E-Mail — einlösbar bei der Buchung auf motogo24.cz / .com oder in der App.',
     'confirm.success.nextVoucherPrint' => 'Wenn Sie einen gedruckten Gutschein bestellt haben, kommt er per Post innerhalb von 2–3 Werktagen.',
     'confirm.success.nextContact' => 'Fragen? Schreiben Sie an info@motogo24.cz oder rufen Sie +420 774 256 271 an.',
-    'confirm.success.seeYouSoon' => 'Wir freuen uns auf Sie in Mezná! 🏍️',
+    'confirm.success.seeYouSoon' => 'Wir freuen uns auf Sie! 🏍️',
     'confirm.success.backHome' => 'Zurück zur Startseite',
     'confirm.success.continueShopping' => 'Weiter einkaufen',
     'confirm.pending.title' => 'Zahlung wird verarbeitet',

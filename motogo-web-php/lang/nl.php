@@ -524,7 +524,7 @@ return [
     'confirm.success.nextVoucherEmail' => 'De bon-code vindt u in uw e-mail — gebruik hem bij het reserveren op motogo24.cz / .com of in de app.',
     'confirm.success.nextVoucherPrint' => 'Als u een geprinte bon hebt besteld, komt deze binnen 2–3 werkdagen per post aan.',
     'confirm.success.nextContact' => 'Vragen? Mail naar info@motogo24.cz of bel +420 774 256 271.',
-    'confirm.success.seeYouSoon' => 'Tot snel in Mezná! 🏍️',
+    'confirm.success.seeYouSoon' => 'Tot snel! 🏍️',
     'confirm.success.backHome' => 'Terug naar de startpagina',
     'confirm.success.continueShopping' => 'Verder winkelen',
     'confirm.pending.title' => 'Betaling wordt verwerkt',

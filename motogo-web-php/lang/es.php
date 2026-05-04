@@ -546,7 +546,7 @@ return [
     'confirm.success.nextVoucherEmail' => 'Encontrarás el código del vale en tu correo — úsalo al reservar en motogo24.cz / .com o en la app.',
     'confirm.success.nextVoucherPrint' => 'Si pediste un vale impreso, llegará por correo en 2–3 días laborables.',
     'confirm.success.nextContact' => '¿Tienes alguna pregunta? Escríbenos a info@motogo24.cz o llama al +420 774 256 271.',
-    'confirm.success.seeYouSoon' => '¡Te esperamos en Mezná! 🏍️',
+    'confirm.success.seeYouSoon' => '¡Te esperamos! 🏍️',
     'confirm.success.backHome' => 'Volver a la página principal',
     'confirm.success.continueShopping' => 'Seguir comprando',
     'confirm.pending.title' => 'Procesando el pago',

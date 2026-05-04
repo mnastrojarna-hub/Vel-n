@@ -545,7 +545,7 @@ return [
     'confirm.success.nextVoucherEmail' => 'Vous trouverez le code du bon dans votre e-mail — utilisez-le lors de votre réservation sur motogo24.cz / .com ou dans l\'application.',
     'confirm.success.nextVoucherPrint' => 'Si vous avez commandé un bon imprimé, il arrivera par la poste sous 2 à 3 jours ouvrés.',
     'confirm.success.nextContact' => 'Une question ? Écrivez à info@motogo24.cz ou appelez le +420 774 256 271.',
-    'confirm.success.seeYouSoon' => 'À bientôt à Mezná ! 🏍️',
+    'confirm.success.seeYouSoon' => 'À bientôt ! 🏍️',
     'confirm.success.backHome' => 'Retour à la page d\'accueil',
     'confirm.success.continueShopping' => 'Continuer mes achats',
     'confirm.pending.title' => 'Paiement en cours de traitement',

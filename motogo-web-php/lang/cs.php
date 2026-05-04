@@ -1105,7 +1105,7 @@ return [
     'confirm.success.nextVoucherEmail' => 'Kód poukazu najdete v e-mailu — uplatníte ho při rezervaci na motogo24.cz / .com nebo v aplikaci.',
     'confirm.success.nextVoucherPrint' => 'Pokud jste zvolili tištěný poukaz, dorazí poštou během 2–3 pracovních dnů.',
     'confirm.success.nextContact' => 'Máte dotaz? Napište nám na info@motogo24.cz nebo zavolejte na +420 774 256 271.',
-    'confirm.success.seeYouSoon' => 'Těšíme se na vás v Mezné! 🏍️',
+    'confirm.success.seeYouSoon' => 'Těšíme se na vás! 🏍️',
     'confirm.success.backHome' => 'Zpět na úvodní stránku',
     'confirm.success.continueShopping' => 'Pokračovat v nákupu',
     'confirm.pending.title' => 'Platba se zpracovává',

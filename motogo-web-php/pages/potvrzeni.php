@@ -21,6 +21,7 @@ $content = '<main id="content"><div class="container">' . $bc .
 $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
 $homeUrl = function_exists('siteCanonicalUrl') ? siteCanonicalUrl('/') : '/';
 $shopUrl = function_exists('siteCanonicalUrl') ? siteCanonicalUrl('/eshop') : '/eshop';
+$cartUrl = function_exists('siteCanonicalUrl') ? siteCanonicalUrl('/kosik') : '/kosik';
 $rezUrl = function_exists('siteCanonicalUrl') ? siteCanonicalUrl('/rezervace') : '/rezervace';
 $localeMap = ['cs' => 'cs-CZ', 'en' => 'en-GB', 'de' => 'de-DE', 'es' => 'es-ES', 'fr' => 'fr-FR', 'nl' => 'nl-NL', 'pl' => 'pl-PL'];
 $jsLocale = $localeMap[$lang] ?? 'cs-CZ';
@@ -31,6 +32,7 @@ $confirmI18n = [
     'jsLocale'            => $jsLocale,
     'homeUrl'             => $homeUrl,
     'shopUrl'             => $shopUrl,
+    'cartUrl'             => $cartUrl,
     'rezUrl'              => $rezUrl,
     'verifying'           => t('confirm.verifying'),
     'successBookingTitle' => t('confirm.success.bookingTitle'),

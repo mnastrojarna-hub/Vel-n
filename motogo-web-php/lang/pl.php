@@ -524,7 +524,7 @@ return [
     'confirm.success.nextVoucherEmail' => 'Kod bonu znajdziesz w e-mailu — wykorzystaj go przy rezerwacji na motogo24.cz / .com lub w aplikacji.',
     'confirm.success.nextVoucherPrint' => 'Jeśli zamówiłeś bon drukowany, dotrze pocztą w ciągu 2–3 dni roboczych.',
     'confirm.success.nextContact' => 'Masz pytanie? Napisz na info@motogo24.cz lub zadzwoń na +420 774 256 271.',
-    'confirm.success.seeYouSoon' => 'Do zobaczenia w Mezná! 🏍️',
+    'confirm.success.seeYouSoon' => 'Do zobaczenia! 🏍️',
     'confirm.success.backHome' => 'Powrót na stronę główną',
     'confirm.success.continueShopping' => 'Kontynuuj zakupy',
     'confirm.pending.title' => 'Płatność jest przetwarzana',

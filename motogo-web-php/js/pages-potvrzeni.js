@@ -268,10 +268,9 @@
     if(kind === 'booking' && bid){
       retryUrl = REZ + (REZ.indexOf('?') >= 0 ? '&' : '?') + 'resume=' + encodeURIComponent(bid);
     } else if(kind === 'order'){
-      retryUrl = SHOP;
+      retryUrl = (I18N.cartUrl || SHOP);
     }
     var retryBtn = retryUrl ? '<a class="btn btngreen" href="' + esc(retryUrl) + '">' + esc(I18N.retryPayment || I18N.errorTryAgain || 'Try again') + '</a>&nbsp;' : '';
-    var seeYouHtml = (kind === 'booking' && I18N.seeYouSoon) ? '<p class="confirm-see-you" style="margin-top:1rem;font-weight:600">' + esc(I18N.seeYouSoon) + '</p>' : '';
     var phone = I18N.errorContactPhone || '+420 774 256 271';
     var contactHtml = '<p style="margin-top:.75rem">' + esc(I18N.errorContactPrefix || '') + ' <a href="tel:' + esc(phone.replace(/\s+/g, '')) + '">' + esc(phone) + '</a></p>';
 
@@ -282,7 +281,6 @@
       '<p>' + esc(I18N.pendingText2 || '') + '</p>' +
       rowsHtml +
       stepsHtml +
-      seeYouHtml +
       reasonsHtml +
       contactHtml +
       '<p style="margin-top:1.25rem">' + retryBtn +

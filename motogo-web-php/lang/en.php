@@ -825,7 +825,7 @@ return [
     'confirm.success.nextVoucherEmail' => 'You will find the voucher code in your email — redeem it when booking on motogo24.cz / .com or in the app.',
     'confirm.success.nextVoucherPrint' => 'If you ordered a printed voucher, it will arrive by post within 2–3 business days.',
     'confirm.success.nextContact' => 'Got a question? Write to info@motogo24.cz or call +420 774 256 271.',
-    'confirm.success.seeYouSoon' => 'See you soon in Mezná! 🏍️',
+    'confirm.success.seeYouSoon' => 'See you soon! 🏍️',
     'confirm.success.backHome' => 'Back to homepage',
     'confirm.success.continueShopping' => 'Continue shopping',
     'confirm.pending.title' => 'Payment is being processed',
