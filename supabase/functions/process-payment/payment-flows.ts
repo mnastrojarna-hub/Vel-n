@@ -287,7 +287,7 @@ async function handleWebProductCheckout(
     mode: 'payment',
     line_items: lineItems as Stripe.Checkout.SessionCreateParams.LineItem[],
     metadata: { order_id: orderId, type: 'shop', source: 'web' },
-    success_url: withLangParam(`${returnOrigin}/objednavka/dokoncit?order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`, body.locale),
+    success_url: withLangParam(`${returnOrigin}/potvrzeni?order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`, body.locale),
     cancel_url:  withLangParam(`${returnOrigin}/kosik`, body.locale),
     locale: resolveStripeLocale(body.locale),
   }
