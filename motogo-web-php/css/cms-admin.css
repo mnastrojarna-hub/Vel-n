@@ -198,6 +198,111 @@
   animation: none !important;
 }
 
+/* ===== Format bar (Word-like lišta nad editovaným prvkem) =====
+ * Plovoucí toolbar nad/pod aktivním [data-cms-key] s tlačítky pro
+ * formátování (B/I/U/S, barva, zvýraznění, velikost, odkaz, Uložit/Zrušit).
+ * Vykresluje se dynamicky z `cms-admin.js` (renderFormatBar).
+ */
+.mg-cms-formatbar {
+  position: absolute;
+  z-index: 99999;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  background: #1a2e22;
+  border: 1px solid #74FB71;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
+  font: 700 12px/1 system-ui, -apple-system, sans-serif;
+  user-select: none;
+  max-width: calc(100vw - 16px);
+}
+.mg-cms-formatbar .mg-cms-fb-btn {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  background: #fff;
+  color: #1a2e22;
+  border: 1px solid #d4e8e0;
+  border-radius: 6px;
+  font: 700 13px/1 system-ui;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.mg-cms-formatbar .mg-cms-fb-btn:hover {
+  background: #f1faf7;
+  border-color: #74FB71;
+}
+.mg-cms-formatbar .mg-cms-fb-btn.mg-cms-fb-primary {
+  background: #74FB71;
+  color: #0f1a14;
+  border-color: #5fdc5c;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  padding: 0 12px;
+}
+.mg-cms-formatbar .mg-cms-fb-btn.mg-cms-fb-danger {
+  background: transparent;
+  color: #fca5a5;
+  border-color: #7f1d1d;
+}
+.mg-cms-formatbar .mg-cms-fb-btn.mg-cms-fb-danger:hover {
+  background: #7f1d1d;
+  color: #fff;
+}
+.mg-cms-formatbar .mg-cms-fb-color {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  background: #fff;
+  color: #1a2e22;
+  border: 1px solid #d4e8e0;
+  border-radius: 6px;
+  font: 700 13px/1 system-ui;
+  cursor: pointer;
+}
+.mg-cms-formatbar .mg-cms-fb-color span {
+  display: inline-block;
+  padding-bottom: 1px;
+}
+.mg-cms-formatbar .mg-cms-fb-color input[type="color"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+  background: transparent;
+}
+.mg-cms-formatbar .mg-cms-fb-select {
+  height: 30px;
+  padding: 0 6px;
+  background: #fff;
+  color: #1a2e22;
+  border: 1px solid #d4e8e0;
+  border-radius: 6px;
+  font: 600 12px/1 system-ui;
+  cursor: pointer;
+  min-width: 80px;
+}
+.mg-cms-formatbar .mg-cms-fb-sep {
+  width: 1px;
+  height: 22px;
+  background: rgba(116, 251, 113, .35);
+  margin: 0 2px;
+}
+
 /* ===== Toast ===== */
 .mg-cms-toast {
   position: fixed;

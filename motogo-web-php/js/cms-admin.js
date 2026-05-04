@@ -112,6 +112,11 @@
       sel.addRange(range);
     } catch (_) { /* noop */ }
 
+    var formatBar = renderFormatBar(el, {
+      onSave: function () { commit(); },
+      onCancel: function () { cancel(); },
+    });
+
     var saving = false;
 
     function commit() {
@@ -151,6 +156,10 @@
       el.classList.remove('mg-cms-saving');
       el.removeEventListener('keydown', onKey);
       el.removeEventListener('blur', onBlur);
+      if (formatBar) {
+        formatBar.destroy();
+        formatBar = null;
+      }
     }
 
     function onKey(ev) {
@@ -163,11 +172,171 @@
       }
     }
     function onBlur() {
-      // Lehké zpoždění, ať klik na toast nezavře edit dřív než commit.
-      setTimeout(commit, 80);
+      // Lehké zpoždění, ať klik na toast/lištu nezavře edit dřív než commit.
+      setTimeout(function () {
+        // Pokud focus přešel do format-baru (color picker, select, button),
+        // editaci nezavírej — vrať focus zpět.
+        var ae = document.activeElement;
+        if (formatBar && formatBar.el && ae && (formatBar.el === ae || formatBar.el.contains(ae))) {
+          el.focus();
+          return;
+        }
+        commit();
+      }, 120);
     }
     el.addEventListener('keydown', onKey);
     el.addEventListener('blur', onBlur);
+  }
+
+  // ---- Format bar (Word-like toolbar nad editovaným prvkem) ----
+  // Plovoucí lišta nad aktuálně editovaným [data-cms-key]: B/I/U/S, barva,
+  // zvýraznění, velikost písma, odkaz, vyčistit, Uložit/Zrušit.
+  // Příkazy přes document.execCommand → ukládá se HTML přímo do `value` sloupce.
+  function renderFormatBar(targetEl, handlers) {
+    var bar = document.createElement('div');
+    bar.className = 'mg-cms-formatbar';
+    bar.setAttribute('contenteditable', 'false');
+
+    // Klik na lištu nesmí ukrást focus (jinak by spadl onBlur a commit).
+    // Color input a select potřebují native focus, na ně preventDefault NE.
+    bar.addEventListener('mousedown', function (ev) {
+      var t = ev.target;
+      var isNativeFocus = (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT'));
+      if (!isNativeFocus) ev.preventDefault();
+    });
+
+    function exec(cmd, val) {
+      try {
+        targetEl.focus();
+        document.execCommand(cmd, false, val == null ? null : val);
+      } catch (_) { /* noop */ }
+    }
+
+    function makeBtn(label, title, onClick, opts) {
+      opts = opts || {};
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'mg-cms-fb-btn'
+        + (opts.primary ? ' mg-cms-fb-primary' : '')
+        + (opts.danger ? ' mg-cms-fb-danger' : '');
+      b.title = title || '';
+      b.innerHTML = label;
+      b.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        onClick();
+      });
+      return b;
+    }
+
+    function makeColorPicker(title, defaultColor, onPick) {
+      var wrap = document.createElement('label');
+      wrap.className = 'mg-cms-fb-color';
+      wrap.title = title;
+      var icon = document.createElement('span');
+      icon.textContent = title.indexOf('Zvýraz') === 0 ? '◼' : 'A';
+      icon.style.borderBottom = '3px solid ' + defaultColor;
+      var input = document.createElement('input');
+      input.type = 'color';
+      input.value = defaultColor;
+      input.addEventListener('input', function () {
+        icon.style.borderBottomColor = input.value;
+        onPick(input.value);
+      });
+      wrap.appendChild(icon);
+      wrap.appendChild(input);
+      return wrap;
+    }
+
+    function makeSelect(title, options, onChange) {
+      var sel = document.createElement('select');
+      sel.className = 'mg-cms-fb-select';
+      sel.title = title;
+      options.forEach(function (opt) {
+        var o = document.createElement('option');
+        o.value = opt[0];
+        o.textContent = opt[1];
+        sel.appendChild(o);
+      });
+      sel.addEventListener('change', function () {
+        if (sel.value) {
+          onChange(sel.value);
+          sel.value = '';
+          // Vrať focus zpět do editovaného elementu, ať blur nespadne.
+          setTimeout(function () { targetEl.focus(); }, 0);
+        }
+      });
+      return sel;
+    }
+
+    function sep() {
+      var s = document.createElement('span');
+      s.className = 'mg-cms-fb-sep';
+      return s;
+    }
+
+    // Velikost písma
+    bar.appendChild(makeSelect('Velikost', [
+      ['', 'Velikost'],
+      ['1', 'XS'], ['2', 'S'], ['3', 'M'],
+      ['4', 'L'], ['5', 'XL'], ['6', 'XXL'], ['7', 'XXXL'],
+    ], function (v) { exec('fontSize', v); }));
+
+    bar.appendChild(sep());
+
+    bar.appendChild(makeBtn('<b>B</b>', 'Tučně (Ctrl+B)', function () { exec('bold'); }));
+    bar.appendChild(makeBtn('<i>I</i>', 'Kurzíva (Ctrl+I)', function () { exec('italic'); }));
+    bar.appendChild(makeBtn('<span style="text-decoration:underline">U</span>', 'Podtržení (Ctrl+U)', function () { exec('underline'); }));
+    bar.appendChild(makeBtn('<span style="text-decoration:line-through">S</span>', 'Přeškrtnout', function () { exec('strikeThrough'); }));
+
+    bar.appendChild(sep());
+
+    bar.appendChild(makeColorPicker('Barva textu', '#1a2e22', function (c) { exec('foreColor', c); }));
+    bar.appendChild(makeColorPicker('Zvýraznění', '#fef08a', function (c) { exec('hiliteColor', c); }));
+
+    bar.appendChild(sep());
+
+    bar.appendChild(makeBtn('🔗', 'Vložit odkaz', function () {
+      var url = window.prompt('URL odkazu (např. https://...)');
+      if (url) exec('createLink', url);
+    }));
+    bar.appendChild(makeBtn('⛓̸', 'Odstranit odkaz', function () { exec('unlink'); }));
+    bar.appendChild(makeBtn('⌫', 'Vyčistit formátování', function () { exec('removeFormat'); }));
+
+    bar.appendChild(sep());
+
+    bar.appendChild(makeBtn('Zrušit', 'Esc', function () { handlers.onCancel(); }, { danger: true }));
+    bar.appendChild(makeBtn('✓ Uložit', 'Enter', function () { handlers.onSave(); }, { primary: true }));
+
+    document.body.appendChild(bar);
+
+    function reposition() {
+      var rect = targetEl.getBoundingClientRect();
+      var barH = bar.offsetHeight || 44;
+      var top = window.scrollY + rect.top - barH - 12;
+      if (top < window.scrollY + 8) {
+        // Není místo nahoře — umísti pod prvek.
+        top = window.scrollY + rect.bottom + 12;
+      }
+      var left = Math.max(8, window.scrollX + rect.left);
+      var maxLeft = window.scrollX + document.documentElement.clientWidth - bar.offsetWidth - 8;
+      if (left > maxLeft) left = Math.max(8, maxLeft);
+      bar.style.top = top + 'px';
+      bar.style.left = left + 'px';
+    }
+    reposition();
+    // Repozicuj po prvním renderu (offsetHeight/Width už známe).
+    requestAnimationFrame(reposition);
+    window.addEventListener('scroll', reposition, true);
+    window.addEventListener('resize', reposition);
+
+    return {
+      el: bar,
+      destroy: function () {
+        window.removeEventListener('scroll', reposition, true);
+        window.removeEventListener('resize', reposition);
+        bar.remove();
+      },
+    };
   }
 
   // ---- Highlight cílového klíče ----

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
+import RichTextEditor from '../../components/ui/RichTextEditor'
 import { autoTranslate } from '../../lib/autoTranslate'
 import { debugAction } from '../../lib/debugLog'
 
@@ -351,13 +352,15 @@ function FaqEditor({ entry, categories, onClose, onSaved }) {
         </div>
 
         <div>
-          <Label>Odpověď (HTML povolený)</Label>
-          <textarea value={form.answer} onChange={e => set('answer', e.target.value)}
-            className="w-full rounded-btn text-sm outline-none"
-            style={{ ...inputStyle, minHeight: 140, resize: 'vertical', fontFamily: 'inherit' }}
-            placeholder="Odpověď zákazníkovi. Můžeš použít <strong>tučné</strong>, <a href='/...'>odkazy</a>, <br> atd." />
+          <Label>Odpověď</Label>
+          <RichTextEditor
+            value={form.answer}
+            onChange={v => set('answer', v)}
+            placeholder="Odpověď zákazníkovi. Lišta nahoře — tučné, kurzíva, barva, velikost, odkazy, seznamy…"
+            minHeight={180}
+          />
           <div className="text-xs mt-1" style={{ color: '#9ab3a5' }}>
-            Tip: HTML jako <code>&lt;strong&gt;</code>, <code>&lt;a href&gt;</code>, <code>&lt;br&gt;</code> se přenáší 1:1 na web.
+            Tip: použij lištu nahoře pro tučné/kurzívu/barvu/velikost. Přepínač <code>{'</>'}</code> umožňuje editaci HTML zdroje.
           </div>
         </div>
 

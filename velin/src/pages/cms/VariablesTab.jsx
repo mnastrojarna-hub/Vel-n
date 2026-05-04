@@ -4,6 +4,7 @@ import { debugAction } from '../../lib/debugLog'
 import { Table, TRow, TH, TD } from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
+import RichTextEditor from '../../components/ui/RichTextEditor'
 import { autoTranslate } from '../../lib/autoTranslate'
 
 const CATEGORIES = ['general', 'web', 'pricing', 'contact', 'content', 'legal']
@@ -160,7 +161,18 @@ function VarModal({ entry, onClose, onSaved }) {
           </select>
         </div>
         <div><Label>Klíč</Label><input value={form.key} onChange={e => set('key', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={inputStyle} /></div>
-        <div><Label>Hodnota</Label><textarea value={form.value} onChange={e => set('value', e.target.value)} className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }} /></div>
+        <div>
+          <Label>Hodnota</Label>
+          <RichTextEditor
+            value={form.value || ''}
+            onChange={v => set('value', v)}
+            placeholder="Hodnota proměnné — můžeš formátovat (tučné, kurzíva, barva, velikost)…"
+            minHeight={140}
+          />
+          <div className="text-xs mt-1" style={{ color: '#9ab3a5' }}>
+            Krátké texty (názvy, štítky) nech bez formátování. HTML se přenáší na web 1:1.
+          </div>
+        </div>
       </div>
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}
       <div className="flex justify-end gap-3 mt-5">
