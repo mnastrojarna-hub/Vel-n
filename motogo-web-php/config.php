@@ -67,6 +67,16 @@ define('SAMEAS_ZBOZI',      getenv('MOTOGO_SAMEAS_ZBOZI')      ?: '');
 // objednávka) — tady je jen univerzální retargeting visible na všech stránkách.
 define('SKLIK_RETARGETING_ID', getenv('MOTOGO_SKLIK_RETARGETING_ID') ?: '');
 
+// ===== Google Tag Manager =====
+// GTM_CONTAINER_ID — kontejner ID (např. GTM-XXXXXXX). Načítá se na všech
+// stránkách napříč doménami (motogo24.cz i motogo24.com). Konverzní cíle
+// (Google Ads — potvrzená rezervace/platba Stripe, objednávka, poukaz) se
+// posílají přes dataLayer event `purchase` (GA4 ecommerce schéma) na
+// /potvrzeni stránce po potvrzení Stripe platby. V GTM se pak namapuje
+// trigger event=purchase → Google Ads Conversion Tag (vlastní conversion ID
+// + label dodá inzerent v GTM, ne v kódu).
+define('GTM_CONTAINER_ID', getenv('MOTOGO_GTM_CONTAINER_ID') ?: 'GTM-KKHMPZ62');
+
 // Firemní údaje
 define('COMPANY_NAME', 'Bc. Petra Semorádová');
 define('COMPANY_ICO', '21874263');

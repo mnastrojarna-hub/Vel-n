@@ -213,6 +213,42 @@ function buildSameAs() {
 }
 
 /**
+ * Google Tag Manager — head část. Vkládá se hned za <head> na VŠECH
+ * stránkách, napříč doménami (motogo24.cz i motogo24.com). Container ID
+ * řídí GTM_CONTAINER_ID v config.php (default GTM-KKHMPZ62, override přes
+ * env MOTOGO_GTM_CONTAINER_ID). Konverze pro Google Ads se v GTM mapují
+ * na dataLayer event `purchase` emitovaný z /potvrzeni po Stripe platbě.
+ */
+function renderGtmHead() {
+    $id = defined('GTM_CONTAINER_ID') ? GTM_CONTAINER_ID : '';
+    if ($id === '') return '';
+    $idEsc = htmlspecialchars($id, ENT_QUOTES, 'UTF-8');
+    return '
+  <!-- Google Tag Manager -->
+  <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({\'gtm.start\':
+  new Date().getTime(),event:\'gtm.js\'});var f=d.getElementsByTagName(s)[0],
+  j=d.createElement(s),dl=l!=\'dataLayer\'?\'&l=\'+l:\'\';j.async=true;j.src=
+  \'https://www.googletagmanager.com/gtm.js?id=\'+i+dl;f.parentNode.insertBefore(j,f);
+  })(window,document,\'script\',\'dataLayer\',\'' . $idEsc . '\');</script>
+  <!-- End Google Tag Manager -->';
+}
+
+/**
+ * Google Tag Manager — noscript fallback iframe. Vkládá se hned za <body>.
+ */
+function renderGtmBody() {
+    $id = defined('GTM_CONTAINER_ID') ? GTM_CONTAINER_ID : '';
+    if ($id === '') return '';
+    $idEsc = htmlspecialchars($id, ENT_QUOTES, 'UTF-8');
+    return '
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=' . $idEsc . '"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+';
+}
+
+/**
  * Sklik retargeting tag (Seznam reklamní systém). Emituje se jen pokud
  * je SKLIK_RETARGETING_ID nastaveno přes env. Pro Seznam ekvivalent
  * Google Ads remarketingu — bez kódu uživatele Sklik nenavidíme.
@@ -371,7 +407,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
     $ogLocale = i18nOgLocale();
     echo '<!DOCTYPE html>
 <html lang="' . htmlspecialchars($htmlLang) . '" dir="ltr" prefix="og: https://ogp.me/ns#">
-<head>
+<head>' . renderGtmHead() . '
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#1a2e22">
@@ -560,6 +596,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
 </head>
 <body' . ($currentPath === '/' ? ' class="homepage"' : '') . '>
 ';
+    echo renderGtmBody();
     echo renderHeader($currentPath);
     echo '<div id="app">';
     echo $content;
