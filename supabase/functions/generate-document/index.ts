@@ -136,7 +136,9 @@ serve(async (req) => {
     }
 
     const moto = booking.motorcycles || {} as any
-    const days = Math.max(1, Math.ceil((new Date(booking.end_date).getTime() - new Date(booking.start_date).getTime()) / 86400000))
+    // Inclusive day count — system pricing počítá start i end den (May 5 → May 6 = 2 dny).
+    // Math.ceil dříve dávalo 1 den (24h diff) a smlouva nesouhlasila s cenou.
+    const days = Math.max(1, Math.floor((new Date(booking.end_date).getTime() - new Date(booking.start_date).getTime()) / 86400000) + 1)
     const baseRental = (booking.total_price || 0) - (booking.extras_price || 0) - (booking.delivery_fee || 0) + (booking.discount_amount || 0)
 
     // Complete variable substitution map
@@ -204,9 +206,10 @@ serve(async (req) => {
       company_web: 'motogo24.cz',
       company_bank: 'mBank',
       company_account: '670100-2225851630/6210',
-      // Time & period
+      // Time & period — start_time = pickup_time, end_time = return_time
+      // (return_time je NULL pokud zákazník vrací v půjčovně, default UI 19:00)
       start_time: booking.pickup_time || '10:00',
-      end_time: booking.pickup_time || '10:00',
+      end_time: booking.return_time || '19:00',
       rental_period: days === 1 ? '1 den' : days < 5 ? `${days} dny` : `${days} dní`,
       // Price in words
       total_price_words: numberToWordsCZ(booking.total_price || 0),

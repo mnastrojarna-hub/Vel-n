@@ -161,6 +161,7 @@
         I18N.nextBookingPickup,
         I18N.nextContact
       ].filter(Boolean)) +
+      (I18N.seeYouSoon ? '<p class="confirm-see-you" style="margin-top:1rem;font-weight:600">' + esc(I18N.seeYouSoon) + '</p>' : '') +
       backHomeBtn() +
       '</div>';
   }
@@ -239,6 +240,7 @@
 
   function renderPending(rec, kind){
     var rowsHtml = '';
+    var bid = (rec && rec.id) || getParam('booking_id') || '';
     if(rec){
       rowsHtml += '<div class="confirm-summary">';
       if(kind === 'booking'){
@@ -248,13 +250,44 @@
       }
       rowsHtml += '</div>';
     }
+    var nextSteps = [I18N.pendingNextStep1, I18N.pendingNextStep2, I18N.pendingNextStep3].filter(Boolean);
+    var stepsHtml = nextSteps.length ? '<div class="confirm-next">' +
+      '<h3>' + esc(I18N.pendingNextTitle || I18N.nextTitle || '') + '</h3>' +
+      '<ol>' + nextSteps.map(function(s){ return '<li>' + esc(s) + '</li>'; }).join('') + '</ol>' +
+      '</div>' : '';
+    var reasons = [
+      I18N.pendingReason1, I18N.pendingReason2, I18N.pendingReason3,
+      I18N.pendingReason4, I18N.pendingReason5, I18N.pendingReason6
+    ].filter(Boolean);
+    var reasonsHtml = reasons.length ? '<details class="confirm-reasons" style="margin-top:1.25rem">' +
+      '<summary style="cursor:pointer;font-weight:600">' + esc(I18N.pendingFailIntro || '') + '</summary>' +
+      '<ul style="margin-top:.5rem">' + reasons.map(function(r){ return '<li>' + esc(r) + '</li>'; }).join('') + '</ul>' +
+      '</details>' : '';
+
+    var retryUrl = '';
+    if(kind === 'booking' && bid){
+      retryUrl = REZ + (REZ.indexOf('?') >= 0 ? '&' : '?') + 'resume=' + encodeURIComponent(bid);
+    } else if(kind === 'order'){
+      retryUrl = SHOP;
+    }
+    var retryBtn = retryUrl ? '<a class="btn btngreen" href="' + esc(retryUrl) + '">' + esc(I18N.retryPayment || I18N.errorTryAgain || 'Try again') + '</a>&nbsp;' : '';
+    var seeYouHtml = (kind === 'booking' && I18N.seeYouSoon) ? '<p class="confirm-see-you" style="margin-top:1rem;font-weight:600">' + esc(I18N.seeYouSoon) + '</p>' : '';
+    var phone = I18N.errorContactPhone || '+420 774 256 271';
+    var contactHtml = '<p style="margin-top:.75rem">' + esc(I18N.errorContactPrefix || '') + ' <a href="tel:' + esc(phone.replace(/\s+/g, '')) + '">' + esc(phone) + '</a></p>';
+
     return '<div class="confirm-page confirm-pending">' +
       '<div class="confirm-icon" aria-hidden="true">⏳</div>' +
       '<h1>' + esc(I18N.pendingTitle || 'Payment pending') + '</h1>' +
       '<p>' + esc(I18N.pendingText1 || '') + '</p>' +
       '<p>' + esc(I18N.pendingText2 || '') + '</p>' +
       rowsHtml +
-      backHomeBtn() +
+      stepsHtml +
+      seeYouHtml +
+      reasonsHtml +
+      contactHtml +
+      '<p style="margin-top:1.25rem">' + retryBtn +
+        '<a class="btn btndark" href="' + esc(HOME) + '">' + esc(I18N.backHome || 'Home') + '</a>' +
+      '</p>' +
       '</div>';
   }
 
