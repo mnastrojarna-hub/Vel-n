@@ -25,7 +25,7 @@
   // i18n strings (welcome se případně přepíše hláškou z app_settings)
   var T = {
     cs: { open: 'Zeptej se Tomáše', placeholder: 'Napiš co potřebuješ...', send: 'Pošli',
-          welcome: 'Čau, tady Tomáš z MotoGo24. S čím ti můžu píchnout?\n— vybrat káru z naší flotily a poradit, co ti sedne\n— mrknout na volný termín a spočítat cenu\n— rovnou ti udělat rezervaci a poslat platební odkaz\n— pomoct s nahráním dokladů (OP / ŘP) k existující rezervaci\n— upravit termín, prodloužit jízdu nebo vyřídit voucher\n— odpovědět na otázky kolem motorek, výbavy, poboček nebo podmínek pronájmu\n\nTak co řešíš?',
+          welcome: 'Čau, tady Tomáš z MotoGo24. S čím ti můžu píchnout?\n— vybrat mašinu z naší flotily a poradit, co ti sedne\n— mrknout na volný termín a spočítat cenu\n— rovnou ti udělat rezervaci a poslat platební odkaz\n— pomoct s nahráním dokladů (OP / ŘP) k existující rezervaci\n— upravit termín, prodloužit jízdu nebo vyřídit voucher\n— odpovědět na otázky kolem motorek, výbavy, poboček nebo podmínek pronájmu\n\nTak co řešíš?',
           thinking: 'Koukám na to...', error: 'Něco se zaseklo, zkus to prosím znovu.', close: 'Zavřít chat', reset: 'Začít znovu',
           tos: 'Konverzace s asistentem je informativní; přesné podmínky najdeš ve smlouvě.',
           ctaPay: 'Pokračovat k platbě →', ctaBook: 'Pokračovat k rezervaci →' },
