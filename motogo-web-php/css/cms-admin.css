@@ -204,9 +204,11 @@
  * Vykresluje se dynamicky z `cms-admin.js` (renderFormatBar).
  */
 .mg-cms-formatbar {
-  position: absolute;
-  z-index: 99999;
-  display: flex;
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 2147483000;
+  display: flex !important;
   flex-wrap: wrap;
   align-items: center;
   gap: 4px;
@@ -218,6 +220,7 @@
   font: 700 12px/1 system-ui, -apple-system, sans-serif;
   user-select: none;
   max-width: calc(100vw - 16px);
+  pointer-events: auto;
 }
 .mg-cms-formatbar .mg-cms-fb-btn {
   min-width: 30px;

@@ -310,16 +310,25 @@
     document.body.appendChild(bar);
 
     function reposition() {
+      // position: fixed → souřadnice jsou vůči viewportu (nepotřeba scrollY).
       var rect = targetEl.getBoundingClientRect();
       var barH = bar.offsetHeight || 44;
-      var top = window.scrollY + rect.top - barH - 12;
-      if (top < window.scrollY + 8) {
-        // Není místo nahoře — umísti pod prvek.
-        top = window.scrollY + rect.bottom + 12;
+      var barW = bar.offsetWidth || 320;
+      var vw = document.documentElement.clientWidth;
+      var vh = document.documentElement.clientHeight;
+
+      var top = rect.top - barH - 12;
+      if (top < 8) {
+        // Nahoře není místo — pod prvek.
+        top = rect.bottom + 12;
       }
-      var left = Math.max(8, window.scrollX + rect.left);
-      var maxLeft = window.scrollX + document.documentElement.clientWidth - bar.offsetWidth - 8;
-      if (left > maxLeft) left = Math.max(8, maxLeft);
+      // Pokud i pod prvkem mimo viewport, přilep nahoru viewportu.
+      if (top + barH > vh - 8) top = Math.max(8, vh - barH - 8);
+      if (top < 8) top = 8;
+
+      var left = Math.max(8, rect.left);
+      if (left + barW > vw - 8) left = Math.max(8, vw - barW - 8);
+
       bar.style.top = top + 'px';
       bar.style.left = left + 'px';
     }

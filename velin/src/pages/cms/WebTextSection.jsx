@@ -162,22 +162,27 @@ function FieldRow({ field, value, onSaved, fieldUrl, hasToken }) {
             />
           </div>
           <div className="flex gap-2 items-center mt-2">
-            {changed && (
-              <button
-                onClick={save}
-                disabled={saving}
-                className="rounded-btn text-xs font-extrabold uppercase cursor-pointer"
-                style={{ padding: '8px 14px', background: '#74FB71', color: '#1a2e22', border: 'none' }}
-              >
-                {saving ? '...' : 'Uložit'}
-              </button>
-            )}
-            {!changed && saved && (
+            <button
+              onClick={save}
+              disabled={saving || !changed}
+              className="rounded-btn text-xs font-extrabold uppercase cursor-pointer"
+              style={{
+                padding: '8px 14px',
+                background: changed ? '#74FB71' : '#e5efe9',
+                color: changed ? '#1a2e22' : '#9ab3a5',
+                border: 'none',
+                opacity: saving ? 0.6 : 1,
+                cursor: (saving || !changed) ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {saving ? 'Ukládám…' : (changed ? '✓ Uložit změny' : 'Uloženo')}
+            </button>
+            {saved && !changed && (
               <span className="text-xs font-bold" style={{ color: '#22c55e' }}>
-                {translating ? '🌍 Překládám…' : 'Uloženo'}
+                {translating ? '🌍 Překládám…' : '✓ Uloženo'}
               </span>
             )}
-            {!changed && !saved && translating && (
+            {translating && !saved && (
               <span className="text-xs font-bold" style={{ color: '#1d4ed8' }}>🌍 Překládám…</span>
             )}
           </div>
@@ -194,22 +199,27 @@ function FieldRow({ field, value, onSaved, fieldUrl, hasToken }) {
               border: '1px solid ' + (changed ? '#f59e0b' : '#d4e8e0'),
             }}
           />
-          {changed && (
-            <button
-              onClick={save}
-              disabled={saving}
-              className="rounded-btn text-xs font-extrabold uppercase cursor-pointer shrink-0"
-              style={{ padding: '8px 14px', background: '#74FB71', color: '#1a2e22', border: 'none' }}
-            >
-              {saving ? '...' : 'Uložit'}
-            </button>
-          )}
-          {!changed && saved && (
+          <button
+            onClick={save}
+            disabled={saving || !changed}
+            className="rounded-btn text-xs font-extrabold uppercase cursor-pointer shrink-0"
+            style={{
+              padding: '8px 14px',
+              background: changed ? '#74FB71' : '#e5efe9',
+              color: changed ? '#1a2e22' : '#9ab3a5',
+              border: 'none',
+              opacity: saving ? 0.6 : 1,
+              cursor: (saving || !changed) ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {saving ? '...' : (changed ? 'Uložit' : 'Uloženo')}
+          </button>
+          {saved && !changed && (
             <span className="text-xs font-bold" style={{ color: '#22c55e', padding: '8px 0' }}>
-              {translating ? '🌍 Překládám…' : 'Uloženo'}
+              {translating ? '🌍 Překládám…' : '✓'}
             </span>
           )}
-          {!changed && !saved && translating && (
+          {translating && !saved && (
             <span className="text-xs font-bold" style={{ color: '#1d4ed8', padding: '8px 0' }}>🌍 Překládám…</span>
           )}
         </div>
