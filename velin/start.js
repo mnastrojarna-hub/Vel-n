@@ -1,25 +1,94 @@
 #!/usr/bin/env node
 
-import { execSync, spawn } from "child_process";
+import { spawn, spawnSync } from "child_process";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import path from "path";
+import os from "os";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
+const isWindows = process.platform === "win32";
 
-// Install dependencies if node_modules is missing
-if (!fs.existsSync(path.join(root, "node_modules"))) {
-  console.log("Instaluji závislosti...");
-  execSync("npm install", { cwd: root, stdio: "inherit" });
+function pauseOnExit(code) {
+  if (isWindows && code !== 0) {
+    console.error("\n[Velín] Spuštění selhalo. Stiskněte libovolnou klávesu pro zavření okna...");
+    try {
+      spawnSync("cmd", ["/c", "pause"], { stdio: "inherit" });
+    } catch {}
+  }
+  process.exit(code);
 }
 
-console.log("Spouštím Velín...");
-
-// Start Vite dev server with --open to launch browser automatically
-const vite = spawn("npx", ["vite", "--open"], {
-  cwd: root,
-  stdio: "inherit",
-  shell: true,
+process.on("uncaughtException", (err) => {
+  console.error("[Velín] Chyba:", err && err.message ? err.message : err);
+  pauseOnExit(1);
 });
 
-vite.on("close", (code) => process.exit(code));
+if (!fs.existsSync(path.join(root, "node_modules"))) {
+  console.log("[Velín] Instaluji závislosti (může trvat několik minut)...");
+  const npmCmd = isWindows ? "npm.cmd" : "npm";
+  const install = spawnSync(npmCmd, ["install"], {
+    cwd: root,
+    stdio: "inherit",
+    shell: isWindows,
+  });
+  if (install.status !== 0) {
+    console.error("[Velín] npm install selhal. Zkontrolujte, že máte nainstalovaný Node.js (https://nodejs.org).");
+    pauseOnExit(install.status || 1);
+  }
+}
+
+console.log("[Velín] Spouštím vývojový server...");
+
+const npxCmd = isWindows ? "npx.cmd" : "npx";
+const vite = spawn(npxCmd, ["vite", "--host", "127.0.0.1"], {
+  cwd: root,
+  stdio: ["inherit", "pipe", "pipe"],
+  shell: isWindows,
+  env: { ...process.env, BROWSER: "none" },
+});
+
+let opened = false;
+const urlRegex = /(https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?\/?)/i;
+
+function openInBrowser(url) {
+  if (opened) return;
+  opened = true;
+  console.log(`[Velín] Otevírám prohlížeč: ${url}`);
+  try {
+    if (isWindows) {
+      spawn("cmd", ["/c", "start", "", url], { detached: true, stdio: "ignore" }).unref();
+    } else if (process.platform === "darwin") {
+      spawn("open", [url], { detached: true, stdio: "ignore" }).unref();
+    } else {
+      spawn("xdg-open", [url], { detached: true, stdio: "ignore" }).unref();
+    }
+  } catch (e) {
+    console.error("[Velín] Nepodařilo se otevřít prohlížeč automaticky. Otevřete prosím ručně:", url);
+  }
+}
+
+function handleStream(stream, isErr) {
+  stream.on("data", (chunk) => {
+    const text = chunk.toString();
+    (isErr ? process.stderr : process.stdout).write(text);
+    if (!opened) {
+      const m = text.match(urlRegex);
+      if (m) {
+        // Počkáme krátký moment, ať Vite stihne začít poslouchat
+        setTimeout(() => openInBrowser(m[1]), 400);
+      }
+    }
+  });
+}
+
+handleStream(vite.stdout, false);
+handleStream(vite.stderr, true);
+
+vite.on("error", (err) => {
+  console.error("[Velín] Nepodařilo se spustit Vite:", err.message);
+  console.error("[Velín] Ověřte, že je nainstalován Node.js 18+ (https://nodejs.org).");
+  pauseOnExit(1);
+});
+
+vite.on("close", (code) => pauseOnExit(code ?? 0));
