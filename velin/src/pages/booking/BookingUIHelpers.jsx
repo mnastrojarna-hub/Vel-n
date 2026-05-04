@@ -1,18 +1,28 @@
-export function InfoRow({ label, value }) {
+export function InfoRow({ label, value, accent }) {
+  const v = value === 0 || value === '0' ? value : (value || '—')
   return (
-    <div className="flex items-center gap-2 mb-1">
-      <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22', minWidth: 65 }}>{label}</span>
-      <span className="text-sm font-medium" style={{ color: '#0f1a14' }}>{value || '—'}</span>
+    <div className="flex items-baseline gap-3 py-[3px]" style={{ borderBottom: '1px solid #e8f1ec' }}>
+      <span className="text-xs font-extrabold uppercase tracking-wide" style={{ color: '#4a5a52', minWidth: 95, flexShrink: 0 }}>{label}</span>
+      <span className="text-sm font-semibold" style={{ color: accent || '#0f1a14' }}>{v}</span>
     </div>
   )
 }
 
-export function SumRow({ label, value, color }) {
-  if (!value) return null
+export function SumRow({ label, value, color, strong }) {
+  if (value === undefined || value === null || value === '') return null
   return (
-    <div className="flex gap-2 py-[3px]" style={{ borderBottom: '1px solid #f1faf7', fontSize: 12 }}>
-      <span className="font-bold" style={{ color: '#1a2e22', minWidth: 160, flexShrink: 0 }}>{label}</span>
-      <span className="font-medium" style={{ color: color || '#0f1a14' }}>{value}</span>
+    <div className="flex gap-3 py-[4px]" style={{ borderBottom: '1px solid #eef4f0', fontSize: 13 }}>
+      <span className="font-bold" style={{ color: '#4a5a52', minWidth: 165, flexShrink: 0 }}>{label}</span>
+      <span className={strong ? 'font-extrabold' : 'font-semibold'} style={{ color: color || '#0f1a14' }}>{value}</span>
+    </div>
+  )
+}
+
+export function SectionHeading({ children, color = '#1a2e22', className = '' }) {
+  return (
+    <div className={`text-sm font-extrabold uppercase tracking-wider mt-4 mb-2 pb-1 ${className}`}
+      style={{ color, borderBottom: `2px solid ${color}22` }}>
+      {children}
     </div>
   )
 }

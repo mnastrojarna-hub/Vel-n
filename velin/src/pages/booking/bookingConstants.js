@@ -64,6 +64,47 @@ export function fmtDT(iso) {
   return new Date(iso).toLocaleString('cs-CZ')
 }
 
+const PAYMENT_METHOD_LABELS = {
+  card: { label: 'Platební karta', icon: '💳', tone: '#2563eb' },
+  stripe: { label: 'Online (Stripe)', icon: '💳', tone: '#2563eb' },
+  google_pay: { label: 'Google Pay', icon: '🟢', tone: '#16a34a' },
+  apple_pay: { label: 'Apple Pay', icon: '🍎', tone: '#1a2e22' },
+  klarna: { label: 'Klarna', icon: '💗', tone: '#db2777' },
+  paypal: { label: 'PayPal', icon: '🅿️', tone: '#1e3a8a' },
+  bank_transfer: { label: 'Bankovní převod', icon: '🏦', tone: '#1a8a18' },
+  wire: { label: 'Bankovní převod', icon: '🏦', tone: '#1a8a18' },
+  cash: { label: 'Hotově', icon: '💵', tone: '#1a8a18' },
+  voucher: { label: 'Dárkový poukaz', icon: '🎁', tone: '#7c3aed' },
+}
+
+export function paymentMethodInfo(method) {
+  if (!method) return { label: '—', icon: '', tone: '#0f1a14' }
+  const key = String(method).toLowerCase().trim()
+  return PAYMENT_METHOD_LABELS[key] || { label: method, icon: '💳', tone: '#0f1a14' }
+}
+
+// Stripe dashboard link pro PaymentIntent (jen test/live; admin si v dashboardu vybere prostředí)
+export function stripePaymentIntentUrl(piId) {
+  if (!piId) return null
+  return `https://dashboard.stripe.com/payments/${piId}`
+}
+
+// Detekuje, zda byla skutečně objednána výbava spolujezdce.
+// Sám fakt, že je v `bookings` vyplněna `passenger_*_size`, neznamená objednávku
+// (může jít o pozůstatek/auto-vyplnění). Spolehlivý signál je položka v
+// `booking_extras` obsahující slovo „spolujez" / „passenger" v názvu, nebo
+// alespoň 2 vyplněné velikosti (= reálná sada).
+export function hasPassengerGearOrdered(booking, bookingExtras) {
+  const fromExtras = (bookingExtras || []).some(e => {
+    const n = (e?.name || e?.extras_catalog?.name || '').toLowerCase()
+    return n.includes('spolujez') || n.includes('passenger')
+  })
+  if (fromExtras) return true
+  const sizes = ['passenger_helmet_size', 'passenger_jacket_size', 'passenger_pants_size', 'passenger_boots_size', 'passenger_gloves_size']
+    .map(k => booking?.[k]).filter(Boolean)
+  return sizes.length >= 2
+}
+
 export function calcPriceFromDayPrices(dayPrices, startDate, endDate) {
   if (!dayPrices || !startDate || !endDate) return null
   const dayMap = ['price_sun', 'price_mon', 'price_tue', 'price_wed', 'price_thu', 'price_fri', 'price_sat']
