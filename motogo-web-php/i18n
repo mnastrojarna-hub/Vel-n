@@ -461,6 +461,21 @@ function renderLanguageSwitcher() {
         unset($existingQuery['lang']);
     }
 
+    // CMS admin cross-domain: cookie `mg_cms_admin` je doménová, takže přechod
+    // z motogo24.com na .cz/.at/.es/.pl by edit mode shodil. Pokud admin je
+    // přihlášen, přiložíme do switcher URL na CIZÍ doménu jednorázový
+    // ?cms_admin=<token>, který cílová doména ověří a nastaví si vlastní cookie
+    // (token se z URL hned odstraní v index.php). Stejná doména token nepotřebuje.
+    $cmsCrossDomainToken = '';
+    if (!empty($_COOKIE['mg_cms_admin'])) {
+        try {
+            $cmsSb = new SupabaseClient();
+            $tk = $cmsSb->fetchSetting('cms_admin_token');
+            if (is_string($tk) && $tk !== '') $cmsCrossDomainToken = $tk;
+        } catch (\Throwable $e) { /* token zůstane prázdný — switcher pojede bez něj */ }
+    }
+    $currentHost = i18nSiteHost();
+
     $items = '';
     foreach (I18N_LANGUAGES as $code => $info) {
         // Cross-domain URL pro daný jazyk (cs → .cz, ostatní → .com).
@@ -472,6 +487,14 @@ function renderLanguageSwitcher() {
         if (!empty($existingQuery)) {
             $sep = (strpos($url, '?') !== false) ? '&' : '?';
             $url .= $sep . http_build_query($existingQuery);
+        }
+        // Cross-domain admin propagation: jen když cílová doména ≠ aktuální
+        if ($cmsCrossDomainToken !== '') {
+            $targetDomain = I18N_DOMAIN_MAP[$code] ?? I18N_DOMAIN_INTL;
+            if ($targetDomain !== $currentHost) {
+                $sep = (strpos($url, '?') !== false) ? '&' : '?';
+                $url .= $sep . 'cms_admin=' . urlencode($cmsCrossDomainToken);
+            }
         }
         $href = htmlspecialchars($url);
         $isActive = ($code === $current);
