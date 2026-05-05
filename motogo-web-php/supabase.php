@@ -24,10 +24,22 @@ class SupabaseClient {
     }
 
     /**
+     * Detekce admin režimu (cookie `mg_cms_admin=1` nastavená index.php po
+     * ověření tokenu). V admin režimu se cache obchází, aby admin viděl
+     * okamžitě své uložené změny z Velínu (běžní návštěvníci dál čtou cache,
+     * která se přirozeně obnoví po `cacheTtl`).
+     */
+    private function isCmsAdmin() {
+        return !empty($_COOKIE['mg_cms_admin']);
+    }
+
+    /**
      * Čte z file cache. Vrací null pokud cache neexistuje nebo expiroval.
+     * V admin režimu vrací vždy null → admin čte čerstvá data ze Supabase.
      */
     private function cacheGet($key) {
         if (!$this->cacheDir) return null;
+        if ($this->isCmsAdmin()) return null; // bypass — admin vidí změny hned
         $file = $this->cacheDir . '/' . md5($key) . '.json';
         if (!file_exists($file)) return null;
         if (filemtime($file) < time() - $this->cacheTtl) {
@@ -39,10 +51,15 @@ class SupabaseClient {
     }
 
     /**
-     * Zapíše do file cache.
+     * Zapíše do file cache. V admin režimu nezapisuje — admin čte čerstvá
+     * data, která by ale neměla přepisovat „normální" cache pro běžné
+     * návštěvníky (jinak by admin po uložení napsal čerstvou hodnotu i sem
+     * a další admin-flow už ji nemusel mít čerstvou — ponecháme cache
+     * v rukou ne-admin requestů, kde TTL přirozeně rotuje).
      */
     private function cacheSet($key, $data) {
         if (!$this->cacheDir) return;
+        if ($this->isCmsAdmin()) return; // bypass — necháme cache pro non-admin
         $file = $this->cacheDir . '/' . md5($key) . '.json';
         @file_put_contents($file, json_encode($data), LOCK_EX);
     }
