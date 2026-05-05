@@ -79,27 +79,21 @@
   }
 
   // ---- Inline edit ----
-  // Pro každý [data-cms-key]: na click → contenteditable, Enter uloží, Esc zruší.
-  // U <a> tagů (a libovolného předka, který je odkaz) blokujeme navigaci v edit
-  // režimu — typický případ: signpost karta `<a class="gbox" href="/katalog">`
-  // s vnořeným `<h3 data-cms-key>` / `<p data-cms-key>` / `<div data-cms-key>`.
-  // Bez tohoto by klik na nadpis karty rovnou redirectnul na /katalog
-  // a editace by se neuložila. Cmd/Ctrl klik zachová možnost normální navigace.
+  // Pro každý [data-cms-key]:
+  //   • LEVÝ KLIK = normální navigace / kliknutí (default chování stránky — odkazy
+  //     navigují, tlačítka se chovají normálně). Admin se může proklikat webem
+  //     stejně jako běžný návštěvník.
+  //   • PRAVÝ KLIK (contextmenu) = otevři inline editor. Browser kontextové menu
+  //     se potlačí (preventDefault). Bezpečné UX: admin nemůže omylem editovat
+  //     při procházení; edit je explicitní gesto.
+  //   • Enter uloží, Esc zruší (po startEdit).
   function setupInlineEdit() {
-    document.addEventListener('click', function (ev) {
+    document.addEventListener('contextmenu', function (ev) {
       var el = ev.target.closest('[data-cms-key]');
       if (!el) return;
-      // Pokud je už edit, neblokujeme
       if (el.getAttribute('contenteditable') === 'true') return;
-      // Najdi nejbližší předka <a href> (včetně el samotného) — pokud existuje
-      // a uživatel nedrží cmd/ctrl (chce reálně navigovat), zablokuj redirect.
-      var anchor = (el.tagName === 'A' && el.hasAttribute('href'))
-        ? el
-        : el.closest('a[href]');
-      if (anchor && !ev.metaKey && !ev.ctrlKey) {
-        ev.preventDefault();
-        ev.stopPropagation();
-      }
+      ev.preventDefault();
+      ev.stopPropagation();
       startEdit(el);
     }, true);
   }
@@ -386,7 +380,8 @@
       + '<div class="mg-cms-title">⚡ Velín CMS</div>'
       + '<div class="mg-cms-info">Inline edit aktivní · ' + count + ' prvků</div>'
       + '<div class="mg-cms-info" style="font-weight:400;font-size:10px">'
-      + '  <strong>Klik</strong> na text · <strong>Enter</strong> uložit · <strong>Esc</strong> zrušit'
+      + '  <strong>Pravý klik</strong> na text = upravit · <strong>Levý klik</strong> = navigace<br>'
+      + '  <strong>Enter</strong> uložit · <strong>Esc</strong> zrušit'
       + '</div>';
     if (!canSave) {
       html += '<div class="mg-cms-info" style="color:#fca5a5">⚠ Token nedostupný — edit nelze uložit. Otevři Velín a zkontroluj <code>cms_admin_token</code> v <code>app_settings</code>.</div>';

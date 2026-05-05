@@ -54,19 +54,21 @@ export const PAGE_JAK_OVERVIEW = {
     {
       id: 'intro', label: 'Úvod stránky', location: 'Hlavní nadpis a úvodní text',
       fields: [
-        { key: 'web.jak.h1', label: 'H1 nadpis', default: 'Jak si půjčit motorku' },
-        { key: 'web.jak.intro', label: 'Úvodní text', default: 'V Motogo24 – půjčovna motorek na Vysočině je půjčení jednoduché, rychlé a férové.' },
+        { key: 'web.jak_pujcit.h1', label: 'H1 nadpis', default: 'Jak si půjčit motorku' },
+        { key: 'web.jak_pujcit.intro', label: 'Úvodní text', type: 'textarea', default: 'V Motogo24 – půjčovna motorek na Vysočině je půjčení jednoduché, rychlé a férové.' },
       ]
     },
     {
-      id: 'links', label: 'Navigační karty (6 odkazů)', location: '6 karet odkazujících na podstránky',
+      id: 'links', label: 'Navigační karty (8 odkazů)', location: '8 karet odkazujících na podstránky',
       fields: [
-        { key: 'web.jak.link.1', label: 'Odkaz 1', default: 'Postup půjčení motorky' },
-        { key: 'web.jak.link.2', label: 'Odkaz 2', default: 'Přistavení motocyklu' },
-        { key: 'web.jak.link.3', label: 'Odkaz 3', default: 'Vyzvednutí motocyklu' },
-        { key: 'web.jak.link.4', label: 'Odkaz 4', default: 'Co je v ceně' },
-        { key: 'web.jak.link.5', label: 'Odkaz 5', default: 'Dokumenty a návody' },
-        { key: 'web.jak.link.6', label: 'Odkaz 6', default: 'Často kladené dotazy' },
+        { key: 'web.jak_pujcit.links.0.label', label: 'Odkaz 1', default: 'Postup půjčení motorky' },
+        { key: 'web.jak_pujcit.links.1.label', label: 'Odkaz 2', default: 'Převzetí v půjčovně' },
+        { key: 'web.jak_pujcit.links.2.label', label: 'Odkaz 3', default: 'Vrácení motocyklu v půjčovně' },
+        { key: 'web.jak_pujcit.links.3.label', label: 'Odkaz 4', default: 'Vrácení motorky jinde' },
+        { key: 'web.jak_pujcit.links.4.label', label: 'Odkaz 5', default: 'Co je v ceně nájmu' },
+        { key: 'web.jak_pujcit.links.5.label', label: 'Odkaz 6', default: 'Přistavení motocyklu' },
+        { key: 'web.jak_pujcit.links.6.label', label: 'Odkaz 7', default: 'Dokumenty a návody' },
+        { key: 'web.jak_pujcit.links.7.label', label: 'Odkaz 8', default: 'Často kladené dotazy' },
       ]
     },
   ]
