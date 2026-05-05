@@ -206,8 +206,8 @@
 /* Moto detail nav — kompaktní na mobilu */
 @media(max-width:768px){
   .moto-nav{flex-wrap:wrap;gap:.5rem;padding:.5rem 0;margin-bottom:.75rem}
-  .moto-nav a{font-size:.82rem;flex:1;min-width:0}
-  .moto-nav-back{order:-1;flex:1 1 100%;text-align:center;padding:.55rem;background:#f4faf7;border-radius:8px}
+  .moto-nav a{font-size:.82rem;flex:1;min-width:0;padding:.55rem .85rem;text-align:center}
+  .moto-nav-back{order:-1;flex:1 1 100%}
   .moto-nav-prev,.moto-nav-next{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .moto-detail-header{gap:.75rem;margin-bottom:1rem}
   .moto-detail-header>div:last-child{width:100%}
@@ -227,11 +227,11 @@
   .moto-specs-mobile{display:block}
   .moto-specs-desktop{display:none}
 }
-.moto-nav{display:flex;justify-content:space-between;align-items:center;padding:.75rem 0;margin-bottom:1rem;border-bottom:1px solid #e0e0e0;gap:.5rem}
-.moto-nav a{color:#1a8c1a;font-size:.9rem;transition:color .2s;padding:.35rem .5rem;border-radius:6px}
-.moto-nav a:hover{color:#0d6e0d;background:#f4faf7}
-.moto-nav-disabled{color:#bbb;pointer-events:none}
-.moto-nav-back{font-weight:600}
+.moto-nav{display:flex;justify-content:space-between;align-items:center;padding:.75rem 0;margin-bottom:1rem;gap:.5rem}
+.moto-nav a{background:#74FB71;color:#1a2e22;font-weight:600;font-size:.9rem;padding:.55rem 1rem;border-radius:20px;transition:background .2s,color .2s,box-shadow .2s;box-shadow:0 1px 3px rgba(26,46,34,.12)}
+.moto-nav a:hover{background:#5edc5a;color:#0a1f14;box-shadow:0 2px 6px rgba(26,46,34,.18)}
+.moto-nav-disabled,.moto-nav span.moto-nav-disabled{background:transparent;color:transparent;pointer-events:none;box-shadow:none}
+.moto-nav-back{font-weight:700}
 .moto-detail-header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem}
 .moto-info{margin-bottom:2rem}
 /* Detail layout — fotka na celou šířku nahoře, popis pod ní (mobil i desktop). */
