@@ -194,7 +194,12 @@ function buildSystemPrompt(cfg: AgentConfig, ctx: MessageContext): string {
   if (ctx.history.length > 0) {
     parts.push('\n— HISTORIE VLÁKNA (od nejstaršího) —')
     for (const h of ctx.history) {
-      parts.push(`[${h.direction}] ${(h.content || '').slice(0, 400)}`)
+      const d = (h.direction || '').toLowerCase()
+      const label = (d === 'customer' || d === 'inbound') ? 'Zákazník'
+        : (d === 'admin' || d === 'outbound') ? 'Admin'
+        : (d === 'system') ? 'Systém'
+        : d
+      parts.push(`[${label}] ${(h.content || '').slice(0, 400)}`)
     }
   }
 
@@ -268,8 +273,11 @@ async function processSuggestion(messageId: string): Promise<void> {
     channel = ctx.thread.channel || 'unknown'
     threadId = ctx.thread.id
 
-    if (ctx.message.direction !== 'inbound') {
-      await logTraffic({ outcome: 'skip_outbound', message_id: messageId, thread_id: threadId, channel, latency_ms: Date.now() - start })
+    // Inbound = zpráva od zákazníka. DB historicky používá 'customer' (chat),
+    // novější integrace mohou ukládat 'inbound' (SMS/email/WA). Akceptujeme oba.
+    const dir = (ctx.message.direction || '').toLowerCase()
+    if (dir !== 'inbound' && dir !== 'customer') {
+      await logTraffic({ outcome: 'skip_outbound', message_id: messageId, thread_id: threadId, channel, latency_ms: Date.now() - start, details: { direction: dir } })
       return
     }
     if (ctx.message.ai_suggestion_status && ctx.message.ai_suggestion_status !== 'failed') {
