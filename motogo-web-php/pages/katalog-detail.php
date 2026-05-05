@@ -202,16 +202,31 @@ if (!empty($moto['max_rental_days'])) {
 }
 if (!empty($moto['ideal_usage'])) $specsRows[] = [t('detail.specIdealFor'), $moto['ideal_usage']];
 
-$descSpecsHtml = '<section class="gr2"><div>';
+// Popis — na celý řádek nahoře (desktop i mobil)
+$descSpecsHtml = '<section class="moto-desc-block">';
 $descSpecsHtml .= '<h2>' . te('detail.descTitle') . '</h2><p>' . htmlspecialchars($motoDesc !== '' ? $motoDesc : ($moto['model'] ?? '')) . '</p>';
 if (!empty($moto['manual_url'])) {
     $descSpecsHtml .= '<p>&nbsp;</p><p><a class="btn btngreen" href="' . htmlspecialchars($moto['manual_url']) . '" target="_blank" rel="noopener">' . te('detail.userManual') . '</a></p>';
 }
-$descSpecsHtml .= '</div><div><h2>' . te('detail.specsTitle') . '</h2>';
+$descSpecsHtml .= '</section>';
+
+// Technická specifikace — na desktopu dvě tabulky vedle sebe, na mobilu zůstává jedna (původní layout)
+$descSpecsHtml .= '<section class="moto-specs"><h2>' . te('detail.specsTitle') . '</h2>';
 if ($specsRows) {
-    $descSpecsHtml .= renderTable([t('detail.specHeaderParam'), t('detail.specHeaderValue')], $specsRows);
+    $specHeaders = [t('detail.specHeaderParam'), t('detail.specHeaderValue')];
+    // Mobilní zobrazení — jedna tabulka jako doposud
+    $descSpecsHtml .= '<div class="moto-specs-mobile">' . renderTable($specHeaders, $specsRows) . '</div>';
+    // Desktopové zobrazení — rozdělené na dvě poloviny vedle sebe
+    $half = (int)ceil(count($specsRows) / 2);
+    $leftRows = array_slice($specsRows, 0, $half);
+    $rightRows = array_slice($specsRows, $half);
+    $descSpecsHtml .= '<div class="moto-specs-desktop gr2"><div>'
+        . renderTable($specHeaders, $leftRows)
+        . '</div><div>'
+        . (!empty($rightRows) ? renderTable($specHeaders, $rightRows) : '')
+        . '</div></div>';
 }
-$descSpecsHtml .= '</div></section>';
+$descSpecsHtml .= '</section>';
 
 // Pricing table — názvy dnů ze slovníku
 $days = [t('days.mon'), t('days.tue'), t('days.wed'), t('days.thu'), t('days.fri'), t('days.sat'), t('days.sun')];
