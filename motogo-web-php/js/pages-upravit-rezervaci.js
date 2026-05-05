@@ -655,7 +655,7 @@ MG._editRez._renderBookingRow = function(b){
   var statusLbl = pending ? MG.t('editRez.status.unpaid') : MG.t('editRez.status.' + ds);
   var statusCls = pending ? 'pending-unpaid' : ds;
   var price = MG.formatPrice(Number(b.total_price || 0));
-  var bookingNum = (b.id || '').substring(0,8).toUpperCase();
+  var bookingNum = (b.id || '').slice(-8).toUpperCase();
   var payCta = pending
     ? '<button type="button" class="edit-rez-row-pay" data-pay-id="' + b.id + '" aria-label="' + MG.t('editRez.list.payAria') + '">' + MG.t('editRez.list.payCta') + '</button>'
     : '';
@@ -673,7 +673,7 @@ MG._editRez._renderBookingRow = function(b){
 };
 
 MG._editRez._renderShopRow = function(o){
-  var num = o.order_number ? '#' + o.order_number : (o.id || '').substring(0,8).toUpperCase();
+  var num = o.order_number ? '#' + o.order_number : (o.id || '').slice(-8).toUpperCase();
   var when = MG.formatDate(o.created_at);
   var price = MG.formatPrice(Number(o.total_amount || 0));
   var statusKey = 'editRez.shopStatus.' + (o.status || 'unknown');
@@ -728,6 +728,26 @@ MG._editRez._CONSENT_FIELDS = [
   { key: 'consent_photo',           i18n: 'photo',          icon: '📷' }
 ];
 
+// Souhlasy (kromě marketing) nelze odvolat, pokud má zákazník nadcházející
+// nebo probíhající rezervaci — jsou nezbytné pro provoz rezervace (komunikace,
+// foto dokladů pro autonomní pobočku atd.). Vrátí true pokud existuje
+// reserved/active rezervace s jakýmkoliv stavem platby.
+MG._editRez._hasActiveOrUpcomingBooking = function(){
+  var bs = MG._editRez.bookings || [];
+  for (var i = 0; i < bs.length; i++){
+    var ds = MG._editRez._displayStatus(bs[i]);
+    if (ds === 'active' || ds === 'upcoming') return true;
+  }
+  return false;
+};
+
+// Zámek konkrétního souhlasu — marketing je vždy možné odvolat. Ostatní
+// souhlasy jsou zamčené po dobu nadcházející/aktivní rezervace.
+MG._editRez._isConsentLocked = function(key){
+  if (key === 'marketing_consent') return false;
+  return MG._editRez._hasActiveOrUpcomingBooking();
+};
+
 MG._editRez._renderConsentsCard = function(){
   var cs = MG._editRez.consents || {};
   // Default-on: pokud sloupec v DB je NULL (nikdy explicitně neuložen),
@@ -736,19 +756,23 @@ MG._editRez._renderConsentsCard = function(){
   var isOn = function(key){ return cs[key] !== false; };
   var renderRow = function(f){
     var val = isOn(f.key);
+    var locked = MG._editRez._isConsentLocked(f.key);
     var label = MG.t('editRez.consents.label.' + f.i18n);
     var desc  = MG.t('editRez.consents.desc.'  + f.i18n);
     var badge = f.required
       ? '<span class="edit-rez-consent-badge required">' + MG.t('editRez.consents.required') + '</span>'
       : '<span class="edit-rez-consent-badge optional">' + MG.t('editRez.consents.optional') + '</span>';
-    return '<div class="edit-rez-consent-row' + (f.required ? ' is-required' : '') + (val ? ' is-on' : '') + '" data-key="' + f.key + '">' +
+    var lockBadge = locked
+      ? '<span class="edit-rez-consent-badge locked" title="' + MG.t('editRez.consents.lockedHint') + '">🔒 ' + MG.t('editRez.consents.lockedBadge') + '</span>'
+      : '';
+    return '<div class="edit-rez-consent-row' + (f.required ? ' is-required' : '') + (val ? ' is-on' : '') + (locked ? ' is-locked' : '') + '" data-key="' + f.key + '">' +
       '<div class="edit-rez-consent-icon" aria-hidden="true">' + (f.icon || '✅') + '</div>' +
       '<div class="edit-rez-consent-body">' +
-        '<div class="edit-rez-consent-head"><span class="edit-rez-consent-label">' + label + '</span>' + badge + '</div>' +
+        '<div class="edit-rez-consent-head"><span class="edit-rez-consent-label">' + label + '</span>' + badge + lockBadge + '</div>' +
         '<div class="edit-rez-consent-desc">' + desc + '</div>' +
       '</div>' +
-      '<label class="edit-rez-toggle" aria-label="' + label + '">' +
-        '<input type="checkbox" data-consent="' + f.key + '"' + (val ? ' checked' : '') + '>' +
+      '<label class="edit-rez-toggle' + (locked ? ' is-locked' : '') + '" aria-label="' + label + '">' +
+        '<input type="checkbox" data-consent="' + f.key + '"' + (val ? ' checked' : '') + (locked && val ? ' data-lock-on="1"' : '') + '>' +
         '<span class="edit-rez-toggle-slider"></span>' +
         '<span class="edit-rez-toggle-state">' + (val ? MG.t('editRez.consents.toggleYes') : MG.t('editRez.consents.toggleNo')) + '</span>' +
       '</label>' +
@@ -766,6 +790,10 @@ MG._editRez._renderConsentsCard = function(){
       optional.map(renderRow).join('') +
     '</div>';
 
+  var lockNotice = MG._editRez._hasActiveOrUpcomingBooking()
+    ? '<div class="edit-rez-consents-locknote">🔒 ' + MG.t('editRez.consents.activeBookingNote') + '</div>'
+    : '';
+
   return '<section class="edit-rez-card edit-rez-consents-card">' +
     '<div class="edit-rez-consents-head">' +
       '<div class="edit-rez-consents-title">' +
@@ -778,6 +806,7 @@ MG._editRez._renderConsentsCard = function(){
         '<button type="button" class="btn-pill ghost" id="edit-rez-consents-revoke-all">' + MG.t('editRez.consents.revokeAll') + '</button>' +
       '</div>' +
     '</div>' +
+    lockNotice +
     '<div class="edit-rez-consents-list">' + rows + '</div>' +
     '<div id="edit-rez-consents-status" class="edit-rez-consents-status" aria-live="polite"></div>' +
   '</section>';
@@ -789,7 +818,12 @@ MG._editRez._injectConsentsStyles = function(){
   var st = document.createElement('style');
   st.id = 'edit-rez-consents-styles';
   st.textContent =
-    '.edit-rez-consents-card{background:linear-gradient(180deg,#fafffb 0%,#ffffff 70%);border:1px solid #d4e8e0;border-left:4px solid #74FB71}'+
+    '.edit-rez-consents-card{background:linear-gradient(180deg,#fafffb 0%,#ffffff 70%);border:1px solid #d4e8e0;border-left:4px solid #74FB71;max-width:100%;overflow:hidden;box-sizing:border-box}'+
+    '.edit-rez-consents-card *{box-sizing:border-box;min-width:0}'+
+    '.edit-rez-consents-locknote{background:#fff8e1;border:1.5px solid #f0c060;color:#5a4000;padding:.65rem .9rem;border-radius:12px;font-size:.85rem;line-height:1.45;margin-bottom:.9rem}'+
+    '.edit-rez-consent-badge.locked{background:#fff8e1;color:#5a4000;border:1px solid #f0c060;display:inline-flex;align-items:center;gap:.25rem}'+
+    '.edit-rez-consent-row.is-locked .edit-rez-toggle.is-locked{cursor:not-allowed;opacity:.85}'+
+    '.edit-rez-consent-row.is-locked .edit-rez-toggle.is-locked .edit-rez-toggle-slider{filter:grayscale(.45)}'+
     '.edit-rez-consents-card h2{font-size:1.25rem;color:#0f1f17;margin:0;display:flex;align-items:center;gap:.5rem}'+
     '.edit-rez-consents-head{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;padding-bottom:.9rem;border-bottom:1px dashed #d4e8e0}'+
     '.edit-rez-consents-title{display:flex;align-items:flex-start;gap:.8rem;flex:1;min-width:240px}'+
@@ -1017,6 +1051,17 @@ MG._editRez._setConsentsStatus = function(msg, isError){
 // Save jednoho souhlasu — direct profiles.update (RLS: user UPDATE id=uid OK).
 MG._editRez._saveConsent = async function(key, value, inp){
   if (!MG._editRez.user) return;
+  // Zámek: po dobu nadcházející/aktivní rezervace nelze odvolat žádný souhlas
+  // kromě marketingu — souhlasy jsou nutné pro provoz rezervace.
+  if (!value && MG._editRez._isConsentLocked(key)){
+    inp.checked = true;
+    var rowL = inp.closest('.edit-rez-consent-row');
+    if (rowL) rowL.classList.add('is-on');
+    var stL = rowL && rowL.querySelector('.edit-rez-toggle-state');
+    if (stL) stL.textContent = MG.t('editRez.consents.toggleYes');
+    MG._editRez._setConsentsStatus(MG.t('editRez.consents.lockedRevokeBlocked'), true);
+    return;
+  }
   var row = inp && inp.closest('.edit-rez-consent-row');
   if (row){ row.classList.add('busy'); row.classList.toggle('is-on', !!value); }
   inp.disabled = true;
@@ -1058,7 +1103,12 @@ MG._editRez._saveAllConsents = async function(value){
   inputs.forEach(function(inp){ inp.disabled = true; });
   try {
     var payload = {};
-    MG._editRez._CONSENT_FIELDS.forEach(function(f){ payload[f.key] = !!value; });
+    // Při Odvolat vše respektujeme zámek: souhlasy zamčené aktivní/nadcházející
+    // rezervací zůstanou true. Při Přijmout vše nastavíme všechny na true.
+    MG._editRez._CONSENT_FIELDS.forEach(function(f){
+      if (!value && MG._editRez._isConsentLocked(f.key)) return;
+      payload[f.key] = !!value;
+    });
     var r = await window.sb.from('profiles').update(payload).eq('id', MG._editRez.user.id);
     if (r.error){
       console.error('[editRez] saveAll consents err', r.error);
@@ -1068,6 +1118,8 @@ MG._editRez._saveAllConsents = async function(value){
     MG._editRez.consents = MG._editRez.consents || {};
     inputs.forEach(function(inp){
       var key = inp.getAttribute('data-consent');
+      // Zamčené řádky při Odvolat vše ponecháme zapnuté
+      if (!value && MG._editRez._isConsentLocked(key)) return;
       inp.checked = !!value;
       MG._editRez.consents[key] = !!value;
       var stateEl = inp.parentElement.querySelector('.edit-rez-toggle-state');
@@ -1075,7 +1127,10 @@ MG._editRez._saveAllConsents = async function(value){
       var row = inp.closest('.edit-rez-consent-row');
       if (row) row.classList.toggle('is-on', !!value);
     });
-    MG._editRez._setConsentsStatus(value ? MG.t('editRez.consents.allGranted') : MG.t('editRez.consents.allRevoked'), false);
+    var msgKey = value
+      ? 'editRez.consents.allGranted'
+      : (MG._editRez._hasActiveOrUpcomingBooking() ? 'editRez.consents.marketingRevoked' : 'editRez.consents.allRevoked');
+    MG._editRez._setConsentsStatus(MG.t(msgKey), false);
   } catch(e){
     console.error('[editRez] saveAll exception', e);
     MG._editRez._setConsentsStatus(MG.t('editRez.consents.saveErrorPlural'), true);
@@ -1170,7 +1225,7 @@ MG._editRez._buildDocFallbackData = async function(b){
   return {
     // Booking
     booking_id: b.id || '',
-    booking_number: (b.id || '').slice(0, 8).toUpperCase(),
+    booking_number: (b.id || '').slice(-8).toUpperCase(),
     start_date: fmt(origStart),
     end_date: fmt(origEnd),
     pickup_date: fmt(origStart),
@@ -2576,7 +2631,7 @@ MG._editRez._renderTabDetail = function(){
         '<div class="edit-rez-detail-headline">' +
           '<h3>' + motoLbl + '</h3>' +
           licReq +
-          '<div class="edit-rez-detail-id">' + MG.t('editRez.detail.bookingNum') + ' <code>' + b.id.substring(0,8).toUpperCase() + '</code></div>' +
+          '<div class="edit-rez-detail-id">' + MG.t('editRez.detail.bookingNum') + ' <code>' + (b.id || '').slice(-8).toUpperCase() + '</code></div>' +
         '</div>' +
       '</div>' +
       '<aside class="edit-rez-detail-side">' +
