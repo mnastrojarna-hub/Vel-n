@@ -136,9 +136,19 @@ Detailní politiky:
 
 | Bucket | Přístup | Použití |
 |--------|---------|---------|
-| `documents` | **private** | Faktury (invoices/{id}.html), generované dokumenty (generated/{uuid}.html), smlouvy |
+| `documents` | **private** | Faktury (invoices/{id}.html), generované dokumenty (generated/{uuid}.html), smlouvy, naskenované doklady zákazníků (`<user_id>/<doc>_<ts>.<ext>`) |
 | `media` | **public** | Fotky motorek, loga, marketingové materiály |
 | `sos-photos` | **private** | Fotky z SOS incidentů (poškození, nehody) |
+
+### RLS politiky `storage.objects` pro bucket `documents` (2026-05-05)
+Před opravou byl pro authenticated zákazníka přístup do bucketu zamaskován jako 404 „Bucket not found" (chyběla SELECT politika); v Supabase Storage se 403 vrací jako 404, aby se neleakly názvy bucketů. Velín admin fungoval díky `is_admin()` bypassu.
+
+| Politika | Cíl | Použití |
+|----------|-----|---------|
+| `documents_customer_select_own` | authenticated SELECT | Zákazník vidí pouze: a) vlastní složku `<user_id>/...` (nahrané skeny OP/ŘP přes `save-verification-document`), b) `pdf_path` v `invoices` u svých rezervací (přes `bookings.user_id`), c) `pdf_path` v `generated_documents` u svých rezervací, d) `file_path` v `public.documents` se shodným `user_id`. |
+| `documents_admin_all` | authenticated ALL | Admin (`is_admin()`) má plný přístup pro správu z Velínu. |
+
+Důsledek: tlačítko „Stáhnout" v `motogo24.cz/upravit-rezervaci?` (Doklady tab) i Mindee scan flow nyní fungují bez 404. Edge fn `save-verification-document` dál běží pod service_role a na RLS nezávisí.
 
 ---
 
