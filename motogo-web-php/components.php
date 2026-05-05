@@ -56,10 +56,79 @@ function imgUrl($src) {
 }
 
 /**
+ * Bezpečný cast na string. Pokud hodnota je array/object, vrátí ''.
+ * Účel: chránit `htmlspecialchars()` před fatal TypeError v PHP 8 — ten hází
+ * chybu, když dostane non-string. Velín / admin může nechtěně uložit pole nebo
+ * objekt místo stringu, což by ji dříve crashlo (500). Teď se prostě vrátí
+ * prázdný řetězec.
+ */
+function safeStr($v) {
+    if (is_string($v)) return $v;
+    if (is_numeric($v)) return (string)$v;
+    if (is_bool($v)) return $v ? '1' : '';
+    return '';
+}
+
+/**
+ * `htmlspecialchars` s fail-safe — pokud vstup není string, escape prázdný.
+ * Náhrada za `htmlspecialchars($x)` na místech, kde $x může být malformovaná
+ * hodnota z DB / CMS (např. pole motorky uložené přes Velín jako array).
+ */
+function he($v) {
+    return htmlspecialchars(safeStr($v), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+}
+
+/**
+ * Normalizuje řádek motorky — všechny scalar fields přetypuje na string,
+ * arrays nechá arrays, malformované hodnoty na bezpečné defaulty. Volá se
+ * po fetchMotos() / katalog-detail před renderem, aby se eliminovaly TypeError
+ * z `htmlspecialchars()` na neočekávané typy.
+ */
+function normalizeMoto(&$m) {
+    if (!is_array($m)) return;
+    $stringFields = [
+        'id','model','brand','description','category','engine_cc','engine_type',
+        'transmission','drivetrain','fuel_consumption_l100km','ideal_usage',
+        'manual_url','color','year','power_kw','power_hp','torque_nm',
+        'top_speed_kmh','fuel_type','fuel_tank_l','brake_type','weight_kg',
+        'seat_height_mm','seats_count','license_required','min_rental_days',
+        'max_rental_days','image_url','status','suitable_for',
+        'price_min','price_mon','price_tue','price_wed','price_thu',
+        'price_fri','price_sat','price_sun','price_weekday','price_weekend',
+    ];
+    foreach ($stringFields as $f) {
+        if (!isset($m[$f])) continue;
+        if (is_array($m[$f]) || is_object($m[$f])) $m[$f] = '';
+    }
+    // features je legit string nebo array — pouze zahodíme objekt
+    if (isset($m['features']) && is_object($m['features'])) $m['features'] = '';
+    // Pokud features array obsahuje non-skalární prvky, převést na strings
+    if (is_array($m['features'] ?? null)) {
+        $m['features'] = array_values(array_filter(array_map(function ($x) {
+            return safeStr($x);
+        }, $m['features']), function ($s) { return $s !== ''; }));
+    }
+    if (!is_array($m['images'] ?? null)) $m['images'] = [];
+    // Image entries musí být strings (URL nebo storage path)
+    $m['images'] = array_values(array_filter(array_map(function ($x) {
+        return safeStr($x);
+    }, $m['images']), function ($s) { return $s !== ''; }));
+    // branches je joined object s name/address/city — pokud není array, nechť je null
+    if (isset($m['branches']) && !is_array($m['branches'])) $m['branches'] = null;
+    // translations je jsonb — pokud není array, vyhoď
+    if (isset($m['translations']) && !is_array($m['translations'])) {
+        $decoded = is_string($m['translations']) ? json_decode($m['translations'], true) : null;
+        $m['translations'] = is_array($decoded) ? $decoded : [];
+    }
+}
+
+/**
  * HTML karta motorky — odpovídá MG.renderMotoCard() v components.js.
  * ZMĚNA: href z #/katalog/{id} na /katalog/{id}
  */
 function renderMotoCard($m) {
+    if (!is_array($m)) return '';
+    normalizeMoto($m);
     $img = imgUrl($m['image_url'] ?? ($m['images'][0] ?? ''));
     $desc = $m['ideal_usage'] ?? '';
     $cat = $m['category'] ?? '';
