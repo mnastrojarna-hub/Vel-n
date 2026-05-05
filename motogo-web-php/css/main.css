@@ -656,11 +656,18 @@ body.mg-lb-open{overflow:hidden;overscroll-behavior:none}
 .edit-rez-upload h4{margin:0 0 .5rem;font-size:1.05rem}
 .edit-rez-upload-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:.75rem}
 @media (max-width:560px){.edit-rez-upload-row{grid-template-columns:1fr}}
-.edit-rez-upload-card{background:#fff;border:1px solid #e3e8e5;border-radius:10px;padding:.75rem .9rem;display:flex;align-items:center;gap:.75rem}
+.edit-rez-upload-card{background:#fff;border:1px solid #e3e8e5;border-radius:10px;padding:.85rem 1rem;display:grid;grid-template-columns:32px 1fr;grid-template-areas:"ico label" "ico actions" "status status";gap:.4rem .75rem;align-items:center}
 .edit-rez-upload-card.is-ok{border-color:#74FB71;background:#f0fff4}
-.edit-rez-upload-status{font-size:1.4rem;font-weight:800;color:#999;width:1.5rem;text-align:center}
-.edit-rez-upload-card.is-ok .edit-rez-upload-status{color:#16a34a}
-.edit-rez-upload-label{flex:1;font-weight:600}
+.edit-rez-upload-icon{grid-area:ico;font-size:1.5rem;font-weight:800;color:#999;text-align:center;line-height:1}
+.edit-rez-upload-card.is-ok .edit-rez-upload-icon{color:#16a34a}
+.edit-rez-upload-label{grid-area:label;font-weight:700;color:#1a2e22;font-size:.95rem}
+.edit-rez-upload-actions{grid-area:actions;display:flex;gap:.5rem;flex-wrap:wrap}
+.edit-rez-upload-actions .btn{flex:1 1 auto;min-width:120px;white-space:nowrap}
+.edit-rez-upload-actions .btn-ghost-small{background:#fff;border:1.5px solid #b8d4c6;color:#1a2e22;padding:.4rem .8rem;border-radius:8px;font-weight:700;font-size:.8rem;cursor:pointer;transition:all .15s}
+.edit-rez-upload-actions .btn-ghost-small:hover{border-color:#1a8c1a;background:#f0faf5}
+.edit-rez-upload-doc-status{grid-area:status;font-size:.8rem;min-height:1em;margin-top:.2rem}
+.edit-rez-upload-doc-status:empty{display:none}
+@media (max-width:640px){.edit-rez-upload-actions .btn{flex:1 1 100%;min-height:44px}}
 .edit-rez-upload-status-msg{margin-top:.75rem;font-size:.9rem;min-height:1.2em}
 .edit-rez-upload-status-msg.is-info{color:#1a8c1a}
 .edit-rez-upload-status-msg.is-error{color:#dc2626}

@@ -39,7 +39,7 @@ $keys = [
     'editRez.doc.type.invoice_advance','editRez.doc.type.invoice_final','editRez.doc.type.invoice_shop',
     'editRez.doc.type.unknown','editRez.doc.type.rental_contract','editRez.doc.type.handover_protocol',
     'editRez.doc.uploadTitle','editRez.doc.uploadHelp','editRez.doc.idLabel','editRez.doc.licenseLabel',
-    'editRez.doc.uploadBtn','editRez.doc.updateBtn','editRez.doc.archiveTitle',
+    'editRez.doc.uploadBtn','editRez.doc.updateBtn','editRez.doc.scanBtn','editRez.doc.galleryBtn','editRez.doc.archiveTitle',
     'editRez.detail.title','editRez.detail.bookingId','editRez.detail.moto','editRez.detail.dates',
     'editRez.detail.pickup','editRez.detail.return','editRez.detail.totalPaid','editRez.detail.daysCount',
     'editRez.tab.detail','editRez.tab.extend','editRez.tab.shorten','editRez.tab.cancel',
@@ -53,6 +53,8 @@ $keys = [
     'editRez.loc.addrPlaceholder','editRez.loc.mapBtn','editRez.loc.routing','editRez.loc.geocodeFail',
     'editRez.loc.noPriceChange','editRez.loc.cta','editRez.loc.confirm','editRez.loc.pickOnMap','editRez.loc.pickConfirm',
     'editRez.loc.helpActive','editRez.loc.refundNote','editRez.loc.pickupLockedTitle','editRez.loc.pickupLockedHelp',
+    'editRez.loc.pickupTime','editRez.loc.returnTime','editRez.loc.timeOnly',
+    'editRez.loc.ctaPay','editRez.loc.ctaRefund','editRez.loc.ctaSave',
     'rez.pickup.gps',
     'editRez.extend.title','editRez.extend.help','editRez.extend.helpUpcoming','editRez.extend.helpActive',
     'editRez.extend.newStart','editRez.extend.newEnd','editRez.extend.priceDiff','editRez.extend.cta',
@@ -194,6 +196,8 @@ if (typeof MG.t !== "function") {
 <script src="' . assetUrl('/js/pages-rezervace-calendar.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace-pricing.js') . '"></script>
 <script src="' . assetUrl('/js/pages-rezervace-steps.js') . '"></script>
+<script src="' . assetUrl('/js/pages-rezervace-camera.js') . '"></script>
+<script src="' . assetUrl('/js/pages-rezervace-scan.js') . '"></script>
 <script src="' . assetUrl('/js/pages-upravit-rezervaci.js') . '"></script>
 <script>
 (function(){

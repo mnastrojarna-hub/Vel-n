@@ -1007,6 +1007,8 @@ MG._editRez._injectConsentsStyles = function(){
     '.erez-loc-calc-total.erez-loc-diff-pay strong{color:#c0392b;font-size:1.05rem}'+
     '.erez-loc-calc-total.erez-loc-diff-refund strong{color:#1a8c1a;font-size:1.05rem}'+
     '.edit-rez-loc-submit{margin-top:.5rem;padding:.85rem 1.4rem;border-radius:14px;font-size:1rem}'+
+    '.edit-rez-loc-submit.cta-pay{background:#1a8c1a;color:#fff}'+
+    '.edit-rez-loc-submit.cta-refund{background:#147214;color:#fff}'+
     /* Sekce karty (pickup/return) — sjednocený rámeček jako ve Flutter app */
     '.erez-loc-section{background:#fff;border:1px solid #e5efe9;border-radius:16px;padding:1rem 1.1rem;margin-bottom:1rem}'+
     '.erez-loc-section .edit-rez-section-h{margin-top:0;border-bottom:none;padding-bottom:.4rem}'+
@@ -1344,22 +1346,50 @@ MG._editRez._fillTemplate = function(html, vars){
   });
 };
 
-// Otevře PDF z Supabase Storage. Všechny doklady (faktury, smlouvy, generated)
+// Otevře dokument z Supabase Storage. Všechny doklady (faktury, smlouvy, generated)
 // jsou uloženy v jediném bucketu `documents`; `pdf_path` je celý klíč (např.
 // "invoices/<id>.html" nebo "generated/<id>.html").
+//
+// FIX 2026-05-05: některé stažené HTML dokumenty se otevíraly v prohlížeči jako
+// raw text místo jako vykreslené HTML — Supabase Storage někdy servíruje
+// `application/octet-stream` (zvlášť když uploader contentType nenastavil
+// správně). Místo `window.open(signedUrl)` proto soubor stáhneme přes SDK,
+// detekujeme typ podle koncovky a otevřeme přes Blob URL s `text/html`
+// (resp. `application/pdf` pro PDF). Tím vynutíme správné renderování.
 MG._editRez._openDocPdf = async function(path, defaultBucket){
   if (!path){ MG._editRez._showError(MG.t('editRez.doc.notAvailable')); return; }
   try {
     var bucket = defaultBucket || 'documents';
-    // Backward-compat: pokud volající omylem předal bucket 'invoices' nebo
-    // 'generated_documents' (neexistují), spadneme zpět na 'documents'.
     if (bucket !== 'documents' && bucket !== 'media' && bucket !== 'sos-photos'){
       bucket = 'documents';
     }
     var key = path;
+    // Stáhneme přes SDK — vrátí Blob s server-defined typem (může být špatný).
+    var dl = await window.sb.storage.from(bucket).download(key);
+    if (dl && dl.data){
+      var lower = String(key).toLowerCase();
+      var mime = 'application/octet-stream';
+      if (lower.endsWith('.html') || lower.endsWith('.htm')) mime = 'text/html;charset=utf-8';
+      else if (lower.endsWith('.pdf')) mime = 'application/pdf';
+      else if (lower.endsWith('.png')) mime = 'image/png';
+      else if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) mime = 'image/jpeg';
+      else if (lower.endsWith('.webp')) mime = 'image/webp';
+      // Re-wrap blob s explicitním typem — Blob() s `type` přepíše původní.
+      var blob = new Blob([await dl.data.arrayBuffer()], { type: mime });
+      var url = URL.createObjectURL(blob);
+      var w = window.open(url, '_blank');
+      if (!w){
+        // Popup blocker → vynucené stažení.
+        var a = document.createElement('a');
+        a.href = url; a.download = key.split('/').pop();
+        document.body.appendChild(a); a.click(); a.remove();
+      }
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 60000);
+      return;
+    }
+    // Fallback — když SDK download selže (RLS blocked, atd.), zkus signed URL.
     var r = await window.sb.storage.from(bucket).createSignedUrl(key, 600);
     if (r.error || !r.data || !r.data.signedUrl){
-      // fallback na public URL
       var p = window.sb.storage.from(bucket).getPublicUrl(key);
       if (p && p.data && p.data.publicUrl){ window.open(p.data.publicUrl, '_blank'); return; }
       MG._editRez._showError(MG.t('editRez.doc.notAvailable'));
@@ -1612,19 +1642,33 @@ MG._editRez._renderTabDocs = async function(){
     var profile = MG._editRez._profile || {};
     var hasId = !!(profile.id_verified_at || profile.passport_verified_at);
     var hasLicense = !!profile.license_verified_at;
+    // Status elementy mají IDčka `mindee-id-status` / `mindee-dl-status` —
+    // shodné s rezervačním Mindee flow (pages-rezervace-scan.js), takže reuse
+    // helperů `MG._rezScanDoc` / `MG._rezGalleryDoc` zapisuje stavovou hlášku
+    // o úspěchu/chybě přímo do nich. Tlačítka „Vyfotit" / „Nahrát ze zařízení"
+    // jsou 1:1 s rezervačním flow — fullscreen kamera s permission promptem,
+    // potom Mindee OCR (2× retry); selhání = fotka se uloží jako manuální.
     var uploadHtml = '<div class="edit-rez-upload">'
-      + '<h4>📷 ' + (MG.t('editRez.doc.uploadTitle','editRez.doc.uploadTitle') || 'Nahrát / aktualizovat doklady') + '</h4>'
-      + '<p class="edit-rez-tip">' + (MG.t('editRez.doc.uploadHelp','editRez.doc.uploadHelp') || 'Nahraj občanku/pas a řidičák — sken přes Mindee OCR. Bez nich systém nevydá přístupový kód k motorce.') + '</p>'
+      + '<h4>📷 ' + MG.t('editRez.doc.uploadTitle') + '</h4>'
+      + '<p class="edit-rez-tip">' + MG.t('editRez.doc.uploadHelp') + '</p>'
       + '<div class="edit-rez-upload-row">'
       +   '<div class="edit-rez-upload-card' + (hasId ? ' is-ok' : '') + '">'
-      +     '<div class="edit-rez-upload-status">' + (hasId ? '✓' : '○') + '</div>'
-      +     '<div class="edit-rez-upload-label">' + (MG.t('editRez.doc.idLabel','editRez.doc.idLabel') || 'Občanka / pas') + '</div>'
-      +     '<button type="button" class="btn btngreen-small" data-doc-upload="id">' + (hasId ? (MG.t('editRez.doc.updateBtn','editRez.doc.updateBtn') || 'Aktualizovat') : (MG.t('editRez.doc.uploadBtn','editRez.doc.uploadBtn') || 'Nahrát')) + '</button>'
+      +     '<div class="edit-rez-upload-icon">' + (hasId ? '✓' : '○') + '</div>'
+      +     '<div class="edit-rez-upload-label">' + MG.t('editRez.doc.idLabel') + '</div>'
+      +     '<div class="edit-rez-upload-actions">'
+      +       '<button type="button" class="btn btngreen-small" data-doc-scan="id">📸 ' + MG.t('editRez.doc.scanBtn') + '</button>'
+      +       '<button type="button" class="btn btn-ghost-small" data-doc-gallery="id">📁 ' + MG.t('editRez.doc.galleryBtn') + '</button>'
+      +     '</div>'
+      +     '<div id="mindee-id-status" class="edit-rez-upload-doc-status" aria-live="polite"></div>'
       +   '</div>'
       +   '<div class="edit-rez-upload-card' + (hasLicense ? ' is-ok' : '') + '">'
-      +     '<div class="edit-rez-upload-status">' + (hasLicense ? '✓' : '○') + '</div>'
-      +     '<div class="edit-rez-upload-label">' + (MG.t('editRez.doc.licenseLabel','editRez.doc.licenseLabel') || 'Řidičský průkaz') + '</div>'
-      +     '<button type="button" class="btn btngreen-small" data-doc-upload="dl">' + (hasLicense ? (MG.t('editRez.doc.updateBtn','editRez.doc.updateBtn') || 'Aktualizovat') : (MG.t('editRez.doc.uploadBtn','editRez.doc.uploadBtn') || 'Nahrát')) + '</button>'
+      +     '<div class="edit-rez-upload-icon">' + (hasLicense ? '✓' : '○') + '</div>'
+      +     '<div class="edit-rez-upload-label">' + MG.t('editRez.doc.licenseLabel') + '</div>'
+      +     '<div class="edit-rez-upload-actions">'
+      +       '<button type="button" class="btn btngreen-small" data-doc-scan="dl">📸 ' + MG.t('editRez.doc.scanBtn') + '</button>'
+      +       '<button type="button" class="btn btn-ghost-small" data-doc-gallery="dl">📁 ' + MG.t('editRez.doc.galleryBtn') + '</button>'
+      +     '</div>'
+      +     '<div id="mindee-dl-status" class="edit-rez-upload-doc-status" aria-live="polite"></div>'
       +   '</div>'
       + '</div>'
       + '<div id="edit-rez-upload-status" class="edit-rez-upload-status-msg" aria-live="polite"></div>'
@@ -1642,10 +1686,29 @@ MG._editRez._renderTabDocs = async function(){
         MG._editRez._downloadDocRow(row);
       });
     });
-    t.querySelectorAll('[data-doc-upload]').forEach(function(btn){
+    // Před voláním rezervačních scan helperů nastavíme `MG._rez.userId` /
+    // `bookingId`, aby se fotky uložily pod správného zákazníka a rezervaci
+    // (rezervační flow používá tytéž globální helpery).
+    var ensureRezCtx = function(){
+      MG._rez = MG._rez || {};
+      MG._rez.userId = b.user_id;
+      MG._rez.bookingId = b.id;
+    };
+    t.querySelectorAll('[data-doc-scan]').forEach(function(btn){
       btn.addEventListener('click', function(){
-        var docType = btn.getAttribute('data-doc-upload');
-        MG._editRez._uploadDoc(docType);
+        ensureRezCtx();
+        var docType = btn.getAttribute('data-doc-scan');
+        if (typeof MG._rezScanDoc === 'function') MG._rezScanDoc(docType);
+        // Po dokončení scan flow re-renderujeme tab pro update ✓ / ○
+        setTimeout(function(){ if (MG._editRez.tab === 'docs') MG._editRez._renderTabDocs(); }, 4000);
+      });
+    });
+    t.querySelectorAll('[data-doc-gallery]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        ensureRezCtx();
+        var docType = btn.getAttribute('data-doc-gallery');
+        if (typeof MG._rezGalleryDoc === 'function') MG._rezGalleryDoc(docType, 'mindee');
+        setTimeout(function(){ if (MG._editRez.tab === 'docs') MG._editRez._renderTabDocs(); }, 4000);
       });
     });
   } catch(err){
@@ -2364,9 +2427,24 @@ MG._editRez._renderTabLocation = function(){
     lines.push('<div class="erez-loc-calc-row erez-loc-calc-total ' + diffCls + '"><span>'
       + diffLabel + '</span><strong>' + (diffLocal !== 0 ? MG.formatPrice(Math.abs(diffLocal)) : MG.formatPrice(0)) + '</strong></div>');
 
+    // Helper: text CTA tlačítka se mění podle finančního dopadu změny.
+    //   diff > 0  → „Pokračovat k platbě" (potřeba doplatek přes Stripe)
+    //   diff < 0  → „Potvrdit vrácení přeplatku" (vratka na původní platební metodu)
+    //   diff = 0  → „Uložit změny" (jen úprava bez peněz, např. čas)
+    function setCtaLabel(diff){
+      if (!cta) return;
+      var key = diff > 0 ? 'editRez.loc.ctaPay'
+              : diff < 0 ? 'editRez.loc.ctaRefund'
+              : 'editRez.loc.ctaSave';
+      cta.textContent = MG.t(key);
+      cta.classList.toggle('cta-pay', diff > 0);
+      cta.classList.toggle('cta-refund', diff < 0);
+    }
+
     if (noChange){
       summary.innerHTML = '<div class="erez-loc-calc">' + lines.join('') + '</div>'
         + '<div class="muted" style="margin-top:.4rem">' + MG.t('editRez.loc.noPriceChange') + '</div>';
+      setCtaLabel(0);
       cta.disabled = true;
       return;
     }
@@ -2377,6 +2455,7 @@ MG._editRez._renderTabLocation = function(){
       var timeLines = ['<div class="erez-loc-calc-row erez-loc-calc-total"><span>'
         + MG.t('editRez.loc.timeOnly') + '</span><strong>0 Kč</strong></div>'];
       summary.innerHTML = '<div class="erez-loc-calc">' + timeLines.join('') + '</div>';
+      setCtaLabel(0);
       cta.disabled = false;
       return;
     }
@@ -2428,6 +2507,10 @@ MG._editRez._renderTabLocation = function(){
       displayLines.push('<div class="erez-loc-calc-row erez-loc-calc-total ' + actCls + '"><span>'
         + actLabel + '</span><strong>' + (actAmount ? MG.formatPrice(actAmount) : MG.formatPrice(0)) + '</strong></div>');
       summary.innerHTML = '<div class="erez-loc-calc">' + displayLines.join('') + '</div>';
+      // CTA label podle reálného finančního dopadu (server-side autoritativní).
+      // Refund > 0 → vrácení; diff > 0 → doplatek; jinak save.
+      var effectiveDiff = displayDiff !== 0 ? displayDiff : (refund > 0 ? -refund : 0);
+      setCtaLabel(effectiveDiff);
       cta.disabled = (displayDiff === 0 && refund === 0 && pkM === b.pickup_method && rtM === b.return_method);
     });
   }
