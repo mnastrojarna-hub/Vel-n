@@ -184,10 +184,12 @@
       // Lehké zpoždění, ať klik na toast/lištu nezavře edit dřív než commit.
       setTimeout(function () {
         // Pokud focus přešel do format-baru (color picker, select, button),
-        // editaci nezavírej — vrať focus zpět.
+        // editaci nezavírej a NEVRACEJ focus zpět — vrácení focusu by zavřelo
+        // native <select> dropdown a uživatel by neviděl možnosti velikosti písma.
+        // Nechť format bar drží focus dokud uživatel neklikne mimo; potom zase
+        // padne onBlur a zavoláme commit().
         var ae = document.activeElement;
         if (formatBar && formatBar.el && ae && (formatBar.el === ae || formatBar.el.contains(ae))) {
-          el.focus();
           return;
         }
         commit();

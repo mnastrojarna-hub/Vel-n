@@ -402,10 +402,11 @@ function te($key, $params = null) {
  *   <a href="..." title="<?= te('menu.rental') ?>">…</a>   ← title musí být `te`
  */
 function tc($key, $params = null) {
-    $escaped = te($key, $params);
-    if (empty($_COOKIE['mg_cms_admin'])) return $escaped;
+    $raw = t($key, $params);
+    if (!is_string($raw)) return '';
+    if (empty($_COOKIE['mg_cms_admin'])) return $raw;
     $safeKey = htmlspecialchars($key, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-    return '<span data-cms-key="web.layout.' . $safeKey . '">' . $escaped . '</span>';
+    return '<span data-cms-key="web.layout.' . $safeKey . '">' . $raw . '</span>';
 }
 
 /**
