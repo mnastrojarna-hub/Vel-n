@@ -366,12 +366,25 @@ class SupabaseClient {
      * Hluboký merge zachovávající listy: rekurzivně mergeuje i numericky indexované
      * prvky (na rozdíl od `deepMerge`, který listy nahrazuje celé). Použito pro CMS overlay,
      * aby admin mohl editovat jednotlivé prvky pole (např. signposts[2].title).
+     *
+     * Strukturní guard: pokud default ($a / $a[$k]) je strukturní pole (kontejner pro
+     * `items`/`buttons`/`steps`...) a overlay přichází jako skalár (string z `cms_variables`),
+     * znamená to, že byl uložen klíč na nesprávné úrovni (např. `web.pujcovna.benefits` místo
+     * `web.pujcovna.benefits.title`). Bez ochrany by foreach pak hodil TypeError a stránka 500.
+     * V tomto případě default zachováme — tj. ignorujeme korupted overlay.
      */
     private static function cmsDeepMerge($a, $b) {
         if (!is_array($a)) return $b;
-        if (!is_array($b)) return $b;
+        if (!is_array($b)) {
+            @error_log('[MotoGo24] cmsDeepMerge: ignoruji skalární overlay přes strukturní default');
+            return $a;
+        }
         $out = $a;
         foreach ($b as $k => $v) {
+            if (isset($a[$k]) && is_array($a[$k]) && !is_array($v)) {
+                @error_log('[MotoGo24] cmsDeepMerge: ignoruji skalární overlay pro klíč ' . $k . ' (default je pole)');
+                continue;
+            }
             $out[$k] = (isset($a[$k]) && is_array($a[$k]) && is_array($v))
                 ? self::cmsDeepMerge($a[$k], $v)
                 : $v;
