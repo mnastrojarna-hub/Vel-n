@@ -565,10 +565,14 @@
 .rez-loc-sub strong{color:#1a8c1a;font-weight:700}
 
 .rez-addr-panel{background:#f9fefa;border:1.5px dashed #b8e6b8;border-radius:12px;padding:.85rem;margin:.4rem 0 .8rem;animation:rezSlideDown .25s ease}
-.rez-addr-row{display:flex;gap:.5rem;align-items:stretch}
-.rez-addr-row input{flex:1;margin:0!important}
-.rez-map-btn{flex-shrink:0;background:#fff;border:1.5px solid #b8d4c6;border-radius:12px;padding:.55rem 1rem;font-family:'Montserrat',sans-serif;font-size:.85rem;font-weight:600;color:#1a2e22;cursor:pointer;transition:all .15s;white-space:nowrap}
-.rez-map-btn:hover{border-color:#74FB71;background:#f0faf5}
+.rez-addr-row{display:flex;gap:.5rem;align-items:stretch;flex-wrap:wrap}
+.rez-addr-row input{flex:1 1 200px;margin:0!important;min-width:0}
+.rez-map-btn,.rez-gps-btn{flex-shrink:0;background:#fff;border:1.5px solid #b8d4c6;border-radius:12px;padding:.55rem 1rem;font-family:'Montserrat',sans-serif;font-size:.85rem;font-weight:600;color:#1a2e22;cursor:pointer;transition:all .15s;white-space:nowrap}
+.rez-map-btn:hover,.rez-gps-btn:hover{border-color:#74FB71;background:#f0faf5}
+.rez-gps-btn{border-color:#1a8c1a;color:#1a8c1a}
+.rez-gps-btn[disabled]{opacity:.6;cursor:wait}
+.rez-gps-status{font-size:.8rem;color:#147214;margin-top:.3rem;min-height:1em}
+.rez-gps-status.is-err{color:#c0392b}
 .rez-addr-confirm{margin-top:.5rem;font-size:.85rem}
 .rez-addr-confirm label{display:flex;align-items:center;gap:.4rem;color:#1a8c1a;font-weight:600;cursor:pointer}
 .rez-addr-confirm input{accent-color:#1a8c1a;width:18px;height:18px}
@@ -828,7 +832,7 @@
   .rez-time-chips{gap:.4rem;justify-content:flex-start}
   .time-chip{padding:.55rem .9rem;font-size:.85rem;min-height:40px}
   .rez-addr-row{flex-direction:column}
-  .rez-map-btn{width:100%;min-height:44px}
+  .rez-map-btn,.rez-gps-btn{width:100%;min-height:44px}
   .rez-loc-card{padding:.95rem 1rem;min-height:64px;border-radius:12px}
   .rez-loc-title{font-size:.9rem}
   .gear-head{padding:.95rem .9rem;gap:.6rem;min-height:64px}

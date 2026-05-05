@@ -161,6 +161,51 @@ MG._removeCode = function(idx){
 MG.MAPY_CZ_KEY = 'whg1ilj203oYhmsqkBHVtUqpk-tYr0E-HFTx4lGdue0';
 MG.MAPY_CZ_BASE = 'https://api.mapy.cz/v1';
 
+// ===== GEOLOCATION (HTML5) =====
+// Sdílený helper pro „📍 Moje poloha" tlačítko v rezervačním i edit flow.
+// Vrátí Promise<{lat, lng, accuracy}> nebo reject s {code, message}.
+//   code='unsupported'    — prohlížeč nepodporuje navigator.geolocation
+//   code='insecure'       — stránka není https/localhost (Geolocation API to pak blokuje)
+//   code='denied'         — uživatel odmítl prompt na permission
+//   code='unavailable'    — pozice není k dispozici (GPS off / no signal)
+//   code='timeout'        — vypršelo (10 s)
+// Mobilní prohlížeče (iOS Safari / Android Chrome) zobrazí permission prompt
+// AUTOMATICKY při prvním getCurrentPosition; není potřeba (a ani nelze) ho
+// vyvolat předem. Permission políčko si pamatuje volba pro daný origin.
+MG._geolocateUser = function(opts){
+  opts = opts || {};
+  return new Promise(function(resolve, reject){
+    if (!navigator || !navigator.geolocation){
+      reject({ code: 'unsupported', message: 'Prohlížeč nepodporuje geolokaci.' });
+      return;
+    }
+    // Geolocation API běží jen na zabezpečených originech (https / localhost).
+    // Bez https moderní prohlížeče vrací PERMISSION_DENIED a uživatel netuší proč.
+    if (window.isSecureContext === false){
+      reject({ code: 'insecure', message: 'GPS funguje jen přes HTTPS.' });
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(function(pos){
+      resolve({
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        accuracy: pos.coords.accuracy
+      });
+    }, function(err){
+      var code = 'unavailable';
+      var msg = 'Polohu se nepodařilo zjistit.';
+      if (err && err.code === 1){ code = 'denied'; msg = 'Pro určení polohy musíte aplikaci povolit přístup k poloze.'; }
+      else if (err && err.code === 2){ code = 'unavailable'; msg = 'Poloha momentálně není dostupná. Zkuste to znovu nebo zadejte adresu ručně.'; }
+      else if (err && err.code === 3){ code = 'timeout'; msg = 'Určení polohy trvalo příliš dlouho. Zkuste to znovu nebo zadejte adresu ručně.'; }
+      reject({ code: code, message: msg });
+    }, {
+      enableHighAccuracy: opts.highAccuracy !== false,
+      timeout: opts.timeout || 10000,
+      maximumAge: opts.maxAge != null ? opts.maxAge : 60000
+    });
+  });
+};
+
 // Reverse geocode pres Mapy.cz -> objekt s adresou
 MG._mapyRgeocode = function(lat, lng){
   var url = MG.MAPY_CZ_BASE + '/rgeocode?lat=' + lat + '&lon=' + lng + '&lang=cs&apikey=' + MG.MAPY_CZ_KEY;
@@ -421,6 +466,18 @@ MG._initMapyAutocomplete = function(){
   ['rez-delivery-address','rez-return-address'].forEach(function(id){
     MG._attachMapyAutocomplete(id);
   });
+  // Připoj handlery na GPS tlačítka („📍 Moje poloha") — bind once via data-attr
+  document.querySelectorAll('.rez-gps-btn[data-rez-gps]:not([data-gps-bound])').forEach(function(btn){
+    btn.setAttribute('data-gps-bound', '1');
+    btn.addEventListener('click', function(){
+      var type = btn.getAttribute('data-rez-gps');
+      var inpId = type === 'delivery' ? 'rez-delivery-address' : 'rez-return-address';
+      var inp = document.getElementById(inpId);
+      MG._gpsToInput(inp, btn, function(lat, lng){
+        if (typeof MG._calcRouteFor === 'function'){ MG._calcRouteFor(type, lat, lng); }
+      });
+    });
+  });
 };
 document.addEventListener('DOMContentLoaded', function(){ setTimeout(MG._initMapyAutocomplete, 300); });
 // A i pri dynamickem vytvareni formulare
@@ -448,6 +505,7 @@ MG._openWebMapPicker = function(type){
     '</div>' +
     '<div id="web-map-container" style="width:100%;height:100%;"></div>' +
     '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:100000;pointer-events:none;font-size:36px;text-shadow:0 2px 6px rgba(0,0,0,.3);">📍</div>' +
+    '<button type="button" id="web-map-locate-btn" onclick="MG._mapPickerLocateMe()" style="position:absolute;top:64px;right:12px;z-index:100001;background:#fff;border:1.5px solid #1a8c1a;color:#1a8c1a;border-radius:24px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.12)">📍 ' + (window.MG_I18N && window.MG_I18N['rez.pickup.gps'] || 'Moje poloha') + '</button>' +
     '<a href="https://mapy.cz/" target="_blank" style="position:absolute;left:12px;bottom:8px;z-index:100001"><img src="https://api.mapy.cz/img/api/logo.svg" style="width:90px" alt="Mapy.cz"/></a>' +
     '<div id="web-map-addr-preview" style="position:absolute;bottom:40px;left:20px;right:20px;z-index:100001;background:rgba(255,255,255,.95);border-radius:10px;padding:12px 16px;font-size:14px;font-weight:600;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.1);display:none;"></div>';
   document.body.appendChild(overlay);
@@ -491,6 +549,61 @@ MG._closeWebMapPicker = function(){
   if(overlay) overlay.remove();
   document.body.style.overflow = '';
   if(MG._webMap){ MG._webMap.remove(); MG._webMap=null; }
+};
+
+// Vystředí mapu na zjištěnou polohu uživatele (volá se z tlačítka 📍 v overlay).
+MG._mapPickerLocateMe = function(){
+  var btn = document.getElementById('web-map-locate-btn');
+  if (btn){ btn.disabled = true; btn.textContent = '📍 …'; }
+  var addrEl = document.getElementById('web-map-addr-preview');
+  MG._geolocateUser({ highAccuracy: true, timeout: 10000 }).then(function(pos){
+    if (MG._webMap){
+      MG._webMap.setView([pos.lat, pos.lng], 16);
+    }
+    MG._webMapCenter = { lat: pos.lat, lng: pos.lng };
+    MG._reverseGeocodePreview(pos.lat, pos.lng);
+  }).catch(function(err){
+    if (addrEl){
+      addrEl.textContent = (err && err.message) || 'Polohu se nepodařilo zjistit.';
+      addrEl.style.display = 'block';
+    }
+  }).then(function(){
+    if (btn){ btn.disabled = false; btn.textContent = '📍 ' + (window.MG_I18N && window.MG_I18N['rez.pickup.gps'] || 'Moje poloha'); }
+  });
+};
+
+// Inline GPS lookup — uživatel klikne „📍 Moje poloha" vedle inputu, zjistíme
+// polohu, reverzně geokódujeme přes Mapy.cz a zapíšeme adresu zpět do inputu.
+// Také zavolá `onResolved(lat, lng, address)` pro přepočet trasy / fee.
+MG._gpsToInput = function(inputEl, btnEl, onResolved){
+  if (!inputEl) return;
+  var origLabel = btnEl ? btnEl.textContent : '';
+  if (btnEl){ btnEl.disabled = true; btnEl.textContent = '📍 …'; }
+  var statusEl = inputEl.parentElement && inputEl.parentElement.parentElement
+    ? inputEl.parentElement.parentElement.querySelector('.rez-gps-status, .erez-loc-gps-status')
+    : null;
+  function setStatus(msg, isErr){
+    if (!statusEl) return;
+    statusEl.textContent = msg || '';
+    statusEl.classList.toggle('is-err', !!isErr);
+    if (msg && !isErr){
+      setTimeout(function(){ if (statusEl.textContent === msg) statusEl.textContent = ''; }, 4000);
+    }
+  }
+  setStatus('');
+  MG._geolocateUser({ highAccuracy: true, timeout: 10000 }).then(function(pos){
+    return MG._mapyRgeocode(pos.lat, pos.lng).then(function(r){
+      var addr = (r && r.full) ? r.full : (pos.lat.toFixed(5) + ', ' + pos.lng.toFixed(5));
+      inputEl.value = addr;
+      try { inputEl.dispatchEvent(new Event('input', { bubbles: true })); } catch(_){}
+      if (typeof onResolved === 'function') onResolved(pos.lat, pos.lng, addr);
+      setStatus('✓ Adresa nalezena', false);
+    });
+  }).catch(function(err){
+    setStatus((err && err.message) || 'Polohu se nepodařilo zjistit.', true);
+  }).then(function(){
+    if (btnEl){ btnEl.disabled = false; btnEl.textContent = origLabel; }
+  });
 };
 
 MG._confirmWebMapPicker = function(){

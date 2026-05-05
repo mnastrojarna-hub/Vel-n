@@ -986,6 +986,16 @@ MG._editRez._injectConsentsStyles = function(){
     '.erez-loc-input:focus{outline:none;border-color:#1a8c1a;box-shadow:0 0 0 3px rgba(26,140,26,.12)}'+
     '.erez-loc-mapbtn{background:#1a8c1a;color:#fff;border:none;padding:.65rem 1rem;border-radius:10px;font-weight:700;cursor:pointer;font-size:.85rem;white-space:nowrap;transition:filter .15s}'+
     '.erez-loc-mapbtn:hover{filter:brightness(1.08)}'+
+    '.erez-loc-gpsbtn{background:#fff;color:#1a8c1a;border:1.5px solid #1a8c1a;padding:.55rem 1rem;border-radius:10px;font-weight:700;cursor:pointer;font-size:.85rem;white-space:nowrap;transition:all .15s}'+
+    '.erez-loc-gpsbtn:hover{background:#f0faf5}'+
+    '.erez-loc-gpsbtn[disabled]{opacity:.6;cursor:wait}'+
+    '.erez-loc-gps-status{font-size:.8rem;color:#147214;margin-top:.35rem;min-height:1em}'+
+    '.erez-loc-gps-status.is-err{color:#c0392b}'+
+    '.erez-loc-addr-row{flex-wrap:wrap}'+
+    '@media(max-width:560px){.erez-loc-mapbtn,.erez-loc-gpsbtn{flex:1 1 auto;min-width:140px;width:100%}}'+
+    '.edit-rez-map-locate{position:absolute;top:60px;right:12px;z-index:1001;background:#fff;border:1.5px solid #1a8c1a;color:#1a8c1a;border-radius:24px;padding:.55rem 1rem;font-size:.85rem;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.12)}'+
+    '.edit-rez-map-locate:hover{background:#f0faf5}'+
+    '.edit-rez-map-locate[disabled]{opacity:.6;cursor:wait}'+
     '.erez-loc-route{margin-top:.6rem;font-size:.85rem;color:#1a2e22}'+
     /* transparentní rozpis ceny: orig vs. nové fee + diff */
     '.erez-loc-calc{background:#fafdfb;border:1px solid #d4e8e0;border-radius:14px;padding:.6rem .9rem;margin:.4rem 0}'+
@@ -2085,8 +2095,10 @@ MG._editRez._renderTabLocation = function(){
         '<div class="erez-loc-addr-panel" data-side="pickup" style="display:' + (isDelP ? 'block' : 'none') + '">' +
           '<div class="erez-loc-addr-row">' +
             '<input type="text" name="pickupAddr" class="erez-loc-input" placeholder="' + MG.t('editRez.loc.addrPlaceholder') + '" value="' + (b.pickup_address || '').replace(/"/g,'&quot;') + '" autocomplete="street-address">' +
-            '<button type="button" class="erez-loc-mapbtn" data-map="pickup">' + MG.t('editRez.loc.pickOnMapBtn') + '</button>' +
+            '<button type="button" class="erez-loc-gpsbtn" data-gps="pickup">📍 ' + MG.t('rez.pickup.gps') + '</button>' +
+            '<button type="button" class="erez-loc-mapbtn" data-map="pickup">🗺️ ' + MG.t('editRez.loc.pickOnMapBtn') + '</button>' +
           '</div>' +
+          '<div class="erez-loc-gps-status" aria-live="polite"></div>' +
           '<div class="erez-loc-route" id="edit-rez-loc-route-pickup"></div>' +
           '<input type="hidden" name="pickupLat" value="' + (b.pickup_lat || '') + '">' +
           '<input type="hidden" name="pickupLng" value="' + (b.pickup_lng || '') + '">' +
@@ -2121,8 +2133,10 @@ MG._editRez._renderTabLocation = function(){
         '<div class="erez-loc-addr-panel" data-side="return" style="display:' + (isDelR ? 'block' : 'none') + '">' +
           '<div class="erez-loc-addr-row">' +
             '<input type="text" name="returnAddr" class="erez-loc-input" placeholder="' + MG.t('editRez.loc.addrPlaceholder') + '" value="' + (b.return_address || '').replace(/"/g,'&quot;') + '" autocomplete="street-address">' +
-            '<button type="button" class="erez-loc-mapbtn" data-map="return">' + MG.t('editRez.loc.pickOnMapBtn') + '</button>' +
+            '<button type="button" class="erez-loc-gpsbtn" data-gps="return">📍 ' + MG.t('rez.pickup.gps') + '</button>' +
+            '<button type="button" class="erez-loc-mapbtn" data-map="return">🗺️ ' + MG.t('editRez.loc.pickOnMapBtn') + '</button>' +
           '</div>' +
+          '<div class="erez-loc-gps-status" aria-live="polite"></div>' +
           '<div class="erez-loc-route" id="edit-rez-loc-route-return"></div>' +
           '<input type="hidden" name="returnLat" value="' + (b.return_lat || '') + '">' +
           '<input type="hidden" name="returnLng" value="' + (b.return_lng || '') + '">' +
@@ -2185,6 +2199,24 @@ MG._editRez._renderTabLocation = function(){
         addrInp.value = result.address || '';
         latInp.value = result.lat;
         lngInp.value = result.lng;
+        recalcRoute(side);
+      });
+    });
+  });
+
+  // GPS — „📍 Moje poloha" tlačítka pro obě strany. Reuse `MG._gpsToInput` ze
+  // pages-rezervace-pricing.js — geolokace + reverzní geokódování přes Mapy.cz
+  // + zápis adresy do inputu. Po úspěchu spustíme přepočet trasy/poplatku.
+  f.querySelectorAll('.erez-loc-gpsbtn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var side = btn.getAttribute('data-gps');
+      var addrInp = side === 'pickup' ? f.pickupAddr : f.returnAddr;
+      var latInp = side === 'pickup' ? f.pickupLat : f.returnLat;
+      var lngInp = side === 'pickup' ? f.pickupLng : f.returnLng;
+      if (!addrInp || !latInp || !lngInp || typeof MG._gpsToInput !== 'function') return;
+      MG._gpsToInput(addrInp, btn, function(lat, lng){
+        latInp.value = lat;
+        lngInp.value = lng;
         recalcRoute(side);
       });
     });
@@ -2490,6 +2522,7 @@ MG._editRez._openLocPicker = function(side, onConfirm){
       '<strong>' + MG.t('editRez.loc.pickOnMap') + '</strong>' +
       '<button type="button" class="btn btngreen-small" data-confirm>' + MG.t('editRez.loc.pickConfirm') + '</button>' +
     '</div>' +
+    '<button type="button" class="edit-rez-map-locate" data-locate>📍 ' + MG.t('rez.pickup.gps') + '</button>' +
     '<div class="edit-rez-map-pin">📍</div>' +
     '<div id="edit-rez-map-container"></div>' +
     '<div class="edit-rez-map-addr" id="edit-rez-map-addr"></div>';
@@ -2533,6 +2566,31 @@ MG._editRez._openLocPicker = function(side, onConfirm){
     var addr = (ov._addrEl && ov._addrEl.textContent) || '';
     close();
     onConfirm({ lat: center.lat, lng: center.lng, address: addr });
+  });
+  // GPS — vystředí mapu na uživatelovu polohu (permission prompt na mobilu).
+  var locateBtn = ov.querySelector('[data-locate]');
+  if (locateBtn) locateBtn.addEventListener('click', function(){
+    var origLabel = locateBtn.textContent;
+    locateBtn.disabled = true; locateBtn.textContent = '📍 …';
+    if (typeof MG._geolocateUser !== 'function'){
+      locateBtn.disabled = false; locateBtn.textContent = origLabel;
+      return;
+    }
+    MG._geolocateUser({ highAccuracy: true, timeout: 10000 }).then(function(pos){
+      if (ov._mgmap){
+        ov._mgmap.setView([pos.lat, pos.lng], 16);
+      }
+      center = { lat: pos.lat, lng: pos.lng };
+      if (MG._mapyRgeocode){
+        MG._mapyRgeocode(pos.lat, pos.lng).then(function(r){
+          if (r && r.full && ov._addrEl){ ov._addrEl.textContent = r.full; }
+        });
+      }
+    }).catch(function(err){
+      if (ov._addrEl) ov._addrEl.textContent = (err && err.message) || 'Polohu se nepodařilo zjistit.';
+    }).then(function(){
+      locateBtn.disabled = false; locateBtn.textContent = origLabel;
+    });
   });
 };
 

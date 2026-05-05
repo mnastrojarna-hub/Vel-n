@@ -148,8 +148,10 @@ MG._rezFormHtml = function(){
       '<div id="rez-delivery-panel" class="rez-addr-panel" style="display:none">' +
         '<div class="rez-addr-row">' +
           '<input type="text" id="rez-delivery-address" placeholder="'+MG.t('rez.pickup.deliveryAddr')+'">' +
-          '<button type="button" class="rez-map-btn" onclick="MG._openWebMapPicker(\'delivery\')">&#128205; '+MG.t('rez.pickup.map')+'</button>' +
+          '<button type="button" class="rez-gps-btn" data-rez-gps="delivery">&#128205; '+MG.t('rez.pickup.gps')+'</button>' +
+          '<button type="button" class="rez-map-btn" onclick="MG._openWebMapPicker(\'delivery\')">&#128506;&#65039; '+MG.t('rez.pickup.map')+'</button>' +
         '</div>' +
+        '<div class="rez-gps-status" aria-live="polite"></div>' +
         '<div id="rez-delivery-route-info" class="rez-route-info" style="display:none"></div>' +
         '<div class="rez-addr-confirm" style="margin-top:.4rem"><label><input type="checkbox" id="rez-return-same-as-delivery" checked> '+MG.t('rez.pickup.sameAsDel')+'</label></div>' +
       '</div>' +
@@ -169,8 +171,10 @@ MG._rezFormHtml = function(){
       '<div id="rez-return-panel" class="rez-addr-panel" style="display:none">' +
         '<div class="rez-addr-row">' +
           '<input type="text" id="rez-return-address" placeholder="'+MG.t('rez.pickup.returnAddr')+'">' +
-          '<button type="button" class="rez-map-btn" onclick="MG._openWebMapPicker(\'return\')">&#128205; '+MG.t('rez.pickup.map')+'</button>' +
+          '<button type="button" class="rez-gps-btn" data-rez-gps="return">&#128205; '+MG.t('rez.pickup.gps')+'</button>' +
+          '<button type="button" class="rez-map-btn" onclick="MG._openWebMapPicker(\'return\')">&#128506;&#65039; '+MG.t('rez.pickup.map')+'</button>' +
         '</div>' +
+        '<div class="rez-gps-status" aria-live="polite"></div>' +
         '<div id="rez-return-route-info" class="rez-route-info" style="display:none"></div>' +
       '</div>' +
 

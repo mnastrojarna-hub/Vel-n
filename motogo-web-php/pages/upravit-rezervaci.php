@@ -53,6 +53,7 @@ $keys = [
     'editRez.loc.addrPlaceholder','editRez.loc.mapBtn','editRez.loc.routing','editRez.loc.geocodeFail',
     'editRez.loc.noPriceChange','editRez.loc.cta','editRez.loc.confirm','editRez.loc.pickOnMap','editRez.loc.pickConfirm',
     'editRez.loc.helpActive','editRez.loc.refundNote','editRez.loc.pickupLockedTitle','editRez.loc.pickupLockedHelp',
+    'rez.pickup.gps',
     'editRez.extend.title','editRez.extend.help','editRez.extend.helpUpcoming','editRez.extend.helpActive',
     'editRez.extend.newStart','editRez.extend.newEnd','editRez.extend.priceDiff','editRez.extend.cta',
     'editRez.extend.unavailable','editRez.extend.noChange','editRez.extend.creating',
