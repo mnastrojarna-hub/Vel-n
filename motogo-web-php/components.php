@@ -84,16 +84,17 @@ function renderMotoCard($m) {
         }
     }
 
-    $featHtml = '<ul>';
-    foreach ($features as $f) { $featHtml .= '<li>' . $f . '</li>'; }
-    $featHtml .= '</ul>';
-
     $priceText = $price > 0 ? t('card.priceFromPerDay', ['price' => formatPrice($price)]) : '';
     $modelRaw = trim((string)($m['model'] ?? ''));
     if ($modelRaw === '') $modelRaw = t('card.unnamedMotorcycle');
     $model = htmlspecialchars($modelRaw);
     $id = htmlspecialchars($m['id'] ?? '');
     $imgAlt = htmlspecialchars(t('common.motorcycleAlt', ['model' => $modelRaw]));
+
+    $featHtml = '<ul>';
+    $featHtml .= '<li class="moto-card-model"><h2>' . $model . '</h2></li>';
+    foreach ($features as $f) { $featHtml .= '<li>' . $f . '</li>'; }
+    $featHtml .= '</ul>';
 
     // Branch info (pokud tabulka motorcycles byla joinnutá s branches)
     $branch = $m['branches'] ?? null;
@@ -120,7 +121,6 @@ function renderMotoCard($m) {
         '<div class="moto-img">' .
             ($img ? '<img src="' . htmlspecialchars($img) . '" alt="' . $imgAlt . '" class="imgres" loading="lazy">' : '') .
             ($badge ? $badge : '') .
-            '<div class="moto-title"><h2>' . $model . '</h2></div>' .
         '</div>' .
         '<div class="moto-desc">' . $featHtml . $branchLine . ($priceText ? '<p class="moto-price">' . $priceText . '</p>' : '') . '</div>' .
         '<div class="moto-btn"><span class="btn btngreen-small">' . te('card.detailButton') . '</span></div>' .

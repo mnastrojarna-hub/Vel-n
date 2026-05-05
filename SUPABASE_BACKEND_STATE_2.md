@@ -233,6 +233,9 @@
 - **stripe_session_id** — Stripe Checkout Session ID
 - created_at, updated_at
 
+### products (nové sloupce)
+- **size_stock** (JSONB NOT NULL DEFAULT '{}') — počet kusů per velikost: `{"M":5,"L":10,"XL":3}`. Velín `ProductsTab` modal renderuje input per velikost když má produkt `sizes[]`. `stock_quantity` = SUM hodnot, drženo v sync při ukládání produktu i při dekrementu v RPC `create_web_shop_order`. Produkty bez `sizes[]` mají `{}` a používají `stock_quantity` přímo (zpětná kompatibilita).
+
 ### shop_order_items (nové sloupce)
 - **product_id** (UUID FK→products ON DELETE SET NULL) — vazba na konkrétní produkt v katalogu (web naplní, app dnes ignoruje, NULL kompatibilní zpětně). Index `idx_shop_order_items_product_id`.
 - **size** (TEXT NULL) — vybraná velikost položky („M", „42" apod.). Plní web (`create_web_shop_order` validuje proti `products.sizes[]`); Flutter app zatím NULL.

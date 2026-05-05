@@ -111,7 +111,7 @@ function renderFooter() {
     '</div></div>' .
     '<div class="copyright"><div class="container">' .
         '<p>' . tc('footer.copyright') . '</p>' .
-        '<p><a href="' . BASE_URL . '/mapa-stranek">' . tc('footer.sitemap') . '</a><a href="#">' . tc('footer.cookies') . '</a><a href="' . BASE_URL . '/gdpr">' . tc('footer.gdpr') . '</a><a href="' . BASE_URL . '/obchodni-podminky">' . tc('footer.terms') . '</a><a href="' . BASE_URL . '/smlouva">' . tc('footer.contract') . '</a></p>' .
+        '<p><a href="' . BASE_URL . '/mapa-stranek">' . tc('footer.sitemap') . '</a><a href="#" data-cookie-prefs>' . tc('footer.cookies') . '</a><a href="' . BASE_URL . '/gdpr">' . tc('footer.gdpr') . '</a><a href="' . BASE_URL . '/obchodni-podminky">' . tc('footer.terms') . '</a><a href="' . BASE_URL . '/smlouva">' . tc('footer.contract') . '</a></p>' .
     '</div></div>' .
     '</footer>' .
     '<a id="Up" href="#" aria-label="' . te('footer.toTop') . '" onclick="window.scrollTo({top:0,behavior:\'smooth\'});return false"><img src="' . BASE_URL . '/gfx/arrow-top.svg" alt="' . te('footer.toTop') . '"></a>';
@@ -213,71 +213,235 @@ function buildSameAs() {
 }
 
 /**
- * Google Tag Manager — head část. Vkládá se hned za <head> na VŠECH
- * stránkách, napříč doménami (motogo24.cz i motogo24.com). Container ID
- * řídí GTM_CONTAINER_ID v config.php (default GTM-KKHMPZ62, override přes
- * env MOTOGO_GTM_CONTAINER_ID). Konverze pro Google Ads se v GTM mapují
- * na dataLayer event `purchase` emitovaný z /potvrzeni po Stripe platbě.
- */
-function renderGtmHead() {
-    $id = defined('GTM_CONTAINER_ID') ? GTM_CONTAINER_ID : '';
-    if ($id === '') return '';
-    $idEsc = htmlspecialchars($id, ENT_QUOTES, 'UTF-8');
-    return '
-  <!-- Google Tag Manager -->
-  <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({\'gtm.start\':
-  new Date().getTime(),event:\'gtm.js\'});var f=d.getElementsByTagName(s)[0],
-  j=d.createElement(s),dl=l!=\'dataLayer\'?\'&l=\'+l:\'\';j.async=true;j.src=
-  \'https://www.googletagmanager.com/gtm.js?id=\'+i+dl;f.parentNode.insertBefore(j,f);
-  })(window,document,\'script\',\'dataLayer\',\'' . $idEsc . '\');</script>
-  <!-- End Google Tag Manager -->';
-}
-
-/**
- * Google Tag Manager — noscript fallback iframe. Vkládá se hned za <body>.
- */
-function renderGtmBody() {
-    $id = defined('GTM_CONTAINER_ID') ? GTM_CONTAINER_ID : '';
-    if ($id === '') return '';
-    $idEsc = htmlspecialchars($id, ENT_QUOTES, 'UTF-8');
-    return '
-<!-- Google Tag Manager (noscript) -->
-<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=' . $idEsc . '"
-height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-<!-- End Google Tag Manager (noscript) -->
-';
-}
-
-/**
- * Sklik retargeting tag (Seznam reklamní systém). Emituje se jen pokud
- * je SKLIK_RETARGETING_ID nastaveno přes env. Pro Seznam ekvivalent
- * Google Ads remarketingu — bez kódu uživatele Sklik nenavidíme.
+ * Cookie consent manager — GDPR/ePrivacy lišta + JS injektor pro GTM a Sklik.
  *
- * Conversion tracking (rezervace, objednávka) se řeší zvlášť na confirmation
- * stránkách — tady jen univerzální retargeting na všech stránkách.
+ * Klíčový princip (právní compliance):
+ *   GTM ANI Sklik se NIKDY nenačítají přímo ze zdrojového HTML. Až po výslovném
+ *   souhlasu uživatele je banner JS dynamicky injektne do DOM. Bez souhlasu
+ *   se ven na google-analytics.com / googletagmanager.com / c.imedia.cz nevolá
+ *   ani jeden request. Tím je web v souladu se zákonem 110/2019 Sb. (§ 89)
+ *   a GDPR čl. 6.
+ *
+ * Persistence: cookie `mg_cookie_consent` (1 rok, JSON {analytics:0/1, marketing:0/1, v, ts}).
+ * Re-otevření: jakýkoliv prvek s `data-cookie-prefs` (footer link) banner zobrazí znovu.
+ *
+ * Dynamicky načtené:
+ *   - analytics=1  → GTM container (gtm.js + noscript iframe) → uvnitř GTM se aktivuje
+ *                    Google Analytics 4 + Google Ads Conversion Tag (na purchase event).
+ *   - marketing=1  → Sklik retargeting (c.imedia.cz/js/retargeting.js).
+ *
+ * Purchase event (po Stripe platbě) je v `js/pages-potvrzeni.js` jako prostý
+ * `dataLayer.push({event:'purchase', …})`. Pokud GTM není načten (uživatel
+ * odmítl), je to no-op — buffer se zahodí. Pokud souhlasil, GTM trigger
+ * "purchase" vystřelí Google Ads conversion tag.
  */
-function renderSklikRetargeting() {
-    $id = defined('SKLIK_RETARGETING_ID') ? SKLIK_RETARGETING_ID : '';
-    if ($id === '' || !ctype_digit((string)$id)) return '';
-    $idEsc = htmlspecialchars((string)$id, ENT_QUOTES, 'UTF-8');
-    return '
-<!-- Sklik retargeting (Seznam.cz) -->
+function renderConsentManager() {
+    $gtmId   = defined('GTM_CONTAINER_ID') ? GTM_CONTAINER_ID : '';
+    $sklikId = defined('SKLIK_RETARGETING_ID') ? SKLIK_RETARGETING_ID : '';
+    $hasGtm   = $gtmId !== '';
+    $hasSklik = $sklikId !== '' && ctype_digit((string)$sklikId);
+
+    // Pokud nemáme co měřit, banner ani nezobrazujeme — žádné rušení uživatele.
+    if (!$hasGtm && !$hasSklik) return '';
+
+    $cfg = json_encode([
+        'gtmId'   => $hasGtm ? $gtmId : null,
+        'sklikId' => $hasSklik ? (int)$sklikId : null,
+    ], JSON_UNESCAPED_SLASHES);
+
+    $title         = te('cookies.title');
+    $intro         = tcRaw('cookies.intro'); // může obsahovat <a href="/gdpr">…</a>
+    $btnAccept     = te('cookies.acceptAll');
+    $btnReject     = te('cookies.rejectAll');
+    $btnSettings   = te('cookies.settings');
+    $btnSave       = te('cookies.save');
+    $catNecessary  = te('cookies.cat.necessary');
+    $catNecessaryDesc = te('cookies.cat.necessaryDesc');
+    $catAnalytics  = te('cookies.cat.analytics');
+    $catAnalyticsDesc = te('cookies.cat.analyticsDesc');
+    $catMarketing  = te('cookies.cat.marketing');
+    $catMarketingDesc = te('cookies.cat.marketingDesc');
+    $always        = te('cookies.always');
+
+    // Settings panel — kategorie analytics/marketing se renderují jen pokud
+    // pro ně je co zapínat (jinak by byl checkbox bez efektu).
+    $rowAnalytics = $hasGtm ? '<label class="mg-consent-row"><span><strong>' . $catAnalytics . '</strong><br><small>' . $catAnalyticsDesc . '</small></span><input type="checkbox" id="mg-consent-analytics"></label>' : '';
+    $rowMarketing = $hasSklik ? '<label class="mg-consent-row"><span><strong>' . $catMarketing . '</strong><br><small>' . $catMarketingDesc . '</small></span><input type="checkbox" id="mg-consent-marketing"></label>' : '';
+
+    $html = '
+<aside id="mg-consent" class="mg-consent" role="dialog" aria-modal="false" aria-labelledby="mg-consent-title" aria-live="polite" hidden>
+  <div class="mg-consent-inner">
+    <h2 id="mg-consent-title" class="mg-consent-title">' . $title . '</h2>
+    <div class="mg-consent-intro">' . $intro . '</div>
+    <div id="mg-consent-settings" class="mg-consent-settings" hidden>
+      <label class="mg-consent-row mg-consent-row--locked">
+        <span><strong>' . $catNecessary . '</strong><br><small>' . $catNecessaryDesc . '</small></span>
+        <span class="mg-consent-pill">' . $always . '</span>
+      </label>
+      ' . $rowAnalytics . '
+      ' . $rowMarketing . '
+    </div>
+    <div id="mg-consent-buttons" class="mg-consent-buttons">
+      <button type="button" class="btn btngreen-small" data-consent-action="accept-all">' . $btnAccept . '</button>
+      <button type="button" class="btn btn-outline" data-consent-action="reject-all">' . $btnReject . '</button>
+      <button type="button" class="btn btn-link" data-consent-action="settings">' . $btnSettings . '</button>
+      <button type="button" class="btn btngreen-small" data-consent-action="save" hidden>' . $btnSave . '</button>
+    </div>
+  </div>
+</aside>
 <script>
-  var seznam_retargeting_id = ' . $idEsc . ';
-</script>
-<script async src="https://c.imedia.cz/js/retargeting.js"></script>';
+window.MG_CONSENT_CFG = ' . $cfg . ';
+(function(){
+  var CFG = window.MG_CONSENT_CFG || {};
+  var COOKIE = "mg_cookie_consent";
+  var ONE_YEAR = 365 * 24 * 3600;
+
+  function readConsent(){
+    var m = ("; " + document.cookie).split("; " + COOKIE + "=");
+    if (m.length < 2) return null;
+    var raw = m.pop().split(";").shift();
+    try { return JSON.parse(decodeURIComponent(raw)); } catch(e){ return null; }
+  }
+  function writeConsent(c){
+    var v = encodeURIComponent(JSON.stringify(c));
+    var secure = location.protocol === "https:" ? ";secure" : "";
+    document.cookie = COOKIE + "=" + v + ";path=/;max-age=" + ONE_YEAR + ";samesite=Lax" + secure;
+  }
+  function injectGtm(id){
+    if (!id || window.__mgGtmLoaded) return;
+    window.__mgGtmLoaded = true;
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({"gtm.start": new Date().getTime(), event: "gtm.js"});
+    var s = document.createElement("script");
+    s.async = true;
+    s.src = "https://www.googletagmanager.com/gtm.js?id=" + encodeURIComponent(id);
+    document.head.appendChild(s);
+    var ns = document.createElement("noscript");
+    var iframe = document.createElement("iframe");
+    iframe.src = "https://www.googletagmanager.com/ns.html?id=" + encodeURIComponent(id);
+    iframe.height = "0"; iframe.width = "0";
+    iframe.style.display = "none"; iframe.style.visibility = "hidden";
+    ns.appendChild(iframe);
+    (document.body || document.documentElement).appendChild(ns);
+  }
+  function injectSklik(id){
+    if (!id || window.__mgSklikLoaded) return;
+    window.__mgSklikLoaded = true;
+    window.seznam_retargeting_id = id;
+    var s = document.createElement("script");
+    s.async = true;
+    s.src = "https://c.imedia.cz/js/retargeting.js";
+    document.head.appendChild(s);
+  }
+  function applyConsent(c){
+    if (!c) return;
+    if (c.analytics) injectGtm(CFG.gtmId);
+    if (c.marketing) injectSklik(CFG.sklikId);
+  }
+  function showBanner(asSettings){
+    var b = document.getElementById("mg-consent");
+    if (!b) return;
+    b.hidden = false;
+    var settings = document.getElementById("mg-consent-settings");
+    var save = document.querySelector("[data-consent-action=save]");
+    if (asSettings) {
+      if (settings) settings.hidden = false;
+      if (save) save.hidden = false;
+    } else {
+      if (settings) settings.hidden = true;
+      if (save) save.hidden = true;
+    }
+  }
+  function hideBanner(){
+    var b = document.getElementById("mg-consent");
+    if (b) b.hidden = true;
+  }
+  function persist(an, ma){
+    var c = { necessary: 1, analytics: an ? 1 : 0, marketing: ma ? 1 : 0, v: 1, ts: Math.floor(Date.now()/1000) };
+    writeConsent(c);
+    applyConsent(c);
+    hideBanner();
+  }
+
+  function init(){
+    var existing = readConsent();
+    if (existing) {
+      applyConsent(existing);
+    } else {
+      showBanner(false);
+    }
+    var b = document.getElementById("mg-consent");
+    if (b) {
+      b.addEventListener("click", function(e){
+        var a = e.target.closest("[data-consent-action]");
+        if (!a) return;
+        e.preventDefault();
+        var act = a.getAttribute("data-consent-action");
+        if (act === "accept-all") { persist(true, true); }
+        else if (act === "reject-all") { persist(false, false); }
+        else if (act === "settings") { showBanner(true); }
+        else if (act === "save") {
+          var an = document.getElementById("mg-consent-analytics");
+          var ma = document.getElementById("mg-consent-marketing");
+          persist(an && an.checked, ma && ma.checked);
+        }
+      });
+    }
+    // Footer "Nastavení cookies" — re-otevře banner v settings módu
+    document.addEventListener("click", function(e){
+      var trg = e.target.closest("[data-cookie-prefs]");
+      if (!trg) return;
+      e.preventDefault();
+      var ex = readConsent();
+      var an = document.getElementById("mg-consent-analytics");
+      var ma = document.getElementById("mg-consent-marketing");
+      if (an) an.checked = !!(ex && ex.analytics);
+      if (ma) ma.checked = !!(ex && ex.marketing);
+      showBanner(true);
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+</script>';
+
+    return $html;
 }
 
 /**
  * Webmaster Tools verifikační meta tagy. Emitují se jen ty, které mají
  * neprázdnou hodnotu v env / config — žádné prázdné <meta> v HTML.
  *
+ * Google Search Console: každá doména je samostatná property s vlastním kódem.
+ * Vybíráme podle HTTP_HOST (motogo24.cz/.com/.pl/.at/.es). Pro neznámou
+ * doménu fallback na VERIFY_GOOGLE (typicky .cz hodnota).
+ *
  * Hodnoty se konfigurují přes env vars (viz config.php):
- *   MOTOGO_VERIFY_GOOGLE / BING / SEZNAM / YANDEX / PINTEREST / FACEBOOK
+ *   MOTOGO_VERIFY_GOOGLE_<TLD> (CZ/COM/PL/AT/ES) / MOTOGO_VERIFY_GOOGLE (fallback)
+ *   MOTOGO_VERIFY_BING / SEZNAM / YANDEX / PINTEREST / FACEBOOK
  */
 function renderWebmasterVerification() {
+    // Doménově-specifický Google Search Console kód
+    $host = $_SERVER['HTTP_HOST'] ?? '';
+    $host = preg_replace('#^www\.#i', '', strtolower($host));
+    $googleCode = defined('VERIFY_GOOGLE') ? VERIFY_GOOGLE : '';
+    $perDomain = [
+        'motogo24.cz'  => defined('VERIFY_GOOGLE_CZ')  ? VERIFY_GOOGLE_CZ  : '',
+        'motogo24.com' => defined('VERIFY_GOOGLE_COM') ? VERIFY_GOOGLE_COM : '',
+        'motogo24.pl'  => defined('VERIFY_GOOGLE_PL')  ? VERIFY_GOOGLE_PL  : '',
+        'motogo24.at'  => defined('VERIFY_GOOGLE_AT')  ? VERIFY_GOOGLE_AT  : '',
+        'motogo24.es'  => defined('VERIFY_GOOGLE_ES')  ? VERIFY_GOOGLE_ES  : '',
+    ];
+    if (!empty($perDomain[$host])) {
+        $googleCode = $perDomain[$host];
+    }
+
     $tags = [
-        ['google-site-verification', defined('VERIFY_GOOGLE')    ? VERIFY_GOOGLE    : ''],
+        ['google-site-verification', $googleCode],
         ['msvalidate.01',            defined('VERIFY_BING')      ? VERIFY_BING      : ''],
         ['seznam-wmt',               defined('VERIFY_SEZNAM')    ? VERIFY_SEZNAM    : ''],
         ['yandex-verification',      defined('VERIFY_YANDEX')    ? VERIFY_YANDEX    : ''],
@@ -407,7 +571,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
     $ogLocale = i18nOgLocale();
     echo '<!DOCTYPE html>
 <html lang="' . htmlspecialchars($htmlLang) . '" dir="ltr" prefix="og: https://ogp.me/ns#">
-<head>' . renderGtmHead() . '
+<head>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#1a2e22">
@@ -596,7 +760,8 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
 </head>
 <body' . ($currentPath === '/' ? ' class="homepage"' : '') . '>
 ';
-    echo renderGtmBody();
+    // GTM/Sklik se NIKDY nevkládá přímo do HTML — banner JS je injektne
+    // až po souhlasu. Viz renderConsentManager() na konci stránky.
     echo renderHeader($currentPath);
     echo '<div id="app">';
     echo $content;
@@ -673,7 +838,10 @@ window.MOTOGO_CONFIG.SUPABASE_ANON_KEY = ' . json_encode(SUPABASE_ANON_KEY) . ';
 <script src="' . BASE_URL . '/js/cms-admin.js?v=' . @filemtime(__DIR__ . '/js/cms-admin.js') . '" defer></script>';
     }
 
-    echo renderSklikRetargeting();
+    // Cookie consent manager — banner + JS injektor pro GTM/Sklik.
+    // Musí být POSLEDNÍ v <body>, aby běžel po načtení DOM a měl k dispozici
+    // header/footer (re-open přes [data-cookie-prefs]).
+    echo renderConsentManager();
 
     echo '
 </body>
