@@ -1,8 +1,5 @@
 <?php
 // ===== MotoGo24 Web PHP — Co je v ceně nájmu (CMS-driven, 1:1 prepis) =====
-// Zdroj: https://www.motogo24.cz/cz/jak-si-pujcit-motorku/co-je-v-cene-najmu
-// Obsah rozdelen do 2 souboru v /data/ kvuli pravidlu max 5000 tokenu na soubor.
-
 $sb = new SupabaseClient();
 
 $part1 = require __DIR__ . '/../data/cena-content-1.php';
@@ -12,39 +9,46 @@ $defaults = array_merge($part1, $part2);
 $C = $sb->siteContent('jak_pujcit_cena', $defaults);
 
 $bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.howto'), 'href' => '/jak-pujcit'], t('menu.howto.price')]);
+$kp = 'web.jak_pujcit_cena';
 
 // --- Section 1: title + intro + 2-col (basic / extra + services) ---
 $basicLis = '';
-foreach ($C['gear']['basic']['items'] as $i) { $basicLis .= '<li>' . $i . '</li>'; }
+foreach ((is_array($C['gear']['basic']['items'] ?? null) ? $C['gear']['basic']['items'] : []) as $i => $item) {
+    $basicLis .= '<li data-cms-key="' . $kp . '.gear.basic.items.' . $i . '">' . $item . '</li>';
+}
 $extraLis = '';
-foreach ($C['gear']['extra']['items'] as $i) { $extraLis .= '<li>' . $i . '</li>'; }
+foreach ((is_array($C['gear']['extra']['items'] ?? null) ? $C['gear']['extra']['items'] : []) as $i => $item) {
+    $extraLis .= '<li data-cms-key="' . $kp . '.gear.extra.items.' . $i . '">' . $item . '</li>';
+}
 $servicesLis = '';
-foreach ($C['gear']['services']['items'] as $i) { $servicesLis .= '<li>' . $i . '</li>'; }
+foreach ((is_array($C['gear']['services']['items'] ?? null) ? $C['gear']['services']['items'] : []) as $i => $item) {
+    $servicesLis .= '<li data-cms-key="' . $kp . '.gear.services.items.' . $i . '">' . $item . '</li>';
+}
 
 $leftCol = '<div>' .
     '<p>&nbsp;</p><p>&nbsp;</p>' .
-    '<h2>' . $C['gear']['basic']['title'] . '</h2>' .
-    '<p>' . $C['gear']['basic']['lead'] . '<br>&nbsp;</p>' .
+    '<h2 data-cms-key="' . $kp . '.gear.basic.title">' . ($C['gear']['basic']['title'] ?? '') . '</h2>' .
+    '<p data-cms-key="' . $kp . '.gear.basic.lead">' . ($C['gear']['basic']['lead'] ?? '') . '<br>&nbsp;</p>' .
     '<ul>' . $basicLis . '</ul>' .
-    '<p>' . $C['gear']['basic']['note1'] . '</p>' .
-    '<p>' . $C['gear']['basic']['note2'] . '</p>' .
+    '<p data-cms-key="' . $kp . '.gear.basic.note1">' . ($C['gear']['basic']['note1'] ?? '') . '</p>' .
+    '<p data-cms-key="' . $kp . '.gear.basic.note2">' . ($C['gear']['basic']['note2'] ?? '') . '</p>' .
     '</div>';
 
 $rightCol = '<div>' .
     '<p>&nbsp;</p><p>&nbsp;</p>' .
-    '<h2>' . $C['gear']['extra']['title'] . '</h2>' .
-    '<p>' . $C['gear']['extra']['lead'] . '</p>' .
+    '<h2 data-cms-key="' . $kp . '.gear.extra.title">' . ($C['gear']['extra']['title'] ?? '') . '</h2>' .
+    '<p data-cms-key="' . $kp . '.gear.extra.lead">' . ($C['gear']['extra']['lead'] ?? '') . '</p>' .
     '<p>&nbsp;</p>' .
     '<ul>' . $extraLis . '</ul>' .
     '<p>&nbsp;</p>' .
-    '<h2>' . $C['gear']['services']['title'] . '</h2>' .
+    '<h2 data-cms-key="' . $kp . '.gear.services.title">' . ($C['gear']['services']['title'] ?? '') . '</h2>' .
     '<p>&nbsp;</p>' .
     '<ul>' . $servicesLis . '</ul>' .
     '</div>';
 
 $titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">' . te('a11y.mainContent') . '</h2>' .
-    '<h1>' . $C['h1'] . '</h1>' .
-    '<p>' . $C['intro'] . '</p>' .
+    '<h1 data-cms-key="' . $kp . '.h1">' . ($C['h1'] ?? '') . '</h1>' .
+    '<p data-cms-key="' . $kp . '.intro">' . ($C['intro'] ?? '') . '</p>' .
     '<p>&nbsp;</p>' .
     '<div class="gr2">' . $leftCol . $rightCol . '</div>' .
     '</section>';
@@ -52,23 +56,30 @@ $titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">' . 
 // --- Section 2: benefits "Další výhody v ceně" — 5 boxes (gr5) ---
 $grid = $C['benefits']['grid'] ?? 'gr5';
 $benefitsHtml = '<section aria-labelledby="benefits"><h2 id="benefits" class="vh">' . te('a11y.benefits') . '</h2>' .
-    '<h2>' . $C['benefits']['title'] . '</h2><div class="' . htmlspecialchars($grid) . '">';
-foreach ($C['benefits']['items'] as $b) {
-    $benefitsHtml .= renderWbox($b['icon'], $b['title'], $b['text']);
+    '<h2 data-cms-key="' . $kp . '.benefits.title">' . ($C['benefits']['title'] ?? '') . '</h2><div class="' . htmlspecialchars($grid) . '">';
+foreach ((is_array($C['benefits']['items'] ?? null) ? $C['benefits']['items'] : []) as $i => $b) {
+    if (!is_array($b)) continue;
+    $kBase = $kp . '.benefits.items.' . $i;
+    $benefitsHtml .= renderWbox(
+        $b['icon'] ?? '',
+        '<span data-cms-key="' . $kBase . '.title">' . ($b['title'] ?? '') . '</span>',
+        '<span data-cms-key="' . $kBase . '.text">' . ($b['text'] ?? '') . '</span>'
+    );
 }
 $benefitsHtml .= '</div></section>';
 
-// --- Section 3: prazdny placeholder main1 (jako v originale) ---
+// --- Section 3: prazdny placeholder main1 ---
 $main1Section = '<section aria-labelledby="main1" class="main1"><h2 id="main1" class="vh">' . te('a11y.importantInfo') . '</h2></section>';
 
 // --- Section 4: final CTA ---
 $ctaButtons = '';
-foreach ($C['cta']['buttons'] as $btn) {
-    $ctaButtons .= '<a aria-label="' . htmlspecialchars($btn['aria'] ?? $btn['label']) . '" class="btn ' . ($btn['cls'] ?? 'btndark') . '" href="' . BASE_URL . $btn['href'] . '">' . $btn['label'] . '</a>&nbsp;';
+foreach ((is_array($C['cta']['buttons'] ?? null) ? $C['cta']['buttons'] : []) as $i => $btn) {
+    if (!is_array($btn)) continue;
+    $ctaButtons .= '<a aria-label="' . htmlspecialchars($btn['aria'] ?? ($btn['label'] ?? '')) . '" class="btn ' . ($btn['cls'] ?? 'btndark') . '" href="' . BASE_URL . ($btn['href'] ?? '#') . '" data-cms-key="' . $kp . '.cta.buttons.' . $i . '.label">' . ($btn['label'] ?? '') . '</a>&nbsp;';
 }
 $finalCtaSection = '<section aria-labelledby="cta"><h2 id="cta" class="vh">' . te('a11y.contactUs') . '</h2>' .
-    '<h2>' . $C['cta']['title'] . '</h2>' .
-    '<p>' . $C['cta']['text'] . '</p>' .
+    '<h2 data-cms-key="' . $kp . '.cta.title">' . ($C['cta']['title'] ?? '') . '</h2>' .
+    '<p data-cms-key="' . $kp . '.cta.text">' . ($C['cta']['text'] ?? '') . '</p>' .
     '<p>&nbsp;</p>' .
     '<p>' . $ctaButtons . '</p>' .
     '</section>';

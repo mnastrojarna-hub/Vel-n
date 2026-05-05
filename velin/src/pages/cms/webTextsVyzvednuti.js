@@ -1,40 +1,87 @@
 // Texty webu: Vyzvednutí + Co v ceně + Dokumenty
+// Klíče odpovídají PHP `siteContent('jak_pujcit_vyzvednuti'/'jak_pujcit_cena'/'jak_pujcit_dokumenty')`.
+
+const range = n => Array.from({ length: n });
+
 export const PAGE_VYZVEDNUTI = {
   id: 'vyzvednuti', label: 'Vyzvednutí', icon: '🔑', url: '/jak-pujcit/vyzvednuti',
-  description: 'Jak probíhá vyzvednutí motorky, kde, provozní doba, co si vzít.',
+  description: 'Jak probíhá vyzvednutí motorky, kde, provozní doba, co si vzít, FAQ.',
   sections: [
     {
-      id: 'intro', label: 'Úvod stránky', location: 'H1 a úvodní odstavec',
+      id: 'intro', label: 'Úvod stránky', location: 'H1 a úvodní text',
       fields: [
-        { key: 'web.vyzved.h1', label: 'H1', default: 'Vyzvednutí motocyklu – rychle, jednoduše a nonstop' },
-        { key: 'web.vyzved.intro', label: 'Úvodní text', type: 'textarea', default: 'V Motogo24 – půjčovna motorek Vysočina je vyzvednutí motorky otázkou pár minut. Půjčujeme bez kauce, s výbavou v ceně a nonstop provozem.' },
+        { key: 'web.jak_pujcit_vyzvednuti.h1', label: 'H1 nadpis', default: 'Vyzvednutí motocyklu – rychle, jednoduše a nonstop' },
+        { key: 'web.jak_pujcit_vyzvednuti.intro', label: 'Úvodní text', type: 'textarea', default: '' },
       ]
     },
     {
-      id: 'where', label: 'Kde probíhá vyzvednutí', location: 'Sekce s adresou, provozní dobou a mapou',
+      id: 'top_cta', label: 'Horní CTA box', location: 'Zelený CTA box pod intrem',
       fields: [
-        { key: 'web.vyzved.address', label: 'Adresa', default: 'Mezná 9, 393 01 Pelhřimov (Vysočina)' },
-        { key: 'web.vyzved.hours', label: 'Provozní doba', default: 'nonstop' },
-        { key: 'web.vyzved.phone', label: 'Telefon', default: '+420 774 256 271' },
-        { key: 'web.vyzved.return', label: 'Vrácení text', default: 'Motorku můžeš vrátit kdykoli během posledního dne výpůjčky. Nevyžadujeme vrácení s plnou nádrží ani mytí.' },
+        { key: 'web.jak_pujcit_vyzvednuti.top_cta.title', label: 'Nadpis', default: '' },
+        { key: 'web.jak_pujcit_vyzvednuti.top_cta.text', label: 'Text', type: 'textarea', default: '' },
+        { key: 'web.jak_pujcit_vyzvednuti.top_cta.button.label', label: 'Tlačítko — text', default: '' },
       ]
     },
     {
-      id: 'steps', label: 'Kroky vyzvednutí (5)', location: '5 karet s ikonami',
+      id: 'place', label: 'Kde probíhá vyzvednutí', location: 'Sekce s adresou, provozní dobou',
       fields: [
-        { key: 'web.vyzved.step.1', label: 'Krok 1', default: 'Přijď v domluvený čas – na naši adresu nebo vyčkej na přistavení' },
-        { key: 'web.vyzved.step.2', label: 'Krok 2', default: 'Ověříme doklady – OP/pas + řidičský průkaz odpovídající skupiny' },
-        { key: 'web.vyzved.step.3', label: 'Krok 3', default: 'Předáme motorku a výbavu – helma, bunda, kalhoty, rukavice' },
-        { key: 'web.vyzved.step.4', label: 'Krok 4', default: 'Krátké seznámení se strojem – ovládání, tipy, doporučení k trase' },
-        { key: 'web.vyzved.step.5', label: 'Krok 5', default: 'Podepíšeme předávací protokol – a můžeš vyrazit' },
+        { key: 'web.jak_pujcit_vyzvednuti.place.title', label: 'Nadpis sekce', default: '' },
+        { key: 'web.jak_pujcit_vyzvednuti.place.address', label: 'Adresa', default: '' },
+        { key: 'web.jak_pujcit_vyzvednuti.place.hours_label', label: 'Štítek provozní doby', default: '' },
+        { key: 'web.jak_pujcit_vyzvednuti.place.hours', label: 'Provozní doba', type: 'textarea', default: '' },
+        { key: 'web.jak_pujcit_vyzvednuti.place.note', label: 'Poznámka', type: 'textarea', default: '' },
       ]
     },
     {
-      id: 'checklist', label: 'Co si vzít s sebou', location: 'Seznam potřebných věcí',
+      id: 'process', label: 'Jak probíhá převzetí (kroky)', location: 'Grid karet s kroky',
       fields: [
-        { key: 'web.vyzved.need.1', label: 'Položka 1', default: 'Občanský průkaz / pas' },
-        { key: 'web.vyzved.need.2', label: 'Položka 2', default: 'Řidičský průkaz odpovídající skupiny (A/A2 podle motorky)' },
-        { key: 'web.vyzved.need.3', label: 'Položka 3', default: 'Vhodnou obuv (moto boty lze půjčit jako nadstandard)' },
+        { key: 'web.jak_pujcit_vyzvednuti.process.title', label: 'Nadpis sekce', default: '' },
+        ...range(8).flatMap((_, i) => ([
+          { key: `web.jak_pujcit_vyzvednuti.process.steps.${i}.title`, label: `Krok ${i + 1} — titulek`, default: '' },
+          { key: `web.jak_pujcit_vyzvednuti.process.steps.${i}.text`, label: `Krok ${i + 1} — popis`, type: 'textarea', default: '' },
+        ])),
+      ]
+    },
+    {
+      id: 'amenities', label: 'Co u nás najdeš', location: 'Vybavení provozovny',
+      fields: [
+        { key: 'web.jak_pujcit_vyzvednuti.amenities.title', label: 'Nadpis', default: '' },
+        ...range(8).map((_, i) => ({
+          key: `web.jak_pujcit_vyzvednuti.amenities.items.${i}`, label: `Položka ${i + 1}`, type: 'textarea', default: ''
+        })),
+      ]
+    },
+    {
+      id: 'bring', label: 'Co si vzít s sebou', location: 'Seznam dokumentů a věcí',
+      fields: [
+        { key: 'web.jak_pujcit_vyzvednuti.bring.title', label: 'Nadpis', default: '' },
+        ...range(6).map((_, i) => ({
+          key: `web.jak_pujcit_vyzvednuti.bring.items.${i}`, label: `Položka ${i + 1}`, type: 'textarea', default: ''
+        })),
+      ]
+    },
+    {
+      id: 'faq', label: 'FAQ', location: 'Časté dotazy',
+      fields: [
+        { key: 'web.jak_pujcit_vyzvednuti.faq.title', label: 'Nadpis sekce', default: '' },
+        ...range(4).flatMap((_, i) => ([
+          { key: `web.jak_pujcit_vyzvednuti.faq.items.${i}.q`, label: `Otázka ${i + 1}`, default: '' },
+          { key: `web.jak_pujcit_vyzvednuti.faq.items.${i}.a`, label: `Odpověď ${i + 1}`, type: 'textarea', default: '' },
+        ])),
+      ]
+    },
+    {
+      id: 'cta', label: 'CTA', location: 'Závěrečná výzva',
+      fields: [
+        { key: 'web.jak_pujcit_vyzvednuti.cta.title', label: 'Nadpis', default: '' },
+        { key: 'web.jak_pujcit_vyzvednuti.cta.text', label: 'Text', type: 'textarea', default: '' },
+      ]
+    },
+    {
+      id: 'mid_cta', label: 'Prostřední CTA box', location: 'Mezi sekcemi',
+      fields: [
+        { key: 'web.jak_pujcit_vyzvednuti.mid_cta.title', label: 'Nadpis', default: '' },
+        { key: 'web.jak_pujcit_vyzvednuti.mid_cta.text', label: 'Text', type: 'textarea', default: '' },
       ]
     },
   ]
@@ -42,43 +89,71 @@ export const PAGE_VYZVEDNUTI = {
 
 export const PAGE_CO_V_CENE = {
   id: 'co-v-cene', label: 'Co je v ceně', icon: '💎', url: '/jak-pujcit/co-v-cene',
-  description: 'Přehled co je v ceně pronájmu: základní a nadstandardní výbava.',
+  description: 'Přehled co je v ceně pronájmu: výbava, benefity, FAQ.',
   sections: [
     {
       id: 'intro', label: 'Úvod stránky', location: 'H1 a intro',
       fields: [
-        { key: 'web.cena.h1', label: 'H1', default: 'Co je v ceně pronájmu motorky' },
-        { key: 'web.cena.intro', label: 'Intro', default: 'V Motogo24 – půjčovna motorek na Vysočině dostaneš férové podmínky. Bez kauce, s výbavou v ceně a nonstop provozem.' },
+        { key: 'web.jak_pujcit_cena.h1', label: 'H1', default: 'Co je v ceně pronájmu motorky' },
+        { key: 'web.jak_pujcit_cena.intro', label: 'Intro', type: 'textarea', default: '' },
       ]
     },
     {
-      id: 'basic', label: 'Základní výbava zdarma', location: 'Levý sloupec – seznam výbavy pro řidiče',
+      id: 'gear_basic', label: 'Základní výbava (zdarma)', location: 'Levý sloupec',
       fields: [
-        { key: 'web.cena.basic.1', label: 'Položka 1', default: 'Helma – vždy čistá a bezpečná' },
-        { key: 'web.cena.basic.2', label: 'Položka 2', default: 'Motorkářská bunda s chrániči' },
-        { key: 'web.cena.basic.3', label: 'Položka 3', default: 'Moto kalhoty pro maximální komfort' },
-        { key: 'web.cena.basic.4', label: 'Položka 4', default: 'Rukavice ve správné velikosti' },
+        { key: 'web.jak_pujcit_cena.gear.basic.title', label: 'Nadpis', default: '' },
+        { key: 'web.jak_pujcit_cena.gear.basic.lead', label: 'Úvodní věta', type: 'textarea', default: '' },
+        ...range(8).map((_, i) => ({
+          key: `web.jak_pujcit_cena.gear.basic.items.${i}`, label: `Položka ${i + 1}`, type: 'textarea', default: ''
+        })),
+        { key: 'web.jak_pujcit_cena.gear.basic.note1', label: 'Poznámka 1', type: 'textarea', default: '' },
+        { key: 'web.jak_pujcit_cena.gear.basic.note2', label: 'Poznámka 2', type: 'textarea', default: '' },
       ]
     },
     {
-      id: 'premium', label: 'Nadstandardní výbava', location: 'Pravý sloupec – příplatky',
+      id: 'gear_extra', label: 'Nadstandardní výbava (příplatek)', location: 'Pravý sloupec — nahoře',
       fields: [
-        { key: 'web.cena.prem.1', label: 'Položka 1', default: 'Výbava pro spolujezdce' },
-        { key: 'web.cena.prem.2', label: 'Položka 2', default: 'Páteřák pro maximální ochranu' },
-        { key: 'web.cena.prem.3', label: 'Položka 3', default: 'Chrániče hrudi (pro enduro/cross)' },
-        { key: 'web.cena.prem.4', label: 'Položka 4', default: 'Motorkářské boty' },
-        { key: 'web.cena.prem.5', label: 'Položka 5', default: 'Bluetooth komunikátor' },
-        { key: 'web.cena.prem.6', label: 'Položka 6', default: 'Kufry a zavazadlový systém' },
+        { key: 'web.jak_pujcit_cena.gear.extra.title', label: 'Nadpis', default: '' },
+        { key: 'web.jak_pujcit_cena.gear.extra.lead', label: 'Úvodní věta', type: 'textarea', default: '' },
+        ...range(8).map((_, i) => ({
+          key: `web.jak_pujcit_cena.gear.extra.items.${i}`, label: `Položka ${i + 1}`, type: 'textarea', default: ''
+        })),
       ]
     },
     {
-      id: 'benefits', label: 'Další výhody (5 boxů)', location: 'Ikonové boxy pod výbavou',
+      id: 'gear_services', label: 'Doplňkové služby', location: 'Pravý sloupec — dole',
       fields: [
-        { key: 'web.cena.ben.1', label: 'Box 1', default: 'Nonstop provoz – vyzvednutí i vrácení kdykoli' },
-        { key: 'web.cena.ben.2', label: 'Box 2', default: 'Bez kauce – žádná záloha při půjčení' },
-        { key: 'web.cena.ben.3', label: 'Box 3', default: 'Pojištění – součástí pronájmu' },
-        { key: 'web.cena.ben.4', label: 'Box 4', default: 'Bezkontaktní předání – na vyžádání' },
-        { key: 'web.cena.ben.5', label: 'Box 5', default: 'Jasné podmínky – bez skrytých poplatků' },
+        { key: 'web.jak_pujcit_cena.gear.services.title', label: 'Nadpis', default: '' },
+        ...range(6).map((_, i) => ({
+          key: `web.jak_pujcit_cena.gear.services.items.${i}`, label: `Položka ${i + 1}`, type: 'textarea', default: ''
+        })),
+      ]
+    },
+    {
+      id: 'benefits', label: 'Další výhody (boxy)', location: 'Ikonové boxy pod výbavou',
+      fields: [
+        { key: 'web.jak_pujcit_cena.benefits.title', label: 'Nadpis sekce', default: '' },
+        ...range(5).flatMap((_, i) => ([
+          { key: `web.jak_pujcit_cena.benefits.items.${i}.title`, label: `Box ${i + 1} — titulek`, default: '' },
+          { key: `web.jak_pujcit_cena.benefits.items.${i}.text`, label: `Box ${i + 1} — popis`, type: 'textarea', default: '' },
+        ])),
+      ]
+    },
+    {
+      id: 'faq', label: 'FAQ', location: 'Časté dotazy',
+      fields: [
+        { key: 'web.jak_pujcit_cena.faq.title', label: 'Nadpis', default: '' },
+        ...range(5).flatMap((_, i) => ([
+          { key: `web.jak_pujcit_cena.faq.items.${i}.q`, label: `Otázka ${i + 1}`, default: '' },
+          { key: `web.jak_pujcit_cena.faq.items.${i}.a`, label: `Odpověď ${i + 1}`, type: 'textarea', default: '' },
+        ])),
+      ]
+    },
+    {
+      id: 'cta', label: 'CTA', location: 'Závěrečná výzva',
+      fields: [
+        { key: 'web.jak_pujcit_cena.cta.title', label: 'Nadpis', default: '' },
+        { key: 'web.jak_pujcit_cena.cta.text', label: 'Text', type: 'textarea', default: '' },
       ]
     },
   ]
@@ -86,43 +161,99 @@ export const PAGE_CO_V_CENE = {
 
 export const PAGE_DOKUMENTY = {
   id: 'dokumenty', label: 'Dokumenty', icon: '📑', url: '/jak-pujcit/dokumenty',
-  description: 'Nájemní smlouva, podmínky, platby, užívání a předání/vrácení motorky.',
+  description: 'Nájemní smlouva, podmínky, platby, užívání, předání, GDPR.',
   sections: [
     {
       id: 'intro', label: 'Úvod', location: 'H1 a úvodní odstavec',
       fields: [
-        { key: 'web.docs.h1', label: 'H1', default: 'Nájemní smlouva a kauce – férové podmínky bez zálohy' },
-        { key: 'web.docs.intro', label: 'Intro', type: 'textarea', default: 'V Motogo24 klademe důraz na jednoduchost a férovost. Půjčujeme bez kauce, s jasnou nájemní smlouvou, pojištěním v ceně a výbavou pro řidiče.' },
+        { key: 'web.jak_pujcit_dokumenty.h1', label: 'H1', default: 'Nájemní smlouva a kauce – férové podmínky bez zálohy' },
+        { key: 'web.jak_pujcit_dokumenty.intro', label: 'Intro', type: 'textarea', default: '' },
       ]
     },
     {
-      id: 'summary', label: 'Shrnutí (6 boxů)', location: '6 ikon s hlavními body',
+      id: 'top_cta', label: 'Horní CTA', location: 'CTA box pod intrem',
       fields: [
-        { key: 'web.docs.sum.1', label: 'Box 1', default: 'Bez kauce / zálohy – motorku půjčujeme bez blokace peněz' },
-        { key: 'web.docs.sum.2', label: 'Box 2', default: 'Pojištění – v ceně (povinné ručení)' },
-        { key: 'web.docs.sum.3', label: 'Box 3', default: 'Výbava pro řidiče – v ceně (helma, bunda, kalhoty, rukavice)' },
-        { key: 'web.docs.sum.4', label: 'Box 4', default: 'Nonstop provoz – převzetí a vrácení kdykoli' },
-        { key: 'web.docs.sum.5', label: 'Box 5', default: 'Jasná pravidla užívání – doma i v zahraničí' },
-        { key: 'web.docs.sum.6', label: 'Box 6', default: 'Žádné skryté poplatky – vše ve smlouvě' },
+        { key: 'web.jak_pujcit_dokumenty.top_cta.title', label: 'Nadpis', default: '' },
+        { key: 'web.jak_pujcit_dokumenty.top_cta.text', label: 'Text', type: 'textarea', default: '' },
+        { key: 'web.jak_pujcit_dokumenty.top_cta.button.label', label: 'Tlačítko', default: '' },
       ]
     },
     {
-      id: 'required', label: 'Co potřebujete', location: 'Seznam dokumentů pro uzavření smlouvy',
+      id: 'summary', label: 'Shrnutí (boxy)', location: 'Hlavní body smlouvy',
       fields: [
-        { key: 'web.docs.req.1', label: 'Položka 1', default: 'Občanský průkaz / pas' },
-        { key: 'web.docs.req.2', label: 'Položka 2', default: 'Řidičský průkaz odpovídající skupiny' },
-        { key: 'web.docs.req.3', label: 'Položka 3', default: 'Věk min. 18 let' },
-        { key: 'web.docs.req.4', label: 'Položka 4', default: 'Kontakty (telefon, e-mail)' },
+        { key: 'web.jak_pujcit_dokumenty.summary.title', label: 'Nadpis sekce', default: '' },
+        ...range(6).flatMap((_, i) => ([
+          { key: `web.jak_pujcit_dokumenty.summary.items.${i}.title`, label: `Box ${i + 1} — titulek`, default: '' },
+          { key: `web.jak_pujcit_dokumenty.summary.items.${i}.text`, label: `Box ${i + 1} — popis`, type: 'textarea', default: '' },
+        ])),
       ]
     },
     {
-      id: 'payments', label: 'Platby a storno (5 řádků)', location: 'Tabulka plateb a storna',
+      id: 'required_docs', label: 'Co potřebujete (doklady)', location: 'Seznam dokumentů',
       fields: [
-        { key: 'web.docs.pay.1', label: 'Platba nájemného', default: 'Online předem.' },
-        { key: 'web.docs.pay.2', label: 'Storno rezervace', default: 'Lze bezplatně do předem domluveného času.' },
-        { key: 'web.docs.pay.3', label: 'Palivo & čištění', default: 'Vrácení bez povinnosti dotankovat a mýt.' },
-        { key: 'web.docs.pay.4', label: 'Přistavení / svoz', default: 'Dle ceníku přistavení.' },
-        { key: 'web.docs.pay.5', label: 'Pozdní vrácení', default: 'Při zpoždění účtujeme dle domluvy.' },
+        { key: 'web.jak_pujcit_dokumenty.required_docs.title', label: 'Nadpis', default: '' },
+        ...range(5).map((_, i) => ({
+          key: `web.jak_pujcit_dokumenty.required_docs.items.${i}`, label: `Položka ${i + 1}`, type: 'textarea', default: ''
+        })),
+      ]
+    },
+    {
+      id: 'payments', label: 'Platby a storno', location: 'Tabulka plateb',
+      fields: [
+        { key: 'web.jak_pujcit_dokumenty.payments.title', label: 'Nadpis', default: '' },
+        ...range(8).flatMap((_, i) => ([
+          { key: `web.jak_pujcit_dokumenty.payments.items.${i}.title`, label: `Řádek ${i + 1} — název`, default: '' },
+          { key: `web.jak_pujcit_dokumenty.payments.items.${i}.text`, label: `Řádek ${i + 1} — popis`, type: 'textarea', default: '' },
+        ])),
+      ]
+    },
+    {
+      id: 'usage', label: 'Pravidla užívání', location: 'Sekce s pravidly',
+      fields: [
+        { key: 'web.jak_pujcit_dokumenty.usage.title', label: 'Nadpis', default: '' },
+        ...range(8).map((_, i) => ({
+          key: `web.jak_pujcit_dokumenty.usage.items.${i}`, label: `Pravidlo ${i + 1}`, type: 'textarea', default: ''
+        })),
+      ]
+    },
+    {
+      id: 'handover', label: 'Předání a vrácení', location: 'Co očekávat při předání',
+      fields: [
+        { key: 'web.jak_pujcit_dokumenty.handover.title', label: 'Nadpis', default: '' },
+        ...range(6).map((_, i) => ({
+          key: `web.jak_pujcit_dokumenty.handover.items.${i}`, label: `Bod ${i + 1}`, type: 'textarea', default: ''
+        })),
+      ]
+    },
+    {
+      id: 'privacy', label: 'GDPR / Soukromí', location: 'Informace o ochraně dat',
+      fields: [
+        { key: 'web.jak_pujcit_dokumenty.privacy.title', label: 'Nadpis', default: '' },
+        { key: 'web.jak_pujcit_dokumenty.privacy.text', label: 'Text', type: 'textarea', default: '' },
+      ]
+    },
+    {
+      id: 'documents', label: 'Dokumenty ke stažení', location: 'Odkazy na PDF',
+      fields: [
+        { key: 'web.jak_pujcit_dokumenty.documents.title', label: 'Nadpis', default: '' },
+        ...range(5).flatMap((_, i) => ([
+          { key: `web.jak_pujcit_dokumenty.documents.items.${i}.label`, label: `Dokument ${i + 1} — název`, default: '' },
+          { key: `web.jak_pujcit_dokumenty.documents.items.${i}.text`, label: `Dokument ${i + 1} — popis`, type: 'textarea', default: '' },
+        ])),
+      ]
+    },
+    {
+      id: 'midcta', label: 'Prostřední CTA', location: 'Mezi sekcemi',
+      fields: [
+        { key: 'web.jak_pujcit_dokumenty.midcta.title', label: 'Nadpis', default: '' },
+        { key: 'web.jak_pujcit_dokumenty.midcta.text', label: 'Text', type: 'textarea', default: '' },
+      ]
+    },
+    {
+      id: 'cta', label: 'Závěrečná CTA', location: 'CTA box dole',
+      fields: [
+        { key: 'web.jak_pujcit_dokumenty.cta.title', label: 'Nadpis', default: '' },
+        { key: 'web.jak_pujcit_dokumenty.cta.text', label: 'Text', type: 'textarea', default: '' },
       ]
     },
   ]
