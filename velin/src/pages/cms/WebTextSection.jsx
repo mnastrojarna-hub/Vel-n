@@ -113,7 +113,6 @@ function FieldRow({ field, value, onSaved, fieldUrl, hasToken }) {
     }
   }
 
-  const isTextarea = field.type === 'textarea' || (val && val.length > 80)
   const hasValue = !!value
 
   return (
@@ -147,73 +146,40 @@ function FieldRow({ field, value, onSaved, fieldUrl, hasToken }) {
           </a>
         )}
       </div>
-      {isTextarea ? (
-        <div>
-          <div style={{
-            borderRadius: 12,
-            outline: changed ? '2px solid #f59e0b' : 'none',
-            outlineOffset: 2,
-          }}>
-            <RichTextEditor
-              value={val}
-              onChange={setVal}
-              placeholder="Začněte psát… (lišta nahoře — tučné, kurzíva, barva, velikost)"
-              minHeight={120}
-            />
-          </div>
-          <div className="flex gap-2 items-center mt-2">
-            {changed && (
-              <button
-                onClick={save}
-                disabled={saving}
-                className="rounded-btn text-xs font-extrabold uppercase cursor-pointer"
-                style={{ padding: '8px 14px', background: '#74FB71', color: '#1a2e22', border: 'none' }}
-              >
-                {saving ? '...' : 'Uložit'}
-              </button>
-            )}
-            {!changed && saved && (
-              <span className="text-xs font-bold" style={{ color: '#22c55e' }}>
-                {translating ? '🌍 Překládám…' : 'Uloženo'}
-              </span>
-            )}
-            {!changed && !saved && translating && (
-              <span className="text-xs font-bold" style={{ color: '#1d4ed8' }}>🌍 Překládám…</span>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className="flex gap-2 items-start">
-          <input
+      <div>
+        <div style={{
+          borderRadius: 12,
+          outline: changed ? '2px solid #f59e0b' : 'none',
+          outlineOffset: 2,
+        }}>
+          <RichTextEditor
             value={val}
-            onChange={e => setVal(e.target.value)}
-            className="flex-1 rounded-btn text-sm outline-none"
-            style={{
-              padding: '8px 12px',
-              background: changed ? '#fef3c7' : '#f1faf7',
-              border: '1px solid ' + (changed ? '#f59e0b' : '#d4e8e0'),
-            }}
+            onChange={setVal}
+            placeholder="Začněte psát… (lišta nahoře — tučné, kurzíva, barva, velikost)"
+            minHeight={field.type === 'textarea' ? 120 : 56}
           />
+        </div>
+        <div className="flex gap-2 items-center mt-2">
           {changed && (
             <button
               onClick={save}
               disabled={saving}
-              className="rounded-btn text-xs font-extrabold uppercase cursor-pointer shrink-0"
+              className="rounded-btn text-xs font-extrabold uppercase cursor-pointer"
               style={{ padding: '8px 14px', background: '#74FB71', color: '#1a2e22', border: 'none' }}
             >
               {saving ? '...' : 'Uložit'}
             </button>
           )}
           {!changed && saved && (
-            <span className="text-xs font-bold" style={{ color: '#22c55e', padding: '8px 0' }}>
+            <span className="text-xs font-bold" style={{ color: '#22c55e' }}>
               {translating ? '🌍 Překládám…' : 'Uloženo'}
             </span>
           )}
           {!changed && !saved && translating && (
-            <span className="text-xs font-bold" style={{ color: '#1d4ed8', padding: '8px 0' }}>🌍 Překládám…</span>
+            <span className="text-xs font-bold" style={{ color: '#1d4ed8' }}>🌍 Překládám…</span>
           )}
         </div>
-      )}
+      </div>
     </div>
   )
 }
