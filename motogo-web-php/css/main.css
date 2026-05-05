@@ -223,6 +223,9 @@ main{background:#fff;min-height:60vh}
 .moto-desc ul{list-style:none;padding:0;margin:0}
 .moto-desc li{color:#4a6b5a;font-size:.85rem;padding:.15rem 0;padding-left:.9rem;position:relative}
 .moto-desc li::before{content:"›";position:absolute;left:0;color:#74FB71;font-weight:700}
+.moto-desc li.moto-card-model{padding-left:0;margin-bottom:.35rem}
+.moto-desc li.moto-card-model::before{content:none}
+.moto-desc li.moto-card-model h2{font-size:1.05rem;margin:0;color:#1a2e22;font-weight:700;line-height:1.25}
 .moto-price{color:#1a8c1a;font-weight:700;font-size:.95rem;margin:.6rem 0 0}
 .moto-btn{padding:.5rem 1rem 1rem;text-align:center}
 

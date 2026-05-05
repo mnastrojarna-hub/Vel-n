@@ -38,13 +38,13 @@ MG.renderMotoCard = function(m){
   }
 
   var featHtml = '<ul>';
+  featHtml += '<li class="moto-card-model"><h2>' + m.model + '</h2></li>';
   features.forEach(function(f){ featHtml += '<li>' + f + '</li>'; });
   featHtml += '</ul>';
 
   var priceText = price > 0 ? ('Cena: od ' + MG.formatPrice(price) + '/den') : '';
 
   return '<a class="moto-wrapper" href="#/katalog/' + m.id + '" aria-label="' + m.model + '">' +
-    '<div class="moto-title"><h2>' + m.model + '</h2></div>' +
     '<div class="moto-img">' + (img ? '<img src="' + img + '" alt="' + m.model + '" class="imgres" loading="lazy">' : '') + '</div>' +
     '<div class="moto-desc">' + featHtml + (priceText ? '<p class="moto-price">' + priceText + '</p>' : '') + '</div>' +
     '<div class="moto-btn"><span class="btn btngreen-small">DETAIL MOTORKY</span></div>' +
