@@ -57,6 +57,22 @@
 - resolved_by (refs auth.users)
 - RLS: Admin full access
 
+### messages (rozšíření 2026-05-05 — AI customer messages agent)
+- existující sloupce: id, thread_id (FK→message_threads), direction (inbound/outbound), content, ai_suggested_reply, created_at, read_at
+- **ai_suggested_at** (TIMESTAMPTZ) — kdy AI návrh dorazil
+- **ai_suggestion_status** (ENUM `ai_suggestion_status`: pending / approved / edited / rejected / sent / auto_sent / failed)
+- **ai_suggested_by_model** (TEXT) — např. `claude-haiku-4-5-20251001`
+- **ai_confidence** (TEXT CHECK: low/medium/high) — sebejistota AI; low → admin musí prověřit
+- **ai_admin_note** (TEXT) — krátká poznámka pro admina, proč low/medium nebo na co si dát pozor
+- **ai_final_reply** (TEXT) — text, který admin reálně odeslal (může být upravený oproti `ai_suggested_reply`)
+- **ai_approved_by** (UUID FK→admin_users ON DELETE SET NULL) — admin, který návrh schválil/zamítl
+- **ai_approved_at** (TIMESTAMPTZ) — okamžik schválení/zamítnutí
+- **ai_sent_message_id** (UUID FK→messages ON DELETE SET NULL) — odkaz na výslednou outbound zprávu po odeslání (cross-link mezi inbound návrhem a odeslanou odpovědí)
+- **ai_error** (TEXT) — pokud generování / auto_send selhalo, krátký chybový popis
+- Indexy: `idx_messages_ai_suggestion_pending` (created_at DESC) WHERE status='pending'; `idx_messages_ai_suggestion_status` (status, created_at DESC) WHERE status IS NOT NULL
+- Realtime: ANO (přidáno v migraci, aby Velín viděl nové AI návrhy hned)
+- Naplňuje edge fn `ai-customer-messages-suggest` na vyžádání ze Velína (per `message_id`)
+
 ### profiles
 - id (refs auth.users), full_name, email, phone
 - street, city, zip, country
