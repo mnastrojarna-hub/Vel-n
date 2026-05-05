@@ -10,7 +10,7 @@ $motos = $sb->fetchMotos();
 $moto = null;
 $idx = -1;
 foreach ($motos as $i => $m) {
-    if ($m['id'] === $motoId) {
+    if (($m['id'] ?? null) === $motoId) {
         $moto = $m;
         $idx = $i;
         break;
@@ -24,6 +24,13 @@ if (!$moto) {
     renderPage(t('detail.notFoundTitle'), $content, '/katalog/' . $motoId);
     return;
 }
+
+// Defensive normalize — Velín/admin může uložit pole motorky jako array/object
+// místo stringu (typicky při nedopečení JSON ve Velínu UI). htmlspecialchars()
+// hází fatal TypeError v PHP 8 na non-string. Tady všechna scalar pole na string.
+normalizeMoto($moto);
+foreach ($motos as &$_m) { normalizeMoto($_m); }
+unset($_m);
 
 $model = htmlspecialchars($moto['model'] ?? '');
 $prev = $idx > 0 ? $motos[$idx - 1] : null;
