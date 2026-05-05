@@ -643,10 +643,16 @@ body.mg-lb-open{overflow:hidden;overscroll-behavior:none}
 
 /* Doklady dialog */
 .edit-rez-doc-dialog{max-width:520px}
+/* Globální overflow guard — celý edit-rez-app ohraničíme do šířky kontejneru,
+   aby žádný blok (kalendáře, motokarty, kód rezervace) nepřetekl viewport. */
+#edit-rez-app{max-width:100%;overflow-x:hidden;box-sizing:border-box}
+#edit-rez-app *{box-sizing:border-box}
+#edit-rez-app code,#edit-rez-app pre{word-break:break-all;overflow-wrap:anywhere;max-width:100%}
 /* Upload doklady — sekce nad seznamem v tabu Doklady. Slouží pro Mindee scan
    ze stránky upravit-rezervaci (post-payment), aby se zákazník dostal k door
    codes bez návratu do rezervace flow. */
-.edit-rez-upload{background:linear-gradient(180deg,#f0fff4 0%,#fff 100%);border:1px solid #d1fae5;border-radius:12px;padding:1rem 1.25rem;margin:0 0 1.25rem}
+.edit-rez-upload{background:linear-gradient(180deg,#f0fff4 0%,#fff 100%);border:1px solid #d1fae5;border-radius:12px;padding:1rem 1.25rem;margin:0 0 1.25rem;max-width:100%}
+.edit-rez-doclist li{flex-wrap:wrap}
 .edit-rez-upload h4{margin:0 0 .5rem;font-size:1.05rem}
 .edit-rez-upload-row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:.75rem}
 @media (max-width:560px){.edit-rez-upload-row{grid-template-columns:1fr}}
