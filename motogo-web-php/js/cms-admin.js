@@ -279,12 +279,46 @@
       return s;
     }
 
-    // Velikost písma
+    // Velikost písma — vlastní implementace (legacy execCommand 'fontSize' produkuje
+    // <font size="N"> tag, který CSS na kartách typu .wbox h3 / .wbox p přebíjí.
+    // Místo toho vložíme <span style="font-size: Xem"> okolo selection (nebo celého
+    // editovaného prvku, pokud nic není označené). Em hodnoty přebijí !important
+    // málo často, fallback fungovat bude.
+    function applyFontSize(sizeKey) {
+      var sizes = { '1':'0.7em', '2':'0.85em', '3':'1em', '4':'1.2em', '5':'1.5em', '6':'2em', '7':'2.5em' };
+      var em = sizes[sizeKey];
+      if (!em) return;
+      targetEl.focus();
+      var sel = window.getSelection();
+      if (!sel || !sel.rangeCount) return;
+      var range = sel.getRangeAt(0);
+      // Pokud uživatel nic neoznačil, aplikujeme na celý obsah editovaného prvku
+      if (range.collapsed || !targetEl.contains(range.commonAncestorContainer)) {
+        range = document.createRange();
+        range.selectNodeContents(targetEl);
+      }
+      try {
+        var span = document.createElement('span');
+        span.style.fontSize = em;
+        var contents = range.extractContents();
+        span.appendChild(contents);
+        range.insertNode(span);
+        // Reselect nový span
+        sel.removeAllRanges();
+        var newRange = document.createRange();
+        newRange.selectNodeContents(span);
+        sel.addRange(newRange);
+      } catch (e) {
+        // Fallback na legacy execCommand
+        try { document.execCommand('fontSize', false, sizeKey); } catch (_) {}
+      }
+    }
+
     bar.appendChild(makeSelect('Velikost', [
       ['', 'Velikost'],
       ['1', 'XS'], ['2', 'S'], ['3', 'M'],
       ['4', 'L'], ['5', 'XL'], ['6', 'XXL'], ['7', 'XXXL'],
-    ], function (v) { exec('fontSize', v); }));
+    ], applyFontSize));
 
     bar.appendChild(sep());
 
