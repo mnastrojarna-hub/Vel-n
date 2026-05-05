@@ -32,14 +32,23 @@ define('LOGO_SVG', 'gfx/logo.svg');
 // ===== Webmaster Tools verifikační kódy =====
 // Po registraci domény v každém z těchto nástrojů sem vlož content hodnotu z meta tagu.
 // Hodnoty jdou nastavit i přes env vars (server config / .env), nesmí ale jít do gitu jako secret.
-//   Google Search Console:  MOTOGO_VERIFY_GOOGLE
+//   Google Search Console:  MOTOGO_VERIFY_GOOGLE_<TLD> (per doména) nebo MOTOGO_VERIFY_GOOGLE (fallback)
 //   Bing Webmaster Tools:   MOTOGO_VERIFY_BING (msvalidate.01)
 //   Seznam Webmaster:       MOTOGO_VERIFY_SEZNAM (seznam-wmt) — DŮLEŽITÉ pro CZ trh
 //   Yandex Webmaster:       MOTOGO_VERIFY_YANDEX
 //   Pinterest:              MOTOGO_VERIFY_PINTEREST
 //   Facebook domain verif:  MOTOGO_VERIFY_FACEBOOK
 // Pokud jsou prázdné, žádný meta tag se neemituje (viz layout.php).
-define('VERIFY_GOOGLE',    getenv('MOTOGO_VERIFY_GOOGLE')    ?: '');
+//
+// Google Search Console má každou doménu jako samostatnou property → každá má
+// JINÝ verifikační kód. Render logika v layout.php vybere podle HTTP_HOST.
+define('VERIFY_GOOGLE_CZ',  getenv('MOTOGO_VERIFY_GOOGLE_CZ')  ?: 'jGbt3Ej94_RHklqQwKGojKmaYFMkR9EGS2pisrZJuNM');
+define('VERIFY_GOOGLE_COM', getenv('MOTOGO_VERIFY_GOOGLE_COM') ?: 'Sr-9VYMf3Ybg5XE0KJqW4KoOdXoUbrcLIkLue3MYS0A');
+define('VERIFY_GOOGLE_PL',  getenv('MOTOGO_VERIFY_GOOGLE_PL')  ?: 'q41TuwifbZxhkJlkQHTAPgZ39KeRrWCuyN96wZZOF1E');
+define('VERIFY_GOOGLE_AT',  getenv('MOTOGO_VERIFY_GOOGLE_AT')  ?: 'i9_XCKaWX1UrX95Ai5QwkAb1Kpdkp0i2SHE86Na9u1M');
+define('VERIFY_GOOGLE_ES',  getenv('MOTOGO_VERIFY_GOOGLE_ES')  ?: 'aLjFnL9wsrl1kzd60Lkh5JgEmS6rWuvXj0Aiehfa8Ss');
+// Fallback pro neuvedené domény (např. lokální dev, alias). Zachová zpětnou kompat.
+define('VERIFY_GOOGLE',    getenv('MOTOGO_VERIFY_GOOGLE')    ?: VERIFY_GOOGLE_CZ);
 define('VERIFY_BING',      getenv('MOTOGO_VERIFY_BING')      ?: '');
 define('VERIFY_SEZNAM',    getenv('MOTOGO_VERIFY_SEZNAM')    ?: '');
 define('VERIFY_YANDEX',    getenv('MOTOGO_VERIFY_YANDEX')    ?: '');
