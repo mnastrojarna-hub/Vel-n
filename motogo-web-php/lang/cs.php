@@ -348,6 +348,7 @@ return [
     'rez.pickup.returnTip' => 'Motorku vám rádi vyzvedneme jinde. Cena: {base} + {perKm}/km od pobočky Mezná 9, 393 01 Mezná. Trasu spočítáme automaticky po zadání adresy.',
     'rez.pickup.returnAddr' => 'Zadejte adresu vrácení',
     'rez.pickup.map' => 'Mapa',
+    'rez.pickup.gps' => 'Moje poloha',
     'rez.return.title' => 'Čas vrácení motorky',
     'rez.return.sub' => 'V kolik hodin vrátíte motorku na uvedené adrese?',
 

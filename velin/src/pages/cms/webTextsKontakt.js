@@ -217,6 +217,7 @@ export const PAGE_REZERVACE = {
         { key: 'web.layout.rez.pickup.returnTip', label: 'Tooltip „Vrácení jinde"', type: 'textarea', default: 'Motorku vám rádi vyzvedneme jinde. Cena: {base} + {perKm}/km od pobočky Mezná 9, 393 01 Mezná. Trasu spočítáme automaticky po zadání adresy.' },
         { key: 'web.layout.rez.pickup.returnAddr', label: 'Placeholder „Adresa vrácení"', default: 'Zadejte adresu vrácení' },
         { key: 'web.layout.rez.pickup.map', label: 'Tlačítko „Mapa"', default: 'Mapa' },
+        { key: 'web.layout.rez.pickup.gps', label: 'Tlačítko „Moje poloha" (GPS)', default: 'Moje poloha' },
         { key: 'web.layout.rez.return.title', label: 'Nadpis „Čas vrácení"', default: 'Čas vrácení motorky' },
         { key: 'web.layout.rez.return.sub', label: 'Popis „Čas vrácení"', default: 'V kolik hodin vrátíte motorku na uvedené adrese?' },
       ]
