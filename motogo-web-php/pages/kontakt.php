@@ -54,26 +54,27 @@ $C = $sb->siteContent('kontakt', $defaults);
 $bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], t('breadcrumb.contact')]);
 
 $quickHtml = '<section><div class="contact-quick-boxes">';
-foreach ($C['quick'] as $i => $q) {
+foreach ((is_array($C['quick'] ?? null) ? $C['quick'] : []) as $i => $q) {
+    if (!is_array($q)) continue;
     $kBase = 'web.kontakt.quick.' . $i;
     $iconHtml = '';
     if (!empty($q['icon'])) {
         $iconSrc = BASE_URL . '/' . ltrim($q['icon'], '/');
         $iconHtml = '<div class="img-icon dfcc"><img src="' . htmlspecialchars($iconSrc) . '" alt="' . htmlspecialchars($q['alt'] ?? '') . '" class="icon-small" loading="lazy"></div>';
     }
-    $val = $q['value'];
+    $val = $q['value'] ?? '';
     if (!empty($q['href'])) {
-        $val = '<a href="' . htmlspecialchars($q['href']) . '" data-cms-key="' . $kBase . '.value">' . htmlspecialchars($q['value']) . '</a>';
+        $val = '<a href="' . htmlspecialchars($q['href']) . '" data-cms-key="' . $kBase . '.value">' . htmlspecialchars((string)($q['value'] ?? '')) . '</a>';
     } else {
-        $val = '<span data-cms-key="' . $kBase . '.value">' . htmlspecialchars($q['value']) . '</span>';
+        $val = '<span data-cms-key="' . $kBase . '.value">' . htmlspecialchars((string)($q['value'] ?? '')) . '</span>';
     }
     $quickHtml .= '<div class="contact-quick-box dfc">' . $iconHtml .
-        '<div><p><small data-cms-key="' . $kBase . '.label">' . htmlspecialchars($q['label']) . '</small><br><strong>' . $val . '</strong></p></div></div>';
+        '<div><p><small data-cms-key="' . $kBase . '.label">' . htmlspecialchars((string)($q['label'] ?? '')) . '</small><br><strong>' . $val . '</strong></p></div></div>';
 }
 $quickHtml .= '</div></section>';
 
-$p = $C['place'];
-$sideCta = $C['side_cta'];
+$p = is_array($C['place'] ?? null) ? $C['place'] : $defaults['place'];
+$sideCta = is_array($C['side_cta'] ?? null) ? $C['side_cta'] : $defaults['side_cta'];
 $infoSection = '<div class="gr2 contact-info"><section>' .
     '<h2 data-cms-key="web.kontakt.place.title">' . htmlspecialchars($p['title']) . '</h2>' .
     '<p><strong data-cms-key="web.kontakt.place.address_label">' . htmlspecialchars($p['address_label']) . '</strong><br><span data-cms-key="web.kontakt.place.address">' . $p['address'] . '</span></p><p>&nbsp;</p>' .
@@ -84,14 +85,15 @@ $infoSection = '<div class="gr2 contact-info"><section>' .
     '<p data-cms-key="web.kontakt.place.billing_note">' . htmlspecialchars($p['billing_note']) . '</p>' .
     '</section><div>';
 
-$infoSection .= '<section><h2 data-cms-key="web.kontakt.social_title">' . htmlspecialchars($C['social_title']) . '</h2>';
-foreach ($C['social'] as $i => $s) {
-    $iconSrc = BASE_URL . '/' . ltrim($s['icon'], '/');
-    $infoSection .= '<p class="dfc"><span class="social-icon"><img alt="' . htmlspecialchars($s['alt']) . '" src="' . htmlspecialchars($iconSrc) . '"></span>&nbsp;<a href="' . htmlspecialchars($s['href']) . '" data-cms-key="web.kontakt.social.' . $i . '.label">' . htmlspecialchars($s['label']) . '</a></p><p>&nbsp;</p>';
+$infoSection .= '<section><h2 data-cms-key="web.kontakt.social_title">' . htmlspecialchars((string)($C['social_title'] ?? '')) . '</h2>';
+foreach ((is_array($C['social'] ?? null) ? $C['social'] : []) as $i => $s) {
+    if (!is_array($s)) continue;
+    $iconSrc = BASE_URL . '/' . ltrim((string)($s['icon'] ?? ''), '/');
+    $infoSection .= '<p class="dfc"><span class="social-icon"><img alt="' . htmlspecialchars((string)($s['alt'] ?? '')) . '" src="' . htmlspecialchars($iconSrc) . '"></span>&nbsp;<a href="' . htmlspecialchars((string)($s['href'] ?? '#')) . '" data-cms-key="web.kontakt.social.' . $i . '.label">' . htmlspecialchars((string)($s['label'] ?? '')) . '</a></p><p>&nbsp;</p>';
 }
 $infoSection .= '</section>';
 
-$btn = $sideCta['button'];
+$btn = is_array($sideCta['button'] ?? null) ? $sideCta['button'] : $defaults['side_cta']['button'];
 $infoSection .= '<section class="cta-green-box"><h2 data-cms-key="web.kontakt.side_cta.title">' . htmlspecialchars($sideCta['title']) . '</h2>' .
     '<p data-cms-key="web.kontakt.side_cta.text">' . $sideCta['text'] . '</p><p>&nbsp;</p>' .
     '<p><a class="btn ' . ($btn['cls'] ?? 'btndark') . '" href="' . BASE_URL . $btn['href'] . '" data-cms-key="web.kontakt.side_cta.button.label">' . htmlspecialchars($btn['label']) . '</a></p></section>' .

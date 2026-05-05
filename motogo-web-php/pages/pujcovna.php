@@ -74,34 +74,38 @@ $bc = renderBreadcrumb($C['breadcrumb']);
 
 $intro = '<section><h1 data-cms-key="web.pujcovna.intro.h1">' . $C['intro']['h1'] . '</h1><p data-cms-key="web.pujcovna.intro.body">' . $C['intro']['body'] . '</p></section>';
 
-$benefitsHtml = '<section><h2 data-cms-key="web.pujcovna.benefits.title">' . $C['benefits']['title'] . '</h2><div class="gr6">';
-foreach ($C['benefits']['items'] as $i => $b) {
+$benefitsHtml = '<section><h2 data-cms-key="web.pujcovna.benefits.title">' . (is_array($C['benefits']['title'] ?? null) ? '' : ($C['benefits']['title'] ?? '')) . '</h2><div class="gr6">';
+foreach ((is_array($C['benefits']['items'] ?? null) ? $C['benefits']['items'] : []) as $i => $b) {
+    if (!is_array($b)) continue;
     $kBase = 'web.pujcovna.benefits.items.' . $i;
     $benefitsHtml .= renderWbox(
-        $b['icon'],
-        '<span data-cms-key="' . $kBase . '.title">' . $b['title'] . '</span>',
-        '<span data-cms-key="' . $kBase . '.text">' . $b['text'] . '</span>'
+        $b['icon'] ?? '',
+        '<span data-cms-key="' . $kBase . '.title">' . ($b['title'] ?? '') . '</span>',
+        '<span data-cms-key="' . $kBase . '.text">' . ($b['text'] ?? '') . '</span>'
     );
 }
-$benefitsHtml .= '</div><p>&nbsp;</p><p data-cms-key="web.pujcovna.benefits.closing">' . $C['benefits']['closing'] . '</p><p>&nbsp;</p><p>';
-foreach ($C['benefits']['buttons'] as $i => $btn) {
-    $benefitsHtml .= '<a class="btn ' . ($btn['cls'] ?? 'btndark') . '" href="' . BASE_URL . $btn['href'] . '" data-cms-key="web.pujcovna.benefits.buttons.' . $i . '.label">' . $btn['label'] . '</a> ';
+$benefitsHtml .= '</div><p>&nbsp;</p><p data-cms-key="web.pujcovna.benefits.closing">' . ($C['benefits']['closing'] ?? '') . '</p><p>&nbsp;</p><p>';
+foreach ((is_array($C['benefits']['buttons'] ?? null) ? $C['benefits']['buttons'] : []) as $i => $btn) {
+    if (!is_array($btn)) continue;
+    $benefitsHtml .= '<a class="btn ' . ($btn['cls'] ?? 'btndark') . '" href="' . BASE_URL . ($btn['href'] ?? '#') . '" data-cms-key="web.pujcovna.benefits.buttons.' . $i . '.label">' . ($btn['label'] ?? '') . '</a> ';
 }
 $benefitsHtml .= '</p></section>';
 
-$stepsHtml = '<section aria-labelledby="process"><h2 data-cms-key="web.pujcovna.process.title">' . $C['process']['title'] . '</h2><div class="gr4">';
-foreach ($C['process']['steps'] as $i => $s) {
+$stepsHtml = '<section aria-labelledby="process"><h2 data-cms-key="web.pujcovna.process.title">' . ($C['process']['title'] ?? '') . '</h2><div class="gr4">';
+foreach ((is_array($C['process']['steps'] ?? null) ? $C['process']['steps'] : []) as $i => $s) {
+    if (!is_array($s)) continue;
     $kBase = 'web.pujcovna.process.steps.' . $i;
     $stepsHtml .= renderWbox(
-        $s['icon'],
-        '<span data-cms-key="' . $kBase . '.title">' . $s['title'] . '</span>',
-        '<span data-cms-key="' . $kBase . '.text">' . $s['text'] . '</span>'
+        $s['icon'] ?? '',
+        '<span data-cms-key="' . $kBase . '.title">' . ($s['title'] ?? '') . '</span>',
+        '<span data-cms-key="' . $kBase . '.text">' . ($s['text'] ?? '') . '</span>'
     );
 }
 $stepsHtml .= '</div></section>';
 
 $faqItemsKeyed = [];
-foreach (($C['faq']['items'] ?? []) as $i => $f) {
+foreach ((is_array($C['faq']['items'] ?? null) ? $C['faq']['items'] : []) as $i => $f) {
+    if (!is_array($f)) continue;
     $faqItemsKeyed[] = [
         'q' => '<span data-cms-key="web.pujcovna.faq.items.' . $i . '.q">' . ($f['q'] ?? '') . '</span>',
         'a' => '<span data-cms-key="web.pujcovna.faq.items.' . $i . '.a">' . ($f['a'] ?? '') . '</span>',
@@ -111,7 +115,8 @@ $faqTitleKeyed = '<span data-cms-key="web.pujcovna.faq.title">' . ($C['faq']['ti
 $faqHtml = renderFaqSection($faqTitleKeyed, $faqItemsKeyed, $C['faq']['more_link'] ?? null);
 
 $ctaButtonsKeyed = [];
-foreach (($C['cta']['buttons'] ?? []) as $i => $btn) {
+foreach ((is_array($C['cta']['buttons'] ?? null) ? $C['cta']['buttons'] : []) as $i => $btn) {
+    if (!is_array($btn)) continue;
     $b = $btn;
     $b['label'] = '<span data-cms-key="web.pujcovna.cta.buttons.' . $i . '.label">' . ($btn['label'] ?? '') . '</span>';
     $ctaButtonsKeyed[] = $b;
@@ -130,9 +135,10 @@ $content = '<main id="content"><div class="container">' . $bc .
 // price range, providerMobility, hoursAvailable. AI agenti ho používají
 // jako "what they do" answer pro prompty typu "kde si půjčit motorku v ČR".
 $benefitFeatures = [];
-foreach (($C['benefits']['items'] ?? []) as $b) {
-    $title = trim(strip_tags($b['title'] ?? ''));
-    $text  = trim(strip_tags($b['text'] ?? ''));
+foreach ((is_array($C['benefits']['items'] ?? null) ? $C['benefits']['items'] : []) as $b) {
+    if (!is_array($b)) continue;
+    $title = trim(strip_tags((string)($b['title'] ?? '')));
+    $text  = trim(strip_tags((string)($b['text'] ?? '')));
     if ($title === '' && $text === '') continue;
     $benefitFeatures[] = '{"@type":"PropertyValue","name":' . json_encode($title, JSON_UNESCAPED_UNICODE)
         . ',"value":' . json_encode($text !== '' ? $text : $title, JSON_UNESCAPED_UNICODE) . '}';
@@ -158,10 +164,10 @@ $serviceSchema = '
 
 // FAQPage z home FAQ items
 $faqSchemaItems = [];
-foreach (($C['faq']['items'] ?? []) as $faq) {
-    if (empty($faq['q']) || empty($faq['a'])) continue;
-    $faqSchemaItems[] = '{"@type":"Question","name":' . json_encode(strip_tags($faq['q']), JSON_UNESCAPED_UNICODE)
-        . ',"acceptedAnswer":{"@type":"Answer","text":' . json_encode(strip_tags($faq['a']), JSON_UNESCAPED_UNICODE) . '}}';
+foreach ((is_array($C['faq']['items'] ?? null) ? $C['faq']['items'] : []) as $faq) {
+    if (!is_array($faq) || empty($faq['q']) || empty($faq['a'])) continue;
+    $faqSchemaItems[] = '{"@type":"Question","name":' . json_encode(strip_tags((string)$faq['q']), JSON_UNESCAPED_UNICODE)
+        . ',"acceptedAnswer":{"@type":"Answer","text":' . json_encode(strip_tags((string)$faq['a']), JSON_UNESCAPED_UNICODE) . '}}';
 }
 $faqSchema = '';
 if (!empty($faqSchemaItems)) {
