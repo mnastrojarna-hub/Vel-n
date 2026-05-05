@@ -214,8 +214,11 @@ serve(async (req) => {
             }
           } catch { /* ignore */ }
 
-          // If no existing receipt found, generate dobropis
-          if (!foundExistingReceipt && (refund_amount > 0 || refund_percent === 0)) {
+          // If no existing receipt found, generate dobropis.
+          // Pouze pokud byla rezervace skutečně zaplacená — jinak není z čeho refundovat
+          // ani strhávat storno poplatek, a DP/dobropis by neměl vzniknout (auto-cancel
+          // nezaplacených rezervací posílá refund_percent=0, což by jinak nesprávně spustilo generování).
+          if (wasPaid && !foundExistingReceipt && (refund_amount > 0 || refund_percent === 0)) {
             try {
               const hdrs = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
               const stornoLabel = refund_percent === 0

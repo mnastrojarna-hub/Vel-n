@@ -177,6 +177,20 @@ export async function handleWebBookingCheckout(
     }).eq('id', sessionMetadata.shop_order_id)
   }
 
+  // ZF (zálohová faktura) — generujeme při kliknutí na "Zaplatit" / přesměrování na Stripe.
+  // DP zůstává vázaná na webhook-receiver po reálné Stripe platbě. Generate-invoice má
+  // dedup per booking_id, takže opakované kliknutí ZF nezdvojí; webhook-receiver po platbě
+  // existující ZF přeskočí a jen ji připne k potvrzovacímu emailu.
+  try {
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
+    const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SERVICE_KEY}`, 'apikey': SERVICE_KEY },
+      body: JSON.stringify({ type: 'proforma', booking_id: body.booking_id, send_email: false }),
+    })
+  } catch (e) { console.warn('[WebBookingCheckout] ZF generation failed:', e) }
+
   return new Response(JSON.stringify({ checkout_url: session.url, session_id: session.id }), {
     headers: { ...CORS, 'Content-Type': 'application/json' }
   })
