@@ -369,8 +369,8 @@ body.homepage section[aria-labelledby="process"] .wbox .icon{filter:brightness(0
   .banner-caption{max-width:100%;padding:0 .25rem}
   .banner-caption strong{font-size:1.4rem;display:inline-block}
   .banner-caption p{font-size:.95rem}
-  .banner-caption .btn{width:100%;margin-bottom:.6rem;display:block}
-  .banner-caption .btn+.btn{margin-left:0;margin-top:.1rem}
+  .banner-caption .btn{width:100%;margin-bottom:.9rem;display:block}
+  .banner-caption .btn+.btn{margin-left:0;margin-top:.35rem}
   .moto-gallery .moto-thumbs .gallery-img img,
   .moto-gallery .gr3 .gallery-img img{height:80px}
   .moto-thumbs-nav{height:80px}
@@ -471,7 +471,7 @@ body.homepage section[aria-labelledby="process"] .wbox .icon{filter:brightness(0
   .banner>img,.banner>picture,.banner>picture img{height:240px}
   .header{position:relative}
   /* Banner CTAs — vrátíme inline na landscape (více místa) */
-  .banner-caption .btn{width:auto;display:inline-flex;margin-bottom:.35rem;margin-right:.5rem}
+  .banner-caption .btn{width:auto;display:inline-flex;margin-bottom:.5rem;margin-right:.5rem}
   .banner-caption strong{font-size:1.3rem}
   /* Skrýt overlay menu pokud je otevřené (UX safety) */
   .mobile-menu-overlay.open{padding-top:.5rem}
