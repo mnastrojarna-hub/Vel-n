@@ -39,7 +39,7 @@ define('LOGO_SVG', 'gfx/logo.svg');
 //   Pinterest:              MOTOGO_VERIFY_PINTEREST
 //   Facebook domain verif:  MOTOGO_VERIFY_FACEBOOK
 // Pokud jsou prázdné, žádný meta tag se neemituje (viz layout.php).
-define('VERIFY_GOOGLE',    getenv('MOTOGO_VERIFY_GOOGLE')    ?: '');
+define('VERIFY_GOOGLE',    getenv('MOTOGO_VERIFY_GOOGLE')    ?: 'jGbt3Ej94_RHklqQwKGojKmaYFMkR9EGS2pisrZJuNM');
 define('VERIFY_BING',      getenv('MOTOGO_VERIFY_BING')      ?: '');
 define('VERIFY_SEZNAM',    getenv('MOTOGO_VERIFY_SEZNAM')    ?: '');
 define('VERIFY_YANDEX',    getenv('MOTOGO_VERIFY_YANDEX')    ?: '');
