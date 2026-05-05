@@ -141,7 +141,7 @@ export const PAGE_UPRAVIT_REZERVACE = {
         { key: 'web.layout.editRez.tab.shorten', label: 'Záložka „Zkrátit"', default: 'Zkrátit' },
         { key: 'web.layout.editRez.tab.cancel', label: 'Záložka „Storno"', default: 'Storno' },
         { key: 'web.layout.editRez.tab.moto', label: 'Záložka „Změna motorky"', default: 'Změna motorky' },
-        { key: 'web.layout.editRez.tab.location', label: 'Záložka „Změna místa"', default: 'Změna místa' },
+        { key: 'web.layout.editRez.tab.location', label: 'Záložka „Čas a místo"', default: 'Čas a místo' },
         { key: 'web.layout.editRez.tab.docs', label: 'Záložka „Doklady"', default: 'Doklady' },
       ]
     },
@@ -281,10 +281,14 @@ export const PAGE_UPRAVIT_REZERVACE = {
       ]
     },
     {
-      id: 'location', label: 'Změna místa vyzvednutí / vrácení',
+      id: 'location', label: 'Čas a místo (vyzvednutí + vrácení)',
       fields: [
-        { key: 'web.layout.editRez.loc.title', label: 'Nadpis', default: 'Změnit místo vyzvednutí / vrácení' },
-        { key: 'web.layout.editRez.loc.help', label: 'Pomocný text', type: 'textarea', default: 'Změnte způsob a místo vyzvednutí nebo vrácení. Cena za přistavení/odvoz se vrací 100 % bez ohledu na čas; nová cena se doplatí přes Stripe nebo se vrátí přeplatek.' },
+        { key: 'web.layout.editRez.loc.title', label: 'Nadpis sekce', default: 'Čas a místo — vyzvednutí / vrácení' },
+        { key: 'web.layout.editRez.loc.help', label: 'Pomocný text (nadcházející rezervace)', type: 'textarea', default: 'Změňte způsob, místo a čas vyzvednutí nebo vrácení. Cena za přistavení/odvoz se počítá podle vzdálenosti od pobočky Mezná (1 000 Kč základ + 40 Kč/km). Rozdíl se vrací 100 % bez ohledu na čas, nový poplatek doplatíte přes Stripe.' },
+        { key: 'web.layout.editRez.loc.helpActive', label: 'Pomocný text (probíhající rezervace)', type: 'textarea', default: 'Probíhající rezervaci už můžete měnit jen na straně vrácení (motorku máte vyzvednutou). Místo a čas vrácení lze upravit kdykoliv — rozdíl ceny dorovnáme automaticky.' },
+        { key: 'web.layout.editRez.loc.refundNote', label: 'Banner „Storno se nevztahuje na změnu místa"', type: 'textarea', default: 'Změna místa nepodléhá storno tabulce — vratku za přistavení dostanete vždy v plné výši, i pokud měníte den vyzvednutí.' },
+        { key: 'web.layout.editRez.loc.pickupLockedTitle', label: 'Banner pickup zamčen — nadpis', default: 'Vyzvednutí už proběhlo' },
+        { key: 'web.layout.editRez.loc.pickupLockedHelp', label: 'Banner pickup zamčen — popis', type: 'textarea', default: 'Motorka je u vás od začátku rezervace, takže způsob, místo ani čas vyzvednutí už nelze měnit. Editovat můžete jen vrácení níže.' },
         { key: 'web.layout.editRez.loc.pickup', label: 'Label „Vyzvednutí"', default: 'Vyzvednutí' },
         { key: 'web.layout.editRez.loc.return', label: 'Label „Vrácení"', default: 'Vrácení' },
         { key: 'web.layout.editRez.loc.headPickup', label: 'Hlavička „Vyzvednutí motorky"', default: '📥 Vyzvednutí motorky' },

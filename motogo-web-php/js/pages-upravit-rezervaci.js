@@ -997,6 +997,19 @@ MG._editRez._injectConsentsStyles = function(){
     '.erez-loc-calc-total.erez-loc-diff-pay strong{color:#c0392b;font-size:1.05rem}'+
     '.erez-loc-calc-total.erez-loc-diff-refund strong{color:#1a8c1a;font-size:1.05rem}'+
     '.edit-rez-loc-submit{margin-top:.5rem;padding:.85rem 1.4rem;border-radius:14px;font-size:1rem}'+
+    /* Sekce karty (pickup/return) — sjednocený rámeček jako ve Flutter app */
+    '.erez-loc-section{background:#fff;border:1px solid #e5efe9;border-radius:16px;padding:1rem 1.1rem;margin-bottom:1rem}'+
+    '.erez-loc-section .edit-rez-section-h{margin-top:0;border-bottom:none;padding-bottom:.4rem}'+
+    '.erez-loc-section-locked{background:#f7f9f7;border-style:dashed}'+
+    '.erez-loc-locked-banner{display:flex;gap:.7rem;align-items:flex-start;padding:.6rem .8rem;background:#f0f5f2;border-radius:12px}'+
+    '.erez-loc-locked-banner strong{color:#1a2e22;font-size:.95rem}'+
+    '.erez-loc-locked-ico{font-size:1.4rem;line-height:1}'+
+    '.erez-loc-time{display:flex;flex-direction:column;gap:.3rem;margin-top:.7rem}'+
+    '.erez-loc-time-label{font-size:.78rem;color:#6a7a70;text-transform:uppercase;letter-spacing:.05em;font-weight:700}'+
+    '.erez-loc-time input[type=time]{padding:.55rem .8rem;border:1.5px solid #d4e8e0;border-radius:10px;font-family:Montserrat,sans-serif;font-size:.95rem;color:#1a2e22;background:#fff;max-width:200px}'+
+    '.erez-loc-time input[type=time]:focus{outline:none;border-color:#1a8c1a;box-shadow:0 0 0 3px rgba(26,140,26,.12)}'+
+    '.erez-loc-info-banner{display:flex;gap:.6rem;align-items:flex-start;background:#fff8e1;border:1.5px solid #f0c060;color:#5a4000;padding:.65rem .9rem;border-radius:12px;font-size:.85rem;line-height:1.45;margin:.4rem 0 .8rem}'+
+    '.erez-loc-info-ico{font-size:1.1rem;line-height:1.2;flex:0 0 auto}'+
     /* ===== ROZSIRENA KARTA REZERVACE V LISTU ===== */
     '.edit-rez-booking.erez-row{display:grid;grid-template-columns:120px 1fr auto;gap:1rem;padding:1rem 1.1rem;background:#fff;border:1px solid #d4e8e0;border-radius:16px;align-items:center;text-align:left;cursor:pointer;width:100%;transition:transform .15s, box-shadow .15s, border-color .15s;font:inherit;color:inherit}'+
     '.edit-rez-booking.erez-row:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(20,80,40,.12);border-color:#1a8c1a}'+
@@ -1370,7 +1383,7 @@ MG._editRez._renderDetail = function(){
     { key:'extend',   label: MG.t('editRez.tab.extend'),   show: canEdit },
     { key:'shorten',  label: MG.t('editRez.tab.shorten'),  show: canEdit },
     { key:'moto',     label: MG.t('editRez.tab.moto'),     show: canEdit && b.status === 'reserved' },
-    { key:'location', label: MG.t('editRez.tab.location'), show: canEdit && b.status === 'reserved' },
+    { key:'location', label: MG.t('editRez.tab.location'), show: canEdit },
     { key:'docs',     label: MG.t('editRez.tab.docs'),     show: true },
     { key:'cancel',   label: MG.t('editRez.tab.cancel'),   show: canEdit }
   ].filter(function(t){ return t.show; });
@@ -2011,6 +2024,9 @@ MG._editRez._renderTabLocation = function(){
   var t = document.getElementById('edit-rez-tab-content');
   var isDelP = b.pickup_method === 'delivery';
   var isDelR = b.return_method === 'delivery';
+  // U probíhající rezervace už motorku zákazník vyzvedl — pickup metodu, adresu
+  // ani čas vyzvednutí už měnit nelze. Editovatelné zůstává jen vrácení.
+  var isActive = b.status === 'active';
 
   // ===== ORIG fees per side =====
   // V DB je jen `delivery_fee` jako součet — nemáme uložené zvlášť pickup/return
@@ -2033,68 +2049,94 @@ MG._editRez._renderTabLocation = function(){
     '</label>';
   }
 
-  t.innerHTML =
-    '<h3>' + MG.t('editRez.loc.title') + '</h3>' +
-    '<p class="muted">' + MG.t('editRez.loc.help') + '</p>' +
-    '<form id="edit-rez-loc-form" class="edit-rez-form" novalidate>' +
-      // PICKUP
-      '<h4 class="edit-rez-section-h">' + MG.t('editRez.loc.headPickup') + '</h4>' +
-      '<div class="erez-loc-grid">' +
-        locCard('pickup', 'pickup', '🏠',
-          '<strong>' + MG.t('editRez.loc.atRentalTitle') + '</strong>',
-          MG.t('editRez.loc.atRentalDescPickup'),
-          !isDelP) +
-        locCard('pickup', 'delivery', '🚚',
-          '<strong>' + MG.t('editRez.loc.deliveryTitle') + '</strong>',
-          MG.t('editRez.loc.deliveryDescPickup'),
-          isDelP) +
-      '</div>' +
-      '<div class="erez-loc-addr-panel" data-side="pickup" style="display:' + (isDelP ? 'block' : 'none') + '">' +
-        '<div class="erez-loc-addr-row">' +
-          '<input type="text" name="pickupAddr" class="erez-loc-input" placeholder="' + MG.t('editRez.loc.addrPlaceholder') + '" value="' + (b.pickup_address || '').replace(/"/g,'&quot;') + '" autocomplete="street-address">' +
-          '<button type="button" class="erez-loc-mapbtn" data-map="pickup">' + MG.t('editRez.loc.pickOnMapBtn') + '</button>' +
+  // Pickup karta — pro aktivní rezervaci jen read-only banner s vysvětlením.
+  // Pro nadcházející: přepínač metody + adresa + čas vyzvednutí (1:1 s Flutter app).
+  var pickupCardHtml;
+  if (isActive){
+    var pickupSummary = isDelP
+      ? '🚚 ' + MG.t('editRez.loc.deliveryTitle') + (b.pickup_address ? ' — ' + b.pickup_address.replace(/</g,'&lt;') : '')
+      : '🏠 ' + MG.t('editRez.loc.atRentalTitle');
+    pickupCardHtml =
+      '<div class="erez-loc-section erez-loc-section-locked">' +
+        '<h4 class="edit-rez-section-h">🏍️ ' + MG.t('editRez.loc.headPickup') + '</h4>' +
+        '<div class="erez-loc-locked-banner">' +
+          '<span class="erez-loc-locked-ico">🔒</span>' +
+          '<div>' +
+            '<strong>' + MG.t('editRez.loc.pickupLockedTitle') + '</strong>' +
+            '<div class="muted" style="font-size:.85rem">' + MG.t('editRez.loc.pickupLockedHelp') + '</div>' +
+            '<div style="margin-top:.4rem">' + pickupSummary + (b.pickup_time ? ' · ' + b.pickup_time : '') + '</div>' +
+          '</div>' +
         '</div>' +
-        '<div class="erez-loc-route" id="edit-rez-loc-route-pickup"></div>' +
-        '<input type="hidden" name="pickupLat" value="' + (b.pickup_lat || '') + '">' +
-        '<input type="hidden" name="pickupLng" value="' + (b.pickup_lng || '') + '">' +
-        '<input type="hidden" name="pickupFee" value="0">' +
-      '</div>' +
-
-      // RETURN
-      '<h4 class="edit-rez-section-h">' + MG.t('editRez.loc.headReturn') + '</h4>' +
-      '<div class="erez-loc-grid">' +
-        locCard('returnM', 'pickup', '🏠',
-          '<strong>' + MG.t('editRez.loc.atRentalTitle') + '</strong>',
-          MG.t('editRez.loc.atRentalDescReturn'),
-          !isDelR) +
-        locCard('returnM', 'delivery', '🛵',
-          '<strong>' + MG.t('editRez.loc.deliveryReturnTitle') + '</strong>',
-          MG.t('editRez.loc.deliveryDescReturn'),
-          isDelR) +
-      '</div>' +
-      '<div class="erez-loc-addr-panel" data-side="return" style="display:' + (isDelR ? 'block' : 'none') + '">' +
-        '<div class="erez-loc-addr-row">' +
-          '<input type="text" name="returnAddr" class="erez-loc-input" placeholder="' + MG.t('editRez.loc.addrPlaceholder') + '" value="' + (b.return_address || '').replace(/"/g,'&quot;') + '" autocomplete="street-address">' +
-          '<button type="button" class="erez-loc-mapbtn" data-map="return">' + MG.t('editRez.loc.pickOnMapBtn') + '</button>' +
+      '</div>';
+  } else {
+    pickupCardHtml =
+      '<div class="erez-loc-section">' +
+        '<h4 class="edit-rez-section-h">🏍️ ' + MG.t('editRez.loc.headPickup') + '</h4>' +
+        '<div class="erez-loc-grid">' +
+          locCard('pickup', 'pickup', '🏠',
+            '<strong>' + MG.t('editRez.loc.atRentalTitle') + '</strong>',
+            MG.t('editRez.loc.atRentalDescPickup'),
+            !isDelP) +
+          locCard('pickup', 'delivery', '🚚',
+            '<strong>' + MG.t('editRez.loc.deliveryTitle') + '</strong>',
+            MG.t('editRez.loc.deliveryDescPickup'),
+            isDelP) +
         '</div>' +
-        '<div class="erez-loc-route" id="edit-rez-loc-route-return"></div>' +
-        '<input type="hidden" name="returnLat" value="' + (b.return_lat || '') + '">' +
-        '<input type="hidden" name="returnLng" value="' + (b.return_lng || '') + '">' +
-        '<input type="hidden" name="returnFee" value="0">' +
-      '</div>' +
-
-      // Časy vyzvednutí / vrácení — měnitelné nezávisle na metodě (přímý UPDATE).
-      '<h4 class="edit-rez-section-h">⏰ ' + MG.t('editRez.loc.timesTitle') + '</h4>' +
-      '<p class="muted" style="margin-top:-.4rem">' + MG.t('editRez.loc.timesHelp') + '</p>' +
-      '<div class="erez-loc-times-grid">' +
+        '<div class="erez-loc-addr-panel" data-side="pickup" style="display:' + (isDelP ? 'block' : 'none') + '">' +
+          '<div class="erez-loc-addr-row">' +
+            '<input type="text" name="pickupAddr" class="erez-loc-input" placeholder="' + MG.t('editRez.loc.addrPlaceholder') + '" value="' + (b.pickup_address || '').replace(/"/g,'&quot;') + '" autocomplete="street-address">' +
+            '<button type="button" class="erez-loc-mapbtn" data-map="pickup">' + MG.t('editRez.loc.pickOnMapBtn') + '</button>' +
+          '</div>' +
+          '<div class="erez-loc-route" id="edit-rez-loc-route-pickup"></div>' +
+          '<input type="hidden" name="pickupLat" value="' + (b.pickup_lat || '') + '">' +
+          '<input type="hidden" name="pickupLng" value="' + (b.pickup_lng || '') + '">' +
+          '<input type="hidden" name="pickupFee" value="0">' +
+        '</div>' +
         '<label class="erez-loc-time">' +
-          '<span class="erez-loc-time-label">' + MG.t('editRez.loc.pickupTime') + '</span>' +
+          '<span class="erez-loc-time-label">⏰ ' + MG.t('editRez.loc.pickupTime') + '</span>' +
           '<input type="time" name="pickupTime" value="' + (b.pickup_time || '') + '" step="900">' +
         '</label>' +
+      '</div>';
+  }
+
+  t.innerHTML =
+    '<h3>' + MG.t('editRez.loc.title') + '</h3>' +
+    '<p class="muted">' + MG.t(isActive ? 'editRez.loc.helpActive' : 'editRez.loc.help') + '</p>' +
+    '<form id="edit-rez-loc-form" class="edit-rez-form" novalidate>' +
+      pickupCardHtml +
+
+      // RETURN — vždy plně editovatelná i pro probíhající rezervace.
+      '<div class="erez-loc-section">' +
+        '<h4 class="edit-rez-section-h">🏁 ' + MG.t('editRez.loc.headReturn') + '</h4>' +
+        '<div class="erez-loc-grid">' +
+          locCard('returnM', 'pickup', '🏠',
+            '<strong>' + MG.t('editRez.loc.atRentalTitle') + '</strong>',
+            MG.t('editRez.loc.atRentalDescReturn'),
+            !isDelR) +
+          locCard('returnM', 'delivery', '🛵',
+            '<strong>' + MG.t('editRez.loc.deliveryReturnTitle') + '</strong>',
+            MG.t('editRez.loc.deliveryDescReturn'),
+            isDelR) +
+        '</div>' +
+        '<div class="erez-loc-addr-panel" data-side="return" style="display:' + (isDelR ? 'block' : 'none') + '">' +
+          '<div class="erez-loc-addr-row">' +
+            '<input type="text" name="returnAddr" class="erez-loc-input" placeholder="' + MG.t('editRez.loc.addrPlaceholder') + '" value="' + (b.return_address || '').replace(/"/g,'&quot;') + '" autocomplete="street-address">' +
+            '<button type="button" class="erez-loc-mapbtn" data-map="return">' + MG.t('editRez.loc.pickOnMapBtn') + '</button>' +
+          '</div>' +
+          '<div class="erez-loc-route" id="edit-rez-loc-route-return"></div>' +
+          '<input type="hidden" name="returnLat" value="' + (b.return_lat || '') + '">' +
+          '<input type="hidden" name="returnLng" value="' + (b.return_lng || '') + '">' +
+          '<input type="hidden" name="returnFee" value="0">' +
+        '</div>' +
         '<label class="erez-loc-time">' +
-          '<span class="erez-loc-time-label">' + MG.t('editRez.loc.returnTime') + '</span>' +
+          '<span class="erez-loc-time-label">⏰ ' + MG.t('editRez.loc.returnTime') + '</span>' +
           '<input type="time" name="returnTime" value="' + (b.return_time || '') + '" step="900">' +
         '</label>' +
+      '</div>' +
+
+      '<div class="erez-loc-info-banner">' +
+        '<span class="erez-loc-info-ico">💡</span>' +
+        '<span>' + MG.t('editRez.loc.refundNote') + '</span>' +
       '</div>' +
 
       '<div id="edit-rez-loc-summary" class="edit-rez-price-summary" aria-live="polite"></div>' +
@@ -2103,14 +2145,20 @@ MG._editRez._renderTabLocation = function(){
 
   var f = document.getElementById('edit-rez-loc-form');
 
+  // Helper — pickup inputy nemusejí v DOMu být (active mode má pickup zamčený).
+  function pickupVal(){ return (f && f.pickup) ? f.pickup.value : b.pickup_method; }
+  function returnVal(){ return (f && f.returnM) ? f.returnM.value : b.return_method; }
+
   // Toggle adresa boxů + active class na kartách
   function syncAddrVisibility(){
-    var pkV = f.pickup.value;
-    var rtV = f.returnM.value;
-    f.querySelector('.erez-loc-addr-panel[data-side="pickup"]').style.display = (pkV === 'delivery') ? 'block' : 'none';
-    f.querySelector('.erez-loc-addr-panel[data-side="return"]').style.display = (rtV === 'delivery') ? 'block' : 'none';
-    if (pkV !== 'delivery'){ f.pickupFee.value = '0'; }
-    if (rtV !== 'delivery'){ f.returnFee.value = '0'; }
+    var pkV = pickupVal();
+    var rtV = returnVal();
+    var pkPanel = f.querySelector('.erez-loc-addr-panel[data-side="pickup"]');
+    var rtPanel = f.querySelector('.erez-loc-addr-panel[data-side="return"]');
+    if (pkPanel) pkPanel.style.display = (pkV === 'delivery') ? 'block' : 'none';
+    if (rtPanel) rtPanel.style.display = (rtV === 'delivery') ? 'block' : 'none';
+    if (pkV !== 'delivery' && f.pickupFee){ f.pickupFee.value = '0'; }
+    if (rtV !== 'delivery' && f.returnFee){ f.returnFee.value = '0'; }
     // Active class na kartách
     f.querySelectorAll('.erez-loc-card').forEach(function(c){
       var name = c.getAttribute('data-loc-name');
@@ -2120,8 +2168,8 @@ MG._editRez._renderTabLocation = function(){
     });
     livePreview();
   }
-  Array.from(f.pickup).forEach(function(r){ r.addEventListener('change', syncAddrVisibility); });
-  Array.from(f.returnM).forEach(function(r){ r.addEventListener('change', syncAddrVisibility); });
+  if (f.pickup) Array.from(f.pickup).forEach(function(r){ r.addEventListener('change', syncAddrVisibility); });
+  if (f.returnM) Array.from(f.returnM).forEach(function(r){ r.addEventListener('change', syncAddrVisibility); });
 
   // Mapa picker (reuse existující MG._openWebMapPicker — ale ten zapisuje
   // do rezervačních inputů. Sklouzneme se do vlastního mini-pickeru, který
@@ -2194,8 +2242,8 @@ MG._editRez._renderTabLocation = function(){
       });
     });
   }
-  f.pickupAddr.addEventListener('input', debounce(function(){ recalcRoute('pickup'); }, 600));
-  f.returnAddr.addEventListener('input', debounce(function(){ recalcRoute('return'); }, 600));
+  if (f.pickupAddr) f.pickupAddr.addEventListener('input', debounce(function(){ recalcRoute('pickup'); }, 600));
+  if (f.returnAddr) f.returnAddr.addEventListener('input', debounce(function(){ recalcRoute('return'); }, 600));
   if (f.pickupTime) f.pickupTime.addEventListener('change', function(){ livePreview(); });
   if (f.returnTime) f.returnTime.addEventListener('change', function(){ livePreview(); });
 
@@ -2249,10 +2297,10 @@ MG._editRez._renderTabLocation = function(){
     // už nejsou v DOMu — async callbacks (geocoding, routing) by jinak
     // hodily „Cannot set properties of null". Tichý bail-out.
     if (!summary || !cta || !f.isConnected) return;
-    var pkM = f.pickup.value;
-    var rtM = f.returnM.value;
-    var pkFee = (pkM === 'delivery') ? Number(f.pickupFee.value || 0) : 0;
-    var rtFee = (rtM === 'delivery') ? Number(f.returnFee.value || 0) : 0;
+    var pkM = pickupVal();
+    var rtM = returnVal();
+    var pkFee = (pkM === 'delivery' && f.pickupFee) ? Number(f.pickupFee.value || 0) : 0;
+    var rtFee = (rtM === 'delivery' && f.returnFee) ? Number(f.returnFee.value || 0) : 0;
     var newTotal = pkFee + rtFee;
     var origTotal = origPickupFee + origReturnFee;
     var diffLocal = newTotal - origTotal;
@@ -2304,14 +2352,14 @@ MG._editRez._renderTabLocation = function(){
     var args = {
       p_booking_id: b.id,
       p_new_pickup_method: pkM,
-      p_new_pickup_address: pkM === 'delivery' ? f.pickupAddr.value : null,
-      p_new_pickup_lat: pkM === 'delivery' && f.pickupLat.value ? Number(f.pickupLat.value) : null,
-      p_new_pickup_lng: pkM === 'delivery' && f.pickupLng.value ? Number(f.pickupLng.value) : null,
+      p_new_pickup_address: pkM === 'delivery' && f.pickupAddr ? f.pickupAddr.value : null,
+      p_new_pickup_lat: pkM === 'delivery' && f.pickupLat && f.pickupLat.value ? Number(f.pickupLat.value) : null,
+      p_new_pickup_lng: pkM === 'delivery' && f.pickupLng && f.pickupLng.value ? Number(f.pickupLng.value) : null,
       p_new_pickup_fee: pkM === 'delivery' ? pkFee : 0,
       p_new_return_method: rtM,
-      p_new_return_address: rtM === 'delivery' ? f.returnAddr.value : null,
-      p_new_return_lat: rtM === 'delivery' && f.returnLat.value ? Number(f.returnLat.value) : null,
-      p_new_return_lng: rtM === 'delivery' && f.returnLng.value ? Number(f.returnLng.value) : null,
+      p_new_return_address: rtM === 'delivery' && f.returnAddr ? f.returnAddr.value : null,
+      p_new_return_lat: rtM === 'delivery' && f.returnLat && f.returnLat.value ? Number(f.returnLat.value) : null,
+      p_new_return_lng: rtM === 'delivery' && f.returnLng && f.returnLng.value ? Number(f.returnLng.value) : null,
       p_new_return_fee: rtM === 'delivery' ? rtFee : 0,
       p_dry_run: true
     };
@@ -2355,7 +2403,7 @@ MG._editRez._renderTabLocation = function(){
   // Načti orig fees z lat/lng (async) → pak refresh routes + preview
   computeOrigFees().then(function(){
     syncAddrVisibility();
-    if (isDelP) recalcRoute('pickup');
+    if (isDelP && f.pickupAddr) recalcRoute('pickup');
     if (isDelR) recalcRoute('return');
     livePreview();
   });
@@ -2363,7 +2411,7 @@ MG._editRez._renderTabLocation = function(){
   f.addEventListener('submit', function(e){
     e.preventDefault();
     if (MG._editRez.busy) return;
-    var pkM = f.pickup.value, rtM = f.returnM.value;
+    var pkM = pickupVal(), rtM = returnVal();
     var pkTime = f.pickupTime ? (f.pickupTime.value || '') : '';
     var rtTime = f.returnTime ? (f.returnTime.value || '') : '';
     var origPkTime = b.pickup_time || '';
@@ -2371,9 +2419,10 @@ MG._editRez._renderTabLocation = function(){
     var timeUpdate = {};
     if (pkTime !== origPkTime) timeUpdate.pickup_time = pkTime || null;
     if (rtTime !== origRtTime) timeUpdate.return_time = rtTime || null;
+    var pkFeeNow = f.pickupFee ? Number(f.pickupFee.value || 0) : origPickupFee;
+    var rtFeeNow = f.returnFee ? Number(f.returnFee.value || 0) : origReturnFee;
     var locUnchanged = (pkM === b.pickup_method && rtM === b.return_method &&
-      Number(f.pickupFee.value || 0) === origPickupFee &&
-      Number(f.returnFee.value || 0) === origReturnFee);
+      pkFeeNow === origPickupFee && rtFeeNow === origReturnFee);
 
     // Pouze čas: přímý UPDATE bez RPC (žádná cenová změna).
     if (locUnchanged && Object.keys(timeUpdate).length){
@@ -2407,15 +2456,15 @@ MG._editRez._renderTabLocation = function(){
 
     var payload = {
       p_new_pickup_method: pkM,
-      p_new_pickup_address: pkM === 'delivery' ? f.pickupAddr.value : null,
-      p_new_pickup_lat: pkM === 'delivery' && f.pickupLat.value ? Number(f.pickupLat.value) : null,
-      p_new_pickup_lng: pkM === 'delivery' && f.pickupLng.value ? Number(f.pickupLng.value) : null,
-      p_new_pickup_fee: pkM === 'delivery' ? Number(f.pickupFee.value || 0) : 0,
+      p_new_pickup_address: pkM === 'delivery' && f.pickupAddr ? f.pickupAddr.value : null,
+      p_new_pickup_lat: pkM === 'delivery' && f.pickupLat && f.pickupLat.value ? Number(f.pickupLat.value) : null,
+      p_new_pickup_lng: pkM === 'delivery' && f.pickupLng && f.pickupLng.value ? Number(f.pickupLng.value) : null,
+      p_new_pickup_fee: pkM === 'delivery' && f.pickupFee ? Number(f.pickupFee.value || 0) : 0,
       p_new_return_method: rtM,
-      p_new_return_address: rtM === 'delivery' ? f.returnAddr.value : null,
-      p_new_return_lat: rtM === 'delivery' && f.returnLat.value ? Number(f.returnLat.value) : null,
-      p_new_return_lng: rtM === 'delivery' && f.returnLng.value ? Number(f.returnLng.value) : null,
-      p_new_return_fee: rtM === 'delivery' ? Number(f.returnFee.value || 0) : 0,
+      p_new_return_address: rtM === 'delivery' && f.returnAddr ? f.returnAddr.value : null,
+      p_new_return_lat: rtM === 'delivery' && f.returnLat && f.returnLat.value ? Number(f.returnLat.value) : null,
+      p_new_return_lng: rtM === 'delivery' && f.returnLng && f.returnLng.value ? Number(f.returnLng.value) : null,
+      p_new_return_fee: rtM === 'delivery' && f.returnFee ? Number(f.returnFee.value || 0) : 0,
       // Pomocný field — _submitChange ho vyzvedne a aplikuje přes přímý UPDATE
       // po úspěšné RPC (RPC pickup_time/return_time neumí, ale RLS dovolí UPDATE).
       _time_update: Object.keys(timeUpdate).length ? timeUpdate : null
