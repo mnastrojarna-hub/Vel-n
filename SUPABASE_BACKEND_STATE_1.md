@@ -140,7 +140,7 @@
 | `suppliers` | Dodavatelé (name, normalized_name, ico, dic, address, bank_account, default_category, default_account, contact_email, notes, created_at, updated_at). Index na normalized_name a ico. Funkce normalize_supplier_name() pro matching bez diakritiky. Auto-upsert z OCR v receive-invoice. |
 | `inventory` | Skladové zásoby (category CHECK rozšířen o 'prislusenstvi') |
 | `inventory_movements` | Pohyby na skladě |
-| `accessory_types` | Dynamické typy příslušenství (key, label, sizes[], is_consumable, sort_order, is_active) — nahrazuje hardcoded ACCESSORY_TYPES |
+| `accessory_types` | Dynamické typy příslušenství (key, label, sizes[], is_consumable, **price_czk**, **pricing_unit** (per_booking/per_day/free), sort_order, is_active) — Velín admin spravuje (BranchAccessoryModals → „Spravovat typy"). Web `/rezervace` čte při init přes `MG._loadAccessoryConfig()` — řídí cenu i velikosti gear cards/chips v kroku 5. |
 
 ### AI a automatizace
 

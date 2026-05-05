@@ -275,14 +275,20 @@
 - **Propojení se skladem:** Při přidání/zvýšení množství se strhne z `inventory` (SKU: `prislusenstvi-{type}-{size}`). Při snížení půjčovaného zboží se vrátí na sklad. Spotřební zboží se nevrací.
 
 ### accessory_types
-- id (UUID PK), key (TEXT UNIQUE) — slug typu (boots, helmet, ubrousky...)
+- id (UUID PK), key (TEXT UNIQUE) — slug typu (boots, helmet, passenger_gear, boots_rider, boots_passenger, ubrousky…)
 - label (TEXT) — zobrazovaný název
-- sizes (TEXT[]) — povolené velikosti
+- sizes (TEXT[]) — povolené velikosti (web rezervace je čte při buildu kroku 5 přes `MG._loadAccessoryConfig`)
 - is_consumable (BOOLEAN DEFAULT false) — spotřební zboží (kukly, ubrousky) vs. půjčované (boty, helmy)
+- **price_czk** (INTEGER NOT NULL DEFAULT 0) — cena v Kč pro placené extras (passenger_gear=690, boots_rider=290, boots_passenger=290 ze seedu 2026-05-05). Pro inventury rows (helmet/jacket/gloves/pants/boots/balaclava) zůstává 0.
+- **pricing_unit** (TEXT NOT NULL DEFAULT 'per_booking', CHECK IN ('per_booking','per_day','free')) — `per_booking` = jednorázově za rezervaci, `per_day` = × počet dní, `free` = neúčtuje se. Web `MG._accessoryPrice` aktuálně počítá `per_booking`; multiplikace `per_day` se přidá až při zavedení nového typu.
 - sort_order (INTEGER DEFAULT 0), is_active (BOOLEAN DEFAULT true)
 - created_at, updated_at
 - RLS: Admin full access, Public read
 - Trigger: trg_accessory_types_updated → update_updated_at()
+- **Použití:**
+  - **Velín** → Pobočky → Příslušenství → „Spravovat typy" — admin edituje key/label/sizes/price_czk/pricing_unit/is_consumable.
+  - **Web** /rezervace krok 5 — `pages-rezervace.js#MG._loadAccessoryConfig()` fetchne `is_active=true` rows při init, naplní `MG._rez.accessoryConfig.{prices, sizes}`. Gear cards a size chip panely čtou z toho. Při fetch chybě fallback drží historické hodnoty.
+  - **Faktury / refundy** — derivují z `bookings.total_price` a `extras_price`, takže změna ceny ovlivní jen nové rezervace (existující si nesou cenu z checkout času).
 
 ### branch_door_codes
 - id (UUID PK), branch_id (FK→branches ON DELETE CASCADE)
