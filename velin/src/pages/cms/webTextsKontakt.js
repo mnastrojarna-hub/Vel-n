@@ -123,39 +123,191 @@ export const PAGE_POUKAZY = {
   ]
 }
 
-// POZN. ke konvenci klíčů u sekcí Kalendář / Skener / Validace:
-// Klíče v `lang/*.php` mají tvar `rez.cal.month.0`, `rez.cam.shoot`, …
+// POZN. ke konvenci klíčů na /rezervace:
+// Klíče v `lang/*.php` mají tvar `rez.h1`, `rez.intro.title`, `rez.cal.month.0`, …
 // Aby je admin přepsal přes CMS bez deployi, používáme prefix
 // `web.layout.<key>` — `_i18nCmsOverlay()` v PHP strne `web.layout.` a zbytek
 // použije jako klíč pro `t()`. (Prefix se historicky jmenuje „layout", ale ve
-// skutečnosti to je obecný t()-overlay; rozšíření o non-layout klíče je čistá
-// reuse.) Auto-překlad přes `translations` jsonb funguje stejně jako u home.
+// skutečnosti to je obecný t()-overlay.) Auto-překlad přes `translations`
+// jsonb funguje stejně jako u home. Klíče `rezervace.*` (meta) zůstávají bez
+// `rez.` prefixu — proto `web.layout.rezervace.title` apod.
 export const PAGE_REZERVACE = {
   id: 'rezervace', label: 'Rezervace', icon: '📅', url: '/rezervace',
-  description: 'Rezervační stránka s kalendářem a formulářem.',
+  description: 'Rezervační stránka s kalendářem, formulářem a kroky 1-6 (motorka, termín, kontakt, místo, výbava, souhlasy).',
   sections: [
     {
-      id: 'intro', label: 'Úvod stránky', location: 'H1 a vysvětlující texty nad formulářem',
+      id: 'meta', label: 'SEO meta',
       fields: [
-        { key: 'web.rez.h1', label: 'H1', default: 'Rezervace motorky' },
-        { key: 'web.rez.subtitle', label: 'Podnadpis', default: 'Jak rezervace funguje?' },
-        { key: 'web.rez.text1', label: 'Text 1', type: 'textarea', default: 'Pokud si chcete půjčit motorku v konkrétním termínu, vyberte „libovolná dostupná motorka" a v kalendáři termín vyznačte.' },
-        { key: 'web.rez.text2', label: 'Text 2', type: 'textarea', default: 'V případě, že si chcete vyzkoušet konkrétní motorku, vyberte ji ze seznamu a v kalendáři se vám zobrazí dostupné termíny.' },
-        { key: 'web.rez.text3', label: 'Text 3', default: 'Půjčujeme bez kauce. Základní výbavu pro řidiče poskytujeme zdarma.' },
+        { key: 'web.layout.rezervace.title', label: 'Page <title>', default: 'Online rezervace motorky | MotoGo24' },
+        { key: 'web.layout.rezervace.description', label: 'Meta description', type: 'textarea', default: 'Online rezervace motorky na Vysočině. Bez kauce, s výbavou v ceně a nonstop provozem. Vyberte motorku, termín a zaplaťte online.' },
+        { key: 'web.layout.rezervace.keywords', label: 'Meta keywords', default: 'rezervace motorky online, půjčit motorku, pronájem motorky Vysočina, online booking' },
+        { key: 'web.layout.rezervace.loading', label: 'Spinner overlay text', default: 'Načítám rezervační systém...' },
       ]
     },
     {
-      id: 'form', label: 'Formulář', location: 'Rezervační formulář pod kalendářem',
+      id: 'intro', label: 'Úvod stránky (H1 + „Jak to funguje")',
       fields: [
-        { key: 'web.rez.delivery.label', label: 'Přistavení label', default: 'Přistavení motorky jinam, než na adresu motopůjčovny' },
-        { key: 'web.rez.delivery.tooltip', label: 'Přistavení tooltip', type: 'textarea', default: 'Motorku vám dovezeme na domluvené místo. Do ceny za přistavení motorky se promítá: nakládka 500 Kč, vykládka 500 Kč a náklady na dopravu (20 Kč/km × 2 cesty = 40 Kč/km).' },
-        { key: 'web.rez.passenger.label', label: 'Výbava spolujezdce', default: 'Základní výbavu spolujezdce - 690,- Kč' },
-        { key: 'web.rez.boots.rider', label: 'Boty řidič', default: 'Zapůjčení bot pro řidiče - 290,- Kč' },
-        { key: 'web.rez.boots.passenger', label: 'Boty spolujezdec', default: 'Zapůjčení bot pro spolujezdce - 290,- Kč' },
+        { key: 'web.layout.rez.h1', label: 'H1 nadpis', default: 'Rezervace motorky' },
+        { key: 'web.layout.rez.intro.title', label: 'Podnadpis „Jak rezervace funguje?"', default: 'Jak rezervace funguje?' },
+        { key: 'web.layout.rez.intro.specific', label: 'Text 1 — konkrétní termín', type: 'textarea', default: 'Chcete <strong>konkrétní termín</strong>? Vyberte „libovolná dostupná motorka" a v kalendáři vyznačte datum — zobrazí se všechny volné motorky.' },
+        { key: 'web.layout.rez.intro.bike', label: 'Text 2 — konkrétní motorka', type: 'textarea', default: 'Chcete <strong>konkrétní motorku</strong>? Vyberte ji ze seznamu — kalendář ukáže její dostupné termíny.' },
+        { key: 'web.layout.rez.intro.benefits', label: 'Text 3 — bez kauce, výbava zdarma', default: 'Bez kauce · výbava pro řidiče zdarma · velikost si vyberete v motopůjčovně' },
       ]
     },
     {
-      id: 'calendar', label: 'Kalendář', location: 'Kalendář dostupnosti motorky (pages-rezervace-calendar.js)',
+      id: 'resume', label: 'Pokračování v rozdělané rezervaci',
+      fields: [
+        { key: 'web.layout.rez.loading.resume', label: '„Načítám rezervaci…"', default: 'Načítám rezervaci...' },
+        { key: 'web.layout.rez.notFound.title', label: 'Nadpis „Rezervace nenalezena"', default: 'Rezervace nenalezena' },
+        { key: 'web.layout.rez.notFound.text', label: 'Text „Již dokončena/zrušena"', default: 'Rezervace již byla dokončena nebo zrušena.' },
+        { key: 'web.layout.rez.notFound.create', label: 'Tlačítko „Vytvořit novou"', default: 'Vytvořit novou rezervaci' },
+        { key: 'web.layout.rez.error.loading', label: 'Chyba „Při načítání"', default: 'Chyba při načítání rezervace' },
+        { key: 'web.layout.rez.error.tryAgain', label: 'Chyba — výzva', default: 'Zkuste to prosím znovu nebo nás kontaktujte.' },
+      ]
+    },
+    {
+      id: 'steps', label: 'Nadpisy kroků 1–6',
+      fields: [
+        { key: 'web.layout.rez.step.moto', label: 'Krok 1 — Vyberte motorku', default: 'Vyberte motorku' },
+        { key: 'web.layout.rez.step.date', label: 'Krok 2 — Vyberte termín', default: 'Vyberte termín' },
+        { key: 'web.layout.rez.step.contact', label: 'Krok 3 — Kontaktní údaje', default: 'Vaše kontaktní údaje' },
+        { key: 'web.layout.rez.step.location', label: 'Krok 4 — Vyzvednutí a vrácení', default: 'Vyzvednutí a vrácení' },
+        { key: 'web.layout.rez.step.gear', label: 'Krok 5 — Výbava a velikosti', default: 'Výbava a velikosti' },
+        { key: 'web.layout.rez.step.agreements', label: 'Krok 6 — Souhlasy', default: 'Souhlasy' },
+      ]
+    },
+    {
+      id: 'motoSelect', label: 'Krok 1 — výběr motorky',
+      fields: [
+        { key: 'web.layout.rez.motoSelect.label', label: 'Label „Konkrétní model nebo libovolná"', default: 'Konkrétní model nebo libovolná motorka' },
+        { key: 'web.layout.rez.motoSelect.any', label: 'Možnost „libovolná dostupná"', default: 'libovolná dostupná motorka v mém termínu' },
+      ]
+    },
+    {
+      id: 'contact', label: 'Krok 3 — Kontaktní údaje',
+      fields: [
+        { key: 'web.layout.rez.contact.name', label: 'Label „Jméno a příjmení"', default: '* Jméno a příjmení' },
+        { key: 'web.layout.rez.contact.street', label: 'Label „Ulice, č.p."', default: '* Ulice, č.p.' },
+        { key: 'web.layout.rez.contact.zip', label: 'Label „PSČ"', default: '* PSČ' },
+        { key: 'web.layout.rez.contact.city', label: 'Label „Město"', default: '* Město' },
+        { key: 'web.layout.rez.contact.country', label: 'Label „Stát"', default: '* Stát' },
+        { key: 'web.layout.rez.contact.countryDefault', label: 'Defaultní stát', default: 'Česká republika' },
+        { key: 'web.layout.rez.contact.email', label: 'Label „E-mail"', default: '* E-mail' },
+        { key: 'web.layout.rez.contact.phone', label: 'Label „Telefon"', default: '* Telefon (+420XXXXXXXXX)' },
+        { key: 'web.layout.rez.contact.voucher', label: 'Label „Slevový kód / poukaz"', default: 'Slevový kód / dárkový poukaz' },
+        { key: 'web.layout.rez.contact.apply', label: 'Tlačítko „Uplatnit"', default: 'UPLATNIT' },
+        { key: 'web.layout.rez.contact.required', label: 'Hláška „Pole je povinné"', default: 'Toto pole je povinné' },
+      ]
+    },
+    {
+      id: 'pickup', label: 'Krok 4 — Vyzvednutí motorky',
+      fields: [
+        { key: 'web.layout.rez.pickup.title', label: 'Nadpis „Čas převzetí"', default: 'Čas převzetí nebo přistavení' },
+        { key: 'web.layout.rez.pickup.sub', label: 'Pomocný text', default: 'Vyberte z nabídky nebo zadejte vlastní čas' },
+        { key: 'web.layout.rez.pickup.recommended', label: 'Štítek „Doporučené časy"', default: 'Doporučené časy (06:00 — 14:00)' },
+        { key: 'web.layout.rez.pickup.orCustom', label: 'Štítek „Nebo vlastní"', default: '· nebo vyberte vlastní čas vlevo' },
+        { key: 'web.layout.rez.pickup.atRental', label: 'Možnost „V motopůjčovně"', default: 'Vyzvednutí v motopůjčovně' },
+        { key: 'web.layout.rez.pickup.atRentalSub', label: 'Popis „V motopůjčovně"', default: 'Zdarma · 24/7 přístup s kódem · základní nastavení' },
+        { key: 'web.layout.rez.pickup.delivery', label: 'Možnost „Přistavení"', default: 'Přistavení motorky jinam' },
+        { key: 'web.layout.rez.pickup.deliverySub', label: 'Popis „Přistavení" (šablona)', default: '{base} + {perKm}/km od pobočky', hint: '{base}, {perKm}' },
+        { key: 'web.layout.rez.pickup.deliveryTip', label: 'Tooltip „Přistavení"', type: 'textarea', default: 'Motorku vám dovezeme na domluvené místo. Cena: {base} + {perKm}/km od pobočky Mezná 9, 393 01 Mezná. Trasu spočítáme automaticky po zadání adresy.' },
+        { key: 'web.layout.rez.pickup.deliveryAddr', label: 'Placeholder „Adresa přistavení"', default: 'Zadejte adresu přistavení (ulice, město)' },
+        { key: 'web.layout.rez.pickup.sameAsDel', label: 'Checkbox „Vrátit na stejné adrese"', default: 'Vrátit motorku na stejné adrese' },
+        { key: 'web.layout.rez.pickup.returnOther', label: 'Checkbox „Vrácení jinde"', default: 'Vrácení motorky jinde, než kde bylo vyzvednuto' },
+        { key: 'web.layout.rez.pickup.returnTip', label: 'Tooltip „Vrácení jinde"', type: 'textarea', default: 'Motorku vám rádi vyzvedneme jinde. Cena: {base} + {perKm}/km od pobočky Mezná 9, 393 01 Mezná. Trasu spočítáme automaticky po zadání adresy.' },
+        { key: 'web.layout.rez.pickup.returnAddr', label: 'Placeholder „Adresa vrácení"', default: 'Zadejte adresu vrácení' },
+        { key: 'web.layout.rez.pickup.map', label: 'Tlačítko „Mapa"', default: 'Mapa' },
+        { key: 'web.layout.rez.return.title', label: 'Nadpis „Čas vrácení"', default: 'Čas vrácení motorky' },
+        { key: 'web.layout.rez.return.sub', label: 'Popis „Čas vrácení"', default: 'V kolik hodin vrátíte motorku na uvedené adrese?' },
+      ]
+    },
+    {
+      id: 'gear', label: 'Krok 5 — Výbava a velikosti (TEXTY)',
+      fields: [
+        { key: 'web.layout.rez.gear.intro', label: 'Úvodní text', type: 'textarea', default: 'Vyberte velikosti kliknutím na čtverečky níže. Pokud velikost nezvolíte, vyzkoušíme ji na místě.' },
+        { key: 'web.layout.rez.gear.rider', label: 'Karta „Výbava řidiče" — název', default: 'Výbava řidiče' },
+        { key: 'web.layout.rez.gear.riderSub', label: 'Karta „Výbava řidiče" — popis', default: 'Helma, bunda, rukavice, kalhoty' },
+        { key: 'web.layout.rez.gear.riderFree', label: 'Štítek „v ceně · zdarma"', default: 'v ceně · zdarma' },
+        { key: 'web.layout.rez.gear.riderOwn', label: 'Checkbox „Mám vlastní výbavu"', default: 'Mám vlastní výbavu — nepůjčuji' },
+        { key: 'web.layout.rez.gear.passenger', label: 'Karta „Výbava spolujezdce" — název', default: 'Výbava spolujezdce' },
+        { key: 'web.layout.rez.gear.passengerSub', label: 'Karta „Výbava spolujezdce" — popis', default: 'Helma, bunda, rukavice, kukla' },
+        { key: 'web.layout.rez.gear.passengerTip', label: 'Tooltip „Výbava spolujezdce"', type: 'textarea', default: 'Základní výbava pro spolujezdce: helma, bunda, rukavice a kukla. Velikost si vyberete kliknutím níže nebo na místě.' },
+        { key: 'web.layout.rez.gear.bootsRider', label: 'Karta „Boty pro řidiče" — název', default: 'Boty pro řidiče' },
+        { key: 'web.layout.rez.gear.bootsRiderSub', label: 'Karta „Boty pro řidiče" — popis', default: 'Motocyklové boty (nejsou v základní výbavě)' },
+        { key: 'web.layout.rez.gear.bootsPassenger', label: 'Karta „Boty pro spolujezdce" — název', default: 'Boty pro spolujezdce' },
+        { key: 'web.layout.rez.gear.bootsPassengerSub', label: 'Karta „Boty pro spolujezdce" — popis', default: 'Motocyklové boty pro spolujezdce' },
+        { key: 'web.layout.rez.gear.sizeHintGear', label: 'Hint — výbava řidiče', default: '✅ Zaškrtněte výše pro výběr velikostí (jinak se vyzkouší na místě)' },
+        { key: 'web.layout.rez.gear.sizeHintPassenger', label: 'Hint — výbava spolujezdce', default: '✅ Zaškrtněte výše a rozbalí se výběr velikostí spolujezdce' },
+        { key: 'web.layout.rez.gear.sizeHintBoots', label: 'Hint — boty', default: '✅ Zaškrtněte výše a rozbalí se výběr velikosti bot' },
+        { key: 'web.layout.rez.gear.sizeChoose', label: 'Štítek „vyber"', default: 'vyber' },
+        { key: 'web.layout.rez.gear.label.helmet', label: 'Položka „Helma"', default: 'Helma' },
+        { key: 'web.layout.rez.gear.label.jacket', label: 'Položka „Bunda"', default: 'Bunda' },
+        { key: 'web.layout.rez.gear.label.gloves', label: 'Položka „Rukavice"', default: 'Rukavice' },
+        { key: 'web.layout.rez.gear.label.pants', label: 'Položka „Kalhoty"', default: 'Kalhoty' },
+        { key: 'web.layout.rez.gear.label.boots', label: 'Položka „Boty"', default: 'Boty' },
+        { key: 'web.layout.rez.gear.item.passengerExtras', label: 'Položka faktury „Výbava spolujezdce"', default: 'Výbava spolujezdce' },
+        { key: 'web.layout.rez.gear.item.bootsRider', label: 'Položka faktury „Boty řidič"', default: 'Boty řidič' },
+        { key: 'web.layout.rez.gear.item.bootsPassenger', label: 'Položka faktury „Boty spolujezdce"', default: 'Boty spolujezdce' },
+        { key: 'web.layout.rez.gear.item.delivery', label: 'Položka faktury „Přistavení"', default: 'Přistavení motorky' },
+        { key: 'web.layout.rez.gear.item.return', label: 'Položka faktury „Vrácení"', default: 'Vrácení motorky' },
+      ]
+    },
+    {
+      id: 'agreements', label: 'Krok 6 — Souhlasy',
+      fields: [
+        { key: 'web.layout.rez.agree.terms', label: 'Souhlas s VOP (HTML, povinné)', type: 'textarea', default: '* Souhlasím s <a href="/obchodni-podminky">obchodními podmínkami</a>' },
+        { key: 'web.layout.rez.agree.gdpr', label: 'Souhlas GDPR (HTML)', type: 'textarea', default: 'Souhlasím se <a href="/gdpr">zpracováním osobních údajů</a>' },
+        { key: 'web.layout.rez.agree.marketing', label: 'Souhlas marketing', default: 'Souhlasím se zasíláním marketingových sdělení' },
+        { key: 'web.layout.rez.agree.photo', label: 'Souhlas fotografie', default: 'Souhlasím s využitím fotografií pro marketingové účely' },
+      ]
+    },
+    {
+      id: 'cta', label: 'CTA + cena',
+      fields: [
+        { key: 'web.layout.rez.cta.continue', label: 'Tlačítko „Pokračovat v rezervaci"', default: 'Pokračovat v rezervaci →' },
+        { key: 'web.layout.rez.cta.continuePay', label: 'Tlačítko „Pokračovat k platbě"', default: 'Pokračovat k platbě' },
+        { key: 'web.layout.rez.totalPrice', label: 'Šablona „Celková cena"', default: 'Celková cena: {price}', hint: '{price} = částka' },
+        { key: 'web.layout.rez.discount', label: 'Šablona „Sleva"', default: 'Sleva: −{amount}', hint: '{amount}' },
+      ]
+    },
+    {
+      id: 'voucher', label: 'Voucher / slevový kód',
+      fields: [
+        { key: 'web.layout.rez.voucher.enter', label: 'Placeholder „Zadejte kód"', default: 'Zadejte kód' },
+        { key: 'web.layout.rez.voucher.duplicate', label: 'Hláška „Kód již uplatněn"', default: 'Kód již uplatněn' },
+        { key: 'web.layout.rez.voucher.verifying', label: 'Hláška „Ověřuji…"', default: 'Ověřuji...' },
+        { key: 'web.layout.rez.voucher.error', label: 'Hláška „Chyba ověření"', default: 'Chyba ověření kódu: {msg}' },
+        { key: 'web.layout.rez.voucher.invalid', label: 'Hláška „Neplatný kód"', default: 'Kód nebyl nalezen nebo není platný' },
+        { key: 'web.layout.rez.voucher.percentOnce', label: 'Hláška „Dva procentuální"', default: 'Nelze kombinovat dva procentuální kódy' },
+        { key: 'web.layout.rez.voucher.discountApplied', label: 'Hláška „Sleva uplatněna"', default: '✓ Sleva {label} uplatněna (−{amt})' },
+        { key: 'web.layout.rez.voucher.voucherApplied', label: 'Hláška „Poukaz uplatněn"', default: '✓ Poukaz {amt} uplatněn' },
+      ]
+    },
+    {
+      id: 'alerts', label: 'Validační hlášky (alerty)',
+      fields: [
+        { key: 'web.layout.rez.alert.name', label: 'Validace jména', default: 'Zadejte platné jméno a příjmení (min. 2 písmena, bez číslic).' },
+        { key: 'web.layout.rez.alert.street', label: 'Validace ulice', default: 'Zadejte ulici a číslo popisné (min. 3 znaky).' },
+        { key: 'web.layout.rez.alert.city', label: 'Validace města', default: 'Zadejte město (min. 2 znaky).' },
+        { key: 'web.layout.rez.alert.zip', label: 'Validace PSČ', default: 'Vyplňte prosím PSČ.' },
+        { key: 'web.layout.rez.alert.email', label: 'Validace e-mailu', default: 'Zadejte platnou e-mailovou adresu.' },
+        { key: 'web.layout.rez.alert.phone', label: 'Validace telefonu', default: 'Zadejte telefon v mezinárodním formátu (např. +420 777 000 000).' },
+        { key: 'web.layout.rez.alert.terms', label: 'Validace VOP', default: 'Pro pokračování musíte souhlasit s obchodními podmínkami.' },
+        { key: 'web.layout.rez.alert.dates', label: 'Validace termínu', default: 'Vyberte prosím termín v kalendáři.' },
+        { key: 'web.layout.rez.alert.moto', label: 'Validace motorky', default: 'Vyberte prosím motorku.' },
+        { key: 'web.layout.rez.alert.pickupTime', label: 'Validace času převzetí', default: 'Vyplňte prosím čas převzetí nebo přistavení motorky.' },
+        { key: 'web.layout.rez.alert.minTime', label: 'Validace „Minimální čas"', default: 'Nejdříve možný čas převzetí je aktuální čas + 1 hodina.' },
+        { key: 'web.layout.rez.alert.minTimeDelivery', label: 'Validace „Min. čas přistavení"', default: 'Při přistavení je nejdříve možný čas aktuální čas + 6 hodin.' },
+        { key: 'web.layout.rez.alert.returnTime', label: 'Validace času vrácení', default: 'Vyplňte prosím čas vrácení motorky.' },
+        { key: 'web.layout.rez.alert.bookingOverlap', label: 'Validace „Termín obsazen"', type: 'textarea', default: 'Tuto motorku právě rezervoval jiný zákazník ve stejném termínu. Zvolte prosím jiný termín nebo jinou motorku.' },
+        { key: 'web.layout.rez.alert.bookingOverlapOwn', label: 'Validace „Vlastní rezervace"', default: 'V tomto termínu již máte jinou aktivní rezervaci.' },
+        { key: 'web.layout.rez.alert.error', label: 'Šablona „Chyba"', default: 'Chyba: {msg}' },
+        { key: 'web.layout.rez.alert.saveError', label: 'Šablona „Chyba ukládání"', default: 'Chyba při ukládání: {msg}' },
+        { key: 'web.layout.rez.alert.selectSize', label: 'Validace „Vyberte velikost"', default: 'Nejdřív vyberte velikost.' },
+      ]
+    },
+    {
+      id: 'calendar', label: 'Kalendář dostupnosti motorky',
       fields: [
         { key: 'web.layout.rez.cal.month.0', label: 'Měsíc 1', default: 'Leden' },
         { key: 'web.layout.rez.cal.month.1', label: 'Měsíc 2', default: 'Únor' },
@@ -176,8 +328,8 @@ export const PAGE_REZERVACE = {
         { key: 'web.layout.rez.cal.dayShort.4', label: 'Den (zkratka) — Pá', default: 'Pá' },
         { key: 'web.layout.rez.cal.dayShort.5', label: 'Den (zkratka) — So', default: 'So' },
         { key: 'web.layout.rez.cal.dayShort.6', label: 'Den (zkratka) — Ne', default: 'Ne' },
-        { key: 'web.layout.rez.cal.prev', label: 'Aria-label "předchozí měsíc"', default: 'Předchozí měsíc' },
-        { key: 'web.layout.rez.cal.next', label: 'Aria-label "další měsíc"', default: 'Další měsíc' },
+        { key: 'web.layout.rez.cal.prev', label: 'Aria-label „předchozí měsíc"', default: 'Předchozí měsíc' },
+        { key: 'web.layout.rez.cal.next', label: 'Aria-label „další měsíc"', default: 'Další měsíc' },
         { key: 'web.layout.rez.cal.legend.free', label: 'Legenda — Volné', default: 'Volné' },
         { key: 'web.layout.rez.cal.legend.selected', label: 'Legenda — Vybraný termín', default: 'Vybraný termín' },
         { key: 'web.layout.rez.cal.legend.occupied', label: 'Legenda — Obsazené', default: 'Obsazené' },
@@ -189,7 +341,7 @@ export const PAGE_REZERVACE = {
       ]
     },
     {
-      id: 'camera', label: 'Skener dokladů', location: 'Mobilní kamera pro OP/ŘP (pages-rezervace-camera.js)',
+      id: 'camera', label: 'Skener dokladů (mobil)',
       fields: [
         { key: 'web.layout.rez.cam.docs.id', label: 'Titulek — OP', default: 'Doklad totožnosti' },
         { key: 'web.layout.rez.cam.docs.license', label: 'Titulek — ŘP', default: 'Řidičský průkaz' },
@@ -197,12 +349,6 @@ export const PAGE_REZERVACE = {
         { key: 'web.layout.rez.cam.hint', label: 'Hint pod rámečkem', type: 'textarea', default: 'Vložte doklad celý do rámečku. Držte telefon rovně, dobré osvětlení.' },
         { key: 'web.layout.rez.cam.shoot', label: 'CTA — Spustit sken', default: 'Spustit sken' },
         { key: 'web.layout.rez.cam.progress', label: 'Status — Snímám', default: 'Snímám…' },
-      ]
-    },
-    {
-      id: 'alerts', label: 'Validační hlášky', location: 'alert() pop-upy při neúplném formuláři (pages-rezervace-steps.js)',
-      fields: [
-        { key: 'web.layout.rez.alert.selectSize', label: 'Vyberte velikost', default: 'Nejdřív vyberte velikost.' },
       ]
     },
   ]
