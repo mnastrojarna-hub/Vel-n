@@ -346,9 +346,12 @@ function FaqEditor({ entry, categories, onClose, onSaved }) {
 
         <div>
           <Label>Otázka</Label>
-          <input value={form.question} onChange={e => set('question', e.target.value)}
-            className="w-full rounded-btn text-sm outline-none" style={inputStyle}
-            placeholder="Např. Jak si mohu rezervovat motorku?" />
+          <RichTextEditor
+            value={form.question}
+            onChange={v => set('question', v)}
+            placeholder="Např. Jak si mohu rezervovat motorku?"
+            minHeight={56}
+          />
         </div>
 
         <div>
