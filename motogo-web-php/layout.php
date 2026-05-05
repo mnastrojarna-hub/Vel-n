@@ -416,12 +416,32 @@ window.MG_CONSENT_CFG = ' . $cfg . ';
  * Webmaster Tools verifikační meta tagy. Emitují se jen ty, které mají
  * neprázdnou hodnotu v env / config — žádné prázdné <meta> v HTML.
  *
+ * Google Search Console: každá doména je samostatná property s vlastním kódem.
+ * Vybíráme podle HTTP_HOST (motogo24.cz/.com/.pl/.at/.es). Pro neznámou
+ * doménu fallback na VERIFY_GOOGLE (typicky .cz hodnota).
+ *
  * Hodnoty se konfigurují přes env vars (viz config.php):
- *   MOTOGO_VERIFY_GOOGLE / BING / SEZNAM / YANDEX / PINTEREST / FACEBOOK
+ *   MOTOGO_VERIFY_GOOGLE_<TLD> (CZ/COM/PL/AT/ES) / MOTOGO_VERIFY_GOOGLE (fallback)
+ *   MOTOGO_VERIFY_BING / SEZNAM / YANDEX / PINTEREST / FACEBOOK
  */
 function renderWebmasterVerification() {
+    // Doménově-specifický Google Search Console kód
+    $host = $_SERVER['HTTP_HOST'] ?? '';
+    $host = preg_replace('#^www\.#i', '', strtolower($host));
+    $googleCode = defined('VERIFY_GOOGLE') ? VERIFY_GOOGLE : '';
+    $perDomain = [
+        'motogo24.cz'  => defined('VERIFY_GOOGLE_CZ')  ? VERIFY_GOOGLE_CZ  : '',
+        'motogo24.com' => defined('VERIFY_GOOGLE_COM') ? VERIFY_GOOGLE_COM : '',
+        'motogo24.pl'  => defined('VERIFY_GOOGLE_PL')  ? VERIFY_GOOGLE_PL  : '',
+        'motogo24.at'  => defined('VERIFY_GOOGLE_AT')  ? VERIFY_GOOGLE_AT  : '',
+        'motogo24.es'  => defined('VERIFY_GOOGLE_ES')  ? VERIFY_GOOGLE_ES  : '',
+    ];
+    if (!empty($perDomain[$host])) {
+        $googleCode = $perDomain[$host];
+    }
+
     $tags = [
-        ['google-site-verification', defined('VERIFY_GOOGLE')    ? VERIFY_GOOGLE    : ''],
+        ['google-site-verification', $googleCode],
         ['msvalidate.01',            defined('VERIFY_BING')      ? VERIFY_BING      : ''],
         ['seznam-wmt',               defined('VERIFY_SEZNAM')    ? VERIFY_SEZNAM    : ''],
         ['yandex-verification',      defined('VERIFY_YANDEX')    ? VERIFY_YANDEX    : ''],
