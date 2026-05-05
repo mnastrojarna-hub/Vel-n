@@ -1,8 +1,5 @@
 <?php
 // ===== MotoGo24 Web PHP — Vrácení motocyklu v půjčovně (CMS-driven, 1:1 prepis) =====
-// Zdroj: https://www.motogo24.cz/cz/jak-si-pujcit-motorku/vraceni-motocyklu-v-pujcovne
-// Obsah rozdelen do 2 souboru v /data/ kvuli pravidlu max 5000 tokenu na soubor.
-
 $sb = new SupabaseClient();
 
 $part1 = require __DIR__ . '/../data/vraceni-pujcovna-content-1.php';
@@ -12,66 +9,75 @@ $defaults = array_merge($part1, $part2);
 $C = $sb->siteContent('jak_pujcit_vraceni_pujcovna', $defaults);
 
 $bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.howto'), 'href' => '/jak-pujcit'], t('menu.howto.returnHome')]);
+$kp = 'web.jak_pujcit_vraceni_pujcovna';
 
 // --- Section 1: title + intro ---
 $titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">' . te('a11y.mainContent') . '</h2>' .
-    '<h1>' . $C['h1'] . '</h1>' .
-    '<p>' . $C['intro'] . '</p>' .
+    '<h1 data-cms-key="' . $kp . '.h1">' . ($C['h1'] ?? '') . '</h1>' .
+    '<p data-cms-key="' . $kp . '.intro">' . ($C['intro'] ?? '') . '</p>' .
     '</section>';
 
-// --- Section 2 (placeholder): main1 ---
 $main1Section = '<section aria-labelledby="main1" class="main1"><h2 id="main1" class="vh">' . te('a11y.importantInfo') . '</h2></section>';
 
-// --- Section 3: process 4 boxes (gr4) — pouze titulky bez popisu (jako v originale) ---
+// --- Section 3: process boxes ---
 $grid = $C['process']['grid'] ?? 'gr4';
 $processHtml = '<section aria-labelledby="process"><h2 id="process" class="vh">' . te('a11y.processHowItWorks') . '</h2>' .
     '<div class="' . htmlspecialchars($grid) . '">';
-foreach ($C['process']['steps'] as $s) {
-    // Pokud step nema text, vykreslime jen wbox-img + h3 (bez <p>)
-    $iconSrc = $s['icon'] ? BASE_URL . '/' . ltrim($s['icon'], '/') : '';
-    $titleText = trim(strip_tags($s['title']));
+foreach ((is_array($C['process']['steps'] ?? null) ? $C['process']['steps'] : []) as $i => $s) {
+    if (!is_array($s)) continue;
+    $iconSrc = !empty($s['icon']) ? BASE_URL . '/' . ltrim($s['icon'], '/') : '';
+    $titleText = trim(strip_tags((string)($s['title'] ?? '')));
+    $kBase = $kp . '.process.steps.' . $i;
     $processHtml .= '<div class="wbox">' .
-        ($s['icon'] ? '<div class="wbox-img"><img src="' . htmlspecialchars($iconSrc) . '" class="icon" alt="' . htmlspecialchars($titleText) . '" loading="lazy"></div>' : '') .
-        '<h3>' . $s['title'] . '</h3>' .
-        ($s['text'] !== '' ? '<p>' . $s['text'] . '</p>' : '') .
+        (!empty($s['icon']) ? '<div class="wbox-img"><img src="' . htmlspecialchars($iconSrc) . '" class="icon" alt="' . htmlspecialchars($titleText) . '" loading="lazy"></div>' : '') .
+        '<h3 data-cms-key="' . $kBase . '.title">' . ($s['title'] ?? '') . '</h3>' .
+        (!empty($s['text']) ? '<p data-cms-key="' . $kBase . '.text">' . $s['text'] . '</p>' : '') .
         '</div>';
 }
 $processHtml .= '</div></section>';
 
 // --- Section 4 (main2): Cas vraceni + Nesrovnalosti ---
 $issuesLis = '';
-foreach ($C['issues']['items'] as $i) { $issuesLis .= '<li>' . $i . '</li>'; }
+foreach ((is_array($C['issues']['items'] ?? null) ? $C['issues']['items'] : []) as $i => $item) {
+    $issuesLis .= '<li data-cms-key="' . $kp . '.issues.items.' . $i . '">' . $item . '</li>';
+}
 $main2Section = '<section aria-labelledby="main2" class="main2"><h2 id="main2" class="vh">' . te('a11y.moreImportantInfo') . '</h2>' .
-    '<h2>' . $C['time']['title'] . '</h2>' .
-    '<p>' . $C['time']['text'] . '</p>' .
+    '<h2 data-cms-key="' . $kp . '.time.title">' . ($C['time']['title'] ?? '') . '</h2>' .
+    '<p data-cms-key="' . $kp . '.time.text">' . ($C['time']['text'] ?? '') . '</p>' .
     '<p>&nbsp;</p>' .
-    '<h2>' . $C['issues']['title'] . '</h2>' .
-    '<p>' . $C['issues']['lead'] . '</p>' .
+    '<h2 data-cms-key="' . $kp . '.issues.title">' . ($C['issues']['title'] ?? '') . '</h2>' .
+    '<p data-cms-key="' . $kp . '.issues.lead">' . ($C['issues']['lead'] ?? '') . '</p>' .
     '<p>&nbsp;</p>' .
     '<ul>' . $issuesLis . '</ul>' .
     '<p>&nbsp;</p>' .
-    '<p>' . $C['issues']['closing'] . '</p>' .
+    '<p data-cms-key="' . $kp . '.issues.closing">' . ($C['issues']['closing'] ?? '') . '</p>' .
     '<p>&nbsp;</p><p>&nbsp;</p>' .
     '<div class="gr2"><div></div><div></div></div>' .
     '</section>';
 
 // --- Section 5: FAQ ---
 $faqHtml = '<section aria-labelledby="faq"><h2 id="faq" class="vh">' . te('a11y.frequentQuestions') . '</h2>' .
-    '<h2>' . $C['faq']['title'] . '</h2>' .
+    '<h2 data-cms-key="' . $kp . '.faq.title">' . ($C['faq']['title'] ?? '') . '</h2>' .
     '<div class="tab-content"><div class="tab-pane active" id="all"><div class="gr2">';
-foreach ($C['faq']['items'] as $f) {
-    $faqHtml .= renderFaqItem($f['q'], $f['a']);
+foreach ((is_array($C['faq']['items'] ?? null) ? $C['faq']['items'] : []) as $i => $f) {
+    if (!is_array($f)) continue;
+    $kBase = $kp . '.faq.items.' . $i;
+    $faqHtml .= renderFaqItem(
+        '<span data-cms-key="' . $kBase . '.q">' . ($f['q'] ?? '') . '</span>',
+        '<span data-cms-key="' . $kBase . '.a">' . ($f['a'] ?? '') . '</span>'
+    );
 }
 $faqHtml .= '</div></div></div></section>';
 
-// --- Section 6: final CTA → KONTAKT ---
+// --- Section 6: final CTA ---
 $ctaButtons = '';
-foreach ($C['cta']['buttons'] as $btn) {
-    $ctaButtons .= '<a aria-label="' . htmlspecialchars($btn['aria'] ?? $btn['label']) . '" class="btn ' . ($btn['cls'] ?? 'btndark') . '" href="' . BASE_URL . $btn['href'] . '">' . $btn['label'] . '</a>&nbsp;';
+foreach ((is_array($C['cta']['buttons'] ?? null) ? $C['cta']['buttons'] : []) as $i => $btn) {
+    if (!is_array($btn)) continue;
+    $ctaButtons .= '<a aria-label="' . htmlspecialchars($btn['aria'] ?? ($btn['label'] ?? '')) . '" class="btn ' . ($btn['cls'] ?? 'btndark') . '" href="' . BASE_URL . ($btn['href'] ?? '#') . '" data-cms-key="' . $kp . '.cta.buttons.' . $i . '.label">' . ($btn['label'] ?? '') . '</a>&nbsp;';
 }
 $finalCtaSection = '<section aria-labelledby="cta"><h2 id="cta" class="vh">' . te('a11y.contactUs') . '</h2>' .
-    '<h2>' . $C['cta']['title'] . '</h2>' .
-    '<p>' . $C['cta']['text'] . '</p>' .
+    '<h2 data-cms-key="' . $kp . '.cta.title">' . ($C['cta']['title'] ?? '') . '</h2>' .
+    '<p data-cms-key="' . $kp . '.cta.text">' . ($C['cta']['text'] ?? '') . '</p>' .
     '<p>&nbsp;</p><p>&nbsp;</p>' .
     '<p>' . $ctaButtons . '</p>' .
     '<p>&nbsp;</p>' .
@@ -89,13 +95,17 @@ $content = '<main id="content"><div class="container">' . $bc .
 
 // FAQPage schema
 $faqSchemaItems = [];
-foreach ($C['faq']['items'] as $faq) {
-    $faqSchemaItems[] = '{"@type":"Question","name":' . json_encode(strip_tags($faq['q']), JSON_UNESCAPED_UNICODE) . ',"acceptedAnswer":{"@type":"Answer","text":' . json_encode(strip_tags($faq['a']), JSON_UNESCAPED_UNICODE) . '}}';
+foreach ((is_array($C['faq']['items'] ?? null) ? $C['faq']['items'] : []) as $faq) {
+    if (!is_array($faq) || empty($faq['q']) || empty($faq['a'])) continue;
+    $faqSchemaItems[] = '{"@type":"Question","name":' . json_encode(strip_tags((string)$faq['q']), JSON_UNESCAPED_UNICODE) . ',"acceptedAnswer":{"@type":"Answer","text":' . json_encode(strip_tags((string)$faq['a']), JSON_UNESCAPED_UNICODE) . '}}';
 }
-$faqSchema = '
+$faqSchema = '';
+if (!empty($faqSchemaItems)) {
+    $faqSchema = '
   <script type="application/ld+json">
   {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[' . implode(',', $faqSchemaItems) . ']}
   </script>';
+}
 
 renderPage($C['seo']['title'], $content, '/jak-pujcit/vraceni-pujcovna', [
     'description' => $C['seo']['description'],
