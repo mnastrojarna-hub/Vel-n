@@ -570,6 +570,8 @@ return [
     'editRez.doc.licenseLabel' => 'Řidičský průkaz',
     'editRez.doc.uploadBtn' => 'Nahrát',
     'editRez.doc.updateBtn' => 'Aktualizovat',
+    'editRez.doc.scanBtn' => 'Vyfotit',
+    'editRez.doc.galleryBtn' => 'Nahrát ze zařízení',
     'editRez.doc.archiveTitle' => 'Doklady ke stažení',
 
     // Statuses
@@ -631,6 +633,9 @@ return [
     'editRez.loc.geocodeFail' => 'Adresu se nepodařilo najít. Zkuste přesnější zadání.',
     'editRez.loc.noPriceChange' => 'Beze změny ceny.',
     'editRez.loc.cta' => 'Uložit změnu',
+    'editRez.loc.ctaSave' => 'Uložit změny',
+    'editRez.loc.ctaPay' => 'Pokračovat k platbě →',
+    'editRez.loc.ctaRefund' => 'Potvrdit vrácení přeplatku',
     'editRez.loc.confirm' => 'Uložit změnu?',
     'editRez.loc.pickOnMap' => 'Vyberte místo na mapě',
     'editRez.loc.pickConfirm' => 'Potvrdit',
