@@ -44,17 +44,19 @@ MG._renderSizeChips = function(group, key, sizes, label, icon){
 
 MG._gearPanelHtml = function(opts){
   // opts: { panelId, group ('rider'|'passenger'), kinds: ['helmet','jacket','gloves','pants','boots'] }
+  // Velikosti se čtou z `MG._rez.accessoryConfig.sizes` (admin je spravuje
+  // přes Velín → accessory_types). Fallback drží defaultní rozsahy.
   var labels = {
-    helmet: { l: MG.t('rez.gear.label.helmet'), ico:'&#129695;', sizes: MG._SIZE_CHIPS_GEAR },
-    jacket: { l: MG.t('rez.gear.label.jacket'), ico:'&#129509;', sizes: MG._SIZE_CHIPS_GEAR },
-    gloves: { l: MG.t('rez.gear.label.gloves'), ico:'&#129306;', sizes: MG._SIZE_CHIPS_GEAR },
-    pants:  { l: MG.t('rez.gear.label.pants'),  ico:'&#128087;', sizes: MG._SIZE_CHIPS_PANTS },
-    boots:  { l: MG.t('rez.gear.label.boots'),  ico:'&#129406;', sizes: MG._SIZE_CHIPS_BOOTS }
+    helmet: { l: MG.t('rez.gear.label.helmet'), ico:'&#129695;' },
+    jacket: { l: MG.t('rez.gear.label.jacket'), ico:'&#129509;' },
+    gloves: { l: MG.t('rez.gear.label.gloves'), ico:'&#129306;' },
+    pants:  { l: MG.t('rez.gear.label.pants'),  ico:'&#128087;' },
+    boots:  { l: MG.t('rez.gear.label.boots'),  ico:'&#129406;' },
   };
   var rows = '';
   opts.kinds.forEach(function(k){
     var c = labels[k]; if(!c) return;
-    rows += MG._renderSizeChips(opts.group, k, c.sizes, c.l, c.ico);
+    rows += MG._renderSizeChips(opts.group, k, MG._accessorySizes(k), c.l, c.ico);
   });
   return '<div class="gear-size-panel" id="'+opts.panelId+'">'+rows+'</div>';
 };
@@ -211,7 +213,7 @@ MG._rezFormHtml = function(){
             '<input type="checkbox" id="rez-eq-passenger">' +
             '<span class="gear-ico">&#128107;</span>' +
             '<div class="gear-body"><div class="gear-title">'+MG.t('rez.gear.passenger')+'</div>' +
-            '<div class="gear-price">+ '+MG.formatPrice(690)+'</div>' +
+            '<div class="gear-price">+ '+MG.formatPrice(MG._accessoryPrice('passenger_gear'))+'</div>' +
             '<div class="gear-sub">'+MG.t('rez.gear.passengerSub') +
             MG._tip(MG.t('rez.gear.passengerTip')) +
             '</div></div>' +
@@ -226,7 +228,7 @@ MG._rezFormHtml = function(){
             '<input type="checkbox" id="rez-eq-boots-rider">' +
             '<span class="gear-ico">&#129406;</span>' +
             '<div class="gear-body"><div class="gear-title">'+MG.t('rez.gear.bootsRider')+'</div>' +
-            '<div class="gear-price">+ '+MG.formatPrice(290)+'</div>' +
+            '<div class="gear-price">+ '+MG.formatPrice(MG._accessoryPrice('boots_rider'))+'</div>' +
             '<div class="gear-sub">'+MG.t('rez.gear.bootsRiderSub')+'</div></div>' +
           '</label>' +
           '<div class="gear-size-panel-hint">'+MG.t('rez.gear.sizeHintBoots')+'</div>' +
@@ -239,7 +241,7 @@ MG._rezFormHtml = function(){
             '<input type="checkbox" id="rez-eq-boots-passenger">' +
             '<span class="gear-ico">&#129406;</span>' +
             '<div class="gear-body"><div class="gear-title">'+MG.t('rez.gear.bootsPassenger')+'</div>' +
-            '<div class="gear-price">+ '+MG.formatPrice(290)+'</div>' +
+            '<div class="gear-price">+ '+MG.formatPrice(MG._accessoryPrice('boots_passenger'))+'</div>' +
             '<div class="gear-sub">'+MG.t('rez.gear.bootsPassengerSub')+'</div></div>' +
           '</label>' +
           '<div class="gear-size-panel-hint">'+MG.t('rez.gear.sizeHintBoots')+'</div>' +
@@ -388,6 +390,64 @@ MG._rezInitFormEvents = function(){
   MG._rezUpdateReturnTimeVisibility();
 };
 
+// ===== ACCESSORY CONFIG (z accessory_types — Velín admin spravuje ceny i velikosti) =====
+// Pricing klíče se mapují 1:1 na checkbox ID v gear stepu. Size klíče se mapují
+// na typy v _gearPanelHtml (helmet, jacket, gloves, pants, boots). Pokud DB
+// fetch selže nebo daný klíč chybí, drží se fallback totožný s historickým
+// hardcoded stavem — formulář nikdy nepošle 0 Kč ani prázdné velikosti.
+MG._accessoryFallback = {
+  prices: { passenger_gear: 690, boots_rider: 290, boots_passenger: 290 },
+  sizes: {
+    helmet: ['XS','S','M','L','XL','XXL'],
+    jacket: ['XS','S','M','L','XL','XXL'],
+    gloves: ['XS','S','M','L','XL','XXL'],
+    pants:  ['XS','S','M','L','XL','XXL'],
+    boots:  ['36','37','38','39','40','41','42','43','44','45','46'],
+  },
+};
+MG._loadAccessoryConfig = async function(){
+  var out = {
+    prices: Object.assign({}, MG._accessoryFallback.prices),
+    sizes: JSON.parse(JSON.stringify(MG._accessoryFallback.sizes)),
+  };
+  if(!window.sb) return out;
+  try {
+    var res = await window.sb
+      .from('accessory_types')
+      .select('key, sizes, price_czk, pricing_unit, is_active')
+      .eq('is_active', true);
+    if(res.error || !res.data) return out;
+    res.data.forEach(function(t){
+      // Velikosti — pokud klíč matchuje známý kind v gear panelu, override
+      if(out.sizes.hasOwnProperty(t.key) && Array.isArray(t.sizes) && t.sizes.length){
+        out.sizes[t.key] = t.sizes.slice();
+      }
+      // Ceny — pricing_unit 'free' = neúčtujeme. Známe jen 3 bookable klíče.
+      if(out.prices.hasOwnProperty(t.key)){
+        var amt = typeof t.price_czk === 'number' ? t.price_czk : 0;
+        out.prices[t.key] = (t.pricing_unit === 'free') ? 0 : amt;
+      }
+    });
+    return out;
+  } catch(e){ return out; }
+};
+
+// Vrátí cenu příslušenství v Kč. days = délka rezervace (pro budoucí per_day).
+MG._accessoryPrice = function(key, days){
+  var cfg = (MG._rez && MG._rez.accessoryConfig) || MG._accessoryFallback;
+  var v = cfg.prices ? cfg.prices[key] : undefined;
+  if(typeof v === 'number') return v;
+  return MG._accessoryFallback.prices[key] || 0;
+};
+
+// Vrátí velikosti pro daný kind (helmet/jacket/gloves/pants/boots).
+MG._accessorySizes = function(kind){
+  var cfg = (MG._rez && MG._rez.accessoryConfig) || MG._accessoryFallback;
+  var s = cfg.sizes ? cfg.sizes[kind] : null;
+  if(Array.isArray(s) && s.length) return s;
+  return MG._accessoryFallback.sizes[kind] || [];
+};
+
 // ===== INIT PAGE (called from PHP inline script) =====
 MG._rezInit = async function(){
   var P = window.REZERVACE_PARAMS || {};
@@ -396,6 +456,11 @@ MG._rezInit = async function(){
   var preEnd = P.end || '';
   var preDelivery = P.delivery === '1';
   var resumeId = P.resume || '';
+
+  // Předem nahrát ceny + velikosti příslušenství z DB — `_rezFormHtml()` níže
+  // je čte synchronně při sestavování HTML kroku 5. Při chybě fetch fallback drží.
+  if(!MG._rez) MG._rez = {};
+  MG._rez.accessoryConfig = await MG._loadAccessoryConfig();
 
   // ===== RESUME FLOW =====
   if(resumeId){

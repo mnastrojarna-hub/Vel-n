@@ -62,9 +62,9 @@ MG._submitReservation = async function(){
     var isDel=document.getElementById('rez-delivery')&&document.getElementById('rez-delivery').checked;
     alert(isDel?T('rez.alert.minTimeDelivery'):T('rez.alert.minTime'));return;}
   var extras=[];
-  if(document.getElementById('rez-eq-passenger')&&document.getElementById('rez-eq-passenger').checked) extras.push({name:T('rez.gear.item.passengerExtras'),unit_price:690});
-  if(document.getElementById('rez-eq-boots-rider')&&document.getElementById('rez-eq-boots-rider').checked) extras.push({name:T('rez.gear.item.bootsRider'),unit_price:290});
-  if(document.getElementById('rez-eq-boots-passenger')&&document.getElementById('rez-eq-boots-passenger').checked) extras.push({name:T('rez.gear.item.bootsPassenger'),unit_price:290});
+  if(document.getElementById('rez-eq-passenger')&&document.getElementById('rez-eq-passenger').checked) extras.push({name:T('rez.gear.item.passengerExtras'),unit_price:MG._accessoryPrice('passenger_gear')});
+  if(document.getElementById('rez-eq-boots-rider')&&document.getElementById('rez-eq-boots-rider').checked) extras.push({name:T('rez.gear.item.bootsRider'),unit_price:MG._accessoryPrice('boots_rider')});
+  if(document.getElementById('rez-eq-boots-passenger')&&document.getElementById('rez-eq-boots-passenger').checked) extras.push({name:T('rez.gear.item.bootsPassenger'),unit_price:MG._accessoryPrice('boots_passenger')});
   var deliveryAddr=null,returnAddr=null;
   if(document.getElementById('rez-delivery')&&document.getElementById('rez-delivery').checked)
     deliveryAddr=(document.getElementById('rez-delivery-address')||{}).value||null;

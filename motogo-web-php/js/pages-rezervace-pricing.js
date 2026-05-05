@@ -17,9 +17,9 @@ MG._rezUpdatePrice = function(){
   var moto = r.motos.find(function(m){ return m.id === mId; });
   var base = (moto && r.startDate && r.endDate) ? MG.calcPrice(moto, r.startDate, r.endDate) : 0;
   var extras = 0;
-  if(document.getElementById('rez-eq-passenger') && document.getElementById('rez-eq-passenger').checked) extras += 690;
-  if(document.getElementById('rez-eq-boots-rider') && document.getElementById('rez-eq-boots-rider').checked) extras += 290;
-  if(document.getElementById('rez-eq-boots-passenger') && document.getElementById('rez-eq-boots-passenger').checked) extras += 290;
+  if(document.getElementById('rez-eq-passenger') && document.getElementById('rez-eq-passenger').checked) extras += MG._accessoryPrice('passenger_gear');
+  if(document.getElementById('rez-eq-boots-rider') && document.getElementById('rez-eq-boots-rider').checked) extras += MG._accessoryPrice('boots_rider');
+  if(document.getElementById('rez-eq-boots-passenger') && document.getElementById('rez-eq-boots-passenger').checked) extras += MG._accessoryPrice('boots_passenger');
   // Delivery/return fees: 1000 Kč + 40 Kč/km od pobočky Mezná 9
   var isDel = document.getElementById('rez-delivery') && document.getElementById('rez-delivery').checked;
   var retOther = document.getElementById('rez-return-other');

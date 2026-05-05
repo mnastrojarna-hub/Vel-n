@@ -156,7 +156,13 @@ function ManageTypesModal({ onClose, onSaved }) {
       const f = editForm
       const sizesArr = f.sizesText.split(',').map(s => s.trim()).filter(Boolean)
       if (!f.key || !f.label || sizesArr.length === 0) { setErr('Vyplňte klíč, název a velikosti'); return }
-      const row = { key: f.key, label: f.label, sizes: sizesArr, is_consumable: f.is_consumable, sort_order: f.sort_order || 0 }
+      const priceVal = Math.max(0, parseInt(f.price_czk, 10) || 0)
+      const unitVal = f.pricing_unit || 'per_booking'
+      const row = {
+        key: f.key, label: f.label, sizes: sizesArr,
+        is_consumable: f.is_consumable, sort_order: f.sort_order || 0,
+        price_czk: priceVal, pricing_unit: unitVal,
+      }
       if (f.id) {
         const { error } = await supabase.from('accessory_types').update(row).eq('id', f.id)
         if (error) throw error
@@ -201,12 +207,23 @@ function ManageTypesModal({ onClose, onSaved }) {
                   <div className="text-xs" style={{ color: '#1a2e22', opacity: 0.5 }}>
                     {t.key} — {(t.sizes || []).join(', ')}
                   </div>
+                  <div className="text-xs mt-0.5" style={{ color: '#1a2e22' }}>
+                    <strong>{(t.price_czk || 0)} Kč</strong>
+                    <span style={{ opacity: 0.5 }}>
+                      {' · '}
+                      {t.pricing_unit === 'per_day' ? 'za den'
+                        : t.pricing_unit === 'free' ? 'zdarma'
+                        : 'za rezervaci'}
+                    </span>
+                  </div>
                 </div>
                 <div className="flex gap-1">
                   <button onClick={() => setEditForm({
                     id: t.id, key: t.key, label: t.label,
                     sizesText: (t.sizes || []).join(', '),
                     is_consumable: !!t.is_consumable, sort_order: t.sort_order || 0,
+                    price_czk: typeof t.price_czk === 'number' ? t.price_czk : 0,
+                    pricing_unit: t.pricing_unit || 'per_booking',
                   })}
                     className="rounded-btn text-xs font-bold cursor-pointer border-none"
                     style={{ padding: '3px 8px', background: '#dbeafe', color: '#2563eb' }}>
@@ -253,6 +270,29 @@ function ManageTypesModal({ onClose, onSaved }) {
                 className="w-full rounded-btn text-sm outline-none"
                 style={{ padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0' }} placeholder="UNI nebo XS, S, M, L, XL, XXL" />
             </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs font-bold mb-1" style={{ color: '#1a2e22' }}>Cena (Kč)</label>
+                <input type="number" min={0} step={1} value={editForm.price_czk}
+                  onChange={e => setEditForm(f => ({ ...f, price_czk: e.target.value }))}
+                  className="w-full rounded-btn text-sm outline-none"
+                  style={{ padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0' }} placeholder="0" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold mb-1" style={{ color: '#1a2e22' }}>Jednotka</label>
+                <select value={editForm.pricing_unit}
+                  onChange={e => setEditForm(f => ({ ...f, pricing_unit: e.target.value }))}
+                  className="w-full rounded-btn text-sm outline-none cursor-pointer"
+                  style={{ padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0' }}>
+                  <option value="per_booking">Za rezervaci</option>
+                  <option value="per_day">Za den</option>
+                  <option value="free">Zdarma (informativní)</option>
+                </select>
+              </div>
+            </div>
+            <div className="text-xs" style={{ color: '#92400e', background: '#fef3c7', padding: '6px 10px', borderRadius: 6 }}>
+              Změna ceny ovlivní jen <strong>nové rezervace</strong>. Stávající rezervace mají cenu uloženou v <code>bookings.total_price</code> a faktury/refundy z ní vychází.
+            </div>
             <div className="flex items-center gap-3">
               <label className="flex items-center gap-1 cursor-pointer">
                 <input type="checkbox" checked={editForm.is_consumable}
@@ -278,7 +318,7 @@ function ManageTypesModal({ onClose, onSaved }) {
             </div>
           </div>
         ) : (
-          <button onClick={() => setEditForm({ key: '', label: '', sizesText: 'UNI', is_consumable: true, sort_order: types.length + 1 })}
+          <button onClick={() => setEditForm({ key: '', label: '', sizesText: 'UNI', is_consumable: true, sort_order: types.length + 1, price_czk: 0, pricing_unit: 'per_booking' })}
             className="rounded-btn text-sm font-bold cursor-pointer border-none mb-3"
             style={{ padding: '6px 14px', background: '#1a2e22', color: '#74FB71' }}>
             + Nový typ
