@@ -67,6 +67,12 @@ export default function ProductsTab() {
 
   const totalPages = Math.ceil(total / PER_PAGE)
   const fmt = n => n != null ? `${Number(n).toLocaleString('cs-CZ')} Kč` : '—'
+  const totalStock = p => {
+    if (p?.sizes?.length > 0 && p?.size_stock && typeof p.size_stock === 'object') {
+      return p.sizes.reduce((s, sz) => s + (Number(p.size_stock[sz]) || 0), 0)
+    }
+    return Number(p?.stock_quantity) || 0
+  }
 
   const ids = [...selectedIds]
   const bulkActions = [
@@ -119,13 +125,13 @@ export default function ProductsTab() {
                   <TD onClick={() => setDetail(p)}>
                     <span style={{
                       fontWeight: 700,
-                      color: p.stock_quantity <= 0 ? '#dc2626' : p.stock_quantity <= 10 ? '#b45309' : '#1a8a18'
+                      color: totalStock(p) <= 0 ? '#dc2626' : totalStock(p) <= 10 ? '#b45309' : '#1a8a18'
                     }}>
-                      {p.stock_quantity} ks
+                      {totalStock(p)} ks
                     </span>
                   </TD>
                   <TD onClick={() => setDetail(p)}>
-                    {p.sizes?.length > 0 ? p.sizes.join(', ') : '—'}
+                    <SizesBreakdown product={p} />
                   </TD>
                   <TD>
                     <span className="inline-block rounded-btn text-sm font-extrabold tracking-wide uppercase cursor-pointer"
@@ -159,6 +165,31 @@ export default function ProductsTab() {
   )
 }
 
+function SizesBreakdown({ product }) {
+  const sizes = product?.sizes || []
+  if (sizes.length === 0) return <span>—</span>
+  const ss = (product?.size_stock && typeof product.size_stock === 'object') ? product.size_stock : {}
+  return (
+    <div className="flex flex-wrap gap-1">
+      {sizes.map(sz => {
+        const n = Number(ss[sz]) || 0
+        const color = n <= 0 ? '#dc2626' : n <= 3 ? '#b45309' : '#1a8a18'
+        return (
+          <span key={sz} className="inline-flex items-center gap-1 rounded-btn text-xs font-bold"
+            style={{ padding: '2px 6px', background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+            <span style={{ color: '#1a2e22' }}>{sz}:</span>
+            <span style={{ color }}>{n}</span>
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
+function parseSizes(str) {
+  return (str || '').split(',').map(s => s.trim()).filter(Boolean)
+}
+
 function ProductFormModal({ product, onClose, onSaved }) {
   const isEdit = !!product
   const [form, setForm] = useState({
@@ -171,6 +202,7 @@ function ProductFormModal({ product, onClose, onSaved }) {
     color: product?.color || '',
     material: product?.material || '',
     sizes: product?.sizes?.join(', ') || '',
+    size_stock: (product?.size_stock && typeof product.size_stock === 'object') ? { ...product.size_stock } : {},
     images: Array.isArray(product?.images) ? product.images.filter(Boolean) : [],
     is_active: product?.is_active ?? true,
     sort_order: product?.sort_order ?? 0,
@@ -194,16 +226,27 @@ function ProductFormModal({ product, onClose, onSaved }) {
 
     setSaving(true); setErr(null)
     try {
+      const sizesArr = parseSizes(form.sizes)
+      let sizeStock = {}
+      let stockTotal = 0
+      if (sizesArr.length > 0) {
+        sizesArr.forEach(sz => { sizeStock[sz] = Math.max(0, Number(form.size_stock?.[sz]) || 0) })
+        stockTotal = sizesArr.reduce((s, sz) => s + sizeStock[sz], 0)
+      } else {
+        stockTotal = Number(form.stock_quantity) || 0
+      }
+
       const payload = {
         name: form.name.trim(),
         description: form.description.trim(),
         price: Number(form.price),
         sku: form.sku.trim() || null,
-        stock_quantity: Number(form.stock_quantity) || 0,
+        stock_quantity: stockTotal,
+        size_stock: sizeStock,
         category: form.category.trim() || 'merch',
         color: form.color.trim() || null,
         material: form.material.trim() || null,
-        sizes: form.sizes ? form.sizes.split(',').map(s => s.trim()).filter(Boolean) : [],
+        sizes: sizesArr,
         images: (form.images || []).filter(Boolean),
         is_active: form.is_active,
         sort_order: Number(form.sort_order) || 0,
@@ -246,20 +289,56 @@ function ProductFormModal({ product, onClose, onSaved }) {
             className="w-full rounded-btn text-sm outline-none" style={{ ...inputStyle, minHeight: 70, resize: 'vertical' }}
             placeholder="Popis produktu…" />
         </div>
-        <div className="grid grid-cols-3 gap-3">
-          <div><Label>Cena (Kč) *</Label><Input value={form.price} onChange={v => set('price', v)} placeholder="490" type="number" /></div>
-          <div><Label>Skladem (ks)</Label><Input value={form.stock_quantity} onChange={v => set('stock_quantity', v)} placeholder="50" type="number" /></div>
-          <div><Label>Pořadí</Label><Input value={form.sort_order} onChange={v => set('sort_order', v)} placeholder="1" type="number" /></div>
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          <div><Label>Kategorie</Label><Input value={form.category} onChange={v => set('category', v)} placeholder="merch" /></div>
-          <div><Label>Barva</Label><Input value={form.color} onChange={v => set('color', v)} placeholder="Černá" /></div>
-          <div><Label>Materiál</Label><Input value={form.material} onChange={v => set('material', v)} placeholder="100% bavlna" /></div>
-        </div>
-        <div>
-          <Label>Velikosti (oddělené čárkou)</Label>
-          <Input value={form.sizes} onChange={v => set('sizes', v)} placeholder="XS, S, M, L, XL" />
-        </div>
+        {(() => {
+          const sizesArr = parseSizes(form.sizes)
+          const hasSizes = sizesArr.length > 0
+          const total = hasSizes
+            ? sizesArr.reduce((s, sz) => s + (Number(form.size_stock?.[sz]) || 0), 0)
+            : (Number(form.stock_quantity) || 0)
+          return (
+            <>
+              <div className="grid grid-cols-3 gap-3">
+                <div><Label>Cena (Kč) *</Label><Input value={form.price} onChange={v => set('price', v)} placeholder="490" type="number" /></div>
+                {hasSizes ? (
+                  <div><Label>Skladem celkem</Label>
+                    <div className="rounded-btn text-sm font-bold flex items-center" style={{ ...inputStyle, color: '#1a8a18' }}>{total} ks</div>
+                  </div>
+                ) : (
+                  <div><Label>Skladem (ks)</Label><Input value={form.stock_quantity} onChange={v => set('stock_quantity', v)} placeholder="50" type="number" /></div>
+                )}
+                <div><Label>Pořadí</Label><Input value={form.sort_order} onChange={v => set('sort_order', v)} placeholder="1" type="number" /></div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div><Label>Kategorie</Label><Input value={form.category} onChange={v => set('category', v)} placeholder="merch" /></div>
+                <div><Label>Barva</Label><Input value={form.color} onChange={v => set('color', v)} placeholder="Černá" /></div>
+                <div><Label>Materiál</Label><Input value={form.material} onChange={v => set('material', v)} placeholder="100% bavlna" /></div>
+              </div>
+              <div>
+                <Label>Velikosti (oddělené čárkou)</Label>
+                <Input value={form.sizes} onChange={v => set('sizes', v)} placeholder="XS, S, M, L, XL" />
+              </div>
+              {hasSizes && (
+                <div>
+                  <Label>Skladem podle velikosti (ks)</Label>
+                  <div className="grid grid-cols-6 gap-2">
+                    {sizesArr.map(sz => (
+                      <div key={sz}>
+                        <div className="text-xs font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>{sz}</div>
+                        <input
+                          type="number" min="0"
+                          value={form.size_stock?.[sz] ?? 0}
+                          onChange={e => set('size_stock', { ...form.size_stock, [sz]: e.target.value })}
+                          placeholder="0"
+                          className="w-full rounded-btn text-sm outline-none" style={inputStyle}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )
+        })()}
         <div>
           <Label>Obrázky produktu</Label>
           <ImageUploader

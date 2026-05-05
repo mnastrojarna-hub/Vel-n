@@ -1,5 +1,5 @@
 # SUPABASE BACKEND STATE — MotoGo24 (Část 1: Tabulky)
-> **Poslední aktualizace:** 2026-05-05 (AI Customer Messages Agent — etapy 1-3: FE primitives, panel ve Velíně `/orchestrator`, DB rozšíření `messages` o AI návrhy + enum `ai_suggestion_status`, edge fn `ai-customer-messages-suggest` s `EdgeRuntime.waitUntil` timeout-safety)
+> **Poslední aktualizace:** 2026-05-05 (Per-velikost sklad v e-shopu: nový sloupec `products.size_stock` JSONB + Velín ProductsTab UI + RPC `create_web_shop_order` validuje/dekrementuje per velikost)
 > **Zdroj:** Reálný stav Supabase databáze (SQL dump z dashboardu) + Edge Functions
 > **Projekt:** `vnwnqteskbykeucanlhk.supabase.co`
 > **POZOR:** Tento soubor MUSÍ být aktualizován při každé SQL změně!
