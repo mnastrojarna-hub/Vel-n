@@ -5,11 +5,13 @@ import { debugAction } from '../../lib/debugLog'
 import Button from '../../components/ui/Button'
 import { loadAgentConfig, getEnabledTools } from '../../lib/aiAgents'
 import { buildAgentPromptsText } from '../../lib/aiAgentPrompts'
+import AiSuggestionPanel from './AiSuggestionPanel'
 
 export default function ChatPanel({ thread, onThreadUpdate }) {
   const [messages, setMessages] = useState([])
   const [templates, setTemplates] = useState([])
   const [admins, setAdmins] = useState([])
+  const [currentAdminId, setCurrentAdminId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
@@ -20,7 +22,19 @@ export default function ChatPanel({ thread, onThreadUpdate }) {
     if (thread) { loadMessages(); loadTemplates(); loadAdmins() }
   }, [thread?.id])
 
-  // Realtime subscription for new messages
+  // Načti aktuálního admina (pro audit AI schválení)
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user || cancelled) return
+      const { data } = await supabase.from('admin_users').select('id').eq('email', user.email).maybeSingle()
+      if (!cancelled) setCurrentAdminId(data?.id || null)
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  // Realtime subscription pro nové zprávy I update existujících (AI návrhy)
   useEffect(() => {
     if (!thread) return
     const channel = supabase
@@ -35,6 +49,16 @@ export default function ChatPanel({ thread, onThreadUpdate }) {
           if (prev.some(m => m.id === payload.new.id)) return prev
           return [...prev, payload.new]
         })
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'messages',
+        filter: `thread_id=eq.${thread.id}`,
+      }, (payload) => {
+        // Hlavní use-case: edge fn ai-customer-messages-suggest nebo
+        // schválení/zamítnutí návrhu admin v tomto Velínu z jiného tabu.
+        setMessages(prev => prev.map(m => m.id === payload.new.id ? { ...m, ...payload.new } : m))
       })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
@@ -274,7 +298,13 @@ Napiš POUZE text odpovědi — nic jiného.`,
           <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-t-2 border-brand-gd" /></div>
         ) : (
           messages.map(m => (
-            <MessageBubble key={m.id} message={m} />
+            <MessageBubble
+              key={m.id}
+              message={m}
+              threadId={thread.id}
+              currentAdminId={currentAdminId}
+              onAiAction={loadMessages}
+            />
           ))
         )}
         <div ref={bottomRef} />
@@ -324,9 +354,10 @@ Napiš POUZE text odpovědi — nic jiného.`,
   )
 }
 
-function MessageBubble({ message }) {
-  const isAdmin = message.direction === 'admin'
+function MessageBubble({ message, threadId, currentAdminId, onAiAction }) {
+  const isAdmin = message.direction === 'admin' || message.direction === 'outbound'
   const isSystem = message.direction === 'system'
+  const isCustomer = message.direction === 'customer' || message.direction === 'inbound'
 
   if (isSystem) {
     return (
@@ -347,19 +378,29 @@ function MessageBubble({ message }) {
 
   return (
     <div className={`flex ${isAdmin ? 'justify-end' : 'justify-start'}`}>
-      <div
-        className="rounded-card max-w-[70%]"
-        style={{
-          padding: '10px 14px',
-          background: isAdmin ? '#74FB71' : '#fff',
-          color: isAdmin ? '#1a2e22' : '#0f1a14',
-          boxShadow: '0 2px 8px rgba(15,26,20,.06)',
-        }}
-      >
-        <p className="text-sm" style={{ lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{message.content}</p>
-        <div className="text-sm mt-1" style={{ color: isAdmin ? '#1a6a18' : '#1a2e22' }}>
-          {message.created_at ? new Date(message.created_at).toLocaleString('cs-CZ') : ''}
+      <div className="max-w-[70%]" style={{ width: isCustomer ? '70%' : 'auto' }}>
+        <div
+          className="rounded-card"
+          style={{
+            padding: '10px 14px',
+            background: isAdmin ? '#74FB71' : '#fff',
+            color: isAdmin ? '#1a2e22' : '#0f1a14',
+            boxShadow: '0 2px 8px rgba(15,26,20,.06)',
+          }}
+        >
+          <p className="text-sm" style={{ lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{message.content}</p>
+          <div className="text-sm mt-1" style={{ color: isAdmin ? '#1a6a18' : '#1a2e22' }}>
+            {message.created_at ? new Date(message.created_at).toLocaleString('cs-CZ') : ''}
+          </div>
         </div>
+        {isCustomer && (
+          <AiSuggestionPanel
+            message={message}
+            threadId={threadId}
+            currentAdminId={currentAdminId}
+            onApprovedSent={onAiAction}
+          />
+        )}
       </div>
     </div>
   )
