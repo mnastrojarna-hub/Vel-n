@@ -217,6 +217,16 @@
 
 /* ===== MOTO DETAIL ===== */
 .moto-detail{padding-bottom:2rem}
+/* Popis motorky — celá šířka nad technickou specifikací */
+.moto-desc-block{margin-bottom:1.75rem}
+/* Technická specifikace — desktop dvě tabulky vedle sebe, na mobilu jedna původní */
+.moto-specs{margin-bottom:2rem}
+.moto-specs-mobile{display:none}
+.moto-specs-desktop.gr2{align-items:start}
+@media(max-width:768px){
+  .moto-specs-mobile{display:block}
+  .moto-specs-desktop{display:none}
+}
 .moto-nav{display:flex;justify-content:space-between;align-items:center;padding:.75rem 0;margin-bottom:1rem;border-bottom:1px solid #e0e0e0;gap:.5rem}
 .moto-nav a{color:#1a8c1a;font-size:.9rem;transition:color .2s;padding:.35rem .5rem;border-radius:6px}
 .moto-nav a:hover{color:#0d6e0d;background:#f4faf7}
