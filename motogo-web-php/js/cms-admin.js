@@ -80,16 +80,25 @@
 
   // ---- Inline edit ----
   // Pro každý [data-cms-key]: na click → contenteditable, Enter uloží, Esc zruší.
-  // U <a> tagů blokujeme navigaci v edit režimu.
+  // U <a> tagů (a libovolného předka, který je odkaz) blokujeme navigaci v edit
+  // režimu — typický případ: signpost karta `<a class="gbox" href="/katalog">`
+  // s vnořeným `<h3 data-cms-key>` / `<p data-cms-key>` / `<div data-cms-key>`.
+  // Bez tohoto by klik na nadpis karty rovnou redirectnul na /katalog
+  // a editace by se neuložila. Cmd/Ctrl klik zachová možnost normální navigace.
   function setupInlineEdit() {
     document.addEventListener('click', function (ev) {
       var el = ev.target.closest('[data-cms-key]');
       if (!el) return;
       // Pokud je už edit, neblokujeme
       if (el.getAttribute('contenteditable') === 'true') return;
-      // U odkazů blokuj navigaci, ale jen jednou (umožni druhý click pro skutečnou navigaci pomocí cmd/ctrl).
-      if (el.tagName === 'A' && !ev.metaKey && !ev.ctrlKey) {
+      // Najdi nejbližší předka <a href> (včetně el samotného) — pokud existuje
+      // a uživatel nedrží cmd/ctrl (chce reálně navigovat), zablokuj redirect.
+      var anchor = (el.tagName === 'A' && el.hasAttribute('href'))
+        ? el
+        : el.closest('a[href]');
+      if (anchor && !ev.metaKey && !ev.ctrlKey) {
         ev.preventDefault();
+        ev.stopPropagation();
       }
       startEdit(el);
     }, true);
