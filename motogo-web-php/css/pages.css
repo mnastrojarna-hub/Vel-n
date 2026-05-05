@@ -1223,3 +1223,37 @@
   #rez-cam-overlay .rez-cam-frame{width:90vw}
   #rez-cam-overlay .rez-cam-hint{top:60%}
 }
+
+/* ===== Cookie consent banner (GDPR / ePrivacy) =====
+   Plovoucí lišta dole. Skrytá dokud JS nezavolá .hidden=false. Settings panel
+   se rozbalí inline pod intro textem. Vždy vyšší z-index než AI widget. */
+.mg-consent{position:fixed;left:1rem;right:1rem;bottom:1rem;z-index:9998;background:#fff;border:1px solid #d8e2dc;border-radius:14px;box-shadow:0 18px 40px rgba(10,30,20,.18),0 4px 12px rgba(10,30,20,.08);max-width:760px;margin:0 auto;font-family:'Montserrat',sans-serif}
+.mg-consent[hidden]{display:none}
+.mg-consent-inner{padding:1.1rem 1.2rem}
+.mg-consent-title{margin:0 0 .4rem;font-size:1.05rem;font-weight:700;color:#1a2e22}
+.mg-consent-intro{font-size:.92rem;line-height:1.45;color:#3a4a42;margin:0 0 .9rem}
+.mg-consent-intro a{color:#1a8c1a;text-decoration:underline}
+.mg-consent-settings{display:flex;flex-direction:column;gap:.6rem;margin:0 0 .9rem;padding:.7rem .8rem;background:#f5f9f5;border-radius:10px}
+.mg-consent-settings[hidden]{display:none}
+.mg-consent-row{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;padding:.45rem 0;border-bottom:1px dashed #d8e2dc}
+.mg-consent-row:last-child{border-bottom:none}
+.mg-consent-row span{flex:1;min-width:0;font-size:.88rem;color:#1a2e22;line-height:1.4}
+.mg-consent-row small{display:block;color:#5a6e64;font-size:.78rem;margin-top:.15rem;font-weight:400}
+.mg-consent-row input[type=checkbox]{flex:none;width:22px;height:22px;accent-color:#1a8c1a;cursor:pointer;margin-top:.15rem}
+.mg-consent-row--locked{opacity:.85}
+.mg-consent-pill{flex:none;background:#1a8c1a;color:#fff;font-size:.7rem;padding:.18rem .55rem;border-radius:999px;font-weight:600;letter-spacing:.02em;align-self:flex-start;margin-top:.2rem}
+.mg-consent-buttons{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;justify-content:flex-end}
+.mg-consent-buttons .btn{font-family:inherit;cursor:pointer}
+.mg-consent .btn-outline{background:#fff;color:#1a2e22;border:1.5px solid #1a2e22;padding:.5rem 1rem;font-size:.85rem;border-radius:20px;font-weight:600;transition:all .2s}
+.mg-consent .btn-outline:hover{background:#1a2e22;color:#fff}
+.mg-consent .btn-link{background:none;border:none;color:#1a8c1a;text-decoration:underline;font-weight:600;padding:.5rem .6rem;font-size:.85rem}
+.mg-consent .btn-link:hover{color:#0d6b0d}
+@media(max-width:520px){
+  .mg-consent{left:.5rem;right:.5rem;bottom:.5rem;border-radius:12px}
+  .mg-consent-inner{padding:.9rem 1rem}
+  .mg-consent-title{font-size:1rem}
+  .mg-consent-intro{font-size:.85rem}
+  .mg-consent-buttons{justify-content:stretch}
+  .mg-consent-buttons .btn{flex:1 1 auto;min-width:120px;text-align:center}
+  .mg-consent-buttons .btn-link{flex:1 1 100%}
+}
