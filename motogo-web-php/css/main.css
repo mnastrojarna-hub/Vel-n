@@ -369,8 +369,8 @@ body.homepage section[aria-labelledby="process"] .wbox .icon{filter:brightness(0
   .banner-caption{max-width:100%;padding:0 .25rem}
   .banner-caption strong{font-size:1.4rem;display:inline-block}
   .banner-caption p{font-size:.95rem}
-  .banner-caption .btn{width:100%;margin-bottom:.5rem;display:block}
-  .banner-caption .btn+.btn{margin-left:0}
+  .banner-caption .btn{width:100%;margin-bottom:.6rem;display:block}
+  .banner-caption .btn+.btn{margin-left:0;margin-top:.1rem}
   .moto-gallery .moto-thumbs .gallery-img img,
   .moto-gallery .gr3 .gallery-img img{height:80px}
   .moto-thumbs-nav{height:80px}
@@ -421,6 +421,8 @@ body.homepage section[aria-labelledby="process"] .wbox .icon{filter:brightness(0
   section[aria-labelledby="process"]{padding:1.5rem 1.1rem;border-radius:14px;margin:1.5rem 0}
   /* Buttons full-width on mobile when wrapped in centered p */
   .text-center .btn+.btn{margin-top:.5rem}
+  /* CTA sekce — mezery mezi tlačítky při zalomení na mobilu */
+  section[aria-labelledby="cta"] .btn{margin:.25rem .15rem}
   /* Scroll to top — safe area + nad AI bubble (mobil) */
   #Up{bottom:calc(max(env(safe-area-inset-bottom),1rem) + 70px);right:max(env(safe-area-inset-right),1rem);width:48px;height:48px}
 }
@@ -469,7 +471,7 @@ body.homepage section[aria-labelledby="process"] .wbox .icon{filter:brightness(0
   .banner>img,.banner>picture,.banner>picture img{height:240px}
   .header{position:relative}
   /* Banner CTAs — vrátíme inline na landscape (více místa) */
-  .banner-caption .btn{width:auto;display:inline-flex;margin-bottom:0;margin-right:.5rem}
+  .banner-caption .btn{width:auto;display:inline-flex;margin-bottom:.35rem;margin-right:.5rem}
   .banner-caption strong{font-size:1.3rem}
   /* Skrýt overlay menu pokud je otevřené (UX safety) */
   .mobile-menu-overlay.open{padding-top:.5rem}
