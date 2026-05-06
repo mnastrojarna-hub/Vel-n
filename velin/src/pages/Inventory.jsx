@@ -197,6 +197,40 @@ function AddItemModal({ onClose, onSaved }) {
   const [form, setForm] = useState({ name: '', sku: '', category: 'material', stock: 0, min_stock: 0, unit_price: '' })
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
+  // SKU builder pro kategorii „prislusenstvi" — místo volného textu nabízíme
+  // dropdowny typ + velikost z `accessory_types`. SKU se skládá automaticky
+  // jako `prislusenstvi-{type}-{size}`. Manuální mód jako únik pro nestandardní položky.
+  const [accTypes, setAccTypes] = useState([])
+  const [skuType, setSkuType] = useState('')
+  const [skuSize, setSkuSize] = useState('')
+  const [skuManual, setSkuManual] = useState(false)
+
+  useEffect(() => {
+    supabase.from('accessory_types')
+      .select('id, key, label, sizes, is_consumable, audience, sort_order')
+      .eq('is_active', true)
+      .order('sort_order')
+      .then(({ data }) => setAccTypes(data || []))
+  }, [])
+
+  const isAcc = form.category === 'prislusenstvi'
+  const selectedType = accTypes.find(t => t.key === skuType)
+  const sizeOptions = selectedType?.sizes || []
+
+  // Auto-build SKU + name z dropdownů (jen v auto módu pro prislusenstvi)
+  useEffect(() => {
+    if (!isAcc || skuManual) return
+    if (skuType && skuSize){
+      const sku = `prislusenstvi-${skuType}-${skuSize}`
+      const name = `${selectedType?.label || skuType} ${skuSize}`
+      setForm(f => ({ ...f, sku, name }))
+    }
+  }, [isAcc, skuManual, skuType, skuSize, selectedType])
+
+  // Při přepnutí kategorie shoď SKU builder state
+  useEffect(() => {
+    if (!isAcc){ setSkuType(''); setSkuSize(''); setSkuManual(false) }
+  }, [isAcc])
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
@@ -216,27 +250,83 @@ function AddItemModal({ onClose, onSaved }) {
     } catch (e) { setErr(e.message) } finally { setSaving(false) }
   }
 
+  const skuValid = !isAcc || skuManual || (skuType && skuSize)
+  const canSave = !saving && form.name && form.sku && skuValid
+
   return (
     <Modal open title="Nová skladová položka" onClose={onClose}>
       <div className="grid grid-cols-2 gap-3">
-        <FormField label="Název" value={form.name} onChange={v => set('name', v)} />
-        <FormField label="SKU" value={form.sku} onChange={v => set('sku', v)} />
         <div>
           <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Kategorie</label>
           <select value={form.category} onChange={e => set('category', e.target.value)}
-            className="w-full rounded-btn text-sm outline-none"
+            className="w-full rounded-btn text-sm outline-none cursor-pointer"
             style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>
             {INVENTORY_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
           </select>
         </div>
         <FormField label="Cena/ks (Kč)" value={form.unit_price} onChange={v => set('unit_price', v)} type="number" />
+
+        {isAcc ? (
+          <>
+            <div>
+              <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Typ příslušenství</label>
+              <select value={skuType} onChange={e => { setSkuType(e.target.value); setSkuSize('') }}
+                disabled={skuManual}
+                className="w-full rounded-btn text-sm outline-none cursor-pointer"
+                style={{ padding: '8px 12px', background: skuManual ? '#f5f5f5' : '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>
+                <option value="">— vyber typ —</option>
+                {accTypes.map(t => (
+                  <option key={t.id} value={t.key}>{t.label}{t.is_consumable ? ' (spotřební)' : ''}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Velikost</label>
+              <select value={skuSize} onChange={e => setSkuSize(e.target.value)}
+                disabled={skuManual || !selectedType}
+                className="w-full rounded-btn text-sm outline-none cursor-pointer"
+                style={{ padding: '8px 12px', background: (skuManual || !selectedType) ? '#f5f5f5' : '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>
+                <option value="">— vyber velikost —</option>
+                {sizeOptions.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          </>
+        ) : null}
+
+        <div className="col-span-2">
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#1a2e22' }}>Název</label>
+            {isAcc && (
+              <label className="text-xs font-bold cursor-pointer flex items-center gap-1" style={{ color: '#1a2e22' }}>
+                <input type="checkbox" checked={skuManual} onChange={e => setSkuManual(e.target.checked)} />
+                Manuální SKU + název
+              </label>
+            )}
+          </div>
+          <input type="text" value={form.name} onChange={e => set('name', e.target.value)}
+            disabled={isAcc && !skuManual && skuType && skuSize}
+            className="w-full rounded-btn text-sm outline-none"
+            style={{ padding: '8px 12px', background: (isAcc && !skuManual && skuType && skuSize) ? '#f5f5f5' : '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
+        </div>
+        <div className="col-span-2">
+          <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>SKU</label>
+          <input type="text" value={form.sku} onChange={e => set('sku', e.target.value)}
+            disabled={isAcc && !skuManual}
+            className="w-full rounded-btn text-sm outline-none font-mono"
+            style={{ padding: '8px 12px', background: (isAcc && !skuManual) ? '#f5f5f5' : '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
+          {isAcc && !skuManual && (
+            <div className="text-xs mt-1" style={{ color: '#6b8f7b' }}>
+              SKU se skládá automaticky: <span className="font-mono">prislusenstvi-{skuType || '<typ>'}-{skuSize || '<vel>'}</span>
+            </div>
+          )}
+        </div>
         <FormField label="Počáteční stav" value={form.stock} onChange={v => set('stock', v)} type="number" />
         <FormField label="Minimum" value={form.min_stock} onChange={v => set('min_stock', v)} type="number" />
       </div>
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}
       <div className="flex justify-end gap-3 mt-5">
         <Button onClick={onClose}>Zrušit</Button>
-        <Button green onClick={handleSave} disabled={saving || !form.name}>{saving ? 'Ukládám…' : 'Vytvořit'}</Button>
+        <Button green onClick={handleSave} disabled={!canSave}>{saving ? 'Ukládám…' : 'Vytvořit'}</Button>
       </div>
     </Modal>
   )

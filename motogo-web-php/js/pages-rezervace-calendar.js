@@ -256,6 +256,8 @@ MG._rezPickDate = function(ds){
   MG._rezRenderCal();
   MG._rezUpdateBanner();
   MG._rezUpdatePrice();
+  // inventory_v2: dostupnost velikostí závisí na termínu — přepočti.
+  if(MG._refreshAvailability) MG._refreshAvailability();
 };
 
 // ===== DATE BANNER =====

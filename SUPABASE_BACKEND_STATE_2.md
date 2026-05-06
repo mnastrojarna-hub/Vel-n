@@ -281,6 +281,7 @@
 - is_consumable (BOOLEAN DEFAULT false) — spotřební zboží (kukly, ubrousky) vs. půjčované (boty, helmy)
 - **price_czk** (INTEGER NOT NULL DEFAULT 0) — cena v Kč pro placené extras (passenger_gear=690, boots_rider=290, boots_passenger=290 ze seedu 2026-05-05). Pro inventury rows (helmet/jacket/gloves/pants/boots/balaclava) zůstává 0.
 - **pricing_unit** (TEXT NOT NULL DEFAULT 'per_booking', CHECK IN ('per_booking','per_day','free')) — `per_booking` = jednorázově za rezervaci, `per_day` = × počet dní, `free` = neúčtuje se. Web `MG._accessoryPrice` aktuálně počítá `per_booking`; multiplikace `per_day` se přidá až při zavedení nového typu.
+- **audience** (TEXT NOT NULL DEFAULT 'adult', CHECK IN ('adult','child','both'), 2026-05-05) — pro koho jsou velikosti určené. Web `/rezervace` filtruje podle `motorcycles.license_required` (`N` = dětská) až s feature flagem `inventory_v2`. Velín ManageTypesModal nabízí dropdown 👤/👶/👤👶.
 - sort_order (INTEGER DEFAULT 0), is_active (BOOLEAN DEFAULT true)
 - created_at, updated_at
 - RLS: Admin full access, Public read
