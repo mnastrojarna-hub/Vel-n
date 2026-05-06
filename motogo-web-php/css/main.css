@@ -312,6 +312,10 @@ body.homepage .banner-caption .btngreen,
 /* Zvýraznění klíčových slov v intru: Motogo24 / bez kauce / nonstop */
 body.homepage .home-intro strong{color:#74FB71}
 
+/* Vertikální dýchání: mezera mezi banner→H1 a mezi sekce-nad→nadpis motorek (~1 řádek textu) */
+body.homepage main#content>.container>h1:first-child{margin-top:2rem}
+body.homepage section[aria-labelledby="catalogue"]{margin-top:2rem}
+
 /* Sekce katalogu motorek — nadpis černě (je nad světlým pozadím) */
 body.homepage section[aria-labelledby="catalogue"] h2{color:#000}
 
