@@ -24,6 +24,23 @@ MG.t = MG.t || function(key, params){
   return s;
 };
 
+// CMS-aware varianta `MG.t()` — když je admin v CMS režimu (cookie
+// `mg_cms_admin=1`), obalí výsledek do `<span data-cms-key="web.layout.<key>">…</span>`,
+// aby `cms-admin.js` na webu nabídl pravý-klik inline edit. Mimo admin režim
+// vrací holý text — UX zákazníka je beze změny.
+//
+// Použij JEN v body kontextu (text uvnitř elementu, ne v HTML atributech).
+// Pro `<input value=...>`, `placeholder`, `title`, `aria-label` atd. dál volej `MG.t()`.
+MG._isCmsAdmin = MG._isCmsAdmin || function(){
+  try { return /(?:^|;\s*)mg_cms_admin=1(?:;|$)/.test(document.cookie); }
+  catch(e){ return false; }
+};
+MG.tc = MG.tc || function(key, params){
+  var s = MG.t(key, params);
+  if (!MG._isCmsAdmin()) return s;
+  return '<span class="mg-cms-text" data-cms-key="web.layout.' + key + '">' + s + '</span>';
+};
+
 // Pluralizace dnů (CS: 1 den / 2-4 dny / 5+ dní; ostatní jazyky používají
 // jen jednu nebo dvě formy — slovník to řeší správnou hodnotou klíče.
 // Anglický slovník má všechny tři varianty mapované na "days" / "day").
@@ -109,8 +126,8 @@ MG._editRez._renderShell = function(){
       + '<button type="button" class="btn-link" id="edit-rez-logout">' + MG.t('editRez.logout') + '</button></div>'
     : '';
   app.innerHTML =
-    '<h1>' + MG.t('editRez.h1') + '</h1>' +
-    '<p class="edit-rez-intro">' + MG.t('editRez.intro') + '</p>' +
+    '<h1>' + MG.tc('editRez.h1') + '</h1>' +
+    '<p class="edit-rez-intro">' + MG.tc('editRez.intro') + '</p>' +
     logoutHtml +
     '<div id="edit-rez-error" class="edit-rez-error" style="display:none" role="alert" aria-live="assertive"></div>' +
     '<div id="edit-rez-content"></div>';
@@ -445,35 +462,56 @@ MG._editRez._submitOtpReset = async function(e){
 MG._editRez._loadBookings = async function(){
   if (!MG._editRez.user) return;
   var uid = MG._editRez.user.id;
-  try {
-    var results = await Promise.all([
-      window.sb.from('bookings')
-        .select('id,moto_id,start_date,end_date,pickup_time,return_time,status,payment_status,total_price,created_at,delivery_fee,extras_price,discount_amount,pickup_method,pickup_address,pickup_lat,pickup_lng,return_method,return_address,return_lat,return_lng,stripe_payment_intent_id,booking_source,modification_history,original_start_date,original_end_date,helmet_size,jacket_size,pants_size,boots_size,gloves_size,passenger_helmet_size,passenger_jacket_size,passenger_pants_size,passenger_boots_size,passenger_gloves_size,motorcycles(id,model,brand,image_url,images,license_required,price_mon,price_tue,price_wed,price_thu,price_fri,price_sat,price_sun,price_weekday,price_weekend)')
-        .eq('user_id', uid)
-        .order('start_date', { ascending: false }),
-      window.sb.from('shop_orders')
-        .select('id,order_number,status,payment_status,total_amount,created_at,shop_order_items(product_name,unit_price,quantity)')
-        .eq('customer_id', uid)
-        .order('created_at', { ascending: false }),
-      window.sb.from('vouchers')
-        .select('id,code,amount,currency,status,valid_from,valid_until,created_at,description,category,redeemed_at,booking_id')
-        .eq('buyer_id', uid)
-        .order('created_at', { ascending: false }),
-      window.sb.from('profiles')
-        .select('marketing_consent,consent_gdpr,consent_vop,consent_email,consent_sms,consent_push,consent_data_processing,consent_photo,consent_whatsapp,consent_contract')
-        .eq('id', uid)
-        .maybeSingle()
-    ]);
-    MG._editRez.bookings = (results[0] && results[0].data) || [];
-    MG._editRez.shopOrders = (results[1] && results[1].data) || [];
-    MG._editRez.vouchers = (results[2] && results[2].data) || [];
-    MG._editRez.consents = (results[3] && results[3].data) || {};
-  } catch(err){
-    console.error('[editRez] loadBookings exception', err);
-    MG._editRez.bookings = [];
-    MG._editRez.shopOrders = [];
-    MG._editRez.vouchers = [];
-    MG._editRez.consents = {};
+  // Promise.allSettled — když selže jeden zdroj (např. PostgREST 400 na embed
+  // shop_order_items kvůli RLS / vazbě), ostatní data se přesto načtou.
+  var results = await Promise.allSettled([
+    window.sb.from('bookings')
+      .select('id,moto_id,start_date,end_date,pickup_time,return_time,status,payment_status,total_price,created_at,delivery_fee,extras_price,discount_amount,pickup_method,pickup_address,pickup_lat,pickup_lng,return_method,return_address,return_lat,return_lng,stripe_payment_intent_id,booking_source,modification_history,original_start_date,original_end_date,helmet_size,jacket_size,pants_size,boots_size,gloves_size,passenger_helmet_size,passenger_jacket_size,passenger_pants_size,passenger_boots_size,passenger_gloves_size,motorcycles(id,model,brand,image_url,images,license_required,price_mon,price_tue,price_wed,price_thu,price_fri,price_sat,price_sun,price_weekday,price_weekend)')
+      .eq('user_id', uid)
+      .order('start_date', { ascending: false }),
+    // Shop orders — bez embed shop_order_items (PostgREST embed občas hází
+    // 400, když customer nemá žádné objednávky a relationship resolver to
+    // neumí zpracovat). Položky doplníme samostatným queryem níže, jen pokud
+    // nějaká objednávka existuje.
+    window.sb.from('shop_orders')
+      .select('id,order_number,status,payment_status,total_amount,created_at')
+      .eq('customer_id', uid)
+      .order('created_at', { ascending: false }),
+    window.sb.from('vouchers')
+      .select('id,code,amount,currency,status,valid_from,valid_until,created_at,description,category,redeemed_at,booking_id')
+      .eq('buyer_id', uid)
+      .order('created_at', { ascending: false }),
+    window.sb.from('profiles')
+      .select('marketing_consent,consent_gdpr,consent_vop,consent_email,consent_sms,consent_push,consent_data_processing,consent_photo,consent_whatsapp,consent_contract')
+      .eq('id', uid)
+      .maybeSingle()
+  ]);
+  function pickData(r){ return (r && r.status === 'fulfilled' && r.value && r.value.data) || (r && r.status === 'fulfilled' && Array.isArray(r.value) ? r.value : null); }
+  function pickArr(r){ var d = pickData(r); return Array.isArray(d) ? d : []; }
+  MG._editRez.bookings = pickArr(results[0]);
+  MG._editRez.shopOrders = pickArr(results[1]);
+  MG._editRez.vouchers = pickArr(results[2]);
+  MG._editRez.consents = (results[3] && results[3].status === 'fulfilled' && results[3].value && results[3].value.data) || {};
+  // Loguj zdroje, které selhaly, ať je v F12 vidět původní chyba bez crashe UI.
+  results.forEach(function(r, i){
+    if (r.status === 'rejected') console.warn('[editRez] loadBookings source ' + i + ' failed', r.reason);
+    else if (r.value && r.value.error) console.warn('[editRez] loadBookings source ' + i + ' error', r.value.error);
+  });
+  // Doplň položky e-shop objednávek (jen pokud existují)
+  if (MG._editRez.shopOrders.length){
+    var orderIds = MG._editRez.shopOrders.map(function(o){ return o.id; });
+    try {
+      var itemsRes = await window.sb.from('shop_order_items')
+        .select('order_id,product_name,unit_price,quantity')
+        .in('order_id', orderIds);
+      var byOrder = {};
+      (itemsRes.data || []).forEach(function(it){
+        (byOrder[it.order_id] = byOrder[it.order_id] || []).push(it);
+      });
+      MG._editRez.shopOrders.forEach(function(o){
+        o.shop_order_items = byOrder[o.id] || [];
+      });
+    } catch(e){ console.warn('[editRez] shop_order_items fetch failed', e); }
   }
 };
 
@@ -757,11 +795,11 @@ MG._editRez._renderConsentsCard = function(){
   var renderRow = function(f){
     var val = isOn(f.key);
     var locked = MG._editRez._isConsentLocked(f.key);
-    var label = MG.t('editRez.consents.label.' + f.i18n);
-    var desc  = MG.t('editRez.consents.desc.'  + f.i18n);
+    var label = MG.tc('editRez.consents.label.' + f.i18n);
+    var desc  = MG.tc('editRez.consents.desc.'  + f.i18n);
     var badge = f.required
-      ? '<span class="edit-rez-consent-badge required">' + MG.t('editRez.consents.required') + '</span>'
-      : '<span class="edit-rez-consent-badge optional">' + MG.t('editRez.consents.optional') + '</span>';
+      ? '<span class="edit-rez-consent-badge required">' + MG.tc('editRez.consents.required') + '</span>'
+      : '<span class="edit-rez-consent-badge optional">' + MG.tc('editRez.consents.optional') + '</span>';
     var lockBadge = locked
       ? '<span class="edit-rez-consent-badge locked" title="' + MG.t('editRez.consents.lockedHint') + '">🔒 ' + MG.t('editRez.consents.lockedBadge') + '</span>'
       : '';
@@ -782,11 +820,11 @@ MG._editRez._renderConsentsCard = function(){
   var optional = MG._editRez._CONSENT_FIELDS.filter(function(f){ return !f.required; });
   var rows =
     '<div class="edit-rez-consents-section">' +
-      '<div class="edit-rez-consents-section-h"><span class="ico">⚖️</span> ' + MG.t('editRez.consents.sectionRequired') + '</div>' +
+      '<div class="edit-rez-consents-section-h"><span class="ico">⚖️</span> ' + MG.tc('editRez.consents.sectionRequired') + '</div>' +
       required.map(renderRow).join('') +
     '</div>' +
     '<div class="edit-rez-consents-section">' +
-      '<div class="edit-rez-consents-section-h"><span class="ico">⚙️</span> ' + MG.t('editRez.consents.sectionOptional') + '</div>' +
+      '<div class="edit-rez-consents-section-h"><span class="ico">⚙️</span> ' + MG.tc('editRez.consents.sectionOptional') + '</div>' +
       optional.map(renderRow).join('') +
     '</div>';
 
@@ -798,12 +836,12 @@ MG._editRez._renderConsentsCard = function(){
     '<div class="edit-rez-consents-head">' +
       '<div class="edit-rez-consents-title">' +
         '<span class="edit-rez-consents-title-ico">🔒</span>' +
-        '<div><h2>' + MG.t('editRez.consents.cardTitle') + '</h2>' +
-        '<p class="edit-rez-consents-help">' + MG.t('editRez.consents.help') + '</p></div>' +
+        '<div><h2>' + MG.tc('editRez.consents.cardTitle') + '</h2>' +
+        '<p class="edit-rez-consents-help">' + MG.tc('editRez.consents.help') + '</p></div>' +
       '</div>' +
       '<div class="edit-rez-consents-actions">' +
-        '<button type="button" class="btn-pill primary" id="edit-rez-consents-grant-all">' + MG.t('editRez.consents.grantAll') + '</button>' +
-        '<button type="button" class="btn-pill ghost" id="edit-rez-consents-revoke-all">' + MG.t('editRez.consents.revokeAll') + '</button>' +
+        '<button type="button" class="btn-pill primary" id="edit-rez-consents-grant-all">' + MG.tc('editRez.consents.grantAll') + '</button>' +
+        '<button type="button" class="btn-pill ghost" id="edit-rez-consents-revoke-all">' + MG.tc('editRez.consents.revokeAll') + '</button>' +
       '</div>' +
     '</div>' +
     lockNotice +
@@ -1677,7 +1715,7 @@ MG._editRez._renderTabDocs = async function(){
     t.innerHTML = '<h3>' + MG.t('editRez.doc.title') + '</h3>'
       + uploadHtml
       + '<h4 style="margin-top:24px">' + (MG.t('editRez.doc.archiveTitle','editRez.doc.archiveTitle') || 'Doklady ke stažení') + '</h4>'
-      + '<p class="edit-rez-tip">' + MG.t('editRez.doc.help') + '</p>'
+      + '<p class="edit-rez-tip">' + MG.tc('editRez.doc.help') + '</p>'
       + listHtml;
 
     t.querySelectorAll('[data-row]').forEach(function(btn){
@@ -3529,11 +3567,11 @@ MG._editRez._renderTabExtend = async function(){
 
   // Kontextová nápověda — jasně co se kliká
   var helpHtml = isActive
-    ? MG.t('editRez.extend.helpActiveLong', { start: MG.formatDate(origStart), end: MG.formatDate(origEnd) })
-    : MG.t('editRez.extend.helpUpcomingLong', { start: MG.formatDate(origStart), end: MG.formatDate(origEnd) });
+    ? MG.tc('editRez.extend.helpActiveLong', { start: MG.formatDate(origStart), end: MG.formatDate(origEnd) })
+    : MG.tc('editRez.extend.helpUpcomingLong', { start: MG.formatDate(origStart), end: MG.formatDate(origEnd) });
 
   t.innerHTML =
-    '<h3>' + MG.t('editRez.extend.title') + '</h3>' +
+    '<h3>' + MG.tc('editRez.extend.title') + '</h3>' +
     '<p>' + helpHtml + '</p>' +
     '<div id="edit-rez-extend-banner" class="erez-range-banner" style="display:none"></div>' +
     '<div id="edit-rez-extend-manual"></div>' +
@@ -3747,8 +3785,8 @@ MG._editRez._renderTabShorten = function(){
 
   // Kontextová nápověda — jasně co se kliká
   var helpHtml = isActive
-    ? MG.t('editRez.shorten.helpActiveLong', { start: MG.formatDate(origStart), end: MG.formatDate(origEnd) })
-    : MG.t('editRez.shorten.helpUpcomingLong');
+    ? MG.tc('editRez.shorten.helpActiveLong', { start: MG.formatDate(origStart), end: MG.formatDate(origEnd) })
+    : MG.tc('editRez.shorten.helpUpcomingLong');
 
   // Šipky pro výběr směru (jen upcoming)
   var dirsHtml = '';
@@ -3761,7 +3799,7 @@ MG._editRez._renderTabShorten = function(){
   }
 
   t.innerHTML =
-    '<h3>' + MG.t('editRez.shorten.title') + '</h3>' +
+    '<h3>' + MG.tc('editRez.shorten.title') + '</h3>' +
     '<p>' + helpHtml + '</p>' +
     dirsHtml +
     '<div id="edit-rez-shorten-banner" class="erez-range-banner" style="display:none"></div>' +
