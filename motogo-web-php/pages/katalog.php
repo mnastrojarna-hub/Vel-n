@@ -23,6 +23,16 @@ if ($path === '/katalog/cestovni') {
     $title = t('menu.catalog.kids');
 }
 
+// CMS overlay (Velín) — editovatelné texty hlavičky katalogu
+$katalogDefaults = [
+    'h1'    => $title,
+    'intro' => t('filters.catalogLead'),
+];
+$C = $sb->siteContent('katalog', $katalogDefaults);
+// Pro kategorie subpages necháme dynamický nadpis z překladů, jen sdílený intro lze přepsat
+$displayH1 = $category ? $title : ($C['h1'] ?? $title);
+$displayIntro = $C['intro'] ?? t('filters.catalogLead');
+
 // Dynamické hranice slideru výkonu z dat
 $kwValues = [];
 foreach ($motos as $m) {
@@ -262,10 +272,11 @@ $filterHtml .= '</select></div>'
 // Počet výsledků
 $countHtml = '<p class="katalog-count">' . t('filters.countLine', ['count' => count($filtered), 'total' => count($motos)]) . '</p>';
 
+$h1AttrCms = $category ? '' : ' data-cms-key="web.katalog.h1"';
 $content = '<main id="content"><div class="container">'
     . renderBreadcrumb($bc)
-    . '<div class="ccontent"><h1>' . htmlspecialchars($title) . '</h1>'
-    . '<p>' . t('filters.catalogLead') . '</p>'
+    . '<div class="ccontent"><h1' . $h1AttrCms . '>' . htmlspecialchars($displayH1) . '</h1>'
+    . '<p data-cms-key="web.katalog.intro">' . $displayIntro . '</p>'
     . $filterHtml
     . $countHtml
     . '<div id="katalog-grid" class="gr4">' . $gridHtml . '</div>'
