@@ -3,40 +3,6 @@
 // 1:1 prepis z https://www.motogo24.cz/cz/jak-si-pujcit-motorku/postup-pujceni-motorky
 
 return [
-    'gallery' => [
-        // Diagram vybavy (originalne 69e5ff03bfe42 z motogo24.cz cdn)
-        'image' => '/gfx/vybava_diagram_motogo24_1200px.svg',
-        'alt' => 'Výbava diagram&nbsp;Motogo24',
-        'group' => 'gal_1',
-    ],
-    'sizes' => [
-        'adult' => [
-            'title' => 'Dospělá výbava',
-            'headers' => ['Výbava', 'Dostupné velikosti'],
-            'rows' => [
-                ['Helma', 'XS, S, M, L, XL'],
-                ['Bunda', 'M, L, XL, 2XL'],
-                ['Kalhoty', 'M, L, XL, 2XL'],
-                ['Rukavice', 'M, L, XL'],
-                ['Motoboty', '39–46'],
-                ['Kukla', 'univerzální'],
-                ['Reflexní vesta&nbsp;', 'univerzální'],
-            ],
-        ],
-        'kid' => [
-            'title' => 'Dětská výbava',
-            'headers' => ['Výbava', 'Dostupné velikosti'],
-            'rows' => [
-                ['Helma', 'S (47–48 cm), M (49–50 cm), L (51–52 cm)'],
-                ['Bunda', '110–116, 122–128, 134–140, 146–152 cm'],
-                ['Kalhoty', '110–116, 122–128, 134–140, 146–152 cm'],
-                ['Rukavice', 'XS/S (4–7 let), M/L (8–12 let)'],
-                ['Motoboty', '29–35'],
-                ['Kukla', 'S (4–7 let), M (8–12 let)'],
-                ['Reflexní vesta&nbsp;', 'XS, S, M'],
-            ],
-        ],
-    ],
     'faq' => [
         'title' => 'Často kladené otázky',
         'items' => [

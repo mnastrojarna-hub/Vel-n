@@ -38,46 +38,6 @@ foreach ((is_array($C['process']['steps'] ?? null) ? $C['process']['steps'] : []
 }
 $processHtml .= '</div></section>';
 
-// --- Section 4 (main2): 2-col image gallery (left) + 2 tables (right) ---
-$g = $C['gallery'];
-$imgFull = (strpos($g['image'], 'http') === 0) ? $g['image'] : (BASE_URL . $g['image']);
-$galleryCol = '<div><div class="gr1">' .
-    '<div><a data-fancybox-group="' . htmlspecialchars($g['group']) . '" title="' . $g['alt'] . '" href="' . htmlspecialchars($imgFull) . '">' .
-    '<div class="gallery-img"><img src="' . htmlspecialchars($imgFull) . '" alt="' . $g['alt'] . '" loading="lazy" class="imgres"></div>' .
-    '</a></div>' .
-    '</div></div>';
-
-// Adult sizes table
-$adult = $C['sizes']['adult'];
-$adultTable = '<div class="table-responsive"><table class="table table-hover table-striped"><thead><tr>';
-foreach ($adult['headers'] as $h) { $adultTable .= '<th>' . $h . '</th>'; }
-$adultTable .= '</tr></thead><tbody>';
-foreach ($adult['rows'] as $row) {
-    $adultTable .= '<tr><td>' . $row[0] . '</td><td>' . $row[1] . '</td></tr>';
-}
-$adultTable .= '</tbody></table></div>';
-
-// Kid sizes table
-$kid = $C['sizes']['kid'];
-$kidTable = '<div class="table-responsive"><table class="table table-hover table-striped"><thead><tr>';
-foreach ($kid['headers'] as $h) { $kidTable .= '<th>' . $h . '</th>'; }
-$kidTable .= '</tr></thead><tbody>';
-foreach ($kid['rows'] as $row) {
-    $kidTable .= '<tr><td>' . $row[0] . '</td><td>' . $row[1] . '</td></tr>';
-}
-$kidTable .= '</tbody></table></div>';
-
-$tablesCol = '<div>' .
-    '<h3>' . $adult['title'] . '</h3>' .
-    '<p>&nbsp;</p>' . $adultTable . '<p>&nbsp;</p>' .
-    '<h3>' . $kid['title'] . '</h3>' .
-    '<p>&nbsp;</p>' . $kidTable . '<p>&nbsp;</p><p>&nbsp;</p>' .
-    '</div>';
-
-$main2Section = '<section class="main2">' .
-    '<div class="gr2">' . $galleryCol . $tablesCol . '</div>' .
-    '</section>';
-
 // --- Section 5: FAQ + odkaz na další otázky ---
 $faqHtml = '<section>' .
     '<h2 data-cms-key="web.jak_pujcit_postup.faq.title">' . ($C['faq']['title'] ?? '') . '</h2>' .
@@ -115,7 +75,6 @@ $content = '<main id="content"><div class="container">' . $bc .
     '<div data-tag="Postup půjčení motorky" class="sections ccontent">' .
     $titleSection .
     $processHtml .
-    $main2Section .
     $faqHtml .
     $finalCtaSection .
     '</div></div></main>';
