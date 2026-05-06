@@ -12,16 +12,14 @@ $bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['labe
 $kp = 'web.jak_pujcit_vraceni_pujcovna';
 
 // --- Section 1: title + intro ---
-$titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">' . te('a11y.mainContent') . '</h2>' .
+$titleSection = '<section>' .
     '<h1 data-cms-key="' . $kp . '.h1">' . ($C['h1'] ?? '') . '</h1>' .
     '<p data-cms-key="' . $kp . '.intro">' . ($C['intro'] ?? '') . '</p>' .
     '</section>';
 
-$main1Section = '<section aria-labelledby="main1" class="main1"><h2 id="main1" class="vh">' . te('a11y.importantInfo') . '</h2></section>';
-
 // --- Section 3: process boxes ---
 $grid = $C['process']['grid'] ?? 'gr4';
-$processHtml = '<section aria-labelledby="process"><h2 id="process" class="vh">' . te('a11y.processHowItWorks') . '</h2>' .
+$processHtml = '<section>' .
     '<div class="' . htmlspecialchars($grid) . '">';
 foreach ((is_array($C['process']['steps'] ?? null) ? $C['process']['steps'] : []) as $i => $s) {
     if (!is_array($s)) continue;
@@ -41,7 +39,7 @@ $issuesLis = '';
 foreach ((is_array($C['issues']['items'] ?? null) ? $C['issues']['items'] : []) as $i => $item) {
     $issuesLis .= '<li data-cms-key="' . $kp . '.issues.items.' . $i . '">' . $item . '</li>';
 }
-$main2Section = '<section aria-labelledby="main2" class="main2"><h2 id="main2" class="vh">' . te('a11y.moreImportantInfo') . '</h2>' .
+$main2Section = '<section class="main2">' .
     '<h2 data-cms-key="' . $kp . '.time.title">' . ($C['time']['title'] ?? '') . '</h2>' .
     '<p data-cms-key="' . $kp . '.time.text">' . ($C['time']['text'] ?? '') . '</p>' .
     '<p>&nbsp;</p>' .
@@ -56,7 +54,7 @@ $main2Section = '<section aria-labelledby="main2" class="main2"><h2 id="main2" c
     '</section>';
 
 // --- Section 5: FAQ ---
-$faqHtml = '<section aria-labelledby="faq"><h2 id="faq" class="vh">' . te('a11y.frequentQuestions') . '</h2>' .
+$faqHtml = '<section>' .
     '<h2 data-cms-key="' . $kp . '.faq.title">' . ($C['faq']['title'] ?? '') . '</h2>' .
     '<div class="tab-content"><div class="tab-pane active" id="all"><div class="gr2">';
 foreach ((is_array($C['faq']['items'] ?? null) ? $C['faq']['items'] : []) as $i => $f) {
@@ -75,7 +73,7 @@ foreach ((is_array($C['cta']['buttons'] ?? null) ? $C['cta']['buttons'] : []) as
     if (!is_array($btn)) continue;
     $ctaButtons .= '<a aria-label="' . htmlspecialchars($btn['aria'] ?? ($btn['label'] ?? '')) . '" class="btn ' . ($btn['cls'] ?? 'btndark') . '" href="' . BASE_URL . ($btn['href'] ?? '#') . '" data-cms-key="' . $kp . '.cta.buttons.' . $i . '.label">' . ($btn['label'] ?? '') . '</a>&nbsp;';
 }
-$finalCtaSection = '<section aria-labelledby="cta"><h2 id="cta" class="vh">' . te('a11y.contactUs') . '</h2>' .
+$finalCtaSection = '<section>' .
     '<h2 data-cms-key="' . $kp . '.cta.title">' . ($C['cta']['title'] ?? '') . '</h2>' .
     '<p data-cms-key="' . $kp . '.cta.text">' . ($C['cta']['text'] ?? '') . '</p>' .
     '<p>&nbsp;</p><p>&nbsp;</p>' .
@@ -86,7 +84,6 @@ $finalCtaSection = '<section aria-labelledby="cta"><h2 id="cta" class="vh">' . t
 $content = '<main id="content"><div class="container">' . $bc .
     '<div data-tag="Vrácení motocyklu v půjčovně" class="sections ccontent">' .
     $titleSection .
-    $main1Section .
     $processHtml .
     $main2Section .
     $faqHtml .

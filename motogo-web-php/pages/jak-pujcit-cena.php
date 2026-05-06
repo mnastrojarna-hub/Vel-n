@@ -46,7 +46,7 @@ $rightCol = '<div>' .
     '<ul>' . $servicesLis . '</ul>' .
     '</div>';
 
-$titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">' . te('a11y.mainContent') . '</h2>' .
+$titleSection = '<section>' .
     '<h1 data-cms-key="' . $kp . '.h1">' . ($C['h1'] ?? '') . '</h1>' .
     '<p data-cms-key="' . $kp . '.intro">' . ($C['intro'] ?? '') . '</p>' .
     '<p>&nbsp;</p>' .
@@ -55,7 +55,7 @@ $titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">' . 
 
 // --- Section 2: benefits "Další výhody v ceně" — 5 boxes (gr5) ---
 $grid = $C['benefits']['grid'] ?? 'gr5';
-$benefitsHtml = '<section aria-labelledby="benefits"><h2 id="benefits" class="vh">' . te('a11y.benefits') . '</h2>' .
+$benefitsHtml = '<section>' .
     '<h2 data-cms-key="' . $kp . '.benefits.title">' . ($C['benefits']['title'] ?? '') . '</h2><div class="' . htmlspecialchars($grid) . '">';
 foreach ((is_array($C['benefits']['items'] ?? null) ? $C['benefits']['items'] : []) as $i => $b) {
     if (!is_array($b)) continue;
@@ -68,16 +68,13 @@ foreach ((is_array($C['benefits']['items'] ?? null) ? $C['benefits']['items'] : 
 }
 $benefitsHtml .= '</div></section>';
 
-// --- Section 3: prazdny placeholder main1 ---
-$main1Section = '<section aria-labelledby="main1" class="main1"><h2 id="main1" class="vh">' . te('a11y.importantInfo') . '</h2></section>';
-
 // --- Section 4: final CTA ---
 $ctaButtons = '';
 foreach ((is_array($C['cta']['buttons'] ?? null) ? $C['cta']['buttons'] : []) as $i => $btn) {
     if (!is_array($btn)) continue;
     $ctaButtons .= '<a aria-label="' . htmlspecialchars($btn['aria'] ?? ($btn['label'] ?? '')) . '" class="btn ' . ($btn['cls'] ?? 'btndark') . '" href="' . BASE_URL . ($btn['href'] ?? '#') . '" data-cms-key="' . $kp . '.cta.buttons.' . $i . '.label">' . ($btn['label'] ?? '') . '</a>&nbsp;';
 }
-$finalCtaSection = '<section aria-labelledby="cta"><h2 id="cta" class="vh">' . te('a11y.contactUs') . '</h2>' .
+$finalCtaSection = '<section>' .
     '<h2 data-cms-key="' . $kp . '.cta.title">' . ($C['cta']['title'] ?? '') . '</h2>' .
     '<p data-cms-key="' . $kp . '.cta.text">' . ($C['cta']['text'] ?? '') . '</p>' .
     '<p>&nbsp;</p>' .
@@ -88,7 +85,6 @@ $content = '<main id="content"><div class="container">' . $bc .
     '<div data-tag="Co je v ceně nájmu" class="sections ccontent">' .
     $titleSection .
     $benefitsHtml .
-    $main1Section .
     $finalCtaSection .
     '</div></div></main>';
 

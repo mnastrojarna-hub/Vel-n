@@ -587,7 +587,7 @@ body.mg-lb-open{overflow:hidden;overscroll-behavior:none}
 .loading-overlay{display:flex;align-items:center;justify-content:center;padding:3rem;gap:.75rem;color:#999}
 
 /* Screen reader only */
-.sr-only,.vh{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
 /* Misc */
 .imgres{width:100%;height:auto;border-radius:6px}
