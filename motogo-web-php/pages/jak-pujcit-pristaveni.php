@@ -18,7 +18,7 @@ $whenLis = '';
 foreach ((is_array($C['when']['items'] ?? null) ? $C['when']['items'] : []) as $i => $item) {
     $whenLis .= '<li data-cms-key="web.jak_pujcit_pristaveni.when.items.' . $i . '">' . $item . '</li>';
 }
-$titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">' . te('a11y.mainContent') . '</h2>' .
+$titleSection = '<section>' .
     '<h1 data-cms-key="web.jak_pujcit_pristaveni.h1">' . ($C['h1'] ?? '') . '</h1>' .
     '<p data-cms-key="web.jak_pujcit_pristaveni.intro">' . ($C['intro'] ?? '') . '</p>' .
     '<p>&nbsp;</p><p>&nbsp;</p>' .
@@ -28,7 +28,7 @@ $titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">' . 
 
 // --- Section 2: benefits "Proč využít přistavení motorky" — 5 boxes (gr5) ---
 $grid = $C['why']['grid'] ?? 'gr5';
-$whyHtml = '<section aria-labelledby="benefits"><h2 id="benefits" class="vh">' . te('a11y.benefits') . '</h2>' .
+$whyHtml = '<section>' .
     '<h2 data-cms-key="web.jak_pujcit_pristaveni.why.title">' . ($C['why']['title'] ?? '') . '</h2><div class="' . htmlspecialchars($grid) . '">';
 foreach ((is_array($C['why']['items'] ?? null) ? $C['why']['items'] : []) as $i => $w) {
     if (!is_array($w)) continue;
@@ -43,7 +43,7 @@ $whyHtml .= '</div></section>';
 
 // --- Section 3: process "Jak přistavení probíhá" — 10 boxes (gr5) ---
 $pgrid = $C['process']['grid'] ?? 'gr5';
-$processHtml = '<section aria-labelledby="process"><h2 id="process" class="vh">' . te('a11y.processHowItWorks') . '</h2>' .
+$processHtml = '<section>' .
     '<h2 data-cms-key="web.jak_pujcit_pristaveni.process.title">' . ($C['process']['title'] ?? '') . '</h2><div class="' . htmlspecialchars($pgrid) . '">';
 foreach ((is_array($C['process']['steps'] ?? null) ? $C['process']['steps'] : []) as $i => $s) {
     if (!is_array($s)) continue;
@@ -61,7 +61,7 @@ $priceLis = '';
 foreach ((is_array($C['pricing']['items'] ?? null) ? $C['pricing']['items'] : []) as $i => $item) {
     $priceLis .= '<li data-cms-key="web.jak_pujcit_pristaveni.pricing.items.' . $i . '">' . $item . '</li>';
 }
-$pricingHtml = '<section aria-labelledby="main2" class="main2"><h2 id="main2" class="vh">' . te('a11y.moreImportantInfo') . '</h2>' .
+$pricingHtml = '<section class="main2">' .
     '<h2 data-cms-key="web.jak_pujcit_pristaveni.pricing.title">' . ($C['pricing']['title'] ?? '') . '</h2>' .
     '<p data-cms-key="web.jak_pujcit_pristaveni.pricing.lead">' . ($C['pricing']['lead'] ?? '') . '</p>' .
     '<p>&nbsp;</p>' .
@@ -72,7 +72,7 @@ $pricingHtml = '<section aria-labelledby="main2" class="main2"><h2 id="main2" cl
     '</section>';
 
 // --- Section 5: FAQ ---
-$faqHtml = '<section aria-labelledby="faq"><h2 id="faq" class="vh">' . te('a11y.frequentQuestions') . '</h2>' .
+$faqHtml = '<section>' .
     '<h2 data-cms-key="web.jak_pujcit_pristaveni.faq.title">' . ($C['faq']['title'] ?? '') . '</h2>' .
     '<div class="tab-content"><div class="tab-pane active" id="all"><div class="gr2">';
 foreach ((is_array($C['faq']['items'] ?? null) ? $C['faq']['items'] : []) as $i => $f) {
@@ -91,7 +91,7 @@ foreach ((is_array($C['cta']['buttons'] ?? null) ? $C['cta']['buttons'] : []) as
     if (!is_array($btn)) continue;
     $ctaButtons .= '<a aria-label="' . htmlspecialchars($btn['aria'] ?? ($btn['label'] ?? '')) . '" class="btn ' . ($btn['cls'] ?? 'btndark') . '" href="' . BASE_URL . ($btn['href'] ?? '#') . '" data-cms-key="web.jak_pujcit_pristaveni.cta.buttons.' . $i . '.label">' . ($btn['label'] ?? '') . '</a>&nbsp;';
 }
-$finalCtaSection = '<section aria-labelledby="cta"><h2 id="cta" class="vh">' . te('a11y.contactUs') . '</h2>' .
+$finalCtaSection = '<section>' .
     '<h2 data-cms-key="web.jak_pujcit_pristaveni.cta.title">' . ($C['cta']['title'] ?? '') . '</h2>' .
     '<p data-cms-key="web.jak_pujcit_pristaveni.cta.text">' . ($C['cta']['text'] ?? '') . '</p>' .
     '<p>&nbsp;</p><p>&nbsp;</p>' .
@@ -102,7 +102,6 @@ $content = '<main id="content"><div class="container">' . $bc .
     '<div data-tag="Přistavení motocyklu" class="sections ccontent">' .
     $titleSection .
     $whyHtml .
-    '<section aria-labelledby="main1" class="main1"><h2 id="main1" class="vh">' . te('a11y.importantInfo') . '</h2></section>' .
     $processHtml .
     $pricingHtml .
     $faqHtml .

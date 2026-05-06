@@ -13,7 +13,7 @@ $kp = 'web.jak_pujcit_dokumenty';
 
 // --- Section 1: title + intro + top CTA ---
 $tcta = is_array($C['top_cta'] ?? null) ? $C['top_cta'] : [];
-$titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">' . te('a11y.mainContent') . '</h2>' .
+$titleSection = '<section>' .
     '<h1 data-cms-key="' . $kp . '.h1">' . ($C['h1'] ?? '') . '</h1>' .
     '<p data-cms-key="' . $kp . '.intro">' . ($C['intro'] ?? '') . '</p>' .
     '<p>&nbsp;</p>' .
@@ -21,7 +21,7 @@ $titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">' . 
     '</section>';
 
 // --- Section 2: summary 6 boxů ---
-$summaryHtml = '<section aria-labelledby="benefits"><h2 id="benefits" class="vh">' . te('a11y.benefits') . '</h2>' .
+$summaryHtml = '<section>' .
     '<h2 data-cms-key="' . $kp . '.summary.title">' . ($C['summary']['title'] ?? '') . '</h2><div class="gr6">';
 foreach ((is_array($C['summary']['items'] ?? null) ? $C['summary']['items'] : []) as $i => $s) {
     if (!is_array($s)) continue;
@@ -96,7 +96,7 @@ foreach ((is_array($C['documents']['items'] ?? null) ? $C['documents']['items'] 
 }
 $docsCardsHtml .= '</div>';
 
-$mainSection = '<section aria-labelledby="main1" class="main1"><h2 id="main1" class="vh">' . te('a11y.importantInfo') . '</h2>' .
+$mainSection = '<section class="main1">' .
     '<p>&nbsp;</p><p>&nbsp;</p>' .
     '<h2 data-cms-key="' . $kp . '.required_docs.title">' . ($C['required_docs']['title'] ?? '') . '</h2><ul>' . $reqLis . '</ul>' .
     '<p>&nbsp;</p><p>&nbsp;</p>' .
@@ -107,7 +107,7 @@ $mainSection = '<section aria-labelledby="main1" class="main1"><h2 id="main1" cl
     '</section>';
 
 // --- Section 4: mid CTA "Souhlasíte s podmínkami?" ---
-$midCtaSection = '<section aria-labelledby="main3" class="main3"><h2 id="main3" class="vh">' . te('a11y.moreInfo') . '</h2>' .
+$midCtaSection = '<section class="main3">' .
     '<p>&nbsp;</p><p>&nbsp;</p>' .
     '<h2 data-cms-key="' . $kp . '.midcta.title">' . ($C['midcta']['title'] ?? '') . '</h2>' .
     '<p data-cms-key="' . $kp . '.midcta.text">' . ($C['midcta']['text'] ?? '') . '</p>' .
@@ -119,7 +119,7 @@ foreach ((is_array($C['cta']['buttons'] ?? null) ? $C['cta']['buttons'] : []) as
     if (!is_array($btn)) continue;
     $ctaButtons .= '<a aria-label="' . htmlspecialchars($btn['aria'] ?? ($btn['label'] ?? '')) . '" class="btn ' . ($btn['cls'] ?? 'btndark') . '" href="' . BASE_URL . ($btn['href'] ?? '#') . '" data-cms-key="' . $kp . '.cta.buttons.' . $i . '.label">' . ($btn['label'] ?? '') . '</a>&nbsp;';
 }
-$finalCtaSection = '<section aria-labelledby="cta"><h2 id="cta" class="vh">' . te('a11y.contactUs') . '</h2>' .
+$finalCtaSection = '<section>' .
     '<h2 data-cms-key="' . $kp . '.cta.title">' . ($C['cta']['title'] ?? '') . '</h2>' .
     '<p data-cms-key="' . $kp . '.cta.text">' . ($C['cta']['text'] ?? '') . '</p>' .
     '<p>&nbsp;</p>' .

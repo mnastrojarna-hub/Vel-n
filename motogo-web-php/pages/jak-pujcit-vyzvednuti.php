@@ -16,7 +16,7 @@ $kp = 'web.jak_pujcit_vyzvednuti';
 
 // --- Section 1: title + intro + top CTA ---
 $tcta = is_array($C['top_cta'] ?? null) ? $C['top_cta'] : ($defaults['top_cta'] ?? []);
-$titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">' . te('a11y.mainContent') . '</h2>' .
+$titleSection = '<section>' .
     '<h1 data-cms-key="' . $kp . '.h1">' . ($C['h1'] ?? '') . '</h1>' .
     '<p data-cms-key="' . $kp . '.intro">' . ($C['intro'] ?? '') . '</p>' .
     '<p>&nbsp;</p>' .
@@ -27,7 +27,7 @@ $titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">' . 
 // --- Section 2 (main1): 2-col adresa + Google Maps embed ---
 $pl = is_array($C['place'] ?? null) ? $C['place'] : ($defaults['place'] ?? []);
 $mapIframe = '<iframe class="map" loading="lazy" src="' . htmlspecialchars($pl['map_src'] ?? '') . '" title="' . htmlspecialchars($pl['map_title'] ?? '') . '"></iframe>';
-$placeSection = '<section aria-labelledby="main1" class="main1"><h2 id="main1" class="vh">' . te('a11y.importantInfo') . '</h2>' .
+$placeSection = '<section class="main1">' .
     '<div class="gr2"><div>' .
     '<h2 data-cms-key="' . $kp . '.place.title">' . ($pl['title'] ?? '') . '</h2>' .
     '<p><strong>' . ($pl['address_label'] ?? '') . '&nbsp;</strong><span data-cms-key="' . $kp . '.place.address">' . ($pl['address'] ?? '') . '</span></p>' .
@@ -40,7 +40,7 @@ $placeSection = '<section aria-labelledby="main1" class="main1"><h2 id="main1" c
 
 // --- Section 3: process 8 boxes (gr4) ---
 $grid = $C['process']['grid'] ?? 'gr4';
-$processHtml = '<section aria-labelledby="process"><h2 id="process" class="vh">' . te('a11y.processHowItWorks') . '</h2>' .
+$processHtml = '<section>' .
     '<h2 data-cms-key="' . $kp . '.process.title">' . ($C['process']['title'] ?? '') . '</h2>' .
     '<div class="' . htmlspecialchars($grid) . '">';
 foreach ((is_array($C['process']['steps'] ?? null) ? $C['process']['steps'] : []) as $i => $s) {
@@ -80,12 +80,12 @@ $bringCol = '<div>' .
     '<p>&nbsp;</p><p>&nbsp;</p><p>&nbsp;</p>' .
     '</div>';
 
-$main2Section = '<section aria-labelledby="main2" class="main2"><h2 id="main2" class="vh">' . te('a11y.moreImportantInfo') . '</h2>' .
+$main2Section = '<section class="main2">' .
     '<div class="gr2">' . $amenityCol . $bringCol . '</div>' .
     '</section>';
 
 // --- Section 5: FAQ ---
-$faqHtml = '<section aria-labelledby="faq"><h2 id="faq" class="vh">' . te('a11y.frequentQuestions') . '</h2>' .
+$faqHtml = '<section>' .
     '<h2 data-cms-key="' . $kp . '.faq.title">' . ($C['faq']['title'] ?? '') . '</h2>' .
     '<div class="tab-content"><div class="tab-pane active" id="all"><div class="gr2">';
 foreach ((is_array($C['faq']['items'] ?? null) ? $C['faq']['items'] : []) as $i => $f) {
@@ -100,7 +100,7 @@ $faqHtml .= '</div></div></div></section>';
 
 // --- Section 6 (main3): mid CTA ---
 $mid = is_array($C['mid_cta'] ?? null) ? $C['mid_cta'] : [];
-$mid3Section = '<section aria-labelledby="main3" class="main3"><h2 id="main3" class="vh">' . te('a11y.moreInfo') . '</h2>' .
+$mid3Section = '<section class="main3">' .
     '<p><a aria-label="' . htmlspecialchars($mid['aria'] ?? '') . '" class="btn btngreen" href="' . BASE_URL . ($mid['href'] ?? '#') . '" data-cms-key="' . $kp . '.mid_cta.label">' . ($mid['label'] ?? '') . '</a></p>' .
     '</section>';
 
@@ -110,7 +110,7 @@ foreach ((is_array($C['cta']['buttons'] ?? null) ? $C['cta']['buttons'] : []) as
     if (!is_array($btn)) continue;
     $ctaButtons .= '<a aria-label="' . htmlspecialchars($btn['aria'] ?? ($btn['label'] ?? '')) . '" class="btn ' . ($btn['cls'] ?? 'btndark') . '" href="' . BASE_URL . ($btn['href'] ?? '#') . '" data-cms-key="' . $kp . '.cta.buttons.' . $i . '.label">' . ($btn['label'] ?? '') . '</a>&nbsp;';
 }
-$finalCtaSection = '<section aria-labelledby="cta"><h2 id="cta" class="vh">' . te('a11y.contactUs') . '</h2>' .
+$finalCtaSection = '<section>' .
     '<h2 data-cms-key="' . $kp . '.cta.title">' . ($C['cta']['title'] ?? '') . '</h2>' .
     '<p data-cms-key="' . $kp . '.cta.text">' . ($C['cta']['text'] ?? '') . '</p>' .
     '<p>&nbsp;</p>' .

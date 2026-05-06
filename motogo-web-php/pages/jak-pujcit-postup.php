@@ -14,7 +14,7 @@ $C = $sb->siteContent('jak_pujcit_postup', $defaults);
 $bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.howto'), 'href' => '/jak-pujcit'], t('menu.howto.process')]);
 
 // --- Section 1: title (h1 + intro p1 + h2 + intro p2) ---
-$titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">' . te('a11y.mainContent') . '</h2>' .
+$titleSection = '<section>' .
     '<h1 data-cms-key="web.jak_pujcit_postup.h1">' . $C['h1'] . '</h1>' .
     '<p data-cms-key="web.jak_pujcit_postup.intro_p1">' . $C['intro_p1'] . '</p>' .
     '<p>&nbsp;</p><p>&nbsp;</p><p>&nbsp;</p>' .
@@ -22,12 +22,9 @@ $titleSection = '<section aria-labelledby="title"><h2 id="title" class="vh">' . 
     '<p data-cms-key="web.jak_pujcit_postup.intro_p2">' . $C['intro_p2'] . '</p>' .
     '</section>';
 
-// --- Section 2 (placeholder): main1 ---
-$main1Section = '<section aria-labelledby="main1" class="main1"><h2 id="main1" class="vh">' . te('a11y.importantInfo') . '</h2></section>';
-
 // --- Section 3: process 12 boxes (gr4) ---
 $grid = $C['process']['grid'] ?? 'gr4';
-$processHtml = '<section aria-labelledby="process"><h2 id="process" class="vh">' . te('a11y.processHowItWorks') . '</h2>' .
+$processHtml = '<section>' .
     '<h2 data-cms-key="web.jak_pujcit_postup.process.title">' . ($C['process']['title'] ?? '') . '</h2>' .
     '<div class="' . htmlspecialchars($grid) . '">';
 foreach ((is_array($C['process']['steps'] ?? null) ? $C['process']['steps'] : []) as $i => $s) {
@@ -77,12 +74,12 @@ $tablesCol = '<div>' .
     '<p>&nbsp;</p>' . $kidTable . '<p>&nbsp;</p><p>&nbsp;</p>' .
     '</div>';
 
-$main2Section = '<section aria-labelledby="main2" class="main2"><h2 id="main2" class="vh">' . te('a11y.moreImportantInfo') . '</h2>' .
+$main2Section = '<section class="main2">' .
     '<div class="gr2">' . $galleryCol . $tablesCol . '</div>' .
     '</section>';
 
 // --- Section 5: FAQ + odkaz na další otázky ---
-$faqHtml = '<section aria-labelledby="faq"><h2 id="faq" class="vh">' . te('a11y.frequentQuestions') . '</h2>' .
+$faqHtml = '<section>' .
     '<h2 data-cms-key="web.jak_pujcit_postup.faq.title">' . ($C['faq']['title'] ?? '') . '</h2>' .
     '<div class="tab-content"><div class="tab-pane active" id="all"><div class="gr2">';
 foreach ((is_array($C['faq']['items'] ?? null) ? $C['faq']['items'] : []) as $i => $f) {
@@ -106,7 +103,7 @@ $ctaButtons = '';
 foreach ($C['cta']['buttons'] as $btn) {
     $ctaButtons .= '<a aria-label="' . htmlspecialchars($btn['aria'] ?? $btn['label']) . '" class="btn ' . ($btn['cls'] ?? 'btndark') . '" href="' . BASE_URL . $btn['href'] . '">' . $btn['label'] . '</a>&nbsp;';
 }
-$finalCtaSection = '<section aria-labelledby="cta"><h2 id="cta" class="vh">' . te('a11y.contactUs') . '</h2>' .
+$finalCtaSection = '<section>' .
     '<h2 data-cms-key="web.jak_pujcit_postup.cta.title">' . ($C['cta']['title'] ?? '') . '</h2>' .
     '<p data-cms-key="web.jak_pujcit_postup.cta.text">' . ($C['cta']['text'] ?? '') . '</p>' .
     '<p>&nbsp;</p><p>&nbsp;</p>' .
@@ -117,7 +114,6 @@ $finalCtaSection = '<section aria-labelledby="cta"><h2 id="cta" class="vh">' . t
 $content = '<main id="content"><div class="container">' . $bc .
     '<div data-tag="Postup půjčení motorky" class="sections ccontent">' .
     $titleSection .
-    $main1Section .
     $processHtml .
     $main2Section .
     $faqHtml .
