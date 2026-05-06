@@ -16,7 +16,12 @@ export async function loadAccessoryTypes() {
     .eq('is_active', true)
     .order('sort_order')
   if (error || !data || data.length === 0) return FALLBACK_ACCESSORY_TYPES
-  return data.map(t => ({ key: t.key, label: t.label, sizes: t.sizes || [], is_consumable: !!t.is_consumable, id: t.id }))
+  return data.map(t => ({
+    key: t.key, label: t.label, sizes: t.sizes || [], is_consumable: !!t.is_consumable, id: t.id,
+    price_czk: typeof t.price_czk === 'number' ? t.price_czk : 0,
+    pricing_unit: t.pricing_unit || 'per_booking',
+    audience: t.audience || 'adult',
+  }))
 }
 
 export const MAX_MOTOS = 24

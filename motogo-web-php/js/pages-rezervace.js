@@ -293,6 +293,8 @@ MG._rezInitFormEvents = function(){
     }
     MG._rezUpdateReturnTimeVisibility();
     MG._rezUpdatePrice();
+    // Pickup method (rental vs delivery) ovlivňuje pool poboček v dostupnosti.
+    MG._refreshAvailability && MG._refreshAvailability();
   });
   // Return-other toggle
   var retO = document.getElementById('rez-return-other');
@@ -390,6 +392,42 @@ MG._rezInitFormEvents = function(){
   MG._rezUpdateReturnTimeVisibility();
 };
 
+// ===== FEATURE FLAG: inventory_v2 =====
+// Když ON, krok 5 dynamicky filtruje velikosti podle pobočky vybrané motorky
+// + souběžných rezervací (RPC `get_accessory_availability`) a podle audience
+// (license_required='N' → dětská motorka → child sizes). Když OFF (default),
+// formulář drží statický seznam jako dosud — UX se nezmění.
+MG._inventoryV2Enabled = false;
+MG._loadInventoryV2Flag = async function(){
+  if(!window.sb) return false;
+  try {
+    var res = await window.sb
+      .from('feature_flags')
+      .select('enabled')
+      .eq('key', 'inventory_v2')
+      .maybeSingle();
+    MG._inventoryV2Enabled = !!(res && res.data && res.data.enabled);
+  } catch(e){ MG._inventoryV2Enabled = false; }
+  return MG._inventoryV2Enabled;
+};
+
+// Vrací mapu {type: {size: available_qty}} — admin/non-admin shodně přes anon RPC.
+// Při fail vrací prázdnou mapu → caller pak drží fallback (statický seznam).
+MG._loadAccessoryAvailability = async function(motoId, startDate, endDate, pickupMethod){
+  if(!MG._inventoryV2Enabled) return null;
+  if(!window.sb || !motoId || !startDate || !endDate) return null;
+  try {
+    var res = await window.sb.rpc('get_accessory_availability', {
+      p_moto_id: motoId,
+      p_start: startDate,
+      p_end: endDate,
+      p_pickup_method: pickupMethod || 'rental',
+    });
+    if(res.error || !res.data) return null;
+    return res.data; // {helmet: {S: 2, M: 0, ...}, boots: {...}, ...}
+  } catch(e){ return null; }
+};
+
 // ===== ACCESSORY CONFIG (z accessory_types — Velín admin spravuje ceny i velikosti) =====
 // Pricing klíče se mapují 1:1 na checkbox ID v gear stepu. Size klíče se mapují
 // na typy v _gearPanelHtml (helmet, jacket, gloves, pants, boots). Pokud DB
@@ -441,11 +479,54 @@ MG._accessoryPrice = function(key, days){
 };
 
 // Vrátí velikosti pro daný kind (helmet/jacket/gloves/pants/boots).
+// Když inventory_v2 ON a accessoryAvailability nahraný, filtrujeme jen ty velikosti
+// které mají qty > 0 na pobočce (s odečtem souběžných rezervací). Jinak drží
+// statický seznam z accessory_types.
 MG._accessorySizes = function(kind){
   var cfg = (MG._rez && MG._rez.accessoryConfig) || MG._accessoryFallback;
   var s = cfg.sizes ? cfg.sizes[kind] : null;
-  if(Array.isArray(s) && s.length) return s;
-  return MG._accessoryFallback.sizes[kind] || [];
+  if(!Array.isArray(s) || !s.length) s = MG._accessoryFallback.sizes[kind] || [];
+  if(MG._inventoryV2Enabled && MG._rez && MG._rez.accessoryAvailability){
+    var avail = MG._rez.accessoryAvailability[kind];
+    if(avail && typeof avail === 'object'){
+      return s.filter(function(sz){ return (avail[sz] || 0) > 0; });
+    }
+  }
+  return s;
+};
+
+// Přepočet dostupnosti — voláno při změně motorky / datumu / způsobu vyzvednutí
+// (delivery vs rental). V OFF módu nicneprovede. Po přepočtu re-rendruje
+// existující size chip panely tak, aby velikosti s 0 ks na pobočce zmizely.
+MG._refreshAvailability = async function(){
+  if(!MG._inventoryV2Enabled) return;
+  if(!MG._rez || !MG._rez.motoId || !MG._rez.startDate || !MG._rez.endDate){
+    if(MG._rez) MG._rez.accessoryAvailability = null;
+    return;
+  }
+  var isDel = document.getElementById('rez-delivery');
+  var pickupMethod = (isDel && isDel.checked) ? 'delivery' : 'rental';
+  MG._rez.accessoryAvailability = await MG._loadAccessoryAvailability(
+    MG._rez.motoId, MG._rez.startDate, MG._rez.endDate, pickupMethod
+  );
+  // Re-render gear size panels (4 panely v kroku 5)
+  var panels = [
+    { id: 'gear-panel-rider',          group: 'rider',     kinds: ['helmet','jacket','gloves','pants'] },
+    { id: 'gear-panel-passenger',      group: 'passenger', kinds: ['helmet','jacket','gloves'] },
+    { id: 'gear-panel-boots-rider',    group: 'rider',     kinds: ['boots'] },
+    { id: 'gear-panel-boots-passenger',group: 'passenger', kinds: ['boots'] },
+  ];
+  panels.forEach(function(p){
+    var host = document.getElementById(p.id);
+    if(!host) return;
+    var fresh = MG._gearPanelHtml({ panelId: p.id, group: p.group, kinds: p.kinds });
+    // Vytáhnout z fresh string vnitřek a nahradit
+    var tmp = document.createElement('div');
+    tmp.innerHTML = fresh;
+    var newPanel = tmp.querySelector('#' + p.id);
+    if(newPanel) host.innerHTML = newPanel.innerHTML;
+  });
+  MG._initSizeChipEvents(document);
 };
 
 // ===== INIT PAGE (called from PHP inline script) =====
@@ -460,7 +541,9 @@ MG._rezInit = async function(){
   // Předem nahrát ceny + velikosti příslušenství z DB — `_rezFormHtml()` níže
   // je čte synchronně při sestavování HTML kroku 5. Při chybě fetch fallback drží.
   if(!MG._rez) MG._rez = {};
+  await MG._loadInventoryV2Flag();
   MG._rez.accessoryConfig = await MG._loadAccessoryConfig();
+  MG._rez.accessoryAvailability = null; // {type: {size: qty}} — naplní _refreshAvailability
 
   // ===== RESUME FLOW =====
   if(resumeId){
@@ -568,6 +651,7 @@ MG._rezInit = async function(){
       MG._rez.motoId = this.value;
       MG._rezResetDates();
       MG._rezLoadCalendar();
+      MG._refreshAvailability && MG._refreshAvailability();
     });
   }
   MG._rezInitFormEvents();
@@ -582,6 +666,7 @@ MG._rezInit = async function(){
   if(MG._rez.startDate && MG._rez.endDate){
     MG._rezUpdateBanner();
     MG._rezUpdatePrice();
+    MG._refreshAvailability && MG._refreshAvailability();
   }
 
   // Pre-fill form from session

@@ -162,6 +162,7 @@ function ManageTypesModal({ onClose, onSaved }) {
         key: f.key, label: f.label, sizes: sizesArr,
         is_consumable: f.is_consumable, sort_order: f.sort_order || 0,
         price_czk: priceVal, pricing_unit: unitVal,
+        audience: f.audience || 'adult',
       }
       if (f.id) {
         const { error } = await supabase.from('accessory_types').update(row).eq('id', f.id)
@@ -214,6 +215,10 @@ function ManageTypesModal({ onClose, onSaved }) {
                       {t.pricing_unit === 'per_day' ? 'za den'
                         : t.pricing_unit === 'free' ? 'zdarma'
                         : 'za rezervaci'}
+                      {' · '}
+                      {t.audience === 'child' ? '👶 dětské'
+                        : t.audience === 'both' ? '👤👶 obojí'
+                        : '👤 dospělé'}
                     </span>
                   </div>
                 </div>
@@ -224,6 +229,7 @@ function ManageTypesModal({ onClose, onSaved }) {
                     is_consumable: !!t.is_consumable, sort_order: t.sort_order || 0,
                     price_czk: typeof t.price_czk === 'number' ? t.price_czk : 0,
                     pricing_unit: t.pricing_unit || 'per_booking',
+                    audience: t.audience || 'adult',
                   })}
                     className="rounded-btn text-xs font-bold cursor-pointer border-none"
                     style={{ padding: '3px 8px', background: '#dbeafe', color: '#2563eb' }}>
@@ -293,6 +299,19 @@ function ManageTypesModal({ onClose, onSaved }) {
             <div className="text-xs" style={{ color: '#92400e', background: '#fef3c7', padding: '6px 10px', borderRadius: 6 }}>
               Změna ceny ovlivní jen <strong>nové rezervace</strong>. Stávající rezervace mají cenu uloženou v <code>bookings.total_price</code> a faktury/refundy z ní vychází.
             </div>
+            <div>
+              <label className="block text-xs font-bold mb-1" style={{ color: '#1a2e22' }}>
+                Pro koho (web filtruje podle license_required motorky — N = dětská)
+              </label>
+              <select value={editForm.audience}
+                onChange={e => setEditForm(f => ({ ...f, audience: e.target.value }))}
+                className="w-full rounded-btn text-sm outline-none cursor-pointer"
+                style={{ padding: '6px 10px', background: '#fff', border: '1px solid #d4e8e0' }}>
+                <option value="adult">👤 Dospělé velikosti</option>
+                <option value="child">👶 Dětské velikosti</option>
+                <option value="both">👤👶 Obojí (dospělý + dětský)</option>
+              </select>
+            </div>
             <div className="flex items-center gap-3">
               <label className="flex items-center gap-1 cursor-pointer">
                 <input type="checkbox" checked={editForm.is_consumable}
@@ -318,7 +337,7 @@ function ManageTypesModal({ onClose, onSaved }) {
             </div>
           </div>
         ) : (
-          <button onClick={() => setEditForm({ key: '', label: '', sizesText: 'UNI', is_consumable: true, sort_order: types.length + 1, price_czk: 0, pricing_unit: 'per_booking' })}
+          <button onClick={() => setEditForm({ key: '', label: '', sizesText: 'UNI', is_consumable: true, sort_order: types.length + 1, price_czk: 0, pricing_unit: 'per_booking', audience: 'adult' })}
             className="rounded-btn text-sm font-bold cursor-pointer border-none mb-3"
             style={{ padding: '6px 14px', background: '#1a2e22', color: '#74FB71' }}>
             + Nový typ
