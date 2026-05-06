@@ -256,9 +256,23 @@ function AccessoryEditModal({ existing, branchId, branchName, accTypes, onSave, 
               Potřeba {delta} ks, na skladě pouze {warehouseStock} ks
             </div>
           )}
+          {existing && oldQty > 0 && !isConsumable && (
+            <div className="text-xs rounded-btn" style={{ padding: '6px 10px', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
+              💡 <strong>Vrátit do skladu:</strong> nastav počet kusů na 0 (nebo méně) a ulož — odečtený rozdíl se vrátí do <code>inventory.stock</code> automaticky.
+            </div>
+          )}
         </div>
         <div className="flex justify-between mt-4">
-          <div>
+          <div className="flex gap-2">
+            {existing && oldQty > 0 && !isConsumable && (
+              <button onClick={() => onSave({ ...existing, quantity: 0 })}
+                disabled={saving}
+                className="rounded-btn text-sm font-bold cursor-pointer border-none"
+                title={`Vrátí ${oldQty} ks do skladu`}
+                style={{ padding: '6px 14px', background: '#1d4ed8', color: '#fff' }}>
+                ↩ Vrátit vše do skladu ({oldQty} ks)
+              </button>
+            )}
             {onDelete && (
               <button onClick={() => { onDelete(); onClose() }}
                 className="rounded-btn text-sm font-bold cursor-pointer border-none"

@@ -31,6 +31,7 @@ export default function Inventory() {
   })
   const [showAdd, setShowAdd] = useState(false)
   const [selectedIds, setSelectedIds] = useState(new Set())
+  const [issueItem, setIssueItem] = useState(null) // sklad → pobočka modal
 
   useEffect(() => { localStorage.setItem('velin_inventory_filters', JSON.stringify(filters)) }, [filters])
 
@@ -123,12 +124,13 @@ export default function Inventory() {
               <TRow header>
                 <TH><SelectAllCheckbox items={items} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
                 <TH>SKU</TH><TH>Název</TH><TH>Kategorie</TH><TH>Sklad</TH>
-                <TH>Minimum</TH><TH>Stav</TH><TH>Cena/ks</TH><TH>Dodavatel</TH>
+                <TH>Minimum</TH><TH>Stav</TH><TH>Cena/ks</TH><TH>Dodavatel</TH><TH></TH>
               </TRow>
             </thead>
             <tbody>
               {items.map(item => {
                 const isLow = item.stock <= item.min_stock
+                const isAcc = item.category === 'prislusenstvi'
                 return (
                   <tr
                     key={item.id}
@@ -150,6 +152,18 @@ export default function Inventory() {
                     </TD>
                     <TD>{item.unit_price ? fmt(item.unit_price) : '—'}</TD>
                     <TD>{item.suppliers?.name || '—'}</TD>
+                    <TD>
+                      {isAcc && item.stock > 0 && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setIssueItem(item) }}
+                          className="rounded-btn text-xs font-bold cursor-pointer border-none"
+                          style={{ padding: '4px 10px', background: '#1a2e22', color: '#74FB71' }}
+                          title="Vydat ze skladu na pobočku"
+                        >
+                          → Pobočka
+                        </button>
+                      )}
+                    </TD>
                   </tr>
                 )
               })}
@@ -161,6 +175,7 @@ export default function Inventory() {
       )}
 
       {showAdd && <AddItemModal onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load() }} />}
+      {issueItem && <IssueToBranchModal item={issueItem} onClose={() => setIssueItem(null)} onSaved={() => { setIssueItem(null); load() }} />}
     </div>
   )
 }
@@ -340,5 +355,122 @@ function FormField({ label, value, onChange, type = 'text' }) {
         className="w-full rounded-btn text-sm outline-none"
         style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }} />
     </div>
+  )
+}
+
+// ─── Issue to Branch Modal ────────────────────────────────────────────
+// Vydat ze skladu na pobočku: parsuje SKU `prislusenstvi-{type}-{size}`,
+// odečte stock z inventory + upsertuje branch_accessories (přičítá ke
+// stávajícímu množství). Loguje pohyb do inventory_movements.
+function IssueToBranchModal({ item, onClose, onSaved }) {
+  const [branches, setBranches] = useState([])
+  const [branchId, setBranchId] = useState('')
+  const [qty, setQty] = useState(1)
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState(null)
+
+  // SKU parser: prislusenstvi-{type}-{size}, kde size může obsahovat pomlčky/číslice
+  const parsed = (() => {
+    if (!item.sku) return null
+    const m = /^prislusenstvi-([a-z0-9_]+)-(.+)$/i.exec(item.sku)
+    if (!m) return null
+    return { type: m[1], size: m[2] }
+  })()
+
+  useEffect(() => {
+    supabase.from('branches').select('id, name, branch_code, is_open').order('name')
+      .then(({ data }) => {
+        const list = data || []
+        setBranches(list)
+        if (list.length === 1) setBranchId(list[0].id)
+      })
+  }, [])
+
+  async function handleIssue() {
+    setErr(null)
+    if (!parsed) { setErr('SKU nemá tvar `prislusenstvi-{typ}-{velikost}`. Opravte SKU nebo použijte ruční přidání v pobočce.'); return }
+    if (!branchId) { setErr('Vyberte pobočku.'); return }
+    const n = Math.max(1, parseInt(qty, 10) || 0)
+    if (n <= 0) { setErr('Zadejte počet kusů.'); return }
+    if (n > (item.stock || 0)) { setErr(`Na skladě je jen ${item.stock || 0} ks.`); return }
+    setSaving(true)
+    try {
+      const branchName = branches.find(b => b.id === branchId)?.name || ''
+      const { data: { user } } = await supabase.auth.getUser()
+
+      // 1) Odečíst ze skladu (inventory.stock) + log pohybu
+      const { error: invErr } = await supabase.from('inventory')
+        .update({ stock: (item.stock || 0) - n }).eq('id', item.id)
+      if (invErr) throw invErr
+      await supabase.from('inventory_movements').insert({
+        item_id: item.id, type: 'issue', quantity: n,
+        note: `Výdej na pobočku ${branchName} (${parsed.type} ${parsed.size})`,
+        performed_by: user?.id,
+      })
+
+      // 2) Přičíst do branch_accessories (upsert: pokud řádek existuje, sečíst)
+      const { data: existing } = await supabase.from('branch_accessories')
+        .select('id, quantity')
+        .eq('branch_id', branchId)
+        .eq('type', parsed.type)
+        .eq('size', parsed.size)
+        .maybeSingle()
+      if (existing) {
+        const { error: upErr } = await supabase.from('branch_accessories')
+          .update({ quantity: (existing.quantity || 0) + n })
+          .eq('id', existing.id)
+        if (upErr) throw upErr
+      } else {
+        const { error: insErr } = await supabase.from('branch_accessories').insert({
+          branch_id: branchId, type: parsed.type, size: parsed.size, quantity: n,
+        })
+        if (insErr) throw insErr
+      }
+
+      await supabase.from('admin_audit_log').insert({
+        admin_id: user?.id, action: 'inventory_issued_to_branch',
+        details: { sku: item.sku, branch_id: branchId, branch_name: branchName, qty: n },
+      })
+      onSaved()
+    } catch (e) {
+      setErr(e.message || String(e))
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <Modal open title={`Vydat na pobočku — ${item.name}`} onClose={onClose}>
+      <div className="space-y-3">
+        <div className="text-sm" style={{ color: '#1a2e22' }}>
+          <div>SKU: <span className="font-mono font-bold">{item.sku || '—'}</span></div>
+          {parsed ? (
+            <div>Typ: <strong>{parsed.type}</strong> · Velikost: <strong>{parsed.size}</strong></div>
+          ) : (
+            <div className="text-xs" style={{ color: '#dc2626' }}>
+              ⚠ SKU nemá očekávaný tvar `prislusenstvi-typ-velikost` — výdej skrze tento dialog nebude fungovat.
+            </div>
+          )}
+          <div>Sklad: <strong>{item.stock ?? 0} ks</strong></div>
+        </div>
+        <div>
+          <label className="block text-sm font-extrabold uppercase tracking-wide mb-1" style={{ color: '#1a2e22' }}>Pobočka</label>
+          <select value={branchId} onChange={e => setBranchId(e.target.value)}
+            className="w-full rounded-btn text-sm outline-none cursor-pointer"
+            style={{ padding: '8px 12px', background: '#f1faf7', border: '1px solid #d4e8e0', color: '#0f1a14' }}>
+            <option value="">— vyber pobočku —</option>
+            {branches.map(b => (
+              <option key={b.id} value={b.id}>{b.name}{b.branch_code ? ` (${b.branch_code})` : ''}{!b.is_open ? ' — zavřená' : ''}</option>
+            ))}
+          </select>
+        </div>
+        <FormField label="Počet kusů" value={qty} onChange={setQty} type="number" />
+        {err && <p className="text-sm" style={{ color: '#dc2626' }}>{err}</p>}
+        <div className="flex justify-end gap-3 pt-2">
+          <Button onClick={onClose}>Zrušit</Button>
+          <Button green onClick={handleIssue} disabled={saving || !parsed || !branchId}>
+            {saving ? 'Vydávám…' : 'Vydat na pobočku'}
+          </Button>
+        </div>
+      </div>
+    </Modal>
   )
 }
