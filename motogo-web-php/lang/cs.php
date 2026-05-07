@@ -286,6 +286,13 @@ return [
     'cms.terms' => 'Obchodní podmínky',
     'cms.gdpr' => 'Zásady ochrany osobních údajů',
     'cms.contract' => 'Smlouva o pronájmu',
+    'cms.terms.description' => 'Obchodní podmínky půjčovny motorek MotoGo24 — práva a povinnosti při pronájmu, cena, kauce, pojištění, storno podmínky.',
+    'cms.gdpr.description' => 'Zásady ochrany osobních údajů MotoGo24 — jaká data zpracováváme při rezervaci motorky, jak je chráníme a vaše práva podle GDPR.',
+    'cms.contract.description' => 'Vzor smlouvy o pronájmu motocyklu MotoGo24 — předmět nájmu, doba, cena, povinnosti nájemce a pronajímatele.',
+
+    // ===== SEO meta defaults (per-jazyk) =====
+    'seo.default.description' => 'Půjčovna motorek Vysočina – silniční, sportovní, enduro i dětské. Nonstop pronájem bez kauce, online rezervace a motorkářská výbava zdarma.',
+    'seo.home.description' => 'Půjčte si motorku na Vysočině. Bez kauce, výbava v ceně, nonstop provoz. Cestovní, sportovní, enduro i dětské motorky. Online rezervace.',
 
     // ===== Potvrzení =====
     'confirm.titleBooking' => 'Potvrzení rezervace | MotoGo24',

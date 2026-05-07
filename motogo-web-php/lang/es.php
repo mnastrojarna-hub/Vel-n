@@ -188,6 +188,13 @@ return [
     'cms.terms' => 'Términos y condiciones',
     'cms.gdpr' => 'Política de privacidad',
     'cms.contract' => 'Contrato de alquiler',
+    'cms.terms.description' => 'Términos y condiciones del alquiler de motos MotoGo24 — derechos y obligaciones, precio, depósito, seguro, política de cancelación.',
+    'cms.gdpr.description' => 'Política de privacidad MotoGo24 — qué datos procesamos al reservar una moto, cómo los protegemos y sus derechos según el RGPD.',
+    'cms.contract.description' => 'Contrato de alquiler de moto MotoGo24 — objeto del alquiler, duración, precio, obligaciones del arrendatario y arrendador.',
+
+    // ===== SEO meta defaults (por idioma) =====
+    'seo.default.description' => 'Alquiler de motos en la región de Vysočina, República Checa — motos de turismo, sport, enduro e infantiles. Alquiler 24/7, sin depósito, equipo incluido, reserva online.',
+    'seo.home.description' => 'Alquila una moto en la región de Vysočina. Sin depósito, equipo incluido, servicio 24/7. Motos de turismo, sport, enduro e infantiles. Reserva online.',
 
     // ===== Potvrzení =====
     'confirm.titleBooking' => 'Confirmación de reserva | MotoGo24',

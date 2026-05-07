@@ -187,6 +187,13 @@ return [
     'cms.terms' => 'Geschäftsbedingungen',
     'cms.gdpr' => 'Datenschutzbestimmungen',
     'cms.contract' => 'Mietvertrag',
+    'cms.terms.description' => 'Geschäftsbedingungen der MotoGo24 Motorradvermietung — Rechte und Pflichten, Preise, Kaution, Versicherung, Stornobedingungen.',
+    'cms.gdpr.description' => 'MotoGo24 Datenschutzbestimmungen — welche Daten wir bei der Motorradbuchung verarbeiten, wie wir sie schützen und Ihre DSGVO-Rechte.',
+    'cms.contract.description' => 'MotoGo24 Mietvertrag für Motorradverleih — Mietgegenstand, Dauer, Preis, Pflichten von Mieter und Vermieter.',
+
+    // ===== SEO meta defaults (pro Sprache) =====
+    'seo.default.description' => 'Motorradvermietung in der Region Vysočina, Tschechien — Touren-, Sport-, Enduro- und Kinder-Motorräder. 24/7-Vermietung, keine Kaution, Ausrüstung inklusive, Online-Buchung.',
+    'seo.home.description' => 'Mieten Sie ein Motorrad in der Region Vysočina. Keine Kaution, Ausrüstung im Preis, 24/7-Service. Touren-, Sport-, Enduro- und Kinder-Motorräder. Online buchen.',
 
     // Confirm
     'confirm.titleBooking' => 'Reservierungsbestätigung | MotoGo24',
