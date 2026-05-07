@@ -168,24 +168,26 @@
     }
 
     // --- SHOP / VOUCHER ORDER ---
+    // Anon JWT neprojde RLS na shop_orders (customer_id IS NULL pro web objednávky),
+    // takže polling přes přímý select vrací prázdno a stránka navždy ukazuje "Pending".
+    // SECURITY DEFINER RPC `get_web_shop_order_confirmation` to obchází a vrací i vouchery.
     if(isShop){
       var found = false;
       for(var i = 0; i < 12; i++){
         try {
-          var r = await window.sb.from('shop_orders')
-            .select('id,order_number,customer_name,customer_email,total,payment_status,status')
-            .eq('id', oid).maybeSingle();
-          if(r.data && r.data.payment_status === 'paid'){
-            var vc = await window.sb.from('vouchers').select('code,amount,valid_until').eq('order_id', oid);
-            var hasVouchers = vc.data && vc.data.length > 0;
+          var r = await window.sb.rpc('get_web_shop_order_confirmation', { p_order_id: oid });
+          var rec = r && r.data && !r.data.error ? r.data : null;
+          if(rec && rec.payment_status === 'paid'){
+            var vouchersArr = Array.isArray(rec.vouchers) ? rec.vouchers : [];
+            var hasVouchers = vouchersArr.length > 0;
             el.innerHTML = hasVouchers
-              ? renderVoucherSuccess(r.data, vc.data)
-              : renderShopSuccess(r.data);
-            pushPurchaseConversion(hasVouchers ? 'voucher' : 'shop_order', r.data.order_number || r.data.id, r.data.total, 'CZK');
+              ? renderVoucherSuccess(rec, vouchersArr)
+              : renderShopSuccess(rec);
+            pushPurchaseConversion(hasVouchers ? 'voucher' : 'shop_order', rec.order_number || rec.id, rec.total, 'CZK');
             found = true; break;
           }
-          if(r.data && r.data.payment_status !== 'paid' && i < 11){ await sleep(2000); continue; }
-          if(r.data){ el.innerHTML = renderPending(r.data, 'order'); found = true; break; }
+          if(rec && rec.payment_status !== 'paid' && i < 11){ await sleep(2000); continue; }
+          if(rec){ el.innerHTML = renderPending(rec, 'order'); found = true; break; }
         } catch(e){ console.warn('[CONFIRM] shop poll error', e); }
         await sleep(2000);
       }

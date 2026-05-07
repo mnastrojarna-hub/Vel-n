@@ -83,15 +83,47 @@ Deno.serve(async (req: Request) => {
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session
       const metadata = session.metadata || {}
-      const paymentType = metadata.type || 'booking'
+      let paymentType = metadata.type || 'booking'
+      let resolvedOrderId: string | null = metadata.order_id || null
+      let resolvedBookingId: string | null = metadata.booking_id || null
       const stripePaymentIntentId = typeof session.payment_intent === 'string'
         ? session.payment_intent
         : (session.payment_intent as any)?.id || null
 
+      // Fallback: pokud Stripe metadata chybí (Apple Pay, Link, edge cases),
+      // použij client_reference_id (process-payment ho nastavuje na booking_id/order_id).
+      const clientRef = (session as any).client_reference_id as string | null
+      if (!resolvedOrderId && !resolvedBookingId && clientRef) {
+        try {
+          const { data: shopMatch } = await supabase.from('shop_orders')
+            .select('id').eq('id', clientRef).maybeSingle()
+          if (shopMatch?.id) { resolvedOrderId = shopMatch.id; paymentType = 'shop' }
+          else {
+            const { data: bkMatch } = await supabase.from('bookings')
+              .select('id').eq('id', clientRef).maybeSingle()
+            if (bkMatch?.id) { resolvedBookingId = bkMatch.id; paymentType = 'booking' }
+          }
+        } catch (e) { console.warn('[webhook] client_reference_id lookup failed:', e) }
+      }
+
+      // Druhý fallback: dohledej podle stripe_session_id (process-payment ho ukládá do shop_orders/bookings)
+      if (!resolvedOrderId && !resolvedBookingId) {
+        try {
+          const { data: shopMatch } = await supabase.from('shop_orders')
+            .select('id').eq('stripe_session_id', session.id).maybeSingle()
+          if (shopMatch?.id) { resolvedOrderId = shopMatch.id; paymentType = 'shop' }
+          else {
+            const { data: bkMatch } = await supabase.from('bookings')
+              .select('id').eq('stripe_session_id', session.id).maybeSingle()
+            if (bkMatch?.id) { resolvedBookingId = bkMatch.id; paymentType = 'booking' }
+          }
+        } catch (e) { console.warn('[webhook] session_id lookup failed:', e) }
+      }
+
       if (session.mode === 'setup' && metadata.action === 'add_card') {
         await syncCardFromSetupSession(supabase, session)
-      } else if ((paymentType === 'booking' || paymentType === 'extension') && metadata.booking_id) {
-        await confirmBookingPayment(supabase, metadata.booking_id, session.id, stripePaymentIntentId)
+      } else if ((paymentType === 'booking' || paymentType === 'extension') && resolvedBookingId) {
+        await confirmBookingPayment(supabase, resolvedBookingId, session.id, stripePaymentIntentId)
         // Bundled e-shop upsell paid in the same session — confirm shop side too (separate invoice + email)
         if (metadata.shop_order_id) {
           try {
@@ -101,32 +133,57 @@ Deno.serve(async (req: Request) => {
         if (session.customer) {
           await syncCardsForCustomer(supabase, session.customer as string)
         }
-      } else if (paymentType === 'shop' && metadata.order_id) {
-        await confirmShopPayment(supabase, metadata.order_id, session.id, stripePaymentIntentId)
+      } else if (paymentType === 'shop' && resolvedOrderId) {
+        await confirmShopPayment(supabase, resolvedOrderId, session.id, stripePaymentIntentId)
         if (session.customer) {
           await syncCardsForCustomer(supabase, session.customer as string)
         }
-      } else if (paymentType === 'sos' && metadata.booking_id) {
-        await confirmSosPayment(supabase, metadata.booking_id, metadata.incident_id, session.id, stripePaymentIntentId)
+      } else if (paymentType === 'sos' && resolvedBookingId) {
+        await confirmSosPayment(supabase, resolvedBookingId, metadata.incident_id, session.id, stripePaymentIntentId)
         if (session.customer) {
           await syncCardsForCustomer(supabase, session.customer as string)
         }
+      } else {
+        try {
+          await supabase.from('debug_log').insert({
+            source: 'webhook-receiver', action: 'unmatched_session_completed',
+            component: 'stripe', status: 'warning',
+            request_data: { session_id: session.id, metadata, client_reference_id: clientRef },
+          })
+        } catch { /* ignore */ }
       }
     } else if (event.type === 'payment_intent.succeeded') {
       const paymentIntent = event.data.object as Stripe.PaymentIntent
       const metadata = paymentIntent.metadata || {}
-      const paymentType = metadata.type || 'booking'
+      let paymentType = metadata.type || 'booking'
+      let resolvedOrderId: string | null = metadata.order_id || null
+      let resolvedBookingId: string | null = metadata.booking_id || null
 
-      if ((paymentType === 'booking' || paymentType === 'extension') && metadata.booking_id) {
-        await confirmBookingPayment(supabase, metadata.booking_id, paymentIntent.id)
+      // Fallback: pokud Stripe Checkout Session metadata neproteklo do PaymentIntent,
+      // dohledej order/booking podle stripe_payment_intent_id v DB.
+      if (!resolvedOrderId && !resolvedBookingId) {
+        try {
+          const { data: shopMatch } = await supabase.from('shop_orders')
+            .select('id').eq('stripe_payment_intent_id', paymentIntent.id).maybeSingle()
+          if (shopMatch?.id) { resolvedOrderId = shopMatch.id; paymentType = 'shop' }
+          else {
+            const { data: bkMatch } = await supabase.from('bookings')
+              .select('id').eq('stripe_payment_intent_id', paymentIntent.id).maybeSingle()
+            if (bkMatch?.id) { resolvedBookingId = bkMatch.id; paymentType = 'booking' }
+          }
+        } catch (e) { console.warn('[webhook] PI fallback lookup failed:', e) }
+      }
+
+      if ((paymentType === 'booking' || paymentType === 'extension') && resolvedBookingId) {
+        await confirmBookingPayment(supabase, resolvedBookingId, paymentIntent.id)
         if (metadata.shop_order_id) {
           try { await confirmShopPayment(supabase, metadata.shop_order_id, paymentIntent.id) }
           catch (e) { console.warn('[webhook] bundled shop confirm (intent) failed:', e) }
         }
-      } else if (paymentType === 'shop' && metadata.order_id) {
-        await confirmShopPayment(supabase, metadata.order_id, paymentIntent.id)
-      } else if (paymentType === 'sos' && metadata.booking_id) {
-        await confirmSosPayment(supabase, metadata.booking_id, metadata.incident_id, paymentIntent.id)
+      } else if (paymentType === 'shop' && resolvedOrderId) {
+        await confirmShopPayment(supabase, resolvedOrderId, paymentIntent.id)
+      } else if (paymentType === 'sos' && resolvedBookingId) {
+        await confirmSosPayment(supabase, resolvedBookingId, metadata.incident_id, paymentIntent.id)
       }
 
       // Auto-save card: attach PM to customer and sync to Supabase

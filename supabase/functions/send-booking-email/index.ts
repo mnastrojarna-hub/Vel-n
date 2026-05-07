@@ -758,9 +758,28 @@ ${vars.door_codes_block}
 <p>T\u011b\u0161\u00edme se na v\u00e1s p\u0159i dal\u0161\u00edm dobrodru\u017estv\u00ed!</p>
 <p>S pozdravem,<br>T\u00fdm MotoGo24</p>`
       } else if (type === 'voucher_purchased') {
+        // Voucher codes inline \u2014 parse vars.voucher_code "MGABCDEF (200 K\u010d), MGGHIJKL (300 K\u010d)"
+        const codesRaw = (vars.voucher_code || '').trim()
+        let codesBlock = ''
+        if (codesRaw) {
+          const parts = codesRaw.split(/,\s*/).filter(Boolean)
+          const cards = parts.map((p: string) => {
+            const m = p.match(/^([A-Z0-9]+)\s*(?:\(([^)]+)\))?/)
+            const code = m?.[1] || p
+            const amount = m?.[2] || ''
+            return `<div style="background:#dcfce7;border:2px dashed #74FB71;border-radius:12px;padding:18px 16px;margin:0 0 12px;text-align:center">
+              <div style="font-size:10px;font-weight:700;color:#166534;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">K\u00f3d poukazu</div>
+              <div style="font-size:24px;font-weight:900;font-family:'Courier New',monospace;letter-spacing:3px;color:#0a1f15">${code}</div>
+              ${amount ? `<div style="font-size:16px;font-weight:800;color:#166534;margin-top:6px">${amount}</div>` : ''}
+              ${vars.voucher_expiry ? `<div style="font-size:11px;color:#166534;margin-top:6px">Platnost do: <strong>${vars.voucher_expiry}</strong></div>` : ''}
+            </div>`
+          }).join('')
+          codesBlock = `<div style="margin:20px 0">${cards}</div>`
+        }
         templateHtml = `<p>Dobr\u00fd den,</p>
 <p>d\u011bkujeme, \u017ee jste si pro sv\u016fj d\u00e1rek vybrali pr\u00e1v\u011b MotoGo24.</p>
 <p>Va\u0161i objedn\u00e1vku \u010d. <strong>${vars.order_number}</strong> jsme \u00fasp\u011b\u0161n\u011b p\u0159ijali a platba byla zpracov\u00e1na.</p>
+${codesBlock}
 <p>V p\u0159\u00edloze tohoto e-mailu najdete:</p>
 <ul><li>d\u00e1rkov\u00fd poukaz,</li><li>doklad o p\u0159ijet\u00ed platby za n\u00e1kup d\u00e1rkov\u00e9ho poukazu.</li></ul>
 <p>Pokud jste si objednali ti\u0161t\u011bnou verzi poukazu, pr\u00e1v\u011b ji pro V\u00e1s p\u0159ipravujeme. V nejbli\u017e\u0161\u00edch dnech ji m\u016f\u017eete o\u010dek\u00e1vat ve sv\u00e9 po\u0161tovn\u00ed schr\u00e1nce.</p>
