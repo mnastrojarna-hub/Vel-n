@@ -238,12 +238,11 @@ function EditContractModal({ template, onClose, onSaved }) {
 
       {showPreview && (
         <Modal open title="N\u00e1hled dokumentu" onClose={() => setShowPreview(false)} wide>
-          <div className="border rounded-lg overflow-auto" style={{ maxHeight: '70vh', background: '#fff' }}>
+          <div className="border rounded-lg overflow-hidden" style={{ background: '#fff' }}>
             <iframe
               srcDoc={content || '<p style="padding:24px;color:#9ab3a5;font-family:sans-serif">Pr\u00e1zdn\u00fd obsah</p>'}
               style={{ width: '100%', height: '70vh', border: 'none', background: '#fff', display: 'block' }}
               title="N\u00e1hled"
-              sandbox="allow-same-origin"
             />
           </div>
           <div className="flex justify-end mt-4">
@@ -263,7 +262,6 @@ function PreviewModal({ template, onClose }) {
           srcDoc={template.content_html || '<p style="padding:24px;color:#9ab3a5;font-family:sans-serif">Pr\u00e1zdn\u00fd obsah</p>'}
           style={{ width: '100%', height: '70vh', border: 'none', background: '#fff', display: 'block' }}
           title="N\u00e1hled"
-          sandbox="allow-same-origin"
         />
       </div>
       <div className="flex justify-between mt-4">
