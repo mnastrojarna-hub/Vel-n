@@ -252,7 +252,8 @@ footer ul li a{color:#b8d4c6;font-size:.88rem}
 footer ul li a:hover{color:#74FB71}
 footer img{display:inline-block}
 footer strong{color:#fff}
-.footer-contact{background:#74FB71;border-radius:10px;padding:1.5rem;color:#1a2e22}
+footer .gr4{grid-template-columns:1fr 1fr 1fr 1.4fr}
+.footer-contact{background:#74FB71;border-radius:10px;padding:1.5rem;color:#1a2e22;min-width:0}
 .footer-contact h3{color:#1a2e22;font-size:1.25rem}
 .footer-contact p{color:#1a2e22;margin:0}
 .footer-contact strong{color:#1a2e22}
@@ -260,7 +261,7 @@ footer strong{color:#fff}
 .footer-contact a{color:#1a2e22;font-weight:700}
 .footer-contact a:hover{color:#2a4e3a}
 .footer-phone{margin-bottom:.75rem}
-.footer-phone a{font-size:1.5rem;letter-spacing:.5px}
+.footer-phone a{font-size:1.35rem;letter-spacing:.25px;white-space:nowrap}
 .img-icon{width:36px;height:36px;min-width:36px;background:rgba(0,0,0,.15);border-radius:50%;display:flex;align-items:center;justify-content:center}
 .img-icon img{filter:brightness(0)}
 footer .img-icon{background:rgba(255,255,255,.15)}
@@ -415,7 +416,7 @@ body.homepage section[aria-labelledby="process"] .wbox .icon{filter:brightness(0
   footer{padding:2rem 0 0}
   footer .gr4{grid-template-columns:repeat(2,1fr);gap:1.5rem}
   .footer-contact{grid-column:1/-1;padding:1.25rem}
-  .footer-phone a{font-size:1.35rem}
+  .footer-phone a{font-size:1.25rem;letter-spacing:.25px}
   .copyright p{font-size:.78rem;line-height:1.5}
   .copyright a{display:inline-block;margin:.15rem .35rem}
   /* Section spacing */
@@ -465,9 +466,9 @@ body.homepage section[aria-labelledby="process"] .wbox .icon{filter:brightness(0
   .cur-toggle,.lang-toggle{padding:.2rem .4rem;font-size:.75rem;border:0}
   .cur-toggle .sw-icon,.lang-toggle .sw-icon{width:14px;height:14px}
   .cur-toggle .cur-arrow,.lang-toggle .lang-arrow{display:none}
-  /* Footer contact — menší padding */
+  /* Footer contact — menší padding, telefon ať se vejde na jeden řádek */
   .footer-contact{padding:.9rem}
-  .footer-phone a{font-size:1.2rem}
+  .footer-phone a{font-size:1.05rem;letter-spacing:0}
 }
 /* Landscape mobile — kratší banner */
 @media(max-width:900px) and (orientation:landscape) and (max-height:500px){

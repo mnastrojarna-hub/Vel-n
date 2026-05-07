@@ -92,6 +92,11 @@ function renderFooter() {
     $menuHtml .= '<li><a data-route="/rezervace" href="' . BASE_URL . '/rezervace">' . tc('menu.reservation') . '</a></li>';
     $menuHtml .= '<li><a data-route="/upravit-rezervaci" href="' . BASE_URL . '/upravit-rezervaci">' . tc('menu.editReservation') . '</a></li>';
 
+    $helpTitleRaw = trim((string)t('footer.helpTitle'));
+    $callUsRaw = trim((string)t('footer.callUs'));
+    $helpTitleHtml = $helpTitleRaw !== '' ? '<h3>' . tc('footer.helpTitle') . '</h3>' : '';
+    $callUsHtml = $callUsRaw !== '' ? tc('footer.callUs') . '<br>' : '';
+
     return '<footer id="footer"><div class="container"><div class="gr4">' .
         '<div>' .
             '<p><a href="' . BASE_URL . '/" aria-label="Motogo24"><img src="' . BASE_URL . '/' . LOGO_SVG . '" alt="Motogo24" loading="lazy"></a></p><p>&nbsp;</p>' .
@@ -102,8 +107,8 @@ function renderFooter() {
             '<p class="dfc"><span class="footer-social-icon"><img alt="Facebook" src="' . BASE_URL . '/gfx/facebook-footer.svg"></span>&nbsp;<a href="' . FB_URL . '">facebook</a></p><p>&nbsp;</p>' .
             '<p class="dfc"><span class="footer-social-icon"><img alt="Instagram" src="' . BASE_URL . '/gfx/instagram-footer.svg"></span>&nbsp;<a href="' . IG_URL . '">instagram</a></p>' .
         '</div>' .
-        '<div class="footer-contact"><h3>' . tc('footer.helpTitle') . '</h3>' .
-            '<div class="footer-phone dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/telefon.svg" alt="' . te('footer.iconPhone') . '" class="icon-small" loading="lazy"></div><div><p>' . tc('footer.callUs') . '<br><strong><a href="' . PHONE_LINK . '">' . PHONE . '</a></strong></p></div></div>' .
+        '<div class="footer-contact">' . $helpTitleHtml .
+            '<div class="footer-phone dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/telefon.svg" alt="' . te('footer.iconPhone') . '" class="icon-small" loading="lazy"></div><div><p>' . $callUsHtml . '<strong><a href="' . PHONE_LINK . '">' . PHONE . '</a></strong></p></div></div>' .
             '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/email.svg" alt="' . te('footer.iconEmail') . '" class="icon-small" loading="lazy"></div><div><p>' . EMAIL_USER . '@' . EMAIL_DOMAIN . '</p></div></div>' .
             '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/adresa.svg" alt="' . te('footer.iconAddress') . '" class="icon-small" loading="lazy"></div><div><p><strong>' . tc('footer.companyLine1') . '</strong><br>' . ADDRESS . '</p></div></div>' .
             '<div class="dfc"><div class="img-icon dfcc"><img src="' . BASE_URL . '/gfx/provozni-doba.svg" alt="' . te('footer.openHoursIcon') . '" class="icon-small" loading="lazy"></div><div><p>' . tc('footer.openHours') . '</p></div></div>' .
