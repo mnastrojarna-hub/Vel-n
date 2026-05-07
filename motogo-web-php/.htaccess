@@ -3,10 +3,6 @@ RewriteBase /
 
 # === 1. Force HTTPS (Forpsi + Hosting90 robust) =================================
 # Dve podminky kvuli proxy: HTTPS=on i na portu 80 muze byt false-positive.
-# Vyjmout /.well-known/acme-challenge/ — Let's Encrypt HTTP-01 validace
-# musi byt dostupna pres plain HTTP, jinak Hosting90 nedokaze vystavit/obnovit
-# SSL cert (priznak "no https" na nove zapojenych TLD jako .fr/.nl/.at).
-RewriteCond %{REQUEST_URI} !^/\.well-known/acme-challenge/
 RewriteCond %{HTTPS} off
 RewriteCond %{HTTP:X-Forwarded-Proto} !=https
 RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [L,R=301]
