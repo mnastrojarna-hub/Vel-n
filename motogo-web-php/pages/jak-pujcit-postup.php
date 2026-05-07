@@ -17,7 +17,7 @@ $bc = renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['labe
 $titleSection = '<section>' .
     '<h1 data-cms-key="web.jak_pujcit_postup.h1">' . $C['h1'] . '</h1>' .
     '<p data-cms-key="web.jak_pujcit_postup.intro_p1">' . $C['intro_p1'] . '</p>' .
-    '<p>&nbsp;</p><p>&nbsp;</p><p>&nbsp;</p>' .
+    '<p>&nbsp;</p>' .
     '<h2 data-cms-key="web.jak_pujcit_postup.intro_h2">' . $C['intro_h2'] . '</h2>' .
     '<p data-cms-key="web.jak_pujcit_postup.intro_p2">' . $C['intro_p2'] . '</p>' .
     '</section>';
