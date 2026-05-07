@@ -158,6 +158,8 @@ export async function handleWebBookingCheckout(
     mode: 'payment',
     line_items: lineItems,
     metadata: sessionMetadata,
+    payment_intent_data: { metadata: sessionMetadata },
+    client_reference_id: body.booking_id!,
     success_url: withLangParam(`${returnOrigin}/potvrzeni?session_id={CHECKOUT_SESSION_ID}`, body.locale),
     cancel_url: withLangParam(`${returnOrigin}/rezervace?resume=${body.booking_id}`, body.locale),
     locale: resolveStripeLocale(body.locale) as Stripe.Checkout.SessionCreateParams.Locale,
@@ -297,10 +299,13 @@ async function handleWebProductCheckout(
   }
 
   const returnOrigin = resolveReturnOrigin(body.origin, body.locale)
+  const productMetadata = { order_id: orderId, type: 'shop', source: 'web' }
   const sessionParams: Record<string, unknown> = {
     mode: 'payment',
     line_items: lineItems as Stripe.Checkout.SessionCreateParams.LineItem[],
-    metadata: { order_id: orderId, type: 'shop', source: 'web' },
+    metadata: productMetadata,
+    payment_intent_data: { metadata: productMetadata },
+    client_reference_id: orderId,
     success_url: withLangParam(`${returnOrigin}/potvrzeni?order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`, body.locale),
     cancel_url:  withLangParam(`${returnOrigin}/kosik`, body.locale),
     locale: resolveStripeLocale(body.locale),
@@ -455,12 +460,15 @@ export async function handleWebShopCheckout(
   }
 
   const voucherReturnOrigin = resolveReturnOrigin(body.origin, body.locale)
+  const voucherMetadata = { order_id: orderId, type: 'shop', source: 'web' }
   const session = await stripe.checkout.sessions.create({
     customer: custId,
     mode: 'payment',
     payment_method_types: ['card', 'link'],
     line_items: lineItems as Stripe.Checkout.SessionCreateParams.LineItem[],
-    metadata: { order_id: orderId, type: 'shop', source: 'web' },
+    metadata: voucherMetadata,
+    payment_intent_data: { metadata: voucherMetadata },
+    client_reference_id: orderId,
     success_url: withLangParam(`${voucherReturnOrigin}/potvrzeni?order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`, body.locale),
     cancel_url: withLangParam(`${voucherReturnOrigin}/poukazy`, body.locale),
     locale: resolveStripeLocale(body.locale) as Stripe.Checkout.SessionCreateParams.Locale,

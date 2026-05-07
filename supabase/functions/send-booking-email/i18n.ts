@@ -791,9 +791,40 @@ function renderVoucherBody(lang: Lang, v: Vars): string {
           close: 'Dziękujemy za zaufanie i życzymy obdarowanemu wspaniałych wrażeń!' },
   }
   const t = T[lang]
+
+  // Voucher codes inline — parse `v.voucher_code` jako comma-separated "MGABCDEF (200 Kč), MGGHIJKL (300 Kč)"
+  // (formát z webhook-receiver/payment-confirmers.ts confirmShopPayment).
+  const codeLabel: Record<Lang, string> = {
+    cs: 'Kód poukazu', en: 'Voucher code', de: 'Gutscheincode', nl: 'Bon code',
+    es: 'Código', fr: 'Code', pl: 'Kod vouchera',
+  }
+  const validUntilLabel: Record<Lang, string> = {
+    cs: 'Platnost do', en: 'Valid until', de: 'Gültig bis', nl: 'Geldig tot',
+    es: 'Válido hasta', fr: 'Valable jusqu\'au', pl: 'Ważny do',
+  }
+  const codesRaw = (v.voucher_code || '').trim()
+  let codesBlock = ''
+  if (codesRaw) {
+    const parts = codesRaw.split(/,\s*/).filter(Boolean)
+    const cards = parts.map((p) => {
+      // "MGABCDEF (200 Kč)" → code + amount
+      const m = p.match(/^([A-Z0-9]+)\s*(?:\(([^)]+)\))?/)
+      const code = m?.[1] || p
+      const amount = m?.[2] || ''
+      return `<div style="background:#dcfce7;border:2px dashed #74FB71;border-radius:12px;padding:18px 16px;margin:0 0 12px;text-align:center">
+        <div style="font-size:10px;font-weight:700;color:#166534;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">${codeLabel[lang]}</div>
+        <div style="font-size:24px;font-weight:900;font-family:'Courier New',monospace;letter-spacing:3px;color:#0a1f15">${code}</div>
+        ${amount ? `<div style="font-size:16px;font-weight:800;color:#166534;margin-top:6px">${amount}</div>` : ''}
+        ${v.voucher_expiry ? `<div style="font-size:11px;color:#166534;margin-top:6px">${validUntilLabel[lang]}: <strong>${v.voucher_expiry}</strong></div>` : ''}
+      </div>`
+    }).join('')
+    codesBlock = `<div style="margin:20px 0">${cards}</div>`
+  }
+
   return `<p>${HELLO[lang]}</p>
 <p>${t.intro}</p>
 <p>${t.received}</p>
+${codesBlock}
 <p>V příloze tohoto e-mailu najdete:</p>
 <ul>${t.attached.map(a => `<li>${a}</li>`).join('')}</ul>
 <p>${t.printed}</p>

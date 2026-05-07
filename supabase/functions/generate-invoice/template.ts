@@ -112,15 +112,36 @@ export function generateInvoiceHtml(p: TemplateParams): string {
   const badgeBg = badge.tone === 'paid' ? '#74FB71' : '#fbbf24'
   const badgeText = '#000000'
 
-  return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><title>${p.title} ${p.number}</title>
-<style>body{margin:0;padding:0;background:#d9dee2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1a14;-webkit-font-smoothing:antialiased}</style>
+  return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${p.title} ${p.number}</title>
+<style>
+  body{margin:0;padding:0;background:#d9dee2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1a14;-webkit-font-smoothing:antialiased}
+  .inv-wrap{max-width:780px;margin:0 auto;background:#ffffff}
+  .inv-2col{width:100%;border-collapse:separate;border-spacing:24px 0}
+  .inv-2col > tbody > tr > td{vertical-align:top;width:50%}
+  .inv-header-grid > tbody > tr > td{vertical-align:middle}
+  .inv-pad-32{padding:24px 32px 8px}
+  @media only screen and (max-width:600px){
+    .inv-pad-32{padding:16px}
+    .inv-2col{border-spacing:0 12px !important}
+    .inv-2col > tbody > tr > td,
+    .inv-2col > tbody > tr{display:block !important;width:100% !important;box-sizing:border-box}
+    .inv-header-grid > tbody > tr > td,
+    .inv-header-grid > tbody > tr{display:block !important;width:100% !important;text-align:left !important}
+    .inv-header-grid td[style*="text-align:right"]{text-align:left !important;margin-top:14px}
+    .inv-summary-row > tbody > tr > td:first-child{display:none !important}
+    .inv-summary-row > tbody > tr > td{display:block !important;width:100% !important}
+    .inv-items-table th,.inv-items-table td{font-size:12px !important;padding:10px 8px !important}
+    .inv-footer-grid > tbody > tr > td,
+    .inv-footer-grid > tbody > tr{display:block !important;width:100% !important;padding:0 0 12px !important}
+  }
+</style>
 </head>
 <body>
-<div style="max-width:780px;margin:0 auto;background:#ffffff">
+<div class="inv-wrap" style="max-width:780px;margin:0 auto;background:#ffffff">
 
   <!-- HEADER -->
   <div style="background:#000000;padding:28px 32px">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">
+    <table role="presentation" class="inv-header-grid" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">
       <tr>
         <td style="vertical-align:middle;width:50%">
           <table role="presentation" cellpadding="0" cellspacing="0"><tr>
@@ -143,8 +164,8 @@ export function generateInvoiceHtml(p: TemplateParams): string {
   </div>
 
   <!-- DODAVATEL / ODBĚRATEL -->
-  <div style="padding:24px 32px 8px">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;border-spacing:24px 0">
+  <div class="inv-pad-32" style="padding:24px 32px 8px">
+    <table role="presentation" class="inv-2col" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;border-spacing:24px 0">
       <tr>
         <td style="vertical-align:top;width:50%">
           <div style="font-size:11px;font-weight:800;color:#16a34a;letter-spacing:1.5px;margin-bottom:10px">DODAVATEL</div>
@@ -171,8 +192,8 @@ export function generateInvoiceHtml(p: TemplateParams): string {
   </div>
 
   <!-- FAKTURAČNÍ ÚDAJE / PLATBA -->
-  <div style="padding:16px 32px 8px">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;border-spacing:24px 0">
+  <div class="inv-pad-32" style="padding:16px 32px 8px">
+    <table role="presentation" class="inv-2col" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;border-spacing:24px 0">
       <tr>
         <td style="vertical-align:top;width:50%">
           <div style="font-size:11px;font-weight:800;color:#16a34a;letter-spacing:1.5px;margin-bottom:10px">FAKTURAČNÍ ÚDAJE</div>
@@ -194,9 +215,9 @@ export function generateInvoiceHtml(p: TemplateParams): string {
   </div>
 
   <!-- POLOŽKY -->
-  <div style="padding:16px 32px 0">
+  <div class="inv-pad-32" style="padding:16px 32px 0">
     <div style="font-size:11px;font-weight:800;color:#16a34a;letter-spacing:1.5px;margin-bottom:10px">POLOŽKY</div>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #e5e7eb">
+    <table role="presentation" class="inv-items-table" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #e5e7eb">
       <thead>
         <tr style="background:#000000">
           <th style="padding:12px 16px;color:#ffffff;font-size:11px;font-weight:700;text-align:left;letter-spacing:.5px">Položka</th>
@@ -210,8 +231,8 @@ export function generateInvoiceHtml(p: TemplateParams): string {
   </div>
 
   <!-- SOUHRN -->
-  <div style="padding:16px 32px 24px">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+  <div class="inv-pad-32" style="padding:16px 32px 24px">
+    <table role="presentation" class="inv-summary-row" width="100%" cellpadding="0" cellspacing="0">
       <tr>
         <td style="width:55%">&nbsp;</td>
         <td style="width:45%">
@@ -253,7 +274,7 @@ export function generateInvoiceHtml(p: TemplateParams): string {
 
   <!-- KONTAKT + QR -->
   <div style="background:#000000;padding:24px 32px;margin-top:8px">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>
+    <table role="presentation" class="inv-footer-grid" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>
       <td style="vertical-align:top;padding-right:16px">
         <div style="border:1px solid #74FB71;border-radius:6px;padding:16px;color:#ffffff;font-size:12px;line-height:1.7">
           <div style="font-size:14px;font-weight:800;color:#ffffff">Motogo24</div>

@@ -377,7 +377,7 @@ export async function confirmShopPayment(
   try {
     // Dedup: skip if already paid
     const { data: existingOrder } = await supabase.from('shop_orders')
-      .select('payment_status').eq('id', orderId).single()
+      .select('payment_status, status').eq('id', orderId).single()
     if (existingOrder?.payment_status === 'paid') {
       console.log(`[confirmShopPayment] Order ${orderId} already paid — skipping duplicate`)
       if (stripePaymentIntentId) {
@@ -405,9 +405,49 @@ export async function confirmShopPayment(
 
     if (error) {
       console.error('confirm_shop_payment RPC failed:', error.message)
-      await supabase.from('shop_orders')
-        .update({ payment_status: 'paid', payment_method: 'card' })
+      // Direct UPDATE — trigger auto_process_voucher_order should still fire BEFORE UPDATE
+      // because OLD.payment_status='pending' a NEW.payment_status='paid'.
+      const { error: directErr } = await supabase.from('shop_orders')
+        .update({ payment_status: 'paid', payment_method: 'card', confirmed_at: new Date().toISOString() })
         .eq('id', orderId)
+      if (directErr) {
+        console.error('[confirmShopPayment] direct update fallback failed:', directErr.message)
+        try {
+          await supabase.from('debug_log').insert({
+            source: 'webhook-receiver', action: 'confirm_shop_payment_fallback_failed',
+            component: 'stripe', status: 'error',
+            request_data: { order_id: orderId, transaction_id: transactionId },
+            error_message: directErr.message,
+          })
+        } catch { /* ignore */ }
+      }
+    }
+
+    // Verify trigger ran — if vouchers should exist but don't, kick the trigger manually
+    try {
+      const { data: post } = await supabase.from('shop_orders')
+        .select('id, status, payment_status, customer_email, customer_name, order_number')
+        .eq('id', orderId).single()
+      const { data: items } = await supabase.from('shop_order_items')
+        .select('product_name').eq('order_id', orderId)
+      const hasVoucherItem = (items || []).some((it: { product_name?: string }) =>
+        /voucher|poukaz/i.test(String(it.product_name || ''))
+      )
+      const { data: existingVouchers } = await supabase.from('vouchers')
+        .select('id').eq('order_id', orderId).limit(1)
+      if (hasVoucherItem && (!existingVouchers || existingVouchers.length === 0) && post?.payment_status === 'paid') {
+        // Trigger se z nějakého důvodu nespustil. Spustíme regen RPC manuálně.
+        await supabase.rpc('regen_voucher_for_order', { p_order_id: orderId })
+        try {
+          await supabase.from('debug_log').insert({
+            source: 'webhook-receiver', action: 'regen_voucher_for_order_called',
+            component: 'stripe', status: 'ok',
+            request_data: { order_id: orderId, post_status: post?.status },
+          })
+        } catch { /* ignore */ }
+      }
+    } catch (e) {
+      console.warn('[confirmShopPayment] post-confirm voucher verify failed:', e)
     }
 
     if (stripePaymentIntentId) {
