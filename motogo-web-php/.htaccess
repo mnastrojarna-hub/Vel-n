@@ -7,12 +7,14 @@ RewriteCond %{HTTPS} off
 RewriteCond %{HTTP:X-Forwarded-Proto} !=https
 RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [L,R=301]
 
-# === 2. Kanonicka domena -> resi <link rel="canonical"> v <head> ================
-# Drive zde byla 301 z www -> non-www, ale hosting (Forpsi/Hosting90) ma
-# vlastni reverse-proxy chovani na www host (presmerovani / SSL termination),
-# coz s touto pravidlem zpusobovalo ERR_TOO_MANY_REDIRECTS na www.motogo24.cz.
-# Deduplikaci v Google indexu zajisti canonical link v layout.php:605
-# (siteCanonicalUrl vraci vzdy non-www variantu pro daný jazyk).
+# === 2. Force non-www pro domeny mimo .cz =======================================
+# .cz je na Forpsi, kde proxy/DNS sam vynucuje www -> s timto pravidlem
+# vznikal ERR_TOO_MANY_REDIRECTS. Pro .cz spoleháme na <link rel="canonical">
+# v layout.php:605 (siteCanonicalUrl vraci vzdy non-www variantu).
+# Pro ostatni domeny (.com/.pl/.at/.es na Hosting90) 301 funguje korektne
+# a zaroven dorovnava chybejici redirect na non-www variantu.
+RewriteCond %{HTTP_HOST} ^www\.motogo24\.(com|pl|at|es)$ [NC]
+RewriteRule ^(.*)$ https://motogo24.%1/$1 [L,R=301]
 
 # === 3. Stare URL z puvodni verze webu (WordPress?) -> nove URL ==================
 # Google ma tyto URL v indexu od predchozi verze. 301 redirecty zajisti
