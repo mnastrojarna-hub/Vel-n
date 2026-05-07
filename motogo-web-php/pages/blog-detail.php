@@ -15,10 +15,13 @@ if (!$post) {
 }
 
 if (!$post) {
+    http_response_code(404);
     $content = '<main id="content"><div class="container">' .
         renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.blog'), 'href' => '/blog'], t('blog.detail.notFoundHeading')]) .
         '<div class="ccontent"><h1>' . te('blog.detail.notFoundHeading') . '</h1><p><a class="btn btngreen" href="' . BASE_URL . '/blog">' . te('blog.detail.backToBlog') . '</a></p></div></div></main>';
-    renderPage(t('blog.detail.notFoundTitle'), $content, '/blog/' . htmlspecialchars($slug));
+    renderPage(t('blog.detail.notFoundTitle'), $content, '/blog/' . htmlspecialchars($slug), [
+        'robots' => 'noindex,follow',
+    ]);
     return;
 }
 

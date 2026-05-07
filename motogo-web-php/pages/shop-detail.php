@@ -11,7 +11,9 @@ if (!$product || empty($product['is_active'])) {
         renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.shop'), 'href' => '/eshop'], t('shop.detail.notFoundHeading')]) .
         '<div class="ccontent"><h1>' . te('shop.detail.notFoundHeading') . '</h1>' .
         '<p><a class="btn btngreen" href="' . BASE_URL . '/eshop">' . te('shop.detail.backToShop') . '</a></p></div></div></main>';
-    renderPage(t('shop.detail.notFoundTitle'), $content, '/eshop/' . htmlspecialchars($id));
+    renderPage(t('shop.detail.notFoundTitle'), $content, '/eshop/' . htmlspecialchars($id), [
+        'robots' => 'noindex,follow',
+    ]);
     return;
 }
 

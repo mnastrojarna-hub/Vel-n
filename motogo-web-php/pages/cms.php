@@ -27,7 +27,16 @@ if ($page && !empty($page['content'])) {
 $content = '<main id="content"><div class="container">' . $bc .
     '<div class="ccontent"><h1>' . htmlspecialchars($title) . '</h1>' . $pageContent . '</div></div></main>';
 
+// Unikátní meta description per slug — Google penalizuje stejné description
+// na vícero stránkách. Fallback se pouzije, kdyz Velin neda excerpt.
+$descMap = [
+    'obchodni-podminky'  => 'Obchodní podmínky půjčovny motorek MotoGo24 — práva a povinnosti při pronájmu, cena, kauce, pojištění, storno podmínky.',
+    'gdpr'               => 'Zásady ochrany osobních údajů MotoGo24 — jaká data zpracováváme při rezervaci motorky, jak je chráníme a vaše práva podle GDPR.',
+    'smlouva-o-pronajmu' => 'Vzor smlouvy o pronájmu motocyklu MotoGo24 — předmět nájmu, doba, cena, povinnosti nájemce a pronajímatele.',
+];
+$fallbackDesc = $descMap[$slug] ?? ($title . ' — MotoGo24, půjčovna motorek na Vysočině.');
+
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 renderPage($title . ' | MotoGo24', $content, $path, [
-    'description' => $page['excerpt'] ?? ($title . ' – Motogo24'),
+    'description' => $page['excerpt'] ?? $fallbackDesc,
 ]);
