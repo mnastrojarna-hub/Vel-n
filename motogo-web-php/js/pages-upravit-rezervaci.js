@@ -64,6 +64,125 @@ MG._editRez = {
   busy: false
 };
 
+// ===== CMS PREVIEW MOCK MODE =====
+// Když je admin v CMS režimu (cookie `mg_cms_admin=1` nebo `?cms_admin=<token>`)
+// a nemá login session, nahradíme reálné Supabase volání mock daty, ať se
+// ve Velíně dají editovat texty list/detail/extend/cancel… pomocí "Otevřít na webu".
+// Volitelný `?preview=login|list|detail|extend|shorten|moto|location|docs|cancel`
+// určí, kterou view mock vykreslí (default `list`).
+MG._editRez._isMockMode = false;
+MG._editRez._cmsPreviewParam = function(){
+  try {
+    var u = new URL(window.location.href);
+    return (u.searchParams.get('preview') || '').toLowerCase();
+  } catch(e){ return ''; }
+};
+MG._editRez._buildMockData = function(){
+  var today = new Date();
+  var iso = function(d){
+    var y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), dd = String(d.getDate()).padStart(2,'0');
+    return y+'-'+m+'-'+dd;
+  };
+  var startActive = new Date(today); startActive.setDate(today.getDate() - 1);
+  var endActive = new Date(today); endActive.setDate(today.getDate() + 3);
+  var startUpcoming = new Date(today); startUpcoming.setDate(today.getDate() + 14);
+  var endUpcoming = new Date(today); endUpcoming.setDate(today.getDate() + 18);
+  var startPast = new Date(today); startPast.setDate(today.getDate() - 30);
+  var endPast = new Date(today); endPast.setDate(today.getDate() - 26);
+  var moto = {
+    id: 'preview-moto-1',
+    model: 'CB500X', brand: 'Honda',
+    image_url: '', images: [],
+    license_required: 'A2',
+    price_mon: 990, price_tue: 990, price_wed: 990, price_thu: 990,
+    price_fri: 1290, price_sat: 1490, price_sun: 1490,
+    price_weekday: 990, price_weekend: 1490
+  };
+  return {
+    bookings: [
+      {
+        id: 'PREVIEW-BOOKING-ACTIVE-12345',
+        moto_id: moto.id, motorcycles: moto,
+        start_date: iso(startActive), end_date: iso(endActive),
+        pickup_time: '10:00', return_time: '18:00',
+        status: 'confirmed', payment_status: 'paid', total_price: 4900,
+        created_at: iso(today),
+        delivery_fee: 0, extras_price: 0, discount_amount: 0,
+        pickup_method: 'pickup_at_rental', pickup_address: 'Pelhřimov, U Pivovaru 1',
+        pickup_lat: 49.4262, pickup_lng: 15.2233,
+        return_method: 'return_to_rental', return_address: 'Pelhřimov, U Pivovaru 1',
+        return_lat: 49.4262, return_lng: 15.2233,
+        booking_source: 'web', modification_history: [],
+        helmet_size: 'M', jacket_size: 'L', pants_size: 'L', boots_size: '43', gloves_size: 'L'
+      },
+      {
+        id: 'PREVIEW-BOOKING-UPCOMING-67890',
+        moto_id: moto.id, motorcycles: moto,
+        start_date: iso(startUpcoming), end_date: iso(endUpcoming),
+        pickup_time: '09:00', return_time: '17:00',
+        status: 'confirmed', payment_status: 'paid', total_price: 5900,
+        created_at: iso(today),
+        delivery_fee: 0, extras_price: 0, discount_amount: 0,
+        pickup_method: 'pickup_at_rental', pickup_address: 'Pelhřimov, U Pivovaru 1',
+        pickup_lat: 49.4262, pickup_lng: 15.2233,
+        return_method: 'return_to_rental', return_address: 'Pelhřimov, U Pivovaru 1',
+        return_lat: 49.4262, return_lng: 15.2233,
+        booking_source: 'web', modification_history: []
+      },
+      {
+        id: 'PREVIEW-BOOKING-PAST-CCCCC',
+        moto_id: moto.id, motorcycles: moto,
+        start_date: iso(startPast), end_date: iso(endPast),
+        status: 'completed', payment_status: 'paid', total_price: 4400,
+        created_at: iso(startPast),
+        pickup_method: 'pickup_at_rental', return_method: 'return_to_rental',
+        booking_source: 'web', modification_history: []
+      }
+    ],
+    shopOrders: [
+      {
+        id: 'PREVIEW-ORDER-AAA',
+        order_number: 'MG-2026-0042',
+        status: 'paid', payment_status: 'paid',
+        total_amount: 1290, created_at: iso(today),
+        shop_order_items: [
+          { order_id: 'PREVIEW-ORDER-AAA', product_name: 'Tričko MotoGo24', unit_price: 590, quantity: 1 },
+          { order_id: 'PREVIEW-ORDER-AAA', product_name: 'Kšiltovka', unit_price: 350, quantity: 2 }
+        ]
+      }
+    ],
+    vouchers: [
+      {
+        id: 'PREVIEW-VCH-1', code: 'MG-PREVIEW-2000', amount: 2000, currency: 'CZK',
+        status: 'active', valid_from: iso(today),
+        valid_until: iso(new Date(today.getFullYear()+1, today.getMonth(), today.getDate())),
+        created_at: iso(today),
+        description: 'Dárkový poukaz na zapůjčení motorky',
+        category: 'rental', redeemed_at: null, booking_id: null
+      }
+    ],
+    consents: {
+      marketing_consent: true, consent_gdpr: true, consent_vop: true,
+      consent_email: true, consent_sms: false, consent_push: false,
+      consent_data_processing: true, consent_photo: false,
+      consent_whatsapp: false, consent_contract: true
+    }
+  };
+};
+MG._editRez._enterMockMode = function(){
+  if (MG._editRez._isMockMode) return;
+  MG._editRez._isMockMode = true;
+  var data = MG._editRez._buildMockData();
+  MG._editRez.user = { id: 'cms-preview-user', email: 'preview@motogo24.cz' };
+  MG._editRez.bookings = data.bookings;
+  MG._editRez.shopOrders = data.shopOrders;
+  MG._editRez.vouchers = data.vouchers;
+  MG._editRez.consents = data.consents;
+  // Stub destruktivní akce — v preview nesmíme volat Supabase / Stripe.
+  MG._editRez._loadBookings = async function(){ /* mock: no-op */ };
+  MG._editRez._logout = async function(){ /* mock: no-op */ };
+};
+
 // ===== HELPERS =====
 
 // Datum YYYY-MM-DD <-> Date
@@ -4076,6 +4195,35 @@ MG._editRez._applyPendingAfterPayment = async function(bookingId){
 
 // ===== INIT =====
 MG._editRezInit = async function(){
+  // CMS preview: pokud je admin v CMS režimu (`mg_cms_admin=1` cookie, kterou
+  // index.php nastaví po ověření `?cms_admin=<token>`) a nemá login session,
+  // ukážeme mock data ať se ve Velíně dají editovat texty
+  // list/detail/extend/cancel/… Pokud má session, jede normální flow s reálnými
+  // daty (admin může být zároveň zákazník).
+  var cmsAdmin = MG._isCmsAdmin();
+  if (cmsAdmin){
+    var hasSession = false;
+    try {
+      var s = await window.sb.auth.getSession();
+      hasSession = !!(s && s.data && s.data.session && s.data.session.user);
+    } catch(e){ hasSession = false; }
+    if (!hasSession){
+      MG._editRez._enterMockMode();
+      var pv = MG._editRez._cmsPreviewParam();
+      var validViews = ['login','forgot','reset','list','detail'];
+      var view = validViews.indexOf(pv) >= 0 ? pv : 'list';
+      if (view === 'detail'){
+        MG._editRez.selectedBooking = MG._editRez.bookings[0];
+        MG._editRez.selectedMoto = MG._editRez.bookings[0].motorcycles || null;
+        var subtab = (new URLSearchParams(window.location.search).get('tab') || '').toLowerCase();
+        var validTabs = ['detail','extend','shorten','moto','location','docs','cancel'];
+        MG._editRez.tab = validTabs.indexOf(subtab) >= 0 ? subtab : 'detail';
+      }
+      MG._editRez._goto(view);
+      return;
+    }
+  }
+
   // Detekce password recovery flow: Supabase přidá do URL hashe `#type=recovery`
   // a access_token; knihovna automaticky vytvoří session a emituje
   // PASSWORD_RECOVERY event. Pak musíme zákazníka donutit nastavit nové heslo,
