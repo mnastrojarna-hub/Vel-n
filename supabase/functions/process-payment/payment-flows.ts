@@ -376,14 +376,17 @@ export async function handleWebShopCheckout(
 
   const orderId = body.order_id || crypto.randomUUID()
   if (!body.order_id) {
-    await supabaseAdmin.from('shop_orders').insert({
+    // payment_status musí matchovat CHECK constraint shop_orders → pending/paid/refunded/failed.
+    // Dříve zde bylo 'unpaid' (legacy z bookings.payment_status enum), což CHECK porušuje a INSERT
+    // tiše selhal — voucher se pak nikdy nevytvořil a po Stripe platbě nedorazil mail.
+    const { error: insertOrderError } = await supabaseAdmin.from('shop_orders').insert({
       id: orderId,
       customer_name: customerName,
       customer_email: customerEmail,
       customer_phone: customerPhone,
       shipping_address: shippingAddress || null,
       status: 'new',
-      payment_status: 'unpaid',
+      payment_status: 'pending',
       payment_method: 'stripe',
       total: amountCzk,
       subtotal: voucherAmount,
@@ -392,6 +395,22 @@ export async function handleWebShopCheckout(
       currency: 'CZK',
       notes: isPrint ? 'Fyzický poukaz (tisk + poštovné)' : 'Elektronický poukaz',
     })
+    if (insertOrderError) {
+      console.error('[WebShopCheckout] shop_orders insert failed:', insertOrderError.message)
+      try {
+        await supabaseAdmin.from('debug_log').insert({
+          source: 'process-payment',
+          action: 'web_shop_order_insert_failed',
+          component: 'voucher_checkout',
+          status: 'error',
+          error_message: insertOrderError.message,
+          request_data: { order_id: orderId, customer_email: customerEmail, voucher_amount: voucherAmount, is_print: isPrint },
+        })
+      } catch { /* ignore */ }
+      return new Response(JSON.stringify({ error: 'Order creation failed', details: insertOrderError.message }), {
+        status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
 
     // Hlavní položka: dárkový poukaz
     const orderItems: Record<string, unknown>[] = [{
