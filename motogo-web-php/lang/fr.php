@@ -193,7 +193,9 @@ return [
 
     // ===== SEO meta defaults (par langue) =====
     'seo.default.description' => 'Location de motos dans la région de Vysočina, République tchèque — motos de tourisme, sport, enduro et enfants. Location 24h/24, sans caution, équipement inclus, réservation en ligne.',
+    'seo.default.keywords' => 'location moto République tchèque, louer moto Pelhřimov, location moto sans caution, réservation moto en ligne',
     'seo.home.description' => 'Louez une moto dans la région de Vysočina. Sans caution, équipement inclus, service 24h/24. Motos de tourisme, sport, enduro et enfants. Réservation en ligne.',
+    'seo.home.keywords' => 'location moto République tchèque, louer moto Pelhřimov, location moto sans caution, réservation moto en ligne',
 
     // ===== Potvrzení =====
     'confirm.titleBooking' => 'Confirmation de réservation | MotoGo24',

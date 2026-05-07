@@ -193,7 +193,9 @@ return [
 
     // ===== SEO meta defaults (per language) =====
     'seo.default.description' => 'Motorcycle rental in the Vysočina region, Czech Republic — touring, sport, enduro and kids\' motorcycles. 24/7 rental, no deposit, gear included, online booking.',
+    'seo.default.keywords' => 'motorcycle rental Czech Republic, motorbike hire Pelhřimov, no deposit motorcycle rental, online motorcycle booking',
     'seo.home.description' => 'Rent a motorcycle in the Vysočina region. No deposit, gear included, 24/7 service. Touring, sport, enduro and kids\' bikes. Book online.',
+    'seo.home.keywords' => 'motorcycle rental Czech Republic, motorbike hire Pelhřimov, no deposit motorcycle rental, online motorcycle booking',
 
     // ===== Confirmation =====
     'confirm.titleBooking' => 'Booking confirmation | MotoGo24',

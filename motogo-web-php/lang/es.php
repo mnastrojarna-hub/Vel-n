@@ -194,7 +194,9 @@ return [
 
     // ===== SEO meta defaults (por idioma) =====
     'seo.default.description' => 'Alquiler de motos en la región de Vysočina, República Checa — motos de turismo, sport, enduro e infantiles. Alquiler 24/7, sin depósito, equipo incluido, reserva online.',
+    'seo.default.keywords' => 'alquiler de motos República Checa, alquilar moto Pelhřimov, alquiler de motos sin depósito, reserva de motos online',
     'seo.home.description' => 'Alquila una moto en la región de Vysočina. Sin depósito, equipo incluido, servicio 24/7. Motos de turismo, sport, enduro e infantiles. Reserva online.',
+    'seo.home.keywords' => 'alquiler de motos República Checa, alquilar moto Pelhřimov, alquiler de motos sin depósito, reserva de motos online',
 
     // ===== Potvrzení =====
     'confirm.titleBooking' => 'Confirmación de reserva | MotoGo24',

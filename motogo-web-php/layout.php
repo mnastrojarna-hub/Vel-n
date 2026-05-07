@@ -118,73 +118,7 @@ function renderFooter() {
 }
 
 function renderInlineJs() {
-    return '<script>
-(function(){
-  // Hash URL redirect (staré záložky #/katalog → /katalog)
-  if(window.location.hash && window.location.hash.indexOf("#/")===0){
-    window.location.replace(window.location.hash.substring(1));
-  }
-  // Scroll to top button (passive listener pro lepší scroll perf na mobilu)
-  var btn = document.getElementById("Up");
-  if(btn){ window.addEventListener("scroll", function(){ btn.classList.toggle("visible", window.scrollY > 400); }, {passive:true}); }
-  // Mobilní menu — zamyká body scroll, zavírá na ESC, na klik mimo a po výběru
-  var menu = document.getElementById("mobile-menu");
-  var toggleBtn = document.querySelector(".nav-toggle");
-  function setMenu(open){
-    if(!menu) return;
-    menu.classList.toggle("open", open);
-    document.body.classList.toggle("menu-open", open);
-    if(toggleBtn) toggleBtn.setAttribute("aria-expanded", open?"true":"false");
-  }
-  if(toggleBtn){ toggleBtn.setAttribute("aria-expanded","false"); toggleBtn.setAttribute("aria-controls","mobile-menu"); }
-  if(menu){
-    // klik na overlay (ne na menu items) zavře
-    menu.addEventListener("click", function(e){ if(e.target===menu) setMenu(false); });
-    // klik na nepodmenu odkaz zavře menu
-    menu.querySelectorAll("a").forEach(function(a){
-      if(a.closest(".has-sub")) return;
-      a.addEventListener("click", function(){ setMenu(false); });
-    });
-  }
-  document.addEventListener("keydown", function(e){
-    if(e.key==="Escape" && menu && menu.classList.contains("open")) setMenu(false);
-  });
-  // Při resize na desktop zavři mobil menu
-  window.addEventListener("resize", function(){
-    if(window.innerWidth>768 && menu && menu.classList.contains("open")) setMenu(false);
-  }, {passive:true});
-  // Language + Currency switcher dropdown toggle (sdílená logika)
-  function bindSwitcher(sw, toggleSel, dropSel){
-    var toggle = sw.querySelector(toggleSel);
-    var dropdown = sw.querySelector(dropSel);
-    if(!toggle || !dropdown) return;
-    toggle.addEventListener("click", function(e){
-      e.stopPropagation();
-      var open = sw.classList.toggle("open");
-      toggle.setAttribute("aria-expanded", open ? "true" : "false");
-    });
-    document.addEventListener("click", function(e){
-      if(!sw.contains(e.target)){ sw.classList.remove("open"); toggle.setAttribute("aria-expanded","false"); }
-    });
-    document.addEventListener("keydown", function(e){
-      if(e.key==="Escape" && sw.classList.contains("open")){ sw.classList.remove("open"); toggle.setAttribute("aria-expanded","false"); }
-    });
-  }
-  document.querySelectorAll("[data-lang-switcher]").forEach(function(sw){ bindSwitcher(sw, ".lang-toggle", ".lang-dropdown"); });
-  document.querySelectorAll("[data-cur-switcher]").forEach(function(sw){ bindSwitcher(sw, ".cur-toggle", ".cur-dropdown"); });
-  // Submenu toggle (mobile)
-  document.querySelectorAll(".has-sub > a").forEach(function(a){
-    a.addEventListener("click", function(e){
-      if(window.innerWidth <= 768){
-        var li = a.parentElement;
-        var wasOpen = li.classList.contains("show");
-        document.querySelectorAll(".has-sub").forEach(function(el){ el.classList.remove("show"); });
-        if(!wasOpen){ e.preventDefault(); li.classList.add("show"); }
-      }
-    });
-  });
-})();
-</script>';
+    return '<script src="' . assetUrl('/js/ui.js') . '" defer></script>';
 }
 
 /**
@@ -289,125 +223,8 @@ function renderConsentManager() {
     </div>
   </div>
 </aside>
-<script>
-window.MG_CONSENT_CFG = ' . $cfg . ';
-(function(){
-  var CFG = window.MG_CONSENT_CFG || {};
-  var COOKIE = "mg_cookie_consent";
-  var ONE_YEAR = 365 * 24 * 3600;
-
-  function readConsent(){
-    var m = ("; " + document.cookie).split("; " + COOKIE + "=");
-    if (m.length < 2) return null;
-    var raw = m.pop().split(";").shift();
-    try { return JSON.parse(decodeURIComponent(raw)); } catch(e){ return null; }
-  }
-  function writeConsent(c){
-    var v = encodeURIComponent(JSON.stringify(c));
-    var secure = location.protocol === "https:" ? ";secure" : "";
-    document.cookie = COOKIE + "=" + v + ";path=/;max-age=" + ONE_YEAR + ";samesite=Lax" + secure;
-  }
-  function injectGtm(id){
-    if (!id || window.__mgGtmLoaded) return;
-    window.__mgGtmLoaded = true;
-    window.dataLayer = window.dataLayer || [];
-    window.dataLayer.push({"gtm.start": new Date().getTime(), event: "gtm.js"});
-    var s = document.createElement("script");
-    s.async = true;
-    s.src = "https://www.googletagmanager.com/gtm.js?id=" + encodeURIComponent(id);
-    document.head.appendChild(s);
-    var ns = document.createElement("noscript");
-    var iframe = document.createElement("iframe");
-    iframe.src = "https://www.googletagmanager.com/ns.html?id=" + encodeURIComponent(id);
-    iframe.height = "0"; iframe.width = "0";
-    iframe.style.display = "none"; iframe.style.visibility = "hidden";
-    ns.appendChild(iframe);
-    (document.body || document.documentElement).appendChild(ns);
-  }
-  function injectSklik(id){
-    if (!id || window.__mgSklikLoaded) return;
-    window.__mgSklikLoaded = true;
-    window.seznam_retargeting_id = id;
-    var s = document.createElement("script");
-    s.async = true;
-    s.src = "https://c.imedia.cz/js/retargeting.js";
-    document.head.appendChild(s);
-  }
-  function applyConsent(c){
-    if (!c) return;
-    if (c.analytics) injectGtm(CFG.gtmId);
-    if (c.marketing) injectSklik(CFG.sklikId);
-  }
-  function showBanner(asSettings){
-    var b = document.getElementById("mg-consent");
-    if (!b) return;
-    b.hidden = false;
-    var settings = document.getElementById("mg-consent-settings");
-    var save = document.querySelector("[data-consent-action=save]");
-    if (asSettings) {
-      if (settings) settings.hidden = false;
-      if (save) save.hidden = false;
-    } else {
-      if (settings) settings.hidden = true;
-      if (save) save.hidden = true;
-    }
-  }
-  function hideBanner(){
-    var b = document.getElementById("mg-consent");
-    if (b) b.hidden = true;
-  }
-  function persist(an, ma){
-    var c = { necessary: 1, analytics: an ? 1 : 0, marketing: ma ? 1 : 0, v: 1, ts: Math.floor(Date.now()/1000) };
-    writeConsent(c);
-    applyConsent(c);
-    hideBanner();
-  }
-
-  function init(){
-    var existing = readConsent();
-    if (existing) {
-      applyConsent(existing);
-    } else {
-      showBanner(false);
-    }
-    var b = document.getElementById("mg-consent");
-    if (b) {
-      b.addEventListener("click", function(e){
-        var a = e.target.closest("[data-consent-action]");
-        if (!a) return;
-        e.preventDefault();
-        var act = a.getAttribute("data-consent-action");
-        if (act === "accept-all") { persist(true, true); }
-        else if (act === "reject-all") { persist(false, false); }
-        else if (act === "settings") { showBanner(true); }
-        else if (act === "save") {
-          var an = document.getElementById("mg-consent-analytics");
-          var ma = document.getElementById("mg-consent-marketing");
-          persist(an && an.checked, ma && ma.checked);
-        }
-      });
-    }
-    // Footer "Nastavení cookies" — re-otevře banner v settings módu
-    document.addEventListener("click", function(e){
-      var trg = e.target.closest("[data-cookie-prefs]");
-      if (!trg) return;
-      e.preventDefault();
-      var ex = readConsent();
-      var an = document.getElementById("mg-consent-analytics");
-      var ma = document.getElementById("mg-consent-marketing");
-      if (an) an.checked = !!(ex && ex.analytics);
-      if (ma) ma.checked = !!(ex && ex.marketing);
-      showBanner(true);
-    });
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
-})();
-</script>';
+<script>window.MG_CONSENT_CFG=' . $cfg . ';</script>
+<script src="' . assetUrl('/js/consent.js') . '" defer></script>';
 
     return $html;
 }
@@ -512,7 +329,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
     // by Google na .com indexoval cizojazycne stranky s ceskym defaultnim popiskem.
     $defaultDesc = function_exists('t') ? t('seo.default.description') : 'Půjčovna motorek Vysočina – silniční, sportovní, enduro i dětské. Nonstop pronájem bez kauce, online rezervace a motorkářská výbava zdarma.';
     $description = $meta['description'] ?? $defaultDesc;
-    $keywords = $meta['keywords'] ?? 'půjčovna motorek Vysočina, pronájem motorek Vysočina, půjčovna motorek Pelhřimov, půjčovna motorek bez kauce, nonstop půjčovna motorek, rezervace motorky online, motorky k pronájmu Vysočina, motorbike rental Czech Republic, motorcycle rental Prague, půjčovna motorek Praha';
+    $keywords = $meta['keywords'] ?? (function_exists('t') ? t('seo.default.keywords') : 'půjčovna motorek Vysočina, pronájem motorek Pelhřimov, půjčovna motorek bez kauce, online rezervace motorky');
     // Canonical = doménová home pro aktuální jazyk (cs → .cz, ostatní → .com).
     // Tím Google indexuje českou verzi výhradně z motogo24.cz a anglickou/další
     // z motogo24.com — žádný duplicate-content stejného jazyka přes obě domény.
@@ -613,6 +430,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   <link rel="apple-touch-icon" href="' . BASE_URL . '/apple-touch-icon.png">
   <link rel="manifest" href="' . BASE_URL . '/manifest.webmanifest">
   <link rel="alternate" type="application/rss+xml" title="MotoGo24 — Blog a tipy na trasy" href="' . $siteOrigin . '/feed.xml">
+  <link rel="sitemap" type="application/xml" title="Sitemap" href="' . $siteOrigin . '/sitemap.xml">
   <link rel="search" type="application/opensearchdescription+xml" title="MotoGo24" href="' . $siteOrigin . '/opensearch.xml">
   <link rel="alternate" type="application/json" title="MotoGo24 — AI Agent Manifest" href="' . $siteOrigin . '/.well-known/agent.json">
   <link rel="alternate" type="application/json" title="MotoGo24 — ChatGPT Plugin Manifest" href="' . $siteOrigin . '/.well-known/ai-plugin.json">
@@ -634,90 +452,71 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
     "@context": "https://schema.org",
     "@graph": [
       {
-        "@type": "Organization",
+        "@type": ["LocalBusiness", "AutomotiveBusiness", "Organization"],
         "@id": "' . $siteOrigin . '/#organization",
-        "name": "MotoGo24",
+        "name": "MotoGo24 — půjčovna motorek Vysočina",
+        "alternateName": ["MotoGo24","Motogo24 Pelhřimov","Půjčovna motorek Vysočina","MotoGo24 motorcycle rental"],
         "legalName": "Bc. Petra Semorádová",
+        "description": "Půjčovna motorek na Vysočině — silniční, naked, supermoto, enduro i dětské motorky. Bez kauce, výbava v ceně, nonstop provoz.",
+        "slogan": "Půjč si motorku bez kauce. Nonstop. Online.",
         "url": "' . $siteOrigin . '",
-        "logo": {"@type": "ImageObject", "url": "' . $siteOrigin . '/gfx/logo.svg", "width": 512, "height": 512},
+        "logo": {"@type":"ImageObject","url":"' . $siteOrigin . '/gfx/logo.svg","width":512,"height":512},
         "image": "' . $siteOrigin . '/gfx/hero-banner.jpg",
         "email": "info@motogo24.cz",
         "telephone": "+420 774 256 271",
         "taxID": "21874263",
         "vatID": "CZ21874263",
         "foundingDate": "2024-07-31",
-        "founder": {"@type": "Person", "name": "Bc. Petra Semorádová"},
-        "address": {"@type": "PostalAddress","streetAddress": "Mezná 9","addressLocality": "Pelhřimov","postalCode": "393 01","addressRegion": "Vysočina","addressCountry": "CZ"},
-        "contactPoint": [
-          {"@type": "ContactPoint", "telephone": "+420 774 256 271", "contactType": "customer service", "email": "info@motogo24.cz", "areaServed": ["CZ","SK","AT","DE","PL","FR","BE","NL","ES"], "availableLanguage": ["cs","en","de","pl","sk","fr","nl","es"], "hoursAvailable": {"@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"], "opens": "00:00", "closes": "23:59"}},
-          {"@type": "ContactPoint", "telephone": "+420 774 256 271", "contactType": "emergency", "email": "info@motogo24.cz", "availableLanguage": ["cs","en"]}
+        "founder": {"@type":"Person","name":"Bc. Petra Semorádová"},
+        "priceRange": "990 – 5000 Kč/den",
+        "currenciesAccepted": "CZK, EUR, USD",
+        "paymentAccepted": "Cash, Credit Card, Debit Card, Apple Pay, Google Pay",
+        "knowsLanguage": ["cs","en","de","es","fr","nl","pl"],
+        "keywords": "půjčovna motorek Vysočina, pronájem motorek Pelhřimov, půjčovna motorek bez kauce, online rezervace motorky",
+        "address": {"@type":"PostalAddress","streetAddress":"Mezná 9","addressLocality":"Pelhřimov","postalCode":"393 01","addressRegion":"Vysočina","addressCountry":"CZ"},
+        "geo": {"@type":"GeoCoordinates","latitude":49.4147,"longitude":15.2953},
+        "hasMap": "https://mapy.cz/zakladni?q=Mezn%C3%A1%209%20Pelh%C5%99imov",
+        "openingHoursSpecification": {"@type":"OpeningHoursSpecification","dayOfWeek":["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],"opens":"00:00","closes":"23:59"},
+        "areaServed": [
+          {"@type":"Country","name":"Česko"},
+          {"@type":"AdministrativeArea","name":"Kraj Vysočina"},
+          {"@type":"Country","name":"Slovensko"},
+          {"@type":"Country","name":"Rakousko"},
+          {"@type":"Country","name":"Německo"},
+          {"@type":"Country","name":"Polsko"},
+          {"@type":"Country","name":"Francie"},
+          {"@type":"Country","name":"Belgie"},
+          {"@type":"Country","name":"Nizozemsko"},
+          {"@type":"Country","name":"Španělsko"}
         ],
-        "sameAs": ["' . FB_URL . '","' . IG_URL . '"]
+        "contactPoint": [
+          {"@type":"ContactPoint","telephone":"+420 774 256 271","email":"info@motogo24.cz","contactType":"customer service","areaServed":["CZ","SK","AT","DE","PL","FR","BE","NL","ES"],"availableLanguage":["cs","en","de","pl","sk","fr","nl","es"]}
+        ],
+        "hasOfferCatalog": {
+          "@type":"OfferCatalog",
+          "name":"Katalog motorek k pronájmu",
+          "url":"' . $siteOrigin . '/katalog",
+          "itemListElement":[
+            {"@type":"OfferCatalog","name":"Cestovní motorky","url":"' . $siteOrigin . '/katalog/cestovni"},
+            {"@type":"OfferCatalog","name":"Naked motorky","url":"' . $siteOrigin . '/katalog/naked"},
+            {"@type":"OfferCatalog","name":"Supermoto","url":"' . $siteOrigin . '/katalog/supermoto"},
+            {"@type":"OfferCatalog","name":"Dětské motorky","url":"' . $siteOrigin . '/katalog/detske"}
+          ]
+        },
+        "potentialAction": [
+          {"@type":"ReserveAction","target":{"@type":"EntryPoint","urlTemplate":"' . $siteOrigin . '/rezervace?moto={moto_id}&start={start_date}&end={end_date}","actionPlatform":["http://schema.org/DesktopWebPlatform","http://schema.org/MobileWebPlatform","http://schema.org/IOSPlatform","http://schema.org/AndroidPlatform"]},"result":{"@type":"Reservation","name":"Rezervace motorky"}},
+          {"@type":"OrderAction","target":"' . $siteOrigin . '/eshop","name":"Nákup výbavy a poukazů"}
+        ],
+        "sameAs": ' . json_encode(buildSameAs(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . $aggregateRatingFragment . '
       },
       {
         "@type": "WebSite",
         "@id": "' . $siteOrigin . '/#website",
         "url": "' . $siteOrigin . '",
         "name": "MotoGo24 — půjčovna motorek Vysočina",
-        "description": "Online rezervace motorek, e-shop, dárkové poukazy. Půjčovna v Pelhřimově, nonstop, bez kauce.",
         "inLanguage": "' . htmlspecialchars($htmlLang) . '",
-        "publisher": {"@id": "' . $siteOrigin . '/#organization"},
-        "potentialAction": {
-          "@type": "SearchAction",
-          "target": {"@type": "EntryPoint", "urlTemplate": "' . $siteOrigin . '/katalog?q={search_term_string}"},
-          "query-input": "required name=search_term_string"
-        }
-      },
-      {
-        "@type": ["LocalBusiness", "AutomotiveBusiness"],
-        "@id": "' . $siteOrigin . '/#localbusiness",
-        "name": "MotoGo24 — půjčovna motorek Vysočina",
-        "alternateName": ["Motogo24 Pelhřimov", "Půjčovna motorek Vysočina", "MotoGo24 motorcycle rental"],
-        "description": "Půjčovna motorek na Vysočině — silniční, naked, supermoto, enduro i dětské motorky. Bez kauce, výbava v ceně, nonstop provoz.",
-        "slogan": "Půjč si motorku bez kauce. Nonstop. Online.",
-        "url": "' . $siteOrigin . '",
-        "logo": "' . $siteOrigin . '/gfx/logo.svg",
-        "image": ["' . $siteOrigin . '/gfx/hero-banner.jpg", "' . $siteOrigin . '/gfx/logo.svg"],
-        "email": "info@motogo24.cz",
-        "telephone": "+420 774 256 271",
-        "priceRange": "990 – 5000 Kč/den",
-        "currenciesAccepted": "CZK, EUR, USD",
-        "paymentAccepted": "Cash, Credit Card, Debit Card, Apple Pay, Google Pay",
-        "knowsLanguage": ["cs","en","de","es","fr","nl","pl"],
-        "keywords": "půjčovna motorek, pronájem motorek, motorbike rental, motorcycle rental, Czech Republic, Vysočina, Pelhřimov, bez kauce, nonstop, enduro, supermoto, naked, sportovní, cestovní, A2 řidičák, A1 řidičák",
-        "openingHoursSpecification": {"@type": "OpeningHoursSpecification","dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],"opens": "00:00","closes": "23:59"},
-        "address": {"@type": "PostalAddress","streetAddress": "Mezná 9","addressLocality": "Pelhřimov","postalCode": "393 01","addressRegion": "Vysočina","addressCountry": "CZ"},
-        "geo": {"@type": "GeoCoordinates","latitude": 49.4147,"longitude": 15.2953},
-        "hasMap": "https://mapy.cz/zakladni?q=Mezn%C3%A1%209%20Pelh%C5%99imov",
-        "areaServed": [
-          {"@type": "Country", "name": "Česko"},
-          {"@type": "AdministrativeArea", "name": "Kraj Vysočina"},
-          {"@type": "Country", "name": "Slovensko"},
-          {"@type": "Country", "name": "Rakousko"},
-          {"@type": "Country", "name": "Německo"},
-          {"@type": "Country", "name": "Polsko"},
-          {"@type": "Country", "name": "Francie"},
-          {"@type": "Country", "name": "Belgie"},
-          {"@type": "Country", "name": "Nizozemsko"},
-          {"@type": "Country", "name": "Španělsko"}
-        ],
-        "hasOfferCatalog": {
-          "@type": "OfferCatalog",
-          "name": "Katalog motorek k pronájmu",
-          "url": "' . $siteOrigin . '/katalog",
-          "itemListElement": [
-            {"@type": "OfferCatalog", "name": "Cestovní motorky", "url": "' . $siteOrigin . '/katalog/cestovni"},
-            {"@type": "OfferCatalog", "name": "Naked motorky", "url": "' . $siteOrigin . '/katalog/naked"},
-            {"@type": "OfferCatalog", "name": "Supermoto", "url": "' . $siteOrigin . '/katalog/supermoto"},
-            {"@type": "OfferCatalog", "name": "Dětské motorky", "url": "' . $siteOrigin . '/katalog/detske"}
-          ]
-        },
-        "potentialAction": [
-          {"@type": "ReserveAction", "target": {"@type": "EntryPoint", "urlTemplate": "' . $siteOrigin . '/rezervace?moto={moto_id}&start={start_date}&end={end_date}", "actionPlatform": ["http://schema.org/DesktopWebPlatform","http://schema.org/MobileWebPlatform","http://schema.org/IOSPlatform","http://schema.org/AndroidPlatform"]}, "result": {"@type": "Reservation", "name": "Rezervace motorky"}},
-          {"@type": "OrderAction", "target": "' . $siteOrigin . '/eshop", "name": "Nákup výbavy a poukazů"}
-        ],
-        "parentOrganization": {"@id": "' . $siteOrigin . '/#organization"},
-        "sameAs": ' . json_encode(buildSameAs(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . $aggregateRatingFragment . '
+        "publisher": {"@id":"' . $siteOrigin . '/#organization"},
+        "potentialAction": {"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"' . $siteOrigin . '/katalog?q={search_term_string}"},"query-input":"required name=search_term_string"}
       },
       {
         "@type": "Service",
@@ -725,26 +524,18 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
         "serviceType": "Pronájem motocyklů (motorcycle rental)",
         "name": "Půjčovna motorek MotoGo24",
         "description": "Krátkodobý i dlouhodobý pronájem motocyklů v Česku. Cestovní, naked, supermoto, enduro, sportovní i dětské motorky. Bez kauce, motorkářská výbava v ceně, online rezervace s platbou kartou, nonstop dostupnost převzetí. Možnost přistavení mimo pobočku, sjezd do EU povolen, zelená karta v ceně.",
-        "provider": {"@id": "' . $siteOrigin . '/#localbusiness"},
-        "areaServed": [{"@type": "Country", "name": "Česko"},{"@type": "Country", "name": "Slovensko"},{"@type": "Country", "name": "Rakousko"},{"@type": "Country", "name": "Německo"},{"@type": "Country", "name": "Polsko"},{"@type": "Country", "name": "Francie"},{"@type": "Country", "name": "Belgie"},{"@type": "Country", "name": "Nizozemsko"},{"@type": "Country", "name": "Španělsko"}],
-        "audience": {"@type": "PeopleAudience", "audienceType": "Motorkáři, turisté, firmy, dárky pro blízké"},
+        "provider": {"@id":"' . $siteOrigin . '/#organization"},
+        "areaServed": [{"@type":"Country","name":"Česko"},{"@type":"Country","name":"Slovensko"},{"@type":"Country","name":"Rakousko"},{"@type":"Country","name":"Německo"},{"@type":"Country","name":"Polsko"},{"@type":"Country","name":"Francie"},{"@type":"Country","name":"Belgie"},{"@type":"Country","name":"Nizozemsko"},{"@type":"Country","name":"Španělsko"}],
+        "audience": {"@type":"PeopleAudience","audienceType":"Motorkáři, turisté, firmy, dárky pro blízké"},
         "availableChannel": [
-          {"@type": "ServiceChannel", "serviceUrl": "' . $siteOrigin . '/rezervace", "name": "Online rezervační formulář"},
-          {"@type": "ServiceChannel", "serviceUrl": "https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/public-api", "name": "Veřejné REST API pro AI agenty a partnery"},
-          {"@type": "ServiceChannel", "serviceUrl": "https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/mcp-server", "name": "MCP server (Model Context Protocol) pro Claude Desktop, Cursor, Cline"},
-          {"@type": "ServiceChannel", "servicePhone": "+420 774 256 271", "name": "Telefon (24/7)"},
-          {"@type": "ServiceChannel", "serviceUrl": "https://wa.me/420774256271", "name": "WhatsApp"}
+          {"@type":"ServiceChannel","serviceUrl":"' . $siteOrigin . '/rezervace","name":"Online rezervační formulář"},
+          {"@type":"ServiceChannel","serviceUrl":"https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/public-api","name":"Veřejné REST API pro AI agenty a partnery"},
+          {"@type":"ServiceChannel","serviceUrl":"https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/mcp-server","name":"MCP server (Model Context Protocol)"},
+          {"@type":"ServiceChannel","servicePhone":"+420 774 256 271","name":"Telefon (24/7)"},
+          {"@type":"ServiceChannel","serviceUrl":"https://wa.me/420774256271","name":"WhatsApp"}
         ],
         "termsOfService": "' . $siteOrigin . '/obchodni-podminky",
-        "offers": {
-          "@type": "AggregateOffer",
-          "priceCurrency": "CZK",
-          "lowPrice": "990",
-          "highPrice": "5000",
-          "offerCount": 50,
-          "availability": "https://schema.org/InStock",
-          "seller": {"@id": "' . $siteOrigin . '/#localbusiness"}
-        }
+        "offers": {"@type":"AggregateOffer","priceCurrency":"CZK","lowPrice":"990","highPrice":"5000","offerCount":50,"availability":"https://schema.org/InStock","seller":{"@id":"' . $siteOrigin . '/#organization"}}
       }
     ]
   }

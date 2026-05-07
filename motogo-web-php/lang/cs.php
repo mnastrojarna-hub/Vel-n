@@ -292,7 +292,9 @@ return [
 
     // ===== SEO meta defaults (per-jazyk) =====
     'seo.default.description' => 'Půjčovna motorek Vysočina – silniční, sportovní, enduro i dětské. Nonstop pronájem bez kauce, online rezervace a motorkářská výbava zdarma.',
+    'seo.default.keywords' => 'půjčovna motorek Vysočina, pronájem motorek Pelhřimov, půjčovna motorek bez kauce, online rezervace motorky',
     'seo.home.description' => 'Půjčte si motorku na Vysočině. Bez kauce, výbava v ceně, nonstop provoz. Cestovní, sportovní, enduro i dětské motorky. Online rezervace.',
+    'seo.home.keywords' => 'půjčovna motorek Vysočina, pronájem motorek Pelhřimov, půjčovna motorek bez kauce, online rezervace motorky',
 
     // ===== Potvrzení =====
     'confirm.titleBooking' => 'Potvrzení rezervace | MotoGo24',

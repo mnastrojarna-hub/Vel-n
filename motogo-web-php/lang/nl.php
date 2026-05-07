@@ -181,7 +181,9 @@ return [
 
     // ===== SEO meta defaults (per taal) =====
     'seo.default.description' => 'Motorverhuur in de regio Vysočina, Tsjechië — toer-, sport-, enduro- en kindermotoren. 24/7 verhuur, zonder borg, uitrusting inbegrepen, online reserveren.',
+    'seo.default.keywords' => 'motorverhuur Tsjechië, motor huren Pelhřimov, motorverhuur zonder borg, motor online reserveren',
     'seo.home.description' => 'Huur een motor in de regio Vysočina. Zonder borg, uitrusting inbegrepen, 24/7 service. Toer-, sport-, enduro- en kindermotoren. Online reserveren.',
+    'seo.home.keywords' => 'motorverhuur Tsjechië, motor huren Pelhřimov, motorverhuur zonder borg, motor online reserveren',
 
     'confirm.titleBooking' => 'Reserveringsbevestiging | MotoGo24',
     'confirm.titleOrder' => 'Orderbevestiging | MotoGo24',
