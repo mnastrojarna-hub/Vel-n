@@ -88,20 +88,23 @@
     }
 
     // --- FREE BOOKING (100% sleva) ---
+    // Web booking je anonymní (žádná auth session) → přímý select na bookings
+    // narazí na RLS (`user_id = auth.uid()`). Použijeme SECURITY DEFINER RPC
+    // `get_web_booking_confirmation`, která vrací jen veřejně bezpečná pole
+    // (status + jméno/email z profilu pro greeting), granted to anon.
     if(isFreeBooking){
       var found = false;
       for(var i = 0; i < 6; i++){
         try {
-          var r = await window.sb.from('bookings')
-            .select('id,customer_name,customer_email,moto_id,start_date,end_date,total_price,payment_status,status')
-            .eq('id', bid).maybeSingle();
-          if(r.data && r.data.payment_status === 'paid'){
-            el.innerHTML = renderBookingSuccess(r.data);
-            pushPurchaseConversion('booking', r.data.id, r.data.total_price, 'CZK', { is_free: true });
+          var r = await window.sb.rpc('get_web_booking_confirmation', { p_booking_id: bid });
+          var rec = r && r.data && !r.data.error ? r.data : null;
+          if(rec && rec.payment_status === 'paid'){
+            el.innerHTML = renderBookingSuccess(rec);
+            pushPurchaseConversion('booking', rec.id, rec.total_price, 'CZK', { is_free: true });
             found = true; break;
           }
-          if(r.data && r.data.payment_status === 'unpaid' && i < 5){ await sleep(1500); continue; }
-          if(r.data){ el.innerHTML = renderPending(r.data, 'booking'); found = true; break; }
+          if(rec && rec.payment_status === 'unpaid' && i < 5){ await sleep(1500); continue; }
+          if(rec){ el.innerHTML = renderPending(rec, 'booking'); found = true; break; }
         } catch(e){ console.warn('[CONFIRM] free booking poll error', e); }
         await sleep(1500);
       }
@@ -136,19 +139,19 @@
     }
 
     // --- BOOKING via Stripe session ---
+    // Stejně jako u free booking: anon JWT neprojde RLS, voláme SECURITY DEFINER RPC.
     var found = false;
     for(var i = 0; i < 10; i++){
       try {
-        var r = await window.sb.from('bookings')
-          .select('id,customer_name,customer_email,moto_id,start_date,end_date,total_price,payment_status,status')
-          .eq('stripe_session_id', sid).maybeSingle();
-        if(r.data && r.data.payment_status === 'paid'){
-          el.innerHTML = renderBookingSuccess(r.data);
-          pushPurchaseConversion('booking', r.data.id, r.data.total_price, 'CZK', { stripe_session_id: sid });
+        var r = await window.sb.rpc('get_web_booking_confirmation', { p_session_id: sid });
+        var rec = r && r.data && !r.data.error ? r.data : null;
+        if(rec && rec.payment_status === 'paid'){
+          el.innerHTML = renderBookingSuccess(rec);
+          pushPurchaseConversion('booking', rec.id, rec.total_price, 'CZK', { stripe_session_id: sid });
           found = true; break;
         }
-        if(r.data && r.data.payment_status === 'unpaid' && i < 9){ await sleep(2000); continue; }
-        if(r.data){ el.innerHTML = renderPending(r.data, 'booking'); found = true; break; }
+        if(rec && rec.payment_status === 'unpaid' && i < 9){ await sleep(2000); continue; }
+        if(rec){ el.innerHTML = renderPending(rec, 'booking'); found = true; break; }
       } catch(e){ console.warn('[CONFIRM] poll error', e); }
       await sleep(2000);
     }
