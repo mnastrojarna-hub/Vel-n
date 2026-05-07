@@ -11,9 +11,9 @@ RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [L,R=301]
 # .cz je na Forpsi, kde proxy/DNS sam vynucuje www -> s timto pravidlem
 # vznikal ERR_TOO_MANY_REDIRECTS. Pro .cz spoleháme na <link rel="canonical">
 # v layout.php:605 (siteCanonicalUrl vraci vzdy non-www variantu).
-# Pro ostatni domeny (.com/.pl/.at/.es na Hosting90) 301 funguje korektne
+# Pro ostatni domeny (.com/.pl/.at/.es/.fr/.nl na Hosting90) 301 funguje korektne
 # a zaroven dorovnava chybejici redirect na non-www variantu.
-RewriteCond %{HTTP_HOST} ^www\.motogo24\.(com|pl|at|es)$ [NC]
+RewriteCond %{HTTP_HOST} ^www\.motogo24\.(com|pl|at|es|fr|nl)$ [NC]
 RewriteRule ^(.*)$ https://motogo24.%1/$1 [L,R=301]
 
 # === 3. Stare URL z puvodni verze webu (WordPress?) -> nove URL ==================

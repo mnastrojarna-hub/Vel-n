@@ -133,7 +133,7 @@ function renderInlineJs() {
  * lokální SEO v Seznam.cz.
  */
 function buildSameAs() {
-    $list = [FB_URL, IG_URL, 'https://motogo24.cz', 'https://motogo24.com'];
+    $list = [FB_URL, IG_URL, 'https://motogo24.cz', 'https://motogo24.com', 'https://motogo24.at', 'https://motogo24.es', 'https://motogo24.pl', 'https://motogo24.fr', 'https://motogo24.nl'];
     $extras = [
         defined('SAMEAS_FIRMY_CZ') ? SAMEAS_FIRMY_CZ : '',
         defined('SAMEAS_MAPY_CZ')  ? SAMEAS_MAPY_CZ  : '',
@@ -234,11 +234,11 @@ function renderConsentManager() {
  * neprázdnou hodnotu v env / config — žádné prázdné <meta> v HTML.
  *
  * Google Search Console: každá doména je samostatná property s vlastním kódem.
- * Vybíráme podle HTTP_HOST (motogo24.cz/.com/.pl/.at/.es). Pro neznámou
+ * Vybíráme podle HTTP_HOST (motogo24.cz/.com/.pl/.at/.es/.fr/.nl). Pro neznámou
  * doménu fallback na VERIFY_GOOGLE (typicky .cz hodnota).
  *
  * Hodnoty se konfigurují přes env vars (viz config.php):
- *   MOTOGO_VERIFY_GOOGLE_<TLD> (CZ/COM/PL/AT/ES) / MOTOGO_VERIFY_GOOGLE (fallback)
+ *   MOTOGO_VERIFY_GOOGLE_<TLD> (CZ/COM/PL/AT/ES/FR/NL) / MOTOGO_VERIFY_GOOGLE (fallback)
  *   MOTOGO_VERIFY_BING / SEZNAM / YANDEX / PINTEREST / FACEBOOK
  */
 function renderWebmasterVerification() {
@@ -252,6 +252,8 @@ function renderWebmasterVerification() {
         'motogo24.pl'  => defined('VERIFY_GOOGLE_PL')  ? VERIFY_GOOGLE_PL  : '',
         'motogo24.at'  => defined('VERIFY_GOOGLE_AT')  ? VERIFY_GOOGLE_AT  : '',
         'motogo24.es'  => defined('VERIFY_GOOGLE_ES')  ? VERIFY_GOOGLE_ES  : '',
+        'motogo24.fr'  => defined('VERIFY_GOOGLE_FR')  ? VERIFY_GOOGLE_FR  : '',
+        'motogo24.nl'  => defined('VERIFY_GOOGLE_NL')  ? VERIFY_GOOGLE_NL  : '',
     ];
     if (!empty($perDomain[$host])) {
         $googleCode = $perDomain[$host];
@@ -280,7 +282,11 @@ function renderWebmasterVerification() {
  * Cross-domain mapping (Google-friendly):
  *   hreflang="cs" → https://motogo24.cz{path}
  *   hreflang="en" → https://motogo24.com{path}
- *   hreflang="de|es|fr|nl|pl" → https://motogo24.com{path}?lang=xx
+ *   hreflang="de" → https://motogo24.at{path}
+ *   hreflang="es" → https://motogo24.es{path}
+ *   hreflang="pl" → https://motogo24.pl{path}
+ *   hreflang="fr" → https://motogo24.fr{path}
+ *   hreflang="nl" → https://motogo24.nl{path}
  *   hreflang="x-default" → https://motogo24.com{path}
  *
  * Reciproční hreflang mezi doménami je nutný — Google jinak hreflang ignoruje.
@@ -477,10 +483,14 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
           {"@type":"Country","name":"Slovensko"},
           {"@type":"Country","name":"Rakousko"},
           {"@type":"Country","name":"Německo"},
-          {"@type":"Country","name":"Polsko"}
+          {"@type":"Country","name":"Polsko"},
+          {"@type":"Country","name":"Francie"},
+          {"@type":"Country","name":"Belgie"},
+          {"@type":"Country","name":"Nizozemsko"},
+          {"@type":"Country","name":"Španělsko"}
         ],
         "contactPoint": [
-          {"@type":"ContactPoint","telephone":"+420 774 256 271","email":"info@motogo24.cz","contactType":"customer service","areaServed":["CZ","SK","AT","DE","PL"],"availableLanguage":["cs","en","de","pl","sk"]}
+          {"@type":"ContactPoint","telephone":"+420 774 256 271","email":"info@motogo24.cz","contactType":"customer service","areaServed":["CZ","SK","AT","DE","PL","FR","BE","NL","ES"],"availableLanguage":["cs","en","de","pl","sk","fr","nl","es"]}
         ],
         "hasOfferCatalog": {
           "@type":"OfferCatalog",
@@ -515,7 +525,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
         "name": "Půjčovna motorek MotoGo24",
         "description": "Krátkodobý i dlouhodobý pronájem motocyklů v Česku. Cestovní, naked, supermoto, enduro, sportovní i dětské motorky. Bez kauce, motorkářská výbava v ceně, online rezervace s platbou kartou, nonstop dostupnost převzetí. Možnost přistavení mimo pobočku, sjezd do EU povolen, zelená karta v ceně.",
         "provider": {"@id":"' . $siteOrigin . '/#organization"},
-        "areaServed": [{"@type":"Country","name":"Česko"},{"@type":"Country","name":"Slovensko"},{"@type":"Country","name":"Rakousko"},{"@type":"Country","name":"Německo"},{"@type":"Country","name":"Polsko"}],
+        "areaServed": [{"@type":"Country","name":"Česko"},{"@type":"Country","name":"Slovensko"},{"@type":"Country","name":"Rakousko"},{"@type":"Country","name":"Německo"},{"@type":"Country","name":"Polsko"},{"@type":"Country","name":"Francie"},{"@type":"Country","name":"Belgie"},{"@type":"Country","name":"Nizozemsko"},{"@type":"Country","name":"Španělsko"}],
         "audience": {"@type":"PeopleAudience","audienceType":"Motorkáři, turisté, firmy, dárky pro blízké"},
         "availableChannel": [
           {"@type":"ServiceChannel","serviceUrl":"' . $siteOrigin . '/rezervace","name":"Online rezervační formulář"},
