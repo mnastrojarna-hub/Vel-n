@@ -16,11 +16,19 @@ const TOTAL_FIELDS = ALL_FIELDS.length
 const WEB_BASE_URL = (import.meta?.env?.VITE_WEB_BASE_URL || 'https://motogo24.cz').replace(/\/$/, '')
 
 // Sestaví URL na konkrétní stránku webu s admin tokenem a (volitelně) klíčem ke zvýraznění.
-export function buildWebUrl(base, pageUrl, token, highlightKey) {
+// `extra` je objekt s dalšími query parametry (např. `{ preview: 'pending' }`).
+export function buildWebUrl(base, pageUrl, token, highlightKey, extra) {
   const url = (base || '').replace(/\/$/, '') + (pageUrl || '/')
   const params = []
   if (token) params.push('cms_admin=' + encodeURIComponent(token))
   if (highlightKey) params.push('cms_highlight=' + encodeURIComponent(highlightKey))
+  if (extra && typeof extra === 'object') {
+    Object.keys(extra).forEach(k => {
+      if (extra[k] != null && extra[k] !== '') {
+        params.push(encodeURIComponent(k) + '=' + encodeURIComponent(extra[k]))
+      }
+    })
+  }
   return params.length ? url + '?' + params.join('&') : url
 }
 
@@ -236,6 +244,32 @@ export default function WebTextsTab() {
                 </div>
                 {page.description && (
                   <p className="text-sm mt-2" style={{ color: '#4a6b5a' }}>{page.description}</p>
+                )}
+                {page.previewVariants && page.url && (
+                  <div className="flex items-center gap-2 mt-3 flex-wrap">
+                    <span className="text-xs font-extrabold uppercase" style={{ color: '#6b8f7b', letterSpacing: 1 }}>
+                      Náhled varianty:
+                    </span>
+                    {page.previewVariants.map(v => (
+                      <a
+                        key={v.id}
+                        href={buildWebUrl(WEB_BASE_URL, page.url, adminToken, '', { preview: v.id })}
+                        target="_blank" rel="noopener noreferrer"
+                        title={adminToken ? `Otevřít náhled: ${v.label}` : 'Chybí cms_admin_token v app_settings'}
+                        className="rounded-btn text-xs font-extrabold cursor-pointer"
+                        style={{
+                          padding: '4px 10px',
+                          background: adminToken ? '#f1faf7' : '#f5f5f5',
+                          color: adminToken ? '#1a2e22' : '#9ab3a5',
+                          border: '1px solid #d4e8e0',
+                          textDecoration: 'none',
+                          pointerEvents: adminToken ? 'auto' : 'none',
+                        }}
+                      >
+                        {v.icon} {v.label}
+                      </a>
+                    ))}
+                  </div>
                 )}
               </div>
 

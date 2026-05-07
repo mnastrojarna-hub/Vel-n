@@ -71,7 +71,56 @@
     } catch(e){ /* analytics nesmí shodit stránku */ }
   }
 
+  // CMS preview režim — když je v URL `cms_admin` token, neptej se Supabase
+  // a rovnou rendruj mock data podle `?preview=booking|order|voucher|pending|error`.
+  // Defaultně booking; konverze do GTM se v preview NESPOUŠTÍ.
+  function renderPreview(){
+    var el = document.getElementById('confirm-content');
+    if(!el) return;
+    var preview = (getParam('preview') || 'booking').toLowerCase();
+    var mockBooking = {
+      id: 'PREVIEWBOOKING12345678',
+      customer_name: 'Petra Nováková',
+      customer_email: 'petra.novakova@example.cz',
+      moto_id: 'preview-moto',
+      start_date: '2026-05-10',
+      end_date: '2026-05-14',
+      total_price: 4900,
+      payment_status: 'paid',
+      status: 'confirmed'
+    };
+    var mockOrder = {
+      id: 'PREVIEWORDER',
+      order_number: 'MG-2026-0042',
+      customer_name: 'Petra Nováková',
+      customer_email: 'petra.novakova@example.cz',
+      total: 1290,
+      payment_status: 'paid',
+      status: 'paid'
+    };
+    var mockVouchers = [
+      { code: 'MG-PREVIEW-2000', amount: 2000, valid_until: '2027-05-10' }
+    ];
+    if(preview === 'order'){
+      el.innerHTML = renderShopSuccess(mockOrder);
+    } else if(preview === 'voucher'){
+      el.innerHTML = renderVoucherSuccess(mockOrder, mockVouchers);
+    } else if(preview === 'pending'){
+      var pendingMock = Object.assign({}, mockBooking, { payment_status: 'unpaid' });
+      el.innerHTML = renderPending(pendingMock, 'booking');
+    } else if(preview === 'error'){
+      el.innerHTML = renderError(I18N.errorMissingId || 'Missing payment identifier.');
+    } else {
+      el.innerHTML = renderBookingSuccess(mockBooking);
+    }
+  }
+
   async function init(){
+    if(getParam('cms_admin')){
+      renderPreview();
+      return;
+    }
+
     var sid = getParam('session_id');
     var oid = getParam('order_id');
     var bid = getParam('booking_id');

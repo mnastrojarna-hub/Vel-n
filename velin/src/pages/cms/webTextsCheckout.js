@@ -99,7 +99,14 @@ export const PAGE_OBJEDNAVKA = {
 
 export const PAGE_POTVRZENI = {
   id: 'potvrzeni', label: 'Děkovací stránka', icon: '✅', url: '/potvrzeni',
-  description: 'Stránka po platbě: úspěch / pending / chyba. JS-driven, texty přes _i18nCmsOverlay.',
+  description: 'Stránka po platbě: úspěch / pending / chyba. JS-driven, texty přes _i18nCmsOverlay. Web bez ID platby spadne do error stavu — pro náhled používá CMS mock režim aktivovaný `cms_admin` tokenem (přepínač variant níže).',
+  previewVariants: [
+    { id: 'booking', label: 'Rezervace', icon: '🏍️' },
+    { id: 'order', label: 'Objednávka', icon: '🛒' },
+    { id: 'voucher', label: 'Poukaz', icon: '🎁' },
+    { id: 'pending', label: 'Pending', icon: '⏳' },
+    { id: 'error', label: 'Chyba', icon: '⚠️' },
+  ],
   sections: [
     {
       id: 'verify', label: 'Stav „Ověřuji platbu"',
@@ -156,7 +163,7 @@ export const PAGE_POTVRZENI = {
       ]
     },
     {
-      id: 'pending', label: 'Stav „Pending" (platba ještě neprošla)',
+      id: 'pending', label: 'Stav „Pending" (platba ještě neprošla)', preview: 'pending',
       fields: [
         { key: 'web.layout.confirm.pending.title', label: 'Nadpis', default: 'Platba ještě nebyla potvrzena' },
         { key: 'web.layout.confirm.pending.text1', label: 'Text 1', type: 'textarea', default: '' },
@@ -176,7 +183,7 @@ export const PAGE_POTVRZENI = {
       ]
     },
     {
-      id: 'error', label: 'Stav „Chyba"',
+      id: 'error', label: 'Stav „Chyba"', preview: 'error',
       fields: [
         { key: 'web.layout.confirm.error.title', label: 'Nadpis', default: 'Něco se pokazilo' },
         { key: 'web.layout.confirm.error.contactPrefix', label: 'Prefix u kontaktu', default: 'Pokud potřebuješ pomoc, ozvi se:' },
