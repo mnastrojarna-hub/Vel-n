@@ -18,10 +18,15 @@ foreach ($motos as $i => $m) {
 }
 
 if (!$moto) {
+    // Vrat HTTP 404 + noindex — nesmazana motorka nesmi zustat v Google indexu
+    // (jinak Google zobrazuje "Motorka nenalezena" jako titulek pro /katalog/{uuid}).
+    http_response_code(404);
     $content = '<main id="content"><div class="container">' .
         renderBreadcrumb([['label' => t('breadcrumb.home'), 'href' => '/'], ['label' => t('breadcrumb.catalog'), 'href' => '/katalog'], t('detail.notFoundHeading')]) .
         '<div class="ccontent"><h1>' . te('detail.notFoundHeading') . '</h1><p><a class="btn btngreen" href="' . BASE_URL . '/katalog">' . te('detail.backToCatalog') . '</a></p></div></div></main>';
-    renderPage(t('detail.notFoundTitle'), $content, '/katalog/' . $motoId);
+    renderPage(t('detail.notFoundTitle'), $content, '/katalog/' . $motoId, [
+        'robots' => 'noindex,follow',
+    ]);
     return;
 }
 

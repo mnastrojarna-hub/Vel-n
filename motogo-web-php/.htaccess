@@ -1,22 +1,82 @@
 RewriteEngine On
 RewriteBase /
 
-# Force HTTPS - 2 podminky pro robustnost (Forpsi + Hosting90)
-# Forpsi pres proxy nastavuje HTTPS=on i na portu 80, proto kontrolujeme
-# i X-Forwarded-Proto hlavicku, aby nedoslo k presmerovaci smycce.
+# === 1. Force HTTPS (Forpsi + Hosting90 robust) =================================
+# Dve podminky kvuli proxy: HTTPS=on i na portu 80 muze byt false-positive.
 RewriteCond %{HTTPS} off
 RewriteCond %{HTTP:X-Forwarded-Proto} !=https
 RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [L,R=301]
 
-# 301 redirect ze starych URL s /cs/ a /cz/ prefixem (puvodni verze webu)
-# Google ma v indexu URL typu motogo24.cz/cs/katalog - presmerovat na
-# motogo24.cz/katalog (nova multi-domenova architektura bez jazykoveho prefixu).
+# === 2. Force non-www (kanonicka domena) ========================================
+# Google ma v indexu obe varianty (www.motogo24.cz i motogo24.cz) -> duplicitni
+# obsah. 301 z www -> non-www zachova page-rank a sjednoti index.
+# Plati pro motogo24.cz i motogo24.com.
+RewriteCond %{HTTP_HOST} ^www\.(motogo24\.(cz|com))$ [NC]
+RewriteRule ^(.*)$ https://%1/$1 [L,R=301]
+
+# === 3. Stare URL z puvodni verze webu (WordPress?) -> nove URL ==================
+# Google ma tyto URL v indexu od predchozi verze. 301 redirecty zajisti
+# transfer page-ranku a postupne nahrazeni v indexu (typicky 2-8 tydnu).
+
+# /cs/ a /cz/ jazykove prefixy (puvodni multilang) -> root
 RewriteRule ^cs/(.*)$ /$1 [R=301,L]
 RewriteRule ^cz/(.*)$ /$1 [R=301,L]
 RewriteRule ^cs/?$ / [R=301,L]
 RewriteRule ^cz/?$ / [R=301,L]
 
-# Hezke URL pres index.php
+# Katalog motorek: stare slugy /katalog-motorek* -> /katalog*
+RewriteRule ^katalog-motorek/cestovni/?$  /katalog/cestovni  [R=301,L]
+RewriteRule ^katalog-motorek/naked/?$     /katalog/naked     [R=301,L]
+RewriteRule ^katalog-motorek/supermoto/?$ /katalog/supermoto [R=301,L]
+RewriteRule ^katalog-motorek/detske/?$    /katalog/detske    [R=301,L]
+# Cokoli jineho pod /katalog-motorek/* (vcetne stareho TODO placeholderu) -> /katalog
+RewriteRule ^katalog-motorek/.*$          /katalog           [R=301,L]
+RewriteRule ^katalog-motorek/?$           /katalog           [R=301,L]
+
+# Kategorie motorek se starymi slugy (-motorky suffix) -> /katalog/{kategorie}
+RewriteRule ^cestovni-motorky/?$  /katalog/cestovni  [R=301,L]
+RewriteRule ^naked-motorky/?$     /katalog/naked     [R=301,L]
+RewriteRule ^supermoto-motorky/?$ /katalog/supermoto [R=301,L]
+RewriteRule ^detske-motorky/?$    /katalog/detske    [R=301,L]
+
+# "Jak si pujcit" - stare slugy
+RewriteRule ^jak-si-pujcit-motorku/vraceni-motocyklu-v-pujcovne/?$ /jak-pujcit/vraceni-pujcovna [R=301,L]
+RewriteRule ^jak-si-pujcit-motorku/vraceni-motorky-jinde/?$        /jak-pujcit/vraceni-jinde    [R=301,L]
+RewriteRule ^jak-si-pujcit-motorku/prevzeti-v-pujcovne/?$          /jak-pujcit/vyzvednuti       [R=301,L]
+RewriteRule ^jak-si-pujcit-motorku/pristaveni-motocyklu/?$         /jak-pujcit/pristaveni       [R=301,L]
+RewriteRule ^jak-si-pujcit-motorku/dokumenty-a-navody/?$           /jak-pujcit/dokumenty        [R=301,L]
+RewriteRule ^jak-si-pujcit-motorku/casto-kladene-dotazy/?$         /jak-pujcit/faq              [R=301,L]
+RewriteRule ^jak-si-pujcit-motorku/co-v-cene/?$                    /jak-pujcit/co-v-cene        [R=301,L]
+RewriteRule ^jak-si-pujcit-motorku/postup/?$                       /jak-pujcit/postup           [R=301,L]
+# Cokoli jineho pod /jak-si-pujcit-motorku/* -> /jak-pujcit
+RewriteRule ^jak-si-pujcit-motorku/.*$ /jak-pujcit [R=301,L]
+RewriteRule ^jak-si-pujcit-motorku/?$  /jak-pujcit [R=301,L]
+
+# Top-level stare slugy bez prefixu /jak-si-pujcit-motorku/
+RewriteRule ^postup-pujceni-motorky/?$           /jak-pujcit/postup           [R=301,L]
+RewriteRule ^prevzeti-v-pujcovne/?$              /jak-pujcit/vyzvednuti       [R=301,L]
+RewriteRule ^pristaveni-motocyklu/?$             /jak-pujcit/pristaveni       [R=301,L]
+RewriteRule ^vraceni-motocyklu-v-pujcovne/?$     /jak-pujcit/vraceni-pujcovna [R=301,L]
+RewriteRule ^vraceni-motorky-jinde/?$            /jak-pujcit/vraceni-jinde    [R=301,L]
+RewriteRule ^dokumenty-a-navody/?$               /jak-pujcit/dokumenty        [R=301,L]
+RewriteRule ^casto-kladene-dotazy/?$             /jak-pujcit/faq              [R=301,L]
+
+# GDPR / pravni stranky - dlouhe stare slugy
+RewriteRule ^zasady-ochrany-osobnich-udaju/?$ /gdpr [R=301,L]
+RewriteRule ^obchodni-podminky-vop/?$         /obchodni-podminky [R=301,L]
+RewriteRule ^vseobecne-obchodni-podminky/?$   /obchodni-podminky [R=301,L]
+RewriteRule ^smlouva-o-pronajmu/?$            /smlouva [R=301,L]
+
+# === 4. Stare prilohy /files/* (PDF z puvodniho WordPressu) =====================
+# Tyto soubory uz na hostingu nejsou - vratit 410 Gone misto 404, aby Google
+# rychleji odstranil z indexu (404 = doufa, ze se vrati; 410 = pryc navzdy).
+RewriteRule ^files(/.*)?$ - [R=410,L]
+RewriteRule ^wp-content(/.*)?$ - [R=410,L]
+RewriteRule ^wp-admin(/.*)?$ - [R=410,L]
+RewriteRule ^wp-includes(/.*)?$ - [R=410,L]
+RewriteRule ^wp-login\.php$ - [R=410,L]
+
+# === 5. Hezke URL pres index.php (catch-all) ===================================
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ index.php [QSA,L]
