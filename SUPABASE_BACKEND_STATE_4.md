@@ -23,7 +23,7 @@
 | `trg_shop_order_number` | shop_orders (INSERT) | generate_shop_order_number() |
 | `trg_check_booking_overlap` | bookings (INSERT/UPDATE OF start_date, end_date, moto_id) | check_booking_overlap() |
 | ~~`trg_generate_shop_invoice`~~ | ~~shop_orders (payment_status)~~ | **NAHRAZENO** `trg_generate_shop_final_on_ship` (2026-03-21) |
-| `trg_generate_shop_final_on_ship` | shop_orders (AFTER UPDATE OF status, payment_status, WHEN shipped/delivered + status changed + paid) | generate_shop_final_on_ship() — FV konečná faktura, odečet DP. Elektronické poukazy: FV okamžitě (status='delivered' z auto_process_voucher_order). Fyzické: FV při odeslání z velínu |
+| `trg_generate_shop_final_on_ship` | shop_orders (AFTER UPDATE OF status, payment_status, WHEN shipped/delivered + status changed + paid) | generate_shop_final_on_ship() — FV konečná faktura, odečet DP. Elektronické poukazy: FV okamžitě (status='delivered' z auto_process_voucher_order). Fyzické: FV při odeslání z velínu. **REFAKTOR 2026-05-07:** funkce už nedělá raw INSERT do `invoices` (rozbité odkazy na neexistující sloupce `total_amount`/`currency`/`amount`/`issued_at` blokovaly UPDATE shop_orders) — teď přes pg_net asynchronně volá `generate-invoice` edge fn, idempotentně. Přidán `EXCEPTION WHEN OTHERS`, aby selhání generování FV neshodilo payment update. |
 | `moto_day_prices_updated` | moto_day_prices | update_updated_at() |
 | `trg_ai_conversations_updated` | ai_conversations | update_updated_at() |
 | `trg_sos_notify_user` | sos_incidents (INSERT) | sos_notify_user_on_create() — SECURITY DEFINER, dedup 2min |
