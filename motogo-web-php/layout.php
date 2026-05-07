@@ -446,86 +446,67 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
     "@context": "https://schema.org",
     "@graph": [
       {
-        "@type": "Organization",
+        "@type": ["LocalBusiness", "AutomotiveBusiness", "Organization"],
         "@id": "' . $siteOrigin . '/#organization",
-        "name": "MotoGo24",
+        "name": "MotoGo24 — půjčovna motorek Vysočina",
+        "alternateName": ["MotoGo24","Motogo24 Pelhřimov","Půjčovna motorek Vysočina","MotoGo24 motorcycle rental"],
         "legalName": "Bc. Petra Semorádová",
+        "description": "Půjčovna motorek na Vysočině — silniční, naked, supermoto, enduro i dětské motorky. Bez kauce, výbava v ceně, nonstop provoz.",
+        "slogan": "Půjč si motorku bez kauce. Nonstop. Online.",
         "url": "' . $siteOrigin . '",
-        "logo": {"@type": "ImageObject", "url": "' . $siteOrigin . '/gfx/logo.svg", "width": 512, "height": 512},
+        "logo": {"@type":"ImageObject","url":"' . $siteOrigin . '/gfx/logo.svg","width":512,"height":512},
         "image": "' . $siteOrigin . '/gfx/hero-banner.jpg",
         "email": "info@motogo24.cz",
         "telephone": "+420 774 256 271",
         "taxID": "21874263",
         "vatID": "CZ21874263",
         "foundingDate": "2024-07-31",
-        "founder": {"@type": "Person", "name": "Bc. Petra Semorádová"},
-        "address": {"@type": "PostalAddress","streetAddress": "Mezná 9","addressLocality": "Pelhřimov","postalCode": "393 01","addressRegion": "Vysočina","addressCountry": "CZ"},
-        "contactPoint": [
-          {"@type": "ContactPoint", "telephone": "+420 774 256 271", "contactType": "customer service", "email": "info@motogo24.cz", "areaServed": ["CZ","SK","AT","DE","PL"], "availableLanguage": ["cs","en","de","pl","sk"], "hoursAvailable": {"@type": "OpeningHoursSpecification", "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"], "opens": "00:00", "closes": "23:59"}},
-          {"@type": "ContactPoint", "telephone": "+420 774 256 271", "contactType": "emergency", "email": "info@motogo24.cz", "availableLanguage": ["cs","en"]}
+        "founder": {"@type":"Person","name":"Bc. Petra Semorádová"},
+        "priceRange": "990 – 5000 Kč/den",
+        "currenciesAccepted": "CZK, EUR, USD",
+        "paymentAccepted": "Cash, Credit Card, Debit Card, Apple Pay, Google Pay",
+        "knowsLanguage": ["cs","en","de","es","fr","nl","pl"],
+        "keywords": "půjčovna motorek Vysočina, pronájem motorek Pelhřimov, půjčovna motorek bez kauce, online rezervace motorky",
+        "address": {"@type":"PostalAddress","streetAddress":"Mezná 9","addressLocality":"Pelhřimov","postalCode":"393 01","addressRegion":"Vysočina","addressCountry":"CZ"},
+        "geo": {"@type":"GeoCoordinates","latitude":49.4147,"longitude":15.2953},
+        "hasMap": "https://mapy.cz/zakladni?q=Mezn%C3%A1%209%20Pelh%C5%99imov",
+        "openingHoursSpecification": {"@type":"OpeningHoursSpecification","dayOfWeek":["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],"opens":"00:00","closes":"23:59"},
+        "areaServed": [
+          {"@type":"Country","name":"Česko"},
+          {"@type":"AdministrativeArea","name":"Kraj Vysočina"},
+          {"@type":"Country","name":"Slovensko"},
+          {"@type":"Country","name":"Rakousko"},
+          {"@type":"Country","name":"Německo"},
+          {"@type":"Country","name":"Polsko"}
         ],
-        "sameAs": ["' . FB_URL . '","' . IG_URL . '"]
+        "contactPoint": [
+          {"@type":"ContactPoint","telephone":"+420 774 256 271","email":"info@motogo24.cz","contactType":"customer service","areaServed":["CZ","SK","AT","DE","PL"],"availableLanguage":["cs","en","de","pl","sk"]}
+        ],
+        "hasOfferCatalog": {
+          "@type":"OfferCatalog",
+          "name":"Katalog motorek k pronájmu",
+          "url":"' . $siteOrigin . '/katalog",
+          "itemListElement":[
+            {"@type":"OfferCatalog","name":"Cestovní motorky","url":"' . $siteOrigin . '/katalog/cestovni"},
+            {"@type":"OfferCatalog","name":"Naked motorky","url":"' . $siteOrigin . '/katalog/naked"},
+            {"@type":"OfferCatalog","name":"Supermoto","url":"' . $siteOrigin . '/katalog/supermoto"},
+            {"@type":"OfferCatalog","name":"Dětské motorky","url":"' . $siteOrigin . '/katalog/detske"}
+          ]
+        },
+        "potentialAction": [
+          {"@type":"ReserveAction","target":{"@type":"EntryPoint","urlTemplate":"' . $siteOrigin . '/rezervace?moto={moto_id}&start={start_date}&end={end_date}","actionPlatform":["http://schema.org/DesktopWebPlatform","http://schema.org/MobileWebPlatform","http://schema.org/IOSPlatform","http://schema.org/AndroidPlatform"]},"result":{"@type":"Reservation","name":"Rezervace motorky"}},
+          {"@type":"OrderAction","target":"' . $siteOrigin . '/eshop","name":"Nákup výbavy a poukazů"}
+        ],
+        "sameAs": ' . json_encode(buildSameAs(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . $aggregateRatingFragment . '
       },
       {
         "@type": "WebSite",
         "@id": "' . $siteOrigin . '/#website",
         "url": "' . $siteOrigin . '",
         "name": "MotoGo24 — půjčovna motorek Vysočina",
-        "description": "Online rezervace motorek, e-shop, dárkové poukazy. Půjčovna v Pelhřimově, nonstop, bez kauce.",
         "inLanguage": "' . htmlspecialchars($htmlLang) . '",
-        "publisher": {"@id": "' . $siteOrigin . '/#organization"},
-        "potentialAction": {
-          "@type": "SearchAction",
-          "target": {"@type": "EntryPoint", "urlTemplate": "' . $siteOrigin . '/katalog?q={search_term_string}"},
-          "query-input": "required name=search_term_string"
-        }
-      },
-      {
-        "@type": ["LocalBusiness", "AutomotiveBusiness"],
-        "@id": "' . $siteOrigin . '/#localbusiness",
-        "name": "MotoGo24 — půjčovna motorek Vysočina",
-        "alternateName": ["Motogo24 Pelhřimov", "Půjčovna motorek Vysočina", "MotoGo24 motorcycle rental"],
-        "description": "Půjčovna motorek na Vysočině — silniční, naked, supermoto, enduro i dětské motorky. Bez kauce, výbava v ceně, nonstop provoz.",
-        "slogan": "Půjč si motorku bez kauce. Nonstop. Online.",
-        "url": "' . $siteOrigin . '",
-        "logo": "' . $siteOrigin . '/gfx/logo.svg",
-        "image": ["' . $siteOrigin . '/gfx/hero-banner.jpg", "' . $siteOrigin . '/gfx/logo.svg"],
-        "email": "info@motogo24.cz",
-        "telephone": "+420 774 256 271",
-        "priceRange": "990 – 5000 Kč/den",
-        "currenciesAccepted": "CZK, EUR, USD",
-        "paymentAccepted": "Cash, Credit Card, Debit Card, Apple Pay, Google Pay",
-        "knowsLanguage": ["cs","en","de","es","fr","nl","pl"],
-        "keywords": "půjčovna motorek, pronájem motorek, motorbike rental, motorcycle rental, Czech Republic, Vysočina, Pelhřimov, bez kauce, nonstop, enduro, supermoto, naked, sportovní, cestovní, A2 řidičák, A1 řidičák",
-        "openingHoursSpecification": {"@type": "OpeningHoursSpecification","dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],"opens": "00:00","closes": "23:59"},
-        "address": {"@type": "PostalAddress","streetAddress": "Mezná 9","addressLocality": "Pelhřimov","postalCode": "393 01","addressRegion": "Vysočina","addressCountry": "CZ"},
-        "geo": {"@type": "GeoCoordinates","latitude": 49.4147,"longitude": 15.2953},
-        "hasMap": "https://mapy.cz/zakladni?q=Mezn%C3%A1%209%20Pelh%C5%99imov",
-        "areaServed": [
-          {"@type": "Country", "name": "Česko"},
-          {"@type": "AdministrativeArea", "name": "Kraj Vysočina"},
-          {"@type": "Country", "name": "Slovensko"},
-          {"@type": "Country", "name": "Rakousko"},
-          {"@type": "Country", "name": "Německo"},
-          {"@type": "Country", "name": "Polsko"}
-        ],
-        "hasOfferCatalog": {
-          "@type": "OfferCatalog",
-          "name": "Katalog motorek k pronájmu",
-          "url": "' . $siteOrigin . '/katalog",
-          "itemListElement": [
-            {"@type": "OfferCatalog", "name": "Cestovní motorky", "url": "' . $siteOrigin . '/katalog/cestovni"},
-            {"@type": "OfferCatalog", "name": "Naked motorky", "url": "' . $siteOrigin . '/katalog/naked"},
-            {"@type": "OfferCatalog", "name": "Supermoto", "url": "' . $siteOrigin . '/katalog/supermoto"},
-            {"@type": "OfferCatalog", "name": "Dětské motorky", "url": "' . $siteOrigin . '/katalog/detske"}
-          ]
-        },
-        "potentialAction": [
-          {"@type": "ReserveAction", "target": {"@type": "EntryPoint", "urlTemplate": "' . $siteOrigin . '/rezervace?moto={moto_id}&start={start_date}&end={end_date}", "actionPlatform": ["http://schema.org/DesktopWebPlatform","http://schema.org/MobileWebPlatform","http://schema.org/IOSPlatform","http://schema.org/AndroidPlatform"]}, "result": {"@type": "Reservation", "name": "Rezervace motorky"}},
-          {"@type": "OrderAction", "target": "' . $siteOrigin . '/eshop", "name": "Nákup výbavy a poukazů"}
-        ],
-        "parentOrganization": {"@id": "' . $siteOrigin . '/#organization"},
-        "sameAs": ' . json_encode(buildSameAs(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . $aggregateRatingFragment . '
+        "publisher": {"@id":"' . $siteOrigin . '/#organization"},
+        "potentialAction": {"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"' . $siteOrigin . '/katalog?q={search_term_string}"},"query-input":"required name=search_term_string"}
       },
       {
         "@type": "Service",
@@ -533,26 +514,18 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
         "serviceType": "Pronájem motocyklů (motorcycle rental)",
         "name": "Půjčovna motorek MotoGo24",
         "description": "Krátkodobý i dlouhodobý pronájem motocyklů v Česku. Cestovní, naked, supermoto, enduro, sportovní i dětské motorky. Bez kauce, motorkářská výbava v ceně, online rezervace s platbou kartou, nonstop dostupnost převzetí. Možnost přistavení mimo pobočku, sjezd do EU povolen, zelená karta v ceně.",
-        "provider": {"@id": "' . $siteOrigin . '/#localbusiness"},
-        "areaServed": [{"@type": "Country", "name": "Česko"},{"@type": "Country", "name": "Slovensko"},{"@type": "Country", "name": "Rakousko"},{"@type": "Country", "name": "Německo"},{"@type": "Country", "name": "Polsko"}],
-        "audience": {"@type": "PeopleAudience", "audienceType": "Motorkáři, turisté, firmy, dárky pro blízké"},
+        "provider": {"@id":"' . $siteOrigin . '/#organization"},
+        "areaServed": [{"@type":"Country","name":"Česko"},{"@type":"Country","name":"Slovensko"},{"@type":"Country","name":"Rakousko"},{"@type":"Country","name":"Německo"},{"@type":"Country","name":"Polsko"}],
+        "audience": {"@type":"PeopleAudience","audienceType":"Motorkáři, turisté, firmy, dárky pro blízké"},
         "availableChannel": [
-          {"@type": "ServiceChannel", "serviceUrl": "' . $siteOrigin . '/rezervace", "name": "Online rezervační formulář"},
-          {"@type": "ServiceChannel", "serviceUrl": "https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/public-api", "name": "Veřejné REST API pro AI agenty a partnery"},
-          {"@type": "ServiceChannel", "serviceUrl": "https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/mcp-server", "name": "MCP server (Model Context Protocol) pro Claude Desktop, Cursor, Cline"},
-          {"@type": "ServiceChannel", "servicePhone": "+420 774 256 271", "name": "Telefon (24/7)"},
-          {"@type": "ServiceChannel", "serviceUrl": "https://wa.me/420774256271", "name": "WhatsApp"}
+          {"@type":"ServiceChannel","serviceUrl":"' . $siteOrigin . '/rezervace","name":"Online rezervační formulář"},
+          {"@type":"ServiceChannel","serviceUrl":"https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/public-api","name":"Veřejné REST API pro AI agenty a partnery"},
+          {"@type":"ServiceChannel","serviceUrl":"https://vnwnqteskbykeucanlhk.supabase.co/functions/v1/mcp-server","name":"MCP server (Model Context Protocol)"},
+          {"@type":"ServiceChannel","servicePhone":"+420 774 256 271","name":"Telefon (24/7)"},
+          {"@type":"ServiceChannel","serviceUrl":"https://wa.me/420774256271","name":"WhatsApp"}
         ],
         "termsOfService": "' . $siteOrigin . '/obchodni-podminky",
-        "offers": {
-          "@type": "AggregateOffer",
-          "priceCurrency": "CZK",
-          "lowPrice": "990",
-          "highPrice": "5000",
-          "offerCount": 50,
-          "availability": "https://schema.org/InStock",
-          "seller": {"@id": "' . $siteOrigin . '/#localbusiness"}
-        }
+        "offers": {"@type":"AggregateOffer","priceCurrency":"CZK","lowPrice":"990","highPrice":"5000","offerCount":50,"availability":"https://schema.org/InStock","seller":{"@id":"' . $siteOrigin . '/#organization"}}
       }
     ]
   }
