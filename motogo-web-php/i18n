@@ -8,6 +8,8 @@
 //   motogo24.at  → Německá verze. Default 'de'.
 //   motogo24.es  → Španělská verze. Default 'es'.
 //   motogo24.pl  → Polská verze. Default 'pl'.
+//   motogo24.fr  → Francouzská verze. Default 'fr'.
+//   motogo24.nl  → Nizozemská verze. Default 'nl'.
 //   Manuální přepnutí jazyka přesměruje na příslušnou doménu.
 //
 // Priorita detekce: GET ?lang=xx → COOKIE mg_web_lang → doménový default
@@ -41,7 +43,9 @@ const I18N_DEFAULT = 'cs';
 const I18N_COOKIE = 'mg_web_lang';
 
 // Doménové mapování — určuje, na které doméně bydlí "kanonická" verze jazyka.
-// Každý jazyk s vlastní TLD = vlastní doména. Jazyky bez TLD (fr, nl) → .com.
+// Každý jazyk má vlastní dedikovanou TLD. 2026-05: dokoupeny .fr a .nl, takže
+// fr/nl už nejsou na .com fallbacku, ale na vlastních doménách (motogo24.fr,
+// motogo24.nl).
 const I18N_DOMAIN_CS = 'motogo24.cz';
 const I18N_DOMAIN_INTL = 'motogo24.com';
 
@@ -52,8 +56,8 @@ const I18N_DOMAIN_MAP = [
     'de' => 'motogo24.at',
     'es' => 'motogo24.es',
     'pl' => 'motogo24.pl',
-    'fr' => 'motogo24.com',  // bez vlastní TLD → zůstává na .com
-    'nl' => 'motogo24.com',  // bez vlastní TLD → zůstává na .com
+    'fr' => 'motogo24.fr',
+    'nl' => 'motogo24.nl',
 ];
 
 // Reverzní mapa: doména → výchozí jazyk
@@ -63,6 +67,8 @@ const I18N_DOMAIN_DEFAULTS = [
     'motogo24.at' => 'de',
     'motogo24.es' => 'es',
     'motogo24.pl' => 'pl',
+    'motogo24.fr' => 'fr',
+    'motogo24.nl' => 'nl',
 ];
 
 const I18N_LANGUAGES = [
@@ -208,9 +214,9 @@ function i18nDetectLanguage() {
     $siteDefault = i18nSiteDefaultLang();
 
     if (!i18nIsCzDomain()) {
-        // Mezinárodní domény (.com, .at, .es, .pl): detekce z Accept-Language,
+        // Mezinárodní domény (.com, .at, .es, .pl, .fr, .nl): detekce z Accept-Language,
         // ALE 'cs' vyloučíme — čeští návštěvníci patří na .cz.
-        // Na dedikovaných doménách (.at, .es, .pl) Accept-Language ignorujeme —
+        // Na dedikovaných doménách (.at, .es, .pl, .fr, .nl) Accept-Language ignorujeme —
         // uživatel přišel na doménu pro konkrétní jazyk.
         $hasDedicatedDomain = ($siteDefault !== 'en'); // .at/.es/.pl = dedikovaná
         if (!$hasDedicatedDomain) {

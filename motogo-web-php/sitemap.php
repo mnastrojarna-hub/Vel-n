@@ -1,7 +1,7 @@
 <?php
 // ===== MotoGo24 Web PHP — Dynamický XML Sitemap =====
-// Per-doména: motogo24.cz/sitemap.xml obsahuje české URLs (loc = .cz),
-// motogo24.com/sitemap.xml obsahuje anglické URLs (loc = .com).
+// Per-doména: každá TLD servíruje vlastní sitemap se svým primárním jazykem
+// (motogo24.cz → cs, .com → en, .at → de, .es → es, .pl → pl, .fr → fr, .nl → nl).
 // Každý <url> entry má kompletní cross-domain hreflang alternates
 // (<xhtml:link rel="alternate" hreflang="…">) — Google si tak složí celou
 // mřížku jazyků mezi doménami.
@@ -15,14 +15,14 @@ require_once __DIR__ . '/supabase.php';
 header('Content-Type: application/xml; charset=utf-8');
 
 // Doménová detekce — určuje, na které doméně se sitemap servíruje.
-$isCom = i18nIsComDomain();
-$base = $isCom ? ('https://' . I18N_DOMAIN_INTL) : ('https://' . I18N_DOMAIN_CS);
-$primaryLang = $isCom ? 'en' : 'cs';
+// Base URL = origin pro doménový default jazyk (.fr → motogo24.fr atd.).
+$primaryLang = i18nSiteDefaultLang();
+$base = i18nOriginForLang($primaryLang);
 $today = date('Y-m-d');
 $sb = new SupabaseClient();
 
 // Vyrenderuje <xhtml:link rel="alternate"...> pro všechny jazyky pro daný path.
-// Cross-domain: cs → motogo24.cz, ostatní → motogo24.com.
+// Cross-domain: každý jazyk má vlastní TLD (.cz/.com/.at/.es/.pl/.fr/.nl).
 function sitemapAlternates($path) {
     if (!defined('I18N_SUPPORTED')) return '';
     $out = '';

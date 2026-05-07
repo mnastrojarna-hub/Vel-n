@@ -47,6 +47,11 @@ define('VERIFY_GOOGLE_COM', getenv('MOTOGO_VERIFY_GOOGLE_COM') ?: 'Sr-9VYMf3Ybg5
 define('VERIFY_GOOGLE_PL',  getenv('MOTOGO_VERIFY_GOOGLE_PL')  ?: 'q41TuwifbZxhkJlkQHTAPgZ39KeRrWCuyN96wZZOF1E');
 define('VERIFY_GOOGLE_AT',  getenv('MOTOGO_VERIFY_GOOGLE_AT')  ?: 'i9_XCKaWX1UrX95Ai5QwkAb1Kpdkp0i2SHE86Na9u1M');
 define('VERIFY_GOOGLE_ES',  getenv('MOTOGO_VERIFY_GOOGLE_ES')  ?: 'aLjFnL9wsrl1kzd60Lkh5JgEmS6rWuvXj0Aiehfa8Ss');
+// .fr a .nl 2026-05 — kódy doplň po vytvoření Search Console property pro
+// motogo24.fr a motogo24.nl. Do té doby fallback na VERIFY_GOOGLE (CZ kód
+// nezpůsobí škodu, jen na nových doménách neproběhne ownership ověření).
+define('VERIFY_GOOGLE_FR',  getenv('MOTOGO_VERIFY_GOOGLE_FR')  ?: '');
+define('VERIFY_GOOGLE_NL',  getenv('MOTOGO_VERIFY_GOOGLE_NL')  ?: '');
 // Fallback pro neuvedené domény (např. lokální dev, alias). Zachová zpětnou kompat.
 define('VERIFY_GOOGLE',    getenv('MOTOGO_VERIFY_GOOGLE')    ?: VERIFY_GOOGLE_CZ);
 define('VERIFY_BING',      getenv('MOTOGO_VERIFY_BING')      ?: '');
