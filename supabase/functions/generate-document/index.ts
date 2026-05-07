@@ -103,7 +103,7 @@ serve(async (req) => {
     let customer: Record<string, unknown> = {}
     if (booking.user_id) {
       const { data: prof } = await supabase.from('profiles')
-        .select('id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry, license_group, date_of_birth, id_number')
+        .select('id, full_name, email, phone, street, city, zip, country, ico, dic, license_number, license_expiry, license_group, date_of_birth, id_number, id_verified_until, license_verified_until, passport_verified_until')
         .eq('id', booking.user_id).single()
       if (prof) customer = prof
     }
@@ -159,6 +159,9 @@ serve(async (req) => {
       customer_license_group: Array.isArray(customer.license_group) ? (customer.license_group as string[]).join(', ') : (customer.license_group as string) || '',
       customer_dob: fmtDate(customer.date_of_birth as string),
       customer_id_number: (customer.id_number as string) || '',
+      // Platnost OP (z Mindee OCR `id_verified_until`) — pokud nebyl OP naskenován,
+      // zůstane prázdné a zákazník platnost potvrzuje při převzetí motorky na pobočce.
+      customer_id_expiry: fmtDate((customer.id_verified_until || customer.passport_verified_until) as string),
       // Motorcycle
       moto_model: moto.model || '—',
       moto_brand: moto.brand || '',

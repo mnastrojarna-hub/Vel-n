@@ -7,7 +7,10 @@ import Button from '../components/ui/Button'
 import SearchInput from '../components/ui/SearchInput'
 import Pagination from '../components/ui/Pagination'
 import Card from '../components/ui/Card'
+import Modal from '../components/ui/Modal'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
+import BulkActionsBar, { SelectAllCheckbox, RowCheckbox } from '../components/ui/BulkActionsBar'
+import { bulkUpdate, bulkDelete, exportToCsv, logAdminAudit } from '../lib/bulkActions'
 import { VoucherModal, RedeemModal } from './GiftVouchersModals'
 
 const PER_PAGE = 25
@@ -40,6 +43,7 @@ export default function GiftVouchers() {
   const [detailVoucher, setDetailVoucher] = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [redeemModal, setRedeemModal] = useState(null)
+  const [selectedIds, setSelectedIds] = useState(new Set())
 
   useEffect(() => { loadVouchers() }, [page, filters])
   useEffect(() => { autoExpireVouchers(); loadSummary() }, [])
@@ -164,6 +168,39 @@ export default function GiftVouchers() {
 
   const totalPages = Math.ceil(total / PER_PAGE)
 
+  const ids = [...selectedIds]
+  const bulkActions = [
+    { label: 'Aktivovat', icon: '✓', onClick: async () => {
+      await bulkUpdate('vouchers', ids, { status: 'active', updated_at: new Date().toISOString() }, 'vouchers_bulk_activated')
+      setSelectedIds(new Set()); loadVouchers(); loadSummary()
+    } },
+    { label: 'Označit expirované', icon: '⏱', onClick: async () => {
+      await bulkUpdate('vouchers', ids, { status: 'expired', updated_at: new Date().toISOString() }, 'vouchers_bulk_expired')
+      setSelectedIds(new Set()); loadVouchers(); loadSummary()
+    } },
+    { label: 'Zrušit poukazy', icon: '✕', confirm: 'Zrušit {count} poukazů? Akce je revertovatelná editací.', onClick: async () => {
+      await bulkUpdate('vouchers', ids, { status: 'cancelled', updated_at: new Date().toISOString() }, 'vouchers_bulk_cancelled')
+      setSelectedIds(new Set()); loadVouchers(); loadSummary()
+    } },
+    { label: 'Export CSV', icon: '⬇', onClick: () => exportToCsv('vouchers', [
+      { key: 'code', label: 'Kód' },
+      { key: 'amount', label: 'Hodnota' },
+      { key: 'currency', label: 'Měna' },
+      { key: 'status', label: 'Stav' },
+      { key: 'category', label: 'Kategorie' },
+      { key: 'buyer_name', label: 'Kupující' },
+      { key: 'buyer_email', label: 'Email' },
+      { key: 'valid_from', label: 'Platnost od' },
+      { key: 'valid_until', label: 'Platnost do' },
+      { key: 'redeemed_at', label: 'Uplatněn' },
+      { key: 'created_at', label: 'Vytvořeno', format: v => v ? new Date(v).toLocaleString('cs-CZ') : '' },
+    ], vouchers.filter(v => selectedIds.has(v.id))) },
+    { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} poukazů? Akci nelze vrátit.', onClick: async () => {
+      await bulkDelete('vouchers', ids, 'vouchers_bulk_deleted')
+      setSelectedIds(new Set()); loadVouchers(); loadSummary()
+    } },
+  ]
+
   return (
     <div>
       {/* DIAGNOSTIKA */}
@@ -218,16 +255,19 @@ export default function GiftVouchers() {
         <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
+          <BulkActionsBar count={selectedIds.size} onClear={() => setSelectedIds(new Set())} actions={bulkActions} />
           <Table>
             <thead>
               <TRow header>
+                <TH><SelectAllCheckbox items={vouchers} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
                 <TH>Kód</TH><TH>Hodnota</TH><TH>Kupující</TH>
                 <TH>Platnost</TH><TH>Kategorie</TH><TH>Stav</TH><TH>Akce</TH>
               </TRow>
             </thead>
             <tbody>
               {vouchers.map(v => (
-                <TRow key={v.id}>
+                <tr key={v.id} style={{ borderBottom: '1px solid #d4e8e0', background: selectedIds.has(v.id) ? '#fef9c3' : undefined }}>
+                  <TD><RowCheckbox id={v.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TD>
                   <TD>
                     <button
                       onClick={() => setDetailVoucher(v)}
@@ -263,9 +303,9 @@ export default function GiftVouchers() {
                       )}
                     </div>
                   </TD>
-                </TRow>
+                </tr>
               ))}
-              {vouchers.length === 0 && <TRow><TD>Žádné dárkové poukazy</TD></TRow>}
+              {vouchers.length === 0 && <TRow><TD colSpan={8}>Žádné dárkové poukazy</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
