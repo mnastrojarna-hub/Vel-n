@@ -104,7 +104,9 @@ export const PAGE_POTVRZENI = {
     { id: 'booking', label: 'Rezervace', icon: '🏍️' },
     { id: 'order', label: 'Objednávka', icon: '🛒' },
     { id: 'voucher', label: 'Poukaz', icon: '🎁' },
-    { id: 'pending', label: 'Pending', icon: '⏳' },
+    { id: 'pending', label: 'Pending (rezervace)', icon: '⏳' },
+    { id: 'pending_order', label: 'Pending (objednávka)', icon: '⏳' },
+    { id: 'pending_voucher', label: 'Pending (poukaz)', icon: '⏳' },
     { id: 'error', label: 'Chyba', icon: '⚠️' },
   ],
   sections: [
