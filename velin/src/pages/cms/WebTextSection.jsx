@@ -10,8 +10,9 @@ export default function WebTextSection({ section, values, onSaved, pageUrl, webB
 
   // Zvýrazni první klíč v sekci, ať admin po kliknutí vidí kam se kouká.
   const sectionFocusKey = section.fields[0]?.key
+  const previewExtra = section.preview ? { preview: section.preview } : undefined
   const sectionUrl = pageUrl
-    ? buildWebUrl(webBaseUrl, pageUrl, adminToken, sectionFocusKey)
+    ? buildWebUrl(webBaseUrl, pageUrl, adminToken, sectionFocusKey, previewExtra)
     : null
 
   return (
@@ -62,7 +63,7 @@ export default function WebTextSection({ section, values, onSaved, pageUrl, webB
               field={field}
               value={values[field.key]}
               onSaved={onSaved}
-              fieldUrl={pageUrl ? buildWebUrl(webBaseUrl, pageUrl, adminToken, field.key) : null}
+              fieldUrl={pageUrl ? buildWebUrl(webBaseUrl, pageUrl, adminToken, field.key, previewExtra) : null}
               hasToken={!!adminToken}
             />
           ))}
