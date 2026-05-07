@@ -8,6 +8,8 @@ import Badge from '../../components/ui/Badge'
 import Modal from '../../components/ui/Modal'
 import SearchInput from '../../components/ui/SearchInput'
 import Pagination from '../../components/ui/Pagination'
+import BulkActionsBar, { SelectAllCheckbox, RowCheckbox } from '../../components/ui/BulkActionsBar'
+import { bulkDelete, exportToCsv } from '../../lib/bulkActions'
 
 const PER_PAGE = 25
 
@@ -48,6 +50,7 @@ export default function GeneratedTab() {
   const [preview, setPreview] = useState(null)
   const [previewHtml, setPreviewHtml] = useState('')
   const [showGenerate, setShowGenerate] = useState(false)
+  const [selectedIds, setSelectedIds] = useState(new Set())
 
   // Persist filters to localStorage
   useEffect(() => {
@@ -139,6 +142,44 @@ export default function GeneratedTab() {
   const totalPages = Math.ceil(total / PER_PAGE)
   const hasActiveFilters = filters.search || filters.types.length > 0 || filters.sort !== 'date_desc'
 
+  async function bulkDownload() {
+    const selected = docs.filter(d => selectedIds.has(d.id))
+    for (const d of selected) {
+      // sequenční stahování — paralelní by browser bloknul jako pop-up spam
+      // eslint-disable-next-line no-await-in-loop
+      await download(d)
+    }
+  }
+
+  const ids = [...selectedIds]
+  const bulkActions = [
+    { label: 'Stáhnout', icon: '⬇', onClick: bulkDownload },
+    { label: 'Export CSV', icon: '⬇', onClick: () => exportToCsv('generated_documents', [
+      { key: 'id', label: 'ID' },
+      { key: '_typeLabel', label: 'Typ' },
+      { key: '_customerName', label: 'Zákazník' },
+      { key: '_motoModel', label: 'Motorka' },
+      { key: '_bookingShort', label: 'Rezervace' },
+      { key: 'created_at', label: 'Vytvořeno', format: v => v ? new Date(v).toLocaleString('cs-CZ') : '' },
+      { key: 'pdf_path', label: 'Soubor' },
+    ], docs.filter(d => selectedIds.has(d.id)).map(d => ({
+      ...d,
+      _typeLabel: TYPE_LABELS[d._template?.type] || d._template?.name || '',
+      _customerName: d.profiles?.full_name || '',
+      _motoModel: d.bookings?.motorcycles?.model || '',
+      _bookingShort: d.bookings?.id ? d.bookings.id.slice(-8).toUpperCase() : '',
+    }))) },
+    { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} dokumentů?', onClick: async () => {
+      const selected = docs.filter(d => selectedIds.has(d.id))
+      const paths = selected.map(d => d.pdf_path).filter(Boolean)
+      if (paths.length > 0) {
+        try { await supabase.storage.from('documents').remove(paths) } catch { /* ignore */ }
+      }
+      await bulkDelete('generated_documents', ids, 'generated_documents_bulk_deleted')
+      setSelectedIds(new Set()); load()
+    } },
+  ]
+
   return (
     <div>
       <div className="flex items-center gap-3 mb-4 flex-wrap">
@@ -184,9 +225,11 @@ export default function GeneratedTab() {
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
+          <BulkActionsBar count={selectedIds.size} onClear={() => setSelectedIds(new Set())} actions={bulkActions} />
           <Table>
             <thead>
               <TRow header>
+                <TH><SelectAllCheckbox items={docs} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
                 <TH>Typ</TH><TH>Zákazník</TH><TH>Motorka</TH>
                 <TH>Rezervace</TH><TH>Datum</TH><TH>Akce</TH>
               </TRow>
@@ -195,7 +238,8 @@ export default function GeneratedTab() {
               {docs.map(d => {
                 const typeName = TYPE_LABELS[d._template?.type] || d._template?.name || '—'
                 return (
-                  <TRow key={d.id}>
+                  <tr key={d.id} style={{ borderBottom: '1px solid #d4e8e0', background: selectedIds.has(d.id) ? '#fef9c3' : undefined }}>
+                    <TD><RowCheckbox id={d.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TD>
                     <TD>
                       <Badge label={typeName}
                         color={d._template?.type === 'rental_contract' ? '#2563eb' : d._template?.type === 'vop' ? '#059669' : '#b45309'}
@@ -215,10 +259,10 @@ export default function GeneratedTab() {
                           style={{ color: '#1a2e22', background: 'none', border: 'none', padding: '4px 6px' }}>Stáhnout</button>
                       </div>
                     </TD>
-                  </TRow>
+                  </tr>
                 )
               })}
-              {docs.length === 0 && <TRow><TD>Žádné vygenerované dokumenty</TD></TRow>}
+              {docs.length === 0 && <TRow><TD colSpan={7}>Žádné vygenerované dokumenty</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />

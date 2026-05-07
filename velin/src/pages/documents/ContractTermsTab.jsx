@@ -13,21 +13,29 @@ const CONTRACT_TYPES = [
 ]
 
 const TEMPLATE_VARS = {
-  vop: [],
+  vop: [
+    'customer_name', 'today', 'booking_number',
+    'company_name', 'company_address', 'company_ico', 'company_dic',
+  ],
   rental_contract: [
-    'customer_name', 'customer_address', 'customer_id_number', 'customer_license',
-    'customer_phone', 'customer_email',
-    'moto_model', 'moto_spz', 'moto_vin',
+    'customer_name', 'customer_address', 'customer_id_number', 'customer_id_expiry',
+    'customer_license', 'customer_license_expiry', 'customer_license_group',
+    'customer_phone', 'customer_email', 'customer_dob',
+    'moto_model', 'moto_brand', 'moto_spz', 'moto_vin', 'moto_year',
+    'moto_engine', 'moto_power', 'moto_color', 'moto_category',
     'start_date', 'start_time', 'end_date', 'end_time',
-    'rental_period', 'total_price', 'total_price_words',
-    'pickup_location', 'return_location',
+    'rental_period', 'days', 'daily_rate',
+    'total_price', 'total_price_words', 'rental_price',
+    'extras_price', 'extras_list', 'delivery_fee', 'deposit', 'insurance',
+    'pickup_location', 'pickup_method', 'return_location', 'return_method',
+    'branch_name', 'branch_address',
     'today', 'booking_number',
+    'company_name', 'company_address', 'company_ico', 'company_dic',
   ],
   handover_protocol: [
-    'booking_number', 'customer_name',
-    'moto_model', 'moto_vin',
-    'mileage', 'fuel_state', 'technical_state',
-    'today', 'today_time',
+    'booking_number', 'customer_name', 'customer_id_number', 'customer_license',
+    'moto_model', 'moto_brand', 'moto_spz', 'moto_vin',
+    'start_date', 'end_date', 'today',
   ],
 }
 
@@ -95,14 +103,13 @@ export default function ContractTermsTab() {
                     )}
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 shrink-0">
                   {tpl && (
-                    <Button onClick={() => setPreview(tpl)} style={{ padding: '5px 14px', fontSize: 13 }}>
+                    <Button onClick={() => setPreview(tpl)}>
                       N\u00e1hled
                     </Button>
                   )}
-                  <Button green onClick={() => setEditing(tpl || { type: ct.type, name: ct.label, content_html: '', version: 0 })}
-                    style={{ padding: '5px 14px', fontSize: 13 }}>
+                  <Button green onClick={() => setEditing(tpl || { type: ct.type, name: ct.label, content_html: '', version: 0 })}>
                     {tpl ? 'Upravit' : 'Vytvo\u0159it'}
                   </Button>
                 </div>
@@ -178,6 +185,14 @@ function EditContractModal({ template, onClose, onSaved }) {
     } catch (e) { setErr(e.message) } finally { setSaving(false) }
   }
 
+  const stickyBar = {
+    position: 'sticky', bottom: -28, left: 0, right: 0,
+    background: '#fff', borderTop: '1px solid #e2ece7',
+    margin: '16px -28px -28px', padding: '14px 28px',
+    display: 'flex', justifyContent: 'space-between', gap: 12,
+    zIndex: 2,
+  }
+
   return (
     <Modal open title={isNew ? `Vytvo\u0159it: ${name || template.type}` : `Upravit: ${name}`} onClose={onClose} wide>
       <div className="space-y-3">
@@ -190,13 +205,15 @@ function EditContractModal({ template, onClose, onSaved }) {
 
         <div>
           <Label>Obsah</Label>
-          <RichTextEditor
-            value={content}
-            onChange={setContent}
-            placeholder="Za\u010dn\u011bte ps\u00e1t obsah\u2026 Pomoc\u00ed li\u0161ty form\u00e1tujte text a z menu \u201e+ Prom\u011bnn\u00e1\u2026\u201c vkl\u00e1dejte placeholdery."
-            minHeight={460}
-            variables={vars.length > 0 ? vars.map(v => ({ label: `{{${v}}}`, value: `{{${v}}}` })) : null}
-          />
+          <div style={{ maxHeight: '55vh', overflow: 'auto', borderRadius: 12 }}>
+            <RichTextEditor
+              value={content}
+              onChange={setContent}
+              placeholder="Za\u010dn\u011bte ps\u00e1t obsah\u2026 Pomoc\u00ed li\u0161ty form\u00e1tujte text a z menu \u201e+ Prom\u011bnn\u00e1\u2026\u201c vkl\u00e1dejte placeholdery."
+              minHeight={360}
+              variables={vars.length > 0 ? vars.map(v => ({ label: `{{${v}}}`, value: `{{${v}}}` })) : null}
+            />
+          </div>
         </div>
 
         <div className="flex items-center gap-2 text-sm" style={{ color: '#1a2e22' }}>
@@ -209,7 +226,7 @@ function EditContractModal({ template, onClose, onSaved }) {
 
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}
 
-      <div className="flex justify-between gap-3 mt-5">
+      <div style={stickyBar}>
         <Button onClick={() => setShowPreview(true)}>N\u00e1hled</Button>
         <div className="flex gap-2">
           <Button onClick={onClose}>Zru\u0161it</Button>
@@ -221,11 +238,12 @@ function EditContractModal({ template, onClose, onSaved }) {
 
       {showPreview && (
         <Modal open title="N\u00e1hled dokumentu" onClose={() => setShowPreview(false)} wide>
-          <div className="border rounded-lg overflow-auto" style={{ maxHeight: 550, background: '#fff' }}>
+          <div className="border rounded-lg overflow-auto" style={{ maxHeight: '70vh', background: '#fff' }}>
             <iframe
-              srcDoc={content}
-              style={{ width: '100%', height: 520, border: 'none' }}
+              srcDoc={content || '<p style="padding:24px;color:#9ab3a5;font-family:sans-serif">Pr\u00e1zdn\u00fd obsah</p>'}
+              style={{ width: '100%', height: '70vh', border: 'none', background: '#fff', display: 'block' }}
               title="N\u00e1hled"
+              sandbox="allow-same-origin"
             />
           </div>
           <div className="flex justify-end mt-4">
@@ -240,11 +258,12 @@ function EditContractModal({ template, onClose, onSaved }) {
 function PreviewModal({ template, onClose }) {
   return (
     <Modal open title={`N\u00e1hled: ${template.name}`} onClose={onClose} wide>
-      <div className="border rounded-lg overflow-auto" style={{ maxHeight: 600, background: '#fff' }}>
+      <div className="border rounded-lg overflow-hidden" style={{ background: '#fff' }}>
         <iframe
-          srcDoc={template.content_html || '<p>Pr\u00e1zdn\u00fd obsah</p>'}
-          style={{ width: '100%', height: 560, border: 'none' }}
+          srcDoc={template.content_html || '<p style="padding:24px;color:#9ab3a5;font-family:sans-serif">Pr\u00e1zdn\u00fd obsah</p>'}
+          style={{ width: '100%', height: '70vh', border: 'none', background: '#fff', display: 'block' }}
           title="N\u00e1hled"
+          sandbox="allow-same-origin"
         />
       </div>
       <div className="flex justify-between mt-4">
