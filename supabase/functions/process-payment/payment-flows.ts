@@ -215,7 +215,7 @@ async function handleWebProductCheckout(
   // Načti objednávku + položky (RPC create_web_shop_order je už vytvořilo)
   const { data: order, error: orderErr } = await supabaseAdmin
     .from('shop_orders')
-    .select('id, total, subtotal, shipping_cost, discount, currency, customer_email, customer_name, customer_phone, payment_status, shipping_method')
+    .select('id, total, subtotal, shipping_cost, discount, customer_email, customer_name, customer_phone, payment_status, shipping_method')
     .eq('id', orderId)
     .single()
   if (orderErr || !order) {
@@ -392,7 +392,6 @@ export async function handleWebShopCheckout(
       subtotal: voucherAmount,
       shipping_cost: printFee,
       discount: 0,
-      currency: 'CZK',
       notes: isPrint ? 'Fyzický poukaz (tisk + poštovné)' : 'Elektronický poukaz',
     })
     if (insertOrderError) {
