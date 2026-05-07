@@ -225,12 +225,20 @@
 - **source** — zdroj voucheru
 
 ### shop_orders
-- id, order_number, customer_id, status, payment_status, payment_method
-- total_amount, currency, shipping_address, shipping_method
-- promo_code_id, notes
-- **confirmed_at** — datum potvrzení
+- id (uuid PK), order_number (text UNIQUE)
+- customer_id (uuid FK→profiles ON DELETE SET NULL), customer_name, customer_email, customer_phone
+- shipping_address (text), billing_address (text)
+- **shipping_method** (text, CHECK pickup/post/zasilkovna nebo NULL — **NEW 2026-05-07**, doplněno přes `ALTER TABLE` ručně po reportu chyby „column shipping_method does not exist" při doprodeji k rezervaci na webu; backfill ze `shipping_cost` 0/79/99 → pickup/zasilkovna/post)
+- status (text CHECK: new/confirmed/processing/shipped/delivered/cancelled/returned/refunded)
+- payment_status (text CHECK: pending/paid/refunded/failed) — **POZN.:** „unpaid" zde NENÍ povolené (na rozdíl od `bookings.payment_status`)
+- payment_method (text)
+- subtotal, shipping_cost, discount, total (numeric(10,2))
+- promo_code_id (uuid FK→promo_codes), notes, tracking_number
+- shipped_at, delivered_at, cancelled_at (timestamptz)
+- **confirmed_at** — datum potvrzení (přidáno migrací)
 - **stripe_payment_intent_id** — Stripe Payment Intent ID (pro refundy)
 - **stripe_session_id** — Stripe Checkout Session ID
+- **language** (text NOT NULL DEFAULT 'cs') — i18n customer comms (2026-05-03)
 - created_at, updated_at
 
 ### products (nové sloupce)
