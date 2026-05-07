@@ -253,8 +253,13 @@ if (!empty($reviews) && is_array($reviews)) {
     }
 }
 
+// Pro non-CZ jazyky preferuj prelozenou seo.home.description pred CZ defaultem
+// (Velin CMS ma jen CZ texty; bez fallbacku Google indexuje EN/DE/FR... s CZ popiskem).
+$lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
+$homeDesc = ($lang !== 'cs' && function_exists('t')) ? t('seo.home.description') : $C['seo']['description'];
+
 renderPage($C['seo']['title'], $content, '/', [
-    'description' => $C['seo']['description'],
+    'description' => $homeDesc,
     'keywords' => $C['seo']['keywords'],
     'og_image' => $C['seo']['og_image'] ?? null,
     'schema' => $faqSchema . $howToSchema,

@@ -187,6 +187,13 @@ return [
     'cms.terms' => 'Terms and conditions',
     'cms.gdpr' => 'Privacy policy',
     'cms.contract' => 'Rental agreement',
+    'cms.terms.description' => 'MotoGo24 motorcycle rental terms and conditions — rights and obligations, pricing, deposit, insurance, cancellation policy.',
+    'cms.gdpr.description' => 'MotoGo24 privacy policy — what data we process during motorcycle booking, how we protect it and your GDPR rights.',
+    'cms.contract.description' => 'MotoGo24 motorcycle rental agreement — rental subject, duration, price, lessee and lessor obligations.',
+
+    // ===== SEO meta defaults (per language) =====
+    'seo.default.description' => 'Motorcycle rental in the Vysočina region, Czech Republic — touring, sport, enduro and kids\' motorcycles. 24/7 rental, no deposit, gear included, online booking.',
+    'seo.home.description' => 'Rent a motorcycle in the Vysočina region. No deposit, gear included, 24/7 service. Touring, sport, enduro and kids\' bikes. Book online.',
 
     // ===== Confirmation =====
     'confirm.titleBooking' => 'Booking confirmation | MotoGo24',

@@ -175,6 +175,13 @@ return [
     'cms.terms' => 'Algemene voorwaarden',
     'cms.gdpr' => 'Privacybeleid',
     'cms.contract' => 'Huurovereenkomst',
+    'cms.terms.description' => 'Algemene voorwaarden van MotoGo24 motorverhuur — rechten en plichten, prijs, borg, verzekering, annuleringsvoorwaarden.',
+    'cms.gdpr.description' => 'MotoGo24 privacybeleid — welke gegevens we verwerken bij het reserveren van een motor, hoe we ze beschermen en uw AVG-rechten.',
+    'cms.contract.description' => 'MotoGo24 huurovereenkomst voor motorverhuur — onderwerp van de huur, duur, prijs, verplichtingen van huurder en verhuurder.',
+
+    // ===== SEO meta defaults (per taal) =====
+    'seo.default.description' => 'Motorverhuur in de regio Vysočina, Tsjechië — toer-, sport-, enduro- en kindermotoren. 24/7 verhuur, zonder borg, uitrusting inbegrepen, online reserveren.',
+    'seo.home.description' => 'Huur een motor in de regio Vysočina. Zonder borg, uitrusting inbegrepen, 24/7 service. Toer-, sport-, enduro- en kindermotoren. Online reserveren.',
 
     'confirm.titleBooking' => 'Reserveringsbevestiging | MotoGo24',
     'confirm.titleOrder' => 'Orderbevestiging | MotoGo24',

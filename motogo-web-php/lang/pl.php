@@ -175,6 +175,13 @@ return [
     'cms.terms' => 'Warunki handlowe',
     'cms.gdpr' => 'Polityka prywatności',
     'cms.contract' => 'Umowa najmu',
+    'cms.terms.description' => 'Warunki handlowe wypożyczalni motocykli MotoGo24 — prawa i obowiązki, cena, kaucja, ubezpieczenie, warunki anulowania.',
+    'cms.gdpr.description' => 'Polityka prywatności MotoGo24 — jakie dane przetwarzamy przy rezerwacji motocykla, jak je chronimy i Twoje prawa RODO.',
+    'cms.contract.description' => 'Umowa najmu motocykla MotoGo24 — przedmiot najmu, czas trwania, cena, obowiązki najemcy i wynajmującego.',
+
+    // ===== SEO meta defaults (na język) =====
+    'seo.default.description' => 'Wypożyczalnia motocykli w regionie Vysočina, Czechy — motocykle turystyczne, sportowe, enduro i dla dzieci. Wynajem 24/7, bez kaucji, wyposażenie w cenie, rezerwacja online.',
+    'seo.home.description' => 'Wypożycz motocykl w regionie Vysočina. Bez kaucji, wyposażenie w cenie, obsługa całodobowa. Motocykle turystyczne, sportowe, enduro i dla dzieci. Rezerwacja online.',
 
     'confirm.titleBooking' => 'Potwierdzenie rezerwacji | MotoGo24',
     'confirm.titleOrder' => 'Potwierdzenie zamówienia | MotoGo24',

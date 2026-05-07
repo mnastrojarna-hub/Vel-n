@@ -502,7 +502,10 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
         || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
     $siteOrigin = ($isHttps ? 'https://' : 'http://') . $host;
 
-    $description = $meta['description'] ?? 'Půjčovna motorek Vysočina – silniční, sportovní, enduro i dětské. Nonstop pronájem bez kauce, online rezervace a motorkářská výbava zdarma.';
+    // Default description per-jazyk (cs/en/de/fr/es/nl/pl) — bez tohoto fallbacku
+    // by Google na .com indexoval cizojazycne stranky s ceskym defaultnim popiskem.
+    $defaultDesc = function_exists('t') ? t('seo.default.description') : 'Půjčovna motorek Vysočina – silniční, sportovní, enduro i dětské. Nonstop pronájem bez kauce, online rezervace a motorkářská výbava zdarma.';
+    $description = $meta['description'] ?? $defaultDesc;
     $keywords = $meta['keywords'] ?? 'půjčovna motorek Vysočina, pronájem motorek Vysočina, půjčovna motorek Pelhřimov, půjčovna motorek bez kauce, nonstop půjčovna motorek, rezervace motorky online, motorky k pronájmu Vysočina, motorbike rental Czech Republic, motorcycle rental Prague, půjčovna motorek Praha';
     // Canonical = doménová home pro aktuální jazyk (cs → .cz, ostatní → .com).
     // Tím Google indexuje českou verzi výhradně z motogo24.cz a anglickou/další
