@@ -107,62 +107,79 @@ export function calculateTotals(items) {
 
 /**
  * Create invoice record in DB (direct insert, no edge function dependency)
+ *
+ * Retries on `invoices_number_key` unique-violation (race condition between
+ * concurrent number generators — typically caused by React StrictMode double-mount,
+ * concurrent autoGenerateKF + DB trigger, or two open tabs).
  */
 export async function createInvoice({ type, customer_id, booking_id, order_id, items, notes, due_date, source, status }) {
-  const number = await generateInvoiceNumber(type)
   const { subtotal, taxAmount, total } = calculateTotals(items)
   const issueDate = new Date().toISOString().slice(0, 10)
 
-  const payload = {
-    number,
-    type,
-    customer_id: customer_id || null,
-    booking_id: booking_id || null,
-    items,
-    subtotal,
-    tax_amount: taxAmount,
-    total,
-    notes: notes || null,
-    issue_date: issueDate,
-    due_date: due_date || issueDate,
-    status: status || 'issued',
-    source: source || 'booking',
-  }
-  // Add optional columns only if they have values (columns may not exist in all environments)
-  if (order_id) payload.order_id = order_id
-  if (number) payload.variable_symbol = number
-
-  let data = null
-  let insertError = null
-
-  // Try insert
-  const result = await supabase
-    .from('invoices')
-    .insert(payload)
-    .select()
-    .single()
-
-  if (result.error) {
-    console.error('[createInvoice] Insert failed:', result.error.message, result.error.details, result.error.hint)
-    // If insert fails (e.g. unknown column), retry without optional columns
-    const minPayload = {
-      number, type,
+  const buildPayload = (number, withOptional) => {
+    const p = {
+      number,
+      type,
       customer_id: customer_id || null,
       booking_id: booking_id || null,
-      items, subtotal, tax_amount: taxAmount, total,
+      items,
+      subtotal,
+      tax_amount: taxAmount,
+      total,
       notes: notes || null,
       issue_date: issueDate,
       due_date: due_date || issueDate,
       status: status || 'issued',
     }
-    const retry = await supabase.from('invoices').insert(minPayload).select().single()
-    if (retry.error) {
-      console.error('[createInvoice] Retry also failed:', retry.error.message)
-      throw retry.error
+    if (withOptional) {
+      p.source = source || 'booking'
+      if (order_id) p.order_id = order_id
+      if (number) p.variable_symbol = number
     }
-    data = retry.data
-  } else {
-    data = result.data
+    return p
+  }
+
+  const isDuplicateNumber = (err) =>
+    err && (err.code === '23505' || /duplicate key|invoices_number_key|unique constraint/i.test(err.message || ''))
+
+  let data = null
+  let lastErr = null
+  let useOptional = true
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const number = await generateInvoiceNumber(type)
+    const result = await supabase
+      .from('invoices')
+      .insert(buildPayload(number, useOptional))
+      .select()
+      .single()
+
+    if (!result.error) { data = result.data; lastErr = null; break }
+
+    lastErr = result.error
+    if (isDuplicateNumber(result.error)) {
+      // Race on invoice number — re-query max and retry with backoff
+      await new Promise(r => setTimeout(r, 50 + Math.floor(Math.random() * 150)))
+      continue
+    }
+    // Non-conflict error — try once without optional columns (legacy schemas)
+    if (useOptional) {
+      useOptional = false
+      const retry = await supabase
+        .from('invoices')
+        .insert(buildPayload(number, false))
+        .select()
+        .single()
+      if (!retry.error) { data = retry.data; lastErr = null; break }
+      lastErr = retry.error
+      if (isDuplicateNumber(retry.error)) continue
+    }
+    break
+  }
+
+  if (lastErr) {
+    console.error('[createInvoice] Insert failed after retries:', lastErr.message, lastErr.details, lastErr.hint)
+    throw lastErr
   }
 
   // Document sync is handled by DB trigger (sync_invoice_to_documents)

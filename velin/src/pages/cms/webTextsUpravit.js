@@ -10,7 +10,14 @@
 
 export const PAGE_UPRAVIT_REZERVACE = {
   id: 'upravit-rezervaci', label: 'Úprava rezervace', icon: '✏️', url: '/upravit-rezervaci',
-  description: 'Klientský portál pro úpravu / prodloužení / zkrácení / storno rezervace. Texty se rendrují přes JS z i18n overlay (klíče web.layout.editRez.*).',
+  description: 'Klientský portál pro úpravu / prodloužení / zkrácení / storno rezervace. Stránka vyžaduje login — pro náhled CMS používá `cms_admin` token mock režim (přepínač variant níže) s falešnými daty, aby se daly editovat texty list/detail/extend/cancel/… bez reálné session.',
+  previewVariants: [
+    { id: 'login', label: 'Přihlášení', icon: '🔐' },
+    { id: 'list', label: 'Seznam', icon: '📋' },
+    { id: 'detail', label: 'Detail', icon: '🔍' },
+    { id: 'forgot', label: 'Zapomněl heslo', icon: '✉️' },
+    { id: 'reset', label: 'Reset hesla', icon: '🔑' },
+  ],
   sections: [
     {
       id: 'meta', label: 'SEO meta',
@@ -28,7 +35,7 @@ export const PAGE_UPRAVIT_REZERVACE = {
       ]
     },
     {
-      id: 'login', label: 'Přihlášení',
+      id: 'login', label: 'Přihlášení', preview: 'login',
       fields: [
         { key: 'web.layout.editRez.login.title', label: 'Nadpis přihlášení', default: 'Přihlášení' },
         { key: 'web.layout.editRez.login.help', label: 'Pomocný text', type: 'textarea', default: 'Zadejte e-mail a heslo z rezervace. Heslo jste si nastavili při dokončení rezervace nebo v aplikaci.' },
@@ -42,7 +49,7 @@ export const PAGE_UPRAVIT_REZERVACE = {
       ]
     },
     {
-      id: 'forgot', label: 'Zapomenuté heslo',
+      id: 'forgot', label: 'Zapomenuté heslo', preview: 'forgot',
       fields: [
         { key: 'web.layout.editRez.forgot.title', label: 'Nadpis', default: 'Obnova hesla' },
         { key: 'web.layout.editRez.forgot.help', label: 'Pomocný text', type: 'textarea', default: 'Zadejte číslo rezervace a e-mail. Pošleme vám odkaz pro nastavení nového hesla.' },
@@ -56,7 +63,7 @@ export const PAGE_UPRAVIT_REZERVACE = {
       ]
     },
     {
-      id: 'reset', label: 'Reset hesla (po kliknutí na link z e-mailu)',
+      id: 'reset', label: 'Reset hesla (po kliknutí na link z e-mailu)', preview: 'reset',
       fields: [
         { key: 'web.layout.editRez.reset.title', label: 'Nadpis', default: 'Nastavit nové heslo' },
         { key: 'web.layout.editRez.reset.help', label: 'Pomocný text', type: 'textarea', default: 'Zadejte nové heslo (min. 6 znaků). Po uložení budete přihlášen(a) a uvidíte své rezervace.' },
@@ -74,7 +81,7 @@ export const PAGE_UPRAVIT_REZERVACE = {
       ]
     },
     {
-      id: 'list', label: 'Seznam rezervací / objednávek',
+      id: 'list', label: 'Seznam rezervací / objednávek', preview: 'list',
       fields: [
         { key: 'web.layout.editRez.list.title', label: 'Nadpis „Vaše rezervace"', default: 'Vaše rezervace' },
         { key: 'web.layout.editRez.list.shopTitle', label: 'Nadpis „E-shop objednávky"', default: 'E-shop objednávky' },
@@ -90,7 +97,7 @@ export const PAGE_UPRAVIT_REZERVACE = {
       ]
     },
     {
-      id: 'filters', label: 'Filtr stavů rezervací',
+      id: 'filters', label: 'Filtr stavů rezervací', preview: 'list',
       fields: [
         { key: 'web.layout.editRez.filter.all', label: 'Filtr „Vše"', default: 'Vše' },
         { key: 'web.layout.editRez.filter.active', label: 'Filtr „Aktivní"', default: 'Aktivní' },
@@ -100,7 +107,7 @@ export const PAGE_UPRAVIT_REZERVACE = {
       ]
     },
     {
-      id: 'statuses', label: 'Stavové štítky rezervace',
+      id: 'statuses', label: 'Stavové štítky rezervace', preview: 'list',
       fields: [
         { key: 'web.layout.editRez.status.pending', label: 'Stav „Čeká na zaplacení"', default: 'Čeká na zaplacení' },
         { key: 'web.layout.editRez.status.unpaid', label: 'Stav „Nezaplaceno"', default: 'Nezaplaceno' },
@@ -112,7 +119,7 @@ export const PAGE_UPRAVIT_REZERVACE = {
       ]
     },
     {
-      id: 'shopStatus', label: 'Stavy e-shop objednávek',
+      id: 'shopStatus', label: 'Stavy e-shop objednávek', preview: 'list',
       fields: [
         { key: 'web.layout.editRez.shopStatus.new', label: 'E-shop „Nová"', default: 'Nová' },
         { key: 'web.layout.editRez.shopStatus.confirmed', label: 'E-shop „Potvrzená"', default: 'Potvrzená' },
@@ -125,7 +132,7 @@ export const PAGE_UPRAVIT_REZERVACE = {
       ]
     },
     {
-      id: 'voucherStatus', label: 'Stavy poukazů',
+      id: 'voucherStatus', label: 'Stavy poukazů', preview: 'list',
       fields: [
         { key: 'web.layout.editRez.voucherStatus.active', label: 'Poukaz „Aktivní"', default: 'Aktivní' },
         { key: 'web.layout.editRez.voucherStatus.redeemed', label: 'Poukaz „Uplatněn"', default: 'Uplatněn' },
@@ -134,7 +141,7 @@ export const PAGE_UPRAVIT_REZERVACE = {
       ]
     },
     {
-      id: 'tabs', label: 'Záložky detailu rezervace',
+      id: 'tabs', label: 'Záložky detailu rezervace', preview: 'detail',
       fields: [
         { key: 'web.layout.editRez.tab.detail', label: 'Záložka „Detail"', default: 'Detail' },
         { key: 'web.layout.editRez.tab.extend', label: 'Záložka „Prodloužit"', default: 'Prodloužit' },
@@ -146,7 +153,7 @@ export const PAGE_UPRAVIT_REZERVACE = {
       ]
     },
     {
-      id: 'detail', label: 'Detail rezervace — popisky',
+      id: 'detail', label: 'Detail rezervace — popisky', preview: 'detail',
       fields: [
         { key: 'web.layout.editRez.detail.title', label: 'Nadpis „Detail rezervace"', default: 'Detail rezervace' },
         { key: 'web.layout.editRez.detail.bookingId', label: 'Label „Číslo rezervace"', default: 'Číslo rezervace' },
@@ -186,7 +193,7 @@ export const PAGE_UPRAVIT_REZERVACE = {
       ]
     },
     {
-      id: 'extend', label: 'Prodloužení rezervace',
+      id: 'extend', label: 'Prodloužení rezervace', preview: 'detail',
       fields: [
         { key: 'web.layout.editRez.extend.title', label: 'Nadpis', default: 'Prodloužit rezervaci' },
         { key: 'web.layout.editRez.extend.help', label: 'Pomocný text (krátký)', type: 'textarea', default: 'V kalendáři klikněte na den před původním začátkem (vyzvednutí dříve) nebo na den po původním konci (vrácení později). Zaplatíte pouze rozdíl ceny.' },
@@ -205,7 +212,7 @@ export const PAGE_UPRAVIT_REZERVACE = {
       ]
     },
     {
-      id: 'shorten', label: 'Zkrácení rezervace',
+      id: 'shorten', label: 'Zkrácení rezervace', preview: 'detail',
       fields: [
         { key: 'web.layout.editRez.shorten.title', label: 'Nadpis', default: 'Zkrátit rezervaci' },
         { key: 'web.layout.editRez.shorten.help', label: 'Pomocný text (krátký)', type: 'textarea', default: 'Vyberte stranu (Začátek nebo Konec) a v kalendáři klikněte uvnitř rezervace na nový den. Vracíme peníze podle storno podmínek.' },
@@ -226,7 +233,7 @@ export const PAGE_UPRAVIT_REZERVACE = {
       ]
     },
     {
-      id: 'cancel', label: 'Storno rezervace',
+      id: 'cancel', label: 'Storno rezervace', preview: 'detail',
       fields: [
         { key: 'web.layout.editRez.cancel.title', label: 'Nadpis', default: 'Zrušit rezervaci' },
         { key: 'web.layout.editRez.cancel.warn', label: 'Varování', type: 'textarea', default: 'Tuto akci nelze vrátit. Po zrušení bude rezervace stornována a vrátíme peníze podle storno podmínek.' },
@@ -242,7 +249,7 @@ export const PAGE_UPRAVIT_REZERVACE = {
       ]
     },
     {
-      id: 'storno', label: 'Storno podmínky (popis)',
+      id: 'storno', label: 'Storno podmínky (popis)', preview: 'detail',
       fields: [
         { key: 'web.layout.editRez.storno.title', label: 'Nadpis', default: 'Storno podmínky' },
         { key: 'web.layout.editRez.storno.tier1', label: 'Tier 1 — popis', type: 'textarea', default: '<strong>Více než 7 dní</strong> před začátkem: <strong>100 %</strong> vrácení' },
@@ -252,7 +259,7 @@ export const PAGE_UPRAVIT_REZERVACE = {
       ]
     },
     {
-      id: 'moto_change', label: 'Změna motorky',
+      id: 'moto_change', label: 'Změna motorky', preview: 'detail',
       fields: [
         { key: 'web.layout.editRez.moto.title', label: 'Nadpis', default: 'Změnit motorku' },
         { key: 'web.layout.editRez.moto.help', label: 'Pomocný text', type: 'textarea', default: 'Vyberte jinou motorku pro váš termín. Lze pouze pro nadcházející rezervace s odpovídajícím řidičským průkazem. Zaplatí se pouze rozdíl ceny.' },
@@ -281,7 +288,7 @@ export const PAGE_UPRAVIT_REZERVACE = {
       ]
     },
     {
-      id: 'location', label: 'Čas a místo (vyzvednutí + vrácení)',
+      id: 'location', label: 'Čas a místo (vyzvednutí + vrácení)', preview: 'detail',
       fields: [
         { key: 'web.layout.editRez.loc.title', label: 'Nadpis sekce', default: 'Čas a místo — vyzvednutí / vrácení' },
         { key: 'web.layout.editRez.loc.help', label: 'Pomocný text (nadcházející rezervace)', type: 'textarea', default: 'Změňte způsob, místo a čas vyzvednutí nebo vrácení. Cena za přistavení/odvoz se počítá podle vzdálenosti od pobočky Mezná (1 000 Kč základ + 40 Kč/km). Rozdíl se vrací 100 % bez ohledu na čas, nový poplatek doplatíte přes Stripe.' },
@@ -336,7 +343,7 @@ export const PAGE_UPRAVIT_REZERVACE = {
       ]
     },
     {
-      id: 'docs', label: 'Doklady (sekce + uploader)',
+      id: 'docs', label: 'Doklady (sekce + uploader)', preview: 'detail',
       fields: [
         { key: 'web.layout.editRez.doc.title', label: 'Nadpis', default: 'Doklady ke stažení' },
         { key: 'web.layout.editRez.doc.help', label: 'Pomocný text', type: 'textarea', default: 'Všechny doklady k vaší rezervaci si můžete kdykoliv stáhnout.' },
@@ -356,7 +363,7 @@ export const PAGE_UPRAVIT_REZERVACE = {
       ]
     },
     {
-      id: 'docTypes', label: 'Doklady — názvy typů',
+      id: 'docTypes', label: 'Doklady — názvy typů', preview: 'detail',
       fields: [
         { key: 'web.layout.editRez.doc.type.proforma', label: 'Typ „Zálohová faktura"', default: 'Zálohová faktura' },
         { key: 'web.layout.editRez.doc.type.advance', label: 'Typ „Zálohová faktura" (advance)', default: 'Zálohová faktura' },
@@ -378,7 +385,7 @@ export const PAGE_UPRAVIT_REZERVACE = {
       ]
     },
     {
-      id: 'pending', label: 'Nezaplacená rezervace (varování)',
+      id: 'pending', label: 'Nezaplacená rezervace (varování)', preview: 'list',
       fields: [
         { key: 'web.layout.editRez.pending.title', label: 'Nadpis', default: 'Rezervace čeká na zaplacení' },
         { key: 'web.layout.editRez.pending.text', label: 'Text', type: 'textarea', default: 'Tato rezervace ještě nebyla potvrzena platbou. Dokud nezaplatíte, motorka pro vás není rezervována. Úpravy (datum, motorka, místo) půjdou až po dokončení platby.' },
@@ -391,7 +398,7 @@ export const PAGE_UPRAVIT_REZERVACE = {
       ]
     },
     {
-      id: 'consents', label: 'Souhlasy (GDPR / VOP / marketing)',
+      id: 'consents', label: 'Souhlasy (GDPR / VOP / marketing)', preview: 'list',
       fields: [
         { key: 'web.layout.editRez.consents.cardTitle', label: 'Nadpis sekce', default: 'Souhlasy a komunikace' },
         { key: 'web.layout.editRez.consents.help', label: 'Pomocný text', type: 'textarea', default: 'Změny se ukládají automaticky. Souhlasy potřebné pro rezervaci nelze odvolat během nadcházející nebo aktivní rezervace — volně lze kdykoliv odvolat pouze marketing.' },
@@ -420,7 +427,7 @@ export const PAGE_UPRAVIT_REZERVACE = {
       ]
     },
     {
-      id: 'consentItems', label: 'Souhlasy — jednotlivé položky',
+      id: 'consentItems', label: 'Souhlasy — jednotlivé položky', preview: 'list',
       fields: [
         { key: 'web.layout.editRez.consents.label.gdpr', label: 'GDPR — název', default: 'GDPR' },
         { key: 'web.layout.editRez.consents.desc.gdpr', label: 'GDPR — popis', type: 'textarea', default: 'Souhlas se zpracováním osobních údajů.' },
@@ -445,7 +452,7 @@ export const PAGE_UPRAVIT_REZERVACE = {
       ]
     },
     {
-      id: 'history', label: 'Historie úprav',
+      id: 'history', label: 'Historie úprav', preview: 'detail',
       fields: [
         { key: 'web.layout.editRez.history.empty', label: 'Hláška „Žádná historie"', default: 'Rezervace ještě nebyla upravována.' },
         { key: 'web.layout.editRez.history.startChanged', label: 'Záznam „Začátek změněn"', default: '📅 Začátek: <s>{from}</s> → <strong>{to}</strong>' },
@@ -460,7 +467,7 @@ export const PAGE_UPRAVIT_REZERVACE = {
       ]
     },
     {
-      id: 'calendar', label: 'Kalendář — měsíce, dny, legenda',
+      id: 'calendar', label: 'Kalendář — měsíce, dny, legenda', preview: 'detail',
       fields: [
         { key: 'web.layout.editRez.cal.month.1', label: 'Leden', default: 'Leden' },
         { key: 'web.layout.editRez.cal.month.2', label: 'Únor', default: 'Únor' },
@@ -503,7 +510,7 @@ export const PAGE_UPRAVIT_REZERVACE = {
       ]
     },
     {
-      id: 'validate', label: 'Validace kalendáře',
+      id: 'validate', label: 'Validace kalendáře', preview: 'detail',
       fields: [
         { key: 'web.layout.editRez.validate.pastDate', label: 'Datum v minulosti', default: 'Nelze vybrat datum v minulosti.' },
         { key: 'web.layout.editRez.validate.dayOccupied', label: 'Den obsazený', default: 'Tento den je obsazený jinou rezervací.' },
@@ -522,7 +529,7 @@ export const PAGE_UPRAVIT_REZERVACE = {
       ]
     },
     {
-      id: 'range', label: 'Kalendář — rozsah dat (banner)',
+      id: 'range', label: 'Kalendář — rozsah dat (banner)', preview: 'detail',
       fields: [
         { key: 'web.layout.editRez.range.newStart', label: 'Label „Nový začátek"', default: 'Nový začátek' },
         { key: 'web.layout.editRez.range.newEnd', label: 'Label „Nový konec"', default: 'Nový konec' },
@@ -539,7 +546,7 @@ export const PAGE_UPRAVIT_REZERVACE = {
       ]
     },
     {
-      id: 'change', label: 'Hlášky po změně rezervace',
+      id: 'change', label: 'Hlášky po změně rezervace', preview: 'detail',
       fields: [
         { key: 'web.layout.editRez.change.success', label: 'Změna úspěšná', default: 'Změna byla uložena.' },
         { key: 'web.layout.editRez.change.successWithRefund', label: 'Změna úspěšná (s refundem)', default: 'Změna byla uložena. Vrátíme vám {amount} během několika minut.' },

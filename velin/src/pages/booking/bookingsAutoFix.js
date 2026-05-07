@@ -6,7 +6,17 @@ function localIso(d) {
   return `${y}-${m}-${day}`
 }
 
-export async function autoCancelStale() {
+// Prevent concurrent runs (React StrictMode double-mounts useEffect in dev,
+// and we don't want two parallel passes racing on invoice numbers / status updates).
+const _running = { kf: null, cancel: null, activate: null, pendingPaid: null }
+function _once(key, fn) {
+  if (_running[key]) return _running[key]
+  _running[key] = (async () => { try { return await fn() } finally { _running[key] = null } })()
+  return _running[key]
+}
+
+export async function autoCancelStale() { return _once('cancel', _autoCancelStale) }
+async function _autoCancelStale() {
   try {
     const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString()
     const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()
@@ -37,7 +47,8 @@ export async function autoCancelStale() {
   } catch (e) { console.error('[AutoCancel]', e) }
 }
 
-export async function autoActivateReserved() {
+export async function autoActivateReserved() { return _once('activate', _autoActivateReserved) }
+async function _autoActivateReserved() {
   try {
     const today = localIso(new Date())
     const { data: ready } = await supabase.from('bookings').select('id, user_id')
@@ -84,7 +95,8 @@ export async function autoActivateReserved() {
   } catch (e) { console.error('[AutoActivate]', e) }
 }
 
-export async function autoFixPendingPaid() {
+export async function autoFixPendingPaid() { return _once('pendingPaid', _autoFixPendingPaid) }
+async function _autoFixPendingPaid() {
   try {
     const today = localIso(new Date())
     const { data: stuck } = await supabase.from('bookings').select('id, start_date')
@@ -103,7 +115,8 @@ export async function autoFixPendingPaid() {
   } catch (e) { console.error('[AutoFixPendingPaid]', e) }
 }
 
-export async function autoGenerateKF() {
+export async function autoGenerateKF() { return _once('kf', _autoGenerateKF) }
+async function _autoGenerateKF() {
   try {
     const today = localIso(new Date())
     const { data: expired } = await supabase.from('bookings').select('id, status, end_date')

@@ -105,9 +105,15 @@
       el.innerHTML = renderShopSuccess(mockOrder);
     } else if(preview === 'voucher'){
       el.innerHTML = renderVoucherSuccess(mockOrder, mockVouchers);
-    } else if(preview === 'pending'){
+    } else if(preview === 'pending' || preview === 'pending_booking'){
       var pendingMock = Object.assign({}, mockBooking, { payment_status: 'unpaid' });
       el.innerHTML = renderPending(pendingMock, 'booking');
+    } else if(preview === 'pending_order'){
+      var pendingOrder = Object.assign({}, mockOrder, { payment_status: 'unpaid' });
+      el.innerHTML = renderPending(pendingOrder, 'order');
+    } else if(preview === 'pending_voucher'){
+      var pendingVoucher = Object.assign({}, mockOrder, { payment_status: 'unpaid', order_number: 'MG-VCH-2026-0042' });
+      el.innerHTML = renderPending(pendingVoucher, 'order');
     } else if(preview === 'error'){
       el.innerHTML = renderError(I18N.errorMissingId || 'Missing payment identifier.');
     } else {
