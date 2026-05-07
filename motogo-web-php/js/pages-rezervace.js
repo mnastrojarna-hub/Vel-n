@@ -563,20 +563,60 @@ MG._rezInit = async function(){
         return;
       }
       var bd = resumeRes.data;
+      // Velikosti řidiče i spolujezdce z původní rezervace
+      var rezRiderSizes = {
+        helmet: bd.helmet_size || '',
+        jacket: bd.jacket_size || '',
+        pants:  bd.pants_size  || '',
+        boots:  bd.boots_size  || '',
+        gloves: bd.gloves_size || ''
+      };
+      var rezPassengerSizes = {
+        helmet: bd.passenger_helmet_size || '',
+        jacket: bd.passenger_jacket_size || '',
+        gloves: bd.passenger_gloves_size || '',
+        boots:  bd.passenger_boots_size  || ''
+      };
+      // Sloučení applied promo/voucher kódů zpět do struktury, kterou zná zbytek UI
+      var rezAppliedCodes = [];
+      if(bd.promo_code) rezAppliedCodes.push({ type:'promo', code: bd.promo_code });
+      if(bd.voucher_id) rezAppliedCodes.push({
+        type:'voucher', id: bd.voucher_id,
+        code: bd.voucher_code || '', amount: bd.voucher_amount || 0
+      });
+      var rezLicenseGroup = (bd.license_group && bd.license_group.length) ? bd.license_group[0] : '';
+      var rezPickupTime = bd.pickup_time ? String(bd.pickup_time).slice(0,5) : '';
       MG._rez = {
         startDate: bd.start_date ? bd.start_date.split('T')[0] : null,
         endDate: bd.end_date ? bd.end_date.split('T')[0] : null,
         motos: [{ id: bd.moto_id, model: bd.moto_model }],
-        motoId: bd.moto_id, allBookings: {}, appliedCodes: [], discountAmt: 0,
+        motoId: bd.moto_id, allBookings: {},
+        appliedCodes: rezAppliedCodes,
+        discountAmt: bd.discount_amount || 0,
         bookingId: bd.booking_id, userId: bd.user_id, bookingAmount: bd.total_price,
         _isResume: true,
         _docsValidated: bd.has_id_number && bd.has_license_number,
         _docNumber: bd.has_id_number ? '(vyplněno)' : '',
         _licenseNumber: bd.has_license_number ? '(vyplněno)' : '',
+        sizes: { rider: rezRiderSizes, passenger: rezPassengerSizes },
         formData: {
-          motoId: bd.moto_id, name: bd.customer_name || '', email: bd.customer_email || '',
-          phone: bd.customer_phone || '', street: '', city: '', zip: '', country: 'Česká republika',
-          extras: [], appliedCodes: [], discountAmt: 0, deliveryAddr: null, returnAddr: null
+          motoId: bd.moto_id,
+          name: bd.customer_name || '',
+          email: bd.customer_email || '',
+          phone: bd.customer_phone || '',
+          street: bd.customer_street || '',
+          city: bd.customer_city || '',
+          zip: bd.customer_zip || '',
+          country: bd.customer_country || 'Česká republika',
+          pickupTime: rezPickupTime,
+          deliveryAddr: bd.delivery_address || null,
+          returnAddr:   bd.return_address   || null,
+          extras: Array.isArray(bd.extras) ? bd.extras : [],
+          appliedCodes: rezAppliedCodes,
+          discountAmt: bd.discount_amount || 0,
+          riderSizes: rezRiderSizes,
+          passengerSizes: rezPassengerSizes,
+          _licGroup: rezLicenseGroup
         }
       };
       if(MG._isMobile() && MG._rez._docsValidated) MG._rezShowMindeeStep();

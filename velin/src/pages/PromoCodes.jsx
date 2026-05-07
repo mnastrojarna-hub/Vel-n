@@ -9,6 +9,8 @@ import SearchInput from '../components/ui/SearchInput'
 import Pagination from '../components/ui/Pagination'
 import Card from '../components/ui/Card'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
+import BulkActionsBar, { SelectAllCheckbox, RowCheckbox } from '../components/ui/BulkActionsBar'
+import { bulkUpdate, bulkDelete, exportToCsv } from '../lib/bulkActions'
 import { PromoModal, PromoDetailModal } from './PromoCodesModals'
 
 const PER_PAGE = 25
@@ -34,6 +36,7 @@ export default function PromoCodes() {
   const [editCode, setEditCode] = useState(null)
   const [detailCode, setDetailCode] = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [selectedIds, setSelectedIds] = useState(new Set())
 
   useEffect(() => { loadCodes() }, [page, filters])
   useEffect(() => { autoExpirePromos(); loadSummary() }, [])
@@ -140,6 +143,33 @@ export default function PromoCodes() {
 
   const totalPages = Math.ceil(total / PER_PAGE)
 
+  const ids = [...selectedIds]
+  const bulkActions = [
+    { label: 'Aktivovat', icon: '✓', onClick: async () => {
+      await bulkUpdate('promo_codes', ids, { active: true }, 'promo_codes_bulk_activated')
+      setSelectedIds(new Set()); loadCodes(); loadSummary()
+    } },
+    { label: 'Deaktivovat', icon: '⏸', onClick: async () => {
+      await bulkUpdate('promo_codes', ids, { active: false }, 'promo_codes_bulk_deactivated')
+      setSelectedIds(new Set()); loadCodes(); loadSummary()
+    } },
+    { label: 'Export CSV', icon: '⬇', onClick: () => exportToCsv('promo_codes', [
+      { key: 'code', label: 'Kód' },
+      { key: 'type', label: 'Typ' },
+      { key: 'value', label: 'Sleva' },
+      { key: 'active', label: 'Aktivní', format: v => v ? 'ANO' : 'NE' },
+      { key: 'valid_from', label: 'Platnost od' },
+      { key: 'valid_to', label: 'Platnost do' },
+      { key: 'used_count', label: 'Použití' },
+      { key: 'max_uses', label: 'Limit' },
+      { key: 'created_at', label: 'Vytvořeno', format: v => v ? new Date(v).toLocaleString('cs-CZ') : '' },
+    ], codes.filter(c => selectedIds.has(c.id))) },
+    { label: 'Smazat', icon: '🗑', danger: true, confirm: 'Trvale smazat {count} promo kódů? Akci nelze vrátit.', onClick: async () => {
+      await bulkDelete('promo_codes', ids, 'promo_codes_bulk_deleted')
+      setSelectedIds(new Set()); loadCodes(); loadSummary()
+    } },
+  ]
+
   return (
     <div>
       {/* DIAGNOSTIKA */}
@@ -194,9 +224,11 @@ export default function PromoCodes() {
         <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
+          <BulkActionsBar count={selectedIds.size} onClear={() => setSelectedIds(new Set())} actions={bulkActions} />
           <Table>
             <thead>
               <TRow header>
+                <TH><SelectAllCheckbox items={codes} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TH>
                 <TH>Kód</TH><TH>Sleva</TH><TH>Platnost</TH>
                 <TH>Použití / Limit</TH><TH>Stav</TH><TH>Akce</TH>
               </TRow>
@@ -207,7 +239,8 @@ export default function PromoCodes() {
                 const isExpired = c.valid_to && new Date(c.valid_to) < new Date()
                 const isLimitReached = c.max_uses && (c.used_count || 0) >= c.max_uses
                 return (
-                  <TRow key={c.id}>
+                  <tr key={c.id} style={{ borderBottom: '1px solid #d4e8e0', background: selectedIds.has(c.id) ? '#fef9c3' : undefined }}>
+                    <TD><RowCheckbox id={c.id} selectedIds={selectedIds} setSelectedIds={setSelectedIds} /></TD>
                     <TD>
                       <button
                         onClick={() => setDetailCode(c)}
@@ -264,10 +297,10 @@ export default function PromoCodes() {
                         <ActionBtn color="#dc2626" onClick={() => setDeleteConfirm(c)}>Smazat</ActionBtn>
                       </div>
                     </TD>
-                  </TRow>
+                  </tr>
                 )
               })}
-              {codes.length === 0 && <TRow><TD>Žádné promo kódy</TD></TRow>}
+              {codes.length === 0 && <TRow><TD colSpan={7}>Žádné promo kódy</TD></TRow>}
             </tbody>
           </Table>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
