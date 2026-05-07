@@ -181,7 +181,9 @@ return [
 
     // ===== SEO meta defaults (na język) =====
     'seo.default.description' => 'Wypożyczalnia motocykli w regionie Vysočina, Czechy — motocykle turystyczne, sportowe, enduro i dla dzieci. Wynajem 24/7, bez kaucji, wyposażenie w cenie, rezerwacja online.',
+    'seo.default.keywords' => 'wypożyczalnia motocykli Czechy, wynajem motocykla Pelhřimov, wypożyczalnia motocykli bez kaucji, rezerwacja motocykli online',
     'seo.home.description' => 'Wypożycz motocykl w regionie Vysočina. Bez kaucji, wyposażenie w cenie, obsługa całodobowa. Motocykle turystyczne, sportowe, enduro i dla dzieci. Rezerwacja online.',
+    'seo.home.keywords' => 'wypożyczalnia motocykli Czechy, wynajem motocykla Pelhřimov, wypożyczalnia motocykli bez kaucji, rezerwacja motocykli online',
 
     'confirm.titleBooking' => 'Potwierdzenie rezerwacji | MotoGo24',
     'confirm.titleOrder' => 'Potwierdzenie zamówienia | MotoGo24',

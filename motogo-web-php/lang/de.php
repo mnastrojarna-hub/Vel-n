@@ -193,7 +193,9 @@ return [
 
     // ===== SEO meta defaults (pro Sprache) =====
     'seo.default.description' => 'Motorradvermietung in der Region Vysočina, Tschechien — Touren-, Sport-, Enduro- und Kinder-Motorräder. 24/7-Vermietung, keine Kaution, Ausrüstung inklusive, Online-Buchung.',
+    'seo.default.keywords' => 'Motorradvermietung Tschechien, Motorrad mieten Pelhřimov, Motorradverleih ohne Kaution, Motorrad online buchen',
     'seo.home.description' => 'Mieten Sie ein Motorrad in der Region Vysočina. Keine Kaution, Ausrüstung im Preis, 24/7-Service. Touren-, Sport-, Enduro- und Kinder-Motorräder. Online buchen.',
+    'seo.home.keywords' => 'Motorradvermietung Tschechien, Motorrad mieten Pelhřimov, Motorradverleih ohne Kaution, Motorrad online buchen',
 
     // Confirm
     'confirm.titleBooking' => 'Reservierungsbestätigung | MotoGo24',

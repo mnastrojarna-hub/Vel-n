@@ -12,7 +12,7 @@ $defaults = [
     'seo' => [
         'title' => 'Půjčovna motorek na Vysočině | MotoGo24',
         'description' => 'Půjčte si motorku na Vysočině. Bez kauce, výbava v ceně, nonstop provoz. Cestovní, sportovní, enduro i dětské motorky. Online rezervace.',
-        'keywords' => 'půjčovna motorek Vysočina, pronájem motorek Pelhřimov, půjčovna motorek bez kauce, nonstop půjčovna, motorky k pronájmu, online rezervace motorky',
+        'keywords' => 'půjčovna motorek Vysočina, pronájem motorek Pelhřimov, půjčovna motorek bez kauce, online rezervace motorky',
         // og_image necháme na default v renderPage() — ten použije aktuální doménu
         'og_image' => null,
     ],
@@ -253,14 +253,15 @@ if (!empty($reviews) && is_array($reviews)) {
     }
 }
 
-// Pro non-CZ jazyky preferuj prelozenou seo.home.description pred CZ defaultem
+// Pro non-CZ jazyky preferuj prelozenou seo.home.description/keywords pred CZ defaultem
 // (Velin CMS ma jen CZ texty; bez fallbacku Google indexuje EN/DE/FR... s CZ popiskem).
 $lang = function_exists('i18nDetectLanguage') ? i18nDetectLanguage() : 'cs';
 $homeDesc = ($lang !== 'cs' && function_exists('t')) ? t('seo.home.description') : $C['seo']['description'];
+$homeKw   = ($lang !== 'cs' && function_exists('t')) ? t('seo.home.keywords')    : $C['seo']['keywords'];
 
 renderPage($C['seo']['title'], $content, '/', [
     'description' => $homeDesc,
-    'keywords' => $C['seo']['keywords'],
+    'keywords' => $homeKw,
     'og_image' => $C['seo']['og_image'] ?? null,
     'schema' => $faqSchema . $howToSchema,
     'aggregate_rating' => $aggRating,

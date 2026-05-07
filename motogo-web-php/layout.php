@@ -118,73 +118,7 @@ function renderFooter() {
 }
 
 function renderInlineJs() {
-    return '<script>
-(function(){
-  // Hash URL redirect (staré záložky #/katalog → /katalog)
-  if(window.location.hash && window.location.hash.indexOf("#/")===0){
-    window.location.replace(window.location.hash.substring(1));
-  }
-  // Scroll to top button (passive listener pro lepší scroll perf na mobilu)
-  var btn = document.getElementById("Up");
-  if(btn){ window.addEventListener("scroll", function(){ btn.classList.toggle("visible", window.scrollY > 400); }, {passive:true}); }
-  // Mobilní menu — zamyká body scroll, zavírá na ESC, na klik mimo a po výběru
-  var menu = document.getElementById("mobile-menu");
-  var toggleBtn = document.querySelector(".nav-toggle");
-  function setMenu(open){
-    if(!menu) return;
-    menu.classList.toggle("open", open);
-    document.body.classList.toggle("menu-open", open);
-    if(toggleBtn) toggleBtn.setAttribute("aria-expanded", open?"true":"false");
-  }
-  if(toggleBtn){ toggleBtn.setAttribute("aria-expanded","false"); toggleBtn.setAttribute("aria-controls","mobile-menu"); }
-  if(menu){
-    // klik na overlay (ne na menu items) zavře
-    menu.addEventListener("click", function(e){ if(e.target===menu) setMenu(false); });
-    // klik na nepodmenu odkaz zavře menu
-    menu.querySelectorAll("a").forEach(function(a){
-      if(a.closest(".has-sub")) return;
-      a.addEventListener("click", function(){ setMenu(false); });
-    });
-  }
-  document.addEventListener("keydown", function(e){
-    if(e.key==="Escape" && menu && menu.classList.contains("open")) setMenu(false);
-  });
-  // Při resize na desktop zavři mobil menu
-  window.addEventListener("resize", function(){
-    if(window.innerWidth>768 && menu && menu.classList.contains("open")) setMenu(false);
-  }, {passive:true});
-  // Language + Currency switcher dropdown toggle (sdílená logika)
-  function bindSwitcher(sw, toggleSel, dropSel){
-    var toggle = sw.querySelector(toggleSel);
-    var dropdown = sw.querySelector(dropSel);
-    if(!toggle || !dropdown) return;
-    toggle.addEventListener("click", function(e){
-      e.stopPropagation();
-      var open = sw.classList.toggle("open");
-      toggle.setAttribute("aria-expanded", open ? "true" : "false");
-    });
-    document.addEventListener("click", function(e){
-      if(!sw.contains(e.target)){ sw.classList.remove("open"); toggle.setAttribute("aria-expanded","false"); }
-    });
-    document.addEventListener("keydown", function(e){
-      if(e.key==="Escape" && sw.classList.contains("open")){ sw.classList.remove("open"); toggle.setAttribute("aria-expanded","false"); }
-    });
-  }
-  document.querySelectorAll("[data-lang-switcher]").forEach(function(sw){ bindSwitcher(sw, ".lang-toggle", ".lang-dropdown"); });
-  document.querySelectorAll("[data-cur-switcher]").forEach(function(sw){ bindSwitcher(sw, ".cur-toggle", ".cur-dropdown"); });
-  // Submenu toggle (mobile)
-  document.querySelectorAll(".has-sub > a").forEach(function(a){
-    a.addEventListener("click", function(e){
-      if(window.innerWidth <= 768){
-        var li = a.parentElement;
-        var wasOpen = li.classList.contains("show");
-        document.querySelectorAll(".has-sub").forEach(function(el){ el.classList.remove("show"); });
-        if(!wasOpen){ e.preventDefault(); li.classList.add("show"); }
-      }
-    });
-  });
-})();
-</script>';
+    return '<script src="' . assetUrl('/js/ui.js') . '" defer></script>';
 }
 
 /**
@@ -289,125 +223,8 @@ function renderConsentManager() {
     </div>
   </div>
 </aside>
-<script>
-window.MG_CONSENT_CFG = ' . $cfg . ';
-(function(){
-  var CFG = window.MG_CONSENT_CFG || {};
-  var COOKIE = "mg_cookie_consent";
-  var ONE_YEAR = 365 * 24 * 3600;
-
-  function readConsent(){
-    var m = ("; " + document.cookie).split("; " + COOKIE + "=");
-    if (m.length < 2) return null;
-    var raw = m.pop().split(";").shift();
-    try { return JSON.parse(decodeURIComponent(raw)); } catch(e){ return null; }
-  }
-  function writeConsent(c){
-    var v = encodeURIComponent(JSON.stringify(c));
-    var secure = location.protocol === "https:" ? ";secure" : "";
-    document.cookie = COOKIE + "=" + v + ";path=/;max-age=" + ONE_YEAR + ";samesite=Lax" + secure;
-  }
-  function injectGtm(id){
-    if (!id || window.__mgGtmLoaded) return;
-    window.__mgGtmLoaded = true;
-    window.dataLayer = window.dataLayer || [];
-    window.dataLayer.push({"gtm.start": new Date().getTime(), event: "gtm.js"});
-    var s = document.createElement("script");
-    s.async = true;
-    s.src = "https://www.googletagmanager.com/gtm.js?id=" + encodeURIComponent(id);
-    document.head.appendChild(s);
-    var ns = document.createElement("noscript");
-    var iframe = document.createElement("iframe");
-    iframe.src = "https://www.googletagmanager.com/ns.html?id=" + encodeURIComponent(id);
-    iframe.height = "0"; iframe.width = "0";
-    iframe.style.display = "none"; iframe.style.visibility = "hidden";
-    ns.appendChild(iframe);
-    (document.body || document.documentElement).appendChild(ns);
-  }
-  function injectSklik(id){
-    if (!id || window.__mgSklikLoaded) return;
-    window.__mgSklikLoaded = true;
-    window.seznam_retargeting_id = id;
-    var s = document.createElement("script");
-    s.async = true;
-    s.src = "https://c.imedia.cz/js/retargeting.js";
-    document.head.appendChild(s);
-  }
-  function applyConsent(c){
-    if (!c) return;
-    if (c.analytics) injectGtm(CFG.gtmId);
-    if (c.marketing) injectSklik(CFG.sklikId);
-  }
-  function showBanner(asSettings){
-    var b = document.getElementById("mg-consent");
-    if (!b) return;
-    b.hidden = false;
-    var settings = document.getElementById("mg-consent-settings");
-    var save = document.querySelector("[data-consent-action=save]");
-    if (asSettings) {
-      if (settings) settings.hidden = false;
-      if (save) save.hidden = false;
-    } else {
-      if (settings) settings.hidden = true;
-      if (save) save.hidden = true;
-    }
-  }
-  function hideBanner(){
-    var b = document.getElementById("mg-consent");
-    if (b) b.hidden = true;
-  }
-  function persist(an, ma){
-    var c = { necessary: 1, analytics: an ? 1 : 0, marketing: ma ? 1 : 0, v: 1, ts: Math.floor(Date.now()/1000) };
-    writeConsent(c);
-    applyConsent(c);
-    hideBanner();
-  }
-
-  function init(){
-    var existing = readConsent();
-    if (existing) {
-      applyConsent(existing);
-    } else {
-      showBanner(false);
-    }
-    var b = document.getElementById("mg-consent");
-    if (b) {
-      b.addEventListener("click", function(e){
-        var a = e.target.closest("[data-consent-action]");
-        if (!a) return;
-        e.preventDefault();
-        var act = a.getAttribute("data-consent-action");
-        if (act === "accept-all") { persist(true, true); }
-        else if (act === "reject-all") { persist(false, false); }
-        else if (act === "settings") { showBanner(true); }
-        else if (act === "save") {
-          var an = document.getElementById("mg-consent-analytics");
-          var ma = document.getElementById("mg-consent-marketing");
-          persist(an && an.checked, ma && ma.checked);
-        }
-      });
-    }
-    // Footer "Nastavení cookies" — re-otevře banner v settings módu
-    document.addEventListener("click", function(e){
-      var trg = e.target.closest("[data-cookie-prefs]");
-      if (!trg) return;
-      e.preventDefault();
-      var ex = readConsent();
-      var an = document.getElementById("mg-consent-analytics");
-      var ma = document.getElementById("mg-consent-marketing");
-      if (an) an.checked = !!(ex && ex.analytics);
-      if (ma) ma.checked = !!(ex && ex.marketing);
-      showBanner(true);
-    });
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
-})();
-</script>';
+<script>window.MG_CONSENT_CFG=' . $cfg . ';</script>
+<script src="' . assetUrl('/js/consent.js') . '" defer></script>';
 
     return $html;
 }
@@ -506,7 +323,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
     // by Google na .com indexoval cizojazycne stranky s ceskym defaultnim popiskem.
     $defaultDesc = function_exists('t') ? t('seo.default.description') : 'Půjčovna motorek Vysočina – silniční, sportovní, enduro i dětské. Nonstop pronájem bez kauce, online rezervace a motorkářská výbava zdarma.';
     $description = $meta['description'] ?? $defaultDesc;
-    $keywords = $meta['keywords'] ?? 'půjčovna motorek Vysočina, pronájem motorek Vysočina, půjčovna motorek Pelhřimov, půjčovna motorek bez kauce, nonstop půjčovna motorek, rezervace motorky online, motorky k pronájmu Vysočina, motorbike rental Czech Republic, motorcycle rental Prague, půjčovna motorek Praha';
+    $keywords = $meta['keywords'] ?? (function_exists('t') ? t('seo.default.keywords') : 'půjčovna motorek Vysočina, pronájem motorek Pelhřimov, půjčovna motorek bez kauce, online rezervace motorky');
     // Canonical = doménová home pro aktuální jazyk (cs → .cz, ostatní → .com).
     // Tím Google indexuje českou verzi výhradně z motogo24.cz a anglickou/další
     // z motogo24.com — žádný duplicate-content stejného jazyka přes obě domény.
@@ -607,6 +424,7 @@ function renderPage($title, $content, $currentPath = '/', $meta = []) {
   <link rel="apple-touch-icon" href="' . BASE_URL . '/apple-touch-icon.png">
   <link rel="manifest" href="' . BASE_URL . '/manifest.webmanifest">
   <link rel="alternate" type="application/rss+xml" title="MotoGo24 — Blog a tipy na trasy" href="' . $siteOrigin . '/feed.xml">
+  <link rel="sitemap" type="application/xml" title="Sitemap" href="' . $siteOrigin . '/sitemap.xml">
   <link rel="search" type="application/opensearchdescription+xml" title="MotoGo24" href="' . $siteOrigin . '/opensearch.xml">
   <link rel="alternate" type="application/json" title="MotoGo24 — AI Agent Manifest" href="' . $siteOrigin . '/.well-known/agent.json">
   <link rel="alternate" type="application/json" title="MotoGo24 — ChatGPT Plugin Manifest" href="' . $siteOrigin . '/.well-known/ai-plugin.json">
