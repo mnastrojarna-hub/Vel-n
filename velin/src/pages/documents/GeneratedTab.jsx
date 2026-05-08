@@ -10,6 +10,7 @@ import SearchInput from '../../components/ui/SearchInput'
 import Pagination from '../../components/ui/Pagination'
 import BulkActionsBar, { SelectAllCheckbox, RowCheckbox } from '../../components/ui/BulkActionsBar'
 import { bulkDelete, exportToCsv } from '../../lib/bulkActions'
+import { uploadHtmlAsPdf } from '../../lib/htmlToPdf'
 
 const PER_PAGE = 25
 
@@ -353,9 +354,12 @@ function GenerateDocModal({ onClose, onGenerated }) {
         filledHtml = filledHtml.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v)
       }
 
-      const blob = new Blob([filledHtml], { type: 'text/html' })
-      const path = `generated/${template.id}_${selectedBooking}.html`
-      await supabase.storage.from('documents').upload(path, blob, { upsert: true })
+      // Render HTML → PDF v prohlížeči a upload do Storage. Při selhání PDF
+      // konverze fallbackuje na .html (uploadHtmlAsPdf vrátí path s odpovídající příponou).
+      const targetPath = `generated/${template.id}_${selectedBooking}.pdf`
+      const finalPath = await uploadHtmlAsPdf(supabase, targetPath, filledHtml, {
+        filename: `${TYPE_LABELS[template.type] || 'dokument'}.pdf`,
+      })
 
       const { data: { user } } = await supabase.auth.getUser()
       await supabase.from('generated_documents').insert({
@@ -363,7 +367,7 @@ function GenerateDocModal({ onClose, onGenerated }) {
         booking_id: selectedBooking,
         customer_id: booking.profiles?.id || null,
         filled_data: vars,
-        pdf_path: path,
+        pdf_path: finalPath,
         generated_by: user?.id,
       })
 
