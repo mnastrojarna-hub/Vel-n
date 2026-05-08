@@ -210,30 +210,27 @@ MG._rezPersistDocs = async function(idNumber, licenseNumber, licenseGroup, licen
 
 // ===== MINDEE STEP (mobile: mandatory, desktop: optional) =====
 MG._rezShowMindeeStep = async function(){
-  // If docs not yet validated (coming from step 2 form), validate first
+  // ── Validace doc + license fields — jen pokud nejsou už uložené v profilu ──
+  // (při PC→mobil resume RPC vrátí has_id_number/has_license_number z profilu;
+  // tehdy je `_docsValidated=true` a doc fields se nevalidují znovu).
+  // Heslo + checkbox se ale validují VŽDY když nejsou potvrzené — i když
+  // doc fields už v DB jsou. To řeší případ, kdy zákazník na PC vyplnil
+  // doklady (do DB), ale neklikl pay (heslo/checkbox neuloženy) a mobil
+  // QR scan musí ho o ně dožádat.
+  var licGroup=document.getElementById('rez-license-group');
+  var licConf=document.getElementById('rez-license-confirm');
+  var _isNoLic = (licGroup && licGroup.value === 'N');
+
   if(!MG._rez._docsValidated){
     var docNum=document.getElementById('rez-doc-number');
     var licNum=document.getElementById('rez-license-number');
-    var licGroup=document.getElementById('rez-license-group');
     var licExpiry=document.getElementById('rez-license-expiry');
-    var licConf=document.getElementById('rez-license-confirm');
     if(!docNum||!docNum.value){alert('Vyplňte číslo dokladu totožnosti.');return;}
     if(!licGroup||!licGroup.value){alert('Vyberte skupinu řidičského oprávnění (A2, A nebo Bez ŘP).');return;}
-    var _isNoLic = (licGroup.value === 'N');
     if(!_isNoLic){
       if(!licNum||!licNum.value||licNum.value.trim().length<4){alert('Číslo řidičského průkazu musí mít alespoň 4 znaky.');return;}
       if(!licExpiry||!licExpiry.value){alert('Vyplňte platnost řidičského průkazu.');return;}
       if(!MG._isLicenseExpiryValid(licExpiry.value)){alert('Řidičský průkaz musí být platný min. 14 dní od dnes.');return;}
-      if(!licConf||!licConf.checked){alert('Potvrďte prosím držení platného řidičského oprávnění.');return;}
-    }
-
-    // Validace hesla (pokud nebylo nastaveno dříve)
-    if(!MG._rez._passwordSet){
-      var pwd=document.getElementById('rez-password');
-      var pwdC=document.getElementById('rez-password-confirm');
-      if(!pwd||!pwd.value||pwd.value.length<8){alert('Heslo musí mít alespoň 8 znaků.');return;}
-      if(!pwdC||pwd.value!==pwdC.value){alert('Hesla se neshodují.');return;}
-      MG._rez._password=pwd.value;
     }
 
     MG._rez._docNumber=docNum.value;
@@ -253,6 +250,33 @@ MG._rezShowMindeeStep = async function(){
     // 3) Update profilu — license_group/expiry/id_number/license_number
     await MG._rezPersistDocs(docNum.value, _isNoLic?null:licNum.value,
       licGroup.value, _isNoLic?null:(licExpiry?licExpiry.value:null));
+  }
+
+  // ── Checkbox potvrzení ŘP — VŽDY (mimo blok). Skip jen pro skupinu N (bez ŘP). ──
+  if(!_isNoLic){
+    if(!licConf || !licConf.checked){
+      alert('Potvrďte prosím držení platného řidičského oprávnění.');
+      // Scroll k checkboxu, ať uživatel vidí proč alert přiletěl
+      try { var w = document.getElementById('rez-license-confirm-wrap'); if(w && w.scrollIntoView) w.scrollIntoView({behavior:'smooth', block:'center'}); } catch(e){}
+      return;
+    }
+  }
+
+  // ── Heslo — VŽDY když ještě není nastavené (mimo blok). ──
+  if(!MG._rez._passwordSet){
+    var pwd=document.getElementById('rez-password');
+    var pwdC=document.getElementById('rez-password-confirm');
+    if(!pwd||!pwd.value||pwd.value.length<8){
+      alert('Vytvořte si přístupové heslo — minimálně 8 znaků.');
+      try { if(pwd && pwd.scrollIntoView) pwd.scrollIntoView({behavior:'smooth', block:'center'}); pwd && pwd.focus(); } catch(e){}
+      return;
+    }
+    if(!pwdC||pwd.value!==pwdC.value){
+      alert('Hesla se neshodují.');
+      try { if(pwdC && pwdC.scrollIntoView) pwdC.scrollIntoView({behavior:'smooth', block:'center'}); pwdC && pwdC.focus(); } catch(e){}
+      return;
+    }
+    MG._rez._password=pwd.value;
   }
 
   // Reset scan flags (per-strana)
@@ -572,29 +596,23 @@ MG._rezB64toBlob = function(b64,mime){
 
 // ===== STRIPE CHECKOUT (skip doc validation if done in Mindee step) =====
 MG._rezSubmitPayment = async function(){
+  // Heslo + checkbox jsou validovány VŽDY (mimo _docsValidated blok), aby
+  // resume flow z PC, kde uživatel nezadal heslo nebo neoznačil checkbox,
+  // tyto údaje na druhém zařízení znovu vyžádal.
+  var licGroup=document.getElementById('rez-license-group');
+  var licConf=document.getElementById('rez-license-confirm');
+  var _isNoLic = (licGroup && licGroup.value === 'N');
+
   if(!MG._rez._docsValidated){
     var docNum=document.getElementById('rez-doc-number');
     var licNum=document.getElementById('rez-license-number');
-    var licGroup=document.getElementById('rez-license-group');
     var licExpiry=document.getElementById('rez-license-expiry');
-    var licConf=document.getElementById('rez-license-confirm');
     if(!docNum||!docNum.value){alert('Vyplňte číslo dokladu totožnosti.');return;}
     if(!licGroup||!licGroup.value){alert('Vyberte skupinu řidičského oprávnění (A2, A nebo Bez ŘP).');return;}
-    var _isNoLic = (licGroup.value === 'N');
     if(!_isNoLic){
       if(!licNum||!licNum.value||licNum.value.trim().length<4){alert('Číslo řidičského průkazu musí mít alespoň 4 znaky.');return;}
       if(!licExpiry||!licExpiry.value){alert('Vyplňte platnost řidičského průkazu.');return;}
       if(!MG._isLicenseExpiryValid(licExpiry.value)){alert('Řidičský průkaz musí být platný min. 14 dní od dnes.');return;}
-      if(!licConf||!licConf.checked){alert('Potvrďte prosím držení platného řidičského oprávnění.');return;}
-    }
-
-    // Validace hesla (pokud nebylo nastaveno dříve)
-    if(!MG._rez._passwordSet){
-      var pwd=document.getElementById('rez-password');
-      var pwdC=document.getElementById('rez-password-confirm');
-      if(!pwd||!pwd.value||pwd.value.length<8){alert('Heslo musí mít alespoň 8 znaků.');return;}
-      if(!pwdC||pwd.value!==pwdC.value){alert('Hesla se neshodují.');return;}
-      MG._rez._password=pwd.value;
     }
 
     // Kontrola ŘP skupiny vs. motorka (jen pokud motorka vyžaduje ŘP)
@@ -616,6 +634,32 @@ MG._rezSubmitPayment = async function(){
 
     await MG._rezPersistDocs(docNum.value, _isNoLic?null:licNum.value,
       licGroup.value, _isNoLic?null:(licExpiry?licExpiry.value:null));
+  }
+
+  // ── Checkbox potvrzení ŘP — VŽDY (skip jen pro skupinu N). ──
+  if(!_isNoLic){
+    if(!licConf || !licConf.checked){
+      alert('Potvrďte prosím držení platného řidičského oprávnění.');
+      try { var w = document.getElementById('rez-license-confirm-wrap'); if(w && w.scrollIntoView) w.scrollIntoView({behavior:'smooth', block:'center'}); } catch(e){}
+      return;
+    }
+  }
+
+  // ── Heslo — VŽDY když ještě není nastavené. ──
+  if(!MG._rez._passwordSet){
+    var pwd=document.getElementById('rez-password');
+    var pwdC=document.getElementById('rez-password-confirm');
+    if(!pwd||!pwd.value||pwd.value.length<8){
+      alert('Vytvořte si přístupové heslo — minimálně 8 znaků.');
+      try { if(pwd && pwd.scrollIntoView) pwd.scrollIntoView({behavior:'smooth', block:'center'}); pwd && pwd.focus(); } catch(e){}
+      return;
+    }
+    if(!pwdC||pwd.value!==pwdC.value){
+      alert('Hesla se neshodují.');
+      try { if(pwdC && pwdC.scrollIntoView) pwdC.scrollIntoView({behavior:'smooth', block:'center'}); pwdC && pwdC.focus(); } catch(e){}
+      return;
+    }
+    MG._rez._password=pwd.value;
   }
 
   var btn=document.querySelector('#rez-form .btn.btngreen');

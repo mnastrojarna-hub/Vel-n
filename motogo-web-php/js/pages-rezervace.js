@@ -619,8 +619,11 @@ MG._rezInit = async function(){
           _licGroup: rezLicenseGroup
         }
       };
-      if(MG._isMobile() && MG._rez._docsValidated) MG._rezShowMindeeStep();
-      else MG._rezShowStep2();
+      // Mobil v resume režimu MUSÍ vždy ukázat step 2 (sumarizace + doprodej +
+      // chybějící heslo/checkbox), nikdy ne přímo Mindee. Pokud zákazník na PC
+      // nezadal heslo/checkbox a doc fields jsou v profilu, dřívější skip na
+      // _rezShowMindeeStep ho o heslo/checkbox neopětoval — bug.
+      MG._rezShowStep2();
     } catch(e){
       console.error('[REZ] resume error', e);
       document.getElementById('rez-form').innerHTML =
