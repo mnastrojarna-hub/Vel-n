@@ -139,6 +139,10 @@ if (!empty($moto['features'])) {
 $descHtml .= '</div>';
 
 // Gallery — sestavíme pole VŠECH fotek (main + ostatní), každá s indexem do lightboxu.
+// Pro výkon: hlavní fotku renderujeme v ~1200 px (LCP element s fetchpriority=high),
+// thumbnaily v ~400 px, lightbox cílí na ~1800 px. Origin URL ($mainImg) držíme
+// jen pro Open Graph a Schema.org (sociální sítě a AI crawlery si raději stáhnou
+// větší verzi).
 $rawImages = is_array($moto['images'] ?? null) ? $moto['images'] : [];
 $mainImg = imgUrl($moto['image_url'] ?? (!empty($rawImages) ? $rawImages[0] : ''));
 $allImages = [];
@@ -152,7 +156,10 @@ if (!empty($allImages)) {
     $modelAlt = htmlspecialchars($model, ENT_QUOTES, 'UTF-8');
     $openLabel = htmlspecialchars(t('gallery.openImage'), ENT_QUOTES, 'UTF-8');
     $main = $allImages[0];
-    $galleryHtml .= '<div class="moto-photo"><a href="' . htmlspecialchars($main) . '" data-gallery="moto" data-index="0" aria-label="' . $openLabel . '"><div class="gallery-img"><img src="' . htmlspecialchars($main) . '" alt="' . $modelAlt . '" loading="lazy"></div></a></div>';
+    $mainHero    = imgUrlSized($main, 1200);
+    $mainSrcset  = imgSrcset($main, [600, 900, 1200, 1600]);
+    $mainFull    = imgUrlSized($main, 1800, 80); // lightbox zoom
+    $galleryHtml .= '<div class="moto-photo"><a href="' . htmlspecialchars($mainFull) . '" data-gallery="moto" data-index="0" aria-label="' . $openLabel . '"><div class="gallery-img"><img src="' . htmlspecialchars($mainHero) . '" srcset="' . htmlspecialchars($mainSrcset) . '" sizes="(max-width: 768px) 100vw, 60vw" alt="' . $modelAlt . '" fetchpriority="high" decoding="async"></div></a></div>';
     if (count($allImages) > 1) {
         $prevLabel = htmlspecialchars(t('gallery.prev'), ENT_QUOTES, 'UTF-8');
         $nextLabel = htmlspecialchars(t('gallery.next'), ENT_QUOTES, 'UTF-8');
@@ -161,7 +168,10 @@ if (!empty($allImages)) {
         $galleryHtml .= '<div class="moto-thumbs">';
         for ($i = 1; $i < count($allImages); $i++) {
             $u = $allImages[$i];
-            $galleryHtml .= '<div><a href="' . htmlspecialchars($u) . '" data-gallery="moto" data-index="' . $i . '" aria-label="' . $openLabel . '"><div class="gallery-img"><img src="' . htmlspecialchars($u) . '" alt="' . $modelAlt . '" loading="lazy"></div></a></div>';
+            $thumb = imgUrlSized($u, 400);
+            $thumbSrcset = imgSrcset($u, [300, 600]);
+            $full = imgUrlSized($u, 1800, 80);
+            $galleryHtml .= '<div><a href="' . htmlspecialchars($full) . '" data-gallery="moto" data-index="' . $i . '" aria-label="' . $openLabel . '"><div class="gallery-img"><img src="' . htmlspecialchars($thumb) . '" srcset="' . htmlspecialchars($thumbSrcset) . '" sizes="200px" alt="' . $modelAlt . '" loading="lazy" decoding="async"></div></a></div>';
         }
         $galleryHtml .= '</div>';
         $galleryHtml .= '<button type="button" class="moto-thumbs-nav moto-thumbs-next" aria-label="' . $nextLabel . '">&#10095;</button>';
@@ -555,11 +565,25 @@ $productSchema = '
   . '}
   </script>';
 
+// LCP preload — prohlížeč začne stahovat hlavní fotku ještě před parsováním CSS/JS.
+// Použijeme imagesrcset/sizes ať preload odpovídá tomu, co reálně požaduje <img> tag.
+$preloadHero = [];
+if (!empty($allImages)) {
+    $preloadHero[] = [
+        'as' => 'image',
+        'href' => imgUrlSized($allImages[0], 1200),
+        'imagesrcset' => imgSrcset($allImages[0], [600, 900, 1200, 1600]),
+        'imagesizes' => '(max-width: 768px) 100vw, 60vw',
+        'fetchpriority' => 'high',
+    ];
+}
+
 renderPage($model . ' | Půjčovna MotoGo24', $content, '/katalog/' . $motoId, [
     'description' => htmlspecialchars($motoDesc !== '' ? $motoDesc : t('detail.descFallback', ['model' => $moto['model'] ?? ''])),
     'keywords' => t('detail.descKeywords', ['model' => $moto['model'] ?? '']),
     'og_image' => $mainImg ?: null,
     'og_type' => 'product',
     'schema' => $productSchema,
+    'preload' => $preloadHero,
     'breadcrumbs' => [['name' => t('breadcrumb.home'), 'url' => siteCanonicalUrl('/')], ['name' => t('breadcrumb.catalog'), 'url' => siteCanonicalUrl('/katalog')], ['name' => $moto['model'], 'url' => siteCanonicalUrl('/katalog/') . $motoId]],
 ]);

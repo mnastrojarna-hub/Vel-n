@@ -34,10 +34,16 @@ $bc = renderBreadcrumb([
 // Obrázky
 $images = is_array($product['images'] ?? null) ? array_filter($product['images']) : [];
 if (empty($images) && !empty($product['image_url'])) $images = [$product['image_url']];
-$mainImg = !empty($images[0]) ? $images[0] : '';
+$mainImgRaw = !empty($images[0]) ? $images[0] : '';
+$mainImg = $mainImgRaw;
 if ($mainImg && strpos($mainImg, 'http') !== 0 && strpos($mainImg, 'data:') !== 0 && strpos($mainImg, '/') !== 0) {
     $mainImg = imgUrl($mainImg);
 }
+// Pro zobrazení použijeme transformovanou verzi (~1000 px); pro Schema.org / OG
+// zůstává $mainImg (plná object/public URL) — sociální boty si vezmou vlastní velikost.
+$isShopMainLocal = $mainImgRaw && ((strpos($mainImgRaw, '/') === 0) || (strpos($mainImgRaw, 'http') === 0 && strpos($mainImgRaw, '/storage/v1/') === false));
+$mainImgDisplay = ($mainImgRaw && !$isShopMainLocal) ? imgUrlSized($mainImgRaw, 1000) : $mainImg;
+$mainImgSrcset = ($mainImgRaw && !$isShopMainLocal) ? imgSrcset($mainImgRaw, [600, 1000, 1400]) : '';
 
 $galleryHtml = '';
 if (!empty($images)) {
@@ -45,8 +51,18 @@ if (!empty($images)) {
     $openLabel = htmlspecialchars(t('gallery.openImage'), ENT_QUOTES, 'UTF-8');
     $idx = 0;
     foreach ($images as $img) {
-        $u = (strpos($img, 'http') === 0 || strpos($img, '/') === 0) ? $img : imgUrl($img);
-        $galleryHtml .= '<a href="' . htmlspecialchars($u) . '" data-gallery="shop" data-index="' . $idx . '" aria-label="' . $openLabel . '"><img src="' . htmlspecialchars($u) . '" alt="' . htmlspecialchars(t('shop.productAlt', ['name' => $nameRaw])) . '" loading="lazy"></a>';
+        // Lokální /gfx/... a externí URL (mimo Supabase storage) nepřepisujeme.
+        $isLocal = (strpos($img, '/') === 0) || (strpos($img, 'http') === 0 && strpos($img, '/storage/v1/') === false);
+        if ($isLocal) {
+            $thumb = $img; $full = $img; $thumbSrcset = '';
+        } else {
+            $thumb = imgUrlSized($img, 300);
+            $thumbSrcset = imgSrcset($img, [200, 400, 600]);
+            $full = imgUrlSized($img, 1600, 80);
+        }
+        $galleryHtml .= '<a href="' . htmlspecialchars($full) . '" data-gallery="shop" data-index="' . $idx . '" aria-label="' . $openLabel . '"><img src="' . htmlspecialchars($thumb) . '"'
+            . ($thumbSrcset ? ' srcset="' . htmlspecialchars($thumbSrcset) . '" sizes="120px"' : '')
+            . ' alt="' . htmlspecialchars(t('shop.productAlt', ['name' => $nameRaw])) . '" loading="lazy" decoding="async"></a>';
         $idx++;
     }
     $galleryHtml .= '</div>';
@@ -128,7 +144,9 @@ if ($descRaw !== '') {
 }
 
 $leftCol = '<div class="shop-detail-media">'
-    . ($mainImg ? '<img src="' . htmlspecialchars($mainImg) . '" alt="' . htmlspecialchars(t('shop.productAlt', ['name' => $nameRaw])) . '" class="shop-main-img" loading="lazy">' : '')
+    . ($mainImgDisplay ? '<img src="' . htmlspecialchars($mainImgDisplay) . '"'
+        . ($mainImgSrcset ? ' srcset="' . htmlspecialchars($mainImgSrcset) . '" sizes="(max-width: 768px) 100vw, 50vw"' : '')
+        . ' alt="' . htmlspecialchars(t('shop.productAlt', ['name' => $nameRaw])) . '" class="shop-main-img" fetchpriority="high" decoding="async">' : '')
     . $galleryHtml
     . '</div>';
 

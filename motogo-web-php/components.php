@@ -56,6 +56,57 @@ function imgUrl($src) {
 }
 
 /**
+ * Vrátí URL na transformovaný obrázek přes Supabase Image Transformation
+ * (vyžaduje Pro plán). Server zmenší + komprimuje + autodetekuje WebP/AVIF
+ * z `Accept` hlavičky prohlížeče, takže místo 2-5 MB originálu pošle 50-200 kB.
+ *
+ * Pro absolutní URL (http(s)://, data:) vrátí původní src beze změny.
+ * Pro relativní storage cesty přepne z `object/public/media/` na
+ * `render/image/public/media/` s `width` a `quality` query paramy.
+ *
+ * @param string $src     Relativní storage cesta nebo absolutní URL.
+ * @param int    $width   Cílová šířka v px (zachová se poměr stran).
+ * @param int    $quality 1-100, default 75 (vizuálně shodné s 90 ale ~50% velikost).
+ */
+function imgUrlSized($src, $width, $quality = 75) {
+    if (!$src) return '';
+    if (strpos($src, 'data:') === 0) return $src;
+    $w = max(1, (int)$width);
+    $q = min(100, max(1, (int)$quality));
+    $path = $src;
+    // Pokud už je $src absolutní URL na Supabase storage `object/public/media/...`,
+    // přepiš na transformační endpoint místo abychom vrátili neoptimalizovaný original.
+    if (strpos($src, 'http://') === 0 || strpos($src, 'https://') === 0) {
+        $marker = '/storage/v1/object/public/media/';
+        $pos = strpos($src, $marker);
+        if ($pos === false) {
+            $marker = '/storage/v1/render/image/public/media/';
+            $pos = strpos($src, $marker);
+        }
+        if ($pos === false) return $src; // cizí URL, nechceme rozbít
+        // Vyříznout query (?token=...) a vzít čistou cestu
+        $path = substr($src, $pos + strlen($marker));
+        $qmark = strpos($path, '?');
+        if ($qmark !== false) $path = substr($path, 0, $qmark);
+    }
+    return SUPABASE_URL . '/storage/v1/render/image/public/media/' . $path
+        . '?width=' . $w . '&quality=' . $q . '&resize=contain';
+}
+
+/**
+ * Build srcset value for responsive images. Generates sized URLs for the
+ * given list of widths and joins them with their pixel descriptors.
+ */
+function imgSrcset($src, $widths, $quality = 75) {
+    if (!$src) return '';
+    $parts = [];
+    foreach ($widths as $w) {
+        $parts[] = imgUrlSized($src, $w, $quality) . ' ' . (int)$w . 'w';
+    }
+    return implode(', ', $parts);
+}
+
+/**
  * Bezpečný cast na string. Pokud hodnota je array/object, vrátí ''.
  * Účel: chránit `htmlspecialchars()` před fatal TypeError v PHP 8 — ten hází
  * chybu, když dostane non-string. Velín / admin může nechtěně uložit pole nebo
@@ -129,7 +180,10 @@ function normalizeMoto(&$m) {
 function renderMotoCard($m) {
     if (!is_array($m)) return '';
     normalizeMoto($m);
-    $img = imgUrl($m['image_url'] ?? ($m['images'][0] ?? ''));
+    $imgRaw = $m['image_url'] ?? ($m['images'][0] ?? '');
+    // Karta — render přes Supabase Image Transformation: ~600 px WebP/AVIF místo 2-5 MB originálu.
+    $img = $imgRaw ? imgUrlSized($imgRaw, 600) : '';
+    $imgSrcset = $imgRaw ? imgSrcset($imgRaw, [400, 600, 900]) : '';
     $desc = $m['ideal_usage'] ?? '';
     $cat = $m['category'] ?? '';
     $kw = !empty($m['power_kw']) ? ($m['power_kw'] . ' kW') : '';
@@ -188,7 +242,9 @@ function renderMotoCard($m) {
 
     return '<a class="moto-wrapper" href="' . BASE_URL . '/katalog/' . $id . '" aria-label="' . $model . '">' .
         '<div class="moto-img">' .
-            ($img ? '<img src="' . htmlspecialchars($img) . '" alt="' . $imgAlt . '" class="imgres" loading="lazy">' : '') .
+            ($img ? '<img src="' . htmlspecialchars($img) . '"'
+                . ($imgSrcset ? ' srcset="' . htmlspecialchars($imgSrcset) . '" sizes="(max-width: 768px) 100vw, 33vw"' : '')
+                . ' alt="' . $imgAlt . '" class="imgres" loading="lazy" decoding="async">' : '') .
             ($badge ? $badge : '') .
         '</div>' .
         '<div class="moto-desc">' . $featHtml . $branchLine . ($priceText ? '<p class="moto-price">' . $priceText . '</p>' : '') . '</div>' .
@@ -202,10 +258,15 @@ function renderMotoCard($m) {
  */
 function renderBlogCard($post) {
     $images = $post['images'] ?? [];
+    $imgSrcset = '';
     $img = (!empty($images) ? $images[0] : '') ?: ($post['image_url'] ?? '');
     // Relativní lokální cesty: /gfx/... nebo gfx/...
     if ($img && strpos($img, 'http') !== 0 && strpos($img, 'data:') !== 0) {
         $img = BASE_URL . '/' . ltrim($img, '/');
+    } elseif ($img) {
+        // DB-uploaded blog images jdou přes Supabase storage → použij transformaci.
+        $imgSrcset = imgSrcset($img, [400, 600, 900]);
+        $img = imgUrlSized($img, 600);
     }
     $tags = $post['tags'] ?? [];
     $tag = !empty($tags) ? $tags[0] : '';
@@ -220,7 +281,9 @@ function renderBlogCard($post) {
 
     return '<div><a class="blog-wrapper" href="' . BASE_URL . '/blog/' . $slug . '" aria-label="' . $title . '">' .
         '<div class="blog-title"><h2>' . $title . '</h2></div>' .
-        '<div class="blog-img">' . ($img ? '<img src="' . htmlspecialchars($img) . '" alt="' . $imgAlt . '" class="imgres" loading="lazy">' : '') . '</div>' .
+        '<div class="blog-img">' . ($img ? '<img src="' . htmlspecialchars($img) . '"'
+            . ($imgSrcset ? ' srcset="' . htmlspecialchars($imgSrcset) . '" sizes="(max-width: 768px) 100vw, 33vw"' : '')
+            . ' alt="' . $imgAlt . '" class="imgres" loading="lazy" decoding="async">' : '') . '</div>' .
         '<div class="blog-desc">' . ($tag ? '<p><span class="tag-label">' . htmlspecialchars($tag) . '</span></p>' : '') . '<p>' . htmlspecialchars($excerpt) . '</p></div>' .
         '<div class="blog-btn"><span class="btn btngreen-small">' . te('card.readArticle') . '</span></div>' .
     '</a></div>';
@@ -234,8 +297,10 @@ function renderBlogCard($post) {
 function renderProductCard($p) {
     $images = $p['images'] ?? [];
     $img = (!empty($images) ? $images[0] : '') ?: ($p['image_url'] ?? '');
+    $imgSrcset = '';
     if ($img && strpos($img, 'http') !== 0 && strpos($img, 'data:') !== 0 && strpos($img, '/') !== 0) {
-        $img = imgUrl($img);
+        $imgSrcset = imgSrcset($img, [300, 600]);
+        $img = imgUrlSized($img, 600);
     } elseif ($img && strpos($img, '/') === 0 && strpos($img, '//') !== 0) {
         $img = BASE_URL . $img;
     }
@@ -263,7 +328,9 @@ function renderProductCard($p) {
 
     return '<a class="moto-wrapper" href="' . BASE_URL . '/eshop/' . $id . '" aria-label="' . $name . '">' .
         '<div class="moto-img">' .
-            ($img ? '<img src="' . htmlspecialchars($img) . '" alt="' . $imgAlt . '" class="imgres" loading="lazy">' : '') .
+            ($img ? '<img src="' . htmlspecialchars($img) . '"'
+                . ($imgSrcset ? ' srcset="' . htmlspecialchars($imgSrcset) . '" sizes="(max-width: 768px) 50vw, 25vw"' : '')
+                . ' alt="' . $imgAlt . '" class="imgres" loading="lazy" decoding="async">' : '') .
             $stockBadge .
             '<div class="moto-title"><h2>' . $name . '</h2></div>' .
         '</div>' .
