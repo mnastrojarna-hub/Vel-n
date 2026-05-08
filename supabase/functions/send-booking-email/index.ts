@@ -675,7 +675,7 @@ serve(async (req) => {
       google_review_url,
       facebook_review_url,
       manual_url,
-      attachments,
+      // legacy `attachments` v body se ignoruje — Velín DB šablona je etalon (viz níže)
       // i18n — language zákazníka (cs/en/de/nl/es/fr/pl), default 'cs'
       language,
       // Shop order extras
@@ -1134,71 +1134,68 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
       })
     }
 
-    // Pravidlo: pokud caller předal `attachments[]` v body — caller je jediným zdrojem pravdy.
-    // Webhook-receiver pro `booking_reserved` si přílohy stahuje sám z `generated_documents`
-    // storage (konkrétní podepsané dokumenty per booking) a předává je v body. Pokud bychom
-    // navíc spustili autoGenerate / dbAttachmentsList, vznikla by duplicita s odlišnými filename
-    // (dedup podle filename by neuhlídal). Proto v takovém případě nic dalšího negenerujeme.
-    const callerProvidedAttachments = Array.isArray(attachments) && attachments.length > 0
-    let finalAttachments = callerProvidedAttachments ? [...attachments] : []
+    // Pravidlo: Velín DB šablona (`email_templates.attachments`) je jediný zdroj pravdy o
+    // přílohách. Caller-provided `attachments[]` (legacy webhook flow) se IGNORUJE — místo
+    // toho edge fn vždy projde:
+    //   1) hardcoded autoGenerate per typ (legacy logic — generuje booking-specific dokumenty)
+    //   2) dbAttachmentsList přes attachmentTypeMap → autoGenerateAttachments synth typy
+    // Filename dedup zachytí duplicitní přílohy mezi (1) a (2).
+    let finalAttachments: { content: string; filename: string }[] = []
+    const seenFilenames = new Set<string>()
+    const addAttachmentUnique = (a: { content: string; filename: string }) => {
+      if (a && !seenFilenames.has(a.filename)) {
+        finalAttachments.push(a)
+        seenFilenames.add(a.filename)
+      }
+    }
 
-    if (!callerProvidedAttachments) {
-      // 1) Hardcoded type-specific autoGenerate (vždy spustit pro ty typy, které mají known handler)
-      const wantsAutoAtt =
-        (booking_id && (
-          type === 'booking_reserved' ||
-          type === 'booking_abandoned' ||
-          type === 'booking_completed' ||
-          type === 'booking_modified' ||
-          type === 'booking_cancelled'
-        )) ||
-        (order_id && (type === 'shop_order_confirmed' || type === 'shop_order_shipped' || type === 'voucher_purchased'))
-      if (wantsAutoAtt) {
+    // 1) Hardcoded type-specific autoGenerate (booking_abandoned → ZF, booking_completed → KF,
+    //    voucher_purchased → DP shop + voucher PDF, booking_modified → rozdílové ZF/DP + smlouva/VOP)
+    const wantsAutoAtt =
+      (booking_id && (
+        type === 'booking_reserved' ||
+        type === 'booking_abandoned' ||
+        type === 'booking_completed' ||
+        type === 'booking_modified' ||
+        type === 'booking_cancelled'
+      )) ||
+      (order_id && (type === 'shop_order_confirmed' || type === 'shop_order_shipped' || type === 'voucher_purchased'))
+    if (wantsAutoAtt) {
+      try {
+        const autoAtts = await autoGenerateAttachments(type, booking_id || '', supabase, {
+          priceDifference: Number(price_difference || 0),
+          orderId: order_id || undefined,
+        })
+        for (const a of autoAtts) addAttachmentUnique(a)
+      } catch { /* ignore */ }
+    }
+
+    // 2) Velín admin-configured přílohy z DB (dbAttachmentsList) — etalon ve Velíně.
+    //    Pro booking kontext (ne shop) máme dedikované synth typy `booking_advance` (ZF)
+    //    a `booking_payment_receipt` (DP) — fetchnou existující fakturu / vygenerují novou.
+    if (dbAttachmentsList.length > 0 && (booking_id || order_id)) {
+      const isShopCtx = !!order_id
+      const attachmentTypeMap: Record<string, string> = {
+        ZF:       isShopCtx ? 'shop_order_confirmed' : 'booking_advance',
+        DP:       isShopCtx ? 'shop_order_confirmed' : 'booking_payment_receipt',
+        KF:       isShopCtx ? 'shop_order_shipped'   : 'booking_completed',
+        eshop_DP: 'shop_order_confirmed',
+        eshop_KF: 'shop_order_shipped',
+        Voucher:  'voucher_purchased',
+        Smlouva:  'rental_contract',
+        VOP:      'vop',
+        Dobropis: 'credit_note',
+      }
+      for (const att of dbAttachmentsList) {
+        const synthType = attachmentTypeMap[att]
+        if (!synthType) continue
         try {
-          const autoAtts = await autoGenerateAttachments(type, booking_id || '', supabase, {
+          const synth = await autoGenerateAttachments(synthType, booking_id || '', supabase, {
             priceDifference: Number(price_difference || 0),
             orderId: order_id || undefined,
           })
-          finalAttachments = [...finalAttachments, ...autoAtts]
+          for (const a of synth) addAttachmentUnique(a)
         } catch { /* ignore */ }
-      }
-
-      // 2) Velín admin-configured přílohy z DB (dbAttachmentsList) — etalon ve Velíně.
-      //    Pro booking kontext (ne shop) máme dedikované synth typy `booking_advance` (ZF)
-      //    a `booking_payment_receipt` (DP) — fetchnou existující fakturu / vygenerují novou.
-      //    Dříve to mapovalo na 'booking_abandoned' (ZF) a 'booking_completed' (DP), což pro
-      //    booking_reserved nefungovalo (booking_completed synth hledá `type='final'`,
-      //    který fresh rezervace nemá → DP tiše chyběl).
-      if (dbAttachmentsList.length > 0 && (booking_id || order_id)) {
-        const isShopCtx = !!order_id
-        const attachmentTypeMap: Record<string, string> = {
-          ZF:       isShopCtx ? 'shop_order_confirmed' : 'booking_advance',
-          DP:       isShopCtx ? 'shop_order_confirmed' : 'booking_payment_receipt',
-          KF:       isShopCtx ? 'shop_order_shipped'   : 'booking_completed',
-          eshop_DP: 'shop_order_confirmed',
-          eshop_KF: 'shop_order_shipped',
-          Voucher:  'voucher_purchased',
-          Smlouva:  'rental_contract',
-          VOP:      'vop',
-          Dobropis: 'credit_note',
-        }
-        const seenFilenames = new Set(finalAttachments.map((a) => a.filename))
-        for (const att of dbAttachmentsList) {
-          const synthType = attachmentTypeMap[att]
-          if (!synthType) continue
-          try {
-            const synth = await autoGenerateAttachments(synthType, booking_id || '', supabase, {
-              priceDifference: Number(price_difference || 0),
-              orderId: order_id || undefined,
-            })
-            for (const a of synth) {
-              if (!seenFilenames.has(a.filename)) {
-                finalAttachments.push(a)
-                seenFilenames.add(a.filename)
-              }
-            }
-          } catch { /* ignore */ }
-        }
       }
     }
 
