@@ -214,12 +214,17 @@ serve(async (req) => {
           // Fetch the credit_note created by process-refund (source='refund') and attach it.
           // Pokud chybí pdf_path (starý záznam před PDFShift refactorem), vyrenderuje ho proces-refund
           // při dalším pokusu, ale tady už neumíme nic — necháme přílohu prázdnou a poslání nepadne.
-          if (refund_amount > 0 || refund_percent === 0) {
+          // Storno podmínky:
+          //   ≥ 7 dní před startem  → 100 % refund → credit_note 100 %
+          //   2–7 dní před startem  → 50 % refund  → credit_note 50 %
+          //   < 2 dny před startem  → 0 % refund   → ŽÁDNÝ credit_note (nic se nevrací)
+          // Velín admin storno posílá `refund_percent: 100` natvrdo (ignoruje storno podmínky).
+          if (refund_amount > 0) {
             try {
               const { data: creditNotes } = await supabase.from('invoices')
                 .select('id, number, pdf_path')
                 .eq('booking_id', booking_id)
-                .eq('type', 'credit_note')
+                .or('type.eq.credit_note,and(type.eq.payment_receipt,source.eq.cancellation)')
                 .neq('status', 'cancelled')
                 .order('created_at', { ascending: false }).limit(1)
               if (creditNotes?.length && creditNotes[0].pdf_path) {
