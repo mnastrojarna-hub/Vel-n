@@ -132,6 +132,12 @@
       el.innerHTML = renderShopSuccess(mockOrder);
     } else if(preview === 'voucher'){
       el.innerHTML = renderVoucherSuccess(mockOrder, mockVouchers);
+    } else if(preview === 'booking_codes'){
+      var codesReady = Object.assign({}, mockBooking, { docs_status: null });
+      el.innerHTML = renderBookingSuccess(codesReady);
+    } else if(preview === 'booking_nocodes'){
+      var noCodes = Object.assign({}, mockBooking, { docs_status: 'Čekáme na ověření dokladů — kódy ti pošleme hned, jakmile budou OK.' });
+      el.innerHTML = renderBookingSuccess(noCodes);
     } else if(preview === 'pending' || preview === 'pending_booking'){
       var pendingMock = Object.assign({}, mockBooking, { payment_status: 'unpaid' });
       el.innerHTML = renderPending(pendingMock, 'booking');
@@ -141,6 +147,8 @@
     } else if(preview === 'pending_voucher'){
       var pendingVoucher = Object.assign({}, mockOrder, { payment_status: 'unpaid', order_number: 'MG-VCH-2026-0042' });
       el.innerHTML = renderPending(pendingVoucher, 'order');
+    } else if(preview === 'payment_failed'){
+      el.innerHTML = renderPending(null, 'booking');
     } else if(preview === 'error'){
       el.innerHTML = renderError(I18N.errorMissingId || 'Missing payment identifier.');
     } else {
