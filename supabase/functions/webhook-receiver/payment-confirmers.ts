@@ -80,22 +80,31 @@ export async function confirmBookingPayment(
   stripePaymentIntentId?: string | null
 ) {
   try {
-    // ── Dedup: skip if already processed (Stripe sends both checkout.session.completed + payment_intent.succeeded) ──
-    const { data: existingBooking } = await supabase.from('bookings')
-      .select('payment_status').eq('id', bookingId).single()
-    if (existingBooking?.payment_status === 'paid') {
-      console.log(`[confirmBookingPayment] Booking ${bookingId} already paid — skipping duplicate`)
-      // Still save Stripe IDs if missing
-      if (stripePaymentIntentId) {
-        try { await supabase.from('bookings').update({ stripe_payment_intent_id: stripePaymentIntentId, stripe_session_id: transactionId }).eq('id', bookingId).is('stripe_payment_intent_id', null) } catch {}
-      }
-      return
-    }
-
+    // ── ATOMIC dedup: confirm_payment RPC interně dělá UPDATE WHERE payment_status != 'paid'
+    //    RETURNING — jen JEDNA paralelní Stripe webhook session získá was_already_paid=false,
+    //    druhý event (checkout.session.completed vs payment_intent.succeeded přicházejí <1 s
+    //    od sebe) dostane was_already_paid=true a okamžitě skipne mail/dokumenty/door codes.
+    //    Stará SELECT-then-RPC dedup byla race-prone (oba SELECTy viděly 'unpaid' před UPDATE).
     const { data, error } = await supabase.rpc('confirm_payment', {
       p_booking_id: bookingId,
       p_method: 'card',
     })
+
+    const wasAlreadyPaid = !!(data as Record<string, unknown> | null)?.was_already_paid
+    if (wasAlreadyPaid) {
+      console.log(`[confirmBookingPayment] Booking ${bookingId} already paid — duplicate Stripe event, skipping mail/docs`)
+      if (stripePaymentIntentId) {
+        try { await supabase.from('bookings').update({ stripe_payment_intent_id: stripePaymentIntentId, stripe_session_id: transactionId }).eq('id', bookingId).is('stripe_payment_intent_id', null) } catch {}
+      }
+      try {
+        await supabase.from('debug_log').insert({
+          source: 'webhook-receiver', action: 'confirm_booking_payment_duplicate_skip',
+          component: 'stripe', status: 'ok',
+          request_data: { booking_id: bookingId, transaction_id: transactionId },
+        })
+      } catch { /* ignore */ }
+      return
+    }
 
     try {
       await supabase.from('debug_log').insert({
@@ -261,17 +270,8 @@ export async function confirmSosPayment(
   stripePaymentIntentId?: string | null
 ) {
   try {
-    // Dedup: skip if already paid
-    const { data: existingSos } = await supabase.from('bookings')
-      .select('payment_status').eq('id', bookingId).single()
-    if (existingSos?.payment_status === 'paid') {
-      console.log(`[confirmSosPayment] Booking ${bookingId} already paid — skipping duplicate`)
-      if (stripePaymentIntentId) {
-        try { await supabase.from('bookings').update({ stripe_payment_intent_id: stripePaymentIntentId, stripe_session_id: transactionId }).eq('id', bookingId).is('stripe_payment_intent_id', null) } catch {}
-      }
-      return
-    }
-
+    // ATOMIC dedup: UPDATE WHERE payment_status != 'paid' RETURNING — jen JEDNA Stripe
+    // webhook session projde, druhý paralelní event získá prázdný result a skipne.
     const updateData: Record<string, any> = {
       payment_status: 'paid',
       payment_method: 'card',
@@ -283,9 +283,27 @@ export async function confirmSosPayment(
       updateData.stripe_payment_intent_id = stripePaymentIntentId
       updateData.stripe_session_id = transactionId
     }
-    const { error } = await supabase.from('bookings')
+    const { data: updatedRows, error } = await supabase.from('bookings')
       .update(updateData)
       .eq('id', bookingId)
+      .neq('payment_status', 'paid')
+      .select('id')
+
+    const wasAlreadyPaid = !error && Array.isArray(updatedRows) && updatedRows.length === 0
+    if (wasAlreadyPaid) {
+      console.log(`[confirmSosPayment] Booking ${bookingId} already paid — duplicate Stripe event, skipping mail/docs`)
+      if (stripePaymentIntentId) {
+        try { await supabase.from('bookings').update({ stripe_payment_intent_id: stripePaymentIntentId, stripe_session_id: transactionId }).eq('id', bookingId).is('stripe_payment_intent_id', null) } catch {}
+      }
+      try {
+        await supabase.from('debug_log').insert({
+          source: 'webhook-receiver', action: 'confirm_sos_payment_duplicate_skip',
+          component: 'stripe', status: 'ok',
+          request_data: { booking_id: bookingId, incident_id: incidentId, transaction_id: transactionId },
+        })
+      } catch { /* ignore */ }
+      return
+    }
 
     try {
       await supabase.from('debug_log').insert({
