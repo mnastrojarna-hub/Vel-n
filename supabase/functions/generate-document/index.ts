@@ -3,6 +3,28 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+const PDFSHIFT_API_KEY = Deno.env.get('PDFSHIFT_API_KEY') || ''
+
+/** HTML → PDF přes PDFShift API. Vrací Uint8Array nebo null při chybě / no key. */
+async function htmlToPdf(html: string): Promise<Uint8Array | null> {
+  if (!PDFSHIFT_API_KEY) return null
+  try {
+    const auth = btoa(`api:${PDFSHIFT_API_KEY}`)
+    const res = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
+      method: 'POST',
+      headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source: html, format: 'A4', margin: '12mm', landscape: false, sandbox: false, use_print: false }),
+    })
+    if (!res.ok) {
+      console.warn('[htmlToPdf] PDFShift HTTP', res.status, await res.text().catch(() => ''))
+      return null
+    }
+    return new Uint8Array(await res.arrayBuffer())
+  } catch (e) {
+    console.warn('[htmlToPdf] PDFShift fetch failed:', (e as Error).message)
+    return null
+  }
+}
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -227,11 +249,22 @@ serve(async (req) => {
       htmlContent = htmlContent.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val)
     }
 
-    // Store HTML as file
+    // Store as PDF přes PDFShift; fallback na HTML když API key není / konverze selže.
     const docId = crypto.randomUUID()
-    const blob = new Blob([htmlContent], { type: 'text/html' })
-    const path = `generated/${docId}.html`
-    const { error: upErr } = await supabase.storage.from('documents').upload(path, blob, { upsert: true, contentType: 'text/html' })
+    let path: string
+    let upErr: any = null
+    const pdfBytes = await htmlToPdf(htmlContent)
+    if (pdfBytes) {
+      path = `generated/${docId}.pdf`
+      const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' })
+      const r = await supabase.storage.from('documents').upload(path, pdfBlob, { upsert: true, contentType: 'application/pdf' })
+      upErr = r.error
+    } else {
+      path = `generated/${docId}.html`
+      const htmlBlob = new Blob([htmlContent], { type: 'text/html' })
+      const r = await supabase.storage.from('documents').upload(path, htmlBlob, { upsert: true, contentType: 'text/html' })
+      upErr = r.error
+    }
     if (upErr) {
       console.error('Storage upload error:', upErr)
       // Continue — document will still be created in DB with filled_data for client-side rendering

@@ -175,6 +175,7 @@ Důsledek: tlačítko „Stáhnout" v `motogo24.cz/upravit-rezervaci?` (Doklady 
 | `TWILIO_PHONE_NUMBER` | send-message (Twilio odesílací číslo) |
 | `TWILIO_WHATSAPP_NUMBER` | send-message (Twilio WhatsApp číslo) |
 | `INVOICE_API_KEY` | fakturace |
+| `PDFSHIFT_API_KEY` | **NEW 2026-05-08** — generate-invoice, generate-document. HTML→PDF konverze pro všechny doklady směrem k zákazníkovi (FV/KF/ZF/DP/dobropis e-shop+booking, smlouvy, VOP, předávací protokoly). Free tier 250 konverzí/měsíc na pdfshift.io. Bez tohoto klíče funkce fallbackují na HTML upload (nic nepadá, jen přílohy chodí v HTML). Edge fn `send-booking-email` / `send-invoice-email` detekují příponu uloženého souboru a podle ní nastaví attachment filename. |
 | `FCM_PROJECT_ID` | send-push (Firebase project ID) |
 | `FCM_SERVICE_ACCOUNT_JSON` | send-push (Firebase service account JSON, base64 encoded) |
 
