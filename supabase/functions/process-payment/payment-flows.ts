@@ -395,7 +395,10 @@ export async function handleWebShopCheckout(
       payment_method: 'stripe',
       total: amountCzk,
       subtotal: voucherAmount,
-      shipping_cost: printFee,
+      // POZN: printFee NEDÁVÁME do shipping_cost — jinak generate-invoice
+      // ho zobrazí 2× (jako "Doprava" + jako shop_order_item "Tisk a poštovné").
+      // Položka "Tisk a poštovné" je v shop_order_items níže (isPrint branch).
+      shipping_cost: 0,
       discount: 0,
       notes: isPrint ? 'Fyzický poukaz (tisk + poštovné)' : 'Elektronický poukaz',
     })
