@@ -479,7 +479,9 @@ export async function handleWebShopCheckout(
     stripe_payment_intent_id: session.payment_intent as string,
   }).eq('id', orderId)
 
-  // Generate ZF (proforma) + send email with order summary (best-effort, non-blocking)
+  // ZF doklad pro voucher objednávku ANO (účetní doklad), ale e-mail s ním NE.
+  // Voucher objednávky jsou speciální — zákazník dostane jen "Váš dárkový poukaz od MotoGo24"
+  // mail po platbě (z webhook-receiver/confirmShopPayment) s DP + HTML voucher přílohami.
   try {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
     const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -487,7 +489,7 @@ export async function handleWebShopCheckout(
 
     await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
       method: 'POST', headers,
-      body: JSON.stringify({ type: 'shop_proforma', order_id: orderId, send_email: true }),
+      body: JSON.stringify({ type: 'shop_proforma', order_id: orderId, send_email: false }),
     })
   } catch (e) { console.warn('[WebShopCheckout] ZF generation failed:', e) }
 

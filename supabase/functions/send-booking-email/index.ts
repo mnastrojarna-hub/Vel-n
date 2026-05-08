@@ -141,6 +141,43 @@ async function downloadAsBase64(supabase: any, path: string): Promise<string | n
   } catch { return null }
 }
 
+/** Generate styled HTML voucher document matching motogo24.cz/gfx/darkovy-poukaz.jpg.
+ *  Background image z webu + CSS overlay s vyplněným kódem, hodnotou a datem expirace.
+ *  Otevře se v prohlížeči 1:1 se vzhledem na webu. */
+function generateVoucherHtmlAttachment(code: string, amount: number, validUntil: string, buyerName: string): string {
+  const fmtPrice = (n: number) => (n || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 0 })
+  const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
+  const bg = `${SITE_URL}/gfx/darkovy-poukaz.jpg`
+  // Pozice overlayů odpovídají vizuálu darkovy-poukaz.jpg (1400×650 px).
+  // Zelená pole "Datum:" a "Kód poukazu:" jsou prázdná — text píšeme přes ně.
+  return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Dárkový poukaz ${code}</title>
+<style>
+  body{margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif}
+  .voucher-wrap{max-width:1400px;margin:0 auto;position:relative;background:#000}
+  .voucher-img{display:block;width:100%;height:auto}
+  .voucher-overlay{position:absolute;inset:0;color:#000;font-weight:900}
+  .v-amount{position:absolute;left:5.5%;top:30%;color:#74FB71;font-size:6vw;letter-spacing:1px;text-shadow:0 0 18px rgba(116,251,113,.45)}
+  .v-date{position:absolute;left:25%;top:54.5%;font-size:2.6vw;color:#000;font-weight:900;letter-spacing:1px}
+  .v-code{position:absolute;left:25%;top:73%;font-size:3.1vw;color:#000;font-weight:900;letter-spacing:3px;font-family:'Courier New',monospace}
+  .v-buyer{position:absolute;left:5.5%;top:88%;color:#9ca3af;font-size:1.1vw;font-weight:400}
+  @media (max-width:600px){
+    .v-amount{font-size:34px;top:28%}
+    .v-date{font-size:14px;top:55%;letter-spacing:0}
+    .v-code{font-size:18px;top:74%;letter-spacing:1px}
+    .v-buyer{font-size:10px}
+  }
+</style></head>
+<body><div class="voucher-wrap">
+  <img class="voucher-img" src="${bg}" alt="MotoGo24 dárkový poukaz"/>
+  <div class="voucher-overlay">
+    <div class="v-amount">${fmtPrice(amount)} Kč</div>
+    <div class="v-date">${fmtDate(validUntil)}</div>
+    <div class="v-code">${code}</div>
+    ${buyerName ? `<div class="v-buyer">Vystaveno pro: ${buyerName}</div>` : ''}
+  </div>
+</div></body></html>`
+}
+
 /** Auto-generate attachments based on email type */
 async function autoGenerateAttachments(
   type: string,
@@ -150,6 +187,56 @@ async function autoGenerateAttachments(
 ): Promise<{ content: string; filename: string }[]> {
   const atts: { content: string; filename: string }[] = []
   const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
+
+  // Voucher purchased (e-shop dárkový poukaz) — DP shop + HTML voucher per kód
+  if (type === 'voucher_purchased' && opts.orderId) {
+    try {
+      // 1. DP (doklad o platbě) — shop payment_receipt
+      const { data: dp } = await supabase.from('invoices')
+        .select('id, number, pdf_path')
+        .eq('order_id', opts.orderId)
+        .eq('type', 'payment_receipt')
+        .neq('status', 'cancelled')
+        .order('created_at', { ascending: false })
+        .limit(1)
+      if (dp?.length && dp[0].pdf_path) {
+        const b64 = await downloadAsBase64(supabase, dp[0].pdf_path)
+        if (b64) atts.push({ content: b64, filename: `Doklad-platby-${dp[0].number || 'DP'}.html` })
+      } else {
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
+          method: 'POST', headers,
+          body: JSON.stringify({ type: 'payment_receipt', order_id: opts.orderId, source: 'shop', send_email: false }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (data.success && data.invoice_id) {
+          const b64 = await downloadAsBase64(supabase, `invoices/${data.invoice_id}.html`)
+          if (b64) atts.push({ content: b64, filename: `Doklad-platby-${data.number || 'DP'}.html` })
+        }
+      }
+
+      // 2. HTML voucher (vizuální poukaz) per každý vygenerovaný kód
+      const { data: vouchers } = await supabase.from('vouchers')
+        .select('code, amount, valid_until')
+        .eq('order_id', opts.orderId)
+      const { data: order } = await supabase.from('shop_orders')
+        .select('customer_name')
+        .eq('id', opts.orderId)
+        .single()
+      const buyerName = order?.customer_name || ''
+      for (const v of (vouchers || []) as Array<{ code: string; amount: number; valid_until: string }>) {
+        try {
+          const html = generateVoucherHtmlAttachment(v.code, v.amount, v.valid_until, buyerName)
+          atts.push({
+            content: btoa(unescape(encodeURIComponent(html))),
+            filename: `Darkovy-poukaz-${v.code}.html`,
+          })
+        } catch { /* ignore */ }
+      }
+    } catch (e) {
+      console.warn('[autoGenerateAttachments] voucher_purchased failed:', (e as Error).message)
+    }
+    return atts
+  }
 
   // Shop order confirmed — DP e-shop (payment_receipt with source='shop')
   if (type === 'shop_order_confirmed' && opts.orderId) {
@@ -464,14 +551,18 @@ serve(async (req) => {
       // Auto-attachments dle attachments[] z DB šablony
       const attList = Array.isArray(tpl.attachments) ? tpl.attachments : []
       const dynAtts: { content: string; filename: string }[] = []
-      // Mapování ATTACHMENTS_OPTION → autoGenerateAttachments param
+      // Mapování ATTACHMENTS_OPTION → autoGenerateAttachments param.
+      // Pro voucher / shop kontext (order_id) preferuj shop varianty;
+      // pokud je booking_id, použij booking varianty (booking_abandoned generuje booking ZF,
+      // booking_completed generuje booking KF apod.).
+      const isShopContext = !!order_id
       const attachmentTypeMap: Record<string, string> = {
-        ZF: 'booking_abandoned', // generuje ZF
-        DP: 'booking_completed', // generuje attaches DP/KF (existing flow)
-        KF: 'booking_completed',
+        ZF:       isShopContext ? 'shop_order_confirmed' : 'booking_abandoned',
+        DP:       isShopContext ? 'shop_order_confirmed' : 'booking_completed',
+        KF:       isShopContext ? 'shop_order_shipped'   : 'booking_completed',
         eshop_DP: 'shop_order_confirmed',
         eshop_KF: 'shop_order_shipped',
-        Voucher: 'voucher_purchased',
+        Voucher:  'voucher_purchased',
         // Smlouva, VOP, Dobropis — fetch z generate-document / invoices přímo
       }
       // Pro custom šablony zatím použijeme jednoduchý pass-through:
@@ -924,7 +1015,7 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
     let finalAttachments = attachments && Array.isArray(attachments) ? [...attachments] : []
     const wantsAutoAtt =
       (booking_id && (type === 'booking_abandoned' || type === 'booking_completed' || type === 'booking_modified')) ||
-      (order_id && (type === 'shop_order_confirmed' || type === 'shop_order_shipped'))
+      (order_id && (type === 'shop_order_confirmed' || type === 'shop_order_shipped' || type === 'voucher_purchased'))
     if (wantsAutoAtt) {
       try {
         const autoAtts = await autoGenerateAttachments(type, booking_id || '', supabase, {
