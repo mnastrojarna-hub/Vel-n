@@ -232,6 +232,58 @@ async function autoGenerateAttachments(
     return atts
   }
 
+  // Generic attachments volitelně vybrané v Velín UI (mimo booking_modified flow):
+  // rental_contract / vop / credit_note se generují přes generate-document
+  // (smlouva, VOP) nebo fetchují z invoices (dobropis).
+  if (type === 'rental_contract' && booking_id) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-document`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ template_slug: 'rental_contract', booking_id }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (data.success && data.path) {
+        const b64 = await downloadAsBase64(supabase, data.path)
+        if (b64) atts.push({ content: b64, filename: `Najemni-smlouva-${booking_id.slice(-8).toUpperCase()}.html` })
+      }
+    } catch { /* ignore */ }
+    return atts
+  }
+
+  if (type === 'vop' && booking_id) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-document`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ template_slug: 'vop', booking_id }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (data.success && data.path) {
+        const b64 = await downloadAsBase64(supabase, data.path)
+        if (b64) atts.push({ content: b64, filename: `VOP-${booking_id.slice(-8).toUpperCase()}.html` })
+      }
+    } catch { /* ignore */ }
+    return atts
+  }
+
+  if (type === 'credit_note') {
+    try {
+      let q = supabase.from('invoices')
+        .select('id, number, pdf_path')
+        .eq('type', 'credit_note')
+        .neq('status', 'cancelled')
+        .order('created_at', { ascending: false })
+        .limit(1)
+      if (booking_id) q = q.eq('booking_id', booking_id)
+      else if (opts.orderId) q = q.eq('order_id', opts.orderId)
+      const { data: cn } = await q
+      if (cn?.length && cn[0].pdf_path) {
+        const b64 = await downloadAsBase64(supabase, cn[0].pdf_path)
+        if (b64) atts.push({ content: b64, filename: `Dobropis-${cn[0].number || 'DB'}.html` })
+      }
+    } catch { /* ignore */ }
+    return atts
+  }
+
   // Shop order confirmed — DP e-shop (payment_receipt with source='shop')
   if (type === 'shop_order_confirmed' && opts.orderId) {
     try {
@@ -557,7 +609,9 @@ serve(async (req) => {
         eshop_DP: 'shop_order_confirmed',
         eshop_KF: 'shop_order_shipped',
         Voucher:  'voucher_purchased',
-        // Smlouva, VOP, Dobropis — fetch z generate-document / invoices přímo
+        Smlouva:  'rental_contract',
+        VOP:      'vop',
+        Dobropis: 'credit_note',
       }
       // Pro custom šablony zatím použijeme jednoduchý pass-through:
       // pokud admin vybere KF/DP/ZF/eshop_DP/eshop_KF → fetchneme přes existing
@@ -751,10 +805,16 @@ serve(async (req) => {
     // Try web-specific slug first if source=web, then fall back to generic
     const slugsToTry = source === 'web' ? [slug, type] : [type]
 
+    // Capture attachments[] z DB \u0161ablony \u2014 admin Vel\u00edn konfigurace mus\u00ed b\u00fdt
+    // respektov\u00e1na i pro legacy type=... cesty (booking_reserved, voucher_purchased,
+    // shop_order_confirmed atd.). Bez tohoto fetch byly Vel\u00edn attachments
+    // nastaven\u00ed v UI ignorov\u00e1ny a chodily jen autoGenerateAttachments hardcoded.
+    let dbAttachmentsList: string[] = []
+
     for (const trySlug of slugsToTry) {
       const { data: tpl } = await supabase
         .from('email_templates')
-        .select('slug, name, subject, body_html, active, subject_translations, body_translations')
+        .select('slug, name, subject, body_html, active, subject_translations, body_translations, attachments')
         .eq('slug', trySlug)
         .eq('active', true)
         .maybeSingle()
@@ -767,6 +827,9 @@ serve(async (req) => {
         const dbBody = dbBodyT[custLang] || tpl.body_html
         templateHtml = renderTemplate(dbBody, vars)
         subject = renderTemplate(dbSubj, vars)
+        if (Array.isArray(tpl.attachments)) {
+          dbAttachmentsList = tpl.attachments as string[]
+        }
         break
       }
     }
@@ -1005,7 +1068,12 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
       })
     }
 
-    // Auto-generate attachments per type
+    // Auto-generate attachments per type — kombinujeme 2 zdroje:
+    //   1) Hardcoded type-specific (vždy: booking_abandoned → ZF, booking_completed → KF,
+    //      voucher_purchased → DP+HTML voucher, atd.)
+    //   2) Velín admin attachments[] (z email_templates.attachments JSONB) — to co si admin vybral
+    //      v UI šablony. Mapujeme přes attachmentTypeMap a voláme autoGenerateAttachments
+    //      se synthetic typem (rental_contract, vop, credit_note, ...).
     let finalAttachments = attachments && Array.isArray(attachments) ? [...attachments] : []
     const wantsAutoAtt =
       (booking_id && (type === 'booking_abandoned' || type === 'booking_completed' || type === 'booking_modified')) ||
@@ -1018,6 +1086,41 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
         })
         finalAttachments = [...finalAttachments, ...autoAtts]
       } catch { /* ignore */ }
+    }
+
+    // Velín admin-configured přílohy z DB (dbAttachmentsList) — projdi přes attachmentTypeMap
+    // a zavolej autoGenerateAttachments se synthetic typem. Dedup podle filename, aby
+    // se příloha negenerovala 2× (např. KF přes type=booking_completed + Velín "KF").
+    if (dbAttachmentsList.length > 0 && (booking_id || order_id)) {
+      const isShopCtx = !!order_id
+      const attachmentTypeMap: Record<string, string> = {
+        ZF:       isShopCtx ? 'shop_order_confirmed' : 'booking_abandoned',
+        DP:       isShopCtx ? 'shop_order_confirmed' : 'booking_completed',
+        KF:       isShopCtx ? 'shop_order_shipped'   : 'booking_completed',
+        eshop_DP: 'shop_order_confirmed',
+        eshop_KF: 'shop_order_shipped',
+        Voucher:  'voucher_purchased',
+        Smlouva:  'rental_contract',
+        VOP:      'vop',
+        Dobropis: 'credit_note',
+      }
+      const seenFilenames = new Set(finalAttachments.map((a) => a.filename))
+      for (const att of dbAttachmentsList) {
+        const synthType = attachmentTypeMap[att]
+        if (!synthType) continue
+        try {
+          const synth = await autoGenerateAttachments(synthType, booking_id || '', supabase, {
+            priceDifference: Number(price_difference || 0),
+            orderId: order_id || undefined,
+          })
+          for (const a of synth) {
+            if (!seenFilenames.has(a.filename)) {
+              finalAttachments.push(a)
+              seenFilenames.add(a.filename)
+            }
+          }
+        } catch { /* ignore */ }
+      }
     }
 
     // Send via Resend with Reply-To: info@motogo24.cz + attachments
