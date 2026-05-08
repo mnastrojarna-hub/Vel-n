@@ -491,29 +491,53 @@ export async function confirmShopPayment(
         } catch { /* ignore */ }
       }
 
-      // Voucher objednávka → voucher_purchased mail (bez ručního skládání příloh — edge fn si je vygeneruje)
+      // Voucher objednávka → voucher_purchased mail (bez ručního skládání příloh — edge fn si je vygeneruje).
+      // DEDUP: Stripe pošle 2 eventy (checkout.session.completed + payment_intent.succeeded),
+      // oba spustí confirmShopPayment. Bez dedup mail dorazí 2× (1× bez příloh — race s vouchers
+      // gen, 1× s přílohami). Skipneme druhé volání pokud byl mail v posledních 5 min odeslán.
       if (order?.customer_email && vouchers && vouchers.length > 0) {
         const orderNum = order.order_number || orderId.slice(-8).toUpperCase()
         const firstVoucher = vouchers[0] as { code: string; amount: number; valid_until: string }
         const allCodes = vouchers
           .map((v: { code: string; amount: number }) => `${v.code} (${v.amount} Kč)`)
           .join(', ')
-        try {
-          await fetch(`${SUPABASE_URL}/functions/v1/send-booking-email`, {
-            method: 'POST', headers,
-            body: JSON.stringify({
-              type: 'voucher_purchased',
-              customer_email: order.customer_email,
-              customer_name: order.customer_name || '',
-              voucher_code: allCodes,
-              voucher_value: String(firstVoucher.amount),
-              voucher_expiry: firstVoucher.valid_until,
-              order_number: orderNum,
-              order_id: orderId,
-              source: 'web',
-            }),
-          })
-        } catch (e) { console.warn('[confirmShopPayment] voucher email failed:', e) }
+
+        // Dedup window 60s — Stripe doručuje checkout.session.completed
+        // a payment_intent.succeeded velmi blízko sebe (1-3s), 60s je dost.
+        const { data: recentMail } = await supabase.from('message_log')
+          .select('id, created_at')
+          .eq('recipient_email', order.customer_email)
+          .in('template_slug', ['voucher_purchased', 'web_voucher_purchased'])
+          .gt('created_at', new Date(Date.now() - 60_000).toISOString())
+          .limit(1)
+
+        if (recentMail && recentMail.length > 0) {
+          console.log(`[confirmShopPayment] voucher_purchased mail for order ${orderNum} already sent within last 5min — skip dup`)
+          try {
+            await supabase.from('debug_log').insert({
+              source: 'webhook-receiver', action: 'voucher_purchased_mail_dedup',
+              component: 'stripe', status: 'ok',
+              request_data: { order_id: orderId, order_number: orderNum, prior_mail_id: recentMail[0].id },
+            })
+          } catch { /* ignore */ }
+        } else {
+          try {
+            await fetch(`${SUPABASE_URL}/functions/v1/send-booking-email`, {
+              method: 'POST', headers,
+              body: JSON.stringify({
+                type: 'voucher_purchased',
+                customer_email: order.customer_email,
+                customer_name: order.customer_name || '',
+                voucher_code: allCodes,
+                voucher_value: String(firstVoucher.amount),
+                voucher_expiry: firstVoucher.valid_until,
+                order_number: orderNum,
+                order_id: orderId,
+                source: 'web',
+              }),
+            })
+          } catch (e) { console.warn('[confirmShopPayment] voucher email failed:', e) }
+        }
       }
     } catch (e) { console.warn('[confirmShopPayment] post-payment processing failed:', e) }
   } catch (err) {

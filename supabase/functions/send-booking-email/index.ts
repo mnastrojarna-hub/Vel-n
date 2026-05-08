@@ -144,27 +144,27 @@ async function downloadAsBase64(supabase: any, path: string): Promise<string | n
 /** Generate styled HTML voucher document matching motogo24.cz/gfx/darkovy-poukaz.jpg.
  *  Background image z webu + CSS overlay s vyplněným kódem, hodnotou a datem expirace.
  *  Otevře se v prohlížeči 1:1 se vzhledem na webu. */
-function generateVoucherHtmlAttachment(code: string, amount: number, validUntil: string, buyerName: string): string {
+function generateVoucherHtmlAttachment(code: string, amount: number, validUntil: string): string {
   const fmtPrice = (n: number) => (n || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 0 })
   const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
   const bg = `${SITE_URL}/gfx/darkovy-poukaz.jpg`
   // Pozice overlayů odpovídají vizuálu darkovy-poukaz.jpg (1400×650 px).
-  // Zelená pole "Datum:" a "Kód poukazu:" jsou prázdná — text píšeme přes ně.
+  // Hodnota: pod textem "V HODNOTĚ" (cca 38%, vlevo).
+  // Datum: v zeleném pruhu vedle "Datum:" labelu.
+  // Kód: v zeleném pruhu vedle "Kód poukazu:" labelu, černý monospace.
   return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Dárkový poukaz ${code}</title>
 <style>
   body{margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif}
   .voucher-wrap{max-width:1400px;margin:0 auto;position:relative;background:#000}
   .voucher-img{display:block;width:100%;height:auto}
-  .voucher-overlay{position:absolute;inset:0;color:#000;font-weight:900}
-  .v-amount{position:absolute;left:5.5%;top:30%;color:#74FB71;font-size:6vw;letter-spacing:1px;text-shadow:0 0 18px rgba(116,251,113,.45)}
-  .v-date{position:absolute;left:25%;top:54.5%;font-size:2.6vw;color:#000;font-weight:900;letter-spacing:1px}
-  .v-code{position:absolute;left:25%;top:73%;font-size:3.1vw;color:#000;font-weight:900;letter-spacing:3px;font-family:'Courier New',monospace}
-  .v-buyer{position:absolute;left:5.5%;top:88%;color:#9ca3af;font-size:1.1vw;font-weight:400}
+  .voucher-overlay{position:absolute;inset:0;font-weight:900;pointer-events:none}
+  .v-amount{position:absolute;left:5%;top:38%;color:#74FB71;font-size:6.2vw;font-weight:900;letter-spacing:1px;text-shadow:0 0 18px rgba(116,251,113,.45);line-height:1}
+  .v-date{position:absolute;left:30%;top:55.5%;font-size:2.4vw;color:#000;font-weight:900;letter-spacing:0;line-height:1}
+  .v-code{position:absolute;left:30%;top:74%;font-size:2.6vw;color:#000;font-weight:900;letter-spacing:2px;font-family:'Courier New',monospace;line-height:1}
   @media (max-width:600px){
-    .v-amount{font-size:34px;top:28%}
-    .v-date{font-size:14px;top:55%;letter-spacing:0}
-    .v-code{font-size:18px;top:74%;letter-spacing:1px}
-    .v-buyer{font-size:10px}
+    .v-amount{font-size:36px;top:36%;left:6%}
+    .v-date{font-size:14px;top:56%;left:30%}
+    .v-code{font-size:15px;top:74%;left:30%;letter-spacing:1px}
   }
 </style></head>
 <body><div class="voucher-wrap">
@@ -173,7 +173,6 @@ function generateVoucherHtmlAttachment(code: string, amount: number, validUntil:
     <div class="v-amount">${fmtPrice(amount)} Kč</div>
     <div class="v-date">${fmtDate(validUntil)}</div>
     <div class="v-code">${code}</div>
-    ${buyerName ? `<div class="v-buyer">Vystaveno pro: ${buyerName}</div>` : ''}
   </div>
 </div></body></html>`
 }
@@ -218,14 +217,9 @@ async function autoGenerateAttachments(
       const { data: vouchers } = await supabase.from('vouchers')
         .select('code, amount, valid_until')
         .eq('order_id', opts.orderId)
-      const { data: order } = await supabase.from('shop_orders')
-        .select('customer_name')
-        .eq('id', opts.orderId)
-        .single()
-      const buyerName = order?.customer_name || ''
       for (const v of (vouchers || []) as Array<{ code: string; amount: number; valid_until: string }>) {
         try {
-          const html = generateVoucherHtmlAttachment(v.code, v.amount, v.valid_until, buyerName)
+          const html = generateVoucherHtmlAttachment(v.code, v.amount, v.valid_until)
           atts.push({
             content: btoa(unescape(encodeURIComponent(html))),
             filename: `Darkovy-poukaz-${v.code}.html`,
