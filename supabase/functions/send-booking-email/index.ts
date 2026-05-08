@@ -158,11 +158,12 @@ function generateVoucherHtmlAttachment(code: string, amount: number, validUntil:
   .voucher-wrap{max-width:1400px;margin:0 auto;position:relative;background:#000}
   .voucher-img{display:block;width:100%;height:auto}
   .voucher-overlay{position:absolute;inset:0;font-weight:900;pointer-events:none}
-  .v-amount{position:absolute;left:5%;top:38%;color:#74FB71;font-size:6.2vw;font-weight:900;letter-spacing:1px;text-shadow:0 0 18px rgba(116,251,113,.45);line-height:1}
+  /* Hodnota: inline na stejném řádku jako "V HODNOTĚ" label, font-size přizpůsoben */
+  .v-amount{position:absolute;left:32%;top:32%;color:#74FB71;font-size:5vw;font-weight:900;letter-spacing:1px;text-shadow:0 0 18px rgba(116,251,113,.45);line-height:1}
   .v-date{position:absolute;left:30%;top:55.5%;font-size:2.4vw;color:#000;font-weight:900;letter-spacing:0;line-height:1}
   .v-code{position:absolute;left:30%;top:74%;font-size:2.6vw;color:#000;font-weight:900;letter-spacing:2px;font-family:'Courier New',monospace;line-height:1}
   @media (max-width:600px){
-    .v-amount{font-size:36px;top:36%;left:6%}
+    .v-amount{font-size:30px;top:32%;left:34%}
     .v-date{font-size:14px;top:56%;left:30%}
     .v-code{font-size:15px;top:74%;left:30%;letter-spacing:1px}
   }
@@ -1193,11 +1194,13 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
         body: html,
         external_id: result.provider_id || null,
         status: result.success ? 'sent' : 'failed',
+        metadata: { attachments: finalAttachments.map((a) => ({ filename: a.filename })) },
         error_message: result.error || null,
       })
     } catch (e) { /* ignore */ }
 
-    // Log to sent_emails
+    // Log to sent_emails — attachments_meta jsonb obsahuje názvy příloh
+    // (pro náhled ve Velínu SentEmailsTab). Sloupec se přidává migrací.
     try {
       await supabase.from('sent_emails').insert({
         template_slug: slug,
@@ -1208,6 +1211,7 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
         status: result.success ? 'sent' : 'failed',
         error_message: result.error || null,
         provider_id: result.provider_id || null,
+        attachments_meta: finalAttachments.map((a) => ({ filename: a.filename })),
       })
     } catch (e) { /* ignore */ }
 
