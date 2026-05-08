@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { renderEmail, normalizeLang, helpCardLabels, type Lang } from './i18n.ts'
+import { renderEmail, normalizeLang, helpCardLabels, renderDoorCodesReleasedBlock, renderDocsRequiredBlock, type Lang } from './i18n.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
@@ -615,7 +615,9 @@ serve(async (req) => {
       // {{business_card}} placeholder se v DB šabloně auto-vyčistí — brand header/footer je v wrapInBrandedLayout
     }
 
-    // Load active door codes for this booking (if released to customer)
+    // Load active door codes for this booking. Buffer raw rows — vlastní render
+    // (released codes vs. „chybí doklady" CTA) proběhne až po detekci jazyka.
+    let doorCodeRows: Array<{ code_type: string; door_code: string; sent_to_customer: boolean; withheld_reason: string | null; is_active: boolean }> = []
     if (booking_id) {
       try {
         const { data: codes } = await supabase
@@ -623,22 +625,7 @@ serve(async (req) => {
           .select('code_type, door_code, sent_to_customer, withheld_reason, is_active')
           .eq('booking_id', booking_id)
           .eq('is_active', true)
-        if (codes?.length) {
-          const released = codes.filter((c: any) => c.sent_to_customer === true && !c.withheld_reason)
-          const moto = released.find((c: any) => c.code_type === 'motorcycle')?.door_code || ''
-          const gear = released.find((c: any) => c.code_type === 'accessories')?.door_code || ''
-          vars.door_code_moto = moto
-          vars.door_code_gear = gear
-          if (moto || gear) {
-            vars.door_codes_block = `
-<div style="background:#e0f2fe;border-radius:12px;padding:16px 20px;margin:20px 0;border:1px solid #7dd3fc">
-  <h3 style="margin:0 0 12px 0;color:#0c4a6e;font-size:15px">Přístupové kódy k pobočce</h3>
-  <p style="margin:4px 0;font-size:14px;font-weight:700;font-family:'Courier New',monospace;color:#0c4a6e">Kód k motorce: <span style="font-size:18px;letter-spacing:3px;color:#0369a1">${moto || '—'}</span></p>
-  <p style="margin:4px 0;font-size:14px;font-weight:700;font-family:'Courier New',monospace;color:#0c4a6e">Kód k příslušenství: <span style="font-size:18px;letter-spacing:3px;color:#0369a1">${gear || '—'}</span></p>
-  <p style="margin:8px 0 0 0;font-size:12px;color:#075985">Kódy jsou platné po dobu trvání pronájmu.</p>
-</div>`
-          }
-        }
+        if (codes?.length) doorCodeRows = codes as any[]
       } catch { /* ignore */ }
     }
 
@@ -656,6 +643,50 @@ serve(async (req) => {
         })
         custLang = normalizeLang(langData)
       } catch { /* ignore \u2014 z\u016fstane 'cs' */ }
+    }
+
+    // \u2500\u2500 door_codes_block: released codes \u27c2 "chyb\u00ed doklady" CTA \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    // \u0160ablony booking_reserved/door_codes/booking_completed maj\u00ed placeholder
+    // `${v.door_codes_block || ''}`. Kdy\u017e rezervace m\u00e1 uvoln\u011bn\u00e9 k\u00f3dy, vykresl\u00ed
+    // se modr\u00fd blok s \u010d\u00edsly. Kdy\u017e ne (k\u00f3dy zadr\u017een\u00e9 nebo je\u0161t\u011b negenerovan\u00e9)
+    // a typ mailu je booking_reserved/door_codes, vykresl\u00ed se oran\u017eov\u00fd blok
+    // s v\u00fdzvou k nahr\u00e1n\u00ed doklad\u016f + zm\u00ednkou o osobn\u00edm ov\u011b\u0159en\u00ed na pobo\u010dce.
+    if (doorCodeRows.length) {
+      const released = doorCodeRows.filter(c => c.sent_to_customer === true && !c.withheld_reason)
+      const moto = released.find(c => c.code_type === 'motorcycle')?.door_code || ''
+      const gear = released.find(c => c.code_type === 'accessories')?.door_code || ''
+      vars.door_code_moto = moto
+      vars.door_code_gear = gear
+      if (moto || gear) {
+        vars.door_codes_block = renderDoorCodesReleasedBlock(custLang, moto, gear)
+      }
+    }
+    if (!vars.door_codes_block && booking_id && (type === 'booking_reserved' || type === 'door_codes')) {
+      // K\u00f3dy nejsou uvoln\u011bn\u00e9 \u2192 ov\u011b\u0159, \u017ee rezervace skute\u010dn\u011b pot\u0159ebuje doklady.
+      // 1) Kdy\u017e jsou k bookingu \u0159\u00e1dky v branch_door_codes s withheld_reason \u2192 doklady chyb\u00ed.
+      // 2) Jinak ov\u011b\u0159 p\u0159es RPC check_booking_docs_status (NULL = doklady OK, jinak d\u016fvod).
+      let needsDocs = doorCodeRows.some(c => !!c.withheld_reason)
+      if (!needsDocs && doorCodeRows.length === 0) {
+        try {
+          const { data: b } = await supabase
+            .from('bookings')
+            .select('user_id, end_date, status')
+            .eq('id', booking_id)
+            .maybeSingle()
+          if (b && (b.status === 'reserved' || b.status === 'active')) {
+            const { data: reason } = await supabase.rpc('check_booking_docs_status', {
+              p_user_id: b.user_id,
+              p_end_date: b.end_date,
+            })
+            if (reason) needsDocs = true
+          }
+        } catch { /* ignore */ }
+      }
+      if (needsDocs) {
+        const docsLink = docs_url || `${SITE_URL}/upravit-rezervaci?id=${booking_id}#doklady`
+        vars.docs_url = docsLink
+        vars.door_codes_block = renderDocsRequiredBlock(custLang, docsLink)
+      }
     }
 
     // Try to load template from DB (first web-specific, then generic)

@@ -231,6 +231,96 @@ const DIFF_LABELS: Record<Lang, { uda: string; old: string; new: string; moto: s
   pl: { uda: 'Pole',     old: 'Pierwotne', new: 'Nowe',     moto: 'Motocykl',    from: 'Początek', to: 'Koniec', pickup: 'Odbiór',         ret: 'Zwrot',            total: 'Cena całkowita' },
 }
 
+// =============================================================================
+// Door codes / docs-required block (rendered into vars.door_codes_block)
+// =============================================================================
+// Vykresluje se v indexu (send-booking-email/index.ts). Když má rezervace
+// uvolněné přístupové kódy → renderDoorCodesReleasedBlock. Když má ale kódy
+// zadržené (chybí doklady) nebo žádné kódy ještě neexistují, ale rezervace je
+// reserved/active a check_booking_docs_status hlásí chybějící doklady →
+// renderDocsRequiredBlock vrátí výzvu k nahrání + zmínku o osobním ověření.
+// Šablony (booking_reserved atd.) zůstávají netknuté — pouze placeholder
+// `${v.door_codes_block || ''}` dostává nový obsah.
+
+const DOOR_CODES_BLOCK_LABELS: Record<Lang, { title: string; moto: string; gear: string; valid: string }> = {
+  cs: { title: 'Přístupové kódy k pobočce',     moto: 'Kód k motorce',         gear: 'Kód k příslušenství',    valid: 'Kódy jsou platné po dobu trvání pronájmu.' },
+  en: { title: 'Branch access codes',            moto: 'Motorcycle code',       gear: 'Accessories code',       valid: 'Codes are valid for the rental period.' },
+  de: { title: 'Filial-Zugangscodes',            moto: 'Code zum Motorrad',     gear: 'Code zur Ausrüstung',    valid: 'Die Codes gelten für die Dauer der Buchung.' },
+  nl: { title: 'Toegangscodes filiaal',          moto: 'Motorcode',             gear: 'Code voor uitrusting',   valid: 'De codes zijn geldig tijdens de huurperiode.' },
+  es: { title: 'Códigos de acceso de sucursal',  moto: 'Código de la moto',     gear: 'Código del equipo',      valid: 'Los códigos son válidos durante el alquiler.' },
+  fr: { title: 'Codes d\'accès succursale',      moto: 'Code de la moto',       gear: 'Code de l\'équipement',  valid: 'Les codes sont valables pendant la location.' },
+  pl: { title: 'Kody dostępu do oddziału',       moto: 'Kod do motocykla',      gear: 'Kod do wyposażenia',     valid: 'Kody są ważne przez czas trwania wypożyczenia.' },
+}
+
+export function renderDoorCodesReleasedBlock(lang: Lang, moto: string, gear: string): string {
+  const t = DOOR_CODES_BLOCK_LABELS[lang] || DOOR_CODES_BLOCK_LABELS.cs
+  return `
+<div style="background:#e0f2fe;border-radius:12px;padding:16px 20px;margin:20px 0;border:1px solid #7dd3fc">
+  <h3 style="margin:0 0 12px 0;color:#0c4a6e;font-size:15px">${t.title}</h3>
+  <p style="margin:4px 0;font-size:14px;font-weight:700;font-family:'Courier New',monospace;color:#0c4a6e">${t.moto}: <span style="font-size:18px;letter-spacing:3px;color:#0369a1">${moto || '—'}</span></p>
+  <p style="margin:4px 0;font-size:14px;font-weight:700;font-family:'Courier New',monospace;color:#0c4a6e">${t.gear}: <span style="font-size:18px;letter-spacing:3px;color:#0369a1">${gear || '—'}</span></p>
+  <p style="margin:8px 0 0 0;font-size:12px;color:#075985">${t.valid}</p>
+</div>`
+}
+
+const DOCS_REQUIRED_BLOCK_LABELS: Record<Lang, { title: string; intro: string; cta: string; inPerson: string }> = {
+  cs: {
+    title:    'Doklady ještě chybí — přístupové kódy zatím nemůžeme vydat',
+    intro:    'Pro automatické zaslání přístupových kódů k pobočce a k příslušenství potřebujeme platný občanský průkaz (nebo cestovní pas) a řidičský průkaz. Sken přes mobil zabere přibližně 30 vteřin.',
+    cta:      'Nahrát doklady',
+    inPerson: 'Pokud doklady raději ukážete osobně, není problém — provedeme jejich kontrolu při převzetí motocyklu na pobočce. Bez ověření dokladů ale není možné kódy vydat.',
+  },
+  en: {
+    title:    'Documents are still missing — we can\'t release access codes yet',
+    intro:    'To automatically issue your access codes (motorcycle + gear), we need a valid ID card (or passport) and a driver\'s license. Scanning via your phone takes about 30 seconds.',
+    cta:      'Upload documents',
+    inPerson: 'If you prefer, you can show the documents in person — we will verify them when you pick up the motorcycle. The codes can\'t be issued without document verification.',
+  },
+  de: {
+    title:    'Dokumente fehlen noch — Zugangscodes können wir noch nicht freigeben',
+    intro:    'Für die automatische Zustellung der Zugangscodes (Motorrad + Ausrüstung) benötigen wir einen gültigen Personalausweis (oder Reisepass) und einen Führerschein. Der Handy-Scan dauert ca. 30 Sekunden.',
+    cta:      'Dokumente hochladen',
+    inPerson: 'Sie können die Dokumente auch persönlich vorzeigen — wir prüfen sie bei der Übergabe des Motorrads. Ohne Prüfung können wir die Codes nicht freigeben.',
+  },
+  nl: {
+    title:    'Documenten ontbreken nog — toegangscodes kunnen nog niet worden vrijgegeven',
+    intro:    'Voor het automatisch versturen van de toegangscodes (motor + uitrusting) hebben we een geldig identiteitsbewijs (of paspoort) en een rijbewijs nodig. De scan via je mobiel duurt ongeveer 30 seconden.',
+    cta:      'Documenten uploaden',
+    inPerson: 'Liever in persoon laten zien? Geen probleem — we controleren ze bij het ophalen van de motor. Zonder controle kunnen we de codes niet vrijgeven.',
+  },
+  es: {
+    title:    'Faltan los documentos — todavía no podemos emitir los códigos de acceso',
+    intro:    'Para enviarte automáticamente los códigos de acceso (moto + equipo), necesitamos un documento de identidad válido (o pasaporte) y un permiso de conducir. Escanearlos con el móvil tarda unos 30 segundos.',
+    cta:      'Subir documentos',
+    inPerson: 'Si prefieres mostrar los documentos en persona, no hay problema — los verificaremos al recoger la moto. Sin verificación no podemos emitir los códigos.',
+  },
+  fr: {
+    title:    'Documents encore manquants — nous ne pouvons pas encore délivrer les codes d\'accès',
+    intro:    'Pour envoyer automatiquement les codes d\'accès (moto + équipement), nous avons besoin d\'une pièce d\'identité valide (ou passeport) et d\'un permis de conduire. Le scan depuis votre téléphone prend environ 30 secondes.',
+    cta:      'Téléverser les documents',
+    inPerson: 'Vous préférez présenter les documents sur place ? Aucun souci — nous les vérifierons lors de la remise de la moto. Sans vérification, les codes ne peuvent pas être délivrés.',
+  },
+  pl: {
+    title:    'Brakuje jeszcze dokumentów — nie możemy jeszcze wydać kodów dostępu',
+    intro:    'Aby automatycznie wysłać kody dostępu (motocykl + wyposażenie), potrzebujemy ważnego dowodu osobistego (lub paszportu) oraz prawa jazdy. Skan przez telefon zajmuje około 30 sekund.',
+    cta:      'Prześlij dokumenty',
+    inPerson: 'Jeśli wolisz pokazać dokumenty osobiście, nie ma problemu — sprawdzimy je przy odbiorze motocykla. Bez weryfikacji nie możemy wydać kodów.',
+  },
+}
+
+export function renderDocsRequiredBlock(lang: Lang, docsUrl: string): string {
+  const t = DOCS_REQUIRED_BLOCK_LABELS[lang] || DOCS_REQUIRED_BLOCK_LABELS.cs
+  const cta = docsUrl
+    ? `<div style="text-align:center;margin:14px 0 4px"><a href="${docsUrl}" style="display:inline-block;background:#74FB71;color:#1a2e22;padding:12px 24px;border-radius:25px;text-decoration:none;font-weight:800;font-size:14px">${t.cta}</a></div>`
+    : ''
+  return `
+<div style="background:#fff7ed;border-radius:12px;padding:16px 20px;margin:20px 0;border:1px solid #fdba74">
+  <h3 style="margin:0 0 8px 0;color:#9a3412;font-size:15px">${t.title}</h3>
+  <p style="margin:6px 0;font-size:13px;color:#7c2d12;line-height:1.5">${t.intro}</p>${cta}
+  <p style="margin:10px 0 0 0;font-size:12px;color:#7c2d12;line-height:1.5">${t.inPerson}</p>
+</div>`
+}
+
 function renderDiffRow(label: string, oldVal: string, newVal: string): string {
   if (!oldVal && !newVal) return ''
   const changed = !!oldVal && !!newVal && oldVal !== newVal
