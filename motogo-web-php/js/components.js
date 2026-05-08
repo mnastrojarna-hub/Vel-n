@@ -12,9 +12,42 @@ MG.imgUrl = function(src){
   return base + '/storage/v1/object/public/media/' + src;
 };
 
+// Supabase Image Transformation URL (Pro plan) — vrátí zmenšenou + komprimovanou
+// verzi obrázku. Server autodetekuje WebP/AVIF z `Accept` hlavičky prohlížeče,
+// takže místo 2-5 MB originálu pošle 50-200 kB. Pro absolutní/data: URL vrátí
+// vstup beze změny.
+MG.imgUrlSized = function(src, width, quality){
+  if(!src) return '';
+  if(src.startsWith('data:')) return src;
+  var base = (window.MOTOGO_CONFIG || {}).SUPABASE_URL || '';
+  var w = Math.max(1, parseInt(width, 10) || 800);
+  var q = Math.min(100, Math.max(1, parseInt(quality, 10) || 75));
+  var path = src;
+  // Akceptuj i absolutní Supabase storage URL (object/public nebo render/image) —
+  // vyřízneme z ní čistou cestu, abychom neminuli transformaci a neservírovali
+  // 5 MB original. Cizí URL projde beze změny.
+  if(src.startsWith('http://') || src.startsWith('https://')){
+    var m = src.indexOf('/storage/v1/object/public/media/');
+    var len = '/storage/v1/object/public/media/'.length;
+    if(m < 0){ m = src.indexOf('/storage/v1/render/image/public/media/'); len = '/storage/v1/render/image/public/media/'.length; }
+    if(m < 0) return src;
+    path = src.substring(m + len);
+    var qm = path.indexOf('?'); if(qm >= 0) path = path.substring(0, qm);
+  }
+  return base + '/storage/v1/render/image/public/media/' + path
+    + '?width=' + w + '&quality=' + q + '&resize=contain';
+};
+
+MG.imgSrcset = function(src, widths, quality){
+  if(!src) return '';
+  return widths.map(function(w){ return MG.imgUrlSized(src, w, quality) + ' ' + w + 'w'; }).join(', ');
+};
+
 // ===== MOTO CARD =====
 MG.renderMotoCard = function(m){
-  var img = MG.imgUrl(m.image_url || (m.images && m.images.length ? m.images[0] : ''));
+  var imgRaw = m.image_url || (m.images && m.images.length ? m.images[0] : '');
+  var img = imgRaw ? MG.imgUrlSized(imgRaw, 600) : '';
+  var imgSrcset = imgRaw ? MG.imgSrcset(imgRaw, [400, 600, 900]) : '';
   var desc = m.ideal_usage || '';
   var cat = m.category || '';
   var kw = m.power_kw ? (m.power_kw + ' kW') : '';
@@ -45,7 +78,9 @@ MG.renderMotoCard = function(m){
   var priceText = price > 0 ? ('Cena: od ' + MG.formatPrice(price) + '/den') : '';
 
   return '<a class="moto-wrapper" href="#/katalog/' + m.id + '" aria-label="' + m.model + '">' +
-    '<div class="moto-img">' + (img ? '<img src="' + img + '" alt="' + m.model + '" class="imgres" loading="lazy">' : '') + '</div>' +
+    '<div class="moto-img">' + (img ? '<img src="' + img + '"' +
+      (imgSrcset ? ' srcset="' + imgSrcset + '" sizes="(max-width: 768px) 100vw, 33vw"' : '') +
+      ' alt="' + m.model + '" class="imgres" loading="lazy" decoding="async">' : '') + '</div>' +
     '<div class="moto-desc">' + featHtml + (priceText ? '<p class="moto-price">' + priceText + '</p>' : '') + '</div>' +
     '<div class="moto-btn"><span class="btn btngreen-small">DETAIL MOTORKY</span></div>' +
   '</a>';
@@ -53,12 +88,22 @@ MG.renderMotoCard = function(m){
 
 // ===== BLOG CARD =====
 MG.renderBlogCard = function(post){
-  var img = (post.images && post.images[0]) || post.image_url || '';
+  var imgRaw = (post.images && post.images[0]) || post.image_url || '';
+  var img = imgRaw, imgSrcset = '';
+  if(imgRaw && imgRaw.indexOf('http') !== 0 && imgRaw.indexOf('/') !== 0 && imgRaw.indexOf('data:') !== 0){
+    imgSrcset = MG.imgSrcset(imgRaw, [400, 600, 900]);
+    img = MG.imgUrlSized(imgRaw, 600);
+  } else if(imgRaw && imgRaw.indexOf('http') === 0 && imgRaw.indexOf('/storage/v1/') > 0){
+    imgSrcset = MG.imgSrcset(imgRaw, [400, 600, 900]);
+    img = MG.imgUrlSized(imgRaw, 600);
+  }
   var tag = (post.tags && post.tags[0]) || '';
   var excerpt = post.excerpt || post.description || '';
   return '<div><a class="blog-wrapper" href="#/blog/' + post.slug + '" aria-label="' + post.title + '">' +
     '<div class="blog-title"><h2>' + post.title + '</h2></div>' +
-    '<div class="blog-img">' + (img ? '<img src="' + img + '" alt="' + post.title + '" class="imgres" loading="lazy">' : '') + '</div>' +
+    '<div class="blog-img">' + (img ? '<img src="' + img + '"' +
+      (imgSrcset ? ' srcset="' + imgSrcset + '" sizes="(max-width: 768px) 100vw, 33vw"' : '') +
+      ' alt="' + post.title + '" class="imgres" loading="lazy" decoding="async">' : '') + '</div>' +
     '<div class="blog-desc">' + (tag ? '<p><span class="tag-label">' + tag + '</span></p>' : '') + '<p>' + excerpt + '</p></div>' +
     '<div class="blog-btn"><span class="btn btngreen-small">PŘEČÍST ČLÁNEK</span></div>' +
   '</a></div>';

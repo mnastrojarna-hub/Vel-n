@@ -227,8 +227,16 @@ MG._rezGalleryHtml = function(moto){
       '<div class="rez-moto-hero-caption"><div class="rez-moto-hero-name">'+name+'</div></div>'+
     '</div>';
   }
+  // První snímek je viditelný (active) — eager + fetchpriority high, ostatní lazy.
+  // Server pošle ~1000 px WebP/AVIF (Pro plan transformace) místo 2-5 MB originálu.
   var slides = imgs.map(function(src,i){
-    return '<img class="rez-moto-hero-img'+(i===0?' active':'')+'" data-idx="'+i+'" src="'+src+'" alt="'+name+'" loading="lazy">';
+    var sized = MG.imgUrlSized(src, 1000);
+    var srcset = MG.imgSrcset(src, [600, 1000, 1400]);
+    var first = (i===0);
+    return '<img class="rez-moto-hero-img'+(first?' active':'')+'" data-idx="'+i+'"'+
+      ' src="'+sized+'" srcset="'+srcset+'" sizes="(max-width: 768px) 100vw, 720px"'+
+      ' alt="'+name+'" decoding="async"'+
+      (first?' loading="eager" fetchpriority="high"':' loading="lazy"')+'>';
   }).join('');
   var dots = imgs.length>1 ? imgs.map(function(_,i){
     return '<button type="button" class="rez-moto-hero-dot'+(i===0?' active':'')+'" data-idx="'+i+'" aria-label="Foto '+(i+1)+'"></button>';
@@ -299,7 +307,8 @@ MG._rezProductsHtml = function(){
     return '<p class="rez-section-sub" style="margin:0">Aktuálně nejsou k dispozici žádné doplňky.</p>';
   }
   var cards = prods.map(function(p){
-    var img = MG.imgUrl((p.images && p.images[0]) || p.image_url || '');
+    var imgRaw = (p.images && p.images[0]) || p.image_url || '';
+    var img = imgRaw ? MG.imgUrlSized(imgRaw, 400) : '';
     var price = MG.formatPrice(p.price||0);
     var sizes = Array.isArray(p.sizes) ? p.sizes : [];
     // Souhrn co už má v košíku z tohoto produktu (přes všechny velikosti)
