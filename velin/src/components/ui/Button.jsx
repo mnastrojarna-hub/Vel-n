@@ -26,9 +26,9 @@ export default function Button({
       className={`${base} ${variant} ${className} disabled:opacity-50 disabled:cursor-not-allowed`}
       style={{
         padding: small ? '5px 12px' : '10px 22px',
-        background: green ? '#74FB71' : outline ? 'transparent' : '#f1faf7',
-        color: green ? '#1a2e22' : outline ? '#3dba3a' : '#1a2e22',
-        borderColor: outline ? '#74FB71' : undefined,
+        background: green ? '#74FB71' : outline ? 'transparent' : '#e2f5ec',
+        color: green ? '#1a2e22' : outline ? '#3dba3a' : '#0f1a14',
+        border: green ? 'none' : outline ? '2px solid #74FB71' : '1px solid #b6dccb',
         boxShadow: green ? '0 4px 16px rgba(116,251,113,.35)' : 'none',
         ...style,
       }}

@@ -530,6 +530,7 @@ function EditEmailTemplateModal({ template, onClose, onSaved, isNew = false }) {
   }
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
+  const [testOk, setTestOk] = useState(null)
   const [err, setErr] = useState(null)
   const [showPreview, setShowPreview] = useState(false)
   const [dragOver, setDragOver] = useState(false)
@@ -598,13 +599,43 @@ function EditEmailTemplateModal({ template, onClose, onSaved, isNew = false }) {
   }
 
   async function handleTestSend() {
-    setTesting(true); setErr(null)
+    setTesting(true); setErr(null); setTestOk(null)
     try {
+      // Komu poslat: nejdřív admin_users.email pro přihlášeného admina, fallback na auth.user.email
+      const { data: { user } } = await supabase.auth.getUser()
+      let to = user?.email || ''
+      if (user?.id) {
+        try {
+          const { data: au } = await supabase.from('admin_users').select('email').eq('id', user.id).maybeSingle()
+          if (au?.email) to = au.email
+        } catch { /* fallback na auth.user.email */ }
+      }
+      if (!to) {
+        const prompted = window.prompt('E-mail pro test (admin nemá uložený e-mail v profilu):', '')
+        if (!prompted) { setTesting(false); return }
+        to = prompted.trim()
+      }
+
+      // Renderuj subject + body s ukázkovými proměnnými (jako náhled, aby test
+      // vypadal stejně, jako co reálně dorazí zákazníkovi).
+      const renderedSubject = (subject || '').replace(/\{\{(\w+)\}\}/g, (_, k) => SAMPLE_VARS[k] || `{{${k}}}`)
+      const renderedBody = getPreviewHtml()
+
       const result = await debugAction('emailTemplate.testSend', 'EditEmailTemplateModal', () =>
-        supabase.functions.invoke('send-email', { body: { template_slug: template.slug, test: true } })
-      , { template_slug: template.slug, test: true })
+        supabase.functions.invoke('send-email', { body: {
+          to,
+          subject: `[TEST] ${renderedSubject || template.name || template.slug}`,
+          raw_html: renderedBody,
+          template_slug: template.slug,
+        } })
+      , { template_slug: template.slug, to })
       if (result?.error) throw result.error
-    } catch (e) { setErr(`Test e-mail se nepodařilo odeslat: ${e.message || 'Edge Function nemusí být nasazena.'}`) }
+      const payload = result?.data || result
+      if (payload && payload.success === false) throw new Error(payload.error || 'send-email vrátila success=false')
+      setTestOk(`Test odeslán na ${to}.`)
+    } catch (e) {
+      setErr(`Test e-mail se nepodařilo odeslat: ${e.message || 'Edge Function nemusí být nasazena.'}`)
+    }
     setTesting(false)
   }
 
@@ -731,6 +762,7 @@ function EditEmailTemplateModal({ template, onClose, onSaved, isNew = false }) {
         </div>
       </div>
       {err && <p className="mt-3 text-sm" style={{ color: '#dc2626' }}>{err}</p>}
+      {testOk && <p className="mt-3 text-sm font-bold" style={{ color: '#1a8a18' }}>{testOk}</p>}
       <div className="flex justify-between gap-3 mt-5">
         <div className="flex gap-2">
           <Button onClick={() => setShowPreview(true)}>Náhled</Button>
