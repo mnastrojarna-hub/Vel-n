@@ -248,6 +248,12 @@
     var name = (b && b.customer_name) || '';
     var greet = name ? fmt(I18N.thanks || '', {name: esc(name)}) : (I18N.thanksAnon || '');
     var shortId = b && b.id ? String(b.id).slice(-8).toUpperCase() : '';
+    // docs_status: NULL = doklady OK; jinak český důvod (zobrazit ho).
+    // Backend RPC `get_web_booking_confirmation` reflektuje stejnou logiku jako
+    // trigger `auto_generate_door_codes` → co je v door_codes mailu, sedí i tady.
+    var docsStatus = b && Object.prototype.hasOwnProperty.call(b, 'docs_status') ? b.docs_status : undefined;
+    var docsOk = docsStatus === null;
+    var docsMissing = typeof docsStatus === 'string' && docsStatus.length > 0;
 
     var summary = '<div class="confirm-summary">' +
       '<h3>' + esc(I18N.summaryTitle || 'Summary') + '</h3>' +
@@ -255,8 +261,20 @@
       (b && b.start_date ? summaryRow(I18N.period, esc(fmtDate(b.start_date)) + ' – ' + esc(fmtDate(b.end_date))) : '') +
       (b && b.total_price != null ? summaryRow(I18N.total, esc(fmtPrice(b.total_price))) : '') +
       summaryRow(I18N.paid, '✓') +
+      (docsOk ? summaryRow(I18N.docsLabel || 'Doklady', '<span style="color:#1a8c1a">✓ ' + esc(I18N.docsVerified || 'Ověřeny') + '</span>') : '') +
       (b && b.customer_email ? summaryRow(I18N.email, esc(b.customer_email)) : '') +
       '</div>';
+
+    // Docs step: pokud OK → zelený potvrzovací řádek; pokud chybí → varování + CTA;
+    // pokud docs_status undefined (starší RPC bez fieldu) → fallback na původní text.
+    var docsStep;
+    if(docsOk){
+      docsStep = '<span style="color:#1a8c1a">✓ ' + esc(I18N.nextBookingDocsDone || 'Doklady jsme ověřili — žádná akce není potřeba.') + '</span>';
+    } else if(docsMissing){
+      docsStep = '<strong style="color:#b35900">⚠ ' + esc(docsStatus) + '</strong>';
+    } else {
+      docsStep = I18N.nextBookingDocs;
+    }
 
     return '<div class="confirm-page confirm-success">' +
       '<div class="confirm-icon" aria-hidden="true">✔</div>' +
@@ -264,14 +282,26 @@
       '<p class="confirm-lead">' + greet + '</p>' +
       summary +
       '<p class="confirm-emailed">' + esc(I18N.emailSentBooking || '') + '</p>' +
-      nextStepsList([
-        I18N.nextBookingDocs,
+      nextStepsListHtml([
+        docsStep,
         I18N.nextBookingCodes,
         I18N.nextBookingPickup,
         I18N.nextContact
       ].filter(Boolean)) +
       (I18N.seeYouSoon ? '<p class="confirm-see-you" style="margin-top:1rem;font-weight:600">' + esc(I18N.seeYouSoon) + '</p>' : '') +
       backHomeBtn() +
+      '</div>';
+  }
+
+  // Varianta nextStepsList která NEEsc položky (umožňuje vlastní HTML, např. ✓ barevné).
+  // Bezpečnost: volající musí escapovat user-controlled obsah sám (renderBookingSuccess
+  // escapuje `docsStatus` když ho vkládá).
+  function nextStepsListHtml(items){
+    if(!items || !items.length) return '';
+    var lis = items.map(function(t){ return '<li>' + (t || '') + '</li>'; }).join('');
+    return '<div class="confirm-next">' +
+      '<h3>' + esc(I18N.nextTitle || '') + '</h3>' +
+      '<ol>' + lis + '</ol>' +
       '</div>';
   }
 
