@@ -314,7 +314,9 @@
       '<p class="confirm-emailed">' + tc('emailSentBooking') + '</p>' +
       nextStepsListHtml([
         docsStep,
-        I18N.nextBookingCodes ? tc('nextBookingCodes') : '',
+        (docsOk
+          ? (I18N.nextBookingCodesDone ? tc('nextBookingCodesDone') : '')
+          : (I18N.nextBookingCodes ? tc('nextBookingCodes') : '')),
         I18N.nextBookingPickup ? tc('nextBookingPickup') : '',
         I18N.nextContact ? tc('nextContact') : ''
       ].filter(Boolean)) +
