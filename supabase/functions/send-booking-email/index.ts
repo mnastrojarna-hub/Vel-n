@@ -181,6 +181,39 @@ function fileExt(path: string | null | undefined): 'pdf' | 'html' {
   return 'html'
 }
 
+/** HTML fallback pro voucher — pokud PDF generation selže, přiložíme HTML voucher,
+ *  aby v mailu nikdy nechyběl. Renderuje branded design 1:1 s ostatními maily. */
+function renderVoucherHtmlFallback(code: string, amount: number, validUntil: string): string {
+  const fmtPriceLocal = (n: number) => (n || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 0 })
+  const fmtDateLocal = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
+  return `<!DOCTYPE html><html lang="cs"><head><meta charset="UTF-8"><title>Dárkový poukaz ${code}</title></head>
+<body style="margin:0;padding:0;background:#d9dee2;font-family:-apple-system,'Segoe UI',Arial,sans-serif">
+  <div style="max-width:780px;margin:24px auto;background:#000000;border:3px solid #74FB71;border-radius:16px;overflow:hidden;color:#ffffff">
+    <div style="padding:32px;text-align:center;border-bottom:1px solid #1f3a2c">
+      <div style="color:#ffffff;font-size:32px;font-weight:900;letter-spacing:3px">MOTO GO 24</div>
+      <div style="color:#74FB71;font-size:11px;font-weight:400;letter-spacing:6px;margin-top:6px">DÁRKOVÝ POUKAZ</div>
+    </div>
+    <div style="padding:40px 32px;text-align:center">
+      <div style="color:#9ca3af;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">Hodnota poukazu</div>
+      <div style="color:#74FB71;font-size:48px;font-weight:900;line-height:1">${fmtPriceLocal(amount)} Kč</div>
+    </div>
+    <div style="padding:0 32px 24px;text-align:center">
+      <div style="background:#1a1a1a;border:2px dashed #74FB71;border-radius:8px;padding:18px 16px;display:inline-block;min-width:280px">
+        <div style="color:#9ca3af;font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">Kód poukazu</div>
+        <div style="color:#ffffff;font-size:28px;font-weight:900;font-family:'Courier New',monospace;letter-spacing:4px">${code}</div>
+      </div>
+    </div>
+    <div style="padding:0 32px 32px;text-align:center;color:#9ca3af;font-size:13px;line-height:1.7">
+      <div>Platnost do: <strong style="color:#ffffff">${fmtDateLocal(validUntil)}</strong></div>
+      <div style="margin-top:14px">Uplatněte jednorázově při rezervaci na <a href="https://motogo24.cz" style="color:#74FB71;text-decoration:none">motogo24.cz</a> — kód zadejte do políčka „Slevový kód".</div>
+    </div>
+    <div style="padding:18px 32px;background:#0a0a0a;color:#9ca3af;font-size:11px;line-height:1.6;text-align:center">
+      Bc. Petra Semorádová · IČO: 21874263 · <span style="color:#74FB71">+420 774 256 271</span> · <span style="color:#74FB71">info@motogo24.cz</span>
+    </div>
+  </div>
+</body></html>`
+}
+
 /** Generate dárkový poukaz jako PDF přes pdf-lib.
  *  Stáhne JPG pozadí z webu, vloží na A4 landscape stránku a překryje
  *  hodnotu / datum platnosti / kód poukazu na pozicích odpovídajících šabloně.
@@ -281,15 +314,36 @@ async function autoGenerateAttachments(
       }
 
       // 2. Voucher PDF — generujeme přes pdf-lib (bg image + textové overlaye).
+      // Fallback: pokud PDF selže (chybí JPG pozadí, pdf-lib OOM), přiložíme HTML voucher,
+      // aby v mailu nikdy nechyběl. Důvod selhání zalogujeme do debug_log pro pozdější analýzu.
       const { data: vouchers } = await supabase.from('vouchers')
         .select('code, amount, valid_until')
         .eq('order_id', opts.orderId)
       for (const v of (vouchers || []) as Array<{ code: string; amount: number; valid_until: string }>) {
+        let pdfOk = false
         try {
           const b64 = await generateVoucherPdfAttachment(v.code, v.amount, v.valid_until)
           atts.push({ content: b64, filename: `Darkovy-poukaz-${v.code}.pdf` })
+          pdfOk = true
         } catch (e) {
-          console.warn('[autoGenerateAttachments] voucher PDF failed:', (e as Error).message)
+          const errMsg = (e as Error).message
+          console.warn('[autoGenerateAttachments] voucher PDF failed:', errMsg)
+          try {
+            await supabase.from('debug_log').insert({
+              source: 'send-booking-email',
+              action: 'voucher_pdf_generation_failed',
+              component: 'generateVoucherPdfAttachment',
+              status: 'error',
+              error_message: errMsg,
+              request_data: { code: v.code, amount: v.amount, order_id: opts.orderId },
+            })
+          } catch { /* ignore */ }
+        }
+        if (!pdfOk) {
+          // HTML voucher fallback — zaručuje, že voucher v mailu vždy je
+          const html = renderVoucherHtmlFallback(v.code, v.amount, v.valid_until)
+          const b64 = btoa(unescape(encodeURIComponent(html)))
+          atts.push({ content: b64, filename: `Darkovy-poukaz-${v.code}.html` })
         }
       }
     } catch (e) {

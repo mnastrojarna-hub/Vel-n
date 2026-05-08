@@ -25,7 +25,7 @@ async function htmlToPdf(html: string): Promise<Uint8Array | null> {
       body: JSON.stringify({
         source: html,
         format: 'A4',
-        margin: '12mm',
+        margin: '8mm',
         landscape: false,
         sandbox: false,
         use_print: false,
