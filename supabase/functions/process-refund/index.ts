@@ -118,6 +118,89 @@ interface RefundRequest {
   reason?: string      // 'cancellation' | 'shortening' | 'duplicate' | 'requested_by_customer'
 }
 
+// Idempotent helper: for an already-refunded booking, locate the credit note,
+// regenerate its PDF if the storage file is missing or pdf_path is empty.
+// Returns { creditNoteId, pdfPath, refundId } so the caller can return success.
+async function ensureCreditNotePdf(
+  supabase: any,
+  bookingId: string,
+  bk: { stripe_refund_id?: string | null; card_brand?: string | null; card_last4?: string | null },
+): Promise<{ creditNoteId: string | null; pdfPath: string | null; refundId: string | null }> {
+  try {
+    const { data: cnRows } = await supabase.from('invoices')
+      .select('id, number, pdf_path, stripe_refund_id, total, original_invoice_id, notes, created_at')
+      .eq('booking_id', bookingId)
+      .eq('type', 'credit_note')
+      .neq('status', 'cancelled')
+      .order('created_at', { ascending: false })
+      .limit(1)
+    if (!cnRows?.length) return { creditNoteId: null, pdfPath: null, refundId: bk.stripe_refund_id || null }
+
+    const cn = cnRows[0]
+    const refundId = cn.stripe_refund_id || bk.stripe_refund_id || null
+    if (cn.pdf_path) {
+      // Verify file actually exists in storage; if missing, regenerate.
+      try {
+        const { data: blob } = await supabase.storage.from('documents').download(cn.pdf_path)
+        if (blob && blob.size > 0) return { creditNoteId: cn.id, pdfPath: cn.pdf_path, refundId }
+      } catch { /* file missing — fall through to regenerate */ }
+    }
+
+    // Regenerate PDF — load booking + customer for the template
+    const { data: bk2 } = await supabase.from('bookings')
+      .select('start_date, end_date, motorcycles(model), profiles:user_id(full_name, email, phone, street, city, zip, ico, dic)')
+      .eq('id', bookingId).single()
+    const refundedAmount = Math.abs(Number(cn.total || 0))
+    const refundPercent = 100 // unknown without booking.total_price comparison; default 100%
+    const reasonText = (cn.notes || '').includes('Storno') ? 'Storno rezervace'
+      : (cn.notes || '').includes('Zkrácení') ? 'Zkrácení rezervace'
+      : 'Vrácení platby zákazníkovi'
+
+    let originalNumber: string | null = null
+    if (cn.original_invoice_id) {
+      const { data: orig } = await supabase.from('invoices')
+        .select('number').eq('id', cn.original_invoice_id).single()
+      originalNumber = orig?.number || null
+    }
+
+    const html = renderCreditNoteHtml({
+      number: cn.number,
+      issueDate: fmtDate(new Date().toISOString().slice(0, 10)),
+      reasonText,
+      motoModel: (bk2 as any)?.motorcycles?.model || 'motorky',
+      refundAmount: refundedAmount,
+      refundPercent,
+      bookingDates: `${fmtDate(bk2?.start_date)} – ${fmtDate(bk2?.end_date)}`,
+      customer: (bk2 as any)?.profiles || {},
+      originalInvoiceNumber: originalNumber,
+      stripeRefundId: refundId || '',
+      cardBrand: bk.card_brand,
+      cardLast4: bk.card_last4,
+    })
+
+    const pdfBytes = await htmlToPdf(html)
+    let path: string
+    if (pdfBytes) {
+      path = `invoices/${cn.id}.pdf`
+      await supabase.storage.from('documents').upload(
+        path, new Blob([pdfBytes], { type: 'application/pdf' }),
+        { upsert: true, contentType: 'application/pdf' },
+      )
+    } else {
+      path = `invoices/${cn.id}.html`
+      await supabase.storage.from('documents').upload(
+        path, new Blob([html], { type: 'text/html' }),
+        { upsert: true, contentType: 'text/html' },
+      )
+    }
+    await supabase.from('invoices').update({ pdf_path: path }).eq('id', cn.id)
+    return { creditNoteId: cn.id, pdfPath: path, refundId }
+  } catch (e) {
+    console.warn('[ensureCreditNotePdf] failed:', (e as Error).message)
+    return { creditNoteId: null, pdfPath: null, refundId: bk.stripe_refund_id || null }
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS })
@@ -134,7 +217,7 @@ Deno.serve(async (req: Request) => {
 
     if (!booking_id && !order_id) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Missing booking_id or order_id' }),
+        JSON.stringify({ success: false, error: 'Missing booking_id or order_id', code: 'missing_identifier' }),
         { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
       )
     }
@@ -143,22 +226,50 @@ Deno.serve(async (req: Request) => {
     let stripePaymentIntentId: string | null = null
     let entityType = 'booking'
     let entityId = booking_id || order_id || ''
+    let alreadyRefunded = false
 
     if (booking_id) {
       const { data } = await supabase.from('bookings')
-        .select('stripe_payment_intent_id, total_price, payment_status')
+        .select('stripe_payment_intent_id, total_price, payment_status, stripe_refund_id, card_brand, card_last4')
         .eq('id', booking_id)
         .single()
 
       if (!data) {
         return new Response(
-          JSON.stringify({ success: false, error: 'Booking not found' }),
+          JSON.stringify({ success: false, error: 'Booking not found', code: 'not_found' }),
           { status: 404, headers: { ...CORS, 'Content-Type': 'application/json' } }
         )
       }
+
+      // Idempotency: if booking is already refunded, ensure the credit note has pdf_path
+      // (regenerate if missing) and return success — DON'T call Stripe again.
+      // This handles the scenario where a previous refund attempt partially succeeded
+      // (Stripe refund went through, status updated, but PDF/email step failed).
+      if (data.payment_status === 'refunded' || data.payment_status === 'partial_refund') {
+        alreadyRefunded = true
+        const result = await ensureCreditNotePdf(supabase, booking_id, data)
+        return new Response(
+          JSON.stringify({
+            success: true,
+            already_refunded: true,
+            refund_id: data.stripe_refund_id || result.refundId,
+            credit_note_id: result.creditNoteId,
+            credit_note_pdf_path: result.pdfPath,
+            card_brand: data.card_brand,
+            card_last4: data.card_last4,
+          }),
+          { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
+        )
+      }
+
       if (data.payment_status !== 'paid') {
         return new Response(
-          JSON.stringify({ success: false, error: 'Booking is not paid — cannot refund' }),
+          JSON.stringify({
+            success: false,
+            error: `Booking is not paid (current: ${data.payment_status}) — cannot refund`,
+            code: 'not_paid',
+            current_status: data.payment_status,
+          }),
           { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
         )
       }
@@ -172,13 +283,18 @@ Deno.serve(async (req: Request) => {
 
       if (!data) {
         return new Response(
-          JSON.stringify({ success: false, error: 'Order not found' }),
+          JSON.stringify({ success: false, error: 'Order not found', code: 'not_found' }),
           { status: 404, headers: { ...CORS, 'Content-Type': 'application/json' } }
         )
       }
       if (data.payment_status !== 'paid') {
         return new Response(
-          JSON.stringify({ success: false, error: 'Order is not paid — cannot refund' }),
+          JSON.stringify({
+            success: false,
+            error: `Order is not paid (current: ${data.payment_status}) — cannot refund`,
+            code: 'not_paid',
+            current_status: data.payment_status,
+          }),
           { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
         )
       }
@@ -187,7 +303,11 @@ Deno.serve(async (req: Request) => {
 
     if (!stripePaymentIntentId) {
       return new Response(
-        JSON.stringify({ success: false, error: 'No Stripe payment found for this ' + entityType + '. Refund must be processed manually.' }),
+        JSON.stringify({
+          success: false,
+          error: `No Stripe payment found for this ${entityType}. Refund must be processed manually.`,
+          code: 'no_stripe_payment',
+        }),
         { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } }
       )
     }

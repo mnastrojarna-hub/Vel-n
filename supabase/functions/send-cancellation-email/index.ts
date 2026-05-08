@@ -192,8 +192,10 @@ serve(async (req) => {
             refund_amount = Math.round(booking.total_price * (refund_percent || 0) / 100)
           }
 
-          // Auto Stripe refund ONLY if not already refunded
-          if (!alreadyRefunded && wasPaid && booking.stripe_payment_intent_id && refund_amount > 0) {
+          // Process-refund je idempotentní: pro paid+nepoužitý refund udělá Stripe refund + dobropis,
+          // pro already_refunded (předchozí pokus padl po Stripe kroku) jen dohraje PDF dobropis.
+          // Voláme tedy bez guardu na alreadyRefunded — díky tomu se i recovery scenario doplní příloha.
+          if ((wasPaid || alreadyRefunded) && booking.stripe_payment_intent_id && (refund_amount > 0 || alreadyRefunded)) {
             try {
               const hdrs = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
               const refundRes = await fetch(`${SUPABASE_URL}/functions/v1/process-refund`, {
@@ -202,7 +204,9 @@ serve(async (req) => {
               })
               const refundData = await refundRes.json().catch(() => ({}))
               if (refundData.success) {
-                console.log(`Stripe refund processed: ${refund_amount} CZK (${refund_percent}%)`)
+                console.log(`Refund OK (already=${refundData.already_refunded ? 'yes' : 'no'}, amount=${refund_amount})`)
+              } else {
+                console.warn('process-refund returned error:', refundData.code || refundData.error)
               }
             } catch (e) { console.warn('Auto Stripe refund failed:', e) }
           }
