@@ -20,6 +20,8 @@
  *     mindee_status:  'ok' | 'failed',       // proběhl Mindee OCR úspěšně?
  *     ocr_fields:     object|null,           // extrahovaná pole z Mindee (jen když ok)
  *     mime?:          string,                // default 'image/jpeg'
+ *     doc_side?:      'front' | 'back' | null, // 2026-05-08: strana dokladu pro OP a ŘP.
+ *                                              // Pas má jen jednu stranu — nepouŽívat. Uloží se do metadata.side.
  *   }
  *
  * Odpověď:
@@ -82,6 +84,11 @@ serve(async (req) => {
   const mindeeStatus = body?.mindee_status === 'ok' ? 'ok' : 'failed'
   const ocrFields = (mindeeStatus === 'ok' && body?.ocr_fields && typeof body.ocr_fields === 'object') ? body.ocr_fields : null
   const mime = ALLOWED_MIME.has(body?.mime) ? body.mime : 'image/jpeg'
+  // Strana dokladu (líc/rub) — povinné pro OP a ŘP, ignorováno pro pas.
+  // Uloží se do `documents.metadata.side` (jsonb) — bez DB schema migrace.
+  const docSideRaw = body?.doc_side != null ? String(body.doc_side).trim().toLowerCase() : null
+  const docSide: 'front' | 'back' | null =
+    docSideRaw === 'front' || docSideRaw === 'back' ? docSideRaw : null
 
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
     return jsonRes({ success: false, error: 'Invalid user_id' }, 400)
@@ -126,9 +133,10 @@ serve(async (req) => {
     }
   }
 
-  // Cesta v bucketu: <user_id>/<dbType>_<timestamp>.<ext>
+  // Cesta v bucketu: <user_id>/<dbType>[_<side>]_<timestamp>.<ext>
   const ext = mime === 'application/pdf' ? 'pdf' : (mime === 'image/png' ? 'png' : (mime === 'image/webp' ? 'webp' : 'jpg'))
-  const filePath = `${userId}/${meta.dbType}_${Date.now()}.${ext}`
+  const sideSuffix = docSide ? `_${docSide}` : ''
+  const filePath = `${userId}/${meta.dbType}${sideSuffix}_${Date.now()}.${ext}`
 
   // Upload do storage (service_role obejde RLS)
   const { error: upErr } = await sb.storage.from('documents').upload(filePath, bytes, {
@@ -146,7 +154,7 @@ serve(async (req) => {
     type: meta.dbType,
     file_path: filePath,
     file_name: filePath.split('/').pop(),
-    name: `${meta.label} (web ${mindeeStatus === 'ok' ? 'sken' : '— manuální'})`,
+    name: `${meta.label}${docSide ? (docSide === 'front' ? ' — líc' : ' — rub') : ''} (web ${mindeeStatus === 'ok' ? 'sken' : '— manuální'})`,
   }
   // metadata sloupec — pokud ještě neexistuje (migrace nedoběhla), dělá se fallback bez něj
   const rowWithMeta = {
@@ -156,6 +164,7 @@ serve(async (req) => {
       mindee_status: mindeeStatus,
       ocr_fields: ocrFields,
       captured_at: new Date().toISOString(),
+      side: docSide, // 'front' | 'back' | null (pas)
     },
   }
 
