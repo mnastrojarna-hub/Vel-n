@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { PDFDocument, StandardFonts, rgb } from 'https://esm.sh/pdf-lib@1.17.1'
 import { renderEmail, normalizeLang, helpCardLabels, renderDoorCodesReleasedBlock, renderDocsRequiredBlock, type Lang } from './i18n.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
@@ -174,41 +175,71 @@ async function downloadAsBase64(supabase: any, path: string): Promise<string | n
   } catch { return null }
 }
 
-/** Generate styled HTML voucher document matching motogo24.cz/gfx/darkovy-poukaz.jpg.
- *  Background image z webu + CSS overlay s vyplněným kódem, hodnotou a datem expirace.
- *  Otevře se v prohlížeči 1:1 se vzhledem na webu. */
-function generateVoucherHtmlAttachment(code: string, amount: number, validUntil: string): string {
+/** Vrátí příponu souboru (bez tečky, lowercase) — `.pdf` nebo `.html`. */
+function fileExt(path: string | null | undefined): 'pdf' | 'html' {
+  if (path && /\.pdf$/i.test(path)) return 'pdf'
+  return 'html'
+}
+
+/** Generate dárkový poukaz jako PDF přes pdf-lib.
+ *  Stáhne JPG pozadí z webu, vloží na A4 landscape stránku a překryje
+ *  hodnotu / datum platnosti / kód poukazu na pozicích odpovídajících šabloně.
+ *  Při selhání (síť, CORS) vyhodí — caller musí mít fallback.
+ */
+async function generateVoucherPdfAttachment(code: string, amount: number, validUntil: string): Promise<string> {
   const fmtPrice = (n: number) => (n || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 0 })
   const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
-  const bg = `${SITE_URL}/gfx/darkovy-poukaz.jpg`
-  // Pozice overlayů odpovídají vizuálu darkovy-poukaz.jpg (1400×650 px).
-  // Hodnota: pod textem "V HODNOTĚ" (cca 38%, vlevo).
-  // Datum: v zeleném pruhu vedle "Datum:" labelu.
-  // Kód: v zeleném pruhu vedle "Kód poukazu:" labelu, černý monospace.
-  return `<!DOCTYPE html><html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Dárkový poukaz ${code}</title>
-<style>
-  body{margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif}
-  .voucher-wrap{max-width:1400px;margin:0 auto;position:relative;background:#000}
-  .voucher-img{display:block;width:100%;height:auto}
-  .voucher-overlay{position:absolute;inset:0;font-weight:900;pointer-events:none}
-  /* Hodnota: inline na stejném řádku jako "V HODNOTĚ" label, font-size přizpůsoben */
-  .v-amount{position:absolute;left:32%;top:32%;color:#74FB71;font-size:5vw;font-weight:900;letter-spacing:1px;text-shadow:0 0 18px rgba(116,251,113,.45);line-height:1}
-  .v-date{position:absolute;left:30%;top:55.5%;font-size:2.4vw;color:#000;font-weight:900;letter-spacing:0;line-height:1}
-  .v-code{position:absolute;left:30%;top:74%;font-size:2.6vw;color:#000;font-weight:900;letter-spacing:2px;font-family:'Courier New',monospace;line-height:1}
-  @media (max-width:600px){
-    .v-amount{font-size:30px;top:32%;left:34%}
-    .v-date{font-size:14px;top:56%;left:30%}
-    .v-code{font-size:15px;top:74%;left:30%;letter-spacing:1px}
-  }
-</style></head>
-<body><div class="voucher-wrap">
-  <img class="voucher-img" src="${bg}" alt="MotoGo24 dárkový poukaz"/>
-  <div class="voucher-overlay">
-    <div class="v-amount">${fmtPrice(amount)} Kč</div>
-    <div class="v-date">${fmtDate(validUntil)}</div>
-    <div class="v-code">${code}</div>
-  </div>
-</div></body></html>`
+
+  const bgUrl = `${SITE_URL}/gfx/darkovy-poukaz.jpg`
+  const res = await fetch(bgUrl)
+  if (!res.ok) throw new Error(`Voucher background fetch failed: ${res.status}`)
+  const bgBytes = new Uint8Array(await res.arrayBuffer())
+
+  const pdfDoc = await PDFDocument.create()
+  pdfDoc.setTitle(`Darkovy poukaz ${code}`)
+  pdfDoc.setAuthor('MotoGo24')
+  pdfDoc.setCreator('MotoGo24 — send-booking-email')
+
+  const bg = await pdfDoc.embedJpg(bgBytes)
+  // Použijeme nativní rozměry obrázku (1400×650 v originále) → page = obrázek 1:1
+  const page = pdfDoc.addPage([bg.width, bg.height])
+  page.drawImage(bg, { x: 0, y: 0, width: bg.width, height: bg.height })
+
+  const helv = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
+  const courier = await pdfDoc.embedFont(StandardFonts.CourierBold)
+
+  // Pozice odpovídají HTML overlayu (v procentech od levého horního rohu;
+  // pdf-lib počítá souřadnici Y odspodu, takže převádíme).
+  const W = bg.width, H = bg.height
+  const yFromTopPct = (pct: number) => H - (pct / 100) * H
+
+  const amountText = `${fmtPrice(amount)} Kč`
+  page.drawText(amountText, {
+    x: 0.32 * W,
+    y: yFromTopPct(38),
+    size: Math.round(W * 0.05),
+    font: helv,
+    color: rgb(116/255, 251/255, 113/255),
+  })
+
+  page.drawText(fmtDate(validUntil), {
+    x: 0.30 * W,
+    y: yFromTopPct(60),
+    size: Math.round(W * 0.024),
+    font: helv,
+    color: rgb(0, 0, 0),
+  })
+
+  page.drawText(code, {
+    x: 0.30 * W,
+    y: yFromTopPct(78),
+    size: Math.round(W * 0.026),
+    font: courier,
+    color: rgb(0, 0, 0),
+  })
+
+  const pdfBytes = await pdfDoc.save()
+  return btoa(Array.from(pdfBytes, (b: number) => String.fromCharCode(b)).join(''))
 }
 
 /** Auto-generate attachments based on email type */
@@ -234,7 +265,7 @@ async function autoGenerateAttachments(
         .limit(1)
       if (dp?.length && dp[0].pdf_path) {
         const b64 = await downloadAsBase64(supabase, dp[0].pdf_path)
-        if (b64) atts.push({ content: b64, filename: `Doklad-platby-${dp[0].number || 'DP'}.html` })
+        if (b64) atts.push({ content: b64, filename: `Doklad-platby-${dp[0].number || 'DP'}.${fileExt(dp[0].pdf_path)}` })
       } else {
         const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
           method: 'POST', headers,
@@ -242,23 +273,24 @@ async function autoGenerateAttachments(
         })
         const data = await res.json().catch(() => ({}))
         if (data.success && data.invoice_id) {
-          const b64 = await downloadAsBase64(supabase, `invoices/${data.invoice_id}.html`)
-          if (b64) atts.push({ content: b64, filename: `Doklad-platby-${data.number || 'DP'}.html` })
+          // generate-invoice ukládá zatím .html; pokud později přejde na .pdf, fileExt to detekuje.
+          const path = data.pdf_path || `invoices/${data.invoice_id}.html`
+          const b64 = await downloadAsBase64(supabase, path)
+          if (b64) atts.push({ content: b64, filename: `Doklad-platby-${data.number || 'DP'}.${fileExt(path)}` })
         }
       }
 
-      // 2. HTML voucher (vizuální poukaz) per každý vygenerovaný kód
+      // 2. Voucher PDF — generujeme přes pdf-lib (bg image + textové overlaye).
       const { data: vouchers } = await supabase.from('vouchers')
         .select('code, amount, valid_until')
         .eq('order_id', opts.orderId)
       for (const v of (vouchers || []) as Array<{ code: string; amount: number; valid_until: string }>) {
         try {
-          const html = generateVoucherHtmlAttachment(v.code, v.amount, v.valid_until)
-          atts.push({
-            content: btoa(unescape(encodeURIComponent(html))),
-            filename: `Darkovy-poukaz-${v.code}.html`,
-          })
-        } catch { /* ignore */ }
+          const b64 = await generateVoucherPdfAttachment(v.code, v.amount, v.valid_until)
+          atts.push({ content: b64, filename: `Darkovy-poukaz-${v.code}.pdf` })
+        } catch (e) {
+          console.warn('[autoGenerateAttachments] voucher PDF failed:', (e as Error).message)
+        }
       }
     } catch (e) {
       console.warn('[autoGenerateAttachments] voucher_purchased failed:', (e as Error).message)
@@ -278,7 +310,7 @@ async function autoGenerateAttachments(
       const data = await res.json().catch(() => ({}))
       if (data.success && data.path) {
         const b64 = await downloadAsBase64(supabase, data.path)
-        if (b64) atts.push({ content: b64, filename: `Najemni-smlouva-${booking_id.slice(-8).toUpperCase()}.html` })
+        if (b64) atts.push({ content: b64, filename: `Najemni-smlouva-${booking_id.slice(-8).toUpperCase()}.${fileExt(data.path)}` })
       }
     } catch { /* ignore */ }
     return atts
@@ -293,7 +325,7 @@ async function autoGenerateAttachments(
       const data = await res.json().catch(() => ({}))
       if (data.success && data.path) {
         const b64 = await downloadAsBase64(supabase, data.path)
-        if (b64) atts.push({ content: b64, filename: `VOP-${booking_id.slice(-8).toUpperCase()}.html` })
+        if (b64) atts.push({ content: b64, filename: `VOP-${booking_id.slice(-8).toUpperCase()}.${fileExt(data.path)}` })
       }
     } catch { /* ignore */ }
     return atts
@@ -312,7 +344,7 @@ async function autoGenerateAttachments(
       const { data: cn } = await q
       if (cn?.length && cn[0].pdf_path) {
         const b64 = await downloadAsBase64(supabase, cn[0].pdf_path)
-        if (b64) atts.push({ content: b64, filename: `Dobropis-${cn[0].number || 'DB'}.html` })
+        if (b64) atts.push({ content: b64, filename: `Dobropis-${cn[0].number || 'DB'}.${fileExt(cn[0].pdf_path)}` })
       }
     } catch { /* ignore */ }
     return atts
@@ -330,7 +362,7 @@ async function autoGenerateAttachments(
         .limit(1)
       if (dp?.length && dp[0].pdf_path) {
         const b64 = await downloadAsBase64(supabase, dp[0].pdf_path)
-        if (b64) atts.push({ content: b64, filename: `Doklad-platby-${dp[0].number || 'DP'}.html` })
+        if (b64) atts.push({ content: b64, filename: `Doklad-platby-${dp[0].number || 'DP'}.${fileExt(dp[0].pdf_path)}` })
       } else {
         // DP neexistuje → pokus o generování
         const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
@@ -339,8 +371,9 @@ async function autoGenerateAttachments(
         })
         const data = await res.json().catch(() => ({}))
         if (data.success && data.invoice_id) {
-          const b64 = await downloadAsBase64(supabase, `invoices/${data.invoice_id}.html`)
-          if (b64) atts.push({ content: b64, filename: `Doklad-platby-${data.number || 'DP'}.html` })
+          const path = data.pdf_path || `invoices/${data.invoice_id}.html`
+          const b64 = await downloadAsBase64(supabase, path)
+          if (b64) atts.push({ content: b64, filename: `Doklad-platby-${data.number || 'DP'}.${fileExt(path)}` })
         }
       }
     } catch { /* ignore */ }
@@ -359,7 +392,7 @@ async function autoGenerateAttachments(
         .limit(1)
       if (kf?.length && kf[0].pdf_path) {
         const b64 = await downloadAsBase64(supabase, kf[0].pdf_path)
-        if (b64) atts.push({ content: b64, filename: `Konecna-faktura-${kf[0].number || 'KF'}.html` })
+        if (b64) atts.push({ content: b64, filename: `Konecna-faktura-${kf[0].number || 'KF'}.${fileExt(kf[0].pdf_path)}` })
       } else {
         // KF neexistuje → vygeneruj
         const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
@@ -368,8 +401,9 @@ async function autoGenerateAttachments(
         })
         const data = await res.json().catch(() => ({}))
         if (data.success && data.invoice_id) {
-          const b64 = await downloadAsBase64(supabase, `invoices/${data.invoice_id}.html`)
-          if (b64) atts.push({ content: b64, filename: `Konecna-faktura-${data.number || 'KF'}.html` })
+          const path = data.pdf_path || `invoices/${data.invoice_id}.html`
+          const b64 = await downloadAsBase64(supabase, path)
+          if (b64) atts.push({ content: b64, filename: `Konecna-faktura-${data.number || 'KF'}.${fileExt(path)}` })
         }
       }
     } catch { /* ignore */ }
@@ -387,8 +421,9 @@ async function autoGenerateAttachments(
       })
       const data = await res.json().catch(() => ({}))
       if (data.success && data.invoice_id) {
-        const b64 = await downloadAsBase64(supabase, `invoices/${data.invoice_id}.html`)
-        if (b64) atts.push({ content: b64, filename: `Zalohova-faktura-${data.number || 'ZF'}.html` })
+        const path = data.pdf_path || `invoices/${data.invoice_id}.html`
+        const b64 = await downloadAsBase64(supabase, path)
+        if (b64) atts.push({ content: b64, filename: `Zalohova-faktura-${data.number || 'ZF'}.${fileExt(path)}` })
       }
     } catch { /* ignore */ }
   }
@@ -405,7 +440,7 @@ async function autoGenerateAttachments(
         .limit(1)
       if (invoices?.length && invoices[0].pdf_path) {
         const b64 = await downloadAsBase64(supabase, invoices[0].pdf_path)
-        if (b64) atts.push({ content: b64, filename: `Konecna-faktura-${invoices[0].number || 'KF'}.html` })
+        if (b64) atts.push({ content: b64, filename: `Konecna-faktura-${invoices[0].number || 'KF'}.${fileExt(invoices[0].pdf_path)}` })
       }
     } catch { /* ignore */ }
   }
@@ -422,8 +457,9 @@ async function autoGenerateAttachments(
         })
         const zfData = await zfRes.json().catch(() => ({}))
         if (zfData.success && zfData.invoice_id) {
-          const b64 = await downloadAsBase64(supabase, `invoices/${zfData.invoice_id}.html`)
-          if (b64) atts.push({ content: b64, filename: `Zalohova-faktura-uprava-${zfData.number || 'ZF'}.html` })
+          const path = zfData.pdf_path || `invoices/${zfData.invoice_id}.html`
+          const b64 = await downloadAsBase64(supabase, path)
+          if (b64) atts.push({ content: b64, filename: `Zalohova-faktura-uprava-${zfData.number || 'ZF'}.${fileExt(path)}` })
         }
       } catch { /* ignore */ }
 
@@ -434,8 +470,9 @@ async function autoGenerateAttachments(
         })
         const dpData = await dpRes.json().catch(() => ({}))
         if (dpData.success && dpData.invoice_id) {
-          const b64 = await downloadAsBase64(supabase, `invoices/${dpData.invoice_id}.html`)
-          if (b64) atts.push({ content: b64, filename: `Doklad-platby-uprava-${dpData.number || 'DP'}.html` })
+          const path = dpData.pdf_path || `invoices/${dpData.invoice_id}.html`
+          const b64 = await downloadAsBase64(supabase, path)
+          if (b64) atts.push({ content: b64, filename: `Doklad-platby-uprava-${dpData.number || 'DP'}.${fileExt(path)}` })
         }
       } catch { /* ignore */ }
     } else if (priceDifference < 0) {
@@ -451,7 +488,7 @@ async function autoGenerateAttachments(
           .limit(1)
         if (cn?.length && cn[0].pdf_path) {
           const b64 = await downloadAsBase64(supabase, cn[0].pdf_path)
-          if (b64) atts.push({ content: b64, filename: `Dobropis-${cn[0].number || 'DB'}.html` })
+          if (b64) atts.push({ content: b64, filename: `Dobropis-${cn[0].number || 'DB'}.${fileExt(cn[0].pdf_path)}` })
         }
       } catch { /* ignore */ }
     }
@@ -466,7 +503,7 @@ async function autoGenerateAttachments(
       const cData = await cRes.json().catch(() => ({}))
       if (cData.success && cData.path) {
         const b64 = await downloadAsBase64(supabase, cData.path)
-        if (b64) atts.push({ content: b64, filename: `Najemni-smlouva-${booking_id.slice(-8).toUpperCase()}.html` })
+        if (b64) atts.push({ content: b64, filename: `Najemni-smlouva-${booking_id.slice(-8).toUpperCase()}.${fileExt(cData.path)}` })
       }
     } catch { /* ignore */ }
 
@@ -479,7 +516,7 @@ async function autoGenerateAttachments(
       const vData = await vRes.json().catch(() => ({}))
       if (vData.success && vData.path) {
         const b64 = await downloadAsBase64(supabase, vData.path)
-        if (b64) atts.push({ content: b64, filename: `VOP-${booking_id.slice(-8).toUpperCase()}.html` })
+        if (b64) atts.push({ content: b64, filename: `VOP-${booking_id.slice(-8).toUpperCase()}.${fileExt(vData.path)}` })
       }
     } catch { /* ignore */ }
   }

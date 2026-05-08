@@ -91,15 +91,16 @@ export default function InvoicePreviewModal({ invoice, onClose, onUpdated }) {
   async function handleSendEmail() {
     setSending(true); setMsg(null)
     try {
-      // Try to store (non-blocking if bucket doesn't exist)
-      if (!invoice.pdf_path) {
-        try { await storeInvoicePdf(invoice.id, html) } catch {}
+      // Vždy nejdřív vyrenderuj a nahraj PDF, aby ho edge function mohla připojit jako přílohu.
+      // (storeInvoicePdf má fallback na HTML, takže nikdy nehodí pokud je bucket OK.)
+      try { await storeInvoicePdf(invoice.id, html) } catch (e) {
+        console.warn('[InvoicePreviewModal] storeInvoicePdf failed:', e?.message)
       }
-      // Try Edge Function; fallback to direct email
+      // Edge Function načte invoice z DB (včetně aktualizovaného pdf_path) — proto html_content NEPOSÍLÁME,
+      // jinak by edge function šel zkratkou a faktura by se odeslala bez PDF přílohy.
       const { error } = await supabase.functions.invoke('send-invoice-email', {
         body: {
           invoice_id: invoice.id,
-          html_content: html,
           customer_email: fullData?.profiles?.email,
           customer_name: fullData?.profiles?.full_name,
           invoice_number: fullData?.number,

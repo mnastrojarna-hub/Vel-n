@@ -252,10 +252,15 @@ serve(async (req) => {
         const { data: blob } = await supabase.storage.from('documents').download(invoice.pdf_path)
         if (blob) {
           const bytes = new Uint8Array(await blob.arrayBuffer())
-          const text = new TextDecoder('utf-8').decode(bytes)
-          if (text && /<html[\s>]/i.test(text)) html = text
+          // Detekuj formát podle přípony (přechodné období: může být .pdf nebo .html)
+          const isPdf = /\.pdf$/i.test(invoice.pdf_path)
+          if (!isPdf) {
+            const text = new TextDecoder('utf-8').decode(bytes)
+            if (text && /<html[\s>]/i.test(text)) html = text
+          }
           const b64 = btoa(Array.from(bytes, (b: number) => String.fromCharCode(b)).join(''))
-          attachments.push({ content: b64, filename: `${invoiceLabel.replace(/ /g, '-')}-${invoice.number}.html` })
+          const ext = isPdf ? 'pdf' : 'html'
+          attachments.push({ content: b64, filename: `${invoiceLabel.replace(/ /g, '-')}-${invoice.number}.${ext}` })
         }
       } catch { /* ignore */ }
     }
