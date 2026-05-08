@@ -594,6 +594,30 @@ serve(async (req) => {
       })
     }
 
+    // 🚫 Door-codes mail SE NEPOSÍLÁ. Důvod: kódy jsou už součástí `booking_reserved`
+    // mailu (door_codes_block placeholder) → zákazník dostával 2 mailové notifikace
+    // se stejnými kódy. SQL trigger `auto_generate_door_codes()` + RPC
+    // `release_withheld_door_codes()` + `regen_door_codes_on_moto_change()`
+    // mohou dál volat `send_door_codes_email()` (zpětná kompatibilita), ale tady
+    // request tiše zahodíme — kódy doručíme přes booking_reserved mail / SMS / push.
+    const _isDoorCodesType = type === 'door_codes'
+    const _isDoorCodesSlug = template_slug === 'door_codes' || template_slug === 'web_door_codes'
+    if (_isDoorCodesType || _isDoorCodesSlug) {
+      try {
+        await supabase.from('debug_log').insert({
+          source: 'send-booking-email',
+          action: 'door_codes_mail_blocked',
+          component: 'edge-function',
+          status: 'info',
+          request_data: { type: type || null, template_slug: template_slug || null, booking_id: booking_id || null },
+        })
+      } catch { /* ignore */ }
+      return new Response(JSON.stringify({ skipped: true, reason: 'door_codes_disabled' }), {
+        status: 200,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
+
     // ⚠️ DYNAMIC DISPATCHER — když přijde template_slug, dohledáme šablonu v DB
     // a použijeme její body+subject místo i18n.ts hardcoded engine.
     // Stávající `type=` cesta zůstává v původním kódu níže nedotčená.

@@ -6,6 +6,42 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || ''
 const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'noreply@motogo24.cz'
+const PDFSHIFT_API_KEY = Deno.env.get('PDFSHIFT_API_KEY') || ''
+
+/**
+ * Konverze HTML → PDF přes PDFShift API (https://pdfshift.io).
+ * Vrací Uint8Array s PDF byty, nebo null při chybě / chybějícím API key.
+ * Caller musí mít HTML fallback, aby flow nikdy nespadl tvrdě.
+ */
+async function htmlToPdf(html: string): Promise<Uint8Array | null> {
+  if (!PDFSHIFT_API_KEY) return null
+  try {
+    const auth = btoa(`api:${PDFSHIFT_API_KEY}`)
+    const res = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${auth}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        source: html,
+        format: 'A4',
+        margin: '12mm',
+        landscape: false,
+        sandbox: false,
+        use_print: false,
+      }),
+    })
+    if (!res.ok) {
+      console.warn('[htmlToPdf] PDFShift HTTP', res.status, await res.text().catch(() => ''))
+      return null
+    }
+    return new Uint8Array(await res.arrayBuffer())
+  } catch (e) {
+    console.warn('[htmlToPdf] PDFShift fetch failed:', (e as Error).message)
+    return null
+  }
+}
 
 const COMPANY_FALLBACK = {
   name: 'Bc. Petra Semorádová', address: 'Mezná 9, 393 01 Mezná',
@@ -427,9 +463,18 @@ serve(async (req) => {
       paymentMethodLabel, cardInfo, isEdit,
     })
 
-    const blob = new Blob([html], { type: 'text/html' })
-    const path = `invoices/${invoice.id}.html`
-    await supabase.storage.from('documents').upload(path, blob, { upsert: true, contentType: 'text/html' })
+    // Pokus o PDF přes PDFShift; když není API key nebo konverze selže, fallback na HTML.
+    let path: string
+    const pdfBytes = await htmlToPdf(html)
+    if (pdfBytes) {
+      path = `invoices/${invoice.id}.pdf`
+      const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' })
+      await supabase.storage.from('documents').upload(path, pdfBlob, { upsert: true, contentType: 'application/pdf' })
+    } else {
+      path = `invoices/${invoice.id}.html`
+      const htmlBlob = new Blob([html], { type: 'text/html' })
+      await supabase.storage.from('documents').upload(path, htmlBlob, { upsert: true, contentType: 'text/html' })
+    }
     await supabase.from('invoices').update({ pdf_path: path }).eq('id', invoice.id)
 
     // ⚠️ MAIL Z GENERATE-INVOICE BYL ODSTRANĚN (2026-05-08).
@@ -444,7 +489,7 @@ serve(async (req) => {
 
     await supabase.from('admin_audit_log').insert({ action: 'invoice_generated', details: { invoice_id: invoice.id, number, type: invoiceType, booking_id, source: invoiceSource } })
 
-    return new Response(JSON.stringify({ success: true, invoice_id: invoice.id, number }), {
+    return new Response(JSON.stringify({ success: true, invoice_id: invoice.id, number, pdf_path: path }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     })
   } catch (err) {
