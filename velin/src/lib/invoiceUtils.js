@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { uploadHtmlAsPdf } from './htmlToPdf'
 
 const PREFIX_MAP = {
   issued: 'FV',
@@ -334,24 +335,21 @@ export function printInvoiceHtml(html) {
 }
 
 /**
- * Store invoice HTML as blob in Supabase Storage
+ * Render invoice HTML to PDF (klient-side) a nahraj do Supabase Storage.
+ * Při selhání PDF konverze se uloží HTML fallback (path končí .html).
  */
 export async function storeInvoicePdf(invoiceId, html) {
-  const blob = new Blob([html], { type: 'text/html' })
-  const path = `invoices/${invoiceId}.html`
-
-  const { error: upErr } = await supabase.storage
-    .from('documents')
-    .upload(path, blob, { upsert: true, contentType: 'text/html' })
-
-  if (upErr) throw upErr
+  const targetPath = `invoices/${invoiceId}.pdf`
+  const finalPath = await uploadHtmlAsPdf(supabase, targetPath, html, {
+    filename: `${invoiceId}.pdf`,
+  })
 
   await supabase
     .from('invoices')
-    .update({ pdf_path: path })
+    .update({ pdf_path: finalPath })
     .eq('id', invoiceId)
 
-  return path
+  return finalPath
 }
 
 /**
