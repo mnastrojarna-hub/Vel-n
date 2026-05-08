@@ -348,12 +348,13 @@ serve(async (req) => {
     // ── Dedup: kontroluj existující doklad pro stejný booking_id NEBO order_id.
     // Edits (isEdit) vždy vytvářejí nový. Bez tohoto dedupu webhook při 2 Stripe
     // eventech vytvořil 2 DP záznamy → 2 přílohy v mailu.
+    const isShopFinalLocal = invoiceType === 'shop_final'
     if (!isEdit) {
       const dedupTypes = isPaymentReceipt
         ? ['payment_receipt']
         : isProforma
           ? ['advance', 'proforma', 'shop_proforma']
-          : isShopFinal
+          : isShopFinalLocal
             ? ['shop_final']
             : ['final', 'issued']
       let q = supabase.from('invoices').select('id, number, pdf_path')
