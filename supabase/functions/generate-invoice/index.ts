@@ -419,17 +419,15 @@ serve(async (req) => {
     await supabase.storage.from('documents').upload(path, blob, { upsert: true, contentType: 'text/html' })
     await supabase.from('invoices').update({ pdf_path: path }).eq('id', invoice.id)
 
-    if (send_email !== false && customer.email) {
-      const docLabel = isPaymentReceipt ? 'Doklad k přijaté platbě' : isProforma ? 'Zálohová faktura' : isShopFinal ? 'Konečná faktura' : 'Faktura'
-      const editSuffix = isEdit ? ` (úprava rezervace #${bookingNumber})` : ''
-      const emailSubject = `${docLabel} č. ${number}${editSuffix} — MOTO GO 24`
-      // Tělo mailu = plná faktura v jednotném designu (1:1 s PDF/náhledem).
-      await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: FROM_EMAIL, to: customer.email, subject: emailSubject, html }),
-      })
-    }
+    // ⚠️ MAIL Z GENERATE-INVOICE BYL ODSTRANĚN (2026-05-08).
+    // Velín mail šablony jsou jediný zdroj pravdy — žádný mail mimo systém šablon.
+    // Doklad se zde jen vystaví, mail si zařídí dedikovaný flow přes send-booking-email:
+    //   - booking ZF/DP → confirmBookingPayment → send-booking-email type='booking_reserved'
+    //   - voucher → confirmShopPayment → send-booking-email type='voucher_purchased'
+    //   - shop_order_confirmed → DB trigger trg_shop_order_confirmed_email (přes Velín šablony)
+    //   - manuální resend z Velínu → admin UI volá send-booking-email s template_slug
+    // Parametr `send_email` zůstává v API pro zpětnou kompatibilitu, ale nic nedělá.
+    void send_email
 
     await supabase.from('admin_audit_log').insert({ action: 'invoice_generated', details: { invoice_id: invoice.id, number, type: invoiceType, booking_id, source: invoiceSource } })
 
