@@ -8,6 +8,13 @@ const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'noreply@motogo24.cz'
 const REPLY_TO = 'info@motogo24.cz'
 const SITE_URL = Deno.env.get('SITE_URL') || 'https://motogo24.cz'
+const FB_URL = 'https://www.facebook.com/profile.php?id=61581614672839'
+const IG_URL = 'https://www.instagram.com/moto.go24/'
+
+const FOLLOW_US_LABEL: Record<string, string> = {
+  cs: 'SLEDUJTE NÁS', en: 'FOLLOW US', de: 'FOLGEN SIE UNS', nl: 'VOLG ONS',
+  es: 'SÍGUENOS', fr: 'SUIVEZ-NOUS', pl: 'OBSERWUJ NAS',
+}
 
 /** Send email with exponential backoff retry (max 3 attempts) */
 async function sendWithRetry(emailData: Record<string, unknown>, maxRetries = 3): Promise<{ success: boolean; provider_id?: string; error?: string }> {
@@ -80,6 +87,11 @@ function wrapInBrandedLayout(bodyHtml: string, lang: Lang = 'cs'): string {
         <div style="color:#9ca3af;font-size:10px;margin-top:6px">motogo24.cz</div>
       </td>
     </tr></table>
+    <div style="text-align:center;margin-top:18px;padding-top:16px;border-top:1px solid #1f3a2c">
+      <div style="color:#9ca3af;font-size:11px;letter-spacing:2px;margin-bottom:10px">${FOLLOW_US_LABEL[lang] || FOLLOW_US_LABEL.cs}</div>
+      <a href="${FB_URL}" style="display:inline-block;margin:0 6px;text-decoration:none" target="_blank" rel="noopener"><img src="${SITE_URL}/gfx/facebook-footer.svg" alt="Facebook" width="32" height="32" style="display:inline-block;border:0"/></a>
+      <a href="${IG_URL}" style="display:inline-block;margin:0 6px;text-decoration:none" target="_blank" rel="noopener"><img src="${SITE_URL}/gfx/instagram-footer.svg" alt="Instagram" width="32" height="32" style="display:inline-block;border:0"/></a>
+    </div>
   </div>`
 
   return `<!DOCTYPE html><html lang="${lang}"><head><meta charset="UTF-8"></head>

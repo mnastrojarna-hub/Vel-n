@@ -8,6 +8,34 @@ const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 const FROM_EMAIL = Deno.env.get('FROM_EMAIL') || 'noreply@motogo24.cz'
 const REPLY_TO = 'info@motogo24.cz'
 const SITE_URL = Deno.env.get('SITE_URL') || 'https://motogo24.cz'
+const FB_URL = 'https://www.facebook.com/profile.php?id=61581614672839'
+const IG_URL = 'https://www.instagram.com/moto.go24/'
+const GOOGLE_REVIEW_URL_DEFAULT = 'https://g.page/MotoGo24/review'
+
+const FOLLOW_US_LABEL: Record<string, string> = {
+  cs: 'SLEDUJTE NÁS', en: 'FOLLOW US', de: 'FOLGEN SIE UNS', nl: 'VOLG ONS',
+  es: 'SÍGUENOS', fr: 'SUIVEZ-NOUS', pl: 'OBSERWUJ NAS',
+}
+
+const REVIEW_BLOCK_LABELS: Record<string, { title: string; body: string; cta: string }> = {
+  cs: { title: 'Pomohlo by nám vaše hodnocení', body: 'Pokud jste byli spokojeni, prosíme zanechte nám recenzi na Googlu — pomáháte tím dalším motorkářům.', cta: '⭐ Ohodnotit na Google' },
+  en: { title: 'Your review would help us', body: 'If you were happy with our service, please leave us a review on Google — it helps fellow riders.', cta: '⭐ Review on Google' },
+  de: { title: 'Ihre Bewertung würde uns helfen', body: 'Wenn Sie zufrieden waren, hinterlassen Sie uns bitte eine Google-Bewertung — Sie helfen damit anderen Bikern.', cta: '⭐ Auf Google bewerten' },
+  nl: { title: 'Je review helpt ons enorm', body: 'Was je tevreden? Laat dan een review achter op Google — je helpt andere motorrijders.', cta: '⭐ Beoordeel op Google' },
+  es: { title: 'Tu reseña nos ayudaría mucho', body: 'Si quedaste satisfecho, déjanos una reseña en Google — ayudas a otros moteros.', cta: '⭐ Reseña en Google' },
+  fr: { title: 'Votre avis nous aiderait', body: 'Si vous étiez satisfait, laissez-nous un avis sur Google — vous aidez d\'autres motards.', cta: '⭐ Avis sur Google' },
+  pl: { title: 'Twoja recenzja by nam pomogła', body: 'Jeśli byłeś zadowolony, zostaw nam recenzję w Google — pomożesz innym motocyklistom.', cta: '⭐ Oceń w Google' },
+}
+
+function googleReviewBlock(lang: string, url?: string): string {
+  const l = REVIEW_BLOCK_LABELS[lang] || REVIEW_BLOCK_LABELS.cs
+  const href = url || GOOGLE_REVIEW_URL_DEFAULT
+  return `<div style="background:#000000;border:2px solid #74FB71;border-radius:8px;padding:24px;margin:24px 0;text-align:center">
+  <div style="color:#74FB71;font-size:18px;font-weight:800;margin:0 0 8px">${l.title}</div>
+  <div style="color:#ffffff;font-size:13px;margin:0 0 16px">${l.body}</div>
+  <a href="${href}" target="_blank" rel="noopener" style="display:inline-block;background:#74FB71;color:#000000;font-size:13px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:24px">${l.cta}</a>
+</div>`
+}
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -65,6 +93,11 @@ function wrapInBrandedLayout(bodyHtml: string, lang: Lang = 'cs'): string {
         <div style="color:#9ca3af;font-size:10px;margin-top:6px">motogo24.cz</div>
       </td>
     </tr></table>
+    <div style="text-align:center;margin-top:18px;padding-top:16px;border-top:1px solid #1f3a2c">
+      <div style="color:#9ca3af;font-size:11px;letter-spacing:2px;margin-bottom:10px">${FOLLOW_US_LABEL[lang] || FOLLOW_US_LABEL.cs}</div>
+      <a href="${FB_URL}" style="display:inline-block;margin:0 6px;text-decoration:none" target="_blank" rel="noopener"><img src="${SITE_URL}/gfx/facebook-footer.svg" alt="Facebook" width="32" height="32" style="display:inline-block;border:0"/></a>
+      <a href="${IG_URL}" style="display:inline-block;margin:0 6px;text-decoration:none" target="_blank" rel="noopener"><img src="${SITE_URL}/gfx/instagram-footer.svg" alt="Instagram" width="32" height="32" style="display:inline-block;border:0"/></a>
+    </div>
   </div>`
 
   return `<!DOCTYPE html><html lang="${lang}"><head><meta charset="UTF-8"></head>
@@ -226,6 +259,10 @@ serve(async (req) => {
         }
       } catch { /* ignore */ }
     }
+    // Pro KF z e-shopu (shop_final) přidej Google review CTA tlačítko
+    if (invoice.type === 'shop_final') {
+      templateHtml = templateHtml + googleReviewBlock(custLang)
+    }
     if (!html) html = wrapInBrandedLayout(templateHtml, custLang)
 
     // Admin kopie do info@motogo24.cz vždy v CZ — rerendrujeme CZ verzi
@@ -245,7 +282,8 @@ serve(async (req) => {
 </div>
 <p>${csSnip.outro}</p>
 <p>${csSnip.closing}</p>`
-      adminHtml = wrapInBrandedLayout(csBody, 'cs')
+      const csBodyWithReview = invoice.type === 'shop_final' ? csBody + googleReviewBlock('cs') : csBody
+      adminHtml = wrapInBrandedLayout(csBodyWithReview, 'cs')
       adminSubject = csSnip.subject
     }
 
