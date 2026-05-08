@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { debugAction } from '../lib/debugLog'
 import { useDebugMode } from '../hooks/useDebugMode'
-import { generateAdvanceInvoice, generatePaymentReceipt, generateFinalInvoice, generateCreditNote } from '../lib/invoiceUtils'
+import { generateAdvanceInvoice, generatePaymentReceipt, generateFinalInvoice } from '../lib/invoiceUtils'
 import Button from '../components/ui/Button'
 import StatusBadge, { getDisplayStatus } from '../components/ui/StatusBadge'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
@@ -15,7 +15,7 @@ import BookingModifyModal from './booking/BookingModifyModal'
 import DetailTab from './booking/DetailTab'
 import ComplaintsTab from './booking/ComplaintsTab'
 import { TABS, ACTIONS, CANCEL_REASONS } from './booking/bookingConstants'
-import { sendBookingMessage, logAudit } from './booking/bookingMessageHelpers'
+import { sendBookingMessage, logAudit, cancelBookingFromVelin } from './booking/bookingMessageHelpers'
 import BookingCancelModal from './booking/BookingCancelModal'
 
 export default function BookingDetail() {
@@ -179,58 +179,11 @@ export default function BookingDetail() {
     const reason = cancelReason === 'admin' ? cancelReasonCustom : (reasonObj?.label || cancelReason)
     if (!reason) { setError('Vyplňte důvod zrušení'); setSaving(false); return }
 
-    const { data: { user } } = await supabase.auth.getUser()
-    const wasPaid = booking.payment_status === 'paid'
-    const updatePayload = {
-      status: 'cancelled', cancelled_by: user?.id || null, cancelled_by_source: cancelReason,
-      cancellation_reason: reason, cancelled_at: new Date().toISOString(),
-      ...(wasPaid ? { payment_status: 'refunded' } : {}),
-    }
-
-    const cancelResult = await debugAction('booking.cancel', 'BookingDetail', () =>
-      supabase.from('bookings').update(updatePayload).eq('id', id)
-    , { booking_id: id, reason, source: cancelReason })
-    if (cancelResult?.error) { setError(cancelResult.error.message); setSaving(false); return }
-
-    if (wasPaid && booking.total_price) {
-      try { await supabase.from('booking_cancellations').insert({ booking_id: id, cancelled_by: user?.id || null, reason, refund_amount: booking.total_price, refund_percent: 100 }) } catch {}
-
-      // Stripe refund + credit note generation
-      let stripeRefundId = null
-      if (booking.stripe_payment_intent_id) {
-        try {
-          const { data: refundResult } = await supabase.functions.invoke('process-refund', {
-            body: { booking_id: id, reason: 'cancellation' },
-          })
-          if (refundResult?.success) stripeRefundId = refundResult.refund_id
-        } catch (e) { console.error('[Stripe refund]', e.message) }
-      }
-
-      // Generate credit note (dobropis)
-      try {
-        await generateCreditNote(id, {
-          refundAmount: booking.total_price,
-          refundPercent: 100,
-          reason,
-          stripeRefundId,
-        })
-      } catch (e) { console.error('[Credit note]', e.message) }
-    }
-    await logAudit('booking_cancelled', { booking_id: id, reason, source: cancelReason, refund: wasPaid ? '100%' : 'n/a' })
-
-    if (booking.profiles?.email) {
-      try {
-        await supabase.functions.invoke('send-cancellation-email', {
-          body: { booking_id: id, customer_email: booking.profiles?.email, customer_name: booking.profiles?.full_name, motorcycle: booking.motorcycles?.model,
-            start_date: booking.start_date, end_date: booking.end_date, cancellation_reason: reason, cancelled_by_source: cancelReason,
-            ...(wasPaid ? { refund_amount: booking.total_price, refund_percent: 100 } : {}),
-          },
-        })
-        await supabase.from('bookings').update({ cancellation_notified: true }).eq('id', id)
-        updatePayload.cancellation_notified = true
-      } catch {}
-    }
-    setBooking(b => ({ ...b, ...updatePayload }))
+    const result = await debugAction('booking.cancel', 'BookingDetail',
+      () => cancelBookingFromVelin(booking, reason, cancelReason),
+      { booking_id: id, reason, source: cancelReason })
+    if (result?.error) { setError(result.error); setSaving(false); return }
+    setBooking(b => ({ ...b, ...(result.updatePayload || {}) }))
     setShowCancelModal(false); setCancelReason(''); setCancelReasonCustom(''); setSaving(false)
   }
 

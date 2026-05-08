@@ -12,7 +12,10 @@ import BookingsBulkActionsModal from './booking/BookingsBulkActionsModal'
 import GlobalCalendar from './booking/GlobalCalendar'
 import BookingsTable from './booking/BookingsTable'
 import BookingsExtendedFilters from './booking/BookingsExtendedFilters'
+import BookingCancelModal from './booking/BookingCancelModal'
 import { CheckboxFilterGroup, FilterSelect } from './booking/BookingsFilters'
+import { CANCEL_REASONS } from './booking/bookingConstants'
+import { cancelBookingFromVelin } from './booking/bookingMessageHelpers'
 import { autoCancelStale, autoActivateReserved, autoFixPendingPaid, autoGenerateKF } from './booking/bookingsAutoFix'
 
 function localIso(d) {
@@ -54,6 +57,11 @@ export default function Bookings() {
   const [branches, setBranches] = useState([])
   const [motos, setMotos] = useState([])
   const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [cancelTarget, setCancelTarget] = useState(null)
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancelReasonCustom, setCancelReasonCustom] = useState('')
+  const [cancelSaving, setCancelSaving] = useState(false)
+  const [cancelError, setCancelError] = useState(null)
   const [dpTotals, setDpTotals] = useState({})
 
   useEffect(() => { if (view === 'Seznam') loadBookings() }, [page, filters, view])
@@ -151,6 +159,18 @@ export default function Bookings() {
   }).length
   const resetFilters = () => { setPage(1); setFilters({ ...defaultFilters }); localStorage.removeItem('velin_bookings_filters') }
 
+  async function handleConfirmCancel() {
+    if (!cancelTarget) return
+    setCancelSaving(true); setCancelError(null)
+    const reasonObj = CANCEL_REASONS.find(r => r.value === cancelReason)
+    const reasonText = cancelReason === 'admin' ? cancelReasonCustom : (reasonObj?.label || cancelReason)
+    if (!reasonText) { setCancelError('Vyplňte důvod zrušení'); setCancelSaving(false); return }
+    const result = await cancelBookingFromVelin(cancelTarget, reasonText, cancelReason)
+    if (result?.error) { setCancelError(result.error); setCancelSaving(false); return }
+    setCancelTarget(null); setCancelReason(''); setCancelReasonCustom(''); setCancelSaving(false)
+    loadBookings()
+  }
+
   async function handleDeleteBooking(booking) {
     try {
       const { error: err } = await supabase.from('bookings').delete().eq('id', booking.id)
@@ -235,7 +255,7 @@ export default function Bookings() {
         <div className="flex justify-center py-16"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-brand-gd" /></div>
       ) : (
         <>
-          <BookingsTable bookings={bookings} navigate={navigate} fmtDateRange={fmtDateRange} dpTotals={dpTotals} setDeleteConfirm={setDeleteConfirm}
+          <BookingsTable bookings={bookings} navigate={navigate} fmtDateRange={fmtDateRange} dpTotals={dpTotals} setDeleteConfirm={setDeleteConfirm} setCancelTarget={setCancelTarget}
             selectedIds={selectedIds} setSelectedIds={setSelectedIds} />
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </>
@@ -255,6 +275,14 @@ export default function Bookings() {
           onCancel={() => setDeleteConfirm(null)}
         />
       )}
+
+      <BookingCancelModal
+        open={!!cancelTarget}
+        onClose={() => { setCancelTarget(null); setCancelReason(''); setCancelReasonCustom(''); setCancelError(null) }}
+        cancelReason={cancelReason} setCancelReason={setCancelReason}
+        cancelReasonCustom={cancelReasonCustom} setCancelReasonCustom={setCancelReasonCustom}
+        onCancel={handleConfirmCancel} saving={cancelSaving} error={cancelError}
+      />
     </div>
   )
 }

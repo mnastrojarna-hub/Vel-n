@@ -1,7 +1,7 @@
 import { TRow, TH, TD, Table } from '../../components/ui/Table'
 import StatusBadge, { getDisplayStatus } from '../../components/ui/StatusBadge'
 
-export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTotals, setDeleteConfirm, selectedIds, setSelectedIds }) {
+export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTotals, setDeleteConfirm, setCancelTarget, selectedIds, setSelectedIds }) {
   const allSelected = bookings.length > 0 && selectedIds && bookings.every(b => selectedIds.has(b.id))
   const toggleAll = e => {
     if (!setSelectedIds) return
@@ -86,11 +86,20 @@ export default function BookingsTable({ bookings, navigate, fmtDateRange, dpTota
               </TD>
               <TD><span className="text-sm" style={{ color: '#1a2e22' }}>{b.created_at ? new Date(b.created_at).toLocaleString('cs-CZ') : '—'}</span></TD>
               <TD>
-                <button onClick={e => { e.stopPropagation(); setDeleteConfirm(b) }}
-                  className="text-sm font-bold cursor-pointer"
-                  style={{ color: '#dc2626', background: 'none', border: 'none', padding: '4px 6px' }}>
-                  Smazat
-                </button>
+                <div className="flex items-center gap-2">
+                  {setCancelTarget && (b.status === 'pending' || b.status === 'reserved' || b.status === 'active') && (
+                    <button onClick={e => { e.stopPropagation(); setCancelTarget(b) }}
+                      className="text-sm font-bold cursor-pointer"
+                      style={{ color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '4px 8px' }}>
+                      Storno
+                    </button>
+                  )}
+                  <button onClick={e => { e.stopPropagation(); setDeleteConfirm(b) }}
+                    className="text-sm font-bold cursor-pointer"
+                    style={{ color: '#dc2626', background: 'none', border: 'none', padding: '4px 6px' }}>
+                    Smazat
+                  </button>
+                </div>
               </TD>
             </tr>
           )
