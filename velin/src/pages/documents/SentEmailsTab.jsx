@@ -150,7 +150,25 @@ export default function SentEmailsTab() {
         <Modal open title={`Email: ${preview.subject || '—'}`} onClose={() => setPreview(null)} wide>
           <div className="mb-3 text-sm" style={{ color: '#1a2e22' }}>
             <span className="font-bold">Příjemce:</span> {preview.recipient_email} | <span className="font-bold">Datum:</span> {preview.created_at ? new Date(preview.created_at).toLocaleString('cs-CZ') : '—'}
+            {preview.template_slug && (
+              <> | <span className="font-bold">Šablona:</span> {preview.template_slug}</>
+            )}
           </div>
+          {Array.isArray(preview.attachments_meta) && preview.attachments_meta.length > 0 && (
+            <div className="mb-3 p-3 rounded-card" style={{ background: '#f1faf7', border: '1px solid #d4e8e0' }}>
+              <div className="text-sm font-extrabold uppercase tracking-wide mb-2" style={{ color: '#1a2e22' }}>
+                Přílohy ({preview.attachments_meta.length})
+              </div>
+              <ul className="text-sm" style={{ color: '#1a2e22', listStyle: 'none', padding: 0, margin: 0 }}>
+                {preview.attachments_meta.map((a, i) => (
+                  <li key={i} className="flex items-center gap-2 py-1">
+                    <span style={{ color: '#1a8a18', fontSize: 14 }}>📎</span>
+                    <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{a.filename || a}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div className="rounded-card" style={{ padding: 16, background: '#fff', border: '1px solid #d4e8e0', maxHeight: 500, overflow: 'auto' }}
             dangerouslySetInnerHTML={{ __html: preview.body_html }} />
           <div className="flex justify-end mt-4">

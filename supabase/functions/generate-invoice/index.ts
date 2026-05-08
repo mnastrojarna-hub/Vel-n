@@ -345,12 +345,24 @@ serve(async (req) => {
       }
     }
 
-    // ── Dedup: only for source='booking' (the original invoice pair). Edits always create new invoice. ──
-    if (booking_id && !isShop && !isEdit) {
-      const dedupTypes = isPaymentReceipt ? ['payment_receipt'] : isProforma ? ['advance', 'proforma'] : ['final', 'issued']
-      const { data: sameSource } = await supabase.from('invoices').select('id, number, pdf_path')
-        .eq('booking_id', booking_id).in('type', dedupTypes)
-        .eq('source', 'booking').neq('status', 'cancelled').limit(1)
+    // ── Dedup: kontroluj existující doklad pro stejný booking_id NEBO order_id.
+    // Edits (isEdit) vždy vytvářejí nový. Bez tohoto dedupu webhook při 2 Stripe
+    // eventech vytvořil 2 DP záznamy → 2 přílohy v mailu.
+    if (!isEdit) {
+      const dedupTypes = isPaymentReceipt
+        ? ['payment_receipt']
+        : isProforma
+          ? ['advance', 'proforma', 'shop_proforma']
+          : isShopFinal
+            ? ['shop_final']
+            : ['final', 'issued']
+      let q = supabase.from('invoices').select('id, number, pdf_path')
+        .in('type', dedupTypes).neq('status', 'cancelled').limit(1)
+      if (booking_id) q = q.eq('booking_id', booking_id).eq('source', 'booking')
+      else if (order_id) q = q.eq('order_id', order_id)
+      else q = q.eq('id', '00000000-0000-0000-0000-000000000000') // never matches if no key
+
+      const { data: sameSource } = await q
       if (sameSource?.length) {
         let htmlExists = false
         if (sameSource[0].pdf_path) {
