@@ -260,6 +260,11 @@ MG._rezShowMindeeStep = async function(){
       try { var w = document.getElementById('rez-license-confirm-wrap'); if(w && w.scrollIntoView) w.scrollIntoView({behavior:'smooth', block:'center'}); } catch(e){}
       return;
     }
+    // Zapamatuj potvrzení — Mindee step přepíše DOM, _rezSubmitPayment by jinak
+    // licConf.checked ztratil a alert by spadl při „Přeskočit a zaplatit"
+    MG._rez._licenseConfirmed = true;
+  } else {
+    MG._rez._licenseConfirmed = true; // skupina N — checkbox není povinný
   }
 
   // ── Heslo — VŽDY když ještě není nastavené (mimo blok). ──
@@ -599,16 +604,24 @@ MG._rezSubmitPayment = async function(){
   // Heslo + checkbox jsou validovány VŽDY (mimo _docsValidated blok), aby
   // resume flow z PC, kde uživatel nezadal heslo nebo neoznačil checkbox,
   // tyto údaje na druhém zařízení znovu vyžádal.
+  //
+  // POZOR: tato funkce se volá ze dvou stavů formuláře:
+  //   a) Step 2 (desktop) — všechny inputy jsou v DOMu
+  //   b) Mindee step (po kliknutí „Přeskočit a zaplatit") — DOM byl přepsán,
+  //      checkbox/heslo/lic-* tu nejsou. Spoléháme tedy na MG._rez._licenseConfirmed,
+  //      MG._rez._passwordSet/_password a MG._rez.formData._licGroup/_licExpiry.
   var licGroup=document.getElementById('rez-license-group');
   var licConf=document.getElementById('rez-license-confirm');
-  var _isNoLic = (licGroup && licGroup.value === 'N');
+  var _fd = MG._rez.formData || {};
+  var _licGroupVal = (licGroup && licGroup.value) || _fd._licGroup || '';
+  var _isNoLic = (_licGroupVal === 'N');
 
   if(!MG._rez._docsValidated){
     var docNum=document.getElementById('rez-doc-number');
     var licNum=document.getElementById('rez-license-number');
     var licExpiry=document.getElementById('rez-license-expiry');
     if(!docNum||!docNum.value){alert('Vyplňte číslo dokladu totožnosti.');return;}
-    if(!licGroup||!licGroup.value){alert('Vyberte skupinu řidičského oprávnění (A2, A nebo Bez ŘP).');return;}
+    if(!_licGroupVal){alert('Vyberte skupinu řidičského oprávnění (A2, A nebo Bez ŘP).');return;}
     if(!_isNoLic){
       if(!licNum||!licNum.value||licNum.value.trim().length<4){alert('Číslo řidičského průkazu musí mít alespoň 4 znaky.');return;}
       if(!licExpiry||!licExpiry.value){alert('Vyplňte platnost řidičského průkazu.');return;}
@@ -616,9 +629,9 @@ MG._rezSubmitPayment = async function(){
     }
 
     // Kontrola ŘP skupiny vs. motorka (jen pokud motorka vyžaduje ŘP)
-    var _moto = MG._rez.motos ? MG._rez.motos.find(function(m){return m.id===(MG._rez.formData||{}).motoId;}) : null;
+    var _moto = MG._rez.motos ? MG._rez.motos.find(function(m){return m.id===_fd.motoId;}) : null;
     if(_moto && _moto.license_required && _moto.license_required !== 'N'){
-      var _lg = licGroup.value.toUpperCase();
+      var _lg = _licGroupVal.toUpperCase();
       var _allowed = {A:['A','A2','A1','AM'],A2:['A2','A1','AM']};
       var _ok = _allowed[_lg] || [];
       if(_ok.indexOf(_moto.license_required) === -1){
@@ -628,25 +641,33 @@ MG._rezSubmitPayment = async function(){
     }
 
     if(MG._rez.formData){
-      MG._rez.formData._licGroup=licGroup.value;
+      MG._rez.formData._licGroup=_licGroupVal;
       MG._rez.formData._licExpiry=_isNoLic?null:(licExpiry?licExpiry.value:null);
     }
 
     await MG._rezPersistDocs(docNum.value, _isNoLic?null:licNum.value,
-      licGroup.value, _isNoLic?null:(licExpiry?licExpiry.value:null));
+      _licGroupVal, _isNoLic?null:(licExpiry?licExpiry.value:null));
   }
 
   // ── Checkbox potvrzení ŘP — VŽDY (skip jen pro skupinu N). ──
+  // V Mindee stepu už `licConf` v DOMu není; spoléháme na `_licenseConfirmed`,
+  // který se nastavil při přechodu ze step 2 do Mindee stepu (resp. v resume
+  // flow při `_docsValidated`, kde ho rovněž zapamatujeme).
   if(!_isNoLic){
-    if(!licConf || !licConf.checked){
+    var _confirmed = MG._rez._licenseConfirmed || (licConf && licConf.checked) || MG._rez._docsValidated;
+    if(!_confirmed){
       alert('Potvrďte prosím držení platného řidičského oprávnění.');
       try { var w = document.getElementById('rez-license-confirm-wrap'); if(w && w.scrollIntoView) w.scrollIntoView({behavior:'smooth', block:'center'}); } catch(e){}
       return;
     }
+    MG._rez._licenseConfirmed = true;
   }
 
   // ── Heslo — VŽDY když ještě není nastavené. ──
-  if(!MG._rez._passwordSet){
+  // V Mindee stepu už pole hesla v DOMu nejsou — pokud `_passwordSet=true`
+  // (nastaveno v _rezPersistDocs po úspěšném set_web_booking_password) nebo
+  // máme v paměti `MG._rez._password`, validaci přeskočíme.
+  if(!MG._rez._passwordSet && !MG._rez._password){
     var pwd=document.getElementById('rez-password');
     var pwdC=document.getElementById('rez-password-confirm');
     if(!pwd||!pwd.value||pwd.value.length<8){
