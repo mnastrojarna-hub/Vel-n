@@ -1,6 +1,14 @@
 RewriteEngine On
 RewriteBase /
 
+# === 0. Let's Encrypt ACME HTTP-01 validation ===================================
+# MUSI byt PRED force-HTTPS redirectem. Bez teto vyjimky se Let's Encrypt
+# validator (HTTP request na /.well-known/acme-challenge/<token>) presmeruje
+# na HTTPS, ktere je pri prvnim vystaveni certu rozbite (chicken-and-egg)
+# -> validace selze a Hosting90 panel ukazuje SSL "Aktivni" lhářsky,
+# zatimco server serviruje default cert h90-w22.hosting90.cz.
+RewriteRule ^\.well-known/acme-challenge/ - [L]
+
 # === 1. Force HTTPS (Forpsi + Hosting90 robust) =================================
 # Dve podminky kvuli proxy: HTTPS=on i na portu 80 muze byt false-positive.
 RewriteCond %{HTTPS} off
