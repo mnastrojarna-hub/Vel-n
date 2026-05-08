@@ -11,11 +11,42 @@
  */
 
 let _h2p = null
+let _h2pPromise = null
+const H2P_CDN = 'https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js'
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[data-h2p="1"]`)
+    if (existing) {
+      if (window.html2pdf) return resolve(window.html2pdf)
+      existing.addEventListener('load', () => resolve(window.html2pdf))
+      existing.addEventListener('error', reject)
+      return
+    }
+    const s = document.createElement('script')
+    s.src = src
+    s.async = true
+    s.dataset.h2p = '1'
+    s.onload = () => resolve(window.html2pdf)
+    s.onerror = reject
+    document.head.appendChild(s)
+  })
+}
+
 async function getHtml2Pdf() {
   if (_h2p) return _h2p
-  const mod = await import('html2pdf.js')
-  _h2p = mod.default || mod
-  return _h2p
+  if (_h2pPromise) return _h2pPromise
+  _h2pPromise = (async () => {
+    if (typeof window !== 'undefined' && window.html2pdf) {
+      _h2p = window.html2pdf
+      return _h2p
+    }
+    const fn = await loadScript(H2P_CDN)
+    if (!fn) throw new Error('html2pdf.js se nepodařilo načíst z CDN')
+    _h2p = fn
+    return _h2p
+  })()
+  return _h2pPromise
 }
 
 /**
