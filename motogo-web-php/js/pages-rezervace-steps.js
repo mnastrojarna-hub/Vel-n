@@ -737,6 +737,10 @@ MG._rezShowStep2 = function(){
   if(!MG._rez._isResume){
     MG._rezLoadProducts().then(function(){ MG._rezRefreshShopUi(); });
   }
+  // PC ↔ mobil realtime mirror: po platbě na mobilu PC redirect na děkovací stránku
+  if(typeof MG._rezSubscribeMobileMirror === 'function'){
+    try { MG._rezSubscribeMobileMirror(); } catch(e){ console.warn('[REZ] mirror subscribe failed', e); }
+  }
   window.scrollTo({top:form.offsetTop-80,behavior:'smooth'});
 };
 

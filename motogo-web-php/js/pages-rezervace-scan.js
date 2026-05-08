@@ -2,6 +2,60 @@
 var MG = window.MG || {};
 window.MG = MG;
 
+// ===== PC ↔ MOBIL REALTIME MIRROR =====
+// PC v kroku 2 (s QR) poslouchá realtime UPDATEy svého pending booking.
+// Až mobilní zařízení dokončí platbu (Stripe → atomic confirm_payment →
+// UPDATE bookings.payment_status='paid'), PC se okamžitě přesměruje na
+// děkovací stránku — zrcadlí výsledek mobilu.
+// Vyžaduje RLS politiku `bookings_anon_pending_realtime` (anon SELECT pro
+// web pending+unpaid řádky max 4h staré).
+MG._rezSubscribeMobileMirror = function(){
+  if(!window.sb || !MG._rez || !MG._rez.bookingId) return;
+  if(MG._isMobile && MG._isMobile()) return; // jen desktop
+  // Cleanup předchozí kanál (re-render step 2)
+  if(MG._rezMirrorChannel){
+    try { window.sb.removeChannel(MG._rezMirrorChannel); } catch(e){}
+    MG._rezMirrorChannel = null;
+  }
+  var bookingId = MG._rez.bookingId;
+  MG._rezMirrorChannel = window.sb
+    .channel('rez-mirror-'+bookingId)
+    .on('postgres_changes', {
+      event: 'UPDATE', schema: 'public', table: 'bookings',
+      filter: 'id=eq.'+bookingId
+    }, function(payload){
+      var nu = payload && payload.new;
+      if(!nu) return;
+      // 1) Mobil zaplatil → redirect na děkovací stránku
+      if(nu.payment_status === 'paid'){
+        try { window.sb.removeChannel(MG._rezMirrorChannel); } catch(e){}
+        MG._rezMirrorChannel = null;
+        window.location.href = '/potvrzeni?booking_id='+bookingId;
+        return;
+      }
+      // 2) Live indikátor — mobil aktivně mění data rezervace
+      MG._rezShowMobileMirrorBanner('Mobilní zařízení dokončuje rezervaci…');
+    })
+    .subscribe();
+};
+
+MG._rezShowMobileMirrorBanner = function(text){
+  var el = document.getElementById('rez-mobile-mirror-banner');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'rez-mobile-mirror-banner';
+    el.style.cssText = 'position:fixed;bottom:1.25rem;left:50%;transform:translateX(-50%);background:#1a8c1a;color:#fff;padding:.85rem 1.4rem;border-radius:10px;font-weight:600;box-shadow:0 6px 22px rgba(0,0,0,.3);z-index:9999;font-family:Montserrat,sans-serif;font-size:.95rem;display:flex;align-items:center;gap:.6rem';
+    el.innerHTML = '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#74FB71;animation:mg-pulse 1.4s infinite ease-in-out"></span><span class="mg-mirror-text"></span>';
+    var st = document.createElement('style');
+    st.textContent = '@keyframes mg-pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}';
+    document.head.appendChild(st);
+    document.body.appendChild(el);
+  }
+  var t = el.querySelector('.mg-mirror-text');
+  if(t) t.textContent = text;
+  el.style.display = 'flex';
+};
+
 // ===== OCR s 2× retry + vždy uložit foto na Supabase =====
 // Mindee občas vrátí prázdný výsledek (rozmazaná fotka, špatné světlo, atd.).
 // Retry totéž burst znovu (2× celkem). Když ani druhý pokus neuspěje, fotka

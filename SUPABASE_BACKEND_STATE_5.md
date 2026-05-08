@@ -14,7 +14,7 @@ Všechny tabulky mají RLS zapnuté. Vzory:
 - **Branch-based admin access:** Některé politiky kontrolují `admin_users.branch_access` pro omezení přístupu dle pobočky
 
 Detailní politiky:
-- **bookings:** user SELECT/INSERT/UPDATE (user_id=uid OR is_admin), admin DELETE
+- **bookings:** user SELECT/INSERT/UPDATE (user_id=uid OR is_admin), admin DELETE, **anon SELECT (`bookings_anon_pending_realtime`)** — JEN web pending+unpaid řádky max 4 hod staré (PC ↔ mobil realtime mirror v rezervaci, redirect na děkovací po platbě na mobilu)
 - **profiles:** user SELECT (id=uid OR is_admin), user UPDATE (id=uid), admin ALL
 - **motorcycles:** public SELECT, admin ALL
 - **sos_incidents:** admin ALL, customer SELECT/INSERT/UPDATE (user_id=uid)
