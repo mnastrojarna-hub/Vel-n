@@ -207,52 +207,26 @@ serve(async (req) => {
             } catch (e) { console.warn('Auto Stripe refund failed:', e) }
           }
 
-          // Fetch existing storno doklad OR generate dobropis
-          let foundExistingReceipt = false
-          try {
-            const { data: existingReceipts } = await supabase.from('invoices')
-              .select('id, number, pdf_path')
-              .eq('booking_id', booking_id)
-              .eq('type', 'payment_receipt')
-              .eq('source', 'cancellation')
-              .neq('status', 'cancelled')
-              .order('created_at', { ascending: false }).limit(1)
-            if (existingReceipts?.length && existingReceipts[0].pdf_path) {
-              const b64 = await downloadAsBase64(supabase, existingReceipts[0].pdf_path)
-              if (b64) {
-                attachments.push({ content: b64, filename: `Dobropis-${existingReceipts[0].number || 'DB'}.html` })
-                foundExistingReceipt = true
-              }
-            }
-          } catch { /* ignore */ }
-
-          // If no existing receipt found, generate dobropis.
-          // Pouze pokud byla rezervace skutečně zaplacená — jinak není z čeho refundovat
-          // ani strhávat storno poplatek, a DP/dobropis by neměl vzniknout (auto-cancel
-          // nezaplacených rezervací posílá refund_percent=0, což by jinak nesprávně spustilo generování).
-          if (wasPaid && !foundExistingReceipt && (refund_amount > 0 || refund_percent === 0)) {
+          // Fetch the credit_note created by process-refund (source='refund') and attach it.
+          // Pokud chybí pdf_path (starý záznam před PDFShift refactorem), vyrenderuje ho proces-refund
+          // při dalším pokusu, ale tady už neumíme nic — necháme přílohu prázdnou a poslání nepadne.
+          if (refund_amount > 0 || refund_percent === 0) {
             try {
-              const hdrs = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'apikey': SUPABASE_SERVICE_KEY }
-              const stornoLabel = refund_percent === 0
-                ? 'Storno poplatek (méně než 2 dny — bez vrácení)'
-                : refund_percent === 50
-                  ? `Dobropis — storno rezervace (vrácení 50 %, tj. ${refund_amount} Kč)`
-                  : `Dobropis — storno rezervace (vrácení 100 %, tj. ${refund_amount} Kč)`
-              const dpRes = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
-                method: 'POST', headers: hdrs,
-                body: JSON.stringify({
-                  type: 'payment_receipt',
-                  booking_id,
-                  send_email: false,
-                  extra_items: [{ description: stornoLabel, qty: 1, unit_price: -(refund_amount || 0) }],
-                }),
-              })
-              const dpData = await dpRes.json().catch(() => ({}))
-              if (dpData.success && dpData.invoice_id) {
-                const b64 = await downloadAsBase64(supabase, `invoices/${dpData.invoice_id}.html`)
-                if (b64) attachments.push({ content: b64, filename: `Dobropis-${dpData.number || 'DB'}.html` })
+              const { data: creditNotes } = await supabase.from('invoices')
+                .select('id, number, pdf_path')
+                .eq('booking_id', booking_id)
+                .eq('type', 'credit_note')
+                .neq('status', 'cancelled')
+                .order('created_at', { ascending: false }).limit(1)
+              if (creditNotes?.length && creditNotes[0].pdf_path) {
+                const path = creditNotes[0].pdf_path as string
+                const b64 = await downloadAsBase64(supabase, path)
+                if (b64) {
+                  const ext = path.toLowerCase().endsWith('.pdf') ? 'pdf' : 'html'
+                  attachments.push({ content: b64, filename: `Dobropis-${creditNotes[0].number || 'DB'}.${ext}` })
+                }
               }
-            } catch { /* ignore */ }
+            } catch (e) { console.warn('Credit note attachment lookup failed:', (e as Error).message) }
           }
         }
       } catch (e) { console.warn('Auto-refund lookup failed:', e) }

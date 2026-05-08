@@ -18,6 +18,99 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
   httpClient: Stripe.createFetchHttpClient(),
 })
 
+const PDFSHIFT_API_KEY = Deno.env.get('PDFSHIFT_API_KEY') || ''
+
+async function htmlToPdf(html: string): Promise<Uint8Array | null> {
+  if (!PDFSHIFT_API_KEY) return null
+  try {
+    const res = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
+      method: 'POST',
+      headers: { 'X-API-Key': PDFSHIFT_API_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source: html, format: 'A4', margin: '12mm', sandbox: false, use_print: false }),
+    })
+    if (!res.ok) return null
+    return new Uint8Array(await res.arrayBuffer())
+  } catch { return null }
+}
+
+const fmtPrice = (n: number) => Math.abs(n || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2 })
+const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('cs-CZ') : '—'
+
+function renderCreditNoteHtml(opts: {
+  number: string; issueDate: string; reasonText: string; motoModel: string;
+  refundAmount: number; refundPercent: number; bookingDates: string;
+  customer: { full_name?: string; email?: string; phone?: string; street?: string; city?: string; zip?: string; ico?: string; dic?: string };
+  originalInvoiceNumber?: string | null; stripeRefundId: string;
+  cardBrand?: string | null; cardLast4?: string | null;
+}): string {
+  const c = opts.customer || {}
+  const cardLine = opts.cardLast4
+    ? `Refund proběhl na kartu ${(opts.cardBrand || 'CARD').toUpperCase()} **** ${opts.cardLast4}.`
+    : 'Refund proběhl na původní platební kartu.'
+  return `<!DOCTYPE html><html lang="cs"><head><meta charset="UTF-8"><title>Dobropis ${opts.number}</title>
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1a14;margin:0;padding:24px;font-size:13px}
+.hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #dc2626;padding-bottom:12px;margin-bottom:18px}
+.hdr h1{margin:0;font-size:22px;color:#dc2626;letter-spacing:1px}
+.hdr .num{font-size:14px;color:#4a5a52;margin-top:4px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:18px}
+.box{border:1px solid #d4e8e0;border-radius:6px;padding:12px;background:#f8fbfa}
+.box h3{margin:0 0 8px;font-size:12px;color:#4a5a52;text-transform:uppercase;letter-spacing:1px}
+.box p{margin:2px 0;font-size:13px}
+table{width:100%;border-collapse:collapse;margin:12px 0}
+th{text-align:left;padding:8px;background:#1a2e22;color:#fff;font-size:12px;text-transform:uppercase;letter-spacing:1px}
+td{padding:10px 8px;border-bottom:1px solid #eef4f0;font-size:13px}
+tr.total td{background:#fef2f2;font-weight:800;font-size:15px;color:#dc2626;border-bottom:none}
+.note{margin-top:18px;padding:12px;background:#fef2f2;border-left:4px solid #dc2626;border-radius:4px;font-size:12px;line-height:1.6}
+.foot{margin-top:24px;padding-top:12px;border-top:1px solid #d4e8e0;font-size:11px;color:#4a5a52;text-align:center}
+</style></head><body>
+<div class="hdr">
+  <div>
+    <h1>DOBROPIS</h1>
+    <div class="num">Číslo: <strong>${opts.number}</strong></div>
+    <div class="num">Datum vystavení: ${opts.issueDate}</div>
+    ${opts.originalInvoiceNumber ? `<div class="num">K dokladu: ${opts.originalInvoiceNumber}</div>` : ''}
+  </div>
+  <div style="text-align:right">
+    <div style="font-size:18px;font-weight:800">MotoGo24</div>
+    <div style="color:#4a5a52">Bc. Petra Semorádová</div>
+    <div style="color:#4a5a52">Mezná 9, 393 01 Mezná</div>
+    <div style="color:#4a5a52">IČO: 21874263</div>
+  </div>
+</div>
+<div class="grid">
+  <div class="box"><h3>Odběratel</h3>
+    <p><strong>${c.full_name || '—'}</strong></p>
+    ${c.street ? `<p>${c.street}</p>` : ''}
+    ${(c.city || c.zip) ? `<p>${c.zip || ''} ${c.city || ''}</p>` : ''}
+    ${c.ico ? `<p>IČO: ${c.ico}</p>` : ''}
+    ${c.dic ? `<p>DIČ: ${c.dic}</p>` : ''}
+    ${c.email ? `<p>${c.email}</p>` : ''}
+    ${c.phone ? `<p>${c.phone}</p>` : ''}
+  </div>
+  <div class="box"><h3>Detaily refundu</h3>
+    <p>Důvod: <strong>${opts.reasonText}</strong></p>
+    <p>Rezervace: ${opts.motoModel}</p>
+    <p>Termín: ${opts.bookingDates}</p>
+    <p>Procento vrácení: <strong>${opts.refundPercent} %</strong></p>
+    <p style="font-size:11px;color:#4a5a52;word-break:break-all">Stripe refund: ${opts.stripeRefundId}</p>
+  </div>
+</div>
+<table>
+  <thead><tr><th>Popis</th><th style="text-align:right">Částka</th></tr></thead>
+  <tbody>
+    <tr><td>Dobropis – ${opts.reasonText} (${opts.motoModel})</td><td style="text-align:right">−${fmtPrice(opts.refundAmount)} Kč</td></tr>
+    <tr class="total"><td>K vrácení celkem</td><td style="text-align:right">−${fmtPrice(opts.refundAmount)} Kč</td></tr>
+  </tbody>
+</table>
+<div class="note">
+  <strong>${cardLine}</strong> Peníze obvykle dorazí do 5–7 pracovních dnů.<br>
+  Tento dobropis slouží jako daňový doklad o vrácení platby.
+</div>
+<div class="foot">www.motogo24.cz · info@motogo24.cz · +420 774 256 271</div>
+</body></html>`
+}
+
 interface RefundRequest {
   booking_id?: string
   order_id?: string
@@ -110,13 +203,26 @@ Deno.serve(async (req: Request) => {
 
     const refund = await stripe.refunds.create(refundParams)
 
+    // Look up card brand/last4 from the underlying Charge (used both on credit note and bookings).
+    let cardBrand: string | null = null
+    let cardLast4: string | null = null
+    try {
+      const chargeId = typeof refund.charge === 'string' ? refund.charge : (refund.charge as any)?.id
+      if (chargeId) {
+        const ch = await stripe.charges.retrieve(chargeId)
+        cardBrand = ch?.payment_method_details?.card?.brand || null
+        cardLast4 = ch?.payment_method_details?.card?.last4 || null
+      }
+    } catch (e) { console.warn('[process-refund] charge retrieve failed:', (e as Error).message) }
+
     // Update payment_status in DB
     const refundedAmountCZK = refund.amount / 100
     if (booking_id) {
       const newStatus = (!amount || refund.status === 'succeeded') ? 'refunded' : 'partial_refund'
-      await supabase.from('bookings')
-        .update({ payment_status: newStatus })
-        .eq('id', booking_id)
+      const bkPatch: Record<string, any> = { payment_status: newStatus, stripe_refund_id: refund.id }
+      if (cardBrand) bkPatch.card_brand = cardBrand
+      if (cardLast4) bkPatch.card_last4 = cardLast4
+      await supabase.from('bookings').update(bkPatch).eq('id', booking_id)
     } else if (order_id) {
       await supabase.from('shop_orders')
         .update({ payment_status: 'refunded' })
@@ -129,7 +235,7 @@ Deno.serve(async (req: Request) => {
       try {
         // Fetch booking data for the credit note
         const { data: bk } = await supabase.from('bookings')
-          .select('user_id, total_price, start_date, end_date, motorcycles(model)')
+          .select('user_id, total_price, start_date, end_date, motorcycles(model), profiles:user_id(full_name, email, phone, street, city, zip, ico, dic)')
           .eq('id', booking_id).single()
         if (bk) {
           const refundPercent = amount ? Math.round((amount / Number(bk.total_price || 1)) * 100) : 100
@@ -147,57 +253,114 @@ Deno.serve(async (req: Request) => {
             .order('issue_date', { ascending: false })
             .limit(1)
           const originalInvoiceId = origInvs?.[0]?.id || null
+          const originalInvoiceNumber = origInvs?.[0]?.number || null
 
-          // Generate credit note number (DB-YYYY-NNNN)
-          const year = new Date().getFullYear()
-          const { data: lastCN } = await supabase.from('invoices')
-            .select('number')
-            .like('number', `DB-${year}-%`)
-            .order('number', { ascending: false })
+          // Idempotency: if a credit_note already exists for this booking + refund, reuse it
+          const { data: existingCn } = await supabase.from('invoices')
+            .select('id, number, pdf_path')
+            .eq('booking_id', booking_id)
+            .eq('type', 'credit_note')
+            .eq('stripe_refund_id', refund.id)
             .limit(1)
-          let seq = 1
-          if (lastCN?.length) {
-            const m = lastCN[0].number.match(/-(\d+)$/)
-            if (m) seq = parseInt(m[1], 10) + 1
+          let cnNumber: string
+          let cnId: string | null = null
+
+          if (existingCn?.length) {
+            cnId = existingCn[0].id
+            cnNumber = existingCn[0].number
+          } else {
+            // Generate credit note number (DB-YYYY-NNNN)
+            const year = new Date().getFullYear()
+            const { data: lastCN } = await supabase.from('invoices')
+              .select('number')
+              .like('number', `DB-${year}-%`)
+              .order('number', { ascending: false })
+              .limit(1)
+            let seq = 1
+            if (lastCN?.length) {
+              const m = lastCN[0].number.match(/-(\d+)$/)
+              if (m) seq = parseInt(m[1], 10) + 1
+            }
+            cnNumber = `DB-${year}-${String(seq).padStart(4, '0')}`
+
+            const issueDate = new Date().toISOString().slice(0, 10)
+            const motoModel = (bk as any).motorcycles?.model || 'motorky'
+            const { data: cnInv } = await supabase.from('invoices').insert({
+              number: cnNumber,
+              type: 'credit_note',
+              customer_id: bk.user_id,
+              booking_id,
+              items: [{
+                description: `Dobropis – ${reasonText} (${motoModel})`,
+                qty: 1,
+                unit_price: -refundedAmountCZK,
+              }],
+              subtotal: -refundedAmountCZK,
+              tax_amount: 0,
+              total: -refundedAmountCZK,
+              notes: `Dobropis k rezervaci. ${refundPercent < 100 ? `Částečný refund ${refundPercent}%.` : 'Plný refund.'} ${reasonText}`,
+              issue_date: issueDate,
+              due_date: issueDate,
+              status: 'issued',
+              source: 'refund',
+              variable_symbol: cnNumber,
+              original_invoice_id: originalInvoiceId,
+              stripe_refund_id: refund.id,
+            }).select('id').single()
+
+            cnId = cnInv?.id || null
+
+            // Create negative accounting entry only on first creation
+            await supabase.from('accounting_entries').insert({
+              type: 'expense',
+              amount: -refundedAmountCZK,
+              description: `Dobropis ${cnNumber} – ${reasonText}`,
+              category: 'refund',
+              date: issueDate,
+              booking_id,
+            })
           }
-          const cnNumber = `DB-${year}-${String(seq).padStart(4, '0')}`
 
-          const issueDate = new Date().toISOString().slice(0, 10)
-          const motoModel = (bk as any).motorcycles?.model || 'motorky'
-          const { data: cnInv } = await supabase.from('invoices').insert({
-            number: cnNumber,
-            type: 'credit_note',
-            customer_id: bk.user_id,
-            booking_id,
-            items: [{
-              description: `Dobropis – ${reasonText} (${motoModel})`,
-              qty: 1,
-              unit_price: -refundedAmountCZK,
-            }],
-            subtotal: -refundedAmountCZK,
-            tax_amount: 0,
-            total: -refundedAmountCZK,
-            notes: `Dobropis k rezervaci. ${refundPercent < 100 ? `Částečný refund ${refundPercent}%.` : 'Plný refund.'} ${reasonText}`,
-            issue_date: issueDate,
-            due_date: issueDate,
-            status: 'issued',
-            source: 'refund',
-            variable_symbol: cnNumber,
-            original_invoice_id: originalInvoiceId,
-            stripe_refund_id: refund.id,
-          }).select('id').single()
+          creditNoteId = cnId
 
-          creditNoteId = cnInv?.id || null
-
-          // Create negative accounting entry
-          await supabase.from('accounting_entries').insert({
-            type: 'expense',
-            amount: -refundedAmountCZK,
-            description: `Dobropis ${cnNumber} – ${reasonText}`,
-            category: 'refund',
-            date: issueDate,
-            booking_id,
-          })
+          // Render and upload dobropis PDF/HTML so it can be attached to the cancellation email.
+          if (cnId) {
+            try {
+              const motoModel2 = (bk as any).motorcycles?.model || 'motorky'
+              const html = renderCreditNoteHtml({
+                number: cnNumber,
+                issueDate: fmtDate(new Date().toISOString().slice(0, 10)),
+                reasonText,
+                motoModel: motoModel2,
+                refundAmount: refundedAmountCZK,
+                refundPercent,
+                bookingDates: `${fmtDate(bk.start_date)} – ${fmtDate(bk.end_date)}`,
+                customer: (bk as any).profiles || {},
+                originalInvoiceNumber,
+                stripeRefundId: refund.id,
+                cardBrand,
+                cardLast4,
+              })
+              const pdfBytes = await htmlToPdf(html)
+              let path: string
+              if (pdfBytes) {
+                path = `invoices/${cnId}.pdf`
+                await supabase.storage.from('documents').upload(
+                  path, new Blob([pdfBytes], { type: 'application/pdf' }),
+                  { upsert: true, contentType: 'application/pdf' },
+                )
+              } else {
+                path = `invoices/${cnId}.html`
+                await supabase.storage.from('documents').upload(
+                  path, new Blob([html], { type: 'text/html' }),
+                  { upsert: true, contentType: 'text/html' },
+                )
+              }
+              await supabase.from('invoices').update({ pdf_path: path }).eq('id', cnId)
+            } catch (pdfErr) {
+              console.warn('[process-refund] credit note PDF render failed:', (pdfErr as Error).message)
+            }
+          }
         }
       } catch (cnErr) {
         console.error('Credit note generation failed:', (cnErr as Error).message)
@@ -225,6 +388,8 @@ Deno.serve(async (req: Request) => {
         amount_refunded: refundedAmountCZK,
         currency: refund.currency,
         credit_note_id: creditNoteId,
+        card_brand: cardBrand,
+        card_last4: cardLast4,
       }),
       { status: 200, headers: { ...CORS, 'Content-Type': 'application/json' } }
     )

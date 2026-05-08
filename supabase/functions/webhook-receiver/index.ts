@@ -186,6 +186,26 @@ Deno.serve(async (req: Request) => {
         await confirmSosPayment(supabase, resolvedBookingId, metadata.incident_id, paymentIntent.id)
       }
 
+      // Capture card brand + last4 from the underlying Charge so Velín booking detail
+      // can show "Visa **** 4242" without an on-demand Stripe call.
+      if (resolvedBookingId) {
+        try {
+          const chargeId = typeof (paymentIntent as any).latest_charge === 'string'
+            ? (paymentIntent as any).latest_charge
+            : (paymentIntent as any).latest_charge?.id || null
+          if (chargeId) {
+            const ch = await stripe.charges.retrieve(chargeId)
+            const brand = ch?.payment_method_details?.card?.brand || null
+            const last4 = ch?.payment_method_details?.card?.last4 || null
+            if (brand || last4) {
+              await supabase.from('bookings')
+                .update({ card_brand: brand, card_last4: last4 })
+                .eq('id', resolvedBookingId)
+            }
+          }
+        } catch (e) { console.warn('[webhook] card brand/last4 capture failed:', (e as Error).message) }
+      }
+
       // Auto-save card: attach PM to customer and sync to Supabase
       if (paymentIntent.customer && paymentIntent.payment_method) {
         const custId = typeof paymentIntent.customer === 'string'
