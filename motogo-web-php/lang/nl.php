@@ -543,6 +543,7 @@ return [
     'confirm.success.nextTitle' => 'Hoe gaat het verder',
     'confirm.success.nextBookingDocs' => 'Upload foto\'s van uw ID-kaart/paspoort en rijbewijs — zonder verificatie kunnen we geen toegangscodes vrijgeven.',
     'confirm.success.nextBookingCodes' => 'Na verificatie ontvangt u 6-cijferige toegangscodes voor de motor en uitrusting per e-mail, sms en WhatsApp.',
+    'confirm.success.nextBookingCodesDone' => 'De 6-cijferige toegangscodes voor de motor en uitrusting sturen we u per e-mail, sms en WhatsApp voor aanvang van de reservering.',
     'confirm.success.nextBookingPickup' => 'Op de ophaaldag komt u naar de vestiging — de codes openen de deur, motor en uitrusting staan klaar.',
     'confirm.success.nextOrderShip' => 'Als u voor verzending koos, komt het pakket binnen 1–3 werkdagen aan.',
     'confirm.success.nextVoucherEmail' => 'De bon-code vindt u in uw e-mail — gebruik hem bij het reserveren op motogo24.cz / .com of in de app.',

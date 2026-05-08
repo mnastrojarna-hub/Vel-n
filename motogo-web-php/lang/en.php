@@ -844,6 +844,7 @@ return [
     'confirm.success.nextTitle' => 'What happens next',
     'confirm.success.nextBookingDocs' => 'Upload photos of your ID card/passport and driver\'s licence — without verification we cannot release access codes.',
     'confirm.success.nextBookingCodes' => 'Once your documents are verified, you will receive 6-digit access codes for the motorcycle and gear by email, SMS and WhatsApp.',
+    'confirm.success.nextBookingCodesDone' => 'We will send you 6-digit access codes for the motorcycle and gear by email, SMS and WhatsApp before your reservation starts.',
     'confirm.success.nextBookingPickup' => 'On the pickup day, come to the branch — the codes unlock the door, your motorcycle and gear are ready.',
     'confirm.success.nextOrderShip' => 'If you chose delivery, your parcel will arrive within 1–3 business days.',
     'confirm.success.nextVoucherEmail' => 'You will find the voucher code in your email — redeem it when booking on motogo24.cz / .com or in the app.',

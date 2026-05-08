@@ -682,6 +682,7 @@ return [
     'confirm.success.nextTitle' => 'Wie geht es weiter',
     'confirm.success.nextBookingDocs' => 'Laden Sie Fotos Ihres Ausweises/Reisepasses und Führerscheins hoch — ohne Verifizierung können keine Zugangscodes ausgegeben werden.',
     'confirm.success.nextBookingCodes' => 'Nach der Verifizierung erhalten Sie 6-stellige Zugangscodes für Motorrad und Ausrüstung per E-Mail, SMS und WhatsApp.',
+    'confirm.success.nextBookingCodesDone' => 'Die 6-stelligen Zugangscodes für Motorrad und Ausrüstung senden wir Ihnen vor Beginn der Reservierung per E-Mail, SMS und WhatsApp.',
     'confirm.success.nextBookingPickup' => 'Am Abholtag kommen Sie zur Filiale — die Codes öffnen die Tür, Motorrad und Ausrüstung sind bereit.',
     'confirm.success.nextOrderShip' => 'Wenn Sie eine Lieferung gewählt haben, kommt das Paket innerhalb von 1–3 Werktagen an.',
     'confirm.success.nextVoucherEmail' => 'Den Gutscheincode finden Sie in Ihrer E-Mail — einlösbar bei der Buchung auf motogo24.cz / .com oder in der App.',

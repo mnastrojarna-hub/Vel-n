@@ -1151,6 +1151,7 @@ return [
     'confirm.success.nextTitle' => 'Co bude dál',
     'confirm.success.nextBookingDocs' => 'Nahrajte fotky občanky/pasu a řidičského průkazu — bez ověření nelze vydat přístupové kódy.',
     'confirm.success.nextBookingCodes' => 'Po ověření dokladů obdržíte 6místné přístupové kódy k motorce i výbavě (e-mailem, SMS a WhatsAppem).',
+    'confirm.success.nextBookingCodesDone' => '6místné přístupové kódy k motorce i výbavě vám pošleme e-mailem, SMS a WhatsAppem před začátkem rezervace.',
     'confirm.success.nextBookingPickup' => 'V den vyzvednutí přijeďte na pobočku — kódy odemknou dveře, motorka i výbava jsou připravené.',
     'confirm.success.nextOrderShip' => 'Pokud jste zvolili doručení, balíček dorazí během 1–3 pracovních dnů.',
     'confirm.success.nextVoucherEmail' => 'Kód poukazu najdete v e-mailu — uplatníte ho při rezervaci na motogo24.cz / .com nebo v aplikaci.',
