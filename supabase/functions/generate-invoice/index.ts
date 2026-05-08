@@ -16,11 +16,10 @@ const PDFSHIFT_API_KEY = Deno.env.get('PDFSHIFT_API_KEY') || ''
 async function htmlToPdf(html: string): Promise<Uint8Array | null> {
   if (!PDFSHIFT_API_KEY) return null
   try {
-    const auth = btoa(`api:${PDFSHIFT_API_KEY}`)
     const res = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${auth}`,
+        'X-API-Key': PDFSHIFT_API_KEY,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
