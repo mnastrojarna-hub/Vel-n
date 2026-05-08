@@ -412,6 +412,67 @@ async function autoGenerateAttachments(
 
   if (!booking_id) return atts
 
+  // Synth typy pro Velín-vybrané přílohy v booking kontextu (mimo shop):
+  //   - booking_advance         → ZF (advance) per booking
+  //   - booking_payment_receipt → DP (payment_receipt) per booking
+  // Volány z attachmentTypeMap. Fetchnou existující fakturu, jinak vygenerují přes generate-invoice.
+  if (type === 'booking_advance') {
+    try {
+      const { data: existing } = await supabase.from('invoices')
+        .select('id, number, pdf_path')
+        .eq('booking_id', booking_id)
+        .eq('type', 'advance')
+        .neq('status', 'cancelled')
+        .order('created_at', { ascending: false })
+        .limit(1)
+      if (existing?.length && existing[0].pdf_path) {
+        const b64 = await downloadAsBase64(supabase, existing[0].pdf_path)
+        if (b64) atts.push({ content: b64, filename: `Zalohova-faktura-${existing[0].number || 'ZF'}.${fileExt(existing[0].pdf_path)}` })
+      } else {
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
+          method: 'POST', headers,
+          body: JSON.stringify({ type: 'advance', booking_id, send_email: false }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (data.success && data.invoice_id) {
+          const path = data.pdf_path || `invoices/${data.invoice_id}.html`
+          const b64 = await downloadAsBase64(supabase, path)
+          if (b64) atts.push({ content: b64, filename: `Zalohova-faktura-${data.number || 'ZF'}.${fileExt(path)}` })
+        }
+      }
+    } catch { /* ignore */ }
+    return atts
+  }
+
+  if (type === 'booking_payment_receipt') {
+    try {
+      const { data: existing } = await supabase.from('invoices')
+        .select('id, number, pdf_path, source')
+        .eq('booking_id', booking_id)
+        .eq('type', 'payment_receipt')
+        .neq('status', 'cancelled')
+        .order('created_at', { ascending: false })
+      // Vyfiltruj DP vázané na booking (ne shop) — preferuj source='booking'/'edit'/null
+      const candidate = (existing || []).find((r: any) => r.source !== 'shop') || (existing || [])[0]
+      if (candidate?.pdf_path) {
+        const b64 = await downloadAsBase64(supabase, candidate.pdf_path)
+        if (b64) atts.push({ content: b64, filename: `Doklad-platby-${candidate.number || 'DP'}.${fileExt(candidate.pdf_path)}` })
+      } else {
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/generate-invoice`, {
+          method: 'POST', headers,
+          body: JSON.stringify({ type: 'payment_receipt', booking_id, send_email: false }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (data.success && data.invoice_id) {
+          const path = data.pdf_path || `invoices/${data.invoice_id}.html`
+          const b64 = await downloadAsBase64(supabase, path)
+          if (b64) atts.push({ content: b64, filename: `Doklad-platby-${data.number || 'DP'}.${fileExt(path)}` })
+        }
+      }
+    } catch { /* ignore */ }
+    return atts
+  }
+
   if (type === 'booking_abandoned') {
     // Generate ZF (proforma) for abandoned bookings — shows what needs to be paid
     try {
@@ -426,6 +487,13 @@ async function autoGenerateAttachments(
         if (b64) atts.push({ content: b64, filename: `Zalohova-faktura-${data.number || 'ZF'}.${fileExt(path)}` })
       }
     } catch { /* ignore */ }
+  }
+
+  // booking_reserved a booking_cancelled samy o sobě negenerují žádné přílohy hardcoded —
+  // vše řídí Velín admin přes `email_templates.attachments` (delegát na booking_advance,
+  // booking_payment_receipt, rental_contract, vop, credit_note synth typy).
+  if (type === 'booking_reserved' || type === 'booking_cancelled') {
+    return atts
   }
 
   if (type === 'booking_completed') {
@@ -578,38 +646,27 @@ serve(async (req) => {
       return_time,
       original_pickup_time,
       original_return_time,
-      // ⚠️ Dynamic dispatcher (Etapa 7) — pokud přijde template_slug, edge fn
-      // místo i18n.ts engine načte šablonu přímo z DB (custom admin šablona).
-      // type=  zůstává primární cestou pro hardcoded šablony (booking_reserved
-      // atd.) → stávající chování beze změny.
-      template_slug,
-      event_slug,
     } = body
 
-    // Validace: musí být buď `type` (legacy) nebo `template_slug` (dynamic dispatcher)
-    if ((!type && !template_slug) || !customer_email) {
-      return new Response(JSON.stringify({ error: 'Missing type|template_slug or customer_email' }), {
+    if (!type || !customer_email) {
+      return new Response(JSON.stringify({ error: 'Missing type or customer_email' }), {
         status: 400,
         headers: { ...CORS, 'Content-Type': 'application/json' },
       })
     }
 
-    // 🚫 Door-codes mail SE NEPOSÍLÁ. Důvod: kódy jsou už součástí `booking_reserved`
-    // mailu (door_codes_block placeholder) → zákazník dostával 2 mailové notifikace
-    // se stejnými kódy. SQL trigger `auto_generate_door_codes()` + RPC
-    // `release_withheld_door_codes()` + `regen_door_codes_on_moto_change()`
-    // mohou dál volat `send_door_codes_email()` (zpětná kompatibilita), ale tady
-    // request tiše zahodíme — kódy doručíme přes booking_reserved mail / SMS / push.
-    const _isDoorCodesType = type === 'door_codes'
-    const _isDoorCodesSlug = template_slug === 'door_codes' || template_slug === 'web_door_codes'
-    if (_isDoorCodesType || _isDoorCodesSlug) {
+    // 🚫 Door-codes mail jde výhradně přes SQL fn `send_door_codes_email`,
+    // která čte šablonu `door_codes` z `email_templates` a posílá přes Resend napřímo.
+    // Tato edge fn zůstává jako pojistka — pokud někdo nedopatřením zavolá `type='door_codes'`,
+    // request tiše zahodíme, aby nevznikl duplikátní mail.
+    if (type === 'door_codes') {
       try {
         await supabase.from('debug_log').insert({
           source: 'send-booking-email',
           action: 'door_codes_mail_blocked',
           component: 'edge-function',
           status: 'info',
-          request_data: { type: type || null, template_slug: template_slug || null, booking_id: booking_id || null },
+          request_data: { type: type || null, booking_id: booking_id || null },
         })
       } catch { /* ignore */ }
       return new Response(JSON.stringify({ skipped: true, reason: 'door_codes_disabled' }), {
@@ -618,192 +675,6 @@ serve(async (req) => {
       })
     }
 
-    // ⚠️ DYNAMIC DISPATCHER — když přijde template_slug, dohledáme šablonu v DB
-    // a použijeme její body+subject místo i18n.ts hardcoded engine.
-    // Stávající `type=` cesta zůstává v původním kódu níže nedotčená.
-    if (template_slug && !type) {
-      // Dedup: poslali jsme tomu bookingu/orderu tu šablonu v posledních 5 min?
-      try {
-        const dedupKey = booking_id || order_id || customer_email
-        const { data: recent } = await supabase.from('message_log')
-          .select('id')
-          .eq('template_slug', template_slug)
-          .eq('status', 'sent')
-          .gt('created_at', new Date(Date.now() - 5 * 60_000).toISOString())
-          .or(booking_id ? `booking_id.eq.${booking_id}` : `recipient_email.eq.${customer_email}`)
-          .limit(1)
-        if (recent && recent.length > 0) {
-          return new Response(JSON.stringify({ skipped: true, reason: 'dedup_5min', template_slug }), {
-            status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
-          })
-        }
-      } catch { /* dedup je best-effort */ }
-
-      // Načti šablonu z DB
-      const { data: tpl, error: tplErr } = await supabase
-        .from('email_templates')
-        .select('id, slug, name, subject, body_html, active, attachments, subject_translations, body_translations')
-        .eq('slug', template_slug)
-        .eq('active', true)
-        .maybeSingle()
-      if (tplErr || !tpl) {
-        return new Response(JSON.stringify({ error: `Template '${template_slug}' not found or inactive` }), {
-          status: 404, headers: { ...CORS, 'Content-Type': 'application/json' },
-        })
-      }
-
-      // Lang detekce
-      let custLang2: Lang = normalizeLang(language)
-      if (!language && (booking_id || order_id)) {
-        try {
-          const { data: l } = await supabase.rpc('detect_customer_language', {
-            p_user_id: null, p_booking_id: booking_id || null, p_order_id: order_id || null,
-          })
-          custLang2 = normalizeLang(l)
-        } catch { /* keep 'cs' */ }
-      }
-
-      // Vyber jazyk: DB body_translations[lang] || body_html (CS default)
-      const subjT = (tpl.subject_translations as Record<string, string>) || {}
-      const bodyT = (tpl.body_translations  as Record<string, string>) || {}
-      const subjRaw = subjT[custLang2] || tpl.subject || ''
-      const bodyRaw = bodyT[custLang2] || tpl.body_html || ''
-
-      // Sestav vars (stejné jako legacy cesta)
-      const dynVars: Record<string, string> = {
-        customer_name:   customer_name || '',
-        booking_number:  (booking_id || '').slice(-8).toUpperCase(),
-        order_number:    order_number || (booking_id || '').slice(-8).toUpperCase(),
-        motorcycle:      motorcycle || '',
-        start_date:      fmtDate(start_date),
-        end_date:        fmtDate(end_date),
-        total_price:     fmtPrice(total_price || 0),
-        site_url:        SITE_URL,
-        discount_code:   discount_code || '',
-        resume_link:     resume_link || '',
-        pay_url:         pay_url || resume_link || '',
-        docs_url:        docs_url || '',
-      }
-
-      const dynSubject = renderTemplate(subjRaw, dynVars) || `Oznámení — MOTO GO 24`
-      let dynBody      = renderTemplate(bodyRaw, dynVars)
-      if (template_slug === 'booking_completed' || template_slug === 'shop_order_shipped') {
-        dynBody = dynBody + googleReviewBlock(custLang2, google_review_url || '')
-      }
-      const dynHtml    = wrapInBrandedLayout(dynBody, custLang2)
-
-      // Auto-attachments dle attachments[] z DB šablony
-      const attList = Array.isArray(tpl.attachments) ? tpl.attachments : []
-      const dynAtts: { content: string; filename: string }[] = []
-      // Mapování ATTACHMENTS_OPTION → autoGenerateAttachments param.
-      // Pro voucher / shop kontext (order_id) preferuj shop varianty;
-      // pokud je booking_id, použij booking varianty (booking_abandoned generuje booking ZF,
-      // booking_completed generuje booking KF apod.).
-      const isShopContext = !!order_id
-      const attachmentTypeMap: Record<string, string> = {
-        ZF:       isShopContext ? 'shop_order_confirmed' : 'booking_abandoned',
-        DP:       isShopContext ? 'shop_order_confirmed' : 'booking_completed',
-        KF:       isShopContext ? 'shop_order_shipped'   : 'booking_completed',
-        eshop_DP: 'shop_order_confirmed',
-        eshop_KF: 'shop_order_shipped',
-        Voucher:  'voucher_purchased',
-        Smlouva:  'rental_contract',
-        VOP:      'vop',
-        Dobropis: 'credit_note',
-      }
-      // Pro custom šablony zatím použijeme jednoduchý pass-through:
-      // pokud admin vybere KF/DP/ZF/eshop_DP/eshop_KF → fetchneme přes existing
-      // autoGenerateAttachments() funkci se synthetic type
-      if (booking_id || order_id) {
-        for (const att of attList) {
-          const synthType = attachmentTypeMap[att]
-          if (!synthType) continue
-          try {
-            const synth = await autoGenerateAttachments(synthType, booking_id || '', supabase, {
-              priceDifference: 0, orderId: order_id || undefined,
-            })
-            for (const a of synth) dynAtts.push(a)
-          } catch { /* ignore */ }
-        }
-      }
-
-      if (!RESEND_API_KEY) {
-        return new Response(JSON.stringify({ error: 'RESEND_API_KEY not configured' }), {
-          status: 500, headers: { ...CORS, 'Content-Type': 'application/json' },
-        })
-      }
-
-      const dynPayload: Record<string, unknown> = {
-        from: FROM_EMAIL, reply_to: REPLY_TO, to: customer_email,
-        subject: dynSubject, html: dynHtml,
-      }
-      if (dynAtts.length > 0) dynPayload.attachments = dynAtts
-      const dynResult = await sendWithRetry(dynPayload)
-
-      // Admin kopie vždy CZ (rerendrujeme z body_translations.cs nebo body_html)
-      if (dynResult.success && custLang2 !== 'cs') {
-        try {
-          const csBodyRaw = bodyT['cs'] || tpl.body_html || ''
-          const csSubjRaw = subjT['cs'] || tpl.subject || ''
-          let csBody = renderTemplate(csBodyRaw, dynVars)
-          if (template_slug === 'booking_completed' || template_slug === 'shop_order_shipped') {
-            csBody = csBody + googleReviewBlock('cs', google_review_url || '')
-          }
-          const csHtml = wrapInBrandedLayout(csBody, 'cs')
-          const csSubj = renderTemplate(csSubjRaw, dynVars)
-          await sendWithRetry({
-            from: FROM_EMAIL, to: REPLY_TO,
-            subject: `[Kopie — zákazník ${custLang2.toUpperCase()}] ${csSubj}`,
-            html: csHtml,
-          })
-        } catch { /* ignore */ }
-      } else if (dynResult.success) {
-        try {
-          await sendWithRetry({
-            from: FROM_EMAIL, to: REPLY_TO,
-            subject: `[Kopie] ${dynSubject}`, html: dynHtml,
-          })
-        } catch { /* ignore */ }
-      }
-
-      // Log
-      try {
-        await supabase.from('message_log').insert({
-          channel: 'email', direction: 'outbound',
-          recipient_email: customer_email,
-          booking_id: booking_id || null,
-          template_slug: tpl.slug,
-          content_preview: dynSubject.slice(0, 160),
-          body: dynHtml,
-          external_id: dynResult.provider_id || null,
-          status: dynResult.success ? 'sent' : 'failed',
-          error_message: dynResult.error || null,
-        })
-      } catch { /* ignore */ }
-      try {
-        await supabase.from('sent_emails').insert({
-          template_slug: tpl.slug,
-          recipient_email: customer_email,
-          subject: dynSubject,
-          body_html: dynHtml,
-          status: dynResult.success ? 'sent' : 'failed',
-          error_message: dynResult.error || null,
-          provider_id: dynResult.provider_id || null,
-        })
-      } catch { /* ignore */ }
-
-      return new Response(JSON.stringify({
-        success: dynResult.success,
-        provider_id: dynResult.provider_id,
-        template_slug: tpl.slug,
-        event_slug: event_slug || null,
-        dispatcher: 'dynamic',
-      }), {
-        status: dynResult.success ? 200 : 502,
-        headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
-    }
-    // ── konec dynamic dispatcher cesty — dál pokračuje legacy `type=` cesta ──
 
     const vars: Record<string, string> = {
       customer_name: customer_name || '',
@@ -1209,58 +1080,71 @@ ${vars.tracking_number ? `<table style="width:100%;border-collapse:collapse;marg
       })
     }
 
-    // Auto-generate attachments per type — kombinujeme 2 zdroje:
-    //   1) Hardcoded type-specific (vždy: booking_abandoned → ZF, booking_completed → KF,
-    //      voucher_purchased → DP+HTML voucher, atd.)
-    //   2) Velín admin attachments[] (z email_templates.attachments JSONB) — to co si admin vybral
-    //      v UI šablony. Mapujeme přes attachmentTypeMap a voláme autoGenerateAttachments
-    //      se synthetic typem (rental_contract, vop, credit_note, ...).
-    let finalAttachments = attachments && Array.isArray(attachments) ? [...attachments] : []
-    const wantsAutoAtt =
-      (booking_id && (type === 'booking_abandoned' || type === 'booking_completed' || type === 'booking_modified')) ||
-      (order_id && (type === 'shop_order_confirmed' || type === 'shop_order_shipped' || type === 'voucher_purchased'))
-    if (wantsAutoAtt) {
-      try {
-        const autoAtts = await autoGenerateAttachments(type, booking_id || '', supabase, {
-          priceDifference: Number(price_difference || 0),
-          orderId: order_id || undefined,
-        })
-        finalAttachments = [...finalAttachments, ...autoAtts]
-      } catch { /* ignore */ }
-    }
+    // Pravidlo: pokud caller předal `attachments[]` v body — caller je jediným zdrojem pravdy.
+    // Webhook-receiver pro `booking_reserved` si přílohy stahuje sám z `generated_documents`
+    // storage (konkrétní podepsané dokumenty per booking) a předává je v body. Pokud bychom
+    // navíc spustili autoGenerate / dbAttachmentsList, vznikla by duplicita s odlišnými filename
+    // (dedup podle filename by neuhlídal). Proto v takovém případě nic dalšího negenerujeme.
+    const callerProvidedAttachments = Array.isArray(attachments) && attachments.length > 0
+    let finalAttachments = callerProvidedAttachments ? [...attachments] : []
 
-    // Velín admin-configured přílohy z DB (dbAttachmentsList) — projdi přes attachmentTypeMap
-    // a zavolej autoGenerateAttachments se synthetic typem. Dedup podle filename, aby
-    // se příloha negenerovala 2× (např. KF přes type=booking_completed + Velín "KF").
-    if (dbAttachmentsList.length > 0 && (booking_id || order_id)) {
-      const isShopCtx = !!order_id
-      const attachmentTypeMap: Record<string, string> = {
-        ZF:       isShopCtx ? 'shop_order_confirmed' : 'booking_abandoned',
-        DP:       isShopCtx ? 'shop_order_confirmed' : 'booking_completed',
-        KF:       isShopCtx ? 'shop_order_shipped'   : 'booking_completed',
-        eshop_DP: 'shop_order_confirmed',
-        eshop_KF: 'shop_order_shipped',
-        Voucher:  'voucher_purchased',
-        Smlouva:  'rental_contract',
-        VOP:      'vop',
-        Dobropis: 'credit_note',
-      }
-      const seenFilenames = new Set(finalAttachments.map((a) => a.filename))
-      for (const att of dbAttachmentsList) {
-        const synthType = attachmentTypeMap[att]
-        if (!synthType) continue
+    if (!callerProvidedAttachments) {
+      // 1) Hardcoded type-specific autoGenerate (vždy spustit pro ty typy, které mají known handler)
+      const wantsAutoAtt =
+        (booking_id && (
+          type === 'booking_reserved' ||
+          type === 'booking_abandoned' ||
+          type === 'booking_completed' ||
+          type === 'booking_modified' ||
+          type === 'booking_cancelled'
+        )) ||
+        (order_id && (type === 'shop_order_confirmed' || type === 'shop_order_shipped' || type === 'voucher_purchased'))
+      if (wantsAutoAtt) {
         try {
-          const synth = await autoGenerateAttachments(synthType, booking_id || '', supabase, {
+          const autoAtts = await autoGenerateAttachments(type, booking_id || '', supabase, {
             priceDifference: Number(price_difference || 0),
             orderId: order_id || undefined,
           })
-          for (const a of synth) {
-            if (!seenFilenames.has(a.filename)) {
-              finalAttachments.push(a)
-              seenFilenames.add(a.filename)
-            }
-          }
+          finalAttachments = [...finalAttachments, ...autoAtts]
         } catch { /* ignore */ }
+      }
+
+      // 2) Velín admin-configured přílohy z DB (dbAttachmentsList) — etalon ve Velíně.
+      //    Pro booking kontext (ne shop) máme dedikované synth typy `booking_advance` (ZF)
+      //    a `booking_payment_receipt` (DP) — fetchnou existující fakturu / vygenerují novou.
+      //    Dříve to mapovalo na 'booking_abandoned' (ZF) a 'booking_completed' (DP), což pro
+      //    booking_reserved nefungovalo (booking_completed synth hledá `type='final'`,
+      //    který fresh rezervace nemá → DP tiše chyběl).
+      if (dbAttachmentsList.length > 0 && (booking_id || order_id)) {
+        const isShopCtx = !!order_id
+        const attachmentTypeMap: Record<string, string> = {
+          ZF:       isShopCtx ? 'shop_order_confirmed' : 'booking_advance',
+          DP:       isShopCtx ? 'shop_order_confirmed' : 'booking_payment_receipt',
+          KF:       isShopCtx ? 'shop_order_shipped'   : 'booking_completed',
+          eshop_DP: 'shop_order_confirmed',
+          eshop_KF: 'shop_order_shipped',
+          Voucher:  'voucher_purchased',
+          Smlouva:  'rental_contract',
+          VOP:      'vop',
+          Dobropis: 'credit_note',
+        }
+        const seenFilenames = new Set(finalAttachments.map((a) => a.filename))
+        for (const att of dbAttachmentsList) {
+          const synthType = attachmentTypeMap[att]
+          if (!synthType) continue
+          try {
+            const synth = await autoGenerateAttachments(synthType, booking_id || '', supabase, {
+              priceDifference: Number(price_difference || 0),
+              orderId: order_id || undefined,
+            })
+            for (const a of synth) {
+              if (!seenFilenames.has(a.filename)) {
+                finalAttachments.push(a)
+                seenFilenames.add(a.filename)
+              }
+            }
+          } catch { /* ignore */ }
+        }
       }
     }
 
